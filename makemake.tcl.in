@@ -12,7 +12,7 @@
 # (Prehaps comment out the BLT part if you are not using BLT.)
 # This script requires some customization down toward the bottom.
 #
-# $Revision: 1.21 $
+# $Revision: 1.22 $
 #
 
 # Some useful variables.
@@ -521,7 +521,7 @@ puts ""
 # set BINDIR ../install
 puts "install:	all"
 puts "	if test ! -d $BINDIR; then mkdir $BINDIR; fi"
-puts "	for i in $exelist; do cp \$\$i $BINDIR; strip $BINDIR/\$\$i; done"
+puts "	for i in $exelist; do test -f \$\$i && cp \$\$i $BINDIR && strip $BINDIR/\$\$i; done"
 if {"@ENABLE_SHLIB@"=="1"} {
 puts "	if test ! -d $PKGDIR; then mkdir -p $PKGDIR; fi"
 puts "	for i in $shliblist; do cp \$\$i $PKGDIR; done"
