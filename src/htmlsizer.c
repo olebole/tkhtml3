@@ -1,6 +1,6 @@
 /*
 ** Routines used to compute the style and size of individual elements.
-** $Revision: 1.15 $
+** $Revision: 1.16 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -1016,6 +1016,14 @@ void HtmlSizer(HtmlWidget *htmlPtr){
           p->image.ascent = h/2;
           p->image.descent = h - p->image.ascent;
           TestPoint(0);
+        }
+        if( (z = HtmlMarkupArg(p, "width", 0))!=0 ){
+          int w = atoi(z);
+          if( w>0 ) p->image.w = w;
+        }
+        if( (z = HtmlMarkupArg(p, "height", 0))!=0 ){
+          int h = atoi(z);
+          if( h>0 ) p->image.h = h;
         }
         break;
       case Html_HR:

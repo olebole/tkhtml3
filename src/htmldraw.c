@@ -1,6 +1,6 @@
 /*
 ** Routines used to render HTML onto the screen for the Tk HTML widget.
-** $Revision: 1.6 $
+** $Revision: 1.7 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -455,11 +455,14 @@ void HtmlBlockDraw(
         }
         break;
       case Html_HR: {
-        int relief;
-        switch( htmlPtr->tableRelief ){
-          case TK_RELIEF_RAISED:  relief = TK_RELIEF_SUNKEN; break;
-          case TK_RELIEF_SUNKEN:  relief = TK_RELIEF_RAISED; break;
-          default:                relief = TK_RELIEF_FLAT;   break;
+        int relief = htmlPtr->ruleRelief;
+        switch( relief ){
+          case TK_RELIEF_RAISED: 
+          case TK_RELIEF_SUNKEN:
+            break;
+          default:
+            relief = TK_RELIEF_FLAT;
+            break;
         }
         HtmlDrawRect(htmlPtr, drawable, src,
             src->hr.x - drawableLeft,
@@ -471,11 +474,14 @@ void HtmlBlockDraw(
       }
       case Html_TABLE:
         if( src->table.borderWidth ){
-          int relief;
-          switch( htmlPtr->tableRelief ){
-            case TK_RELIEF_RAISED:  relief = TK_RELIEF_RAISED; break;
-            case TK_RELIEF_SUNKEN:  relief = TK_RELIEF_SUNKEN; break;
-            default:                relief = TK_RELIEF_FLAT;   break;
+          int relief = htmlPtr->tableRelief;
+          switch( relief ){
+            case TK_RELIEF_RAISED: 
+            case TK_RELIEF_SUNKEN:
+              break;
+            default:
+              relief = TK_RELIEF_FLAT;
+              break;
           }
           HtmlDrawRect(htmlPtr, drawable, src,
                              src->table.x - drawableLeft,

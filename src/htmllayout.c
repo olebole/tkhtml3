@@ -1,7 +1,7 @@
 /*
 ** This file contains the code used to position elements of the
 ** HTML file on the screen.
-** $Revision: 1.9 $
+** $Revision: 1.10 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -945,7 +945,7 @@ static HtmlElement *DoBreakMarkup(
         p->hr.h = 0;
       }
       if( p->hr.h<1 ){
-        int relief = pLC->htmlPtr->tableRelief;
+        int relief = pLC->htmlPtr->ruleRelief;
         if( p->hr.is3D 
         && (relief==TK_RELIEF_SUNKEN || relief==TK_RELIEF_RAISED) ){
           p->hr.h = 3;

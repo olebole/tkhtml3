@@ -1,8 +1,8 @@
 <html>
 <!-- 
   Specifications for the Tk HTML Widget 
-  $Revision: 1.4 $
-  Copyright (C) 1997, 1998 D. Richard Hipp
+  $Revision: 1.5 $
+  Copyright (C) 1997, 1998, 1999 D. Richard Hipp
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -266,10 +266,26 @@ The relief used to draw the 3-D border.
   of the whole series or URIs.</p>
 </td></tr>
 
+<tr><td valign=top><tt>-rulerelief</tt></td>
+<td>
+  <p>Determines the appearance of the Horizontal Rule (&lt;HR&gt) markup.
+  The default is "sunken".  This can also be "raised" or "flat".  If
+  "flat", then the &lt;HR&gt; is drawn using a solid line in the current
+  foreground color.  "groove" and "ridge" are the same as "flat".</p>
+</td></tr>
+
 <tr><td valign=top><tt>-selectioncolor</tt><td>
 The background color used when drawing the selection.  The
 foreground color for the selection is the same as the regular
 foreground color.
+
+<tr><td valign=top><tt>-tablerelief</tt></td>
+<td>
+  <p>Determines the appearance of the borders around tables.
+  The default is "raised".  This can also be "sunken" or "flat".  If
+  "flat", then the borders is drawn using solid lines in the current
+  foreground color.  "groove" and "ridge" are the same as "flat".</p>
+</td></tr>
 
 <tr><td valign=top><tt>-takefocus</tt><td>
 
@@ -425,9 +441,8 @@ The standard Tk configuration command.
 <dt><i>WIDGET</i>&nbsp <tt>href</tt>&nbsp <i>X&nbsp Y</i><p>
 <dd>If the coordinates <i>X Y</i> define a point above a hyperlink,
 then this command will return the target URL for that hyperlink.
-If the URL specified in the HTML is relative, it will be converted
-to an an absolute URL before being returned.  If the point specified
-is not above a hyperlink, an empty string is returned.
+The URL will be resolved using the -resolvercommand before it
+is returned.
 <p>
 
 <dt><i>WIDGET</i>&nbsp <tt>index</tt>&nbsp <i>INDEX&nbsp ?COUNT&nbsp UNITS?</i></p>

@@ -1,6 +1,6 @@
 /*
 ** The main routine for the HTML widget for Tcl/Tk
-** $Revision: 1.15 $
+** $Revision: 1.16 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -113,6 +113,8 @@ Tk_ConfigSpec configSpecs[] = {
 	DEF_HTML_RELIEF, Tk_Offset(HtmlWidget, relief), 0},
     {TK_CONFIG_STRING, "-resolvercommand", "resolverCommand", "HtmlCallback",
         DEF_HTML_CALLBACK, Tk_Offset(HtmlWidget, zResolverCommand), 0},
+    {TK_CONFIG_RELIEF, "-rulerelief", "ruleRelief","RuleRelief",
+        "sunken", Tk_Offset(HtmlWidget, ruleRelief), 0},
     {TK_CONFIG_COLOR, "-selectioncolor", "background", "Background",
 	DEF_HTML_SELECTION_COLOR, Tk_Offset(HtmlWidget, selectionColor), 0},
     {TK_CONFIG_RELIEF, "-tablerelief", "tableRelief","TableRelief",
@@ -1700,74 +1702,133 @@ static int HtmlCommand(
   int argc,			/* Number of arguments. */
   char **argv			/* Argument strings. */
 ){
-  HtmlWidget *htmlPtr;
-  Tk_Window new;
-  Tk_Window clipwin;
-  char *zClipwin;
-  Tk_Window tkwin = (Tk_Window)clientData;
-  static int varId = 1;        /* Used to construct unique names */
+  int n, c;
+  char *z;
 
   if (argc < 2) {
     Tcl_AppendResult(interp, "wrong # args: should be \"",
          argv[0], " pathName ?options?\"", (char *) NULL);
-    TestPoint(0);
     return TCL_ERROR;
   }
-  new = Tk_CreateWindowFromPath(interp, tkwin, argv[1], (char *) NULL);
-  if (new == NULL) {
-     TestPoint(0);
-     return TCL_ERROR;
-  }
-  zClipwin = ckalloc( strlen(argv[1]) + 3 );
-  if( zClipwin==0 ){
-    Tk_DestroyWindow(new);
-    TestPoint(0);
-    return TCL_ERROR;
-  }
-  sprintf(zClipwin,"%s.x",argv[1]);
-  clipwin = Tk_CreateWindowFromPath(interp, new, zClipwin, 0);
-  if( clipwin==0 ){
-    Tk_DestroyWindow(new);
-    ckfree(zClipwin);
-    TestPoint(0);
-    return TCL_ERROR;
-  }
+  z = argv[1];
+  n = strlen(z);
+  c = z[0];
 
-  htmlPtr = (HtmlWidget*) ckalloc(sizeof(HtmlWidget));
-  memset(htmlPtr, 0, sizeof(HtmlWidget));
-  htmlPtr->tkwin = new;
-  htmlPtr->clipwin = clipwin;
-  htmlPtr->zClipwin = zClipwin;
-  htmlPtr->display = Tk_Display(new);
-  htmlPtr->interp = interp;
-  htmlPtr->widgetCmd = Tcl_CreateCommand(interp, Tk_PathName(new),
+  /* If the first argument begins with ".", then it must be the
+  ** name of a new window the user wants to create.
+  */
+  if( argv[1][0]=='.' ){
+    HtmlWidget *htmlPtr;
+    Tk_Window new;
+    Tk_Window clipwin;
+    char *zClipwin;
+    Tk_Window tkwin = (Tk_Window)clientData;
+    static int varId = 1;        /* Used to construct unique names */
+
+    new = Tk_CreateWindowFromPath(interp, tkwin, argv[1], (char *) NULL);
+    if (new == NULL) {
+       return TCL_ERROR;
+    }
+    zClipwin = ckalloc( strlen(argv[1]) + 3 );
+    if( zClipwin==0 ){
+      Tk_DestroyWindow(new);
+      return TCL_ERROR;
+    }
+    sprintf(zClipwin,"%s.x",argv[1]);
+    clipwin = Tk_CreateWindowFromPath(interp, new, zClipwin, 0);
+    if( clipwin==0 ){
+      Tk_DestroyWindow(new);
+      ckfree(zClipwin);
+      return TCL_ERROR;
+    }
+
+    htmlPtr = (HtmlWidget*) ckalloc(sizeof(HtmlWidget));
+    memset(htmlPtr, 0, sizeof(HtmlWidget));
+    htmlPtr->tkwin = new;
+    htmlPtr->clipwin = clipwin;
+    htmlPtr->zClipwin = zClipwin;
+    htmlPtr->display = Tk_Display(new);
+    htmlPtr->interp = interp;
+    htmlPtr->widgetCmd = Tcl_CreateCommand(interp, Tk_PathName(new),
       HtmlWidgetCommand, (ClientData) htmlPtr, HtmlCmdDeletedProc);
-  htmlPtr->relief = TK_RELIEF_FLAT;
-  htmlPtr->dirtyLeft = LARGE_NUMBER;
-  htmlPtr->dirtyTop = LARGE_NUMBER;
-  htmlPtr->flags = RESIZE_CLIPWIN;
-  htmlPtr->varId = varId++;
-  
-  Tk_SetClass(new,"Html");
-  Tk_SetClass(clipwin,"HtmlClip");
-  Tk_CreateEventHandler(htmlPtr->tkwin,
-       ExposureMask|StructureNotifyMask|FocusChangeMask,
-       HtmlEventProc, (ClientData) htmlPtr);
-  Tk_CreateEventHandler(htmlPtr->clipwin,
-       ExposureMask|StructureNotifyMask,
-       HtmlEventProc, (ClientData) htmlPtr);
-  if (ConfigureHtmlWidget(interp, htmlPtr, argc-2, argv+2, 0) != TCL_OK) {
-     TestPoint(0);
-     goto error;
-  }
-  interp->result = Tk_PathName(htmlPtr->tkwin);
-  TestPoint(0);
-  return TCL_OK;
+    htmlPtr->relief = TK_RELIEF_FLAT;
+    htmlPtr->dirtyLeft = LARGE_NUMBER;
+    htmlPtr->dirtyTop = LARGE_NUMBER;
+    htmlPtr->flags = RESIZE_CLIPWIN;
+    htmlPtr->varId = varId++;
+    
+    Tk_SetClass(new,"Html");
+    Tk_SetClass(clipwin,"HtmlClip");
+    Tk_CreateEventHandler(htmlPtr->tkwin,
+         ExposureMask|StructureNotifyMask|FocusChangeMask,
+         HtmlEventProc, (ClientData) htmlPtr);
+    Tk_CreateEventHandler(htmlPtr->clipwin,
+         ExposureMask|StructureNotifyMask,
+         HtmlEventProc, (ClientData) htmlPtr);
+    if (ConfigureHtmlWidget(interp, htmlPtr, argc-2, argv+2, 0) != TCL_OK) {
+       goto error;
+    }
+    interp->result = Tk_PathName(htmlPtr->tkwin);
+    return TCL_OK;
 
-  error:
-  Tk_DestroyWindow(htmlPtr->tkwin);
-  TestPoint(0);
-  return TCL_ERROR;
+    error:
+    Tk_DestroyWindow(htmlPtr->tkwin);
+    return TCL_ERROR;
+  }
+
+  /*    html reformat  $from  $to  $text
+  **
+  ** Convert the format of text.
+  */
+  if( c=='r' && strncmp(z,"reformat",n)==0 ){
+    if( argc!=5 ){
+      Tcl_AppendResult(interp, "wrong # args: should be \"",
+           argv[0], " reformat FROM TO TEXT", (char *) NULL);
+      return TCL_ERROR;
+    }
+    Tcl_AppendResult(interp, "not yet implemented");
+    return TCL_ERROR;
+  }else
+
+
+  /*    html urljoin  $scheme $authority $path $query $fragment
+  **
+  ** Merge together the parts of a URL into a single value URL.
+  */
+  if( c=='u' && strncmp(z,"urljoin",n)==0 ){
+    if( argc!=7 ){
+      Tcl_AppendResult(interp, "wrong # args: should be \"",
+           argv[0], " url join SCHEME AUTHORITY PATH QUERY FRAGMENT\"", 0);
+      return TCL_ERROR;
+    }
+    Tcl_AppendResult(interp, "not yet implemented");
+    return TCL_ERROR;
+  }else
+
+
+  /*    html urlsplit $url
+  **
+  ** Split a URL into a list of its parts.
+  */
+  if( c=='u' && strncmp(z,"urlsplit",n)==0 ){
+    if( argc!=3 ){
+      Tcl_AppendResult(interp, "wrong # args: should be \"",
+           argv[0], " url split URL\"", 0);
+      return TCL_ERROR;
+    }
+    Tcl_AppendResult(interp, "not yet implemented");
+    return TCL_ERROR;
+  }else
+
+  /* No match.  Report an error.
+  */
+  {
+    Tcl_AppendResult(interp, "unknown command \"", z, "\": should be "
+      "a window name or one of: "
+      "reformat urljoin urlsplit", 0);
+    return TCL_ERROR;
+  }
+  return TCL_OK;   
 }
 
 /*
