@@ -1,6 +1,6 @@
 /*
 ** Routines used to compute the style and size of individual elements.
-** $Revision: 1.12 $
+** $Revision: 1.13 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -975,9 +975,6 @@ void HtmlSizer(HtmlWidget *htmlPtr){
       case Html_Space:
         if( spaceWidth==0 ){
           spaceWidth = Tk_TextWidth(font, " ", 1);
-          TestPoint(0);
-        }else{
-          TestPoint(0);
         }
         p->space.w = spaceWidth;
         p->space.descent = fontMetrics.descent;

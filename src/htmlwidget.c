@@ -1,6 +1,6 @@
 /*
 ** The main routine for the HTML widget for Tcl/Tk
-** $Revision: 1.13 $
+** $Revision: 1.14 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -350,7 +350,8 @@ static void HtmlRedrawCallback(ClientData clientData){
   **      being deleted out from under us.
   **
   */
-  if( (htmlPtr->flags & RESIZE_ELEMENTS)!=0 ){
+  if( (htmlPtr->flags & RESIZE_ELEMENTS)!=0 
+  && (htmlPtr->flags & STYLER_RUNNING)==0 ){
     HtmlImage *pImage;
     for(pImage=htmlPtr->imageList; pImage; pImage=pImage->pNext){
       pImage->pList = 0;
@@ -373,7 +374,8 @@ static void HtmlRedrawCallback(ClientData clientData){
   ** a complete RELAYOUT.  Someday, we need to fix EXTEND_LAYOUT so
   ** that it works right...
   */
-  if( (htmlPtr->flags & (RELAYOUT|EXTEND_LAYOUT))!=0 ){
+  if( (htmlPtr->flags & (RELAYOUT|EXTEND_LAYOUT))!=0 
+  && (htmlPtr->flags & STYLER_RUNNING)==0 ){
     htmlPtr->nextPlaced = 0;
     htmlPtr->nInput = 0;
 #if 0
@@ -460,7 +462,7 @@ static void HtmlRedrawCallback(ClientData clientData){
     if( htmlPtr->flags & REDRAW_PENDING ){ TestPoint(0); return; }
     clipwin = htmlPtr->clipwin;
     if( clipwin==0 ){ TestPoint(0); return; }
-HtmlMapControls(htmlPtr);
+    HtmlMapControls(htmlPtr);
   }
 
   /* Redraw the focus highlight, if requested */
@@ -500,6 +502,17 @@ HtmlMapControls(htmlPtr);
     TestPoint(0);
   }else{
     TestPoint(0);
+  }
+
+  /*
+  ** If the styler is in a callback, unmap the clipping window and
+  ** abort further processing.
+  */
+  if( htmlPtr->flags & STYLER_RUNNING ){
+    if( Tk_IsMapped(clipwin) ){
+      Tk_UnmapWindow(clipwin);
+    }
+    goto earlyOut;
   }
 
   /*

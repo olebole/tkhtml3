@@ -1,6 +1,6 @@
 /*
 ** Structures and typedefs used by the HTML widget
-** $Revision: 1.9 $
+** $Revision: 1.10 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -908,6 +908,14 @@ struct HtmlWidget {
 #define STYLER_RUNNING       0x000800
 #define INSERT_FLASHING      0x001000
 #define REDRAW_IMAGES        0x002000
+
+/*
+** Macros to set, clear or test bits of the "flags" field.
+*/
+#define HtmlHasFlag(A,F)      (((A)->flags&(F))==(F))
+#define HtmlHasAnyFlag(A,F)   (((A)->flags&(F))!=0)
+#define HtmlSetFlag(A,F)      ((A)->flags|=(F))
+#define HtmlClearFlag(A,F)    ((A)->flags&=~(F))
 
 /*
 ** No coordinate is every as big as this number

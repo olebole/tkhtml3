@@ -1,6 +1,6 @@
 /*
 ** Routines for doing layout of HTML tables
-** $Revision: 1.5 $
+** $Revision: 1.6 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -452,6 +452,10 @@ static HtmlElement *MinMax(
         TestPoint(0);
         break;
     }
+/* fprintf(stderr,"After %s: min=%d max=%d\n", HtmlTokenName(p), min, max); */
+if( max>1000 ){
+  /* fprintf(stderr,"Big!\n"); */
+}
     if( !go ){ TestPoint(0); break; }
     TestPoint(0);
   }
