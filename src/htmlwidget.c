@@ -1,6 +1,6 @@
 /*
 ** The main routine for the HTML widget for Tcl/Tk
-** $Revision: 1.34 $
+** $Id: htmlwidget.c,v 1.35 1999/12/21 12:45:38 drh Exp $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -1930,7 +1930,7 @@ static int HtmlCommand(
            argv[0], " reformat FROM TO TEXT", (char *) NULL);
       return TCL_ERROR;
     }
-    Tcl_AppendResult(interp, "not yet implemented");
+    Tcl_AppendResult(interp, "not yet implemented", 0);
     return TCL_ERROR;
   }else
 
@@ -1945,7 +1945,7 @@ static int HtmlCommand(
            argv[0], " url join SCHEME AUTHORITY PATH QUERY FRAGMENT\"", 0);
       return TCL_ERROR;
     }
-    Tcl_AppendResult(interp, "not yet implemented");
+    Tcl_AppendResult(interp, "not yet implemented", 0);
     return TCL_ERROR;
   }else
 
@@ -1960,7 +1960,7 @@ static int HtmlCommand(
            argv[0], " url split URL\"", 0);
       return TCL_ERROR;
     }
-    Tcl_AppendResult(interp, "not yet implemented");
+    Tcl_AppendResult(interp, "not yet implemented", 0);
     return TCL_ERROR;
   }else
 

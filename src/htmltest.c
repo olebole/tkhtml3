@@ -1,7 +1,7 @@
 /*
 ** This file contains the TestPoint routines used for profiling
 ** and coverage analysis of the code.
-** $Revision: 1.6 $
+** $Id: htmltest.c,v 1.7 1999/12/21 12:45:38 drh Exp $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **

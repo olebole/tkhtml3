@@ -1,6 +1,6 @@
 /*
 ** Routines to implement the HTML widget commands
-** $Revision: 1.12 $
+** $Id: htmlcmd.c,v 1.13 1999/12/21 12:45:36 drh Exp $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **

@@ -1,6 +1,6 @@
 /*
 ** Routines used to render HTML onto the screen for the Tk HTML widget.
-** $Revision: 1.18 $
+** $Id: htmldraw.c,v 1.19 1999/12/21 12:45:36 drh Exp $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **

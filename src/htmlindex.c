@@ -1,6 +1,6 @@
 /*
 ** Routines that deal with indexes
-** $Revision: 1.4 $
+** $Id: htmlindex.c,v 1.5 1999/12/21 12:45:37 drh Exp $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **

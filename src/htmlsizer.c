@@ -1,6 +1,6 @@
 /*
 ** Routines used to compute the style and size of individual elements.
-** $Revision: 1.27 $
+** $Id: htmlsizer.c,v 1.28 1999/12/21 12:45:37 drh Exp $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **

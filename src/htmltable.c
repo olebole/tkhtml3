@@ -1,6 +1,6 @@
 /*
 ** Routines for doing layout of HTML tables
-** $Revision: 1.28 $
+** $Id: htmltable.c,v 1.29 1999/12/21 12:45:37 drh Exp $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **

@@ -1,7 +1,7 @@
 /*
 ** Make a "wish" that includes the html widget.
 **
-** $Revision: 1.2 $
+** $Id: htmlwish.c,v 1.3 1999/12/21 12:45:38 drh Exp $
 */
 #include "appinit.h"
 

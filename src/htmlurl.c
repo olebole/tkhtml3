@@ -1,6 +1,6 @@
 /*
 ** Routines for processing URLs.
-** $Revision: 1.14 $
+** $Id: htmlurl.c,v 1.15 1999/12/21 12:45:38 drh Exp $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **

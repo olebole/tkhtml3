@@ -1,6 +1,6 @@
 /*
 ** A tokenizer that converts raw HTML into a linked list of HTML elements.
-** $Revision: 1.16 $
+** $Id: htmlparse.c,v 1.17 1999/12/21 12:45:37 drh Exp $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
