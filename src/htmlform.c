@@ -1,6 +1,6 @@
 /*
 ** Routines used for processing HTML makeup for forms.
-** $Revision: 1.11 $
+** $Revision: 1.12 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -514,9 +514,27 @@ int HtmlControlSize(HtmlWidget *htmlPtr, HtmlElement *pElem){
       break;
     }
     case INPUT_TYPE_Applet: {
-      pElem->base.flags &= ~HTML_Visible;
-      pElem->base.style.flags |= STY_Invisible;
-      pElem->input.tkwin = 0;
+      int result;
+
+      if( htmlPtr->zAppletCommand==0 || htmlPtr->zAppletCommand[0]==0 ){
+        EmptyInput(pElem);
+        break;
+      }
+      Tcl_DStringInit(&cmd);
+      Tcl_DStringAppend(&cmd, htmlPtr->zAppletCommand, -1);
+      Tcl_DStringAppend(&cmd, " ", 1);
+      zWin = MakeWindowName(htmlPtr, pElem);
+      Tcl_DStringAppend(&cmd, zWin, -1);
+      Tcl_DStringStartSublist(&cmd);
+      HtmlAppendArglist(&cmd, pElem);
+      Tcl_DStringEndSublist(&cmd);
+      HtmlLock(htmlPtr);
+      result = Tcl_GlobalEval(htmlPtr->interp, Tcl_DStringValue(&cmd));
+      Tcl_DStringFree(&cmd);
+      if( !HtmlUnlock(htmlPtr) ){
+        SizeAndLink(htmlPtr, zWin, pElem);
+      }
+      ckfree(zWin);
       break;
     }
     default: {

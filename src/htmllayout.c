@@ -1,7 +1,7 @@
 /*
 ** This file contains the code used to position elements of the
 ** HTML file on the screen.
-** $Revision: 1.4 $
+** $Revision: 1.5 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -134,6 +134,9 @@ static HtmlElement *GetLine(
     isEmpty = 0;
     *actualWidth = 1;
     p = p->pNext;
+    while( p && (p->base.type==Html_Space || p->base.type==Html_P) ){
+      p = p->pNext;
+    }
     TestPoint(0);
   }else{
     TestPoint(0);
