@@ -12,7 +12,7 @@
 # (Prehaps comment out the BLT part if you are not using BLT.)
 # This script requires some customization down toward the bottom.
 #
-# $Revision: 1.17 $
+# $Revision: 1.18 $
 #
 
 # Some useful variables.
@@ -26,6 +26,7 @@ set PFX           [list @program_prefix@]
 set prefix        [list @prefix@]
 set exec_prefix   [list @exec_prefix@]
 set BINDIR        [list @bindir@]
+set LIBDIR	  [file join @libdir@ Tkhtml]
 
 # Remove surplus ".." and "." elements from a pathname.
 #
@@ -356,6 +357,7 @@ lappend all ${PFX}hv${TEXE}
 lappend all ${PFX}ss${TEXE}
 if {"@ENABLE_SHLIB@"=="1"} {
   lappend all tkhtml.so
+  lappend all pkgIndex.tcl
 }
 puts "all:	headers $all"
 puts ""
@@ -371,6 +373,13 @@ puts "htmltokens.c:	[Src src/tokenlist.txt] [Src tools/maketokens.tcl]"
 puts "\t$BTCLSH [Src tools/maketokens.tcl] [Src src/tokenlist.txt] >htmltokens.c"
 puts ""
 lappend cleanable htmltokens.c
+
+# Generate the pkgIndex.tcl file
+#
+puts "pkgIndex.tcl:	tkhtml.so"
+puts "\techo 'pkg_mkIndex . tkhtml.so' | $BTCLSH"
+puts ""
+lappend cleanable pkgIndex.tcl
 
 # The main library
 #
@@ -406,6 +415,14 @@ puts "headers:	makeheaders$BEXE htmltokens.c"
 puts "	./makeheaders$BEXE $mharg [Src src/html.h]"
 puts ""
 puts "[lindex $srcc 0].h:	headers"
+puts ""
+
+# The install routine for the shared library
+#
+puts "install-lib:	pkgIndex.tcl"
+puts "	if test ! -d $LIBDIR; then mkdir $LIBDIR; fi"
+puts "	cp tkhtml.so $LIBDIR"
+puts "	cp pkgIndex.tcl $LIBDIR"
 puts ""
 
 # Create two MTA files for appinit.c and appinitdev.c.  The first
