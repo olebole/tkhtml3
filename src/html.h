@@ -1,6 +1,6 @@
 /*
 ** Structures and typedefs used by the HTML widget
-** $Revision: 1.31 $
+** $Revision: 1.32 $
 **
 ** Copyright (C) 1997-2000 D. Richard Hipp
 **
@@ -923,6 +923,7 @@ struct HtmlWidget {
   int underlineLinks;           /* TRUE if we should underline hyperlinks */
   int HasScript;		/* TRUE if we can do scripts for this page */
   int HasFrames;		/* TRUE if we can do frames for this page */
+  int HasTktables;		/* TRUE if we can do tktables for this page */
   int AddEndTags;		/* TRUE if we add /LI etc. */
   int TableBorderMin;		/* Force tables to have min border size. */
   int varind;			/* Index suffix for unique global var name. */

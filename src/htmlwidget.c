@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlwidget.c,v 1.47 2001/10/07 19:16:27 peter Exp $";
+static char const rcsid[] = "@(#) $Id: htmlwidget.c,v 1.48 2002/01/27 01:38:10 peter Exp $";
 /*
 ** The main routine for the HTML widget for Tcl/Tk
 **
@@ -170,6 +170,8 @@ static Tk_ConfigSpec configSpecs[] = {
         0, Tk_Offset(HtmlWidget, HasScript), 0},
     {TK_CONFIG_INT, "-hasframes", "hasframes", "bool",
         0, Tk_Offset(HtmlWidget, HasFrames), 0},
+    {TK_CONFIG_INT, "-hastktables", "hastktables", "bool",
+        0, Tk_Offset(HtmlWidget, HasTktables), 0},
     {TK_CONFIG_INT, "-tclhtml", "tclhtml", "bool",
         0, Tk_Offset(HtmlWidget, TclHtml), 0},
     {TK_CONFIG_STRING, "-resolvercommand", "resolverCommand", "HtmlCallback",

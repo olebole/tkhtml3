@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlparse.c,v 1.25 2002/01/27 01:22:17 peter Exp $";
+static char const rcsid[] = "@(#) $Id: htmlparse.c,v 1.26 2002/01/27 01:38:10 peter Exp $";
 /*
 ** A tokenizer that converts raw HTML into a linked list of HTML elements.
 **
@@ -998,7 +998,7 @@ makeMarkupEntry:
       AppendElement(p,pElem);
       switch( pMap->type ){
         case Html_TABLE:
-	  if (HtmlMarkupArg(pElem,"tktable",0)) {
+	  if (p->HasTktables && HtmlMarkupArg(pElem,"tktable",0)) {
 	    pElem->table.tktable=1;
             AppToken(p,pElem,Html_INPUT,sizeof(HtmlInput),n);
 	    pElem->base.pPrev->input.type=INPUT_TYPE_Tktable;
