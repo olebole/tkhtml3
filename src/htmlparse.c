@@ -1,6 +1,6 @@
 /*
 ** A tokenizer that converts raw HTML into a linked list of HTML elements.
-** $Revision: 1.2 $
+** $Revision: 1.3 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -137,7 +137,7 @@ static struct sgEsc esc_sequences[] = {
   { "euml",      '\353',  0 },
   { "igrave",    '\354',  0 },
   { "iacute",    '\355',  0 },
-  { "acirc",     '\356',  0 },
+  { "icirc",     '\356',  0 },
   { "iuml",      '\357',  0 },
   { "eth",       '\360',  0 },
   { "ntilde",    '\361',  0 },
@@ -438,11 +438,7 @@ static int NextColumn(int iCol, char c){
 ** the number of characters actually processed.
 **
 ** This routine may invoke a callback procedure which could delete
-** the HTML widget.  Therefore, Tcl_Preserve() must be called for 
-** the p prior to invoking this routine.  After this routine 
-** returns, the calling function should check p->tkwin to see 
-** if the HTML widget has been deleted.  Do this before calling
-** Tcl_Release().
+** the HTML widget. 
 **
 ** This routine is not reentrant for the same HTML widget.  To
 ** prevent reentrancy (during a callback), the p->iCol field is
@@ -718,8 +714,10 @@ doMarkup:
         }
         Tcl_DStringEndSublist(&str);
         ckfree((char*)pElem);
+        HtmlLock(p);
         Tcl_GlobalEval(p->interp, Tcl_DStringValue(&str));
         Tcl_DStringFree(&str);
+        if( HtmlUnlock(p) ){ return 0; }
 
         /* Tricky, tricky.  The callback might have caused the p->zText
         ** pointer to change, so renew our copy of that pointer.  The
@@ -766,11 +764,7 @@ incomplete:
 **
 ** This routine (actually the Tokenize() subroutine that is called
 ** by this routine) may invoke a callback procedure which could delete
-** the HTML widget.  Therefore, Tcl_Preserve() must be called for 
-** the p prior to invoking this routine.  After this routine 
-** returns, the calling function should check p->tkwin to see 
-** if the HTML widget has been deleted.  Do this before calling
-** Tcl_Release().
+** the HTML widget. 
 */
 void HtmlTokenizerAppend(HtmlWidget *htmlPtr, const char *zText){
   int len = strlen(zText);

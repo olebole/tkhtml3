@@ -1,6 +1,6 @@
 /*
 ** Routines to implement the HTML widget commands
-** $Revision: 1.3 $
+** $Revision: 1.4 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -216,21 +216,15 @@ int HtmlParseCmd(
   char **argv            /* List of all arguments */
 ){
   HtmlElement *endPtr;
-  int died;
   endPtr = htmlPtr->pLast;
-  Tcl_Preserve(htmlPtr);
+  HtmlLock(htmlPtr);
   HtmlTokenizerAppend(htmlPtr, argv[2]);
-  if( htmlPtr->zText==0 || htmlPtr->tkwin==0 ){
-    Tcl_Release(htmlPtr);
-    TestPoint(0);
+  if( HtmlIsDead(htmlPtr) ){
     return TCL_OK;
   }
   if( endPtr ){
     if( endPtr->pNext ){
       HtmlAddStyle(htmlPtr, endPtr->pNext);
-      TestPoint(0);
-    }else{
-      TestPoint(0);
     }
   }else if( htmlPtr->pFirst ){
     htmlPtr->paraAlignment = ALIGN_None;
@@ -243,13 +237,9 @@ int HtmlParseCmd(
     HtmlAddStyle(htmlPtr, htmlPtr->pFirst);
     TestPoint(0);
   }
-  died = htmlPtr->tkwin==0;
-  Tcl_Release(htmlPtr);
-  if( !died ){
+  if( !HtmlUnlock(htmlPtr) ){
     htmlPtr->flags |= EXTEND_LAYOUT;
     HtmlScheduleRedraw(htmlPtr);
-    TestPoint(0);
-  }else{
     TestPoint(0);
   }
   return TCL_OK;
@@ -504,12 +494,15 @@ int HtmlIndexCmd(
   HtmlElement *p;
   int i;
 
+  HtmlLock(htmlPtr);
   if( HtmlGetIndex(htmlPtr, argv[2], &p, &i)!=0 ){
-    Tcl_AppendResult(interp,"malformed index: \"", argv[2], "\"", 0);
+    if( !HtmlUnlock(htmlPtr) ){
+      Tcl_AppendResult(interp,"malformed index: \"", argv[2], "\"", 0);
+    }
     TestPoint(0);
     return TCL_ERROR;
   }
-  if( p ){
+  if( !HtmlUnlock(htmlPtr) && p ){
     sprintf(interp->result, "%d.%d", HtmlTokenNumber(p), i);
     TestPoint(0);
   }else{
@@ -664,16 +657,23 @@ int HtmlSelectionSetCmd(
 ){
   HtmlIndex selBegin, selEnd;
 
+  HtmlLock(htmlPtr);
   if( HtmlGetIndex(htmlPtr, argv[3], &selBegin.p, &selBegin.i) ){
-    Tcl_AppendResult(interp,"malformed index: \"", argv[3], "\"", 0);
+    if( !HtmlUnlock(htmlPtr) ){
+      Tcl_AppendResult(interp,"malformed index: \"", argv[3], "\"", 0);
+    }
     TestPoint(0);
     return TCL_ERROR;
   }
+  if( HtmlIsDead(htmlPtr) ) return TCL_OK;
   if( HtmlGetIndex(htmlPtr, argv[4], &selEnd.p, &selEnd.i) ){
-    Tcl_AppendResult(interp,"malformed index: \"", argv[4], "\"", 0);
+    if( !HtmlUnlock(htmlPtr) ){
+      Tcl_AppendResult(interp,"malformed index: \"", argv[4], "\"", 0);
+    }
     TestPoint(0);
     return TCL_ERROR;
   }
+  if( HtmlUnlock(htmlPtr) ) return TCL_OK;
   htmlPtr->selBegin = selBegin;
   htmlPtr->selEnd = selEnd;
   HtmlUpdateSelection(htmlPtr,0);
@@ -733,11 +733,15 @@ int HtmlInsertCmd(
     htmlPtr->ins.p = 0;
     TestPoint(0);
   }else{
+    HtmlLock(htmlPtr);
     if( HtmlGetIndex(htmlPtr, argv[2], &ins.p, &ins.i) ){
-      Tcl_AppendResult(interp,"malformed index: \"", argv[2], "\"", 0);
+      if( !HtmlUnlock(htmlPtr) ){
+        Tcl_AppendResult(interp,"malformed index: \"", argv[2], "\"", 0);
+      }
       TestPoint(0);
       return TCL_ERROR;
     }
+    if( HtmlUnlock(htmlPtr) ) return TCL_OK;
     HtmlRedrawBlock(htmlPtr, htmlPtr->pInsBlock);
     htmlPtr->ins = ins;
     HtmlUpdateInsert(htmlPtr);

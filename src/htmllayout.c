@@ -1,7 +1,7 @@
 /*
 ** This file contains the code used to position elements of the
 ** HTML file on the screen.
-** $Revision: 1.2 $
+** $Revision: 1.3 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -1092,7 +1092,9 @@ void HtmlLayout(HtmlWidget *htmlPtr){
   int btm;
 
   if( htmlPtr->pFirst==0 ) return;
+  HtmlLock(htmlPtr);
   HtmlSizer(htmlPtr);
+  if( HtmlUnlock(htmlPtr) ) return;
   pLC = &htmlPtr->layoutContext;
   pLC->htmlPtr = htmlPtr;
   pLC->pageWidth = htmlPtr->realWidth - 2*(htmlPtr->inset + htmlPtr->padx);

@@ -1,6 +1,6 @@
 /*
 ** Routines that deal with indexes
-** $Revision: 1.2 $
+** $Revision: 1.3 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -132,7 +132,13 @@ static void FindIndexInBlock(
   int n;
 
   p = pBlock->base.pNext;
+  HtmlLock(htmlPtr);
   font = HtmlGetFont(htmlPtr, p->base.style.font);
+  if( HtmlUnlock(htmlPtr) ){
+    *ppToken = p;
+    *pIndex = 0;
+    return;
+  }
   if( x <= pBlock->left ){
     *ppToken = p;
     *pIndex = 0;
@@ -426,7 +432,9 @@ static int DecodeBaseIndex(
                 TestPoint(0);
               }
             }else{
+              HtmlLock(htmlPtr);
               FindIndexInBlock(htmlPtr, pBlock, x, ppToken, pIndex);
+              if( HtmlUnlock(htmlPtr) ) return 1;
               TestPoint(0);
               break;
             }
@@ -463,7 +471,9 @@ static int DecodeBaseIndex(
       }
       if( pBlock==0 ){
         if( pNearby ){
+          HtmlLock(htmlPtr);
           FindIndexInBlock(htmlPtr, pNearby, x, ppToken, pIndex);
+          if( HtmlUnlock(htmlPtr) ) return 1;
           TestPoint(0);
         }else{
           TestPoint(0);

@@ -1,6 +1,6 @@
 /*
 ** Routines used for processing <IMG> markup
-** $Revision: 1.3 $
+** $Revision: 1.4 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -116,11 +116,8 @@ static void ImageChangeProc(
 ** be returned.
 **
 ** This routine may invoke a callback procedure which could delete
-** the HTML widget.  Therefore, Tcl_Preserve() must be called for 
-** the htmlPtr prior to invoking this routine.  After this routine 
-** returns, the calling function should check htmlPtr->tkwin to see 
-** if the HTML widget has been deleted.  Do this before calling
-** Tcl_Release().
+** the HTML widget.  Use HtmlLock() if necessary to preserve the
+** widget structure.
 */
 HtmlImage *HtmlGetImage(HtmlWidget *htmlPtr, HtmlElement *p){
   char *zWidth;
@@ -141,9 +138,11 @@ HtmlImage *HtmlGetImage(HtmlWidget *htmlPtr, HtmlElement *p){
   azSeq[0] = HtmlMarkupArg(p, "src", "");
   azSeq[1] = 0;
   zSrc = "";
+  HtmlLock(htmlPtr);
   if( azSeq[0]!=0 && HtmlCallResolver(htmlPtr, azSeq)==TCL_OK ){
     zSrc = htmlPtr->interp->result;
   }
+  if( HtmlUnlock(htmlPtr) ) return 0;
   zWidth = HtmlMarkupArg(p, "width", "");
   zHeight = HtmlMarkupArg(p, "height", "");
   for(pImage=htmlPtr->imageList; pImage; pImage=pImage->pNext){
@@ -167,9 +166,10 @@ HtmlImage *HtmlGetImage(HtmlWidget *htmlPtr, HtmlElement *p){
     TestPoint(0);
   }
   Tcl_DStringEndSublist(&cmd);
+  HtmlLock(htmlPtr);
   result = Tcl_GlobalEval(htmlPtr->interp, Tcl_DStringValue(&cmd));
   Tcl_DStringFree(&cmd);
-  if( htmlPtr->tkwin==0 ){ TestPoint(0); return 0; }
+  if( HtmlUnlock(htmlPtr) ) return 0;
   zImageName = htmlPtr->interp->result;
   pImage = (HtmlImage*)ckalloc( sizeof(HtmlImage) + strlen(zSrc) + 1 );
   memset(pImage,0,sizeof(HtmlImage));

@@ -1,6 +1,6 @@
 /*
 ** Routines used to render HTML onto the screen for the Tk HTML widget.
-** $Revision: 1.3 $
+** $Revision: 1.4 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -240,6 +240,7 @@ static void DrawSelectionBackground(
     if( htmlPtr->selStartIndex >= pBlock->n ){ TestPoint(0); return; }
     p = pBlock->base.pNext;
     font = HtmlGetFont(htmlPtr, p->base.style.font);
+    if( font==0 ) return;
     if( p->base.type==Html_Text ){
       xLeft = p->text.x - x + Tk_TextWidth(font, pBlock->z, 
                                            htmlPtr->selStartIndex);
@@ -255,6 +256,7 @@ static void DrawSelectionBackground(
     if( p==0 ){
       p = pBlock->base.pNext;
       font = HtmlGetFont(htmlPtr, p->base.style.font);
+      if( font==0 ) return;
       TestPoint(0);
     }else{
       TestPoint(0);
@@ -313,14 +315,17 @@ void HtmlBlockDraw(
       return;
     }
     if( pBlock->base.flags & HTML_Selected ){
+      HtmlLock(htmlPtr);
       DrawSelectionBackground(htmlPtr, pBlock, drawable, 
                               drawableLeft, drawableTop);
+      if( HtmlUnlock(htmlPtr) ) return;
       TestPoint(0);
     }else{
       TestPoint(0);
     }
     gc = HtmlGetGC(htmlPtr, src->base.style.color, src->base.style.font);
     font = HtmlGetFont(htmlPtr, src->base.style.font);
+    if( font==0 ) return;
     Tk_DrawChars(htmlPtr->display,
                  drawable,
                  gc, font,
@@ -414,6 +419,7 @@ void HtmlBlockDraw(
           case LI_TYPE_Enum_i:
             cnt = strlen(zBuf);
             font = HtmlGetFont(htmlPtr, src->base.style.font);
+            if( font==0 ) return;
             w = Tk_TextWidth(font, zBuf, cnt);
             Tk_DrawChars(htmlPtr->display,
                  drawable,
@@ -484,6 +490,7 @@ void HtmlBlockDraw(
         }else if( src->image.zAlt ){
           gc = HtmlGetGC(htmlPtr, src->base.style.color, src->base.style.font);
           font = HtmlGetFont(htmlPtr, src->base.style.font);
+          if( font==0 ) return;
           Tk_DrawChars(htmlPtr->display,
                  drawable,
                  gc, font,

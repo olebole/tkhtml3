@@ -1,6 +1,6 @@
 /*
 ** Structures and typedefs used by the HTML widget
-** $Revision: 1.2 $
+** $Revision: 1.3 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -843,6 +843,8 @@ struct HtmlWidget {
                                  * are physical screen coordinates relative to
                                  * clipwin, not tkwin. */
   int dirtyRight, dirtyBottom;  /* Bottom right corner of region to redraw */
+  int locked;                   /* Number of locks on this structure. Don't
+                                ** delete until it reaches zero. */
   int flags;			/* Various flags;  see below for
 				 * definitions. */
 }

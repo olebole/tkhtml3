@@ -1,6 +1,6 @@
 /*
 ** Routines used for processing HTML makeup for forms.
-** $Revision: 1.4 $
+** $Revision: 1.5 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -380,249 +380,44 @@ int HtmlControlSize(HtmlWidget *htmlPtr, HtmlElement *pElem){
   pElem->input.type = InputType(pElem);
   switch( pElem->input.type ){
     case INPUT_TYPE_Checkbox:
-#if 0
-      font = HtmlGetFont(htmlPtr, pElem->base.style.font);
-      pElem->input.cnt = ++htmlPtr->nInput;
-      zVal = HtmlMarkupArg(pElem, "checked", 0)!=0 ? "1" : "0";
-      MakeVarName(htmlPtr, pElem, zVar, zVal, 1);
-      zWin = MakeWindowName(htmlPtr, pElem, zWinBuf, sizeof(zWinBuf));
-      ExecCmd(htmlPtr, Tk_CheckbuttonCmd,
-         "checkbutton", zWin, "-variable", zVar, 
-         "-font", Tk_NameOfFont(font), 
-         "-padx", "0", "-pady", "0", "-text" , "", 0);
-      SizeAndLink(htmlPtr, zWin, pElem);
-      pElem->input.padLeft = pElem->input.w/2;
-      FreeWindowName(zWin,zWinBuf);
-      TestPoint(0);
-#endif
-      break;
     case INPUT_TYPE_Hidden:
+    case INPUT_TYPE_Image:
+    case INPUT_TYPE_Radio:
+    case INPUT_TYPE_Reset:
+    case INPUT_TYPE_Submit:
+    case INPUT_TYPE_Text:
+    case INPUT_TYPE_Password:
+    case INPUT_TYPE_File: {
       pElem->base.flags &= ~HTML_Visible;
       pElem->base.style.flags |= STY_Invisible;
       pElem->input.tkwin = 0;
-      TestPoint(0);
       break;
-    case INPUT_TYPE_Image:
-      TestPoint(0);
+    }
+    case INPUT_TYPE_Select: {
+      pElem->base.flags &= ~HTML_Visible;
+      pElem->base.style.flags |= STY_Invisible;
+      pElem->input.tkwin = 0;
       break;
-    case INPUT_TYPE_Radio:
-#if 0
-      font = HtmlGetFont(htmlPtr, pElem->base.style.font);
-      pElem->input.cnt = ++htmlPtr->nInput;
-      zVal = HtmlMarkupArg(pElem, "value", 0);
-      if( zVal==0 ){
-        sprintf(zValBuf,"x%d",pElem->input.cnt);
-        zVal = zValBuf;
-        TestPoint(0);
-      }else{
-        TestPoint(0);
-      }
-      force = HtmlMarkupArg(pElem, "checked", 0)!=0;
-      MakeVarName(htmlPtr, pElem, zVar, zVal, force);
-      zWin = MakeWindowName(htmlPtr, pElem, zWinBuf, sizeof(zWinBuf));
-      ExecCmd(htmlPtr, Tk_RadiobuttonCmd,
-         "radiobutton", zWin, "-variable", zVar, "-value", zVal,
-         "-font", Tk_NameOfFont(font), 
-         "-padx", "0", "-pady", "0", "-text" , "", 0);
-      SizeAndLink(htmlPtr, zWin, pElem);
-      pElem->input.padLeft = pElem->input.w/2;
-      FreeWindowName(zWin,zWinBuf);
-#endif
+    }
+    case INPUT_TYPE_TextArea: {
+      pElem->base.flags &= ~HTML_Visible;
+      pElem->base.style.flags |= STY_Invisible;
+      pElem->input.tkwin = 0;
       break;
-    case INPUT_TYPE_Reset:
-#if 0
-      font = HtmlGetFont(htmlPtr, pElem->base.style.font);
-      pElem->input.cnt = ++htmlPtr->nInput;
-      zVal = HtmlMarkupArg(pElem, "value", "Reset");
-      zWin = MakeWindowName(htmlPtr, pElem, zWinBuf, sizeof(zWinBuf));
-      nWin = strlen(zWin);
-      if( nWin + 50 > sizeof(zCbBuf) ){
-        zCallback = ckalloc( nWin + 50 );
-        TestPoint(0);
-      }else{
-        zCallback = zCbBuf;
-        TestPoint(0);
-      }
-      if( zCallback ){
-        sprintf(zCallback, "%s _re %d", Tk_PathName(htmlPtr->tkwin), 
-          pElem->input.cnt);
-        TestPoint(0);
-      }else{
-        zCallback = zCbBuf;
-        zCbBuf[0] = 0;
-        TestPoint(0);
-      }
-      ExecCmd(htmlPtr, Tk_ButtonCmd,
-         "button", zWin, "-font", Tk_NameOfFont(font), "-text", zVal,
-         "-command", zCallback,
-         0);
-      if( zCallback!=zCbBuf ){
-        ckfree(zCallback);
-        TestPoint(0);
-      }else{
-        TestPoint(0);
-      }
-      SizeAndLink(htmlPtr, zWin, pElem);
-      FreeWindowName(zWin,zWinBuf);
-#endif
+    }
+    case INPUT_TYPE_Applet: {
+      pElem->base.flags &= ~HTML_Visible;
+      pElem->base.style.flags |= STY_Invisible;
+      pElem->input.tkwin = 0;
       break;
-    case INPUT_TYPE_Select:
-#if 0
-      if( pElem->input.tkwin==0 ){
-        char *zSize = HtmlMarkupArg(pElem, "size", "1");
-        char *zMultiple = HtmlMarkupArg(pElem, "multiple", 0)==0 ? "0" : "1";
-        Tcl_DString str;
-        pElem->input.cnt = ++htmlPtr->nInput;
-        zWin = MakeWindowName(htmlPtr, pElem, zWinBuf, sizeof(zWinBuf));
-        Tcl_DStringInit(&str);
-        Tcl_DStringAppend(&str,"_Html_Select_Build",-1);
-        Tcl_DStringAppendElement(&str, zWin);
-        Tcl_DStringAppendElement(&str, zSize);
-        Tcl_DStringAppendElement(&str, zMultiple);
-        AddSelectOptions(&str,pElem);
-        Tcl_GlobalEval(htmlPtr->interp, Tcl_DStringValue(&str));
-        Tcl_DStringFree(&str);
-        SizeAndLink(htmlPtr, zWin, pElem);
-        FreeWindowName(zWin,zWinBuf);
-        TestPoint(0);
-      }else{
-        TestPoint(0);
-      }
-#endif
+    }
+    default: {
+      CANT_HAPPEN;
+      pElem->base.flags &= ~HTML_Visible;
+      pElem->base.style.flags |= STY_Invisible;
+      pElem->input.tkwin = 0;
       break;
-    case INPUT_TYPE_Submit:
-#if 0
-      font = HtmlGetFont(htmlPtr, pElem->base.style.font);
-      pElem->input.cnt = ++htmlPtr->nInput;
-      zVal = HtmlMarkupArg(pElem, "value", "Submit");
-      zWin = MakeWindowName(htmlPtr, pElem, zWinBuf, sizeof(zWinBuf));
-      nWin = strlen(zWin);
-      if( nWin + 50 > sizeof(zCbBuf) ){
-        zCallback = ckalloc( nWin + 50 );
-        TestPoint(0);
-      }else{
-        zCallback = zCbBuf;
-        TestPoint(0);
-      }
-      if( zCallback ){
-        sprintf(zCallback, "%s _su %d", Tk_PathName(htmlPtr->tkwin), 
-          pElem->input.cnt);
-        TestPoint(0);
-      }else{
-        zCallback = zCbBuf;
-        zCbBuf[0] = 0;
-        TestPoint(0);
-      }
-      ExecCmd(htmlPtr, Tk_ButtonCmd,
-         "button", zWin, "-font", Tk_NameOfFont(font), "-text", zVal,
-         "-command", zCallback,
-         0);
-      if( zCallback!=zCbBuf ){
-        ckfree(zCallback);
-        TestPoint(0);
-      }else{
-        TestPoint(0);
-      }
-      SizeAndLink(htmlPtr, zWin, pElem);
-      FreeWindowName(zWin,zWinBuf);
-#endif
-      break;
-    case INPUT_TYPE_Text:
-    case INPUT_TYPE_Password:
-    case INPUT_TYPE_File:
-#if 0
-      font = HtmlGetFont(htmlPtr, pElem->base.style.font);
-      pElem->input.cnt = ++htmlPtr->nInput;
-      zVal = HtmlMarkupArg(pElem, "value", "");
-      MakeVarName(htmlPtr, pElem, zVar, 0, 0);
-      zWin = MakeWindowName(htmlPtr, pElem, zWinBuf, sizeof(zWinBuf));
-      zWidth = HtmlMarkupArg(pElem, "size", "20");
-      ExecCmd(htmlPtr, Tk_EntryCmd,
-         "entry", zWin, "-textvariable", zVar, 
-         "-font", Tk_NameOfFont(font), 
-         "-bd", "2", "-relief", "sunken", "-width", zWidth, 
-         "-show", pElem->input.type==INPUT_TYPE_Password ? "*" : "",
-         0);
-      SizeAndLink(htmlPtr, zWin, pElem);
-      FreeWindowName(zWin,zWinBuf);
-      TestPoint(0);
-#endif
-      break;
-    case INPUT_TYPE_TextArea:
-#if 0
-      if( pElem->input.tkwin==0 ){
-        char *zCols = HtmlMarkupArg(pElem, "cols", "40");
-        char *zRows = HtmlMarkupArg(pElem, "rows", "2");
-        char *zWrap = HtmlMarkupArg(pElem, "wrap", "off");
-        Tcl_DString str;
-        pElem->input.cnt = ++htmlPtr->nInput;
-        zWin = MakeWindowName(htmlPtr, pElem, zWinBuf, sizeof(zWinBuf));
-        ExecCmd(htmlPtr, Tk_FrameCmd,
-           "frame", zWin, "-bd", "0",
-           0);
-        Tcl_DStringInit(&str);
-        Tcl_DStringAppend(&str,"_Html_Textarea_Build",-1);
-        Tcl_DStringAppendElement(&str, zWin);
-        Tcl_DStringAppendElement(&str, zCols);
-        Tcl_DStringAppendElement(&str, zRows);
-        if( stricmp(zWrap,"off")==0 ){
-          zWrap = "none";
-          TestPoint(0);
-        }else{
-          zWrap = "word";
-          TestPoint(0);
-        }
-        Tcl_DStringAppendElement(&str, zWrap);
-        Tcl_GlobalEval(htmlPtr->interp, Tcl_DStringValue(&str));
-        Tcl_DStringFree(&str);
-        SizeAndLink(htmlPtr, zWin, pElem);
-        FreeWindowName(zWin,zWinBuf);
-      }else{
-        TestPoint(0);
-      }
-#endif
-      break;
-    case INPUT_TYPE_Applet:
-#if 0
-      if( htmlPtr->zAppletCommand && *htmlPtr->zAppletCommand ){
-        Tcl_DString cmd;
-        int i;
-        Tk_Window tkwin;
-        pElem->input.cnt = ++htmlPtr->nInput;
-        MakeVarName(htmlPtr, pElem, zVar, 0, 0);
-        zWin = MakeWindowName(htmlPtr, pElem, zWinBuf, sizeof(zWinBuf));
-        zWidth = HtmlMarkupArg(pElem, "width", "200");
-        zHeight = HtmlMarkupArg(pElem, "height", "200");
-        ExecCmd(htmlPtr, Tk_FrameCmd,
-           "frame", zWin, "-bd", "0",
-           "-width", zWidth, "-height", zHeight,
-           0);
-        SizeAndLink(htmlPtr, zWin, pElem);
-        Tcl_DStringInit(&cmd);
-        Tcl_DStringAppend(&cmd,htmlPtr->zAppletCommand,-1);
-        Tcl_DStringAppend(&cmd," ",1);
-        Tcl_DStringAppendElement(&cmd,zWin);
-        for(i=0; i<pElem->base.count; i++){
-          Tcl_DStringAppendElement(&cmd,pElem->markup.argv[i]);
-        }
-        Tcl_Preserve(htmlPtr);
-        Tcl_GlobalEval(htmlPtr->interp, Tcl_DStringValue(&cmd));
-        Tcl_DStringFree(&cmd);
-        tkwin = htmlPtr->tkwin;
-        Tcl_Release(htmlPtr);
-        /**** TBD: Deal with the case where tkwin==NULL.  As currently
-        ***** implemented, it just core dumps... ****/
-        FreeWindowName(zWin,zWinBuf);
-        TestPoint(0);
-      }else{
-        pElem->input.w = 0;
-        pElem->input.h = 0;
-      }
-#endif
-      break;
-    default:
-      TestPoint(0);
-      break;
+    }
   }
   return incomplete;
 }

@@ -12,7 +12,8 @@ html .h.h \
   -yscrollcommand {.h.vsb set} \
   -xscrollcommand {.f2.hsb set} \
   -padx 5 \
-  -pady 9
+  -pady 9 \
+  -bg white
 pack .h.h -side left -fill both -expand 1
 scrollbar .h.vsb -orient vertical -command {.h.h yview}
 pack .h.vsb -side left -fill y

@@ -1,7 +1,7 @@
 /*
 ** This file contains the TestPoint routines used for profiling
 ** and coverage analysis of the code.
-** $Revision: 1.2 $
+** $Revision: 1.3 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -40,13 +40,15 @@
 #if INTERFACE
 
 #if defined(COVERAGE_TEST)
-# define TestPoint(X)  {extern int HtmlTPArray[]; HtmlTPArray[X]++;}
-# define UNTESTED      HtmlTPUntested(__FILE__,__LINE__)
-# define CANT_HAPPEN   HtmlTPCantHappen(__FILE__,__LINE__)
+# define TestPoint(X)      {extern int HtmlTPArray[]; HtmlTPArray[X]++;}
+# define UNTESTED          HtmlTPUntested(__FILE__,__LINE__)
+# define CANT_HAPPEN       HtmlTPCantHappen(__FILE__,__LINE__)
+# define HtmlVerifyLock(H) if((H)->locked==0)HtmlTPCantHappen(__FILE__,__LINE__)
 #else
 # define TestPoint(X)
 # define UNTESTED
 # define CANT_HAPPEN
+# define HtmlVerifyLock(H)
 #endif
 
 #endif /* INTERFACE */

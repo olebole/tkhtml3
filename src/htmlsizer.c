@@ -1,6 +1,6 @@
 /*
 ** Routines used to compute the style and size of individual elements.
-** $Revision: 1.3 $
+** $Revision: 1.4 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -212,11 +212,8 @@ static int GetUnorderedListType(HtmlElement *p, int dflt){
 ** appropriate.
 **
 ** This routine may invoke a callback procedure which could delete
-** the HTML widget.  Therefore, Tcl_Preserve() must be called for 
-** the htmlPtr prior to invoking this routine.  After this routine 
-** returns, the calling function should check htmlPtr->tkwin to see 
-** if the HTML widget has been deleted.  Do this before calling
-** Tcl_Release().
+** the HTML widget.  The calling function should call HtmlLock()
+** if it needs the widget structure to be preserved.
 */
 static int GetLinkColor(HtmlWidget *htmlPtr, char *zURL){
   char *zCmd;
@@ -237,15 +234,15 @@ static int GetLinkColor(HtmlWidget *htmlPtr, char *zURL){
     return COLOR_Unvisited;
   }
   sprintf(zCmd,"%s {%s}",htmlPtr->zIsVisited, zURL);
+  HtmlLock(htmlPtr);
   result = Tcl_GlobalEval(htmlPtr->interp,zCmd);
   ckfree(zCmd);
+  if( HtmlUnlock(htmlPtr) ){
+    return COLOR_Unvisited;
+  }
   if( result!=TCL_OK ){
     TestPoint(0);
     goto errorOut;
-  }
-  if( htmlPtr->tkwin==0 ){
-    TestPoint(0);
-    return 0;
   }
   result = Tcl_GetBoolean(htmlPtr->interp, htmlPtr->interp->result, &isVisited);
   if( result!=TCL_OK ){
@@ -281,11 +278,7 @@ static int GetLinkColor(HtmlWidget *htmlPtr, char *zURL){
 ** for each <IMG> or for each <LI> that has a SRC= field.
 **
 ** This routine may invoke a callback procedure which could delete
-** the HTML widget.  Therefore, Tcl_Preserve() must be called for 
-** the htmlPtr prior to invoking this routine.  After this routine 
-** returns, the calling function should check htmlPtr->tkwin to see 
-** if the HTML widget has been deleted.  Do this before calling
-** Tcl_Release().
+** the HTML widget.
 **
 ** When a markup is inserted or deleted from the token list, the
 ** style routine must be completely rerun from the beginning.  So
@@ -325,8 +318,9 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
       case Html_A:
         z = HtmlMarkupArg(p,"href",0);
         if( z ){
+          HtmlLock(htmlPtr);
           style.color = GetLinkColor(htmlPtr, z);
-          if( htmlPtr->tkwin==0 ){ TestPoint(0); return; }
+          if( HtmlUnlock(htmlPtr) ) return;
           anchorFlags |= STY_Anchor;
           PushStyleStack(htmlPtr, Html_EndA, style);
           htmlPtr->anchorStart = p;
@@ -613,7 +607,9 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         TestPoint(0);
         break;
       case Html_IMG:
+        HtmlLock(htmlPtr);
         p->image.pImage = HtmlGetImage(htmlPtr, p);
+        if( HtmlUnlock(htmlPtr) ) return;
         TestPoint(0);
         break;
       case Html_INPUT:
@@ -883,11 +879,7 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
 ** in ink on the page.
 **
 ** This routine may invoke a callback procedure which could delete
-** the HTML widget.  Therefore, Tcl_Preserve() must be called for 
-** the htmlPtr prior to invoking this routine.  After this routine 
-** returns, the calling function should check htmlPtr->tkwin to see 
-** if the HTML widget has been deleted.  Do this before calling
-** Tcl_Release().
+** the HTML widget. 
 */
 void HtmlSizer(HtmlWidget *htmlPtr){
   HtmlElement *p;
@@ -967,8 +959,9 @@ void HtmlSizer(HtmlWidget *htmlPtr){
         p->image.redrawNeeded = 0;
         p->image.textAscent = fontMetrics.ascent;
         p->image.textDescent = fontMetrics.descent;
+        HtmlLock(htmlPtr);
         p->image.align = HtmlGetImageAlignment(p);
-        if( htmlPtr->tkwin==0 ){ TestPoint(0); return; }
+        if( HtmlUnlock(htmlPtr) ) return;
         if( p->image.pImage==0 ){
           p->image.ascent = fontMetrics.ascent;
           p->image.descent = fontMetrics.descent;

@@ -1,6 +1,6 @@
 /*
 ** Routines for processing URLs.
-** $Revision: 1.3 $
+** $Revision: 1.4 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -36,9 +36,7 @@
 ** TCL_OK on success and TCL_ERROR if there is a failure.
 **
 ** This function can cause the HTML widget to be deleted or changed
-** arbitrarily.  The calling function should take suitable precautions
-** to protect vulnerable data structures.  This function might be
-** called recursively.
+** arbitrarily. 
 */
 int HtmlCallResolver(
   HtmlWidget *htmlPtr,      /* The widget that is doing the resolving. */
@@ -46,6 +44,7 @@ int HtmlCallResolver(
 ){
   int rc = TCL_OK;          /* Return value of this function. */
 
+  HtmlVerifyLock(htmlPtr);
   if( htmlPtr->zResolverCommand && htmlPtr->zResolverCommand[0] ){
     /*
     ** Append the current base URI then the azSeries arguments to the
@@ -65,8 +64,10 @@ int HtmlCallResolver(
       Tcl_DStringAppendElement(&cmd, azSeries[0]);
       azSeries++;
     }
+    HtmlLock(htmlPtr);
     rc = Tcl_GlobalEval(htmlPtr->interp, Tcl_DStringValue(&cmd));
     Tcl_DStringFree(&cmd);
+    if( HtmlUnlock(htmlPtr) ) return TCL_ERROR;
     if( rc!=TCL_OK ){
       Tcl_AddErrorInfo(htmlPtr->interp,
          "\n    (-resolvercommand executed by HTML widget)");

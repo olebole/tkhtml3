@@ -1,6 +1,6 @@
 /*
 ** The main routine for the HTML widget for Tcl/Tk
-** $Revision: 1.4 $
+** $Revision: 1.5 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -348,13 +348,8 @@ static void HtmlRedrawCallback(ClientData clientData){
   **   *  Don't remove the REDRAW_PENDING flag until after HtmlLayout()
   **      has been called, to prevent a recursive call to HtmlRedrawCallback().
   **
-  **   *  Call Tcl_Preserve() on the htmlPtr structure to prevent it from
+  **   *  Call HtmlLock() on the htmlPtr structure to prevent it from
   **      being deleted out from under us.
-  **
-  **   *  After HtmlLayout() returns, check to see tkwin==0.  If there was
-  **      an attempt to delete the widget in a callback, then tkwin will have
-  **      been set to zero.  If that is the case, we can bail out without
-  **      bothering to do any additional work.
   **
   */
   if( (htmlPtr->flags & RESIZE_ELEMENTS)!=0 ){
@@ -400,11 +395,10 @@ static void HtmlRedrawCallback(ClientData clientData){
     TestPoint(0);
   }
   if( (htmlPtr->flags & EXTEND_LAYOUT) && htmlPtr->pFirst!=0 ){
-    Tcl_Preserve(htmlPtr);
+    HtmlLock(htmlPtr);
     HtmlLayout(htmlPtr);
+    if( HtmlUnlock(htmlPtr) ) return;
     tkwin = htmlPtr->tkwin;
-    Tcl_Release(htmlPtr);
-    if( tkwin==0 ) return;
     htmlPtr->flags &= ~EXTEND_LAYOUT;
     HtmlFormBlocks(htmlPtr);
     HtmlMapControls(htmlPtr);
@@ -430,29 +424,20 @@ static void HtmlRedrawCallback(ClientData clientData){
     int result;
     char buf[200];
 
-    Tcl_Preserve(htmlPtr);
     if( (htmlPtr->flags & HSCROLL)!=0 ){
       if( htmlPtr->xScrollCmd && htmlPtr->xScrollCmd[0] ){
         HtmlComputeHorizontalPosition(htmlPtr,buf);
-        Tcl_Preserve(interp);
+        HtmlLock(htmlPtr);
         result = Tcl_VarEval(interp, htmlPtr->xScrollCmd, " ", buf, 0);
-        tkwin = htmlPtr->tkwin;
+        if( HtmlUnlock(htmlPtr) ) return;
         if (result != TCL_OK) {
           Tcl_AddErrorInfo(interp,
              "\n    (horizontal scrolling command executed by html widget)");
           Tcl_BackgroundError(interp);
           TestPoint(0);
-        }else{
-          TestPoint(0);
         }
-        Tcl_Release(interp);
-        if( tkwin==0 ){ TestPoint(0); return; }
-      }else{
-        TestPoint(0);
       }
       htmlPtr->flags &= ~HSCROLL;
-    }else{
-      TestPoint(0);
     }
     if( (htmlPtr->flags & VSCROLL)!=0 && tkwin && Tk_IsMapped(tkwin) ){
       if( htmlPtr->yScrollCmd && htmlPtr->yScrollCmd[0] ){
@@ -460,27 +445,19 @@ static void HtmlRedrawCallback(ClientData clientData){
         int result;
         char buf[200];
         HtmlComputeVerticalPosition(htmlPtr,buf);
-        Tcl_Preserve(interp);
+        HtmlLock(htmlPtr);
         result = Tcl_VarEval(interp, htmlPtr->yScrollCmd, " ", buf, 0);
-        tkwin = htmlPtr->tkwin;
+        if( HtmlUnlock(htmlPtr) ) return;
         if (result != TCL_OK) {
           Tcl_AddErrorInfo(interp,
-             "\n    (vertical scrolling command executed by html widget)");
+             "\n    (horizontal scrolling command executed by html widget)");
           Tcl_BackgroundError(interp);
           TestPoint(0);
-        }else{
-          TestPoint(0);
         }
-        Tcl_Release(interp);
-        if( tkwin==0 ) return;
-      }else{
-        TestPoint(0);
       }
       htmlPtr->flags &= ~VSCROLL;
-    }else{
-      TestPoint(0);
     }
-    Tcl_Release(htmlPtr);
+    tkwin = htmlPtr->tkwin;
     if( tkwin==0 || !Tk_IsMapped(tkwin) ){ TestPoint(0); return; }
     if( htmlPtr->flags & REDRAW_PENDING ){ TestPoint(0); return; }
     clipwin = htmlPtr->clipwin;
@@ -616,30 +593,37 @@ static void HtmlRedrawCallback(ClientData clientData){
   /* Skip the rest of the drawing process if the area to be refreshed is
   ** less than zero */
   if( w>0 && h>0 ){
+    Display *display = htmlPtr->display;
+    int dead;
     HtmlMapControls(htmlPtr);
 
     /* Allocate and clear a pixmap upon which to draw */
-    pixmap = Tk_GetPixmap(htmlPtr->display, Tk_WindowId(clipwin), 
-                          w, h, Tk_Depth(clipwin));
+    pixmap = Tk_GetPixmap(display, Tk_WindowId(clipwin),w,h,Tk_Depth(clipwin));
     Tk_Fill3DRectangle(clipwin, pixmap, htmlPtr->border, 
                        0, 0, w, h, 0, TK_RELIEF_RAISED);
                        
     /* Render all visible HTML onto the pixmap */
+    HtmlLock(htmlPtr);
     for(pBlock=htmlPtr->firstBlock; pBlock; pBlock=pBlock->pNext){
       if( pBlock->top <= y+h && pBlock->bottom >= y 
       && pBlock->left <= x+w && pBlock->right >= x ){
         HtmlBlockDraw(htmlPtr,pBlock,pixmap,x,y,w,h);
+        if( htmlPtr->tkwin==0 ) break;
         TestPoint(0);
       }else{
         TestPoint(0);
       }
     }
+    dead = HtmlUnlock(htmlPtr);
      
     /* Finally, copy the pixmap onto the window and delete the pixmap */
-    gc = HtmlGetAnyGC(htmlPtr);
-    XCopyArea(htmlPtr->display, pixmap, Tk_WindowId(clipwin),
-              gc, 0, 0, w, h, htmlPtr->dirtyLeft, htmlPtr->dirtyTop);
-    Tk_FreePixmap(htmlPtr->display, pixmap);
+    if( !dead ){
+      gc = HtmlGetAnyGC(htmlPtr);
+      XCopyArea(display, pixmap, Tk_WindowId(clipwin),
+                gc, 0, 0, w, h, htmlPtr->dirtyLeft, htmlPtr->dirtyTop);
+    }
+    Tk_FreePixmap(display, pixmap);
+    if( dead ) return;
   }
 
   /* Redraw images, if requested */
@@ -931,13 +915,15 @@ void HtmlClear(HtmlWidget *htmlPtr){
 }
 
 /*
-** This routine is called by Tcl_EventuallyFree or Tcl_Release to clean
-** up the internal structure of an HtmlWidget when the widget is deleted.
+** This routine attempts to delete the widget structure.  But it won't
+** do it if the widget structure is locked.  If the widget structure is
+** locked, then when HtmlUnlock() is called and the lock count reaches
+** zero, this routine will be called to finish the job.
 */
-static void DestroyHtmlWidget(char *memPtr){
-  HtmlWidget *htmlPtr = (HtmlWidget*) memPtr;
+static void DestroyHtmlWidget(HtmlWidget *htmlPtr){
   int i;
 
+  if( htmlPtr->locked>0 ) return;
   HtmlClear(htmlPtr);
   Tk_FreeOptions(configSpecs, (char*) htmlPtr, htmlPtr->display, 0);
   for(i=0; i<N_FONT; i++){
@@ -968,6 +954,62 @@ static void DestroyHtmlWidget(char *memPtr){
   }
   ckfree(htmlPtr->zClipwin);
   ckfree((char*) htmlPtr);
+}
+
+/*
+** Remove a lock from the HTML widget.  If the widget has been
+** deleted, then delete the widget structure.  Return 1 if the
+** widget has been deleted.  Return 0 if it still exists.
+**
+** Normal Tk code (that is to say, code in the Tk core) uses
+** Tcl_Preserve() and Tcl_Release() to accomplish what this
+** function does.  But preserving and releasing are much more
+** common in this code than in regular widgets, so this routine
+** was invented to do the same thing easier and faster.
+*/
+int HtmlUnlock(HtmlWidget *htmlPtr){
+  htmlPtr->locked--;
+  if( htmlPtr->locked<=0 && htmlPtr->tkwin==0 ){
+    DestroyHtmlWidget(htmlPtr);
+    return 1;
+  }
+  return htmlPtr->tkwin==0;
+}
+
+/*
+** Lock the HTML widget.  This prevents the widget structure from
+** being deleted even if the widget itself is destroyed.  There must
+** be a call to HtmlUnlock() to release the structure.
+*/
+void HtmlLock(HtmlWidget *htmlPtr){
+  htmlPtr->locked++;
+}
+
+/*
+** This routine checks to see if an HTML widget has been
+** destroyed.  It is always called after calling HtmlLock().
+**
+** If the widget has been destroyed, then the structure
+** is unlocked and the function returns 1.  If the widget
+** has not been destroyed, then the structure is not unlocked
+** and the routine returns 0.
+**
+** This routine is intended for use in code like the following:
+**
+**     HtmlLock(htmlPtr);
+**     // Do something that might destroy the widget
+**     if( HtmlIsDead(htmlPtr) ) return;
+**     // Do something that might destroy the widget
+**     if( HtmlIsDead(htmlPtr) ) return;
+**     // Do something that might destroy the widget
+**     if( HtmlUnlock(htmlPtr) ) return;
+*/
+int HtmlIsDead(HtmlWidget *htmlPtr){
+  if( htmlPtr->tkwin==0 ){
+    HtmlUnlock(htmlPtr);
+    return 1;
+  }
+  return 0;
 }
 
 /*
@@ -1139,7 +1181,7 @@ static void HtmlEventProc(ClientData clientData, XEvent *eventPtr){
       }else{
         TestPoint(0);
       }
-      Tcl_EventuallyFree((ClientData)htmlPtr, DestroyHtmlWidget);
+      DestroyHtmlWidget(htmlPtr);
       break;
     case ConfigureNotify:
       if( htmlPtr->tkwin!=0
@@ -1268,11 +1310,10 @@ Tk_Font HtmlGetFont(
         Tcl_DStringAppend(&str,"constantwidth",-1);
       }
       Tcl_DStringAppend(&str,"}",-1);
-      Tcl_Preserve(htmlPtr);
+      HtmlLock(htmlPtr);
       rc = Tcl_GlobalEval(htmlPtr->interp, Tcl_DStringValue(&str));
       Tcl_DStringFree(&str);
-      if( htmlPtr->tkwin==0 ){
-        Tcl_Release(htmlPtr);
+      if( HtmlUnlock(htmlPtr) ){
         return NULL;
       }
       if( rc!=TCL_OK ){
@@ -1763,7 +1804,7 @@ static int HtmlCommand(
 int Tkhtml_Init(Tcl_Interp *interp){
   Tcl_CreateCommand(interp,"html", HtmlCommand, 
       Tk_MainWindow(interp), 0);
-  Tcl_GlobalEval(interp,HtmlLib);
+  /* Tcl_GlobalEval(interp,HtmlLib); */
 #ifdef DEBUG
   Tcl_LinkVar(interp, "HtmlTraceMask", (char*)&HtmlTraceMask, TCL_LINK_INT);
 #endif
