@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.6 2002/12/17 18:24:16 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.7 2003/03/19 17:06:29 hkoba Exp $";
 /*
 ** The main routine for the HTML widget for Tcl/Tk
 **
@@ -617,7 +617,7 @@ HtmlBase64encodeCmd(ClientData clientData, Tcl_Interp *interp,
 #include <zlib.h>
 
 static int
-check_header(char *s, int len) {
+check_header(unsigned char *s, int len) {
   int i, method, flags, n;
   if (len<12) return -1;
   if (s[0] != 0x1f || s[1] != 0x8b) return -1;
@@ -673,7 +673,7 @@ HtmlGunzipCmd (ClientData clientData, Tcl_Interp * interp,
       int hlen;
       uncompr=(char*)malloc(ulen);
       from = Tcl_GetByteArrayFromObj (objv[3], &fnlen);
-      hlen= check_header(from, fnlen);
+      hlen= check_header((unsigned char*)from, fnlen);
       if (hlen<0 || hlen>fnlen) goto gunziperror;
       fnlen-=hlen; from+=hlen;
       zf.next_in=from;
