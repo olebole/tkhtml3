@@ -1,6 +1,6 @@
 /*
 ** Routines for doing layout of HTML tables
-** $Revision: 1.18 $
+** $Revision: 1.19 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -45,6 +45,7 @@
 ** Set parameter A to the maximum of A and B.
 */
 #define SETMAX(A,B)  if( (A)<(B) ){ (A) = (B); }
+#define MAX(A,B)     ((A)<(B)?(B):(A))
 #endif
 
 /*
@@ -82,7 +83,9 @@ static HtmlElement *MinMax(HtmlWidget*, HtmlElement *, int *, int *, int);
 ** N==1) is pStart->minW[1] and pStart->maxW[1].  The pStart->minW[0]
 ** and pStart->maxW[0] entries contain the minimum and maximum widths
 ** of the whole table, including any cell padding, cell spacing,
-** border width and "hspace".
+** border width and "hspace".  The values of pStart->minW[I] for I>=1
+** do not contain any cell padding, cell spacing or border width.
+** Only pStart->minW[0] contains these extra spaces.
 **
 ** The back references from </table>, </tr>, </td> and </th> back to
 ** the <table> markup are also filled in.  And for each <td> and <th>
@@ -100,7 +103,7 @@ static HtmlElement *TableDimensions(
   int inRow = 0;                     /* True if in between <TR> and </TR> */
   int i, j;                          /* Loop counters */
   int n;                             /* Number of columns */
-  int minW, maxW;                    /* min and max width for one cell */
+  int minW, maxW, requestedW;        /* min, max, requested width for a cell */
   int noWrap;                        /* true for NOWRAP cells */
   int colspan;                       /* Column span for the current cell */
   int rowspan;                       /* Row span for the current cell */
@@ -115,14 +118,16 @@ static HtmlElement *TableDimensions(
   int fromAbove[HTML_MAX_COLUMNS+1]; /* Cell above extends thru this row */
   int min0span[HTML_MAX_COLUMNS+1];  /* Min for colspan=0 cells */
   int max0span[HTML_MAX_COLUMNS+1];  /* Max for colspan=0 cells */
-  int fixedW[HTML_MAX_COLUMNS+1];    /* Value of "width=N" attributes in <TD> */
+  int reqW[HTML_MAX_COLUMNS+1];      /* Requested width for each column */
 
-  /* colMin[A][B] is the minimum width of all columns between
-  ** A+1 and B+2.  This is used to add in the constraints imposed
+  /* colMin[A][B] is the absolute minimum width of all columns between
+  ** A+1 and B+1.  colMin[B][A] is the requested width of columns between
+  ** A+1 and B+1.  This information is used to add in the constraints imposed
   ** by <TD COLSPAN=N> markup where N>=2.
   */
-  int colMin[HTML_MAX_COLUMNS][HTML_MAX_COLUMNS];
-#define ColMin(A,B) colMin[(A)-1][(B)-2]
+  int colMin[HTML_MAX_COLUMNS+1][HTML_MAX_COLUMNS+1];
+# define ColMin(A,B) colMin[(A)-1][(B)-1]
+# define ColReq(A,B) colMin[(B)-1][(A)-1]
   
   if( pStart==0 || pStart->base.type!=Html_TABLE ){ 
     TestPoint(0); 
@@ -217,9 +222,10 @@ static HtmlElement *TableDimensions(
             pStart->table.maxW[i] = 0;
             min0span[i] = 0;
             max0span[i] = 0;
-            fixedW[i] = 0;
+            reqW[i] = 0;
             for(j=1; j<i; j++){
               ColMin(j,i) = 0;
+              ColReq(j,i) = 0;
             }
           }
           pStart->table.nCol = nCol;
@@ -227,25 +233,19 @@ static HtmlElement *TableDimensions(
         noWrap = HtmlMarkupArg(p, "nowrap", 0)!=0;
         pNext = MinMax(htmlPtr, p, &minW, &maxW, availWidth);
         p->cell.pEnd = pNext;
-        TRACE(HtmlTrace_Table1,
-          ("Row %d Column %d: min=%d max=%d stop at %s\n",
-            iRow,iCol,minW,maxW, HtmlTokenName(p->cell.pEnd)));
         if( (z = HtmlMarkupArg(p, "width", 0))!=0 ){
-          int setWidth;
           for(i=0; isdigit(z[i]); i++){}
           if( z[i]==0 ){
-            setWidth = atoi(z);
+            requestedW = atoi(z);
           }else if( z[i]=='%' ){
-            setWidth = (atoi(z)*availWidth + 99)/100;
+            requestedW = (atoi(z)*availWidth + 99)/100;
           }
-          SETMAX( minW, setWidth );
-          SETMAX( maxW, setWidth );
-          if( p->cell.colspan==1 ){
-            SETMAX( fixedW[iCol], setWidth );
-          }
-          TRACE(HtmlTrace_Table1,
-            ("Row %d Column %d: setWidth=%d\n",iRow,iCol,setWidth));
+        }else{
+          requestedW = 0;
         }
+        TRACE(HtmlTrace_Table1,
+          ("Row %d Column %d: min=%d max=%d req=%d stop at %s\n",
+            iRow,iCol,minW,maxW,requestedW, HtmlTokenName(p->cell.pEnd)));
         if( noWrap ){
           minW = maxW;
         }
@@ -257,11 +257,13 @@ static HtmlElement *TableDimensions(
             min = min0span[iCol] + separation;
           }else if( colspan==1 ){
             SETMAX( pStart->table.minW[iCol], minW );
-            SETMAX( pStart->table.maxW[iCol], maxW );       
+            SETMAX( pStart->table.maxW[iCol], maxW );
+            SETMAX( reqW[iCol], requestedW );     
             min = pStart->table.minW[iCol] + separation;
           }else{
             int n = p->cell.colspan;
             SETMAX( ColMin(iCol,iCol+n-1), minW);
+            SETMAX( ColReq(iCol,iCol+n-1), requestedW);
             min = minW + separation;
             maxW = (maxW + (n - 1)*(1-separation))/n;
             for(i=iCol; i<iCol + n && i<HTML_MAX_COLUMNS; i++){
@@ -288,31 +290,42 @@ static HtmlElement *TableDimensions(
     }
   }
 
-#if 0
-  for(i=1; i<=pStart->table.nCol; i++){
-    printf("  %d:%d..%d",i,pStart->table.minW[i],pStart->table.maxW[i]);
-    if( fixedW[i]>0 ){
-      printf("(w=%d)",fixedW[i]);
-    }
-  }
-  printf("\n");
-  for(i=1; i<pStart->table.nCol; i++){
-    for(j=i+1; j<=pStart->table.nCol; j++){
-      if( ColMin(i,j)>0 ){
-        printf("ColMin(%d,%d) = %d\n", i, j, ColMin(i,j));
+#ifdef DEBUG
+  if( HtmlTraceMask & HtmlTrace_Table6 ){
+    char *zSpace = "";
+    TRACE_INDENT;
+    for(i=1; i<=pStart->table.nCol; i++){
+      printf("%s%d:%d..%d",zSpace,i,
+         pStart->table.minW[i],pStart->table.maxW[i]);
+      if( reqW[i]>0 ){
+        printf("(w=%d)",reqW[i]);
       }
-    } 
+      zSpace = "  ";
+    }
+    printf("\n");
+    for(i=1; i<pStart->table.nCol; i++){
+      for(j=i+1; j<=pStart->table.nCol; j++){
+        if( ColMin(i,j)>0 ){
+          TRACE_INDENT;
+          printf("ColMin(%d,%d) = %d\n", i, j, ColMin(i,j));
+        }
+        if( ColReq(i,j)>0 ){
+          TRACE_INDENT;
+          printf("ColReq(%d,%d) = %d\n", i, j, ColReq(i,j));
+        }
+      } 
+    }
   }
 #endif
 
   /* Compute the min and max width of each column
   */
   for(i=1; i<=pStart->table.nCol; i++){
-    int sumMin, sumMax;
+    int sumMin, sumReq, sumMax;
 
     /* Reduce the max[] field to N for columns that have "width=N" */
-    if( fixedW[i]>0 ){
-      pStart->table.maxW[i] = pStart->table.minW[i];
+    if( reqW[i]>0 ){
+      pStart->table.maxW[i] = MAX(pStart->table.minW[i],reqW[i]);
     }
 
     /* Expand the width of columns marked with "colspan=0". 
@@ -327,16 +340,19 @@ static HtmlElement *TableDimensions(
       }
     }
 
-    /* Expand the min[] of columns to accomodate "colspan=N" constraints.
-    ** The min[] is expanded up to the max[] first.  Then all the max[]s
-    ** are expanded in proportion to their sizes.
+    /* Expand the minW[] of columns to accomodate "colspan=N" constraints.
+    ** The minW[] is expanded up to the maxW[] first.  Then all the maxW[]s
+    ** are expanded in proportion to their sizes.  The same thing occurs
+    ** for reqW[]s.
     */
+    sumReq = reqW[i];
     sumMin = pStart->table.minW[i];
     sumMax = pStart->table.maxW[i];
     for(j=i-1; j>=1; j--){
-      int cmin;
+      int cmin, creq;
       sumMin += pStart->table.minW[j];
       sumMax += pStart->table.maxW[j];
+      sumReq += reqW[i];
       cmin = ColMin(j,i);
       if( cmin>sumMin ){
         int k;
@@ -365,24 +381,62 @@ static HtmlElement *TableDimensions(
           }
         }
       }
+      creq = ColReq(j,i);
+      if( creq>sumReq ){
+        int k;
+        double scale;
+        int *tmaxW = pStart->table.maxW;
+        if( sumReq<sumMax ){
+          scale = (double)(creq - sumReq)/(double)(sumMax - sumReq);
+          for(k=j; k<=i; k++){
+            sumReq -= reqW[k];
+            reqW[k] = (tmaxW[k] - reqW[k])*scale + reqW[k];
+            sumReq += reqW[k];
+          }
+        }else if( sumReq>0 ){
+          scale = (double)creq/(double)sumReq;
+          for(k=j; k<=i; k++){
+            sumReq -= reqW[k];
+            reqW[k] = reqW[k]*scale;
+            sumReq += reqW[k];
+          }
+        }else{
+          int unit = creq/(i-j+1);
+          for(k=j; k<=i; k++){
+            reqW[k] = unit;
+            sumReq += reqW[k];
+          }
+        }
+      }
     }
   }
 
-#if 0
-  for(i=1; i<=pStart->table.nCol; i++){
-    printf("  %d:%d..%d",i,pStart->table.minW[i], pStart->table.maxW[i]);
+#ifdef DEBUG
+  if( HtmlTraceMask & HtmlTrace_Table6 ){
+    char *zSpace = "";
+    TRACE_INDENT;
+    for(i=1; i<=pStart->table.nCol; i++){
+      printf("%s%d:%d..%d",zSpace,i,
+         pStart->table.minW[i],pStart->table.maxW[i]);
+      if( reqW[i]>0 ){
+        printf("(w=%d)",reqW[i]);
+      }
+      zSpace = "  ";
+    }
+    printf("\n");
   }
-  printf("\n");
 #endif
 
   /* Compute the min and max width of the whole table
   */
   n = pStart->table.nCol;
-  pStart->table.minW[0] = (n+1)*2*bw + (n+1)*cellSpacing + n*2*cellPadding;
-  pStart->table.maxW[0] = pStart->table.minW[0];
+  requestedW = (n+1)*(2*bw + cellSpacing) + n*2*cellPadding;
+  pStart->table.minW[0] = requestedW;
+  pStart->table.maxW[0] = requestedW;
   for(i=1; i<=pStart->table.nCol; i++){
     pStart->table.minW[0] += pStart->table.minW[i];
     pStart->table.maxW[0] += pStart->table.maxW[i];
+    requestedW += MAX(reqW[i], pStart->table.minW[i]);
   }
 
   /* Figure out how wide to draw the table */
@@ -395,40 +449,54 @@ static HtmlElement *TableDimensions(
     }else{
       totalWidth = atoi(z);
     }
-    if( totalWidth > pStart->table.minW[0] ){
-      float scale;
-      int *tminW = pStart->table.minW;
-      int *tmaxW = pStart->table.maxW;
-      if( tmaxW[0] > tminW[0] ){
-        scale = (double)(totalWidth - tminW[0]) / (double)(tmaxW[0] - tminW[0]);
-        for(i=1; i<=pStart->table.nCol; i++){
-          tminW[i] += (tmaxW[i] - tminW[i]) * scale;
-        }
-      }else if( tminW[0]>0 ){
-        scale = totalWidth/tminW[0];
-        for(i=1; i<=pStart->table.nCol; i++){
-          tminW[i] *= scale;
-          tmaxW[i] *= scale;
-        }
-      }else{
-        int unit = (totalWidth - margin)/pStart->table.nCol - separation;
-        if( unit<0 ) unit = 0;
-        for(i=1; i<=pStart->table.nCol; i++){
-          tminW[i] = tmaxW[i] = unit;
-        }
+    SETMAX( requestedW, totalWidth );
+  }
+  if( requestedW>lineWidth ){
+    TRACE(HtmlTrace_Table5,("RequestedW reduced to lineWidth: %d -> %d\n", 
+       requestedW, lineWidth));
+    requestedW = lineWidth;
+  }
+  if( requestedW > pStart->table.minW[0] ){
+    float scale;
+    int totalSep;
+    int *tminW = pStart->table.minW;
+    int *tmaxW = pStart->table.maxW;
+    TRACE(HtmlTrace_Table5,
+        ("Expanding table minW from %d to %d.  (reqW=%d width=%s)\n",
+          tminW[0], requestedW, requestedW, z));
+    totalSep = (n+1)*(2*bw + cellSpacing) + n*2*cellPadding;
+    if( tmaxW[0] > tminW[0] ){
+      scale = (double)(requestedW - tminW[0]) / (double)(tmaxW[0] - tminW[0]);
+      for(i=1; i<=pStart->table.nCol; i++){
+        tminW[i] += (tmaxW[i] - tminW[i]) * scale;
       }
-      pStart->table.minW[0] = totalWidth;
-      SETMAX( pStart->table.maxW[0], totalWidth );
+    }else if( tminW[0]>0 ){
+      scale = requestedW/tminW[0];
+      for(i=1; i<=pStart->table.nCol; i++){
+        tminW[i] *= scale;
+        tmaxW[i] *= scale;
+      }
+    }else{
+      int unit = (requestedW - margin)/pStart->table.nCol - separation;
+      if( unit<0 ) unit = 0;
+      for(i=1; i<=pStart->table.nCol; i++){
+        tminW[i] = tmaxW[i] = unit;
+      }
     }
+    pStart->table.minW[0] = requestedW;
+    SETMAX( pStart->table.maxW[0], requestedW );
   }
 
 #ifdef DEBUG
   if( HtmlTraceMask & HtmlTrace_Table5 ){
+    TRACE_INDENT;
     printf("Start with %s and ", HtmlTokenName(pStart));
     printf("end with %s\n", HtmlTokenName(p));
+    TRACE_INDENT;
     printf("nCol=%d minWidth=%d maxWidth=%d\n",
       pStart->table.nCol, pStart->table.minW[0], pStart->table.maxW[0]);
     for(i=1; i<=pStart->table.nCol; i++){
+      TRACE_INDENT;
       printf("Column %d minWidth=%d maxWidth=%d\n",
          i, pStart->table.minW[i], pStart->table.maxW[i]);
     }
@@ -860,8 +928,8 @@ HtmlElement *HtmlTableLayout(
     defaultVAlign = GetVerticalAlignment(p, VAlign_Center);
 
     /* Find every new cell on this row */
-    for(iCol=1; iCol<=pTable->table.nCol; iCol++){
-      ymax[iCol] = 0;
+    for(iCol=1; iCol<=pTable->table.nCol && iCol<HTML_MAX_COLUMNS; iCol++){
+      if( lastRow[iCol]<iRow ) ymax[iCol] = 0;
     }
     iCol = 0;
     for(p=p->pNext; p && p->base.type!=Html_TR && p!=pEnd; p=pNext){

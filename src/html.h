@@ -1,6 +1,6 @@
 /*
 ** Structures and typedefs used by the HTML widget
-** $Revision: 1.16 $
+** $Revision: 1.17 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -51,13 +51,15 @@
 ** is not defined.
 */
 #ifdef DEBUG
+# define TRACE_INDENT  printf("%*s",HtmlDepth-3,"")
 # define TRACE(Flag, Args) \
     if( (Flag)&HtmlTraceMask ){ \
-       printf("%*s",HtmlDepth,""); printf Args; fflush(stdout); \
+       TRACE_INDENT; printf Args; fflush(stdout); \
     }
-# define TRACE_PUSH(Flag)  if( (Flag)&HtmlTraceMask ){ HtmlDepth+=2; }
-# define TRACE_POP(Flag)   if( (Flag)&HtmlTraceMask ){ HtmlDepth-=2; }
+# define TRACE_PUSH(Flag)  if( (Flag)&HtmlTraceMask ){ HtmlDepth+=3; }
+# define TRACE_POP(Flag)   if( (Flag)&HtmlTraceMask ){ HtmlDepth-=3; }
 #else
+# define TRACE_INDENT
 # define TRACE(Flag, Args)
 # define TRACE_PUSH(Flag)
 # define TRACE_POP(Flag)
@@ -71,6 +73,7 @@
 #define HtmlTrace_Table3       0x00000004
 #define HtmlTrace_Table4       0x00000008
 #define HtmlTrace_Table5       0x00000010
+#define HtmlTrace_Table6       0x00000020
 #define HtmlTrace_GetLine      0x00000100
 #define HtmlTrace_GetLine2     0x00000200
 #define HtmlTrace_FixLine      0x00000400
