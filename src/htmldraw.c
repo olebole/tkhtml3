@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmldraw.c,v 1.31 2002/12/17 18:24:16 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmldraw.c,v 1.32 2003/01/06 16:17:54 drh Exp $";
 /*
 ** Routines used to render HTML onto the screen for the Tk HTML widget.
 **
@@ -16,6 +16,7 @@ static char const rcsid[] = "@(#) $Id: htmldraw.c,v 1.31 2002/12/17 18:24:16 drh
 #include <tk.h>
 #include <string.h>
 #include <stdlib.h>
+#include <assert.h>
 #include "htmldraw.h"
 #ifdef USE_TK_STUBS
 # include <tkIntXlibDecls.h>
@@ -652,6 +653,9 @@ static HtmlElement *FillOutBlock(HtmlWidget *htmlPtr, HtmlBlock *p){
   while( pElem && (pElem->base.flags & HTML_Visible)==0 ){
     HtmlElement *pNext = pElem->pNext;
     if( pElem->base.type==Html_Block ){
+      assert( htmlPtr->firstBlock!=&pElem->block );
+      assert( htmlPtr->lastBlock!=&pElem->block );
+      assert( p->pNext!=&pElem->block );
       UnlinkAndFreeBlock(htmlPtr, &pElem->block);
     }else{
       p->base.count++;
@@ -714,7 +718,7 @@ static HtmlElement *FillOutBlock(HtmlWidget *htmlPtr, HtmlBlock *p){
   go = 1;
   while( pElem ){
     HtmlElement *pNext = pElem->pNext;
-    switch( pElem && pElem->base.type ){
+    switch( pElem->base.type ){
       case Html_Text:
         if( pElem->base.style.flags & STY_Invisible ){
           break;
