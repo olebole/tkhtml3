@@ -1,6 +1,6 @@
 #define TokenMap(htmlPtr,idx) (htmlPtr->tokenMap?htmlPtr->tokenMap[idx]:(HtmlMarkupMap+idx))
 #define TokenapMap(htmlPtr,idx) (htmlPtr->tokenapMap?htmlPtr->tokenMap[idx]:apMap[idx])
-static char const rcsid[] = "@(#) $Id: htmlparse.c,v 1.30 2002/12/17 21:02:27 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlparse.c,v 1.31 2003/01/06 16:18:10 drh Exp $";
 /*
 ** A tokenizer that converts raw HTML into a linked list of HTML elements.
 **
@@ -1185,7 +1185,7 @@ int HtmlTextInsertCmd(
   char **argv            /* List of all arguments */
 ){
   HtmlElement *p, *pElem;
-  int i, idx=0, ptyp=Html_Unknown, istxt=0, l, n=0; char *cp=0, c, *cp2;
+  int i, idx=0, ptyp=Html_Unknown, istxt=0, l=0, n=0; char *cp=0, c, *cp2;
   if( HtmlGetIndex(htmlPtr, argv[3], &p, &i)!=0 ){
     Tcl_AppendResult(interp,"malformed index: \"", argv[3], "\"", 0);
     return TCL_ERROR;

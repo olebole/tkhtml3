@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlcmd.c,v 1.25 2002/12/18 13:14:26 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlcmd.c,v 1.26 2003/01/06 16:18:10 drh Exp $";
 /*
 ** Routines to implement the HTML widget commands
 **
@@ -14,6 +14,7 @@ static char const rcsid[] = "@(#) $Id: htmlcmd.c,v 1.25 2002/12/18 13:14:26 drh 
 #include <stdlib.h>
 #include "htmlcmd.h"
 #include <X11/Xatom.h>
+#include <string.h>
 
 /*
 ** WIDGET resolve ?URI ...?
@@ -184,8 +185,8 @@ int HtmlParseCmd(
   int objc,              /* Number of arguments */
   Tcl_Obj * CONST objv[] /* List of all arguments */
 ){
-  int i; char *arg1, *arg2, *ypos=0;
-  HtmlIndex iStart, iEnd;
+  int i; char *arg1, *arg2;
+  HtmlIndex iStart;
   HtmlElement *savePtr;
   iStart.p=0; iStart.i=0;
   htmlPtr->LOendPtr = htmlPtr->pLast;
@@ -301,7 +302,7 @@ int HtmlXviewCmd(
   HtmlWidget *htmlPtr,   /* The HTML widget */
   Tcl_Interp *interp,    /* The interpreter */
   int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
+  const char **argv      /* List of all arguments */
 ){
   if( argc==2 ){
     HtmlComputeHorizontalPosition(htmlPtr,interp->result);
@@ -365,7 +366,7 @@ int HtmlYviewCmd(
     int maxY = htmlPtr->maxY;
     int h = HtmlUsableHeight(htmlPtr);
     int offset = htmlPtr->yOffset;
-    int type = Tk_GetScrollInfo(interp,argc,argv,&fraction,&count);
+    int type =Tk_GetScrollInfo(interp,argc,(const char**)argv,&fraction,&count);
     switch( type ){
       case TK_SCROLL_ERROR:
         return TCL_ERROR;

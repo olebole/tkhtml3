@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlsizer.c,v 1.41 2002/12/17 18:24:16 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlsizer.c,v 1.42 2003/01/06 16:18:10 drh Exp $";
 /*
 ** Routines used to compute the style and size of individual elements.
 **
@@ -1085,7 +1085,7 @@ void HtmlTableBgImage(HtmlWidget *htmlPtr, HtmlElement *p) {
 void HtmlSizer(HtmlWidget *htmlPtr){
   HtmlElement *p;
   int iFont = -1;
-  Tk_Font font;
+  Tk_Font font = 0;
   int spaceWidth = 0;
   Tk_FontMetrics fontMetrics;
   char *z;

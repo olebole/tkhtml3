@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlform.c,v 1.30 2002/12/17 18:24:16 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlform.c,v 1.31 2003/01/06 16:18:10 drh Exp $";
 /*
 ** Routines used for processing HTML makeup for forms.
 **
@@ -441,7 +441,7 @@ HtmlElement * HtmlFormIdx(HtmlWidget *htmlPtr, HtmlElement *p, int tag,
 
 /* Return the number of elments of type p in form. */
 int HtmlFormCount(HtmlWidget *htmlPtr, HtmlElement *p, int radio){
-  HtmlElement *q;
+  HtmlElement *q = p;
   switch (p->base.type) {
     case Html_SELECT:
       return p->input.subid;

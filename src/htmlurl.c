@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlurl.c,v 1.24 2002/12/17 18:24:16 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlurl.c,v 1.25 2003/01/06 16:18:10 drh Exp $";
 /*
 ** Routines for processing URLs.
 **
@@ -218,7 +218,7 @@ int HtmlCallResolver(
   
 ){
   int rc = TCL_OK;          /* Return value of this function. */
-  char *z;
+  char *z = 0;
 
   HtmlVerifyLock(htmlPtr);
   if( htmlPtr->zResolverCommand && htmlPtr->zResolverCommand[0] ){
