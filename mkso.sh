@@ -7,7 +7,7 @@
 TCLBASE=/home/drh/tcltk/tcl8.1.1
 TKBASE=/home/drh/tcltk/tk8.1.1
 
-CC='gcc -fPIC -DUSE_TCL_STUBS=1 -O2'
+CC='gcc -fPIC -DUSE_TCL_STUBS=1 -DUSE_TK_STUBS=1 -O2'
 INC="-I. -I$TCLBASE/generic -I$TKBASE/generic"
 set TKLIB="$TKBASE/unix/libtkstub8.1.a -L/usr/X11R6/lib -lX11"
 set TCLLIB="$TCLBASE/unix/libtclstub8.1.a -lm -ldl"

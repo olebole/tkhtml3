@@ -1,6 +1,6 @@
 /*
 ** The main routine for the HTML widget for Tcl/Tk
-** $Revision: 1.20 $
+** $Revision: 1.21 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -1842,14 +1842,25 @@ static int HtmlCommand(
 }
 
 /*
+** The following mess is used to define DLL_EXPORT.  DLL_EXPORT is
+** blank except when we are building a Windows95/NT DLL from this
+** library.  Some special trickery is necessary to make this wall
+** work together with makeheaders.
+*/
+#if INTERFACE
+#define DLL_EXPORT
+#endif
+#if defined(USE_TCL_STUBS) && defined(__WIN32__)
+# undef DLL_EXPORT
+# define DLL_EXPORT __declspec(dllexport)
+#endif
+
+/*
 ** This routine is used to register the "html" command with the
 ** Tcl interpreter.  This is the only routine in this file with
 ** external linkage.
 */
-#if defined(USE_TCL_STUBS) && defined(__WIN32__)
-__declspec(dllexport)
-#endif
-int Tkhtml_Init(Tcl_Interp *interp){
+DLL_EXPORT int Tkhtml_Init(Tcl_Interp *interp){
 #ifdef USE_TCL_STUBS
   if( Tcl_InitStubs(interp,"8.0",0)==0 ){
     return TCL_ERROR;
