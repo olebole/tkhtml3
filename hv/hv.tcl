@@ -5,6 +5,29 @@
 wm title . {HTML File Viewer}
 wm iconname . {HV}
 
+if {[info command html]==""} {
+  foreach f {
+    ./tkhtml.so
+    /usr/lib/tkhtml.so
+    /usr/local/lib/tkhtml.so
+    ./tkhtml.dll
+  } {
+    if {[file exists $f]} {
+      if {[catch {load $f Tkhtml}]==0} break
+    }
+  }
+}
+
+set HtmlTraceMask 0
+set file {}
+foreach a $argv {
+  if {[regexp {^debug=} $a]} {
+    scan $a "debug=0x%x" HtmlTraceMask
+  } else {
+    set file $a
+  }
+}
+
 image create photo biggray -data {
     R0lGODdhPAA+APAAALi4uAAAACwAAAAAPAA+AAACQISPqcvtD6OctNqLs968+w+G4kiW5omm
     6sq27gvH8kzX9o3n+s73/g8MCofEovGITCqXzKbzCY1Kp9Sq9YrNFgsAO///
@@ -37,7 +60,7 @@ html .h.h \
   -bg white -tablerelief flat
 
 proc FormCmd {n cmd args} {
-#  puts "FormCmd: $n $cmd $args"
+  # puts "FormCmd: $n $cmd $args"
   switch $cmd {
     input {
       set w [lindex $args 0]
@@ -48,7 +71,10 @@ proc FormCmd {n cmd args} {
 proc ImageCmd {args} {
   set fn [lindex $args 0]
   if {[catch {image create photo -file $fn} img]} {
-#    tk_messageBox -icon error -message $img -type ok
+    global HtmlTraceMask
+    if {$HtmlTraceMask==0} {
+      tk_messageBox -icon error -message $img -type ok
+    }
     return biggray
   } else {
     global Images
@@ -57,7 +83,7 @@ proc ImageCmd {args} {
   }
 }
 proc ScriptCmd {args} {
-  puts "ScriptCmd: $args"
+  # puts "ScriptCmd: $args"
 }
 proc HrefBinding {x y} {
   set new [.h.h href $x $y]
@@ -143,15 +169,6 @@ proc Refresh {} {
 }
 
 update
-set HtmlTraceMask 0x8
-set file {}
-foreach a $argv {
-  if {[regexp {^debug=} $a]} {
-    scan $a "debug=0x%x" HtmlTraceMask
-  } else {
-    set file $a
-  }
-}
 if {$file!=""} {
   LoadFile $file
 }
