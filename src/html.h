@@ -1,6 +1,6 @@
 /*
 ** Structures and typedefs used by the HTML widget
-** $Revision: 1.20 $
+** $Revision: 1.21 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -27,6 +27,12 @@
 /* #define NAVIGATOR_TABLES 1 */
 /* #define BACKGROUND_COLOR 1 */
 /* #define TABLE_TRIM_BLANK 1 */
+
+/*
+** Version information for the package mechanism.
+*/
+#define HTML_PKGNAME "Tkhtml"
+#define HTML_PKGVERSION "0.0"
 
 /*
 ** Sanity checking macros.

@@ -1,6 +1,6 @@
 /*
 ** The main routine for the HTML widget for Tcl/Tk
-** $Revision: 1.30 $
+** $Revision: 1.31 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -1999,6 +1999,6 @@ DLL_EXPORT int Tkhtml_Init(Tcl_Interp *interp){
 #ifdef DEBUG
   Tcl_LinkVar(interp, "HtmlTraceMask", (char*)&HtmlTraceMask, TCL_LINK_INT);
 #endif
-  TestPoint(0);
+  Tcl_PkgProvide(interp, HTML_PKGNAME, HTML_PKGVERSION);
   return TCL_OK;
 }
