@@ -1,6 +1,6 @@
 /*
 ** A tokenizer that converts raw HTML into a linked list of HTML elements.
-** $Revision: 1.7 $
+** $Revision: 1.8 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -302,6 +302,9 @@ void HtmlTranslateEscapes(char *z){
           TestPoint(0);
         }
       }
+    }else if( ((unsigned char)z[from])>=0x80 && ((unsigned char)z[from])<0xa0 ){
+      z[to++] = (z[from++] & 1)==0 ? 0xbb : 0xab;
+      TestPoint(0);
     }else{
       z[to++] = z[from++];
       TestPoint(0);
