@@ -1,6 +1,6 @@
 /*
 ** Routines used to render HTML onto the screen for the Tk HTML widget.
-** $Revision: 1.17 $
+** $Revision: 1.18 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -776,22 +776,18 @@ static HtmlElement *FillOutBlock(HtmlWidget *htmlPtr, HtmlBlock *p){
         if( pElem->base.style.font != style.font ){
           pElem = pElem->pNext;
           go = 0;
-          TestPoint(0);
         }else if( (style.flags & STY_Preformatted)!=0 
                   && (pElem->base.flags & HTML_NewLine)!=0 ){
           pElem = pElem->pNext;
           go = 0;
-          TestPoint(0);
-        }else{
-          TestPoint(0);
         }
         break;
 
       case Html_Block:
         UnlinkAndFreeBlock(htmlPtr,&pElem->block);
-        TestPoint(0);
         break;
 
+      case Html_A:
       case Html_EndA:
         go = 0;
         break;
@@ -831,14 +827,12 @@ static HtmlElement *FindStartOfNextBlock(
     HtmlElement *pNext = p->pNext;
     if( p->base.type==Html_Block ){
       UnlinkAndFreeBlock(htmlPtr, &p->block);
-      TestPoint(0);
     }else{
       cnt++;
-      TestPoint(0);
     }
     p = pNext;
   }
-  if( pCnt ){ TestPoint(0); *pCnt = cnt; }
+  if( pCnt ){ *pCnt = cnt; }
   return p;
 }
 
@@ -855,10 +849,8 @@ void HtmlFormBlocks(HtmlWidget *htmlPtr){
 
   if( htmlPtr->lastBlock ){
     pElem = FillOutBlock(htmlPtr, htmlPtr->lastBlock);
-    TestPoint(0);
   }else{
     pElem = htmlPtr->pFirst;
-    TestPoint(0);
   }
   while( pElem ){
     int cnt;
@@ -867,14 +859,9 @@ void HtmlFormBlocks(HtmlWidget *htmlPtr){
       HtmlBlock *pNew = AllocBlock();
       if( htmlPtr->lastBlock ){
         htmlPtr->lastBlock->base.count += cnt;
-        TestPoint(0);
-      }else{
-        TestPoint(0);
       }
       AppendBlock(htmlPtr, pElem, pNew);
       pElem = FillOutBlock(htmlPtr, pNew);
-    }else{
-      TestPoint(0);
     }
   }
 }

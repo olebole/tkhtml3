@@ -1,6 +1,6 @@
 /*
 ** Routines used to compute the style and size of individual elements.
-** $Revision: 1.25 $
+** $Revision: 1.26 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -535,34 +535,22 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         if( z ){
           if( *z=='-' ){
             size = FontSize(style.font) - atoi(&z[1]);
-            TestPoint(0);
           }else if( *z=='+' ){
             size = FontSize(style.font) + atoi(&z[1]);
-            TestPoint(0);
           }else{
             size = atoi(z);
-            TestPoint(0);
           }
           if( size <= 0 ){ 
             size = 1;
-            TestPoint(0);
-          }else{
-            TestPoint(0);
           }
           if( size >= N_FONT_SIZE ){
             size = N_FONT_SIZE - 1;
-            TestPoint(0);
-          }else{
-            TestPoint(0);
           }
           style.font = FontFamily(style.font) + size - 1;
         }
         z = HtmlMarkupArg(p,"color",0);
         if( z ){
           style.color = HtmlGetColorByName(htmlPtr, z);
-          TestPoint(0);
-        }else{
-          TestPoint(0);
         }
         PushStyleStack(htmlPtr, 
             p->base.type==Html_FONT ? Html_EndFONT : Html_EndBASEFONT, style);
