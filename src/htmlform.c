@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlform.c,v 1.21 2000/01/31 13:23:46 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlform.c,v 1.22 2000/02/25 13:57:03 drh Exp $";
 /*
 ** Routines used for processing HTML makeup for forms.
 **
@@ -131,6 +131,7 @@ void HtmlDeleteControls(HtmlWidget *htmlPtr){
       if( htmlPtr->clipwin!=0 ) Tk_DestroyWindow(p->input.tkwin);
       p->input.tkwin = 0;
     }
+    p->input.sized = 0;
   }
   HtmlUnlock(htmlPtr);
 }
@@ -221,6 +222,7 @@ static void EmptyInput(HtmlElement *pElem){
   pElem->input.h = 0;
   pElem->base.flags &= !HTML_Visible;
   pElem->base.style.flags |= STY_Invisible;
+  pElem->input.sized = 1;
 }
 
 /*
@@ -307,12 +309,11 @@ static void SizeAndLink(HtmlWidget *htmlPtr, char *zWin, HtmlElement *pElem){
   pElem->input.pNext = 0;
   if( htmlPtr->firstInput==0 ){
     htmlPtr->firstInput = pElem;
-    TestPoint(0);
   }else{
     htmlPtr->lastInput->input.pNext = pElem;
-    TestPoint(0);
   }
   htmlPtr->lastInput = pElem;
+  pElem->input.sized = 1;
 }
 
 /* Append all text and space tokens between pStart and pEnd to
@@ -419,6 +420,7 @@ int HtmlControlSize(HtmlWidget *htmlPtr, HtmlElement *pElem){
   int incomplete = 0;    /* True if data is incomplete */
   Tcl_DString cmd;       /* The complete -formcommand callback */
  
+  if( pElem->input.sized ) return 0;
   pElem->input.type = InputType(pElem);
   switch( pElem->input.type ){
     case INPUT_TYPE_Checkbox:

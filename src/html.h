@@ -1,6 +1,6 @@
 /*
 ** Structures and typedefs used by the HTML widget
-** $Revision: 1.27 $
+** $Revision: 1.28 $
 **
 ** Copyright (C) 1997-2000 D. Richard Hipp
 **
@@ -437,8 +437,8 @@ struct HtmlImage {
   Tk_Image image;          /* The Tk image token */
   Html_32 w;               /* Requested width of this image (0 if none) */
   Html_32 h;               /* Requested height of this image (0 if none) */
-  char *zUrl;              /* The URL for this image.  (Points to memory
-                           ** held in markup.argv[]) */
+  char *zUrl;              /* The URL for this image. */
+  char *zWidth, *zHeight;  /* Width and height in the <img> markup. */
   HtmlImage *pNext;        /* Next image on the list */
   HtmlElement *pList;      /* List of all <IMG> markups that use this 
                            ** same image */
@@ -505,6 +505,7 @@ struct HtmlInput {
   Html_u8 textAscent;      /* Ascent for the current font */
   Html_u8 textDescent;     /* descent for the current font */
   Html_u8 type;            /* What type of input is this? */
+  Html_u8 sized;           /* True if this input has been sized already */
   Html_u16 cnt;            /* Used to derive widget name. 0 if no widget */
 };
 

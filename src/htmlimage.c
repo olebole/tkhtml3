@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlimage.c,v 1.11 2000/01/31 13:23:46 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlimage.c,v 1.12 2000/02/25 13:57:03 drh Exp $";
 /*
 ** Routines used for processing <IMG> markup
 **
@@ -148,6 +148,7 @@ HtmlImage *HtmlGetImage(HtmlWidget *htmlPtr, HtmlElement *p){
   HtmlImage *pImage;
   int result;
   Tcl_DString cmd;
+  int lenSrc, lenW, lenH;   /* Lengths of various strings */
 
   if( p->base.type!=Html_IMG ){ CANT_HAPPEN; return 0; }
   if( htmlPtr->zGetImage==0 || htmlPtr->zGetImage[0]==0 ){
@@ -164,12 +165,12 @@ HtmlImage *HtmlGetImage(HtmlWidget *htmlPtr, HtmlElement *p){
   zWidth = HtmlMarkupArg(p, "width", "");
   zHeight = HtmlMarkupArg(p, "height", "");
   for(pImage=htmlPtr->imageList; pImage; pImage=pImage->pNext){
-    if( strcmp(pImage->zUrl,zSrc)==0 ){
+    if( strcmp(pImage->zUrl,zSrc)==0 
+    &&  strcmp(pImage->zWidth, zWidth)==0
+    &&  strcmp(pImage->zHeight, zHeight)==0 ){
       HtmlFree(zSrc);
-      TestPoint(0);
       return pImage;
     }
-    TestPoint(0);
   }
   Tcl_DStringInit(&cmd);
   Tcl_DStringAppend(&cmd, htmlPtr->zGetImage, -1);
@@ -184,15 +185,21 @@ HtmlImage *HtmlGetImage(HtmlWidget *htmlPtr, HtmlElement *p){
   Tcl_DStringFree(&cmd);
   if( HtmlUnlock(htmlPtr) ){
     HtmlFree(zSrc);
-    return 0;
   }
   zImageName = htmlPtr->interp->result;
-  pImage = HtmlAlloc( sizeof(HtmlImage) + strlen(zSrc) + 1 );
+  lenSrc = strlen(zSrc);
+  lenW = strlen(zWidth);
+  lenH = strlen(zHeight);
+  pImage = HtmlAlloc( sizeof(HtmlImage) + lenSrc + lenW + lenH + 3 );
   memset(pImage,0,sizeof(HtmlImage));
   pImage->htmlPtr = htmlPtr;
   pImage->zUrl = (char*)&pImage[1];
   strcpy(pImage->zUrl,zSrc);
   HtmlFree(zSrc);
+  pImage->zWidth = &pImage->zUrl[lenSrc+1];
+  strcpy(pImage->zWidth, zWidth);
+  pImage->zHeight = &pImage->zWidth[lenW+1];
+  strcpy(pImage->zHeight, zHeight);
   pImage->w = 0;
   pImage->h = 0;
   if( result==TCL_OK ){

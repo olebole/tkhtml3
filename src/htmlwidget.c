@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlwidget.c,v 1.42 2000/02/25 02:19:29 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlwidget.c,v 1.43 2000/02/25 13:57:03 drh Exp $";
 /*
 ** The main routine for the HTML widget for Tcl/Tk
 **
@@ -369,13 +369,10 @@ static void HtmlRedrawCallback(ClientData clientData){
     HtmlImage *pImage;
     for(pImage=htmlPtr->imageList; pImage; pImage=pImage->pNext){
       pImage->pList = 0;
-      TestPoint(0);
     }
     htmlPtr->lastSized = 0;
     htmlPtr->flags &= ~RESIZE_ELEMENTS;
     htmlPtr->flags |= RELAYOUT;
-  }else{
-    TestPoint(0);
   }
 
   /* We used to make a distinction between RELAYOUT and EXTEND_LAYOUT.
@@ -392,9 +389,6 @@ static void HtmlRedrawCallback(ClientData clientData){
   && (htmlPtr->flags & STYLER_RUNNING)==0 ){
     htmlPtr->nextPlaced = 0;
     htmlPtr->nInput = 0;
-#if 0
-    HtmlDeleteControls(htmlPtr);
-#endif
     htmlPtr->varId = 0;
     htmlPtr->maxX = 0;
     htmlPtr->maxY = 0;

@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlsizer.c,v 1.33 2000/02/01 12:34:22 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlsizer.c,v 1.34 2000/02/25 13:57:03 drh Exp $";
 /*
 ** Routines used to compute the style and size of individual elements.
 **
@@ -1121,7 +1121,6 @@ void HtmlSizer(HtmlWidget *htmlPtr){
           p->image.descent = fontMetrics.descent;
           p->image.zAlt = HtmlMarkupArg(p, "alt", "<image>");
           p->image.w = Tk_TextWidth(font, p->image.zAlt, strlen(p->image.zAlt));
-          TestPoint(0);
         }else{
           int w, h;
           p->image.pNext = p->image.pImage->pList;
@@ -1131,7 +1130,6 @@ void HtmlSizer(HtmlWidget *htmlPtr){
           p->image.w = w;
           p->image.ascent = h/2;
           p->image.descent = h - p->image.ascent;
-          TestPoint(0);
         }
         if( (z = HtmlMarkupArg(p, "width", 0))!=0 ){
           int w = atoi(z);
@@ -1153,7 +1151,6 @@ void HtmlSizer(HtmlWidget *htmlPtr){
         p->input.textAscent = fontMetrics.ascent;
         p->input.textDescent = fontMetrics.descent;
         stop = HtmlControlSize(htmlPtr, p);
-        TestPoint(0);
         break;
       case Html_SELECT:
       case Html_TEXTAREA:
@@ -1166,19 +1163,15 @@ void HtmlSizer(HtmlWidget *htmlPtr){
           p->ref.pOther->input.pEnd = p;
           stop = HtmlControlSize(htmlPtr, p->ref.pOther);
         }
-        TestPoint(0);
         break;
       default:
         p->base.flags &= ~HTML_Visible;
-        TestPoint(0);
         break;
     }
   }
   if( p ){
     htmlPtr->lastSized = p;
-    TestPoint(0);
   }else{
     htmlPtr->lastSized = htmlPtr->pLast;
-    TestPoint(0);
   }
 }
