@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlwidget.c,v 1.50 2002/03/12 02:59:48 peter Exp $";
+static char const rcsid[] = "@(#) $Id: htmlwidget.c,v 1.51 2002/03/12 03:06:10 peter Exp $";
 /*
 ** The main routine for the HTML widget for Tcl/Tk
 **
@@ -1892,7 +1892,7 @@ int HtmlCommand(
       Tcl_DStringAppend(&str, ":", 1);
     }
     if (argv[3][0]) {
-      Tcl_DStringAppend(&str, "//", 1);
+      Tcl_DStringAppend(&str, "//", 2);
       Tcl_DStringAppend(&str, argv[3], -1);
     }
     if (argv[4][0]) {
