@@ -2,7 +2,7 @@
 #
 # Construct the web page for tkhtml
 #
-# @(#) $Id: mkwebpage.tcl,v 1.3 2000/02/13 18:47:31 drh Exp $
+# @(#) $Id: mkwebpage.tcl,v 1.4 2000/06/21 00:39:06 drh Exp $
 #
 
 set p [open publish.sh w]
@@ -158,10 +158,10 @@ reaching the anonymous CVS server are on the tkhtml
 }
 foreach {file desc} {
   tkhtml.tar.gz   {A tarball containing all the latest source code}
-  hv.tcl          {The "Html Viewer" example application}
+  hv.tcl.gz       {The "Html Viewer" example application}
   spec.html       {A raw specification of how the tkhtml widget works}
-  tkhtml.so       {Shared library suitable for use on Linux}
-  tkhtml.dll      {A DLL suitable for use on Windows95/98/NT/2K}
+  tkhtml.so.gz    {Shared library suitable for use on Linux}
+  tkhtml.dll.zip  {A DLL suitable for use on Windows95/98/NT/2K}
 } {
   if {![file readable $file]} continue
   lappend SendList $file

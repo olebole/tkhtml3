@@ -10,12 +10,12 @@
 # using cygwin/mingw.  Do not use the tclstub81.lib and tkstub81.lib
 # files that come with Tcl/Tk from scripts.  They won't work.
 #
-# $Revision: 1.7 $
+# $Revision: 1.8 $
 #
 
 LIBHOME=/home/drh/tcltk/win32/lib
-TCLBASE=/home/drh/tcltk/tcl8.2.1
-TKBASE=/home/drh/tcltk/tk8.2.1
+TCLBASE=/home/drh/tcltk/tcl8.2.3
+TKBASE=/home/drh/tcltk/tk8.2.3
 TKLIB="$LIBHOME/tkstub82.a"
 TCLLIB="$LIBHOME/tclstub82.a"
 
