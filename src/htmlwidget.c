@@ -1,6 +1,6 @@
 /*
 ** The main routine for the HTML widget for Tcl/Tk
-** $Revision: 1.31 $
+** $Revision: 1.32 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -339,7 +339,11 @@ static void HtmlRedrawCallback(ClientData clientData){
   HtmlBlock *pBlock;       /* For looping over blocks to be drawn */
   int redoSelection = 0;   /* True to recompute the selection */
   
-  if( tkwin==0 || !Tk_IsMapped(tkwin) ){
+  /* 
+  ** Don't bother doing anything if the widget is in the process of
+  ** being destroyed.
+  */
+  if( tkwin==0 ){
     goto redrawExit;
   }
 
@@ -413,6 +417,12 @@ static void HtmlRedrawCallback(ClientData clientData){
     }
   }
   htmlPtr->flags &= ~REDRAW_PENDING;
+
+  /* No need to do any actual drawing if we aren't mapped
+  */
+  if( !Tk_IsMapped(tkwin) ){
+    goto redrawExit;
+  }
 
   /* Redraw the scrollbars.  Take care here, since the scrollbar
   ** update command could (in theory) delete the html widget, or
