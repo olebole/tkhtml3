@@ -1,7 +1,7 @@
 /*
 ** This file contains the TestPoint routines used for profiling
 ** and coverage analysis of the code.
-** $Revision: 1.3 $
+** $Revision: 1.4 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -90,14 +90,18 @@ void HtmlTestPointDump(char *filename){
 ** UNTESTED gets executed.
 */
 void HtmlTPUntested(const char *zFile, int line){
+#ifndef USE_TCL_STUBS
   fprintf(stderr,"Untested HTML Widget code executed in file %s line %d\n",
           zFile,line);
+#endif
 }
 
 /* This function reports an error to stderr when safety code that should
 ** never execute is called.
 */
 void HtmlTPCantHappen(const char *zFile, int line){
+#ifndef USE_TCL_STUBS
   fprintf(stderr,"Unplanned behavior in the HTML Widget in file %s line %d\n",
           zFile,line);
+#endif
 }

@@ -10,7 +10,7 @@ TKBASE=/home/drh/tcltk/tk8.1.1
 
 PATH=$PATH:/opt/cygwin20/bin
 
-CC='i586-cygwin32-gcc -DUSE_TCL_STUBS=1 -DUSE_TK_STUBS -O2'
+CC='i586-cygwin32-gcc -DUSE_TCL_STUBS=1 -DUSE_TK_STUBS -mno-cygwin -O2'
 INC="-I. -I$TCLBASE/generic -I$TKBASE/generic"
 TKLIB="$LIBHOME/tkstub81.lib"
 TCLLIB="$LIBHOME/tclstub81.lib"
@@ -18,7 +18,7 @@ TCLLIB="$LIBHOME/tclstub81.lib"
 CMD="rm *.o"
 echo $CMD
 $CMD
-for i in *.c; do
+for i in htmlwidget.c; do
   CMD="$CC $INC -c $i"
   echo $CMD
   $CMD
@@ -26,9 +26,10 @@ done
 echo 'EXPORTS' >tkhtml.def
 echo 'Tkhtml_Init' >>tkhtml.def
 CMD="i586-cygwin32-dllwrap \
-     --def tkhtml.def -v \
+     --def tkhtml.def -v --export-all \
      --driver-name i586-cygwin32-gcc \
      --dlltool-name i586-cygwin32-dlltool \
-     -o tkhtml.dll *.o $TKLIB $TCLLIB"
+     --as i586-cygwin32-as \
+     -dllname tkhtml.dll *.o $TKLIB $TCLLIB"
 echo $CMD
 $CMD
