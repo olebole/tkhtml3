@@ -1,6 +1,6 @@
 /*
 ** A tokenizer that converts raw HTML into a linked list of HTML elements.
-** $Revision: 1.12 $
+** $Revision: 1.13 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -595,11 +595,12 @@ static int Tokenize(
       continue;
     }else if( isspace(c) ){
       /* White space */
-      for(i=0; (c=z[n+i])!=0 && isspace(c) && c!='\n'; i++){ TestPoint(0); }
+      for(i=0; (c=z[n+i])!=0 && isspace(c) && c!='\n' && c!='\r'; i++){}
+      if( c=='\r' && z[n+i+1]=='\n' ){ i++; }
       pElem = HtmlAlloc( sizeof(HtmlSpaceElement) );
       if( pElem==0 ){ TestPoint(0); goto incomplete; }
       pElem->base.type = Html_Space;
-      if( c=='\n' ){
+      if( c=='\n' || c=='\r' ){
         pElem->base.flags = HTML_NewLine;
         pElem->base.count = 1;
         i++;
