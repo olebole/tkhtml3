@@ -1,6 +1,6 @@
 /*
 ** Routines for doing layout of HTML tables
-** $Revision: 1.23 $
+** $Revision: 1.24 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -434,7 +434,7 @@ static HtmlElement *TableDimensions(
   /* Compute the min and max width of the whole table
   */
   n = pStart->table.nCol;
-  requestedW = tbw*2 + (n-1)*(cellSpacing + cbw) + n*2*cellPadding;
+  requestedW = tbw*2 + (n+1)*cellSpacing + n*2*(cellPadding + cbw);
   pStart->table.minW[0] = requestedW;
   pStart->table.maxW[0] = requestedW;
   for(i=1; i<=pStart->table.nCol; i++){
