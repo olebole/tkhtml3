@@ -5,7 +5,7 @@
 # This application is used for testing the HTML widget.  It can
 # also server as an example of how to use the HTML widget.
 # 
-# @(#) $Id: hv.tcl,v 1.22 2000/01/17 14:33:33 drh Exp $
+# @(#) $Id: hv.tcl,v 1.23 2000/01/21 13:22:34 drh Exp $
 #
 wm title . {HTML File Viewer}
 wm iconname . {HV}
@@ -66,13 +66,18 @@ image create photo nogifsm -data {
 #
 frame .mbar -bd 2 -relief raised
 pack .mbar -side top -fill x
-menubutton .mbar.help -text File -underline 0 -menu .mbar.help.m
-pack .mbar.help -side left -padx 5
-set m [menu .mbar.help.m]
+menubutton .mbar.file -text File -underline 0 -menu .mbar.file.m
+pack .mbar.file -side left -padx 5
+set m [menu .mbar.file.m]
 $m add command -label Open -underline 0 -command Load
 $m add command -label Refresh -underline 0 -command Refresh
 $m add separator
 $m add command -label Exit -underline 1 -command exit
+menubutton .mbar.view -text View -underline 0 -menu .mbar.view.m
+pack .mbar.view -side left -padx 5
+set m [menu .mbar.view.m]
+set underlineHyper 0
+$m add checkbutton -label {Underline Hyperlinks} -variable underlineHyper
 
 frame .h
 pack .h -side top -fill both -expand 1
@@ -85,7 +90,14 @@ html .h.h \
   -imagecommand ImageCmd \
   -scriptcommand ScriptCmd \
   -appletcommand AppletCmd \
+  -underlinehyperlinks 0 \
   -bg white -tablerelief raised
+
+trace variable underlineHyper w ChangeUnderline
+proc ChangeUnderline args {
+  global underlineHyper
+  .h.h config -underlinehyperlinks $underlineHyper
+}
 
 # If the tracemask is not 0, then draw the outline of all
 # tables as a blank line, not a 3D relief.

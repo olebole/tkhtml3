@@ -1,6 +1,6 @@
 /*
 ** Structures and typedefs used by the HTML widget
-** $Revision: 1.22 $
+** $Revision: 1.23 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -849,6 +849,7 @@ struct HtmlWidget {
                                  * event. */
   int padx, pady;               /* Separation between the edge of the window
                                  * and rendered HTML.  */
+  int underlineLinks;           /* TRUE if we should underline hyperlinks */
 
   /* Information about the selection
   */

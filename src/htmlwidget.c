@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlwidget.c,v 1.37 2000/01/17 13:55:11 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlwidget.c,v 1.38 2000/01/21 13:22:34 drh Exp $";
 /*
 ** The main routine for the HTML widget for Tcl/Tk
 **
@@ -129,6 +129,8 @@ static Tk_ConfigSpec configSpecs[] = {
 	TK_CONFIG_NULL_OK},
     {TK_CONFIG_COLOR, "-unvisitedcolor", "foreground", "Foreground",
 	DEF_HTML_UNVISITED, Tk_Offset(HtmlWidget, newLinkColor), 0},
+    {TK_CONFIG_BOOLEAN, "-underlinehyperlinks", "underlineHyperlinks",
+        "UnderlineHyperlinks", "1", Tk_Offset(HtmlWidget, underlineLinks), 0},
     {TK_CONFIG_COLOR, "-visitedcolor", "foreground", "Foreground",
 	DEF_HTML_VISITED, Tk_Offset(HtmlWidget, oldLinkColor), 0},
     {TK_CONFIG_PIXELS, "-width", "width", "Width",

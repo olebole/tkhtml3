@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmldraw.c,v 1.21 2000/01/17 13:55:09 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmldraw.c,v 1.22 2000/01/21 13:22:34 drh Exp $";
 /*
 ** Routines used to render HTML onto the screen for the Tk HTML widget.
 **
@@ -364,9 +364,6 @@ void HtmlBlockDraw(
       DrawSelectionBackground(htmlPtr, pBlock, drawable, 
                               drawableLeft, drawableTop);
       if( HtmlUnlock(htmlPtr) ) return;
-      TestPoint(0);
-    }else{
-      TestPoint(0);
     }
     gc = HtmlGetGC(htmlPtr, src->base.style.color, src->base.style.font);
     font = HtmlGetFont(htmlPtr, src->base.style.font);
@@ -376,16 +373,18 @@ void HtmlBlockDraw(
                  gc, font,
                  pBlock->z, pBlock->n,
                  x - drawableLeft, y - drawableTop);
+    if( src->base.style.flags & STY_Anchor && htmlPtr->underlineLinks ){
+      Tk_UnderlineChars(htmlPtr->display, drawable, gc, font, pBlock->z,
+                        x - drawableLeft, y-drawableTop, 0, pBlock->n);
+    }
     if( pBlock==htmlPtr->pInsBlock && htmlPtr->insStatus>0 ){
       int x;
       XRectangle xrec;
       if( htmlPtr->insIndex < pBlock->n ){
         x = src->text.x - drawableLeft;
         x += Tk_TextWidth(font, pBlock->z, htmlPtr->insIndex);
-        TestPoint(0);
       }else{
         x = pBlock->right - drawableLeft;
-        TestPoint(0);
       }
       if( x>0 ){ TestPoint(0); x--; }
       xrec.x = x;
