@@ -146,3 +146,36 @@ formats: (1) the name, (2) as &amp;entity;, (3) as &amp;#123;, and
 }
   ::tcltest::user-result
 } {0 pass}
+
+::tcltest::test html-1.2 {
+  Verify stylistic markup.
+} {
+  set h [tkhtml_test_widget]
+  $h clear
+  $h parse {
+<html>
+<body>
+<h1>A test of font changing markup</h1>
+
+<p>This is normal text</p>
+<p>&lt;b&gt;: <b>bold text</b></p>
+<p>&lt;big&gt;: <big>big text</big></p>
+<p>&lt;cite&gt;: <cite>cite text</cite></p>
+<p>&lt;code&gt;: <code>code text</code></p>
+<p>&lt;em&gt;: <em>emphasized text</em></p>
+<p>&lt;i&gt;: <i>italic text</i></p>
+<p>&lt;kbd&gt;: <kbd>keyboard text</kbd></p>
+<p>&lt;s&gt;: <s>strike-thru text</s></p>
+<p>&lt;samp&gt;: <samp>sample text</samp></p>
+<p>&lt;small&gt;: <small>small text</small></p>
+<p>&lt;strike&gt;: <strike>strike-thru text</strike></p>
+<p>&lt;strong&gt;: <strong>strong text</strong></p>
+<p>&lt;tt&gt;: <tt>teletype text</tt></p>
+<p>&lt;u&gt;: <u>underlined text</u></p>
+<p>&lt;var&gt;: <var>variable text</var></p>
+<p>This is normal text</p>
+</body>
+</html>
+}
+  ::tcltest::user-result
+} {0 pass}

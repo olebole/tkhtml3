@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmldraw.c,v 1.22 2000/01/21 13:22:34 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmldraw.c,v 1.23 2000/01/31 13:19:01 drh Exp $";
 /*
 ** Routines used to render HTML onto the screen for the Tk HTML widget.
 **
@@ -373,9 +373,17 @@ void HtmlBlockDraw(
                  gc, font,
                  pBlock->z, pBlock->n,
                  x - drawableLeft, y - drawableTop);
-    if( src->base.style.flags & STY_Anchor && htmlPtr->underlineLinks ){
+    if( src->base.style.flags & STY_Underline ){
       Tk_UnderlineChars(htmlPtr->display, drawable, gc, font, pBlock->z,
                         x - drawableLeft, y-drawableTop, 0, pBlock->n);
+    }
+    if( src->base.style.flags & STY_StrikeThru ){
+      XRectangle xrec;
+      xrec.x = pBlock->left - drawableLeft;
+      xrec.y = (pBlock->top + pBlock->bottom)/2 - drawableTop;
+      xrec.width = pBlock->right - pBlock->left;
+      xrec.height = 1 + (pBlock->bottom - pBlock->top > 15);
+      XFillRectangles(htmlPtr->display, drawable, gc, &xrec, 1);
     }
     if( pBlock==htmlPtr->pInsBlock && htmlPtr->insStatus>0 ){
       int x;
@@ -746,6 +754,8 @@ static HtmlElement *FillOutBlock(HtmlWidget *htmlPtr, HtmlBlock *p){
         if( y != pElem->text.y 
         ||  style.font != pElem->base.style.font
         ||  style.color != pElem->base.style.color
+        ||  (style.flags & STY_FontMask) 
+              != (pElem->base.style.flags & STY_FontMask)
         ){
           go = 0;
           TestPoint(0);

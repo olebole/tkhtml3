@@ -1,6 +1,6 @@
 /*
 ** Structures and typedefs used by the HTML widget
-** $Revision: 1.24 $
+** $Revision: 1.25 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -194,7 +194,7 @@ struct HtmlStyle {
 **
 **  STY_StrikeThru         Draw a solid line thru the middle of this text.
 **
-**  STY_Blink              This text should blink on and off.
+**  STY_Underline          This text should drawn with an underline.
 **
 **  STY_NoBreak            This text occurs within <nobr>..</nobr>
 **
@@ -208,11 +208,12 @@ struct HtmlStyle {
 */
 #define STY_Preformatted    0x001
 #define STY_StrikeThru      0x002
-#define STY_Blink           0x004
+#define STY_Underline       0x004
 #define STY_NoBreak         0x008
 #define STY_Anchor          0x010
 #define STY_DT              0x020
 #define STY_Invisible       0x040
+#define STY_FontMask        (STY_StrikeThru|STY_Underline)
 
 /*
 ** The first thing done with input HTML text is to parse it into

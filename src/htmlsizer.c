@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlsizer.c,v 1.29 2000/01/17 13:55:10 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlsizer.c,v 1.30 2000/01/31 13:19:02 drh Exp $";
 /*
 ** Routines used to compute the style and size of individual elements.
 **
@@ -315,6 +315,9 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         if( z ){
           HtmlLock(htmlPtr);
           style.color = GetLinkColor(htmlPtr, z);
+          if( htmlPtr->underlineLinks ){
+            style.flags |= STY_Underline;
+          }
           if( HtmlUnlock(htmlPtr) ) return;
           anchorFlags |= STY_Anchor;
           PushStyleStack(htmlPtr, Html_EndA, style);
@@ -367,13 +370,16 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
       case Html_EndNOBR:
       case Html_EndNOFRAME:
       case Html_EndNOSCRIPT:
+      case Html_EndS:
       case Html_EndSAMP:
       case Html_EndSMALL:
+      case Html_EndSTRIKE:
       case Html_EndSTRONG:
       case Html_EndSUB:
       case Html_EndSUP:
       case Html_EndTITLE:
       case Html_EndTT:
+      case Html_EndU:
       case Html_EndVAR:
         style = HtmlPopStyleStack(htmlPtr, p->base.type);
         TestPoint(0);
@@ -951,6 +957,10 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         style.font = CWFont( FontSize(style.font) );
         PushStyleStack(htmlPtr, Html_EndTT, style);
         TestPoint(0);
+        break;
+      case Html_U:
+        style.flags |= STY_Underline;
+        PushStyleStack(htmlPtr, Html_EndU, style);
         break;
       case Html_VAR:
         style.font = ItalicFont( FontSize(style.font) );
