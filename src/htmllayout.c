@@ -1,7 +1,7 @@
 /*
 ** This file contains the code used to position elements of the
 ** HTML file on the screen.
-** $Revision: 1.6 $
+** $Revision: 1.7 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -165,12 +165,14 @@ void HtmlClearMarginStack(HtmlMargin **ppMargin){
 ** to position the line horizontally.  (The FixLine() procedure does
 ** this.)  Note that the "x" coordinate of <li> elements will be negative.
 ** Text within <dt>..</dt> might also have a negative "x" coordinate.
+** But in no case will the x coordinate every be less than "minX".
 */
 static HtmlElement *GetLine(
   HtmlLayoutContext *pLC,      /* The complete layout context.  */
   HtmlElement *pStart,         /* First token on new line */
   HtmlElement *pEnd,           /* End of line.  Might be NULL */
   int width,                   /* How much space is on this line */
+  int minX,                    /* The minimum value of the X coordinate */
   int *actualWidth             /* Return space actually required */
 ){
   int x;                       /* Current X coordinate */
@@ -194,8 +196,13 @@ static HtmlElement *GetLine(
     TestPoint(0);
   }
   x = origin;
+  if( x<minX ){ x = minX; }
   if( p && p!=pEnd && p->base.type==Html_LI ){
-    p->li.x = x - (HTML_INDENT*1)/3;
+    p->li.x = x - HTML_INDENT/3;
+    if( p->li.x - (HTML_INDENT*2)/3<minX ){
+      x += minX - p->li.x + (HTML_INDENT*2)/3;
+      p->li.x = minX + (HTML_INDENT*2)/3;
+    }
     isEmpty = 0;
     *actualWidth = 1;
     p = p->pNext;
@@ -806,8 +813,7 @@ static void ClearObstacle(HtmlLayoutContext *pLC, int mode){
           HtmlPopOneMargin(&pLC->leftMargin);
           TestPoint(0);
         }
-      }else if( pLC->rightMargin && pLC->rightMargin->bottom>=0 
-           && pLC->rightMargin->bottom < LARGE_NUMBER ){
+      }else if( pLC->rightMargin && pLC->rightMargin->bottom>=0 ){
         newBottom = pLC->rightMargin->bottom;
         HtmlPopOneMargin(&pLC->rightMargin);
         TestPoint(0);
@@ -1058,11 +1064,11 @@ static HtmlElement *DoBreakMarkup(
 ** one or more images.
 */
 static int InWrapAround(HtmlLayoutContext *pLC){
-  if( pLC->leftMargin && pLC->leftMargin->bottom < LARGE_NUMBER ){
+  if( pLC->leftMargin && pLC->leftMargin->bottom >= 0 ){
     TestPoint(0);
     return 1;
   }
-  if( pLC->rightMargin && pLC->rightMargin->bottom < LARGE_NUMBER ){
+  if( pLC->rightMargin && pLC->rightMargin->bottom >= 0 ){
     TestPoint(0);
     return 1;
   }
@@ -1105,7 +1111,8 @@ void HtmlLayoutBlock(HtmlLayoutContext *pLC){
       ComputeMargins(pLC, &leftMargin, &y, &lineWidth);
 
       /* Layout a single line of text */
-      pNext = GetLine(pLC, p, pLC->pEnd, lineWidth, &actualWidth);
+      pNext = GetLine(pLC, p, pLC->pEnd, lineWidth, pLC->left-leftMargin,
+                      &actualWidth);
       TRACE(HtmlTrace_GetLine,
          ("GetLine page=%d left=%d right=%d available=%d used=%d\n",
          pLC->pageWidth, pLC->left, pLC->right, lineWidth, actualWidth));

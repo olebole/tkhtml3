@@ -1,6 +1,6 @@
 /*
 ** Routines used to render HTML onto the screen for the Tk HTML widget.
-** $Revision: 1.4 $
+** $Revision: 1.5 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -463,7 +463,7 @@ void HtmlBlockDraw(
           TestPoint(0);
         }
         break;
-      case Html_TR:
+      case Html_TH:
       case Html_TD:
         pTable = src->cell.pTable;
         if( pTable->table.borderWidth ){
