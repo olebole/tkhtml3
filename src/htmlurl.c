@@ -1,6 +1,6 @@
 /*
 ** Routines for processing URLs.
-** $Revision: 1.8 $
+** $Revision: 1.9 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -225,7 +225,7 @@ int HtmlCallResolver(
     Tcl_DStringAppend(&cmd, htmlPtr->zResolverCommand, -1);
     if( htmlPtr->zBaseHref && htmlPtr->zBaseHref[0] ){
       Tcl_DStringAppend(&cmd, " ", 1);
-      Tcl_DStringAppend(&cmd, htmlPtr->zBase, -1);
+      Tcl_DStringAppend(&cmd, htmlPtr->zBaseHref, -1);
     }else if( htmlPtr->zBase && htmlPtr->zBase[0] ){
       Tcl_DStringAppend(&cmd, " ", 1);
       Tcl_DStringAppend(&cmd, htmlPtr->zBase, -1);
