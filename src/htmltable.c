@@ -1,6 +1,6 @@
 /*
 ** Routines for doing layout of HTML tables
-** $Revision: 1.26 $
+** $Revision: 1.27 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -976,10 +976,12 @@ HtmlElement *HtmlTableLayout(
             if( colspan==0 ){
               for(i=iCol+1; i<=pTable->table.nCol; i++){
                 cellContext.pageWidth += w[i] + separation;
+                lastRow[i] = lastRow[iCol];
               }
             }else if( colspan>1 ){
               for(i=iCol+1; i<iCol+colspan; i++){
                 cellContext.pageWidth += w[i] + separation;
+                lastRow[i] = lastRow[iCol];
               }
             }
             cellContext.maxX = 0;
