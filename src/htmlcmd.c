@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlcmd.c,v 1.15 2000/01/29 21:05:59 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlcmd.c,v 1.16 2000/01/30 00:20:51 drh Exp $";
 /*
 ** Routines to implement the HTML widget commands
 **
@@ -154,9 +154,11 @@ int HtmlNamesCmd(
     z = HtmlMarkupArg(p,"name",0);
     if( z ){
       Tcl_AppendElement(interp,z);
-      TestPoint(0);
     }else{
-      TestPoint(0);
+      z = HtmlMarkupArg(p,"id",0);
+      if( z ){
+        Tcl_AppendElement(interp,z);
+      }
     }
   }
   return TCL_OK;
