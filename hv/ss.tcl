@@ -1,10 +1,14 @@
+# @(#) $Id: ss.tcl,v 1.2 1999/12/19 22:24:55 drh Exp $
 #
 # This script implements the "ss" application.  "ss" implements
 # a presentation slide-show based on HTML slides.
 # 
-wm title . {TkHTML Slide Show}
+wm title . {Tk Slide Show}
 wm iconname . {SlideShow}
 
+# Attempt to load the HTML widget if it isn't already part
+# of the interpreter
+#
 if {[info command html]==""} {
   foreach f {
     ./tkhtml.so
@@ -18,6 +22,8 @@ if {[info command html]==""} {
   }
 }
 
+# Pick the initial filename from the command line
+#
 set HtmlTraceMask 0
 set file {}
 foreach a $argv {
@@ -28,6 +34,9 @@ foreach a $argv {
   }
 }
 
+# These are images to use with the actual image specified in a
+# "<img>" markup can't be found.
+#
 image create photo biggray -data {
     R0lGODdhPAA+APAAALi4uAAAACwAAAAAPAA+AAACQISPqcvtD6OctNqLs968+w+G4kiW5omm
     6sq27gvH8kzX9o3n+s73/g8MCofEovGITCqXzKbzCY1Kp9Sq9YrNFgsAO///
@@ -37,12 +46,15 @@ image create photo smgray -data {
     6sq27gvH8kzX9m0VADv/
 }
 
+# Build the half-size view of the page
+#
 frame .mbar -bd 2 -relief raised
 pack .mbar -side top -fill x
 menubutton .mbar.help -text File -underline 0 -menu .mbar.help.m
 pack .mbar.help -side left -padx 5
 set m [menu .mbar.help.m]
 $m add command -label Open -underline 0 -command Load
+$m add command -label {Full Screen} -underline 0 -command FullScreen
 $m add command -label Refresh -underline 0 -command Refresh
 $m add separator
 $m add command -label Exit -underline 1 -command exit
@@ -50,6 +62,7 @@ $m add command -label Exit -underline 1 -command exit
 frame .h
 pack .h -side top -fill both -expand 1
 html .h.h \
+  -width 512 -height 384 \
   -yscrollcommand {.h.vsb set} \
   -xscrollcommand {.f2.hsb set} \
   -padx 5 \
@@ -59,24 +72,30 @@ html .h.h \
   -scriptcommand ScriptCmd \
   -appletcommand AppletCmd \
   -hyperlinkcommand HyperCmd \
+  -fontcommand pickFont \
   -bg white -tablerelief raised
+.h.h token handler meta "Meta .h.h"
 
 if {$HtmlTraceMask} {
   .h.h config -tablerelief flat
 }
 
-.h.h config -fontcommand pickFont
-set baseFontSize 24
+# This routine is called to pick fonts for the half-size window.
+#
 proc pickFont {size attrs} { 
-  puts "FontCmd: $size $attrs"
+  # puts "FontCmd: $size $attrs"
   set a [expr {-1<[lsearch $attrs fixed]?{courier}:{charter}}]
   set b [expr {-1<[lsearch $attrs italic]?{italic}:{roman}}]
   set c [expr {-1<[lsearch $attrs bold]?{bold}:{normal}}]
   set d [expr {int(12*pow(1.2,$size-4))}]
   list $a $d $b $c
-} 
+}
+
+# This routine is called to pick fonts for the fullscreen view.
+#
+set baseFontSize 24
 proc pickFontFS {size attrs} { 
-  puts "FontCmd: $size $attrs"
+  # puts "FontCmd: $size $attrs"
   set a [expr {-1<[lsearch $attrs fixed]?{courier}:{charter}}]
   set b [expr {-1<[lsearch $attrs italic]?{italic}:{roman}}]
   set c [expr {-1<[lsearch $attrs bold]?{bold}:{normal}}]
@@ -86,19 +105,19 @@ proc pickFontFS {size attrs} {
 } 
 
 proc HyperCmd {args} {
-  puts "HyperlinkCommand: $args"
+  # puts "HyperlinkCommand: $args"
 }
 
 proc FormCmd {n cmd args} {
- puts "FormCmd: $n $cmd $args"
-  switch $cmd {
-    select -
-    textarea -
-    input {
-      set w [lindex $args 0]
-      label $w -image smgray
-    }
-  }
+ # puts "FormCmd: $n $cmd $args"
+ #  switch $cmd {
+ #   select -
+ #   textarea -
+ #   input {
+ #     set w [lindex $args 0]
+ #     label $w -image smgray
+ #   }
+ # }
 }
 proc ImageCmd {args} {
   set fn [lindex $args 0]
@@ -115,20 +134,47 @@ proc ImageCmd {args} {
   }
 }
 proc ScriptCmd {args} {
-  puts "ScriptCmd: $args"
+  # puts "ScriptCmd: $args"
 }
 proc AppletCmd {w arglist} {
-  puts "AppletCmd: w=$w arglist=$arglist"
-  label $w -text "The Applet $w" -bd 2 -relief raised
+  # puts "AppletCmd: w=$w arglist=$arglist"
+  # label $w -text "The Applet $w" -bd 2 -relief raised
 }
-proc HrefBinding {x y} {
-  set new [.h.h href $x $y]
-  puts "link to [list $new]"; return
+
+# This binding fires when there is a click on a hyperlink
+#
+proc HrefBinding {w x y} {
+  set new [$w href $x $y]
+  puts "link to [list $new]";
   if {$new!=""} {
     LoadFile $new
   }
 }
-bind .h.h.x <1> {HrefBinding %x %y}
+bind HtmlClip <1> {HrefBinding %W %x %y}
+
+# Clicking button three on the small screen causes the full-screen view
+# to appear.
+#
+bind .h.h.x <3> FullScreen
+
+# Handle all keypress events on the screen
+#
+bind HtmlClip <KeyPress> {KeyPress %W %K}
+proc KeyPress {w keysym} {
+  global hotkey
+  if {[info exists hotkey($keysym)]} {
+    LoadFile $hotkey($keysym)
+  }
+  switch -- $keysym {
+    Escape {
+      if {[winfo exists .fs]} {FullScreenOff} {FullScreen}
+    }
+  }
+}
+
+
+# Finish building the half-size screen
+#
 pack .h.h -side left -fill both -expand 1
 scrollbar .h.vsb -orient vertical -command {.h.h yview}
 pack .h.vsb -side left -fill y
@@ -166,8 +212,10 @@ proc Load {} {
 # Clear the screen.
 #
 proc Clear {} {
-  global Images
-  .h.h clear
+  global Images hotkey
+  if {[winfo exists .fs.h]} {set w .fs.h} {set w .h.h}
+  $w clear
+  catch {unset hotkey}
   foreach img [array names Images] {
     image delete $img
   }
@@ -193,8 +241,9 @@ proc LoadFile {name} {
   Clear
   global LastFile
   set LastFile $name
-   .h.h config -base $name
-  .h.h parse $html
+  if {[winfo exists .fs.h]} {set w .fs.h} {set w .h.h}
+  $w config -base $name
+  $w parse $html
 }
 
 # Refresh the current file.
@@ -205,7 +254,60 @@ proc Refresh {} {
   LoadFile $LastFile
 }
 
+# This routine is called whenever a "<meta>" markup is seen.
+#
+proc Meta {w tag alist} {
+  foreach {name value} $alist {
+    set v($name) $value
+  }
+  if {[info exists v(key)] && [info exists v(href)]} {
+    global hotkey
+    set hotkey($v(key)) [$w resolve $v(href)]
+  }
+}
+
 update
 if {$file!=""} {
   LoadFile $file
 }
+
+proc FullScreenOff {} {
+  destroy .fs 
+  wm deiconify .
+  update
+  raise .
+  focus .h.h.x
+  Refresh 
+}
+
+proc FullScreen {} {
+  if {[winfo exists .fs]} {
+    wm deiconify .fs
+    update
+    raise .fs
+    return
+  }
+  toplevel .fs
+  wm overrideredirect .fs 1
+  set w [winfo screenwidth .]
+  set h [winfo screenheight .]
+  wm geometry .fs ${w}x$h+0+0
+  bind .fs <3> FullScreenOff
+  html .fs.h \
+    -padx 5 \
+    -pady 9 \
+    -formcommand FormCmd \
+    -imagecommand ImageCmd \
+    -scriptcommand ScriptCmd \
+    -appletcommand AppletCmd \
+    -hyperlinkcommand HyperCmd \
+    -bg white -tablerelief raised \
+    -fontcommand pickFontFS \
+    -cursor top_left_arrow
+  pack .fs.h -fill both -expand 1
+  .fs.h token handler meta "Meta .fs.h"
+  Refresh
+  update
+  focus .fs.h.x
+}
+focus .h.h.x
