@@ -1,6 +1,6 @@
 /*
 ** The main routine for the HTML widget for Tcl/Tk
-** $Revision: 1.23 $
+** $Revision: 1.24 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -865,10 +865,11 @@ void HtmlClear(HtmlWidget *htmlPtr){
     if( htmlPtr->apColor[i] != 0 ){
       Tk_FreeColor(htmlPtr->apColor[i]);
       htmlPtr->apColor[i] = 0;
-      TestPoint(0);
-    }else{
-      TestPoint(0);
     }
+  }
+  for(i=0; i<N_COLOR; i++){
+    htmlPtr->iDark[i] = 0;
+    htmlPtr->iLight[i] = 0;
   }
   htmlPtr->colorUsed = 0;
   while( htmlPtr->imageList ){
@@ -1421,7 +1422,7 @@ static int isDarkColor(XColor *p){
   x = 0.50 * p->red;
   y = 1.00 * p->green;
   z = 0.28 * p->blue;
-  return (x*x + y*y + z*z)>0.05*MAX_COLOR*MAX_COLOR;
+  return (x*x + y*y + z*z)<0.05*MAX_COLOR*MAX_COLOR;
 }
 
 /*
@@ -1429,25 +1430,28 @@ static int isDarkColor(XColor *p){
 ** appropriate color for the dark part of a 3D shadow.
 */
 int HtmlGetDarkShadowColor(HtmlWidget *htmlPtr, int iBgColor){
-  XColor *pRef, val;
-  pRef = htmlPtr->apColor[iBgColor];
-  if( isDarkColor(pRef) ){
-    int t1, t2;
-    t1 = MIN(MAX_COLOR,pRef->red*1.2);
-    t2 = (pRef->red*3 + MAX_COLOR)/4;
-    val.red = MAX(t1,t2);
-    t1 = MIN(MAX_COLOR,pRef->green*1.2);
-    t2 = (pRef->green*3 + MAX_COLOR)/4;
-    val.green = MAX(t1,t2);
-    t1 = MIN(MAX_COLOR,pRef->blue*1.2);
-    t2 = (pRef->blue*3 + MAX_COLOR)/4;
-    val.blue = MAX(t1,t2);
-  }else{
-    val.red = pRef->red*0.6;
-    val.green = pRef->green*0.6;
-    val.blue = pRef->blue*0.6;
+  if( htmlPtr->iDark[iBgColor]==0 ){
+    XColor *pRef, val;
+    pRef = htmlPtr->apColor[iBgColor];
+    if( isDarkColor(pRef) ){
+      int t1, t2;
+      t1 = MIN(MAX_COLOR,pRef->red*1.2);
+      t2 = (pRef->red*3 + MAX_COLOR)/4;
+      val.red = MAX(t1,t2);
+      t1 = MIN(MAX_COLOR,pRef->green*1.2);
+      t2 = (pRef->green*3 + MAX_COLOR)/4;
+      val.green = MAX(t1,t2);
+      t1 = MIN(MAX_COLOR,pRef->blue*1.2);
+      t2 = (pRef->blue*3 + MAX_COLOR)/4;
+      val.blue = MAX(t1,t2);
+    }else{
+      val.red = pRef->red*0.6;
+      val.green = pRef->green*0.6;
+      val.blue = pRef->blue*0.6;
+    }
+    htmlPtr->iDark[iBgColor] = GetColorByValue(htmlPtr, &val) + 1;
   }
-  return GetColorByValue(htmlPtr, &val);
+  return htmlPtr->iDark[iBgColor] - 1;
 }
 	
 /*
@@ -1463,25 +1467,28 @@ static int isLightColor(XColor *p){
 ** appropriate color for the bright part of the 3D shadow.
 */
 int HtmlGetLightShadowColor(HtmlWidget *htmlPtr, int iBgColor){
-  XColor *pRef, val;
-  pRef = htmlPtr->apColor[iBgColor];
-  if( isLightColor(pRef) ){
-    val.red = pRef->red*0.9;
-    val.green = pRef->green*0.9;
-    val.blue = pRef->blue*0.9;
-  }else{
-    int t1, t2;
-    t1 = MIN(MAX_COLOR,pRef->green*1.4);
-    t2 = (pRef->green + MAX_COLOR)/2;
-    val.green = MAX(t1,t2);
-    t1 = MIN(MAX_COLOR,pRef->red*1.4);
-    t2 = (pRef->red + MAX_COLOR)/2;
-    val.red = MAX(t1,t2);
-    t1 = MIN(MAX_COLOR,pRef->blue*1.4);
-    t2 = (pRef->blue + MAX_COLOR)/2;
-    val.blue = MAX(t1,t2);
+  if( htmlPtr->iLight[iBgColor]==0 ){
+    XColor *pRef, val;
+    pRef = htmlPtr->apColor[iBgColor];
+    if( isLightColor(pRef) ){
+      val.red = pRef->red*0.9;
+      val.green = pRef->green*0.9;
+      val.blue = pRef->blue*0.9;
+    }else{
+      int t1, t2;
+      t1 = MIN(MAX_COLOR,pRef->green*1.4);
+      t2 = (pRef->green + MAX_COLOR)/2;
+      val.green = MAX(t1,t2);
+      t1 = MIN(MAX_COLOR,pRef->red*1.4);
+      t2 = (pRef->red + MAX_COLOR)/2;
+      val.red = MAX(t1,t2);
+      t1 = MIN(MAX_COLOR,pRef->blue*1.4);
+      t2 = (pRef->blue + MAX_COLOR)/2;
+      val.blue = MAX(t1,t2);
+    }
+    htmlPtr->iLight[iBgColor] = GetColorByValue(htmlPtr, &val) + 1;
   }
-  return GetColorByValue(htmlPtr, &val);
+  return htmlPtr->iLight[iBgColor] - 1;
 }
 
 /*
@@ -1494,14 +1501,16 @@ LOCAL int GetColorByValue(HtmlWidget *htmlPtr, XColor *pRef){
   float closestDist;
   int closest;
   int r, g, b;
+# define COLOR_MASK  0xf800
 
   /* Search for an exact match */
-  r = pRef->red;
-  g = pRef->green;
-  b = pRef->blue;
+  r = pRef->red &= COLOR_MASK;
+  g = pRef->green &= COLOR_MASK;
+  b = pRef->blue &= COLOR_MASK;
   for(i=0; i<N_COLOR; i++){
     XColor *p = htmlPtr->apColor[i];
-    if( p && p->red==r && p->green==g && p->blue==b ){
+    if( p && (p->red & COLOR_MASK)==r && (p->green & COLOR_MASK)==g 
+    && (p->blue & COLOR_MASK)==b ){
       htmlPtr->colorUsed |= (1<<i);
       return i;
     }

@@ -1,6 +1,6 @@
 /*
 ** Routines for doing layout of HTML tables
-** $Revision: 1.22 $
+** $Revision: 1.23 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -110,7 +110,8 @@ static HtmlElement *TableDimensions(
   char *z;                           /* Value of a <table> parameter */
   int cellSpacing;                   /* Value of CELLSPACING parameter */
   int cellPadding;                   /* Value of CELLPADDING parameter */
-  int bw;                            /* Value of the BORDER parameter */
+  int tbw;                           /* Width of border around whole table */
+  int cbw;                           /* Width of border around one cell */
   int hspace;                        /* Value of HSPACE parameter */
   int separation;                    /* Space between columns */
   int margin;                        /* Space between left margin and 1st col */
@@ -139,7 +140,8 @@ static HtmlElement *TableDimensions(
   pStart->table.nRow = 0;
   z = HtmlMarkupArg(pStart, "border", 0);
   if( z && *z==0 ) z = "2";
-  bw = pStart->table.borderWidth = z ? atoi(z) : DFLT_BORDER;
+  tbw = pStart->table.borderWidth = z ? atoi(z) : DFLT_BORDER;
+  cbw = tbw>0;
   z = HtmlMarkupArg(pStart, "cellpadding", 0);
   cellPadding = z ? atoi(z) : DFLT_CELLPADDING;
   cellSpacing = CellSpacing(htmlPtr, pStart);
@@ -148,13 +150,14 @@ static HtmlElement *TableDimensions(
   ** of 2, cellPadding of 5 and cell spacing of 2.  This makes the
   ** table clearly visible.  Useful for debugging. */
   if( HtmlTraceMask & HtmlTrace_Table4 ){
-    bw = pStart->table.borderWidth = 2;
+    tbw = pStart->table.borderWidth = 2;
+    cbw = 2;
     cellPadding = 5;
     cellSpacing = 2;
   }
 #endif
-  separation = cellSpacing + 2*(cellPadding + bw);
-  margin = separation - cellPadding;
+  separation = cellSpacing + 2*(cellPadding + cbw);
+  margin = tbw + cellSpacing + cbw + cellPadding;
   z = HtmlMarkupArg(pStart, "hspace", 0);
   hspace = z ? atoi(z) : DFLT_HSPACE;
 
@@ -431,13 +434,7 @@ static HtmlElement *TableDimensions(
   /* Compute the min and max width of the whole table
   */
   n = pStart->table.nCol;
-#ifdef NAVIGATOR_TABLES
-	requestedW =
-		pStart->table.borderWidth * 2 + n * 2 * bw + (n +
-		1) * cellSpacing + n * 2 * cellPadding;
-#else /* NAVIGATOR_TABLES */
-  requestedW = (n+1)*(2*bw + cellSpacing) + n*2*cellPadding;
-#endif /* NAVIGATOR_TABLES */
+  requestedW = tbw*2 + (n-1)*(cellSpacing + cbw) + n*2*cellPadding;
   pStart->table.minW[0] = requestedW;
   pStart->table.maxW[0] = requestedW;
   for(i=1; i<=pStart->table.nCol; i++){
@@ -469,19 +466,11 @@ static HtmlElement *TableDimensions(
   }
   if( requestedW > pStart->table.minW[0] ){
     float scale;
-    int totalSep;
     int *tminW = pStart->table.minW;
     int *tmaxW = pStart->table.maxW;
     TRACE(HtmlTrace_Table5,
         ("Expanding table minW from %d to %d.  (reqW=%d width=%s)\n",
           tminW[0], requestedW, requestedW, z));
-#if 1 /* def NAVIGATOR_TABLES */
-		totalSep =
-			pStart->table.borderWidth * 2 + n * 2 * bw + (n +
-			1) * cellSpacing + n * 2 * cellPadding;
-#else /* NAVIGATOR_TABLES */
-    totalSep = (n+1)*(2*bw + cellSpacing) + n*2*cellPadding;
-#endif /* NAVIGATOR_TABLES */
     if( tmaxW[0] > tminW[0] ){
       scale = (double)(requestedW - tminW[0]) / (double)(tmaxW[0] - tminW[0]);
       for(i=1; i<=pStart->table.nCol; i++){
@@ -753,7 +742,8 @@ HtmlElement *HtmlTableLayout(
   int width;              /* Width of the table as drawn */
   int cellSpacing;        /* Value of cellspacing= parameter to <table> */
   int cellPadding;        /* Value of cellpadding= parameter to <table> */
-  int bw;                 /* Width of the 3D border */
+  int tbw;                /* Width of the 3D border around the whole table */
+  int cbw;                /* Width of the 3D border around a cell */
   int pad;                /* cellPadding + borderwidth */
   char *z;                /* A string */
   int leftMargin;         /* The left edge of space available for drawing */
@@ -843,10 +833,11 @@ HtmlElement *HtmlTableLayout(
   vspace = z ? atoi(z) : DFLT_VSPACE;
   z = HtmlMarkupArg(pTable, "hspace", 0);
   hspace = z ? atoi(z) : DFLT_HSPACE;
-  bw = pTable->table.borderWidth;
-  pad = cellPadding + bw;
+  tbw = pTable->table.borderWidth;
+  cbw = (tbw>0);
+  pad = cellPadding + cbw;
   separation = cellSpacing + 2*pad;
-  x[1] = leftMargin + cellPadding + cellSpacing + 2*bw;
+  x[1] = leftMargin + tbw + cellSpacing + pad;
   n = pTable->table.nCol;
   if( n<=0 || pTable->table.maxW[0]<=0 ){
     /* Abort if the table has no columns at all or if the total width
@@ -869,13 +860,6 @@ HtmlElement *HtmlTableLayout(
       x[i] = x[i-1] + w[i-1] + separation;
       TestPoint(0);
     }
-#if 1 /* def NAVIGATOR_TABLES */
-		w[n] =
-			width - 2 * (pTable->table.borderWidth + cellPadding + bw +
-			cellSpacing) - (x[n] - x[1]);
-#else /* NAVIGATOR_TABLES */
-    w[n] = width - 2*(bw + pad + cellSpacing) - (x[n] - x[1]);
-#endif /* NAVIGATOR_TABLES */
   }else if( width > pTable->table.maxW[0] ){
     int *tmaxW = pTable->table.maxW;
     double scale = ((double)width)/ (double)tmaxW[0];
@@ -885,13 +869,6 @@ HtmlElement *HtmlTableLayout(
       x[i] = x[i-1] + w[i-1] + separation;
       TestPoint(0);
     }
-#if 1 /* def NAVIGATOR_TABLES */
-		w[n] =
-			width - 2 * (pTable->table.borderWidth + cellPadding + bw +
-			cellSpacing) - (x[n] - x[1]);
-#else /* NAVIGATOR_TABLES */
-    w[n] = width - 2*(bw + pad + cellSpacing) - (x[n] - x[1]);
-#endif /* NAVIGATOR_TABLES */
   }else if( width > pTable->table.minW[0] ){
     float scale;
     int *tminW = pTable->table.minW;
@@ -903,13 +880,6 @@ HtmlElement *HtmlTableLayout(
       x[i] = x[i-1] + w[i-1] + separation;
       TestPoint(0);
     }
-#if 1 /* def NAVIGATOR_TABLES */
-		w[n] =
-			width - 2 * (pTable->table.borderWidth + cellPadding + bw +
-			cellSpacing) - (x[n] - x[1]);
-#else /* NAVIGATOR_TABLES */
-    w[n] = width - 2*(bw + pad + cellSpacing) - (x[n] - x[1]);
-#endif /* NAVIGATOR_TABLES */
   }else{
     w[1] = pTable->table.minW[1];
     for(i=2; i<=n; i++){
@@ -917,42 +887,23 @@ HtmlElement *HtmlTableLayout(
       x[i] = x[i-1] + w[i-1] + separation;
       TestPoint(0);
     }
-#if 1 /* def NAVIGATOR_TABLES */
-		w[n] =
-			width - 2 * (pTable->table.borderWidth + cellPadding + bw +
-			cellSpacing) - (x[n] - x[1]);
-#else /* NAVIGATOR_TABLES */
-    w[n] = width - 2*(bw + pad + cellSpacing) - 
-            (x[n] - x[1]);
-#endif /* NAVIGATOR_TABLES */
   }
+  w[n] = width - ((x[n] - x[1]) + 2*(tbw + pad + cellSpacing));
 
   /* Add notation to the pTable structure so that we will know where
   ** to draw the outer box around the outside of the table.
   */
   btm += vspace;
   pTable->table.y = btm;
-#if 1 /* def NAVIGATOR_TABLES */
-	pTable->table.x =
-		x[1] - (cellPadding + cellSpacing + bw +
-		pTable->table.borderWidth);
-#else /* NAVIGATOR_TABLES */
-  pTable->table.x = x[1] - (cellPadding + cellSpacing + 2*bw);
-#endif /* NAVIGATOR_TABLES */
-  if( bw ){
+  pTable->table.x = x[1] - (tbw + cellSpacing + pad);
+  if( tbw ){
     pTable->base.flags |= HTML_Visible;
-    TestPoint(0);
   }else{
     pTable->base.flags &= ~HTML_Visible;
-    TestPoint(0);
   }
   pTable->table.w = width;
   SETMAX(pLC->maxX, pTable->table.x + pTable->table.w);
-#if 1 /* def NAVIGATOR_TABLES */
-	btm += pTable->table.borderWidth + cellSpacing;
-#else /* NAVIGATOR_TABLES */
-  btm += bw + cellSpacing;
-#endif /* NAVIGATOR_TABLES */
+  btm += tbw + cellSpacing;
 
   /* Begin rendering rows of the table */
   for(i=1; i<=n; i++){
@@ -1013,7 +964,7 @@ HtmlElement *HtmlTableLayout(
             firstRow[iCol] = iRow;
 
             /* The <td> or <th> is only visible if it has a border */
-            if( bw ){
+            if( cbw ){
               p->base.flags |= HTML_Visible;
             }else{
               p->base.flags &= ~HTML_Visible;
@@ -1135,10 +1086,10 @@ HtmlElement *HtmlTableLayout(
     }
 
     /* Update btm to the height of the row we just finished setting */
-    btm = rowBottom + cellPadding + bw + cellSpacing;
+    btm = rowBottom + pad + cellSpacing;
   }
 
-  btm += bw;
+  btm += tbw;
   pTable->table.h = btm - pTable->table.y;
   SETMAX( pLC->maxY, btm );
   pLC->bottom = btm + vspace + 1;

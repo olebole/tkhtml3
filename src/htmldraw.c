@@ -1,6 +1,6 @@
 /*
 ** Routines used to render HTML onto the screen for the Tk HTML widget.
-** $Revision: 1.13 $
+** $Revision: 1.14 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -302,6 +302,11 @@ static void HtmlDrawRect(
       gcLight = HtmlGetGC(htmlPtr, iLight, FONT_Any);
       iDark = HtmlGetDarkShadowColor(htmlPtr, src->base.style.bgcolor);
       gcDark = HtmlGetGC(htmlPtr, iDark, FONT_Any);
+      if( relief==TK_RELIEF_SUNKEN ){
+        GC gcTemp = gcLight;
+        gcLight = gcDark;
+        gcDark = gcTemp;
+      }
     }else{
       gcLight = HtmlGetGC(htmlPtr, src->base.style.color, FONT_Any);
       gcDark = gcLight;
@@ -314,8 +319,8 @@ static void HtmlDrawRect(
     xrec[0].x = x+w-depth;
     XFillRectangles(htmlPtr->display, drawable, gcDark, xrec, 1);
     for(i=0; i<depth && i<h/2; i++){
-      XDrawLine(htmlPtr->display, drawable, gcLight, x+i, y+i, x+w-i, y+i);
-      XDrawLine(htmlPtr->display, drawable, gcDark, x+i, y+h-i, x+w-i, y+h-i);
+      XDrawLine(htmlPtr->display, drawable, gcLight, x+i, y+i, x+w-i-1, y+i);
+      XDrawLine(htmlPtr->display, drawable, gcDark, x+i, y+h-i, x+w-i-1, y+h-i);
     }
   }
   if( h>depth*2 && w>depth*2 ){

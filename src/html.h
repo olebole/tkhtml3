@@ -1,6 +1,6 @@
 /*
 ** Structures and typedefs used by the HTML widget
-** $Revision: 1.18 $
+** $Revision: 1.19 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -826,6 +826,8 @@ struct HtmlWidget {
   XColor *apColor[N_COLOR];     /* Information about all colors */
   int colorUsed;                /* bit N is 1 if color N is in use.  Only
                                 ** applies to colors that aren't predefined */
+  int iDark[N_COLOR];           /* Dark 3D shadow of color K is iDark[K] */
+  int iLight[N_COLOR];          /* Light 3D shadow of color K is iLight[K] */
   XColor *fgColor;              /* Color of normal text. apColor[0] */
   XColor *newLinkColor;         /* Color of unvisitied links. apColor[1] */
   XColor *oldLinkColor;         /* Color of visitied links. apColor[2] */
