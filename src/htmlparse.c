@@ -1,6 +1,6 @@
 /*
 ** A tokenizer that converts raw HTML into a linked list of HTML elements.
-** $Revision: 1.9 $
+** $Revision: 1.10 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -47,7 +47,7 @@
 */
 struct sgEsc {
   char *zName;            /* The name of this escape sequence.  ex:  "amp" */
-  char  value;            /* The value for this sequence.       ex:  '&' */
+  char  value[8];         /* The value for this sequence.       ex:  "&" */
   struct sgEsc *pNext;    /* Next sequence with the same hash on zName */
 };
 
@@ -55,106 +55,106 @@ struct sgEsc {
 ** by adding entries to this table.
 */
 static struct sgEsc esc_sequences[] = {
-  { "quot",      '"',     0 },
-  { "amp",       '&',     0 },
-  { "lt",        '<',     0 },
-  { "gt",        '>',     0 },
-  { "nbsp",      ' ',     0 },
-  { "iexcl",     '\241',  0 },
-  { "cent",      '\242',  0 },
-  { "pound",     '\243',  0 },
-  { "curren",    '\244',  0 },
-  { "yen",       '\245',  0 },
-  { "brvbar",    '\246',  0 },
-  { "sect",      '\247',  0 },
-  { "uml",       '\250',  0 },
-  { "copy",      '\251',  0 },
-  { "ordf",      '\252',  0 },
-  { "laquo",     '\253',  0 },
-  { "not",       '\254',  0 },
-  { "shy",       '\255',  0 },
-  { "reg",       '\256',  0 },
-  { "macr",      '\257',  0 },
-  { "deg",       '\260',  0 },
-  { "plusmn",    '\261',  0 },
-  { "sup2",      '\262',  0 },
-  { "sup3",      '\263',  0 },
-  { "acute",     '\264',  0 },
-  { "micro",     '\265',  0 },
-  { "para",      '\266',  0 },
-  { "middot",    '\267',  0 },
-  { "cedil",     '\270',  0 },
-  { "sup1",      '\271',  0 },
-  { "ordm",      '\272',  0 },
-  { "raquo",     '\273',  0 },
-  { "frac14",    '\274',  0 },
-  { "frac12",    '\275',  0 },
-  { "frac34",    '\276',  0 },
-  { "iquest",    '\277',  0 },
-  { "Agrave",    '\300',  0 },
-  { "Aacute",    '\301',  0 },
-  { "Acirc",     '\302',  0 },
-  { "Atilde",    '\303',  0 },
-  { "Auml",      '\304',  0 },
-  { "Aring",     '\305',  0 },
-  { "AElig",     '\306',  0 },
-  { "Ccedil",    '\307',  0 },
-  { "Egrave",    '\310',  0 },
-  { "Eacute",    '\311',  0 },
-  { "Ecirc",     '\312',  0 },
-  { "Euml",      '\313',  0 },
-  { "Igrave",    '\314',  0 },
-  { "Iacute",    '\315',  0 },
-  { "Icirc",     '\316',  0 },
-  { "Iuml",      '\317',  0 },
-  { "ETH",       '\320',  0 },
-  { "Ntilde",    '\321',  0 },
-  { "Ograve",    '\322',  0 },
-  { "Oacute",    '\323',  0 },
-  { "Ocirc",     '\324',  0 },
-  { "Otilde",    '\325',  0 },
-  { "Ouml",      '\326',  0 },
-  { "times",     '\327',  0 },
-  { "Oslash",    '\330',  0 },
-  { "Ugrave",    '\331',  0 },
-  { "Uacute",    '\332',  0 },
-  { "Ucirc",     '\333',  0 },
-  { "Uuml",      '\334',  0 },
-  { "Yacute",    '\335',  0 },
-  { "THORN",     '\336',  0 },
-  { "szlig",     '\337',  0 },
-  { "agrave",    '\340',  0 },
-  { "aacute",    '\341',  0 },
-  { "acirc",     '\342',  0 },
-  { "atilde",    '\343',  0 },
-  { "auml",      '\344',  0 },
-  { "aring",     '\345',  0 },
-  { "aelig",     '\346',  0 },
-  { "ccedil",    '\347',  0 },
-  { "egrave",    '\350',  0 },
-  { "eacute",    '\351',  0 },
-  { "ecirc",     '\352',  0 },
-  { "euml",      '\353',  0 },
-  { "igrave",    '\354',  0 },
-  { "iacute",    '\355',  0 },
-  { "icirc",     '\356',  0 },
-  { "iuml",      '\357',  0 },
-  { "eth",       '\360',  0 },
-  { "ntilde",    '\361',  0 },
-  { "ograve",    '\362',  0 },
-  { "oacute",    '\363',  0 },
-  { "ocirc",     '\364',  0 },
-  { "otilde",    '\365',  0 },
-  { "ouml",      '\366',  0 },
-  { "divide",    '\367',  0 },
-  { "oslash",    '\370',  0 },
-  { "ugrave",    '\371',  0 },
-  { "uacute",    '\372',  0 },
-  { "ucirc",     '\373',  0 },
-  { "uuml",      '\374',  0 },
-  { "yacute",    '\375',  0 },
-  { "thorn",     '\376',  0 },
-  { "yuml",      '\377',  0 },
+  { "quot",      "\"",    0 },
+  { "amp",       "&",     0 },
+  { "lt",        "<",     0 },
+  { "gt",        ">",     0 },
+  { "nbsp",      " ",     0 },
+  { "iexcl",     "\241",  0 },
+  { "cent",      "\242",  0 },
+  { "pound",     "\243",  0 },
+  { "curren",    "\244",  0 },
+  { "yen",       "\245",  0 },
+  { "brvbar",    "\246",  0 },
+  { "sect",      "\247",  0 },
+  { "uml",       "\250",  0 },
+  { "copy",      "\251",  0 },
+  { "ordf",      "\252",  0 },
+  { "laquo",     "\253",  0 },
+  { "not",       "\254",  0 },
+  { "shy",       "\255",  0 },
+  { "reg",       "\256",  0 },
+  { "macr",      "\257",  0 },
+  { "deg",       "\260",  0 },
+  { "plusmn",    "\261",  0 },
+  { "sup2",      "\262",  0 },
+  { "sup3",      "\263",  0 },
+  { "acute",     "\264",  0 },
+  { "micro",     "\265",  0 },
+  { "para",      "\266",  0 },
+  { "middot",    "\267",  0 },
+  { "cedil",     "\270",  0 },
+  { "sup1",      "\271",  0 },
+  { "ordm",      "\272",  0 },
+  { "raquo",     "\273",  0 },
+  { "frac14",    "\274",  0 },
+  { "frac12",    "\275",  0 },
+  { "frac34",    "\276",  0 },
+  { "iquest",    "\277",  0 },
+  { "Agrave",    "\300",  0 },
+  { "Aacute",    "\301",  0 },
+  { "Acirc",     "\302",  0 },
+  { "Atilde",    "\303",  0 },
+  { "Auml",      "\304",  0 },
+  { "Aring",     "\305",  0 },
+  { "AElig",     "\306",  0 },
+  { "Ccedil",    "\307",  0 },
+  { "Egrave",    "\310",  0 },
+  { "Eacute",    "\311",  0 },
+  { "Ecirc",     "\312",  0 },
+  { "Euml",      "\313",  0 },
+  { "Igrave",    "\314",  0 },
+  { "Iacute",    "\315",  0 },
+  { "Icirc",     "\316",  0 },
+  { "Iuml",      "\317",  0 },
+  { "ETH",       "\320",  0 },
+  { "Ntilde",    "\321",  0 },
+  { "Ograve",    "\322",  0 },
+  { "Oacute",    "\323",  0 },
+  { "Ocirc",     "\324",  0 },
+  { "Otilde",    "\325",  0 },
+  { "Ouml",      "\326",  0 },
+  { "times",     "\327",  0 },
+  { "Oslash",    "\330",  0 },
+  { "Ugrave",    "\331",  0 },
+  { "Uacute",    "\332",  0 },
+  { "Ucirc",     "\333",  0 },
+  { "Uuml",      "\334",  0 },
+  { "Yacute",    "\335",  0 },
+  { "THORN",     "\336",  0 },
+  { "szlig",     "\337",  0 },
+  { "agrave",    "\340",  0 },
+  { "aacute",    "\341",  0 },
+  { "acirc",     "\342",  0 },
+  { "atilde",    "\343",  0 },
+  { "auml",      "\344",  0 },
+  { "aring",     "\345",  0 },
+  { "aelig",     "\346",  0 },
+  { "ccedil",    "\347",  0 },
+  { "egrave",    "\350",  0 },
+  { "eacute",    "\351",  0 },
+  { "ecirc",     "\352",  0 },
+  { "euml",      "\353",  0 },
+  { "igrave",    "\354",  0 },
+  { "iacute",    "\355",  0 },
+  { "icirc",     "\356",  0 },
+  { "iuml",      "\357",  0 },
+  { "eth",       "\360",  0 },
+  { "ntilde",    "\361",  0 },
+  { "ograve",    "\362",  0 },
+  { "oacute",    "\363",  0 },
+  { "ocirc",     "\364",  0 },
+  { "otilde",    "\365",  0 },
+  { "ouml",      "\366",  0 },
+  { "divide",    "\367",  0 },
+  { "oslash",    "\370",  0 },
+  { "ugrave",    "\371",  0 },
+  { "uacute",    "\372",  0 },
+  { "ucirc",     "\373",  0 },
+  { "uuml",      "\374",  0 },
+  { "yacute",    "\375",  0 },
+  { "thorn",     "\376",  0 },
+  { "yuml",      "\377",  0 },
 };
 
 /* The size of the handler hash table.  For best results this should
@@ -228,6 +228,12 @@ static void EscInit(void){
   int h;  /* The hash on a sequence */
 
   for(i=0; i<sizeof(esc_sequences)/sizeof(esc_sequences[i]); i++){
+#ifdef TCL_UTF_MAX
+    {
+      int c = esc_sequences[i].value[0];
+      Tcl_UniCharToUtf(c, esc_sequences[i].value);
+    }
+#endif
     h = EscHash(esc_sequences[i].zName);
     esc_sequences[i].pNext = apEscHash[h];
     apEscHash[h] = &esc_sequences[i];
@@ -240,7 +246,8 @@ static void EscInit(void){
 
 /*
 ** This table translates the special microsoft characters between
-** 0x80 and 0x9f into ASCII.
+** 0x80 and 0x9f into ASCII.  Care is taken to translate the characters
+** into values less than 0x80, to avoid UTF-8 problems.
 */
 #ifndef __WIN32__
 static char acMsChar[] = {
@@ -250,8 +257,8 @@ static char acMsChar[] = {
   /* 0x83 */ 'f',
   /* 0x84 */ '"',
   /* 0x85 */ '.',
-  /* 0x86 */ '\247',
-  /* 0x87 */ '\247',
+  /* 0x86 */ '*',
+  /* 0x87 */ '*',
   /* 0x88 */ '^',
   /* 0x89 */ '%',
   /* 0x8a */ 'S',
@@ -269,7 +276,7 @@ static char acMsChar[] = {
   /* 0x96 */ '-',
   /* 0x97 */ '-',
   /* 0x98 */ '~',
-  /* 0x99 */ '\256',
+  /* 0x99 */ '@',
   /* 0x9a */ 's',
   /* 0x9b */ '>',
   /* 0x9c */ 'o',
@@ -289,7 +296,7 @@ static char acMsChar[] = {
 **      input =    "AT&amp;T &gt MCI"
 **      output =   "AT&T > MCI"
 */
-void HtmlTranslateEscapes(char *z){
+LOCAL void HtmlTranslateEscapes(char *z){
   int from;   /* Read characters from this position in z[] */
   int to;     /* Write characters into this position in z[] */
   int h;      /* A hash on the escape sequence */
@@ -300,9 +307,6 @@ void HtmlTranslateEscapes(char *z){
   if( !isInit ){
     EscInit();
     isInit = 1;
-    TestPoint(0);
-  }else{
-    TestPoint(0);
   }
   while( z[from] ){
     if( z[from]=='&' ){
@@ -319,7 +323,18 @@ void HtmlTranslateEscapes(char *z){
           v = acMsChar[v&0x1f];
         }
 #endif
+#ifdef TCL_UTF_MAX
+        {
+          int j, n;
+          char value[8];
+          n = Tcl_UniCharToUtf(v,value);
+          for(j=0; j<n; j++){
+            z[to++] = value[j];
+          }
+        }
+#else
         z[to++] = v;
+#endif
         from = i;
       }else{
         int i = from+1;
@@ -330,29 +345,39 @@ void HtmlTranslateEscapes(char *z){
         h = EscHash(&z[from+1]);
         p = apEscHash[h];
         while( p && strcmp(p->zName,&z[from+1])!=0 ){ 
-          TestPoint(0);
           p = p->pNext; 
         }
         z[i] = c;
         if( p ){
-          z[to++] = p->value;
+          int j;
+          for(j=0; p->value[j]; j++){
+            z[to++] = p->value[j];
+          }
           from = i;
           if( c==';' ){
-            TestPoint(0);
             from++;
-          }else{
-            TestPoint(0);
           }
         }else{
           z[to++] = z[from++];
-          TestPoint(0);
         }
       }
 #ifndef __WIN32__
+#ifdef TCL_UTF_MAX
+    }else if( (z[from]&0x80)!=0 ){
+      Tcl_UniChar c;
+      int n;
+      n = Tcl_UtfToUniChar(&z[from], &c);
+      if( c>=0x80 && c<0xa0 ){
+        z[to++] = acMsChar[c & 0x1f];
+        from += n;
+      }else{
+        while( n-- ) z[to++] = z[from++];
+      }
+#else /* if !defined(TCL_UTF_MAX) */
     }else if( ((unsigned char)z[from])>=0x80 && ((unsigned char)z[from])<0xa0 ){
       z[to++] = acMsChar[z[from++]&0x1f];
-      TestPoint(0);
-#endif
+#endif /* TCL_UTF_MAX */
+#endif /* __WIN32__ */
     }else{
       z[to++] = z[from++];
       TestPoint(0);
