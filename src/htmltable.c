@@ -1,6 +1,6 @@
 /*
 ** Routines for doing layout of HTML tables
-** $Revision: 1.11 $
+** $Revision: 1.12 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -197,7 +197,6 @@ static HtmlElement *TableDimensions(
         }
         do{
           iCol++;
-          TestPoint(0);
         }while( iCol <= pStart->table.nCol && fromAbove[iCol] > iRow );
         p->cell.pTable = pStart;
         colspan = p->cell.colspan;
@@ -243,7 +242,7 @@ static HtmlElement *TableDimensions(
         if( noWrap ){
           minW = maxW;
         }
-        if( iCol < HTML_MAX_COLUMNS ){
+        if( iCol + p->cell.colspan <= HTML_MAX_COLUMNS ){
           int min = 0;
           if( p->cell.colspan==0 ){
             SETMAX( min0span[iCol], minW );
@@ -255,7 +254,7 @@ static HtmlElement *TableDimensions(
             min = pStart->table.minW[iCol] + separation;
           }else{
             int n = p->cell.colspan;
-            ColMin(iCol,iCol+n) = minW;
+            SETMAX( ColMin(iCol,iCol+n-1), minW);
             min = minW + separation;
             maxW = (maxW + (n - 1)*(1-separation))/n;
             for(i=iCol; i<iCol + n && i<HTML_MAX_COLUMNS; i++){
@@ -270,7 +269,7 @@ static HtmlElement *TableDimensions(
         }
         if( rowspan>1 ){
           for(i=iCol; i<iCol + p->cell.colspan && i<HTML_MAX_COLUMNS; i++){
-            fromAbove[i] = iRow + p->cell.colspan;
+            fromAbove[i] = iRow + rowspan;
           }
         }
         if( p->cell.colspan > 1 ){
@@ -282,12 +281,22 @@ static HtmlElement *TableDimensions(
     }
   }
 
-  n = pStart->table.nCol;
-  pStart->table.minW[0] = 
-    (n+1)*2*bw +
-    (n+1)*cellSpacing +
-    n*2*cellPadding;
-  pStart->table.maxW[0] = pStart->table.minW[0];
+#if 0
+  for(i=1; i<=pStart->table.nCol; i++){
+    printf("  %d:%d..%d",i,pStart->table.minW[i],pStart->table.maxW[i]);
+  }
+  printf("\n");
+  for(i=1; i<pStart->table.nCol; i++){
+    for(j=i+1; j<=pStart->table.nCol; j++){
+      if( ColMin(i,j)>0 ){
+        printf("ColMin(%d,%d) = %d\n", i, j, ColMin(i,j));
+      }
+    } 
+  }
+#endif
+
+  /* Compute the min and max width of each column
+  */
   for(i=1; i<=pStart->table.nCol; i++){
     int sum;
     if( min0span[i]>0 || max0span[i]>0 ){
@@ -299,18 +308,33 @@ static HtmlElement *TableDimensions(
         SETMAX( pStart->table.maxW[j], maxW );
       }
     }
-    sum = minW;
+    sum = pStart->table.minW[i];
     for(j=i-1; j>=1; j--){
       sum += pStart->table.minW[j];
       if( ColMin(j,i)>sum ){
-        int k, n = i-j;
-        minW = (ColMin(j,i) + (n - 1)*(1-separation))/n;
+        int k, n = i-j+1;
+        int diff = (ColMin(j,i) - sum + n - 1)/n;
         for(k=j; k<=i; k++){
-          SETMAX( pStart->table.minW[k], minW );
+          pStart->table.minW[k] += diff;
         }
         sum = ColMin(j,i);
       }
     }
+  }
+
+#if 0
+  for(i=1; i<=pStart->table.nCol; i++){
+    printf("  %d:%d..%d",i,pStart->table.minW[i], pStart->table.maxW[i]);
+  }
+  printf("\n");
+#endif
+
+  /* Compute the min and max width of the whole table
+  */
+  n = pStart->table.nCol;
+  pStart->table.minW[0] = (n+1)*2*bw + (n+1)*cellSpacing + n*2*cellPadding;
+  pStart->table.maxW[0] = pStart->table.minW[0];
+  for(i=1; i<=pStart->table.nCol; i++){
     pStart->table.minW[0] += pStart->table.minW[i];
     pStart->table.maxW[0] += pStart->table.maxW[i];
   }
@@ -386,31 +410,25 @@ static HtmlElement *MinMax(
         if( p->base.style.flags & STY_Preformatted ){
           SETMAX( min, x1 );
           SETMAX( max, x1 );
-          TestPoint(0);
         }else{
           SETMAX( min, x2 );
           SETMAX( max, x1 );
-          TestPoint(0);
         }
         break;
       case Html_Space:
         if( p->base.style.flags & STY_Preformatted ){
           if( p->base.flags & HTML_NewLine ){
             x1 = x2 = indent;
-            TestPoint(0);
           }else{
             x1 += p->space.w * p->base.count;
             x2 += p->space.w * p->base.count;
-            TestPoint(0);
           }
         }else if( p->base.style.flags & STY_NoBreak ){
           if( x1>indent ){ x1 += p->space.w; TestPoint(0);}
           if( x2>indent ){ x2 += p->space.w; TestPoint(0);}
-          TestPoint(0);
         }else{
           if( x1>indent ){ x1 += p->space.w; TestPoint(0);}
           x2 = indent;
-          TestPoint(0);
         }
         break;
       case Html_IMG:
@@ -419,11 +437,9 @@ static HtmlElement *MinMax(
         if( p->base.style.flags & STY_Preformatted ){
           SETMAX( min, x1 );
           SETMAX( max, x1 );
-          TestPoint(0);
         }else{
           SETMAX( min, x2 );
           SETMAX( max, x1 );
-          TestPoint(0);
         }
         break;
       case Html_TABLE:
@@ -435,34 +451,27 @@ static HtmlElement *MinMax(
         x1 = x2 = indent;
         if( pNext && pNext->base.type==Html_EndTABLE ){
           pNext = pNext->pNext;
-          TestPoint(0);
-        }else{
-          TestPoint(0);
         }
         break;
       case Html_UL:
       case Html_OL:
         indent += HTML_INDENT;
         x1 = x2 = indent;
-        TestPoint(0);
         break;
       case Html_EndUL:
       case Html_EndOL:
         indent -= HTML_INDENT;
-        if( indent < 0 ){ indent = 0; TestPoint(0); }
+        if( indent < 0 ){ indent = 0; }
         x1 = x2 = indent;
-        TestPoint(0);
         break;
       case Html_BLOCKQUOTE:
         indent += 2*HTML_INDENT;
         x1 = x2 = indent;
-        TestPoint(0);
         break;
       case Html_EndBLOCKQUOTE:
         indent -= 2*HTML_INDENT;
-        if( indent < 0 ){ indent = 0; TestPoint(0); }
+        if( indent < 0 ){ indent = 0; }
         x1 = x2 = indent;
-        TestPoint(0);
         break;
       case Html_BR:
       case Html_P:
@@ -480,7 +489,6 @@ static HtmlElement *MinMax(
       case Html_H5:
       case Html_H6:
         x1 = x2 = indent;
-        TestPoint(0);
         break;
       case Html_EndTD:
       case Html_EndTH:
@@ -491,14 +499,11 @@ static HtmlElement *MinMax(
       case Html_TH:
       case Html_EndTR:
         go = 0;
-        TestPoint(0);
         break;
       default:
-        TestPoint(0);
         break;
     }
-    if( !go ){ TestPoint(0); break; }
-    TestPoint(0);
+    if( !go ){ break; }
   }
   *pMin = min;
   *pMax = max;
