@@ -262,7 +262,7 @@ foreach h $hdr {
   puts "$h:	headers"
 }
 puts ""
-puts "headers:	makeheaders$BEXE"
+puts "headers:	makeheaders$BEXE htmltokens.c"
 puts "	./makeheaders$BEXE $mharg"
 puts ""
 lappend cleanable headers

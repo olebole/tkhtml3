@@ -1,6 +1,6 @@
 /*
 ** Routines used for processing HTML makeup for forms.
-** $Revision: 1.3 $
+** $Revision: 1.4 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -380,6 +380,7 @@ int HtmlControlSize(HtmlWidget *htmlPtr, HtmlElement *pElem){
   pElem->input.type = InputType(pElem);
   switch( pElem->input.type ){
     case INPUT_TYPE_Checkbox:
+#if 0
       font = HtmlGetFont(htmlPtr, pElem->base.style.font);
       pElem->input.cnt = ++htmlPtr->nInput;
       zVal = HtmlMarkupArg(pElem, "checked", 0)!=0 ? "1" : "0";
@@ -393,6 +394,7 @@ int HtmlControlSize(HtmlWidget *htmlPtr, HtmlElement *pElem){
       pElem->input.padLeft = pElem->input.w/2;
       FreeWindowName(zWin,zWinBuf);
       TestPoint(0);
+#endif
       break;
     case INPUT_TYPE_Hidden:
       pElem->base.flags &= ~HTML_Visible;
@@ -404,6 +406,7 @@ int HtmlControlSize(HtmlWidget *htmlPtr, HtmlElement *pElem){
       TestPoint(0);
       break;
     case INPUT_TYPE_Radio:
+#if 0
       font = HtmlGetFont(htmlPtr, pElem->base.style.font);
       pElem->input.cnt = ++htmlPtr->nInput;
       zVal = HtmlMarkupArg(pElem, "value", 0);
@@ -424,8 +427,10 @@ int HtmlControlSize(HtmlWidget *htmlPtr, HtmlElement *pElem){
       SizeAndLink(htmlPtr, zWin, pElem);
       pElem->input.padLeft = pElem->input.w/2;
       FreeWindowName(zWin,zWinBuf);
+#endif
       break;
     case INPUT_TYPE_Reset:
+#if 0
       font = HtmlGetFont(htmlPtr, pElem->base.style.font);
       pElem->input.cnt = ++htmlPtr->nInput;
       zVal = HtmlMarkupArg(pElem, "value", "Reset");
@@ -459,8 +464,10 @@ int HtmlControlSize(HtmlWidget *htmlPtr, HtmlElement *pElem){
       }
       SizeAndLink(htmlPtr, zWin, pElem);
       FreeWindowName(zWin,zWinBuf);
+#endif
       break;
     case INPUT_TYPE_Select:
+#if 0
       if( pElem->input.tkwin==0 ){
         char *zSize = HtmlMarkupArg(pElem, "size", "1");
         char *zMultiple = HtmlMarkupArg(pElem, "multiple", 0)==0 ? "0" : "1";
@@ -481,8 +488,10 @@ int HtmlControlSize(HtmlWidget *htmlPtr, HtmlElement *pElem){
       }else{
         TestPoint(0);
       }
+#endif
       break;
     case INPUT_TYPE_Submit:
+#if 0
       font = HtmlGetFont(htmlPtr, pElem->base.style.font);
       pElem->input.cnt = ++htmlPtr->nInput;
       zVal = HtmlMarkupArg(pElem, "value", "Submit");
@@ -516,10 +525,12 @@ int HtmlControlSize(HtmlWidget *htmlPtr, HtmlElement *pElem){
       }
       SizeAndLink(htmlPtr, zWin, pElem);
       FreeWindowName(zWin,zWinBuf);
+#endif
       break;
     case INPUT_TYPE_Text:
     case INPUT_TYPE_Password:
     case INPUT_TYPE_File:
+#if 0
       font = HtmlGetFont(htmlPtr, pElem->base.style.font);
       pElem->input.cnt = ++htmlPtr->nInput;
       zVal = HtmlMarkupArg(pElem, "value", "");
@@ -535,8 +546,10 @@ int HtmlControlSize(HtmlWidget *htmlPtr, HtmlElement *pElem){
       SizeAndLink(htmlPtr, zWin, pElem);
       FreeWindowName(zWin,zWinBuf);
       TestPoint(0);
+#endif
       break;
     case INPUT_TYPE_TextArea:
+#if 0
       if( pElem->input.tkwin==0 ){
         char *zCols = HtmlMarkupArg(pElem, "cols", "40");
         char *zRows = HtmlMarkupArg(pElem, "rows", "2");
@@ -567,8 +580,10 @@ int HtmlControlSize(HtmlWidget *htmlPtr, HtmlElement *pElem){
       }else{
         TestPoint(0);
       }
+#endif
       break;
     case INPUT_TYPE_Applet:
+#if 0
       if( htmlPtr->zAppletCommand && *htmlPtr->zAppletCommand ){
         Tcl_DString cmd;
         int i;
@@ -603,6 +618,7 @@ int HtmlControlSize(HtmlWidget *htmlPtr, HtmlElement *pElem){
         pElem->input.w = 0;
         pElem->input.h = 0;
       }
+#endif
       break;
     default:
       TestPoint(0);
