@@ -1,7 +1,7 @@
 /*
 ** This file contains the code used to position elements of the
 ** HTML file on the screen.
-** $Revision: 1.16 $
+** $Revision: 1.17 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -188,7 +188,7 @@ static HtmlElement *GetLine(
     p = p->pNext;
     TestPoint(0);
   }
-  if( p->base.style.flags & STY_DT ){
+  if( p && p->base.style.flags & STY_DT ){
     origin = -HTML_INDENT;
   }else{
     origin = 0;
