@@ -1,6 +1,6 @@
 /*
 ** Routines used for processing <IMG> markup
-** $Revision: 1.5 $
+** $Revision: 1.6 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -193,7 +193,6 @@ HtmlImage *HtmlGetImage(HtmlWidget *htmlPtr, HtmlElement *p){
   pImage->zUrl = (char*)&pImage[1];
   strcpy(pImage->zUrl,zSrc);
   ckfree(zSrc);
-  Tcl_ResetResult(htmlPtr->interp);
   pImage->w = 0;
   pImage->h = 0;
   if( result==TCL_OK ){
@@ -215,5 +214,6 @@ HtmlImage *HtmlGetImage(HtmlWidget *htmlPtr, HtmlElement *p){
   pImage->pNext = htmlPtr->imageList;
   htmlPtr->imageList = pImage;
   TestPoint(0);
+  Tcl_ResetResult(htmlPtr->interp);
   return pImage;
 }

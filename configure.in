@@ -308,19 +308,19 @@ else
   TARGET_EXEEXT=$config_TARGET_EXEEXT
 fi
 if test "$TARGET_EXEEXT" = ".exe"; then
-  OS_IS_UNIX=0
-  OS_IS_WIN=1
+  OS_UNIX=0
+  OS_WIN=1
   tclsubdir=win
 else
-  OS_IS_UNIX=1
-  OS_IS_WIN=0
+  OS_UNIX=1
+  OS_WIN=0
   tclsubdir=unix
 fi
-TARGET_CFLAGS="$TARGET_CFLAGS -DOS_IS_UNIX=$OS_IS_UNIX -DOS_IS_WIN=$OS_IS_WIN"
+TARGET_CFLAGS="$TARGET_CFLAGS -DOS_UNIX=$OS_UNIX -DOS_WIN=$OS_WIN"
 
 AC_SUBST(BUILD_EXEEXT)
-AC_SUBST(OS_IS_UNIX)
-AC_SUBST(OS_IS_WIN)
+AC_SUBST(OS_UNIX)
+AC_SUBST(OS_WIN)
 AC_SUBST(TARGET_EXEEXT)
 
 #########
@@ -380,6 +380,15 @@ fi
 AC_MSG_RESULT($TARGET_TCL_SCRIPT_DIR)
 AC_SUBST(TARGET_TCL_SCRIPT_DIR)
 
+###############
+# Check to see if the user wants to build shared libraries.  If so,
+# then locate tclConfig.sh and tkConfig.sh to figure out how.  Then
+# set up variables to short-circuit most of the subsequent tests
+# since the tclConfig.sh and tkConfig.sh files tell us most of what
+# we need to know.
+#
+AC_ARG_
+
 #########
 # Locate the directory that contains all of the Tk initialization
 # scripts for the target machine.
@@ -433,7 +442,7 @@ if test "$config_TARGET_TCL_LIBS" != ""; then
   TARGET_TCL_LIBS="$config_TARGET_TCL_LIBS"
 else
   if test "$with_tcl" != ""; then
-    extra=`echo $with_tcl/$tclsubdir/libtcl*.a`
+    extra=`echo $with_tcl/$tclsubdir/libtcl8*.a`
   fi
   CC=$TARGET_CC
   AC_CHECK_FUNC(sin, LIBS="", LIBS="-lm")
@@ -531,45 +540,6 @@ dnl    AC_CHECK_HEADER(tclInt.h,, AC_MSG_ERROR(not found.  Use --with-tcl))
 fi
 AC_MSG_RESULT($TARGET_TK_INC)
 AC_SUBST(TARGET_TK_INC)
-
-dnl ############
-dnl # Figure out where to look for BLT header files <blt.h>.
-dnl #
-dnl AC_ARG_WITH(blt,
-dnl [  --with-blt=DIR          Directory holding BLT source tree for target])
-dnl if test "$config_WITH_BLT" != ""; then
-dnl   with_tk=$config_WITH_BLT
-dnl fi
-dnl AC_MSG_CHECKING([BLT header files])
-dnl if test "$config_TARGET_BLT_INC" != ""; then
-dnl   TARGET_BLT_INC=$config_TARGET_BLT_INC
-dnl else
-dnl   if test "$with_blt" != ""; then
-dnl     TARGET_BLT_INC="-I$with_blt/src"
-dnl   else
-dnl     TARGET_BLT_INC=""
-dnl   fi
-dnl fi
-dnl AC_MSG_RESULT($TARGET_BLT_INC)
-dnl AC_SUBST(TARGET_BLT_INC)
-dnl 
-dnl ##########
-dnl # Figure out what libraries are required to compile BLT programs.
-dnl #
-dnl if test "$config_TARGET_BLT_LIBS" != ""; then
-dnl   TARGET_BLT_LIBS="$config_TARGET_BLT_LIBS"
-dnl else
-dnl   if test "$with_blt" != ""; then
-dnl     TARGET_BLT_LIBS=`echo $with_blt/src/libBLT*.a`
-dnl   else
-dnl     CC=$TARGET_CC
-dnl     otherlibs="$TARGET_TK_LIBS $TARGET_X_LIBS $TARGET_TCL_LIBS"
-dnl     LIBS=""
-dnl     AC_SEARCH_LIBS(Blt_Init, BLT BLT2.4 BLT24,,,$otherlibs)
-dnl     TARGET_BLT_LIBS=$LIBS
-dnl   fi
-dnl fi
-dnl AC_SUBST(TARGET_BLT_LIBS)
 
 #########
 # Generate the output files.

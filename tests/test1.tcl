@@ -6,6 +6,25 @@
 wm title . {HTML Widget Test}
 wm iconname . {HTML Widget Test}
 
+image create photo gray -data {
+    R0lGODdhIwAnAPcAAMDAwPgAwP8AAb8AQG/wALVAAQEWAEAIAPDUE0D3ABb/AAi/AFA1AU+y
+    ABYBAAhAANys0EdJRxYWFggICMhUgDL39gj//0C/vw4EYMAA9gEA/0AAv1DIbwEytQAIAQBA
+    QFDw8EhAQFDwUE9AT4Bk1PhPR/8WFr8ICDEb/v1bRwIAFkAACE4EUEgATxYAFggACGjwnjlA
+    vQ4WAQgIQMEEMHr4AAv/AEC/AIwEDUoAABIAAEAAAADwLQBAAAAWAAQIAFgQFHb4SBL/Fgy/
+    CFg1vHay9hIB/whAv+gEbrkAjQ8AB0hAvRYWAVAEMEgAABYAAAgAAMjwDTJAAAgWAJwoLfj4
+    AP//AL+/AJQ1HLWySAQBFkBACAPovABH9gAW/wAIvyCooEf3jRb/Bwi/CEwE8AIAQAAAFgAA
+    CMjIgzIyAEBABbjwUPhAT8TwML9AAAQWAJhkEEZPABYWAAgIACAbLkdbAEwEEgIAAAAAAARY
+    yPn49v///7+/v901TnSylQgBBwhACGwcGEdIcA4WFQDYAQD3AAD/AAC/AHgEXfkAx/8AEr8A
+    CMjI2O8y9hgI/8jwNTJAiAgWB0AICHTw1PlAbf8WFXhkJPlP/P8W/78Iv8gA2O8A+RgA/wgA
+    vzTw3/lAfP8WBcBQDadPAAcWAACgAABJAAAIAAHIJAAy/AAI/wBAvyMOJADA/AAB/ydSSAAB
+    +QAA/wAAvwAkAABKAABQAAFPAHwsAPn4AHgxAPn9AP8CADQaJPlK/PycUKf4Twf/FsgK4O8A
+    RxgAFiPsyAAAMgAAQCduDgAAwABAAQAFQACnUgD4ASQKZPwASP8AFgBABAD4AABv8AC1QAAB
+    FgBACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+    AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+    AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACwAAAAAIwAnAAAIPQABCBxIsKDBgwgTKlzIsKHD
+    hxAjSpxIsaLFixgzatzIsaPHjyBDihxJsqTJkyhTqlzJsqXLlzBjypx5MiAAO///
+}
+
 frame .h
 pack .h -side top -fill both -expand 1
 html .h.h \
@@ -14,9 +33,14 @@ html .h.h \
   -padx 5 \
   -pady 9 \
   -formcommand FormCmd \
+  -imagecommand ImageCmd \
   -bg white
 proc FormCmd {args} {
   puts "FormCmd: $args"
+}
+proc ImageCmd {args} {
+  puts "ImageCmd: $args"
+  return gray
 }
 pack .h.h -side left -fill both -expand 1
 scrollbar .h.vsb -orient vertical -command {.h.h yview}
