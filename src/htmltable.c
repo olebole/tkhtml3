@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmltable.c,v 1.33 2000/02/01 02:28:55 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmltable.c,v 1.34 2000/02/01 14:39:03 drh Exp $";
 /*
 ** Routines for doing layout of HTML tables
 **
@@ -827,16 +827,18 @@ HtmlElement *HtmlTableLayout(
   z = HtmlMarkupArg(pTable, "cellpadding", 0);
   cellPadding = z ? atoi(z) : DFLT_CELLPADDING;
   cellSpacing = CellSpacing(pLC->htmlPtr, pTable);
-#ifdef DEBUG
-  if( HtmlTraceMask & HtmlTrace_Table4 ){
-    cellPadding = 5;
-    cellSpacing = 2;
-  }
-#endif
   z = HtmlMarkupArg(pTable, "vspace", 0);
   vspace = z ? atoi(z) : DFLT_VSPACE;
   z = HtmlMarkupArg(pTable, "hspace", 0);
   hspace = z ? atoi(z) : DFLT_HSPACE;
+#ifdef DEBUG
+  if( HtmlTraceMask & HtmlTrace_Table4 ){
+    cellPadding = 5;
+    cellSpacing = 2;
+    if( vspace<2 ) vspace = 2;
+    if( hspace<2 ) hspace = 2;
+  }
+#endif
   tbw = pTable->table.borderWidth;
   cbw = (tbw>0);
   pad = cellPadding + cbw;
