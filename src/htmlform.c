@@ -1,6 +1,6 @@
 /*
 ** Routines used for processing HTML makeup for forms.
-** $Revision: 1.12 $
+** $Revision: 1.13 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -37,6 +37,7 @@ void HtmlUnmapControls(HtmlWidget *htmlPtr){
 
   for(p=htmlPtr->firstInput; p; p=p->input.pNext){
     if( p->input.tkwin!=0 && Tk_IsMapped(p->input.tkwin) ){
+printf("UnmapB %d\n", p->input.cnt);
       Tk_UnmapWindow(p->input.tkwin);
     }
   }
@@ -48,10 +49,13 @@ void HtmlUnmapControls(HtmlWidget *htmlPtr){
 ** should not be visible are mapped, unmap them.  After this routine
 ** finishes, all <INPUT> controls should be in their proper places
 ** regardless of where they might have been before.
+**
+** Return the number of controls that are currently visible.
 */
-void HtmlMapControls(HtmlWidget *htmlPtr){
+int HtmlMapControls(HtmlWidget *htmlPtr){
   HtmlElement *p;     /* For looping over all controls */
   int x, y, w, h;     /* Part of the virtual canvas that is visible */
+  int cnt = 0;        /* Number of visible controls */
 
   x = htmlPtr->xOffset;
   y = htmlPtr->yOffset;
@@ -70,20 +74,16 @@ void HtmlMapControls(HtmlWidget *htmlPtr){
           p->input.w, p->input.h);
       if( !Tk_IsMapped(p->input.tkwin) ){
         Tk_MapWindow(p->input.tkwin);
-        TestPoint(0);
-      }else{
-        TestPoint(0);
       }
+      cnt++;
     }else{
       /* This control should not be visible.  Unmap it. */
       if( Tk_IsMapped(p->input.tkwin) ){
         Tk_UnmapWindow(p->input.tkwin);
-        TestPoint(0);
-      }else{
-        TestPoint(0);
       }
     }
   }
+  return cnt;
 }
 
 /*

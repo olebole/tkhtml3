@@ -1,6 +1,6 @@
 /*
 ** Routines for doing layout of HTML tables
-** $Revision: 1.7 $
+** $Revision: 1.8 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -554,16 +554,11 @@ HtmlElement *HtmlTableLayout(
   if( pLC->leftMargin ){
     leftMargin = pLC->leftMargin->indent + pLC->left;
     lineWidth -= leftMargin;
-    TestPoint(0);
   }else{
     leftMargin = pLC->left;
-    TestPoint(0);
   }
   if( pLC->rightMargin ){
     lineWidth -= pLC->rightMargin->indent;
-    TestPoint(0);
-  }else{
-    TestPoint(0);
   }
   lineWidth -= leftMargin;
 
@@ -573,20 +568,15 @@ HtmlElement *HtmlTableLayout(
     int len = strlen(z);
     if( len>0 && z[len-1]=='%' ){
       width = (atoi(z) * lineWidth)/100;
-      TestPoint(0);
     }else{
       width = atoi(z);
-      TestPoint(0);
     }
   }else if( lineWidth < pTable->table.minW[0] ){
     width = pTable->table.minW[0];
-    TestPoint(0);
   }else if( lineWidth < pTable->table.maxW[0] ){
     width = lineWidth;
-    TestPoint(0);
   }else{
     width = pTable->table.maxW[0];
-    TestPoint(0);
   }
 
   /* Compute the width and left edge position of every column in
@@ -606,7 +596,6 @@ HtmlElement *HtmlTableLayout(
   if( n<=0 || pTable->table.maxW[0]<=0 ){
     /* Abort if the table has no columns at all or if the total width
     ** of the table is zero or less. */
-    TestPoint(0);
     return pEnd;
   }
   if( width < lineWidth ){

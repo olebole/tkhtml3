@@ -1,6 +1,6 @@
 /*
 ** The main routine for the HTML widget for Tcl/Tk
-** $Revision: 1.14 $
+** $Revision: 1.15 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -329,10 +329,8 @@ static void HtmlRedrawCallback(ClientData clientData){
   HtmlBlock *pBlock;       /* For looping over blocks to be drawn */
   int redoSelection = 0;   /* True to recompute the selection */
   
-
   if( tkwin==0 || !Tk_IsMapped(tkwin) ){
-    TestPoint(0);
-    return;
+    goto redrawExit;
   }
 
   /*
@@ -390,14 +388,11 @@ static void HtmlRedrawCallback(ClientData clientData){
     redoSelection = 1;
     htmlPtr->flags &= ~RELAYOUT;
     htmlPtr->flags |= HSCROLL | VSCROLL | REDRAW_TEXT | EXTEND_LAYOUT;
-    TestPoint(0);
-  }else{
-    TestPoint(0);
   }
   if( (htmlPtr->flags & EXTEND_LAYOUT) && htmlPtr->pFirst!=0 ){
     HtmlLock(htmlPtr);
     HtmlLayout(htmlPtr);
-    if( HtmlUnlock(htmlPtr) ) return;
+    if( HtmlUnlock(htmlPtr) ) goto redrawExit;
     tkwin = htmlPtr->tkwin;
     htmlPtr->flags &= ~EXTEND_LAYOUT;
     HtmlFormBlocks(htmlPtr);
@@ -405,12 +400,7 @@ static void HtmlRedrawCallback(ClientData clientData){
     if( redoSelection && htmlPtr->selBegin.p && htmlPtr->selEnd.p ){
       HtmlUpdateSelection(htmlPtr,1);
       HtmlUpdateInsert(htmlPtr);
-      TestPoint(0);
-    }else{
-      TestPoint(0);
     }
-  }else{
-    TestPoint(0);
   }
   htmlPtr->flags &= ~REDRAW_PENDING;
 
@@ -429,7 +419,7 @@ static void HtmlRedrawCallback(ClientData clientData){
         HtmlComputeHorizontalPosition(htmlPtr,buf);
         HtmlLock(htmlPtr);
         result = Tcl_VarEval(interp, htmlPtr->xScrollCmd, " ", buf, 0);
-        if( HtmlUnlock(htmlPtr) ) return;
+        if( HtmlUnlock(htmlPtr) ) goto redrawExit;
         if (result != TCL_OK) {
           Tcl_AddErrorInfo(interp,
              "\n    (horizontal scrolling command executed by html widget)");
@@ -447,7 +437,7 @@ static void HtmlRedrawCallback(ClientData clientData){
         HtmlComputeVerticalPosition(htmlPtr,buf);
         HtmlLock(htmlPtr);
         result = Tcl_VarEval(interp, htmlPtr->yScrollCmd, " ", buf, 0);
-        if( HtmlUnlock(htmlPtr) ) return;
+        if( HtmlUnlock(htmlPtr) ) goto redrawExit;
         if (result != TCL_OK) {
           Tcl_AddErrorInfo(interp,
              "\n    (horizontal scrolling command executed by html widget)");
@@ -458,11 +448,10 @@ static void HtmlRedrawCallback(ClientData clientData){
       htmlPtr->flags &= ~VSCROLL;
     }
     tkwin = htmlPtr->tkwin;
-    if( tkwin==0 || !Tk_IsMapped(tkwin) ){ TestPoint(0); return; }
-    if( htmlPtr->flags & REDRAW_PENDING ){ TestPoint(0); return; }
+    if( tkwin==0 || !Tk_IsMapped(tkwin) ){ goto redrawExit; }
+    if( htmlPtr->flags & REDRAW_PENDING ){ return; }
     clipwin = htmlPtr->clipwin;
-    if( clipwin==0 ){ TestPoint(0); return; }
-    HtmlMapControls(htmlPtr);
+    if( clipwin==0 ){ TestPoint(0); goto redrawExit; }
   }
 
   /* Redraw the focus highlight, if requested */
@@ -480,12 +469,8 @@ static void HtmlRedrawCallback(ClientData clientData){
         TestPoint(0);
       }
       Tk_DrawFocusHighlight(tkwin, gc, hw, Tk_WindowId(tkwin));
-    }else{
-      TestPoint(0);
     }
     htmlPtr->flags &= ~REDRAW_FOCUS;
-  }else{
-    TestPoint(0);
   }
 
   /* Draw the borders around the parameter of the window.  This is
@@ -499,9 +484,6 @@ static void HtmlRedrawCallback(ClientData clientData){
           Tk_Width(tkwin) - 2*hw,    /* width */
           Tk_Height(tkwin) - 2*hw,   /* height */
           htmlPtr->borderWidth, htmlPtr->relief);
-    TestPoint(0);
-  }else{
-    TestPoint(0);
   }
 
   /*
@@ -531,38 +513,24 @@ static void HtmlRedrawCallback(ClientData clientData){
        htmlPtr->realHeight - 2*insetY);
     if( !Tk_IsMapped(clipwin) ){
       Tk_MapWindow(clipwin);
-      TestPoint(0);
-    }else{
-      TestPoint(0);
     }
     h = htmlPtr->realHeight - 2*insetY;
     if( htmlPtr->yOffset + h > htmlPtr->maxY ){
       htmlPtr->yOffset = htmlPtr->maxY - h;
-      TestPoint(0);
-    }else{
-      TestPoint(0);
     }
     if( htmlPtr->yOffset < 0 ){
       htmlPtr->yOffset = 0;
-      TestPoint(0);
-    }else{
-      TestPoint(0);
     }
     w = htmlPtr->realWidth - 2*insetX;
     if( htmlPtr->xOffset + h > htmlPtr->maxX ){
       htmlPtr->xOffset = htmlPtr->maxX - w;
-      TestPoint(0);
-    }else{
-      TestPoint(0);
     }
     if( htmlPtr->xOffset < 0 ){
       htmlPtr->xOffset = 0;
-      TestPoint(0);
-    }else{
-      TestPoint(0);
     }
     htmlPtr->flags &= ~RESIZE_CLIPWIN;
   }
+  HtmlMapControls(htmlPtr);
 
   /*
   ** Compute the virtual canvas coordinates corresponding to the
@@ -578,7 +546,6 @@ static void HtmlRedrawCallback(ClientData clientData){
     htmlPtr->dirtyLeft = 0;
     htmlPtr->dirtyTop = 0;
     htmlPtr->flags &= ~REDRAW_TEXT;
-    TestPoint(0);
   }else{
     if( htmlPtr->dirtyLeft < 0 ){
       htmlPtr->dirtyLeft = 0;
@@ -607,7 +574,7 @@ static void HtmlRedrawCallback(ClientData clientData){
   if( w>0 && h>0 ){
     Display *display = htmlPtr->display;
     int dead;
-    HtmlMapControls(htmlPtr);
+    /* printf("Redraw %dx%d at %d,%d\n", w, h, x, y); */
 
     /* Allocate and clear a pixmap upon which to draw */
     pixmap = Tk_GetPixmap(display, Tk_WindowId(clipwin),w,h,Tk_Depth(clipwin));
@@ -635,7 +602,7 @@ static void HtmlRedrawCallback(ClientData clientData){
                 gc, 0, 0, w, h, htmlPtr->dirtyLeft, htmlPtr->dirtyTop);
     }
     Tk_FreePixmap(display, pixmap);
-    if( dead ) return;
+    if( dead ) goto redrawExit;
   }
 
   /* Redraw images, if requested */
@@ -673,7 +640,8 @@ static void HtmlRedrawCallback(ClientData clientData){
   htmlPtr->dirtyLeft = LARGE_NUMBER;
   htmlPtr->dirtyBottom = 0;
   htmlPtr->dirtyRight = 0;
-  TestPoint(0);
+  redrawExit:
+  return;
 }
 
 /*
@@ -687,9 +655,6 @@ void HtmlScheduleRedraw(HtmlWidget *htmlPtr){
   ){
     Tcl_DoWhenIdle(HtmlRedrawCallback, (ClientData)htmlPtr);
     htmlPtr->flags |= REDRAW_PENDING;
-    TestPoint(0);
-  }else{
-    TestPoint(0);
   }
 }
 

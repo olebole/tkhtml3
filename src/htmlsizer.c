@@ -1,6 +1,6 @@
 /*
 ** Routines used to compute the style and size of individual elements.
-** $Revision: 1.14 $
+** $Revision: 1.15 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -812,8 +812,10 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         break;
       case Html_TABLE:
         paraAlign = ALIGN_None;
-        style.align = ALIGN_Left;
-        PushStyleStack(htmlPtr, Html_EndTABLE, style);
+        nextStyle = style;
+        nextStyle.align = ALIGN_Left;
+        PushStyleStack(htmlPtr, Html_EndTABLE, nextStyle);
+        useNextStyle = 1;
         TestPoint(0);
         break;
       case Html_EndTABLE:
@@ -884,14 +886,10 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
     p->base.style.flags |= anchorFlags | inDt;
     if( paraAlign!=ALIGN_None ){
       p->base.style.align = paraAlign;
-      TestPoint(0);
     }
     if( useNextStyle ){
       style = nextStyle;
       useNextStyle = 0;
-      TestPoint(0);
-    }else{
-      TestPoint(0);
     }
     TRACE(HtmlTrace_Style,
       ("Style of 0x%08x font=%2d color=%2d align=%d flags=0x%04x token=%s\n",
