@@ -1,4 +1,4 @@
-# @(#) $Id: ss.tcl,v 1.3 1999/12/20 17:40:52 drh Exp $
+# @(#) $Id: ss.tcl,v 1.4 1999/12/22 17:44:34 drh Exp $
 #
 # This script implements the "ss" application.  "ss" implements
 # a presentation slide-show based on HTML slides.
@@ -167,9 +167,9 @@ proc AppletCmd {w arglist} {
 #
 proc HrefBinding {w x y} {
   set new [$w href $x $y]
-  puts "link to [list $new]";
+  # puts "link to [list $new]";
   if {$new!=""} {
-    LoadFile $new
+    ProcessUrl $new
   }
 }
 bind HtmlClip <1> {HrefBinding %W %x %y}
@@ -185,7 +185,7 @@ bind HtmlClip <KeyPress> {KeyPress %W %K}
 proc KeyPress {w keysym} {
   global hotkey
   if {[info exists hotkey($keysym)]} {
-    LoadFile $hotkey($keysym)
+    ProcessUrl $hotkey($keysym)
   }
   switch -- $keysym {
     Escape {
@@ -251,7 +251,26 @@ proc ReadFile {name} {
     tk_messageBox -icon error -message $fp -type ok
     return {}
   } else {
-    return [read $fp [file size $name]]
+    set r [read $fp [file size $name]]
+    close $fp
+    return $r
+  }
+}
+
+# Process the given URL
+#
+proc ProcessUrl {url} {
+  switch -glob -- $url {
+    file:* {
+      LoadFile [string range $url 5 end]
+    }
+    exec:* {
+      regsub -all \\+ [string range $url 5 end] { } url
+      eval exec $url &
+    }
+    default {
+      LoadFile $url
+    }
   }
 }
 
@@ -288,11 +307,8 @@ proc Meta {w tag alist} {
   }
 }
 
-update
-if {$file!=""} {
-  LoadFile $file
-}
-
+# Go from full-screen mode back to window mode.
+#
 proc FullScreenOff {} {
   destroy .fs 
   wm deiconify .
@@ -302,6 +318,8 @@ proc FullScreenOff {} {
   Refresh 
 }
 
+# Go from window mode to full-screen mode.
+#
 proc FullScreen {} {
   if {[winfo exists .fs]} {
     wm deiconify .fs
@@ -333,3 +351,11 @@ proc FullScreen {} {
   focus .fs.h.x
 }
 focus .h.h.x
+
+# Load the file named on the command-line, if there is
+# one.
+#
+update
+if {$file!=""} {
+  LoadFile $file
+}

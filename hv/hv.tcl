@@ -219,7 +219,9 @@ proc ReadFile {name} {
     return {}
   } else {
     fconfigure $fp -translation binary
-    return [read $fp [file size $name]]
+    set r [read $fp [file size $name]]
+    close $fp
+    return $r
   }
 }
 
