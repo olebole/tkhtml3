@@ -1,6 +1,6 @@
 /*
 ** Routines used to compute the style and size of individual elements.
-** $Revision: 1.1 $
+** $Revision: 1.2 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -23,7 +23,8 @@
 **   drh@acm.org
 **   http://www.hwaci.com/drh/
 */
-#include <tkInt.h>
+#include <tk.h>
+#include <string.h>
 #include "htmlsizer.h"
 
 /*

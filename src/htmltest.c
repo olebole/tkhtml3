@@ -1,7 +1,7 @@
 /*
 ** This file contains the TestPoint routines used for profiling
 ** and coverage analysis of the code.
-** $Revision: 1.1 $
+** $Revision: 1.2 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -34,7 +34,7 @@
 ** See also the "renumber.c" program which can be used
 ** to assign unique numbers to all of the TestPoint(0) macros.
 */
-#include "tclInt.h"
+#include "tcl.h"
 #include "htmltest.h"
 
 #if INTERFACE

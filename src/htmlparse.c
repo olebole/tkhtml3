@@ -1,6 +1,6 @@
 /*
 ** A tokenizer that converts raw HTML into a linked list of HTML elements.
-** $Revision: 1.1 $
+** $Revision: 1.2 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -27,7 +27,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>
-#include <tkInt.h>
+#include <tk.h>
 #include "htmlparse.h"
 
 /****************** Begin Escape Sequence Translator *************/

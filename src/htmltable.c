@@ -1,6 +1,6 @@
 /*
 ** Routines for doing layout of HTML tables
-** $Revision: 1.1 $
+** $Revision: 1.2 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -23,7 +23,9 @@
 **   drh@acm.org
 **   http://www.hwaci.com/drh/
 */
-#include <tkInt.h>
+#include <tk.h>
+#include <stdlib.h>
+#include <string.h>
 #include "htmltable.h"
 
 /*

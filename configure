@@ -2334,41 +2334,6 @@ else
     if test "$tclsubdir" = "win"; then
       TARGET_TK_INC="$TARGET_TK_INC -I$with_tk/xlib"
     fi
-  else
-    ac_safe=`echo "tclInt.h" | sed 'y%./+-%__p_%'`
-echo $ac_n "checking for tclInt.h""... $ac_c" 1>&6
-echo "configure:2341: checking for tclInt.h" >&5
-if eval "test \"`echo '$''{'ac_cv_header_$ac_safe'+set}'`\" = set"; then
-  echo $ac_n "(cached) $ac_c" 1>&6
-else
-  cat > conftest.$ac_ext <<EOF
-#line 2346 "configure"
-#include "confdefs.h"
-#include <tclInt.h>
-EOF
-ac_try="$ac_cpp conftest.$ac_ext >/dev/null 2>conftest.out"
-{ (eval echo configure:2351: \"$ac_try\") 1>&5; (eval $ac_try) 2>&5; }
-ac_err=`grep -v '^ *+' conftest.out | grep -v "^conftest.${ac_ext}\$"`
-if test -z "$ac_err"; then
-  rm -rf conftest*
-  eval "ac_cv_header_$ac_safe=yes"
-else
-  echo "$ac_err" >&5
-  echo "configure: failed program was:" >&5
-  cat conftest.$ac_ext >&5
-  rm -rf conftest*
-  eval "ac_cv_header_$ac_safe=no"
-fi
-rm -f conftest*
-fi
-if eval "test \"`echo '$ac_cv_header_'$ac_safe`\" = yes"; then
-  echo "$ac_t""yes" 1>&6
-  :
-else
-  echo "$ac_t""no" 1>&6
-{ echo "configure: error: not found.  Use --with-tcl" 1>&2; exit 1; }
-fi
-
   fi
 fi
 echo "$ac_t""$TARGET_TK_INC" 1>&6

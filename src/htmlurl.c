@@ -1,6 +1,6 @@
 /*
 ** Routines for processing URLs.
-** $Revision: 1.1 $
+** $Revision: 1.2 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -23,7 +23,9 @@
 **   drh@acm.org
 **   http://www.hwaci.com/drh/
 */
-#include <tkInt.h>
+#include <tk.h>
+#include <ctype.h>
+#include <string.h>
 #include "htmlurl.h"
 
 /*

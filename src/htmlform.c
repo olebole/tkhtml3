@@ -1,6 +1,6 @@
 /*
 ** Routines used for processing HTML makeup for forms.
-** $Revision: 1.1 $
+** $Revision: 1.2 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -23,7 +23,8 @@
 **   drh@acm.org
 **   http://www.hwaci.com/drh/
 */
-#include <tkInt.h>
+#include <tk.h>
+#include <string.h>
 #include <stdarg.h>
 #include "htmlform.h"
 

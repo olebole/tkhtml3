@@ -1,6 +1,6 @@
 /*
 ** Routines to implement the HTML widget commands
-** $Revision: 1.1 $
+** $Revision: 1.2 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -23,11 +23,8 @@
 **   drh@acm.org
 **   http://www.hwaci.com/drh/
 */
-#define panic bogus_procedure_name
-#include <tkPort.h>
-#undef panic
-#include <default.h>
-#include <tclInt.h>
+#include <tk.h>
+#include <stdlib.h>
 #include "htmlcmd.h"
 
 /*

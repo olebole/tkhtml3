@@ -1,6 +1,6 @@
 /*
 ** The main routine for the HTML widget for Tcl/Tk
-** $Revision: 1.1 $
+** $Revision: 1.2 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -23,11 +23,10 @@
 **   drh@acm.org
 **   http://www.hwaci.com/drh/
 */
-#define panic bogus_procedure_name
-#include <tkPort.h>
-#undef panic
-#include <default.h>
-#include <tclInt.h>
+#include <tk.h>
+#include <ctype.h>
+#include <stdlib.h>
+#include <string.h>
 #include "htmlwidget.h"
 
 /*
@@ -35,6 +34,22 @@
 ** the Html formatter.
 */
 int HtmlTraceMask = 0;
+
+#ifdef __WIN32__
+# define DEF_FRAME_BG_COLOR        "SystemButtonFace"
+# define DEF_FRAME_BG_MONO         "White"
+# define DEF_FRAME_CURSOR          ""
+# define DEF_BUTTON_FG             "SystemButtonText"
+# define DEF_BUTTON_HIGHLIGHT_BG   "SystemButtonFace"
+# define DEF_BUTTON_HIGHLIGHT      "SystemWindowFrame"
+#else
+# define DEF_FRAME_BG_COLOR        "#d9d9d9"
+# define DEF_FRAME_BG_MONO         "White"
+# define DEF_FRAME_CURSOR          ""
+# define DEF_BUTTON_FG             "Black"
+# define DEF_BUTTON_HIGHLIGHT_BG   "#d9d9d9"
+# define DEF_BUTTON_HIGHLIGHT      "Black"
+#endif
 
 /*
 ** Information used for argv parsing.

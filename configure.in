@@ -525,8 +525,8 @@ else
     if test "$tclsubdir" = "win"; then
       TARGET_TK_INC="$TARGET_TK_INC -I$with_tk/xlib"
     fi
-  else
-    AC_CHECK_HEADER(tclInt.h,, AC_MSG_ERROR(not found.  Use --with-tcl))
+dnl  else
+dnl    AC_CHECK_HEADER(tclInt.h,, AC_MSG_ERROR(not found.  Use --with-tcl))
   fi
 fi
 AC_MSG_RESULT($TARGET_TK_INC)

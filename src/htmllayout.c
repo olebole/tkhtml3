@@ -1,7 +1,7 @@
 /*
 ** This file contains the code used to position elements of the
 ** HTML file on the screen.
-** $Revision: 1.1 $
+** $Revision: 1.2 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -24,7 +24,9 @@
 **   drh@acm.org
 **   http://www.hwaci.com/drh/
 */
-#include <tkInt.h>
+#include <tk.h>
+#include <stdlib.h>
+#include <string.h>
 #include "htmllayout.h"
 
 

@@ -1,11 +1,7 @@
 /*
 ** Routines used to render HTML onto the screen
 */
-#define panic bogus_procedure_name
-#include <tkPort.h>
-#undef panic
-#include <default.h>
-#include <tclInt.h>
+#include <tk.h>
 #include "htmlrender.h"
 
 #if INTERFACE

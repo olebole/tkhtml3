@@ -1,5 +1,5 @@
 /* Automatically generated from token.list.  Do not edit */
-#include <tkInt.h>
+#include <tk.h>
 #include "htmltokens.h"
 #if INTERFACE
 struct HtmlTokenMap {
