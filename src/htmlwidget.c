@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlwidget.c,v 1.49 2002/03/06 18:10:59 peter Exp $";
+static char const rcsid[] = "@(#) $Id: htmlwidget.c,v 1.50 2002/03/12 02:59:48 peter Exp $";
 /*
 ** The main routine for the HTML widget for Tcl/Tk
 **
@@ -1761,7 +1761,7 @@ int HtmlCommand(
   char **argv			/* Argument strings. */
 ){
   int n, c;
-  char *z;
+  char *z, *zn, zs;
 
   if (argc < 2) {
     Tcl_AppendResult(interp, "wrong # args: should be \"",
@@ -1879,13 +1879,39 @@ int HtmlCommand(
   ** Merge together the parts of a URL into a single value URL.
   */
   if( c=='u' && strncmp(z,"urljoin",n)==0 ){
+    Tcl_DString str;
     if( argc!=7 ){
+      char *z, zLine[100];
       Tcl_AppendResult(interp, "wrong # args: should be \"",
            argv[0], " url join SCHEME AUTHORITY PATH QUERY FRAGMENT\"", 0);
       return TCL_ERROR;
     }
-    Tcl_AppendResult(interp, "not yet implemented", 0);
-    return TCL_ERROR;
+    Tcl_DStringInit(&str);
+    if (argv[2][0]) {
+      Tcl_DStringAppend(&str, argv[2], -1);
+      Tcl_DStringAppend(&str, ":", 1);
+    }
+    if (argv[3][0]) {
+      Tcl_DStringAppend(&str, "//", 1);
+      Tcl_DStringAppend(&str, argv[3], -1);
+    }
+    if (argv[4][0]) {
+      if (argv[4][0] != '/')
+	Tcl_DStringAppend(&str, "/", 1);
+      Tcl_DStringAppend(&str, argv[4], -1);
+    }
+    if (argv[5][0]) {
+      if (argv[5][0] != '?')
+	Tcl_DStringAppend(&str, "?", 1);
+      Tcl_DStringAppend(&str, argv[5], -1);
+    }
+    if (argv[6][0]) {
+      if (argv[6][0] != '#')
+	Tcl_DStringAppend(&str, "#", 1);
+      Tcl_DStringAppend(&str, argv[6], -1);
+    }
+    Tcl_DStringResult(interp, &str); 
+    return TCL_OK;
   }else
 
 
@@ -1894,13 +1920,64 @@ int HtmlCommand(
   ** Split a URL into a list of its parts.
   */
   if( c=='u' && strncmp(z,"urlsplit",n)==0 ){
+    Tcl_DString str;
     if( argc!=3 ){
       Tcl_AppendResult(interp, "wrong # args: should be \"",
            argv[0], " url split URL\"", 0);
       return TCL_ERROR;
     }
-    Tcl_AppendResult(interp, "not yet implemented", 0);
-    return TCL_ERROR;
+    Tcl_DStringInit(&str);
+    
+    if (!(z = strchr(argv[2], ':'))) {
+      Tcl_DStringAppendElement(&str,"");
+      z=argv[2];
+    } else {
+      *z=0;
+      Tcl_DStringAppendElement(&str,argv[2]);
+      *z++ =':';
+    }
+    while (*z && *z == '/')
+      z++;
+    zn=z;
+    while (*z && (isalnum(*z) || *z == '.' || *z == ':' || *z == '-'))
+      z++;
+    zs=0;
+    if (z==zn) {
+      Tcl_DStringAppendElement(&str,"");
+    } else {
+      zs=*z;
+      *z=0;
+      Tcl_DStringAppendElement(&str,zn);
+      *z = zs;
+    }
+    zn=z;
+    while (*z && *z != '?' && *z != '#')
+      z++;
+    zs=0;
+    if (z==zn) {
+      Tcl_DStringAppendElement(&str,"");
+    } else {
+      zs=*z;
+      *z=0;
+      Tcl_DStringAppendElement(&str,zn);
+      *z++ = zs;
+    }
+    zs=0;
+    zn=z;
+    while (*z && *z != '#')
+      z++;
+    zs=0;
+    if (z==zn) {
+      Tcl_DStringAppendElement(&str,"");
+    } else {
+      zs=*z;
+      *z=0;
+      Tcl_DStringAppendElement(&str,zn);
+      *z = zs;
+    }
+
+    Tcl_DStringResult(interp, &str); 
+    return TCL_OK;
   }else
 
   /* No match.  Report an error.

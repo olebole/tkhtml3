@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmltable.c,v 1.47 2002/03/06 18:10:59 peter Exp $";
+static char const rcsid[] = "@(#) $Id: htmltable.c,v 1.48 2002/03/12 02:59:48 peter Exp $";
 /*
 ** Routines for doing layout of HTML tables
 **
@@ -803,6 +803,11 @@ static HtmlElement *MinMax(
   int go = 1;              /* Change to 0 to stop the loop */
   int inpre=0;		   /* Are we in <PRE> */
   HtmlElement *pNext;      /* Next element in the list */
+  int wstyle=0;		   /* Current style for nowrap */
+
+  if (HtmlMarkupArg(p, "nowrap", 0)!=0) {
+    wstyle |= STY_NoBreak;
+  }
 
   for(p=p->pNext; go && p; p = pNext){
     pNext = p->pNext;
@@ -826,6 +831,7 @@ static HtmlElement *MinMax(
         }
         break;
       case Html_Space:
+        p->base.style.flags |= wstyle;
         if( p->base.style.flags & STY_Preformatted ){
           if( p->base.flags & HTML_NewLine ){
             x1 = x2 = x3 = indent;
