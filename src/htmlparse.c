@@ -1,6 +1,6 @@
 #define TokenMap(htmlPtr,idx) (htmlPtr->tokenMap?htmlPtr->tokenMap[idx]:(HtmlMarkupMap+idx))
 #define TokenapMap(htmlPtr,idx) (htmlPtr->tokenapMap?htmlPtr->tokenMap[idx]:apMap[idx])
-static char const rcsid[] = "@(#) $Id: htmlparse.c,v 1.33 2003/01/27 03:22:31 hkoba Exp $";
+static char const rcsid[] = "@(#) $Id: htmlparse.c,v 1.34 2003/01/30 04:11:52 hkoba Exp $";
 /*
 ** A tokenizer that converts raw HTML into a linked list of HTML elements.
 **
@@ -555,7 +555,7 @@ static HtmlElement *HtmlTextAlloc(int i) {
   return pElem;
 }
 
-/* Evaluate a Tcl_Obj command with 1 binary argument at end. */
+/* Evaluate a Tcl_Obj command with 1 utf-8 argument at end. */
 int HtmlObjCmd1(Tcl_Interp *interp, const char *str, char *buf, unsigned siz) {
   int rc, vargc, i; char **vargv;
   Tcl_Obj *objv[30];
@@ -567,7 +567,7 @@ int HtmlObjCmd1(Tcl_Interp *interp, const char *str, char *buf, unsigned siz) {
     objv[i]=Tcl_NewStringObj(vargv[i],-1);
     Tcl_IncrRefCount(objv[i]);
   }
-  objv[i]=Tcl_NewByteArrayObj(buf,siz);
+  objv[i]=Tcl_NewStringObj(buf,siz);
   Tcl_IncrRefCount(objv[i++]);
   rc= Tcl_EvalObjv(interp, i, objv,0);
   for (i=0; i<=vargc; i++)
