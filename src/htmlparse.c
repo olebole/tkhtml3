@@ -1,7 +1,7 @@
 #define TokenMap(htmlPtr,idx) (htmlPtr->tokenMap?htmlPtr->tokenMap[idx]:(HtmlMarkupMap+idx))
 #define TokenapMap(htmlPtr,idx) (htmlPtr->tokenapMap?htmlPtr->tokenMap[idx]:apMap[idx])
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.38 2005/03/23 23:56:27 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.39 2005/03/24 12:05:06 danielk1977 Exp $";
 
 /*
 ** A tokenizer that converts raw HTML into a linked list of HTML elements.
@@ -1934,7 +1934,7 @@ HtmlGetMarkupMap(htmlPtr, n)
     Tcl_HashEntry *he;
     Tcl_HashSearch se;
     HtmlUserTag *tag;
-    if (n < Html_TypeCount)
+    if (n < Html_TypeCount && n >= 0)
         return HtmlMarkupMap + n;
     he = Tcl_FirstHashEntry(&htmlPtr->tokenHash, &se);
     while (he) {

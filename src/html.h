@@ -1,6 +1,6 @@
 /*
 ** Structures and typedefs used by the HTML widget
-** $Revision: 1.36 $
+** $Revision: 1.37 $
 **
 ** This source code is released into the public domain by the author,
 ** D. Richard Hipp, on 2002 December 17.  Instead of a license, here
@@ -61,6 +61,7 @@ typedef struct HtmlWidget HtmlWidget;
 typedef struct HtmlUserTag HtmlUserTag;
 typedef struct HtmlStyle HtmlStyle;
 typedef struct HtmlTokenMap HtmlTokenMap;
+typedef struct HtmlTree HtmlTree;
 
 #ifdef USE_DMALLOC
 #define __malloc_and_calloc_defined
@@ -1059,6 +1060,8 @@ struct HtmlWidget {
   int FontAdjust;		/* Add this quantity to each font size */
   char *FontFamily;		/* Default font family to use. */
   HtmlExtensions *exts;		/* Pointer to user extension data */
+
+  HtmlTree *pTree;              /* Document tree */
 };
 
 struct HtmlUserTag {
@@ -1296,5 +1299,8 @@ void HtmlRemoveElements(HtmlWidget *p, HtmlElement* pElem, HtmlElement* pLast);
 
 /* htmlindex.c */
 HtmlElement *HtmlTokenByIndex(HtmlWidget *htmlPtr, int N, int flag);
+
+/* htmltree.c */
+EXTERN Tcl_ObjCmdProc HtmlTreeTclize;
 
 #endif /* __HTML_H__ */

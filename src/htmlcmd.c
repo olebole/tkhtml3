@@ -1,5 +1,5 @@
 static char const rcsid[] =
-        "@(#) $Id: htmlcmd.c,v 1.29 2005/03/23 23:56:27 danielk1977 Exp $";
+        "@(#) $Id: htmlcmd.c,v 1.30 2005/03/24 12:05:06 danielk1977 Exp $";
 
 /*
 ** Routines to implement the HTML widget commands
@@ -202,6 +202,8 @@ HtmlAdvanceLayout(htmlPtr)
  *---------------------------------------------------------------------------
  *
  * HtmlParseCmd --
+ *
+ *     $widget parse HTML-TEXT
  * 
  *     Appends the given HTML text to the end of any HTML text that may have
  *     been inserted by prior calls to this command.  Then it runs the

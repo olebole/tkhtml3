@@ -1,5 +1,5 @@
 static char const rcsid[] =
-        "@(#) $Id: htmltcl.c,v 1.10 2005/03/23 23:56:27 danielk1977 Exp $";
+        "@(#) $Id: htmltcl.c,v 1.11 2005/03/24 12:05:06 danielk1977 Exp $";
 
 /*
 ** The main routine for the HTML widget for Tcl/Tk
@@ -284,7 +284,7 @@ HtmlGetMap(htmlPtr, name)
     return 0;
 }
 
-#define nSubcommand 70
+#define nSubcommand 71
 
 /*
 ** The following array defines all possible widget command.  The main
@@ -304,6 +304,7 @@ static struct HtmlSubcommand {
     Tcl_ObjCmdProc *xFuncObj;          /* Object cmd */
 } aSubcommand[nSubcommand] = {
     {
+    "tree", 0, 2, 2, "", 0, HtmlTreeTclize}, {
     "cget", 0, 3, 3, "CONFIG-OPTION", 0, HtmlCgetObjCmd}, {
     "clear", 0, 2, 2, 0, HtmlClearCmd}, {
     "parse", 0, 3, 7, "HTML-TEXT", 0, HtmlParseCmd}, {
@@ -349,7 +350,7 @@ static struct HtmlSubcommand {
     "dom", "radioidx", 6, 6, "form name idx", HtmlDomRadio2Index}, {
     "dom", "formel", 5, 5, "form name", HtmlDomFormElIndex}, {
     "resolve", 0, 2, 0, "?URI ...?", HtmlResolveCmd}, {
-    "configure", 0, 2, 0, "?ARGS...?", 0, HtmlConfigCmd},
+    "configure", 0, 2, 0, "?ARGS...?", 0, HtmlConfigCmd}, 
 #ifndef _TCLHTML_
     {
     "href", 0, 4, 4, "X Y", 0, HtmlHrefCmd}, {

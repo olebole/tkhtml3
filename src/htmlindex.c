@@ -1,5 +1,5 @@
 static char const rcsid[] =
-        "@(#) $Id: htmlindex.c,v 1.14 2005/03/23 01:36:54 danielk1977 Exp $";
+        "@(#) $Id: htmlindex.c,v 1.15 2005/03/24 12:05:06 danielk1977 Exp $";
 
 /*
 ** Routines that deal with indexes
@@ -610,16 +610,27 @@ DecodeBaseIndex(htmlPtr, Baseind, ppToken, pIndex)
 }
 
 /*
-** This routine decodes a complete index specification.  A complete
-** index consists of the base specification followed by modifiers.
-*/
-int
+ *---------------------------------------------------------------------------
+ *
+ * HtmlGetIndex --
+ *
+ *     This routine decodes a complete index specification.  A complete
+ *     index consists of the base specification followed by modifiers.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+int 
 HtmlGetIndex(htmlPtr, zIndex, ppToken, pIndex)
-    HtmlWidget *htmlPtr;               /* The widget */
-    char *zIndex;                      /* Complete text of the index spec */
-    HtmlElement **ppToken;             /* Write the pointer to the token here 
-                                        */
-    int *pIndex;                       /* Write the character offset here */
+    HtmlWidget *htmlPtr;            /* The widget */
+    char *zIndex;                   /* Complete text of the index spec */
+    HtmlElement **ppToken;          /* Write the pointer to the token here */
+    int *pIndex;                    /* Write the character offset here */
 {
     return DecodeBaseIndex(htmlPtr, zIndex, ppToken, pIndex);
 }

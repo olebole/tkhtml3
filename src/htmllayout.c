@@ -1,5 +1,5 @@
 static char const rcsid[] =
-        "@(#) $Id: htmllayout.c,v 1.36 2005/03/23 23:56:27 danielk1977 Exp $";
+        "@(#) $Id: htmllayout.c,v 1.37 2005/03/24 12:05:06 danielk1977 Exp $";
 
 /*
 ** This file contains the code used to position elements of the
@@ -148,41 +148,52 @@ HtmlClearMarginStack(ppMargin)
 }
 
 /*
-** This routine gathers as many tokens as will fit on one line.
-**
-** The candidate tokens begin with pStart and go thru the end of
-** the list or to pEnd, whichever comes first.  The first token
-** at the start of the next line is returned.  NULL is returned if
-** we exhaust data.
-**
-** "width" is the maximum allowed width of the line.  The actual
-** width is returned in *actualWidth.  The actual width does not
-** include any trailing spaces.  Sometimes the actual width will
-** be greater than the maximum width.  This will happen, for example,
-** for text enclosed in <pre>..</pre> that has lines longer than
-** the width of the page.
-**
-** If the list begins with text, at least one token is returned,
-** even if that one token is longer than the allowed line length.
-** But if the list begins with some kind of break markup (possibly
-** preceded by white space) then the returned list may be empty.
-**
-** The "x" coordinates of all elements are set assuming that the line
-** begins at 0.  The calling routine should adjust these coordinates
-** to position the line horizontally.  (The FixLine() procedure does
-** this.)  Note that the "x" coordinate of <li> elements will be negative.
-** Text within <dt>..</dt> might also have a negative "x" coordinate.
-** But in no case will the x coordinate every be less than "minX".
-*/
-static HtmlElement *
+ *---------------------------------------------------------------------------
+ *
+ * GetLine --
+ *
+ *     This routine gathers as many tokens as will fit on one line.
+ *
+ *     The candidate tokens begin with pStart and go thru the end of
+ *     the list or to pEnd, whichever comes first.  The first token
+ *     at the start of the next line is returned.  NULL is returned if
+ *     we exhaust data.
+ *
+ *     "width" is the maximum allowed width of the line.  The actual
+ *     width is returned in *actualWidth.  The actual width does not
+ *     include any trailing spaces.  Sometimes the actual width will
+ *     be greater than the maximum width.  This will happen, for example,
+ *     for text enclosed in <pre>..</pre> that has lines longer than
+ *     the width of the page.
+ *
+ *     If the list begins with text, at least one token is returned,
+ *     even if that one token is longer than the allowed line length.
+ *     But if the list begins with some kind of break markup (possibly
+ *     preceded by white space) then the returned list may be empty.
+ *
+ *     The "x" coordinates of all elements are set assuming that the line
+ *     begins at 0.  The calling routine should adjust these coordinates
+ *     to position the line horizontally.  (The FixLine() procedure does
+ *     this.)  Note that the "x" coordinate of <li> elements will be negative.
+ *     Text within <dt>..</dt> might also have a negative "x" coordinate.
+ *     But in no case will the x coordinate every be less than "minX".
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static HtmlElement * 
 GetLine(pLC, pStart, pEnd, width, minX, actualWidth)
-    HtmlLayoutContext *pLC;            /* The complete layout context.  */
-    HtmlElement *pStart;               /* First token on new line */
-    HtmlElement *pEnd;                 /* End of line.  Might be NULL */
-    int width;                         /* How much space is on this line */
-    int minX;                          /* The minimum value of the X
-                                        * coordinate */
-    int *actualWidth;                  /* Return space actually required */
+    HtmlLayoutContext *pLC;        /* The complete layout context.  */
+    HtmlElement *pStart;           /* First token on new line */
+    HtmlElement *pEnd;             /* End of line.  Might be NULL */
+    int width;                     /* How much space is on this line */
+    int minX;                      /* The minimum value of the X coordinate */
+    int *actualWidth;              /* Return space actually required */
 {
     int x;                             /* Current X coordinate */
     int spaceWanted = 0;               /* Add this much space before next
@@ -1251,8 +1262,8 @@ HtmlLayoutBlock(pLC)
 
             /*
              * Move down and repeat the layout if we exceeded the available
-             * ** line length and it is possible to increase the line length
-             * by ** moving past some obsticle. 
+             * line length and it is possible to increase the line length
+             * by moving past some obsticle. 
              */
             if (actualWidth > lineWidth && InWrapAround(pLC)) {
                 ClearObstacle(pLC, CLEAR_First);

@@ -1,5 +1,5 @@
 static char const rcsid[] =
-        "@(#) $Id: htmlexts.c,v 1.10 2005/03/23 23:56:27 danielk1977 Exp $";
+        "@(#) $Id: htmlexts.c,v 1.11 2005/03/24 12:05:06 danielk1977 Exp $";
 
 /*
 ** The extra routines for the HTML widget for Tcl/Tk
@@ -2049,10 +2049,25 @@ HtmlDomTreeCmd(clientData, interp, argc, argv)
 }
 
 /*
-** Return all tokens between the two elements as a Tcl list.
+**
 */
-static void
-HtmlTclizeList(htmlPtr, interp, p, pEnd, flag)
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlTclizeList --
+ *
+ *     Get the TCL representation of the list of tokens between arguments p
+ *     and pEnd.
+ *
+ * Results:
+ *
+ * Side effects:
+ *     The TCL representation of the list of tokens between the two 
+ *     elements is stored as the result of interp.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void HtmlTclizeList(htmlPtr, interp, p, pEnd, flag)
     HtmlWidget *htmlPtr;
     Tcl_Interp *interp;
     HtmlElement *p;
@@ -3301,8 +3316,22 @@ HtmlTokenGetEnd(clientData, interp, argc, argv)
     return TCL_OK;
 }
 
-int
-HtmlTokenGetCmd(clientData, interp, argc, argv)
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlTokenGetCmd --
+ *
+ *     $widget token get INDEX-1 ?INDEX-2?
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+int HtmlTokenGetCmd(clientData, interp, argc, argv)
     ClientData clientData;             /* The HTML widget */
     Tcl_Interp *interp;                /* The interpreter */
     int argc;                          /* Number of arguments */
