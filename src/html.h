@@ -1,6 +1,6 @@
 /*
 ** Structures and typedefs used by the HTML widget
-** $Revision: 1.30 $
+** $Revision: 1.31 $
 **
 ** Copyright (C) 1997-2000 D. Richard Hipp
 **
@@ -386,6 +386,7 @@ struct HtmlTable {
   HtmlElement *pEnd;             /* Pointer to end tag element */
   Tk_Image bgimage;		 /* A background for the entire table */
   int hasbg;			 /* 1 if a table above has bgimage */
+  int tktable; 			 /* 1 if table uses a tktable . */
 };
 
 /* This structure is used for </table>, </td>, <tr>, </tr> 
@@ -569,6 +570,7 @@ struct HtmlInput {
 #define INPUT_TYPE_TextArea    11
 #define INPUT_TYPE_Applet      12
 #define INPUT_TYPE_Button      13
+#define INPUT_TYPE_Tktable     14
 
 /*
 ** There can be multiple <FORM> entries on a single HTML page.
@@ -1093,3 +1095,5 @@ struct HtmlWidget {
 #define DEF_HTML_TABLE_BORDER_DARK_COLOR  "gray40"
 
 #endif /* NAVIGATOR_TABLES */
+
+

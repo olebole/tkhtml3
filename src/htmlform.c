@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlform.c,v 1.24 2001/06/17 22:40:05 peter Exp $";
+static char const rcsid[] = "@(#) $Id: htmlform.c,v 1.25 2002/01/27 01:22:17 peter Exp $";
 /*
 ** Routines used for processing HTML makeup for forms.
 **
@@ -307,6 +307,9 @@ static int InputType(HtmlElement *p){
       break;
     case Html_TEXTAREA:
       type = INPUT_TYPE_TextArea;
+      break;
+    case Html_TABLE:
+      type = INPUT_TYPE_Tktable;
       break;
     case Html_APPLET:
     case Html_IFRAME:
@@ -691,6 +694,7 @@ int HtmlControlSize(HtmlWidget *htmlPtr, HtmlElement *pElem){
       HtmlFree(zWin);
       break;
     }
+    case INPUT_TYPE_Tktable:
     case INPUT_TYPE_Applet: {
       int result;
 
@@ -705,8 +709,19 @@ int HtmlControlSize(HtmlWidget *htmlPtr, HtmlElement *pElem){
       zWin = MakeWindowName(htmlPtr, pElem);
       Tcl_DStringAppend(&cmd, zWin, -1);
       Tcl_DStringStartSublist(&cmd);
-      HtmlAppendArglist(&cmd, pElem);
-      Tcl_DStringEndSublist(&cmd);
+      if (pElem->input.type != INPUT_TYPE_Tktable) {
+	HtmlAppendArglist(&cmd, pElem);
+        Tcl_DStringEndSublist(&cmd);
+      } else {
+	if (pElem->pNext && pElem->pNext->base.type == Html_TABLE) {
+	  char buf[30];
+          HtmlAppendArglist(&cmd, pElem->pNext);
+          Tcl_DStringEndSublist(&cmd);
+	  Tcl_DStringAppend(&cmd," ",1);
+	  sprintf(buf, "%d", pElem->pNext->base.id);
+	  Tcl_DStringAppend(&cmd,buf,-1);
+	}
+      }
       HtmlLock(htmlPtr);
       htmlPtr->inParse++;
       result = Tcl_GlobalEval(htmlPtr->interp, Tcl_DStringValue(&cmd));

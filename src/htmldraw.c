@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmldraw.c,v 1.27 2001/10/07 19:16:26 peter Exp $";
+static char const rcsid[] = "@(#) $Id: htmldraw.c,v 1.28 2002/01/27 01:22:17 peter Exp $";
 /*
 ** Routines used to render HTML onto the screen for the Tk HTML widget.
 **
@@ -750,7 +750,7 @@ static HtmlElement *FillOutBlock(HtmlWidget *htmlPtr, HtmlBlock *p){
             go = 0;
           }else if( (n + nSpace + pElem->base.count) >= sizeof(zBuf) ){
 /*            go = 0;  This cause a hang, instead lets do what we can. */
-            for(i=0; i<nSpace && (n+i)<sizeof(zBuf); i++){
+            for(i=0; i<nSpace && (n+1)<sizeof(zBuf); i++){
               zBuf[n++] = ' ';
             }
             strncpy(&zBuf[n], pElem->text.zText,sizeof(zBuf)-n-1);
@@ -758,7 +758,7 @@ static HtmlElement *FillOutBlock(HtmlWidget *htmlPtr, HtmlBlock *p){
             n += i;
             x = pElem->text.x + pElem->text.w;
           }else{
-            for(i=0; i<nSpace; i++){
+            for(i=0; i<nSpace && (n+1)<sizeof(zBuf); i++){
               zBuf[n++] = ' ';
             }
             strncpy(&zBuf[n], pElem->text.zText,sizeof(zBuf)-n-1);

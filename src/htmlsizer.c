@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlsizer.c,v 1.37 2001/10/07 19:16:26 peter Exp $";
+static char const rcsid[] = "@(#) $Id: htmlsizer.c,v 1.38 2002/01/27 01:22:17 peter Exp $";
 /*
 ** Routines used to compute the style and size of individual elements.
 **
@@ -877,6 +877,14 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         PushStyleStack(htmlPtr, Html_EndSUP, style);
         break;
       case Html_TABLE:
+	if (p->table.tktable) {
+          if (p->table.pEnd=HtmlFindEndNest(htmlPtr,p,Html_EndTABLE,0))
+	    MakeInvisible(p,p->table.pEnd);
+	    if (p->table.pEnd) {
+	      p=p->table.pEnd;
+	      break;
+	    }
+	}
         paraAlign = ALIGN_None;
         nextStyle = style;
         if (style.flags & STY_Preformatted) {
@@ -1093,7 +1101,7 @@ void HtmlSizer(HtmlWidget *htmlPtr){
   }else{
     p = htmlPtr->lastSized->pNext;
   }
-  for(; !stop && p; p=p->pNext){
+  for(; !stop && p; p=p?p->pNext:0){
     if( p->base.style.flags & STY_Invisible ){
       p->base.flags &= ~HTML_Visible;
       continue;
@@ -1199,8 +1207,12 @@ void HtmlSizer(HtmlWidget *htmlPtr){
         }
 #endif /* _TCLHTML_ */
         break;
-      case Html_HR:
       case Html_TABLE:
+	  if (p->table.tktable) {
+	    p=p->table.pEnd;
+	    break;
+	  }
+      case Html_HR:
         p->base.flags |= HTML_Visible;
         break;
       case Html_APPLET:

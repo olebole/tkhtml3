@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlparse.c,v 1.24 2001/06/17 22:40:05 peter Exp $";
+static char const rcsid[] = "@(#) $Id: htmlparse.c,v 1.25 2002/01/27 01:22:17 peter Exp $";
 /*
 ** A tokenizer that converts raw HTML into a linked list of HTML elements.
 **
@@ -500,7 +500,7 @@ static void AppendElement(HtmlWidget *p, HtmlElement *pElem){
   p->nToken++;
 }
 
-/* Allocate a new token and append after p */
+/* Allocate a new token and insert before p */
 static HtmlElement *AppToken(HtmlWidget *htmlPtr, HtmlElement *p, 
   int typ, int siz, int offs) {
   HtmlElement *pNew;
@@ -516,12 +516,18 @@ static HtmlElement *AppToken(HtmlWidget *htmlPtr, HtmlElement *p,
   pNew->base.type = typ;
   pNew->base.count = 0;
   pNew->base.offs = offs;
-  pNew->base.id=htmlPtr->idind++;
   pNew->base.pNext = p;
   if (p) {
+    pNew->base.id=p->base.id;
+    p->base.id=++htmlPtr->idind;
     pNew->base.pPrev = p->base.pPrev;
+    if (p->base.pPrev)
+      p->base.pPrev->pNext=pNew;
+      if (htmlPtr->pFirst==p)
+	 htmlPtr->pFirst = pNew;
     p->base.pPrev = pNew;
   } else {
+    pNew->base.id=++htmlPtr->idind;
     AppendElement(htmlPtr,pNew);
   }
   htmlPtr->nToken++;
@@ -991,6 +997,13 @@ makeMarkupEntry:
       */
       AppendElement(p,pElem);
       switch( pMap->type ){
+        case Html_TABLE:
+	  if (HtmlMarkupArg(pElem,"tktable",0)) {
+	    pElem->table.tktable=1;
+            AppToken(p,pElem,Html_INPUT,sizeof(HtmlInput),n);
+	    pElem->base.pPrev->input.type=INPUT_TYPE_Tktable;
+	  }
+	  break;
         case Html_PLAINTEXT:
         case Html_LISTING:
         case Html_XMP:

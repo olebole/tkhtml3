@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlexts.c,v 1.2 2001/10/07 19:16:26 peter Exp $";
+static char const rcsid[] = "@(#) $Id: htmlexts.c,v 1.3 2002/01/27 01:22:17 peter Exp $";
 /*
 ** The extra routines for the HTML widget for Tcl/Tk
 **
@@ -329,6 +329,7 @@ int HtmlPostscriptCmd(
   int argc,              /* Number of arguments */
   char **argv            /* List of all arguments */
 ){
+#if TKHTML_PS
 #ifdef USE_TCL_STUBS
   if (!HtmlPostscriptPtr) {
     Tcl_AppendResult(interp,"postscript command unimplemented", 0);
@@ -336,9 +337,9 @@ int HtmlPostscriptCmd(
   }
   return HtmlPostscriptPtr(htmlPtr,interp,argc,argv);
 #else
-#if TKHTML_PS
   return HtmlPostscript(htmlPtr,interp,argc,argv);
 #endif
+#else
   return TCL_ERROR;
 #endif
 }
@@ -753,7 +754,7 @@ static HtmlElement *HtmlFindEndPOther( HtmlWidget *htmlPtr, HtmlElement *sp,
 }
  
 /* Find End tag en, but ignore intervening begin/end tag pairs. */
-static HtmlElement *HtmlFindEndNest(
+HtmlElement *HtmlFindEndNest(
   HtmlWidget *htmlPtr, 
   HtmlElement *sp,	/* Pointer to start from. */
   int en, 		/* End tag to search for */
@@ -1147,6 +1148,35 @@ int HtmlDOMFmtSubIndex(
     return HtmlDOMFmtSubIndexGen(htmlPtr, p, cmd, tag, str, pretag, tp, nostr);
   }
   return 0;
+}
+
+int HtmlTextTable(
+  HtmlWidget *htmlPtr,   /* The HTML widget */
+  Tcl_Interp *interp,    /* The interpreter */
+  int argc,              /* Number of arguments */
+  char **argv            /* List of all arguments */
+){
+  HtmlElement *p;
+  Tcl_DString str;
+  int rc, i, flags=0;
+  if( HtmlGetIndex(htmlPtr, argv[3], &p, &i)!=0 ){
+    Tcl_AppendResult(interp,"malformed index: \"", argv[3], "\"", 0);
+    return TCL_ERROR;
+  }
+  if (p->base.type != Html_TABLE) {
+    Tcl_AppendResult(interp,"Not a table: \"", argv[3], "\"", 0);
+    return TCL_ERROR;
+  }
+  while (argc>4) {
+     if (!strcmp(argv[4],"images")) flags|=1;
+     if (!strcmp(argv[4],"attrs")) flags|=2;
+     argc--;
+     argv++;
+  }
+  rc= HtmlTableText(htmlPtr, p, interp, flags, &str);
+  Tcl_DStringResult(interp, &str);
+  // Tcl_DStringFree(&str);
+  return rc;
 }
 
 /* Given an ID, return the DOM style string address for the item.
@@ -2912,8 +2942,10 @@ tclgunzip (ClientData clientData, Tcl_Interp * interp,
     Tcl_SetObjResult (interp,o);
     Tcl_DecrRefCount (o);
     free(uncompr);
+    gzclose(zF);
     return TCL_OK;
 gunziperror:
+    gzclose(zF);
     free(uncompr);
     Tcl_SetObjResult (interp, Tcl_NewStringObj ("gunzip error", -1));
     return TCL_ERROR;
@@ -2942,8 +2974,10 @@ tclgzip (ClientData clientData, Tcl_Interp * interp,
         if (ilen<=0) break;
       }
     } else goto gziperror;
+    gzclose(zF);
     return TCL_OK;
 gziperror:
+    gzclose(zF);
     Tcl_SetObjResult (interp, Tcl_NewStringObj ("gzip error", -1));
     return TCL_ERROR;
 }
@@ -3286,11 +3320,9 @@ static char *BegEnd = " ?-begin INDEX? ?-end INDEX? ?-range {INDEX INDEX}?";
   }
 #endif /* _TCLHTML_ */
 #else
-#ifndef _TCLHTML_
 #if TKHTML_PS
   HtmlPostscriptPtr=HtmlPostscript;
 #endif
-#endif /* _TCLHTML_ */
   Tcl_PkgProvide(interp, HTML_PKGNAME"pr", HTML_PKGVERSION);
 #endif
   Tcl_CreateObjCommand(interp, "stdchan", stdchancmd,
@@ -3339,6 +3371,7 @@ static char *BegEnd = " ?-begin INDEX? ?-end INDEX? ?-range {INDEX INDEX}?";
   HtmlCommandAdd("text","html",3, 5, "START END", HtmlTextHtmlCmd );
   HtmlCommandAdd("text","find",4, 7,"TEXT ?nocase? ?before|after INDEX?", HtmlTextFindCmd);
   HtmlCommandAdd("text","offset",6, 6,"START NUM1 NUM2", HtmlTextOffsetCmd);
+  HtmlCommandAdd("text","table",4, 6,"INDEX ?images? ?attrs?", HtmlTextTable);
   HtmlCommandAdd("token","delete",4, 5, "INDEX ?INDEX?",HtmlTokenDeleteCmd);
   HtmlCommandAdd("token","insert",5, 6, "INDEX TAG ARGS",HtmlTokenInsertCmd);
   HtmlCommandAdd("token","find",4, 6, "TAG ?before|after|near INDEX?", HtmlTokenFindCmd);

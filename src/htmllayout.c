@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmllayout.c,v 1.29 2001/06/17 22:40:05 peter Exp $";
+static char const rcsid[] = "@(#) $Id: htmllayout.c,v 1.30 2002/01/27 01:22:17 peter Exp $";
 /*
 ** This file contains the code used to position elements of the
 ** HTML file on the screen.
@@ -205,7 +205,7 @@ static HtmlElement *GetLine(
       p = p->pNext;
     }
   }
-  for(; p && p!=pEnd; p=p->pNext){
+  for(; p && p!=pEnd; p=p?p->pNext:0){
     if( p->base.style.flags & STY_Invisible ){
       continue;
     }
@@ -317,6 +317,18 @@ static HtmlElement *GetLine(
         }
         break;
 
+      case Html_TABLE:
+        if (p->table.tktable) {
+          p=p->table.pEnd;
+	  break;
+        }
+      case Html_EndTABLE:
+      case Html_TD:
+      case Html_EndTD:
+      case Html_TH:
+      case Html_EndTH:
+      case Html_TR:
+      case Html_EndTR:
       case Html_ADDRESS:
       case Html_EndADDRESS:
       case Html_BLOCKQUOTE:
@@ -359,14 +371,6 @@ static HtmlElement *GetLine(
       case Html_EndP:
       case Html_PRE:
       case Html_EndPRE:
-      case Html_TABLE:
-      case Html_EndTABLE:
-      case Html_TD:
-      case Html_EndTD:
-      case Html_TH:
-      case Html_EndTH:
-      case Html_TR:
-      case Html_EndTR:
       case Html_UL:
       case Html_EndUL:
       case Html_EndFORM:
@@ -424,17 +428,17 @@ static int FixLine(
   if( actualWidth>0 ){
     for(p=pStart; p && p!=pEnd && p->base.type!=Html_Text; p=p->pNext){}
     if( p==pEnd || p==0 ) p = pStart;
-    if( p->base.style.align == ALIGN_Center ){
-      dx = leftMargin + (width - actualWidth)/2;
-    }else if( p->base.style.align == ALIGN_Right ){
-      dx = leftMargin + (width - actualWidth);
-    }else{
-      dx = leftMargin;
-    }
-    if( dx<0 ) dx = 0;
     maxAscent = maxTextAscent = 0;
     for(p=pStart; p && p!=pEnd; p=p->pNext){
       int ss;
+      if( p->base.style.align == ALIGN_Center ){
+        dx = leftMargin + (width - actualWidth)/2;
+      }else if( p->base.style.align == ALIGN_Right ){
+        dx = leftMargin + (width - actualWidth);
+      }else{
+        dx = leftMargin;
+      }
+      if( dx<0 ) dx = 0;
       if( p->base.style.flags & STY_Invisible ){
         continue;
       }
@@ -513,6 +517,8 @@ static int FixLine(
               break;
           }
           break;
+        case Html_TABLE:
+	    break;
         case Html_TEXTAREA:
         case Html_INPUT:
         case Html_SELECT:
@@ -570,6 +576,8 @@ static int FixLine(
             maxDescent = p->image.descent;
           }
           break;
+        case Html_TABLE:
+	    break;
         case Html_INPUT:
         case Html_SELECT:
         case Html_TEXTAREA:
@@ -946,7 +954,11 @@ static HtmlElement *DoBreakMarkup(
       break;
 
     case Html_TABLE:
-      pNext = HtmlTableLayout(pLC, p);
+      if (p->table.tktable) {
+        if ((pNext=p->table.pEnd))
+	  pNext->ref.pOther=p;
+      } else
+        pNext = HtmlTableLayout(pLC, p);
       break;
 
     case Html_BR:

@@ -1,3 +1,4 @@
+#if TKHTML_PS
 /*
  * So blatently ripped off from Tk, comments aren't even updated.
  * Peter MacDonald.  http://browsex.com
@@ -12,10 +13,9 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: htmlPsImg.c,v 1.2 2001/10/07 19:16:26 peter Exp $
+ * RCS: @(#) $Id: htmlPsImg.c,v 1.3 2002/01/27 01:22:17 peter Exp $
  */
 
-#if TKHTML_PS
 
 int
 TkPostscriptImage(
@@ -492,4 +492,4 @@ Tk_SetTSOrigin(
     XSetTSOrigin(Tk_Display(tkwin), gc, x, y);
 }
 
-#endif /* TKHTML_PS */
+#endif /* TKHTML_PS=1 */

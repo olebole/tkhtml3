@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmltable.c,v 1.44 2001/10/07 19:16:26 peter Exp $";
+static char const rcsid[] = "@(#) $Id: htmltable.c,v 1.45 2002/01/27 01:22:17 peter Exp $";
 /*
 ** Routines for doing layout of HTML tables
 **
@@ -28,6 +28,7 @@ static char const rcsid[] = "@(#) $Id: htmltable.c,v 1.44 2001/10/07 19:16:26 pe
 #include <string.h>
 #include <ctype.h>
 #include <math.h>
+#include <assert.h>
 #include "htmltable.h"
 
 /*
@@ -69,6 +70,131 @@ static int CellSpacing(HtmlWidget *htmlPtr, HtmlElement *pTable){
   }
   return cellSpacing;
 }
+
+/* Return text and images from a table as lists.
+   The first list is a list of rows (which is a list of cells).
+   An optional second list is a list of images: row col charoffset tokenid.
+*/
+int HtmlTableText(
+  HtmlWidget *htmlPtr,
+  HtmlElement *p,
+  Tcl_Interp *interp,
+  int flags,			// Include images
+  Tcl_DString *str
+)
+{
+  int j, Nest = 0, intext=0, rows=0, cols, images=flags&1, attrs=flags&2;
+  char buf[100];
+  HtmlElement *pEnd;
+  Tcl_DString substr;
+  Tcl_DString imgstr;
+  Tcl_DString attrstr;
+  Tcl_DStringInit(str);
+  Tcl_DStringInit(&substr);
+  if (images)
+    Tcl_DStringInit(&imgstr);
+  if (attrs)
+    Tcl_DStringInit(&attrstr);
+
+  assert(p->base.type == Html_TABLE);
+  if (!(pEnd=p->table.pEnd))
+    goto tbltxterr;
+  Tcl_DStringStartSublist(str);
+  if (attrs) {
+    Tcl_DStringStartSublist(&attrstr);
+    HtmlAppendArglist(&attrstr, p);
+    Tcl_DStringEndSublist(&attrstr);
+  }
+  Nest=1;
+  while (p && (p=p->pNext)) {
+    if (attrs) {
+     switch( p->base.type ){
+        case Html_EndTR:
+	  Tcl_DStringEndSublist(&attrstr);
+	  break;
+        case Html_TR:
+	  Tcl_DStringStartSublist(&attrstr);
+        case Html_TD:
+        case Html_TH:
+	  Tcl_DStringStartSublist(&attrstr);
+	  HtmlAppendArglist(&attrstr, p);
+	  Tcl_DStringEndSublist(&attrstr);
+     }
+   }
+   switch( p->base.type ){
+      case Html_TABLE:
+	if (!(p=HtmlFindEndNest(htmlPtr,p,Html_EndTABLE,0)))
+	  goto tbltxterr;
+        break;
+      case Html_EndTABLE:
+        p=0;
+        break;
+      case Html_TR:
+	cols=0;
+	rows++;
+        Nest++;
+        Tcl_DStringStartSublist(str);
+        break;
+      case Html_EndTR:
+        while (Nest >1) {
+	  Nest--;
+          Tcl_DStringEndSublist(str);
+	}
+        break;
+      case Html_TD:
+      case Html_TH:
+	cols++;
+	Tcl_DStringInit(&substr);
+	break;
+      case Html_EndTD:
+      case Html_EndTH:
+        Tcl_DStringAppendElement(str, Tcl_DStringValue(&substr));
+	break;
+      case Html_Text:
+        Tcl_DStringAppend(&substr, p->text.zText, -1);
+        break;
+      case Html_Space:
+        for (j=0; j< p->base.count; j++) {
+          Tcl_DStringAppend(&substr, " ", 1);
+        }
+        if ((p->base.flags & HTML_NewLine)!=0)
+          Tcl_DStringAppend(&substr, "\n", -1);
+        break;
+
+      case Html_CAPTION:  // Should do something with Caption?
+	if (!(pEnd=HtmlFindEndNest(htmlPtr,p,Html_EndCAPTION,0)))
+	  p=pEnd;
+        break;
+      case Html_IMG:  // Images return: row col charoffset tokenid
+	if (!images) break;
+	sprintf(buf,"%d %d %d %d", rows-1, cols-1, 
+	  Tcl_DStringLength(&substr), p->base.id);
+        Tcl_DStringAppendElement(&imgstr, buf);
+        break;
+    }
+  }
+  while (Nest--)
+    Tcl_DStringEndSublist(str);
+  Tcl_DStringFree(&substr);
+  if (attrs) {
+    Tcl_DStringAppendElement(str, Tcl_DStringValue(&attrstr));
+    Tcl_DStringFree(&attrstr);
+  }
+  if (images) {
+    Tcl_DStringAppendElement(str, Tcl_DStringValue(&imgstr));
+    Tcl_DStringFree(&imgstr);
+  }
+  return TCL_OK;
+
+tbltxterr:
+  Tcl_DStringFree(&substr);
+  if (attrs)
+    Tcl_DStringFree(&attrstr);
+  if (images)
+    Tcl_DStringFree(&imgstr);
+  return TCL_ERROR;
+}
+
 
 /* Forward declaration */
 static HtmlElement *MinMax(HtmlWidget*, HtmlElement *, int *, int *, int,
@@ -775,7 +901,6 @@ static int GetVerticalAlignment(HtmlElement *p, int dflt){
   }
   return rc;
 }
-#include <assert.h>
 
 /* Do all layout for a single table.  Return the </table> element or
 ** NULL if the table is unterminated.
