@@ -1,6 +1,6 @@
 /*
 ** Routines used to render HTML onto the screen for the Tk HTML widget.
-** $Revision: 1.7 $
+** $Revision: 1.8 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -27,6 +27,9 @@
 #include <string.h>
 #include <stdlib.h>
 #include "htmldraw.h"
+#ifdef USE_TK_STUBS
+# include <tkIntXlibDecls.h>
+#endif
 
 #define USE_TK_DRAWCHARS 1
 
@@ -230,6 +233,7 @@ static void DrawSelectionBackground(
   HtmlElement *p = 0;       /* First element of the block */
   Tk_Font font;             /* Font */
   GC gc;                    /* GC for drawing */
+  XRectangle xrec;          /* Size of a filled rectangle to be drawn */
 
   if( pBlock==0 || (pBlock->base.flags & HTML_Selected)==0 ){
     TestPoint(0);
@@ -274,8 +278,11 @@ static void DrawSelectionBackground(
   yTop = pBlock->top - y;
   yBottom = pBlock->bottom - y;
   gc = HtmlGetGC(htmlPtr, COLOR_Selection, FONT_Any);
-  XFillRectangle(htmlPtr->display, drawable, gc, xLeft, yTop,
-         xRight - xLeft, yBottom - yTop);
+  xrec.x = xLeft;
+  xrec.y = yTop;
+  xrec.width = xRight - xLeft;
+  xrec.height = yBottom - yTop;
+  XFillRectangles(htmlPtr->display, drawable, gc, &xrec, 1);
 }
 
 /*
@@ -295,8 +302,13 @@ static void HtmlDrawRect(
       x, y, w, h, depth, relief);
   }else{
     GC gc;
+    XRectangle xrec;
     gc = HtmlGetGC(htmlPtr, src->base.style.color, FONT_Any);
-    XFillRectangle(htmlPtr->display, drawable, gc, x, y, w, h);
+    xrec.x = x;
+    xrec.y = y;
+    xrec.width = w;
+    xrec.height = h;
+    XFillRectangles(htmlPtr->display, drawable, gc, &xrec, 1);
     Tk_Fill3DRectangle(htmlPtr->tkwin, drawable, htmlPtr->border,
       x+depth, y+depth, w-depth*2, h-depth*2, 0, TK_RELIEF_FLAT);
   }
@@ -357,6 +369,7 @@ void HtmlBlockDraw(
                  x - drawableLeft, y - drawableTop);
     if( pBlock==htmlPtr->pInsBlock && htmlPtr->insStatus>0 ){
       int x;
+      XRectangle xrec;
       if( htmlPtr->insIndex < pBlock->n ){
         x = src->text.x - drawableLeft;
         x += Tk_TextWidth(font, pBlock->z, htmlPtr->insIndex);
@@ -366,9 +379,11 @@ void HtmlBlockDraw(
         TestPoint(0);
       }
       if( x>0 ){ TestPoint(0); x--; }
-      XFillRectangle(htmlPtr->display, drawable, gc,
-                     x, pBlock->top - drawableTop, 
-                     2, pBlock->bottom - pBlock->top);
+      xrec.x = x;
+      xrec.y = pBlock->top - drawableTop;
+      xrec.width =  2;
+      xrec.height = pBlock->bottom - pBlock->top;
+      XFillRectangles(htmlPtr->display, drawable, gc, &xrec, 1);
     }
   }else{
     /* We are dealing with a single HtmlElement which contains something

@@ -429,6 +429,24 @@ MakeObj hvinit.o [Src hv/hvinit.c] hv.h
 MakeProg hv "hv.o hvinit.o libtkhtml.a" tk
 MakeProg hvdev "hvdev.o hvinit.o libtkhtml.a" tk
 
+# This target makes a directory named "srcdir" and puts all the
+# source files there.  It also generates the headers and
+# automatically generated source files.
+#
+set srclist {}
+foreach f $srcc {
+  lappend srclist [Src $f.c]
+}
+foreach f $autoc {
+  lappend srclist $f.c
+}
+puts "srcdir:	makeheaders $srclist"
+puts "	mkdir srcdir || true"
+lappend srclist [Src src/html.h]
+puts "	cp $srclist srcdir"
+puts "	cd srcdir; ../makeheaders *.\[ch\]"
+puts ""
+
 #############################################################################
 #  It is not usually necessary to change anything below this line.
 #
@@ -437,6 +455,7 @@ MakeProg hvdev "hvdev.o hvinit.o libtkhtml.a" tk
 #
 puts "clean:	"
 puts "	rm -f $cleanable"
+puts "	rm -rf srcdir"
 puts ""
 puts "distclean:	clean"
 puts "	rm -f Makefile makemake.tcl config.cache config.log config.status"

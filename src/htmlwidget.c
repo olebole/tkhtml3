@@ -1,6 +1,6 @@
 /*
 ** The main routine for the HTML widget for Tcl/Tk
-** $Revision: 1.16 $
+** $Revision: 1.17 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -28,6 +28,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include "htmlwidget.h"
+#ifdef USE_TK_STUBS
+# include <tkIntXlibDecls.h>
+#endif
 
 /*
 ** This global variable is used for tracing the operation of
@@ -54,7 +57,7 @@ int HtmlTraceMask = 0;
 /*
 ** Information used for argv parsing.
 */
-Tk_ConfigSpec configSpecs[] = {
+static Tk_ConfigSpec configSpecs[] = {
     {TK_CONFIG_STRING, "-appletcommand", "appletCommand", "HtmlCallback",
         DEF_HTML_CALLBACK, Tk_Offset(HtmlWidget, zAppletCommand), 0},
     {TK_CONFIG_BORDER, "-background", "background", "Background",
@@ -137,6 +140,13 @@ Tk_ConfigSpec configSpecs[] = {
     {TK_CONFIG_END, (char *) NULL, (char *) NULL, (char *) NULL,
 	(char *) NULL, 0, 0}
 };
+
+/*
+** Get a copy of the config specs.
+*/
+Tk_ConfigSpec *HtmlConfigSpec(void){
+  return configSpecs;
+}
 
 /*
 ** Find the width of the usable drawing area in pixels.  If the window isn't
@@ -1837,6 +1847,14 @@ static int HtmlCommand(
 ** external linkage.
 */
 int Tkhtml_Init(Tcl_Interp *interp){
+#ifdef USE_TCL_STUBS
+  if( Tcl_InitStubs(interp,"8.0",0)==0 ){
+    return TCL_ERROR;
+  }
+  if( Tk_InitStubs(interp,"8.0",0)==0 ){
+    return TCL_ERROR;
+  }
+#endif
   Tcl_CreateCommand(interp,"html", HtmlCommand, 
       Tk_MainWindow(interp), 0);
   /* Tcl_GlobalEval(interp,HtmlLib); */

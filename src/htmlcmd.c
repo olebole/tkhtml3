@@ -1,6 +1,6 @@
 /*
 ** Routines to implement the HTML widget commands
-** $Revision: 1.8 $
+** $Revision: 1.9 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -54,7 +54,7 @@ int HtmlCgetCmd(
   char **argv            /* List of all arguments */
 ){
   TestPoint(0);
-  return Tk_ConfigureValue(interp, htmlPtr->tkwin, configSpecs,
+  return Tk_ConfigureValue(interp, htmlPtr->tkwin, HtmlConfigSpec(),
 		(char *) htmlPtr, argv[2], 0);
 }
 
@@ -90,11 +90,11 @@ int HtmlConfigCmd(
 ){
   if (argc == 2) {
      TestPoint(0);
-     return Tk_ConfigureInfo(interp, htmlPtr->tkwin, configSpecs,
+     return Tk_ConfigureInfo(interp, htmlPtr->tkwin, HtmlConfigSpec(),
         (char *) htmlPtr, (char *) NULL, 0);
   } else if (argc == 3) {
      TestPoint(0);
-     return Tk_ConfigureInfo(interp, htmlPtr->tkwin, configSpecs,
+     return Tk_ConfigureInfo(interp, htmlPtr->tkwin, HtmlConfigSpec(),
         (char *) htmlPtr, argv[2], 0);
   } else {
      TestPoint(0);
