@@ -1,6 +1,6 @@
 /*
 ** A tokenizer that converts raw HTML into a linked list of HTML elements.
-** $Revision: 1.6 $
+** $Revision: 1.7 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -278,7 +278,7 @@ void HtmlTranslateEscapes(char *z){
       }else{
         int i = from+1;
         int c;
-        while( z[i] && isalpha(z[i]) ){ TestPoint(0); i++; }
+        while( z[i] && isalnum(z[i]) ){ TestPoint(0); i++; }
         c = z[i];
         z[i] = 0;
         h = EscHash(&z[from+1]);
