@@ -1,6 +1,6 @@
 /*
 ** The main routine for the HTML widget for Tcl/Tk
-** $Revision: 1.28 $
+** $Revision: 1.29 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -785,9 +785,29 @@ int ConfigureHtmlWidget(
   int flags                /* Configuration flags */
 ){
   int rc;
+  int i;
+  int benign = 1;
+  for(i=0; i<argc; i+=2){
+    int c;
+    int n;
+    if( argv[i][0]!='-' ){
+      benign = 0;
+      break;
+    }
+    c = argv[i][1];
+    n = strlen(argv[i]);
+    if( c=='c' && n>4 && strncmp(argv[i],"-cursor",n)==0 ){
+      continue;
+    }else
+    /* The default case */
+    {
+      benign = 0;
+      break;
+    }
+  }
   rc = Tk_ConfigureWidget(interp, htmlPtr->tkwin, configSpecs, argc, argv,
                          (char *) htmlPtr, flags);
-  if( rc!=TCL_OK ){ TestPoint(0); return rc; }
+  if( benign || rc!=TCL_OK ){ TestPoint(0); return rc; }
   memset(htmlPtr->fontValid, 0, sizeof(htmlPtr->fontValid));
   htmlPtr->apColor[COLOR_Normal] = htmlPtr->fgColor;
   htmlPtr->apColor[COLOR_Visited] = htmlPtr->oldLinkColor;
