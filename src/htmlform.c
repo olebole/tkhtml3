@@ -1,6 +1,6 @@
 /*
 ** Routines used for processing HTML makeup for forms.
-** $Revision: 1.8 $
+** $Revision: 1.9 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -160,7 +160,7 @@ static int InputType(HtmlElement *p){
 
   switch( p->base.type ){
     case Html_INPUT:
-      z = HtmlMarkupArg(p, "type", 0);
+      z = HtmlMarkupArg(p, "type", "text");
       if( z==0 ){ TestPoint(0); break; }
       for(i=0; i<sizeof(types)/sizeof(types[0]); i++){
         if( stricmp(types[i].zName,z)==0 ){
