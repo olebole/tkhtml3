@@ -227,10 +227,10 @@ text. This is not valid HTML, but it is what Netscape does.} {
   $h clear
   $h parse {
     <a name="one">One</a>
-    <a name="two">Two</a>
-    <a name="three">Three</a>
-    <a name="four">Four</a>
+    <a id="two">Two</a>
+    <a href="three">Three</a>
+    <a name="four" id="vier">Four</a>
   }
   update
   $h names
-} {0 {one two three four}}
+} {0 {one two four}}

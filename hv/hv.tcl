@@ -5,7 +5,7 @@
 # This application is used for testing the HTML widget.  It can
 # also server as an example of how to use the HTML widget.
 # 
-# @(#) $Id: hv.tcl,v 1.23 2000/01/21 13:22:34 drh Exp $
+# @(#) $Id: hv.tcl,v 1.24 2000/01/30 01:20:08 drh Exp $
 #
 wm title . {HTML File Viewer}
 wm iconname . {HV}
@@ -78,7 +78,31 @@ pack .mbar.view -side left -padx 5
 set m [menu .mbar.view.m]
 set underlineHyper 0
 $m add checkbutton -label {Underline Hyperlinks} -variable underlineHyper
+trace variable underlineHyper w ChangeUnderline
+proc ChangeUnderline args {
+  global underlineHyper
+  .h.h config -underlinehyperlinks $underlineHyper
+}
+set showTableStruct 0
+$m add checkbutton -label {Show Table Structure} -variable showTableStruct
+trace variable showTableStruct w ShowTableStruct
+proc ShowTableStruct args {
+  global showTableStruct HtmlTraceMask
+  if {$showTableStruct} {
+    set HtmlTraceMask [expr {$HtmlTraceMask|0x8}]
+    .h.h config -tablerelief flat
+  } else {
+    set HtmlTraceMask [expr {$HtmlTraceMask&~0x8}]
+    .h.h config -tablerelief raised
+  }
+  Refresh
+}
+set showImages 1
+$m add checkbutton -label {Show Images} -variable showImages
+trace variable showImages w Refresh
 
+# Construct the main HTML viewer
+#
 frame .h
 pack .h -side top -fill both -expand 1
 html .h.h \
@@ -92,12 +116,6 @@ html .h.h \
   -appletcommand AppletCmd \
   -underlinehyperlinks 0 \
   -bg white -tablerelief raised
-
-trace variable underlineHyper w ChangeUnderline
-proc ChangeUnderline args {
-  global underlineHyper
-  .h.h config -underlinehyperlinks $underlineHyper
-}
 
 # If the tracemask is not 0, then draw the outline of all
 # tables as a blank line, not a 3D relief.
@@ -121,7 +139,7 @@ proc pickFont {size attrs} {
 # This routine is called for each form element
 #
 proc FormCmd {n cmd args} {
-  puts "FormCmd: $n $cmd $args"
+  # puts "FormCmd: $n $cmd $args"
   switch $cmd {
     select -
     textarea -
@@ -134,31 +152,62 @@ proc FormCmd {n cmd args} {
 
 # This routine is called for every <IMG> markup
 #
+# proc ImageCmd {args} {
+# puts "image: $args"
+#   set fn [lindex $args 0]
+#   if {[catch {image create photo -file $fn} img]} {
+#     return nogifsm
+#   } else {
+#    global Images
+#    set Images($img) 1
+#    return $img
+#  }
+#}
 proc ImageCmd {args} {
-  set fn [lindex $args 0]
-  if {[catch {image create photo -file $fn} img]} {
-    # global HtmlTraceMask
-    # if {$HtmlTraceMask==0} {
-    #   tk_messageBox -icon error -message $img -type ok
-    # }
-    return nogifsm
-  } else {
-    global Images
-    set Images($img) 1
-    return $img
+  global OldImages Images showImages
+  if {!$showImages} {
+    return smgray
   }
+  set fn [lindex $args 0]
+  if {[info exists OldImages($fn)]} {
+    set Images($fn) $OldImages($fn)
+    unset OldImages($fn)
+    return $Images($fn)
+  }
+  if {[catch {image create photo -file $fn} img]} {
+    return smgray
+  }
+  if {[image width $img]*[image height $img]>20000} {
+    global BigImages
+    set b [image create photo -width [image width $img] \
+           -height [image height $img]]
+    set BigImages($b) $img
+    set img $b
+    after idle "MoveBigImage $b"
+  }
+  set Images($fn) $img
+  return $img
 }
+proc MoveBigImage b {
+  global BigImages
+  if {![info exists BigImages($b)]} return
+  $b copy $BigImages($b)
+  image delete $BigImages($b)
+  unset BigImages($b)
+  update
+}
+
 
 # This routine is called for every <SCRIPT> markup
 #
 proc ScriptCmd {args} {
-  puts "ScriptCmd: $args"
+  # puts "ScriptCmd: $args"
 }
 
 # This routine is called for every <APPLET> markup
 #
 proc AppletCmd {w arglist} {
-  puts "AppletCmd: w=$w arglist=$arglist"
+  # puts "AppletCmd: w=$w arglist=$arglist"
   label $w -text "The Applet $w" -bd 2 -relief raised
 }
 
@@ -188,15 +237,6 @@ pack .f2.sp -side right -fill y
 scrollbar .f2.hsb -orient horizontal -command {.h.h xview}
 pack .f2.hsb -side top -fill x
 
-#proc FontCmd {args} {
-#  puts "FontCmd: $args"
-#  return {Times 12}
-#}
-#proc ResolverCmd {args} {
-#  puts "Resolver: $args"
-#  return [lindex $args 0]
-#}
-
 # This procedure is called when the user selects the File/Open
 # menu option.
 #
@@ -216,13 +256,33 @@ proc Load {} {
 
 # Clear the screen.
 #
+# Clear the screen.
+#
 proc Clear {} {
-  global Images
-  .h.h clear
-  foreach img [array names Images] {
-    image delete $img
+  global Images OldImages hotkey
+  if {[winfo exists .fs.h]} {set w .fs.h} {set w .h.h}
+  $w clear
+  catch {unset hotkey}
+  ClearBigImages
+  ClearOldImages
+  foreach fn [array names Images] {
+    set OldImages($fn) $Images($fn)
   }
   catch {unset Images}
+}
+proc ClearOldImages {} {
+  global OldImages
+  foreach fn [array names OldImages] {
+    image delete $OldImages($fn)
+  }
+  catch {unset OldImages}
+}
+proc ClearBigImages {} {
+  global BigImages
+  foreach b [array names BigImages] {
+    image delete $BigImages($b)
+  }
+  catch {unset BigImages}
 }
 
 # Read a file
@@ -249,11 +309,12 @@ proc LoadFile {name} {
   set LastFile $name
    .h.h config -base $name
   .h.h parse $html
+  ClearOldImages
 }
 
 # Refresh the current file.
 #
-proc Refresh {} {
+proc Refresh {args} {
   global LastFile
   if {![info exists LastFile]} return
   LoadFile $LastFile
