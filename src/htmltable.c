@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmltable.c,v 1.32 2000/01/31 13:23:47 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmltable.c,v 1.33 2000/02/01 02:28:55 drh Exp $";
 /*
 ** Routines for doing layout of HTML tables
 **
@@ -37,8 +37,8 @@ static char const rcsid[] = "@(#) $Id: htmltable.c,v 1.32 2000/01/31 13:23:47 dr
 #define DFLT_CELLSPACING_3D     5
 #define DFLT_CELLSPACING_FLAT   0
 #define DFLT_CELLPADDING        2
-#define DFLT_HSPACE             5
-#define DFLT_VSPACE             3
+#define DFLT_HSPACE             0
+#define DFLT_VSPACE             0
 
 #if INTERFACE
 /*
@@ -1088,7 +1088,7 @@ HtmlElement *HtmlTableLayout(
   btm += tbw;
   pTable->table.h = btm - pTable->table.y;
   SETMAX( pLC->maxY, btm );
-  pLC->bottom = btm + vspace + 1;
+  pLC->bottom = btm + vspace;
 
   /* Render the caption, if there is one */
   if( pCaption ){
