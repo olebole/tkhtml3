@@ -1,7 +1,14 @@
-static char const rcsid[] = "@(#) $Id: htmlwish.c,v 1.7 2002/09/22 16:55:46 peter Exp $";
+static char const rcsid[] = "@(#) $Id: htmlwish.c,v 1.8 2002/12/17 18:24:16 drh Exp $";
 /*
 ** Make a "wish" that includes the html widget.
 **
+** This source code is released into the public domain by the author,
+** D. Richard Hipp, on 2002 December 17.  Instead of a license, here
+** is a blessing:
+**
+**    May you do good and not evil.
+**    May you find forgiveness for yourself and forgive others.
+**    May you share freely, never taking more than you give.
 */
 #include "appinit.h"
 

@@ -1,27 +1,14 @@
-static char const rcsid[] = "@(#) $Id: htmlform.c,v 1.29 2002/09/27 16:51:31 andreas_kupries Exp $";
+static char const rcsid[] = "@(#) $Id: htmlform.c,v 1.30 2002/12/17 18:24:16 drh Exp $";
 /*
 ** Routines used for processing HTML makeup for forms.
 **
-** Copyright (C) 1997-2000 D. Richard Hipp
+** This source code is released into the public domain by the author,
+** D. Richard Hipp, on 2002 December 17.  Instead of a license, here
+** is a blessing:
 **
-** This library is free software; you can redistribute it and/or
-** modify it under the terms of the GNU Library General Public
-** License as published by the Free Software Foundation; either
-** version 2 of the License, or (at your option) any later version.
-**
-** This library is distributed in the hope that it will be useful,
-** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-** Library General Public License for more details.
-** 
-** You should have received a copy of the GNU Library General Public
-** License along with this library; if not, write to the
-** Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-** Boston, MA  02111-1307, USA.
-**
-** Author contact information:
-**   drh@acm.org
-**   http://www.hwaci.com/drh/
+**    May you do good and not evil.
+**    May you find forgiveness for yourself and forgive others.
+**    May you share freely, never taking more than you give.
 */
 #include <tk.h>
 #include <string.h>
