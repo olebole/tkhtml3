@@ -1,8 +1,8 @@
-static char const rcsid[] = "@(#) $Id: htmlparse.c,v 1.19 2000/01/29 21:05:59 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlparse.c,v 1.20 2000/01/31 13:23:46 drh Exp $";
 /*
 ** A tokenizer that converts raw HTML into a linked list of HTML elements.
 **
-** Copyright (C) 1997,1998 D. Richard Hipp
+** Copyright (C) 1997-2000 D. Richard Hipp
 **
 ** This library is free software; you can redistribute it and/or
 ** modify it under the terms of the GNU Library General Public

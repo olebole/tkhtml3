@@ -1,8 +1,8 @@
-static char const rcsid[] = "@(#) $Id: htmlwidget.c,v 1.39 2000/01/29 21:05:59 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlwidget.c,v 1.40 2000/01/31 13:23:47 drh Exp $";
 /*
 ** The main routine for the HTML widget for Tcl/Tk
 **
-** Copyright (C) 1997-1999 D. Richard Hipp
+** Copyright (C) 1997-2000 D. Richard Hipp
 **
 ** This library is free software; you can redistribute it and/or
 ** modify it under the terms of the GNU Library General Public

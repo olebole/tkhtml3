@@ -1,8 +1,8 @@
 /*
 ** Structures and typedefs used by the HTML widget
-** $Revision: 1.25 $
+** $Revision: 1.26 $
 **
-** Copyright (C) 1997-1999 D. Richard Hipp
+** Copyright (C) 1997-2000 D. Richard Hipp
 **
 ** This library is free software; you can redistribute it and/or
 ** modify it under the terms of the GNU Library General Public
