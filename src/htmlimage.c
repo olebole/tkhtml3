@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlimage.c,v 1.16 2002/09/22 16:55:45 peter Exp $";
+static char const rcsid[] = "@(#) $Id: htmlimage.c,v 1.17 2002/11/18 03:40:14 mh Exp $";
 /*
 ** Routines used for processing <IMG> markup
 **
@@ -257,6 +257,7 @@ HtmlImage *HtmlGetImage(HtmlWidget *htmlPtr, HtmlElement *p){
   Tcl_DStringFree(&cmd);
   if( HtmlUnlock(htmlPtr) ){
     HtmlFree(zSrc);
+    return 0;
   }
   zImageName = htmlPtr->interp->result;
   lenSrc = strlen(zSrc);
