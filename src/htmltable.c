@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmltable.c,v 1.41 2000/11/10 23:01:39 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmltable.c,v 1.42 2000/11/26 14:13:19 drh Exp $";
 /*
 ** Routines for doing layout of HTML tables
 **
@@ -257,7 +257,7 @@ static HtmlElement *TableDimensions(
         pNext = MinMax(htmlPtr, p, &minW, &maxW, availWidth);
         p->cell.pEnd = pNext;
         if( (z = HtmlMarkupArg(p, "width", 0))!=0 ){
-          for(i=0; isdigit(z[i]); i++){}
+          for(i=0; isdigit(z[i]) || z[i]=='.'; i++){}
           if( strcmp(z,"*")==0 ){
             requestedW = availWidth;
           }else if( z[i]==0 ){
