@@ -39,9 +39,13 @@ proc FormCmd {args} {
   puts "FormCmd: $args"
 }
 proc ImageCmd {args} {
-  puts "ImageCmd: $args"
+#  puts "ImageCmd: $args"
   return gray
 }
+proc HrefBinding {x y} {
+  puts "Href $x $y: [.h.h href $x $y]"
+}
+bind .h.h.x <1> {HrefBinding %x %y}
 pack .h.h -side left -fill both -expand 1
 scrollbar .h.vsb -orient vertical -command {.h.h yview}
 pack .h.vsb -side left -fill y
@@ -61,11 +65,21 @@ button .f3.load -text Load -command Load
 pack .f3.load -side left
 button .f3.parseall -text {Parse All} -command {Parse 100000000}
 pack .f3.parseall -side left
-button .f3.parse100 -text {Parse 100} -command {Parse 100}
+button .f3.parse100 -text {Parse 100} -command {Parse 100 1}
 pack .f3.parse100 -side left
+button .f3.slow -text {Slow Parse} -command {SlowParseAll}
+pack .f3.slow -side left
+button .f3.fon -text {FontCmd On} -command {.h.h config -fontcommand FontCmd}
+pack .f3.fon -side left
+button .f3.foff -text {FontCmd Off} -command {.h.h config -fontcommand {}}
+pack .f3.foff -side left
 button .f3.clear -text {Clear} -command {.h.h clear}
 pack .f3.clear -side left
 
+proc FontCmd {args} {
+  puts "FontCmd: $args"
+  return {Times 12}
+}
 
 set lastDir [pwd]
 proc Load {} {
@@ -86,9 +100,17 @@ proc Load {} {
     set lastDir [file dirname $f]
   }
 }
-proc Parse {n} {
+proc Parse {n {pr 0}} {
   global htmltext
   set toparse [string range $htmltext 0 [expr $n-1]]
   set htmltext [string range $htmltext $n end]
+  if {$pr} {puts "Parsing: [list $toparse]"}
   .h.h parse $toparse
+}
+proc SlowParseAll {} {
+  global htmltext
+  while {[string length $htmltext]>0} {
+    Parse 1 1
+    update
+  }
 }

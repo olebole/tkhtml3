@@ -25,6 +25,10 @@
 #        Add this prefix to the names of all executables that run
 #        on the target machine.  Default: ""
 #
+#    ENABLE_SHARED
+#
+#        True if shared libraries should be generated.
+#
 #    BUILD_CC
 #
 #        The name of a command that is used to convert C
@@ -63,7 +67,7 @@
 #        or TARGET_TK_INC in this list.  Makefiles might add
 #        additional switches such as "-I.".
 #
-#    TARGET_SHARED_CFLAGS
+#    TARGET_SHLIB_CFLAGS
 #
 #        Switches that the target compiler needs to turn C source files
 #        into *.o files that can later be linked into a shared library.
@@ -84,7 +88,7 @@
 #        The name of the linker that combines *.o files generated
 #        by TARGET_CC into executables for the target platform.
 #
-#    TARGET_LINK_SHARED
+#    TARGET_SHLIB_LINK
 #
 #        The name of the linker an maybe some options that combines
 #        *.o files into a shared library.
@@ -264,11 +268,24 @@ if test "$config_TARGET_TFLAGS" != ""; then
 else
   TARGET_TFLAGS=$BUILD_CFLAGS
 fi
+if test "$config_TARGET_RANLIB" != ""; then
+  TARGET_RANLIB=$config_TARGET_RANLIB
+else
+  AC_PROG_RANLIB
+  TARGET_RANLIB=$RANLIB
+fi
+if test "$config_TARGET_AR" != ""; then
+  TARGET_RANLIB=$config_TARGET_AR
+else
+  TARGET_AR='ar cr'
+fi
 AC_MSG_RESULT($TARGET_TFLAGS)
 AC_SUBST(TARGET_CC)
 AC_SUBST(TARGET_CFLAGS)
 AC_SUBST(TARGET_LINK)
 AC_SUBST(TARGET_LFLAGS)
+AC_SUBST(TARGET_RANLIB)
+AC_SUBST(TARGET_AR)
 
 # Set the $cross variable if we are cross-compiling.  Make
 # it 0 if we are not.
@@ -332,6 +349,11 @@ AC_ARG_WITH(tcl,
 if test "$config_WITH_TCL" != ""; then
   with_tcl=$config_WITH_TCL
 fi
+AC_ARG_WITH(tk,
+[  --with-tk=DIR           Directory holding Tk source tree for target])
+if test "$config_WITH_TK" != ""; then
+  with_tk=$config_WITH_TK
+fi
 if test "$config_BUILD_TCLSH" != ""; then
   AC_MSG_CHECKING([for a working "tclsh"])
   BUILD_TCLSH=$config_BUILD_TCLSH
@@ -354,6 +376,101 @@ else
   fi
 fi
 AC_SUBST(BUILD_TCLSH)
+
+###############
+# Check to see if the user wants to build shared libraries.  If so,
+# then locate tclConfig.sh and tkConfig.sh to figure out how.  Then
+# set up variables to short-circuit most of the subsequent tests
+# since the tclConfig.sh and tkConfig.sh files tell us most of what
+# we need to know.
+#
+AC_ARG_ENABLE(shared,
+[  --enable-shared         Build the widget as a shared library])
+if test "$config_ENABLE_SHARED" = "yes"; then
+  enable_shared=yes
+fi
+if test "$CYGWIN" = "yes"; then
+  if test "$enable_shared" = "yes"; then
+    AC_MSG_WARN([don't know how to build shared libraries with Cygwin, yet...])
+    enable_shared=no
+  fi
+fi
+if test "$enable_shared" = "yes"; then
+  ok=0
+  if test "$with_tcl" != ""; then
+    tclconf=$with_tcl/unix/tclConfig.sh
+    AC_CHECK_FILE($tclconf, ok=1; )
+  fi
+  if test "$ok" = "0"; then
+    changequote(<<<,>>>)dnl
+    cat > conftest.tcl <<\EOF
+      regsub {^([A-Za-z]):/} [file dirname [info library]] {//\1/} out
+      puts -nonewline $out
+      exit
+EOF
+    changequote([,])dnl
+    dir=`$BUILD_TCLSH <conftest.tcl`
+    tclconf=$dir/tclConfig.sh
+    AC_CHECK_FILE($tclconf, ok=1)
+  fi
+  if test "$ok" = "0"; then
+    tclconf=$dir/unix/tclConfig.sh
+    AC_CHECK_FILE($tclconf, ok=1)
+  fi
+  if test "$ok" = "0"; then
+    tclconf=/usr/local/lib/tclConfig.sh
+    AC_CHECK_FILE($tclconf, ok=1)
+  fi
+  if test "$ok" = "0"; then
+    tclconf=/usr/lib/tclConfig.sh
+    AC_CHECK_FILE($tclconf, ok=1)
+  fi
+  if test "$ok" = "0"; then
+    AC_MSG_WARN(
+        [unable to locate tclConfig.sh.  Shared libraries will not be built]);
+    enabled_shared=no
+  fi
+fi
+if test "$enable_shared" = "yes"; then
+  ok=0
+  tkconf=`echo $tclconf | sed 's/tclConfig.sh/tkConfig.sh/'`
+  AC_CHECK_FILE($tkconf, ok=1)
+  if test "$ok" = "0"; then
+    if test "$with_tk" != ""; then
+      tkconf=$with_tk/unix/tkConfig.sh
+      AC_CHECK_FILE($tkconf, ok=1; )
+    fi
+  fi
+  if test "$ok" = "0"; then
+    tkconf=/usr/local/lib/tkConfig.sh
+    AC_CHECK_FILE($tkconf, ok=1)
+  fi
+  if test "$ok" = "0"; then
+    tkconf=/usr/lib/tclConfig.sh
+    AC_CHECK_FILE($tkconf, ok=1)
+  fi
+  if test "$ok" = "0"; then
+    AC_MSG_WARN(
+        [unable to locate tkConfig.sh.  Shared libraries will not be built]);
+    enabled_shared=no
+  fi
+fi
+if test "$enable_shared" = "yes"; then
+  ENABLE_SHLIB=1
+  . $tclconf
+  . $tkconf
+  TARGET_SHLIB_EXT=$TCL_SHLIB_SUFFIX
+  TARGET_SHLIB_CFLAGS="$TCL_SHLIB_CFLAGS $TARGET_CFLAGS"
+  TARGET_SHLIB_LINK="$TCL_SHLIB_LD"
+  TARGET_SHLIB_LIBS="$TCL_SHLIB_LD_LIBS"
+else
+  ENABLE_SHLIB=0
+fi
+AC_SUBST(TARGET_SHLIB_EXT)
+AC_SUBST(TARGET_SHLIB_CFLAGS)
+AC_SUBST(TARGET_SHLIB_LINK)
+AC_SUBST(TARGET_SHLIB_LIBS)
+AC_SUBST(ENABLE_SHLIB)
 
 #########
 # Locate the directory that contains all of the Tcl initialization
@@ -380,24 +497,10 @@ fi
 AC_MSG_RESULT($TARGET_TCL_SCRIPT_DIR)
 AC_SUBST(TARGET_TCL_SCRIPT_DIR)
 
-###############
-# Check to see if the user wants to build shared libraries.  If so,
-# then locate tclConfig.sh and tkConfig.sh to figure out how.  Then
-# set up variables to short-circuit most of the subsequent tests
-# since the tclConfig.sh and tkConfig.sh files tell us most of what
-# we need to know.
-#
-AC_ARG_
-
 #########
 # Locate the directory that contains all of the Tk initialization
 # scripts for the target machine.
 #
-AC_ARG_WITH(tk,
-[  --with-tk=DIR           Directory holding Tk source tree for target])
-if test "$config_WITH_TK" != ""; then
-  with_tk=$config_WITH_TK
-fi
 AC_MSG_CHECKING([Tk script library])
 if test "$config_TARGET_TK_SCRIPT_DIR" != ""; then
   TARGET_TK_SCRIPT_DIR=$config_TARGET_TK_SCRIPT_DIR
@@ -483,7 +586,7 @@ if test "$config_TARGET_X_LIBS" != ""; then
   TARGET_X_LIBS=$config_TARGET_X_LIBS
   TARGET_X_INC=$config_TARGET_X_INC
 else
-  if test $OS_IS_UNIX = 1; then
+  if test $OS_UNIX = 1; then
     AC_PATH_XTRA
     if test "$X_CFLAGS" = "-DX_DISPLAY_MISSING"; then
       TARGET_X_LIBS=""
@@ -534,12 +637,51 @@ else
     if test "$tclsubdir" = "win"; then
       TARGET_TK_INC="$TARGET_TK_INC -I$with_tk/xlib"
     fi
-dnl  else
-dnl    AC_CHECK_HEADER(tclInt.h,, AC_MSG_ERROR(not found.  Use --with-tcl))
+  else
+    TARGET_TK_INC=""
   fi
 fi
 AC_MSG_RESULT($TARGET_TK_INC)
 AC_SUBST(TARGET_TK_INC)
+
+dnl ############
+dnl # Figure out where to look for BLT header files <blt.h>.
+dnl #
+dnl AC_ARG_WITH(blt,
+dnl [  --with-blt=DIR          Directory holding BLT source tree for target])
+dnl if test "$config_WITH_BLT" != ""; then
+dnl   with_tk=$config_WITH_BLT
+dnl fi
+dnl AC_MSG_CHECKING([BLT header files])
+dnl if test "$config_TARGET_BLT_INC" != ""; then
+dnl   TARGET_BLT_INC=$config_TARGET_BLT_INC
+dnl else
+dnl   if test "$with_blt" != ""; then
+dnl     TARGET_BLT_INC="-I$with_blt/src"
+dnl   else
+dnl     TARGET_BLT_INC=""
+dnl   fi
+dnl fi
+dnl AC_MSG_RESULT($TARGET_BLT_INC)
+AC_SUBST(TARGET_BLT_INC)
+dnl 
+dnl ##########
+dnl # Figure out what libraries are required to compile BLT programs.
+dnl #
+dnl if test "$config_TARGET_BLT_LIBS" != ""; then
+dnl   TARGET_BLT_LIBS="$config_TARGET_BLT_LIBS"
+dnl else
+dnl   if test "$with_blt" != ""; then
+dnl     TARGET_BLT_LIBS=`echo $with_blt/src/libBLT*.a`
+dnl   else
+dnl     CC=$TARGET_CC
+dnl     otherlibs="$TARGET_TK_LIBS $TARGET_X_LIBS $TARGET_TCL_LIBS"
+dnl     LIBS=""
+dnl     AC_SEARCH_LIBS(Blt_Init, BLT BLT2.4 BLT24,,,$otherlibs)
+dnl     TARGET_BLT_LIBS=$LIBS
+dnl   fi
+dnl fi
+AC_SUBST(TARGET_BLT_LIBS)
 
 #########
 # Generate the output files.
