@@ -164,7 +164,23 @@ AC_INIT(src/html.h)
 dnl Put the RCS revision string after AC_INIT so that it will also
 dnl show in in configure.
 # The following RCS revision string applies to configure.in
-# $Revision: 1.10 $
+# $Revision: 1.11 $
+
+#########
+# Make sure we are not building in a subdirectory of the source tree.
+#
+changequote(<<<,>>>)
+temp=`echo $srcdir | grep '[^./]'`
+changequote([,])
+if test "$temp" = ""; then
+  AC_MSG_ERROR([
+**************************************************************************
+** This program may not be compiled in the same directory that contains **
+** the configure script or any subdirectory of that directory.   Rerun  **
+** the configure script from a directory that is separate from the      **
+** source tree.                                                         **
+**************************************************************************])
+fi
 
 #########
 # Set up an appropriate program prefix
