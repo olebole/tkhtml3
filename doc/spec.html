@@ -1,7 +1,7 @@
 <html>
 <!-- 
   Specifications for the Tk HTML Widget 
-  $Revision: 1.5 $
+  $Revision: 1.6 $
   Copyright (C) 1997, 1998, 1999 D. Richard Hipp
 
   This program is free software; you can redistribute it and/or modify
@@ -272,6 +272,15 @@ The relief used to draw the 3-D border.
   The default is "sunken".  This can also be "raised" or "flat".  If
   "flat", then the &lt;HR&gt; is drawn using a solid line in the current
   foreground color.  "groove" and "ridge" are the same as "flat".</p>
+</td></tr>
+
+<tr><td valign=top><tt>-scriptcommand</tt></td>
+<td>
+  <p>Whenever &lt;SCRIPT&gt;...&lt;/SCRIPT&gt; markup is encountered in
+  the input HTML, the attributes of the &lt;SCRIPT&gt; markup and
+  the body of the script are appended to this string and the result
+  is executed as a TCL command.  If this options is the empty string,
+  then the script is ignored.
 </td></tr>
 
 <tr><td valign=top><tt>-selectioncolor</tt><td>

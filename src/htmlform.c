@@ -1,6 +1,6 @@
 /*
 ** Routines used for processing HTML makeup for forms.
-** $Revision: 1.15 $
+** $Revision: 1.16 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -179,6 +179,8 @@ static int InputType(HtmlElement *p){
       TestPoint(0);
       break;
     case Html_APPLET:
+    case Html_IFRAME:
+    case Html_EMBED:
       type = INPUT_TYPE_Applet;
       TestPoint(0);
       break;

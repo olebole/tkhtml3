@@ -1,6 +1,6 @@
 /*
 ** Routines used to compute the style and size of individual elements.
-** $Revision: 1.18 $
+** $Revision: 1.19 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -375,6 +375,8 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
       case Html_EndKBD:
       case Html_EndMARQUEE:
       case Html_EndNOBR:
+      case Html_EndNOFRAME:
+      case Html_EndNOSCRIPT:
       case Html_EndSAMP:
       case Html_EndSMALL:
       case Html_EndSTRONG:
@@ -700,6 +702,28 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
       case Html_NOBR:
         style.flags |= STY_NoBreak;
         PushStyleStack(htmlPtr, Html_EndNOBR, style);
+        TestPoint(0);
+        break;
+      case Html_NOFRAME:
+        if( htmlPtr->zFrameCommand && *htmlPtr->zFrameCommand ){
+          nextStyle = style;
+          nextStyle.flags |= STY_Invisible;
+          PushStyleStack(htmlPtr, Html_EndNOFRAME, nextStyle);
+          useNextStyle = 1;
+        }else{
+          PushStyleStack(htmlPtr, Html_EndNOFRAME, style);
+        }
+        TestPoint(0);
+        break;
+      case Html_NOSCRIPT:
+        if( htmlPtr->zScriptCommand && *htmlPtr->zScriptCommand ){
+          nextStyle = style;
+          nextStyle.flags |= STY_Invisible;
+          PushStyleStack(htmlPtr, Html_EndNOSCRIPT, nextStyle);
+          useNextStyle = 1;
+        }else{
+          PushStyleStack(htmlPtr, Html_EndNOSCRIPT, style);
+        }
         TestPoint(0);
         break;
       case Html_OL:
@@ -1054,6 +1078,7 @@ void HtmlSizer(HtmlWidget *htmlPtr){
         TestPoint(0);
         break;
       case Html_APPLET:
+      case Html_EMBED:
       case Html_INPUT:
         p->input.textAscent = fontMetrics.ascent;
         p->input.textDescent = fontMetrics.descent;
