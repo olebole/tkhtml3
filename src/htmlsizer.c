@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlsizer.c,v 1.36 2001/06/17 22:40:06 peter Exp $";
+static char const rcsid[] = "@(#) $Id: htmlsizer.c,v 1.37 2001/10/07 19:16:26 peter Exp $";
 /*
 ** Routines used to compute the style and size of individual elements.
 **
@@ -679,9 +679,8 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         break;
       case Html_INPUT:
         p->input.pForm = htmlPtr->formStart;
-#ifdef _TCLHTML_
-        HtmlControlSize(htmlPtr, p);
-#endif
+        if (htmlPtr->TclHtml)
+           HtmlControlSize(htmlPtr, p);
         break;
       case Html_KBD:
         style.font = CWFont( FontSize(style.font) );
@@ -1037,12 +1036,11 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
 }
 
 void HtmlTableBgImage(HtmlWidget *htmlPtr, HtmlElement *p) {
-#ifdef _TCLHTML_
-  return;
-#else
+#ifndef _TCLHTML_
   Tcl_DString cmd;
   int result;
   char *z, buf[30];
+  if (htmlPtr->TclHtml) return;
   if((!htmlPtr->zGetBGImage) || (!*htmlPtr->zGetBGImage))
      return;
   if (!(z = HtmlMarkupArg(p, "background", 0)))

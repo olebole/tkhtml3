@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlexts.c,v 1.1 2001/06/17 22:40:05 peter Exp $";
+static char const rcsid[] = "@(#) $Id: htmlexts.c,v 1.2 2001/10/07 19:16:26 peter Exp $";
 /*
 ** The extra routines for the HTML widget for Tcl/Tk
 **
@@ -336,7 +336,10 @@ int HtmlPostscriptCmd(
   }
   return HtmlPostscriptPtr(htmlPtr,interp,argc,argv);
 #else
+#if TKHTML_PS
   return HtmlPostscript(htmlPtr,interp,argc,argv);
+#endif
+  return TCL_ERROR;
 #endif
 }
 
@@ -3284,7 +3287,9 @@ static char *BegEnd = " ?-begin INDEX? ?-end INDEX? ?-range {INDEX INDEX}?";
 #endif /* _TCLHTML_ */
 #else
 #ifndef _TCLHTML_
+#if TKHTML_PS
   HtmlPostscriptPtr=HtmlPostscript;
+#endif
 #endif /* _TCLHTML_ */
   Tcl_PkgProvide(interp, HTML_PKGNAME"pr", HTML_PKGVERSION);
 #endif

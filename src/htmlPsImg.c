@@ -12,10 +12,10 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: htmlPsImg.c,v 1.1 2001/06/17 22:40:05 peter Exp $
+ * RCS: @(#) $Id: htmlPsImg.c,v 1.2 2001/10/07 19:16:26 peter Exp $
  */
 
-#ifndef _TCLHTML_
+#if TKHTML_PS
 
 int
 TkPostscriptImage(
@@ -492,4 +492,4 @@ Tk_SetTSOrigin(
     XSetTSOrigin(Tk_Display(tkwin), gc, x, y);
 }
 
-#endif /* _TCLHTML_ */
+#endif /* TKHTML_PS */

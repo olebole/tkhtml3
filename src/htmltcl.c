@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.1 2001/06/17 22:40:06 peter Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.2 2001/10/07 19:16:27 peter Exp $";
 /*
 ** The main routine for the HTML widget for Tcl/Tk
 **
@@ -271,6 +271,7 @@ static struct HtmlSubcommand {
   { "parse",     0,         3, 7, "HTML-TEXT",           HtmlParseCmd },
   { "index",     0,         3, 3, "INDEX",               HtmlIndexCmd },
   { "insert",    0,         3, 3, "INDEX",               HtmlInsertCmd },
+  { "layout",    0,         2, 2, 0,                     HtmlLayoutCmd },
   { "names",     0,         2, 2, 0,                     HtmlNamesCmd },
   { "get",       0,         2, 2, 0,                     HtmlGetCmd },
   { "text",      "ascii",   5, 5, "START END",           0 },

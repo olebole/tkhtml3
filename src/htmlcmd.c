@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlcmd.c,v 1.20 2001/06/17 22:40:05 peter Exp $";
+static char const rcsid[] = "@(#) $Id: htmlcmd.c,v 1.21 2001/10/07 19:16:26 peter Exp $";
 /*
 ** Routines to implement the HTML widget commands
 **
@@ -56,13 +56,12 @@ int HtmlCgetCmd(
 ){
   int rc;
   Tk_ConfigSpec *cs=HtmlConfigSpec();
-#ifdef _TCLHTML_
-  rc=TclConfigureWidget(interp, htmlPtr, cs,
+  if (htmlPtr->TclHtml)
+    rc=TclConfigureWidget(interp, htmlPtr, cs,
 		argc-2, argv+2,  (char *) htmlPtr, 0);
-#else
-  rc=Tk_ConfigureValue(interp, htmlPtr->tkwin, cs,
+  else
+    rc=Tk_ConfigureValue(interp, htmlPtr->tkwin, cs,
 		(char *) htmlPtr, argv[2], 0);
-#endif
   return rc;
 }
 
@@ -216,7 +215,7 @@ int HtmlParseCmd(
         iStart.p->pNext=0;
       }
     } else if ((!strcmp(argv[i],"-ypos")) && argv[i+1][0]) {
-      htmlPtr->zGoto=strdup(argv[i+1]);
+      htmlPtr->zGoto=(char*)strdup(argv[i+1]);
     }
   }
   HtmlTokenizerAppend(htmlPtr, argv[2]);
@@ -250,9 +249,13 @@ int HtmlParseCmd(
     htmlPtr->flags |= EXTEND_LAYOUT;
     HtmlScheduleRedraw(htmlPtr);
   }
-#ifdef _TCLHTML_
+  if (htmlPtr->TclHtml)
+    HtmlLayout(htmlPtr);
+  return TCL_OK;
+}
+
+int HtmlLayoutCmd( HtmlWidget *htmlPtr,Tcl_Interp *interp,int argc,char **argv){
   HtmlLayout(htmlPtr);
-#endif
   return TCL_OK;
 }
 
@@ -596,6 +599,7 @@ int HtmlSelectionClearCmd(
 */
 void HtmlUpdateInsert(HtmlWidget *htmlPtr){
 #ifndef _TCLHTML_
+  if (htmlPtr->TclHtml) return;
   HtmlIndexToBlockIndex(htmlPtr, htmlPtr->ins, 
                         &htmlPtr->pInsBlock, &htmlPtr->insIndex);
   HtmlRedrawBlock(htmlPtr, htmlPtr->pInsBlock);

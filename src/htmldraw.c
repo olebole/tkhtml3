@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmldraw.c,v 1.26 2001/06/17 22:40:05 peter Exp $";
+static char const rcsid[] = "@(#) $Id: htmldraw.c,v 1.27 2001/10/07 19:16:26 peter Exp $";
 /*
 ** Routines used to render HTML onto the screen for the Tk HTML widget.
 **
@@ -755,7 +755,7 @@ static HtmlElement *FillOutBlock(HtmlWidget *htmlPtr, HtmlBlock *p){
             }
             strncpy(&zBuf[n], pElem->text.zText,sizeof(zBuf)-n-1);
 	    zBuf[sizeof(zBuf)-1]=0;
-            n += sizeof(zBuf)-i;
+            n += i;
             x = pElem->text.x + pElem->text.w;
           }else{
             for(i=0; i<nSpace; i++){
