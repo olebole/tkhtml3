@@ -1,6 +1,6 @@
 /*
 ** Structures and typedefs used by the HTML widget
-** $Revision: 1.12 $
+** $Revision: 1.13 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -63,12 +63,14 @@
 #define HtmlTrace_Table1       0x00000001
 #define HtmlTrace_Table2       0x00000002
 #define HtmlTrace_Table3       0x00000004
-#define HtmlTrace_GetLine      0x00000010
-#define HtmlTrace_GetLine2     0x00000020
-#define HtmlTrace_FixLine      0x00000040
-#define HtmlTrace_BreakMarkup  0x00000080
-#define HtmlTrace_Style        0x00000100
-#define HtmlTrace_Input1       0x00000200
+#define HtmlTrace_Table4       0x00000008
+#define HtmlTrace_Table5       0x00000010
+#define HtmlTrace_GetLine      0x00000100
+#define HtmlTrace_GetLine2     0x00000200
+#define HtmlTrace_FixLine      0x00000400
+#define HtmlTrace_BreakMarkup  0x00001000
+#define HtmlTrace_Style        0x00002000
+#define HtmlTrace_Input1       0x00004000
 
 
 /*

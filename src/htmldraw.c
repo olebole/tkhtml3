@@ -1,6 +1,6 @@
 /*
 ** Routines used to render HTML onto the screen for the Tk HTML widget.
-** $Revision: 1.9 $
+** $Revision: 1.10 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -295,6 +295,7 @@ static void HtmlDrawRect(
   }else{
     GC gc;
     XRectangle xrec;
+    /*printf("color=%d x=%d y=%d w=%d h=%d\n",src->base.style.color,x,y,w,h);*/
     gc = HtmlGetGC(htmlPtr, src->base.style.color, FONT_Any);
     xrec.x = x;
     xrec.y = y;
