@@ -1,7 +1,7 @@
 /*
 ** This file contains the code used to position elements of the
 ** HTML file on the screen.
-** $Revision: 1.22 $
+** $Revision: 1.23 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -915,6 +915,7 @@ static HtmlElement *DoBreakMarkup(
       }else{
         wd = atoi(z);
       }
+      if( wd>w ) wd = w;
       p->hr.w = wd;
       switch( p->base.style.align ){
         case ALIGN_Center:
@@ -1123,21 +1124,12 @@ void HtmlLayoutBlock(HtmlLayoutContext *pLC){
       pLC->bottom = y;
       pLC->headRoom = 0;
       pLC->pStart = pNext;
-      TestPoint(0);
-    }else{
-      TestPoint(0);
     }
     if( y > pLC->maxY ){
       pLC->maxY = y;
-      TestPoint(0);
-    }else{
-      TestPoint(0);
     }
     if( maxX > pLC->maxX ){
       pLC->maxX = maxX;
-      TestPoint(0);
-    }else{
-      TestPoint(0);
     }
   }
 }
