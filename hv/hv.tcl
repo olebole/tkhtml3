@@ -5,7 +5,7 @@
 # This application is used for testing the HTML widget.  It can
 # also server as an example of how to use the HTML widget.
 # 
-# @(#) $Id: hv.tcl,v 1.30 2003/01/28 04:59:00 hkoba Exp $
+# @(#) $Id: hv.tcl,v 1.31 2003/01/28 09:43:23 hkoba Exp $
 #
 wm title . {HTML File Viewer}
 wm iconname . {HV}
@@ -140,7 +140,7 @@ proc pickFont {size attrs} {
 
 # This routine is called for each form element
 #
-proc FormCmd {n cmd args} {
+proc FormCmd {n cmd style args} {
   # puts "FormCmd: $n $cmd $args"
   switch $cmd {
     select -
