@@ -1,6 +1,6 @@
 /*
 ** Routines for doing layout of HTML tables
-** $Revision: 1.19 $
+** $Revision: 1.20 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -907,6 +907,7 @@ HtmlElement *HtmlTableLayout(
     apElem[i] = 0;
   }
   p = pTable->pNext;
+  rowBottom = btm;
   for(iRow=1; iRow<=pTable->table.nRow; iRow++){
     TRACE(HtmlTrace_Table2, ("Row %d: btm=%d\n",iRow,btm));
     /* Find the start of the next row.  Keep an eye out for the caption
@@ -1029,7 +1030,6 @@ HtmlElement *HtmlTableLayout(
     }
 
     /* Figure out how high to make this row. */
-    rowBottom = 0;
     for(iCol=1; iCol<=pTable->table.nCol; iCol++){
       if( lastRow[iCol] == iRow || iRow==pTable->table.nRow ){
         SETMAX( rowBottom, ymax[iCol] );
