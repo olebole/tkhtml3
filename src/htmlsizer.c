@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlsizer.c,v 1.31 2000/01/31 13:23:47 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlsizer.c,v 1.32 2000/02/01 02:56:08 drh Exp $";
 /*
 ** Routines used to compute the style and size of individual elements.
 **
@@ -78,9 +78,33 @@ static void PushStyleStack(
 HtmlStyle HtmlPopStyleStack(HtmlWidget *htmlPtr, int tag){
   int type;
   HtmlStyleStack *p;
+  static Html_u8 priority[Html_TypeCount+1];
 
+  if( priority[Html_TABLE]==0 ){
+    int i;
+    for(i=0; i<=Html_TypeCount; i++) priority[i] = 1;
+    priority[Html_TD] = 2;
+    priority[Html_EndTD] = 2;
+    priority[Html_TH] = 2;
+    priority[Html_EndTH] = 2;
+    priority[Html_TR] = 3;
+    priority[Html_EndTR] = 3;
+    priority[Html_TABLE] = 4;
+    priority[Html_EndTABLE] = 4;
+  }
+  if( tag<=0 || tag>Html_TypeCount ){
+    CANT_HAPPEN;
+    return GetCurrentStyle(htmlPtr);
+  }
   while( (p=htmlPtr->styleStack)!=0 ){
     type = p->type;
+    if( type<=0 || type>Html_TypeCount ){
+      CANT_HAPPEN;
+      return GetCurrentStyle(htmlPtr);
+    }
+    if( type!=tag && priority[type]>priority[tag] ){
+      return GetCurrentStyle(htmlPtr);
+    }
     htmlPtr->styleStack = p->pNext;
     HtmlFree(p);
     if( type==tag ){ break; }
