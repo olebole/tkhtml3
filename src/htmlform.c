@@ -1,6 +1,6 @@
 /*
 ** Routines used for processing HTML makeup for forms.
-** $Revision: 1.13 $
+** $Revision: 1.14 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -37,7 +37,6 @@ void HtmlUnmapControls(HtmlWidget *htmlPtr){
 
   for(p=htmlPtr->firstInput; p; p=p->input.pNext){
     if( p->input.tkwin!=0 && Tk_IsMapped(p->input.tkwin) ){
-printf("UnmapB %d\n", p->input.cnt);
       Tk_UnmapWindow(p->input.tkwin);
     }
   }
@@ -192,7 +191,7 @@ static int InputType(HtmlElement *p){
 
 /*
 ** Create the window name for a child widget.  Space to hold the name
-** is obtained from ckalloc() and must be freed by the calling function.
+** is obtained from HtmlAlloc() and must be freed by the calling function.
 */
 static char *MakeWindowName(
   HtmlWidget *htmlPtr,        /* The HTML widget */
@@ -202,7 +201,7 @@ static char *MakeWindowName(
   char *zBuf;
 
   n = strlen(Tk_PathName(htmlPtr->clipwin));
-  zBuf = ckalloc( n + 20 );
+  zBuf = HtmlAlloc( n + 20 );
   sprintf(zBuf,"%s.x%d",Tk_PathName(htmlPtr->clipwin), pElem->input.cnt);
   return zBuf;
 }
@@ -448,7 +447,7 @@ int HtmlControlSize(HtmlWidget *htmlPtr, HtmlElement *pElem){
       if( !HtmlUnlock(htmlPtr) ){
         SizeAndLink(htmlPtr, zWin, pElem);
       }
-      ckfree(zWin);
+      HtmlFree(zWin);
       break;
     }
     case INPUT_TYPE_Select: {
@@ -479,7 +478,7 @@ int HtmlControlSize(HtmlWidget *htmlPtr, HtmlElement *pElem){
       if( !HtmlUnlock(htmlPtr) ){
         SizeAndLink(htmlPtr, zWin, pElem);
       }
-      ckfree(zWin);
+      HtmlFree(zWin);
       break;
     }
     case INPUT_TYPE_TextArea: {
@@ -510,7 +509,7 @@ int HtmlControlSize(HtmlWidget *htmlPtr, HtmlElement *pElem){
       if( !HtmlUnlock(htmlPtr) ){
         SizeAndLink(htmlPtr, zWin, pElem);
       }
-      ckfree(zWin);
+      HtmlFree(zWin);
       break;
     }
     case INPUT_TYPE_Applet: {
@@ -534,7 +533,7 @@ int HtmlControlSize(HtmlWidget *htmlPtr, HtmlElement *pElem){
       if( !HtmlUnlock(htmlPtr) ){
         SizeAndLink(htmlPtr, zWin, pElem);
       }
-      ckfree(zWin);
+      HtmlFree(zWin);
       break;
     }
     default: {

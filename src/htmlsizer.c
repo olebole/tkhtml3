@@ -1,6 +1,6 @@
 /*
 ** Routines used to compute the style and size of individual elements.
-** $Revision: 1.16 $
+** $Revision: 1.17 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -59,7 +59,7 @@ static void PushStyleStack(
 ){
   HtmlStyleStack *p;
 
-  p = (HtmlStyleStack*)ckalloc(sizeof(*p));
+  p = HtmlAlloc(sizeof(*p));
   p->pNext = htmlPtr->styleStack;
   p->type = tag;
   p->style = style;
@@ -84,7 +84,7 @@ HtmlStyle HtmlPopStyleStack(HtmlWidget *htmlPtr, int tag){
   while( (p=htmlPtr->styleStack)!=0 ){
     type = p->type;
     htmlPtr->styleStack = p->pNext;
-    ckfree((char*)p);
+    HtmlFree(p);
     if( type==tag ){ TestPoint(0); break; }
     TestPoint(0);
   }
@@ -228,7 +228,7 @@ static int GetLinkColor(HtmlWidget *htmlPtr, char *zURL){
     TestPoint(0);
     return COLOR_Unvisited;
   }
-  zCmd = ckalloc( strlen(htmlPtr->zIsVisited) + strlen(zURL) + 10 );
+  zCmd = HtmlAlloc( strlen(htmlPtr->zIsVisited) + strlen(zURL) + 10 );
   if( zCmd==0 ){
     TestPoint(0);
     return COLOR_Unvisited;
@@ -236,7 +236,7 @@ static int GetLinkColor(HtmlWidget *htmlPtr, char *zURL){
   sprintf(zCmd,"%s {%s}",htmlPtr->zIsVisited, zURL);
   HtmlLock(htmlPtr);
   result = Tcl_GlobalEval(htmlPtr->interp,zCmd);
-  ckfree(zCmd);
+  HtmlFree(zCmd);
   if( HtmlUnlock(htmlPtr) ){
     return COLOR_Unvisited;
   }
@@ -394,7 +394,7 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
           if( HtmlUnlock(htmlPtr) ) return;
           if( z!=0 ){
             if( htmlPtr->zBaseHref ){
-              ckfree(htmlPtr->zBaseHref);
+              HtmlFree(htmlPtr->zBaseHref);
             }
             htmlPtr->zBaseHref = z;
           }
@@ -590,7 +590,7 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         Tcl_DStringAppend(&cmd, htmlPtr->zFormCommand, -1);
         Tcl_DStringAppend(&cmd, zToken, -1);
         Tcl_DStringAppend(&cmd, zUrl, -1);
-        ckfree(zUrl);
+        HtmlFree(zUrl);
         Tcl_DStringAppendElement(&cmd, zMethod);
         Tcl_DStringStartSublist(&cmd);
         HtmlAppendArglist(&cmd, p);

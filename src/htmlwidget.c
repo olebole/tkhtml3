@@ -1,6 +1,6 @@
 /*
 ** The main routine for the HTML widget for Tcl/Tk
-** $Revision: 1.19 $
+** $Revision: 1.20 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -814,7 +814,7 @@ void HtmlDeleteElement(HtmlElement *p){
   switch( p->base.type ){
     case Html_Block:
       if( p->block.z ){
-        ckfree(p->block.z);
+        HtmlFree(p->block.z);
         TestPoint(0);
       }else{
         TestPoint(0);
@@ -824,7 +824,7 @@ void HtmlDeleteElement(HtmlElement *p){
       TestPoint(0);
       break;
   }
-  ckfree((char*)p);
+  HtmlFree(p);
 }
 
 /*
@@ -848,7 +848,7 @@ void HtmlClear(HtmlWidget *htmlPtr){
   htmlPtr->pLast = 0;
   htmlPtr->nToken = 0;
   if( htmlPtr->zText ){
-    ckfree(htmlPtr->zText);
+    HtmlFree(htmlPtr->zText);
     TestPoint(0);
   }else{
     TestPoint(0);
@@ -872,14 +872,14 @@ void HtmlClear(HtmlWidget *htmlPtr){
     HtmlImage *p = htmlPtr->imageList;
     htmlPtr->imageList = p->pNext;
     Tk_FreeImage(p->image);
-    ckfree((char*)p);
+    HtmlFree(p);
     TestPoint(0);
   }
   HtmlPopStyleStack(htmlPtr, -1);
   ClearGcCache(htmlPtr);
   ResetLayoutContext(htmlPtr);
   if( htmlPtr->zBaseHref ){
-    ckfree(htmlPtr->zBaseHref);
+    HtmlFree(htmlPtr->zBaseHref);
     htmlPtr->zBaseHref = 0;
   }
   htmlPtr->lastSized = 0;
@@ -931,7 +931,7 @@ static void DestroyHtmlWidget(HtmlWidget *htmlPtr){
   }
   for(i=0; i<Html_TypeCount; i++){
     if( htmlPtr->zHandler[i] ){
-      ckfree(htmlPtr->zHandler[i]);
+      HtmlFree(htmlPtr->zHandler[i]);
       htmlPtr->zHandler[i] = 0;
       TestPoint(0);
     }else{
@@ -945,8 +945,8 @@ static void DestroyHtmlWidget(HtmlWidget *htmlPtr){
   }else{
     TestPoint(0);
   }
-  ckfree(htmlPtr->zClipwin);
-  ckfree((char*) htmlPtr);
+  HtmlFree(htmlPtr->zClipwin);
+  HtmlFree( htmlPtr);
 }
 
 /*
@@ -1739,7 +1739,7 @@ static int HtmlCommand(
     if (new == NULL) {
        return TCL_ERROR;
     }
-    zClipwin = ckalloc( strlen(argv[1]) + 3 );
+    zClipwin = HtmlAlloc( strlen(argv[1]) + 3 );
     if( zClipwin==0 ){
       Tk_DestroyWindow(new);
       return TCL_ERROR;
@@ -1748,11 +1748,11 @@ static int HtmlCommand(
     clipwin = Tk_CreateWindowFromPath(interp, new, zClipwin, 0);
     if( clipwin==0 ){
       Tk_DestroyWindow(new);
-      ckfree(zClipwin);
+      HtmlFree(zClipwin);
       return TCL_ERROR;
     }
 
-    htmlPtr = (HtmlWidget*) ckalloc(sizeof(HtmlWidget));
+    htmlPtr = HtmlAlloc(sizeof(HtmlWidget));
     memset(htmlPtr, 0, sizeof(HtmlWidget));
     htmlPtr->tkwin = new;
     htmlPtr->clipwin = clipwin;

@@ -1,7 +1,7 @@
 /*
 ** This file contains the code used to position elements of the
 ** HTML file on the screen.
-** $Revision: 1.10 $
+** $Revision: 1.11 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -48,7 +48,7 @@ static void HtmlPushMargin(
   int bottom,             /* The margin expires at this Y coordinate */
   int tag                 /* Markup that will cancel this margin */
 ){
-  HtmlMargin *pNew = (HtmlMargin*)ckalloc( sizeof(HtmlMargin) );
+  HtmlMargin *pNew = HtmlAlloc( sizeof(HtmlMargin) );
   pNew->pNext = *ppMargin;
   if( pNew->pNext ){
     pNew->indent = indent + pNew->pNext->indent;
@@ -69,7 +69,7 @@ static void HtmlPopOneMargin(HtmlMargin **ppMargin){
   if( *ppMargin ){
     HtmlMargin *pOld = *ppMargin;
     *ppMargin = pOld->pNext;
-    ckfree((char*)pOld);
+    HtmlFree(pOld);
   }
 }
 

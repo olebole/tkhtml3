@@ -1,6 +1,6 @@
 /*
 ** Routines for doing layout of HTML tables
-** $Revision: 1.8 $
+** $Revision: 1.9 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -160,7 +160,7 @@ static HtmlElement *TableDimensions(
       case Html_TH:
         if( !inRow ){
           /* If the <TR> markup is omitted, insert it. */
-          HtmlElement *pNew = (HtmlElement*)ckalloc( sizeof(HtmlRef) );
+          HtmlElement *pNew = HtmlAlloc( sizeof(HtmlRef) );
           if( pNew==0 ) break;
           memset(pNew, 0, sizeof(HtmlRef));
           pNew->base = p->base;

@@ -1,6 +1,6 @@
 /*
 ** Routines for processing URLs.
-** $Revision: 1.11 $
+** $Revision: 1.12 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -32,7 +32,7 @@
 #if LOCAL_INTERFACE
 /*
 ** A parsed URI is held in an instance of the following structure.
-** Each component is recorded in memory obtained from ckalloc().
+** Each component is recorded in memory obtained from HtmlAlloc().
 **
 ** The examples are from the URI 
 **
@@ -85,7 +85,7 @@ static char *StrNDup(const char *z, int n){
   if( n<=0 ){
     n = strlen(z);
   }
-  zResult = ckalloc( n + 1 );
+  zResult = HtmlAlloc( n + 1 );
   if( zResult ){
     memcpy(zResult, z, n);
     zResult[n] = 0;
@@ -101,7 +101,7 @@ static HtmlUri *ParseUri(const char *zUri){
   HtmlUri *p;
   int n;
 
-  p = (HtmlUri*)ckalloc( sizeof(*p) );
+  p = HtmlAlloc( sizeof(*p) );
   if( p==0 ) return 0;
   memset(p, 0, sizeof(*p));
   if( zUri==0 || zUri[0]==0 ) return p;
@@ -138,17 +138,17 @@ static HtmlUri *ParseUri(const char *zUri){
 */
 static void FreeUri(HtmlUri *p){
   if( p==0 ) return;
-  if( p->zScheme )    ckfree((char*)p->zScheme);
-  if( p->zAuthority ) ckfree((char*)p->zAuthority);
-  if( p->zPath )      ckfree((char*)p->zPath);
-  if( p->zQuery )     ckfree((char*)p->zQuery);
-  if( p->zFragment )  ckfree((char*)p->zFragment);
-  ckfree((char*)p);
+  if( p->zScheme )    HtmlFree(p->zScheme);
+  if( p->zAuthority ) HtmlFree(p->zAuthority);
+  if( p->zPath )      HtmlFree(p->zPath);
+  if( p->zQuery )     HtmlFree(p->zQuery);
+  if( p->zFragment )  HtmlFree(p->zFragment);
+  HtmlFree(p);
 }
 
 /*
 ** Create a string to hold the given URI.  Memory to hold the string
-** is obtained from ckalloc() and must be freed by the calling
+** is obtained from HtmlAlloc() and must be freed by the calling
 ** function.
 */
 static char *BuildUri(HtmlUri *p){
@@ -159,7 +159,7 @@ static char *BuildUri(HtmlUri *p){
   if( p->zPath )      n += strlen(p->zPath)+1;
   if( p->zQuery )     n += strlen(p->zQuery)+1;
   if( p->zFragment )  n += strlen(p->zFragment)+1;
-  z = ckalloc( n );
+  z = HtmlAlloc( n );
   if( z==0 ) return 0;
   n = 0;
   if( p->zScheme ){
@@ -188,7 +188,7 @@ static char *BuildUri(HtmlUri *p){
 ** Replace the string in *pzDest with the string in zSrc
 */
 static void ReplaceStr(char **pzDest, const char *zSrc){
-  if( *pzDest!=0 ) ckfree((char*)*pzDest);
+  if( *pzDest!=0 ) HtmlFree(*pzDest);
   if( zSrc==0 ){
     *pzDest = 0;
   }else{
@@ -198,14 +198,14 @@ static void ReplaceStr(char **pzDest, const char *zSrc){
 
 /*
 ** Remove leading and trailing spaces from the given string.  Return
-** a new string obtained from malloc().
+** a new string obtained from HtmlAlloc().
 */
 static char *Trim(char *z){
   int i;
   char *zNew;
   while( isspace(*z) ) z++;
   i = strlen(z);
-  zNew = ckalloc( i+1 );
+  zNew = HtmlAlloc( i+1 );
   if( zNew==0 ) return 0;
   strcpy(zNew, z);
   if( i>0 && isspace(zNew[i-1]) ){
@@ -251,13 +251,13 @@ int HtmlCallResolver(
     }
     if( z ){
       Tcl_DStringAppendElement(&cmd, z);
-      ckfree(z);
+      HtmlFree(z);
     }
     while( azSeries[0] ){
       z = Trim(azSeries[0]);
       if( z ){
         Tcl_DStringAppendElement(&cmd, z);
-        ckfree(z);
+        HtmlFree(z);
       }
       azSeries++;
     }
@@ -303,7 +303,7 @@ int HtmlCallResolver(
       }else if( term->zPath && base->zPath ){
         char *zBuf;
         int i, j;
-        zBuf = ckalloc( strlen(base->zPath) + strlen(term->zPath) + 2 );
+        zBuf = HtmlAlloc( strlen(base->zPath) + strlen(term->zPath) + 2 );
         if( zBuf ){
           sprintf(zBuf,"%s", base->zPath);
           for(i=strlen(zBuf)-1; i>=0 && zBuf[i]!='/'; i--){ zBuf[i] = 0; }
@@ -331,7 +331,7 @@ int HtmlCallResolver(
               continue;
             }
           }
-          ckfree((char*)base->zPath);
+          HtmlFree(base->zPath);
           base->zPath = zBuf;
         }   
       }
@@ -345,7 +345,7 @@ int HtmlCallResolver(
 
 /*
 ** This is a convenient wrapper routine for HtmlCallResolver.
-** It makes a copy of the result into memory obtained from ckalloc()
+** It makes a copy of the result into memory obtained from HtmlAlloc()
 ** and invokes Tcl_ResetResult().
 */
 char *HtmlResolveUri(HtmlWidget *htmlPtr, char *zUri){
@@ -360,7 +360,7 @@ char *HtmlResolveUri(HtmlWidget *htmlPtr, char *zUri){
   result = HtmlCallResolver(htmlPtr, azSeq);
   if( HtmlUnlock(htmlPtr) ) return 0;
   if( result==TCL_OK ){
-    zSrc = ckalloc( strlen(htmlPtr->interp->result) + 1 );
+    zSrc = HtmlAlloc( strlen(htmlPtr->interp->result) + 1 );
     if( zSrc ) strcpy(zSrc, htmlPtr->interp->result);
   }else{
     zSrc = 0;

@@ -1,6 +1,6 @@
 /*
 ** Routines used for processing <IMG> markup
-** $Revision: 1.6 $
+** $Revision: 1.7 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -165,7 +165,7 @@ HtmlImage *HtmlGetImage(HtmlWidget *htmlPtr, HtmlElement *p){
   zHeight = HtmlMarkupArg(p, "height", "");
   for(pImage=htmlPtr->imageList; pImage; pImage=pImage->pNext){
     if( strcmp(pImage->zUrl,zSrc)==0 ){
-      ckfree(zSrc);
+      HtmlFree(zSrc);
       TestPoint(0);
       return pImage;
     }
@@ -183,16 +183,16 @@ HtmlImage *HtmlGetImage(HtmlWidget *htmlPtr, HtmlElement *p){
   result = Tcl_GlobalEval(htmlPtr->interp, Tcl_DStringValue(&cmd));
   Tcl_DStringFree(&cmd);
   if( HtmlUnlock(htmlPtr) ){
-    ckfree(zSrc);
+    HtmlFree(zSrc);
     return 0;
   }
   zImageName = htmlPtr->interp->result;
-  pImage = (HtmlImage*)ckalloc( sizeof(HtmlImage) + strlen(zSrc) + 1 );
+  pImage = HtmlAlloc( sizeof(HtmlImage) + strlen(zSrc) + 1 );
   memset(pImage,0,sizeof(HtmlImage));
   pImage->htmlPtr = htmlPtr;
   pImage->zUrl = (char*)&pImage[1];
   strcpy(pImage->zUrl,zSrc);
-  ckfree(zSrc);
+  HtmlFree(zSrc);
   pImage->w = 0;
   pImage->h = 0;
   if( result==TCL_OK ){
@@ -207,7 +207,7 @@ HtmlImage *HtmlGetImage(HtmlWidget *htmlPtr, HtmlElement *p){
     TestPoint(0);
   }
   if( pImage->image==0 ){
-    ckfree((char*)pImage);
+    HtmlFree((char*)pImage);
     TestPoint(0);
     return 0;
   }

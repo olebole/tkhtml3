@@ -1,6 +1,6 @@
 /*
 ** Routines to implement the HTML widget commands
-** $Revision: 1.9 $
+** $Revision: 1.10 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -355,18 +355,12 @@ int HtmlTokenHandlerCmd(
   if( argc==4 ){
     if( htmlPtr->zHandler[type]!=0 ){
       interp->result = htmlPtr->zHandler[type];
-      TestPoint(0);
-    }else{
-      TestPoint(0);
     }
   }else{
     if( htmlPtr->zHandler[type]!=0 ){
-      ckfree(htmlPtr->zHandler[type]);
-      TestPoint(0);
-    }else{
-      TestPoint(0);
+      HtmlFree(htmlPtr->zHandler[type]);
     }
-    htmlPtr->zHandler[type] = ckalloc( strlen(argv[4]) + 1 );
+    htmlPtr->zHandler[type] = HtmlAlloc( strlen(argv[4]) + 1 );
     if( htmlPtr->zHandler[type] ){
       strcpy(htmlPtr->zHandler[type],argv[4]);
       TestPoint(0);

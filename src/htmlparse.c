@@ -1,6 +1,6 @@
 /*
 ** A tokenizer that converts raw HTML into a linked list of HTML elements.
-** $Revision: 1.4 $
+** $Revision: 1.5 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -483,7 +483,7 @@ static int Tokenize(
     if( isspace(c) ){
       /* White space */
       for(i=0; (c=z[n+i])!=0 && isspace(c) && c!='\n'; i++){ TestPoint(0); }
-      pElem = (HtmlElement*)ckalloc( sizeof(HtmlSpaceElement) );
+      pElem = HtmlAlloc( sizeof(HtmlSpaceElement) );
       if( pElem==0 ){ TestPoint(0); goto incomplete; }
       pElem->base.type = Html_Space;
       if( c=='\n' ){
@@ -531,7 +531,7 @@ static int Tokenize(
         }
       }
       nByte = sizeof(HtmlTextElement) + i;
-      pElem = (HtmlElement*)ckalloc( nByte );
+      pElem = HtmlAlloc( nByte );
       if( pElem==0 ){ TestPoint(0); goto incomplete; }
       memset(pElem,0,nByte);
       pElem->base.type = Html_Text;
@@ -682,7 +682,7 @@ doMarkup:
       }else{
         TestPoint(0);
       }
-      pElem = (HtmlElement*)ckalloc( nByte );
+      pElem = HtmlAlloc( nByte );
       if( pElem==0 ){ TestPoint(0); goto incomplete; }
       memset(pElem,0,nByte);
       pElem->base.type = pMap->type;
@@ -726,7 +726,7 @@ doMarkup:
           TestPoint(0);
         }
         Tcl_DStringEndSublist(&str);
-        ckfree((char*)pElem);
+        HtmlFree(pElem);
         HtmlLock(p);
         Tcl_GlobalEval(p->interp, Tcl_DStringValue(&str));
         Tcl_DStringFree(&str);
@@ -783,11 +783,11 @@ void HtmlTokenizerAppend(HtmlWidget *htmlPtr, const char *zText){
   int len = strlen(zText);
   if( htmlPtr->nText==0 ){
     htmlPtr->nAlloc = len + 100;
-    htmlPtr->zText = ckalloc( htmlPtr->nAlloc );
+    htmlPtr->zText = HtmlAlloc( htmlPtr->nAlloc );
     TestPoint(0);
   }else if( htmlPtr->nText + len >= htmlPtr->nAlloc ){
     htmlPtr->nAlloc += len + 100;
-    htmlPtr->zText = ckrealloc( htmlPtr->zText, htmlPtr->nAlloc );
+    htmlPtr->zText = HtmlRealloc( htmlPtr->zText, htmlPtr->nAlloc );
     TestPoint(0);
   }
   if( htmlPtr->zText==0 ){
@@ -842,7 +842,7 @@ int HtmlInsertToken(
     /* Special case of no arguments.  This is a lot easier... */
     nByte = pMap->extra ? pMap->extra : sizeof(HtmlBaseElement);
     nByte += strlen(zType);
-    pElem = (HtmlElement*)ckalloc( nByte );
+    pElem = HtmlAlloc( nByte );
     if( pElem==0 ){ TestPoint(0); return 1; }
     memset(pElem,0,nByte);
     pElem->base.type = pMap->type;
@@ -867,9 +867,9 @@ int HtmlInsertToken(
       TestPoint(0);
     }
     nByte += sizeof(char*)*(argc+1) + strlen(zArgs) + argc + 2;
-    pElem = (HtmlElement*)ckalloc( nByte );
+    pElem = HtmlAlloc( nByte );
     if( pElem==0 ){
-      ckfree((char*)argv);
+      HtmlFree(argv);
       TestPoint(0);
       return 1;
     }
@@ -891,7 +891,7 @@ int HtmlInsertToken(
       TestPoint(0);
     }
     pElem->markup.argv[argc-1] = 0;
-    ckfree((char*)argv);
+    HtmlFree(argv);
     TestPoint(0);
   }
   if( pToken ){

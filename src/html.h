@@ -1,6 +1,6 @@
 /*
 ** Structures and typedefs used by the HTML widget
-** $Revision: 1.11 $
+** $Revision: 1.12 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -69,6 +69,14 @@
 #define HtmlTrace_BreakMarkup  0x00000080
 #define HtmlTrace_Style        0x00000100
 #define HtmlTrace_Input1       0x00000200
+
+
+/*
+** Macros to allocate and free memory.
+*/
+#define HtmlAlloc(A)      ((void*)Tcl_Alloc(A))
+#define HtmlFree(A)       Tcl_Free((char*)(A))
+#define HtmlRealloc(A,B)  ((void*)Tcl_Realloc((A),(B)))
 
 /*
 ** Various data types.  This code is designed to run on a modern

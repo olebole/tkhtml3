@@ -1,6 +1,6 @@
 /*
 ** Routines used to render HTML onto the screen for the Tk HTML widget.
-** $Revision: 1.8 $
+** $Revision: 1.9 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -39,14 +39,11 @@
 static HtmlBlock *AllocBlock(void){
   HtmlBlock *pNew;
 
-  pNew = (HtmlBlock*)ckalloc( sizeof(HtmlBlock) );
+  pNew = HtmlAlloc( sizeof(HtmlBlock) );
   if( pNew ){
     memset(pNew, 0, sizeof(*pNew));
-    TestPoint(0);
-  }else{
-    UNTESTED;
+    pNew->base.type = Html_Block;
   }
-  pNew->base.type = Html_Block;
   return pNew;
 }
 
@@ -57,14 +54,9 @@ static HtmlBlock *AllocBlock(void){
 static void FreeBlock(HtmlBlock *pBlock){
   if( pBlock ){
     if( pBlock->z ){
-      ckfree(pBlock->z);
-      TestPoint(0);
-    }else{
-      TestPoint(0);
+      HtmlFree(pBlock->z);
     }
-    ckfree((char*)pBlock);
-  }else{
-    TestPoint(0);
+    HtmlFree(pBlock);
   }
 }
 
@@ -642,15 +634,9 @@ static HtmlElement *FillOutBlock(HtmlWidget *htmlPtr, HtmlBlock *p){
   */
   if( p->n ){
     p->n = 0;
-    TestPoint(0);
-  }else{
-    TestPoint(0);
   }
   if( p->z ){
-    ckfree(p->z);
-    TestPoint(0);
-  }else{
-    TestPoint(0);
+    HtmlFree(p->z);
   }
   firstSelected = 1000000;
   lastSelected = -1;
@@ -802,7 +788,7 @@ static HtmlElement *FillOutBlock(HtmlWidget *htmlPtr, HtmlBlock *p){
   p->right = x;
 
   while( n>0 && zBuf[n-1]==' ' ){ TestPoint(0); n--; }
-  p->z = ckalloc( n );
+  p->z = HtmlAlloc( n );
   strncpy(p->z, zBuf, n);
   p->n = n;
   return pElem;
