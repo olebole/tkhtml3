@@ -1,6 +1,6 @@
 /*
 ** Routines used to render HTML onto the screen for the Tk HTML widget.
-** $Revision: 1.16 $
+** $Revision: 1.17 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -790,6 +790,10 @@ static HtmlElement *FillOutBlock(HtmlWidget *htmlPtr, HtmlBlock *p){
       case Html_Block:
         UnlinkAndFreeBlock(htmlPtr,&pElem->block);
         TestPoint(0);
+        break;
+
+      case Html_EndA:
+        go = 0;
         break;
 
       default:
