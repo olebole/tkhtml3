@@ -1,10 +1,12 @@
-# @(#) $Id: ss.tcl,v 1.9 2000/02/19 18:37:52 drh Exp $
+# @(#) $Id: ss.tcl,v 1.10 2000/09/21 00:53:09 drh Exp $
 #
 # This script implements the "ss" application.  "ss" implements
 # a presentation slide-show based on HTML slides.
 # 
 wm title . {Tk Slide Show}
 wm iconname . {SlideShow}
+
+package require Tkhtml
 
 # Attempt to load the HTML widget if it isn't already part
 # of the interpreter
@@ -106,7 +108,7 @@ proc pickFontFS {size attrs} {
 } 
 
 proc HyperCmd {args} {
-  # puts "HyperlinkCommand: $args"
+   puts "HyperlinkCommand: $args"
 }
 
 # This routine is called to run an applet

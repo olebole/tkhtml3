@@ -12,7 +12,7 @@
 # (Prehaps comment out the BLT part if you are not using BLT.)
 # This script requires some customization down toward the bottom.
 #
-# $Revision: 1.18 $
+# $Revision: 1.19 $
 #
 
 # Some useful variables.
@@ -26,6 +26,9 @@ set PFX           [list @program_prefix@]
 set prefix        [list @prefix@]
 set exec_prefix   [list @exec_prefix@]
 set BINDIR        [list @bindir@]
+set LIBDIR        [list @libdir@]
+set PKGDIR        [list $LIBDIR/tkhtml]
+set SHLIBEXT      [list @TARGET_SHLIB_EXT@]
 set LIBDIR	  [file join @libdir@ Tkhtml]
 
 # Remove surplus ".." and "." elements from a pathname.
@@ -114,12 +117,12 @@ proc MakeProg {name obj {libs {tk}}} {
     }
     tk {
       set link "@TARGET_CC@ @TARGET_CFLAGS@ -I. @TARGET_TCL_INC@"
-      append link " @TARGET_TK_INC@"
+      append link " @TARGET_X_INC@ @TARGET_TK_INC@"
       set lib "@TARGET_TK_LIBS@ @TARGET_X_LIBS@ @TARGET_TCL_LIBS@ @TARGET_LIBS@"
     }
     blt {
       set link "@TARGET_CC@ @TARGET_CFLAGS@ -I. @TARGET_TCL_INC@"
-      append link " @TARGET_TK_INC@ @TARGET_BLT_INC@"
+      append link " @TARGET_X_INC@ @TARGET_TK_INC@ @TARGET_BLT_INC@"
       set lib "@TARGET_BLT_LIBS@ @TARGET_TK_LIBS@ @TARGET_TCL_LIBS@"
       append lib " @TARGET_X_LIBS@ @TARGET_LIBS@"
     }
@@ -145,7 +148,7 @@ proc MakeShObj {name src {dep {}}} {
   if {"@ENABLE_SHLIB@"!=1} return
   set n sh$name
   set cc "@TARGET_CC@ @TARGET_SHLIB_CFLAGS@ -I. @TARGET_TCL_INC@"
-  append cc " @TARGET_TK_INC@ @TARGET_BLT_INC@"
+  append cc " @TARGET_X_INC@ @TARGET_TK_INC@ @TARGET_BLT_INC@"
   puts "$n:	$src $dep"
   puts "	$cc -o $n -c $src"
   puts ""
@@ -183,7 +186,8 @@ proc MakeShLib {name obj {libs tk}} {
   puts "$n:	$shobj"
   puts "	$link -o $n $shobj $lib"
   puts ""
-  global cleanable; lappend cleanable $n
+  global cleanable; lappend cleanable $n ; lappend cleanable pkgIndex.tcl
+  global shliblist; lappend shliblist $n
 }
 
 # Convert C source code into a *.o file that can be used in a
@@ -192,7 +196,7 @@ proc MakeShLib {name obj {libs tk}} {
 proc MakeObj {name src {dep {}}} {
   set n $name
   set cc "@TARGET_CC@ @TARGET_CFLAGS@ -I. @TARGET_TCL_INC@"
-  append cc " @TARGET_TK_INC@ @TARGET_BLT_INC@"
+  append cc " @TARGET_X_INC@ @TARGET_TK_INC@ @TARGET_BLT_INC@"
   puts "$n:	$src $dep"
   puts "	$cc -o $n -c $src"
   puts ""
@@ -212,6 +216,7 @@ proc MakeLib {name obj} {
   }
   puts ""
   global cleanable; lappend cleanable $n
+  global liblist; lappend liblist $n
 }
 
 # Generate rules for a *.mta file, a *.h file and a *.c file for the
@@ -356,7 +361,7 @@ set all ${PFX}hwish${TEXE}
 lappend all ${PFX}hv${TEXE}
 lappend all ${PFX}ss${TEXE}
 if {"@ENABLE_SHLIB@"=="1"} {
-  lappend all tkhtml.so
+  lappend all tkhtml$SHLIBEXT
   lappend all pkgIndex.tcl
 }
 puts "all:	headers $all"
@@ -517,8 +522,14 @@ puts ""
 puts "distclean:	clean"
 puts "	rm -f Makefile makemake.tcl config.cache config.log config.status"
 puts ""
-set BINDIR ../install
+# set BINDIR ../install
 puts "install:	all"
 puts "	if test ! -d $BINDIR; then mkdir $BINDIR; fi"
 puts "	for i in $exelist; do cp \$\$i $BINDIR; strip $BINDIR/\$\$i; done"
+if {"@ENABLE_SHLIB@"=="1"} {
+puts "	if test ! -d $PKGDIR; then mkdir -p $PKGDIR; fi"
+puts "	for i in $shliblist; do cp \$\$i $PKGDIR; done"
+puts "	echo \"pkg_mkIndex .\" | $BTCLSH"
+puts "	cp pkgIndex.tcl $PKGDIR"
+}
 puts ""
