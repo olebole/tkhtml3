@@ -1,6 +1,6 @@
 /*
 ** Routines used to compute the style and size of individual elements.
-** $Revision: 1.24 $
+** $Revision: 1.25 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -891,6 +891,10 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         TestPoint(0);
         break;
       case Html_TD:
+        if( htmlPtr->inTd ){
+          style = HtmlPopStyleStack(htmlPtr, Html_EndTD);
+        }
+        htmlPtr->inTd = 1;
         paraAlign = GetAlignment(p, rowAlign);
         if( (z = HtmlMarkupArg(p, "bgcolor", 0))!=0 ){
           style.bgcolor = HtmlGetColorByName(htmlPtr, z);
@@ -912,29 +916,39 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         if( htmlPtr->formElemStart
         && htmlPtr->formElemStart->base.type==Html_TEXTAREA ){
           p->ref.pOther = htmlPtr->formElemStart;
-          TestPoint(0);
         }else{
           p->ref.pOther = 0;
-          TestPoint(0);
         }
         htmlPtr->formElemStart = 0;
         break;
       case Html_TH:
         /* paraAlign = GetAlignment(p, rowAlign); */
+        if( htmlPtr->inTd ){
+          style = HtmlPopStyleStack(htmlPtr, Html_EndTD);
+        }
         paraAlign = GetAlignment(p, ALIGN_Center);
         style.font = BoldFont( FontSize(style.font) );
         if( (z = HtmlMarkupArg(p, "bgcolor", 0))!=0 ){
           style.bgcolor = HtmlGetColorByName(htmlPtr, z);
         }
         PushStyleStack(htmlPtr, Html_EndTD, style);
+        htmlPtr->inTd = 1;
         TestPoint(0);
         break;
       case Html_TR:
+        if( htmlPtr->inTd ){
+          style = HtmlPopStyleStack(htmlPtr, Html_EndTD);
+          htmlPtr->inTd = 0;
+        }
+        if( htmlPtr->inTr ){
+          style = HtmlPopStyleStack(htmlPtr, Html_EndTR);
+        }
         rowAlign = GetAlignment(p, ALIGN_None);
         if( (z = HtmlMarkupArg(p, "bgcolor", 0))!=0 ){
           style.bgcolor = HtmlGetColorByName(htmlPtr, z);
         }
         PushStyleStack(htmlPtr, Html_EndTR, style);
+        htmlPtr->inTr = 1;
         TestPoint(0);
         break;
       case Html_EndTR:
@@ -985,8 +999,9 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
       useNextStyle = 0;
     }
     TRACE(HtmlTrace_Style,
-      ("Style of 0x%08x font=%2d color=%2d align=%d flags=0x%04x token=%s\n",
-      (int)p, p->base.style.font, p->base.style.color,
+      ("Style of 0x%08x font=%02d color=%02d bg=%02d "
+       "align=%d flags=0x%04x token=%s\n",
+      (int)p, p->base.style.font, p->base.style.color, p->base.style.bgcolor,
       p->base.style.align, p->base.style.flags, HtmlTokenName(p)));
     p = p->pNext;
   }
