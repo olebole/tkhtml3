@@ -2,7 +2,6 @@
 # This script implements the "hv" application.  Type "hv FILE" to
 # view the file as HTML.
 #
-
 wm title . {HTML File Viewer}
 wm iconname . {HV}
 
