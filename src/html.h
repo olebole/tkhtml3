@@ -1,6 +1,6 @@
 /*
 ** Structures and typedefs used by the HTML widget
-** $Revision: 1.4 $
+** $Revision: 1.5 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -462,6 +462,7 @@ struct HtmlInput {
   HtmlElement *pForm;      /* The <FORM> to which this belongs */
   HtmlElement *pNext;      /* Next element in a list of all input elements */
   Tk_Window tkwin;         /* The window that implements this control */
+  HtmlWidget *htmlPtr;     /* The whole widget.  Needed by geometry callbacks */
   Html_32  y;              /* Baseline for this input element */
   Html_u16 x;              /* Left edge */
   Html_u16 w, h;           /* Width and height of this control */

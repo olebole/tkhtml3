@@ -1,6 +1,6 @@
 /*
 ** Routines used for processing HTML makeup for forms.
-** $Revision: 1.9 $
+** $Revision: 1.10 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -223,6 +223,62 @@ static void EmptyInput(HtmlElement *pElem){
 }
 
 /*
+** This routine is called when one of the child windows for a form
+** wants to change its size.
+*/
+static void HtmlInputRequestProc(ClientData clientData, Tk_Window tkwin){
+  HtmlElement *pElem = (HtmlElement*)clientData;
+  if( pElem->base.type!=Html_INPUT ){ CANT_HAPPEN; return; }
+  if( pElem->input.tkwin!=tkwin ){ CANT_HAPPEN; return; }
+  pElem->input.w = Tk_ReqWidth(tkwin);
+  pElem->input.h = Tk_ReqHeight(tkwin);
+  if( pElem->input.htmlPtr && pElem->input.htmlPtr->tkwin!=0 ){
+    pElem->input.htmlPtr->flags |= RELAYOUT;
+    HtmlScheduleRedraw(pElem->input.htmlPtr); 
+  }
+}
+
+/*
+** This routine is called when another entity takes over geometry
+** management for a widget corresponding to an input element.
+*/
+static void HtmlInputLostSlaveProc(ClientData clientData, Tk_Window tkwin){
+  HtmlElement *pElem = (HtmlElement*)clientData;
+  if( pElem->base.type!=Html_INPUT ){ CANT_HAPPEN; return; }
+  if( pElem->input.tkwin!=tkwin ){ CANT_HAPPEN; return; }
+  EmptyInput(pElem);
+  if( pElem->input.htmlPtr && pElem->input.htmlPtr->tkwin!=0 ){
+    pElem->input.htmlPtr->flags |= RELAYOUT;
+    HtmlScheduleRedraw(pElem->input.htmlPtr); 
+  }
+}
+
+/*
+** This routine catches DestroyNotify events on a INPUT window so
+** that we will know the window is been deleted.
+*/
+static void HtmlInputEventProc(ClientData clientData, XEvent *eventPtr){
+  HtmlElement *pElem = (HtmlElement*)clientData;
+  if( pElem->base.type!=Html_INPUT ){ CANT_HAPPEN; return; }
+  if( eventPtr->type==DestroyNotify ){
+    EmptyInput(pElem);
+    if( pElem->input.htmlPtr && pElem->input.htmlPtr->tkwin!=0 ){
+      pElem->input.htmlPtr->flags |= RELAYOUT;
+      HtmlScheduleRedraw(pElem->input.htmlPtr); 
+    }
+  }
+}
+
+/*
+** The geometry manager for the HTML widget
+*/
+static Tk_GeomMgr htmlGeomType = {
+  "html",                  /* Name */
+  HtmlInputRequestProc,    /* Called when widget changes size */
+  HtmlInputLostSlaveProc,  /* Called when someone else takes over management */
+};
+
+/*
 ** zWin is the name of a child widget that is used to implement an
 ** input element.  Query Tk for information about this widget (such
 ** as its size) and put that information in the pElem structure
@@ -237,6 +293,10 @@ static void SizeAndLink(HtmlWidget *htmlPtr, char *zWin, HtmlElement *pElem){
     pElem->input.w = Tk_ReqWidth(pElem->input.tkwin);
     pElem->input.h = Tk_ReqHeight(pElem->input.tkwin);
     pElem->base.flags |= HTML_Visible;
+    pElem->input.htmlPtr = htmlPtr;
+    Tk_ManageGeometry(pElem->input.tkwin, &htmlGeomType, pElem);
+    Tk_CreateEventHandler(pElem->input.tkwin, StructureNotifyMask,
+       HtmlInputEventProc, pElem);
   }
   pElem->input.pNext = 0;
   if( htmlPtr->firstInput==0 ){

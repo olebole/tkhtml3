@@ -397,6 +397,8 @@ foreach f $autoc {
 puts "headers:	makeheaders htmltokens.c"
 puts "	./makeheaders $mharg [Src src/html.h]"
 puts ""
+puts "[lindex $srcc 0].h:	headers"
+puts ""
 
 # Create two MTA files for appinit.c and appinitdev.c.  The first
 # has all scripts compiled in and the second does not.  The first
