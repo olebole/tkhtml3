@@ -199,3 +199,13 @@ update
 if {$file!=""} {
   LoadFile $file
 }
+
+bind HtmlClip <Motion> {
+  set parent [winfo parent %W]
+  set url [$parent href %x %y] 
+  if {[string length $url] > 0} {
+    $parent configure -cursor hand2
+  } else {
+    $parent configure -cursor {}
+  }
+}
