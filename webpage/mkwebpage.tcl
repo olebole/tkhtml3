@@ -2,7 +2,7 @@
 #
 # Construct the web page for tkhtml
 #
-# @(#) $Id: mkwebpage.tcl,v 1.4 2000/06/21 00:39:06 drh Exp $
+# @(#) $Id: mkwebpage.tcl,v 1.5 2000/06/21 00:46:49 drh Exp $
 #
 
 set p [open publish.sh w]
@@ -169,7 +169,12 @@ foreach {file desc} {
   puts $f "Description: $desc<br>"
   puts $f "Size: [file size $file] bytes<br>"
   puts $f "Last modified: [clock format [file mtime $file]]"
-  if {![catch {exec ident $file | grep {$Id: }} ident]} {
+  switch -glob -- $file {
+    *.zip -
+    *.gz {set access zcat}
+    default {set access cat}
+  }
+  if {![catch {exec $access $file | ident | grep {$Id: }} ident]} {
     puts $f "<br>Version information:"
     puts $f "<pre>\n$ident</pre>"
   }
