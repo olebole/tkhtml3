@@ -1,6 +1,6 @@
 /*
 ** The main routine for the HTML widget for Tcl/Tk
-** $Revision: 1.8 $
+** $Revision: 1.9 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -891,6 +891,10 @@ void HtmlClear(HtmlWidget *htmlPtr){
   HtmlPopStyleStack(htmlPtr, -1);
   ClearGcCache(htmlPtr);
   ResetLayoutContext(htmlPtr);
+  if( htmlPtr->zBaseHref ){
+    ckfree(htmlPtr->zBaseHref);
+    htmlPtr->zBaseHref = 0;
+  }
   htmlPtr->lastSized = 0;
   htmlPtr->nextPlaced = 0;
   htmlPtr->firstBlock = 0;
@@ -1593,7 +1597,6 @@ static struct HtmlSubcommand {
   char *zHelp;           /* Help string if wrong number of arguments */
   int (*xFunc)(HtmlWidget*,Tcl_Interp*,int,char**);  /* Cmd service routine */
 } aSubcommand[] = {
-  { "base",      0,         2, 3, "?URL?",               HtmlBaseCmd },
   { "cget",      0,         3, 3, "CONFIG-OPTION",       HtmlCgetCmd },
   { "clear",     0,         2, 2, 0,                     HtmlClearCmd },
   { "configure", 0,         2, 0, "?ARGS...?",           HtmlConfigCmd },

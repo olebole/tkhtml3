@@ -1,6 +1,6 @@
 /*
 ** Structures and typedefs used by the HTML widget
-** $Revision: 1.3 $
+** $Revision: 1.4 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -819,9 +819,7 @@ struct HtmlWidget {
     * Miscellaneous information:
     */
   char *zBase;                  /* The base URI */
-  char *zProtocol;              /* Protocol used to retrieve document */
-  char *zHost;                  /* Host from which document retrieved */
-  char *zDir;                   /* Directory containing the document */
+  char *zBaseHref;              /* zBase as modified by <BASE HREF=..> markup */
   Tk_Cursor cursor;		/* Current cursor for window, or None. */
   char *takeFocus;		/* Value of -takefocus option;  not used in
 				 * the C code, but used by keyboard traversal

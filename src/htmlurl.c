@@ -1,6 +1,6 @@
 /*
 ** Routines for processing URLs.
-** $Revision: 1.7 $
+** $Revision: 1.8 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -223,7 +223,10 @@ int HtmlCallResolver(
     Tcl_DString cmd;
     Tcl_DStringInit(&cmd);
     Tcl_DStringAppend(&cmd, htmlPtr->zResolverCommand, -1);
-    if( htmlPtr->zBase && htmlPtr->zBase[0] ){
+    if( htmlPtr->zBaseHref && htmlPtr->zBaseHref[0] ){
+      Tcl_DStringAppend(&cmd, " ", 1);
+      Tcl_DStringAppend(&cmd, htmlPtr->zBase, -1);
+    }else if( htmlPtr->zBase && htmlPtr->zBase[0] ){
       Tcl_DStringAppend(&cmd, " ", 1);
       Tcl_DStringAppend(&cmd, htmlPtr->zBase, -1);
     }
@@ -246,7 +249,11 @@ int HtmlCallResolver(
     ** resolver algorithm specified in section 5.2 of RFC 2396.
     */
     HtmlUri *base, *term;
-    base = ParseUri(htmlPtr->zBase);
+    if( htmlPtr->zBaseHref && htmlPtr->zBaseHref[0] ){
+      base = ParseUri(htmlPtr->zBaseHref);
+    }else{
+      base = ParseUri(htmlPtr->zBase);
+    }
     while( azSeries[0] ){
       term = ParseUri(azSeries[0]);
       azSeries++;

@@ -1,7 +1,7 @@
 <html>
 <!-- 
   Specifications for the Tk HTML Widget 
-  $Revision: 1.3 $
+  $Revision: 1.4 $
   Copyright (C) 1997, 1998 D. Richard Hipp
 
   This program is free software; you can redistribute it and/or modify
@@ -67,6 +67,13 @@ specification will morph into a manual page.</p>
   the <tt>&lt;body&gt;</tt> tag using the
   ``<tt>token handler</tt>'' widget command (described below) and
   change the background color manually.</p>
+</td></tr>
+
+<tr><td valign=top><tt>-base</tt></td>
+<td>
+  <p>The base URI for the current document.  This should be set to
+     the URI that was used to retrieve the document before parsing
+     begins.</p>
 </td></tr>
 
 <tr><td valign=top><tt>-bd</tt><td>An alias for <tt>-borderwidth</tt>
@@ -202,7 +209,7 @@ This value plus twice the <tt>-padx</tt>, <tt>-borderwidth</tt> and
 <td>
   The script specified by this option is invoked whenever the user
   clicks on a hyperlink on the HTML page.  Before invoking this
-  script, the URL for the hyperlink is appended.
+  script, the URI for the hyperlink is appended.
 </td></tr>
 
 <tr><td valign=top><tt>-imagecommand</tt></td>
@@ -212,7 +219,8 @@ This value plus twice the <tt>-padx</tt>, <tt>-borderwidth</tt> and
   get the name of a Tk image object to display the HTML image.
   Before invoking the script, the following arguments are appended:
   <ol>
-  <li>The value of the <tt>src=...</tt> parameter.
+  <li>The value of the <tt>src=...</tt> parameter after have been
+      processed by the resolver.
   <li>The value of the <tt>width=...</tt> parameter.
   <li>The value of the <tt>height=...</tt> parameter.
   <li>A list containing the names and values of all parameters.
@@ -242,15 +250,20 @@ and bottom of the document text.
 <tr><td valign=top><tt>-relief</tt><td>
 The relief used to draw the 3-D border.
 
-<tr><td valign=top><tt>-resolver</tt></td>
+<tr><td valign=top><tt>-resolvercommand</tt></td>
 <td>
-  <p>The name of a TCL command used to resolve URLs.  If blank, a built-in
-  resolver is used.  Or if the TCL command specified returns an empty
-  string, the built-in resolver is used.</p>
+  <p>The name of a TCL command used to resolve URIs.  If blank, a built-in
+  resolver is used. If a TCL command is specified but it returns
+  an empty string, the built-in resolver is used then too.  
+  The build-in resolver is based on the algorithm
+  in section 5.2 of RFC 2396. </p>
 
-  <p>The resolver converts relative URLs into absolute URLs.  The
-  input relative URL is the sole argument to the resolver.  The resolver
-  should return the absolute URL.</p>
+  <p>Multiple URIs are appended to the TCL command before it is executed.
+  The first URI is the BASE URI of the document (the URL that specified
+  by the -base configuration option and updated according to any prior
+  &lt;BASE&gt; markup).  Zero or more additional URIs are
+  appended to this base.  The result of the script should be the resolution
+  of the whole series or URIs.</p>
 </td></tr>
 
 <tr><td valign=top><tt>-selectioncolor</tt><td>
@@ -390,23 +403,6 @@ the list.
 <h2>Widget Commands</h2>
 
 <dl>
-<dt><i>WIDGET</i>&nbsp <tt>base</tt>  ?<i>URL</i>?<p>
-<dd>
-Sets or queries the base URL for the document in the HTML widget.
-If no URL argument is specified, then the current base URL is returned.
-If a relative URL appears in the argument, the argument is converted into
-an absolute URL using the current base URL for the document then
-the resulting absolute URL becomes the new base URL for the document.
-If an absolute URL is given as the argument it becomes the new
-base URL for the document without modification.
-<p>
-The base URL for the document is used to resolve relative URLs in
-tags such as the <tt>href=</tt> of <tt>&lt;a href=...&gt;</tt> and
-in the <tt>src=</tt> of <tt>&lt;img src=...&gt;</tt>.
-<p>
-The base URL can also be changed by a <tt>&lt;base&gt</tt> tag in the
-HTML text.
-<p>
 
 <dt><i>WIDGET</i>&nbsp <tt>cget</tt> <i>config-option</i><p>
 <dd>
@@ -468,6 +464,13 @@ through the <tt>parse</tt> command and parses as much of the text as
 possible into tokens.
 Afterwards, the display is updated to show the new tokens, if they are
 visible.<p>
+
+<dt><i>WIDGET</i>&nbsp; <tt>resolver</tt>&nbsp; ?<i>uri ...</i>?<p>
+<dd>The resolver specified by the -resolvercommand option 
+    is called with the
+    base URI of the document followed
+    by the remaining arguments to this commant.  The result of this
+    command is the result of the -resolvercommand script.<p>
 
 <dt><i>WIDGET</i>&nbsp <tt>selection</tt>&nbsp <i>subcommand args...</i><p>
 <dd>The selection widget command is used to control the selection.<p>

@@ -1,6 +1,6 @@
 /*
 ** Routines to implement the HTML widget commands
-** $Revision: 1.7 $
+** $Revision: 1.8 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -26,27 +26,6 @@
 #include <tk.h>
 #include <stdlib.h>
 #include "htmlcmd.h"
-
-/*
-** WIDGET base ?URL?
-**
-** Set or query the base URL for the current document.
-*/
-int HtmlBaseCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
-  Tcl_Interp *interp,    /* The interpreter */
-  int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
-){
-  if( argc==2 ){
-    Tcl_SetResult(interp, htmlPtr->zBase, TCL_VOLATILE);
-  }else{
-    ckfree((char*)htmlPtr->zBase);
-    htmlPtr->zBase = ckalloc( strlen(argv[2]) + 1 );
-    if( htmlPtr->zBase ) strcpy(htmlPtr->zBase, argv[2]);
-  }
-  return TCL_OK;
-}
 
 /*
 ** WIDGET resolve ?URI ...?
