@@ -1,6 +1,6 @@
 /*
 ** A tokenizer that converts raw HTML into a linked list of HTML elements.
-** $Revision: 1.14 $
+** $Revision: 1.15 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -652,7 +652,7 @@ static int Tokenize(
       pElem->base.type = Html_Text;
       sprintf(pElem->text.zText,"%.*s",i,&z[n]);
       AppendElement(p,pElem);
-      if( p->iPlaintext==0 ){
+      if( p->iPlaintext==0 || p->iPlaintext==Html_TEXTAREA ){
         HtmlTranslateEscapes(pElem->text.zText);
       }
       pElem->base.count = strlen(pElem->text.zText);
