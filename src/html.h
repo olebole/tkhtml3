@@ -1,6 +1,6 @@
 /*
 ** Structures and typedefs used by the HTML widget
-** $Revision: 1.19 $
+** $Revision: 1.20 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -138,7 +138,7 @@ struct HtmlStyle {
 #define FontSize(X)       ((X)%N_FONT_SIZE)
 #define FontFamily(X)     (((X)/N_FONT_SIZE)*N_FONT_SIZE)
 #define FONT_Any           -1
-#define FONT_Default      2
+#define FONT_Default      3
 #define FontSwitch(Size, Bold, Italic, Cw) \
                           ((Size)+(Bold+(Italic)*2+(Cw)*4)*N_FONT_SIZE)
 
@@ -723,7 +723,7 @@ struct HtmlWidget {
   char *zClipwin;               /* Name of the clipping window. */
   Display *display;             /* The X11 Server that contains tkwin */
   Tcl_Interp *interp;           /* The interpreter in which the widget lives */
-  Tcl_Command widgetCmd;	/* Token for widget command. */
+  char *zCmdName;               /* Name of the command */
   HtmlElement *pFirst;          /* First HTML token on a list of them all */
   HtmlElement *pLast;           /* Last HTML token on the list */
   int nToken;                   /* Number of HTML tokens on the list.

@@ -64,9 +64,21 @@ if {$HtmlTraceMask} {
   .h.h config -tablerelief flat
 }
 
+# .h.h config -fontcommand pickFont
+proc pickFont {size attrs} { 
+  puts "FontCmd: $size $attrs"
+  set a [expr {-1<[lsearch $attrs fixed]?{courier}:{charter}}]
+  set b [expr {-1<[lsearch $attrs italic]?{italic}:{roman}}]
+  set c [expr {-1<[lsearch $attrs bold]?{bold}:{normal}}]
+  set d [expr {int(12*pow(1.2,$size-4))}]
+  list $a $d $b $c
+} 
+
 proc FormCmd {n cmd args} {
-  # puts "FormCmd: $n $cmd $args"
+ puts "FormCmd: $n $cmd $args"
   switch $cmd {
+    select -
+    textarea -
     input {
       set w [lindex $args 0]
       label $w -image smgray

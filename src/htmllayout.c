@@ -1,7 +1,7 @@
 /*
 ** This file contains the code used to position elements of the
 ** HTML file on the screen.
-** $Revision: 1.20 $
+** $Revision: 1.21 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -186,7 +186,6 @@ static HtmlElement *GetLine(
   p = pStart;
   while( p && p!=pEnd && (p->base.style.flags & STY_Invisible)!=0 ){
     p = p->pNext;
-    TestPoint(0);
   }
   if( p && p->base.style.flags & STY_DT ){
     origin = -HTML_INDENT;
@@ -210,7 +209,6 @@ static HtmlElement *GetLine(
   }
   for(; p && p!=pEnd; p=p->pNext){
     if( p->base.style.flags & STY_Invisible ){
-      TestPoint(0);
       continue;
     }
     switch( p->base.type ){
@@ -281,6 +279,7 @@ static HtmlElement *GetLine(
       case Html_APPLET:
       case Html_EMBED:
       case Html_INPUT:
+      case Html_SELECT:
       case Html_TEXTAREA:
         p->input.x = x + spaceWanted + p->input.padLeft;
         if( (p->base.style.flags & STY_Preformatted) == 0 ){
@@ -310,21 +309,17 @@ static HtmlElement *GetLine(
         if( p->ref.pOther==0 ) break;
         if( p->ref.pOther->list.compact==0 || x + spaceWanted >= 0 ){
           *actualWidth = x<=0 && !isEmpty ? 1 : x;
-          TestPoint(0);
           return p;
         }
         x = 0;
         spaceWanted = 0;
-        TestPoint(0);
         break;
 
       case Html_WBR:
         *actualWidth = x<=0 && !isEmpty ? 1 : x;
         if( x + spaceWanted >= width ){
-          TestPoint(0);
           return p->pNext;
         }else{
-          TestPoint(0);
           lastBreak = p->pNext;
         }
         break;
@@ -382,11 +377,9 @@ static HtmlElement *GetLine(
       case Html_UL:
       case Html_EndUL:
         *actualWidth = x<=0 && !isEmpty ? 1 : x;
-        TestPoint(0);
         return p;
 
       default:
-        TestPoint(0);
         break;
     }
   }
@@ -401,9 +394,6 @@ static void FixAnchors(HtmlElement *p, HtmlElement *pEnd, int y){
   while( p && p!=pEnd ){
     if( p->base.type==Html_A ){
       p->anchor.y = y;
-      TestPoint(0);
-    }else{
-      TestPoint(0);
     }
     p = p->pNext;
   }
@@ -442,19 +432,15 @@ static int FixLine(
     if( p==pEnd || p==0 ) p = pStart;
     if( p->base.style.align == ALIGN_Center ){
       dx = leftMargin + (width - actualWidth)/2;
-      TestPoint(0);
     }else if( p->base.style.align == ALIGN_Right ){
       dx = leftMargin + (width - actualWidth);
-      TestPoint(0);
     }else{
       dx = leftMargin;
-      TestPoint(0);
     }
     maxAscent = maxTextAscent = 0;
     for(p=pStart; p && p!=pEnd; p=p->pNext){
       int ss;
       if( p->base.style.flags & STY_Invisible ){
-        TestPoint(0);
         continue;
       }
       switch( p->base.type ){
@@ -472,28 +458,22 @@ static int FixLine(
           }else{
             p->text.y = 0;
             if( p->text.ascent > maxAscent ){ 
-              TestPoint(0); 
               maxAscent = p->text.ascent;
             }
             if( p->text.ascent > maxTextAscent ){
-              TestPoint(0);
               maxTextAscent = p->text.ascent;
             }
           }
           break;
         case Html_Space:
           if( p->space.ascent > maxAscent ){ 
-            TestPoint(0); 
             maxAscent = p->space.ascent;
           }
           break;
         case Html_LI:
           p->li.x += dx;
           if( p->li.x > max ){
-            TestPoint(0); 
             max = p->li.x; 
-          }else{
-            TestPoint(0);
           }
           break;
         case Html_IMG:
@@ -505,9 +485,6 @@ static int FixLine(
               p->image.ascent = p->image.h - p->image.descent;
               if( p->image.ascent > maxAscent ){
                 maxAscent = p->image.ascent;
-                TestPoint(0);
-              }else{
-                TestPoint(0);
               }
               break;
             case IMAGE_ALIGN_AbsMiddle:
@@ -516,9 +493,6 @@ static int FixLine(
               p->image.ascent = p->image.h - p->image.descent;
               if( p->image.ascent > maxAscent ){
                 maxAscent = p->image.ascent;
-                TestPoint(0);
-              }else{
-                TestPoint(0);
               }
               break;
             case IMAGE_ALIGN_Bottom:
@@ -526,9 +500,6 @@ static int FixLine(
               p->image.ascent = p->image.h;
               if( p->image.ascent > maxAscent ){
                 maxAscent = p->image.ascent;
-                TestPoint(0);
-              }else{
-                TestPoint(0);
               }
               break;
             case IMAGE_ALIGN_AbsBottom:
@@ -536,9 +507,6 @@ static int FixLine(
               p->image.ascent = p->image.h - p->image.descent;
               if( p->image.ascent > maxAscent ){
                 maxAscent = p->image.ascent;
-                TestPoint(0);
-              }else{
-                TestPoint(0);
               }
               break;
             default:
@@ -558,9 +526,6 @@ static int FixLine(
           ascent = -p->input.y;
           if( ascent > maxAscent ){
             maxAscent = ascent;
-            TestPoint(0);
-          }else{
-            TestPoint(0);
           }
           break;
         default:
@@ -581,18 +546,12 @@ static int FixLine(
           p->text.y += y;
           if( p->text.descent > maxDescent ){
             maxDescent = p->text.descent;
-            TestPoint(0);
-          }else{
-            TestPoint(0);
           }
           break;
         case Html_LI:
           p->li.y = y;
           if( p->li.descent > maxDescent ){
             maxDescent = p->li.descent;
-            TestPoint(0);
-          }else{
-            TestPoint(0);
           }
           break;
         case Html_IMG:
@@ -614,12 +573,10 @@ static int FixLine(
           }
           if( p->image.descent > maxDescent ){
             maxDescent = p->image.descent;
-            TestPoint(0);
-          }else{
-            TestPoint(0);
           }
           break;
         case Html_INPUT:
+        case Html_SELECT:
         case Html_TEXTAREA:
         case Html_APPLET:
         case Html_EMBED:
@@ -627,9 +584,6 @@ static int FixLine(
           p->input.y += y;
           if( descent > maxDescent ){
             maxDescent = descent;
-            TestPoint(0);
-          }else{
-            TestPoint(0);
           }
           break;
         default:
@@ -643,7 +597,6 @@ static int FixLine(
   }else{
     maxDescent = 0;
     y = bottom;
-    TestPoint(0);
   }
   return y + maxDescent;
 }
@@ -666,16 +619,15 @@ static void Paragraph(
     TestPoint(0);
   }else{
     Tk_FontMetrics fontMetrics;
-    Tk_Font font = HtmlGetFont(pLC->htmlPtr, p->base.style.font);
+    Tk_Font font;
+    font = HtmlGetFont(pLC->htmlPtr, p->base.style.font);
+    if( font==0 ) return;   
     Tk_GetFontMetrics(font, &fontMetrics);
     headroom = fontMetrics.descent + fontMetrics.ascent;
     TestPoint(0);
   }
   if( pLC->headRoom < headroom && pLC->bottom > pLC->top ){
     pLC->headRoom = headroom;
-    TestPoint(0);
-  }else{
-    TestPoint(0);
   }
 }
 
@@ -1033,6 +985,7 @@ static HtmlElement *DoBreakMarkup(
     case Html_Space:
     case Html_LI:
     case Html_INPUT:
+    case Html_SELECT:
     case Html_TEXTAREA:
     case Html_APPLET:
     case Html_EMBED:
@@ -1100,7 +1053,9 @@ void HtmlLayoutBlock(HtmlLayoutContext *pLC){
 
     /* Do as much break markup as we can. */
     while( p && p!=pLC->pEnd ){
+      HtmlLock(pLC->htmlPtr);
       pNext = DoBreakMarkup(pLC, p);
+      if( HtmlUnlock(pLC->htmlPtr) ) return;
       if( pNext==p ){ TestPoint(0); break; }
       if( pNext ){
         TRACE(HtmlTrace_BreakMarkup,
@@ -1206,7 +1161,9 @@ void HtmlLayout(HtmlWidget *htmlPtr){
     pLC->maxX = htmlPtr->maxX;
     pLC->maxY = htmlPtr->maxY;
     btm = pLC->bottom;
+    HtmlLock(htmlPtr);
     HtmlLayoutBlock(pLC);
+    if( HtmlUnlock(htmlPtr) ) return;
     htmlPtr->maxX = pLC->maxX;
     htmlPtr->maxY = pLC->maxY;
     htmlPtr->nextPlaced = pLC->pStart;

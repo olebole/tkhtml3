@@ -1,6 +1,6 @@
 /*
 ** The main routine for the HTML widget for Tcl/Tk
-** $Revision: 1.25 $
+** $Revision: 1.26 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -305,9 +305,6 @@ static void HtmlCmdDeletedProc(ClientData clientData){
     Tk_Window tkwin = htmlPtr->tkwin;
     htmlPtr->tkwin = NULL;
     Tk_DestroyWindow(tkwin);
-    TestPoint(0);
-  }else{
-    TestPoint(0);
   }
 }
 
@@ -339,7 +336,6 @@ static void HtmlRedrawCallback(ClientData clientData){
   int insetX, insetY;      /* Total highlight thickness, border width and 
                            ** padx/y */
   int clipwinH, clipwinW;  /* Width and height of the clipping window */
-  GC gc;                   /* Needed by XCopyArea */
   HtmlBlock *pBlock;       /* For looping over blocks to be drawn */
   int redoSelection = 0;   /* True to recompute the selection */
   
@@ -593,8 +589,8 @@ static void HtmlRedrawCallback(ClientData clientData){
     /* printf("Redraw %dx%d at %d,%d\n", w, h, x, y); */
 
     /* Allocate and clear a pixmap upon which to draw */
-    pixmap = Tk_GetPixmap(display, Tk_WindowId(clipwin),w,h,Tk_Depth(clipwin));
     gcBg = HtmlGetGC(htmlPtr, COLOR_Background, FONT_Any);
+    pixmap = Tk_GetPixmap(display, Tk_WindowId(clipwin),w,h,Tk_Depth(clipwin));
     xrec.x = 0;
     xrec.y = 0;
     xrec.width = w;
@@ -608,18 +604,14 @@ static void HtmlRedrawCallback(ClientData clientData){
       && pBlock->left <= x+w && pBlock->right >= x ){
         HtmlBlockDraw(htmlPtr,pBlock,pixmap,x,y,w,h);
         if( htmlPtr->tkwin==0 ) break;
-        TestPoint(0);
-      }else{
-        TestPoint(0);
       }
     }
     dead = HtmlUnlock(htmlPtr);
      
     /* Finally, copy the pixmap onto the window and delete the pixmap */
     if( !dead ){
-      gc = HtmlGetAnyGC(htmlPtr);
       XCopyArea(display, pixmap, Tk_WindowId(clipwin),
-                gc, 0, 0, w, h, htmlPtr->dirtyLeft, htmlPtr->dirtyTop);
+                gcBg, 0, 0, w, h, htmlPtr->dirtyLeft, htmlPtr->dirtyTop);
     }
     Tk_FreePixmap(display, pixmap);
     if( dead ) goto redrawExit;
@@ -858,9 +850,6 @@ void HtmlClear(HtmlWidget *htmlPtr){
   htmlPtr->nToken = 0;
   if( htmlPtr->zText ){
     HtmlFree(htmlPtr->zText);
-    TestPoint(0);
-  }else{
-    TestPoint(0);
   }
   htmlPtr->zText = 0;
   htmlPtr->nText = 0;
@@ -934,29 +923,20 @@ static void DestroyHtmlWidget(HtmlWidget *htmlPtr){
     if( htmlPtr->aFont[i] != 0 ){
       Tk_FreeFont(htmlPtr->aFont[i]);
       htmlPtr->aFont[i] = 0;
-      TestPoint(0);
-    }else{
-      TestPoint(0);
     }
   }
   for(i=0; i<Html_TypeCount; i++){
     if( htmlPtr->zHandler[i] ){
       HtmlFree(htmlPtr->zHandler[i]);
       htmlPtr->zHandler[i] = 0;
-      TestPoint(0);
-    }else{
-      TestPoint(0);
     }
   }
   if( htmlPtr->insTimer ){
     Tcl_DeleteTimerHandler(htmlPtr->insTimer);
     htmlPtr->insTimer = 0;
-    TestPoint(0);
-  }else{
-    TestPoint(0);
   }
   HtmlFree(htmlPtr->zClipwin);
-  HtmlFree( htmlPtr);
+  HtmlFree(htmlPtr);
 }
 
 /*
@@ -974,6 +954,7 @@ int HtmlUnlock(HtmlWidget *htmlPtr){
   htmlPtr->locked--;
   if( htmlPtr->tkwin==0 && htmlPtr->locked<=0 ){
     Tcl_Interp *interp = htmlPtr->interp;
+    Tcl_Preserve(interp);
     DestroyHtmlWidget(htmlPtr);
     Tcl_Release(interp);
     return 1;
@@ -1057,6 +1038,7 @@ GC HtmlGetGC(HtmlWidget *htmlPtr, int color, int font){
   GcCache *p = htmlPtr->aGcCache;
   XGCValues gcValues;
   int mask;
+  Tk_Font tkfont;
 
   /* 
   ** Check for an existing GC.
@@ -1092,8 +1074,12 @@ GC HtmlGetGC(HtmlWidget *htmlPtr, int color, int font){
   gcValues.foreground = htmlPtr->apColor[color]->pixel;
   gcValues.graphics_exposures = False;
   if( font<0 ){ font = FONT_Default; TestPoint(0); }
-  gcValues.font = Tk_FontId( HtmlGetFont(htmlPtr, font) );
-  mask = GCForeground | GCGraphicsExposures | GCFont;
+  tkfont = HtmlGetFont(htmlPtr, font);
+  mask = GCForeground | GCGraphicsExposures;
+  if( tkfont ){
+    gcValues.font = Tk_FontId(tkfont);
+    mask |= GCFont;
+  }
   p->gc = Tk_GetGC(htmlPtr->tkwin, mask, &gcValues);
   if( p->index==0 ){ p->index = N_CACHE_GC + 1; TestPoint(0); }
   for(j=0; j<N_CACHE_GC; j++){
@@ -1154,27 +1140,17 @@ static void HtmlEventProc(ClientData clientData, XEvent *eventPtr){
       if( (htmlPtr->flags & REDRAW_PENDING) ){
         Tcl_CancelIdleCall(HtmlRedrawCallback, (ClientData)htmlPtr);
         htmlPtr->flags &= ~REDRAW_PENDING;
-        TestPoint(0);
-      }else{
-        TestPoint(0);
       }
       if( htmlPtr->tkwin != 0 ){
         if( eventPtr->xany.window!=Tk_WindowId(htmlPtr->tkwin) ){
           Tk_DestroyWindow(htmlPtr->tkwin);
           htmlPtr->clipwin = 0;
-          TestPoint(0);
           break;
         }
-        Tcl_Preserve(htmlPtr->interp);
-        HtmlDeleteControls(htmlPtr);
         htmlPtr->tkwin = 0;
-        Tcl_DeleteCommand(htmlPtr->interp,
-                Tcl_GetCommandName(htmlPtr->interp, htmlPtr->widgetCmd));
-        TestPoint(0);
-      }else{
-        TestPoint(0);
+        Tcl_DeleteCommand(htmlPtr->interp, htmlPtr->zCmdName);
       }
-      DestroyHtmlWidget(htmlPtr);
+      HtmlUnlock(htmlPtr);
       break;
     case ConfigureNotify:
       if( htmlPtr->tkwin!=0
@@ -1288,11 +1264,7 @@ Tk_Font HtmlGetFont(
       Tcl_DStringAppend(&str, htmlPtr->zFontCommand, -1);
       sprintf(zBuf, " %d {", FontSize(iFont)+1);
       Tcl_DStringAppend(&str,zBuf, -1);
-#if 1 /* TNB */
       iFam = iFont / N_FONT_SIZE ;
-#else /* TNB */
-      iFam = FontFamily(iFont)/N_FONT_FAMILY;
-#endif /* TNB */
       if( iFam & 1 ){
         Tcl_DStringAppend(&str,"bold",-1);
         zSep = " ";
@@ -1304,7 +1276,7 @@ Tk_Font HtmlGetFont(
       }
       if( iFam & 4 ){
         Tcl_DStringAppend(&str,zSep,-1);
-        Tcl_DStringAppend(&str,"constantwidth",-1);
+        Tcl_DStringAppend(&str,"fixed",-1);
       }
       Tcl_DStringAppend(&str,"}",-1);
       HtmlLock(htmlPtr);
@@ -1336,25 +1308,25 @@ Tk_Font HtmlGetFont(
       iFamily = iFont / N_FONT_SIZE;
       iSize = iFont % N_FONT_SIZE + 1;
       switch( iFamily ){
-        case 0:  familyStr = "helvetica -%d";             TestPoint(0); break;
-        case 1:  familyStr = "helvetica -%d bold";        TestPoint(0); break;
-        case 2:  familyStr = "helvetica -%d italic";      TestPoint(0); break;
-        case 3:  familyStr = "helvetica -%d bold italic"; TestPoint(0); break;
-        case 4:  familyStr = "courier -%d";               TestPoint(0); break;
-        case 5:  familyStr = "courier -%d bold";          TestPoint(0); break;
-        case 6:  familyStr = "courier -%d italic";        TestPoint(0); break;
-        case 7:  familyStr = "courier -%d bold italic";   TestPoint(0); break;
-        default: familyStr = "helvetica -14";             CANT_HAPPEN;  break;
+        case 0:  familyStr = "helvetica -%d";             break;
+        case 1:  familyStr = "helvetica -%d bold";        break;
+        case 2:  familyStr = "helvetica -%d italic";      break;
+        case 3:  familyStr = "helvetica -%d bold italic"; break;
+        case 4:  familyStr = "courier -%d";               break;
+        case 5:  familyStr = "courier -%d bold";          break;
+        case 6:  familyStr = "courier -%d italic";        break;
+        case 7:  familyStr = "courier -%d bold italic";   break;
+        default: familyStr = "helvetica -14";             CANT_HAPPEN;
       }
       switch( iSize ){
-        case 1:  size = 8;   TestPoint(0); break;
-        case 2:  size = 10;  TestPoint(0); break;
-        case 3:  size = 12;  TestPoint(0); break;
-        case 4:  size = 14;  TestPoint(0); break;
-        case 5:  size = 16;  TestPoint(0); break;
-        case 6:  size = 18;  TestPoint(0); break;
-        case 7:  size = 24;  TestPoint(0); break;
-        default: size = 14;  CANT_HAPPEN;  break;
+        case 1:  size = 8;   break;
+        case 2:  size = 10;  break;
+        case 3:  size = 12;  break;
+        case 4:  size = 14;  break;
+        case 5:  size = 16;  break;
+        case 6:  size = 18;  break;
+        case 7:  size = 24;  break;
+        default: size = 14;  CANT_HAPPEN;
       }
       sprintf(name, familyStr, size);
     }
@@ -1362,6 +1334,22 @@ Tk_Font HtmlGetFont(
     /* Get the named font
     */
     htmlPtr->aFont[iFont] = Tk_GetFont(htmlPtr->interp, htmlPtr->tkwin, name);
+    if( htmlPtr->aFont[iFont]==0 ){
+      Tcl_AddErrorInfo(htmlPtr->interp, 
+              "\n    (trying to create a font named \"");
+      Tcl_AddErrorInfo(htmlPtr->interp, name);
+      Tcl_AddErrorInfo(htmlPtr->interp, "\" in the HTML widget)");
+      Tcl_BackgroundError(htmlPtr->interp);
+      htmlPtr->aFont[iFont] = 
+       Tk_GetFont(htmlPtr->interp, htmlPtr->tkwin, "fixed");
+    }
+    if( htmlPtr->aFont[iFont]==0 ){
+      Tcl_AddErrorInfo(htmlPtr->interp,
+              "\n    (trying to create font \"fixed\" in the HTML widget)");
+      Tcl_BackgroundError(htmlPtr->interp);
+      htmlPtr->aFont[iFont] = 
+       Tk_GetFont(htmlPtr->interp, htmlPtr->tkwin, "helvetica -12");
+    }
     FontSetValid(htmlPtr, iFont);
     TestPoint(0);
   }
@@ -1371,9 +1359,6 @@ Tk_Font HtmlGetFont(
   */
   if( toFree!=0 ){
     Tk_FreeFont(toFree);
-    TestPoint(0);
-  }else{
-    TestPoint(0);
   }
   return htmlPtr->aFont[iFont];
 }
@@ -1845,20 +1830,22 @@ static int HtmlCommand(
       return TCL_ERROR;
     }
 
-    htmlPtr = HtmlAlloc(sizeof(HtmlWidget));
+    htmlPtr = HtmlAlloc(sizeof(HtmlWidget) + strlen(argv[1]) + 1);
     memset(htmlPtr, 0, sizeof(HtmlWidget));
     htmlPtr->tkwin = new;
     htmlPtr->clipwin = clipwin;
     htmlPtr->zClipwin = zClipwin;
     htmlPtr->display = Tk_Display(new);
     htmlPtr->interp = interp;
-    htmlPtr->widgetCmd = Tcl_CreateCommand(interp, Tk_PathName(new),
-      HtmlWidgetCommand, (ClientData) htmlPtr, HtmlCmdDeletedProc);
+    htmlPtr->zCmdName = (char*)&htmlPtr[1];
+    strcpy(htmlPtr->zCmdName, argv[1]);
     htmlPtr->relief = TK_RELIEF_FLAT;
     htmlPtr->dirtyLeft = LARGE_NUMBER;
     htmlPtr->dirtyTop = LARGE_NUMBER;
     htmlPtr->flags = RESIZE_CLIPWIN;
     htmlPtr->varId = varId++;
+    Tcl_CreateCommand(interp, htmlPtr->zCmdName,
+      HtmlWidgetCommand, (ClientData)htmlPtr, HtmlCmdDeletedProc);
     
     Tk_SetClass(new,"Html");
     Tk_SetClass(clipwin,"HtmlClip");

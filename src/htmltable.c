@@ -1,6 +1,6 @@
 /*
 ** Routines for doing layout of HTML tables
-** $Revision: 1.25 $
+** $Revision: 1.26 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -637,6 +637,8 @@ static HtmlElement *MinMax(
         break;
       case Html_APPLET:
       case Html_INPUT:
+      case Html_SELECT:
+      case Html_EMBED:
       case Html_TEXTAREA:
         x1 += p->input.w + p->input.padLeft;
         if( p->base.style.flags & STY_Preformatted ){
@@ -984,7 +986,9 @@ HtmlElement *HtmlTableLayout(
             cellContext.maxY = 0;
             cellContext.leftMargin = 0;
             cellContext.rightMargin = 0;
+            HtmlLock(cellContext.htmlPtr);
             HtmlLayoutBlock(&cellContext);
+            if( HtmlUnlock(cellContext.htmlPtr) ) return 0;
 #ifdef TABLE_TRIM_BLANK
 			/*
 			 * Cancel any trailing vertical whitespace caused
@@ -1146,6 +1150,9 @@ void HtmlMoveVertically(
         p->image.y += dy;
         break;
       case Html_INPUT:
+      case Html_SELECT:
+      case Html_APPLET:
+      case Html_EMBED:
       case Html_TEXTAREA:
         p->input.y += dy;
         break;

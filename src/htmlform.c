@@ -1,6 +1,6 @@
 /*
 ** Routines used for processing HTML makeup for forms.
-** $Revision: 1.17 $
+** $Revision: 1.18 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -101,12 +101,12 @@ void HtmlDeleteControls(HtmlWidget *htmlPtr){
   htmlPtr->firstInput = 0;
   htmlPtr->lastInput = 0;
   htmlPtr->nInput = 0;
-  if( p==0 ) return;
+  if( p==0 || htmlPtr->tkwin==0 ) return;
   HtmlLock(htmlPtr);
   for(; p; p=p->input.pNext){
     if( p->input.pForm && p->input.pForm->form.id>0 
          && htmlPtr->zFormCommand && htmlPtr->zFormCommand[0]
-         && !Tcl_InterpDeleted(interp) ){
+         && !Tcl_InterpDeleted(interp) && htmlPtr->clipwin ){
       Tcl_DString cmd;
       int result;
       char zBuf[60];
@@ -128,7 +128,7 @@ void HtmlDeleteControls(HtmlWidget *htmlPtr){
       p->input.pForm->form.id = 0;
     }
     if( p->input.tkwin ){
-      Tk_DestroyWindow(p->input.tkwin);
+      if( htmlPtr->clipwin!=0 ) Tk_DestroyWindow(p->input.tkwin);
       p->input.tkwin = 0;
     }
   }
@@ -260,7 +260,7 @@ static void HtmlInputLostSlaveProc(ClientData clientData, Tk_Window tkwin){
 */
 static void HtmlInputEventProc(ClientData clientData, XEvent *eventPtr){
   HtmlElement *pElem = (HtmlElement*)clientData;
-  if( pElem->base.type!=Html_INPUT ){ CANT_HAPPEN; return; }
+  /* if( pElem->base.type!=Html_INPUT ){ CANT_HAPPEN; return; } */
   if( eventPtr->type==DestroyNotify ){
     EmptyInput(pElem);
     if( pElem->input.htmlPtr && pElem->input.htmlPtr->tkwin!=0 ){
@@ -290,6 +290,11 @@ static void SizeAndLink(HtmlWidget *htmlPtr, char *zWin, HtmlElement *pElem){
   if( pElem->input.tkwin==0 ){
     Tcl_ResetResult(htmlPtr->interp);
     EmptyInput(pElem);
+  }else if( pElem->input.type==INPUT_TYPE_Hidden ){
+    pElem->input.w = 0;
+    pElem->input.h = 0;
+    pElem->base.flags &= !HTML_Visible;
+    pElem->base.style.flags |= STY_Invisible;
   }else{
     pElem->input.w = Tk_ReqWidth(pElem->input.tkwin);
     pElem->input.h = Tk_ReqHeight(pElem->input.tkwin);

@@ -1,6 +1,6 @@
 /*
 ** Routines used to compute the style and size of individual elements.
-** $Revision: 1.23 $
+** $Revision: 1.24 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -802,7 +802,8 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         break;
       case Html_SELECT:
         p->input.pForm = htmlPtr->formStart;
-        style.flags |= STY_Invisible;
+        nextStyle.flags |= STY_Invisible;
+        useNextStyle = 1;
         PushStyleStack(htmlPtr, Html_EndSELECT, style);
         htmlPtr->formElemStart = p;
         TestPoint(0);
@@ -1041,12 +1042,11 @@ void HtmlSizer(HtmlWidget *htmlPtr){
     }
     if( iFont != p->base.style.font ){
       iFont = p->base.style.font;
+      HtmlLock(htmlPtr);
       font = HtmlGetFont(htmlPtr, iFont);
+      if( HtmlUnlock(htmlPtr) ) break;
       Tk_GetFontMetrics(font, &fontMetrics);
       spaceWidth = 0;
-      TestPoint(0);
-    }else{
-      TestPoint(0);
     }
     switch( p->base.type ){
       case Html_Text:
