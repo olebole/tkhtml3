@@ -13,8 +13,6 @@ static char rcsid[] = "@(#) $Id:";
 #include <assert.h>
 #include <string.h>
 
-/* HtmlBaseElement HtmlMarkupElement */
-
 /* Each node of the document tree is represented as an HtmlNode structure.
  * This structure carries no information to do with the node itself, it is
  * simply used to build the tree structure. All the information for the
@@ -28,6 +26,11 @@ struct HtmlNode {
     HtmlNode **apChildren;
 };
 
+/* A document tree is represented by an instance of the following 
+ * structure. Variable pCurrent is intended to be context for 
+ * incrementally building a tree from a linked list of tokens, but
+ * that isn't implemented yet.
+ */
 struct HtmlTree {
     HtmlNode *pCurrent;    /* The node currently being built */
     HtmlNode *pRoot;       /* The root-node of the document. */
@@ -36,51 +39,32 @@ struct HtmlTree {
 /*
  *---------------------------------------------------------------------------
  *
- * getEndToken --
+ * isEndTag --
  *
- *     Given a token type, return the closing tag type, or HTML_Unknown
- *     if there is no closing tag type.
+ *     Check if token pElement closes the document element currently
+ *     being constructed. Currently, a token closes a document element if
+ *     any of the following are true:
+ *
+ *     + The token is a closing tag of any type (i.e. </h1>).
+ *     + The current element (i.e. a <p>) can only contain %inline
+ *       elements, and pElement points to the start of a non-inline 
+ *       element.
+ *      
+ *     TODO: This function will eventually be extended to handle other kinds
+ *           of implicit closes.
  *
  * Results:
- *     None.
+ *     True if pElem does close the current element, otherwise false.
  *
  * Side effects:
  *     None.
  *
  *---------------------------------------------------------------------------
  */
-int
-getEndToken(htmlPtr, typ)
-    HtmlWidget *htmlPtr;
-    int typ;
-{
-    /* DK: The implementation here needs to be revisited I think. It will
-     * do for now though.
-     */
-    HtmlTokenMap *pMap = HtmlGetMarkupMap(htmlPtr, typ - Html_A);
-    if (!pMap)
-        return Html_Unknown;
-    if (pMap && pMap[1].zName[0] == '/')
-        return pMap[1].type;
-    return Html_Unknown;
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * isEndNode --
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-static int isEndNode(pElem, inl)
+static int 
+isEndTag(pElem, inl)
     HtmlElement *pElem;
-    int inl;
+    int inl;             /* True if non-inline elements count as closes */
 {
     Html_u8 flags;
     if( pElem ){
@@ -101,7 +85,7 @@ static int isEndNode(pElem, inl)
  *
  *
  * Results:
- *     None.
+ *     None
  *
  * Side effects:
  *     None.
@@ -109,16 +93,14 @@ static int isEndNode(pElem, inl)
  *---------------------------------------------------------------------------
  */
 static int 
-buildNode(p, pStart, pEnd, ppNext, ppNode, expect_inline)
-    HtmlWidget *p;
-    HtmlElement *pStart;
-    HtmlElement *pEnd;
-    HtmlElement **ppNext;
-    HtmlNode **ppNode;
-    int expect_inline;
+buildNode(pTree, pStart, ppNext, ppNode, expect_inline)
+    HtmlTree *pTree;             /* Tree the node belongs to */
+    HtmlElement *pStart;         /* Start token */
+    HtmlElement **ppNext;        /* OUT: Next token for parent to process. */
+    HtmlNode **ppNode;           /* OUT: The node constructed */
+    int expect_inline;           /* True if this is an inline context */
 {
     HtmlNode *pNode;                       /* The new node */
-    HtmlTree *pTree = p->pTree;
     HtmlElement *pNext = pStart;
     int i;
 
@@ -154,7 +136,7 @@ buildNode(p, pStart, pEnd, ppNext, ppNode, expect_inline)
      * a contiguous list of such elements.
      */
     else if( opentype==Html_Text || opentype==Html_Space ){
-        while (pNext && pNext!=pEnd && 
+        while (pNext && 
               (pNext->base.type==Html_Text || pNext->base.type==Html_Space)
         ){
             pNext = pNext->pNext;
@@ -171,11 +153,11 @@ buildNode(p, pStart, pEnd, ppNext, ppNode, expect_inline)
         }
 
         pNext = pStart->pNext;
-        while (!isEndNode(pNext, expect_inline)){
+        while (!isEndTag(pNext, expect_inline)){
             int n = (pNode->nChild+1)*sizeof(HtmlNode *) + sizeof(HtmlNode);
             pNode = (HtmlNode *)ckrealloc((char *)pNode, n);
             pNode->apChildren = (HtmlNode **)&pNode[1];
-            buildNode(p, pNext, pEnd, &pNext, 
+            buildNode(pTree, pNext, &pNext, 
                     &pNode->apChildren[pNode->nChild], expect_inline);
             pNode->nChild++;
         }
@@ -198,7 +180,22 @@ buildNode(p, pStart, pEnd, ppNext, ppNode, expect_inline)
     return 0;
 }
 
-void
+/*
+ *---------------------------------------------------------------------------
+ *
+ * freeNode --
+ *
+ *     Free the memory allocated for pNode and all of it's children.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     pNode and children are made invalid.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void 
 freeNode(pNode)
     HtmlNode *pNode;
 {
@@ -242,15 +239,14 @@ void HtmlTreeFree(p)
  *
  * HtmlTreeBuild --
  *
- *     Build a document tree using the linked list of nodes starting at
- *     pStart and ending at (but not including) pEnd. If pEnd is NULL,
- *     then the document tree includes all nodes in the list pointed
- *     to by pStart.
+ *     Build the document tree using the linked list of tokens currently
+ *     stored in the widget. 
  *
  * Results:
  *
  * Side effects:
- *     p->pTree is modified.
+ *     The current tree is deleted. p->pTree is set to point at the
+ *     new tree.
  *
  *---------------------------------------------------------------------------
  */
@@ -265,12 +261,17 @@ HtmlTreeBuild(p)
      * So skip over all the white-space at the start of the document. If
      * the first thing we strike is not an <html> tag, then insert
      * an artficial one.
+     *
+     * TODO: Need to construct the other implicit tags, <head> and
+     *       <body>, if they are not missing. This should be done
+     *       in buildNode() though, not here. Maybe the <html> element
+     *       should be dealt with there as well.
      */
     while( pStart && pStart->base.type==Html_Space ){
         pStart = pStart->pNext;
     }
     if( !pStart || pStart->base.type!=Html_HTML ){
-        /* Allocate HtmlTree and a pretend <html> element */
+        /* Allocate HtmlTree and a pretend <html> token */
         int n = sizeof(HtmlTree) + sizeof(HtmlBaseElement);
         HtmlBaseElement *pHtml;
         p->pTree = (HtmlTree *)ckalloc(n);
@@ -286,7 +287,7 @@ HtmlTreeBuild(p)
         memset(p->pTree, 0, n);
     }
 
-    buildNode(p, pStart, 0, &p->pTree->pCurrent, &p->pTree->pRoot, 0);
+    buildNode(p->pTree, pStart, &p->pTree->pCurrent, &p->pTree->pRoot, 0);
     return 0;
 }
 
@@ -359,7 +360,8 @@ nodeToString(pNode)
  *
  *---------------------------------------------------------------------------
  */
-static Tcl_Obj *nodeToList(interp, p, pNode, trim)
+static Tcl_Obj *
+nodeToList(interp, p, pNode, trim)
     Tcl_Interp *interp;
     HtmlWidget *p;
     HtmlNode *pNode;

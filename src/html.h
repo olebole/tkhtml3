@@ -1,6 +1,6 @@
 /*
 ** Structures and typedefs used by the HTML widget
-** $Revision: 1.39 $
+** $Revision: 1.40 $
 **
 ** This source code is released into the public domain by the author,
 ** D. Richard Hipp, on 2002 December 17.  Instead of a license, here
@@ -1267,6 +1267,7 @@ char *HtmlGetTokenName(HtmlWidget *htmlPtr, HtmlElement *p);
 EXTERN int (*HtmlFetchSelectionPtr)(ClientData , int, char *, int );
 EXTERN int (*htmlReformatCmdPtr)(Tcl_Interp *interp, char *str, char *dtype);
 HtmlElement *HtmlGetMap(HtmlWidget *htmlPtr, char *name);
+int HtmlIsDead(HtmlWidget *htmlPtr);
 
 /* htmlimage.c */
 EXTERN int tkhtmlexiting;
