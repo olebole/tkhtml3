@@ -5,7 +5,6 @@
 
 wm title . {HTML File Viewer}
 wm iconname . {HV}
-set HtmlTraceMask 0x8
 
 image create photo biggray -data {
     R0lGODdhPAA+APAAALi4uAAAACwAAAAAPAA+AAACQISPqcvtD6OctNqLs968+w+G4kiW5omm
@@ -141,6 +140,15 @@ proc Refresh {} {
 }
 
 update
-if {[llength $argv]>0} {
-  LoadFile [lindex $argv 0]
+set HtmlTraceMask 0x8
+set file {}
+foreach a $argv {
+  if {[regexp {^debug=} $a]} {
+    scan $a "debug=0x%x" HtmlTraceMask
+  } else {
+    set file $a
+  }
+}
+if {$file!=""} {
+  LoadFile $file
 }

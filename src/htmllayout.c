@@ -1,7 +1,7 @@
 /*
 ** This file contains the code used to position elements of the
 ** HTML file on the screen.
-** $Revision: 1.13 $
+** $Revision: 1.14 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -42,7 +42,7 @@
 ** If "bottom" is negative, then the margin stays in force until
 ** it is explicitly canceled by a call to HtmlPopMargin().
 */
-static void HtmlPushMargin(
+void HtmlPushMargin(
   HtmlMargin **ppMargin,  /* The margin stack onto which to push */
   int indent,             /* The indentation for the new margin */
   int bottom,             /* The margin expires at this Y coordinate */
@@ -1067,7 +1067,7 @@ static int InWrapAround(HtmlLayoutContext *pLC){
 ** Move past obsticles until a linewidth of reqWidth is obtained,
 ** or until all obsticles are cleared.
 */
-int HtmlWidenLine(
+void HtmlWidenLine(
   HtmlLayoutContext *pLC,     /* The layout context */
   int reqWidth,               /* Requested line width */
   int *pX, int *pY, int *pW   /* The margins.  See HtmllComputeMargins() */

@@ -1,6 +1,6 @@
 /*
 ** Routines for doing layout of HTML tables
-** $Revision: 1.16 $
+** $Revision: 1.17 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -291,6 +291,9 @@ static HtmlElement *TableDimensions(
 #if 0
   for(i=1; i<=pStart->table.nCol; i++){
     printf("  %d:%d..%d",i,pStart->table.minW[i],pStart->table.maxW[i]);
+    if( fixedW[i]>0 ){
+      printf("(w=%d)",fixedW[i]);
+    }
   }
   printf("\n");
   for(i=1; i<pStart->table.nCol; i++){
@@ -312,7 +315,8 @@ static HtmlElement *TableDimensions(
       pStart->table.maxW[i] = pStart->table.minW[i];
     }
 
-    /* Expand the width of columns marked with "colspan=0". */
+    /* Expand the width of columns marked with "colspan=0". 
+    */
     if( min0span[i]>0 || max0span[i]>0 ){
       int n = pStart->table.nCol - i + 1;
       minW = (min0span[i] + (n - 1)*(1-separation))/n;
@@ -323,8 +327,10 @@ static HtmlElement *TableDimensions(
       }
     }
 
-    /* Expand the min of columns to accomodate "colspan=N" where N>1.
-    ** Columns with larger max[] are expanded faster. */
+    /* Expand the min[] of columns to accomodate "colspan=N" constraints.
+    ** The min[] is expanded up to the max[] first.  Then all the max[]s
+    ** are expanded in proportion to their sizes.
+    */
     sumMin = pStart->table.minW[i];
     sumMax = pStart->table.maxW[i];
     for(j=i-1; j>=1; j--){
@@ -335,11 +341,28 @@ static HtmlElement *TableDimensions(
       if( cmin>sumMin ){
         int k;
         double scale;
-        scale = (double)cmin/(double)sumMax;
-        for(k=j; k<=i; k++){
-          sumMin -= pStart->table.minW[k];
-          pStart->table.minW[k] = ceil(scale*pStart->table.maxW[k]);
-          sumMin += pStart->table.minW[k];
+        int *tminW = pStart->table.minW;
+        int *tmaxW = pStart->table.maxW;
+        if( sumMin<sumMax ){
+          scale = (double)(cmin - sumMin)/(double)(sumMax - sumMin);
+          for(k=j; k<=i; k++){
+            sumMin -= tminW[k];
+            tminW[k] = (tmaxW[k] - tminW[k])*scale + tminW[k];
+            sumMin += tminW[k];
+          }
+        }else if( sumMin>0 ){
+          scale = (double)cmin/(double)sumMin;
+          for(k=j; k<=i; k++){
+            sumMin -= tminW[k];
+            tminW[k] = tmaxW[k] = tminW[k]*scale;
+            sumMin += tminW[k];
+          }
+        }else{
+          int unit = cmin/(i-j+1);
+          for(k=j; k<=i; k++){
+            tminW[k] = tmaxW[k] = unit;
+            sumMin += tminW[k];
+          }
         }
       }
     }
@@ -376,9 +399,23 @@ static HtmlElement *TableDimensions(
       float scale;
       int *tminW = pStart->table.minW;
       int *tmaxW = pStart->table.maxW;
-      scale = (double)(totalWidth - tminW[0]) / (double)(tmaxW[0] - tminW[0]);
-      for(i=1; i<=pStart->table.nCol; i++){
-        tminW[i] += (tmaxW[i] - tminW[i]) * scale;
+      if( tmaxW[0] > tminW[0] ){
+        scale = (double)(totalWidth - tminW[0]) / (double)(tmaxW[0] - tminW[0]);
+        for(i=1; i<=pStart->table.nCol; i++){
+          tminW[i] += (tmaxW[i] - tminW[i]) * scale;
+        }
+      }else if( tminW[0]>0 ){
+        scale = totalWidth/tminW[0];
+        for(i=1; i<=pStart->table.nCol; i++){
+          tminW[i] *= scale;
+          tmaxW[i] *= scale;
+        }
+      }else{
+        int unit = (totalWidth - margin)/pStart->table.nCol - separation;
+        if( unit<0 ) unit = 0;
+        for(i=1; i<=pStart->table.nCol; i++){
+          tminW[i] = tmaxW[i] = unit;
+        }
       }
       pStart->table.minW[0] = totalWidth;
       SETMAX( pStart->table.maxW[0], totalWidth );
@@ -647,6 +684,7 @@ HtmlElement *HtmlTableLayout(
   int hspace;             /* Value of the hspace= parameter to <table> */
   int rowBottom;          /* Bottom edge of content in the current row */
   int defaultVAlign;      /* Default vertical alignment for the current row */
+  char *zAlign;           /* Value of the ALIGN= attribute of the <TABLE> */
 #define N HTML_MAX_COLUMNS+1
   int y[N];               /* Top edge of each cell's content */
   int x[N];               /* Left edge of each cell's content */
@@ -656,6 +694,7 @@ HtmlElement *HtmlTableLayout(
   int firstRow[N];        /* First row on which a cell appears */
   int lastRow[N];         /* Row to which each cell span's */
   int valign[N];          /* Vertical alignment for each cell */
+  HtmlLayoutContext savedContext;  /* Saved copy of the original pLC */
   HtmlLayoutContext cellContext;   /* Used to render a single cell */
 
   if( pTable==0 || pTable->base.type!=Html_TABLE ){ 
@@ -666,38 +705,11 @@ HtmlElement *HtmlTableLayout(
   TRACE(HtmlTrace_Table2, ("Starting TableLayout() at %s\n", 
                           HtmlTokenName(pTable)));
 
-#if 0
   /* Figure how much horizontal space is available for rendering 
-  ** this table.  Store the answer in lineWidth.  */
-  lineWidth = pLC->pageWidth - pLC->right;
-  if( pLC->leftMargin ){
-    leftMargin = pLC->leftMargin->indent + pLC->left;
-    lineWidth -= leftMargin;
-  }else{
-    leftMargin = pLC->left;
-  }
-  if( pLC->rightMargin ){
-    lineWidth -= pLC->rightMargin->indent;
-  }
-  lineWidth -= leftMargin;
-  TRACE(HtmlTrace_Table2, ("...btm=%d left=%d right=%d width=%d linewidth=%d\n",
-                          pLC->bottom, pLC->left, pLC->right, pLC->pageWidth,
-                          lineWidth));
-
-  /* figure out how much space the table wants for each column,
-  ** and in total.. */
-  pEnd = TableDimensions(pLC->htmlPtr, pTable, lineWidth);
-
-  /* Figure out how wide to draw the table */
-  if( lineWidth < pTable->table.minW[0] ){
-    width = pTable->table.minW[0];
-  }else if( lineWidth < pTable->table.maxW[0] ){
-    width = lineWidth;
-  }else{
-    width = pTable->table.maxW[0];
-  }
-#endif
-
+  ** this table.  Store the answer in lineWidth.  leftMargin is
+  ** the left-most X coordinate of the table.  btm stores the top-most
+  ** Y coordinate.
+  */
   HtmlComputeMargins(pLC, &leftMargin, &btm, &lineWidth);
   TRACE(HtmlTrace_Table2, ("...btm=%d left=%d width=%d\n",
                            btm, leftMargin, lineWidth));
@@ -706,13 +718,19 @@ HtmlElement *HtmlTableLayout(
   ** and in total.. */
   pEnd = TableDimensions(pLC->htmlPtr, pTable, lineWidth);
 
+  /* If we don't have enough horizontal space to accomodate the minimum table
+  ** width, then try to move down past some obstruction (such as an
+  ** <IMG ALIGN=LEFT>) to give us more room.
+  */
   if( lineWidth < pTable->table.minW[0] ){
     HtmlWidenLine(pLC, pTable->table.minW[0], &leftMargin, &btm, &lineWidth);
     TRACE(HtmlTrace_Table2, ("Widen to btm=%d left=%d width=%d\n", 
                              btm, leftMargin, lineWidth));
   }
+  savedContext = *pLC;
   
-  /* Figure out how wide to draw the table */
+  /* Figure out how wide to draw the table 
+  */
   if( lineWidth < pTable->table.minW[0] ){
     width = pTable->table.minW[0];
   }else if( lineWidth <= pTable->table.maxW[0] ){
@@ -747,15 +765,13 @@ HtmlElement *HtmlTableLayout(
     ** of the table is zero or less. */
     return pEnd;
   }
+  zAlign = HtmlMarkupArg(pTable, "align", "");
   if( width < lineWidth ){
-    if( pTable->base.style.align == ALIGN_Center ){
-      x[1] += (lineWidth - width)/2;
-      TestPoint(0);
-    }else if( pTable->base.style.align == ALIGN_Right ){
+    int align = pTable->base.style.align;
+    if( align==ALIGN_Right || stricmp(zAlign,"right")==0 ){
       x[1] += lineWidth - width;
-      TestPoint(0);
-    }else{
-      TestPoint(0);
+    }else if( align==ALIGN_Center && stricmp(zAlign,"left")!=0 ){
+      x[1] += (lineWidth - width)/2;
     }
   }
   if( width==pTable->table.maxW[0] ){
@@ -1005,11 +1021,28 @@ HtmlElement *HtmlTableLayout(
   ** HtmlBlocks.  The following statement forces this. */
   pLC->htmlPtr->firstBlock = pLC->htmlPtr->lastBlock = 0;
 
+  /* Adjust the context for text that wraps around the table, if
+  ** requested by an ALIGN=RIGHT or ALIGN=LEFT attribute.
+  */
+  if( stricmp(zAlign,"left")==0 ){
+    savedContext.maxX = pLC->maxX;
+    savedContext.maxY = pLC->maxY;
+    *pLC = savedContext;
+    HtmlPushMargin(&pLC->leftMargin, pTable->table.w + 2, 
+        pTable->table.y + pTable->table.h + 2, 0);
+  }else if( stricmp(zAlign,"right")==0 ){
+    savedContext.maxX = pLC->maxX;
+    savedContext.maxY = pLC->maxY;
+    *pLC = savedContext;
+    HtmlPushMargin(&pLC->rightMargin, pTable->table.w + 2, 
+        pTable->table.y + pTable->table.h + 2, 0);
+  }
+
   /* All done */
-  TRACE(HtmlTrace_Table2, ("Done with TableLayout().  Return %s\n",
+  TRACE(HtmlTrace_Table2, (
+     "Done with TableLayout().  x=%d y=%d w=%d h=%d Return %s\n",
+     pTable->table.x, pTable->table.y, pTable->table.w, pTable->table.h,
      HtmlTokenName(pEnd)));
-  TRACE(HtmlTrace_Table2, ("...btm=%d left=%d right=%d\n",
-     pLC->bottom, pLC->left, pLC->right));
   TRACE_POP(HtmlTrace_Table2);
   return pEnd;
 }
