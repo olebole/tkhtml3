@@ -1,6 +1,6 @@
 /*
 ** The main routine for the HTML widget for Tcl/Tk
-** $Revision: 1.3 $
+** $Revision: 1.4 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -1296,7 +1296,7 @@ Tk_Font HtmlGetFont(
       int size;
 
       iFamily = iFont / N_FONT_SIZE;
-      iSize = iFont % N_FONT_SIZE;
+      iSize = iFont % N_FONT_SIZE + 1;
       switch( iFamily ){
         case 0:  familyStr = "helvetica -%d";             TestPoint(0); break;
         case 1:  familyStr = "helvetica -%d bold";        TestPoint(0); break;
