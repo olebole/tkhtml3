@@ -3,6 +3,27 @@
 # html widget.
 #
 
+# $Id: engine.tcl,v 1.2 2003/01/28 05:01:05 hkoba Exp $
+
+# Make sure the html widget is loaded into
+# our interpreter
+#
+if {[info command html]==""} {
+  if {[catch {package require Tkhtml} error]} {
+    foreach f {
+      ./libTkhtml*.so
+      ../libTkhtml*.so
+      /usr/lib/libTkhtml*.so
+      /usr/local/lib/libTkhtml*.so
+      ./tkhtml.dll
+    } {
+      if {[set f [lindex [glob -nocomplain $f] end]] != ""} {
+        if {[catch {load $f Tkhtml}]==0} break
+      }
+    }
+  }
+}
+
 # Initialize variables
 #
 namespace eval tcltest {
