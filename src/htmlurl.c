@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlurl.c,v 1.18 2000/02/06 23:17:25 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlurl.c,v 1.19 2000/10/28 12:21:33 drh Exp $";
 /*
 ** Routines for processing URLs.
 **
@@ -338,7 +338,9 @@ int HtmlCallResolver(
         }
         ReplaceStr(&base->zQuery, term->zQuery);
         ReplaceStr(&base->zFragment, term->zFragment);
-     }
+      }else if( term->zQuery ){
+        ReplaceStr(&base->zQuery, term->zQuery);
+      }
       FreeUri(term);
     }
     Tcl_SetResult(htmlPtr->interp, BuildUri(base), TCL_DYNAMIC);
