@@ -1,6 +1,6 @@
 /*
 ** Routines used to compute the style and size of individual elements.
-** $Revision: 1.26 $
+** $Revision: 1.27 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -36,7 +36,6 @@ static HtmlStyle GetCurrentStyle(HtmlWidget *htmlPtr){
   HtmlStyle style;
   if( htmlPtr->styleStack ){
     style = htmlPtr->styleStack->style;
-    TestPoint(0);
   }else{
     style.font = NormalFont(2);
     style.color = COLOR_Normal;
@@ -44,7 +43,6 @@ static HtmlStyle GetCurrentStyle(HtmlWidget *htmlPtr){
     style.subscript = 0;
     style.align = ALIGN_Left;
     style.flags = 0;
-    TestPoint(0);
   }
   return style;
 }
@@ -65,7 +63,6 @@ static void PushStyleStack(
   p->type = tag;
   p->style = style;
   htmlPtr->styleStack = p;
-  TestPoint(0);
 }
 
 /*
@@ -86,8 +83,7 @@ HtmlStyle HtmlPopStyleStack(HtmlWidget *htmlPtr, int tag){
     type = p->type;
     htmlPtr->styleStack = p->pNext;
     HtmlFree(p);
-    if( type==tag ){ TestPoint(0); break; }
-    TestPoint(0);
+    if( type==tag ){ break; }
   }
   return GetCurrentStyle(htmlPtr);
 }
@@ -99,10 +95,8 @@ static void ScaleFont(HtmlStyle *pStyle, int delta){
   int size = FontSize(pStyle->font) + delta;
   if( size<0 ){
     delta -= size;
-    TestPoint(0);
   }else if( size>6 ){
     delta -= size-6;
-    TestPoint(0);
   }
   pStyle->font += delta;
 }
@@ -117,12 +111,9 @@ char *HtmlMarkupArg(HtmlElement *p, const char *tag, char *zDefault){
   if( !HtmlIsMarkup(p) ){ TestPoint(0); return 0; }
   for(i=0; i<p->base.count; i+=2){
     if( strcmp(p->markup.argv[i],tag)==0 ){
-      TestPoint(0);
       return  p->markup.argv[i+1];
     }
-    TestPoint(0);
   }
-  TestPoint(0);
   return zDefault;
 }
 
@@ -137,18 +128,11 @@ static int GetAlignment(HtmlElement *p, int dflt){
   if( z ){
     if( stricmp(z,"left")==0 ){
       rc = ALIGN_Left;
-      TestPoint(0);
     }else if( stricmp(z,"right")==0 ){
       rc = ALIGN_Right;
-      TestPoint(0);
     }else if( stricmp(z,"center")==0 ){
-      TestPoint(0);
       rc = ALIGN_Center;
-    }else{
-      TestPoint(0);
     }
-  }else{
-    TestPoint(0);
   }
   return rc;
 }
@@ -189,20 +173,25 @@ static int GetUnorderedListType(HtmlElement *p, int dflt){
   if( z ){
     if( stricmp(z,"disc")==0 ){
       dflt = LI_TYPE_Bullet1;
-      TestPoint(0);
     }else if( stricmp(z,"circle")==0 ){
       dflt = LI_TYPE_Bullet2;
-      TestPoint(0);
     }else if( stricmp(z,"square")==0 ){
       dflt = LI_TYPE_Bullet3;
-      TestPoint(0);
-    }else{
-      TestPoint(0);
     }
-  }else{
-    TestPoint(0);
   }
   return dflt;
+}
+
+/*
+** Add the STY_Invisible style to every token between pFirst and pLast.
+*/
+static void MakeInvisible(HtmlElement *pFirst, HtmlElement *pLast){
+  if( pFirst==0 ) return;
+  pFirst = pFirst->pNext;
+  while( pFirst && pFirst!=pLast ){
+    pFirst->base.style.flags |= STY_Invisible;
+    pFirst=pFirst->pNext;
+  }
 }
 
 
@@ -614,9 +603,6 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         i = (p->base.type - Html_H1)/2 + 1;
         if( i>=1 && i<=6 ){
           ScaleFont(&style,header_sizes[i-1]);
-          TestPoint(0);
-        }else{
-          TestPoint(0);
         }
         style.font = BoldFont( FontSize(style.font) );
         style.align = GetAlignment(p, style.align);
@@ -794,17 +780,15 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         useNextStyle = 1;
         PushStyleStack(htmlPtr, Html_EndSELECT, style);
         htmlPtr->formElemStart = p;
-        TestPoint(0);
         break;
       case Html_EndSELECT:
         style = HtmlPopStyleStack(htmlPtr, Html_EndSELECT);
         if( htmlPtr->formElemStart
         && htmlPtr->formElemStart->base.type==Html_SELECT ){
           p->ref.pOther = htmlPtr->formElemStart;
-          TestPoint(0);
+          MakeInvisible(p->ref.pOther, p);
         }else{
           p->ref.pOther = 0;
-          TestPoint(0);
         }
         htmlPtr->formElemStart = 0;
         break;

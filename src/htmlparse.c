@@ -1,6 +1,6 @@
 /*
 ** A tokenizer that converts raw HTML into a linked list of HTML elements.
-** $Revision: 1.13 $
+** $Revision: 1.14 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -598,7 +598,7 @@ static int Tokenize(
       for(i=0; (c=z[n+i])!=0 && isspace(c) && c!='\n' && c!='\r'; i++){}
       if( c=='\r' && z[n+i+1]=='\n' ){ i++; }
       pElem = HtmlAlloc( sizeof(HtmlSpaceElement) );
-      if( pElem==0 ){ TestPoint(0); goto incomplete; }
+      if( pElem==0 ){ goto incomplete; }
       pElem->base.type = Html_Space;
       if( c=='\n' || c=='\r' ){
         pElem->base.flags = HTML_NewLine;
@@ -619,43 +619,41 @@ static int Tokenize(
       n += i;
     }else if( c!='<' || p->iPlaintext!=0 ){
       /* Ordinary text */
-      for(i=1; (c=z[n+i])!=0 && !isspace(c) && c!='<'; i++){ TestPoint(0); }
+      for(i=1; (c=z[n+i])!=0 && !isspace(c) && c!='<'; i++){}
       if( c==0 ){ TestPoint(0); goto incomplete; }
       if( p->iPlaintext!=0 && z[n]=='<' ){
         switch( p->iPlaintext ){
           case Html_LISTING:
             if( i>=10 && strnicmp(&z[n],"</listing>",10)==0 ){
               p->iPlaintext = 0;
-              TestPoint(0);
               goto doMarkup;
             }
-            TestPoint(0);
             break;
           case Html_XMP:
             if( i>=6 && strnicmp(&z[n],"</xmp>",6)==0 ){
               p->iPlaintext = 0;
-              TestPoint(0);
               goto doMarkup;
             }
-            TestPoint(0);
+            break;
+          case Html_TEXTAREA:
+            if( i>=11 && strnicmp(&z[n],"</textarea>",11)==0 ){
+              p->iPlaintext = 0;
+              goto doMarkup;
+            }
             break;
           default:
-            TestPoint(0);
             break;
         }
       }
       nByte = sizeof(HtmlTextElement) + i;
       pElem = HtmlAlloc( nByte );
-      if( pElem==0 ){ TestPoint(0); goto incomplete; }
+      if( pElem==0 ){ goto incomplete; }
       memset(pElem,0,nByte);
       pElem->base.type = Html_Text;
       sprintf(pElem->text.zText,"%.*s",i,&z[n]);
       AppendElement(p,pElem);
       if( p->iPlaintext==0 ){
-        TestPoint(0);
         HtmlTranslateEscapes(pElem->text.zText);
-      }else{
-        TestPoint(0);
       }
       pElem->base.count = strlen(pElem->text.zText);
       n += i;
@@ -663,15 +661,10 @@ static int Tokenize(
     }else if( strncmp(&z[n],"<!--",4)==0 ){
       /* An HTML comment.  Just skip it. */
       for(i=4; z[n+i]; i++){
-        if( z[n+i]=='-' && strncmp(&z[n+i],"-->",3)==0 ){
-          TestPoint(0);
-          break;
-        }
-        TestPoint(0);
+        if( z[n+i]=='-' && strncmp(&z[n+i],"-->",3)==0 ){ break; }
       }
       if( z[n+i]==0 ){ TestPoint(0); goto incomplete; }
       for(j=0; j<i+3; j++){
-        TestPoint(0);
         iCol = NextColumn(iCol, z[n+j]);
       }
       n += i + 3;
@@ -683,9 +676,9 @@ static int Tokenize(
 doMarkup:
       argc = 1;
       argv[0] = &z[n+1];
-      for(i=1; (c=z[n+i])!=0 && !isspace(c) && c!='>'; i++){ TestPoint(0); }
+      for(i=1; (c=z[n+i])!=0 && !isspace(c) && c!='>'; i++){}
       arglen[0] = i - 1;
-      if( c==0 ){ TestPoint(0); goto incomplete; }
+      if( c==0 ){ goto incomplete; }
 
       /*
       ** Now parse up the arguments
@@ -693,30 +686,23 @@ doMarkup:
       while( isspace(z[n+i]) ){ TestPoint(0); i++; }
       while( (c=z[n+i])!=0 && c!='>' ){
         if( argc>mxARG-3 ){
-          TestPoint(0);
           argc = mxARG-3;
-        }else{
-          TestPoint(0);
         }
         argv[argc] = &z[n+i];
-        for(j=0; (c=z[n+i+j])!=0 && !isspace(c) && c!='>' && c!='='; j++){
-          TestPoint(0);
-        }
+        for(j=0; (c=z[n+i+j])!=0 && !isspace(c) && c!='>' && c!='='; j++){}
         arglen[argc] = j;
-        if( c==0 ){ TestPoint(0); goto incomplete; }
+        if( c==0 ){  goto incomplete; }
         i += j;
         while( isspace(c) ){
           i++;
           c = z[n+i];
-          TestPoint(0);
         }
-        if( c==0 ){ TestPoint(0); goto incomplete; }
+        if( c==0 ){ goto incomplete; }
         argc++;
         if( c!='=' ){
           argv[argc] = "";
           arglen[argc] = 0;
           argc++;
-          TestPoint(0);
           continue;
         }
         i++;
@@ -724,35 +710,30 @@ doMarkup:
         while( isspace(c) ){
           i++;
           c = z[n+i];
-          TestPoint(0);
         }
-        if( c==0 ){ TestPoint(0); goto incomplete; }
+        if( c==0 ){ goto incomplete; }
         if( c=='\'' || c=='"' ){
           int cQuote = c;
           i++;
           argv[argc] = &z[n+i];
-          for(j=0; (c=z[n+i+j])!=0 && c!=cQuote; j++){ TestPoint(0); }
-          if( c==0 ){ TestPoint(0); goto incomplete; }
+          for(j=0; (c=z[n+i+j])!=0 && c!=cQuote; j++){}
+          if( c==0 ){ goto incomplete; }
           arglen[argc] = j;
           i += j+1;
           TestPoint(0);
         }else{
           argv[argc] = &z[n+i];
-          for(j=0; (c=z[n+i+j])!=0 && !isspace(c) && c!='>'; j++){
-            TestPoint(0); 
-          }
-          if( c==0 ){ TestPoint(0); goto incomplete; }
+          for(j=0; (c=z[n+i+j])!=0 && !isspace(c) && c!='>'; j++){}
+          if( c==0 ){ goto incomplete; }
           arglen[argc] = j;
           i += j;
-          TestPoint(0);
         }
         argc++;
-        while( isspace(z[n+i]) ){ TestPoint(0); i++; }
+        while( isspace(z[n+i]) ){ i++; }
       }
-      if( c==0 ){ TestPoint(0); goto incomplete; }
+      if( c==0 ){ goto incomplete; }
       for(j=0; j<i+1; j++){
         iCol = NextColumn(iCol, z[n+j]);
-        TestPoint(0);
       }
       n += i + 1;
 
@@ -761,53 +742,42 @@ doMarkup:
       if( !isInit ){
         HtmlHashInit();
         isInit = 1;
-        TestPoint(0);
-      }else{
-        TestPoint(0);
       }
       c = argv[0][arglen[0]];
       argv[0][arglen[0]] = 0;
       h = HtmlHash(argv[0]);
       for(pMap = apMap[h]; pMap; pMap=pMap->pCollide){
-        if( stricmp(pMap->zName,argv[0])==0 ){ TestPoint(0); break; }
+        if( stricmp(pMap->zName,argv[0])==0 ){ break; }
         TestPoint(0);
       }
       argv[0][arglen[0]] = c;
-      if( pMap==0 ){ TestPoint(0); continue; }  /* Ignore unknown markup */
+      if( pMap==0 ){ continue; }  /* Ignore unknown markup */
 
       /* Construct a HtmlMarkup entry for this markup.
       */ 
       if( pMap->extra ){
         nByte = pMap->extra;
-        TestPoint(0);
       }else if( argc==1 ){
         nByte = sizeof(HtmlBaseElement);
-        TestPoint(0);
       }else{
         nByte = sizeof(HtmlMarkupElement);
-        TestPoint(0);
       }
       if( argc>1 ){
         nByte += sizeof(char*) * argc;
         for(j=1; j<argc; j++){
           nByte += arglen[j] + 1;
-          TestPoint(0);
         }
-      }else{
-        TestPoint(0);
       }
       pElem = HtmlAlloc( nByte );
-      if( pElem==0 ){ TestPoint(0); goto incomplete; }
+      if( pElem==0 ){ goto incomplete; }
       memset(pElem,0,nByte);
       pElem->base.type = pMap->type;
       pElem->base.count = argc - 1;
       if( argc>1 ){
         if( pMap->extra ){
           pElem->markup.argv = (char**)&((char*)pElem)[pMap->extra];
-          TestPoint(0);
         }else{
           pElem->markup.argv = (char**)&((HtmlMarkupElement*)pElem)[1];
-          TestPoint(0);
         }
         zBuf = (char*)&pElem->markup.argv[argc];
         for(j=1; j<argc; j++){
@@ -818,11 +788,8 @@ doMarkup:
           if( (j&1)==1 ){
             ToLower(pElem->markup.argv[j-1]);
           }
-          TestPoint(0);
         }
         pElem->markup.argv[argc-1] = 0;
-      }else{
-        TestPoint(0);
       }
 
       /* The new markup has now be constructed in pElem.  But before
@@ -837,7 +804,6 @@ doMarkup:
         Tcl_DStringStartSublist(&str);
         for(j=0; j<argc-1; j++){
           Tcl_DStringAppendElement(&str, pElem->markup.argv[j]);
-          TestPoint(0);
         }
         Tcl_DStringEndSublist(&str);
         HtmlFree(pElem);
@@ -855,10 +821,8 @@ doMarkup:
         if( z==0 || p->tkwin==0 ){
           n = 0;
           iCol = 0;
-          TestPoint(0);
           goto incomplete;
         }
-        TestPoint(0);
         continue;
       }
 
@@ -870,20 +834,18 @@ doMarkup:
         case Html_PLAINTEXT:
         case Html_LISTING:
         case Html_XMP:
+        case Html_TEXTAREA:
           p->iPlaintext = pMap->type;
-          TestPoint(0);
           break;
         case Html_SCRIPT:
           p->pScript = (HtmlScript*)pElem;
           break;
         default:
-          TestPoint(0);
           break;
       }
     }
   }
 incomplete:
-  TestPoint(0);
   p->iCol = iCol;
   return n;
 }
