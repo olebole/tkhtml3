@@ -48,7 +48,7 @@ proc FormCmd {n cmd args} {
 proc ImageCmd {args} {
   set fn [lindex $args 0]
   if {[catch {image create photo -file $fn} img]} {
-    tk_messageBox -icon error -message $img -type ok
+#    tk_messageBox -icon error -message $img -type ok
     return biggray
   } else {
     global Images

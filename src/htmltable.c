@@ -1,6 +1,6 @@
 /*
 ** Routines for doing layout of HTML tables
-** $Revision: 1.9 $
+** $Revision: 1.10 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -68,7 +68,7 @@ static int CellSpacing(HtmlWidget *htmlPtr, HtmlElement *pTable){
 }
 
 /* Forward declaration */
-static HtmlElement *MinMax(HtmlWidget*, HtmlElement *, int *, int *);
+static HtmlElement *MinMax(HtmlWidget*, HtmlElement *, int *, int *, int);
 
 /* pStart points to a <table>.  Compute the number of columns, the
 ** minimum and maximum size for each column and the overall minimum
@@ -88,7 +88,8 @@ static HtmlElement *MinMax(HtmlWidget*, HtmlElement *, int *, int *);
 */
 static HtmlElement *TableDimensions(
   HtmlWidget *htmlPtr,               /* The HTML widget */
-  HtmlElement *pStart                /* The <table> markup */
+  HtmlElement *pStart,               /* The <table> markup */
+  int lineWidth                      /* Total widget available to the table */
 ){
   HtmlElement *p;                    /* Element being processed */
   HtmlElement *pNext;                /* Next element to process */
@@ -107,6 +108,8 @@ static HtmlElement *TableDimensions(
   int bw;                            /* Value of the BORDER parameter */
   int hspace;                        /* Value of HSPACE parameter */
   int separation;                    /* Space between columns */
+  int margin;                        /* Space between left margin and 1st col */
+  int availWidth;                    /* Part of lineWidth still available */
   int fromAbove[HTML_MAX_COLUMNS+1]; /* Cell above extends thru this row */
   int min0span[HTML_MAX_COLUMNS+1];  /* Min for colspan=0 cells */
   int max0span[HTML_MAX_COLUMNS+1];  /* Max for colspan=0 cells */
@@ -124,6 +127,7 @@ static HtmlElement *TableDimensions(
   cellPadding = z ? atoi(z) : DFLT_CELLPADDING;
   cellSpacing = CellSpacing(htmlPtr, pStart);
   separation = cellSpacing + 2*(cellPadding + bw);
+  margin = separation - cellPadding;
   z = HtmlMarkupArg(pStart, "hspace", 0);
   hspace = z ? atoi(z) : DFLT_HSPACE;
 
@@ -147,6 +151,7 @@ static HtmlElement *TableDimensions(
         pStart->table.nRow++;
         iCol = 0;
         inRow = 1;
+        availWidth = lineWidth - 2*margin;
         TestPoint(0);
         break;
       case Html_CAPTION:
@@ -180,17 +185,11 @@ static HtmlElement *TableDimensions(
         colspan = p->cell.colspan;
         if( colspan==0 ){
           colspan = 1;
-          TestPoint(0);
-        }else{
-          TestPoint(0);
         }
         if( iCol + colspan - 1 > pStart->table.nCol ){
           int nCol = iCol + colspan - 1;
           if( nCol > HTML_MAX_COLUMNS ){
             nCol = HTML_MAX_COLUMNS;
-            TestPoint(0);
-          }else{
-            TestPoint(0);
           }
           for(i=pStart->table.nCol+1; i<=nCol; i++){
             fromAbove[i] = 0;
@@ -203,13 +202,18 @@ static HtmlElement *TableDimensions(
           pStart->table.nCol = nCol;
         }
         noWrap = HtmlMarkupArg(p, "nowrap", 0)!=0;
-        pNext = MinMax(htmlPtr, p, &minW, &maxW);
+        pNext = MinMax(htmlPtr, p, &minW, &maxW, availWidth);
         p->cell.pEnd = pNext;
         TRACE(HtmlTrace_Table1,
           ("Row %d Column %d: min=%d max=%d stop at %s\n",
             iRow,iCol,minW,maxW, HtmlTokenName(p->cell.pEnd)));
         if( (z = HtmlMarkupArg(p, "width", 0))!=0 ){
-          minW = maxW = atoi(z);
+          for(i=0; isdigit(z[i]); i++){}
+          if( z[i]==0 ){
+            minW = maxW = atoi(z);
+          }else if( z[i]=='%' ){
+            minW = maxW = (atoi(z)*availWidth + 99)/100;
+          }
           TRACE(HtmlTrace_Table1,
             ("Row %d Column %d: width=%d\n",iRow,iCol,minW));
         }
@@ -217,13 +221,16 @@ static HtmlElement *TableDimensions(
           minW = maxW;
         }
         if( iCol < HTML_MAX_COLUMNS ){
+          int min = 0;
           if( p->cell.colspan==0 ){
             SETMAX( min0span[iCol], minW );
             SETMAX( max0span[iCol], maxW );
+            min = min0span[iCol] + separation;
             TestPoint(0);
           }else if( colspan==1 ){
             SETMAX( pStart->table.minW[iCol], minW );
             SETMAX( pStart->table.maxW[iCol], maxW );       
+            min = pStart->table.minW[iCol] + separation;
             TestPoint(0);
           }else{
             int n = p->cell.colspan;
@@ -232,9 +239,11 @@ static HtmlElement *TableDimensions(
             for(i=iCol; i<iCol + n && i<HTML_MAX_COLUMNS; i++){
               SETMAX( pStart->table.minW[i], minW );
               SETMAX( pStart->table.maxW[i], maxW );
+              min += pStart->table.minW[i] + separation;
               TestPoint(0);
             }
           }
+          availWidth -= min;
         }
         rowspan = p->cell.rowspan;
         if( rowspan==0 ){
@@ -287,6 +296,19 @@ static HtmlElement *TableDimensions(
     pStart->table.maxW[0] += pStart->table.maxW[i];
   }
 
+  /* Figure out how wide to draw the table */
+  z = HtmlMarkupArg(pStart, "width", 0);
+  if( z ){
+    int len = strlen(z);
+    int totalWidth;
+    if( len>0 && z[len-1]=='%' ){
+      totalWidth = (atoi(z) * lineWidth)/100;
+    }else{
+      totalWidth = atoi(z);
+    }
+    pStart->table.minW[0] = pStart->table.maxW[0] = totalWidth;
+  }
+
 #if 0
 printf("Start with %s and ", HtmlTokenName(pStart));
 printf("end with %s\n", HtmlTokenName(p));
@@ -322,7 +344,8 @@ static HtmlElement *MinMax(
   HtmlWidget *htmlPtr,     /* The Html widget */
   HtmlElement *p,          /* Start the search here */
   int *pMin,               /* Return the minimum width here */
-  int *pMax                /* Return the maximum width here */
+  int *pMax,               /* Return the maximum width here */
+  int lineWidth            /* Total width available */
 ){
   int min = 0;             /* Minimum width so far */
   int max = 0;             /* Maximum width so far */
@@ -382,7 +405,7 @@ static HtmlElement *MinMax(
         }
         break;
       case Html_TABLE:
-        pNext = TableDimensions(htmlPtr, p);
+        pNext = TableDimensions(htmlPtr, p, lineWidth-indent);
         x1 = p->table.maxW[0] + indent;
         x2 = p->table.minW[0] + indent;
         SETMAX( max, x1 );
@@ -546,7 +569,6 @@ HtmlElement *HtmlTableLayout(
   }
   TRACE(HtmlTrace_Table1, ("Starting TableLayout() at %s\n", 
                           HtmlTokenName(pTable)));
-  pEnd = TableDimensions(pLC->htmlPtr, pTable);
 
   /* Figure how much horizontal space is available for rendering 
   ** this table.  Store the answer in lineWidth.  */
@@ -562,16 +584,12 @@ HtmlElement *HtmlTableLayout(
   }
   lineWidth -= leftMargin;
 
+  /* figure out how much space the table wants for each column,
+  ** and in total.. */
+  pEnd = TableDimensions(pLC->htmlPtr, pTable, lineWidth);
+
   /* Figure out how wide to draw the table */
-  z = HtmlMarkupArg(pTable, "width", 0);
-  if( z ){
-    int len = strlen(z);
-    if( len>0 && z[len-1]=='%' ){
-      width = (atoi(z) * lineWidth)/100;
-    }else{
-      width = atoi(z);
-    }
-  }else if( lineWidth < pTable->table.minW[0] ){
+  if( lineWidth < pTable->table.minW[0] ){
     width = pTable->table.minW[0];
   }else if( lineWidth < pTable->table.maxW[0] ){
     width = lineWidth;
