@@ -58,7 +58,7 @@ html .h.h \
   -imagecommand ImageCmd \
   -scriptcommand ScriptCmd \
   -appletcommand AppletCmd \
-  -bg white -tablerelief flat
+  -bg white -tablerelief raised
 
 
 proc FormCmd {n cmd args} {

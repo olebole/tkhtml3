@@ -1361,6 +1361,13 @@ static int ProcessTypeDecl(Token *pList, int flags, int *pReset){
     return 0;
   }
   pName = pList->pNext;
+
+  /* Catch the case of "struct Foo;" and skip it. */
+  if( pName->pNext && pName->pNext->zText[0]==';' ){
+    *pReset = ';';
+    return 0;
+  }
+
   for(pEnd=pName->pNext; pEnd && pEnd->eType!=TT_Braces; pEnd=pEnd->pNext){
     switch( pEnd->zText[0] ){
       case '(':

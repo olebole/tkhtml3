@@ -237,7 +237,7 @@ proc MakeLib {name obj} {
 #   options   Any additional options to pass to mktclapp.  Example: -console
 #
 proc MakeMta {name main alltcl allc mode options} {
-  global cleanable
+  global cleanable BEXE
   set n ${name}dev.mta
   puts "$n:	"
   puts "	echo ' -tcl-library @TARGET_TCL_SCRIPT_DIR@' >$n"
@@ -253,12 +253,12 @@ proc MakeMta {name main alltcl allc mode options} {
   puts "	echo ' $allc' >>$n"
   puts ""
   lappend cleanable $n
-  puts "${name}dev.c:	$n mktclapp"
-  puts "	./mktclapp -f $n >${name}dev.c"
+  puts "${name}dev.c:	$n mktclapp$BEXE"
+  puts "	./mktclapp$BEXE -f $n >${name}dev.c"
   puts ""
   lappend cleanable ${name}dev.c
-  puts "${name}dev.h:	mktclapp"
-  puts "	./mktclapp -header >${name}dev.h"
+  puts "${name}dev.h:	mktclapp$BEXE"
+  puts "	./mktclapp$BEXE -header >${name}dev.h"
   puts ""
   lappend cleanable ${name}dev.h
   MakeObj ${name}dev.o ${name}dev.c
@@ -274,8 +274,8 @@ proc MakeMta {name main alltcl allc mode options} {
   }
   puts ""
   lappend cleanable $n
-  puts "$name.c:	$n $allc $alltcl mktclapp"
-  puts "	./mktclapp -f $n >$name.c"
+  puts "$name.c:	$n $allc $alltcl mktclapp$BEXE"
+  puts "	./mktclapp$BEXE -f $n >$name.c"
   puts ""
   lappend cleanable $name.c
   puts "$name.h:	${name}dev.h"
@@ -394,8 +394,8 @@ foreach f $autoc {
   lappend mharg $f.c
   lappend cleanable $f.h
 }
-puts "headers:	makeheaders htmltokens.c"
-puts "	./makeheaders $mharg [Src src/html.h]"
+puts "headers:	makeheaders$BEXE htmltokens.c"
+puts "	./makeheaders$BEXE $mharg [Src src/html.h]"
 puts ""
 puts "[lindex $srcc 0].h:	headers"
 puts ""
@@ -440,11 +440,11 @@ foreach f $srcc {
 foreach f $autoc {
   lappend srclist $f.c
 }
-puts "srcdir:	makeheaders $srclist"
+puts "srcdir:	makeheaders$BEXE $srclist"
 puts "	mkdir srcdir || true"
 lappend srclist [Src src/html.h]
 puts "	cp $srclist srcdir"
-puts "	cd srcdir; ../makeheaders *.\[ch\]"
+puts "	cd srcdir; ../makeheaders$BEXE *.\[ch\]"
 puts ""
 
 #############################################################################
