@@ -1,6 +1,6 @@
+static char const rcsid[] = "@(#) $Id: htmltable.c,v 1.31 2000/01/17 13:55:10 drh Exp $";
 /*
 ** Routines for doing layout of HTML tables
-** $Id: htmltable.c,v 1.30 1999/12/30 01:09:05 drh Exp $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **

@@ -1,6 +1,6 @@
+static char const rcsid[] = "@(#) $Id: htmlform.c,v 1.20 2000/01/17 13:55:09 drh Exp $";
 /*
 ** Routines used for processing HTML makeup for forms.
-** $Id: htmlform.c,v 1.19 1999/12/21 12:45:36 drh Exp $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **

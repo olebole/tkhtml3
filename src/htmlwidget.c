@@ -1,6 +1,6 @@
+static char const rcsid[] = "@(#) $Id: htmlwidget.c,v 1.37 2000/01/17 13:55:11 drh Exp $";
 /*
 ** The main routine for the HTML widget for Tcl/Tk
-** $Id: htmlwidget.c,v 1.36 2000/01/04 14:46:33 drh Exp $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -625,7 +625,7 @@ static void HtmlRedrawCallback(ClientData clientData){
     }
     Tk_FreePixmap(display, pixmap);
     if( dead ) goto redrawExit;
-    XFlush(display);
+    /* XFlush(display); */
   }
 
   /* Redraw images, if requested */

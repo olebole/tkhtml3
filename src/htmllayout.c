@@ -1,7 +1,7 @@
+static char const rcsid[] = "@(#) $Id: htmllayout.c,v 1.26 2000/01/17 13:55:10 drh Exp $";
 /*
 ** This file contains the code used to position elements of the
 ** HTML file on the screen.
-** $Id: htmllayout.c,v 1.25 1999/12/21 12:45:37 drh Exp $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **

@@ -1,6 +1,6 @@
+static char const rcsid[] = "@(#) $Id: htmlurl.c,v 1.16 2000/01/17 13:55:11 drh Exp $";
 /*
 ** Routines for processing URLs.
-** $Id: htmlurl.c,v 1.15 1999/12/21 12:45:38 drh Exp $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **

@@ -1,7 +1,7 @@
+static char const rcsid[] = "@(#) $Id: htmlwish.c,v 1.4 2000/01/17 13:55:11 drh Exp $";
 /*
 ** Make a "wish" that includes the html widget.
 **
-** $Id: htmlwish.c,v 1.3 1999/12/21 12:45:38 drh Exp $
 */
 #include "appinit.h"
 

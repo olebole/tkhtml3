@@ -1,6 +1,6 @@
+static char const rcsid[] = "@(#) $Id: htmldraw.c,v 1.21 2000/01/17 13:55:09 drh Exp $";
 /*
 ** Routines used to render HTML onto the screen for the Tk HTML widget.
-** $Id: htmldraw.c,v 1.20 2000/01/04 14:46:33 drh Exp $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **

@@ -1,7 +1,7 @@
+static char const rcsid[] = "@(#) $Id: htmltest.c,v 1.8 2000/01/17 13:55:10 drh Exp $";
 /*
 ** This file contains the TestPoint routines used for profiling
 ** and coverage analysis of the code.
-** $Id: htmltest.c,v 1.7 1999/12/21 12:45:38 drh Exp $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **

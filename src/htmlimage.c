@@ -1,6 +1,6 @@
+static char const rcsid[] = "@(#) $Id: htmlimage.c,v 1.10 2000/01/17 13:55:09 drh Exp $";
 /*
 ** Routines used for processing <IMG> markup
-** $Id: htmlimage.c,v 1.9 1999/12/21 12:45:37 drh Exp $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
