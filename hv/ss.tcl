@@ -1,4 +1,4 @@
-# @(#) $Id: ss.tcl,v 1.7 1999/12/31 16:14:11 drh Exp $
+# @(#) $Id: ss.tcl,v 1.8 2000/01/04 14:46:33 drh Exp $
 #
 # This script implements the "ss" application.  "ss" implements
 # a presentation slide-show based on HTML slides.
@@ -68,7 +68,7 @@ html .h.h \
   -padx 5 \
   -pady 9 \
   -formcommand FormCmd \
-  -imagecommand ImageCmd-Halfsize \
+  -imagecommand "ImageCmd 1" \
   -scriptcommand ScriptCmd \
   -appletcommand AppletCmd \
   -hyperlinkcommand HyperCmd \
@@ -119,7 +119,7 @@ proc FormCmd {n cmd args} {
  #   }
  # }
 }
-proc ImageCmd {args} {
+proc ImageCmd {hs args} {
   global OldImages Images
   set fn [lindex $args 0]
   if {[info exists OldImages($fn)]} {
@@ -128,41 +128,35 @@ proc ImageCmd {args} {
     return $Images($fn)
   }
   if {[catch {image create photo -file $fn} img]} {
-    global HtmlTraceMask
-    if {$HtmlTraceMask==0} {
-      tk_messageBox -icon error -message $img -type ok
+    if {$hs} {
+      return smallgray
+    } else {
+      return biggray
     }
-    return biggray
-  } else {
-    set Images($fn) $img
-    return $img
   }
-}
-proc ImageCmd-Halfsize {args} {
-  global OldImages Images
-  set fn [lindex $args 0]
-  if {[info exists OldImages($fn)]} {
-    set Images($fn) $OldImages($fn)
-    unset OldImages($fn)
-    return $Images($fn)
+  if {$hs} {
+    set img2 [image create photo]
+    $img2 copy $img -subsample 2 2
+    image delete $img
+    set img $img2
   }
-  if {[catch {Halfsize-Image $fn} img]} {
-    global HtmlTraceMask
-    if {$HtmlTraceMask==0} {
-      tk_messageBox -icon error -message $img -type ok
-    }
-    return biggray
-  } else {
-    set Images($fn) $img
-    return $img
+  if {[image width $img]*[image height $img]>20000} {
+    global BigImages
+    set b [image create photo -width [image width $img] \
+           -height [image height $img]]
+    set BigImages($b) $img
+    set img $b
+    after idle "MoveBigImage $b"
   }
-}
-proc Halfsize-Image {file} {
-  image create photo tmp -file $file
-  set img [image create photo]
-  $img copy tmp -subsample 2 2
-  image delete tmp
+  set Images($fn) $img
   return $img
+}
+proc MoveBigImage b {
+  global BigImages
+  if {![info exists BigImages($b)]} return
+  $b copy $BigImages($b)
+  image delete $BigImages($b)
+  unset BigImages($b)
 }
   
 proc ScriptCmd {args} {
@@ -253,6 +247,7 @@ proc Clear {} {
   if {[winfo exists .fs.h]} {set w .fs.h} {set w .h.h}
   $w clear
   catch {unset hotkey}
+  ClearBigImages
   ClearOldImages
   foreach fn [array names Images] {
     set OldImages($fn) $Images($fn)
@@ -265,6 +260,13 @@ proc ClearOldImages {} {
     image delete $OldImages($fn)
   }
   catch {unset OldImages}
+}
+proc ClearBigImages {} {
+  global BigImages
+  foreach b [array names BigImages] {
+    image delete $BigImages($b)
+  }
+  catch {unset BigImages}
 }
 
 # Read a file
@@ -347,11 +349,13 @@ proc Meta {w tag alist} {
 # Go from full-screen mode back to window mode.
 #
 proc FullScreenOff {} {
-  destroy .fs 
+  destroy .fs
   wm deiconify .
   update
   raise .
   focus .h.h.x
+  Clear
+  ClearOldImages
   Refresh 
 }
 
@@ -374,7 +378,7 @@ proc FullScreen {} {
     -padx 5 \
     -pady 9 \
     -formcommand FormCmd \
-    -imagecommand ImageCmd \
+    -imagecommand "ImageCmd 0" \
     -scriptcommand ScriptCmd \
     -appletcommand AppletCmd \
     -hyperlinkcommand HyperCmd \
@@ -383,6 +387,8 @@ proc FullScreen {} {
     -cursor top_left_arrow
   pack .fs.h -fill both -expand 1
   .fs.h token handler meta "Meta .fs.h"
+  Clear
+  ClearOldImages
   Refresh
   update
   focus .fs.h.x

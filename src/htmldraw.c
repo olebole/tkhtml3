@@ -1,6 +1,6 @@
 /*
 ** Routines used to render HTML onto the screen for the Tk HTML widget.
-** $Id: htmldraw.c,v 1.19 1999/12/21 12:45:36 drh Exp $
+** $Id: htmldraw.c,v 1.20 2000/01/04 14:46:33 drh Exp $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -539,7 +539,6 @@ void HtmlBlockDraw(
           HtmlDrawImage(src, drawable, drawableLeft, drawableTop,
                         drawableLeft + drawableWidth,
                         drawableTop + drawableHeight);
-          TestPoint(0);
         }else if( src->image.zAlt ){
           gc = HtmlGetGC(htmlPtr, src->base.style.color, src->base.style.font);
           font = HtmlGetFont(htmlPtr, src->base.style.font);
