@@ -1,6 +1,6 @@
 /*
 ** The main routine for the HTML widget for Tcl/Tk
-** $Revision: 1.9 $
+** $Revision: 1.10 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -900,6 +900,7 @@ void HtmlClear(HtmlWidget *htmlPtr){
   htmlPtr->firstBlock = 0;
   htmlPtr->lastBlock = 0;
   htmlPtr->nInput = 0;
+  htmlPtr->nForm = 0;
   htmlPtr->varId = 0;
   htmlPtr->paraAlignment = ALIGN_None;
   htmlPtr->rowAlignment = ALIGN_None;

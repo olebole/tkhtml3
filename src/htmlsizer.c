@@ -1,6 +1,6 @@
 /*
 ** Routines used to compute the style and size of individual elements.
-** $Revision: 1.9 $
+** $Revision: 1.10 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -586,7 +586,7 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         if( HtmlUnlock(htmlPtr) ) return;
         if( zUrl==0 ) break;
         zMethod = HtmlMarkupArg(p,"method","GET");
-        sprintf(zToken," %d form ", p->form.id + 1);
+        sprintf(zToken," %d form ", ++htmlPtr->nForm);
         Tcl_DStringInit(&cmd);
         Tcl_DStringAppend(&cmd, htmlPtr->zFormCommand, -1);
         Tcl_DStringAppend(&cmd, zToken, -1);
@@ -602,7 +602,7 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         if( HtmlUnlock(htmlPtr) ) return;
         if( result==TCL_OK ){
           htmlPtr->formStart = p;
-          p->form.id = ++htmlPtr->nForm;
+          p->form.id = htmlPtr->nForm;
         }
         Tcl_ResetResult(htmlPtr->interp);
         break;
@@ -754,7 +754,7 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         break;
       case Html_SELECT:
         style.flags |= STY_Invisible;
-        PushStyleStack(htmlPtr, Html_EndSELECT, nextStyle);
+        PushStyleStack(htmlPtr, Html_EndSELECT, style);
         htmlPtr->formElemStart = p;
         TestPoint(0);
         break;
