@@ -1,6 +1,6 @@
 /*
 ** Routines used to compute the style and size of individual elements.
-** $Revision: 1.22 $
+** $Revision: 1.23 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -594,7 +594,7 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         Tcl_DStringInit(&cmd);
         Tcl_DStringAppend(&cmd, htmlPtr->zFormCommand, -1);
         Tcl_DStringAppend(&cmd, zToken, -1);
-        Tcl_DStringAppend(&cmd, zUrl, -1);
+        Tcl_DStringAppendElement(&cmd, zUrl);
         HtmlFree(zUrl);
         Tcl_DStringAppendElement(&cmd, zMethod);
         Tcl_DStringStartSublist(&cmd);
