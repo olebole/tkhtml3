@@ -1,4 +1,4 @@
-# @(#) $Id: ss.tcl,v 1.6 1999/12/30 00:51:25 drh Exp $
+# @(#) $Id: ss.tcl,v 1.7 1999/12/31 16:14:11 drh Exp $
 #
 # This script implements the "ss" application.  "ss" implements
 # a presentation slide-show based on HTML slides.
@@ -120,7 +120,13 @@ proc FormCmd {n cmd args} {
  # }
 }
 proc ImageCmd {args} {
+  global OldImages Images
   set fn [lindex $args 0]
+  if {[info exists OldImages($fn)]} {
+    set Images($fn) $OldImages($fn)
+    unset OldImages($fn)
+    return $Images($fn)
+  }
   if {[catch {image create photo -file $fn} img]} {
     global HtmlTraceMask
     if {$HtmlTraceMask==0} {
@@ -128,13 +134,18 @@ proc ImageCmd {args} {
     }
     return biggray
   } else {
-    global Images
-    set Images($img) 1
+    set Images($fn) $img
     return $img
   }
 }
 proc ImageCmd-Halfsize {args} {
+  global OldImages Images
   set fn [lindex $args 0]
+  if {[info exists OldImages($fn)]} {
+    set Images($fn) $OldImages($fn)
+    unset OldImages($fn)
+    return $Images($fn)
+  }
   if {[catch {Halfsize-Image $fn} img]} {
     global HtmlTraceMask
     if {$HtmlTraceMask==0} {
@@ -142,8 +153,7 @@ proc ImageCmd-Halfsize {args} {
     }
     return biggray
   } else {
-    global Images
-    set Images($img) 1
+    set Images($fn) $img
     return $img
   }
 }
@@ -174,7 +184,7 @@ proc HrefBinding {w x y} {
 }
 bind HtmlClip <1> {KeyPress %W Down}
 bind HtmlClip <3> {KeyPress %W Up}
-bind HtmlClip <2> {KeyPress %w o}
+bind HtmlClip <2> {KeyPress %w Down}
 
 # Clicking button three on the small screen causes the full-screen view
 # to appear.
@@ -239,14 +249,22 @@ proc Load {} {
 # Clear the screen.
 #
 proc Clear {} {
-  global Images hotkey
+  global Images OldImages hotkey
   if {[winfo exists .fs.h]} {set w .fs.h} {set w .h.h}
   $w clear
   catch {unset hotkey}
-  foreach img [array names Images] {
-    image delete $img
+  ClearOldImages
+  foreach fn [array names Images] {
+    set OldImages($fn) $Images($fn)
   }
   catch {unset Images}
+}
+proc ClearOldImages {} {
+  global OldImages
+  foreach fn [array names OldImages] {
+    image delete $OldImages($fn)
+  }
+  catch {unset OldImages}
 }
 
 # Read a file
@@ -288,8 +306,10 @@ proc LoadFile {name} {
   global LastFile
   set LastFile $name
   if {[winfo exists .fs.h]} {set w .fs.h} {set w .h.h}
-  $w config -base $name
+  $w config -base $name -cursor watch
   $w parse $html
+  $w config -cursor top_left_arrow
+  ClearOldImages
 }
 
 # Refresh the current file.
