@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmltable.c,v 1.39 2000/08/05 19:45:57 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmltable.c,v 1.40 2000/08/06 03:47:24 drh Exp $";
 /*
 ** Routines for doing layout of HTML tables
 **
@@ -775,6 +775,7 @@ HtmlElement *HtmlTableLayout(
   char *z;                /* A string */
   int leftMargin;         /* The left edge of space available for drawing */
   int lineWidth;          /* Total horizontal space available for drawing */
+  int specWidth;          /* Total horizontal drawing width per width= attr */
   int separation;         /* Distance between content of columns (or rows) */
   int i;                  /* Loop counter */
   int n;                  /* Number of columns */
@@ -840,15 +841,17 @@ HtmlElement *HtmlTableLayout(
   if( z ){
     int len = strlen(z);
     if( len>0 && z[len-1]=='%' ){
-      lineWidth = (atoi(z) * lineWidth)/100;
+      specWidth = (atoi(z) * lineWidth)/100;
     }else{
-      lineWidth = atoi(z);
+      specWidth = atoi(z);
     }
+  }else{
+    specWidth = lineWidth;
   }
-  if( lineWidth < pTable->table.minW[0] ){
+  if( specWidth < pTable->table.minW[0] ){
     width = pTable->table.minW[0];
-  }else if( lineWidth <= pTable->table.maxW[0] ){
-    width = lineWidth;
+  }else if( specWidth <= pTable->table.maxW[0] ){
+    width = specWidth;
   }else{
     width = pTable->table.maxW[0];
   }
@@ -883,7 +886,7 @@ HtmlElement *HtmlTableLayout(
     return pEnd;
   }
   zAlign = HtmlMarkupArg(pTable, "align", "");
-  if( width < lineWidth ){
+  if( width <= lineWidth ){
     int align = pTable->base.style.align;
     if( align==ALIGN_Right || stricmp(zAlign,"right")==0 ){
       x[1] += lineWidth - width;
