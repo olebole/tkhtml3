@@ -2,7 +2,7 @@
 #
 # Construct the web page for tkhtml
 #
-# @(#) $Id: mkwebpage.tcl,v 1.10 2005/03/11 14:03:31 danielk1977 Exp $
+# @(#) $Id: mkwebpage.tcl,v 1.11 2005/03/23 01:46:20 danielk1977 Exp $
 #
 
 proc header {} {
@@ -200,6 +200,17 @@ p {
 p {
   <blockquote><pre>
 cvs -d :pserver:anonymous@tkhtml.tcl.tk:/tkhtml checkout htmlwidget
+  </pre></blockquote>
+}
+
+p {
+  <b>Update:</b> The above command is used to get the latest copy of
+  the sources from cvs. But recent changes haven't been tested well enough
+  for use in the wild yet. To obtain a more reliable copy, use:
+}
+p {
+  <blockquote><pre>
+cvs -d :pserver:anonymous@tkhtml.tcl.tk:/tkhtml checkout -D 2005-01-01 htmlwidget
   </pre></blockquote>
 }
 
