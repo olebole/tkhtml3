@@ -35,7 +35,7 @@ puts {# This file is included by linux-gcc.mk or linux-mingw.mk or possible
 # to building regardless of the target.
 #
 
-XTCC = $(TCC) $(CFLAGS) -I. -I$(SRCDIR)
+XTCC = $(TCC) $(CFLAGS) $(INC) -I. -I$(SRCDIR)
 
 }
 puts -nonewline "SRC ="
@@ -57,6 +57,7 @@ makeheaders:	$(SRCDIR)/tools/makeheaders.c
 
 $(LIBNAME):	headers $(OBJ)
 	$(AR) $(LIBNAME) $(OBJ)
+	$(RANLIB) $(LIBNAME)
 
 htmltokens.c:	$(SRCDIR)/src/tokenlist.txt $(SRCDIR)/tools/maketokens.tcl
 	$(TCLSH) $(SRCDIR)/tools/maketokens.tcl \

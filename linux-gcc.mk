@@ -22,9 +22,14 @@ E =
 #    will run on the target platform.  This is usually the same
 #    as BCC, unless you are cross-compiling.
 #
-#TCC = gcc -O6
-TCC = gcc -g -O0 -Wall
+TCC = gcc -O6
+#TCC = gcc -g -O0 -Wall
 #TCC = gcc -g -O0 -Wall -fprofile-arcs -ftest-coverage
+#TCC = /opt/mingw/bin/i386-mingw32msvc-gcc -O6 -DSTATIC_BUILD=1
+
+#### Include file directories for Tcl and Tk.
+#
+INC = -I/home/drh/tcltk/8.4linux
 
 #### Extra arguments for linking 
 #
@@ -32,7 +37,10 @@ LIBS =
 
 #### Command used to build a static library
 #
+#AR = /opt/mingw/bin/i386-mingw32msvc-ar r
 AR = ar r
+#RANLIB = /opt/mingw/bin/i386-mingw32msvc-ranlib
+RANLIB = ranlib
 
 #### The TCLSH command
 #

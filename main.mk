@@ -3,7 +3,7 @@
 # to building regardless of the target.
 #
 
-XTCC = $(TCC) $(CFLAGS) -I. -I$(SRCDIR)
+XTCC = $(TCC) $(CFLAGS) $(INC) -I. -I$(SRCDIR)
 
 
 SRC = \
@@ -51,6 +51,7 @@ makeheaders:	$(SRCDIR)/tools/makeheaders.c
 
 $(LIBNAME):	headers $(OBJ)
 	$(AR) $(LIBNAME) $(OBJ)
+	$(RANLIB) $(LIBNAME)
 
 htmltokens.c:	$(SRCDIR)/src/tokenlist.txt $(SRCDIR)/tools/maketokens.tcl
 	$(TCLSH) $(SRCDIR)/tools/maketokens.tcl  $(SRCDIR)/src/tokenlist.txt >htmltokents.c
