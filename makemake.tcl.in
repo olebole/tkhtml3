@@ -12,7 +12,7 @@
 # (Prehaps comment out the BLT part if you are not using BLT.)
 # This script requires some customization down toward the bottom.
 #
-# $Revision: 1.16 $
+# $Revision: 1.17 $
 #
 
 # Some useful variables.
@@ -121,6 +121,10 @@ proc MakeProg {name obj {libs {tk}}} {
       append link " @TARGET_TK_INC@ @TARGET_BLT_INC@"
       set lib "@TARGET_BLT_LIBS@ @TARGET_TK_LIBS@ @TARGET_TCL_LIBS@"
       append lib " @TARGET_X_LIBS@ @TARGET_LIBS@"
+    }
+    default {
+      set link "@TARGET_CC@ @TARGET_CFLAGS@ -I."
+      set lib $libs
     }
   }
   puts "$n:	$obj"
@@ -457,6 +461,24 @@ lappend srclist [Src src/html.h]
 puts "	cp $srclist srcdir"
 puts "	cd srcdir; ../makeheaders$BEXE *.\[ch\]"
 puts ""
+
+# Build the "getpage" utility
+#
+set srclist {getpage url sgmlparse httpget}
+set mharg {}
+set obj {}
+foreach f $srclist {
+  lappend mharg "[Src tools/$f.c]:$f.h"
+  lappend obj $f.o
+  MakeObj $f.o [Src tools/$f.c] $f.h
+  puts "$f.h:	getpage_headers"
+  puts ""
+}
+puts "getpage_headers:	makeheaders"
+puts "	./makeheaders $mharg"
+puts ""
+MakeProg getpage $obj {}
+
 
 puts "publish:	"
 puts "	tclsh [Src webpage/mkwebpage.tcl]"

@@ -8,13 +8,16 @@ if {[lsearch [namespace children] ::tcltest] == -1} {
 }
 
 ::tcltest::test html-1.0 {
-  Verify that all of the entites are displayed correctly then
-  press either the Pass or Failed buttons.
+  Verify that all of the entites are displayed correctly.
 } {
   set h [tkhtml_test_widget]
+  $h clear
   $h parse {
 <html>
 <h1>Entity and special character test</h1>
+<p>The following list shows each entity of HTML 3.2 in four
+formats: (1) the name, (2) as &amp;entity;, (3) as &amp;#123;, and
+(4) as a raw UTF-8 or Ascii character.</p>
 <ul>
 <li> quot &quot; &#34; " </li>
 <li> amp &amp; &#38; & </li>
@@ -117,6 +120,28 @@ if {[lsearch [namespace children] ::tcltest] == -1} {
 <li> thorn &thorn; &#254; þ </li>
 <li> yuml &yuml; &#255; ÿ </li>
 </ul>
+</html>
+}
+  ::tcltest::user-result
+} {0 pass}
+
+::tcltest::test html-1.1 {
+  Verify that all subscripting and superscripting works.
+} {
+  set h [tkhtml_test_widget]
+  $h clear
+  $h parse {
+<html>
+<body>
+<h1>A test of subscripting and superscripting</h1>
+
+<p>Here is sub<sub>script</sub>.  And now super<sup>script</sup>.</p>
+<p>Here is sub<sub>sub<sub>script</sub></sub>.
+   And now super<sup>super<sup>script</sup></sup>.</p>
+
+<p>Here is sub<sub>super<sup>script</sup></sub></p>
+
+</body>
 </html>
 }
   ::tcltest::user-result
