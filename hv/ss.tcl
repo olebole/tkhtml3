@@ -1,4 +1,4 @@
-# @(#) $Id: ss.tcl,v 1.4 1999/12/22 17:44:34 drh Exp $
+# @(#) $Id: ss.tcl,v 1.5 1999/12/30 00:11:07 drh Exp $
 #
 # This script implements the "ss" application.  "ss" implements
 # a presentation slide-show based on HTML slides.
@@ -172,12 +172,14 @@ proc HrefBinding {w x y} {
     ProcessUrl $new
   }
 }
-bind HtmlClip <1> {HrefBinding %W %x %y}
+bind HtmlClip <1> {KeyPress %W Down}
+bind HtmlClip <3> {KeyPress %W Up}
+bind HtmlClip <2> {KeyPress %w o}
 
 # Clicking button three on the small screen causes the full-screen view
 # to appear.
 #
-bind .h.h.x <3> FullScreen
+# bind .h.h.x <3> FullScreen
 
 # Handle all keypress events on the screen
 #
@@ -305,6 +307,18 @@ proc Meta {w tag alist} {
     global hotkey
     set hotkey($v(key)) [$w resolve $v(href)]
   }
+  if {[info exists v(next)]} {
+    global hotkey
+    set hotkey(Down) $v(next)
+  }
+  if {[info exists v(prev)]} {
+    global hotkey
+    set hotkey(Up) $v(next)
+  }
+  if {[info exists v(other)]} {
+    global hotkey
+    set hotkey(o) $v(other)
+  }
 }
 
 # Go from full-screen mode back to window mode.
@@ -332,7 +346,7 @@ proc FullScreen {} {
   set w [winfo screenwidth .]
   set h [winfo screenheight .]
   wm geometry .fs ${w}x$h+0+0
-  bind .fs <3> FullScreenOff
+  # bind .fs <3> FullScreenOff
   html .fs.h \
     -padx 5 \
     -pady 9 \
