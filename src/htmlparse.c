@@ -1,6 +1,6 @@
 /*
 ** A tokenizer that converts raw HTML into a linked list of HTML elements.
-** $Revision: 1.15 $
+** $Revision: 1.16 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -617,7 +617,8 @@ static int Tokenize(
       }
       AppendElement(p,pElem);
       n += i;
-    }else if( c!='<' || p->iPlaintext!=0 ){
+    }else if( c!='<' || p->iPlaintext!=0 || 
+      (!isalpha(z[n+1]) && z[n+1]!='/' && z[n+1]!='!' && z[n+1]!='?') ){
       /* Ordinary text */
       for(i=1; (c=z[n+i])!=0 && !isspace(c) && c!='<'; i++){}
       if( c==0 ){ TestPoint(0); goto incomplete; }
