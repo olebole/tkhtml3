@@ -6,7 +6,7 @@
 # no extra space (beyond HtmlMarkup) is required.  If there is a
 # corresponding end-tag, then the third column specifies the size of
 # the end markup.
-# $Revision: 1.7 $
+# $Revision: 1.8 $
 #
 # Copyright (C) 1997-2000 D. Richard Hipp
 #
@@ -99,6 +99,7 @@ select          HtmlInput                      HtmlRef
 small           0                              0
 strike          0                              0
 strong          0                              0
+style           HtmlScript
 sub             0                              0
 sup             0                              0
 table           HtmlTable                      HtmlRef

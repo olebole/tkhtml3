@@ -49,6 +49,13 @@ if {[lsearch [namespace children] ::tcltest] == -1} {
   $h token list 1.0 end
 } {0 {{Markup script} {Space 1 1}}}
 
+::tcltest::test html-3.6b {Style markup should become a single token} {
+  set h [tkhtml_test_widget]
+  $h clear
+  $h parse "<style>Contents of style are not tokenized</style>\n"
+  $h token list 1.0 end
+} {0 {{Markup style} {Space 1 1}}}
+
 ::tcltest::test html-3.7 {All markup within listing is normal text} {
   set h [tkhtml_test_widget]
   $h clear

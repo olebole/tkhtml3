@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlsizer.c,v 1.32 2000/02/01 02:56:08 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlsizer.c,v 1.33 2000/02/01 12:34:22 drh Exp $";
 /*
 ** Routines used to compute the style and size of individual elements.
 **
@@ -826,6 +826,9 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         style.flags |= STY_StrikeThru;
         PushStyleStack(htmlPtr, Html_EndSTRIKE, style);
         TestPoint(0);
+        break;
+      case Html_STYLE:
+        /* Ignore style sheets */
         break;
       case Html_SAMP:
         style.font = CWFont( FontSize(style.font) );

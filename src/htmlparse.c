@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlparse.c,v 1.20 2000/01/31 13:23:46 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlparse.c,v 1.21 2000/02/01 12:34:22 drh Exp $";
 /*
 ** A tokenizer that converts raw HTML into a linked list of HTML elements.
 **
@@ -567,17 +567,27 @@ static int Tokenize(
   while( (c=z[n])!=0 ){
     if( p->pScript ){
       /* We are in the middle of <SCRIPT>...</SCRIPT>.  Just look for
-      ** the </SCRIPT> markup. */
+      ** the </SCRIPT> markup.  (later:)  Treat <STYLE>...</STYLE> the
+      ** same way. */
       HtmlScript *pScript = p->pScript;
+      char *zEnd;
+      int nEnd;
+      if( pScript->markup.base.type==Html_SCRIPT ){
+        zEnd = "</script>";
+        nEnd = 9;
+      }else{
+        zEnd = "</style>";
+        nEnd = 8;
+      }
       if( pScript->zScript==0 ){
         pScript->zScript = &z[n];
         pScript->nScript = 0;
       }
       for(i=n+pScript->nScript; z[i]; i++){
-        if( z[i]=='<' && strnicmp(&z[i],"</script>",9)==0 ){
+        if( z[i]=='<' && z[i+1]=='/' && strnicmp(&z[i],zEnd,nEnd)==0 ){
           pScript->nScript = i - n;
           p->pScript = 0;
-          n = i+9;
+          n = i+nEnd;
           break;
         }
       }
@@ -842,6 +852,7 @@ makeMarkupEntry:
         case Html_TEXTAREA:
           p->iPlaintext = pMap->type;
           break;
+        case Html_STYLE:
         case Html_SCRIPT:
           p->pScript = (HtmlScript*)pElem;
           break;
