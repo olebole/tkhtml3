@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlindex.c,v 1.7 2000/01/31 13:23:46 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlindex.c,v 1.8 2000/11/10 23:01:38 drh Exp $";
 /*
 ** Routines that deal with indexes
 **
@@ -40,11 +40,9 @@ HtmlElement *HtmlTokenByIndex(HtmlWidget *htmlPtr, int N, int flag){
     /* Start at the end and work back toward the beginning */
     for(p=htmlPtr->pLast, n=htmlPtr->nToken; p; p=p->base.pPrev){
       if( p->base.type!=Html_Block ){
-        if( n==N ){ TestPoint(0); break; }
+        if( n==N ){ break; }
         n--;
-        TestPoint(0);
       }else{
-        TestPoint(0);
       }
     }
   }else{
@@ -52,9 +50,8 @@ HtmlElement *HtmlTokenByIndex(HtmlWidget *htmlPtr, int N, int flag){
     for(p=htmlPtr->pFirst; p; p = p->base.pNext){
       if( p->base.type!=Html_Block ){
         N--;
-        if( N<=0 ){ TestPoint(0); break; }
+        if( N<=0 ){ break; }
       }else{
-        TestPoint(0);
       }
     }
   }
@@ -69,10 +66,8 @@ int HtmlTokenNumber(HtmlElement *p){
 
   while( p ){
     if( p->base.type!=Html_Block ){ 
-      TestPoint(0); 
       n++;
     }else{
-      TestPoint(0);
     }
     p = p->base.pPrev;
   }
@@ -85,25 +80,20 @@ int HtmlTokenNumber(HtmlElement *p){
 static void maxIndex(HtmlElement *p, int *pIndex){
   if( p==0 ){
     *pIndex = 0;
-    TestPoint(0);
   }else{
     switch( p->base.type ){
       case Html_Text:
         *pIndex = p->base.count-1;
-        TestPoint(0);
         break;
       case Html_Space:
         if( p->base.style.flags & STY_Preformatted ){
           *pIndex = p->base.count-1;
-          TestPoint(0);
         }else{
           *pIndex = 0;
-          TestPoint(0);
         }
         break;
       default:
         *pIndex = 0;
-        TestPoint(0);
         break;
     }
   }
@@ -142,7 +132,6 @@ static void FindIndexInBlock(
   if( x <= pBlock->left ){
     *ppToken = p;
     *pIndex = 0;
-    TestPoint(0);
     return;
   }else if( x>= pBlock->right ){
     *ppToken = p;
@@ -150,23 +139,18 @@ static void FindIndexInBlock(
     while( p && p->base.type!=Html_Block ){
       *ppToken = p;
       p = p->base.pNext;
-      TestPoint(0);
     }
     p = *ppToken;
     if( p && p->base.type==Html_Text ){
       *pIndex = p->base.count - 1;
-      TestPoint(0);
     }else{
-      TestPoint(0);
     }
     return;
   }
   if( pBlock->n==0 ){
     *ppToken = p;
     *pIndex = 0;
-    TestPoint(0);
   }else{
-    TestPoint(0);
   }
   n = Tk_MeasureChars(font, pBlock->z, pBlock->n, x - pBlock->left, 0, &len);
   *pIndex = 0;
@@ -176,10 +160,8 @@ static void FindIndexInBlock(
       case Html_Text:
         if( n<p->base.count ){
           *pIndex = n;
-          TestPoint(0);
         }else{
           *pIndex = p->base.count - 1;
-          TestPoint(0);
         }
         *ppToken = p;
         n -= p->base.count;
@@ -188,10 +170,8 @@ static void FindIndexInBlock(
         if( p->base.style.flags & STY_Preformatted ){
           if( n<p->base.count ){
             *pIndex = n;
-            TestPoint(0);
           }else{
             *pIndex = p->base.count - 1;
-            TestPoint(0);
           }
           *ppToken = p;
           n -= p->base.count;
@@ -199,18 +179,14 @@ static void FindIndexInBlock(
           *pIndex = 0;
           *ppToken = p;
           n--;
-          TestPoint(0);
         }
         break;
       default:
-        TestPoint(0);
         break;
     }
     if( p ){
       p = p->base.pNext;
-      TestPoint(0);
     }else{
-      TestPoint(0);
     }
   }
 }
@@ -235,7 +211,6 @@ void HtmlIndexToBlockIndex(
   if( sIndex.p==0 ){
     *ppBlock = 0;
     *piIndex = 0;
-    TestPoint(0);
     return;
   }
   p = sIndex.p->base.pPrev;
@@ -243,19 +218,15 @@ void HtmlIndexToBlockIndex(
     switch( p->base.type ){
       case Html_Text:
         n += p->base.count;
-        TestPoint(0);
         break;
       case Html_Space:
         if( p->base.style.flags & STY_Preformatted ){
           n += p->base.count;
-          TestPoint(0);
         }else{
           n++;
-          TestPoint(0);
         }
         break;
       default:
-        TestPoint(0);
         break;
     }
     p = p->base.pPrev;
@@ -263,11 +234,9 @@ void HtmlIndexToBlockIndex(
   if( p ){
     *ppBlock = &p->block;
     *piIndex = n;
-    TestPoint(0);
     return;
   }
   for(p=sIndex.p; p && p->base.type!=Html_Block; p=p->base.pNext){
-    TestPoint(0);
   }
   *ppBlock = &p->block;
   *piIndex = 0;
@@ -318,31 +287,25 @@ static int DecodeBaseIndex(
   int dist = 1000000;
   int rc = 0;
 
-  while( isspace(*zBase) ){ TestPoint(0); zBase++; }
+  while( isspace(*zBase) ){ zBase++; }
   switch( *zBase ){
     case '1': case '2': case '3': case '4': case '5':
     case '6': case '7': case '8': case '9':
       n = sscanf(zBase,"%d.%d",&x,&y);
       if( n>0 ){
         p = *ppToken = HtmlTokenByIndex(htmlPtr, x, 0);
-        TestPoint(0);
       }else{
-        TestPoint(0);
       }
       if( n==2 ){
         *pIndex = y;
-        TestPoint(0);
       }else{
-        for(i=1; isdigit(zBase[i]); i++){ TestPoint(0); }
+        for(i=1; isdigit(zBase[i]); i++){ }
         if( zBase[i]==0 ){
           *pIndex = 0;
-          TestPoint(0);
         }else if( strcmp(&zBase[i],".last")==0 ){
           maxIndex(p,pIndex);
-          TestPoint(0);
         }else{
           rc = 1;
-          TestPoint(0);
         }
       }
       break;
@@ -350,41 +313,33 @@ static int DecodeBaseIndex(
       if( strcmp(zBase,"end")==0 ){
         p = *ppToken = htmlPtr->pLast;
         maxIndex(p,pIndex);
-        TestPoint(0);
       }else{
         rc = 1;
-        TestPoint(0);
       }
       break;
     case 's':
       if( strcmp(zBase,"sel.first")==0 ){
         *ppToken = htmlPtr->selBegin.p;
         *pIndex = htmlPtr->selBegin.i;
-        TestPoint(0);
       }else if( strcmp(zBase,"sel.last")==0 ){
         *ppToken = htmlPtr->selEnd.p;
         *pIndex = htmlPtr->selEnd.i;
-        TestPoint(0);
       }else{
         rc = 1;
-        TestPoint(0);
       }
       break;
     case 'i':
       if( strcmp(zBase,"insert")==0 ){
         *ppToken = htmlPtr->ins.p;
         *pIndex = htmlPtr->ins.i;
-        TestPoint(0);
       }else{
         rc = 1;
-        TestPoint(0);
       }
       break;
     case '@':
       n = sscanf(zBase,"@%d,%d",&x,&y);
       if( n!=2 ){
         rc = 1;
-        TestPoint(0);
         break;
       }
       x += htmlPtr->xOffset;
@@ -402,16 +357,13 @@ static int DecodeBaseIndex(
             case Html_TEXTAREA:
             case Html_SELECT:
               dotest = 1;
-              TestPoint(0);
               break;
             default:
               dotest = 0;
-              TestPoint(0);
               break;
           }
         }else{
           dotest = 1;
-          TestPoint(0);
         }
         if (dotest){ 
           if( pBlock->top <= y && pBlock->bottom >= y ){
@@ -419,23 +371,18 @@ static int DecodeBaseIndex(
               if( pBlock->left - x < dist ){
                 dist = pBlock->left - x;
                 pNearby = pBlock;
-                TestPoint(0);
               }else{
-                TestPoint(0);
               }
             }else if( pBlock->right < x ){
               if( x - pBlock->right < dist ){
                 dist = x - pBlock->right;
                 pNearby = pBlock;
-                TestPoint(0);
               }else{
-                TestPoint(0);
               }
             }else{
               HtmlLock(htmlPtr);
               FindIndexInBlock(htmlPtr, pBlock, x, ppToken, pIndex);
               if( HtmlUnlock(htmlPtr) ) return 1;
-              TestPoint(0);
               break;
             }
           }else{
@@ -444,27 +391,20 @@ static int DecodeBaseIndex(
 
             if( pBlock->bottom < y ){
               distY = y - pBlock->bottom;
-              TestPoint(0);
             }else{
               distY = pBlock->top - y;
-              TestPoint(0);
             }
             if( pBlock->left > x ){
               distX = pBlock->left - x;
-              TestPoint(0);
             }else if( pBlock->right < x ){
               distX = x - pBlock->right;
-              TestPoint(0);
             }else{
               distX = 0;
-              TestPoint(0);
             }
             if( distX + 4*distY < dist ){
               dist = distX + 4*distY;
               pNearby = pBlock;
-              TestPoint(0);
             }else{
-              TestPoint(0);
             }
           }
         }
@@ -474,17 +414,13 @@ static int DecodeBaseIndex(
           HtmlLock(htmlPtr);
           FindIndexInBlock(htmlPtr, pNearby, x, ppToken, pIndex);
           if( HtmlUnlock(htmlPtr) ) return 1;
-          TestPoint(0);
         }else{
-          TestPoint(0);
         }
       }else{
-        TestPoint(0);
       }
       break;
     default:
       rc = 1;
-      TestPoint(0);
       break;
   }
   return rc;
@@ -500,6 +436,5 @@ int HtmlGetIndex(
   HtmlElement **ppToken,   /* Write the pointer to the token here */
   int *pIndex              /* Write the character offset here */
 ){
-  TestPoint(0);
   return DecodeBaseIndex(htmlPtr, zIndex, ppToken, pIndex);
 }

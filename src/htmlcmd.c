@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlcmd.c,v 1.18 2000/02/25 02:19:29 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlcmd.c,v 1.19 2000/11/10 23:01:37 drh Exp $";
 /*
 ** Routines to implement the HTML widget commands
 **
@@ -53,7 +53,6 @@ int HtmlCgetCmd(
   int argc,              /* Number of arguments */
   char **argv            /* List of all arguments */
 ){
-  TestPoint(0);
   return Tk_ConfigureValue(interp, htmlPtr->tkwin, HtmlConfigSpec(),
 		(char *) htmlPtr, argv[2], 0);
 }
@@ -73,7 +72,6 @@ int HtmlClearCmd(
   HtmlClear(htmlPtr);
   htmlPtr->flags |= REDRAW_TEXT | VSCROLL | HSCROLL;
   HtmlScheduleRedraw(htmlPtr);
-  TestPoint(0);
   return TCL_OK;
 }
 
@@ -89,15 +87,12 @@ int HtmlConfigCmd(
   char **argv            /* List of all arguments */
 ){
   if (argc == 2) {
-     TestPoint(0);
      return Tk_ConfigureInfo(interp, htmlPtr->tkwin, HtmlConfigSpec(),
         (char *) htmlPtr, (char *) NULL, 0);
   } else if (argc == 3) {
-     TestPoint(0);
      return Tk_ConfigureInfo(interp, htmlPtr->tkwin, HtmlConfigSpec(),
         (char *) htmlPtr, argv[2], 0);
   } else {
-     TestPoint(0);
      return ConfigureHtmlWidget(interp, htmlPtr, argc-2, argv+2,
                                 TK_CONFIG_ARGV_ONLY, 0);
   }
@@ -121,7 +116,6 @@ int HtmlHrefCmd(
   if( Tcl_GetInt(interp, argv[2], &x) != TCL_OK 
    || Tcl_GetInt(interp, argv[3], &y) != TCL_OK
   ){
-    TestPoint(0);
     return TCL_ERROR;
   }
   z = HtmlGetHref(htmlPtr, x + htmlPtr->xOffset, y + htmlPtr->yOffset);
@@ -148,7 +142,6 @@ int HtmlNamesCmd(
 ){
   HtmlElement *p;
   char *z;
-  TestPoint(0);
   for(p=htmlPtr->pFirst; p; p=p->pNext){
     if( p->base.type!=Html_A ) continue;
     z = HtmlMarkupArg(p,"name",0);
@@ -198,12 +191,10 @@ int HtmlParseCmd(
     htmlPtr->formStart = 0;
     htmlPtr->innerList = 0;
     HtmlAddStyle(htmlPtr, htmlPtr->pFirst);
-    TestPoint(0);
   }
   if( !HtmlUnlock(htmlPtr) ){
     htmlPtr->flags |= EXTEND_LAYOUT;
     HtmlScheduleRedraw(htmlPtr);
-    TestPoint(0);
   }
   return TCL_OK;
 }
@@ -221,7 +212,6 @@ int HtmlXviewCmd(
 ){
   if( argc==2 ){
     HtmlComputeHorizontalPosition(htmlPtr,interp->result);
-    TestPoint(0);
   }else{
     int count;
     double fraction;
@@ -231,32 +221,24 @@ int HtmlXviewCmd(
     int type = Tk_GetScrollInfo(interp,argc,argv,&fraction,&count);
     switch( type ){
       case TK_SCROLL_ERROR:
-        TestPoint(0);
         return TCL_ERROR;
       case TK_SCROLL_MOVETO:
         offset = fraction * maxX;
-        TestPoint(0);
         break;
       case TK_SCROLL_PAGES:
         offset += (count * w * 9)/10;
-        TestPoint(0);
         break;
       case TK_SCROLL_UNITS:
         offset += (count * w)/10;
-        TestPoint(0);
         break;
     }
     if( offset + w > maxX ){
       offset = maxX - w;
-      TestPoint(0);
     }else{
-      TestPoint(0);
     }
     if( offset < 0 ){
       offset = 0;
-      TestPoint(0);
     }else{
-      TestPoint(0);
     }
     HtmlHorizontalScroll(htmlPtr, offset);
   }
@@ -279,7 +261,6 @@ int HtmlYviewCmd(
 ){
   if( argc==2 ){
     HtmlComputeVerticalPosition(htmlPtr,interp->result);
-    TestPoint(0);
   }else if( argc==3 ){
     char *z;
     HtmlElement *p;
@@ -287,15 +268,12 @@ int HtmlYviewCmd(
       if( p->base.type!=Html_A ) continue;
       z = HtmlMarkupArg(p,"name",0);
       if( z==0 ){
-        TestPoint(0);
         continue;
       }
       if( strcmp(z,argv[2])!=0 ){
-        TestPoint(0);
         continue;
       }
       HtmlVerticalScroll(htmlPtr, p->anchor.y);
-      TestPoint(0);
       break;
     }
   }else{
@@ -307,32 +285,24 @@ int HtmlYviewCmd(
     int type = Tk_GetScrollInfo(interp,argc,argv,&fraction,&count);
     switch( type ){
       case TK_SCROLL_ERROR:
-        TestPoint(0);
         return TCL_ERROR;
       case TK_SCROLL_MOVETO:
         offset = fraction * maxY;
-        TestPoint(0);
         break;
       case TK_SCROLL_PAGES:
         offset += (count * h * 9)/10;
-        TestPoint(0);
         break;
       case TK_SCROLL_UNITS:
         offset += (count * h)/10;
-        TestPoint(0);
         break;
     }
     if( offset + h > maxY ){
       offset = maxY - h;
-      TestPoint(0);
     }else{
-      TestPoint(0);
     }
     if( offset < 0 ){
       offset = 0;
-      TestPoint(0);
     }else{
-      TestPoint(0);
     }
     HtmlVerticalScroll(htmlPtr, offset);
   }
@@ -386,14 +356,11 @@ int HtmlIndexCmd(
     if( !HtmlUnlock(htmlPtr) ){
       Tcl_AppendResult(interp,"malformed index: \"", argv[2], "\"", 0);
     }
-    TestPoint(0);
     return TCL_ERROR;
   }
   if( !HtmlUnlock(htmlPtr) && p ){
     sprintf(interp->result, "%d.%d", HtmlTokenNumber(p), i);
-    TestPoint(0);
   }else{
-    TestPoint(0);
   }
   return TCL_OK;
 }
@@ -415,7 +382,6 @@ static void UpdateSelection(HtmlWidget *htmlPtr){
     if( p==htmlPtr->pSelStartBlock ){
       selected = 1;
       HtmlRedrawBlock(htmlPtr, p);
-      TestPoint(0);
     }else if( !selected && p==htmlPtr->pSelEndBlock ){
       selected = 1;
       tempIndex = htmlPtr->selBegin;
@@ -428,33 +394,25 @@ static void UpdateSelection(HtmlWidget *htmlPtr){
       htmlPtr->selStartIndex = htmlPtr->selEndIndex;
       htmlPtr->selEndIndex = temp;
       HtmlRedrawBlock(htmlPtr, p);
-      TestPoint(0);
     }else{
-      TestPoint(0);
     }
     if( p->base.flags & HTML_Selected ){
       if( !selected ){
         p->base.flags &= ~HTML_Selected;
         HtmlRedrawBlock(htmlPtr,p);
-        TestPoint(0);
       }else{
-        TestPoint(0);
       }
     }else{
       if( selected ){
         p->base.flags |= HTML_Selected;
         HtmlRedrawBlock(htmlPtr,p);
-        TestPoint(0);
       }else{
-        TestPoint(0);
       }
     }
     if( p==htmlPtr->pSelEndBlock ){
       selected = 0;
       HtmlRedrawBlock(htmlPtr, p);
-      TestPoint(0);
     }else{
-      TestPoint(0);
     }
   }
 }
@@ -476,9 +434,7 @@ void HtmlUpdateSelection(HtmlWidget *htmlPtr, int forceUpdate){
 
   if( htmlPtr->selEnd.p==0 ){
     htmlPtr->selBegin.p = 0;
-    TestPoint(0);
   }else{
-    TestPoint(0);
   }
   HtmlIndexToBlockIndex(htmlPtr, htmlPtr->selBegin, &pBlock, &index);
   if( needUpdate || pBlock != htmlPtr->pSelStartBlock ){
@@ -486,19 +442,14 @@ void HtmlUpdateSelection(HtmlWidget *htmlPtr, int forceUpdate){
     HtmlRedrawBlock(htmlPtr, htmlPtr->pSelStartBlock);
     htmlPtr->pSelStartBlock = pBlock;
     htmlPtr->selStartIndex = index;
-    TestPoint(0);
   }else if( index != htmlPtr->selStartIndex ){
     HtmlRedrawBlock(htmlPtr, pBlock);
     htmlPtr->selStartIndex = index;
-    TestPoint(0);
   }else{
-    TestPoint(0);
   }
   if( htmlPtr->selBegin.p==0 ){
     htmlPtr->selEnd.p = 0;
-    TestPoint(0);
   }else{
-    TestPoint(0);
   }
   HtmlIndexToBlockIndex(htmlPtr, htmlPtr->selEnd, &pBlock, &index);
   if( needUpdate || pBlock != htmlPtr->pSelEndBlock ){
@@ -506,13 +457,10 @@ void HtmlUpdateSelection(HtmlWidget *htmlPtr, int forceUpdate){
     HtmlRedrawBlock(htmlPtr, htmlPtr->pSelEndBlock);
     htmlPtr->pSelEndBlock = pBlock;
     htmlPtr->selEndIndex = index;
-    TestPoint(0);
   }else if( index != htmlPtr->selEndIndex ){
     HtmlRedrawBlock(htmlPtr, pBlock);
     htmlPtr->selEndIndex = index;
-    TestPoint(0);
   }else{
-    TestPoint(0);
   }
   if( htmlPtr->pSelStartBlock 
   && htmlPtr->pSelStartBlock==htmlPtr->pSelEndBlock
@@ -521,15 +469,11 @@ void HtmlUpdateSelection(HtmlWidget *htmlPtr, int forceUpdate){
     temp = htmlPtr->selStartIndex;
     htmlPtr->selStartIndex = htmlPtr->selEndIndex;
     htmlPtr->selEndIndex = temp;
-    TestPoint(0);
   }else{
-    TestPoint(0);
   }
   if( needUpdate ){
     UpdateSelection(htmlPtr);
-    TestPoint(0);
   }else{
-    TestPoint(0);
   }
 }
 
@@ -549,7 +493,6 @@ int HtmlSelectionSetCmd(
     if( !HtmlUnlock(htmlPtr) ){
       Tcl_AppendResult(interp,"malformed index: \"", argv[3], "\"", 0);
     }
-    TestPoint(0);
     return TCL_ERROR;
   }
   if( HtmlIsDead(htmlPtr) ) return TCL_OK;
@@ -557,14 +500,12 @@ int HtmlSelectionSetCmd(
     if( !HtmlUnlock(htmlPtr) ){
       Tcl_AppendResult(interp,"malformed index: \"", argv[4], "\"", 0);
     }
-    TestPoint(0);
     return TCL_ERROR;
   }
   if( HtmlUnlock(htmlPtr) ) return TCL_OK;
   htmlPtr->selBegin = selBegin;
   htmlPtr->selEnd = selEnd;
   HtmlUpdateSelection(htmlPtr,0);
-  TestPoint(0);
   return TCL_OK;
 }
 
@@ -582,7 +523,6 @@ int HtmlSelectionClearCmd(
   htmlPtr->selBegin.p = 0;
   htmlPtr->selEnd.p = 0;
   UpdateSelection(htmlPtr);
-  TestPoint(0);
   return TCL_OK;
 }
 
@@ -597,9 +537,7 @@ void HtmlUpdateInsert(HtmlWidget *htmlPtr){
   if( htmlPtr->insTimer==0 ){
     htmlPtr->insStatus = 0;
     HtmlFlashCursor(htmlPtr);
-    TestPoint(0);
   }else{
-    TestPoint(0);
   }
 }
 
@@ -618,21 +556,18 @@ int HtmlInsertCmd(
     htmlPtr->insStatus = 0;
     htmlPtr->pInsBlock = 0;
     htmlPtr->ins.p = 0;
-    TestPoint(0);
   }else{
     HtmlLock(htmlPtr);
     if( HtmlGetIndex(htmlPtr, argv[2], &ins.p, &ins.i) ){
       if( !HtmlUnlock(htmlPtr) ){
         Tcl_AppendResult(interp,"malformed index: \"", argv[2], "\"", 0);
       }
-      TestPoint(0);
       return TCL_ERROR;
     }
     if( HtmlUnlock(htmlPtr) ) return TCL_OK;
     HtmlRedrawBlock(htmlPtr, htmlPtr->pInsBlock);
     htmlPtr->ins = ins;
     HtmlUpdateInsert(htmlPtr);
-    TestPoint(0);
   }
   return TCL_OK;
 }

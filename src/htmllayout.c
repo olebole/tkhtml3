@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmllayout.c,v 1.27 2000/01/31 13:23:46 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmllayout.c,v 1.28 2000/11/10 23:01:38 drh Exp $";
 /*
 ** This file contains the code used to position elements of the
 ** HTML file on the screen.
@@ -52,10 +52,8 @@ void HtmlPushMargin(
   pNew->pNext = *ppMargin;
   if( pNew->pNext ){
     pNew->indent = indent + pNew->pNext->indent;
-    TestPoint(0);
   }else{
     pNew->indent = indent;
-    TestPoint(0);
   }
   pNew->bottom = bottom;
   pNew->tag = tag;
@@ -216,7 +214,6 @@ static HtmlElement *GetLine(
         p->text.x = x + spaceWanted;
         if( (p->base.style.flags & STY_Preformatted) == 0 ){
           if( lastBreak && x + spaceWanted + p->text.w > width ){
-            TestPoint(0);
             return lastBreak;
           }
         }
@@ -231,11 +228,9 @@ static HtmlElement *GetLine(
         if( p->base.style.flags & STY_Preformatted ){
           if( p->base.flags & HTML_NewLine ){
             *actualWidth = x<=0 ? 1 : x;
-            TestPoint(0);
             return p->pNext;
           }
           x += p->space.w * p->base.count;
-          TestPoint(0);
         }else{
           int w;
           if( (p->base.style.flags & STY_NoBreak)==0 ){
@@ -261,7 +256,6 @@ static HtmlElement *GetLine(
         p->image.x = x + spaceWanted;
         if( (p->base.style.flags & STY_Preformatted) == 0 ){
           if( lastBreak && x + spaceWanted + p->image.w > width ){
-            TestPoint(0);
             return lastBreak;
           }
         }
@@ -284,7 +278,6 @@ static HtmlElement *GetLine(
         p->input.x = x + spaceWanted + p->input.padLeft;
         if( (p->base.style.flags & STY_Preformatted) == 0 ){
           if( lastBreak && x + spaceWanted + p->input.w > width ){
-            TestPoint(0);
             return lastBreak;
           }
         }
@@ -454,8 +447,8 @@ static int FixLine(
             int delta = (ascent + p->text.descent)*ss/2;
             ascent += delta;
             p->text.y = -delta;
-            if( ascent > maxAscent ){ TestPoint(0); maxAscent = ascent; }
-            if( ascent > maxTextAscent ){ TestPoint(0); maxTextAscent = ascent;}
+            if( ascent > maxAscent ){ maxAscent = ascent; }
+            if( ascent > maxTextAscent ){ maxTextAscent = ascent;}
           }else if( ss < 0 ){
             int descent = p->text.descent;
             int delta = (descent + p->text.ascent)*(-ss)/2;
@@ -516,7 +509,6 @@ static int FixLine(
               }
               break;
             default:
-              TestPoint(0);
               break;
           }
           break;
@@ -544,7 +536,6 @@ static int FixLine(
     maxDescent = 0;
     for(p=pStart; p && p!=pEnd; p=p->pNext){
       if( p->base.style.flags & STY_Invisible ){
-        TestPoint(0);
         continue;
       }
       switch( p->base.type ){
@@ -566,15 +557,12 @@ static int FixLine(
             case IMAGE_ALIGN_Top:
               p->image.ascent = maxAscent;
               p->image.descent = p->image.h - maxAscent;
-              TestPoint(0);
               break;
             case IMAGE_ALIGN_TextTop:
               p->image.ascent = maxTextAscent;
               p->image.descent = p->image.h - maxTextAscent;
-              TestPoint(0);
               break;
             default:
-              TestPoint(0);
               break;
           }
           if( p->image.descent > maxDescent ){
@@ -616,13 +604,11 @@ static void Paragraph(
 ){
   int headroom;
 
-  if( p==0 ){ TestPoint(0); return; }
+  if( p==0 ){ return; }
   if( p->base.type==Html_Text ){
     headroom = p->text.ascent + p->text.descent;
-    TestPoint(0);
   }else if( p->pNext && p->pNext->base.type==Html_Text ){
     headroom = p->pNext->text.ascent + p->pNext->text.descent;
-    TestPoint(0);
   }else{
     Tk_FontMetrics fontMetrics;
     Tk_Font font;
@@ -630,7 +616,6 @@ static void Paragraph(
     if( font==0 ) return;   
     Tk_GetFontMetrics(font, &fontMetrics);
     headroom = fontMetrics.descent + fontMetrics.ascent;
-    TestPoint(0);
   }
   if( pLC->headRoom < headroom && pLC->bottom > pLC->top ){
     pLC->headRoom = headroom;
@@ -666,17 +651,13 @@ void HtmlComputeMargins(
   w = pLC->pageWidth - pLC->right;
   if( pLC->leftMargin ){
     x = pLC->leftMargin->indent + pLC->left;
-    TestPoint(0);
   }else{
     x = pLC->left;
-    TestPoint(0);
   }
   w -= x;
   if( pLC->rightMargin ){
     w -= pLC->rightMargin->indent;
-    TestPoint(0);
   }else{
-    TestPoint(0);
   }
   *pX = x;
   *pY = y;
@@ -709,21 +690,19 @@ static void ClearObstacle(HtmlLayoutContext *pLC, int mode){
     case CLEAR_Both:
       ClearObstacle(pLC,CLEAR_Left);
       ClearObstacle(pLC,CLEAR_Right);
-      TestPoint(0);
       break;
 
     case CLEAR_Left:
       while( pLC->leftMargin && pLC->leftMargin->bottom>=0 ){
-        newBottom = pLC->leftMargin->bottom;
+        if( newBottom < pLC->leftMargin->bottom ){
+          newBottom = pLC->leftMargin->bottom;
+        }
         HtmlPopOneMargin(&pLC->leftMargin);
-        TestPoint(0);
       }
       if( newBottom > pLC->bottom + pLC->headRoom ){
         pLC->headRoom = 0;
-        TestPoint(0);
       }else{
         pLC->headRoom = newBottom - pLC->bottom;
-        TestPoint(0);
       }
       pLC->bottom = newBottom;
       PopExpiredMargins(&pLC->rightMargin, pLC->bottom);
@@ -731,16 +710,15 @@ static void ClearObstacle(HtmlLayoutContext *pLC, int mode){
 
     case CLEAR_Right:
       while( pLC->rightMargin && pLC->rightMargin->bottom>=0 ){
-        newBottom = pLC->rightMargin->bottom;
+        if( newBottom < pLC->rightMargin->bottom ){
+          newBottom = pLC->rightMargin->bottom;
+        }
         HtmlPopOneMargin(&pLC->rightMargin);
-        TestPoint(0);
       }
       if( newBottom > pLC->bottom + pLC->headRoom ){
         pLC->headRoom = 0;
-        TestPoint(0);
       }else{
         pLC->headRoom = newBottom - pLC->bottom;
-        TestPoint(0);
       }
       pLC->bottom = newBottom;
       PopExpiredMargins(&pLC->leftMargin, pLC->bottom);
@@ -751,27 +729,25 @@ static void ClearObstacle(HtmlLayoutContext *pLC, int mode){
         if( pLC->rightMargin 
          && pLC->rightMargin->bottom < pLC->leftMargin->bottom
         ){
-          newBottom = pLC->rightMargin->bottom;
+          if( newBottom < pLC->rightMargin->bottom ){
+            newBottom = pLC->rightMargin->bottom;
+          }
           HtmlPopOneMargin(&pLC->rightMargin);
-          TestPoint(0);
         }else{
-          newBottom = pLC->leftMargin->bottom;
+          if( newBottom < pLC->leftMargin->bottom ){
+            newBottom = pLC->leftMargin->bottom;
+          }
           HtmlPopOneMargin(&pLC->leftMargin);
-          TestPoint(0);
         }
       }else if( pLC->rightMargin && pLC->rightMargin->bottom>=0 ){
         newBottom = pLC->rightMargin->bottom;
         HtmlPopOneMargin(&pLC->rightMargin);
-        TestPoint(0);
       }else{
-        TestPoint(0);
       }
       if( newBottom > pLC->bottom + pLC->headRoom ){
         pLC->headRoom = 0;
-        TestPoint(0);
       }else{
         pLC->headRoom = newBottom - pLC->bottom;
-        TestPoint(0);
       }
       pLC->bottom = newBottom;
       break;
@@ -796,20 +772,17 @@ static HtmlElement *DoBreakMarkup(
   switch( p->base.type ){
     case Html_A:
       p->anchor.y = pLC->bottom;
-      TestPoint(0);
       break;
 
     case Html_BLOCKQUOTE:
       HtmlPushMargin(&pLC->leftMargin, HTML_INDENT, -1, Html_EndBLOCKQUOTE);
       HtmlPushMargin(&pLC->rightMargin, HTML_INDENT, -1, Html_EndBLOCKQUOTE);
       Paragraph(pLC, p);
-      TestPoint(0);
       break;
     case Html_EndBLOCKQUOTE:
       HtmlPopMargin(&pLC->leftMargin, Html_EndBLOCKQUOTE, pLC);
       HtmlPopMargin(&pLC->rightMargin, Html_EndBLOCKQUOTE, pLC);
       Paragraph(pLC, p);
-      TestPoint(0);
       break;
 
     case Html_IMG:
@@ -835,7 +808,6 @@ static HtmlElement *DoBreakMarkup(
           SETMAX( pLC->maxX, x + p->image.w );
           break;
         default:
-          TestPoint(0);
           pNext = p;
           break;
       }
@@ -847,7 +819,7 @@ static HtmlElement *DoBreakMarkup(
       while( pNext->base.type==Html_Space ){
         HtmlElement *pThis = pNext;
         pNext = pNext->pNext;
-        if( pThis->base.flags & HTML_NewLine ){ TestPoint(0); break; }
+        if( pThis->base.flags & HTML_NewLine ){ break; }
       }
       Paragraph(pLC,p);
       break;
@@ -877,13 +849,11 @@ static HtmlElement *DoBreakMarkup(
     case Html_DL:
       Paragraph(pLC,p);
       HtmlPushMargin(&pLC->leftMargin, HTML_INDENT, -1, Html_EndDL);
-      TestPoint(0);
       break;
 
     case Html_EndDL:
       HtmlPopMargin(&pLC->leftMargin, Html_EndDL, pLC);
       Paragraph(pLC,p);
-      TestPoint(0);
       break;
 
     case Html_HR: {
@@ -922,14 +892,11 @@ static HtmlElement *DoBreakMarkup(
         case ALIGN_Center:
         case ALIGN_None:
           p->hr.x += (w - wd)/2;
-          TestPoint(0);
           break;
         case ALIGN_Right:
           p->hr.x += (w - wd);
-          TestPoint(0);
           break;
         default:
-          TestPoint(0);
           break;
       }
       SETMAX( pLC->maxY, y);
@@ -961,12 +928,10 @@ static HtmlElement *DoBreakMarkup(
     case Html_EndP:
     case Html_EndPRE:
       Paragraph(pLC, p);
-      TestPoint(0);
       break;
 
     case Html_TABLE:
       pNext = HtmlTableLayout(pLC, p);
-      TestPoint(0);
       break;
 
     case Html_BR:
@@ -974,16 +939,12 @@ static HtmlElement *DoBreakMarkup(
       if( z ){
         if( stricmp(z,"left")==0 ){
           ClearObstacle(pLC, CLEAR_Left);
-          TestPoint(0);
         }else if( stricmp(z,"right")==0 ){
           ClearObstacle(pLC, CLEAR_Right);
-          TestPoint(0);
         }else{
           ClearObstacle(pLC, CLEAR_Both);
-          TestPoint(0);
         }
       }else{
-        TestPoint(0);
       }
       break;
 
@@ -997,11 +958,9 @@ static HtmlElement *DoBreakMarkup(
     case Html_APPLET:
     case Html_EMBED:
       pNext = p;
-      TestPoint(0);
       break;
 
     default:
-      TestPoint(0);
       break;
   }
   return pNext;
@@ -1013,14 +972,11 @@ static HtmlElement *DoBreakMarkup(
 */
 static int InWrapAround(HtmlLayoutContext *pLC){
   if( pLC->leftMargin && pLC->leftMargin->bottom >= 0 ){
-    TestPoint(0);
     return 1;
   }
   if( pLC->rightMargin && pLC->rightMargin->bottom >= 0 ){
-    TestPoint(0);
     return 1;
   }
-  TestPoint(0);
   return 0;
 }
 
@@ -1063,16 +1019,15 @@ void HtmlLayoutBlock(HtmlLayoutContext *pLC){
       HtmlLock(pLC->htmlPtr);
       pNext = DoBreakMarkup(pLC, p);
       if( HtmlUnlock(pLC->htmlPtr) ) return;
-      if( pNext==p ){ TestPoint(0); break; }
+      if( pNext==p ){ break; }
       if( pNext ){
         TRACE(HtmlTrace_BreakMarkup,
            ("Processed token %s as break markup\n", HtmlTokenName(p)));
         pLC->pStart = p;
       }
       p = pNext;
-      TestPoint(0);
     }
-    if( p==0 || p==pLC->pEnd ){ TestPoint(0); break; }
+    if( p==0 || p==pLC->pEnd ){ break; }
 
 #ifdef TABLE_TRIM_BLANK
     HtmlLineWasBlank = 0;
@@ -1098,13 +1053,11 @@ void HtmlLayoutBlock(HtmlLayoutContext *pLC){
       */
       if( actualWidth > lineWidth && InWrapAround(pLC) ){
         ClearObstacle(pLC, CLEAR_First);
-        TestPoint(0);
         continue;
       }
 
       /* Lock the line into place and exit the loop */
       y = FixLine(p, pNext, y, lineWidth, actualWidth, leftMargin, &maxX);
-      TestPoint(0);
       break;
     }
 

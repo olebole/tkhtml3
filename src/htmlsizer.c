@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlsizer.c,v 1.34 2000/02/25 13:57:03 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlsizer.c,v 1.35 2000/11/10 23:01:38 drh Exp $";
 /*
 ** Routines used to compute the style and size of individual elements.
 **
@@ -132,7 +132,7 @@ static void ScaleFont(HtmlStyle *pStyle, int delta){
 */
 char *HtmlMarkupArg(HtmlElement *p, const char *tag, char *zDefault){
   int i;
-  if( !HtmlIsMarkup(p) ){ TestPoint(0); return 0; }
+  if( !HtmlIsMarkup(p) ){ return 0; }
   for(i=0; i<p->base.count; i+=2){
     if( strcmp(p->markup.argv[i],tag)==0 ){
       return  p->markup.argv[i+1];
@@ -172,15 +172,14 @@ static int GetOrderedListType(HtmlElement *p, int dflt){
   z = HtmlMarkupArg(p,"type",0);
   if( z ){
     switch( *z ){
-      case 'A':  TestPoint(0); dflt = LI_TYPE_Enum_A; break;
-      case 'a':  TestPoint(0); dflt = LI_TYPE_Enum_a; break;
-      case '1':  TestPoint(0); dflt = LI_TYPE_Enum_1; break;
-      case 'I':  TestPoint(0); dflt = LI_TYPE_Enum_I; break;
-      case 'i':  TestPoint(0); dflt = LI_TYPE_Enum_i; break;
-      default:   TestPoint(0); break;
+      case 'A': dflt = LI_TYPE_Enum_A; break;
+      case 'a': dflt = LI_TYPE_Enum_a; break;
+      case '1': dflt = LI_TYPE_Enum_1; break;
+      case 'I': dflt = LI_TYPE_Enum_I; break;
+      case 'i': dflt = LI_TYPE_Enum_i; break;
+      default: break;
     }
   }else{
-    TestPoint(0);
   }
   return dflt;
 }
@@ -235,16 +234,13 @@ static int GetLinkColor(HtmlWidget *htmlPtr, char *zURL){
   int isVisited;
 
   if( htmlPtr->tkwin==0 ){
-    TestPoint(0);
     return COLOR_Normal;
   }
   if( htmlPtr->zIsVisited==0 || htmlPtr->zIsVisited[0]==0 ){
-    TestPoint(0);
     return COLOR_Unvisited;
   }
   zCmd = HtmlAlloc( strlen(htmlPtr->zIsVisited) + strlen(zURL) + 10 );
   if( zCmd==0 ){
-    TestPoint(0);
     return COLOR_Unvisited;
   }
   sprintf(zCmd,"%s {%s}",htmlPtr->zIsVisited, zURL);
@@ -255,22 +251,18 @@ static int GetLinkColor(HtmlWidget *htmlPtr, char *zURL){
     return COLOR_Unvisited;
   }
   if( result!=TCL_OK ){
-    TestPoint(0);
     goto errorOut;
   }
   result = Tcl_GetBoolean(htmlPtr->interp, htmlPtr->interp->result, &isVisited);
   if( result!=TCL_OK ){
-    TestPoint(0);
     goto errorOut;
   }
-  TestPoint(0);
   return isVisited ? COLOR_Visited : COLOR_Unvisited;
 
   errorOut:
   Tcl_AddErrorInfo(htmlPtr->interp,
     "\n    (\"-isvisitedcommand\" command executed by html widget)");
   Tcl_BackgroundError(htmlPtr->interp);
-  TestPoint(0);
   return COLOR_Unvisited;
 }
 
@@ -315,7 +307,7 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
   static int header_sizes[] = {+2, +1, 1, 1, -1, -1};
 
   /* Don't allow recursion */
-  if( htmlPtr->flags & STYLER_RUNNING ){ TestPoint(0); return; }
+  if( htmlPtr->flags & STYLER_RUNNING ){ return; }
   htmlPtr->flags |= STYLER_RUNNING;
 
   /* Load the style state out of the htmlPtr structure and into local
@@ -361,7 +353,6 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
       case Html_BLOCKQUOTE:
       case Html_EndBLOCKQUOTE:
         paraAlign = ALIGN_None;
-        TestPoint(0);
         break;
       case Html_APPLET:
         if( htmlPtr->zAppletCommand && *htmlPtr->zAppletCommand ){
@@ -372,12 +363,10 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         }else{
           PushStyleStack(htmlPtr, Html_EndAPPLET, style);
         }
-        TestPoint(0);
         break;
       case Html_B:
         style.font = BoldFont( FontSize(style.font) );
         PushStyleStack(htmlPtr, Html_EndB, style);
-        TestPoint(0);
         break;
       case Html_EndAPPLET:
       case Html_EndB:
@@ -406,7 +395,6 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
       case Html_EndU:
       case Html_EndVAR:
         style = HtmlPopStyleStack(htmlPtr, p->base.type);
-        TestPoint(0);
         break;
       case Html_BASE:
         z = HtmlMarkupArg(p,"href",0);
@@ -425,53 +413,42 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
       case Html_EndDIV:
         paraAlign = ALIGN_None;
         style = HtmlPopStyleStack(htmlPtr, p->base.type);
-        TestPoint(0);
         break;
       case Html_EndBASEFONT:
         style = HtmlPopStyleStack(htmlPtr, Html_EndBASEFONT);
         style.font = FontFamily(style.font) + 2;
-        TestPoint(0);
         break;
       case Html_BIG:
         ScaleFont(&style,1);
         PushStyleStack(htmlPtr, Html_EndBIG, style);
-        TestPoint(0);
         break;
       case Html_CAPTION:
         paraAlign = GetAlignment(p, paraAlign);
-        TestPoint(0);
         break;
       case Html_EndCAPTION:
         paraAlign = ALIGN_None;
-        TestPoint(0);
         break;
       case Html_CENTER:
         paraAlign = ALIGN_None;
         style.align = ALIGN_Center;
         PushStyleStack(htmlPtr, Html_EndCENTER, style);
-        TestPoint(0);
         break;
       case Html_CITE:
         PushStyleStack(htmlPtr, Html_EndCITE, style);
-        TestPoint(0);
         break;
       case Html_CODE:
         style.font = CWFont( FontSize(style.font) );
         PushStyleStack(htmlPtr, Html_EndCODE, style);
-        TestPoint(0);
         break;
       case Html_COMMENT:
         style.flags |= STY_Invisible;
         PushStyleStack(htmlPtr, Html_EndCOMMENT, style);
-        TestPoint(0);
         break;
       case Html_DD:
         if( htmlPtr->innerList && htmlPtr->innerList->base.type==Html_DL ){
           p->ref.pOther = htmlPtr->innerList;
-          TestPoint(0);
         }else{
           p->ref.pOther = 0;
-          TestPoint(0);
         }
         inDt = 0;
         break;
@@ -484,21 +461,17 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         if( p->list.pPrev==0 ){
           p->list.type = LI_TYPE_Bullet1;
           p->list.compact = HtmlMarkupArg(p,"compact",0)!=0;
-          TestPoint(0);
         }else if( p->list.pPrev->list.pPrev==0 ){
           p->list.type = LI_TYPE_Bullet2;
           p->list.compact = 1;
-          TestPoint(0);
         }else{
           p->list.type = LI_TYPE_Bullet3;
           p->list.compact = 1;
-          TestPoint(0);
         }
         p->list.type = GetUnorderedListType(p,p->list.type);
         break;
       case Html_EndDL:
         inDt = 0;
-        TestPoint(0);
         /* Fall thru into the next case */
       case Html_EndDIR:
       case Html_EndMENU:
@@ -507,31 +480,25 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         p->ref.pOther = htmlPtr->innerList;
         if( htmlPtr->innerList ){
           htmlPtr->innerList = htmlPtr->innerList->list.pPrev;
-          TestPoint(0);
         }else{
-          TestPoint(0);
         }
         break;
       case Html_DIV:
         paraAlign = ALIGN_None;
         style.align = GetAlignment(p, style.align);
         PushStyleStack(htmlPtr, Html_EndDIV, style);
-        TestPoint(0);
         break;
       case Html_DT:
         if( htmlPtr->innerList && htmlPtr->innerList->base.type==Html_DL ){
           p->ref.pOther = htmlPtr->innerList;
-          TestPoint(0);
         }else{
           p->ref.pOther = 0;
-          TestPoint(0);
         }
         inDt = STY_DT;
         break;
       case Html_EndDD:
       case Html_EndDT:
         inDt = 0;
-        TestPoint(0);
         break;
       case Html_DL:
         p->list.pPrev = htmlPtr->innerList;
@@ -539,12 +506,10 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         htmlPtr->innerList = p;
         p->list.compact = HtmlMarkupArg(p,"compact",0)!=0;
         inDt = 0;
-        TestPoint(0);
         break; 
       case Html_EM:
         style.font = ItalicFont( FontSize(style.font) );
         PushStyleStack(htmlPtr, Html_EndEM, style);
-        TestPoint(0);
         break;
       case Html_EMBED:
         break;
@@ -584,12 +549,10 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         htmlPtr->formStart = 0;
         p->form.id = 0;
         if( htmlPtr->zFormCommand==0 || htmlPtr->zFormCommand[0]==0 ){
-          TestPoint(0);
           break;
         }
         zUrl = HtmlMarkupArg(p,"action",0);
         if( zUrl==0 ){
-          TestPoint(0);
           break;
         }
         HtmlLock(htmlPtr);
@@ -621,7 +584,6 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
       case Html_EndFORM:
         p->ref.pOther = htmlPtr->formStart;
         htmlPtr->formStart = 0;
-        TestPoint(0);
         break;
       case Html_H1:
       case Html_H2:
@@ -646,7 +608,6 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
       case Html_EndH6:
         paraAlign = ALIGN_None;
         style = HtmlPopStyleStack(htmlPtr, Html_EndH1);
-        TestPoint(0);
         break;
       case Html_HR:
         nextStyle = style;
@@ -656,22 +617,18 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
       case Html_I:
         style.font = ItalicFont( FontSize(style.font) );
         PushStyleStack(htmlPtr, Html_EndI, style);
-        TestPoint(0);
         break;
       case Html_IMG:
         HtmlLock(htmlPtr);
         p->image.pImage = HtmlGetImage(htmlPtr, p);
         if( HtmlUnlock(htmlPtr) ) return;
-        TestPoint(0);
         break;
       case Html_INPUT:
         p->input.pForm = htmlPtr->formStart;
-        TestPoint(0);
         break;
       case Html_KBD:
         style.font = CWFont( FontSize(style.font) );
         PushStyleStack(htmlPtr, Html_EndKBD, style);
-        TestPoint(0);
         break;
       case Html_LI:
         if( htmlPtr->innerList ){
@@ -683,33 +640,26 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
               if( n>0 ){
                 p->li.cnt = n;
                 htmlPtr->innerList->list.cnt = n+1;
-                TestPoint(0);
               }else{
-                TestPoint(0);
               }
             }else{
               p->li.cnt = htmlPtr->innerList->list.cnt++;
-              TestPoint(0);
             }
             p->li.type = GetOrderedListType(p,p->li.type);
           }else{
             p->li.type = GetUnorderedListType(p,p->li.type);
-            TestPoint(0);
           }
         }else{
           p->base.flags &= ~HTML_Visible;
-          TestPoint(0);
         }
         break;
       case Html_MARQUEE:
         style.flags |= STY_Invisible;
         PushStyleStack(htmlPtr, Html_EndMARQUEE, style);
-        TestPoint(0);
         break;
       case Html_NOBR:
         style.flags |= STY_NoBreak;
         PushStyleStack(htmlPtr, Html_EndNOBR, style);
-        TestPoint(0);
         break;
       case Html_NOFRAME:
         if( htmlPtr->zFrameCommand && *htmlPtr->zFrameCommand ){
@@ -720,7 +670,6 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         }else{
           PushStyleStack(htmlPtr, Html_EndNOFRAME, style);
         }
-        TestPoint(0);
         break;
       case Html_NOSCRIPT:
         if( htmlPtr->zScriptCommand && *htmlPtr->zScriptCommand ){
@@ -731,7 +680,6 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         }else{
           PushStyleStack(htmlPtr, Html_EndNOSCRIPT, style);
         }
-        TestPoint(0);
         break;
       case Html_OL:
         p->list.pPrev = htmlPtr->innerList;
@@ -742,12 +690,9 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
           int n = atoi(z);
           if( n>0 ){
             p->list.cnt = n;
-            TestPoint(0);
           }else{
-            TestPoint(0);
           }
         }else{
-          TestPoint(0);
         }
         p->list.compact = htmlPtr->innerList!=0 || 
                           HtmlMarkupArg(p,"compact",0)!=0;
@@ -755,11 +700,9 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         break;
       case Html_P:
         paraAlign = GetAlignment(p, ALIGN_None);
-        TestPoint(0);
         break;
       case Html_EndP:
         paraAlign = ALIGN_None;
-        TestPoint(0);
         break;
       case Html_PRE:
       case Html_LISTING:
@@ -769,18 +712,15 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         style.font = CWFont( FontSize(style.font) );
         style.flags |= STY_Preformatted;
         PushStyleStack(htmlPtr, Html_EndPRE, style);
-        TestPoint(0);
         break;
       case Html_EndPRE:
       case Html_EndLISTING:
       case Html_EndXMP:
         style = HtmlPopStyleStack(htmlPtr, Html_EndPRE);
-        TestPoint(0);
         break;
       case Html_S:
         style.flags |= STY_StrikeThru;
         PushStyleStack(htmlPtr, Html_EndS, style);
-        TestPoint(0);
         break;
       case Html_SCRIPT:
         if( htmlPtr->zScriptCommand && *htmlPtr->zScriptCommand ){
@@ -825,7 +765,6 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
       case Html_STRIKE:
         style.flags |= STY_StrikeThru;
         PushStyleStack(htmlPtr, Html_EndSTRIKE, style);
-        TestPoint(0);
         break;
       case Html_STYLE:
         /* Ignore style sheets */
@@ -833,25 +772,20 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
       case Html_SAMP:
         style.font = CWFont( FontSize(style.font) );
         PushStyleStack(htmlPtr, Html_EndSAMP, style);
-        TestPoint(0);
         break;
       case Html_SMALL:
         ScaleFont(&style,-1);
         PushStyleStack(htmlPtr, Html_EndSMALL, style);
-        TestPoint(0);
         break;
       case Html_STRONG:
         style.font = BoldFont( FontSize(style.font) );
         PushStyleStack(htmlPtr, Html_EndSTRONG, style);
-        TestPoint(0);
         break;
       case Html_SUB:
         ScaleFont(&style,-1);
         if( style.subscript > -6 ){
           style.subscript--;
-          TestPoint(0);
         }else{
-          TestPoint(0);
         }
         PushStyleStack(htmlPtr, Html_EndSUB, style);
         break;
@@ -859,9 +793,7 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         ScaleFont(&style,-1);
         if( style.subscript < 6 ){
           style.subscript++;
-          TestPoint(0);
         }else{
-          TestPoint(0);
         }
         PushStyleStack(htmlPtr, Html_EndSUP, style);
         break;
@@ -880,7 +812,6 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         useNextStyle = 1;
         htmlPtr->inTd = 0;
         htmlPtr->inTr = 0;
-        TestPoint(0);
         break;
       case Html_EndTABLE:
         paraAlign = ALIGN_None;
@@ -893,7 +824,6 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
           htmlPtr->inTr = 0;
         }
         style = HtmlPopStyleStack(htmlPtr, p->base.type);
-        TestPoint(0);
         break;
       case Html_TD:
         if( htmlPtr->inTd ){
@@ -905,7 +835,6 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
           style.bgcolor = HtmlGetColorByName(htmlPtr, z);
         }
         PushStyleStack(htmlPtr, Html_EndTD, style);
-        TestPoint(0);
         break;
       case Html_TEXTAREA:
         p->input.pForm = htmlPtr->formStart;
@@ -914,7 +843,6 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         PushStyleStack(htmlPtr, Html_EndTEXTAREA, nextStyle);
         htmlPtr->formElemStart = p;
         useNextStyle = 1;
-        TestPoint(0);
         break;
       case Html_EndTEXTAREA:
         style = HtmlPopStyleStack(htmlPtr, Html_EndTEXTAREA);
@@ -938,7 +866,6 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         }
         PushStyleStack(htmlPtr, Html_EndTD, style);
         htmlPtr->inTd = 1;
-        TestPoint(0);
         break;
       case Html_TR:
         if( htmlPtr->inTd ){
@@ -954,7 +881,6 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         }
         PushStyleStack(htmlPtr, Html_EndTR, style);
         htmlPtr->inTr = 1;
-        TestPoint(0);
         break;
       case Html_EndTR:
         if( htmlPtr->inTd ){
@@ -965,7 +891,6 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         htmlPtr->inTr = 0;
         paraAlign = ALIGN_None;
         rowAlign = ALIGN_None;
-        TestPoint(0);
         break;
       case Html_EndTD:
       case Html_EndTH:
@@ -973,17 +898,14 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         htmlPtr->inTd = 0;
         paraAlign = ALIGN_None;
         rowAlign = ALIGN_None;
-        TestPoint(0);
         break;
       case Html_TITLE:
         style.flags |= STY_Invisible;
         PushStyleStack(htmlPtr, Html_EndTITLE, style);
-        TestPoint(0);
         break;
       case Html_TT:
         style.font = CWFont( FontSize(style.font) );
         PushStyleStack(htmlPtr, Html_EndTT, style);
-        TestPoint(0);
         break;
       case Html_U:
         style.flags |= STY_Underline;
@@ -992,10 +914,8 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
       case Html_VAR:
         style.font = ItalicFont( FontSize(style.font) );
         PushStyleStack(htmlPtr, Html_EndVAR, style);
-        TestPoint(0);
         break;
       default:
-        TestPoint(0);
         break;
     }
     p->base.style = style;
@@ -1050,18 +970,15 @@ void HtmlSizer(HtmlWidget *htmlPtr){
   char *z;
   int stop = 0;
 
-  if( htmlPtr->pFirst==0 ){ TestPoint(0); return; }
+  if( htmlPtr->pFirst==0 ){ return; }
   if( htmlPtr->lastSized==0 ){
     p = htmlPtr->pFirst;
-    TestPoint(0);
   }else{
     p = htmlPtr->lastSized->pNext;
-    TestPoint(0);
   }
   for(; !stop && p; p=p->pNext){
     if( p->base.style.flags & STY_Invisible ){
       p->base.flags &= ~HTML_Visible;
-      TestPoint(0);
       continue;
     }
     if( iFont != p->base.style.font ){
@@ -1080,9 +997,7 @@ void HtmlSizer(HtmlWidget *htmlPtr){
         p->text.ascent = fontMetrics.ascent;
         if( spaceWidth==0 ){
           spaceWidth = Tk_TextWidth(font, " ", 1);
-          TestPoint(0);
         }else{
-          TestPoint(0);
         }
         p->text.spaceWidth = spaceWidth;
         break;
@@ -1102,13 +1017,11 @@ void HtmlSizer(HtmlWidget *htmlPtr){
         z = HtmlMarkupArg(p, "colspan","1");
         p->cell.colspan = atoi(z);
         p->base.flags |= HTML_Visible;
-        TestPoint(0);
         break;
       case Html_LI:
         p->li.descent = fontMetrics.descent;
         p->li.ascent = fontMetrics.ascent;
         p->base.flags |= HTML_Visible;
-        TestPoint(0);
         break;
       case Html_IMG:
         p->base.flags |= HTML_Visible;
@@ -1143,7 +1056,6 @@ void HtmlSizer(HtmlWidget *htmlPtr){
       case Html_HR:
       case Html_TABLE:
         p->base.flags |= HTML_Visible;
-        TestPoint(0);
         break;
       case Html_APPLET:
       case Html_EMBED:

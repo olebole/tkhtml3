@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmltable.c,v 1.40 2000/08/06 03:47:24 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmltable.c,v 1.41 2000/11/10 23:01:39 drh Exp $";
 /*
 ** Routines for doing layout of HTML tables
 **
@@ -132,7 +132,6 @@ static HtmlElement *TableDimensions(
 # define ColReq(A,B) colMin[(B)-1][(A)-1]
   
   if( pStart==0 || pStart->base.type!=Html_TABLE ){ 
-    TestPoint(0); 
     return pStart;
   }
   TRACE_PUSH(HtmlTrace_Table1);
@@ -181,19 +180,21 @@ static HtmlElement *TableDimensions(
     ("lineWidth=%d maxTableWidth = %d margin=%d\n", 
        lineWidth, maxTableWidth, margin));
 
-  for(p=pStart->pNext; p && p->base.type!=Html_EndTABLE; p=pNext){
+  for(p=pStart->pNext; p; p=pNext){
+    if( p->base.type==Html_EndTABLE){
+      p->ref.pOther = pStart;
+      break;
+    }
     pNext = p->pNext;
     switch( p->base.type ){
       case Html_EndTD:
       case Html_EndTH:
       case Html_EndTABLE:
         p->ref.pOther = pStart;
-        TestPoint(0);
         break;
       case Html_EndTR:
         p->ref.pOther = pStart;
         inRow = 0;
-        TestPoint(0);
         break;
       case Html_TR:
         p->ref.pOther = pStart;
@@ -202,13 +203,11 @@ static HtmlElement *TableDimensions(
         iCol = 0;
         inRow = 1;
         availWidth = maxTableWidth;
-        TestPoint(0);
         break;
       case Html_CAPTION:
         while( p && p->base.type!=Html_EndTABLE 
                && p->base.type!=Html_EndCAPTION ){
           p = p->pNext;
-          TestPoint(0);
         }
         break;
       case Html_TD:
@@ -594,10 +593,10 @@ static HtmlElement *MinMax(
             x2 += p->space.w * p->base.count;
           }
         }else if( p->base.style.flags & STY_NoBreak ){
-          if( x1>indent ){ x1 += p->space.w; TestPoint(0);}
-          if( x2>indent ){ x2 += p->space.w; TestPoint(0);}
+          if( x1>indent ){ x1 += p->space.w;}
+          if( x2>indent ){ x2 += p->space.w;}
         }else{
-          if( x1>indent ){ x1 += p->space.w; TestPoint(0);}
+          if( x1>indent ){ x1 += p->space.w;}
           x2 = indent;
         }
         break;
@@ -734,22 +733,16 @@ static int GetVerticalAlignment(HtmlElement *p, int dflt){
   z = HtmlMarkupArg(p, "valign", 0);
   if( z==0 ){
     rc = dflt;
-    TestPoint(0);
   }else if( stricmp(z,"top")==0 ){
     rc = VAlign_Top;
-    TestPoint(0);
   }else if( stricmp(z,"bottom")==0 ){
     rc = VAlign_Bottom;
-    TestPoint(0);
   }else if( stricmp(z,"center")==0 ){
     rc = VAlign_Center;
-    TestPoint(0);
   }else if( stricmp(z,"baseline")==0 ){
     rc = VAlign_Baseline;
-    TestPoint(0);
   }else{
     rc = dflt;
-    TestPoint(0);
   }
   return rc;
 }
@@ -804,7 +797,6 @@ HtmlElement *HtmlTableLayout(
 #endif /* TABLE_TRIM_BLANK */
 
   if( pTable==0 || pTable->base.type!=Html_TABLE ){ 
-    TestPoint(0);
     return pTable;
   }
   TRACE_PUSH(HtmlTrace_Table2);
@@ -899,7 +891,6 @@ HtmlElement *HtmlTableLayout(
     for(i=2; i<=n; i++){
       w[i] = pTable->table.maxW[i];
       x[i] = x[i-1] + w[i-1] + separation;
-      TestPoint(0);
     }
   }else if( width > pTable->table.maxW[0] ){
     int *tmaxW = pTable->table.maxW;
@@ -908,7 +899,6 @@ HtmlElement *HtmlTableLayout(
     for(i=2; i<=n; i++){
       w[i] = tmaxW[i] * scale;
       x[i] = x[i-1] + w[i-1] + separation;
-      TestPoint(0);
     }
   }else if( width > pTable->table.minW[0] ){
     float scale;
@@ -919,14 +909,12 @@ HtmlElement *HtmlTableLayout(
     for(i=2; i<=n; i++){
       w[i] = tminW[i] + (tmaxW[i] - tminW[i]) * scale;
       x[i] = x[i-1] + w[i-1] + separation;
-      TestPoint(0);
     }
   }else{
     w[1] = pTable->table.minW[1];
     for(i=2; i<=n; i++){
       w[i] = pTable->table.minW[i];
       x[i] = x[i-1] + w[i-1] + separation;
-      TestPoint(0);
     }
   }
   w[n] = width - ((x[n] - x[1]) + 2*(tbw + pad + cellSpacing));
@@ -964,7 +952,7 @@ HtmlElement *HtmlTableLayout(
       TRACE(HtmlTrace_Table3, ("Skipping token %s\n", HtmlTokenName(p)));
       p = p->pNext; 
     }
-    if( p==0 ){ TestPoint(0); break; }
+    if( p==0 ){ break; }
 
     /* Record default vertical alignment flag for this row */
     defaultVAlign = GetVerticalAlignment(p, VAlign_Center);
@@ -1170,7 +1158,7 @@ void HtmlMoveVertically(
   HtmlElement *pLast,     /* Last element.  Do move this one */
   int dy                  /* Amount by which to move */
 ){
-  if( dy==0 ){ TestPoint(0); return; }
+  if( dy==0 ){ return; }
   while( p && p!=pLast ){
     switch( p->base.type ){
       case Html_A:

@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlurl.c,v 1.19 2000/10/28 12:21:33 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlurl.c,v 1.20 2000/11/10 23:01:39 drh Exp $";
 /*
 ** Routines for processing URLs.
 **
@@ -89,7 +89,6 @@ static char *StrNDup(const char *z, int n){
   if( zResult ){
     memcpy(zResult, z, n);
     zResult[n] = 0;
-    TestPoint(0);
   }
   return zResult;
 }

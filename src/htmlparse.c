@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlparse.c,v 1.22 2000/08/05 04:07:49 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlparse.c,v 1.23 2000/11/10 23:01:38 drh Exp $";
 /*
 ** A tokenizer that converts raw HTML into a linked list of HTML elements.
 **
@@ -180,13 +180,10 @@ static int EscHash(const char *zName){
   while( (c=*zName)!=0 ){
     h = h<<5 ^ h ^ c;
     zName++;
-    TestPoint(0);
   }
   if( h<0 ){
     h = -h;
-    TestPoint(0);
   }else{
-    TestPoint(0);
   }
   return h % ESC_HASH_SIZE;
 }
@@ -238,7 +235,6 @@ static void EscInit(void){
     h = EscHash(esc_sequences[i].zName);
     esc_sequences[i].pNext = apEscHash[h];
     apEscHash[h] = &esc_sequences[i];
-    TestPoint(0);
   }
 #ifdef TEST
   EscHashStats();
@@ -350,7 +346,7 @@ LOCAL void HtmlTranslateEscapes(char *z){
       }else{
         int i = from+1;
         int c;
-        while( z[i] && isalnum(z[i]) ){ TestPoint(0); i++; }
+        while( z[i] && isalnum(z[i]) ){ i++; }
         c = z[i];
         z[i] = 0;
         h = EscHash(&z[from+1]);
@@ -397,7 +393,6 @@ LOCAL void HtmlTranslateEscapes(char *z){
 #endif /* __WIN32__ */
     }else{
       z[to++] = z[from++];
-      TestPoint(0);
     }
   }
   z[to] = 0;
@@ -562,7 +557,7 @@ static int Tokenize(
   iCol = p->iCol;
   n = p->nComplete;
   z = p->zText;
-  if( iCol<0 ){ TestPoint(0); return n; }   /* Prevents recursion */
+  if( iCol<0 ){ return n; }   /* Prevents recursion */
   p->iCol = -1;
   while( (c=z[n])!=0 ){
     if( p->pScript ){
@@ -608,13 +603,11 @@ static int Tokenize(
         pElem->base.count = 1;
         i++;
         iCol = 0;
-        TestPoint(0);
       }else{
         int iColStart = iCol;
         pElem->base.flags = 0;
         for(j=0; j<i; j++){
           iCol = NextColumn(iCol, z[n+j]);
-          TestPoint(0);
         }
         pElem->base.count = iCol - iColStart;
       }
@@ -624,7 +617,7 @@ static int Tokenize(
       (!isalpha(z[n+1]) && z[n+1]!='/' && z[n+1]!='!' && z[n+1]!='?') ){
       /* Ordinary text */
       for(i=1; (c=z[n+i])!=0 && !isspace(c) && c!='<'; i++){}
-      if( c==0 ){ TestPoint(0); goto incomplete; }
+      if( c==0 ){ goto incomplete; }
       if( p->iPlaintext!=0 && z[n]=='<' ){
         switch( p->iPlaintext ){
           case Html_LISTING:
@@ -667,7 +660,7 @@ static int Tokenize(
       for(i=4; z[n+i]; i++){
         if( z[n+i]=='-' && strncmp(&z[n+i],"-->",3)==0 ){ break; }
       }
-      if( z[n+i]==0 ){ TestPoint(0); goto incomplete; }
+      if( z[n+i]==0 ){ goto incomplete; }
       for(j=0; j<i+3; j++){
         iCol = NextColumn(iCol, z[n+j]);
       }
@@ -728,7 +721,6 @@ doMarkup:
           if( c==0 ){ goto incomplete; }
           arglen[argc] = j;
           i += j+1;
-          TestPoint(0);
         }else{
           argv[argc] = &z[n+i];
           for(j=0; (c=z[n+i+j])!=0 && !isspace(c) && c!='>'; j++){}
@@ -763,7 +755,6 @@ doMarkup:
       h = HtmlHash(argv[0]);
       for(pMap = apMap[h]; pMap; pMap=pMap->pCollide){
         if( stricmp(pMap->zName,argv[0])==0 ){ break; }
-        TestPoint(0);
       }
       argv[0][arglen[0]] = c;
       if( pMap==0 ){ continue; }  /* Ignore unknown markup */
@@ -891,11 +882,9 @@ void HtmlTokenizerAppend(HtmlWidget *htmlPtr, const char *zText){
   if( htmlPtr->nText==0 ){
     htmlPtr->nAlloc = len + 100;
     htmlPtr->zText = HtmlAlloc( htmlPtr->nAlloc );
-    TestPoint(0);
   }else if( htmlPtr->nText + len >= htmlPtr->nAlloc ){
     htmlPtr->nAlloc += len + 100;
     htmlPtr->zText = HtmlRealloc( htmlPtr->zText, htmlPtr->nAlloc );
-    TestPoint(0);
   }
   if( htmlPtr->zText==0 ){
     htmlPtr->nText = 0;
@@ -934,26 +923,22 @@ int HtmlInsertToken(
   if( !isInit ){
     HtmlHashInit();
     isInit = 1;
-    TestPoint(0);
   }else{
-    TestPoint(0);
   }
   h = HtmlHash(zType);
   for(pMap = apMap[h]; pMap; pMap=pMap->pCollide){
-    if( stricmp(pMap->zName,zType)==0 ){ TestPoint(0); break; }
-    TestPoint(0);
+    if( stricmp(pMap->zName,zType)==0 ){ break; }
   }
-  if( pMap==0 ){ TestPoint(0); return 1; }
+  if( pMap==0 ){ return 1; }
 
   if( zArgs==0 || *zArgs==0 ){
     /* Special case of no arguments.  This is a lot easier... */
     nByte = pMap->extra ? pMap->extra : sizeof(HtmlBaseElement);
     nByte += strlen(zType);
     pElem = HtmlAlloc( nByte );
-    if( pElem==0 ){ TestPoint(0); return 1; }
+    if( pElem==0 ){ return 1; }
     memset(pElem,0,nByte);
     pElem->base.type = pMap->type;
-    TestPoint(0);
   }else{
     /* The general case.  There are arguments that need to be parsed
     ** up.  This is slower, but we gotta do it.
@@ -963,21 +948,17 @@ int HtmlInsertToken(
     char *zBuf;
 
     if( Tcl_SplitList(htmlPtr->interp, zArgs, &argc, &argv)!=TCL_OK ){
-      TestPoint(0);
       return 1;
     }
     if( pMap->extra ){
       nByte = pMap->extra;
-      TestPoint(0);
     }else{
       nByte = sizeof(HtmlMarkupElement);
-      TestPoint(0);
     }
     nByte += sizeof(char*)*(argc+1) + strlen(zArgs) + argc + 2;
     pElem = HtmlAlloc( nByte );
     if( pElem==0 ){
       HtmlFree(argv);
-      TestPoint(0);
       return 1;
     }
     memset(pElem,0,nByte);
@@ -985,37 +966,30 @@ int HtmlInsertToken(
     pElem->base.count = argc;
     if( pMap->extra ){
       pElem->markup.argv = (char**)&((char*)pElem)[pMap->extra];
-      TestPoint(0);
     }else{
       pElem->markup.argv = (char**)&((HtmlMarkupElement*)pElem)[1];
-      TestPoint(0);
     }
     zBuf = (char*)&pElem->markup.argv[argc];
     for(i=1; i<argc; i++){
       pElem->markup.argv[i-1] = zBuf;
       zBuf += strlen(argv[i]) + 1;
       strcpy(pElem->markup.argv[i-1],argv[i]);
-      TestPoint(0);
     }
     pElem->markup.argv[argc-1] = 0;
     HtmlFree(argv);
-    TestPoint(0);
   }
   if( pToken ){
     pElem->base.pNext = pToken;
     pElem->base.pPrev = pToken->base.pPrev;
     if( pToken->base.pPrev ){
       pToken->base.pPrev->pNext = pElem;
-      TestPoint(0);
     }else{
       htmlPtr->pFirst = pElem;
-      TestPoint(0);
     }
     pToken->base.pPrev = pElem;
     htmlPtr->nToken++;
   }else{
     AppendElement(htmlPtr,pElem);
-    TestPoint(0);
   }
   return 0;
 }
@@ -1030,14 +1004,11 @@ int HtmlNameToType(char *zType){
   if( !isInit ){
     HtmlHashInit();
     isInit = 1;
-    TestPoint(0);
   }else{
-    TestPoint(0);
   }
   h = HtmlHash(zType);
   for(pMap = apMap[h]; pMap; pMap=pMap->pCollide){
-    if( stricmp(pMap->zName,zType)==0 ){ TestPoint(0); break; }
-    TestPoint(0);
+    if( stricmp(pMap->zName,zType)==0 ){ break; }
   }
   return pMap ? pMap->type : Html_Unknown;
 }
@@ -1048,10 +1019,8 @@ int HtmlNameToType(char *zType){
 const char *HtmlTypeToName(int type){
   if( type>=Html_A && type<=Html_EndXMP ){
     HtmlTokenMap *pMap = apMap[type - Html_A];
-    TestPoint(0);
     return pMap->zName;
   }else{
-    TestPoint(0);
     return "???";
   }
 }

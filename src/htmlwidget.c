@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlwidget.c,v 1.44 2000/07/31 10:31:51 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlwidget.c,v 1.45 2000/11/10 23:01:39 drh Exp $";
 /*
 ** The main routine for the HTML widget for Tcl/Tk
 **
@@ -166,10 +166,8 @@ int HtmlUsableWidth(HtmlWidget *htmlPtr){
   Tk_Window tkwin = htmlPtr->tkwin;
   if( tkwin && Tk_IsMapped(tkwin) ){
     w = Tk_Width(tkwin) - 2*(htmlPtr->padx + htmlPtr->inset);
-    TestPoint(0);
   }else{
     w = htmlPtr->width;
-    TestPoint(0);
   }
   return w;
 }
@@ -188,10 +186,8 @@ int HtmlUsableHeight(HtmlWidget *htmlPtr){
   Tk_Window tkwin = htmlPtr->tkwin;
   if( tkwin && Tk_IsMapped(tkwin) ){
     h = Tk_Height(tkwin) - 2*(htmlPtr->pady + htmlPtr->inset);
-    TestPoint(0);
   }else{
     h = htmlPtr->height;
-    TestPoint(0);
   }
   return h;
 }
@@ -213,23 +209,18 @@ void HtmlComputeVerticalPosition(
   if( htmlPtr->maxY <= 0 ){
     frac1 = 0.0;
     frac2 = 1.0;
-    TestPoint(0);
   }else{
     frac1 = (double)htmlPtr->yOffset/(double)htmlPtr->maxY;
     if( frac1 > 1.0 ){
       frac1 = 1.0;
-      TestPoint(0);
     }else if( frac1 < 0.0 ){
       frac1 = 0.0;
-      TestPoint(0);
     }
     frac2 = (double)(htmlPtr->yOffset+actual)/(double)htmlPtr->maxY;
     if( frac2 > 1.0 ){
       frac2 = 1.0;
-      TestPoint(0);
     }else if( frac2 < 0.0 ){
       frac2 = 0.0;
-      TestPoint(0);
     }
   }
   sprintf(buf,"%g %g",frac1, frac2);
@@ -249,23 +240,18 @@ void HtmlComputeHorizontalPosition(
   if( htmlPtr->maxX <= 0 ){
     frac1 = 0.0;
     frac2 = 1.0;
-    TestPoint(0);
   }else{
     frac1 = (double)htmlPtr->xOffset/(double)htmlPtr->maxX;
     if( frac1 > 1.0 ){
       frac1 = 1.0;
-      TestPoint(0);
     }else if( frac1 < 0.0 ){
       frac1 = 0.0;
-      TestPoint(0);
     }
     frac2 = (double)(htmlPtr->xOffset+actual)/(double)htmlPtr->maxX;
     if( frac2 > 1.0 ){
       frac2 = 1.0;
-      TestPoint(0);
     }else if( frac2 < 0.0 ){
       frac2 = 0.0;
-      TestPoint(0);
     }
   }
   sprintf(buf,"%g %g",frac1, frac2);
@@ -280,9 +266,7 @@ static void ClearGcCache(HtmlWidget *htmlPtr){
     if( htmlPtr->aGcCache[i].index ){
       Tk_FreeGC(htmlPtr->display, htmlPtr->aGcCache[i].gc);
       htmlPtr->aGcCache[i].index = 0;
-      TestPoint(0);
     }else{
-      TestPoint(0);
     }
   }
 }
@@ -440,7 +424,6 @@ static void HtmlRedrawCallback(ClientData clientData){
           Tcl_AddErrorInfo(interp,
              "\n    (horizontal scrolling command executed by html widget)");
           Tcl_BackgroundError(interp);
-          TestPoint(0);
         }
       }
       htmlPtr->flags &= ~HSCROLL;
@@ -458,7 +441,6 @@ static void HtmlRedrawCallback(ClientData clientData){
           Tcl_AddErrorInfo(interp,
              "\n    (horizontal scrolling command executed by html widget)");
           Tcl_BackgroundError(interp);
-          TestPoint(0);
         }
       }
       htmlPtr->flags &= ~VSCROLL;
@@ -467,7 +449,7 @@ static void HtmlRedrawCallback(ClientData clientData){
     if( tkwin==0 || !Tk_IsMapped(tkwin) ){ goto redrawExit; }
     if( htmlPtr->flags & REDRAW_PENDING ){ return; }
     clipwin = htmlPtr->clipwin;
-    if( clipwin==0 ){ TestPoint(0); goto redrawExit; }
+    if( clipwin==0 ){ goto redrawExit; }
   }
 
   /* Redraw the focus highlight, if requested */
@@ -479,10 +461,8 @@ static void HtmlRedrawCallback(ClientData clientData){
 
       if( htmlPtr->flags & GOT_FOCUS ){
         gc = Tk_GCForColor(htmlPtr->highlightColorPtr, Tk_WindowId(tkwin));
-        TestPoint(0);
       }else{
         gc = Tk_GCForColor(htmlPtr->highlightBgColorPtr, Tk_WindowId(tkwin));
-        TestPoint(0);
       }
       Tk_DrawFocusHighlight(tkwin, gc, hw, Tk_WindowId(tkwin));
     }
@@ -517,7 +497,7 @@ static void HtmlRedrawCallback(ClientData clientData){
   ** If we don't have a clipping window, then something is seriously
   ** wrong.  We might as well give up.
   */
-  if( clipwin==NULL ){ TestPoint(0); goto earlyOut; }
+  if( clipwin==NULL ){ goto earlyOut; }
 
   /* Resize, reposition and map the clipping window, if necessary */
   insetX = htmlPtr->padx + htmlPtr->inset;
@@ -565,19 +545,15 @@ static void HtmlRedrawCallback(ClientData clientData){
   }else{
     if( htmlPtr->dirtyLeft < 0 ){
       htmlPtr->dirtyLeft = 0;
-      TestPoint(0);
     }
     if( htmlPtr->dirtyRight > clipwinW  ){
       htmlPtr->dirtyRight = clipwinW;
-      TestPoint(0);
     }
     if( htmlPtr->dirtyTop < 0 ){
       htmlPtr->dirtyTop = 0;
-      TestPoint(0);
     }
     if( htmlPtr->dirtyBottom > clipwinH ){
       htmlPtr->dirtyBottom = clipwinH;
-      TestPoint(0);
     }
     w = htmlPtr->dirtyRight - htmlPtr->dirtyLeft;
     h = htmlPtr->dirtyBottom - htmlPtr->dirtyTop;
@@ -643,7 +619,6 @@ static void HtmlRedrawCallback(ClientData clientData){
          || imageTop + pElem->image.h < top
          || pElem->image.x > right
          || pElem->image.x + pElem->image.w < left ){ 
-            TestPoint(0); 
             continue; 
         }
         HtmlDrawImage(pElem, Tk_WindowId(htmlPtr->clipwin),
@@ -691,19 +666,17 @@ void HtmlRedrawArea(
   int left, int top,        /* Top left corner of area to redraw */
   int right, int bottom     /* bottom right corner of area to redraw */
 ){
-  if( bottom < 0 ){ TestPoint(0); return; }
-  if( top > htmlPtr->realHeight ){ TestPoint(0); return; }
-  if( right < 0 ){ TestPoint(0); return; }
-  if( left > htmlPtr->realWidth ){ TestPoint(0); return; }
-  if( htmlPtr->dirtyTop > top ){ htmlPtr->dirtyTop = top; TestPoint(0);}
-  if( htmlPtr->dirtyLeft > left ){ htmlPtr->dirtyLeft = left; TestPoint(0);}
+  if( bottom < 0 ){ return; }
+  if( top > htmlPtr->realHeight ){ return; }
+  if( right < 0 ){ return; }
+  if( left > htmlPtr->realWidth ){ return; }
+  if( htmlPtr->dirtyTop > top ){ htmlPtr->dirtyTop = top;}
+  if( htmlPtr->dirtyLeft > left ){ htmlPtr->dirtyLeft = left;}
   if( htmlPtr->dirtyBottom < bottom ){ 
     htmlPtr->dirtyBottom = bottom;
-    TestPoint(0);
   }
-  if( htmlPtr->dirtyRight < right ){ htmlPtr->dirtyRight = right; TestPoint(0);}
+  if( htmlPtr->dirtyRight < right ){ htmlPtr->dirtyRight = right;}
   HtmlScheduleRedraw(htmlPtr);
-  TestPoint(0);
 }
 
 /* Redraw the HtmlBlock given.
@@ -716,9 +689,7 @@ void HtmlRedrawBlock(HtmlWidget *htmlPtr, HtmlBlock *p){
       p->right - htmlPtr->xOffset + 1,
       p->bottom - htmlPtr->yOffset
     );
-    TestPoint(0);
   }else{
-    TestPoint(0);
   }
 }
 
@@ -728,7 +699,6 @@ void HtmlRedrawBlock(HtmlWidget *htmlPtr, HtmlBlock *p){
 void HtmlRedrawEverything(HtmlWidget *htmlPtr){
   htmlPtr->flags |= REDRAW_FOCUS | REDRAW_TEXT | REDRAW_BORDER;
   HtmlScheduleRedraw(htmlPtr);
-  TestPoint(0);
 }
 
 /*
@@ -738,9 +708,7 @@ void HtmlRedrawEverything(HtmlWidget *htmlPtr){
 static void HtmlRedrawPush(HtmlWidget *htmlPtr){
   if( htmlPtr->flags & REDRAW_PENDING ){
     Tcl_CancelIdleCall(HtmlRedrawCallback, (ClientData)htmlPtr);
-    TestPoint(0);
   }else{
-    TestPoint(0);
   }
   HtmlRedrawCallback( (ClientData)htmlPtr );
 }
@@ -759,9 +727,7 @@ void HtmlRedrawText(HtmlWidget *htmlPtr, int y){
   y -= yOffset;
   if( y < clipHeight ){
     HtmlRedrawArea(htmlPtr, 0, y, LARGE_NUMBER, clipHeight);
-    TestPoint(0);
   }else{
-    TestPoint(0);
   }
 }
 
@@ -777,7 +743,6 @@ static void HtmlRecomputeGeometry(HtmlWidget *htmlPtr){
   h = htmlPtr->height + 2*(htmlPtr->pady + htmlPtr->inset);
   Tk_GeometryRequest(htmlPtr->tkwin, w, h);
   Tk_SetInternalBorder(htmlPtr->tkwin, htmlPtr->inset);
-  TestPoint(0);
 }
 
 /*
@@ -818,7 +783,7 @@ int ConfigureHtmlWidget(
   }
   rc = Tk_ConfigureWidget(interp, htmlPtr->tkwin, configSpecs, argc, argv,
                          (char *) htmlPtr, flags);
-  if( rc!=TCL_OK || redraw==0 ){ TestPoint(0); return rc; }
+  if( rc!=TCL_OK || redraw==0 ){ return rc; }
   memset(htmlPtr->fontValid, 0, sizeof(htmlPtr->fontValid));
   htmlPtr->apColor[COLOR_Normal] = htmlPtr->fgColor;
   htmlPtr->apColor[COLOR_Visited] = htmlPtr->oldLinkColor;
@@ -826,12 +791,12 @@ int ConfigureHtmlWidget(
   htmlPtr->apColor[COLOR_Selection] = htmlPtr->selectionColor;
   htmlPtr->apColor[COLOR_Background] = Tk_3DBorderColor(htmlPtr->border);
   Tk_SetBackgroundFromBorder(htmlPtr->tkwin, htmlPtr->border);
-  if( htmlPtr->highlightWidth < 0 ){ htmlPtr->highlightWidth = 0; TestPoint(0);}
-  if (htmlPtr->padx < 0) { htmlPtr->padx = 0; TestPoint(0);}
-  if (htmlPtr->pady < 0) { htmlPtr->pady = 0; TestPoint(0);}
-  if (htmlPtr->width < 100) { htmlPtr->width = 100; TestPoint(0);}
-  if (htmlPtr->height < 100) { htmlPtr->height = 100; TestPoint(0);}
-  if (htmlPtr->borderWidth < 0) {htmlPtr->borderWidth = 0; TestPoint(0);}
+  if( htmlPtr->highlightWidth < 0 ){ htmlPtr->highlightWidth = 0;}
+  if (htmlPtr->padx < 0) { htmlPtr->padx = 0;}
+  if (htmlPtr->pady < 0) { htmlPtr->pady = 0;}
+  if (htmlPtr->width < 100) { htmlPtr->width = 100;}
+  if (htmlPtr->height < 100) { htmlPtr->height = 100;}
+  if (htmlPtr->borderWidth < 0) {htmlPtr->borderWidth = 0;}
   htmlPtr->flags |= RESIZE_ELEMENTS | RELAYOUT | REDRAW_BORDER | RESIZE_CLIPWIN;
   HtmlRecomputeGeometry(htmlPtr);
   HtmlRedrawEverything(htmlPtr);
@@ -898,7 +863,6 @@ void HtmlClear(HtmlWidget *htmlPtr){
     htmlPtr->imageList = p->pNext;
     Tk_FreeImage(p->image);
     HtmlFree(p);
-    TestPoint(0);
   }
   while( htmlPtr->styleStack ){
     HtmlStyleStack *p = htmlPtr->styleStack;
@@ -1038,24 +1002,20 @@ void HtmlFlashCursor(ClientData clientData){
   if( htmlPtr->pInsBlock==0 || htmlPtr->insOnTime<=0
       || htmlPtr->insOffTime<=0 ){
     htmlPtr->insTimer = 0;
-    TestPoint(0);
     return;
   }
   HtmlRedrawBlock(htmlPtr, htmlPtr->pInsBlock);
   if( (htmlPtr->flags & GOT_FOCUS)==0 ){
     htmlPtr->insStatus = 0;
     htmlPtr->insTimer = 0;
-    TestPoint(0);
   }else if( htmlPtr->insStatus ){
     htmlPtr->insTimer = Tcl_CreateTimerHandler(htmlPtr->insOffTime,
                                                HtmlFlashCursor, clientData);
     htmlPtr->insStatus = 0;
-    TestPoint(0);
   }else{
     htmlPtr->insTimer = Tcl_CreateTimerHandler(htmlPtr->insOnTime,
                                                HtmlFlashCursor, clientData);
     htmlPtr->insStatus = 1;
-    TestPoint(0);
   }
 }
 
@@ -1075,10 +1035,10 @@ GC HtmlGetGC(HtmlWidget *htmlPtr, int color, int font){
   /* 
   ** Check for an existing GC.
   */
-  if( color < 0 || color >= N_COLOR ){ color = 0; TestPoint(0); }
-  if( font < FONT_Any || font >= N_FONT ){ font = FONT_Default; TestPoint(0); }
+  if( color < 0 || color >= N_COLOR ){ color = 0; }
+  if( font < FONT_Any || font >= N_FONT ){ font = FONT_Default; }
   for(i=0; i<N_CACHE_GC; i++, p++){
-    if( p->index==0 ){ TestPoint(0); continue; }
+    if( p->index==0 ){ continue; }
     if( (font<0 || p->font==font) && p->color==color ){
       if( p->index>1 ){
         for(j=0; j<N_CACHE_GC; j++){
@@ -1098,7 +1058,7 @@ GC HtmlGetGC(HtmlWidget *htmlPtr, int color, int font){
   */
   p = htmlPtr->aGcCache;
   for(i=0; i<N_CACHE_GC; i++, p++){
-    if( p->index==0 || p->index==N_CACHE_GC ){ TestPoint(0); break; }
+    if( p->index==0 || p->index==N_CACHE_GC ){ break; }
   }
   if( p->index ){
     Tk_FreeGC(htmlPtr->display, p->gc);
@@ -1106,14 +1066,14 @@ GC HtmlGetGC(HtmlWidget *htmlPtr, int color, int font){
   gcValues.foreground = htmlPtr->apColor[color]->pixel;
   gcValues.graphics_exposures = True;
   mask = GCForeground | GCGraphicsExposures;
-  if( font<0 ){ font = FONT_Default; TestPoint(0); }
+  if( font<0 ){ font = FONT_Default; }
   tkfont = HtmlGetFont(htmlPtr, font);
   if( tkfont ){
     gcValues.font = Tk_FontId(tkfont);
     mask |= GCFont;
   }
   p->gc = Tk_GetGC(htmlPtr->tkwin, mask, &gcValues);
-  if( p->index==0 ){ p->index = N_CACHE_GC + 1; TestPoint(0); }
+  if( p->index==0 ){ p->index = N_CACHE_GC + 1; }
   for(j=0; j<N_CACHE_GC; j++){
     if( htmlPtr->aGcCache[j].index && htmlPtr->aGcCache[j].index < p->index ){
       htmlPtr->aGcCache[j].index++;
@@ -1134,9 +1094,8 @@ GC HtmlGetAnyGC(HtmlWidget *htmlPtr){
   GcCache *p = htmlPtr->aGcCache;
 
   for(i=0; i<N_CACHE_GC; i++, p++){
-    if( p->index ){ TestPoint(0); return p->gc; }
+    if( p->index ){ return p->gc; }
   }
-  TestPoint(0);
   return HtmlGetGC(htmlPtr, COLOR_Normal, FONT_Default);
 }
 
@@ -1154,19 +1113,16 @@ static void HtmlEventProc(ClientData clientData, XEvent *eventPtr){
     case Expose:
       if( htmlPtr->tkwin==0 ){
         /* The widget is being deleted.  Do nothing */
-        TestPoint(0);
       }else if( eventPtr->xexpose.window!=Tk_WindowId(htmlPtr->tkwin) ){
         /* Exposure in the clipping window */
         HtmlRedrawArea(htmlPtr, eventPtr->xexpose.x - 1, 
                    eventPtr->xexpose.y - 1,
                    eventPtr->xexpose.x + eventPtr->xexpose.width + 1,
                    eventPtr->xexpose.y + eventPtr->xexpose.height + 1);
-        TestPoint(0);
       }else{
         /* Exposure in the main window */
         htmlPtr->flags |= REDRAW_BORDER;
         HtmlScheduleRedraw(htmlPtr);
-        TestPoint(0);
       }
       break;
     case DestroyNotify:
@@ -1194,23 +1150,17 @@ static void HtmlEventProc(ClientData clientData, XEvent *eventPtr){
         if( p->width != htmlPtr->realWidth ){
           redraw_needed = 1;
           htmlPtr->realWidth = p->width;
-          TestPoint(0);
         }else{
-          TestPoint(0);
         }
         if( p->height != htmlPtr->realHeight ){
           redraw_needed = 1;
           htmlPtr->realHeight = p->height;
-          TestPoint(0);
         }else{
-          TestPoint(0);
         }
         if( redraw_needed ){
           htmlPtr->flags |= RELAYOUT | VSCROLL | HSCROLL | RESIZE_CLIPWIN;
           HtmlRedrawEverything(htmlPtr);
-          TestPoint(0);
         }else{
-          TestPoint(0);
         }
       }
       break;
@@ -1222,9 +1172,7 @@ static void HtmlEventProc(ClientData clientData, XEvent *eventPtr){
         htmlPtr->flags |= GOT_FOCUS | REDRAW_FOCUS;
         HtmlScheduleRedraw(htmlPtr);
         HtmlUpdateInsert(htmlPtr);
-        TestPoint(0);
       }else{
-        TestPoint(0);
       }
       break;
     case FocusOut:
@@ -1235,9 +1183,7 @@ static void HtmlEventProc(ClientData clientData, XEvent *eventPtr){
         htmlPtr->flags &= ~GOT_FOCUS;
         htmlPtr->flags |= REDRAW_FOCUS;
         HtmlScheduleRedraw(htmlPtr);
-        TestPoint(0);
       }else{
-        TestPoint(0);
       }
       break;
   }
@@ -1261,7 +1207,7 @@ Tk_Font HtmlGetFont(
 ){
   Tk_Font toFree = 0;
 
-  if( iFont<0 ){ iFont = 0; TestPoint(0); }
+  if( iFont<0 ){ iFont = 0; }
   if( iFont>=N_FONT ){ iFont = N_FONT - 1; CANT_HAPPEN; }
 
   /*
@@ -1273,7 +1219,6 @@ Tk_Font HtmlGetFont(
   if( !FontIsValid(htmlPtr, iFont) && htmlPtr->aFont[iFont]!=0 ){
     toFree = htmlPtr->aFont[iFont];
     htmlPtr->aFont[iFont] = 0;
-    TestPoint(0);
   }
 
   /*
@@ -1385,7 +1330,6 @@ Tk_Font HtmlGetFont(
        Tk_GetFont(htmlPtr->interp, htmlPtr->tkwin, "helvetica -12");
     }
     FontSetValid(htmlPtr, iFont);
-    TestPoint(0);
   }
 
   /*
@@ -1406,7 +1350,6 @@ static float colorDistance(XColor *pA, XColor *pB){
   x = 0.30 * (pA->red - pB->red);
   y = 0.61 * (pA->green - pB->green);
   z = 0.11 * (pA->blue - pB->blue);
-  TestPoint(0);
   return x*x + y*y + z*z;
 }
 
@@ -1608,11 +1551,10 @@ char *HtmlGetHref(HtmlWidget *htmlPtr, int x, int y){
     if( pBlock->top > y || pBlock->bottom < y
      || pBlock->left > x || pBlock->right < x
     ){
-      TestPoint(0);
       continue;
     }
     pElem = pBlock->base.pNext;
-    if( (pElem->base.style.flags & STY_Anchor)==0 ){ TestPoint(0); continue; }
+    if( (pElem->base.style.flags & STY_Anchor)==0 ){ continue; }
     switch( pElem->base.type ){
       case Html_Text:
       case Html_Space:
@@ -1626,7 +1568,6 @@ char *HtmlGetHref(HtmlWidget *htmlPtr, int x, int y){
         break;
     }
   }
-  TestPoint(0);
   return 0;
 }
 
@@ -1641,7 +1582,7 @@ void HtmlVerticalScroll(HtmlWidget *htmlPtr, int yOffset){
   GC gc;      /* Graphics context used for copying */
   int w;      /* Width of text area */
 
-  if( yOffset==htmlPtr->yOffset ){ TestPoint(0); return; }
+  if( yOffset==htmlPtr->yOffset ){ return; }
   inset = htmlPtr->pady + htmlPtr->inset;
   h = htmlPtr->realHeight - 2*inset;
   if( (htmlPtr->flags & REDRAW_TEXT)!=0
@@ -1652,7 +1593,6 @@ void HtmlVerticalScroll(HtmlWidget *htmlPtr, int yOffset){
     htmlPtr->yOffset = yOffset;
     htmlPtr->flags |= VSCROLL | REDRAW_TEXT;
     HtmlScheduleRedraw(htmlPtr);
-    TestPoint(0);
     return;
   }
   diff = htmlPtr->yOffset - yOffset;
@@ -1669,7 +1609,6 @@ void HtmlVerticalScroll(HtmlWidget *htmlPtr, int yOffset){
             w, h + diff,                      /* Width and height */
             0, 0);                            /* Destination X, Y */
     HtmlRedrawArea(htmlPtr, 0, h + diff, w, h);
-    TestPoint(0);
   }else{
     XCopyArea(htmlPtr->display, 
             Tk_WindowId(htmlPtr->clipwin),    /* source */
@@ -1679,7 +1618,6 @@ void HtmlVerticalScroll(HtmlWidget *htmlPtr, int yOffset){
             w, h - diff,                      /* Width and height */
             0, diff);                         /* Destination X, Y */
     HtmlRedrawArea(htmlPtr, 0, 0, w, diff);
-    TestPoint(0);
   }
   /* HtmlMapControls(htmlPtr);*/
 }
@@ -1689,12 +1627,11 @@ void HtmlVerticalScroll(HtmlWidget *htmlPtr, int yOffset){
 ** This has the effect of scrolling the widget horizontally.
 */
 void HtmlHorizontalScroll(HtmlWidget *htmlPtr, int xOffset){
-  if( xOffset==htmlPtr->xOffset ){ TestPoint(0); return; }
+  if( xOffset==htmlPtr->xOffset ){ return; }
   htmlPtr->xOffset = xOffset;
   HtmlMapControls(htmlPtr);
   htmlPtr->flags |= HSCROLL | REDRAW_TEXT;
   HtmlScheduleRedraw(htmlPtr);
-  TestPoint(0);
 }
 
 /*
@@ -1760,7 +1697,6 @@ static int HtmlWidgetCommand(
   if (argc < 2) {
     Tcl_AppendResult(interp, "wrong # args: should be \"", argv[0],
         " option ?arg arg ...?\"", 0);
-    TestPoint(0);
     return TCL_ERROR;
   }
   c = argv[1][0];
@@ -1768,7 +1704,6 @@ static int HtmlWidgetCommand(
   for(i=0, pCmd=aSubcommand; i<nSubcommand; i++, pCmd++){
     if( pCmd->zCmd1==0 || c!=pCmd->zCmd1[0] 
     || strncmp(pCmd->zCmd1,argv[1],length)!=0 ){
-      TestPoint(0);
       continue;
     }
     if( pCmd->zCmd2 ){
@@ -1777,13 +1712,11 @@ static int HtmlWidgetCommand(
       if( argc<3 ){
         Tcl_AppendResult(interp, "wrong # args: should be \"",
           argv[0], " ", pCmd->zCmd1, " SUBCOMMAND ?OPTIONS...?", 0);
-        TestPoint(0);
         return TCL_ERROR;
       }
       length2 = strlen(argv[2]);
       for(j=i; j<nSubcommand && (j==i || pCmd->zCmd1==0); j++, pCmd++){
         if( strncmp(pCmd->zCmd2,argv[2],length2)==0 ){
-          TestPoint(0);
           break;
         }
       }
@@ -1792,7 +1725,6 @@ static int HtmlWidgetCommand(
           "\" -- should be one of:", 0);
         for(j=i; j<nSubcommand && (j==i || aSubcommand[j].zCmd1==0); j++){
           Tcl_AppendResult(interp, " ", aSubcommand[j].zCmd2, 0);
-          TestPoint(0);
         }
         return TCL_ERROR;
       }
@@ -1802,35 +1734,27 @@ static int HtmlWidgetCommand(
          " ", pCmd->zCmd1, 0);
       if( pCmd->zCmd2 ){
         Tcl_AppendResult(interp, " ", pCmd->zCmd2, 0);
-        TestPoint(0);
       }
       if( pCmd->zHelp ){
         Tcl_AppendResult(interp, " ", pCmd->zHelp, 0);
-        TestPoint(0);
       }
       Tcl_AppendResult(interp, "\"", 0);
-      TestPoint(0);
       return TCL_ERROR;
     }
     if( pCmd->xFunc==0 ){
       Tcl_AppendResult(interp,"command not yet implemented", 0);
-      TestPoint(0);
       return TCL_ERROR;
     }
-    TestPoint(0);
     return (*pCmd->xFunc)(htmlPtr, interp, argc, argv);
   }
   Tcl_AppendResult(interp,"unknown command \"", argv[1], "\" -- should be "
     "one of:", 0);
   for(i=0; i<nSubcommand; i++){
     if( aSubcommand[i].zCmd1==0 || aSubcommand[i].zCmd1[0]=='_' ){ 
-      TestPoint(0); 
       continue;
     }
     Tcl_AppendResult(interp, " ", aSubcommand[i].zCmd1, 0);
-    TestPoint(0);
   }
-  TestPoint(0);
   return TCL_ERROR;
 }
 

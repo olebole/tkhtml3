@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlform.c,v 1.22 2000/02/25 13:57:03 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlform.c,v 1.23 2000/11/10 23:01:38 drh Exp $";
 /*
 ** Routines used for processing HTML makeup for forms.
 **
@@ -121,7 +121,6 @@ void HtmlDeleteControls(HtmlWidget *htmlPtr){
           Tcl_AddErrorInfo(htmlPtr->interp,
              "\n    (-formcommand flush callback executed by html widget)");
           Tcl_BackgroundError(htmlPtr->interp);
-          TestPoint(0);
         }
         Tcl_ResetResult(htmlPtr->interp);
       }
@@ -161,29 +160,24 @@ static int InputType(HtmlElement *p){
   switch( p->base.type ){
     case Html_INPUT:
       z = HtmlMarkupArg(p, "type", "text");
-      if( z==0 ){ TestPoint(0); break; }
+      if( z==0 ){ break; }
       for(i=0; i<sizeof(types)/sizeof(types[0]); i++){
         if( stricmp(types[i].zName,z)==0 ){
           type = types[i].type;
-          TestPoint(0);
           break;
         }
-        TestPoint(0);
       }
       break;
     case Html_SELECT:
       type = INPUT_TYPE_Select;
-      TestPoint(0);
       break;
     case Html_TEXTAREA:
       type = INPUT_TYPE_TextArea;
-      TestPoint(0);
       break;
     case Html_APPLET:
     case Html_IFRAME:
     case Html_EMBED:
       type = INPUT_TYPE_Applet;
-      TestPoint(0);
       break;
     default:
       CANT_HAPPEN;
@@ -581,24 +575,20 @@ static char needEscape[] = {
 static void EncodeText(Tcl_DString *str, char *z){
   int i;
   while( *z ){
-    for(i=0; z[i] && !NeedToEscape(z[i]); i++){ TestPoint(0); }
-    if( i>0 ){ TestPoint(0); Tcl_DStringAppend(str, z, i); }
+    for(i=0; z[i] && !NeedToEscape(z[i]); i++){ }
+    if( i>0 ){ Tcl_DStringAppend(str, z, i); }
     z += i;
     while( *z && NeedToEscape(*z) ){
       if( *z==' ' ){
         Tcl_DStringAppend(str,"+",1);
-        TestPoint(0);
       }else if( *z=='\n' ){
         Tcl_DStringAppend(str, "%0D%0A", 6);
-        TestPoint(0);
       }else if( *z=='\r' ){
         /* Ignore it... */
-        TestPoint(0);
       }else{
         char zBuf[5];
         sprintf(zBuf,"%%%02X",0xff & *z);
         Tcl_DStringAppend(str, zBuf, 3);
-        TestPoint(0);
       }
       z++;
     }

@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlimage.c,v 1.12 2000/02/25 13:57:03 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlimage.c,v 1.13 2000/11/10 23:01:38 drh Exp $";
 /*
 ** Routines used for processing <IMG> markup
 **
@@ -57,14 +57,11 @@ int HtmlGetImageAlignment(HtmlElement *p){
     for(i=0; i<sizeof(aligns)/sizeof(aligns[0]); i++){
       if( stricmp(aligns[i].zName,z)==0 ){
         result = aligns[i].iValue;
-        TestPoint(0);
         break;
       }else{
-        TestPoint(0);
       }
     }
   }else{
-    TestPoint(0);
   }
   return result;
 }
@@ -95,7 +92,6 @@ static void ImageChangeProc(
     for(pElem = pImage->pList; pElem; pElem = pElem->image.pNext){
       pElem->image.w = newWidth;
       pElem->image.h = newHeight;
-      TestPoint(0);
     }
     htmlPtr->flags |= RELAYOUT;
     pImage->w = newWidth;
@@ -152,7 +148,6 @@ HtmlImage *HtmlGetImage(HtmlWidget *htmlPtr, HtmlElement *p){
 
   if( p->base.type!=Html_IMG ){ CANT_HAPPEN; return 0; }
   if( htmlPtr->zGetImage==0 || htmlPtr->zGetImage[0]==0 ){
-    TestPoint(0);
     return 0;
   }
   zSrc = HtmlMarkupArg(p, "src", 0);
@@ -205,22 +200,18 @@ HtmlImage *HtmlGetImage(HtmlWidget *htmlPtr, HtmlElement *p){
   if( result==TCL_OK ){
     pImage->image = Tk_GetImage(htmlPtr->interp, htmlPtr->clipwin,
                                 zImageName, ImageChangeProc, pImage);
-    TestPoint(0);
   }else{
     Tcl_AddErrorInfo(htmlPtr->interp,
       "\n    (\"-imagecommand\" command executed by html widget)");
     Tcl_BackgroundError(htmlPtr->interp);
     pImage->image = 0;
-    TestPoint(0);
   }
   if( pImage->image==0 ){
     HtmlFree((char*)pImage);
-    TestPoint(0);
     return 0;
   }
   pImage->pNext = htmlPtr->imageList;
   htmlPtr->imageList = pImage;
-  TestPoint(0);
   Tcl_ResetResult(htmlPtr->interp);
   return pImage;
 }

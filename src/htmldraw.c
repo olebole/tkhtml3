@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmldraw.c,v 1.24 2000/01/31 13:23:46 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmldraw.c,v 1.25 2000/11/10 23:01:37 drh Exp $";
 /*
 ** Routines used to render HTML onto the screen for the Tk HTML widget.
 **
@@ -68,17 +68,13 @@ static void FreeBlock(HtmlBlock *pBlock){
 static void UnlinkAndFreeBlock(HtmlWidget *htmlPtr, HtmlBlock *pBlock){
   if( pBlock->base.pNext ){
     pBlock->base.pNext->base.pPrev = pBlock->base.pPrev;
-    TestPoint(0);
   }else{
     htmlPtr->pLast = pBlock->base.pPrev;
-    TestPoint(0);
   }
   if( pBlock->base.pPrev ){
     pBlock->base.pPrev->base.pNext = pBlock->base.pNext;
-    TestPoint(0);
   }else{
     htmlPtr->pFirst = pBlock->base.pNext;
-    TestPoint(0);
   }
   pBlock->base.pPrev = pBlock->base.pNext = 0;
   FreeBlock(pBlock);
@@ -99,18 +95,14 @@ static void AppendBlock(
   pBlock->pNext = 0;
   if( htmlPtr->lastBlock ){
     htmlPtr->lastBlock->pNext = pBlock;
-    TestPoint(0);
   }else{
     htmlPtr->firstBlock = pBlock;
-    TestPoint(0);
   }
   htmlPtr->lastBlock = pBlock;
   if( pToken->base.pPrev ){
     pToken->base.pPrev->base.pNext = (HtmlElement*)pBlock;
-    TestPoint(0);
   }else{
     htmlPtr->pFirst = (HtmlElement*)pBlock;
-    TestPoint(0);
   }
   pToken->base.pPrev = (HtmlElement*)pBlock;
 }
@@ -127,27 +119,22 @@ static void GetLetterIndex(char *zBuf, int index, int isUpper){
   int seed;
   if( index<1 || index>52 ){
     sprintf(zBuf,"%d",index);
-    TestPoint(0);
     return;
   }
   if( isUpper ){
     seed = 'A';
-    TestPoint(0);
   }else{
     seed = 'a';
-    TestPoint(0);
   }
   index--;
   if( index<26 ){
     zBuf[0] = seed + index;
     zBuf[1] = 0;
-    TestPoint(0);
   }else{
     index -= 26;
     zBuf[0] = seed + index;
     zBuf[1] = seed + index;
     zBuf[2] = 0;
-    TestPoint(0);
   }
   strcat(zBuf,".");
 }
@@ -186,7 +173,6 @@ static void GetRomanIndex(char *zBuf, int index, int isUpper){
   };
   if( index<1 || index>=5000 ){
     sprintf(zBuf,"%d",index);
-    TestPoint(0);
     return;
   }
   for(j=0; index>0 && j<sizeof(values)/sizeof(values[0]); j++){
@@ -194,20 +180,16 @@ static void GetRomanIndex(char *zBuf, int index, int isUpper){
     while( index >= values[j].value ){
       for(k=0; values[j].name[k]; k++){
         zBuf[i++] = values[j].name[k];
-        TestPoint(0);
       }
       index -= values[j].value;
-      TestPoint(0);
     }
   }
   zBuf[i] = 0;
   if( isUpper ){
     for(i=0; zBuf[i]; i++){
       zBuf[i] += 'A' - 'a';
-      TestPoint(0);
     }
   }else{
-    TestPoint(0);
   }
   strcat(zBuf,".");
 }
@@ -228,12 +210,11 @@ static void DrawSelectionBackground(
   XRectangle xrec;          /* Size of a filled rectangle to be drawn */
 
   if( pBlock==0 || (pBlock->base.flags & HTML_Selected)==0 ){
-    TestPoint(0);
     return;
   }
   xLeft = pBlock->left - x;
   if( pBlock==htmlPtr->pSelStartBlock && htmlPtr->selStartIndex>0 ){
-    if( htmlPtr->selStartIndex >= pBlock->n ){ TestPoint(0); return; }
+    if( htmlPtr->selStartIndex >= pBlock->n ){ return; }
     p = pBlock->base.pNext;
     font = HtmlGetFont(htmlPtr, p->base.style.font);
     if( font==0 ) return;
@@ -342,19 +323,17 @@ void HtmlBlockDraw(
   HtmlElement *pTable;    /* The table (when drawing part of a table) */
   int x, y;               /* Where to draw */
 
-  if( pBlock==0 ){ TestPoint(0); return; }
+  if( pBlock==0 ){ return; }
   src = pBlock->base.pNext;
   while( src && (src->base.flags & HTML_Visible)==0 ){
     src = src->base.pNext;
-    TestPoint(0);
   }
-  if( src==0 ){ TestPoint(0); return; }
+  if( src==0 ){ return; }
   if( pBlock->n>0 ){
     /* We must be dealing with plain old text */
     if( src->base.type==Html_Text ){
       x = src->text.x;
       y = src->text.y;
-      TestPoint(0);
     }else{
       CANT_HAPPEN;
       return;
@@ -394,7 +373,7 @@ void HtmlBlockDraw(
       }else{
         x = pBlock->right - drawableLeft;
       }
-      if( x>0 ){ TestPoint(0); x--; }
+      if( x>0 ){ x--; }
       xrec.x = x;
       xrec.y = pBlock->top - drawableTop;
       xrec.width =  2;
@@ -415,27 +394,21 @@ void HtmlBlockDraw(
         switch( src->li.type ){
           case LI_TYPE_Enum_1:
             sprintf(zBuf,"%d.",src->li.cnt);
-            TestPoint(0);
             break;
           case LI_TYPE_Enum_A:
             GetLetterIndex(zBuf,src->li.cnt,1);
-            TestPoint(0);
             break;
           case LI_TYPE_Enum_a:
             GetLetterIndex(zBuf,src->li.cnt,0);
-            TestPoint(0);
             break;
           case LI_TYPE_Enum_I:
             GetRomanIndex(zBuf,src->li.cnt,1);
-            TestPoint(0);
             break;
           case LI_TYPE_Enum_i:
             GetRomanIndex(zBuf,src->li.cnt,0);
-            TestPoint(0);
             break;
           default:
             zBuf[0] = 0;
-            TestPoint(0);
             break;
         }
         gc = HtmlGetGC(htmlPtr, src->base.style.color, src->base.style.font);
@@ -447,7 +420,6 @@ void HtmlBlockDraw(
                      gc,
                      x - 7 - drawableLeft, y - 8 - drawableTop, 7, 7,
                      0, 360*64);
-            TestPoint(0);
             break;
 
           case LI_TYPE_Bullet2:
@@ -456,7 +428,6 @@ void HtmlBlockDraw(
                      gc,
                      x - 7 - drawableLeft, y - 8 - drawableTop, 7, 7,
                      0, 360*64);
-            TestPoint(0);
             break;
 
           case LI_TYPE_Bullet3:
@@ -464,7 +435,6 @@ void HtmlBlockDraw(
                      drawable,
                      gc,
                      x - 7 - drawableLeft, y - 8 - drawableTop, 7, 7);
-            TestPoint(0);
             break;
           
           case LI_TYPE_Enum_1:
@@ -481,7 +451,6 @@ void HtmlBlockDraw(
                  gc, font,
                  zBuf, cnt, 
                  x - w - drawableLeft, y - drawableTop);
-            TestPoint(0);
             break;
         }
         break;
@@ -556,11 +525,9 @@ void HtmlBlockDraw(
                  src->image.zAlt, strlen(src->image.zAlt),
                  src->image.x - drawableLeft, 
                  src->image.y - drawableTop);
-          TestPoint(0);
         }    
         break;
       default:
-        TestPoint(0);
         break;
     }
   }
@@ -586,36 +553,28 @@ void HtmlDrawImage(
   y = imageTop - drawableTop;
   if( imageTop + pElem->image.h > drawableBottom ){
     imageH = drawableBottom - imageTop;
-    TestPoint(0);
   }else{
     imageH = pElem->image.h;
-    TestPoint(0);
   }
   if( y<0 ){
     imageY = -y;
     imageH += y;
     y = 0;
-    TestPoint(0);
   }else{
     imageY = 0;
-    TestPoint(0);
   }
   x = pElem->image.x - drawableLeft;
   if( pElem->image.x + pElem->image.w > drawableRight ){
     imageW = drawableRight - pElem->image.x;
-    TestPoint(0);
   }else{
     imageW = pElem->image.w;
-    TestPoint(0);
   }
   if( x<0 ){
     imageX = -x;
     imageW += x;
     x = 0;
-    TestPoint(0);
   }else{
     imageX = 0;
-    TestPoint(0);
   }
   Tk_RedrawImage(pElem->image.pImage->image, imageX, imageY, imageW, imageH, 
                  drawable, x, y);
@@ -672,14 +631,12 @@ static HtmlElement *FillOutBlock(HtmlWidget *htmlPtr, HtmlBlock *p){
     HtmlElement *pNext = pElem->pNext;
     if( pElem->base.type==Html_Block ){
       UnlinkAndFreeBlock(htmlPtr, &pElem->block);
-      TestPoint(0);
     }else{
       p->base.count++;
-      TestPoint(0);
     }
     pElem = pNext;
   }
-  if( pElem==0 ){ TestPoint(0); return 0; }
+  if( pElem==0 ){ return 0; }
 
   /*
   ** Handle "special" elements.
@@ -691,14 +648,12 @@ static HtmlElement *FillOutBlock(HtmlWidget *htmlPtr, HtmlBlock *p){
         p->bottom = pElem->hr.y;
         p->left = pElem->hr.x;
         p->right = pElem->hr.x + pElem->hr.w;
-        TestPoint(0);
         break;
       case Html_LI:
         p->top = pElem->li.y - pElem->li.ascent;
         p->bottom = pElem->li.y + pElem->li.descent;
         p->left = pElem->li.x - 10;
         p->right = pElem->li.x + 10;
-        TestPoint(0);
         break;
       case Html_TD:
       case Html_TH:
@@ -706,25 +661,21 @@ static HtmlElement *FillOutBlock(HtmlWidget *htmlPtr, HtmlBlock *p){
         p->bottom = pElem->cell.y + pElem->cell.h;
         p->left = pElem->cell.x;
         p->right = pElem->cell.x + pElem->cell.w;
-        TestPoint(0);
         break;
       case Html_TABLE:
         p->top = pElem->table.y;
         p->bottom = pElem->table.y + pElem->table.h;
         p->left = pElem->table.x;
         p->right = pElem->table.x + pElem->table.w;
-        TestPoint(0);
         break;
       case Html_IMG:
         p->top = pElem->image.y - pElem->image.ascent;
         p->bottom = pElem->image.y + pElem->image.descent;
         p->left = pElem->image.x;
         p->right = pElem->image.x + pElem->image.w;
-        TestPoint(0);
         break;
     }
     p->base.count++;
-    TestPoint(0);
     return pElem->pNext;
   }
 
@@ -744,7 +695,6 @@ static HtmlElement *FillOutBlock(HtmlWidget *htmlPtr, HtmlBlock *p){
     switch( pElem->base.type ){
       case Html_Text:
         if( pElem->base.style.flags & STY_Invisible ){
-          TestPoint(0);
           break;
         }
         if( pElem->text.spaceWidth <=0 ){
@@ -758,20 +708,16 @@ static HtmlElement *FillOutBlock(HtmlWidget *htmlPtr, HtmlBlock *p){
               != (pElem->base.style.flags & STY_FontMask)
         ){
           go = 0;
-          TestPoint(0);
         }else{
           int sw = pElem->text.spaceWidth;
           int nSpace = (pElem->text.x - x) / sw;
           if( nSpace * sw + x != pElem->text.x ){
             go = 0;
-            TestPoint(0);
           }else if( n + nSpace + pElem->base.count >= sizeof(zBuf) ){
             go = 0;
-            TestPoint(0);
           }else{
             for(i=0; i<nSpace; i++){
               zBuf[n++] = ' ';
-              TestPoint(0);
             }
             strcpy(&zBuf[n], pElem->text.zText);
             n += pElem->base.count;
@@ -802,7 +748,6 @@ static HtmlElement *FillOutBlock(HtmlWidget *htmlPtr, HtmlBlock *p){
 
       default:
         if( pElem->base.flags & HTML_Visible ) go = 0;
-        TestPoint(0);
         break;
     }
     if( go==0 ) break;
@@ -811,7 +756,7 @@ static HtmlElement *FillOutBlock(HtmlWidget *htmlPtr, HtmlBlock *p){
   }
   p->right = x;
 
-  while( n>0 && zBuf[n-1]==' ' ){ TestPoint(0); n--; }
+  while( n>0 && zBuf[n-1]==' ' ){ n--; }
   p->z = HtmlAlloc( n );
   strncpy(p->z, zBuf, n);
   p->n = n;
