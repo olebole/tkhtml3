@@ -1,6 +1,6 @@
 /*
 ** Routines used to compute the style and size of individual elements.
-** $Revision: 1.13 $
+** $Revision: 1.14 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -1001,9 +1001,7 @@ void HtmlSizer(HtmlWidget *htmlPtr){
         p->image.redrawNeeded = 0;
         p->image.textAscent = fontMetrics.ascent;
         p->image.textDescent = fontMetrics.descent;
-        HtmlLock(htmlPtr);
         p->image.align = HtmlGetImageAlignment(p);
-        if( HtmlUnlock(htmlPtr) ) return;
         if( p->image.pImage==0 ){
           p->image.ascent = fontMetrics.ascent;
           p->image.descent = fontMetrics.descent;

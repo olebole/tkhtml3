@@ -1,7 +1,7 @@
 /*
 ** This file contains the code used to position elements of the
 ** HTML file on the screen.
-** $Revision: 1.8 $
+** $Revision: 1.9 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -190,10 +190,8 @@ static HtmlElement *GetLine(
   }
   if( p->base.style.flags & STY_DT ){
     origin = -HTML_INDENT;
-    TestPoint(0);
   }else{
     origin = 0;
-    TestPoint(0);
   }
   x = origin;
   if( x<minX ){ x = minX; }
@@ -209,9 +207,6 @@ static HtmlElement *GetLine(
     while( p && (p->base.type==Html_Space || p->base.type==Html_P) ){
       p = p->pNext;
     }
-    TestPoint(0);
-  }else{
-    TestPoint(0);
   }
   for(; p && p!=pEnd; p=p->pNext){
     if( p->base.style.flags & STY_Invisible ){
@@ -226,9 +221,6 @@ static HtmlElement *GetLine(
             TestPoint(0);
             return lastBreak;
           }
-          TestPoint(0);
-        }else{
-          TestPoint(0);
         }
         TRACE(HtmlTrace_GetLine2, ("Place token %s at x=%d w=%d\n",
            HtmlTokenName(p), p->text.x, p->text.w));
@@ -251,16 +243,10 @@ static HtmlElement *GetLine(
           if( (p->base.style.flags & STY_NoBreak)==0 ){
             lastBreak = p->pNext;
             *actualWidth = x<=0 && !isEmpty ? 1 : x;
-            TestPoint(0);
-          }else{
-            TestPoint(0);
           }
           w = p->space.w;
           if( spaceWanted < w && x>origin ){
             spaceWanted = w;
-            TestPoint(0);
-          }else{
-            TestPoint(0);
           }
         }
         break;
@@ -270,10 +256,8 @@ static HtmlElement *GetLine(
           case IMAGE_ALIGN_Left:
           case IMAGE_ALIGN_Right:
             *actualWidth = x<=0 && !isEmpty ? 1 : x;
-            TestPoint(0);
             return p;
           default:
-            TestPoint(0);
             break;
         }
         p->image.x = x + spaceWanted;
@@ -282,13 +266,14 @@ static HtmlElement *GetLine(
             TestPoint(0);
             return lastBreak;
           }
-          TestPoint(0);
-        }else{
-          TestPoint(0);
         }
         TRACE(HtmlTrace_GetLine2, ("Place in-line image %s at x=%d w=%d\n",
            HtmlTokenName(p), p->image.x, p->image.w));
         x += p->image.w + spaceWanted;
+        if( (p->base.style.flags & STY_NoBreak)==0 ){
+          lastBreak = p->pNext;
+          *actualWidth = x<=0 && !isEmpty ? 1 : x;
+        }
         spaceWanted = 0;
         isEmpty = 0;
         break;

@@ -1,6 +1,6 @@
 /*
 ** Routines for doing layout of HTML tables
-** $Revision: 1.6 $
+** $Revision: 1.7 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -201,8 +201,6 @@ static HtmlElement *TableDimensions(
             TestPoint(0);
           }
           pStart->table.nCol = nCol;
-        }else{
-          TestPoint(0);
         }
         noWrap = HtmlMarkupArg(p, "nowrap", 0)!=0;
         pNext = MinMax(htmlPtr, p, &minW, &maxW);
@@ -210,11 +208,13 @@ static HtmlElement *TableDimensions(
         TRACE(HtmlTrace_Table1,
           ("Row %d Column %d: min=%d max=%d stop at %s\n",
             iRow,iCol,minW,maxW, HtmlTokenName(p->cell.pEnd)));
+        if( (z = HtmlMarkupArg(p, "width", 0))!=0 ){
+          minW = maxW = atoi(z);
+          TRACE(HtmlTrace_Table1,
+            ("Row %d Column %d: width=%d\n",iRow,iCol,minW));
+        }
         if( noWrap ){
           minW = maxW;
-          TestPoint(0);
-        }else{
-          TestPoint(0);
         }
         if( iCol < HTML_MAX_COLUMNS ){
           if( p->cell.colspan==0 ){
@@ -452,10 +452,6 @@ static HtmlElement *MinMax(
         TestPoint(0);
         break;
     }
-/* fprintf(stderr,"After %s: min=%d max=%d\n", HtmlTokenName(p), min, max); */
-if( max>1000 ){
-  /* fprintf(stderr,"Big!\n"); */
-}
     if( !go ){ TestPoint(0); break; }
     TestPoint(0);
   }
