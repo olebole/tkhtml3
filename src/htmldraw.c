@@ -1,6 +1,6 @@
 /*
 ** Routines used to render HTML onto the screen for the Tk HTML widget.
-** $Revision: 1.5 $
+** $Revision: 1.6 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -279,6 +279,30 @@ static void DrawSelectionBackground(
 }
 
 /*
+** Draw a rectangle.  The rectangle will have a 3-D appearance if
+** flat==0 and a flat appearance if flat==1.
+*/
+static void HtmlDrawRect(
+  HtmlWidget *htmlPtr,              /* The HTML widget */
+  Drawable drawable,                /* Draw it here */
+  HtmlElement *src,                 /* Element associated with drawing */
+  int x, int y, int w, int h,       /* Coordinates of the rectangle */
+  int depth,                        /* Width of the relief, or the flat line */
+  int relief                        /* The relief.  TK_RELIEF_FLAT omits 3d */
+){
+  if( relief!=TK_RELIEF_FLAT ){
+    Tk_Draw3DRectangle(htmlPtr->tkwin, drawable, htmlPtr->border,
+      x, y, w, h, depth, relief);
+  }else{
+    GC gc;
+    gc = HtmlGetGC(htmlPtr, src->base.style.color, FONT_Any);
+    XFillRectangle(htmlPtr->display, drawable, gc, x, y, w, h);
+    Tk_Fill3DRectangle(htmlPtr->tkwin, drawable, htmlPtr->border,
+      x+depth, y+depth, w-depth*2, h-depth*2, 0, TK_RELIEF_FLAT);
+  }
+}
+
+/*
 ** Display a single HtmlBlock.  This is where all the drawing
 ** happens.
 */
@@ -430,55 +454,55 @@ void HtmlBlockDraw(
             break;
         }
         break;
-      case Html_HR:
-        if( src->hr.is3D ){
-          Tk_Draw3DRectangle(htmlPtr->tkwin, drawable, htmlPtr->border,
+      case Html_HR: {
+        int relief;
+        switch( htmlPtr->tableRelief ){
+          case TK_RELIEF_RAISED:  relief = TK_RELIEF_SUNKEN; break;
+          case TK_RELIEF_SUNKEN:  relief = TK_RELIEF_RAISED; break;
+          default:                relief = TK_RELIEF_FLAT;   break;
+        }
+        HtmlDrawRect(htmlPtr, drawable, src,
             src->hr.x - drawableLeft,
             src->hr.y - drawableTop,
             src->hr.w,
             src->hr.h,
-            1, TK_RELIEF_SUNKEN);
-          TestPoint(0);
-        }else{
-          gc = HtmlGetGC(htmlPtr, src->base.style.color, FONT_Any);
-          XFillRectangle(htmlPtr->display, drawable, gc,
-            src->hr.x - drawableLeft, src->hr.y - drawableTop, 
-            src->hr.w, src->hr.h);
-          TestPoint(0);
-        }
+            1, relief);
         break;
+      }
       case Html_TABLE:
         if( src->table.borderWidth ){
-          Tk_Draw3DRectangle(htmlPtr->tkwin,
-                             drawable,
-                             htmlPtr->border,
+          int relief;
+          switch( htmlPtr->tableRelief ){
+            case TK_RELIEF_RAISED:  relief = TK_RELIEF_RAISED; break;
+            case TK_RELIEF_SUNKEN:  relief = TK_RELIEF_SUNKEN; break;
+            default:                relief = TK_RELIEF_FLAT;   break;
+          }
+          HtmlDrawRect(htmlPtr, drawable, src,
                              src->table.x - drawableLeft,
                              src->table.y - drawableTop,
                              src->table.w, 
                              src->table.h,
                              src->table.borderWidth,
-                             TK_RELIEF_RAISED);
-          TestPoint(0);
-        }else{
-          TestPoint(0);
+                             relief);
         }
         break;
       case Html_TH:
       case Html_TD:
         pTable = src->cell.pTable;
         if( pTable->table.borderWidth ){
-          Tk_Draw3DRectangle(htmlPtr->tkwin,
-                             drawable,
-                             htmlPtr->border,
+          int relief;
+          switch( htmlPtr->tableRelief ){
+            case TK_RELIEF_RAISED:  relief = TK_RELIEF_SUNKEN; break;
+            case TK_RELIEF_SUNKEN:  relief = TK_RELIEF_RAISED; break;
+            default:                relief = TK_RELIEF_FLAT;   break;
+          }
+          HtmlDrawRect(htmlPtr, drawable, src,
                              src->cell.x - drawableLeft,
                              src->cell.y - drawableTop,
                              src->cell.w, 
                              src->cell.h,
                              pTable->table.borderWidth,
-                             TK_RELIEF_SUNKEN);
-          TestPoint(0);
-        }else{
-          TestPoint(0);
+                             relief);
         }
         break;
       case Html_IMG:

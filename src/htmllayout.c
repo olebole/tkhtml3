@@ -1,7 +1,7 @@
 /*
 ** This file contains the code used to position elements of the
 ** HTML file on the screen.
-** $Revision: 1.7 $
+** $Revision: 1.8 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -952,14 +952,22 @@ static HtmlElement *DoBreakMarkup(
     case Html_HR: {
       int zl, wd;
 
-      z = HtmlMarkupArg(p, "size", "3");
+      p->hr.is3D = HtmlMarkupArg(p, "noshade", 0)==0;
+      z = HtmlMarkupArg(p, "size", 0);
       if( z ){
         p->hr.h = atoi(z);
-        if( p->hr.h<1 ) p->hr.h = 3;
       }else{
-        p->hr.h = 3;
+        p->hr.h = 0;
       }
-      p->hr.is3D = HtmlMarkupArg(p, "noshade", 0)==0;
+      if( p->hr.h<1 ){
+        int relief = pLC->htmlPtr->tableRelief;
+        if( p->hr.is3D 
+        && (relief==TK_RELIEF_SUNKEN || relief==TK_RELIEF_RAISED) ){
+          p->hr.h = 3;
+        }else{
+          p->hr.h = 2;
+        }
+      }
       ComputeMargins(pLC, &x, &y, &w);
       p->hr.y = y;
       y += p->hr.h + 1;

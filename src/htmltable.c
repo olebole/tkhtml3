@@ -1,6 +1,6 @@
 /*
 ** Routines for doing layout of HTML tables
-** $Revision: 1.4 $
+** $Revision: 1.5 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -31,11 +31,12 @@
 /*
 ** Default values for various table style parameters
 */
-#define DFLT_BORDER      0
-#define DFLT_CELLSPACING 5
-#define DFLT_CELLPADDING 2
-#define DFLT_HSPACE      5
-#define DFLT_VSPACE      3
+#define DFLT_BORDER             0
+#define DFLT_CELLSPACING_3D     5
+#define DFLT_CELLSPACING_FLAT   0
+#define DFLT_CELLPADDING        2
+#define DFLT_HSPACE             5
+#define DFLT_VSPACE             3
 
 #if INTERFACE
 /*
@@ -44,8 +45,30 @@
 #define SETMAX(A,B)  if( (A)<(B) ){ (A) = (B); }
 #endif
 
+/*
+** Return the appropriate cell spacing for the given table.
+*/
+static int CellSpacing(HtmlWidget *htmlPtr, HtmlElement *pTable){
+  char *z;
+  int relief;
+  int cellSpacing;
+
+  z = HtmlMarkupArg(pTable, "cellspacing", 0);
+  if( z==0 ){
+     relief = htmlPtr->tableRelief;
+     if( relief==TK_RELIEF_RAISED || relief==TK_RELIEF_SUNKEN ){
+       cellSpacing = DFLT_CELLSPACING_3D;
+     }else{
+       cellSpacing = DFLT_CELLSPACING_FLAT;
+     }
+  }else{
+    cellSpacing = atoi(z);
+  }
+  return cellSpacing;
+}
+
 /* Forward declaration */
-static HtmlElement *MinMax(HtmlElement *, int *, int *);
+static HtmlElement *MinMax(HtmlWidget*, HtmlElement *, int *, int *);
 
 /* pStart points to a <table>.  Compute the number of columns, the
 ** minimum and maximum size for each column and the overall minimum
@@ -64,6 +87,7 @@ static HtmlElement *MinMax(HtmlElement *, int *, int *);
 ** markup, the pTable and pEnd fields are set to their proper values.
 */
 static HtmlElement *TableDimensions(
+  HtmlWidget *htmlPtr,               /* The HTML widget */
   HtmlElement *pStart                /* The <table> markup */
 ){
   HtmlElement *p;                    /* Element being processed */
@@ -98,8 +122,7 @@ static HtmlElement *TableDimensions(
   bw = pStart->table.borderWidth = z ? atoi(z) : DFLT_BORDER;
   z = HtmlMarkupArg(pStart, "cellpadding", 0);
   cellPadding = z ? atoi(z) : DFLT_CELLPADDING;
-  z = HtmlMarkupArg(pStart, "cellspacing", 0);
-  cellSpacing = z ? atoi(z) : DFLT_CELLSPACING;
+  cellSpacing = CellSpacing(htmlPtr, pStart);
   separation = cellSpacing + 2*(cellPadding + bw);
   z = HtmlMarkupArg(pStart, "hspace", 0);
   hspace = z ? atoi(z) : DFLT_HSPACE;
@@ -182,7 +205,7 @@ static HtmlElement *TableDimensions(
           TestPoint(0);
         }
         noWrap = HtmlMarkupArg(p, "nowrap", 0)!=0;
-        pNext = MinMax(p, &minW, &maxW);
+        pNext = MinMax(htmlPtr, p, &minW, &maxW);
         p->cell.pEnd = pNext;
         TRACE(HtmlTrace_Table1,
           ("Row %d Column %d: min=%d max=%d stop at %s\n",
@@ -296,6 +319,7 @@ i, pStart->table.minW[i], pStart->table.maxW[i]);
 ** element string contains figures with flow-around text.
 */
 static HtmlElement *MinMax(
+  HtmlWidget *htmlPtr,     /* The Html widget */
   HtmlElement *p,          /* Start the search here */
   int *pMin,               /* Return the minimum width here */
   int *pMax                /* Return the maximum width here */
@@ -358,7 +382,7 @@ static HtmlElement *MinMax(
         }
         break;
       case Html_TABLE:
-        pNext = TableDimensions(p);
+        pNext = TableDimensions(htmlPtr, p);
         x1 = p->table.maxW[0] + indent;
         x2 = p->table.minW[0] + indent;
         SETMAX( max, x1 );
@@ -522,7 +546,7 @@ HtmlElement *HtmlTableLayout(
   }
   TRACE(HtmlTrace_Table1, ("Starting TableLayout() at %s\n", 
                           HtmlTokenName(pTable)));
-  pEnd = TableDimensions(pTable);
+  pEnd = TableDimensions(pLC->htmlPtr, pTable);
 
   /* Figure how much horizontal space is available for rendering 
   ** this table.  Store the answer in lineWidth.  */
@@ -569,8 +593,7 @@ HtmlElement *HtmlTableLayout(
   ** the table */
   z = HtmlMarkupArg(pTable, "cellpadding", 0);
   cellPadding = z ? atoi(z) : DFLT_CELLPADDING;
-  z = HtmlMarkupArg(pTable, "cellspacing", 0);
-  cellSpacing = z ? atoi(z) : DFLT_CELLSPACING;
+  cellSpacing = CellSpacing(pLC->htmlPtr, pTable);
   z = HtmlMarkupArg(pTable, "vspace", 0);
   vspace = z ? atoi(z) : DFLT_VSPACE;
   z = HtmlMarkupArg(pTable, "hspace", 0);

@@ -1,6 +1,6 @@
 /*
 ** Structures and typedefs used by the HTML widget
-** $Revision: 1.8 $
+** $Revision: 1.9 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -821,6 +821,7 @@ struct HtmlWidget {
    /*
     * Miscellaneous information:
     */
+  int tableRelief;              /* 3d effects on <TABLE> and <HR> */
   char *zBase;                  /* The base URI */
   char *zBaseHref;              /* zBase as modified by <BASE HREF=..> markup */
   Tk_Cursor cursor;		/* Current cursor for window, or None. */

@@ -427,6 +427,7 @@ MakeProg hwishdev "htmlwish.o appinitdev.o libtkhtml.a" tk
 MakeMta hv [Src hv/hv.tcl] [Src hv/hv.tcl] [Src hv/hvinit.c] tk {}
 MakeObj hvinit.o [Src hv/hvinit.c] hv.h
 MakeProg hv "hv.o hvinit.o libtkhtml.a" tk
+MakeProg hvdev "hvdev.o hvinit.o libtkhtml.a" tk
 
 #############################################################################
 #  It is not usually necessary to change anything below this line.

@@ -1,6 +1,6 @@
 /*
 ** The main routine for the HTML widget for Tcl/Tk
-** $Revision: 1.12 $
+** $Revision: 1.13 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -115,6 +115,8 @@ Tk_ConfigSpec configSpecs[] = {
         DEF_HTML_CALLBACK, Tk_Offset(HtmlWidget, zResolverCommand), 0},
     {TK_CONFIG_COLOR, "-selectioncolor", "background", "Background",
 	DEF_HTML_SELECTION_COLOR, Tk_Offset(HtmlWidget, selectionColor), 0},
+    {TK_CONFIG_RELIEF, "-tablerelief", "tableRelief","TableRelief",
+        "raised", Tk_Offset(HtmlWidget, tableRelief), 0},
     {TK_CONFIG_STRING, "-takefocus", "takeFocus", "TakeFocus",
 	DEF_HTML_TAKE_FOCUS, Tk_Offset(HtmlWidget, takeFocus),
 	TK_CONFIG_NULL_OK},
