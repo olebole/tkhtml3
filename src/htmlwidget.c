@@ -1,6 +1,6 @@
 /*
 ** The main routine for the HTML widget for Tcl/Tk
-** $Revision: 1.11 $
+** $Revision: 1.12 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -458,6 +458,7 @@ static void HtmlRedrawCallback(ClientData clientData){
     if( htmlPtr->flags & REDRAW_PENDING ){ TestPoint(0); return; }
     clipwin = htmlPtr->clipwin;
     if( clipwin==0 ){ TestPoint(0); return; }
+HtmlMapControls(htmlPtr);
   }
 
   /* Redraw the focus highlight, if requested */
@@ -1534,7 +1535,6 @@ void HtmlVerticalScroll(HtmlWidget *htmlPtr, int yOffset){
   gc = HtmlGetAnyGC(htmlPtr);
   w = htmlPtr->realWidth - 2*(htmlPtr->inset + htmlPtr->padx);
   htmlPtr->flags |= VSCROLL;
-  /* HtmlUnmapControls(htmlPtr); */
   htmlPtr->yOffset = yOffset;
   if( diff < 0 ){
     XCopyArea(htmlPtr->display, 
@@ -1557,7 +1557,7 @@ void HtmlVerticalScroll(HtmlWidget *htmlPtr, int yOffset){
     HtmlRedrawArea(htmlPtr, 0, 0, w, diff);
     TestPoint(0);
   }
-  HtmlMapControls(htmlPtr);
+  /* HtmlMapControls(htmlPtr);*/
 }
 
 /*
