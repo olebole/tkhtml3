@@ -2833,7 +2833,11 @@ static InFile *CreateInFile(char *zArg, int *pnErr){
   */
   else{
     int foundC = 0;
-    pFile->zHdr = StrDup(zSrc,nSrc);
+    int i, j;
+    for(i=0, j=-1; zSrc[i]; i++){
+      if( zSrc[i]=='/' && zSrc[i+1] ) j = i;
+    }
+    pFile->zHdr = StrDup(&zSrc[j+1], nSrc-(j+1));
     for(i = nSrc-1; i>0 && pFile->zHdr[i]!='.'; i--){
       if( pFile->zHdr[i]=='c' ){
         foundC = 1;
