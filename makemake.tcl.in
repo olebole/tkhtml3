@@ -12,9 +12,7 @@
 # (Prehaps comment out the BLT part if you are not using BLT.)
 # This script requires some customization down toward the bottom.
 #
-# All of the above information is discovered by the configure
-# shell script.  The configure shell script then inserts the 
-# information here:
+# $Revision: 1.12 $
 #
 
 # Some useful variables.

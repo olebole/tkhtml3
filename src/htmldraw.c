@@ -1,6 +1,6 @@
 /*
 ** Routines used to render HTML onto the screen for the Tk HTML widget.
-** $Revision: 1.15 $
+** $Revision: 1.16 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -240,12 +240,7 @@ static void DrawSelectionBackground(
     if( p->base.type==Html_Text ){
       xLeft = p->text.x - x + Tk_TextWidth(font, pBlock->z, 
                                            htmlPtr->selStartIndex);
-      TestPoint(0);
-    }else{
-      TestPoint(0);
     }
-  }else{
-    TestPoint(0);
   }
   xRight = pBlock->right - x;
   if( pBlock==htmlPtr->pSelEndBlock && htmlPtr->selEndIndex<pBlock->n ){
@@ -253,19 +248,11 @@ static void DrawSelectionBackground(
       p = pBlock->base.pNext;
       font = HtmlGetFont(htmlPtr, p->base.style.font);
       if( font==0 ) return;
-      TestPoint(0);
-    }else{
-      TestPoint(0);
     }
     if( p->base.type==Html_Text ){
       xRight = p->text.x - x + Tk_TextWidth(font, pBlock->z,
                                             htmlPtr->selEndIndex);
-      TestPoint(0);
-    }else{
-      TestPoint(0);
     }
-  }else{
-    TestPoint(0);
   }
   yTop = pBlock->top - y;
   yBottom = pBlock->bottom - y;

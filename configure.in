@@ -161,6 +161,11 @@
 #
 AC_INIT(src/html.h)
 
+dnl Put the RCS revision string after AC_INIT so that it will also
+dnl show in in configure.
+# The following RCS revision string applies to configure.in
+# $Revision: 1.10 $
+
 #########
 # Set up an appropriate program prefix
 #

@@ -3,6 +3,8 @@
 # This script builds "libtkhtml.so" for Linux and Tcl/Tk8.1.1-stubs.
 # First do "make srcdir; cd srcdir".  Then run this script.
 #
+# $Revision: 1.3 $
+#
 
 TCLBASE=/home/drh/tcltk/tcl8.1.1
 TKBASE=/home/drh/tcltk/tk8.1.1
