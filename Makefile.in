@@ -12,7 +12,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile.in,v 1.4 2005/03/24 12:05:06 danielk1977 Exp $
+# RCS: @(#) $Id: Makefile.in,v 1.5 2005/03/25 06:22:19 danielk1977 Exp $
 
 #========================================================================
 # Edit the following few lines when writing a new extension
@@ -264,6 +264,12 @@ testshell	=	$(TCLSH_PROG) $(srcdir)/testshell
 #		-load 'load ./$(Tkhtml_LIB_FILE)' \
 #		-testdir $(srcdir)/tea.tests
 
+autotest: binaries libraries
+	$(TCLSH) `@CYGPATH@ $(srcdir)/tests/tree.test` $(TESTFLAGS)
+	$(testshell)	\
+	-load 'load ./$(Tkhtml_LIB_FILE)' \
+	-testdir $(srcdir)/tea.tests
+
 test: binaries libraries
 	echo load ./$(Tkhtml_LIB_FILE) \; cd $(srcdir)/tests \; source all | $(TCLSH) $(TESTFLAGS)
 
@@ -325,8 +331,8 @@ makeheaders:	$(srcdir)/tools/makeheaders.c
 mktclapp:	$(srcdir)/tools/mktclapp.c
 	$(COMPILE) `@CYGPATH@ $(srcdir)/tools/mktclapp.c` -o $@
 
-htmltokens.c:	$(srcdir)/src/tokenlist.txt $(srcdir)/tools/maketokens.tcl
-	$(TCLSH_PROG) $(srcdir)/tools/maketokens.tcl $(srcdir)/src/tokenlist.txt
+htmltokens.c:	$(srcdir)/src/tokenlist.txt
+	$(TCLSH_PROG) $(srcdir)/src/tokenlist.txt
 
 headers:	makeheaders htmltokens.c
 	./makeheaders	$(srcdir)/src/htmlcmd.c:htmlcmd.h	\

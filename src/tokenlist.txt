@@ -1,12 +1,42 @@
 #
-# This file contains raw data used to build the "htmltokens.c" file.
-# Each line contains 2 or 3 elements.  The first word on each line is
-# the name of some HTML markup.  The second word is the amount of
-# space to allocate for the corresponding element.  "0" appears if
-# no extra space (beyond HtmlMarkup) is required.  If there is a
-# corresponding end-tag, then the third column specifies the size of
-# the end markup.
-# $Revision: 1.11 $
+# $Revision: 1.12 $
+#
+# tokenlist.tcl -- 
+#
+#     This file contains raw data used to build a database of tag
+#     information used by tkhtml at runtime. Most of the information in
+#     this file comes from the SGML specification of the various versions
+#     of the HTML language. Also, some html tags require a special C
+#     structure to be allocated for some specific use. This file identifies
+#     these tags.
+#
+#     In an HTML document, some elements have implicit close tags (some
+#     also have optional open tags, but this is handled entirely in
+#     htmltree.c). To build the correct document tree from an HTML file
+#     tkhtml needs to know about this. So this file contains enough
+#     information to allow implicit close tags to be determined. 
+#
+#     The rules for implicit closes in HTML are summarised in the 
+#     following table:
+#
+#     Tag        | Allowed content
+#     -------------------------------
+#     <p>        | %inline only.
+#     <colgroup> | <col> only.
+#     <dd>       | %flow
+#     <dt>       | %inline only.
+#     <li>       | %flow
+#     <option>   | #PCDATA only.
+#     <td>       | %flow
+#     <tfoot>    | <tr> only.
+#     <th>       | %flow
+#     <thead>    | <tr> only
+#     <tr>       | <TH> or <TD> only.
+#
+#     Of course, all implicit closes are illegal in XHTML, which is what
+#     everyone should be using soon (yeah right!).
+#
+# -------------------------------------------------------------------
 #
 # This source code is released into the public domain by the author,
 # D. Richard Hipp, on 2002 December 17.  Instead of a license, here
@@ -15,90 +45,217 @@
 #    May you do good and not evil.
 #    May you find forgiveness for yourself and forgive others.
 #    May you share freely, never taking more than you give.
+#
 
+###########################################################################
+proc TAG {args} {
+    lappend ::tagscript [concat _TAG $args]
+}
+#
+# File Format:
+#
+#     This file is sourced by a Tcl interpreter. The global 'TAG'
+#     command is used to add a new tag to the internal database. The
+#     Tcl script outputs C-code which is used to build a runtime
+#     version of the same database.
+#
+#     TAG tag-name 
+#         ?-open struct-name? 
+#         ?-close struct-name? 
+#         ?-flow (inline|block)?
+#         ?-empty?
+#
+TAG a          -open HtmlAnchor         -close HtmlRef     -flow inline
+# TAG abbr
+# TAG acronym
+TAG address                                                -flow inline
+TAG applet     -open HtmlInput          
+TAG area       -open HtmlMapArea        -empty
+TAG base                                -empty             
+TAG basefont
+TAG b                                                      -flow inline
+# TAG bdo
+TAG big                                                    -flow inline
+TAG blockquote                                             -flow block
+TAG body                                                   
+TAG br                                  -empty             -flow block
+# TAG button
+TAG caption                                                
+TAG center                                                 -flow block
+TAG cite                                                   -flow inline
+TAG code                                                   -flow inline
+# TAG col
+# TAG colgroup
+TAG dd         -open HtmlRef            
+# TAG del
+TAG dfn                                                    -flow inline
+TAG dir        -open HtmlListStart      -close HtmlRef     -flow block
+TAG div                                                    -flow block
+TAG dl         -open HtmlListStart      -close HtmlRef     -flow block
+TAG dt         -open HtmlRef
+TAG em                                                     -flow inline
+# TAG fieldset
+TAG font                                                   -flow inline
+TAG form       -open HtmlForm           -close HtmlRef     -flow block
+TAG frame
+TAG frameset
+TAG h1                                                     -flow block
+TAG h2                                                     -flow block
+TAG h3                                                     -flow block
+TAG h4                                                     -flow block
+TAG h5                                                     -flow block
+TAG h6                                                     -flow block
+TAG head                                
+TAG hr         -open HtmlHr             -empty             -flow block
+TAG html                                
+TAG i                                                      -flow inline
+TAG iframe                              -empty
+TAG img        -open HtmlImageMarkup    -empty             -flow inline
+TAG input      -open HtmlInput          -empty
+TAG isindex                             -empty             -flow block
+TAG kbd                                                    -flow inline
+# TAG label
+# TAG legend
+TAG li         -open HtmlLi
+TAG link                                -empty  
+TAG map                                                    -flow inline
+TAG menu       -open HtmlListStart      -close HtmlRef     -flow block
+TAG meta                                -empty 
+TAG noframes
+TAG noscript                            
+# TAG object
+TAG ol         -open HtmlListStart      -close HtmlRef     -flow block
+# TAG optgroup
+TAG option                              
+TAG p                                                      -flow block
+TAG param
+TAG pre                                                    -flow block
+# TAG q
+TAG s                                                      -flow inline
+TAG samp                                                   -flow inline
+TAG script     -open HtmlScript         -empty             -flow inline
+TAG select     -open HtmlInput          -close HtmlRef     -flow inline
+TAG small                                                  -flow inline
+# TAG span
+TAG strike                                                 -flow inline
+TAG strong                                                 -flow inline
+TAG style      -open HtmlScript         -empty
+TAG sub                                                    -flow inline
+TAG sup                                                    -flow inline
+TAG table      -open HtmlTable          -close HtmlRef     -flow block
+# TAG tbody
+TAG td         -open HtmlCell           -close HtmlRef
+TAG textarea   -open HtmlInput          -close HtmlRef     -flow inline
+# TAG tfoot
+TAG th         -open HtmlCell           -close HtmlRef
+# TAG thead
+TAG title
+TAG tr         -open HtmlRef            -close HtmlRef
+TAG tt                                                     -flow inline
+TAG u                                                      -flow inline
+TAG ul         -open HtmlListStart      -close HtmlRef     -flow block
+TAG var                                                    -flow inline
 
-# Order is not important.  Comments begin with #.  Spacing is ignored.
+#     The tags listed above are the complete set of HTML 4.01 tags. Some
+#     are commented out because we don't support them in any way.
+#
+#     Tkhtml also supports the tags below. They are no longer inluded
+#     in the standard as of HTML 4.01. Supporting these tags is a low
+#     priority.
+#
+TAG comment    -open HtmlTextElement
+TAG embed      -open HtmlInput                          
+TAG listing                             
+TAG marquee                             
+TAG nextid                              -empty             
+TAG nobr                                
+TAG noembed                              
+TAG plaintext                           -empty             
+TAG wbr                                 -empty 
+TAG xmp                                 
+TAG bgsound                             -empty 
 
-a               HtmlAnchor                     HtmlRef
-address         0                              0
-applet          HtmlInput                      0
-area            HtmlMapArea                              
-b               0                              0
-base            0                              
-basefont        0                              0
-bgsound         0                              
-big             0                              0
-blockquote      0                              0
-body            0                              0
-br              0                              
-caption         0                              0
-center          0                              0
-cite            0                              0
-code            0                              0
-comment         HtmlTextElement                0
-dd              HtmlRef                        0
-dfn             0                              0
-dir             HtmlListStart                  HtmlRef
-div             0                              0
-dl              HtmlListStart                  HtmlRef
-dt              HtmlRef                        0
-em              0                              0
-embed           HtmlInput		       0
-font            0                              0
-form            HtmlForm                       HtmlRef
-frame           0                              0
-noframes        0                              0
-frameset        0                              0
-h1              0                              0
-h2              0                              0
-h3              0                              0
-h4              0                              0
-h5              0                              0
-h6              0                              0
-hr              HtmlHr                              
-html            0                              0
-i               0                              0
-iframe          0
-img             HtmlImageMarkup                
-input           HtmlInput                      
-isindex         0                              
-kbd             0                              0
-li              HtmlLi                         0
-link            0                              
-listing         0                              0
-map             0                              0
-marquee         0                              0
-menu            HtmlListStart                  HtmlRef
-meta            0                              
-nextid          0                              
-nobr            0                              0
-noembed         0                              0
-noscript        0                              0
-ol              HtmlListStart                  HtmlRef
-option          0                              0
-p               0                              0
-param           0                              0
-plaintext       0                              
-pre             0                              0
-s               0                              0
-samp            0                              0
-script          HtmlScript
-select          HtmlInput                      HtmlRef
-small           0                              0
-strike          0                              0
-strong          0                              0
-style           HtmlScript
-sub             0                              0
-sup             0                              0
-table           HtmlTable                      HtmlRef
-td              HtmlCell                       HtmlRef
-textarea        HtmlInput                      HtmlRef
-th              HtmlCell                       HtmlRef
-title           0                              0
-tr              HtmlRef                        HtmlRef
-tt              0                              0
-u               0                              0
-ul              HtmlListStart                  HtmlRef
-var             0                              0
-wbr             0                              
-xmp             0                              0
+###########################################################################
+# Below this line is the engine for processing the database declared 
+# above. We produce a header file and an implemation file.
+#
+set ::nextfreeconst 0
+proc _TAG {args} {
+    set tag [lindex $args 0]
+
+    # Parse the arguments. Default values are all zero.
+    set open 0
+    set close 0
+    set flow 0
+    set empty 0
+    set i [expr [lsearch $args "-open"]+1]
+    if {$i} {set open sizeof([lindex $args $i])}
+    set i [expr [lsearch $args "-close"]+1]
+    if {$i} {set close sizeof([lindex $args $i])}
+    set i [expr [lsearch $args "-flow"]+1]
+    if {$i} {set flow HTMLFLOW_[string toupper [lindex $args $i]]}
+    set i [expr [lsearch $args "-empty"]+1]
+    if {$i} {set empty 1}
+
+    # Insert the two constants for the tag into the header file.
+    set opensym "Html_[string toupper $tag]"
+    set fmt {#define % -20s %s}
+    puts $::h_file [format $fmt $opensym $::nextfreeconst]
+    incr ::nextfreeconst
+    if {!$empty} {
+        set closesym "Html_End[string toupper $tag]"
+        puts $::h_file [format $fmt $closesym $::nextfreeconst]
+        incr ::nextfreeconst
+    }
+
+    # Insert the HtmlTokenMap record into the constant array.
+    set fmt {  {% -15s % -18s % -24s %s},}
+    puts $::c_file [format $fmt "\"$tag\"," $opensym, $open, 0]
+    if {!$empty} {
+        puts $::c_file [format $fmt "\"/$tag\"," $closesym, $close, 0]
+    }
+}
+
+# Open the files htmltokens.c and htmltokens.h for writing. Write a
+# warning to the top of each that they are generated files.
+#
+set c_file [open htmltokens.c w]
+set h_file [open htmltokens.h w]
+set warning {
+/* 
+ * DO NOT EDIT!
+ *
+ * The code in this file was automatically generated. See the files
+ * src/tokenlist.txt and tools/maketokens.tcl from the tkhtml source
+ * distribution.
+ */
+}
+puts $c_file $warning
+puts $h_file $warning
+
+puts -nonewline $h_file {
+#define Html_Text    1
+#define Html_Space   2
+#define Html_Unknown 3
+#define Html_Block   4
+#define HtmlIsMarkup(X) ((X)->base.type>Html_Block)
+}
+set ::nextfreeconst 5
+
+# puts $c_file {#include "html.h"}
+puts $c_file "HtmlTokenMap HtmlMarkupMap\[] = {"
+
+# Evaluate the calls to TAG from the database specified above.
+foreach l $::tagscript {eval $l}
+
+set c $::nextfreeconst
+puts $h_file "#define Html_TypeCount $c"
+puts $h_file "#define HTML_MARKUP_HASH_SIZE [expr $c+11]"
+puts $h_file "#define HTML_MARKUP_COUNT [expr $c-5]"
+
+puts $c_file "};"
+
+# Close the two generated files.
+close $c_file
+close $h_file
+

@@ -1,6 +1,6 @@
 /*
 ** Structures and typedefs used by the HTML widget
-** $Revision: 1.37 $
+** $Revision: 1.38 $
 **
 ** This source code is released into the public domain by the author,
 ** D. Richard Hipp, on 2002 December 17.  Instead of a license, here
@@ -15,7 +15,7 @@
 #define __HTML_H__
 
 #include <tk.h>
-#include "htmltokens2.h"
+#include "htmltokens.h"
 
 /*
 ** Various data types.  This code is designed to run on a modern

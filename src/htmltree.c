@@ -11,6 +11,7 @@ static char rcsid[] = "@(#) $Id:";
 
 #include "html.h"
 #include <assert.h>
+#include <string.h>
 
 /* HtmlBaseElement HtmlMarkupElement */
 
@@ -242,6 +243,59 @@ HtmlTreeBuild(p)
 /*
  *---------------------------------------------------------------------------
  *
+ * nodeToString --
+ *
+ *     Convert the document node pointed to by pNode to a string. This only
+ *     works with document nodes that contain text (i.e. HtmlNode.pElement
+ *     points to a linked list of elements of type Html_Text or
+ *     Html_Space).
+ * 
+ *     This function is used for testing and debugging.
+ *
+ * Results:
+ *     Pointer to a static buffer containing the string. The buffer is 
+ *     overwritten by the next call to nodeToString().
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static CONST char *
+nodeToString(pNode)
+    HtmlNode *pNode;
+{
+    #define ZBUFSIZE 100
+    static char zBuf[ZBUFSIZE];
+    int i = 0;
+
+    HtmlElement *p = pNode->pElement;
+    while (p && p->base.type==Html_Space) p = p->pNext;
+
+    while (p && i<(ZBUFSIZE-1)) {
+        switch (p->base.type) {
+            case Html_Space:
+                zBuf[i++] = ' ';
+                while (p && p->base.type==Html_Space) p = p->pNext;
+                break;
+            case Html_Text: {
+                    int c = ZBUFSIZE-i-1;
+                    strncpy(&zBuf[i], p->text.zText, c);
+                    i += (c>strlen(p->text.zText)?strlen(p->text.zText):c);
+                    p = p->pNext;
+                }
+                break;
+            default:
+                p = 0;
+        }
+    }
+    zBuf[i] = '\0';
+    return zBuf;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * nodeToList --
  *
  * Results:
@@ -252,10 +306,11 @@ HtmlTreeBuild(p)
  *
  *---------------------------------------------------------------------------
  */
-static Tcl_Obj *nodeToList(interp, p, pNode)
+static Tcl_Obj *nodeToList(interp, p, pNode, trim)
     Tcl_Interp *interp;
     HtmlWidget *p;
     HtmlNode *pNode;
+    int trim;                  /* True to trim out all whitespace nodes */
 {
     Tcl_Obj *pRet;
     HtmlElement *pElement;
@@ -270,7 +325,10 @@ static Tcl_Obj *nodeToList(interp, p, pNode)
     switch( t ){
         case Html_Text:
         case Html_Space:
-            zType = "Text";
+            zType = nodeToString(pNode, trim);
+            if( trim && !zType[0] ){
+                return 0;
+            }
             break;
         default: {
             HtmlTokenMap *pMap = HtmlGetMarkupMap(p, t - Html_A);
@@ -286,17 +344,23 @@ static Tcl_Obj *nodeToList(interp, p, pNode)
 
     if( pNode->nChild ){
         int i;
+        int len = 0;
         Tcl_Obj *pChildList;
         pChildList = Tcl_NewObj();
         Tcl_IncrRefCount(pChildList);
         
         for(i=0; i<pNode->nChild; i++){
             Tcl_Obj *pC = nodeToList(interp, p, pNode->apChildren[i]);
-            Tcl_ListObjAppendElement(interp, pChildList, pC);
-            Tcl_DecrRefCount(pC);
+            if( pC ){
+                len++;
+                Tcl_ListObjAppendElement(interp, pChildList, pC);
+                Tcl_DecrRefCount(pC);
+            }
         }
 
-        Tcl_ListObjAppendElement(interp, pRet, pChildList);
+        if( len ){
+            Tcl_ListObjAppendElement(interp, pRet, pChildList);
+        }
         Tcl_DecrRefCount(pChildList);
     }
 
@@ -311,7 +375,7 @@ static Tcl_Obj *nodeToList(interp, p, pNode)
  *     Obtain a Tcl representation of the document tree stored in
  *     HtmlWidget.pTree.
  *
- *     Tcl: $widget tree
+ *     Tcl: $widget tree ?-trim?
  *
  * Results:
  *     None.
@@ -332,7 +396,7 @@ HtmlTreeTclize(clientData, interp, objc, objv)
     Tcl_Obj *pList;
 
     HtmlTreeBuild(p);
-    pList = nodeToList(interp, p, p->pTree->pRoot);
+    pList = nodeToList(interp, p, p->pTree->pRoot, 1);
     Tcl_SetObjResult(interp, pList);
     Tcl_DecrRefCount(pList);
 

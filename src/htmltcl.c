@@ -1,5 +1,5 @@
 static char const rcsid[] =
-        "@(#) $Id: htmltcl.c,v 1.11 2005/03/24 12:05:06 danielk1977 Exp $";
+        "@(#) $Id: htmltcl.c,v 1.12 2005/03/25 06:22:19 danielk1977 Exp $";
 
 /*
 ** The main routine for the HTML widget for Tcl/Tk
@@ -304,7 +304,7 @@ static struct HtmlSubcommand {
     Tcl_ObjCmdProc *xFuncObj;          /* Object cmd */
 } aSubcommand[nSubcommand] = {
     {
-    "tree", 0, 2, 2, "", 0, HtmlTreeTclize}, {
+    "tree", 0, 2, 3, "", 0, HtmlTreeTclize}, {
     "cget", 0, 3, 3, "CONFIG-OPTION", 0, HtmlCgetObjCmd}, {
     "clear", 0, 2, 2, 0, HtmlClearCmd}, {
     "parse", 0, 3, 7, "HTML-TEXT", 0, HtmlParseCmd}, {
