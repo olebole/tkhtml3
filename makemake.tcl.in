@@ -12,7 +12,7 @@
 # (Prehaps comment out the BLT part if you are not using BLT.)
 # This script requires some customization down toward the bottom.
 #
-# $Revision: 1.14 $
+# $Revision: 1.15 $
 #
 
 # Some useful variables.
@@ -456,6 +456,14 @@ puts "	mkdir srcdir || true"
 lappend srclist [Src src/html.h]
 puts "	cp $srclist srcdir"
 puts "	cd srcdir; ../makeheaders$BEXE *.\[ch\]"
+puts ""
+
+puts "publish:	"
+puts "	cp [Src webpage/index.html] ."
+puts "	tclsh [Src webpage/mkwebpage.tcl]"
+puts "	echo '**'"
+puts "	echo '** Run \"sh publish.sh\" to send web materials to the website'"
+puts "	echo '**'"
 puts ""
 
 #############################################################################
