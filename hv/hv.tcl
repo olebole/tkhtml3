@@ -5,7 +5,7 @@
 # This application is used for testing the HTML widget.  It can
 # also server as an example of how to use the HTML widget.
 # 
-# @(#) $Id: hv.tcl,v 1.28 2002/09/22 16:55:45 peter Exp $
+# @(#) $Id: hv.tcl,v 1.29 2002/12/22 11:49:23 hkoba Exp $
 #
 wm title . {HTML File Viewer}
 wm iconname . {HV}
@@ -14,15 +14,17 @@ wm iconname . {HV}
 # our interpreter
 #
 if {[info command html]==""} {
-  if {![package require tkhtml]} return
-  foreach f {
-    ./tkhtml.so
-    /usr/lib/tkhtml.so
-    /usr/local/lib/tkhtml.so
-    ./tkhtml.dll
-  } {
-    if {[file exists $f]} {
-      if {[catch {load $f Tkhtml}]==0} break
+  if {[catch {package require Tkhtml} error]} {
+    foreach f {
+      ./libTkhtml*.so
+      ../libTkhtml*.so
+      /usr/lib/libTkhtml*.so
+      /usr/local/lib/libTkhtml*.so
+      ./tkhtml.dll
+    } {
+      if {[set f [lindex [glob -nocomplain $f] end]] != ""} {
+        if {[catch {load $f Tkhtml}]==0} break
+      }
     }
   }
 }
@@ -216,8 +218,9 @@ proc AppletCmd {w arglist} {
 # procedure
 #
 proc HrefBinding {x y} {
-  foreach {new target} [.h.h href $x $y] break
-  # puts "link to [list $new]"; return
+  set list [.h.h href $x $y]
+  if {![llength $list]} {return}
+  foreach {new target} $list break
   if {$new!=""} {
     global LastFile
     set pattern $LastFile#
@@ -301,7 +304,6 @@ proc ReadFile {name} {
     tk_messageBox -icon error -message $fp -type ok
     return {}
   } else {
-    fconfigure $fp -translation binary
     set r [read $fp [file size $name]]
     close $fp
     return $r
