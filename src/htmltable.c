@@ -1,6 +1,6 @@
 /*
 ** Routines for doing layout of HTML tables
-** $Revision: 1.15 $
+** $Revision: 1.16 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -525,6 +525,20 @@ static HtmlElement *MinMax(
         if( indent < 0 ){ indent = 0; }
         x1 = indent + obstacle;
         x2 = indent;
+        break;
+      case Html_APPLET:
+      case Html_INPUT:
+      case Html_TEXTAREA:
+        x1 += p->input.w + p->input.padLeft;
+        if( p->base.style.flags & STY_Preformatted ){
+          SETMAX( min, x1 );
+          SETMAX( max, x1 );
+          x2 += p->input.w + p->input.padLeft;
+        }else{
+          SETMAX( min, indent + p->input.w );
+          SETMAX( max, x1 );
+          x2 = indent;
+        }
         break;
       case Html_BR:
       case Html_P:
