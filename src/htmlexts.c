@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlexts.c,v 1.6 2002/09/22 16:55:45 peter Exp $";
+static char const rcsid[] = "@(#) $Id: htmlexts.c,v 1.7 2003/01/27 03:22:31 hkoba Exp $";
 /*
 ** The extra routines for the HTML widget for Tcl/Tk
 **
@@ -678,7 +678,7 @@ void HtmlToken2Txt(HtmlWidget *htmlPtr, Tcl_Interp *interp, HtmlElement *p){
 }
 
 int HtmlGetEndToken(HtmlWidget *htmlPtr, int typ){
-  HtmlTokenMap *pMap=HtmlGetMarkupMap(htmlPtr, typ);
+  HtmlTokenMap *pMap=HtmlGetMarkupMap(htmlPtr, typ - Html_A);
   if (!pMap) return Html_Unknown;
   if (pMap && pMap[1].zName[0]=='/')
     return pMap[1].type;

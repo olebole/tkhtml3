@@ -1,6 +1,6 @@
 #define TokenMap(htmlPtr,idx) (htmlPtr->tokenMap?htmlPtr->tokenMap[idx]:(HtmlMarkupMap+idx))
 #define TokenapMap(htmlPtr,idx) (htmlPtr->tokenapMap?htmlPtr->tokenMap[idx]:apMap[idx])
-static char const rcsid[] = "@(#) $Id: htmlparse.c,v 1.32 2003/01/19 07:34:04 hkoba Exp $";
+static char const rcsid[] = "@(#) $Id: htmlparse.c,v 1.33 2003/01/27 03:22:31 hkoba Exp $";
 /*
 ** A tokenizer that converts raw HTML into a linked list of HTML elements.
 **
@@ -1445,6 +1445,10 @@ void HtmlFreeTokenMap(HtmlWidget *htmlPtr) {
   htmlPtr->tokenCnt=Html_TypeCount;
 }
 
+/* Be carefull! 'n' should be 'Html_XXX - Html_A'.
+ * This means 
+ *   HtmlGetMarkupMap(htmlPtr, 0)->type == Html_A
+ */
 HtmlTokenMap* HtmlGetMarkupMap(HtmlWidget *htmlPtr, int n) {
   Tcl_HashEntry *he;
   Tcl_HashSearch se;
