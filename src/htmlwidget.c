@@ -1,6 +1,6 @@
 /*
 ** The main routine for the HTML widget for Tcl/Tk
-** $Revision: 1.22 $
+** $Revision: 1.23 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -795,6 +795,7 @@ int ConfigureHtmlWidget(
   htmlPtr->apColor[COLOR_Visited] = htmlPtr->oldLinkColor;
   htmlPtr->apColor[COLOR_Unvisited] = htmlPtr->newLinkColor;
   htmlPtr->apColor[COLOR_Selection] = htmlPtr->selectionColor;
+  htmlPtr->apColor[COLOR_Background] = Tk_3DBorderColor(htmlPtr->border);
   Tk_SetBackgroundFromBorder(htmlPtr->tkwin, htmlPtr->border);
   if( htmlPtr->highlightWidth < 0 ){ htmlPtr->highlightWidth = 0; TestPoint(0);}
   if (htmlPtr->padx < 0) { htmlPtr->padx = 0; TestPoint(0);}
@@ -1063,18 +1064,11 @@ GC HtmlGetGC(HtmlWidget *htmlPtr, int color, int font){
           if( htmlPtr->aGcCache[j].index 
           && htmlPtr->aGcCache[j].index < p->index ){
             htmlPtr->aGcCache[j].index++;
-            TestPoint(0);
-          }else{
-            TestPoint(0);
           }
         }
         p->index = 1;
-      }else{
-        TestPoint(0);
       }
       return htmlPtr->aGcCache[i].gc;
-    }else{
-      TestPoint(0);
     }
   }
 
@@ -1087,9 +1081,6 @@ GC HtmlGetGC(HtmlWidget *htmlPtr, int color, int font){
   }
   if( p->index ){
     Tk_FreeGC(htmlPtr->display, p->gc);
-    TestPoint(0);
-  }else{
-    TestPoint(0);
   }
   gcValues.foreground = htmlPtr->apColor[color]->pixel;
   gcValues.graphics_exposures = False;
@@ -1101,15 +1092,11 @@ GC HtmlGetGC(HtmlWidget *htmlPtr, int color, int font){
   for(j=0; j<N_CACHE_GC; j++){
     if( htmlPtr->aGcCache[j].index && htmlPtr->aGcCache[j].index < p->index ){
       htmlPtr->aGcCache[j].index++;
-      TestPoint(0);
-    }else{
-      TestPoint(0);
     }
   }
   p->index = 1;
   p->font = font;
   p->color = color;
-  TestPoint(0);
   return p->gc;
 }
 
@@ -1294,7 +1281,11 @@ Tk_Font HtmlGetFont(
       Tcl_DStringAppend(&str, htmlPtr->zFontCommand, -1);
       sprintf(zBuf, " %d {", FontSize(iFont)+1);
       Tcl_DStringAppend(&str,zBuf, -1);
+#if 1 /* TNB */
+      iFam = iFont / N_FONT_SIZE ;
+#else /* TNB */
       iFam = FontFamily(iFont)/N_FONT_FAMILY;
+#endif /* TNB */
       if( iFam & 1 ){
         Tcl_DStringAppend(&str,"bold",-1);
         zSep = " ";
@@ -1400,26 +1391,118 @@ static float colorDistance(XColor *pA, XColor *pB){
 */
 int HtmlGetColorByName(HtmlWidget *htmlPtr, char *zColor){
   XColor *pNew;
-  int i;
-  float dist;
-  float closestDist;
-  int closest;
+  int iColor;
   Tk_Uid name = Tk_GetUid(zColor);  /**** This is a memory leak ****/
 
   pNew = Tk_GetColor(htmlPtr->interp, htmlPtr->clipwin, name);
   if( pNew==0 ){
-    UNTESTED;
     return 0;      /* Color 0 is always the default */
   }
 
+  iColor = GetColorByValue(htmlPtr, pNew);
+  Tk_FreeColor(pNew);
+  return iColor;
+}
+
+/*
+** Macros used in the computation of appropriate shadow colors.
+*/
+#define MAX_COLOR 65535
+#define MAX(A,B)     ((A)<(B)?(B):(A))
+#define MIN(A,B)     ((A)<(B)?(A):(B))
+
+/*
+** Check to see if the given color is too dark to be easily distinguished
+** from black.
+*/
+static int isDarkColor(XColor *p){
+  float x, y, z;
+
+  x = 0.50 * p->red;
+  y = 1.00 * p->green;
+  z = 0.28 * p->blue;
+  return (x*x + y*y + z*z)>0.05*MAX_COLOR*MAX_COLOR;
+}
+
+/*
+** Given that the background color is iBgColor, figure out an
+** appropriate color for the dark part of a 3D shadow.
+*/
+int HtmlGetDarkShadowColor(HtmlWidget *htmlPtr, int iBgColor){
+  XColor *pRef, val;
+  pRef = htmlPtr->apColor[iBgColor];
+  if( isDarkColor(pRef) ){
+    int t1, t2;
+    t1 = MIN(MAX_COLOR,pRef->red*1.2);
+    t2 = (pRef->red*3 + MAX_COLOR)/4;
+    val.red = MAX(t1,t2);
+    t1 = MIN(MAX_COLOR,pRef->green*1.2);
+    t2 = (pRef->green*3 + MAX_COLOR)/4;
+    val.green = MAX(t1,t2);
+    t1 = MIN(MAX_COLOR,pRef->blue*1.2);
+    t2 = (pRef->blue*3 + MAX_COLOR)/4;
+    val.blue = MAX(t1,t2);
+  }else{
+    val.red = pRef->red*0.6;
+    val.green = pRef->green*0.6;
+    val.blue = pRef->blue*0.6;
+  }
+  return GetColorByValue(htmlPtr, &val);
+}
+	
+/*
+** Check to see if the given color is too light to be easily distinguished
+** from white.
+*/
+static int isLightColor(XColor *p){
+  return p->green>=0.85*MAX_COLOR;
+}
+
+/*
+** Given that the background color is iBgColor, figure out an
+** appropriate color for the bright part of the 3D shadow.
+*/
+int HtmlGetLightShadowColor(HtmlWidget *htmlPtr, int iBgColor){
+  XColor *pRef, val;
+  pRef = htmlPtr->apColor[iBgColor];
+  if( isLightColor(pRef) ){
+    val.red = pRef->red*0.9;
+    val.green = pRef->green*0.9;
+    val.blue = pRef->blue*0.9;
+  }else{
+    int t1, t2;
+    t1 = MIN(MAX_COLOR,pRef->green*1.4);
+    t2 = (pRef->green + MAX_COLOR)/2;
+    val.green = MAX(t1,t2);
+    t1 = MIN(MAX_COLOR,pRef->red*1.4);
+    t2 = (pRef->red + MAX_COLOR)/2;
+    val.red = MAX(t1,t2);
+    t1 = MIN(MAX_COLOR,pRef->blue*1.4);
+    t2 = (pRef->blue + MAX_COLOR)/2;
+    val.blue = MAX(t1,t2);
+  }
+  return GetColorByValue(htmlPtr, &val);
+}
+
+/*
+** Find a color integer for the color whose color components
+** are given by pRef.
+*/
+LOCAL int GetColorByValue(HtmlWidget *htmlPtr, XColor *pRef){
+  int i;
+  float dist;
+  float closestDist;
+  int closest;
+  int r, g, b;
+
   /* Search for an exact match */
+  r = pRef->red;
+  g = pRef->green;
+  b = pRef->blue;
   for(i=0; i<N_COLOR; i++){
     XColor *p = htmlPtr->apColor[i];
-    if( p && p->red==pNew->red && p->green==pNew->green 
-     && p->blue==pNew->blue ){
+    if( p && p->red==r && p->green==g && p->blue==b ){
       htmlPtr->colorUsed |= (1<<i);
-      Tk_FreeColor(pNew);
-      TestPoint(0);
       return i;
     }
   }
@@ -1427,9 +1510,8 @@ int HtmlGetColorByName(HtmlWidget *htmlPtr, char *zColor){
   /* No exact matches.  Look for a completely unused slot */
   for(i=N_PREDEFINED_COLOR; i<N_COLOR; i++){
     if( htmlPtr->apColor[i]==0 ){
-      htmlPtr->apColor[i] = pNew;
+      htmlPtr->apColor[i] = Tk_GetColorByValue(htmlPtr->clipwin, pRef);
       htmlPtr->colorUsed |= (1<<i);
-      TestPoint(0);
       return i;
     }
   }
@@ -1439,9 +1521,8 @@ int HtmlGetColorByName(HtmlWidget *htmlPtr, char *zColor){
   for(i=N_PREDEFINED_COLOR; i<N_COLOR; i++){
     if( ((htmlPtr->colorUsed >> i) & 1) == 0 ){
       Tk_FreeColor(htmlPtr->apColor[i]);
-      htmlPtr->apColor[i] = pNew;
+      htmlPtr->apColor[i] = Tk_GetColorByValue(htmlPtr->clipwin, pRef);
       htmlPtr->colorUsed |= (1<<i);
-      TestPoint(0);
       return i;
     }
   }
@@ -1449,19 +1530,14 @@ int HtmlGetColorByName(HtmlWidget *htmlPtr, char *zColor){
   /* Ok, find the existing color that is closest to the color requested
   ** and use it. */
   closest = 0;
-  closestDist = colorDistance(pNew, htmlPtr->apColor[0]);
+  closestDist = colorDistance(pRef, htmlPtr->apColor[0]);
   for(i=1; i<N_COLOR; i++){
-    dist = colorDistance(pNew, htmlPtr->apColor[i]);
+    dist = colorDistance(pRef, htmlPtr->apColor[i]);
     if( dist < closestDist ){
       closestDist = dist;
       closest = i;
-      TestPoint(0);
-    }else{
-      TestPoint(0);
     }
   }
-  Tk_FreeColor(pNew);
-  TestPoint(0);
   return i;
 }
 

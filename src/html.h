@@ -1,6 +1,6 @@
 /*
 ** Structures and typedefs used by the HTML widget
-** $Revision: 1.17 $
+** $Revision: 1.18 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -23,6 +23,10 @@
 **   drh@acm.org
 **   http://www.hwaci.com/drh/
 */
+
+/* #define NAVIGATOR_TABLES 1 */
+/* #define BACKGROUND_COLOR 1 */
+/* #define TABLE_TRIM_BLANK 1 */
 
 /*
 ** Sanity checking macros.
@@ -111,8 +115,9 @@ struct HtmlStyle {
   unsigned int font    : 6;      /* Font to use for display */
   unsigned int color   : 4;      /* Foreground color */
   signed int subscript : 4;      /* Positive for <sup>, negative for <sub> */
-  unsigned int align   : 2;      /* Horizontal alignment */      
-  unsigned int flags   : 16;     /* the STY_ flags below */
+  unsigned int align   : 2;      /* Horizontal alignment */
+  unsigned int bgcolor : 4;      /* Background color */
+  unsigned int flags   : 12;     /* the STY_ flags below */
 }
 
 /*
@@ -161,8 +166,8 @@ struct HtmlStyle {
 #define COLOR_Unvisited      1      /* Index for unvisited hyperlinks */
 #define COLOR_Visited        2      /* Color for visited hyperlinks */
 #define COLOR_Selection      3      /* Background color for the selection */
-#define N_PREDEFINED_COLOR   4      /* Number of predefined colors */
-
+#define COLOR_Background     4      /* Default background color */
+#define N_PREDEFINED_COLOR   5      /* Number of predefined colors */
 
 /*
 ** The "align" field of the style determines how text is justified
@@ -314,12 +319,11 @@ struct HtmlMarkupElement {
 */
 struct HtmlCell {
   HtmlMarkupElement markup;
-  Html_u8 bgColor;          /* Background color */
   Html_16 rowspan;          /* Number of rows spanned by this cell */
   Html_16 colspan;          /* Number of columns spanned by this cell */
-  Html_32 y;                /* Y coordinate of top of border indentation */
   Html_16 x;                /* X coordinate of left edge of border */
   Html_16 w;                /* Width of the border */
+  Html_32 y;                /* Y coordinate of top of border indentation */
   Html_32 h;                /* Height of the border */
   HtmlElement *pTable;      /* Pointer back to the <table> */
   HtmlElement *pEnd;        /* Element that ends this cell */
@@ -788,6 +792,8 @@ struct HtmlWidget {
   int rowAlignment;             /* Justification associated with <tr> */
   int anchorFlags;              /* Style flags associated with <A>...</A> */
   int inDt;                     /* Style flags associated with <DT>...</DT> */
+  int inTr;                     /* True if within <tr>..</tr> */
+  int inTd;                     /* True if within <td>..</td> or <th>..</th> */
   HtmlElement *anchorStart;     /* Most recent <a href=...> */
   HtmlElement *formStart;       /* Most recent <form> */
   HtmlElement *formElemStart;   /* Most recent <textarea> or <select> */
@@ -888,6 +894,16 @@ struct HtmlWidget {
                                 ** delete until it reaches zero. */
   int flags;			/* Various flags;  see below for
 				 * definitions. */
+
+#ifdef NAVIGATOR_TABLES
+
+	int tableBorder;               /* Default "border" value */
+	int tableCellPadding;          /* Default "cellpadding" value */
+	int tableCellSpacing;          /* Default "cellspacing" value */
+	XColor *tableBorderLightColor; /* Color for light part of bevel */
+	XColor *tableBorderDarkColor;  /* Color for dark part of bevel */
+	
+#endif /* NAVIGATOR_TABLES */
 }
 
 /*
@@ -986,3 +1002,13 @@ struct HtmlWidget {
 #define DEF_HTML_UNVISITED            "blue1"
 #define DEF_HTML_VISITED              "blue3"
 #define DEF_HTML_WIDTH                "600"
+
+#ifdef NAVIGATOR_TABLES
+
+#define DEF_HTML_TABLE_BORDER             "0"
+#define DEF_HTML_TABLE_CELLPADDING        "2"
+#define DEF_HTML_TABLE_CELLSPACING        "5"
+#define DEF_HTML_TABLE_BORDER_LIGHT_COLOR "gray80"
+#define DEF_HTML_TABLE_BORDER_DARK_COLOR  "gray40"
+
+#endif /* NAVIGATOR_TABLES */

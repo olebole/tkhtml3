@@ -1,7 +1,7 @@
 /*
 ** This file contains the code used to position elements of the
 ** HTML file on the screen.
-** $Revision: 1.18 $
+** $Revision: 1.19 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -1082,6 +1082,10 @@ void HtmlWidenLine(
   }
 }
 
+#ifdef TABLE_TRIM_BLANK
+int HtmlLineWasBlank = 0;
+#endif /* TABLE_TRIM_BLANK */
+
 /*
 ** Do as much layout as possible on the block of text defined by
 ** the HtmlLayoutContext.
@@ -1109,6 +1113,10 @@ void HtmlLayoutBlock(HtmlLayoutContext *pLC){
       TestPoint(0);
     }
     if( p==0 || p==pLC->pEnd ){ TestPoint(0); break; }
+
+#ifdef TABLE_TRIM_BLANK
+    HtmlLineWasBlank = 0;
+#endif /* TABLE_TRIM_BLANK */
 
     /* We might try several times to layout a single line... */   
     while( 1 ){
@@ -1139,6 +1147,18 @@ void HtmlLayoutBlock(HtmlLayoutContext *pLC){
       TestPoint(0);
       break;
     }
+
+#ifdef TABLE_TRIM_BLANK
+	/*
+	 * I noticed that a newline following break markup would result
+	 * in a blank line being drawn. So if an "empty" line was found
+	 * I subtract any whitespace caused by break markup.
+	 */
+	if (actualWidth <= 0)
+	{
+		HtmlLineWasBlank = 1;
+	}
+#endif /* TABLE_TRIM_BLANK */
 
     /* If a line was completed, advance to the next line */
     if( pNext && actualWidth>0 && y > pLC->bottom ){

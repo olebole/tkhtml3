@@ -1,6 +1,6 @@
 /*
 ** Routines for doing layout of HTML tables
-** $Revision: 1.21 $
+** $Revision: 1.22 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -431,7 +431,13 @@ static HtmlElement *TableDimensions(
   /* Compute the min and max width of the whole table
   */
   n = pStart->table.nCol;
+#ifdef NAVIGATOR_TABLES
+	requestedW =
+		pStart->table.borderWidth * 2 + n * 2 * bw + (n +
+		1) * cellSpacing + n * 2 * cellPadding;
+#else /* NAVIGATOR_TABLES */
   requestedW = (n+1)*(2*bw + cellSpacing) + n*2*cellPadding;
+#endif /* NAVIGATOR_TABLES */
   pStart->table.minW[0] = requestedW;
   pStart->table.maxW[0] = requestedW;
   for(i=1; i<=pStart->table.nCol; i++){
@@ -452,7 +458,11 @@ static HtmlElement *TableDimensions(
     }
     SETMAX( requestedW, totalWidth );
   }
-  if( requestedW>lineWidth ){
+// #if 1 /* TNB */
+	if (lineWidth && (requestedW > lineWidth)) {
+// #else /* TNB */
+//   if( requestedW>lineWidth ){
+// #endif /* TNB */
     TRACE(HtmlTrace_Table5,("RequestedW reduced to lineWidth: %d -> %d\n", 
        requestedW, lineWidth));
     requestedW = lineWidth;
@@ -465,7 +475,13 @@ static HtmlElement *TableDimensions(
     TRACE(HtmlTrace_Table5,
         ("Expanding table minW from %d to %d.  (reqW=%d width=%s)\n",
           tminW[0], requestedW, requestedW, z));
+#if 1 /* def NAVIGATOR_TABLES */
+		totalSep =
+			pStart->table.borderWidth * 2 + n * 2 * bw + (n +
+			1) * cellSpacing + n * 2 * cellPadding;
+#else /* NAVIGATOR_TABLES */
     totalSep = (n+1)*(2*bw + cellSpacing) + n*2*cellPadding;
+#endif /* NAVIGATOR_TABLES */
     if( tmaxW[0] > tminW[0] ){
       scale = (double)(requestedW - tminW[0]) / (double)(tmaxW[0] - tminW[0]);
       for(i=1; i<=pStart->table.nCol; i++){
@@ -765,6 +781,9 @@ HtmlElement *HtmlTableLayout(
   int valign[N];          /* Vertical alignment for each cell */
   HtmlLayoutContext savedContext;  /* Saved copy of the original pLC */
   HtmlLayoutContext cellContext;   /* Used to render a single cell */
+#ifdef TABLE_TRIM_BLANK
+	extern int HtmlLineWasBlank;
+#endif /* TABLE_TRIM_BLANK */
 
   if( pTable==0 || pTable->base.type!=Html_TABLE ){ 
     TestPoint(0);
@@ -850,7 +869,13 @@ HtmlElement *HtmlTableLayout(
       x[i] = x[i-1] + w[i-1] + separation;
       TestPoint(0);
     }
+#if 1 /* def NAVIGATOR_TABLES */
+		w[n] =
+			width - 2 * (pTable->table.borderWidth + cellPadding + bw +
+			cellSpacing) - (x[n] - x[1]);
+#else /* NAVIGATOR_TABLES */
     w[n] = width - 2*(bw + pad + cellSpacing) - (x[n] - x[1]);
+#endif /* NAVIGATOR_TABLES */
   }else if( width > pTable->table.maxW[0] ){
     int *tmaxW = pTable->table.maxW;
     double scale = ((double)width)/ (double)tmaxW[0];
@@ -860,7 +885,13 @@ HtmlElement *HtmlTableLayout(
       x[i] = x[i-1] + w[i-1] + separation;
       TestPoint(0);
     }
+#if 1 /* def NAVIGATOR_TABLES */
+		w[n] =
+			width - 2 * (pTable->table.borderWidth + cellPadding + bw +
+			cellSpacing) - (x[n] - x[1]);
+#else /* NAVIGATOR_TABLES */
     w[n] = width - 2*(bw + pad + cellSpacing) - (x[n] - x[1]);
+#endif /* NAVIGATOR_TABLES */
   }else if( width > pTable->table.minW[0] ){
     float scale;
     int *tminW = pTable->table.minW;
@@ -872,7 +903,13 @@ HtmlElement *HtmlTableLayout(
       x[i] = x[i-1] + w[i-1] + separation;
       TestPoint(0);
     }
+#if 1 /* def NAVIGATOR_TABLES */
+		w[n] =
+			width - 2 * (pTable->table.borderWidth + cellPadding + bw +
+			cellSpacing) - (x[n] - x[1]);
+#else /* NAVIGATOR_TABLES */
     w[n] = width - 2*(bw + pad + cellSpacing) - (x[n] - x[1]);
+#endif /* NAVIGATOR_TABLES */
   }else{
     w[1] = pTable->table.minW[1];
     for(i=2; i<=n; i++){
@@ -880,8 +917,14 @@ HtmlElement *HtmlTableLayout(
       x[i] = x[i-1] + w[i-1] + separation;
       TestPoint(0);
     }
+#if 1 /* def NAVIGATOR_TABLES */
+		w[n] =
+			width - 2 * (pTable->table.borderWidth + cellPadding + bw +
+			cellSpacing) - (x[n] - x[1]);
+#else /* NAVIGATOR_TABLES */
     w[n] = width - 2*(bw + pad + cellSpacing) - 
             (x[n] - x[1]);
+#endif /* NAVIGATOR_TABLES */
   }
 
   /* Add notation to the pTable structure so that we will know where
@@ -889,7 +932,13 @@ HtmlElement *HtmlTableLayout(
   */
   btm += vspace;
   pTable->table.y = btm;
+#if 1 /* def NAVIGATOR_TABLES */
+	pTable->table.x =
+		x[1] - (cellPadding + cellSpacing + bw +
+		pTable->table.borderWidth);
+#else /* NAVIGATOR_TABLES */
   pTable->table.x = x[1] - (cellPadding + cellSpacing + 2*bw);
+#endif /* NAVIGATOR_TABLES */
   if( bw ){
     pTable->base.flags |= HTML_Visible;
     TestPoint(0);
@@ -899,7 +948,11 @@ HtmlElement *HtmlTableLayout(
   }
   pTable->table.w = width;
   SETMAX(pLC->maxX, pTable->table.x + pTable->table.w);
+#if 1 /* def NAVIGATOR_TABLES */
+	btm += pTable->table.borderWidth + cellSpacing;
+#else /* NAVIGATOR_TABLES */
   btm += bw + cellSpacing;
+#endif /* NAVIGATOR_TABLES */
 
   /* Begin rendering rows of the table */
   for(i=1; i<=n; i++){
@@ -995,6 +1048,14 @@ HtmlElement *HtmlTableLayout(
             cellContext.leftMargin = 0;
             cellContext.rightMargin = 0;
             HtmlLayoutBlock(&cellContext);
+#ifdef TABLE_TRIM_BLANK
+			/*
+			 * Cancel any trailing vertical whitespace caused
+			 * by break markup
+			 */
+			if (HtmlLineWasBlank)
+				cellContext.maxY -= cellContext.headRoom;
+#endif /* TABLE_TRIM_BLANK */
             ymax[iCol] = cellContext.maxY;
             SETMAX(ymax[iCol], y[iCol]);
             HtmlClearMarginStack(&cellContext.leftMargin);

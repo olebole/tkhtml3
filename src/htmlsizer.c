@@ -1,6 +1,6 @@
 /*
 ** Routines used to compute the style and size of individual elements.
-** $Revision: 1.20 $
+** $Revision: 1.21 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -39,7 +39,8 @@ static HtmlStyle GetCurrentStyle(HtmlWidget *htmlPtr){
     TestPoint(0);
   }else{
     style.font = NormalFont(2);
-    style.color = 0;
+    style.color = COLOR_Normal;
+    style.bgcolor = COLOR_Background;
     style.subscript = 0;
     style.align = ALIGN_Left;
     style.flags = 0;
@@ -862,17 +863,36 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         paraAlign = ALIGN_None;
         nextStyle = style;
         nextStyle.align = ALIGN_Left;
+        z = HtmlMarkupArg(p, "bgcolor", 0);
+        if( z ){
+          nextStyle.bgcolor = HtmlGetColorByName(htmlPtr, z);
+          style.bgcolor = nextStyle.bgcolor;
+        }
         PushStyleStack(htmlPtr, Html_EndTABLE, nextStyle);
         useNextStyle = 1;
+        htmlPtr->inTd = 0;
+        htmlPtr->inTr = 0;
         TestPoint(0);
         break;
       case Html_EndTABLE:
         paraAlign = ALIGN_None;
+        if( htmlPtr->inTd ){
+          style = HtmlPopStyleStack(htmlPtr, Html_EndTD);
+          htmlPtr->inTd = 0;
+        }
+        if( htmlPtr->inTr ){
+          style = HtmlPopStyleStack(htmlPtr, Html_EndTR);
+          htmlPtr->inTr = 0;
+        }
         style = HtmlPopStyleStack(htmlPtr, p->base.type);
         TestPoint(0);
         break;
       case Html_TD:
         paraAlign = GetAlignment(p, rowAlign);
+        if( (z = HtmlMarkupArg(p, "bgcolor", 0))!=0 ){
+          style.bgcolor = HtmlGetColorByName(htmlPtr, z);
+        }
+        PushStyleStack(htmlPtr, Html_EndTD, style);
         TestPoint(0);
         break;
       case Html_TEXTAREA:
@@ -898,15 +918,35 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         break;
       case Html_TH:
         paraAlign = GetAlignment(p, rowAlign);
+        if( (z = HtmlMarkupArg(p, "bgcolor", 0))!=0 ){
+          style.bgcolor = HtmlGetColorByName(htmlPtr, z);
+        }
+        PushStyleStack(htmlPtr, Html_EndTD, style);
         TestPoint(0);
         break;
       case Html_TR:
         rowAlign = GetAlignment(p, ALIGN_None);
+        if( (z = HtmlMarkupArg(p, "bgcolor", 0))!=0 ){
+          style.bgcolor = HtmlGetColorByName(htmlPtr, z);
+        }
+        PushStyleStack(htmlPtr, Html_EndTR, style);
         TestPoint(0);
         break;
       case Html_EndTR:
+        if( htmlPtr->inTd ){
+          style = HtmlPopStyleStack(htmlPtr, Html_EndTD);
+          htmlPtr->inTd = 0;
+        }
+        style = HtmlPopStyleStack(htmlPtr, Html_EndTR);
+        htmlPtr->inTr = 0;
+        paraAlign = ALIGN_None;
+        rowAlign = ALIGN_None;
+        TestPoint(0);
+        break;
       case Html_EndTD:
       case Html_EndTH:
+        style = HtmlPopStyleStack(htmlPtr, Html_EndTD);
+        htmlPtr->inTd = 0;
         paraAlign = ALIGN_None;
         rowAlign = ALIGN_None;
         TestPoint(0);

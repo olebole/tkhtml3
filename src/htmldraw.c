@@ -1,6 +1,6 @@
 /*
 ** Routines used to render HTML onto the screen for the Tk HTML widget.
-** $Revision: 1.12 $
+** $Revision: 1.13 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -280,6 +280,9 @@ static void DrawSelectionBackground(
 /*
 ** Draw a rectangle.  The rectangle will have a 3-D appearance if
 ** flat==0 and a flat appearance if flat==1.
+**
+** We don't use Tk_Draw3DRectangle() because it doesn't work well
+** when the background color is close to pure white or pure black.
 */
 static void HtmlDrawRect(
   HtmlWidget *htmlPtr,              /* The HTML widget */
@@ -289,21 +292,41 @@ static void HtmlDrawRect(
   int depth,                        /* Width of the relief, or the flat line */
   int relief                        /* The relief.  TK_RELIEF_FLAT omits 3d */
 ){
-  if( relief!=TK_RELIEF_FLAT ){
-    Tk_Draw3DRectangle(htmlPtr->tkwin, drawable, htmlPtr->border,
-      x, y, w, h, depth, relief);
-  }else{
-    GC gc;
-    XRectangle xrec;
-    /*printf("color=%d x=%d y=%d w=%d h=%d\n",src->base.style.color,x,y,w,h);*/
-    gc = HtmlGetGC(htmlPtr, src->base.style.color, FONT_Any);
-    xrec.x = x;
-    xrec.y = y;
-    xrec.width = w;
-    xrec.height = h;
-    XFillRectangles(htmlPtr->display, drawable, gc, &xrec, 1);
-    Tk_Fill3DRectangle(htmlPtr->tkwin, drawable, htmlPtr->border,
-      x+depth, y+depth, w-depth*2, h-depth*2, 0, TK_RELIEF_FLAT);
+  if( depth>0 ){
+    int i;
+    GC gcLight, gcDark;
+    XRectangle xrec[1];
+    if( relief!=TK_RELIEF_FLAT ){
+      int iLight, iDark;
+      iLight = HtmlGetLightShadowColor(htmlPtr, src->base.style.bgcolor);
+      gcLight = HtmlGetGC(htmlPtr, iLight, FONT_Any);
+      iDark = HtmlGetDarkShadowColor(htmlPtr, src->base.style.bgcolor);
+      gcDark = HtmlGetGC(htmlPtr, iDark, FONT_Any);
+    }else{
+      gcLight = HtmlGetGC(htmlPtr, src->base.style.color, FONT_Any);
+      gcDark = gcLight;
+    }
+    xrec[0].x = x;
+    xrec[0].y = y;
+    xrec[0].width = depth;
+    xrec[0].height = h;
+    XFillRectangles(htmlPtr->display, drawable, gcLight, xrec, 1);
+    xrec[0].x = x+w-depth;
+    XFillRectangles(htmlPtr->display, drawable, gcDark, xrec, 1);
+    for(i=0; i<depth && i<h/2; i++){
+      XDrawLine(htmlPtr->display, drawable, gcLight, x+i, y+i, x+w-i, y+i);
+      XDrawLine(htmlPtr->display, drawable, gcDark, x+i, y+h-i, x+w-i, y+h-i);
+    }
+  }
+  if( h>depth*2 && w>depth*2 ){
+    GC gcBg;
+    XRectangle xrec[1];
+    gcBg = HtmlGetGC(htmlPtr, src->base.style.bgcolor, FONT_Any);
+    xrec[0].x = x + depth;
+    xrec[0].y = y + depth;
+    xrec[0].width = w - depth*2;
+    xrec[0].height = h - depth*2;
+    XFillRectangles(htmlPtr->display, drawable, gcBg, xrec, 1);
   }
 }
 
@@ -503,7 +526,7 @@ void HtmlBlockDraw(
       case Html_TH:
       case Html_TD:
         pTable = src->cell.pTable;
-        if( pTable && pTable->table.borderWidth ){
+        if( pTable && pTable->table.borderWidth>0 ){
           int relief;
           switch( htmlPtr->tableRelief ){
             case TK_RELIEF_RAISED:  relief = TK_RELIEF_SUNKEN; break;
@@ -515,7 +538,7 @@ void HtmlBlockDraw(
                              src->cell.y - drawableTop,
                              src->cell.w, 
                              src->cell.h,
-                             pTable->table.borderWidth,
+                             1,
                              relief);
         }
         break;
