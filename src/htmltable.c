@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmltable.c,v 1.45 2002/01/27 01:22:17 peter Exp $";
+static char const rcsid[] = "@(#) $Id: htmltable.c,v 1.46 2002/02/12 02:55:56 drh Exp $";
 /*
 ** Routines for doing layout of HTML tables
 **
@@ -79,7 +79,7 @@ int HtmlTableText(
   HtmlWidget *htmlPtr,
   HtmlElement *p,
   Tcl_Interp *interp,
-  int flags,			// Include images
+  int flags,			/* Include images */
   Tcl_DString *str
 )
 {
@@ -161,11 +161,11 @@ int HtmlTableText(
           Tcl_DStringAppend(&substr, "\n", -1);
         break;
 
-      case Html_CAPTION:  // Should do something with Caption?
+      case Html_CAPTION:  /* Should do something with Caption? */
 	if (!(pEnd=HtmlFindEndNest(htmlPtr,p,Html_EndCAPTION,0)))
 	  p=pEnd;
         break;
-      case Html_IMG:  // Images return: row col charoffset tokenid
+      case Html_IMG:  /* Images return: row col charoffset tokenid */
 	if (!images) break;
 	sprintf(buf,"%d %d %d %d", rows-1, cols-1, 
 	  Tcl_DStringLength(&substr), p->base.id);
@@ -1348,4 +1348,3 @@ void HtmlMoveVertically(
     p = p->pNext;
   }
 }
-

@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlexts.c,v 1.3 2002/01/27 01:22:17 peter Exp $";
+static char const rcsid[] = "@(#) $Id: htmlexts.c,v 1.4 2002/02/12 02:55:56 drh Exp $";
 /*
 ** The extra routines for the HTML widget for Tcl/Tk
 **
@@ -1175,7 +1175,7 @@ int HtmlTextTable(
   }
   rc= HtmlTableText(htmlPtr, p, interp, flags, &str);
   Tcl_DStringResult(interp, &str);
-  // Tcl_DStringFree(&str);
+  /* Tcl_DStringFree(&str); */
   return rc;
 }
 
@@ -3414,10 +3414,3 @@ static char *BegEnd = " ?-begin INDEX? ?-end INDEX? ?-range {INDEX INDEX}?";
   Tcl_LinkVar(interp, "tkhtmlexiting", (char*)&tkhtmlexiting, TCL_LINK_INT);
   return TCL_OK;
 }
-
-
-
-
-
-
-
