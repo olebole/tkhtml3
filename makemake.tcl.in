@@ -12,7 +12,7 @@
 # (Prehaps comment out the BLT part if you are not using BLT.)
 # This script requires some customization down toward the bottom.
 #
-# $Revision: 1.15 $
+# $Revision: 1.16 $
 #
 
 # Some useful variables.
@@ -459,11 +459,10 @@ puts "	cd srcdir; ../makeheaders$BEXE *.\[ch\]"
 puts ""
 
 puts "publish:	"
-puts "	cp [Src webpage/index.html] ."
 puts "	tclsh [Src webpage/mkwebpage.tcl]"
-puts "	echo '**'"
-puts "	echo '** Run \"sh publish.sh\" to send web materials to the website'"
-puts "	echo '**'"
+puts "	#"
+puts "	# Run \"sh publish.sh\" to send web materials to the website"
+puts "	#"
 puts ""
 
 #############################################################################

@@ -2,7 +2,7 @@
 #
 # Construct the web page for tkhtml
 #
-# @(#) $Id: mkwebpage.tcl,v 1.1 2000/01/17 14:33:22 drh Exp $
+# @(#) $Id: mkwebpage.tcl,v 1.2 2000/01/17 14:38:13 drh Exp $
 #
 
 set p [open publish.sh w]
@@ -20,7 +20,7 @@ puts $f {
 <body bgcolor=white>
 <h1 align=center>An HTML Widget For Tcl/Tk</h1>
 }
-puts $f "<p align=center><i>Last update: [clock format [clock seconds]]</p>"
+puts $f "<p align=center><i>Last update: [clock format [clock seconds]]</i></p>"
 puts $f {
 <p>"Tkhtml" is a Tcl/Tk widget that displays HTML.  Tkhtml
 is implemented in C.  It is a true widget, not a metawidget implemented
@@ -101,7 +101,7 @@ fills it with the latest version of the sources.</p>
 </html>
 }
 close $f
-append SendList index.html
+lappend SendList index.html
 
 set f [open download.html w]
 puts $f {
@@ -112,7 +112,7 @@ puts $f {
 <body bgcolor=white>
 <h1 align=center>TkHtml Download Page</h1>
 }
-puts $f "<p align=center><i>Last update: [clock format [clock seconds]]</p>"
+puts $f "<p align=center><i>Last update: [clock format [clock seconds]]</i></p>"
 puts $f {
 
 <p>The files shown below are available for download.  For the very
@@ -130,7 +130,7 @@ foreach {file desc} {
   tkhtml.dll      {A DLL suitable for use on Windows95/98/NT/2K}
 } {
   if {![file readable $file]} continue
-  append SendList $file
+  lappend SendList $file
   puts $f "<li><p><a href=\"$file\">$file</a><br>"
   puts $f "Description: $desc<br>"
   puts $f "Size: [file size $file] bytes<br>"
@@ -150,7 +150,7 @@ puts $f {
 </html>
 }
 close $f
-append SendList download.html
+lappend SendList download.html
 
 puts $p "scp [lsort $SendList] hwaci@oak.he.net:public_html/sw/tkhtml"
 close $p
