@@ -1,6 +1,6 @@
 /*
 ** A tokenizer that converts raw HTML into a linked list of HTML elements.
-** $Revision: 1.11 $
+** $Revision: 1.12 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -228,7 +228,8 @@ static void EscInit(void){
   int h;  /* The hash on a sequence */
 
   for(i=0; i<sizeof(esc_sequences)/sizeof(esc_sequences[i]); i++){
-#ifdef TCL_UTF_MAX
+/* #ifdef TCL_UTF_MAX */
+#if 0
     {
       int c = esc_sequences[i].value[0];
       Tcl_UniCharToUtf(c, esc_sequences[i].value);
