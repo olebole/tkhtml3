@@ -1,6 +1,6 @@
 /*
 ** Structures and typedefs used by the HTML widget
-** $Revision: 1.13 $
+** $Revision: 1.14 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -52,9 +52,15 @@
 */
 #ifdef DEBUG
 # define TRACE(Flag, Args) \
-    if( (Flag)&HtmlTraceMask ){ printf Args; fflush(stdout); }
+    if( (Flag)&HtmlTraceMask ){ \
+       printf("%*s",HtmlDepth,""); printf Args; fflush(stdout); \
+    }
+# define TRACE_PUSH(Flag)  if( (Flag)&HtmlTraceMask ){ HtmlDepth+=2; }
+# define TRACE_POP(Flag)   if( (Flag)&HtmlTraceMask ){ HtmlDepth-=2; }
 #else
 # define TRACE(Flag, Args)
+# define TRACE_PUSH(Flag)
+# define TRACE_POP(Flag)
 #endif
 
 /*

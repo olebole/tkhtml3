@@ -1,7 +1,7 @@
 /*
 ** This file contains the code used to position elements of the
 ** HTML file on the screen.
-** $Revision: 1.12 $
+** $Revision: 1.13 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -287,13 +287,14 @@ static HtmlElement *GetLine(
             TestPoint(0);
             return lastBreak;
           }
-          TestPoint(0);
-        }else{
-          TestPoint(0);
         }
         TRACE(HtmlTrace_GetLine2, ("Place token %s at x=%d w=%d\n",
            HtmlTokenName(p), p->input.x, p->input.w));
         x = p->input.x + p->input.w;
+        if( (p->base.style.flags & STY_NoBreak)==0 ){
+          lastBreak = p->pNext;
+          *actualWidth = x<=0 && !isEmpty ? 1 : x;
+        }
         spaceWanted = 0;
         isEmpty = 0;
         break;
@@ -693,7 +694,7 @@ static void Paragraph(
 **              pLC->bottom.
 **
 */
-static void ComputeMargins(
+void HtmlComputeMargins(
   HtmlLayoutContext *pLC,    /* The current layout context */
   int *pX,                   /* Put the left edge here */
   int *pY,                   /* Put the top edge here */
@@ -856,7 +857,7 @@ static HtmlElement *DoBreakMarkup(
     case Html_IMG:
       switch( p->image.align ){
         case IMAGE_ALIGN_Left:
-          ComputeMargins(pLC, &x, &y, &w);
+          HtmlComputeMargins(pLC, &x, &y, &w);
           p->image.x = x;
           p->image.y = y;
           p->image.ascent = 0;
@@ -866,7 +867,7 @@ static HtmlElement *DoBreakMarkup(
           SETMAX( pLC->maxX, x + p->image.w );
           break;
         case IMAGE_ALIGN_Right:
-          ComputeMargins(pLC, &x, &y, &w);
+          HtmlComputeMargins(pLC, &x, &y, &w);
           p->image.x = x + w - p->image.w;
           p->image.y = y;
           p->image.ascent = 0;
@@ -946,7 +947,7 @@ static HtmlElement *DoBreakMarkup(
           p->hr.h = 2;
         }
       }
-      ComputeMargins(pLC, &x, &y, &w);
+      HtmlComputeMargins(pLC, &x, &y, &w);
       p->hr.y = y;
       y += p->hr.h + 1;
       p->hr.x = x;
@@ -1063,6 +1064,22 @@ static int InWrapAround(HtmlLayoutContext *pLC){
 }
 
 /*
+** Move past obsticles until a linewidth of reqWidth is obtained,
+** or until all obsticles are cleared.
+*/
+int HtmlWidenLine(
+  HtmlLayoutContext *pLC,     /* The layout context */
+  int reqWidth,               /* Requested line width */
+  int *pX, int *pY, int *pW   /* The margins.  See HtmllComputeMargins() */
+){
+  HtmlComputeMargins(pLC, pX, pY, pW);
+  if( *pW<reqWidth && InWrapAround(pLC) ){
+    ClearObstacle(pLC, CLEAR_First);
+    HtmlComputeMargins(pLC, pX, pY, pW);
+  }
+}
+
+/*
 ** Do as much layout as possible on the block of text defined by
 ** the HtmlLayoutContext.
 */
@@ -1094,7 +1111,7 @@ void HtmlLayoutBlock(HtmlLayoutContext *pLC){
     while( 1 ){
 
       /* Compute margins */
-      ComputeMargins(pLC, &leftMargin, &y, &lineWidth);
+      HtmlComputeMargins(pLC, &leftMargin, &y, &lineWidth);
 
       /* Layout a single line of text */
       pNext = GetLine(pLC, p, pLC->pEnd, lineWidth, pLC->left-leftMargin,

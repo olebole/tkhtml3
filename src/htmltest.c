@@ -1,7 +1,7 @@
 /*
 ** This file contains the TestPoint routines used for profiling
 ** and coverage analysis of the code.
-** $Revision: 1.4 $
+** $Revision: 1.5 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -65,6 +65,22 @@ int HtmlTPArray[2000];
 /* Needed by the EslTestPointDump routine
 */
 #include <stdio.h>
+
+/*
+** Recursion depth
+*/
+#if defined(DEBUG)
+int HtmlDepth = 0;
+#endif
+#if INTERFACE
+#if defined(DEBUG)
+#define HtmlPush HtmlDepth+=2
+#define HtmlPop  HtmlDepth-=2
+#else
+#define HtmlPush
+#define HtmlPop
+#endif
+#endif
 
 /* This function is called to print the values of all elements of the
 ** TP_Array to the given file.  Values are printed in decimal, one per line.
