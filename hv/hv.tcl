@@ -5,7 +5,7 @@
 # This application is used for testing the HTML widget.  It can
 # also server as an example of how to use the HTML widget.
 # 
-# @(#) $Id: hv.tcl,v 1.26 2001/06/17 22:45:35 peter Exp $
+# @(#) $Id: hv.tcl,v 1.27 2002/04/02 14:06:26 drh Exp $
 #
 wm title . {HTML File Viewer}
 wm iconname . {HV}
@@ -145,7 +145,7 @@ proc FormCmd {n cmd args} {
     textarea -
     input {
       set w [lindex $args 0]
-      label $w -image nogifsm
+      # label $w -image nogifsm
     }
   }
 }

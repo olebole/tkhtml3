@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlform.c,v 1.26 2002/03/06 18:10:58 peter Exp $";
+static char const rcsid[] = "@(#) $Id: htmlform.c,v 1.27 2002/04/02 14:06:26 drh Exp $";
 /*
 ** Routines used for processing HTML makeup for forms.
 **
@@ -26,7 +26,6 @@ static char const rcsid[] = "@(#) $Id: htmlform.c,v 1.26 2002/03/06 18:10:58 pet
 #include <tk.h>
 #include <string.h>
 #include <stdlib.h>
-#include <stdarg.h>
 #include "htmlform.h"
 
 static void EmptyInput(HtmlElement *pElem);
