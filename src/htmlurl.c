@@ -1,6 +1,6 @@
 /*
 ** Routines for processing URLs.
-** $Revision: 1.13 $
+** $Revision: 1.14 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -334,7 +334,9 @@ int HtmlCallResolver(
           HtmlFree(base->zPath);
           base->zPath = zBuf;
         }   
-      }
+        ReplaceStr(&base->zQuery, term->zQuery);
+        ReplaceStr(&base->zFragment, term->zFragment);
+     }
       FreeUri(term);
     }
     Tcl_SetResult(htmlPtr->interp, BuildUri(base), TCL_DYNAMIC);
