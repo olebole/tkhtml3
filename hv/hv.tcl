@@ -36,6 +36,16 @@ image create photo smgray -data {
     R0lGODdhOAAYAPAAALi4uAAAACwAAAAAOAAYAAACI4SPqcvtD6OctNqLs968+w+G4kiW5omm
     6sq27gvH8kzX9m0VADv/
 }
+image create photo nogifbig -data {
+    R0lGODdhJAAkAPEAAACQkADQ0PgAAAAAACwAAAAAJAAkAAACmISPqcsQD6OcdJqKM71PeK15
+    AsSJH0iZY1CqqKSurfsGsex08XuTuU7L9HywHWZILAaVJssvgoREk5PolFo1XrHZ29IZ8oo0
+    HKEYVDYbyc/jFhz2otvdcyZdF68qeKh2DZd3AtS0QWcDSDgWKJXY+MXS9qY4+JA2+Vho+YPp
+    FzSjiTIEWslDQ1rDhPOY2sXVOgeb2kBbu1AAADv/
+}
+image create photo nogifsm -data {
+    R0lGODdhEAAQAPEAAACQkADQ0PgAAAAAACwAAAAAEAAQAAACNISPacHtD4IQz80QJ60as25d
+    3idKZdR0IIOm2ta0Lhw/Lz2S1JqvK8ozbTKlEIVYceWSjwIAO///
+}
 
 frame .mbar -bd 2 -relief raised
 pack .mbar -side top -fill x
@@ -81,18 +91,18 @@ proc FormCmd {n cmd args} {
     textarea -
     input {
       set w [lindex $args 0]
-      label $w -image smgray
+      label $w -image nogifsm
     }
   }
 }
 proc ImageCmd {args} {
   set fn [lindex $args 0]
   if {[catch {image create photo -file $fn} img]} {
-    global HtmlTraceMask
-    if {$HtmlTraceMask==0} {
-      tk_messageBox -icon error -message $img -type ok
-    }
-    return biggray
+    # global HtmlTraceMask
+    # if {$HtmlTraceMask==0} {
+    #   tk_messageBox -icon error -message $img -type ok
+    # }
+    return nogifsm
   } else {
     global Images
     set Images($img) 1
