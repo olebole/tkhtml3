@@ -2,7 +2,7 @@
 #
 # Construct the web page for tkhtml
 #
-# @(#) $Id: mkwebpage.tcl,v 1.8 2002/09/22 16:55:46 peter Exp $
+# @(#) $Id: mkwebpage.tcl,v 1.9 2002/09/22 17:03:00 peter Exp $
 #
 
 set p [open publish.sh w]
@@ -117,19 +117,34 @@ To access the anonymous CVS server, first install CVS on your system.
 additional information.)  Then login as follows:</p>
 
 <blockquote><pre>
-cvs -d :pserver:cvs@xoli.dyn.dhs.org:/home/cvs/cvsroot login
+cvs -d :pserver:anonymous@cvs.hwaci.com:/home/cvs/tkhtml login
 </pre></blockquote>
 
-<p>You will be prompted for a password.  Use "<tt>cvs</tt>".  After
+<p>You will be prompted for a password.  Use "<tt>anonymous</tt>".  After
 you get logged in successfully, you can check out the source tree
 like this:</p>
 
 <blockquote><pre>
-cvs -d :pserver:cvs@xoli.dyn.dhs.org:/home/cvs/cvsroot checkout htmlwidget
+cvs -d :pserver:anonymous@cvs.hwaci.com:/home/cvs/tkhtml checkout htmlwidget
 </pre></blockquote>
 
 <p>This command creates a directory named "<tt>htmlwidget</tt>" and
 fills it with the latest version of the sources.</p>
+
+<p>You can view a log of changes, create trouble tickets, or read or
+enter Wiki about TkHTML by visiting the CVSTrac server at</p>
+
+<blockquote>
+<a href="http://cvs.hwaci.com:2080/tkhtml/">
+http://cvs.hwaci.com:2080/tkhtml/</a>
+</blockquote>
+
+<p>Note that the cvs.hwaci.com machine is connected to the internet
+via a cable modem which changes IP addresses 3 or 4 times a year.
+If you have trouble getting through, it may be because there was a
+recent IP address change and the new address has not yet had time
+to propagate through DNS.  Try again in a few days.</p>
+
 
 </body>
 </html>
