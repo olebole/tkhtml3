@@ -17,7 +17,7 @@ TCLLIB="$LIBHOME/tclstub81.lib"
 
 CMD="rm *.o"
 echo $CMD
-$CMD
+#$CMD
 for i in htmlwidget.c; do
   CMD="$CC $INC -c $i"
   echo $CMD
@@ -30,6 +30,7 @@ CMD="i586-cygwin32-dllwrap \
      --driver-name i586-cygwin32-gcc \
      --dlltool-name i586-cygwin32-dlltool \
      --as i586-cygwin32-as \
+     --target i386-mingw32 -mno-cygwin \
      -dllname tkhtml.dll *.o $TKLIB $TCLLIB"
 echo $CMD
 $CMD

@@ -1,6 +1,6 @@
 /*
 ** The main routine for the HTML widget for Tcl/Tk
-** $Revision: 1.18 $
+** $Revision: 1.19 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -1867,54 +1867,3 @@ int Tkhtml_Init(Tcl_Interp *interp){
   TestPoint(0);
   return TCL_OK;
 }
-
-#define DUMMY 1
-#if defined(USE_TCL_STUBS) && defined(__WIN32__) && defined(DUMMY)
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#undef WIN32_LEAN_AND_MEAN
-#include <stdio.h>
-
-BOOL APIENTRY DllMain (HINSTANCE hInst, DWORD reason, 
-                       LPVOID reserved /* Not used. */ );
-/*
- *----------------------------------------------------------------------
- *
- * DllMain --
- *
- *	This routine is called by the Mingw32, Cygwin32 or VC++ C run 
- *	time library init code, or the Borland DllEntryPoint routine. It 
- *	is responsible for initializing various dynamically loaded 
- *	libraries.
- *
- * Results:
- *      TRUE on sucess, FALSE on failure.
- *
- * Side effects:
- *
- *----------------------------------------------------------------------
- */
-BOOL APIENTRY
-DllMain (
-	 HINSTANCE hInst /* Library instance handle. */ ,
-	 DWORD reason /* Reason this function is being called. */ ,
-	 LPVOID reserved /* Not used. */ )
-{
-
-  switch (reason)
-    {
-    case DLL_PROCESS_ATTACH:
-      break;
-
-    case DLL_PROCESS_DETACH:
-      break;
-
-    case DLL_THREAD_ATTACH:
-      break;
-
-    case DLL_THREAD_DETACH:
-      break;
-    }
-  return TRUE;
-}
-#endif
