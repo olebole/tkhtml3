@@ -1,9 +1,9 @@
 #
-# This script implements the "hv" application.  Type "hv FILE" to
-# view the file as HTML.
+# This script implements the "ss" application.  "ss" implements
+# a presentation slide-show based on HTML slides.
 # 
-wm title . {HTML File Viewer}
-wm iconname . {HV}
+wm title . {TkHTML Slide Show}
+wm iconname . {SlideShow}
 
 if {[info command html]==""} {
   foreach f {
@@ -65,13 +65,23 @@ if {$HtmlTraceMask} {
   .h.h config -tablerelief flat
 }
 
-# .h.h config -fontcommand pickFont
+.h.h config -fontcommand pickFont
+set baseFontSize 24
 proc pickFont {size attrs} { 
   puts "FontCmd: $size $attrs"
   set a [expr {-1<[lsearch $attrs fixed]?{courier}:{charter}}]
   set b [expr {-1<[lsearch $attrs italic]?{italic}:{roman}}]
   set c [expr {-1<[lsearch $attrs bold]?{bold}:{normal}}]
   set d [expr {int(12*pow(1.2,$size-4))}]
+  list $a $d $b $c
+} 
+proc pickFontFS {size attrs} { 
+  puts "FontCmd: $size $attrs"
+  set a [expr {-1<[lsearch $attrs fixed]?{courier}:{charter}}]
+  set b [expr {-1<[lsearch $attrs italic]?{italic}:{roman}}]
+  set c [expr {-1<[lsearch $attrs bold]?{bold}:{normal}}]
+  global baseFontSize
+  set d [expr {int($baseFontSize*pow(1.2,$size-4))}]
   list $a $d $b $c
 } 
 
