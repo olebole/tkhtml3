@@ -10,19 +10,19 @@
 # using cygwin/mingw.  Do not use the tclstub81.lib and tkstub81.lib
 # files that come with Tcl/Tk from scripts.  They won't work.
 #
-# $Revision: 1.5 $
+# $Revision: 1.6 $
 #
 
-LIBHOME=/home/drh/tcltk/win81
-TCLBASE=/home/drh/tcltk/tcl8.1.1
-TKBASE=/home/drh/tcltk/tk8.1.1
+LIBHOME=/home/drh/tcltk/win32/lib
+TCLBASE=/home/drh/tcltk/tcl8.2.1
+TKBASE=/home/drh/tcltk/tk8.2.1
+TKLIB="$LIBHOME/tkstub82.o"
+TCLLIB="$LIBHOME/tclstub82.o"
 
 PATH=$PATH:/opt/cygwin20/bin
 
 CC='i586-cygwin32-gcc -DUSE_TCL_STUBS=1 -DUSE_TK_STUBS -mno-cygwin -O2'
 INC="-I. -I$TCLBASE/generic -I$TKBASE/generic"
-TKLIB="$LIBHOME/tkstub.o"
-TCLLIB="$LIBHOME/tclstub.o"
 
 CMD="rm *.o"
 echo $CMD
