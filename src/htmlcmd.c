@@ -1,6 +1,6 @@
 /*
 ** Routines to implement the HTML widget commands
-** $Revision: 1.6 $
+** $Revision: 1.7 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -147,10 +147,11 @@ int HtmlHrefCmd(
   }
   z = HtmlGetHref(htmlPtr, x + htmlPtr->xOffset, y + htmlPtr->yOffset);
   if( z ){
-    /* Tcl_SetResult(interp, HtmlCompleteUrl(htmlPtr,z), TCL_DYNAMIC); */
-    TestPoint(0);
-  }else{
-    TestPoint(0);
+    HtmlLock(htmlPtr);
+    z = HtmlResolveUri(htmlPtr, z);
+    if( !HtmlUnlock(htmlPtr) ){
+      Tcl_SetResult(interp, z, TCL_DYNAMIC);
+    }
   }
   return TCL_OK;
 }

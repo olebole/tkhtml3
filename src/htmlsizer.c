@@ -1,6 +1,6 @@
 /*
 ** Routines used to compute the style and size of individual elements.
-** $Revision: 1.6 $
+** $Revision: 1.7 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -390,10 +390,11 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
       case Html_BASE:
         z = HtmlMarkupArg(p,"href",0);
         if( z ){
-          /* HtmlChangeUrl(htmlPtr, z); */
-          TestPoint(0);
-        }else{
-          TestPoint(0);
+          HtmlLock(htmlPtr);
+          z = HtmlResolveUri(htmlPtr, z);
+          if( HtmlUnlock(htmlPtr) ) return;
+          ckfree(htmlPtr->zBase);
+          htmlPtr->zBase = z;
         }
         break;
       case Html_EndDIV:

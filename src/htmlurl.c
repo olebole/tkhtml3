@@ -1,6 +1,6 @@
 /*
 ** Routines for processing URLs.
-** $Revision: 1.6 $
+** $Revision: 1.7 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -288,7 +288,11 @@ int HtmlCallResolver(
             if( i>0 && zBuf[i]=='/' && zBuf[i+1]=='.' && zBuf[i+2]=='.'
                    && (zBuf[i+3]=='/' || zBuf[i+3]==0) ){
               for(j=i-1; j>=0 && zBuf[j]!='/'; j--){}
-              strcpy(&zBuf[j], &zBuf[i+3]);
+              if( zBuf[i+3] ){
+                strcpy(&zBuf[j], &zBuf[i+3]);
+              }else{
+                zBuf[j+1] = 0;
+              }
               i = j-1;
               continue;
             }
