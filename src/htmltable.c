@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmltable.c,v 1.37 2000/06/20 22:48:38 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmltable.c,v 1.38 2000/08/05 04:05:33 drh Exp $";
 /*
 ** Routines for doing layout of HTML tables
 **
@@ -163,6 +163,24 @@ static HtmlElement *TableDimensions(
   z = HtmlMarkupArg(pStart, "hspace", 0);
   hspace = z ? atoi(z) : DFLT_HSPACE;
 
+  /* Figure out the maximum space available available */
+  z = HtmlMarkupArg(pStart, "width", 0);
+  if( z ){
+    int len = strlen(z);
+    if( len>0 && z[len-1]=='%' ){
+      maxTableWidth = (atoi(z) * lineWidth)/100;
+    }else{
+      maxTableWidth = atoi(z);
+    }
+  }else{
+    maxTableWidth = lineWidth;
+  }
+  maxTableWidth -= 2*margin;
+  SETMAX( maxTableWidth, 1);
+  TRACE(HtmlTrace_Table1,
+    ("lineWidth=%d maxTableWidth = %d margin=%d\n", 
+       lineWidth, maxTableWidth, margin));
+
   for(p=pStart->pNext; p && p->base.type!=Html_EndTABLE; p=pNext){
     pNext = p->pNext;
     switch( p->base.type ){
@@ -183,7 +201,7 @@ static HtmlElement *TableDimensions(
         pStart->table.nRow++;
         iCol = 0;
         inRow = 1;
-        maxTableWidth = availWidth = lineWidth - 2*margin;
+        availWidth = maxTableWidth;
         TestPoint(0);
         break;
       case Html_CAPTION:
@@ -246,7 +264,6 @@ static HtmlElement *TableDimensions(
           }else if( z[i]==0 ){
             requestedW = atoi(z);
           }else if( z[i]=='%' ){
-            /* requestedW = (atoi(z)*availWidth + 99)/100; */
             requestedW = (atoi(z)*maxTableWidth + 99)/100;
           }
         }else{
@@ -274,12 +291,6 @@ static HtmlElement *TableDimensions(
             SETMAX( ColMin(iCol,iCol+n-1), minW);
             SETMAX( ColReq(iCol,iCol+n-1), requestedW);
             min = minW + separation;
-#if 0
-            maxW = (maxW + (n - 1)*(1-separation))/n;
-            for(i=iCol; i<iCol + n && i<HTML_MAX_COLUMNS; i++){
-              SETMAX( pStart->table.maxW[i], maxW );
-            }
-#endif
           }
           availWidth -= min;
         }
@@ -450,7 +461,7 @@ static HtmlElement *TableDimensions(
     requestedW += MAX(reqW[i], pStart->table.minW[i]);
   }
 
-  /* Figure out how wide to draw the table */
+  /* Possibly widen or narrow the table to accomodate a "width=" attribute */
   z = HtmlMarkupArg(pStart, "width", 0);
   if( z ){
     int len = strlen(z);
@@ -460,8 +471,11 @@ static HtmlElement *TableDimensions(
     }else{
       totalWidth = atoi(z);
     }
-    SETMAX( requestedW, totalWidth );
+    SETMAX( totalWidth, pStart->table.minW[0] );
+    requestedW = totalWidth;
+    SETMAX( pStart->table.maxW[0], totalWidth );
   }
+  SETMAX( maxTableWidth, pStart->table.minW[0] );
   if( lineWidth && (requestedW > lineWidth) ){
     TRACE(HtmlTrace_Table5,("RequestedW reduced to lineWidth: %d -> %d\n", 
        requestedW, lineWidth));
@@ -817,6 +831,15 @@ HtmlElement *HtmlTableLayout(
   
   /* Figure out how wide to draw the table 
   */
+  z = HtmlMarkupArg(pTable, "width", 0);
+  if( z ){
+    int len = strlen(z);
+    if( len>0 && z[len-1]=='%' ){
+      lineWidth = (atoi(z) * lineWidth)/100;
+    }else{
+      lineWidth = atoi(z);
+    }
+  }
   if( lineWidth < pTable->table.minW[0] ){
     width = pTable->table.minW[0];
   }else if( lineWidth <= pTable->table.maxW[0] ){
