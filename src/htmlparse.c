@@ -1,6 +1,6 @@
 #define TokenMap(htmlPtr,idx) (htmlPtr->tokenMap?htmlPtr->tokenMap[idx]:(HtmlMarkupMap+idx))
 #define TokenapMap(htmlPtr,idx) (htmlPtr->tokenapMap?htmlPtr->tokenMap[idx]:apMap[idx])
-static char const rcsid[] = "@(#) $Id: htmlparse.c,v 1.31 2003/01/06 16:18:10 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlparse.c,v 1.32 2003/01/19 07:34:04 hkoba Exp $";
 /*
 ** A tokenizer that converts raw HTML into a linked list of HTML elements.
 **
@@ -695,13 +695,16 @@ static int Tokenize(
 	    Tcl_AddErrorInfo(p->interp,
               "\n    (-scriptcommand callback of HTML widget)");
             Tcl_BackgroundError(p->interp);
-	  } else if (p->interp->result[0]) {
+	  } else {
+	    char* result;
+	    Tcl_Obj* obj = Tcl_GetObjResult(p->interp);
+	    result = Tcl_GetStringFromObj(obj, &rl);
+	    
             ol=p->nAlloc;
-            rl=strlen(p->interp->result);
 	    p->nAlloc+=rl;
             z=p->zText=HtmlRealloc(z,ol+rl);
 	    memmove(z+n+rl,z+n,ol-n);
-	    memmove(z+n,p->interp->result,rl);
+	    memmove(z+n,result,rl);
           }
           Tcl_ResetResult(p->interp);
         }
