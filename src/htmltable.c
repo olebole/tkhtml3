@@ -1,6 +1,6 @@
 /*
 ** Routines for doing layout of HTML tables
-** $Revision: 1.27 $
+** $Revision: 1.28 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -480,12 +480,14 @@ static HtmlElement *TableDimensions(
         tminW[i] *= scale;
         tmaxW[i] *= scale;
       }
-    }else{
+    }else if( pStart->table.nCol>0 ){
       int unit = (requestedW - margin)/pStart->table.nCol - separation;
       if( unit<0 ) unit = 0;
       for(i=1; i<=pStart->table.nCol; i++){
         tminW[i] = tmaxW[i] = unit;
       }
+    }else{
+      tminW[0] = tmaxW[0] = requestedW;
     }
     pStart->table.minW[0] = requestedW;
     SETMAX( pStart->table.maxW[0], requestedW );
