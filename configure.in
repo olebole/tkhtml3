@@ -1,749 +1,231 @@
-#
-# This file describes a "configure" script that is used to build
-# makefiles for a particular platform.  Process this file using 
-# Autoconf version 1.13 in order to generate that script.  All 
-# lines of this file up to the AC_INIT macro are ignored.
-#
-# The build process allows for using a cross-compiler.  But the default
-# action is to target the same platform that we are running on.  The
-# configure script needs to discover the following properties of the 
-# build and target systems:
-#
-#    srcdir
-#
-#        The is the name of the directory that contains the
-#        "configure" shell script.  All source files are
-#        located relative to this directory.
-#
-#    bindir
-#
-#        The name of the directory where executables should be
-#        written by the "install" target of the makefile.
-#
-#    program_prefix
-#
-#        Add this prefix to the names of all executables that run
-#        on the target machine.  Default: ""
-#
-#    ENABLE_SHARED
-#
-#        True if shared libraries should be generated.
-#
-#    BUILD_CC
-#
-#        The name of a command that is used to convert C
-#        source files into executables that run on the build
-#        platform.
-#
-#    BUILD_CFLAGS
-#
-#        Switches that the build compiler needs in order to construct
-#        command-line programs.
-#
-#    BUILD_LIBS
-#
-#        Libraries that the build compiler needs in order to construct
-#        command-line programs.
-#
-#    BUILD_EXEEXT
-#
-#        The filename extension for executables on the build
-#        platform.  "" for Unix and ".exe" for Windows.
-#
-#    BUILD_TCLSH
-#
-#        The name of a tclsh executable on the build platform.
-#
-#    TARGET_CC
-#
-#        The name of a command that runs on the build platform
-#        and converts C source files into *.o files for the
-#        target platform.  In other words, the cross-compiler.
-#
-#    TARGET_CFLAGS
-#
-#        Switches that the target compiler needs to turn C source files
-#        into *.o files.  Do not include TARGET_TCL_INC, TARGET_X_INC
-#        or TARGET_TK_INC in this list.  Makefiles might add
-#        additional switches such as "-I.".
-#
-#    TARGET_SHLIB_CFLAGS
-#
-#        Switches that the target compiler needs to turn C source files
-#        into *.o files that can later be linked into a shared library.
-#        Does not include TARGET_*_INC.
-#
-#    TARGET_TCL_INC
-#    TARGET_X_INC
-#    TARGET_TK_INC
-#    TARGET_BLT_INC
-#
-#        These variables define the directories that contain header
-#        files for Tcl, X11, Tk, and BLT respectively.  If the compiler
-#        is able to find <tcl.h>, <X11/Xlib.h>, <tk.h> and <blt.h>
-#        on its own, then these can be blank.
-#
-#    TARGET_LINK
-#
-#        The name of the linker that combines *.o files generated
-#        by TARGET_CC into executables for the target platform.
-#
-#    TARGET_SHLIB_LINK
-#
-#        The name of the linker an maybe some options that combines
-#        *.o files into a shared library.
-#
-#    TARGET_SHLIB_EXT
-#
-#        The extension used for shared libraries on the target system.
-#
-#    TARGET_TCL_LIBS
-#    TARGET_X_LIBS
-#    TARGET_TK_LIBS
-#    TARGET_BLT_LIBS
-#
-#        These are the library directives passed to the target linker
-#        that cause the executable to link against Tcl, X11, Tk, and
-#        BLT respectively.  They might be switches like "-ltcl8.0" or
-#        pathnames of library files like "../../src/libtcl8.0.a".
-#
-#    TARGET_LIBS
-#
-#        Additional libraries or other switch that the target linker needs
-#        to build an executable on the target.  Do not include
-#        on this list any libraries in TARGET_TCL_LIBS, TARGET_X_LIBS,
-#        TARGET_TK_LIBS, or TARGET_BLT_LIBS.
-#
-#    TARGET_EXEEXT
-#
-#        The filename extension for executables on the
-#        target platform.  "" for Unix and ".exe" for windows.
-#
-#    TARGET_TCL_SCRIPT_DIR
-#
-#        A directory on the build platform that contains the
-#        Tcl script libraries that are compatible with the
-#        Tcl C libraries of the target platform.
-#
-#    TARGET_TK_SCRIPT_DIR
-#
-#        A directory on the build platform that contains the
-#        Tk script libraries that are compatible with the
-#        Tk C libraries of the target platform.
-#
-# The generated configure script will make an attempt to guess
-# at all of the above parameters.  You can override any of
-# the guesses by setting the environment variable named
-# "config_AAAA" where "AAAA" is the name of the parameter
-# described above.  (Exception: srcdir cannot be set this way.)
-# If you have a file that sets one or more of these environment
-# variables, you can invoke configure as follows:
-#
-#           configure --with-hints=FILE
-#
-# where FILE is the name of the file that sets the environment
-# variables.  FILE should be an absolute pathname.
-#
-# If you have a Tcl/Tk/BLT source distribution available, then the
-# files in that distribution will be used instead of any other
-# Tcl/Tk/BLT files the script might discover if you tell the configure
-# script about the source tree.  Use commandline options:
-#
-#         --with-tcl=PATH  --with-tk=PATH  --with-blt=PATH
-#
-# Or set environment variables config_WITH_TCL, config_WITH_TK, or
-# config_WITH_BLT.
-#
-# This configure.in file is easy to reuse on other projects.  Just
-# change the argument to AC_INIT().  And disable any features that
-# you don't need (for example BLT) by erasing or commenting out
-# the corresponding code.
-#
-AC_INIT(src/html.h)
+dnl
+dnl Process this file with autoconf to produce a configure script.
+dnl
+AC_REVISION($Id: configure.in,v 1.16 2002/12/17 18:31:04 drh Exp $)
 
-dnl Put the RCS revision string after AC_INIT so that it will also
-dnl show in in configure.
-# The following RCS revision string applies to configure.in
-# $Revision: 1.15 $
+#--------------------------------------------------------------------
+# Configure script for package 'tkhtml', as distributed at November 20, 2001.
+# TEA compliant.
+#--------------------------------------------------------------------
 
-#########
-# Make sure we are not building in a subdirectory of the source tree.
-#
-changequote(<<<,>>>)
-temp=`echo $srcdir | grep '[^./]'`
-changequote([,])
-if test "$temp" = ""; then
-  AC_MSG_ERROR([
-**************************************************************************
-** This program may not be compiled in the same directory that contains **
-** the configure script or any subdirectory of that directory.   Rerun  **
-** the configure script from a directory that is separate from the      **
-** source tree.                                                         **
-**************************************************************************])
-fi
+#--------------------------------------------------------------------
+# This very first macro is used to verify that the configure script can 
+# find the sources.  The argument to AC_INIT is a unique filename for
+# this package.
+#--------------------------------------------------------------------
 
-#########
-# Set up an appropriate program prefix
-#
-if test "$program_prefix" = "NONE"; then
-  program_prefix=""
-fi
-AC_SUBST(program_prefix)
+AC_INIT(./src/html.h)
 
-#########
-# Check to see if the --with-hints=FILE option is used.  If there is none,
-# then check for a files named "$host.hints" and ../$hosts.hints where
-# $host is the hostname of the build system.  If still no hints are
-# found, try looking in $system.hints and ../$system.hints where
-# $system is the result of uname -s.
+AC_CONFIG_AUX_DIR(tclconfig)
+CONFIGDIR=${srcdir}/tclconfig
+AC_SUBST(CONFIGDIR)
+
+#--------------------------------------------------------------------
+# Setting our package name and version numbers.  The NODOT_VERSION is
+# required for constructing the library name on systems that don't like
+# dots in library names (Windows).  The VERSION variable is used on the
+# other systems.
+#--------------------------------------------------------------------
+
+PACKAGE=Tkhtml
+
+MAJOR_VERSION=2
+MINOR_VERSION=0
+#MAJOR_VERSION=10
+#MINOR_VERSION=0
+PATCHLEVEL=
+
+VERSION=${MAJOR_VERSION}.${MINOR_VERSION}${PATCHLEVEL}
+NODOT_VERSION=${MAJOR_VERSION}${MINOR_VERSION}
+TKHTML_VERSION=${VERSION}
+
+AC_SUBST(PACKAGE)
+AC_SUBST(VERSION)
+AC_SUBST(TKHTML_VERSION)
+
+# This package name must be replaced statically for AC_SUBST to work
+AC_SUBST(Tkhtml_LIB_FILE)
+# Substitute stub_LIB_FILE if your package creates a stub library too.
+AC_SUBST(Tkhtmlstub_LIB_FILE)
+
+#--------------------------------------------------------------------
+# This was placed here so that we can compile with -DVERSION="1.2" to
+# encode the package version directly into the source files.
+#--------------------------------------------------------------------
+
+eval AC_DEFINE_UNQUOTED(VERSION, "${VERSION}")
+eval AC_DEFINE_UNQUOTED(TKHTML_VERSION, "${TKHTML_VERSION}")
+
+#--------------------------------------------------------------------
+# Call TEA_INIT as the first TEA_ macro to set up initial vars.
+# This will define a ${TEA_PLATFORM} variable == "unix" or "windows".
+#--------------------------------------------------------------------
+
+TEA_INIT
+
+#--------------------------------------------------------------------
+# Load the tclConfig.sh file
+#--------------------------------------------------------------------
+
+TEA_PATH_TCLCONFIG
+TEA_LOAD_TCLCONFIG
+
+#--------------------------------------------------------------------
+# Load the tkConfig.sh file
+#--------------------------------------------------------------------
+
+TEA_PATH_TKCONFIG
+TEA_LOAD_TKCONFIG
+
+#-----------------------------------------------------------------------
+# Handle the --prefix=... option by defaulting to what Tcl gave.
+# Must be called after TEA_LOAD_TCLCONFIG and before TEA_SETUP_COMPILER.
+#-----------------------------------------------------------------------
+
+TEA_PREFIX
+
+#-----------------------------------------------------------------------
+# Standard compiler checks.
+# This sets up CC by using the CC env var, or looks for gcc otherwise.
+# This also calls AC_PROG_CC, AC_PROG_INSTALL and a few others to create
+# the basic setup necessary to compile executables.
+#-----------------------------------------------------------------------
+
+TEA_SETUP_COMPILER
+
+#--------------------------------------------------------------------
+# __CHANGE__
+# Choose which headers you need.  Extension authors should try very
+# hard to only rely on the Tcl public header files.  Internal headers
+# contain private data structures and are subject to change without
+# notice.
+# This MUST be called after TEA_LOAD_TCLCONFIG / TEA_LOAD_TKCONFIG
+#--------------------------------------------------------------------
+
+#TEA_PUBLIC_TCL_HEADERS
+TEA_PRIVATE_TCL_HEADERS
+
+#TEA_PUBLIC_TK_HEADERS
+TEA_PRIVATE_TK_HEADERS
+
+TEA_PATH_X
+
+#--------------------------------------------------------------------
+# A few miscellaneous platform-specific items:
 #
-AC_ARG_WITH(hints,
-  [  --with-hints=FILE       Read configuration options from FILE],
-  hints=$withval)
-if test "$hints" = ""; then
-  host=`hostname | sed 's/\..*//'`
-  if test -r $host.hints; then
-    hints=$host.hints
-  else
-     if test -r ../$host.hints; then
-       hints=../$host.hints
-     fi
-  fi
+# We have to define a special symbol for Windows (BUILD_Tkhtml in this
+# case) so that we create the export library with the dll.
+#
+# Windows creates a few extra files that need to be cleaned up.
+# We can add more files to clean if our extension creates any extra
+# files in the future.
+#
+# Define any extra compiler flags in the PACKAGE_CFLAGS variable.
+# These will be appended to the current set of compiler flags for
+# your system.
+#--------------------------------------------------------------------
+
+if test "${TEA_PLATFORM}" = "windows" ; then
+    AC_DEFINE(BUILD_Tkhtml)
+    CLEANFILES="pkgIndex.tcl *.lib *.dll *.exp *.ilk *.pdb vc*.pch"
+    EXTRA_SOURCES='$(WIN_SOURCES)'
+else
+    CLEANFILES="pkgIndex.tcl"
+    EXTRA_SOURCES='$(UNIX_SOURCES)'
 fi
-if test "$hints" = ""; then
-  sys=`uname -s`
-  if test -r $sys.hints; then
-    hints=$sys.hints
-  else
-     if test -r ../$sys.hints; then
-       hints=../$sys.hints
-     fi
-  fi
-fi
-if test "$hints" != ""; then
-  AC_MSG_RESULT(reading hints from $hints)
-  . $hints
+AC_SUBST(CLEANFILES)
+AC_SUBST(EXTRA_SOURCES)
+
+#--------------------------------------------------------------------
+# Check whether --enable-threads or --disable-threads was given.
+# So far only Tcl responds to this one.
+#--------------------------------------------------------------------
+
+TEA_ENABLE_THREADS
+
+#--------------------------------------------------------------------
+# The statement below defines a collection of symbols related to
+# building as a shared library instead of a static library.
+#--------------------------------------------------------------------
+
+TEA_ENABLE_SHARED
+
+#--------------------------------------------------------------------
+# This macro figures out what flags to use with the compiler/linker
+# when building shared/static debug/optimized objects.  This information
+# can be taken from the tclConfig.sh file, but this figures it all out.
+#--------------------------------------------------------------------
+
+TEA_CONFIG_CFLAGS
+
+#--------------------------------------------------------------------
+# Set the default compiler switches based on the --enable-symbols option.
+#--------------------------------------------------------------------
+
+TEA_ENABLE_SYMBOLS
+
+#--------------------------------------------------------------------
+# Everyone should be linking against the Tcl stub library.  If you
+# can't for some reason, remove this definition.  If you aren't using
+# stubs, you also need to modify the SHLIB_LD_LIBS setting below to
+# link against the non-stubbed Tcl library.
+#--------------------------------------------------------------------
+
+AC_DEFINE(USE_TCL_STUBS)
+AC_DEFINE(USE_TK_STUBS)
+
+#--------------------------------------------------------------------
+# This macro generates a line to use when building a library.  It
+# depends on values set by the TEA_ENABLE_SHARED, TEA_ENABLE_SYMBOLS,
+# and TEA_LOAD_TCLCONFIG macros above.
+#--------------------------------------------------------------------
+
+TEA_MAKE_LIB
+
+#--------------------------------------------------------------------
+# Find tclsh so that we can run pkg_mkIndex to generate the pkgIndex.tcl
+# file during the install process.  Don't run the TCLSH_PROG through
+# ${CYGPATH} because it's being used directly by make.
+# Require that we use a tclsh shell version 8.2 or later since earlier
+# versions have bugs in the pkg_mkIndex routine.
+# Add WISH as well if this is a Tk extension.
+#--------------------------------------------------------------------
+
+TEA_PROG_TCLSH
+TEA_PROG_WISH
+
+#--------------------------------------------------------------------
+# Now we check if we need more libraries (depends on compiler)
+# and system.
+# gcc : Add -L/location/of/libgcc.* -lgcc
+# AIX : Enforce usage of TCL_LIB's and X libraries in link line
+#--------------------------------------------------------------------
+
+if test X$GCC = Xyes
+then
+	gcclibdir=`gcc -v 2>&1 | grep 'Reading specs'`
+	if test "X$gcclibdir" != "X" ; then
+		gcclibdir=`echo $gcclibdir | sed -e "s|^Reading specs from ||"`
+		if test "X$gcclibdir" != "X" ; then
+			gcclibdir=`dirname $gcclibdir`
+			SHLIB_LD_LIBS="${SHLIB_LD_LIBS} -L$gcclibdir -lgcc"
+		fi
+	fi
 fi
 
-#########
-# Locate a compiler for the build machine.  This compiler should
-# generate command-line programs that run on the build machine.
-#
-default_build_cflags="-g"
-if test "$config_BUILD_CC" = ""; then
-  AC_PROG_CC
-  if test "$cross_compiling" = "yes"; then
-    AC_MSG_ERROR([unable to find a compiler for building build tools])
-  fi
-  BUILD_CC=$CC
-  default_build_cflags=$CFLAGS
-else
-  BUILD_CC=$config_BUILD_CC
-  AC_MSG_CHECKING([host compiler])
-  CC=$BUILD_CC
-  AC_MSG_RESULT($BUILD_CC)
-fi
-AC_MSG_CHECKING([switches for the host compiler])
-if test "$config_BUILD_CFLAGS" != ""; then
-  CFLAGS=$config_BUILD_CFLAGS
-  BUILD_CFLAGS=$config_BUILD_CFLAGS
-else
-  BUILD_CFLAGS=$default_build_cflags
-fi
-AC_MSG_RESULT($BUILD_CFLAGS)
-if test "$config_BUILD_LIBS" != ""; then
-  BUILD_LIBS=$config_BUILD_LIBS
-fi
-AC_SUBST(BUILD_CC)
-AC_SUBST(BUILD_CFLAGS)
-AC_SUBST(BUILD_LIBS)
+system=`uname -s`-`uname -r`
+case $system in
+    AIX*)
+	SHLIB_LD_LIBS="${SHLIB_LD_LIBS} \${TK_XLIBSW} \${TCL_LIBS}"
+    ;;
+esac
 
-##########
-# Locate a compiler that converts C code into *.o files that run on
-# the target machine.
-#
-AC_MSG_CHECKING([target compiler])
-if test "$config_TARGET_CC" != ""; then
-  TARGET_CC=$config_TARGET_CC
-else
-  TARGET_CC=$BUILD_CC
-fi
-AC_MSG_RESULT($TARGET_CC)
-AC_MSG_CHECKING([switches on the target compiler])
-if test "$config_TARGET_CFLAGS" != ""; then
-  TARGET_CFLAGS=$config_TARGET_CFLAGS
-else
-  TARGET_CFLAGS=$BUILD_CFLAGS
-fi
-AC_MSG_RESULT($TARGET_CFLAGS)
-AC_MSG_CHECKING([target linker])
-if test "$config_TARGET_LINK" = ""; then
-  TARGET_LINK=$TARGET_CC
-else
-  TARGET_LINK=$config_TARGET_LINK
-fi
-AC_MSG_RESULT($TARGET_LINK)
-AC_MSG_CHECKING([switches on the target compiler])
-if test "$config_TARGET_TFLAGS" != ""; then
-  TARGET_TFLAGS=$config_TARGET_TFLAGS
-else
-  TARGET_TFLAGS=$BUILD_CFLAGS
-fi
-if test "$config_TARGET_RANLIB" != ""; then
-  TARGET_RANLIB=$config_TARGET_RANLIB
-else
-  AC_PROG_RANLIB
-  TARGET_RANLIB=$RANLIB
-fi
-if test "$config_TARGET_AR" != ""; then
-  TARGET_RANLIB=$config_TARGET_AR
-else
-  TARGET_AR='ar cr'
-fi
-AC_MSG_RESULT($TARGET_TFLAGS)
-AC_SUBST(TARGET_CC)
-AC_SUBST(TARGET_CFLAGS)
-AC_SUBST(TARGET_LINK)
-AC_SUBST(TARGET_LFLAGS)
-AC_SUBST(TARGET_RANLIB)
-AC_SUBST(TARGET_AR)
+#--------------------------------------------------------------------
+# Finally, substitute all of the various values into the Makefile.
+# You may alternatively have a special pkgIndex.tcl.in or other files
+# which require substituting th AC variables in.  Include these here.
+#--------------------------------------------------------------------
 
-# Set the $cross variable if we are cross-compiling.  Make
-# it 0 if we are not.
-#
-AC_MSG_CHECKING([if host and target compilers are the same])
-if test "$BUILD_CC" = "$TARGET_CC"; then
-  cross=0
-  AC_MSG_RESULT(yes)
-else
-  cross=1
-  AC_MSG_RESULT(no)
-fi
+AC_OUTPUT([Makefile])
 
-###########
-# Lots of things are different if we are compiling for Windows using
-# the CYGWIN environment.  So check for that special case and handle
-# things accordingly.
-#
-AC_MSG_CHECKING([if executables have the .exe suffix])
-if test "$config_BUILD_EXEEXT" = ".exe"; then
-  CYGWIN=yes
-  AC_MSG_RESULT(yes)
-else
-  AC_MSG_RESULT(unknown)
-fi
-if test "$CYGWIN" != "yes"; then
-  AC_CYGWIN
-fi
-if test "$CYGWIN" = "yes"; then
-  BUILD_EXEEXT=.exe
-else
-  BUILD_EXEEXT=""
-fi
-if test "$cross" = "0"; then
-  TARGET_EXEEXT=$BUILD_EXEEXT
-else
-  TARGET_EXEEXT=$config_TARGET_EXEEXT
-fi
-if test "$TARGET_EXEEXT" = ".exe"; then
-  OS_UNIX=0
-  OS_WIN=1
-  tclsubdir=win
-else
-  OS_UNIX=1
-  OS_WIN=0
-  tclsubdir=unix
-fi
-if test "$config_TKHTML_PS" = "yes"; then
-  TKHTML_PS=1
-else
-  TKHTML_PS=0
-fi
-TARGET_CFLAGS="$TARGET_CFLAGS -DOS_UNIX=$OS_UNIX -DOS_WIN=$OS_WIN"
-
-AC_SUBST(BUILD_EXEEXT)
-AC_SUBST(OS_UNIX)
-AC_SUBST(OS_WIN)
-AC_SUBST(TARGET_EXEEXT)
-
-#########
-# Locate a working copy of tclsh.  We have to have this program
-# running on the build platform since the makefiles use it.
-#
-AC_ARG_WITH(tcl,
-[  --with-tcl=DIR          Directory holding Tcl source tree for target])
-if test "$config_WITH_TCL" != ""; then
-  with_tcl=$config_WITH_TCL
-fi
-AC_ARG_WITH(tk,
-[  --with-tk=DIR           Directory holding Tk source tree for target])
-if test "$config_WITH_TK" != ""; then
-  with_tk=$config_WITH_TK
-fi
-if test "$config_BUILD_TCLSH" != ""; then
-  AC_MSG_CHECKING([for a working "tclsh"])
-  BUILD_TCLSH=$config_BUILD_TCLSH
-  AC_MSG_RESULT($BUILD_TCLSH)
-else
-  if test "$with_tcl" != ""; then
-    if test -x "$with_tcl/$tclsubdir/tclsh"; then
-      BUILD_TCLSH=$with_tcl/$tclsubdir/tclsh
-    else
-      if test -x "$with_tcl/$tclsubdir/tclsh8.0"; then
-        BUILD_TCLSH=$with_tcl/$tclsubdir/tclsh8.0
-      fi
-    fi
-  fi
-  if test "$BUILD_TCLSH" = ""; then
-    AC_CHECK_PROGS(BUILD_TCLSH, tclsh8.4 tclsh8.3 tclsh8.2 tclsh8.1 tclsh81 tclsh8.0 tclsh80 cygtclsh80 tclsh, "")
-  fi
-  if test "$BUILD_TCLSH" = ""; then
-    AC_MSG_ERROR([no working "tclsh" could be found])
-  fi
-fi
-AC_SUBST(BUILD_TCLSH)
-
-###############
-# Check to see if the user wants to build shared libraries.  If so,
-# then locate tclConfig.sh and tkConfig.sh to figure out how.  Then
-# set up variables to short-circuit most of the subsequent tests
-# since the tclConfig.sh and tkConfig.sh files tell us most of what
-# we need to know.
-#
-AC_ARG_ENABLE(ps,
-[  --enable-ps             Build with postscript support],enable_ps=yes)
-if test "$enable_ps" = "yes"; then
-  TARGET_CFLAGS="$TARGET_CFLAGS -DTKHTML_PS=1"
-else
-  TARGET_CFLAGS="$TARGET_CFLAGS -DTKHTML_PS=0"
-fi
-AC_ARG_ENABLE(shared,
-[  --enable-shared         Build the widget as a shared library],,
-      enable_shared=yes)
-if test "$config_ENABLE_SHARED" = "yes"; then
-  enable_shared=yes
-fi
-AC_MSG_CHECKING([if shared libraries are requested])
-if test "$enable_shared" = "yes"; then
-  AC_MSG_RESULT(yes)
-else
-  AC_MSG_RESULT(no)
-fi
-if test "$CYGWIN" = "yes"; then
-  if test "$enable_shared" = "yes"; then
-    AC_MSG_WARN([don't know how to build shared libraries with Cygwin, yet...])
-    enable_shared=no
-  fi
-fi
-if test "$enable_shared" = "yes"; then
-  ok=0
-  if test "$with_tcl" != ""; then
-    tclconf=$with_tcl/unix/tclConfig.sh
-    AC_CHECK_FILE($tclconf, ok=1; )
-  fi
-  if test "$ok" = "0"; then
-    changequote(<<<,>>>)dnl
-    cat > conftest.tcl <<\EOF
-      regsub {^([A-Za-z]):/} [file dirname [info library]] {//\1/} out
-      puts -nonewline $out
-      exit
-EOF
-    changequote([,])dnl
-    dir=`$BUILD_TCLSH <conftest.tcl`
-    tclconf=$dir/tclConfig.sh
-    AC_CHECK_FILE($tclconf, ok=1)
-  fi
-  if test "$ok" = "0"; then
-    tclconf=$dir/unix/tclConfig.sh
-    AC_CHECK_FILE($tclconf, ok=1)
-  fi
-  if test "$ok" = "0"; then
-    tclconf=/usr/local/lib/tclConfig.sh
-    AC_CHECK_FILE($tclconf, ok=1)
-  fi
-  if test "$ok" = "0"; then
-    tclconf=/usr/lib/tclConfig.sh
-    AC_CHECK_FILE($tclconf, ok=1)
-  fi
-  if test "$ok" = "0"; then
-    AC_MSG_WARN(
-        [unable to locate tclConfig.sh.  Shared libraries will not be built]);
-    enabled_shared=no
-  fi
-fi
-if test "$enable_shared" = "yes"; then
-  ok=0
-  tkconf=`echo $tclconf | sed 's/tclConfig.sh/tkConfig.sh/'`
-  AC_CHECK_FILE($tkconf, ok=1)
-  if test "$ok" = "0"; then
-    if test "$with_tk" != ""; then
-      tkconf=$with_tk/unix/tkConfig.sh
-      AC_CHECK_FILE($tkconf, ok=1; )
-    fi
-  fi
-  if test "$ok" = "0"; then
-    tkconf=/usr/local/lib/tkConfig.sh
-    AC_CHECK_FILE($tkconf, ok=1)
-  fi
-  if test "$ok" = "0"; then
-    tkconf=/usr/lib/tclConfig.sh
-    AC_CHECK_FILE($tkconf, ok=1)
-  fi
-  if test "$ok" = "0"; then
-    AC_MSG_WARN(
-        [unable to locate tkConfig.sh.  Shared libraries will not be built]);
-    enabled_shared=no
-  fi
-fi
-if test "$enable_shared" = "yes"; then
-  ENABLE_SHLIB=1
-  . $tclconf
-  . $tkconf
-  TARGET_SHLIB_EXT=$TCL_SHLIB_SUFFIX
-  TARGET_SHLIB_CFLAGS="$TCL_SHLIB_CFLAGS $TARGET_CFLAGS"
-  TARGET_SHLIB_LINK="$TCL_SHLIB_LD"
-  TARGET_SHLIB_LIBS="$TCL_SHLIB_LD_LIBS"
-else
-  ENABLE_SHLIB=0
-fi
-AC_SUBST(TARGET_SHLIB_EXT)
-AC_SUBST(TARGET_SHLIB_CFLAGS)
-AC_SUBST(TARGET_SHLIB_LINK)
-AC_SUBST(TARGET_SHLIB_LIBS)
-AC_SUBST(ENABLE_SHLIB)
-
-#########
-# Locate the directory that contains all of the Tcl initialization
-# scripts for the target machine.
-#
-AC_MSG_CHECKING([Tcl script library])
-if test "$config_TARGET_TCL_SCRIPT_DIR" != ""; then
-  TARGET_TCL_SCRIPT_DIR=$config_TARGET_TCL_SCRIPT_DIR
-else
-  changequote(<<<,>>>)dnl
-  cat > conftest.tcl <<\EOF
-    regsub {^([A-Za-z]):/} [info library] {//\1/} out
-    puts -nonewline $out
-    exit
-EOF
-  changequote([,])dnl
-  tcllibdir=`$BUILD_TCLSH <conftest.tcl`
-  rm -f conftest.tcl
-  if test ! -r $tcllibdir/init.tcl; then
-    AC_MSG_ERROR(not found)
-  fi
-  TARGET_TCL_SCRIPT_DIR=$tcllibdir
-fi
-AC_MSG_RESULT($TARGET_TCL_SCRIPT_DIR)
-AC_SUBST(TARGET_TCL_SCRIPT_DIR)
-
-#########
-# Locate the directory that contains all of the Tk initialization
-# scripts for the target machine.
-#
-AC_MSG_CHECKING([Tk script library])
-if test "$config_TARGET_TK_SCRIPT_DIR" != ""; then
-  TARGET_TK_SCRIPT_DIR=$config_TARGET_TK_SCRIPT_DIR
-else
-  if test "$with_tk" != ""; then
-    tklibdir=$with_tk/library
-  else
-    changequote(<<<,>>>)dnl
-    cat > conftest.tcl <<\EOF
-      regsub {^([A-Za-z]):/} [info library] {//\1/} out
-      regsub {/tcl7.6} $out {tk4.2} out
-      regsub {/tcl([^/]*)} $out {/tk\1} out
-      puts -nonewline $out
-      exit
-EOF
-    changequote([,])dnl
-    tklibdir=`$BUILD_TCLSH <conftest.tcl`
-    rm -f conftest.tcl
-  fi
-  if test ! -r $tklibdir/tk.tcl; then
-    AC_MSG_ERROR(not found)
-  fi
-  TARGET_TK_SCRIPT_DIR=$tklibdir
-fi
-AC_MSG_RESULT($TARGET_TK_SCRIPT_DIR)
-AC_SUBST(TARGET_TK_SCRIPT_DIR)
-
-##########
-# Extract generic linker options from the environment.
-#
-if test "$config_TARGET_LIBS" != ""; then
-  TARGET_LIBS=$config_TARGET_LIBS
-else
-  TARGET_LIBS=""
-fi
-AC_SUBST(TARGET_LIBS)
-
-##########
-# Figure out what C libraries are required to compile Tcl programs.
-#
-if test "$config_TARGET_TCL_LIBS" != ""; then
-  TARGET_TCL_LIBS="$config_TARGET_TCL_LIBS"
-else
-  if test "$with_tcl" != ""; then
-    extra=`echo $with_tcl/$tclsubdir/libtcl8*.a`
-  fi
-  CC=$TARGET_CC
-  AC_CHECK_FUNC(sin, LIBS="", LIBS="-lm -lz")
-  AC_CHECK_LIB(dl, dlopen)
-  otherlibs=$LIBS
-  if test "$extra" != ""; then
-    LIBS=$extra
-  else 
-    LIBS=""
-    AC_SEARCH_LIBS(Tcl_Init, tcl8.4 tcl8.3 tcl8.2 tcl8.1 tcl8.0 tcl80 tcl,,,$otherlibs)
-  fi
-  TARGET_TCL_LIBS="$LIBS $otherlibs"
-fi
-AC_SUBST(TARGET_TCL_LIBS)
-
-##########
-# Figure out where to get the TCL header files.
-#
-AC_MSG_CHECKING([TCL header files])
-found=no
-if test "$config_TARGET_TCL_INC" != ""; then
-  TARGET_TCL_INC=$config_TARGET_TCL_INC
-  found=yes
-else
-  if test "$with_tcl" != ""; then
-    TARGET_TCL_INC="-I$with_tcl/generic -I$with_tcl/$tclsubdir"
-    found=yes
-  else
-    TARGET_TCL_INC=""
-    found=no
-  fi
-fi
-if test "$found" = "yes"; then
-  AC_MSG_RESULT($TARGET_TCL_INC)
-else
-  AC_MSG_RESULT(not specified: still searching...)
-  AC_CHECK_HEADER(tcl.h, [found=yes])
-fi
-if test "$found" = "no"; then
-  for dir in /usr/local /usr/X11* /usr/pkg /usr/contrib /usr; do
-    n=$dir/include/tcl.h
-    AC_CHECK_FILE($dir/include/tcl.h, found=yes)
-    if test "$found" = "yes"; then
-      TARGET_TCL_INC="-I$dir/include"
-      break
-    fi
-  done
-fi
-AC_SUBST(TARGET_TCL_INC)
-
-###########
-# Figure out what C libraries are required to compile X11 programs.
-# If the target is windows, we assume the compiler is Cygwin20 and
-# insert arguments that generate a windows GUI application.
-#
-if test "$config_TARGET_X_LIBS" != ""; then
-  TARGET_X_LIBS=$config_TARGET_X_LIBS
-  TARGET_X_INC=$config_TARGET_X_INC
-else
-  if test $OS_UNIX = 1; then
-    AC_PATH_XTRA
-    if test "$X_CFLAGS" = "-DX_DISPLAY_MISSING"; then
-      TARGET_X_LIBS=""
-      TARGET_X_INC=""
-    else
-      xlibs="$X_LIBS $X_PRE_LIB -lX11 $X_EXTRA_LIBS"
-      TARGET_X_LIBS=`echo $xlibs | sed -e 's/^  *//' -e 's/  //'g -e 's/ *$//'`
-      if test "$x_includes" != ""; then
-        TARGET_X_INC=`echo $x_includes | sed -e 's/^/-I/' -e 's/  */ -I/'`
-      fi
-    fi
-  else
-    TARGET_X_LIBS="-mwindows -e _mainCRTStartup"
-    TARGET_X_INC=""
-  fi
-fi
-AC_SUBST(TARGET_X_LIBS)
-AC_SUBST(TARGET_X_INC)
-
-
-##########
-# Figure out what libraries are required to compile Tk programs.
-#
-if test "$config_TARGET_TK_LIBS" != ""; then
-  TARGET_TK_LIBS="$config_TARGET_TK_LIBS"
-else
-  if test "$with_tk" != ""; then
-    TARGET_TK_LIBS=`echo $with_tk/$tclsubdir/libtk*.a`
-  else
-    CC=$TARGET_CC
-    otherlibs="$TARGET_X_LIBS $TARGET_TCL_LIBS"
-    LIBS=""
-    AC_SEARCH_LIBS(Tk_Init, tk8.4 tk8.3 tk8.2 tk8.1 tk8.0 tk80 tk,,,$otherlibs)
-    TARGET_TK_LIBS=$LIBS
-  fi
-fi
-AC_SUBST(TARGET_TK_LIBS)
-
-###########
-# Figure out where to get the TK header files.
-#
-AC_MSG_CHECKING([TK header files])
-if test "$config_TARGET_TK_INC" != ""; then
-  TARGET_TK_INC=$config_TARGET_TK_INC
-else
-  if test "$with_tk" != ""; then
-    TARGET_TK_INC="-I$with_tk/generic -I$with_tk/$tclsubdir"
-    if test "$tclsubdir" = "win"; then
-      TARGET_TK_INC="$TARGET_TK_INC -I$with_tk/xlib"
-    fi
-  else
-    TARGET_TK_INC=""
-  fi
-fi
-AC_MSG_RESULT($TARGET_TK_INC)
-AC_SUBST(TARGET_TK_INC)
-
-dnl ############
-dnl # Figure out where to look for BLT header files <blt.h>.
-dnl #
-dnl AC_ARG_WITH(blt,
-dnl [  --with-blt=DIR          Directory holding BLT source tree for target])
-dnl if test "$config_WITH_BLT" != ""; then
-dnl   with_tk=$config_WITH_BLT
-dnl fi
-dnl AC_MSG_CHECKING([BLT header files])
-dnl if test "$config_TARGET_BLT_INC" != ""; then
-dnl   TARGET_BLT_INC=$config_TARGET_BLT_INC
-dnl else
-dnl   if test "$with_blt" != ""; then
-dnl     TARGET_BLT_INC="-I$with_blt/src"
-dnl   else
-dnl     TARGET_BLT_INC=""
-dnl   fi
-dnl fi
-dnl AC_MSG_RESULT($TARGET_BLT_INC)
-AC_SUBST(TARGET_BLT_INC)
-dnl 
-dnl ##########
-dnl # Figure out what libraries are required to compile BLT programs.
-dnl #
-dnl if test "$config_TARGET_BLT_LIBS" != ""; then
-dnl   TARGET_BLT_LIBS="$config_TARGET_BLT_LIBS"
-dnl else
-dnl   if test "$with_blt" != ""; then
-dnl     TARGET_BLT_LIBS=`echo $with_blt/src/libBLT*.a`
-dnl   else
-dnl     CC=$TARGET_CC
-dnl     otherlibs="$TARGET_TK_LIBS $TARGET_X_LIBS $TARGET_TCL_LIBS"
-dnl     LIBS=""
-dnl     AC_SEARCH_LIBS(Blt_Init, BLT BLT2.4 BLT24,,,$otherlibs)
-dnl     TARGET_BLT_LIBS=$LIBS
-dnl   fi
-dnl fi
-AC_SUBST(TARGET_BLT_LIBS)
-
-#########
-# Generate the output files.
-#
-AC_OUTPUT_COMMANDS([$tclsh makemake.tcl >Makefile], tclsh=$BUILD_TCLSH)
-AC_OUTPUT(makemake.tcl)
+#--------------------------------------------------------------------
