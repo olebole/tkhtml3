@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlwidget.c,v 1.41 2000/02/13 18:47:30 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlwidget.c,v 1.42 2000/02/25 02:19:29 drh Exp $";
 /*
 ** The main routine for the HTML widget for Tcl/Tk
 **
@@ -795,11 +795,12 @@ int ConfigureHtmlWidget(
   HtmlWidget *htmlPtr,     /* The Html widget to be configured */
   int argc,                /* Number of configuration arguments */
   char **argv,             /* Text of configuration arguments */
-  int flags                /* Configuration flags */
+  int flags,               /* Configuration flags */
+  int realign              /* Always do a redraw if set */
 ){
   int rc;
   int i;
-  int redraw = 0;          /* True if a redraw is required. */
+  int redraw = realign;    /* True if a redraw is required. */
 
   /* Scan thru the configuration options to see if we need to redraw
   ** the widget.
@@ -1917,7 +1918,7 @@ static int HtmlCommand(
     Tk_CreateEventHandler(htmlPtr->clipwin,
          ExposureMask|StructureNotifyMask,
          HtmlEventProc, (ClientData) htmlPtr);
-    if (ConfigureHtmlWidget(interp, htmlPtr, argc-2, argv+2, 0) != TCL_OK) {
+    if (ConfigureHtmlWidget(interp, htmlPtr, argc-2, argv+2, 0, 1) != TCL_OK) {
        goto error;
     }
     interp->result = Tk_PathName(htmlPtr->tkwin);

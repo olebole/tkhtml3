@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlcmd.c,v 1.17 2000/01/31 13:23:46 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlcmd.c,v 1.18 2000/02/25 02:19:29 drh Exp $";
 /*
 ** Routines to implement the HTML widget commands
 **
@@ -99,7 +99,7 @@ int HtmlConfigCmd(
   } else {
      TestPoint(0);
      return ConfigureHtmlWidget(interp, htmlPtr, argc-2, argv+2,
-                                TK_CONFIG_ARGV_ONLY);
+                                TK_CONFIG_ARGV_ONLY, 0);
   }
 }
 
