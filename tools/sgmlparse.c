@@ -17,6 +17,7 @@
 */
 static void (*xSpaceHandler)(const char*,void*);
 static void (*xWordHandler)(const char*,void*);
+static void (*xCommentHandler)(const char*,void*);
 static void (*xDefaultMarkupHandler)(int, const char**, void*);
 
 /* Each handler is stored in a hash table as an instance of the
@@ -82,8 +83,9 @@ void SgmlParse(FILE *in, void *pArg){
     }else if( c=='<' ){
       int cQuote = 0;
       i = 0;
+      zBuf[i++] = c;
       while( (c=getc(in))!=EOF && (cQuote || c!='>') ){
-        if( i<sizeof(zBuf)-2 ) zBuf[i++] = c;
+        if( i<sizeof(zBuf)-3 ) zBuf[i++] = c;
         if( cQuote ){
           if( cQuote==c ) cQuote = 0;
         }else if( c=='"' || c=='\'' ){
@@ -92,9 +94,17 @@ void SgmlParse(FILE *in, void *pArg){
       }
       if( c=='>' ) c = getc(in);
       zBuf[i] = 0;
+      if( strncmp(zBuf,"<!--",4)==0 ){
+        zBuf[i++] = '>';
+        zBuf[i] = 0;
+        if( xCommentHandler ){
+          (*xCommentHandler)(zBuf,pArg);
+        }
+        continue;
+      }    
       argc = 0;
-      argv[0] = &zBuf[0];
-      for(j=0; zBuf[j] && !isspace(zBuf[j]); j++){}
+      argv[0] = &zBuf[1];
+      for(j=1; zBuf[j] && !isspace(zBuf[j]); j++){}
       if( zBuf[j] ){
         zBuf[j++] = 0;
         while( argc<(sizeof(argv)/sizeof(argv[0])) - 4 && zBuf[j] ){
@@ -188,6 +198,9 @@ void SgmlWordHandler(void (*xWord)(const char*,void*)){
 }
 void SgmlSpaceHandler(void (*xSpace)(const char*,void*)){
   xSpaceHandler = xSpace;
+}
+void SgmlCommentHandler(void (*xComment)(const char*,void*)){
+  xCommentHandler = xComment;
 }
 void SgmlDefaultMarkupHandler(void (*xMarkup)(int,const char**,void*)){
   xDefaultMarkupHandler = xMarkup;

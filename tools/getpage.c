@@ -141,6 +141,7 @@ int main(int argc, char **argv){
   }
   SgmlWordHandler(WordHandler);
   SgmlSpaceHandler(WordHandler);
+  SgmlCommentHandler(WordHandler);
   SgmlDefaultMarkupHandler(DefaultMarkup);
   SgmlHandler("img", ImageMarkup);
   SgmlParse(in, 0);
