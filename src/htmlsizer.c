@@ -1,6 +1,6 @@
 /*
 ** Routines used to compute the style and size of individual elements.
-** $Revision: 1.11 $
+** $Revision: 1.12 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -316,6 +316,11 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
   while( p ){
     switch( p->base.type ){
       case Html_A:
+        if( htmlPtr->anchorStart ){
+          style = HtmlPopStyleStack(htmlPtr, Html_EndA);
+          htmlPtr->anchorStart = 0;
+          anchorFlags = 0;
+        }
         z = HtmlMarkupArg(p,"href",0);
         if( z ){
           HtmlLock(htmlPtr);
@@ -324,9 +329,6 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
           anchorFlags |= STY_Anchor;
           PushStyleStack(htmlPtr, Html_EndA, style);
           htmlPtr->anchorStart = p;
-          TestPoint(0);
-        }else{
-          TestPoint(0);
         }
         break;
       case Html_EndA:
@@ -335,9 +337,6 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
           style = HtmlPopStyleStack(htmlPtr, Html_EndA);
           htmlPtr->anchorStart = 0;
           anchorFlags = 0;
-          TestPoint(0);
-        }else{
-          TestPoint(0);
         }
         break;
       case Html_ADDRESS:

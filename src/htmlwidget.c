@@ -1,6 +1,6 @@
 /*
 ** The main routine for the HTML widget for Tcl/Tk
-** $Revision: 1.10 $
+** $Revision: 1.11 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -303,14 +303,8 @@ static void ResetLayoutContext(HtmlWidget *htmlPtr){
   htmlPtr->layoutContext.headRoom = 0;
   htmlPtr->layoutContext.top = 0;
   htmlPtr->layoutContext.bottom = 0;
-  while( htmlPtr->layoutContext.leftMargin ){
-    HtmlPopMargin( &htmlPtr->layoutContext.leftMargin );
-    TestPoint(0);
-  }
-  while( htmlPtr->layoutContext.rightMargin ){
-    HtmlPopMargin( &htmlPtr->layoutContext.rightMargin );
-    TestPoint(0);
-  }
+  HtmlClearMarginStack(&htmlPtr->layoutContext.leftMargin);
+  HtmlClearMarginStack(&htmlPtr->layoutContext.rightMargin);
 }
 
 /*
@@ -1498,17 +1492,12 @@ char *HtmlGetHref(HtmlWidget *htmlPtr, int x, int y){
       case Html_Text:
       case Html_Space:
       case Html_IMG:
-        while( pElem && pElem->base.type!=Html_EndA ){
-          pElem = pElem->pNext;
-          TestPoint(0);
+        while( pElem && pElem->base.type!=Html_A ){
+          pElem = pElem->base.pPrev;
         }
-        if( pElem==0 || pElem->base.type!=Html_EndA ){ TestPoint(0); break; }
-        pElem = pElem->ref.pOther;
-        if( pElem==0 || pElem->base.type!=Html_A ){ TestPoint(0); break; }
-        TestPoint(0);
+        if( pElem==0 || pElem->base.type!=Html_A ){ break; }
         return HtmlMarkupArg(pElem,"href", 0);
       default:
-        TestPoint(0);
         break;
     }
   }

@@ -1,7 +1,7 @@
 /*
 ** This file contains the code used to position elements of the
 ** HTML file on the screen.
-** $Revision: 1.5 $
+** $Revision: 1.6 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -32,11 +32,21 @@
 
 /*
 ** Push a new margin onto the given margin stack.
+**
+** If the "bottom" parameter is non-negative, then this margin will
+** automatically expire for all text that is placed below the y-coordinate
+** given by "bottom".  This feature is used for <IMG ALIGN=left>
+** and <IMG ALIGN=right> kinds of markup.  It allows text to flow around
+** an image.
+**
+** If "bottom" is negative, then the margin stays in force until
+** it is explicitly canceled by a call to HtmlPopMargin().
 */
-void HtmlPushMargin(
+static void HtmlPushMargin(
   HtmlMargin **ppMargin,  /* The margin stack onto which to push */
   int indent,             /* The indentation for the new margin */
-  int bottom              /* The margin expires at this Y coordinate */
+  int bottom,             /* The margin expires at this Y coordinate */
+  int tag                 /* Markup that will cancel this margin */
 ){
   HtmlMargin *pNew = (HtmlMargin*)ckalloc( sizeof(HtmlMargin) );
   pNew->pNext = *ppMargin;
@@ -48,30 +58,85 @@ void HtmlPushMargin(
     TestPoint(0);
   }
   pNew->bottom = bottom;
+  pNew->tag = tag;
   *ppMargin = pNew;
 }
 
 /*
-** Pop a margin off of the given margin stack.
+** Pop one margin off of the given margin stack.
 */
-void HtmlPopMargin(HtmlMargin **ppMargin){
+static void HtmlPopOneMargin(HtmlMargin **ppMargin){
   if( *ppMargin ){
     HtmlMargin *pOld = *ppMargin;
     *ppMargin = pOld->pNext;
     ckfree((char*)pOld);
-    TestPoint(0);
-  }else{
-    TestPoint(0);
   }
 }
 
 /*
-** Pop all expired margins from the stack.
+** Pop as many margins as necessary until the margin that was
+** created with "tag" is popped off.  Update the layout context
+** to move past obsticles, if necessary.
+**
+** If there are some margins on the stack that contain non-negative
+** bottom fields, that means there are some obsticles that we have
+** not yet cleared.  If these margins get popped off the stack,
+** then we have to be careful to advance the pLC->bottom value so
+** that the next line of text will clear the obsticle.
+*/
+static void HtmlPopMargin(
+  HtmlMargin **ppMargin,      /* The margin stack to be popped */
+  int tag,                    /* The tag we want to pop */
+  HtmlLayoutContext *pLC      /* Update this layout context */
+){
+  int bottom = -1;
+  int oldTag;
+  HtmlMargin *pM;
+
+  for(pM=*ppMargin; pM && pM->tag!=tag; pM=pM->pNext){}
+  if( pM==0 ){
+    /* No matching margin is found.  Do nothing. */
+    return;
+  }
+  while( (pM=*ppMargin)!=0 ){
+    if( pM->bottom>bottom ){
+      bottom = pM->bottom;
+    }
+    oldTag = pM->tag;
+    HtmlPopOneMargin(ppMargin);
+    if( oldTag==tag ) break;
+  }
+  if( pLC && pLC->bottom<bottom ){
+    pLC->headRoom += bottom - pLC->bottom;
+    pLC->bottom = bottom;
+  }
+}
+
+/*
+** Pop all expired margins from the stack.  
+**
+** An expired margin is one with a non-negative bottom parameter
+** that is less than the value "y".  "y" is the Y-coordinate of
+** the top edge the next line of text to by positioned.  What this
+** function does is check to see if we have cleared any obsticles
+** (an obsticle is an <IMG ALIGN=left> or <IMG ALIGN=right>) and
+** expands the margins if we have.
 */
 static void PopExpiredMargins(HtmlMargin **ppMarginStack, int y){
-  while( *ppMarginStack && (**ppMarginStack).bottom <= y ){
-    HtmlPopMargin(ppMarginStack);
-    TestPoint(0);
+  while( *ppMarginStack && (**ppMarginStack).bottom>=0 &&
+       (**ppMarginStack).bottom <= y ){
+    HtmlPopOneMargin(ppMarginStack);
+  }
+}
+
+/*
+** Clear a margin stack to reclaim memory.  This routine just blindly
+** pops everything off the stack.  Typically used when the screen is
+** cleared or the widget is deleted, etc.
+*/
+void HtmlClearMarginStack(HtmlMargin **ppMargin){
+  while( *ppMargin ){
+    HtmlPopOneMargin(ppMargin);
   }
 }
 
@@ -695,9 +760,9 @@ static void ClearObstacle(HtmlLayoutContext *pLC, int mode){
       break;
 
     case CLEAR_Left:
-      while( pLC->leftMargin && pLC->leftMargin->bottom < LARGE_NUMBER ){
+      while( pLC->leftMargin && pLC->leftMargin->bottom>=0 ){
         newBottom = pLC->leftMargin->bottom;
-        HtmlPopMargin(&pLC->leftMargin);
+        HtmlPopOneMargin(&pLC->leftMargin);
         TestPoint(0);
       }
       if( newBottom > pLC->bottom + pLC->headRoom ){
@@ -712,9 +777,9 @@ static void ClearObstacle(HtmlLayoutContext *pLC, int mode){
       break;
 
     case CLEAR_Right:
-      while( pLC->rightMargin && pLC->rightMargin->bottom < LARGE_NUMBER ){
+      while( pLC->rightMargin && pLC->rightMargin->bottom>=0 ){
         newBottom = pLC->rightMargin->bottom;
-        HtmlPopMargin(&pLC->rightMargin);
+        HtmlPopOneMargin(&pLC->rightMargin);
         TestPoint(0);
       }
       if( newBottom > pLC->bottom + pLC->headRoom ){
@@ -729,21 +794,22 @@ static void ClearObstacle(HtmlLayoutContext *pLC, int mode){
       break;
 
     case CLEAR_First:
-      if( pLC->leftMargin && pLC->leftMargin->bottom < LARGE_NUMBER ){
+      if( pLC->leftMargin && pLC->leftMargin->bottom>=0 ){
         if( pLC->rightMargin 
          && pLC->rightMargin->bottom < pLC->leftMargin->bottom
         ){
           newBottom = pLC->rightMargin->bottom;
-          HtmlPopMargin(&pLC->rightMargin);
+          HtmlPopOneMargin(&pLC->rightMargin);
           TestPoint(0);
         }else{
           newBottom = pLC->leftMargin->bottom;
-          HtmlPopMargin(&pLC->leftMargin);
+          HtmlPopOneMargin(&pLC->leftMargin);
           TestPoint(0);
         }
-      }else if( pLC->rightMargin && pLC->rightMargin->bottom < LARGE_NUMBER ){
+      }else if( pLC->rightMargin && pLC->rightMargin->bottom>=0 
+           && pLC->rightMargin->bottom < LARGE_NUMBER ){
         newBottom = pLC->rightMargin->bottom;
-        HtmlPopMargin(&pLC->rightMargin);
+        HtmlPopOneMargin(&pLC->rightMargin);
         TestPoint(0);
       }else{
         TestPoint(0);
@@ -782,14 +848,14 @@ static HtmlElement *DoBreakMarkup(
       break;
 
     case Html_BLOCKQUOTE:
-      HtmlPushMargin(&pLC->leftMargin, HTML_INDENT, LARGE_NUMBER);
-      HtmlPushMargin(&pLC->rightMargin, HTML_INDENT, LARGE_NUMBER);
+      HtmlPushMargin(&pLC->leftMargin, HTML_INDENT, -1, Html_EndBLOCKQUOTE);
+      HtmlPushMargin(&pLC->rightMargin, HTML_INDENT, -1, Html_EndBLOCKQUOTE);
       Paragraph(pLC, p);
       TestPoint(0);
       break;
     case Html_EndBLOCKQUOTE:
-      HtmlPopMargin(&pLC->leftMargin);
-      HtmlPopMargin(&pLC->rightMargin);
+      HtmlPopMargin(&pLC->leftMargin, Html_EndBLOCKQUOTE, pLC);
+      HtmlPopMargin(&pLC->rightMargin, Html_EndBLOCKQUOTE, pLC);
       Paragraph(pLC, p);
       TestPoint(0);
       break;
@@ -802,7 +868,7 @@ static HtmlElement *DoBreakMarkup(
           p->image.y = y;
           p->image.ascent = 0;
           p->image.descent = p->image.h;
-          HtmlPushMargin(&pLC->leftMargin, p->image.w + 2, y + p->image.h);
+          HtmlPushMargin(&pLC->leftMargin, p->image.w + 2, y + p->image.h, 0);
           SETMAX( pLC->maxY, y + p->image.h );
           SETMAX( pLC->maxX, x + p->image.w );
           break;
@@ -812,7 +878,7 @@ static HtmlElement *DoBreakMarkup(
           p->image.y = y;
           p->image.ascent = 0;
           p->image.descent = p->image.h;
-          HtmlPushMargin(&pLC->rightMargin, p->image.w + 2, y + p->image.h);
+          HtmlPushMargin(&pLC->rightMargin, p->image.w + 2, y + p->image.h, 0);
           SETMAX( pLC->maxY, y + p->image.h );
           SETMAX( pLC->maxX, x + p->image.w );
           break;
@@ -845,7 +911,7 @@ static HtmlElement *DoBreakMarkup(
       }else{
         TestPoint(0);
       }
-      HtmlPushMargin(&pLC->leftMargin, HTML_INDENT, LARGE_NUMBER);
+      HtmlPushMargin(&pLC->leftMargin, HTML_INDENT, -1, p->base.type+1);
       break;
 
     case Html_EndOL:
@@ -853,7 +919,7 @@ static HtmlElement *DoBreakMarkup(
     case Html_EndMENU:
     case Html_EndDIR:
       if( p->ref.pOther ){
-        HtmlPopMargin(&pLC->leftMargin);
+        HtmlPopMargin(&pLC->leftMargin, p->base.type, pLC);
         if( !p->ref.pOther->list.compact ){
           Paragraph(pLC,p);
           TestPoint(0);
@@ -867,61 +933,59 @@ static HtmlElement *DoBreakMarkup(
 
     case Html_DL:
       Paragraph(pLC,p);
-      HtmlPushMargin(&pLC->leftMargin, HTML_INDENT, LARGE_NUMBER);
+      HtmlPushMargin(&pLC->leftMargin, HTML_INDENT, -1, Html_EndDL);
       TestPoint(0);
       break;
 
     case Html_EndDL:
-      HtmlPopMargin(&pLC->leftMargin);
+      HtmlPopMargin(&pLC->leftMargin, Html_EndDL, pLC);
       Paragraph(pLC,p);
       TestPoint(0);
       break;
 
-    case Html_HR:
-      {
-        int zl, wd;
+    case Html_HR: {
+      int zl, wd;
 
-        z = HtmlMarkupArg(p, "size", "3");
-        if( z ){
-          p->hr.h = atoi(z);
-          if( p->hr.h<1 ) p->hr.h = 3;
-        }else{
-          p->hr.h = 3;
-        }
-        p->hr.is3D = HtmlMarkupArg(p, "noshade", 0)==0;
-        ComputeMargins(pLC, &x, &y, &w);
-        p->hr.y = y;
-        y += p->hr.h + 1;
-        p->hr.x = x;
-        z = HtmlMarkupArg(p, "width", "100%");
-        zl = strlen(z);
-        if( zl>0 && z[zl-1]=='%' ){
-          wd = (atoi(z)*w)/100;
-        }else{
-          wd = atoi(z);
-        }
-        p->hr.w = wd;
-        switch( p->base.style.align ){
-          case ALIGN_Center:
-          case ALIGN_None:
-            p->hr.x += (w - wd)/2;
-            TestPoint(0);
-            break;
-          case ALIGN_Right:
-            p->hr.x += (w - wd);
-            TestPoint(0);
-            break;
-          default:
-            TestPoint(0);
-            break;
-        }
-        SETMAX( pLC->maxY, y);
-        SETMAX( pLC->maxX, wd + p->hr.x );
-        pLC->bottom = y;
-        pLC->headRoom = 0;
+      z = HtmlMarkupArg(p, "size", "3");
+      if( z ){
+        p->hr.h = atoi(z);
+        if( p->hr.h<1 ) p->hr.h = 3;
+      }else{
+        p->hr.h = 3;
       }
-      TestPoint(0);
+      p->hr.is3D = HtmlMarkupArg(p, "noshade", 0)==0;
+      ComputeMargins(pLC, &x, &y, &w);
+      p->hr.y = y;
+      y += p->hr.h + 1;
+      p->hr.x = x;
+      z = HtmlMarkupArg(p, "width", "100%");
+      zl = strlen(z);
+      if( zl>0 && z[zl-1]=='%' ){
+        wd = (atoi(z)*w)/100;
+      }else{
+        wd = atoi(z);
+      }
+      p->hr.w = wd;
+      switch( p->base.style.align ){
+        case ALIGN_Center:
+        case ALIGN_None:
+          p->hr.x += (w - wd)/2;
+          TestPoint(0);
+          break;
+        case ALIGN_Right:
+          p->hr.x += (w - wd);
+          TestPoint(0);
+          break;
+        default:
+          TestPoint(0);
+          break;
+      }
+      SETMAX( pLC->maxY, y);
+      SETMAX( pLC->maxX, wd + p->hr.x );
+      pLC->bottom = y;
+      pLC->headRoom = 0;
       break;
+    }
 
     case Html_ADDRESS:
     case Html_EndADDRESS:

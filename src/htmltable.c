@@ -1,6 +1,6 @@
 /*
 ** Routines for doing layout of HTML tables
-** $Revision: 1.2 $
+** $Revision: 1.3 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -738,14 +738,8 @@ HtmlElement *HtmlTableLayout(
             HtmlLayoutBlock(&cellContext);
             ymax[iCol] = cellContext.maxY;
             SETMAX(ymax[iCol], y[iCol]);
-            while( cellContext.leftMargin ){
-              HtmlPopMargin(&cellContext.leftMargin);
-              TestPoint(0);
-            }
-            while( cellContext.rightMargin ){
-              HtmlPopMargin(&cellContext.rightMargin);
-              TestPoint(0);
-            }
+            HtmlClearMarginStack(&cellContext.leftMargin);
+            HtmlClearMarginStack(&cellContext.rightMargin);
 
             /* Set coordinates of the cell border */
             p->cell.x = x[iCol] - pad;

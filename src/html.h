@@ -1,6 +1,6 @@
 /*
 ** Structures and typedefs used by the HTML widget
-** $Revision: 1.6 $
+** $Revision: 1.7 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -589,6 +589,7 @@ struct HtmlStyleStack {
 struct HtmlMargin {
   int indent;          /* Size of the current margin */
   int bottom;          /* Y value at which this margin expires */
+  int tag;             /* Markup that will cancel this margin */
   HtmlMargin *pNext;   /* Previous margin */
 };
 
