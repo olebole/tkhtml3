@@ -154,7 +154,7 @@ proc AppletCmd {w arglist} {
 #
 proc HrefBinding {x y} {
   set new [.h.h href $x $y]
-  puts "link to [list $new]"; return
+  # puts "link to [list $new]"; return
   if {$new!=""} {
     LoadFile $new
   }
