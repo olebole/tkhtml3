@@ -1,7 +1,7 @@
 /*
 ** This file contains the code used to position elements of the
 ** HTML file on the screen.
-** $Revision: 1.11 $
+** $Revision: 1.12 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -744,6 +744,8 @@ static void ComputeMargins(
 static void ClearObstacle(HtmlLayoutContext *pLC, int mode){
   int newBottom = pLC->bottom;
 
+  PopExpiredMargins(&pLC->leftMargin, pLC->bottom);
+  PopExpiredMargins(&pLC->rightMargin, pLC->bottom);
   switch( mode ){
     case CLEAR_Both:
       ClearObstacle(pLC,CLEAR_Left);
@@ -887,7 +889,6 @@ static HtmlElement *DoBreakMarkup(
         HtmlElement *pThis = pNext;
         pNext = pNext->pNext;
         if( pThis->base.flags & HTML_NewLine ){ TestPoint(0); break; }
-        TestPoint(0);
       }
       Paragraph(pLC,p);
       break;
@@ -898,9 +899,6 @@ static HtmlElement *DoBreakMarkup(
     case Html_OL:
       if( p->list.compact==0 ){
         Paragraph(pLC,p);
-        TestPoint(0);
-      }else{
-        TestPoint(0);
       }
       HtmlPushMargin(&pLC->leftMargin, HTML_INDENT, -1, p->base.type+1);
       break;
@@ -913,12 +911,7 @@ static HtmlElement *DoBreakMarkup(
         HtmlPopMargin(&pLC->leftMargin, p->base.type, pLC);
         if( !p->ref.pOther->list.compact ){
           Paragraph(pLC,p);
-          TestPoint(0);
-        }else{
-          TestPoint(0);
         }
-      }else{
-        TestPoint(0);
       }
       break;
 

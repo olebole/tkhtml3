@@ -1,6 +1,6 @@
 /*
 ** Routines for doing layout of HTML tables
-** $Revision: 1.13 $
+** $Revision: 1.14 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -463,14 +463,26 @@ static HtmlElement *MinMax(
         }
         break;
       case Html_IMG:
-        x1 += p->image.w;
-        x2 += p->image.w;
-        if( p->base.style.flags & STY_Preformatted ){
-          SETMAX( min, x1 );
-          SETMAX( max, x1 );
-        }else{
-          SETMAX( min, x2 );
-          SETMAX( max, x1 );
+        switch( p->image.align ){
+          case IMAGE_ALIGN_Left:
+          case IMAGE_ALIGN_Right:
+            indent += p->image.w;
+            x1 = indent;
+            x2 = indent;
+            SETMAX( min, x1 );
+            SETMAX( max, x1 );
+            break;
+          default:
+            x1 += p->image.w;
+            x2 += p->image.w;
+            if( p->base.style.flags & STY_Preformatted ){
+              SETMAX( min, x1 );
+              SETMAX( max, x1 );
+            }else{
+              SETMAX( min, x2 );
+              SETMAX( max, x1 );
+            }
+            break;
         }
         break;
       case Html_TABLE:
