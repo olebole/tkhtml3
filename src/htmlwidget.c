@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlwidget.c,v 1.48 2002/01/27 01:38:10 peter Exp $";
+static char const rcsid[] = "@(#) $Id: htmlwidget.c,v 1.49 2002/03/06 18:10:59 peter Exp $";
 /*
 ** The main routine for the HTML widget for Tcl/Tk
 **
@@ -710,9 +710,9 @@ static void HtmlRedrawCallback(ClientData clientData){
     xrec.y = 0;
     xrec.width = w;
     xrec.height = h;
-    if ((!htmlPtr->bgimage) ||
-      (!HtmlBGDraw(htmlPtr, left, top, w, h, pixmap, htmlPtr->bgimage)))
-      XFillRectangles(display, pixmap, gcBg, &xrec, 1);
+    XFillRectangles(display, pixmap, gcBg, &xrec, 1);
+    if (htmlPtr->bgimage)
+      HtmlBGDraw(htmlPtr, left, top, w, h, pixmap, htmlPtr->bgimage);
                        
     /* Render all visible HTML onto the pixmap */
     HtmlLock(htmlPtr);

@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlindex.c,v 1.9 2001/06/17 22:40:05 peter Exp $";
+static char const rcsid[] = "@(#) $Id: htmlindex.c,v 1.10 2002/03/06 18:10:58 peter Exp $";
 /*
 ** Routines that deal with indexes
 **

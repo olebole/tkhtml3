@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlsizer.c,v 1.38 2002/01/27 01:22:17 peter Exp $";
+static char const rcsid[] = "@(#) $Id: htmlsizer.c,v 1.39 2002/03/06 18:10:58 peter Exp $";
 /*
 ** Routines used to compute the style and size of individual elements.
 **

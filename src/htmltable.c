@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmltable.c,v 1.46 2002/02/12 02:55:56 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmltable.c,v 1.47 2002/03/06 18:10:59 peter Exp $";
 /*
 ** Routines for doing layout of HTML tables
 **
@@ -71,9 +71,31 @@ static int CellSpacing(HtmlWidget *htmlPtr, HtmlElement *pTable){
   return cellSpacing;
 }
 
+
+/* Return the height and width of string. */
+void HtmlStringHW(char *str, int* h, int* w) {
+  char *cp=str;
+  int nw=0, nh=1, mw=0;
+  *h = 0; *w =0;
+  if (!cp) return;
+  while (*cp) {
+    if (*cp != '\n') nw++;
+    else {
+      if (nw>mw) mw=nw;
+      nw=0;
+      nh++;
+    }
+    cp++;
+  }
+  if (nw>mw) mw=nw;
+  *w=mw;
+  *h=nh;
+}
+
 /* Return text and images from a table as lists.
    The first list is a list of rows (which is a list of cells).
    An optional second list is a list of images: row col charoffset tokenid.
+   Note: weve added the option to store data/attrs in array var directly.
 */
 int HtmlTableText(
   HtmlWidget *htmlPtr,
@@ -83,14 +105,19 @@ int HtmlTableText(
   Tcl_DString *str
 )
 {
-  int j, Nest = 0, intext=0, rows=0, cols, images=flags&1, attrs=flags&2;
-  char buf[100];
+  int j, Nest = 0, intext=0, rows=0, cols=0, numcols=0, h, w, maxh=1;
+  int cspans=0, rspanstart=0, images=flags&1, attrs=flags&2;
+  unsigned short maxw[HTML_MAX_COLUMNS];
+  short rspans[HTML_MAX_COLUMNS];
+  char buf[100], *cp;
   HtmlElement *pEnd;
-  Tcl_DString substr;
-  Tcl_DString imgstr;
-  Tcl_DString attrstr;
-  Tcl_DStringInit(str);
+  Tcl_DString istr;	/* Information string */
+  Tcl_DString substr;	/* Temp to collect current cell string. */
+  Tcl_DString imgstr;	/* Image information */
+  Tcl_DString attrstr;	/* Attribue information */
+  Tcl_DStringInit(str); /* Final result. */
   Tcl_DStringInit(&substr);
+  Tcl_DStringInit(&istr);
   if (images)
     Tcl_DStringInit(&imgstr);
   if (attrs)
@@ -105,20 +132,19 @@ int HtmlTableText(
     HtmlAppendArglist(&attrstr, p);
     Tcl_DStringEndSublist(&attrstr);
   }
+  for (j=0; j<HTML_MAX_COLUMNS; j++) {
+    maxw[j]=0;
+    rspans[j]=0;
+  }
   Nest=1;
+  Tcl_DStringStartSublist(&istr);
   while (p && (p=p->pNext)) {
     if (attrs) {
      switch( p->base.type ){
         case Html_EndTR:
-	  Tcl_DStringEndSublist(&attrstr);
 	  break;
         case Html_TR:
-	  Tcl_DStringStartSublist(&attrstr);
-        case Html_TD:
-        case Html_TH:
-	  Tcl_DStringStartSublist(&attrstr);
-	  HtmlAppendArglist(&attrstr, p);
-	  Tcl_DStringEndSublist(&attrstr);
+	  break;
      }
    }
    switch( p->base.type ){
@@ -130,12 +156,24 @@ int HtmlTableText(
         p=0;
         break;
       case Html_TR:
+        if (cols>numcols) numcols=cols;
+	maxh=1;
 	cols=0;
 	rows++;
         Nest++;
         Tcl_DStringStartSublist(str);
+        if (attrs) {
+	  Tcl_DStringStartSublist(&attrstr);
+	  Tcl_DStringStartSublist(&attrstr);
+	  HtmlAppendArglist(&attrstr, p);
+	  Tcl_DStringEndSublist(&attrstr);
+	}
         break;
       case Html_EndTR:
+	sprintf(buf,"%d ", maxh);
+        Tcl_DStringAppend(&istr, buf, -1);
+        if (attrs)
+	  Tcl_DStringEndSublist(&attrstr);
         while (Nest >1) {
 	  Nest--;
           Tcl_DStringEndSublist(str);
@@ -143,12 +181,49 @@ int HtmlTableText(
         break;
       case Html_TD:
       case Html_TH:
+	if ((!(cp=HtmlMarkupArg(p, "colspan",0)))||(cspans=atoi(cp))<=0)
+	  cspans=1;
+	if ((cp=HtmlMarkupArg(p, "rowspan",0)) && (j=atoi(cp))>0 &&
+	  cols<HTML_MAX_COLUMNS) {
+	  rspans[cols]=j;
+	  rspanstart=1;
+	} else
+	  rspanstart=0;
+        if (attrs) {
+	  j=0;
+	  while ((cspans-j)>0) {
+	    Tcl_DStringStartSublist(&attrstr);
+	    if (!j) HtmlAppendArglist(&attrstr, p);
+	    Tcl_DStringEndSublist(&attrstr);
+	    j++;
+	  }
+	}
 	cols++;
 	Tcl_DStringInit(&substr);
 	break;
       case Html_EndTD:
       case Html_EndTH:
-        Tcl_DStringAppendElement(str, Tcl_DStringValue(&substr));
+        if (!rspanstart)
+	  while (cols<=HTML_MAX_COLUMNS && rspans[cols-1]-- > 1) {
+            Tcl_DStringAppendElement(str, "");
+	    cols++;
+	  }
+        cp=Tcl_DStringValue(&substr);
+	  
+	j=0;
+	while ((cspans-j)>0) {
+          Tcl_DStringAppendElement(str, cp);
+	  if (!j) {
+	    HtmlStringHW(cp, &h, &w);
+	    if (h>maxh) maxh=h;
+	    if (cols > 0 && cols<=HTML_MAX_COLUMNS)
+	      if (w>maxw[cols-1])
+	        maxw[cols-1]=w;
+	  }
+	  j++;
+	  cp="";
+	}
+	cspans=0;
 	break;
       case Html_Text:
         Tcl_DStringAppend(&substr, p->text.zText, -1);
@@ -157,7 +232,10 @@ int HtmlTableText(
         for (j=0; j< p->base.count; j++) {
           Tcl_DStringAppend(&substr, " ", 1);
         }
-        if ((p->base.flags & HTML_NewLine)!=0)
+/*        if ((p->base.flags & HTML_NewLine)!=0) */
+/*          Tcl_DStringAppend(&substr, "\n", -1); */
+        break;
+      case Html_BR:
           Tcl_DStringAppend(&substr, "\n", -1);
         break;
 
@@ -173,11 +251,22 @@ int HtmlTableText(
         break;
     }
   }
+  Tcl_DStringFree(&substr);
   while (Nest--)
     Tcl_DStringEndSublist(str);
-  Tcl_DStringFree(&substr);
+  Tcl_DStringEndSublist(&istr);
+  Tcl_DStringStartSublist(&istr);
+  for (j=0; j<numcols && j<HTML_MAX_COLUMNS; j++) {
+    sprintf(buf,"%d ", maxw[j]);
+    Tcl_DStringAppend(&istr, buf, -1);
+  }
+  Tcl_DStringEndSublist(&istr);
+  Tcl_DStringAppendElement(str, Tcl_DStringValue(&istr));
+  Tcl_DStringFree(&istr);
   if (attrs) {
-    Tcl_DStringAppendElement(str, Tcl_DStringValue(&attrstr));
+    Tcl_DStringAppend(str, " {", -1);
+    Tcl_DStringAppend(str, Tcl_DStringValue(&attrstr),-1);
+    Tcl_DStringAppend(str, "} ", -1);
     Tcl_DStringFree(&attrstr);
   }
   if (images) {
@@ -1348,3 +1437,4 @@ void HtmlMoveVertically(
     p = p->pNext;
   }
 }
+

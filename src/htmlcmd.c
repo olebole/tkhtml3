@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlcmd.c,v 1.21 2001/10/07 19:16:26 peter Exp $";
+static char const rcsid[] = "@(#) $Id: htmlcmd.c,v 1.22 2002/03/06 18:10:58 peter Exp $";
 /*
 ** Routines to implement the HTML widget commands
 **

@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlexts.c,v 1.4 2002/02/12 02:55:56 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlexts.c,v 1.5 2002/03/06 18:10:58 peter Exp $";
 /*
 ** The extra routines for the HTML widget for Tcl/Tk
 **
@@ -1168,8 +1168,8 @@ int HtmlTextTable(
     return TCL_ERROR;
   }
   while (argc>4) {
-     if (!strcmp(argv[4],"images")) flags|=1;
-     if (!strcmp(argv[4],"attrs")) flags|=2;
+     if (!strcmp(argv[4],"-images")) flags|=1;
+     if (!strcmp(argv[4],"-attrs")) flags|=2;
      argc--;
      argv++;
   }
@@ -3371,7 +3371,7 @@ static char *BegEnd = " ?-begin INDEX? ?-end INDEX? ?-range {INDEX INDEX}?";
   HtmlCommandAdd("text","html",3, 5, "START END", HtmlTextHtmlCmd );
   HtmlCommandAdd("text","find",4, 7,"TEXT ?nocase? ?before|after INDEX?", HtmlTextFindCmd);
   HtmlCommandAdd("text","offset",6, 6,"START NUM1 NUM2", HtmlTextOffsetCmd);
-  HtmlCommandAdd("text","table",4, 6,"INDEX ?images? ?attrs?", HtmlTextTable);
+  HtmlCommandAdd("text","table",4, 6,"INDEX ?-images? ?-attrs?", HtmlTextTable);
   HtmlCommandAdd("token","delete",4, 5, "INDEX ?INDEX?",HtmlTokenDeleteCmd);
   HtmlCommandAdd("token","insert",5, 6, "INDEX TAG ARGS",HtmlTokenInsertCmd);
   HtmlCommandAdd("token","find",4, 6, "TAG ?before|after|near INDEX?", HtmlTokenFindCmd);
@@ -3414,3 +3414,10 @@ static char *BegEnd = " ?-begin INDEX? ?-end INDEX? ?-range {INDEX INDEX}?";
   Tcl_LinkVar(interp, "tkhtmlexiting", (char*)&tkhtmlexiting, TCL_LINK_INT);
   return TCL_OK;
 }
+
+
+
+
+
+
+

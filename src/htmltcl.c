@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.2 2001/10/07 19:16:27 peter Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.3 2002/03/06 18:10:59 peter Exp $";
 /*
 ** The main routine for the HTML widget for Tcl/Tk
 **

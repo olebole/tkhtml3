@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlurl.c,v 1.21 2001/06/17 22:40:06 peter Exp $";
+static char const rcsid[] = "@(#) $Id: htmlurl.c,v 1.22 2002/03/06 18:10:59 peter Exp $";
 /*
 ** Routines for processing URLs.
 **
