@@ -1,6 +1,6 @@
 /*
 ** Routines for doing layout of HTML tables
-** $Revision: 1.20 $
+** $Revision: 1.21 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -138,6 +138,7 @@ static HtmlElement *TableDimensions(
   pStart->table.nCol = 0;
   pStart->table.nRow = 0;
   z = HtmlMarkupArg(pStart, "border", 0);
+  if( z && *z==0 ) z = "2";
   bw = pStart->table.borderWidth = z ? atoi(z) : DFLT_BORDER;
   z = HtmlMarkupArg(pStart, "cellpadding", 0);
   cellPadding = z ? atoi(z) : DFLT_CELLPADDING;
