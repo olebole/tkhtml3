@@ -95,7 +95,6 @@ set srcc {
   src/htmlimage
   src/htmlindex
   src/htmllayout
-  src/htmllib
   src/htmlparse
   src/htmlsizer
   src/htmltable
