@@ -596,7 +596,7 @@ if test "$found" = "no"; then
     n=$dir/include/tcl.h
     AC_CHECK_FILE($dir/include/tcl.h, found=yes)
     if test "$found" = "yes"; then
-      TARGET_TCL_INC="-I$dir/include/tcl.h"
+      TARGET_TCL_INC="-I$dir/include"
       break
     fi
   done
@@ -664,14 +664,10 @@ else
       TARGET_TK_INC="$TARGET_TK_INC -I$with_tk/xlib"
     fi
   else
-    TARGET_TK_INC=`echo $TARGET_TCL_INC | sed 's/tcl.h$/tk.h/'g`
+    TARGET_TK_INC=""
   fi
 fi
-if test "$TARGET_TK_INC" = ""; then
-  AC_MSG_RESULT(yes)
-else
-  AC_MSG_RESULT($TARGET_TK_INC)
-fi
+AC_MSG_RESULT($TARGET_TK_INC)
 AC_SUBST(TARGET_TK_INC)
 
 dnl ############

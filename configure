@@ -1811,7 +1811,7 @@ else
 fi
 
     if test "$found" = "yes"; then
-      TARGET_TCL_INC="-I$dir/include/tcl.h"
+      TARGET_TCL_INC="-I$dir/include"
       break
     fi
   done
@@ -2774,14 +2774,10 @@ else
       TARGET_TK_INC="$TARGET_TK_INC -I$with_tk/xlib"
     fi
   else
-    TARGET_TK_INC=`echo $TARGET_TCL_INC | sed 's/tcl.h$/tk.h/'g`
+    TARGET_TK_INC=""
   fi
 fi
-if test "$TARGET_TK_INC" = ""; then
-  echo "$ac_t""yes" 1>&6
-else
-  echo "$ac_t""$TARGET_TK_INC" 1>&6
-fi
+echo "$ac_t""$TARGET_TK_INC" 1>&6
 
 
 

@@ -60,6 +60,9 @@ html .h.h \
   -appletcommand AppletCmd \
   -bg white -tablerelief raised
 
+if {$HtmlTraceMask} {
+  .h.h config -tablerelief flat
+}
 
 proc FormCmd {n cmd args} {
   # puts "FormCmd: $n $cmd $args"
