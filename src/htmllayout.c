@@ -1,7 +1,7 @@
 /*
 ** This file contains the code used to position elements of the
 ** HTML file on the screen.
-** $Revision: 1.23 $
+** $Revision: 1.24 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -437,6 +437,7 @@ static int FixLine(
     }else{
       dx = leftMargin;
     }
+    if( dx<0 ) dx = 0;
     maxAscent = maxTextAscent = 0;
     for(p=pStart; p && p!=pEnd; p=p->pNext){
       int ss;
