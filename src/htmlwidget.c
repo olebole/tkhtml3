@@ -1,6 +1,6 @@
 /*
 ** The main routine for the HTML widget for Tcl/Tk
-** $Revision: 1.26 $
+** $Revision: 1.27 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -1072,10 +1072,10 @@ GC HtmlGetGC(HtmlWidget *htmlPtr, int color, int font){
     Tk_FreeGC(htmlPtr->display, p->gc);
   }
   gcValues.foreground = htmlPtr->apColor[color]->pixel;
-  gcValues.graphics_exposures = False;
+  gcValues.graphics_exposures = True;
+  mask = GCForeground | GCGraphicsExposures;
   if( font<0 ){ font = FONT_Default; TestPoint(0); }
   tkfont = HtmlGetFont(htmlPtr, font);
-  mask = GCForeground | GCGraphicsExposures;
   if( tkfont ){
     gcValues.font = Tk_FontId(tkfont);
     mask |= GCFont;
@@ -1118,6 +1118,7 @@ static void HtmlEventProc(ClientData clientData, XEvent *eventPtr){
   XConfigureRequestEvent *p;
 
   switch( eventPtr->type ){
+    case GraphicsExpose:
     case Expose:
       if( htmlPtr->tkwin==0 ){
         /* The widget is being deleted.  Do nothing */
