@@ -1,7 +1,7 @@
 /*
 ** This file contains the code used to position elements of the
 ** HTML file on the screen.
-** $Revision: 1.17 $
+** $Revision: 1.18 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -1183,9 +1183,6 @@ void HtmlLayout(HtmlWidget *htmlPtr){
   pLC->pStart = htmlPtr->nextPlaced;
   if( pLC->pStart==0 ){
     pLC->pStart = htmlPtr->pFirst;
-    TestPoint(0);
-  }else{
-    TestPoint(0);
   }
   if( pLC->pStart ){
     pLC->maxX = htmlPtr->maxX;
@@ -1197,8 +1194,5 @@ void HtmlLayout(HtmlWidget *htmlPtr){
     htmlPtr->nextPlaced = pLC->pStart;
     htmlPtr->flags |= HSCROLL | VSCROLL;
     HtmlRedrawText(htmlPtr, btm);
-    TestPoint(0);
-  }else{
-    TestPoint(0);
   }
 }

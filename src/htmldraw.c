@@ -1,6 +1,6 @@
 /*
 ** Routines used to render HTML onto the screen for the Tk HTML widget.
-** $Revision: 1.11 $
+** $Revision: 1.12 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -503,7 +503,7 @@ void HtmlBlockDraw(
       case Html_TH:
       case Html_TD:
         pTable = src->cell.pTable;
-        if( pTable->table.borderWidth ){
+        if( pTable && pTable->table.borderWidth ){
           int relief;
           switch( htmlPtr->tableRelief ){
             case TK_RELIEF_RAISED:  relief = TK_RELIEF_SUNKEN; break;
