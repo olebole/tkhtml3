@@ -1,4 +1,4 @@
-# @(#) $Id: ss.tcl,v 1.2 1999/12/19 22:24:55 drh Exp $
+# @(#) $Id: ss.tcl,v 1.3 1999/12/20 17:40:52 drh Exp $
 #
 # This script implements the "ss" application.  "ss" implements
 # a presentation slide-show based on HTML slides.
@@ -68,7 +68,7 @@ html .h.h \
   -padx 5 \
   -pady 9 \
   -formcommand FormCmd \
-  -imagecommand ImageCmd \
+  -imagecommand ImageCmd-Halfsize \
   -scriptcommand ScriptCmd \
   -appletcommand AppletCmd \
   -hyperlinkcommand HyperCmd \
@@ -133,6 +133,28 @@ proc ImageCmd {args} {
     return $img
   }
 }
+proc ImageCmd-Halfsize {args} {
+  set fn [lindex $args 0]
+  if {[catch {Halfsize-Image $fn} img]} {
+    global HtmlTraceMask
+    if {$HtmlTraceMask==0} {
+      tk_messageBox -icon error -message $img -type ok
+    }
+    return biggray
+  } else {
+    global Images
+    set Images($img) 1
+    return $img
+  }
+}
+proc Halfsize-Image {file} {
+  image create photo tmp -file $file
+  set img [image create photo]
+  $img copy tmp -subsample 2 2
+  image delete tmp
+  return $img
+}
+  
 proc ScriptCmd {args} {
   # puts "ScriptCmd: $args"
 }

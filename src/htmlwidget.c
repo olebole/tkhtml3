@@ -1,6 +1,6 @@
 /*
 ** The main routine for the HTML widget for Tcl/Tk
-** $Revision: 1.33 $
+** $Revision: 1.34 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -945,6 +945,8 @@ static void DestroyHtmlWidget(HtmlWidget *htmlPtr){
   int i;
 
   if( htmlPtr->locked>0 ) return;
+  Tcl_DeleteCommand(htmlPtr->interp, htmlPtr->zCmdName);
+  Tcl_DeleteCommand(htmlPtr->interp, htmlPtr->zClipwin);
   HtmlClear(htmlPtr);
   Tk_FreeOptions(configSpecs, (char*) htmlPtr, htmlPtr->display, 0);
   for(i=0; i<N_FONT; i++){
@@ -1178,6 +1180,7 @@ static void HtmlEventProc(ClientData clientData, XEvent *eventPtr){
         }
         htmlPtr->tkwin = 0;
         Tcl_DeleteCommand(htmlPtr->interp, htmlPtr->zCmdName);
+        Tcl_DeleteCommand(htmlPtr->interp, htmlPtr->zClipwin);
       }
       HtmlUnlock(htmlPtr);
       break;
@@ -1894,6 +1897,8 @@ static int HtmlCommand(
     htmlPtr->flags = RESIZE_CLIPWIN;
     htmlPtr->varId = varId++;
     Tcl_CreateCommand(interp, htmlPtr->zCmdName,
+      HtmlWidgetCommand, (ClientData)htmlPtr, HtmlCmdDeletedProc);
+    Tcl_CreateCommand(interp, htmlPtr->zClipwin,
       HtmlWidgetCommand, (ClientData)htmlPtr, HtmlCmdDeletedProc);
     
     Tk_SetClass(new,"Html");
