@@ -35,8 +35,15 @@ html .h.h \
   -formcommand FormCmd \
   -imagecommand ImageCmd \
   -bg white
-proc FormCmd {args} {
-  puts "FormCmd: $args"
+
+proc FormCmd {n cmd args} {
+  puts "FormCmd: $n $cmd $args"
+  switch $cmd {
+    input {
+      set w [lindex $args 0]
+      button $w -text $w -command [format {puts {%s}} $args]
+    }
+  }
 }
 proc ImageCmd {args} {
 #  puts "ImageCmd: $args"
@@ -79,6 +86,10 @@ pack .f3.clear -side left
 proc FontCmd {args} {
   puts "FontCmd: $args"
   return {Times 12}
+}
+proc ResolverCmd {args} {
+  puts "Resolver: $args"
+  return [lindex $args 0]
 }
 
 set lastDir [pwd]
