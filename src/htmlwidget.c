@@ -1,6 +1,6 @@
 /*
 ** The main routine for the HTML widget for Tcl/Tk
-** $Revision: 1.24 $
+** $Revision: 1.25 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -588,12 +588,18 @@ static void HtmlRedrawCallback(ClientData clientData){
   if( w>0 && h>0 ){
     Display *display = htmlPtr->display;
     int dead;
+    GC gcBg;
+    XRectangle xrec;
     /* printf("Redraw %dx%d at %d,%d\n", w, h, x, y); */
 
     /* Allocate and clear a pixmap upon which to draw */
     pixmap = Tk_GetPixmap(display, Tk_WindowId(clipwin),w,h,Tk_Depth(clipwin));
-    Tk_Fill3DRectangle(clipwin, pixmap, htmlPtr->border, 
-                       0, 0, w, h, 0, TK_RELIEF_RAISED);
+    gcBg = HtmlGetGC(htmlPtr, COLOR_Background, FONT_Any);
+    xrec.x = 0;
+    xrec.y = 0;
+    xrec.width = w;
+    xrec.height = h;
+    XFillRectangles(display, pixmap, gcBg, &xrec, 1);
                        
     /* Render all visible HTML onto the pixmap */
     HtmlLock(htmlPtr);

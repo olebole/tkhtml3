@@ -1,6 +1,6 @@
 /*
 ** Routines used to compute the style and size of individual elements.
-** $Revision: 1.21 $
+** $Revision: 1.22 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -867,6 +867,8 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         if( z ){
           nextStyle.bgcolor = HtmlGetColorByName(htmlPtr, z);
           style.bgcolor = nextStyle.bgcolor;
+/*        }else{
+          nextStyle.bgcolor = COLOR_Background; */
         }
         PushStyleStack(htmlPtr, Html_EndTABLE, nextStyle);
         useNextStyle = 1;
@@ -917,7 +919,9 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         htmlPtr->formElemStart = 0;
         break;
       case Html_TH:
-        paraAlign = GetAlignment(p, rowAlign);
+        /* paraAlign = GetAlignment(p, rowAlign); */
+        paraAlign = GetAlignment(p, ALIGN_Center);
+        style.font = BoldFont( FontSize(style.font) );
         if( (z = HtmlMarkupArg(p, "bgcolor", 0))!=0 ){
           style.bgcolor = HtmlGetColorByName(htmlPtr, z);
         }

@@ -1,6 +1,6 @@
 /*
 ** Routines for doing layout of HTML tables
-** $Revision: 1.24 $
+** $Revision: 1.25 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -151,9 +151,10 @@ static HtmlElement *TableDimensions(
   ** table clearly visible.  Useful for debugging. */
   if( HtmlTraceMask & HtmlTrace_Table4 ){
     tbw = pStart->table.borderWidth = 2;
-    cbw = 2;
+    cbw = 1;
     cellPadding = 5;
     cellSpacing = 2;
+    pStart->base.style.bgcolor = COLOR_Background;
   }
 #endif
   separation = cellSpacing + 2*(cellPadding + cbw);
@@ -455,11 +456,7 @@ static HtmlElement *TableDimensions(
     }
     SETMAX( requestedW, totalWidth );
   }
-// #if 1 /* TNB */
-	if (lineWidth && (requestedW > lineWidth)) {
-// #else /* TNB */
-//   if( requestedW>lineWidth ){
-// #endif /* TNB */
+  if( lineWidth && (requestedW > lineWidth) ){
     TRACE(HtmlTrace_Table5,("RequestedW reduced to lineWidth: %d -> %d\n", 
        requestedW, lineWidth));
     requestedW = lineWidth;
@@ -475,6 +472,7 @@ static HtmlElement *TableDimensions(
       scale = (double)(requestedW - tminW[0]) / (double)(tmaxW[0] - tminW[0]);
       for(i=1; i<=pStart->table.nCol; i++){
         tminW[i] += (tmaxW[i] - tminW[i]) * scale;
+        SETMAX(tmaxW[i], tminW[i]);
       }
     }else if( tminW[0]>0 ){
       scale = requestedW/tminW[0];
@@ -896,11 +894,6 @@ HtmlElement *HtmlTableLayout(
   btm += vspace;
   pTable->table.y = btm;
   pTable->table.x = x[1] - (tbw + cellSpacing + pad);
-  if( tbw ){
-    pTable->base.flags |= HTML_Visible;
-  }else{
-    pTable->base.flags &= ~HTML_Visible;
-  }
   pTable->table.w = width;
   SETMAX(pLC->maxX, pTable->table.x + pTable->table.w);
   btm += tbw + cellSpacing;
@@ -962,13 +955,6 @@ HtmlElement *HtmlTableLayout(
               lastRow[iCol] = iRow + p->cell.rowspan - 1;
             }
             firstRow[iCol] = iRow;
-
-            /* The <td> or <th> is only visible if it has a border */
-            if( cbw ){
-              p->base.flags |= HTML_Visible;
-            }else{
-              p->base.flags &= ~HTML_Visible;
-            }
 
             /* Set vertical alignment flag for this cell */
             valign[iCol] = GetVerticalAlignment(p, defaultVAlign);

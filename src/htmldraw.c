@@ -1,6 +1,6 @@
 /*
 ** Routines used to render HTML onto the screen for the Tk HTML widget.
-** $Revision: 1.14 $
+** $Revision: 1.15 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -320,7 +320,8 @@ static void HtmlDrawRect(
     XFillRectangles(htmlPtr->display, drawable, gcDark, xrec, 1);
     for(i=0; i<depth && i<h/2; i++){
       XDrawLine(htmlPtr->display, drawable, gcLight, x+i, y+i, x+w-i-1, y+i);
-      XDrawLine(htmlPtr->display, drawable, gcDark, x+i, y+h-i, x+w-i-1, y+h-i);
+      XDrawLine(htmlPtr->display, drawable, gcDark, x+i, y+h-i-1, 
+                 x+w-i-1, y+h-i-1);
     }
   }
   if( h>depth*2 && w>depth*2 ){
@@ -508,45 +509,44 @@ void HtmlBlockDraw(
             1, relief);
         break;
       }
-      case Html_TABLE:
-        if( src->table.borderWidth ){
-          int relief = htmlPtr->tableRelief;
-          switch( relief ){
-            case TK_RELIEF_RAISED: 
-            case TK_RELIEF_SUNKEN:
-              break;
-            default:
-              relief = TK_RELIEF_FLAT;
-              break;
-          }
-          HtmlDrawRect(htmlPtr, drawable, src,
-                             src->table.x - drawableLeft,
-                             src->table.y - drawableTop,
-                             src->table.w, 
-                             src->table.h,
-                             src->table.borderWidth,
-                             relief);
+      case Html_TABLE: {
+        int relief = htmlPtr->tableRelief;
+        switch( relief ){
+          case TK_RELIEF_RAISED: 
+          case TK_RELIEF_SUNKEN:
+            break;
+          default:
+            relief = TK_RELIEF_FLAT;
+            break;
         }
+        HtmlDrawRect(htmlPtr, drawable, src,
+                           src->table.x - drawableLeft,
+                           src->table.y - drawableTop,
+                           src->table.w, 
+                           src->table.h,
+                           src->table.borderWidth,
+                           relief);
         break;
+      }
       case Html_TH:
-      case Html_TD:
+      case Html_TD: {
+        int depth, relief;
         pTable = src->cell.pTable;
-        if( pTable && pTable->table.borderWidth>0 ){
-          int relief;
-          switch( htmlPtr->tableRelief ){
-            case TK_RELIEF_RAISED:  relief = TK_RELIEF_SUNKEN; break;
-            case TK_RELIEF_SUNKEN:  relief = TK_RELIEF_RAISED; break;
-            default:                relief = TK_RELIEF_FLAT;   break;
-          }
-          HtmlDrawRect(htmlPtr, drawable, src,
-                             src->cell.x - drawableLeft,
-                             src->cell.y - drawableTop,
-                             src->cell.w, 
-                             src->cell.h,
-                             1,
-                             relief);
+        depth = pTable && pTable->table.borderWidth>0;
+        switch( htmlPtr->tableRelief ){
+          case TK_RELIEF_RAISED:  relief = TK_RELIEF_SUNKEN; break;
+          case TK_RELIEF_SUNKEN:  relief = TK_RELIEF_RAISED; break;
+          default:                relief = TK_RELIEF_FLAT;   break;
         }
+        HtmlDrawRect(htmlPtr, drawable, src,
+                         src->cell.x - drawableLeft,
+                         src->cell.y - drawableTop,
+                         src->cell.w, 
+                         src->cell.h,
+                         depth,
+                         relief);
         break;
+      }
       case Html_IMG:
         if( src->image.pImage ){
           HtmlDrawImage(src, drawable, drawableLeft, drawableTop,
