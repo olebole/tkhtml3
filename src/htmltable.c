@@ -1,6 +1,6 @@
 /*
 ** Routines for doing layout of HTML tables
-** $Revision: 1.12 $
+** $Revision: 1.13 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -27,6 +27,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <math.h>
 #include "htmltable.h"
 
 /*
@@ -114,6 +115,7 @@ static HtmlElement *TableDimensions(
   int fromAbove[HTML_MAX_COLUMNS+1]; /* Cell above extends thru this row */
   int min0span[HTML_MAX_COLUMNS+1];  /* Min for colspan=0 cells */
   int max0span[HTML_MAX_COLUMNS+1];  /* Max for colspan=0 cells */
+  int fixedW[HTML_MAX_COLUMNS+1];    /* Value of "width=N" attributes in <TD> */
 
   /* colMin[A][B] is the minimum width of all columns between
   ** A+1 and B+2.  This is used to add in the constraints imposed
@@ -214,6 +216,7 @@ static HtmlElement *TableDimensions(
             pStart->table.maxW[i] = 0;
             min0span[i] = 0;
             max0span[i] = 0;
+            fixedW[i] = 0;
             for(j=1; j<i; j++){
               ColMin(j,i) = 0;
             }
@@ -236,6 +239,9 @@ static HtmlElement *TableDimensions(
           }
           SETMAX( minW, setWidth );
           SETMAX( maxW, setWidth );
+          if( p->cell.colspan==1 ){
+            SETMAX( fixedW[iCol], setWidth );
+          }
           TRACE(HtmlTrace_Table1,
             ("Row %d Column %d: width=%d\n",iRow,iCol,minW));
         }
@@ -298,7 +304,14 @@ static HtmlElement *TableDimensions(
   /* Compute the min and max width of each column
   */
   for(i=1; i<=pStart->table.nCol; i++){
-    int sum;
+    int sumMin, sumMax;
+
+    /* Reduce the max[] field to N for columns that have "width=N" */
+    if( fixedW[i]>0 ){
+      pStart->table.maxW[i] = pStart->table.minW[i];
+    }
+
+    /* Expand the width of columns marked with "colspan=0". */
     if( min0span[i]>0 || max0span[i]>0 ){
       int n = pStart->table.nCol - i + 1;
       minW = (min0span[i] + (n - 1)*(1-separation))/n;
@@ -308,16 +321,25 @@ static HtmlElement *TableDimensions(
         SETMAX( pStart->table.maxW[j], maxW );
       }
     }
-    sum = pStart->table.minW[i];
+
+    /* Expand the min of columns to accomodate "colspan=N" where N>1.
+    ** Columns with larger max[] are expanded faster. */
+    sumMin = pStart->table.minW[i];
+    sumMax = pStart->table.maxW[i];
     for(j=i-1; j>=1; j--){
-      sum += pStart->table.minW[j];
-      if( ColMin(j,i)>sum ){
-        int k, n = i-j+1;
-        int diff = (ColMin(j,i) - sum + n - 1)/n;
+      int cmin;
+      sumMin += pStart->table.minW[j];
+      sumMax += pStart->table.maxW[j];
+      cmin = ColMin(j,i);
+      if( cmin>sumMin ){
+        int k;
+        double scale;
+        scale = (double)cmin/(double)sumMax;
         for(k=j; k<=i; k++){
-          pStart->table.minW[k] += diff;
+          sumMin -= pStart->table.minW[k];
+          pStart->table.minW[k] = ceil(scale*pStart->table.maxW[k]);
+          sumMin += pStart->table.minW[k];
         }
-        sum = ColMin(j,i);
       }
     }
   }
@@ -349,8 +371,17 @@ static HtmlElement *TableDimensions(
     }else{
       totalWidth = atoi(z);
     }
-    SETMAX( pStart->table.minW[0], totalWidth );
-    SETMAX( pStart->table.maxW[0], totalWidth );
+    if( totalWidth > pStart->table.minW[0] ){
+      float scale;
+      int *tminW = pStart->table.minW;
+      int *tmaxW = pStart->table.maxW;
+      scale = (double)(totalWidth - tminW[0]) / (double)(tmaxW[0] - tminW[0]);
+      for(i=1; i<=pStart->table.nCol; i++){
+        tminW[i] += (tmaxW[i] - tminW[i]) * scale;
+      }
+      pStart->table.minW[0] = totalWidth;
+      SETMAX( pStart->table.maxW[0], totalWidth );
+    }
   }
 
 #ifdef DEBUG
@@ -443,7 +474,8 @@ static HtmlElement *MinMax(
         }
         break;
       case Html_TABLE:
-        pNext = TableDimensions(htmlPtr, p, lineWidth-indent);
+        /* pNext = TableDimensions(htmlPtr, p, lineWidth-indent); */
+        pNext = TableDimensions(htmlPtr, p, 0);
         x1 = p->table.maxW[0] + indent;
         x2 = p->table.minW[0] + indent;
         SETMAX( max, x1 );
