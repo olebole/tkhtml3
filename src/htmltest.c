@@ -1,4 +1,6 @@
-static char const rcsid[] = "@(#) $Id: htmltest.c,v 1.14 2005/03/22 12:07:34 danielk1977 Exp $";
+static char const rcsid[] =
+        "@(#) $Id: htmltest.c,v 1.15 2005/03/23 01:36:54 danielk1977 Exp $";
+
 /*
 ** This file contains the TestPoint routines used for profiling
 ** and coverage analysis of the code.
@@ -11,6 +13,7 @@ static char const rcsid[] = "@(#) $Id: htmltest.c,v 1.14 2005/03/22 12:07:34 dan
 **    May you find forgiveness for yourself and forgive others.
 **    May you share freely, never taking more than you give.
 */
+
 /*
 ** A macro named "TestPoint" is defined which increments a counter
 ** whenever it is encountered.  This is very efficient, and should
@@ -60,39 +63,51 @@ int HtmlDepth = 0;
 /* This function is called to print the values of all elements of the
 ** TP_Array to the given file.  Values are printed in decimal, one per line.
 */
-void HtmlTestPointDump(char *filename){
+void
+HtmlTestPointDump(filename)
+    char *filename;
+{
 #if defined(COVERAGE_TEST)
-  FILE *fp;
+    FILE *fp;
 
-  fp = fopen(filename,"a");
-  if( fp ){
-    int i;
-    for(i=0; i<sizeof(HtmlTPArray)/sizeof(HtmlTPArray[0]); i++){
-      if( HtmlTPArray[i]>0 ){
-        fprintf(fp,"%d %d\n",i,HtmlTPArray[i]);
-      }
+    fp = fopen(filename, "a");
+    if (fp) {
+        int i;
+        for (i = 0; i < sizeof(HtmlTPArray) / sizeof(HtmlTPArray[0]); i++) {
+            if (HtmlTPArray[i] > 0) {
+                fprintf(fp, "%d %d\n", i, HtmlTPArray[i]);
+            }
+        }
     }
-  }
-  fclose(fp);
+    fclose(fp);
 #endif
 }
 
 /* This function reports an error to stderr when code that is marked
 ** UNTESTED gets executed.
 */
-void HtmlTPUntested(const char *zFile, int line){
+void
+HtmlTPUntested(zFile, line)
+    const char *zFile;
+    int line;
+{
 #ifndef USE_TCL_STUBS
-  fprintf(stderr,"Untested HTML Widget code executed in file %s line %d\n",
-          zFile,line);
+    fprintf(stderr, "Untested HTML Widget code executed in file %s line %d\n",
+            zFile, line);
 #endif
 }
 
 /* This function reports an error to stderr when safety code that should
 ** never execute is called.
 */
-void HtmlTPCantHappen(const char *zFile, int line){
+void
+HtmlTPCantHappen(zFile, line)
+    const char *zFile;
+    int line;
+{
 #ifndef USE_TCL_STUBS
-  fprintf(stderr,"Unplanned behavior in the HTML Widget in file %s line %d\n",
-          zFile,line);
+    fprintf(stderr,
+            "Unplanned behavior in the HTML Widget in file %s line %d\n", zFile,
+            line);
 #endif
 }

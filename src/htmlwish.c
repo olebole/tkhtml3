@@ -1,4 +1,6 @@
-static char const rcsid[] = "@(#) $Id: htmlwish.c,v 1.8 2002/12/17 18:24:16 drh Exp $";
+static char const rcsid[] =
+        "@(#) $Id: htmlwish.c,v 1.9 2005/03/23 01:36:54 danielk1977 Exp $";
+
 /*
 ** Make a "wish" that includes the html widget.
 **
@@ -13,9 +15,11 @@ static char const rcsid[] = "@(#) $Id: htmlwish.c,v 1.8 2002/12/17 18:24:16 drh 
 #include "appinit.h"
 
 #ifndef _TCLHTML_
-int Et_AppInit(Tcl_Interp *interp){
-  extern int Tkhtml_Init(Tcl_Interp*);
-  Tkhtml_Init(interp);
-  return TCL_OK;
-}
+int
+Et_AppInit(interp)
+    Tcl_Interp *interp {
+        extern int Tkhtml_Init(Tcl_Interp *);
+         Tkhtml_Init(interp);
+         return TCL_OK;
+    }
 #endif
