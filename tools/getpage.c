@@ -24,7 +24,7 @@ static FILE *html;        /* Html output to this file. */
 static int nImage = 0;    /* Number of images loaded so far */
 static Image *pImage;     /* List of all images */
 static global_nErr = 0;   /* System wide errors */
-static char *baseUrl;     /* The base URL */
+static char baseUrl[1000];/* The base URL */
 static int quiet = 0;     /* The quiet flag */
 
 /*
@@ -45,7 +45,7 @@ static char *GetImage(char *zUrl){
   sprintf(p->zLocal,"image%d", ++nImage);
   p->pNext = pImage;
   pImage = p;
-  HttpFetch(zUrl, p->zLocal, quiet);
+  HttpFetch(zUrl, p->zLocal, quiet, 0, 0);
   return p->zLocal;
 }
 
@@ -88,6 +88,9 @@ static void ImageMarkup(int argc, const char **argv, void *notUsed){
       azUrl[0] = argv[i+1];
       azUrl[1] = 0;
       zResolved = ResolveUrl(baseUrl, azUrl);
+      if( !quiet ){
+        printf("Resolved: (%s) (%s) -> (%s)\n",baseUrl, azUrl[0], zResolved);
+      }
       argv[i+1] = GetImage(zResolved);
       /* printf("%s -> %s -> argv[i+1]\n",argv[i+1], zResolved); */
       free(zResolved);
@@ -97,9 +100,24 @@ static void ImageMarkup(int argc, const char **argv, void *notUsed){
 }
 
 /*
+** Handler for <BASE> markup
+*/
+static void BaseMarkup(int argc, const char **argv, void *notUsed){
+  int i;
+  for(i=1; i<argc-1; i+=2){
+    if( stricmp(argv[i],"href")==0 ){
+      if( !quiet ){
+        printf("Base Href=%s\n",argv[i+1]);
+      }
+      sprintf(baseUrl,"%.*s", sizeof(baseUrl), argv[i+1]);
+    }
+  }
+}
+
+/*
 ** Name of a temporary file
 */
-static char zTemp[] = "temporary_html_file";
+static char zTemp[] = "index.html.orig";
 
 /*
 ** The main routine
@@ -107,6 +125,7 @@ static char zTemp[] = "temporary_html_file";
 int main(int argc, char **argv){
   int i;                 /* Loop counter */
   int nErr;              /* Number of errors */
+  int rc;                /* Result code */
   char *zUrl = 0;        /* The URL */
   FILE *in;              /* For reading the raw html */
 
@@ -122,14 +141,14 @@ int main(int argc, char **argv){
     }
   }
   if( zUrl==0 ) usage(argv[0]);
-  baseUrl = zUrl;
-  nErr = HttpFetch(zUrl, zTemp, quiet);
-  if( nErr ){
+  rc = HttpFetch(zUrl, zTemp, quiet, sizeof(baseUrl), baseUrl);
+  if( rc!=200 ){
     unlink(zTemp);
+    fprintf(stderr,"Unable to fetch base page %s\n", zUrl);
     exit(1);
   }
   in = fopen(zTemp,"r");
-  unlink(zTemp);
+  /* unlink(zTemp); */
   if( in==0 ){
     perror("can't reopen temporary file!");
     exit(1);
@@ -144,6 +163,7 @@ int main(int argc, char **argv){
   SgmlCommentHandler(WordHandler);
   SgmlDefaultMarkupHandler(DefaultMarkup);
   SgmlHandler("img", ImageMarkup);
+  SgmlHandler("base", BaseMarkup);
   SgmlParse(in, 0);
   fclose(in);
   fclose(html);

@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlurl.c,v 1.17 2000/01/31 13:23:47 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlurl.c,v 1.18 2000/02/06 23:17:25 drh Exp $";
 /*
 ** Routines for processing URLs.
 **
@@ -180,6 +180,8 @@ static char *BuildUri(HtmlUri *p){
   }
   if( p->zFragment ){
     sprintf(&z[n], "#%s", p->zFragment);
+  }else{
+    z[n] = 0;
   }
   return z;
 }
@@ -296,7 +298,7 @@ int HtmlCallResolver(
         ReplaceStr(&base->zPath, term->zPath);
         ReplaceStr(&base->zQuery, term->zQuery);
         ReplaceStr(&base->zFragment, term->zFragment);
-      }else if( term->zPath && term->zPath[0]=='/' ){
+      }else if( term->zPath && (term->zPath[0]=='/' || base->zPath==0) ){
         ReplaceStr(&base->zPath, term->zPath);
         ReplaceStr(&base->zQuery, term->zQuery);
         ReplaceStr(&base->zFragment, term->zFragment);
@@ -333,7 +335,7 @@ int HtmlCallResolver(
           }
           HtmlFree(base->zPath);
           base->zPath = zBuf;
-        }   
+        }
         ReplaceStr(&base->zQuery, term->zQuery);
         ReplaceStr(&base->zFragment, term->zFragment);
      }
