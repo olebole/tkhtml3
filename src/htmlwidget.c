@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlwidget.c,v 1.55 2003/01/10 14:41:05 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlwidget.c,v 1.56 2003/03/19 17:05:13 hkoba Exp $";
 /*
 ** The main routine for the HTML widget for Tcl/Tk
 **
@@ -167,6 +167,8 @@ static Tk_ConfigSpec configSpecs[] = {
         0, Tk_Offset(HtmlWidget, TclHtml), 0},
     {TK_CONFIG_STRING, "-resolvercommand", "resolverCommand", "HtmlCallback",
         DEF_HTML_CALLBACK, Tk_Offset(HtmlWidget, zResolverCommand), 0},
+    {TK_CONFIG_BOOLEAN, "-sentencepadding", "sentencePadding",
+        "SentencePadding", "0", Tk_Offset(HtmlWidget, iSentencePadding), 0},
     {TK_CONFIG_END, (char *) NULL, (char *) NULL, (char *) NULL,
 	(char *) NULL, 0, 0}
 };

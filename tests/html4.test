@@ -1,0 +1,64 @@
+#!/usr/bin/wish
+if {[info commands html] == ""} {
+    if {[file exists libTkhtml2.0.so]} {
+	load ./libTkhtml2.0.so
+    } else {
+	package require Tkhtml
+    }
+}
+package require tcltest
+
+::tcltest::test html-4.1 {textarea space after dot} {
+    set ::RESULT {}
+    proc FormCmd {n cmd args} {
+	if {$cmd != "textarea"} return
+	set ::RESULT [lindex $args end]
+    }
+    html .html -formcommand FormCmd
+    pack .html
+    .html parse {
+	<html><body><form action="submit" method="get">
+	<textarea name="test" cols="20" rows="2">A.B. C.  D.</textarea>
+	</form></body></html>
+    }
+    # To force all FormCmd is executed...
+    update
+    
+    set ::RESULT
+} {A.B. C.  D.}
+
+::tcltest::test html-4.2 {pre space after dot} {
+    catch {destroy .html}
+    pack [html .html]
+    .html parse {<body>BEGIN<pre>A.B. C.  D.</pre>END</body>}
+    .html text ascii 1 end
+} {BEGINA.B. C.  D.END}
+
+::tcltest::test html-4.3 {SentencePadding A. B. C.} {
+    catch {destroy .html}
+    pack [html .html -sentencepadding 1]
+    .html parse {<h1>A. B. C.</h1>}
+    set result [.html text ascii 1 end]
+    destroy .html
+    set result
+} {A.  B.  C.}
+
+::tcltest::test html-4.4 {SentencePadding for D.C...} {
+    catch {destroy .html}
+    pack [html .html]
+    catch {.html configure -sentencepadding 1}
+    .html parse {<h1>Today Washington D.C. is ...</h1>}
+    set result [.html text ascii 1 end]
+    destroy .html
+    set result
+} {Today Washington D.C. is ...}
+
+::tcltest::test html-4.5 {No SentencePadding for "A.  B."} {
+    catch {destroy .html}
+    pack [html .html]
+    catch {.html configure -sentencepadding 1}
+    .html parse {<h1>A.  B.</h1>}
+    set result [.html text ascii 1 end]
+    destroy .html
+    set result
+} {A.  B.}

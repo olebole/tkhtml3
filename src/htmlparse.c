@@ -1,6 +1,6 @@
 #define TokenMap(htmlPtr,idx) (htmlPtr->tokenMap?htmlPtr->tokenMap[idx]:(HtmlMarkupMap+idx))
 #define TokenapMap(htmlPtr,idx) (htmlPtr->tokenapMap?htmlPtr->tokenMap[idx]:apMap[idx])
-static char const rcsid[] = "@(#) $Id: htmlparse.c,v 1.34 2003/01/30 04:11:52 hkoba Exp $";
+static char const rcsid[] = "@(#) $Id: htmlparse.c,v 1.35 2003/03/19 17:05:13 hkoba Exp $";
 /*
 ** A tokenizer that converts raw HTML into a linked list of HTML elements.
 **
@@ -716,7 +716,8 @@ static int Tokenize(
       /* White space */
       for(i=0; (c=z[n+i])!=0 && isspace(c) && c!='\n' && c!='\r'; i++){}
       if( c=='\r' && z[n+i+1]=='\n' ){ i++; }
-      if (sawdot==1) {
+      if (p->iSentencePadding && i == 1 && isupper(z[n+i])
+	  && !p->iPlaintext && sawdot==1) {
         pElem=HtmlTextAlloc(sizeof(HtmlTextElement)+2);
         if( pElem==0 ){ goto incomplete; }
         pElem->base.type = Html_Text;

@@ -1,6 +1,6 @@
 /*
 ** Structures and typedefs used by the HTML widget
-** $Revision: 1.34 $
+** $Revision: 1.35 $
 **
 ** This source code is released into the public domain by the author,
 ** D. Richard Hipp, on 2002 December 17.  Instead of a license, here
@@ -837,6 +837,13 @@ struct HtmlWidget {
   char *zHandler[Html_TypeCount]; /* If not NULL, this is a TCL routine that
                                  * is used to process tokens of the given 
                                  * type */
+  /*
+   * Information used when parsing HTML input:
+   */
+  int iSentencePadding;         /* TRUE if we should compensate SPC between
+				   sentences. */
+  
+
   /*
    * These fields hold state information used by the HtmlAddStyle routine.
    * We have to store this state information here since HtmlAddStyle
