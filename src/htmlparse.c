@@ -1,6 +1,6 @@
 /*
 ** A tokenizer that converts raw HTML into a linked list of HTML elements.
-** $Revision: 1.10 $
+** $Revision: 1.11 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -245,8 +245,9 @@ static void EscInit(void){
 }
 
 /*
-** This table translates the special microsoft characters between
-** 0x80 and 0x9f into ASCII.  Care is taken to translate the characters
+** This table translates the non-standard microsoft characters between
+** 0x80 and 0x9f into plain ASCII so that the characters will be visible
+** on Unix systems.  Care is taken to translate the characters
 ** into values less than 0x80, to avoid UTF-8 problems.
 */
 #ifndef __WIN32__
@@ -318,11 +319,20 @@ LOCAL void HtmlTranslateEscapes(char *z){
           i++;
         }
         if( z[i]==';' ){ i++; }
+
+        /* On Unix systems, translate the non-standard microsoft
+        ** characters in the range of 0x80 to 0x9f into something
+        ** we can see.
+        */
 #ifndef __WIN32__
         if( v>=0x80 && v<0xa0 ){
           v = acMsChar[v&0x1f];
         }
 #endif
+        /* Put the character in the output stream in place of
+        ** the "&#000;".  How we do this depends on whether or
+        ** not we are using UTF-8.
+        */
 #ifdef TCL_UTF_MAX
         {
           int j, n;
@@ -361,6 +371,12 @@ LOCAL void HtmlTranslateEscapes(char *z){
           z[to++] = z[from++];
         }
       }
+
+    /* On UNIX systems, look for the non-standard microsoft characters 
+    ** between 0x80 and 0x9f and translate them into printable ASCII
+    ** codes.  Separate algorithms are required to do this for plain
+    ** ascii and for utf-8.
+    */
 #ifndef __WIN32__
 #ifdef TCL_UTF_MAX
     }else if( (z[from]&0x80)!=0 ){
