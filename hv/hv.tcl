@@ -1,11 +1,18 @@
 #
 # This script implements the "hv" application.  Type "hv FILE" to
-# view the file as HTML.
+# view FILE as HTML.
+#
+# This application is used for testing the HTML widget.  It can
+# also server as an example of how to use the HTML widget.
 # 
 wm title . {HTML File Viewer}
 wm iconname . {HV}
 
+# Make sure the html widget is loaded into
+# our interpreter
+#
 if {[info command html]==""} {
+  if {![package require tkhtml]} return
   foreach f {
     ./tkhtml.so
     /usr/lib/tkhtml.so
@@ -18,6 +25,10 @@ if {[info command html]==""} {
   }
 }
 
+# The HtmlTraceMask only works if the widget was compiled with
+# the -DDEBUG=1 command-line option.  "file" is the name of the
+# first HTML file to be loaded.
+#
 set HtmlTraceMask 0
 set file {}
 foreach a $argv {
@@ -28,6 +39,8 @@ foreach a $argv {
   }
 }
 
+# These images are used in place of GIFs or of form elements
+#
 image create photo biggray -data {
     R0lGODdhPAA+APAAALi4uAAAACwAAAAAPAA+AAACQISPqcvtD6OctNqLs968+w+G4kiW5omm
     6sq27gvH8kzX9o3n+s73/g8MCofEovGITCqXzKbzCY1Kp9Sq9YrNFgsAO///
@@ -47,6 +60,8 @@ image create photo nogifsm -data {
     3idKZdR0IIOm2ta0Lhw/Lz2S1JqvK8ozbTKlEIVYceWSjwIAO///
 }
 
+# Construct the main window
+#
 frame .mbar -bd 2 -relief raised
 pack .mbar -side top -fill x
 menubutton .mbar.help -text File -underline 0 -menu .mbar.help.m
@@ -70,10 +85,15 @@ html .h.h \
   -appletcommand AppletCmd \
   -bg white -tablerelief raised
 
+# If the tracemask is not 0, then draw the outline of all
+# tables as a blank line, not a 3D relief.
+#
 if {$HtmlTraceMask} {
   .h.h config -tablerelief flat
 }
 
+# A font chooser routine.
+#
 # .h.h config -fontcommand pickFont
 proc pickFont {size attrs} { 
   puts "FontCmd: $size $attrs"
@@ -84,6 +104,8 @@ proc pickFont {size attrs} {
   list $a $d $b $c
 } 
 
+# This routine is called for each form element
+#
 proc FormCmd {n cmd args} {
  puts "FormCmd: $n $cmd $args"
   switch $cmd {
@@ -95,6 +117,9 @@ proc FormCmd {n cmd args} {
     }
   }
 }
+
+# This routine is called for every <IMG> markup
+#
 proc ImageCmd {args} {
   set fn [lindex $args 0]
   if {[catch {image create photo -file $fn} img]} {
@@ -109,13 +134,24 @@ proc ImageCmd {args} {
     return $img
   }
 }
+
+# This routine is called for every <SCRIPT> markup
+#
 proc ScriptCmd {args} {
   puts "ScriptCmd: $args"
 }
+
+# This routine is called for every <APPLET> markup
+#
 proc AppletCmd {w arglist} {
   puts "AppletCmd: w=$w arglist=$arglist"
   label $w -text "The Applet $w" -bd 2 -relief raised
 }
+
+# This procedure is called when the user clicks on a hyperlink.
+# See the "bind .h.h.x" below for the binding that invokes this
+# procedure
+#
 proc HrefBinding {x y} {
   set new [.h.h href $x $y]
   puts "link to [list $new]"; return
@@ -124,6 +160,9 @@ proc HrefBinding {x y} {
   }
 }
 bind .h.h.x <1> {HrefBinding %x %y}
+
+# Pack the HTML widget into the main screen.
+#
 pack .h.h -side left -fill both -expand 1
 scrollbar .h.vsb -orient vertical -command {.h.h yview}
 pack .h.vsb -side left -fill y
@@ -144,6 +183,9 @@ pack .f2.hsb -side top -fill x
 #  return [lindex $args 0]
 #}
 
+# This procedure is called when the user selects the File/Open
+# menu option.
+#
 set lastDir [pwd]
 proc Load {} {
   set filetypes {
@@ -201,11 +243,17 @@ proc Refresh {} {
   LoadFile $LastFile
 }
 
+# If an arguent was specified, read it into the HTML widget.
+#
 update
 if {$file!=""} {
   LoadFile $file
 }
 
+
+# This binding changes the cursor when the mouse move over
+# top of a hyperlink.
+#
 bind HtmlClip <Motion> {
   set parent [winfo parent %W]
   set url [$parent href %x %y] 
