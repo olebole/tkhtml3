@@ -385,9 +385,16 @@ AC_SUBST(BUILD_TCLSH)
 # we need to know.
 #
 AC_ARG_ENABLE(shared,
-[  --enable-shared         Build the widget as a shared library])
+[  --enable-shared         Build the widget as a shared library],,
+      enable_shared=yes)
 if test "$config_ENABLE_SHARED" = "yes"; then
   enable_shared=yes
+fi
+AC_MSG_CHECKING([if shared libraries are requested])
+if test "$enable_shared" = "yes"; then
+  AC_MSG_RESULT(yes)
+else
+  AC_MSG_RESULT(no)
 fi
 if test "$CYGWIN" = "yes"; then
   if test "$enable_shared" = "yes"; then
@@ -565,16 +572,35 @@ AC_SUBST(TARGET_TCL_LIBS)
 # Figure out where to get the TCL header files.
 #
 AC_MSG_CHECKING([TCL header files])
+found=no
 if test "$config_TARGET_TCL_INC" != ""; then
   TARGET_TCL_INC=$config_TARGET_TCL_INC
+  found=yes
 else
   if test "$with_tcl" != ""; then
     TARGET_TCL_INC="-I$with_tcl/generic -I$with_tcl/$tclsubdir"
+    found=yes
   else
     TARGET_TCL_INC=""
+    found=no
   fi
 fi
-AC_MSG_RESULT($TARGET_TCL_INC)
+if test "$found" = "yes"; then
+  AC_MSG_RESULT($TARGET_TCL_INC)
+else
+  AC_MSG_RESULT(not specified: still searching...)
+  AC_CHECK_HEADER(tcl.h, [found=yes])
+fi
+if test "$found" = "no"; then
+  for dir in /usr/local /usr/X11* /usr/pkg /usr/contrib /usr; do
+    n=$dir/include/tcl.h
+    AC_CHECK_FILE($dir/include/tcl.h, found=yes)
+    if test "$found" = "yes"; then
+      TARGET_TCL_INC="-I$dir/include/tcl.h"
+      break
+    fi
+  done
+fi
 AC_SUBST(TARGET_TCL_INC)
 
 ###########
@@ -638,10 +664,14 @@ else
       TARGET_TK_INC="$TARGET_TK_INC -I$with_tk/xlib"
     fi
   else
-    TARGET_TK_INC=""
+    TARGET_TK_INC=`echo $TARGET_TCL_INC | sed 's/tcl.h$/tk.h/'g`
   fi
 fi
-AC_MSG_RESULT($TARGET_TK_INC)
+if test "$TARGET_TK_INC" = ""; then
+  AC_MSG_RESULT(yes)
+else
+  AC_MSG_RESULT($TARGET_TK_INC)
+fi
 AC_SUBST(TARGET_TK_INC)
 
 dnl ############

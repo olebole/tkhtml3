@@ -349,7 +349,12 @@ Strip autotcl
 
 # A target to build everything.
 #
-puts "all:	headers ${PFX}hwishdev${TEXE}"
+set all ${PFX}hwish${TEXE}
+lappend all ${PFX}hv${TEXE}
+if {"@ENABLE_SHLIB@"=="1"} {
+  lappend all tkhtml.so
+}
+puts "all:	headers $all"
 puts ""
 
 # Compile host-side utilities
@@ -380,7 +385,7 @@ foreach f $autoc {
   MakeShObj $f.o $f.c $f.h
 }
 MakeLib libtkhtml $obj
-MakeShLib libtkhtml $obj
+MakeShLib tkhtml $obj
 
 # Header files for the library objects and for the library itself.
 #
