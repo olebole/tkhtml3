@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.7 2003/03/19 17:06:29 hkoba Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.8 2005/03/22 12:07:34 danielk1977 Exp $";
 /*
 ** The main routine for the HTML widget for Tcl/Tk
 **
@@ -18,7 +18,7 @@ static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.7 2003/03/19 17:06:29 hkoba
 #include <fcntl.h>
 #include <errno.h>
 #include <assert.h>
-#include "htmltcl.h"
+#include "html.h"
 
 #define SafeCheck(interp,str) if (Tcl_IsSafe(interp)) { \
     Tcl_AppendResult(interp, str, " invalid in safe interp", 0); \
@@ -256,13 +256,13 @@ HtmlElement *HtmlGetMap(HtmlWidget *htmlPtr, char *name) {
 ** following array:
 */
 static struct HtmlSubcommand {
-  char *zCmd1;           /* First-level subcommand.  Required */
-  char *zCmd2;           /* Second-level subcommand.  May be NULL */
-  int minArgc;           /* Minimum number of arguments */
-  int maxArgc;           /* Maximum number of arguments */
-  char *zHelp;           /* Help string if wrong number of arguments */
-  int (*xFunc)(HtmlWidget*,Tcl_Interp*,int,char**);  /* Cmd service routine */
-  int (*xFuncObj)(HtmlWidget*,Tcl_Interp*,int,Tcl_Obj* CONST objv[]);  /* Obj cmd */
+  char *zCmd1;               /* First-level subcommand.  Required */
+  char *zCmd2;               /* Second-level subcommand.  May be NULL */
+  int minArgc;               /* Minimum number of arguments */
+  int maxArgc;               /* Maximum number of arguments */
+  char *zHelp;               /* Help string if wrong number of arguments */
+  Tcl_CmdProc *xFunc;        /* Cmd service routine */
+  Tcl_ObjCmdProc *xFuncObj;  /* Object cmd */
 } aSubcommand[nSubcommand] = {
   { "cget",      0,         3, 3, "CONFIG-OPTION",       0, HtmlCgetObjCmd },
   { "clear",     0,         2, 2, 0,                     HtmlClearCmd },
@@ -335,7 +335,8 @@ static struct HtmlSubcommand {
 
 /* Dynamically add command to HTML widget */
 int HtmlCommandAdd(char *c1, char *c2, int m, int n, char *help, 
-   int (*xFunc)(HtmlWidget*,Tcl_Interp*,int,char**)) {
+   Tcl_CmdProc *xFunc
+){
  struct HtmlSubcommand *pCmd;
   int i;
   for(i=0, pCmd=aSubcommand; i<nSubcommand; i++, pCmd++) {
@@ -351,7 +352,8 @@ int HtmlCommandAdd(char *c1, char *c2, int m, int n, char *help,
 
 /* Dynamically add Obj command to HTML widget */
 int HtmlCommandAddObj(char *c1, char *c2, int m, int n, char *help, 
-   int (*xFunc)(HtmlWidget*,Tcl_Interp*,int,Tcl_Obj* CONST objv[])) {
+   Tcl_ObjCmdProc *xFunc
+){
  struct HtmlSubcommand *pCmd;
   int i;
   for(i=0, pCmd=aSubcommand; i<nSubcommand; i++, pCmd++) {
@@ -429,15 +431,15 @@ int HtmlWidgetObjCommand(
     }
     if( pCmd->xFunc!=0 ){	/* Fake support for old non-obj method */
       int i, rc;
-      char *sargv[20];
-      char **argv;
+      CONST char *sargv[20];
+      CONST char **argv;
       if (objc>=19) {
         argv=calloc(sizeof(char*),objc+2);
         for (i=0; i<objc; i++)
 	  argv[i]=Tcl_GetString(objv[i]);
 	argv[i]=0;
         rc=(*pCmd->xFunc)(htmlPtr, interp, objc, argv);
-	free(argv);
+	HtmlFree(argv);
 	return rc;
       }
       for (i=0; i<objc; i++)
@@ -537,7 +539,7 @@ HtmlBase64decodeCmd(ClientData clientData, Tcl_Interp *interp,
   char outbuffer[3], *tbuf;
   int c[4];
 
-  tbuf=(char*)malloc(tlen);
+  tbuf=(char*)HtmlAlloc(tlen);
   inbuffer = Tcl_GetStringFromObj(objv[3], &ilen);
   pos = 0;
   while (!atend) {
@@ -564,7 +566,7 @@ HtmlBase64decodeCmd(ClientData clientData, Tcl_Interp *interp,
 /*fprintf(stderr,"OB(%d): %x,%x,%x\n", olen,outbuffer[0],outbuffer[1],outbuffer[2]);*/
     if (olen>0) {
       if ((tpos+olen+1)>=tlen) {
-        tbuf=realloc(tbuf,tlen+1024);
+        tbuf=HtmlRealloc(tbuf,tlen+1024);
         tlen+=1024;
       }
       memcpy(tbuf+tpos,outbuffer,olen);
@@ -576,7 +578,7 @@ HtmlBase64decodeCmd(ClientData clientData, Tcl_Interp *interp,
   Tcl_SetObjResult (interp,o);
   Tcl_DecrRefCount (o);
   Tcl_SetObjResult(interp, o);
-  free(tbuf);
+  HtmlFree(tbuf);
   return TCL_OK;
 }
 
@@ -657,7 +659,7 @@ HtmlGunzipCmd (ClientData clientData, Tcl_Interp * interp,
       SafeCheck(interp,"gunzip file");
       fn = Tcl_GetStringFromObj (objv[3], &fnlen);
       if (!(zF=gzopen(fn,"rb"))) goto gunziperror; 
-      uncompr=(char*)malloc(ulen);
+      uncompr=(char*)HtmlAlloc(ulen);
       for (;;) {
         r=gzread(zF,uncompr+l,ulen);
         if (r<0) goto gunziperror;
@@ -665,13 +667,13 @@ HtmlGunzipCmd (ClientData clientData, Tcl_Interp * interp,
         if (r==0) break;
         if ((l+ulen)>blen) {
           blen+=ulen;
-          uncompr=(char*)realloc(uncompr,blen);
+          uncompr=(char*)HtmlRealloc(uncompr,blen);
 	}
       }
     } else if (!strcmp(from,"data")) {
       z_stream zf;
       int hlen;
-      uncompr=(char*)malloc(ulen);
+      uncompr=(char*)HtmlAlloc(ulen);
       from = Tcl_GetByteArrayFromObj (objv[3], &fnlen);
       hlen= check_header((unsigned char*)from, fnlen);
       if (hlen<0 || hlen>fnlen) goto gunziperror;
@@ -692,7 +694,7 @@ HtmlGunzipCmd (ClientData clientData, Tcl_Interp * interp,
 	l=zf.total_out;
 	if (zf.total_in == fnlen || zf.avail_in==0) break;
 	blen+=1024;
-	uncompr=(char*)realloc(uncompr,blen);
+	uncompr=(char*)HtmlRealloc(uncompr,blen);
 	fn=uncompr+l;
       }
       inflateEnd(&zf);
@@ -701,12 +703,12 @@ HtmlGunzipCmd (ClientData clientData, Tcl_Interp * interp,
     Tcl_IncrRefCount (o);
     Tcl_SetObjResult (interp,o);
     Tcl_DecrRefCount (o);
-    if (uncompr) free(uncompr);
+    if (uncompr) HtmlFree(uncompr);
     if (zF) gzclose(zF);
     return TCL_OK;
 gunziperror:
     if (zF) gzclose(zF);
-    if (uncompr) free(uncompr);
+    if (uncompr) HtmlFree(uncompr);
     Tcl_SetObjResult (interp, Tcl_NewStringObj ("gunzip error", -1));
     return TCL_ERROR;
 }
@@ -762,7 +764,7 @@ HtmlGzipCmd (ClientData clientData, Tcl_Interp * interp,
 	l=zf.total_out;
 	if (zf.avail_out!=0) break;
 	blen+=1024;
-	compr=(char*)realloc(compr,blen+10);
+	compr=(char*)HtmlRealloc(compr,blen+10);
 	fn=compr+10+l;
       }
       ip=(unsigned char*)(compr+l+10);
@@ -781,14 +783,14 @@ HtmlGzipCmd (ClientData clientData, Tcl_Interp * interp,
       Tcl_IncrRefCount (o);
       Tcl_SetObjResult (interp,o);
       Tcl_DecrRefCount (o);
-      free(compr);
+      HtmlFree(compr);
       return TCL_OK;
     } else goto gziperror;
     if (zF) gzclose(zF);
     return TCL_OK;
 gziperror:
     if (zF) gzclose(zF);
-    if (compr) free(compr);
+    if (compr) HtmlFree(compr);
     Tcl_SetObjResult (interp, Tcl_NewStringObj ("gzip error", -1));
     return TCL_ERROR;
 }
@@ -1032,7 +1034,7 @@ decryptsrcsub(ClientData clientData, Tcl_Interp *interp,
     if (decrypt) {
       char *cp=strdup(Tcl_GetStringResult(interp));
       rc=Tcl_GlobalEval(interp, cp);
-      free(cp);
+      HtmlFree(cp);
     }
   }
   Tcl_DecrRefCount(vobjv[2]);
@@ -1074,7 +1076,8 @@ HtmlExitCmd(ClientData clientData, Tcl_Interp *interp,
 static int HtmlReformatCmd(ClientData clientData, Tcl_Interp *interp,
     int objc, Tcl_Obj *CONST objv[]
 ) {    
-  char buf[132], *cp; int n=0, i=0, l;
+  char buf[132]; int n=0, i=0, l;
+  CONST char *cp;
   Tcl_UniChar ch;
   char *stype=Tcl_GetString(objv[2]);
   char *dtype=Tcl_GetString(objv[3]);

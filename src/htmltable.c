@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmltable.c,v 1.50 2002/12/17 18:24:16 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmltable.c,v 1.51 2005/03/22 12:07:34 danielk1977 Exp $";
 /*
 ** Routines for doing layout of HTML tables
 **
@@ -16,7 +16,7 @@ static char const rcsid[] = "@(#) $Id: htmltable.c,v 1.50 2002/12/17 18:24:16 dr
 #include <ctype.h>
 #include <math.h>
 #include <assert.h>
-#include "htmltable.h"
+#include "html.h"
 
 /*
 ** Default values for various table style parameters
@@ -28,13 +28,11 @@ static char const rcsid[] = "@(#) $Id: htmltable.c,v 1.50 2002/12/17 18:24:16 dr
 #define DFLT_HSPACE             0
 #define DFLT_VSPACE             0
 
-#if INTERFACE
 /*
 ** Set parameter A to the maximum of A and B.
 */
 #define SETMAX(A,B)  if( (A)<(B) ){ (A) = (B); }
 #define MAX(A,B)     ((A)<(B)?(B):(A))
-#endif
 
 /*
 ** Return the appropriate cell spacing for the given table.
@@ -984,6 +982,50 @@ static int GetVerticalAlignment(HtmlElement *p, int dflt){
   return rc;
 }
 
+/*
+** Move all elements in the given list vertically by the amount dy
+*/
+static void HtmlMoveVertically(
+  HtmlElement *p,         /* First element to move */
+  HtmlElement *pLast,     /* Last element.  Do move this one */
+  int dy                  /* Amount by which to move */
+){
+  if( dy==0 ){ return; }
+  while( p && p!=pLast ){
+    switch( p->base.type ){
+      case Html_A:
+        p->anchor.y += dy;
+        break;
+      case Html_Text:
+        p->text.y += dy;
+        break;
+      case Html_LI:
+        p->li.y += dy;
+        break;
+      case Html_TD:
+      case Html_TH:
+        p->cell.y += dy;
+        break;
+      case Html_TABLE:
+        p->table.y += dy;
+        break;
+      case Html_IMG:
+        p->image.y += dy;
+        break;
+      case Html_INPUT:
+      case Html_SELECT:
+      case Html_APPLET:
+      case Html_EMBED:
+      case Html_TEXTAREA:
+        p->input.y += dy;
+        break;
+      default:
+        break;
+    }
+    p = p->pNext;
+  }
+}
+
 /* Do all layout for a single table.  Return the </table> element or
 ** NULL if the table is unterminated.
 */
@@ -1386,47 +1428,3 @@ HtmlElement *HtmlTableLayout(
   return pEnd;
 }
 
-
-/*
-** Move all elements in the given list vertically by the amount dy
-*/
-void HtmlMoveVertically(
-  HtmlElement *p,         /* First element to move */
-  HtmlElement *pLast,     /* Last element.  Do move this one */
-  int dy                  /* Amount by which to move */
-){
-  if( dy==0 ){ return; }
-  while( p && p!=pLast ){
-    switch( p->base.type ){
-      case Html_A:
-        p->anchor.y += dy;
-        break;
-      case Html_Text:
-        p->text.y += dy;
-        break;
-      case Html_LI:
-        p->li.y += dy;
-        break;
-      case Html_TD:
-      case Html_TH:
-        p->cell.y += dy;
-        break;
-      case Html_TABLE:
-        p->table.y += dy;
-        break;
-      case Html_IMG:
-        p->image.y += dy;
-        break;
-      case Html_INPUT:
-      case Html_SELECT:
-      case Html_APPLET:
-      case Html_EMBED:
-      case Html_TEXTAREA:
-        p->input.y += dy;
-        break;
-      default:
-        break;
-    }
-    p = p->pNext;
-  }
-}

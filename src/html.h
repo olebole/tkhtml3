@@ -1,6 +1,6 @@
 /*
 ** Structures and typedefs used by the HTML widget
-** $Revision: 1.35 $
+** $Revision: 1.36 $
 **
 ** This source code is released into the public domain by the author,
 ** D. Richard Hipp, on 2002 December 17.  Instead of a license, here
@@ -10,6 +10,57 @@
 **    May you find forgiveness for yourself and forgive others.
 **    May you share freely, never taking more than you give.
 */
+
+#ifndef __HTML_H__
+#define __HTML_H__
+
+#include <tk.h>
+#include "htmltokens2.h"
+
+/*
+** Various data types.  This code is designed to run on a modern
+** cached architecture where the CPU runs a lot faster than the
+** memory bus.  Hence we try to pack as much data into as small a space
+** as possible so that it is more likely to fit in cache.  The
+** extra CPU instruction or two needed to unpack the data is not
+** normally an issue since we expect the speed of the memory bus 
+** to be the limiting factor.
+*/
+typedef unsigned char  Html_u8;      /* 8-bit unsigned integer */
+typedef short          Html_16;      /* 16-bit signed integer */
+typedef unsigned short Html_u16;     /* 16-bit unsigned integer */
+typedef int            Html_32;      /* 32-bit signed integer */
+
+typedef union HtmlElement HtmlElement;
+typedef struct HtmlBaseElement HtmlBaseElement;
+typedef struct HtmlTextElement HtmlTextElement;
+typedef struct HtmlSpaceElement HtmlSpaceElement;
+typedef struct HtmlMarkupElement HtmlMarkupElement;
+typedef struct HtmlCell HtmlCell;
+typedef struct HtmlTable HtmlTable;
+typedef struct HtmlRef HtmlRef;
+typedef struct HtmlLi HtmlLi;
+typedef struct HtmlListStart HtmlListStart;
+typedef struct HtmlExtensions HtmlExtensions;
+typedef struct HtmlImageAnim HtmlImageAnim;
+typedef struct HtmlImageMarkup HtmlImageMarkup;
+typedef struct HtmlImage HtmlImage;
+typedef struct HtmlInput HtmlInput;
+typedef struct HtmlForm HtmlForm;
+typedef struct HtmlHr HtmlHr;
+typedef struct HtmlAnchor HtmlAnchor;
+typedef struct HtmlScript HtmlScript;
+typedef struct HtmlBlock HtmlBlock;
+typedef struct HtmlStyleStack HtmlStyleStack;
+typedef struct HtmlMargin HtmlMargin;
+typedef struct HtmlLayoutContext HtmlLayoutContext;
+typedef struct GcCache GcCache;
+typedef struct HtmlIndex HtmlIndex;
+typedef struct HtmlMapArea HtmlMapArea;
+typedef struct HtmlWidget HtmlWidget;
+typedef struct HtmlUserTag HtmlUserTag;
+typedef struct HtmlStyle HtmlStyle;
+typedef struct HtmlTokenMap HtmlTokenMap;
 
 #ifdef USE_DMALLOC
 #define __malloc_and_calloc_defined
@@ -45,6 +96,30 @@
 #define HtmlCantHappen
 #endif
 
+#if defined(COVERAGE_TEST)
+# define TestPoint(X)      {extern int HtmlTPArray[]; HtmlTPArray[X]++;}
+# define UNTESTED          HtmlTPUntested(__FILE__,__LINE__)
+# define CANT_HAPPEN       HtmlTPCantHappen(__FILE__,__LINE__)
+# define HtmlVerifyLock(H) if((H)->locked==0)HtmlTPCantHappen(__FILE__,__LINE__)
+#else
+# define TestPoint(X)
+# define UNTESTED
+# define CANT_HAPPEN
+# define HtmlVerifyLock(H)
+#endif
+
+#if INTERFACE
+#define DLL_EXPORT
+#endif
+#if defined(USE_TCL_STUBS) && defined(__WIN32__)
+# undef DLL_EXPORT
+# define DLL_EXPORT __declspec(dllexport)
+#endif
+
+#ifndef DLL_EXPORT
+#define DLL_EXPORT
+#endif
+
 /*
 ** The TRACE macro is used to print internal information about the
 ** HTML layout engine during testing and debugging.  The amount of
@@ -64,6 +139,9 @@
     }
 # define TRACE_PUSH(Flag)  if( (Flag)&HtmlTraceMask ){ HtmlDepth+=3; }
 # define TRACE_POP(Flag)   if( (Flag)&HtmlTraceMask ){ HtmlDepth-=3; }
+extern int HtmlDepth;
+extern int HtmlTraceMask;
+extern HtmlWidget *dbghtmlPtr;
 #else
 # define TRACE_INDENT
 # define TRACE(Flag, Args)
@@ -95,25 +173,13 @@
 #define HtmlAlloc(A)      ((void*)ckalloc(A))
 #define HtmlFree(A)       ckfree((char*)(A))
 #define HtmlRealloc(A,B)  ((void*)ckrealloc((A),(B)))
+#define HtmlStrdup(A)     HtmlStrdupX(A)
 #else
 #define HtmlAlloc(A)      malloc(A)
 #define HtmlFree(A)       free(A)
 #define HtmlRealloc(A,B)  realloc(A,B)
+#define HtmlStrdup(A)     strdup(A)
 #endif
-
-/*
-** Various data types.  This code is designed to run on a modern
-** cached architecture where the CPU runs a lot faster than the
-** memory bus.  Hence we try to pack as much data into as small a space
-** as possible so that it is more likely to fit in cache.  The
-** extra CPU instruction or two needed to unpack the data is not
-** normally an issue since we expect the speed of the memory bus 
-** to be the limiting factor.
-*/
-typedef unsigned char  Html_u8;      /* 8-bit unsigned integer */
-typedef short          Html_16;      /* 16-bit signed integer */
-typedef unsigned short Html_u16;     /* 16-bit unsigned integer */
-typedef int            Html_32;      /* 32-bit signed integer */
 
 /*
 ** An instance of the following structure is used to record style
@@ -127,7 +193,7 @@ struct HtmlStyle {
   unsigned int bgcolor : 6;      /* Background color */
   unsigned int expbg   : 1;      /* Set to 1 if bgcolor explicitly set */
   unsigned int flags   : 7;      /* the STY_ flags below */
-}
+};
 
 /*
 ** We allow 8 different font families:  Normal, Bold, Italic and 
@@ -217,47 +283,11 @@ struct HtmlStyle {
 #define STY_Invisible       0x040
 #define STY_FontMask        (STY_StrikeThru|STY_Underline)
 
-/*
-** The first thing done with input HTML text is to parse it into
-** HtmlElements.  All sizing and layout is done using these elements,
-** so this is a very important structure.
-**
-** Elements are designed so that the common ones (Text and Space)
-** require as little storage as possible, in order to increase
-** the chance of memory cache hits.  (Turns out I didn't do a
-** very good job of this.  This widget is a pig for memory.  But
-** the speed is good, so I'm not going to change it right now...)
-**
-** Some elements require more memory than Text and Space (ex: <IMG>).
-** An HtmlElement is therefore represented as a union of many other 
-** structures all of different sizes.  That way we can have a pointer 
-** to a generic element without having to worry about how big that 
-** element is.  The ".base.type" field (which is found in all elements) 
-** will tell us what type of element we are dealing with.
-**
-** NOTE:  This trick will only work on compilers that align all elements
-** of a union to the lowest memory address in that union.  This is true
-** for every C compiler I've ever seen, but isn't guarenteed for ANSI-C.
-*/
-union HtmlElement {
-  HtmlElement *pNext;
-  HtmlBaseElement base;
-  HtmlTextElement text;
-  HtmlSpaceElement space;
-  HtmlMarkupElement markup;
-  HtmlCell cell;
-  HtmlTable table;
-  HtmlRef ref;
-  HtmlLi li;
-  HtmlListStart list;
-  HtmlImageMarkup image;
-  HtmlInput input;
-  HtmlForm form;
-  HtmlHr hr;
-  HtmlAnchor anchor;
-  HtmlScript script;
-  HtmlBlock block;
-  HtmlMapArea area;
+struct HtmlTokenMap {
+  char *zName;                /* Name of a markup */
+  Html_16 type;               /* Markup type code */
+  Html_16 extra;              /* Extra space needed above HtmlBaseElement */
+  HtmlTokenMap *pCollide;     /* Hash table collision chain */
 };
 
 /*
@@ -280,7 +310,6 @@ struct HtmlBaseElement {
 #define HTML_Visible   0x01     /* This element produces "ink" */
 #define HTML_NewLine   0x02     /* type==Html_Space and ends with newline */
 #define HTML_Selected  0x04     /* Some or all of this Html_Block is selected */
-                                /* Used by Html_Block elements only. */
 
 /*
 ** Each text element holds additional information as show here.  Notice
@@ -436,7 +465,7 @@ struct HtmlExtensions {
   void *exts;
   int typ; int flags;
   struct HtmlExtensions *next;
-}
+};
 
 /*
 ** Information about each image on the HTML widget is held in an
@@ -455,6 +484,7 @@ struct HtmlImageAnim {
   Tk_Image image;
   struct HtmlImageAnim* next;
 };
+
 struct HtmlImage {
   HtmlWidget *htmlPtr;     /* The owner of this image */
   Tk_Image image;          /* The Tk image token */
@@ -606,7 +636,7 @@ struct HtmlScript {
   HtmlMarkupElement markup;
   char *zScript;           /* Complete text of this script */
   int nScript;             /* Number of characters of text */
-}
+};
 
 /*
 ** A block is a single unit of display information.  This can be
@@ -664,7 +694,7 @@ struct HtmlStyleStack {
   HtmlStyleStack *pNext;   /* Next style on the stack */
   int type;                /* A markup that ends this style. Ex: Html_EndEM */
   HtmlStyle style;         /* The currently active style. */
-}
+};
 
 /*
 ** A stack of the following structures is used to remember the
@@ -737,7 +767,51 @@ struct HtmlMapArea {
   HtmlMarkupElement base;       /* All the base information */
   int type;
   int *coords, num;
-}
+};
+
+/*
+** The first thing done with input HTML text is to parse it into
+** HtmlElements.  All sizing and layout is done using these elements,
+** so this is a very important structure.
+**
+** Elements are designed so that the common ones (Text and Space)
+** require as little storage as possible, in order to increase
+** the chance of memory cache hits.  (Turns out I didn't do a
+** very good job of this.  This widget is a pig for memory.  But
+** the speed is good, so I'm not going to change it right now...)
+**
+** Some elements require more memory than Text and Space (ex: <IMG>).
+** An HtmlElement is therefore represented as a union of many other 
+** structures all of different sizes.  That way we can have a pointer 
+** to a generic element without having to worry about how big that 
+** element is.  The ".base.type" field (which is found in all elements) 
+** will tell us what type of element we are dealing with.
+**
+** NOTE:  This trick will only work on compilers that align all elements
+** of a union to the lowest memory address in that union.  This is true
+** for every C compiler I've ever seen, but isn't guarenteed for ANSI-C.
+*/
+union HtmlElement {
+  HtmlElement *pNext;
+  HtmlBaseElement base;
+  HtmlTextElement text;
+  HtmlSpaceElement space;
+  HtmlMarkupElement markup;
+  HtmlCell cell;
+  HtmlTable table;
+  HtmlRef ref;
+  HtmlLi li;
+  HtmlListStart list;
+  HtmlImageMarkup image;
+  HtmlInput input;
+  HtmlForm form;
+  HtmlHr hr;
+  HtmlAnchor anchor;
+  HtmlScript script;
+  HtmlBlock block;
+  HtmlMapArea area;
+};
+
 
 /*
 ** A single instance of the following structure (together with various
@@ -985,12 +1059,12 @@ struct HtmlWidget {
   int FontAdjust;		/* Add this quantity to each font size */
   char *FontFamily;		/* Default font family to use. */
   HtmlExtensions *exts;		/* Pointer to user extension data */
-}
+};
 
-typedef struct HtmlUserTag {
+struct HtmlUserTag {
   char *zHandler;
   HtmlTokenMap tokenMap;
-} HtmlUserTag;
+};
 
 /*
  * Flag bits "flags" field of the Html widget:
@@ -1099,3 +1173,128 @@ typedef struct HtmlUserTag {
 #define DEF_HTML_TABLE_BORDER_DARK_COLOR  "gray40"
 
 #endif /* NAVIGATOR_TABLES */
+
+/* htmltcl.c */
+EXTERN Tcl_ObjCmdProc HtmlWidgetObjCommand;
+
+/* htmlcmd.c */
+EXTERN Tcl_ObjCmdProc HtmlCgetObjCmd;
+EXTERN Tcl_ObjCmdProc HtmlParseCmd;
+EXTERN Tcl_ObjCmdProc HtmlGetCmd;
+EXTERN Tcl_ObjCmdProc HtmlGetCmd;
+EXTERN Tcl_ObjCmdProc HtmlConfigCmd;
+EXTERN Tcl_ObjCmdProc HtmlWidgetObjCommand;
+EXTERN Tcl_ObjCmdProc HtmlObjCommand;
+EXTERN Tcl_ObjCmdProc HtmlHrefCmd;
+
+EXTERN Tcl_CmdProc HtmlTextHtmlCmd;
+EXTERN Tcl_CmdProc HtmlClearCmd;
+EXTERN Tcl_CmdProc HtmlResolveCmd;
+EXTERN Tcl_CmdProc HtmlNamesCmd;
+EXTERN Tcl_CmdProc HtmlLayoutCmd;
+EXTERN Tcl_CmdProc HtmlIndexCmd;
+EXTERN Tcl_CmdProc HtmlInsertCmd;
+EXTERN Tcl_CmdProc HtmlTextAsciiCmd;
+EXTERN Tcl_CmdProc HtmlTextInsertCmd;
+EXTERN Tcl_CmdProc HtmlTextDeleteCmd;
+EXTERN Tcl_CmdProc HtmlTextFindCmd;
+EXTERN Tcl_CmdProc HtmlCmd;
+EXTERN Tcl_CmdProc HtmlTextInsertCmd;
+EXTERN Tcl_CmdProc HtmlTextOffsetCmd;
+EXTERN Tcl_CmdProc HtmlTextTable;
+EXTERN Tcl_CmdProc HtmlTokenDeleteCmd;
+EXTERN Tcl_CmdProc HtmlTokenDefineCmd;
+EXTERN Tcl_CmdProc HtmlTokenFindCmd;
+EXTERN Tcl_CmdProc HtmlTokenGetCmd;
+EXTERN Tcl_CmdProc HtmlTokenHandlerCmd;
+EXTERN Tcl_CmdProc HtmlTokenInsertCmd;
+EXTERN Tcl_CmdProc HtmlTokenListCmd;
+EXTERN Tcl_CmdProc HtmlTokenMarkupCmd;
+EXTERN Tcl_CmdProc HtmlTokenDomCmd;
+EXTERN Tcl_CmdProc HtmlTokenGetEnd;
+EXTERN Tcl_CmdProc HtmlTokenAttr;
+EXTERN Tcl_CmdProc HtmlTokenAttrSearch;
+EXTERN Tcl_CmdProc HtmlTokenUnique;
+EXTERN Tcl_CmdProc HtmlTokenOnEvents;
+EXTERN Tcl_CmdProc HtmlDomCmd;
+EXTERN Tcl_CmdProc HtmlIdToDomCmd;
+EXTERN Tcl_CmdProc HtmlDomTreeCmd;
+EXTERN Tcl_CmdProc HtmlDomName;
+EXTERN Tcl_CmdProc HtmlDomRadio;
+EXTERN Tcl_CmdProc HtmlDomFormElIndex;
+EXTERN Tcl_CmdProc HtmlDomName2Index;
+EXTERN Tcl_CmdProc HtmlDomRadio2Index;
+EXTERN Tcl_CmdProc HtmlSelectionSetCmd;
+EXTERN Tcl_CmdProc HtmlXviewCmd;
+EXTERN Tcl_CmdProc HtmlYviewCmd;
+EXTERN Tcl_CmdProc HtmlImageBgCmd;
+EXTERN Tcl_CmdProc HtmlPostscriptCmd;
+EXTERN Tcl_CmdProc HtmlAttrOverCmd;
+EXTERN Tcl_CmdProc HtmlOverCmd;
+EXTERN Tcl_CmdProc HtmlImageAtCmd;
+EXTERN Tcl_CmdProc HtmlImageSetCmd;
+EXTERN Tcl_CmdProc HtmlImageUpdateCmd;
+EXTERN Tcl_CmdProc HtmlOnScreen;
+EXTERN Tcl_CmdProc HtmlFormInfo;
+EXTERN Tcl_CmdProc HtmlCoordsCmd;
+EXTERN Tcl_CmdProc HtmlRefreshCmd;
+EXTERN Tcl_CmdProc HtmlBP;
+EXTERN Tcl_CmdProc HtmlSizeWindow;
+EXTERN Tcl_CmdProc HtmlDebugDumpCmd;
+EXTERN Tcl_CmdProc HtmlDebugTestPtCmd;
+EXTERN Tcl_CmdProc HtmlSelectionClearCmd;
+EXTERN Tcl_CmdProc HtmlImageAddCmd;
+EXTERN Tcl_CmdProc HtmlImagesListCmd;
+
+EXTERN int Tclhtml_Init(Tcl_Interp *interp);
+
+/* htmlparse.c */
+EXTERN HtmlTokenMap* HtmlGetMarkupMap _ANSI_ARGS_((HtmlWidget *htmlPtr, int n));
+HtmlTokenMap *HtmlHashLookup(HtmlWidget *htmlPtr, CONST char *zType);
+void HtmlAppendArglist(Tcl_DString *str, HtmlElement *pElem);
+char *HtmlGetTokenName(HtmlWidget *htmlPtr, HtmlElement *p);
+
+/* htmltcl.c */
+EXTERN int (*HtmlFetchSelectionPtr)(ClientData , int, char *, int );
+EXTERN int (*htmlReformatCmdPtr)(Tcl_Interp *interp, char *str, char *dtype);
+HtmlElement *HtmlGetMap(HtmlWidget *htmlPtr, char *name);
+
+/* htmlimage.c */
+EXTERN int tkhtmlexiting;
+HtmlImage *HtmlGetImage(HtmlWidget *htmlPtr, HtmlElement *p);
+
+/* htmlwidget.c */
+Tk_ConfigSpec *HtmlConfigSpec(void);
+char *HtmlGetHref(HtmlWidget *htmlPtr, int x, int y, char **target);
+Tk_Font HtmlGetFont(HtmlWidget *htmlPtr, int iFont);
+GC HtmlGetGC(HtmlWidget *htmlPtr, int color, int font);
+void HtmlScheduleRedraw(HtmlWidget *htmlPtr);
+
+/* htmlsizer.c */
+char *HtmlMarkupArg(HtmlElement *p, const char *tag, char *zDefault);
+void HtmlTableBgImage(HtmlWidget *htmlPtr, HtmlElement *p);
+
+/* htmlurl.c */
+char *HtmlResolveUri(HtmlWidget *htmlPtr, char *zUri);
+
+/* htmlcmd.c */
+HtmlElement *HtmlAttrElem(  HtmlWidget *htmlPtr, char *name, CONST char *value);
+
+/* htmldraw.c */
+void HtmlDrawImage(HtmlWidget *htmlPtr, HtmlElement *pElem, Drawable drawable, 
+                   int drawableLeft, int drawableTop, int drawableRight, 
+                   int drawableBottom);
+
+/* htmltable.c */
+HtmlElement *HtmlTableLayout(HtmlLayoutContext *pLC, HtmlElement *pTable);
+
+/* htmlexts.c */
+HtmlElement *HtmlFindEndNest(HtmlWidget *htmlPtr, HtmlElement *sp, 
+                             int en, HtmlElement *lp);
+char *Clr2Name(CONST char *str);
+void HtmlRemoveElements(HtmlWidget *p, HtmlElement* pElem, HtmlElement* pLast);
+
+/* htmlindex.c */
+HtmlElement *HtmlTokenByIndex(HtmlWidget *htmlPtr, int N, int flag);
+
+#endif /* __HTML_H__ */

@@ -13,7 +13,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: htmlPsImg.c,v 1.5 2002/09/22 16:55:45 peter Exp $
+ * RCS: @(#) $Id: htmlPsImg.c,v 1.6 2005/03/22 12:07:34 danielk1977 Exp $
  */
 
 
@@ -52,7 +52,7 @@ TkPostscriptImage(
      */
 
     ncolors = visual->map_entries;
-    cdata.colors = (XColor *) ckalloc(sizeof(XColor) * ncolors);
+    cdata.colors = (XColor *) HtmlAlloc(sizeof(XColor) * ncolors);
     cdata.ncolors = ncolors;
 
     if (visual->class == DirectColor || visual->class == TrueColor) {
@@ -120,7 +120,7 @@ TkPostscriptImage(
 		"Can't generate Postscript for images more than %d pixels wide",
 		maxWidth);
 	Tcl_AppendResult(interp, buffer, (char *) NULL);
-	ckfree((char *) cdata.colors);
+	HtmlFree((char *) cdata.colors);
 	return TCL_ERROR;
     }
 
@@ -233,7 +233,7 @@ TkPostscriptImage(
 	sprintf(buffer, "0 %d translate\n", rows);
 	Tcl_AppendResult(interp, buffer, (char *) NULL);
     }
-    ckfree((char *) cdata.colors);
+    HtmlFree((char *) cdata.colors);
     return TCL_OK;
 }
 int
@@ -413,7 +413,7 @@ DeleteImage( ImageMaster *masterPtr)	/* Pointer to main data structure for image
     }
     if (masterPtr->instancePtr == NULL) {
 	Tcl_DeleteHashEntry(masterPtr->hPtr);
-	ckfree((char *) masterPtr);
+	HtmlFree((char *) masterPtr);
     }
 }
 

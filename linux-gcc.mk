@@ -2,7 +2,7 @@
 #
 #### The toplevel directory of the source tree.
 #
-SRCDIR = /home/drh/tkhtml/htmlwidget
+SRCDIR = /home/dan/work/tkhtml_cvs/htmlwidget
 
 #### C Compiler and options for use in building executables that
 #    will run on the platform that is doing the build.
@@ -29,7 +29,7 @@ TCC = gcc -O6
 
 #### Include file directories for Tcl and Tk.
 #
-INC = -I/home/drh/tcltk/8.4linux
+INC = -I/home/dan/tcl/include
 
 #### Extra arguments for linking 
 #

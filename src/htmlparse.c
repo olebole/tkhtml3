@@ -1,6 +1,6 @@
 #define TokenMap(htmlPtr,idx) (htmlPtr->tokenMap?htmlPtr->tokenMap[idx]:(HtmlMarkupMap+idx))
 #define TokenapMap(htmlPtr,idx) (htmlPtr->tokenapMap?htmlPtr->tokenMap[idx]:apMap[idx])
-static char const rcsid[] = "@(#) $Id: htmlparse.c,v 1.35 2003/03/19 17:05:13 hkoba Exp $";
+static char const rcsid[] = "@(#) $Id: htmlparse.c,v 1.36 2005/03/22 12:07:34 danielk1977 Exp $";
 /*
 ** A tokenizer that converts raw HTML into a linked list of HTML elements.
 **
@@ -16,8 +16,14 @@ static char const rcsid[] = "@(#) $Id: htmlparse.c,v 1.35 2003/03/19 17:05:13 hk
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>
-#include <tk.h>
-#include "htmlparse.h"
+#include "html.h"
+
+/* htmltokens.c is generated from source file tokenlist.txt during the
+ * build process. It contains the HtmlMarkupMap constant array, declared as:
+ *
+ * HtmlTokenMap HtmlMarkupMap[] = {...};
+ */
+#include "htmltokens.c"
 
 /****************** Begin Escape Sequence Translator *************/
 /*
@@ -557,7 +563,8 @@ static HtmlElement *HtmlTextAlloc(int i) {
 
 /* Evaluate a Tcl_Obj command with 1 utf-8 argument at end. */
 int HtmlObjCmd1(Tcl_Interp *interp, const char *str, char *buf, unsigned siz) {
-  int rc, vargc, i; char **vargv;
+  int rc, vargc, i; 
+  CONST char **vargv;
   Tcl_Obj *objv[30];
   if (Tcl_SplitList(interp, str, &vargc, &vargv) || vargc<=0 || vargc>27) {
     Tcl_AppendResult(interp,"Failed obj cmd split");
@@ -572,7 +579,7 @@ int HtmlObjCmd1(Tcl_Interp *interp, const char *str, char *buf, unsigned siz) {
   rc= Tcl_EvalObjv(interp, i, objv,0);
   for (i=0; i<=vargc; i++)
     Tcl_DecrRefCount(objv[i]);
-  free(vargv);
+  HtmlFree(vargv);
   return rc;
 }
 /* Process as much of the input HTML as possible.  Construct new
@@ -1139,7 +1146,7 @@ HtmlElement* HtmlInsertToken(
     ** up.  This is slower, but we gotta do it.
     */
     int argc;
-    char **argv;
+    CONST char **argv;
     char *zBuf;
 
     if( Tcl_SplitList(htmlPtr->interp, zArgs, &argc, &argv)!=TCL_OK ){
@@ -1183,12 +1190,13 @@ HtmlElement* HtmlInsertToken(
 /* Also, handle backspace char by deleting text. */
 /* Should also, handle newline char by splitting text. */
 int HtmlTextInsertCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  ClientData clientData,   /* The HTML widget */
   Tcl_Interp *interp,    /* The interpreter */
   int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
+  CONST char **argv      /* List of all arguments */
 ){
   HtmlElement *p, *pElem;
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
   int i, idx=0, ptyp=Html_Unknown, istxt=0, l=0, n=0; char *cp=0, c, *cp2;
   if( HtmlGetIndex(htmlPtr, argv[3], &p, &i)!=0 ){
     Tcl_AppendResult(interp,"malformed index: \"", argv[3], "\"", 0);
@@ -1254,7 +1262,7 @@ int HtmlTextInsertCmd(
     htmlPtr->ins.p=p;
     htmlPtr->ins.i=i+alen;
   } else {
-    p=HtmlInsertToken(htmlPtr, p?p->pNext:0, "Text", argv[4],-1);
+    p=HtmlInsertToken(htmlPtr, p?p->pNext:0, "Text", (char *)argv[4],-1);
     HtmlAddStyle(htmlPtr, p);
     i=0;
     htmlPtr->ins.p=p;
@@ -1268,7 +1276,7 @@ int HtmlTextInsertCmd(
 }
 
 /* Lookup markup hash table */
-HtmlTokenMap *HtmlHashLookup(HtmlWidget *htmlPtr, char *zType){
+HtmlTokenMap *HtmlHashLookup(HtmlWidget *htmlPtr, CONST char *zType){
   HtmlTokenMap *pMap;     /* For searching the markup name hash table */
   int h;                   /* The hash on zType */
   Tcl_HashEntry *entry;
@@ -1295,13 +1303,14 @@ HtmlTokenMap *HtmlHashLookup(HtmlWidget *htmlPtr, char *zType){
 
 /* ** WIDGET token define TAGNAME **/
 int HtmlTokenDefineCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  ClientData clientData, /* The HTML widget */
   Tcl_Interp *interp,    /* The interpreter */
   int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
+  CONST char **argv      /* List of all arguments */
 ){
   HtmlUserTag *tag;
   Tcl_HashEntry *he;
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
   char buf[256];
   int i, isnew;
   if (HtmlHashLookup(htmlPtr, argv[3])) {
@@ -1436,9 +1445,9 @@ void HtmlFreeTokenMap(HtmlWidget *htmlPtr) {
   while (he) {
       tag = (void *) Tcl_GetHashValue(he);
       if (tag) {
-        free(tag->tokenMap.zName);
-	if (tag->zHandler) free(tag->zHandler);
-        free(tag);
+        HtmlFree(tag->tokenMap.zName);
+	if (tag->zHandler) HtmlFree(tag->zHandler);
+        HtmlFree(tag);
       }
       Tcl_DeleteHashEntry(he); 
       he = Tcl_NextHashEntry(&se); 

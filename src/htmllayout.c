@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmllayout.c,v 1.33 2002/12/17 18:24:16 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmllayout.c,v 1.34 2005/03/22 12:07:34 danielk1977 Exp $";
 /*
 ** This file contains the code used to position elements of the
 ** HTML file on the screen.
@@ -11,11 +11,11 @@ static char const rcsid[] = "@(#) $Id: htmllayout.c,v 1.33 2002/12/17 18:24:16 d
 **    May you find forgiveness for yourself and forgive others.
 **    May you share freely, never taking more than you give.
 */
-#include <tk.h>
 #include <stdlib.h>
 #include <string.h>
-#include "htmllayout.h"
+#include "html.h"
 
+#define SETMAX(A,B)  if( (A)<(B) ){ (A) = (B); }
 
 /*
 ** Push a new margin onto the given margin stack.
@@ -1017,6 +1017,13 @@ void HtmlWidenLine(
 int HtmlLineWasBlank = 0;
 #endif /* TABLE_TRIM_BLANK */
 
+static void HtmlPopIndent(HtmlLayoutContext *pLC) {
+  if (pLC->headRoom<=0) return;
+  pLC->headRoom=0;
+/*  HtmlPopMargin(&pLC->leftMargin, Html_EndBLOCKQUOTE, pLC);
+  HtmlPopMargin(&pLC->rightMargin, Html_EndBLOCKQUOTE, pLC); */
+}
+
 /*
 ** Do as much layout as possible on the block of text defined by
 ** the HtmlLayoutContext.
@@ -1105,13 +1112,6 @@ void HtmlLayoutBlock(HtmlLayoutContext *pLC){
   }
 }
 
-void HtmlPopIndent(HtmlLayoutContext *pLC) {
-  if (pLC->headRoom<=0) return;
-  pLC->headRoom=0;
-/*  HtmlPopMargin(&pLC->leftMargin, Html_EndBLOCKQUOTE, pLC);
-  HtmlPopMargin(&pLC->rightMargin, Html_EndBLOCKQUOTE, pLC); */
-}
-
 void HtmlPushIndent(HtmlWidget *htmlPtr){
   HtmlLayoutContext *pLC;
   pLC=&htmlPtr->layoutContext;
@@ -1158,7 +1158,7 @@ void HtmlLayout(HtmlWidget *htmlPtr){
     htmlPtr->flags |= HSCROLL | VSCROLL;
     if (htmlPtr->zGoto && ((p=HtmlAttrElem(htmlPtr, "name", htmlPtr->zGoto+1)))) {
          htmlPtr->yOffset=p->anchor.y;
-         free(htmlPtr->zGoto);
+         HtmlFree(htmlPtr->zGoto);
 	 htmlPtr->zGoto=0;
     }
     HtmlRedrawText(htmlPtr, btm);

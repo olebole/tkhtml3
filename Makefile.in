@@ -12,7 +12,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile.in,v 1.1 2002/12/17 18:31:04 drh Exp $
+# RCS: @(#) $Id: Makefile.in,v 1.2 2005/03/22 12:07:34 danielk1977 Exp $
 
 #========================================================================
 # Edit the following few lines when writing a new extension
@@ -34,8 +34,7 @@ Tkhtml_SOURCES	=				\
 		htmlparse.c     htmlsizer.c	\
 		htmltable.c	htmltest.c	\
 		htmlurl.c	htmlwidget.c	\
-		htmltokens.c    htmltcl.c	\
-		htmlexts.c			\
+		htmltcl.c	htmlexts.c	\
 		@EXTRA_SOURCES@
 
 WIN_SOURCES	= 
@@ -92,7 +91,8 @@ GENERIC_HDRS	=
 
 lib_BINARIES	= $($(PACKAGE)_LIB_FILE)
 ## $($(PACKAGE)stub_LIB_FILE)
-BINARIES	= headers $(lib_BINARIES)
+#BINARIES	= headers $(lib_BINARIES)
+BINARIES	= htmltokens.c $(lib_BINARIES)
 
 SHELL		= @SHELL@
 
@@ -312,7 +312,7 @@ $($(PACKAGE)stub_LIB_FILE): $($(PACKAGE)stub_OBJECTS)
 
 VPATH = $(srcdir)/src:$(srcdir)/generic:$(srcdir)/unix:$(srcdir)/win
 
-.c.$(OBJEXT):
+.c.$(OBJEXT): html.h
 	$(COMPILE) -c `@CYGPATH@ $<` -o $@
 
 #========================================================================
@@ -325,7 +325,7 @@ mktclapp:	$(srcdir)/tools/mktclapp.c
 	$(COMPILE) `@CYGPATH@ $(srcdir)/tools/mktclapp.c` -o $@
 
 htmltokens.c:	$(srcdir)/src/tokenlist.txt $(srcdir)/tools/maketokens.tcl
-	$(TCLSH_PROG) $(srcdir)/tools/maketokens.tcl $(srcdir)/src/tokenlist.txt > htmltokens.c
+	$(TCLSH_PROG) $(srcdir)/tools/maketokens.tcl $(srcdir)/src/tokenlist.txt
 
 headers:	makeheaders htmltokens.c
 	./makeheaders	$(srcdir)/src/htmlcmd.c:htmlcmd.h	\

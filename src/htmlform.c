@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlform.c,v 1.31 2003/01/06 16:18:10 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlform.c,v 1.32 2005/03/22 12:07:34 danielk1977 Exp $";
 /*
 ** Routines used for processing HTML makeup for forms.
 **
@@ -10,11 +10,10 @@ static char const rcsid[] = "@(#) $Id: htmlform.c,v 1.31 2003/01/06 16:18:10 drh
 **    May you find forgiveness for yourself and forgive others.
 **    May you share freely, never taking more than you give.
 */
-#include <tk.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
-#include "htmlform.h"
+#include "html.h"
 
 static void EmptyInput(HtmlElement *pElem);
 
@@ -241,12 +240,13 @@ static void SizeAndLink(HtmlWidget *htmlPtr, char *zWin, HtmlElement *pElem){
 }
 
 int HtmlSizeWindow(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  ClientData clientData, /* The HTML widget */ 
   Tcl_Interp *interp,    /* The interpreter */
   int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
+  CONST char **argv      /* List of all arguments */
 ){
-    char *zWin=argv[2];
+    HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
+    CONST char *zWin=argv[2];
     Tk_Window tkwin=Tk_NameToWindow(htmlPtr->interp, zWin, htmlPtr->clipwin);
     Tk_ManageGeometry(tkwin, &htmlGeomType, 0);
 }
@@ -511,7 +511,9 @@ int HtmlAddFormInfo(HtmlWidget *htmlPtr, HtmlElement *p){
 
 void HtmlAppendStyle(HtmlWidget *htmlPtr, Tcl_DString *cmd, HtmlElement *pf) {
 #ifndef _TCLHTML_
-    char buf[BUFSIZ], *c1, *c2;
+    char buf[BUFSIZ]; 
+    CONST char *c1; 
+    CONST char *c2;
     int bg=pf->base.style.bgcolor;
     int fg=pf->base.style.color;
     XColor *cbg=htmlPtr->apColor[bg];

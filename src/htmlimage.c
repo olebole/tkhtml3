@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlimage.c,v 1.18 2002/12/17 18:24:16 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlimage.c,v 1.19 2005/03/22 12:07:34 danielk1977 Exp $";
 /*
 ** Routines used for processing <IMG> markup
 **
@@ -11,10 +11,9 @@ static char const rcsid[] = "@(#) $Id: htmlimage.c,v 1.18 2002/12/17 18:24:16 dr
 **    May you share freely, never taking more than you give.
 */
 
-#include <tk.h>
 #include <string.h>
 #include <stdlib.h>
-#include "htmlimage.h"
+#include "html.h"
 
 int tkhtmlexiting=0;
 
@@ -100,8 +99,9 @@ static void ImageChangeProc(
 }
 
 void HtmlAddImages(HtmlWidget *htmlPtr, HtmlElement *p, HtmlImage *pImage, char *str, int append){
-  int argc, code, doupdate=0;  char **argv;
- HtmlElement* pElem;
+  int argc, code, doupdate=0;  
+  CONST char **argv;
+  HtmlElement* pElem;
 
   if (!str[0]) {
 #ifdef DEBUG

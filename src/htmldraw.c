@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmldraw.c,v 1.32 2003/01/06 16:17:54 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmldraw.c,v 1.33 2005/03/22 12:07:34 danielk1977 Exp $";
 /*
 ** Routines used to render HTML onto the screen for the Tk HTML widget.
 **
@@ -13,11 +13,10 @@ static char const rcsid[] = "@(#) $Id: htmldraw.c,v 1.32 2003/01/06 16:17:54 drh
 
 #ifndef _TCLHTML_
 
-#include <tk.h>
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
-#include "htmldraw.h"
+#include "html.h"
 #ifdef USE_TK_STUBS
 # include <tkIntXlibDecls.h>
 #endif

@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlsizer.c,v 1.42 2003/01/06 16:18:10 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlsizer.c,v 1.43 2005/03/22 12:07:34 danielk1977 Exp $";
 /*
 ** Routines used to compute the style and size of individual elements.
 **
@@ -13,7 +13,7 @@ static char const rcsid[] = "@(#) $Id: htmlsizer.c,v 1.42 2003/01/06 16:18:10 dr
 #include <tk.h>
 #include <string.h>
 #include <stdlib.h>
-#include "htmlsizer.h"
+#include "html.h"
 
 /*
 ** Get the current rendering style.  In other words, get the style

@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlindex.c,v 1.12 2002/12/17 18:24:16 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlindex.c,v 1.13 2005/03/22 12:07:34 danielk1977 Exp $";
 /*
 ** Routines that deal with indexes
 **
@@ -12,8 +12,7 @@ static char const rcsid[] = "@(#) $Id: htmlindex.c,v 1.12 2002/12/17 18:24:16 dr
 */
 #include <ctype.h>
 #include <string.h>
-#include <tk.h>
-#include "htmlindex.h"
+#include "html.h"
 
 /*
 ** Return a pointer to the Nth HtmlElement in the list.  If there

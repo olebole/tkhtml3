@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlurl.c,v 1.25 2003/01/06 16:18:10 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlurl.c,v 1.26 2005/03/22 12:07:34 danielk1977 Exp $";
 /*
 ** Routines for processing URLs.
 **
@@ -14,9 +14,8 @@ static char const rcsid[] = "@(#) $Id: htmlurl.c,v 1.25 2003/01/06 16:18:10 drh 
 #include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
-#include "htmlurl.h"
+#include "html.h"
 
-#if LOCAL_INTERFACE
 /*
 ** A parsed URI is held in an instance of the following structure.
 ** Each component is recorded in memory obtained from HtmlAlloc().
@@ -32,7 +31,7 @@ struct HtmlUri {
   char *zQuery;              /* Ex: "name=xyzzy&addr=none" */
   char *zFragment;           /* Ex: "frag" */
 };
-#endif
+typedef struct HtmlUri HtmlUri;
 
 /*
 ** Return the length of the next component of the URL in z[] given

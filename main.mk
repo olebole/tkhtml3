@@ -54,7 +54,7 @@ $(LIBNAME):	headers $(OBJ)
 	$(RANLIB) $(LIBNAME)
 
 htmltokens.c:	$(SRCDIR)/src/tokenlist.txt $(SRCDIR)/tools/maketokens.tcl
-	$(TCLSH) $(SRCDIR)/tools/maketokens.tcl  $(SRCDIR)/src/tokenlist.txt >htmltokents.c
+	$(TCLSH) $(SRCDIR)/tools/maketokens.tcl  $(SRCDIR)/src/tokenlist.txt >htmltokens.c
 
 headers:	makeheaders htmltokens.c $(SRC)
 	./makeheaders $(SRCDIR)/src/html.h htmltokens.c $(SRC)

@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlwidget.c,v 1.56 2003/03/19 17:05:13 hkoba Exp $";
+static char const rcsid[] = "@(#) $Id: htmlwidget.c,v 1.57 2005/03/22 12:07:34 danielk1977 Exp $";
 /*
 ** The main routine for the HTML widget for Tcl/Tk
 **
@@ -15,7 +15,7 @@ static char const rcsid[] = "@(#) $Id: htmlwidget.c,v 1.56 2003/03/19 17:05:13 h
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
-#include "htmlwidget.h"
+#include "html.h"
 #ifdef USE_TK_STUBS
 # include <tkIntXlibDecls.h>
 #endif
@@ -505,7 +505,7 @@ static void ResetLayoutContext(HtmlWidget *htmlPtr){
 ** response to an expose event.  In all cases, though, this routine
 ** is called by an idle callback.
 */
-static void HtmlRedrawCallback(ClientData clientData){
+void HtmlRedrawCallback(ClientData clientData){
   HtmlWidget *htmlPtr = (HtmlWidget*)clientData;
   Tk_Window tkwin = htmlPtr->tkwin;
   Tk_Window clipwin = htmlPtr->clipwin;
@@ -1474,7 +1474,7 @@ int HtmlGetLightShadowColor(HtmlWidget *htmlPtr, int iBgColor){
 # define COLOR_MASK  0xf800
 
 /* Eliminate remapped duplicate colors. */
-LOCAL int CheckDupColor(HtmlWidget *htmlPtr, int slot){
+int CheckDupColor(HtmlWidget *htmlPtr, int slot){
   int i;
   int r, g, b;
   XColor *pRef = htmlPtr->apColor[slot];
@@ -1498,7 +1498,7 @@ LOCAL int CheckDupColor(HtmlWidget *htmlPtr, int slot){
 ** Find a color integer for the color whose color components
 ** are given by pRef.
 */
-LOCAL int GetColorByValue(HtmlWidget *htmlPtr, XColor *pRef){
+int GetColorByValue(HtmlWidget *htmlPtr, XColor *pRef){
   int i;
   float dist;
   float closestDist;
@@ -1769,8 +1769,8 @@ int ConfigureHtmlWidgetObj(
   if( rc!=TCL_OK || redraw==0 ){ return rc; }
 #else
   {
-    char *sargv[20];
-    char **argv;
+    CONST char *sargv[20];
+    CONST char **argv;
     if (objc>=19) {
       argv=calloc(sizeof(char*),objc+1);
       for (i=0; i<objc; i++)
@@ -1778,7 +1778,7 @@ int ConfigureHtmlWidgetObj(
       argv[i]=0;
       rc = Tk_ConfigureWidget(interp, htmlPtr->tkwin, configSpecs, objc, 
         argv, (char *) htmlPtr, flags);
-        free(argv);
+        HtmlFree(argv);
     } else {
       for (i=0; i<objc; i++)
         sargv[i]=Tcl_GetString(objv[i]);
@@ -1948,6 +1948,10 @@ int HtmlObjCommand(
 #if defined(USE_TCL_STUBS) && defined(__WIN32__)
 # undef DLL_EXPORT
 # define DLL_EXPORT __declspec(dllexport)
+#endif
+
+#ifndef DLL_EXPORT
+#define DLL_EXPORT
 #endif
 
 /*

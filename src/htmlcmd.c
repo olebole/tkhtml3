@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlcmd.c,v 1.26 2003/01/06 16:18:10 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlcmd.c,v 1.27 2005/03/22 12:07:34 danielk1977 Exp $";
 /*
 ** Routines to implement the HTML widget commands
 **
@@ -10,9 +10,8 @@ static char const rcsid[] = "@(#) $Id: htmlcmd.c,v 1.26 2003/01/06 16:18:10 drh 
 **    May you find forgiveness for yourself and forgive others.
 **    May you share freely, never taking more than you give.
 */
-#include <tk.h>
 #include <stdlib.h>
-#include "htmlcmd.h"
+#include "html.h"
 #include <X11/Xatom.h>
 #include <string.h>
 
@@ -23,12 +22,12 @@ static char const rcsid[] = "@(#) $Id: htmlcmd.c,v 1.26 2003/01/06 16:18:10 drh 
 ** to resolve the URL.
 */
 int HtmlResolveCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  ClientData clientData, /* The HTML widget */
   Tcl_Interp *interp,    /* The interpreter */
   int argc,              /* Number of arguments */
-  char **argv		 /* List of all arguments */
+  CONST char **argv      /* List of all arguments */
 ){
-  return HtmlCallResolver(htmlPtr, argv+2);
+  return HtmlCallResolver((HtmlWidget *)clientData, argv+2);
 }
 
 /*
@@ -37,13 +36,15 @@ int HtmlResolveCmd(
 ** Retrieve the value of a configuration option
 */
 int HtmlCgetObjCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  ClientData clientData, /* The HTML widget */
   Tcl_Interp *interp,    /* The interpreter */
   int objc,              /* Number of arguments */
   Tcl_Obj * CONST objv[]            /* List of all arguments */
 ){
   int rc;
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
   Tk_ConfigSpec *cs=HtmlConfigSpec();
+
   if (htmlPtr->TclHtml)
     rc=TclConfigureWidgetObj(interp, htmlPtr, cs,
 		objc-2, objv+2,  (char *) htmlPtr, 0);
@@ -60,11 +61,12 @@ int HtmlCgetObjCmd(
 ** typically done before loading a new document.
 */
 int HtmlClearCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  ClientData clientData, /* The HTML widget */
   Tcl_Interp *interp,    /* The interpreter */
   int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
+  CONST char **argv      /* List of all arguments */
 ){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
   HtmlClear(htmlPtr);
   htmlPtr->flags |= REDRAW_TEXT | VSCROLL | HSCROLL;
   HtmlScheduleRedraw(htmlPtr);
@@ -77,11 +79,12 @@ int HtmlClearCmd(
 ** The standard Tk configure command.
 */
 int HtmlConfigCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  ClientData clientData, /* The HTML widget */
   Tcl_Interp *interp,    /* The interpreter */
   int objc,              /* Number of arguments */
   Tcl_Obj * CONST objv[]            /* List of all arguments */
 ){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
 #ifdef _TCLHTML_
   if (objv == 2) { /* ???? */
      return HtmlCgetObjCmd(htmlPtr, interp, objc, objv);
@@ -106,7 +109,7 @@ int HtmlConfigCmd(
 }
 
 /* Return pElem with attr "name" == value */
-HtmlElement *HtmlAttrElem(  HtmlWidget *htmlPtr, char *name, char *value) {
+HtmlElement *HtmlAttrElem(HtmlWidget *htmlPtr, char *name, CONST char *value){
     HtmlElement *p;
     char *z;
     for(p=htmlPtr->pFirst; p; p=p->pNext){
@@ -123,13 +126,14 @@ HtmlElement *HtmlAttrElem(  HtmlWidget *htmlPtr, char *name, char *value) {
 ** Returns a list of names associated with <a name=...> tags.
 */
 int HtmlNamesCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  ClientData clientData, /* The HTML widget */
   Tcl_Interp *interp,    /* The interpreter */
   int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
+  CONST char **argv      /* List of all arguments */
 ){
   HtmlElement *p;
   char *z;
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
   for(p=htmlPtr->pFirst; p; p=p->pNext){
     if( p->base.type!=Html_A ) continue;
     z = HtmlMarkupArg(p,"name",0);
@@ -180,7 +184,7 @@ int HtmlAdvanceLayout(
 ** text that is available.  The display is updated appropriately.
 */
 int HtmlParseCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  ClientData clientData,  /* The HTML widget */
   Tcl_Interp *interp,    /* The interpreter */
   int objc,              /* Number of arguments */
   Tcl_Obj * CONST objv[] /* List of all arguments */
@@ -188,6 +192,7 @@ int HtmlParseCmd(
   int i; char *arg1, *arg2;
   HtmlIndex iStart;
   HtmlElement *savePtr;
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
   iStart.p=0; iStart.i=0;
   htmlPtr->LOendPtr = htmlPtr->pLast;
   HtmlLock(htmlPtr);
@@ -245,8 +250,13 @@ int HtmlParseCmd(
   return TCL_OK;
 }
 
-int HtmlLayoutCmd( HtmlWidget *htmlPtr,Tcl_Interp *interp,int argc,char **argv){
-  HtmlLayout(htmlPtr);
+int HtmlLayoutCmd(
+    ClientData clientData,
+    Tcl_Interp *interp,
+    int argc,
+    CONST char **argv
+){
+  HtmlLayout((HtmlWidget *)clientData);
   return TCL_OK;
 }
 
@@ -258,11 +268,12 @@ int HtmlLayoutCmd( HtmlWidget *htmlPtr,Tcl_Interp *interp,int argc,char **argv){
 ** Returns {} if there is no hyperlink beneath X,Y.
 */
 int HtmlHrefCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  ClientData clientData, /* The HTML widget */ 
   Tcl_Interp *interp,    /* The interpreter */
   int objc,              /* Number of arguments */
-  Tcl_Obj * CONST objv[]            /* List of all arguments */
+  Tcl_Obj * CONST objv[] /* List of all arguments */
 ){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
   int x, y;
   char *z, *target=0;
 
@@ -299,11 +310,12 @@ int HtmlHrefCmd(
 ** Implements horizontal scrolling in the usual Tk way.
 */
 int HtmlXviewCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  ClientData clientData, /* The HTML widget */ 
   Tcl_Interp *interp,    /* The interpreter */
   int argc,              /* Number of arguments */
-  const char **argv      /* List of all arguments */
+  CONST char **argv      /* List of all arguments */
 ){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
   if( argc==2 ){
     HtmlComputeHorizontalPosition(htmlPtr,interp->result);
   }else{
@@ -349,15 +361,21 @@ int HtmlXviewCmd(
 ** to the position of that tag.
 */
 int HtmlYviewCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  ClientData clientData, /* The HTML widget */ 
   Tcl_Interp *interp,    /* The interpreter */
   int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
+  CONST char **argv      /* List of all arguments */
 ){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
   if( argc==2 ){
     HtmlComputeVerticalPosition(htmlPtr,interp->result);
   }else if( argc==3 ){
     HtmlElement *p=HtmlAttrElem(htmlPtr, "name", argv[2]);
+    if( p && p->anchor.y==0 ){
+        HtmlLock(htmlPtr);
+        HtmlLayout(htmlPtr);
+        HtmlUnlock(htmlPtr);
+    }
     if (p)
       HtmlVerticalScroll(htmlPtr, p->anchor.y);
   }else{
@@ -512,7 +530,7 @@ HtmlLostSelection(
     ClientData clientData)      /* Information about table widget. */
 {
   HtmlWidget *htmlPtr = (HtmlWidget *) clientData;
-  char *argv[3];
+  CONST char *argv[3];
   argv[2]="";
   if (htmlPtr->exportSelection) {
     HtmlSelectionClearCmd(htmlPtr,0,3,argv);
@@ -523,11 +541,12 @@ HtmlLostSelection(
 ** WIDGET selection set INDEX INDEX
 */
 int HtmlSelectionSetCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  ClientData clientData, /* The HTML widget */ 
   Tcl_Interp *interp,    /* The interpreter */
   int argc,              /* Number of arguments */
-  char **argv           /* List of all arguments */
+  CONST char **argv      /* List of all arguments */
 ){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
   HtmlIndex selBegin, selEnd;
   int bi, ei;
 
@@ -568,11 +587,12 @@ int HtmlSelectionSetCmd(
 ** WIDGET selection clear
 */
 int HtmlSelectionClearCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  ClientData clientData, /* The HTML widget */ 
   Tcl_Interp *interp,    /* The interpreter */
   int argc,              /* Number of arguments */
-  char **argv           /* List of all arguments */
+  CONST char **argv      /* List of all arguments */
 ){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
   htmlPtr->pSelStartBlock = 0;
   htmlPtr->pSelEndBlock = 0;
   htmlPtr->selBegin.p = 0;
@@ -606,11 +626,12 @@ void HtmlUpdateInsert(HtmlWidget *htmlPtr){
 ** WIDGET token handler TAG ?SCRIPT?
 */
 int HtmlTokenHandlerCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  ClientData clientData, /* The HTML widget */
   Tcl_Interp *interp,    /* The interpreter */
   int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
+  CONST char **argv      /* List of all arguments */
 ){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
   int type = HtmlNameToType(htmlPtr, argv[3]);
   if( type==Html_Unknown ){
     Tcl_AppendResult(interp,"unknown tag: \"", argv[3], "\"", 0);
@@ -636,13 +657,14 @@ int HtmlTokenHandlerCmd(
 ** WIDGET index INDEX	
 */
 int HtmlIndexCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  ClientData clientData, /* The HTML widget */
   Tcl_Interp *interp,    /* The interpreter */
   int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
+  CONST char **argv      /* List of all arguments */
 ){
   HtmlElement *p;
   int i;
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
 
   HtmlLock(htmlPtr);
   if( HtmlGetIndex(htmlPtr, argv[2], &p, &i)!=0 ){
@@ -662,12 +684,13 @@ int HtmlIndexCmd(
 ** WIDGET insert INDEX
 */
 int HtmlInsertCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  ClientData clientData, /* The HTML widget */
   Tcl_Interp *interp,    /* The interpreter */
   int argc,              /* Number of arguments */
-  char **argv           /* List of all arguments */
+  CONST char **argv      /* List of all arguments */
 ){
   HtmlIndex ins;
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
   if( argv[2][0]==0 ){
     HtmlRedrawBlock(htmlPtr, htmlPtr->pInsBlock);
     htmlPtr->insStatus = 0;
@@ -693,11 +716,12 @@ int HtmlInsertCmd(
 ** WIDGET debug dump START END
 */
 int HtmlDebugDumpCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  ClientData clientData, /* The HTML widget */ 
   Tcl_Interp *interp,    /* The interpreter */
   int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
+  CONST char **argv      /* List of all arguments */
 ){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
   HtmlElement *pStart, *pEnd;
   int i;
 
@@ -719,11 +743,12 @@ int HtmlDebugDumpCmd(
 ** WIDGET debug testpt FILENAME
 */
 int HtmlDebugTestPtCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  ClientData clientData, /* The HTML widget */ 
   Tcl_Interp *interp,    /* The interpreter */
   int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
+  CONST char **argv      /* List of all arguments */
 ){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
   HtmlTestPointDump(argv[3]);
   return TCL_OK;
 }

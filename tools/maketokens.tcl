@@ -6,7 +6,7 @@
 exec tclsh "$0" ${1+"$@"}
 
 if {$argc!=1} {
-  puts stderr "Usage: $argv0 tokenlist.txt >htmltokens.c"
+  puts stderr "Usage: $argv0 tokenlist.txt"
   exit 1
 }
 if {[catch {open [lindex $argv 0] r} f]} {
@@ -25,18 +25,13 @@ while {![eof $f]} {
 }
 close $f
 
-puts {/* DO NOT EDIT
+# Open the two files that will be generated.
+set h_file [open htmltokens2.h w]
+set c_file [open htmltokens.c w]
+
+puts $h_file {/* DO NOT EDIT
 ** The code in this file was automatically generated.
 */
-#include <tk.h>
-#include "htmltokens.h"
-#if INTERFACE
-struct HtmlTokenMap {
-  char *zName;                /* Name of a markup */
-  Html_16 type;               /* Markup type code */
-  Html_16 extra;              /* Extra space needed above HtmlBaseElement */
-  HtmlTokenMap *pCollide;     /* Hash table collision chain */
-};
 #define Html_Text    1
 #define Html_Space   2
 #define Html_Unknown 3
@@ -49,19 +44,18 @@ set fmt {#define %-20s %d}
 
 foreach {name start end} $tokenlist {
   set upr [string toupper $name]
-  puts [format $fmt Html_$upr $count]
+  puts $h_file [format $fmt Html_$upr $count]
   incr count
   if {$end!=""} {
-    puts [format $fmt Html_End$upr $count]
+    puts $h_file [format $fmt Html_End$upr $count]
     incr count
   }
 }
 
-puts [format $fmt Html_TypeCount [expr $count-1]]
-puts "#define HTML_MARKUP_HASH_SIZE [expr $count+11]"
-puts "#define HTML_MARKUP_COUNT [expr $count-5]"
-puts "#endif /* INTERFACE */"
-puts "HtmlTokenMap HtmlMarkupMap\[\] = {"
+puts $h_file [format $fmt Html_TypeCount [expr $count-1]]
+puts $h_file "#define HTML_MARKUP_HASH_SIZE [expr $count+11]"
+puts $h_file "#define HTML_MARKUP_COUNT [expr $count-5]"
+puts $c_file "HtmlTokenMap HtmlMarkupMap\[\] = {"
 
 set fmt "  { %-15s %-25s %-30s },"
 
@@ -74,7 +68,7 @@ foreach {name start end} $tokenlist {
   } else {
     set size "sizeof($start),"
   }
-  puts [format $fmt $nm $val $size]
+  puts $c_file [format $fmt $nm $val $size]
   if {$end==""} continue
   set nm "\"/$name\","
   set val Html_End$upr,
@@ -83,7 +77,10 @@ foreach {name start end} $tokenlist {
   } else {
     set size "sizeof($end),"
   }
-  puts [format $fmt $nm $val $size]
+  puts $c_file [format $fmt $nm $val $size]
 }
 
-puts "};"
+puts $c_file "};"
+
+close $c_file
+close $h_file

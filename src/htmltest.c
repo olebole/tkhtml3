@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmltest.c,v 1.13 2002/12/17 18:24:16 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmltest.c,v 1.14 2005/03/22 12:07:34 danielk1977 Exp $";
 /*
 ** This file contains the TestPoint routines used for profiling
 ** and coverage analysis of the code.
@@ -22,21 +22,9 @@ static char const rcsid[] = "@(#) $Id: htmltest.c,v 1.13 2002/12/17 18:24:16 drh
 ** to assign unique numbers to all of the TestPoint(0) macros.
 */
 #include "tcl.h"
-#include "htmltest.h"
+#include "html.h"
 
 #if INTERFACE
-
-#if defined(COVERAGE_TEST)
-# define TestPoint(X)      {extern int HtmlTPArray[]; HtmlTPArray[X]++;}
-# define UNTESTED          HtmlTPUntested(__FILE__,__LINE__)
-# define CANT_HAPPEN       HtmlTPCantHappen(__FILE__,__LINE__)
-# define HtmlVerifyLock(H) if((H)->locked==0)HtmlTPCantHappen(__FILE__,__LINE__)
-#else
-# define TestPoint(X)
-# define UNTESTED
-# define CANT_HAPPEN
-# define HtmlVerifyLock(H)
-#endif
 
 #endif /* INTERFACE */
 

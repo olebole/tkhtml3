@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlexts.c,v 1.7 2003/01/27 03:22:31 hkoba Exp $";
+static char const rcsid[] = "@(#) $Id: htmlexts.c,v 1.8 2005/03/22 12:07:34 danielk1977 Exp $";
 /*
 ** The extra routines for the HTML widget for Tcl/Tk
 **
@@ -24,13 +24,12 @@ static char const rcsid[] = "@(#) $Id: htmlexts.c,v 1.7 2003/01/27 03:22:31 hkob
 **   http://browsex.com
 */
 
-#include <tk.h>
 #include <ctype.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
-#include "htmlexts.h"
+#include "html.h"
 #ifdef USE_TK_STUBS
 # include <tkIntXlibDecls.h>
 #endif
@@ -70,7 +69,12 @@ void BgImageChangeProc(
 
 /* For animated images, update the image list */
 int HtmlImageUpdateCmd(
-  HtmlWidget *htmlPtr, Tcl_Interp *interp, int argc, char **argv) {
+  ClientData clientData, /* The HTML widget */ 
+  Tcl_Interp *interp, 
+  int argc, 
+  CONST char **argv
+){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
   int id;
   char *z;
   HtmlElement *p;
@@ -89,7 +93,12 @@ int HtmlImageUpdateCmd(
 
 /* For animated images, add the image to list */
 int HtmlImageAddCmd(
-  HtmlWidget *htmlPtr, Tcl_Interp *interp, int argc, char **argv) {
+  ClientData clientData, /* The HTML widget */ 
+  Tcl_Interp *interp, 
+  int argc, 
+  CONST char **argv
+){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
   int id;
   char *z;
   HtmlElement *p;
@@ -109,7 +118,12 @@ int HtmlImageAddCmd(
 
 /* For animated images, set the currently active Image */
 int HtmlImageSetCmd(
-  HtmlWidget *htmlPtr, Tcl_Interp *interp, int argc, char **argv){
+  ClientData clientData, /* The HTML widget */ 
+  Tcl_Interp *interp, 
+  int argc, 
+  CONST char **argv
+){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
   int id, idx;
   char *z;
   HtmlElement *p;
@@ -136,7 +150,12 @@ int HtmlImageSetCmd(
 
 /* Return 1 if item given by id is on visible screen */
 int HtmlOnScreen(
-  HtmlWidget *htmlPtr, Tcl_Interp *interp, int argc, char **argv){
+  ClientData clientData, /* The HTML widget */ 
+  Tcl_Interp *interp, 
+  int argc, 
+  CONST char **argv
+){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
   int id, x, y, w, h;
   char *z;
   HtmlElement *p;
@@ -163,11 +182,12 @@ int HtmlOnScreen(
 }
 
 int HtmlAttrOverCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  ClientData clientData, /* The HTML widget */ 
   Tcl_Interp *interp,    /* The interpreter */
   int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
+  CONST char **argv      /* List of all arguments */
 ){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
   int x, y, n;
   char z[50];
 
@@ -181,11 +201,12 @@ int HtmlAttrOverCmd(
 }
 
 int HtmlOverCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  ClientData clientData, /* The HTML widget */ 
   Tcl_Interp *interp,    /* The interpreter */
   int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
+  CONST char **argv      /* List of all arguments */
 ){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
   int x, y, n;
   char z[50];
 
@@ -205,11 +226,12 @@ int HtmlOverCmd(
 ** Returns {} if there is no image beneath X,Y.
 */
 int HtmlImageAtCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  ClientData clientData, /* The HTML widget */ 
   Tcl_Interp *interp,    /* The interpreter */
   int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
+  CONST char **argv      /* List of all arguments */
 ){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
   int x, y, n;
   char z[50];
 
@@ -226,9 +248,9 @@ int HtmlImageAtCmd(
 
 /* Set a background image for page, or table element. */
 int HtmlSetImageBg(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  HtmlWidget *htmlPtr,   /* The HTML widget */ 
   Tcl_Interp *interp,    /* The interpreter */
-  char *imgname,            
+  CONST char *imgname,            
   HtmlElement *p
 ){
   Tk_Image bgimg, *nimg;
@@ -266,11 +288,12 @@ int HtmlSetImageBg(
 
 /* Set a background image for page, or table element. */
 int HtmlImageBgCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  ClientData clientData, /* The HTML widget */ 
   Tcl_Interp *interp,    /* The interpreter */
   int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
+  CONST char **argv      /* List of all arguments */
 ){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
   HtmlElement *p;
   int i;
   if (argc==3)
@@ -282,13 +305,54 @@ int HtmlImageBgCmd(
   return HtmlSetImageBg(htmlPtr, interp, argv[2], p);
 }
 
+static void HtmlToken2Txt(
+  HtmlWidget *htmlPtr, 
+  Tcl_Interp *interp, 
+  HtmlElement *p
+){
+  static char zBuf[BUFSIZ];
+  int j;
+  char *zName;
+
+  if( p==0 ) return;
+  switch( p->base.type ){
+  case Html_Text:
+    Tcl_AppendResult(interp,p->text.zText,0);
+    break;
+  case Html_Space:
+    if( p->base.flags & HTML_NewLine ){
+      Tcl_AppendResult(interp,"\"\\n\"",0);
+    }else{
+      Tcl_AppendResult(interp,"\" \"",0);
+    }
+    break;
+  case Html_Block:
+    break;
+  default:
+    if( p->base.type >= HtmlGetMarkupMap(htmlPtr, 0)->type
+    && p->base.type <= HtmlGetMarkupMap(htmlPtr, HTML_MARKUP_COUNT-1)->type ){
+      zName = HtmlGetMarkupMap(htmlPtr, p->base.type - HtmlGetMarkupMap(htmlPtr, 0)->type)->zName;
+    }else{
+      zName = "Unknown";
+    }
+    Tcl_AppendResult(interp,"<",zName,0);
+    /* ??? Doesn't work */
+    for(j=1; j<p->base.count; j += 2){
+      Tcl_AppendResult(interp, " ",p->markup.argv[j-1],"=",p->markup.argv[j]);
+    }
+    Tcl_AppendResult(interp,">",0);
+    break;
+  }
+}
+
 /* Return HTML with all image link names substitued with indexed. */
 int HtmlImagesListCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  ClientData clientData, /* The HTML widget */ 
   Tcl_Interp *interp,    /* The interpreter */
   int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
+  CONST char **argv      /* List of all arguments */
 ){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
   HtmlElement *p; char *z, buf[BUFSIZ];
   int ishtml=1, icnt=0;
   if (!strcmp(argv[2],"list")) ishtml=0;
@@ -323,11 +387,12 @@ int HtmlImagesListCmd(
 }
 
 int HtmlPostscriptCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  ClientData clientData, /* The HTML widget */ 
   Tcl_Interp *interp,    /* The interpreter */
   int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
+  CONST char **argv      /* List of all arguments */
 ){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
 #if TKHTML_PS
 #ifdef USE_TCL_STUBS
   if (!HtmlPostscriptPtr) {
@@ -347,11 +412,12 @@ int HtmlPostscriptCmd(
 ** WIDGET coords INDEX	
 */
 int HtmlCoordsCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  ClientData clientData, /* The HTML widget */ 
   Tcl_Interp *interp,    /* The interpreter */
   int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
+  CONST char **argv      /* List of all arguments */
 ){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
   HtmlElement *p;
   int i, pct=0;
 
@@ -500,7 +566,8 @@ int HtmlGetImageAt(HtmlWidget *htmlPtr, int x, int y){
 int HtmlGetAttrOver(HtmlWidget *htmlPtr, int x, int y, char *attr){
   HtmlBlock *pBlock;
   HtmlElement *pElem;
-  int n=0, vargc, i, j; char *z, *az, **vargv;
+  int n=0, vargc, i, j; char *z, *az;
+  CONST char **vargv;
 
   if (Tcl_SplitList(htmlPtr->interp, attr,&vargc,&vargv) || vargc<=0) {
     Tcl_AppendResult(htmlPtr->interp,"attrover error: ",attr,0);
@@ -578,7 +645,7 @@ int OldHtmlFormColors(HtmlWidget *htmlPtr, int fid){
   return TCL_OK;
 }
 
-char *Clr2Name(char *str) {
+char *Clr2Name(CONST char *str) {
   static char buf[50];
   if (str[0]=='#') {
     strcpy(buf,str);
@@ -606,7 +673,9 @@ int HtmlFormColors(HtmlWidget *htmlPtr, int fid, int n){
     }
   }
   if (pf) {
-    char buf[BUFSIZ], *c1, *c2;
+    char buf[BUFSIZ]; 
+    CONST char *c1;
+    CONST char *c2;
     int bg=pf->base.style.bgcolor;
     int fg=pf->base.style.color;
     XColor *cbg=htmlPtr->apColor[bg];
@@ -614,7 +683,7 @@ int HtmlFormColors(HtmlWidget *htmlPtr, int fid, int n){
 #if 0
     sprintf(buf,"%s %s", Tk_NameOfColor(cfg), Tk_NameOfColor(cbg));
 #else
-     c1=Tk_NameOfColor(cfg);
+    c1=Tk_NameOfColor(cfg);
     strcpy(buf,Clr2Name(c1));
     c2=Tk_NameOfColor(cbg);
     strcat(buf," ");
@@ -628,11 +697,12 @@ int HtmlFormColors(HtmlWidget *htmlPtr, int fid, int n){
 
 /* Get Form info. */
 int HtmlFormInfo(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  ClientData clientData, /* The HTML widget */ 
   Tcl_Interp *interp,    /* The interpreter */
   int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
+  CONST char **argv      /* List of all arguments */
 ){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
   if (argc>=4)
     return HtmlFormColors(htmlPtr, atoi(argv[2]), atoi(argv[3]));
   return TCL_OK;
@@ -640,42 +710,6 @@ int HtmlFormInfo(
 
 
 #endif /*  _TCLHTML_ */
-
-void HtmlToken2Txt(HtmlWidget *htmlPtr, Tcl_Interp *interp, HtmlElement *p){
-  static char zBuf[BUFSIZ];
-  int j;
-  char *zName;
-
-  if( p==0 ) return;
-  switch( p->base.type ){
-  case Html_Text:
-    Tcl_AppendResult(interp,p->text.zText,0);
-    break;
-  case Html_Space:
-    if( p->base.flags & HTML_NewLine ){
-      Tcl_AppendResult(interp,"\"\\n\"",0);
-    }else{
-      Tcl_AppendResult(interp,"\" \"",0);
-    }
-    break;
-  case Html_Block:
-    break;
-  default:
-    if( p->base.type >= HtmlGetMarkupMap(htmlPtr, 0)->type
-    && p->base.type <= HtmlGetMarkupMap(htmlPtr, HTML_MARKUP_COUNT-1)->type ){
-      zName = HtmlGetMarkupMap(htmlPtr, p->base.type - HtmlGetMarkupMap(htmlPtr, 0)->type)->zName;
-    }else{
-      zName = "Unknown";
-    }
-    Tcl_AppendResult(interp,"<",zName,0);
-    /* ??? Doesn't work */
-    for(j=1; j<p->base.count; j += 2){
-      Tcl_AppendResult(interp, " ",p->markup.argv[j-1],"=",p->markup.argv[j]);
-    }
-    Tcl_AppendResult(interp,">",0);
-    break;
-  }
-}
 
 int HtmlGetEndToken(HtmlWidget *htmlPtr, int typ){
   HtmlTokenMap *pMap=HtmlGetMarkupMap(htmlPtr, typ - Html_A);
@@ -928,8 +962,8 @@ fmtidx:
 */
 int HtmlDomIdLookup(
   HtmlWidget *htmlPtr,
-  char *cname,
-  const char *dname,
+  CONST char *cname,
+  CONST char *dname,
   HtmlElement **pp
 ) {
   Tcl_DString cmd;
@@ -1040,11 +1074,12 @@ idluperr:
 }
 
 int HtmlDomCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  ClientData clientData, /* The HTML widget */ 
   Tcl_Interp *interp,    /* The interpreter */
   int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
+  CONST char **argv      /* List of all arguments */
 ){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
   return HtmlDomIdLookup(htmlPtr, argv[2], argv[3], 0);
 }
 
@@ -1144,11 +1179,12 @@ int HtmlDOMFmtSubIndex(
 }
 
 int HtmlTextTable(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  ClientData clientData, /* The HTML widget */ 
   Tcl_Interp *interp,    /* The interpreter */
   int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
+  CONST char **argv      /* List of all arguments */
 ){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
   HtmlElement *p;
   Tcl_DString str;
   int rc, i, flags=0;
@@ -1177,13 +1213,16 @@ int HtmlTextTable(
    You can specify -tag table to try a table spec first.
    */
 int HtmlIdToDomCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  ClientData clientData, /* The HTML widget */ 
   Tcl_Interp *interp,    /* The interpreter */
   int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
+  CONST char **argv      /* List of all arguments */
 ){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
   Tcl_DString cmd;
-  char buf[100], *a=argv[3], *z;
+  char buf[100]; 
+  CONST char *a = argv[3]; 
+  char *z;
   int try[10], ti=0, en, i=0, k, j, l, n, iswrite=0, atend, lvl=0;
   int sc=1, nostr=0; /* Short-circuit */
   HtmlElement *p, *tp=0, *fp=0;
@@ -1279,15 +1318,45 @@ domfmtdone:
   return TCL_OK;
 }
 
+/* Define the begin, and end indexes */
+static int HtmlBeginEnd(
+  HtmlWidget *htmlPtr, HtmlIndex *be, int argc, CONST char *argv[]
+){
+  char *cp, nbuf[50], *ep;
+  int i, n;
+  Tcl_Interp* interp=htmlPtr->interp;
+  be[0].p=htmlPtr->pFirst;
+  be[0].i=0;
+  be[1].p=0;
+  be[0].i=0;
+  if (argc) {
+    if( HtmlGetIndex(htmlPtr, argv[0], &be[0].p, &be[0].i)!=0 ){
+      Tcl_AppendResult(interp,"malformed index: \"", argv[0], "\"", 0);
+      return TCL_ERROR;
+    }
+  }
+  if (argc>1) {
+    if( HtmlGetIndex(htmlPtr, argv[1], &be[1].p, &be[1].i)!=0 ){
+      Tcl_AppendResult(interp,"malformed index: \"", argv[1], "\"", 0);
+      return TCL_ERROR;
+    }
+  }
+  return TCL_OK;
+}
+
 /* Find all tags that contain an attr named in input list. Return TIDs.  */
 int HtmlTokenAttrSearch(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  ClientData clientData, /* The HTML widget */ 
   Tcl_Interp *interp,    /* The interpreter */
   int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
+  CONST char **argv      /* List of all arguments */
 ){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
   HtmlElement *p;
-  char **vargv, *z, str[50]; int vargc, i, j, nocase, cnt=0;
+  CONST char **vargv;
+  char *z; 
+  char str[50]; 
+  int vargc, i, j, nocase, cnt=0;
   HtmlIndex be[2];
   if (TCL_OK!=HtmlBeginEnd(htmlPtr, be, argc-4, argv+4))
     return TCL_ERROR;
@@ -1312,31 +1381,6 @@ int HtmlTokenAttrSearch(
     if (p==be[1].p) break;
   }
   HtmlFree(vargv);
-  return TCL_OK;
-}
-
-/* Define the begin, and end indexes */
-int HtmlBeginEnd(
-  HtmlWidget *htmlPtr, HtmlIndex *be, int argc, char *argv[]) {
-  char *cp, nbuf[50], *ep;
-  int i, n;
-  Tcl_Interp* interp=htmlPtr->interp;
-  be[0].p=htmlPtr->pFirst;
-  be[0].i=0;
-  be[1].p=0;
-  be[0].i=0;
-  if (argc) {
-    if( HtmlGetIndex(htmlPtr, argv[0], &be[0].p, &be[0].i)!=0 ){
-      Tcl_AppendResult(interp,"malformed index: \"", argv[0], "\"", 0);
-      return TCL_ERROR;
-    }
-  }
-  if (argc>1) {
-    if( HtmlGetIndex(htmlPtr, argv[1], &be[1].p, &be[1].i)!=0 ){
-      Tcl_AppendResult(interp,"malformed index: \"", argv[1], "\"", 0);
-      return TCL_ERROR;
-    }
-  }
   return TCL_OK;
 }
 
@@ -1384,11 +1428,12 @@ int HtmlBeginEndOpts(
 }
 /* Find all onEvent tags and return list of Event id Event id ... */
 int HtmlTokenOnEvents(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  ClientData clientData, /* The HTML widget */ 
   Tcl_Interp *interp,    /* The interpreter */
   int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
+  CONST char **argv      /* List of all arguments */
 ){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
   HtmlElement *p;
   char **vargv, *z, str[50], *cp; int vargc, i, nocase, cnt=0;
   HtmlIndex be[2];
@@ -1412,11 +1457,12 @@ int HtmlTokenOnEvents(
 
 /* Translate a name attr index to a integer index. */
 int HtmlDomName2Index(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  ClientData clientData, /* The HTML widget */ 
   Tcl_Interp *interp,    /* The interpreter */
   int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
+  CONST char **argv      /* List of all arguments */
 ){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
   HtmlElement* p;
   int n=-1, i=-1, type;
   char *z, str[50];
@@ -1464,11 +1510,12 @@ static int HtmlRadioCount(HtmlWidget *htmlPtr, HtmlElement *radio) {
 
 /* Translate a radio index to a form element index. */
 int HtmlDomRadio2Index(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  ClientData clientData, /* The HTML widget */ 
   Tcl_Interp *interp,    /* The interpreter */
   int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
+  CONST char **argv      /* List of all arguments */
 ){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
   HtmlElement* p, *form;
   int n, type;
   char *z, str[50];
@@ -1491,11 +1538,12 @@ int HtmlDomRadio2Index(
 
 /* Search through all of type tag and compile list of attr names */
 int HtmlTokenUnique(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  ClientData clientData, /* The HTML widget */ 
   Tcl_Interp *interp,    /* The interpreter */
   int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
+  CONST char **argv      /* List of all arguments */
 ){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
   HtmlElement* p;
   int i, j, k, type, nump=0;
   char *vars[201], *cp;
@@ -1521,7 +1569,7 @@ int HtmlTokenUnique(
 }
 
 /* Return the element offset index for the named el in form */
-int HtmlDomFormEl(HtmlWidget *htmlPtr, int form, char *el) {
+static int HtmlDomFormEl(HtmlWidget *htmlPtr, int form, CONST char *el) {
   HtmlElement *p, *pstart;
   int i=0;
   char *z;
@@ -1551,11 +1599,12 @@ int HtmlDomFormEl(HtmlWidget *htmlPtr, int form, char *el) {
 
 /* Return the element offset index for the named el in form */
 int HtmlDomFormElIndex(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  ClientData clientData, /* The HTML widget */ 
   Tcl_Interp *interp,    /* The interpreter */
   int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
+  CONST char **argv      /* List of all arguments */
 ){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
   int i=HtmlDomFormEl(htmlPtr,  atoi(argv[3]), argv[4]);
   char str[50];
   sprintf(str,"%d", i);
@@ -1566,13 +1615,15 @@ int HtmlDomFormElIndex(
 
 /* Return the HTML Doc as one big DOM tree list */
 int HtmlDomTreeCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  ClientData clientData, /* The HTML widget */ 
   Tcl_Interp *interp,    /* The interpreter */
   int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
+  CONST char **argv      /* List of all arguments */
 ){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
   Tcl_DString cmd;
-  char *a=argv[3], *z;
+  CONST char *a=argv[3]; 
+  char *z;
   HtmlElement *p, *ep;
   int n[10], ni=0, en, i, k, j, l, iswrite=0, atend;
   if (!(p=htmlPtr->pFirst)) return TCL_OK;
@@ -1606,16 +1657,100 @@ int HtmlDomTreeCmd(
   return TCL_OK;
 }
 
+/*
+** Return all tokens between the two elements as a Tcl list.
+*/
+static void 
+HtmlTclizeList(HtmlWidget *htmlPtr, Tcl_Interp *interp, HtmlElement *p, HtmlElement *pEnd,
+  int flag){
+  Tcl_DString str;
+  int i, isatr;
+  char *zName;
+  char zLine[100];
+
+  Tcl_DStringInit(&str);
+  while( p && p!=pEnd ){
+    isatr=0;
+    switch( p->base.type ){
+      case Html_Block:
+        break;
+      case Html_Text:
+      case Html_COMMENT:
+	if (flag&(TOKEN_MARKUP|TOKEN_DOM)) break;
+        Tcl_DStringStartSublist(&str);
+	if (flag&TOKEN_LIST) {
+	  sprintf(zLine,"%d",p->base.id);
+          Tcl_DStringAppendElement(&str,zLine);
+	}
+        Tcl_DStringAppendElement(&str,"Text");
+        Tcl_DStringAppendElement(&str, p->text.zText);
+        Tcl_DStringEndSublist(&str);
+        break;
+      case Html_Space:
+	if (flag&(TOKEN_MARKUP|TOKEN_DOM)) break;
+        if (flag&TOKEN_LIST) sprintf(zLine,"%d Space %d %d", p->base.id,
+          p->base.count, (p->base.flags & HTML_NewLine)!=0);
+        else sprintf(zLine,"Space %d %d",
+          p->base.count, (p->base.flags & HTML_NewLine)!=0);
+        Tcl_DStringAppendElement(&str,zLine);
+        break;
+      case Html_Unknown:
+	if (flag&(TOKEN_MARKUP|TOKEN_DOM)) break;
+        Tcl_DStringAppendElement(&str,"Unknown");
+        break;
+      case Html_EndVAR: case Html_VAR: case Html_EndU: case Html_U:
+      case Html_EndTT: case Html_TT: case Html_EndSUP: case Html_SUP:
+      case Html_EndSUB: case Html_SUB: case Html_EndSTRONG: case Html_STRONG:
+      case Html_EndSTRIKE: case Html_STRIKE: case Html_EndSMALL:
+      case Html_SMALL: case Html_EndSAMP: case Html_SAMP: case Html_EndS:
+      case Html_S: case Html_EndP: case Html_EndMARQUEE: case Html_MARQUEE:
+      case Html_EndLISTING: case Html_LISTING: case Html_EndKBD: case Html_KBD:
+      case Html_EndI: case Html_I: case Html_EndFONT: case Html_FONT:
+      case Html_EndEM: case Html_EM: case Html_EndDIV: case Html_DIV:
+      case Html_EndDFN: case Html_DFN: case Html_EndCODE: case Html_CODE:
+      case Html_EndCITE: case Html_CITE: case Html_EndCENTER: case Html_CENTER:
+      case Html_BR: case Html_EndBLOCKQUOTE: case Html_BLOCKQUOTE:
+      case Html_EndBIG: case Html_BIG: case Html_EndBASEFONT:
+      case Html_BASEFONT: case Html_BASE: case Html_EndB: case Html_B:
+        isatr=1;
+      default:
+	if (isatr && (flag&(TOKEN_DOM))) break;
+        Tcl_DStringStartSublist(&str);
+	if (flag&TOKEN_LIST) {
+	  sprintf(zLine,"%d",p->base.id);
+          Tcl_DStringAppendElement(&str,zLine);
+	}
+	if (!(flag&(TOKEN_MARKUP|TOKEN_DOM)))
+          Tcl_DStringAppendElement(&str,"Markup");
+        if( p->base.type >= HtmlGetMarkupMap(htmlPtr, 0)->type 
+         && p->base.type <= HtmlGetMarkupMap(htmlPtr, HTML_MARKUP_COUNT-1)->type ){
+          zName = HtmlGetMarkupMap(htmlPtr, p->base.type - HtmlGetMarkupMap(htmlPtr, 0)->type)->zName;
+        }else{
+          zName = "Unknown";
+        }
+        Tcl_DStringAppendElement(&str, zName);
+        for(i=0; i<p->base.count; i++){
+          Tcl_DStringAppendElement(&str, p->markup.argv[i]);
+        }
+        Tcl_DStringEndSublist(&str);
+        break;
+    }
+    p = p->pNext;
+  }
+  Tcl_DStringResult(interp, &str);
+}
+
 static int _HtmlTokenCmdSub(
   HtmlWidget *htmlPtr,   /* The HTML widget */
   Tcl_Interp *interp,    /* The interpreter */
   int argc,              /* Number of arguments */
-  char **argv,           /* List of all arguments */
+  CONST char **argv,     /* List of all arguments */
   int flag
 ){
   HtmlElement *pStart, *pEnd=0;
   int i;
-  char *cb, *ce;
+  CONST char *cb; 
+  CONST char *ce;
   if (argc<=3) cb="begin"; else cb=argv[3];
   if (argc<=4) ce=cb; else ce=argv[4];
 
@@ -1639,12 +1774,15 @@ static int _HtmlTokenCmdSub(
    If modifying an attribute, we reallocate the whole argv with alloc.
 */
 int HtmlTokenAttr(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  ClientData clientData, /* The HTML widget */ 
   Tcl_Interp *interp,    /* The interpreter */
   int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
+  CONST char **argv      /* List of all arguments */
 ){
-  char *name, *value, fake[99], **nv;
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
+  CONST char *name;
+  CONST char *value; 
+  char fake[99], **nv;
   HtmlElement *p;
   int i, j, l, tl, ol, c, nc;
   if( HtmlGetIndex(htmlPtr, argv[3], &p, &i)!=0 || p==0 || !HtmlIsMarkup(p)){
@@ -1679,7 +1817,7 @@ int HtmlTokenAttr(
       /* Migrate to dynamic allocations. */
       nv=(char**)HtmlAlloc(sizeof(char**)*(nc+2));
       for(i=0; i<c; i++) {
-        char *val=p->markup.argv[i];
+        CONST char *val=p->markup.argv[i];
 	if (i==(j+1)) val=value;
         nv[i]=(char*)HtmlAlloc(strlen(val)+1);
         if (!nv[i]) return TCL_ERROR;
@@ -1721,11 +1859,12 @@ int HtmlTokenAttr(
 ** WIDGET token list START END
 */
 int HtmlTokenListCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  ClientData clientData, /* The HTML widget */ 
   Tcl_Interp *interp,    /* The interpreter */
   int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
+  CONST char **argv      /* List of all arguments */
 ){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
   return _HtmlTokenCmdSub(htmlPtr,interp,argc,argv,TOKEN_LIST);
 }
 
@@ -1733,11 +1872,12 @@ int HtmlTokenListCmd(
 ** WIDGET token markup START END
 */
 int HtmlTokenMarkupCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  ClientData clientData, /* The HTML widget */
   Tcl_Interp *interp,    /* The interpreter */
   int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
+  CONST char **argv      /* List of all arguments */
 ){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
   return _HtmlTokenCmdSub(htmlPtr,interp,argc,argv,TOKEN_MARKUP|TOKEN_LIST);
 }
 
@@ -1745,26 +1885,85 @@ int HtmlTokenMarkupCmd(
 ** WIDGET token dom START END
 */
 int HtmlTokenDomCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  ClientData clientData, /* The HTML widget */
   Tcl_Interp *interp,    /* The interpreter */
   int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
+  CONST char **argv      /* List of all arguments */
 ){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
   return _HtmlTokenCmdSub(htmlPtr,interp,argc,argv,TOKEN_DOM|TOKEN_LIST);
+}
+
+/*
+** Return all tokens between the two elements as a HTML.
+*/
+static
+void HtmlTclizeHtml(HtmlWidget *htmlPtr, Tcl_Interp *interp, HtmlElement *p, HtmlElement *pEnd){
+  Tcl_DString str;
+  int i,j;
+  char *zName;
+  char zLine[100];
+
+  Tcl_DStringInit(&str);
+  while( p && p!=pEnd ){
+    switch( p->base.type ){
+      case Html_Block:
+        break;
+      case Html_COMMENT:
+        Tcl_DStringAppend(&str, "<!--",-1);
+        Tcl_DStringAppend(&str, p->text.zText,-1);
+        Tcl_DStringAppend(&str, "-->",-1);
+        break;
+      case Html_Text:
+        Tcl_DStringAppend(&str, p->text.zText,-1);
+        break;
+      case Html_Space:
+        for (j=0; j< p->base.count; j++) {
+          Tcl_DStringAppend(&str, " ", 1);
+        }
+        if ((p->base.flags & HTML_NewLine)!=0)
+          Tcl_DStringAppend(&str, "\n",1);
+        break;
+      case Html_Unknown:
+        Tcl_DStringAppend(&str,"Unknown",-1);
+        break;
+      default:
+        if( p->base.type >= HtmlGetMarkupMap(htmlPtr, 0)->type 
+         && p->base.type <= HtmlGetMarkupMap(htmlPtr, HTML_MARKUP_COUNT-1)->type ){
+          zName = HtmlGetMarkupMap(htmlPtr, p->base.type - HtmlGetMarkupMap(htmlPtr, 0)->type)->zName;
+        }else{
+          zName = "Unknown";
+        }
+        Tcl_DStringAppend(&str, "<",1);
+        Tcl_DStringAppend(&str, zName,-1);
+        for(i=0; i<(p->base.count-1); i++){
+          Tcl_DStringAppend(&str, " ",1);
+          Tcl_DStringAppend(&str, p->markup.argv[i++],-1);
+          Tcl_DStringAppend(&str, "=",1);
+          Tcl_DStringAppend(&str, p->markup.argv[i],-1);
+        }
+        Tcl_DStringAppend(&str, ">",1);
+        break;
+    }
+    p = p->pNext;
+  }
+  Tcl_DStringResult(interp, &str);
 }
 
 /*
 ** WIDGET text html START END
 */
 int HtmlTextHtmlCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  ClientData clientData, /* The HTML widget */
   Tcl_Interp *interp,    /* The interpreter */
   int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
+  CONST char **argv            /* List of all arguments */
 ){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
   HtmlElement *pStart, *pEnd;
   int i;
-  char *cb, *ce;
+  CONST char *cb; 
+  CONST char *ce;
   if (argc<=3) cb="begin"; else cb=argv[3];
   if (argc<=4) ce=cb; else ce=argv[4];
 
@@ -1783,17 +1982,68 @@ int HtmlTextHtmlCmd(
 }
 
 /*
+** Return all tokens between the two elements as a Text.
+*/
+static
+void HtmlTclizeAscii(Tcl_Interp *interp, HtmlIndex *s, HtmlIndex *e){
+  int i,j, nsub=0;
+  HtmlElement* p=s->p;
+  Tcl_DString str;
+  if (p && p->base.type==Html_Text) {
+    nsub=s->i;
+  }
+  Tcl_DStringInit(&str);
+  while( p) {
+    switch( p->base.type ){
+      case Html_Block:
+        break;
+      case Html_Text:
+        j=strlen(p->text.zText);
+	if (j<nsub) nsub=j;
+        if (p==e->p) {
+	  j= (e->i-nsub+1);
+	}
+        Tcl_DStringAppend(&str, p->text.zText+nsub,j-nsub);
+	nsub=0;
+        break;
+      case Html_Space:
+        for (j=0; j< p->base.count; j++) {
+	  if (nsub-->0) continue;
+          Tcl_DStringAppend(&str, " ", 1);
+        }
+        if ((p->base.flags & HTML_NewLine)!=0)
+          Tcl_DStringAppend(&str, "\n",1);
+	nsub=0;
+        break;
+      case Html_P:
+      case Html_BR:
+        Tcl_DStringAppend(&str, "\n",1);
+	break;
+      case Html_Unknown:
+        break;
+      default:
+        break;
+    }
+    if (p==e->p) break;
+    p = p->pNext;
+  }
+  Tcl_DStringResult(interp, &str);
+}
+
+/*
 ** WIDGET text ascii START END
 */
 int HtmlTextAsciiCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  ClientData clientData, /* The HTML widget */ 
   Tcl_Interp *interp,    /* The interpreter */
   int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
+  CONST char **argv      /* List of all arguments */
 ){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
   HtmlIndex iStart, iEnd;
   int i;  
-  char *cb, *ce;
+  CONST char *cb; 
+  CONST char *ce;
   if (argc<=3) cb="begin"; else cb=argv[3];
   if (argc<=4) ce=cb; else ce=argv[4];
 
@@ -1818,11 +2068,12 @@ int HtmlTextAsciiCmd(
    a regex on it, with -indices, you need to convert these offsets back
    into INDEXES. This returns those begin and end anchor. */
 int HtmlTextOffsetCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
+  ClientData clientData, /* The HTML widget */ 
   Tcl_Interp *interp,    /* The interpreter */
   int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
+  CONST char **argv      /* List of all arguments */
 ){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
   HtmlIndex iStart;
   int n1, n2;
   int h, i1, i2, i=0,j,k, n, m=0, fnd=0, sfnd=0;
@@ -1936,665 +2187,10 @@ htoffset:
   return TCL_OK;
 }
 
-int HtmlTextFindCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
-  Tcl_Interp *interp,    /* The interpreter */
-  int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
-){
-  HtmlIndex iStart, iEnd;
-  int i, j=4, after=1, nocase=0;
-  iStart.p=iEnd.p=0;  iStart.i=iEnd.i=0;
-  if (!htmlPtr->pFirst) return TCL_OK;
-  if (argc>4) {
-    if (!strcasecmp(argv[j],"nocase")) { nocase=1; j++; }
-  }
-  if (argc>(j+1)) {
-    if (HtmlGetIndex(htmlPtr, argv[j+1], &iStart.p, &iStart.i)!=0 ){
-      Tcl_AppendResult(interp,"malformed index: \"", argv[3], "\"", 0);
-      return TCL_ERROR;
-    }
-    if (!strcasecmp(argv[j],"before")) after=0;
-    else if (strcasecmp(argv[j],"after")) {
-      Tcl_AppendResult(interp,"before|after: \"", argv[j], "\"", 0);
-      return TCL_ERROR;
-    }
-    if (after) { if (iStart.p) iStart.p=iStart.p->base.pNext; }
-    else { iEnd.p=iStart.p; iStart.p=0; }
-  }
-  if (!iStart.p)
-    iStart.p=htmlPtr->pFirst;
-  if (iEnd.p && after)
-    iEnd.p=iEnd.p->base.pNext;
-/* ?????? Fix i1,i2 */
-  HtmlTclizeFindText(interp,argv[3],&iStart,&iEnd,nocase,after);
-  return TCL_OK;
-}
-
-/* Insert str into cp at n. */
-char *StrInsert(char *cp, char *str, int n, int clen) {
-  int l=strlen(str);
-  if (clen<0) clen=strlen(cp);
-  cp=HtmlRealloc(cp,clen+l+1);
-  memmove(cp+n+l,cp+n,clen-n);
-  strncpy(cp+n,str,l);
-  return cp;
-}
-
-static void HtmlAddOffset(HtmlWidget *htmlPtr, HtmlElement *p, int n) {
-  while (p) {
-    p->base.offs+=n;
-    p=p->pNext;
-  }
-}
-
-void HtmlAddStrOffset(HtmlWidget *htmlPtr, HtmlElement *p, char *str,
-  int offs) {
-  int n=0, l=strlen(str);
-  if ((!p) || !p->base.type==Html_Text) return;
-  n=p->base.offs+offs;
-  if (n<0 || htmlPtr->nText<=0) return;
-  htmlPtr->zText=StrInsert(htmlPtr->zText,str,n,htmlPtr->nText);
-  htmlPtr->nText +=l;
-  HtmlAddOffset(htmlPtr,p->pNext,l);
-}
-
-static void HtmlDelStrOffset(HtmlWidget *htmlPtr, HtmlElement *p, int offs,
-  int l) {
-  int len, n=p->base.offs+offs;
-  char *cp=htmlPtr->zText;
-  assert(p->base.type==Html_Text);
-  if (n<0 || htmlPtr->nText<=0) return;
-  len=htmlPtr->nText-n;
-  memmove(cp+n,cp+n+l,len);
-  htmlPtr->nText -=l;
-  HtmlAddOffset(htmlPtr,p->pNext,-l);
-  cp=p->text.zText;
-  len=strlen(cp);
-  p->base.count-=l;
-  memmove(cp+offs,cp+offs+l,len-offs-l+1);
-}
-
-/* Function that refreshes after internal adding/deleting elements. */
-int  HtmlRefresh(HtmlWidget *htmlPtr, int idx) {
-  htmlPtr->flags |= RELAYOUT;
-  HtmlScheduleRedraw(htmlPtr);
-}
-int HtmlRefreshCmd( HtmlWidget *htmlPtr, Tcl_Interp *interp, int argc,
-  char **argv){
-  if (argc<3) htmlPtr->flags |= RELAYOUT;
-  else  {
-   int n=2;
-   while (n<argc) {
-    switch (argv[n][0]) {
-    case 'i': htmlPtr->flags |= REDRAW_IMAGES; break;
-    case 'r': htmlPtr->flags |= RESIZE_ELEMENTS; break;
-    case 'f': htmlPtr->flags |= REDRAW_FOCUS; break;
-    case 't': htmlPtr->flags |= REDRAW_TEXT; break;
-    case 'b': htmlPtr->flags |= REDRAW_BORDER; break;
-    case 'e': htmlPtr->flags |= EXTEND_LAYOUT; break;
-    case 'c': htmlPtr->flags |= RESIZE_CLIPWIN; break;
-    case 's': htmlPtr->flags |= STYLER_RUNNING; break;
-    case 'a': htmlPtr->flags |= ANIMATE_IMAGES; break;
-    case 'v': htmlPtr->flags |= VSCROLL; break;
-    case 'h': htmlPtr->flags |= HSCROLL; break;
-    case 'g': htmlPtr->flags |= GOT_FOCUS; break;
-    case 'l': htmlPtr->flags |= RELAYOUT; break;
-    default: 
-      Tcl_AppendResult(interp, "Unknown refresh option: ", argv[n],0);
-      return TCL_ERROR;
-    }
-    n++;
-   }
-  }
-  HtmlRefresh(htmlPtr,0);
-  HtmlScheduleRedraw(htmlPtr);
-  return TCL_OK;
-}
-
-/* Return the source */
-int HtmlGetCmd( HtmlWidget *htmlPtr, Tcl_Interp *interp, int objc,
-  Tcl_Obj * CONST objv[]){
-  Tcl_SetObjResult(interp, Tcl_NewByteArrayObj(htmlPtr->zText, htmlPtr->nText));
-  return TCL_OK;
-}
-
-
-/*
-** WIDGET text delete START END
-*/
-int HtmlTextDeleteCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
-  Tcl_Interp *interp,    /* The interpreter */
-  int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
-){
-  HtmlElement *pStart, *pEnd, *pn;
-  int ib, ie, idx=0;
-  char *cb, *ce;
-  if (argc<=3) cb="begin"; else cb=argv[3];
-  if (argc<=4) ce=cb; else ce=argv[4];
-
-  if( HtmlGetIndex(htmlPtr, cb, &pStart, &ib)!=0 ){
-    Tcl_AppendResult(interp,"malformed index: \"", cb, "\"", 0);
-    return TCL_ERROR;
-  }
-  if( HtmlGetIndex(htmlPtr, ce, &pEnd, &ie)!=0 ){
-    Tcl_AppendResult(interp,"malformed index: \"", ce, "\"", 0);
-    return TCL_ERROR;
-  }
-  if(!pStart ) return TCL_OK;
-  idx=pStart->base.id;
-  if (pEnd==pStart) {
-    if (!ib && ((ie-1)>=strlen(pStart->text.zText)))
-      HtmlRemoveElements(htmlPtr,pStart,pStart);
-    else
-      HtmlDelStrOffset(htmlPtr,pStart,ib,ie-ib+1);
-  } else {
-    pn=pStart->pNext;
-    if (pStart->base.type==Html_Text && ib)
-      HtmlDelStrOffset(htmlPtr,pStart,ib,ib+1);
-    else
-      HtmlRemoveElements(htmlPtr,pStart,pStart);
-    pStart=pn;
-    if (pEnd) {
-      pn=pEnd->base.pPrev;
-      if (pEnd->base.type==Html_Text && ((ie-1)>=strlen(pEnd->text.zText)))
-        HtmlRemoveElements(htmlPtr,pEnd,pEnd);
-      else
-        HtmlDelStrOffset(htmlPtr,pEnd,0,ie);
-      if (pStart==pEnd) pEnd=0;
-      else pEnd=pn;
-    }
-    if (pEnd) {
-      HtmlRemoveElements(htmlPtr,pStart,pEnd);
-    }
-  }
-  HtmlRefresh(htmlPtr,idx);
-  return TCL_OK;
-}
-
-/*
-** WIDGET token insert INDEX TOKEN ARGS
-*/
-int HtmlTokenInsertCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
-  Tcl_Interp *interp,    /* The interpreter */
-  int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
-){
-  HtmlElement *pStart, *pEnd;
-  int idx=0, i, tlen=strlen(argv[4]);  char *cp, *attr="";
-  if (argc>5) {
-    attr=argv[5];
-    tlen+=strlen(attr);
-  }
-  if( HtmlGetIndex(htmlPtr, argv[3], &pStart, &i)!=0 ){
-    Tcl_AppendResult(interp,"malformed index: \"", argv[3], "\"", 0);
-    return TCL_ERROR;
-  }
-  if (pStart && pStart->base.type==Html_Text && i== pStart->base.count)
-    pStart=pStart->pNext;
-  HtmlInsertToken(htmlPtr, pStart, argv[4], attr,-1);
-  cp=(char*)HtmlAlloc(tlen+6);
-  if (argc>5) {
-    sprintf(cp,"<%s %s>", argv[4], argv[5]);
-  } else {
-    sprintf(cp,"<%s>", argv[4]);
-  }
-  HtmlAddStrOffset(htmlPtr,pStart,cp, 0);
-  HtmlFree(cp);
-  if (pStart) idx=pStart->base.id;
-  HtmlRefresh(htmlPtr,idx);
-  htmlPtr->ins.p=pStart;
-  htmlPtr->ins.i=0;
-  return TCL_OK;
-}
-
-/*
-** WIDGET token delete START END
-*/
-int HtmlTokenDeleteCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
-  Tcl_Interp *interp,    /* The interpreter */
-  int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
-){
-  HtmlElement *pStart, *pEnd;
-  int i, idx=0;
-  char *cb, *ce;
-  if (argc<=3) cb="begin"; else cb=argv[3];
-  if (argc<=4) ce=cb; else ce=argv[4];
-
-  if( HtmlGetIndex(htmlPtr, cb, &pStart, &i)!=0 ){
-    Tcl_AppendResult(interp,"malformed index: \"", cb, "\"", 0);
-    return TCL_ERROR;
-  }
-  if (HtmlGetIndex(htmlPtr, ce, &pEnd, &i)!=0 ){
-    Tcl_AppendResult(interp,"malformed index: \"", ce, "\"", 0);
-    return TCL_ERROR;
-  }
-  if( pStart ){
-    HtmlRemoveElements(htmlPtr,pStart,pEnd);
-    idx=pStart->base.id;
-  }
-  HtmlRefresh(htmlPtr,idx);
-  return TCL_OK;
-}
-
-/*    Given a start token, find the matching end token.  */
-int HtmlTokenGetEnd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
-  Tcl_Interp *interp,    /* The interpreter */
-  int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
-){
-  HtmlElement *pStart=0;
-  int i;
-
-  if( HtmlGetIndex(htmlPtr, argv[3], &pStart, &i)!=0 ){
-    Tcl_AppendResult(interp,"malformed index: \"", argv[3], "\"", 0);
-    return TCL_ERROR;
-  }
-  if( pStart && HtmlIsMarkup(pStart)){
-    HtmlElement *p;
-    int en=HtmlGetEndToken(htmlPtr, pStart->base.type);
-    p=HtmlFindEndNest(htmlPtr, pStart, en, 0);
-    if (p && p->base.id == 0) p=p->base.pNext;
-    if (p) {
-      char buf[20];
-      sprintf(buf,"%d", HtmlTokenNumber(p));
-      Tcl_AppendResult(interp,buf, 0);
-    }
-  }
-  return TCL_OK;
-}
-
-int HtmlTokenGetCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
-  Tcl_Interp *interp,    /* The interpreter */
-  int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
-){
-  HtmlElement *pStart, *pEnd;
-  int i;
-  char *cb, *ce;
-  if (argc<=3) cb="begin"; else cb=argv[3];
-
-  if( HtmlGetIndex(htmlPtr, cb, &pStart, &i)!=0 ){
-    Tcl_AppendResult(interp,"malformed index: \"", cb, "\"", 0);
-    return TCL_ERROR;
-  }
-  if (argc<=4) pEnd=pStart; else {
-    if (HtmlGetIndex(htmlPtr, argv[4], &pEnd, &i)!=0 ){
-      Tcl_AppendResult(interp,"malformed index: \"", argv[4], "\"", 0);
-      return TCL_ERROR;
-    }
-  }
-  if (pEnd) pEnd=pEnd->base.pNext;
-  if( pStart ){
-    HtmlTclizeList(htmlPtr, interp,pStart,pEnd, 0);
-  }
-  return TCL_OK;
-}
-
-
-int HtmlTokenFindCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
-  Tcl_Interp *interp,    /* The interpreter */
-  int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
-){
-  HtmlIndex iStart, iEnd;
-  int i, after=1, near=0;
-  int type = HtmlNameToType(htmlPtr, argv[3]);
-  iStart.p=0; iEnd.p=0; iStart.i=0; iEnd.i=0;
-  if (!htmlPtr->pFirst) return TCL_OK;
-  if( type==Html_Unknown ){
-    Tcl_AppendResult(interp,"unknown tag: \"", argv[3], "\"", 0);
-    return TCL_ERROR;
-  }
-  if (argc>5) {
-    if (HtmlGetIndex(htmlPtr, argv[5], &iStart.p, &iStart.i)!=0 ){
-      Tcl_AppendResult(interp,"malformed index: \"", argv[5], "\"", 0);
-      return TCL_ERROR;
-    }
-    if (!strcasecmp(argv[4],"before")) after=0;
-    else if (!strcasecmp(argv[4],"near")) {
-      near=HtmlTokenNumber(iStart.p); iStart.p=htmlPtr->pFirst;
-    } else if (strcasecmp(argv[4],"after")) {
-      Tcl_AppendResult(interp,"before|after|near: \"", argv[4], "\"", 0);
-      return TCL_ERROR;
-    }
-    if (!near) {
-      if (after) { if (iStart.p) iStart.p=iStart.p->base.pNext; }
-      else { iEnd.p=iStart.p; iStart.p=0; }
-    }
-  }
-  if (!iStart.p)
-    iStart.p=htmlPtr->pFirst;
-  if (!near)
-    if (iEnd.p)
-      iEnd.p=iEnd.p->base.pNext;
-  HtmlTclizeFind(interp,type,iStart.p,iEnd.p,near);
-  return TCL_OK;
-}
-
-/*
-** Remove Elements from the list of elements
-*/
-void HtmlRemoveElements(HtmlWidget *p, HtmlElement* pElem, HtmlElement* pLast){
-  HtmlElement *pPrev;
-  pPrev=pElem->base.pPrev;
-  if (p->pLast==pLast) p->pLast=pPrev;
-  if (p->pFirst==pElem) p->pFirst=pLast->base.pNext;
-  if (pPrev) {
-    pPrev->base.pNext=pLast->base.pNext;
-  }
-  if (pLast) pLast->base.pPrev=pPrev;
-  while (pElem) {
-    pPrev=pElem->base.pNext;
-    HtmlDeleteElement(pElem);
-    p->nToken--;
-    if (pElem==pLast) break;
-    pElem=pPrev;
-  }
-}
-
-/*
-** Return all tokens between the two elements as a Tcl list.
-*/
-void HtmlTclizeList(HtmlWidget *htmlPtr, Tcl_Interp *interp, HtmlElement *p, HtmlElement *pEnd,
-  int flag){
-  Tcl_DString str;
-  int i, isatr;
-  char *zName;
-  char zLine[100];
-
-  Tcl_DStringInit(&str);
-  while( p && p!=pEnd ){
-    isatr=0;
-    switch( p->base.type ){
-      case Html_Block:
-        break;
-      case Html_Text:
-      case Html_COMMENT:
-	if (flag&(TOKEN_MARKUP|TOKEN_DOM)) break;
-        Tcl_DStringStartSublist(&str);
-	if (flag&TOKEN_LIST) {
-	  sprintf(zLine,"%d",p->base.id);
-          Tcl_DStringAppendElement(&str,zLine);
-	}
-        Tcl_DStringAppendElement(&str,"Text");
-        Tcl_DStringAppendElement(&str, p->text.zText);
-        Tcl_DStringEndSublist(&str);
-        break;
-      case Html_Space:
-	if (flag&(TOKEN_MARKUP|TOKEN_DOM)) break;
-        if (flag&TOKEN_LIST) sprintf(zLine,"%d Space %d %d", p->base.id,
-          p->base.count, (p->base.flags & HTML_NewLine)!=0);
-        else sprintf(zLine,"Space %d %d",
-          p->base.count, (p->base.flags & HTML_NewLine)!=0);
-        Tcl_DStringAppendElement(&str,zLine);
-        break;
-      case Html_Unknown:
-	if (flag&(TOKEN_MARKUP|TOKEN_DOM)) break;
-        Tcl_DStringAppendElement(&str,"Unknown");
-        break;
-      case Html_EndVAR: case Html_VAR: case Html_EndU: case Html_U:
-      case Html_EndTT: case Html_TT: case Html_EndSUP: case Html_SUP:
-      case Html_EndSUB: case Html_SUB: case Html_EndSTRONG: case Html_STRONG:
-      case Html_EndSTRIKE: case Html_STRIKE: case Html_EndSMALL:
-      case Html_SMALL: case Html_EndSAMP: case Html_SAMP: case Html_EndS:
-      case Html_S: case Html_EndP: case Html_EndMARQUEE: case Html_MARQUEE:
-      case Html_EndLISTING: case Html_LISTING: case Html_EndKBD: case Html_KBD:
-      case Html_EndI: case Html_I: case Html_EndFONT: case Html_FONT:
-      case Html_EndEM: case Html_EM: case Html_EndDIV: case Html_DIV:
-      case Html_EndDFN: case Html_DFN: case Html_EndCODE: case Html_CODE:
-      case Html_EndCITE: case Html_CITE: case Html_EndCENTER: case Html_CENTER:
-      case Html_BR: case Html_EndBLOCKQUOTE: case Html_BLOCKQUOTE:
-      case Html_EndBIG: case Html_BIG: case Html_EndBASEFONT:
-      case Html_BASEFONT: case Html_BASE: case Html_EndB: case Html_B:
-        isatr=1;
-      default:
-	if (isatr && (flag&(TOKEN_DOM))) break;
-        Tcl_DStringStartSublist(&str);
-	if (flag&TOKEN_LIST) {
-	  sprintf(zLine,"%d",p->base.id);
-          Tcl_DStringAppendElement(&str,zLine);
-	}
-	if (!(flag&(TOKEN_MARKUP|TOKEN_DOM)))
-          Tcl_DStringAppendElement(&str,"Markup");
-        if( p->base.type >= HtmlGetMarkupMap(htmlPtr, 0)->type 
-         && p->base.type <= HtmlGetMarkupMap(htmlPtr, HTML_MARKUP_COUNT-1)->type ){
-          zName = HtmlGetMarkupMap(htmlPtr, p->base.type - HtmlGetMarkupMap(htmlPtr, 0)->type)->zName;
-        }else{
-          zName = "Unknown";
-        }
-        Tcl_DStringAppendElement(&str, zName);
-        for(i=0; i<p->base.count; i++){
-          Tcl_DStringAppendElement(&str, p->markup.argv[i]);
-        }
-        Tcl_DStringEndSublist(&str);
-        break;
-    }
-    p = p->pNext;
-  }
-  Tcl_DStringResult(interp, &str);
-}
-
-/*
-** Return all tokens between the two elements as a Text.
-*/
-void HtmlTclizeAscii(Tcl_Interp *interp, HtmlIndex *s, HtmlIndex *e){
-  int i,j, nsub=0;
-  HtmlElement* p=s->p;
-  Tcl_DString str;
-  if (p && p->base.type==Html_Text) {
-    nsub=s->i;
-  }
-  Tcl_DStringInit(&str);
-  while( p) {
-    switch( p->base.type ){
-      case Html_Block:
-        break;
-      case Html_Text:
-        j=strlen(p->text.zText);
-	if (j<nsub) nsub=j;
-        if (p==e->p) {
-	  j= (e->i-nsub+1);
-	}
-        Tcl_DStringAppend(&str, p->text.zText+nsub,j-nsub);
-	nsub=0;
-        break;
-      case Html_Space:
-        for (j=0; j< p->base.count; j++) {
-	  if (nsub-->0) continue;
-          Tcl_DStringAppend(&str, " ", 1);
-        }
-        if ((p->base.flags & HTML_NewLine)!=0)
-          Tcl_DStringAppend(&str, "\n",1);
-	nsub=0;
-        break;
-      case Html_P:
-      case Html_BR:
-        Tcl_DStringAppend(&str, "\n",1);
-	break;
-      case Html_Unknown:
-        break;
-      default:
-        break;
-    }
-    if (p==e->p) break;
-    p = p->pNext;
-  }
-  Tcl_DStringResult(interp, &str);
-}
-/* Same as above, but puts ascii into buffer. */
-int HtmlAscii2Buf(Tcl_Interp *interp, HtmlIndex *ip, HtmlIndex *ipEnd, 
-  char *buffer, int len, int offset){
-  int i,j,l, n=0, ob, oe;  char *cp;
-  HtmlElement *pBegin=ip->p, *p=ip->p, *pEnd=ipEnd->p;
-  ob=ip->i, oe=ipEnd->i;
-
-  while (p) {
-    switch( p->base.type ){
-      case Html_Text:
-        cp=p->text.zText;
-	for (i=0,j=0; cp[i]; i++) {
-	  if (ob>0) ob--;
-	  else if (p==pEnd && i>=oe) return n;
-	  else if (offset>0) offset--;
-	  else if (n>=(len-1)) return n;
-	  else {
-	    buffer[n++]=cp[i];
-	  }
-	}
-        break;
-      case Html_P:
-      case Html_BR:
-	buffer[n++]='\n';
-	break;
-      case Html_Space:
-        l=p->base.count; j=-1;
-        if ((p->base.flags & HTML_NewLine)!=0) {
-	   j=l++;
-	}
-	for (i=0; i<l; i++) {
-	  if (ob>0) ob--;
-	  else if (p==pEnd && i>=oe) return n;
-	  else if (offset>0) offset--;
-	  else if (n>=(len-1)) return n;
-	  else {
-	    buffer[n++]=(j==i?'\n':' ');
-	  }
-	}
-        break;
-    }
-    if (p==pEnd) return n;
-    p = p->pNext;
-  }
-  buffer[n]=0;
-  return n;
-}
-/*
-** Return all tokens between the two elements as a HTML.
-*/
-void HtmlTclizeHtml(HtmlWidget *htmlPtr, Tcl_Interp *interp, HtmlElement *p, HtmlElement *pEnd){
-  Tcl_DString str;
-  int i,j;
-  char *zName;
-  char zLine[100];
-
-  Tcl_DStringInit(&str);
-  while( p && p!=pEnd ){
-    switch( p->base.type ){
-      case Html_Block:
-        break;
-      case Html_COMMENT:
-        Tcl_DStringAppend(&str, "<!--",-1);
-        Tcl_DStringAppend(&str, p->text.zText,-1);
-        Tcl_DStringAppend(&str, "-->",-1);
-        break;
-      case Html_Text:
-        Tcl_DStringAppend(&str, p->text.zText,-1);
-        break;
-      case Html_Space:
-        for (j=0; j< p->base.count; j++) {
-          Tcl_DStringAppend(&str, " ", 1);
-        }
-        if ((p->base.flags & HTML_NewLine)!=0)
-          Tcl_DStringAppend(&str, "\n",1);
-        break;
-      case Html_Unknown:
-        Tcl_DStringAppend(&str,"Unknown",-1);
-        break;
-      default:
-        if( p->base.type >= HtmlGetMarkupMap(htmlPtr, 0)->type 
-         && p->base.type <= HtmlGetMarkupMap(htmlPtr, HTML_MARKUP_COUNT-1)->type ){
-          zName = HtmlGetMarkupMap(htmlPtr, p->base.type - HtmlGetMarkupMap(htmlPtr, 0)->type)->zName;
-        }else{
-          zName = "Unknown";
-        }
-        Tcl_DStringAppend(&str, "<",1);
-        Tcl_DStringAppend(&str, zName,-1);
-        for(i=0; i<(p->base.count-1); i++){
-          Tcl_DStringAppend(&str, " ",1);
-          Tcl_DStringAppend(&str, p->markup.argv[i++],-1);
-          Tcl_DStringAppend(&str, "=",1);
-          Tcl_DStringAppend(&str, p->markup.argv[i],-1);
-        }
-        Tcl_DStringAppend(&str, ">",1);
-        break;
-    }
-    p = p->pNext;
-  }
-  Tcl_DStringResult(interp, &str);
-}
-
-void HtmlTclizeHtmlFmt(HtmlWidget *htmlPtr, Tcl_Interp *interp, HtmlElement *p, HtmlElement *pEnd){
-  Tcl_DString str;
-  int i,j, indent=0;
-  char *zName;
-  char zLine[100];
-
-  Tcl_DStringInit(&str);
-  while( p && p!=pEnd ){
-    switch( p->base.type ){
-      case Html_Block:
-        break;
-      case Html_COMMENT:
-        Tcl_DStringAppend(&str, "<!--",-1);
-        Tcl_DStringAppend(&str, p->text.zText,-1);
-        Tcl_DStringAppend(&str, "-->",-1);
-        break;
-      case Html_Text:
-        Tcl_DStringAppend(&str, p->text.zText,-1);
-        break;
-      case Html_Space:
-        for (j=0; j< p->base.count; j++) {
-          Tcl_DStringAppend(&str, " ", 1);
-        }
-        if ((p->base.flags & HTML_NewLine)!=0)
-          Tcl_DStringAppend(&str, "\n",1);
-        break;
-      case Html_Unknown:
-        Tcl_DStringAppend(&str,"Unknown",-1);
-        break;
-      default:
-        if( p->base.type >= HtmlGetMarkupMap(htmlPtr, 0)->type 
-         && p->base.type <= HtmlGetMarkupMap(htmlPtr, HTML_MARKUP_COUNT-1)->type ){
-          zName = HtmlGetMarkupMap(htmlPtr, p->base.type - HtmlGetMarkupMap(htmlPtr, 0)->type)->zName;
-        }else{
-          zName = "Unknown";
-        }
-        Tcl_DStringAppend(&str, "<",1);
-        Tcl_DStringAppend(&str, zName,-1);
-        for(i=0; i<(p->base.count-1); i++){
-          Tcl_DStringAppend(&str, " ",1);
-          Tcl_DStringAppend(&str, p->markup.argv[i++],-1);
-          Tcl_DStringAppend(&str, "=",1);
-          Tcl_DStringAppend(&str, p->markup.argv[i],-1);
-        }
-        Tcl_DStringAppend(&str, ">",1);
-        break;
-    }
-    p = p->pNext;
-  }
-  Tcl_DStringResult(interp, &str);
-}
-
-/* Return num of chars at end of line that match chars at begin of pat */
-int trailmatch(char *line, char *pat) {
-  char *p, *e, *ep; int i, l=strlen(line);
-  if (!l) return 0;
-  for (i=0,l--; l>=i && line[l-i]==pat[i]; i++) ;
-  return i;
-}
-
 /*
 ** Search all tokens between the two elements for pat.
 */
+static
 void HtmlTclizeFindText(Tcl_Interp *interp, char *pat, HtmlIndex *ip, HtmlIndex *iEnd, int nocase, int after){
   Tcl_DString str;
   int h, i1, i2, i=0,j,k, l=strlen(pat), n, m=0, fnd=0, sfnd=0;
@@ -2656,9 +2252,11 @@ void HtmlTclizeFindText(Tcl_Interp *interp, char *pat, HtmlIndex *ip, HtmlIndex 
     Tcl_AppendResult(interp, zLine,0);
   }
 }
+
 /*
 ** Search all tokens between the two elements for tag.
 */
+static 
 void HtmlTclizeFind(Tcl_Interp *interp, int tag, HtmlElement *p, HtmlElement *pEnd, int near){
   Tcl_DString str;
   int i,j, n, nearest=0;
@@ -2717,17 +2315,516 @@ void HtmlTclizeFind(Tcl_Interp *interp, int tag, HtmlElement *p, HtmlElement *pE
   Tcl_DStringResult(interp, &str);
 }
 
+
+int HtmlTextFindCmd(
+  ClientData clientData, /* The HTML widget */ 
+  Tcl_Interp *interp,    /* The interpreter */
+  int argc,              /* Number of arguments */
+  CONST char **argv      /* List of all arguments */
+){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
+  HtmlIndex iStart, iEnd;
+  int i, j=4, after=1, nocase=0;
+  iStart.p=iEnd.p=0;  iStart.i=iEnd.i=0;
+  char *pat;
+
+  if (!htmlPtr->pFirst) return TCL_OK;
+  if (argc>4) {
+    if (!strcasecmp(argv[j],"nocase")) { nocase=1; j++; }
+  }
+  if (argc>(j+1)) {
+    if (HtmlGetIndex(htmlPtr, argv[j+1], &iStart.p, &iStart.i)!=0 ){
+      Tcl_AppendResult(interp,"malformed index: \"", argv[3], "\"", 0);
+      return TCL_ERROR;
+    }
+    if (!strcasecmp(argv[j],"before")) after=0;
+    else if (strcasecmp(argv[j],"after")) {
+      Tcl_AppendResult(interp,"before|after: \"", argv[j], "\"", 0);
+      return TCL_ERROR;
+    }
+    if (after) { if (iStart.p) iStart.p=iStart.p->base.pNext; }
+    else { iEnd.p=iStart.p; iStart.p=0; }
+  }
+  if (!iStart.p)
+    iStart.p=htmlPtr->pFirst;
+  if (iEnd.p && after)
+    iEnd.p=iEnd.p->base.pNext;
+/* ?????? Fix i1,i2 */
+  pat = (char *)HtmlAlloc(strlen(argv[3])+1);
+  strcpy(pat, argv[3]);
+  HtmlTclizeFindText(interp,pat,&iStart,&iEnd,nocase,after);
+  HtmlFree(pat);
+  return TCL_OK;
+}
+
+/* Insert str into cp at n. */
+char *StrInsert(char *cp, char *str, int n, int clen) {
+  int l=strlen(str);
+  if (clen<0) clen=strlen(cp);
+  cp=HtmlRealloc(cp,clen+l+1);
+  memmove(cp+n+l,cp+n,clen-n);
+  strncpy(cp+n,str,l);
+  return cp;
+}
+
+static void HtmlAddOffset(HtmlWidget *htmlPtr, HtmlElement *p, int n) {
+  while (p) {
+    p->base.offs+=n;
+    p=p->pNext;
+  }
+}
+
+void HtmlAddStrOffset(HtmlWidget *htmlPtr, HtmlElement *p, char *str,
+  int offs) {
+  int n=0, l=strlen(str);
+  if ((!p) || !p->base.type==Html_Text) return;
+  n=p->base.offs+offs;
+  if (n<0 || htmlPtr->nText<=0) return;
+  htmlPtr->zText=StrInsert(htmlPtr->zText,str,n,htmlPtr->nText);
+  htmlPtr->nText +=l;
+  HtmlAddOffset(htmlPtr,p->pNext,l);
+}
+
+static void HtmlDelStrOffset(HtmlWidget *htmlPtr, HtmlElement *p, int offs,
+  int l) {
+  int len, n=p->base.offs+offs;
+  char *cp=htmlPtr->zText;
+  assert(p->base.type==Html_Text);
+  if (n<0 || htmlPtr->nText<=0) return;
+  len=htmlPtr->nText-n;
+  memmove(cp+n,cp+n+l,len);
+  htmlPtr->nText -=l;
+  HtmlAddOffset(htmlPtr,p->pNext,-l);
+  cp=p->text.zText;
+  len=strlen(cp);
+  p->base.count-=l;
+  memmove(cp+offs,cp+offs+l,len-offs-l+1);
+}
+
+/* Function that refreshes after internal adding/deleting elements. */
+int  HtmlRefresh(HtmlWidget *htmlPtr, int idx) {
+  htmlPtr->flags |= RELAYOUT;
+  HtmlScheduleRedraw(htmlPtr);
+}
+int HtmlRefreshCmd( 
+  ClientData clientData, /* The HTML widget */ 
+  Tcl_Interp *interp, 
+  int argc,
+  CONST char **argv
+){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
+  if (argc<3) htmlPtr->flags |= RELAYOUT;
+  else  {
+   int n=2;
+   while (n<argc) {
+    switch (argv[n][0]) {
+    case 'i': htmlPtr->flags |= REDRAW_IMAGES; break;
+    case 'r': htmlPtr->flags |= RESIZE_ELEMENTS; break;
+    case 'f': htmlPtr->flags |= REDRAW_FOCUS; break;
+    case 't': htmlPtr->flags |= REDRAW_TEXT; break;
+    case 'b': htmlPtr->flags |= REDRAW_BORDER; break;
+    case 'e': htmlPtr->flags |= EXTEND_LAYOUT; break;
+    case 'c': htmlPtr->flags |= RESIZE_CLIPWIN; break;
+    case 's': htmlPtr->flags |= STYLER_RUNNING; break;
+    case 'a': htmlPtr->flags |= ANIMATE_IMAGES; break;
+    case 'v': htmlPtr->flags |= VSCROLL; break;
+    case 'h': htmlPtr->flags |= HSCROLL; break;
+    case 'g': htmlPtr->flags |= GOT_FOCUS; break;
+    case 'l': htmlPtr->flags |= RELAYOUT; break;
+    default: 
+      Tcl_AppendResult(interp, "Unknown refresh option: ", argv[n],0);
+      return TCL_ERROR;
+    }
+    n++;
+   }
+  }
+  HtmlRefresh(htmlPtr,0);
+  HtmlScheduleRedraw(htmlPtr);
+  return TCL_OK;
+}
+
+/* Return the source */
+int HtmlGetCmd( 
+  ClientData clientData, /* The HTML widget */ 
+  Tcl_Interp *interp, 
+  int objc,
+  Tcl_Obj * CONST objv[]
+){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
+  Tcl_SetObjResult(interp, Tcl_NewByteArrayObj(htmlPtr->zText, htmlPtr->nText));
+  return TCL_OK;
+}
+
+
+/*
+** WIDGET text delete START END
+*/
+int HtmlTextDeleteCmd(
+  ClientData clientData, /* The HTML widget */ 
+  Tcl_Interp *interp,    /* The interpreter */
+  int argc,              /* Number of arguments */
+  CONST char **argv      /* List of all arguments */
+){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
+  HtmlElement *pStart, *pEnd, *pn;
+  int ib, ie, idx=0;
+  CONST char *cb; 
+  CONST char *ce;
+  if (argc<=3) cb="begin"; else cb=argv[3];
+  if (argc<=4) ce=cb; else ce=argv[4];
+
+  if( HtmlGetIndex(htmlPtr, cb, &pStart, &ib)!=0 ){
+    Tcl_AppendResult(interp,"malformed index: \"", cb, "\"", 0);
+    return TCL_ERROR;
+  }
+  if( HtmlGetIndex(htmlPtr, ce, &pEnd, &ie)!=0 ){
+    Tcl_AppendResult(interp,"malformed index: \"", ce, "\"", 0);
+    return TCL_ERROR;
+  }
+  if(!pStart ) return TCL_OK;
+  idx=pStart->base.id;
+  if (pEnd==pStart) {
+    if (!ib && ((ie-1)>=strlen(pStart->text.zText)))
+      HtmlRemoveElements(htmlPtr,pStart,pStart);
+    else
+      HtmlDelStrOffset(htmlPtr,pStart,ib,ie-ib+1);
+  } else {
+    pn=pStart->pNext;
+    if (pStart->base.type==Html_Text && ib)
+      HtmlDelStrOffset(htmlPtr,pStart,ib,ib+1);
+    else
+      HtmlRemoveElements(htmlPtr,pStart,pStart);
+    pStart=pn;
+    if (pEnd) {
+      pn=pEnd->base.pPrev;
+      if (pEnd->base.type==Html_Text && ((ie-1)>=strlen(pEnd->text.zText)))
+        HtmlRemoveElements(htmlPtr,pEnd,pEnd);
+      else
+        HtmlDelStrOffset(htmlPtr,pEnd,0,ie);
+      if (pStart==pEnd) pEnd=0;
+      else pEnd=pn;
+    }
+    if (pEnd) {
+      HtmlRemoveElements(htmlPtr,pStart,pEnd);
+    }
+  }
+  HtmlRefresh(htmlPtr,idx);
+  return TCL_OK;
+}
+
+/*
+** WIDGET token insert INDEX TOKEN ARGS
+*/
+int HtmlTokenInsertCmd(
+  ClientData clientData, /* The HTML widget */ 
+  Tcl_Interp *interp,    /* The interpreter */
+  int argc,              /* Number of arguments */
+  CONST char **argv      /* List of all arguments */
+){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
+  HtmlElement *pStart, *pEnd;
+  int idx=0, i, tlen=strlen(argv[4]);  
+  char *cp; 
+  CONST char *attr="";
+  if (argc>5) {
+    attr=argv[5];
+    tlen+=strlen(attr);
+  }
+  if( HtmlGetIndex(htmlPtr, argv[3], &pStart, &i)!=0 ){
+    Tcl_AppendResult(interp,"malformed index: \"", argv[3], "\"", 0);
+    return TCL_ERROR;
+  }
+  if (pStart && pStart->base.type==Html_Text && i== pStart->base.count)
+    pStart=pStart->pNext;
+  HtmlInsertToken(htmlPtr, pStart, (char *)argv[4], attr,-1);
+  cp=(char*)HtmlAlloc(tlen+6);
+  if (argc>5) {
+    sprintf(cp,"<%s %s>", argv[4], argv[5]);
+  } else {
+    sprintf(cp,"<%s>", argv[4]);
+  }
+  HtmlAddStrOffset(htmlPtr,pStart,cp, 0);
+  HtmlFree(cp);
+  if (pStart) idx=pStart->base.id;
+  HtmlRefresh(htmlPtr,idx);
+  htmlPtr->ins.p=pStart;
+  htmlPtr->ins.i=0;
+  return TCL_OK;
+}
+
+/*
+** WIDGET token delete START END
+*/
+int HtmlTokenDeleteCmd(
+  ClientData clientData, /* The HTML widget */ 
+  Tcl_Interp *interp,    /* The interpreter */
+  int argc,              /* Number of arguments */
+  CONST char **argv      /* List of all arguments */
+){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
+  HtmlElement *pStart, *pEnd;
+  int i, idx=0;
+  CONST char *cb;
+  CONST char *ce;
+  if (argc<=3) cb="begin"; else cb=argv[3];
+  if (argc<=4) ce=cb; else ce=argv[4];
+
+  if( HtmlGetIndex(htmlPtr, cb, &pStart, &i)!=0 ){
+    Tcl_AppendResult(interp,"malformed index: \"", cb, "\"", 0);
+    return TCL_ERROR;
+  }
+  if (HtmlGetIndex(htmlPtr, ce, &pEnd, &i)!=0 ){
+    Tcl_AppendResult(interp,"malformed index: \"", ce, "\"", 0);
+    return TCL_ERROR;
+  }
+  if( pStart ){
+    HtmlRemoveElements(htmlPtr,pStart,pEnd);
+    idx=pStart->base.id;
+  }
+  HtmlRefresh(htmlPtr,idx);
+  return TCL_OK;
+}
+
+/*    Given a start token, find the matching end token.  */
+int HtmlTokenGetEnd(
+  ClientData clientData, /* The HTML widget */ 
+  Tcl_Interp *interp,    /* The interpreter */
+  int argc,              /* Number of arguments */
+  CONST char **argv      /* List of all arguments */
+){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
+  HtmlElement *pStart=0;
+  int i;
+
+  if( HtmlGetIndex(htmlPtr, argv[3], &pStart, &i)!=0 ){
+    Tcl_AppendResult(interp,"malformed index: \"", argv[3], "\"", 0);
+    return TCL_ERROR;
+  }
+  if( pStart && HtmlIsMarkup(pStart)){
+    HtmlElement *p;
+    int en=HtmlGetEndToken(htmlPtr, pStart->base.type);
+    p=HtmlFindEndNest(htmlPtr, pStart, en, 0);
+    if (p && p->base.id == 0) p=p->base.pNext;
+    if (p) {
+      char buf[20];
+      sprintf(buf,"%d", HtmlTokenNumber(p));
+      Tcl_AppendResult(interp,buf, 0);
+    }
+  }
+  return TCL_OK;
+}
+
+int HtmlTokenGetCmd(
+  ClientData clientData, /* The HTML widget */ 
+  Tcl_Interp *interp,    /* The interpreter */
+  int argc,              /* Number of arguments */
+  CONST char **argv      /* List of all arguments */
+){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
+  HtmlElement *pStart, *pEnd;
+  int i;
+  CONST char *cb;
+  CONST char *ce;
+  if (argc<=3) cb="begin"; else cb=argv[3];
+
+  if( HtmlGetIndex(htmlPtr, cb, &pStart, &i)!=0 ){
+    Tcl_AppendResult(interp,"malformed index: \"", cb, "\"", 0);
+    return TCL_ERROR;
+  }
+  if (argc<=4) pEnd=pStart; else {
+    if (HtmlGetIndex(htmlPtr, argv[4], &pEnd, &i)!=0 ){
+      Tcl_AppendResult(interp,"malformed index: \"", argv[4], "\"", 0);
+      return TCL_ERROR;
+    }
+  }
+  if (pEnd) pEnd=pEnd->base.pNext;
+  if( pStart ){
+    HtmlTclizeList(htmlPtr, interp,pStart,pEnd, 0);
+  }
+  return TCL_OK;
+}
+
+
+int HtmlTokenFindCmd(
+  ClientData clientData, /* The HTML widget */ 
+  Tcl_Interp *interp,    /* The interpreter */
+  int argc,              /* Number of arguments */
+  CONST char **argv      /* List of all arguments */
+){
+  HtmlWidget *htmlPtr = (HtmlWidget *)clientData;
+  HtmlIndex iStart, iEnd;
+  int i, after=1, near=0;
+  int type = HtmlNameToType(htmlPtr, argv[3]);
+  iStart.p=0; iEnd.p=0; iStart.i=0; iEnd.i=0;
+  if (!htmlPtr->pFirst) return TCL_OK;
+  if( type==Html_Unknown ){
+    Tcl_AppendResult(interp,"unknown tag: \"", argv[3], "\"", 0);
+    return TCL_ERROR;
+  }
+  if (argc>5) {
+    if (HtmlGetIndex(htmlPtr, argv[5], &iStart.p, &iStart.i)!=0 ){
+      Tcl_AppendResult(interp,"malformed index: \"", argv[5], "\"", 0);
+      return TCL_ERROR;
+    }
+    if (!strcasecmp(argv[4],"before")) after=0;
+    else if (!strcasecmp(argv[4],"near")) {
+      near=HtmlTokenNumber(iStart.p); iStart.p=htmlPtr->pFirst;
+    } else if (strcasecmp(argv[4],"after")) {
+      Tcl_AppendResult(interp,"before|after|near: \"", argv[4], "\"", 0);
+      return TCL_ERROR;
+    }
+    if (!near) {
+      if (after) { if (iStart.p) iStart.p=iStart.p->base.pNext; }
+      else { iEnd.p=iStart.p; iStart.p=0; }
+    }
+  }
+  if (!iStart.p)
+    iStart.p=htmlPtr->pFirst;
+  if (!near)
+    if (iEnd.p)
+      iEnd.p=iEnd.p->base.pNext;
+  HtmlTclizeFind(interp,type,iStart.p,iEnd.p,near);
+  return TCL_OK;
+}
+
+/*
+** Remove Elements from the list of elements
+*/
+void HtmlRemoveElements(HtmlWidget *p, HtmlElement* pElem, HtmlElement* pLast){
+  HtmlElement *pPrev;
+  pPrev=pElem->base.pPrev;
+  if (p->pLast==pLast) p->pLast=pPrev;
+  if (p->pFirst==pElem) p->pFirst=pLast->base.pNext;
+  if (pPrev) {
+    pPrev->base.pNext=pLast->base.pNext;
+  }
+  if (pLast) pLast->base.pPrev=pPrev;
+  while (pElem) {
+    pPrev=pElem->base.pNext;
+    HtmlDeleteElement(pElem);
+    p->nToken--;
+    if (pElem==pLast) break;
+    pElem=pPrev;
+  }
+}
+
+/* Same as above, but puts ascii into buffer. */
+int HtmlAscii2Buf(Tcl_Interp *interp, HtmlIndex *ip, HtmlIndex *ipEnd, 
+  char *buffer, int len, int offset){
+  int i,j,l, n=0, ob, oe;  char *cp;
+  HtmlElement *pBegin=ip->p, *p=ip->p, *pEnd=ipEnd->p;
+  ob=ip->i, oe=ipEnd->i;
+
+  while (p) {
+    switch( p->base.type ){
+      case Html_Text:
+        cp=p->text.zText;
+	for (i=0,j=0; cp[i]; i++) {
+	  if (ob>0) ob--;
+	  else if (p==pEnd && i>=oe) return n;
+	  else if (offset>0) offset--;
+	  else if (n>=(len-1)) return n;
+	  else {
+	    buffer[n++]=cp[i];
+	  }
+	}
+        break;
+      case Html_P:
+      case Html_BR:
+	buffer[n++]='\n';
+	break;
+      case Html_Space:
+        l=p->base.count; j=-1;
+        if ((p->base.flags & HTML_NewLine)!=0) {
+	   j=l++;
+	}
+	for (i=0; i<l; i++) {
+	  if (ob>0) ob--;
+	  else if (p==pEnd && i>=oe) return n;
+	  else if (offset>0) offset--;
+	  else if (n>=(len-1)) return n;
+	  else {
+	    buffer[n++]=(j==i?'\n':' ');
+	  }
+	}
+        break;
+    }
+    if (p==pEnd) return n;
+    p = p->pNext;
+  }
+  buffer[n]=0;
+  return n;
+}
+
+static
+void HtmlTclizeHtmlFmt(HtmlWidget *htmlPtr, Tcl_Interp *interp, HtmlElement *p, HtmlElement *pEnd){
+  Tcl_DString str;
+  int i,j, indent=0;
+  char *zName;
+  char zLine[100];
+
+  Tcl_DStringInit(&str);
+  while( p && p!=pEnd ){
+    switch( p->base.type ){
+      case Html_Block:
+        break;
+      case Html_COMMENT:
+        Tcl_DStringAppend(&str, "<!--",-1);
+        Tcl_DStringAppend(&str, p->text.zText,-1);
+        Tcl_DStringAppend(&str, "-->",-1);
+        break;
+      case Html_Text:
+        Tcl_DStringAppend(&str, p->text.zText,-1);
+        break;
+      case Html_Space:
+        for (j=0; j< p->base.count; j++) {
+          Tcl_DStringAppend(&str, " ", 1);
+        }
+        if ((p->base.flags & HTML_NewLine)!=0)
+          Tcl_DStringAppend(&str, "\n",1);
+        break;
+      case Html_Unknown:
+        Tcl_DStringAppend(&str,"Unknown",-1);
+        break;
+      default:
+        if( p->base.type >= HtmlGetMarkupMap(htmlPtr, 0)->type 
+         && p->base.type <= HtmlGetMarkupMap(htmlPtr, HTML_MARKUP_COUNT-1)->type ){
+          zName = HtmlGetMarkupMap(htmlPtr, p->base.type - HtmlGetMarkupMap(htmlPtr, 0)->type)->zName;
+        }else{
+          zName = "Unknown";
+        }
+        Tcl_DStringAppend(&str, "<",1);
+        Tcl_DStringAppend(&str, zName,-1);
+        for(i=0; i<(p->base.count-1); i++){
+          Tcl_DStringAppend(&str, " ",1);
+          Tcl_DStringAppend(&str, p->markup.argv[i++],-1);
+          Tcl_DStringAppend(&str, "=",1);
+          Tcl_DStringAppend(&str, p->markup.argv[i],-1);
+        }
+        Tcl_DStringAppend(&str, ">",1);
+        break;
+    }
+    p = p->pNext;
+  }
+  Tcl_DStringResult(interp, &str);
+}
+
+/* Return num of chars at end of line that match chars at begin of pat */
+int trailmatch(char *line, char *pat) {
+  char *p, *e, *ep; int i, l=strlen(line);
+  if (!l) return 0;
+  for (i=0,l--; l>=i && line[l-i]==pat[i]; i++) ;
+  return i;
+}
+
 extern int (*HtmlFetchSelectionPtr)(ClientData , int, char *, int );
 
-#if INTERFACE
-#define DLL_EXPORT
-#endif
-#if defined(USE_TCL_STUBS) && defined(__WIN32__)
-# undef DLL_EXPORT
-# define DLL_EXPORT __declspec(dllexport)
-#endif
-
-int HtmlBP () {
+int HtmlBP (
+  ClientData clientData,
+  Tcl_Interp *interp,
+  int argc,
+  CONST char **argv
+){
   return TCL_OK;
 }
 /*DLL_EXPORT*/ int Htmlexts_Init(Tcl_Interp *interp) {
