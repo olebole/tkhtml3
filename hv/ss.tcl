@@ -1,4 +1,4 @@
-# @(#) $Id: ss.tcl,v 1.8 2000/01/04 14:46:33 drh Exp $
+# @(#) $Id: ss.tcl,v 1.9 2000/02/19 18:37:52 drh Exp $
 #
 # This script implements the "ss" application.  "ss" implements
 # a presentation slide-show based on HTML slides.
@@ -73,6 +73,7 @@ html .h.h \
   -appletcommand AppletCmd \
   -hyperlinkcommand HyperCmd \
   -fontcommand pickFont \
+  -appletcommand {runApplet small} \
   -bg white -tablerelief raised
 .h.h token handler meta "Meta .h.h"
 
@@ -106,6 +107,23 @@ proc pickFontFS {size attrs} {
 
 proc HyperCmd {args} {
   # puts "HyperlinkCommand: $args"
+}
+
+# This routine is called to run an applet
+#
+proc runApplet {size w arglist} {
+  global AppletArg
+  catch {unset AppletArg}
+  foreach {name value} $arglist {
+    set AppletArg([string tolower $name]) $value
+  }
+  if {![info exists AppletArg(src)]} return
+  set src [.h.h resolve $AppletArg(src)]
+  set AppletArg(window) $w
+  set AppletArg(fontsize) $size
+  if {[catch {uplevel #0 "source $src"} msg]} {
+    puts "Applet error: $msg"
+  }
 }
 
 proc FormCmd {n cmd args} {
@@ -383,8 +401,9 @@ proc FullScreen {} {
     -appletcommand AppletCmd \
     -hyperlinkcommand HyperCmd \
     -bg white -tablerelief raised \
+    -appletcommand {runApplet big} \
     -fontcommand pickFontFS \
-    -cursor top_left_arrow
+    -cursor tcross
   pack .fs.h -fill both -expand 1
   .fs.h token handler meta "Meta .fs.h"
   Clear

@@ -5,7 +5,7 @@
 # This application is used for testing the HTML widget.  It can
 # also server as an example of how to use the HTML widget.
 # 
-# @(#) $Id: hv.tcl,v 1.24 2000/01/30 01:20:08 drh Exp $
+# @(#) $Id: hv.tcl,v 1.25 2000/02/19 18:37:52 drh Exp $
 #
 wm title . {HTML File Viewer}
 wm iconname . {HV}
@@ -219,7 +219,16 @@ proc HrefBinding {x y} {
   set new [.h.h href $x $y]
   # puts "link to [list $new]"; return
   if {$new!=""} {
-    LoadFile $new
+    global LastFile
+    set pattern $LastFile#
+    set len [string length $pattern]
+    incr len -1
+    if {[string range $new 0 $len]==$pattern} {
+      incr len
+      .h.h yview [string range $new $len end]
+    } else {
+      LoadFile $new
+    }
   }
 }
 bind .h.h.x <1> {HrefBinding %x %y}
