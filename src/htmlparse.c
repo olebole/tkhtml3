@@ -1,6 +1,6 @@
 /*
 ** A tokenizer that converts raw HTML into a linked list of HTML elements.
-** $Revision: 1.8 $
+** $Revision: 1.9 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -238,6 +238,47 @@ static void EscInit(void){
 #endif
 }
 
+/*
+** This table translates the special microsoft characters between
+** 0x80 and 0x9f into ASCII.
+*/
+#ifndef __WIN32__
+static char acMsChar[] = {
+  /* 0x80 */ 'C',
+  /* 0x81 */ ' ',
+  /* 0x82 */ ',',
+  /* 0x83 */ 'f',
+  /* 0x84 */ '"',
+  /* 0x85 */ '.',
+  /* 0x86 */ '\247',
+  /* 0x87 */ '\247',
+  /* 0x88 */ '^',
+  /* 0x89 */ '%',
+  /* 0x8a */ 'S',
+  /* 0x8b */ '<',
+  /* 0x8c */ 'O',
+  /* 0x8d */ ' ',
+  /* 0x8e */ 'Z',
+  /* 0x8f */ ' ',
+  /* 0x90 */ ' ',
+  /* 0x91 */ '\'',
+  /* 0x92 */ '\'',
+  /* 0x93 */ '"',
+  /* 0x94 */ '"',
+  /* 0x95 */ '*',
+  /* 0x96 */ '-',
+  /* 0x97 */ '-',
+  /* 0x98 */ '~',
+  /* 0x99 */ '\256',
+  /* 0x9a */ 's',
+  /* 0x9b */ '>',
+  /* 0x9c */ 'o',
+  /* 0x9d */ ' ',
+  /* 0x9e */ 'z',
+  /* 0x9f */ 'Y',
+};
+#endif
+
 /* Translate escape sequences in the string "z".  "z" is overwritten
 ** with the translated sequence.
 **
@@ -273,6 +314,11 @@ void HtmlTranslateEscapes(char *z){
           i++;
         }
         if( z[i]==';' ){ i++; }
+#ifndef __WIN32__
+        if( v>=0x80 && v<0xa0 ){
+          v = acMsChar[v&0x1f];
+        }
+#endif
         z[to++] = v;
         from = i;
       }else{
@@ -302,9 +348,11 @@ void HtmlTranslateEscapes(char *z){
           TestPoint(0);
         }
       }
+#ifndef __WIN32__
     }else if( ((unsigned char)z[from])>=0x80 && ((unsigned char)z[from])<0xa0 ){
-      z[to++] = (z[from++] & 1)==0 ? 0xbb : 0xab;
+      z[to++] = acMsChar[z[from++]&0x1f];
       TestPoint(0);
+#endif
     }else{
       z[to++] = z[from++];
       TestPoint(0);
