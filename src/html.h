@@ -1,6 +1,6 @@
 /*
 ** Structures and typedefs used by the HTML widget
-** $Revision: 1.38 $
+** $Revision: 1.39 $
 **
 ** This source code is released into the public domain by the author,
 ** D. Richard Hipp, on 2002 December 17.  Instead of a license, here
@@ -284,10 +284,16 @@ struct HtmlStyle {
 #define STY_Invisible       0x040
 #define STY_FontMask        (STY_StrikeThru|STY_Underline)
 
+#define HTMLTAG_END         0x01
+#define HTMLTAG_INLINE      0x02
+#define HTMLTAG_BLOCK       0x04
+#define HTMLTAG_EMPTY       0x08
+
 struct HtmlTokenMap {
   char *zName;                /* Name of a markup */
   Html_16 type;               /* Markup type code */
   Html_16 extra;              /* Extra space needed above HtmlBaseElement */
+  Html_u8 flags;              /* Combination of HTMLTAG values */
   HtmlTokenMap *pCollide;     /* Hash table collision chain */
 };
 
@@ -1302,5 +1308,8 @@ HtmlElement *HtmlTokenByIndex(HtmlWidget *htmlPtr, int N, int flag);
 
 /* htmltree.c */
 EXTERN Tcl_ObjCmdProc HtmlTreeTclize;
+
+/* htmltagdb.c */
+Html_u8 HtmlMarkupFlags(int);
 
 #endif /* __HTML_H__ */

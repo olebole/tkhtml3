@@ -68,6 +68,33 @@ getEndToken(htmlPtr, typ)
 /*
  *---------------------------------------------------------------------------
  *
+ * isEndNode --
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int isEndNode(pElem, inl)
+    HtmlElement *pElem;
+    int inl;
+{
+    Html_u8 flags;
+    if( pElem ){
+        flags = HtmlMarkupFlags(pElem->base.type);
+        if (0==(flags&HTMLTAG_END) && (0==inl || (flags&HTMLTAG_INLINE)) ) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * buildNode --
  *
  *     Build a document node from the element pointed to by pStart.
@@ -82,68 +109,91 @@ getEndToken(htmlPtr, typ)
  *---------------------------------------------------------------------------
  */
 static int 
-buildNode(p, pStart, pEnd, ppLast, ppNode)
+buildNode(p, pStart, pEnd, ppNext, ppNode, expect_inline)
     HtmlWidget *p;
     HtmlElement *pStart;
     HtmlElement *pEnd;
-    HtmlElement **ppLast;
+    HtmlElement **ppNext;
     HtmlNode **ppNode;
+    int expect_inline;
 {
     HtmlNode *pNode;                       /* The new node */
     HtmlTree *pTree = p->pTree;
-    HtmlElement *pLast;
+    HtmlElement *pNext = pStart;
     int i;
 
     Html_u8 opentype = pStart->base.type;
-    Html_u8 closetype = getEndToken(p, opentype);
+    Html_u8 flags = HtmlMarkupFlags((int)opentype);
 
-    /* Allocate the node itself. The array of child pointers we allocate
-     * using ckrealloc() below.
+    /* Allocate the node itself. If required, we allocate the array of
+     * child pointers we allocate using ckrealloc() below.
      */
     pNode = (HtmlNode *)ckalloc(sizeof(HtmlNode));
     pNode->nChild = 0;
     pNode->apChildren = 0;
     pNode->pParent = 0;
-    pLast = pStart;
+    pNode->pElement = pStart;
+    pNext = pStart;
 
-    if( closetype!=Html_Unknown ){
-        pLast = pStart->pNext;
-        while( pLast && pLast->base.type!=closetype ){
-            int n = (pNode->nChild+1)*sizeof(HtmlNode *) + sizeof(HtmlNode);
-            pNode = (HtmlNode *)ckrealloc((char *)pNode, n);
-            pNode->apChildren = (HtmlNode **)&pNode[1];
-            buildNode(p,pLast,pEnd,&pLast,&pNode->apChildren[pNode->nChild]);
-            pNode->nChild++;
-        }
-        if( pLast ){
-            pLast = pLast->pNext;
-        }
+    /* This function should never be called with pStart pointing to 
+     * closing tag.
+     */
+    assert( 0==(flags&HTMLTAG_END) );
+
+    /* If the HTMLTAG_EMPTY flag is true for this kind of markup, then
+     * the node consists of a single element only. An easy case. Simply
+     * advance the iterator to the next token.
+     */
+    if( flags&HTMLTAG_EMPTY ){
+        pNext = pNext->pNext;
     }
 
     /* If the element this document node points to is of type Text or
-     * Space, then advance pLast until it points to an element of type
+     * Space, then advance pNext until it points to an element of type
      * other than Text or Space. Only a single node is required for
      * a contiguous list of such elements.
      */
-    if( opentype==Html_Text || opentype==Html_Space ){
-        assert( closetype==Html_Unknown );
-        while (pLast && pLast!=pEnd && 
-              (pLast->base.type==Html_Text || pLast->base.type==Html_Space)
+    else if( opentype==Html_Text || opentype==Html_Space ){
+        while (pNext && pNext!=pEnd && 
+              (pNext->base.type==Html_Text || pNext->base.type==Html_Space)
         ){
-            pLast = pLast->pNext;
+            pNext = pNext->pNext;
         }
     }
 
-    /* Set the element type and the parent pointer of any child nodes.
-     * It's easier to set the parent pointer here than when the node is
-     * constructed, so we can ckrealloc() the pNode pointer above..
+    /* We must be dealing with a markup tag. */
+    else {
+        Html_u8 closetype = opentype+1;
+        assert( HtmlMarkupFlags(closetype)&HTMLTAG_END );
+ 
+        if( opentype==Html_P ){
+            expect_inline = 1;
+        }
+
+        pNext = pStart->pNext;
+        while (!isEndNode(pNext, expect_inline)){
+            int n = (pNode->nChild+1)*sizeof(HtmlNode *) + sizeof(HtmlNode);
+            pNode = (HtmlNode *)ckrealloc((char *)pNode, n);
+            pNode->apChildren = (HtmlNode **)&pNode[1];
+            buildNode(p, pNext, pEnd, &pNext, 
+                    &pNode->apChildren[pNode->nChild], expect_inline);
+            pNode->nChild++;
+        }
+
+        if( pNext && pNext->base.type==closetype ){
+            pNext = pNext->pNext;
+        }
+    }
+
+    /* Set the the parent pointer of any child nodes.  It's easier to set
+     * the parent pointer here than when the node is constructed, so we can
+     * ckrealloc() the pNode pointer above..
      */
-    pNode->pElement = pStart;
     for (i=0; i<pNode->nChild; i++) {
         pNode->apChildren[i]->pParent = pNode;
     }
 
-    *ppLast = pLast;
+    *ppNext = pNext;
     *ppNode = pNode;
     return 0;
 }
@@ -220,11 +270,11 @@ HtmlTreeBuild(p)
         pStart = pStart->pNext;
     }
     if( !pStart || pStart->base.type!=Html_HTML ){
-        /* Allocate HtmlTree and pretend <html> element */
+        /* Allocate HtmlTree and a pretend <html> element */
         int n = sizeof(HtmlTree) + sizeof(HtmlBaseElement);
         HtmlBaseElement *pHtml;
         p->pTree = (HtmlTree *)ckalloc(n);
-        memset(p, 0, n);
+        memset(p->pTree, 0, n);
         pHtml = (HtmlBaseElement *)&p->pTree[1];
         pHtml->pNext = pStart;
         pHtml->type = Html_HTML;
@@ -233,10 +283,10 @@ HtmlTreeBuild(p)
         /* Allocate just the HtmlTree. */
         int n = sizeof(HtmlTree);
         p->pTree = (HtmlTree *)ckalloc(n);
-        memset(p, 0, n);
+        memset(p->pTree, 0, n);
     }
 
-    buildNode(p, pStart, 0, &p->pTree->pCurrent, &p->pTree->pRoot);
+    buildNode(p, pStart, 0, &p->pTree->pCurrent, &p->pTree->pRoot, 0);
     return 0;
 }
 
@@ -289,6 +339,9 @@ nodeToString(pNode)
                 p = 0;
         }
     }
+    if (i>0 && zBuf[i-1]==' ') {
+         i--;
+    }
     zBuf[i] = '\0';
     return zBuf;
 }
@@ -314,7 +367,7 @@ static Tcl_Obj *nodeToList(interp, p, pNode, trim)
 {
     Tcl_Obj *pRet;
     HtmlElement *pElement;
-    char *zType;
+    CONST char *zType;
     int t;
 
     assert( pNode );
@@ -395,10 +448,13 @@ HtmlTreeTclize(clientData, interp, objc, objv)
     HtmlWidget *p = (HtmlWidget *)clientData;
     Tcl_Obj *pList;
 
+    assert( !HtmlIsDead(p) );
+
     HtmlTreeBuild(p);
     pList = nodeToList(interp, p, p->pTree->pRoot, 1);
     Tcl_SetObjResult(interp, pList);
     Tcl_DecrRefCount(pList);
 
+    assert( !HtmlIsDead(p) );
     return TCL_OK;
 }

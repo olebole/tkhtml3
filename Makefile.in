@@ -12,7 +12,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile.in,v 1.5 2005/03/25 06:22:19 danielk1977 Exp $
+# RCS: @(#) $Id: Makefile.in,v 1.6 2005/03/25 10:40:58 danielk1977 Exp $
 
 #========================================================================
 # Edit the following few lines when writing a new extension
@@ -35,7 +35,7 @@ Tkhtml_SOURCES	=				\
 		htmltable.c	htmltest.c	\
 		htmlurl.c	htmlwidget.c	\
 		htmltcl.c	htmlexts.c	\
-                htmltree.c                      \
+                htmltree.c      htmltagdb.c     \
 		@EXTRA_SOURCES@
 
 WIN_SOURCES	= 
@@ -266,9 +266,6 @@ testshell	=	$(TCLSH_PROG) $(srcdir)/testshell
 
 autotest: binaries libraries
 	$(TCLSH) `@CYGPATH@ $(srcdir)/tests/tree.test` $(TESTFLAGS)
-	$(testshell)	\
-	-load 'load ./$(Tkhtml_LIB_FILE)' \
-	-testdir $(srcdir)/tea.tests
 
 test: binaries libraries
 	echo load ./$(Tkhtml_LIB_FILE) \; cd $(srcdir)/tests \; source all | $(TCLSH) $(TESTFLAGS)

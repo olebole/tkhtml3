@@ -1,0 +1,130 @@
+#
+# tree.test --
+#
+#     Test that html documents are parsed to the correct tree structure.
+#
+# TODO: Copyright etc.
+#
+
+set auto_path [concat . $auto_path]
+package require Tkhtml
+package require tcltest
+tcltest::configure -verbose {body error pass}
+
+html .h
+
+proc node {args} {
+  set ret [lindex $args 0]
+  if {[llength $args]>1} {
+    set ret [list $ret [lrange $args 1 end]]
+  }
+  return $ret
+}
+
+proc test_tree {testname html tree} {
+    ::tcltest::test $testname {} {
+        .h clear
+        .h parse $html
+        .h tree -trim
+    } $tree
+}
+
+# Test a very simple document, entirely XHTML correct.
+test_tree tree-1 {
+    <html>
+        <head>
+        </head>
+        <body>
+            <p>First test case</p>
+        </body>
+    </html>
+} [
+    node html [
+        node head ] [
+        node body [
+            node p [
+                node "First test case" ] ] ]
+]
+
+# The same document, but with the </p> closing tag omited. In
+# this case the <p> element is auto-closed when the closing
+# tag </body> is encountered.
+#
+test_tree tree-2 {
+    <html>
+        <head>
+        </head>
+        <body>
+            <p>First test case
+        </body>
+    </html>
+} [
+    node html [
+        node head ] [
+        node body [
+            node p [
+                node "First test case" ] ] ]
+] 
+
+# The same document, but truncated just before the </p> tag.
+# All open tags are auto-closed when the end of the document
+# is reached.
+#
+test_tree tree-3 {
+    <html>
+        <head>
+        </head>
+        <body>
+            <p>First test case
+} [
+    node html [
+        node head ] [
+        node body [
+            node p [
+                node "First test case" ] ] ]
+] 
+
+# A similar document, but this time we auto-close the <p>
+# element by opening another HTML 'block' level element - in 
+# this case another <p>. The second <p> should be a sibling
+# of the first, not a child.
+#
+test_tree tree-4 {
+    <html>
+        <head>
+        </head>
+        <body>
+            <p>First test case
+            <p>Second paragraph
+        </body>
+    </html>
+} [
+    node html [
+        node head ] [
+        node body [
+            node p [
+                node "First test case" ] ] [
+            node p [
+                node "Second paragraph" ] ] ]
+] 
+
+# The same document as above, but leave out the <html> element.
+#
+test_tree tree-5 {
+        <head>
+        </head>
+        <body>
+            <p>First test case
+            <p>Second paragraph
+        </body>
+} [
+    node html [
+        node head ] [
+        node body [
+            node p [
+                node "First test case" ] ] [
+            node p [
+                node "Second paragraph" ] ] ]
+] 
+
+exit

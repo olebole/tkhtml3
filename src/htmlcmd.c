@@ -1,5 +1,5 @@
 static char const rcsid[] =
-        "@(#) $Id: htmlcmd.c,v 1.30 2005/03/24 12:05:06 danielk1977 Exp $";
+        "@(#) $Id: htmlcmd.c,v 1.31 2005/03/25 10:40:58 danielk1977 Exp $";
 
 /*
 ** Routines to implement the HTML widget commands
@@ -16,6 +16,7 @@ static char const rcsid[] =
 #include "html.h"
 #include <X11/Xatom.h>
 #include <string.h>
+#include <assert.h>
 
 /*
 ** WIDGET resolve ?URI ...?
@@ -72,7 +73,9 @@ HtmlClearCmd(clientData, interp, argc, argv)
     const char **argv;                 /* List of all arguments */
 {
     HtmlWidget *htmlPtr = (HtmlWidget *) clientData;
+    assert( !HtmlIsDead(htmlPtr) );
     HtmlClear(htmlPtr);
+    assert( !HtmlIsDead(htmlPtr) );
     htmlPtr->flags |= REDRAW_TEXT | VSCROLL | HSCROLL;
     HtmlScheduleRedraw(htmlPtr);
     return TCL_OK;
@@ -230,6 +233,8 @@ int HtmlParseCmd(clientData, interp, objc, objv)
     HtmlIndex iStart;
     HtmlElement *savePtr;
     HtmlWidget *htmlPtr = (HtmlWidget *) clientData;
+    assert( !HtmlIsDead(htmlPtr) );
+
     iStart.p = 0;
     iStart.i = 0;
     htmlPtr->LOendPtr = htmlPtr->pLast;

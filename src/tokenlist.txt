@@ -1,5 +1,5 @@
 #
-# $Revision: 1.12 $
+# $Revision: 1.13 $
 #
 # tokenlist.tcl -- 
 #
@@ -193,7 +193,7 @@ proc _TAG {args} {
     set i [expr [lsearch $args "-close"]+1]
     if {$i} {set close sizeof([lindex $args $i])}
     set i [expr [lsearch $args "-flow"]+1]
-    if {$i} {set flow HTMLFLOW_[string toupper [lindex $args $i]]}
+    if {$i} {set flow HTMLTAG_[string toupper [lindex $args $i]]}
     set i [expr [lsearch $args "-empty"]+1]
     if {$i} {set empty 1}
 
@@ -209,10 +209,22 @@ proc _TAG {args} {
     }
 
     # Insert the HtmlTokenMap record into the constant array.
-    set fmt {  {% -15s % -18s % -24s %s},}
-    puts $::c_file [format $fmt "\"$tag\"," $opensym, $open, 0]
+    set fmt {  {% -15s % -18s % -20s %s %s},}
+    set flags 0
+    if {$flow!=0} {
+        set flags $flow
+        if {$empty} {
+            set flags $flow|HTMLTAG_EMPTY
+        } else {
+            set flags $flow
+        }
+    } elseif {$empty} {
+        set flags HTMLTAG_EMPTY
+    }
+    puts $::c_file [format $fmt "\"$tag\"," $opensym, $open, $flags, 0]
     if {!$empty} {
-        puts $::c_file [format $fmt "\"/$tag\"," $closesym, $close, 0]
+        set flags HTMLTAG_END
+        puts $::c_file [format $fmt "\"/$tag\"," $closesym, $close, $flags, 0]
     }
 }
 
