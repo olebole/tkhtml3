@@ -1,6 +1,6 @@
 /*
 ** Routines for doing layout of HTML tables
-** $Revision: 1.3 $
+** $Revision: 1.4 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -70,6 +70,7 @@ static HtmlElement *TableDimensions(
   HtmlElement *pNext;                /* Next element to process */
   int iCol = 0;                      /* Current column number.  1..N */
   int iRow = 0;                      /* Current row number */
+  int inRow = 0;                     /* True if in between <TR> and </TR> */
   int i, j;                          /* Loop counters */
   int n;                             /* Number of columns */
   int minW, maxW;                    /* min and max width for one cell */
@@ -107,10 +108,14 @@ static HtmlElement *TableDimensions(
     pNext = p->pNext;
     switch( p->base.type ){
       case Html_EndTD:
-      case Html_EndTR:
       case Html_EndTH:
       case Html_EndTABLE:
         p->ref.pOther = pStart;
+        TestPoint(0);
+        break;
+      case Html_EndTR:
+        p->ref.pOther = pStart;
+        inRow = 0;
         TestPoint(0);
         break;
       case Html_TR:
@@ -118,6 +123,7 @@ static HtmlElement *TableDimensions(
         iRow++;
         pStart->table.nRow++;
         iCol = 0;
+        inRow = 1;
         TestPoint(0);
         break;
       case Html_CAPTION:
@@ -129,6 +135,20 @@ static HtmlElement *TableDimensions(
         break;
       case Html_TD:
       case Html_TH:
+        if( !inRow ){
+          /* If the <TR> markup is omitted, insert it. */
+          HtmlElement *pNew = (HtmlElement*)ckalloc( sizeof(HtmlRef) );
+          if( pNew==0 ) break;
+          memset(pNew, 0, sizeof(HtmlRef));
+          pNew->base = p->base;
+          pNew->base.pNext = p;
+          pNew->base.type = Html_TR;
+          pNew->base.count = 0;
+          p->base.pPrev->base.pNext = pNew;
+          p->base.pPrev = pNew;
+          pNext = pNew;
+          break;
+        }
         do{
           iCol++;
           TestPoint(0);

@@ -1,6 +1,6 @@
 /*
 ** Structures and typedefs used by the HTML widget
-** $Revision: 1.7 $
+** $Revision: 1.8 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
