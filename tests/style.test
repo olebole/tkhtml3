@@ -1,0 +1,172 @@
+#
+# tree.test --
+#
+#     Test that html documents are parsed to the correct tree structure.
+#
+# TODO: Copyright etc.
+#
+
+# Standard stuff.
+set INTEST 1
+set testdir [file dirname [info script]]
+source $testdir/autotest.test
+
+
+#
+# Tests in this file are implemented by the following proc.
+#
+# Arguments are:
+#     $testname    Name of the test (i.e. "style-1")
+#     $html        HTML document text
+#     $style       CSS stylesheet text
+#     $tree        The Tcl representation of the styled document tree
+#                  produced by applying the stylesheet to the document.
+#                  The $tree argument is constructed using the node proc.
+#                  See comments above [node] for details.
+#
+# The test passes if tkhtml parses the stylesheet with no syntax errors
+# and combines the stylesheet and document to produce the same tree
+# as $tree.
+#
+proc test_tree {testname html style tree} {
+    ::tcltest::test $testname.1 {} {
+        .h clear
+        .h parse $html
+        .h style parse $style
+        .h style syntax_errs
+    } 0
+ 
+    ::tcltest::test $testname.2 {} {
+        .h style apply
+        .h tree get -properties
+    } $tree
+}
+
+proc node {args} {
+  set ret [lindex $args 0]
+  if {[llength $args]>1} {
+    lappend ret [lindex $args 1]
+  }
+  if {[llength $args]>2} {
+    lappend ret [lrange $args 2 end]
+  }
+  return $ret
+}
+
+html .h
+
+# Simplest possible example.
+#
+set document {
+  <html></html>
+}
+set style {
+  html {color:red}
+}
+set tree [node html {color red}]
+test_tree style-1.1 $document $style $tree
+
+
+# Slightly more complex example. Still trivial though.
+#
+test_tree style-1.2 {
+    <html>
+        <head>
+        </head>
+        <body>
+            <h1>Should get no properties</h1>
+            <p>Should get color:red
+        </body>
+    </html>
+} {
+    p {
+        color:red
+    }
+} [
+node html {} [
+    node head {} ] [ 
+        node body {} [
+            node h1 {} [
+                node "Should get no properties" ] ] [
+            node p {color red} [
+                node "Should get color:red" ] ] ] 
+]
+
+# Combine two rules using a "," in the stylesheet.
+#
+test_tree style-1.3 {
+    <html>
+        <head>
+        </head>
+        <body>
+            <h1>Should get color:red</h1>
+            <p>Should get color:red
+        </body>
+    </html>
+} {
+    p, h1 {
+        color:red
+    }
+} [
+node html {} [
+    node head {} ] [ 
+        node body {} [
+            node h1 {color red} [
+                node "Should get color:red" ] ] [
+            node p {color red} [
+                node "Should get color:red" ] ] ]
+]
+
+# Test for the presence of an HTML attribute with a selector.
+#
+test_tree style-1.4 {
+    <html>
+        <head>
+        </head>
+        <body>
+            <p>No style <a href="some url">Underline!</a> No style</p>
+        </body>
+    </html>
+} {
+    a[href] {text-decoration : underline}
+} [
+node html {} [
+    node head {} ] [ 
+        node body {} [
+            node p {} [
+                node "No style" ] [
+                node a {text-decoration underline} [
+                    node "Underline!" ] ] [
+                node "No style" ] ] ]
+]
+
+# Two rules that apply to the same element.
+#
+test_tree style-1.4 {
+    <html>
+        <head>
+        </head>
+        <body>
+            <p>No style <a href="some url">Underline!</a> No style</p>
+        </body>
+    </html>
+} {
+    a {color : red }
+    a[href] {text-decoration : underline}
+} [
+node html {} [
+    node head {} ] [ 
+        node body {} [
+            node p {} [
+                node "No style" ] [
+                node a {color red text-decoration underline} [
+                    node "Underline!" ] ] [
+                node "No style" ] ] ]
+]
+
+
+
+
+
+destroy .h
+

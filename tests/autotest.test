@@ -1,0 +1,30 @@
+
+if {[info exists INAUTOTEST]} return
+set testdir [file dirname [info script]]
+
+set files [list \
+    tree.test   \
+    style.test  \
+]
+
+###########################################################################
+
+catch {memory init on}
+
+set auto_path [concat . $auto_path]
+package require Tkhtml
+package require tcltest
+tcltest::configure -verbose {body error pass}
+
+set INAUTOTEST 1
+if {![info exists INTEST]} {
+    foreach f $files {
+        if {[catch {source $testdir/$f} msg]} {
+            puts stderr $msg
+        }
+    }
+    exit
+}
+
+
+

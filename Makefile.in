@@ -12,7 +12,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile.in,v 1.6 2005/03/25 10:40:58 danielk1977 Exp $
+# RCS: @(#) $Id: Makefile.in,v 1.7 2005/03/26 11:54:30 danielk1977 Exp $
 
 #========================================================================
 # Edit the following few lines when writing a new extension
@@ -36,6 +36,8 @@ Tkhtml_SOURCES	=				\
 		htmlurl.c	htmlwidget.c	\
 		htmltcl.c	htmlexts.c	\
                 htmltree.c      htmltagdb.c     \
+                cssparse.c      css.c           \
+                cssprop.c       htmlstyle.c     \
 		@EXTRA_SOURCES@
 
 WIN_SOURCES	= 
@@ -172,7 +174,8 @@ TCLSH_PROG	= @TCLSH_PROG@
 TCLSH		= $(TCLSH_ENV) $(TCLSH_PROG)
 SHARED_BUILD	= @SHARED_BUILD@
 
-INCLUDES	= -I$(top_builddir) @TCL_INCLUDES@ @TK_INCLUDES@ @TK_XINCLUDES@ -I$(includedir)
+INCLUDES	= -I$(top_builddir) @TCL_INCLUDES@ @TK_INCLUDES@ \
+                  @TK_XINCLUDES@ -I$(includedir) -I$(srcdir)/src
 
 EXTRA_CFLAGS	= $(MEM_DEBUG_FLAGS) @EXTRA_CFLAGS@
 
@@ -265,7 +268,7 @@ testshell	=	$(TCLSH_PROG) $(srcdir)/testshell
 #		-testdir $(srcdir)/tea.tests
 
 autotest: binaries libraries
-	$(TCLSH) `@CYGPATH@ $(srcdir)/tests/tree.test` $(TESTFLAGS)
+	$(TCLSH) `@CYGPATH@ $(srcdir)/tests/autotest.test` $(TESTFLAGS)
 
 test: binaries libraries
 	echo load ./$(Tkhtml_LIB_FILE) \; cd $(srcdir)/tests \; source all | $(TCLSH) $(TESTFLAGS)
@@ -314,10 +317,17 @@ $($(PACKAGE)stub_LIB_FILE): $($(PACKAGE)stub_OBJECTS)
 # As necessary, add $(srcdir):$(srcdir)/compat:....
 #========================================================================
 
-VPATH = $(srcdir)/src:$(srcdir)/generic:$(srcdir)/unix:$(srcdir)/win
+VPATH = $(srcdir)/src:$(srcdir)/generic:$(srcdir)/unix:$(srcdir)/win:.
 
-.c.$(OBJEXT): html.h
+%.c: %.y
+
+%.o: %.c
+
+%.o: %.c html.h cssparse.h css.h cssInt.h cssprop.h
 	$(COMPILE) -c `@CYGPATH@ $<` -o $@
+
+# .c.$(OBJEXT): html.h cssparse.h css.h cssInt.h cssprop.h
+#	$(COMPILE) -c `@CYGPATH@ $<` -o $@
 
 #========================================================================
 # The special targets to generate many files etc.
@@ -331,22 +341,23 @@ mktclapp:	$(srcdir)/tools/mktclapp.c
 htmltokens.c:	$(srcdir)/src/tokenlist.txt
 	$(TCLSH_PROG) $(srcdir)/src/tokenlist.txt
 
-headers:	makeheaders htmltokens.c
-	./makeheaders	$(srcdir)/src/htmlcmd.c:htmlcmd.h	\
-			$(srcdir)/src/htmldraw.c:htmldraw.h	\
-			$(srcdir)/src/htmlform.c:htmlform.h	\
-			$(srcdir)/src/htmlimage.c:htmlimage.h	\
-			$(srcdir)/src/htmlindex.c:htmlindex.h	\
-			$(srcdir)/src/htmllayout.c:htmllayout.h	\
-			$(srcdir)/src/htmlparse.c:htmlparse.h	\
-			$(srcdir)/src/htmlsizer.c:htmlsizer.h	\
-			$(srcdir)/src/htmltable.c:htmltable.h	\
-			$(srcdir)/src/htmltest.c:htmltest.h	\
-			$(srcdir)/src/htmlurl.c:htmlurl.h	\
-			$(srcdir)/src/htmlwidget.c:htmlwidget.h	\
-			$(srcdir)/src/htmltcl.c:htmltcl.h	\
-			$(srcdir)/src/htmlexts.c:htmlexts.h	\
-			htmltokens.c $(srcdir)/src/html.h
+cssprop.h: cssprop.tcl
+	$(TCLSH) $?
+
+cssprop.c: cssprop.h
+
+LEMON = lemon$(EXEEXT)
+
+$(LEMON): $(srcdir)/tools/lemon.c
+	$(COMPILE) `@CYGPATH@ $(srcdir)/tools/lemon.c` -o $(LEMON)
+
+
+cssparse.h: $(srcdir)/src/cssparse.y $(LEMON)
+	cp $(srcdir)/src/cssparse.y .
+	cp $(srcdir)/tools/lempar.c .
+	./$(LEMON) cssparse.y
+
+cssparse.c: cssparse.h
 
 #========================================================================
 

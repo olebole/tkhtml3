@@ -13,29 +13,6 @@ static char rcsid[] = "@(#) $Id:";
 #include <assert.h>
 #include <string.h>
 
-/* Each node of the document tree is represented as an HtmlNode structure.
- * This structure carries no information to do with the node itself, it is
- * simply used to build the tree structure. All the information for the
- * node is stored in the HtmlElement object.
- */
-typedef struct HtmlNode HtmlNode;
-struct HtmlNode {
-    HtmlNode *pParent;
-    HtmlElement *pElement;
-    int nChild;
-    HtmlNode **apChildren;
-};
-
-/* A document tree is represented by an instance of the following 
- * structure. Variable pCurrent is intended to be context for 
- * incrementally building a tree from a linked list of tokens, but
- * that isn't implemented yet.
- */
-struct HtmlTree {
-    HtmlNode *pCurrent;    /* The node currently being built */
-    HtmlNode *pRoot;       /* The root-node of the document. */
-};
-
 /*
  *---------------------------------------------------------------------------
  *
@@ -111,9 +88,7 @@ buildNode(pTree, pStart, ppNext, ppNode, expect_inline)
      * child pointers we allocate using ckrealloc() below.
      */
     pNode = (HtmlNode *)ckalloc(sizeof(HtmlNode));
-    pNode->nChild = 0;
-    pNode->apChildren = 0;
-    pNode->pParent = 0;
+    memset(pNode, 0, sizeof(HtmlNode));
     pNode->pElement = pStart;
     pNext = pStart;
 
@@ -237,7 +212,7 @@ void HtmlTreeFree(p)
 /*
  *---------------------------------------------------------------------------
  *
- * HtmlTreeBuild --
+ * treeBuild --
  *
  *     Build the document tree using the linked list of tokens currently
  *     stored in the widget. 
@@ -250,8 +225,8 @@ void HtmlTreeFree(p)
  *
  *---------------------------------------------------------------------------
  */
-int 
-HtmlTreeBuild(p)
+static int 
+treeBuild(p)
     HtmlWidget *p;
 {
     HtmlElement *pStart = p->pFirst;
@@ -350,6 +325,61 @@ nodeToString(pNode)
 /*
  *---------------------------------------------------------------------------
  *
+ * walkTree --
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+walkTree(p, xCallback, pNode)
+    HtmlWidget *p;
+    int (*xCallback)(HtmlWidget *, HtmlNode *);
+    HtmlNode *pNode;
+{
+    int i;
+    if( pNode ){
+        for (i = 0; i<pNode->nChild; i++) {
+            int rc = walkTree(p, xCallback, pNode->apChildren[i]);
+            if (rc) return rc;
+        }
+        xCallback(p, pNode);
+    }
+    return 0;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlWalkTree --
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+int 
+HtmlWalkTree(p, xCallback)
+    HtmlWidget *p;
+    int (*xCallback)(HtmlWidget *, HtmlNode *);
+{
+    if( !p->pTree ){
+        treeBuild(p);
+    }
+    return walkTree(p, xCallback, p->pTree->pRoot);
+}
+
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * nodeToList --
  *
  * Results:
@@ -361,11 +391,12 @@ nodeToString(pNode)
  *---------------------------------------------------------------------------
  */
 static Tcl_Obj *
-nodeToList(interp, p, pNode, trim)
+nodeToList(interp, p, pNode, trim, properties)
     Tcl_Interp *interp;
     HtmlWidget *p;
     HtmlNode *pNode;
     int trim;                  /* True to trim out all whitespace nodes */
+    int properties;            /* True to include CSS properties */
 {
     Tcl_Obj *pRet;
     HtmlElement *pElement;
@@ -397,6 +428,12 @@ nodeToList(interp, p, pNode, trim)
     pRet = Tcl_NewStringObj(zType, -1);
     Tcl_IncrRefCount(pRet);
 
+    if( properties && t!=Html_Text && t!=Html_Space ){
+        Tcl_Obj *pProps = HtmlCssPropertiesTclize(pNode->pProperties);
+        Tcl_ListObjAppendElement(interp, pRet, pProps);
+        Tcl_DecrRefCount(pProps);
+    }
+
     if( pNode->nChild ){
         int i;
         int len = 0;
@@ -405,7 +442,8 @@ nodeToList(interp, p, pNode, trim)
         Tcl_IncrRefCount(pChildList);
         
         for(i=0; i<pNode->nChild; i++){
-            Tcl_Obj *pC = nodeToList(interp, p, pNode->apChildren[i]);
+            HtmlNode *pChild = pNode->apChildren[i];
+            Tcl_Obj *pC = nodeToList(interp, p, pChild, trim, properties);
             if( pC ){
                 len++;
                 Tcl_ListObjAppendElement(interp, pChildList, pC);
@@ -430,7 +468,7 @@ nodeToList(interp, p, pNode, trim)
  *     Obtain a Tcl representation of the document tree stored in
  *     HtmlWidget.pTree.
  *
- *     Tcl: $widget tree ?-trim?
+ *     Tcl: $widget tree get ?-properties?
  *
  * Results:
  *     None.
@@ -452,11 +490,46 @@ HtmlTreeTclize(clientData, interp, objc, objv)
 
     assert( !HtmlIsDead(p) );
 
-    HtmlTreeBuild(p);
-    pList = nodeToList(interp, p, p->pTree->pRoot, 1);
+    if( !p->pTree ){
+        treeBuild(p);
+    }
+
+    pList = nodeToList(interp, p, p->pTree->pRoot, 1, (objc==4));
     Tcl_SetObjResult(interp, pList);
     Tcl_DecrRefCount(pList);
 
+    assert( !HtmlIsDead(p) );
+    return TCL_OK;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlTreeBuild --
+ *
+ *     Construct the internal representation of the document tree.
+ *     This is a front-end to treeBuild().
+ *
+ *     Tcl: $widget tree build
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     Modify HtmlWidget.pTree
+ *
+ *---------------------------------------------------------------------------
+ */
+int 
+HtmlTreeBuild(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget */
+    Tcl_Interp *interp;                /* The interpreter */
+    int objc;                          /* Number of arguments */
+    Tcl_Obj *CONST objv[];             /* List of all arguments */
+{
+    HtmlWidget *p = (HtmlWidget *)clientData;
+    assert( !HtmlIsDead(p) );
+    treeBuild(p);
     assert( !HtmlIsDead(p) );
     return TCL_OK;
 }

@@ -1,6 +1,6 @@
 /*
 ** Structures and typedefs used by the HTML widget
-** $Revision: 1.40 $
+** $Revision: 1.41 $
 **
 ** This source code is released into the public domain by the author,
 ** D. Richard Hipp, on 2002 December 17.  Instead of a license, here
@@ -16,6 +16,7 @@
 
 #include <tk.h>
 #include "htmltokens.h"
+#include "css.h"
 
 /*
 ** Various data types.  This code is designed to run on a modern
@@ -61,7 +62,9 @@ typedef struct HtmlWidget HtmlWidget;
 typedef struct HtmlUserTag HtmlUserTag;
 typedef struct HtmlStyle HtmlStyle;
 typedef struct HtmlTokenMap HtmlTokenMap;
+
 typedef struct HtmlTree HtmlTree;
+typedef struct HtmlNode HtmlNode;
 
 #ifdef USE_DMALLOC
 #define __malloc_and_calloc_defined
@@ -181,6 +184,30 @@ extern HtmlWidget *dbghtmlPtr;
 #define HtmlRealloc(A,B)  realloc(A,B)
 #define HtmlStrdup(A)     strdup(A)
 #endif
+
+/* Each node of the document tree is represented as an HtmlNode structure.
+ * This structure carries no information to do with the node itself, it is
+ * simply used to build the tree structure. All the information for the
+ * node is stored in the HtmlElement object.
+ */
+struct HtmlNode {
+    HtmlNode *pParent;
+    HtmlElement *pElement;
+    int nChild;
+    CssProperties *pProperties;
+    HtmlNode **apChildren;
+};
+
+/* A document tree is represented by an instance of the following 
+ * structure. Variable pCurrent is intended to be context for 
+ * incrementally building a tree from a linked list of tokens, but
+ * that isn't implemented yet. Some other context variables will
+ * probably need to be added when it is.
+ */
+struct HtmlTree {
+    HtmlNode *pCurrent;    /* The node currently being built */
+    HtmlNode *pRoot;       /* The root-node of the document. */
+};
 
 /*
 ** An instance of the following structure is used to record style
@@ -1067,7 +1094,8 @@ struct HtmlWidget {
   char *FontFamily;		/* Default font family to use. */
   HtmlExtensions *exts;		/* Pointer to user extension data */
 
-  HtmlTree *pTree;              /* Document tree */
+  HtmlTree *pTree;              /* Compiled document tree */
+  CssStyleSheet *pStyle;        /* Compiled stylesheet(s) */
 };
 
 struct HtmlUserTag {
@@ -1309,8 +1337,18 @@ HtmlElement *HtmlTokenByIndex(HtmlWidget *htmlPtr, int N, int flag);
 
 /* htmltree.c */
 EXTERN Tcl_ObjCmdProc HtmlTreeTclize;
+EXTERN Tcl_ObjCmdProc HtmlTreeBuild;
+EXTERN void HtmlTreeFree(HtmlWidget *p);
+EXTERN int HtmlWalkTree(HtmlWidget *, int (*)(HtmlWidget *, HtmlNode *));
+
+/* htmlstyle.c */
+EXTERN Tcl_ObjCmdProc HtmlStyleParse;
+EXTERN Tcl_ObjCmdProc HtmlStyleApply;
+EXTERN Tcl_ObjCmdProc HtmlStyleSyntaxErrs;
+CONST CssNodeInterface * HtmlNodeInterface();
 
 /* htmltagdb.c */
 Html_u8 HtmlMarkupFlags(int);
+CONST char * HtmlMarkupName(int);
 
 #endif /* __HTML_H__ */

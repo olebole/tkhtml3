@@ -1,5 +1,5 @@
 static char const rcsid[] =
-        "@(#) $Id: htmlcmd.c,v 1.31 2005/03/25 10:40:58 danielk1977 Exp $";
+        "@(#) $Id: htmlcmd.c,v 1.32 2005/03/26 11:54:30 danielk1977 Exp $";
 
 /*
 ** Routines to implement the HTML widget commands
@@ -73,9 +73,8 @@ HtmlClearCmd(clientData, interp, argc, argv)
     const char **argv;                 /* List of all arguments */
 {
     HtmlWidget *htmlPtr = (HtmlWidget *) clientData;
-    assert( !HtmlIsDead(htmlPtr) );
+    HtmlTreeFree(htmlPtr);
     HtmlClear(htmlPtr);
-    assert( !HtmlIsDead(htmlPtr) );
     htmlPtr->flags |= REDRAW_TEXT | VSCROLL | HSCROLL;
     HtmlScheduleRedraw(htmlPtr);
     return TCL_OK;
