@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlcmd.c,v 1.24 2002/12/17 18:24:16 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlcmd.c,v 1.25 2002/12/18 13:14:26 drh Exp $";
 /*
 ** Routines to implement the HTML widget commands
 **
@@ -207,7 +207,7 @@ int HtmlParseCmd(
       htmlPtr->zGoto=(char*)strdup(arg2);
     }
   }
-  arg1=Tcl_GetByteArrayFromObj(objv[2], &i);
+  arg1=Tcl_GetStringFromObj(objv[2], &i);
   HtmlTokenizerAppend(htmlPtr, arg1, i);
   if( HtmlIsDead(htmlPtr) ){
     return TCL_OK;
