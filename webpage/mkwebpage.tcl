@@ -2,7 +2,7 @@
 #
 # Construct the web page for tkhtml
 #
-# @(#) $Id: mkwebpage.tcl,v 1.5 2000/06/21 00:46:49 drh Exp $
+# @(#) $Id: mkwebpage.tcl,v 1.6 2001/06/17 22:45:35 peter Exp $
 #
 
 set p [open publish.sh w]
@@ -158,10 +158,10 @@ reaching the anonymous CVS server are on the tkhtml
 }
 foreach {file desc} {
   tkhtml.tar.gz   {A tarball containing all the latest source code}
-  hv.tcl.gz       {The "Html Viewer" example application}
+  hv.tcl          {The "Html Viewer" example application}
   spec.html       {A raw specification of how the tkhtml widget works}
-  tkhtml.so.gz    {Shared library suitable for use on Linux}
-  tkhtml.dll.zip  {A DLL suitable for use on Windows95/98/NT/2K}
+  tkhtml.so       {Shared library suitable for use on Linux}
+  tkhtml.dll      {A DLL suitable for use on Windows95/98/NT/2K}
 } {
   if {![file readable $file]} continue
   lappend SendList $file
@@ -169,12 +169,7 @@ foreach {file desc} {
   puts $f "Description: $desc<br>"
   puts $f "Size: [file size $file] bytes<br>"
   puts $f "Last modified: [clock format [file mtime $file]]"
-  switch -glob -- $file {
-    *.zip -
-    *.gz {set access zcat}
-    default {set access cat}
-  }
-  if {![catch {exec $access $file | ident | grep {$Id: }} ident]} {
+  if {![catch {exec ident $file | grep {$Id: }} ident]} {
     puts $f "<br>Version information:"
     puts $f "<pre>\n$ident</pre>"
   }

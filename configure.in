@@ -164,7 +164,7 @@ AC_INIT(src/html.h)
 dnl Put the RCS revision string after AC_INIT so that it will also
 dnl show in in configure.
 # The following RCS revision string applies to configure.in
-# $Revision: 1.12 $
+# $Revision: 1.13 $
 
 #########
 # Make sure we are not building in a subdirectory of the source tree.
@@ -390,7 +390,7 @@ else
     fi
   fi
   if test "$BUILD_TCLSH" = ""; then
-    AC_CHECK_PROGS(BUILD_TCLSH, tclsh8.3 tclsh8.2 tclsh8.1 tclsh81 tclsh8.0 tclsh80 cygtclsh80 tclsh, "")
+    AC_CHECK_PROGS(BUILD_TCLSH, tclsh8.4 tclsh8.3 tclsh8.2 tclsh8.1 tclsh81 tclsh8.0 tclsh80 cygtclsh80 tclsh, "")
   fi
   if test "$BUILD_TCLSH" = ""; then
     AC_MSG_ERROR([no working "tclsh" could be found])
@@ -583,7 +583,7 @@ else
     LIBS=$extra
   else 
     LIBS=""
-    AC_SEARCH_LIBS(Tcl_Init, tcl8.3 tcl8.2 tcl8.1 tcl8.0 tcl80 tcl,,,$otherlibs)
+    AC_SEARCH_LIBS(Tcl_Init, tcl8.4 tcl8.3 tcl8.2 tcl8.1 tcl8.0 tcl80 tcl,,,$otherlibs)
   fi
   TARGET_TCL_LIBS="$LIBS $otherlibs"
 fi
@@ -666,7 +666,7 @@ else
     CC=$TARGET_CC
     otherlibs="$TARGET_X_LIBS $TARGET_TCL_LIBS"
     LIBS=""
-    AC_SEARCH_LIBS(Tk_Init, tk8.3 tk8.2 tk8.1 tk8.0 tk80 tk,,,$otherlibs)
+    AC_SEARCH_LIBS(Tk_Init, tk8.4 tk8.3 tk8.2 tk8.1 tk8.0 tk80 tk,,,$otherlibs)
     TARGET_TK_LIBS=$LIBS
   fi
 fi

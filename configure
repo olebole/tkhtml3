@@ -533,7 +533,7 @@ fi
 
 
 # The following RCS revision string applies to configure.in
-# $Revision: 1.13 $
+# $Revision: 1.14 $
 
 #########
 # Make sure we are not building in a subdirectory of the source tree.
@@ -1061,7 +1061,7 @@ else
     fi
   fi
   if test "$BUILD_TCLSH" = ""; then
-    for ac_prog in tclsh8.3 tclsh8.2 tclsh8.1 tclsh81 tclsh8.0 tclsh80 cygtclsh80 tclsh
+    for ac_prog in tclsh8.4 tclsh8.3 tclsh8.2 tclsh8.1 tclsh81 tclsh8.0 tclsh80 cygtclsh80 tclsh
 do
 # Extract the first word of "$ac_prog", so it can be a program name with args.
 set dummy $ac_prog; ac_word=$2
@@ -1626,7 +1626,7 @@ else
   cat conftest.$ac_ext >&5
 fi
 rm -f conftest*
-test "$ac_cv_search_Tcl_Init" = "no" && for i in tcl8.3 tcl8.2 tcl8.1 tcl8.0 tcl80 tcl; do
+test "$ac_cv_search_Tcl_Init" = "no" && for i in tcl8.4 tcl8.3 tcl8.2 tcl8.1 tcl8.0 tcl80 tcl; do
 LIBS="-l$i $otherlibs $ac_func_search_save_LIBS"
 cat > conftest.$ac_ext <<EOF
 #line 1633 "configure"
@@ -2740,7 +2740,7 @@ else
   cat conftest.$ac_ext >&5
 fi
 rm -f conftest*
-test "$ac_cv_search_Tk_Init" = "no" && for i in tk8.3 tk8.2 tk8.1 tk8.0 tk80 tk; do
+test "$ac_cv_search_Tk_Init" = "no" && for i in tk8.4 tk8.3 tk8.2 tk8.1 tk8.0 tk80 tk; do
 LIBS="-l$i $otherlibs $ac_func_search_save_LIBS"
 cat > conftest.$ac_ext <<EOF
 #line 2747 "configure"

@@ -10,23 +10,23 @@
 # using cygwin/mingw.  Do not use the tclstub81.lib and tkstub81.lib
 # files that come with Tcl/Tk from scripts.  They won't work.
 #
-# $Revision: 1.8 $
+# $Revision: 1.9 $
 #
 
-LIBHOME=/home/drh/tcltk/win32/lib
-TCLBASE=/home/drh/tcltk/tcl8.2.3
-TKBASE=/home/drh/tcltk/tk8.2.3
-TKLIB="$LIBHOME/tkstub82.a"
-TCLLIB="$LIBHOME/tclstub82.a"
+LIBHOME=/u/pcmacdon/Tcl8.3/win32/lib
+TCLBASE=/u/pcmacdon/Tcl8.3/tcl8.3
+TKBASE=/u/pcmacdon/Tcl8.3/tk8.3
+TKLIB="$LIBHOME/tkStubLib.a"
+TCLLIB="$LIBHOME/tclStubLib.a"
 
-PATH=$PATH:/opt/cygwin20/bin
+PATH=$PATH:/usr/local/cygb20/bin
 
 CC='i586-cygwin32-gcc -DUSE_TCL_STUBS=1 -DUSE_TK_STUBS -mno-cygwin -O2'
-INC="-I. -I$TCLBASE/generic -I$TKBASE/generic"
+INC="-I. -I$TCLBASE/generic -I$TKBASE/xlib -I$TKBASE/generic"
 
 CMD="rm *.o"
 echo $CMD
-$CMD
+#$CMD
 for i in *.c; do
   CMD="$CC $INC -c $i"
   echo $CMD
@@ -34,12 +34,14 @@ for i in *.c; do
 done
 echo 'EXPORTS' >tkhtml.def
 echo 'Tkhtml_Init' >>tkhtml.def
+#-lcomdlg32 -luser32 -ladvapi32 -lgdi32. 
+
 CMD="i586-cygwin32-dllwrap \
      --def tkhtml.def -v --export-all \
      --driver-name i586-cygwin32-gcc \
      --dlltool-name i586-cygwin32-dlltool \
      --as i586-cygwin32-as \
      --target i386-mingw32 -mno-cygwin \
-     -dllname tkhtml.dll *.o $TKLIB $TCLLIB"
+     -dllname tkhtml.dll *.o $TKLIB $TCLLIB -luser32"
 echo $CMD
 $CMD

@@ -5,7 +5,7 @@
 # This application is used for testing the HTML widget.  It can
 # also server as an example of how to use the HTML widget.
 # 
-# @(#) $Id: hv.tcl,v 1.25 2000/02/19 18:37:52 drh Exp $
+# @(#) $Id: hv.tcl,v 1.26 2001/06/17 22:45:35 peter Exp $
 #
 wm title . {HTML File Viewer}
 wm iconname . {HV}

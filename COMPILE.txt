@@ -1,5 +1,35 @@
                        HOW TO COMPILE THE TKHTML WIDGET
 
+NOTE: Following are some changes to the tkhtml build.
+You should still read the instructions following this note:
+
+Unless you have no need for Postscript (printer) support,
+the Tkhtml build now requires the tcl and tk source trees to be
+in the same directory that holds the tkhtml directory.
+ie. the first steps are now:
+
+  tar -xpvf tcl8.*.tar.gz
+  tar -xpvf tk8.*.tar.gz
+  tar -xpvf tkhtml.tar.gz
+
+Also this must be the only version of tcl and tk in this directory.
+Do not use -with-tk etc, as  I have kludged makemake.tcl.in to use
+  -I ../tcl8.*/generic, and so on. (Peter MacDonald)
+
+There are two ways to build the tkhtml: with or without stubs.
+Stubs is preferred, however a stubs build will not be done for htmlPs.c,
+Instead it builds as a seperate library:  tkhtmlpr.so.
+In either case you do the "mkdir bld; cd bld; ../tkhtml/configure" first.  
+Then, for non-stubs just type "make" which produces tkhtml.so.
+For stubs, do: 
+
+  make headers
+  ../tkhtml/mkso.sh
+
+Peter MacDonald - peter@BrowseX.com
+
+End NOTE:
+
 The TkHtml widget is written in C code.  But many of the C source code
 files are automatically generated.  This makes the compilation more
 complex that many people are used to.
@@ -18,11 +48,11 @@ You will need a working installation of Tcl/Tk in order to compile.  If
 you installation is not complex, and you are not trying to do anything
 clever like cross-compile, then you should be able to compile as follows:
 
-    ../htmlwidget/configure
+    ../tkhtml/configure
     make
 
 This above assumes that the name of the top-level directory containing
-source code is "htmlwidget" and that you are building in a sibling directory
+source code is "tkhtml" and that you are building in a sibling directory
 named "bld".
 
 The configure script makes a valiant attempt to figure out how to compile
@@ -39,7 +69,7 @@ compiled Tcl in a directory named /home/drh/tcltk/tcl8.2 and I compiled
 Tk in /home/drh/tcltk/tk8.2.  Then I might type:
 
 
-   ../htmlwidget/configure --with-tcl=/home/drh/tcltk/tcl8.2 \
+   ../tkhtml/configure --with-tcl=/home/drh/tcltk/tcl8.2 \
       --with-tk=/home/drh/tcltk/tk8.2
    make
 
