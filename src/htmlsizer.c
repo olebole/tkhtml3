@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlsizer.c,v 1.39 2002/03/06 18:10:58 peter Exp $";
+static char const rcsid[] = "@(#) $Id: htmlsizer.c,v 1.40 2002/09/22 16:55:46 peter Exp $";
 /*
 ** Routines used to compute the style and size of individual elements.
 **
@@ -574,7 +574,7 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         }
         z = HtmlMarkupArg(p,"color",0);
         if( z && z[0] && (!htmlPtr->overrideColors)) {
-          style.color = HtmlGetColorByName(htmlPtr, z);
+          style.color = HtmlGetColorByName(htmlPtr, z, style.color);
         }
         PushStyleStack(htmlPtr, 
             p->base.type==Html_FONT ? Html_EndFONT : Html_EndBASEFONT, style);
@@ -617,7 +617,9 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         HtmlAppendArglist(&cmd, p);
         Tcl_DStringEndSublist(&cmd);
         HtmlLock(htmlPtr);
+	htmlPtr->inParse++;
         result = Tcl_GlobalEval(htmlPtr->interp, Tcl_DStringValue(&cmd));
+	htmlPtr->inParse--;
         Tcl_DStringFree(&cmd);
         if( HtmlUnlock(htmlPtr) ) return;
         if( result==TCL_OK ){
@@ -792,7 +794,8 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
 #if 0
         if( htmlPtr->zScriptCommand && *htmlPtr->zScriptCommand ){
           Tcl_DString cmd;
-          int result;
+	  char *resstr;
+          int result, reslen;
           Tcl_DStringInit(&cmd);
           Tcl_DStringAppend(&cmd, htmlPtr->zScriptCommand, -1);
           Tcl_DStringStartSublist(&cmd);
@@ -802,13 +805,17 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
           Tcl_DStringAppend(&cmd, p->script.zScript, p->script.nScript);
           Tcl_DStringEndSublist(&cmd);
           HtmlLock(htmlPtr);
+	  htmlPtr->inParse++;
           result = Tcl_GlobalEval(htmlPtr->interp, Tcl_DStringValue(&cmd));
+	  htmlPtr->inParse--;
           Tcl_DStringFree(&cmd);
           if( HtmlUnlock(htmlPtr) ) return;
-	  if (result==0 && htmlPtr->interp->result[0]) {
+	  resstr=Tcl_GetByteArrayObj(Tcl_GetObjResult(htmlPtr->interp->result),
+		&reslen);
+	  if (result==0 && resstr && reslen) {
 	    HtmlElement *b2=p->pNext,*b3, *ps, *e1=p,*e2=b2,*e3;
 	    if (e2) while (e2->pNext) e2=e2->pNext;
-            HtmlTokenizerAppend(htmlPtr,htmlPtr->interp->result);
+            HtmlTokenizerAppend(htmlPtr,resstr, reslen);
 	    if (e2 && e2!=p && ((e3=b3=e2->pNext))) {
 	      while (e3->pNext) e3=e3->pNext;
 	      e1->pNext=b3;
@@ -894,7 +901,7 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         nextStyle.align = ALIGN_Left;
         z = HtmlMarkupArg(p, "bgcolor", 0);
         if( z && z[0] && (!htmlPtr->overrideColors)){
-          style.bgcolor = nextStyle.bgcolor = HtmlGetColorByName(htmlPtr, z);
+          style.bgcolor = nextStyle.bgcolor = HtmlGetColorByName(htmlPtr, z, style.bgcolor);
 	  style.expbg = 1;
 /*        }else{
           nextStyle.bgcolor = COLOR_Background; */
@@ -924,7 +931,7 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         htmlPtr->inTd = 1;
         paraAlign = GetAlignment(p, rowAlign);
         if( (z = HtmlMarkupArg(p, "bgcolor", 0))!=0 && z[0] && (!htmlPtr->overrideColors)){
-          style.bgcolor = HtmlGetColorByName(htmlPtr, z);
+          style.bgcolor = HtmlGetColorByName(htmlPtr, z, style.bgcolor);
 	  style.expbg = 1;
         }
         HtmlTableBgImage(htmlPtr,p);
@@ -956,7 +963,7 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         paraAlign = GetAlignment(p, ALIGN_Center);
         style.font = BoldFont( FontSize(style.font) );
         if( (z = HtmlMarkupArg(p, "bgcolor", 0))!=0 && z[0]){
-          style.bgcolor = HtmlGetColorByName(htmlPtr, z);
+          style.bgcolor = HtmlGetColorByName(htmlPtr, z, style.bgcolor);
 	  style.expbg = 1;
         }
         HtmlTableBgImage(htmlPtr,p);
@@ -973,7 +980,7 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         }
         rowAlign = GetAlignment(p, ALIGN_None);
         if( (z = HtmlMarkupArg(p, "bgcolor", 0))!=0 && z[0] && (!htmlPtr->overrideColors)){
-          style.bgcolor = HtmlGetColorByName(htmlPtr, z);
+          style.bgcolor = HtmlGetColorByName(htmlPtr, z, style.bgcolor);
 	  style.expbg = 1;
         }
         HtmlTableBgImage(htmlPtr,p);
@@ -1030,7 +1037,7 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
       ("Style of 0x%08x font=%02d color=%02d bg=%02d "
        "align=%d flags=0x%04x token=%s\n",
       (int)p, p->base.style.font, p->base.style.color, p->base.style.bgcolor,
-      p->base.style.align, p->base.style.flags, HtmlTokenName(p)));
+      p->base.style.align, p->base.style.flags, HtmlTokenName(htmlPtr, p)));
     p = p->pNext;
   }
 
@@ -1060,7 +1067,9 @@ void HtmlTableBgImage(HtmlWidget *htmlPtr, HtmlElement *p) {
   sprintf(buf," %d", p->base.id);
   Tcl_DStringAppend(&cmd, buf, -1);
   HtmlLock(htmlPtr);
+  htmlPtr->inParse++;
   result = Tcl_GlobalEval(htmlPtr->interp, Tcl_DStringValue(&cmd));
+  htmlPtr->inParse--;
   Tcl_DStringFree(&cmd);
   if( HtmlUnlock(htmlPtr) ) return;
   if (result == TCL_OK)

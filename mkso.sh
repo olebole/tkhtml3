@@ -4,7 +4,7 @@
 # First do "make srcdir; cd srcdir; ../tkhtml/configure; make headers"
 # Then run this script.
 #
-# $Revision: 1.7 $
+# $Revision: 1.8 $
 #
 
 SVER=8.3

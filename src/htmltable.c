@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmltable.c,v 1.48 2002/03/12 02:59:48 peter Exp $";
+static char const rcsid[] = "@(#) $Id: htmltable.c,v 1.49 2002/09/22 16:55:46 peter Exp $";
 /*
 ** Routines for doing layout of HTML tables
 **
@@ -497,7 +497,7 @@ static HtmlElement *TableDimensions(
         }
         TRACE(HtmlTrace_Table1,
           ("Row %d Column %d: min=%d max=%d req=%d stop at %s\n",
-            iRow,iCol,minW,maxW,requestedW, HtmlTokenName(p->cell.pEnd)));
+            iRow,iCol,minW,maxW,requestedW, HtmlTokenName(htmlPtr, p->cell.pEnd)));
         if( noWrap ){
           if( (z = HtmlMarkupArg(p, "rowspan", 0))==0 ){ /* Hack ??? */
             /*minW = (requestedW>0?requestedW:maxW); */
@@ -751,8 +751,8 @@ static HtmlElement *TableDimensions(
 #ifdef DEBUG
   if( HtmlTraceMask & HtmlTrace_Table5 ){
     TRACE_INDENT;
-    printf("Start with %s and ", HtmlTokenName(pStart));
-    printf("end with %s\n", HtmlTokenName(p));
+    printf("Start with %s and ", HtmlTokenName(htmlPtr, pStart));
+    printf("end with %s\n", HtmlTokenName(htmlPtr, p));
     TRACE_INDENT;
     printf("nCol=%d minWidth=%d maxWidth=%d\n",
       pStart->table.nCol, pStart->table.minW[0], pStart->table.maxW[0]);
@@ -1051,7 +1051,7 @@ HtmlElement *HtmlTableLayout(
   }
   TRACE_PUSH(HtmlTrace_Table2);
   TRACE(HtmlTrace_Table2, ("Starting TableLayout() at %s\n", 
-                          HtmlTokenName(pTable)));
+                          HtmlTokenName(pLC->htmlPtr, pTable)));
 
   /* Figure how much horizontal space is available for rendering 
   ** this table.  Store the answer in lineWidth.  leftMargin is
@@ -1199,7 +1199,7 @@ HtmlElement *HtmlTableLayout(
         }
         pEndCaption = p;
       }
-      TRACE(HtmlTrace_Table3, ("Skipping token %s\n", HtmlTokenName(p)));
+      TRACE(HtmlTrace_Table3, ("Skipping token %s\n", HtmlTokenName(pLC->htmlPtr, p)));
       p = p->pNext; 
     }
     if( p==0 ){ break; }
@@ -1214,7 +1214,7 @@ HtmlElement *HtmlTableLayout(
     iCol = 0;
     for(p=p->pNext; p && p->base.type!=Html_TR && p!=pEnd; p=pNext){
       pNext = p->pNext;
-      TRACE(HtmlTrace_Table3, ("Processing token %s\n", HtmlTokenName(p)));
+      TRACE(HtmlTrace_Table3, ("Processing token %s\n", HtmlTokenName(pLC->htmlPtr, p)));
       switch( p->base.type ){
         case Html_TD:
         case Html_TH:
@@ -1394,7 +1394,7 @@ HtmlElement *HtmlTableLayout(
   TRACE(HtmlTrace_Table2, (
      "Done with TableLayout().  x=%d y=%d w=%d h=%d Return %s\n",
      pTable->table.x, pTable->table.y, pTable->table.w, pTable->table.h,
-     HtmlTokenName(pEnd)));
+     HtmlTokenName(pLC->htmlPtr, pEnd)));
   TRACE_POP(HtmlTrace_Table2);
   return pEnd;
 }

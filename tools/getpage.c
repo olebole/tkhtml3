@@ -1,7 +1,7 @@
 /*
 ** This is a simple program used to retrieve an HTML document using
 ** HTTP.  The program also fetches all images that the document
-** references. 
+** references.
 */
 #include <stdio.h>
 #include <stdlib.h>

@@ -1,4 +1,4 @@
-# @(#) $Id: ss.tcl,v 1.11 2001/06/17 22:45:35 peter Exp $
+# @(#) $Id: ss.tcl,v 1.12 2002/09/22 16:55:45 peter Exp $
 #
 # This script implements the "ss" application.  "ss" implements
 # a presentation slide-show based on HTML slides.

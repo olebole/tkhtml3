@@ -1,4 +1,6 @@
-static char const rcsid[] = "@(#) $Id: htmlparse.c,v 1.27 2002/03/06 18:10:58 peter Exp $";
+#define TokenMap(htmlPtr,idx) (htmlPtr->tokenMap?htmlPtr->tokenMap[idx]:(HtmlMarkupMap+idx))
+#define TokenapMap(htmlPtr,idx) (htmlPtr->tokenapMap?htmlPtr->tokenMap[idx]:apMap[idx])
+static char const rcsid[] = "@(#) $Id: htmlparse.c,v 1.28 2002/09/22 16:55:45 peter Exp $";
 /*
 ** A tokenizer that converts raw HTML into a linked list of HTML elements.
 **
@@ -422,7 +424,7 @@ static HtmlTokenMap *apMap[HTML_MARKUP_HASH_SIZE];
 ** The value returned is an integer between 0 and HTML_MARKUP_HASH_SIZE-1,
 ** inclusive.
 */
-static int HtmlHash(const char *zName){
+static int HtmlHash(HtmlWidget *htmlPtr, const char *zName){
   int h = 0;
   char c;
   while( (c=*zName)!=0 ){
@@ -443,7 +445,7 @@ static int HtmlHash(const char *zName){
 ** Compute the longest and average collision chain length for the
 ** markup hash table
 */
-static void HtmlHashStats(void){
+static void HtmlHashStats(HtmlWidget *htmlPtr){
   int i;
   int sum = 0;
   int max = 0;
@@ -471,17 +473,17 @@ static void HtmlHashStats(void){
 
 /* Initialize the escape sequence hash table
 */
-static void HtmlHashInit(void){
+static void HtmlHashInit(HtmlWidget *htmlPtr, int start){
   int i;  /* For looping thru the list of markup names */
   int h;  /* The hash on a markup name */
 
-  for(i=0; i<HTML_MARKUP_COUNT; i++){
-    h = HtmlHash(HtmlMarkupMap[i].zName);
+  for(i=start; i<HTML_MARKUP_COUNT; i++){
+    h = HtmlHash(htmlPtr,HtmlMarkupMap[i].zName);
     HtmlMarkupMap[i].pCollide = apMap[h];
     apMap[h] = &HtmlMarkupMap[i];
   }
 #ifdef TEST
-  HtmlHashStats();
+  HtmlHashStats(htmlPtr);
 #endif
 }
 
@@ -566,6 +568,26 @@ static HtmlElement *HtmlTextAlloc(int i) {
   return pElem;
 }
 
+/* Evaluate a Tcl_Obj command with 1 binary argument at end. */
+int HtmlObjCmd1(Tcl_Interp *interp, const char *str, char *buf, uint siz) {
+  int rc, vargc, i; char **vargv;
+  Tcl_Obj *objv[30];
+  if (Tcl_SplitList(interp, str, &vargc, &vargv) || vargc<=0 || vargc>27) {
+    Tcl_AppendResult(interp,"Failed obj cmd split");
+    return TCL_ERROR;
+  }
+  for (i=0; i<vargc; i++) {
+    objv[i]=Tcl_NewStringObj(vargv[i],-1);
+    Tcl_IncrRefCount(objv[i]);
+  }
+  objv[i]=Tcl_NewByteArrayObj(buf,siz);
+  Tcl_IncrRefCount(objv[i++]);
+  rc= Tcl_EvalObjv(interp, i, objv,0);
+  for (i=0; i<=vargc; i++)
+    Tcl_DecrRefCount(objv[i]);
+  free(vargv);
+  return rc;
+}
 /* Process as much of the input HTML as possible.  Construct new
 ** HtmlElement structures and appended them to the list.  Return
 ** the number of characters actually processed.
@@ -612,7 +634,7 @@ static int Tokenize(
   pElem=0;
   while( (c=z[n])!=0 ){
     sawdot--;
-    if (c== -64 && z[n+1]==-128) { 
+    if ((signed char)c== -64 && (signed char)(z[n+1])==-128) { 
       n+=2; continue; }
     if( p->pScript ){
       /* We are in the middle of <SCRIPT>...</SCRIPT>.  Just look for
@@ -671,23 +693,15 @@ static int Tokenize(
           Tcl_DStringStartSublist(&cmd);
           HtmlAppendArglist(&cmd, pElem);
           Tcl_DStringEndSublist(&cmd);
-/*          Tcl_DStringStartSublist(&cmd);
-          Tcl_DStringAppend(&cmd, pScript->zScript, pScript->nScript);
-          Tcl_DStringEndSublist(&cmd); */
-	  /* Inline scripts can contain unmatched brackets :-) */
-          sprintf(varind,"HtmlScrVar%d", p->varind++);
-          Tcl_DStringAppend(&cmd, " ", 1);
-          Tcl_DStringAppend(&cmd, varind, -1);
           savech=pScript->zScript[pScript->nScript];
           pScript->zScript[pScript->nScript]=0;
-          Tcl_SetVar(p->interp,varind,pScript->zScript, TCL_GLOBAL_ONLY);
           pScript->zScript[pScript->nScript]=savech;
 	  HtmlAdvanceLayout(p);
           HtmlLock(p);
 	  p->inParse++;
-          result = Tcl_GlobalEval(p->interp, Tcl_DStringValue(&cmd));
+	  result=HtmlObjCmd1(p->interp, Tcl_DStringValue(&cmd), 
+		pScript->zScript, pScript->nScript);
 	  p->inParse--;
-          Tcl_UnsetVar(p->interp,varind,TCL_GLOBAL_ONLY);
           Tcl_DStringFree(&cmd);
           if( HtmlUnlock(p) ) return;
 	  if (result != TCL_OK) {
@@ -890,15 +904,12 @@ doMarkup:
       /* Lookup the markup name in the hash table 
       */
       if( !isInit ){
-        HtmlHashInit();
+        HtmlHashInit(p,0);
         isInit = 1;
       }
       c = argv[0][arglen[0]];
       argv[0][arglen[0]] = 0;
-      h = HtmlHash(argv[0]);
-      for(pMap = apMap[h]; pMap; pMap=pMap->pCollide){
-        if( stricmp(pMap->zName,argv[0])==0 ){ break; }
-      }
+      pMap=HtmlHashLookup(p,argv[0]);
       argv[0][arglen[0]] = c;
       if( pMap==0 ){ continue; }  /* Ignore unknown markup */
 
@@ -1066,8 +1077,7 @@ incomplete:
 ** by this routine) may invoke a callback procedure which could delete
 ** the HTML widget. 
 */
-void HtmlTokenizerAppend(HtmlWidget *htmlPtr, const char *zText){
-  int len = strlen(zText);
+void HtmlTokenizerAppend(HtmlWidget *htmlPtr, const char *zText, int len){
   if( htmlPtr->nText==0 ){
     htmlPtr->nAlloc = len + 100;
     htmlPtr->zText = HtmlAlloc( htmlPtr->nAlloc );
@@ -1111,7 +1121,7 @@ HtmlElement* HtmlInsertToken(
   int i,ftype,extra;       /* Loop counter */
 
   if( !isInit ){
-    HtmlHashInit();
+    HtmlHashInit(htmlPtr,0);
     isInit = 1;
   }
   if (!strcmp(zType,"Text")) {
@@ -1121,10 +1131,7 @@ HtmlElement* HtmlInsertToken(
     ftype=Html_Space;
     extra=(zArgs?strlen(zArgs):0)+sizeof(HtmlSpaceElement);
   } else {
-    h = HtmlHash(zType);
-    for(pMap = apMap[h]; pMap; pMap=pMap->pCollide){
-      if( stricmp(pMap->zName,zType)==0 ){ break; }
-    }
+   pMap=HtmlHashLookup(htmlPtr,zType);
    if( pMap==0 ){ return 0; }
    ftype=pMap->type;
    extra=pMap->extra;
@@ -1269,35 +1276,76 @@ int HtmlTextInsertCmd(
   return TCL_OK;
 }
 
-HtmlTokenMap *HtmlNameToPmap(char *zType){
+/* Lookup markup hash table */
+HtmlTokenMap *HtmlHashLookup(HtmlWidget *htmlPtr, char *zType){
   HtmlTokenMap *pMap;     /* For searching the markup name hash table */
   int h;                   /* The hash on zType */
-
+  Tcl_HashEntry *entry;
+  char buf[256];
   if( !isInit ){
-    HtmlHashInit();
+    HtmlHashInit(htmlPtr,0);
     isInit = 1;
   }else{
   }
-  h = HtmlHash(zType);
+  h = HtmlHash(htmlPtr,zType);
   for(pMap = apMap[h]; pMap; pMap=pMap->pCollide){
-    if( stricmp(pMap->zName,zType)==0 ){ break; }
+    if( stricmp(pMap->zName,zType)==0 ){ return pMap; }
   }
-  return pMap;
+  strncpy(buf,zType,255);
+  buf[255]=0;
+  if ((entry=Tcl_FindHashEntry(&htmlPtr->tokenHash,buf))) {
+    HtmlUserTag *tag=(void*)Tcl_GetHashValue(entry);
+    if (tag) {
+      return &tag->tokenMap;
+    }
+  }
+  return NULL;
+}
+
+/* ** WIDGET token define TAGNAME **/
+int HtmlTokenDefineCmd(
+  HtmlWidget *htmlPtr,   /* The HTML widget */
+  Tcl_Interp *interp,    /* The interpreter */
+  int argc,              /* Number of arguments */
+  char **argv            /* List of all arguments */
+){
+  HtmlUserTag *tag;
+  Tcl_HashEntry *he;
+  char buf[256];
+  int i, isnew;
+  if (HtmlHashLookup(htmlPtr, argv[3])) {
+    Tcl_AppendResult(interp,"tag already defined: ", argv[3]);
+    return TCL_ERROR;
+  }
+  for (i=0; i<255 && argv[3][i]; i++) 
+	buf[i]=argv[3][i];
+  buf[i]=0;
+  if ((!(he=Tcl_CreateHashEntry(&htmlPtr->tokenHash, buf, &isnew))) ||
+	(!isnew)) {
+    Tcl_AppendResult(interp,"tag create failed: ", argv[3]);
+    return TCL_ERROR;
+  }
+  if (!(tag = (void*)calloc(sizeof(HtmlUserTag),1)))
+    return TCL_ERROR;
+  tag->tokenMap.zName=strdup(argv[3]);
+  tag->tokenMap.type=htmlPtr->tokenCnt++;
+  Tcl_SetHashValue(he,tag);
+  return TCL_OK;
 }
 
 /*
 ** Convert a markup name into a type integer
 */
-int HtmlNameToType(char *zType){
-  HtmlTokenMap *pMap=HtmlNameToPmap(zType);
+int HtmlNameToType(HtmlWidget *htmlPtr, char *zType){
+  HtmlTokenMap *pMap=HtmlHashLookup(htmlPtr, zType);
   return pMap ? pMap->type : Html_Unknown;
 }
 
 /*
 ** Convert a type into a symbolic name
 */
-const char *HtmlTypeToName(int type){
-  if( type>=Html_A && type<=Html_EndXMP ){
+const char *HtmlTypeToName(HtmlWidget *htmlPtr, int type){
+  if( type>=Html_A && type<Html_TypeCount ){
     HtmlTokenMap *pMap = apMap[type - Html_A];
     return pMap->zName;
   }else{
@@ -1308,7 +1356,7 @@ const char *HtmlTypeToName(int type){
 /*
 ** For debugging purposes, print information about a token
 */
-char *HtmlTokenName(HtmlElement *p){
+char *HtmlTokenName(HtmlWidget *htmlPtr, HtmlElement *p){
 #if 1 /* DEBUG */
   static char zBuf[200];
   int j;
@@ -1336,13 +1384,7 @@ char *HtmlTokenName(HtmlElement *p){
     }
     break;
   default:
-    if( p->base.type >= HtmlMarkupMap[0].type 
-    && p->base.type <= HtmlMarkupMap[HTML_MARKUP_COUNT-1].type ){
-      zName = HtmlMarkupMap[p->base.type - HtmlMarkupMap[0].type].zName;
-    }else{
-      zName = "Unknown";
-    }
-    sprintf(zBuf,"<%s",zName);
+    sprintf(zBuf,"<%s",HtmlTypeToName(htmlPtr,p->base.type));
     for(j=1; j<p->base.count; j += 2){
       sprintf(&zBuf[strlen(zBuf)]," %s=%s",
               p->markup.argv[j-1],p->markup.argv[j]);
@@ -1356,10 +1398,9 @@ char *HtmlTokenName(HtmlElement *p){
 #endif
 }
 
-char *HtmlGetTokenName(HtmlElement *p){
+char *HtmlGetTokenName(HtmlWidget *htmlPtr, HtmlElement *p){
   static char zBuf[200];
   int j;
-  char *zName;
 
   zBuf[0]=0;
   if( p==0 ) return "NULL";
@@ -1370,14 +1411,7 @@ char *HtmlGetTokenName(HtmlElement *p){
   case Html_Block:
     break;
   default:
-    if( p->base.type >= HtmlMarkupMap[0].type 
-    && p->base.type <= HtmlMarkupMap[HTML_MARKUP_COUNT-1].type ){
-      zName = HtmlMarkupMap[p->base.type - HtmlMarkupMap[0].type].zName;
-    }else{
-      zName = "Unknown";
-    }
-    /*sprintf(zBuf,zName); */
-    strcpy(zBuf,zName);
+    strcpy(zBuf,HtmlTypeToName(htmlPtr,p->base.type));
     break;
   }
   return zBuf;
@@ -1404,14 +1438,44 @@ void HtmlAppendArglist(Tcl_DString *str, HtmlElement *pElem){
   }
 }
 
-HtmlTokenMap* HtmlGetMarkupMap(int n) {
-  return HtmlMarkupMap+n;
+void HtmlFreeTokenMap(HtmlWidget *htmlPtr) {
+  Tcl_HashSearch se;
+  Tcl_HashEntry *he = Tcl_FirstHashEntry(&htmlPtr->tokenHash, &se);
+  HtmlUserTag *tag;
+  while (he) {
+      tag = (void *) Tcl_GetHashValue(he);
+      if (tag) {
+        free(tag->tokenMap.zName);
+	if (tag->zHandler) free(tag->zHandler);
+        free(tag);
+      }
+      Tcl_DeleteHashEntry(he); 
+      he = Tcl_NextHashEntry(&se); 
+   }
+  htmlPtr->tokenCnt=Html_TypeCount;
+}
+
+HtmlTokenMap* HtmlGetMarkupMap(HtmlWidget *htmlPtr, int n) {
+  Tcl_HashEntry *he;
+  Tcl_HashSearch se;
+  HtmlUserTag *tag;
+  if (n<Html_TypeCount)
+    return HtmlMarkupMap+n;
+  he = Tcl_FirstHashEntry(&htmlPtr->tokenHash, &se);
+  while (he) {
+      tag = (void *) Tcl_GetHashValue(he);
+      if (tag && tag->tokenMap.type == n) {
+	  return &tag->tokenMap;
+      }
+      he = Tcl_NextHashEntry(&se); 
+   }
+  return 0;
 }
 
 /*
 ** Print a list of tokens
 */
-void HtmlPrintList(HtmlElement *p, HtmlElement *pEnd){
+void HtmlPrintList(HtmlWidget *htmlPtr, HtmlElement *p, HtmlElement *pEnd){
   while( p && p!=pEnd ){
     if( p->base.type==Html_Block ){
       char *z = p->block.z;
@@ -1426,7 +1490,7 @@ void HtmlPrintList(HtmlElement *p, HtmlElement *pEnd){
     }else{
       printf("Token 0x%08x font=%2d color=%2d align=%d flags=0x%04x name=%s\n",
         (int)p, p->base.style.font, p->base.style.color,
-        p->base.style.align, p->base.style.flags, HtmlTokenName(p));
+        p->base.style.align, p->base.style.flags, HtmlTokenName(htmlPtr,p));
     }
     p = p->pNext;
   }

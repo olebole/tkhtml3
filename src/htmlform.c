@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlform.c,v 1.27 2002/04/02 14:06:26 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlform.c,v 1.28 2002/09/22 16:55:45 peter Exp $";
 /*
 ** Routines used for processing HTML makeup for forms.
 **
@@ -26,6 +26,7 @@ static char const rcsid[] = "@(#) $Id: htmlform.c,v 1.27 2002/04/02 14:06:26 drh
 #include <tk.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #include "htmlform.h"
 
 static void EmptyInput(HtmlElement *pElem);
@@ -686,7 +687,7 @@ int HtmlControlSize(HtmlWidget *htmlPtr, HtmlElement *pElem){
         SizeAndLink(htmlPtr, zWin, pElem);
         if (result != TCL_OK) {
           Tcl_AddErrorInfo(htmlPtr->interp,
-             "\n    (-formcommand select callback executed by html widget)");
+             "\n    (-formcommand textarea callback executed by html widget)");
           Tcl_BackgroundError(htmlPtr->interp);
         }
       }
@@ -730,7 +731,7 @@ int HtmlControlSize(HtmlWidget *htmlPtr, HtmlElement *pElem){
         SizeAndLink(htmlPtr, zWin, pElem);
         if (result != TCL_OK) {
           Tcl_AddErrorInfo(htmlPtr->interp,
-             "\n    (-formcommand select callback executed by html widget)");
+             "\n    (-appletcommand callback executed by html widget)");
           Tcl_BackgroundError(htmlPtr->interp);
         }
       }

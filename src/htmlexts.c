@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlexts.c,v 1.5 2002/03/06 18:10:58 peter Exp $";
+static char const rcsid[] = "@(#) $Id: htmlexts.c,v 1.6 2002/09/22 16:55:45 peter Exp $";
 /*
 ** The extra routines for the HTML widget for Tcl/Tk
 **
@@ -52,7 +52,6 @@ int (*HtmlPostscriptPtr)(
 
 #ifndef _TCLHTML_
 
-extern HtmlTokenMap *HtmlGetMarkupMap(int n);
 static int HtmlRadioCount(HtmlWidget *htmlPtr, HtmlElement *radio);
 
 void BgImageChangeProc(
@@ -306,7 +305,7 @@ int HtmlImagesListCmd(
 	  Tcl_AppendResult(interp,buf,0);
 	  break;
 	default:
-          HtmlToken2Txt(interp,p);
+          HtmlToken2Txt(htmlPtr, interp,p);
       }
     } else {
       if (p->base.type==Html_IMG){
@@ -642,7 +641,7 @@ int HtmlFormInfo(
 
 #endif /*  _TCLHTML_ */
 
-void HtmlToken2Txt(Tcl_Interp *interp, HtmlElement *p){
+void HtmlToken2Txt(HtmlWidget *htmlPtr, Tcl_Interp *interp, HtmlElement *p){
   static char zBuf[BUFSIZ];
   int j;
   char *zName;
@@ -662,9 +661,9 @@ void HtmlToken2Txt(Tcl_Interp *interp, HtmlElement *p){
   case Html_Block:
     break;
   default:
-    if( p->base.type >= HtmlGetMarkupMap(0)->type
-    && p->base.type <= HtmlGetMarkupMap(HTML_MARKUP_COUNT-1)->type ){
-      zName = HtmlGetMarkupMap(p->base.type - HtmlGetMarkupMap(0)->type)->zName;
+    if( p->base.type >= HtmlGetMarkupMap(htmlPtr, 0)->type
+    && p->base.type <= HtmlGetMarkupMap(htmlPtr, HTML_MARKUP_COUNT-1)->type ){
+      zName = HtmlGetMarkupMap(htmlPtr, p->base.type - HtmlGetMarkupMap(htmlPtr, 0)->type)->zName;
     }else{
       zName = "Unknown";
     }
@@ -678,22 +677,16 @@ void HtmlToken2Txt(Tcl_Interp *interp, HtmlElement *p){
   }
 }
 
-HtmlTokenMap *HtmlTypeToPmap(int typ) {
-  HtmlTokenMap *pMap=HtmlMarkupMap+typ-Html_A; /* ??? Dangerous */
-  if (typ<0 || typ>Html_TypeCount) return 0;
-  return pMap;
-}
-
-int HtmlGetEndToken(int typ){
-  HtmlTokenMap *pMap=HtmlTypeToPmap(typ);
+int HtmlGetEndToken(HtmlWidget *htmlPtr, int typ){
+  HtmlTokenMap *pMap=HtmlGetMarkupMap(htmlPtr, typ);
   if (!pMap) return Html_Unknown;
   if (pMap && pMap[1].zName[0]=='/')
     return pMap[1].type;
   return Html_Unknown;
 }
 
-int HtmlNameToTypeAndEnd(char *zType, int *end){
-  HtmlTokenMap *pMap=HtmlNameToPmap(zType);
+int HtmlNameToTypeAndEnd(HtmlWidget *htmlPtr, char *zType, int *end){
+  HtmlTokenMap *pMap=HtmlHashLookup(htmlPtr, zType);
   if (*end) *end=Html_Unknown;
   if (!pMap) return Html_Unknown;
   if (pMap[1].zName[0]=='/')
@@ -717,7 +710,7 @@ static char *TagAliases[] = {
   0,0
 };
 
-static int HtmlDomSubEl(char *tok, int *en) {
+static int HtmlDomSubEl(HtmlWidget *htmlPtr, char *tok, int *en) {
   int n, i, j;
   for (i=0; tok[i]; i++) {
     tok[i]=tolower(tok[i]);
@@ -731,11 +724,11 @@ static int HtmlDomSubEl(char *tok, int *en) {
       break;
     }
   }
-  n=HtmlNameToTypeAndEnd(tok,en);
+  n=HtmlNameToTypeAndEnd(htmlPtr,tok,en);
   if (n==Html_Unknown) {
     if (tok[--i] != 's') return Html_Unknown;
     tok[i]=0;
-    n=HtmlNameToTypeAndEnd(tok,en);
+    n=HtmlNameToTypeAndEnd(htmlPtr,tok,en);
   }
   return n;
 }
@@ -817,7 +810,7 @@ static HtmlElement *HtmlFindEndTag(
   return 0;
 /*      buf[0]='/';
       strcpy(buf+1,tok);
-      if ((en=HtmlNameToType(tok))==Html_Unknown) return 0;
+      if ((en=HtmlNameToType(htmlPtr,tok))==Html_Unknown) return 0;
       while (ep && ep->base.type!=en) ep=ep->base.pNext;
       return ep;
     */
@@ -968,7 +961,7 @@ int HtmlDomIdLookup(
       Tcl_AppendResult(interp, z?z:"",0);
       return TCL_OK;
     }
-    if ((n=HtmlDomSubEl(tok,&en)) == Html_Unknown) {
+    if ((n=HtmlDomSubEl(htmlPtr, tok,&en)) == Html_Unknown) {
     /*  Tcl_AppendResult(interp, "Unknown DOM markup: ", a, 0);
       return TCL_ERROR; */
       return TCL_OK;
@@ -1210,7 +1203,7 @@ int HtmlIdToDomCmd(
   n=4;
   while ((n+1)<argc) {
     if (!strcmp(argv[n],"-tag")) {
-      if ((k=HtmlNameToType(argv[n+1]))!= Html_Unknown) {
+      if ((k=HtmlNameToType(htmlPtr,argv[n+1]))!= Html_Unknown) {
 	for (j=i; j>0; j--) try[j]=try[j-1];
 	try[0]=k;
       }
@@ -1271,10 +1264,10 @@ int HtmlIdToDomCmd(
       break;
      default:
       if (HtmlIsMarkup(pStart)) {
-	int etyp, typ; char *setyp, *styp=HtmlGetTokenName(pStart);
+	int etyp, typ; char *setyp, *styp=HtmlGetTokenName(htmlPtr, pStart);
 	if (styp[0]!='/') {
 	  typ=pStart->base.type;
-	  if ((etyp=HtmlGetEndToken(typ))!=Html_Unknown)
+	  if ((etyp=HtmlGetEndToken(htmlPtr, typ))!=Html_Unknown)
             if (HtmlDOMFmtSubIndex(htmlPtr, &pStart, &cmd, typ, etyp, styp, Html_Unknown,pStart, nostr))
 	      goto domfmtdone;
 	}
@@ -1427,7 +1420,7 @@ int HtmlDomName2Index(
   HtmlElement* p;
   int n=-1, i=-1, type;
   char *z, str[50];
-  if ((type=HtmlNameToType(argv[3]))== Html_Unknown) return TCL_ERROR;
+  if ((type=HtmlNameToType(htmlPtr,argv[3]))== Html_Unknown) return TCL_ERROR;
   for(p=htmlPtr->pFirst; p; p=p->pNext){
     if (p->base.type != type) {
       if (type != Html_INPUT &&
@@ -1470,7 +1463,7 @@ static int HtmlRadioCount(HtmlWidget *htmlPtr, HtmlElement *radio) {
 }
 
 /* Translate a radio index to a form element index. */
-static int HtmlDomRadio2Index(
+int HtmlDomRadio2Index(
   HtmlWidget *htmlPtr,   /* The HTML widget */
   Tcl_Interp *interp,    /* The interpreter */
   int argc,              /* Number of arguments */
@@ -1509,7 +1502,7 @@ int HtmlTokenUnique(
   HtmlIndex be[2];
   if (TCL_OK!=HtmlBeginEnd(htmlPtr, be, argc-4, argv+4))
     return TCL_ERROR;
-  if ((type=HtmlNameToType(argv[3]))== Html_Unknown) return TCL_ERROR;
+  if ((type=HtmlNameToType(htmlPtr,argv[3]))== Html_Unknown) return TCL_ERROR;
   for(p=be[0].p; p  && nump<200; p=p->pNext){
     if (p->base.type == type) {
       for(i=0; i<p->base.count; i+=2){
@@ -1598,7 +1591,7 @@ int HtmlDomTreeCmd(
     default: {
 /*      buf[0]='/';
       strcpy(buf+1,tok);
-      if ((en=HtmlNameToType(tok))==Html_Unknown) return 0;
+      if ((en=HtmlNameToType(htmlPtr,tok))==Html_Unknown) return 0;
       while (ep && ep->base.type!=en) ep=ep->base.pNext;
       return ep; */
       return 0;
@@ -1635,7 +1628,7 @@ static int _HtmlTokenCmdSub(
     return TCL_ERROR;
   }
   if( pStart ){
-    HtmlTclizeList(interp,pStart,pEnd ? pEnd->base.pNext : 0, flag);
+    HtmlTclizeList(htmlPtr, interp,pStart,pEnd ? pEnd->base.pNext : 0, flag);
   }
   return TCL_OK;
 }
@@ -1784,7 +1777,7 @@ int HtmlTextHtmlCmd(
     return TCL_ERROR;
   }
   if( pStart ){
-    HtmlTclizeHtml(interp,pStart,pEnd ? pEnd->base.pNext : 0);
+    HtmlTclizeHtml(htmlPtr, interp,pStart,pEnd ? pEnd->base.pNext : 0);
   }
   return TCL_OK;
 }
@@ -2059,9 +2052,10 @@ int HtmlRefreshCmd( HtmlWidget *htmlPtr, Tcl_Interp *interp, int argc,
   return TCL_OK;
 }
 
-int HtmlSourceCmd( HtmlWidget *htmlPtr, Tcl_Interp *interp, int argc,
-  char **argv){
-  if (htmlPtr->zText) Tcl_AppendResult(interp, htmlPtr->zText, 0);
+/* Return the source */
+int HtmlGetCmd( HtmlWidget *htmlPtr, Tcl_Interp *interp, int objc,
+  Tcl_Obj * CONST objv[]){
+  Tcl_SetObjResult(interp, Tcl_NewByteArrayObj(htmlPtr->zText, htmlPtr->nText));
   return TCL_OK;
 }
 
@@ -2204,7 +2198,7 @@ int HtmlTokenGetEnd(
   }
   if( pStart && HtmlIsMarkup(pStart)){
     HtmlElement *p;
-    int en=HtmlGetEndToken(pStart->base.type);
+    int en=HtmlGetEndToken(htmlPtr, pStart->base.type);
     p=HtmlFindEndNest(htmlPtr, pStart, en, 0);
     if (p && p->base.id == 0) p=p->base.pNext;
     if (p) {
@@ -2239,7 +2233,7 @@ int HtmlTokenGetCmd(
   }
   if (pEnd) pEnd=pEnd->base.pNext;
   if( pStart ){
-    HtmlTclizeList(interp,pStart,pEnd, 0);
+    HtmlTclizeList(htmlPtr, interp,pStart,pEnd, 0);
   }
   return TCL_OK;
 }
@@ -2253,7 +2247,7 @@ int HtmlTokenFindCmd(
 ){
   HtmlIndex iStart, iEnd;
   int i, after=1, near=0;
-  int type = HtmlNameToType(argv[3]);
+  int type = HtmlNameToType(htmlPtr, argv[3]);
   iStart.p=0; iEnd.p=0; iStart.i=0; iEnd.i=0;
   if (!htmlPtr->pFirst) return TCL_OK;
   if( type==Html_Unknown ){
@@ -2310,7 +2304,7 @@ void HtmlRemoveElements(HtmlWidget *p, HtmlElement* pElem, HtmlElement* pLast){
 /*
 ** Return all tokens between the two elements as a Tcl list.
 */
-void HtmlTclizeList(Tcl_Interp *interp, HtmlElement *p, HtmlElement *pEnd,
+void HtmlTclizeList(HtmlWidget *htmlPtr, Tcl_Interp *interp, HtmlElement *p, HtmlElement *pEnd,
   int flag){
   Tcl_DString str;
   int i, isatr;
@@ -2371,9 +2365,9 @@ void HtmlTclizeList(Tcl_Interp *interp, HtmlElement *p, HtmlElement *pEnd,
 	}
 	if (!(flag&(TOKEN_MARKUP|TOKEN_DOM)))
           Tcl_DStringAppendElement(&str,"Markup");
-        if( p->base.type >= HtmlGetMarkupMap(0)->type 
-         && p->base.type <= HtmlGetMarkupMap(HTML_MARKUP_COUNT-1)->type ){
-          zName = HtmlGetMarkupMap(p->base.type - HtmlGetMarkupMap(0)->type)->zName;
+        if( p->base.type >= HtmlGetMarkupMap(htmlPtr, 0)->type 
+         && p->base.type <= HtmlGetMarkupMap(htmlPtr, HTML_MARKUP_COUNT-1)->type ){
+          zName = HtmlGetMarkupMap(htmlPtr, p->base.type - HtmlGetMarkupMap(htmlPtr, 0)->type)->zName;
         }else{
           zName = "Unknown";
         }
@@ -2486,7 +2480,7 @@ int HtmlAscii2Buf(Tcl_Interp *interp, HtmlIndex *ip, HtmlIndex *ipEnd,
 /*
 ** Return all tokens between the two elements as a HTML.
 */
-void HtmlTclizeHtml(Tcl_Interp *interp, HtmlElement *p, HtmlElement *pEnd){
+void HtmlTclizeHtml(HtmlWidget *htmlPtr, Tcl_Interp *interp, HtmlElement *p, HtmlElement *pEnd){
   Tcl_DString str;
   int i,j;
   char *zName;
@@ -2516,9 +2510,9 @@ void HtmlTclizeHtml(Tcl_Interp *interp, HtmlElement *p, HtmlElement *pEnd){
         Tcl_DStringAppend(&str,"Unknown",-1);
         break;
       default:
-        if( p->base.type >= HtmlGetMarkupMap(0)->type 
-         && p->base.type <= HtmlGetMarkupMap(HTML_MARKUP_COUNT-1)->type ){
-          zName = HtmlGetMarkupMap(p->base.type - HtmlGetMarkupMap(0)->type)->zName;
+        if( p->base.type >= HtmlGetMarkupMap(htmlPtr, 0)->type 
+         && p->base.type <= HtmlGetMarkupMap(htmlPtr, HTML_MARKUP_COUNT-1)->type ){
+          zName = HtmlGetMarkupMap(htmlPtr, p->base.type - HtmlGetMarkupMap(htmlPtr, 0)->type)->zName;
         }else{
           zName = "Unknown";
         }
@@ -2538,7 +2532,7 @@ void HtmlTclizeHtml(Tcl_Interp *interp, HtmlElement *p, HtmlElement *pEnd){
   Tcl_DStringResult(interp, &str);
 }
 
-void HtmlTclizeHtmlFmt(Tcl_Interp *interp, HtmlElement *p, HtmlElement *pEnd){
+void HtmlTclizeHtmlFmt(HtmlWidget *htmlPtr, Tcl_Interp *interp, HtmlElement *p, HtmlElement *pEnd){
   Tcl_DString str;
   int i,j, indent=0;
   char *zName;
@@ -2568,9 +2562,9 @@ void HtmlTclizeHtmlFmt(Tcl_Interp *interp, HtmlElement *p, HtmlElement *pEnd){
         Tcl_DStringAppend(&str,"Unknown",-1);
         break;
       default:
-        if( p->base.type >= HtmlGetMarkupMap(0)->type 
-         && p->base.type <= HtmlGetMarkupMap(HTML_MARKUP_COUNT-1)->type ){
-          zName = HtmlGetMarkupMap(p->base.type - HtmlGetMarkupMap(0)->type)->zName;
+        if( p->base.type >= HtmlGetMarkupMap(htmlPtr, 0)->type 
+         && p->base.type <= HtmlGetMarkupMap(htmlPtr, HTML_MARKUP_COUNT-1)->type ){
+          zName = HtmlGetMarkupMap(htmlPtr, p->base.type - HtmlGetMarkupMap(htmlPtr, 0)->type)->zName;
         }else{
           zName = "Unknown";
         }
@@ -2725,567 +2719,6 @@ void HtmlTclizeFind(Tcl_Interp *interp, int tag, HtmlElement *p, HtmlElement *pE
 
 extern int (*HtmlFetchSelectionPtr)(ClientData , int, char *, int );
 
-static const char ev[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
-static int atend;
-
-static int
-getidx(char *buffer, int len, int *posn) {
-  char c;
-  char *idx;
-  if (atend) return -1;
-  do {
-    if ((*posn)>=len) {
-      atend = 1;
-      return -1;
-    }
-    c = buffer[(*posn)++];
-    if (c<0 || c=='=') {
-      atend = 1;
-      return -1;
-    }
-    idx = strchr(ev, c);
-  } while (!idx);
-  return idx - ev;
-}
-
-int
-base64decode(ClientData clientData, Tcl_Interp *interp,
-	     int objc, Tcl_Obj *CONST objv[]) {
-  Tcl_Obj *o;
-  char *inbuffer;
-  int ilen, olen, pos, tlen=1024, tpos=0;
-  char outbuffer[3], *tbuf;
-  int c[4];
-
-  if (objc!=2) {
-    Tcl_SetObjResult(interp, Tcl_NewStringObj("needs one argument "
-					      "(string to decode)", -1));
-    return TCL_ERROR;
-  }
-  tbuf=(char*)malloc(tlen);
-  inbuffer = Tcl_GetStringFromObj(objv[1], &ilen);
-  pos = 0;
-  atend = 0;
-  while (!atend) {
-    if (inbuffer[pos]=='\n' ||inbuffer[pos]=='\r') { pos++; continue; }
-    c[0] = getidx(inbuffer, ilen, &pos);
-    c[1] = getidx(inbuffer, ilen, &pos);
-    c[2] = getidx(inbuffer, ilen, &pos);
-    c[3] = getidx(inbuffer, ilen, &pos);
-
-    olen = 0;
-    if (c[0]>=0 && c[1]>=0) {
-      outbuffer[0] = ((c[0]<<2)&0xfc)|((c[1]>>4)&0x03);
-      olen++;
-      if (c[2]>=0) {
-	outbuffer[1] = ((c[1]<<4)&0xf0)|((c[2]>>2)&0x0f);
-	olen++;
-	if (c[3]>=0) {
-	  outbuffer[2] = ((c[2]<<6)&0xc0)|((c[3])&0x3f);
-	  olen++;
-	}
-      }
-    }
-
-/*fprintf(stderr,"OB(%d): %x,%x,%x\n", olen,outbuffer[0],outbuffer[1],outbuffer[2]);*/
-    if (olen>0) {
-      if ((tpos+olen+1)>=tlen) {
-        tbuf=realloc(tbuf,tlen+1024);
-        tlen+=1024;
-      }
-      memcpy(tbuf+tpos,outbuffer,olen);
-      tpos+=olen;
-    }
-  }
-  o=Tcl_NewByteArrayObj(tbuf,tpos);
-  Tcl_IncrRefCount (o);
-  Tcl_SetObjResult (interp,o);
-  Tcl_DecrRefCount (o);
-  Tcl_SetObjResult(interp, o);
-  free(tbuf);
-  return TCL_OK;
-}
-
-int
-base64encode(ClientData clientData, Tcl_Interp *interp,
-	     int objc, Tcl_Obj *CONST objv[]) {
-  Tcl_Obj *result;
-  char *ib;
-  int i=0, ilen, olen, pos=0;
-  char c[74];
-
-  if (objc!=2) {
-    Tcl_SetObjResult(interp, Tcl_NewStringObj("needs one argument "
-					      "(string to encode)", -1));
-    return TCL_ERROR;
-  }
-  ib= Tcl_GetByteArrayFromObj (objv[1], &ilen);
-  result = Tcl_NewStringObj("", 0);
-  while (pos<ilen) {
-#define P(n,s) ((pos+n)>ilen?'=':ev[s])
-    c[i++]=ev[(ib[pos]>>2)&0x3f];
-    c[i++]=P(1,((ib[pos]<<4)&0x30)|((ib[pos+1]>>4)&0x0f));
-    c[i++]=P(2,((ib[pos+1]<<2)&0x3c)|((ib[pos+2]>>6)&0x03));
-    c[i++]=P(3,ib[pos+2]&0x3f);
-    if (i>=72) {
-      c[i++]='\n';
-      c[i]=0;
-      Tcl_AppendToObj(result, c, i);
-      i=0;
-    }
-    pos+=3;
-  }
-  if (i) {
-/*    c[i++]='\n';*/
-    c[i]=0;
-    Tcl_AppendToObj(result, c, i);
-    i=0;
-  }
-  Tcl_SetObjResult(interp, result);
-  return TCL_OK;
-}
-
-#ifdef _TCLHTML_
-static int
-tclgzip (ClientData clientData, Tcl_Interp * interp,
-            int objc, Tcl_Obj * CONST objv[]) {
-}
-static int
-tclgunzip (ClientData clientData, Tcl_Interp * interp,
-            int objc, Tcl_Obj * CONST objv[])
-{
-}
-static int
-tcldecompress (ClientData clientData, Tcl_Interp * interp,
-            int objc, Tcl_Obj * CONST objv[]) {
-}
-#else
-
-#include <zlib.h>
-
-static int
-tcldecompress (ClientData clientData, Tcl_Interp * interp,
-	    int objc, Tcl_Obj * CONST objv[])
-{
-    int comprLen, uncomprLen=0, ulen=1024, blen=ulen;
-    char *compr, *uncompr=(char*)malloc(ulen);
-    int err;
-    Tcl_Obj* o;
-    z_stream d_stream; /* decompression stream */
-    compr= Tcl_GetByteArrayFromObj (objv[1], &comprLen);
-
-    d_stream.zalloc = (alloc_func)0;
-    d_stream.zfree = (free_func)0;
-    d_stream.opaque = (voidpf)0;
-
-    d_stream.next_in  = compr;
-    d_stream.avail_in = comprLen;
-    d_stream.next_out = uncompr;
-
-    err = inflateInit(&d_stream);
-    if (err != Z_OK) goto inflaterror;
-
-    d_stream.avail_out = blen;
-    while (d_stream.total_in < comprLen) {
-        err = inflate(&d_stream, Z_NO_FLUSH);
-        if (err == Z_STREAM_END) break;
-        if (err != Z_OK) goto inflaterror;
-        if (d_stream.avail_out==0) {
-          blen+=ulen;
-          uncompr=(char*)realloc(uncompr,blen);
-          d_stream.next_out = uncompr+(blen-ulen);
-          d_stream.avail_out = blen;
-	}
-    }
-
-    err = inflateEnd(&d_stream);
-    if (err != Z_OK) goto inflaterror;
-    o=Tcl_NewByteArrayObj(uncompr,uncomprLen);
-    Tcl_IncrRefCount (o);
-    Tcl_SetObjResult (interp,o);
-    Tcl_DecrRefCount (o);
-    free(uncompr);
-    return TCL_OK;
-inflaterror:
-    free(uncompr);
-    printf("ERR: %d\n",err);
-    return TCL_ERROR;
-}
-
-static int
-tclgunzip (ClientData clientData, Tcl_Interp * interp,
-	    int objc, Tcl_Obj * CONST objv[])
-{
-    int r, l=0, ulen=1024, blen=ulen, fnlen;
-    char *fn, *from, *uncompr=(char*)malloc(ulen);
-    gzFile zF;
-    Tcl_Obj* o;
-    if (objc<3) {  goto gunziperror; }
-    from = Tcl_GetStringFromObj (objv[1], &fnlen);
-    if (!strcmp(from,"-file")) {
-      fn = Tcl_GetStringFromObj (objv[2], &fnlen);
-      if (!(zF=gzopen(fn,"rb"))) goto gunziperror; 
-      for (;;) {
-        r=gzread(zF,uncompr+l,ulen);
-        if (r<0) goto gunziperror;
-        l+=r;
-        if (r==0) break;
-        if ((l+ulen)>blen) {
-          blen+=ulen;
-          uncompr=(char*)realloc(uncompr,blen);
-	}
-      }
-    } else goto gunziperror;
-    o=Tcl_NewByteArrayObj(uncompr,l);
-    Tcl_IncrRefCount (o);
-    Tcl_SetObjResult (interp,o);
-    Tcl_DecrRefCount (o);
-    free(uncompr);
-    gzclose(zF);
-    return TCL_OK;
-gunziperror:
-    gzclose(zF);
-    free(uncompr);
-    Tcl_SetObjResult (interp, Tcl_NewStringObj ("gunzip error", -1));
-    return TCL_ERROR;
-}
-
-static int
-tclgzip (ClientData clientData, Tcl_Interp * interp,
-	    int objc, Tcl_Obj * CONST objv[])
-{
-    int r, l=0, ilen, fnlen;
-    char *ib, *fn, *to;
-    gzFile zF;
-    Tcl_Obj* o;
-    if (objc<4) {  goto gziperror; }
-    to = Tcl_GetStringFromObj (objv[1], &fnlen);
-    ib= Tcl_GetByteArrayFromObj (objv[3], &ilen);
-    if (!strcmp(to,"-file")) {
-      fn = Tcl_GetStringFromObj (objv[2], &fnlen);
-      if (!(zF=gzopen(fn,"wb"))) goto gziperror; 
-      for (;;) {
-        r=gzwrite(zF,ib+l,ilen);
-        if (r<0) goto gziperror;
-        l+=r;
-        if (r==0) break;
-        ilen-=r;
-        if (ilen<=0) break;
-      }
-    } else goto gziperror;
-    gzclose(zF);
-    return TCL_OK;
-gziperror:
-    gzclose(zF);
-    Tcl_SetObjResult (interp, Tcl_NewStringObj ("gzip error", -1));
-    return TCL_ERROR;
-}
-#endif
-
-static int
-killpidcmd(ClientData clientData, Tcl_Interp *interp,
-	     int objc, Tcl_Obj *CONST objv[]) {
-#ifndef __WIN32__
-  char *ib;
-  int i=0, n, sig, ilen, olen, pos=0;
-  char c[74];
-
-  if (objc!=3) {
-    Tcl_SetObjResult(interp, Tcl_NewStringObj("needs two arguments "
-					      "(pid signum)", -1));
-    return TCL_ERROR;
-  }
-  ib = Tcl_GetStringFromObj(objv[1], &ilen);
-  n = atoi(ib);
-  ib = Tcl_GetStringFromObj(objv[2], &ilen);
-  sig = atoi(ib);
-  n=kill(n,sig);
-  sprintf(c,"%d",n);
-  Tcl_SetObjResult(interp, Tcl_NewStringObj(c,-1));
-#endif
-  return TCL_OK;
-}
-
-int stdchancmd(ClientData clientData, Tcl_Interp *interp,
-	     int objc, Tcl_Obj *CONST objv[]) {
-    Tcl_Channel chan;
-    int mode, type;
-    char *channelId = Tcl_GetString(objv[1]);
-    char *stype=Tcl_GetString(objv[2]);
-
-    chan = Tcl_GetChannel(interp, channelId, &mode);
-    if (chan == (Tcl_Channel) NULL) {
-        return TCL_ERROR;
-    }
-    if (!strcmp(stype,"stdin")) type=TCL_STDIN;
-    else if (!strcmp(stype,"stdout")) type=TCL_STDOUT;
-    else if (!strcmp(stype,"stderr")) type=TCL_STDERR;
-    else  return TCL_ERROR;
-    Tcl_SetStdChannel(chan, type);
-    return TCL_OK;
-}
-
-
-/* Break up (fmt) text so that it is N chars or less between newlines. */
-static int textfmtcmd(ClientData clientData, Tcl_Interp *interp,
-	     int objc, Tcl_Obj *CONST objv[]) {
-  Tcl_Obj *result;
-  char *ib, *ob;
-  char buf[1050];
-  int ls=-1, i=0, n=0, ols, ilen, len;
-
-  if (objc!=3) {
-    Tcl_SetObjResult(interp, Tcl_NewStringObj("textfmt needs two arguments "
-					      "(text to format) len", -1));
-    return TCL_ERROR;
-  }
-  ib = Tcl_GetStringFromObj(objv[1], &ilen);
-  ob = Tcl_GetStringFromObj(objv[2], &ilen);
-  len=atoi(ob);
-  if (len<=0 || len>1024) {
-   Tcl_SetObjResult(interp, Tcl_NewStringObj("length not 0..1024" , -1));
-    return TCL_ERROR;
-  }
-  result = Tcl_NewStringObj("", 0);
-  while (ib[n+i]) {
-    buf[i]=ib[n+i];
-    if (i>=1024 || buf[i]=='\n' || buf[i]=='\r') {
-      if (i>=1024) buf[++i]='\n';
-      buf[i+1]=0;
-      Tcl_AppendToObj(result, buf, -1);
-      n+=(i+1);
-      i=0;
-      continue;
-    }
-    if (isspace(buf[i])) ls=i;
-    if (i>=len && ls>=0) {
-/*      if (ls<0) {
-        
-        buf[i]='\n';
-        buf[i+1]=0;
-	n+=(i+1);
-      } else */ {
-        buf[i=ls]='\n';
-        buf[ls+1]=0;;
-	n+=(ls+1);
-      }
-      Tcl_AppendToObj(result, buf, -1);
-      i=0;
-      ls=-1;
-    } else i++;
-  }
-  if (i) {
-    buf[i]=0;
-    Tcl_AppendToObj(result, buf, -1);
-  }
-  Tcl_SetObjResult(interp, result);
-  return TCL_OK;
-}
-
-/* Atomic function to lock & copy contents of a file, then truncate input. */
-static int lockcopycmd(ClientData clientData, Tcl_Interp *interp,
-	     int objc, Tcl_Obj *CONST objv[]) {
-  char *ib, *ob;
-  int ilen, olen, indesc, outdesc, nread;
-  char buf[1024];
-
-  if (objc!=3) {
-    Tcl_SetObjResult(interp, Tcl_NewStringObj("lockcopy needs two arguments "
-					      "src dest", -1));
-    return TCL_ERROR;
-  }
-  ib = Tcl_GetStringFromObj(objv[1], &ilen);
-  ob = Tcl_GetStringFromObj(objv[2], &olen);
-  if ((indesc = open (ib, O_RDWR))) {
-    Tcl_SetObjResult(interp, Tcl_NewStringObj("open in failed", -1));
-    return TCL_ERROR;
-  }
-#if !defined(__WIN32__) && !defined(sparc)
-  if (flock(indesc, LOCK_EX)<0) {
-    close(indesc);
-    Tcl_SetObjResult(interp, Tcl_NewStringObj("lock failed", -1));
-    return TCL_ERROR;
-  }
-#endif
-  if ((outdesc=open(ob, O_WRONLY | O_CREAT | O_EXCL, 0666))<0) {
-    close(indesc);
-    Tcl_SetObjResult(interp, Tcl_NewStringObj("open out failed", -1));
-    return TCL_ERROR;
-  }
-  while (1)
-    {
-      nread = read (indesc, buf, sizeof buf);
-      if (nread != write (outdesc, buf, nread))
-        {
-          sprintf(buf,"copy failed: %s", strerror(errno));
-          unlink (ob);
-          Tcl_SetObjResult(interp, Tcl_NewStringObj(buf, -1));
-          return TCL_ERROR;
-        }
-      if (nread < sizeof buf)
-        break;
-    }
-  if (close(outdesc) < 0) {
-    close(indesc);
-    Tcl_SetObjResult(interp, Tcl_NewStringObj("close out failed", -1));
-    return TCL_ERROR;
-  }
-#if !defined(__WIN32__) && !defined(sparc)
-  ftruncate (indesc, 0L);
-  flock(indesc, LOCK_UN);
-#endif
-  close(indesc);
-
-  return TCL_OK;
-}
-
-static int
-xorstrcmd(ClientData clientData, Tcl_Interp *interp,
-             int objc, Tcl_Obj *CONST objv[]) {
-  Tcl_Obj *result;
-  char *ib;
-  unsigned char *ip;
-  int i=0, n=0, p=-1, ilen, olen, random=0, ibegin=0, dorandom=0, doimagic=0;
-  char c[BUFSIZ+1], rval, seed;
-
-  c[0]=0x8e; c[1]=0x1d; c[2]=0x20; c[3]=0x13; c[4]=0;
-  if (objc<3) {
-    Tcl_SetObjResult(interp, Tcl_NewStringObj("needs two arguments "
-                                              "(password data)", -1));
-    return TCL_ERROR;
-  }
-  result=Tcl_NewStringObj("",0);
-  ip = Tcl_GetStringFromObj(objv[1], &ilen);
-  ib = Tcl_GetStringFromObj(objv[2], &olen);
-  for (i=3; i<objc; i++) {
-    int alen;
-    char *ap=Tcl_GetStringFromObj(objv[i], &alen);
-    if (!strcmp(ap,"-randomize")) {
-      dorandom=1;
-    } else if (!strcmp(ap,"-imagic")) {
-      doimagic=1;
-    } else if (!strcmp(ap,"-omagic")) {
-      if (c[0]!=ib[0] || c[1]!=ib[1] || c[2]!=ib[2] || 
-        (c[3]!=0x13 && c[3] !=0x14)) {
-        Tcl_SetObjResult(interp, Tcl_NewStringObj("Decryption failed",-1));
-	return TCL_ERROR;
-      }
-      if (ib[3]==0x14) dorandom=1;
-      ibegin=4;
-    }
-  }
-  if (dorandom) {
-    c[3]=0x14;
-    random=1;
-    seed=ip[0];
-    for (i=1; i<ilen; i++) {
-      seed=seed^ip[i];
-    }
-    p=(seed%ip[0]);
-  }
-  if (doimagic) {
-    Tcl_AppendToObj(result, c, 4);
-  }
-  for (i=ibegin; i<olen; i++) {
-    if ((n+1)>=BUFSIZ) {
-      c[n]=0;
-      Tcl_AppendToObj(result, c, n);
-      n=0;
-    }
-    p++;
-    if (p>=ilen) p=0;
-    rval=ip[p];
-    if (random) {
-      if (p==(seed%ilen)) {
-        seed=(ip[p]^seed);
-      }
-      rval=(ip[p]^seed);
-    }
-    c[n++]=(ib[i]^rval);
-  }
-  c[n]=0;
-  if (n) Tcl_AppendToObj(result, c, n);
-  Tcl_SetObjResult(interp, result);
-  return TCL_OK;
-}
-
-static int
-decryptsrcsub(ClientData clientData, Tcl_Interp *interp,
-             int objc, Tcl_Obj *CONST objv[], int decrypt) {
-  static char *srcpass="saj.k4S-pQk_d3HL";
-  char pw[50], *ib;
-  int i, rc=TCL_OK, olen;
-  int vobjc=4; Tcl_Obj *vobjv[6];
-  if (objc<3) {
-    Tcl_SetObjResult(interp, Tcl_NewStringObj("needs two arguments "
-        "(password data)", -1));
-    return TCL_ERROR;
-  }
-  vobjv[0]=objv[0];
-  vobjv[2]=objv[2];
-  ib = Tcl_GetStringFromObj(objv[1], &olen);
-  for (i=0; srcpass[i] && ib[i]; i++)  pw[i]=ib[i]^srcpass[i]; 
-  pw[i]=0;
-  vobjv[1]=Tcl_NewStringObj(pw,-1);
-  vobjv[3]=Tcl_NewStringObj("-randomize",-1);
-  if (TCL_OK==(rc=xorstrcmd(clientData, interp, vobjc, vobjv))) {
-    if (decrypt) {
-      char *cp=strdup(Tcl_GetStringResult(interp));
-      rc=Tcl_GlobalEval(interp, cp);
-      free(cp);
-    }
-  }
-  Tcl_DecrRefCount(vobjv[1]);
-  Tcl_DecrRefCount(vobjv[3]);
-  return rc;
-}
-static int
-decryptsrccmd(ClientData clientData, Tcl_Interp *interp,
-             int objc, Tcl_Obj *CONST objv[]) {
-  return decryptsrcsub(clientData, interp, objc, objv, 1);
-}
-static int
-srcencryptcmd(ClientData clientData, Tcl_Interp *interp,
-             int objc, Tcl_Obj *CONST objv[]) {
-  return decryptsrcsub(clientData, interp, objc, objv, 0);
-}
-
-
-#ifndef __WIN32__
-#include <netdb.h>
-
-static void donslookup(char *name, char *buf) {
-  struct hostent *he = gethostbyname(name);
-  buf[0]=0;
-  if (he) {
-    int i; unsigned char* cp;
-    cp=he->h_addr;
-    sprintf(buf,"%d.%d.%d.%d", cp[0],cp[1],cp[2],cp[3]);
-  }
-}
-
-static int nslookup(ClientData clientData, Tcl_Interp *interp,
-             int objc, Tcl_Obj *CONST objv[]) {
-  Tcl_Obj *result;
-  char *ib;
-  int i=00, ilen;
-  char buf[300];
-
-  if (objc!=2) {
-    Tcl_SetObjResult(interp, Tcl_NewStringObj("needs one argument "
-                                              "(name to lookup)", -1));
-    return TCL_ERROR;
-  }
-  ib = Tcl_GetStringFromObj(objv[1], &ilen);
-  donslookup(ib,buf);
-  result = Tcl_NewStringObj("", 0);
-  Tcl_AppendToObj(result, buf, strlen(buf));
-  Tcl_SetObjResult(interp, result);
-  return TCL_OK;
-}
-#endif
-
 #if INTERFACE
 #define DLL_EXPORT
 #endif
@@ -3294,20 +2727,9 @@ static int nslookup(ClientData clientData, Tcl_Interp *interp,
 # define DLL_EXPORT __declspec(dllexport)
 #endif
 
-extern int tkhtmlexiting;
-
-int
-HtmlExitImmed(ClientData clientData, Tcl_Interp *interp,
-             int objc, Tcl_Obj *CONST objv[]) {
-  /* Sad, but TK is core dumping on exit.  So here is the backway out. */
-  exit(0);
-}
-
 int HtmlBP () {
   return TCL_OK;
 }
-static char *BegEnd = " ?-begin INDEX? ?-end INDEX? ?-range {INDEX INDEX}?";
-
 /*DLL_EXPORT*/ int Htmlexts_Init(Tcl_Interp *interp) {
 #ifdef USE_TCL_STUBS
   HtmlPostscriptPtr=0;
@@ -3325,92 +2747,8 @@ static char *BegEnd = " ?-begin INDEX? ?-end INDEX? ?-range {INDEX INDEX}?";
 #endif
   Tcl_PkgProvide(interp, HTML_PKGNAME"pr", HTML_PKGVERSION);
 #endif
-  Tcl_CreateObjCommand(interp, "stdchan", stdchancmd,
-		       (ClientData)0, NULL);
-  Tcl_CreateObjCommand(interp, "textfmt", textfmtcmd,
-		       (ClientData)0, NULL);
-  Tcl_CreateObjCommand(interp, "lockcopy", lockcopycmd,
-		       (ClientData)0, NULL);
-  Tcl_CreateObjCommand(interp, "base64decode", base64decode,
-		       (ClientData)0, NULL);
-  Tcl_CreateObjCommand(interp, "base64encode", base64encode,
-		       (ClientData)0, NULL);
-  Tcl_CreateObjCommand(interp, "killpid", killpidcmd,
-		       (ClientData)0, NULL);
-  Tcl_CreateObjCommand(interp, "xorstr", xorstrcmd,
-		       (ClientData)0, NULL);
-  Tcl_CreateObjCommand(interp, "srcencrypt", srcencryptcmd,
-		       (ClientData)0, NULL);
-  Tcl_CreateObjCommand(interp, "decryptsrc", decryptsrccmd,
-		       (ClientData)0, NULL);
-  Tcl_CreateObjCommand(interp, "tkhtmlexit", HtmlExitImmed,
-		       (ClientData)0, NULL);
-  Tcl_CreateObjCommand (interp, "gunzip", tclgunzip,
-			(ClientData) 0, NULL);
-  Tcl_CreateObjCommand (interp, "gzip", tclgzip,
-			(ClientData) 0, NULL);
-  Tcl_CreateObjCommand (interp, "decompress", tcldecompress,
-			(ClientData) 0, NULL);
-#ifndef __WIN32__
-  Tcl_CreateObjCommand(interp, "nslookup", nslookup,
-                       (ClientData)0, NULL);
-#endif
 
-  HtmlCommandDel("text","ascii");
-  HtmlCommandDel("text","delete");
-  HtmlCommandDel("text","html");
-  HtmlCommandDel("text","insert");
-  HtmlCommandDel("token","delete");
-  HtmlCommandDel("token","find");
-  HtmlCommandDel("token","get");
-  HtmlCommandDel("token","insert");
-  HtmlCommandAdd("text", "ascii",3, 5, "START END",HtmlTextAsciiCmd);
-  HtmlCommandAdd("text","delete",3, 5, "START END",HtmlTextDeleteCmd);
-  HtmlCommandAdd("text","insert",5, 5, "INDEX TEXT",HtmlTextInsertCmd);
-  HtmlCommandAdd("text","break",4, 4, "INDEX",HtmlTextInsertCmd);
-  HtmlCommandAdd("text","html",3, 5, "START END", HtmlTextHtmlCmd );
-  HtmlCommandAdd("text","find",4, 7,"TEXT ?nocase? ?before|after INDEX?", HtmlTextFindCmd);
-  HtmlCommandAdd("text","offset",6, 6,"START NUM1 NUM2", HtmlTextOffsetCmd);
-  HtmlCommandAdd("text","table",4, 6,"INDEX ?-images? ?-attrs?", HtmlTextTable);
-  HtmlCommandAdd("token","delete",4, 5, "INDEX ?INDEX?",HtmlTokenDeleteCmd);
-  HtmlCommandAdd("token","insert",5, 6, "INDEX TAG ARGS",HtmlTokenInsertCmd);
-  HtmlCommandAdd("token","find",4, 6, "TAG ?before|after|near INDEX?", HtmlTokenFindCmd);
-  HtmlCommandAdd("token","get",3, 5, "INDEX ?INDEX?",HtmlTokenGetCmd);
-  HtmlCommandAdd("token","list",3, 5, "START END",HtmlTokenListCmd);
-  HtmlCommandAdd("token","markup",5, 5, "START END",HtmlTokenMarkupCmd);
-  HtmlCommandAdd("token","domtokens",5, 5, "START END",HtmlTokenDomCmd);
-  HtmlCommandAdd("token","getend",4, 4, "INDEX",HtmlTokenGetEnd);
-  HtmlCommandAdd("token","attr",4, 6, "INDEX ?NAME ?VALUE??",HtmlTokenAttr);
-  HtmlCommandAdd("token", "attrs", 4, 6, "attrlist",HtmlTokenAttrSearch);
-  HtmlCommandAdd("token", "unique", 4, 6, "tag",HtmlTokenUnique);
-  HtmlCommandAdd("token", "onEvents", 3, 5, BegEnd,HtmlTokenOnEvents);
-  HtmlCommandAdd("dom", "value", 4, 5, "DomAddr ?newvalue?",HtmlDomCmd);
-  HtmlCommandAdd("dom", "id", 4, 4, "DomAddr",HtmlDomCmd);
-  HtmlCommandAdd("dom", "ids", 4, 4, "DomAddr",HtmlDomCmd);
-  HtmlCommandAdd("dom", "addr", 4, 8, "index", HtmlIdToDomCmd);
-  HtmlCommandAdd("dom", "tree", 4, 5, "index ?value?",HtmlDomTreeCmd);
-  HtmlCommandAdd("dom", "nameidx", 5, 5, "tag name",HtmlDomName2Index);
-  HtmlCommandAdd("dom", "radioidx", 6, 6, "form name idx",HtmlDomRadio2Index);
-  HtmlCommandAdd("dom", "formel", 5, 5, "form name",HtmlDomFormElIndex);
-#ifndef _TCLHTML_
-  HtmlCommandAdd("bgimage", 0, 3, 4, 0,HtmlImageBgCmd );
-  HtmlCommandAdd("postscript",0,2,0,0,HtmlPostscriptCmd );
-  HtmlCommandAdd("overattr",0,5, 5, "X Y ATTR",HtmlAttrOverCmd);
-  HtmlCommandAdd("over",0,4, 5, "X Y ?-muponly?",HtmlOverCmd);
-  HtmlCommandAdd("imageat",0,4, 4, "X Y",HtmlImageAtCmd);
-  HtmlCommandAdd("imageset",0,4, 4, "ID INDEX",HtmlImageSetCmd);
-  HtmlCommandAdd("imageupdate",0,4, 4, "ID IMAGES",HtmlImageUpdateCmd);
-  HtmlCommandAdd("imageadd",0,4, 4, "ID IMAGES",HtmlImageAddCmd);
-  HtmlCommandAdd("onscreen",0,3, 3, "ID",HtmlOnScreen);
-  HtmlCommandAdd("forminfo",0,4, 4, "ID",HtmlFormInfo);
-  HtmlCommandAdd("coords",0,2,4,"?INDEX ?percent??",HtmlCoordsCmd);
-  HtmlCommandAdd("images",0, 3, 3, "?list|html?", HtmlImagesListCmd);
-  HtmlCommandAdd("refresh",0, 2, 15, "", HtmlRefreshCmd);
-  HtmlCommandAdd("source",0, 2, 2, "", HtmlSourceCmd);
-  HtmlCommandAdd("htmlbp",0, 2, 2, "", HtmlBP);
-  HtmlCommandAdd("sizewindow",0, 3, 3, "", HtmlSizeWindow);
   HtmlFetchSelectionPtr=HtmlFetchSelection;
-#endif /* _TCLHTML_ */
   Tcl_LinkVar(interp, "tkhtmlexiting", (char*)&tkhtmlexiting, TCL_LINK_INT);
   return TCL_OK;
 }

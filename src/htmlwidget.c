@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlwidget.c,v 1.51 2002/03/12 03:06:10 peter Exp $";
+static char const rcsid[] = "@(#) $Id: htmlwidget.c,v 1.52 2002/09/22 16:55:46 peter Exp $";
 /*
 ** The main routine for the HTML widget for Tcl/Tk
 **
@@ -82,6 +82,10 @@ static Tk_ConfigSpec configSpecs[] = {
 	(char *) NULL, 0, 0},
     {TK_CONFIG_STRING, "-fontcommand", "fontCommand", "FontCommand",
         DEF_HTML_CALLBACK, Tk_Offset(HtmlWidget, zFontCommand), 0},
+    {TK_CONFIG_STRING, "-fontfamily", "fontFamily", "FontFamily",
+        "times", Tk_Offset(HtmlWidget, FontFamily), 0},
+    {TK_CONFIG_INT, "-fontadjust", "fontAdjust", "FontAdjust",
+        "2", Tk_Offset(HtmlWidget, FontAdjust), 0},
     {TK_CONFIG_INT, "-formpadding", "formPadding", "FormPadding",
         "4", Tk_Offset(HtmlWidget, formPadding), 0},
     {TK_CONFIG_COLOR, "-foreground", "foreground", "Foreground",
@@ -187,6 +191,83 @@ Tk_ConfigSpec *HtmlConfigSpec(void){
   return configSpecs;
 }
 
+int TclConfigureWidgetObj(Tcl_Interp *interp, HtmlWidget *htmlPtr, 
+  Tk_ConfigSpec *configSpecs, int objc, Tcl_Obj * CONST objv[],
+                         char *dp, int flags) {
+  Tk_ConfigSpec *cs;
+  int i; char *op;
+  if (objc==0) {
+    cs=configSpecs; 
+    while (cs->type!=TK_CONFIG_END) {
+      switch (cs->type) {
+        case TK_CONFIG_STRING: {
+            char **sp;
+            op=dp+cs->offset;
+            sp=(char**)op;
+            Tcl_AppendElement(interp, cs->argvName);
+            Tcl_AppendElement(interp, *sp);
+          }
+          break;
+        case TK_CONFIG_INT: {
+            int *sp;
+      	    char buf[50];
+            op=dp+cs->offset;
+            sp=(int*)op;
+            sprintf(buf,"%d",*sp);
+            Tcl_AppendElement(interp, cs->argvName);
+            Tcl_AppendElement(interp, buf);
+          }
+          break;
+        default: assert(0=="Unknown spec type");
+      }
+      cs=cs+1;
+    }
+    return TCL_OK;
+  }
+  for (i=0; (i+1)<=objc; i++) {
+    char *arg=Tcl_GetString(objv[i]);
+    cs=configSpecs; 
+    while (cs->type!=TK_CONFIG_END) {
+      if (!strcmp(arg,cs->argvName)) {
+        switch (cs->type) {
+	  case TK_CONFIG_STRING: {
+	      char **sp;
+	      op=dp+cs->offset;
+	      sp=(char**)op;
+	      if (++i >= objc) {
+	        Tcl_SetResult(interp, *sp, 0);
+	        return TCL_OK;
+	      }
+	      *sp=strdup(arg);
+	      goto foundopt;
+	    }
+	    break;
+	  case TK_CONFIG_INT: {
+	      int *sp;
+	      op=dp+cs->offset;
+	      sp=(int*)op;
+	      if (++i >= objc) {
+		char buf[50];
+                sprintf(buf,"%d",*sp);
+	        Tcl_SetResult(interp, buf, 0);
+	        return TCL_OK;
+	      }
+	      *sp=atoi(arg);
+	      goto foundopt;
+	    }
+	    break;
+	  default: assert(0=="Unknown spec type");
+	}
+      }
+      cs=cs+1;
+    }
+    fprintf(stderr,"Unknown option %s\n",arg);
+    return TCL_ERROR;
+    foundopt:
+  }
+  return TCL_OK;
+}
+
 int TclConfigureWidget(Tcl_Interp *interp, HtmlWidget *htmlPtr, 
   Tk_ConfigSpec *configSpecs, int argc, char *argv[],
                          char *dp, int flags) {
@@ -268,7 +349,7 @@ static void HtmlCmdDeletedProc(ClientData clientData){}
 static void HtmlEventProc(ClientData clientData, XEvent *eventPtr) {}
 void HtmlRedrawText(HtmlWidget *htmlPtr, int y){}
 void HtmlRedrawBlock(HtmlWidget *htmlPtr, HtmlBlock *p){}
-int HtmlGetColorByName(HtmlWidget *htmlPtr, char *zColor){ return 0; }
+int HtmlGetColorByName(HtmlWidget *htmlPtr, char *zColor, int def){ return 0; }
 void HtmlScheduleRedraw(HtmlWidget *htmlPtr){}
 #else
 /*
@@ -1200,20 +1281,20 @@ Tk_Font HtmlGetFont(
       char *familyStr = "";
       int iFamily;
       int iSize;
-      int size, finc=2;
+      int size, finc=htmlPtr->FontAdjust;
 
       iFamily = iFont / N_FONT_SIZE;
       iSize = iFont % N_FONT_SIZE + 1;
       switch( iFamily ){
-        case 0:  familyStr = "times -%d";             break;
-        case 1:  familyStr = "times -%d bold";        break;
-        case 2:  familyStr = "times -%d italic";      break;
-        case 3:  familyStr = "times -%d bold italic"; break;
-        case 4:  familyStr = "times -%d";               break;
-        case 5:  familyStr = "times -%d bold";          break;
-        case 6:  familyStr = "times -%d italic";        break;
-        case 7:  familyStr = "times -%d bold italic";   break;
-        default: familyStr = "times -14";             CANT_HAPPEN;
+        case 0:  familyStr = "%s -%d";             break;
+        case 1:  familyStr = "%s -%d bold";        break;
+        case 2:  familyStr = "%s -%d italic";      break;
+        case 3:  familyStr = "%s -%d bold italic"; break;
+        case 4:  familyStr = "%s -%d";               break;
+        case 5:  familyStr = "%s -%d bold";          break;
+        case 6:  familyStr = "%s -%d italic";        break;
+        case 7:  familyStr = "%s -%d bold italic";   break;
+        default: familyStr = "%s -14";             CANT_HAPPEN;
       }
       switch( iSize ){
         case 1:  size = 6+finc;   break;
@@ -1225,7 +1306,7 @@ Tk_Font HtmlGetFont(
         case 7:  size = 30+finc;  break;
         default: size = 14+finc;  CANT_HAPPEN;
       }
-      sprintf(name, familyStr, size);
+      sprintf(name, familyStr, htmlPtr->FontFamily, size);
     }
 
     /* Get the named font
@@ -1276,7 +1357,7 @@ static float colorDistance(XColor *pA, XColor *pB){
 ** which XColor structure in the apColor[] array of htmlPtr should be
 ** used to describe the color specified by the given name.
 */
-int HtmlGetColorByName(HtmlWidget *htmlPtr, char *zColor){
+int HtmlGetColorByName(HtmlWidget *htmlPtr, char *zColor, int def){
   XColor *pNew;
   int iColor;
   Tk_Uid name;
@@ -1303,12 +1384,14 @@ int HtmlGetColorByName(HtmlWidget *htmlPtr, char *zColor){
   }
   pNew = Tk_GetColor(htmlPtr->interp, htmlPtr->clipwin, name);
   if( pNew==0 ){
-    return 0;      /* Color 0 is always the default */
+    return def;
   }
 
   iColor = GetColorByValue(htmlPtr, pNew);
   Tk_FreeColor(pNew);
-  return iColor;
+  if (iColor<N_COLOR)
+    return iColor;
+  return def;
 }
 
 /*
@@ -1397,6 +1480,29 @@ int HtmlGetLightShadowColor(HtmlWidget *htmlPtr, int iBgColor){
   return htmlPtr->iLight[iBgColor] - 1;
 }
 
+# define COLOR_MASK  0xf800
+
+/* Eliminate remapped duplicate colors. */
+LOCAL int CheckDupColor(HtmlWidget *htmlPtr, int slot){
+  int i;
+  int r, g, b;
+  XColor *pRef = htmlPtr->apColor[slot];
+  r = pRef->red &= COLOR_MASK;
+  g = pRef->green &= COLOR_MASK;
+  b = pRef->blue &= COLOR_MASK;
+  for(i=0; i<N_COLOR; i++){
+    XColor *p = htmlPtr->apColor[i];
+    if (i==slot) continue;
+    if( p && (p->red & COLOR_MASK)==r && (p->green & COLOR_MASK)==g
+    && (p->blue & COLOR_MASK)==b ){
+      htmlPtr->colorUsed &= ~(1LL<<slot);
+      htmlPtr->apColor[slot]=0;
+      return i;
+    }
+  }
+  return slot;
+}
+
 /*
 ** Find a color integer for the color whose color components
 ** are given by pRef.
@@ -1407,7 +1513,6 @@ LOCAL int GetColorByValue(HtmlWidget *htmlPtr, XColor *pRef){
   float closestDist;
   int closest;
   int r, g, b;
-# define COLOR_MASK  0xf800
 
   /* Search for an exact match */
   r = pRef->red &= COLOR_MASK;
@@ -1417,7 +1522,7 @@ LOCAL int GetColorByValue(HtmlWidget *htmlPtr, XColor *pRef){
     XColor *p = htmlPtr->apColor[i];
     if( p && (p->red & COLOR_MASK)==r && (p->green & COLOR_MASK)==g 
     && (p->blue & COLOR_MASK)==b ){
-      htmlPtr->colorUsed |= (1<<i);
+      htmlPtr->colorUsed |= (1LL<<i);
       return i;
     }
   }
@@ -1426,19 +1531,20 @@ LOCAL int GetColorByValue(HtmlWidget *htmlPtr, XColor *pRef){
   for(i=N_PREDEFINED_COLOR; i<N_COLOR; i++){
     if( htmlPtr->apColor[i]==0 ){
       htmlPtr->apColor[i] = Tk_GetColorByValue(htmlPtr->clipwin, pRef);
-      htmlPtr->colorUsed |= (1<<i);
-      return i;
+      /* Check if colow was remapped to an existing slot */
+      htmlPtr->colorUsed |= (1LL<<i);
+      return CheckDupColor(htmlPtr, i);
     }
   }
 
   /* No empty slots.  Look for a slot that contains a color that
   ** isn't currently in use. */
   for(i=N_PREDEFINED_COLOR; i<N_COLOR; i++){
-    if( ((htmlPtr->colorUsed >> i) & 1) == 0 ){
+    if( ((htmlPtr->colorUsed >> i) & 1LL) == 0 ){
       Tk_FreeColor(htmlPtr->apColor[i]);
       htmlPtr->apColor[i] = Tk_GetColorByValue(htmlPtr->clipwin, pRef);
-      htmlPtr->colorUsed |= (1<<i);
-      return i;
+      htmlPtr->colorUsed |= (1LL<<i);
+      return CheckDupColor(htmlPtr, i);
     }
   }
 
@@ -1633,31 +1739,32 @@ void HtmlScheduleRedraw(HtmlWidget *htmlPtr){
 ** This routine is called in order to process a "configure" subcommand
 ** on the given html widget.
 */
-int ConfigureHtmlWidget(
+int ConfigureHtmlWidgetObj(
   Tcl_Interp *interp,      /* Write error message to this interpreter */
   HtmlWidget *htmlPtr,     /* The Html widget to be configured */
-  int argc,                /* Number of configuration arguments */
-  char **argv,             /* Text of configuration arguments */
+  int objc,                /* Number of configuration arguments */
+  Tcl_Obj * CONST objv[],  /* Text of configuration arguments */
   int flags,               /* Configuration flags */
   int realign              /* Always do a redraw if set */
 ){
   int rc;
   int i;
   int redraw = realign;    /* True if a redraw is required. */
+  char *arg;
 
   /* Scan thru the configuration options to see if we need to redraw
   ** the widget.
   */
-  for(i=0; redraw==0 && i<argc; i+=2){
+  for(i=0; redraw==0 && i<objc; i+=2){
     int c;
     int n;
-    if( argv[i][0]!='-' ){
+    arg=Tcl_GetStringFromObj(objv[i],&n);
+    if( arg[0]!='-' ){
       redraw = 1;
       break;
     }
-    c = argv[i][1];
-    n = strlen(argv[i]);
-    if( c=='c' && n>4 && strncmp(argv[i],"-cursor",n)==0 ){
+    c = arg[1];
+    if( c=='c' && n>4 && strncmp(arg,"-cursor",n)==0 ){
       /* do nothing */
     }else
     /* The default case */
@@ -1666,12 +1773,29 @@ int ConfigureHtmlWidget(
     }
   }
 #ifdef _TCLHTML_
-  rc = TclConfigureWidget(interp, htmlPtr, configSpecs, argc, argv,
+  rc = TclConfigureWidgetObj(interp, htmlPtr, configSpecs, objc, objv,
                          (char *) htmlPtr, flags);
   if( rc!=TCL_OK || redraw==0 ){ return rc; }
 #else
-  rc = Tk_ConfigureWidget(interp, htmlPtr->tkwin, configSpecs, argc, argv,
-                         (char *) htmlPtr, flags);
+  {
+    char *sargv[20];
+    char **argv;
+    if (objc>=19) {
+      argv=calloc(sizeof(char*),objc+1);
+      for (i=0; i<objc; i++)
+        argv[i]=Tcl_GetString(objv[i]);
+      argv[i]=0;
+      rc = Tk_ConfigureWidget(interp, htmlPtr->tkwin, configSpecs, objc, 
+        argv, (char *) htmlPtr, flags);
+        free(argv);
+    } else {
+      for (i=0; i<objc; i++)
+        sargv[i]=Tcl_GetString(objv[i]);
+      sargv[i]=0;
+      rc = Tk_ConfigureWidget(interp, htmlPtr->tkwin, configSpecs, objc,
+		  sargv, (char *) htmlPtr, flags);
+    }
+  }
   if( rc!=TCL_OK || redraw==0 ){ return rc; }
   memset(htmlPtr->fontValid, 0, sizeof(htmlPtr->fontValid));
   htmlPtr->apColor[COLOR_Normal] = htmlPtr->fgColor;
@@ -1693,107 +1817,33 @@ int ConfigureHtmlWidget(
 #endif
   return rc;
 }
+int HtmlNewWidget(
+  ClientData clientData,        /* Main window */
+  Tcl_Interp *interp,           /* Current interpreter. */
+  int objc,                     /* Number of arguments. */
+  Tcl_Obj * CONST objv[]        /* Argument strings. */ 
+) {
 
-/* Doesn't work for UTF chars > 0x7f */
-#define ChrIdx(str,i) (cp=Tcl_UtfAtIndex(str,i))?*cp:0
-/* Tcl_UtfToUniChar(cp, &uch); ch=uch;*/
-int htmlReformatCmd(Tcl_Interp *interp, char *str, char *stype, char *dtype) {
-  char buf[132], *cp; int n=0, i=0, l=Tcl_NumUtfChars(str,-1);
-  Tcl_UniChar ch;
-  if (dtype[0]!='p') {
-    for (i=0; i<l; n++,i++) {
-      if (n>=128) {
-        buf[n]=0;
-        Tcl_AppendResult(interp, buf, 0);
-        buf[n=0]=0;
-      }
-      ch=ChrIdx(str,i);
-      if (isalnum(ch) || ch=='$' || ch=='-' || ch=='_' ||
-        ch=='.' || (dtype[0]=='u' && ch=='/'))
-           buf[n]=ch;
-      else if (ch==' ') buf[n]='+';
-      else if (ch=='\n') n--;
-      else {
-        buf[n++]='%'; sprintf(buf+n,"%02X",(unsigned char)ch); n++;
-      }
-    }
-    buf[n]=0;
-    Tcl_AppendResult(interp, buf, 0);
-  } else {
-    for (i=0; i<l; n++,i++) {
-      if (n>=128) {
-        buf[n]=0;
-        Tcl_AppendResult(interp, buf, 0);
-        buf[n=0]=0;
-      }
-      ch=ChrIdx(str,i);
-      if (ch != '%' || (i+2)>=l)
-        buf[n]=ch;
-      else {
-	char cbuf[3];
-        cbuf[0]=ChrIdx(str,i+1);
-        cbuf[1]=ChrIdx(str,i+2);
-        if (isxdigit(cbuf[0]) && isxdigit(cbuf[1])) {
-	  int ich;
-          cbuf[3]=0;
-	  sscanf(cbuf,"%2x",&ich);
-	  sprintf(buf+n,"%c",ich);
-	  i+=2;
-	} else
-          buf[n]=ch;
-      }
-    }
-    buf[n]=0;
-    Tcl_AppendResult(interp, buf, 0);
-  }
-  return TCL_OK;
-}
-
-/*
-** The following routine implements the Tcl "html" command.  This command
-** is used to create new HTML widgets only.  After the widget has been
-** created, it is manipulated using the widget command defined above.
-*/
-int HtmlCommand(
-  ClientData clientData,	/* Main window */
-  Tcl_Interp *interp,		/* Current interpreter. */
-  int argc,			/* Number of arguments. */
-  char **argv			/* Argument strings. */
-){
-  int n, c;
-  char *z, *zn, zs;
-
-  if (argc < 2) {
-    Tcl_AppendResult(interp, "wrong # args: should be \"",
-         argv[0], " pathName ?options?\"", (char *) NULL);
-    return TCL_ERROR;
-  }
-  z = argv[1];
-  n = strlen(z);
-  c = z[0];
-
-  /* If the first argument begins with ".", then it must be the
-  ** name of a new window the user wants to create.
-  */
-  if( argv[1][0]=='.' ){
     HtmlWidget *htmlPtr;
     Tk_Window new;
     Tk_Window clipwin;
     char *zClipwin;
     Tk_Window tkwin = (Tk_Window)clientData;
     static int varId = 1;        /* Used to construct unique names */
+    int n;
+    char *arg1 = Tcl_GetStringFromObj(objv[1], &n);
 
 #ifndef _TCLHTML_
-    new = Tk_CreateWindowFromPath(interp, tkwin, argv[1], (char *) NULL);
+    new = Tk_CreateWindowFromPath(interp, tkwin, arg1, (char *) NULL);
     if (new == NULL) {
        return TCL_ERROR;
     }
-    zClipwin = HtmlAlloc( strlen(argv[1]) + 3 );
+    zClipwin = HtmlAlloc( n + 3 );
     if( zClipwin==0 ){
       Tk_DestroyWindow(new);
       return TCL_ERROR;
     }
-    sprintf(zClipwin,"%s.x",argv[1]);
+    sprintf(zClipwin,"%s.x",arg1);
     clipwin = Tk_CreateWindowFromPath(interp, new, zClipwin, 0);
     if( clipwin==0 ){
       Tk_DestroyWindow(new);
@@ -1802,7 +1852,7 @@ int HtmlCommand(
     }
 #endif
 
-    dbghtmlPtr=htmlPtr = HtmlAlloc(sizeof(HtmlWidget) + strlen(argv[1]) + 1);
+    dbghtmlPtr=htmlPtr = HtmlAlloc(sizeof(HtmlWidget) + n + 1);
     memset(htmlPtr, 0, sizeof(HtmlWidget));
 #ifdef _TCLHTML_
     htmlPtr->tkwin = 1;
@@ -1814,17 +1864,17 @@ int HtmlCommand(
 #endif
     htmlPtr->interp = interp;
     htmlPtr->zCmdName = (char*)&htmlPtr[1];
-    strcpy(htmlPtr->zCmdName, argv[1]);
+    strcpy(htmlPtr->zCmdName, arg1);
     htmlPtr->relief = TK_RELIEF_FLAT;
     htmlPtr->dirtyLeft = LARGE_NUMBER;
     htmlPtr->dirtyTop = LARGE_NUMBER;
     htmlPtr->flags = RESIZE_CLIPWIN;
     htmlPtr->varId = varId++;
-    Tcl_CreateCommand(interp, htmlPtr->zCmdName,
-      HtmlWidgetCommand, (ClientData)htmlPtr, HtmlCmdDeletedProc);
+    Tcl_CreateObjCommand(interp, htmlPtr->zCmdName,
+      HtmlWidgetObjCommand, (ClientData)htmlPtr, HtmlCmdDeletedProc);
 #ifndef _TCLHTML_
-    Tcl_CreateCommand(interp, htmlPtr->zClipwin,
-      HtmlWidgetCommand, (ClientData)htmlPtr, HtmlCmdDeletedProc);
+    Tcl_CreateObjCommand(interp, htmlPtr->zClipwin,
+      HtmlWidgetObjCommand, (ClientData)htmlPtr, HtmlCmdDeletedProc);
 
     Tk_SetClass(new,"Html");
     Tk_SetClass(clipwin,"HtmlClip");
@@ -1842,12 +1892,14 @@ int HtmlCommand(
     }
 #endif /* _TCLHTML_ */
 
-    if (ConfigureHtmlWidget(interp, htmlPtr, argc-2, argv+2, 0, 1) != TCL_OK) {
+    if (ConfigureHtmlWidgetObj(interp, htmlPtr, objc-2, objv+2, 0, 1) != TCL_OK) {
        goto error;
     }
 
+    Tcl_InitHashTable(&htmlPtr->tokenHash,TCL_STRING_KEYS);
+    htmlPtr->tokenCnt=Html_TypeCount;
 #ifdef _TCLHTML_
-    interp->result = argv[1];
+    interp->result = arg1;
 #else
     interp->result = Tk_PathName(htmlPtr->tkwin);
 #endif
@@ -1858,137 +1910,39 @@ int HtmlCommand(
     Tk_DestroyWindow(htmlPtr->tkwin);
 #endif
     return TCL_ERROR;
-  }
-
-  /*    html reformat  $from  $to  $text
-  **
-  ** Convert the format of text.
-  */
-  if( c=='r' && strncmp(z,"reformat",n)==0 ){
-    if( argc!=5 ){
-      Tcl_AppendResult(interp, "wrong # args: should be \"",
-           argv[0], " reformat FROM TO TEXT", (char *) NULL);
-      return TCL_ERROR;
-    }
-    return htmlReformatCmd(interp, argv[4], argv[2], argv[3]); 
-  }else
+}
 
 
-  /*    html urljoin  $scheme $authority $path $query $fragment
-  **
-  ** Merge together the parts of a URL into a single value URL.
-  */
-  if( c=='u' && strncmp(z,"urljoin",n)==0 ){
-    Tcl_DString str;
-    if( argc!=7 ){
-      char *z, zLine[100];
-      Tcl_AppendResult(interp, "wrong # args: should be \"",
-           argv[0], " url join SCHEME AUTHORITY PATH QUERY FRAGMENT\"", 0);
-      return TCL_ERROR;
-    }
-    Tcl_DStringInit(&str);
-    if (argv[2][0]) {
-      Tcl_DStringAppend(&str, argv[2], -1);
-      Tcl_DStringAppend(&str, ":", 1);
-    }
-    if (argv[3][0]) {
-      Tcl_DStringAppend(&str, "//", 2);
-      Tcl_DStringAppend(&str, argv[3], -1);
-    }
-    if (argv[4][0]) {
-      if (argv[4][0] != '/')
-	Tcl_DStringAppend(&str, "/", 1);
-      Tcl_DStringAppend(&str, argv[4], -1);
-    }
-    if (argv[5][0]) {
-      if (argv[5][0] != '?')
-	Tcl_DStringAppend(&str, "?", 1);
-      Tcl_DStringAppend(&str, argv[5], -1);
-    }
-    if (argv[6][0]) {
-      if (argv[6][0] != '#')
-	Tcl_DStringAppend(&str, "#", 1);
-      Tcl_DStringAppend(&str, argv[6], -1);
-    }
-    Tcl_DStringResult(interp, &str); 
-    return TCL_OK;
-  }else
+/*
+** The following routine implements the Tcl "html" command.  This command
+** is used to create new HTML widgets only.  After the widget has been
+** created, it is manipulated using the widget command defined above.
+*/
+int HtmlObjCommand(
+  ClientData clientData,	/* Main window */
+  Tcl_Interp *interp,		/* Current interpreter. */
+  int objc,			/* Number of arguments. */
+  Tcl_Obj * CONST objv[]	/* Argument strings. */
+){
+  int n;
+  char *arg1, *zn, zs, *cmd;
 
+  cmd=Tcl_GetString(objv[0]);
 
-  /*    html urlsplit $url
-  **
-  ** Split a URL into a list of its parts.
-  */
-  if( c=='u' && strncmp(z,"urlsplit",n)==0 ){
-    Tcl_DString str;
-    if( argc!=3 ){
-      Tcl_AppendResult(interp, "wrong # args: should be \"",
-           argv[0], " url split URL\"", 0);
-      return TCL_ERROR;
-    }
-    Tcl_DStringInit(&str);
-    
-    if (!(z = strchr(argv[2], ':'))) {
-      Tcl_DStringAppendElement(&str,"");
-      z=argv[2];
-    } else {
-      *z=0;
-      Tcl_DStringAppendElement(&str,argv[2]);
-      *z++ =':';
-    }
-    while (*z && *z == '/')
-      z++;
-    zn=z;
-    while (*z && (isalnum(*z) || *z == '.' || *z == ':' || *z == '-'))
-      z++;
-    zs=0;
-    if (z==zn) {
-      Tcl_DStringAppendElement(&str,"");
-    } else {
-      zs=*z;
-      *z=0;
-      Tcl_DStringAppendElement(&str,zn);
-      *z = zs;
-    }
-    zn=z;
-    while (*z && *z != '?' && *z != '#')
-      z++;
-    zs=0;
-    if (z==zn) {
-      Tcl_DStringAppendElement(&str,"");
-    } else {
-      zs=*z;
-      *z=0;
-      Tcl_DStringAppendElement(&str,zn);
-      *z++ = zs;
-    }
-    zs=0;
-    zn=z;
-    while (*z && *z != '#')
-      z++;
-    zs=0;
-    if (z==zn) {
-      Tcl_DStringAppendElement(&str,"");
-    } else {
-      zs=*z;
-      *z=0;
-      Tcl_DStringAppendElement(&str,zn);
-      *z = zs;
-    }
-
-    Tcl_DStringResult(interp, &str); 
-    return TCL_OK;
-  }else
-
-  /* No match.  Report an error.
-  */
-  {
-    Tcl_AppendResult(interp, "unknown command \"", z, "\": should be "
-      "a window name or one of: "
-      "reformat urljoin urlsplit", 0);
+  if (objc < 2) {
+    Tcl_AppendResult(interp, "wrong # args: should be \"",
+         cmd, " pathName ?options?\"", (char *) NULL);
     return TCL_ERROR;
   }
-  return TCL_OK;   
+  arg1 = Tcl_GetStringFromObj(objv[1],&n);
+
+  /* If the first argument begins with ".", then it must be the
+  ** name of a new window the user wants to create.
+  */
+  if( *arg1 =='.' )
+    return HtmlNewWidget(clientData, interp, objc, objv);
+
+  return HtmlCommandObj(clientData, interp, objc, objv);
 }
 
 /*
@@ -2024,6 +1978,10 @@ int HtmlXErrorHandler(Display *dsp, XErrorEvent *ev) {
   abort(); */
 }
 
+DLL_EXPORT int Tkhtml_SafeInit(Tcl_Interp *interp){
+	return Tkhtml_Init(interp);
+}
+
 DLL_EXPORT int Tkhtml_Init(Tcl_Interp *interp){
 #ifdef USE_TCL_STUBS
   if( Tcl_InitStubs(interp,"8.3",0)==0 ){
@@ -2033,15 +1991,17 @@ DLL_EXPORT int Tkhtml_Init(Tcl_Interp *interp){
     return TCL_ERROR;
   }
 #endif
-  htmlcmdhandle=Tcl_CreateCommand(interp,"html", HtmlCommand, 
+  htmlcmdhandle=Tcl_CreateObjCommand(interp,"html", HtmlObjCommand, 
       Tk_MainWindow(interp), 0);
   /* Tcl_GlobalEval(interp,HtmlLib); */
 #ifdef DEBUG
   Tcl_LinkVar(interp, "HtmlTraceMask", (char*)&HtmlTraceMask, TCL_LINK_INT);
 #endif
+  Tcl_StaticPackage(interp, "Tkhtml", Tkhtml_Init, Tkhtml_SafeInit);
   Tcl_PkgProvide(interp, HTML_PKGNAME, HTML_PKGVERSION);
   XSetErrorHandler(HtmlXErrorHandler);
   return Htmlexts_Init(interp);
   return TCL_OK;
 }
 #endif
+

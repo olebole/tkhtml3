@@ -6,7 +6,7 @@
 # no extra space (beyond HtmlMarkup) is required.  If there is a
 # corresponding end-tag, then the third column specifies the size of
 # the end markup.
-# $Revision: 1.9 $
+# $Revision: 1.10 $
 #
 # Copyright (C) 1997-2000 D. Richard Hipp
 #

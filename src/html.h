@@ -1,6 +1,6 @@
 /*
 ** Structures and typedefs used by the HTML widget
-** $Revision: 1.32 $
+** $Revision: 1.33 $
 **
 ** Copyright (C) 1997-2000 D. Richard Hipp
 **
@@ -986,8 +986,17 @@ struct HtmlWidget {
   int inParse;			/* Prevent update if parsing. */
   char *zGoto;			/* Label to goto right after layout. */
   int TclHtml;			/* Set to 1 if is not using Tk */
+  Tcl_HashTable tokenHash;	/* To support user definable tokens */
+  int tokenCnt;			/* Number of tokens, incl user defined */
+  int FontAdjust;		/* Add this quantity to each font size */
+  char *FontFamily;		/* Default font family to use. */
   HtmlExtensions *exts;		/* Pointer to user extension data */
 }
+
+typedef struct HtmlUserTag {
+  char *zHandler;
+  HtmlTokenMap tokenMap;
+} HtmlUserTag;
 
 /*
  * Flag bits "flags" field of the Html widget:

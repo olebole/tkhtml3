@@ -13,7 +13,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: htmlPsImg.c,v 1.4 2002/03/06 18:10:58 peter Exp $
+ * RCS: @(#) $Id: htmlPsImg.c,v 1.5 2002/09/22 16:55:45 peter Exp $
  */
 
 

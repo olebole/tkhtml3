@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmllayout.c,v 1.31 2002/03/06 18:10:58 peter Exp $";
+static char const rcsid[] = "@(#) $Id: htmllayout.c,v 1.32 2002/09/22 16:55:45 peter Exp $";
 /*
 ** This file contains the code used to position elements of the
 ** HTML file on the screen.
@@ -218,7 +218,7 @@ static HtmlElement *GetLine(
           }
         }
         TRACE(HtmlTrace_GetLine2, ("Place token %s at x=%d w=%d\n",
-           HtmlTokenName(p), p->text.x, p->text.w));
+           HtmlTokenName(pLC->htmlPtr, p), p->text.x, p->text.w));
         x += p->text.w + spaceWanted;
         isEmpty = 0;
         spaceWanted = 0;
@@ -260,7 +260,7 @@ static HtmlElement *GetLine(
           }
         }
         TRACE(HtmlTrace_GetLine2, ("Place in-line image %s at x=%d w=%d\n",
-           HtmlTokenName(p), p->image.x, p->image.w));
+           HtmlTokenName(pLC->htmlPtr, p), p->image.x, p->image.w));
         x += p->image.w + spaceWanted;
         if( (p->base.style.flags & STY_NoBreak)==0 ){
           lastBreak = p->pNext;
@@ -282,7 +282,7 @@ static HtmlElement *GetLine(
           }
         }
         TRACE(HtmlTrace_GetLine2, ("Place token %s at x=%d w=%d\n",
-           HtmlTokenName(p), p->input.x, p->input.w));
+           HtmlTokenName(pLC->htmlPtr, p), p->input.x, p->input.w));
         x = p->input.x + p->input.w;
         if( (p->base.style.flags & STY_NoBreak)==0 ){
           lastBreak = p->pNext;
@@ -1052,7 +1052,7 @@ void HtmlLayoutBlock(HtmlLayoutContext *pLC){
       if( pNext==p ){ break; }
       if( pNext ){
         TRACE(HtmlTrace_BreakMarkup,
-           ("Processed token %s as break markup\n", HtmlTokenName(p)));
+           ("Processed token %s as break markup\n", HtmlTokenName(pLC->htmlPtr, p)));
         pLC->pStart = p;
       }
       p = pNext;

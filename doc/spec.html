@@ -1,7 +1,7 @@
 <html>
 <!-- 
   Specifications for the Tk HTML Widget 
-  $Revision: 1.10 $
+  $Revision: 1.11 $
   Copyright (C) 1997, 1998, 1999 D. Richard Hipp
 
   This program is free software; you can redistribute it and/or modify
@@ -22,7 +22,7 @@
      drh@acm.org
      http://www.hwaci.com/drh/
 
-  @(#) $Id: spec.html,v 1.10 2001/06/17 22:40:30 peter Exp $
+  @(#) $Id: spec.html,v 1.11 2002/09/22 16:55:45 peter Exp $
 -->
 <head>
 <title>Interface Specification For The HTML Widget</title>
@@ -440,13 +440,13 @@ This command is intended to be useful to the TCL procedures that implement
 callbacks for the HTML widget.
 </dd>
 <p>
-<dt><b>html</b> <b>uri join</b> <i>scheme authority path query fragment</i><p>
+<dt><b>html</b> <b>urljoin</b> <i>scheme authority path query fragment</i><p>
 <dd>
 This command takes the five main components of a URI and joins them together
 into a complete URI.  Special characters in any component are escaped.
 </dd>
 <p>
-<dt><b>html</b> <b>uri split</b> <i>uri</i><p>
+<dt><b>html</b> <b>urlsplit</b> <i>uri</i><p>
 <dd>
 This command takes a single URI and splits it into its five major
 components: scheme, authorithy, path, query and fragement.  The command
@@ -454,6 +454,76 @@ returns a list where each component is an element of the list.
 Components missing from the URI are represented as empty elements in
 the list.
 </dd>
+
+<p>
+<dt><b>html</b> <b>gzip file</b> <i>FILE DATA</i><p>
+<dd>
+This command gzips data to a file.
+</dd>
+
+<p>
+<dt><b>html</b> <b>gunzip file</b> <i>FILE</i><p>
+<dd>
+This command gunzips data from a file.
+</dd>
+
+<p>
+<dt><b>html</b> <b>gunzip data</b> <i>DATA</i><p>
+<dd>
+This command gunzips data from a string.
+</dd>
+
+<p>
+<dt><b>html</b> <b>gunzip data</b> <i>DATA</i><p>
+<dd>
+This command gzips data from a string.
+</dd>
+
+<p>
+<dt><b>html</b> <b>gzip file</b> <i>FILE DATA</i><p>
+<dd>
+This command gzips data to a file.
+</dd>
+
+<p>
+<dt><b>html</b> <b>base64 encode</b> <i>DATA</i><p>
+<dd>
+This command base64 encodes data.
+</dd>
+
+<p>
+<dt><b>html</b> <b>base64 decode</b> <i>DATA</i><p>
+<dd>
+This command base64 decodes data.
+</dd>
+
+<p>
+<dt><b>html</b> <b>text format</b> <i>DATA LEN</i><p>
+<dd>
+This command formats text limiting line length to that
+specified.
+</dd>
+
+<p>
+<dt><b>html</b> <b>xor</b> <i>CMD DATA ...</i><p>
+<dd>
+This command returns an xor encryption of data.  <i>CMD</i> is one
+of <i>xor, encrypt or decrypt</i>.  The last two take a password argument.
+</dd>
+
+<p>
+<dt><b>html</b> <b>stdchan</b> <i>CMD CHANNEL</i><p>
+<dd>
+This command sets the channel to work around MS Windows exec problems. 
+<i>CMD</i> is one of <i>stdin, stdout, stderr</i>.
+</dd>
+
+<p>
+<dt><b>html</b> <b>crc32</b> <i>DATA</i><p>
+<dd>
+This command produces a 32 bit checksum (but not a real CRC).
+</dd>
+
 
 </dl>
 
@@ -652,6 +722,22 @@ to build an WYSIWYG editor for HTML.<p>
     <dd><p>
     Find text.  If index is given, start search from there.  If before,
     search backwards.  nocase will ignore case.
+    <p>
+    </dl>
+
+    <dt><i>WIDGET</i>&nbsp; <tt>text table INDEX</tt>&nbsp <i>?images? ?attrs?&nbsp</i><p>
+    <dd><p>
+     Return text (and optionally attributes and images) from a table as lists.
+     The first list is a list of rows (each a list of cells).
+     The next optional list is the list of attributes, like above, but
+     the element 0 contains the table attrs, and element 0 of each
+     row contains the row attrs.
+     Another optional list is the list of images, each as a set of 
+     values: row col charoffset tokenid.  charoffset is the
+     character offset within the text that the image appears at.
+     tokenid is the index to use to lookup the attributes
+     such as src.
+
     <p>
     </dl>
 

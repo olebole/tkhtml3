@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlcmd.c,v 1.22 2002/03/06 18:10:58 peter Exp $";
+static char const rcsid[] = "@(#) $Id: htmlcmd.c,v 1.23 2002/09/22 16:55:45 peter Exp $";
 /*
 ** Routines to implement the HTML widget commands
 **
@@ -38,7 +38,7 @@ int HtmlResolveCmd(
   HtmlWidget *htmlPtr,   /* The HTML widget */
   Tcl_Interp *interp,    /* The interpreter */
   int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
+  char **argv		 /* List of all arguments */
 ){
   return HtmlCallResolver(htmlPtr, argv+2);
 }
@@ -48,20 +48,20 @@ int HtmlResolveCmd(
 **
 ** Retrieve the value of a configuration option
 */
-int HtmlCgetCmd(
+int HtmlCgetObjCmd(
   HtmlWidget *htmlPtr,   /* The HTML widget */
   Tcl_Interp *interp,    /* The interpreter */
-  int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
+  int objc,              /* Number of arguments */
+  Tcl_Obj * CONST objv[]            /* List of all arguments */
 ){
   int rc;
   Tk_ConfigSpec *cs=HtmlConfigSpec();
   if (htmlPtr->TclHtml)
-    rc=TclConfigureWidget(interp, htmlPtr, cs,
-		argc-2, argv+2,  (char *) htmlPtr, 0);
+    rc=TclConfigureWidgetObj(interp, htmlPtr, cs,
+		objc-2, objv+2,  (char *) htmlPtr, 0);
   else
     rc=Tk_ConfigureValue(interp, htmlPtr->tkwin, cs,
-		(char *) htmlPtr, argv[2], 0);
+		(char *) htmlPtr, Tcl_GetString(objv[2]), 0);
   return rc;
 }
 
@@ -91,27 +91,27 @@ int HtmlClearCmd(
 int HtmlConfigCmd(
   HtmlWidget *htmlPtr,   /* The HTML widget */
   Tcl_Interp *interp,    /* The interpreter */
-  int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
+  int objc,              /* Number of arguments */
+  Tcl_Obj * CONST objv[]            /* List of all arguments */
 ){
 #ifdef _TCLHTML_
-  if (argc == 2) { /* ???? */
-     return HtmlCgetCmd(htmlPtr, interp, argc, argv);
+  if (objv == 2) { /* ???? */
+     return HtmlCgetObjCmd(htmlPtr, interp, objc, objv);
   } else if (argc == 3) {
-     return HtmlCgetCmd(htmlPtr, interp, argc, argv);
+     return HtmlCgetObjCmd(htmlPtr, interp, objc, objv);
   } else {
-     return ConfigureHtmlWidget(interp, htmlPtr, argc-2, argv+2,
+     return ConfigureHtmlWidget(interp, htmlPtr, objc-2, objv+2,
                                 TK_CONFIG_ARGV_ONLY, 0);
   }
 #else
-  if (argc == 2) {
+  if (objc == 2) {
      return Tk_ConfigureInfo(interp, htmlPtr->tkwin, HtmlConfigSpec(),
         (char *) htmlPtr, (char *) NULL, 0);
-  } else if (argc == 3) {
+  } else if (objc == 3) {
      return Tk_ConfigureInfo(interp, htmlPtr->tkwin, HtmlConfigSpec(),
-        (char *) htmlPtr, argv[2], 0);
+        (char *) htmlPtr, Tcl_GetString(objv[2]), 0);
   } else {
-     return ConfigureHtmlWidget(interp, htmlPtr, argc-2, argv+2,
+     return ConfigureHtmlWidgetObj(interp, htmlPtr, objc-2, objv+2,
                                 TK_CONFIG_ARGV_ONLY, 0);
   }
 #endif
@@ -194,19 +194,21 @@ int HtmlAdvanceLayout(
 int HtmlParseCmd(
   HtmlWidget *htmlPtr,   /* The HTML widget */
   Tcl_Interp *interp,    /* The interpreter */
-  int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
+  int objc,              /* Number of arguments */
+  Tcl_Obj * CONST objv[] /* List of all arguments */
 ){
-  int i; char *ypos=0;
+  int i; char *arg1, *arg2, *ypos=0;
   HtmlIndex iStart, iEnd;
   HtmlElement *savePtr;
   iStart.p=0; iStart.i=0;
   htmlPtr->LOendPtr = htmlPtr->pLast;
   HtmlLock(htmlPtr);
-  for (i=3; i<(argc-1); i+=2) {
-    if ((!strcmp(argv[i],"-insert")) && htmlPtr->LOendPtr) {
-      if (HtmlGetIndex(htmlPtr, argv[i+1], &iStart.p, &iStart.i)!=0 ){
-        Tcl_AppendResult(interp,"malformed index: \"", argv[i+1], "\"", 0);
+  for (i=3; i<(objc-1); i+=2) {
+    arg1=Tcl_GetString(objv[i]);
+    arg2=Tcl_GetString(objv[i+1]);
+    if ((!strcmp(arg1,"-insert")) && htmlPtr->LOendPtr) {
+      if (HtmlGetIndex(htmlPtr, arg2, &iStart.p, &iStart.i)!=0 ){
+        Tcl_AppendResult(interp,"malformed index: \"", arg2, "\"", 0);
         return TCL_ERROR;
       }
       if (iStart.p) {
@@ -214,11 +216,12 @@ int HtmlParseCmd(
         htmlPtr->pLast=iStart.p;
         iStart.p->pNext=0;
       }
-    } else if ((!strcmp(argv[i],"-ypos")) && argv[i+1][0]) {
-      htmlPtr->zGoto=(char*)strdup(argv[i+1]);
+    } else if ((!strcmp(arg1,"-ypos")) && arg2[0]) {
+      htmlPtr->zGoto=(char*)strdup(arg2);
     }
   }
-  HtmlTokenizerAppend(htmlPtr, argv[2]);
+  arg1=Tcl_GetByteArrayFromObj(objv[2], &i);
+  HtmlTokenizerAppend(htmlPtr, arg1, i);
   if( HtmlIsDead(htmlPtr) ){
     return TCL_OK;
   }
@@ -269,14 +272,14 @@ int HtmlLayoutCmd( HtmlWidget *htmlPtr,Tcl_Interp *interp,int argc,char **argv){
 int HtmlHrefCmd(
   HtmlWidget *htmlPtr,   /* The HTML widget */
   Tcl_Interp *interp,    /* The interpreter */
-  int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
+  int objc,              /* Number of arguments */
+  Tcl_Obj * CONST objv[]            /* List of all arguments */
 ){
   int x, y;
   char *z, *target=0;
 
-  if( Tcl_GetInt(interp, argv[2], &x) != TCL_OK 
-   || Tcl_GetInt(interp, argv[3], &y) != TCL_OK
+  if( Tcl_GetIntFromObj(interp, objv[2], &x) != TCL_OK 
+   || Tcl_GetIntFromObj(interp, objv[3], &y) != TCL_OK
   ){
     return TCL_ERROR;
   }
@@ -620,7 +623,7 @@ int HtmlTokenHandlerCmd(
   int argc,              /* Number of arguments */
   char **argv            /* List of all arguments */
 ){
-  int type = HtmlNameToType(argv[3]);
+  int type = HtmlNameToType(htmlPtr, argv[3]);
   if( type==Html_Unknown ){
     Tcl_AppendResult(interp,"unknown tag: \"", argv[3], "\"", 0);
     return TCL_ERROR;
@@ -664,19 +667,6 @@ int HtmlIndexCmd(
     sprintf(interp->result, "%d.%d", HtmlTokenNumber(p), i);
   }else{
   }
-  return TCL_OK;
-}
-
-/*
-** WIDGET get
-*/
-int HtmlGetCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
-  Tcl_Interp *interp,    /* The interpreter */
-  int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
-){
-  Tcl_AppendResult(interp,htmlPtr->zText, 0);
   return TCL_OK;
 }
 
@@ -732,7 +722,7 @@ int HtmlDebugDumpCmd(
     return TCL_ERROR;
   }
   if( pStart ){
-    HtmlPrintList(pStart,pEnd ? pEnd->base.pNext : 0);
+    HtmlPrintList(htmlPtr, pStart,pEnd ? pEnd->base.pNext : 0);
   }
   return TCL_OK;
 }

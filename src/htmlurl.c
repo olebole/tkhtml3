@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlurl.c,v 1.22 2002/03/06 18:10:59 peter Exp $";
+static char const rcsid[] = "@(#) $Id: htmlurl.c,v 1.23 2002/09/22 16:55:46 peter Exp $";
 /*
 ** Routines for processing URLs.
 **
@@ -228,6 +228,7 @@ static char *Trim(char *z){
 int HtmlCallResolver(
   HtmlWidget *htmlPtr,      /* The widget that is doing the resolving. */
   char **azSeries           /* A list of URIs.  NULL terminated */
+  
 ){
   int rc = TCL_OK;          /* Return value of this function. */
   char *z;
@@ -263,7 +264,9 @@ int HtmlCallResolver(
       azSeries++;
     }
     HtmlLock(htmlPtr);
+    htmlPtr->inParse++;
     rc = Tcl_GlobalEval(htmlPtr->interp, Tcl_DStringValue(&cmd));
+    htmlPtr->inParse--;
     Tcl_DStringFree(&cmd);
     if( HtmlUnlock(htmlPtr) ) return TCL_ERROR;
     if( rc!=TCL_OK ){

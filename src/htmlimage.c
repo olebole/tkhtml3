@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlimage.c,v 1.15 2002/03/06 18:10:58 peter Exp $";
+static char const rcsid[] = "@(#) $Id: htmlimage.c,v 1.16 2002/09/22 16:55:45 peter Exp $";
 /*
 ** Routines used for processing <IMG> markup
 **
@@ -118,7 +118,7 @@ void HtmlAddImages(HtmlWidget *htmlPtr, HtmlElement *p, HtmlImage *pImage, char 
 
   if (!str[0]) {
 #ifdef DEBUG
-    fprintf(stderr,"OOPS null string\n"); 
+/*    fprintf(stderr,"OOPS null string\n");  */
 #endif
     return; 
   }
@@ -251,7 +251,9 @@ HtmlImage *HtmlGetImage(HtmlWidget *htmlPtr, HtmlElement *p){
   sprintf(zId,"%d", HtmlTokenNumber(p));
   Tcl_DStringAppendElement(&cmd,zId);
   HtmlLock(htmlPtr);
+  htmlPtr->inParse++;
   result = Tcl_GlobalEval(htmlPtr->interp, Tcl_DStringValue(&cmd));
+  htmlPtr->inParse--;
   Tcl_DStringFree(&cmd);
   if( HtmlUnlock(htmlPtr) ){
     HtmlFree(zSrc);

@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlwish.c,v 1.6 2002/03/06 18:10:59 peter Exp $";
+static char const rcsid[] = "@(#) $Id: htmlwish.c,v 1.7 2002/09/22 16:55:46 peter Exp $";
 /*
 ** Make a "wish" that includes the html widget.
 **

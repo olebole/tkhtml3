@@ -5,7 +5,7 @@
 # This application is used for testing the HTML widget.  It can
 # also server as an example of how to use the HTML widget.
 # 
-# @(#) $Id: hv.tcl,v 1.27 2002/04/02 14:06:26 drh Exp $
+# @(#) $Id: hv.tcl,v 1.28 2002/09/22 16:55:45 peter Exp $
 #
 wm title . {HTML File Viewer}
 wm iconname . {HV}
@@ -145,7 +145,7 @@ proc FormCmd {n cmd args} {
     textarea -
     input {
       set w [lindex $args 0]
-      # label $w -image nogifsm
+      label $w -image nogifsm
     }
   }
 }
@@ -216,7 +216,7 @@ proc AppletCmd {w arglist} {
 # procedure
 #
 proc HrefBinding {x y} {
-  set new [.h.h href $x $y]
+  foreach {new target} [.h.h href $x $y] break
   # puts "link to [list $new]"; return
   if {$new!=""} {
     global LastFile
