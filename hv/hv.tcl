@@ -5,7 +5,7 @@
 # This application is used for testing the HTML widget.  It can
 # also server as an example of how to use the HTML widget.
 # 
-# @(#) $Id: hv.tcl,v 1.29 2002/12/22 11:49:23 hkoba Exp $
+# @(#) $Id: hv.tcl,v 1.30 2003/01/28 04:59:00 hkoba Exp $
 #
 wm title . {HTML File Viewer}
 wm iconname . {HV}
@@ -212,12 +212,18 @@ proc AppletCmd {w arglist} {
   # puts "AppletCmd: w=$w arglist=$arglist"
   label $w -text "The Applet $w" -bd 2 -relief raised
 }
+namespace eval tkhtml {
+    array set Priv {}
+}
 
 # This procedure is called when the user clicks on a hyperlink.
 # See the "bind .h.h.x" below for the binding that invokes this
 # procedure
 #
 proc HrefBinding {x y} {
+  # koba & dg marking text
+  .h.h selection clear
+  set ::tkhtml::Priv(mark) $x,$y
   set list [.h.h href $x $y]
   if {![llength $list]} {return}
   foreach {new target} $list break
@@ -235,6 +241,16 @@ proc HrefBinding {x y} {
   }
 }
 bind .h.h.x <1> {HrefBinding %x %y}
+# marking text with the mouse and copying to the clipboard just with tkhtml2.0 working
+bind .h.h.x <B1-Motion> {
+    %W selection set @$::tkhtml::Priv(mark) @%x,%y
+    clipboard clear
+    # avoid tkhtml0.0 errors 
+    # anyone can fix this for tkhtml0.0
+    catch {
+        clipboard append [selection get]
+    }
+}
 
 # Pack the HTML widget into the main screen.
 #
