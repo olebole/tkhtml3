@@ -1,7 +1,7 @@
 /*
 ** This file contains the code used to position elements of the
 ** HTML file on the screen.
-** $Revision: 1.21 $
+** $Revision: 1.22 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -448,13 +448,18 @@ static int FixLine(
           p->text.x += dx;
           max = p->text.x + p->text.w;
           ss = p->base.style.subscript;
-          if( ss != 0 ){
+          if( ss > 0 ){
             int ascent = p->text.ascent;
-            int delta = (ascent + p->text.descent)/2;
+            int delta = (ascent + p->text.descent)*ss/2;
             ascent += delta;
             p->text.y = -delta;
             if( ascent > maxAscent ){ TestPoint(0); maxAscent = ascent; }
             if( ascent > maxTextAscent ){ TestPoint(0); maxTextAscent = ascent;}
+          }else if( ss < 0 ){
+            int descent = p->text.descent;
+            int delta = (descent + p->text.ascent)*(-ss)/2;
+            descent += delta;
+            p->text.y = delta;
           }else{
             p->text.y = 0;
             if( p->text.ascent > maxAscent ){ 
