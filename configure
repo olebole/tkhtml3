@@ -944,15 +944,15 @@ else
   TARGET_EXEEXT=$config_TARGET_EXEEXT
 fi
 if test "$TARGET_EXEEXT" = ".exe"; then
-  ACD_UNIX=0
-  ACD_WIN=1
+  OS_IS_UNIX=0
+  OS_IS_WIN=1
   tclsubdir=win
 else
-  ACD_UNIX=1
-  ACD_WIN=0
+  OS_IS_UNIX=1
+  OS_IS_WIN=0
   tclsubdir=unix
 fi
-TARGET_CFLAGS="$TARGET_CFLAGS -DACD_UNIX=$ACD_UNIX -DACD_WIN=$ACD_WIN"
+TARGET_CFLAGS="$TARGET_CFLAGS -DOS_IS_UNIX=$OS_IS_UNIX -DOS_IS_WIN=$OS_IS_WIN"
 
 
 
@@ -1308,7 +1308,7 @@ if test "$config_TARGET_X_LIBS" != ""; then
   TARGET_X_LIBS=$config_TARGET_X_LIBS
   TARGET_X_INC=$config_TARGET_X_INC
 else
-  if test $ACD_UNIX = 1; then
+  if test $OS_IS_UNIX = 1; then
     echo $ac_n "checking how to run the C preprocessor""... $ac_c" 1>&6
 echo "configure:1314: checking how to run the C preprocessor" >&5
 # On Suns, sometimes $CPP names a directory.
@@ -2502,8 +2502,8 @@ s%@TARGET_CFLAGS@%$TARGET_CFLAGS%g
 s%@TARGET_LINK@%$TARGET_LINK%g
 s%@TARGET_LFLAGS@%$TARGET_LFLAGS%g
 s%@BUILD_EXEEXT@%$BUILD_EXEEXT%g
-s%@ACD_UNIX@%$ACD_UNIX%g
-s%@ACD_WIN@%$ACD_WIN%g
+s%@OS_IS_UNIX@%$OS_IS_UNIX%g
+s%@OS_IS_WIN@%$OS_IS_WIN%g
 s%@TARGET_EXEEXT@%$TARGET_EXEEXT%g
 s%@BUILD_TCLSH@%$BUILD_TCLSH%g
 s%@TARGET_TCL_SCRIPT_DIR@%$TARGET_TCL_SCRIPT_DIR%g

@@ -1,6 +1,6 @@
 /*
 ** Routines used for processing HTML makeup for forms.
-** $Revision: 1.6 $
+** $Revision: 1.7 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -28,18 +28,6 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include "htmlform.h"
-
-/*
-** The following string is used in conjuction with the htmlPtr->varId
-** value to construct a unique name for an array variable used by
-** some input controls.
-*/
-#define VAR_NAME_BASE   "@Html"
-
-/*
-** The amount of spaced needed to hold a variable name
-*/
-#define VAR_SIZE   100
 
 /*
 ** Unmap any input control that is currently mapped.
@@ -108,7 +96,6 @@ void HtmlMapControls(HtmlWidget *htmlPtr){
 void HtmlDeleteControls(HtmlWidget *htmlPtr){
   HtmlElement *p;     /* For looping over all controls */
   int i;
-  char zName[VAR_SIZE];
   
   for(p=htmlPtr->firstInput; p; p=p->input.pNext){
     if( p->input.tkwin ){
@@ -122,11 +109,6 @@ void HtmlDeleteControls(HtmlWidget *htmlPtr){
   htmlPtr->firstInput = 0;
   htmlPtr->lastInput = 0;
   htmlPtr->nInput = 0;
-  for(i=0; i<=htmlPtr->nForm; i++){
-    sprintf(zName,"%s_%d_%d",VAR_NAME_BASE, htmlPtr->varId,i);
-    Tcl_UnsetVar2(htmlPtr->interp, zName, 0, TCL_GLOBAL_ONLY);
-    TestPoint(0);
-  }
 }
 
 /*
@@ -184,52 +166,6 @@ static int InputType(HtmlElement *p){
 }
 
 /*
-** Create the name of a state variable for an input.  The state variable
-** is a global variable that holds the state of the input device.
-** State variables are only used for inputs that are implemented using
-** Tk widgets that have "-textvariable" option (or its equivalent.)
-*/
-static void MakeVarName(
-  HtmlWidget *htmlPtr,   /* The widget with which the variable is associated */
-  HtmlElement *pElem,    /* The <input> element using this variable */
-  char *zBuf,            /* The name of the variable is written here */
-  char *zInit,           /* An initial value for the variable */
-  int force              /* True to force initialization.  If false, only
-                         ** initialize if the variable doesn't exist */
-){
-  char *zName;
-  int id;
-
-  if( pElem->input.pForm==0 ){
-    id = 0;
-    TestPoint(0);
-  }else{
-    id = pElem->input.pForm->form.id;
-    TestPoint(0);
-  }
-  zName = HtmlMarkupArg(pElem, "name", 0);
-  if( zName && pElem->input.type==INPUT_TYPE_Radio ){
-    sprintf(zBuf,"%s_%d_%d(%.*s)", VAR_NAME_BASE, htmlPtr->varId, id,
-       VAR_SIZE - 30,  zName);
-    TestPoint(0);
-  }else{
-    sprintf(zBuf,"%s_%d_%d(_%d)", VAR_NAME_BASE, htmlPtr->varId, id,
-       pElem->input.cnt);
-    TestPoint(0);
-  }
-  if( zInit ){
-    if( force || Tcl_GetVar(htmlPtr->interp, zBuf, TCL_GLOBAL_ONLY)==0 ){
-      Tcl_SetVar(htmlPtr->interp, zBuf, zInit, TCL_GLOBAL_ONLY);
-      TestPoint(0);
-    }else{
-      TestPoint(0);
-    }
-  }else{
-    TestPoint(0);
-  }
-}
-
-/*
 ** Create the window name for a child widget.  Try to use the buffer
 ** supplied, but if it isn't big enough, get more memory from ckalloc().
 **
@@ -275,9 +211,17 @@ static void FreeWindowName(char *zWin, char *zWinBuf){
 */
 static void SizeAndLink(HtmlWidget *htmlPtr, char *zWin, HtmlElement *pElem){
   pElem->input.tkwin = Tk_NameToWindow(htmlPtr->interp, zWin, htmlPtr->clipwin);
-  pElem->input.w = Tk_ReqWidth(pElem->input.tkwin);
-  pElem->input.h = Tk_ReqHeight(pElem->input.tkwin);
-  pElem->base.flags |= HTML_Visible;
+  if( pElem->input.tkwin==0 ){
+    Tcl_ResetResult(htmlPtr->interp);
+    pElem->input.w = 0;
+    pElem->input.h = 0;
+    pElem->base.flags &= !HTML_Visible;
+    pElem->base.style.flags |= STY_Invisible;
+  }else{
+    pElem->input.w = Tk_ReqWidth(pElem->input.tkwin);
+    pElem->input.h = Tk_ReqHeight(pElem->input.tkwin);
+    pElem->base.flags |= HTML_Visible;
+  }
   pElem->input.pNext = 0;
   if( htmlPtr->firstInput==0 ){
     htmlPtr->firstInput = pElem;
@@ -287,50 +231,6 @@ static void SizeAndLink(HtmlWidget *htmlPtr, char *zWin, HtmlElement *pElem){
     TestPoint(0);
   }
   htmlPtr->lastInput = pElem;
-}
-
-/*
-** This is a convenience routine used to directly call the
-** Tk command functions that implement Tk widgets.  The
-** xFunc argument is a pointer to a Tk command function such
-** as Tk_CheckbuttonCmd() or Tk_FrameCmd().  zName is the name
-** of the widget to be created.  Additional arguments might follow.
-*/
-static void ExecCmd(
-  HtmlWidget *htmlPtr,
-  int (*xFunc)(ClientData, Tcl_Interp*, int, char**),
-  char *zName,
-  ...
-){
-  va_list ap;
-  int argc;
-  int i;
-  char **argv;
-  char *argvBuf[100];
-
-  argc = 1;
-  va_start(ap,zName);
-  while( va_arg(ap,char*)!=0 ){
-    argc++;
-    TestPoint(0);
-  }
-  va_end(ap);
-  if( argc>=sizeof(argvBuf)/sizeof(argvBuf[0]) ){
-    argv = (char**)ckalloc( sizeof(char*) * argc+1 );
-    TestPoint(0);
-  }else{
-    argv = argvBuf;
-    TestPoint(0);
-  }
-  argv[0] = zName;
-  va_start(ap,zName);
-  for(i=1; i<argc; i++){
-    argv[i] = va_arg(ap,char*);
-    TestPoint(0);
-  }
-  argv[i] = 0;
-  va_end(ap);
-  (*xFunc)(htmlPtr->clipwin, htmlPtr->interp, argc, argv);
 }
 
 /*
@@ -365,17 +265,10 @@ static void AddSelectOptions(Tcl_DString *str, HtmlElement *p){
 int HtmlControlSize(HtmlWidget *htmlPtr, HtmlElement *pElem){
   Tk_Font font;
   int force;             /* True to force variable initialization */
-  char *zVal;            /* */
-  char *zWidth;          /* */
-  char *zHeight;         /* */
-  char *zCallback;       /* Text of a callback */
   char *zWin;            /* Name of child widget that implements this input */
   int nWin;              /* Length of the child widget name */
   int incomplete = 0;    /* True if data is incomplete */
-  char zValBuf[20];      /* Fake value for when value= omitted from radio */
-  char zVar[VAR_SIZE];   /* Space to hold state variable name */
   char zWinBuf[1000];    /* Space to hold child widget name */
-  char zCbBuf[1000];     /* Space to hold the callback */
  
   pElem->input.type = InputType(pElem);
   switch( pElem->input.type ){
@@ -422,6 +315,7 @@ int HtmlControlSize(HtmlWidget *htmlPtr, HtmlElement *pElem){
   return incomplete;
 }
 
+#if 0
 /*
 ** The following array determines which characters can be put directly
 ** in a query string and which must be escaped.
@@ -468,310 +362,4 @@ static void EncodeText(Tcl_DString *str, char *z){
     }
   }
 }
-
-/*
-** Append a name/value pair to the given DString
-*/
-static void AppendNameAndValue(Tcl_DString *str, char *zName, char *zValue){
-  int len;
-  char *z;
-
-  if( zValue==0 ){ TestPoint(0); zValue = ""; }
-  len = Tcl_DStringLength(str);
-  z = Tcl_DStringValue(str);
-  if( len>0 && z[len-1]!=' ' ){
-    Tcl_DStringAppend(str,"&",1);
-    TestPoint(0);
-  }else{
-    TestPoint(0);
-  }
-  Tcl_DStringAppend(str, zName, -1);
-  Tcl_DStringAppend(str, "=", 1);
-  EncodeText(str, zValue);
-}
-
-/*
-** Add the field information associated with an <INPUT> to the given
-** DString.  This version works only with the x-www-url encoding.
-*/
-static void AddFieldInfo(Tcl_DString *str, HtmlWidget *htmlPtr, HtmlElement *p){
-  char *zName;
-  char *zValue;
-  char *zVarVal;
-  char *zWin;
-  Tcl_DString dstr;
-  char zVar[VAR_SIZE];
-  char zWinBuf[1000];    /* Space to hold child widget name */
-
-  zName = HtmlMarkupArg( p, "name", 0);
-  if( zName==0 ){ TestPoint(0); return; }
-  switch( p->input.type ){
-    case INPUT_TYPE_Text:
-    case INPUT_TYPE_Password:
-    case INPUT_TYPE_File:
-      MakeVarName(htmlPtr, p, zVar, 0, 0);
-      zValue = Tcl_GetVar(htmlPtr->interp, zVar, TCL_GLOBAL_ONLY);
-      AppendNameAndValue(str, zName, zValue);
-      TestPoint(0);
-      break;
-    case INPUT_TYPE_Checkbox:
-      MakeVarName(htmlPtr, p, zVar, 0, 0);
-      zVarVal = Tcl_GetVar(htmlPtr->interp, zVar, TCL_GLOBAL_ONLY);
-      if( zVarVal==0 || *zVarVal=='0' ){
-        TestPoint(0);
-        break;
-      }
-      zValue = HtmlMarkupArg(p, "value", 0);
-      if( zValue==0 ){ TestPoint(0); break; }
-      AppendNameAndValue(str, zName, zValue);
-      TestPoint(0);
-      break;
-    case INPUT_TYPE_Radio:
-      MakeVarName(htmlPtr, p, zVar, 0, 0);
-      zVarVal = Tcl_GetVar(htmlPtr->interp, zVar, TCL_GLOBAL_ONLY);
-      zValue = HtmlMarkupArg(p, "value", 0);
-      if( zVarVal==0 || zValue==0 ){ TestPoint(0); break; }
-      if( strcmp(zVarVal,zValue)!=0 ){ TestPoint(0); break; }
-      AppendNameAndValue(str, zName, zValue);
-      TestPoint(0);
-      break;
-    case INPUT_TYPE_Select:
-      TestPoint(0);
-      break;
-    case INPUT_TYPE_TextArea:
-      zWin = MakeWindowName(htmlPtr, p, zWinBuf, sizeof(zWinBuf));
-      Tcl_DStringInit(&dstr);
-      Tcl_DStringAppend(&dstr, "_Html_Textarea_Get ", -1);
-      Tcl_DStringAppend(&dstr, zWin, -1);
-      Tcl_GlobalEval(htmlPtr->interp, Tcl_DStringValue(&dstr));
-      Tcl_DStringFree(&dstr);
-      FreeWindowName(zWin,zWinBuf);
-      AppendNameAndValue(str, zName, htmlPtr->interp->result);
-      Tcl_ResetResult(htmlPtr->interp);
-      TestPoint(0);
-      break;
-    case INPUT_TYPE_Hidden:
-      zValue = HtmlMarkupArg(p, "value", 0);
-      if( zValue ){
-        AppendNameAndValue(str, zName, zValue);
-        TestPoint(0);
-      }else{
-        TestPoint(0);
-      }
-      break;
-    default:
-      TestPoint(0);
-      break;
-  }
-}
-
-/*
-** This routine is called whenever a "Submit" or "image" button is
-** pressed.  It job is to construct an HTTP query string and then call
-** the -formcommand with this string.
-*/
-int HtmlSubmit(HtmlWidget *htmlPtr, int id){
-  HtmlElement *p;            /* For scanning a list of elements */
-  HtmlElement *pForm;        /* The <FORM> that contains the button pressed */
-  char *zURL;                /* The action= field of the <FORM> */
-  char *zMethod;             /* The method= field of the <FORM> */
-  char *zName;               /* The name= field of the button */
-  char *zValue;              /* The value= field of the button */
-  int result;                /* Result of executing the callback */
-  Tcl_DString str;           /* For building the callback command */
-
-  /* No point in going on if there is no form callback... */
-  if( htmlPtr->zFormCommand==0 || htmlPtr->zFormCommand[0]==0 ){
-    TestPoint(0);
-    return TCL_OK;
-  }
-
-  /* first find the button that was pressed */
-  for(p=htmlPtr->pFirst; p; p=p->pNext){
-    if( p->base.type==Html_INPUT ){
-      if( p->input.cnt==id ){
-        TestPoint(0);
-        break;
-      }else{
-        TestPoint(0);
-      }
-    }else{
-      TestPoint(0);
-    }
-  }
-  if( p==0 ){ TestPoint(0); return TCL_OK; }
-  pForm = p->input.pForm;
-  if( pForm==0 ){ TestPoint(0); return TCL_OK; }
-
-  /* Initialize the command */
-  zURL = HtmlMarkupArg(pForm, "action", 0);
-  if( zURL==0 ){ TestPoint(0); return TCL_OK; }
-  /* zURL = HtmlCompleteUrl(htmlPtr, zURL); */
-  Tcl_DStringInit(&str);
-  Tcl_DStringAppend(&str, htmlPtr->zFormCommand, -1);
-  Tcl_DStringAppendElement(&str, zURL);
-  ckfree(zURL);
-  zMethod = HtmlMarkupArg(pForm, "method", "GET");
-  Tcl_DStringAppendElement(&str, zMethod);
-  Tcl_DStringAppend(&str, " ", 1);
-
-  /* Handle the button that was pressed */
-  switch( p->input.type ){
-    case INPUT_TYPE_Submit:
-      zName = HtmlMarkupArg(p, "name", 0);
-      if( zName==0 ){ TestPoint(0); break; }
-      zValue = HtmlMarkupArg(p, "value", "Submit");
-      AppendNameAndValue(&str, zName, zValue);
-      TestPoint(0);
-      break;
-    default:
-      TestPoint(0);
-      break;
-  }
-
-  /* Handle all other input fields */
-  for(p=pForm; p && p->base.type!=Html_EndFORM; p=p->pNext){
-    switch( p->base.type ){
-      case Html_INPUT:
-      case Html_SELECT:
-      case Html_TEXTAREA:
-        AddFieldInfo(&str, htmlPtr, p);
-        TestPoint(0);
-        break;
-      default:
-        TestPoint(0);
-        break;
-    }
-  }
-
-  /* Execute the command we've built. */
-  result = Tcl_GlobalEval(htmlPtr->interp, Tcl_DStringValue(&str));
-  Tcl_DStringFree(&str);
-  return result;
-}
-
-/*
-** Refill the initial contents of a <textarea> with information from
-** the original HTML token stream.
-*/
-void HtmlResetTextarea(HtmlWidget *htmlPtr, HtmlElement *p){
-  Tcl_DString str;
-  int textSeen = 0;
-  char *zWin;
-  char zWinBuf[1000];
-
-  HtmlAssert( p->base.type==Html_TEXTAREA );
-  Tcl_DStringInit(&str);
-  Tcl_DStringAppend(&str,"_Html_Textarea_Put ",-1);
-  zWin = MakeWindowName(htmlPtr, p, zWinBuf, sizeof(zWinBuf));
-  Tcl_DStringAppend(&str, zWin, -1);
-  FreeWindowName(zWin,zWinBuf);
-  Tcl_DStringStartSublist(&str);
-  while( p && p->base.type!=Html_EndTEXTAREA ){
-    switch( p->base.type ){
-      case Html_Text:
-        Tcl_DStringAppend(&str,p->text.zText, p->base.count);
-        textSeen = 1;
-        TestPoint(0);
-        break;
-      case Html_Space:
-        if( !textSeen ){ TestPoint(0); break; }
-        if( p->base.flags & HTML_NewLine ){
-          Tcl_DStringAppend(&str,"\n",1);
-          TestPoint(0);
-        }else{
-          int cnt = p->base.count;
-          while( cnt ){
-            int n = cnt;
-            if( n>10 ) n = 10;
-            Tcl_DStringAppend(&str,"           ",n);
-            cnt -= n;
-            TestPoint(0);
-          }
-        }
-        break;
-      default:
-        TestPoint(0);
-        break;
-    }
-    p = p->pNext;
-  }
-  Tcl_DStringEndSublist(&str);
-  Tcl_GlobalEval(htmlPtr->interp, Tcl_DStringValue(&str));
-  Tcl_DStringFree(&str);
-}
-
-/*
-** This routine is called whenever a "Reset" button is pressed.  The
-** value of all <INPUT>s within the same form are restored to their
-** starting states.
-*/
-void HtmlReset(HtmlWidget *htmlPtr, int id){
-  HtmlElement *p;            /* For scanning a list of elements */
-  HtmlElement *pForm;        /* The <FORM> that contains the button pressed */
-  char *zValue;              /* The value of a widget */
-  int force;                 /* True to force a value on a widget */
-  char zVar[VAR_SIZE];
-
-  /* first find the form containing the button that was pressed */
-  for(p=htmlPtr->pFirst; p; p=p->pNext){
-    if( p->base.type==Html_INPUT ){
-      if( p->input.cnt==id ){
-        break;
-        TestPoint(0);
-      }else{
-        TestPoint(0);
-      }
-    }else{
-      TestPoint(0);
-    }
-  }
-  if( p==0 ){ TestPoint(0); return; }
-  pForm = p->input.pForm;
-  if( pForm==0 ){ TestPoint(0); return; }
-  sprintf(zVar,"%s_%d_%d", VAR_NAME_BASE, htmlPtr->varId, pForm->form.id);
-  Tcl_UnsetVar2(htmlPtr->interp, zVar, 0, TCL_GLOBAL_ONLY);
-
-  /* Now reset all fields in this form */
-  for(p=pForm; p && p->base.type!=Html_EndFORM; p=p->pNext){
-    switch( p->base.type ){
-      case Html_INPUT:
-      case Html_SELECT:
-      case Html_TEXTAREA:
-        switch( p->input.type ){
-          case INPUT_TYPE_Text:
-          case INPUT_TYPE_Password:
-          case INPUT_TYPE_File:
-            zValue = HtmlMarkupArg(p, "value", "");
-            MakeVarName(htmlPtr, p, zVar, zValue, 1);
-            TestPoint(0);
-            break;
-          case INPUT_TYPE_Checkbox:
-            zValue = HtmlMarkupArg(p, "checked", 0)==0 ? "0" : "1";
-            MakeVarName(htmlPtr, p, zVar, zValue, 1);
-            TestPoint(0);
-            break;
-          case INPUT_TYPE_Radio:
-            force = HtmlMarkupArg(p, "checked", 0)!=0;
-            zValue = HtmlMarkupArg(p, "value", "");
-            MakeVarName(htmlPtr, p, zVar, zValue, force);
-            TestPoint(0);
-            break;
-          case INPUT_TYPE_Select:
-            TestPoint(0);
-            break;
-          case INPUT_TYPE_TextArea:
-            HtmlResetTextarea(htmlPtr, p);
-            TestPoint(0);
-            break;
-          default:
-            TestPoint(0);
-            break;
-        }
-        break;
-      default:
-        TestPoint(0);
-        break;
-    }
-  }
-}
+#endif

@@ -1,7 +1,7 @@
 /*
 ** This file contains the code used to position elements of the
 ** HTML file on the screen.
-** $Revision: 1.3 $
+** $Revision: 1.4 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -240,7 +240,7 @@ static HtmlElement *GetLine(
 
       case Html_EndTEXTAREA:
         if( p->ref.pOther ){
-          HtmlResetTextarea(pLC->htmlPtr, p->ref.pOther);
+          /* HtmlResetTextarea(pLC->htmlPtr, p->ref.pOther); */
           TestPoint(0);
         }else{
           TestPoint(0);

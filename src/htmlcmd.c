@@ -1,6 +1,6 @@
 /*
 ** Routines to implement the HTML widget commands
-** $Revision: 1.5 $
+** $Revision: 1.6 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -38,34 +38,13 @@ int HtmlBaseCmd(
   int argc,              /* Number of arguments */
   char **argv            /* List of all arguments */
 ){
-#if 0
   if( argc==2 ){
-    Tcl_DString str;
-    Tcl_DStringInit(&str);
-    if( htmlPtr->zProtocol ){
-      Tcl_DStringAppend(&str, htmlPtr->zProtocol, -1);
-      TestPoint(0);
-    }else{
-      TestPoint(0);
-    }
-    if( htmlPtr->zHost ){
-      Tcl_DStringAppend(&str, htmlPtr->zHost, -1);
-      TestPoint(0);
-    }else{
-      TestPoint(0);
-    }
-    if( htmlPtr->zDir ){
-      Tcl_DStringAppend(&str, htmlPtr->zDir, -1);
-      TestPoint(0);
-    }else{
-      TestPoint(0);
-    }
-    Tcl_DStringResult(interp, &str);
+    Tcl_SetResult(interp, htmlPtr->zBase, TCL_VOLATILE);
   }else{
-    HtmlChangeUrl(htmlPtr,argv[2]);
-    TestPoint(0);
+    ckfree((char*)htmlPtr->zBase);
+    htmlPtr->zBase = ckalloc( strlen(argv[2]) + 1 );
+    if( htmlPtr->zBase ) strcpy(htmlPtr->zBase, argv[2]);
   }
-#endif
   return TCL_OK;
 }
 
@@ -375,72 +354,6 @@ int HtmlYviewCmd(
     }
     HtmlVerticalScroll(htmlPtr, offset);
   }
-  return TCL_OK;
-}
-
-/*
-** WIDGET _su ID
-**
-** This routine is called by a Submit button on the canvas when the
-** button is pressed.
-*/
-int HtmlPrivateSuCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
-  Tcl_Interp *interp,    /* The interpreter */
-  int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
-){
-  HtmlSubmit(htmlPtr, atoi(argv[2]) );
-  TestPoint(0);
-  return TCL_OK;
-}
-
-/*
-** WIDGET _re ID
-**
-** This routine is called by a Reset button on the canvas when the
-** button is pressed.
-*/
-int HtmlPrivateReCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
-  Tcl_Interp *interp,    /* The interpreter */
-  int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
-){
-  HtmlReset(htmlPtr, atoi(argv[2]) );
-  TestPoint(0);
-  return TCL_OK;
-}
-
-/*
-** WIDGET _ff ID
-**
-** This routine is called to move the focus widget forward on
-** the html canvas.
-*/
-int HtmlPrivateFfCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
-  Tcl_Interp *interp,    /* The interpreter */
-  int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
-){
-  TestPoint(0);
-  return TCL_OK;
-}
-
-/*
-** WIDGET _fb ID
-**
-** This routine is called to change the focus widget on the
-** html canvas backwards.
-*/
-int HtmlPrivateFbCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
-  Tcl_Interp *interp,    /* The interpreter */
-  int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
-){
-  TestPoint(0);
   return TCL_OK;
 }
 

@@ -1,6 +1,6 @@
 /*
 ** The main routine for the HTML widget for Tcl/Tk
-** $Revision: 1.6 $
+** $Revision: 1.7 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -1613,10 +1613,6 @@ static struct HtmlSubcommand {
   { 0,           "insert",  6, 6, "INDEX TAG ARGUMENTS", 0 },
   { "xview",     0,         2, 5, "OPTIONS...",          HtmlXviewCmd },
   { "yview",     0,         2, 5, "OPTIONS...",          HtmlYviewCmd },
-  { "_su",       0,         3, 3, 0,                     HtmlPrivateSuCmd },
-  { "_re",       0,         3, 3, 0,                     HtmlPrivateReCmd },
-  { "_ff",       0,         3, 3, 0,                     HtmlPrivateFfCmd },
-  { "_fb",       0,         3, 3, 0,                     HtmlPrivateFbCmd },
 #ifdef DEBUG
   { "debug",     "dump",    5, 5, "START END",           HtmlDebugDumpCmd },
   { 0,           "testpt",  4, 4, "FILENAME",            HtmlDebugTestPtCmd },
