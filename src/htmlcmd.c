@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlcmd.c,v 1.14 2000/01/17 13:55:09 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlcmd.c,v 1.15 2000/01/29 21:05:59 drh Exp $";
 /*
 ** Routines to implement the HTML widget commands
 **
@@ -349,7 +349,6 @@ int HtmlTokenHandlerCmd(
   int type = HtmlNameToType(argv[3]);
   if( type==Html_Unknown ){
     Tcl_AppendResult(interp,"unknown tag: \"", argv[3], "\"", 0);
-    TestPoint(0);
     return TCL_ERROR;
   }
   if( argc==4 ){
@@ -363,9 +362,6 @@ int HtmlTokenHandlerCmd(
     htmlPtr->zHandler[type] = HtmlAlloc( strlen(argv[4]) + 1 );
     if( htmlPtr->zHandler[type] ){
       strcpy(htmlPtr->zHandler[type],argv[4]);
-      TestPoint(0);
-    }else{
-      TestPoint(0);
     }
   }
   return TCL_OK;
@@ -635,6 +631,32 @@ int HtmlInsertCmd(
     htmlPtr->ins = ins;
     HtmlUpdateInsert(htmlPtr);
     TestPoint(0);
+  }
+  return TCL_OK;
+}
+
+/*
+** WIDGET token list START END
+*/
+int HtmlTokenListCmd(
+  HtmlWidget *htmlPtr,   /* The HTML widget */
+  Tcl_Interp *interp,    /* The interpreter */
+  int argc,              /* Number of arguments */
+  char **argv            /* List of all arguments */
+){
+  HtmlElement *pStart, *pEnd;
+  int i;
+
+  if( HtmlGetIndex(htmlPtr, argv[3], &pStart, &i)!=0 ){
+    Tcl_AppendResult(interp,"malformed index: \"", argv[3], "\"", 0);
+    return TCL_ERROR;
+  }
+  if( HtmlGetIndex(htmlPtr, argv[4], &pEnd, &i)!=0 ){
+    Tcl_AppendResult(interp,"malformed index: \"", argv[4], "\"", 0);
+    return TCL_ERROR;
+  }
+  if( pStart ){
+    HtmlTclizeList(interp,pStart,pEnd ? pEnd->base.pNext : 0);
   }
   return TCL_OK;
 }

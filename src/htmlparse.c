@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlparse.c,v 1.18 2000/01/17 13:55:10 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlparse.c,v 1.19 2000/01/29 21:05:59 drh Exp $";
 /*
 ** A tokenizer that converts raw HTML into a linked list of HTML elements.
 **
@@ -433,18 +433,12 @@ static int HtmlHash(const char *zName){
   while( (c=*zName)!=0 ){
     if( isupper(c) ){
       c = tolower(c);
-      TestPoint(0);
-    }else{
-      TestPoint(0);
     }
     h = h<<5 ^ h ^ c;
     zName++;
   }
   if( h<0 ){
     h = -h;
-    TestPoint(0);
-  }else{
-    TestPoint(0);
   }
   return h % HTML_MARKUP_HASH_SIZE;
 }
@@ -490,7 +484,6 @@ static void HtmlHashInit(void){
     h = HtmlHash(HtmlMarkupMap[i].zName);
     HtmlMarkupMap[i].pCollide = apMap[h];
     apMap[h] = &HtmlMarkupMap[i];
-    TestPoint(0);
   }
 #ifdef TEST
   HtmlHashStats();
@@ -505,10 +498,8 @@ static void AppendElement(HtmlWidget *p, HtmlElement *pElem){
   pElem->base.pPrev = p->pLast;
   if( p->pFirst==0 ){
     p->pFirst = pElem;
-    TestPoint(0);
   }else{
     p->pLast->base.pNext = pElem;
-    TestPoint(0);
   }
   p->pLast = pElem;
   p->nToken++;
@@ -519,9 +510,9 @@ static void AppendElement(HtmlWidget *p, HtmlElement *pElem){
 */
 static int NextColumn(int iCol, char c){
   switch( c ){
-    case '\n': TestPoint(0); return 0;
-    case '\t': TestPoint(0); return (iCol | 7) + 1;
-    default:   TestPoint(0); return iCol+1;
+    case '\n': return 0;
+    case '\t': return (iCol | 7) + 1;
+    default:   return iCol+1;
   }
   /* NOT REACHED */
 }
@@ -560,8 +551,9 @@ static int Tokenize(
   int h;               /* Result from HtmlHash() */
   int nByte;           /* Space allocated for a single HtmlElement */
   HtmlElement *pElem;  /* A new HTML element */
+  int selfClose;       /* True for content free elements.  Ex:  <br/> */
   int argc;            /* The number of arguments on a markup */
-  HtmlTokenMap *pMap; /* For searching the markup name hash table */
+  HtmlTokenMap *pMap;  /* For searching the markup name hash table */
   char *zBuf;          /* For handing out buffer space */
 # define mxARG 200     /* Maximum number of parameters in a single markup */
   char *argv[mxARG];   /* Pointers to each markup argument. */
@@ -677,20 +669,24 @@ static int Tokenize(
 doMarkup:
       argc = 1;
       argv[0] = &z[n+1];
-      for(i=1; (c=z[n+i])!=0 && !isspace(c) && c!='>'; i++){}
+      for(i=1; (c=z[n+i])!=0 && !isspace(c) && c!='>' && (i<2 || c!='/'); i++){}
       arglen[0] = i - 1;
       if( c==0 ){ goto incomplete; }
 
       /*
       ** Now parse up the arguments
       */
-      while( isspace(z[n+i]) ){ TestPoint(0); i++; }
-      while( (c=z[n+i])!=0 && c!='>' ){
+      while( isspace(z[n+i]) ){ i++; }
+      while( (c=z[n+i])!=0 && c!='>' && (c!='/' || z[n+i+1]!='>') ){
         if( argc>mxARG-3 ){
           argc = mxARG-3;
         }
         argv[argc] = &z[n+i];
-        for(j=0; (c=z[n+i+j])!=0 && !isspace(c) && c!='>' && c!='='; j++){}
+        j = 0;
+        while( (c=z[n+i+j])!=0 && !isspace(c) && c!='>' 
+               && c!='=' && (c!='/' || z[n+i+j+1]!='>') ){
+          j++;
+        }
         arglen[argc] = j;
         if( c==0 ){  goto incomplete; }
         i += j;
@@ -732,6 +728,13 @@ doMarkup:
         argc++;
         while( isspace(z[n+i]) ){ i++; }
       }
+      if( c=='/' ){
+        i++;
+        c = z[n+i];
+        selfClose = 1;
+      }else{
+        selfClose = 0;
+      }
       if( c==0 ){ goto incomplete; }
       for(j=0; j<i+1; j++){
         iCol = NextColumn(iCol, z[n+j]);
@@ -754,6 +757,7 @@ doMarkup:
       argv[0][arglen[0]] = c;
       if( pMap==0 ){ continue; }  /* Ignore unknown markup */
 
+makeMarkupEntry:
       /* Construct a HtmlMarkup entry for this markup.
       */ 
       if( pMap->extra ){
@@ -843,6 +847,17 @@ doMarkup:
           break;
         default:
           break;
+      }
+
+      /* If this is self-closing markup (ex: <br/> or <img/>) then
+      ** synthesize a closing token.
+      */
+      if( selfClose && argv[0][0]!='/' 
+      && strcmp(&pMap[1].zName[1],pMap->zName)==0 ){
+        selfClose = 0;
+        pMap++;
+        argc = 1;
+        goto makeMarkupEntry;
       }
     }
   }
@@ -1078,6 +1093,55 @@ char *HtmlTokenName(HtmlElement *p){
 #else
   return 0;
 #endif
+}
+
+/*
+** Return all tokens between the two elements as a Tcl list.
+*/
+void HtmlTclizeList(Tcl_Interp *interp, HtmlElement *p, HtmlElement *pEnd){
+  Tcl_DString str;
+  int i;
+  char *zName;
+  char zLine[100];
+
+  Tcl_DStringInit(&str);
+  while( p && p!=pEnd ){
+    switch( p->base.type ){
+      case Html_Block:
+        break;
+      case Html_Text:
+        Tcl_DStringStartSublist(&str);
+        Tcl_DStringAppendElement(&str,"Text");
+        Tcl_DStringAppendElement(&str, p->text.zText);
+        Tcl_DStringEndSublist(&str);
+        break;
+      case Html_Space:
+        sprintf(zLine,"Space %d %d",
+          p->base.count, (p->base.flags & HTML_NewLine)!=0);
+        Tcl_DStringAppendElement(&str,zLine);
+        break;
+      case Html_Unknown:
+        Tcl_DStringAppendElement(&str,"Unknown");
+        break;
+      default:
+        Tcl_DStringStartSublist(&str);
+        Tcl_DStringAppendElement(&str,"Markup");
+        if( p->base.type >= HtmlMarkupMap[0].type 
+         && p->base.type <= HtmlMarkupMap[HTML_MARKUP_COUNT-1].type ){
+          zName = HtmlMarkupMap[p->base.type - HtmlMarkupMap[0].type].zName;
+        }else{
+          zName = "Unknown";
+        }
+        Tcl_DStringAppendElement(&str, zName);
+        for(i=0; i<p->base.count; i++){
+          Tcl_DStringAppendElement(&str, p->markup.argv[i]);
+        }
+        Tcl_DStringEndSublist(&str);
+        break;
+    }
+    p = p->pNext;
+  }
+  Tcl_DStringResult(interp, &str);
 }
 
 /*

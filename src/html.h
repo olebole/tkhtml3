@@ -1,6 +1,6 @@
 /*
 ** Structures and typedefs used by the HTML widget
-** $Revision: 1.23 $
+** $Revision: 1.24 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -24,9 +24,10 @@
 **   http://www.hwaci.com/drh/
 */
 
-/* #define NAVIGATOR_TABLES 1 */
-/* #define BACKGROUND_COLOR 1 */
-/* #define TABLE_TRIM_BLANK 1 */
+/*
+** Debug must be turned on for testing to work.
+*/
+#define DEBUG 1
 
 /*
 ** Version information for the package mechanism.

@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlwidget.c,v 1.38 2000/01/21 13:22:34 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlwidget.c,v 1.39 2000/01/29 21:05:59 drh Exp $";
 /*
 ** The main routine for the HTML widget for Tcl/Tk
 **
@@ -1733,6 +1733,7 @@ static struct HtmlSubcommand {
   { 0,           "get",     4, 5, "INDEX ?INDEX?",       0 },
   { 0,           "handler", 4, 5, "TAG ?SCRIPT?",        HtmlTokenHandlerCmd },
   { 0,           "insert",  6, 6, "INDEX TAG ARGUMENTS", 0 },
+  { 0,           "list",    5, 5, "START END",           HtmlTokenListCmd },
   { "xview",     0,         2, 5, "OPTIONS...",          HtmlXviewCmd },
   { "yview",     0,         2, 5, "OPTIONS...",          HtmlYviewCmd },
 #ifdef DEBUG
