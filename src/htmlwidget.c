@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlwidget.c,v 1.40 2000/01/31 13:23:47 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlwidget.c,v 1.41 2000/02/13 18:47:30 drh Exp $";
 /*
 ** The main routine for the HTML widget for Tcl/Tk
 **
@@ -905,7 +905,11 @@ void HtmlClear(HtmlWidget *htmlPtr){
     HtmlFree(p);
     TestPoint(0);
   }
-  HtmlPopStyleStack(htmlPtr, -1);
+  while( htmlPtr->styleStack ){
+    HtmlStyleStack *p = htmlPtr->styleStack;
+    htmlPtr->styleStack = p->pNext;
+    HtmlFree(p);
+  }
   ClearGcCache(htmlPtr);
   ResetLayoutContext(htmlPtr);
   if( htmlPtr->zBaseHref ){

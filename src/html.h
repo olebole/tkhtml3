@@ -1,6 +1,6 @@
 /*
 ** Structures and typedefs used by the HTML widget
-** $Revision: 1.26 $
+** $Revision: 1.27 $
 **
 ** Copyright (C) 1997-2000 D. Richard Hipp
 **
@@ -905,16 +905,6 @@ struct HtmlWidget {
                                 ** delete until it reaches zero. */
   int flags;			/* Various flags;  see below for
 				 * definitions. */
-
-#ifdef NAVIGATOR_TABLES
-
-	int tableBorder;               /* Default "border" value */
-	int tableCellPadding;          /* Default "cellpadding" value */
-	int tableCellSpacing;          /* Default "cellspacing" value */
-	XColor *tableBorderLightColor; /* Color for light part of bevel */
-	XColor *tableBorderDarkColor;  /* Color for dark part of bevel */
-	
-#endif /* NAVIGATOR_TABLES */
 }
 
 /*

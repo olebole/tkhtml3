@@ -2,7 +2,7 @@
 #
 # Construct the web page for tkhtml
 #
-# @(#) $Id: mkwebpage.tcl,v 1.2 2000/01/17 14:38:13 drh Exp $
+# @(#) $Id: mkwebpage.tcl,v 1.3 2000/02/13 18:47:31 drh Exp $
 #
 
 set p [open publish.sh w]
@@ -51,6 +51,40 @@ with 8.0.6.</p>
 widget.  Tkhtml is not an application in and of itself.  It is only
 a tool.  But applications are being built around tkhtml.  Check back
 later for new developments.</p>
+
+<h2>Mailing List!</h2>
+
+<p><font color=red><b><i>New!</i></b></font>
+   A mailing list has been started for users of tkhtml.
+   Sign up if you want to recieve notifications of updates or
+   ask questions about using tkhtml.</p>
+
+<form method=GET action="http://www.egroups.com/subscribe">
+<input type=hidden name="listname" value="tkhtml">
+<input type=hidden name="SubmitAction" value="Subscribe">
+<p>Enter your e-mail address below and click the button to
+   sign up for the tkhtml mailing list:</p>
+
+<p>
+<table cellspacing=10>
+<tr><td valign=center>
+<input type=text name="emailaddr" value="your e-mail" size=21>
+</td><td valign=center>
+<input type=image border=0 alt="Click here to join tkhtml"
+   name="Click here to join tkhtml" SRC="http://www.egroups.com/oems/default/languages/english/images/subscriptionBoxButton.gif">
+</td></tr>
+</table>
+</p>
+
+<p>You can also view the 
+  <a href="http://www.egroups.com/group/tkhtml/">archives</a>
+  for the mailing list.  To post to this mailing list, send a
+  message to <a href="mailto:tkhtml@eGroups.com">tkhtml@eGroups.com</a>.
+  The mailing list is hosted by
+  <a href="http://www.egroups.com/">eGroups.com</A>
+</p>
+</form>
+
 
 <h2>You Can Help!</h2>
 
