@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlimage.c,v 1.13 2000/11/10 23:01:38 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlimage.c,v 1.14 2001/06/17 22:40:05 peter Exp $";
 /*
 ** Routines used for processing <IMG> markup
 **
@@ -23,11 +23,17 @@ static char const rcsid[] = "@(#) $Id: htmlimage.c,v 1.13 2000/11/10 23:01:38 dr
 **   drh@acm.org
 **   http://www.hwaci.com/drh/
 */
+
 #include <tk.h>
 #include <string.h>
 #include <stdlib.h>
 #include "htmlimage.h"
 
+int tkhtmlexiting=0;
+
+#ifdef _TCLHTML_
+HtmlImage *HtmlGetImage(HtmlWidget *htmlPtr, HtmlElement *p){ return 0; }
+#else
 /*
 ** Find the alignment for an image
 */
@@ -65,7 +71,6 @@ int HtmlGetImageAlignment(HtmlElement *p){
   }
   return result;
 }
-
 /*
 ** This routine is called when an image changes.  If the size of the
 ** images changes, then we need to completely redo the layout.  If
@@ -84,6 +89,7 @@ static void ImageChangeProc(
   HtmlWidget *htmlPtr;
   HtmlElement *pElem;
 
+  if (tkhtmlexiting) return;
   pImage = (HtmlImage*)clientData;
   htmlPtr = pImage->htmlPtr;
   if( pImage->w!=newWidth || pImage->h!=newHeight ){
@@ -106,25 +112,88 @@ static void ImageChangeProc(
   }
 }
 
-/*
-** Append all the arguments of the given markup to the given
-** DString.
-**
-** Example:  If the markup is <IMG SRC=image.gif ALT="hello!">
-** then the following text is appended to the DString:
-**
-**       "src image.gif alt hello!"
-**
-** Notice how all attribute names are converted to lower case.
-** This conversion happens in the parser.
-*/
-void HtmlAppendArglist(Tcl_DString *str, HtmlElement *pElem){
-  int i;
-  for(i=0; i+1<pElem->base.count; i+=2){
-    char *z = pElem->markup.argv[i+1];
-    Tcl_DStringAppendElement(str, pElem->markup.argv[i]);
-    Tcl_DStringAppendElement(str, z);
+void HtmlAddImages(HtmlWidget *htmlPtr, HtmlElement *p, HtmlImage *pImage, char *str, int append){
+  int argc, code, doupdate=0;  char **argv;
+ HtmlElement* pElem;
+
+  if (!str[0]) {
+#ifdef DEBUG
+    fprintf(stderr,"OOPS null string\n"); 
+#endif
+    return; 
   }
+  code = Tcl_SplitList(htmlPtr->interp,str, &argc, &argv);
+  if ((code!=TCL_OK || argc==1) && (!append)) {
+    if (pImage->image)  Tk_FreeImage(pImage->image);
+    pImage->image = Tk_GetImage(htmlPtr->interp, htmlPtr->clipwin,
+                              str, ImageChangeProc, pImage);
+    doupdate=1;
+  } else {
+    int i, m=argc; struct HtmlImageAnim* pi, *pl=0;
+    if (append) {
+      pImage->num+=argc;
+      pl=pImage->anims;
+      while (pl && pl->next) pl=pl->next;
+      doupdate=1;
+      pImage->cur++;
+    } else {
+      pImage->cur=0; pImage->num=argc;
+    }
+    if (!pImage->image) {
+      pImage->image = Tk_GetImage(htmlPtr->interp, htmlPtr->clipwin,
+                              argv[0], ImageChangeProc, pImage);
+      if (!pImage->image) {
+        return;
+      }
+      m--;
+    }
+    for (i=0; i<m; i++) {
+      pi=(struct HtmlImageAnim*)HtmlAlloc(sizeof(struct HtmlImageAnim));
+      pi->next=0;
+      pi->image = Tk_GetImage(htmlPtr->interp, htmlPtr->clipwin,
+                              argv[i], ImageChangeProc, pImage);
+      if (pl) pl->next=pi; else pImage->anims=pi;
+      pl=pi;
+    }
+  }
+  if (doupdate) {
+    for(pElem = pImage->pList; pElem; pElem = pElem->image.pNext)
+      pElem->image.redrawNeeded = 1;
+    htmlPtr->flags |= REDRAW_IMAGES;
+    HtmlScheduleRedraw(htmlPtr);
+  }
+  HtmlFree((char *) argv);
+}
+
+/* Return the height/width converting percent (%) if required */
+char *HtmlPctWidth(HtmlWidget *h, HtmlElement *p,char *opt,char *ret) {
+  int n, m, w;
+  HtmlElement *tp=p;
+  char *tz, *z = HtmlMarkupArg(p, opt, "");
+  if (!strchr(z,'%')) return z;
+  if (!sscanf(z,"%d",&n)) return z;
+  if (n<=0 || n>100) return z;
+  if (opt[0]=='h') w=h->height*100;
+  else w=h->width*100;
+  if (!h->inTd) {
+    sprintf(ret,"%d", w/n);
+  } else {
+      while (tp && tp->base.type!=Html_TD) tp=tp->base.pPrev;
+      if (!tp) return z;
+      tz = HtmlMarkupArg(tp, opt, 0);
+      if (tz && (!strchr(tz,'%')) && sscanf(tz,"%d",&m)) {
+	 sprintf(ret,"%d",(m*100)/n);
+	 return ret;
+      }
+      tp=tp->cell.pTable;
+      if (!tp) return z;
+      tz = HtmlMarkupArg(tp, opt, 0);
+      if (tz && (!strchr(tz,'%')) && sscanf(tz,"%d",&m)) {
+	 sprintf(ret,"%d",(m*100)/n);
+	 return ret;
+      } else return z;
+  }
+  return ret;
 }
 
 /*
@@ -137,6 +206,7 @@ void HtmlAppendArglist(Tcl_DString *str, HtmlElement *pElem){
 ** widget structure.
 */
 HtmlImage *HtmlGetImage(HtmlWidget *htmlPtr, HtmlElement *p){
+  char zId[30];
   char *zWidth;
   char *zHeight;
   char *zSrc;
@@ -156,7 +226,10 @@ HtmlImage *HtmlGetImage(HtmlWidget *htmlPtr, HtmlElement *p){
   }
   HtmlLock(htmlPtr);
   zSrc = HtmlResolveUri(htmlPtr, zSrc);
-  if( HtmlUnlock(htmlPtr) || zSrc==0 ) return 0;
+  if( HtmlUnlock(htmlPtr) || zSrc==0 ) {
+    if (zSrc) HtmlFree(zSrc);
+    return 0;
+  }
   zWidth = HtmlMarkupArg(p, "width", "");
   zHeight = HtmlMarkupArg(p, "height", "");
   for(pImage=htmlPtr->imageList; pImage; pImage=pImage->pNext){
@@ -170,11 +243,13 @@ HtmlImage *HtmlGetImage(HtmlWidget *htmlPtr, HtmlElement *p){
   Tcl_DStringInit(&cmd);
   Tcl_DStringAppend(&cmd, htmlPtr->zGetImage, -1);
   Tcl_DStringAppendElement(&cmd,zSrc);
-  Tcl_DStringAppendElement(&cmd,zWidth);
-  Tcl_DStringAppendElement(&cmd,zHeight);
+  Tcl_DStringAppendElement(&cmd,HtmlPctWidth(htmlPtr,p,"width",zId));
+  Tcl_DStringAppendElement(&cmd,HtmlPctWidth(htmlPtr,p,"height",zId));
   Tcl_DStringStartSublist(&cmd);
   HtmlAppendArglist(&cmd, p);
   Tcl_DStringEndSublist(&cmd);
+  sprintf(zId,"%d", HtmlTokenNumber(p));
+  Tcl_DStringAppendElement(&cmd,zId);
   HtmlLock(htmlPtr);
   result = Tcl_GlobalEval(htmlPtr->interp, Tcl_DStringValue(&cmd));
   Tcl_DStringFree(&cmd);
@@ -198,8 +273,7 @@ HtmlImage *HtmlGetImage(HtmlWidget *htmlPtr, HtmlElement *p){
   pImage->w = 0;
   pImage->h = 0;
   if( result==TCL_OK ){
-    pImage->image = Tk_GetImage(htmlPtr->interp, htmlPtr->clipwin,
-                                zImageName, ImageChangeProc, pImage);
+    HtmlAddImages(htmlPtr, p, pImage, htmlPtr->interp->result, 0);
   }else{
     Tcl_AddErrorInfo(htmlPtr->interp,
       "\n    (\"-imagecommand\" command executed by html widget)");
@@ -215,3 +289,6 @@ HtmlImage *HtmlGetImage(HtmlWidget *htmlPtr, HtmlElement *p){
   Tcl_ResetResult(htmlPtr->interp);
   return pImage;
 }
+
+#endif /* _TCLHTML_ */
+

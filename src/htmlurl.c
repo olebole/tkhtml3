@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlurl.c,v 1.20 2000/11/10 23:01:39 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlurl.c,v 1.21 2001/06/17 22:40:06 peter Exp $";
 /*
 ** Routines for processing URLs.
 **
@@ -115,7 +115,7 @@ static HtmlUri *ParseUri(const char *zUri){
     p->zAuthority = StrNDup(&zUri[2], n-2);
     zUri += n;
   }
-  n = ComponentLength(zUri, "", "?# ");
+  n = ComponentLength(zUri, "", "?#");
   if( n>0 ){
     p->zPath = StrNDup(zUri, n);
     zUri += n;
@@ -269,6 +269,7 @@ int HtmlCallResolver(
     if( rc!=TCL_OK ){
       Tcl_AddErrorInfo(htmlPtr->interp,
          "\n    (-resolvercommand executed by HTML widget)");
+      Tcl_BackgroundError(htmlPtr->interp);
     }
   }else{
     /*
@@ -337,9 +338,9 @@ int HtmlCallResolver(
         }
         ReplaceStr(&base->zQuery, term->zQuery);
         ReplaceStr(&base->zFragment, term->zFragment);
-      }else if( term->zQuery ){
-        ReplaceStr(&base->zQuery, term->zQuery);
-      }
+     } else if( term->zQuery ){
+       ReplaceStr(&base->zQuery, term->zQuery);
+     }
       FreeUri(term);
     }
     Tcl_SetResult(htmlPtr->interp, BuildUri(base), TCL_DYNAMIC);
@@ -355,7 +356,7 @@ int HtmlCallResolver(
 */
 char *HtmlResolveUri(HtmlWidget *htmlPtr, char *zUri){
   char *azSeq[2];
-  char *zSrc;
+  char *zSrc=0;
   int result;
 
   if( zUri==0 || *zUri==0 ) return 0;
@@ -367,8 +368,6 @@ char *HtmlResolveUri(HtmlWidget *htmlPtr, char *zUri){
   if( result==TCL_OK ){
     zSrc = HtmlAlloc( strlen(htmlPtr->interp->result) + 1 );
     if( zSrc ) strcpy(zSrc, htmlPtr->interp->result);
-  }else{
-    zSrc = 0;
   }
   Tcl_ResetResult(htmlPtr->interp);
   return zSrc;

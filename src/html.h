@@ -1,6 +1,6 @@
 /*
 ** Structures and typedefs used by the HTML widget
-** $Revision: 1.28 $
+** $Revision: 1.29 $
 **
 ** Copyright (C) 1997-2000 D. Richard Hipp
 **
@@ -24,16 +24,24 @@
 **   http://www.hwaci.com/drh/
 */
 
+#ifdef USE_DMALLOC
+#define __malloc_and_calloc_defined
+#define __need_malloc_and_calloc
+#define _STRING_H
+#define DMALLOC_FUNC_CHECK
+#include <dmalloc.h>
+#endif
+
 /*
 ** Debug must be turned on for testing to work.
 */
-#define DEBUG 1
+#define DEBUG
 
 /*
 ** Version information for the package mechanism.
 */
 #define HTML_PKGNAME "Tkhtml"
-#define HTML_PKGVERSION "0.0"
+#define HTML_PKGVERSION "2.0"
 
 /*
 ** Sanity checking macros.
@@ -96,9 +104,15 @@
 /*
 ** Macros to allocate and free memory.
 */
-#define HtmlAlloc(A)      ((void*)Tcl_Alloc(A))
-#define HtmlFree(A)       Tcl_Free((char*)(A))
-#define HtmlRealloc(A,B)  ((void*)Tcl_Realloc((A),(B)))
+#ifndef USE_DMALLOC
+#define HtmlAlloc(A)      ((void*)ckalloc(A))
+#define HtmlFree(A)       ckfree((char*)(A))
+#define HtmlRealloc(A,B)  ((void*)ckrealloc((A),(B)))
+#else
+#define HtmlAlloc(A)      malloc(A)
+#define HtmlFree(A)       free(A)
+#define HtmlRealloc(A,B)  realloc(A,B)
+#endif
 
 /*
 ** Various data types.  This code is designed to run on a modern
@@ -120,11 +134,12 @@ typedef int            Html_32;      /* 32-bit signed integer */
 */
 struct HtmlStyle {
   unsigned int font    : 6;      /* Font to use for display */
-  unsigned int color   : 4;      /* Foreground color */
+  unsigned int color   : 6;      /* Foreground color */
   signed int subscript : 4;      /* Positive for <sup>, negative for <sub> */
   unsigned int align   : 2;      /* Horizontal alignment */
-  unsigned int bgcolor : 4;      /* Background color */
-  unsigned int flags   : 12;     /* the STY_ flags below */
+  unsigned int bgcolor : 6;      /* Background color */
+  unsigned int expbg   : 1;      /* Set to 1 if bgcolor explicitly set */
+  unsigned int flags   : 7;      /* the STY_ flags below */
 }
 
 /*
@@ -168,7 +183,7 @@ struct HtmlStyle {
 ** between 0 and N_COLOR-1 which indicates which of these colors 
 ** to use.
 */
-#define N_COLOR             16      /* Total number of colors */
+#define N_COLOR              (sizeof(long long)*8)  /* Total number of colors */
 #define COLOR_Normal         0      /* Index for normal color (black) */
 #define COLOR_Unvisited      1      /* Index for unvisited hyperlinks */
 #define COLOR_Visited        2      /* Color for visited hyperlinks */
@@ -255,6 +270,7 @@ union HtmlElement {
   HtmlAnchor anchor;
   HtmlScript script;
   HtmlBlock block;
+  HtmlMapArea area;
 };
 
 /*
@@ -267,6 +283,8 @@ struct HtmlBaseElement {
   Html_u8 type;               /* The token type. */
   Html_u8 flags;              /* The HTML_ flags below */
   Html_16 count;              /* Various uses, depending on "type" */
+  int id;		      /* Unique identifier */
+  int offs;		      /* Offset within zText */
 };
 
 /*
@@ -292,7 +310,7 @@ struct HtmlTextElement {
   Html_u8 ascent;             /* height above the baseline */
   Html_u8 descent;            /* depth below the baseline */
   Html_u8 spaceWidth;         /* Width of one space in the current font */
-  char zText[1];              /* Text for this element.  Null terminated */
+  char *zText;              /* Text for this element.  Null terminated */
 };
 
 /*
@@ -334,7 +352,9 @@ struct HtmlCell {
   Html_32 y;                /* Y coordinate of top of border indentation */
   Html_32 h;                /* Height of the border */
   HtmlElement *pTable;      /* Pointer back to the <table> */
+  HtmlElement *pRow;	    /* Pointer back to the <tr> */
   HtmlElement *pEnd;        /* Element that ends this cell */
+  Tk_Image bgimage;	    /* A background for the cell */
 };
 
 /*
@@ -363,6 +383,9 @@ struct HtmlTable {
   Html_16 w;                     /* width of the table border */
   int minW[HTML_MAX_COLUMNS+1];  /* minimum width of each column */
   int maxW[HTML_MAX_COLUMNS+1];  /* maximum width of each column */
+  HtmlElement *pEnd;             /* Pointer to end tag element */
+  Tk_Image bgimage;		 /* A background for the entire table */
+  int hasbg;			 /* 1 if a table above has bgimage */
 };
 
 /* This structure is used for </table>, </td>, <tr>, </tr> 
@@ -373,7 +396,8 @@ struct HtmlTable {
 */
 struct HtmlRef {
   HtmlMarkupElement markup;
-  HtmlElement *pOther;         /* Pointer to some other Html element */
+  HtmlElement *pOther;		/* Pointer to some other Html element */
+  Tk_Image bgimage;		/* A background for the entire row */
 };
 
 /*
@@ -419,6 +443,13 @@ struct HtmlListStart {
   HtmlElement *pPrev;      /* Next higher level list, or NULL */
 };
 
+/* Structure to chain extension data onto. */
+struct HtmlExtensions {
+  void *exts;
+  int typ; int flags;
+  struct HtmlExtensions *next;
+}
+
 /*
 ** Information about each image on the HTML widget is held in an
 ** instance of the following structure.  A pointer to this structure
@@ -432,6 +463,10 @@ struct HtmlListStart {
 ** there are still two HtmlImageMarkup structures but only one
 ** HtmlImage structure that is shared between them.)
 */
+struct HtmlImageAnim {
+  Tk_Image image;
+  struct HtmlImageAnim* next;
+};
 struct HtmlImage {
   HtmlWidget *htmlPtr;     /* The owner of this image */
   Tk_Image image;          /* The Tk image token */
@@ -442,6 +477,9 @@ struct HtmlImage {
   HtmlImage *pNext;        /* Next image on the list */
   HtmlElement *pList;      /* List of all <IMG> markups that use this 
                            ** same image */
+  struct HtmlImageAnim* anims; /* For animated gifs, points to next image */
+  int cur, num;	           /* Current and number of animated gif */
+  struct HtmlExtensions *exts;
 };
 
 /* Each <img> markup is represented by an instance of the 
@@ -464,6 +502,7 @@ struct HtmlImageMarkup {
   Html_32 y;              /* Y coordinate of image baseline */
   char *zAlt;             /* Alternative text */
   HtmlImage *pImage;      /* Corresponding HtmlImage structure */
+  HtmlElement *pMap;	  /* usemap */
   HtmlElement *pNext;     /* Next markup using the same HtmlImage structure */
 };
 
@@ -497,7 +536,9 @@ struct HtmlInput {
   Tk_Window tkwin;         /* The window that implements this control */
   HtmlWidget *htmlPtr;     /* The whole widget.  Needed by geometry callbacks */
   HtmlElement *pEnd;       /* End tag for <TEXTAREA>, etc. */
-  Html_32  y;              /* Baseline for this input element */
+  Html_u16 id;             /* Unique id for this element */
+  Html_u16 subid;          /* For radio, an id, For select, Option count. */
+  Html_32 y;               /* Baseline for this input element */
   Html_u16 x;              /* Left edge */
   Html_u16 w, h;           /* Width and height of this control */
   Html_u8 padLeft;         /* Extra padding on left side of the control */
@@ -527,6 +568,7 @@ struct HtmlInput {
 #define INPUT_TYPE_Text        10
 #define INPUT_TYPE_TextArea    11
 #define INPUT_TYPE_Applet      12
+#define INPUT_TYPE_Button      13
 
 /*
 ** There can be multiple <FORM> entries on a single HTML page.
@@ -537,6 +579,10 @@ struct HtmlInput {
 struct HtmlForm {
   HtmlMarkupElement markup;
   Html_u16 id;             /* Unique number assigned to this form */
+  unsigned int els;        /* number of elements */
+  unsigned int hasctl;	   /* has controls */
+  HtmlElement *pFirst;	   /* first form element. */
+  HtmlElement *pEnd;       /* Pointer to end tag element */
 };
 
 /*
@@ -677,7 +723,7 @@ struct HtmlLayoutContext {
 ** The following structure is used to build a cache of GCs in the
 ** main widget structure.
 */
-#define N_CACHE_GC 16
+#define N_CACHE_GC 32 /* 16 */
 struct GcCache {
   GC gc;                /* The graphics context */
   Html_u8 font;         /* Font used for this context */
@@ -693,6 +739,16 @@ struct HtmlIndex {
   HtmlElement *p;      /* The token containing the character */
   int i;               /* Index of the character */
 };
+
+#define MAP_RECT 1
+#define MAP_CIRCLE 2
+#define MAP_POLY 3
+
+struct HtmlMapArea {
+  HtmlMarkupElement base;       /* All the base information */
+  int type;
+  int *coords, num;
+}
 
 /*
 ** A single instance of the following structure (together with various
@@ -748,6 +804,8 @@ struct HtmlWidget {
   int nForm;                    /* The number of <FORM> elements */
   int varId;                    /* Used to construct a unique name for a
                                 ** global array used by <INPUT> elements */
+  int inputIdx;			/* Unique input index */
+  int radioIdx;			/* Unique radio index */
 
   /*
    * Information about the selected region of text
@@ -806,7 +864,10 @@ struct HtmlWidget {
   HtmlElement *anchorStart;     /* Most recent <a href=...> */
   HtmlElement *formStart;       /* Most recent <form> */
   HtmlElement *formElemStart;   /* Most recent <textarea> or <select> */
+  HtmlElement *formElemLast;    /* Most recent <input> <textarea> or <select> */
   HtmlElement *innerList;       /* The inner most <OL> or <UL> */
+  HtmlElement *LOendPtr;        /* How far HtmlAddStyle has gone to. */
+  HtmlElement *LOformStart;     /* For HtmlAddStyle. */
 
   /*
    * These fields are used to hold the state of the layout engine.
@@ -820,6 +881,7 @@ struct HtmlWidget {
    */
   Tk_3DBorder border;		/* Background color */
   int borderWidth;		/* Width of the border. */
+  int topmargin, leftmargin, marginwidth, marginheight;
   int relief;			/* 3-D effect: TK_RELIEF_RAISED, etc. */
   int highlightWidth;		/* Width in pixels of highlight to draw
 				 * around widget when it has the focus.
@@ -833,7 +895,7 @@ struct HtmlWidget {
                                  * if aFont[N] needs to be reallocated before
                                  * being used. */
   XColor *apColor[N_COLOR];     /* Information about all colors */
-  int colorUsed;                /* bit N is 1 if color N is in use.  Only
+  long long colorUsed;          /* bit N is 1 if color N is in use.  Only
                                 ** applies to colors that aren't predefined */
   int iDark[N_COLOR];           /* Dark 3D shadow of color K is iDark[K] */
   int iLight[N_COLOR];          /* Light 3D shadow of color K is iLight[K] */
@@ -844,6 +906,7 @@ struct HtmlWidget {
   GcCache aGcCache[N_CACHE_GC]; /* A cache of GCs for general use */
   int lastGC;                   /* Index of recently used GC */
   HtmlImage *imageList;         /* A list of all images */
+  Tk_Image bgimage;             /* Background image */
   int width, height;		/* User-requested size of the usable drawing
                                  * area, in pixels.   Borders and padding
                                  * make the actual window a little larger */
@@ -852,7 +915,15 @@ struct HtmlWidget {
                                  * event. */
   int padx, pady;               /* Separation between the edge of the window
                                  * and rendered HTML.  */
+  int formPadding;		/* Amount to pad form elements by */
+  int overrideFonts;            /* TRUE if we should override fonts */
+  int overrideColors;           /* TRUE if we should override colors */
   int underlineLinks;           /* TRUE if we should underline hyperlinks */
+  int HasScript;		/* TRUE if we can do scripts for this page */
+  int HasFrames;		/* TRUE if we can do frames for this page */
+  int AddEndTags;		/* TRUE if we add /LI etc. */
+  int TableBorderMin;		/* Force tables to have min border size. */
+  int varind;			/* Index suffix for unique global var name. */
 
   /* Information about the selection
   */
@@ -866,6 +937,7 @@ struct HtmlWidget {
   char *zIsVisited;             /* Command to tell if a hyperlink has already
                                 ** been visited */
   char *zGetImage;              /* Command to get an image from a URL */
+  char *zGetBGImage;            /* Command to get an BG image from a URL */
   char *zFrameCommand;          /* Command for handling <frameset> markup */
   char *zAppletCommand;         /* Command to process applets */
   char *zResolverCommand;       /* Command to resolve URIs */
@@ -873,6 +945,7 @@ struct HtmlWidget {
   char *zHyperlinkCommand;      /* Invoked when a hyperlink is clicked */
   char *zFontCommand;           /* Invoked to find font names */
   char *zScriptCommand;         /* Invoked for each <SCRIPT> markup */
+  char *zImgIdxCommand;         /* Command to get image frame (animations) */
 
    /*
     * Miscellaneous information:
@@ -906,6 +979,10 @@ struct HtmlWidget {
                                 ** delete until it reaches zero. */
   int flags;			/* Various flags;  see below for
 				 * definitions. */
+  int idind;
+  int inParse;			/* Prevent update if parsing. */
+  char *zGoto;			/* Label to goto right after layout. */
+  HtmlExtensions *exts;		/* Pointer to user extension data */
 }
 
 /*
@@ -965,6 +1042,7 @@ struct HtmlWidget {
 #define STYLER_RUNNING       0x000800
 #define INSERT_FLASHING      0x001000
 #define REDRAW_IMAGES        0x002000
+#define ANIMATE_IMAGES       0x004000
 
 /*
 ** Macros to set, clear or test bits of the "flags" field.

@@ -6,7 +6,7 @@
 # no extra space (beyond HtmlMarkup) is required.  If there is a
 # corresponding end-tag, then the third column specifies the size of
 # the end markup.
-# $Revision: 1.8 $
+# $Revision: 1.9 $
 #
 # Copyright (C) 1997-2000 D. Richard Hipp
 #
@@ -35,7 +35,7 @@
 a               HtmlAnchor                     HtmlRef
 address         0                              0
 applet          HtmlInput                      0
-area            0                              
+area            HtmlMapArea                              
 b               0                              0
 base            0                              
 basefont        0                              0
@@ -48,7 +48,7 @@ caption         0                              0
 center          0                              0
 cite            0                              0
 code            0                              0
-comment         0                              0
+comment         HtmlTextElement                0
 dd              HtmlRef                        0
 dfn             0                              0
 dir             HtmlListStart                  HtmlRef
@@ -56,10 +56,11 @@ div             0                              0
 dl              HtmlListStart                  HtmlRef
 dt              HtmlRef                        0
 em              0                              0
-embed           HtmlInput
+embed           HtmlInput		       0
 font            0                              0
 form            HtmlForm                       HtmlRef
 frame           0                              0
+noframes        0                              0
 frameset        0                              0
 h1              0                              0
 h2              0                              0
@@ -84,7 +85,7 @@ menu            HtmlListStart                  HtmlRef
 meta            0                              
 nextid          0                              
 nobr            0                              0
-noframe         0                              0
+noembed         0                              0
 noscript        0                              0
 ol              HtmlListStart                  HtmlRef
 option          0                              0

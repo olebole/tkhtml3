@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlform.c,v 1.23 2000/11/10 23:01:38 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlform.c,v 1.24 2001/06/17 22:40:05 peter Exp $";
 /*
 ** Routines used for processing HTML makeup for forms.
 **
@@ -29,6 +29,34 @@ static char const rcsid[] = "@(#) $Id: htmlform.c,v 1.23 2000/11/10 23:01:38 drh
 #include <stdarg.h>
 #include "htmlform.h"
 
+static void EmptyInput(HtmlElement *pElem);
+
+/*
+** Create the window name for a child widget.  Space to hold the name
+** is obtained from HtmlAlloc() and must be freed by the calling function.
+*/
+static char *MakeWindowName(
+  HtmlWidget *htmlPtr,        /* The HTML widget */
+  HtmlElement *pElem          /* The input that needs a child widget */
+){
+  int n;
+  char *zBuf;
+
+#ifdef _TCLHTML_
+  zBuf = HtmlAlloc( 20 );
+  strcpy(zBuf,".bogus");
+#else
+  n = strlen(Tk_PathName(htmlPtr->clipwin));
+  zBuf = HtmlAlloc( n + 20 );
+  sprintf(zBuf,"%s.x%d",Tk_PathName(htmlPtr->clipwin), pElem->input.cnt);
+#endif
+  return zBuf;
+}
+
+#ifdef _TCLHTML_
+static void SizeAndLink(HtmlWidget *htmlPtr, char *zWin, HtmlElement *pElem){}
+void HtmlDeleteControls(HtmlWidget *htmlPtr){}
+#else
 /*
 ** Unmap any input control that is currently mapped.
 */
@@ -104,7 +132,7 @@ void HtmlDeleteControls(HtmlWidget *htmlPtr){
   if( p==0 || htmlPtr->tkwin==0 ) return;
   HtmlLock(htmlPtr);
   for(; p; p=p->input.pNext){
-    if( p->input.pForm && p->input.pForm->form.id>0 
+    if( p->input.pForm && p->input.pForm->form.hasctl
          && htmlPtr->zFormCommand && htmlPtr->zFormCommand[0]
          && !Tcl_InterpDeleted(interp) && htmlPtr->clipwin ){
       Tcl_DString cmd;
@@ -112,7 +140,7 @@ void HtmlDeleteControls(HtmlWidget *htmlPtr){
       char zBuf[60];
       Tcl_DStringInit(&cmd);
       Tcl_DStringAppend(&cmd, htmlPtr->zFormCommand, -1);
-      sprintf(zBuf," %d flush", p->input.pForm->form.id);
+      sprintf(zBuf," %d flush {}", p->input.pForm->form.id);
       Tcl_DStringAppend(&cmd, zBuf, -1);
       result = Tcl_GlobalEval(htmlPtr->interp, Tcl_DStringValue(&cmd));
       Tcl_DStringFree(&cmd);
@@ -124,7 +152,7 @@ void HtmlDeleteControls(HtmlWidget *htmlPtr){
         }
         Tcl_ResetResult(htmlPtr->interp);
       }
-      p->input.pForm->form.id = 0;
+      p->input.pForm->form.hasctl = 0;
     }
     if( p->input.tkwin ){
       if( htmlPtr->clipwin!=0 ) Tk_DestroyWindow(p->input.tkwin);
@@ -133,90 +161,6 @@ void HtmlDeleteControls(HtmlWidget *htmlPtr){
     p->input.sized = 0;
   }
   HtmlUnlock(htmlPtr);
-}
-
-/*
-** Return an appropriate type value for the given <INPUT> markup.
-*/
-static int InputType(HtmlElement *p){
-  int type = INPUT_TYPE_Unknown;
-  char *z;
-  int i;
-  static struct {
-    char *zName;
-    int type;
-  } types[] = {
-    { "checkbox",  INPUT_TYPE_Checkbox },
-    { "file",      INPUT_TYPE_File     },
-    { "hidden",    INPUT_TYPE_Hidden   },
-    { "image",     INPUT_TYPE_Image    },
-    { "password",  INPUT_TYPE_Password },
-    { "radio",     INPUT_TYPE_Radio    },
-    { "reset",     INPUT_TYPE_Reset    },
-    { "submit",    INPUT_TYPE_Submit   },
-    { "text",      INPUT_TYPE_Text     },
-  };
-
-  switch( p->base.type ){
-    case Html_INPUT:
-      z = HtmlMarkupArg(p, "type", "text");
-      if( z==0 ){ break; }
-      for(i=0; i<sizeof(types)/sizeof(types[0]); i++){
-        if( stricmp(types[i].zName,z)==0 ){
-          type = types[i].type;
-          break;
-        }
-      }
-      break;
-    case Html_SELECT:
-      type = INPUT_TYPE_Select;
-      break;
-    case Html_TEXTAREA:
-      type = INPUT_TYPE_TextArea;
-      break;
-    case Html_APPLET:
-    case Html_IFRAME:
-    case Html_EMBED:
-      type = INPUT_TYPE_Applet;
-      break;
-    default:
-      CANT_HAPPEN;
-      break;
-  }
-  return type;
-}
-
-/*
-** Create the window name for a child widget.  Space to hold the name
-** is obtained from HtmlAlloc() and must be freed by the calling function.
-*/
-static char *MakeWindowName(
-  HtmlWidget *htmlPtr,        /* The HTML widget */
-  HtmlElement *pElem          /* The input that needs a child widget */
-){
-  int n;
-  char *zBuf;
-
-  n = strlen(Tk_PathName(htmlPtr->clipwin));
-  zBuf = HtmlAlloc( n + 20 );
-  sprintf(zBuf,"%s.x%d",Tk_PathName(htmlPtr->clipwin), pElem->input.cnt);
-  return zBuf;
-}
-
-/*
-** A Input element is the input.  Mark this element as being
-** empty.  It has no widget and doesn't appear on the screen.
-**
-** This is called for HIDDEN inputs or when the -formcommand
-** callback doesn't create the widget.
-*/
-static void EmptyInput(HtmlElement *pElem){
-  pElem->input.tkwin = 0;
-  pElem->input.w = 0;
-  pElem->input.h = 0;
-  pElem->base.flags &= !HTML_Visible;
-  pElem->base.style.flags |= STY_Invisible;
-  pElem->input.sized = 1;
 }
 
 /*
@@ -265,7 +209,6 @@ static void HtmlInputEventProc(ClientData clientData, XEvent *eventPtr){
     }
   }
 }
-
 /*
 ** The geometry manager for the HTML widget
 */
@@ -293,7 +236,7 @@ static void SizeAndLink(HtmlWidget *htmlPtr, char *zWin, HtmlElement *pElem){
     pElem->base.style.flags |= STY_Invisible;
   }else{
     pElem->input.w = Tk_ReqWidth(pElem->input.tkwin);
-    pElem->input.h = Tk_ReqHeight(pElem->input.tkwin);
+    pElem->input.h = Tk_ReqHeight(pElem->input.tkwin)+htmlPtr->formPadding;
     pElem->base.flags |= HTML_Visible;
     pElem->input.htmlPtr = htmlPtr;
     Tk_ManageGeometry(pElem->input.tkwin, &htmlGeomType, pElem);
@@ -309,6 +252,90 @@ static void SizeAndLink(HtmlWidget *htmlPtr, char *zWin, HtmlElement *pElem){
   htmlPtr->lastInput = pElem;
   pElem->input.sized = 1;
 }
+
+int HtmlSizeWindow(
+  HtmlWidget *htmlPtr,   /* The HTML widget */
+  Tcl_Interp *interp,    /* The interpreter */
+  int argc,              /* Number of arguments */
+  char **argv            /* List of all arguments */
+){
+    char *zWin=argv[2];
+    Tk_Window tkwin=Tk_NameToWindow(htmlPtr->interp, zWin, htmlPtr->clipwin);
+    Tk_ManageGeometry(tkwin, &htmlGeomType, 0);
+}
+
+#endif /* _TCLHTML_ */
+
+/*
+** Return an appropriate type value for the given <INPUT> markup.
+*/
+static int InputType(HtmlElement *p){
+  int type = INPUT_TYPE_Unknown;
+  char *z;
+  int i;
+  static struct {
+    char *zName;
+    int type;
+  } types[] = {
+    { "checkbox",  INPUT_TYPE_Checkbox },
+    { "file",      INPUT_TYPE_File     },
+    { "hidden",    INPUT_TYPE_Hidden   },
+    { "image",     INPUT_TYPE_Image    },
+    { "password",  INPUT_TYPE_Password },
+    { "radio",     INPUT_TYPE_Radio    },
+    { "reset",     INPUT_TYPE_Reset    },
+    { "submit",    INPUT_TYPE_Submit   },
+    { "text",      INPUT_TYPE_Text     },
+    { "name",      INPUT_TYPE_Text     },
+    { "textfield", INPUT_TYPE_Text     },
+    { "button",    INPUT_TYPE_Button   },
+  };
+
+  switch( p->base.type ){
+    case Html_INPUT:
+      z = HtmlMarkupArg(p, "type", "text");
+      if( z==0 ){ break; }
+      for(i=0; i<sizeof(types)/sizeof(types[0]); i++){
+        if( stricmp(types[i].zName,z)==0 ){
+          type = types[i].type;
+          break;
+        }
+      }
+      break;
+    case Html_SELECT:
+      type = INPUT_TYPE_Select;
+      break;
+    case Html_TEXTAREA:
+      type = INPUT_TYPE_TextArea;
+      break;
+    case Html_APPLET:
+    case Html_IFRAME:
+    case Html_EMBED:
+      type = INPUT_TYPE_Applet;
+      break;
+    default:
+      CANT_HAPPEN;
+      break;
+  }
+  return type;
+}
+
+/*
+** A Input element is the input.  Mark this element as being
+** empty.  It has no widget and doesn't appear on the screen.
+**
+** This is called for HIDDEN inputs or when the -formcommand
+** callback doesn't create the widget.
+*/
+static void EmptyInput(HtmlElement *pElem){
+  pElem->input.tkwin = 0;
+  pElem->input.w = 0;
+  pElem->input.h = 0;
+  pElem->base.flags &= !HTML_Visible;
+  pElem->base.style.flags |= STY_Invisible;
+  pElem->input.sized = 1;
+}
+
 
 /* Append all text and space tokens between pStart and pEnd to
 ** the given Tcl_DString.
@@ -367,6 +394,7 @@ static void AddSelectOptions(
   HtmlElement *p,        /* The <SELECT> markup */
   HtmlElement *pEnd      /* The </SELECT> markup */
 ){
+  HtmlElement *pSave;
   while( p && p!=pEnd && p->base.type!=Html_EndSELECT ){
     if( p->base.type==Html_OPTION ){
       char *zValue;
@@ -376,8 +404,13 @@ static void AddSelectOptions(
       }else{
         Tcl_DStringAppend(str, "1 ", 2);
       }
-      zValue = HtmlMarkupArg(p, "value", "");
-      Tcl_DStringAppendElement(str, zValue);
+      zValue = HtmlMarkupArg(p, "value", 0);
+      if (zValue) {
+        Tcl_DStringAppendElement(str, zValue);
+        pSave=0;
+      } else
+        pSave=p;
+SelectDo:
       Tcl_DStringStartSublist(str);
       p = p->pNext;
       while( p && p!=pEnd && p->base.type!=Html_EndOPTION 
@@ -390,11 +423,118 @@ static void AddSelectOptions(
         p = p->pNext;
       }
       Tcl_DStringEndSublist(str);
+      if (pSave) { p=pSave; pSave=0; goto SelectDo; }
       Tcl_DStringEndSublist(str);
     }else{
       p = p->pNext;
     }
   }
+}
+
+/* BROKEN Return the idx'th elments of type n in form. */
+HtmlElement * HtmlFormIdx(HtmlWidget *htmlPtr, HtmlElement *p, int tag, 
+  int idx, int radio){
+  int n;
+  HtmlElement *q;
+  if (p->base.type=Html_FORM) {
+    switch (n) {
+    case Html_FORM:
+    case Html_SELECT:
+    case Html_TEXTAREA:
+    case Html_INPUT:
+    case Html_OPTION:
+    }
+  }
+  return 0;
+}
+
+/* Return the number of elments of type p in form. */
+int HtmlFormCount(HtmlWidget *htmlPtr, HtmlElement *p, int radio){
+  HtmlElement *q;
+  switch (p->base.type) {
+    case Html_SELECT:
+      return p->input.subid;
+    case Html_TEXTAREA:
+    case Html_INPUT:
+      if (radio && p->input.type==INPUT_TYPE_Radio)
+        return p->input.subid;
+      return p->input.pForm->form.els;
+    case Html_OPTION:
+      while ((q=q->base.pPrev))
+	if (q->base.type==Html_SELECT) return q->input.subid;
+  }
+  return -1;
+}
+
+/* Add the DOM control information for form elements. */
+int HtmlAddFormInfo(HtmlWidget *htmlPtr, HtmlElement *p){
+  HtmlElement *q, *f;
+  char *name, *z;
+  int t;
+  switch (p->base.type) {
+    case Html_SELECT:
+    case Html_TEXTAREA:
+    case Html_INPUT:
+      if (!(f=htmlPtr->formStart)) return;
+      p->input.pForm = htmlPtr->formStart;
+      if (!f->form.pFirst)
+        f->form.pFirst=p;
+      if (htmlPtr->formElemLast)
+        htmlPtr->formElemLast->input.pNext=p;
+      htmlPtr->formElemLast=p;
+      p->input.id=htmlPtr->inputIdx++;
+      t=p->input.type = InputType(p);
+      if (t==INPUT_TYPE_Radio) {
+        if ((name=HtmlMarkupArg(p,"name",0))) {
+          for (q=f->form.pFirst; q; q=q->input.pNext)
+	    if ((z=HtmlMarkupArg(q,"name",0)) && !strcmp(z,name)) {
+              p->input.subid=htmlPtr->radioIdx++;
+	      break;
+	    }
+	  if (!q)
+            p->input.subid=(htmlPtr->radioIdx=0);
+	}
+      }
+      break;
+    case Html_FORM:
+      htmlPtr->formStart = p;
+      p->form.id = htmlPtr->nForm++;
+      break;
+    case Html_EndTEXTAREA:
+    case Html_EndSELECT:
+    case Html_EndFORM:
+      htmlPtr->formStart = 0;
+      htmlPtr->inputIdx=0;
+      htmlPtr->radioIdx=0;
+      htmlPtr->formElemLast=0;
+      break;
+    case Html_OPTION:
+      if (htmlPtr->formElemLast && htmlPtr->formElemLast->base.type ==
+        Html_SELECT)
+        htmlPtr->formElemLast->input.subid++;
+      break;
+    default:
+  }
+}
+
+void HtmlAppendStyle(HtmlWidget *htmlPtr, Tcl_DString *cmd, HtmlElement *pf) {
+#ifndef _TCLHTML_
+    char buf[BUFSIZ], *c1, *c2;
+    int bg=pf->base.style.bgcolor;
+    int fg=pf->base.style.color;
+    XColor *cbg=htmlPtr->apColor[bg];
+    XColor *cfg=htmlPtr->apColor[fg];
+    c1=Tk_NameOfColor(cfg);
+    c2=Tk_NameOfColor(cbg);
+    Tcl_DStringAppend(cmd, "color ", -1);
+    Tcl_DStringAppend(cmd, Clr2Name(c1), -1);
+    Tcl_DStringAppend(cmd, " bgcolor ", -1);
+    Tcl_DStringAppend(cmd, Clr2Name(c2), -1);
+    Tcl_DStringAppend(cmd, " font {", -1);
+    Tcl_DStringAppend(cmd, Tk_NameOfFont(HtmlGetFont(htmlPtr, 
+	pf->base.style.font)), -1);
+    Tcl_DStringAppend(cmd, "}", -1);
+#endif
 }
 
 /*
@@ -415,7 +555,8 @@ int HtmlControlSize(HtmlWidget *htmlPtr, HtmlElement *pElem){
   Tcl_DString cmd;       /* The complete -formcommand callback */
  
   if( pElem->input.sized ) return 0;
-  pElem->input.type = InputType(pElem);
+  if (pElem->input.type ==INPUT_TYPE_Unknown)
+    pElem->input.type = InputType(pElem);
   switch( pElem->input.type ){
     case INPUT_TYPE_Checkbox:
     case INPUT_TYPE_Hidden:
@@ -423,6 +564,7 @@ int HtmlControlSize(HtmlWidget *htmlPtr, HtmlElement *pElem){
     case INPUT_TYPE_Radio:
     case INPUT_TYPE_Reset:
     case INPUT_TYPE_Submit:
+    case INPUT_TYPE_Button:
     case INPUT_TYPE_Text:
     case INPUT_TYPE_Password:
     case INPUT_TYPE_File: {
@@ -438,6 +580,10 @@ int HtmlControlSize(HtmlWidget *htmlPtr, HtmlElement *pElem){
       Tcl_DStringAppend(&cmd, htmlPtr->zFormCommand, -1);
       sprintf(zToken," %d input ",pElem->input.pForm->form.id);
       Tcl_DStringAppend(&cmd, zToken, -1);
+      Tcl_DStringStartSublist(&cmd);
+      HtmlAppendStyle(htmlPtr,&cmd, pElem);
+      Tcl_DStringEndSublist(&cmd);
+      Tcl_DStringAppend(&cmd, " ", -1);
       pElem->input.cnt = ++htmlPtr->nInput;
       zWin = MakeWindowName(htmlPtr, pElem);
       Tcl_DStringAppend(&cmd, zWin, -1);
@@ -445,9 +591,17 @@ int HtmlControlSize(HtmlWidget *htmlPtr, HtmlElement *pElem){
       HtmlAppendArglist(&cmd, pElem);
       Tcl_DStringEndSublist(&cmd);
       HtmlLock(htmlPtr);
+      htmlPtr->inParse++;
       result = Tcl_GlobalEval(htmlPtr->interp, Tcl_DStringValue(&cmd));
+      htmlPtr->inParse--;
       Tcl_DStringFree(&cmd);
       if( !HtmlUnlock(htmlPtr) ){
+	pElem->form.hasctl=1;
+        if (result != TCL_OK) {
+          Tcl_AddErrorInfo(htmlPtr->interp,
+             "\n    (-formcommand input callback executed by html widget)");
+          Tcl_BackgroundError(htmlPtr->interp);
+        }
         SizeAndLink(htmlPtr, zWin, pElem);
       }
       HtmlFree(zWin);
@@ -466,6 +620,10 @@ int HtmlControlSize(HtmlWidget *htmlPtr, HtmlElement *pElem){
       Tcl_DStringAppend(&cmd, htmlPtr->zFormCommand, -1);
       sprintf(zToken," %d select ",pElem->input.pForm->form.id);
       Tcl_DStringAppend(&cmd, zToken, -1);
+      Tcl_DStringStartSublist(&cmd);
+      HtmlAppendStyle(htmlPtr,&cmd, pElem);
+      Tcl_DStringEndSublist(&cmd);
+      Tcl_DStringAppend(&cmd, " ", -1);
       pElem->input.cnt = ++htmlPtr->nInput;
       zWin = MakeWindowName(htmlPtr, pElem);
       Tcl_DStringAppend(&cmd, zWin, -1);
@@ -476,10 +634,17 @@ int HtmlControlSize(HtmlWidget *htmlPtr, HtmlElement *pElem){
       AddSelectOptions(&cmd, pElem, pElem->input.pEnd);
       Tcl_DStringEndSublist(&cmd);
       HtmlLock(htmlPtr);
+      htmlPtr->inParse++;
       result = Tcl_GlobalEval(htmlPtr->interp, Tcl_DStringValue(&cmd));
+      htmlPtr->inParse--;
       Tcl_DStringFree(&cmd);
       if( !HtmlUnlock(htmlPtr) ){
         SizeAndLink(htmlPtr, zWin, pElem);
+        if (result != TCL_OK) {
+          Tcl_AddErrorInfo(htmlPtr->interp,
+             "\n    (-formcommand select callback executed by html widget)");
+          Tcl_BackgroundError(htmlPtr->interp);
+        }
       }
       HtmlFree(zWin);
       break;
@@ -497,6 +662,10 @@ int HtmlControlSize(HtmlWidget *htmlPtr, HtmlElement *pElem){
       Tcl_DStringAppend(&cmd, htmlPtr->zFormCommand, -1);
       sprintf(zToken," %d textarea ",pElem->input.pForm->form.id);
       Tcl_DStringAppend(&cmd, zToken, -1);
+      Tcl_DStringStartSublist(&cmd);
+      HtmlAppendStyle(htmlPtr,&cmd, pElem);
+      Tcl_DStringEndSublist(&cmd);
+      Tcl_DStringAppend(&cmd, " ", -1);
       pElem->input.cnt = ++htmlPtr->nInput;
       zWin = MakeWindowName(htmlPtr, pElem);
       Tcl_DStringAppend(&cmd, zWin, -1);
@@ -507,10 +676,17 @@ int HtmlControlSize(HtmlWidget *htmlPtr, HtmlElement *pElem){
       HtmlAppendText(&cmd, pElem, pElem->input.pEnd);
       Tcl_DStringEndSublist(&cmd);
       HtmlLock(htmlPtr);
+      htmlPtr->inParse++;
       result = Tcl_GlobalEval(htmlPtr->interp, Tcl_DStringValue(&cmd));
+      htmlPtr->inParse--;
       Tcl_DStringFree(&cmd);
       if( !HtmlUnlock(htmlPtr) ){
         SizeAndLink(htmlPtr, zWin, pElem);
+        if (result != TCL_OK) {
+          Tcl_AddErrorInfo(htmlPtr->interp,
+             "\n    (-formcommand select callback executed by html widget)");
+          Tcl_BackgroundError(htmlPtr->interp);
+        }
       }
       HtmlFree(zWin);
       break;
@@ -532,10 +708,17 @@ int HtmlControlSize(HtmlWidget *htmlPtr, HtmlElement *pElem){
       HtmlAppendArglist(&cmd, pElem);
       Tcl_DStringEndSublist(&cmd);
       HtmlLock(htmlPtr);
+      htmlPtr->inParse++;
       result = Tcl_GlobalEval(htmlPtr->interp, Tcl_DStringValue(&cmd));
+      htmlPtr->inParse--;
       Tcl_DStringFree(&cmd);
       if( !HtmlUnlock(htmlPtr) ){
         SizeAndLink(htmlPtr, zWin, pElem);
+        if (result != TCL_OK) {
+          Tcl_AddErrorInfo(htmlPtr->interp,
+             "\n    (-formcommand select callback executed by html widget)");
+          Tcl_BackgroundError(htmlPtr->interp);
+        }
       }
       HtmlFree(zWin);
       break;

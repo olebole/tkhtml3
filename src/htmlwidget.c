@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlwidget.c,v 1.45 2000/11/10 23:01:39 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlwidget.c,v 1.46 2001/06/17 22:40:06 peter Exp $";
 /*
 ** The main routine for the HTML widget for Tcl/Tk
 **
@@ -27,10 +27,13 @@ static char const rcsid[] = "@(#) $Id: htmlwidget.c,v 1.45 2000/11/10 23:01:39 d
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 #include "htmlwidget.h"
 #ifdef USE_TK_STUBS
 # include <tkIntXlibDecls.h>
 #endif
+#include <X11/Xatom.h>
+
 
 /*
 ** This global variable is used for tracing the operation of
@@ -58,16 +61,13 @@ int HtmlTraceMask = 0;
 ** Information used for argv parsing.
 */
 static Tk_ConfigSpec configSpecs[] = {
-    {TK_CONFIG_STRING, "-appletcommand", "appletCommand", "HtmlCallback",
-        DEF_HTML_CALLBACK, Tk_Offset(HtmlWidget, zAppletCommand), 0},
+#if !defined(_TCLHTML_)
     {TK_CONFIG_BORDER, "-background", "background", "Background",
 	DEF_HTML_BG_COLOR, Tk_Offset(HtmlWidget, border),
 	TK_CONFIG_COLOR_ONLY},
     {TK_CONFIG_BORDER, "-background", "background", "Background",
 	DEF_HTML_BG_MONO, Tk_Offset(HtmlWidget, border),
 	TK_CONFIG_MONO_ONLY},
-    {TK_CONFIG_STRING, "-base", "base", "Base",
-        "", Tk_Offset(HtmlWidget, zBase), 0},
     {TK_CONFIG_SYNONYM, "-bd", "borderWidth", (char *) NULL,
 	(char *) NULL, 0, 0},
     {TK_CONFIG_SYNONYM, "-bg", "background", (char *) NULL,
@@ -82,12 +82,12 @@ static Tk_ConfigSpec configSpecs[] = {
 	(char *) NULL, 0, 0},
     {TK_CONFIG_STRING, "-fontcommand", "fontCommand", "FontCommand",
         DEF_HTML_CALLBACK, Tk_Offset(HtmlWidget, zFontCommand), 0},
+    {TK_CONFIG_INT, "-formpadding", "formPadding", "FormPadding",
+        "4", Tk_Offset(HtmlWidget, formPadding), 0},
     {TK_CONFIG_COLOR, "-foreground", "foreground", "Foreground",
 	DEF_HTML_FG, Tk_Offset(HtmlWidget, fgColor), 0},
-    {TK_CONFIG_STRING, "-formcommand", "formlCommand", "HtmlCallback",
-        DEF_HTML_CALLBACK, Tk_Offset(HtmlWidget, zFormCommand), 0},
-    {TK_CONFIG_STRING, "-framecommand", "frameCommand", "HtmlCallback",
-        DEF_HTML_CALLBACK, Tk_Offset(HtmlWidget, zFrameCommand), 0},
+    {TK_CONFIG_STRING, "-imgidxcommand", "imgidxCommand", "HtmlCallback",
+        DEF_HTML_CALLBACK, Tk_Offset(HtmlWidget, zImgIdxCommand), 0},
     {TK_CONFIG_PIXELS, "-height", "height", "Hidth",
 	DEF_HTML_HEIGHT, Tk_Offset(HtmlWidget, height), 0},
     {TK_CONFIG_COLOR, "-highlightbackground", "highlightBackground",
@@ -102,6 +102,8 @@ static Tk_ConfigSpec configSpecs[] = {
         DEF_HTML_CALLBACK, Tk_Offset(HtmlWidget, zHyperlinkCommand), 0},
     {TK_CONFIG_STRING, "-imagecommand", "imageCommand", "HtmlCallback",
         DEF_HTML_CALLBACK, Tk_Offset(HtmlWidget, zGetImage), 0},
+    {TK_CONFIG_STRING, "-bgimagecommand", "BGimageCommand", "HtmlCallback",
+        DEF_HTML_CALLBACK, Tk_Offset(HtmlWidget, zGetBGImage), 0},
     {TK_CONFIG_INT, "-insertofftime", "insertOffTime", "OffTime",
         DEF_HTML_INSERT_OFF_TIME, Tk_Offset(HtmlWidget, insOffTime), 0},
     {TK_CONFIG_INT, "-insertontime", "insertOnTime", "OnTime",
@@ -112,14 +114,22 @@ static Tk_ConfigSpec configSpecs[] = {
 	DEF_HTML_PADX, Tk_Offset(HtmlWidget, padx), 0},
     {TK_CONFIG_PIXELS, "-pady", "padY", "Pad",
 	DEF_HTML_PADY, Tk_Offset(HtmlWidget, pady), 0},
+    {TK_CONFIG_PIXELS, "-leftmargin", "leftmargin", "Margin",
+	DEF_HTML_PADY, Tk_Offset(HtmlWidget, leftmargin), 0},
+    {TK_CONFIG_PIXELS, "-topmargin", "topmargin", "Margin",
+	DEF_HTML_PADY, Tk_Offset(HtmlWidget, topmargin), 0},
+    {TK_CONFIG_PIXELS, "-marginwidth", "marginwidth", "Margin",
+	DEF_HTML_PADY, Tk_Offset(HtmlWidget, marginwidth), 0},
+    {TK_CONFIG_PIXELS, "-marginheight", "marginheight", "Margin",
+	DEF_HTML_PADY, Tk_Offset(HtmlWidget, marginheight), 0},
+    {TK_CONFIG_BOOLEAN, "-overridecolors", "overrideColors",
+        "OverrideColors", "0", Tk_Offset(HtmlWidget, overrideColors), 0},
+    {TK_CONFIG_BOOLEAN, "-overridefonts", "overrideFonts",
+        "OverrideFonts", "0", Tk_Offset(HtmlWidget, overrideFonts), 0},
     {TK_CONFIG_RELIEF, "-relief", "relief", "Relief",
 	DEF_HTML_RELIEF, Tk_Offset(HtmlWidget, relief), 0},
-    {TK_CONFIG_STRING, "-resolvercommand", "resolverCommand", "HtmlCallback",
-        DEF_HTML_CALLBACK, Tk_Offset(HtmlWidget, zResolverCommand), 0},
     {TK_CONFIG_RELIEF, "-rulerelief", "ruleRelief","RuleRelief",
         "sunken", Tk_Offset(HtmlWidget, ruleRelief), 0},
-    {TK_CONFIG_STRING, "-scriptcommand", "scriptCommand", "HtmlCallback",
-        "", Tk_Offset(HtmlWidget, zScriptCommand), 0},
     {TK_CONFIG_COLOR, "-selectioncolor", "background", "Background",
 	DEF_HTML_SELECTION_COLOR, Tk_Offset(HtmlWidget, selectionColor), 0},
     {TK_CONFIG_RELIEF, "-tablerelief", "tableRelief","TableRelief",
@@ -141,6 +151,27 @@ static Tk_ConfigSpec configSpecs[] = {
     {TK_CONFIG_STRING, "-yscrollcommand", "yScrollCommand", "ScrollCommand",
 	DEF_HTML_SCROLL_COMMAND, Tk_Offset(HtmlWidget, yScrollCmd),
 	TK_CONFIG_NULL_OK},
+#endif
+    {TK_CONFIG_STRING, "-appletcommand", "appletCommand", "HtmlCallback",
+        DEF_HTML_CALLBACK, Tk_Offset(HtmlWidget, zAppletCommand), 0},
+    {TK_CONFIG_STRING, "-base", "base", "Base",
+        "", Tk_Offset(HtmlWidget, zBase), 0},
+    {TK_CONFIG_STRING, "-scriptcommand", "scriptCommand", "HtmlCallback",
+        "", Tk_Offset(HtmlWidget, zScriptCommand), 0},
+    {TK_CONFIG_STRING, "-formcommand", "formCommand", "HtmlCallback",
+        DEF_HTML_CALLBACK, Tk_Offset(HtmlWidget, zFormCommand), 0},
+    {TK_CONFIG_STRING, "-framecommand", "frameCommand", "HtmlCallback",
+        DEF_HTML_CALLBACK, Tk_Offset(HtmlWidget, zFrameCommand), 0},
+    {TK_CONFIG_INT, "-addendtags", "addendtags", "bool",
+        0, Tk_Offset(HtmlWidget, AddEndTags), 0},
+    {TK_CONFIG_INT, "-tableborder", "tableborder", "int",
+        0, Tk_Offset(HtmlWidget, TableBorderMin), 0},
+    {TK_CONFIG_INT, "-hasscript", "hasscript", "bool",
+        0, Tk_Offset(HtmlWidget, HasScript), 0},
+    {TK_CONFIG_INT, "-hasframes", "hasframes", "bool",
+        0, Tk_Offset(HtmlWidget, HasFrames), 0},
+    {TK_CONFIG_STRING, "-resolvercommand", "resolverCommand", "HtmlCallback",
+        DEF_HTML_CALLBACK, Tk_Offset(HtmlWidget, zResolverCommand), 0},
     {TK_CONFIG_END, (char *) NULL, (char *) NULL, (char *) NULL,
 	(char *) NULL, 0, 0}
 };
@@ -152,6 +183,90 @@ Tk_ConfigSpec *HtmlConfigSpec(void){
   return configSpecs;
 }
 
+int TclConfigureWidget(Tcl_Interp *interp, HtmlWidget *htmlPtr, 
+  Tk_ConfigSpec *configSpecs, int argc, char *argv[],
+                         char *dp, int flags) {
+  Tk_ConfigSpec *cs;
+  int i; char *op;
+  if (argc==0) {
+    cs=configSpecs; 
+    while (cs->type!=TK_CONFIG_END) {
+      switch (cs->type) {
+        case TK_CONFIG_STRING: {
+            char **sp;
+            op=dp+cs->offset;
+            sp=(char**)op;
+            Tcl_AppendElement(interp, cs->argvName);
+            Tcl_AppendElement(interp, *sp);
+          }
+          break;
+        case TK_CONFIG_INT: {
+            int *sp;
+      	    char buf[50];
+            op=dp+cs->offset;
+            sp=(int*)op;
+            sprintf(buf,"%d",*sp);
+            Tcl_AppendElement(interp, cs->argvName);
+            Tcl_AppendElement(interp, buf);
+          }
+          break;
+        default: assert(0=="Unknown spec type");
+      }
+      cs=cs+1;
+    }
+    return TCL_OK;
+  }
+  for (i=0; (i+1)<=argc && argv[i]; i++) {
+    cs=configSpecs; 
+    while (cs->type!=TK_CONFIG_END) {
+      if (!strcmp(argv[i],cs->argvName)) {
+        switch (cs->type) {
+	  case TK_CONFIG_STRING: {
+	      char **sp;
+	      op=dp+cs->offset;
+	      sp=(char**)op;
+	      if (++i >= argc) {
+	        Tcl_SetResult(interp, *sp, 0);
+	        return TCL_OK;
+	      }
+	      *sp=strdup(argv[i]);
+	      goto foundopt;
+	    }
+	    break;
+	  case TK_CONFIG_INT: {
+	      int *sp;
+	      op=dp+cs->offset;
+	      sp=(int*)op;
+	      if (++i >= argc) {
+		char buf[50];
+                sprintf(buf,"%d",*sp);
+	        Tcl_SetResult(interp, buf, 0);
+	        return TCL_OK;
+	      }
+	      *sp=atoi(argv[i]);
+	      goto foundopt;
+	    }
+	    break;
+	  default: assert(0=="Unknown spec type");
+	}
+      }
+      cs=cs+1;
+    }
+    fprintf(stderr,"Unknown option %s\n",argv[i]);
+    return TCL_ERROR;
+    foundopt:
+  }
+  return TCL_OK;
+}
+
+#ifdef _TCLHTML_
+static void HtmlCmdDeletedProc(ClientData clientData){}
+static void HtmlEventProc(ClientData clientData, XEvent *eventPtr) {}
+void HtmlRedrawText(HtmlWidget *htmlPtr, int y){}
+void HtmlRedrawBlock(HtmlWidget *htmlPtr, HtmlBlock *p){}
+int HtmlGetColorByName(HtmlWidget *htmlPtr, char *zColor){ return 0; }
+void HtmlScheduleRedraw(HtmlWidget *htmlPtr){}
+#else
 /*
 ** Find the width of the usable drawing area in pixels.  If the window isn't
 ** mapped, use the size requested by the user.
@@ -257,10 +372,11 @@ void HtmlComputeHorizontalPosition(
   sprintf(buf,"%g %g",frac1, frac2);
 }
 
+static int GcNextToFree=0;
 /*
 ** Clear the cache of GCs
 */
-static void ClearGcCache(HtmlWidget *htmlPtr){
+void ClearGcCache(HtmlWidget *htmlPtr){
   int i;
   for(i=0; i<N_CACHE_GC; i++){
     if( htmlPtr->aGcCache[i].index ){
@@ -269,6 +385,7 @@ static void ClearGcCache(HtmlWidget *htmlPtr){
     }else{
     }
   }
+  GcNextToFree=0;
 }
   
 
@@ -324,12 +441,19 @@ static void HtmlRedrawCallback(ClientData clientData){
   int clipwinH, clipwinW;  /* Width and height of the clipping window */
   HtmlBlock *pBlock;       /* For looping over blocks to be drawn */
   int redoSelection = 0;   /* True to recompute the selection */
+  int top, bottom, left, right;     /* Coordinates of the clipping window */
+  int imageTop;                     /* Top edge of image */
+  HtmlElement *pElem;
   
   /* 
   ** Don't bother doing anything if the widget is in the process of
-  ** being destroyed.
+  ** being destroyed, or we are in the middle of a parse.
   */
-  if( tkwin==0 ){
+  if( tkwin==0){
+    goto redrawExit;
+  }
+  if( htmlPtr->inParse){
+    htmlPtr->flags &= ~REDRAW_PENDING;
     goto redrawExit;
   }
 
@@ -372,7 +496,7 @@ static void HtmlRedrawCallback(ClientData clientData){
   if( (htmlPtr->flags & (RELAYOUT|EXTEND_LAYOUT))!=0 
   && (htmlPtr->flags & STYLER_RUNNING)==0 ){
     htmlPtr->nextPlaced = 0;
-    htmlPtr->nInput = 0;
+    /* htmlPtr->nInput = 0; */
     htmlPtr->varId = 0;
     htmlPtr->maxX = 0;
     htmlPtr->maxY = 0;
@@ -561,6 +685,11 @@ static void HtmlRedrawCallback(ClientData clientData){
     y = htmlPtr->yOffset + htmlPtr->dirtyTop;
   }
 
+  top = htmlPtr->yOffset;
+  bottom = top + HtmlUsableHeight(htmlPtr);
+  left = htmlPtr->xOffset;
+  right = left + HtmlUsableWidth(htmlPtr);
+
   /* Skip the rest of the drawing process if the area to be refreshed is
   ** less than zero */
   if( w>0 && h>0 ){
@@ -568,7 +697,7 @@ static void HtmlRedrawCallback(ClientData clientData){
     int dead;
     GC gcBg;
     XRectangle xrec;
-    /* printf("Redraw %dx%d at %d,%d\n", w, h, x, y); */
+    /*fprintf(stderr,"Redraw %dx%d at %d,%d: %d,%d: %d,%d\n", w, h, x, y, left, top, htmlPtr->dirtyLeft, htmlPtr->dirtyTop); */
 
     /* Allocate and clear a pixmap upon which to draw */
     gcBg = HtmlGetGC(htmlPtr, COLOR_Background, FONT_Any);
@@ -577,14 +706,16 @@ static void HtmlRedrawCallback(ClientData clientData){
     xrec.y = 0;
     xrec.width = w;
     xrec.height = h;
-    XFillRectangles(display, pixmap, gcBg, &xrec, 1);
+    if ((!htmlPtr->bgimage) ||
+      (!HtmlBGDraw(htmlPtr, left, top, w, h, pixmap, htmlPtr->bgimage)))
+      XFillRectangles(display, pixmap, gcBg, &xrec, 1);
                        
     /* Render all visible HTML onto the pixmap */
     HtmlLock(htmlPtr);
     for(pBlock=htmlPtr->firstBlock; pBlock; pBlock=pBlock->pNext){
       if( pBlock->top <= y+h && pBlock->bottom >= y 
       && pBlock->left <= x+w && pBlock->right >= x ){
-        HtmlBlockDraw(htmlPtr,pBlock,pixmap,x,y,w,h);
+        HtmlBlockDraw(htmlPtr,pBlock,pixmap,x,y,w,h,pixmap);
         if( htmlPtr->tkwin==0 ) break;
       }
     }
@@ -603,14 +734,7 @@ static void HtmlRedrawCallback(ClientData clientData){
   /* Redraw images, if requested */
   if( htmlPtr->flags & REDRAW_IMAGES ){
     HtmlImage *pImage;
-    HtmlElement *pElem;
-    int top, bottom, left, right;     /* Coordinates of the clipping window */
-    int imageTop;                     /* Top edge of image */
 
-    top = htmlPtr->yOffset;
-    bottom = top + HtmlUsableHeight(htmlPtr);
-    left = htmlPtr->xOffset;
-    right = left + HtmlUsableWidth(htmlPtr);
     for(pImage = htmlPtr->imageList; pImage; pImage=pImage->pNext){
       for(pElem = pImage->pList; pElem; pElem=pElem->image.pNext){
         if( pElem->image.redrawNeeded==0 ) continue;
@@ -621,11 +745,11 @@ static void HtmlRedrawCallback(ClientData clientData){
          || pElem->image.x + pElem->image.w < left ){ 
             continue; 
         }
-        HtmlDrawImage(pElem, Tk_WindowId(htmlPtr->clipwin),
+        HtmlDrawImage(htmlPtr, pElem, Tk_WindowId(htmlPtr->clipwin),
                       left, top, right, bottom);
       }
     }
-    htmlPtr->flags &= ~REDRAW_IMAGES;
+    htmlPtr->flags &= ~(REDRAW_IMAGES|ANIMATE_IMAGES);
   }
 
   /* Set the dirty region to the empty set. */
@@ -636,20 +760,6 @@ static void HtmlRedrawCallback(ClientData clientData){
   htmlPtr->dirtyRight = 0;
   redrawExit:
   return;
-}
-
-/*
-** Make sure that a call to the HtmlRedrawCallback() routine has been
-** queued.
-*/
-void HtmlScheduleRedraw(HtmlWidget *htmlPtr){
-  if( (htmlPtr->flags & REDRAW_PENDING)==0
-    && htmlPtr->tkwin!=0 
-    && Tk_IsMapped(htmlPtr->tkwin)
-  ){
-    Tcl_DoWhenIdle(HtmlRedrawCallback, (ClientData)htmlPtr);
-    htmlPtr->flags |= REDRAW_PENDING;
-  }
 }
 
 /*
@@ -745,108 +855,13 @@ static void HtmlRecomputeGeometry(HtmlWidget *htmlPtr){
   Tk_SetInternalBorder(htmlPtr->tkwin, htmlPtr->inset);
 }
 
-/*
-** This routine is called in order to process a "configure" subcommand
-** on the given html widget.
-*/
-int ConfigureHtmlWidget(
-  Tcl_Interp *interp,      /* Write error message to this interpreter */
-  HtmlWidget *htmlPtr,     /* The Html widget to be configured */
-  int argc,                /* Number of configuration arguments */
-  char **argv,             /* Text of configuration arguments */
-  int flags,               /* Configuration flags */
-  int realign              /* Always do a redraw if set */
-){
-  int rc;
-  int i;
-  int redraw = realign;    /* True if a redraw is required. */
 
-  /* Scan thru the configuration options to see if we need to redraw
-  ** the widget.
-  */
-  for(i=0; redraw==0 && i<argc; i+=2){
-    int c;
-    int n;
-    if( argv[i][0]!='-' ){
-      redraw = 1;
-      break;
-    }
-    c = argv[i][1];
-    n = strlen(argv[i]);
-    if( c=='c' && n>4 && strncmp(argv[i],"-cursor",n)==0 ){
-      /* do nothing */
-    }else
-    /* The default case */
-    {
-      redraw = 1;
-    }
-  }
-  rc = Tk_ConfigureWidget(interp, htmlPtr->tkwin, configSpecs, argc, argv,
-                         (char *) htmlPtr, flags);
-  if( rc!=TCL_OK || redraw==0 ){ return rc; }
-  memset(htmlPtr->fontValid, 0, sizeof(htmlPtr->fontValid));
-  htmlPtr->apColor[COLOR_Normal] = htmlPtr->fgColor;
-  htmlPtr->apColor[COLOR_Visited] = htmlPtr->oldLinkColor;
-  htmlPtr->apColor[COLOR_Unvisited] = htmlPtr->newLinkColor;
-  htmlPtr->apColor[COLOR_Selection] = htmlPtr->selectionColor;
-  htmlPtr->apColor[COLOR_Background] = Tk_3DBorderColor(htmlPtr->border);
-  Tk_SetBackgroundFromBorder(htmlPtr->tkwin, htmlPtr->border);
-  if( htmlPtr->highlightWidth < 0 ){ htmlPtr->highlightWidth = 0;}
-  if (htmlPtr->padx < 0) { htmlPtr->padx = 0;}
-  if (htmlPtr->pady < 0) { htmlPtr->pady = 0;}
-  if (htmlPtr->width < 100) { htmlPtr->width = 100;}
-  if (htmlPtr->height < 100) { htmlPtr->height = 100;}
-  if (htmlPtr->borderWidth < 0) {htmlPtr->borderWidth = 0;}
-  htmlPtr->flags |= RESIZE_ELEMENTS | RELAYOUT | REDRAW_BORDER | RESIZE_CLIPWIN;
-  HtmlRecomputeGeometry(htmlPtr);
-  HtmlRedrawEverything(htmlPtr);
-  ClearGcCache(htmlPtr);
-  return rc;
-}
-
-/*
-** Delete a single HtmlElement
-*/
-void HtmlDeleteElement(HtmlElement *p){
-  switch( p->base.type ){
-    case Html_Block:
-      if( p->block.z ){
-        HtmlFree(p->block.z);
-      }
-      break;
-    default:
-      break;
-  }
-  HtmlFree(p);
-}
-
-/*
-** Erase all data from the HTML widget.  Bring it back to an
-** empty screen.
-**
-** This happens (for example) when the "clear" method is invoked
-** on the widget, or just before the widget is deleted.
-*/
-void HtmlClear(HtmlWidget *htmlPtr){
+void HtmlClearTk(HtmlWidget *htmlPtr){
   int i;
   HtmlElement *p, *pNext;
-
-  HtmlDeleteControls(htmlPtr);
-  for(p=htmlPtr->pFirst; p; p=pNext){
-    pNext = p->pNext;
-    HtmlDeleteElement(p);
-  }
-  htmlPtr->pFirst = 0;
-  htmlPtr->pLast = 0;
-  htmlPtr->nToken = 0;
-  if( htmlPtr->zText ){
-    HtmlFree(htmlPtr->zText);
-  }
-  htmlPtr->zText = 0;
-  htmlPtr->nText = 0;
-  htmlPtr->nAlloc = 0;
-  htmlPtr->nComplete = 0;
-  htmlPtr->iPlaintext = 0;
+  HtmlImage *Ip;
+  htmlPtr->topmargin = htmlPtr->leftmargin = HTML_INDENT/4;
+  htmlPtr->marginwidth = htmlPtr->marginheight = HTML_INDENT/4;
   for(i=N_PREDEFINED_COLOR; i<N_COLOR; i++){
     if( htmlPtr->apColor[i] != 0 ){
       Tk_FreeColor(htmlPtr->apColor[i]);
@@ -858,62 +873,28 @@ void HtmlClear(HtmlWidget *htmlPtr){
     htmlPtr->iLight[i] = 0;
   }
   htmlPtr->colorUsed = 0;
-  while( htmlPtr->imageList ){
-    HtmlImage *p = htmlPtr->imageList;
-    htmlPtr->imageList = p->pNext;
-    Tk_FreeImage(p->image);
-    HtmlFree(p);
+  while((Ip=htmlPtr->imageList)){
+    htmlPtr->imageList = Ip->pNext;
+    Tk_FreeImage(Ip->image);
+    while (Ip->anims) {
+      HtmlImageAnim *a=Ip->anims;
+      Ip->anims=a->next;
+      Tk_FreeImage(a->image);
+      HtmlFree((char*)a);
+    }
+    HtmlFree(Ip);
   }
-  while( htmlPtr->styleStack ){
-    HtmlStyleStack *p = htmlPtr->styleStack;
-    htmlPtr->styleStack = p->pNext;
-    HtmlFree(p);
+  if (htmlPtr->bgimage) {
+    Tk_FreeImage(htmlPtr->bgimage);
+    htmlPtr->bgimage=0;
   }
   ClearGcCache(htmlPtr);
   ResetLayoutContext(htmlPtr);
-  if( htmlPtr->zBaseHref ){
-    HtmlFree(htmlPtr->zBaseHref);
-    htmlPtr->zBaseHref = 0;
-  }
-  htmlPtr->lastSized = 0;
-  htmlPtr->nextPlaced = 0;
-  htmlPtr->firstBlock = 0;
-  htmlPtr->lastBlock = 0;
-  htmlPtr->nInput = 0;
-  htmlPtr->nForm = 0;
-  htmlPtr->varId = 0;
-  htmlPtr->paraAlignment = ALIGN_None;
-  htmlPtr->rowAlignment = ALIGN_None;
-  htmlPtr->anchorFlags = 0;
-  htmlPtr->inDt = 0;
-  htmlPtr->anchorStart = 0;
-  htmlPtr->formStart = 0;
-  htmlPtr->innerList = 0;
-  htmlPtr->maxX = 0;
-  htmlPtr->maxY = 0;
-  htmlPtr->xOffset = 0;
-  htmlPtr->yOffset = 0;
-  htmlPtr->pInsBlock = 0;
-  htmlPtr->ins.p = 0;
-  htmlPtr->selBegin.p = 0;
-  htmlPtr->selEnd.p = 0;
-  htmlPtr->pSelStartBlock = 0;
-  htmlPtr->pSelEndBlock = 0;
 }
 
-/*
-** This routine attempts to delete the widget structure.  But it won't
-** do it if the widget structure is locked.  If the widget structure is
-** locked, then when HtmlUnlock() is called and the lock count reaches
-** zero, this routine will be called to finish the job.
-*/
-static void DestroyHtmlWidget(HtmlWidget *htmlPtr){
+void DestroyHtmlWidgetTk(HtmlWidget *htmlPtr){
   int i;
 
-  if( htmlPtr->locked>0 ) return;
-  Tcl_DeleteCommand(htmlPtr->interp, htmlPtr->zCmdName);
-  Tcl_DeleteCommand(htmlPtr->interp, htmlPtr->zClipwin);
-  HtmlClear(htmlPtr);
   Tk_FreeOptions(configSpecs, (char*) htmlPtr, htmlPtr->display, 0);
   for(i=0; i<N_FONT; i++){
     if( htmlPtr->aFont[i] != 0 ){
@@ -921,77 +902,7 @@ static void DestroyHtmlWidget(HtmlWidget *htmlPtr){
       htmlPtr->aFont[i] = 0;
     }
   }
-  for(i=0; i<Html_TypeCount; i++){
-    if( htmlPtr->zHandler[i] ){
-      HtmlFree(htmlPtr->zHandler[i]);
-      htmlPtr->zHandler[i] = 0;
-    }
-  }
-  if( htmlPtr->insTimer ){
-    Tcl_DeleteTimerHandler(htmlPtr->insTimer);
-    htmlPtr->insTimer = 0;
-  }
   HtmlFree(htmlPtr->zClipwin);
-  HtmlFree(htmlPtr);
-}
-
-/*
-** Remove a lock from the HTML widget.  If the widget has been
-** deleted, then delete the widget structure.  Return 1 if the
-** widget has been deleted.  Return 0 if it still exists.
-**
-** Normal Tk code (that is to say, code in the Tk core) uses
-** Tcl_Preserve() and Tcl_Release() to accomplish what this
-** function does.  But preserving and releasing are much more
-** common in this code than in regular widgets, so this routine
-** was invented to do the same thing easier and faster.
-*/
-int HtmlUnlock(HtmlWidget *htmlPtr){
-  htmlPtr->locked--;
-  if( htmlPtr->tkwin==0 && htmlPtr->locked<=0 ){
-    Tcl_Interp *interp = htmlPtr->interp;
-    Tcl_Preserve(interp);
-    DestroyHtmlWidget(htmlPtr);
-    Tcl_Release(interp);
-    return 1;
-  }
-  return htmlPtr->tkwin==0;
-}
-
-/*
-** Lock the HTML widget.  This prevents the widget structure from
-** being deleted even if the widget itself is destroyed.  There must
-** be a call to HtmlUnlock() to release the structure.
-*/
-void HtmlLock(HtmlWidget *htmlPtr){
-  htmlPtr->locked++;
-}
-
-/*
-** This routine checks to see if an HTML widget has been
-** destroyed.  It is always called after calling HtmlLock().
-**
-** If the widget has been destroyed, then the structure
-** is unlocked and the function returns 1.  If the widget
-** has not been destroyed, then the structure is not unlocked
-** and the routine returns 0.
-**
-** This routine is intended for use in code like the following:
-**
-**     HtmlLock(htmlPtr);
-**     // Do something that might destroy the widget
-**     if( HtmlIsDead(htmlPtr) ) return;
-**     // Do something that might destroy the widget
-**     if( HtmlIsDead(htmlPtr) ) return;
-**     // Do something that might destroy the widget
-**     if( HtmlUnlock(htmlPtr) ) return;
-*/
-int HtmlIsDead(HtmlWidget *htmlPtr){
-  if( htmlPtr->tkwin==0 ){
-    HtmlUnlock(htmlPtr);
-    return 1;
-  }
-  return 0;
 }
 
 /*
@@ -1060,8 +971,12 @@ GC HtmlGetGC(HtmlWidget *htmlPtr, int color, int font){
   for(i=0; i<N_CACHE_GC; i++, p++){
     if( p->index==0 || p->index==N_CACHE_GC ){ break; }
   }
-  if( p->index ){
+  if(i>=N_CACHE_GC){  /* No slot, so free one: round-robin */
+    p = htmlPtr->aGcCache;
+    for(i=0; i<N_CACHE_GC && i<GcNextToFree; i++, p++);
+    GcNextToFree=(GcNextToFree+1)%N_CACHE_GC;
     Tk_FreeGC(htmlPtr->display, p->gc);
+    /*fprintf(stderr,"Tk_FreeGC: %d)\n", p->gc); */
   }
   gcValues.foreground = htmlPtr->apColor[color]->pixel;
   gcValues.graphics_exposures = True;
@@ -1073,6 +988,7 @@ GC HtmlGetGC(HtmlWidget *htmlPtr, int color, int font){
     mask |= GCFont;
   }
   p->gc = Tk_GetGC(htmlPtr->tkwin, mask, &gcValues);
+  /*fprintf(stderr,"Tk_GetGC: %d\n", p->gc); */
   if( p->index==0 ){ p->index = N_CACHE_GC + 1; }
   for(j=0; j<N_CACHE_GC; j++){
     if( htmlPtr->aGcCache[j].index && htmlPtr->aGcCache[j].index < p->index ){
@@ -1115,13 +1031,14 @@ static void HtmlEventProc(ClientData clientData, XEvent *eventPtr){
         /* The widget is being deleted.  Do nothing */
       }else if( eventPtr->xexpose.window!=Tk_WindowId(htmlPtr->tkwin) ){
         /* Exposure in the clipping window */
+        htmlPtr->flags |= ANIMATE_IMAGES;
         HtmlRedrawArea(htmlPtr, eventPtr->xexpose.x - 1, 
                    eventPtr->xexpose.y - 1,
                    eventPtr->xexpose.x + eventPtr->xexpose.width + 1,
                    eventPtr->xexpose.y + eventPtr->xexpose.height + 1);
       }else{
         /* Exposure in the main window */
-        htmlPtr->flags |= REDRAW_BORDER;
+        htmlPtr->flags |= (REDRAW_BORDER|ANIMATE_IMAGES);
         HtmlScheduleRedraw(htmlPtr);
       }
       break;
@@ -1150,7 +1067,6 @@ static void HtmlEventProc(ClientData clientData, XEvent *eventPtr){
         if( p->width != htmlPtr->realWidth ){
           redraw_needed = 1;
           htmlPtr->realWidth = p->width;
-        }else{
         }
         if( p->height != htmlPtr->realHeight ){
           redraw_needed = 1;
@@ -1159,8 +1075,8 @@ static void HtmlEventProc(ClientData clientData, XEvent *eventPtr){
         }
         if( redraw_needed ){
           htmlPtr->flags |= RELAYOUT | VSCROLL | HSCROLL | RESIZE_CLIPWIN;
+          htmlPtr->flags |= ANIMATE_IMAGES;
           HtmlRedrawEverything(htmlPtr);
-        }else{
         }
       }
       break;
@@ -1169,10 +1085,9 @@ static void HtmlEventProc(ClientData clientData, XEvent *eventPtr){
        && eventPtr->xfocus.window==Tk_WindowId(htmlPtr->tkwin)
        && eventPtr->xfocus.detail != NotifyInferior
       ){
-        htmlPtr->flags |= GOT_FOCUS | REDRAW_FOCUS;
+        htmlPtr->flags |= GOT_FOCUS | REDRAW_FOCUS | ANIMATE_IMAGES;
         HtmlScheduleRedraw(htmlPtr);
         HtmlUpdateInsert(htmlPtr);
-      }else{
       }
       break;
     case FocusOut:
@@ -1183,7 +1098,6 @@ static void HtmlEventProc(ClientData clientData, XEvent *eventPtr){
         htmlPtr->flags &= ~GOT_FOCUS;
         htmlPtr->flags |= REDRAW_FOCUS;
         HtmlScheduleRedraw(htmlPtr);
-      }else{
       }
       break;
   }
@@ -1282,30 +1196,30 @@ Tk_Font HtmlGetFont(
       char *familyStr = "";
       int iFamily;
       int iSize;
-      int size;
+      int size, finc=2;
 
       iFamily = iFont / N_FONT_SIZE;
       iSize = iFont % N_FONT_SIZE + 1;
       switch( iFamily ){
-        case 0:  familyStr = "helvetica -%d";             break;
-        case 1:  familyStr = "helvetica -%d bold";        break;
-        case 2:  familyStr = "helvetica -%d italic";      break;
-        case 3:  familyStr = "helvetica -%d bold italic"; break;
-        case 4:  familyStr = "courier -%d";               break;
-        case 5:  familyStr = "courier -%d bold";          break;
-        case 6:  familyStr = "courier -%d italic";        break;
-        case 7:  familyStr = "courier -%d bold italic";   break;
-        default: familyStr = "helvetica -14";             CANT_HAPPEN;
+        case 0:  familyStr = "times -%d";             break;
+        case 1:  familyStr = "times -%d bold";        break;
+        case 2:  familyStr = "times -%d italic";      break;
+        case 3:  familyStr = "times -%d bold italic"; break;
+        case 4:  familyStr = "times -%d";               break;
+        case 5:  familyStr = "times -%d bold";          break;
+        case 6:  familyStr = "times -%d italic";        break;
+        case 7:  familyStr = "times -%d bold italic";   break;
+        default: familyStr = "times -14";             CANT_HAPPEN;
       }
       switch( iSize ){
-        case 1:  size = 8;   break;
-        case 2:  size = 10;  break;
-        case 3:  size = 12;  break;
-        case 4:  size = 14;  break;
-        case 5:  size = 16;  break;
-        case 6:  size = 18;  break;
-        case 7:  size = 24;  break;
-        default: size = 14;  CANT_HAPPEN;
+        case 1:  size = 6+finc;   break;
+        case 2:  size = 10+finc;  break;
+        case 3:  size = 12+finc;  break;
+        case 4:  size = 14+finc;  break;
+        case 5:  size = 20+finc;  break;
+        case 6:  size = 24+finc;  break;
+        case 7:  size = 30+finc;  break;
+        default: size = 14+finc;  CANT_HAPPEN;
       }
       sprintf(name, familyStr, size);
     }
@@ -1538,14 +1452,22 @@ LOCAL int GetColorByValue(HtmlWidget *htmlPtr, XColor *pRef){
   return i;
 }
 
+/* Only support rect for now */
+int HtmlInArea( HtmlElement *p, int left, int top, int x, int y) {
+  int *ip=p->area.coords;
+  return (ip && (left+ip[0])<=x && (top+ip[1])<=y && (left+ip[2])>=x && 
+    (top+ip[3])>=y);
+}
+
 /*
 ** This routine searchs for a hyperlink beneath the coordinates x,y
 ** and returns a pointer to the HREF for that hyperlink.  The text
 ** is held one of the markup.argv[] fields of the <a> markup.
 */
-char *HtmlGetHref(HtmlWidget *htmlPtr, int x, int y){
+char *HtmlGetHref(HtmlWidget *htmlPtr, int x, int y, char **target){
   HtmlBlock *pBlock;
   HtmlElement *pElem;
+  char *z;
 
   for(pBlock=htmlPtr->firstBlock; pBlock; pBlock=pBlock->pNext){
     if( pBlock->top > y || pBlock->bottom < y
@@ -1554,6 +1476,17 @@ char *HtmlGetHref(HtmlWidget *htmlPtr, int x, int y){
       continue;
     }
     pElem = pBlock->base.pNext;
+    if (pElem->base.type==Html_IMG && pElem->image.pMap) {
+      pElem=pElem->image.pMap->pNext;
+      while (pElem && pElem->base.type!=Html_EndMAP) {
+        if (pElem->base.type==Html_AREA)
+          if (HtmlInArea(pElem, pBlock->left, pBlock->top, x, y)) {
+	    *target=HtmlMarkupArg(pElem, "target", 0);
+	    return HtmlMarkupArg(pElem, "href", 0); }
+	pElem=pElem->pNext;
+      }
+      continue;
+    }
     if( (pElem->base.style.flags & STY_Anchor)==0 ){ continue; }
     switch( pElem->base.type ){
       case Html_Text:
@@ -1563,12 +1496,54 @@ char *HtmlGetHref(HtmlWidget *htmlPtr, int x, int y){
           pElem = pElem->base.pPrev;
         }
         if( pElem==0 || pElem->base.type!=Html_A ){ break; }
+	*target=HtmlMarkupArg(pElem, "target", 0);
         return HtmlMarkupArg(pElem,"href", 0);
       default:
         break;
     }
   }
   return 0;
+}
+
+/* Return coordinates of item. */
+int HtmlElementCoords(Tcl_Interp *interp, HtmlWidget* htmlPtr,
+  HtmlElement *p, int i, int pct, int *coords){
+  HtmlBlock *pBlock;
+
+  while (p && p->base.type!=Html_Block) {
+    p=p->base.pPrev;
+  }
+  if (!p) return 1;
+  pBlock=&p->block;
+  if (pct) { 
+    HtmlElement *pEnd=htmlPtr->pLast;
+    HtmlBlock *pb2;
+    while (pEnd && pEnd->base.type!=Html_Block) {
+      pEnd=pEnd->base.pPrev;
+    }
+    pb2=&pEnd->block;
+#define HGCo(dir) pb2->dir?pBlock->dir*100/pb2->dir:0
+    coords[0]=HGCo(left); coords[1]=HGCo(top);
+    coords[2]=HGCo(right); coords[3]=HGCo(bottom);
+  } else {
+    coords[0]=pBlock->left; coords[1]=pBlock->top;
+    coords[2]=pBlock->right; coords[3]=pBlock->bottom;
+  }
+  return 0;
+}
+
+/* Return coordinates of item. */
+void HtmlGetCoords(Tcl_Interp *interp, HtmlWidget* htmlPtr,
+  HtmlElement *p, int i, int pct){
+  Tcl_DString str;
+  char *z, zLine[100];
+  int coords[4];
+
+  if (HtmlElementCoords(interp,htmlPtr,p,i,pct,coords)) return;
+  Tcl_DStringInit(&str);
+  sprintf(zLine,"%d %d %d %d", coords[0], coords[1], coords[2], coords[3]);
+  Tcl_DStringAppend(&str, zLine, -1);
+  Tcl_DStringResult(interp, &str); 
 }
 
 /*
@@ -1635,127 +1610,139 @@ void HtmlHorizontalScroll(HtmlWidget *htmlPtr, int xOffset){
 }
 
 /*
-** The following array defines all possible widget command.  The main
-** widget command function just parses up the command line, then vectors
-** control to one of the command service routines defined in the 
-** following array:
+** Make sure that a call to the HtmlRedrawCallback() routine has been
+** queued.
 */
-static struct HtmlSubcommand {
-  char *zCmd1;           /* First-level subcommand.  Required */
-  char *zCmd2;           /* Second-level subcommand.  May be NULL */
-  int minArgc;           /* Minimum number of arguments */
-  int maxArgc;           /* Maximum number of arguments */
-  char *zHelp;           /* Help string if wrong number of arguments */
-  int (*xFunc)(HtmlWidget*,Tcl_Interp*,int,char**);  /* Cmd service routine */
-} aSubcommand[] = {
-  { "cget",      0,         3, 3, "CONFIG-OPTION",       HtmlCgetCmd },
-  { "clear",     0,         2, 2, 0,                     HtmlClearCmd },
-  { "configure", 0,         2, 0, "?ARGS...?",           HtmlConfigCmd },
-  { "href",      0,         4, 4, "X Y",                 HtmlHrefCmd },
-  { "index",     0,         3, 3, "INDEX",               HtmlIndexCmd },
-  { "insert",    0,         3, 3, "INDEX",               HtmlInsertCmd },
-  { "names",     0,         2, 2, 0,                     HtmlNamesCmd },
-  { "parse",     0,         3, 3, "HTML-TEXT",           HtmlParseCmd },
-  { "resolve",   0,         2, 0, "?URI ...?",           HtmlResolveCmd },
-  { "selection", "clear",   3, 3, 0,                     HtmlSelectionClearCmd},
-  { 0,           "set",     5, 5, "START END",           HtmlSelectionSetCmd },
-  { "text",      "ascii",   5, 5, "START END",           0 },
-  { 0,           "delete",  5, 5, "START END",           0 },
-  { 0,           "html",    5, 5, "START END",           0 },
-  { 0,           "insert",  5, 5, "INDEX TEXT",          0 },
-  { "token",     "append",  5, 5, "TAG ARGUMENTS",       0 },
-  { 0,           "delete",  4, 5, "INDEX ?INDEX?",       0 },
-  { 0,           "find",    4, 6, "TAG ?before|after INDEX?", 0 },
-  { 0,           "get",     4, 5, "INDEX ?INDEX?",       0 },
-  { 0,           "handler", 4, 5, "TAG ?SCRIPT?",        HtmlTokenHandlerCmd },
-  { 0,           "insert",  6, 6, "INDEX TAG ARGUMENTS", 0 },
-  { 0,           "list",    5, 5, "START END",           HtmlTokenListCmd },
-  { "xview",     0,         2, 5, "OPTIONS...",          HtmlXviewCmd },
-  { "yview",     0,         2, 5, "OPTIONS...",          HtmlYviewCmd },
-#ifdef DEBUG
-  { "debug",     "dump",    5, 5, "START END",           HtmlDebugDumpCmd },
-  { 0,           "testpt",  4, 4, "FILENAME",            HtmlDebugTestPtCmd },
-#endif
-};
-#define nSubcommand (sizeof(aSubcommand)/sizeof(aSubcommand[0]))
+void HtmlScheduleRedraw(HtmlWidget *htmlPtr){
+  if( (htmlPtr->flags & REDRAW_PENDING)==0
+    && htmlPtr->tkwin!=0 
+    && Tk_IsMapped(htmlPtr->tkwin)
+  ){
+    Tcl_DoWhenIdle(HtmlRedrawCallback, (ClientData)htmlPtr);
+    htmlPtr->flags |= REDRAW_PENDING;
+  }
+}
+
+#endif /* _TCLHTML_ */
 
 /*
-** This routine implements the command used by individual HTML widgets.
+** This routine is called in order to process a "configure" subcommand
+** on the given html widget.
 */
-static int HtmlWidgetCommand(
-  ClientData clientData,	/* The HTML widget data structure */
-  Tcl_Interp *interp,		/* Current interpreter. */
-  int argc,			/* Number of arguments. */
-  char **argv			/* Argument strings. */
+int ConfigureHtmlWidget(
+  Tcl_Interp *interp,      /* Write error message to this interpreter */
+  HtmlWidget *htmlPtr,     /* The Html widget to be configured */
+  int argc,                /* Number of configuration arguments */
+  char **argv,             /* Text of configuration arguments */
+  int flags,               /* Configuration flags */
+  int realign              /* Always do a redraw if set */
 ){
-  HtmlWidget *htmlPtr = (HtmlWidget*) clientData;
-  size_t length;
-  int c;
+  int rc;
   int i;
-  struct HtmlSubcommand *pCmd;
+  int redraw = realign;    /* True if a redraw is required. */
 
-  if (argc < 2) {
-    Tcl_AppendResult(interp, "wrong # args: should be \"", argv[0],
-        " option ?arg arg ...?\"", 0);
-    return TCL_ERROR;
+  /* Scan thru the configuration options to see if we need to redraw
+  ** the widget.
+  */
+  for(i=0; redraw==0 && i<argc; i+=2){
+    int c;
+    int n;
+    if( argv[i][0]!='-' ){
+      redraw = 1;
+      break;
+    }
+    c = argv[i][1];
+    n = strlen(argv[i]);
+    if( c=='c' && n>4 && strncmp(argv[i],"-cursor",n)==0 ){
+      /* do nothing */
+    }else
+    /* The default case */
+    {
+      redraw = 1;
+    }
   }
-  c = argv[1][0];
-  length = strlen(argv[1]);
-  for(i=0, pCmd=aSubcommand; i<nSubcommand; i++, pCmd++){
-    if( pCmd->zCmd1==0 || c!=pCmd->zCmd1[0] 
-    || strncmp(pCmd->zCmd1,argv[1],length)!=0 ){
-      continue;
+#ifdef _TCLHTML_
+  rc = TclConfigureWidget(interp, htmlPtr, configSpecs, argc, argv,
+                         (char *) htmlPtr, flags);
+  if( rc!=TCL_OK || redraw==0 ){ return rc; }
+#else
+  rc = Tk_ConfigureWidget(interp, htmlPtr->tkwin, configSpecs, argc, argv,
+                         (char *) htmlPtr, flags);
+  if( rc!=TCL_OK || redraw==0 ){ return rc; }
+  memset(htmlPtr->fontValid, 0, sizeof(htmlPtr->fontValid));
+  htmlPtr->apColor[COLOR_Normal] = htmlPtr->fgColor;
+  htmlPtr->apColor[COLOR_Visited] = htmlPtr->oldLinkColor;
+  htmlPtr->apColor[COLOR_Unvisited] = htmlPtr->newLinkColor;
+  htmlPtr->apColor[COLOR_Selection] = htmlPtr->selectionColor;
+  htmlPtr->apColor[COLOR_Background] = Tk_3DBorderColor(htmlPtr->border);
+  Tk_SetBackgroundFromBorder(htmlPtr->tkwin, htmlPtr->border);
+  if( htmlPtr->highlightWidth < 0 ){ htmlPtr->highlightWidth = 0;}
+  if (htmlPtr->padx < 0) { htmlPtr->padx = 0;}
+  if (htmlPtr->pady < 0) { htmlPtr->pady = 0;}
+  if (htmlPtr->width < 100) { htmlPtr->width = 100;}
+  if (htmlPtr->height < 100) { htmlPtr->height = 100;}
+  if (htmlPtr->borderWidth < 0) {htmlPtr->borderWidth = 0;}
+  htmlPtr->flags |= RESIZE_ELEMENTS | RELAYOUT | REDRAW_BORDER | RESIZE_CLIPWIN;
+  HtmlRecomputeGeometry(htmlPtr);
+  HtmlRedrawEverything(htmlPtr);
+  ClearGcCache(htmlPtr);
+#endif
+  return rc;
+}
+
+/* Doesn't work for UTF chars > 0x7f */
+#define ChrIdx(str,i) (cp=Tcl_UtfAtIndex(str,i))?*cp:0
+/* Tcl_UtfToUniChar(cp, &uch); ch=uch;*/
+int htmlReformatCmd(Tcl_Interp *interp, char *str, char *stype, char *dtype) {
+  char buf[132], *cp; int n=0, i=0, l=Tcl_NumUtfChars(str,-1);
+  Tcl_UniChar ch;
+  if (dtype[0]!='p') {
+    for (i=0; i<l; n++,i++) {
+      if (n>=128) {
+        buf[n]=0;
+        Tcl_AppendResult(interp, buf, 0);
+        buf[n=0]=0;
+      }
+      ch=ChrIdx(str,i);
+      if (isalnum(ch) || ch=='$' || ch=='-' || ch=='_' ||
+        ch=='.' || (dtype[0]=='u' && ch=='/'))
+           buf[n]=ch;
+      else if (ch==' ') buf[n]='+';
+      else if (ch=='\n') n--;
+      else {
+        buf[n++]='%'; sprintf(buf+n,"%02X",(unsigned char)ch); n++;
+      }
     }
-    if( pCmd->zCmd2 ){
-      int length2;
-      int j;
-      if( argc<3 ){
-        Tcl_AppendResult(interp, "wrong # args: should be \"",
-          argv[0], " ", pCmd->zCmd1, " SUBCOMMAND ?OPTIONS...?", 0);
-        return TCL_ERROR;
+    buf[n]=0;
+    Tcl_AppendResult(interp, buf, 0);
+  } else {
+    for (i=0; i<l; n++,i++) {
+      if (n>=128) {
+        buf[n]=0;
+        Tcl_AppendResult(interp, buf, 0);
+        buf[n=0]=0;
       }
-      length2 = strlen(argv[2]);
-      for(j=i; j<nSubcommand && (j==i || pCmd->zCmd1==0); j++, pCmd++){
-        if( strncmp(pCmd->zCmd2,argv[2],length2)==0 ){
-          break;
-        }
-      }
-      if( j>=nSubcommand || (j!=i && aSubcommand[j].zCmd1!=0) ){
-        Tcl_AppendResult(interp,"unknown subcommand \"", argv[2],
-          "\" -- should be one of:", 0);
-        for(j=i; j<nSubcommand && (j==i || aSubcommand[j].zCmd1==0); j++){
-          Tcl_AppendResult(interp, " ", aSubcommand[j].zCmd2, 0);
-        }
-        return TCL_ERROR;
+      ch=ChrIdx(str,i);
+      if (ch != '%' || (i+2)>=l)
+        buf[n]=ch;
+      else {
+	char cbuf[3];
+        cbuf[0]=ChrIdx(str,i+1);
+        cbuf[1]=ChrIdx(str,i+2);
+        if (isxdigit(cbuf[0]) && isxdigit(cbuf[1])) {
+	  int ich;
+          cbuf[3]=0;
+	  sscanf(cbuf,"%2x",&ich);
+	  sprintf(buf+n,"%c",ich);
+	  i+=2;
+	} else
+          buf[n]=ch;
       }
     }
-    if( argc<pCmd->minArgc || (argc>pCmd->maxArgc && pCmd->maxArgc>0) ){
-      Tcl_AppendResult(interp,"wrong # args: should be \"", argv[0],
-         " ", pCmd->zCmd1, 0);
-      if( pCmd->zCmd2 ){
-        Tcl_AppendResult(interp, " ", pCmd->zCmd2, 0);
-      }
-      if( pCmd->zHelp ){
-        Tcl_AppendResult(interp, " ", pCmd->zHelp, 0);
-      }
-      Tcl_AppendResult(interp, "\"", 0);
-      return TCL_ERROR;
-    }
-    if( pCmd->xFunc==0 ){
-      Tcl_AppendResult(interp,"command not yet implemented", 0);
-      return TCL_ERROR;
-    }
-    return (*pCmd->xFunc)(htmlPtr, interp, argc, argv);
+    buf[n]=0;
+    Tcl_AppendResult(interp, buf, 0);
   }
-  Tcl_AppendResult(interp,"unknown command \"", argv[1], "\" -- should be "
-    "one of:", 0);
-  for(i=0; i<nSubcommand; i++){
-    if( aSubcommand[i].zCmd1==0 || aSubcommand[i].zCmd1[0]=='_' ){ 
-      continue;
-    }
-    Tcl_AppendResult(interp, " ", aSubcommand[i].zCmd1, 0);
-  }
-  return TCL_ERROR;
+  return TCL_OK;
 }
 
 /*
@@ -1763,7 +1750,7 @@ static int HtmlWidgetCommand(
 ** is used to create new HTML widgets only.  After the widget has been
 ** created, it is manipulated using the widget command defined above.
 */
-static int HtmlCommand(
+int HtmlCommand(
   ClientData clientData,	/* Main window */
   Tcl_Interp *interp,		/* Current interpreter. */
   int argc,			/* Number of arguments. */
@@ -1792,6 +1779,7 @@ static int HtmlCommand(
     Tk_Window tkwin = (Tk_Window)clientData;
     static int varId = 1;        /* Used to construct unique names */
 
+#ifndef _TCLHTML_
     new = Tk_CreateWindowFromPath(interp, tkwin, argv[1], (char *) NULL);
     if (new == NULL) {
        return TCL_ERROR;
@@ -1808,13 +1796,18 @@ static int HtmlCommand(
       HtmlFree(zClipwin);
       return TCL_ERROR;
     }
+#endif
 
-    htmlPtr = HtmlAlloc(sizeof(HtmlWidget) + strlen(argv[1]) + 1);
+    dbghtmlPtr=htmlPtr = HtmlAlloc(sizeof(HtmlWidget) + strlen(argv[1]) + 1);
     memset(htmlPtr, 0, sizeof(HtmlWidget));
+#ifdef _TCLHTML_
+    htmlPtr->tkwin = 1;
+#else
     htmlPtr->tkwin = new;
     htmlPtr->clipwin = clipwin;
     htmlPtr->zClipwin = zClipwin;
     htmlPtr->display = Tk_Display(new);
+#endif
     htmlPtr->interp = interp;
     htmlPtr->zCmdName = (char*)&htmlPtr[1];
     strcpy(htmlPtr->zCmdName, argv[1]);
@@ -1825,9 +1818,10 @@ static int HtmlCommand(
     htmlPtr->varId = varId++;
     Tcl_CreateCommand(interp, htmlPtr->zCmdName,
       HtmlWidgetCommand, (ClientData)htmlPtr, HtmlCmdDeletedProc);
+#ifndef _TCLHTML_
     Tcl_CreateCommand(interp, htmlPtr->zClipwin,
       HtmlWidgetCommand, (ClientData)htmlPtr, HtmlCmdDeletedProc);
-    
+
     Tk_SetClass(new,"Html");
     Tk_SetClass(clipwin,"HtmlClip");
     Tk_CreateEventHandler(htmlPtr->tkwin,
@@ -1836,14 +1830,29 @@ static int HtmlCommand(
     Tk_CreateEventHandler(htmlPtr->clipwin,
          ExposureMask|StructureNotifyMask,
          HtmlEventProc, (ClientData) htmlPtr);
+    if (HtmlFetchSelectionPtr) {
+      Tk_CreateSelHandler(htmlPtr->tkwin, XA_PRIMARY, XA_STRING,
+        HtmlFetchSelectionPtr, (ClientData) htmlPtr, XA_STRING);
+      Tk_CreateSelHandler(htmlPtr->clipwin, XA_PRIMARY, XA_STRING,
+        HtmlFetchSelectionPtr, (ClientData) htmlPtr, XA_STRING);
+    }
+#endif /* _TCLHTML_ */
+
     if (ConfigureHtmlWidget(interp, htmlPtr, argc-2, argv+2, 0, 1) != TCL_OK) {
        goto error;
     }
+
+#ifdef _TCLHTML_
+    interp->result = argv[1];
+#else
     interp->result = Tk_PathName(htmlPtr->tkwin);
+#endif
     return TCL_OK;
 
     error:
+#ifndef _TCLHTML_
     Tk_DestroyWindow(htmlPtr->tkwin);
+#endif
     return TCL_ERROR;
   }
 
@@ -1857,8 +1866,7 @@ static int HtmlCommand(
            argv[0], " reformat FROM TO TEXT", (char *) NULL);
       return TCL_ERROR;
     }
-    Tcl_AppendResult(interp, "not yet implemented", 0);
-    return TCL_ERROR;
+    return htmlReformatCmd(interp, argv[4], argv[2], argv[3]); 
   }else
 
 
@@ -1921,21 +1929,38 @@ static int HtmlCommand(
 ** Tcl interpreter.  This is the only routine in this file with
 ** external linkage.
 */
+extern Tcl_Command htmlcmdhandle;
+
+#ifndef _TCLHTML_
+int HtmlXErrorHandler(Display *dsp, XErrorEvent *ev) {
+  char buf[300];
+#if ! defined(__WIN32__)
+  XGetErrorText(dsp, ev->error_code, buf, 300);
+  fprintf(stderr,"X-Error: %s\n", buf);
+#endif
+/*  if (dsp) abort();
+  if (ev) abort();
+  abort(); */
+}
+
 DLL_EXPORT int Tkhtml_Init(Tcl_Interp *interp){
 #ifdef USE_TCL_STUBS
-  if( Tcl_InitStubs(interp,"8.0",0)==0 ){
+  if( Tcl_InitStubs(interp,"8.3",0)==0 ){
     return TCL_ERROR;
   }
-  if( Tk_InitStubs(interp,"8.0",0)==0 ){
+  if( Tk_InitStubs(interp,"8.3",0)==0 ){
     return TCL_ERROR;
   }
 #endif
-  Tcl_CreateCommand(interp,"html", HtmlCommand, 
+  htmlcmdhandle=Tcl_CreateCommand(interp,"html", HtmlCommand, 
       Tk_MainWindow(interp), 0);
   /* Tcl_GlobalEval(interp,HtmlLib); */
 #ifdef DEBUG
   Tcl_LinkVar(interp, "HtmlTraceMask", (char*)&HtmlTraceMask, TCL_LINK_INT);
 #endif
   Tcl_PkgProvide(interp, HTML_PKGNAME, HTML_PKGVERSION);
+  XSetErrorHandler(HtmlXErrorHandler);
+  return Htmlexts_Init(interp);
   return TCL_OK;
 }
+#endif

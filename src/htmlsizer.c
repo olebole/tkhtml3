@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlsizer.c,v 1.35 2000/11/10 23:01:38 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlsizer.c,v 1.36 2001/06/17 22:40:06 peter Exp $";
 /*
 ** Routines used to compute the style and size of individual elements.
 **
@@ -43,6 +43,7 @@ static HtmlStyle GetCurrentStyle(HtmlWidget *htmlPtr){
     style.subscript = 0;
     style.align = ALIGN_Left;
     style.flags = 0;
+    style.expbg = 0;
   }
   return style;
 }
@@ -266,6 +267,25 @@ static int GetLinkColor(HtmlWidget *htmlPtr, char *zURL){
   return COLOR_Unvisited;
 }
 
+static int *GetCoords(char *str, int *nptr) {
+  char *cp=str, *ncp; int i, n=0, sz=4, *cr;
+  cr=(int*)HtmlAlloc(sz*sizeof(int));
+  while (cp) {
+    while (*cp && (!isdigit(*cp))) cp++;
+    if ((!*cp) || (!isdigit(*cp))) break;
+    cr[n]=(int)strtol(cp,&ncp,10);
+    if (cp==ncp) break;
+    cp=ncp;
+    n++;
+    if (n>=sz) {
+      sz+=4;
+      cr=(int*)HtmlRealloc((char*)cr,sz*sizeof(int));
+    }
+  }
+  *nptr=n;
+  return cr;
+}
+
 /*
 ** This routine adds information to the input texts that doesn't change
 ** when the display is resized or when new fonts are selected, etc.
@@ -319,7 +339,7 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
   inDt = htmlPtr->inDt;
 
   /* Loop over tokens */
-  while( p ){
+  while( htmlPtr->pFirst && p ){
     switch( p->base.type ){
       case Html_A:
         if( htmlPtr->anchorStart ){
@@ -347,6 +367,22 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
           htmlPtr->anchorStart = 0;
           anchorFlags = 0;
         }
+        break;
+      case Html_MAP:
+        break;
+      case Html_EndMAP:
+        break;
+      case Html_AREA:
+        z = HtmlMarkupArg(p,"shape",0);
+	p->area.type=MAP_RECT;
+	if (z) {
+	  if (!strcasecmp(z,"circle")) p->area.type=MAP_CIRCLE;
+	  else if (!strcasecmp(z,"poly")) p->area.type=MAP_POLY;
+        }
+        z = HtmlMarkupArg(p,"coords",0);
+	if (z) {
+	  p->area.coords=GetCoords(z,&p->area.num);
+	}
         break;
       case Html_ADDRESS:
       case Html_EndADDRESS:
@@ -381,8 +417,9 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
       case Html_EndKBD:
       case Html_EndMARQUEE:
       case Html_EndNOBR:
-      case Html_EndNOFRAME:
+      case Html_EndNOFRAMES:
       case Html_EndNOSCRIPT:
+      case Html_EndNOEMBED:
       case Html_EndS:
       case Html_EndSAMP:
       case Html_EndSMALL:
@@ -401,7 +438,10 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         if( z ){
           HtmlLock(htmlPtr);
           z = HtmlResolveUri(htmlPtr, z);
-          if( HtmlUnlock(htmlPtr) ) return;
+          if( HtmlUnlock(htmlPtr) ) {
+	    if (z) HtmlFree(z);
+            return;
+	  }
           if( z!=0 ){
             if( htmlPtr->zBaseHref ){
               HtmlFree(htmlPtr->zBaseHref);
@@ -516,9 +556,9 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
       case Html_BASEFONT:
       case Html_FONT:
         z = HtmlMarkupArg(p,"size",0);
-        if( z ){
+        if( z && (!htmlPtr->overrideFonts)){
           if( *z=='-' ){
-            size = FontSize(style.font) - atoi(&z[1]);
+            size = FontSize(style.font) - atoi(&z[1])+1;
           }else if( *z=='+' ){
             size = FontSize(style.font) + atoi(&z[1]);
           }else{
@@ -533,7 +573,7 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
           style.font = FontFamily(style.font) + size - 1;
         }
         z = HtmlMarkupArg(p,"color",0);
-        if( z ){
+        if( z && z[0] && (!htmlPtr->overrideColors)) {
           style.color = HtmlGetColorByName(htmlPtr, z);
         }
         PushStyleStack(htmlPtr, 
@@ -547,20 +587,26 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         char zToken[50];
 
         htmlPtr->formStart = 0;
-        p->form.id = 0;
+/*        p->form.id = 0; */
         if( htmlPtr->zFormCommand==0 || htmlPtr->zFormCommand[0]==0 ){
+          TestPoint(0);
           break;
         }
         zUrl = HtmlMarkupArg(p,"action",0);
         if( zUrl==0 ){
-          break;
+          TestPoint(0);
+          /*break; */
+	  zUrl=htmlPtr->zBase;
         }
         HtmlLock(htmlPtr);
         zUrl = HtmlResolveUri(htmlPtr, zUrl);
-        if( HtmlUnlock(htmlPtr) ) return;
-        if( zUrl==0 ) break;
+        if( HtmlUnlock(htmlPtr) ) {
+	  if (zUrl) HtmlFree(zUrl);
+ 	  return;
+	}
+        if( zUrl==0 ) zUrl=strdup("");
         zMethod = HtmlMarkupArg(p,"method","GET");
-        sprintf(zToken," %d form ", ++htmlPtr->nForm);
+        sprintf(zToken," %d form {} ", p->form.id);
         Tcl_DStringInit(&cmd);
         Tcl_DStringAppend(&cmd, htmlPtr->zFormCommand, -1);
         Tcl_DStringAppend(&cmd, zToken, -1);
@@ -576,13 +622,18 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         if( HtmlUnlock(htmlPtr) ) return;
         if( result==TCL_OK ){
           htmlPtr->formStart = p;
-          p->form.id = htmlPtr->nForm;
+        } else {
+  	  Tcl_AddErrorInfo(htmlPtr->interp, 
+	    "\n (\"-formcommand\" command executed by html widget)");
+  	  Tcl_BackgroundError(htmlPtr->interp);
         }
         Tcl_ResetResult(htmlPtr->interp);
         break;
       }
       case Html_EndFORM:
         p->ref.pOther = htmlPtr->formStart;
+        if (htmlPtr->formStart)
+          htmlPtr->formStart->form.pEnd=p;
         htmlPtr->formStart = 0;
         break;
       case Html_H1:
@@ -619,12 +670,18 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         PushStyleStack(htmlPtr, Html_EndI, style);
         break;
       case Html_IMG:
+        if (style.flags&STY_Invisible) break;
         HtmlLock(htmlPtr);
         p->image.pImage = HtmlGetImage(htmlPtr, p);
         if( HtmlUnlock(htmlPtr) ) return;
         break;
+      case Html_OPTION:
+        break;
       case Html_INPUT:
         p->input.pForm = htmlPtr->formStart;
+#ifdef _TCLHTML_
+        HtmlControlSize(htmlPtr, p);
+#endif
         break;
       case Html_KBD:
         style.font = CWFont( FontSize(style.font) );
@@ -661,18 +718,28 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         style.flags |= STY_NoBreak;
         PushStyleStack(htmlPtr, Html_EndNOBR, style);
         break;
-      case Html_NOFRAME:
+      case Html_NOFRAMES:
         if( htmlPtr->zFrameCommand && *htmlPtr->zFrameCommand ){
           nextStyle = style;
           nextStyle.flags |= STY_Invisible;
-          PushStyleStack(htmlPtr, Html_EndNOFRAME, nextStyle);
+          PushStyleStack(htmlPtr, Html_EndNOFRAMES, nextStyle);
           useNextStyle = 1;
         }else{
-          PushStyleStack(htmlPtr, Html_EndNOFRAME, style);
+          PushStyleStack(htmlPtr, Html_EndNOFRAMES, style);
+        }
+        break;
+      case Html_NOEMBED:
+        if( htmlPtr->zScriptCommand && *htmlPtr->zScriptCommand && htmlPtr->HasScript){
+          nextStyle = style;
+          nextStyle.flags |= STY_Invisible;
+          PushStyleStack(htmlPtr, Html_EndNOEMBED, nextStyle);
+          useNextStyle = 1;
+        }else{
+          PushStyleStack(htmlPtr, Html_EndNOEMBED, style);
         }
         break;
       case Html_NOSCRIPT:
-        if( htmlPtr->zScriptCommand && *htmlPtr->zScriptCommand ){
+        if( htmlPtr->zScriptCommand && *htmlPtr->zScriptCommand && htmlPtr->HasScript){
           nextStyle = style;
           nextStyle.flags |= STY_Invisible;
           PushStyleStack(htmlPtr, Html_EndNOSCRIPT, nextStyle);
@@ -723,6 +790,7 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         PushStyleStack(htmlPtr, Html_EndS, style);
         break;
       case Html_SCRIPT:
+#if 0
         if( htmlPtr->zScriptCommand && *htmlPtr->zScriptCommand ){
           Tcl_DString cmd;
           int result;
@@ -738,8 +806,20 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
           result = Tcl_GlobalEval(htmlPtr->interp, Tcl_DStringValue(&cmd));
           Tcl_DStringFree(&cmd);
           if( HtmlUnlock(htmlPtr) ) return;
+	  if (result==0 && htmlPtr->interp->result[0]) {
+	    HtmlElement *b2=p->pNext,*b3, *ps, *e1=p,*e2=b2,*e3;
+	    if (e2) while (e2->pNext) e2=e2->pNext;
+            HtmlTokenizerAppend(htmlPtr,htmlPtr->interp->result);
+	    if (e2 && e2!=p && ((e3=b3=e2->pNext))) {
+	      while (e3->pNext) e3=e3->pNext;
+	      e1->pNext=b3;
+	      e2->pNext=0; b2->base.pPrev=e3;
+	      e3->pNext=b2;  b3->base.pPrev=e1;
+	    }
+	  }
           Tcl_ResetResult(htmlPtr->interp);
         }
+#endif
         nextStyle = style;
         style.flags |= STY_Invisible;
         useNextStyle = 1;
@@ -800,14 +880,19 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
       case Html_TABLE:
         paraAlign = ALIGN_None;
         nextStyle = style;
+        if (style.flags & STY_Preformatted) {
+           nextStyle.flags &= ~STY_Preformatted;
+           style.flags |= STY_Preformatted;
+	}
         nextStyle.align = ALIGN_Left;
         z = HtmlMarkupArg(p, "bgcolor", 0);
-        if( z ){
-          nextStyle.bgcolor = HtmlGetColorByName(htmlPtr, z);
-          style.bgcolor = nextStyle.bgcolor;
+        if( z && z[0] && (!htmlPtr->overrideColors)){
+          style.bgcolor = nextStyle.bgcolor = HtmlGetColorByName(htmlPtr, z);
+	  style.expbg = 1;
 /*        }else{
           nextStyle.bgcolor = COLOR_Background; */
         }
+        HtmlTableBgImage(htmlPtr,p);
         PushStyleStack(htmlPtr, Html_EndTABLE, nextStyle);
         useNextStyle = 1;
         htmlPtr->inTd = 0;
@@ -831,9 +916,11 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         }
         htmlPtr->inTd = 1;
         paraAlign = GetAlignment(p, rowAlign);
-        if( (z = HtmlMarkupArg(p, "bgcolor", 0))!=0 ){
+        if( (z = HtmlMarkupArg(p, "bgcolor", 0))!=0 && z[0] && (!htmlPtr->overrideColors)){
           style.bgcolor = HtmlGetColorByName(htmlPtr, z);
+	  style.expbg = 1;
         }
+        HtmlTableBgImage(htmlPtr,p);
         PushStyleStack(htmlPtr, Html_EndTD, style);
         break;
       case Html_TEXTAREA:
@@ -861,9 +948,11 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         }
         paraAlign = GetAlignment(p, ALIGN_Center);
         style.font = BoldFont( FontSize(style.font) );
-        if( (z = HtmlMarkupArg(p, "bgcolor", 0))!=0 ){
+        if( (z = HtmlMarkupArg(p, "bgcolor", 0))!=0 && z[0]){
           style.bgcolor = HtmlGetColorByName(htmlPtr, z);
+	  style.expbg = 1;
         }
+        HtmlTableBgImage(htmlPtr,p);
         PushStyleStack(htmlPtr, Html_EndTD, style);
         htmlPtr->inTd = 1;
         break;
@@ -876,9 +965,11 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
           style = HtmlPopStyleStack(htmlPtr, Html_EndTR);
         }
         rowAlign = GetAlignment(p, ALIGN_None);
-        if( (z = HtmlMarkupArg(p, "bgcolor", 0))!=0 ){
+        if( (z = HtmlMarkupArg(p, "bgcolor", 0))!=0 && z[0] && (!htmlPtr->overrideColors)){
           style.bgcolor = HtmlGetColorByName(htmlPtr, z);
+	  style.expbg = 1;
         }
+        HtmlTableBgImage(htmlPtr,p);
         PushStyleStack(htmlPtr, Html_EndTR, style);
         htmlPtr->inTr = 1;
         break;
@@ -925,6 +1016,7 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
     }
     if( useNextStyle ){
       style = nextStyle;
+      style.expbg = 0;
       useNextStyle = 0;
     }
     TRACE(HtmlTrace_Style,
@@ -942,6 +1034,33 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
   htmlPtr->anchorFlags = anchorFlags;
   htmlPtr->inDt = inDt;
   htmlPtr->flags &= ~STYLER_RUNNING;
+}
+
+void HtmlTableBgImage(HtmlWidget *htmlPtr, HtmlElement *p) {
+#ifdef _TCLHTML_
+  return;
+#else
+  Tcl_DString cmd;
+  int result;
+  char *z, buf[30];
+  if((!htmlPtr->zGetBGImage) || (!*htmlPtr->zGetBGImage))
+     return;
+  if (!(z = HtmlMarkupArg(p, "background", 0)))
+     return;
+  Tcl_DStringInit(&cmd);
+  Tcl_DStringAppend(&cmd, htmlPtr->zGetBGImage, -1);
+  Tcl_DStringAppend(&cmd, " ", 1);
+  Tcl_DStringAppend(&cmd, z, -1);
+  sprintf(buf," %d", p->base.id);
+  Tcl_DStringAppend(&cmd, buf, -1);
+  HtmlLock(htmlPtr);
+  result = Tcl_GlobalEval(htmlPtr->interp, Tcl_DStringValue(&cmd));
+  Tcl_DStringFree(&cmd);
+  if( HtmlUnlock(htmlPtr) ) return;
+  if (result == TCL_OK)
+    HtmlSetImageBg(htmlPtr, htmlPtr->interp, htmlPtr->interp->result, p);
+  Tcl_ResetResult(htmlPtr->interp);
+#endif
 }
 
 /*
@@ -984,13 +1103,19 @@ void HtmlSizer(HtmlWidget *htmlPtr){
     if( iFont != p->base.style.font ){
       iFont = p->base.style.font;
       HtmlLock(htmlPtr);
+#ifndef _TCLHTML_
       font = HtmlGetFont(htmlPtr, iFont);
       if( HtmlUnlock(htmlPtr) ) break;
       Tk_GetFontMetrics(font, &fontMetrics);
+#else
+      fontMetrics.descent=1;
+      fontMetrics.ascent=9;
+#endif
       spaceWidth = 0;
     }
     switch( p->base.type ){
       case Html_Text:
+#ifndef _TCLHTML_
         p->text.w = Tk_TextWidth(font, p->text.zText, p->base.count);
         p->base.flags |= HTML_Visible;
         p->text.descent = fontMetrics.descent;
@@ -1000,10 +1125,27 @@ void HtmlSizer(HtmlWidget *htmlPtr){
         }else{
         }
         p->text.spaceWidth = spaceWidth;
+#else
+        p->text.w = 10;
+        p->base.flags |= HTML_Visible;
+        p->text.descent = 1;
+        p->text.ascent = 9;
+        if( spaceWidth==0 ){
+          spaceWidth = 10;
+          TestPoint(0);
+        }else{
+          TestPoint(0);
+        }
+        p->text.spaceWidth = spaceWidth;
+#endif
         break;
       case Html_Space:
         if( spaceWidth==0 ){
+#ifndef _TCLHTML_
           spaceWidth = Tk_TextWidth(font, " ", 1);
+#else
+          spaceWidth = 10;
+#endif
         }
         p->space.w = spaceWidth;
         p->space.descent = fontMetrics.descent;
@@ -1024,6 +1166,11 @@ void HtmlSizer(HtmlWidget *htmlPtr){
         p->base.flags |= HTML_Visible;
         break;
       case Html_IMG:
+#ifndef _TCLHTML_
+        z = HtmlMarkupArg(p, "usemap", 0);
+        if (z && *z=='#') {
+	  p->image.pMap=HtmlGetMap(htmlPtr,z+1);
+	} else p->image.pMap=0;
         p->base.flags |= HTML_Visible;
         p->image.redrawNeeded = 0;
         p->image.textAscent = fontMetrics.ascent;
@@ -1052,6 +1199,7 @@ void HtmlSizer(HtmlWidget *htmlPtr){
           int h = atoi(z);
           if( h>0 ) p->image.h = h;
         }
+#endif /* _TCLHTML_ */
         break;
       case Html_HR:
       case Html_TABLE:
@@ -1087,3 +1235,4 @@ void HtmlSizer(HtmlWidget *htmlPtr){
     htmlPtr->lastSized = htmlPtr->pLast;
   }
 }
+

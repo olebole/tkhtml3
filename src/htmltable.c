@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmltable.c,v 1.42 2000/11/26 14:13:19 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmltable.c,v 1.43 2001/06/17 22:40:06 peter Exp $";
 /*
 ** Routines for doing layout of HTML tables
 **
@@ -71,7 +71,8 @@ static int CellSpacing(HtmlWidget *htmlPtr, HtmlElement *pTable){
 }
 
 /* Forward declaration */
-static HtmlElement *MinMax(HtmlWidget*, HtmlElement *, int *, int *, int);
+static HtmlElement *MinMax(HtmlWidget*, HtmlElement *, int *, int *, int,
+  int);
 
 /* pStart points to a <table>.  Compute the number of columns, the
 ** minimum and maximum size for each column and the overall minimum
@@ -100,7 +101,8 @@ static HtmlElement *TableDimensions(
   HtmlElement *pNext;                /* Next element to process */
   int iCol = 0;                      /* Current column number.  1..N */
   int iRow = 0;                      /* Current row number */
-  int inRow = 0;                     /* True if in between <TR> and </TR> */
+  HtmlElement *inRow = 0;            /* ptr to <TR> */
+  HtmlElement *inCol = 0;            /* ptr to <TD> */
   int i, j;                          /* Loop counters */
   int n;                             /* Number of columns */
   int minW, maxW, requestedW;        /* min, max, requested width for a cell */
@@ -121,6 +123,7 @@ static HtmlElement *TableDimensions(
   int min0span[HTML_MAX_COLUMNS+1];  /* Min for colspan=0 cells */
   int max0span[HTML_MAX_COLUMNS+1];  /* Max for colspan=0 cells */
   int reqW[HTML_MAX_COLUMNS+1];      /* Requested width for each column */
+  int hasbg;
 
   /* colMin[A][B] is the absolute minimum width of all columns between
   ** A+1 and B+1.  colMin[B][A] is the requested width of columns between
@@ -134,13 +137,18 @@ static HtmlElement *TableDimensions(
   if( pStart==0 || pStart->base.type!=Html_TABLE ){ 
     return pStart;
   }
+  if (pStart->table.bgimage) pStart->table.hasbg=1;
   TRACE_PUSH(HtmlTrace_Table1);
-  TRACE(HtmlTrace_Table1, ("Starting TableDimensions..\n"));
+  TRACE(HtmlTrace_Table1, ("Starting TableDimensions.. %s\n",
+	HtmlMarkupArg(pStart, "name","")));
   pStart->table.nCol = 0;
   pStart->table.nRow = 0;
   z = HtmlMarkupArg(pStart, "border", 0);
   if( z && *z==0 ) z = "2";
-  tbw = pStart->table.borderWidth = z ? atoi(z) : DFLT_BORDER;
+  tbw = z ? atoi(z) : DFLT_BORDER;
+  if (htmlPtr->TableBorderMin && tbw<htmlPtr->TableBorderMin)
+    tbw = htmlPtr->TableBorderMin;
+  pStart->table.borderWidth = tbw;
   cbw = tbw>0;
   z = HtmlMarkupArg(pStart, "cellpadding", 0);
   cellPadding = z ? atoi(z) : DFLT_CELLPADDING;
@@ -183,6 +191,7 @@ static HtmlElement *TableDimensions(
   for(p=pStart->pNext; p; p=pNext){
     if( p->base.type==Html_EndTABLE){
       p->ref.pOther = pStart;
+      pStart->table.pEnd=p;
       break;
     }
     pNext = p->pNext;
@@ -191,6 +200,7 @@ static HtmlElement *TableDimensions(
       case Html_EndTH:
       case Html_EndTABLE:
         p->ref.pOther = pStart;
+        inCol=0;
         break;
       case Html_EndTR:
         p->ref.pOther = pStart;
@@ -201,7 +211,7 @@ static HtmlElement *TableDimensions(
         iRow++;
         pStart->table.nRow++;
         iCol = 0;
-        inRow = 1;
+        inRow = p;
         availWidth = maxTableWidth;
         break;
       case Html_CAPTION:
@@ -212,6 +222,7 @@ static HtmlElement *TableDimensions(
         break;
       case Html_TD:
       case Html_TH:
+        inCol=p;
         if( !inRow ){
           /* If the <TR> markup is omitted, insert it. */
           HtmlElement *pNew = HtmlAlloc( sizeof(HtmlRef) );
@@ -230,6 +241,7 @@ static HtmlElement *TableDimensions(
           iCol++;
         }while( iCol <= pStart->table.nCol && fromAbove[iCol] > iRow );
         p->cell.pTable = pStart;
+        p->cell.pRow = inRow;
         colspan = p->cell.colspan;
         if( colspan==0 ){
           colspan = 1;
@@ -254,8 +266,10 @@ static HtmlElement *TableDimensions(
           pStart->table.nCol = nCol;
         }
         noWrap = HtmlMarkupArg(p, "nowrap", 0)!=0;
-        pNext = MinMax(htmlPtr, p, &minW, &maxW, availWidth);
+        hasbg=(pStart->table.hasbg || p->cell.pRow->ref.bgimage || p->cell.bgimage);
+        pNext = MinMax(htmlPtr, p, &minW, &maxW, availWidth, hasbg);
         p->cell.pEnd = pNext;
+        requestedW = 0;
         if( (z = HtmlMarkupArg(p, "width", 0))!=0 ){
           for(i=0; isdigit(z[i]) || z[i]=='.'; i++){}
           if( strcmp(z,"*")==0 ){
@@ -265,14 +279,16 @@ static HtmlElement *TableDimensions(
           }else if( z[i]=='%' ){
             requestedW = (atoi(z)*maxTableWidth + 99)/100;
           }
-        }else{
-          requestedW = 0;
         }
         TRACE(HtmlTrace_Table1,
           ("Row %d Column %d: min=%d max=%d req=%d stop at %s\n",
             iRow,iCol,minW,maxW,requestedW, HtmlTokenName(p->cell.pEnd)));
         if( noWrap ){
-          minW = maxW;
+          if( (z = HtmlMarkupArg(p, "rowspan", 0))==0 ){ /* Hack ??? */
+            minW = (requestedW>0?requestedW:maxW);
+	  } else {
+            minW = maxW;
+	  }
         }
         if( iCol + p->cell.colspan <= HTML_MAX_COLUMNS ){
           int min = 0;
@@ -477,7 +493,7 @@ static HtmlElement *TableDimensions(
     }
     SETMAX( totalWidth, pStart->table.minW[0] );
     requestedW = totalWidth;
-    SETMAX( pStart->table.maxW[0], totalWidth );
+    /* SETMAX( pStart->table.maxW[0], totalWidth ); ??? Makes too narrow */
   }
   SETMAX( maxTableWidth, pStart->table.minW[0] );
   if( lineWidth && (requestedW > lineWidth) ){
@@ -559,7 +575,8 @@ static HtmlElement *MinMax(
   HtmlElement *p,          /* Start the search here */
   int *pMin,               /* Return the minimum width here */
   int *pMax,               /* Return the maximum width here */
-  int lineWidth            /* Total width available */
+  int lineWidth,           /* Total width available */
+  int hasbg
 ){
   int min = 0;             /* Minimum width so far */
   int max = 0;             /* Maximum width so far */
@@ -567,30 +584,40 @@ static HtmlElement *MinMax(
   int obstacle = 0;        /* Possible obstacles in the margin */
   int x1 = 0;              /* Length of current line assuming maximum length */
   int x2 = 0;              /* Length of current line assuming minimum length */
+  int x3 = 0;              /* Like x1, but only within <PRE> tag */
   int go = 1;              /* Change to 0 to stop the loop */
+  int inpre=0;		   /* Are we in <PRE> */
   HtmlElement *pNext;      /* Next element in the list */
 
   for(p=p->pNext; go && p; p = pNext){
     pNext = p->pNext;
+    if (!inpre) x3=0;
     switch( p->base.type ){
+      case Html_PRE:
+	inpre=1;
+	break;
+      case Html_EndPRE:
+	inpre=0;
+	break;
       case Html_Text:
         x1 += p->text.w;
         x2 += p->text.w;
+        SETMAX( max, x1 );
         if( p->base.style.flags & STY_Preformatted ){
-          SETMAX( min, x1 );
-          SETMAX( max, x1 );
+	  x3 += p->text.w;
+          SETMAX( min, x3 );
         }else{
           SETMAX( min, x2 );
-          SETMAX( max, x1 );
         }
         break;
       case Html_Space:
         if( p->base.style.flags & STY_Preformatted ){
           if( p->base.flags & HTML_NewLine ){
-            x1 = x2 = indent;
+            x1 = x2 = x3 = indent;
           }else{
             x1 += p->space.w * p->base.count;
             x2 += p->space.w * p->base.count;
+            x3 += p->space.w * p->base.count;
           }
         }else if( p->base.style.flags & STY_NoBreak ){
           if( x1>indent ){ x1 += p->space.w;}
@@ -626,6 +653,7 @@ static HtmlElement *MinMax(
         break;
       case Html_TABLE:
         /* pNext = TableDimensions(htmlPtr, p, lineWidth-indent); */
+        p->table.hasbg=hasbg;
         pNext = TableDimensions(htmlPtr, p, 0);
         x1 = p->table.maxW[0] + indent + obstacle;
         x2 = p->table.minW[0] + indent;
@@ -668,7 +696,8 @@ static HtmlElement *MinMax(
       case Html_TEXTAREA:
         x1 += p->input.w + p->input.padLeft;
         if( p->base.style.flags & STY_Preformatted ){
-          SETMAX( min, x1 );
+          x3 += p->input.w + p->input.padLeft;
+          SETMAX( min, x3 );
           SETMAX( max, x1 );
           x2 += p->input.w + p->input.padLeft;
         }else{
@@ -746,6 +775,7 @@ static int GetVerticalAlignment(HtmlElement *p, int dflt){
   }
   return rc;
 }
+#include <assert.h>
 
 /* Do all layout for a single table.  Return the </table> element or
 ** NULL if the table is unterminated.
@@ -781,7 +811,7 @@ HtmlElement *HtmlTableLayout(
   int rowBottom;          /* Bottom edge of content in the current row */
   int defaultVAlign;      /* Default vertical alignment for the current row */
   char *zAlign;           /* Value of the ALIGN= attribute of the <TABLE> */
-#define N HTML_MAX_COLUMNS+1
+#define N (HTML_MAX_COLUMNS+1)
   int y[N];               /* Top edge of each cell's content */
   int x[N];               /* Left edge of each cell's content */
   int w[N];               /* Width of each cell's content */
@@ -958,7 +988,7 @@ HtmlElement *HtmlTableLayout(
     defaultVAlign = GetVerticalAlignment(p, VAlign_Center);
 
     /* Find every new cell on this row */
-    for(iCol=1; iCol<=pTable->table.nCol && iCol<HTML_MAX_COLUMNS; iCol++){
+    for(iCol=1; iCol<=pTable->table.nCol && iCol<=HTML_MAX_COLUMNS; iCol++){
       if( lastRow[iCol]<iRow ) ymax[iCol] = 0;
     }
     iCol = 0;
@@ -1003,12 +1033,12 @@ HtmlElement *HtmlTableLayout(
             cellContext.pageWidth = x[iCol]+w[iCol];
             colspan = p->cell.colspan;
             if( colspan==0 ){
-              for(i=iCol+1; i<=pTable->table.nCol; i++){
+              for(i=iCol+1; i<=pTable->table.nCol && i<=HTML_MAX_COLUMNS; i++){
                 cellContext.pageWidth += w[i] + separation;
                 lastRow[i] = lastRow[iCol];
               }
             }else if( colspan>1 ){
-              for(i=iCol+1; i<iCol+colspan; i++){
+              for(i=iCol+1; i<iCol+colspan && i<=HTML_MAX_COLUMNS; i++){
                 cellContext.pageWidth += w[i] + separation;
                 lastRow[i] = lastRow[iCol];
               }
@@ -1193,3 +1223,4 @@ void HtmlMoveVertically(
     p = p->pNext;
   }
 }
+

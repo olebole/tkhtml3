@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlcmd.c,v 1.19 2000/11/10 23:01:37 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlcmd.c,v 1.20 2001/06/17 22:40:05 peter Exp $";
 /*
 ** Routines to implement the HTML widget commands
 **
@@ -26,6 +26,7 @@ static char const rcsid[] = "@(#) $Id: htmlcmd.c,v 1.19 2000/11/10 23:01:37 drh 
 #include <tk.h>
 #include <stdlib.h>
 #include "htmlcmd.h"
+#include <X11/Xatom.h>
 
 /*
 ** WIDGET resolve ?URI ...?
@@ -53,8 +54,16 @@ int HtmlCgetCmd(
   int argc,              /* Number of arguments */
   char **argv            /* List of all arguments */
 ){
-  return Tk_ConfigureValue(interp, htmlPtr->tkwin, HtmlConfigSpec(),
+  int rc;
+  Tk_ConfigSpec *cs=HtmlConfigSpec();
+#ifdef _TCLHTML_
+  rc=TclConfigureWidget(interp, htmlPtr, cs,
+		argc-2, argv+2,  (char *) htmlPtr, 0);
+#else
+  rc=Tk_ConfigureValue(interp, htmlPtr->tkwin, cs,
 		(char *) htmlPtr, argv[2], 0);
+#endif
+  return rc;
 }
 
 /*
@@ -86,6 +95,16 @@ int HtmlConfigCmd(
   int argc,              /* Number of arguments */
   char **argv            /* List of all arguments */
 ){
+#ifdef _TCLHTML_
+  if (argc == 2) { /* ???? */
+     return HtmlCgetCmd(htmlPtr, interp, argc, argv);
+  } else if (argc == 3) {
+     return HtmlCgetCmd(htmlPtr, interp, argc, argv);
+  } else {
+     return ConfigureHtmlWidget(interp, htmlPtr, argc-2, argv+2,
+                                TK_CONFIG_ARGV_ONLY, 0);
+  }
+#else
   if (argc == 2) {
      return Tk_ConfigureInfo(interp, htmlPtr->tkwin, HtmlConfigSpec(),
         (char *) htmlPtr, (char *) NULL, 0);
@@ -96,39 +115,21 @@ int HtmlConfigCmd(
      return ConfigureHtmlWidget(interp, htmlPtr, argc-2, argv+2,
                                 TK_CONFIG_ARGV_ONLY, 0);
   }
+#endif
 }
 
-/*
-** WIDGET href X Y
-**
-** Returns the URL on the hyperlink that is beneath the position X,Y.
-** Returns {} if there is no hyperlink beneath X,Y.
-*/
-int HtmlHrefCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
-  Tcl_Interp *interp,    /* The interpreter */
-  int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
-){
-  int x, y;
-  char *z;
-
-  if( Tcl_GetInt(interp, argv[2], &x) != TCL_OK 
-   || Tcl_GetInt(interp, argv[3], &y) != TCL_OK
-  ){
-    return TCL_ERROR;
-  }
-  z = HtmlGetHref(htmlPtr, x + htmlPtr->xOffset, y + htmlPtr->yOffset);
-  if( z ){
-    HtmlLock(htmlPtr);
-    z = HtmlResolveUri(htmlPtr, z);
-    if( !HtmlUnlock(htmlPtr) ){
-      Tcl_SetResult(interp, z, TCL_DYNAMIC);
+/* Return pElem with attr "name" == value */
+HtmlElement *HtmlAttrElem(  HtmlWidget *htmlPtr, char *name, char *value) {
+    HtmlElement *p;
+    char *z;
+    for(p=htmlPtr->pFirst; p; p=p->pNext){
+      if( p->base.type!=Html_A ) continue;
+      z = HtmlMarkupArg(p,name,0);
+      if(z && (!strcmp(z,value)))
+        return p;
     }
-  }
-  return TCL_OK;
+    return 0;
 }
-
 /*
 ** WIDGET names
 **
@@ -157,6 +158,32 @@ int HtmlNamesCmd(
   return TCL_OK;
 }
 
+int HtmlAdvanceLayout(
+  HtmlWidget *htmlPtr    /* The HTML widget */
+) {
+  if( htmlPtr->LOendPtr ){
+    if( htmlPtr->LOendPtr->pNext ){
+      htmlPtr->formStart= htmlPtr->LOformStart;
+      HtmlAddStyle(htmlPtr, htmlPtr->LOendPtr->pNext);
+      HtmlSizer(htmlPtr);
+    }
+  }else if( htmlPtr->pFirst ){
+    htmlPtr->paraAlignment = ALIGN_None;
+    htmlPtr->rowAlignment = ALIGN_None;
+    htmlPtr->anchorFlags = 0;
+    htmlPtr->inDt = 0;
+    htmlPtr->anchorStart = 0;
+    htmlPtr->formStart = 0;
+    htmlPtr->LOformStart= 0;
+    htmlPtr->innerList = 0;
+    htmlPtr->nInput = 0; 
+    HtmlAddStyle(htmlPtr, htmlPtr->pFirst);
+    HtmlSizer(htmlPtr);
+  }
+  htmlPtr->LOendPtr=htmlPtr->pLast;
+  htmlPtr->LOformStart= htmlPtr->formStart;
+  return TCL_OK;
+}
 /*
 ** WIDGET parse HTML
 **
@@ -171,16 +198,42 @@ int HtmlParseCmd(
   int argc,              /* Number of arguments */
   char **argv            /* List of all arguments */
 ){
-  HtmlElement *endPtr;
-  endPtr = htmlPtr->pLast;
+  int i; char *ypos=0;
+  HtmlIndex iStart, iEnd;
+  HtmlElement *savePtr;
+  iStart.p=0; iStart.i=0;
+  htmlPtr->LOendPtr = htmlPtr->pLast;
   HtmlLock(htmlPtr);
+  for (i=3; i<(argc-1); i+=2) {
+    if ((!strcmp(argv[i],"-insert")) && htmlPtr->LOendPtr) {
+      if (HtmlGetIndex(htmlPtr, argv[i+1], &iStart.p, &iStart.i)!=0 ){
+        Tcl_AppendResult(interp,"malformed index: \"", argv[i+1], "\"", 0);
+        return TCL_ERROR;
+      }
+      if (iStart.p) {
+        savePtr=iStart.p->pNext;
+        htmlPtr->pLast=iStart.p;
+        iStart.p->pNext=0;
+      }
+    } else if ((!strcmp(argv[i],"-ypos")) && argv[i+1][0]) {
+      htmlPtr->zGoto=strdup(argv[i+1]);
+    }
+  }
   HtmlTokenizerAppend(htmlPtr, argv[2]);
   if( HtmlIsDead(htmlPtr) ){
     return TCL_OK;
   }
-  if( endPtr ){
-    if( endPtr->pNext ){
-      HtmlAddStyle(htmlPtr, endPtr->pNext);
+  if( htmlPtr->LOendPtr ){
+    htmlPtr->formStart= htmlPtr->LOformStart;
+    if (iStart.p && savePtr) {
+      HtmlAddStyle(htmlPtr, htmlPtr->LOendPtr);
+      htmlPtr->pLast->pNext=savePtr;
+      savePtr->base.pPrev=htmlPtr->pLast;
+      htmlPtr->pLast=htmlPtr->LOendPtr;
+      htmlPtr->flags |= (REDRAW_TEXT|RELAYOUT);
+      HtmlScheduleRedraw(htmlPtr);
+    } else if( htmlPtr->LOendPtr->pNext ){
+      HtmlAddStyle(htmlPtr, htmlPtr->LOendPtr->pNext);
     }
   }else if( htmlPtr->pFirst ){
     htmlPtr->paraAlignment = ALIGN_None;
@@ -190,11 +243,58 @@ int HtmlParseCmd(
     htmlPtr->anchorStart = 0;
     htmlPtr->formStart = 0;
     htmlPtr->innerList = 0;
+    htmlPtr->nInput = 0; 
     HtmlAddStyle(htmlPtr, htmlPtr->pFirst);
   }
   if( !HtmlUnlock(htmlPtr) ){
     htmlPtr->flags |= EXTEND_LAYOUT;
     HtmlScheduleRedraw(htmlPtr);
+  }
+#ifdef _TCLHTML_
+  HtmlLayout(htmlPtr);
+#endif
+  return TCL_OK;
+}
+
+#ifndef _TCLHTML_
+/*
+** WIDGET href X Y
+**
+** Returns the URL on the hyperlink that is beneath the position X,Y.
+** Returns {} if there is no hyperlink beneath X,Y.
+*/
+int HtmlHrefCmd(
+  HtmlWidget *htmlPtr,   /* The HTML widget */
+  Tcl_Interp *interp,    /* The interpreter */
+  int argc,              /* Number of arguments */
+  char **argv            /* List of all arguments */
+){
+  int x, y;
+  char *z, *target=0;
+
+  if( Tcl_GetInt(interp, argv[2], &x) != TCL_OK 
+   || Tcl_GetInt(interp, argv[3], &y) != TCL_OK
+  ){
+    return TCL_ERROR;
+  }
+  z = HtmlGetHref(htmlPtr, x + htmlPtr->xOffset, y + htmlPtr->yOffset, &target);
+  if( z ){
+    HtmlLock(htmlPtr);
+    z = HtmlResolveUri(htmlPtr, z);
+    if(z && !HtmlUnlock(htmlPtr) ){
+      Tcl_DString cmd;
+      Tcl_DStringInit(&cmd);
+      Tcl_DStringStartSublist(&cmd);
+      Tcl_DStringAppendElement(&cmd, z);
+      Tcl_DStringEndSublist(&cmd);
+      if (target) {
+        Tcl_DStringStartSublist(&cmd);
+        Tcl_DStringAppendElement(&cmd, target);
+        Tcl_DStringEndSublist(&cmd);
+      }
+      Tcl_DStringResult(interp, &cmd);
+    }
+    if (z) HtmlFree(z);
   }
   return TCL_OK;
 }
@@ -241,6 +341,7 @@ int HtmlXviewCmd(
     }else{
     }
     HtmlHorizontalScroll(htmlPtr, offset);
+    htmlPtr->flags |= ANIMATE_IMAGES;
   }
   return TCL_OK;
 }
@@ -262,20 +363,9 @@ int HtmlYviewCmd(
   if( argc==2 ){
     HtmlComputeVerticalPosition(htmlPtr,interp->result);
   }else if( argc==3 ){
-    char *z;
-    HtmlElement *p;
-    for(p=htmlPtr->pFirst; p; p=p->pNext){
-      if( p->base.type!=Html_A ) continue;
-      z = HtmlMarkupArg(p,"name",0);
-      if( z==0 ){
-        continue;
-      }
-      if( strcmp(z,argv[2])!=0 ){
-        continue;
-      }
+    HtmlElement *p=HtmlAttrElem(htmlPtr, "name", argv[2]);
+    if (p)
       HtmlVerticalScroll(htmlPtr, p->anchor.y);
-      break;
-    }
   }else{
     int count;
     double fraction;
@@ -305,62 +395,7 @@ int HtmlYviewCmd(
     }else{
     }
     HtmlVerticalScroll(htmlPtr, offset);
-  }
-  return TCL_OK;
-}
-
-/*
-** WIDGET token handler TAG ?SCRIPT?
-*/
-int HtmlTokenHandlerCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
-  Tcl_Interp *interp,    /* The interpreter */
-  int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
-){
-  int type = HtmlNameToType(argv[3]);
-  if( type==Html_Unknown ){
-    Tcl_AppendResult(interp,"unknown tag: \"", argv[3], "\"", 0);
-    return TCL_ERROR;
-  }
-  if( argc==4 ){
-    if( htmlPtr->zHandler[type]!=0 ){
-      interp->result = htmlPtr->zHandler[type];
-    }
-  }else{
-    if( htmlPtr->zHandler[type]!=0 ){
-      HtmlFree(htmlPtr->zHandler[type]);
-    }
-    htmlPtr->zHandler[type] = HtmlAlloc( strlen(argv[4]) + 1 );
-    if( htmlPtr->zHandler[type] ){
-      strcpy(htmlPtr->zHandler[type],argv[4]);
-    }
-  }
-  return TCL_OK;
-}
-
-/*
-** WIDGET index INDEX	
-*/
-int HtmlIndexCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
-  Tcl_Interp *interp,    /* The interpreter */
-  int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
-){
-  HtmlElement *p;
-  int i;
-
-  HtmlLock(htmlPtr);
-  if( HtmlGetIndex(htmlPtr, argv[2], &p, &i)!=0 ){
-    if( !HtmlUnlock(htmlPtr) ){
-      Tcl_AppendResult(interp,"malformed index: \"", argv[2], "\"", 0);
-    }
-    return TCL_ERROR;
-  }
-  if( !HtmlUnlock(htmlPtr) && p ){
-    sprintf(interp->result, "%d.%d", HtmlTokenNumber(p), i);
-  }else{
+    htmlPtr->flags |= ANIMATE_IMAGES;
   }
   return TCL_OK;
 }
@@ -472,8 +507,21 @@ void HtmlUpdateSelection(HtmlWidget *htmlPtr, int forceUpdate){
   }else{
   }
   if( needUpdate ){
+    htmlPtr->flags |= ANIMATE_IMAGES;
     UpdateSelection(htmlPtr);
   }else{
+  }
+}
+
+void
+HtmlLostSelection(
+    ClientData clientData)      /* Information about table widget. */
+{
+  HtmlWidget *htmlPtr = (HtmlWidget *) clientData;
+  char *argv[3];
+  argv[2]="";
+  if (htmlPtr->exportSelection) {
+    HtmlSelectionClearCmd(htmlPtr,0,3,argv);
   }
 }
 
@@ -487,6 +535,7 @@ int HtmlSelectionSetCmd(
   char **argv           /* List of all arguments */
 ){
   HtmlIndex selBegin, selEnd;
+  int bi, ei;
 
   HtmlLock(htmlPtr);
   if( HtmlGetIndex(htmlPtr, argv[3], &selBegin.p, &selBegin.i) ){
@@ -503,9 +552,21 @@ int HtmlSelectionSetCmd(
     return TCL_ERROR;
   }
   if( HtmlUnlock(htmlPtr) ) return TCL_OK;
-  htmlPtr->selBegin = selBegin;
-  htmlPtr->selEnd = selEnd;
+  bi=HtmlTokenNumber(selBegin.p);   ei=HtmlTokenNumber(selEnd.p);
+  if (!(selBegin.p && selEnd.p)) return TCL_OK;
+  if (bi<ei || (bi==ei && selBegin.i<=selEnd.i)) {
+    htmlPtr->selBegin = selBegin;
+    htmlPtr->selEnd = selEnd;
+  } else {
+    htmlPtr->selBegin = selEnd;
+    htmlPtr->selEnd = selBegin;
+  }
   HtmlUpdateSelection(htmlPtr,0);
+  if (htmlPtr->exportSelection) {
+    Tk_OwnSelection(htmlPtr->tkwin, XA_PRIMARY, HtmlLostSelection,
+                    (ClientData) htmlPtr);
+  }
+
   return TCL_OK;
 }
 
@@ -526,11 +587,15 @@ int HtmlSelectionClearCmd(
   return TCL_OK;
 }
 
+#endif /* _TCLHTML_ */
+
+#
 /*
 ** Recompute the position of the insertion cursor based on the
 ** position in htmlPtr->ins.
 */
 void HtmlUpdateInsert(HtmlWidget *htmlPtr){
+#ifndef _TCLHTML_
   HtmlIndexToBlockIndex(htmlPtr, htmlPtr->ins, 
                         &htmlPtr->pInsBlock, &htmlPtr->insIndex);
   HtmlRedrawBlock(htmlPtr, htmlPtr->pInsBlock);
@@ -539,6 +604,76 @@ void HtmlUpdateInsert(HtmlWidget *htmlPtr){
     HtmlFlashCursor(htmlPtr);
   }else{
   }
+#endif /* _TCLHTML_ */
+}
+
+/*
+** WIDGET token handler TAG ?SCRIPT?
+*/
+int HtmlTokenHandlerCmd(
+  HtmlWidget *htmlPtr,   /* The HTML widget */
+  Tcl_Interp *interp,    /* The interpreter */
+  int argc,              /* Number of arguments */
+  char **argv            /* List of all arguments */
+){
+  int type = HtmlNameToType(argv[3]);
+  if( type==Html_Unknown ){
+    Tcl_AppendResult(interp,"unknown tag: \"", argv[3], "\"", 0);
+    return TCL_ERROR;
+  }
+  if( argc==4 ){
+    if( htmlPtr->zHandler[type]!=0 ){
+      interp->result = htmlPtr->zHandler[type];
+    }
+  }else{
+    if( htmlPtr->zHandler[type]!=0 ){
+      HtmlFree(htmlPtr->zHandler[type]);
+    }
+    htmlPtr->zHandler[type] = HtmlAlloc( strlen(argv[4]) + 1 );
+    if( htmlPtr->zHandler[type] ){
+      strcpy(htmlPtr->zHandler[type],argv[4]);
+    }
+  }
+  return TCL_OK;
+}
+
+/*
+** WIDGET index INDEX	
+*/
+int HtmlIndexCmd(
+  HtmlWidget *htmlPtr,   /* The HTML widget */
+  Tcl_Interp *interp,    /* The interpreter */
+  int argc,              /* Number of arguments */
+  char **argv            /* List of all arguments */
+){
+  HtmlElement *p;
+  int i;
+
+  HtmlLock(htmlPtr);
+  if( HtmlGetIndex(htmlPtr, argv[2], &p, &i)!=0 ){
+    if( !HtmlUnlock(htmlPtr) ){
+      Tcl_AppendResult(interp,"malformed index: \"", argv[2], "\"", 0);
+    }
+    return TCL_ERROR;
+  }
+  if( !HtmlUnlock(htmlPtr) && p ){
+    sprintf(interp->result, "%d.%d", HtmlTokenNumber(p), i);
+  }else{
+  }
+  return TCL_OK;
+}
+
+/*
+** WIDGET get
+*/
+int HtmlGetCmd(
+  HtmlWidget *htmlPtr,   /* The HTML widget */
+  Tcl_Interp *interp,    /* The interpreter */
+  int argc,              /* Number of arguments */
+  char **argv            /* List of all arguments */
+){
+  Tcl_AppendResult(interp,htmlPtr->zText, 0);
+  return TCL_OK;
 }
 
 /*
@@ -560,7 +695,7 @@ int HtmlInsertCmd(
     HtmlLock(htmlPtr);
     if( HtmlGetIndex(htmlPtr, argv[2], &ins.p, &ins.i) ){
       if( !HtmlUnlock(htmlPtr) ){
-        Tcl_AppendResult(interp,"malformed index: \"", argv[2], "\"", 0);
+        Tcl_AppendResult(interp,"malformed index: \"", argv[1], "\"", 0);
       }
       return TCL_ERROR;
     }
@@ -572,33 +707,6 @@ int HtmlInsertCmd(
   return TCL_OK;
 }
 
-/*
-** WIDGET token list START END
-*/
-int HtmlTokenListCmd(
-  HtmlWidget *htmlPtr,   /* The HTML widget */
-  Tcl_Interp *interp,    /* The interpreter */
-  int argc,              /* Number of arguments */
-  char **argv            /* List of all arguments */
-){
-  HtmlElement *pStart, *pEnd;
-  int i;
-
-  if( HtmlGetIndex(htmlPtr, argv[3], &pStart, &i)!=0 ){
-    Tcl_AppendResult(interp,"malformed index: \"", argv[3], "\"", 0);
-    return TCL_ERROR;
-  }
-  if( HtmlGetIndex(htmlPtr, argv[4], &pEnd, &i)!=0 ){
-    Tcl_AppendResult(interp,"malformed index: \"", argv[4], "\"", 0);
-    return TCL_ERROR;
-  }
-  if( pStart ){
-    HtmlTclizeList(interp,pStart,pEnd ? pEnd->base.pNext : 0);
-  }
-  return TCL_OK;
-}
-
-#ifdef DEBUG
 /*
 ** WIDGET debug dump START END
 */
@@ -637,4 +745,4 @@ int HtmlDebugTestPtCmd(
   HtmlTestPointDump(argv[3]);
   return TCL_OK;
 }
-#endif
+

@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmllayout.c,v 1.28 2000/11/10 23:01:38 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmllayout.c,v 1.29 2001/06/17 22:40:05 peter Exp $";
 /*
 ** This file contains the code used to position elements of the
 ** HTML file on the screen.
@@ -369,6 +369,7 @@ static HtmlElement *GetLine(
       case Html_EndTR:
       case Html_UL:
       case Html_EndUL:
+      case Html_EndFORM:
         *actualWidth = x<=0 && !isEmpty ? 1 : x;
         return p;
 
@@ -610,12 +611,16 @@ static void Paragraph(
   }else if( p->pNext && p->pNext->base.type==Html_Text ){
     headroom = p->pNext->text.ascent + p->pNext->text.descent;
   }else{
+#ifdef _TCLHTML_
+    headroom = 10;
+#else
     Tk_FontMetrics fontMetrics;
     Tk_Font font;
     font = HtmlGetFont(pLC->htmlPtr, p->base.style.font);
     if( font==0 ) return;   
     Tk_GetFontMetrics(font, &fontMetrics);
     headroom = fontMetrics.descent + fontMetrics.ascent;
+#endif  /* _TCLHTML */
   }
   if( pLC->headRoom < headroom && pLC->bottom > pLC->top ){
     pLC->headRoom = headroom;
@@ -754,6 +759,14 @@ static void ClearObstacle(HtmlLayoutContext *pLC, int mode){
   }
 }
 
+/* Return the next markup type */
+int NextMupType(HtmlElement* p) {
+  while (p=p->pNext) {
+     if (HtmlIsMarkup(p)) return p->base.type;
+  }
+  return Html_Unknown;
+}
+
 /*
 ** Break markup is any kind of markup that might force a line-break. This
 ** routine handles a single element of break markup and returns a pointer
@@ -862,7 +875,8 @@ static HtmlElement *DoBreakMarkup(
       p->hr.is3D = HtmlMarkupArg(p, "noshade", 0)==0;
       z = HtmlMarkupArg(p, "size", 0);
       if( z ){
-        p->hr.h = atoi(z);
+        int hrsz=atoi(z);
+        p->hr.h = (hrsz<0?2:hrsz);
       }else{
         p->hr.h = 0;
       }
@@ -927,6 +941,7 @@ static HtmlElement *DoBreakMarkup(
     case Html_P:
     case Html_EndP:
     case Html_EndPRE:
+    case Html_EndFORM:
       Paragraph(pLC, p);
       break;
 
@@ -946,6 +961,9 @@ static HtmlElement *DoBreakMarkup(
         }
       }else{
       }
+      if (p->pNext && p->pNext->pNext && p->pNext->base.type==Html_Space &&
+         p->pNext->pNext->base.type==Html_BR)
+        Paragraph(pLC, p);
       break;
 
     /* All of the following tags need to be handed to the GetLine() routine */
@@ -1075,8 +1093,8 @@ void HtmlLayoutBlock(HtmlLayoutContext *pLC){
 
     /* If a line was completed, advance to the next line */
     if( pNext && actualWidth>0 && y > pLC->bottom ){
+      HtmlPopIndent(pLC);
       pLC->bottom = y;
-      pLC->headRoom = 0;
       pLC->pStart = pNext;
     }
     if( y > pLC->maxY ){
@@ -1088,6 +1106,23 @@ void HtmlLayoutBlock(HtmlLayoutContext *pLC){
   }
 }
 
+void HtmlPopIndent(HtmlLayoutContext *pLC) {
+  if (pLC->headRoom<=0) return;
+  pLC->headRoom=0;
+/*  HtmlPopMargin(&pLC->leftMargin, Html_EndBLOCKQUOTE, pLC);
+  HtmlPopMargin(&pLC->rightMargin, Html_EndBLOCKQUOTE, pLC); */
+}
+
+void HtmlPushIndent(HtmlWidget *htmlPtr){
+  HtmlLayoutContext *pLC;
+  pLC=&htmlPtr->layoutContext;
+  pLC->headRoom+=htmlPtr->marginheight;
+  if (htmlPtr->marginwidth) {
+   HtmlPushMargin(&pLC->leftMargin,htmlPtr->marginwidth,-1,Html_EndBLOCKQUOTE);
+   HtmlPushMargin(&pLC->rightMargin,htmlPtr->marginwidth,-1,Html_EndBLOCKQUOTE);
+  }
+}
+
 /*
 ** Advance the layout as far as possible
 */
@@ -1095,11 +1130,13 @@ void HtmlLayout(HtmlWidget *htmlPtr){
   HtmlLayoutContext *pLC;
   int btm;
 
+
   if( htmlPtr->pFirst==0 ) return;
   HtmlLock(htmlPtr);
   HtmlSizer(htmlPtr);
   if( HtmlUnlock(htmlPtr) ) return;
   pLC = &htmlPtr->layoutContext;
+  HtmlPushIndent(htmlPtr);
   pLC->htmlPtr = htmlPtr;
   pLC->pageWidth = htmlPtr->realWidth - 2*(htmlPtr->inset + htmlPtr->padx);
   pLC->left = 0;
@@ -1109,6 +1146,7 @@ void HtmlLayout(HtmlWidget *htmlPtr){
     pLC->pStart = htmlPtr->pFirst;
   }
   if( pLC->pStart ){
+    HtmlElement *p;
     pLC->maxX = htmlPtr->maxX;
     pLC->maxY = htmlPtr->maxY;
     btm = pLC->bottom;
@@ -1119,6 +1157,11 @@ void HtmlLayout(HtmlWidget *htmlPtr){
     htmlPtr->maxY = pLC->maxY;
     htmlPtr->nextPlaced = pLC->pStart;
     htmlPtr->flags |= HSCROLL | VSCROLL;
+    if (htmlPtr->zGoto && ((p=HtmlAttrElem(htmlPtr, "name", htmlPtr->zGoto+1)))) {
+         htmlPtr->yOffset=p->anchor.y;
+         free(htmlPtr->zGoto);
+	 htmlPtr->zGoto=0;
+    }
     HtmlRedrawText(htmlPtr, btm);
   }
 }

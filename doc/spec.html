@@ -1,7 +1,7 @@
 <html>
 <!-- 
   Specifications for the Tk HTML Widget 
-  $Revision: 1.9 $
+  $Revision: 1.10 $
   Copyright (C) 1997, 1998, 1999 D. Richard Hipp
 
   This program is free software; you can redistribute it and/or modify
@@ -22,7 +22,7 @@
      drh@acm.org
      http://www.hwaci.com/drh/
 
-  @(#) $Id: spec.html,v 1.9 2000/01/21 13:22:34 drh Exp $
+  @(#) $Id: spec.html,v 1.10 2001/06/17 22:40:30 peter Exp $
 -->
 <head>
 <title>Interface Specification For The HTML Widget</title>
@@ -236,6 +236,25 @@ This value plus twice the <tt>-padx</tt>, <tt>-borderwidth</tt> and
   an image.
 </td></tr>
 
+<tr><td valign=top><tt>-bgimagecommand</tt></td>
+<td>
+  When a ``<tt>&lt;table background=...&gt;</tt>'' tag is encountered, the
+  HTML widget invokes the script specified by this option in order to
+  get the name of a Tk image object to display as the background for
+  the table.  Similarly for TD, TH, and TR.
+  Before invoking the script, the following arguments are appended:
+  <ol>
+  <li>The value of the <tt>background=...</tt> parameter after have been
+      processed by the resolver.
+  <li>The token id (TID) of the table, row or col markup tag.
+  </ol>
+  The image name to use for the background can may be returned.  Or
+  if the return value is empty.  the user can set
+  the background image when available via the <tt>bgimage</tt> command
+  with the tokenid.
+
+</td></tr>
+
 <tr><td valign=top><tt>-isvisitedcommand</tt><td>
 When the HTML widget encounters a hyperlink
 (``<tt>&lt;a href=...&gt;</tt>'') it invokes the script specified
@@ -282,7 +301,8 @@ The relief used to draw the 3-D border.
 <tr><td valign=top><tt>-scriptcommand</tt></td>
 <td>
   <p>Whenever &lt;SCRIPT&gt;...&lt;/SCRIPT&gt; markup is encountered in
-  the input HTML, the attributes of the &lt;SCRIPT&gt; markup and
+  the input HTML, the line number, the attributes of the &lt;SCRIPT&gt; 
+  markup and
   the body of the script are appended to this string and the result
   is executed as a TCL command.  If this options is the empty string,
   then the script is ignored.
@@ -353,8 +373,12 @@ Other index forms are available, including:
 <tr><td valign=top>end<td>
 The keyword ``end'' means one character past
 the last character of the last token.
+<tr><td valign=top>last<td>
+The keyword ``last'' means the last character of the last token.
 <tr><td valign=top>@X,Y<td>
 The character located at screen coordinates X,Y.
+<tr><td valign=top>&DOM<td>
+The element matching the given DOM address.  eg. ``tables(1).rows(3)''.
 <tr><td valign=top>*.last<td>
 The second integer can be replaced by the keyword ``last'' to mean the
 last character in the token.
@@ -362,7 +386,7 @@ last character in the token.
 This is the first character that is part of the selection.
 <tr><td valign=top>sel.last<td>
 This is the last character that is part of the selection.
-<tr><td valign=top>ins<td>
+<tr><td valign=top>insert<td>
 The character immediately following the insertion cursor.
 </table>
 
@@ -437,6 +461,12 @@ the list.
 
 <dl>
 
+<dt><i>WIDGET</i>&nbsp <tt>bgimage</tt>&nbsp <i>IMAGE  ?TID?</i><p>
+<dd>Set IMAGE to be the background image.  TID, if supplied,
+is the token id of a TABLE, TD, TH or TR.  If TID is ommitted,
+it is the background image for the whole page.
+<p>
+
 <dt><i>WIDGET</i>&nbsp <tt>cget</tt> <i>config-option</i><p>
 <dd>
 Return the value of a configuration option.  Works just like any
@@ -455,12 +485,47 @@ This routine should be called to changes pages.
 The standard Tk configuration command.
 <p>
 
+<dt><i>WIDGET</i>&nbsp <tt>coords</tt>&nbsp <i>?INDEX ?percent??</i><p>
+<dd>Return the screen coordinates of INDEX.
+<p>
+
+<dt><i>WIDGET</i>&nbsp <tt>forminfo</tt>&nbsp INDEX<p>
+<dd>Return forminfo for given INDEX.
+<p>
+
 <dt><i>WIDGET</i>&nbsp <tt>href</tt>&nbsp <i>X&nbsp Y</i><p>
 <dd>If the coordinates <i>X Y</i> define a point above a hyperlink,
 then this command will return the target URL for that hyperlink.
 The URL will be resolved using the -resolvercommand before it
 is returned.
 <p>
+
+<dt><i>WIDGET</i>&nbsp <tt>imageadd</tt>&nbsp <i>ID&nbsp IMAGE</i><p>
+<dd>
+Add a single image onto animated image list.
+<p>
+
+<dt><i>WIDGET</i>&nbsp <tt>imageat</tt>&nbsp <i>X&nbsp Y</i><p>
+<dd>If the coordinates <i>X Y</i> define a point above an image,
+then this command will return the Token Id for that image.
+<p>
+
+<dt><i>WIDGET</i>&nbsp <tt>images</tt><p>
+<dd>
+Return the list of animated images.
+<p>
+
+<dt><i>WIDGET</i>&nbsp <tt>imageset</tt>&nbsp <i>ID&nbsp NUM</i><p>
+<dd>For animated gifs, set image number NUM to be the current image.
+This is only used for buffered animations.
+<p>
+
+<dt><i>WIDGET</i>&nbsp <tt>imageupdate</tt>&nbsp <i>ID&nbsp IMAGES</i><p>
+<dd>When an Animated gif comes in, this allows changing the
+current image into multiple images.
+<p>
+
+
 
 <dt><i>WIDGET</i>&nbsp <tt>index</tt>&nbsp <i>INDEX&nbsp ?COUNT&nbsp UNITS?</i></p>
 <dd>
@@ -490,6 +555,21 @@ using the ``<i>WIDGET</i> <tt>yview</tt> <i>NAME</i>'' command described
 below.
 <p>
 
+<dt><i>WIDGET</i>&nbsp <tt>onscreen</tt>&nbsp ID <i>X&nbsp Y</i><p>
+<dd>Return 1 if ID is onscreen (visible).
+<p>
+
+<dt><i>WIDGET</i>&nbsp <tt>over</tt>&nbsp <i>X&nbsp Y ?-muponly?</i><p>
+<dd>Return a list of TIDS where the coordinates <i>X Y</i> 
+define a point above objects.  If -muponly, give only markup elements.
+<p>
+
+<dt><i>WIDGET</i>&nbsp <tt>overattr</tt>&nbsp <i>X&nbsp Y ATTRS</i><p>
+<dd>Like <b>over</b> but returns markup containing one or more
+of the attributes in the list ATTRS.
+ATTRS.
+<p>
+
 <dt><i>WIDGET</i>&nbsp <tt>parse</tt>&nbsp <i>HTML-TEXT</i><p>
 <dd>Adds the given HTML text to the end of any text previously received
 through the <tt>parse</tt> command and parses as much of the text as
@@ -517,10 +597,22 @@ visible.<p>
     </dl>
     <p>
 
+<dt><i>WIDGET</i>&nbsp <tt>refresh</tt> <i>options</i><p>
+<dd>Cause a relayout and redraw.  Useful after a token insert or update.
+Valid options are zero or more of: images, resize, focus, text, border, extend,
+clipwin,, styler, animate, vscroll, hscroll, gotfocus, layout.
+The default is layout.  You may abreviate options with the first letter.
+<p>
+
+<dt><i>WIDGET</i>&nbsp <tt>source</tt><p>
+<dd>Return the html source for the current page.
+<p>
+
+
 <dt><i>WIDGET</i>&nbsp <tt>text</tt>&nbsp <i>subcommand args...</i><p>
 <dd>There are several token commands.  They all have the common
 property that they directly manipulate the text that is displayed.
-These commands (none of which are currently implemented) can be used
+These commands can be used
 to build an WYSIWYG editor for HTML.<p>
     <dl>
     <dt><i>WIDGET</i>&nbsp; <tt>text ascii</tt>&nbsp <i>INDEX-1&nbsp INDEX-2</i><p>
@@ -547,6 +639,19 @@ to build an WYSIWYG editor for HTML.<p>
     <dd><p>
     Inserts one or more characters immediately before the character whose
     index is given.
+    The insertion cursor is updated.
+    <p>
+
+    <dt><i>WIDGET</i>&nbsp; <tt>text break</tt>&nbsp <i>INDEX&nbsp</i><p>
+    <dd><p>
+    Break the text token at index into two text tokens.
+    <p>
+
+
+    <dt><i>WIDGET</i>&nbsp; <tt>text find TEXT</tt>&nbsp <i>?nocase? ?before|after INDEX?&nbsp</i><p>
+    <dd><p>
+    Find text.  If index is given, start search from there.  If before,
+    search backwards.  nocase will ignore case.
     <p>
     </dl>
 
@@ -578,7 +683,7 @@ to build an WYSIWYG editor for HTML.<p>
     <p>
 
     <dt><i>WIDGET</i>&nbsp; <tt>token find</tt>&nbsp; 
-        <i>TAG</i><p>
+        <i>TAG</i> ?before|after|near INDEX?<p>
     <dd>
     Locates all tokens with the given <i>TAG</i> and returns them all
     as a list.
@@ -593,6 +698,46 @@ to build an WYSIWYG editor for HTML.<p>
     <i>INDEX-2</i>.
     Each element of the list consists of the token tag followed by
     the token arguments.
+    <p>
+
+    <dt><i>WIDGET</i>&nbsp; <tt>token list</tt>&nbsp; 
+        <i>INDEX&nbsp INDEX-2?</i><p>
+    <dd>
+    The same as <b>token get</b>, but has the token id as the first
+    item in each list element.
+    <p>
+
+    <dt><i>WIDGET</i>&nbsp; <tt>token markup</tt>&nbsp; 
+        <i>INDEX&nbsp INDEX-2?</i><p>
+    <dd>
+    The same as <b>token list</b>, but ignores space and text.
+    <p>
+
+    <dt><i>WIDGET</i>&nbsp; <tt>token domtokens</tt>&nbsp; 
+        <i>INDEX&nbsp INDEX-2?</i><p>
+    <dd>
+    The same as <b>token domtokens</b>, but ignores all non-DOM tokens.
+    <p>
+
+    <dt><i>WIDGET</i>&nbsp; <tt>token getend</tt>&nbsp; 
+        <i>INDEX</i><p>
+    <dd>
+    Given a start token, find the matching end token. 
+    <p>
+
+    <dt><i>WIDGET</i>&nbsp; <tt>token offset</tt>&nbsp; 
+        <i>START NUM1 NUM2</i><p>
+    <dd>
+	 Hard to describe, but used as follows: when you extract text, and do
+   a regex on it, with -indices, you need to convert these offsets back
+   into INDEXES. This returns those begin and end anchor.
+    <p>
+
+    <dt><i>WIDGET</i>&nbsp; <tt>token attr</tt>&nbsp; 
+        <i>INDEX ?NAME ?VALUE??</i><p>
+    <dd>
+	Allow get or set a tokens attribute(s).  Getting non-existent
+	attr returns an empty string.
     <p>
 
     <dt><i>WIDGET</i>&nbsp; <tt>token handler</tt>&nbsp; 
@@ -625,6 +770,91 @@ to build an WYSIWYG editor for HTML.<p>
     <dd>
     Inserts a single token given by <i>TAG</i> and <i>ARGUMENTS</i> into
     the token list immediately before <i>INDEX</i>.
+    if index is after end of a text token, inserts after token.
+    The insertion cursor is updated.
+    <p>
+
+    <dt><i>WIDGET</i>&nbsp; <tt>token attrs</tt>&nbsp; 
+        <i>ATTRLIST</i> <i>?INDEX ?INDEX? ?</i><p>
+    <dd>
+	 Find all tags that contain an attr named in input list. Return TIDs.
+    <p>
+
+
+    <dt><i>WIDGET</i>&nbsp; <tt>token onEvents</tt>&nbsp; 
+        <i>?INDEX ?INDEX? ?</i><p>
+        <p>
+    <dd>
+	Look for all the onSubmit, onMouseover, etc attributes. returns list of: Event TID Event TID...
+    <p>
+
+    <dt><i>WIDGET</i>&nbsp; <tt>token unique</tt>&nbsp; 
+        <i>TAG</i>
+        <i>?INDEX ?INDEX? ?</i><p>
+    <dd>
+	For the given tag, return all known unique attribute names for the tag.
+    <p>
+
+
+    </dl>
+<p>
+
+<dt><i>WIDGET</i>&nbsp <tt>dom</tt>&nbsp <i>subcommand args...</i><p>
+<dd>There are several dom commands.  In all the following,
+    <i>DOMSPEC</i> is a DOM style address.  eg. TABLE(1).ROW(2).
+    The Token Id is returned for that element in the page.
+
+    <dl>
+    <dt><i>WIDGET</i>&nbsp; <tt>dom nameidx</tt>&nbsp; 
+        TAG <i>NAME</i><p>
+    <dd>
+	Convert a named markup to it's array position. ie. <B>TABLE foo</B>
+	might translate to <B>TABLE[2]</B> returning the integer index 2.
+    
+    <p>
+
+    <dt><i>WIDGET</i>&nbsp; <tt>dom radioidx</tt>&nbsp; 
+        TAG <i>NAME</i><p>
+    <dd>
+	Translate a radio input items array index to a form item index.
+    
+    <p>
+    <dt><i>WIDGET</i>&nbsp; <tt>dom id</tt>&nbsp; 
+        <i>DOMSPEC</i><p>
+    <dd>
+	Given a DOMSPEC, return the TID.  Obsolete, use ``index &DOMSPEC''.
+    <p>
+
+    <dt><i>WIDGET</i>&nbsp; <tt>dom ids</tt>&nbsp; 
+        <i>DOMSPEC</i><p>
+    <dd>
+	Like above, but returns both begin and end TID.
+    <p>
+
+    <dt><i>WIDGET</i>&nbsp; <tt>dom value</tt>&nbsp; 
+        <i>DOMSPEC</i><p>
+    <dd>
+	Like dom id, but returns the attributes rather than the TID.
+	Obsolete. Should now use: token attr &DOMSPEC.
+    <p>
+
+    <dt><i>WIDGET</i>&nbsp; <tt>dom addr</tt>&nbsp; 
+        <i>INDEX</i><p>
+    <dd>
+	Given an index, return the best guess of the DOM address.
+	eg. TABLES(2).ROWS(1)
+    <p>
+
+    <dt><i>WIDGET</i>&nbsp; <tt>dom formel</tt>&nbsp; 
+        <i>N</i>NAME<p>
+    <dd>
+	For the forms(N), return the form element with name NAME.
+    <p>
+
+    <dt><i>WIDGET</i>&nbsp; <tt>dom tree</tt>&nbsp; 
+        <i>INDEX</i> VALUE<p>
+    <dd>
+	 Return the HTML Doc as one big DOM tree list.  Not fully implemented.
     <p>
     </dl>
 

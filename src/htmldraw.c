@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmldraw.c,v 1.25 2000/11/10 23:01:37 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmldraw.c,v 1.26 2001/06/17 22:40:05 peter Exp $";
 /*
 ** Routines used to render HTML onto the screen for the Tk HTML widget.
 **
@@ -23,6 +23,9 @@ static char const rcsid[] = "@(#) $Id: htmldraw.c,v 1.25 2000/11/10 23:01:37 drh
 **   drh@acm.org
 **   http://www.hwaci.com/drh/
 */
+
+#ifndef _TCLHTML_
+
 #include <tk.h>
 #include <string.h>
 #include <stdlib.h>
@@ -315,7 +318,8 @@ void HtmlBlockDraw(
   int drawableLeft,      /* Virtual coordinate of left edge of drawable */
   int drawableTop,       /* Virtual coordinate of top edge of drawable */
   int drawableWidth,     /* Width of the drawable */
-  int drawableHeight     /* Height of the drawable */
+  int drawableHeight,    /* Height of the drawable */
+  Pixmap pixmap
 ){
   Tk_Font font;           /* Font to use to render text */
   GC gc;                  /* A graphics context */
@@ -474,45 +478,62 @@ void HtmlBlockDraw(
       }
       case Html_TABLE: {
         int relief = htmlPtr->tableRelief;
-        switch( relief ){
-          case TK_RELIEF_RAISED: 
-          case TK_RELIEF_SUNKEN:
-            break;
-          default:
-            relief = TK_RELIEF_FLAT;
-            break;
-        }
-        HtmlDrawRect(htmlPtr, drawable, src,
+	if (((!htmlPtr->bgimage) || src->base.style.expbg)
+	  && (!src->table.hasbg)) {
+          switch( relief ){
+            case TK_RELIEF_RAISED: 
+            case TK_RELIEF_SUNKEN:
+              break;
+            default:
+              relief = TK_RELIEF_FLAT;
+              break;
+          }
+          HtmlDrawRect(htmlPtr, drawable, src,
                            src->table.x - drawableLeft,
                            src->table.y - drawableTop,
                            src->table.w, 
                            src->table.h,
                            src->table.borderWidth,
                            relief);
+	}
+        if (src->table.bgimage)
+            HtmlTblBGDraw(htmlPtr, src->table.x, src->table.y, 
+                src->table.w, src->table.h, pixmap, src->table.bgimage);
         break;
       }
       case Html_TH:
       case Html_TD: {
         int depth, relief;
+        Tk_Image bgimg;
         pTable = src->cell.pTable;
-        depth = pTable && pTable->table.borderWidth>0;
-        switch( htmlPtr->tableRelief ){
-          case TK_RELIEF_RAISED:  relief = TK_RELIEF_SUNKEN; break;
-          case TK_RELIEF_SUNKEN:  relief = TK_RELIEF_RAISED; break;
-          default:                relief = TK_RELIEF_FLAT;   break;
-        }
-        HtmlDrawRect(htmlPtr, drawable, src,
+	if (((!htmlPtr->bgimage) || src->base.style.expbg) &&
+	   (!(pTable && pTable->table.hasbg))) {
+          depth = pTable && pTable->table.borderWidth>0;
+          switch( htmlPtr->tableRelief ){
+            case TK_RELIEF_RAISED:  relief = TK_RELIEF_SUNKEN; break;
+            case TK_RELIEF_SUNKEN:  relief = TK_RELIEF_RAISED; break;
+            default:                relief = TK_RELIEF_FLAT;   break;
+          }
+          HtmlDrawRect(htmlPtr, drawable, src,
                          src->cell.x - drawableLeft,
                          src->cell.y - drawableTop,
                          src->cell.w, 
                          src->cell.h,
                          depth,
                          relief);
+	}
+        /* See if row has an image */
+        if (src->cell.bgimage)
+          HtmlTblBGDraw(htmlPtr, src->cell.x, src->cell.y, 
+              src->cell.w, src->cell.h, pixmap, src->cell.bgimage);
+	else if (src->cell.pRow && (bgimg=src->cell.pRow->ref.bgimage))
+          HtmlTblBGDraw(htmlPtr, src->cell.x, src->cell.y, 
+              src->cell.w, src->cell.h, pixmap, bgimg);
         break;
       }
       case Html_IMG:
         if( src->image.pImage ){
-          HtmlDrawImage(src, drawable, drawableLeft, drawableTop,
+          HtmlDrawImage(htmlPtr, src, drawable, drawableLeft, drawableTop,
                         drawableLeft + drawableWidth,
                         drawableTop + drawableHeight);
         }else if( src->image.zAlt ){
@@ -537,6 +558,7 @@ void HtmlBlockDraw(
 ** Draw all or part of an image.
 */
 void HtmlDrawImage(
+  HtmlWidget *htmlPtr,
   HtmlElement *pElem,    /* The <IMG> to be drawn */
   Drawable drawable,     /* Draw it here */
   int drawableLeft,      /* left edge of the drawable */
@@ -576,8 +598,21 @@ void HtmlDrawImage(
   }else{
     imageX = 0;
   }
-  Tk_RedrawImage(pElem->image.pImage->image, imageX, imageY, imageW, imageH, 
+  if (!pElem->image.pImage->anims)
+    Tk_RedrawImage(pElem->image.pImage->image, imageX, imageY, imageW, imageH, 
                  drawable, x, y);
+  else {
+    int redraw=htmlPtr->flags & ANIMATE_IMAGES;
+    int i; HtmlImageAnim* a; HtmlImage *zImg=pElem->image.pImage;
+    if ((!zImg->cur) || redraw)
+      Tk_RedrawImage(pElem->image.pImage->image, imageX, imageY, imageW, imageH,
+                 drawable, x, y);
+    for (i=0, a=zImg->anims; a && i<zImg->cur; i++, a=a->next) {
+      if (redraw || i>=(zImg->cur-1)) 
+	Tk_RedrawImage(a->image, imageX, imageY, imageW, imageH, 
+                 drawable, x, y);
+    }
+  }
   pElem->image.redrawNeeded = 0;
 }
 
@@ -608,7 +643,7 @@ static HtmlElement *FillOutBlock(HtmlWidget *htmlPtr, HtmlBlock *p){
   HtmlStyle style;
   int firstSelected;      /* First selected character in this block */
   int lastSelected;       /* Last selected character in this block */
-  char zBuf[400];
+  char zBuf[2000];
 
   /*
   ** Reset n and z
@@ -692,7 +727,7 @@ static HtmlElement *FillOutBlock(HtmlWidget *htmlPtr, HtmlBlock *p){
   go = 1;
   while( pElem ){
     HtmlElement *pNext = pElem->pNext;
-    switch( pElem->base.type ){
+    switch( pElem && pElem->base.type ){
       case Html_Text:
         if( pElem->base.style.flags & STY_Invisible ){
           break;
@@ -713,13 +748,21 @@ static HtmlElement *FillOutBlock(HtmlWidget *htmlPtr, HtmlBlock *p){
           int nSpace = (pElem->text.x - x) / sw;
           if( nSpace * sw + x != pElem->text.x ){
             go = 0;
-          }else if( n + nSpace + pElem->base.count >= sizeof(zBuf) ){
-            go = 0;
+          }else if( (n + nSpace + pElem->base.count) >= sizeof(zBuf) ){
+/*            go = 0;  This cause a hang, instead lets do what we can. */
+            for(i=0; i<nSpace && (n+i)<sizeof(zBuf); i++){
+              zBuf[n++] = ' ';
+            }
+            strncpy(&zBuf[n], pElem->text.zText,sizeof(zBuf)-n-1);
+	    zBuf[sizeof(zBuf)-1]=0;
+            n += sizeof(zBuf)-i;
+            x = pElem->text.x + pElem->text.w;
           }else{
             for(i=0; i<nSpace; i++){
               zBuf[n++] = ' ';
             }
-            strcpy(&zBuf[n], pElem->text.zText);
+            strncpy(&zBuf[n], pElem->text.zText,sizeof(zBuf)-n-1);
+	    zBuf[sizeof(zBuf)-1]=0;
             n += pElem->base.count;
             x = pElem->text.x + pElem->text.w;
           }
@@ -757,8 +800,9 @@ static HtmlElement *FillOutBlock(HtmlWidget *htmlPtr, HtmlBlock *p){
   p->right = x;
 
   while( n>0 && zBuf[n-1]==' ' ){ n--; }
-  p->z = HtmlAlloc( n );
+  p->z = HtmlAlloc( n+1);
   strncpy(p->z, zBuf, n);
+  p->z[n]=0;
   p->n = n;
   return pElem;
 }
@@ -818,3 +862,4 @@ void HtmlFormBlocks(HtmlWidget *htmlPtr){
     }
   }
 }
+#endif /* _TCLHTML_ */

@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlindex.c,v 1.8 2000/11/10 23:01:38 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlindex.c,v 1.9 2001/06/17 22:40:05 peter Exp $";
 /*
 ** Routines that deal with indexes
 **
@@ -24,6 +24,7 @@ static char const rcsid[] = "@(#) $Id: htmlindex.c,v 1.8 2000/11/10 23:01:38 drh
 **   http://www.hwaci.com/drh/
 */
 #include <ctype.h>
+#include <string.h>
 #include <tk.h>
 #include "htmlindex.h"
 
@@ -36,22 +37,22 @@ HtmlElement *HtmlTokenByIndex(HtmlWidget *htmlPtr, int N, int flag){
   HtmlElement *p;
   int n;
 
+  if (!N) 
+    return htmlPtr->pFirst;
   if( N > htmlPtr->nToken/2 ){
     /* Start at the end and work back toward the beginning */
     for(p=htmlPtr->pLast, n=htmlPtr->nToken; p; p=p->base.pPrev){
       if( p->base.type!=Html_Block ){
-        if( n==N ){ break; }
+        if( p->base.id==N ){ break; }
         n--;
-      }else{
       }
     }
   }else{
     /* Start at the beginning and work forward */
     for(p=htmlPtr->pFirst; p; p = p->base.pNext){
       if( p->base.type!=Html_Block ){
-        N--;
-        if( N<=0 ){ break; }
-      }else{
+/*        N--; */
+        if( N==p->base.id ){ break; }
       }
     }
   }
@@ -64,10 +65,12 @@ HtmlElement *HtmlTokenByIndex(HtmlWidget *htmlPtr, int N, int flag){
 int HtmlTokenNumber(HtmlElement *p){
   int n = 0;
 
+  if (!p) return -1;
+  return p->base.id;
+
   while( p ){
     if( p->base.type!=Html_Block ){ 
       n++;
-    }else{
     }
     p = p->base.pPrev;
   }
@@ -77,17 +80,17 @@ int HtmlTokenNumber(HtmlElement *p){
 /*
 ** Find the maximum index for the given token
 */
-static void maxIndex(HtmlElement *p, int *pIndex){
+static void maxIndex(HtmlElement *p, int *pIndex, int islast){
   if( p==0 ){
     *pIndex = 0;
   }else{
     switch( p->base.type ){
       case Html_Text:
-        *pIndex = p->base.count-1;
+        *pIndex = p->base.count-islast;
         break;
       case Html_Space:
         if( p->base.style.flags & STY_Preformatted ){
-          *pIndex = p->base.count-1;
+          *pIndex = p->base.count-islast;
         }else{
           *pIndex = 0;
         }
@@ -99,6 +102,7 @@ static void maxIndex(HtmlElement *p, int *pIndex){
   }
 }
 
+#ifndef _TCLHTML_
 /*
 ** Given a Block and an x coordinate, find the Index of the character
 ** that is closest to the given x coordinate.
@@ -143,14 +147,12 @@ static void FindIndexInBlock(
     p = *ppToken;
     if( p && p->base.type==Html_Text ){
       *pIndex = p->base.count - 1;
-    }else{
     }
     return;
   }
   if( pBlock->n==0 ){
     *ppToken = p;
     *pIndex = 0;
-  }else{
   }
   n = Tk_MeasureChars(font, pBlock->z, pBlock->n, x - pBlock->left, 0, &len);
   *pIndex = 0;
@@ -190,6 +192,7 @@ static void FindIndexInBlock(
     }
   }
 }
+#endif /* _TCLHTML_ */
 
 /*
 ** Convert an Element-based index into a Block-based index.
@@ -206,7 +209,7 @@ void HtmlIndexToBlockIndex(
   int *piIndex                /* Write the block index here */
 ){
   int n = sIndex.i;
-  HtmlElement *p;
+  HtmlElement *p,*lp;
 
   if( sIndex.p==0 ){
     *ppBlock = 0;
@@ -229,6 +232,7 @@ void HtmlIndexToBlockIndex(
       default:
         break;
     }
+    lp=p;
     p = p->base.pPrev;
   }
   if( p ){
@@ -243,6 +247,51 @@ void HtmlIndexToBlockIndex(
 }
 
 
+/* Modify an index for both pointer and char +/-/=N */
+int HtmlIndexMod( HtmlWidget *htmlPtr,  HtmlElement** pp, int *ip, char *cp) {
+  char nbuf[50];
+  int i, x, cnt, ccnt[2], cflag[2];
+  if (pp==0 || !*pp) return -1;
+  ccnt[0]=ccnt[1]=cflag[0]=cflag[1]=0;
+  x=0;
+  while (*cp && x<2) {
+    cnt=0;
+    i=1;
+    while (i<45 && isdigit(cp[i])) nbuf[i-1]=cp[i++];
+    if (i>1) {
+      nbuf[i-1]=0;
+      cnt=atoi(nbuf);
+      if (cnt<0) return -1;
+    }
+    switch (*cp) {
+      case '+': if (i==1) ccnt[x]=1; else ccnt[x]=cnt; break;
+      case '-': if (i==1) ccnt[x]=-1; else ccnt[x]=-cnt; break;
+      case '=': ccnt[x]=0; cflag[x]=1; break;
+      default: return -1;
+    }
+    cp+=i;
+    x++;
+  }
+  if (ccnt[0]>0) {
+    for (i=0; i<ccnt[0] && (*pp)->pNext; i++) {
+      *pp=(*pp)->pNext;
+      while ((*pp)->base.type==Html_Block && (*pp)->pNext) 
+        *pp=(*pp)->pNext;
+    }
+  } else if (ccnt[0]<0) {
+    for (i=0; ccnt[0]<i && (*pp)->base.pPrev; i--) {
+      printf("i=%d,cnt=%d\n",i,ccnt[0]);
+      *pp=(*pp)->base.pPrev;
+      while ((*pp)->base.type==Html_Block && (*pp)->base.pPrev) 
+        *pp=(*pp)->base.pPrev;
+    }
+  }
+  if (ccnt[1]>0)
+    for (i=0; i<ccnt[1]; i++) (*ip)++;
+  else if (ccnt[1]<0)
+    for (i=0; i>ccnt[1]; i--) (*ip)--;
+  return 0;
+}
 
 /*
 ** Given a base index name (without any modifiers) return a pointer
@@ -253,17 +302,27 @@ void HtmlIndexToBlockIndex(
 **       N.M          Token number N (with numbering starting at 1) and
 **                    character number M (with numbering starting at 0).
 **
+**       M.X	      Like above, but token is markup and X is an attribute.
+**
+**       begin        The start of all text
+**
 **       end          The end of all text
 **
 **       N.last       Last character of token number N.
+**
+**       N.end        One past last character of token number N.
 **
 **       sel.first    First character of the selection.
 **
 **       sel.last     Last character of the selection.
 **
-**       ins          The character holding the insertion cursor.
+**       sel.end      On past last character of the selection.
+**
+**       insert       The character holding the insertion cursor.
 **
 **       @X,Y         The character a location X,Y of the clipping window.
+**
+**       &DOM         The DOM Address of a token.
 **
 ** Zero is returned if we are successful and non-zero if there is
 ** any kind of error.
@@ -274,7 +333,7 @@ void HtmlIndexToBlockIndex(
 */
 static int DecodeBaseIndex(
   HtmlWidget *htmlPtr,     /* The HTML widget we are dealing with */
-  const char *zBase,       /* The base index string */
+  const char *Baseind,     /* The base index string */
   HtmlElement **ppToken,   /* Write the pointer to the token here */
   int *pIndex              /* Write the character offset here */
 ){
@@ -286,15 +345,21 @@ static int DecodeBaseIndex(
   HtmlBlock *pNearby;
   int dist = 1000000;
   int rc = 0;
-
+  char buf[200], *zBase=buf, *suffix, *ep;
+  strncpy(buf,Baseind,sizeof(buf));
+  buf[sizeof(buf)-1]=0;
   while( isspace(*zBase) ){ zBase++; }
+  ep=zBase;
+  while (*ep && !isspace(*ep)) ep++;
+  *ep=0;
+  if ((suffix=strchr(zBase,':'))) *suffix=0;
+
   switch( *zBase ){
     case '1': case '2': case '3': case '4': case '5':
-    case '6': case '7': case '8': case '9':
+    case '6': case '7': case '8': case '9': case '0':
       n = sscanf(zBase,"%d.%d",&x,&y);
       if( n>0 ){
         p = *ppToken = HtmlTokenByIndex(htmlPtr, x, 0);
-      }else{
       }
       if( n==2 ){
         *pIndex = y;
@@ -303,16 +368,38 @@ static int DecodeBaseIndex(
         if( zBase[i]==0 ){
           *pIndex = 0;
         }else if( strcmp(&zBase[i],".last")==0 ){
-          maxIndex(p,pIndex);
+          maxIndex(p,pIndex,1);
+        }else if( strcmp(&zBase[i],".end")==0 ){
+          maxIndex(p,pIndex,0);
+          (*pIndex)++;
         }else{
-          rc = 1;
+          if (n==1 && p && HtmlIsMarkup(p) && zBase[i]=='.' && 
+	    HtmlMarkupArg(p,zBase+i+1,0)) *pIndex = 0;
+	  else
+            rc = 1;
         }
+      }
+      break;
+    case 'b':
+      if( strcmp(zBase,"begin")==0 ){
+        p = *ppToken = htmlPtr->pFirst;
+        *pIndex=0;
+      }else{
+        rc = 1;
       }
       break;
     case 'e':
       if( strcmp(zBase,"end")==0 ){
         p = *ppToken = htmlPtr->pLast;
-        maxIndex(p,pIndex);
+        maxIndex(p,pIndex,0);
+      }else{
+        rc = 1;
+      }
+      break;
+    case 'l':
+      if( strcmp(zBase,"last")==0 ){
+        p = *ppToken = htmlPtr->pLast;
+        maxIndex(p,pIndex,1);
       }else{
         rc = 1;
       }
@@ -324,6 +411,9 @@ static int DecodeBaseIndex(
       }else if( strcmp(zBase,"sel.last")==0 ){
         *ppToken = htmlPtr->selEnd.p;
         *pIndex = htmlPtr->selEnd.i;
+      }else if( strcmp(zBase,"sel.end")==0 ){
+        *ppToken = htmlPtr->selEnd.p;
+        *pIndex = htmlPtr->selEnd.i+1;
       }else{
         rc = 1;
       }
@@ -336,7 +426,15 @@ static int DecodeBaseIndex(
         rc = 1;
       }
       break;
+    case '&':
+      *pIndex=0;
+      if (HtmlDomIdLookup(htmlPtr, "id", zBase+1, ppToken))
+	rc=1;
+      break;
     case '@':
+#ifdef _TCLHTML_
+      rc=1;
+#else
       n = sscanf(zBase,"@%d,%d",&x,&y);
       if( n!=2 ){
         rc = 1;
@@ -371,13 +469,11 @@ static int DecodeBaseIndex(
               if( pBlock->left - x < dist ){
                 dist = pBlock->left - x;
                 pNearby = pBlock;
-              }else{
               }
             }else if( pBlock->right < x ){
               if( x - pBlock->right < dist ){
                 dist = x - pBlock->right;
                 pNearby = pBlock;
-              }else{
               }
             }else{
               HtmlLock(htmlPtr);
@@ -404,7 +500,6 @@ static int DecodeBaseIndex(
             if( distX + 4*distY < dist ){
               dist = distX + 4*distY;
               pNearby = pBlock;
-            }else{
             }
           }
         }
@@ -414,15 +509,15 @@ static int DecodeBaseIndex(
           HtmlLock(htmlPtr);
           FindIndexInBlock(htmlPtr, pNearby, x, ppToken, pIndex);
           if( HtmlUnlock(htmlPtr) ) return 1;
-        }else{
         }
-      }else{
       }
       break;
+#endif /* _TCLHTML_ */
     default:
       rc = 1;
       break;
   }
+  if (suffix) HtmlIndexMod(htmlPtr,ppToken,pIndex,suffix+1);
   return rc;
 }
 
