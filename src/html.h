@@ -1,6 +1,6 @@
 /*
 ** Structures and typedefs used by the HTML widget
-** $Revision: 1.1 $
+** $Revision: 1.2 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -97,23 +97,33 @@ struct HtmlStyle {
 }
 
 /*
-** We allow 4 different font families:  Normal, Bold, Italic and Constant
-** Width.  Within each family there can be up to 7 font sizes from 1
+** We allow 8 different font families:  Normal, Bold, Italic and 
+** Bold-Italic in either variable or constant width.
+** Within each family there can be up to 7 font sizes from 1
 ** (the smallest) up to 7 (the largest).  Hence, the widget can use
-** a maximum of 28 fonts.  The ".font" field of the style is an integer
-** between 0 and 27 which indicates which font to use.
+** a maximum of 56 fonts.  The ".font" field of the style is an integer
+** between 0 and 55 which indicates which font to use.
 */
-#define N_FONT_FAMILY   4
-#define N_FONT_SIZE     7
-#define N_FONT          (N_FONT_FAMILY*N_FONT_SIZE)
-#define NormalFont(X)   (X)
-#define BoldFont(X)     ((X)+N_FONT_SIZE)
-#define ItalicFont(X)   ((X)+2*N_FONT_SIZE)
-#define CWFont(X)       ((X)+3*N_FONT_SIZE)
-#define FontSize(X)     ((X)%N_FONT_SIZE)
-#define FontFamily(X)   (((X)/N_FONT_SIZE)*N_FONT_SIZE)
-#define FONT_Any        -1
-#define FONT_Default    2
+#define N_FONT_FAMILY     8
+#define N_FONT_SIZE       7
+#define N_FONT            (N_FONT_FAMILY*N_FONT_SIZE)
+#define NormalFont(X)     (X)
+#define BoldFont(X)       ((X)+N_FONT_SIZE)
+#define ItalicFont(X)     ((X)+2*N_FONT_SIZE)
+#define CWFont(X)         ((X)+4*N_FONT_SIZE)
+#define FontSize(X)       ((X)%N_FONT_SIZE)
+#define FontFamily(X)     (((X)/N_FONT_SIZE)*N_FONT_SIZE)
+#define FONT_Any           -1
+#define FONT_Default      2
+#define FontSwitch(Size, Bold, Italic, Cw) \
+                          ((Size)+(Bold+(Italic)*2+(Cw)*4)*N_FONT_SIZE)
+
+/*
+** Macros for manipulating the fontValid bitmap of an HtmlWidget structure.
+*/
+#define FontIsValid(H,I)     (((H)->fontValid[(I)>>3] & (1<<((I)&3)))!=0)
+#define FontSetValid(H,I)    ((H)->fontValid[(I)>>3] |= (1<<((I)&3)))
+#define FontClearValid(H,I)  ((H)->fontValid[(I)>>3] &= ~(1<<((I)&3)))
 
 /*
 ** Information about available colors.
@@ -764,8 +774,8 @@ struct HtmlWidget {
   XColor *highlightColorPtr;	/* Color for drawing traversal highlight. */
   int inset;			/* Total width of highlight and 3-D border */
   Tk_Font aFont[N_FONT];	/* Information about all screen fonts */
-  int fontValid;                /* If bit N of this word is clear, that means
-                                 * aFont[N] needs to be reallocated before
+  char fontValid[(N_FONT+7)/8]; /* If bit N%8 of work N/8 of this field is 0
+                                 * if aFont[N] needs to be reallocated before
                                  * being used. */
   XColor *apColor[N_COLOR];     /* Information about all colors */
   int colorUsed;                /* bit N is 1 if color N is in use.  Only
@@ -800,26 +810,15 @@ struct HtmlWidget {
   char *zGetImage;              /* Command to get an image from a URL */
   char *zFrameCommand;          /* Command for handling <frameset> markup */
   char *zAppletCommand;         /* Command to process applets */
+  char *zResolverCommand;       /* Command to resolve URIs */
   char *zFormCommand;           /* When user presses Submit */
   char *zHyperlinkCommand;      /* Invoked when a hyperlink is clicked */
-
-  /* The next group of files hold information about the various font families
-  ** and allowed sizes.  Each font family is a font string with an embedded
-  ** "%d" string.  The font sizes is an array of 7 integers that are
-  ** substituted for the %d to form the correct font name.
-  */
-  char *normalFontFamily;     
-  char *normalFontSize;
-  char *boldFontFamily;
-  char *boldFontSize;
-  char *italicFontFamily;
-  char *italicFontSize;
-  char *cwFontFamily;
-  char *cwFontSize;
+  char *zFontCommand;           /* Invoked to find font names */
 
    /*
     * Miscellaneous information:
     */
+  char *zBase;                  /* The base URI */
   char *zProtocol;              /* Protocol used to retrieve document */
   char *zHost;                  /* Host from which document retrieved */
   char *zDir;                   /* Directory containing the document */
@@ -916,15 +915,9 @@ struct HtmlWidget {
 */
 #define DEF_HTML_BG_COLOR             DEF_FRAME_BG_COLOR
 #define DEF_HTML_BG_MONO              DEF_FRAME_BG_MONO
-#define DEF_HTML_BOLD_FONT_FAMILY \
-   "-adobe-helvetica-bold-r-normal-*-%d-*-75-75-p-*-iso8859-1"
-#define DEF_HTML_BOLD_FONT_SIZE       "8 10 12 14 14 18 24"
 #define DEF_HTML_BORDER_WIDTH         "2"
 #define DEF_HTML_CALLBACK             ""
 #define DEF_HTML_CURSOR               DEF_FRAME_CURSOR
-#define DEF_HTML_CW_FONT_FAMILY \
-   "-adobe-courier-medium-r-normal-*-%d-*-75-75-c-*-iso8859-1"
-#define DEF_HTML_CW_FONT_SIZE         "8 10 12 14 14 18 24"
 #define DEF_HTML_EXPORT_SEL           "yes"
 #define DEF_HTML_FG                   DEF_BUTTON_FG
 #define DEF_HTML_HEIGHT               "400"
@@ -933,12 +926,6 @@ struct HtmlWidget {
 #define DEF_HTML_HIGHLIGHT_WIDTH      "0"
 #define DEF_HTML_INSERT_OFF_TIME      "300"
 #define DEF_HTML_INSERT_ON_TIME       "600"
-#define DEF_HTML_ITALIC_FONT_FAMILY \
-   "-adobe-helvetica-medium-o-normal-*-%d-*-75-75-p-*-iso8859-1"
-#define DEF_HTML_ITALIC_FONT_SIZE     "8 10 12 14 14 18 24"
-#define DEF_HTML_NORMAL_FONT_FAMILY \
-   "-adobe-helvetica-medium-r-normal-*-%d-*-75-75-p-*-iso8859-1"
-#define DEF_HTML_NORMAL_FONT_SIZE     "8 10 12 14 14 18 24"
 #define DEF_HTML_PADX                 "5"
 #define DEF_HTML_PADY                 "5"
 #define DEF_HTML_RELIEF               "raised"

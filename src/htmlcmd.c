@@ -1,6 +1,6 @@
 /*
 ** Routines to implement the HTML widget commands
-** $Revision: 1.2 $
+** $Revision: 1.3 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -65,6 +65,21 @@ int HtmlBaseCmd(
     TestPoint(0);
   }
   return TCL_OK;
+}
+
+/*
+** WIDGET resolve ?URI ...?
+**
+** Call the TCL command specified by the -resolvercommand option
+** to resolve the URL.
+*/
+int HtmlResolveCmd(
+  HtmlWidget *htmlPtr,   /* The HTML widget */
+  Tcl_Interp *interp,    /* The interpreter */
+  int argc,              /* Number of arguments */
+  char **argv            /* List of all arguments */
+){
+  return HtmlCallResolver(htmlPtr, argv+2);
 }
 
 /*

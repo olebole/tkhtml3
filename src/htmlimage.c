@@ -1,6 +1,6 @@
 /*
 ** Routines used for processing <IMG> markup
-** $Revision: 1.2 $
+** $Revision: 1.3 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -25,6 +25,7 @@
 */
 #include <tk.h>
 #include <string.h>
+#include <stdlib.h>
 #include "htmlimage.h"
 
 /*
@@ -126,6 +127,7 @@ HtmlImage *HtmlGetImage(HtmlWidget *htmlPtr, HtmlElement *p){
   char *zHeight;
   char *zSrc;
   char *zImageName;
+  char *azSeq[3];
   HtmlImage *pImage;
   int i;
   int result;
@@ -136,8 +138,12 @@ HtmlImage *HtmlGetImage(HtmlWidget *htmlPtr, HtmlElement *p){
     TestPoint(0);
     return 0;
   }
-  zSrc = HtmlMarkupArg(p, "src", "");
-  zSrc = HtmlCompleteUrl(htmlPtr, zSrc);
+  azSeq[0] = HtmlMarkupArg(p, "src", "");
+  azSeq[1] = 0;
+  zSrc = "";
+  if( azSeq[0]!=0 && HtmlCallResolver(htmlPtr, azSeq)==TCL_OK ){
+    zSrc = htmlPtr->interp->result;
+  }
   zWidth = HtmlMarkupArg(p, "width", "");
   zHeight = HtmlMarkupArg(p, "height", "");
   for(pImage=htmlPtr->imageList; pImage; pImage=pImage->pNext){
@@ -170,7 +176,7 @@ HtmlImage *HtmlGetImage(HtmlWidget *htmlPtr, HtmlElement *p){
   pImage->htmlPtr = htmlPtr;
   pImage->zUrl = (char*)&pImage[1];
   strcpy(pImage->zUrl,zSrc);
-  ckfree(zSrc);
+  Tcl_ResetResult(htmlPtr->interp);
   pImage->w = 0;
   pImage->h = 0;
   if( result==TCL_OK ){

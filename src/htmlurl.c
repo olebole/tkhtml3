@@ -1,6 +1,6 @@
 /*
 ** Routines for processing URLs.
-** $Revision: 1.2 $
+** $Revision: 1.3 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -26,7 +26,59 @@
 #include <tk.h>
 #include <ctype.h>
 #include <string.h>
+#include <stdlib.h>
 #include "htmlurl.h"
+
+/*
+** The input azSeries[] is a sequence of URIs.  This command must
+** resolve them all and put the result in the interp->result field
+** of the interpreter associated with the HTML widget.  Return 
+** TCL_OK on success and TCL_ERROR if there is a failure.
+**
+** This function can cause the HTML widget to be deleted or changed
+** arbitrarily.  The calling function should take suitable precautions
+** to protect vulnerable data structures.  This function might be
+** called recursively.
+*/
+int HtmlCallResolver(
+  HtmlWidget *htmlPtr,      /* The widget that is doing the resolving. */
+  char **azSeries           /* A list of URIs.  NULL terminated */
+){
+  int rc = TCL_OK;          /* Return value of this function. */
+
+  if( htmlPtr->zResolverCommand && htmlPtr->zResolverCommand[0] ){
+    /*
+    ** Append the current base URI then the azSeries arguments to the
+    ** TCL command specified by the -resolvercommand optoin, then execute
+    ** the result.
+    **
+    ** The -resolvercommand could do nasty things, such as delete
+    ** the HTML widget out from under us.  Be prepared for the worst.
+    */
+    Tcl_DString cmd;
+    Tcl_DStringInit(&cmd);
+    Tcl_DStringAppend(&cmd, htmlPtr->zResolverCommand, -1);
+    if( htmlPtr->zBase && htmlPtr->zBase[0] ){
+      Tcl_DStringAppendElement(&cmd, htmlPtr->zBase);
+    }
+    while( azSeries[0] ){
+      Tcl_DStringAppendElement(&cmd, azSeries[0]);
+      azSeries++;
+    }
+    rc = Tcl_GlobalEval(htmlPtr->interp, Tcl_DStringValue(&cmd));
+    Tcl_DStringFree(&cmd);
+    if( rc!=TCL_OK ){
+      Tcl_AddErrorInfo(htmlPtr->interp,
+         "\n    (-resolvercommand executed by HTML widget)");
+    }
+  }else{
+    /*
+    ** No -resolvercommand has been specified.  Do the default
+    ** resolver algorithm. 
+    */
+  }
+  return rc;
+}
 
 /*
 ** Return the length of the protocol identifier string at the beginning

@@ -1,6 +1,6 @@
 /*
 ** Routines used to render HTML onto the screen for the Tk HTML widget.
-** $Revision: 1.2 $
+** $Revision: 1.3 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -25,6 +25,7 @@
 */
 #include <tk.h>
 #include <string.h>
+#include <stdlib.h>
 #include "htmldraw.h"
 
 #define USE_TK_DRAWCHARS 1

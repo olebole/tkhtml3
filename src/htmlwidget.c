@@ -1,6 +1,6 @@
 /*
 ** The main routine for the HTML widget for Tcl/Tk
-** $Revision: 1.2 $
+** $Revision: 1.3 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -63,12 +63,6 @@ Tk_ConfigSpec configSpecs[] = {
     {TK_CONFIG_BORDER, "-background", "background", "Background",
 	DEF_HTML_BG_MONO, Tk_Offset(HtmlWidget, border),
 	TK_CONFIG_MONO_ONLY},
-    {TK_CONFIG_STRING, "-boldfontfamily", "fontFamily", "FontFamily",
-	DEF_HTML_BOLD_FONT_FAMILY, 
-        Tk_Offset(HtmlWidget, boldFontFamily), 0},
-    {TK_CONFIG_STRING, "-boldfontsize", "fontSize", "FontSize",
-	DEF_HTML_BOLD_FONT_SIZE, 
-        Tk_Offset(HtmlWidget, boldFontSize), 0},
     {TK_CONFIG_SYNONYM, "-bd", "borderWidth", (char *) NULL,
 	(char *) NULL, 0, 0},
     {TK_CONFIG_SYNONYM, "-bg", "background", (char *) NULL,
@@ -77,22 +71,12 @@ Tk_ConfigSpec configSpecs[] = {
 	DEF_HTML_BORDER_WIDTH, Tk_Offset(HtmlWidget, borderWidth), 0},
     {TK_CONFIG_ACTIVE_CURSOR, "-cursor", "cursor", "Cursor",
 	DEF_HTML_CURSOR, Tk_Offset(HtmlWidget, cursor), TK_CONFIG_NULL_OK},
-    {TK_CONFIG_STRING, "-cwfontfamily", "fontFamily", "FontFamily",
-	DEF_HTML_CW_FONT_FAMILY, 
-        Tk_Offset(HtmlWidget, cwFontFamily), 0},
-    {TK_CONFIG_STRING, "-cwfontsize", "fontSize", "FontSize",
-	DEF_HTML_CW_FONT_SIZE, 
-        Tk_Offset(HtmlWidget, cwFontSize), 0},
     {TK_CONFIG_BOOLEAN, "-exportselection", "exportSelection","ExportSelection",
         DEF_HTML_EXPORT_SEL, Tk_Offset(HtmlWidget, exportSelection), 0},
     {TK_CONFIG_SYNONYM, "-fg", "foreground", (char *) NULL,
 	(char *) NULL, 0, 0},
-    {TK_CONFIG_STRING, "-fontfamily", "fontFamily", "FontFamily",
-	DEF_HTML_NORMAL_FONT_FAMILY, 
-        Tk_Offset(HtmlWidget, normalFontFamily), 0},
-    {TK_CONFIG_STRING, "-fontsize", "fontSize", "FontSize",
-	DEF_HTML_NORMAL_FONT_SIZE, 
-        Tk_Offset(HtmlWidget, normalFontSize), 0},
+    {TK_CONFIG_STRING, "-fontcommand", "fontCommand", "FontCommand",
+        DEF_HTML_CALLBACK, Tk_Offset(HtmlWidget, zFontCommand), 0},
     {TK_CONFIG_COLOR, "-foreground", "foreground", "Foreground",
 	DEF_HTML_FG, Tk_Offset(HtmlWidget, fgColor), 0},
     {TK_CONFIG_STRING, "-formcommand", "formlCommand", "HtmlCallback",
@@ -119,18 +103,14 @@ Tk_ConfigSpec configSpecs[] = {
         DEF_HTML_INSERT_ON_TIME, Tk_Offset(HtmlWidget, insOnTime), 0},
     {TK_CONFIG_STRING, "-isvisitedcommand", "isVisitedCommand", "HtmlCallback",
         DEF_HTML_CALLBACK, Tk_Offset(HtmlWidget, zIsVisited), 0},
-    {TK_CONFIG_STRING, "-italicfontfamily", "fontFamily", "FontFamily",
-	DEF_HTML_ITALIC_FONT_FAMILY, 
-        Tk_Offset(HtmlWidget, italicFontFamily), 0},
-    {TK_CONFIG_STRING, "-italicfontsize", "fontSize", "FontSize",
-	DEF_HTML_ITALIC_FONT_SIZE, 
-        Tk_Offset(HtmlWidget, italicFontSize), 0},
     {TK_CONFIG_PIXELS, "-padx", "padX", "Pad",
 	DEF_HTML_PADX, Tk_Offset(HtmlWidget, padx), 0},
     {TK_CONFIG_PIXELS, "-pady", "padY", "Pad",
 	DEF_HTML_PADY, Tk_Offset(HtmlWidget, pady), 0},
     {TK_CONFIG_RELIEF, "-relief", "relief", "Relief",
 	DEF_HTML_RELIEF, Tk_Offset(HtmlWidget, relief), 0},
+    {TK_CONFIG_STRING, "-resolvercommand", "resolverCommand", "HtmlCallback",
+        DEF_HTML_CALLBACK, Tk_Offset(HtmlWidget, zResolverCommand), 0},
     {TK_CONFIG_COLOR, "-selectioncolor", "background", "Background",
 	DEF_HTML_SELECTION_COLOR, Tk_Offset(HtmlWidget, selectionColor), 0},
     {TK_CONFIG_STRING, "-takefocus", "takeFocus", "TakeFocus",
@@ -821,32 +801,6 @@ static void HtmlRecomputeGeometry(HtmlWidget *htmlPtr){
 }
 
 /*
-** Make sure that the given font string has no more than one %d and
-** no other instances of the % character.
-*/
-static void SanitizeFontString(char *z){
-  int seen = 0;
-  if( z==0 ) return;
-  while( *z ){
-    if( *z=='%' ){
-      if( z[1]=='%' ){
-        z++;
-        TestPoint(0);
-      }else if( z[1]=='d' && !seen ){
-        seen = 1;
-        TestPoint(0);
-      }else{
-        *z = '#';
-        TestPoint(0);
-      }
-    }else{
-      TestPoint(0);
-    }
-    z++;
-  }
-}
-
-/*
 ** This routine is called in order to process a "configure" subcommand
 ** on the given html widget.
 */
@@ -861,15 +815,11 @@ int ConfigureHtmlWidget(
   rc = Tk_ConfigureWidget(interp, htmlPtr->tkwin, configSpecs, argc, argv,
                          (char *) htmlPtr, flags);
   if( rc!=TCL_OK ){ TestPoint(0); return rc; }
-  htmlPtr->fontValid = 0;
+  memset(htmlPtr->fontValid, 0, sizeof(htmlPtr->fontValid));
   htmlPtr->apColor[COLOR_Normal] = htmlPtr->fgColor;
   htmlPtr->apColor[COLOR_Visited] = htmlPtr->oldLinkColor;
   htmlPtr->apColor[COLOR_Unvisited] = htmlPtr->newLinkColor;
   htmlPtr->apColor[COLOR_Selection] = htmlPtr->selectionColor;
-  SanitizeFontString(htmlPtr->normalFontFamily);
-  SanitizeFontString(htmlPtr->boldFontFamily);
-  SanitizeFontString(htmlPtr->italicFontFamily);
-  SanitizeFontString(htmlPtr->cwFontFamily);
   Tk_SetBackgroundFromBorder(htmlPtr->tkwin, htmlPtr->border);
   if( htmlPtr->highlightWidth < 0 ){ htmlPtr->highlightWidth = 0; TestPoint(0);}
   if (htmlPtr->padx < 0) { htmlPtr->padx = 0; TestPoint(0);}
@@ -1253,6 +1203,12 @@ static void HtmlEventProc(ClientData clientData, XEvent *eventPtr){
 ** The rendering and layout routines should call this routine in order to get
 ** a font structure.  The iFont parameter specifies which of the N_FONT
 ** fonts should be obtained.  The font is allocated if necessary.
+**
+** Because the -fontcommand callback can be invoked, this function can
+** (in theory) cause the HTML widget to be changed arbitrarily or even
+** deleted.  Callers of this function much be prepared to be called
+** recursively and/or to have the HTML widget deleted out from under
+** them.  This return will return NULL if the HTML widget is deleted.
 */
 Tk_Font HtmlGetFont(
   HtmlWidget *htmlPtr,        /* The HTML widget to which the font applies */
@@ -1269,7 +1225,7 @@ Tk_Font HtmlGetFont(
   ** a policy of allocate-before-free because Tk's font cache operates
   ** much more efficiently that way.
   */
-  if( ((1<<iFont) & htmlPtr->fontValid)==0 && htmlPtr->aFont[iFont]!=0 ){
+  if( !FontIsValid(htmlPtr, iFont) && htmlPtr->aFont[iFont]!=0 ){
     toFree = htmlPtr->aFont[iFont];
     htmlPtr->aFont[iFont] = 0;
     TestPoint(0);
@@ -1280,54 +1236,95 @@ Tk_Font HtmlGetFont(
   ** allocate it.
   */
   if( htmlPtr->aFont[iFont]==0 ){
-    char *name;
-    char *familyStr = "";
-    char *sizeStr = "";
-    int iFamily;
-    int iSize;
-    int size;
+    char name[200];     /* Name of the font */
 
-    iFamily = iFont / N_FONT_SIZE;
-    iSize = iFont % N_FONT_SIZE;
-    switch( iFamily ){
-      case 0:    
-        familyStr = htmlPtr->normalFontFamily;
-        sizeStr = htmlPtr->normalFontSize;
-        TestPoint(0);
-        break;
-      case 1:    
-        familyStr = htmlPtr->boldFontFamily;
-        sizeStr = htmlPtr->boldFontSize;
-        TestPoint(0);
-        break;
-      case 2:    
-        familyStr = htmlPtr->italicFontFamily;
-        sizeStr = htmlPtr->italicFontSize;
-        TestPoint(0);
-        break;
-      case 3:    
-        familyStr = htmlPtr->cwFontFamily;
-        sizeStr = htmlPtr->cwFontSize;
-        TestPoint(0);
-        break;
-    }
-    name = ckalloc( strlen(familyStr) + 200 );
-    size = 12;
-    while( sizeStr ){
-      while( *sizeStr && !isdigit(*sizeStr) ){ sizeStr++; }
-      if( iSize==0 ){
-        size = atoi(sizeStr);
-        TestPoint(0);
-        break;
+    name[0] = 0;
+
+    /* Run the -fontcommand if it is specified 
+    */
+    if( htmlPtr->zFontCommand && htmlPtr->zFontCommand[0] ){
+      int iFam;           /* The font family index.  Value between 0 and 7 */
+      Tcl_DString str;    /* The command we'll execute to get the font name */
+      char *zSep = "";    /* Separator between font attributes */
+      int rc;             /* Return code from the font command */
+      char zBuf[100];     /* Temporary buffer */
+
+      Tcl_DStringInit(&str);
+      Tcl_DStringAppend(&str, htmlPtr->zFontCommand, -1);
+      sprintf(zBuf, " %d {", FontSize(iFont)+1);
+      Tcl_DStringAppend(&str,zBuf, -1);
+      iFam = FontFamily(iFont)/N_FONT_FAMILY;
+      if( iFam & 1 ){
+        Tcl_DStringAppend(&str,"bold",-1);
+        zSep = " ";
       }
-      iSize--;
-      while( isdigit(*sizeStr) ){ sizeStr++; TestPoint(0); }
+      if( iFam & 2 ){
+        Tcl_DStringAppend(&str,zSep,-1);
+        Tcl_DStringAppend(&str,"italic",-1);
+        zSep = " ";
+      }
+      if( iFam & 4 ){
+        Tcl_DStringAppend(&str,zSep,-1);
+        Tcl_DStringAppend(&str,"constantwidth",-1);
+      }
+      Tcl_DStringAppend(&str,"}",-1);
+      Tcl_Preserve(htmlPtr);
+      rc = Tcl_GlobalEval(htmlPtr->interp, Tcl_DStringValue(&str));
+      Tcl_DStringFree(&str);
+      if( htmlPtr->tkwin==0 ){
+        Tcl_Release(htmlPtr);
+        return NULL;
+      }
+      if( rc!=TCL_OK ){
+        Tcl_AddErrorInfo(htmlPtr->interp, 
+              "\n    (-fontcommand callback of HTML widget)");
+        Tcl_BackgroundError(htmlPtr->interp);
+      }else{
+        sprintf(name,"%.100s", htmlPtr->interp->result);
+      }
+      Tcl_ResetResult(htmlPtr->interp);
     }
-    sprintf(name,familyStr,size);
-    htmlPtr->aFont[iFont] = 
-      Tk_GetFont(htmlPtr->interp, htmlPtr->tkwin, name);
-    ckfree( name );
-    htmlPtr->fontValid |= (1<<iFont);
+
+    /*
+    ** If the -fontcommand failed or returned an empty string, or if
+    ** there is not -fontcommand, then get the default font name.
+    */
+    if( name[0]==0 ){
+      char *familyStr = "";
+      int iFamily;
+      int iSize;
+      int size;
+
+      iFamily = iFont / N_FONT_SIZE;
+      iSize = iFont % N_FONT_SIZE;
+      switch( iFamily ){
+        case 0:  familyStr = "helvetica -%d";             TestPoint(0); break;
+        case 1:  familyStr = "helvetica -%d bold";        TestPoint(0); break;
+        case 2:  familyStr = "helvetica -%d italic";      TestPoint(0); break;
+        case 3:  familyStr = "helvetica -%d bold italic"; TestPoint(0); break;
+        case 4:  familyStr = "courier -%d";               TestPoint(0); break;
+        case 5:  familyStr = "courier -%d bold";          TestPoint(0); break;
+        case 6:  familyStr = "courier -%d italic";        TestPoint(0); break;
+        case 7:  familyStr = "courier -%d bold italic";   TestPoint(0); break;
+        default: familyStr = "helvetica -14";             CANT_HAPPEN;  break;
+      }
+      switch( iSize ){
+        case 1:  size = 8;   TestPoint(0); break;
+        case 2:  size = 10;  TestPoint(0); break;
+        case 3:  size = 12;  TestPoint(0); break;
+        case 4:  size = 14;  TestPoint(0); break;
+        case 5:  size = 16;  TestPoint(0); break;
+        case 6:  size = 18;  TestPoint(0); break;
+        case 7:  size = 24;  TestPoint(0); break;
+        default: size = 14;  CANT_HAPPEN;  break;
+      }
+      sprintf(name, familyStr, size);
+    }
+
+    /* Get the named font
+    */
+    htmlPtr->aFont[iFont] = Tk_GetFont(htmlPtr->interp, htmlPtr->tkwin, name);
+    FontSetValid(htmlPtr, iFont);
     TestPoint(0);
   }
 
@@ -1559,6 +1556,7 @@ static struct HtmlSubcommand {
   { "insert",    0,         3, 3, "INDEX",               HtmlInsertCmd },
   { "names",     0,         2, 2, 0,                     HtmlNamesCmd },
   { "parse",     0,         3, 3, "HTML-TEXT",           HtmlParseCmd },
+  { "resolve",   0,         2, 0, "?URI ...?",           HtmlResolveCmd },
   { "selection", "clear",   3, 3, 0,                     HtmlSelectionClearCmd},
   { 0,           "set",     5, 5, "START END",           HtmlSelectionSetCmd },
   { "text",      "ascii",   5, 5, "START END",           0 },
