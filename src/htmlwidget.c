@@ -1,5 +1,5 @@
 static char const rcsid[] =
-        "@(#) $Id: htmlwidget.c,v 1.58 2005/03/23 01:36:54 danielk1977 Exp $";
+        "@(#) $Id: htmlwidget.c,v 1.59 2005/03/23 23:56:27 danielk1977 Exp $";
 
 /*
 ** The main routine for the HTML widget for Tcl/Tk
@@ -573,14 +573,26 @@ ResetLayoutContext(htmlPtr)
 }
 
 /*
-** This routine is invoked in order to redraw all or part of the HTML
-** widget.  This might happen because the display has changed, or in
-** response to an expose event.  In all cases, though, this routine
-** is called by an idle callback.
-*/
-void
+ *---------------------------------------------------------------------------
+ *
+ * HtmlRedrawCallback --
+ *
+ *     This routine is invoked in order to redraw all or part of the HTML
+ *     widget.  This might happen because the display has changed, or in
+ *     response to an expose event.  In all cases, though, this routine is
+ *     called by an idle callback.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     Layout engine might be run. The window contents might be modified.
+ *
+ *---------------------------------------------------------------------------
+ */
+void 
 HtmlRedrawCallback(clientData)
-    ClientData clientData;
+    ClientData clientData;          /* The Html widget */
 {
     HtmlWidget *htmlPtr = (HtmlWidget *) clientData;
     Tk_Window tkwin = htmlPtr->tkwin;
@@ -601,8 +613,8 @@ HtmlRedrawCallback(clientData)
     HtmlElement *pElem;
 
     /*
-     ** Don't bother doing anything if the widget is in the process of
-     ** being destroyed, or we are in the middle of a parse.
+     * Don't bother doing anything if the widget is in the process of
+     * being destroyed, or we are in the middle of a parse.
      */
     if (tkwin == 0) {
         goto redrawExit;
@@ -612,21 +624,6 @@ HtmlRedrawCallback(clientData)
         goto redrawExit;
     }
 
-    /*
-     ** Recompute the layout, if necessary or requested.
-     **
-     ** Calling HtmlLayout() is tricky because HtmlLayout() may invoke one
-     ** or more callbacks (thru the "-imagecommand" callback, for instance)
-     ** and these callbacks could, in theory, do nasty things like delete 
-     ** or unmap this widget.  So we have to take precautions:
-     **
-     **   *  Don't remove the REDRAW_PENDING flag until after HtmlLayout()
-     **      has been called, to prevent a recursive call to HtmlRedrawCallback().
-     **
-     **   *  Call HtmlLock() on the htmlPtr structure to prevent it from
-     **      being deleted out from under us.
-     **
-     */
     if ((htmlPtr->flags & RESIZE_ELEMENTS) != 0
         && (htmlPtr->flags & STYLER_RUNNING) == 0) {
         HtmlImage *pImage;
@@ -639,6 +636,8 @@ HtmlRedrawCallback(clientData)
     }
 
     /*
+     * Recompute the layout, if necessary or requested.
+     *
      * We used to make a distinction between RELAYOUT and EXTEND_LAYOUT. **
      * RELAYOUT would be used when the widget was resized, but the ** less
      * compute-intensive EXTEND_LAYOUT would be used when new ** text was
@@ -646,6 +645,18 @@ HtmlRedrawCallback(clientData)
      * arise when ** tables are used.  The quick fix is to make an
      * EXTEND_LAYOUT do ** a complete RELAYOUT.  Someday, we need to fix
      * EXTEND_LAYOUT so ** that it works right... 
+     *
+     * Calling HtmlLayout() is tricky because HtmlLayout() may invoke one
+     * or more callbacks (thru the "-imagecommand" callback, for instance)
+     * and these callbacks could, in theory, do nasty things like delete 
+     * or unmap this widget.  So we have to take precautions:
+     *
+     *   *  Don't remove the REDRAW_PENDING flag until after HtmlLayout()
+     *      has been called, to prevent a recursive call to 
+     *      HtmlRedrawCallback().
+     *
+     *   *  Call HtmlLock() on the htmlPtr structure to prevent it from
+     *      being deleted out from under us.
      */
     if ((htmlPtr->flags & (RELAYOUT | EXTEND_LAYOUT)) != 0
         && (htmlPtr->flags & STYLER_RUNNING) == 0) {

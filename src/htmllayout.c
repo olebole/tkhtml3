@@ -1,5 +1,5 @@
 static char const rcsid[] =
-        "@(#) $Id: htmllayout.c,v 1.35 2005/03/23 01:36:54 danielk1977 Exp $";
+        "@(#) $Id: htmllayout.c,v 1.36 2005/03/23 23:56:27 danielk1977 Exp $";
 
 /*
 ** This file contains the code used to position elements of the
@@ -744,23 +744,34 @@ HtmlComputeMargins(pLC, pX, pY, pW)
 }
 
 /*
-** Clear a wrap-around obstacle.  The second option determines the
-** precise behavior.
-**
-**    CLEAR_Left        Clear all obstacles on the left.
-**
-**    CLEAR_Right       Clear all obstacles on the right.
-**
-**    CLEAR_Both        Clear all obstacles on both sides.
-**
-**    CLEAR_First       Clear only the first obsticle on either side.
 */
 #define CLEAR_Left  0
 #define CLEAR_Right 1
 #define CLEAR_Both  2
 #define CLEAR_First 3
-static void
-ClearObstacle(pLC, mode)
+/*
+ *---------------------------------------------------------------------------
+ *
+ * ClearObstacle --
+ *
+ *     Clear a wrap-around obstacle.  The second option determines the
+ *     precise behavior. An obstacle is called a 'float' in the HTML4 spec.
+ *    
+ *        CLEAR_Left        Clear all obstacles on the left.
+ *        CLEAR_Right       Clear all obstacles on the right.
+ *        CLEAR_Both        Clear all obstacles on both sides.
+ *        CLEAR_First       Clear only the first obsticle on either side.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     Modifies the layout context to move the next element below 
+ *     any obstacles that exist.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void ClearObstacle(pLC, mode)
     HtmlLayoutContext *pLC;
     int mode;
 {
@@ -854,13 +865,25 @@ NextMupType(p)
 }
 
 /*
-** Break markup is any kind of markup that might force a line-break. This
-** routine handles a single element of break markup and returns a pointer
-** to the first element past that markup.  If p doesn't point to break
-** markup, then p is returned.  If p is an incomplete table (a <TABLE>
-** that lacks a </TABLE>), then NULL is returned.
-*/
-static HtmlElement *
+ *---------------------------------------------------------------------------
+ *
+ * DoBreakMarkup --
+ *
+ *     Break markup is any kind of markup that might force a line-break.
+ *     This routine handles a single element of break markup and returns a
+ *     pointer to the first element past that markup.  If p doesn't point
+ *     to break markup, then p is returned.  If p is an incomplete table (a
+ *     <TABLE> that lacks a </TABLE>), then NULL is returned.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static HtmlElement * 
 DoBreakMarkup(pLC, p)
     HtmlLayoutContext *pLC;
     HtmlElement *p;
@@ -1054,6 +1077,10 @@ DoBreakMarkup(pLC, p)
             break;
 
         case Html_BR:
+            /* Default value of "clear" attribute is "none". So if there is
+             * no "clear" attribute defined, we don't need to call
+             * ClearObstacle() at all.
+             */
             z = HtmlMarkupArg(p, "clear", 0);
             if (z) {
                 if (stricmp(z, "left") == 0) {
@@ -1065,8 +1092,6 @@ DoBreakMarkup(pLC, p)
                 else {
                     ClearObstacle(pLC, CLEAR_Both);
                 }
-            }
-            else {
             }
             if (p->pNext && p->pNext->pNext && p->pNext->base.type == Html_Space
                 && p->pNext->pNext->base.type == Html_BR)
@@ -1148,10 +1173,22 @@ HtmlPopIndent(pLC)
 }
 
 /*
-** Do as much layout as possible on the block of text defined by
-** the HtmlLayoutContext.
-*/
-void
+ *---------------------------------------------------------------------------
+ *
+ * HtmlLayoutBlock --
+ *
+ *     Do as much layout as possible on the block of text defined by
+ *     the HtmlLayoutContext.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+void 
 HtmlLayoutBlock(pLC)
     HtmlLayoutContext *pLC;
 {
@@ -1257,7 +1294,20 @@ HtmlLayoutBlock(pLC)
     }
 }
 
-void
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlPushIndent --
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+void 
 HtmlPushIndent(htmlPtr)
     HtmlWidget *htmlPtr;
 {
@@ -1273,9 +1323,21 @@ HtmlPushIndent(htmlPtr)
 }
 
 /*
-** Advance the layout as far as possible
-*/
-void
+ *---------------------------------------------------------------------------
+ *
+ * HtmlLayout --
+ *
+ *     Advance the layout as far as possible
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+void 
 HtmlLayout(htmlPtr)
     HtmlWidget *htmlPtr;
 {

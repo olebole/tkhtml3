@@ -1,7 +1,7 @@
 #define TokenMap(htmlPtr,idx) (htmlPtr->tokenMap?htmlPtr->tokenMap[idx]:(HtmlMarkupMap+idx))
 #define TokenapMap(htmlPtr,idx) (htmlPtr->tokenapMap?htmlPtr->tokenMap[idx]:apMap[idx])
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.37 2005/03/23 01:36:54 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.38 2005/03/23 23:56:27 danielk1977 Exp $";
 
 /*
 ** A tokenizer that converts raw HTML into a linked list of HTML elements.
@@ -18,6 +18,7 @@ static char const rcsid[] =
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>
+#include <assert.h>
 #include "html.h"
 
 /* htmltokens.c is generated from source file tokenlist.txt during the
@@ -744,44 +745,45 @@ HtmlObjCmd1(interp, str, buf, siz)
     return rc;
 }
 
-/* Process as much of the input HTML as possible.  Construct new
-** HtmlElement structures and appended them to the list.  Return
-** the number of characters actually processed.
-**
-** This routine may invoke a callback procedure which could delete
-** the HTML widget. 
-**
-** This routine is not reentrant for the same HTML widget.  To
-** prevent reentrancy (during a callback), the p->iCol field is
-** set to a negative number.  This is a flag to future invocations
-** not to reentry this routine.  The p->iCol field is restored
-** before exiting, of course.
-*/
-static int
+/*
+ *---------------------------------------------------------------------------
+ *
+ * Tokenize --
+ *
+ *     Process as much of the input HTML as possible.  Construct new
+ *     HtmlElement structures and appended them to the list.
+ *
+ * Results:
+ *     Return the number of characters actually processed.
+ *
+ * Side effects:
+ *     This routine is not reentrant for the same HTML widget.  To
+ *     prevent reentrancy (during a callback), the p->iCol field is
+ *     set to a negative number.  This is a flag to future invocations
+ *     not to reentry this routine.  The p->iCol field is restored
+ *     before exiting, of course.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
 Tokenize(p)
-    HtmlWidget *p;                     /* The HTML widget doing the parsing */
+    HtmlWidget *p;               /* The HTML widget doing the parsing */
 {
-    char *z;                           /* The input HTML text */
-    int c;                             /* The next character of input */
-    int n;                             /* Number of characters processed so
-                                        * far */
-    int iCol;                          /* Column of input */
-    int i, j;                          /* Loop counters */
-    int h;                             /* Result from HtmlHash() */
-    int nByte;                         /* Space allocated for a single
-                                        * HtmlElement */
-    HtmlElement *pElem;                /* A new HTML element */
-    int selfClose;                     /* True for content free elements.
-                                        * Ex: <br/> */
-    int argc;                          /* The number of arguments on a markup 
-                                        */
-    HtmlTokenMap *pMap;                /* For searching the markup name hash
-                                        * table */
-    char *zBuf;                        /* For handing out buffer space */
-# define mxARG 200              /* Maximum number of parameters in a single
-                                 * markup */
-    char *argv[mxARG];                 /* Pointers to each markup argument. */
-    int arglen[mxARG];                 /* Length of each markup argument */
+    char *z;                     /* The input HTML text */
+    int c;                       /* The next character of input */
+    int n;                       /* Number of characters processed so far */
+    int iCol;                    /* Column of input */
+    int i, j;                    /* Loop counters */
+    int h;                       /* Result from HtmlHash() */
+    int nByte;                   /* Space allocated for a single HtmlElement */
+    HtmlElement *pElem;          /* A new HTML element */
+    int selfClose;               /* True for content free elements. Ex: <br/> */
+    int argc;                    /* The number of arguments on a markup */
+    HtmlTokenMap *pMap;          /* For searching the markup name hash table */
+    char *zBuf;                  /* For handing out buffer space */
+# define mxARG 200               /* Max parameters in a single markup */
+    char *argv[mxARG];           /* Pointers to each markup argument. */
+    int arglen[mxARG];           /* Length of each markup argument */
     int rl, ol;
     int pIsInScript = 0;
     int pIsInNoScript = 0;
@@ -789,29 +791,41 @@ Tokenize(p)
     int sawdot = 0;
     int inli = 0;
 
+    /* 
+     * Set iCol to -1 to prevent recursive invocation. It is reset at the
+     * end of this function.
+     */
     iCol = p->iCol;
     n = p->nComplete;
     z = p->zText;
     if (iCol < 0) {
         return n;
-    }                           /* Prevents recursion */
+    }
     p->iCol = -1;
+
     pElem = 0;
     while ((c = z[n]) != 0) {
         sawdot--;
+
+        /* DK: What is the significance of -64 and -128? BOM or something? */
         if ((signed char) c == -64 && (signed char) (z[n + 1]) == -128) {
             n += 2;
             continue;
         }
+
+        /*
+         * If HtmlWidget.pScript is not NULL, then we are parsing a node 
+         * that tkhtml treats as a "script". Essentially this means we will
+         * pass the entire text of the node to some user callback for 
+         * processing and take no further action. So we just search through
+         * the text until we encounter </script>, </noscript> or whatever
+         * closing tag matches the tag that opened the script node.
+         */
         if (p->pScript) {
-            /*
-             * We are in the middle of <SCRIPT>...</SCRIPT>.  Just look for
-             * ** the </SCRIPT> markup.  (later:) Treat <STYLE>...</STYLE>
-             * the ** same way. 
-             */
             HtmlScript *pScript = p->pScript;
-            char *zEnd;
+            CONST char *zEnd = 0;
             int nEnd, curline, curch, curlast = n, sqcnt;
+
             if (pScript->markup.base.type == Html_SCRIPT) {
                 zEnd = "</script>";
                 nEnd = 9;
@@ -832,6 +846,8 @@ Tokenize(p)
                 pScript->zScript = &z[n];
                 pScript->nScript = 0;
             }
+            assert(zEnd);
+          
             sqcnt = 0;
             for (i = n + pScript->nScript; z[i]; i++) {
                 if (z[i] == '\'' || z[i] == '"')
@@ -909,10 +925,11 @@ Tokenize(p)
             pIsInNoFrames = 0;
 
         }
+
+        /*
+         * White space 
+         */
         else if (isspace(c)) {
-            /*
-             * White space 
-             */
             for (i = 0;
                  (c = z[n + i]) != 0 && isspace(c) && c != '\n' && c != '\r';
                  i++) {
@@ -958,12 +975,13 @@ Tokenize(p)
             AppendElement(p, pElem);
             n += i;
         }
+
+        /*
+         * Ordinary text 
+         */
         else if (c != '<' || p->iPlaintext != 0 ||
                  (!isalpha(z[n + 1]) && z[n + 1] != '/' && z[n + 1] != '!'
                   && z[n + 1] != '?')) {
-            /*
-             * Ordinary text 
-             */
             for (i = 1; (c = z[n + i]) != 0 && !isspace(c) && c != '<'; i++) {
             }
             if (z[n + i - 1] == '.' || z[n + i - 1] == '!'
@@ -1013,10 +1031,12 @@ Tokenize(p)
             n += i;
             iCol += i;
         }
+
+        /*
+         * An HTML comment. Just skip it. DK: This should be combined
+         * with the script case above to reduce the amount of code.
+         */
         else if (strncmp(&z[n], "<!--", 4) == 0) {
-            /*
-             * An HTML comment.  Just skip it. 
-             */
             for (i = 4; z[n + i]; i++) {
                 if (z[n + i] == '-' && strncmp(&z[n + i], "-->", 3) == 0) {
                     break;
@@ -1045,45 +1065,83 @@ Tokenize(p)
             }
             n += i + 3;
         }
+
+        /* A markup tag (i.e "<p>" or <p color="red"> or </p>). We parse 
+         * this into a vector of strings stored in the argv[] array. The
+         * length of each string is stored in the corresponding element
+         * of arglen[]. Variable argc stores the length of both arrays.
+         *
+         * The first element of the vector is the markup tag name (i.e. "p" 
+         * or "/p"). Each attribute consumes two elements of the vector, 
+         * the attribute name and the value.
+         */
         else {
-            /*
-             * Markup. ** ** First get the name of the markup 
-             */
           doMarkup:
+            /* At this point, &z[n] points to the "<" character that opens
+             * a markup tag. Variable 'i' is used to record the current
+             * position, relative to &z[n], while parsing the tags name
+             * and attributes. The pointer to the tag name, argv[0], is 
+             * therefore &z[n+1].
+             */
             argc = 1;
             argv[0] = &z[n + 1];
-            for (i = 1;
-                 (c = z[n + i]) != 0 && !isspace(c) && c != '>' && (i < 2
-                                                                    || c !=
-                                                                    '/'); i++) {
-            }
-            arglen[0] = i - 1;
-            if (c == 0) {
-                goto incomplete;
-            }
+            assert( c=='<' );
 
-            /*
-             ** Now parse up the arguments
+            /* Increment i until &z[n+i] is the first byte past the
+             * end of the tag name. Then set arglen[0] to the length of
+             * argv[0].
+             */
+            i = 1;
+            do {
+                c = z[n + i];
+            } while( c!=0 && !isspace(c) && c!='>' && (i++<2 || c!='/') );
+            arglen[0] = i - 1;
+
+            /* Now prepare to parse the markup attributes. Advance i until
+             * &z[n+i] points to the first character of the first attribute,
+             * the closing '>' character, the closing "/>" string
+	     * of a self-closing tag, or the end of the document. If the end of
+	     * the document is reached, bail out via the 'incomplete' 
+	     * exception handler.
              */
             while (isspace(z[n + i])) {
                 i++;
             }
-            while ((c = z[n + i]) != 0 && c != '>'
-                   && (c != '/' || z[n + i + 1] != '>')) {
+            if (z[n + i] == 0) {
+                goto incomplete;
+            }
+
+            /* This loop runs until &z[n+i] points to '>', "/>" or the
+             * end of the document. The argv[] array is completely filled
+             * by the time the loop exits.
+             */
+            while (
+                (c = z[n+i]) != 0 &&          /* End of document */
+                (c != '>') &&                 /* '>'             */
+                (c != '/' || z[n+i+1] != '>') /* "/>"            */
+            ){
                 if (argc > mxARG - 3) {
                     argc = mxARG - 3;
                 }
-                argv[argc] = &z[n + i];
+
+                /* Set the next element of the argv[] array to point at
+                 * the attribute name. Then figure out the length of the
+                 * attribute name by searching for one of ">", "=", "/>", 
+                 * white-space or the end of the document.
+                 */
+                argv[argc] = &z[n+i];
                 j = 0;
                 while ((c = z[n + i + j]) != 0 && !isspace(c) && c != '>'
                        && c != '=' && (c != '/' || z[n + i + j + 1] != '>')) {
                     j++;
                 }
                 arglen[argc] = j;
+
                 if (c == 0) {
                     goto incomplete;
                 }
                 i += j;
+
                 while (isspace(c)) {
                     i++;
                     c = z[n + i];
@@ -1136,24 +1194,35 @@ Tokenize(p)
                     i++;
                 }
             }
+            if( c==0 ){
+                goto incomplete;
+            }
+
+            /* If this was a self-closing tag, set selfClose to 1 and 
+             * increment i so that &z[n+i] points to the '>' character.
+             */
             if (c == '/') {
                 i++;
                 c = z[n + i];
                 selfClose = 1;
-            }
-            else {
+            } else {
                 selfClose = 0;
             }
-            if (c == 0) {
-                goto incomplete;
-            }
+            assert( c!=0 );
+
+            /* DK: What the heck does this do? */
             for (j = 0; j < i + 1; j++) {
                 iCol = NextColumn(iCol, z[n + j]);
             }
             n += i + 1;
 
-            /*
-             * Lookup the markup name in the hash table 
+            /* Look up the markup name in the hash table. If it is an unknown
+             * tag, just ignore it by jumping to the next iteration of
+             * the while() loop. The data in argv[] is discarded in this case.
+             *
+             * DK: We jump through hoops to pass a NULL-terminated string to 
+             * HtmlHashLookup(). It would be easy enough to fix 
+             * HtmlHashLookup() to understand a length argument.
              */
             if (!isInit) {
                 HtmlHashInit(p, 0);
@@ -1165,19 +1234,21 @@ Tokenize(p)
             argv[0][arglen[0]] = c;
             if (pMap == 0) {
                 continue;
-            }                   /* Ignore unknown markup */
+            }
 
           makeMarkupEntry:
-            /*
-             * Construct a HtmlMarkup entry for this markup. 
+            /* If we get here, we need to allocate a structure to store
+             * the markup element. This is a custom structure for some
+             * types of markup element, an HtmlBaseElement for a tag 
+             * without any attributes, or an HtmlMarkupElement for a tag
+             * with attributes. pElem is of type HtmlElement - a union of
+             * all potential markup structures.
              */
             if (pMap->extra) {
                 nByte = pMap->extra;
-            }
-            else if (argc == 1) {
+            } else if (argc == 1) {
                 nByte = sizeof(HtmlBaseElement);
-            }
-            else {
+            } else {
                 nByte = sizeof(HtmlMarkupElement);
             }
             if (argc > 1) {
@@ -1190,11 +1261,18 @@ Tokenize(p)
             if (pElem == 0) {
                 goto incomplete;
             }
+
             memset(pElem, 0, nByte);
             pElem->base.type = pMap->type;
             pElem->base.count = argc - 1;
             pElem->base.id = ++p->idind;
             pElem->base.offs = n;
+
+            /* If the tag had attributes, then copy all the attribute names
+             * and values into the space just allocated. Translate escapes
+	     * on the way. The idea is that calling HtmlFree() on pElem frees
+	     * the space used by the attributes as well as the HtmlElement.
+             */
             if (argc > 1) {
                 if (pMap->extra) {
                     pElem->markup.argv =
@@ -1209,7 +1287,6 @@ Tokenize(p)
                     pElem->markup.argv[j - 1] = zBuf;
                     zBuf += arglen[j] + 1;
 
-/*          sprintf(pElem->markup.argv[j-1],"%.*s",arglen[j],argv[j]); */
                     strncpy(pElem->markup.argv[j - 1], argv[j], arglen[j]);
                     pElem->markup.argv[j - 1][arglen[j]] = 0;
                     HtmlTranslateEscapes(pElem->markup.argv[j - 1]);
@@ -1219,6 +1296,7 @@ Tokenize(p)
                 }
                 pElem->markup.argv[argc - 1] = 0;
                 /*
+                 * DK: Don't understand this yet.
                  * Following is just a flag that this is unmodified 
                  */
                 pElem->markup.argv[argc] = (char *) pElem->markup.argv;
@@ -1226,8 +1304,8 @@ Tokenize(p)
             HtmlAddFormInfo(p, pElem);
 
             /*
-             * The new markup has now be constructed in pElem.  But before ** 
-             * appending to the list, check to see if there is a special **
+             * The new markup has now be constructed in pElem.  But before 
+             * appending to the list, check to see if there is a special
              * handler for this markup type. 
              */
             if (p->zHandler[pMap->type]) {
@@ -1259,11 +1337,10 @@ Tokenize(p)
                     Tcl_BackgroundError(p->interp);
                 }
 
-                /*
-                 * Tricky, tricky.  The callback might have caused the
-                 * p->zText ** pointer to change, so renew our copy of that
-                 * pointer.  The ** callback might also have cleared or
-                 * destroyed the widget. ** If so, abort this routine. 
+                /* Tricky, tricky.  The callback might have caused the
+                 * p->zText pointer to change, so renew our copy of that
+                 * pointer.  The callback might also have cleared or
+                 * destroyed the widget. If so, abort this routine. 
                  */
                 z = p->zText;
                 if (z == 0 || p->tkwin == 0) {
@@ -1275,7 +1352,7 @@ Tokenize(p)
             }
 
             /*
-             * No special handler for this markup.  Just append it to the **
+             * No special handler for this markup. Just append it to the 
              * list of all tokens. 
              */
             AppendElement(p, pElem);
@@ -1333,8 +1410,7 @@ Tokenize(p)
                     break;
             }
 
-            /*
-             * If this is self-closing markup (ex: <br/> or <img/>) then **
+            /* If this is self-closing markup (ex: <br/> or <img/>) then
              * synthesize a closing token. 
              */
             if (selfClose && argv[0][0] != '/'
@@ -1346,6 +1422,7 @@ Tokenize(p)
             }
         }
     }
+
   incomplete:
     p->iCol = iCol;
     p->pScript = 0;
@@ -1355,13 +1432,23 @@ Tokenize(p)
 /************************** End HTML Tokenizer Code ***************************/
 
 /*
-** Append text to the tokenizer engine.
-**
-** This routine (actually the Tokenize() subroutine that is called
-** by this routine) may invoke a callback procedure which could delete
-** the HTML widget. 
-*/
-void
+ *---------------------------------------------------------------------------
+ *
+ * HtmlTokenizerAppend --
+ *
+ *     Append text to the tokenizer engine.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     This routine (actually the Tokenize() subroutine that is called
+ *     by this routine) may invoke a callback procedure which could delete
+ *     the HTML widget. 
+ *
+ *---------------------------------------------------------------------------
+ */
+void 
 HtmlTokenizerAppend(htmlPtr, zText, len)
     HtmlWidget *htmlPtr;
     const char *zText;
@@ -1603,22 +1690,35 @@ HtmlTextInsertCmd(clientData, interp, argc, argv)
     return TCL_OK;
 }
 
-/* Lookup markup hash table */
-HtmlTokenMap *
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlHashLookup --
+ *
+ *     Look up an HTML tag name in the hash-table.
+ *
+ * Results: 
+ *     Return the corresponding HtmlTokenMap if the tag name is recognized,
+ *     or NULL otherwise.
+ *
+ * Side effects:
+ *     May initialise the hash table from the autogenerated array
+ *     in htmltokens.c (generated from tokenlist.txt).
+ *
+ *---------------------------------------------------------------------------
+ */
+HtmlTokenMap * 
 HtmlHashLookup(htmlPtr, zType)
     HtmlWidget *htmlPtr;
-    const char *zType;
+    const char *zType;          /* Null terminated tag name. eg. "br" */
 {
-    HtmlTokenMap *pMap;                /* For searching the markup name hash
-                                        * table */
-    int h;                             /* The hash on zType */
+    HtmlTokenMap *pMap;         /* For searching the markup name hash table */
+    int h;                      /* The hash on zType */
     Tcl_HashEntry *entry;
     char buf[256];
     if (!isInit) {
         HtmlHashInit(htmlPtr, 0);
         isInit = 1;
-    }
-    else {
     }
     h = HtmlHash(htmlPtr, zType);
     for (pMap = apMap[h]; pMap; pMap = pMap->pCollide) {

@@ -1,5 +1,5 @@
 static char const rcsid[] =
-        "@(#) $Id: htmlcmd.c,v 1.28 2005/03/23 01:36:54 danielk1977 Exp $";
+        "@(#) $Id: htmlcmd.c,v 1.29 2005/03/23 23:56:27 danielk1977 Exp $";
 
 /*
 ** Routines to implement the HTML widget commands
@@ -199,15 +199,25 @@ HtmlAdvanceLayout(htmlPtr)
 }
 
 /*
-** WIDGET parse HTML
-**
-** Appends the given HTML text to the end of any HTML text that may have
-** been inserted by prior calls to this command.  Then it runs the
-** tokenizer, parser and layout engine as far as possible with the
-** text that is available.  The display is updated appropriately.
-*/
-int
-HtmlParseCmd(clientData, interp, objc, objv)
+ *---------------------------------------------------------------------------
+ *
+ * HtmlParseCmd --
+ * 
+ *     Appends the given HTML text to the end of any HTML text that may have
+ *     been inserted by prior calls to this command.  Then it runs the
+ *     tokenizer, parser and layout engine as far as possible with the text
+ *     that is available.  The display is updated appropriately.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     User callbacks might be invoked. A redraw is scheduled for the next
+ *     idle time.
+ *
+ *---------------------------------------------------------------------------
+ */
+int HtmlParseCmd(clientData, interp, objc, objv)
     ClientData clientData;             /* The HTML widget */
     Tcl_Interp *interp;                /* The interpreter */
     int objc;                          /* Number of arguments */
@@ -222,6 +232,10 @@ HtmlParseCmd(clientData, interp, objc, objv)
     iStart.i = 0;
     htmlPtr->LOendPtr = htmlPtr->pLast;
     HtmlLock(htmlPtr);
+
+    /*
+     * Currently this proc accepts two arguments: -insert and -ypos.
+     */
     for (i = 3; i < (objc - 1); i += 2) {
         arg1 = Tcl_GetString(objv[i]);
         arg2 = Tcl_GetString(objv[i + 1]);
@@ -240,11 +254,20 @@ HtmlParseCmd(clientData, interp, objc, objv)
             htmlPtr->zGoto = (char *) strdup(arg2);
         }
     }
+
+    /* Add the new text to the internal cache of the document. Also tokenize
+     * it and add the new HtmlElement objects to the HtmlWidget.pFirst/pLast 
+     * linked list.
+     */
     arg1 = Tcl_GetStringFromObj(objv[2], &i);
     HtmlTokenizerAppend(htmlPtr, arg1, i);
     if (HtmlIsDead(htmlPtr)) {
         return TCL_OK;
     }
+
+    /* Call HtmlAddStlye to add 'style' to the elements just added to
+     * the list (the entire list if it was initially empty).
+     */
     if (htmlPtr->LOendPtr) {
         htmlPtr->formStart = htmlPtr->LOformStart;
         if (iStart.p && savePtr) {
@@ -258,8 +281,7 @@ HtmlParseCmd(clientData, interp, objc, objv)
         else if (htmlPtr->LOendPtr->pNext) {
             HtmlAddStyle(htmlPtr, htmlPtr->LOendPtr->pNext);
         }
-    }
-    else if (htmlPtr->pFirst) {
+    } else if (htmlPtr->pFirst) {
         htmlPtr->paraAlignment = ALIGN_None;
         htmlPtr->rowAlignment = ALIGN_None;
         htmlPtr->anchorFlags = 0;
@@ -270,12 +292,19 @@ HtmlParseCmd(clientData, interp, objc, objv)
         htmlPtr->nInput = 0;
         HtmlAddStyle(htmlPtr, htmlPtr->pFirst);
     }
+
+    /* Schedule a redraw (idle callback to HtmlRedrawCallback) - or just run
+     * the layout engine if there is no Tk window associated with this html
+     * object (i.e. -tclhtml was passed when it was constructed).
+     */
     if (!HtmlUnlock(htmlPtr)) {
         htmlPtr->flags |= EXTEND_LAYOUT;
         HtmlScheduleRedraw(htmlPtr);
     }
-    if (htmlPtr->TclHtml)
+    if (htmlPtr->TclHtml){
         HtmlLayout(htmlPtr);
+    }
+
     return TCL_OK;
 }
 

@@ -1,5 +1,5 @@
 static char const rcsid[] =
-        "@(#) $Id: htmltcl.c,v 1.9 2005/03/23 01:36:54 danielk1977 Exp $";
+        "@(#) $Id: htmltcl.c,v 1.10 2005/03/23 23:56:27 danielk1977 Exp $";
 
 /*
 ** The main routine for the HTML widget for Tcl/Tk
@@ -211,12 +211,23 @@ HtmlUnlock(htmlPtr)
 }
 
 /*
-** Lock the HTML widget.  This prevents the widget structure from
-** being deleted even if the widget itself is destroyed.  There must
-** be a call to HtmlUnlock() to release the structure.
-*/
-void
-HtmlLock(htmlPtr)
+ *---------------------------------------------------------------------------
+ *
+ * HtmlLock --
+ *
+ *    Lock the HTML widget.  This prevents the widget structure from being
+ *    deleted even if the widget itself is destroyed.  There must be a call
+ *    to HtmlUnlock() to release the structure.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+void HtmlLock(htmlPtr)
     HtmlWidget *htmlPtr;
 {
     htmlPtr->locked++;

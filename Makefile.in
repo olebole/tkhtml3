@@ -12,7 +12,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile.in,v 1.2 2005/03/22 12:07:34 danielk1977 Exp $
+# RCS: @(#) $Id: Makefile.in,v 1.3 2005/03/23 23:56:27 danielk1977 Exp $
 
 #========================================================================
 # Edit the following few lines when writing a new extension
@@ -449,23 +449,23 @@ getpage_headers:	makeheaders
 
 #========================================================================
 
-hwish:	htmlwish.$(OBJEXT) appinit.$(OBJEXT) $(tkhtml_LIB_FILE)
-	$(COMPILE) -o $@ htmlwish.$(OBJEXT) appinit.$(OBJEXT) $(tkhtml_LIB_FILE) $(SHLIB_LD_LIBS)
+hwish:	htmlwish.$(OBJEXT) appinit.$(OBJEXT) $(Tkhtml_LIB_FILE)
+	$(COMPILE) -o $@ htmlwish.$(OBJEXT) appinit.$(OBJEXT) $(Tkhtml_LIB_FILE) $(SHLIB_LD_LIBS)
 
-hwishdev:	htmlwish.$(OBJEXT) appinitdev.$(OBJEXT) $(tkhtml_LIB_FILE)
-	$(COMPILE) -o $@ htmlwish.$(OBJEXT) appinitdev.$(OBJEXT) $(tkhtml_LIB_FILE) $(SHLIB_LD_LIBS)
+hwishdev:	htmlwish.$(OBJEXT) appinitdev.$(OBJEXT) $(Tkhtml_LIB_FILE)
+	$(COMPILE) -o $@ htmlwish.$(OBJEXT) appinitdev.$(OBJEXT) $(Tkhtml_LIB_FILE) $(SHLIB_LD_LIBS)
 
 hv:	hv.$(OBJEXT) hvinit.$(OBJEXT) $(tkhtml_LIB_FILE)
-	$(COMPILE) -o $@ hv.$(OBJEXT) hvinit.$(OBJEXT) $(tkhtml_LIB_FILE) $(SHLIB_LD_LIBS)
+	$(COMPILE) -o $@ hv.$(OBJEXT) hvinit.$(OBJEXT) $(Tkhtml_LIB_FILE) $(SHLIB_LD_LIBS)
 
 hvdev:	hvdev.$(OBJEXT) hvinit.$(OBJEXT) $(tkhtml_LIB_FILE)
-	$(COMPILE) -o $@ hvdev.$(OBJEXT) hvinit.$(OBJEXT) $(tkhtml_LIB_FILE) $(SHLIB_LD_LIBS)
+	$(COMPILE) -o $@ hvdev.$(OBJEXT) hvinit.$(OBJEXT) $(Tkhtml_LIB_FILE) $(SHLIB_LD_LIBS)
 
 ss:	ss.$(OBJEXT) ssinit.$(OBJEXT) $(tkhtml_LIB_FILE)
-	$(COMPILE) -o $@ ss.$(OBJEXT) ssinit.$(OBJEXT) $(tkhtml_LIB_FILE) $(SHLIB_LD_LIBS)
+	$(COMPILE) -o $@ ss.$(OBJEXT) ssinit.$(OBJEXT) $(Tkhtml_LIB_FILE) $(SHLIB_LD_LIBS)
 
 ssdev:	ssdev.$(OBJEXT) ssinit.$(OBJEXT) $(tkhtml_LIB_FILE)
-	$(COMPILE) -o $@ ssdev.$(OBJEXT) ssinit.$(OBJEXT) $(tkhtml_LIB_FILE) $(SHLIB_LD_LIBS)
+	$(COMPILE) -o $@ ssdev.$(OBJEXT) ssinit.$(OBJEXT) $(Tkhtml_LIB_FILE) $(SHLIB_LD_LIBS)
 
 getpage:	getpage.$(OBJEXT) url.$(OBJEXT) sgmlparse.$(OBJEXT) httpget.$(OBJEXT)
 	$(COMPILE) -o $@ getpage.$(OBJEXT) url.$(OBJEXT) sgmlparse.$(OBJEXT) httpget.$(OBJEXT)

@@ -1,5 +1,5 @@
 static char const rcsid[] =
-        "@(#) $Id: htmlexts.c,v 1.9 2005/03/23 01:36:54 danielk1977 Exp $";
+        "@(#) $Id: htmlexts.c,v 1.10 2005/03/23 23:56:27 danielk1977 Exp $";
 
 /*
 ** The extra routines for the HTML widget for Tcl/Tk
@@ -2914,9 +2914,10 @@ HtmlTextFindCmd(clientData, interp, argc, argv)
     HtmlWidget *htmlPtr = (HtmlWidget *) clientData;
     HtmlIndex iStart, iEnd;
     int i, j = 4, after = 1, nocase = 0;
+    char *pat;
+
     iStart.p = iEnd.p = 0;
     iStart.i = iEnd.i = 0;
-    char *pat;
 
     if (!htmlPtr->pFirst)
         return TCL_OK;

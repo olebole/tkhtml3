@@ -29,9 +29,19 @@ close $f
 set h_file [open htmltokens2.h w]
 set c_file [open htmltokens.c w]
 
-puts $h_file {/* DO NOT EDIT
-** The code in this file was automatically generated.
-*/
+set warning {
+/* 
+ * DO NOT EDIT!
+ *
+ * The code in this file was automatically generated. See the files
+ * src/tokenlist.txt and tools/maketokens.tcl from the tkhtml source
+ * distribution.
+ */
+}
+puts $h_file $warning
+puts $c_file $warning
+
+puts $h_file {
 #define Html_Text    1
 #define Html_Space   2
 #define Html_Unknown 3
