@@ -1,6 +1,6 @@
 /*
 ** Routines for processing URLs.
-** $Revision: 1.10 $
+** $Revision: 1.11 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -105,27 +105,28 @@ static HtmlUri *ParseUri(const char *zUri){
   if( p==0 ) return 0;
   memset(p, 0, sizeof(*p));
   if( zUri==0 || zUri[0]==0 ) return p;
-  n = ComponentLength(zUri, "", ":/?#");
+  while( isspace(zUri[0]) ){ zUri++; }
+  n = ComponentLength(zUri, "", ":/?# ");
   if( n>0 && zUri[n]==':' ){
     p->zScheme = StrNDup(zUri, n);
     zUri += n+1;
   }
-  n = ComponentLength(zUri, "//", "/?#");
+  n = ComponentLength(zUri, "//", "/?# ");
   if( n>0 ){
     p->zAuthority = StrNDup(&zUri[2], n-2);
     zUri += n;
   }
-  n = ComponentLength(zUri, "", "?#");
+  n = ComponentLength(zUri, "", "?# ");
   if( n>0 ){
     p->zPath = StrNDup(zUri, n);
     zUri += n;
   }
-  n = ComponentLength(zUri, "?", "#");
+  n = ComponentLength(zUri, "?", "# ");
   if( n>0 ){
     p->zQuery = StrNDup(&zUri[1], n-1);
     zUri += n;
   }
-  n = ComponentLength(zUri, "#", "");
+  n = ComponentLength(zUri, "#", " ");
   if( n>0 ){
     p->zFragment = StrNDup(&zUri[1], n-1);
   }
@@ -196,6 +197,25 @@ static void ReplaceStr(char **pzDest, const char *zSrc){
 }
 
 /*
+** Remove leading and trailing spaces from the given string.  Return
+** a new string obtained from malloc().
+*/
+static char *Trim(char *z){
+  int i;
+  char *zNew;
+  while( isspace(*z) ) z++;
+  i = strlen(z);
+  zNew = ckalloc( i+1 );
+  if( zNew==0 ) return 0;
+  strcpy(zNew, z);
+  if( i>0 && isspace(zNew[i-1]) ){
+    i--;
+    zNew[i] = 0;
+  }
+  return zNew;
+}
+
+/*
 ** The input azSeries[] is a sequence of URIs.  This command must
 ** resolve them all and put the result in the interp->result field
 ** of the interpreter associated with the HTML widget.  Return 
@@ -209,6 +229,7 @@ int HtmlCallResolver(
   char **azSeries           /* A list of URIs.  NULL terminated */
 ){
   int rc = TCL_OK;          /* Return value of this function. */
+  char *z;
 
   HtmlVerifyLock(htmlPtr);
   if( htmlPtr->zResolverCommand && htmlPtr->zResolverCommand[0] ){
@@ -224,15 +245,20 @@ int HtmlCallResolver(
     Tcl_DStringInit(&cmd);
     Tcl_DStringAppend(&cmd, htmlPtr->zResolverCommand, -1);
     if( htmlPtr->zBaseHref && htmlPtr->zBaseHref[0] ){
-      Tcl_DStringAppend(&cmd, " ", 1);
-      Tcl_DStringAppend(&cmd, htmlPtr->zBaseHref, -1);
+      z = Trim(htmlPtr->zBaseHref);
     }else if( htmlPtr->zBase && htmlPtr->zBase[0] ){
-      Tcl_DStringAppend(&cmd, " ", 1);
-      Tcl_DStringAppend(&cmd, htmlPtr->zBase, -1);
+      z = Trim(htmlPtr->zBase);
+    }
+    if( z ){
+      Tcl_DStringAppendElement(&cmd, z);
+      ckfree(z);
     }
     while( azSeries[0] ){
-      Tcl_DStringAppend(&cmd, " ", 1);
-      Tcl_DStringAppend(&cmd, azSeries[0], -1);
+      z = Trim(azSeries[0]);
+      if( z ){
+        Tcl_DStringAppendElement(&cmd, z);
+        ckfree(z);
+      }
       azSeries++;
     }
     HtmlLock(htmlPtr);
