@@ -1,6 +1,6 @@
 /*
 ** The main routine for the HTML widget for Tcl/Tk
-** $Revision: 1.5 $
+** $Revision: 1.6 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -63,6 +63,8 @@ Tk_ConfigSpec configSpecs[] = {
     {TK_CONFIG_BORDER, "-background", "background", "Background",
 	DEF_HTML_BG_MONO, Tk_Offset(HtmlWidget, border),
 	TK_CONFIG_MONO_ONLY},
+    {TK_CONFIG_STRING, "-base", "base", "Base",
+        "", Tk_Offset(HtmlWidget, zBase), 0},
     {TK_CONFIG_SYNONYM, "-bd", "borderWidth", (char *) NULL,
 	(char *) NULL, 0, 0},
     {TK_CONFIG_SYNONYM, "-bg", "background", (char *) NULL,
@@ -944,7 +946,6 @@ static void DestroyHtmlWidget(HtmlWidget *htmlPtr){
       TestPoint(0);
     }
   }
-  HtmlClearUrl(htmlPtr);
   if( htmlPtr->insTimer ){
     Tcl_DeleteTimerHandler(htmlPtr->insTimer);
     htmlPtr->insTimer = 0;

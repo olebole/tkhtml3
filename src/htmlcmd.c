@@ -1,6 +1,6 @@
 /*
 ** Routines to implement the HTML widget commands
-** $Revision: 1.4 $
+** $Revision: 1.5 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -38,6 +38,7 @@ int HtmlBaseCmd(
   int argc,              /* Number of arguments */
   char **argv            /* List of all arguments */
 ){
+#if 0
   if( argc==2 ){
     Tcl_DString str;
     Tcl_DStringInit(&str);
@@ -64,6 +65,7 @@ int HtmlBaseCmd(
     HtmlChangeUrl(htmlPtr,argv[2]);
     TestPoint(0);
   }
+#endif
   return TCL_OK;
 }
 
@@ -166,7 +168,7 @@ int HtmlHrefCmd(
   }
   z = HtmlGetHref(htmlPtr, x + htmlPtr->xOffset, y + htmlPtr->yOffset);
   if( z ){
-    Tcl_SetResult(interp, HtmlCompleteUrl(htmlPtr,z), TCL_DYNAMIC);
+    /* Tcl_SetResult(interp, HtmlCompleteUrl(htmlPtr,z), TCL_DYNAMIC); */
     TestPoint(0);
   }else{
     TestPoint(0);

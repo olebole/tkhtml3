@@ -1,6 +1,6 @@
 /*
 ** Routines used for processing HTML makeup for forms.
-** $Revision: 1.5 $
+** $Revision: 1.6 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -606,7 +606,7 @@ int HtmlSubmit(HtmlWidget *htmlPtr, int id){
   /* Initialize the command */
   zURL = HtmlMarkupArg(pForm, "action", 0);
   if( zURL==0 ){ TestPoint(0); return TCL_OK; }
-  zURL = HtmlCompleteUrl(htmlPtr, zURL);
+  /* zURL = HtmlCompleteUrl(htmlPtr, zURL); */
   Tcl_DStringInit(&str);
   Tcl_DStringAppend(&str, htmlPtr->zFormCommand, -1);
   Tcl_DStringAppendElement(&str, zURL);

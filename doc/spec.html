@@ -1,7 +1,7 @@
 <html>
 <!-- 
   Specifications for the Tk HTML Widget 
-  $Revision: 1.2 $
+  $Revision: 1.3 $
   Copyright (C) 1997, 1998 D. Richard Hipp
 
   This program is free software; you can redistribute it and/or modify
@@ -34,25 +34,18 @@ Since it is still a draft, it is subject to change.
 Eventually, the interface will stabilize and this interface
 specification will morph into a manual page.</p>
 
-<p>This is a second draft.  Obsolete features are
-shown in
-<font color="#a0a0a0">gray</font>.
-New or modified features are shown in <font color="green">green</font>.
-</p>
-<!-- Unimplemented features are shown in 
-<font color="#c6c635">yellow</font>.</p> -->
-
 <h2>Configuration Options</h2>
 
 <table cellspacing=10>
 <tr><td valign=top><tt>-appletcommand</tt></td>
 <td>
   <p>This option specifies the name of the Tcl procedure to invoke when the
-  <tt>&lt;applet&gt;...&lt;/applet&gt;</tt> tag sequence is seen.  Before
-  calling this routine, the html widget will have created a child window
-  in which to place the applet and will place the name of this child in
-  the first parameter of the callback.  The second argument to the callback
-  procedure will be a list of name/value pairs which are the arguments to
+  <tt>&lt;applet&gt;...&lt;/applet&gt;</tt> tag sequence is seen.  The html
+  widget will append two arguments to the procedure before calling it.
+  The first argument is the name of a widget that the callback should
+  create to hold the applet.  
+  The second argument is
+  a list of name/value pairs which are the arguments to
   the <tt>&lt;applet&gt;</tt> tag.</p>
 
   <p>The text between <tt>&lt;applet&gt</tt> and <tt>&lt;/applet&gt;</tt>
@@ -76,25 +69,6 @@ New or modified features are shown in <font color="green">green</font>.
   change the background color manually.</p>
 </td></tr>
 
-<tr><td valign=top><font color="#a0a0a0"><tt>-boldfontfamily</tt></font></td>
-<td>
-  <p><font color="#a0a0a0">The name of the font used to render bold text.  
-  This name should
-  contain a single <tt>%d</tt> to indicate where the font size should be
-  inserted into the font name.</font></p>
-</td></tr>
-
-<tr><td valign=top><font color="#a0a0a0"><tt>-boldfontsize</tt></font></td>
-<td>
-  <p><font color="#a0a0a0">A list of 7 integers which specify the point 
-  sizes of the fonts used
-  to render bold text.  One of these integers will be inserted in place
-  of the <tt>%d</tt> in the bold font family name to yield the actual name
-  of the font used.  The particular integer that is inserted depends on the
-  HTML font size parameter, which is an integer between 1 and 7.  By default,
-  the HTML font size is 4.</font></p>
-</td></tr>
-
 <tr><td valign=top><tt>-bd</tt><td>An alias for <tt>-borderwidth</tt>
 
 <tr><td valign=top><tt>-bg</tt><td>An alias for <tt>-background</tt>
@@ -111,26 +85,13 @@ New or modified features are shown in <font color="green">green</font>.
   If {}, the cursor reverts to its default shape.</p>
 </td></tr>
 
-<tr><td valign=top><font color="#a0a0a0"><tt>-cwfontfamily</tt></font></td>
-<td>
-  <p><font color="#a0a0a0">The font family used for constant-width fonts.
-  </font></p>
-</td></tr>
-
-<tr><td valign=top><font color="#a0a0a0"><tt>-cwfontsize</tt></font></td>
-<td><font color="#a0a0a0">
-  A list of 7 integers that specify the sizes of the constant width fonts.
-  </font>
-</td></tr>
-
 <tr><td valign=top><tt>-exportselection</tt></td>
 </tr>
 
-<tr><td valign=top><font color="green"><tt>-findfont</tt></font></td>
+<tr><td valign=top><tt>-fontcommand</tt></td>
 <td>
-  <font color=green>
   <p>The name of a TCL procedure that is used to convert HTML font names
-  into TCL font names.  A default procedure is supplied if the value
+  into TCL font names.  A default built-in procedure is used if the value
   of this option is {}.</p>
 
   <p>When the HTML widget needs a new font, it calls this procedure with
@@ -142,28 +103,17 @@ New or modified features are shown in <font color="green">green</font>.
   keyword is present, the font should be italic.  If the "fixed" keyword
   is present, the font should be fixed-width.  The TCL procedure should
   return the name of the TCL font that the HTML widget will use to render
-  the given HTML font.</p>
+  the given HTML font.  If the TCL procedure returns an empty string,
+  then the built-in default procedure is used to determine the font.</p>
 
   <p>Examples:  This is {4 {}}.  <tt>This is {4 fixed}</tt>.
   <small>This is {3 {}}</small>.  <large><tt><bold>This is {5 {fixed bold}}
   </bold></tt></large></p>
-  </font>
 </td></tr>
 
 
 <tr><td valign=top><tt>-fg</tt></td>
 <td>An alias for <tt>-foreground</tt>.</td>
-</tr>
-
-<tr><td valign=top><font color="#a0a0a0"><tt>-fontfamily</tt></font></td>
-<td><font color="#a0a0a0">The name of the font family used for normal text.
-    </font></td>
-</tr>
-
-<tr><td valign=top><font color="#a0a0a0"><tt>-fontsize</tt></font></td>
-<td>
-   <font color="#a0a0a0">A list of 7 integers that specify the sizes of 
-   the normal fonts.</font></td>
 </tr>
 
 <tr><td valign=top><tt>-foreground</tt></td>
@@ -173,59 +123,61 @@ New or modified features are shown in <font color="green">green</font>.
   on various HTML tags.
 </td></tr>
 
-<tr><td valign=top><font color="#a0a0a0"><tt>-formcommand</tt></font></td>
-<td>
-  <font color="#a0a0a0"><p>
-  Whenever a user presses the Submit button of a form, the URL specified in
-  the &lt;form&gt tag, the access method (GET or POST) and an appropriate
-  query string are each appended to the value of this configuration option and
-  the result is executed as a Tcl command.
-  The value of the option is typically the name of a procedure that will
-  submit a form to a web server using the HTTP protocol.</p>
+<tr><td valign=top>
+<code>-formcommand <var>string</var></code>
+</td><td>
+Declares a handler for everything to do with forms within a document.
+Arguments will be appended to <var>string</var> and the result evaluated
+during parsing (for form creation) and when the widget is cleared (for
+form cleanup).  The first argument is a token for
+identifying a form.  The second argument selects the action to perform.
+The remaining arguments depend on the action, as follows.
 
-  <p>If the value of the <tt>-formcommand</tt> configuration option is the
-  empty string, then all presses of the Submit button on a form are
-  ignored.</font></p>
-</td></tr>
+<dl><dt><code><var>string token</var> form <var>URL method attrs</var></code>
+<dd>The handler should begin taking notes for form <var>token</var>,
+especially the (resolved) <var>URL</var> of the action and the
+<var>method</var> to be applied.  The raw attributes of the FORM element
+are in the pairlist <var>attrs</var>.
 
-<tr><td valign=top><font color=green><tt>-formelement</tt></font></td>
-<td>
-  <font color=green>
-  <p>The name of a TCL command that is called to create the subwidgets
-  used to represent form elements.</p>
+<dt><code><var>string token</var> flush</code>
+<dd>When the document is cleared, the widget will destroy all the windows
+it requested.  This handler should clean up anything else
+it created for that form.
 
-  <p>Whenever the HTML widget encounters a form or a form element 
-  (one of the tags &lt;FORM&gt;, &lt;INPUT&gt;, &lt;SELECT&gt;, or
-  &lt;TEXTAREA&gt;) it invokes the TCL command specified by this option
-  to record information about the form, or to create a subwidget to 
-  represent the form element, as appropriate.  Arguments are
-  appended to the command depending on the type of the form element.
-  The first argument is always a positive integer indicating which form
-  within the document the element is a part of.  (A single document may
-  have multiple forms.)  The second argument is always the name of the
-  subwidget that the command should create.  The second argument is an
-  empty string for a &lt;FORM&gt; tag.  The third argument is the
-  type of subwidget.  The third argument will always be one of the
-  following values:  "form", "button", "checkbox", "file", "hidden", "image",
-  "password", "radio", "reset", "submit", "text", "select", or
-  "textarea".  The fourth argument is a list of attributes and values.
-  For example, if the HTML says 
-  &lt;input&nbsp;type=button&nbsp;name="hello"&nbsp;value="world"&gt;
-  then the fourth argument would be "{type button name hello value world}".
-  The textarea form element has a fifth argument which is the text with
-  which the text area is initialized.  The select form element has a fifth
-  argument which is a list of the &lt;OPTION&gt;s.  The fifth argument is
-  always blank for other form element types.</p>
-  
-  <p>If this option is blank, forms are not displayed.</p>
+<dt><code><var>string token</var> input <var>path attrs</var></code>
+<dd>The handler should create a window named <var>path</var>
+appropriate for the element described by the <var>attrs</var>.
+The widget will map the window into its rendering appropriately.
+<p>It is not an error for the handler to return without creating such a window
+(it's natural in the case of type=hidden); the widget simply
+ignores the element in that case.
+The attributes are the raw values in the HTML, with one exception;
+a <code>src</code> will be resolved before the handler is called.
 
-  <p>The specified TCL procedure is always call in the order that the
-  form elements appear in the HTML.</p>
+<dt><code><var>string token</var> textarea <var>path attrs initial</var></code>
+<dd>The handler should create a window (a single Text, or a Frame with Text
+and Scrollbars, or whatever) appropriate for a &lt;textarea&gt; and
+initialise it to the <var>initial</var> string.
 
-  <p>When a form is deleted (i.e. the corresponding HTML is removed from
-  the HTML widget) this callback is invoked with a third argument of
-  "destroy" and with blank second, fourth and fifth arguments.</p>
-  </font>
+<dt><code><var>string token</var> select <var>path attrs choices initial</var></code>
+<dd><em>&lt;select&gt is quite a complicated case...</em>
+The handler should create a window 
+appropriate for a &lt;select&gt; of the given attributes and
+present the list of <var>choices</var>.  Each choice is a pair, the
+value and its label.  <var>initial</var> is a list of values initially
+selected.  <em>This approach is somewhat questionable but should do
+most of the time.</em>
+</dl>
+
+Caution: Be very careful to avoid confusing HTML variables with TCL
+variables.  It may be tempting to use the <code>name</code> attribute
+fairly directly to link
+together related widgets, but it will likely cause incorrect
+behaviours.  Also be careful to observe the order in which the elements are
+created; this determines the order in which they must be submitted.
+A default form handler with the correct bahaviour written in TCL will be
+bundled with the widget.
+<p>The attribute names will be downcased within <var>attrs</var>.
 </td></tr>
 
 <tr><td valign=top><tt>-framecommand</tt><td>
@@ -279,27 +231,6 @@ has been visited.
 This information is needed to determine what color to use to display
 the hyperlink.
 
-<tr><td valign=top><font color="#a0a0a0"><tt>-italicfontfamily</tt></font></td>
-<td>
-  <font color="#a0a0a0">
-  The name of the font used to render italic text.  This name should
-  contain a single <tt>%d</tt> to indicate where the font size should be
-  inserted into the font name.
-  </font>
-</td></tr>
-
-<tr><td valign=top><font color="#a0a0a0"><tt>-italicfontsize</tt></font></td>
-<td>
-  <font color="#a0a0a0">
-  A list of 7 integers which specify the point sizes of the fonts used
-  to render italic text.  One of these integers will be inserted in place
-  of the <tt>%d</tt> in the italic font family name to yield the actual name
-  of the font used.  The particular integer that is inserted depends on the
-  HTML font size parameter, which is an integer between 1 and 7.  By default,
-  the HTML font size is 4.
-  </font>
-</td></tr>
-
 <tr><td valign=top><tt>-padx</tt><td>
 The amount of extra space to insert between the 3-D border and the
 left and right sides of the document text.
@@ -311,9 +242,8 @@ and bottom of the document text.
 <tr><td valign=top><tt>-relief</tt><td>
 The relief used to draw the 3-D border.
 
-<tr><td valign=top><font color=green><tt>-resolver</tt></font></td>
+<tr><td valign=top><tt>-resolver</tt></td>
 <td>
-  <font color=green>
   <p>The name of a TCL command used to resolve URLs.  If blank, a built-in
   resolver is used.  Or if the TCL command specified returns an empty
   string, the built-in resolver is used.</p>
@@ -321,7 +251,6 @@ The relief used to draw the 3-D border.
   <p>The resolver converts relative URLs into absolute URLs.  The
   input relative URL is the sole argument to the resolver.  The resolver
   should return the absolute URL.</p>
-  </font>
 </td></tr>
 
 <tr><td valign=top><tt>-selectioncolor</tt><td>
@@ -398,8 +327,7 @@ The character immediately following the insertion cursor.
 <dd>
   Create a new HTML widget instance named <i>windows</i>
 </dd>
-
-<p><font color=green>
+<p>
 <dt><b>html</b> <b>reformat</b> <i>from to text</i><p>
 <dd>
 Convert text from one encoding to another.  The text is given
@@ -410,38 +338,53 @@ the same text in the <i>to</i> encoding.
 <i>From</i> and <i>to</i> may be any of the following values:
 <p>
 <table cellspacing=10>
-<tr><td valign=top><font color=green>plain</font></td>
+<tr><td valign=top>plain</td>
 <td>
-  <font color=green>Ordinary text with no characters escaped.</font>
+  Ordinary text with no characters escaped.
 </td></tr>
-<tr><td valign=top><font color=green>http</font></td>
-<td><font color=green>
+<tr><td valign=top>http</td>
+<td>
   The text is encoded in a form suitable for use with the HTTP
   protocol.  Spaces are converted to "+".  Special characters
   and escaped as "%aa" where "a" is a hexadecimal digit.  A special
   character is anything other than an alphanumeric or one of these:
-  ".", "$", "-", or "_".</font>
+  ".", "$", "-", or "_".
 </td></tr>
-<tr><td valign=top><font color=green>url</font></td>
-<td><font color=green>
+<tr><td valign=top>url</td>
+<td>
   The text is encoded in a form suitable for use as a URI.
   Spaces are converted to "+".  Special characters
   and escaped as "%aa" where "a" is a hexadecimal digit.  A special
   character is anything other than an alphanumeric or one of these:
-  ".", "$", "-", "_", or "/".</font>
+  ".", "$", "-", "_", or "/".
 </td></tr>
-<tr><td valign=top><font color=green>html</font></td>
-<td><font color=green>
+<tr><td valign=top>html</td>
+<td>
   The text is encoded in a form suitable for use within HTML.
   "&amp;" is encoded as "&amp;amp;", "&lt;" is encoded as "&amp;lt;" and so
-  forth.</font>
+  forth.
 </td></tr>
 </table>
 <p>
 This command is intended to be useful to the TCL procedures that implement
 callbacks for the HTML widget.
 </dd>
-</font>
+<p>
+<dt><b>html</b> <b>uri join</b> <i>scheme authority path query fragment</i><p>
+<dd>
+This command takes the five main components of a URI and joins them together
+into a complete URI.  Special characters in any component are escaped.
+</dd>
+<p>
+<dt><b>html</b> <b>uri split</b> <i>uri</i><p>
+<dd>
+This command takes a single URI and splits it into its five major
+components: scheme, authorithy, path, query and fragement.  The command
+returns a list where each component is an element of the list. 
+Components missing from the URI are represented as empty elements in
+the list.
+</dd>
+
 </dl>
 
 <h2>Widget Commands</h2>

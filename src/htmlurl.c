@@ -1,6 +1,6 @@
 /*
 ** Routines for processing URLs.
-** $Revision: 1.4 $
+** $Revision: 1.5 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -28,6 +28,172 @@
 #include <string.h>
 #include <stdlib.h>
 #include "htmlurl.h"
+
+#if LOCAL_INTERFACE
+/*
+** A parsed URI is held in an instance of the following structure.
+** Each component is recorded in memory obtained from ckalloc().
+**
+** The examples are from the URI 
+**
+**    http://192.168.1.1:8080/cgi-bin/printenv?name=xyzzy&addr=none#frag
+*/
+struct HtmlUri {
+  char *zScheme;             /* Ex: "http" */
+  char *zAuthority;          /* Ex: "192.168.1.1:8080" */
+  char *zPath;               /* Ex: "cgi-bin/printenv" */
+  char *zQuery;              /* Ex: "name=xyzzy&addr=none" */
+  char *zFragment;           /* Ex: "frag" */
+};
+#endif
+
+/*
+** Return the length of the next component of the URL in z[] given
+** that the component starts at z[0].  The initial sequence of the
+** component must be zInit[].  The component is terminated by any
+** character in zTerm[].  The length returned is 0 if the component
+** doesn't exist.  The length includes the zInit[] string, but not
+** the termination character.
+**
+**        Component        zInit      zTerm
+**        ----------       -------    -------
+**        scheme           ""         ":/?#"
+**        authority        "//"       "/?#"
+**        path             "/"        "?#"
+**        query            "?"        "#"
+**        fragment         "#"        ""
+*/
+static int ComponentLength(const char *z, const char *zInit, const char *zTerm){
+  int i, n;
+  for(n=0; zInit[n]; n++){
+    if( zInit[n]!=z[n] ) return 0;
+  }
+  while( z[n] ){
+    for(i=0; zTerm[i]; i++){
+      if( z[n]==zTerm[i] ) return n;
+    }
+    n++;
+  }
+  return n;
+}
+
+/*
+** Duplicate a string of length n.
+*/
+static char *StrNDup(const char *z, int n){
+  char *zResult;
+  if( n<=0 ){
+    n = strlen(z);
+  }
+  zResult = ckalloc( n + 1 );
+  if( zResult ){
+    memcpy(zResult, z, n);
+    zResult[n] = 0;
+    TestPoint(0);
+  }
+  return zResult;
+}
+
+/*
+** Parse a text URI into an HtmlUri structure.
+*/
+static HtmlUri *ParseUri(const char *zUri){
+  HtmlUri *p;
+  int n;
+
+  p = (HtmlUri*)ckalloc( sizeof(*p) );
+  if( p==0 ) return 0;
+  memset(p, 0, sizeof(*p));
+  if( zUri==0 || zUri[0]==0 ) return p;
+  n = ComponentLength(zUri, "", ":/?#");
+  if( n>0 && zUri[n]==':' ){
+    p->zScheme = StrNDup(zUri, n);
+    zUri += n+1;
+  }
+  n = ComponentLength(zUri, "//", "/?#");
+  if( n>0 ){
+    p->zAuthority = StrNDup(&zUri[2], n-2);
+    zUri += n;
+  }
+  n = ComponentLength(zUri, "", "?#");
+  if( n>0 ){
+    p->zPath = StrNDup(zUri, n);
+    zUri += n;
+  }
+  n = ComponentLength(zUri, "?", "#");
+  if( n>0 ){
+    p->zQuery = StrNDup(&zUri[1], n-1);
+    zUri += n;
+  }
+  n = ComponentLength(zUri, "#", "");
+  if( n>0 ){
+    p->zFragment = StrNDup(&zUri[1], n-1);
+  }
+  return p;
+}
+
+/*
+** Delete an HtmlUri structure.
+*/
+static void FreeUri(HtmlUri *p){
+  if( p==0 ) return;
+  if( p->zScheme )    ckfree((char*)p->zScheme);
+  if( p->zAuthority ) ckfree((char*)p->zAuthority);
+  if( p->zPath )      ckfree((char*)p->zPath);
+  if( p->zQuery )     ckfree((char*)p->zQuery);
+  if( p->zFragment )  ckfree((char*)p->zFragment);
+  ckfree((char*)p);
+}
+
+/*
+** Create a string to hold the given URI.  Memory to hold the string
+** is obtained from ckalloc() and must be freed by the calling
+** function.
+*/
+static char *BuildUri(HtmlUri *p){
+  int n = 1;
+  char *z;
+  if( p->zScheme )    n += strlen(p->zScheme)+1;
+  if( p->zAuthority ) n += strlen(p->zAuthority)+2;
+  if( p->zPath )      n += strlen(p->zPath)+1;
+  if( p->zQuery )     n += strlen(p->zQuery)+1;
+  if( p->zFragment )  n += strlen(p->zFragment)+1;
+  z = ckalloc( n );
+  if( z==0 ) return 0;
+  n = 0;
+  if( p->zScheme ){
+    sprintf(z, "%s:", p->zScheme);
+    n = strlen(z);
+  }
+  if( p->zAuthority ){
+    sprintf(&z[n], "//%s", p->zAuthority);
+    n += strlen(&z[n]);
+  }
+  if( p->zPath ){
+    sprintf(&z[n], "%s", p->zPath);
+    n += strlen(&z[n]);
+  }
+  if( p->zQuery ){
+    sprintf(&z[n], "?%s", p->zQuery);
+    n += strlen(&z[n]);
+  }
+  if( p->zFragment ){
+    sprintf(&z[n], "#%s", p->zFragment);
+  }
+  return z;
+}
+
+/*
+** Replace the string in *pzDest with the string in zSrc
+*/
+static void ReplaceStr(char **pzDest, const char *zSrc){
+  if( *pzDest!=0 ) ckfree((char*)*pzDest);
+  if( zSrc==0 ){
+    *pzDest = 0;
+  }else{
+    *pzDest = StrNDup(zSrc, -1);
+  }
+}
 
 /*
 ** The input azSeries[] is a sequence of URIs.  This command must
@@ -58,10 +224,12 @@ int HtmlCallResolver(
     Tcl_DStringInit(&cmd);
     Tcl_DStringAppend(&cmd, htmlPtr->zResolverCommand, -1);
     if( htmlPtr->zBase && htmlPtr->zBase[0] ){
-      Tcl_DStringAppendElement(&cmd, htmlPtr->zBase);
+      Tcl_DStringAppend(&cmd, " ", 1);
+      Tcl_DStringAppend(&cmd, htmlPtr->zBase, -1);
     }
     while( azSeries[0] ){
-      Tcl_DStringAppendElement(&cmd, azSeries[0]);
+      Tcl_DStringAppend(&cmd, " ", 1);
+      Tcl_DStringAppend(&cmd, azSeries[0], -1);
       azSeries++;
     }
     HtmlLock(htmlPtr);
@@ -75,292 +243,64 @@ int HtmlCallResolver(
   }else{
     /*
     ** No -resolvercommand has been specified.  Do the default
-    ** resolver algorithm. 
+    ** resolver algorithm specified in section 5.2 of RFC 2396.
     */
+    HtmlUri *base, *term;
+    base = ParseUri(htmlPtr->zBase);
+    while( azSeries[0] ){
+      term = ParseUri(azSeries[0]);
+      azSeries++;
+      if( term->zScheme==0 && term->zAuthority==0 && term->zPath==0
+          && term->zQuery==0 && term->zFragment ){
+        ReplaceStr(&base->zFragment, term->zFragment);
+      }else if( term->zScheme ){
+        HtmlUri temp;
+        temp = *term;
+        *term = *base;
+        *base = temp;
+      }else if( term->zAuthority ){
+        ReplaceStr(&base->zAuthority, term->zAuthority);
+        ReplaceStr(&base->zPath, term->zPath);
+        ReplaceStr(&base->zQuery, term->zQuery);
+        ReplaceStr(&base->zFragment, term->zFragment);
+      }else if( term->zPath && term->zPath[0]=='/' ){
+        ReplaceStr(&base->zPath, term->zPath);
+        ReplaceStr(&base->zQuery, term->zQuery);
+        ReplaceStr(&base->zFragment, term->zFragment);
+      }else if( term->zPath && base->zPath ){
+        char *zBuf;
+        int i, j;
+        zBuf = ckalloc( strlen(base->zPath) + strlen(term->zPath) + 2 );
+        if( zBuf ){
+          sprintf(zBuf,"%s", base->zPath);
+          for(i=strlen(zBuf)-1; i>=0 && zBuf[i]!='/'; i--){ zBuf[i] = 0; }
+          strcat(zBuf, term->zPath);
+          for(i=0; zBuf[i]; i++){
+            if( zBuf[i]=='/' && zBuf[i+1]=='.' && zBuf[i+2]=='/' ){
+              strcpy(&zBuf[i+1], &zBuf[i+3]);
+              i--;
+              continue;
+            }
+            if( zBuf[i]=='/' && zBuf[i+1]=='.' && zBuf[i+2]==0 ){
+              zBuf[i+1] = 0;
+              continue;
+            }
+            if( i>0 && zBuf[i]=='/' && zBuf[i+1]=='.' && zBuf[i+2]=='.'
+                   && (zBuf[i+3]=='/' || zBuf[i+3]==0) ){
+              for(j=i-1; j>=0 && zBuf[j]!='/'; j--){}
+              strcpy(&zBuf[j], &zBuf[i+3]);
+              i = j-1;
+              continue;
+            }
+          }
+          ckfree((char*)base->zPath);
+          base->zPath = zBuf;
+        }   
+      }
+      FreeUri(term);
+    }
+    Tcl_SetResult(htmlPtr->interp, BuildUri(base), TCL_DYNAMIC);
+    FreeUri(base);
   }
   return rc;
-}
-
-/*
-** Return the length of the protocol identifier string at the beginning
-** of the given URL.  Return 0 if there is no protocol identifier string.
-**
-** Examples:
-**
-**        Input                          Output
-**     ---------------------------       -------
-**     http://www.mit.edu                5
-**     ftp://sunsite.unc.edu/pub         4
-**     mailto:drh@acm.org                7
-**     ../tmp/file.html                  0
-*/
-static int ProtocolLength(char *z){
-  int n;
-  for(n=0; isalpha(z[n]); n++){ TestPoint(0); }
-  if( n>0 && z[n]==':' ){
-    n++;
-    TestPoint(0);
-  }else{
-    n = 0;
-    TestPoint(0);
-  }
-  return n;
-}
-
-/*
-** Return the length of the host identifier string at the beginning
-** of the given URL.  Return 0 if there is no host identifier string.
-**
-** Examples:
-**
-**        Input                          Output
-**     ---------------------------       -------
-**     //www.mit.edu:8080/user           18
-**     //sunsite.unc.edu/pub             17
-**     drh@acm.org                       0
-**     ../tmp/file.html                  0
-*/
-static int HostLength(char *z){
-  int n;
-  if( z[0]!='/' || z[1]!='/' ){ TestPoint(0); return 0; }
-  for(n=2; z[n] && z[n]!='/'; n++){ TestPoint(0); }
-  return n;
-}
-
-/*
-** Given a pathname of the given length, return the length of the
-** directory component of that pathname.  The directory component does
-** not include the final "/".  The initial "/" is never removed.
-**
-** Example:
-**
-**      input  = /home/drh/br/html.h    length=19
-**      output = /home/drh/br           length=12
-**
-** Example 2:
-**
-**      input  = ../tmp/filex.html      length=16
-**      output = ../tmp                 length=6
-*/
-static int DirectoryLength(char *z, int n){
-  while( n>1 && z[n-1]!='/' ){
-    n--;
-    TestPoint(0);
-  }
-  if( n>1 && z[n-1]=='/' ){
-    n--;
-    TestPoint(0);
-  }else{
-    TestPoint(0);
-  }
-  return n;
-}
-
-/*
-** Duplicate a string of length n.
-*/
-static char *StrNDup(char *z, int n){
-  char *zResult = ckalloc( n + 1 );
-  if( zResult ){
-    memcpy(zResult, z, n);
-    zResult[n] = 0;
-    TestPoint(0);
-  }else{
-    UNTESTED;
-  }
-  return zResult;
-}
-
-/*
-** Free a string.
-*/
-static void FreeString(char **pz){
-  if( *pz ){
-    ckfree(*pz);
-    *pz = 0;
-    TestPoint(0);
-  }
-}
-
-/*
-** Clear all base URL information from the widget.  This routine
-** reclaims memory allocated to hold the base URL and should be called
-** prior to widget deletion.
-*/
-void HtmlClearUrl(HtmlWidget *htmlPtr){
-  FreeString(&htmlPtr->zProtocol);
-  FreeString(&htmlPtr->zHost);
-  FreeString(&htmlPtr->zDir);
-  TestPoint(0);
-}
-
-/*
-** Construct a complete URL from the partial information given.  Fill in
-** missing information based on the base URL of the current document.
-**
-** Space to hold the returned string is obtained from ckalloc().  The
-** calling function must release this space when it is done with it.
-*/
-char *HtmlCompleteUrl(HtmlWidget *htmlPtr, char *zSrc){
-  char *zProtocol;
-  int nProtocol;
-  char *zHost;
-  int nHost;
-  char *zDir;
-  int nDir;
-  char *zSep;
-  char *zResult;
-
-  nProtocol = ProtocolLength(zSrc);
-  if( nProtocol ){
-    int go = 0;
-    zProtocol = zSrc;
-    zSrc += nProtocol;
-    if( nProtocol==5 ){
-      if( strncmp(zProtocol,"http:",5)==0 || strncmp(zProtocol,"file:",5)==0 ){
-        go = 1;
-        TestPoint(0);
-      }else{
-        TestPoint(0);
-      }
-    }else if( nProtocol==4 && strncmp(zProtocol,"ftp:",4)==0 ){
-      go = 1;
-      TestPoint(0);
-    }else{
-      TestPoint(0);
-    }
-    if( !go ){
-      /* If the protocol is anything other than "http:", "file:" or "ftp:",
-      ** don't try to convert relative to absolute.  Doing so could mess
-      ** up URLs like "mailto:drh@acm.org". */
-      TestPoint(0);
-      return StrNDup(zProtocol, strlen(zProtocol));
-    }
-  }else{
-    zProtocol = htmlPtr->zProtocol;
-    if( zProtocol==0 ){ zProtocol = ""; TestPoint(0); }
-    nProtocol = strlen(zProtocol);
-    TestPoint(0);
-  }
-  nHost = HostLength(zSrc);
-  if( nHost ){
-    zHost = zSrc;
-    zSrc += nHost;
-    TestPoint(0);
-  }else{
-    zHost = htmlPtr->zHost;
-    if( zHost==0 ){
-      if( nProtocol==0 || (nProtocol==5 && strncmp(zProtocol,"file:",5)==0) ){
-        zHost = "";
-        TestPoint(0);
-      }else{
-        zHost = "//localhost";
-        TestPoint(0);
-      }
-    }else{
-      TestPoint(0);
-    }
-    nHost = strlen(zHost);
-  }
-  if( zSrc[0]=='/' ){
-    zDir = "";
-    zSep = "";
-    nDir = 0;
-    TestPoint(0);
-  }else{
-    zDir = htmlPtr->zDir;
-    if( zDir==0 ){
-      zDir = "";
-      zSep = "/";
-      TestPoint(0);
-    }else{
-      zSep = "/";
-      TestPoint(0);
-    }
-    nDir = strlen(zDir);
-    while( nDir>0 && zDir[nDir-1]=='/' ){ nDir--; }
-    while( zSrc[0]=='.' && zSrc[1]=='.' && (zSrc[2]=='/' || zSrc[2]==0) ){
-      nDir = DirectoryLength(zDir,nDir);
-      zSrc += 2;
-      while( zSrc[0]=='/' ){ zSrc++; TestPoint(0); }
-    }
-    if( nDir>0 && zDir[nDir-1]=='/' ){
-      zSep = "";
-      TestPoint(0);
-    }else{
-      TestPoint(0);
-    }
-  }
-  zResult = ckalloc( nProtocol + nHost + nDir + strlen(zSrc) + 2 );
-  if( zResult ){
-    sprintf(zResult,"%.*s%.*s%.*s%s%s",
-       nProtocol, zProtocol, nHost, zHost, nDir, zDir, zSep, zSrc);
-    TestPoint(0);
-  }else{
-    TestPoint(0);
-  }
-  return zResult;
-}
-
-/*
-** This routine is called to change the base URL for the current document.
-** The URL specified in the argument becomes the new base URL for this
-** document.
-*/
-void HtmlChangeUrl(HtmlWidget *htmlPtr, char *zSrc){
-  int n;
-  char *zDir;
-  int hasDir = 0;
-  static char *aDirProto[] = { "http:", "ftp:", "file:" };
-  int i;
-
-  n = ProtocolLength(zSrc);
-  if( n ){
-    FreeString(&htmlPtr->zProtocol);
-    htmlPtr->zProtocol = StrNDup(zSrc, n);
-    zSrc += n;
-    n = HostLength(zSrc);
-    FreeString(&htmlPtr->zHost);
-    htmlPtr->zHost = StrNDup(zSrc, n);
-    zSrc += n;
-    TestPoint(0);
-  }else{
-    TestPoint(0);
-  }
-  if( htmlPtr->zProtocol ){
-    for(i=0; i<sizeof(aDirProto)/sizeof(aDirProto[0]); i++){
-      if( strcmp(htmlPtr->zProtocol,aDirProto[i])==0 ){
-        hasDir = 1;
-        break;
-      }
-    }
-  }
-  if( !hasDir ){
-    FreeString(&htmlPtr->zDir);
-    htmlPtr->zDir = StrNDup( zSrc, strlen(zSrc) );
-  }else{
-    zDir = htmlPtr->zDir;
-    if( zDir==0 ) zDir = "/";
-    n = strlen(zDir);
-    while( zSrc[0]=='.' && zSrc[1]=='.' && (zSrc[2]=='/' || zSrc[2]==0) ){
-      n = DirectoryLength(zDir,n);
-      zSrc += 2;
-      while( zSrc[0]=='/' ){ zSrc++; TestPoint(0);}
-    }
-    if( zSrc[0]=='/' ){
-      FreeString(&htmlPtr->zDir);
-      htmlPtr->zDir = StrNDup( zSrc, strlen(zSrc) );
-      TestPoint(0);
-    }else if( zSrc[0]!=0 ){
-      if( n>0 && zDir[n-1]=='/' ){ n--; }
-      htmlPtr->zDir = ckalloc( n + strlen(zSrc) + 2 );
-      if( htmlPtr->zDir ){
-        sprintf(htmlPtr->zDir,"%.*s/%s",n, zDir, zSrc);
-        TestPoint(0);
-      }
-      ckfree(zDir);
-    }else{
-      TestPoint(0);
-    }
-  }
 }
