@@ -1,6 +1,6 @@
 /*
 ** The main routine for the HTML widget for Tcl/Tk
-** $Revision: 1.7 $
+** $Revision: 1.8 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -970,8 +970,10 @@ static void DestroyHtmlWidget(HtmlWidget *htmlPtr){
 */
 int HtmlUnlock(HtmlWidget *htmlPtr){
   htmlPtr->locked--;
-  if( htmlPtr->locked<=0 && htmlPtr->tkwin==0 ){
+  if( htmlPtr->tkwin==0 && htmlPtr->locked<=0 ){
+    Tcl_Interp *interp = htmlPtr->interp;
     DestroyHtmlWidget(htmlPtr);
+    Tcl_Release(interp);
     return 1;
   }
   return htmlPtr->tkwin==0;
@@ -1175,6 +1177,8 @@ static void HtmlEventProc(ClientData clientData, XEvent *eventPtr){
           TestPoint(0);
           break;
         }
+        Tcl_Preserve(htmlPtr->interp);
+        HtmlDeleteControls(htmlPtr);
         htmlPtr->tkwin = 0;
         Tcl_DeleteCommand(htmlPtr->interp,
                 Tcl_GetCommandName(htmlPtr->interp, htmlPtr->widgetCmd));

@@ -1,6 +1,6 @@
 /*
 ** A tokenizer that converts raw HTML into a linked list of HTML elements.
-** $Revision: 1.3 $
+** $Revision: 1.4 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -433,6 +433,16 @@ static int NextColumn(int iCol, char c){
   /* NOT REACHED */
 }
 
+/*
+** Convert a string to all lower-case letters.
+*/
+static void ToLower(char *z){
+  while( *z ){
+    if( isupper(*z) ) *z = tolower(*z);
+    z++;
+  }
+}
+
 /* Process as much of the input HTML as possible.  Construct new
 ** HtmlElement structures and appended them to the list.  Return
 ** the number of characters actually processed.
@@ -691,6 +701,9 @@ doMarkup:
           zBuf += arglen[j] + 1;
           sprintf(pElem->markup.argv[j-1],"%.*s",arglen[j],argv[j]);
           HtmlTranslateEscapes(pElem->markup.argv[j-1]);
+          if( (j&1)==1 ){
+            ToLower(pElem->markup.argv[j-1]);
+          }
           TestPoint(0);
         }
         pElem->markup.argv[argc-1] = 0;

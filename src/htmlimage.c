@@ -1,6 +1,6 @@
 /*
 ** Routines used for processing <IMG> markup
-** $Revision: 1.4 $
+** $Revision: 1.5 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -111,6 +111,27 @@ static void ImageChangeProc(
 }
 
 /*
+** Append all the arguments of the given markup to the given
+** DString.
+**
+** Example:  If the markup is <IMG SRC=image.gif ALT="hello!">
+** then the following text is appended to the DString:
+**
+**       "src image.gif alt hello!"
+**
+** Notice how all attribute names are converted to lower case.
+** This conversion happens in the parser.
+*/
+void HtmlAppendArglist(Tcl_DString *str, HtmlElement *pElem){
+  int i;
+  for(i=0; i+1<pElem->base.count; i+=2){
+    char *z = pElem->markup.argv[i+1];
+    Tcl_DStringAppendElement(str, pElem->markup.argv[i]);
+    Tcl_DStringAppendElement(str, z);
+  }
+}
+
+/*
 ** Given an <IMG> markup, find or create an appropriate HtmlImage
 ** structure and return a pointer to that structure.  NULL might
 ** be returned.
@@ -124,9 +145,7 @@ HtmlImage *HtmlGetImage(HtmlWidget *htmlPtr, HtmlElement *p){
   char *zHeight;
   char *zSrc;
   char *zImageName;
-  char *azSeq[3];
   HtmlImage *pImage;
-  int i;
   int result;
   Tcl_DString cmd;
 
@@ -135,14 +154,13 @@ HtmlImage *HtmlGetImage(HtmlWidget *htmlPtr, HtmlElement *p){
     TestPoint(0);
     return 0;
   }
-  azSeq[0] = HtmlMarkupArg(p, "src", "");
-  azSeq[1] = 0;
-  zSrc = "";
-  HtmlLock(htmlPtr);
-  if( azSeq[0]!=0 && HtmlCallResolver(htmlPtr, azSeq)==TCL_OK ){
-    zSrc = htmlPtr->interp->result;
+  zSrc = HtmlMarkupArg(p, "src", 0);
+  if( zSrc==0 ){
+    return 0;
   }
-  if( HtmlUnlock(htmlPtr) ) return 0;
+  HtmlLock(htmlPtr);
+  zSrc = HtmlResolveUri(htmlPtr, zSrc);
+  if( HtmlUnlock(htmlPtr) || zSrc==0 ) return 0;
   zWidth = HtmlMarkupArg(p, "width", "");
   zHeight = HtmlMarkupArg(p, "height", "");
   for(pImage=htmlPtr->imageList; pImage; pImage=pImage->pNext){
@@ -159,23 +177,22 @@ HtmlImage *HtmlGetImage(HtmlWidget *htmlPtr, HtmlElement *p){
   Tcl_DStringAppendElement(&cmd,zWidth);
   Tcl_DStringAppendElement(&cmd,zHeight);
   Tcl_DStringStartSublist(&cmd);
-  for(i=0; i+1<p->base.count; i+=2){
-    char *z = p->markup.argv[i+1];
-    Tcl_DStringAppendElement(&cmd,p->markup.argv[i]);
-    Tcl_DStringAppendElement(&cmd,z);
-    TestPoint(0);
-  }
+  HtmlAppendArglist(&cmd, p);
   Tcl_DStringEndSublist(&cmd);
   HtmlLock(htmlPtr);
   result = Tcl_GlobalEval(htmlPtr->interp, Tcl_DStringValue(&cmd));
   Tcl_DStringFree(&cmd);
-  if( HtmlUnlock(htmlPtr) ) return 0;
+  if( HtmlUnlock(htmlPtr) ){
+    ckfree(zSrc);
+    return 0;
+  }
   zImageName = htmlPtr->interp->result;
   pImage = (HtmlImage*)ckalloc( sizeof(HtmlImage) + strlen(zSrc) + 1 );
   memset(pImage,0,sizeof(HtmlImage));
   pImage->htmlPtr = htmlPtr;
   pImage->zUrl = (char*)&pImage[1];
   strcpy(pImage->zUrl,zSrc);
+  ckfree(zSrc);
   Tcl_ResetResult(htmlPtr->interp);
   pImage->w = 0;
   pImage->h = 0;

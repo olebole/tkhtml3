@@ -1,6 +1,6 @@
 /*
 ** Routines used to compute the style and size of individual elements.
-** $Revision: 1.5 $
+** $Revision: 1.6 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -115,7 +115,7 @@ char *HtmlMarkupArg(HtmlElement *p, const char *tag, char *zDefault){
   int i;
   if( !HtmlIsMarkup(p) ){ TestPoint(0); return 0; }
   for(i=0; i<p->base.count; i+=2){
-    if( strcasecmp(p->markup.argv[i],tag)==0 ){
+    if( strcmp(p->markup.argv[i],tag)==0 ){
       TestPoint(0);
       return  p->markup.argv[i+1];
     }
@@ -558,11 +558,50 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         PushStyleStack(htmlPtr, 
             p->base.type==Html_FONT ? Html_EndFONT : Html_EndBASEFONT, style);
         break;
-      case Html_FORM:
-        htmlPtr->formStart = p;
-        p->form.id = ++htmlPtr->nForm;
-        TestPoint(0);
+      case Html_FORM: {
+        char *zUrl;
+        char *zMethod;
+        Tcl_DString cmd;      /* -formcommand callback */
+        int result;
+        char zToken[50];
+
+        htmlPtr->formStart = 0;
+        p->form.id = 0;
+        if( htmlPtr->zFormCommand==0 || htmlPtr->zFormCommand[0]==0 ){
+          TestPoint(0);
+          break;
+        }
+        zUrl = HtmlMarkupArg(p,"action",0);
+        if( zUrl==0 ){
+          TestPoint(0);
+          break;
+        }
+        HtmlLock(htmlPtr);
+        zUrl = HtmlResolveUri(htmlPtr, zUrl);
+        if( HtmlUnlock(htmlPtr) ) return;
+        if( zUrl==0 ) break;
+        zMethod = HtmlMarkupArg(p,"method","GET");
+        sprintf(zToken," %d form ", p->form.id + 1);
+        Tcl_DStringInit(&cmd);
+        Tcl_DStringAppend(&cmd, htmlPtr->zFormCommand, -1);
+        Tcl_DStringAppend(&cmd, zToken, -1);
+        Tcl_DStringAppend(&cmd, zUrl, -1);
+        ckfree(zUrl);
+        Tcl_DStringAppendElement(&cmd, zMethod);
+        Tcl_DStringStartSublist(&cmd);
+        HtmlAppendArglist(&cmd, p);
+        Tcl_DStringEndSublist(&cmd);
+        HtmlLock(htmlPtr);
+        result = Tcl_GlobalEval(htmlPtr->interp, Tcl_DStringValue(&cmd));
+        Tcl_DStringFree(&cmd);
+        if( HtmlUnlock(htmlPtr) ) return;
+        if( result==TCL_OK ){
+          htmlPtr->formStart = p;
+          p->form.id = ++htmlPtr->nForm;
+        }
+        Tcl_ResetResult(htmlPtr->interp);
         break;
+      }
       case Html_EndFORM:
         p->ref.pOther = htmlPtr->formStart;
         htmlPtr->formStart = 0;

@@ -13,7 +13,11 @@ html .h.h \
   -xscrollcommand {.f2.hsb set} \
   -padx 5 \
   -pady 9 \
+  -formcommand FormCmd \
   -bg white
+proc FormCmd {args} {
+  puts "FormCmd: $args"
+}
 pack .h.h -side left -fill both -expand 1
 scrollbar .h.vsb -orient vertical -command {.h.h yview}
 pack .h.vsb -side left -fill y
@@ -53,6 +57,7 @@ proc Load {} {
     } else {
       set htmltext [read $fp [file size $f]]
       close $fp
+      .h.h config -base file:$f
     }
     set lastDir [file dirname $f]
   }

@@ -1,6 +1,6 @@
 /*
 ** Routines for processing URLs.
-** $Revision: 1.5 $
+** $Revision: 1.6 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -303,4 +303,30 @@ int HtmlCallResolver(
     FreeUri(base);
   }
   return rc;
+}
+
+/*
+** This is a convenient wrapper routine for HtmlCallResolver.
+** It makes a copy of the result into memory obtained from ckalloc()
+** and invokes Tcl_ResetResult().
+*/
+char *HtmlResolveUri(HtmlWidget *htmlPtr, char *zUri){
+  char *azSeq[2];
+  char *zSrc;
+  int result;
+
+  if( zUri==0 || *zUri==0 ) return 0;
+  azSeq[0] = zUri;
+  azSeq[1] = 0;
+  HtmlLock(htmlPtr);
+  result = HtmlCallResolver(htmlPtr, azSeq);
+  if( HtmlUnlock(htmlPtr) ) return 0;
+  if( result==TCL_OK ){
+    zSrc = ckalloc( strlen(htmlPtr->interp->result) + 1 );
+    if( zSrc ) strcpy(zSrc, htmlPtr->interp->result);
+  }else{
+    zSrc = 0;
+  }
+  Tcl_ResetResult(htmlPtr->interp);
+  return zSrc;
 }
