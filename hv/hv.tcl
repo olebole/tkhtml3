@@ -57,7 +57,9 @@ html .h.h \
   -formcommand FormCmd \
   -imagecommand ImageCmd \
   -scriptcommand ScriptCmd \
+  -appletcommand AppletCmd \
   -bg white -tablerelief flat
+
 
 proc FormCmd {n cmd args} {
   # puts "FormCmd: $n $cmd $args"
@@ -83,7 +85,11 @@ proc ImageCmd {args} {
   }
 }
 proc ScriptCmd {args} {
-  # puts "ScriptCmd: $args"
+  puts "ScriptCmd: $args"
+}
+proc AppletCmd {w arglist} {
+  puts "AppletCmd: w=$w arglist=$arglist"
+  label $w -text "The Applet $w" -bd 2 -relief raised
 }
 proc HrefBinding {x y} {
   set new [.h.h href $x $y]

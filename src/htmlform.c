@@ -1,6 +1,6 @@
 /*
 ** Routines used for processing HTML makeup for forms.
-** $Revision: 1.16 $
+** $Revision: 1.17 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -524,6 +524,7 @@ int HtmlControlSize(HtmlWidget *htmlPtr, HtmlElement *pElem){
       Tcl_DStringInit(&cmd);
       Tcl_DStringAppend(&cmd, htmlPtr->zAppletCommand, -1);
       Tcl_DStringAppend(&cmd, " ", 1);
+      pElem->input.cnt = ++htmlPtr->nInput;
       zWin = MakeWindowName(htmlPtr, pElem);
       Tcl_DStringAppend(&cmd, zWin, -1);
       Tcl_DStringStartSublist(&cmd);

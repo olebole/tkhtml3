@@ -1,6 +1,6 @@
 /*
 ** Routines used to compute the style and size of individual elements.
-** $Revision: 1.19 $
+** $Revision: 1.20 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -525,6 +525,8 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         style.font = ItalicFont( FontSize(style.font) );
         PushStyleStack(htmlPtr, Html_EndEM, style);
         TestPoint(0);
+        break;
+      case Html_EMBED:
         break;
       case Html_BASEFONT:
       case Html_FONT:

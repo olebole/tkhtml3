@@ -1,7 +1,7 @@
 <html>
 <!-- 
   Specifications for the Tk HTML Widget 
-  $Revision: 1.6 $
+  $Revision: 1.7 $
   Copyright (C) 1997, 1998, 1999 D. Richard Hipp
 
   This program is free software; you can redistribute it and/or modify
@@ -28,7 +28,7 @@
 <body bgcolor=white>
 <h1>Interface Specification For The HTML Widget</h1>
 
-<p>This is a draft interface specification for the Tk8.0 HTML 
+<p>This is a draft interface specification for the Tk HTML 
 widget currently under development.
 Since it is still a draft, it is subject to change.
 Eventually, the interface will stabilize and this interface
@@ -54,6 +54,9 @@ specification will morph into a manual page.</p>
   the <tt>&lt;applet&gt</tt> tag is ignored and all text between
   <tt>&lt;applet&gt;</tt> and <tt>&lt;/applet&gt;</tt> is displayed
   normally.</p>
+
+  <p>"&lt;embed&gt;" is treated as an alias for
+     "&lt;applet&gt;&lt;/applet&gt".</p>
 </td></tr>
 
 <tr><td valign=top><tt>-background</tt></td>

@@ -1,7 +1,7 @@
 /*
 ** This file contains the code used to position elements of the
 ** HTML file on the screen.
-** $Revision: 1.15 $
+** $Revision: 1.16 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -279,6 +279,7 @@ static HtmlElement *GetLine(
         break;
 
       case Html_APPLET:
+      case Html_EMBED:
       case Html_INPUT:
       case Html_TEXTAREA:
         p->input.x = x + spaceWanted + p->input.padLeft;
@@ -333,7 +334,6 @@ static HtmlElement *GetLine(
 
       case Html_ADDRESS:
       case Html_EndADDRESS:
-      case Html_EndAPPLET:
       case Html_BLOCKQUOTE:
       case Html_EndBLOCKQUOTE:
       case Html_BODY:
@@ -551,6 +551,7 @@ static int FixLine(
           break;
         case Html_TEXTAREA:
         case Html_INPUT:
+        case Html_EMBED:
         case Html_APPLET:
           p->input.x += dx;
           max = p->input.x + p->input.w;
@@ -623,6 +624,7 @@ static int FixLine(
         case Html_INPUT:
         case Html_TEXTAREA:
         case Html_APPLET:
+        case Html_EMBED:
           descent = p->input.y + p->input.h;
           p->input.y += y;
           if( descent > maxDescent ){
@@ -1035,6 +1037,7 @@ static HtmlElement *DoBreakMarkup(
     case Html_INPUT:
     case Html_TEXTAREA:
     case Html_APPLET:
+    case Html_EMBED:
       pNext = p;
       TestPoint(0);
       break;
