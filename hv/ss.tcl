@@ -1,4 +1,4 @@
-# @(#) $Id: ss.tcl,v 1.5 1999/12/30 00:11:07 drh Exp $
+# @(#) $Id: ss.tcl,v 1.6 1999/12/30 00:51:25 drh Exp $
 #
 # This script implements the "ss" application.  "ss" implements
 # a presentation slide-show based on HTML slides.
@@ -185,7 +185,10 @@ bind HtmlClip <2> {KeyPress %w o}
 #
 bind HtmlClip <KeyPress> {KeyPress %W %K}
 proc KeyPress {w keysym} {
-  global hotkey
+  global hotkey key_block
+  if {[info exists key_block]} return
+  set key_block 1
+  after 250 {catch {unset key_block}}
   if {[info exists hotkey($keysym)]} {
     ProcessUrl $hotkey($keysym)
   }
