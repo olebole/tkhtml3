@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlwidget.c,v 1.52 2002/09/22 16:55:46 peter Exp $";
+static char const rcsid[] = "@(#) $Id: htmlwidget.c,v 1.53 2002/09/27 16:51:31 andreas_kupries Exp $";
 /*
 ** The main routine for the HTML widget for Tcl/Tk
 **
@@ -263,7 +263,8 @@ int TclConfigureWidgetObj(Tcl_Interp *interp, HtmlWidget *htmlPtr,
     }
     fprintf(stderr,"Unknown option %s\n",arg);
     return TCL_ERROR;
-    foundopt:
+  foundopt:
+    continue;
   }
   return TCL_OK;
 }
@@ -339,7 +340,8 @@ int TclConfigureWidget(Tcl_Interp *interp, HtmlWidget *htmlPtr,
     }
     fprintf(stderr,"Unknown option %s\n",argv[i]);
     return TCL_ERROR;
-    foundopt:
+  foundopt:
+    continue;
   }
   return TCL_OK;
 }

@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.4 2002/09/22 16:55:46 peter Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.5 2002/09/27 16:51:31 andreas_kupries Exp $";
 /*
 ** The main routine for the HTML widget for Tcl/Tk
 **
@@ -912,7 +912,7 @@ static int lockcopycmd(ClientData clientData, Tcl_Interp *interp,
     Tcl_SetObjResult(interp, Tcl_NewStringObj("open in failed", -1));
     return TCL_ERROR;
   }
-#if !defined(__WIN32__) && !defined(sparc)
+#if !defined(__WIN32__) && !defined(sparc) && !(defined(hpux) || defined(__hpux)) && !defined(_AIX)
   if (flock(indesc, LOCK_EX)<0) {
     close(indesc);
     Tcl_SetObjResult(interp, Tcl_NewStringObj("lock failed", -1));
@@ -942,7 +942,7 @@ static int lockcopycmd(ClientData clientData, Tcl_Interp *interp,
     Tcl_SetObjResult(interp, Tcl_NewStringObj("close out failed", -1));
     return TCL_ERROR;
   }
-#if !defined(__WIN32__) && !defined(sparc)
+#if !defined(__WIN32__) && !defined(sparc) && !(defined(hpux) || defined(__hpux)) && !defined(_AIX)
   ftruncate (indesc, 0L);
   flock(indesc, LOCK_UN);
 #endif

@@ -1,0 +1,15 @@
+2002-09-27  Andreas Kupries  <andreask@pliers.activestate.com>
+
+	* doc/spec.html: Added two paragraph markers for paragraphs without.
+
+	* src/htmltcl.c (lockcopycmd): Extended to handle HPUX and AIX.
+
+	* src/htmlform.c (HtmlFormIdx, HtmlAddFormInfo): See below, this
+	  time branches in a switch.
+
+	* src/htmlwidget.c (TclConfigureWidgetObj, TclConfigureWidget):
+	  Fixed syntax, HP compilers do not like label without any
+	  statement after them. Inserted semantically no-op to satisfy
+	  these demands.
+
+	* started a regular change log.

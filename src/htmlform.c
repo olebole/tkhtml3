@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlform.c,v 1.28 2002/09/22 16:55:45 peter Exp $";
+static char const rcsid[] = "@(#) $Id: htmlform.c,v 1.29 2002/09/27 16:51:31 andreas_kupries Exp $";
 /*
 ** Routines used for processing HTML makeup for forms.
 **
@@ -446,6 +446,7 @@ HtmlElement * HtmlFormIdx(HtmlWidget *htmlPtr, HtmlElement *p, int tag,
     case Html_TEXTAREA:
     case Html_INPUT:
     case Html_OPTION:
+      break;
     }
   }
   return 0;
@@ -517,6 +518,7 @@ int HtmlAddFormInfo(HtmlWidget *htmlPtr, HtmlElement *p){
         htmlPtr->formElemLast->input.subid++;
       break;
     default:
+      break;
   }
 }
 

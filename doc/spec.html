@@ -1,7 +1,7 @@
 <html>
 <!-- 
   Specifications for the Tk HTML Widget 
-  $Revision: 1.11 $
+  $Revision: 1.12 $
   Copyright (C) 1997, 1998, 1999 D. Richard Hipp
 
   This program is free software; you can redistribute it and/or modify
@@ -22,7 +22,7 @@
      drh@acm.org
      http://www.hwaci.com/drh/
 
-  @(#) $Id: spec.html,v 1.11 2002/09/22 16:55:45 peter Exp $
+  @(#) $Id: spec.html,v 1.12 2002/09/27 16:51:30 andreas_kupries Exp $
 -->
 <head>
 <title>Interface Specification For The HTML Widget</title>
@@ -346,7 +346,7 @@ This value does not include space allocated for
 
 <h2>Indices</h2>
 
-Internally, the HTML widget stores the HTML document as a list of
+<p>Internally, the HTML widget stores the HTML document as a list of
 tokens.
 Each token is either
 <ul>
@@ -354,7 +354,7 @@ Each token is either
 <li>a contiguous sequence of spaces, tabs or newlines (Space),
 <li>or an HTML markup tag (such as ``<tt>&lt;em&gt;</tt>''.)
 </ul>
-Tokens are identified by number.
+<p>Tokens are identified by number.
 The first token is ``1'', the second is ``2'' and so forth.
 So in its simplest form, an index is just an integer greater than 0.
 <p>
