@@ -1651,7 +1651,7 @@ else
     TARGET_TCL_INC=""
   fi
 fi
-echo "$ac_t""$TARGET_TCLINC" 1>&6
+echo "$ac_t""$TARGET_TCL_INC" 1>&6
 
 
 ###########

@@ -141,7 +141,7 @@ proc MakeProg {name obj {libs {tk}}} {
 proc MakeShObj {name src {dep {}}} {
   if {"@ENABLE_SHLIB@"!=1} return
   set n sh$name
-  set cc "@TARGET_CC@ @TARGET_SHLIB_CFLAGS@ -I. -I@TARGET_TCL_INC@"
+  set cc "@TARGET_CC@ @TARGET_SHLIB_CFLAGS@ -I. @TARGET_TCL_INC@"
   append cc " @TARGET_TK_INC@ @TARGET_BLT_INC@"
   puts "$n:	$src $dep"
   puts "	$cc -o $n -c $src"
@@ -188,7 +188,7 @@ proc MakeShLib {name obj {libs tk}} {
 #
 proc MakeObj {name src {dep {}}} {
   set n $name
-  set cc "@TARGET_CC@ @TARGET_CFLAGS@ -I. -I@TARGET_TCL_INC@"
+  set cc "@TARGET_CC@ @TARGET_CFLAGS@ -I. @TARGET_TCL_INC@"
   append cc " @TARGET_TK_INC@ @TARGET_BLT_INC@"
   puts "$n:	$src $dep"
   puts "	$cc -o $n -c $src"
@@ -421,6 +421,12 @@ MakeMta appinit [lindex $srctcl 0] $alltcl [Src src/htmlwish.c] tk $options
 MakeObj htmlwish.o [Src src/htmlwish.c] appinit.h
 MakeProg hwish "htmlwish.o appinit.o libtkhtml.a" tk
 MakeProg hwishdev "htmlwish.o appinitdev.o libtkhtml.a" tk
+
+# Generate the "hv" application.
+#
+MakeMta hv [Src hv/hv.tcl] [Src hv/hv.tcl] [Src hv/hvinit.c] tk {}
+MakeObj hvinit.o [Src hv/hvinit.c] hv.h
+MakeProg hv "hv.o hvinit.o libtkhtml.a" tk
 
 #############################################################################
 #  It is not usually necessary to change anything below this line.
