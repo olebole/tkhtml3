@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlwidget.c,v 1.54 2002/12/17 18:24:16 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlwidget.c,v 1.55 2003/01/10 14:41:05 drh Exp $";
 /*
 ** The main routine for the HTML widget for Tcl/Tk
 **
@@ -1958,7 +1958,8 @@ extern Tcl_Command htmlcmdhandle;
 #ifndef _TCLHTML_
 int HtmlXErrorHandler(Display *dsp, XErrorEvent *ev) {
   char buf[300];
-#if ! defined(__WIN32__)
+/* #if ! defined(__WIN32__) */
+#if 0
   XGetErrorText(dsp, ev->error_code, buf, 300);
   fprintf(stderr,"X-Error: %s\n", buf);
 #endif
