@@ -1,9 +1,9 @@
 /*
 ** This file contains the TestPoint routines used for profiling
 ** and coverage analysis of the code.
-** $Revision: 1.5 $
+** $Revision: 1.6 $
 **
-** Copyright (C) 1997,1998 D. Richard Hipp
+** Copyright (C) 1997-1999 D. Richard Hipp
 **
 ** This library is free software; you can redistribute it and/or
 ** modify it under the terms of the GNU Library General Public

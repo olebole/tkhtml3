@@ -1,8 +1,8 @@
 /*
 ** Routines used to render HTML onto the screen for the Tk HTML widget.
-** $Revision: 1.10 $
+** $Revision: 1.11 $
 **
-** Copyright (C) 1997,1998 D. Richard Hipp
+** Copyright (C) 1997-1999 D. Richard Hipp
 **
 ** This library is free software; you can redistribute it and/or
 ** modify it under the terms of the GNU Library General Public

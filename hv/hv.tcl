@@ -33,6 +33,7 @@ html .h.h \
   -pady 9 \
   -formcommand FormCmd \
   -imagecommand ImageCmd \
+  -scriptcommand ScriptCmd \
   -bg white -tablerelief flat
 
 proc FormCmd {n cmd args} {
@@ -54,6 +55,9 @@ proc ImageCmd {args} {
     set Images($img) 1
     return $img
   }
+}
+proc ScriptCmd {args} {
+  puts "ScriptCmd: $args"
 }
 proc HrefBinding {x y} {
   set new [.h.h href $x $y]

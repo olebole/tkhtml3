@@ -1,6 +1,6 @@
 /*
 ** A tokenizer that converts raw HTML into a linked list of HTML elements.
-** $Revision: 1.5 $
+** $Revision: 1.6 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -480,7 +480,27 @@ static int Tokenize(
   if( iCol<0 ){ TestPoint(0); return n; }   /* Prevents recursion */
   p->iCol = -1;
   while( (c=z[n])!=0 ){
-    if( isspace(c) ){
+    if( p->pScript ){
+      /* We are in the middle of <SCRIPT>...</SCRIPT>.  Just look for
+      ** the </SCRIPT> markup. */
+      HtmlScript *pScript = p->pScript;
+      if( pScript->zScript==0 ){
+        pScript->zScript = &z[n];
+        pScript->nScript = 0;
+      }
+      for(i=n+pScript->nScript; z[i]; i++){
+        if( z[i]=='<' && strnicmp(&z[i],"</script>",9)==0 ){
+          pScript->nScript = i - n;
+          p->pScript = 0;
+          n = i+9;
+          break;
+        }
+      }
+      if( p->pScript ){
+        pScript->nScript = i - n;
+      }
+      continue;
+    }else if( isspace(c) ){
       /* White space */
       for(i=0; (c=z[n+i])!=0 && isspace(c) && c!='\n'; i++){ TestPoint(0); }
       pElem = HtmlAlloc( sizeof(HtmlSpaceElement) );
@@ -758,6 +778,9 @@ doMarkup:
         case Html_XMP:
           p->iPlaintext = pMap->type;
           TestPoint(0);
+          break;
+        case Html_SCRIPT:
+          p->pScript = (HtmlScript*)pElem;
           break;
         default:
           TestPoint(0);

@@ -1,8 +1,8 @@
 /*
 ** Structures and typedefs used by the HTML widget
-** $Revision: 1.14 $
+** $Revision: 1.15 $
 **
-** Copyright (C) 1997,1998 D. Richard Hipp
+** Copyright (C) 1997-1999 D. Richard Hipp
 **
 ** This library is free software; you can redistribute it and/or
 ** modify it under the terms of the GNU Library General Public
@@ -237,6 +237,7 @@ union HtmlElement {
   HtmlForm form;
   HtmlHr hr;
   HtmlAnchor anchor;
+  HtmlScript script;
   HtmlBlock block;
 };
 
@@ -541,6 +542,21 @@ struct HtmlAnchor {
 };
 
 /*
+** Information about the <SCRIPT> markup.  The parser treats <SCRIPT>
+** specially.  All text between <SCRIPT> and </SCRIPT> is captured and
+** is pointed to by the zScript field of this structure.
+**
+** Note that zScript is not null-terminated.   Instead, zScript just
+** points to a spot in the zText field of the HtmlWidget structure.
+** The nScript field determines how long the script is.
+*/
+struct HtmlScript {
+  HtmlMarkupElement markup;
+  char *zScript;           /* Complete text of this script */
+  int nScript;             /* Number of characters of text */
+}
+
+/*
 ** A block is a single unit of display information.  This can be
 ** one or more text elements, or the border of table, or an
 ** image, etc.
@@ -753,6 +769,7 @@ struct HtmlWidget {
                                  * caused us to go into plaintext mode.  One
                                  * of Html_PLAINTEXT, Html_LISTING or
                                  * Html_XMP */
+  HtmlScript *pScript;            /* <SCRIPT> currently being parsed */
   char *zHandler[Html_TypeCount]; /* If not NULL, this is a TCL routine that
                                  * is used to process tokens of the given 
                                  * type */
@@ -833,6 +850,7 @@ struct HtmlWidget {
   char *zFormCommand;           /* When user presses Submit */
   char *zHyperlinkCommand;      /* Invoked when a hyperlink is clicked */
   char *zFontCommand;           /* Invoked to find font names */
+  char *zScriptCommand;         /* Invoked for each <SCRIPT> markup */
 
    /*
     * Miscellaneous information:

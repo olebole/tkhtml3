@@ -1,8 +1,8 @@
 /*
 ** Routines used to compute the style and size of individual elements.
-** $Revision: 1.17 $
+** $Revision: 1.18 $
 **
-** Copyright (C) 1997,1998 D. Richard Hipp
+** Copyright (C) 1997-1999 D. Richard Hipp
 **
 ** This library is free software; you can redistribute it and/or
 ** modify it under the terms of the GNU Library General Public
@@ -750,6 +750,28 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         style.flags |= STY_StrikeThru;
         PushStyleStack(htmlPtr, Html_EndS, style);
         TestPoint(0);
+        break;
+      case Html_SCRIPT:
+        if( htmlPtr->zScriptCommand && *htmlPtr->zScriptCommand ){
+          Tcl_DString cmd;
+          int result;
+          Tcl_DStringInit(&cmd);
+          Tcl_DStringAppend(&cmd, htmlPtr->zScriptCommand, -1);
+          Tcl_DStringStartSublist(&cmd);
+          HtmlAppendArglist(&cmd, p);
+          Tcl_DStringEndSublist(&cmd);
+          Tcl_DStringStartSublist(&cmd);
+          Tcl_DStringAppend(&cmd, p->script.zScript, p->script.nScript);
+          Tcl_DStringEndSublist(&cmd);
+          HtmlLock(htmlPtr);
+          result = Tcl_GlobalEval(htmlPtr->interp, Tcl_DStringValue(&cmd));
+          Tcl_DStringFree(&cmd);
+          if( HtmlUnlock(htmlPtr) ) return;
+          Tcl_ResetResult(htmlPtr->interp);
+        }
+        nextStyle = style;
+        style.flags |= STY_Invisible;
+        useNextStyle = 1;
         break;
       case Html_SELECT:
         p->input.pForm = htmlPtr->formStart;

@@ -6,9 +6,9 @@
 # no extra space (beyond HtmlMarkup) is required.  If there is a
 # corresponding end-tag, then the third column specifies the size of
 # the end markup.
-# $Revision: 1.2 $
+# $Revision: 1.3 $
 #
-# Copyright (C) 1997,1998 D. Richard Hipp
+# Copyright (C) 1997-1999 D. Richard Hipp
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Library General Public
@@ -69,6 +69,7 @@ h6              0                              0
 hr              HtmlHr                              
 html            0                              0
 i               0                              0
+iframe          0
 img             HtmlImageMarkup                
 input           HtmlInput                      
 isindex         0                              
@@ -91,6 +92,7 @@ plaintext       0
 pre             0                              0
 s               0                              0
 samp            0                              0
+script          HtmlScript
 select          HtmlInput                      HtmlRef
 small           0                              0
 strike          0                              0
