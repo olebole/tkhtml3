@@ -1,6 +1,6 @@
 /*
 ** The main routine for the HTML widget for Tcl/Tk
-** $Revision: 1.32 $
+** $Revision: 1.33 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -849,13 +849,9 @@ void HtmlDeleteElement(HtmlElement *p){
     case Html_Block:
       if( p->block.z ){
         HtmlFree(p->block.z);
-        TestPoint(0);
-      }else{
-        TestPoint(0);
       }
       break;
     default:
-      TestPoint(0);
       break;
   }
   HtmlFree(p);
@@ -876,7 +872,6 @@ void HtmlClear(HtmlWidget *htmlPtr){
   for(p=htmlPtr->pFirst; p; p=pNext){
     pNext = p->pNext;
     HtmlDeleteElement(p);
-    TestPoint(0);
   }
   htmlPtr->pFirst = 0;
   htmlPtr->pLast = 0;
@@ -1253,7 +1248,7 @@ static void HtmlEventProc(ClientData clientData, XEvent *eventPtr){
 ** (in theory) cause the HTML widget to be changed arbitrarily or even
 ** deleted.  Callers of this function much be prepared to be called
 ** recursively and/or to have the HTML widget deleted out from under
-** them.  This return will return NULL if the HTML widget is deleted.
+** them.  This routine will return NULL if the HTML widget is deleted.
 */
 Tk_Font HtmlGetFont(
   HtmlWidget *htmlPtr,        /* The HTML widget to which the font applies */
@@ -1331,7 +1326,7 @@ Tk_Font HtmlGetFont(
 
     /*
     ** If the -fontcommand failed or returned an empty string, or if
-    ** there is not -fontcommand, then get the default font name.
+    ** there is no -fontcommand, then get the default font name.
     */
     if( name[0]==0 ){
       char *familyStr = "";

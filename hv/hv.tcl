@@ -58,7 +58,6 @@ html .h.h \
   -imagecommand ImageCmd \
   -scriptcommand ScriptCmd \
   -appletcommand AppletCmd \
-  -hyperlinkcommand HyperCmd \
   -bg white -tablerelief raised
 
 if {$HtmlTraceMask} {
@@ -74,10 +73,6 @@ proc pickFont {size attrs} {
   set d [expr {int(12*pow(1.2,$size-4))}]
   list $a $d $b $c
 } 
-
-proc HyperCmd {args} {
-  puts "HyperlinkCommand: $args"
-}
 
 proc FormCmd {n cmd args} {
  puts "FormCmd: $n $cmd $args"
@@ -171,6 +166,7 @@ proc ReadFile {name} {
     tk_messageBox -icon error -message $fp -type ok
     return {}
   } else {
+    fconfigure $fp -translation binary
     return [read $fp [file size $name]]
   }
 }

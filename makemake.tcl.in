@@ -12,7 +12,7 @@
 # (Prehaps comment out the BLT part if you are not using BLT.)
 # This script requires some customization down toward the bottom.
 #
-# $Revision: 1.13 $
+# $Revision: 1.14 $
 #
 
 # Some useful variables.
@@ -363,8 +363,8 @@ MakeTool mktclapp [Src tools/mktclapp.c]
 
 # Generate the htmltokens.c file
 #
-puts "htmltokens.c:	[Src src/tokenlist.txt] [Src tools/maketokens.sh]"
-puts "	sh [Src tools/maketokens.sh] [Src src/tokenlist.txt] >htmltokens.c"
+puts "htmltokens.c:	[Src src/tokenlist.txt] [Src tools/maketokens.tcl]"
+puts "\t$BTCLSH [Src tools/maketokens.tcl] [Src src/tokenlist.txt] >htmltokens.c"
 puts ""
 lappend cleanable htmltokens.c
 

@@ -1,6 +1,6 @@
 /*
 ** Structures and typedefs used by the HTML widget
-** $Revision: 1.21 $
+** $Revision: 1.22 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -483,7 +483,7 @@ struct HtmlImageMarkup {
 ** are represented by instances of the following structure.
 **
 ** (later...)  We also use this for the <APPLET> markup.  That way,
-** the window we create for an <APPLET> response to the HtmlMapControls()
+** the window we create for an <APPLET> responds to the HtmlMapControls()
 ** and HtmlUnmapControls() function calls.  For an <APPLET>, the
 ** pForm field is NULL.  (Later still...) <EMBED> works just like
 ** <APPLET> so it uses this structure too.
