@@ -1,6 +1,6 @@
 /*
 ** The main routine for the HTML widget for Tcl/Tk
-** $Revision: 1.27 $
+** $Revision: 1.28 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -1385,8 +1385,28 @@ static float colorDistance(XColor *pA, XColor *pB){
 int HtmlGetColorByName(HtmlWidget *htmlPtr, char *zColor){
   XColor *pNew;
   int iColor;
-  Tk_Uid name = Tk_GetUid(zColor);  /**** This is a memory leak ****/
+  Tk_Uid name;
+  int i, n;
+  char zAltColor[16];
 
+  /* Netscape accepts color names that are just HEX values, without
+  ** the # up front.  This isn't valid HTML, but we support it for
+  ** compatibility.
+  */
+  n = strlen(zColor);
+  if( n==6 || n==3 || n==9 || n==12 ){
+    for(i=0; i<n; i++){
+      if( !isxdigit(zColor[i]) ) break;
+    }
+    if( i==n ){
+      sprintf(zAltColor,"#%s",zColor);
+    }else{
+      strcpy(zAltColor, zColor);
+    }
+    name = Tk_GetUid(zAltColor);
+  }else{
+    name = Tk_GetUid(zColor);
+  }
   pNew = Tk_GetColor(htmlPtr->interp, htmlPtr->clipwin, name);
   if( pNew==0 ){
     return 0;      /* Color 0 is always the default */
