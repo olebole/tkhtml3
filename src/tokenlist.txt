@@ -6,7 +6,7 @@
 # no extra space (beyond HtmlMarkup) is required.  If there is a
 # corresponding end-tag, then the third column specifies the size of
 # the end markup.
-# $Revision: 1.1 $
+# $Revision: 1.2 $
 #
 # Copyright (C) 1997,1998 D. Richard Hipp
 #
@@ -84,6 +84,7 @@ nextid          0
 nobr            0                              0
 noframe         0                              0
 ol              HtmlListStart                  HtmlRef
+option          0                              0
 p               0                              0
 param           0                              0
 plaintext       0                              

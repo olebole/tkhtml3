@@ -1,6 +1,6 @@
 /*
 ** Routines used to compute the style and size of individual elements.
-** $Revision: 1.10 $
+** $Revision: 1.11 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -351,7 +351,7 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         if( htmlPtr->zAppletCommand && *htmlPtr->zAppletCommand ){
           nextStyle = style;
           nextStyle.flags |= STY_Invisible;
-          PushStyleStack(htmlPtr, Html_EndTEXTAREA, nextStyle);
+          PushStyleStack(htmlPtr, Html_EndAPPLET, nextStyle);
           useNextStyle = 1;
         }else{
           PushStyleStack(htmlPtr, Html_EndAPPLET, style);
@@ -753,6 +753,7 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         TestPoint(0);
         break;
       case Html_SELECT:
+        p->input.pForm = htmlPtr->formStart;
         style.flags |= STY_Invisible;
         PushStyleStack(htmlPtr, Html_EndSELECT, style);
         htmlPtr->formElemStart = p;
@@ -826,6 +827,7 @@ void HtmlAddStyle(HtmlWidget *htmlPtr, HtmlElement *p){
         TestPoint(0);
         break;
       case Html_TEXTAREA:
+        p->input.pForm = htmlPtr->formStart;
         nextStyle = style;
         nextStyle.flags |= STY_Invisible;
         PushStyleStack(htmlPtr, Html_EndTEXTAREA, nextStyle);
@@ -1031,11 +1033,22 @@ void HtmlSizer(HtmlWidget *htmlPtr){
         break;
       case Html_APPLET:
       case Html_INPUT:
+        p->input.textAscent = fontMetrics.ascent;
+        p->input.textDescent = fontMetrics.descent;
+        stop = HtmlControlSize(htmlPtr, p);
+        TestPoint(0);
+        break;
       case Html_SELECT:
       case Html_TEXTAREA:
         p->input.textAscent = fontMetrics.ascent;
         p->input.textDescent = fontMetrics.descent;
-        stop = HtmlControlSize(htmlPtr, p);
+        break;
+      case Html_EndSELECT:
+      case Html_EndTEXTAREA:
+        if( p->ref.pOther ){
+          p->ref.pOther->input.pEnd = p;
+          stop = HtmlControlSize(htmlPtr, p->ref.pOther);
+        }
         TestPoint(0);
         break;
       default:

@@ -1,6 +1,6 @@
 /*
 ** Routines used for processing HTML makeup for forms.
-** $Revision: 1.10 $
+** $Revision: 1.11 $
 **
 ** Copyright (C) 1997,1998 D. Richard Hipp
 **
@@ -184,7 +184,7 @@ static int InputType(HtmlElement *p){
       TestPoint(0);
       break;
     default:
-      TestPoint(0);
+      CANT_HAPPEN;
       break;
   }
   return type;
@@ -309,6 +309,45 @@ static void SizeAndLink(HtmlWidget *htmlPtr, char *zWin, HtmlElement *pElem){
   htmlPtr->lastInput = pElem;
 }
 
+/* Append all text and space tokens between pStart and pEnd to
+** the given Tcl_DString.
+*/
+static void HtmlAppendText(
+  Tcl_DString *str,         /* Append the text here */
+  HtmlElement *pFirst,      /* The first token */
+  HtmlElement *pEnd         /* The last token */
+){
+  while( pFirst && pFirst!=pEnd ){
+    switch( pFirst->base.type ){
+      case Html_Text: {
+        Tcl_DStringAppend(str, pFirst->text.zText, -1);
+        break;
+      }
+      case Html_Space: {
+        if( pFirst->base.flags & HTML_NewLine ){
+          Tcl_DStringAppend(str, "\n", 1);
+        }else{
+          int cnt;
+          static char zSpaces[] = "                             ";
+          cnt = pFirst->base.count;
+          while( cnt>sizeof(zSpaces)-1 ){
+            Tcl_DStringAppend(str, zSpaces, sizeof(zSpaces)-1);
+            cnt -= sizeof(zSpaces)-1;
+          }
+          if( cnt>0 ){
+            Tcl_DStringAppend(str, zSpaces, cnt);
+          }
+        }
+        break;
+      }
+      default:
+        /* Do nothing */
+        break;
+    }
+    pFirst = pFirst->pNext;
+  }
+}
+
 /*
 ** The "p" argument points to a <select>.  This routine scans all
 ** subsequent elements (up to the next </select>) looking for
@@ -322,8 +361,39 @@ static void SizeAndLink(HtmlWidget *htmlPtr, char *zWin, HtmlElement *pElem){
 **
 **     *        The text displayed for this element.
 */
-static void AddSelectOptions(Tcl_DString *str, HtmlElement *p){
-  /* TBD */
+static void AddSelectOptions(
+  Tcl_DString *str,      /* Add text here */
+  HtmlElement *p,        /* The <SELECT> markup */
+  HtmlElement *pEnd      /* The </SELECT> markup */
+){
+  while( p && p!=pEnd && p->base.type!=Html_EndSELECT ){
+    if( p->base.type==Html_OPTION ){
+      char *zValue;
+      Tcl_DStringStartSublist(str);
+      if( HtmlMarkupArg(p, "selected", 0)==0 ){
+        Tcl_DStringAppend(str, "0 ", 2);
+      }else{
+        Tcl_DStringAppend(str, "1 ", 2);
+      }
+      zValue = HtmlMarkupArg(p, "value", "");
+      Tcl_DStringAppendElement(str, zValue);
+      Tcl_DStringStartSublist(str);
+      p = p->pNext;
+      while( p && p!=pEnd && p->base.type!=Html_EndOPTION 
+        && p->base.type!=Html_OPTION && p->base.type!=Html_EndSELECT ){
+        if( p->base.type==Html_Text ){
+          Tcl_DStringAppend(str, p->text.zText, -1);
+        }else if( p->base.type==Html_Space ){
+          Tcl_DStringAppend(str, " ", 1);
+        }
+        p = p->pNext;
+      }
+      Tcl_DStringEndSublist(str);
+      Tcl_DStringEndSublist(str);
+    }else{
+      p = p->pNext;
+    }
+  }
 }
 
 /*
@@ -382,15 +452,65 @@ int HtmlControlSize(HtmlWidget *htmlPtr, HtmlElement *pElem){
       break;
     }
     case INPUT_TYPE_Select: {
-      pElem->base.flags &= ~HTML_Visible;
-      pElem->base.style.flags |= STY_Invisible;
-      pElem->input.tkwin = 0;
+      int result;
+      char zToken[50];
+
+      if( pElem->input.pForm==0 || htmlPtr->zFormCommand==0 
+           || htmlPtr->zFormCommand[0]==0 ){
+        EmptyInput(pElem);
+        break;
+      }
+      Tcl_DStringInit(&cmd);
+      Tcl_DStringAppend(&cmd, htmlPtr->zFormCommand, -1);
+      sprintf(zToken," %d select ",pElem->input.pForm->form.id);
+      Tcl_DStringAppend(&cmd, zToken, -1);
+      pElem->input.cnt = ++htmlPtr->nInput;
+      zWin = MakeWindowName(htmlPtr, pElem);
+      Tcl_DStringAppend(&cmd, zWin, -1);
+      Tcl_DStringStartSublist(&cmd);
+      HtmlAppendArglist(&cmd, pElem);
+      Tcl_DStringEndSublist(&cmd);
+      Tcl_DStringStartSublist(&cmd);
+      AddSelectOptions(&cmd, pElem, pElem->input.pEnd);
+      Tcl_DStringEndSublist(&cmd);
+      HtmlLock(htmlPtr);
+      result = Tcl_GlobalEval(htmlPtr->interp, Tcl_DStringValue(&cmd));
+      Tcl_DStringFree(&cmd);
+      if( !HtmlUnlock(htmlPtr) ){
+        SizeAndLink(htmlPtr, zWin, pElem);
+      }
+      ckfree(zWin);
       break;
     }
     case INPUT_TYPE_TextArea: {
-      pElem->base.flags &= ~HTML_Visible;
-      pElem->base.style.flags |= STY_Invisible;
-      pElem->input.tkwin = 0;
+      int result;
+      char zToken[50];
+
+      if( pElem->input.pForm==0 || htmlPtr->zFormCommand==0 
+           || htmlPtr->zFormCommand[0]==0 ){
+        EmptyInput(pElem);
+        break;
+      }
+      Tcl_DStringInit(&cmd);
+      Tcl_DStringAppend(&cmd, htmlPtr->zFormCommand, -1);
+      sprintf(zToken," %d textarea ",pElem->input.pForm->form.id);
+      Tcl_DStringAppend(&cmd, zToken, -1);
+      pElem->input.cnt = ++htmlPtr->nInput;
+      zWin = MakeWindowName(htmlPtr, pElem);
+      Tcl_DStringAppend(&cmd, zWin, -1);
+      Tcl_DStringStartSublist(&cmd);
+      HtmlAppendArglist(&cmd, pElem);
+      Tcl_DStringEndSublist(&cmd);
+      Tcl_DStringStartSublist(&cmd);
+      HtmlAppendText(&cmd, pElem, pElem->input.pEnd);
+      Tcl_DStringEndSublist(&cmd);
+      HtmlLock(htmlPtr);
+      result = Tcl_GlobalEval(htmlPtr->interp, Tcl_DStringValue(&cmd));
+      Tcl_DStringFree(&cmd);
+      if( !HtmlUnlock(htmlPtr) ){
+        SizeAndLink(htmlPtr, zWin, pElem);
+      }
+      ckfree(zWin);
       break;
     }
     case INPUT_TYPE_Applet: {
