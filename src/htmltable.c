@@ -1,6 +1,6 @@
 /*
 ** Routines for doing layout of HTML tables
-** $Id: htmltable.c,v 1.29 1999/12/21 12:45:37 drh Exp $
+** $Id: htmltable.c,v 1.30 1999/12/30 01:09:05 drh Exp $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -116,6 +116,7 @@ static HtmlElement *TableDimensions(
   int separation;                    /* Space between columns */
   int margin;                        /* Space between left margin and 1st col */
   int availWidth;                    /* Part of lineWidth still available */
+  int maxTableWidth;                 /* Amount of lineWidth available to table*/
   int fromAbove[HTML_MAX_COLUMNS+1]; /* Cell above extends thru this row */
   int min0span[HTML_MAX_COLUMNS+1];  /* Min for colspan=0 cells */
   int max0span[HTML_MAX_COLUMNS+1];  /* Max for colspan=0 cells */
@@ -182,7 +183,7 @@ static HtmlElement *TableDimensions(
         pStart->table.nRow++;
         iCol = 0;
         inRow = 1;
-        availWidth = lineWidth - 2*margin;
+        maxTableWidth = availWidth = lineWidth - 2*margin;
         TestPoint(0);
         break;
       case Html_CAPTION:
@@ -243,7 +244,8 @@ static HtmlElement *TableDimensions(
           if( z[i]==0 ){
             requestedW = atoi(z);
           }else if( z[i]=='%' ){
-            requestedW = (atoi(z)*availWidth + 99)/100;
+            /* requestedW = (atoi(z)*availWidth + 99)/100; */
+            requestedW = (atoi(z)*maxTableWidth + 99)/100;
           }
         }else{
           requestedW = 0;
