@@ -1,6 +1,6 @@
 /*
 ** Routines to implement the HTML widget commands
-** $Revision: 1.11 $
+** $Revision: 1.12 $
 **
 ** Copyright (C) 1997-1999 D. Richard Hipp
 **
@@ -236,11 +236,11 @@ int HtmlXviewCmd(
         TestPoint(0);
         break;
       case TK_SCROLL_PAGES:
-        offset += count * w;
+        offset += (count * w * 9)/10;
         TestPoint(0);
         break;
       case TK_SCROLL_UNITS:
-        offset += count * 20;
+        offset += (count * w)/10;
         TestPoint(0);
         break;
     }
@@ -312,11 +312,11 @@ int HtmlYviewCmd(
         TestPoint(0);
         break;
       case TK_SCROLL_PAGES:
-        offset += count * h;
+        offset += (count * h * 9)/10;
         TestPoint(0);
         break;
       case TK_SCROLL_UNITS:
-        offset += count * 10;
+        offset += (count * h)/10;
         TestPoint(0);
         break;
     }
