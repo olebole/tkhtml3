@@ -1,4 +1,4 @@
-static char const rcsid[] = "@(#) $Id: htmlwidget.c,v 1.43 2000/02/25 13:57:03 drh Exp $";
+static char const rcsid[] = "@(#) $Id: htmlwidget.c,v 1.44 2000/07/31 10:31:51 drh Exp $";
 /*
 ** The main routine for the HTML widget for Tcl/Tk
 **
@@ -538,7 +538,7 @@ static void HtmlRedrawCallback(ClientData clientData){
       htmlPtr->yOffset = 0;
     }
     w = htmlPtr->realWidth - 2*insetX;
-    if( htmlPtr->xOffset + h > htmlPtr->maxX ){
+    if( htmlPtr->xOffset + w > htmlPtr->maxX ){
       htmlPtr->xOffset = htmlPtr->maxX - w;
     }
     if( htmlPtr->xOffset < 0 ){
