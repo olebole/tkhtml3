@@ -30,7 +30,9 @@ HtmlTokenMap *HtmlMarkup(markup)
  * HtmlMarkupFlags --
  *
  * Results:
- *     None.
+ *     Return the 'flags' value associated with Html markup tag 'markup'.
+ *     The flags value is a bitmask comprised of the HTMLTAG_xxx symbols
+ *     defined in html.h.
  *
  * Side effects:
  *     None.

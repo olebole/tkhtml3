@@ -42,10 +42,15 @@ medium_list_opt ::= .
 /*********************************************************************
 ** Style sheet body. A list of style sheet body items.
 */
+/*
 ss_body ::= .
 ss_body ::= ss_body_item ws ss_body.
+*/
 
-ss_body_item ::= media. 
+ss_body ::= ss_body_item.
+ss_body ::= ss_body ws ss_body_item.
+
+ss_body_item ::= media.
 ss_body_item ::= ruleset.
 ss_body_item ::= font_face. 
 
@@ -76,7 +81,7 @@ font_face ::= FONT_SYM LP declaration_list RP.
 /*********************************************************************
 ** Style sheet rules. e.g. "<selector> { <properties> }"
 */
-ruleset ::= selector_list LP ws declaration_list RP. {
+ruleset ::= selector_list LP ws declaration_list semicolon_opt RP. {
     tkhtmlCssRule(pParse, 1);
 }
 ruleset ::= page.
@@ -90,6 +95,9 @@ comma ::= COMMA. {
 
 declaration_list ::= declaration.
 declaration_list ::= declaration_list SEMICOLON ws declaration.
+
+semicolon_opt ::= SEMICOLON ws.
+semicolon_opt ::= .
 
 declaration ::= IDENT(X) ws COLON ws expr(E). {
     tkhtmlCssDeclaration(pParse, &X, &E);
@@ -148,8 +156,10 @@ simple_selector_tail ::=
     tkhtmlCssSelector(pParse, CSS_SELECTOR_ATTRHYPHEN, &X, &Y);
 }
 
-/* TODO: Deal with pseudo selectors. This rule makes the parser ignore them. */
-simple_selector_tail ::= COLON IDENT simple_selector_tail_opt.
+/* Todo: Deal with pseudo selectors. This rule makes the parser ignore them. */
+simple_selector_tail ::= COLON IDENT(X) simple_selector_tail_opt. {
+    tkhtmlCssSelector(pParse, tkhtmlCssPseudo(&X), 0, 0);
+}
 
 /*********************************************************************
 ** Expression syntax. This is very simple, it may need to be extended
@@ -169,5 +179,6 @@ term(A) ::= IDENT(X) DOT IDENT(Y). { A.z = X.z; A.n = (Y.z+Y.n - X.z); }
 term(A) ::= STRING(X). { A = X; }
 term(A) ::= FUNCTION(X). { A = X; }
 term(A) ::= HASH(X) IDENT(Y). { A.z = X.z; A.n = (Y.z+Y.n - X.z); }
+term(A) ::= PLUS(X) IDENT(Y). { A.z = X.z; A.n = (Y.z+Y.n - X.z); }
 term(A) ::= IMPORTANT_SYM(X). { A = X; }
 

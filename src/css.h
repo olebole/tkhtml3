@@ -14,6 +14,8 @@
  * This module uses a fairly complicated object-oriented interface. The 
  * objects have the following roles:
  *
+ * CssProperty:      A single property value.
+ *
  * CssProperties:    A collection of CSS2 properties. Can be queried for the
  *                   value or presence of a specific property.
  *
@@ -29,7 +31,35 @@
  */
 typedef struct CssStyleSheet CssStyleSheet;
 typedef struct CssProperties CssProperties;
+typedef struct CssProperty CssProperty;
 typedef struct CssNodeInterface CssNodeInterface;
+
+/*
+ * A single CSS property is represented by an instance of the following
+ * struct. The actual value is stored in one of the primitives inside
+ * the union. The eType field is set to one of the CSS_TYPE_* constants
+ * below. 
+ */
+#define CSS_TYPE_EM           1            /* Value in 'rVal' */
+#define CSS_TYPE_PX           2            /* Value in 'iVal' */
+#define CSS_TYPE_PT           3            /* Value in 'iVal' */
+#define CSS_TYPE_STRING       4            /* Value in 'sVal' */
+#define CSS_TYPE_PERCENT      5            /* Value in 'iVal' */
+#define CSS_TYPE_NONE         6            /* No value */
+
+#define CSS_TYPE_TCL         7             /* Value in 'zVal' */
+#define CSS_TYPE_URL         8             /* Value in 'zVal' */
+
+struct CssProperty {
+    int eType;
+    union {
+        int iVal;
+        double rVal;
+        char *zVal;
+    } v;
+};
+
+EXTERN CONST char *HtmlCssPropertyGetString(CssProperty *pProp);
 
 /*
  * Functions to parse stylesheet and style data into CssStyleSheet objects.
@@ -47,7 +77,7 @@ typedef struct CssNodeInterface CssNodeInterface;
  * object internally.
  */
 int HtmlCssParse(int, const char *, CssStyleSheet **);
-int tkhtmlCssParseStyle(int, const char *, CssStyleSheet **);
+int HtmlCssParseStyle(int, const char *, CssProperties **);
 int HtmlCssStyleSheetSyntaxErrs(CssStyleSheet *);
 void HtmlCssStyleSheetFree(CssStyleSheet *);
 
@@ -63,6 +93,7 @@ void HtmlCssStyleSheetFree(CssStyleSheet *);
  * xLang:      Return the language (i.e. "english") of the node.
  * xParendIdx: Return the index of the node in it's parent, or -1 if 
  *             the node is the document root.
+ * xProperties: Return the CSS properties associated with the node.
  */
 struct CssNodeInterface {
     const char * (*xType)(void *);
@@ -72,23 +103,31 @@ struct CssNodeInterface {
     void * (*xChild)(void *, int);
     const char * (*xLang)(void *);
     int (*xParentIdx)(void *);
+    CssProperties *(*xProperties)(void *);
 };
 void HtmlCssStyleSheetApply
-(CssStyleSheet *, CssNodeInterface *, void *, CssProperties**);
+(CssStyleSheet *, CssNodeInterface CONST *, void *, CssProperties**);
 
 /*
-** Functions to interface with the results of a style application.
-*/
+ * Functions to interface with the results of a style application.
+ */
 void HtmlCssPropertiesFree(CssProperties *);
-const char *tkhtmlCssPropertiesGet(CssProperties *, int);
-CssProperties *tkhtmlCssPropertiesGetBefore(CssProperties *);
-CssProperties *tkhtmlCssPropertiesGetAfter(CssProperties *);
+CssProperty *HtmlCssPropertiesGet(CssProperties *, int);
+CssProperty *HtmlCssPropertiesGet2(CssProperties *, int, int*, int*);
 Tcl_Obj * HtmlCssPropertiesTclize(CssProperties *pProperties);
+
+/* Future interface for :before and :after pseudo-elements. Need this to 
+ * handle the <br> tag most elegantly.
+ */
+CssProperties *HtmlCssPropertiesGetBefore(CssProperties *);
+CssProperties *HtmlCssPropertiesGetAfter(CssProperties *);
 
 #define CSS_VISITED   0x01
 #define CSS_HOVER     0x02
 #define CSS_ACTIVE    0x04
 #define CSS_FOCUS     0x08
+
+CssProperty *HtmlCssStringToProperty(CONST char *z, int n);
 
 /*
 ** Register the TCL interface with the supplied interpreter.

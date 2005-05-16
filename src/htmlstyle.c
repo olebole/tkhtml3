@@ -22,7 +22,7 @@ xType(node)
     void *node;
 {
     HtmlNode *pNode = (HtmlNode *)node;
-    return HtmlMarkupName(pNode->pElement->base.type);
+    return HtmlMarkupName(pNode->pToken->type);
 }
 static CONST char * 
 xAttr(node, zAttr)
@@ -30,14 +30,14 @@ xAttr(node, zAttr)
     CONST char *zAttr;
 {
     HtmlNode *pNode = (HtmlNode *)node;
-    return HtmlMarkupArg(pNode->pElement, zAttr, 0);
+    return HtmlMarkupArg(pNode->pToken, zAttr, 0);
 }
 static void * 
 xParent(node)
     void *node;
 {
     HtmlNode *pNode = (HtmlNode *)node;
-    return 0;
+    return HtmlNodeParent(pNode);
 }
 static int 
 xNumChild(node)
@@ -68,6 +68,13 @@ xParentIdx(node)
     HtmlNode *pNode = (HtmlNode *)node;
     return -1;
 }
+static CssProperties * 
+xProperties(node)
+    void *node;
+{
+    HtmlNode *pNode = (HtmlNode *)node;
+    return pNode->pProperties;
+}
 CssNodeInterface nodeinterface = {
     xType,
     xAttr,
@@ -75,7 +82,8 @@ CssNodeInterface nodeinterface = {
     xNumChild,
     xChild,
     xLang,
-    xParentIdx
+    xParentIdx,
+    xProperties
 };
 /*
  * End of CssNodeInterface declaration.
@@ -125,13 +133,17 @@ HtmlStyleParse(clientData, interp, objc, objv)
     int objc;                          /* Number of arguments */
     Tcl_Obj *CONST objv[];             /* List of all arguments */
 {
-    HtmlWidget *p = (HtmlWidget *)clientData;
-
+    HtmlTree *pTree = (HtmlTree *)clientData;
     assert( objc==4 );
 
-    /* For now, if there is already a style-sheet, just delete it */
-    HtmlCssStyleSheetFree(p->pStyle);
-    HtmlCssParse(-1, Tcl_GetString(objv[3]), &p->pStyle);
+    /* If there is already a stylesheet in pTree->pStyle, then this call will
+     * parse the stylesheet text in objv[3] and append rules to the
+     * existing stylesheet. If p->pStyle is NULL, then a new stylesheet is
+     * created. Within Tkhtml, each document only ever has a single
+     * stylesheet object, possibly created by combining text from multiple
+     * stylesheet documents.
+     */
+    HtmlCssParse(-1, Tcl_GetString(objv[3]), &pTree->pStyle);
 
     return TCL_OK;
 }
@@ -149,17 +161,29 @@ HtmlStyleParse(clientData, interp, objc, objv)
  *
  *---------------------------------------------------------------------------
  */
-int styleNode(p, pNode)
-    HtmlWidget *p; 
+int styleNode(pTree, pNode)
+    HtmlTree *pTree; 
     HtmlNode *pNode;
 {
     CssProperties **ppProp;
+    CssProperty *pReplace;
+    CONST char *zStyle;      /* Value of "style" attribute for node */
+
     if( pNode->pProperties ){
         HtmlCssPropertiesFree(pNode->pProperties);
     }
     ppProp = &pNode->pProperties;
-    HtmlCssStyleSheetApply(p->pStyle, HtmlNodeInterface(), pNode, ppProp);
-    return 0;
+    HtmlCssStyleSheetApply(pTree->pStyle, HtmlNodeInterface(), pNode, ppProp);
+
+    /* If there is a "style" attribute on this node, parse the attribute
+     * value and put the resulting mini-stylesheet in pNode->pStyle.
+     */
+    zStyle = HtmlNodeAttr(pNode, "style");
+    if (zStyle) {
+        HtmlCssParseStyle(-1, zStyle, &pNode->pStyle);
+    }
+
+    return TCL_OK;
 }
 
 /*
@@ -182,8 +206,8 @@ HtmlStyleApply(clientData, interp, objc, objv)
     int objc;                          /* Number of arguments */
     Tcl_Obj *CONST objv[];             /* List of all arguments */
 {
-    HtmlWidget *p = (HtmlWidget *)clientData;
-    HtmlWalkTree(p, styleNode);
+    HtmlTree *pTree = (HtmlTree *)clientData;
+    HtmlWalkTree(pTree, styleNode);
     return TCL_OK;
 }
 
@@ -206,11 +230,12 @@ int HtmlStyleSyntaxErrs(clientData, interp, objc, objv)
     int objc;                          /* Number of arguments */
     Tcl_Obj *CONST objv[];             /* List of all arguments */
 {
-    HtmlWidget *p = (HtmlWidget *)clientData;
+    HtmlTree *pTree = (HtmlTree *)clientData;
     int nSyntaxErrs = 0;
-    if( p->pStyle ){
-        nSyntaxErrs = HtmlCssStyleSheetSyntaxErrs(p->pStyle);
+    if( pTree->pStyle ){
+        nSyntaxErrs = HtmlCssStyleSheetSyntaxErrs(pTree->pStyle);
     }
     Tcl_SetObjResult(interp, Tcl_NewIntObj(nSyntaxErrs));
     return TCL_OK;
 }
+

@@ -1,347 +1,205 @@
-static char const rcsid[] =
-        "@(#) $Id: htmlimage.c,v 1.20 2005/03/23 01:36:54 danielk1977 Exp $";
 
 /*
-** Routines used for processing <IMG> markup
-**
-** This source code is released into the public domain by the author,
-** D. Richard Hipp, on 2002 December 17.  Instead of a license, here
-** is a blessing:
-**
-**    May you do good and not evil.
-**    May you find forgiveness for yourself and forgive others.
-**    May you share freely, never taking more than you give.
-*/
-
-#include <string.h>
-#include <stdlib.h>
+ * htmlimage.c ---
+ *
+ *     This file contains routines that manipulate images used in an HTML
+ *     document.
+ *
+ * TODO: Copyright.
+ */
 #include "html.h"
 
-int tkhtmlexiting = 0;
-
-#ifdef _TCLHTML_
-HtmlImage *
-HtmlGetImage(HtmlWidget * htmlPtr, HtmlElement * p)
+/*
+ *---------------------------------------------------------------------------
+ *
+ * imageChanged --
+ *
+ *     Dummy image-changed callback. Does nothing.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void imageChanged(clientData, x, y, width, height, imageWidth, imageHeight)
+    ClientData clientData;
+    int x;
+    int y;
+    int width;
+    int height;
+    int imageWidth;
+    int imageHeight;
 {
-    return 0;
 }
-#else
 
 /*
-** Find the alignment for an image
-*/
-int
-HtmlGetImageAlignment(p)
-    HtmlElement *p;
+ *---------------------------------------------------------------------------
+ *
+ * HtmlResizeImage --
+ *
+ *     This function manages getting and setting the size of images
+ *     displayed by the html widget. 
+ *
+ *     Parameter zImage is the name of an image object created by some
+ *     callback script for display by the html widget. pWidth and pHeight
+ *     are pointers to integers that store the requested width and height
+ *     of the image. If the intrinsic width or height is desired, then
+ *     *pWidth or *pHeight should be set to -1.
+ *
+ *     The value returned is a Tcl_Obj* containing the name of an image
+ *     scaled as requested.
+ *
+ * Results:
+ *     Name of scaled image.
+ *
+ * Side effects:
+ *     Modifies entries in HtmlTree.aImage.
+ *
+ *---------------------------------------------------------------------------
+ */
+Tcl_Obj *
+HtmlResizeImage(pTree, zImage, pWidth, pHeight)
+    HtmlTree *pTree;
+    CONST char *zImage;
+    int *pWidth;
+    int *pHeight;
 {
-    char *z;
-    int i;
-    int result;
+    HtmlScaledImage *pImage;          /* Pointer to HtmlTree.aImage value */
+    Tcl_HashEntry *pEntry;            /* Cache entry */
+    int newentry;                     /* True to add a new cache entry */
+    int w, h;                         /* Intrinsic width and height of image */
+    Tcl_Obj *pRet = 0;                /* Return value */
+    Tcl_Interp *interp = pTree->interp;
 
-    static struct {
-        char *zName;
-        int iValue;
-    } aligns[] = {
-        {
-        "bottom", IMAGE_ALIGN_Bottom}, {
-        "baseline", IMAGE_ALIGN_Bottom}, {
-        "middle", IMAGE_ALIGN_Middle}, {
-        "top", IMAGE_ALIGN_Top}, {
-        "absbottom", IMAGE_ALIGN_AbsBottom}, {
-        "absmiddle", IMAGE_ALIGN_AbsMiddle}, {
-        "texttop", IMAGE_ALIGN_TextTop}, {
-        "left", IMAGE_ALIGN_Left}, {
-    "right", IMAGE_ALIGN_Right},};
-
-    z = HtmlMarkupArg(p, "align", 0);
-    result = IMAGE_ALIGN_Bottom;
-    if (z) {
-        for (i = 0; i < sizeof(aligns) / sizeof(aligns[0]); i++) {
-            if (stricmp(aligns[i].zName, z) == 0) {
-                result = aligns[i].iValue;
-                break;
-            }
-            else {
-            }
+    /* Look up the entry in HtmlTree.aImage for this image. If one does not
+     * exist, create it. Even images that are never scaled need to have an
+     * entry - this is how we delete them when they are no longer required.
+     */
+    pEntry = Tcl_CreateHashEntry(&pTree->aImage, zImage, &newentry);
+    if (newentry) {
+        Tk_Image img;
+        img = Tk_GetImage(interp, pTree->win, zImage, imageChanged, 0);
+        if (!img) {
+            Tcl_DeleteHashEntry(pEntry);
+            return 0;
         }
-    }
-    else {
-    }
-    return result;
-}
 
-/*
-** This routine is called when an image changes.  If the size of the
-** images changes, then we need to completely redo the layout.  If
-** only the appearance changes, then this works like an expose event.
-*/
-static void
-ImageChangeProc(clientData, x, y, w, h, newWidth, newHeight)
-    ClientData clientData;             /* Pointer to an HtmlImage structure */
-    int x;                             /* Left edge of region that changed */
-    int y;                             /* Top edge of region that changed */
-    int w;                             /* Width of region that changes.
-                                        * Maybe 0 */
-    int h;                             /* Height of region that changed.
-                                        * Maybe 0 */
-    int newWidth;                      /* New width of the image */
-    int newHeight;                     /* New height of the image */
-{
-    HtmlImage *pImage;
-    HtmlWidget *htmlPtr;
-    HtmlElement *pElem;
+        pImage = (HtmlScaledImage *)ckalloc(sizeof(HtmlScaledImage));
+        pImage->pImageName = Tcl_NewStringObj(zImage, -1);
+        Tcl_IncrRefCount(pImage->pImageName);
+        pImage->image = img;
+        pImage->scaled_image = 0;
+        pImage->pScaledImageName = 0;
 
-    if (tkhtmlexiting)
-        return;
-    pImage = (HtmlImage *) clientData;
-    htmlPtr = pImage->htmlPtr;
-    if (pImage->w != newWidth || pImage->h != newHeight) {
-        /*
-         * We have to completely redo the layout after adjusting the size **
-         * of the images 
+        Tcl_SetHashValue(pEntry, pImage);
+    }
+    pImage = Tcl_GetHashValue(pEntry);
+
+    /* Find the intrinsic size of the image. If *pWidth or *pHeight are -1,
+     * then set them to the value of the intrinsic dimension.
+     */
+    Tk_SizeOfImage(pImage->image, &w, &h);
+    if (*pWidth<0) *pWidth = w;
+    if (*pHeight<0) *pHeight = h;
+
+    if (*pWidth==w && *pHeight==h) {
+        /* If the requested dimensions match the intrinsic dimensions,
+         * just return the name of the original image.
          */
-        for (pElem = pImage->pList; pElem; pElem = pElem->image.pNext) {
-            pElem->image.w = newWidth;
-            pElem->image.h = newHeight;
-        }
-        htmlPtr->flags |= RELAYOUT;
-        pImage->w = newWidth;
-        pImage->h = newHeight;
-        HtmlRedrawEverything(htmlPtr);
-    }
-    else {
-        for (pElem = pImage->pList; pElem; pElem = pElem->image.pNext) {
-            pElem->image.redrawNeeded = 1;
-        }
-        htmlPtr->flags |= REDRAW_IMAGES;
-        HtmlScheduleRedraw(htmlPtr);
-    }
-}
-
-void
-HtmlAddImages(htmlPtr, p, pImage, str, append)
-    HtmlWidget *htmlPtr;
-    HtmlElement *p;
-    HtmlImage *pImage;
-    char *str;
-    int append;
-{
-    int argc, code, doupdate = 0;
-    CONST char **argv;
-    HtmlElement *pElem;
-
-    if (!str[0]) {
-#ifdef DEBUG
-
-/*    fprintf(stderr,"OOPS null string\n");  */
-#endif
-        return;
-    }
-    code = Tcl_SplitList(htmlPtr->interp, str, &argc, &argv);
-    if ((code != TCL_OK || argc == 1) && (!append)) {
-        if (pImage->image)
-            Tk_FreeImage(pImage->image);
-        pImage->image = Tk_GetImage(htmlPtr->interp, htmlPtr->clipwin,
-                                    str, ImageChangeProc, pImage);
-        doupdate = 1;
-    }
-    else {
-        int i, m = argc;
-        struct HtmlImageAnim *pi, *pl = 0;
-        if (append) {
-            pImage->num += argc;
-            pl = pImage->anims;
-            while (pl && pl->next)
-                pl = pl->next;
-            doupdate = 1;
-            pImage->cur++;
-        }
-        else {
-            pImage->cur = 0;
-            pImage->num = argc;
-        }
-        if (!pImage->image) {
-            pImage->image = Tk_GetImage(htmlPtr->interp, htmlPtr->clipwin,
-                                        argv[0], ImageChangeProc, pImage);
-            if (!pImage->image) {
-                return;
+        pRet = pImage->pImageName;
+    } else {
+        if (pImage->scaled_image) {
+            /* Otherwise, check the dimensions of the cached scaled image,
+             * if one exists. If these match the requested dimensions, we
+             * can return the name of the cached scaled image. Otherwise,
+             * destroy the cached image. We will create a new scaled copy
+             * below.
+             */
+            int sw, sh;              /* Width and height of cached scaled image */
+            Tk_SizeOfImage(pImage->scaled_image, &sw, &sh);
+            if (*pWidth==sw && *pHeight==sh) {
+                pRet = pImage->pScaledImageName;
+            } else {
+                Tk_DeleteImage(interp, Tcl_GetString(pImage->pScaledImageName));
+                Tcl_DecrRefCount(pImage->pScaledImageName);
+                pImage->scaled_image = 0;
+                pImage->pScaledImageName = 0;
             }
-            m--;
-        }
-        for (i = 0; i < m; i++) {
-            pi = (struct HtmlImageAnim *)
-                    HtmlAlloc(sizeof(struct HtmlImageAnim));
-            pi->next = 0;
-            pi->image = Tk_GetImage(htmlPtr->interp, htmlPtr->clipwin,
-                                    argv[i], ImageChangeProc, pImage);
-            if (pl)
-                pl->next = pi;
-            else
-                pImage->anims = pi;
-            pl = pi;
         }
     }
-    if (doupdate) {
-        for (pElem = pImage->pList; pElem; pElem = pElem->image.pNext)
-            pElem->image.redrawNeeded = 1;
-        htmlPtr->flags |= REDRAW_IMAGES;
-        HtmlScheduleRedraw(htmlPtr);
+
+    if (!pRet) {
+        /* If we get here, then we need to create a scaled copy of the
+         * original image to return.
+         */
+        Tk_PhotoHandle photo;
+
+        photo = Tk_FindPhoto(interp, Tcl_GetString(pImage->pImageName));
+        if (photo) { 
+            int x, y;                /* Iterator variables */
+            int sw, sh;              /* Width and height of scaled image */
+            CONST char *zScaled;
+            Tk_Image scaled;
+            Tk_PhotoHandle scaled_photo;
+            Tk_PhotoImageBlock block;
+            Tk_PhotoImageBlock scaled_block;
+
+            sw = *pWidth;
+            sh = *pHeight;
+
+            /* Create a new photo image to write the scaled data to */
+            Tcl_Eval(interp, "image create photo");
+            pImage->pScaledImageName = Tcl_GetObjResult(interp);
+            Tcl_IncrRefCount(pImage->pScaledImageName);
+            zScaled = Tcl_GetString(pImage->pScaledImageName);
+            scaled = Tk_GetImage(interp, pTree->win, zScaled, imageChanged, 0);
+            pImage->scaled_image = scaled;
+            scaled_photo = Tk_FindPhoto(interp, zScaled);
+
+            Tk_PhotoGetImage(photo, &block);
+            scaled_block.pixelPtr = ckalloc(sw * sh * 4);
+            scaled_block.width = sw;
+            scaled_block.height = sh;
+            scaled_block.pitch = sw*4;
+            scaled_block.pixelSize = 4;
+            scaled_block.offset[0] = 0;
+            scaled_block.offset[1] = 1;
+            scaled_block.offset[2] = 2;
+            scaled_block.offset[3] = 3;
+
+            for (x=0; x<sw; x++) {
+                int orig_x = ((x * w) / sw);
+                for (y=0; y<sh; y++) {
+                    unsigned char *zOrig;
+                    unsigned char *zScale;
+                    int orig_y = ((y * h) / sh);
+
+                    zOrig = &block.pixelPtr[
+                        orig_x * block.pixelSize + orig_y * block.pitch];
+                    zScale = &scaled_block.pixelPtr[
+                        x * scaled_block.pixelSize + y * scaled_block.pitch];
+
+                    zScale[0] = zOrig[block.offset[0]];
+                    zScale[1] = zOrig[block.offset[1]];
+                    zScale[2] = zOrig[block.offset[2]];
+                    zScale[3] = zOrig[block.offset[3]];
+                }
+            }
+            Tk_PhotoPutBlock(interp, scaled_photo, &scaled_block, 0, 0, sw, sh, 0);
+            ckfree(scaled_block.pixelPtr);
+        } else {
+            /* Failed to get the photo-handle. This might happen because
+             * someone passed an image of type bitmap to the widget. Since
+             * the internal pixel data is not available, we can't scale the
+             * image. Just return the original.
+             */
+            pRet = pImage->pImageName;
+        }
     }
-    HtmlFree((char *) argv);
+
+    return pRet;
 }
 
-/* Return the height/width converting percent (%) if required */
-char *
-HtmlPctWidth(h, p, opt, ret)
-    HtmlWidget *h;
-    HtmlElement *p;
-    char *opt;
-    char *ret;
-{
-    int n, m, w;
-    HtmlElement *tp = p;
-    char *tz, *z = HtmlMarkupArg(p, opt, "");
-    if (!strchr(z, '%'))
-        return z;
-    if (!sscanf(z, "%d", &n))
-        return z;
-    if (n <= 0 || n > 100)
-        return z;
-    if (opt[0] == 'h')
-        w = h->height * 100;
-    else
-        w = h->width * 100;
-    if (!h->inTd) {
-        sprintf(ret, "%d", w / n);
-    }
-    else {
-        while (tp && tp->base.type != Html_TD)
-            tp = tp->base.pPrev;
-        if (!tp)
-            return z;
-        tz = HtmlMarkupArg(tp, opt, 0);
-        if (tz && (!strchr(tz, '%')) && sscanf(tz, "%d", &m)) {
-            sprintf(ret, "%d", (m * 100) / n);
-            return ret;
-        }
-        tp = tp->cell.pTable;
-        if (!tp)
-            return z;
-        tz = HtmlMarkupArg(tp, opt, 0);
-        if (tz && (!strchr(tz, '%')) && sscanf(tz, "%d", &m)) {
-            sprintf(ret, "%d", (m * 100) / n);
-            return ret;
-        }
-        else
-            return z;
-    }
-    return ret;
-}
-
-/*
-** Given an <IMG> markup, find or create an appropriate HtmlImage
-** structure and return a pointer to that structure.  NULL might
-** be returned.
-**
-** This routine may invoke a callback procedure which could delete
-** the HTML widget.  Use HtmlLock() if necessary to preserve the
-** widget structure.
-*/
-HtmlImage *
-HtmlGetImage(htmlPtr, p)
-    HtmlWidget *htmlPtr;
-    HtmlElement *p;
-{
-    char zId[30];
-    char *zWidth;
-    char *zHeight;
-    char *zSrc;
-    char *zImageName;
-    HtmlImage *pImage;
-    int result;
-    Tcl_DString cmd;
-    int lenSrc, lenW, lenH;            /* Lengths of various strings */
-
-    if (p->base.type != Html_IMG) {
-        CANT_HAPPEN;
-        return 0;
-    }
-    if (htmlPtr->zGetImage == 0 || htmlPtr->zGetImage[0] == 0) {
-        return 0;
-    }
-    zSrc = HtmlMarkupArg(p, "src", 0);
-    if (zSrc == 0) {
-        return 0;
-    }
-    HtmlLock(htmlPtr);
-    zSrc = HtmlResolveUri(htmlPtr, zSrc);
-    if (HtmlUnlock(htmlPtr) || zSrc == 0) {
-        if (zSrc)
-            HtmlFree(zSrc);
-        return 0;
-    }
-    zWidth = HtmlMarkupArg(p, "width", "");
-    zHeight = HtmlMarkupArg(p, "height", "");
-    for (pImage = htmlPtr->imageList; pImage; pImage = pImage->pNext) {
-        if (strcmp(pImage->zUrl, zSrc) == 0
-            && strcmp(pImage->zWidth, zWidth) == 0
-            && strcmp(pImage->zHeight, zHeight) == 0) {
-            HtmlFree(zSrc);
-            return pImage;
-        }
-    }
-    Tcl_DStringInit(&cmd);
-    Tcl_DStringAppend(&cmd, htmlPtr->zGetImage, -1);
-    Tcl_DStringAppendElement(&cmd, zSrc);
-    Tcl_DStringAppendElement(&cmd, HtmlPctWidth(htmlPtr, p, "width", zId));
-    Tcl_DStringAppendElement(&cmd, HtmlPctWidth(htmlPtr, p, "height", zId));
-    Tcl_DStringStartSublist(&cmd);
-    HtmlAppendArglist(&cmd, p);
-    Tcl_DStringEndSublist(&cmd);
-    sprintf(zId, "%d", HtmlTokenNumber(p));
-    Tcl_DStringAppendElement(&cmd, zId);
-    HtmlLock(htmlPtr);
-    htmlPtr->inParse++;
-    result = Tcl_GlobalEval(htmlPtr->interp, Tcl_DStringValue(&cmd));
-    htmlPtr->inParse--;
-    Tcl_DStringFree(&cmd);
-    if (HtmlUnlock(htmlPtr)) {
-        HtmlFree(zSrc);
-        return 0;
-    }
-    zImageName = htmlPtr->interp->result;
-    lenSrc = strlen(zSrc);
-    lenW = strlen(zWidth);
-    lenH = strlen(zHeight);
-    pImage = HtmlAlloc(sizeof(HtmlImage) + lenSrc + lenW + lenH + 3);
-    memset(pImage, 0, sizeof(HtmlImage));
-    pImage->htmlPtr = htmlPtr;
-    pImage->zUrl = (char *) &pImage[1];
-    strcpy(pImage->zUrl, zSrc);
-    HtmlFree(zSrc);
-    pImage->zWidth = &pImage->zUrl[lenSrc + 1];
-    strcpy(pImage->zWidth, zWidth);
-    pImage->zHeight = &pImage->zWidth[lenW + 1];
-    strcpy(pImage->zHeight, zHeight);
-    pImage->w = 0;
-    pImage->h = 0;
-    if (result == TCL_OK) {
-        HtmlAddImages(htmlPtr, p, pImage, htmlPtr->interp->result, 0);
-    }
-    else {
-        Tcl_AddErrorInfo(htmlPtr->interp,
-                         "\n    (\"-imagecommand\" command executed by html widget)");
-        Tcl_BackgroundError(htmlPtr->interp);
-        pImage->image = 0;
-    }
-    if (pImage->image == 0) {
-        HtmlFree((char *) pImage);
-        return 0;
-    }
-    pImage->pNext = htmlPtr->imageList;
-    htmlPtr->imageList = pImage;
-    Tcl_ResetResult(htmlPtr->interp);
-    return pImage;
-}
-
-#endif /* _TCLHTML_ */

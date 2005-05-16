@@ -49,7 +49,7 @@ typedef unsigned int u32;
 #define CSS_PSEUDOCLASS_LANG             11
 #define CSS_PSEUDOCLASS_FIRSTCHILD       12
 #define CSS_PSEUDOCLASS_LINK             13
-#define CSS_PSEUDOCLASS_UNVISITED        14
+#define CSS_PSEUDOCLASS_VISITED          14
 #define CSS_PSEUDOCLASS_ACTIVE           15
 #define CSS_PSEUDOCLASS_HOVER            16
 #define CSS_PSEUDOCLASS_FOCUS            17
@@ -104,23 +104,24 @@ struct CssPropertyMask {
 ** 'mask', are pointers to property values. The entries are sorted 
 ** according to the value assigned to the property constant (CSS_PROPERTY_*
 ** symbol). nProp is the number of pointers allocated at aProp.
+**
 */
 struct CssPropertySet {
-    int specifity;          /* Specifity value of the rule this belongs to */
-    int important;          /* True if this property-set is !IMPORTANT */
     CssPropertyMask mask;   /* Contents of property-set. */
     int nProp;              /* Allocated slots in aProp[] array. */
     int nRef;               /* Number of CssRule objects that point to this */
-    char **aProp;           /* Array of pointers to property values. */
+    CssProperty **aProp;    /* Array of pointers to property values. */
 };
 
 struct CssProperties {
-    int nPropertySet;
-    CssPropertySet **apPropertySet;
+    int nRule;
+    CssRule **apRule;
 };
 
 struct CssRule {
     u8 eMedia;                      /* CSS_MEDIA_* value */
+    int specificity;                /* Specificity of the selector */
+    int sheetnum;                   /* Sheet number */
     CssSelector *pSelector;         /* The selector for this rule */
     CssPropertySet *pPropertySet;   /* Property values for the rule. */
     CssPropertySet *pImportant;     /* !IMPORTANT property values. */
@@ -162,6 +163,7 @@ struct CssParse {
     CssSelector **apXtraSelector;   /* Selectors also waiting for prop set. */
     CssPropertySet *pPropertySet;   /* Declarations being parsed. */
     CssPropertySet *pImportant;     /* !IMPORTANT declarations. */
+    int sheetnum;
 };
 
 /*
@@ -182,6 +184,7 @@ void tkhtmlCssPropertySetDelete(CssPropertySet *);
 void tkhtmlCssDeclaration(CssParse *, CssToken *, CssToken *);
 void tkhtmlCssSelector(CssParse *, int, CssToken *, CssToken *);
 void tkhtmlCssRule(CssParse *, int);
+int tkhtmlCssPseudo(CssToken *);
 
 void HtmlCssSelectorComma(CssParse *pParse);
 

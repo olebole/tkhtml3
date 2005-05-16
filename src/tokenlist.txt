@@ -1,5 +1,5 @@
 #
-# $Revision: 1.13 $
+# $Revision: 1.14 $
 #
 # tokenlist.tcl -- 
 #
@@ -60,101 +60,100 @@ proc TAG {args} {
 #     version of the same database.
 #
 #     TAG tag-name 
-#         ?-open struct-name? 
-#         ?-close struct-name? 
+#         ?-content (content function)?
 #         ?-flow (inline|block)?
 #         ?-empty?
 #
-TAG a          -open HtmlAnchor         -close HtmlRef     -flow inline
+TAG a -flow inline
 # TAG abbr
 # TAG acronym
-TAG address                                                -flow inline
-TAG applet     -open HtmlInput          
-TAG area       -open HtmlMapArea        -empty
-TAG base                                -empty             
+TAG address
+TAG applet
+TAG area -empty
+TAG base -empty             
 TAG basefont
-TAG b                                                      -flow inline
+TAG b -flow inline
 # TAG bdo
-TAG big                                                    -flow inline
-TAG blockquote                                             -flow block
-TAG body                                                   
-TAG br                                  -empty             -flow block
+TAG big -flow inline
+TAG blockquote -flow block
+TAG body       
+TAG br -empty -flow inline
 # TAG button
-TAG caption                                                
-TAG center                                                 -flow block
-TAG cite                                                   -flow inline
-TAG code                                                   -flow inline
+TAG caption 
+TAG center -flow block
+TAG cite -flow inline
+TAG code -flow inline
 # TAG col
-# TAG colgroup
-TAG dd         -open HtmlRef            
+# TAG colgroup -content HtmlColgroupContent
+TAG dd -content HtmlLiContent
 # TAG del
-TAG dfn                                                    -flow inline
-TAG dir        -open HtmlListStart      -close HtmlRef     -flow block
-TAG div                                                    -flow block
-TAG dl         -open HtmlListStart      -close HtmlRef     -flow block
-TAG dt         -open HtmlRef
-TAG em                                                     -flow inline
+TAG dfn -flow inline
+TAG dir -flow block
+TAG div -flow block
+TAG dl -flow block -content HtmlDlContent
+TAG dt -content HtmlLiContent
+TAG em -flow inline
 # TAG fieldset
-TAG font                                                   -flow inline
-TAG form       -open HtmlForm           -close HtmlRef     -flow block
+TAG font -flow inline
+TAG form -flow block
 TAG frame
 TAG frameset
-TAG h1                                                     -flow block
-TAG h2                                                     -flow block
-TAG h3                                                     -flow block
-TAG h4                                                     -flow block
-TAG h5                                                     -flow block
-TAG h6                                                     -flow block
-TAG head                                
-TAG hr         -open HtmlHr             -empty             -flow block
+TAG h1 -flow block
+TAG h2 -flow block
+TAG h3 -flow block
+TAG h4 -flow block
+TAG h5 -flow block
+TAG h6 -flow block
+TAG head
+TAG hr -empty -flow block
 TAG html                                
-TAG i                                                      -flow inline
-TAG iframe                              -empty
-TAG img        -open HtmlImageMarkup    -empty             -flow inline
-TAG input      -open HtmlInput          -empty
-TAG isindex                             -empty             -flow block
-TAG kbd                                                    -flow inline
+TAG i -flow inline
+TAG iframe -empty
+TAG img -empty -flow inline
+TAG input -empty
+TAG isindex -flow block
+TAG kbd -flow inline
 # TAG label
 # TAG legend
-TAG li         -open HtmlLi
-TAG link                                -empty  
-TAG map                                                    -flow inline
-TAG menu       -open HtmlListStart      -close HtmlRef     -flow block
-TAG meta                                -empty 
+TAG li -content HtmlLiContent
+TAG link -empty  
+TAG map -flow inline
+TAG menu -flow block
+TAG meta -empty 
 TAG noframes
 TAG noscript                            
-# TAG object
-TAG ol         -open HtmlListStart      -close HtmlRef     -flow block
+TAG object
+TAG ol -flow block -content HtmlUlContent
 # TAG optgroup
 TAG option                              
-TAG p                                                      -flow block
+TAG p -flow block -content HtmlInlineContent
 TAG param
-TAG pre                                                    -flow block
+TAG pre -flow block
 # TAG q
-TAG s                                                      -flow inline
-TAG samp                                                   -flow inline
-TAG script     -open HtmlScript         -empty             -flow inline
-TAG select     -open HtmlInput          -close HtmlRef     -flow inline
-TAG small                                                  -flow inline
-# TAG span
-TAG strike                                                 -flow inline
-TAG strong                                                 -flow inline
-TAG style      -open HtmlScript         -empty
-TAG sub                                                    -flow inline
-TAG sup                                                    -flow inline
-TAG table      -open HtmlTable          -close HtmlRef     -flow block
+TAG s -flow inline
+TAG samp -flow inline
+TAG script -empty -flow inline
+TAG select -flow inline
+TAG small -flow inline
+TAG span -flow inline
+TAG strike -flow inline
+TAG strong -flow inline
+TAG style -empty
+TAG sub -flow inline
+TAG sup -flow inline
+TAG table -flow block -content HtmlTableContent
 # TAG tbody
-TAG td         -open HtmlCell           -close HtmlRef
-TAG textarea   -open HtmlInput          -close HtmlRef     -flow inline
+TAG td -content HtmlTableCellContent
+TAG textarea -flow inline
 # TAG tfoot
-TAG th         -open HtmlCell           -close HtmlRef
+TAG th -content HtmlTableCellContent
 # TAG thead
 TAG title
-TAG tr         -open HtmlRef            -close HtmlRef
-TAG tt                                                     -flow inline
-TAG u                                                      -flow inline
-TAG ul         -open HtmlListStart      -close HtmlRef     -flow block
-TAG var                                                    -flow inline
+TAG tr -content HtmlTableRowContent
+TAG tt -flow inline
+TAG u -flow inline
+TAG ul -flow block -content HtmlUlContent
+TAG var -flow inline
 
 #     The tags listed above are the complete set of HTML 4.01 tags. Some
 #     are commented out because we don't support them in any way.
@@ -163,53 +162,70 @@ TAG var                                                    -flow inline
 #     in the standard as of HTML 4.01. Supporting these tags is a low
 #     priority.
 #
-TAG comment    -open HtmlTextElement
-TAG embed      -open HtmlInput                          
+TAG comment
+TAG embed
 TAG listing                             
 TAG marquee                             
-TAG nextid                              -empty             
+TAG nextid -empty             
 TAG nobr                                
 TAG noembed                              
-TAG plaintext                           -empty             
-TAG wbr                                 -empty 
-TAG xmp                                 
-TAG bgsound                             -empty 
+TAG plaintext -empty             
+TAG wbr -empty 
+TAG xmp 
+TAG bgsound -empty 
 
 ###########################################################################
 # Below this line is the engine for processing the database declared 
 # above. We produce a header file and an implemation file.
 #
+
+# The argument is the name of a list variable in the callers context. This
+# proc returns and removes the first element of that list.
+#
+proc shift {list} {
+    upvar $list l
+    set ret [lindex $l 0]
+    set l [lrange $l 1 end]
+    return $ret
+}
+
 set ::nextfreeconst 0
 proc _TAG {args} {
+
     set tag [lindex $args 0]
 
     # Parse the arguments. Default values are all zero.
-    set open 0
-    set close 0
     set flow 0
     set empty 0
-    set i [expr [lsearch $args "-open"]+1]
-    if {$i} {set open sizeof([lindex $args $i])}
-    set i [expr [lsearch $args "-close"]+1]
-    if {$i} {set close sizeof([lindex $args $i])}
-    set i [expr [lsearch $args "-flow"]+1]
-    if {$i} {set flow HTMLTAG_[string toupper [lindex $args $i]]}
-    set i [expr [lsearch $args "-empty"]+1]
-    if {$i} {set empty 1}
+    set xClose 0
 
-    # Insert the two constants for the tag into the header file.
-    set opensym "Html_[string toupper $tag]"
-    set fmt {#define % -20s %s}
-    puts $::h_file [format $fmt $opensym $::nextfreeconst]
-    incr ::nextfreeconst
-    if {!$empty} {
-        set closesym "Html_End[string toupper $tag]"
-        puts $::h_file [format $fmt $closesym $::nextfreeconst]
-        incr ::nextfreeconst
+    while {[llength $args]} {
+        switch -exact -- [shift args] {
+            -flow {
+                 set flow HTMLTAG_[string toupper [shift args]]
+            }
+            -empty {
+                 set empty 1
+            }
+            -content {
+                 set xClose [shift args]
+            }
+        }
     }
 
+    # Insert the two constants for the tag into the header file.
+    set header_format {#define % -20s %s}
+
+    set opensym "Html_[string toupper $tag]"
+    puts $::h_file [format $header_format $opensym $::nextfreeconst]
+    incr ::nextfreeconst
+
+    set closesym "Html_End[string toupper $tag]"
+    puts $::h_file [format $header_format $closesym $::nextfreeconst]
+    incr ::nextfreeconst
+
     # Insert the HtmlTokenMap record into the constant array.
-    set fmt {  {% -15s % -18s % -20s %s %s},}
+    set fmt {  {% -15s % -18s %s %s %s},}
     set flags 0
     if {$flow!=0} {
         set flags $flow
@@ -221,11 +237,9 @@ proc _TAG {args} {
     } elseif {$empty} {
         set flags HTMLTAG_EMPTY
     }
-    puts $::c_file [format $fmt "\"$tag\"," $opensym, $open, $flags, 0]
-    if {!$empty} {
-        set flags HTMLTAG_END
-        puts $::c_file [format $fmt "\"/$tag\"," $closesym, $close, $flags, 0]
-    }
+    puts $::c_file [format $fmt "\"$tag\"," $opensym, $flags, $xClose, 0]
+    set flags HTMLTAG_END
+    puts $::c_file [format $fmt "\"/$tag\"," $closesym, $flags, 0, 0]
 }
 
 # Open the files htmltokens.c and htmltokens.h for writing. Write a

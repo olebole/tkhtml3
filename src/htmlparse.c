@@ -1,7 +1,7 @@
 #define TokenMap(htmlPtr,idx) (htmlPtr->tokenMap?htmlPtr->tokenMap[idx]:(HtmlMarkupMap+idx))
 #define TokenapMap(htmlPtr,idx) (htmlPtr->tokenapMap?htmlPtr->tokenMap[idx]:apMap[idx])
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.39 2005/03/24 12:05:06 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.40 2005/05/16 04:00:17 danielk1977 Exp $";
 
 /*
 ** A tokenizer that converts raw HTML into a linked list of HTML elements.
@@ -27,6 +27,8 @@ static char const rcsid[] =
  * HtmlTokenMap HtmlMarkupMap[] = {...};
  */
 #include "htmltokens.c"
+
+static HtmlTokenMap *HtmlHashLookup(void *htmlPtr, CONST char *zType);
 
 /****************** Begin Escape Sequence Translator *************/
 
@@ -62,101 +64,101 @@ static struct sgEsc esc_sequences[] = {
     {"lt", "<", 0},
     {"gt", ">", 0},
     {"nbsp", " ", 0},
-    {"iexcl", "\241", 0},
-    {"cent", "\242", 0},
-    {"pound", "\243", 0},
-    {"curren", "\244", 0},
-    {"yen", "\245", 0},
-    {"brvbar", "\246", 0},
-    {"sect", "\247", 0},
-    {"uml", "\250", 0},
-    {"copy", "\251", 0},
-    {"ordf", "\252", 0},
-    {"laquo", "\253", 0},
-    {"not", "\254", 0},
-    {"shy", "\255", 0},
-    {"reg", "\256", 0},
-    {"macr", "\257", 0},
-    {"deg", "\260", 0},
-    {"plusmn", "\261", 0},
-    {"sup2", "\262", 0},
-    {"sup3", "\263", 0},
-    {"acute", "\264", 0},
-    {"micro", "\265", 0},
-    {"para", "\266", 0},
-    {"middot", "\267", 0},
-    {"cedil", "\270", 0},
-    {"sup1", "\271", 0},
-    {"ordm", "\272", 0},
-    {"raquo", "\273", 0},
-    {"frac14", "\274", 0},
-    {"frac12", "\275", 0},
-    {"frac34", "\276", 0},
-    {"iquest", "\277", 0},
-    {"Agrave", "\300", 0},
-    {"Aacute", "\301", 0},
-    {"Acirc", "\302", 0},
-    {"Atilde", "\303", 0},
-    {"Auml", "\304", 0},
-    {"Aring", "\305", 0},
-    {"AElig", "\306", 0},
-    {"Ccedil", "\307", 0},
-    {"Egrave", "\310", 0},
-    {"Eacute", "\311", 0},
-    {"Ecirc", "\312", 0},
-    {"Euml", "\313", 0},
-    {"Igrave", "\314", 0},
-    {"Iacute", "\315", 0},
-    {"Icirc", "\316", 0},
-    {"Iuml", "\317", 0},
-    {"ETH", "\320", 0},
-    {"Ntilde", "\321", 0},
-    {"Ograve", "\322", 0},
-    {"Oacute", "\323", 0},
-    {"Ocirc", "\324", 0},
-    {"Otilde", "\325", 0},
-    {"Ouml", "\326", 0},
-    {"times", "\327", 0},
-    {"Oslash", "\330", 0},
-    {"Ugrave", "\331", 0},
-    {"Uacute", "\332", 0},
-    {"Ucirc", "\333", 0},
-    {"Uuml", "\334", 0},
-    {"Yacute", "\335", 0},
-    {"THORN", "\336", 0},
-    {"szlig", "\337", 0},
-    {"agrave", "\340", 0},
-    {"aacute", "\341", 0},
-    {"acirc", "\342", 0},
-    {"atilde", "\343", 0},
-    {"auml", "\344", 0},
-    {"aring", "\345", 0},
-    {"aelig", "\346", 0},
-    {"ccedil", "\347", 0},
-    {"egrave", "\350", 0},
-    {"eacute", "\351", 0},
-    {"ecirc", "\352", 0},
-    {"euml", "\353", 0},
-    {"igrave", "\354", 0},
-    {"iacute", "\355", 0},
-    {"icirc", "\356", 0},
-    {"iuml", "\357", 0},
-    {"eth", "\360", 0},
-    {"ntilde", "\361", 0},
-    {"ograve", "\362", 0},
-    {"oacute", "\363", 0},
-    {"ocirc", "\364", 0},
-    {"otilde", "\365", 0},
-    {"ouml", "\366", 0},
-    {"divide", "\367", 0},
-    {"oslash", "\370", 0},
-    {"ugrave", "\371", 0},
-    {"uacute", "\372", 0},
-    {"ucirc", "\373", 0},
-    {"uuml", "\374", 0},
-    {"yacute", "\375", 0},
-    {"thorn", "\376", 0},
-    {"yuml", "\377", 0},
+    {"iexcl", "\302\241", 0},
+    {"cent", "\302\242", 0},
+    {"pound", "\302\243", 0},
+    {"curren", "\302\244", 0},
+    {"yen", "\302\245", 0},
+    {"brvbar", "\302\246", 0},
+    {"sect", "\302\247", 0},
+    {"uml", "\302\250", 0},
+    {"copy", "\302\251", 0},
+    {"ordf", "\302\252", 0},
+    {"laquo", "\302\253", 0},
+    {"not", "\302\254", 0},
+    {"shy", "\302\255", 0},
+    {"reg", "\302\256", 0},
+    {"macr", "\302\257", 0},
+    {"deg", "\302\260", 0},
+    {"plusmn", "\302\261", 0},
+    {"sup2", "\302\262", 0},
+    {"sup3", "\302\263", 0},
+    {"acute", "\302\264", 0},
+    {"micro", "\302\265", 0},
+    {"para", "\302\266", 0},
+    {"middot", "\302\267", 0},
+    {"cedil", "\302\270", 0},
+    {"sup1", "\302\271", 0},
+    {"ordm", "\302\272", 0},
+    {"raquo", "\302\273", 0},
+    {"frac14", "\302\274", 0},
+    {"frac12", "\302\275", 0},
+    {"frac34", "\302\276", 0},
+    {"iquest", "\302\277", 0},
+    {"Agrave", "\303\200", 0},
+    {"Aacute", "\303\201", 0},
+    {"Acirc", "\303\202", 0},
+    {"Atilde", "\303\203", 0},
+    {"Auml", "\303\204", 0},
+    {"Aring", "\303\205", 0},
+    {"AElig", "\303\206", 0},
+    {"Ccedil", "\303\207", 0},
+    {"Egrave", "\303\210", 0},
+    {"Eacute", "\303\211", 0},
+    {"Ecirc", "\303\212", 0},
+    {"Euml", "\303\213", 0},
+    {"Igrave", "\303\214", 0},
+    {"Iacute", "\303\215", 0},
+    {"Icirc", "\303\216", 0},
+    {"Iuml", "\303\217", 0},
+    {"ETH", "\303\220", 0},
+    {"Ntilde", "\303\221", 0},
+    {"Ograve", "\303\222", 0},
+    {"Oacute", "\303\223", 0},
+    {"Ocirc", "\303\224", 0},
+    {"Otilde", "\303\225", 0},
+    {"Ouml", "\303\226", 0},
+    {"times", "\303\227", 0},
+    {"Oslash", "\303\230", 0},
+    {"Ugrave", "\303\231", 0},
+    {"Uacute", "\303\232", 0},
+    {"Ucirc", "\303\233", 0},
+    {"Uuml", "\303\234", 0},
+    {"Yacute", "\303\235", 0},
+    {"THORN", "\303\236", 0},
+    {"szlig", "\303\237", 0},
+    {"agrave", "\303\240", 0},
+    {"aacute", "\303\241", 0},
+    {"acirc", "\303\242", 0},
+    {"atilde", "\303\243", 0},
+    {"auml", "\303\244", 0},
+    {"aring", "\303\245", 0},
+    {"aelig", "\303\246", 0},
+    {"ccedil", "\303\247", 0},
+    {"egrave", "\303\250", 0},
+    {"eacute", "\303\251", 0},
+    {"ecirc", "\303\252", 0},
+    {"euml", "\303\253", 0},
+    {"igrave", "\303\254", 0},
+    {"iacute", "\303\255", 0},
+    {"icirc", "\303\256", 0},
+    {"iuml", "\303\257", 0},
+    {"eth", "\303\260", 0},
+    {"ntilde", "\303\261", 0},
+    {"ograve", "\303\262", 0},
+    {"oacute", "\303\263", 0},
+    {"ocirc", "\303\264", 0},
+    {"otilde", "\303\265", 0},
+    {"ouml", "\303\266", 0},
+    {"divide", "\303\267", 0},
+    {"oslash", "\303\270", 0},
+    {"ugrave", "\303\271", 0},
+    {"uacute", "\303\272", 0},
+    {"ucirc", "\303\273", 0},
+    {"uuml", "\303\274", 0},
+    {"yacute", "\303\275", 0},
+    {"thorn", "\303\276", 0},
+    {"yuml", "\303\277", 0},
 };
 
 /* The size of the handler hash table.  For best results this should
@@ -527,7 +529,7 @@ static HtmlTokenMap *apMap[HTML_MARKUP_HASH_SIZE];
 */
 static int
 HtmlHash(htmlPtr, zName)
-    HtmlWidget *htmlPtr;
+    void *htmlPtr;
     const char *zName;
 {
     int h = 0;
@@ -552,7 +554,7 @@ HtmlHash(htmlPtr, zName)
 ** markup hash table
 */
 static void
-HtmlHashStats(HtmlWidget * htmlPtr)
+HtmlHashStats(void * htmlPtr)
 {
     int i;
     int sum = 0;
@@ -585,7 +587,7 @@ HtmlHashStats(HtmlWidget * htmlPtr)
 */
 static void
 HtmlHashInit(htmlPtr, start)
-    HtmlWidget *htmlPtr;
+    void *htmlPtr;
     int start;
 {
     int i;                             /* For looping thru the list of markup 
@@ -603,75 +605,52 @@ HtmlHashInit(htmlPtr, start)
 }
 
 /*
-** Append the given HtmlElement to the tokenizers list of elements
-*/
-static void
-AppendElement(p, pElem)
-    HtmlWidget *p;
-    HtmlElement *pElem;
+ *---------------------------------------------------------------------------
+ *
+ * AppendToken --
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void 
+AppendToken(pTree, pToken)
+    HtmlTree *pTree;
+    HtmlToken *pToken;
 {
-    pElem->base.pNext = 0;
-    pElem->base.pPrev = p->pLast;
-    if (p->pFirst == 0) {
-        p->pFirst = pElem;
+    pToken->pNext = 0;
+    if (pTree->pFirst) {
+        assert(pTree->pLast);
+        pTree->pLast->pNext = pToken;
+        pToken->pPrev = pTree->pLast;
+    } else {
+        assert(!pTree->pLast);
+        pTree->pFirst = pToken;
+        pToken->pPrev = 0;
     }
-    else {
-        p->pLast->base.pNext = pElem;
-    }
-    p->pLast = pElem;
-    p->nToken++;
-}
-
-/* Allocate a new token and insert before p */
-static HtmlElement *
-AppToken(htmlPtr, p, typ, siz, offs)
-    HtmlWidget *htmlPtr;
-    HtmlElement *p;
-    int typ;
-    int siz;
-    int offs;
-{
-    HtmlElement *pNew;
-    if (!siz)
-        siz = sizeof(HtmlBaseElement);
-    pNew = HtmlAlloc(siz);
-    if (pNew == 0)
-        return 0;
-    memset(pNew, 0, siz);
-    if (p)
-        pNew->base = p->base;
-    if (offs < 0) {
-        if (p)
-            offs = p->base.offs;
-        else
-            offs = htmlPtr->nText;
-    }
-    pNew->base.type = typ;
-    pNew->base.count = 0;
-    pNew->base.offs = offs;
-    pNew->base.pNext = p;
-    if (p) {
-        pNew->base.id = p->base.id;
-        p->base.id = ++htmlPtr->idind;
-        pNew->base.pPrev = p->base.pPrev;
-        if (p->base.pPrev)
-            p->base.pPrev->pNext = pNew;
-        if (htmlPtr->pFirst == p)
-            htmlPtr->pFirst = pNew;
-        p->base.pPrev = pNew;
-    }
-    else {
-        pNew->base.id = ++htmlPtr->idind;
-        AppendElement(htmlPtr, pNew);
-    }
-    htmlPtr->nToken++;
-    return pNew;
+    pTree->pLast = pToken;
 }
 
 /*
-** Compute the new column index following the given character.
-*/
-static int
+ *---------------------------------------------------------------------------
+ *
+ * NextColumn --
+ *
+ *     Compute the new column index following the given character.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
 NextColumn(iCol, c)
     int iCol;
     char c;
@@ -703,46 +682,33 @@ ToLower(z)
     }
 }
 
-static HtmlElement *
-HtmlTextAlloc(i)
-    int i;
+/*
+ *---------------------------------------------------------------------------
+ *
+ * getScriptHandler --
+ *
+ *     If there is a script handler for tag type 'tag', return the Tcl_Obj*
+ *     containing the script. Otherwise return NULL.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static Tcl_Obj *
+getScriptHandler(pTree, tag)
+    HtmlTree *pTree;
+    int tag;
 {
-    HtmlElement *pElem;
-    int pad = sizeof(char *), nByte = sizeof(HtmlTextElement) + i + pad;
-    pElem = HtmlAlloc(nByte);
-    if (pElem == 0)
-        return 0;
-    memset(pElem, 0, nByte);
-    pElem->text.zText = (char *) ((&pElem->text.zText) + 1);
-    return pElem;
-}
-
-/* Evaluate a Tcl_Obj command with 1 utf-8 argument at end. */
-int
-HtmlObjCmd1(interp, str, buf, siz)
-    Tcl_Interp *interp;
-    const char *str;
-    char *buf;
-    unsigned int siz;
-{
-    int rc, vargc, i;
-    CONST char **vargv;
-    Tcl_Obj *objv[30];
-    if (Tcl_SplitList(interp, str, &vargc, &vargv) || vargc <= 0 || vargc > 27) {
-        Tcl_AppendResult(interp, "Failed obj cmd split");
-        return TCL_ERROR;
+    Tcl_HashEntry *pEntry;
+    pEntry = Tcl_FindHashEntry(&pTree->aScriptHandler, (char *)tag);
+    if (pEntry) {
+        return (Tcl_Obj *)Tcl_GetHashValue(pEntry);
     }
-    for (i = 0; i < vargc; i++) {
-        objv[i] = Tcl_NewStringObj(vargv[i], -1);
-        Tcl_IncrRefCount(objv[i]);
-    }
-    objv[i] = Tcl_NewStringObj(buf, siz);
-    Tcl_IncrRefCount(objv[i++]);
-    rc = Tcl_EvalObjv(interp, i, objv, 0);
-    for (i = 0; i <= vargc; i++)
-        Tcl_DecrRefCount(objv[i]);
-    HtmlFree(vargv);
-    return rc;
+    return 0;
 }
 
 /*
@@ -757,26 +723,20 @@ HtmlObjCmd1(interp, str, buf, siz)
  *     Return the number of characters actually processed.
  *
  * Side effects:
- *     This routine is not reentrant for the same HTML widget.  To
- *     prevent reentrancy (during a callback), the p->iCol field is
- *     set to a negative number.  This is a flag to future invocations
- *     not to reentry this routine.  The p->iCol field is restored
- *     before exiting, of course.
  *
  *---------------------------------------------------------------------------
  */
 static int 
-Tokenize(p)
-    HtmlWidget *p;               /* The HTML widget doing the parsing */
+Tokenize(pTree)
+    HtmlTree *pTree;             /* The HTML widget doing the parsing */
 {
     char *z;                     /* The input HTML text */
     int c;                       /* The next character of input */
     int n;                       /* Number of characters processed so far */
-    int iCol;                    /* Column of input */
+    int iCol;                    /* Local copy of HtmlTree.iCol */
     int i, j;                    /* Loop counters */
     int h;                       /* Result from HtmlHash() */
     int nByte;                   /* Space allocated for a single HtmlElement */
-    HtmlElement *pElem;          /* A new HTML element */
     int selfClose;               /* True for content free elements. Ex: <br/> */
     int argc;                    /* The number of arguments on a markup */
     HtmlTokenMap *pMap;          /* For searching the markup name hash table */
@@ -788,148 +748,106 @@ Tokenize(p)
     int pIsInScript = 0;
     int pIsInNoScript = 0;
     int pIsInNoFrames = 0;
-    int sawdot = 0;
     int inli = 0;
 
-    /* 
-     * Set iCol to -1 to prevent recursive invocation. It is reset at the
-     * end of this function.
-     */
-    iCol = p->iCol;
-    n = p->nComplete;
-    z = p->zText;
-    if (iCol < 0) {
-        return n;
-    }
-    p->iCol = -1;
+    Tcl_Obj *pScript = 0;
+    HtmlToken *pScriptToken = 0;
+    int rc;
 
-    pElem = 0;
+    iCol = pTree->iCol;
+    n = pTree->nParsed;
+    z = Tcl_GetString(pTree->pDocument);
+
     while ((c = z[n]) != 0) {
-        sawdot--;
 
-        /* DK: What is the significance of -64 and -128? BOM or something? */
+        /* TODO: What is the significance of -64 and -128? BOM or something? */
         if ((signed char) c == -64 && (signed char) (z[n + 1]) == -128) {
             n += 2;
             continue;
         }
 
-        /*
-         * If HtmlWidget.pScript is not NULL, then we are parsing a node 
-         * that tkhtml treats as a "script". Essentially this means we will
-         * pass the entire text of the node to some user callback for 
-         * processing and take no further action. So we just search through
-         * the text until we encounter </script>, </noscript> or whatever
-         * closing tag matches the tag that opened the script node.
+	/* If pScript is not NULL, then we are parsing a node that tkhtml
+	 * treats as a "script". Essentially this means we will pass the
+	 * entire text of the node to some user callback for processing and
+	 * take no further action. So we just search through the text until
+	 * we encounter </script>, </noscript> or whatever closing tag
+	 * matches the tag that opened the script node.
          */
-        if (p->pScript) {
-            HtmlScript *pScript = p->pScript;
-            CONST char *zEnd = 0;
-            int nEnd, curline, curch, curlast = n, sqcnt;
+        if (pScript) {
+            int nEnd, sqcnt;
+            char zEnd[64];
+            char *zScript;
+            int nScript;
+            Tcl_Obj *pEval;
 
-            if (pScript->markup.base.type == Html_SCRIPT) {
-                zEnd = "</script>";
-                nEnd = 9;
-            }
-            else if (pScript->markup.base.type == Html_NOSCRIPT) {
-                zEnd = "</noscript>";
-                nEnd = 11;
-            }
-            else if (pScript->markup.base.type == Html_NOFRAMES) {
-                zEnd = "</noframes>";
-                nEnd = 11;
-            }
-            else {
-                zEnd = "</style>";
-                nEnd = 8;
-            }
-            if (pScript->zScript == 0) {
-                pScript->zScript = &z[n];
-                pScript->nScript = 0;
-            }
-            assert(zEnd);
+            /* Figure out the string we are looking for as a end tag */
+            sprintf(zEnd, "</%s>", HtmlMarkupName(pScriptToken->type));
+            nEnd = strlen(zEnd);
           
+            /* Skip through the input until we find such a string. We
+             * respect strings quoted with " and ', so long as they do not
+             * include new-lines.
+             */
+            zScript = &z[n];
             sqcnt = 0;
-            for (i = n + pScript->nScript; z[i]; i++) {
+            for (i = n; z[i]; i++) {
                 if (z[i] == '\'' || z[i] == '"')
                     sqcnt++;    /* Skip if odd # quotes */
                 else if (z[i] == '\n')
                     sqcnt = 0;
-                if (z[i] == '<' && z[i + 1] == '/'
-                    && strnicmp(&z[i], zEnd, nEnd) == 0) {
-                    if (zEnd[3] == 'c' && ((sqcnt % 2) == 1))
-                        continue;
-                    pScript->nScript = i - n;
-                    p->pScript = 0;
-                    n = i + nEnd;
+                if (strnicmp(&z[i], zEnd, nEnd)==0 && (sqcnt%2)==0) {
+                    nScript = i - n;
                     break;
                 }
             }
-            if (z[i] == 0)
+
+            if (z[i] == 0) {
                 goto incomplete;
-            if (p->pScript) {
-                pScript->nScript = i - n;
             }
-            else
-                /*
-                 * If there is a script, execute it now, and insert any
-                 * output to the html stream for parsing as html.  ie. Client 
-                 * side scripting. 
-                 */
-            if (p->zScriptCommand && *p->zScriptCommand && pIsInScript &&
-                    (!pIsInNoScript) && (!pIsInNoFrames)) {
-                char varind[50], savech;
-                Tcl_DString cmd;
-                int result;
-                Tcl_DStringInit(&cmd);
-                Tcl_DStringAppend(&cmd, p->zScriptCommand, -1);
-                for (curch = 0, curline = 1; curch <= curlast; curch++)
-                    if (z[curch] == '\n')
-                        curline++;
-                sprintf(varind, " %d", curline);
-                Tcl_DStringAppend(&cmd, varind, -1);
-                Tcl_DStringStartSublist(&cmd);
-                HtmlAppendArglist(&cmd, pElem);
-                Tcl_DStringEndSublist(&cmd);
-                savech = pScript->zScript[pScript->nScript];
-                pScript->zScript[pScript->nScript] = 0;
-                pScript->zScript[pScript->nScript] = savech;
-                HtmlAdvanceLayout(p);
-                HtmlLock(p);
-                p->inParse++;
-                result = HtmlObjCmd1(p->interp, Tcl_DStringValue(&cmd),
-                                     pScript->zScript, pScript->nScript);
-                p->inParse--;
-                Tcl_DStringFree(&cmd);
-                if (HtmlUnlock(p))
-                    return;
-                if (result != TCL_OK) {
-                    Tcl_AddErrorInfo(p->interp,
-                                     "\n    (-scriptcommand callback of HTML widget)");
-                    Tcl_BackgroundError(p->interp);
-                }
-                else {
-                    char *result;
-                    Tcl_Obj *obj = Tcl_GetObjResult(p->interp);
-                    result = Tcl_GetStringFromObj(obj, &rl);
 
-                    ol = p->nAlloc;
-                    p->nAlloc += rl;
-                    z = p->zText = HtmlRealloc(z, ol + rl);
-                    memmove(z + n + rl, z + n, ol - n);
-                    memmove(z + n, result, rl);
-                }
-                Tcl_ResetResult(p->interp);
-            }
-            pIsInScript = 0;
-            pIsInNoScript = 0;
-            pIsInNoFrames = 0;
+            /* Execute the script */
+            pEval = Tcl_DuplicateObj(pScript);
+            Tcl_IncrRefCount(pEval);
+            Tcl_ListObjAppendElement(0,pEval,Tcl_NewStringObj(zScript,nScript));
+            rc = Tcl_EvalObjEx(pTree->interp, pEval, TCL_EVAL_GLOBAL);
+            Tcl_DecrRefCount(pEval);
+            n += (nScript+nEnd);
+ 
+            /* If the script executed successfully, append the output to
+             * the document text (it will be the next thing tokenized).
+             */
+            if (rc==TCL_OK) {
+                Tcl_Obj *pResult;
+                Tcl_Obj *pTail;
+                Tcl_Obj *pHead;
 
+                pTail = Tcl_NewStringObj(&z[n], -1);
+                pResult = Tcl_GetObjResult(pTree->interp);
+                pHead = Tcl_NewStringObj(z, n);
+                Tcl_IncrRefCount(pTail);
+                Tcl_IncrRefCount(pResult);
+                Tcl_IncrRefCount(pHead);
+
+                Tcl_AppendObjToObj(pHead, pResult);
+                Tcl_AppendObjToObj(pHead, pTail);
+                
+                Tcl_DecrRefCount(pTail);
+                Tcl_DecrRefCount(pResult);
+                Tcl_DecrRefCount(pTree->pDocument);
+                pTree->pDocument = pHead;
+                z = Tcl_GetString(pHead);
+            } 
+            Tcl_ResetResult(pTree->interp);
+
+            pScript = 0;
+            pScriptToken = 0;
         }
 
         /*
          * White space 
          */
         else if (isspace(c)) {
+            HtmlToken *pSpace;
             for (i = 0;
                  (c = z[n + i]) != 0 && isspace(c) && c != '\n' && c != '\r';
                  i++) {
@@ -937,97 +855,52 @@ Tokenize(p)
             if (c == '\r' && z[n + i + 1] == '\n') {
                 i++;
             }
-            if (p->iSentencePadding && i == 1 && isupper(z[n + i])
-                && !p->iPlaintext && sawdot == 1) {
-                pElem = HtmlTextAlloc(sizeof(HtmlTextElement) + 2);
-                if (pElem == 0) {
-                    goto incomplete;
-                }
-                pElem->base.type = Html_Text;
-                pElem->base.id = ++p->idind;
-                pElem->base.offs = n;
-                pElem->base.count = 1;
-                strcpy(pElem->text.zText, " ");
-                AppendElement(p, pElem);
-            }
-            pElem = HtmlAlloc(sizeof(HtmlSpaceElement));
-            if (pElem == 0) {
-                goto incomplete;
-            }
-            pElem->space.w = 0;
-            pElem->base.type = Html_Space;
-            pElem->base.offs = n;
-            pElem->base.id = ++p->idind;
+            
+            pSpace = (HtmlToken *)ckalloc(sizeof(HtmlToken));
+            pSpace->type = Html_Space;
+
             if (c == '\n' || c == '\r') {
-                pElem->base.flags = HTML_NewLine;
-                pElem->base.count = 1;
+                pSpace->x.newline = 1;
+                pSpace->count = 1;
                 i++;
                 iCol = 0;
             }
             else {
                 int iColStart = iCol;
-                pElem->base.flags = 0;
+                pSpace->x.newline = 0;
                 for (j = 0; j < i; j++) {
                     iCol = NextColumn(iCol, z[n + j]);
                 }
-                pElem->base.count = iCol - iColStart;
+                pSpace->count = iCol - iColStart;
             }
-            AppendElement(p, pElem);
+            AppendToken(pTree, pSpace);
             n += i;
         }
 
         /*
          * Ordinary text 
          */
-        else if (c != '<' || p->iPlaintext != 0 ||
+        else if (c != '<' || 
                  (!isalpha(z[n + 1]) && z[n + 1] != '/' && z[n + 1] != '!'
                   && z[n + 1] != '?')) {
-            for (i = 1; (c = z[n + i]) != 0 && !isspace(c) && c != '<'; i++) {
-            }
-            if (z[n + i - 1] == '.' || z[n + i - 1] == '!'
-                || z[n + i - 1] == '?')
-                sawdot = 2;
+
+            HtmlToken *pText;
+            int nBytes;
+
+            for (i = 1; (c = z[n + i]) != 0 && !isspace(c) && c != '<'; i++);
             if (c == 0) {
                 goto incomplete;
             }
-            if (p->iPlaintext != 0 && z[n] == '<') {
-                switch (p->iPlaintext) {
-                    case Html_LISTING:
-                        if (i >= 10 && strnicmp(&z[n], "</listing>", 10) == 0) {
-                            p->iPlaintext = 0;
-                            goto doMarkup;
-                        }
-                        break;
-                    case Html_XMP:
-                        if (i >= 6 && strnicmp(&z[n], "</xmp>", 6) == 0) {
-                            p->iPlaintext = 0;
-                            goto doMarkup;
-                        }
-                        break;
-                    case Html_TEXTAREA:
-                        if (i >= 11 && strnicmp(&z[n], "</textarea>", 11) == 0) {
-                            p->iPlaintext = 0;
-                            goto doMarkup;
-                        }
-                        break;
-                    default:
-                        break;
-                }
-            }
-            pElem = HtmlTextAlloc(i);
-            if (pElem == 0) {
-                goto incomplete;
-            }
-            pElem->base.type = Html_Text;
-            pElem->base.id = ++p->idind;
-            pElem->base.offs = n;
-            strncpy(pElem->text.zText, &z[n], i);
-            pElem->text.zText[i] = 0;
-            AppendElement(p, pElem);
-            if (p->iPlaintext == 0 || p->iPlaintext == Html_TEXTAREA) {
-                HtmlTranslateEscapes(pElem->text.zText);
-            }
-            pElem->base.count = strlen(pElem->text.zText);
+
+            nBytes = 1 + i + sizeof(HtmlToken) + (i%sizeof(char *));
+            pText = (HtmlToken *)ckalloc(nBytes);
+            pText->type = Html_Text;
+            pText->x.zText = (char *)&pText[1];
+            strncpy(pText->x.zText, &z[n], i);
+            pText->x.zText[i] = 0;
+            AppendToken(pTree, pText);
+            HtmlTranslateEscapes(pText->x.zText);
+            pText->count = strlen(pText->x.zText);
             n += i;
             iCol += i;
         }
@@ -1045,21 +918,6 @@ Tokenize(p)
             if (z[n + i] == 0) {
                 goto incomplete;
             }
-            pElem = HtmlTextAlloc(i);
-            if (pElem == 0) {
-                goto incomplete;
-            }
-            pElem->base.type = Html_COMMENT;
-            pElem->base.id = ++p->idind;
-            pElem->base.offs = n;
-            /*
-             * sprintf(pElem->text.zText,"%.*s",i-4,&z[n+4]); 
-             */
-            strncpy(pElem->text.zText, &z[n + 4], i - 4);
-            pElem->text.zText[i - 4] = 0;
-            pElem->base.count = 0;
-            AppendElement(p, pElem);
-            AppToken(p, 0, Html_EndCOMMENT, 0, n + 4);
             for (j = 0; j < i + 3; j++) {
                 iCol = NextColumn(iCol, z[n + j]);
             }
@@ -1091,11 +949,13 @@ Tokenize(p)
              * end of the tag name. Then set arglen[0] to the length of
              * argv[0].
              */
-            i = 1;
+            i = 0;
             do {
+                i++;
                 c = z[n + i];
-            } while( c!=0 && !isspace(c) && c!='>' && (i++<2 || c!='/') );
+            } while( c!=0 && !isspace(c) && c!='>' && (i<2 || c!='/') );
             arglen[0] = i - 1;
+            i--;
 
             /* Now prepare to parse the markup attributes. Advance i until
              * &z[n+i] points to the first character of the first attribute,
@@ -1210,7 +1070,6 @@ Tokenize(p)
             }
             assert( c!=0 );
 
-            /* DK: What the heck does this do? */
             for (j = 0; j < i + 1; j++) {
                 iCol = NextColumn(iCol, z[n + j]);
             }
@@ -1225,190 +1084,66 @@ Tokenize(p)
              * HtmlHashLookup() to understand a length argument.
              */
             if (!isInit) {
-                HtmlHashInit(p, 0);
+                HtmlHashInit(0, 0);
                 isInit = 1;
             }
             c = argv[0][arglen[0]];
             argv[0][arglen[0]] = 0;
-            pMap = HtmlHashLookup(p, argv[0]);
+            pMap = HtmlHashLookup(0, argv[0]);
             argv[0][arglen[0]] = c;
             if (pMap == 0) {
                 continue;
             }
 
-          makeMarkupEntry:
+          makeMarkupEntry: {
             /* If we get here, we need to allocate a structure to store
-             * the markup element. This is a custom structure for some
-             * types of markup element, an HtmlBaseElement for a tag 
-             * without any attributes, or an HtmlMarkupElement for a tag
-             * with attributes. pElem is of type HtmlElement - a union of
-             * all potential markup structures.
+             * the markup element. 
              */
-            if (pMap->extra) {
-                nByte = pMap->extra;
-            } else if (argc == 1) {
-                nByte = sizeof(HtmlBaseElement);
-            } else {
-                nByte = sizeof(HtmlMarkupElement);
-            }
+            HtmlToken *pMarkup;
+            nByte = sizeof(HtmlToken);
             if (argc > 1) {
                 nByte += sizeof(char *) * (argc + 1);
                 for (j = 1; j < argc; j++) {
                     nByte += arglen[j] + 1;
                 }
             }
-            pElem = HtmlAlloc(nByte);
-            if (pElem == 0) {
-                goto incomplete;
-            }
-
-            memset(pElem, 0, nByte);
-            pElem->base.type = pMap->type;
-            pElem->base.count = argc - 1;
-            pElem->base.id = ++p->idind;
-            pElem->base.offs = n;
+            pMarkup = (HtmlToken *)ckalloc(nByte);
+            pMarkup->type = pMap->type;
+            pMarkup->count = argc - 1;
+            pMarkup->x.zArgs = 0;
 
             /* If the tag had attributes, then copy all the attribute names
              * and values into the space just allocated. Translate escapes
-	     * on the way. The idea is that calling HtmlFree() on pElem frees
-	     * the space used by the attributes as well as the HtmlElement.
+	     * on the way. The idea is that calling ckfree() on pToken frees
+	     * the space used by the attributes as well as the HtmlToken.
              */
             if (argc > 1) {
-                if (pMap->extra) {
-                    pElem->markup.argv =
-                            (char **) &((char *) pElem)[pMap->extra];
-                }
-                else {
-                    pElem->markup.argv =
-                            (char **) &((HtmlMarkupElement *) pElem)[1];
-                }
-                zBuf = (char *) &pElem->markup.argv[argc + 1];
-                for (j = 1; j < argc; j++) {
-                    pElem->markup.argv[j - 1] = zBuf;
-                    zBuf += arglen[j] + 1;
+                pMarkup->x.zArgs = (char **)&pMarkup[1];
+                zBuf = (char *)&pMarkup->x.zArgs[argc + 1];
+                for (j=1; j < argc; j++) {
+                    pMarkup->x.zArgs[j-1] = zBuf;
+                    zBuf += arglen[j]+1;
 
-                    strncpy(pElem->markup.argv[j - 1], argv[j], arglen[j]);
-                    pElem->markup.argv[j - 1][arglen[j]] = 0;
-                    HtmlTranslateEscapes(pElem->markup.argv[j - 1]);
-                    if ((j & 1) == 1) {
-                        ToLower(pElem->markup.argv[j - 1]);
+                    strncpy(pMarkup->x.zArgs[j-1], argv[j], arglen[j]);
+                    pMarkup->x.zArgs[j - 1][arglen[j]] = 0;
+                    HtmlTranslateEscapes(pMarkup->x.zArgs[j - 1]);
+                    if ((j&1) == 1) {
+                        ToLower(pMarkup->x.zArgs[j-1]);
                     }
                 }
-                pElem->markup.argv[argc - 1] = 0;
-                /*
-                 * DK: Don't understand this yet.
-                 * Following is just a flag that this is unmodified 
+                pMarkup->x.zArgs[argc - 1] = 0;
+            }
+
+            pScript = getScriptHandler(pTree, pMarkup->type);
+            if (!pScript) {
+                /* No special handler for this markup. Just append it to the 
+                 * list of all tokens. 
                  */
-                pElem->markup.argv[argc] = (char *) pElem->markup.argv;
+                AppendToken(pTree, pMarkup);
+            } else {
+                pScriptToken = pMarkup;
             }
-            HtmlAddFormInfo(p, pElem);
-
-            /*
-             * The new markup has now be constructed in pElem.  But before 
-             * appending to the list, check to see if there is a special
-             * handler for this markup type. 
-             */
-            if (p->zHandler[pMap->type]) {
-                int tn, result;
-                char bbuf[200];
-                Tcl_DString str;
-                Tcl_DStringInit(&str);
-                Tcl_DStringAppend(&str, p->zHandler[pMap->type], -1);
-                sprintf(bbuf, "%d", pElem->base.id);
-                Tcl_DStringAppendElement(&str, bbuf);
-                Tcl_DStringAppendElement(&str, pMap->zName);
-                Tcl_DStringStartSublist(&str);
-                for (j = 0; j < argc - 1; j++) {
-                    Tcl_DStringAppendElement(&str, pElem->markup.argv[j]);
-                }
-                Tcl_DStringEndSublist(&str);
-                HtmlFree(pElem);
-                HtmlLock(p);
-                result = Tcl_GlobalEval(p->interp, Tcl_DStringValue(&str));
-                Tcl_DStringFree(&str);
-                if (HtmlUnlock(p)) {
-                    return 0;
-                }
-                if (result != TCL_OK) {
-                    sprintf(bbuf,
-                            "\n    (token handler callback of HTML widget) %.100s",
-                            bbuf);
-                    Tcl_AddErrorInfo(p->interp, bbuf);
-                    Tcl_BackgroundError(p->interp);
-                }
-
-                /* Tricky, tricky.  The callback might have caused the
-                 * p->zText pointer to change, so renew our copy of that
-                 * pointer.  The callback might also have cleared or
-                 * destroyed the widget. If so, abort this routine. 
-                 */
-                z = p->zText;
-                if (z == 0 || p->tkwin == 0) {
-                    n = 0;
-                    iCol = 0;
-                    goto incomplete;
-                }
-                continue;
-            }
-
-            /*
-             * No special handler for this markup. Just append it to the 
-             * list of all tokens. 
-             */
-            AppendElement(p, pElem);
-            switch (pMap->type) {
-                case Html_TABLE:
-                    if (p->HasTktables && HtmlMarkupArg(pElem, "tktable", 0)) {
-                        pElem->table.tktable = 1;
-                        AppToken(p, pElem, Html_INPUT, sizeof(HtmlInput), n);
-                        pElem->base.pPrev->input.type = INPUT_TYPE_Tktable;
-                    }
-                    break;
-                case Html_PLAINTEXT:
-                case Html_LISTING:
-                case Html_XMP:
-                case Html_TEXTAREA:
-                    p->iPlaintext = pMap->type;
-                    break;
-                case Html_NOFRAMES:
-                    if (!p->HasFrames)
-                        break;
-                    pIsInNoFrames = 1;
-                case Html_NOSCRIPT:
-                    break;
-                    if (!p->HasScript)
-                        break;
-                    pIsInNoScript = 1;
-                case Html_SCRIPT:
-                    pIsInScript = 1;
-                case Html_STYLE:
-                    p->pScript = (HtmlScript *) pElem;
-                    break;
-                case Html_LI:
-                    if (!p->AddEndTags)
-                        break;
-                    if (inli)
-                        AppToken(p, pElem, Html_EndLI,
-                                 sizeof(HtmlMarkupElement), n);
-                    else
-                        inli = 1;
-                    break;
-                case Html_EndLI:
-                    inli = 0;
-                    break;
-                case Html_EndOL:
-                case Html_EndUL:
-                    if (!p->AddEndTags)
-                        break;
-                    if (inli)
-                        AppToken(p, pElem, Html_EndLI,
-                                 sizeof(HtmlMarkupElement), n);
-                    else
-                        inli = 0;
-                    break;
-                default:
-                    break;
-            }
+          }
 
             /* If this is self-closing markup (ex: <br/> or <img/>) then
              * synthesize a closing token. 
@@ -1424,8 +1159,7 @@ Tokenize(p)
     }
 
   incomplete:
-    p->iCol = iCol;
-    p->pScript = 0;
+    pTree->iCol = iCol;
     return n;
 }
 
@@ -1449,245 +1183,20 @@ Tokenize(p)
  *---------------------------------------------------------------------------
  */
 void 
-HtmlTokenizerAppend(htmlPtr, zText, len)
-    HtmlWidget *htmlPtr;
+HtmlTokenizerAppend(pTree, zText, nText)
+    HtmlTree *pTree;
     const char *zText;
-    int len;
+    int nText;
 {
-    if (htmlPtr->nText == 0) {
-        htmlPtr->nAlloc = len + 100;
-        htmlPtr->zText = HtmlAlloc(htmlPtr->nAlloc);
-    }
-    else if (htmlPtr->nText + len >= htmlPtr->nAlloc) {
-        htmlPtr->nAlloc += len + 100;
-        htmlPtr->zText = HtmlRealloc(htmlPtr->zText, htmlPtr->nAlloc);
-    }
-    if (htmlPtr->zText == 0) {
-        htmlPtr->nText = 0;
-        UNTESTED;
-        return;
-    }
-    strcpy(&htmlPtr->zText[htmlPtr->nText], zText);
-    htmlPtr->nText += len;
-    htmlPtr->nComplete = Tokenize(htmlPtr);
-}
+    /* TODO: Add a flag to prevent recursive calls to this routine. */
 
-/*
-** This routine takes a text representation of a token, converts
-** it into an HtmlElement structure and inserts it immediately 
-** prior to pToken.  If pToken==0, then the newly created HtmlElement
-** is appended.
-**
-** This routine does nothing to resize, restyle, relayout or redisplay
-** the HTML.  That is the calling routines responsibility.
-**
-** Return 0 if successful.  Return non-zero if zType is not a known
-** markup name.
-*/
-HtmlElement *
-HtmlInsertToken(htmlPtr, pToken, zType, zArgs, offs)
-    HtmlWidget *htmlPtr;               /* The widget into which the token is
-                                        * inserted */
-    HtmlElement *pToken;               /* Insert before this.  Append if
-                                        * pToken==0 */
-    char *zType;                       /* Type of markup.  Ex: "/a" or
-                                        * "table" */
-    char *zArgs;                       /* List of arguments */
-    int offs;                          /* Calcuate offset, and insert changed 
-                                        * text into zText! */
-{
-    HtmlTokenMap *pMap;                /* For searching the markup name hash
-                                        * table */
-    int h;                             /* The hash on zType */
-    HtmlElement *pElem;                /* The new element */
-    int nByte;                         /* How many bytes to allocate */
-    int i, ftype, extra;               /* Loop counter */
+    if (!pTree->pDocument) {
+        pTree->pDocument = Tcl_NewObj();
+        Tcl_IncrRefCount(pTree->pDocument);
+    }
+    Tcl_AppendToObj(pTree->pDocument, zText, nText);
 
-    if (!isInit) {
-        HtmlHashInit(htmlPtr, 0);
-        isInit = 1;
-    }
-    if (!strcmp(zType, "Text")) {
-        ftype = Html_Text;
-        extra = (zArgs ? strlen(zArgs) : 0) + sizeof(HtmlTextElement) + 1 +
-                sizeof(char *);
-    }
-    else if (!strcmp(zType, "Space")) {
-        ftype = Html_Space;
-        extra = (zArgs ? strlen(zArgs) : 0) + sizeof(HtmlSpaceElement);
-    }
-    else {
-        pMap = HtmlHashLookup(htmlPtr, zType);
-        if (pMap == 0) {
-            return 0;
-        }
-        ftype = pMap->type;
-        extra = pMap->extra;
-    }
-
-    if (zArgs == 0 || (*zArgs == 0 && ftype != Html_Text)) {
-        /*
-         * Special case of no arguments.  This is a lot easier... 
-         */
-        nByte = extra ? extra : sizeof(HtmlBaseElement);
-        nByte += strlen(zType);
-        if ((pElem = AppToken(htmlPtr, pToken, ftype, nByte, offs)) == 0) {
-            return 0;
-        }
-        return pElem;
-    }
-    else {
-        /*
-         * The general case.  There are arguments that need to be parsed **
-         * up.  This is slower, but we gotta do it. 
-         */
-        int argc;
-        CONST char **argv;
-        char *zBuf;
-
-        if (Tcl_SplitList(htmlPtr->interp, zArgs, &argc, &argv) != TCL_OK) {
-            return 0;
-        }
-        if (extra) {
-            nByte = extra;
-        }
-        else {
-            nByte = sizeof(HtmlMarkupElement);
-        }
-        nByte += sizeof(char *) * (argc + 1) + strlen(zArgs) + argc + 2;
-        if ((pElem = AppToken(htmlPtr, pToken, ftype, nByte, offs)) == 0) {
-            HtmlFree(argv);
-            return 0;
-        }
-        if (ftype == Html_Text) {
-            pElem->text.zText = (char *) ((&pElem->text.zText) + 1);
-            strcpy(pElem->text.zText, zArgs);
-            HtmlTranslateEscapes(pElem->text.zText);
-            pElem->base.count = strlen(pElem->text.zText);
-        }
-        else {
-            if (extra) {
-                pElem->markup.argv = (char **) &((char *) pElem)[extra];
-            }
-            else {
-                pElem->markup.argv =
-                        (char **) &((HtmlMarkupElement *) pElem)[1];
-            }
-            zBuf = (char *) &pElem->markup.argv[argc];
-            for (i = 1; i < argc; i++) {
-                pElem->markup.argv[i - 1] = zBuf;
-                zBuf += strlen(argv[i]) + 1;
-                strcpy(pElem->markup.argv[i - 1], argv[i]);
-            }
-            pElem->markup.argv[argc - 1] = 0;
-        }
-        HtmlFree(argv);
-    }
-    return pElem;
-}
-
-/* Insert text into text token, or break token into two text tokens. */
-
-/* Also, handle backspace char by deleting text. */
-
-/* Should also, handle newline char by splitting text. */
-int
-HtmlTextInsertCmd(clientData, interp, argc, argv)
-    ClientData clientData;             /* The HTML widget */
-    Tcl_Interp *interp;                /* The interpreter */
-    int argc;                          /* Number of arguments */
-    CONST char **argv;                 /* List of all arguments */
-{
-    HtmlElement *p, *pElem;
-    HtmlWidget *htmlPtr = (HtmlWidget *) clientData;
-    int i, idx = 0, ptyp = Html_Unknown, istxt = 0, l = 0, n = 0;
-    char *cp = 0, c, *cp2;
-    if (HtmlGetIndex(htmlPtr, argv[3], &p, &i) != 0) {
-        Tcl_AppendResult(interp, "malformed index: \"", argv[3], "\"", 0);
-        return TCL_ERROR;
-    }
-    if (p) {
-        ptyp = p->base.type;
-        if ((istxt = (ptyp == Html_Text))) {
-            l = p->base.count;
-            cp = p->text.zText;
-        }
-    }
-    if (argv[2][0] == 'b') {    /* Break text token into two. */
-        if (!istxt)
-            return TCL_OK;
-        if (i == 0 || i == l)
-            return TCL_OK;
-        pElem = HtmlInsertToken(htmlPtr, p->pNext, "Text", cp + i, -1);
-        cp[i] = 0;
-        p->base.count = i;
-        return TCL_OK;
-    }
-    c = argv[4][0];
-    if (!c) {
-        return TCL_OK;
-    }
-    if (c == '\b') {
-        if ((!istxt) || (!l) || (!i)) {
-            if (!p)
-                return TCL_OK;
-            if (p->base.type == Html_BR)
-                HtmlRemoveElements(htmlPtr, p, p);
-            return TCL_OK;
-        }
-        if (p && l == 1) {
-            HtmlRemoveElements(htmlPtr, p, p);
-            return TCL_OK;
-        }
-        if (i == l)
-            cp[p->base.count] = 0;
-        else
-            memcpy(cp + i - 1, cp + i, l - i + 1);
-        cp[--p->base.count] = 0;
-        if (htmlPtr->ins.i-- <= 0)
-            htmlPtr->ins.i = 0;
-        htmlPtr->ins.p = p;
-        return TCL_OK;
-    }
-    if (c == '\n' || c == '\r') {
-    }
-    if (istxt) {
-        char *cp;
-        int t, j, alen = strlen(argv[4]);
-        n = alen + l;
-        if (p->text.zText == (char *) ((&p->text.zText) + 1)) {
-            cp = HtmlAlloc(n + 1);
-            strcpy(cp, p->text.zText);
-        }
-        else
-            cp = HtmlRealloc(p->text.zText, n + 1);
-        cp2 = HtmlAlloc(alen + 1);
-        memcpy(cp2, argv[4], alen + 1);
-        HtmlTranslateEscapes(cp2);
-        alen = strlen(cp2);
-        memmove(cp + alen + i, cp + i, l - i + 1);
-        for (j = 0; j < alen; j++) {
-            cp[i + j] = cp2[j];
-        }
-        HtmlFree(cp2);
-        p->text.zText = cp;
-        p->base.count = strlen(cp);
-        htmlPtr->ins.p = p;
-        htmlPtr->ins.i = i + alen;
-    }
-    else {
-        p = HtmlInsertToken(htmlPtr, p ? p->pNext : 0, "Text", (char *) argv[4],
-                            -1);
-        HtmlAddStyle(htmlPtr, p);
-        i = 0;
-        htmlPtr->ins.p = p;
-        htmlPtr->ins.i = 1;
-    }
-    if (p) {
-        idx = p->base.id;
-        HtmlAddStrOffset(htmlPtr, p, argv[4], i);
-    }
-    return TCL_OK;
+    pTree->nParsed = Tokenize(pTree);
 }
 
 /*
@@ -1707,14 +1216,13 @@ HtmlTextInsertCmd(clientData, interp, argc, argv)
  *
  *---------------------------------------------------------------------------
  */
-HtmlTokenMap * 
+static HtmlTokenMap * 
 HtmlHashLookup(htmlPtr, zType)
-    HtmlWidget *htmlPtr;
+    void *htmlPtr;
     const char *zType;          /* Null terminated tag name. eg. "br" */
 {
     HtmlTokenMap *pMap;         /* For searching the markup name hash table */
     int h;                      /* The hash on zType */
-    Tcl_HashEntry *entry;
     char buf[256];
     if (!isInit) {
         HtmlHashInit(htmlPtr, 0);
@@ -1728,46 +1236,8 @@ HtmlHashLookup(htmlPtr, zType)
     }
     strncpy(buf, zType, 255);
     buf[255] = 0;
-    if ((entry = Tcl_FindHashEntry(&htmlPtr->tokenHash, buf))) {
-        HtmlUserTag *tag = (void *) Tcl_GetHashValue(entry);
-        if (tag) {
-            return &tag->tokenMap;
-        }
-    }
-    return NULL;
-}
 
-/* ** WIDGET token define TAGNAME **/
-int
-HtmlTokenDefineCmd(clientData, interp, argc, argv)
-    ClientData clientData;             /* The HTML widget */
-    Tcl_Interp *interp;                /* The interpreter */
-    int argc;                          /* Number of arguments */
-    CONST char **argv;                 /* List of all arguments */
-{
-    HtmlUserTag *tag;
-    Tcl_HashEntry *he;
-    HtmlWidget *htmlPtr = (HtmlWidget *) clientData;
-    char buf[256];
-    int i, isnew;
-    if (HtmlHashLookup(htmlPtr, argv[3])) {
-        Tcl_AppendResult(interp, "tag already defined: ", argv[3]);
-        return TCL_ERROR;
-    }
-    for (i = 0; i < 255 && argv[3][i]; i++)
-        buf[i] = argv[3][i];
-    buf[i] = 0;
-    if ((!(he = Tcl_CreateHashEntry(&htmlPtr->tokenHash, buf, &isnew))) ||
-        (!isnew)) {
-        Tcl_AppendResult(interp, "tag create failed: ", argv[3]);
-        return TCL_ERROR;
-    }
-    if (!(tag = (void *) calloc(sizeof(HtmlUserTag), 1)))
-        return TCL_ERROR;
-    tag->tokenMap.zName = strdup(argv[3]);
-    tag->tokenMap.type = htmlPtr->tokenCnt++;
-    Tcl_SetHashValue(he, tag);
-    return TCL_OK;
+    return NULL;
 }
 
 /*
@@ -1775,7 +1245,7 @@ HtmlTokenDefineCmd(clientData, interp, argc, argv)
 */
 int
 HtmlNameToType(htmlPtr, zType)
-    HtmlWidget *htmlPtr;
+    void *htmlPtr;
     char *zType;
 {
     HtmlTokenMap *pMap = HtmlHashLookup(htmlPtr, zType);
@@ -1787,7 +1257,7 @@ HtmlNameToType(htmlPtr, zType)
 */
 const char *
 HtmlTypeToName(htmlPtr, type)
-    HtmlWidget *htmlPtr;
+    void *htmlPtr;
     int type;
 {
     if (type >= Html_A && type < Html_TypeCount) {
@@ -1800,175 +1270,37 @@ HtmlTypeToName(htmlPtr, type)
 }
 
 /*
-** For debugging purposes, print information about a token
-*/
-char *
-HtmlTokenName(htmlPtr, p)
-    HtmlWidget *htmlPtr;
-    HtmlElement *p;
-{
-#if 1                           /* DEBUG */
-    static char zBuf[200];
-    int j;
-    char *zName;
-
-    if (p == 0)
-        return "NULL";
-    switch (p->base.type) {
-        case Html_Text:
-            sprintf(zBuf, "\"%.*s\"", p->base.count, p->text.zText);
-            break;
-        case Html_Space:
-            if (p->base.flags & HTML_NewLine) {
-                sprintf(zBuf, "\"\\n\"");
-            }
-            else {
-                sprintf(zBuf, "\" \"");
-            }
-            break;
-        case Html_Block:
-            if (p->block.n > 0) {
-                int n = p->block.n;
-                if (n > 150)
-                    n = 150;
-                sprintf(zBuf, "<Block z=\"%.*s\">", n, p->block.z);
-            }
-            else {
-                sprintf(zBuf, "<Block>");
-            }
-            break;
-        default:
-            sprintf(zBuf, "<%s", HtmlTypeToName(htmlPtr, p->base.type));
-            for (j = 1; j < p->base.count; j += 2) {
-                sprintf(&zBuf[strlen(zBuf)], " %s=%s",
-                        p->markup.argv[j - 1], p->markup.argv[j]);
-            }
-            strcat(zBuf, ">");
-            break;
-    }
-    return zBuf;
-#else
-    return 0;
-#endif
-}
-
-char *
-HtmlGetTokenName(htmlPtr, p)
-    HtmlWidget *htmlPtr;
-    HtmlElement *p;
-{
-    static char zBuf[200];
-    int j;
-
-    zBuf[0] = 0;
-    if (p == 0)
-        return "NULL";
-    switch (p->base.type) {
-        case Html_Text:
-        case Html_Space:
-            break;
-        case Html_Block:
-            break;
-        default:
-            strcpy(zBuf, HtmlTypeToName(htmlPtr, p->base.type));
-            break;
-    }
-    return zBuf;
-}
-
-/*
-** Append all the arguments of the given markup to the given
-** DString.
-**
-** Example:  If the markup is <IMG SRC=image.gif ALT="hello!">
-** then the following text is appended to the DString:
-**
-**       "src image.gif alt hello!"
-**
-** Notice how all attribute names are converted to lower case.
-** This conversion happens in the parser.
-*/
-void
-HtmlAppendArglist(str, pElem)
-    Tcl_DString *str;
-    HtmlElement *pElem;
+ *---------------------------------------------------------------------------
+ *
+ * HtmlMarkupArg --
+ *
+ *     Lookup an argument in the given markup with the name given.
+ *     Return a pointer to its value, or the given default
+ *     value if it doesn't appear.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+char * HtmlMarkupArg(pToken, zTag, zDefault)
+    HtmlToken *pToken;
+    const char *zTag;
+    char *zDefault;
 {
     int i;
-    for (i = 0; i + 1 < pElem->base.count; i += 2) {
-        char *z = pElem->markup.argv[i + 1];
-        Tcl_DStringAppendElement(str, pElem->markup.argv[i]);
-        Tcl_DStringAppendElement(str, z);
+    if (pToken->type==Html_Space || pToken->type==Html_Text) {
+        return 0;
     }
+    for (i = 0; i < pToken->count; i += 2) {
+        if (strcmp(pToken->x.zArgs[i], zTag) == 0) {
+            return pToken->x.zArgs[i + 1];
+        }
+    }
+    return zDefault;
 }
 
-void
-HtmlFreeTokenMap(htmlPtr)
-    HtmlWidget *htmlPtr;
-{
-    Tcl_HashSearch se;
-    Tcl_HashEntry *he = Tcl_FirstHashEntry(&htmlPtr->tokenHash, &se);
-    HtmlUserTag *tag;
-    while (he) {
-        tag = (void *) Tcl_GetHashValue(he);
-        if (tag) {
-            HtmlFree(tag->tokenMap.zName);
-            if (tag->zHandler)
-                HtmlFree(tag->zHandler);
-            HtmlFree(tag);
-        }
-        Tcl_DeleteHashEntry(he);
-        he = Tcl_NextHashEntry(&se);
-    }
-    htmlPtr->tokenCnt = Html_TypeCount;
-}
 
-/* Be carefull! 'n' should be 'Html_XXX - Html_A'.
- * This means 
- *   HtmlGetMarkupMap(htmlPtr, 0)->type == Html_A
- */
-HtmlTokenMap *
-HtmlGetMarkupMap(htmlPtr, n)
-    HtmlWidget *htmlPtr;
-    int n;
-{
-    Tcl_HashEntry *he;
-    Tcl_HashSearch se;
-    HtmlUserTag *tag;
-    if (n < Html_TypeCount && n >= 0)
-        return HtmlMarkupMap + n;
-    he = Tcl_FirstHashEntry(&htmlPtr->tokenHash, &se);
-    while (he) {
-        tag = (void *) Tcl_GetHashValue(he);
-        if (tag && tag->tokenMap.type == n) {
-            return &tag->tokenMap;
-        }
-        he = Tcl_NextHashEntry(&se);
-    }
-    return 0;
-}
-
-/*
-** Print a list of tokens
-*/
-void
-HtmlPrintList(htmlPtr, p, pEnd)
-    HtmlWidget *htmlPtr;
-    HtmlElement *p;
-    HtmlElement *pEnd;
-{
-    while (p && p != pEnd) {
-        if (p->base.type == Html_Block) {
-            char *z = p->block.z;
-            int n = p->block.n;
-            if (n == 0 || z == 0) {
-                n = 1;
-                z = "";
-            }
-            printf("Block 0x%08x flags=%02x cnt=%d x=%d..%d y=%d..%d z=\"%.*s\"\n", (int) p, p->base.flags, p->base.count, p->block.left, p->block.right, p->block.top, p->block.bottom, n, z);
-        }
-        else {
-            printf("Token 0x%08x font=%2d color=%2d align=%d flags=0x%04x name=%s\n", (int) p, p->base.style.font, p->base.style.color, p->base.style.align, p->base.style.flags, HtmlTokenName(htmlPtr, p));
-        }
-        p = p->pNext;
-    }
-}
