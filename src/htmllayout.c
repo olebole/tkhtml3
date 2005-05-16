@@ -247,7 +247,7 @@ S void nodeGetDisplay(LayoutContext*, HtmlNode*, DisplayProperties*);
 S int  nodeGetListStyleType(LayoutContext *, HtmlNode *);
 S XColor *nodeGetColour(LayoutContext *, HtmlNode*);
 S int nodeGetBorderSpacing(LayoutContext *, HtmlNode*);
-S int nodeGetVAlign(LayoutContext *, HtmlNode*);
+S int nodeGetVAlign(LayoutContext *, HtmlNode*, int);
 S void nodeGetBoxProperties(LayoutContext *, HtmlNode *, BoxProperties *);
 S void nodeGetBorderProperties(LayoutContext *, HtmlNode *, BorderProperties *);
 S int nodeGetWidth(LayoutContext *, HtmlNode *, int, int, int*);
@@ -917,7 +917,13 @@ nodeGetBorderSpacing(pLayout, pNode)
  *
  * nodeGetVAlign --
  * 
- *     Return the 'ver
+ *     Return the value of the 'vertical-align' property for pNode. 
+ * 
+ *     This property is a little strange (unique?) because the default
+ *     value depends on the type of the node. If the node is a table-cell,
+ *     then the default is VALIGN_MIDDLE. If it is an inline element, then
+ *     the default value is VALIGN_BASELINE. To handle this, the caller
+ *     passes the default value for the context as the third parameter.
  *
  * Results:
  *     VALIGN_MIDDLE, VALIGN_TOP, VALIGN_BOTTOM or VALIGN_BASELINE.
@@ -940,7 +946,7 @@ static int nodeGetVAlign(pLayout, pNode, defval)
     int eOptions[] = {VALIGN_TOP,VALIGN_MIDDLE,VALIGN_BOTTOM,VALIGN_BASELINE};
 
     HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_VERTICAL_ALIGN, &valign);
-    ret = propertyToConstant(&valign, zOptions, eOptions, VALIGN_BASELINE);
+    ret = propertyToConstant(&valign, zOptions, eOptions, defval);
 
     return ret;
 }
@@ -2663,7 +2669,7 @@ tableDrawRow(pNode, row, pContext)
              *       only work if the top and bottom borders of the cell
              *       are of the same thickness. Same goes for the padding.
              */
-            valign = nodeGetVAlign(pData->pLayout, pCell->pNode);
+            valign = nodeGetVAlign(pData->pLayout, pCell->pNode, VALIGN_MIDDLE);
             switch (valign) {
                 case VALIGN_TOP:
                 case VALIGN_BASELINE:

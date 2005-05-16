@@ -447,7 +447,7 @@ static PropMapEntry propmapdata[] = {
     {CSS_PROPERTY_TEXT_DECORATION, 1, 0, 0,     {CSS_TYPE_NONE, 0}},
     {CSS_PROPERTY_FONT_SIZE, 0, 0, mapFontSize, {CSS_TYPE_NONE, 0}},
     {CSS_PROPERTY_WHITE_SPACE, 1, 0, 0, {CSS_TYPE_NONE, 0}},
-    {CSS_PROPERTY_VERTICAL_ALIGN,0,0,mapVAlign,{CSS_TYPE_STRING, "baseline"}},
+    {CSS_PROPERTY_VERTICAL_ALIGN, 0, 0, mapVAlign, {CSS_TYPE_NONE, 0}},
 
     /* Width of borders. */
     {CSS_PROPERTY_BORDER_TOP_WIDTH,    0, 0, mapBorderWidth, {CSS_TYPE_PX, 0}},
