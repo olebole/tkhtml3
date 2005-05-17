@@ -806,7 +806,6 @@ static Tk_Font nodeGetFont(pLayout, pNode)
         );
 
         pEntry = Tcl_CreateHashEntry(pFontCache, zBuf, &newentry);
-        newentry = 1;
         if (newentry) {
             font = Tk_GetFont(pLayout->interp, tkwin, zBuf); 
             if (!font) {
@@ -3596,6 +3595,10 @@ int HtmlLayoutForce(clientData, interp, objc, objv)
         else {
             return TCL_ERROR;
         }
+    }
+
+    if (!sLayout.tkwin) {
+        sLayout.tkwin = pTree->win;
     }
 
     /* Set up the layout context object. */

@@ -38,6 +38,43 @@ static void imageChanged(clientData, x, y, width, height, imageWidth, imageHeigh
 /*
  *---------------------------------------------------------------------------
  *
+ * HtmlClearImageArray --
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+int HtmlClearImageArray(pTree)
+    HtmlTree *pTree;
+{
+    Tcl_HashSearch s;
+    Tcl_HashEntry *p;
+
+    for (
+        p = Tcl_FirstHashEntry(&pTree->aImage, &s); 
+        p; 
+        p = Tcl_NextHashEntry(&s)) 
+    {
+        HtmlScaledImage *pImage = (HtmlScaledImage *)Tcl_GetHashValue(p);
+
+        if (pImage->image) Tk_FreeImage(pImage->image);
+        if (pImage->scaled_image) Tk_FreeImage(pImage->scaled_image);
+        if (pImage->pImageName) Tcl_DecrRefCount(pImage->pImageName);
+        if (pImage->pScaledImageName)Tcl_DecrRefCount(pImage->pScaledImageName);
+        
+        ckfree((char *)pImage);
+
+        Tcl_DeleteHashEntry(p);
+    }
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * HtmlResizeImage --
  *
  *     This function manages getting and setting the size of images

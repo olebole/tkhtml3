@@ -568,6 +568,8 @@ void HtmlTreeFree(pTree)
     if( pTree->pRoot ){
         freeNode(pTree->pRoot);
     }
+    pTree->pRoot = 0;
+    pTree->pCurrent = 0;
 }
 
 /*
@@ -1197,5 +1199,67 @@ HtmlNodeToString(pNode)
 
     Tcl_DecrRefCount(pStr);
     return zStr;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlTreeClear --
+ *
+ *     Completely reset the widgets internal structures - for example when
+ *     loading a new document.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+int HtmlTreeClear(pTree)
+    HtmlTree *pTree;
+{
+    HtmlToken *pToken;
+    Tcl_HashSearch s;
+    Tcl_HashEntry *p;
+
+    /* Free the font-cache - pTree->aFontCache */
+    for (
+        p = Tcl_FirstHashEntry(&pTree->aFontCache, &s); 
+        p; 
+        p = Tcl_NextHashEntry(&s)) 
+    {
+        Tk_FreeFont((Tk_Font)Tcl_GetHashValue(p));
+        Tcl_DeleteHashEntry(p);
+    }
+
+    /* Free the image-cache - pTree->aImage */
+    HtmlClearImageArray(pTree);
+
+    /* Free the tree representation - pTree->pRoot */
+    HtmlTreeFree(pTree);
+
+    /* Free the token representation */
+    for (pToken=pTree->pFirst; pToken; pToken = pToken->pNext) {
+        ckfree(pToken->pPrev);
+    }
+    ckfree(pTree->pLast);
+    pTree->pFirst = 0;
+    pTree->pLast = 0;
+
+    /* Free the canvas representation */
+    HtmlDrawCleanup(&pTree->canvas);
+
+    /* Free the plain text representation */
+    Tcl_DecrRefCount(pTree->pDocument);
+    pTree->nParsed = 0;
+    pTree->pDocument = 0;
+    pTree->iCol = 0;
+
+    /* Free the stylesheets */
+    HtmlCssStyleSheetFree(pTree->pStyle);
+    pTree->pStyle = 0;
+    return TCL_OK;
 }
 

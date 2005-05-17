@@ -594,6 +594,8 @@ static Pixmap getPixmap(pTree, w, h)
     int x = 0;
     int y = 0;
 
+    Tk_MakeWindowExist(win);
+
     pDisplay = Tk_Display(win);
     pmap = Tk_GetPixmap(pDisplay, Tk_WindowId(win), w, h, Tk_Depth(win));
 
@@ -712,18 +714,25 @@ int HtmlLayoutImage(clientData, interp, objc, objv)
     int w = pCanvas->right;
     int h = pCanvas->bottom;
 
-    Pixmap pixmap;
-    Tcl_Obj *pImage;
-    XImage *pXImage;
 
-    pixmap = getPixmap(pTree, w, h);
-    pXImage = XGetImage(pDisplay, pixmap, x, y, w, h, XAllPlanes(), ZPixmap);
-
-    pImage = HtmlXImageToImage(pTree, pXImage, w, h);
-    Tcl_SetObjResult(interp, pImage);
-    Tcl_DecrRefCount(pImage);
+    if (w>0 && h>0) {
+        Pixmap pixmap;
+        Tcl_Obj *pImage;
+        XImage *pXImage;
+        pixmap = getPixmap(pTree, w, h);
+        pXImage = XGetImage(pDisplay, pixmap, x, y, w, h, XAllPlanes(),ZPixmap);
+        pImage = HtmlXImageToImage(pTree, pXImage, w, h);
+        Tcl_SetObjResult(interp, pImage);
+        Tcl_DecrRefCount(pImage);
+        Tk_FreePixmap(Tk_Display(pTree->win), pixmap);
+    } else {
+        /* If the width or height is zero, then the image is empty. So just
+	 * run the following simple script to set the interpreter result to
+	 * an empty image.
+         */
+        Tcl_Eval(interp, "image create photo");
+    }
   
-    Tk_FreePixmap(Tk_Display(pTree->win), pixmap);
     return TCL_OK;
 }
 

@@ -1,5 +1,5 @@
 static char const rcsid[] =
-        "@(#) $Id: htmltcl.c,v 1.15 2005/05/17 04:21:36 danielk1977 Exp $";
+        "@(#) $Id: htmltcl.c,v 1.16 2005/05/17 14:19:17 danielk1977 Exp $";
 
 /*
 ** The main routine for the HTML widget for Tcl/Tk
@@ -25,6 +25,30 @@ static char const rcsid[] =
 #define SafeCheck(interp,str) if (Tcl_IsSafe(interp)) { \
     Tcl_AppendResult(interp, str, " invalid in safe interp", 0); \
     return TCL_ERROR; \
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * clearWidget --
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+int clearWidget(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget */
+    Tcl_Interp *interp;                /* The interpreter */
+    int objc;                          /* Number of arguments */
+    Tcl_Obj *const *objv;              /* List of all arguments */
+{
+    HtmlTree *pTree = (HtmlTree *)clientData;
+    HtmlTreeClear(pTree);
+    return TCL_OK;
 }
 
 /*
@@ -222,7 +246,8 @@ int HtmlWidgetObjCommand(clientData, interp, objc, objv)
         "handler", "node", 5, 5, "TAG SCRIPT", 0, handlerNodeCmd}, {
         "layout", "primitives", 5, 5, "", 0, HtmlLayoutPrimitives}, {
         "layout", "image", 2, 6, "", 0, HtmlLayoutImage}, {
-        "layout", "force", 2, 6, "", 0, HtmlLayoutForce},
+        "layout", "force", 2, 6, "", 0, HtmlLayoutForce}, {
+        "clear", 0, 2, 6, "", 0, clearWidget},
     };
 
     int i;
@@ -317,7 +342,7 @@ static void deleteWidget(clientData)
  *
  * newWidget --
  *
- *     Create a new Html widget command.
+ *     Create a new Html widget command. 
  *
  * Results:
  *     None.
@@ -352,7 +377,11 @@ static int newWidget(clientData, interp, objc, objv)
     Tcl_InitHashTable(&pTree->aFontCache, TCL_STRING_KEYS);
     pTree->win = Tk_MainWindow(interp);
 
-    Tcl_CreateObjCommand(interp, zCmd, HtmlWidgetObjCommand, pTree, deleteWidget);
+    Tcl_CreateObjCommand(interp,zCmd,HtmlWidgetObjCommand,pTree,deleteWidget);
+
+    /* Return the name of the widget just created. */
+    Tcl_SetObjResult(interp, objv[1]);
+   
     return TCL_OK;
 }
 

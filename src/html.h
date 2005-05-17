@@ -197,6 +197,7 @@ EXTERN Tcl_ObjCmdProc HtmlLayoutPrimitives;
 
 EXTERN void HtmlTreeFree(HtmlTree *p);
 EXTERN int HtmlWalkTree(HtmlTree *, int (*)(HtmlTree *, HtmlNode *));
+EXTERN int HtmlTreeClear(HtmlTree *);
 
 EXTERN int         HtmlNodeNumChildren(HtmlNode *);
 EXTERN HtmlNode *  HtmlNodeChild(HtmlNode *, int);
@@ -214,6 +215,7 @@ EXTERN void HtmlNodeGetDefault(HtmlNode *, int , CssProperty *);
 
 EXTERN Tcl_Obj *HtmlResizeImage(HtmlTree *, CONST char *, int *, int *);
 EXTERN Tcl_Obj *HtmlXImageToImage(HtmlTree *, XImage *, int, int);
+EXTERN int HtmlClearImageArray(HtmlTree*);
 
 EXTERN void HtmlDrawCleanup(HtmlCanvas *);
 EXTERN void HtmlDrawCanvas(HtmlCanvas *, HtmlCanvas *, int, int);
