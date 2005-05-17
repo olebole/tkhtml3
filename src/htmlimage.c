@@ -118,7 +118,7 @@ HtmlResizeImage(pTree, zImage, pWidth, pHeight)
              * destroy the cached image. We will create a new scaled copy
              * below.
              */
-            int sw, sh;              /* Width and height of cached scaled image */
+            int sw, sh;         /* Width and height of cached scaled image */
             Tk_SizeOfImage(pImage->scaled_image, &sw, &sh);
             if (*pWidth==sw && *pHeight==sh) {
                 pRet = pImage->pScaledImageName;
@@ -188,7 +188,7 @@ HtmlResizeImage(pTree, zImage, pWidth, pHeight)
                     zScale[3] = zOrig[block.offset[3]];
                 }
             }
-            Tk_PhotoPutBlock(interp, scaled_photo, &scaled_block, 0, 0, sw, sh, 0);
+            Tk_PhotoPutBlock(interp,scaled_photo,&scaled_block,0,0,sw,sh,0);
             ckfree(scaled_block.pixelPtr);
         } else {
             /* Failed to get the photo-handle. This might happen because
@@ -203,3 +203,75 @@ HtmlResizeImage(pTree, zImage, pWidth, pHeight)
     return pRet;
 }
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlXImageToImage --
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+Tcl_Obj *HtmlXImageToImage(pTree, pXImage, w, h)
+    HtmlTree *pTree;
+    XImage *pXImage;
+    int w;
+    int h;
+{
+    Tcl_Interp *interp = pTree->interp;
+
+    Tcl_Obj *pImage;
+    Tk_PhotoHandle photo;
+    Tk_PhotoImageBlock block;
+    int x;
+    int y;
+    unsigned long redmask, redshift;
+    unsigned long greenmask, greenshift;
+    unsigned long bluemask, blueshift;
+    Visual *pVisual;
+
+    Tcl_Eval(interp, "image create photo");
+    pImage = Tcl_GetObjResult(interp);
+    Tcl_IncrRefCount(pImage);
+
+    block.pixelPtr = ckalloc(w * h * 4);
+    block.width = w;
+    block.height = h;
+    block.pitch = w*4;
+    block.pixelSize = 4;
+    block.offset[0] = 0;
+    block.offset[1] = 1;
+    block.offset[2] = 2;
+    block.offset[3] = 3;
+
+    pVisual = Tk_Visual(pTree->win);
+
+    redmask = pVisual->red_mask;
+    bluemask = pVisual->blue_mask;
+    greenmask = pVisual->green_mask;
+    for (redshift=0; !((redmask>>redshift)&0x000000001); redshift++);
+    for (greenshift=0; !((greenmask>>greenshift)&0x00000001); greenshift++);
+    for (blueshift=0; !((bluemask>>blueshift)&0x00000001); blueshift++);
+
+    for (x=0; x<w; x++) {
+        for (y=0; y<h; y++) {
+            char *pOut = &block.pixelPtr[x*block.pixelSize + y*block.pitch];
+            unsigned long pixel = XGetPixel(pXImage, x, y);
+
+            pOut[0] = (pixel&redmask)>>redshift;
+            pOut[1] = (pixel&greenmask)>>greenshift;
+            pOut[2] = (pixel&bluemask)>>blueshift;
+            pOut[3] = 0xFF;
+        }
+    }
+
+    photo = Tk_FindPhoto(interp, Tcl_GetString(pImage));
+    Tk_PhotoPutBlock(interp, photo, &block, 0, 0, w, h, 0);
+    ckfree(block.pixelPtr);
+
+    return pImage;
+}

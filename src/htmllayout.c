@@ -276,9 +276,6 @@ S int blockMinMaxWidth(LayoutContext *, HtmlNode *, int *, int *);
 
 #undef S
 
-#define MAX(x,y) ((x)>(y)?(x):(y))
-#define MIN(x,y) ((x)<(y)?(x):(y))
-
 static void floatListAdd(pList, side, x, y)
     FloatMargin *pList;
     int side;                /* x-coord for left margin. */
@@ -1540,6 +1537,8 @@ markerLayout(pLayout, pBox, pNode)
 {
     int style; 
     CONST char *zMarker;     /* Text to draw in the marker box. */
+    Tcl_Obj *pMarker;        /* Tcl_Obj copy of zMarker */
+    int width;               /* Width of string zMarker in current font */
     Tk_Font font;
     XColor *color;
     int offset;
@@ -1561,6 +1560,8 @@ markerLayout(pLayout, pBox, pNode)
     }
     font = nodeGetFont(pLayout, pNode);
     color = nodeGetColour(pLayout, pNode);
+    pMarker = Tcl_NewStringObj(zMarker, -1);
+    width = Tk_TextWidth(font, zMarker, strlen(zMarker));
 
     /* Todo: The code below assumes a value of 'outside' for property
      * 'list-marker-position'. Should handle 'inside' as well.
@@ -1572,7 +1573,7 @@ markerLayout(pLayout, pBox, pNode)
      * in the current font to the left of the content box.
      */
     offset = Tk_TextWidth(font, "xxx", 3);
-    HtmlDrawText(&pBox->vc,Tcl_NewStringObj(zMarker,-1),-1*offset,0,font,color);
+    HtmlDrawText(&pBox->vc, pMarker, -1*offset, 0, width, font, color);
     return TCL_OK;
 }
 
@@ -1894,8 +1895,10 @@ static void inlineText(pLayout, pInline)
     if (pText) {
         XColor *c = nodeGetColour(pLayout, pN);
         int decoration = nodeGetTextDecoration(pLayout, pN);
+        int tw = linewidth - pInline->x;      /* Text Width */
 
-        HtmlDrawText(pInline->pCanvas, pText, pInline->x, 0, font, c);
+        assert(tw>0);
+        HtmlDrawText(pInline->pCanvas, pText, pInline->x, 0, tw, font, c);
 
         if (decoration!=TEXTDECORATION_NONE) {
             int ly;
@@ -3270,9 +3273,10 @@ layoutReplacement(pLayout, pBox, pNode, zReplace)
     if (zReplace[0]=='.') {
         Tk_Window win = Tk_NameToWindow(interp, zReplace, tkwin);
         if (win) {
+            Tcl_Obj *pWin = Tcl_NewStringObj(zReplace, -1);
             width = Tk_ReqWidth(win);
             height = Tk_ReqHeight(win);
-            HtmlDrawWindow(&pBox->vc, Tcl_NewStringObj(zReplace, -1), 0, 0);
+            HtmlDrawWindow(&pBox->vc, pWin, 0, 0, width, height);
         }
     } else {
 	/* Must be an image. Or garbage data returned by an bad Tcl proc.
@@ -3281,7 +3285,7 @@ layoutReplacement(pLayout, pBox, pNode, zReplace)
         Tcl_Obj *pImg;
         pImg = HtmlResizeImage(pLayout->pTree, zReplace, &width, &height);
         if (pImg) {
-            HtmlDrawImage(&pBox->vc, pImg, 0, 0);
+            HtmlDrawImage(&pBox->vc, pImg, 0, 0, width, height);
         }
     }
 

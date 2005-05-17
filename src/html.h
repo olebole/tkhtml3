@@ -129,6 +129,10 @@ struct HtmlScaledImage {
 };
 
 struct HtmlCanvas {
+    int left;
+    int right;
+    int top;
+    int bottom;
     HtmlCanvasItem *pFirst;
     HtmlCanvasItem *pLast;
     Tcl_Obj *pPrimitives;
@@ -178,6 +182,9 @@ struct HtmlTree {
     HtmlCanvas canvas;              /* Canvas to render into */
 };
 
+#define MAX(x,y) ((x)>(y)?(x):(y))
+#define MIN(x,y) ((x)<(y)?(x):(y))
+
 EXTERN int HtmlTreeBuild(ClientData, Tcl_Interp *, int, Tcl_Obj *CONST []);
 EXTERN int HtmlTreeRoot(ClientData, Tcl_Interp *, int, Tcl_Obj *CONST []);
 EXTERN Tcl_ObjCmdProc HtmlTreeCollapseWhitespace;
@@ -185,6 +192,7 @@ EXTERN Tcl_ObjCmdProc HtmlStyleParse;
 EXTERN Tcl_ObjCmdProc HtmlStyleApply;
 EXTERN Tcl_ObjCmdProc HtmlStyleSyntaxErrs;
 EXTERN Tcl_ObjCmdProc HtmlLayoutForce;
+EXTERN Tcl_ObjCmdProc HtmlLayoutImage;
 EXTERN Tcl_ObjCmdProc HtmlLayoutPrimitives;
 
 EXTERN void HtmlTreeFree(HtmlTree *p);
@@ -203,13 +211,15 @@ EXTERN Tcl_Obj *HtmlNodeCommand(Tcl_Interp *interp, HtmlNode *pNode);
 
 EXTERN void HtmlNodeGetProperty(Tcl_Interp *, HtmlNode *, int , CssProperty *);
 EXTERN void HtmlNodeGetDefault(HtmlNode *, int , CssProperty *);
+
 EXTERN Tcl_Obj *HtmlResizeImage(HtmlTree *, CONST char *, int *, int *);
+EXTERN Tcl_Obj *HtmlXImageToImage(HtmlTree *, XImage *, int, int);
 
 EXTERN void HtmlDrawCleanup(HtmlCanvas *);
 EXTERN void HtmlDrawCanvas(HtmlCanvas *, HtmlCanvas *, int, int);
-EXTERN void HtmlDrawText(HtmlCanvas *, Tcl_Obj *, int, int, Tk_Font, XColor *);
-EXTERN void HtmlDrawImage(HtmlCanvas *, Tcl_Obj *, int, int);
-EXTERN void HtmlDrawWindow(HtmlCanvas *, Tcl_Obj *, int, int);
+EXTERN void HtmlDrawText(HtmlCanvas*, Tcl_Obj*, int, int, int, Tk_Font,XColor*);
+EXTERN void HtmlDrawImage(HtmlCanvas *, Tcl_Obj *, int, int, int, int);
+EXTERN void HtmlDrawWindow(HtmlCanvas *, Tcl_Obj *, int, int, int, int);
 EXTERN void HtmlDrawBackground(HtmlCanvas *, XColor *);
 EXTERN void HtmlDrawQuad(HtmlCanvas*,int,int,int,int,int,int,int,int,XColor*);
 EXTERN int HtmlDrawIsEmpty(HtmlCanvas *);

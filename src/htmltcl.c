@@ -1,5 +1,5 @@
 static char const rcsid[] =
-        "@(#) $Id: htmltcl.c,v 1.14 2005/05/16 04:00:19 danielk1977 Exp $";
+        "@(#) $Id: htmltcl.c,v 1.15 2005/05/17 04:21:36 danielk1977 Exp $";
 
 /*
 ** The main routine for the HTML widget for Tcl/Tk
@@ -221,6 +221,7 @@ int HtmlWidgetObjCommand(clientData, interp, objc, objv)
         "handler", "script", 5, 5, "TAG SCRIPT", 0, handlerScriptCmd}, {
         "handler", "node", 5, 5, "TAG SCRIPT", 0, handlerNodeCmd}, {
         "layout", "primitives", 5, 5, "", 0, HtmlLayoutPrimitives}, {
+        "layout", "image", 2, 6, "", 0, HtmlLayoutImage}, {
         "layout", "force", 2, 6, "", 0, HtmlLayoutForce},
     };
 

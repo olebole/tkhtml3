@@ -131,6 +131,10 @@ proc redraw {{w 0}} {
   puts "Tclize time [lrange $tclizetime 0 1]"
   set drawtime [time {draw_to_canvas $code .c 0 0}]
   puts "Draw time   [lrange $drawtime 0 1]"
+
+  set i [$::HTML layout image]
+  puts "Image is $i"
+  $i write out.jpg -format jpeg
 }
 
 proc replace_img {node} {
@@ -239,6 +243,14 @@ proc draw_window {x y window} {
   incr x $X
   incr y $Y
   $C create window $x $y -window $window -anchor nw
+}
+
+proc draw_background {color} {
+  upvar X X
+  upvar Y Y
+  upvar C C
+
+  $C configure -background $color
 }
 
 proc draw_to_canvas {code c x y} {
