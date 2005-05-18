@@ -116,7 +116,7 @@ HtmlNodeInterface()
  *
  *     Compile a stylesheet document from text and add it to the widget.
  *
- *     Tcl: $widget style parse STYLE-SHEET
+ *     Tcl: $widget style parse STYLE-SHEET-ID STYLE-SHEET
  *
  * Results:
  *     None.
@@ -133,8 +133,37 @@ HtmlStyleParse(clientData, interp, objc, objv)
     int objc;                          /* Number of arguments */
     Tcl_Obj *CONST objv[];             /* List of all arguments */
 {
+    int stylesheet_origin;
+    Tcl_Obj *pStyleId = 0;
+    CONST char *zId;
     HtmlTree *pTree = (HtmlTree *)clientData;
-    assert( objc==4 );
+
+    if (objc!=5) {
+        Tcl_WrongNumArgs(interp, 2, objv, "STYLE-SHEET-ID STYLE-SHEET");
+        return TCL_ERROR;
+    }
+
+    /* Parse up the stylesheet id. It must begin with one of the strings
+     * "agent", "user" or "author". After that it may contain any text.
+     */
+    zId = Tcl_GetString(objv[3]);
+    if (0==strncmp("agent", zId, 5)) {
+        stylesheet_origin = CSS_ORIGIN_AGENT;
+        pStyleId = Tcl_NewStringObj(&zId[5], -1);
+    }
+    else if (0==strncmp("user", zId, 4)) {
+        stylesheet_origin = CSS_ORIGIN_USER;
+        pStyleId = Tcl_NewStringObj(&zId[4], -1);
+    }
+    else if (0==strncmp("author", zId, 5)) {
+        stylesheet_origin = CSS_ORIGIN_AUTHOR;
+        pStyleId = Tcl_NewStringObj(&zId[6], -1);
+    }
+    if (!pStyleId) {
+        Tcl_AppendResult(interp, "Bad style-sheet-id: ", zId, 0);
+        return TCL_ERROR;
+    }
+    Tcl_IncrRefCount(pStyleId);
 
     /* If there is already a stylesheet in pTree->pStyle, then this call will
      * parse the stylesheet text in objv[3] and append rules to the
@@ -143,8 +172,9 @@ HtmlStyleParse(clientData, interp, objc, objv)
      * stylesheet object, possibly created by combining text from multiple
      * stylesheet documents.
      */
-    HtmlCssParse(-1, Tcl_GetString(objv[3]), &pTree->pStyle);
+    HtmlCssParse(objv[4], stylesheet_origin, pStyleId, &pTree->pStyle);
 
+    Tcl_DecrRefCount(pStyleId);
     return TCL_OK;
 }
 

@@ -1,0 +1,89 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML>
+<HEAD>
+	<META HTTP-EQUIV="CONTENT-TYPE" CONTENT="text/html; charset=utf-8">
+	<TITLE></TITLE>
+	<META NAME="GENERATOR" CONTENT="OpenOffice.org 1.1.3  (Linux)">
+	<META NAME="CREATED" CONTENT="20050506;10123100">
+	<META NAME="CHANGED" CONTENT="20050518;10552700">
+	<STYLE>
+	<!--
+		@page { size: 8.5in 11in; margin-left: 1.25in; margin-right: 1.25in; margin-top: 1in; margin-bottom: 1in }
+		H1 { margin-bottom: 0.08in }
+		H1.western { font-family: "Nimbus Sans L", sans-serif; font-size: 16pt }
+		H1.cjk { font-family: "HG Mincho Light J", "MS Mincho", "HG Mincho J", "HG Mincho L", "HG Mincho", "Mincho", "MS PMincho", "HG Mincho Light J", "MS Gothic", "HG Gothic J", "HG Gothic B", "HG Gothic", "Gothic", "MS PGothic", "Andale Sans UI", "Arial Unicode MS", "Lucida Sans Unicode", "Tahoma"; font-size: 16pt }
+		H1.ctl { font-family: "Lucidasans"; font-size: 16pt }
+		P { margin-bottom: 0.08in }
+	-->
+	</STYLE>
+</HEAD>
+<BODY LANG="en-US" DIR="LTR">
+<H1 CLASS="western">Synopsis</H1>
+<P STYLE="margin-bottom: 0in">html <I>pathName</I> ?<I>options</I>?</P>
+<H1 CLASS="western">Widget Specific Options</H1>
+<PRE STYLE="margin-bottom: 0.2in">-importCommand
+-selectionStyle</PRE><H1 CLASS="western">
+Widget Command</H1>
+<P><I>pathName </I>handler node <I>tag script</I></P>
+<P><I>pathName </I>handler script <I>tag script</I></P>
+<P><BR><BR>
+</P>
+<P><I>pathName </I>html parse ?-final? <I>html-text</I></P>
+<P><I>pathName </I>html clear</P>
+<H3>Stylesheets</H3>
+<P>The following commands are used to add style information to a
+document, in the form of CSS stylesheets.</P>
+<P><I>pathName</I> style parse <I>stylesheet-id</I> <I>stylesheet-text</I></P>
+<P STYLE="margin-left: 0.79in; font-style: normal">Add a stylesheet
+to the widget. The value passed as <I>stylesheet-text</I> should
+contain a valid CSS stylesheet. If the stylesheet contains an
+“@import” directive, and a value has been set for the widget
+-importCommand option, then the callback script passed to
+-importCommand is invoked from within this call.</P>
+<P STYLE="margin-left: 0.79in; font-style: normal">The <I>stylesheet-id</I>
+is a string used to determine the priority of the stylesheet relative
+to other stylesheets added to the same widget. The first part of the
+<I>stylesheet-id</I> must be either “author.”, “user.” or
+“agent.”, to mark the stylesheet as an author, user or agent
+stylesheet respectively (see CSS documentation for how this affects
+the priority of the stylesheet). For stylesheets where the first part
+of the id is identical, the id strings are compared lexographically
+to determine priority. A stylesheet id that occurs later in
+dictionary order has a higher priority.</P>
+<P STYLE="margin-left: 0.79in; font-style: normal">For example, the
+following list of stylesheet ids is sorted from lowest to highest
+priority:</P>
+<P STYLE="margin-left: 1.58in; font-style: normal">agent.1<BR>agent.2<BR>user.1<BR>user.2<BR>author.1<BR>author.1.1</P>
+<P STYLE="margin-left: 0.79in; font-style: normal">A <I>stylesheet-id</I><SPAN STYLE="font-style: normal">
+need not be unique. In this case the stylesheet priority is
+determined by the order in which the stylesheets are added.</SPAN></P>
+<P><I>pathName</I> style clear ?<I>stylesheet-id</I>?</P>
+<P STYLE="margin-left: 0.79in">Remove the stylesheet(s) with the
+specified <I>stylesheet-id</I> from the widget. 
+</P>
+<P><I>pathName</I> style apply</P>
+<P><I>pathName</I> style syntax_errs</P>
+<H3>Layout</H3>
+<P><I>pathName</I> layout primitives</P>
+<PRE>draw_text
+draw_quad 
+draw_image
+draw_window
+draw_origin
+draw_background</PRE><P>
+<I>pathName </I>layout node ?-width <I>width</I>? <I>x y</I></P>
+<P><I>pathName</I> layout force -width <I>?width?</I> -window
+?<I>window?</I></P>
+<H1 CLASS="western">Node Command</H1>
+<P><I>node </I>tag</P>
+<P><I>node</I> attr <I>attribute-name</I></P>
+<P><I>node </I>property <I>property-name ?value?</I></P>
+<P><I>node </I>clearproperties</P>
+<P><I>node </I>parent</P>
+<P><I>node </I>numchildren</P>
+<P><I>node</I> child <I>child-index</I></P>
+<P><I>node </I>html</P>
+<P><BR><BR>
+</P>
+</BODY>
+</HTML>

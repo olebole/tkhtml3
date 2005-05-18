@@ -119,10 +119,11 @@ struct CssProperties {
 };
 
 struct CssRule {
-    u8 eMedia;                      /* CSS_MEDIA_* value */
-    int specificity;                /* Specificity of the selector */
-    int sheetnum;                   /* Sheet number */
-    CssSelector *pSelector;         /* The selector for this rule */
+    u8 eMedia;               /* CSS_MEDIA_* value */
+    u8 origin;               /* CSS_ORIGIN_* value */
+    Tcl_Obj *pStyleId;       /* Second and subsequent parts of stylesheet id */
+    int specificity;         /* Specificity of the selector */
+    CssSelector *pSelector;  /* The selector for this rule */
     CssPropertySet *pPropertySet;   /* Property values for the rule. */
     CssPropertySet *pImportant;     /* !IMPORTANT property values. */
     CssRule *pNext;                 /* Next rule in this list. */
@@ -163,7 +164,8 @@ struct CssParse {
     CssSelector **apXtraSelector;   /* Selectors also waiting for prop set. */
     CssPropertySet *pPropertySet;   /* Declarations being parsed. */
     CssPropertySet *pImportant;     /* !IMPORTANT declarations. */
-    int sheetnum;
+    int origin;
+    Tcl_Obj *pStyleId;
 };
 
 /*

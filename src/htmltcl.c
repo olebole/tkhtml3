@@ -1,5 +1,5 @@
 static char const rcsid[] =
-        "@(#) $Id: htmltcl.c,v 1.16 2005/05/17 14:19:17 danielk1977 Exp $";
+        "@(#) $Id: htmltcl.c,v 1.17 2005/05/18 07:17:36 danielk1977 Exp $";
 
 /*
 ** The main routine for the HTML widget for Tcl/Tk
@@ -219,35 +219,28 @@ int HtmlWidgetObjCommand(clientData, interp, objc, objv)
     int objc;                          /* Number of arguments. */
     Tcl_Obj *CONST objv[];             /* Argument strings. */
 {
-    /*
-     * The following array defines all possible widget command.  This function
-     * just parses up the command line, then vectors control to one of the
-     * command service routines defined in the following array:
+    /* The following array defines all the widget commands.  This function
+     * just parses the first one or two arguments and vectors control to
+     * one of the command service routines defined in the following array.
      */
     static struct SC {
-        char *zCmd1;                       /* First-level subcommand.  Required */
-        char *zCmd2;                       /* Second-level subcommand.  May be
-                                            * NULL */
-        int minArgc;                       /* Minimum number of arguments */
-        int maxArgc;                       /* Maximum number of arguments */
-        char *zHelp;                       /* Help string if wrong number of
-                                            * arguments */
-        Tcl_CmdProc *xFunc;                /* Cmd service routine */
-        Tcl_ObjCmdProc *xFuncObj;          /* Object cmd */
+        char *zCmd1;                /* First-level subcommand.  Required */
+        char *zCmd2;                /* Second-level subcommand.  May be NULL */
+        Tcl_ObjCmdProc *xFuncObj;   /* Object cmd */
     } aSubcommand[] = {
         {
-        "tree", "build", 3, 3, "", 0, HtmlTreeBuild}, {
-        "tree", "root", 3, 3, "", 0, HtmlTreeRoot}, {
-        "style", "parse", 4, 4, "", 0, HtmlStyleParse}, {
-        "style", "apply", 3, 3, "", 0, HtmlStyleApply}, {
-        "style", "syntax_errs", 3, 3, "", 0, HtmlStyleSyntaxErrs}, {
-        "parse", 0, 3, 7, "HTML-TEXT", 0, parseCmd}, {
-        "handler", "script", 5, 5, "TAG SCRIPT", 0, handlerScriptCmd}, {
-        "handler", "node", 5, 5, "TAG SCRIPT", 0, handlerNodeCmd}, {
-        "layout", "primitives", 5, 5, "", 0, HtmlLayoutPrimitives}, {
-        "layout", "image", 2, 6, "", 0, HtmlLayoutImage}, {
-        "layout", "force", 2, 6, "", 0, HtmlLayoutForce}, {
-        "clear", 0, 2, 6, "", 0, clearWidget},
+        "tree", "build", HtmlTreeBuild}, {
+        "tree", "root",  HtmlTreeRoot}, {
+        "style", "parse", HtmlStyleParse}, {
+        "style", "apply", HtmlStyleApply}, {
+        "style", "syntax_errs", HtmlStyleSyntaxErrs}, {
+        "parse", 0, parseCmd}, {
+        "handler", "script", handlerScriptCmd}, {
+        "handler", "node", handlerNodeCmd}, {
+        "layout", "primitives", HtmlLayoutPrimitives}, {
+        "layout", "image", HtmlLayoutImage}, {
+        "layout", "force", HtmlLayoutForce}, {
+        "clear", 0, clearWidget},
     };
 
     int i;
@@ -255,8 +248,8 @@ int HtmlWidgetObjCommand(clientData, interp, objc, objv)
     CONST char *zArg2 = 0;
     Tcl_Obj *pError;
 
-    int matchone = 0;   /* True if the first argument matched something */
-    int multiopt = 0;   /* True if their were multiple options for second match */
+    int matchone = 0; /* True if the first argument matched something */
+    int multiopt = 0; /* True if their were multiple options for second match */
     CONST char *zBad;
 
     if (objc>1) {
@@ -270,7 +263,9 @@ int HtmlWidgetObjCommand(clientData, interp, objc, objv)
          struct SC *pCommand = &aSubcommand[i];
          if (zArg1 && 0==strcmp(zArg1, pCommand->zCmd1)) {
              matchone = 1;
-             if (!pCommand->zCmd2 || (zArg2 && 0==strcmp(zArg2, pCommand->zCmd2))) {
+             if (!pCommand->zCmd2 || 
+                 (zArg2 && 0==strcmp(zArg2, pCommand->zCmd2))) 
+             {
                  return pCommand->xFuncObj(clientData, interp, objc, objv);
              }
          }
@@ -335,6 +330,8 @@ int HtmlWidgetObjCommand(clientData, interp, objc, objv)
 static void deleteWidget(clientData)
     ClientData clientData;
 {
+    HtmlTree *pTree = (HtmlTree *)clientData;
+    HtmlTreeClear(pTree);
 }
 
 /*

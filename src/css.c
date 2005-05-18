@@ -257,11 +257,11 @@ tokenToProperty(pToken)
             int nFunc = sizeof(functions)/sizeof(struct FunctionFormat);
             for (i=0; pProp==0 && i<nFunc; i++) {
                 if (l==functions[i].len && 0==strncmp(functions[i].zFunc, z, l)) {
-                    char *zArg;
+                    char CONST *zArg;
                     int nArg;
 
                     zArg = &z[l+1];
-                    nArg = (n-l-2);   /* len(token)-len(func)-len('(')-len(')') */
+                    nArg = (n-l-2); /* len(token)-len(func)-len('(')-len(')') */
 
                     pProp = (CssProperty *)ckalloc(sizeof(CssProperty)+nArg+1);
                     pProp->eType = functions[i].type;
@@ -1054,10 +1054,12 @@ static void xCkfree(void *p){
  *
  *---------------------------------------------------------------------------
  */
-int cssParse(n, z, isStyle, ppStyle)
+int cssParse(n, z, isStyle, origin, pStyleId, ppStyle)
     int n;                       /* Size of z in bytes */
     CONST char *z;               /* Text of attribute/document */
     int isStyle;                 /* True if this is a style attribute */
+    int origin;                  /* CSS_ORIGIN_* value */
+    Tcl_Obj *pStyleId;           /* Second and later parts of stylesheet id */
     CssStyleSheet **ppStyle;     /* IN/OUT: Stylesheet to append to   */
 {
     CssParse sParse;
@@ -1067,9 +1069,8 @@ int cssParse(n, z, isStyle, ppStyle)
     int c = 0;
 
     memset(&sParse, 0, sizeof(CssParse));
-    if (*ppStyle) {
-        sParse.sheetnum = 1;
-    }
+    sParse.origin = origin;
+    sParse.pStyleId = pStyleId;
 
     if( n<0 ){
         n = strlen(z);
@@ -1136,12 +1137,16 @@ int cssParse(n, z, isStyle, ppStyle)
  *
  *--------------------------------------------------------------------------
  */
-int HtmlCssParse(
-    int n,
-    const char *z,
-    CssStyleSheet **ppStyle
-){
-    return cssParse(n, z, 0, ppStyle);
+int HtmlCssParse(pText, origin, pStyleId, ppStyle)
+    Tcl_Obj *pText;
+    int origin;
+    Tcl_Obj *pStyleId;
+    CssStyleSheet **ppStyle;
+{
+    int n;
+    CONST char *z;
+    z = Tcl_GetStringFromObj(pText, &n);
+    return cssParse(n, z, 0, origin, pStyleId, ppStyle);
 }
 
 /*--------------------------------------------------------------------------
@@ -1166,28 +1171,13 @@ int HtmlCssParseStyle(
 ){
     CssStyleSheet *pStyle = 0;
     assert(ppProperties && !(*ppProperties));
-    cssParse(n, z, 1, &pStyle);
+    cssParse(n, z, 1, 0, 0, &pStyle);
     if (pStyle && pStyle->pUniversalRules) {
         propertiesAdd(ppProperties, pStyle->pUniversalRules);
     }
     /* Todo: Clean up pStyle. */
     return 0;
 }
-
-/*--------------------------------------------------------------------------
- *
- * HtmlCssParseStyle --
- *
- *     Parse the style pointed to by z, length n bytes.
- *
- * Results:
- *
- *     Returns a CssStyleSheet pointer, written to *ppStyle.
- *
- * Side effects:
- *
- *--------------------------------------------------------------------------
- */
 
 void HtmlCssStyleSheetFree(CssStyleSheet *pStyle){
     /* TODO: Cleanup! */
@@ -1325,18 +1315,59 @@ void tkhtmlCssSelector(pParse, stype, pAttr, pValue)
     }
 }
 
-static int ruleCompare(CssRule *pLeft, CssRule *pRight) {
+/*
+ *---------------------------------------------------------------------------
+ *
+ * ruleCompare --
+ *
+ *     Compare the priority of two rule objects. Return greater than zero
+ *     if the priority of pLeft is higher, zero if the two rules have the
+ *     same priority, and negative if pRight has higher priority. i.e.:
+ *
+ *         PRIORITY(pLeft) - PRIORITY(pRight)
+ *
+ *     This function is used to determine the order of rules in the
+ *     rules CssRule.pNext linked list.
+ *
+ * Results:
+ *     See above.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+ruleCompare(CssRule *pLeft, CssRule *pRight) {
+    int res = 0;
     assert(pLeft && pRight);
-    if (pLeft->sheetnum==pRight->sheetnum) {
-        return (pLeft->specificity - pRight->specificity);
+
+    if (res == 0) {
+        res = pLeft->origin - pRight->origin;
     }
-    return (pLeft->sheetnum - pRight->sheetnum);
+    if (res == 0) {
+        res = pLeft->specificity - pRight->specificity;
+    }
+    if (res == 0) {
+        char *zLeft = Tcl_GetString(pLeft->pStyleId);
+        char *zRight = Tcl_GetString(pRight->pStyleId);
+        res = strcmp(zLeft, zRight);
+    }
+    return res;
 }
 
 /*
  *---------------------------------------------------------------------------
  *
  * cssSelectorPropertySetPair --
+ *
+ *     A rule has just been parsed with selector pSelector and properties
+ *     pPropertySet. This function creates a CssRule object to link the two
+ *     together and inserts the new rule into the CssStyleSheet structure.
+ *
+ *     The caller should not free resources associated with pSelector or
+ *     pPropertySet after this function returns, they are now linked into
+ *     the stylesheet object.
  *
  * Results:
  *     None.
@@ -1361,6 +1392,25 @@ cssSelectorPropertySetPair(pParse, pSelector, pPropertySet)
     pPropertySet->nRef++;
     pRule->pImportant = 0;
 
+    /* Calculate the specificity of the rules. We use the following
+     * formala:
+     *
+     *     Specificity = (number of id selectors)        * 10000 +
+     *                   (number of attribute selectors) * 100   +
+     *                   (number of pseudo classes)      * 100   +
+     *                   (number of type selectors)
+     *
+     * Todo: There are (at least) two bugs here:
+     *     1. A rule with 100 type selectors has greater specificity than a
+     *        rule with a single attribute selector. This probably isn't a
+     *        problem.
+     *     2. A selector of the form '[id="hello"]' has the same
+     *        specificity as the selector '.hello'. This is pretty obscure,
+     *        but could come up.
+     * 
+     * See section 6.4, "The cascade", of CSS2 documentation for details on
+     * selector specificity.
+     */
     for (pS=pSelector; pS; pS = pS->pNext) {
          switch (pS->eSelector) {
              case CSS_SELECTOR_TYPE:
@@ -1386,7 +1436,11 @@ cssSelectorPropertySetPair(pParse, pSelector, pPropertySet)
          }
     }
     pRule->specificity = spec;
-    pRule->sheetnum = pParse->sheetnum;
+    pRule->origin = pParse->origin;
+    pRule->pStyleId = pParse->pStyleId;
+    if (pRule->pStyleId) {
+        Tcl_IncrRefCount(pRule->pStyleId);
+    }
 
     if( 0 && pSelector->eSelector==CSS_SELECTOR_TYPE ){
         Tcl_HashEntry *pEntry; 
@@ -1397,11 +1451,25 @@ cssSelectorPropertySetPair(pParse, pSelector, pPropertySet)
         assert( (n && !pRule->pNext) || (!n && pRule->pNext) );
         Tcl_SetHashValue(pEntry, pRule);
     }else{
+        /* The rule doesn't belong in any hash table, so put it in the
+         * default list.
+         */
         CssRule *pR = pStyle->pUniversalRules;
+
         if (!pR || ruleCompare(pR, pRule)<=0) {
-            pRule->pNext = pStyle->pUniversalRules;
+            /* If the default list is currently empty, or the rule being
+	     * added has higher priority than the first rule in the list,
+             * our rule becomes the new head of the list.
+             */
+	    pRule->pNext = pStyle->pUniversalRules;
             pStyle->pUniversalRules = pRule;
         } else {
+            /* Otherwise insert the new rule into the list, ordered by
+             * priority. If there exists another rule with the same
+             * priority, then this rule is inserted into the list *before*
+             * it. This is because when rules are of equal priority, the
+             * latter specified wins.
+             */
             while (pR->pNext && ruleCompare(pR->pNext, pRule)>0 ) {
                 pR = pR->pNext;
             }
@@ -1783,7 +1851,7 @@ HtmlCssPropertiesGet2(pProperties, prop, pSheetnum, pSpec)
             CssPropertySet *pPropertySet = pProperties->apRule[i]->pPropertySet;
             zRet = propertySetGet(pPropertySet, prop);
             if (zRet) {
-                if( pSheetnum ) *pSheetnum = pProperties->apRule[i]->sheetnum;
+                if( pSheetnum ) *pSheetnum = pProperties->apRule[i]->origin;
                 if( pSpec ) *pSpec = pProperties->apRule[i]->specificity;
             }
         }

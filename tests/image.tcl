@@ -88,16 +88,16 @@ proc load_document {css document} {
   set parsetime [time {
       $::HTML parse $document
       $::HTML tree build
-      $::HTML style parse $css
+      $::HTML style parse agent $css
       while {[llength $::STYLESHEET_FILES]>0} {
         set ss [lindex $::STYLESHEET_FILES 0]
         set ::STYLESHEET_FILES [lrange $::STYLESHEET_FILES 1 end]
-        $::HTML style parse [readFile $ss]
+        $::HTML style parse author [readFile $ss]
       }
-      $::HTML style parse $::STYLE_TEXT
+      $::HTML style parse author $::STYLE_TEXT
   }]
 
-  $::HTML style parse { 
+  $::HTML style parse author.1 { 
     img    { -tkhtml-replace: tcl(replace_img) }
     object { -tkhtml-replace: tcl(replace_img) }
     input  { -tkhtml-replace: tcl(replace_input) }
@@ -165,7 +165,7 @@ proc replace_select {node} {
 }
 
 proc docname_to_imgname {docname} {
-  return [file join $::TESTDIR [string map {{ } _ / _} $docname].jpg]
+  return [file join $::TESTDIR [string map {{ } _ / _} $docname].png]
 }
 
 proc compare_document_image {docname} {
@@ -173,10 +173,10 @@ proc compare_document_image {docname} {
   set layouttime [time {set img [$::HTML layout image]}]
   puts " Layout [lrange $layouttime 0 1]"
   set filename [docname_to_imgname $docname]
-  $img write tmp.jpg -format jpeg
+  $img write tmp.png -format png
   image delete $img
 
-  set data [readFile tmp.jpg]
+  set data [readFile tmp.png]
   set data2 [readFile $filename]
   if {$data2==""} {
     return NOIMAGE
@@ -192,7 +192,7 @@ proc correct {docname img} {
   catch {
     file delete -force $filename
   }
-  $img write $filename -format jpeg
+  $img write $filename -format png
   set ::CONTINUEFLAG 1
 }
 proc incorrect {docname img} {
@@ -237,7 +237,6 @@ focus .c
 
 foreach document $::DOCUMENT_LIST {
   set ::BASE [file dirname $document]
-  puts $document
   load_document $::DEFAULT_CSS [readFile $document]
   set res [compare_document_image $document]
 
@@ -279,8 +278,8 @@ foreach document $::DOCUMENT_LIST {
       }]
       vwait ::CONTINUEFLAG
       .c delete all
-      image destroy $img
-      image destroy $oldimg
+      image delete $img
+      image delete $oldimg
   }
 
   $::HTML clear

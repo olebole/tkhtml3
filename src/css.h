@@ -76,7 +76,7 @@ EXTERN CONST char *HtmlCssPropertyGetString(CssProperty *pProp);
  * tkhtmlCssStyleSheetFree() frees the memory used to store a stylesheet
  * object internally.
  */
-int HtmlCssParse(int, const char *, CssStyleSheet **);
+EXTERN int HtmlCssParse(Tcl_Obj *, int, Tcl_Obj *, CssStyleSheet **);
 int HtmlCssParseStyle(int, const char *, CssProperties **);
 int HtmlCssStyleSheetSyntaxErrs(CssStyleSheet *);
 void HtmlCssStyleSheetFree(CssStyleSheet *);
@@ -111,6 +111,9 @@ void HtmlCssStyleSheetApply
 /*
  * Functions to interface with the results of a style application.
  */
+#define CSS_ORIGIN_AGENT  1
+#define CSS_ORIGIN_USER   2
+#define CSS_ORIGIN_AUTHOR 3
 void HtmlCssPropertiesFree(CssProperties *);
 CssProperty *HtmlCssPropertiesGet(CssProperties *, int);
 CssProperty *HtmlCssPropertiesGet2(CssProperties *, int, int*, int*);
