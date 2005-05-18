@@ -206,7 +206,20 @@ $::HTML handler script script dummycmd
 $::HTML handler script style stylecmd
 $::HTML handler node link linkcmd
 
-set ::DOCUMENT_LIST $argv
+if {[lindex $argv 0]=="-file"} {
+  set fname [lindex $argv 1]
+  set fd [open $fname]
+  set ::DOCUMENT_LIST {}
+  while {![eof $fd]} {
+    set doc [gets $fd]
+    if {$doc!=""} {
+      lappend ::DOCUMENT_LIST $doc
+    }
+  }
+  close $fd
+} else {
+  set ::DOCUMENT_LIST $argv
+}
 set ::DEFAULT_CSS [readFile [file join [file dirname [info script]] html.css]]
 
 frame .buttons
