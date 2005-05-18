@@ -1165,39 +1165,51 @@ HtmlNodeToString(pNode)
     Tcl_IncrRefCount(pStr);
 
     tag = HtmlNodeTagType(pNode);
-    Tcl_ListObjAppendElement(0, pStr, Tcl_NewStringObj(HtmlMarkupName(tag),-1));
 
     if (tag==Html_Text || tag==Html_Space) {
         HtmlToken *pToken;
-        Tcl_Obj *pObj = Tcl_NewObj();
-        Tcl_IncrRefCount(pObj);
         pToken = pNode->pToken;
 
+        Tcl_AppendToObj(pStr, "\"", -1);
         while (pToken && (pToken->type==Html_Text||pToken->type==Html_Space)) {
             if (pToken->type==Html_Space) {
                 int i;
                 for (i=0; i<(pToken->count - (pToken->x.newline?1:0)); i++) {
-                    Tcl_AppendToObj(pObj, " ", 1);
+                    Tcl_AppendToObj(pStr, " ", 1);
                 }
                 if (pToken->x.newline) {
-                    Tcl_AppendToObj(pObj, "<nl>", 4);
+                    Tcl_AppendToObj(pStr, "<nl>", 4);
                 }
             } else {
-                Tcl_AppendToObj(pObj, pToken->x.zText, pToken->count);
+                Tcl_AppendToObj(pStr, pToken->x.zText, pToken->count);
             }
             pToken = pToken->pNext;
         }
+        Tcl_AppendToObj(pStr, "\"", -1);
 
-        Tcl_ListObjAppendElement(0, pStr, pObj);
-        Tcl_DecrRefCount(pObj);
+    } else {
+        int i;
+        HtmlToken *pToken = pNode->pToken;
+        Tcl_AppendToObj(pStr, "<", -1);
+        Tcl_AppendToObj(pStr, HtmlMarkupName(tag), -1);
+        for (i = 0; i < pToken->count; i += 2) {
+            Tcl_AppendToObj(pStr, " ", -1);
+            Tcl_AppendToObj(pStr, pToken->x.zArgs[i], -1);
+            Tcl_AppendToObj(pStr, "=\"", -1);
+            Tcl_AppendToObj(pStr, pToken->x.zArgs[i+1], -1);
+            Tcl_AppendToObj(pStr, "\"", -1);
+        }
+        Tcl_AppendToObj(pStr, ">", -1);
     }
 
-    zStr = Tcl_GetString(pStr);
-    len = strlen(zStr+1);
-    zStr = ckalloc(len);
+    /* Copy the string from the Tcl_Obj* to memory obtained via ckalloc().
+     * Then release the reference to the Tcl_Obj*.
+     */
+    Tcl_GetStringFromObj(pStr, &len);
+    zStr = ckalloc(len+1);
     strcpy(zStr, Tcl_GetString(pStr));
-
     Tcl_DecrRefCount(pStr);
+
     return zStr;
 }
 

@@ -256,6 +256,9 @@ S int nodeGetTextAlign(LayoutContext *, HtmlNode *);
 S int nodeGetTextDecoration(LayoutContext *, HtmlNode *);
 S CONST char *nodeGetTkhtmlReplace(LayoutContext *, HtmlNode *);
 
+S void nodeComment(HtmlCanvas *, HtmlNode *);
+S void endNodeComment(HtmlCanvas *, HtmlNode *);
+
 S HtmlNode * nextInlineNode(LayoutContext*, HtmlNode*, HtmlNode*, int*);
 S void borderLayout(LayoutContext*, HtmlNode*, BoxContext*, int, int, int, int);
 S int floatLayout(LayoutContext*, BoxContext*, HtmlNode*, int*);
@@ -888,22 +891,12 @@ nodeGetBorderSpacing(pLayout, pNode)
     LayoutContext *pLayout;
     HtmlNode *pNode;
 {
-    CssProperty *pBorderSpacing;
-    int border_spacing = -1;
-    int tagtype = HtmlNodeTagType(pNode);
+    CssProperty prop;
+    int border_spacing;
+    Tcl_Interp *interp = pLayout->pTree->interp;
 
-    if (tagtype==Html_TD || tagtype==Html_TH || tagtype==Html_TABLE) {
-        HtmlNode *p = pNode;
-        while (p && Html_TABLE!=HtmlNodeTagType(p)) {
-            p = HtmlNodeParent(p);
-        }
-        border_spacing = attributeToPixels(p, "cellspacing", 0, -1, 0);
-    }
-   
-    if (border_spacing==-1) {
-        pBorderSpacing = nodeGetProperty(pNode, CSS_PROPERTY_BORDER_SPACING, 1);
-        border_spacing = propertyToPixels(pLayout, pNode, pBorderSpacing,0,-1);
-    }
+    HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BORDER_SPACING, &prop);
+    border_spacing = propertyToPixels(pLayout, pNode, &prop, 0, 0);
 
     return border_spacing;
 }
@@ -1351,6 +1344,58 @@ static int nodeGetWhitespace(pLayout, pNode)
     return propertyToConstant(&prop, zOptions, eOptions, WHITESPACE_NORMAL);
 }
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * nodeComment --
+ *
+ *     Add a comment to the canvas using HtmlDrawComment() that describes
+ *     the node pNode.  This call is a no-op when HTML_DEBUG is not defined.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void 
+nodeComment(pCanvas, pNode)
+    HtmlCanvas *pCanvas;
+    HtmlNode *pNode;
+{
+#ifdef HTML_DEBUG
+    char *zComment;
+    zComment = HtmlNodeToString(pNode);
+    HtmlDrawComment(pCanvas, zComment);
+    ckfree(zComment);
+#endif
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * endNodeComment --
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void endNodeComment(pCanvas, pNode)
+    HtmlCanvas *pCanvas;
+    HtmlNode *pNode;
+{
+#ifdef HTML_DEBUG
+    char zComment[64];
+    sprintf(zComment, "</%s>", HtmlMarkupName(HtmlNodeTagType(pNode)));
+    HtmlDrawComment(pCanvas, zComment);
+#endif
+}
 
 /*
  *---------------------------------------------------------------------------
@@ -2222,8 +2267,8 @@ inlineLayout(pLayout, pBox, pNode)
                 if (pLayout->marginValid) {
                     y += pLayout->marginValue;
                 }
-                HtmlDrawCanvas(&pBox->vc, &lineCanvas, drawx, y+data.ascent);
                 HtmlDrawComment(&pBox->vc, "Line canvas");
+                HtmlDrawCanvas(&pBox->vc, &lineCanvas, drawx, y+data.ascent);
                 assert(skipFloat>=0);
                 pLayout->marginValid = 1;
                 pLayout->marginValue = 0;
@@ -2264,7 +2309,6 @@ inlineLayout(pLayout, pBox, pNode)
             blockLayout2(pLayout, &sBox, data.pNode, 0);
             if (!HtmlDrawIsEmpty(&sBox.vc)) {
                 HtmlDrawCanvas(&pBox->vc, &sBox.vc, 0, y);
-                HtmlDrawComment(&pBox->vc, "Block canvas");
             }
             floatListNormalize(sBox.pFloats, 0, y);
 
@@ -3495,7 +3539,9 @@ static int blockLayout2(pLayout, pBox, pNode, omitborder)
         }
 
         if (!pLayout->minmaxTest) {
+            nodeComment(&pBox->vc, pNode);
             HtmlDrawCanvas(&pBox->vc, &sBox.vc, x + hoffset, y);
+            endNodeComment(&pBox->vc, pNode);
         } else {
             HtmlDrawCleanup(&pBox->vc);
         }

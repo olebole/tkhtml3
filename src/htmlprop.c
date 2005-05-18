@@ -414,6 +414,47 @@ static int mapPadding(pNode, pOut)
 }
 
 /*
+ *---------------------------------------------------------------------------
+ *
+ * mapBorderSpacing --
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+mapBorderSpacing(pNode, pOut)
+    HtmlNode *pNode;
+    CssProperty *pOut;
+{
+    int tag = HtmlNodeTagType(pNode);
+
+    /* For a table or table cell, check for HTML attribute "cellspacing" on
+     * the <table> tag.
+     */
+    if (tag==Html_TABLE || tag==Html_TD || tag==Html_TH) {
+        HtmlNode *p = pNode;
+        while (p && Html_TABLE!=HtmlNodeTagType(p)) {
+            p = HtmlNodeParent(p);
+        }
+
+        if (p) {
+            CONST char *zSpacing = HtmlNodeAttr(p, "cellspacing");
+            if (zSpacing) {
+                lengthToProperty(zSpacing, pOut);
+                return 1;
+            }
+        }
+    }
+
+    return 0;
+}
+
+/*
  * A special value that the eType field of an initial property value can
  * take. If eType==CSS_TYPE_SAMEASCOLOR, then the value of the 'color'
  * property is used as the initial value for the property.
@@ -481,6 +522,8 @@ static PropMapEntry propmapdata[] = {
 
     /* Custom Tkhtml properties */
     {CSS_PROPERTY__TKHTML_REPLACE, 0, 0, 0, {CSS_TYPE_NONE, 0}},
+
+    {CSS_PROPERTY_BORDER_SPACING, 1, 0, mapBorderSpacing, {CSS_TYPE_PX, 0}},
 };
 
 static int propMapisInit = 0;
@@ -547,7 +590,7 @@ static void getProperty(interp, pNode, pEntry, inheriting, pOut)
             pN = 0;
         }
     }
-    if (sheet>1 || (sheet==1&&spec>10000)) {
+    if (sheet>CSS_ORIGIN_AGENT || (sheet==CSS_ORIGIN_AGENT&&spec>10000)) {
         goto getproperty_out;
     }
 
@@ -567,7 +610,7 @@ static void getProperty(interp, pNode, pEntry, inheriting, pOut)
             pN = 0;
         }
     }
-    if (sheet>0) {
+    if (sheet>CSS_ORIGIN_AGENT) {
         goto getproperty_out;
     }
 

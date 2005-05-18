@@ -167,6 +167,9 @@ proc replace_select {node} {
 proc docname_to_imgname {docname} {
   return [file join $::TESTDIR [string map {{ } _ / _} $docname].png]
 }
+proc docname_to_primname {docname} {
+  return [file join $::TESTDIR [string map {{ } _ / _} $docname].primitives]
+}
 
 proc compare_document_image {docname} {
   $::HTML layout force
@@ -196,6 +199,10 @@ proc correct {docname img} {
   set ::CONTINUEFLAG 1
 }
 proc incorrect {docname img} {
+  set filename [docname_to_primname $docname]
+  set fd [open $filename w]
+  puts $fd [join [$::HTML layout primitives] "\n"]
+  close $fd
   set ::CONTINUEFLAG 1
 }
 
@@ -292,7 +299,7 @@ foreach document $::DOCUMENT_LIST {
       vwait ::CONTINUEFLAG
       .c delete all
       image delete $img
-      image delete $oldimg
+      image delete $imgold
   }
 
   $::HTML clear

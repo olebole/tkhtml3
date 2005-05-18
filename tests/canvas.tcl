@@ -92,17 +92,17 @@ proc main {document css} {
   set parsetime [time {
       $::HTML parse $document
       $::HTML tree build
-      $::HTML style parse $css
+      $::HTML style parse agent $css
       while {[llength $::STYLESHEET_FILES]>0} {
         set ss [lindex $::STYLESHEET_FILES 0]
         set ::STYLESHEET_FILES [lrange $::STYLESHEET_FILES 1 end]
-        $::HTML style parse [readFile $ss]
+        $::HTML style parse author [readFile $ss]
       }
-      $::HTML style parse $::STYLE_TEXT
+      $::HTML style parse author $::STYLE_TEXT
   }]
   puts "Parse time [lrange $parsetime 0 1]"
 
-  $::HTML style parse { 
+  $::HTML style parse author.1 { 
     img    { -tkhtml-replace: tcl(replace_img) }
     object { -tkhtml-replace: tcl(replace_img) }
     input  { -tkhtml-replace: tcl(replace_input) }
@@ -131,10 +131,6 @@ proc redraw {{w 0}} {
   puts "Tclize time [lrange $tclizetime 0 1]"
   set drawtime [time {draw_to_canvas $code .c 0 0}]
   puts "Draw time   [lrange $drawtime 0 1]"
-
-  set i [$::HTML layout image]
-  puts "Image is $i"
-  $i write out.jpg -format jpeg
 }
 
 proc replace_img {node} {

@@ -8,6 +8,7 @@
 #define CANVAS_WINDOW  4
 #define CANVAS_ORIGIN  5
 #define CANVAS_BACKGROUND  6
+#define CANVAS_COMMENT  7
 
 typedef struct CanvasText CanvasText;
 typedef struct CanvasImage CanvasImage;
@@ -15,6 +16,7 @@ typedef struct CanvasWindow CanvasWindow;
 typedef struct CanvasOrigin CanvasOrigin;
 typedef struct CanvasQuad CanvasQuad;
 typedef struct CanvasBackground CanvasBackground;
+typedef struct CanvasComment CanvasComment;
 
 struct CanvasText {
     Tcl_Obj *pText;
@@ -50,15 +52,16 @@ struct CanvasOrigin {
     int y;
 };
 
+struct CanvasComment {
+    Tcl_Obj *pComment;
+};
+
 struct CanvasBackground {
     XColor *color;
 };
 
 struct HtmlCanvasItem {
     int type;
-#ifdef HTML_DEBUG
-    Tcl_Obj *pComment;
-#endif
     union {
         CanvasText t;
         CanvasImage i;
@@ -66,6 +69,7 @@ struct HtmlCanvasItem {
         CanvasQuad q;
         CanvasOrigin o;
         CanvasBackground b;
+        CanvasComment c;
     } x;
     HtmlCanvasItem *pNext;
 };
@@ -154,12 +158,10 @@ HtmlDrawCleanup(pCanvas)
             case CANVAS_WINDOW:
                 Tcl_DecrRefCount(pItem->x.w.pWindow);
                 break;
+            case CANVAS_COMMENT:
+                Tcl_DecrRefCount(pItem->x.c.pComment);
+                break;
         }
-#ifdef HTML_DEBUG
-        if (pItem->pComment) {
-            Tcl_DecrRefCount(pItem->pComment);
-        }
-#endif
         ckfree((char *)pPrev);
         pPrev = pItem;
     }
@@ -172,30 +174,6 @@ HtmlDrawCleanup(pCanvas)
         pCanvas->pPrimitives = 0;
     }
 }
-
-/*
- *---------------------------------------------------------------------------
- *
- * HtmlDrawComment --
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-#ifdef HTML_DEBUG
-void HtmlDrawComment(pCanvas, zComment)
-    HtmlCanvas *pCanvas; 
-    CONST char *zComment;
-{
-    assert(pCanvas->pLast);
-    pCanvas->pLast->pComment = Tcl_NewStringObj(zComment, -1);
-    Tcl_IncrRefCount(pCanvas->pLast->pComment);
-}
-#endif
 
 /*
  *---------------------------------------------------------------------------
@@ -223,9 +201,6 @@ static void linkItem(pCanvas, pItem)
         pCanvas->pFirst = pItem;
     }
     pCanvas->pLast = pItem;
-#ifdef HTML_DEBUG
-    pItem->pComment = 0;
-#endif
 }
 
 /*
@@ -273,6 +248,30 @@ void HtmlDrawCanvas(pCanvas, pCanvas2, x, y)
 
         linkItem(pCanvas, pItem);
     }
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlDrawComment --
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+void HtmlDrawComment(pCanvas, zComment)
+    HtmlCanvas *pCanvas; 
+    CONST char *zComment;
+{
+    HtmlCanvasItem *pItem = (HtmlCanvasItem *)ckalloc(sizeof(HtmlCanvasItem));
+    pItem->type = CANVAS_COMMENT;
+    pItem->x.c.pComment = Tcl_NewStringObj(zComment, -1);
+    Tcl_IncrRefCount(pItem->x.c.pComment);
+    linkItem(pCanvas, pItem);
 }
 
 /*
@@ -495,7 +494,8 @@ int HtmlLayoutPrimitives(clientData, interp, objc, objv)
     Tcl_IncrRefCount(pPrimitives);
 
     for (pItem=pCanvas->pFirst; pItem; pItem=pItem->pNext) {
-        Tcl_Obj *pList;
+        Tcl_Obj *pList = 0;
+        nObj = 0;
         switch (pItem->type) {
             case CANVAS_ORIGIN:
                 nObj = 3;
@@ -543,17 +543,19 @@ int HtmlLayoutPrimitives(clientData, interp, objc, objv)
                 nObj = 2;
                 aObj[0] = Tcl_NewStringObj("draw_background", -1);
                 aObj[1] = Tcl_NewStringObj(Tk_NameOfColor(pItem->x.b.color),-1);
-             
+                break;
+            case CANVAS_COMMENT:
+                pList = Tcl_NewStringObj("# ", 2);
+                Tcl_AppendObjToObj(pList, pItem->x.c.pComment);
+                break;
         }
-        pList = Tcl_NewObj();
-        Tcl_SetListObj(pList, nObj, aObj);
-#ifdef HTML_DEBUG
-        if (pItem->pComment) {
-            Tcl_AppendToObj(pList, " ;# ", 4);
-            Tcl_AppendObjToObj(pList, pItem->pComment);
+        if (nObj>0) {
+            pList = Tcl_NewObj();
+            Tcl_SetListObj(pList, nObj, aObj);
         }
-#endif
-        Tcl_ListObjAppendElement(interp, pPrimitives, pList);
+        if (pList) {
+            Tcl_ListObjAppendElement(interp, pPrimitives, pList);
+        }
     }
     pCanvas->pPrimitives = pPrimitives;
     Tcl_SetObjResult(interp, pPrimitives);
