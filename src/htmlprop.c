@@ -477,6 +477,7 @@ typedef struct PropMapEntry PropMapEntry;
 
 static PropMapEntry propmapdata[] = {
     {CSS_PROPERTY_DISPLAY, 0, 0, 0, {CSS_TYPE_STRING, "inline"}},
+    {CSS_PROPERTY_FLOAT, 0, 0, 0, {CSS_TYPE_STRING, "none"}},
 
     {CSS_PROPERTY_BACKGROUND_COLOR, 0, 0, mapBackgroundColor, 
             {CSS_TYPE_STRING, "transparent"}},
@@ -489,6 +490,10 @@ static PropMapEntry propmapdata[] = {
     {CSS_PROPERTY_FONT_SIZE, 0, 0, mapFontSize, {CSS_TYPE_NONE, 0}},
     {CSS_PROPERTY_WHITE_SPACE, 1, 0, 0, {CSS_TYPE_NONE, 0}},
     {CSS_PROPERTY_VERTICAL_ALIGN, 0, 0, mapVAlign, {CSS_TYPE_NONE, 0}},
+    {CSS_PROPERTY_FONT_FAMILY, 1, 0, 0, {CSS_TYPE_STRING, "Helvetica"}},
+    {CSS_PROPERTY_FONT_STYLE, 1, 0, 0,  {CSS_TYPE_STRING, "normal"}},
+    {CSS_PROPERTY_FONT_WEIGHT, 1, 0, 0, {CSS_TYPE_STRING, "normal"}},
+    {CSS_PROPERTY_TEXT_ALIGN, 1, 0, 0,  {CSS_TYPE_STRING, "left"}},
 
     /* Width of borders. */
     {CSS_PROPERTY_BORDER_TOP_WIDTH,    0, 0, mapBorderWidth, {CSS_TYPE_PX, 0}},
@@ -524,6 +529,8 @@ static PropMapEntry propmapdata[] = {
     {CSS_PROPERTY__TKHTML_REPLACE, 0, 0, 0, {CSS_TYPE_NONE, 0}},
 
     {CSS_PROPERTY_BORDER_SPACING, 1, 0, mapBorderSpacing, {CSS_TYPE_PX, 0}},
+    {CSS_PROPERTY_LIST_STYLE_TYPE, 1, 0, mapBorderSpacing, 
+            {CSS_TYPE_STRING, "disc"}},
 };
 
 static int propMapisInit = 0;

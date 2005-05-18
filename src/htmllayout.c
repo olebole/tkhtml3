@@ -240,8 +240,6 @@ S XColor *propertyToColor(LayoutContext *, CssProperty*);
 
 S int attributeToPixels(HtmlNode*, const char*, int, int, int*);
 
-S CssProperty *nodeGetProperty(HtmlNode *, int, int);
-
 S int  nodeGetEmPixels(LayoutContext*, HtmlNode*);
 S void nodeGetDisplay(LayoutContext*, HtmlNode*, DisplayProperties*);
 S int  nodeGetListStyleType(LayoutContext *, HtmlNode *);
@@ -551,39 +549,6 @@ static XColor *propertyToColor(pLayout, pProp)
 /*
  *---------------------------------------------------------------------------
  *
- * nodeGetProperty --
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-CssProperty *nodeGetProperty(pNode, prop, inherit)
-    HtmlNode *pNode;
-    int prop;
-    int inherit;
-{
-    CssProperty *p;
-    p = HtmlCssPropertiesGet(pNode->pProperties, prop);
-
-    /* Todo: We should deal with the special property value 'inherit' here.
-     * As is property inheritance is only implemented for properties for
-     * which it is implicit. Callers pass non-zero as the third argument
-     * to this call if it is implicitly inherited, but it would be better
-     * if this function just consulted a lookup table.
-     */
-    if (!p && inherit && pNode->pParent) {
-        return nodeGetProperty(pNode->pParent, prop, 1);
-    }
-    return p;
-}
-
-/*
- *---------------------------------------------------------------------------
- *
  * nodeGetDisplay --
  *
  *     Query the 'display', 'position' and 'float' properties of a node.
@@ -593,10 +558,10 @@ CssProperty *nodeGetProperty(pNode, prop, inherit)
  * 
  *
  * Results:
- *     One of the DISPLAY_xxx constants defined above.
+ *     None.
  *
  * Side effects:
- *     None.
+ *     Fills in values of structure pointed to by pDisplayProperties.
  *
  *---------------------------------------------------------------------------
  */
@@ -622,22 +587,23 @@ static void nodeGetDisplay(pLayout, pNode, pDisplayProperties)
         FLOAT_LEFT,   FLOAT_RIGHT,     FLOAT_NONE
     };
 
-    CssProperty *pProp;
     CssProperty prop;
+    int f;
+    int d;
 
     HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_DISPLAY, &prop);
-    pDisplayProperties->eDisplay = 
-        propertyToConstant(&prop, zDisplay, eDisplay, DISPLAY_INLINE);
+    d = propertyToConstant(&prop, zDisplay, eDisplay, DISPLAY_INLINE);
 
-    pProp = nodeGetProperty(pNode, CSS_PROPERTY_FLOAT, 0);
-    pDisplayProperties->eFloat = 
-        propertyToConstant(pProp, zFloat, eFloat, FLOAT_NONE);
+    HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_FLOAT, &prop);
+    f = propertyToConstant(&prop, zFloat, eFloat, FLOAT_NONE);
 
     /* Force all floating boxes to have display type 'block' or 'table' */
-    if (pDisplayProperties->eFloat!=FLOAT_NONE &&
-            pDisplayProperties->eDisplay!=DISPLAY_TABLE) {
-        pDisplayProperties->eDisplay = DISPLAY_BLOCK;
+    if (f!=FLOAT_NONE && d!=DISPLAY_TABLE) {
+        d = DISPLAY_BLOCK;
     }
+
+    pDisplayProperties->eDisplay = d;
+    pDisplayProperties->eFloat = f;
 }
 
 static int nodeGetListStyleType(pLayout, pNode)
@@ -651,11 +617,12 @@ static int nodeGetListStyleType(pLayout, pNode)
     int eStyleOptions[] = {
         LISTSTYLETYPE_SQUARE, LISTSTYLETYPE_DISC, LISTSTYLETYPE_CIRCLE
     };
-    CssProperty *pProp;
+    CssProperty prop;
+    Tcl_Interp *interp = pLayout->pTree->interp;
 
-    pProp = nodeGetProperty(pNode, CSS_PROPERTY_LIST_STYLE_TYPE, 1);
+    HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_LIST_STYLE_TYPE, &prop);
     return propertyToConstant(
-        pProp, zStyleOptions, eStyleOptions, LISTSTYLETYPE_DISC);
+        &prop, zStyleOptions, eStyleOptions, LISTSTYLETYPE_DISC);
 }
 
 /*
@@ -750,7 +717,10 @@ static Tk_Font nodeGetFont(pLayout, pNode)
     int nFamily;
     const char *zFamilyEnd;
     CssProperty *pFontFamily;
-    CssProperty decor;                /* Property 'text-decoration' */
+    CssProperty fontStyle;            /* Property 'font-style' */
+    CssProperty fontWeight;           /* Property 'font-weight' */
+    CssProperty fontFamily;           /* Property 'font-family' */
+    Tcl_Interp *interp = pLayout->pTree->interp;
     Tcl_HashTable *pFontCache = &pLayout->pTree->aFontCache;
 
     CONST char *zStyleOptions [] = {"italic", "oblique", 0};
@@ -769,8 +739,8 @@ static Tk_Font nodeGetFont(pLayout, pNode)
      * "oblique", add the option "-slant italic" to the string version
      * of the Tk font.
      */
-    pFontStyle = nodeGetProperty(pNode, CSS_PROPERTY_FONT_STYLE, 1);
-    isItalic = propertyToConstant(pFontStyle, zStyleOptions, eStyleOptions, 0);
+    HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_FONT_STYLE, &fontStyle);
+    isItalic = propertyToConstant(&fontStyle, zStyleOptions, eStyleOptions, 0);
 
     /* If the 'font-weight' attribute is set to either "bold" or
      * "bolder", add the option "-weight bold" to the string version
@@ -780,15 +750,15 @@ static Tk_Font nodeGetFont(pLayout, pNode)
      * of the font to "bold" or "normal", but we should try to do something
      * sensible with other options.
      */
-    pFontWeight = nodeGetProperty(pNode, CSS_PROPERTY_FONT_WEIGHT, 1);
-    isBold = propertyToConstant(pFontWeight, zWeightOptions, eWeightOptions, 0);
+    HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_FONT_WEIGHT, &fontWeight);
+    isBold = propertyToConstant(&fontWeight, zWeightOptions, eWeightOptions, 0);
 
     /* If 'font-family' is set, then use the value as the -family option
      * in the Tk font request. Otherwise use Helvetica, which is always
      * available.
      */
-    pFontFamily = nodeGetProperty(pNode, CSS_PROPERTY_FONT_FAMILY, 1);
-    zFamily = propertyToString(pFontFamily, "Helvetica");
+    HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_FONT_FAMILY, &fontFamily);
+    zFamily = propertyToString(&fontFamily, "Helvetica");
 
     zFamilyEnd = strchr(zFamily, (int)',');
     if (!zFamilyEnd) {
@@ -1210,9 +1180,9 @@ static int nodeGetTextAlign(pLayout, pNode)
     int eOptions[] = {
         TEXTALIGN_LEFT, TEXTALIGN_RIGHT, TEXTALIGN_CENTER, TEXTALIGN_JUSTIFY
     };
-    CssProperty *pProp;
-    pProp = nodeGetProperty(pNode, CSS_PROPERTY_TEXT_ALIGN, 1);
-    return propertyToConstant(pProp, zOptions, eOptions, TEXTALIGN_LEFT);
+    CssProperty prop;
+    HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_TEXT_ALIGN, &prop);
+    return propertyToConstant(&prop, zOptions, eOptions, TEXTALIGN_LEFT);
 }
 
 /*
