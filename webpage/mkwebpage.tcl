@@ -2,7 +2,7 @@
 #
 # Construct the web page for tkhtml
 #
-# @(#) $Id: mkwebpage.tcl,v 1.11 2005/03/23 01:46:20 danielk1977 Exp $
+# @(#) $Id: mkwebpage.tcl,v 1.12 2005/05/30 03:31:04 danielk1977 Exp $
 #
 
 proc header {} {
@@ -97,7 +97,7 @@ p {
      <a href="http://www.scriptics.com/">http://www.scriptics.com/</a>)
      are displayed correctly.</li>
 <li>It has an API that allows applications to provide configurable support 
-     for applets, scripts and forms via callbacks.
+     for applets, scripts and forms via callbacks.</li>
 </ul>
 }
 

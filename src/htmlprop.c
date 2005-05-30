@@ -204,7 +204,7 @@ static int mapHeight(pNode, pOut)
 /*
  *---------------------------------------------------------------------------
  *
- * mapBackgroundColor --
+ * mapBgColor --
  *
  * Results:
  *     None.
@@ -215,7 +215,7 @@ static int mapHeight(pNode, pOut)
  *---------------------------------------------------------------------------
  */
 static int 
-mapBackgroundColor(pNode, pOut)
+mapBgColor(pNode, pOut)
     HtmlNode *pNode;
     CssProperty *pOut;
 {
@@ -233,7 +233,7 @@ mapBackgroundColor(pNode, pOut)
     if (tag==Html_TD || tag==Html_TH) {
         HtmlNode *pParent = HtmlNodeParent(pNode);
         if (pParent && HtmlNodeTagType(pParent)==Html_TR) {
-            return mapBackgroundColor(pParent, pOut);
+            return mapBgColor(pParent, pOut);
         } 
     }
     return 0;
@@ -462,9 +462,10 @@ mapBorderSpacing(pNode, pOut)
 #define CSS_TYPE_COPYCOLOR -1
 
 /* 
- * This macro just makes the array definition below format more neatly.
+ * These macros just makes the array definition below format more neatly.
  */
-#define CSS_NONE {CSS_TYPE_STRING, "none"}
+#define CSS_NONE   {CSS_TYPE_STRING, "none"}
+#define CSSSTR(x) {CSS_TYPE_STRING, x}
 
 struct PropMapEntry {
     int property;
@@ -479,9 +480,8 @@ static PropMapEntry propmapdata[] = {
     {CSS_PROPERTY_DISPLAY, 0, 0, 0, {CSS_TYPE_STRING, "inline"}},
     {CSS_PROPERTY_FLOAT, 0, 0, 0, {CSS_TYPE_STRING, "none"}},
 
-    {CSS_PROPERTY_BACKGROUND_COLOR, 0, 0, mapBackgroundColor, 
-            {CSS_TYPE_STRING, "transparent"}},
-    {CSS_PROPERTY_COLOR, 1, 0, mapColor, {CSS_TYPE_STRING, "black"}},
+    {CSS_PROPERTY_BACKGROUND_COLOR, 0, 0, mapBgColor, CSSSTR("transparent")},
+    {CSS_PROPERTY_COLOR, 1, 0, mapColor, CSSSTR("black")},
     {CSS_PROPERTY_WIDTH, 0, 0, mapWidth, {CSS_TYPE_NONE, 0}},
     {CSS_PROPERTY_HEIGHT, 0, 0, mapHeight, {CSS_TYPE_NONE, 0}},
 
@@ -529,8 +529,7 @@ static PropMapEntry propmapdata[] = {
     {CSS_PROPERTY__TKHTML_REPLACE, 0, 0, 0, {CSS_TYPE_NONE, 0}},
 
     {CSS_PROPERTY_BORDER_SPACING, 1, 0, mapBorderSpacing, {CSS_TYPE_PX, 0}},
-    {CSS_PROPERTY_LIST_STYLE_TYPE, 1, 0, mapBorderSpacing, 
-            {CSS_TYPE_STRING, "disc"}},
+    {CSS_PROPERTY_LIST_STYLE_TYPE, 1, 0, 0, CSSSTR("disc")},
 };
 
 static int propMapisInit = 0;

@@ -49,6 +49,7 @@ typedef struct FloatMargin FloatMargin;
 
 typedef struct TableData TableData;
 typedef struct InlineData InlineData;
+typedef struct InlinePadding InlinePadding;
 
 /*
  * A single Layout context object is allocated for use throughout
@@ -166,10 +167,24 @@ struct TableData {
 };
 
 /*
+ * An instance of this structure is part of each InlineData structure. When
+ * an inline content node is drawn into a line box, this structure stores 
+ * the amount of space that should be left on the top, bottom, left and
+ * right of the inline box for borders, margins, etc.
+ */
+struct InlinePadding {
+    int top;
+    int bottom;
+    int right;
+    int left;
+};
+
+/*
  * Structure used whilst laying out inline context. See inlineLayout().
  */
 struct InlineData {
-    HtmlNode *pNode;         /* Current node */
+    HtmlNode *pNode;         /* Current content node */
+    HtmlNode *pPrev;         /* Previous content node */
     HtmlToken *pToken;       /* Current token if pN is Html_TEXT */
     HtmlCanvas *pCanvas;     /* Line canvas to draw into */
     int x;                   /* Current x coordinate */
@@ -180,7 +195,8 @@ struct InlineData {
     int rightFloat;          /* Value of right-margin (pixels) */
     int leftFloat;           /* Value of left-margin (pixels) */
     int noFloats;            /* True if there are no floating margins */
-    int spaceOk;             /* True if a space character should be drawn */
+    int spacePending;        /* True if a space character should be drawn */
+    InlinePadding padding;
 };
 
 /*
@@ -256,6 +272,9 @@ S CONST char *nodeGetTkhtmlReplace(LayoutContext *, HtmlNode *);
 
 S void nodeComment(HtmlCanvas *, HtmlNode *);
 S void endNodeComment(HtmlCanvas *, HtmlNode *);
+
+S void inlineGetPadding(
+LayoutContext *, HtmlNode *, HtmlNode *, HtmlNode *, InlinePadding *);
 
 S HtmlNode * nextInlineNode(LayoutContext*, HtmlNode*, HtmlNode*, int*);
 S void borderLayout(LayoutContext*, HtmlNode*, BoxContext*, int, int, int, int);
@@ -1594,6 +1613,71 @@ markerLayout(pLayout, pBox, pNode)
 /*
  *---------------------------------------------------------------------------
  *
+ * inlineGetPadding --
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void 
+inlineGetPadding(pLayout, pFin, pPrev, pNode, pPadding)
+    LayoutContext *pLayout; 
+    HtmlNode *pFin;
+    HtmlNode *pPrev;
+    HtmlNode *pNode;
+    InlinePadding *pPadding;
+{
+    HtmlNode *pAncestor;    /* Common ancestor of pPrev and pNode */
+    HtmlNode *p1;           /* Iterator */
+    HtmlNode *p2;           /* Iterator */
+    int seenancestor = 0;
+
+    /* Find pAncestor, the common ancestor of pPrev and pNode. */
+    p1 = pNode;
+    p2 = pNode;
+    for (p1 = pNode; p1 != pFin; p1 = HtmlNodeParent(p1)) {
+        for (p2 = pPrev; p2 && p2!=p1 && p2!=pFin; p2 = HtmlNodeParent(p2));
+        if (p2==p1) {
+            break;
+        } 
+    }
+    assert(p2==p1 || !p2);
+    pAncestor = p1;
+    assert(pAncestor);
+
+    /* Zero all the fields in the InlinePadding object */
+    memset(pPadding, 0, sizeof(InlinePadding));
+
+    /* Now figure out the top, bottom and left paddings. Todo: Figure out
+     * how collapsing margins are supposed to apply here.
+     */
+    for (p1 = pNode; p1 != pFin; p1 = HtmlNodeParent(p1)) {
+        BoxProperties box;
+        MarginProperties margin;
+        nodeGetBoxProperties(pLayout, p1, &box);
+        nodeGetMargins(pLayout, p1, &margin);
+
+        pPadding->top += (box.border_top+box.padding_top+margin.margin_top);
+        pPadding->bottom +=
+                (box.border_bottom+box.padding_bottom+margin.margin_bottom);
+
+        if (p1==pAncestor) {
+            seenancestor = 1;
+        }
+        if (!seenancestor) { 
+            pPadding->left +=
+                    (box.border_left+box.padding_left+margin.margin_left);
+        }
+    }
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * nodeIsContent --
  *    
  *     Return true if one of the following conditions is true for node
@@ -1768,51 +1852,36 @@ nextInlineNode(pLayout, pNode, pFin, pSkipFloats)
 
     assert (pRet!=pNode);
     return (pRet==pFin?0:pRet);
+}
 
-#if 0
-    HtmlNode *pN = pNode;
-    DisplayProperties display;
-    CssProperty replace;
 
-    assert(nodeIsContent(pNode));
-
-    nodeGetDisplay(pLayout, pN, &display);
-
-    if (display.eFloat!=FLOAT_NONE){
-        if (*pSkipFloats) {
-            (*pSkipFloats)--;
-        } 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * appendToTclObj --
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void 
+appendToTclObj(ppObj, zStr, nStr)
+    Tcl_Obj **ppObj;
+    CONST char *zStr;
+    int nStr;
+{
+    Tcl_Obj *pObj = *ppObj;
+    if (!pObj) {
+        pObj = Tcl_NewStringObj(zStr, nStr);
+        Tcl_IncrRefCount(pObj);
+        *ppObj = pObj;
+    } else {
+        Tcl_AppendToObj(pObj, zStr, nStr);
     }
-
-    do {
-        if (display.eDisplay==DISPLAY_INLINE && HtmlNodeNumChildren(pN)>0) {
-            pN = HtmlNodeChild(pN, 0);
-        } else {
-            HtmlNode *pTmp = 0;
-            while (!(pTmp = HtmlNodeRightSibling(pN))) {
-                pN = HtmlNodeParent(pN);
-                if (pN==pFin) { 
-                    return 0;
-                }
-            }
-            assert(pN==pFin || pTmp);
-            if (pTmp) pN = pTmp;
-        }
-        nodeGetDisplay(pLayout, pN, &display);
-        HtmlNodeGetProperty(
-                pLayout->interp, pN, CSS_PROPERTY__TKHTML_REPLACE, &replace);
-    } while (pN!=pFin && 
-            replace.eType!=CSS_TYPE_STRING &&
-            HtmlNodeNumChildren(pN)>0 &&
-            display.eFloat==FLOAT_NONE &&
-            display.eDisplay==DISPLAY_INLINE);
-    
-    if ((*pSkipFloats)>0 && display.eFloat!=FLOAT_NONE) {
-        return nextInlineNode(pLayout, pN, pFin, pSkipFloats);
-    }
-
-    return pN;
-#endif
 }
 
 /*
@@ -1843,11 +1912,11 @@ static void inlineText(pLayout, pInline)
     HtmlNode *pN = pInline->pNode;
     HtmlToken *pToken = pInline->pToken;
     int rightFloat = pInline->rightFloat;
-    int spaceOk = pInline->spaceOk;
 
     Tcl_Obj *pText = 0;        /* Text to draw for this node */
 
-    /* Find the first element in the node pN if pToken is NULL. */
+    /* Find the first element in the node pN if pToken is NULL. 
+     */
     if (!pToken) {
         pToken = pN->pToken;
     }
@@ -1859,48 +1928,47 @@ static void inlineText(pLayout, pInline)
     /* Figure out how to deal with white-space. */
     whitespace = nodeGetWhitespace(pLayout, pN);
 
+    /* Determine how much (if any) of the text will fit in the space
+     * available. The text to draw is stored in Tcl_Obj *pText.
+     */
     sw = Tk_TextWidth(font, " ", 1);
     while (pToken) {
-
         char const *zText = 0;
         int nBytes;
         int len = 0;
 
-        switch (pToken->type) {
-            case Html_Space:
-                if (spaceOk) {
-                    zText = " ";
-                    nBytes = 1;
-                    len = sw;
-                    spaceOk = 0;
-                }
-                break;
-            case Html_Text:
-                zText = pToken->x.zText;
-                nBytes = strlen(zText);
-                len = Tk_TextWidth(font, zText, nBytes);
-                spaceOk = 1;
-                break;
-            default:
-                pToken = 0;
-        }
+        if (pToken->type==Html_Space) {
+            if (linewidth>0) {
+                pInline->spacePending = 1;
+            }
+        } else if (pToken->type==Html_Text) {
 
-        if (zText) {
+            zText = pToken->x.zText;
+            nBytes = strlen(zText);
+            len = Tk_TextWidth(font, zText, nBytes);
+            if (pInline->spacePending) {
+                len += sw;
+            }
+
             if (whitespace==WHITESPACE_NORMAL && 
-                    len+x>rightFloat && !(x==0 && pInline->noFloats)) {
+                len+x>rightFloat && 
+                !(x==0 && pInline->noFloats)) 
+            {
                 linefull = 1;
                 break;
             } else {
-                if (!pText) {
-                    pText = Tcl_NewStringObj("", -1);
-                    Tcl_IncrRefCount(pText);
+                if (pInline->spacePending) {
+                    appendToTclObj(&pText, " ", 1);
+                    pInline->spacePending = 0;
                 }
-                Tcl_AppendToObj(pText, zText, nBytes);
-
+                appendToTclObj(&pText, zText, nBytes);
                 x += len;
                 linewidth = x;
             }
+        } else {
+            pToken = 0;
         }
+
         if (pToken) pToken = pToken->pNext;
     }
 
@@ -1930,8 +1998,6 @@ static void inlineText(pLayout, pInline)
     pInline->x = x;
     pInline->linefull = linefull;
     pInline->linewidth = linewidth;
-    pInline->spaceOk = spaceOk;
-    pInline->x = x;
 }
 
 /*
@@ -1979,7 +2045,7 @@ inlineReplace(pLayout, p, zReplace, parentWidth)
         HtmlDrawCanvas(p->pCanvas, &sBox.vc, p->x, -1*h);
         p->x += w;
         p->linewidth = p->x;
-        p->spaceOk = 1;
+        p->spacePending = 0;
         p->lineheight = MAX(h, p->lineheight);
         p->ascent = MAX(h, p->ascent);
     }
@@ -2020,6 +2086,7 @@ inlineLayout(pLayout, pBox, pNode)
 {
     HtmlNode *pFin = HtmlNodeParent(pNode);
     HtmlToken *pSaveToken = 0;
+    HtmlNode *pSavePrev = 0;
     HtmlNode *pSaveNode = 0;
     Tcl_Interp *interp = pLayout->interp;
     int y = 0;
@@ -2064,6 +2131,7 @@ inlineLayout(pLayout, pBox, pNode)
          * incremented).
          */
         data.pNode = pSaveNode;
+        data.pPrev = pSavePrev;
         data.pToken = pSaveToken;
 
         data.leftFloat = 0;
@@ -2072,7 +2140,7 @@ inlineLayout(pLayout, pBox, pNode)
         data.ascent = 0;
         data.linewidth = 0;
         data.linefull = 0;
-        data.spaceOk = 0;
+        data.spacePending = 0;
         data.noFloats = floatListIsEmpty(pBox->pFloats);
 
         textalign = nodeGetTextAlign(pLayout, data.pNode);
@@ -2130,6 +2198,9 @@ inlineLayout(pLayout, pBox, pNode)
                  */
                 CONST char *zReplace = nodeGetTkhtmlReplace(pLayout,data.pNode);
 
+                inlineGetPadding(pLayout, pFin, data.pPrev, 
+                        data.pNode, &data.padding);
+
                 if (zReplace) {
                     assert(data.pToken==0);
                     assert(display.eFloat==FLOAT_NONE);
@@ -2159,6 +2230,8 @@ inlineLayout(pLayout, pBox, pNode)
                  * that it gets drawn into the next line box.
                  */
                 if (!data.linefull) {
+                    assert(data.pToken==0);
+                    data.pPrev = data.pNode;
                     data.pNode = nextInlineNode(pLayout, data.pNode, pFin, &sf);
                 } 
             }
@@ -2174,6 +2247,7 @@ inlineLayout(pLayout, pBox, pNode)
                     assert(data.pToken==0);
                     assert(skipFloat==0);
                     assert(sf==0);
+                    pSavePrev = pSaveNode;
                     pSaveNode = nextInlineNode(pLayout,data.pNode,pFin,&sf);
                     assert(sf==0);
                 } else {
@@ -2254,6 +2328,7 @@ inlineLayout(pLayout, pBox, pNode)
             boxwidth = data.linewidth+(pBox->parentWidth-data.rightFloat);
             pBox->width = MAX(boxwidth, pBox->width);
 
+            pSavePrev = data.pPrev;
             pSaveNode = data.pNode;
             pSaveToken = data.pToken;
             skipFloat = sf;
@@ -2286,6 +2361,7 @@ inlineLayout(pLayout, pBox, pNode)
             y += sBox.height;
 
             pBox->width = MAX(pBox->width, sBox.width);
+            pSavePrev = pSaveNode;
             pSaveNode = nextInlineNode(pLayout, data.pNode, pFin, &sf);
         }
     }
@@ -3664,26 +3740,6 @@ int HtmlLayoutForce(clientData, interp, objc, objv)
 
     HtmlDrawCleanup(&pTree->canvas);
     memcpy(&pTree->canvas, &sBox.vc, sizeof(HtmlCanvas));
-
-    /* Free up all the font references used to lay out the document. 
-     * Todo: need something similar for colors.
-     */
-#if 0
-    if (0) {
-        Tcl_HashSearch s;
-        Tcl_HashEntry *p = Tcl_FirstHashEntry(&sLayout.fontCache, &s);
-        while (p) {
-            Tk_FreeFont((Tk_Font)Tcl_GetHashValue(p));
-            p = Tcl_NextHashEntry(&s);
-        }
-
-        p = Tcl_FirstHashEntry(&sLayout.widthCache, &s);
-        while (p) {
-            ckfree((char *)Tcl_GetHashValue(p));
-            p = Tcl_NextHashEntry(&s);
-        }
-    }
-#endif
 
     return rc;
 }
