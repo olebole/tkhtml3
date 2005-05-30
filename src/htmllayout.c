@@ -50,6 +50,7 @@ typedef struct FloatMargin FloatMargin;
 typedef struct TableData TableData;
 typedef struct InlineData InlineData;
 typedef struct InlinePadding InlinePadding;
+typedef struct InlineContext InlineContext;
 
 /*
  * A single Layout context object is allocated for use throughout
@@ -198,6 +199,137 @@ struct InlineData {
     int spacePending;        /* True if a space character should be drawn */
     InlinePadding padding;
 };
+
+/*
+ * Inline Context Notes:
+ * ---------------------
+ *
+ *     Laying out elements in an inline context is superficially simple.
+ *     Inline boxes are added to a line box until the line box is full, and
+ *     it is then drawn into the normal flow in the same way as a block
+ *     box. But, as I have discovered, the following complications exist,
+ *     which make things anything but simple :)
+ *
+ *     + Floating boxes.
+ *     + Block boxes that occur in inline contexts.
+ *     + 'text-align' (i.e. left, right, center or justified).
+ *     + 'word-spacing' property.
+ *     + 'letter-spacing' property.
+ *     + 'text-decoration' (i.e. underlining, striking etc.)
+ *     + Borders and backgrounds of inline boxes.
+ *     + Padding and margins of inline boxes.
+ *
+ * FLOATS:
+ *
+ *     Floating boxes are tricky because if a floating box occurs midway
+ *     through a line, the top of the floating box is supposed to be level
+ *     with the top of the current line box. i.e. The following code:
+ *
+ *         <p>The quick brown fox 
+ *             <img src="fox.jpg" align="left"> 
+ *             jumped over...
+ *         </p>
+ *
+ *     should render as follows:
+ *
+ *         |                                             |
+ *         |+---------------+ The quick brown fox jumped |
+ *         ||    fox.jpg    | over the...                |
+ *         |+---------------+                            |
+ *         |                                             |
+ *
+ *     Specifically, the "fox.jpg" image should never be floated against
+ *     the line below the text "fox". Instead, it displaces the line
+ *     containing "fox", even if this means "fox" moves onto the next line.
+ *
+ * BLOCK BOXES:
+ *
+ *     Sometimes a block box can occur inside an inline context:
+ *
+ *         <div>First part of text 
+ *             <b>Second part<div>Another block box</div>of text</b>
+ *         </div>
+ *
+ *     This should render as:
+ *
+ *         |                                             |
+ *         |First part of text Second part               |
+ *         |Another block box                            |
+ *         |of text                                      |
+ *         |                                             |
+ *
+ *     All text from "Second" onwards should be in bold font. Both KHTML
+ *     and Gecko render this way, but the specification is ambiguous.
+ *     Tkhtml handles this by considering the current inline context
+ *     finished, drawing the block box into the normal flow, then starting
+ *     a new inline context. 
+ *
+ * TEXT-ALIGN, WORD-SPACING and LETTER-SPACING:
+ *
+ *     The 'text-align' property may take the values "left", "right",
+ *     "center" or "justify". The first three values just affect the
+ *     alignment of each line-box within the parent context - easy.
+ *
+ *     A value of "justify" for 'text-align' is more complicated. In this
+ *     case Tkhtml may adjust the spaces between inline-boxes to justify
+ *     the line-box. Tkhtml considers a word of text to be an atomic inline
+ *     box, it never adjusts letter-spacing to achieve justification. IMO
+ *     this looks terrible anyway.
+ *
+ *     If the 'word-spacing' property takes a value other than "normal",
+ *     then the space between words is not adjusted, even if this means the
+ *     line-box cannot be justified.
+ *
+ *     Todo: Support the <string> option for 'text-align'. This only
+ *     applies to table-cells and doesn't seem to be used much anyway.
+ *
+ * BORDERS, BACKGROUNDS, PADDING and MARGINS.
+ *
+ *     The tricky bit. Well, not quite true, backgrounds are easy enough
+ *     anyway. The background color or image covers all the content area of
+ *     the inline box. If the inline box spills over two lines, then the
+ *     background ends with the last word on the line, it does not extend
+ *     the whole width of the parent context.
+ *
+ *     When a border is drawn around an inline box that spills over two
+ *     line boxes, then three sides of the border are draw in each line
+ *     box. For example:
+ *
+ *          <p>There was 
+ *          <span style="border:1px solid">
+ *              movement at the station for the word had passed around,
+ *          </span>
+ *              , that the colt from Old Regret had got away.
+ *          </p>
+ * 
+ *         |                                             |
+ *         |                   +----------------------   |
+ *         |There was movement |at the station for the   |
+ *         |                   +----------------------   |
+ *         |-----------------------+                     |
+ *         |word had passed around,| that the colt from  |
+ *         |-----------------------+                     |
+ *         |Old Regret had got away.                     |
+ *         |                                             |
+ *
+ *     The wierd part is that Gecko and KHTML never allocate space for
+ *     vertical margins, padding or borders. They both draw borders
+ *     correctly, and backgrounds are extended to allow for padding, but 
+ *     no space is ever allocated. The border of an inline box may flow
+ *     over the content of above line-box. For now, Tkhtml works this way
+ *     too, not because I think they're right, but because it's easier and
+ *     everyone else is getting away with it.
+ *
+ *     Both Gecko and KHTML allocate space for horizontal padding, margins
+ *     and borders correctly.
+ */
+struct InlineContext {
+};
+static int inlineContextSetTextAlign(InlineContext *, int);
+static int inlineContextGetLineBox(InlineContext *, int, HtmlCanvas *);
+static int inlineContextAddInlineBox(InlineContext *, HtmlCanvas *);
+static int inlineContextPushBorders(InlineContext *, HtmlNode *);
+static int inlineContextPopBorders(InlineContext *);
 
 /*
  * Potential values for the 'display' property. Not supported yet are
