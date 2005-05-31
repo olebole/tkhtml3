@@ -1,21 +1,4 @@
 
-set USAGE [string trimleft [subst {
-
-$argv0 <test-directory>
-
-Test directory should contain one or more document files with the extension
-".html". For each ".html" file, there may be a matching ".jpg" or ".gif"
-file.
-
-Each html file is rendered to a canvas widget, and the results compared to
-the jpg or gif file, if any. If the rendering matches the image, then
-proceed to the next html file. If there is no image file, or the rendering
-does not match it, then present the user with a GUI to inspect the rendered
-document. If the user indicates the rendering is correct, then an image
-file is created in the test directory.
-
-}]]
-
 catch {memory init on}
 
 # Required packages
