@@ -302,7 +302,9 @@ struct TableData {
  *         the context. Width of the space is specified in pixels.
  *
  *     inlineContextGetLineBox():
- *         Retrieve the next rendered line-box from the inline context.
+ *         Retrieve the next rendered line-box from the inline context. The
+ *         line-box is created based on the inline-boxes that have already
+ *         been passed in using the inlineContextAddInlineCanvas() call.
  */
 typedef struct InlineContext InlineContext;
 typedef struct InlineBorder InlineBorder;
@@ -311,29 +313,42 @@ struct InlineBorder {
   BorderProperties border;
   MarginProperties margin;
   BoxProperties box;
+  int iStartBox;
+  int iStartPixel;            /* Left most pixel of outer margin */
+  InlineBorder *pNext;
 };
+
+/*
+ * This structure is used internally by the InlineContext object functions.
+ * A single instance represents a single inline-box, for example a word of
+ * text, a widget or an inline image.
+ */
 struct InlineBox {
-  HtmlCanvas canvas;     /* Canvas containing box content. */
-  int nSpace;            /* Pixels of space between this and next box. */
-  int iBorder;           /* Index of innermost inline border in aBorder. */
+  HtmlCanvas canvas;          /* Canvas containing box content. */
+  int nSpace;                 /* Pixels of space between this and next box. */
+  InlineBorder *pBorderStart; /* List of borders that start with this box */
+  int nBorderEnd;             /* Number of borders that end here */
+  int nLeftPixels;            /* Total left width of borders that start here */
+  int nRightPixels;           /* Total right width of borders that start here */
 };
 struct InlineContext {
-  int textAlign;         /* One of TEXTALIGN_LEFT, TEXTALIGN_RIGHT etc. */
-  int nInline;           /* Number of inline boxes in aInline */
-  int nInlineAlloc;      /* Number of slots allocated in aInline */
-  InlineBox *aInline;    /* Array of inline boxes. */
-  int nBorder;           /* Number of borders in aBorder */
-  int nBorderAlloc;      /* Allocated size of aBorder */
-  InlineBorder *aBorder; /* Array of inline borders */
+  int textAlign;          /* One of TEXTALIGN_LEFT, TEXTALIGN_RIGHT etc. */
+
+  int nInline;            /* Number of inline boxes in aInline */
+  int nInlineAlloc;       /* Number of slots allocated in aInline */
+  InlineBox *aInline;     /* Array of inline boxes. */
+
+  InlineBorder *pBorders;    /* Linked list of active inline-borders. */
+  InlineBorder *pBoxBorders; /* Borders list for next box to be added */
 };
 static void inlineContextSetTextAlign(InlineContext *, int);
 static HtmlCanvas *inlineContextAddInlineCanvas(InlineContext *);
 static void inlineContextAddSpace(InlineContext *, int);
 static int inlineContextGetLineBox(InlineContext *,int,int,int,HtmlCanvas *);
 
-static int inlineContextPushBorders(InlineContext *, HtmlNode *);
-static int inlineContextPopBorders(InlineContext *);
-
+static InlineBorder *inlineContextGetBorder(LayoutContext *, HtmlNode *);
+static int inlineContextPushBorder(InlineContext *, InlineBorder *);
+static int inlineContextPopBorder(InlineContext *, InlineBorder *);
 
 /*
  * Floating Margins Notes
@@ -1733,6 +1748,140 @@ markerLayout(pLayout, pBox, pNode)
 /*
  *---------------------------------------------------------------------------
  *
+ * inlineContextPushBorder --
+ *
+ *     Configure the inline-context object with an inline-border that
+ *     should start before the inline-box about to be added. The
+ *     inline-border object should be obtained with a call to
+ *     inlineContextGetBorder(). 
+ *
+ *     If this function is called twice for the same inline-box, then the
+ *     second call creates the innermost border.
+ *
+ *     This function is used with inlineContextPopBorder() to define the
+ *     start and end of inline borders. For example, to create the
+ *     following inline layout:
+ *
+ *             +------------ Border-1 --------+
+ *             |              +-- Border-2 --+|
+ *             | Inline-Box-1 | Inline-Box-2 ||
+ *             |              +--------------+|
+ *             +------------------------------+
+ *
+ *     The sequence of calls should be:
+ *
+ *         inlineContextPushBorder( <Border-1> )
+ *         inlineContextAddInlineCanvas( <Inline-box-1> )
+ *         inlineContextPushBorder( <Border-2> )
+ *         inlineContextAddInlineCanvas( <Inline-box-2> )
+ *         inlineContextPopBorder( <Border 2> )
+ *         inlineContextPopBorder( <Border 1> )
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int inlineContextPushBorder(p, pBorder)
+    InlineContext *p;
+    InlineBorder *pBorder;
+{
+    pBorder->pNext = p->pBoxBorders;
+    p->pBoxBorders = pBorder;
+    return 0;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * inlineContextPopBorder --
+ *
+ *     Configure the inline-context such that the innermost active border
+ *     is closed after the inline-box most recently added is drawn.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int inlineContextPopBorder(p, pBorder)
+    InlineContext *p;
+    InlineBorder *pBorder;
+{
+    InlineBox *pBox;
+    if (p->nInline > 0) {
+        pBox = &p->aInline[p->nInline-1];
+        pBox->nBorderEnd++;
+        pBox->nRightPixels += pBorder->box.padding_left;
+        pBox->nRightPixels += pBorder->box.border_left;
+        pBox->nRightPixels += pBorder->margin.margin_left;
+    } else {
+        InlineBorder *pBorder = p->pBoxBorders;
+        assert(pBorder);
+        p->pBoxBorders = pBorder->pNext;
+        ckfree((char *)pBorder);
+    }
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * inlineContextGetBorder --
+ *
+ *     This function retrieves the border, background, margin and padding
+ *     properties for node pNode. If the properties still all have their
+ *     default values, then NULL is returned. Otherwise an InlineBorder
+ *     struct is allocated using ckalloc(), populated with the various
+ *     property values and returned.
+ *
+ *     The returned struct is considered private to the inlineContextXXX()
+ *     routines. The only legitimate use is to pass the pointer to
+ *     inlineContextPushBorders().
+ *
+ * Results:
+ *     NULL or allocated InlineBorder structure.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static InlineBorder *inlineContextGetBorder(pLayout, pNode)
+    LayoutContext *pLayout; 
+    HtmlNode *pNode;
+{
+    InlineBorder border;
+    InlineBorder *pBorder = 0;
+
+    nodeGetBoxProperties(pLayout, pNode, &border.box);
+    nodeGetMargins(pLayout, pNode, &border.margin);
+    nodeGetBorderProperties(pLayout, pNode, &border.border);
+    border.pNext = 0;
+
+    if (border.box.padding_left   || border.box.padding_right     ||
+        border.box.padding_top    || border.box.padding_bottom    ||
+        border.box.border_left    || border.box.border_right      ||
+        border.box.border_top     || border.box.border_bottom     ||
+        border.margin.margin_left || border.margin.margin_right   ||
+        border.margin.margin_top  || border.margin.margin_bottom  ||
+        border.border.color_bg  
+    ) {
+        pBorder = (InlineBorder *)ckalloc(sizeof(InlineBorder));
+        memcpy(pBorder, &border, sizeof(InlineBorder));
+    }
+
+    return pBorder;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * inlineContextSetTextAlign --
  *
  *     Set the value of the 'text-align' property to use when formatting an
@@ -1782,6 +1931,7 @@ inlineContextAddInlineCanvas(p)
     InlineContext *p;
 {
     InlineBox *pBox;
+    InlineBorder *pBorder;
 
     p->nInline++;
     if(p->nInline > p->nInlineAlloc) {
@@ -1797,6 +1947,13 @@ inlineContextAddInlineCanvas(p)
 
     pBox = &p->aInline[p->nInline - 1];
     memset(pBox, 0, sizeof(InlineBox));
+    pBox->pBorderStart = p->pBoxBorders;
+    for (pBorder = pBox->pBorderStart; pBorder; pBorder = pBorder->pNext) {
+        pBox->nLeftPixels += pBorder->box.padding_left;
+        pBox->nLeftPixels += pBorder->box.border_left;
+        pBox->nLeftPixels += pBorder->margin.margin_left;
+    }
+    p->pBoxBorders = 0;
     return &pBox->canvas;
 }
 
@@ -1827,6 +1984,67 @@ inlineContextAddSpace(p, nPixels)
     }
 }
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * inlineContextDrawBorder --
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void inlineContextDrawBorder(pCanvas, pBorder, x1, y1, x2, y2, drb)
+    HtmlCanvas *pCanvas;
+    InlineBorder *pBorder;
+    int x1, y1;
+    int x2, y2;
+    int drb;                  /* Draw Right Border */
+{
+    XColor *c = pBorder->border.color_bg;
+
+    int tw, rw, bw, lw;
+    XColor *tc, *rc, *bc, *lc;
+
+    tw = pBorder->box.border_top;
+    rw = pBorder->box.border_right;
+    bw = pBorder->box.border_bottom;
+    lw = pBorder->box.border_left;
+
+    tc = pBorder->border.color_top;
+    rc = pBorder->border.color_right;
+    bc = pBorder->border.color_bottom;
+    lc = pBorder->border.color_left;
+
+    x1 += pBorder->margin.margin_left;
+    x2 -= pBorder->margin.margin_right;
+    y1 += pBorder->margin.margin_top;
+    y2 -= pBorder->margin.margin_bottom;
+    if (tw>0) {
+        HtmlDrawQuad(pCanvas, x1, y1, x1+lw, y1+tw, x2-rw, y1+tw, x2, y1, tc);
+    }
+    if (rw > 0 && drb) {
+        HtmlDrawQuad(pCanvas, x2, y1, x2-rw, y1+tw, x2-rw, y2-bw, x2, y2, rc);
+    }
+    if (bw>0) {
+        HtmlDrawQuad(pCanvas, x2, y2, x2-rw, y2-bw, x1+lw, y2-bw, x1, y2, bc);
+    }
+    if (lw > 0 && pBorder->iStartBox >= 0) {
+        HtmlDrawQuad(pCanvas, x1, y2, x1+lw, y2-bw, x1+lw, y1+tw, x1, y1, lc);
+    }
+
+    if (c) {
+        x1 += pBorder->box.border_left;
+        x2 -= pBorder->box.border_right;
+        y1 += pBorder->box.border_top;
+        y2 -= pBorder->box.border_bottom;
+
+        HtmlDrawQuad(pCanvas, x1, y1, x2, y1, x2, y2, x1, y2, c);
+    }
+}
 
 /*
  *---------------------------------------------------------------------------
@@ -1844,16 +2062,24 @@ inlineContextAddSpace(p, nPixels)
 static int 
 inlineContextGetLineBox(p, width, forceline, forcebox, pCanvas)
     InlineContext *p;
-    int width;
+    int width;                /* Maximum width available for line-box */
     int forceline;            /* Draw line even if line is not full */
     int forcebox;             /* Draw at least one inline box */
     HtmlCanvas *pCanvas;      /* Canvas to render line box to */
 {
     int i;                   /* Iterator variable for aInline */
+    int j;
     int lineboxwidth = 0;    /* Width of line-box */
     int nBox = 0;            /* Number of inline boxes to draw */
     int x = 0;               /* Current x-coordinate */
     double nExtra = -10.0;   /* Extra justification pixels between each box */
+    HtmlCanvas content;      /* Canvas for content (as opposed to borders */
+    HtmlCanvas borders;      /* Canvas for borders */
+    InlineBorder *pBorder;
+    int iLeft = 0;           /* Leftmost pixel of line box */
+
+    memset(&content, 0, sizeof(HtmlCanvas));
+    memset(&borders, 0, sizeof(HtmlCanvas));
 
     /* Count how many of the inline boxes fit within the requested line-box
      * width. Store this in nBox. Also remember the width of the line-box
@@ -1861,8 +2087,11 @@ inlineContextGetLineBox(p, width, forceline, forcebox, pCanvas)
      * 'text-align' attribute later on.
      */
     for(i = 0; i < p->nInline; i++) {
+        int j;
+        InlineBorder *pBorder;
         InlineBox *pBox = &p->aInline[i];
-        int boxwidth = (pBox->canvas.right - pBox->canvas.left);
+        int boxwidth = (pBox->canvas.right - pBox->canvas.left); 
+        boxwidth += pBox->nRightPixels + pBox->nLeftPixels;
         if(i > 0) {
             boxwidth += p->aInline[i-1].nSpace;
         }
@@ -1879,11 +2108,11 @@ inlineContextGetLineBox(p, width, forceline, forcebox, pCanvas)
      * If the forcebox flag is true and no boxes fit within the requested
      * width, then draw one box anyway.
      */
-    if((p->nInline == 0) || (!forceline && (nBox == p->nInline))) {
-        return 0;
-    }
     if(forcebox && !nBox) {
         nBox = 1;
+    }
+    if((p->nInline == 0) || (!forceline && (nBox == p->nInline)) || nBox == 0) {
+        return 0;
     }
 
     /* Adjust the initial left-margin offset and the nExtra variable to 
@@ -1893,10 +2122,10 @@ inlineContextGetLineBox(p, width, forceline, forcebox, pCanvas)
      */
     switch(p->textAlign) {
         case TEXTALIGN_CENTER:
-            x = (width - lineboxwidth) / 2;
+            iLeft = (width - lineboxwidth) / 2;
             break;
         case TEXTALIGN_RIGHT:
-            x = (width - lineboxwidth);
+            iLeft = (width - lineboxwidth);
             break;
         case TEXTALIGN_JUSTIFY:
             if (nBox > 1 && width > lineboxwidth && nBox < p->nInline) {
@@ -1904,13 +2133,17 @@ inlineContextGetLineBox(p, width, forceline, forcebox, pCanvas)
             }
             break;
     }
+    x += iLeft;
 
     /* Draw nBox boxes side by side in pCanvas to create the line-box. */
     assert(nBox <= p->nInline);
     for(i = 0; i < nBox; i++) {
-        int extra_pixels = 0;    /* Number of extra pixels for justification */
+        int extra_pixels = 0;   /* Number of extra pixels for justification */
         InlineBox *pBox = &p->aInline[i];
         int boxwidth = (pBox->canvas.right - pBox->canvas.left);
+        int x1, y1;
+        int x2, y2;
+        int nBorderEnd = 0;
 
         /* If the 'text-align' property is set to "justify", then we add a
          * few extra pixels between each inline box to justify the line.
@@ -1919,17 +2152,129 @@ inlineContextGetLineBox(p, width, forceline, forcebox, pCanvas)
          * vertically adjacent lines of text don't align by 1 or 2 pixels,
          * it spoils the whole effect.
          */
-        if (nExtra>0.0) {
-            if (i<nBox-1) {
+        if (nExtra > 0.0) {
+            if (i < nBox-1) {
                 extra_pixels = (nExtra * i);
             } else {
                 extra_pixels = width - lineboxwidth;
             }
         }
 
-        HtmlDrawCanvas(pCanvas, &pBox->canvas, x + extra_pixels, 0);
-        x += (boxwidth + pBox->nSpace);
+        /* If any inline-borders start with this box, then add them to the
+         * active borders list now. Remember the current x-coordinate and
+         * inline-box for when we have to go back and draw the border.
+         */
+        pBorder = pBox->pBorderStart;
+        x1 = x + extra_pixels + pBox->nLeftPixels;
+        for (pBorder=pBox->pBorderStart; pBorder; pBorder=pBorder->pNext) {
+            x1 -= pBorder->margin.margin_left;
+            x1 -= pBorder->box.padding_left + pBorder->box.border_left;
+            pBorder->iStartBox = i;
+            pBorder->iStartPixel = x1;
+            if (!pBorder->pNext) {
+                pBorder->pNext = p->pBorders;
+                p->pBorders = pBox->pBorderStart;
+                break;
+            }
+        }
+
+        x1 = x + extra_pixels + pBox->nLeftPixels;
+        HtmlDrawCanvas(&content, &pBox->canvas, x1, 0);
+        x += (boxwidth + pBox->nLeftPixels + pBox->nRightPixels);
+
+        /* If any inline-borders end with this box, then draw them to the
+         * border canvas and remove them from the active borders list now. 
+         * When drawing borders, we have to traverse the list backwards, so
+         * that inner borders (and backgrounds) are drawn on top of outer
+         * borders. This is a little clumsy with the singly linked list,
+         * but we don't expect the list to ever have more than a couple of
+         * elements, so it should be Ok.
+         */
+        x2 = x + extra_pixels - pBox->nRightPixels;
+        y1 = pBox->canvas.top;
+        y2 = pBox->canvas.bottom;
+        if (i == nBox-1) {
+            for (pBorder = p->pBorders; pBorder; pBorder = pBorder->pNext) {
+                nBorderEnd++;
+            }
+        } else {
+            nBorderEnd = pBox->nBorderEnd;
+        }
+        for(j = 0; j < nBorderEnd; j++) {
+            int k;
+            int nTopPixel = 0;
+            int nBottomPixel = 0;
+            int rb;
+            HtmlCanvas tmpcanvas;
+
+            pBorder = p->pBorders;
+            for (k=0; k<j+1; k++) {
+                nTopPixel += pBorder->box.padding_top + pBorder->box.border_top;
+                nTopPixel += pBorder->margin.margin_top;
+                nBottomPixel += pBorder->box.padding_bottom;
+                nBottomPixel += pBorder->box.border_bottom;
+                nBottomPixel += pBorder->margin.margin_bottom;
+                if (k < j) {
+                    pBorder = pBorder->pNext;
+                }
+            }
+            assert(pBorder);
+
+            y1 = 0;
+            y2 = 0;
+            for (k=pBorder->iStartBox; k<=i; k++) {
+                if (k >= 0) {
+                    y1 = MIN(y1, p->aInline[k].canvas.top);
+                    y2 = MAX(y2, p->aInline[k].canvas.bottom);
+                }
+            }
+            y1 -= nTopPixel;
+            y2 += nBottomPixel;
+
+            if (pBorder->iStartBox >= 0) {
+                x1 = pBorder->iStartPixel;
+            } else {
+                x1 = iLeft;
+            }
+            rb = (j < pBox->nBorderEnd);
+            if (rb) {
+                x2 += pBorder->margin.margin_right;
+                x2 += pBorder->box.padding_right + pBorder->box.border_right;
+            }
+
+            memset(&tmpcanvas, 0, sizeof(HtmlCanvas));
+            HtmlDrawCanvas(&tmpcanvas, &borders, 0, 0);
+            memset(&borders, 0, sizeof(HtmlCanvas));
+            inlineContextDrawBorder(&borders, pBorder, x1, y1, x2, y2, rb);
+            HtmlDrawCanvas(&borders, &tmpcanvas, 0, 0);
+
+        }
+
+        for(j = 0; j < pBox->nBorderEnd; j++) {
+            pBorder = p->pBorders;
+            assert(pBorder);
+            p->pBorders = pBorder->pNext;
+            ckfree((char *)pBorder);
+        }
+
+        x += pBox->nSpace;
     }
+
+    /* If any borders are still in the InlineContext.pBorders list, then
+     * they flow over onto the next line. Draw the portion that falls on
+     * this line now. Set InlineBorder.iStartBox to -1 so that the next
+     * call to inlineContextGetLineBox() knows that this border does not
+     * require a left-margin.
+     */
+    for(pBorder = p->pBorders; pBorder; pBorder = pBorder->pNext) {
+        pBorder->iStartBox = -1;
+    }
+
+    /* Draw the borders and content canvas into the target canvas. Draw the
+     * borders canvas first so that it is under the content.
+     */
+    HtmlDrawCanvas(pCanvas, &borders, 0, 0);
+    HtmlDrawCanvas(pCanvas, &content, 0, 0);
 
     p->nInline -= nBox;
     memmove(p->aInline, &p->aInline[nBox], p->nInline * sizeof(InlineBox));
@@ -1940,7 +2285,7 @@ inlineContextGetLineBox(p, width, forceline, forcebox, pCanvas)
 /*
  *---------------------------------------------------------------------------
  *
- * appendToTclObj --
+ * inlineText --
  *
  * Results:
  *     None.
@@ -1950,24 +2295,8 @@ inlineContextGetLineBox(p, width, forceline, forcebox, pCanvas)
  *
  *---------------------------------------------------------------------------
  */
-static void 
-appendToTclObj(ppObj, zStr, nStr)
-    Tcl_Obj **ppObj;
-    CONST char *zStr;
-    int nStr;
-{
-    Tcl_Obj *pObj = *ppObj;
-    if (!pObj) {
-        pObj = Tcl_NewStringObj(zStr, nStr);
-        Tcl_IncrRefCount(pObj);
-        *ppObj = pObj;
-    } else {
-        Tcl_AppendToObj(pObj, zStr, nStr);
-    }
-}
-
 static int 
-inlineText2(pLayout, pNode, pContext)
+inlineText(pLayout, pNode, pContext)
     LayoutContext *pLayout;
     HtmlNode *pNode;
     InlineContext *pContext;
@@ -2126,18 +2455,7 @@ inlineLayoutNode(pLayout, pBox, pNode, pY, pContext)
      * inline-context as a seperate inline-box.
      */
     else if (HtmlNodeIsText(pNode)) {
-        rc = inlineText2(pLayout, pNode, pContext);
-    }
-
-    /* A replaced inline element.
-     */
-    else if(0 != (zReplace=nodeGetTkhtmlReplace(pLayout,pNode))) {
-        BoxContext sBox;
-        HtmlCanvas *pCanvas;
-        memset(&sBox, 0, sizeof(BoxContext));
-        layoutReplacement(pLayout, &sBox, pNode, zReplace);
-        pCanvas = inlineContextAddInlineCanvas(pContext);
-        HtmlDrawCanvas(pCanvas, &sBox.vc, -1*sBox.vc.left, -1*sBox.vc.top);
+        rc = inlineText(pLayout, pNode, pContext);
     }
 
     /* If we have a <br> tag, then add a line-break. This is a hack to
@@ -2152,22 +2470,42 @@ inlineLayoutNode(pLayout, pBox, pNode, pY, pContext)
         rc = inlineLayoutDrawLines(pLayout, pBox, pContext, 1, pY);
     }
 
-    /* None of the above. This must be an inline node that does not itself
-     * add any content, for example <b> or <span>. This kind of element
-     * serves two purposes:
-     *
-     *     + It may have properties that are inherited by children that do
-     *       generate content. If this is the case, then the
-     *       HtmlNodeGetProperty() code makes sure the properties are
-     *       applied correctly.
-     *
-     *     + It may generate borders, padding, margins or a background. TODO!!!
+    /* If none of the above conditions is true, then we have either a 
+     * replaced inline node, or an inline node that does not generate
+     * any content itself, for example <b> or <span>. What these two cases 
+     * have in common is that they may generate inline borders, margins
+     * padding and backgrounds.
      */
     else {
-        int i;
-        for(i=0; i<HtmlNodeNumChildren(pNode) && 0==rc; i++) {
-            HtmlNode *pChild = HtmlNodeChild(pNode, i);
-            rc = inlineLayoutNode(pLayout, pBox, pChild, pY, pContext);
+        InlineBorder *pBorder;
+
+        pBorder = inlineContextGetBorder(pLayout, pNode);
+        if (pBorder) {
+            inlineContextPushBorder(pContext, pBorder);
+        }
+
+        if(0 != (zReplace=nodeGetTkhtmlReplace(pLayout,pNode))) {
+            BoxContext sBox;
+            HtmlCanvas *pCanvas;
+            memset(&sBox, 0, sizeof(BoxContext));
+            layoutReplacement(pLayout, &sBox, pNode, zReplace);
+            pCanvas = inlineContextAddInlineCanvas(pContext);
+            HtmlDrawCanvas(pCanvas, &sBox.vc, -1*sBox.vc.left, -1*sBox.vc.top);
+        }
+
+        /* If there was no replacement image or widget, recurse through the
+         * child nodes.
+         */
+        if (!zReplace) {
+            int i;
+            for(i=0; i<HtmlNodeNumChildren(pNode) && 0==rc; i++) {
+                HtmlNode *pChild = HtmlNodeChild(pNode, i);
+                rc = inlineLayoutNode(pLayout, pBox, pChild, pY, pContext);
+            }
+        }
+
+        if (pBorder) {
+            inlineContextPopBorder(pContext, pBorder);
         }
     }
 

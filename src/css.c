@@ -219,8 +219,8 @@ tokenToProperty(pToken)
 
     CssProperty *pProp = 0;
     int i;
-    double realval;           /* Real value, if token can be converted to float */
-    int reallen;              /* Bytes of token converted to realval */
+    double realval;       /* Real value, if token can be converted to float */
+    int reallen;          /* Bytes of token converted to realval */
 
     CONST char *z = pToken->z;
     int n = pToken->n;
@@ -741,6 +741,51 @@ static void propertySetAddShortcutBorder(p, prop, v)
     }
 }
 
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * propertySetAddShortcutBackground --
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void 
+propertySetAddShortcutBackground(p, v)
+    CssPropertySet *p;         /* Property set */
+    CssToken *v;               /* Value for 'background' property */
+{
+    CONST char *z= v->z;
+    CONST char *zEnd = z + v->n;
+    int n;
+
+    while (z) {
+        CssProperty *pProp;
+        z = getNextListItem(z, zEnd-z, &n);
+        if (z) {
+            CssToken token;
+            token.z = z;
+            token.n = n;
+            pProp = tokenToProperty(&token);
+            z += n;
+
+            switch (pProp->eType) {
+                case CSS_TYPE_STRING:
+                    propertySetAdd(p, CSS_PROPERTY_BACKGROUND_COLOR, pProp);
+                    break;
+                case CSS_TYPE_URL:
+                    propertySetAdd(p, CSS_PROPERTY_BACKGROUND_IMAGE, pProp);
+                    break;
+            }
+        }
+    }
+}
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -1100,7 +1145,7 @@ int cssParse(n, z, isStyle, origin, pStyleId, ppStyle)
 
     while( (t=cssGetToken(&z[c], n-c, &sToken.n)) ){
         sToken.z = &z[c];
-        if( t>0 ){
+        if( t>0 && t!=CT_IMPORTANT_SYM ){
             tkhtmlCssParser(p, t, sToken, &sParse);
         }
         c += sToken.n;
@@ -1241,6 +1286,9 @@ void tkhtmlCssDeclaration(CssParse *pParse, CssToken *pProp, CssToken *pExpr){
         case CSS_SHORTCUTPROPERTY_PADDING:
         case CSS_SHORTCUTPROPERTY_MARGIN:
             propertySetAddShortcutBorderColor(pParse->pPropertySet,prop,pExpr);
+            break;
+        case CSS_SHORTCUTPROPERTY_BACKGROUND:
+            propertySetAddShortcutBackground(pParse->pPropertySet, pExpr);
             break;
         default:
             propertySetAdd(pParse->pPropertySet, prop, tokenToProperty(pExpr));

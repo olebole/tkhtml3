@@ -180,5 +180,5 @@ term(A) ::= STRING(X). { A = X; }
 term(A) ::= FUNCTION(X). { A = X; }
 term(A) ::= HASH(X) IDENT(Y). { A.z = X.z; A.n = (Y.z+Y.n - X.z); }
 term(A) ::= PLUS(X) IDENT(Y). { A.z = X.z; A.n = (Y.z+Y.n - X.z); }
-term(A) ::= IMPORTANT_SYM(X). { A = X; }
+term(A) ::= IMPORTANT_SYM(X). { A.z = X.z; A.n = 0; }
 
