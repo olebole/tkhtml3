@@ -183,6 +183,54 @@ static int tokenToReal(pToken, pLen, pVal)
 /*
  *---------------------------------------------------------------------------
  *
+ * rgbToColor --
+ *
+ *     This function is invoked when a property value of the form 
+ *     "rgb(rrr, ggg, bbb)" is encountered. This routine interprets the
+ *     property and transforms it to a string of the form #AAAAAA which can
+ *     be understood as a color by Tk.
+ *
+ *     The first argument, zOut, points to a buffer of not less than 8
+ *     bytes. The output string and it's NULL terminator is written here.
+ *     The second parameter, zRgb, points to the first byte past the '('
+ *     character of the original property value. The final parameter, nRgb,
+ *     is the number of bytes between the '(' and ')' character of the
+ *     original property.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     Writes exactly 8 bytes to zOut.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void 
+rgbToColor(zOut, zRgb, nRgb)
+    char *zOut;
+    CONST char *zRgb;
+    int nRgb;
+{
+    CONST char *z = zRgb;
+    CONST char *zEnd = zRgb+nRgb;
+    int n = 0;
+    int aN[3] = {0, 0, 0};
+
+    while (z < zEnd && n < 3) {
+        while (!isdigit(*z)) z++;
+        aN[n] = strtol(z, (char **)&z, 0);
+        if (*z=='%') {
+            aN[n] = ((aN[n] * 100) / 255);
+        }
+        n++;
+    }
+
+    sprintf(zOut, "#%.2x%.2x%.2x", aN[0], aN[1], aN[2]);
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * tokenToProperty --
  *
  * Results:
@@ -215,6 +263,7 @@ tokenToProperty(pToken)
     } functions[] = {
         {CSS_TYPE_TCL, 3, "tcl"},
         {CSS_TYPE_URL, 3, "url"},
+        {-1,           3, "rgb"},
     };
 
     CssProperty *pProp = 0;
@@ -256,18 +305,32 @@ tokenToProperty(pToken)
             int l = i;
             int nFunc = sizeof(functions)/sizeof(struct FunctionFormat);
             for (i=0; pProp==0 && i<nFunc; i++) {
-                if (l==functions[i].len && 0==strncmp(functions[i].zFunc, z, l)) {
+                if (l==functions[i].len && 0==strncmp(functions[i].zFunc,z,l)) {
                     char CONST *zArg;
                     int nArg;
 
                     zArg = &z[l+1];
                     nArg = (n-l-2); /* len(token)-len(func)-len('(')-len(')') */
 
-                    pProp = (CssProperty *)ckalloc(sizeof(CssProperty)+nArg+1);
-                    pProp->eType = functions[i].type;
-                    pProp->v.zVal = (char *)&pProp[1];
-                    strncpy(pProp->v.zVal, zArg, nArg);
-                    pProp->v.zVal[nArg] = '\0';
+                    if (functions[i].type==-1) {
+                        /* -1 means this is an RGB value. Transform to a
+                         * color string that Tcl can understand before
+			 * storing it in the properties database. The color
+			 * string will be 7 characters long exactly.
+                         */
+                        int nAlloc = sizeof(CssProperty) + 7 + 1;
+                        pProp = (CssProperty *)ckalloc(nAlloc);
+                        pProp->eType = CSS_TYPE_STRING;
+                        pProp->v.zVal = (char *)&pProp[1];
+                        rgbToColor(pProp->v.zVal, zArg, nArg);
+                    } else {
+                        int nAlloc = sizeof(CssProperty) + nArg + 1;
+                        pProp = (CssProperty *)ckalloc(nAlloc);
+                        pProp->eType = functions[i].type;
+                        pProp->v.zVal = (char *)&pProp[1];
+                        strncpy(pProp->v.zVal, zArg, nArg);
+                        pProp->v.zVal[nArg] = '\0';
+                    }
 
                     /* TODO: Dequote? */
                 }
