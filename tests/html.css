@@ -52,10 +52,7 @@ CENTER            { text-align: center }
 /* Todo! */
 
 TD, TH {
-  padding-left: 1px;
-  padding-right: 1px;
-  padding-top: 1px;
-  padding-bottom: 1px;
+  padding: 1px;
 
   border-bottom-color: grey60;
   border-right-color: grey60;
@@ -64,10 +61,9 @@ TD, TH {
 }
 
 HR { 
-  margin-bottom : 5px; 
-  margin-top : 5px; 
   display: block; 
-  border-top-width: 1px;
+  border-top: 1px solid grey45;
+  background: grey80;
   height: 1px;
 }
 
@@ -80,13 +76,6 @@ TABLE {
   border-right-color: grey25;
   border-top-color: grey60;
   border-left-color: grey60;
-
-/*
-  border-top-width: 1px;
-  border-bottom-width: 1px;
-  border-left-width: 1px;
-  border-right-width: 1px;
-*/
 }
 
 TR              { display: table-row }
@@ -128,7 +117,6 @@ OL              { list-style-type: decimal }
 OL UL, UL OL,
 UL UL, OL OL    { margin-top: 0; margin-bottom: 0 }
 U, INS          { text-decoration: underline }
-BR:before       { content: "\A" }
 ABBR, ACRONYM   { font-variant: small-caps; letter-spacing: 0.1em }
 
 /* Display properties for hyperlinks */
@@ -138,3 +126,5 @@ A[href]         { color: darkblue; text-decoration: underline }
 TD[nowrap] ,     TH[nowrap]     { white-space: nowrap; }
 TD[nowrap="0"] , TH[nowrap="0"] { white-space: normal; }
 
+BR              { display: block }
+BR:before       { content: "\A" }

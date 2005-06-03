@@ -53,8 +53,12 @@ proc scriptcmd {script} {
 }
 
 proc linkcmd {node} {
-  set rel [$node attr rel]
-  if {[string compare -nocase $rel stylesheet]==0} {
+  set rel [string tolower [$node attr rel]]
+  set media [string tolower [$node attr media]]
+
+  set media_list [list all visual screen ""]
+
+  if {[string compare $rel stylesheet]==0 && [lsearch $media_list $media]!=-1} {
     set href [$node attr href]
     set filename [file join $::BASE $href]
     lappend ::STYLESHEET_FILES $filename
@@ -240,7 +244,7 @@ proc draw_to_canvas {code c x y} {
   set C $c
 
   foreach instruction $code {
-    # puts $instruction
+    puts $instruction
     eval $instruction
   }
 

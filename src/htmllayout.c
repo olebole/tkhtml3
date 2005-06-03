@@ -76,6 +76,7 @@ struct LayoutContext {
  */
 struct BoxContext {
     int parentWidth;           /* DOWN: Width of parent block box. */
+    int contentWidth;          /* DOWN: Width of content for this box. */
     int height;                /* UP: Generated box height. */
     int width;                 /* UP: Generated box width. */
     FloatMargin *pFloats;      /* Margins. */
@@ -122,6 +123,7 @@ struct MarginProperties {
 struct DisplayProperties {
     int eDisplay;            /* DISPLAY_xxx constant */
     int eFloat;              /* FLOAT_xxx constant */
+    int eClear;              /* CLEAR_xxx constant */
 };
 
 struct TableCell {
@@ -344,7 +346,7 @@ struct InlineContext {
 static void inlineContextSetTextAlign(InlineContext *, int);
 static HtmlCanvas *inlineContextAddInlineCanvas(InlineContext *);
 static void inlineContextAddSpace(InlineContext *, int);
-static int inlineContextGetLineBox(InlineContext *,int,int,int,HtmlCanvas *);
+static int inlineContextGetLineBox(InlineContext *,int*,int,int,HtmlCanvas *);
 
 static InlineBorder *inlineContextGetBorder(LayoutContext *, HtmlNode *);
 static int inlineContextPushBorder(InlineContext *, InlineBorder *);
@@ -372,6 +374,7 @@ struct FloatMargin {
 };
 static void floatListAdd(FloatMargin*, int, int, int);
 static void floatListClear(FloatMargin*, int);
+static int floatListClearMargin(FloatMargin*, int, int);
 static void floatListMargins(FloatMargin*, int*, int*);
 static int  floatListPlace(FloatMargin*, int, int, int);
 static int  floatListIsEmpty(FloatMargin *);
@@ -393,6 +396,7 @@ static int  floatListIsEmpty(FloatMargin *);
 #define LISTSTYLETYPE_SQUARE 1 
 #define LISTSTYLETYPE_DISC   2 
 #define LISTSTYLETYPE_CIRCLE 3
+#define LISTSTYLETYPE_NONE   4
 
 #define VALIGN_MIDDLE 1
 #define VALIGN_TOP 2
@@ -413,6 +417,11 @@ static int  floatListIsEmpty(FloatMargin *);
 #define WHITESPACE_NOWRAP 2
 #define WHITESPACE_NORMAL 3
 
+#define CLEAR_NONE 1
+#define CLEAR_LEFT 2
+#define CLEAR_RIGHT 3
+#define CLEAR_BOTH 4
+
 /*
  * These are prototypes for all the static functions in this file. We
  * don't need most of them, but the help with error checking that normally
@@ -425,15 +434,13 @@ S CONST char *propertyToString(CssProperty *pProp, const char *);
 S int propertyToPixels(LayoutContext*, HtmlNode*, CssProperty*, int, int);
 S XColor *propertyToColor(LayoutContext *, CssProperty*);
 
-S int attributeToPixels(HtmlNode*, const char*, int, int, int*);
-
 S int  nodeGetEmPixels(LayoutContext*, HtmlNode*);
 S void nodeGetDisplay(LayoutContext*, HtmlNode*, DisplayProperties*);
 S int  nodeGetListStyleType(LayoutContext *, HtmlNode *);
 S XColor *nodeGetColour(LayoutContext *, HtmlNode*);
 S int nodeGetBorderSpacing(LayoutContext *, HtmlNode*);
 S int nodeGetVAlign(LayoutContext *, HtmlNode*, int);
-S void nodeGetBoxProperties(LayoutContext *, HtmlNode *, BoxProperties *);
+S void nodeGetBoxProperties(LayoutContext *, HtmlNode *, int, BoxProperties *);
 S void nodeGetBorderProperties(LayoutContext *, HtmlNode *, BorderProperties *);
 S int nodeGetWidth(LayoutContext *, HtmlNode *, int, int, int*);
 S int nodeGetHeight(LayoutContext *, HtmlNode *, int, int);
@@ -449,8 +456,7 @@ S int floatLayout(LayoutContext*, BoxContext*, HtmlNode*, int*);
 S int markerLayout(LayoutContext*, BoxContext*, HtmlNode*);
 S int inlineLayout(LayoutContext*, BoxContext*, HtmlNode*);
 S int tableLayout(LayoutContext*, BoxContext*, HtmlNode*);
-S int blockLayout(LayoutContext*, BoxContext*, HtmlNode*);
-S int blockLayout2(LayoutContext*, BoxContext*, HtmlNode*, int);
+S int blockLayout(LayoutContext*, BoxContext*, HtmlNode*, int);
 S void layoutReplacement(LayoutContext*, BoxContext*, HtmlNode*, CONST char*);
 
 S int tableIterate(
@@ -480,6 +486,43 @@ static void floatListAdd(pList, side, x, y)
         pNew->pNext = pList->pRight;
         pList->pRight = pNew;
     }
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * floatListClear --
+ *
+ *     This function is used to implement the CSS 'clear' property.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int floatListClearMargin(pList, clearproperty, def)
+    FloatMargin *pList;          /* Floating margins */
+    int clearproperty;           /* Value of 'clear' property */
+    int def;                     /* Value to return for CLEAR_NONE. */
+{
+    int y = def;
+    struct FM *pIter;
+
+    if (clearproperty == CLEAR_LEFT || clearproperty == CLEAR_BOTH) {
+        for(pIter = pList->pLeft; pIter; pIter = pIter->pNext) {
+            y = MAX(pIter->y+1, y);
+        }
+    }
+    if (clearproperty == CLEAR_RIGHT || clearproperty == CLEAR_BOTH) {
+        for(pIter = pList->pRight; pIter; pIter = pIter->pNext) {
+            y = MAX(pIter->y+1, y);
+        }
+    }
+
+    return y;
 }
 
 static void floatListClear(pList, y)
@@ -569,46 +612,6 @@ static int floatListIsEmpty(pList)
     FloatMargin *pList;
 {
     return (pList->pLeft==0 && pList->pRight==0);
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * attributeToPixels --
- *
- *     Retrieve the value of HTML attribute zAttr and return it as an
- *     integer number of pixels. If zAttr is not defined, return a copy of
- *     iDefault instead.
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-static int attributeToPixels(pNode, zAttr, pwidth, iDefault, pAbsolute)
-    HtmlNode *pNode; 
-    const char *zAttr; 
-    int pwidth;         /* Width of parent box, for % values */
-    int iDefault;
-    int *pAbsolute;
-{
-    int val = iDefault;
-    if (pNode) {
-        const char *zVal = HtmlNodeAttr(pNode, zAttr);
-        if (zVal) {
-            val = atoi(zVal);
-            if (zVal[0] && zVal[strlen(zVal)-1]=='%') {
-                val = (pwidth*val)/100;
-                if (pAbsolute) *pAbsolute = 0;
-            } else {
-                if (pAbsolute) *pAbsolute = 1;
-            }
-        }
-    }
-    return val;
 }
 
 /*
@@ -773,15 +776,27 @@ static void nodeGetDisplay(pLayout, pNode, pDisplayProperties)
         FLOAT_LEFT,   FLOAT_RIGHT,     FLOAT_NONE
     };
 
+    char const *zClear[] = {
+        "none",     "left",     "right",     "both",
+        0
+    };
+    int eClear[] = {
+        CLEAR_NONE, CLEAR_LEFT, CLEAR_RIGHT, CLEAR_BOTH
+    };
+
     CssProperty prop;
-    int f;
-    int d;
+    int f;        /* 'float' */
+    int d;        /* 'display' */
+    int c;        /* 'clear' */
 
     HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_DISPLAY, &prop);
     d = propertyToConstant(&prop, zDisplay, eDisplay, DISPLAY_INLINE);
 
     HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_FLOAT, &prop);
     f = propertyToConstant(&prop, zFloat, eFloat, FLOAT_NONE);
+
+    HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_CLEAR, &prop);
+    c = propertyToConstant(&prop, zClear, eClear, CLEAR_NONE);
 
     /* Force all floating boxes to have display type 'block' or 'table' */
     if (f!=FLOAT_NONE && d!=DISPLAY_TABLE) {
@@ -790,6 +805,7 @@ static void nodeGetDisplay(pLayout, pNode, pDisplayProperties)
 
     pDisplayProperties->eDisplay = d;
     pDisplayProperties->eFloat = f;
+    pDisplayProperties->eClear = c;
 }
 
 static int nodeGetListStyleType(pLayout, pNode)
@@ -797,11 +813,12 @@ static int nodeGetListStyleType(pLayout, pNode)
     HtmlNode *pNode;
 {
     char const *zStyleOptions[] = {
-        "square",             "disc",             "circle", 
-        0
+        "square",             "disc",             "circle",   
+        "none",               0
     };
     int eStyleOptions[] = {
-        LISTSTYLETYPE_SQUARE, LISTSTYLETYPE_DISC, LISTSTYLETYPE_CIRCLE
+        LISTSTYLETYPE_SQUARE, LISTSTYLETYPE_DISC, LISTSTYLETYPE_CIRCLE,
+        LISTSTYLETYPE_NONE
     };
     CssProperty prop;
     Tcl_Interp *interp = pLayout->pTree->interp;
@@ -844,8 +861,15 @@ static int nodeGetFontSize(pLayout, pNode)
             val = nodeGetFontSize(pLayout, pNode->pParent);
             val = val * prop.v.rVal;
             break;
+        case CSS_TYPE_PERCENT:
+            val = nodeGetFontSize(pLayout, pNode->pParent);
+            val = (val * prop.v.iVal) / 100;
+            break;
         case CSS_TYPE_PX:
             val = prop.v.iVal * 0.8;
+            break;
+        case CSS_TYPE_FLOAT:
+            val = prop.v.rVal * 0.8;
             break;
         case CSS_TYPE_PT:
             val = prop.v.iVal;
@@ -1138,38 +1162,40 @@ nodeGetEmPixels(pLayout, pNode)
  *---------------------------------------------------------------------------
  */
 static void 
-nodeGetBoxProperties(pLayout, pNode, pBoxProperties)
+nodeGetBoxProperties(pLayout, pNode, parentwidth, pBoxProperties)
     LayoutContext *pLayout;
     HtmlNode *pNode;
+    int parentwidth;
     BoxProperties *pBoxProperties;
 {
     CssProperty b;
     CssProperty p;
+    int w = parentwidth;
     Tcl_Interp *interp = pLayout->interp;
 
     HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_PADDING_TOP, &p);
-    pBoxProperties->padding_top = propertyToPixels(pLayout, pNode, &p, 0, 0);
+    pBoxProperties->padding_top = propertyToPixels(pLayout, pNode, &p, w, 0);
     HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_PADDING_LEFT, &p);
-    pBoxProperties->padding_left = propertyToPixels(pLayout, pNode, &p, 0, 0);
+    pBoxProperties->padding_left = propertyToPixels(pLayout, pNode, &p, w, 0);
     HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_PADDING_RIGHT, &p);
-    pBoxProperties->padding_right = propertyToPixels(pLayout, pNode, &p, 0, 0);
+    pBoxProperties->padding_right = propertyToPixels(pLayout, pNode, &p, w, 0);
     HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_PADDING_BOTTOM, &p);
-    pBoxProperties->padding_bottom = propertyToPixels(pLayout, pNode, &p, 0, 0);
+    pBoxProperties->padding_bottom = propertyToPixels(pLayout, pNode, &p, w, 0);
 
     HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BORDER_TOP_STYLE, &b);
     if (b.eType==CSS_TYPE_STRING && 0==strcmp(b.v.zVal, "none")) {
         pBoxProperties->border_top = 0;
     }else{
         HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BORDER_TOP_WIDTH, &b);
-        pBoxProperties->border_top = propertyToPixels(pLayout, pNode, &b, 0, 0);
+        pBoxProperties->border_top = propertyToPixels(pLayout, pNode, &b, w, 0);
     }
 
     HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BORDER_BOTTOM_STYLE, &b);
     if (b.eType==CSS_TYPE_STRING && 0==strcmp(b.v.zVal, "none")) {
         pBoxProperties->border_bottom = 0;
     }else{
-        HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BORDER_BOTTOM_WIDTH, &b);
-        pBoxProperties->border_bottom = propertyToPixels(pLayout,pNode,&b,0,0);
+        HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BORDER_BOTTOM_WIDTH,&b);
+        pBoxProperties->border_bottom = propertyToPixels(pLayout,pNode,&b,w,0);
     }
 
     HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BORDER_LEFT_STYLE, &b);
@@ -1177,7 +1203,7 @@ nodeGetBoxProperties(pLayout, pNode, pBoxProperties)
         pBoxProperties->border_left = 0;
     }else{
         HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BORDER_LEFT_WIDTH, &b);
-        pBoxProperties->border_left = propertyToPixels(pLayout,pNode,&b,0,0);
+        pBoxProperties->border_left = propertyToPixels(pLayout,pNode,&b,w,0);
     }
 
     HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BORDER_RIGHT_STYLE, &b);
@@ -1185,7 +1211,7 @@ nodeGetBoxProperties(pLayout, pNode, pBoxProperties)
         pBoxProperties->border_right = 0;
     }else{
         HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BORDER_RIGHT_WIDTH, &b);
-        pBoxProperties->border_right = propertyToPixels(pLayout,pNode,&b,0,0);
+        pBoxProperties->border_right = propertyToPixels(pLayout,pNode,&b,w,0);
     }
 }
 
@@ -1281,7 +1307,15 @@ static int nodeGetHeight(pLayout, pNode, pwidth, def)
  *---------------------------------------------------------------------------
  *
  * nodeGetWidth --
+ * 
+ *     Return the value of the 'width' property for a given node.
  *
+ *     This function also handles the 'max-width' and 'min-width'
+ *     properties. If there is no 'width' attribute and the default value
+ *     supplied as the fourth argument is greater than zero, then the
+ *     'min-width' and 'max-width' properties are taken into account when
+ *     figuring out the return value.
+ * 
  * Results:
  *     None.
  *
@@ -1291,23 +1325,47 @@ static int nodeGetHeight(pLayout, pNode, pwidth, def)
  *---------------------------------------------------------------------------
  */
 static int nodeGetWidth(pLayout, pNode, pwidth, def, pIsFixed)
-    LayoutContext *pLayout;
-    HtmlNode *pNode;
-    int pwidth; 
-    int def;
-    int *pIsFixed;
+    LayoutContext *pLayout;   /* Layout context */
+    HtmlNode *pNode;          /* Node */
+    int pwidth;               /* Value to calculate percentage widths of */
+    int def;                  /* Default value */
+    int *pIsFixed;            /* OUT: True if a pixel width */
 {
     int val;
+
     CssProperty width;
+    int min;
+    int max;
+    CssProperty minwidth;
+    CssProperty maxwidth;
 
     HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_WIDTH, &width);
     val = propertyToPixels(pLayout, pNode, &width, pwidth, def);
 
-    if (width.eType==CSS_TYPE_PX) {
-        if (pIsFixed) *pIsFixed = 1;
-    } else {
-        if (pIsFixed) *pIsFixed = 0;
+    switch (width.eType) {
+        case CSS_TYPE_PX:
+            if (pIsFixed) *pIsFixed = 1;
+            break;
+        case CSS_TYPE_NONE: {
+            int min;
+            int max;
+            CssProperty minwidth;
+            CssProperty maxwidth;
+            HtmlNodeGetProperty(
+                    pLayout->interp, pNode, CSS_PROPERTY_MIN_WIDTH, &minwidth);
+            HtmlNodeGetProperty(
+                    pLayout->interp, pNode, CSS_PROPERTY_MAX_WIDTH, &maxwidth);
+            min = propertyToPixels(pLayout, pNode, &minwidth, pwidth, 0);
+            max = propertyToPixels(pLayout, pNode, &maxwidth, pwidth, val);
+            val = MAX(val, min);
+            val = MIN(val, max);
+        }
+        /* Fall through */
+        default:
+            if (pIsFixed) *pIsFixed = 0;
+           
     }
+
     return val;
 }
 
@@ -1557,7 +1615,8 @@ static int floatLayout(pLayout, pBox, pNode, pY)
     BoxContext sBox;                 /* Generated box. */
     FloatMargin sFloat;              /* Internal floating margin list. */
     MarginProperties margins;        /* Generated box margins. */
-    int width;                       /* Width of generated box. */
+    int width;                       /* Width of generated box content. */
+    int totalwidth;                  /* Width incl. margins, padding, border */
     int marginwidth;                 /* Width of box including margins */
     int leftFloat = 0;                   /* left floating margin */
     int rightFloat = pBox->parentWidth;  /* right floating margin */
@@ -1600,10 +1659,10 @@ static int floatLayout(pLayout, pBox, pNode, pY)
     assert(display.eDisplay==DISPLAY_BLOCK || display.eDisplay==DISPLAY_TABLE);
 
     /* According to CSS, a floating box must have an explicit width or
-     * replaced content (in which case nodeGetWidth() returns the width of
-     * the replaced content). But if it doesn't, we just assign the maximum
-     * width of the floating box, or 1/3 the width of the parent box,
-     * whichever is smaller.
+     * replaced content. But if it doesn't, we just assign the maximum
+     * width of the floating box. The 'width' value calculated here is the
+     * content width of the floating box, it doesn't include margins,
+     * padding, or borders.
      */
     width = nodeGetWidth(pLayout, pNode, pBox->parentWidth, -1, 0);
     if (width<0) {
@@ -1618,37 +1677,44 @@ static int floatLayout(pLayout, pBox, pNode, pY)
     nodeGetMargins(pLayout, pNode, &margins);
     marginwidth = width + margins.margin_left + margins.margin_right;
 
-    /* Figure out the y-coordinate to draw the floating box at. This is
-     * usually the current y coordinate. However if other floats mean that
-     * the parent box is not wide enough for this float, we may shift this
-     * float downward until there is room.
-     */
-    y = floatListPlace(pBox->pFloats, pBox->parentWidth, marginwidth, y);
-    floatListClear(pBox->pFloats, y);
-    *pY = y;
-    floatListMargins(pBox->pFloats, &leftFloat, &rightFloat);
-
-    /* Get the exact x coordinate to draw the box at. If it won't fit, 
-     * even after shifting down past other floats in code above, then
-     * align with the left margin, even if the box is right-floated.
-     */ 
-    if (display.eFloat==FLOAT_LEFT) {
-        x = leftFloat;
-    } else {
-        x = rightFloat - width;
-        if (x<leftFloat) {
-            x = leftFloat;
-        }
-    }
-
     /* Draw the floating box. Set marginValid to 1 and marginValue to 0 to
      * ensure that the top margin of the floating box is allocated. Margins
      * of floating boxes never collapse.
      */
     pLayout->marginValid = 1;
     pLayout->marginValue = 0;
-    sBox.parentWidth = width;
-    blockLayout2(pLayout, &sBox, pNode, 0);
+    sBox.contentWidth = width;
+    sBox.parentWidth = pBox->parentWidth;
+    blockLayout(pLayout, &sBox, pNode, 0);
+    pLayout->marginValid = marginValid;
+    pLayout->marginValue = marginValue;
+    totalwidth = sBox.width;
+
+    /* Figure out the y-coordinate to draw the floating box at. This is
+     * usually the current y coordinate. However if other floats mean that
+     * the parent box is not wide enough for this float, we may shift this
+     * float downward until there is room.
+     */
+    y = floatListPlace(pBox->pFloats, pBox->parentWidth, totalwidth, y);
+    floatListClear(pBox->pFloats, y);
+    y = floatListClearMargin(pBox->pFloats, display.eClear, y);
+    floatListMargins(pBox->pFloats, &leftFloat, &rightFloat);
+    *pY = y;
+
+    /* Get the exact x coordinate to draw the box at. If it won't fit, 
+     * even after shifting down past other floats in code above, then
+     * align with the left margin, even if the box is right-floated.
+     * Once we have the x coordinate, we can copy the generated box into
+     * it's parent box pBox.
+     */ 
+    if (display.eFloat==FLOAT_LEFT) {
+        x = leftFloat;
+    } else {
+        x = rightFloat - marginwidth;
+        if (x<leftFloat) {
+            x = leftFloat;
+        }
+    }
     HtmlDrawCanvas(&pBox->vc, &sBox.vc, x, y);
 
     /* If the right-edge of this floating box exceeds the current actual
@@ -1662,15 +1728,13 @@ static int floatLayout(pLayout, pBox, pNode, pY)
      * this floating box.
      */
     if (display.eFloat==FLOAT_LEFT) {
-        int m = x + width;
+        int m = x + totalwidth;
         floatListAdd(pBox->pFloats, FLOAT_LEFT, m, y + sBox.height);
     } else {
         int m = x;
         floatListAdd(pBox->pFloats, FLOAT_RIGHT, m, y + sBox.height);
     }
 
-    pLayout->marginValid = marginValid;
-    pLayout->marginValue = marginValue;
     return TCL_OK;
 }
 
@@ -1708,8 +1772,10 @@ markerLayout(pLayout, pBox, pNode)
     Tcl_Obj *pMarker;        /* Tcl_Obj copy of zMarker */
     int width;               /* Width of string zMarker in current font */
     Tk_Font font;
+    Tk_FontMetrics fontMetrics;
     XColor *color;
     int offset;
+    int yoffset;
 
     /* Todo: This code has to co-operate with nodeGetListStyleType()
      * to generate markers for ordered lists ("1.", "2." etc.).
@@ -1724,6 +1790,9 @@ markerLayout(pLayout, pBox, pNode)
              break;
         case LISTSTYLETYPE_DISC:
              zMarker = "\xe2\x80\xa2";      /* Unicode 0x25CF */ 
+             break;
+        case LISTSTYLETYPE_NONE:
+             zMarker = "";                  /* Nothin' */
              break;
     }
     font = nodeGetFont(pLayout, pNode);
@@ -1741,7 +1810,9 @@ markerLayout(pLayout, pBox, pNode)
      * in the current font to the left of the content box.
      */
     offset = Tk_TextWidth(font, "xxx", 3);
-    HtmlDrawText(&pBox->vc, pMarker, -1*offset, 0, width, font, color);
+    Tk_GetFontMetrics(font, &fontMetrics);
+    yoffset = -1 * fontMetrics.ascent;
+    HtmlDrawText(&pBox->vc, pMarker, -1*offset, -1*yoffset, width, font, color);
     return TCL_OK;
 }
 
@@ -1859,7 +1930,11 @@ static InlineBorder *inlineContextGetBorder(pLayout, pNode)
     InlineBorder border;
     InlineBorder *pBorder = 0;
 
-    nodeGetBoxProperties(pLayout, pNode, &border.box);
+    /* TODO: Pass a parent-width to this function to calculate
+     * widths/heights specified as percentages.
+     */
+    nodeGetBoxProperties(pLayout, pNode, 0,&border.box);
+
     nodeGetMargins(pLayout, pNode, &border.margin);
     nodeGetBorderProperties(pLayout, pNode, &border.border);
     border.pNext = 0;
@@ -1885,7 +1960,18 @@ static InlineBorder *inlineContextGetBorder(pLayout, pNode)
  * inlineContextSetTextAlign --
  *
  *     Set the value of the 'text-align' property to use when formatting an
- *     inline-context.
+ *     inline-context. An entire inline context always has the same value
+ *     for 'text-align', the value assigned to the block that generates the
+ *     inline context. For example, in the following code:
+ *
+ *         <p style="text-align:center">
+ *             .... text ....
+ *             <span style="text-align:left">
+ *             .... more text ....
+ *         </p>
+ *
+ *     all lines are centered. The style attribute of the <span> tag has no
+ *     effect on the layout.
  *
  * Results:
  *     None.
@@ -2051,6 +2137,14 @@ static void inlineContextDrawBorder(pCanvas, pBorder, x1, y1, x2, y2, drb)
  *
  * inlineContextGetLineBox --
  *
+ *     Parameter pWidth is a little complicated. When this function is
+ *     called, *pWidth should point to the width available for the
+ *     current-line box. If not even one inline-box can fit within this
+ *     width, and the 'forcebox' flag is not true, then zero is returned
+ *     and *pWidth set to the minimum width required to draw content. If
+ *     zero is returend and *pWidth is set to 0, then the InlineContext is
+ *     completely empty of inline-boxes and no line-box can be generated.
+ *
  * Results:
  *     None.
  *
@@ -2060,9 +2154,9 @@ static void inlineContextDrawBorder(pCanvas, pBorder, x1, y1, x2, y2, drb)
  *---------------------------------------------------------------------------
  */
 static int 
-inlineContextGetLineBox(p, width, forceline, forcebox, pCanvas)
+inlineContextGetLineBox(p, pWidth, forceline, forcebox, pCanvas)
     InlineContext *p;
-    int width;                /* Maximum width available for line-box */
+    int *pWidth;              /* IN/OUT: See above */
     int forceline;            /* Draw line even if line is not full */
     int forcebox;             /* Draw at least one inline box */
     HtmlCanvas *pCanvas;      /* Canvas to render line box to */
@@ -2077,6 +2171,7 @@ inlineContextGetLineBox(p, width, forceline, forcebox, pCanvas)
     HtmlCanvas borders;      /* Canvas for borders */
     InlineBorder *pBorder;
     int iLeft = 0;           /* Leftmost pixel of line box */
+    int width = *pWidth;
 
     memset(&content, 0, sizeof(HtmlCanvas));
     memset(&borders, 0, sizeof(HtmlCanvas));
@@ -2102,16 +2197,29 @@ inlineContextGetLineBox(p, width, forceline, forcebox, pCanvas)
     }
     nBox = i;
 
-    /* If the forceline flag is not true, and the line-box is not full,
-     * return 0 and do not draw anything.
-     *
-     * If the forcebox flag is true and no boxes fit within the requested
-     * width, then draw one box anyway.
-     */
-    if(forcebox && !nBox) {
+    if ((p->nInline == 0) || (!forceline && (nBox == p->nInline))) {
+        /* Either the inline context contains no inline-boxes or there are
+         * not enough to fill the line-box and the 'force-line' flag is not
+         * set. In this case return 0 and set *pWidth to 0 too.
+         */
+        *pWidth = 0;
+        return 0;
+    }
+    if (forcebox && 0 == nBox) {
+        /* The first inline-box is too wide for the supplied width, but the
+         * 'forcebox' flag is set so we have to lay out at least one box.
+         */
         nBox = 1;
     }
-    if((p->nInline == 0) || (!forceline && (nBox == p->nInline)) || nBox == 0) {
+    if (nBox == 0) {
+        /* If we get here, then their are inline-boxes, but the first of
+         * them is too wide for the width we've been offered and the
+         * 'forcebox' flag is not true. Return zero, but set *pWidth to the
+         * minimum width required before doing so.
+         */
+        InlineBox *pBox = &p->aInline[i];
+        *pWidth = (pBox->canvas.right - pBox->canvas.left); 
+                 + pBox->nRightPixels + pBox->nLeftPixels;
         return 0;
     }
 
@@ -2342,6 +2450,16 @@ inlineText(pLayout, pNode, pContext)
  *
  * inlineLayoutDrawLines --
  *
+ *     This function extracts zero or more line-boxes from an InlineContext
+ *     object and draws them to a BoxContext. Variable *pY holds the
+ *     Y-coordinate to draw line-boxes at in pBox. It is incremented by the
+ *     height of each line box drawn before this function returns.
+ *
+ *     If parameter 'forceflag' is true, then all inline-boxes currently
+ *     held by pContext are layed out, even if this means laying out an
+ *     incomplete line. This is used (for example) at the end of a
+ *     paragraph.
+ *
  * Results:
  *     None.
  *
@@ -2355,31 +2473,40 @@ inlineLayoutDrawLines(pLayout, pBox, pContext, forceflag, pY)
     LayoutContext *pLayout;
     BoxContext *pBox;
     InlineContext *pContext;
-    int forceflag;
-    int *pY;
+    int forceflag;               /* True to lay out final, incomplete line. */
+    int *pY;                     /* IN/OUT: Y-coordinate in sBox.vc. */
 {
     int have;
     do {
         HtmlCanvas linecanvas;
         int w;
+        int f;                     /* Force at least one inline-box per line */
         int y = *pY;               /* Y coord for line-box baseline. */
         int leftFloat = 0;
         int rightFloat = pBox->parentWidth;
+
         floatListMargins(pBox->pFloats, &leftFloat, &rightFloat);
+        f = floatListIsEmpty(pBox->pFloats);
 
         memset(&linecanvas, 0, sizeof(HtmlCanvas));
         w = rightFloat - leftFloat;
-        have = inlineContextGetLineBox(pContext, w, forceflag, 1, &linecanvas);
-        if (!have) {
-            return 0;
-        }
+        have = inlineContextGetLineBox(pContext, &w, forceflag, f, &linecanvas);
 
         if (have) {
             HtmlDrawCanvas(&pBox->vc, &linecanvas, leftFloat, y-linecanvas.top);
             y += (linecanvas.bottom - linecanvas.top);
             pBox->width = MAX(pBox->width, linecanvas.right + leftFloat);
             pBox->height = MAX(pBox->height, y);
-        }
+        } else if( w ) {
+            /* If have==0 but w has been set to some non-zero value, then
+             * there are inline-boxes in the inline-context, but there is
+             * not enough space for the first inline-box in the width
+             * provided. Increase the Y-coordinate and try the loop again.
+             */
+            assert(!f);
+            y = floatListPlace(pBox->pFloats, pBox->parentWidth, w, y);
+            have = 1;
+        } 
 
 	floatListClear(pBox->pFloats, y);
         *pY = y;
@@ -2419,8 +2546,7 @@ inlineLayoutNode(pLayout, pBox, pNode, pY, pContext)
      * to account for it.
      */
     if (display.eFloat != FLOAT_NONE) {
-        int y = *pY;
-        floatLayout(pLayout, pBox, pNode, &y);
+        floatLayout(pLayout, pBox, pNode, pY);
     }
 
     /* A block box. 
@@ -2436,7 +2562,7 @@ inlineLayoutNode(pLayout, pBox, pNode, pY, pContext)
         sBox.pFloats = pBox->pFloats;
 
         floatListNormalize(sBox.pFloats, 0, -1*y);
-        blockLayout2(pLayout, &sBox, pNode, 0);
+        blockLayout(pLayout, &sBox, pNode, 0);
         if (!HtmlDrawIsEmpty(&sBox.vc)) {
             HtmlDrawCanvas(&pBox->vc, &sBox.vc, 0, y);
         }
@@ -2458,18 +2584,6 @@ inlineLayoutNode(pLayout, pBox, pNode, pY, pContext)
         rc = inlineText(pLayout, pNode, pContext);
     }
 
-    /* If we have a <br> tag, then add a line-break. This is a hack to
-     * support HTML without actually supporting the CSS :before
-     * pseudo-element. A more elegant way to handle BR is with a stylesheet
-     * rule like:
-     *
-     *      br:before {content:"\A"} 
-     *
-     */
-    else if(HtmlNodeTagType(pNode) == Html_BR) {
-        rc = inlineLayoutDrawLines(pLayout, pBox, pContext, 1, pY);
-    }
-
     /* If none of the above conditions is true, then we have either a 
      * replaced inline node, or an inline node that does not generate
      * any content itself, for example <b> or <span>. What these two cases 
@@ -2487,10 +2601,15 @@ inlineLayoutNode(pLayout, pBox, pNode, pY, pContext)
         if(0 != (zReplace=nodeGetTkhtmlReplace(pLayout,pNode))) {
             BoxContext sBox;
             HtmlCanvas *pCanvas;
+            int xoffset;
+            int yoffset;
+
             memset(&sBox, 0, sizeof(BoxContext));
             layoutReplacement(pLayout, &sBox, pNode, zReplace);
             pCanvas = inlineContextAddInlineCanvas(pContext);
-            HtmlDrawCanvas(pCanvas, &sBox.vc, -1*sBox.vc.left, -1*sBox.vc.top);
+            xoffset = -1 * sBox.vc.left;
+            yoffset = -1 * sBox.vc.bottom;
+            HtmlDrawCanvas(pCanvas, &sBox.vc, xoffset, yoffset);
         }
 
         /* If there was no replacement image or widget, recurse through the
@@ -2611,7 +2730,7 @@ blockMinMaxWidth(pLayout, pNode, pMin, pMax)
         memset(&sBox, 0, sizeof(BoxContext));
         memset(&sFloat, 0, sizeof(FloatMargin));
         sBox.pFloats = &sFloat;
-        blockLayout2(pLayout, &sBox, pNode, 0);
+        blockLayout(pLayout, &sBox, pNode, 0);
         HtmlDrawCleanup(&sBox.vc);
         min = sBox.width;
     
@@ -2624,7 +2743,7 @@ blockMinMaxWidth(pLayout, pNode, pMin, pMax)
         memset(&sFloat, 0, sizeof(FloatMargin));
         sBox.pFloats = &sFloat;
         sBox.parentWidth = 10000;
-        blockLayout2(pLayout, &sBox, pNode, 0);
+        blockLayout(pLayout, &sBox, pNode, 0);
         HtmlDrawCleanup(&sBox.vc);
         max = sBox.width;
         assert(max>=min);
@@ -2864,7 +2983,8 @@ static void borderLayout(pLayout, pNode, pBox, x1, y1, x2, y2)
     int tw, rw, bw, lw;
     XColor *tc, *rc, *bc, *lc;
 
-    nodeGetBoxProperties(pLayout, pNode, &boxproperties);
+    /* TODO: Parent width */
+    nodeGetBoxProperties(pLayout, pNode, 0, &boxproperties);
     nodeGetBorderProperties(pLayout, pNode, &borderproperties);
 
     tw = boxproperties.border_top;
@@ -3066,7 +3186,7 @@ tableDrawCells(pNode, col, colspan, row, rowspan, pContext)
     }
 
     pData->pLayout->marginValid = 0;
-    blockLayout2(pData->pLayout, pBox, pNode, 1);
+    blockLayout(pData->pLayout, pBox, pNode, 1);
     belowY = y + pBox->height + pData->border_spacing;
 
     assert(row+rowspan < pData->nRow+1);
@@ -3479,7 +3599,7 @@ static int tableLayout(pLayout, pBox, pNode)
      *     * Otherwise use the smaller of maxwidth and the width of the
      *       parent box.
      */
-    nodeGetBoxProperties(pLayout, pNode, &boxproperties);
+    nodeGetBoxProperties(pLayout, pNode, pBox->parentWidth, &boxproperties);
     minwidth = (nCol+1) * data.border_spacing;
     maxwidth = (nCol+1) * data.border_spacing;
     for (i=0; i<nCol; i++) {
@@ -3580,13 +3700,51 @@ layoutReplacement(pLayout, pBox, pNode, zReplace)
 /*
  *---------------------------------------------------------------------------
  *
- * blockLayout2 --
+ * blockLayout --
  *
- *     This function is directly responsible for the borders, margins,
- *     padding and background of pNode. Drawing the actual content of pNode
- *     is done by calling a display type specific function - tableLayout(),
- *     blockLayout() or markerLayout(). It also deals with horizontal
- *     alignment of the block within the parent.
+ *     This function lays out the block box generated by pNode according
+ *     to the information in pBox. pNode must generate a block box, not
+ *     inline content.
+ * 
+ *     When this function returns, the generated box has been drawn to
+ *     canvas BoxContext.vc with the top-left corner at coordinates (0, 0).
+ *     The "top-left corner" is defined as the pixel just inside the top
+ *     and left *margins* of the box.
+ *
+ *     Box Width Calculation:
+ *
+ *         If BoxContext.contentWidth is greater than zero, then this is
+ *         the width used for the content of the box. Otherwise, the value
+ *         of BoxContext.parentWidth, the width of the parent content area
+ *         is used along with the 'width' property to calculate a content
+ *         width.  If no 'width' property is specified, then the content
+ *         width is calculated as follows:
+ *
+ *         <content-width> =
+ *                 BoxContext.parentWidth -
+ *                 Width of left and right padding -
+ *                 Width of left and right borders -
+ *                 Width of left and right margins 
+ *
+ *         If a 'width' property is specified, then this is the width of
+ *         the content. Percentage values are calculated relative to
+ *         BoxContext.parentWidth.
+ *
+ *     Floating boxes:
+ *
+ *         Normally, boxes layed out by this function do not wrap around
+ *         any floating boxes. Instead, the content (i.e. the text) inside
+ *         the box wraps around them. The exceptions are:
+ * 
+ *             * Boxes that are replaced by images or widgets, and
+ *             * Boxes that are tables (i.e. <table>).
+ *
+ *         In this case, the box is positioned either to the side or below
+ *         the current floating margins.
+ * 
+ *     Collapsing Margins:
+ *
+ *         TODO: Notes describing how collapsing margins are implemented.
  *
  * Results:
  *     None.
@@ -3596,11 +3754,11 @@ layoutReplacement(pLayout, pBox, pNode, zReplace)
  *
  *---------------------------------------------------------------------------
  */
-static int blockLayout2(pLayout, pBox, pNode, omitborder)
+static int blockLayout(pLayout, pBox, pNode, omitborder)
     LayoutContext *pLayout;
     BoxContext *pBox;
     HtmlNode *pNode;         /* The node to layout */
-    int omitborder;          /* True to allocate byt not draw the border */
+    int omitborder;          /* True to allocate but not draw the border */
 {
     DisplayProperties display;     /* Display properties of pNode */
     MarginProperties margin;       /* Margin properties of pNode */
@@ -3631,7 +3789,7 @@ static int blockLayout2(pLayout, pBox, pNode, omitborder)
         return TCL_OK;
     }
     nodeGetMargins(pLayout, pNode, &margin);
-    nodeGetBoxProperties(pLayout, pNode, &boxproperties);
+    nodeGetBoxProperties(pLayout, pNode, pBox->parentWidth, &boxproperties);
     HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY__TKHTML_REPLACE, &replace);
 
     /* If the node is a table, or a replaced node (image or Tk window),
@@ -3642,6 +3800,11 @@ static int blockLayout2(pLayout, pBox, pNode, omitborder)
     isReplaced = replace.eType==CSS_TYPE_STRING;
     isBoxObject = (display.eDisplay==DISPLAY_TABLE || isReplaced);
 
+    /* Adjust the Y-coordinate to account for the 'clear' property. */
+    y = floatListClearMargin(pBox->pFloats, display.eClear, y);
+
+    leftFloat = 0;
+    rightFloat = pBox->parentWidth;
     if (pLayout->minmaxTest==0 && isBoxObject) { 
         /* If this is a replaced node or a table, then see if we need to
          * dodge around any floating margins. With other blocks, the
@@ -3651,22 +3814,25 @@ static int blockLayout2(pLayout, pBox, pNode, omitborder)
         int dummymax;
     
         blockMinMaxWidth(pLayout, pNode, &min, &dummymax);
-        y = floatListPlace(pBox->pFloats, pBox->parentWidth, min, 0);
+        y = floatListPlace(pBox->pFloats, pBox->parentWidth, min, y);
         floatListClear(pBox->pFloats, y);
         floatListMargins(pBox->pFloats, &leftFloat, &rightFloat);
     }
 
     /* Figure out how much horizontal space the node content will
-     * have available to it. This is the width of the parent box, 
-     * less the horizontal margins, border and padding of this box.
-     * Floating margins are taken into account for tables and replaced
-     * objects only.
+     * have available to it. Set sBox.parentWidth to this value. See the
+     * description in the function header comment for the details.
      */
-    sBox.parentWidth = 
-            pBox->parentWidth - margin.margin_left - margin.margin_right -
+    if (pBox->contentWidth > 0) {
+        sBox.parentWidth = pBox->contentWidth;
+    } else {
+        int w = rightFloat - leftFloat;
+        sBox.parentWidth = w -
+            margin.margin_left - margin.margin_right -
             boxproperties.border_left - boxproperties.border_right -
-            boxproperties.padding_left - boxproperties.padding_right -
-            leftFloat - rightFloat;
+            boxproperties.padding_left - boxproperties.padding_right;
+        sBox.parentWidth = nodeGetWidth(pLayout, pNode, w, sBox.parentWidth, 0);
+    }
     if (sBox.parentWidth<0) {
         sBox.parentWidth = 0;
     }
@@ -3733,7 +3899,7 @@ static int blockLayout2(pLayout, pBox, pNode, omitborder)
      * not draw the border, or allocate any padding. This is the observed
      * behaviour of modern browsers.
      */
-    if (sBox.height>0) {
+    if (sBox.height>0 || display.eClear != CLEAR_NONE) {
         int hoffset = 0;
 
         if (display.eDisplay==DISPLAY_TABLE || isReplaced) {
@@ -3931,7 +4097,7 @@ int HtmlLayoutForce(clientData, interp, objc, objv)
      * <body> tag 
      */
     sLayout.pTop = pBody;
-    rc = blockLayout2(&sLayout, &sBox, pBody, 0);
+    rc = blockLayout(&sLayout, &sBox, pBody, 0);
 
     HtmlDrawCleanup(&pTree->canvas);
     memcpy(&pTree->canvas, &sBox.vc, sizeof(HtmlCanvas));

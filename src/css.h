@@ -45,10 +45,11 @@ typedef struct CssNodeInterface CssNodeInterface;
 #define CSS_TYPE_PT           3            /* Value in 'iVal' */
 #define CSS_TYPE_STRING       4            /* Value in 'sVal' */
 #define CSS_TYPE_PERCENT      5            /* Value in 'iVal' */
-#define CSS_TYPE_NONE         6            /* No value */
+#define CSS_TYPE_FLOAT        6            /* Value in 'rVal' */
+#define CSS_TYPE_NONE         7            /* No value */
 
-#define CSS_TYPE_TCL         7             /* Value in 'zVal' */
-#define CSS_TYPE_URL         8             /* Value in 'zVal' */
+#define CSS_TYPE_TCL         8             /* Value in 'zVal' */
+#define CSS_TYPE_URL         9             /* Value in 'zVal' */
 
 struct CssProperty {
     int eType;

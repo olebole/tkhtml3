@@ -138,7 +138,7 @@ simple_selector_tail ::= HASH IDENT(X) simple_selector_tail_opt. {
 }
 simple_selector_tail ::= DOT IDENT(X) simple_selector_tail_opt. {
     CssToken cls = {"class", 5};
-    tkhtmlCssSelector(pParse, CSS_SELECTOR_ATTRVALUE, &cls, &X);
+    tkhtmlCssSelector(pParse, CSS_SELECTOR_ATTRLISTVALUE, &cls, &X);
 }
 simple_selector_tail ::= LSP IDENT(X) RSP simple_selector_tail_opt. {
     tkhtmlCssSelector(pParse, CSS_SELECTOR_ATTR, &X, 0);

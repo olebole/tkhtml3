@@ -253,7 +253,9 @@ tokenToProperty(pToken)
     } lengths[] = {
         {CSS_TYPE_EM, 2, "em", 0},
         {CSS_TYPE_PX, 2, "px", 1},
-        {CSS_TYPE_PT, 2, "pt", 1}
+        {CSS_TYPE_PT, 2, "pt", 1},
+        {CSS_TYPE_PERCENT, 1, "%", 1},
+        {CSS_TYPE_FLOAT, 0, "", 0}
     };
 
     struct FunctionFormat {
@@ -826,6 +828,24 @@ propertySetAddShortcutBackground(p, v)
     CONST char *z= v->z;
     CONST char *zEnd = z + v->n;
     int n;
+    int i;
+
+    struct ReservedWord {
+        CONST char *zWord;
+        int property;
+    } reserved [] = {
+        {"scroll", CSS_PROPERTY_BACKGROUND_ATTACHMENT},
+        {"fixed", CSS_PROPERTY_BACKGROUND_ATTACHMENT},
+        {"repeat", CSS_PROPERTY_BACKGROUND_REPEAT},
+        {"no-repeat", CSS_PROPERTY_BACKGROUND_REPEAT},
+        {"repeat-y", CSS_PROPERTY_BACKGROUND_REPEAT},
+        {"repeat-x", CSS_PROPERTY_BACKGROUND_REPEAT},
+        {"top", CSS_PROPERTY_BACKGROUND_POSITION},
+        {"left", CSS_PROPERTY_BACKGROUND_POSITION},
+        {"right", CSS_PROPERTY_BACKGROUND_POSITION},
+        {"bottom", CSS_PROPERTY_BACKGROUND_POSITION},
+        {"center", CSS_PROPERTY_BACKGROUND_POSITION},
+    };
 
     while (z) {
         CssProperty *pProp;
@@ -838,9 +858,21 @@ propertySetAddShortcutBackground(p, v)
             z += n;
 
             switch (pProp->eType) {
-                case CSS_TYPE_STRING:
-                    propertySetAdd(p, CSS_PROPERTY_BACKGROUND_COLOR, pProp);
+                case CSS_TYPE_STRING: {
+                    int nReserved; 
+                    nReserved = sizeof(reserved) / sizeof(struct ReservedWord);
+                    for (i = 0; i < nReserved; i++) {
+                        if (0==strcmp(pProp->v.zVal, reserved[i].zWord)) {
+                            break;
+                        }
+                    }
+                    if (i == nReserved) {
+                        propertySetAdd(p, CSS_PROPERTY_BACKGROUND_COLOR, pProp);
+                    } else {
+                        propertySetAdd(p, reserved[i].property, pProp);
+                    }
                     break;
+                }
                 case CSS_TYPE_URL:
                     propertySetAdd(p, CSS_PROPERTY_BACKGROUND_IMAGE, pProp);
                     break;
@@ -1682,6 +1714,10 @@ static int attrTest(eType, zString, zAttr)
     const char *zString;
     const char *zAttr;
 {
+    if (!zAttr) {
+        return 0;
+    }
+
     switch( eType ){
         /* True if the specified attribute exists */
         case CSS_SELECTOR_ATTR:
@@ -1698,15 +1734,13 @@ static int attrTest(eType, zString, zAttr)
          */
         case CSS_SELECTOR_ATTRLISTVALUE: {
             const char *pAttr = zAttr;
-            while( pAttr && pAttr[0] ){
-                char *pSpace = strchr(zAttr, ' ');
-                if( pSpace && 0==strncasecmp(pAttr, zString, pSpace-pAttr) ){
+            int nAttr;
+            int nString = strlen(zString);
+            while (pAttr=getNextListItem(pAttr, strlen(pAttr), &nAttr)) {
+                if (nString==nAttr && 0==strncasecmp(pAttr, zString, nAttr)) {
                     return 1;
                 }
-                while( pSpace && *pSpace==' ' ){
-                    pSpace++;
-                }
-                pAttr = pSpace;
+                pAttr += nAttr;
             }
             return 0;
         }
@@ -1715,11 +1749,9 @@ static int attrTest(eType, zString, zAttr)
          * first '-' character in the attribute value.
          */
         case CSS_SELECTOR_ATTRHYPHEN: {
-            if( zAttr ){
-                char *pHyphen = strchr(zAttr, '-');
-                if( pHyphen && 0==strncasecmp(zAttr, zString, pHyphen-zAttr) ){
-                    return 1;
-                }
+            char *pHyphen = strchr(zAttr, '-');
+            if( pHyphen && 0==strncasecmp(zAttr, zString, pHyphen-zAttr) ){
+                return 1;
             }
             return 0;
         }

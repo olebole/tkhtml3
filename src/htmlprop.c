@@ -479,10 +479,13 @@ typedef struct PropMapEntry PropMapEntry;
 static PropMapEntry propmapdata[] = {
     {CSS_PROPERTY_DISPLAY, 0, 0, 0, {CSS_TYPE_STRING, "inline"}},
     {CSS_PROPERTY_FLOAT, 0, 0, 0, {CSS_TYPE_STRING, "none"}},
+    {CSS_PROPERTY_CLEAR, 0, 0, 0, {CSS_TYPE_STRING, "none"}},
 
     {CSS_PROPERTY_BACKGROUND_COLOR, 0, 0, mapBgColor, CSSSTR("transparent")},
     {CSS_PROPERTY_COLOR, 1, 0, mapColor, CSSSTR("black")},
     {CSS_PROPERTY_WIDTH, 0, 0, mapWidth, {CSS_TYPE_NONE, 0}},
+    {CSS_PROPERTY_MIN_WIDTH, 0, 0, 0, {CSS_TYPE_NONE, 0}},
+    {CSS_PROPERTY_MAX_WIDTH, 0, 0, 0, {CSS_TYPE_NONE, 0}},
     {CSS_PROPERTY_HEIGHT, 0, 0, mapHeight, {CSS_TYPE_NONE, 0}},
 
     /* Font and text related properties */
