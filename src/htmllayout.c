@@ -315,6 +315,8 @@ struct InlineBorder {
   BorderProperties border;
   MarginProperties margin;
   BoxProperties box;
+  int textdecoration;         /* Value of 'text-decoration' property */
+  XColor *color;              /* Color for text-decoration */
   int iStartBox;
   int iStartPixel;            /* Left most pixel of outer margin */
   InlineBorder *pNext;
@@ -347,7 +349,7 @@ static void inlineContextSetTextAlign(InlineContext *, int);
 static HtmlCanvas *inlineContextAddInlineCanvas(InlineContext *);
 static void inlineContextAddSpace(InlineContext *, int);
 static int inlineContextGetLineBox(InlineContext *,int*,int,int,HtmlCanvas *);
-
+static int inlineContextIsEmpty(InlineContext *);
 static InlineBorder *inlineContextGetBorder(LayoutContext *, HtmlNode *);
 static int inlineContextPushBorder(InlineContext *, InlineBorder *);
 static int inlineContextPopBorder(InlineContext *, InlineBorder *);
@@ -1937,6 +1939,8 @@ static InlineBorder *inlineContextGetBorder(pLayout, pNode)
 
     nodeGetMargins(pLayout, pNode, &border.margin);
     nodeGetBorderProperties(pLayout, pNode, &border.border);
+    nodeGetBorderProperties(pLayout, pNode, &border.border);
+    border.textdecoration = nodeGetTextDecoration(pLayout, pNode);
     border.pNext = 0;
 
     if (border.box.padding_left   || border.box.padding_right     ||
@@ -1945,8 +1949,10 @@ static InlineBorder *inlineContextGetBorder(pLayout, pNode)
         border.box.border_top     || border.box.border_bottom     ||
         border.margin.margin_left || border.margin.margin_right   ||
         border.margin.margin_top  || border.margin.margin_bottom  ||
-        border.border.color_bg  
+        border.border.color_bg    || 
+        border.textdecoration != TEXTDECORATION_NONE
     ) {
+        border.color = nodeGetColour(pLayout, pNode);
         pBorder = (InlineBorder *)ckalloc(sizeof(InlineBorder));
         memcpy(pBorder, &border, sizeof(InlineBorder));
     }
@@ -2091,6 +2097,7 @@ static void inlineContextDrawBorder(pCanvas, pBorder, x1, y1, x2, y2, drb)
     int drb;                  /* Draw Right Border */
 {
     XColor *c = pBorder->border.color_bg;
+    int textdecoration = pBorder->textdecoration;
 
     int tw, rw, bw, lw;
     XColor *tc, *rc, *bc, *lc;
@@ -2129,6 +2136,32 @@ static void inlineContextDrawBorder(pCanvas, pBorder, x1, y1, x2, y2, drb)
         y2 -= pBorder->box.border_bottom;
 
         HtmlDrawQuad(pCanvas, x1, y1, x2, y1, x2, y2, x1, y2, c);
+    }
+
+    if (textdecoration != TEXTDECORATION_NONE) {
+        int y;                /* y-coordinate for horizontal line */
+        XColor *color = pBorder->color;
+
+        x2 -= pBorder->box.padding_right;
+        x1 += pBorder->box.padding_left;
+        y1 += pBorder->box.padding_top;
+        y2 -= pBorder->box.padding_bottom;
+
+        switch (textdecoration) {
+            case TEXTDECORATION_OVERLINE:
+                y = y1;
+                break;
+            case TEXTDECORATION_LINETHROUGH:
+                y = (y2+y1)/2;
+                break;
+            case TEXTDECORATION_UNDERLINE:
+                y = 1;
+                break;
+            default:
+                assert(0);
+        }
+
+        HtmlDrawQuad(pCanvas, x1, y, x2, y, x2, y+1, x1, y+1, pBorder->color);
     }
 }
 
@@ -2355,7 +2388,6 @@ inlineContextGetLineBox(p, pWidth, forceline, forcebox, pCanvas)
             memset(&borders, 0, sizeof(HtmlCanvas));
             inlineContextDrawBorder(&borders, pBorder, x1, y1, x2, y2, rb);
             HtmlDrawCanvas(&borders, &tmpcanvas, 0, 0);
-
         }
 
         for(j = 0; j < pBox->nBorderEnd; j++) {
@@ -2388,6 +2420,29 @@ inlineContextGetLineBox(p, pWidth, forceline, forcebox, pCanvas)
     memmove(p->aInline, &p->aInline[nBox], p->nInline * sizeof(InlineBox));
 
     return 1;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * inlineContextIsEmpty --
+ *
+ *     Return true if there are no inline-boxes currently accumulated in
+ *     the inline-context.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+inlineContextIsEmpty(pContext)
+    InlineContext *pContext;
+{
+    return (pContext->nInline==0);
 }
 
 /*
@@ -2554,8 +2609,35 @@ inlineLayoutNode(pLayout, pBox, pNode, pY, pContext)
     else if (display.eDisplay != DISPLAY_INLINE) {
         BoxContext sBox;
         int y = *pY;
+        int br_fix = 0;
 
+        /* Flush any inline-boxes accumulated in the inline-context.
+         *
+         * Handling the <br> tag is a special hack. In the default CSS
+         * file for HTML, we have:
+         *
+         *     BR {
+         *         display: block;
+         *         height: 1em;
+         *     }
+         *
+         * So if this is a <br> tag, and there are one or more inline-boxes
+	 * accumulated in the inline-context, then the <br> is the newline
+	 * at the end of the last line-box. But blockLayout() will also add
+	 * on 1em of vertical space. So we have the hack below to get
+	 * around this.
+         *
+         * If somebody messes with the <br> tag in another stylesheet, for
+         * example to draw a horizontal line or something, this will all go
+         * horribly wrong. But no-one would do that, right? Right.
+         */
+        if (!inlineContextIsEmpty(pContext) &&
+            HtmlNodeTagType(pNode)==Html_BR) 
+        {
+            br_fix = nodeGetHeight(pLayout, pNode, 0, 0);
+        }
         rc = inlineLayoutDrawLines(pLayout, pBox, pContext, 1, &y);
+        y -= br_fix;
 
         memset(&sBox, 0, sizeof(BoxContext));
         sBox.parentWidth = pBox->parentWidth;

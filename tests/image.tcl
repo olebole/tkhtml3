@@ -73,8 +73,10 @@ proc stylecmd {style} {
 
 # Procedure to handle a <link> tag that imports a stylesheet.
 proc linkcmd {node} {
-  set rel [$node attr rel]
-  if {[string compare -nocase $rel stylesheet]==0} {
+  set rel [string tolower [$node attr rel]]
+  set media [string tolower [$node attr media]]
+  set media_list [list all visual screen ""]
+  if {[string compare $rel stylesheet]==0 && [lsearch $media_list $media]!=-1} {
     set href [$node attr href]
     set filename [file join $::BASE $href]
     lappend ::STYLESHEET_FILES $filename
@@ -172,7 +174,7 @@ proc docname_to_primname {docname} {
 }
 
 proc compare_document_image {docname} {
-  $::HTML layout force
+  $::HTML layout force -width 800
   set layouttime [time {set img [$::HTML layout image]}]
   puts " Layout [lrange $layouttime 0 1]"
   set filename [docname_to_imgname $docname]

@@ -1829,11 +1829,23 @@ static int selectorTest(pSelector, pNodeInterface, pNode)
                 break;
             }
                 
-            /* TODO: Support pseudo elements and classes. */
+            /* TODO: Support pseudo elements and classes properly. The
+             * really important ones are ":visited" and ":link". ":active",
+             * ":hover" and ":focus" are also pretty crucial to rendering
+             * the web correctly.
+             */
             case CSS_PSEUDOCLASS_LANG:
             case CSS_PSEUDOCLASS_FIRSTCHILD:
                 return 0;
             case CSS_PSEUDOCLASS_LINK:
+                /* Psuedo-class ":link". This rule matches any element with
+                 * tag-type <a> and an href attribute.
+                 */
+                if (strcmp(NODE_TYPE(x), "a") ||
+                    !attrTest(CSS_SELECTOR_ATTR, 0, NODE_ATTR(x,"href"))
+                ) {
+                    return 0;
+                }
                 break;
             case CSS_PSEUDOCLASS_VISITED:
             case CSS_PSEUDOCLASS_ACTIVE:

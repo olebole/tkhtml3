@@ -120,11 +120,14 @@ U, INS          { text-decoration: underline }
 ABBR, ACRONYM   { font-variant: small-caps; letter-spacing: 0.1em }
 
 /* Display properties for hyperlinks */
-A[href]         { color: darkblue; text-decoration: underline }
+:link { color: darkblue; text-decoration: underline }
 
 /* Deal with the "nowrap" HTML attribute on table cells. */
 TD[nowrap] ,     TH[nowrap]     { white-space: nowrap; }
 TD[nowrap="0"] , TH[nowrap="0"] { white-space: normal; }
 
-BR              { display: block }
+BR { 
+    display: block;
+    height: 1em;
+}
 BR:before       { content: "\A" }
