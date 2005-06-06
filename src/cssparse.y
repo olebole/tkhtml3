@@ -137,8 +137,17 @@ simple_selector_tail ::= HASH IDENT(X) simple_selector_tail_opt. {
     tkhtmlCssSelector(pParse, CSS_SELECTOR_ATTRVALUE, &id, &X);
 }
 simple_selector_tail ::= DOT IDENT(X) simple_selector_tail_opt. {
-    CssToken cls = {"class", 5};
-    tkhtmlCssSelector(pParse, CSS_SELECTOR_ATTRLISTVALUE, &cls, &X);
+    /* A CSS class selector may not begin with a digit. Presumably this is
+     * because they expect to use this syntax for something else in a
+     * future version. For now, just insert a "never-match" condition into
+     * the rule to prevent it from having any affect.
+     */
+    if (X.n > 0 && !isdigit((int)(*X.z))) {
+        CssToken cls = {"class", 5};
+        tkhtmlCssSelector(pParse, CSS_SELECTOR_ATTRLISTVALUE, &cls, &X);
+    } else {
+        tkhtmlCssSelector(pParse, CSS_SELECTOR_NEVERMATCH, 0, 0);
+    }
 }
 simple_selector_tail ::= LSP IDENT(X) RSP simple_selector_tail_opt. {
     tkhtmlCssSelector(pParse, CSS_SELECTOR_ATTR, &X, 0);

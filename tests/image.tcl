@@ -83,6 +83,11 @@ proc linkcmd {node} {
   }
 }
 
+# Procedure to handle the <title> tag.
+proc titlecmd {title} {
+  wm title . [string trim $title]
+}
+
 proc load_document {css document} {
 
   set ::STYLESHEET_FILES {}
@@ -167,7 +172,7 @@ proc replace_select {node} {
 }
 
 proc docname_to_imgname {docname} {
-  return [file join $::TESTDIR [string map {{ } _ / _} $docname].png]
+  file join $::TESTDIR [string map {{ } _ / _} [file tail $docname]].png
 }
 proc docname_to_primname {docname} {
   return [file join $::TESTDIR [string map {{ } _ / _} $docname].primitives]
@@ -213,16 +218,18 @@ wm geometry . 800x600
 set ::HTML [html .h]
 $::HTML handler script script dummycmd
 $::HTML handler script style stylecmd
+$::HTML handler script title titlecmd
 $::HTML handler node link linkcmd
 
 if {[lindex $argv 0]=="-file"} {
   set fname [lindex $argv 1]
+  set fdir [file dirname $fname]
   set fd [open $fname]
   set ::DOCUMENT_LIST {}
   while {![eof $fd]} {
     set doc [gets $fd]
-    if {$doc!=""} {
-      lappend ::DOCUMENT_LIST $doc
+    if {$doc!="" && ![regexp {^ *#} $doc]} {
+      lappend ::DOCUMENT_LIST [file join $fdir $doc]
     }
   }
   close $fd

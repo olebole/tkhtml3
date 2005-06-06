@@ -67,8 +67,9 @@ struct LayoutContext {
     Tcl_HashTable widthCache;
     int minmaxTest;          /* Currently figuring out min/max widths */
 
-    int marginValid;       /* True to include the top margin in next block */
-    int marginValue;       /* Bottom margin of previous block box */
+    int marginValid;         /* True to include the top margin in next block */
+    int marginValue;         /* Bottom margin of previous block box */
+    int marginParent;
 };
 
 /*
@@ -109,8 +110,9 @@ struct MarginProperties {
     int margin_left;
     int margin_bottom;
     int margin_right;
+    int leftAuto;        /* True if ('margin-left' == "auto") */
+    int rightAuto;       /* True if ('margin-right' == "auto") */
 };
-
 
 /*
  * A DisplayProperties struct wraps up all the properties required to
@@ -295,6 +297,11 @@ struct TableData {
  *         document elements that generate inline contexts, not ones that
  *         participate in them, so all line-boxes in a single inline
  *         context are horizontally aligned in the same way.
+ *
+ *     inlineContextSetWhiteSpace():
+ *         Used to set the value of the 'white-space' property to be used.
+ *         Like 'text-align', the 'white-space' property only applies to
+ *         block-level elements.
  * 
  *     inlineContextAddInlineCanvas():
  *         Add a rendered inline box to the context.
@@ -317,8 +324,8 @@ struct InlineBorder {
   BoxProperties box;
   int textdecoration;         /* Value of 'text-decoration' property */
   XColor *color;              /* Color for text-decoration */
-  int iStartBox;
-  int iStartPixel;            /* Left most pixel of outer margin */
+  int iStartBox;              /* Leftmost inline-box */
+  int iStartPixel;            /* Leftmost pixel of outer margin */
   InlineBorder *pNext;
 };
 
@@ -330,6 +337,7 @@ struct InlineBorder {
 struct InlineBox {
   HtmlCanvas canvas;          /* Canvas containing box content. */
   int nSpace;                 /* Pixels of space between this and next box. */
+  int eNewLine;               /* True if a new-line, not an inline-box */
   InlineBorder *pBorderStart; /* List of borders that start with this box */
   int nBorderEnd;             /* Number of borders that end here */
   int nLeftPixels;            /* Total left width of borders that start here */
@@ -337,6 +345,7 @@ struct InlineBox {
 };
 struct InlineContext {
   int textAlign;          /* One of TEXTALIGN_LEFT, TEXTALIGN_RIGHT etc. */
+  int whiteSpace;         /* One of WHITESPACE_PRE, WHITESPACE_NORMAL etc. */
 
   int nInline;            /* Number of inline boxes in aInline */
   int nInlineAlloc;       /* Number of slots allocated in aInline */
@@ -346,11 +355,13 @@ struct InlineContext {
   InlineBorder *pBoxBorders; /* Borders list for next box to be added */
 };
 static void inlineContextSetTextAlign(InlineContext *, int);
+static void inlineContextSetWhiteSpace(InlineContext *, int);
 static HtmlCanvas *inlineContextAddInlineCanvas(InlineContext *);
 static void inlineContextAddSpace(InlineContext *, int);
-static int inlineContextGetLineBox(InlineContext *,int*,int,int,HtmlCanvas *);
+static int 
+inlineContextGetLineBox(InlineContext*,int*,int,int,HtmlCanvas*,int*);
 static int inlineContextIsEmpty(InlineContext *);
-static InlineBorder *inlineContextGetBorder(LayoutContext *, HtmlNode *);
+static InlineBorder *inlineContextGetBorder(LayoutContext *, HtmlNode *, int);
 static int inlineContextPushBorder(InlineContext *, InlineBorder *);
 static int inlineContextPopBorder(InlineContext *, InlineBorder *);
 
@@ -431,10 +442,13 @@ static int  floatListIsEmpty(FloatMargin *);
  * they function as a table of contents for this file.
  */
 #define S static
+
 S int  propertyToConstant(CssProperty *pProp, const char **, int *, int);
 S CONST char *propertyToString(CssProperty *pProp, const char *);
 S int propertyToPixels(LayoutContext*, HtmlNode*, CssProperty*, int, int);
 S XColor *propertyToColor(LayoutContext *, CssProperty*);
+S int physicalToPixels(LayoutContext *, double, char);
+S int propertyIsAuto(CssProperty *);
 
 S int  nodeGetEmPixels(LayoutContext*, HtmlNode*);
 S void nodeGetDisplay(LayoutContext*, HtmlNode*, DisplayProperties*);
@@ -660,6 +674,47 @@ propertyToString(pProp, zDefault)
 /*
  *---------------------------------------------------------------------------
  *
+ * physicalToPixels --
+ *
+ *     This function is a wrapper around Tk_GetPixels(), used to convert
+ *     physical units to pixels. The first argument is the layout-context.
+ *     The second argument is the distance in terms of the physical unit
+ *     being converted from. The third argument determines the unit type,
+ *     as follows:
+ *
+ *         Character          Unit
+ *         ------------------------------
+ *         'c'                Centimeters
+ *         'i'                Inches
+ *         'm'                Millimeters
+ *         'p'                Points (1 point = 1/72 inches)
+ *
+ *     The value returned is the distance in pixels.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+physicalToPixels(pLayout, rVal, type)
+    LayoutContext *pLayout;
+    double rVal;
+    char type;
+{
+    char zBuf[64];
+    int pixels;
+    sprintf(zBuf, "%f%c", rVal, type);
+    Tk_GetPixels(pLayout->interp, pLayout->tkwin, zBuf, &pixels);
+    return pixels;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * propertyToPixels --
  *
  * Results:
@@ -688,8 +743,21 @@ propertyToPixels(pLayout, pNode, pProp, parentwidth, default_val)
             case CSS_TYPE_PERCENT: {
                 return (pProp->v.iVal * parentwidth) / 100;
             }
+            case CSS_TYPE_CENTIMETER: {
+                return physicalToPixels(pLayout, pProp->v.rVal, 'c');
+            }
+            case CSS_TYPE_MILLIMETER: {
+                return physicalToPixels(pLayout, pProp->v.rVal, 'm');
+            }
+            case CSS_TYPE_INCH: {
+                return physicalToPixels(pLayout, pProp->v.rVal, 'i');
+            }
+            case CSS_TYPE_PT: {
+                return physicalToPixels(pLayout, (double)pProp->v.iVal, 'p');
+            }
         }
     }
+
     return default_val;
 }
 
@@ -714,27 +782,98 @@ static XColor *propertyToColor(pLayout, pProp)
 {
     XColor *color = 0;
     CONST char *zColor;
+    Tcl_Interp *interp = pLayout->interp;
+    Tk_Window tkwin = pLayout->tkwin;
 
     zColor = propertyToString(pProp, 0);
     if (zColor) {
-        char zBuf[14];
-        int n = strlen(zColor);
-        if (n == 6 || n == 3 || n == 9 || n == 12) {
+        color = Tk_GetColor(interp, tkwin, zColor);
+        if (!color) {
+            /* These are the 16 colors guarenteed to exist by HTML 4. If a
+             * Tk installation does not support any of these colors then
+             * this table is used to map them to a hexadecimal color
+             * specification.
+             *
+             * If Tk does define any of these colors, we accept the Tk
+             * definition, even though it is likely different from the
+             * interpretation below.
+             */
+            struct MappedColor {
+                const char *zHtml;
+                const char *zTk;
+            } colors [] = {
+                {"black", "#000000"},
+                {"silver", "#C0C0C0"},
+                {"gray", "#808080"},
+                {"white", "#FFFFFF"},
+                {"maroon", "#800000"},
+                {"red", "#FF0000"},
+                {"purple", "#800080"},
+                {"fuchsia", "#FF00FF"},
+                {"green", "#008000"},
+                {"lime", "#00FF00"},
+                {"olive", "#808000"},
+                {"yellow", "#FFFF00"},
+                {"navy", "#000080"},
+                {"blue", "#0000FF"},
+                {"teal", "#008080"},
+                {"aqua", "#00FFFF"},
+            };
             int i;
-            for (i = 0; i < n; i++) {
-                if (!isxdigit(zColor[i]))
+            for (i = 0; i < (sizeof(colors) / sizeof(colors[0])); i++) {
+                if (0 == strcmp(zColor, colors[i].zHtml)) {
+                    color = Tk_GetColor(interp, tkwin, colors[i].zTk);
                     break;
-            }
-            if (i == n) {
-                sprintf(zBuf, "#%s", zColor);
-                zColor = zBuf;
+                }
             }
         }
-
-        color = Tk_GetColor(pLayout->interp, pLayout->tkwin, zColor);
+        if (!color) {
+	    /* Old versions of netscape used to support hex colors without
+             * the '#' character (i.e. "FFF" is the same as "#FFF"). So 
+             * naturally this has become a defacto standard, even though it
+             * is obviously wrong.
+             */
+            char zBuf[14];
+            int n = strlen(zColor);
+            if (n == 6 || n == 3 || n == 9 || n == 12) {
+                int i;
+                for (i = 0; i < n; i++) {
+                    if (!isxdigit(zColor[i]))
+                        break;
+                }
+                if (i == n) {
+                    sprintf(zBuf, "#%s", zColor);
+                    zColor = zBuf;
+                }
+            }
+            color = Tk_GetColor(interp, tkwin, zColor);
+        }
     }
 
     return color;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * propertyIsAuto --
+ *
+ *     Return non-zero if the CSS property passed as the first argument
+ *     takes the string value "auto".
+ *
+ * Results:
+ *     See above.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int propertyIsAuto(pProp)
+    CssProperty *pProp;
+{
+    assert(pProp);
+    return (pProp->eType == CSS_TYPE_STRING && !strcmp(pProp->v.zVal, "auto"));
 }
 
 /*
@@ -1348,11 +1487,16 @@ static int nodeGetWidth(pLayout, pNode, pwidth, def, pIsFixed)
         case CSS_TYPE_PX:
             if (pIsFixed) *pIsFixed = 1;
             break;
-        case CSS_TYPE_NONE: {
+        case CSS_TYPE_STRING: {
+            /* The only string value the 'width' property can take is
+             * "auto". So we assume that this is the case if the property
+             * is a string.
+             *
+             * Note: In CSS2, 'width' can also be specified as "inherit".
+             * But HtmlNodeGetProperty() has already dealt with this case.
+             */
             int min;
             int max;
-            CssProperty minwidth;
-            CssProperty maxwidth;
             HtmlNodeGetProperty(
                     pLayout->interp, pNode, CSS_PROPERTY_MIN_WIDTH, &minwidth);
             HtmlNodeGetProperty(
@@ -1425,7 +1569,8 @@ nodeGetTextDecoration(pLayout, pNode)
         TEXTDECORATION_LINETHROUGH
     };
     CssProperty prop;
-    HtmlNodeGetProperty(pLayout->interp,pNode, CSS_PROPERTY_TEXT_DECORATION, &prop);
+    Tcl_Interp *interp = pLayout->interp;
+    HtmlNodeGetProperty(interp ,pNode, CSS_PROPERTY_TEXT_DECORATION, &prop);
     return propertyToConstant(&prop, zOptions, eOptions, TEXTDECORATION_NONE);
 }
 
@@ -1481,23 +1626,29 @@ static void nodeGetMargins(pLayout, pNode, pMargins)
 {
     CssProperty m;
     Tcl_Interp *interp = pLayout->pTree->interp;
+    int widthisauto;      /* True if the 'width' property is set to "auto" */
+
+    HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_WIDTH, &m);
+    widthisauto = propertyIsAuto(&m);
 
     /* Todo: It is also legal to specify an integer between 1 and 4 for
      * margin width. propertyToPixels() can't deal with this because it
-     * doesn't know what it is converting is a margin, so it will have to
+     * doesn't know when it is converting is a margin, so it will have to
      * be done here.
      */
     HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_MARGIN_TOP, &m);
     pMargins->margin_top = propertyToPixels(pLayout, pNode, &m, 0, 0);
-
-    HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_MARGIN_RIGHT, &m);
-    pMargins->margin_right = propertyToPixels(pLayout, pNode, &m, 0, 0);
 
     HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_MARGIN_BOTTOM, &m);
     pMargins->margin_bottom = propertyToPixels(pLayout, pNode, &m, 0, 0);
 
     HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_MARGIN_LEFT, &m);
     pMargins->margin_left = propertyToPixels(pLayout, pNode, &m, 0, 0);
+    pMargins->leftAuto = (!widthisauto?propertyIsAuto(&m):0);
+
+    HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_MARGIN_RIGHT, &m);
+    pMargins->margin_right = propertyToPixels(pLayout, pNode, &m, 0, 0);
+    pMargins->rightAuto = (!widthisauto?propertyIsAuto(&m):0);
 }
 
 /*
@@ -1692,6 +1843,10 @@ static int floatLayout(pLayout, pBox, pNode, pY)
     pLayout->marginValue = marginValue;
     totalwidth = sBox.width;
 
+    if (marginValid) {
+        y += marginValue;
+    }
+
     /* Figure out the y-coordinate to draw the floating box at. This is
      * usually the current y coordinate. However if other floats mean that
      * the parent box is not wide enough for this float, we may shift this
@@ -1701,7 +1856,7 @@ static int floatLayout(pLayout, pBox, pNode, pY)
     floatListClear(pBox->pFloats, y);
     y = floatListClearMargin(pBox->pFloats, display.eClear, y);
     floatListMargins(pBox->pFloats, &leftFloat, &rightFloat);
-    *pY = y;
+    *pY = y - (marginValid?marginValue:0);
 
     /* Get the exact x coordinate to draw the box at. If it won't fit, 
      * even after shifting down past other floats in code above, then
@@ -1925,9 +2080,10 @@ static int inlineContextPopBorder(p, pBorder)
  *
  *---------------------------------------------------------------------------
  */
-static InlineBorder *inlineContextGetBorder(pLayout, pNode)
+static InlineBorder *inlineContextGetBorder(pLayout, pNode, parentblock)
     LayoutContext *pLayout; 
     HtmlNode *pNode;
+    int parentblock;        /* True if pNode is the parent block-box */
 {
     InlineBorder border;
     InlineBorder *pBorder = 0;
@@ -1935,11 +2091,15 @@ static InlineBorder *inlineContextGetBorder(pLayout, pNode)
     /* TODO: Pass a parent-width to this function to calculate
      * widths/heights specified as percentages.
      */
-    nodeGetBoxProperties(pLayout, pNode, 0,&border.box);
 
-    nodeGetMargins(pLayout, pNode, &border.margin);
-    nodeGetBorderProperties(pLayout, pNode, &border.border);
-    nodeGetBorderProperties(pLayout, pNode, &border.border);
+    if (!parentblock) {
+        nodeGetBoxProperties(pLayout, pNode, 0,&border.box);
+        nodeGetMargins(pLayout, pNode, &border.margin);
+        nodeGetBorderProperties(pLayout, pNode, &border.border);
+        nodeGetBorderProperties(pLayout, pNode, &border.border);
+    } else {
+        memset(&border, 0, sizeof(InlineBorder));
+    }
     border.textdecoration = nodeGetTextDecoration(pLayout, pNode);
     border.pNext = 0;
 
@@ -1998,6 +2158,31 @@ inlineContextSetTextAlign(pInline, textAlign)
             textAlign == TEXTALIGN_JUSTIFY
     );
     pInline->textAlign = textAlign;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * inlineContextSetWhiteSpace --
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void 
+inlineContextSetWhiteSpace(pInline, whiteSpace)
+    InlineContext *pInline;
+    int whiteSpace;
+{
+    assert(whiteSpace == WHITESPACE_PRE ||
+            whiteSpace == WHITESPACE_NOWRAP ||
+            whiteSpace == WHITESPACE_NORMAL
+    );
+    pInline->whiteSpace = whiteSpace;
 }
 
 /*
@@ -2072,7 +2257,37 @@ inlineContextAddSpace(p, nPixels)
 {
     if( p->nInline>0 ){
         InlineBox *pBox = &p->aInline[p->nInline - 1];
-        pBox->nSpace = MAX(nPixels, pBox->nSpace);
+        if (p->whiteSpace == WHITESPACE_PRE) {
+            pBox->nSpace += nPixels;
+        } else {
+            pBox->nSpace = MAX(nPixels, pBox->nSpace);
+        }
+    }
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * inlineContextAddNewLine --
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void 
+inlineContextAddNewLine(p, nHeight)
+    InlineContext *p; 
+    int nHeight;
+{
+    if (p->nInline > 0 && p->whiteSpace == WHITESPACE_PRE){
+        InlineBox *pBox;
+        inlineContextAddInlineCanvas(p);
+        pBox = &p->aInline[p->nInline - 1];
+        pBox->eNewLine = nHeight;
     }
 }
 
@@ -2175,7 +2390,7 @@ static void inlineContextDrawBorder(pCanvas, pBorder, x1, y1, x2, y2, drb)
  *     current-line box. If not even one inline-box can fit within this
  *     width, and the 'forcebox' flag is not true, then zero is returned
  *     and *pWidth set to the minimum width required to draw content. If
- *     zero is returend and *pWidth is set to 0, then the InlineContext is
+ *     zero is returned and *pWidth is set to 0, then the InlineContext is
  *     completely empty of inline-boxes and no line-box can be generated.
  *
  * Results:
@@ -2187,12 +2402,13 @@ static void inlineContextDrawBorder(pCanvas, pBorder, x1, y1, x2, y2, drb)
  *---------------------------------------------------------------------------
  */
 static int 
-inlineContextGetLineBox(p, pWidth, forceline, forcebox, pCanvas)
+inlineContextGetLineBox(p, pWidth, forceline, forcebox, pCanvas, pVSpace)
     InlineContext *p;
     int *pWidth;              /* IN/OUT: See above */
     int forceline;            /* Draw line even if line is not full */
     int forcebox;             /* Draw at least one inline box */
     HtmlCanvas *pCanvas;      /* Canvas to render line box to */
+    int *pVSpace;             /* OUT: Height of generated linebox */
 {
     int i;                   /* Iterator variable for aInline */
     int j;
@@ -2209,10 +2425,13 @@ inlineContextGetLineBox(p, pWidth, forceline, forcebox, pCanvas)
     memset(&content, 0, sizeof(HtmlCanvas));
     memset(&borders, 0, sizeof(HtmlCanvas));
 
-    /* Count how many of the inline boxes fit within the requested line-box
-     * width. Store this in nBox. Also remember the width of the line-box
-     * assuming normal word-spacing. We'll need this to handle the
-     * 'text-align' attribute later on.
+    /* If 'white-space' is not "nowrap", count how many of the inline boxes
+     * fit within the requested line-box width. Store this in nBox. Also
+     * remember the width of the line-box assuming normal word-spacing.
+     * We'll need this to handle the 'text-align' attribute later on.
+     * 
+     * If 'white-space' is "nowrap", then this loop is used to determine
+     * the width of the line-box.
      */
     for(i = 0; i < p->nInline; i++) {
         int j;
@@ -2220,39 +2439,72 @@ inlineContextGetLineBox(p, pWidth, forceline, forcebox, pCanvas)
         InlineBox *pBox = &p->aInline[i];
         int boxwidth = (pBox->canvas.right - pBox->canvas.left); 
         boxwidth += pBox->nRightPixels + pBox->nLeftPixels;
-        if(i > 0) {
+        if(i > 0 && i != (p->nInline - 1)) {
             boxwidth += p->aInline[i-1].nSpace;
         }
-        if(lineboxwidth+boxwidth > width) {
+        if (lineboxwidth+boxwidth > width && 
+            p->whiteSpace != WHITESPACE_NOWRAP
+        ) {
             break;
         }
         lineboxwidth += boxwidth;
+        if (pBox->eNewLine) {
+            break;
+        }
     }
     nBox = i;
+   
 
     if ((p->nInline == 0) || (!forceline && (nBox == p->nInline))) {
         /* Either the inline context contains no inline-boxes or there are
          * not enough to fill the line-box and the 'force-line' flag is not
          * set. In this case return 0 and set *pWidth to 0 too.
+         *
+         * This also catches the case where 'white-space' is "nowrap". In
+         * that case, we only want to draw the line-box if the 'force-line'
+         * flag is set.
          */
         *pWidth = 0;
         return 0;
     }
-    if (forcebox && 0 == nBox) {
-        /* The first inline-box is too wide for the supplied width, but the
-         * 'forcebox' flag is set so we have to lay out at least one box.
-         */
-        nBox = 1;
+
+    if (0 == nBox) {
+        if (p->aInline[0].eNewLine) {
+            /* The line-box consists of a single new-line only */
+            *pVSpace = 10;
+            return 1;
+        }
+        if (forcebox && !p->aInline[0].eNewLine) {
+	    /* The first inline-box is too wide for the supplied width, but
+	     * the 'forcebox' flag is set so we have to lay out at least
+	     * one box.
+             */
+            nBox = 1;
+        }
     }
     if (nBox == 0) {
-        /* If we get here, then their are inline-boxes, but the first of
-         * them is too wide for the width we've been offered and the
+	/* If we get here, then their are inline-boxes, but the first
+         * of them is too wide for the width we've been offered and the
          * 'forcebox' flag is not true. Return zero, but set *pWidth to the
          * minimum width required before doing so.
          */
         InlineBox *pBox = &p->aInline[i];
-        *pWidth = (pBox->canvas.right - pBox->canvas.left); 
-                 + pBox->nRightPixels + pBox->nLeftPixels;
+        *pWidth = (pBox->canvas.right - pBox->canvas.left)
+                     + pBox->nRightPixels + pBox->nLeftPixels;
+        return 0;
+    }
+
+    if (p->whiteSpace == WHITESPACE_NOWRAP && 
+        lineboxwidth > width && 
+        !forcebox
+    ) {
+        /* If the 'white-space' property is set to "nowrap" and the linebox
+         * is wider than the allocated width, then only draw it if the
+         * 'forcebox' flag is true. Otherwise, give the caller the
+         * opportunity to shift the line-box vertically downwards to clear
+         * some floating margins.
+         */
+        *pWidth = lineboxwidth;
         return 0;
     }
 
@@ -2418,6 +2670,13 @@ inlineContextGetLineBox(p, pWidth, forceline, forcebox, pCanvas)
 
     p->nInline -= nBox;
     memmove(p->aInline, &p->aInline[nBox], p->nInline * sizeof(InlineBox));
+    if (p->nInline > 0 && p->aInline[0].eNewLine) {
+        int diff = p->aInline[0].eNewLine - (pCanvas->bottom - pCanvas->top);
+        if (diff > 0) {
+            pCanvas->bottom += diff;
+        }
+        p->aInline[0].eNewLine = 0;
+    }
 
     return 1;
 }
@@ -2466,14 +2725,19 @@ inlineText(pLayout, pNode, pContext)
 {
     HtmlToken *pToken;
     Tk_Font font;
+    Tk_FontMetrics fontmetrics;
     XColor *color;
     int sw;                    /* Space-Width in current font. */
+    int nh;                    /* Newline-height in current font */
 
     assert(pNode && HtmlNodeIsText(pNode));
 
     font = nodeGetFont(pLayout, pNode);
     color = nodeGetColour(pLayout, pNode);
+
     sw = Tk_TextWidth(font, " ", 1);
+    Tk_GetFontMetrics(font, &fontmetrics);
+    nh = fontmetrics.ascent + fontmetrics.descent;
 
     for(pToken=pNode->pToken; pToken; pToken=pToken->pNext) {
         switch(pToken->type) {
@@ -2489,9 +2753,16 @@ inlineText(pLayout, pNode, pContext)
                 HtmlDrawText(pCanvas, pText, 0, 0, tw, font, color);
                 break;
             }
-            case Html_Space:
-                inlineContextAddSpace(pContext, sw);
+            case Html_Space: {
+                int i;
+                for (i = 0; i < pToken->count; i++) {
+                    inlineContextAddSpace(pContext, sw);
+                }
+                if (pToken->x.newline) {
+                    inlineContextAddNewLine(pContext, nh);
+                }
                 break;
+            }
             default:
                 return 0;
         }
@@ -2533,25 +2804,27 @@ inlineLayoutDrawLines(pLayout, pBox, pContext, forceflag, pY)
 {
     int have;
     do {
-        HtmlCanvas linecanvas;
+        HtmlCanvas lc;             /* Line-Canvas */
         int w;
         int f;                     /* Force at least one inline-box per line */
         int y = *pY;               /* Y coord for line-box baseline. */
         int leftFloat = 0;
         int rightFloat = pBox->parentWidth;
+        int nV = 0;                /* Extra vertical space to add */
 
         floatListMargins(pBox->pFloats, &leftFloat, &rightFloat);
         f = floatListIsEmpty(pBox->pFloats);
 
-        memset(&linecanvas, 0, sizeof(HtmlCanvas));
+        memset(&lc, 0, sizeof(HtmlCanvas));
         w = rightFloat - leftFloat;
-        have = inlineContextGetLineBox(pContext, &w, forceflag, f, &linecanvas);
+        have = inlineContextGetLineBox(pContext, &w, forceflag, f, &lc, &nV);
 
         if (have) {
-            HtmlDrawCanvas(&pBox->vc, &linecanvas, leftFloat, y-linecanvas.top);
-            y += (linecanvas.bottom - linecanvas.top);
-            pBox->width = MAX(pBox->width, linecanvas.right + leftFloat);
+            HtmlDrawCanvas(&pBox->vc, &lc, leftFloat, y-lc.top);
+            y += (lc.bottom - lc.top) + nV;
+            pBox->width = MAX(pBox->width, lc.right + leftFloat);
             pBox->height = MAX(pBox->height, y);
+            pLayout->marginParent = 0;
         } else if( w ) {
             /* If have==0 but w has been set to some non-zero value, then
              * there are inline-boxes in the inline-context, but there is
@@ -2675,7 +2948,7 @@ inlineLayoutNode(pLayout, pBox, pNode, pY, pContext)
     else {
         InlineBorder *pBorder;
 
-        pBorder = inlineContextGetBorder(pLayout, pNode);
+        pBorder = inlineContextGetBorder(pLayout, pNode, 0);
         if (pBorder) {
             inlineContextPushBorder(pContext, pBorder);
         }
@@ -2710,8 +2983,16 @@ inlineLayoutNode(pLayout, pBox, pNode, pY, pContext)
         }
     }
 
-    /* See if there are any complete line-boxes to copy to the main canvas. */
-    if(rc == 0) {
+    /* See if there are any complete line-boxes to copy to the main canvas. 
+     *
+     * TODO: For whatever reason, this is causing trouble at the moment. So
+     * disable it and draw all the line-boxes after processing the whole
+     * inline-canvas.
+     *
+     * Calling inlineLayoutDrawLines() here is only an optimization to save
+     * a few malloc() calls. Disabling it is probably not a big deal.
+     */
+    if(0 && rc == 0) {
         rc = inlineLayoutDrawLines(pLayout, pBox, pContext, 0, pY);
     }
 
@@ -2742,11 +3023,13 @@ static int inlineLayout(pLayout, pBox, pNode)
     HtmlCanvas lastline;
     int width;
     HtmlNode *pParent;
+    InlineBorder *pBorder;
    
     memset(&context, 0, sizeof(InlineContext));
     memset(&lastline, 0, sizeof(HtmlCanvas));
 
     pParent = HtmlNodeParent(pNode);
+    assert(pParent);
 
     /* If we are currently running a min-max width test, then set the
      * effective value of the 'text-align' property to "left". Any of the
@@ -2758,7 +3041,12 @@ static int inlineLayout(pLayout, pBox, pNode)
     } else {
         inlineContextSetTextAlign(&context, nodeGetTextAlign(pLayout, pParent));
     }
+    inlineContextSetWhiteSpace(&context, nodeGetWhitespace(pLayout, pParent));
 
+    pBorder = inlineContextGetBorder(pLayout, pParent, 1);
+    if (pBorder) {
+        inlineContextPushBorder(&context, pBorder);
+    }
     for(pN=pNode; pN ; pN = HtmlNodeRightSibling(pN)) {
         inlineLayoutNode(pLayout, pBox, pN, &y, &context);
     }
@@ -3782,6 +4070,44 @@ layoutReplacement(pLayout, pBox, pNode, zReplace)
 /*
  *---------------------------------------------------------------------------
  *
+ * collapseMargins --
+ * 
+ *     Collapse two margin values according to the following table:
+ *
+ *         Condition                 Result
+ *         -------------------------------------------------------
+ *         Both margins -ve          Minimum (most negative) of 
+ *                                   top and bottom margins
+ *         Both margins +ve          Maximum (most positive) of 
+ *                                   top and bottom margins
+ *         One margin -ve, one +ve   Sum of top and bottom margins
+ *                                   margins.
+ *
+ * Results:
+ *     Collapsed margin value.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+collapseMargins(margin_one, margin_two)
+    int margin_one;
+    int margin_two;
+{
+    if (margin_one < 0 && margin_two < 0) {
+        return MIN(margin_one, margin_two);
+    }
+    if (margin_one < 0 || margin_two < 0) {
+        return margin_one + margin_two;
+    }
+    return MAX(margin_one, margin_two);
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * blockLayout --
  *
  *     This function lays out the block box generated by pNode according
@@ -3793,7 +4119,7 @@ layoutReplacement(pLayout, pBox, pNode, zReplace)
  *     The "top-left corner" is defined as the pixel just inside the top
  *     and left *margins* of the box.
  *
- *     Box Width Calculation:
+ *     Box width calculation:
  *
  *         If BoxContext.contentWidth is greater than zero, then this is
  *         the width used for the content of the box. Otherwise, the value
@@ -3824,9 +4150,58 @@ layoutReplacement(pLayout, pBox, pNode, zReplace)
  *         In this case, the box is positioned either to the side or below
  *         the current floating margins.
  * 
- *     Collapsing Margins:
+ *     Collapsing vertical margins:
  *
- *         TODO: Notes describing how collapsing margins are implemented.
+ *         Collapsing margins are implemented using the
+ *         LayoutContext.marginValid and LayoutContext.marginValue
+ *         variables. 'marginValid' is a flag to say whether the value of
+ *         'marginValue' is valid and should be respected.
+ *
+ *         Assuming it is valid, when this function is called marginValue
+ *         is set to the size in pixels of the bottom margin of the block
+ *         above this one in the normal flow. Before this function returns,
+ *         it is set to the bottom margin of this block. The actual space
+ *         allocated for the margin between two vertically adjacent blocks
+ *         is given by the following table:
+ *
+ *         Condition                 Result
+ *         -------------------------------------------------------
+ *         Both margins -ve          Minimum (most negative) of 
+ *                                   top and bottom margins
+ *         Both margins +ve          Maximum (most positive) of 
+ *                                   top and bottom margins
+ *         One margin -ve, one +ve   Sum of top and bottom margins
+ *                                   margins.
+ *
+ *         Situations like this:
+ *
+ *             <p id="one">First paragraph</p>
+ *             <div>
+ *                 <p id="two">First paragraph
+ *
+ *         are a little tricky. In this instance, if the <div> block has no
+ *         padding or border, then it's effective margin is calculated by
+ *         collapsing the top margin of the <div> and the top margin of
+ *         paragraph "two". This calculated margin then collapses with the
+ *         bottom-margin of paragraph "one".
+ *
+ *         i.e. if we have:
+ *
+ *             #one {margin-bottom-width: 50px}
+ *             div  {margin-top-width: 20px}
+ *             #two {margin-top-width: 20px}
+ *
+ *         then there must be 50 pixels, not 70, between the two
+ *         paragraphs. Alternatively, if we were to have:
+ *
+ *             #two {margin-top-width: -20px}
+ * 
+ *         On the other hand, if we add either of the following rules:
+ *
+ *             div  {border:  solid 1px}
+ *             div  {padding: 1px      }
+ *
+ *         Then there will be 71 pixels between the two paragraphs. Or, if
  *
  * Results:
  *     None.
@@ -3848,18 +4223,16 @@ static int blockLayout(pLayout, pBox, pNode, omitborder)
     BoxContext sBox;               /* Box that tableLayout() etc. use */
     CssProperty replace;           /* Value of -tkhtml-replace property */
     int width;                     /* Explicit width of node */
+    int availablewidth;            /* Maximum width available */
     int top_margin;                /* Actual top margin for box */
-
     int y = 0;
     int x = 0;
-
     int leftFloat = 0;             /* Floating margins. Used for tables */
     int rightFloat = 0;            /* and replaced blocks only. */
     Tcl_Interp *interp = pLayout->interp;
-
     int isBoxObject;               /* True if the node cannot wrap. */
     int isReplaced;                /* True if the node is an image or window */
-    int marginValid;
+    int marginValid = pLayout->marginValid; /* Value of marginValid on entry */
 
     memset(&sBox, 0, sizeof(BoxContext));
 
@@ -3887,7 +4260,7 @@ static int blockLayout(pLayout, pBox, pNode, omitborder)
 
     leftFloat = 0;
     rightFloat = pBox->parentWidth;
-    if (pLayout->minmaxTest==0 && isBoxObject) { 
+    if (pLayout->minmaxTest==0 && isBoxObject) {
         /* If this is a replaced node or a table, then see if we need to
          * dodge around any floating margins. With other blocks, the
          * content wraps around the margin, not the block itself.
@@ -3905,30 +4278,35 @@ static int blockLayout(pLayout, pBox, pNode, omitborder)
      * have available to it. Set sBox.parentWidth to this value. See the
      * description in the function header comment for the details.
      */
+    availablewidth = rightFloat - leftFloat -
+            margin.margin_left - margin.margin_right -
+            boxproperties.border_left - boxproperties.border_right -
+            boxproperties.padding_left - boxproperties.padding_right;
     if (pBox->contentWidth > 0) {
         sBox.parentWidth = pBox->contentWidth;
     } else {
         int w = rightFloat - leftFloat;
-        sBox.parentWidth = w -
-            margin.margin_left - margin.margin_right -
-            boxproperties.border_left - boxproperties.border_right -
-            boxproperties.padding_left - boxproperties.padding_right;
-        sBox.parentWidth = nodeGetWidth(pLayout, pNode, w, sBox.parentWidth, 0);
+        sBox.parentWidth = nodeGetWidth(pLayout, pNode, w, availablewidth, 0);
     }
     if (sBox.parentWidth<0) {
         sBox.parentWidth = 0;
     }
+    if (!pLayout->minmaxTest) {
+        sBox.width = sBox.parentWidth;
+    }
 
-    /* Allocate space for the top margin. The top margin is the greater of
-     * margin.margin_top and pLayout->marginValue. This is how collapsing
-     * margins are implemented.
+    /* Allocate space for the top margin. See the header comment of this
+     * function for an explanation.
      */
     if (pLayout->marginValid) {
-        top_margin = MAX(margin.margin_top, pLayout->marginValue);
+        top_margin = collapseMargins(pLayout->marginValue, margin.margin_top);
+        top_margin = collapseMargins(top_margin, pLayout->marginParent);
+        y -= pLayout->marginParent;
     } else {
         top_margin = 0;
     }
     y += top_margin;
+    floatListClear(pBox->pFloats, y);
 
     /* Also leave a pixel or two for the top-border. */
     y += boxproperties.border_top;
@@ -3952,8 +4330,13 @@ static int blockLayout(pLayout, pBox, pNode, omitborder)
      */
     sBox.height = nodeGetHeight(pLayout, pNode, 0, 0);
 
-    marginValid = pLayout->marginValid;
-    pLayout->marginValid = 0;
+    pLayout->marginValid = 1;
+    pLayout->marginValue = 0;
+    if (boxproperties.border_top > 0 || boxproperties.padding_top > 0) {
+        pLayout->marginParent = 0;
+    } else {
+        pLayout->marginParent = top_margin;
+    }
     if (isReplaced) {
         layoutReplacement(pLayout, &sBox, pNode, replace.v.zVal);
     } else {
@@ -3983,31 +4366,31 @@ static int blockLayout(pLayout, pBox, pNode, omitborder)
      */
     if (sBox.height>0 || display.eClear != CLEAR_NONE) {
         int hoffset = 0;
+        int textalign = 0;
 
+        /* A table or replaced object may be aligned horizontally using
+         * the 'text-align' property.
+         */
         if (display.eDisplay==DISPLAY_TABLE || isReplaced) {
-            /* For a table or replaced object, deal with horizontal
-             * alignment here.
-             */
-            int textalign = nodeGetTextAlign(pLayout, pNode);
-            switch (textalign) {
-                case TEXTALIGN_LEFT:
-                    break;
-                case TEXTALIGN_RIGHT:
-                    if (sBox.parentWidth>sBox.width) {
-                        hoffset = (sBox.parentWidth-sBox.width);
-                    }
-                    break;
-                case TEXTALIGN_CENTER:
-                case TEXTALIGN_JUSTIFY:
-                    if (sBox.parentWidth>sBox.width) {
-                        hoffset = (sBox.parentWidth-sBox.width)/2;
-                    }
-                    break;
-            }
-        } else {
-            if (pLayout->minmaxTest==0) {
-                sBox.width = sBox.parentWidth;
-            }
+            textalign = nodeGetTextAlign(pLayout, pNode);
+        }
+
+        /* There are two ways to specify the horizontal align a block. If
+         * the block is a table or a replaced element, then it respects the
+         * 'text-align' property. (For other blocks, 'text-align' 
+         */
+        if ((textalign == TEXTALIGN_CENTER || 
+             textalign == TEXTALIGN_JUSTIFY ||
+            (!textalign && margin.leftAuto && margin.rightAuto)) &&
+            availablewidth > sBox.width 
+        ) {
+            hoffset = (availablewidth-sBox.width)/2;
+        }
+        else if (textalign == TEXTALIGN_RIGHT ||
+            (!textalign && margin.leftAuto) &&
+            availablewidth > sBox.width 
+        ) {
+            hoffset = (availablewidth-sBox.width);
         }
 
         /* Draw the border directly into the parent canvas. */
@@ -4044,7 +4427,7 @@ static int blockLayout(pLayout, pBox, pNode, omitborder)
  
         /* We set the value of pLayout->marginValid to 0 before drawing
          * anything above, so if it is non-zero now then
-         * pLayout-marginValue is the size of the collapsing bottom-margin
+         * pLayout->marginValue is the size of the collapsing bottom-margin
          * of the last thing drawn in this block context. The bottom margin
          * for this block (to be collapsed into the top margin of the next)
          * becomes the maximum of 'margin-bottom' and pLayout->marginValue.
@@ -4052,6 +4435,9 @@ static int blockLayout(pLayout, pBox, pNode, omitborder)
          * Whether or not this is what the spec says is supposed to happen
          * is a difficult question to answer. It seems to be what Gecko
          * does.
+         * 
+         * Todo: Maybe we should only do this if this box has no bottom
+         * border or padding?
          */
         if (!pLayout->marginValid) {
             pLayout->marginValue = 0;
@@ -4064,11 +4450,20 @@ static int blockLayout(pLayout, pBox, pNode, omitborder)
 	 * to the maximum of it's current value, the top margin and the
 	 * bottom margin. Again, the observed behaviour of modern browsers.
 	 * The CSS2 spec doesn't really specify this case.
+         *
+         * i.e. If we have:
+         *
+         *            <p style="margin:10cm">Some text
+         *            <p style="margin-top:20cm ; margin-bottom:15cm>
+         *            <p style="margin:10>Some more text
+         *
+         * and this function was responsible for laying out the middle
+         * paragraph, then we set the effective value of the bottom margin
+         * of the first paragraph to 20cm.
          */
         pLayout->marginValue = MAX(top_margin, margin.margin_bottom);
         pLayout->marginValid = marginValid;
     }
-  
 
     /* Restore the floating margins to the parent boxes coordinate system */
     floatListNormalize(sBox.pFloats, x, y);

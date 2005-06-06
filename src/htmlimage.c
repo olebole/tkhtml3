@@ -227,6 +227,7 @@ HtmlResizeImage(pTree, zImage, pWidth, pHeight)
             }
             Tk_PhotoPutBlock(interp,scaled_photo,&scaled_block,0,0,sw,sh,0);
             ckfree(scaled_block.pixelPtr);
+            pRet = pImage->pScaledImageName;
         } else {
             /* Failed to get the photo-handle. This might happen because
              * someone passed an image of type bitmap to the widget. Since

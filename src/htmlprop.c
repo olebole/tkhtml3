@@ -315,6 +315,24 @@ static int mapBorderWidth(pNode, pOut)
         if (zBorder) {
             int iBorder = atoi(zBorder);
             pOut->eType = CSS_TYPE_PX;
+
+            /* This is a bit weird in my opinion. If a <TABLE> tag has a
+             * border attribute with no value, then this means the table
+             * has a border but it's up to the user-agent to pick a
+             * formatting for it. So we treat the following as identical:
+             *
+             *     <table border>
+             *     <table border="">
+             *     <table border="1">
+             *     <table border=1>
+             *
+             * See section 11.3 "Table formatting by visual user agents" of
+             * the HTML 4.01 spec for details.
+             */
+            if (!zBorder[0]) {
+                iBorder = 1;
+            }
+
             if (iBorder>0 && (tag==Html_TD || tag==Html_TH)) {
                 pOut->v.iVal = 1;
             } else {
@@ -483,13 +501,13 @@ static PropMapEntry propmapdata[] = {
 
     {CSS_PROPERTY_BACKGROUND_COLOR, 0, 0, mapBgColor, CSSSTR("transparent")},
     {CSS_PROPERTY_COLOR, 1, 0, mapColor, CSSSTR("black")},
-    {CSS_PROPERTY_WIDTH, 0, 0, mapWidth, {CSS_TYPE_NONE, 0}},
+    {CSS_PROPERTY_WIDTH, 0, 0, mapWidth, {CSS_TYPE_STRING, "auto"}},
     {CSS_PROPERTY_MIN_WIDTH, 0, 0, 0, {CSS_TYPE_NONE, 0}},
     {CSS_PROPERTY_MAX_WIDTH, 0, 0, 0, {CSS_TYPE_NONE, 0}},
     {CSS_PROPERTY_HEIGHT, 0, 0, mapHeight, {CSS_TYPE_NONE, 0}},
 
     /* Font and text related properties */
-    {CSS_PROPERTY_TEXT_DECORATION, 1, 0, 0,     {CSS_TYPE_NONE, 0}},
+    {CSS_PROPERTY_TEXT_DECORATION, 0, 0, 0,     {CSS_TYPE_NONE, 0}},
     {CSS_PROPERTY_FONT_SIZE, 0, 0, mapFontSize, {CSS_TYPE_NONE, 0}},
     {CSS_PROPERTY_WHITE_SPACE, 1, 0, 0, {CSS_TYPE_NONE, 0}},
     {CSS_PROPERTY_VERTICAL_ALIGN, 0, 0, mapVAlign, {CSS_TYPE_NONE, 0}},

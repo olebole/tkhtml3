@@ -51,6 +51,11 @@ typedef struct CssNodeInterface CssNodeInterface;
 #define CSS_TYPE_TCL         8             /* Value in 'zVal' */
 #define CSS_TYPE_URL         9             /* Value in 'zVal' */
 
+/* CSS2 physical units. */
+#define CSS_TYPE_CENTIMETER   10           /* Value in 'rVal */
+#define CSS_TYPE_INCH         11           /* Value in 'rVal */
+#define CSS_TYPE_MILLIMETER   12           /* Value in 'rVal */
+
 struct CssProperty {
     int eType;
     union {

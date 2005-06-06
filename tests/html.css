@@ -65,6 +65,7 @@ HR {
   border-top: 1px solid grey45;
   background: grey80;
   height: 1px;
+  width: 100%;
 }
 
 /* Basic table tag rules. */
@@ -107,7 +108,6 @@ I, CITE, EM,
 VAR, ADDRESS    { font-style: italic }
 PRE, TT, CODE,
 KBD, SAMP       { font-family: courier }
-PRE             { white-space: pre }
 BIG             { font-size: 1.17em }
 SMALL, SUB, SUP { font-size: .83em }
 SUB             { vertical-align: sub }
@@ -118,6 +118,14 @@ OL UL, UL OL,
 UL UL, OL OL    { margin-top: 0; margin-bottom: 0 }
 U, INS          { text-decoration: underline }
 ABBR, ACRONYM   { font-variant: small-caps; letter-spacing: 0.1em }
+
+/* Formatting for <pre> etc. */
+PRE, PLAINTEXT, XMP { 
+  display: block;
+  white-space: pre;
+  margin: 1em 0;
+  font-family: courier;
+}
 
 /* Display properties for hyperlinks */
 :link { color: darkblue; text-decoration: underline }

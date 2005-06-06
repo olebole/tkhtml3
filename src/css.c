@@ -251,11 +251,14 @@ tokenToProperty(pToken)
         char *zUnit;
         int integer;
     } lengths[] = {
-        {CSS_TYPE_EM, 2, "em", 0},
-        {CSS_TYPE_PX, 2, "px", 1},
-        {CSS_TYPE_PT, 2, "pt", 1},
-        {CSS_TYPE_PERCENT, 1, "%", 1},
-        {CSS_TYPE_FLOAT, 0, "", 0}
+        {CSS_TYPE_EM,         2, "em", 0},
+        {CSS_TYPE_PX,         2, "px", 1},
+        {CSS_TYPE_PT,         2, "pt", 1},
+        {CSS_TYPE_PERCENT,    1, "%", 1},
+        {CSS_TYPE_FLOAT,      0, "", 0},
+        {CSS_TYPE_CENTIMETER, 2, "cm", 0},
+        {CSS_TYPE_MILLIMETER, 2, "mm", 1},
+        {CSS_TYPE_INCH,       2, "in", 1},
     };
 
     struct FunctionFormat {
@@ -946,6 +949,12 @@ static void propertySetAddShortcutBorderColor(p, prop, v)
             propertySetAdd(p, CSS_PROPERTY_BORDER_BOTTOM_COLOR, apProp[2]);
             propertySetAdd(p, CSS_PROPERTY_BORDER_LEFT_COLOR, apProp[3]);
             break;
+        case CSS_SHORTCUTPROPERTY_BORDER_STYLE:
+            propertySetAdd(p, CSS_PROPERTY_BORDER_TOP_STYLE, apProp[0]);
+            propertySetAdd(p, CSS_PROPERTY_BORDER_RIGHT_STYLE, apProp[1]);
+            propertySetAdd(p, CSS_PROPERTY_BORDER_BOTTOM_STYLE, apProp[2]);
+            propertySetAdd(p, CSS_PROPERTY_BORDER_LEFT_STYLE, apProp[3]);
+            break;
         case CSS_SHORTCUTPROPERTY_PADDING:
             propertySetAdd(p, CSS_PROPERTY_PADDING_TOP, apProp[0]);
             propertySetAdd(p, CSS_PROPERTY_PADDING_RIGHT, apProp[1]);
@@ -1378,6 +1387,7 @@ void tkhtmlCssDeclaration(CssParse *pParse, CssToken *pProp, CssToken *pExpr){
             propertySetAddShortcutBorder(pParse->pPropertySet, prop, pExpr);
             break;
         case CSS_SHORTCUTPROPERTY_BORDER_COLOR:
+        case CSS_SHORTCUTPROPERTY_BORDER_STYLE:
         case CSS_SHORTCUTPROPERTY_PADDING:
         case CSS_SHORTCUTPROPERTY_MARGIN:
             propertySetAddShortcutBorderColor(pParse->pPropertySet,prop,pExpr);
@@ -1855,6 +1865,9 @@ static int selectorTest(pSelector, pNodeInterface, pNode)
             case CSS_PSEUDOELEMENT_FIRSTLETTER:
             case CSS_PSEUDOELEMENT_BEFORE:
             case CSS_PSEUDOELEMENT_AFTER:
+                return 0;
+
+            case CSS_SELECTOR_NEVERMATCH:
                 return 0;
 
             default:

@@ -76,6 +76,8 @@ typedef unsigned int u32;
 #define CSS_MEDIA_TTY          30
 #define CSS_MEDIA_TV           31
 
+#define CSS_SELECTOR_NEVERMATCH 32
+
 /*
  * A CSS2 selector is stored as a linked list of the CssSelector structure.
  * The first element in the list is the rightmost simple-selector in the 
