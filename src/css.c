@@ -955,6 +955,12 @@ static void propertySetAddShortcutBorderColor(p, prop, v)
             propertySetAdd(p, CSS_PROPERTY_BORDER_BOTTOM_STYLE, apProp[2]);
             propertySetAdd(p, CSS_PROPERTY_BORDER_LEFT_STYLE, apProp[3]);
             break;
+        case CSS_SHORTCUTPROPERTY_BORDER_WIDTH:
+            propertySetAdd(p, CSS_PROPERTY_BORDER_TOP_WIDTH, apProp[0]);
+            propertySetAdd(p, CSS_PROPERTY_BORDER_RIGHT_WIDTH, apProp[1]);
+            propertySetAdd(p, CSS_PROPERTY_BORDER_BOTTOM_WIDTH, apProp[2]);
+            propertySetAdd(p, CSS_PROPERTY_BORDER_LEFT_WIDTH, apProp[3]);
+            break;
         case CSS_SHORTCUTPROPERTY_PADDING:
             propertySetAdd(p, CSS_PROPERTY_PADDING_TOP, apProp[0]);
             propertySetAdd(p, CSS_PROPERTY_PADDING_RIGHT, apProp[1]);
@@ -1388,6 +1394,7 @@ void tkhtmlCssDeclaration(CssParse *pParse, CssToken *pProp, CssToken *pExpr){
             break;
         case CSS_SHORTCUTPROPERTY_BORDER_COLOR:
         case CSS_SHORTCUTPROPERTY_BORDER_STYLE:
+        case CSS_SHORTCUTPROPERTY_BORDER_WIDTH:
         case CSS_SHORTCUTPROPERTY_PADDING:
         case CSS_SHORTCUTPROPERTY_MARGIN:
             propertySetAddShortcutBorderColor(pParse->pPropertySet,prop,pExpr);

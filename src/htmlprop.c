@@ -515,6 +515,7 @@ static PropMapEntry propmapdata[] = {
     {CSS_PROPERTY_FONT_STYLE, 1, 0, 0,  {CSS_TYPE_STRING, "normal"}},
     {CSS_PROPERTY_FONT_WEIGHT, 1, 0, 0, {CSS_TYPE_STRING, "normal"}},
     {CSS_PROPERTY_TEXT_ALIGN, 1, 0, 0,  {CSS_TYPE_STRING, "left"}},
+    {CSS_PROPERTY_LINE_HEIGHT, 0, 0, 0, {CSS_TYPE_STRING, "normal"}},
 
     /* Width of borders. */
     {CSS_PROPERTY_BORDER_TOP_WIDTH,    0, 0, mapBorderWidth, {CSS_TYPE_PX, 0}},

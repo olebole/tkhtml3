@@ -346,6 +346,7 @@ struct InlineBox {
 struct InlineContext {
   int textAlign;          /* One of TEXTALIGN_LEFT, TEXTALIGN_RIGHT etc. */
   int whiteSpace;         /* One of WHITESPACE_PRE, WHITESPACE_NORMAL etc. */
+  int lineHeight;         /* Value of 'line-height' on inline parent */
 
   int nInline;            /* Number of inline boxes in aInline */
   int nInlineAlloc;       /* Number of slots allocated in aInline */
@@ -359,7 +360,7 @@ static void inlineContextSetWhiteSpace(InlineContext *, int);
 static HtmlCanvas *inlineContextAddInlineCanvas(InlineContext *);
 static void inlineContextAddSpace(InlineContext *, int);
 static int 
-inlineContextGetLineBox(InlineContext*,int*,int,int,HtmlCanvas*,int*);
+inlineContextGetLineBox(InlineContext*,int*,int,int,HtmlCanvas*,int*, int*);
 static int inlineContextIsEmpty(InlineContext *);
 static InlineBorder *inlineContextGetBorder(LayoutContext *, HtmlNode *, int);
 static int inlineContextPushBorder(InlineContext *, InlineBorder *);
@@ -1280,10 +1281,16 @@ nodeGetEmPixels(pLayout, pNode)
     HtmlNode *pNode;
 {
     int ret;
+    int points;
+/*
     Tk_FontMetrics fontMetrics;
     Tk_Font font = nodeGetFont(pLayout, pNode);
     Tk_GetFontMetrics(font, &fontMetrics);
     ret = fontMetrics.ascent;
+*/
+    points = nodeGetFontSize(pLayout, pNode);
+    ret = physicalToPixels(pLayout, (double)(points), 'p');
+    
     return ret;
 }
 
@@ -1677,6 +1684,34 @@ static int nodeGetWhitespace(pLayout, pNode)
     CssProperty prop;
     HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_WHITE_SPACE, &prop);
     return propertyToConstant(&prop, zOptions, eOptions, WHITESPACE_NORMAL);
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * nodeGetLineHeight --
+ *
+ *     Return the value of the 'line-height' property, in pixels.
+ *
+ *     Percentage line-heights are calculated with respect to the font-size
+ *     of the node.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int nodeGetLineHeight(pLayout, pNode)
+    LayoutContext *pLayout;
+    HtmlNode *pNode;
+{
+    CssProperty prop;
+    int font_pixels = nodeGetEmPixels(pLayout, pNode);
+    HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_LINE_HEIGHT,&prop);
+    return propertyToPixels(pLayout, pNode, &prop, font_pixels, 0);
 }
 
 /*
@@ -2180,6 +2215,34 @@ inlineContextSetWhiteSpace(pInline, whiteSpace)
 /*
  *---------------------------------------------------------------------------
  *
+ * inlineContextSetLineHeight --
+ *
+ *     If the 'line-height' property is applied to a block-box that
+ *     generates an inline context, then this is the minimum height of the
+ *     line. 
+ *
+ *     This function sets the minimum line-height in pixels for an
+ *     inline-context.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void 
+inlineContextSetLineHeight(pInline, lineHeight)
+    InlineContext *pInline;
+    int lineHeight;
+{
+    pInline->lineHeight = lineHeight;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * inlineContextAddInlineCanvas --
  *
  *     This function is used to add inline box content to an inline
@@ -2296,7 +2359,8 @@ inlineContextAddNewLine(p, nHeight)
  *
  *---------------------------------------------------------------------------
  */
-static void inlineContextDrawBorder(pCanvas, pBorder, x1, y1, x2, y2, drb)
+static void 
+inlineContextDrawBorder(pCanvas, pBorder, x1, y1, x2, y2, drb)
     HtmlCanvas *pCanvas;
     InlineBorder *pBorder;
     int x1, y1;
@@ -2308,6 +2372,7 @@ static void inlineContextDrawBorder(pCanvas, pBorder, x1, y1, x2, y2, drb)
 
     int tw, rw, bw, lw;
     XColor *tc, *rc, *bc, *lc;
+    int dlb = (pBorder->iStartBox >= 0);        /* Draw Left Border */
 
     tw = pBorder->box.border_top;
     rw = pBorder->box.border_right;
@@ -2319,26 +2384,34 @@ static void inlineContextDrawBorder(pCanvas, pBorder, x1, y1, x2, y2, drb)
     bc = pBorder->border.color_bottom;
     lc = pBorder->border.color_left;
 
-    x1 += pBorder->margin.margin_left;
-    x2 -= pBorder->margin.margin_right;
+    x1 += (dlb ? pBorder->margin.margin_left : 0);
+    x2 -= (drb ? pBorder->margin.margin_right : 0);
     y1 += pBorder->margin.margin_top;
     y2 -= pBorder->margin.margin_bottom;
     if (tw>0) {
-        HtmlDrawQuad(pCanvas, x1, y1, x1+lw, y1+tw, x2-rw, y1+tw, x2, y1, tc);
+        HtmlDrawQuad(pCanvas, 
+            x1, y1, x1+(dlb?lw:0), y1+tw, 
+            x2-(drb?rw:0), y1+tw, x2, y1, 
+            tc
+        );
     }
     if (rw > 0 && drb) {
         HtmlDrawQuad(pCanvas, x2, y1, x2-rw, y1+tw, x2-rw, y2-bw, x2, y2, rc);
     }
     if (bw>0) {
-        HtmlDrawQuad(pCanvas, x2, y2, x2-rw, y2-bw, x1+lw, y2-bw, x1, y2, bc);
+        HtmlDrawQuad(pCanvas, 
+            x2, y2, x2-(drb?rw:0), y2-bw,
+            x1+(dlb?lw:0), y2-bw, x1, y2, 
+            bc
+        );
     }
-    if (lw > 0 && pBorder->iStartBox >= 0) {
+    if (lw > 0 && dlb) {
         HtmlDrawQuad(pCanvas, x1, y2, x1+lw, y2-bw, x1+lw, y1+tw, x1, y1, lc);
     }
 
     if (c) {
-        x1 += pBorder->box.border_left;
-        x2 -= pBorder->box.border_right;
+        x1 += (dlb ? pBorder->box.border_left : 0);
+        x2 -= (drb ? pBorder->box.border_right : 0);
         y1 += pBorder->box.border_top;
         y2 -= pBorder->box.border_bottom;
 
@@ -2349,8 +2422,8 @@ static void inlineContextDrawBorder(pCanvas, pBorder, x1, y1, x2, y2, drb)
         int y;                /* y-coordinate for horizontal line */
         XColor *color = pBorder->color;
 
-        x2 -= pBorder->box.padding_right;
-        x1 += pBorder->box.padding_left;
+        x1 += (dlb ? pBorder->box.padding_left : 0);
+        x2 -= (drb ? pBorder->box.padding_right : 0);
         y1 += pBorder->box.padding_top;
         y2 -= pBorder->box.padding_bottom;
 
@@ -2394,13 +2467,14 @@ static void inlineContextDrawBorder(pCanvas, pBorder, x1, y1, x2, y2, drb)
  *---------------------------------------------------------------------------
  */
 static int 
-inlineContextGetLineBox(p, pWidth, forceline, forcebox, pCanvas, pVSpace)
+inlineContextGetLineBox(p,pWidth,forceline,forcebox,pCanvas,pVSpace,pAscent)
     InlineContext *p;
     int *pWidth;              /* IN/OUT: See above */
     int forceline;            /* Draw line even if line is not full */
     int forcebox;             /* Draw at least one inline box */
     HtmlCanvas *pCanvas;      /* Canvas to render line box to */
-    int *pVSpace;             /* OUT: Height of generated linebox */
+    int *pVSpace;             /* OUT: Total height of generated linebox */
+    int *pAscent;             /* OUT: Ascent of line box */
 {
     int i;                   /* Iterator variable for aInline */
     int j;
@@ -2445,7 +2519,6 @@ inlineContextGetLineBox(p, pWidth, forceline, forcebox, pCanvas, pVSpace)
         }
     }
     nBox = i;
-   
 
     if ((p->nInline == 0) || (!forceline && (nBox == p->nInline))) {
         /* Either the inline context contains no inline-boxes or there are
@@ -2462,16 +2535,25 @@ inlineContextGetLineBox(p, pWidth, forceline, forcebox, pCanvas, pVSpace)
 
     if (0 == nBox) {
         if (p->aInline[0].eNewLine) {
-            /* The line-box consists of a single new-line only */
+            /* The line-box consists of a single new-line only. TODO: This
+             * should be the font-height, not a constant value! 
+             */
             *pVSpace = 10;
             return 1;
         }
         if (forcebox && !p->aInline[0].eNewLine) {
 	    /* The first inline-box is too wide for the supplied width, but
 	     * the 'forcebox' flag is set so we have to lay out at least
-	     * one box.
+	     * one box. A gotcha is that we don't want to lay out our last
+	     * inline box unless the 'forceline' flag is set. We might need
+	     * it to help close an inline-border.
              */
-            nBox = 1;
+            if (p->nInline > 1 || forceline) {
+                nBox = 1;
+            } else {
+                *pWidth = 0;
+                return 0;
+            }
         }
     }
     if (nBox == 0) {
@@ -2654,6 +2736,21 @@ inlineContextGetLineBox(p, pWidth, forceline, forcebox, pCanvas, pVSpace)
         pBorder->iStartBox = -1;
     }
 
+    /* Set the height and ascent values to return. This is based on the
+     * content and 'line-height' property only, the borders,
+     * padding and margins of non-replaced elements are not considered.
+     * Strange in my opinion, but the CSS specs are unambiguous on this
+     * point.
+     */
+    if ((content.bottom - content.top) < p->lineHeight) {
+        int ascent_adjust = (p->lineHeight - content.bottom + content.top) / 2;
+        *pVSpace = p->lineHeight;
+        *pAscent = content.top - ascent_adjust;
+    } else {
+        *pVSpace = (content.bottom - content.top);
+        *pAscent = content.top;
+    }
+
     /* Draw the borders and content canvas into the target canvas. Draw the
      * borders canvas first so that it is under the content.
      */
@@ -2802,18 +2899,19 @@ inlineLayoutDrawLines(pLayout, pBox, pContext, forceflag, pY)
         int y = *pY;               /* Y coord for line-box baseline. */
         int leftFloat = 0;
         int rightFloat = pBox->parentWidth;
-        int nV = 0;                /* Extra vertical space to add */
+        int nV = 0;                /* Vertical height of line. */
+        int nA = 0;                /* Ascent of line box. */
 
         floatListMargins(pBox->pFloats, &leftFloat, &rightFloat);
         f = floatListIsEmpty(pBox->pFloats);
 
         memset(&lc, 0, sizeof(HtmlCanvas));
         w = rightFloat - leftFloat;
-        have = inlineContextGetLineBox(pContext, &w, forceflag, f, &lc, &nV);
+        have = inlineContextGetLineBox(pContext,&w,forceflag,f,&lc,&nV,&nA);
 
         if (have) {
-            HtmlDrawCanvas(&pBox->vc, &lc, leftFloat, y-lc.top);
-            y += (lc.bottom - lc.top) + nV;
+            HtmlDrawCanvas(&pBox->vc, &lc, leftFloat, y-nA);
+            y += nV;
             pBox->width = MAX(pBox->width, lc.right + leftFloat);
             pBox->height = MAX(pBox->height, y);
             pLayout->marginParent = 0;
@@ -2976,13 +3074,6 @@ inlineLayoutNode(pLayout, pBox, pNode, pY, pContext)
     }
 
     /* See if there are any complete line-boxes to copy to the main canvas. 
-     *
-     * TODO: For whatever reason, this is causing trouble at the moment. So
-     * disable it and draw all the line-boxes after processing the whole
-     * inline-canvas.
-     *
-     * Calling inlineLayoutDrawLines() here is only an optimization to save
-     * a few malloc() calls. Disabling it is probably not a big deal.
      */
     if(rc == 0) {
         rc = inlineLayoutDrawLines(pLayout, pBox, pContext, 0, pY);
@@ -3033,7 +3124,9 @@ static int inlineLayout(pLayout, pBox, pNode)
     } else {
         inlineContextSetTextAlign(&context, nodeGetTextAlign(pLayout, pParent));
     }
+
     inlineContextSetWhiteSpace(&context, nodeGetWhitespace(pLayout, pParent));
+    inlineContextSetLineHeight(&context, nodeGetLineHeight(pLayout, pParent));
 
     pBorder = inlineContextGetBorder(pLayout, pParent, 1);
     if (pBorder) {
@@ -4196,7 +4289,7 @@ collapseMargins(margin_one, margin_two)
  *             div  {border:  solid 1px}
  *             div  {padding: 1px      }
  *
- *         Then there will be 71 pixels between the two paragraphs. Or, if
+ *         Then there will be 71 pixels between the two paragraphs.
  *
  * Results:
  *     None.
@@ -4483,7 +4576,8 @@ static int blockLayout(pLayout, pBox, pNode, omitborder)
  *
  *---------------------------------------------------------------------------
  */
-int HtmlLayoutForce(clientData, interp, objc, objv)
+int 
+HtmlLayoutForce(clientData, interp, objc, objv)
     ClientData clientData;             /* The HTML widget */
     Tcl_Interp *interp;                /* The interpreter */
     int objc;                          /* Number of arguments */
@@ -4577,4 +4671,3 @@ int HtmlLayoutForce(clientData, interp, objc, objv)
 
     return rc;
 }
-
