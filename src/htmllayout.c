@@ -1769,7 +1769,6 @@ static int floatLayout(pLayout, pBox, pNode, pY)
     FloatMargin sFloat;              /* Internal floating margin list. */
     MarginProperties margins;        /* Generated box margins. */
     int width;                       /* Width of generated box content. */
-    int totalwidth;                  /* Width incl. margins, padding, border */
     int marginwidth;                 /* Width of box including margins */
     int leftFloat = 0;                   /* left floating margin */
     int rightFloat = pBox->parentWidth;  /* right floating margin */
@@ -1812,7 +1811,7 @@ static int floatLayout(pLayout, pBox, pNode, pY)
     assert(display.eDisplay==DISPLAY_BLOCK || display.eDisplay==DISPLAY_TABLE);
 
     /* According to CSS, a floating box must have an explicit width or
-     * replaced content. But if it doesn't, we just assign the maximum
+     * replaced content. But if it doesn't, we just assign the minimum
      * width of the floating box. The 'width' value calculated here is the
      * content width of the floating box, it doesn't include margins,
      * padding, or borders.
@@ -1823,12 +1822,6 @@ static int floatLayout(pLayout, pBox, pNode, pY)
         blockMinMaxWidth(pLayout, pNode, &min, &max);
         width = min;
     }
-
-    /* Get the margins for the floating box. Floating box margins never
-     * collapse with any other margins.
-     */
-    nodeGetMargins(pLayout, pNode, &margins);
-    marginwidth = width + margins.margin_left + margins.margin_right;
 
     /* Draw the floating box. Set marginValid to 1 and marginValue to 0 to
      * ensure that the top margin of the floating box is allocated. Margins
@@ -1841,7 +1834,6 @@ static int floatLayout(pLayout, pBox, pNode, pY)
     blockLayout(pLayout, &sBox, pNode, 0);
     pLayout->marginValid = marginValid;
     pLayout->marginValue = marginValue;
-    totalwidth = sBox.width;
 
     if (marginValid) {
         y += marginValue;
@@ -1852,7 +1844,7 @@ static int floatLayout(pLayout, pBox, pNode, pY)
      * the parent box is not wide enough for this float, we may shift this
      * float downward until there is room.
      */
-    y = floatListPlace(pBox->pFloats, pBox->parentWidth, totalwidth, y);
+    y = floatListPlace(pBox->pFloats, pBox->parentWidth, sBox.width, y);
     floatListClear(pBox->pFloats, y);
     y = floatListClearMargin(pBox->pFloats, display.eClear, y);
     floatListMargins(pBox->pFloats, &leftFloat, &rightFloat);
@@ -1867,7 +1859,7 @@ static int floatLayout(pLayout, pBox, pNode, pY)
     if (display.eFloat==FLOAT_LEFT) {
         x = leftFloat;
     } else {
-        x = rightFloat - marginwidth;
+        x = rightFloat - sBox.width;
         if (x<leftFloat) {
             x = leftFloat;
         }
@@ -1876,20 +1868,20 @@ static int floatLayout(pLayout, pBox, pNode, pY)
 
     /* If the right-edge of this floating box exceeds the current actual
      * width of the box it is drawn in, set the actual width to the 
-     * right edge.
+     * right edge. Floating boxes do not affect the height of the parent
+     * box.
      */
-    pBox->width = MAX(marginwidth+(pBox->parentWidth-rightFloat), pBox->width);
-    pBox->height = MAX(y+sBox.height, pBox->height);
+    pBox->width = MAX(x+sBox.width, pBox->width);
 
     /* Fix the float list in the parent block so that nothing overlaps
      * this floating box.
      */
     if (display.eFloat==FLOAT_LEFT) {
-        int m = x + totalwidth;
-        floatListAdd(pBox->pFloats, FLOAT_LEFT, m, y + sBox.height);
+        int m = x + sBox.width;
+        floatListAdd(pBox->pFloats, FLOAT_LEFT, m, y + sBox.height - 1);
     } else {
         int m = x;
-        floatListAdd(pBox->pFloats, FLOAT_RIGHT, m, y + sBox.height);
+        floatListAdd(pBox->pFloats, FLOAT_RIGHT, m, y + sBox.height - 1);
     }
 
     return TCL_OK;
@@ -2992,7 +2984,7 @@ inlineLayoutNode(pLayout, pBox, pNode, pY, pContext)
      * Calling inlineLayoutDrawLines() here is only an optimization to save
      * a few malloc() calls. Disabling it is probably not a big deal.
      */
-    if(0 && rc == 0) {
+    if(rc == 0) {
         rc = inlineLayoutDrawLines(pLayout, pBox, pContext, 0, pY);
     }
 
@@ -3060,7 +3052,10 @@ static int inlineLayout(pLayout, pBox, pNode)
  * blockMinMaxWidth --
  *
  *     Figure out the minimum and maximum widths that this block may use.
- *     This is used during table layout.
+ *     This is used during table and floating box layout.
+ *
+ *     The returned widths include the content, borders, padding and
+ *     margins.
  *
  * Results:
  *     None.
@@ -4257,6 +4252,7 @@ static int blockLayout(pLayout, pBox, pNode, omitborder)
 
     /* Adjust the Y-coordinate to account for the 'clear' property. */
     y = floatListClearMargin(pBox->pFloats, display.eClear, y);
+    floatListClear(pBox->pFloats, y);
 
     leftFloat = 0;
     rightFloat = pBox->parentWidth;
@@ -4396,7 +4392,7 @@ static int blockLayout(pLayout, pBox, pNode, omitborder)
         /* Draw the border directly into the parent canvas. */
         if (!omitborder) {
             int x1 = margin.margin_left + leftFloat + hoffset;
-            int y1 = top_margin;
+            int y1 = y - boxproperties.border_top - boxproperties.padding_top;
             int x2 = x1 + sBox.width + 
                     boxproperties.padding_left + 
                     boxproperties.padding_right + 

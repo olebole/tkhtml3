@@ -60,12 +60,18 @@ TD, TH {
   border-left-color: grey25;
 }
 
+/* For a horizontal line, use a table with no content. We use a table
+ * instead of a block because tables are laid out around floating boxes, 
+ * whereas regular blocks are not.
+ */
 HR { 
-  display: block; 
+  display: table; 
   border-top: 1px solid grey45;
   background: grey80;
   height: 1px;
   width: 100%;
+  text-align: center;
+  margin: 0.5em;
 }
 
 /* Basic table tag rules. */
