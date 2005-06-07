@@ -98,11 +98,12 @@ int HtmlClearImageArray(pTree)
  *---------------------------------------------------------------------------
  */
 Tcl_Obj *
-HtmlResizeImage(pTree, zImage, pWidth, pHeight)
+HtmlResizeImage(pTree, zImage, pWidth, pHeight, calculateSizeOnly)
     HtmlTree *pTree;
     CONST char *zImage;
     int *pWidth;
     int *pHeight;
+    int calculateSizeOnly;
 {
     HtmlScaledImage *pImage;          /* Pointer to HtmlTree.aImage value */
     Tcl_HashEntry *pEntry;            /* Cache entry */
@@ -139,8 +140,18 @@ HtmlResizeImage(pTree, zImage, pWidth, pHeight)
      * then set them to the value of the intrinsic dimension.
      */
     Tk_SizeOfImage(pImage->image, &w, &h);
-    if (*pWidth<0) *pWidth = w;
-    if (*pHeight<0) *pHeight = h;
+    if (*pWidth < 0 && *pHeight < 0) {
+        *pWidth = w;
+        *pHeight = h;
+    } else if (*pWidth < 0) {
+        *pWidth = (*pHeight * w) / h;
+    } else if (*pHeight < 0) {
+        *pHeight = (*pWidth * h) / w;
+    }
+
+    if (calculateSizeOnly) {
+        return 0;
+    }
 
     if (*pWidth==w && *pHeight==h) {
         /* If the requested dimensions match the intrinsic dimensions,

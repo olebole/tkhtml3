@@ -213,7 +213,7 @@ EXTERN Tcl_Obj *HtmlNodeCommand(Tcl_Interp *interp, HtmlNode *pNode);
 EXTERN void HtmlNodeGetProperty(Tcl_Interp *, HtmlNode *, int , CssProperty *);
 EXTERN void HtmlNodeGetDefault(HtmlNode *, int , CssProperty *);
 
-EXTERN Tcl_Obj *HtmlResizeImage(HtmlTree *, CONST char *, int *, int *);
+EXTERN Tcl_Obj *HtmlResizeImage(HtmlTree *, CONST char *, int *, int *, int);
 EXTERN Tcl_Obj *HtmlXImageToImage(HtmlTree *, XImage *, int, int);
 EXTERN int HtmlClearImageArray(HtmlTree*);
 
