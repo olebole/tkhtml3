@@ -463,6 +463,7 @@ S int physicalToPixels(LayoutContext *, double, char);
 S int propertyIsAuto(CssProperty *);
 
 S int  nodeGetEmPixels(LayoutContext*, HtmlNode*);
+S int nodeGetExPixels(LayoutContext*, HtmlNode*);
 S void nodeGetDisplay(LayoutContext*, HtmlNode*, DisplayProperties*);
 S int  nodeGetListStyleType(LayoutContext *, HtmlNode *);
 S XColor *nodeGetColour(LayoutContext *, HtmlNode*);
@@ -796,6 +797,9 @@ propertyToPixels(pLayout, pNode, pProp, parentwidth, default_val)
             case CSS_TYPE_EM: {
                 return pProp->v.rVal * nodeGetEmPixels(pLayout, pNode);
             }
+            case CSS_TYPE_EX: {
+                return pProp->v.rVal * nodeGetExPixels(pLayout, pNode);
+            }
             case CSS_TYPE_PERCENT: {
                 return (pProp->v.iVal * parentwidth) / 100;
             }
@@ -807,6 +811,9 @@ propertyToPixels(pLayout, pNode, pProp, parentwidth, default_val)
             }
             case CSS_TYPE_INCH: {
                 return physicalToPixels(pLayout, pProp->v.rVal, 'i');
+            }
+            case CSS_TYPE_PC: {
+                return physicalToPixels(pLayout, pProp->v.rVal * 12.0, 'p');
             }
             case CSS_TYPE_PT: {
                 return physicalToPixels(pLayout, (double)pProp->v.iVal, 'p');
@@ -843,45 +850,40 @@ static XColor *propertyToColor(pLayout, pProp)
 
     zColor = propertyToString(pProp, 0);
     if (zColor) {
-        color = Tk_GetColor(interp, tkwin, zColor);
-        if (!color) {
-            /* These are the 16 colors guarenteed to exist by HTML 4. If a
-             * Tk installation does not support any of these colors then
-             * this table is used to map them to a hexadecimal color
-             * specification.
-             *
-             * If Tk does define any of these colors, we accept the Tk
-             * definition, even though it is likely different from the
-             * interpretation below.
-             */
-            struct MappedColor {
-                const char *zHtml;
-                const char *zTk;
-            } colors [] = {
-                {"black", "#000000"},
-                {"silver", "#C0C0C0"},
-                {"gray", "#808080"},
-                {"white", "#FFFFFF"},
-                {"maroon", "#800000"},
-                {"red", "#FF0000"},
-                {"purple", "#800080"},
-                {"fuchsia", "#FF00FF"},
-                {"green", "#008000"},
-                {"lime", "#00FF00"},
-                {"olive", "#808000"},
-                {"yellow", "#FFFF00"},
-                {"navy", "#000080"},
-                {"blue", "#0000FF"},
-                {"teal", "#008080"},
-                {"aqua", "#00FFFF"},
-            };
-            int i;
-            for (i = 0; i < (sizeof(colors) / sizeof(colors[0])); i++) {
-                if (0 == strcmp(zColor, colors[i].zHtml)) {
-                    color = Tk_GetColor(interp, tkwin, colors[i].zTk);
-                    break;
-                }
+        /* These are the 16 colors guarenteed to exist by HTML 4. We use
+	 * the HTML 4 definintions by preference, even though Tk may define
+	 * some of these colors differently.
+         */
+        struct MappedColor {
+            const char *zHtml;
+            const char *zTk;
+        } colors [] = {
+            {"black", "#000000"},
+            {"silver", "#C0C0C0"},
+            {"gray", "#808080"},
+            {"white", "#FFFFFF"},
+            {"maroon", "#800000"},
+            {"red", "#FF0000"},
+            {"purple", "#800080"},
+            {"fuchsia", "#FF00FF"},
+            {"green", "#008000"},
+            {"lime", "#00FF00"},
+            {"olive", "#808000"},
+            {"yellow", "#FFFF00"},
+            {"navy", "#000080"},
+            {"blue", "#0000FF"},
+            {"teal", "#008080"},
+            {"aqua", "#00FFFF"},
+        };
+        int i;
+        for (i = 0; i < (sizeof(colors) / sizeof(colors[0])); i++) {
+            if (0 == strcmp(zColor, colors[i].zHtml)) {
+                color = Tk_GetColor(interp, tkwin, colors[i].zTk);
+                break;
             }
+        }
+        if (!color) {
+        color = Tk_GetColor(interp, tkwin, zColor);
         }
         if (!color) {
 	    /* Old versions of netscape used to support hex colors without
@@ -1049,52 +1051,166 @@ static int nodeGetFontSize(pLayout, pNode)
     CssProperty prop;
 
     /* Default of 'font-size' should be "medium". */
-    if (!pNode) return 8;
-
+    if (!pNode) return 10;
     HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_FONT_SIZE, &prop);
 
     switch (prop.eType) {
         case CSS_TYPE_EM:
-            val = nodeGetFontSize(pLayout, pNode->pParent);
+            val = nodeGetFontSize(pLayout, HtmlNodeParent(pNode));
             val = val * prop.v.rVal;
+            break;
+        case CSS_TYPE_EX:
+            val = nodeGetExPixels(pLayout,  HtmlNodeParent(pNode));
+            val = val * prop.v.rVal;
+            break;
+        case CSS_TYPE_PT:
+            val = prop.v.iVal;
             break;
         case CSS_TYPE_PERCENT:
             val = nodeGetFontSize(pLayout, pNode->pParent);
             val = (val * prop.v.iVal) / 100;
             break;
-        case CSS_TYPE_PX:
-            val = pixelsToPoints(pLayout, prop.v.iVal);
-            break;
-        case CSS_TYPE_FLOAT:
-            val = prop.v.rVal * 0.8;
-            break;
-        case CSS_TYPE_PT:
-            val = prop.v.iVal;
-            break;
         case CSS_TYPE_STRING: {
-            CONST char *zOptions[] = {"xx-small", "x-small", "small", 
-                               "medium", "large", "x-large", "xx-large", 0};
-            int eOptions[] =  {0, 1, 2, 3, 4, 5, 6};
-            double rOptions[] = {0.6944, 0.8333, 1.0, 1.2, 1.44, 1.728, 2.074};
+            CONST char *zOptions[] = {
+                "xx-small", "x-small", "small", 
+                "medium", "large", "x-large", 
+                "xx-large", "smaller", "larger",
+                0};
+            int eOptions[] =  
+                {0, 1, 2, 3, 4, 5, 6, 7, 8};
+            double rOptions[] = {
+                0.6944, 0.8333, 1.0, 1.2, 1.44, 1.728, 2.074,
+                0.8333, 1.2
+            };
             int i = propertyToConstant(&prop, zOptions, eOptions, -1);
             if (i>=0) {
                 HtmlNode *pParent;
                 double r = rOptions[i];
-
                 pParent = HtmlNodeParent(pNode);
-                while (pParent && HtmlNodeTagType(pParent)!=Html_BODY) {
+                while (i<=6 && pParent && HtmlNodeTagType(pParent)!=Html_BODY) {
                     pParent = HtmlNodeParent(pParent);
                 }
-
                 val = nodeGetFontSize(pLayout, pParent) * r;
             }
+            break;
+        }
+        default: {
+            int pixels = propertyToPixels(pLayout, pNode, &prop, 0, 0);
+            val = pixelsToPoints(pLayout, pixels);
         }
     }
 
-    if (val==0) {
+    if (val<=0) {
         val = nodeGetFontSize(pLayout, pNode->pParent);
     }
     return val;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * nodeGetFontFamily --
+ *
+ *     Return a Tcl list object with reference count 1 containing the names
+ *     of potential font-families to use for this node. The first entry in
+ *     the list has the highest priority.
+ *
+ *     CSS specifies that the font-families "serif", "sans-serif",
+ *     "monospace", "fantasy" and "cursive" are always available. Tk on the
+ *     other hand guarantees only families "Helvetica", "Courier" and
+ *     "Times". The first three CSS families we can map directly to these.
+ *
+ *     What to do about "cursive" and "fantasy" is a bit of a problem. I
+ *     think we will end up adding an option for the Tcl script to specify
+ *     a font for these two. Or maybe not. The user shouldn't need to write
+ *     100 scripts to get decent rendering from the widget.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static Tcl_Obj *nodeGetFontFamily(pLayout, pNode)
+    LayoutContext *pLayout;
+    HtmlNode *pNode;
+{
+    struct FamilyMap {
+        CONST char *cssFont;
+        CONST char *tkFont;
+        int isItalic;
+    } familyMap [] = {
+        {"serif",      "Times", 0},
+        {"sans-serif", "Helvetica", 0},
+        {"monospace",  "Courier", 0},
+    };
+    CssProperty fontFamily;
+    CONST char *zFamily;
+    CONST char *zFamilyEnd;
+    Tcl_Obj *pObj;
+    Tcl_Obj *pFallback = 0;
+    Tcl_Interp *interp = pLayout->interp;
+
+    HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_FONT_FAMILY, &fontFamily);
+    zFamily = propertyToString(&fontFamily, "Helvetica");
+
+    /* Split the zFamily attribute on the "," character. If the list
+     * contains any of the families contained in the "familyMap" array
+     * above, then add the name of the Tk font to the end of the list. We
+     * use this as a last resort. For example, if the value of the
+     * font-family property is:
+     *
+     *     "Arial Mono, monospace"
+     *
+     * then return the Tcl list:
+     *
+     *     {{Arial Mono} monospace Courier}
+     *
+     * This means that if the user specifies "monospace", we give the
+     * system a chance to map the font before we default to Courier (which
+     * Tk always supports).
+     */
+    pObj = Tcl_NewObj();
+    Tcl_IncrRefCount(pObj);
+    for ( ; zFamily; zFamily = zFamilyEnd) {
+        int n;
+        Tcl_Obj *p;
+        CONST char *z;
+        int i;
+
+        zFamilyEnd = strchr(zFamily, (int)',');
+        if (!zFamilyEnd) {
+            n = strlen(zFamily);
+        } else {
+            n = zFamilyEnd - zFamily;
+        }
+        while (zFamilyEnd && (*zFamilyEnd==',' || *zFamilyEnd==' ')) {
+            zFamilyEnd++;
+        }
+
+        p = Tcl_NewStringObj(zFamily, n);
+        Tcl_IncrRefCount(p);
+        z = Tcl_GetString(p);
+        Tcl_ListObjAppendElement(interp, pObj, p);
+
+        for (i = 0; i < sizeof(familyMap)/sizeof(struct FamilyMap); i++) {
+            if (!pFallback && 0 == strcmp(familyMap[i].cssFont, z)) {
+                pFallback = Tcl_NewStringObj(familyMap[i].tkFont, -1); 
+                Tcl_IncrRefCount(pFallback);
+            }
+        }
+
+        Tcl_DecrRefCount(p);
+    }
+
+    if (pFallback) {
+        Tcl_ListObjAppendElement(interp, pObj, pFallback);
+        Tcl_DecrRefCount(pFallback);
+    }
+
+    return pObj;
 }
 
 /*
@@ -1119,14 +1235,13 @@ static Tk_Font nodeGetFont(pLayout, pNode)
     int sz = nodeGetFontSize(pLayout, pNode);
     int isItalic;
     int isBold;
-    Tk_Font font = 0;
-    const char *zFamily;
+    int i;
     int nFamily;
-    const char *zFamilyEnd;
-    CssProperty *pFontFamily;
+    Tk_Font font = 0;
     CssProperty fontStyle;            /* Property 'font-style' */
     CssProperty fontWeight;           /* Property 'font-weight' */
     CssProperty fontFamily;           /* Property 'font-family' */
+    Tcl_Obj *pFamily;                 /* List of potential font-families */
     Tcl_Interp *interp = pLayout->pTree->interp;
     Tcl_HashTable *pFontCache = &pLayout->pTree->aFontCache;
 
@@ -1135,12 +1250,6 @@ static Tk_Font nodeGetFont(pLayout, pNode)
 
     CONST char *zWeightOptions [] = {"bold", "bolder", 0};
     int eWeightOptions [] = {1, 1};
-
-    /* Todo: Other options for 'text-decoration' are "overline",
-     * "line-through" and "blink".
-     */
-    CONST char *zDecOptions [] = {"underline", 0};
-    int eDecOptions [] = {1};
 
     /* If the 'font-style' attribute is set to either "italic" or
      * "oblique", add the option "-slant italic" to the string version
@@ -1160,50 +1269,41 @@ static Tk_Font nodeGetFont(pLayout, pNode)
     HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_FONT_WEIGHT, &fontWeight);
     isBold = propertyToConstant(&fontWeight, zWeightOptions, eWeightOptions, 0);
 
-    /* If 'font-family' is set, then use the value as the -family option
-     * in the Tk font request. Otherwise use Helvetica, which is always
-     * available.
-     */
-    HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_FONT_FAMILY, &fontFamily);
-    zFamily = propertyToString(&fontFamily, "Helvetica");
-
-    zFamilyEnd = strchr(zFamily, (int)',');
-    if (!zFamilyEnd) {
-        nFamily = strlen(zFamily);
-    } else {
-        nFamily = zFamilyEnd - zFamily;
-    }
-
-    while (font==0) {
-        char zBuf[100];
+    pFamily = nodeGetFontFamily(pLayout, pNode);
+    Tcl_ListObjLength(interp, pFamily, &nFamily);
+    for (i = 0; font == 0 && i < nFamily; i++) {
+        Tcl_Obj *pFont;
         Tcl_HashEntry *pEntry;
         int newentry;
-        Tk_Window tkwin = pLayout->tkwin;
 
-        sprintf(zBuf, "-family %.*s -size %d%s%s", nFamily, zFamily, sz, 
-            isItalic?" -slant italic":"",
-            isBold?" -weight bold":""
-        );
+        Tcl_ListObjIndex(interp, pFamily, i, &pFont);
+        pFont = Tcl_DuplicateObj(pFont);
+        Tcl_IncrRefCount(pFont);
+        Tcl_ListObjAppendElement(interp, pFont, Tcl_NewIntObj(sz));
 
-        pEntry = Tcl_CreateHashEntry(pFontCache, zBuf, &newentry);
+        if (isItalic) {
+            Tcl_Obj *p = Tcl_NewStringObj("italic", -1);
+            Tcl_ListObjAppendElement(interp, pFont, p);
+        }
+        if (isBold) {
+            Tcl_Obj *p = Tcl_NewStringObj("bold", -1);
+            Tcl_ListObjAppendElement(interp, pFont, p);
+        }
+
+        pEntry = Tcl_CreateHashEntry(pFontCache,Tcl_GetString(pFont),&newentry);
         if (newentry) {
-            font = Tk_GetFont(pLayout->interp, tkwin, zBuf); 
-            if (!font) {
-                if (isItalic) {
-                    isItalic = 0;
-                } else if (isBold) {
-                    isBold = 0;
-                } else {
-                    zFamily = "Helvetica";
-                }
-            } else {
+            font = Tk_AllocFontFromObj(interp, pLayout->tkwin, pFont); 
+            if (font) {
                 Tcl_SetHashValue(pEntry, font);
             }
         } else {
             font = Tcl_GetHashValue(pEntry);
         }
+        Tcl_DecrRefCount(pFont);
     }
- 
+    assert(font);
+
+    Tcl_DecrRefCount(pFamily);
     return font;
 }
 

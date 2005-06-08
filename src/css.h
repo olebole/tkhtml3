@@ -43,18 +43,23 @@ typedef struct CssNodeInterface CssNodeInterface;
 #define CSS_TYPE_EM           1            /* Value in 'rVal' */
 #define CSS_TYPE_PX           2            /* Value in 'iVal' */
 #define CSS_TYPE_PT           3            /* Value in 'iVal' */
+#define CSS_TYPE_PC           14           /* Value in 'rVal' */
+#define CSS_TYPE_EX           15           /* Value in 'rVal' */
 #define CSS_TYPE_STRING       4            /* Value in 'sVal' */
 #define CSS_TYPE_PERCENT      5            /* Value in 'iVal' */
 #define CSS_TYPE_FLOAT        6            /* Value in 'rVal' */
 #define CSS_TYPE_NONE         7            /* No value */
 
-#define CSS_TYPE_TCL         8             /* Value in 'zVal' */
-#define CSS_TYPE_URL         9             /* Value in 'zVal' */
+#define CSS_TYPE_TCL          8            /* Value in 'zVal' */
+#define CSS_TYPE_URL          9            /* Value in 'zVal' */
 
 /* CSS2 physical units. */
 #define CSS_TYPE_CENTIMETER   10           /* Value in 'rVal */
 #define CSS_TYPE_INCH         11           /* Value in 'rVal */
 #define CSS_TYPE_MILLIMETER   12           /* Value in 'rVal */
+
+/* CSS2 Keywords */
+#define CSS_TYPE_INHERIT      13           /* No value */
 
 struct CssProperty {
     int eType;

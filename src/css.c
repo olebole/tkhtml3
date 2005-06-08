@@ -252,13 +252,15 @@ tokenToProperty(pToken)
         int integer;
     } lengths[] = {
         {CSS_TYPE_EM,         2, "em", 0},
+        {CSS_TYPE_EX,         2, "ex", 0},
         {CSS_TYPE_PX,         2, "px", 1},
         {CSS_TYPE_PT,         2, "pt", 1},
         {CSS_TYPE_PERCENT,    1, "%", 1},
         {CSS_TYPE_FLOAT,      0, "", 0},
         {CSS_TYPE_CENTIMETER, 2, "cm", 0},
-        {CSS_TYPE_MILLIMETER, 2, "mm", 1},
-        {CSS_TYPE_INCH,       2, "in", 1},
+        {CSS_TYPE_MILLIMETER, 2, "mm", 0},
+        {CSS_TYPE_INCH,       2, "in", 0},
+        {CSS_TYPE_PC,         2, "pc", 0},
     };
 
     struct FunctionFormat {
@@ -269,6 +271,13 @@ tokenToProperty(pToken)
         {CSS_TYPE_TCL, 3, "tcl"},
         {CSS_TYPE_URL, 3, "url"},
         {-1,           3, "rgb"},
+    };
+
+    struct KeywordFormat {
+        int type;
+        CONST char *zKeyword;
+    } keywords[] = {
+        {CSS_TYPE_INHERIT, "inherit"},
     };
 
     CssProperty *pProp = 0;
@@ -338,8 +347,17 @@ tokenToProperty(pToken)
                     }
 
                     /* TODO: Dequote? */
+                    break;
                 }
             }
+        }
+    }
+
+    for (i = 0; i < sizeof(keywords)/sizeof(struct KeywordFormat); i++) {
+        if (0 == strncmp(keywords[i].zKeyword, z, n)) {
+            pProp = (CssProperty *)ckalloc(sizeof(CssProperty));
+            pProp->eType = keywords[i].type;
+            break;
         }
     }
 

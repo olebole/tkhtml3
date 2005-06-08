@@ -483,7 +483,7 @@ mapBorderSpacing(pNode, pOut)
  * These macros just makes the array definition below format more neatly.
  */
 #define CSS_NONE   {CSS_TYPE_STRING, "none"}
-#define CSSSTR(x) {CSS_TYPE_STRING, x}
+#define CSSSTR(x) {CSS_TYPE_STRING, (int)x}
 
 struct PropMapEntry {
     int property;
@@ -501,7 +501,7 @@ static PropMapEntry propmapdata[] = {
 
     {CSS_PROPERTY_BACKGROUND_COLOR, 0, 0, mapBgColor, CSSSTR("transparent")},
     {CSS_PROPERTY_COLOR, 1, 0, mapColor, CSSSTR("black")},
-    {CSS_PROPERTY_WIDTH, 0, 0, mapWidth, {CSS_TYPE_STRING, "auto"}},
+    {CSS_PROPERTY_WIDTH, 0, 0, mapWidth, CSSSTR("auto")},
     {CSS_PROPERTY_MIN_WIDTH, 0, 0, 0, {CSS_TYPE_NONE, 0}},
     {CSS_PROPERTY_MAX_WIDTH, 0, 0, 0, {CSS_TYPE_NONE, 0}},
     {CSS_PROPERTY_HEIGHT, 0, 0, mapHeight, {CSS_TYPE_NONE, 0}},
@@ -511,9 +511,9 @@ static PropMapEntry propmapdata[] = {
     {CSS_PROPERTY_FONT_SIZE, 0, 0, mapFontSize, {CSS_TYPE_NONE, 0}},
     {CSS_PROPERTY_WHITE_SPACE, 1, 0, 0, {CSS_TYPE_NONE, 0}},
     {CSS_PROPERTY_VERTICAL_ALIGN, 0, 0, mapVAlign, {CSS_TYPE_NONE, 0}},
-    {CSS_PROPERTY_FONT_FAMILY, 1, 0, 0, {CSS_TYPE_STRING, "Helvetica"}},
-    {CSS_PROPERTY_FONT_STYLE, 1, 0, 0,  {CSS_TYPE_STRING, "normal"}},
-    {CSS_PROPERTY_FONT_WEIGHT, 1, 0, 0, {CSS_TYPE_STRING, "normal"}},
+    {CSS_PROPERTY_FONT_FAMILY, 1, 0, 0, CSSSTR("Helvetica")},
+    {CSS_PROPERTY_FONT_STYLE, 1, 0, 0,  CSSSTR("normal")},
+    {CSS_PROPERTY_FONT_WEIGHT, 1, 0, 0, CSSSTR("normal")},
     {CSS_PROPERTY_TEXT_ALIGN, 1, 0, 0,  {CSS_TYPE_STRING, "left"}},
     {CSS_PROPERTY_LINE_HEIGHT, 0, 0, 0, {CSS_TYPE_STRING, "normal"}},
 
@@ -565,11 +565,52 @@ static PropMapEntry *propmap[130];
  *    Given a pointer to a PropMapEntry and a node, return the value of the
  *    property in *pOut.
  *
+ *    This function implements the CSS "cascade":
+ *
+ *        1. Find all declarations that apply to the element/property in
+ *           question.  Declarations apply if the selector matches the
+ *           element in question. If no declarations apply, the inherited
+ *           value is used. If there is no inherited value (this is the
+ *           case for the 'HTML' element and for properties that do not
+ *           inherit), the initial value is used. 
+ *       
+ *        2. Sort the declarations by explicit weight: declarations marked
+ *           '!important' carry more weight than unmarked (normal)
+ *           declarations.  
+ * 
+ *        3. Sort by origin: the author's style sheets override the
+ *           reader's style sheet which override the UA's default values.
+ *           An imported style sheet has the same origin as the style sheet
+ *           from which it is imported. 
+ *
+ *        4. Sort by specificity of selector: more specific selectors will
+ *           override more general ones. To find the specificity, count the
+ *           number of ID attributes in the selector (a), the number of
+ *           CLASS attributes in the selector (b), and the number of tag
+ *           names in the selector (c). Concatenating the three numbers (in
+ *           a number system with a large base) gives the specificity. Some
+ *           examples:
+ *
+ *        5. Sort by order specified: if two rules have the same weight,
+ *           the latter specified wins. Rules in imported style sheets are
+ *           considered to be before any rules in the style sheet itself.
+ *
+ *     As well as rules specified as part of stylesheets, property values
+ *     may also come from:
+ * 
+ *           * Html style attributes. (i.e. <p style="...">). These
+ *             properties are treated as if they were specified at the end
+ *             of the author stylesheet with a single "id" selector.
+ *
+ *           * Other html attributes. (i.e. <p font="...">). These
+ *             properties are treated as if they occured at the start of
+ *             the author stylesheet with a single "type" selector.
+ *
  * Results:
  *     None.
  *
  * Side effects:
- *     None.
+ *     The property value is copied to *pOut.
  *
  *---------------------------------------------------------------------------
  */
@@ -602,61 +643,70 @@ static void getProperty(interp, pNode, pEntry, inheriting, pOut)
         }
     }
 
-    pN = pNode;
-    while (pN) {
-        int sh;
-        int sp;
-        pProp = HtmlCssPropertiesGet2(pN->pProperties, prop, &sh, &sp);
-        if (pProp && (sh>sheet || (sh==sheet && sp>spec))) {
-            *pOut = *pProp;
-            sheet = sh;
-            spec = sp;
-        }
-        if (pEntry->inherit) {
-            pN = HtmlNodeParent(pN);
-        } else {
-            pN = 0;
-        }
+    /* Query the style-sheet database. HtmlCssPropertiesGet2() returns the
+     * property value with the highest precedence (accounting for origin,
+     * specificity and declaration order) for the node.
+     *
+     * If the property was specified as part of the author stylesheet with
+     * a specifity greater than 10000 (a single id selector) then the style
+     * or other html attributes may not override it, so we jump to the end
+     * of this function immediately.
+     */
+    pProp = HtmlCssPropertiesGet2(pNode->pProperties, prop, &sheet, &spec);
+    if (pProp) {
+        *pOut = *pProp;
     }
-    if (sheet>CSS_ORIGIN_AGENT || (sheet==CSS_ORIGIN_AGENT&&spec>10000)) {
+    if (sheet==CSS_ORIGIN_AUTHOR && spec>10000) {
         goto getproperty_out;
     }
 
-    /* See if the property was specified as part of a 'style' attribute. */
-    pN = pNode;
-    while (pN) {
-        if (pN->pStyle) {
-            pProp = HtmlCssPropertiesGet(pN->pStyle, prop);
-            if (pProp) {
-                *pOut = *pProp;
-                goto getproperty_out;
-            }
-        }
-        if (pEntry->inherit) {
-            pN = HtmlNodeParent(pN);
-        } else {
-            pN = 0;
+    /* See if the property was specified as part of a 'style' attribute.
+     * This overrides any style-sheet property, unless it has a specificity
+     * of greater than an "id" selector (unusual but possible). If we find
+     * the property in a style attribute, it may not be overriden by
+     * another html attribute, so jump to th eend of the funtion now.
+     */
+    if (pNode->pStyle) {
+        pProp = HtmlCssPropertiesGet(pNode->pStyle, prop);
+        if (pProp) {
+            *pOut = *pProp;
+            sheet = 0;
+            goto getproperty_out;
         }
     }
-    if (sheet>CSS_ORIGIN_AGENT) {
+
+    /* Jump to the end of the function if we already have a property with a
+     * higher precedence than a mapped html attribute. This is any property
+     * specified as part of the author stylesheet, unless the selector is
+     * the universal selector "*".
+     */
+    if (sheet==CSS_ORIGIN_AUTHOR && spec>0) {
         goto getproperty_out;
     }
 
     /* See if we can get the property by translating an HTML attribute. */
-    pN = pNode;
-    while (pN && pEntry->xAttrmap) {
-        if (pEntry->xAttrmap(pN, pOut)) {
-            goto getproperty_out;
-        }
-        if (pEntry->attrinherit) {
-            pN = HtmlNodeParent(pN);
-        } else {
-            pN = 0;
-        }
+    assert (!pEntry->attrinherit);
+    if (pEntry->xAttrmap && pEntry->xAttrmap(pNode, pOut)) {
+        sheet = 0;
     }
 
-    /* None of the above worked, return the default property value. */
-    if (sheet<0) {
+getproperty_out:
+
+    /* If we have to inherit this property, either because of an explicit
+     * "inherit" value, or because the property is inherited and no value
+     * has been specified, then make a HtmlNodeGetProperty() call on the
+     * parent node (if one exists).
+     */ 
+    if (sheet < 0 && pEntry->inherit || pOut->eType == CSS_TYPE_INHERIT) {
+        HtmlNode *pParent = HtmlNodeParent(pNode);
+        if (pParent) {
+            HtmlNodeGetProperty(interp, pParent, pEntry->property, pOut);
+            sheet = 0;
+        }
+    }
+    
+    /* If we still have nothing, use the properties initial value. */
+    if (sheet < 0) {
         if (pEntry->initial.eType==CSS_TYPE_COPYCOLOR) {
             HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_COLOR, pOut);
         } else {
@@ -664,7 +714,6 @@ static void getProperty(interp, pNode, pEntry, inheriting, pOut)
         }
     }
 
-getproperty_out:
     /* At this point a property has been assigned and copied to *pOut. This
      * step checks if the property is of type CSS_TYPE_TCL. If so, we need
      * to invoke a Tcl script to retrieve the value of this property.
