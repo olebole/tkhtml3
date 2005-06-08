@@ -2005,6 +2005,7 @@ static int floatLayout(pLayout, pBox, pNode, pY)
     int x;
     int marginValid = pLayout->marginValid;
     int marginValue = pLayout->marginValue;
+    int marginParent = pLayout->marginParent;
 
     /* A floating box generates it's own floating margin stack. It is
      * the responsiblity of the caller to make sure the float does not
@@ -2058,11 +2059,14 @@ static int floatLayout(pLayout, pBox, pNode, pY)
      */
     pLayout->marginValid = 1;
     pLayout->marginValue = 0;
+    pLayout->marginParent = 0;
     sBox.contentWidth = width;
     sBox.parentWidth = pBox->parentWidth;
     blockLayout(pLayout, &sBox, pNode, 0);
+    sBox.height += pLayout->marginValue;
     pLayout->marginValid = marginValid;
     pLayout->marginValue = marginValue;
+    pLayout->marginParent = marginParent;
 
     if (marginValid) {
         y += marginValue;
@@ -4807,7 +4811,8 @@ static int blockLayout(pLayout, pBox, pNode, omitborder)
         if (!pLayout->marginValid) {
             pLayout->marginValue = 0;
         }
-        pLayout->marginValue = MAX(margin.margin_bottom, pLayout->marginValue);
+        pLayout->marginValue = 
+                collapseMargins(margin.margin_bottom, pLayout->marginValue);
         pLayout->marginValid = 1;
     } else if (marginValid) {
         /* If there is a box above this one in the flow (i.e. the
@@ -4826,7 +4831,7 @@ static int blockLayout(pLayout, pBox, pNode, omitborder)
          * paragraph, then we set the effective value of the bottom margin
          * of the first paragraph to 20cm.
          */
-        pLayout->marginValue = MAX(top_margin, margin.margin_bottom);
+        pLayout->marginValue = collapseMargins(top_margin,margin.margin_bottom);
         pLayout->marginValid = marginValid;
     }
 
