@@ -4421,8 +4421,8 @@ layoutReplacement(pLayout, pBox, pNode, zReplace)
         }
     }
 
-    pBox->width = width;
-    pBox->height = height;
+    pBox->width = width < 0 ? 0 : width;;
+    pBox->height = height < 0 ? 0 : height;;
 }
 
 /*

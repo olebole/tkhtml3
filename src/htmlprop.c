@@ -639,6 +639,7 @@ static void getProperty(interp, pNode, pEntry, inheriting, pOut)
             } else {
                 *pOut = pEntry->initial;
             }
+            sheet = 0;
             goto getproperty_out;
         }
     }
