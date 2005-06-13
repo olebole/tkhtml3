@@ -610,6 +610,8 @@ static int propertyIsLength(pProp)
     return (
         pProp->eType==CSS_TYPE_EM ||
         pProp->eType==CSS_TYPE_PT ||
+        pProp->eType==CSS_TYPE_PC ||
+        pProp->eType==CSS_TYPE_EX ||
         pProp->eType==CSS_TYPE_PX ||
         pProp->eType==CSS_TYPE_PERCENT
     );
@@ -736,7 +738,7 @@ static void propertySetAddShortcutBorder(p, prop, v)
             token.n = n;
 
             pProp = tokenToProperty(&token);
-            if (propertyIsLength(pProp)) {
+            if (propertyIsLength(pProp) || pProp->eType==CSS_TYPE_FLOAT) {
                 if (prop==CSS_SHORTCUTPROPERTY_BORDER) {
                     propertySetAdd(p, CSS_PROPERTY_BORDER_BOTTOM_WIDTH, pProp);
                     pProp = propertyDup(pProp);

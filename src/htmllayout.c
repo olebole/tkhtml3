@@ -510,11 +510,29 @@ static void floatListAdd(pList, side, x, y)
     pNew->x = x;
     pNew->y = y;
     if (side==FLOAT_LEFT) {
-        pNew->pNext = pList->pLeft;
-        pList->pLeft = pNew;
+        struct FM *pIter = pList->pLeft;
+        while (pIter && pIter->pNext && pIter->pNext->y < y) {
+            pIter = pIter->pNext;
+        }
+        if (!pIter) {
+            pNew->pNext = pList->pLeft;
+            pList->pLeft = pNew;
+        } else {
+            pNew->pNext = pIter->pNext;
+            pIter->pNext = pNew;
+        }
     } else {
-        pNew->pNext = pList->pRight;
-        pList->pRight = pNew;
+        struct FM *pIter = pList->pRight;
+        while (pIter && pIter->pNext && pIter->pNext->y < y) {
+            pIter = pIter->pNext;
+        }
+        if (!pIter) {
+            pNew->pNext = pList->pRight;
+            pList->pRight = pNew;
+        } else {
+            pNew->pNext = pIter->pNext;
+            pIter->pNext = pNew;
+        }
     }
 }
 
@@ -557,24 +575,67 @@ static int floatListClearMargin(pList, clearproperty, def)
     return y;
 }
 
-static void floatListClear(pList, y)
+/*
+ *---------------------------------------------------------------------------
+ *
+ * floatListClear --
+ * 
+ *     Clear the floating margin list of all margins that end above
+ *     y-coordinate "y" in the current coordinate system.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void 
+floatListClear(pList, y)
     FloatMargin *pList;
     int y;
 {
     if (pList) {
-        struct FM *pIter = pList->pLeft;
-        while (pIter && pIter->y<y) {
-            struct FM *pIter2 = pIter->pNext;
-            pIter = pIter2;
+        struct FM *pIter;
+        struct FM *pPrev = 0;
+        struct FM *pDel = 0;
+        for(pIter = pList->pLeft; pIter; pIter = pIter->pNext) {
+            if (pDel) {
+                ckfree((char *)pDel);
+                pDel = 0;
+            }
+            if (pIter->y<y) {
+                if (pPrev) {
+                    pPrev->pNext = pIter->pNext;
+                } else {
+                    pList->pLeft = pIter->pNext;
+                }
+                pDel = pIter;
+            } else {
+                pPrev = pIter;
+            }
         }
-        pList->pLeft = pIter;
-    
-        pIter = pList->pRight;
-        while (pIter && pIter->y<y) {
-            struct FM *pIter2 = pIter->pNext;
-            pIter = pIter2;
+
+        pDel = 0;
+        pPrev = 0;
+        for(pIter = pList->pLeft; pIter; pIter = pIter->pNext) {
+            if (pDel) {
+                ckfree((char *)pDel);
+                pDel = 0;
+            }
+            if (pIter->y<y) {
+                if (pPrev) {
+                    pPrev->pNext = pIter->pNext;
+                } else {
+                    pList->pLeft = pIter->pNext;
+                }
+                pDel = pIter;
+            } else {
+                pPrev = pIter;
+            }
         }
-        pList->pRight = pIter;
+
     }
 }
 
@@ -602,13 +663,13 @@ floatListMargins(pList, y, pLeft, pRight)
 {
     if (pList) {
         struct FM *pIter;
+        for (pIter = pList->pLeft; pIter; pIter = pIter->pNext) {
+            if (pIter->y > y) *pLeft = MAX(*pLeft, pIter->x);
+        }
 
-        for (pIter = pList->pLeft; pIter && pIter->y < y; pIter = pIter->pNext);
-        if (pIter) *pLeft = MAX(*pLeft, pList->pLeft->x);
-
-        for (pIter = pList->pRight; pIter && pIter->y < y; 
-                pIter = pIter->pNext);
-        if (pIter) *pRight = MIN(*pRight, pList->pRight->x);
+        for (pIter = pList->pRight; pIter; pIter = pIter->pNext) {
+            if (pIter->y > y) *pRight = MIN(*pRight, pIter->x);
+        }
     }
 }
 
@@ -661,10 +722,10 @@ floatListPlace(pList, parentWidth, width, def_val)
             if ( (rx-lx)>=width || (!pLeft && !pRight) ) return def_val;
     
             if (pLeft && (!pRight || pLeft->y<pRight->y)) {
-                def_val = pLeft->y+1;
+                def_val = MAX(def_val, pLeft->y+1);
                 pLeft = pLeft->pNext;
             } else {
-                def_val = pRight->y+1;
+                def_val = MAX(def_val, pRight->y+1);
                 pRight = pRight->pNext;
             }
         }
@@ -840,6 +901,8 @@ propertyToPixels(pLayout, pNode, pProp, parentwidth, default_val)
 {
     if (pProp) {
         switch (pProp->eType) {
+            case CSS_TYPE_FLOAT:
+                return (int)(pProp->v.rVal);
             case CSS_TYPE_PX:
                 return pProp->v.iVal;
             case CSS_TYPE_EM: {
@@ -2126,7 +2189,7 @@ static int floatLayout(pLayout, pBox, pNode, pY)
      * float downward until there is room.
      */
     y = floatListPlace(pBox->pFloats, pBox->parentWidth, sBox.width, y);
-    floatListClear(pBox->pFloats, y);
+    /* floatListClear(pBox->pFloats, y); */
     y = floatListClearMargin(pBox->pFloats, display.eClear, y);
     floatListMargins(pBox->pFloats, y, &leftFloat, &rightFloat);
     *pY = y - (marginValid?marginValue:0);
@@ -3199,6 +3262,10 @@ inlineLayoutDrawLines(pLayout, pBox, pContext, forceflag, pY)
         have = inlineContextGetLineBox(pContext,&w,forceflag,f,&lc,&nV,&nA);
 
         if (have) {
+            if (pLayout->marginValid) {
+                y += pLayout->marginValue;
+                pLayout->marginValid = 0;
+            }
             HtmlDrawCanvas(&pBox->vc, &lc, leftFloat, y+nA);
             y += nV;
             pBox->width = MAX(pBox->width, lc.right + leftFloat);
@@ -4786,7 +4853,10 @@ static int blockLayout(pLayout, pBox, pNode, omitborder)
      * 
      * Update: I'm not so sure about this anymore....
      */
-    if (sBox.height>0 || display.eClear != CLEAR_NONE) {
+    if (!HtmlDrawIsEmpty(&sBox.vc) || 
+        sBox.height>0 || 
+        display.eClear != CLEAR_NONE
+    ) {
         int hoffset = 0;
         int textalign = 0;
 

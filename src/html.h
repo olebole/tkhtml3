@@ -59,6 +59,7 @@ typedef struct HtmlCachedProperty HtmlCachedProperty;
 typedef struct HtmlTokenMap HtmlTokenMap;
 typedef struct HtmlCanvas HtmlCanvas;
 typedef struct HtmlCanvasItem HtmlCanvasItem;
+typedef struct HtmlFloatList HtmlFloatList;
 
 typedef int (*HtmlContentTest)(HtmlNode *, int);
 
@@ -242,6 +243,12 @@ EXTERN int HtmlTableCellContent(HtmlNode *, int);
 EXTERN HtmlTokenMap *HtmlMarkup(int);
 EXTERN CONST char * HtmlMarkupName(int);
 EXTERN char * HtmlMarkupArg(HtmlToken *, CONST char *, char *);
+
+EXTERN void HtmlFloatListAdd(HtmlFloatList*, int, int, int, int);
+EXTERN HtmlFloatList *HtmlFloatListNew();
+EXTERN void HtmlFloatListDelete();
+EXTERN int HtmlFloatListPlace(HtmlFloatList*, int, int, int, int);
+EXTERN int HtmlFloatListClear(HtmlFloatList*, int, int);
 
 #ifdef HTML_DEBUG
 EXTERN void HtmlDrawComment(HtmlCanvas *, CONST char *zComment);

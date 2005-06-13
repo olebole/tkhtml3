@@ -1,5 +1,5 @@
 #
-# $Revision: 1.14 $
+# $Revision: 1.15 $
 #
 # tokenlist.tcl -- 
 #
@@ -110,7 +110,7 @@ TAG html
 TAG i -flow inline
 TAG iframe -empty
 TAG img -empty -flow inline
-TAG input -empty
+TAG input -empty -flow inline
 TAG isindex -flow block
 TAG kbd -flow inline
 # TAG label
