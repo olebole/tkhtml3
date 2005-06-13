@@ -140,8 +140,12 @@ PRE, PLAINTEXT, XMP {
 TD[nowrap] ,     TH[nowrap]     { white-space: nowrap; }
 TD[nowrap="0"] , TH[nowrap="0"] { white-space: normal; }
 
+BR[clear="all"]   { clear: both }
+BR[clear="left"]  { clear: left }
+BR[clear="right"] { clear: right }
 BR { 
     display: block;
     height: 1em;
 }
-BR:before       { content: "\A" }
+/* BR:before       { content: "\A" } */
+

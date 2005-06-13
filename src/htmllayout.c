@@ -396,7 +396,7 @@ struct FloatMargin {
 static void floatListAdd(FloatMargin*, int, int, int);
 static void floatListClear(FloatMargin*, int);
 static int floatListClearMargin(FloatMargin*, int, int);
-static void floatListMargins(FloatMargin*, int*, int*);
+static void floatListMargins(FloatMargin*, int, int*, int*);
 static int  floatListPlace(FloatMargin*, int, int, int);
 static int  floatListIsEmpty(FloatMargin *);
 
@@ -578,14 +578,37 @@ static void floatListClear(pList, y)
     }
 }
 
-static void floatListMargins(pList, pLeft, pRight)
+/*
+ *---------------------------------------------------------------------------
+ *
+ * floatListMargins --
+ *
+ *     This function is used to query the floating margins.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void 
+floatListMargins(pList, y, pLeft, pRight)
     FloatMargin *pList;
+    int y;
     int *pLeft;
     int *pRight;
 {
     if (pList) {
-        if (pList->pLeft) *pLeft = pList->pLeft->x;
-        if (pList->pRight) *pRight = pList->pRight->x;
+        struct FM *pIter;
+
+        for (pIter = pList->pLeft; pIter && pIter->y < y; pIter = pIter->pNext);
+        if (pIter) *pLeft = MAX(*pLeft, pList->pLeft->x);
+
+        for (pIter = pList->pRight; pIter && pIter->y < y; 
+                pIter = pIter->pNext);
+        if (pIter) *pRight = MIN(*pRight, pList->pRight->x);
     }
 }
 
@@ -649,10 +672,35 @@ floatListPlace(pList, parentWidth, width, def_val)
     return def_val;
 }
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * floatListIsEmpty --
+ *
+ *     Return true if the floating-margin list is either empty or contains
+ *     only negative left margin values.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
 static int floatListIsEmpty(pList)
     FloatMargin *pList;
 {
-    return (pList ? (pList->pLeft==0 && pList->pRight==0) : 1);
+    struct FM *pIter;
+    if (pList->pRight) {
+        return 0;
+    }
+    for (pIter = pList->pLeft; pIter; pIter = pIter->pNext) {
+        if (pIter->x > 0) {
+            return 0;
+        }
+    }
+    return 1;
 }
 
 /*
@@ -2080,7 +2128,7 @@ static int floatLayout(pLayout, pBox, pNode, pY)
     y = floatListPlace(pBox->pFloats, pBox->parentWidth, sBox.width, y);
     floatListClear(pBox->pFloats, y);
     y = floatListClearMargin(pBox->pFloats, display.eClear, y);
-    floatListMargins(pBox->pFloats, &leftFloat, &rightFloat);
+    floatListMargins(pBox->pFloats, y, &leftFloat, &rightFloat);
     *pY = y - (marginValid?marginValue:0);
 
     /* Get the exact x coordinate to draw the box at. If it won't fit, 
@@ -2188,10 +2236,10 @@ markerLayout(pLayout, pBox, pNode)
 
     /* It's not clear to me exactly where the list marker should be
      * drawn when the 'list-style-position' property is 'outside'.
-     * The algorithm used is to draw it the width of 3 'x' characters
+     * The algorithm used is to draw it the width of 1 'x' character
      * in the current font to the left of the content box.
      */
-    offset = Tk_TextWidth(font, "xxx", 3);
+    offset = Tk_TextWidth(font, "x", 1) + width;
     Tk_GetFontMetrics(font, &fontMetrics);
     yoffset = -1 * fontMetrics.ascent;
     HtmlDrawText(&pBox->vc, pMarker, -1*offset, -1*yoffset, width, font, color);
@@ -3143,7 +3191,7 @@ inlineLayoutDrawLines(pLayout, pBox, pContext, forceflag, pY)
         int nV = 0;                /* Vertical height of line. */
         int nA = 0;                /* Ascent of line box. */
 
-        floatListMargins(pBox->pFloats, &leftFloat, &rightFloat);
+        floatListMargins(pBox->pFloats, y, &leftFloat, &rightFloat);
         f = floatListIsEmpty(pBox->pFloats);
 
         memset(&lc, 0, sizeof(HtmlCanvas));
@@ -3205,7 +3253,8 @@ inlineLayoutNode(pLayout, pBox, pNode, pY, pContext)
      * to account for it.
      */
     if (display.eFloat != FLOAT_NONE) {
-        floatLayout(pLayout, pBox, pNode, pY);
+        int y = *pY;
+        floatLayout(pLayout, pBox, pNode, &y);
     }
 
     /* A block box. 
@@ -4634,7 +4683,7 @@ static int blockLayout(pLayout, pBox, pNode, omitborder)
         blockMinMaxWidth(pLayout, pNode, &min, &dummymax);
         y = floatListPlace(pBox->pFloats, pBox->parentWidth, min, y);
         floatListClear(pBox->pFloats, y);
-        floatListMargins(pBox->pFloats, &leftFloat, &rightFloat);
+        floatListMargins(pBox->pFloats, y, &leftFloat, &rightFloat);
     }
 
     /* Figure out how much horizontal space the node content will
@@ -4647,6 +4696,7 @@ static int blockLayout(pLayout, pBox, pNode, omitborder)
             boxproperties.padding_left - boxproperties.padding_right;
     if (pBox->contentWidth > 0) {
         sBox.parentWidth = pBox->contentWidth;
+        availablewidth = pBox->contentWidth;
     } else if (!isReplaced) {
         int w = rightFloat - leftFloat;
         sBox.parentWidth = nodeGetWidth(pLayout, pNode, w, availablewidth, 0);
@@ -4733,6 +4783,8 @@ static int blockLayout(pLayout, pBox, pNode, omitborder)
     /* Special case: If the block had no contents or explicit height, do
      * not draw the border, or allocate any padding. This is the observed
      * behaviour of modern browsers.
+     * 
+     * Update: I'm not so sure about this anymore....
      */
     if (sBox.height>0 || display.eClear != CLEAR_NONE) {
         int hoffset = 0;
