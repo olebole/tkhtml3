@@ -45,7 +45,6 @@ typedef struct DisplayProperties DisplayProperties;
 
 typedef struct LayoutContext LayoutContext;
 typedef struct BoxContext BoxContext;
-typedef struct FloatMargin FloatMargin;
 
 typedef struct TableData TableData;
 typedef struct InlineData InlineData;
@@ -374,33 +373,6 @@ static int inlineContextPopBorder(InlineContext *, InlineBorder *);
 static void inlineContextSetBoxDimensions(InlineContext *, int, int, int);
 
 /*
- * Floating Margins Notes
- * ----------------------
- *
- *     When a floating box is added to the layout, it creates a floating
- *     margin which other content flows around. A set of floating margins
- *     for a flow context is stored as a FloatMargin struct.
- * 
- * Implementation Notes
- * --------------------
- */
-struct FM {
-   int x;
-   int y;
-   struct FM *pNext;
-};
-struct FloatMargin {
-    struct FM *pLeft;
-    struct FM *pRight;
-};
-static void floatListAdd(FloatMargin*, int, int, int);
-static void floatListClear(FloatMargin*, int);
-static int floatListClearMargin(FloatMargin*, int, int);
-static void floatListMargins(FloatMargin*, int, int*, int*);
-static int  floatListPlace(FloatMargin*, int, int, int);
-static int  floatListIsEmpty(FloatMargin *);
-
-/*
  * Potential values for the 'display' property. Not supported yet are
  * 'run-in' and 'compact'. And some table types...
  */
@@ -488,272 +460,6 @@ S int tableIterate(
 S int blockMinMaxWidth(LayoutContext *, HtmlNode *, int *, int *);
 
 #undef S
-
-static void floatListAdd(pList, side, x, y)
-    FloatMargin *pList;
-    int side;                /* x-coord for left margin. */
-    int x;                   /* x-coord for right margin. */
-    int y;                   /* Margin expires at y-coord. */
-{
-    struct FM *pNew = (struct FM *)ckalloc(sizeof(struct FM));
-    assert(pList);
-    assert(side==FLOAT_LEFT || side==FLOAT_RIGHT);
-    pNew->x = x;
-    pNew->y = y;
-    if (side==FLOAT_LEFT) {
-        struct FM *pIter = pList->pLeft;
-        while (pIter && pIter->pNext && pIter->pNext->y < y) {
-            pIter = pIter->pNext;
-        }
-        if (!pIter) {
-            pNew->pNext = pList->pLeft;
-            pList->pLeft = pNew;
-        } else {
-            pNew->pNext = pIter->pNext;
-            pIter->pNext = pNew;
-        }
-    } else {
-        struct FM *pIter = pList->pRight;
-        while (pIter && pIter->pNext && pIter->pNext->y < y) {
-            pIter = pIter->pNext;
-        }
-        if (!pIter) {
-            pNew->pNext = pList->pRight;
-            pList->pRight = pNew;
-        } else {
-            pNew->pNext = pIter->pNext;
-            pIter->pNext = pNew;
-        }
-    }
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * floatListClear --
- *
- *     This function is used to implement the CSS 'clear' property.
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-static int floatListClearMargin(pList, clearproperty, def)
-    FloatMargin *pList;          /* Floating margins */
-    int clearproperty;           /* Value of 'clear' property */
-    int def;                     /* Value to return for CLEAR_NONE. */
-{
-    int y = def;
-    struct FM *pIter;
-
-    if (pList) {
-        if (clearproperty == CLEAR_LEFT || clearproperty == CLEAR_BOTH) {
-            for(pIter = pList->pLeft; pIter; pIter = pIter->pNext) {
-                y = MAX(pIter->y+1, y);
-            }
-        }
-        if (clearproperty == CLEAR_RIGHT || clearproperty == CLEAR_BOTH) {
-            for(pIter = pList->pRight; pIter; pIter = pIter->pNext) {
-                y = MAX(pIter->y+1, y);
-            }
-        }
-    }
-
-    return y;
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * floatListClear --
- * 
- *     Clear the floating margin list of all margins that end above
- *     y-coordinate "y" in the current coordinate system.
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-static void 
-floatListClear(pList, y)
-    FloatMargin *pList;
-    int y;
-{
-    if (pList) {
-        struct FM *pIter;
-        struct FM *pPrev = 0;
-        struct FM *pDel = 0;
-        for(pIter = pList->pLeft; pIter; pIter = pIter->pNext) {
-            if (pDel) {
-                ckfree((char *)pDel);
-                pDel = 0;
-            }
-            if (pIter->y<y) {
-                if (pPrev) {
-                    pPrev->pNext = pIter->pNext;
-                } else {
-                    pList->pLeft = pIter->pNext;
-                }
-                pDel = pIter;
-            } else {
-                pPrev = pIter;
-            }
-        }
-
-        pDel = 0;
-        pPrev = 0;
-        for(pIter = pList->pLeft; pIter; pIter = pIter->pNext) {
-            if (pDel) {
-                ckfree((char *)pDel);
-                pDel = 0;
-            }
-            if (pIter->y<y) {
-                if (pPrev) {
-                    pPrev->pNext = pIter->pNext;
-                } else {
-                    pList->pLeft = pIter->pNext;
-                }
-                pDel = pIter;
-            } else {
-                pPrev = pIter;
-            }
-        }
-
-    }
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * floatListMargins --
- *
- *     This function is used to query the floating margins.
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-static void 
-floatListMargins(pList, y, pLeft, pRight)
-    FloatMargin *pList;
-    int y;
-    int *pLeft;
-    int *pRight;
-{
-    if (pList) {
-        struct FM *pIter;
-        for (pIter = pList->pLeft; pIter; pIter = pIter->pNext) {
-            if (pIter->y > y) *pLeft = MAX(*pLeft, pIter->x);
-        }
-
-        for (pIter = pList->pRight; pIter; pIter = pIter->pNext) {
-            if (pIter->y > y) *pRight = MIN(*pRight, pIter->x);
-        }
-    }
-}
-
-static void floatListNormalize(pList, x, y)
-    FloatMargin *pList;
-    int x;
-    int y;
-{
-    if (pList) {
-        struct FM *pIter = pList->pLeft;
-        for (pIter=pList->pLeft; pIter; pIter=pIter->pNext) {
-            pIter->x += x;
-            pIter->y += y;
-        }
-    
-        for (pIter=pList->pRight; pIter; pIter=pIter->pNext) {
-            pIter->x += x;
-            pIter->y += y;
-        }
-    }
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * floatListPlace --
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-static int 
-floatListPlace(pList, parentWidth, width, def_val)
-    FloatMargin *pList;           /* Floating box margin list */
-    int parentWidth;              /* Width of containing box */
-    int width;                    /* Width of block being placed */
-    int def_val;                  /* Current y coordinate */
-{
-    if (pList) {
-        struct FM *pLeft = pList->pLeft;
-        struct FM *pRight = pList->pRight;
-        while (1) {
-            int lx = pLeft?pLeft->x:0;
-            int rx = pRight?pRight->x:parentWidth;
-    
-            if ( (rx-lx)>=width || (!pLeft && !pRight) ) return def_val;
-    
-            if (pLeft && (!pRight || pLeft->y<pRight->y)) {
-                def_val = MAX(def_val, pLeft->y+1);
-                pLeft = pLeft->pNext;
-            } else {
-                def_val = MAX(def_val, pRight->y+1);
-                pRight = pRight->pNext;
-            }
-        }
-    }
-    return def_val;
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * floatListIsEmpty --
- *
- *     Return true if the floating-margin list is either empty or contains
- *     only negative left margin values.
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-static int floatListIsEmpty(pList)
-    FloatMargin *pList;
-{
-    struct FM *pIter;
-    if (pList->pRight) {
-        return 0;
-    }
-    for (pIter = pList->pLeft; pIter; pIter = pIter->pNext) {
-        if (pIter->x > 0) {
-            return 0;
-        }
-    }
-    return 1;
-}
 
 /*
  *---------------------------------------------------------------------------
@@ -2098,7 +1804,6 @@ static int floatLayout(pLayout, pBox, pNode, pY)
     int y = *pY;
     int y2;                          /* y-coord of bottom of box */
     BoxContext sBox;                 /* Generated box. */
-    FloatMargin sFloat;              /* Internal floating margin list. */
     MarginProperties margins;        /* Generated box margins. */
     int width;                       /* Width of generated box content. */
     int marginwidth;                 /* Width of box including margins */
@@ -2131,7 +1836,6 @@ static int floatLayout(pLayout, pBox, pNode, pY)
      * spec here (or maybe I'm reading it wrong).
      */
     memset(&sBox, 0, sizeof(BoxContext));
-    memset(&sFloat, 0, sizeof(FloatMargin));
     sBox.pFloat = HtmlFloatListNew();
 
     /* Get the display properties. The caller should have already made
@@ -3568,7 +3272,6 @@ blockMinMaxWidth(pLayout, pNode, pMin, pMax)
     int *pMax;
 {
     BoxContext sBox;
-    FloatMargin sFloat;
     int min;        /* Minimum width of this block */
     int max;        /* Maximum width of this block */
     int *pCache;
@@ -3588,7 +3291,6 @@ blockMinMaxWidth(pLayout, pNode, pMin, pMax)
          * up a canvas we will never use.
          */
         memset(&sBox, 0, sizeof(BoxContext));
-        memset(&sFloat, 0, sizeof(FloatMargin));
         sBox.pFloat = HtmlFloatListNew();
         blockLayout(pLayout, &sBox, pNode, 0);
         HtmlDrawCleanup(&sBox.vc);
@@ -3601,7 +3303,6 @@ blockMinMaxWidth(pLayout, pNode, pMin, pMax)
          * displays wider than 10000 pixels.
          */
         memset(&sBox, 0, sizeof(BoxContext));
-        memset(&sFloat, 0, sizeof(FloatMargin));
         sBox.pFloat = HtmlFloatListNew();
         sBox.parentWidth = 10000;
         blockLayout(pLayout, &sBox, pNode, 0);
@@ -5004,11 +4705,9 @@ HtmlLayoutForce(clientData, interp, objc, objv)
     int i;
     int width = 600;               /* Default width if no -width option */
     BoxContext sBox;               /* The imaginary box <body> is inside */
-    FloatMargin sFloat;            /* Float margins for normal flow */
     LayoutContext sLayout;
 
     memset(&sLayout, 0, sizeof(LayoutContext));
-    memset(&sFloat, 0, sizeof(FloatMargin));
 
     /* Look for the -width and -win options */
     for (i=3; i<objc; i++) {
