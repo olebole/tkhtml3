@@ -63,6 +63,15 @@ typedef struct HtmlFloatList HtmlFloatList;
 
 typedef int (*HtmlContentTest)(HtmlNode *, int);
 
+#define FLOAT_LEFT       1
+#define FLOAT_RIGHT      2
+#define FLOAT_NONE       3
+
+#define CLEAR_NONE 1
+#define CLEAR_LEFT 2
+#define CLEAR_RIGHT 3
+#define CLEAR_BOTH 4
+
 struct HtmlTokenMap {
   char *zName;                    /* Name of a markup */
   Html_16 type;                   /* Markup type code */
@@ -249,6 +258,8 @@ EXTERN HtmlFloatList *HtmlFloatListNew();
 EXTERN void HtmlFloatListDelete();
 EXTERN int HtmlFloatListPlace(HtmlFloatList*, int, int, int, int);
 EXTERN int HtmlFloatListClear(HtmlFloatList*, int, int);
+EXTERN void HtmlFloatListNormalize(HtmlFloatList*, int, int);
+EXTERN void HtmlFloatListMargins(HtmlFloatList*, int, int, int *, int *);
 
 #ifdef HTML_DEBUG
 EXTERN void HtmlDrawComment(HtmlCanvas *, CONST char *zComment);

@@ -71,7 +71,7 @@ HR {
   height: 1px;
   width: 100%;
   text-align: center;
-  margin: 0.5em;
+  margin: 0.5em 0;
 }
 
 /* Basic table tag rules. */

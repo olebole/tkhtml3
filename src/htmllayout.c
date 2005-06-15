@@ -80,7 +80,7 @@ struct BoxContext {
     int contentWidth;          /* DOWN: Width of content for this box. */
     int height;                /* UP: Generated box height. */
     int width;                 /* UP: Generated box width. */
-    FloatMargin *pFloats;      /* Margins. */
+    HtmlFloatList *pFloat;     /* Margins. */
     HtmlCanvas vc;             /* Canvas to draw the block on. */
 };
 
@@ -410,10 +410,6 @@ static int  floatListIsEmpty(FloatMargin *);
 #define DISPLAY_LISTITEM 4
 #define DISPLAY_NONE     5
 
-#define FLOAT_LEFT       1
-#define FLOAT_RIGHT      2
-#define FLOAT_NONE       3
-
 #define LISTSTYLETYPE_SQUARE 1 
 #define LISTSTYLETYPE_DISC   2 
 #define LISTSTYLETYPE_CIRCLE 3
@@ -441,11 +437,6 @@ static int  floatListIsEmpty(FloatMargin *);
 #define WHITESPACE_PRE 1
 #define WHITESPACE_NOWRAP 2
 #define WHITESPACE_NORMAL 3
-
-#define CLEAR_NONE 1
-#define CLEAR_LEFT 2
-#define CLEAR_RIGHT 3
-#define CLEAR_BOTH 4
 
 /*
  * These are prototypes for all the static functions in this file. We
@@ -834,7 +825,7 @@ pixelsToPoints(pLayout, pixels)
     Tcl_IncrRefCount(pObj);
     Tk_GetMMFromObj(pLayout->interp, pLayout->tkwin, pObj, &mm);
     Tcl_DecrRefCount(pObj);
-    return (int) (mm * 72.0 / 25.4);
+    return (int) ((mm * 72.0 / 25.4) + 0.5);
 }
 
 /*
@@ -2105,6 +2096,7 @@ static int floatLayout(pLayout, pBox, pNode, pY)
     int *pY;                 /* IN/OUT: y-coord to draw float at */
 {
     int y = *pY;
+    int y2;                          /* y-coord of bottom of box */
     BoxContext sBox;                 /* Generated box. */
     FloatMargin sFloat;              /* Internal floating margin list. */
     MarginProperties margins;        /* Generated box margins. */
@@ -2140,7 +2132,7 @@ static int floatLayout(pLayout, pBox, pNode, pY)
      */
     memset(&sBox, 0, sizeof(BoxContext));
     memset(&sFloat, 0, sizeof(FloatMargin));
-    sBox.pFloats = &sFloat;
+    sBox.pFloat = HtmlFloatListNew();
 
     /* Get the display properties. The caller should have already made
      * sure that the node generates a floating block box. But we need
@@ -2188,11 +2180,18 @@ static int floatLayout(pLayout, pBox, pNode, pY)
      * the parent box is not wide enough for this float, we may shift this
      * float downward until there is room.
      */
+#if 0
     y = floatListPlace(pBox->pFloats, pBox->parentWidth, sBox.width, y);
     /* floatListClear(pBox->pFloats, y); */
     y = floatListClearMargin(pBox->pFloats, display.eClear, y);
     floatListMargins(pBox->pFloats, y, &leftFloat, &rightFloat);
     *pY = y - (marginValid?marginValue:0);
+#endif
+    y = HtmlFloatListClear(pBox->pFloat, display.eClear, y);
+    y = HtmlFloatListPlace(
+            pBox->pFloat, pBox->parentWidth, sBox.width, sBox.height, y);
+    y2 = y + sBox.height;
+    HtmlFloatListMargins(pBox->pFloat, y, y2, &leftFloat, &rightFloat);
 
     /* Get the exact x coordinate to draw the box at. If it won't fit, 
      * even after shifting down past other floats in code above, then
@@ -2222,10 +2221,10 @@ static int floatLayout(pLayout, pBox, pNode, pY)
      */
     if (display.eFloat==FLOAT_LEFT) {
         int m = x + sBox.width;
-        floatListAdd(pBox->pFloats, FLOAT_LEFT, m, y + sBox.height - 1);
+        HtmlFloatListAdd(pBox->pFloat, FLOAT_LEFT, m, *pY, y + sBox.height);
     } else {
         int m = x;
-        floatListAdd(pBox->pFloats, FLOAT_RIGHT, m, y + sBox.height - 1);
+        HtmlFloatListAdd(pBox->pFloat, FLOAT_RIGHT, m, *pY, y + sBox.height);
     }
 
     return TCL_OK;
@@ -2855,7 +2854,7 @@ inlineContextGetLineBox(p,pWidth,forceline,forcebox,pCanvas,pVSpace,pAscent)
         InlineBox *pBox = &p->aInline[i];
         int boxwidth = pBox->nContentPixels;
         boxwidth += pBox->nRightPixels + pBox->nLeftPixels;
-        if(i > 0 && i != (p->nInline - 1)) {
+        if(i > 0) {
             boxwidth += p->aInline[i-1].nSpace;
         }
         if (lineboxwidth+boxwidth > width && 
@@ -3254,8 +3253,9 @@ inlineLayoutDrawLines(pLayout, pBox, pContext, forceflag, pY)
         int nV = 0;                /* Vertical height of line. */
         int nA = 0;                /* Ascent of line box. */
 
-        floatListMargins(pBox->pFloats, y, &leftFloat, &rightFloat);
-        f = floatListIsEmpty(pBox->pFloats);
+        /* Todo: We need a real line-height here, not a hard-coded '10' */
+        HtmlFloatListMargins(pBox->pFloat, y, y+10, &leftFloat, &rightFloat);
+        f = (rightFloat==pBox->parentWidth && leftFloat==0);
 
         memset(&lc, 0, sizeof(HtmlCanvas));
         w = rightFloat - leftFloat;
@@ -3276,13 +3276,25 @@ inlineLayoutDrawLines(pLayout, pBox, pContext, forceflag, pY)
              * there are inline-boxes in the inline-context, but there is
              * not enough space for the first inline-box in the width
              * provided. Increase the Y-coordinate and try the loop again.
+             *
+             * TODO: Pass the minimum height of the line-box to
+             * HtmlFloatListPlace().
              */
             assert(!f);
-            y = floatListPlace(pBox->pFloats, pBox->parentWidth, w, y);
+            y = HtmlFloatListPlace(pBox->pFloat, pBox->parentWidth, w, 1, y);
             have = 1;
+           
+            /* If we shifted down to avoid a floating margin, then do not
+	     * worry about any vertical margin. 
+             *
+	     * Todo: Possibly we should collapse the existing margin with
+	     * the delta-y? Not sure about that right now though. It's a
+	     * pretty minor issue really.
+             */
+            pLayout->marginValid = 0;
         } 
 
-	floatListClear(pBox->pFloats, y);
+	/* floatListClear(pBox->pFloats, y); */
         *pY = y;
     } while (have);
 
@@ -3361,16 +3373,15 @@ inlineLayoutNode(pLayout, pBox, pNode, pY, pContext)
 
         memset(&sBox, 0, sizeof(BoxContext));
         sBox.parentWidth = pBox->parentWidth;
-        sBox.pFloats = pBox->pFloats;
+        sBox.pFloat = pBox->pFloat;
 
-        floatListNormalize(sBox.pFloats, 0, -1*y);
+        HtmlFloatListNormalize(sBox.pFloat, 0, -1*y);
         blockLayout(pLayout, &sBox, pNode, 0);
         if (!HtmlDrawIsEmpty(&sBox.vc)) {
             HtmlDrawCanvas(&pBox->vc, &sBox.vc, 0, y);
         }
-        floatListNormalize(sBox.pFloats, 0, y);
+        HtmlFloatListNormalize(sBox.pFloat, 0, y);
 
-        pBox->pFloats = sBox.pFloats;
         y += sBox.height;
 
         pBox->width = MAX(pBox->width, sBox.width);
@@ -3403,12 +3414,14 @@ inlineLayoutNode(pLayout, pBox, pNode, pY, pContext)
              
             assert(pParent);
             memset(&sBox, 0, sizeof(BoxContext));
+            sBox.pFloat = HtmlFloatListNew();
             memcpy(&sLayout, pLayout, sizeof(LayoutContext));
             sLayout.marginValid = 1;
             sLayout.marginValue = 0;
             sLayout.marginParent = 0;
             blockLayout(&sLayout, &sBox, pNode, 0);
             sBox.height += sLayout.marginValue;
+            HtmlFloatListDelete(sBox.pFloat);
 
             switch (nodeGetVAlign(pLayout, pNode, VALIGN_BASELINE)) {
                 case VALIGN_TEXT_BOTTOM: {
@@ -3576,10 +3589,11 @@ blockMinMaxWidth(pLayout, pNode, pMin, pMax)
          */
         memset(&sBox, 0, sizeof(BoxContext));
         memset(&sFloat, 0, sizeof(FloatMargin));
-        sBox.pFloats = &sFloat;
+        sBox.pFloat = HtmlFloatListNew();
         blockLayout(pLayout, &sBox, pNode, 0);
         HtmlDrawCleanup(&sBox.vc);
         min = sBox.width;
+        HtmlFloatListDelete(sBox.pFloat);
     
         /* Figure out the maximum width of the box by pretending to lay it
          * out with a very large parent width. It is not expected to
@@ -3588,11 +3602,13 @@ blockMinMaxWidth(pLayout, pNode, pMin, pMax)
          */
         memset(&sBox, 0, sizeof(BoxContext));
         memset(&sFloat, 0, sizeof(FloatMargin));
-        sBox.pFloats = &sFloat;
+        sBox.pFloat = HtmlFloatListNew();
         sBox.parentWidth = 10000;
         blockLayout(pLayout, &sBox, pNode, 0);
         HtmlDrawCleanup(&sBox.vc);
         max = sBox.width;
+        HtmlFloatListDelete(sBox.pFloat);
+
         assert(max>=min);
 
         pCache = (int *)ckalloc(sizeof(int)*2);
@@ -3989,7 +4005,6 @@ tableDrawCells(pNode, col, colspan, row, rowspan, pContext)
 {
     TableData *pData = (TableData *)pContext;
     BoxContext *pBox;
-    FloatMargin sFloat;
     int i;
     int x = 0;
     int y = 0;
@@ -4024,8 +4039,7 @@ tableDrawCells(pNode, col, colspan, row, rowspan, pContext)
     pData->aCell[col].pNode = pNode;
     pData->aCell[col].colspan = colspan;
 
-    memset(&sFloat, 0, sizeof(FloatMargin));
-    pBox->pFloats = &sFloat;
+    pBox->pFloat = HtmlFloatListNew();
 
     pBox->parentWidth = pData->aWidth[col];
     for (i=col+1; i<col+colspan; i++) {
@@ -4734,8 +4748,7 @@ static int blockLayout(pLayout, pBox, pNode, omitborder)
     isBoxObject = (display.eDisplay==DISPLAY_TABLE || isReplaced);
 
     /* Adjust the Y-coordinate to account for the 'clear' property. */
-    y = floatListClearMargin(pBox->pFloats, display.eClear, y);
-    floatListClear(pBox->pFloats, y);
+    y = HtmlFloatListClear(pBox->pFloat, display.eClear, y);
 
     leftFloat = 0;
     rightFloat = pBox->parentWidth;
@@ -4748,9 +4761,9 @@ static int blockLayout(pLayout, pBox, pNode, omitborder)
         int dummymax;
     
         blockMinMaxWidth(pLayout, pNode, &min, &dummymax);
-        y = floatListPlace(pBox->pFloats, pBox->parentWidth, min, y);
-        floatListClear(pBox->pFloats, y);
-        floatListMargins(pBox->pFloats, y, &leftFloat, &rightFloat);
+        y = HtmlFloatListPlace(pBox->pFloat, pBox->parentWidth, min, 1, y);
+        /* Todo: Need the actual height of the box here, not '10' */
+        HtmlFloatListMargins(pBox->pFloat, y, y+10, &leftFloat, &rightFloat);
     }
 
     /* Figure out how much horizontal space the node content will
@@ -4793,7 +4806,6 @@ static int blockLayout(pLayout, pBox, pNode, omitborder)
         top_margin = 0;
     }
     y += top_margin;
-    floatListClear(pBox->pFloats, y);
 
     /* Also leave a pixel or two for the top-border. */
     y += boxproperties.border_top;
@@ -4808,8 +4820,8 @@ static int blockLayout(pLayout, pBox, pNode, omitborder)
     x += boxproperties.padding_left;
 
     /* Normalize the floating margins for the box to be drawn. */
-    sBox.pFloats = pBox->pFloats;
-    floatListNormalize(sBox.pFloats, -1*x, -1*y);
+    sBox.pFloat = pBox->pFloat;
+    HtmlFloatListNormalize(sBox.pFloat, -1*x, -1*y);
 
     /* The minimum height of the box is set by the 'height' property. 
      * So sBox.height to this now. Layout routines only ever overwrite
@@ -4958,7 +4970,7 @@ static int blockLayout(pLayout, pBox, pNode, omitborder)
     }
 
     /* Restore the floating margins to the parent boxes coordinate system */
-    floatListNormalize(sBox.pFloats, x, y);
+    HtmlFloatListNormalize(sBox.pFloat, x, y);
     return TCL_OK;
 }
 
@@ -5032,7 +5044,7 @@ HtmlLayoutForce(clientData, interp, objc, objv)
 
     memset(&sBox, 0, sizeof(BoxContext));
     sBox.parentWidth = width;
-    sBox.pFloats = &sFloat;
+    sBox.pFloat = HtmlFloatListNew();
 
     /* Assume we already have a styled tree. Todo: This isn't always going
      * to be true, as this function is called as a Tcl proc (and therefore
@@ -5071,6 +5083,8 @@ HtmlLayoutForce(clientData, interp, objc, objv)
 
     HtmlDrawCleanup(&pTree->canvas);
     memcpy(&pTree->canvas, &sBox.vc, sizeof(HtmlCanvas));
+
+    HtmlFloatListDelete(sBox.pFloat);
 
     return rc;
 }
