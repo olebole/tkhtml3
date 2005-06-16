@@ -729,97 +729,97 @@ static void propertySetAddShortcutBorder(p, prop, v)
     CONST char *zEnd = z + v->n;
     int n;
 
+    int aWidth[] = {
+        CSS_PROPERTY_BORDER_TOP_WIDTH,
+        CSS_PROPERTY_BORDER_RIGHT_WIDTH,
+        CSS_PROPERTY_BORDER_BOTTOM_WIDTH,
+        CSS_PROPERTY_BORDER_LEFT_WIDTH,
+    };
+    int aStyle[] = {
+        CSS_PROPERTY_BORDER_TOP_STYLE,
+        CSS_PROPERTY_BORDER_RIGHT_STYLE,
+        CSS_PROPERTY_BORDER_BOTTOM_STYLE,
+        CSS_PROPERTY_BORDER_LEFT_STYLE,
+    };
+    int aColor[] = {
+        CSS_PROPERTY_BORDER_TOP_COLOR,
+        CSS_PROPERTY_BORDER_RIGHT_COLOR,
+        CSS_PROPERTY_BORDER_BOTTOM_COLOR,
+        CSS_PROPERTY_BORDER_LEFT_COLOR,
+    };
+
+    int iOffset = 0;        /* Offset in aWidth[], aStyle[], aColor[] */
+    int nProp = 1;          /* Number of properties to set */
+    switch (prop) {
+        case CSS_SHORTCUTPROPERTY_BORDER:
+            nProp = 4;
+            break;
+        case CSS_SHORTCUTPROPERTY_BORDER_TOP:
+            break;
+        case CSS_SHORTCUTPROPERTY_BORDER_RIGHT:
+            iOffset = 1;
+            break;
+        case CSS_SHORTCUTPROPERTY_BORDER_BOTTOM:
+            iOffset = 2;
+            break;
+        case CSS_SHORTCUTPROPERTY_BORDER_LEFT:
+            iOffset = 3;
+            break;
+        default:
+            assert(0);
+    }
+
     while (z) {
         z = getNextListItem(z, zEnd-z, &n);
         if (z) {
+            int *aProp = 0;
             CssToken token;
             CssProperty *pProp;
+            int i;
+
             token.z = z;
             token.n = n;
-
             pProp = tokenToProperty(&token);
-            if (propertyIsLength(pProp) || pProp->eType==CSS_TYPE_FLOAT) {
-                if (prop==CSS_SHORTCUTPROPERTY_BORDER) {
-                    propertySetAdd(p, CSS_PROPERTY_BORDER_BOTTOM_WIDTH, pProp);
-                    pProp = propertyDup(pProp);
-                    propertySetAdd(p, CSS_PROPERTY_BORDER_TOP_WIDTH, pProp);
-                    pProp = propertyDup(pProp);
-                    propertySetAdd(p, CSS_PROPERTY_BORDER_RIGHT_WIDTH, pProp);
-                    pProp = propertyDup(pProp);
-                    propertySetAdd(p, CSS_PROPERTY_BORDER_LEFT_WIDTH, pProp);
-                }
-                else if (prop==CSS_SHORTCUTPROPERTY_BORDER_LEFT) {
-                    propertySetAdd(p, CSS_PROPERTY_BORDER_LEFT_WIDTH, pProp);
-                }
-                else if (prop==CSS_SHORTCUTPROPERTY_BORDER_BOTTOM) {
-                    propertySetAdd(p, CSS_PROPERTY_BORDER_BOTTOM_WIDTH, pProp);
-                }
-                else if (prop==CSS_SHORTCUTPROPERTY_BORDER_TOP) {
-                    propertySetAdd(p, CSS_PROPERTY_BORDER_TOP_WIDTH, pProp);
-                }
-                else if (prop==CSS_SHORTCUTPROPERTY_BORDER_RIGHT) {
-                    propertySetAdd(p, CSS_PROPERTY_BORDER_RIGHT_WIDTH, pProp);
-                }
-            }
 
-            else if (propertyIsString(pProp)) {
-                CONST char *zBorderStyles[] = {
-                    "none", "hidden", "dotted", "dashed", "solid", "double",
-                    "groove", "ridge", "outset", "inset"
+            if (propertyIsLength(pProp) || pProp->eType==CSS_TYPE_FLOAT) {
+                aProp = aWidth;
+            } else if (propertyIsString(pProp)) {
+                struct BorderString {
+                    CONST char *z;
+                    int *a;
+                } borderstring [] = {
+                    {"none",   aStyle},
+                    {"hidden", aStyle},
+                    {"dotted", aStyle},
+                    {"dashed", aStyle},
+                    {"solid",  aStyle},
+                    {"double", aStyle},
+                    {"groove", aStyle},
+                    {"ridge",  aStyle},
+                    {"outset", aStyle},
+                    {"inset", aStyle},
+                    {"thin",   aWidth},
+                    {"thick",  aWidth},
+                    {"medium", aWidth},
                 };
-                int i;
-                int style = 0;
-                for (i=0; i<sizeof(zBorderStyles)/sizeof(CONST char *); i++) {
-                    if (0==strcmp(pProp->v.zVal, zBorderStyles[i])) {
-                        style = 1;
+                int nB = sizeof(borderstring)/sizeof(struct BorderString);
+                for (i=0; i < nB; i++) {
+                    if (0==strcmp(pProp->v.zVal, borderstring[i].z)) {
+                        aProp = borderstring[i].a;
                         break;
                     }
                 }
+                if (!aProp) {
+                    aProp = aColor;
+                }
+            }
 
-                if (style) {
-                    if (prop==CSS_SHORTCUTPROPERTY_BORDER) {
-                       propertySetAdd(p,CSS_PROPERTY_BORDER_BOTTOM_STYLE,pProp);
+            if (aProp) {
+                for (i = iOffset; i < iOffset+nProp; i++) {
+                    if (i != iOffset) {
                         pProp = propertyDup(pProp);
-                        propertySetAdd(p, CSS_PROPERTY_BORDER_TOP_STYLE,pProp);
-                        pProp = propertyDup(pProp);
-                        propertySetAdd(p,CSS_PROPERTY_BORDER_RIGHT_STYLE,pProp);
-                        pProp = propertyDup(pProp);
-                        propertySetAdd(p,CSS_PROPERTY_BORDER_LEFT_STYLE,pProp);
                     }
-                    else if (prop==CSS_SHORTCUTPROPERTY_BORDER_LEFT) {
-                        propertySetAdd(p,CSS_PROPERTY_BORDER_LEFT_STYLE,pProp);
-                    }
-                    else if (prop==CSS_SHORTCUTPROPERTY_BORDER_BOTTOM) {
-                       propertySetAdd(p,CSS_PROPERTY_BORDER_BOTTOM_STYLE,pProp);
-                    }
-                    else if (prop==CSS_SHORTCUTPROPERTY_BORDER_TOP) {
-                        propertySetAdd(p, CSS_PROPERTY_BORDER_TOP_STYLE, pProp);
-                    }
-                    else if (prop==CSS_SHORTCUTPROPERTY_BORDER_RIGHT) {
-                        propertySetAdd(p,CSS_PROPERTY_BORDER_RIGHT_STYLE,pProp);
-                    }
-                } else {
-                    if (prop==CSS_SHORTCUTPROPERTY_BORDER) {
-                       propertySetAdd(p,CSS_PROPERTY_BORDER_BOTTOM_COLOR,pProp);
-                        pProp = propertyDup(pProp);
-                        propertySetAdd(p, CSS_PROPERTY_BORDER_TOP_COLOR,pProp);
-                        pProp = propertyDup(pProp);
-                        propertySetAdd(p,CSS_PROPERTY_BORDER_RIGHT_COLOR,pProp);
-                        pProp = propertyDup(pProp);
-                        propertySetAdd(p,CSS_PROPERTY_BORDER_LEFT_COLOR,pProp);
-                    }
-                    else if (prop==CSS_SHORTCUTPROPERTY_BORDER_LEFT) {
-                        propertySetAdd(p,CSS_PROPERTY_BORDER_LEFT_COLOR,pProp);
-                    }
-                    else if (prop==CSS_SHORTCUTPROPERTY_BORDER_BOTTOM) {
-                       propertySetAdd(p,CSS_PROPERTY_BORDER_BOTTOM_COLOR,pProp);
-                    }
-                    else if (prop==CSS_SHORTCUTPROPERTY_BORDER_TOP) {
-                        propertySetAdd(p, CSS_PROPERTY_BORDER_TOP_COLOR, pProp);
-                    }
-                    else if (prop==CSS_SHORTCUTPROPERTY_BORDER_RIGHT) {
-                        propertySetAdd(p,CSS_PROPERTY_BORDER_RIGHT_COLOR,pProp);
-                    }
+                    propertySetAdd(p, aProp[i], pProp);
                 }
             }
             

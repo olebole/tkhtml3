@@ -518,10 +518,10 @@ static PropMapEntry propmapdata[] = {
     {CSS_PROPERTY_LINE_HEIGHT, 0, 0, 0, {CSS_TYPE_STRING, "normal"}},
 
     /* Width of borders. */
-    {CSS_PROPERTY_BORDER_TOP_WIDTH,    0, 0, mapBorderWidth, {CSS_TYPE_PX, 0}},
-    {CSS_PROPERTY_BORDER_BOTTOM_WIDTH, 0, 0, mapBorderWidth, {CSS_TYPE_PX, 0}},
-    {CSS_PROPERTY_BORDER_LEFT_WIDTH,   0, 0, mapBorderWidth, {CSS_TYPE_PX, 0}},
-    {CSS_PROPERTY_BORDER_RIGHT_WIDTH,  0, 0, mapBorderWidth, {CSS_TYPE_PX, 0}},
+    {CSS_PROPERTY_BORDER_TOP_WIDTH,    0, 0, mapBorderWidth, CSSSTR("medium")},
+    {CSS_PROPERTY_BORDER_BOTTOM_WIDTH, 0, 0, mapBorderWidth, CSSSTR("medium")},
+    {CSS_PROPERTY_BORDER_LEFT_WIDTH,   0, 0, mapBorderWidth, CSSSTR("medium")},
+    {CSS_PROPERTY_BORDER_RIGHT_WIDTH,  0, 0, mapBorderWidth, CSSSTR("medium")},
 
     /* Color of borders. */
     {CSS_PROPERTY_BORDER_TOP_COLOR,    0, 0, 0, {CSS_TYPE_COPYCOLOR, 0}},

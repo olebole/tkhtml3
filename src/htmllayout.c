@@ -745,6 +745,43 @@ static int propertyIsAuto(pProp)
 /*
  *---------------------------------------------------------------------------
  *
+ * bwToPixels --
+ *
+ *     This function interprets a CSS property as a border-width and
+ *     returns the corresponding number of pixels to use. A border length
+ *     property may be either a <length> value or one of the constant
+ *     strings "thin", "medium" or "thick".
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+bwToPixels(pLayout, pNode, pProp, parentwidth, default_val)
+    LayoutContext *pLayout;
+    HtmlNode *pNode;
+    CssProperty *pProp;
+    int parentwidth;
+    int default_val;
+{
+    char const *zWidth[] = {
+        "thin", "medium", "thick",  0
+    };
+    int eWidth[] = {1, 2, 4};
+
+    if (pProp->eType == CSS_TYPE_STRING) {
+        return propertyToConstant(pProp, zWidth, eWidth, default_val);
+    }
+    return propertyToPixels(pLayout, pNode, pProp, parentwidth, default_val);
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * nodeGetDisplay --
  *
  *     Query the 'display', 'position' and 'float' properties of a node.
@@ -1330,12 +1367,20 @@ nodeGetBoxProperties(pLayout, pNode, parentwidth, pBoxProperties)
     HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_PADDING_BOTTOM, &p);
     pBoxProperties->padding_bottom = propertyToPixels(pLayout, pNode, &p, w, 0);
 
+    /* A negative value is not allowed for padding. If one has been
+     * specified, treat it as 0.  
+     */
+    pBoxProperties->padding_bottom = MAX(0, pBoxProperties->padding_bottom);
+    pBoxProperties->padding_top = MAX(0, pBoxProperties->padding_top);
+    pBoxProperties->padding_left = MAX(0, pBoxProperties->padding_left);
+    pBoxProperties->padding_right = MAX(0, pBoxProperties->padding_right);
+
     HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BORDER_TOP_STYLE, &b);
     if (b.eType==CSS_TYPE_STRING && 0==strcmp(b.v.zVal, "none")) {
         pBoxProperties->border_top = 0;
     }else{
         HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BORDER_TOP_WIDTH, &b);
-        pBoxProperties->border_top = propertyToPixels(pLayout, pNode, &b, w, 0);
+        pBoxProperties->border_top = bwToPixels(pLayout, pNode, &b, w, 0);
     }
 
     HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BORDER_BOTTOM_STYLE, &b);
@@ -1343,7 +1388,7 @@ nodeGetBoxProperties(pLayout, pNode, parentwidth, pBoxProperties)
         pBoxProperties->border_bottom = 0;
     }else{
         HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BORDER_BOTTOM_WIDTH,&b);
-        pBoxProperties->border_bottom = propertyToPixels(pLayout,pNode,&b,w,0);
+        pBoxProperties->border_bottom = bwToPixels(pLayout,pNode,&b,w,0);
     }
 
     HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BORDER_LEFT_STYLE, &b);
@@ -1351,7 +1396,7 @@ nodeGetBoxProperties(pLayout, pNode, parentwidth, pBoxProperties)
         pBoxProperties->border_left = 0;
     }else{
         HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BORDER_LEFT_WIDTH, &b);
-        pBoxProperties->border_left = propertyToPixels(pLayout,pNode,&b,w,0);
+        pBoxProperties->border_left = bwToPixels(pLayout,pNode,&b,w,0);
     }
 
     HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BORDER_RIGHT_STYLE, &b);
@@ -1359,7 +1404,7 @@ nodeGetBoxProperties(pLayout, pNode, parentwidth, pBoxProperties)
         pBoxProperties->border_right = 0;
     }else{
         HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BORDER_RIGHT_WIDTH, &b);
-        pBoxProperties->border_right = propertyToPixels(pLayout,pNode,&b,w,0);
+        pBoxProperties->border_right = bwToPixels(pLayout,pNode,&b,w,0);
     }
 }
 

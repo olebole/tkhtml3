@@ -28,6 +28,8 @@ false-negatives, due to differences in font configuration.
   exit -1
 }
 
+set IMGFMT bmp
+
 # Load Tkhtml and if possible the Img package. The Img package is required
 # for most image files formats used by web documents. Also to write jpeg
 # files.
@@ -172,7 +174,7 @@ proc replace_select {node} {
 }
 
 proc docname_to_imgname {docname} {
-  file join $::TESTDIR [string map {{ } _ / _} [file tail $docname]].png
+  file join $::TESTDIR [string map {{ } _ / _} [file tail $docname]].$::IMGFMT
 }
 proc docname_to_primname {docname} {
   return [file join $::TESTDIR [string map {{ } _ / _} $docname].primitives]
@@ -183,10 +185,10 @@ proc compare_document_image {docname} {
   set layouttime [time {set img [$::HTML layout image]}]
   puts " Layout [lrange $layouttime 0 1]"
   set filename [docname_to_imgname $docname]
-  $img write tmp.png -format png
+  $img write tmp.$::IMGFMT -format $::IMGFMT
   image delete $img
 
-  set data [readFile tmp.png]
+  set data [readFile tmp.$::IMGFMT]
   set data2 [readFile $filename]
   if {$data2==""} {
     return NOIMAGE
@@ -202,7 +204,7 @@ proc correct {docname img} {
   catch {
     file delete -force $filename
   }
-  $img write $filename -format png
+  $img write $filename -format $::IMGFMT
   set ::CONTINUEFLAG 1
 }
 proc incorrect {docname img} {
