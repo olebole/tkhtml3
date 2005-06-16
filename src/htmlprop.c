@@ -698,7 +698,9 @@ getproperty_out:
      * has been specified, then make a HtmlNodeGetProperty() call on the
      * parent node (if one exists).
      */ 
-    if (sheet < 0 && pEntry->inherit || pOut->eType == CSS_TYPE_INHERIT) {
+    if ((sheet < 0 && pEntry->inherit) || 
+        (sheet >= 0 && pOut->eType == CSS_TYPE_INHERIT)
+    ) {
         HtmlNode *pParent = HtmlNodeParent(pNode);
         if (pParent) {
             HtmlNodeGetProperty(interp, pParent, pEntry->property, pOut);

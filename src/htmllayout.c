@@ -3164,6 +3164,7 @@ inlineLayoutNode(pLayout, pBox, pNode, pY, pContext)
             assert(pParent);
             memset(&sBox, 0, sizeof(BoxContext));
             sBox.pFloat = HtmlFloatListNew();
+            sBox.parentWidth = pBox->parentWidth;
             memcpy(&sLayout, pLayout, sizeof(LayoutContext));
             sLayout.marginValid = 1;
             sLayout.marginValue = 0;
@@ -4215,12 +4216,15 @@ static int tableLayout(pLayout, pBox, pNode)
     }
     assert(maxwidth>=minwidth);
 
+/*
     width = nodeGetWidth(pLayout, pNode, pBox->parentWidth, -1, 0);
     if (width<0) {
         width = MIN(pBox->parentWidth, maxwidth);
     }
     width = MAX(minwidth, width);
-
+*/
+    width = MIN(pBox->parentWidth, maxwidth);
+    width = MAX(minwidth, width);
 
     /* Decide on some actual widths for the cells */
     availwidth = width - (nCol+1)*data.border_spacing;

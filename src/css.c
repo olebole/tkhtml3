@@ -217,15 +217,18 @@ rgbToColor(zOut, zRgb, nRgb)
     int aN[3] = {0, 0, 0};
 
     while (z < zEnd && n < 3) {
-        while (!isdigit(*z)) z++;
-        aN[n] = strtol(z, (char **)&z, 0);
+        while (!isdigit(*z) && *z!='.' && *z!='-' && *z!='+') z++;
+        aN[n] = (int)strtod(z, (char **)&z);
         if (*z=='%') {
-            aN[n] = ((aN[n] * 100) / 255);
+            aN[n] = ((aN[n] * 255) / 100);
         }
+        aN[n] = MIN(aN[n], 255);
+        aN[n] = MAX(aN[n], 0);
         n++;
     }
 
-    sprintf(zOut, "#%.2x%.2x%.2x", aN[0], aN[1], aN[2]);
+    n = sprintf(zOut, "#%.2x%.2x%.2x", aN[0], aN[1], aN[2]);
+    assert(n==7);
 }
 
 /*
