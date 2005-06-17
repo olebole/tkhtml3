@@ -162,10 +162,14 @@ HtmlDrawCleanup(pCanvas)
                 Tcl_DecrRefCount(pItem->x.c.pComment);
                 break;
         }
-        ckfree((char *)pPrev);
+        if (pPrev) {
+            ckfree((char *)pPrev);
+        }
         pPrev = pItem;
     }
-    ckfree((char *)pPrev);
+    if (pPrev) {
+        ckfree((char *)pPrev);
+    }
     pCanvas->pFirst = 0;
     pCanvas->pLast = 0;
 
@@ -729,6 +733,7 @@ int HtmlLayoutImage(clientData, interp, objc, objv)
         pixmap = getPixmap(pTree, w, h);
         pXImage = XGetImage(pDisplay, pixmap, x, y, w, h, XAllPlanes(),ZPixmap);
         pImage = HtmlXImageToImage(pTree, pXImage, w, h);
+        XDestroyImage(pXImage);
         Tcl_SetObjResult(interp, pImage);
         Tcl_DecrRefCount(pImage);
         Tk_FreePixmap(Tk_Display(pTree->win), pixmap);

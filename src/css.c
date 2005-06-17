@@ -1930,7 +1930,9 @@ static void propertiesAdd(ppProperties, pRule)
 void HtmlCssPropertiesFree(pPropertySet)
     CssProperties *pPropertySet;
 {
-    ckfree((char *)pPropertySet);
+    if (pPropertySet) {
+        ckfree((char *)pPropertySet);
+    }
 }
 
 /*--------------------------------------------------------------------------

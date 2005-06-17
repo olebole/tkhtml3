@@ -316,6 +316,10 @@ struct TableData {
  *         Retrieve the next rendered line-box from the inline context. The
  *         line-box is created based on the inline-boxes that have already
  *         been passed in using the inlineContextAddInlineCanvas() call.
+ *
+ *     inlineContextCleanup():
+ *         This is called to deallocate all resources associated with the
+ *         InlineContext object.
  */
 typedef struct InlineContext InlineContext;
 typedef struct InlineBorder InlineBorder;
@@ -371,6 +375,7 @@ static InlineBorder *inlineContextGetBorder(LayoutContext *, HtmlNode *, int);
 static int inlineContextPushBorder(InlineContext *, InlineBorder *);
 static int inlineContextPopBorder(InlineContext *, InlineBorder *);
 static void inlineContextSetBoxDimensions(InlineContext *, int, int, int);
+static void inlineContextCleanup(InlineContext *);
 
 /*
  * Potential values for the 'display' property. Not supported yet are
@@ -1140,6 +1145,8 @@ static Tk_Font nodeGetFont(pLayout, pNode)
             font = Tk_AllocFontFromObj(interp, pLayout->tkwin, pFont); 
             if (font) {
                 Tcl_SetHashValue(pEntry, font);
+            } else {
+                Tcl_DeleteHashEntry(pEntry);
             }
         } else {
             font = Tcl_GetHashValue(pEntry);
@@ -1671,14 +1678,16 @@ nodeGetTkhtmlReplace(pLayout, pNode)
  *
  *---------------------------------------------------------------------------
  */
-static void nodeGetMargins(pLayout, pNode, pMargins)
+static void nodeGetMargins(pLayout, pNode, parentWidth, pMargins)
     LayoutContext *pLayout;
     HtmlNode *pNode;
+    int parentWidth;
     MarginProperties *pMargins;
 {
     CssProperty m;
     Tcl_Interp *interp = pLayout->pTree->interp;
     int widthisauto = 0;   /* True if the 'width' property is set to "auto" */
+    int pw = parentWidth;
 
     HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_WIDTH, &m);
     if (!nodeGetTkhtmlReplace(pLayout,pNode)) {
@@ -1691,17 +1700,17 @@ static void nodeGetMargins(pLayout, pNode, pMargins)
      * be done here.
      */
     HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_MARGIN_TOP, &m);
-    pMargins->margin_top = propertyToPixels(pLayout, pNode, &m, 0, 0);
+    pMargins->margin_top = propertyToPixels(pLayout, pNode, &m, pw, 0);
 
     HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_MARGIN_BOTTOM, &m);
-    pMargins->margin_bottom = propertyToPixels(pLayout, pNode, &m, 0, 0);
+    pMargins->margin_bottom = propertyToPixels(pLayout, pNode, &m, pw, 0);
 
     HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_MARGIN_LEFT, &m);
-    pMargins->margin_left = propertyToPixels(pLayout, pNode, &m, 0, 0);
+    pMargins->margin_left = propertyToPixels(pLayout, pNode, &m, pw, 0);
     pMargins->leftAuto = (!widthisauto?propertyIsAuto(&m):0);
 
     HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_MARGIN_RIGHT, &m);
-    pMargins->margin_right = propertyToPixels(pLayout, pNode, &m, 0, 0);
+    pMargins->margin_right = propertyToPixels(pLayout, pNode, &m, pw, 0);
     pMargins->rightAuto = (!widthisauto?propertyIsAuto(&m):0);
 }
 
@@ -2130,9 +2139,9 @@ static int inlineContextPopBorder(p, pBorder)
     if (p->nInline > 0) {
         pBox = &p->aInline[p->nInline-1];
         pBox->nBorderEnd++;
-        pBox->nRightPixels += pBorder->box.padding_left;
-        pBox->nRightPixels += pBorder->box.border_left;
-        pBox->nRightPixels += pBorder->margin.margin_left;
+        pBox->nRightPixels += pBorder->box.padding_right;
+        pBox->nRightPixels += pBorder->box.border_right;
+        pBox->nRightPixels += pBorder->margin.margin_right;
     } else {
         InlineBorder *pBorder = p->pBoxBorders;
         assert(pBorder);
@@ -2178,7 +2187,7 @@ static InlineBorder *inlineContextGetBorder(pLayout, pNode, parentblock)
 
     if (!parentblock) {
         nodeGetBoxProperties(pLayout, pNode, 0,&border.box);
-        nodeGetMargins(pLayout, pNode, &border.margin);
+        nodeGetMargins(pLayout, pNode, 0, &border.margin);
         nodeGetBorderProperties(pLayout, pNode, &border.border);
         nodeGetBorderProperties(pLayout, pNode, &border.border);
     } else {
@@ -2892,6 +2901,51 @@ inlineContextIsEmpty(pContext)
 /*
  *---------------------------------------------------------------------------
  *
+ * inlineContextCleanup --
+ *
+ *     Clean-up all the dynamic allocations made during the life-time of
+ *     this InlineContext object. The InlineContext structure itself is not
+ *     deleted - as this is usually allocated on the stack, not the heap.
+ *
+ *     The InlineContext object should be considered unusable (as it's
+ *     internal state is inconsistent) after this function is called.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void 
+inlineContextCleanup(pContext)
+    InlineContext *pContext;
+{
+    InlineBorder *pBorder;
+
+    if (pContext->aInline) {
+        ckfree((char *)pContext->aInline);
+    }
+    
+    pBorder = pContext->pBoxBorders;
+    while (pBorder) {
+        InlineBorder *pTmp = pBorder->pNext;
+        ckfree((char *)pBorder);
+        pBorder = pTmp;
+    }
+
+    pBorder = pContext->pBorders;
+    while (pBorder) {
+        InlineBorder *pTmp = pBorder->pNext;
+        ckfree((char *)pBorder);
+        pBorder = pTmp;
+    }
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * inlineText --
  *
  * Results:
@@ -3257,6 +3311,7 @@ static int inlineLayout(pLayout, pBox, pNode)
     HtmlNode *pN;
     HtmlCanvas lastline;
     int width;
+    int rc;                       /* Return Code */
     HtmlNode *pParent;
     InlineBorder *pBorder;
    
@@ -3288,7 +3343,9 @@ static int inlineLayout(pLayout, pBox, pNode)
         inlineLayoutNode(pLayout, pBox, pN, &y, &context);
     }
 
-    return inlineLayoutDrawLines(pLayout, pBox, &context, 1, &y);
+    rc = inlineLayoutDrawLines(pLayout, pBox, &context, 1, &y);
+    inlineContextCleanup(&context);
+    return rc;
 }
 
 /*
@@ -4216,13 +4273,11 @@ static int tableLayout(pLayout, pBox, pNode)
     }
     assert(maxwidth>=minwidth);
 
-/*
-    width = nodeGetWidth(pLayout, pNode, pBox->parentWidth, -1, 0);
-    if (width<0) {
-        width = MIN(pBox->parentWidth, maxwidth);
-    }
-    width = MAX(minwidth, width);
-*/
+    /* When this function is called, the parentWidth has already been set
+     * by blockLayout() if there is an explicit 'width'. So we just need to
+     * worry about the implicit minimum and maximum width as determined by
+     * the table content here.
+     */
     width = MIN(pBox->parentWidth, maxwidth);
     width = MAX(minwidth, width);
 
@@ -4485,7 +4540,7 @@ static int blockLayout(pLayout, pBox, pNode, omitborder)
     if (display.eDisplay==DISPLAY_NONE) {
         return TCL_OK;
     }
-    nodeGetMargins(pLayout, pNode, &margin);
+    nodeGetMargins(pLayout, pNode, pBox->parentWidth, &margin);
     nodeGetBoxProperties(pLayout, pNode, pBox->parentWidth, &boxproperties);
     HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY__TKHTML_REPLACE, &replace);
 
@@ -4663,13 +4718,9 @@ static int blockLayout(pLayout, pBox, pNode, omitborder)
             borderLayout(pLayout, pNode, pBox, x1, y1, x2, y2);
         }
 
-        if (!pLayout->minmaxTest) {
-            nodeComment(&pBox->vc, pNode);
-            HtmlDrawCanvas(&pBox->vc, &sBox.vc, x + hoffset, y);
-            endNodeComment(&pBox->vc, pNode);
-        } else {
-            HtmlDrawCleanup(&pBox->vc);
-        }
+        nodeComment(&pBox->vc, pNode);
+        HtmlDrawCanvas(&pBox->vc, &sBox.vc, x + hoffset, y);
+        endNodeComment(&pBox->vc, pNode);
     
         pBox->height = sBox.height + y + 
             boxproperties.border_bottom + boxproperties.padding_bottom;

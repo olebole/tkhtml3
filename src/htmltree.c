@@ -524,7 +524,9 @@ buildNode(pTree, pParent, pStart, ppNext, ppNode, expect_inline)
  *
  * freeNode --
  *
- *     Free the memory allocated for pNode and all of it's children.
+ *     Free the memory allocated for pNode and all of it's children. If the
+ *     node has attached style information, either from stylesheets or an
+ *     Html style attribute, this is deleted here too.
  *
  * Results:
  *     None.
@@ -543,6 +545,9 @@ freeNode(pNode)
         for(i=0; i<pNode->nChild; i++){
             freeNode(pNode->apChildren[i]);
         }
+        HtmlCssPropertiesFree(pNode->pProperties);
+        HtmlCssPropertiesFree(pNode->pStyle);
+        ckfree((char *)pNode->apChildren);
         ckfree((char *)pNode);
     }
 }
@@ -1243,8 +1248,10 @@ int HtmlTreeClear(pTree)
         p = Tcl_NextHashEntry(&s)) 
     {
         Tk_FreeFont((Tk_Font)Tcl_GetHashValue(p));
-        Tcl_DeleteHashEntry(p);
+        /* Tcl_DeleteHashEntry(p); */
     }
+    Tcl_DeleteHashTable(&pTree->aFontCache);
+    Tcl_InitHashTable(&pTree->aFontCache, TCL_STRING_KEYS);
 
     /* Free the image-cache - pTree->aImage */
     HtmlClearImageArray(pTree);
@@ -1254,9 +1261,9 @@ int HtmlTreeClear(pTree)
 
     /* Free the token representation */
     for (pToken=pTree->pFirst; pToken; pToken = pToken->pNext) {
-        ckfree(pToken->pPrev);
+        ckfree((char *)pToken->pPrev);
     }
-    ckfree(pTree->pLast);
+    ckfree((char *)pTree->pLast);
     pTree->pFirst = 0;
     pTree->pLast = 0;
 
@@ -1264,7 +1271,9 @@ int HtmlTreeClear(pTree)
     HtmlDrawCleanup(&pTree->canvas);
 
     /* Free the plain text representation */
-    Tcl_DecrRefCount(pTree->pDocument);
+    if (pTree->pDocument) {
+        Tcl_DecrRefCount(pTree->pDocument);
+    }
     pTree->nParsed = 0;
     pTree->pDocument = 0;
     pTree->iCol = 0;

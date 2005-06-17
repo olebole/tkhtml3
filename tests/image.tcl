@@ -286,6 +286,9 @@ foreach document $::DOCUMENT_LIST {
       .buttons.oldimage configure -state disabled
       .buttons.newimage configure -state disabled
       vwait ::CONTINUEFLAG
+
+      .c delete all
+      image delete $img
   }
   if {$res=="NOMATCH"} {
       set img [$::HTML layout image]
@@ -316,5 +319,6 @@ foreach document $::DOCUMENT_LIST {
   $::HTML clear
 }
 
+rename $::HTML {}
 exit
 
