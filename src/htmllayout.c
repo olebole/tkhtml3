@@ -386,6 +386,7 @@ static void inlineContextCleanup(InlineContext *);
 #define DISPLAY_TABLE    3
 #define DISPLAY_LISTITEM 4
 #define DISPLAY_NONE     5
+#define DISPLAY_TABLECELL    6
 
 #define LISTSTYLETYPE_SQUARE 1 
 #define LISTSTYLETYPE_DISC   2 
@@ -439,7 +440,7 @@ S int nodeGetBorderSpacing(LayoutContext *, HtmlNode*);
 S int nodeGetVAlign(LayoutContext *, HtmlNode*, int);
 S void nodeGetBoxProperties(LayoutContext *, HtmlNode *, int, BoxProperties *);
 S void nodeGetBorderProperties(LayoutContext *, HtmlNode *, BorderProperties *);
-S int nodeGetWidth(LayoutContext *, HtmlNode *, int, int, int*);
+S int nodeGetWidth(LayoutContext *, HtmlNode *, int, int, int*, int*);
 S int nodeGetHeight(LayoutContext *, HtmlNode *, int, int);
 S int nodeGetTextAlign(LayoutContext *, HtmlNode *);
 S int nodeGetTextDecoration(LayoutContext *, HtmlNode *);
@@ -453,7 +454,7 @@ S int floatLayout(LayoutContext*, BoxContext*, HtmlNode*, int*);
 S int markerLayout(LayoutContext*, BoxContext*, HtmlNode*);
 S int inlineLayout(LayoutContext*, BoxContext*, HtmlNode*);
 S int tableLayout(LayoutContext*, BoxContext*, HtmlNode*);
-S int blockLayout(LayoutContext*, BoxContext*, HtmlNode*, int);
+S int blockLayout(LayoutContext*, BoxContext*, HtmlNode*, int, int);
 S void layoutReplacement(LayoutContext*, BoxContext*, HtmlNode*, CONST char*);
 
 S int tableIterate(
@@ -810,11 +811,11 @@ static void nodeGetDisplay(pLayout, pNode, pDisplayProperties)
 {
     char const *zDisplay[] = {
         "inline",         "block",           "none", 
-        "list-item",      "table", 0
+        "list-item",      "table",           "table-cell", 0
     };
     int eDisplay[] = {
         DISPLAY_INLINE,   DISPLAY_BLOCK,     DISPLAY_NONE, 
-        DISPLAY_LISTITEM, DISPLAY_TABLE
+        DISPLAY_LISTITEM, DISPLAY_TABLE,     DISPLAY_TABLECELL
     };
 
     char const *zFloat[] = {
@@ -1524,12 +1525,13 @@ static int nodeGetHeight(pLayout, pNode, pwidth, def)
  *
  *---------------------------------------------------------------------------
  */
-static int nodeGetWidth(pLayout, pNode, pwidth, def, pIsFixed)
+static int nodeGetWidth(pLayout, pNode, pwidth, def, pIsFixed, pIsAuto)
     LayoutContext *pLayout;   /* Layout context */
     HtmlNode *pNode;          /* Node */
     int pwidth;               /* Value to calculate percentage widths of */
     int def;                  /* Default value */
     int *pIsFixed;            /* OUT: True if a pixel width */
+    int *pIsAuto;             /* OUT: True if value is "auto" */
 {
     int val;
 
@@ -1570,6 +1572,8 @@ static int nodeGetWidth(pLayout, pNode, pwidth, def, pIsFixed)
             if (pIsFixed) *pIsFixed = 0;
            
     }
+
+    if (pIsAuto) *pIsAuto = propertyIsAuto(&width);
 
     return val;
 }
@@ -1907,7 +1911,7 @@ static int floatLayout(pLayout, pBox, pNode, pY)
      * content width of the floating box, it doesn't include margins,
      * padding, or borders.
      */
-    width = nodeGetWidth(pLayout, pNode, pBox->parentWidth, -1, 0);
+    width = nodeGetWidth(pLayout, pNode, pBox->parentWidth, -1, 0, 0);
     if (width<0) {
         int min, max;
         blockMinMaxWidth(pLayout, pNode, &min, &max);
@@ -1923,7 +1927,7 @@ static int floatLayout(pLayout, pBox, pNode, pY)
     pLayout->marginParent = 0;
     sBox.contentWidth = width;
     sBox.parentWidth = pBox->parentWidth;
-    blockLayout(pLayout, &sBox, pNode, 0);
+    blockLayout(pLayout, &sBox, pNode, 0, 0);
     sBox.height += pLayout->marginValue;
     pLayout->marginValid = marginValid;
     pLayout->marginValue = marginValue;
@@ -3179,7 +3183,7 @@ inlineLayoutNode(pLayout, pBox, pNode, pY, pContext)
         sBox.pFloat = pBox->pFloat;
 
         HtmlFloatListNormalize(sBox.pFloat, 0, -1*y);
-        blockLayout(pLayout, &sBox, pNode, 0);
+        blockLayout(pLayout, &sBox, pNode, 0, 0);
         if (!HtmlDrawIsEmpty(&sBox.vc)) {
             HtmlDrawCanvas(&pBox->vc, &sBox.vc, 0, y);
         }
@@ -3210,22 +3214,32 @@ inlineLayoutNode(pLayout, pBox, pNode, pY, pContext)
 
         if (0 != (zReplace=nodeGetTkhtmlReplace(pLayout, pNode))) {
             BoxContext sBox;
+
             LayoutContext sLayout;
             HtmlCanvas *pCanvas;
             int yoffset;
             HtmlNode *pParent = HtmlNodeParent(pNode);
+            int marginValid = pLayout->marginValid;
+            int marginValue = pLayout->marginValue;
+            int marginParent = pLayout->marginParent;
              
             assert(pParent);
             memset(&sBox, 0, sizeof(BoxContext));
             sBox.pFloat = HtmlFloatListNew();
             sBox.parentWidth = pBox->parentWidth;
             memcpy(&sLayout, pLayout, sizeof(LayoutContext));
-            sLayout.marginValid = 1;
-            sLayout.marginValue = 0;
-            sLayout.marginParent = 0;
-            blockLayout(&sLayout, &sBox, pNode, 0);
-            sBox.height += sLayout.marginValue;
+
+            pLayout->marginValid = 1;
+            pLayout->marginValue = 0;
+            pLayout->marginParent = 0;
+
+            blockLayout(pLayout, &sBox, pNode, 0, 1);
+            sBox.height += pLayout->marginValue;
             HtmlFloatListDelete(sBox.pFloat);
+
+            pLayout->marginValid = marginValid;
+            pLayout->marginValue = marginValue;
+            pLayout->marginParent = marginParent;
 
             switch (nodeGetVAlign(pLayout, pNode, VALIGN_BASELINE)) {
                 case VALIGN_TEXT_BOTTOM: {
@@ -3380,9 +3394,10 @@ blockMinMaxWidth(pLayout, pNode, pMin, pMax)
     int *pCache;
 
     Tcl_HashEntry *pEntry;
-    int newentry;
+    int newentry = 1;
 
-    pEntry = Tcl_CreateHashEntry(&pLayout->widthCache, (char*)pNode, &newentry);
+    pEntry = Tcl_CreateHashEntry(
+        &pLayout->widthCache, (char*)pNode, &newentry);
     if (newentry) {
         int minmaxTestOrig = pLayout->minmaxTest;
         pLayout->minmaxTest = 1;
@@ -3395,7 +3410,7 @@ blockMinMaxWidth(pLayout, pNode, pMin, pMax)
          */
         memset(&sBox, 0, sizeof(BoxContext));
         sBox.pFloat = HtmlFloatListNew();
-        blockLayout(pLayout, &sBox, pNode, 0);
+        blockLayout(pLayout, &sBox, pNode, 0, 1);
         HtmlDrawCleanup(&sBox.vc);
         min = sBox.width;
         HtmlFloatListDelete(sBox.pFloat);
@@ -3408,7 +3423,7 @@ blockMinMaxWidth(pLayout, pNode, pMin, pMax)
         memset(&sBox, 0, sizeof(BoxContext));
         sBox.pFloat = HtmlFloatListNew();
         sBox.parentWidth = 10000;
-        blockLayout(pLayout, &sBox, pNode, 0);
+        blockLayout(pLayout, &sBox, pNode, 0, 1);
         HtmlDrawCleanup(&sBox.vc);
         max = sBox.width;
         HtmlFloatListDelete(sBox.pFloat);
@@ -3467,7 +3482,7 @@ tableColWidthSingleSpan(pNode, col, colspan, row, rowspan, pContext)
         int f = 0;
 
         /* See if the cell has an explicitly requested width. */
-        w = nodeGetWidth(pData->pLayout, pNode, pData->availablewidth, 0, &f);
+        w = nodeGetWidth(pData->pLayout, pNode, pData->availablewidth, 0, &f,0);
 
         /* And figure out the minimum and maximum widths of the content */
         blockMinMaxWidth(pData->pLayout, pNode, &min, &max);
@@ -3851,7 +3866,7 @@ tableDrawCells(pNode, col, colspan, row, rowspan, pContext)
     }
 
     pData->pLayout->marginValid = 0;
-    blockLayout(pData->pLayout, pBox, pNode, 1);
+    blockLayout(pData->pLayout, pBox, pNode, 1, 0);
     belowY = y + pBox->height + pData->border_spacing;
 
     assert(row+rowspan < pData->nRow+1);
@@ -4010,30 +4025,44 @@ tableIterate(pNode, xCallback, xRowCallback, pContext)
     return TCL_OK;
 }
 
-    /* Decide on some actual widths for the cells, based on the maximum and
-     * minimum widths, the total width of the table and the floating
-     * margins. As far as I can tell, neither CSS nor HTML specify exactly
-     * how to do this. So we use the following approach:
-     *
-     * 1. Each cell is assigned it's minimum width.
-     * 2. If there are any columns with an explicit width specified as a
-     *    percentage, we allocate extra space to them to try to meet these
-     *    requests. Explicit widths may mean that the table is not
-     *    completely filled.
-     * 3. Remaining space is divided up between the cells without explicit
-     *    percentage widths. 
-     * 
-     * Data structure notes:
-     *    * If a column had an explicit width specified in pixels, then the
-     *      aWidth[], aMinWidth[] and aMaxWidth[] entries are all set to
-     *      this value.
-     *    * If a column had an explicit width as a percentage, then the
-     *      aMaxWidth[] and aWidth[] entries are set to this value
-     *      (converted to pixels, not as a percentage). The aMinWidth entry
-     *      is still set to the minimum width required to render the
-     *      column.
-     */
-static void tableCalculateCellWidths(pData, width)
+/*
+ *---------------------------------------------------------------------------
+ *
+ * tableCalculateCellWidths  --
+ *
+ *     Decide on some actual widths for the cells, based on the maximum and
+ *     minimum widths, the total width of the table and the floating
+ *     margins. As far as I can tell, neither CSS nor HTML specify exactly
+ *     how to do this. So we use the following approach:
+ *
+ *     1. Each cell is assigned it's minimum width.  
+ *     2. If there are any columns with an explicit width specified as a
+ *        percentage, we allocate extra space to them to try to meet these
+ *        requests. Explicit widths may mean that the table is not
+ *        completely filled.
+ *     3. Remaining space is divided up between the cells without explicit
+ *        percentage widths. 
+ *     
+ *     Data structure notes:
+ *        * If a column had an explicit width specified in pixels, then the
+ *          aWidth[], aMinWidth[] and aMaxWidth[] entries are all set to
+ *          this value.
+ *        * If a column had an explicit width as a percentage, then the
+ *          aMaxWidth[] and aWidth[] entries are set to this value
+ *          (converted to pixels, not as a percentage). The aMinWidth entry
+ *          is still set to the minimum width required to render the
+ *          column.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void 
+tableCalculateCellWidths(pData, width)
     TableData *pData;
     int width;                       /* Total width available for cells */
 {
@@ -4041,7 +4070,7 @@ static void tableCalculateCellWidths(pData, width)
     int extraspace_req;
     int i;                           /* Counter variable for small loops */
     int space;                       /* Remaining pixels to allocate */
-    int requested;
+    int requested;                   /* How much extra space requested */
 
     int *aTmpWidth;
     int *aWidth = pData->aWidth;
@@ -4063,6 +4092,11 @@ static void tableCalculateCellWidths(pData, width)
     assert(space>=0);
 
     if (space<requested) {
+        /* This algorithm runs if more space has been requested than is
+         * available. i.e. if a table contains two cells with widths of
+         * 60%. In this case we only asign extra space to cells that have
+         * explicitly requested it.
+         */
         for (i=0; i<nCol; i++) {
             if (aWidth[i]) {
                 int colreq = (aWidth[i] - aTmpWidth[i]);
@@ -4081,6 +4115,13 @@ static void tableCalculateCellWidths(pData, width)
         }
         assert(space==0);
     } else {
+        /* There is more space available than has been requested. The width
+         * of each column is increased as follows:
+         *
+         * 1. Give every column the extra width it has requested.
+         */
+
+        int increase_all_cells = 0;
         requested = 0;
         for (i=0; i<nCol; i++) {
             if (aWidth[i]) {
@@ -4092,8 +4133,15 @@ static void tableCalculateCellWidths(pData, width)
         }
         assert(space>=0);
 
+/*
+        if (requested == 0) {
+            increase_all_cells = 1;
+            requested = nCol;
+        }
+*/
+
         for (i=0; i<nCol; i++) {
-            int colreq = (aMaxWidth[i] - aTmpWidth[i]);
+            int colreq = (aMaxWidth[i] - aTmpWidth[i]) + increase_all_cells;
             int extra;
 
             if (colreq==requested) {
@@ -4106,6 +4154,7 @@ static void tableCalculateCellWidths(pData, width)
             aTmpWidth[i] += extra;
             requested -= colreq;
         }
+
     }
 
     memcpy(aWidth, aTmpWidth, sizeof(int)*nCol);
@@ -4225,9 +4274,6 @@ static int tableLayout(pLayout, pBox, pNode)
      *
      * Todo: Need to take into account padding properties and floats to
      *       figure out the margins.
-     * Todo: This is used by cells that have a percentage value for a
-     *       width. So we probably also need to subtract table borders and
-     *       gaps between the cells.
      */
     data.availablewidth = pBox->parentWidth;
 
@@ -4278,7 +4324,11 @@ static int tableLayout(pLayout, pBox, pNode)
      * worry about the implicit minimum and maximum width as determined by
      * the table content here.
      */
-    width = MIN(pBox->parentWidth, maxwidth);
+    if (pBox->contentWidth) {
+        width = pBox->contentWidth;
+    } else {
+        width = MIN(pBox->parentWidth, maxwidth);
+    }
     width = MAX(minwidth, width);
 
     /* Decide on some actual widths for the cells */
@@ -4327,7 +4377,6 @@ layoutReplacement(pLayout, pBox, pNode, zReplace)
     HtmlNode *pNode;
     CONST char *zReplace;
 {
-    int dummy;
     int width;
     int height;
 
@@ -4337,7 +4386,7 @@ layoutReplacement(pLayout, pBox, pNode, zReplace)
     /* Read any explicit 'width' or 'height' property values assigned to
      * the node.
      */
-    width = nodeGetWidth(pLayout, pNode, pBox->parentWidth, -1, &dummy);
+    width = nodeGetWidth(pLayout, pNode, pBox->parentWidth, -1, 0, 0);
     height = nodeGetHeight(pLayout, pNode, pBox->parentWidth, -1);
 
     if (zReplace[0]=='.') {
@@ -4508,11 +4557,12 @@ collapseMargins(margin_one, margin_two)
  *
  *---------------------------------------------------------------------------
  */
-static int blockLayout(pLayout, pBox, pNode, omitborder)
+static int blockLayout(pLayout, pBox, pNode, omitborder, noalign)
     LayoutContext *pLayout;
     BoxContext *pBox;
     HtmlNode *pNode;         /* The node to layout */
     int omitborder;          /* True to allocate but not draw the border */
+    int noalign;             /* True to ignore horizontal alignment props */
 {
     DisplayProperties display;     /* Display properties of pNode */
     MarginProperties margin;       /* Margin properties of pNode */
@@ -4572,32 +4622,53 @@ static int blockLayout(pLayout, pBox, pNode, omitborder)
     }
 
     /* Figure out how much horizontal space the node content will
-     * have available to it. Set sBox.parentWidth to this value. See the
-     * description in the function header comment for the details.
+     * have available to it. This is used to set the parentWidth when the
+     * of the box that the node is drawn into, and to justify the box
+     * withing it's parent if required.
      */
     availablewidth = rightFloat - leftFloat -
             margin.margin_left - margin.margin_right -
             boxproperties.border_left - boxproperties.border_right -
             boxproperties.padding_left - boxproperties.padding_right;
-    if (pBox->contentWidth > 0) {
-        sBox.parentWidth = pBox->contentWidth;
-        availablewidth = pBox->contentWidth;
-    } else if (!isReplaced) {
+
+    if (display.eDisplay == DISPLAY_TABLECELL) {
+        sBox.parentWidth = availablewidth;
+    } else if (display.eDisplay == DISPLAY_TABLE) {
+        int isauto;
         int w = rightFloat - leftFloat;
-        sBox.parentWidth = nodeGetWidth(pLayout, pNode, w, availablewidth, 0);
+        w = nodeGetWidth(pLayout, pNode, w, availablewidth, 0, &isauto);
+        if (isauto) {
+            sBox.parentWidth = w;
+        } else {
+            sBox.contentWidth = w;
+            sBox.width = w;
+        }
+        sBox.parentWidth = MAX(sBox.parentWidth, 0);
     } else {
-        /* If this is a replaced node, then set the parent-width to the 
-         * total available width. The code to layout the replacement
-         * will determin the width based on the intrinsic width, or
-         * relative to the entire parent width.
-         */
-        sBox.parentWidth = rightFloat - leftFloat;
-    }
-    if (sBox.parentWidth<0) {
-        sBox.parentWidth = 0;
-    }
-    if (!pLayout->minmaxTest) {
-        sBox.width = sBox.parentWidth;
+        if (pBox->contentWidth > 0) {
+            sBox.parentWidth = pBox->contentWidth;
+            availablewidth = pBox->contentWidth;
+        } else if (!isReplaced) {
+            int w = rightFloat - leftFloat;
+            int isauto;
+            w = nodeGetWidth(pLayout, pNode, w, availablewidth, 0, &isauto);
+            sBox.parentWidth = w;
+            if (!isauto) {
+                sBox.contentWidth = w;
+                sBox.width = w;
+            }
+        } else {
+            /* If this is a replaced node, then set the parent-width to the 
+             * total available width. The code to layout the replacement
+             * will determin the width based on the intrinsic width, or
+             * relative to the entire parent width.
+             */
+            sBox.parentWidth = rightFloat - leftFloat;
+        }
+        sBox.parentWidth = MAX(sBox.parentWidth, 0);
+        if (!pLayout->minmaxTest && !isBoxObject) {
+            sBox.width = sBox.parentWidth;
+        }
     }
 
     /* Allocate space for the top margin. See the header comment of this
@@ -4652,6 +4723,7 @@ static int blockLayout(pLayout, pBox, pNode, omitborder)
                 markerLayout(pLayout, &sBox, pNode);
             case DISPLAY_BLOCK:
             case DISPLAY_INLINE:
+            case DISPLAY_TABLECELL:
                 if (HtmlNodeNumChildren(pNode)>0) {
                     inlineLayout(pLayout, &sBox, HtmlNodeChild(pNode, 0));
                 }
@@ -4675,6 +4747,8 @@ static int blockLayout(pLayout, pBox, pNode, omitborder)
         display.eClear != CLEAR_NONE
     ) {
         int hoffset = 0;
+
+if (!noalign) {
         int textalign = 0;
 
         /* A table or replaced object may be aligned horizontally using
@@ -4693,13 +4767,14 @@ static int blockLayout(pLayout, pBox, pNode, omitborder)
             (margin.leftAuto && margin.rightAuto)) &&
             availablewidth > sBox.width 
         ) {
-            hoffset = (availablewidth-sBox.width)/2;
+            hoffset = (availablewidth - sBox.width)/2;
         }
         else if ((textalign == TEXTALIGN_RIGHT || (margin.leftAuto)) &&
             availablewidth > sBox.width 
         ) {
             hoffset = (availablewidth-sBox.width);
         }
+}
 
         /* Draw the border directly into the parent canvas. */
         if (!omitborder) {
@@ -4878,7 +4953,7 @@ HtmlLayoutForce(clientData, interp, objc, objv)
      * <body> tag 
      */
     sLayout.pTop = pBody;
-    rc = blockLayout(&sLayout, &sBox, pBody, 0);
+    rc = blockLayout(&sLayout, &sBox, pBody, 0, 0);
 
     HtmlDrawCleanup(&pTree->canvas);
     memcpy(&pTree->canvas, &sBox.vc, sizeof(HtmlCanvas));

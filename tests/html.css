@@ -46,6 +46,7 @@ IMG[align="right"]        { float:right }
 [align="right"]   { text-align:right }
 [align="left"]    { text-align:left }
 CENTER            { text-align: center }
+TABLE             { text-align: left }
 
 
 /* Rules for unordered-lists */

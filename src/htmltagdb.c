@@ -78,7 +78,6 @@ HtmlMarkupName(markup)
         return HtmlMarkupMap[i].zName;
     }
 
-    /* Regular text behaves as an inline element. */
     if( markup==Html_Text || markup==Html_Space ){
         return "text";
     }

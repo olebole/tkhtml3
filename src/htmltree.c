@@ -969,7 +969,10 @@ char CONST *HtmlNodeAttr(pNode, zAttr)
     HtmlNode *pNode; 
     char CONST *zAttr;
 {
-    return HtmlMarkupArg(pNode->pToken, zAttr, 0);
+    if (pNode) {
+        return HtmlMarkupArg(pNode->pToken, zAttr, 0);
+    }
+    return 0;
 }
 
 
