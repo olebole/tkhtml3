@@ -4159,6 +4159,12 @@ tableCalculateCellWidths(pData, width)
 
     memcpy(aWidth, aTmpWidth, sizeof(int)*nCol);
     ckfree((char *)aTmpWidth);
+
+#ifndef NDEBUG
+    for (i=0; i<nCol; i++) {
+        assert(aWidth[i] >= aMinWidth[i]);
+    }
+#endif
 }
 
 /*
@@ -4404,13 +4410,11 @@ layoutReplacement(pLayout, pBox, pNode, zReplace)
         Tcl_Obj *pImg;
         int t = pLayout->minmaxTest;
         pImg = HtmlResizeImage(pLayout->pTree, zReplace, &width, &height, t);
-        if (pImg) {
-            HtmlDrawImage(&pBox->vc, pImg, 0, 0, width, height);
-        }
+        HtmlDrawImage(&pBox->vc, pImg, 0, 0, width, height);
     }
 
-    pBox->width = width < 0 ? 0 : width;;
-    pBox->height = height < 0 ? 0 : height;;
+    pBox->width = MAX(pBox->width, width);
+    pBox->height = MAX(pBox->height, height);
 }
 
 /*

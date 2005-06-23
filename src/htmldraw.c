@@ -153,7 +153,9 @@ HtmlDrawCleanup(pCanvas)
                 Tcl_DecrRefCount(pItem->x.t.pText);
                 break;
             case CANVAS_IMAGE:
-                Tcl_DecrRefCount(pItem->x.i.pImage);
+                if (pItem->x.i.pImage) {
+                    Tcl_DecrRefCount(pItem->x.i.pImage);
+                }
                 break;
             case CANVAS_WINDOW:
                 Tcl_DecrRefCount(pItem->x.w.pWindow);
@@ -338,7 +340,7 @@ void HtmlDrawText(pCanvas, pText, x, y, w, font, color)
 void 
 HtmlDrawImage(pCanvas, pImage, x, y, w, h)
     HtmlCanvas *pCanvas;
-    Tcl_Obj *pImage;
+    Tcl_Obj *pImage;          /* Image name or NULL */
     int x; 
     int y;
     int w;       /* Width of image */
@@ -350,7 +352,9 @@ HtmlDrawImage(pCanvas, pImage, x, y, w, h)
     pItem->x.i.pImage = pImage;
     pItem->x.i.x = x;
     pItem->x.i.y = y;
-    Tcl_IncrRefCount(pImage);
+    if (pImage) {
+        Tcl_IncrRefCount(pImage);
+    }
 
     pCanvas->left = MIN(pCanvas->left, x);
     pCanvas->right = MAX(pCanvas->right, x+w);
