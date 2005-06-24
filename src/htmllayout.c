@@ -4133,12 +4133,10 @@ tableCalculateCellWidths(pData, width)
         }
         assert(space>=0);
 
-/*
         if (requested == 0) {
             increase_all_cells = 1;
             requested = nCol;
         }
-*/
 
         for (i=0; i<nCol; i++) {
             int colreq = (aMaxWidth[i] - aTmpWidth[i]) + increase_all_cells;
@@ -4644,6 +4642,7 @@ static int blockLayout(pLayout, pBox, pNode, omitborder, noalign)
         if (isauto) {
             sBox.parentWidth = w;
         } else {
+            sBox.parentWidth = w;
             sBox.contentWidth = w;
             sBox.width = w;
         }
@@ -4747,38 +4746,39 @@ static int blockLayout(pLayout, pBox, pNode, omitborder, noalign)
      * Update: I'm not so sure about this anymore....
      */
     if (!HtmlDrawIsEmpty(&sBox.vc) || 
-        sBox.height>0 || 
+        sBox.height > 0 || 
+        display.eDisplay == DISPLAY_TABLECELL ||
         display.eClear != CLEAR_NONE
     ) {
         int hoffset = 0;
 
-if (!noalign) {
-        int textalign = 0;
-
-        /* A table or replaced object may be aligned horizontally using
-         * the 'text-align' property.
-         */
-        if (display.eDisplay==DISPLAY_TABLE || isReplaced) {
-            textalign = nodeGetTextAlign(pLayout, pNode);
+        if (!noalign) {
+            int textalign = 0;
+    
+            /* A table or replaced object may be aligned horizontally using
+             * the 'text-align' property.
+             */
+            if (display.eDisplay==DISPLAY_TABLE || isReplaced) {
+                textalign = nodeGetTextAlign(pLayout, pNode);
+            }
+    
+            /* There are two ways to specify the horizontal align a block. If
+             * the block is a table or a replaced element, then it respects the
+             * 'text-align' property. (For other blocks, 'text-align' 
+             */
+            if ((textalign == TEXTALIGN_CENTER || 
+                 textalign == TEXTALIGN_JUSTIFY ||
+                (margin.leftAuto && margin.rightAuto)) &&
+                availablewidth > sBox.width 
+            ) {
+                hoffset = (availablewidth - sBox.width)/2;
+            }
+            else if ((textalign == TEXTALIGN_RIGHT || (margin.leftAuto)) &&
+                availablewidth > sBox.width 
+            ) {
+                hoffset = (availablewidth-sBox.width);
+            }
         }
-
-        /* There are two ways to specify the horizontal align a block. If
-         * the block is a table or a replaced element, then it respects the
-         * 'text-align' property. (For other blocks, 'text-align' 
-         */
-        if ((textalign == TEXTALIGN_CENTER || 
-             textalign == TEXTALIGN_JUSTIFY ||
-            (margin.leftAuto && margin.rightAuto)) &&
-            availablewidth > sBox.width 
-        ) {
-            hoffset = (availablewidth - sBox.width)/2;
-        }
-        else if ((textalign == TEXTALIGN_RIGHT || (margin.leftAuto)) &&
-            availablewidth > sBox.width 
-        ) {
-            hoffset = (availablewidth-sBox.width);
-        }
-}
 
         /* Draw the border directly into the parent canvas. */
         if (!omitborder) {

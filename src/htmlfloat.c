@@ -131,6 +131,10 @@ void HtmlFloatListDelete()
  *     Ensure the list contains an entry with (FloatListEntry.y==y), or
  *     that (HtmlFloatList.yend==y).
  *
+ *     This function does not account for the current origin. That should
+ *     have been done by the caller - parameter 'y' is an absolute
+ *     coordinate.
+ *
  * Results:
  *     None.
  *
@@ -257,7 +261,11 @@ HtmlFloatListAdd(pList, side, x, y1, y2)
     int state = 0;
     FloatListEntry *pEntry;
 
-    assert(y1 <= y2);
+    if (y1 == y2) {
+        return;
+    }
+
+    assert(y1 < y2);
     assert(side==FLOAT_LEFT || side==FLOAT_RIGHT);
 
 #ifdef DEBUG_FLOAT_LIST

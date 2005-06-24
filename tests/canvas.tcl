@@ -1,5 +1,7 @@
 
-catch {memory init on}
+# catch {memory init on}
+# catch {memory onexit mem.out}
+# catch {memory validate on}
 
 # Required packages
 set auto_path [concat . $auto_path]
@@ -227,10 +229,7 @@ proc draw_window {x y window} {
 }
 
 proc draw_background {color} {
-  upvar X X
-  upvar Y Y
   upvar C C
-
   $C configure -background $color
 }
 
@@ -256,8 +255,11 @@ proc draw_to_canvas {code c x y} {
 }
 
 proc new_document {{r 1}} {
-  catch {destroy $::HTML}
-  if {[llength $::DOCS]==0} exit
+  # catch {destroy $::HTML}
+  if {[llength $::DOCS]==0} {
+    rename $::HTML {}
+    exit
+  }
   set ::BASE [file dirname [lindex $::DOCS 0]]
   main [readFile [lindex $::DOCS 0]] $::CSS
   set ::DOCS [lrange $::DOCS 1 end]
@@ -275,7 +277,7 @@ pack .buttons -side bottom -fill x
 
 scrollbar .s -orient vertical
 scrollbar .s2 -orient horizontal
-canvas .c -background white
+canvas .c -background grey
 pack .s -side right -fill y
 pack .s2 -side bottom -fill x
 pack .c -fill both -expand true
