@@ -939,9 +939,10 @@ HtmlLayoutScroll(clientData, interp, objc, objv)
     memset(&gc_values, 0, sizeof(XGCValues));
     gc = Tk_GetGC(pTree->win, 0, &gc_values);
 
-    source_x = 0;
-    dest_x = 0;
-    width = Tk_Width(win);
+    dest_x = MIN(x, 0) * -1;
+    source_x = MAX(x, 0);
+    width = Tk_Width(win) - MAX(source_x, dest_x);
+
     dest_y = MIN(y, 0) * -1;
     source_y = MAX(y, 0);
     height = Tk_Height(win) - MAX(dest_y, source_y);

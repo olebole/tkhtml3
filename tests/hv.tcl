@@ -13,7 +13,18 @@ set ::DOCUMENT {}        ;# Name of html file to load
 #
 proc build_gui {} {
     set ::HTML [html .h]
+    scrollbar .vscroll -orient vertical
+    scrollbar .hscroll -orient horizontal
+
+    pack .vscroll -fill y -expand true -side right
+    pack .hscroll -fill x -expand true -side bottom
     pack $::HTML -fill both -expand true
+
+    $::HTML configure -yscrollcommand {.vscroll set}
+    $::HTML configure -xscrollcommand {.hscroll set}
+    .vscroll configure -command "$::HTML yview"
+    .hscroll configure -command "$::HTML xview"
+     
     focus $::HTML
     bind $::HTML <KeyPress-q> exit
 }
@@ -38,3 +49,6 @@ parse_args $argv
 build_gui
 load_document
 
+after 5000 {
+  puts [$::HTML xview]
+}

@@ -1,5 +1,5 @@
 static char const rcsid[] =
-        "@(#) $Id: htmltcl.c,v 1.20 2005/06/25 15:31:07 danielk1977 Exp $";
+        "@(#) $Id: htmltcl.c,v 1.21 2005/06/25 17:29:13 danielk1977 Exp $";
 
 /*
 ** The main routine for the HTML widget for Tcl/Tk
@@ -37,12 +37,18 @@ static Tk_OptionSpec htmlOptionSpec[] = {
         -1, Tk_Offset(HtmlOptions, height), 0, 0, 0},
     {TK_OPTION_PIXELS, "-width", "width", "Width", DEF_HTML_WIDTH, 
         -1, Tk_Offset(HtmlOptions, width), 0, 0, 0},
-    {TK_OPTION_PIXELS, "-yScrollIncrement", "yScrollIncrement", 
+    {TK_OPTION_PIXELS, "-yscrollincrement", "yScrollIncrement", 
         "ScrollIncrement", DEF_HTML_YSCROLLINCREMENT, -1, 
          Tk_Offset(HtmlOptions, yscrollincrement), 0, 0, 0},
-    {TK_OPTION_PIXELS, "-xScrollIncrement", "xScrollIncrement", 
+    {TK_OPTION_PIXELS, "-xscrollincrement", "xScrollIncrement", 
         "ScrollIncrement", DEF_HTML_XSCROLLINCREMENT, -1, 
          Tk_Offset(HtmlOptions, xscrollincrement), 0, 0, 0},
+    {TK_OPTION_STRING, "-xscrollcommand", "xScrollCommand", 
+        "ScrollCommand", "",  
+         Tk_Offset(HtmlOptions, xscrollcommand), -1, 0, 0, 0},
+    {TK_OPTION_STRING, "-yscrollcommand", "yScrollCommand", 
+        "ScrollCommand", "",  
+         Tk_Offset(HtmlOptions, yscrollcommand), -1, 0, 0, 0},
     {TK_OPTION_END, (char *) NULL, (char *) NULL, (char *) NULL,
         (char *) NULL, 0, 0, 0, 0}
 };

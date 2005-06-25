@@ -154,6 +154,8 @@ struct HtmlOptions {
     int height;
     int xscrollincrement;
     int yscrollincrement;
+    Tcl_Obj *yscrollcommand;
+    Tcl_Obj *xscrollcommand;
 };
 
 /* 

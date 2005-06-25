@@ -37,11 +37,43 @@ proc ::tk::HtmlConfigure {win} {
 proc ::tk::HtmlExpose {win x y w h} {
     $win damage $x $y $w $h
 }
+        
+# If either the -yscrollcommand or -xscrollcommand option is defined, then
+# make a scrollbar update callback now.
+#
+proc ::tk::HtmlScrollbarCb {win} {
+    set yscrollcommand [$win cget -yscrollcommand]
+    set xscrollcommand [$win cget -xscrollcommand]
+    if {$yscrollcommand != ""} {
+        eval [concat $yscrollcommand [$win yview]]
+    }
+    if {$xscrollcommand != ""} {
+        eval [concat $xscrollcommand [$win xview]]
+    }
+}
 
 # <widget> xview
+# <widget> xview moveto FRACTION
+# <widget> xview scroll NUMBER WHAT
+#
 # <widget> yview
+# <widget> yview moveto FRACTION
+# <widget> yview scroll NUMBER WHAT
+#
+#     This is an implementation of the standard Tk widget xview and yview
+#     commands. The second argument, $axis, is always "x" or "y",
+#     indicating if this is an xview or yview command. The variable length
+#     $args parameter that follows contains 0 or more options:
 #
 proc ::tk::HtmlView {win axis args} {
+
+    # Calculate some variables according to whether this is an xview or
+    # yview command:
+    #
+    # $layout_len - Size of the virtual canvas the widget is a viewport into.
+    # $offscreen_len - Number of pixels above or to the left of the viewport.
+    # $screen_len - Number of pixels in the viewport.
+    #
     if {$axis == "x"} {
         set layout_len [lindex [$win layout size] 0]
         set offscreen_len [$win var x]
@@ -52,19 +84,30 @@ proc ::tk::HtmlView {win axis args} {
         set screen_len [winfo height $win]
     }
 
+    # If this is a query, not a "scroll" or "moveto" command, then just
+    # return the required values. The first value is the fraction of the
+    # virtual canvas that is to the left or above the viewport. The second
+    # is the fraction of the virtual canvas that lies above the bottom (or
+    # to the left of the right hand side) of the viewport.
+    #
     if {[llength $args] == 0} {
-        set ret [list 
+        set ret [list \
                 [expr double($offscreen_len) / double($layout_len)] \
                 [expr double($screen_len+$offscreen_len) / double($layout_len)] \
         ]
         return $ret
     }
 
+    # This must be a "moveto" or "scroll" command (or an error). This block
+    # sets local variable $newval to the new value for widget variables "x"
+    # or "y", after the scroll or move is performed.
+    #
     set cmd [lindex $args 0]
     if {$cmd == "moveto"} {
         if {[llength $args] != 2} {
             set e "wrong # args: should be \"$win $axis"
             append e "view moveto fraction"
+ 
             error $e
         }
         set newval [expr int(double($layout_len) * [lindex $args 1])]
@@ -83,7 +126,7 @@ proc ::tk::HtmlView {win axis args} {
             set incr [expr (10 * $screen_len) / 9]
         } else {
             set scrollIncr "-$axis"
-            append scrollIncr ScrollIncrement
+            append scrollIncr scrollincrement
             set incr [$win cget $scrollIncr]
         }
 
@@ -95,14 +138,14 @@ proc ::tk::HtmlView {win axis args} {
 
     # When we get here, $newval is set to the new value of the "offscreen
     # to the left/top" portion of the layout, in pixels. Fix this value so
-    # that we don't scroll too far.
+    # that we don't scroll past the start or end of the virtual canvas.
+    #
     if {$newval < 0} {
         set newval 0
     }
     if {$newval > ($layout_len - $screen_len)} {
        set newval [expr $layout_len - $screen_len]
     }
-
     $win var $axis $newval
 
     set diff [expr $newval - $offscreen_len]
@@ -112,15 +155,31 @@ proc ::tk::HtmlView {win axis args} {
 
     if {$adiff > 0} {
         if {$adiff < $screen_len} {
-            $win layout scroll 0 $diff
-            if {$diff < 0} {
-                $win damage 0 0 $w $adiff
+            if {$axis == "x"} {
+                $win layout scroll $diff 0
             } else {
-                $win damage 0 [expr $h - $adiff] $w $adiff
+                $win layout scroll 0 $diff
             }
+
+            if {$diff < 0} {
+                if {$axis == "x"} {
+                    $win damage 0 0 $adiff $h
+                } else {
+                    $win damage 0 0 $w $adiff
+                }
+            } else {
+                if {$axis == "x"} {
+                    $win damage [expr $w - $adiff] 0 $adiff $h
+                } else {
+                    $win damage 0 [expr $h - $adiff] $w $adiff
+                }
+            }
+
         } else {
             $win damage 0 0 $w $h
         }
+
+        $win scrollbar_cb
     }
 }
 
@@ -160,6 +219,8 @@ proc ::tk::HtmlDoUpdate {win} {
 
     $win layout force -width $width
     $win layout widget 0 0 0 0 $width $height
+
+    $win scrollbar_cb
 }
 
 # <widget> update
@@ -213,6 +274,7 @@ proc html {args} {
         damage        [list ::tk::HtmlDamage       $widget] \
         xview         [list ::tk::HtmlView         $widget x] \
         yview         [list ::tk::HtmlView         $widget y] \
+        scrollbar_cb  [list ::tk::HtmlScrollbarCb  $widget] \
     ]
     foreach {cmd script} $cmds {
         $widget command $cmd $script
