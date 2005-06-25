@@ -77,7 +77,7 @@ proc main {document css} {
   set ::STYLESHEET_FILES {}
   set ::STYLE_TEXT {}
   set parsetime [time {
-      $::HTML parse $document
+      $::HTML read $document
       $::HTML tree build
       $::HTML style parse agent $css
       while {[llength $::STYLESHEET_FILES]>0} {

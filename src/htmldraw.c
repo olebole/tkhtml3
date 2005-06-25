@@ -805,13 +805,18 @@ int HtmlLayoutWidget(clientData, interp, objc, objv)
     int canvas_y;
     int width;
     int height;
-    int clipwinheight;
-    int clipwinwidth;
+    int winheight;
+    int winwidth;
     Pixmap pixmap;
     GC gc;
     XGCValues gc_values;
     HtmlTree *pTree = (HtmlTree *)clientData;
-    Display *display = Tk_Display(pTree->clipwin);
+    Display *display; 
+    Tk_Window win;                      /* Window to draw to */
+ 
+    win = pTree->tkwin;
+    Tk_MakeWindowExist(win);
+    display = Tk_Display(win);
  
     if (objc != 9) {
         Tcl_WrongNumArgs(interp, 3, objv, 
@@ -819,24 +824,23 @@ int HtmlLayoutWidget(clientData, interp, objc, objv)
         return TCL_ERROR;
     }
     if (TCL_OK != Tcl_GetIntFromObj(interp, objv[3], &canvas_x) ||
-        TCL_OK != Tcl_GetIntFromObj(interp, objv[3], &canvas_y) ||
-        TCL_OK != Tcl_GetIntFromObj(interp, objv[3], &x) ||
-        TCL_OK != Tcl_GetIntFromObj(interp, objv[3], &y) ||
-        TCL_OK != Tcl_GetIntFromObj(interp, objv[3], &width) ||
-        TCL_OK != Tcl_GetIntFromObj(interp, objv[3], &height)
+        TCL_OK != Tcl_GetIntFromObj(interp, objv[4], &canvas_y) ||
+        TCL_OK != Tcl_GetIntFromObj(interp, objv[5], &x) ||
+        TCL_OK != Tcl_GetIntFromObj(interp, objv[6], &y) ||
+        TCL_OK != Tcl_GetIntFromObj(interp, objv[7], &width) ||
+        TCL_OK != Tcl_GetIntFromObj(interp, objv[8], &height)
     ) {
         return TCL_ERROR;
     }
 
-    clipwinwidth = Tk_Width(pTree->clipwin);
-    clipwinheight = Tk_Height(pTree->clipwin);
-    pixmap = getPixmap(pTree, 0, 0, clipwinwidth, clipwinheight);
+    winwidth = Tk_Width(win);
+    winheight = Tk_Height(win);
+    pixmap = getPixmap(pTree, canvas_x, canvas_y, width, height);
 
     memset(&gc_values, 0, sizeof(XGCValues));
     gc = Tk_GetGC(pTree->win, 0, &gc_values);
 
-    XCopyArea(display, pixmap, Tk_WindowId(pTree->clipwin), gc, 
-            0, 0, clipwinwidth, clipwinheight, 0, 0);
+    XCopyArea(display, pixmap, Tk_WindowId(win), gc, 0, 0, width, height, x, y);
     Tk_FreeGC(display, gc);
 
     XFlush(display);

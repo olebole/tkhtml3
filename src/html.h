@@ -197,6 +197,7 @@ struct HtmlTree {
     Tcl_HashTable aScriptHandler;   /* Script handler callbacks. */
     Tcl_HashTable aNodeHandler;     /* Script handler callbacks. */
     Tcl_HashTable aVar;             /* Tcl state data dictionary. */
+    Tcl_HashTable aCmd;             /* Map of sub-commands implemented in Tcl */
 
     CssStyleSheet *pStyle;          /* Style sheet configuration */
 

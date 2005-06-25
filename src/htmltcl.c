@@ -1,5 +1,5 @@
 static char const rcsid[] =
-        "@(#) $Id: htmltcl.c,v 1.18 2005/06/25 09:25:10 danielk1977 Exp $";
+        "@(#) $Id: htmltcl.c,v 1.19 2005/06/25 11:37:23 danielk1977 Exp $";
 
 /*
 ** The main routine for the HTML widget for Tcl/Tk
@@ -29,21 +29,6 @@ static char const rcsid[] =
 
 #define DEF_HTML_HEIGHT "600"
 #define DEF_HTML_WIDTH "800"
-
-/*
-              typedef struct {
-                Tk_OptionType type;
-                char *optionName;
-                char *dbName;
-                char *dbClass;
-                char *defValue;
-                int objOffset;
-                int internalOffset;
-                int flags;
-                ClientData clientData;
-                int typeMask;
-              } Tk_OptionSpec;
-*/
 
 static Tk_OptionSpec htmlOptionSpec[] = {
     {TK_OPTION_PIXELS, "-height", "height", "Height", DEF_HTML_HEIGHT, 
@@ -79,11 +64,13 @@ configureCommand(clientData, interp, objc, objv)
     Tcl_Obj *const *objv;              /* List of all arguments */
 {
     HtmlTree *pTree = (HtmlTree *)clientData;
+    int geometry_request = 0;
 
     if (!pTree->optionTable) {
         pTree->optionTable = Tk_CreateOptionTable(interp, htmlOptionSpec);
         Tk_InitOptions(interp, 
                 (char *)&pTree->options, pTree->optionTable, pTree->tkwin);
+        geometry_request = 1;
     }
     if (TCL_OK != Tk_SetOptions(
             interp, (char *)&pTree->options, pTree->optionTable,
@@ -95,8 +82,12 @@ configureCommand(clientData, interp, objc, objv)
     /* The minimum values for width and height are 100 pixels */
     pTree->options.height = MAX(pTree->options.height, 100);
     pTree->options.width = MAX(pTree->options.width, 100);
-    Tk_GeometryRequest(
-            pTree->tkwin, pTree->options.width, pTree->options.height);
+
+    if (geometry_request) {
+        int w = pTree->options.width;
+        int h = pTree->options.height;
+        Tk_GeometryRequest(pTree->tkwin, w, h);
+    }
 
     return TCL_OK;
 }
@@ -135,6 +126,54 @@ static int cgetCommand(clientData, interp, objc, objv)
     pRet = Tk_GetOptionValue(interp, (char *)&pTree->options, 
             pTree->optionTable, objv[2], pTree->tkwin);
     Tcl_SetObjResult(interp, pRet);
+    return TCL_OK;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * commandCommand --
+ *
+ *     <widget> command SUB-COMMAND SCRIPT
+ *
+ *     This command is used to dynamically add commands to the widget.
+ *     
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+commandCommand(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget */
+    Tcl_Interp *interp;                /* The interpreter */
+    int objc;                          /* Number of arguments */
+    Tcl_Obj *const *objv;              /* List of all arguments */
+{
+    Tcl_Obj *pCmd;
+    Tcl_Obj *pScript;
+    Tcl_HashEntry *pEntry;
+    int newentry;
+    HtmlTree *pTree = (HtmlTree *)clientData;
+
+    if (objc != 4) {
+        Tcl_WrongNumArgs(interp, 2, objv, "SUB-COMMAND SCRIPT");
+        return TCL_ERROR;
+    }
+
+    pCmd = objv[2];
+    pScript = objv[3];
+
+    pEntry = Tcl_CreateHashEntry(&pTree->aCmd, Tcl_GetString(pCmd), &newentry);
+    if (!newentry) {
+        Tcl_Obj *pOld = (Tcl_Obj *)Tcl_GetHashValue(pEntry);
+        Tcl_DecrRefCount(pOld);
+    }
+    Tcl_IncrRefCount(pScript);
+    Tcl_SetHashValue(pEntry, pScript);
     return TCL_OK;
 }
 
@@ -402,7 +441,7 @@ int HtmlWidgetObjCommand(clientData, interp, objc, objv)
         "style", "parse", HtmlStyleParse}, {
         "style", "apply", HtmlStyleApply}, {
         "style", "syntax_errs", HtmlStyleSyntaxErrs}, {
-        "parse", 0, parseCmd}, {
+        "read", 0, parseCmd}, {
         "handler", "script", handlerScriptCmd}, {
         "handler", "node", handlerNodeCmd}, {
         "layout", "primitives", HtmlLayoutPrimitives}, {
@@ -410,14 +449,18 @@ int HtmlWidgetObjCommand(clientData, interp, objc, objv)
         "layout", "force", HtmlLayoutForce}, {
         "layout", "widget", HtmlLayoutWidget}, {
         "clear", 0, clearWidget}, {
-        "var", 0, varCommand}, {
-        "configure", 0, configureCommand},
+        "var", 0, varCommand}, { 
+        "command", 0, commandCommand}, {
+        "configure", 0, configureCommand}, {
+        "cget", 0, cgetCommand},
     };
 
     int i;
     CONST char *zArg1 = 0;
     CONST char *zArg2 = 0;
     Tcl_Obj *pError;
+    Tcl_HashEntry *pEntry;
+    HtmlTree *pTree = (HtmlTree *)clientData;
 
     int matchone = 0; /* True if the first argument matched something */
     int multiopt = 0; /* True if their were multiple options for second match */
@@ -430,6 +473,27 @@ int HtmlWidgetObjCommand(clientData, interp, objc, objv)
         zArg2 = Tcl_GetString(objv[2]);
     }
 
+    /* See if this is a Tcl implemented command */
+    pEntry = Tcl_FindHashEntry(&pTree->aCmd, zArg1);
+    if (pEntry) {
+        int rc;
+        Tcl_Obj *pScript = (Tcl_Obj *)Tcl_GetHashValue(pEntry);
+        Tcl_Obj *pList = Tcl_NewListObj(objc - 2, &objv[2]);
+
+        pScript = Tcl_DuplicateObj(pScript);
+        Tcl_IncrRefCount(pScript);
+        Tcl_IncrRefCount(pList);
+
+        Tcl_ListObjAppendList(interp, pScript, pList);
+        rc = Tcl_EvalObjEx(interp, pScript, TCL_EVAL_DIRECT|TCL_EVAL_GLOBAL);
+
+        Tcl_DecrRefCount(pList);
+        Tcl_DecrRefCount(pScript);
+
+        return rc;
+    }
+
+    /* Search the array of built-in commands */
     for (i=0; i<sizeof(aSubcommand)/sizeof(struct SC); i++) {
          struct SC *pCommand = &aSubcommand[i];
          if (zArg1 && 0==strcmp(zArg1, pCommand->zCmd1)) {
@@ -441,6 +505,8 @@ int HtmlWidgetObjCommand(clientData, interp, objc, objv)
              }
          }
     }
+
+   
 
     /* Failed to find a matching sub-command. The remainder of this routine
      * is generating an error message. 
@@ -567,6 +633,8 @@ static int newWidget(clientData, interp, objc, objv)
     Tcl_InitHashTable(&pTree->aNodeHandler, TCL_ONE_WORD_KEYS);
     Tcl_InitHashTable(&pTree->aImage, TCL_STRING_KEYS);
     Tcl_InitHashTable(&pTree->aFontCache, TCL_STRING_KEYS);
+    Tcl_InitHashTable(&pTree->aCmd, TCL_STRING_KEYS);
+    Tcl_InitHashTable(&pTree->aVar, TCL_STRING_KEYS);
     Tcl_CreateObjCommand(interp,zCmd,HtmlWidgetObjCommand,pTree,deleteWidget);
 
     rc = configureCommand(pTree, interp, objc, objv);
