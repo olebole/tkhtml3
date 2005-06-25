@@ -586,8 +586,10 @@ int HtmlLayoutPrimitives(clientData, interp, objc, objv)
  *
  *---------------------------------------------------------------------------
  */
-static Pixmap getPixmap(pTree, w, h)
+static Pixmap getPixmap(pTree, xcanvas, ycanvas, w, h)
     HtmlTree *pTree;
+    int xcanvas;
+    int ycanvas;
     int w;
     int h;
 {
@@ -601,8 +603,8 @@ static Pixmap getPixmap(pTree, w, h)
     int mask;
 
     HtmlCanvas *pCanvas = &pTree->canvas;
-    int x = 0;
-    int y = 0;
+    int x = xcanvas * -1;
+    int y = ycanvas * -1;
 
     Tk_MakeWindowExist(win);
 
@@ -729,12 +731,11 @@ int HtmlLayoutImage(clientData, interp, objc, objv)
     int w = pCanvas->right;
     int h = pCanvas->bottom;
 
-
     if (w>0 && h>0) {
         Pixmap pixmap;
         Tcl_Obj *pImage;
         XImage *pXImage;
-        pixmap = getPixmap(pTree, w, h);
+        pixmap = getPixmap(pTree, 0, 0, w, h);
         pXImage = XGetImage(pDisplay, pixmap, x, y, w, h, XAllPlanes(),ZPixmap);
         pImage = HtmlXImageToImage(pTree, pXImage, w, h);
         XDestroyImage(pXImage);
@@ -774,3 +775,71 @@ int HtmlDrawIsEmpty(pCanvas)
     return (pCanvas->pFirst==0);
 }
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlLayoutWidget --
+ *
+ *     <widget> layout widget CANVAS-X CANVAS-Y X Y WIDTH HEIGHT
+ *
+ *     This command updates a rectangular portion of the inner window
+ *     contents (clipwin). 
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+int HtmlLayoutWidget(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    int x;
+    int y;
+    int canvas_x;
+    int canvas_y;
+    int width;
+    int height;
+    int clipwinheight;
+    int clipwinwidth;
+    Pixmap pixmap;
+    GC gc;
+    XGCValues gc_values;
+    HtmlTree *pTree = (HtmlTree *)clientData;
+    Display *display = Tk_Display(pTree->clipwin);
+ 
+    if (objc != 9) {
+        Tcl_WrongNumArgs(interp, 3, objv, 
+                "CANVAS-X CANVAS-Y X Y WIDTH HEIGHT"); 
+        return TCL_ERROR;
+    }
+    if (TCL_OK != Tcl_GetIntFromObj(interp, objv[3], &canvas_x) ||
+        TCL_OK != Tcl_GetIntFromObj(interp, objv[3], &canvas_y) ||
+        TCL_OK != Tcl_GetIntFromObj(interp, objv[3], &x) ||
+        TCL_OK != Tcl_GetIntFromObj(interp, objv[3], &y) ||
+        TCL_OK != Tcl_GetIntFromObj(interp, objv[3], &width) ||
+        TCL_OK != Tcl_GetIntFromObj(interp, objv[3], &height)
+    ) {
+        return TCL_ERROR;
+    }
+
+    clipwinwidth = Tk_Width(pTree->clipwin);
+    clipwinheight = Tk_Height(pTree->clipwin);
+    pixmap = getPixmap(pTree, 0, 0, clipwinwidth, clipwinheight);
+
+    memset(&gc_values, 0, sizeof(XGCValues));
+    gc = Tk_GetGC(pTree->win, 0, &gc_values);
+
+    XCopyArea(display, pixmap, Tk_WindowId(pTree->clipwin), gc, 
+            0, 0, clipwinwidth, clipwinheight, 0, 0);
+    Tk_FreeGC(display, gc);
+
+    XFlush(display);
+    return TCL_OK;
+}
+    

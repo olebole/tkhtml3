@@ -1,5 +1,5 @@
 static char const rcsid[] =
-        "@(#) $Id: htmltcl.c,v 1.17 2005/05/18 07:17:36 danielk1977 Exp $";
+        "@(#) $Id: htmltcl.c,v 1.18 2005/06/25 09:25:10 danielk1977 Exp $";
 
 /*
 ** The main routine for the HTML widget for Tcl/Tk
@@ -25,6 +25,174 @@ static char const rcsid[] =
 #define SafeCheck(interp,str) if (Tcl_IsSafe(interp)) { \
     Tcl_AppendResult(interp, str, " invalid in safe interp", 0); \
     return TCL_ERROR; \
+}
+
+#define DEF_HTML_HEIGHT "600"
+#define DEF_HTML_WIDTH "800"
+
+/*
+              typedef struct {
+                Tk_OptionType type;
+                char *optionName;
+                char *dbName;
+                char *dbClass;
+                char *defValue;
+                int objOffset;
+                int internalOffset;
+                int flags;
+                ClientData clientData;
+                int typeMask;
+              } Tk_OptionSpec;
+*/
+
+static Tk_OptionSpec htmlOptionSpec[] = {
+    {TK_OPTION_PIXELS, "-height", "height", "Height", DEF_HTML_HEIGHT, 
+        -1, Tk_Offset(HtmlOptions, height), 0, 0, 0},
+    {TK_OPTION_PIXELS, "-width", "width", "Width", DEF_HTML_WIDTH, 
+        -1, Tk_Offset(HtmlOptions, width), 0, 0, 0},
+    {TK_OPTION_END, (char *) NULL, (char *) NULL, (char *) NULL,
+        (char *) NULL, 0, 0, 0, 0}
+};
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * configureCommand --
+ *
+ *     Implementation of the standard Tk "configure" command.
+ *
+ *     <widget> configure -OPTION VALUE ?-OPTION VALUE? ...
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+configureCommand(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget */
+    Tcl_Interp *interp;                /* The interpreter */
+    int objc;                          /* Number of arguments */
+    Tcl_Obj *const *objv;              /* List of all arguments */
+{
+    HtmlTree *pTree = (HtmlTree *)clientData;
+
+    if (!pTree->optionTable) {
+        pTree->optionTable = Tk_CreateOptionTable(interp, htmlOptionSpec);
+        Tk_InitOptions(interp, 
+                (char *)&pTree->options, pTree->optionTable, pTree->tkwin);
+    }
+    if (TCL_OK != Tk_SetOptions(
+            interp, (char *)&pTree->options, pTree->optionTable,
+            objc-2, &objv[2], pTree->tkwin, 0, 0)
+    ) {
+        return TCL_ERROR;
+    }
+
+    /* The minimum values for width and height are 100 pixels */
+    pTree->options.height = MAX(pTree->options.height, 100);
+    pTree->options.width = MAX(pTree->options.width, 100);
+    Tk_GeometryRequest(
+            pTree->tkwin, pTree->options.width, pTree->options.height);
+
+    return TCL_OK;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * cgetCommand --
+ *
+ *     Standard Tk "cget" command for querying options.
+ *
+ *     <widget> cget -OPTION
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int cgetCommand(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget */
+    Tcl_Interp *interp;                /* The interpreter */
+    int objc;                          /* Number of arguments */
+    Tcl_Obj *const *objv;              /* List of all arguments */
+{
+    HtmlTree *pTree = (HtmlTree *)clientData;
+    Tcl_Obj *pRet;
+
+    if (objc != 3) {
+        Tcl_WrongNumArgs(interp, 2, objv, "-OPTION");
+        return TCL_ERROR;
+    }
+
+    pRet = Tk_GetOptionValue(interp, (char *)&pTree->options, 
+            pTree->optionTable, objv[2], pTree->tkwin);
+    Tcl_SetObjResult(interp, pRet);
+    return TCL_OK;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * varCommand --
+ *
+ *     Set or get the value of a variable from the widgets built-in
+ *     dictionary. This is used by the widget logic programmed in Tcl to
+ *     store state data.
+ *
+ *     $html var VAR-NAME ?Value?
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+varCommand(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget */
+    Tcl_Interp *interp;                /* The interpreter */
+    int objc;                          /* Number of arguments */
+    Tcl_Obj *const *objv;              /* List of all arguments */
+{
+    Tcl_HashEntry *pEntry; 
+    HtmlTree *pTree = (HtmlTree *)clientData;
+    char *zVar;
+
+    if (objc != 3 && objc != 4) {
+        Tcl_WrongNumArgs(interp, 2,objv, "VAR-NAME ?VALUE?");
+        return TCL_ERROR;
+    }
+
+    zVar = Tcl_GetString(objv[2]);
+    if (objc == 4) {
+        int newentry;
+        pEntry = Tcl_CreateHashEntry(&pTree->aVar, zVar, &newentry);
+        if (!newentry) {
+            Tcl_Obj *pOld = (Tcl_Obj *)Tcl_GetHashValue(pEntry);
+            Tcl_DecrRefCount(pOld);
+        }
+        Tcl_IncrRefCount(objv[3]);
+        Tcl_SetHashValue(pEntry, objv[3]);
+    } else {
+        pEntry = Tcl_FindHashEntry(&pTree->aVar, zVar);
+        if (!pEntry) {
+            Tcl_AppendResult(interp, "No such variable: ", zVar, 0);
+            return TCL_ERROR;
+        }
+    }
+
+    Tcl_SetObjResult(interp, (Tcl_Obj *)Tcl_GetHashValue(pEntry));
+    return TCL_OK;
 }
 
 /*
@@ -240,7 +408,10 @@ int HtmlWidgetObjCommand(clientData, interp, objc, objv)
         "layout", "primitives", HtmlLayoutPrimitives}, {
         "layout", "image", HtmlLayoutImage}, {
         "layout", "force", HtmlLayoutForce}, {
-        "clear", 0, clearWidget},
+        "layout", "widget", HtmlLayoutWidget}, {
+        "clear", 0, clearWidget}, {
+        "var", 0, varCommand}, {
+        "configure", 0, configureCommand},
     };
 
     int i;
@@ -339,7 +510,9 @@ static void deleteWidget(clientData)
  *
  * newWidget --
  *
- *     Create a new Html widget command. 
+ *     Create a new Html widget command:
+ *
+ *         html PATH ?<options>?
  *
  * Results:
  *     None.
@@ -357,9 +530,10 @@ static int newWidget(clientData, interp, objc, objv)
 {
     HtmlTree *pTree;
     CONST char *zCmd;
+    int rc;
 
-    if (objc!=2) {
-        Tcl_WrongNumArgs(interp, 1, objv, "WINDOW-PATH");
+    if (objc<2) {
+        Tcl_WrongNumArgs(interp, 1, objv, "WINDOW-PATH ?OPTIONS?");
         return TCL_ERROR;
     }
     
@@ -367,19 +541,55 @@ static int newWidget(clientData, interp, objc, objv)
     pTree = (HtmlTree *)ckalloc(sizeof(HtmlTree));
     memset(pTree, 0, sizeof(HtmlTree));
 
+    /* Create the two Tk windows. The application uses two windows. The
+     * outer window - 'tkwin' - and the inner window 'clipwin'. This is to
+     * make sure that windows mapped in response to (for example) <FORM>
+     * elements are clipped correctly. 
+     *
+     * The outer window has the class "Html". The inner window is of class
+     * "HtmlClip". Some of the logic for the widget is implemented via
+     * bindings to these two window classes in file 'tkhtml.tcl'.
+     */
+    pTree->win = Tk_MainWindow(interp);
+    pTree->tkwin = Tk_CreateWindowFromPath(interp, pTree->win, zCmd, NULL); 
+    if (!pTree->tkwin) {
+        goto error_out;
+    }
+    pTree->clipwin = Tk_CreateAnonymousWindow(interp, pTree->tkwin, NULL);
+    if (!pTree->clipwin) {
+        goto error_out;
+    }
+    Tk_SetClass(pTree->tkwin, "Html");
+    Tk_SetClass(pTree->clipwin, "HtmlClip");
+
     pTree->interp = interp;
     Tcl_InitHashTable(&pTree->aScriptHandler, TCL_ONE_WORD_KEYS);
     Tcl_InitHashTable(&pTree->aNodeHandler, TCL_ONE_WORD_KEYS);
     Tcl_InitHashTable(&pTree->aImage, TCL_STRING_KEYS);
     Tcl_InitHashTable(&pTree->aFontCache, TCL_STRING_KEYS);
-    pTree->win = Tk_MainWindow(interp);
-
     Tcl_CreateObjCommand(interp,zCmd,HtmlWidgetObjCommand,pTree,deleteWidget);
+
+    rc = configureCommand(pTree, interp, objc, objv);
 
     /* Return the name of the widget just created. */
     Tcl_SetObjResult(interp, objv[1]);
-   
     return TCL_OK;
+
+    /* Exception handler. Jump here if an error occurs during
+     * initialisation. An error message should already have been written
+     * into the result of the interpreter.
+     */
+error_out:
+    if (pTree->tkwin) {
+        Tk_DestroyWindow(pTree->tkwin);
+    }
+    if (pTree->clipwin) {
+        Tk_DestroyWindow(pTree->clipwin);
+    }
+    if (pTree) {
+        ckfree((char *)pTree);
+    }
+    return TCL_ERROR;
 }
 
 #if INTERFACE

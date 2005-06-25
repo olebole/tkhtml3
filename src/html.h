@@ -51,6 +51,7 @@ typedef int            Html_32;      /* 32-bit signed integer */
 # define strnicmp strncasecmp
 #endif
 
+typedef struct HtmlOptions HtmlOptions;
 typedef struct HtmlTree HtmlTree;
 typedef struct HtmlNode HtmlNode;
 typedef struct HtmlToken HtmlToken;
@@ -148,7 +149,15 @@ struct HtmlCanvas {
     Tcl_Obj *pPrimitives;
 };
 
+struct HtmlOptions {
+    int width;
+    int height;
+};
+
 /* 
+ * The two Tk-windows used by the application are stored in variables tkwin
+ * and clipwin.
+ * 
  * Variable 'iCol' stores the number of characters tokenized since the last
  * newline encountered in the document source. When we encounter a TAB
  * character, it is converted to (8-(iCol%8)) spaces. This makes text
@@ -173,6 +182,9 @@ struct HtmlTree {
     Tcl_Interp *interp;             /* Tcl interpreter widget owned by */
     Tk_Window win;                  /* Main window of interpreter */
 
+    Tk_Window tkwin;                /* Widget window */
+    Tk_Window clipwin;              /* Internal clipping window */
+
     Tcl_Obj *pDocument;             /* Text of the html document */
     int nParsed;                    /* Bytes of the html document tokenized */
     int iCol;                       /* Current column in document */
@@ -184,12 +196,16 @@ struct HtmlTree {
 
     Tcl_HashTable aScriptHandler;   /* Script handler callbacks. */
     Tcl_HashTable aNodeHandler;     /* Script handler callbacks. */
+    Tcl_HashTable aVar;             /* Tcl state data dictionary. */
 
     CssStyleSheet *pStyle;          /* Style sheet configuration */
 
     Tcl_HashTable aFontCache;       /* All fonts used by canvas (by name) */
     Tcl_HashTable aImage;           /* All images used by document (by name) */ 
     HtmlCanvas canvas;              /* Canvas to render into */
+
+    HtmlOptions options;            /* Configurable options */
+    Tk_OptionTable optionTable;     /* Option table */
 };
 
 #define MAX(x,y) ((x)>(y)?(x):(y))
@@ -202,6 +218,7 @@ EXTERN Tcl_ObjCmdProc HtmlStyleParse;
 EXTERN Tcl_ObjCmdProc HtmlStyleApply;
 EXTERN Tcl_ObjCmdProc HtmlStyleSyntaxErrs;
 EXTERN Tcl_ObjCmdProc HtmlLayoutForce;
+EXTERN Tcl_ObjCmdProc HtmlLayoutWidget;
 EXTERN Tcl_ObjCmdProc HtmlLayoutImage;
 EXTERN Tcl_ObjCmdProc HtmlLayoutPrimitives;
 
