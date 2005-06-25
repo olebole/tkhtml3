@@ -1,5 +1,5 @@
 static char const rcsid[] =
-        "@(#) $Id: htmltcl.c,v 1.19 2005/06/25 11:37:23 danielk1977 Exp $";
+        "@(#) $Id: htmltcl.c,v 1.20 2005/06/25 15:31:07 danielk1977 Exp $";
 
 /*
 ** The main routine for the HTML widget for Tcl/Tk
@@ -29,12 +29,20 @@ static char const rcsid[] =
 
 #define DEF_HTML_HEIGHT "600"
 #define DEF_HTML_WIDTH "800"
+#define DEF_HTML_XSCROLLINCREMENT "20"
+#define DEF_HTML_YSCROLLINCREMENT "20"
 
 static Tk_OptionSpec htmlOptionSpec[] = {
     {TK_OPTION_PIXELS, "-height", "height", "Height", DEF_HTML_HEIGHT, 
         -1, Tk_Offset(HtmlOptions, height), 0, 0, 0},
     {TK_OPTION_PIXELS, "-width", "width", "Width", DEF_HTML_WIDTH, 
         -1, Tk_Offset(HtmlOptions, width), 0, 0, 0},
+    {TK_OPTION_PIXELS, "-yScrollIncrement", "yScrollIncrement", 
+        "ScrollIncrement", DEF_HTML_YSCROLLINCREMENT, -1, 
+         Tk_Offset(HtmlOptions, yscrollincrement), 0, 0, 0},
+    {TK_OPTION_PIXELS, "-xScrollIncrement", "xScrollIncrement", 
+        "ScrollIncrement", DEF_HTML_XSCROLLINCREMENT, -1, 
+         Tk_Offset(HtmlOptions, xscrollincrement), 0, 0, 0},
     {TK_OPTION_END, (char *) NULL, (char *) NULL, (char *) NULL,
         (char *) NULL, 0, 0, 0, 0}
 };
@@ -125,7 +133,13 @@ static int cgetCommand(clientData, interp, objc, objv)
 
     pRet = Tk_GetOptionValue(interp, (char *)&pTree->options, 
             pTree->optionTable, objv[2], pTree->tkwin);
-    Tcl_SetObjResult(interp, pRet);
+    if( pRet ) {
+        Tcl_SetObjResult(interp, pRet);
+    } else {
+        Tcl_AppendResult(
+                interp, "unknown option \"", Tcl_GetString(objv[2]), "\"", 0);
+        return TCL_ERROR;
+    }
     return TCL_OK;
 }
 
@@ -444,10 +458,13 @@ int HtmlWidgetObjCommand(clientData, interp, objc, objv)
         "read", 0, parseCmd}, {
         "handler", "script", handlerScriptCmd}, {
         "handler", "node", handlerNodeCmd}, {
+
         "layout", "primitives", HtmlLayoutPrimitives}, {
         "layout", "image", HtmlLayoutImage}, {
         "layout", "force", HtmlLayoutForce}, {
         "layout", "widget", HtmlLayoutWidget}, {
+        "layout", "size", HtmlLayoutSize}, {
+        "layout", "scroll", HtmlLayoutScroll}, {
         "clear", 0, clearWidget}, {
         "var", 0, varCommand}, { 
         "command", 0, commandCommand}, {

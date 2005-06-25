@@ -152,6 +152,8 @@ struct HtmlCanvas {
 struct HtmlOptions {
     int width;
     int height;
+    int xscrollincrement;
+    int yscrollincrement;
 };
 
 /* 
@@ -220,6 +222,8 @@ EXTERN Tcl_ObjCmdProc HtmlStyleApply;
 EXTERN Tcl_ObjCmdProc HtmlStyleSyntaxErrs;
 EXTERN Tcl_ObjCmdProc HtmlLayoutForce;
 EXTERN Tcl_ObjCmdProc HtmlLayoutWidget;
+EXTERN Tcl_ObjCmdProc HtmlLayoutSize;
+EXTERN Tcl_ObjCmdProc HtmlLayoutScroll;
 EXTERN Tcl_ObjCmdProc HtmlLayoutImage;
 EXTERN Tcl_ObjCmdProc HtmlLayoutPrimitives;
 

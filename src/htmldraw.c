@@ -691,8 +691,6 @@ static Pixmap getPixmap(pTree, xcanvas, ycanvas, w, h)
         }
     }
 
-    XFlush(pDisplay);
-
     return pmap;
 }
 
@@ -805,8 +803,6 @@ int HtmlLayoutWidget(clientData, interp, objc, objv)
     int canvas_y;
     int width;
     int height;
-    int winheight;
-    int winwidth;
     Pixmap pixmap;
     GC gc;
     XGCValues gc_values;
@@ -833,17 +829,128 @@ int HtmlLayoutWidget(clientData, interp, objc, objv)
         return TCL_ERROR;
     }
 
-    winwidth = Tk_Width(win);
-    winheight = Tk_Height(win);
     pixmap = getPixmap(pTree, canvas_x, canvas_y, width, height);
 
     memset(&gc_values, 0, sizeof(XGCValues));
     gc = Tk_GetGC(pTree->win, 0, &gc_values);
 
     XCopyArea(display, pixmap, Tk_WindowId(win), gc, 0, 0, width, height, x, y);
+    Tk_FreePixmap(display, pixmap);
     Tk_FreeGC(display, gc);
-
-    XFlush(display);
     return TCL_OK;
 }
-    
+   
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlLayoutSize --
+ *
+ *     <widget> layout size:
+ * 
+ *     Return the horizontal and vertical size of the layout as a
+ *     two-element list.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+int 
+HtmlLayoutSize(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    Tcl_Obj *pRet;
+    int width;
+    int height;
+    HtmlTree *pTree = (HtmlTree *)clientData;
+
+    if (objc != 3) {
+        Tcl_WrongNumArgs(interp, 3, objv, "");
+        return TCL_ERROR;
+    }
+
+    pRet = Tcl_NewObj();
+    Tcl_IncrRefCount(pRet);
+
+    width = pTree->canvas.right;
+    height = pTree->canvas.bottom;
+
+    Tcl_ListObjAppendElement(interp, pRet, Tcl_NewIntObj(width));
+    Tcl_ListObjAppendElement(interp, pRet, Tcl_NewIntObj(height));
+    Tcl_SetObjResult(interp, pRet);
+    Tcl_DecrRefCount(pRet);
+    return TCL_OK;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlLayoutScroll --
+ *
+ *     <widget> layout scroll X Y
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+int 
+HtmlLayoutScroll(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    int x;
+    int y;
+    Tk_Window win;
+    Display *display;
+    GC gc;
+    XGCValues gc_values;
+
+    int source_x, source_y;
+    int dest_x, dest_y;
+    int width, height;
+
+    HtmlTree *pTree = (HtmlTree *)clientData;
+
+    if (objc != 5) {
+        Tcl_WrongNumArgs(interp, 3, objv, "X Y");
+        return TCL_ERROR;
+    }
+
+    if (TCL_OK != Tcl_GetIntFromObj(interp, objv[3], &x) ||
+        TCL_OK != Tcl_GetIntFromObj(interp, objv[4], &y) 
+    ) {
+        return TCL_ERROR;
+    }
+
+    win = pTree->tkwin; 
+    display = Tk_Display(win);
+    memset(&gc_values, 0, sizeof(XGCValues));
+    gc = Tk_GetGC(pTree->win, 0, &gc_values);
+
+    source_x = 0;
+    dest_x = 0;
+    width = Tk_Width(win);
+    dest_y = MIN(y, 0) * -1;
+    source_y = MAX(y, 0);
+    height = Tk_Height(win) - MAX(dest_y, source_y);
+
+    if (height > 0) {
+        XCopyArea(display, Tk_WindowId(win), Tk_WindowId(win), gc, 
+                source_x, source_y, width, height, dest_x, dest_y);
+    }
+
+    return TCL_OK;
+}
+

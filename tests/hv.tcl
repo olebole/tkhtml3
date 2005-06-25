@@ -8,11 +8,14 @@ set ::HTML {}            ;# The HTML widget command
 set ::DOCUMENT {}        ;# Name of html file to load
 
 # This procedure is called once at the start of the script to build
-# the GUI used by the application.
+# the GUI used by the application. It also sets up the callbacks
+# supplied by this script to help the widget render html.
 #
 proc build_gui {} {
     set ::HTML [html .h]
-    pack $::HTML
+    pack $::HTML -fill both -expand true
+    focus $::HTML
+    bind $::HTML <KeyPress-q> exit
 }
 
 # This procedure parses the command line arguments
