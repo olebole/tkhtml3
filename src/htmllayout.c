@@ -345,6 +345,7 @@ struct InlineBox {
   int nSpace;                 /* Pixels of space between this and next box. */
   int eNewLine;               /* True if a new-line, not an inline-box */
   InlineBorder *pBorderStart; /* List of borders that start with this box */
+  int eReplaced;              /* True if a replaced inline box */
   int nBorderEnd;             /* Number of borders that end here */
   int nLeftPixels;            /* Total left width of borders that start here */
   int nRightPixels;           /* Total right width of borders that start here */
@@ -366,7 +367,7 @@ struct InlineContext {
 };
 static void inlineContextSetTextAlign(InlineContext *, int);
 static void inlineContextSetWhiteSpace(InlineContext *, int);
-static HtmlCanvas *inlineContextAddInlineCanvas(InlineContext *);
+static HtmlCanvas *inlineContextAddInlineCanvas(InlineContext *, int);
 static void inlineContextAddSpace(InlineContext *, int);
 static int 
 inlineContextGetLineBox(InlineContext*,int*,int,int,HtmlCanvas*,int*, int*);
@@ -2329,8 +2330,9 @@ inlineContextSetLineHeight(pInline, lineHeight)
  *---------------------------------------------------------------------------
  */
 static HtmlCanvas * 
-inlineContextAddInlineCanvas(p)
+inlineContextAddInlineCanvas(p, eReplaced)
     InlineContext *p;
+    int eReplaced;          /* True if 'text-decoration' border applies */
 {
     InlineBox *pBox;
     InlineBorder *pBorder;
@@ -2356,6 +2358,7 @@ inlineContextAddInlineCanvas(p)
         pBox->nLeftPixels += pBorder->margin.margin_left;
     }
     p->pBoxBorders = 0;
+    pBox->eReplaced = eReplaced;
     return &pBox->canvas;
 }
 
@@ -2450,7 +2453,7 @@ inlineContextAddNewLine(p, nHeight)
 {
     if (p->nInline > 0 && p->whiteSpace == WHITESPACE_PRE){
         InlineBox *pBox;
-        inlineContextAddInlineCanvas(p);
+        inlineContextAddInlineCanvas(p, 0);
         pBox = &p->aInline[p->nInline - 1];
         pBox->eNewLine = nHeight;
     }
@@ -2461,6 +2464,15 @@ inlineContextAddNewLine(p, nHeight)
  *
  * inlineContextDrawBorder --
  *
+ *     The integer array aRepX[], size (2 * nRepX), stores the
+ *     x-coordinates of any replaced inline boxes that have been added to
+ *     the line. This is required so that we don't draw the
+ *     'text-decoration' on replaced objects (i.e. we don't want to
+ *     underline images). Every second entry in aRepX is the start of a
+ *     replaced inline box. Each subsequent entry is the end of the
+ *     replaced inline box. All values are in the same coordinate system as
+ *     the x1 and x2 parameters.
+ *
  * Results:
  *     None.
  *
@@ -2470,12 +2482,14 @@ inlineContextAddNewLine(p, nHeight)
  *---------------------------------------------------------------------------
  */
 static void 
-inlineContextDrawBorder(pCanvas, pBorder, x1, y1, x2, y2, drb)
+inlineContextDrawBorder(pCanvas, pBorder, x1, y1, x2, y2, drb, aRepX, nRepX)
     HtmlCanvas *pCanvas;
     InlineBorder *pBorder;
     int x1, y1;
     int x2, y2;
     int drb;                  /* Draw Right Border */
+    int *aRepX;
+    int nRepX;
 {
     XColor *c = pBorder->border.color_bg;
     int textdecoration = pBorder->textdecoration;
@@ -2530,6 +2544,7 @@ inlineContextDrawBorder(pCanvas, pBorder, x1, y1, x2, y2, drb)
 
     if (textdecoration != TEXTDECORATION_NONE) {
         int y;                /* y-coordinate for horizontal line */
+        int i;
         XColor *color = pBorder->color;
 
         x1 += (dlb ? pBorder->box.padding_left : 0);
@@ -2551,7 +2566,32 @@ inlineContextDrawBorder(pCanvas, pBorder, x1, y1, x2, y2, drb)
                 assert(0);
         }
 
-        HtmlDrawQuad(pCanvas, x1, y, x2, y, x2, y+1, x1, y+1, pBorder->color);
+	/* At this point we draw a horizontal line for the underline,
+	 * linethrough or overline decoration. The line is to be drawn
+	 * between 'x1' and 'x2' x-coordinates, at y-coordinate 'y'.
+         *
+         * However, we don't want to draw this decoration on replaced
+         * inline boxes. So use the aReplacedX[] array to avoid doing this.
+         */
+        if (nRepX > 0) {
+            int xa = x1;
+            for (i = 0; i < nRepX; i++) {
+                int xs = aRepX[i*2]; 
+                int xe = aRepX[i*2+1]; 
+                if (xe <= xs) continue;
+
+                if (xs > xa) {
+                    int xb = MIN(xs, x2);
+	            HtmlDrawQuad(pCanvas,xa,y,xb,y,xb,y+1,xa,y+1,color);
+                }
+                xa = xe;
+            }
+            if (xa < x2) {
+	        HtmlDrawQuad(pCanvas, xa, y, x2, y, x2, y+1, xa, y+1, color);
+            }
+        } else {
+	    HtmlDrawQuad(pCanvas, x1, y, x2, y, x2, y+1, x1, y+1, color);
+        }
     }
 }
 
@@ -2598,6 +2638,8 @@ inlineContextGetLineBox(p,pWidth,forceline,forcebox,pCanvas,pVSpace,pAscent)
     int iLeft = 0;           /* Leftmost pixel of line box */
     int width = *pWidth;
     int descent = 0;
+    int *aReplacedX = 0;     /* List of x-coords - borders of replaced objs. */
+    int nReplacedX = 0;      /* Size of aReplacedX divided by 2 */
 
     memset(&content, 0, sizeof(HtmlCanvas));
     memset(&borders, 0, sizeof(HtmlCanvas));
@@ -2758,7 +2800,21 @@ inlineContextGetLineBox(p,pWidth,forceline,forcebox,pCanvas,pVSpace,pAscent)
             }
         }
 
+        /* Copy the inline box canvas into the line-content canvas. If this
+         * is a replaced inline box, then add the right and left
+         * coordinates for the box to the aReplacedX[] array. This is used
+         * to make sure we don't underline replaced objects when drawing
+         * inline borders. 
+         */
         x1 = x + extra_pixels + pBox->nLeftPixels;
+        if (pBox->eReplaced) {
+            int nBytes;
+            nReplacedX++;
+            nBytes = nReplacedX * 2 * sizeof(int);
+            aReplacedX = (int *)ckrealloc((char *)aReplacedX, nBytes);
+            aReplacedX[(nReplacedX-1)*2] = x1;
+            aReplacedX[(nReplacedX-1)*2+1] = x1 + boxwidth;
+        }
         HtmlDrawCanvas(&content, &pBox->canvas, x1, 0);
         x += (boxwidth + pBox->nLeftPixels + pBox->nRightPixels);
 
@@ -2825,7 +2881,8 @@ inlineContextGetLineBox(p,pWidth,forceline,forcebox,pCanvas,pVSpace,pAscent)
             memset(&tmpcanvas, 0, sizeof(HtmlCanvas));
             HtmlDrawCanvas(&tmpcanvas, &borders, 0, 0);
             memset(&borders, 0, sizeof(HtmlCanvas));
-            inlineContextDrawBorder(&borders, pBorder, x1, y1, x2, y2, rb);
+            inlineContextDrawBorder(&borders, 
+                    pBorder, x1, y1, x2, y2, rb, aReplacedX, nReplacedX);
             HtmlDrawCanvas(&borders, &tmpcanvas, 0, 0);
         }
 
@@ -2881,6 +2938,9 @@ inlineContextGetLineBox(p,pWidth,forceline,forcebox,pCanvas,pVSpace,pAscent)
         p->aInline[0].eNewLine = 0;
     }
 
+    if (aReplacedX) {
+        ckfree((char *)aReplacedX);
+    }
     return 1;
 }
 
@@ -2996,7 +3056,7 @@ inlineText(pLayout, pNode, pContext)
                 int ta;            /* Text ascent */
                 int td;            /* Text descent */
 
-                pCanvas = inlineContextAddInlineCanvas(pContext);
+                pCanvas = inlineContextAddInlineCanvas(pContext, 0);
                 pText = Tcl_NewStringObj(pToken->x.zText, pToken->count);
                 tw = Tk_TextWidth(font, pToken->x.zText, pToken->count);
                 ta = fontmetrics.ascent;
@@ -3272,7 +3332,7 @@ inlineLayoutNode(pLayout, pBox, pNode, pY, pContext)
                     break;
             }
 
-            pCanvas = inlineContextAddInlineCanvas(pContext);
+            pCanvas = inlineContextAddInlineCanvas(pContext, 1);
             HtmlDrawCanvas(pCanvas, &sBox.vc, 0, yoffset);
             inlineContextSetBoxDimensions(
                 pContext, sBox.width, -1 * yoffset, sBox.height + yoffset);
