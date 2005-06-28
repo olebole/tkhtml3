@@ -49,10 +49,24 @@ A default style-sheet should always be loaded. Most document elements will
 not behave as expected without one.
 
 [lst_item "[arg pathName] [cmd handler] [arg type] [arg tag] [arg script]"]
-[lst_item "[arg pathName] [cmd node] [arg x] [arg y]"]
+
+[lst_item "[arg pathName] [cmd node] ?[arg x] [arg y]?"]
+This command is used to retrieve a handle for a document node that is part
+of the currently parsed document. If the [arg x] and [arg y] parameters are
+omitted, then the handle returned is the root-node of the document, or an
+empty string if the document has no root-node (i.e. an empty document).
+[nl]
+If the [arg x] and [arg y] arguments are present, then the handle returned
+is for the node which generated the document content currently located at
+viewport coordinates ([arg x], [arg y]). If no content is located at
+the specified coordinates or the widget window is not mapped, then an empty
+string is returned.
+[nl]
+The document node can be queried and manipulated using the interface
+described in section "NODE COMMAND".
+
 [lst_item "[arg pathName] [cmd parse] [arg html-text]"]
 [lst_item "[arg pathName] [cmd reset]"]
-[lst_item "[arg pathName] [cmd root]"]
 [lst_item "[arg pathName] [cmd style] [arg style-id] [arg stylesheet-text]"]
 [lst_item "[arg pathName] [cmd xview] ?[arg options]?"]
 [lst_item "[arg pathName] [cmd yview] ?[arg options]?"]
@@ -72,6 +86,8 @@ not behave as expected without one.
 [list_end]
 
 [section "REPLACED OBJECTS"]
+
+[section "PROCESSING MODEL"]
 
 [manpage_end]
 
