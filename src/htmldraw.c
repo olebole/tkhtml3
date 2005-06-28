@@ -50,6 +50,9 @@ struct CanvasQuad {
 struct CanvasOrigin {
     int x;
     int y;
+    int left, right;
+    int top, bottom;
+    HtmlCanvasItem *pSkip;
 };
 
 struct CanvasComment {
@@ -230,11 +233,16 @@ void HtmlDrawCanvas(pCanvas, pCanvas2, x, y)
 {
     if (pCanvas2->pFirst) {
         HtmlCanvasItem *pItem;
+        HtmlCanvasItem *pItem2;
  
         pItem = (HtmlCanvasItem *)ckalloc(sizeof(HtmlCanvasItem));
         pItem->type = CANVAS_ORIGIN;
         pItem->x.o.x = x;
         pItem->x.o.y = y;
+        pItem->x.o.left = pCanvas2->left;
+        pItem->x.o.right = pCanvas2->right;
+        pItem->x.o.bottom = pCanvas2->bottom;
+        pItem->x.o.top = pCanvas2->top;
         linkItem(pCanvas, pItem);
 
         pCanvas->pLast->pNext = pCanvas2->pFirst;
@@ -242,17 +250,18 @@ void HtmlDrawCanvas(pCanvas, pCanvas2, x, y)
         pCanvas2->pFirst = 0;
         pCanvas2->pLast = 0;
 
-        pItem = (HtmlCanvasItem *)ckalloc(sizeof(HtmlCanvasItem));
-        pItem->type = CANVAS_ORIGIN;
-        pItem->x.o.x = x*-1;
-        pItem->x.o.y = y*-1;
+        pItem2 = (HtmlCanvasItem *)ckalloc(sizeof(HtmlCanvasItem));
+        pItem2->type = CANVAS_ORIGIN;
+        pItem2->x.o.x = x*-1;
+        pItem2->x.o.y = y*-1;
+        pItem2->x.o.pSkip = 0;
+        pItem->x.o.pSkip = pItem2;
+        linkItem(pCanvas, pItem2);
 
         pCanvas->left = MIN(pCanvas->left, x+pCanvas2->left);
         pCanvas->top = MIN(pCanvas->top, y+pCanvas2->top);
         pCanvas->bottom = MAX(pCanvas->bottom, y+pCanvas2->bottom);
         pCanvas->right = MAX(pCanvas->right, x+pCanvas2->right);
-
-        linkItem(pCanvas, pItem);
     }
 }
 
@@ -619,10 +628,34 @@ static Pixmap getPixmap(pTree, xcanvas, ycanvas, w, h)
     for (pItem=pCanvas->pFirst; pItem; pItem=pItem->pNext) {
         switch (pItem->type) {
 
-            case CANVAS_ORIGIN:
-                x += pItem->x.o.x;
-                y += pItem->x.o.y;
+            case CANVAS_ORIGIN: {
+                int skip = 1;
+                while (skip) {
+                    CanvasOrigin *pOrigin = &pItem->x.o;
+                    x += pOrigin->x;
+                    y += pOrigin->y;
+    
+                    /* If the contents of this canvas is completely outside
+		     * of the clipping border, then we can skip to the
+		     * 'pSkip' member of pItem.
+                     */
+                    skip = 0;
+                    if (pOrigin->pSkip) {
+                        if (((x + pOrigin->right) < 0) ||
+                            ((x + pOrigin->left) > w) ||
+                            ((y + pOrigin->top) > h) ||
+                            ((y + pOrigin->bottom) < 0)
+                        ) {
+                            pItem = pOrigin->pSkip;
+                            assert(pItem->type == CANVAS_ORIGIN);
+                            assert(!pItem->x.o.pSkip);
+                            skip = 1;
+                        }
+                    }
+                }
+
                 break;
+            }
 
             case CANVAS_TEXT: {
                 CanvasText *pT = &pItem->x.t;

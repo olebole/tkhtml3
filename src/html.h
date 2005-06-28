@@ -117,7 +117,7 @@ struct HtmlCachedProperty {
 /* Each node of the document tree is represented as an HtmlNode structure.
  * This structure carries no information to do with the node itself, it is
  * simply used to build the tree structure. All the information for the
- * node is stored in the HtmlElement object.
+ * node is stored in the HtmlToken object.
  */
 struct HtmlNode {
     HtmlNode *pParent;             /* Parent of this node */
