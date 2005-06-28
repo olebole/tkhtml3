@@ -490,7 +490,7 @@ propertyToConstant(pProp, zOptions, eOptions, eDefault)
 {
     if (pProp && pProp->eType==CSS_TYPE_STRING) {
         while (*zOptions) {
-            if( 0==strcmp(pProp->v.zVal, *zOptions) ) return *eOptions;
+            if( 0==stricmp(pProp->v.zVal, *zOptions) ) return *eOptions;
             eOptions++;
             zOptions++;
         }
