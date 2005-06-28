@@ -7,10 +7,10 @@ source [file join [file dirname [info script]] tkhtml.tcl]
 set ::HTML {}            ;# The HTML widget command
 set ::DOCUMENT {}        ;# Name of html file to load on startup.
 
-# If possible, load package "Image". Without it the script can still run,
+# If possible, load package "Img". Without it the script can still run,
 # but won't be able to load many image formats.
 catch {
-  package require Image
+  package require Img
 }
 
 # This procedure is called once at the start of the script to build

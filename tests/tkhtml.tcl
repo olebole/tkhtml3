@@ -9,6 +9,8 @@ bind Html <Configure> {
 
 bind Html <KeyPress-Down>  { %W yview scroll 1 units }
 bind Html <KeyPress-Up>    { %W yview scroll -1 units }
+bind Html <KeyPress-Right> { %W xview scroll 1 units }
+bind Html <KeyPress-Left>  { %W xview scroll -1 units }
 bind Html <KeyPress-Next>  { %W yview scroll 1 pages }
 bind Html <KeyPress-Prior> { %W yview scroll -1 pages }
 
@@ -107,7 +109,6 @@ proc ::tk::HtmlView {win axis args} {
         if {[llength $args] != 2} {
             set e "wrong # args: should be \"$win $axis"
             append e "view moveto fraction"
- 
             error $e
         }
         set newval [expr int(double($layout_len) * [lindex $args 1])]

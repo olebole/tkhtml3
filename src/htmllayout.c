@@ -4821,9 +4821,11 @@ static int blockLayout(pLayout, pBox, pNode, omitborder, noalign)
             int textalign = 0;
     
             /* A table or replaced object may be aligned horizontally using
-             * the 'text-align' property.
+             * the 'text-align' property. This does not apply if the object
+             * is floated, as horizontal alignment is done by the caller in
+             * that case.
              */
-            if (display.eDisplay==DISPLAY_TABLE || isReplaced) {
+            if (display.eFloat==FLOAT_NONE && isBoxObject) {
                 textalign = nodeGetTextAlign(pLayout, pNode);
             }
     
