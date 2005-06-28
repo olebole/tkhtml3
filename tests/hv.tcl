@@ -31,11 +31,16 @@ proc update_status {x y} {
     }
 
     if {$linkto != ""} {
-        set status "link: $linkto"
         . configure -cursor hand2
+        set status "link: $linkto"
     } else {
         . configure -cursor {}
-        set status "[string range $status 0 60]"
+    }
+
+    set pixels [expr [winfo width .status] - 30]
+    while {$status != "" && 
+           [font measure [.status cget -font] $status] > $pixels} {
+        set status [string range $status 0 end-10]
     }
 
     .status configure -text $status
