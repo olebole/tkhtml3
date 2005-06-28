@@ -66,6 +66,25 @@ proc update_status {x y} {
     .status configure -text $status
 }
 
+# This procedure is called when a <style> tag is encountered during
+# parsing. The $script parameter holds the entire contents of the node.
+#
+proc handle_style_node {script} {
+    $::HTML style parse author.0 $script
+}
+
+# This procedure is called when a <link> node is encountered while building
+# the document tree. It loads a stylesheet from a file on disk if required.
+#
+proc handle_link_node {base node} {
+    if {[$node attr rel] == "stylesheet"} {
+        set fd [open [file join $base [$node attr href]]]
+        set script [read $fd]
+        close $fd
+    }
+    $::HTML style parse author.1 $script
+}
+
 # This procedure is called once at the start of the script to build
 # the GUI used by the application. It also sets up the callbacks
 # supplied by this script to help the widget render html.
@@ -87,9 +106,12 @@ proc build_gui {} {
     .hscroll configure -command "$::HTML xview"
 
     bind $::HTML <Motion> "update_status %x %y"
-     
-    focus $::HTML
     bind $::HTML <KeyPress-q> exit
+
+    $::HTML handler script style "handle_style_node"
+    $::HTML handler node link "handle_link_node [file dirname $::DOCUMENT]"
+
+    focus $::HTML
 }
 
 # This procedure parses the command line arguments
