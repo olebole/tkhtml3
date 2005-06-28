@@ -1,0 +1,77 @@
+[comment {-*- tcl -*- doctools manpage}]
+[manpage_begin html n 3.0]
+[moddesc {HTML Widget}]
+[titledesc {Widget to render html documents}]
+
+[description]
+
+[list_begin definitions]
+[string range [call [cmd html] [arg pathName] ?[arg options]?] 0 0]
+[list_end]
+
+[section "STANDARD OPTIONS"]
+
+[section "WIDGET-SPECIFIC OPTIONS"]
+
+[list_begin tkoption]
+[tkoption_def -importcommand ImportCommand ImportCommand]
+Specify a Tcl command to be invoked when an "@import" directive is
+encountered in a stylesheet. Two arguments are appended to the value of
+this option before execution: the stylesheet-id (see below) of the
+stylesheet being parsed, and the URL following the "@import" keyword.
+
+[list_end]
+
+[section "WIDGET COMMAND"]
+[para]
+The [cmd html] command creates a new Tcl command whose name is 
+[arg pathName]. This command may be used to invoke various operations on
+the widget as follows:
+
+[list_begin definitions]
+
+[lst_item "[arg pathName] [cmd cget] [arg option]"]
+Retrieve the value of an option. This command works the same way as for all
+other Tk widgets.
+
+[lst_item "[arg pathName] [cmd configure] [arg option] [arg value]"]
+Set the value of one or more options. This command works the same way as
+for all other Tk widgets.
+
+[lst_item "[arg pathName] [cmd default_style] [arg style-name]"]
+This command loads a default style-sheet for the widget. Default
+style-sheets are stored in the package installation directory with the
+extension ".css". The first part of the style-sheet filename matches the
+[arg style-name] parameter to this command. The style-sheet "html.css" is
+guaranteed to exist.
+[nl]
+A default style-sheet should always be loaded. Most document elements will
+not behave as expected without one.
+
+[lst_item "[arg pathName] [cmd handler] [arg type] [arg tag] [arg script]"]
+[lst_item "[arg pathName] [cmd node] [arg x] [arg y]"]
+[lst_item "[arg pathName] [cmd parse] [arg html-text]"]
+[lst_item "[arg pathName] [cmd reset]"]
+[lst_item "[arg pathName] [cmd root]"]
+[lst_item "[arg pathName] [cmd style] [arg style-id] [arg stylesheet-text]"]
+[lst_item "[arg pathName] [cmd xview] ?[arg options]?"]
+[lst_item "[arg pathName] [cmd yview] ?[arg options]?"]
+
+[list_end]
+
+[section "NODE COMMAND"]
+
+[list_begin definitions]
+[lst_item "[arg node] [cmd attr] [arg attribute]"]
+[lst_item "[arg node] [cmd child] [arg index]"]
+[lst_item "[arg node] [cmd nChild]"]
+[lst_item "[arg node] [cmd parent]"]
+[lst_item "[arg node] [cmd prop] [arg property]"]
+[lst_item "[arg node] [cmd tag]"]
+[lst_item "[arg node] [cmd text]"]
+[list_end]
+
+[section "REPLACED OBJECTS"]
+
+[manpage_end]
+
