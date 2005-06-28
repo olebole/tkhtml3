@@ -13,6 +13,7 @@ bind Html <KeyPress-Right> { %W xview scroll 1 units }
 bind Html <KeyPress-Left>  { %W xview scroll -1 units }
 bind Html <KeyPress-Next>  { %W yview scroll 1 pages }
 bind Html <KeyPress-Prior> { %W yview scroll -1 pages }
+bind Html <ButtonPress>    { focus %W }
 
 # Important variables:
 #
@@ -157,9 +158,9 @@ proc ::tk::HtmlView {win axis args} {
     if {$adiff > 0} {
         if {$adiff < $screen_len} {
             if {$axis == "x"} {
-                $win layout scroll $diff 0
+                $win widget scroll $diff 0
             } else {
-                $win layout scroll 0 $diff
+                $win widget scroll 0 $diff
             }
 
             if {$diff < 0} {
@@ -181,6 +182,7 @@ proc ::tk::HtmlView {win axis args} {
         }
 
         $win scrollbar_cb
+        $win widget mapcontrols [$win var x] [$win var y]
     }
 }
 
@@ -230,8 +232,11 @@ proc ::tk::HtmlDoUpdate {win} {
     $win style apply
 
     $win layout force -width $width
-    $win layout widget 0 0 0 0 $width $height
+    $win widget paint 0 0 0 0 $width $height
+    $win widget mapcontrols 0 0
 
+    $win var x 0
+    $win var y 0
     $win scrollbar_cb
 }
 
@@ -252,7 +257,7 @@ proc ::tk::HtmlDamage {win x y w h} {
     if {![$win var update_pending]} {
         set xc [expr [$win var x] + $x]
         set yc [expr [$win var y] + $y]
-        after idle "$win layout widget $xc $yc $x $y $w $h"
+        after idle "$win widget paint $xc $yc $x $y $w $h"
     }
 }
 

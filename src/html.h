@@ -146,6 +146,7 @@ struct HtmlCanvas {
     int bottom;
     HtmlCanvasItem *pFirst;
     HtmlCanvasItem *pLast;
+    HtmlCanvasItem *pWindow;
     Tcl_Obj *pPrimitives;
 };
 
@@ -159,8 +160,7 @@ struct HtmlOptions {
 };
 
 /* 
- * The two Tk-windows used by the application are stored in variables tkwin
- * and clipwin.
+ * The Tk-windows used by the widget is stored in variable tkwin.
  * 
  * Variable 'iCol' stores the number of characters tokenized since the last
  * newline encountered in the document source. When we encounter a TAB
@@ -187,7 +187,6 @@ struct HtmlTree {
     Tk_Window win;                  /* Main window of interpreter */
 
     Tk_Window tkwin;                /* Widget window */
-    Tk_Window clipwin;              /* Internal clipping window */
 
     Tcl_Obj *pDocument;             /* Text of the html document */
     int nParsed;                    /* Bytes of the html document tokenized */
@@ -223,12 +222,13 @@ EXTERN Tcl_ObjCmdProc HtmlStyleParse;
 EXTERN Tcl_ObjCmdProc HtmlStyleApply;
 EXTERN Tcl_ObjCmdProc HtmlStyleSyntaxErrs;
 EXTERN Tcl_ObjCmdProc HtmlLayoutForce;
-EXTERN Tcl_ObjCmdProc HtmlLayoutWidget;
 EXTERN Tcl_ObjCmdProc HtmlLayoutSize;
 EXTERN Tcl_ObjCmdProc HtmlLayoutNode;
-EXTERN Tcl_ObjCmdProc HtmlLayoutScroll;
 EXTERN Tcl_ObjCmdProc HtmlLayoutImage;
 EXTERN Tcl_ObjCmdProc HtmlLayoutPrimitives;
+EXTERN Tcl_ObjCmdProc HtmlWidgetPaint;
+EXTERN Tcl_ObjCmdProc HtmlWidgetScroll;
+EXTERN Tcl_ObjCmdProc HtmlWidgetMapControls;
 
 EXTERN void HtmlTreeFree(HtmlTree *p);
 EXTERN int HtmlWalkTree(HtmlTree *, int (*)(HtmlTree *, HtmlNode *));
@@ -253,6 +253,7 @@ EXTERN Tcl_Obj *HtmlXImageToImage(HtmlTree *, XImage *, int, int);
 EXTERN int HtmlClearImageArray(HtmlTree*);
 
 EXTERN void HtmlDrawCleanup(HtmlCanvas *);
+EXTERN void HtmlDrawDeleteControls(HtmlTree *, HtmlCanvas *);
 EXTERN void HtmlDrawCanvas(HtmlCanvas *, HtmlCanvas *, int, int, HtmlNode *);
 EXTERN void HtmlDrawText(HtmlCanvas*, Tcl_Obj*, int, int, int, Tk_Font,XColor*);
 EXTERN void HtmlDrawImage(HtmlCanvas *, Tcl_Obj *, int, int, int, int);

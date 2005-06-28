@@ -1284,6 +1284,7 @@ int HtmlTreeClear(pTree)
     pTree->pLast = 0;
 
     /* Free the canvas representation */
+    HtmlDrawDeleteControls(pTree, &pTree->canvas);
     HtmlDrawCleanup(&pTree->canvas);
 
     /* Free the plain text representation */

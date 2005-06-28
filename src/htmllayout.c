@@ -4952,6 +4952,10 @@ HtmlLayoutForce(clientData, interp, objc, objv)
     BoxContext sBox;               /* The imaginary box <body> is inside */
     LayoutContext sLayout;
 
+    HtmlDrawDeleteControls(pTree, &pTree->canvas);
+    HtmlDrawCleanup(&pTree->canvas);
+    memset(&pTree->canvas, 0, sizeof(HtmlCanvas));
+
     memset(&sLayout, 0, sizeof(LayoutContext));
 
     /* Look for the -width and -win options */
@@ -5025,7 +5029,6 @@ HtmlLayoutForce(clientData, interp, objc, objv)
     sLayout.pTop = pBody;
     rc = blockLayout(&sLayout, &sBox, pBody, 0, 0);
 
-    HtmlDrawCleanup(&pTree->canvas);
     memcpy(&pTree->canvas, &sBox.vc, sizeof(HtmlCanvas));
 
     HtmlFloatListDelete(sBox.pFloat);

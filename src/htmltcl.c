@@ -1,5 +1,5 @@
 static char const rcsid[] =
-        "@(#) $Id: htmltcl.c,v 1.22 2005/06/28 09:08:42 danielk1977 Exp $";
+        "@(#) $Id: htmltcl.c,v 1.23 2005/06/28 12:24:14 danielk1977 Exp $";
 
 /*
 ** The main routine for the HTML widget for Tcl/Tk
@@ -471,8 +471,9 @@ int HtmlWidgetObjCommand(clientData, interp, objc, objv)
         "layout", "size", HtmlLayoutSize}, {
         "layout", "node", HtmlLayoutNode}, {
 
-        "layout", "widget", HtmlLayoutWidget}, {
-        "layout", "scroll", HtmlLayoutScroll}, {
+        "widget", "paint", HtmlWidgetPaint}, {
+        "widget", "scroll", HtmlWidgetScroll}, {
+        "widget", "mapcontrols", HtmlWidgetMapControls}, {
 
         "clear", 0, clearWidget}, {
         "var", 0, varCommand}, { 
@@ -633,10 +634,7 @@ static int newWidget(clientData, interp, objc, objv)
     pTree = (HtmlTree *)ckalloc(sizeof(HtmlTree));
     memset(pTree, 0, sizeof(HtmlTree));
 
-    /* Create the two Tk windows. The application uses two windows. The
-     * outer window - 'tkwin' - and the inner window 'clipwin'. This is to
-     * make sure that windows mapped in response to (for example) <FORM>
-     * elements are clipped correctly. 
+    /* Create the Tk window.
      *
      * The outer window has the class "Html". The inner window is of class
      * "HtmlClip". Some of the logic for the widget is implemented via
@@ -647,12 +645,7 @@ static int newWidget(clientData, interp, objc, objv)
     if (!pTree->tkwin) {
         goto error_out;
     }
-    pTree->clipwin = Tk_CreateAnonymousWindow(interp, pTree->tkwin, NULL);
-    if (!pTree->clipwin) {
-        goto error_out;
-    }
     Tk_SetClass(pTree->tkwin, "Html");
-    Tk_SetClass(pTree->clipwin, "HtmlClip");
 
     pTree->interp = interp;
     Tcl_InitHashTable(&pTree->aScriptHandler, TCL_ONE_WORD_KEYS);
@@ -676,9 +669,6 @@ static int newWidget(clientData, interp, objc, objv)
 error_out:
     if (pTree->tkwin) {
         Tk_DestroyWindow(pTree->tkwin);
-    }
-    if (pTree->clipwin) {
-        Tk_DestroyWindow(pTree->clipwin);
     }
     if (pTree) {
         ckfree((char *)pTree);

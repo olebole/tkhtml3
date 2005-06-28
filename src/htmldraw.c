@@ -36,6 +36,9 @@ struct CanvasWindow {
     Tcl_Obj *pWindow;
     int x;
     int y;
+    int absx;
+    int absy;
+    HtmlCanvasItem *pNext;
 };
 
 struct CanvasQuad {
@@ -188,6 +191,42 @@ HtmlDrawCleanup(pCanvas)
 /*
  *---------------------------------------------------------------------------
  *
+ * HtmlDrawDeleteControls --
+ *
+ *     Unmap and delete all the control widgets contained in this canvas.
+ *     This must be called *before* HtmlDrawCleanup() (because it uses a
+ *     data structure that DrawCleanup() deletes).
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+void 
+HtmlDrawDeleteControls(pTree, pCanvas)
+    HtmlTree *pTree;
+    HtmlCanvas *pCanvas;
+{
+    HtmlCanvasItem *pItem;
+    
+    for (pItem = pCanvas->pWindow; pItem; pItem = pItem->x.w.pNext) {
+        Tk_Window control = Tk_NameToWindow(
+                pTree->interp, Tcl_GetString(pItem->x.w.pWindow), pTree->tkwin);
+        if (control) {
+            if (Tk_IsMapped(control)) {
+                Tk_UnmapWindow(control);
+            }
+            Tk_DestroyWindow(control);
+        }
+    }
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * linkItem --
  *
  *     Link the item pItem into the end of the pCanvas link-list.
@@ -266,6 +305,19 @@ void HtmlDrawCanvas(pCanvas, pCanvas2, x, y, pNode)
         pCanvas->top = MIN(pCanvas->top, y+pCanvas2->top);
         pCanvas->bottom = MAX(pCanvas->bottom, y+pCanvas2->bottom);
         pCanvas->right = MAX(pCanvas->right, x+pCanvas2->right);
+
+        pItem2 = 0;
+        for (pItem = pCanvas2->pWindow; pItem; pItem = pItem->x.w.pNext) {
+            pItem->x.w.absx += x;
+            pItem->x.w.absy += y;
+            pItem2 = pItem;
+        }
+        if (pItem2) {
+            assert(!pItem2->x.w.pNext);
+            assert(pCanvas2->pWindow);
+            pItem2->x.w.pNext = pCanvas->pWindow;
+            pCanvas->pWindow = pCanvas2->pWindow;
+        }
     }
 }
 
@@ -404,12 +456,17 @@ HtmlDrawWindow(pCanvas, pWindow, x, y, w, h)
     pItem->x.w.pWindow = pWindow;
     pItem->x.w.x = x;
     pItem->x.w.y = y;
+    pItem->x.w.absx = x;
+    pItem->x.w.absy = y;
     Tcl_IncrRefCount(pWindow);
 
     pCanvas->left = MIN(pCanvas->left, x);
     pCanvas->right = MAX(pCanvas->right, x+w);
     pCanvas->bottom = MAX(pCanvas->bottom, y+h);
     pCanvas->top = MIN(pCanvas->top, y);
+
+    pItem->x.w.pNext = pCanvas->pWindow;
+    pCanvas->pWindow = pItem;
 
     linkItem(pCanvas, pItem);
 }
@@ -813,73 +870,6 @@ int HtmlDrawIsEmpty(pCanvas)
 /*
  *---------------------------------------------------------------------------
  *
- * HtmlLayoutWidget --
- *
- *     <widget> layout widget CANVAS-X CANVAS-Y X Y WIDTH HEIGHT
- *
- *     This command updates a rectangular portion of the inner window
- *     contents (clipwin). 
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-int HtmlLayoutWidget(clientData, interp, objc, objv)
-    ClientData clientData;             /* The HTML widget data structure */
-    Tcl_Interp *interp;                /* Current interpreter. */
-    int objc;                          /* Number of arguments. */
-    Tcl_Obj *CONST objv[];             /* Argument strings. */
-{
-    int x;
-    int y;
-    int canvas_x;
-    int canvas_y;
-    int width;
-    int height;
-    Pixmap pixmap;
-    GC gc;
-    XGCValues gc_values;
-    HtmlTree *pTree = (HtmlTree *)clientData;
-    Display *display; 
-    Tk_Window win;                      /* Window to draw to */
- 
-    win = pTree->tkwin;
-    Tk_MakeWindowExist(win);
-    display = Tk_Display(win);
- 
-    if (objc != 9) {
-        Tcl_WrongNumArgs(interp, 3, objv, 
-                "CANVAS-X CANVAS-Y X Y WIDTH HEIGHT"); 
-        return TCL_ERROR;
-    }
-    if (TCL_OK != Tcl_GetIntFromObj(interp, objv[3], &canvas_x) ||
-        TCL_OK != Tcl_GetIntFromObj(interp, objv[4], &canvas_y) ||
-        TCL_OK != Tcl_GetIntFromObj(interp, objv[5], &x) ||
-        TCL_OK != Tcl_GetIntFromObj(interp, objv[6], &y) ||
-        TCL_OK != Tcl_GetIntFromObj(interp, objv[7], &width) ||
-        TCL_OK != Tcl_GetIntFromObj(interp, objv[8], &height)
-    ) {
-        return TCL_ERROR;
-    }
-
-    pixmap = getPixmap(pTree, canvas_x, canvas_y, width, height);
-
-    memset(&gc_values, 0, sizeof(XGCValues));
-    gc = Tk_GetGC(pTree->win, 0, &gc_values);
-
-    XCopyArea(display, pixmap, Tk_WindowId(win), gc, 0, 0, width, height, x, y);
-    Tk_FreePixmap(display, pixmap);
-    Tk_FreeGC(display, gc);
-    return TCL_OK;
-}
-   
-/*
- *---------------------------------------------------------------------------
- *
  * HtmlLayoutSize --
  *
  *     <widget> layout size:
@@ -922,73 +912,6 @@ HtmlLayoutSize(clientData, interp, objc, objv)
     Tcl_ListObjAppendElement(interp, pRet, Tcl_NewIntObj(height));
     Tcl_SetObjResult(interp, pRet);
     Tcl_DecrRefCount(pRet);
-    return TCL_OK;
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * HtmlLayoutScroll --
- *
- *     <widget> layout scroll X Y
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-int 
-HtmlLayoutScroll(clientData, interp, objc, objv)
-    ClientData clientData;             /* The HTML widget data structure */
-    Tcl_Interp *interp;                /* Current interpreter. */
-    int objc;                          /* Number of arguments. */
-    Tcl_Obj *CONST objv[];             /* Argument strings. */
-{
-    int x;
-    int y;
-    Tk_Window win;
-    Display *display;
-    GC gc;
-    XGCValues gc_values;
-
-    int source_x, source_y;
-    int dest_x, dest_y;
-    int width, height;
-
-    HtmlTree *pTree = (HtmlTree *)clientData;
-
-    if (objc != 5) {
-        Tcl_WrongNumArgs(interp, 3, objv, "X Y");
-        return TCL_ERROR;
-    }
-
-    if (TCL_OK != Tcl_GetIntFromObj(interp, objv[3], &x) ||
-        TCL_OK != Tcl_GetIntFromObj(interp, objv[4], &y) 
-    ) {
-        return TCL_ERROR;
-    }
-
-    win = pTree->tkwin; 
-    display = Tk_Display(win);
-    memset(&gc_values, 0, sizeof(XGCValues));
-    gc = Tk_GetGC(pTree->win, 0, &gc_values);
-
-    dest_x = MIN(x, 0) * -1;
-    source_x = MAX(x, 0);
-    width = Tk_Width(win) - MAX(source_x, dest_x);
-
-    dest_y = MIN(y, 0) * -1;
-    source_y = MAX(y, 0);
-    height = Tk_Height(win) - MAX(dest_y, source_y);
-
-    if (height > 0) {
-        XCopyArea(display, Tk_WindowId(win), Tk_WindowId(win), gc, 
-                source_x, source_y, width, height, dest_x, dest_y);
-    }
-
     return TCL_OK;
 }
 
@@ -1063,6 +986,224 @@ HtmlLayoutNode(clientData, interp, objc, objv)
     if (pNode) {
         Tcl_Obj *pCmd = HtmlNodeCommand(interp, pNode);
         Tcl_SetObjResult(interp, pCmd);
+    }
+
+    return TCL_OK;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlWidgetPaint --
+ *
+ *     <widget> widget paint CANVAS-X CANVAS-Y X Y WIDTH HEIGHT
+ *
+ *     This command updates a rectangular portion of the window contents.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+int 
+HtmlWidgetPaint(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    int x;
+    int y;
+    int canvas_x;
+    int canvas_y;
+    int width;
+    int height;
+    Pixmap pixmap;
+    GC gc;
+    XGCValues gc_values;
+    HtmlTree *pTree = (HtmlTree *)clientData;
+    Display *display; 
+    Tk_Window win;                      /* Window to draw to */
+ 
+    win = pTree->tkwin;
+    Tk_MakeWindowExist(win);
+    display = Tk_Display(win);
+ 
+    if (objc != 9) {
+        Tcl_WrongNumArgs(interp, 3, objv, 
+                "CANVAS-X CANVAS-Y X Y WIDTH HEIGHT"); 
+        return TCL_ERROR;
+    }
+    if (TCL_OK != Tcl_GetIntFromObj(interp, objv[3], &canvas_x) ||
+        TCL_OK != Tcl_GetIntFromObj(interp, objv[4], &canvas_y) ||
+        TCL_OK != Tcl_GetIntFromObj(interp, objv[5], &x) ||
+        TCL_OK != Tcl_GetIntFromObj(interp, objv[6], &y) ||
+        TCL_OK != Tcl_GetIntFromObj(interp, objv[7], &width) ||
+        TCL_OK != Tcl_GetIntFromObj(interp, objv[8], &height)
+    ) {
+        return TCL_ERROR;
+    }
+
+    pixmap = getPixmap(pTree, canvas_x, canvas_y, width, height);
+
+    memset(&gc_values, 0, sizeof(XGCValues));
+    gc = Tk_GetGC(pTree->win, 0, &gc_values);
+
+    XCopyArea(display, pixmap, Tk_WindowId(win), gc, 0, 0, width, height, x, y);
+    Tk_FreePixmap(display, pixmap);
+    Tk_FreeGC(display, gc);
+    return TCL_OK;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlWidgetScroll --
+ *
+ *     <widget> widget scroll X Y
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+int 
+HtmlWidgetScroll(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    int x;
+    int y;
+    Tk_Window win;
+    Display *display;
+    GC gc;
+    XGCValues gc_values;
+
+    int source_x, source_y;
+    int dest_x, dest_y;
+    int width, height;
+
+    HtmlTree *pTree = (HtmlTree *)clientData;
+
+    if (objc != 5) {
+        Tcl_WrongNumArgs(interp, 3, objv, "X Y");
+        return TCL_ERROR;
+    }
+
+    if (TCL_OK != Tcl_GetIntFromObj(interp, objv[3], &x) ||
+        TCL_OK != Tcl_GetIntFromObj(interp, objv[4], &y) 
+    ) {
+        return TCL_ERROR;
+    }
+
+    win = pTree->tkwin; 
+    display = Tk_Display(win);
+    memset(&gc_values, 0, sizeof(XGCValues));
+    gc = Tk_GetGC(pTree->win, 0, &gc_values);
+
+    dest_x = MIN(x, 0) * -1;
+    source_x = MAX(x, 0);
+    width = Tk_Width(win) - MAX(source_x, dest_x);
+
+    dest_y = MIN(y, 0) * -1;
+    source_y = MAX(y, 0);
+    height = Tk_Height(win) - MAX(dest_y, source_y);
+
+    if (height > 0) {
+        XCopyArea(display, Tk_WindowId(win), Tk_WindowId(win), gc, 
+                source_x, source_y, width, height, dest_x, dest_y);
+    }
+
+    return TCL_OK;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlWidgetMapControls --
+ *
+ *     <widget> widget mapcontrols X Y
+ *
+ *     This command updates the position and visibility of all Tk windows
+ *     mapped by the widget (i.e. as <form> controls). The parameters X and
+ *     Y are the coordinates of the point on the virtual canvas that
+ *     corresponds to the top-left corner of the viewport. 
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+int 
+HtmlWidgetMapControls(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    int x;
+    int y;
+    int w;
+    int h;
+    HtmlTree *pTree = (HtmlTree *)clientData;
+    HtmlCanvas *pCanvas = &pTree->canvas;
+    HtmlCanvasItem *pItem;
+
+    Tk_Window win = pTree->tkwin;
+
+    /* Check that the arguments are correct and copy the X and Y parameters
+     * into native C variables x and y. Then set w and h to the width and
+     * height of the viewport respectively.
+     */
+    if (objc != 5) {
+        Tcl_WrongNumArgs(interp, 3, objv, "X Y");
+        return TCL_ERROR;
+    }
+    if (TCL_OK != Tcl_GetIntFromObj(interp, objv[3], &x) ||
+        TCL_OK != Tcl_GetIntFromObj(interp, objv[4], &y) 
+    ) {
+        return TCL_ERROR;
+    }
+    w = Tk_Width(pTree->tkwin);
+    h = Tk_Height(pTree->tkwin);
+
+    for (pItem = pCanvas->pWindow; pItem; pItem = pItem->x.w.pNext) {
+        Tk_Window control;
+        CanvasWindow *pWin = &pItem->x.w;
+
+        control = Tk_NameToWindow(interp, Tcl_GetString(pWin->pWindow), win);
+        if (control) {
+            int winwidth = Tk_ReqWidth(control);
+            int winheight = Tk_ReqHeight(control);
+    
+            /* See if this window can be skipped because it is not visible */
+            if ((pWin->absx + winwidth) < x ||
+                 pWin->absx > (x + w) ||
+                (pWin->absy + winheight) < y ||
+                 pWin->absy > (y + h) 
+            ) {
+                if (Tk_IsMapped(control)) {
+                    Tk_UnmapWindow(control);
+                }
+            } else {
+                Tk_MoveResizeWindow(control, pWin->absx - x, pWin->absy - y, 
+                        winwidth, winheight);
+                if (!Tk_IsMapped(control)) {
+                    Tk_MapWindow(control);
+                }
+            }
+        }
     }
 
     return TCL_OK;
