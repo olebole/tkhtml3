@@ -53,6 +53,7 @@ struct CanvasOrigin {
     int left, right;
     int top, bottom;
     HtmlCanvasItem *pSkip;
+    HtmlNode *pNode;
 };
 
 struct CanvasComment {
@@ -225,11 +226,12 @@ static void linkItem(pCanvas, pItem)
  *
  *---------------------------------------------------------------------------
  */
-void HtmlDrawCanvas(pCanvas, pCanvas2, x, y)
+void HtmlDrawCanvas(pCanvas, pCanvas2, x, y, pNode)
     HtmlCanvas *pCanvas;
     HtmlCanvas *pCanvas2;
     int x;
     int y;
+    HtmlNode *pNode;
 {
     if (pCanvas2->pFirst) {
         HtmlCanvasItem *pItem;
@@ -243,6 +245,7 @@ void HtmlDrawCanvas(pCanvas, pCanvas2, x, y)
         pItem->x.o.right = pCanvas2->right;
         pItem->x.o.bottom = pCanvas2->bottom;
         pItem->x.o.top = pCanvas2->top;
+        pItem->x.o.pNode = pNode;
         linkItem(pCanvas, pItem);
 
         pCanvas->pLast->pNext = pCanvas2->pFirst;
@@ -255,6 +258,7 @@ void HtmlDrawCanvas(pCanvas, pCanvas2, x, y)
         pItem2->x.o.x = x*-1;
         pItem2->x.o.y = y*-1;
         pItem2->x.o.pSkip = 0;
+        pItem2->x.o.pNode = 0;
         pItem->x.o.pSkip = pItem2;
         linkItem(pCanvas, pItem2);
 
@@ -983,6 +987,82 @@ HtmlLayoutScroll(clientData, interp, objc, objv)
     if (height > 0) {
         XCopyArea(display, Tk_WindowId(win), Tk_WindowId(win), gc, 
                 source_x, source_y, width, height, dest_x, dest_y);
+    }
+
+    return TCL_OK;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlLayoutNode --
+ *
+ *     <widget> layout node X Y
+ *
+ *     Return the Tcl handle for the document node that lies at coordinates
+ *     (X, Y), relative to the layout. Or, if no node populates the given
+ *     point, return an empty string.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+int 
+HtmlLayoutNode(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    int x;
+    int y;
+    int origin_x = 0;
+    int origin_y = 0;
+    HtmlNode *pNode = 0;
+    HtmlCanvasItem *pItem;
+    HtmlTree *pTree = (HtmlTree *)clientData;
+
+    HtmlCanvas *pCanvas = &pTree->canvas;
+
+    if (objc != 5) {
+        Tcl_WrongNumArgs(interp, 3, objv, "X Y");
+        return TCL_ERROR;
+    }
+    if (TCL_OK != Tcl_GetIntFromObj(interp, objv[3], &x) ||
+        TCL_OK != Tcl_GetIntFromObj(interp, objv[4], &y) 
+    ) {
+        return TCL_ERROR;
+    }
+
+    for (pItem=pCanvas->pFirst; pItem; pItem=pItem->pNext) {
+        if (pItem->type == CANVAS_ORIGIN) {
+            CanvasOrigin *pOrigin = &pItem->x.o;
+            origin_x += pOrigin->x;
+            origin_y += pOrigin->y;
+            if (pOrigin->pSkip && 
+                (x < (pOrigin->left + origin_x) ||
+                 x > (pOrigin->right + origin_x) ||
+                 y < (pOrigin->top + origin_y) ||
+                 y > (pOrigin->bottom + origin_y))
+            ) {
+                pItem = pOrigin->pSkip;
+                origin_x -= pOrigin->x;
+                origin_y -= pOrigin->y;
+            } else {
+                 if (pOrigin->pNode) {
+                     pNode = pOrigin->pNode;
+                 }
+            }
+        }
+    }
+
+    if (pNode) {
+        Tcl_Obj *pCmd = HtmlNodeCommand(interp, pNode);
+        Tcl_SetObjResult(interp, pCmd);
     }
 
     return TCL_OK;

@@ -225,6 +225,7 @@ EXTERN Tcl_ObjCmdProc HtmlStyleSyntaxErrs;
 EXTERN Tcl_ObjCmdProc HtmlLayoutForce;
 EXTERN Tcl_ObjCmdProc HtmlLayoutWidget;
 EXTERN Tcl_ObjCmdProc HtmlLayoutSize;
+EXTERN Tcl_ObjCmdProc HtmlLayoutNode;
 EXTERN Tcl_ObjCmdProc HtmlLayoutScroll;
 EXTERN Tcl_ObjCmdProc HtmlLayoutImage;
 EXTERN Tcl_ObjCmdProc HtmlLayoutPrimitives;
@@ -252,7 +253,7 @@ EXTERN Tcl_Obj *HtmlXImageToImage(HtmlTree *, XImage *, int, int);
 EXTERN int HtmlClearImageArray(HtmlTree*);
 
 EXTERN void HtmlDrawCleanup(HtmlCanvas *);
-EXTERN void HtmlDrawCanvas(HtmlCanvas *, HtmlCanvas *, int, int);
+EXTERN void HtmlDrawCanvas(HtmlCanvas *, HtmlCanvas *, int, int, HtmlNode *);
 EXTERN void HtmlDrawText(HtmlCanvas*, Tcl_Obj*, int, int, int, Tk_Font,XColor*);
 EXTERN void HtmlDrawImage(HtmlCanvas *, Tcl_Obj *, int, int, int, int);
 EXTERN void HtmlDrawWindow(HtmlCanvas *, Tcl_Obj *, int, int, int, int);

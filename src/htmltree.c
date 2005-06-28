@@ -985,6 +985,7 @@ char CONST *HtmlNodeAttr(pNode, zAttr)
  *     $node attr HTML-ATTRIBUTE-NAME
  *     $node nChildren 
  *     $node child CHILD-NUMBER 
+ *     $node parent
  *     $node text
  *
  *     This function is the implementation of the Tcl node command. A
@@ -1009,10 +1010,12 @@ nodeCommand(clientData, interp, objc, objv)
     int choice;
 
     static CONST char *NODE_strs[] = {
-        "attr", "tag", "nChildren", "child", "text", 0
+        "attr", "tag", "nChildren", "child", "text", 
+        "parent", 0
     };
     enum NODE_enum {
-        NODE_ATTR, NODE_TAG, NODE_NCHILDREN, NODE_CHILD, NODE_TEXT
+        NODE_ATTR, NODE_TAG, NODE_NCHILDREN, NODE_CHILD, NODE_TEXT,
+        NODE_PARENT
     };
 
     if (objc<2) {
@@ -1097,6 +1100,16 @@ nodeCommand(clientData, interp, objc, objv)
             Tcl_DecrRefCount(pRet);
             break;
         }
+
+        case NODE_PARENT: {
+            HtmlNode *pParent;
+            pParent = HtmlNodeParent(pNode);
+            if (pParent) {
+                Tcl_SetObjResult(interp, HtmlNodeCommand(interp, pParent));
+            } 
+            break;
+        }
+
         default:
             assert(!"Impossible!");
     }

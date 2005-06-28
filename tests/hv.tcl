@@ -13,6 +13,34 @@ catch {
   package require Img
 }
 
+# Update the status bar. The mouse is at screen coordinates (x, y).
+# This proc is tied to a <Motion> event on the main Html widget.
+#
+proc update_status {x y} {
+    set status ""
+    set linkto ""
+    for {set n [$::HTML node $x $y]} {$n != ""} {set n [$n parent]} {
+        if {[$n tag] == "text"} {
+            set status "[$n text]"
+        } else {
+            set status "<[$n tag]>$status"
+        }
+        if {$linkto == "" && [$n tag] == "a" && [$n attr href] != ""} {
+            set linkto [$n attr href]
+        }
+    }
+
+    if {$linkto != ""} {
+        set status "link: $linkto"
+        . configure -cursor hand2
+    } else {
+        . configure -cursor {}
+        set status "[string range $status 0 60]"
+    }
+
+    .status configure -text $status
+}
+
 # This procedure is called once at the start of the script to build
 # the GUI used by the application. It also sets up the callbacks
 # supplied by this script to help the widget render html.
@@ -21,8 +49,10 @@ proc build_gui {} {
     set ::HTML [html .h]
     scrollbar .vscroll -orient vertical
     scrollbar .hscroll -orient horizontal
+    label .status -height 1 -anchor w -background white
 
     pack .vscroll -fill y -side right
+    pack .status -fill x -side bottom 
     pack .hscroll -fill x -side bottom
     pack $::HTML -fill both -expand true
 
@@ -30,6 +60,8 @@ proc build_gui {} {
     $::HTML configure -xscrollcommand {.hscroll set}
     .vscroll configure -command "$::HTML yview"
     .hscroll configure -command "$::HTML xview"
+
+    bind $::HTML <Motion> "update_status %x %y"
      
     focus $::HTML
     bind $::HTML <KeyPress-q> exit

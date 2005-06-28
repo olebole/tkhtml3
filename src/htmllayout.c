@@ -346,6 +346,7 @@ struct InlineBox {
   int eNewLine;               /* True if a new-line, not an inline-box */
   InlineBorder *pBorderStart; /* List of borders that start with this box */
   int eReplaced;              /* True if a replaced inline box */
+  HtmlNode *pNode;            /* Associated tree node */
   int nBorderEnd;             /* Number of borders that end here */
   int nLeftPixels;            /* Total left width of borders that start here */
   int nRightPixels;           /* Total right width of borders that start here */
@@ -367,7 +368,7 @@ struct InlineContext {
 };
 static void inlineContextSetTextAlign(InlineContext *, int);
 static void inlineContextSetWhiteSpace(InlineContext *, int);
-static HtmlCanvas *inlineContextAddInlineCanvas(InlineContext *, int);
+static HtmlCanvas *inlineContextAddInlineCanvas(InlineContext*, int, HtmlNode*);
 static void inlineContextAddSpace(InlineContext *, int);
 static int 
 inlineContextGetLineBox(InlineContext*,int*,int,int,HtmlCanvas*,int*, int*);
@@ -1846,6 +1847,9 @@ static void endNodeComment(pCanvas, pNode)
  *     pBox->pFloats before returning. If box was moved down (i.e if *pY
  *     is modified), then some margins are removed from pBox->pFloats.
  *
+ *     The generated box, drawn directly into pBox, is associated with node
+ *     pNode at the virtual canvas level.
+ *
  * Results:
  *     A Tcl return value - TCL_OK or TCL_ERROR.
  *
@@ -1943,13 +1947,6 @@ static int floatLayout(pLayout, pBox, pNode, pY)
      * the parent box is not wide enough for this float, we may shift this
      * float downward until there is room.
      */
-#if 0
-    y = floatListPlace(pBox->pFloats, pBox->parentWidth, sBox.width, y);
-    /* floatListClear(pBox->pFloats, y); */
-    y = floatListClearMargin(pBox->pFloats, display.eClear, y);
-    floatListMargins(pBox->pFloats, y, &leftFloat, &rightFloat);
-    *pY = y - (marginValid?marginValue:0);
-#endif
     y = HtmlFloatListClear(pBox->pFloat, display.eClear, y);
     y = HtmlFloatListPlace(
             pBox->pFloat, pBox->parentWidth, sBox.width, sBox.height, y);
@@ -1970,7 +1967,7 @@ static int floatLayout(pLayout, pBox, pNode, pY)
             x = leftFloat;
         }
     }
-    HtmlDrawCanvas(&pBox->vc, &sBox.vc, x, y);
+    HtmlDrawCanvas(&pBox->vc, &sBox.vc, x, y, pNode);
 
     /* If the right-edge of this floating box exceeds the current actual
      * width of the box it is drawn in, set the actual width to the 
@@ -2330,9 +2327,10 @@ inlineContextSetLineHeight(pInline, lineHeight)
  *---------------------------------------------------------------------------
  */
 static HtmlCanvas * 
-inlineContextAddInlineCanvas(p, eReplaced)
+inlineContextAddInlineCanvas(p, eReplaced, pNode)
     InlineContext *p;
     int eReplaced;          /* True if 'text-decoration' border applies */
+    HtmlNode *pNode;
 {
     InlineBox *pBox;
     InlineBorder *pBorder;
@@ -2359,6 +2357,7 @@ inlineContextAddInlineCanvas(p, eReplaced)
     }
     p->pBoxBorders = 0;
     pBox->eReplaced = eReplaced;
+    pBox->pNode = pNode;
     return &pBox->canvas;
 }
 
@@ -2453,7 +2452,7 @@ inlineContextAddNewLine(p, nHeight)
 {
     if (p->nInline > 0 && p->whiteSpace == WHITESPACE_PRE){
         InlineBox *pBox;
-        inlineContextAddInlineCanvas(p, 0);
+        inlineContextAddInlineCanvas(p, 0, 0);
         pBox = &p->aInline[p->nInline - 1];
         pBox->eNewLine = nHeight;
     }
@@ -2815,7 +2814,7 @@ inlineContextGetLineBox(p,pWidth,forceline,forcebox,pCanvas,pVSpace,pAscent)
             aReplacedX[(nReplacedX-1)*2] = x1;
             aReplacedX[(nReplacedX-1)*2+1] = x1 + boxwidth;
         }
-        HtmlDrawCanvas(&content, &pBox->canvas, x1, 0);
+        HtmlDrawCanvas(&content, &pBox->canvas, x1, 0, pBox->pNode);
         x += (boxwidth + pBox->nLeftPixels + pBox->nRightPixels);
 
         /* If any inline-borders end with this box, then draw them to the
@@ -2879,11 +2878,11 @@ inlineContextGetLineBox(p,pWidth,forceline,forcebox,pCanvas,pVSpace,pAscent)
             }
 
             memset(&tmpcanvas, 0, sizeof(HtmlCanvas));
-            HtmlDrawCanvas(&tmpcanvas, &borders, 0, 0);
+            HtmlDrawCanvas(&tmpcanvas, &borders, 0, 0, 0);
             memset(&borders, 0, sizeof(HtmlCanvas));
             inlineContextDrawBorder(&borders, 
                     pBorder, x1, y1, x2, y2, rb, aReplacedX, nReplacedX);
-            HtmlDrawCanvas(&borders, &tmpcanvas, 0, 0);
+            HtmlDrawCanvas(&borders, &tmpcanvas, 0, 0, 0);
         }
 
         for(j = 0; j < pBox->nBorderEnd; j++) {
@@ -2925,8 +2924,8 @@ inlineContextGetLineBox(p,pWidth,forceline,forcebox,pCanvas,pVSpace,pAscent)
     /* Draw the borders and content canvas into the target canvas. Draw the
      * borders canvas first so that it is under the content.
      */
-    HtmlDrawCanvas(pCanvas, &borders, 0, 0);
-    HtmlDrawCanvas(pCanvas, &content, 0, 0);
+    HtmlDrawCanvas(pCanvas, &borders, 0, 0, 0);
+    HtmlDrawCanvas(pCanvas, &content, 0, 0, 0);
 
     p->nInline -= nBox;
     memmove(p->aInline, &p->aInline[nBox], p->nInline * sizeof(InlineBox));
@@ -3056,7 +3055,7 @@ inlineText(pLayout, pNode, pContext)
                 int ta;            /* Text ascent */
                 int td;            /* Text descent */
 
-                pCanvas = inlineContextAddInlineCanvas(pContext, 0);
+                pCanvas = inlineContextAddInlineCanvas(pContext, 0, pNode);
                 pText = Tcl_NewStringObj(pToken->x.zText, pToken->count);
                 tw = Tk_TextWidth(font, pToken->x.zText, pToken->count);
                 ta = fontmetrics.ascent;
@@ -3138,7 +3137,7 @@ inlineLayoutDrawLines(pLayout, pBox, pContext, forceflag, pY)
                 y += pLayout->marginValue;
                 pLayout->marginValid = 0;
             }
-            HtmlDrawCanvas(&pBox->vc, &lc, leftFloat, y+nA);
+            HtmlDrawCanvas(&pBox->vc, &lc, leftFloat, y+nA, 0);
             y += nV;
             pBox->width = MAX(pBox->width, lc.right + leftFloat);
             pBox->height = MAX(pBox->height, y);
@@ -3250,7 +3249,7 @@ inlineLayoutNode(pLayout, pBox, pNode, pY, pContext)
         HtmlFloatListNormalize(sBox.pFloat, 0, -1*y);
         blockLayout(pLayout, &sBox, pNode, 0, 0);
         if (!HtmlDrawIsEmpty(&sBox.vc)) {
-            HtmlDrawCanvas(&pBox->vc, &sBox.vc, 0, y);
+            HtmlDrawCanvas(&pBox->vc, &sBox.vc, 0, y, pNode);
         }
         HtmlFloatListNormalize(sBox.pFloat, 0, y);
 
@@ -3332,8 +3331,8 @@ inlineLayoutNode(pLayout, pBox, pNode, pY, pContext)
                     break;
             }
 
-            pCanvas = inlineContextAddInlineCanvas(pContext, 1);
-            HtmlDrawCanvas(pCanvas, &sBox.vc, 0, yoffset);
+            pCanvas = inlineContextAddInlineCanvas(pContext, 1, pNode);
+            HtmlDrawCanvas(pCanvas, &sBox.vc, 0, yoffset, pNode);
             inlineContextSetBoxDimensions(
                 pContext, sBox.width, -1 * yoffset, sBox.height + yoffset);
         }
@@ -3839,7 +3838,7 @@ tableDrawRow(pNode, row, pContext)
                             (y2-y1-pCell->box.height) / 2;
                     break;
             }
-            HtmlDrawCanvas(&pData->pBox->vc, &pCell->box.vc, x, y);
+            HtmlDrawCanvas(&pData->pBox->vc, &pCell->box.vc,x,y,pCell->pNode);
             memset(pCell, 0, sizeof(TableCell));
         }
         x += pData->aWidth[i] + pData->border_spacing;
@@ -4865,7 +4864,7 @@ static int blockLayout(pLayout, pBox, pNode, omitborder, noalign)
         }
 
         nodeComment(&pBox->vc, pNode);
-        HtmlDrawCanvas(&pBox->vc, &sBox.vc, x + hoffset, y);
+        HtmlDrawCanvas(&pBox->vc, &sBox.vc, x + hoffset, y, pNode);
         endNodeComment(&pBox->vc, pNode);
     
         pBox->height = sBox.height + y + 

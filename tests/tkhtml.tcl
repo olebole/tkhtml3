@@ -184,6 +184,17 @@ proc ::tk::HtmlView {win axis args} {
     }
 }
 
+# <widget> node <x> <y>
+#
+#     Return the Tcl handle for the node (if any) at viewport coordinates
+#     (x, y). If no node populates this point, return an empty string.
+#
+proc ::tk::HtmlNode {win x y} {
+    set xlayout [expr $x + [$win var x]]
+    set ylayout [expr $y + [$win var y]]
+    return [$win layout node $xlayout $ylayout]
+}
+
 # <widget> default_style <style>
 #
 #     Load the default stylesheet into the widget. Without the default
@@ -273,9 +284,10 @@ proc html {args} {
         parse         [list ::tk::HtmlParse        $widget] \
         update        [list ::tk::HtmlUpdate       $widget] \
         damage        [list ::tk::HtmlDamage       $widget] \
+        scrollbar_cb  [list ::tk::HtmlScrollbarCb  $widget] \
         xview         [list ::tk::HtmlView         $widget x] \
         yview         [list ::tk::HtmlView         $widget y] \
-        scrollbar_cb  [list ::tk::HtmlScrollbarCb  $widget] \
+        node          [list ::tk::HtmlNode         $widget] \
     ]
     foreach {cmd script} $cmds {
         $widget command $cmd $script
