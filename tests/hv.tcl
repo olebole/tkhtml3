@@ -5,7 +5,13 @@ source [file join [file dirname [info script]] tkhtml.tcl]
 
 # Global symbols:
 set ::HTML {}            ;# The HTML widget command
-set ::DOCUMENT {}        ;# Name of html file to load
+set ::DOCUMENT {}        ;# Name of html file to load on startup.
+
+# If possible, load package "Image". Without it the script can still run,
+# but won't be able to load many image formats.
+catch {
+  package require Image
+}
 
 # This procedure is called once at the start of the script to build
 # the GUI used by the application. It also sets up the callbacks
@@ -16,8 +22,8 @@ proc build_gui {} {
     scrollbar .vscroll -orient vertical
     scrollbar .hscroll -orient horizontal
 
-    pack .vscroll -fill y -expand true -side right
-    pack .hscroll -fill x -expand true -side bottom
+    pack .vscroll -fill y -side right
+    pack .hscroll -fill x -side bottom
     pack $::HTML -fill both -expand true
 
     $::HTML configure -yscrollcommand {.vscroll set}
@@ -35,20 +41,30 @@ proc parse_args {argv} {
     set ::DOCUMENT [lindex $argv 0]
 }
 
-proc load_document {} {
-    set fd [open $::DOCUMENT]
+# This proc is called to get the replacement image for a node of type <IMG>
+# with a "src" attribute defined. 
+#
+proc replace_img_node {base node} {
+    set imgfile [file join $base [$node attr src]]
+    image create photo -file $imgfile
+}
+
+proc load_document {document} {
+    set fd [open $document]
     set doc [read $fd]
     close $fd
 
+    set base [file dirname $document]
+
     $::HTML clear
     $::HTML default_style html
+    $::HTML style parse agent.1 [subst -nocommands {
+        IMG[src] {-tkhtml-replace:tcl(replace_img_node $base)}
+    }]
     $::HTML parse $doc
 }
 
 parse_args $argv
 build_gui
-load_document
+load_document $::DOCUMENT
 
-after 5000 {
-  puts [$::HTML xview]
-}

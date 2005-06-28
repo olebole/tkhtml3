@@ -2831,8 +2831,13 @@ inlineContextGetLineBox(p,pWidth,forceline,forcebox,pCanvas,pVSpace,pAscent)
 
         for(j = 0; j < pBox->nBorderEnd; j++) {
             pBorder = p->pBorders;
-            assert(pBorder);
-            p->pBorders = pBorder->pNext;
+            if (!pBorder) {
+                pBorder = p->pBoxBorders;
+                assert(pBorder);
+                p->pBoxBorders = pBorder->pNext;;
+            } else {
+                p->pBorders = pBorder->pNext;
+            }
             ckfree((char *)pBorder);
         }
 

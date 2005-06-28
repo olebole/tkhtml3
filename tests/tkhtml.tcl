@@ -93,7 +93,7 @@ proc ::tk::HtmlView {win axis args} {
     if {[llength $args] == 0} {
         set ret [list \
                 [expr double($offscreen_len) / double($layout_len)] \
-                [expr double($screen_len+$offscreen_len) / double($layout_len)] \
+                [expr double($screen_len+$offscreen_len)/double($layout_len)] \
         ]
         return $ret
     }
@@ -140,11 +140,11 @@ proc ::tk::HtmlView {win axis args} {
     # to the left/top" portion of the layout, in pixels. Fix this value so
     # that we don't scroll past the start or end of the virtual canvas.
     #
-    if {$newval < 0} {
-        set newval 0
-    }
     if {$newval > ($layout_len - $screen_len)} {
        set newval [expr $layout_len - $screen_len]
+    }
+    if {$newval < 0} {
+        set newval 0
     }
     $win var $axis $newval
 
@@ -284,6 +284,11 @@ proc html {args} {
     $widget var update_pending 0
     $widget var x 0
     $widget var y 0
+
+    # Set up a NULL callback to handle the <script> tag. The default
+    # behaviour is just to throw away the contents of the <script> markup -
+    # more complex behaviour could be added by overiding this handler.
+    $widget handler script script #
 
     return $widget
 }
