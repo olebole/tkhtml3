@@ -176,6 +176,52 @@ the node is not a "text" node, return an empty string.
 [list_end]
 
 [section "REPLACED OBJECTS"]
+Replaced objects are html document nodes that are replaced by either a Tk
+image or a Tk window. For example <IMG> or <INPUT> tags. To implement
+replaced objects in Tkhtml the user supplies the widget with a Tcl script
+to create and return the name of the image or window, and the widget maps,
+manages and eventually destroys the image or window. 
+
+[subsection "-tkhtml-replace property"]
+The [cmd -tkhtml-replace] property is a custom CSS property defined by
+Tkhtml. It may be assigned to by stylesheets and queried using the
+interface described under [sectref "NODE COMMAND"].
+[para]
+When the [cmd -tkhtml-replace] property is assigned a value other than an
+empty string (the default), it is assumed to contain the name of a Tk
+window or image to replace the node with. A stylesheet rule such as:
+
+[example_begin]
+
+    IMG#myid { -tkhtml-replace: image1 }
+
+[example_end]
+
+causes the node <img id="myid"> to be replaced by Tk image "image1".
+
+[para]
+If the value of the [cmd -tkhtml-replace] property is a window name, then
+the window must be a child of the html widget window.
+
+[subsection "tcl() property values"]
+Any CSS property may be assigned a value of the form "tcl(<script>)". The
+first time this property is required by the widget, the node handle is
+appended to <script> and the resulting list evaluated as a Tcl script. The
+return value of the Tcl script is cached and used as the actual property
+value. This could be used, for example along with the 
+[cmd -tkhtml-replace] property to implement image support:
+
+[example_begin]
+
+    /* Stylesheet code */
+    IMG[lb]src[rb] { -tkhtml-replace: tcl(load_image) }
+
+    # Tcl code
+    proc load_image {node} {
+        image create photo [lb]unique_name[rb] -file [lb]$node attr src[rb]
+    }
+
+[example_end]
 
 [section "PROCESSING MODEL"]
 
