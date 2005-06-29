@@ -5,15 +5,36 @@
 
 [description]
 
+The [cmd html] command creates a new window (given by the [arg pathName]
+argument) and makes it into an html widget. The html command returns its
+pathName argument. At the time this command is invoked, there must not
+exist a window named pathName, but pathName's parent must exist.
+
 [list_begin definitions]
 [string range [call [cmd html] [arg pathName] ?[arg options]?] 0 0]
 [list_end]
 
 [section "STANDARD OPTIONS"]
+[example_begin]
+[cmd {
+-height			-width			-xscrollcommand   
+-xscrollincrement	-yscrollincrement                         
+}]
+[example_end]
 
 [section "WIDGET-SPECIFIC OPTIONS"]
 
 [list_begin tkoption]
+[tkoption_def -defaultstyle DefaultStyle DefaultStyle]
+This command determines the default style-sheet for the widget. Default
+style-sheets are stored in the package installation directory with the
+extension ".css". The first part of the style-sheet filename matches the
+[arg style-name] value of this option. The style-sheet "html.css" is
+guaranteed to exist.
+[nl]
+The default value of this option is "html". This should be sufficient for
+most (all?) applications.
+
 [tkoption_def -importcommand ImportCommand ImportCommand]
 Specify a Tcl command to be invoked when an "@import" directive is
 encountered in a stylesheet. Two arguments are appended to the value of
@@ -38,17 +59,26 @@ other Tk widgets.
 Set the value of one or more options. This command works the same way as
 for all other Tk widgets.
 
-[lst_item "[arg pathName] [cmd default_style] [arg style-name]"]
-This command loads a default style-sheet for the widget. Default
-style-sheets are stored in the package installation directory with the
-extension ".css". The first part of the style-sheet filename matches the
-[arg style-name] parameter to this command. The style-sheet "html.css" is
-guaranteed to exist.
-[nl]
-A default style-sheet should always be loaded. Most document elements will
-not behave as expected without one.
-
 [lst_item "[arg pathName] [cmd handler] [arg type] [arg tag] [arg script]"]
+This command is used to define "handler" scripts - Tcl callback scripts
+that are invoked by the widget when document elements of specified types
+are encountered. The widget supports two types of handler scripts: "node"
+and "script". The [arg type] parameter to this command must take one of
+these two values.
+[nl]
+For a "node" handler script, whenever a document element having tag type
+[arg tag] (e.g. "p" or "link") is encountered during parsing, then 
+the node handle for the node is appended to [arg script] and the resulting
+list evaluated as a Tcl command. See the section "NODE COMMAND" for details
+of how a node handle may be used to query and manipulate a document node.
+[nl]
+If the handler script is a "script" handler, whenever a document node of
+type [arg tag] is parsed, then the text that appears between the start and
+end tags of the node is appended to [arg script] and the resulting list
+evaluated as a Tcl command.
+[nl]
+See section [sectref {PROCESSING MODEL}] for more details on exactly when
+handler scripts are invoked.
 
 [lst_item "[arg pathName] [cmd node] ?[arg x] [arg y]?"]
 This command is used to retrieve a handle for a document node that is part
@@ -63,31 +93,93 @@ the specified coordinates or the widget window is not mapped, then an empty
 string is returned.
 [nl]
 The document node can be queried and manipulated using the interface
-described in section "NODE COMMAND".
+described in section [sectref {NODE COMMAND}]
 
 [lst_item "[arg pathName] [cmd parse] [arg html-text]"]
+Append extra text to the end of the (possibly empty) document currently
+parsed.
+
 [lst_item "[arg pathName] [cmd reset]"]
-[lst_item "[arg pathName] [cmd style] [arg style-id] [arg stylesheet-text]"]
+This is used to clear the internal contents of the widget prior to parsing
+a new document. The widget is reset such that the document tree is empty
+(as if no calls to [cmd parse] had ever been made) and no stylesheets
+except the default stylesheet are loaded (as if no invocations of [cmd style] 
+had occured).
+
+[lst_item "[arg pathName] [cmd style] ?[arg style-id]? [arg stylesheet-text]"]
+Add a stylesheet to the widgets internal configuration. The argument
+[arg stylesheet-text] should contain the text of a complete stylesheet.
+Incremental parsing of stylesheets is not supported, although of course
+multiple stylesheets may be added to a single widget.
+[nl]
+If present, the [arg style-id] argument determines the priority taken by
+the style-sheet when assigning property values to document nodes (see
+chapter 6 of the CSS specification for more detail on this process). The
+first part of the style-sheet id must be one of the strings "agent", "user"
+or "author". Following this, a style-sheet id may contain any text.
+[nl]
+When comparing two [arg style-ids] to determine which stylesheet takes
+priority, the widget uses the following approach:
+[nl]
+If the initial strings of the two [arg style-id] values are not identical,
+then "user" takes precedence over "author", and "author" takes precedence
+over "agent". Otherwise, the lexographically largest [arg style-id] value
+takes precedence.
+
 [lst_item "[arg pathName] [cmd xview] ?[arg options]?"]
+This command is used to query or adjust the horizontal position of the
+viewport relative to the document layout. It is identical to the 
+[cmd xview] command implemented by the canvas and text widgets.
+
 [lst_item "[arg pathName] [cmd yview] ?[arg options]?"]
+This command is used to query or adjust the vertical position of the
+viewport relative to the document layout. It is identical to the 
+[cmd yview] command implemented by the canvas and text widgets.
 
 [list_end]
 
 [section "NODE COMMAND"]
 
+There are several interfaces by which a script can obtain a "node handle".
+Each node handle is a Tcl command that may be used to access the document
+node that it represents. A node handle is valid from the time it is
+obtained until the next call to [arg pathName] [cmd reset]. The node
+handle may be used as follows:
+
 [list_begin definitions]
 [lst_item "[arg node] [cmd attr] [arg attribute]"]
+Return the value of the html attribute [arg attribute], or an empty string
+if [arg attribute] is not specified for node [arg node]. 
+
 [lst_item "[arg node] [cmd child] [arg index]"]
+Return the node handle for the index'th child node of node [arg node].
+Children are numbered from zero upward.
+
 [lst_item "[arg node] [cmd nChild]"]
+Return the number of children the node has.
+
 [lst_item "[arg node] [cmd parent]"]
+Return the node handle for the node's parent. If node [arg node] does not
+have a parent (i.e. it is the document root), then return an empty string.
+
 [lst_item "[arg node] [cmd prop] [arg property]"]
+Return the value of CSS property [arg property] for the node.
+
 [lst_item "[arg node] [cmd tag]"]
+Return the name of the Html tag that generated this document node (i.e. "p"
+or "link"), or "text" if the node is a text node.
+
 [lst_item "[arg node] [cmd text]"]
+If the node is a "text" node, return the string contained by the node. If
+the node is not a "text" node, return an empty string.
+
 [list_end]
 
 [section "REPLACED OBJECTS"]
 
 [section "PROCESSING MODEL"]
+
+[section "EXAMPLES"]
 
 [manpage_end]
 
