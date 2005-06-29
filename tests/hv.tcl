@@ -1,4 +1,8 @@
 
+catch {
+  memory init on
+}
+
 set auto_path [concat . $auto_path]
 package require Tkhtml
 source [file join [file dirname [info script]] tkhtml.tcl]
@@ -6,6 +10,7 @@ source [file join [file dirname [info script]] tkhtml.tcl]
 # Global symbols:
 set ::HTML {}            ;# The HTML widget command
 set ::DOCUMENT {}        ;# Name of html file to load on startup.
+set ::EXIT 0             ;# True if -exit switch specified 
 set ::NODE {}            ;# Name of node under the cursor
 set ::WIDGET 1           ;# Counter used to generate unique widget names
 
@@ -117,7 +122,13 @@ proc build_gui {} {
 # This procedure parses the command line arguments
 #
 proc parse_args {argv} {
-    set ::DOCUMENT [lindex $argv 0]
+    for {set i 0} {$i < [llength $argv]} {incr i} {
+        if {[lindex $argv $i] == "-exit"} {
+            set ::EXIT 1
+        } else {
+            set ::DOCUMENT [lindex $argv $i]
+        }
+    }
 }
 
 # This proc is called to get the replacement image for a node of type <IMG>
@@ -211,4 +222,13 @@ proc load_document {document} {
 parse_args $argv
 build_gui
 load_document $::DOCUMENT
+
+if {$::EXIT} {
+    update
+    catch {
+      memory active mem.out
+      puts [memory info]
+    }
+    exit
+}
 

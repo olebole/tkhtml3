@@ -186,15 +186,25 @@ proc ::tk::HtmlView {win axis args} {
     }
 }
 
-# <widget> node <x> <y>
+# <widget> node ?x y?
 #
-#     Return the Tcl handle for the node (if any) at viewport coordinates
-#     (x, y). If no node populates this point, return an empty string.
+#     If parameters x and y are present, return the Tcl handle for the node
+#     (if any) at viewport coordinates (x, y). If no node populates this
+#     point, return an empty string.
 #
-proc ::tk::HtmlNode {win x y} {
-    set xlayout [expr $x + [$win var x]]
-    set ylayout [expr $y + [$win var y]]
-    return [$win layout node $xlayout $ylayout]
+#     If x and y are omitted, return the root node of the document.
+#
+proc ::tk::HtmlNode {win args} {
+    if {[llength $args] == 2} {
+        foreach {x y} $args {}
+        set xlayout [expr $x + [$win var x]]
+        set ylayout [expr $y + [$win var y]]
+        return [$win layout node $xlayout $ylayout]
+    } elseif {[llength $args] == 0} {
+        return [$win tree root]
+    } else {
+        error "wrong # args: should be \"$win node ?x y?\""
+    }
 }
 
 # <widget> default_style <style>

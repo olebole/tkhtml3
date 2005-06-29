@@ -796,14 +796,12 @@ HtmlTreeRoot(clientData, interp, objc, objv)
     Tcl_Obj *CONST objv[];             /* List of all arguments */
 {
     HtmlTree *pTree = (HtmlTree *)clientData;
-    Tcl_Obj *pCmd;
-
     if (!pTree->pRoot) {
-        Tcl_SetResult(interp, "No such node", TCL_STATIC);
-        return TCL_ERROR;
+        Tcl_SetResult(interp, "", TCL_STATIC);
+    } else {
+        Tcl_Obj *pCmd = HtmlNodeCommand(interp, pTree->pRoot);
+        Tcl_SetObjResult(interp, pCmd);
     }
-    pCmd = HtmlNodeCommand(interp, pTree->pRoot);
-    Tcl_SetObjResult(interp, pCmd);
     return TCL_OK;
 }
 

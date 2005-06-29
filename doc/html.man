@@ -40,6 +40,9 @@ Specify a Tcl command to be invoked when an "@import" directive is
 encountered in a stylesheet. Two arguments are appended to the value of
 this option before execution: the stylesheet-id (see below) of the
 stylesheet being parsed, and the URL following the "@import" keyword.
+[nl]
+The [cmd -importcommand] callback is always made from within 
+[lb][arg pathName] [cmd style][rb] commands.
 
 [list_end]
 
@@ -77,8 +80,13 @@ type [arg tag] is parsed, then the text that appears between the start and
 end tags of the node is appended to [arg script] and the resulting list
 evaluated as a Tcl command.
 [nl]
-See section [sectref {PROCESSING MODEL}] for more details on exactly when
-handler scripts are invoked.
+Handler callbacks are always made from within 
+[lb][arg pathName] [cmd parse][rb] commands. The callback for a given node
+is made as soon as the node is completely parsed.  This can happen because
+an implicit or explicit closing tag is parsed, or because there is no more
+document data and the [arg -final] switch was passed to the 
+[lb][arg pathName] [cmd parse][rb]
+command.
 
 [lst_item "[arg pathName] [cmd node] ?[arg x] [arg y]?"]
 This command is used to retrieve a handle for a document node that is part
@@ -95,9 +103,13 @@ string is returned.
 The document node can be queried and manipulated using the interface
 described in section [sectref {NODE COMMAND}]
 
-[lst_item "[arg pathName] [cmd parse] [arg html-text]"]
+[lst_item "[arg pathName] [cmd parse] [opt -final] [arg html-text]"]
 Append extra text to the end of the (possibly empty) document currently
-parsed.
+stored by the widget. 
+[nl]
+If the -final option is present, this indicates that the supplied text is
+the last of the document. Any subsequent call to [cmd parse] before a call
+to [cmd reset] will raise an error.
 
 [lst_item "[arg pathName] [cmd reset]"]
 This is used to clear the internal contents of the widget prior to parsing
@@ -220,12 +232,13 @@ value. This could be used, for example along with the
     proc load_image {node} {
         image create photo [lb]unique_name[rb] -file [lb]$node attr src[rb]
     }
-
 [example_end]
 
-[section "PROCESSING MODEL"]
-
-[section "EXAMPLES"]
+[para]
+Scripts specified as tcl(...) property values in stylesheets are executed
+once for each time the layout engine is run (or never, if the property is
+never read by the layout engine). No guarantees are made about when the
+layout engine is run or rerun.
 
 [manpage_end]
 
