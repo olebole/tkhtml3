@@ -1,244 +1,232 @@
-[comment {-*- tcl -*- doctools manpage}]
-[manpage_begin tkhtml n 3.0]
-[moddesc {HTML Widget}]
-[titledesc {Widget to render html documents}]
-
-[description]
-
-The [cmd html] command creates a new window (given by the [arg pathName]
+'\"
+'\" Generated from file 'html.man' by tcllib/doctools with format 'nroff'
+'\"
+'\" -*- tcl -*- doctools manpage
+.TH "tkhtml" n 3.0 html "HTML Widget"
+.BS
+.SH "NAME"
+tkhtml \- Widget to render html documents
+.SH "SYNOPSIS"
+\fBhtml\fR \fIpathName\fR ?\fIoptions\fR?\fR
+.sp
+.BE
+.SH "DESCRIPTION"
+The \fBhtml\fR command creates a new window (given by the \fIpathName\fR
 argument) and makes it into an html widget. The html command returns its
 pathName argument. At the time this command is invoked, there must not
 exist a window named pathName, but pathName's parent must exist.
-
-[list_begin definitions]
-[string range [call [cmd html] [arg pathName] ?[arg options]?] 0 0]
-[list_end]
-
-[section "STANDARD OPTIONS"]
-[example_begin]
-[cmd {
--height			-width			-xscrollcommand   
--xscrollincrement	-yscrollincrement                         
-}]
-[example_end]
-
-[section "WIDGET-SPECIFIC OPTIONS"]
-
-[list_begin tkoption]
-[tkoption_def -defaultstyle DefaultStyle DefaultStyle]
+.SH "STANDARD OPTIONS"
+.nf
+\fB
+-height			-width			-xscrollcommand
+-xscrollincrement	-yscrollincrement
+\fR
+.fi
+.SH "WIDGET-SPECIFIC OPTIONS"
+.LP
+.nf
+.ta 6c
+Command-Line Switch:	\fB-defaultstyle\fR
+Database Name:	\fBDefaultStyle\fR
+Database Class:	\fBDefaultStyle\fR
+.fi
+.IP
 This command determines the default style-sheet for the widget. Default
 style-sheets are stored in the package installation directory with the
 extension ".css". The first part of the style-sheet filename matches the
-[arg style-name] value of this option. The style-sheet "html.css" is
+\fIstyle-name\fR value of this option. The style-sheet "html.css" is
 guaranteed to exist.
-[nl]
+.sp
 The default value of this option is "html". This should be sufficient for
 most (all?) applications.
-
-[tkoption_def -importcommand ImportCommand ImportCommand]
+.LP
+.nf
+.ta 6c
+Command-Line Switch:	\fB-importcommand\fR
+Database Name:	\fBImportCommand\fR
+Database Class:	\fBImportCommand\fR
+.fi
+.IP
 Specify a Tcl command to be invoked when an "@import" directive is
 encountered in a stylesheet. Two arguments are appended to the value of
 this option before execution: the stylesheet-id (see below) of the
 stylesheet being parsed, and the URL following the "@import" keyword.
-[nl]
-The [cmd -importcommand] callback is always made from within 
-[lb][arg pathName] [cmd style][rb] commands.
-
-[list_end]
-
-[section "WIDGET COMMAND"]
-[para]
-The [cmd html] command creates a new Tcl command whose name is 
-[arg pathName]. This command may be used to invoke various operations on
+.sp
+The \fB-importcommand\fR callback is always made from within
+[\fIpathName\fR \fBstyle\fR] commands.
+.SH "WIDGET COMMAND"
+.PP
+The \fBhtml\fR command creates a new Tcl command whose name is
+\fIpathName\fR. This command may be used to invoke various operations on
 the widget as follows:
-
-[list_begin definitions]
-
-[lst_item "[arg pathName] [cmd cget] [arg option]"]
+.TP
+\fIpathName\fR \fBcget\fR \fIoption\fR
 Retrieve the value of an option. This command works the same way as for all
 other Tk widgets.
-
-[lst_item "[arg pathName] [cmd configure] [arg option] [arg value]"]
+.TP
+\fIpathName\fR \fBconfigure\fR \fIoption\fR \fIvalue\fR
 Set the value of one or more options. This command works the same way as
 for all other Tk widgets.
-
-[lst_item "[arg pathName] [cmd handler] [arg type] [arg tag] [arg script]"]
+.TP
+\fIpathName\fR \fBhandler\fR \fItype\fR \fItag\fR \fIscript\fR
 This command is used to define "handler" scripts - Tcl callback scripts
 that are invoked by the widget when document elements of specified types
 are encountered. The widget supports two types of handler scripts: "node"
-and "script". The [arg type] parameter to this command must take one of
+and "script". The \fItype\fR parameter to this command must take one of
 these two values.
-[nl]
+.sp
 For a "node" handler script, whenever a document element having tag type
-[arg tag] (e.g. "p" or "link") is encountered during parsing, then 
-the node handle for the node is appended to [arg script] and the resulting
+\fItag\fR (e.g. "p" or "link") is encountered during parsing, then
+the node handle for the node is appended to \fIscript\fR and the resulting
 list evaluated as a Tcl command. See the section "NODE COMMAND" for details
 of how a node handle may be used to query and manipulate a document node.
-[nl]
+.sp
 If the handler script is a "script" handler, whenever a document node of
-type [arg tag] is parsed, then the text that appears between the start and
-end tags of the node is appended to [arg script] and the resulting list
+type \fItag\fR is parsed, then the text that appears between the start and
+end tags of the node is appended to \fIscript\fR and the resulting list
 evaluated as a Tcl command.
-[nl]
-Handler callbacks are always made from within 
-[lb][arg pathName] [cmd parse][rb] commands. The callback for a given node
+.sp
+Handler callbacks are always made from within
+[\fIpathName\fR \fBparse\fR] commands. The callback for a given node
 is made as soon as the node is completely parsed.  This can happen because
 an implicit or explicit closing tag is parsed, or because there is no more
-document data and the [arg -final] switch was passed to the 
-[lb][arg pathName] [cmd parse][rb]
+document data and the \fI-final\fR switch was passed to the
+[\fIpathName\fR \fBparse\fR]
 command.
-
-[lst_item "[arg pathName] [cmd node] ?[arg x] [arg y]?"]
+.TP
+\fIpathName\fR \fBnode\fR ?\fIx\fR \fIy\fR?
 This command is used to retrieve a handle for a document node that is part
-of the currently parsed document. If the [arg x] and [arg y] parameters are
+of the currently parsed document. If the \fIx\fR and \fIy\fR parameters are
 omitted, then the handle returned is the root-node of the document, or an
 empty string if the document has no root-node (i.e. an empty document).
-[nl]
-If the [arg x] and [arg y] arguments are present, then the handle returned
+.sp
+If the \fIx\fR and \fIy\fR arguments are present, then the handle returned
 is for the node which generated the document content currently located at
-viewport coordinates ([arg x], [arg y]). If no content is located at
+viewport coordinates (\fIx\fR, \fIy\fR). If no content is located at
 the specified coordinates or the widget window is not mapped, then an empty
 string is returned.
-[nl]
+.sp
 The document node can be queried and manipulated using the interface
-described in section [sectref {NODE COMMAND}]
-
-[lst_item "[arg pathName] [cmd parse] [opt -final] [arg html-text]"]
+described in section \fBNODE COMMAND\fR
+.TP
+\fIpathName\fR \fBparse\fR ?-final? \fIhtml-text\fR
 Append extra text to the end of the (possibly empty) document currently
-stored by the widget. 
-[nl]
+stored by the widget.
+.sp
 If the -final option is present, this indicates that the supplied text is
-the last of the document. Any subsequent call to [cmd parse] before a call
-to [cmd reset] will raise an error.
-
-[lst_item "[arg pathName] [cmd reset]"]
+the last of the document. Any subsequent call to \fBparse\fR before a call
+to \fBreset\fR will raise an error.
+.TP
+\fIpathName\fR \fBreset\fR
 This is used to clear the internal contents of the widget prior to parsing
 a new document. The widget is reset such that the document tree is empty
-(as if no calls to [cmd parse] had ever been made) and no stylesheets
-except the default stylesheet are loaded (as if no invocations of [cmd style] 
+(as if no calls to \fBparse\fR had ever been made) and no stylesheets
+except the default stylesheet are loaded (as if no invocations of \fBstyle\fR
 had occured).
-
-[lst_item "[arg pathName] [cmd style] ?[arg style-id]? [arg stylesheet-text]"]
+.TP
+\fIpathName\fR \fBstyle\fR ?\fIstyle-id\fR? \fIstylesheet-text\fR
 Add a stylesheet to the widgets internal configuration. The argument
-[arg stylesheet-text] should contain the text of a complete stylesheet.
+\fIstylesheet-text\fR should contain the text of a complete stylesheet.
 Incremental parsing of stylesheets is not supported, although of course
 multiple stylesheets may be added to a single widget.
-[nl]
-If present, the [arg style-id] argument determines the priority taken by
+.sp
+If present, the \fIstyle-id\fR argument determines the priority taken by
 the style-sheet when assigning property values to document nodes (see
 chapter 6 of the CSS specification for more detail on this process). The
 first part of the style-sheet id must be one of the strings "agent", "user"
 or "author". Following this, a style-sheet id may contain any text.
-[nl]
-When comparing two [arg style-ids] to determine which stylesheet takes
+.sp
+When comparing two \fIstyle-ids\fR to determine which stylesheet takes
 priority, the widget uses the following approach:
-[nl]
-If the initial strings of the two [arg style-id] values are not identical,
+.sp
+If the initial strings of the two \fIstyle-id\fR values are not identical,
 then "user" takes precedence over "author", and "author" takes precedence
-over "agent". Otherwise, the lexographically largest [arg style-id] value
+over "agent". Otherwise, the lexographically largest \fIstyle-id\fR value
 takes precedence.
-
-[lst_item "[arg pathName] [cmd xview] ?[arg options]?"]
+.TP
+\fIpathName\fR \fBxview\fR ?\fIoptions\fR?
 This command is used to query or adjust the horizontal position of the
-viewport relative to the document layout. It is identical to the 
-[cmd xview] command implemented by the canvas and text widgets.
-
-[lst_item "[arg pathName] [cmd yview] ?[arg options]?"]
+viewport relative to the document layout. It is identical to the
+\fBxview\fR command implemented by the canvas and text widgets.
+.TP
+\fIpathName\fR \fByview\fR ?\fIoptions\fR?
 This command is used to query or adjust the vertical position of the
-viewport relative to the document layout. It is identical to the 
-[cmd yview] command implemented by the canvas and text widgets.
-
-[list_end]
-
-[section "NODE COMMAND"]
-
+viewport relative to the document layout. It is identical to the
+\fByview\fR command implemented by the canvas and text widgets.
+.SH "NODE COMMAND"
 There are several interfaces by which a script can obtain a "node handle".
 Each node handle is a Tcl command that may be used to access the document
 node that it represents. A node handle is valid from the time it is
-obtained until the next call to [arg pathName] [cmd reset]. The node
+obtained until the next call to \fIpathName\fR \fBreset\fR. The node
 handle may be used as follows:
-
-[list_begin definitions]
-[lst_item "[arg node] [cmd attr] [arg attribute]"]
-Return the value of the html attribute [arg attribute], or an empty string
-if [arg attribute] is not specified for node [arg node]. 
-
-[lst_item "[arg node] [cmd child] [arg index]"]
-Return the node handle for the index'th child node of node [arg node].
+.TP
+\fInode\fR \fBattr\fR \fIattribute\fR
+Return the value of the html attribute \fIattribute\fR, or an empty string
+if \fIattribute\fR is not specified for node \fInode\fR.
+.TP
+\fInode\fR \fBchild\fR \fIindex\fR
+Return the node handle for the index'th child node of node \fInode\fR.
 Children are numbered from zero upward.
-
-[lst_item "[arg node] [cmd nChild]"]
+.TP
+\fInode\fR \fBnChild\fR
 Return the number of children the node has.
-
-[lst_item "[arg node] [cmd parent]"]
-Return the node handle for the node's parent. If node [arg node] does not
+.TP
+\fInode\fR \fBparent\fR
+Return the node handle for the node's parent. If node \fInode\fR does not
 have a parent (i.e. it is the document root), then return an empty string.
-
-[lst_item "[arg node] [cmd prop] [arg property]"]
-Return the value of CSS property [arg property] for the node.
-
-[lst_item "[arg node] [cmd tag]"]
+.TP
+\fInode\fR \fBprop\fR \fIproperty\fR
+Return the value of CSS property \fIproperty\fR for the node.
+.TP
+\fInode\fR \fBtag\fR
 Return the name of the Html tag that generated this document node (i.e. "p"
 or "link"), or "text" if the node is a text node.
-
-[lst_item "[arg node] [cmd text]"]
+.TP
+\fInode\fR \fBtext\fR
 If the node is a "text" node, return the string contained by the node. If
 the node is not a "text" node, return an empty string.
-
-[list_end]
-
-[section "REPLACED OBJECTS"]
+.SH "REPLACED OBJECTS"
 Replaced objects are html document nodes that are replaced by either a Tk
 image or a Tk window. For example <IMG> or <INPUT> tags. To implement
 replaced objects in Tkhtml the user supplies the widget with a Tcl script
 to create and return the name of the image or window, and the widget maps,
-manages and eventually destroys the image or window. 
-
-[subsection "-tkhtml-replace property"]
-The [cmd -tkhtml-replace] property is a custom CSS property defined by
+manages and eventually destroys the image or window.
+.SS "-tkhtml-replace property"
+The \fB-tkhtml-replace\fR property is a custom CSS property defined by
 Tkhtml. It may be assigned to by stylesheets and queried using the
-interface described under [sectref "NODE COMMAND"].
-[para]
-When the [cmd -tkhtml-replace] property is assigned a value other than an
+interface described under \fBNODE COMMAND\fR.
+.PP
+When the \fB-tkhtml-replace\fR property is assigned a value other than an
 empty string (the default), it is assumed to contain the name of a Tk
 window or image to replace the node with. A stylesheet rule such as:
-
-[example_begin]
+.nf
 
     IMG#myid { -tkhtml-replace: image1 }
 
-[example_end]
-
+.fi
 causes the node <img id="myid"> to be replaced by Tk image "image1".
-
-[para]
-If the value of the [cmd -tkhtml-replace] property is a window name, then
+.PP
+If the value of the \fB-tkhtml-replace\fR property is a window name, then
 the window must be a child of the html widget window.
-
-[subsection "tcl() property values"]
+.SS "tcl() property values"
 Any CSS property may be assigned a value of the form "tcl(<script>)". The
 first time this property is required by the widget, the node handle is
 appended to <script> and the resulting list evaluated as a Tcl script. The
 return value of the Tcl script is cached and used as the actual property
-value. This could be used, for example along with the 
-[cmd -tkhtml-replace] property to implement image support:
-
-[example_begin]
+value. This could be used, for example along with the
+\fB-tkhtml-replace\fR property to implement image support:
+.nf
 
     /* Stylesheet code */
-    IMG[lb]src[rb] { -tkhtml-replace: tcl(load_image) }
+    IMG[src] { -tkhtml-replace: tcl(load_image) }
 
     # Tcl code
     proc load_image {node} {
-        image create photo [lb]unique_name[rb] -file [lb]$node attr src[rb]
+        image create photo [unique_name] -file [$node attr src]
     }
-[example_end]
-
-[para]
+.fi
+.PP
 Scripts specified as tcl(...) property values in stylesheets are executed
 once for each time the layout engine is run (or never, if the property is
 never read by the layout engine). No guarantees are made about when the
 layout engine is run or rerun.
-
-[manpage_end]
-

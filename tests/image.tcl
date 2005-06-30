@@ -316,7 +316,7 @@ foreach document $::DOCUMENT_LIST {
       image delete $imgold
   }
 
-  $::HTML clear
+  $::HTML internal reset
 }
 
 rename $::HTML {}

@@ -12,7 +12,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile.in,v 1.10 2005/06/13 12:25:24 danielk1977 Exp $
+# RCS: @(#) $Id: Makefile.in,v 1.11 2005/06/30 14:28:43 danielk1977 Exp $
 
 #========================================================================
 # Edit the following few lines when writing a new extension
@@ -227,6 +227,7 @@ install-binaries: binaries install-lib-binaries install-bin-binaries
 	if test "x$(SHARED_BUILD)" = "x1"; then \
 	    $(INSTALL_DATA) pkgIndex.tcl $(DESTDIR)$(pkglibdir); \
 	fi
+	$(INSTALL_DATA) $(srcdir)/tests/tkhtml.tcl $(DESTDIR)$(pkglibdir);
 
 #========================================================================
 # This rule installs platform-independent files, such as header files.
@@ -246,14 +247,13 @@ install-libraries: libraries
 #========================================================================
 
 install-doc: doc
-
-#	@mkdir -p $(DESTDIR)$(mandir)/mann
-#	@echo "Installing documentation in $(DESTDIR)$(mandir)"
-#	@for i in doc/*.n; do \
-#	    echo "Installing $$i"; \
-#	    rm -f $(DESTDIR)$(mandir)/mann/`basename $$i`; \
-#	    $(INSTALL_DATA) $$i $(DESTDIR)$(mandir)/mann ; \
-#	done
+	mkdir -p $(DESTDIR)$(mandir)/mann
+	@echo "Installing documentation in $(DESTDIR)$(mandir)"
+	for i in $(srcdir)/doc/*.n; do \
+	    echo "Installing $$i"; \
+	    rm -f $(DESTDIR)$(mandir)/mann/`basename $$i`; \
+	    $(INSTALL_DATA) $$i $(DESTDIR)$(mandir)/mann ; \
+	done
 
 
 testshell	=	$(TCLSH_PROG) $(srcdir)/testshell
@@ -461,8 +461,8 @@ getpage_headers:	makeheaders
 
 #========================================================================
 
-hwish:	htmlwish.$(OBJEXT) appinit.$(OBJEXT) $(Tkhtml_LIB_FILE)
-	$(COMPILE) -o $@ htmlwish.$(OBJEXT) appinit.$(OBJEXT) $(Tkhtml_LIB_FILE) $(SHLIB_LD_LIBS)
+hwish:	main.$(OBJEXT) $(Tkhtml_OBJECTS)
+	$(COMPILE) -o $@ main.$(OBJEXT) $(Tkhtml_OBJECTS) $(SHLIB_LD_LIBS)
 
 hwishdev:	htmlwish.$(OBJEXT) appinitdev.$(OBJEXT) $(Tkhtml_LIB_FILE)
 	$(COMPILE) -o $@ htmlwish.$(OBJEXT) appinitdev.$(OBJEXT) $(Tkhtml_LIB_FILE) $(SHLIB_LD_LIBS)
@@ -490,13 +490,18 @@ getpage:	getpage.$(OBJEXT) url.$(OBJEXT) sgmlparse.$(OBJEXT) httpget.$(OBJEXT)
 # the configure script output the pkgIndex.tcl by editing configure.in.
 #========================================================================
 
-pkgIndex.tcl:
-	( echo pkg_mkIndex . $($(PACKAGE)_LIB_FILE) \; exit; ) | $(TCLSH)
+pkgIndex.tcl: tkhtml.tcl
+	( echo pkg_mkIndex . tkhtml.tcl \; exit; ) | $(TCLSH)
 
-pkgIndex.tcl-hand:
-	(echo 'package ifneeded $(PACKAGE) $(VERSION) \
-	    [list load [file join $$dir $($(PACKAGE)_LIB_FILE)]]'\
-	) > pkgIndex.tcl
+tkhtml.tcl: $(srcdir)/tests/tkhtml.tcl
+	cp $(srcdir)/tests/tkhtml.tcl .
+
+pkgIndex.tcl-hand: tkhtml.tcl
+	echo 'package ifneeded $(PACKAGE) $(VERSION) \' > pkgIndex.tcl
+	echo '[subst -nocommands {' >> pkgIndex.tcl 
+	echo '  load [file join $$dir $($(PACKAGE)_LIB_FILE)]' >> pkgIndex.tcl 
+	echo '  source [file join $$dir tkhtml.tcl]' >> pkgIndex.tcl
+	echo '}]' >> pkgIndex.tcl
 
 #========================================================================
 # Distribution creation

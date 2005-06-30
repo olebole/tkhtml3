@@ -5,7 +5,7 @@ catch {
 
 set auto_path [concat . $auto_path]
 package require Tkhtml
-source [file join [file dirname [info script]] tkhtml.tcl]
+# source [file join [file dirname [info script]] tkhtml.tcl]
 
 # Global symbols:
 set ::HTML {}            ;# The HTML widget command
