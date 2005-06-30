@@ -1,7 +1,7 @@
 #define TokenMap(htmlPtr,idx) (htmlPtr->tokenMap?htmlPtr->tokenMap[idx]:(HtmlMarkupMap+idx))
 #define TokenapMap(htmlPtr,idx) (htmlPtr->tokenapMap?htmlPtr->tokenMap[idx]:apMap[idx])
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.40 2005/05/16 04:00:17 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.41 2005/06/30 10:37:33 danielk1977 Exp $";
 
 /*
 ** A tokenizer that converts raw HTML into a linked list of HTML elements.
@@ -633,6 +633,8 @@ AppendToken(pTree, pToken)
         pToken->pPrev = 0;
     }
     pTree->pLast = pToken;
+
+    HtmlAddToken(pTree, pToken);
 }
 
 /*
@@ -1302,5 +1304,4 @@ char * HtmlMarkupArg(pToken, zTag, zDefault)
     }
     return zDefault;
 }
-
 

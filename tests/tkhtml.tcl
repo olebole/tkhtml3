@@ -7,13 +7,15 @@ bind Html <Configure> {
     tk::HtmlConfigure %W
 }
 
-bind Html <KeyPress-Down>  { %W yview scroll 1 units }
-bind Html <KeyPress-Up>    { %W yview scroll -1 units }
-bind Html <KeyPress-Right> { %W xview scroll 1 units }
-bind Html <KeyPress-Left>  { %W xview scroll -1 units }
-bind Html <KeyPress-Next>  { %W yview scroll 1 pages }
-bind Html <KeyPress-Prior> { %W yview scroll -1 pages }
-bind Html <ButtonPress>    { focus %W }
+bind Html <KeyPress-Up>     { %W yview scroll -1 units }
+bind Html <KeyPress-Down>   { %W yview scroll 1 units }
+bind Html <KeyPress-Return> { %W yview scroll 1 units }
+bind Html <KeyPress-Right>  { %W xview scroll 1 units }
+bind Html <KeyPress-Left>   { %W xview scroll -1 units }
+bind Html <KeyPress-Next>   { %W yview scroll 1 pages }
+bind Html <KeyPress-space>  { %W yview scroll 1 pages }
+bind Html <KeyPress-Prior>  { %W yview scroll -1 pages }
+bind Html <ButtonPress>     { focus %W }
 
 # Important variables:
 #
@@ -238,7 +240,6 @@ proc ::tk::HtmlDoUpdate {win} {
     set width [winfo width $win]
     set height [winfo height $win]
 
-    $win tree build
     $win style apply
 
     $win layout force -width $width
@@ -271,13 +272,25 @@ proc ::tk::HtmlDamage {win x y w h} {
     }
 }
 
-# <widget> parse HTML-TEXT
+# <widget> parse ?-final? HTML-TEXT
 #
 #     Append the html-text to the document the widget currently contains.
 #     Also schedule a redraw for the next idle-time.
 #
-proc ::tk::HtmlParse {win htmltext} {
-    $win read $htmltext
+proc ::tk::HtmlParse {win args} {
+    set final 0
+    if {[llength $args] == 2 && [lindex $args 0] == "-final"} {
+        set final 1 
+        set htmltext [lindex $args 1]
+    } elseif {[llength $args] == 1} {
+        set htmltext [lindex $args 0]
+    } else {
+        error "wrong # args: should be \"$win parse ?-final? html-text\""
+    }
+    $win internal parse $htmltext
+    if {$final} { 
+        $win internal parsefinal $htmltext
+    }
     $win update
 }
 

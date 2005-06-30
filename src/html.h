@@ -196,6 +196,7 @@ struct HtmlTree {
     HtmlToken *pLast;               /* Last token parsed */
     HtmlNode *pCurrent;             /* The node currently being built. */
     HtmlNode *pRoot;                /* The root-node of the document. */
+    int parseFinished;              /* True if the html parse is finished */
 
     Tcl_HashTable aScriptHandler;   /* Script handler callbacks. */
     Tcl_HashTable aNodeHandler;     /* Script handler callbacks. */
@@ -215,6 +216,8 @@ struct HtmlTree {
 #define MAX(x,y) ((x)>(y)?(x):(y))
 #define MIN(x,y) ((x)<(y)?(x):(y))
 
+EXTERN void HtmlFinishNodeHandlers(HtmlTree *);
+EXTERN void HtmlAddToken(HtmlTree *, HtmlToken *);
 EXTERN int HtmlTreeBuild(ClientData, Tcl_Interp *, int, Tcl_Obj *CONST []);
 EXTERN int HtmlTreeRoot(ClientData, Tcl_Interp *, int, Tcl_Obj *CONST []);
 EXTERN Tcl_ObjCmdProc HtmlTreeCollapseWhitespace;

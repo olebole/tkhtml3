@@ -1,5 +1,5 @@
 static char const rcsid[] =
-        "@(#) $Id: htmltcl.c,v 1.23 2005/06/28 12:24:14 danielk1977 Exp $";
+        "@(#) $Id: htmltcl.c,v 1.24 2005/06/30 10:37:33 danielk1977 Exp $";
 
 /*
 ** The main routine for the HTML widget for Tcl/Tk
@@ -283,7 +283,7 @@ int clearWidget(clientData, interp, objc, objv)
  *
  * parseCmd --
  *
- *     $widget parse HTML-TEXT
+ *     $widget internal parse HTML-TEXT
  * 
  *     Appends the given HTML text to the end of any HTML text that may have
  *     been inserted by prior calls to this command.
@@ -295,7 +295,8 @@ int clearWidget(clientData, interp, objc, objv)
  *
  *---------------------------------------------------------------------------
  */
-int parseCmd(clientData, interp, objc, objv)
+static int 
+parseCmd(clientData, interp, objc, objv)
     ClientData clientData;             /* The HTML widget */
     Tcl_Interp *interp;                /* The interpreter */
     int objc;                          /* Number of arguments */
@@ -309,9 +310,42 @@ int parseCmd(clientData, interp, objc, objv)
      * it and add the new HtmlToken objects to the HtmlTree.pFirst/pLast 
      * linked list.
      */
-    arg1 = Tcl_GetStringFromObj(objv[2], &i);
+    arg1 = Tcl_GetStringFromObj(objv[3], &i);
     HtmlTokenizerAppend(pTree, arg1, i);
 
+    return TCL_OK;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * parseFinalCmd --
+ *
+ *     $widget internal parsefinal
+ * 
+ *     This is called by the Tcl part of the widget when the entire
+ *     document has been parsed (i.e. when the -final switch is passed to
+ *     [$widget parse]). We need to set a flag so that no more text may be
+ *     added to the document and execute any outstanding node-handler 
+ *     callbacks.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+parseFinalCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget */
+    Tcl_Interp *interp;                /* The interpreter */
+    int objc;                          /* Number of arguments */
+    Tcl_Obj *const *objv;              /* List of all arguments */
+{
+    HtmlTree *pTree = (HtmlTree *)clientData;
+    pTree->parseFinished = 1;
+    HtmlFinishNodeHandlers(pTree);
     return TCL_OK;
 }
 
@@ -456,14 +490,18 @@ int HtmlWidgetObjCommand(clientData, interp, objc, objv)
         Tcl_ObjCmdProc *xFuncObj;   /* Object cmd */
     } aSubcommand[] = {
         {
-        "tree", "build", HtmlTreeBuild}, {
+        "internal", "parse", parseCmd}, {
+        "internal", "parsefinal", parseFinalCmd}, {
+
+        "handler", "script", handlerScriptCmd}, {
+        "handler", "node", handlerNodeCmd}, {
+
         "tree", "root",  HtmlTreeRoot}, {
+
         "style", "parse", HtmlStyleParse}, {
         "style", "apply", HtmlStyleApply}, {
         "style", "syntax_errs", HtmlStyleSyntaxErrs}, {
-        "read", 0, parseCmd}, {
-        "handler", "script", handlerScriptCmd}, {
-        "handler", "node", handlerNodeCmd}, {
+
 
         "layout", "primitives", HtmlLayoutPrimitives}, {
         "layout", "image", HtmlLayoutImage}, {

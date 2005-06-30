@@ -201,16 +201,24 @@ int styleNode(pTree, pNode)
 
     if( pNode->pProperties ){
         HtmlCssPropertiesFree(pNode->pProperties);
+        pNode->pProperties = 0;
     }
     ppProp = &pNode->pProperties;
     HtmlCssStyleSheetApply(pTree->pStyle, HtmlNodeInterface(), pNode, ppProp);
 
     /* If there is a "style" attribute on this node, parse the attribute
-     * value and put the resulting mini-stylesheet in pNode->pStyle.
+     * value and put the resulting mini-stylesheet in pNode->pStyle. 
+     *
+     * We assume that if the pStyle attribute is not NULL, then this node
+     * has been styled before. The stylesheet configuration may have
+     * changed since then, so we have to recalculate pNode->pProperties,
+     * but the "style" attribute is constant so pStyle is never invalid.
      */
-    zStyle = HtmlNodeAttr(pNode, "style");
-    if (zStyle) {
-        HtmlCssParseStyle(-1, zStyle, &pNode->pStyle);
+    if (!pNode->pStyle) {
+        zStyle = HtmlNodeAttr(pNode, "style");
+        if (zStyle) {
+            HtmlCssParseStyle(-1, zStyle, &pNode->pStyle);
+        }
     }
 
     return TCL_OK;

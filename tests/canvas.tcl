@@ -78,7 +78,6 @@ proc main {document css} {
   set ::STYLE_TEXT {}
   set parsetime [time {
       $::HTML read $document
-      $::HTML tree build
       $::HTML style parse agent $css
       while {[llength $::STYLESHEET_FILES]>0} {
         set ss [lindex $::STYLESHEET_FILES 0]

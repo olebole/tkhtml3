@@ -16,7 +16,21 @@ static char rcsid[] = "@(#) $Id:";
 
 extern HtmlTokenMap HtmlMarkupMap[];
 
-HtmlTokenMap *HtmlMarkup(markup)
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlMarkup --
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+HtmlTokenMap *
+HtmlMarkup(markup)
     int markup;
 {
     int i = markup-Html_A;

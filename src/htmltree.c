@@ -506,6 +506,81 @@ void HtmlTreeFree(pTree)
 /*
  *---------------------------------------------------------------------------
  *
+ * nodeHandlerCallbacks --
+ *
+ *     This is called for every tree node by HtmlWalkTree() immediately
+ *     after the document tree is constructed. It calls the node handler
+ *     script for the node, if one exists.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+nodeHandlerCallbacks(pTree, pNode)
+    HtmlTree *pTree;
+    HtmlNode *pNode;
+{
+    Tcl_HashEntry *pEntry;
+    int tag;
+    Tcl_Interp *interp = pTree->interp;
+
+    tag = HtmlNodeTagType(pNode);
+    pEntry = Tcl_FindHashEntry(&pTree->aNodeHandler, (char *)tag);
+    if (pEntry) {
+        Tcl_Obj *pEval;
+        Tcl_Obj *pScript;
+        Tcl_Obj *pNodeCmd;
+
+        pScript = (Tcl_Obj *)Tcl_GetHashValue(pEntry);
+        pEval = Tcl_DuplicateObj(pScript);
+        Tcl_IncrRefCount(pEval);
+
+        pNodeCmd = HtmlNodeCommand(interp, pNode); 
+        Tcl_ListObjAppendElement(0, pEval, pNodeCmd);
+        Tcl_EvalObjEx(interp, pEval, TCL_EVAL_DIRECT|TCL_EVAL_GLOBAL);
+
+        Tcl_DecrRefCount(pEval);
+    }
+    return 0;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlFinishNodeHandlers --
+ *
+ *     Execute any outstanding node-handler callbacks. This is used when
+ *     the end of a document is reached - the EOF implicitly closes all
+ *     open nodes. This function executes node-handler scripts for nodes
+ *     closed in such a fashion.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+void 
+HtmlFinishNodeHandlers(pTree)
+    HtmlTree *pTree;
+{
+    HtmlNode *p;
+    for (p = pTree->pCurrent ; p; p = HtmlNodeParent(p)) {
+        nodeHandlerCallbacks(pTree, p);
+    }
+    pTree->pCurrent = 0;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * nodeAddChild --
  *
  *     Add a new child node to node pNode. pToken becomes the starting
@@ -566,13 +641,19 @@ nodeAddChild(pNode, pToken)
  *
  *---------------------------------------------------------------------------
  */
-static void 
+void 
 HtmlAddToken(pTree, pToken)
     HtmlTree *pTree;
     HtmlToken *pToken;
 {
     HtmlNode *pCurrent = pTree->pCurrent;
+    int type = pToken->type;
+    Html_u8 flags = HtmlMarkupFlags(type);
+
     assert((pCurrent && pTree->pRoot) || !pCurrent);
+    if (!pCurrent && pTree->pRoot) {
+        pCurrent = pTree->pRoot;
+    }
 
     /* Variable HtmlTree.pCurrent is only manipulated by this function (not
      * entirely true - it is also set to zero when the tree is deleted). It
@@ -607,24 +688,25 @@ HtmlAddToken(pTree, pToken)
          * documents may have a DOCTYPE and other useless garbage in them,
          * but the tokenizer should ignore all that.
          */
-        pCurrent = (HtmlNode *)ckalloc(sizeof(HtmlNode));
-        memset(pCurrent, 0, sizeof(HtmlNode));
-        pCurrent->pToken = pToken;
-        pTree->pRoot = pCurrent;
-
+        if (!(flags&HTMLTAG_END) && type != Html_Text && type != Html_Space) {
+            pCurrent = (HtmlNode *)ckalloc(sizeof(HtmlNode));
+            memset(pCurrent, 0, sizeof(HtmlNode));
+            pCurrent->pToken = pToken;
+            pTree->pRoot = pCurrent;
+        }
     } else {
         int c = -1;
         int breakout = 0;
-        Html_u8 flags = HtmlMarkupFlags((int)pToken->type);
 
         while (!breakout && pCurrent && isEndTag(pCurrent, pToken)) {
-            if (flags&HTMLTAG_END && isExplicitClose(pCurrent, pToken->type)) {
+            if (flags&HTMLTAG_END && isExplicitClose(pCurrent, type)) {
                 breakout = 1;
             }
+            nodeHandlerCallbacks(pTree, pCurrent);
             pCurrent = HtmlNodeParent(pCurrent);
         }
 
-        if (pToken->type == Html_Text || pToken->type == Html_Space) {
+        if (type == Html_Text || type == Html_Space) {
             if (!HtmlNodeIsText(pCurrent)) {
                 c = nodeAddChild(pCurrent, pToken);
             }
@@ -639,49 +721,6 @@ HtmlAddToken(pTree, pToken)
     }
 
     pTree->pCurrent = pCurrent;
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * treeBuild --
- *
- *     Build the document tree using the linked list of tokens currently
- *     stored in the widget. 
- *
- * Results:
- *
- * Side effects:
- *     The current tree is deleted. p->pTree is set to point at the
- *     new tree.
- *
- *---------------------------------------------------------------------------
- */
-static int 
-treeBuild(pTree)
-    HtmlTree *pTree;
-{
-    HtmlToken *pStart = pTree->pFirst;
-    HtmlToken *pToken;
-    HtmlTreeFree(pTree);
-
-    /* We need to force the root of the document to be an <html> tag. 
-     * So skip over all the white-space at the start of the document. If
-     * the first thing we strike is not an <html> tag, then insert
-     * an artficial one.
-     */
-    while( pStart && pStart->type==Html_Space ){
-        pStart = pStart->pNext;
-    }
-    assert(pStart);
-
-    pToken = pStart;
-    do {
-        HtmlAddToken(pTree, pToken);
-        pToken = pToken->pNext;
-    } while (pToken && pTree->pCurrent);
-
-    return 0;
 }
 
 /*
@@ -732,89 +771,7 @@ HtmlWalkTree(pTree, xCallback)
     HtmlTree *pTree;
     int (*xCallback)(HtmlTree *, HtmlNode *);
 {
-    if( !pTree->pRoot ){
-        treeBuild(pTree);
-    }
     return walkTree(pTree, xCallback, pTree->pRoot);
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * nodeHandlerCallbacks --
- *
- *     This is called for every tree node by HtmlWalkTree() immediately
- *     after the document tree is constructed. It calls the node handler
- *     script for the node, if one exists.
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-static int 
-nodeHandlerCallbacks(pTree, pNode)
-    HtmlTree *pTree;
-    HtmlNode *pNode;
-{
-    Tcl_HashEntry *pEntry;
-    int tag;
-    Tcl_Interp *interp = pTree->interp;
-
-    tag = HtmlNodeTagType(pNode);
-    pEntry = Tcl_FindHashEntry(&pTree->aNodeHandler, (char *)tag);
-    if (pEntry) {
-        Tcl_Obj *pEval;
-        Tcl_Obj *pScript;
-        Tcl_Obj *pNodeCmd;
-
-        pScript = (Tcl_Obj *)Tcl_GetHashValue(pEntry);
-        pEval = Tcl_DuplicateObj(pScript);
-        Tcl_IncrRefCount(pEval);
-
-        pNodeCmd = HtmlNodeCommand(interp, pNode); 
-        Tcl_ListObjAppendElement(0, pEval, pNodeCmd);
-        Tcl_EvalObjEx(interp, pEval, TCL_EVAL_DIRECT|TCL_EVAL_GLOBAL);
-
-        Tcl_DecrRefCount(pEval);
-    }
-    return 0;
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * HtmlTreeBuild --
- *
- *     Construct the internal representation of the document tree.
- *     This is a front-end to treeBuild().
- *
- *     Tcl: $widget tree build
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     Modify HtmlWidget.pTree
- *
- *---------------------------------------------------------------------------
- */
-int 
-HtmlTreeBuild(clientData, interp, objc, objv)
-    ClientData clientData;             /* The HTML widget */
-    Tcl_Interp *interp;                /* The interpreter */
-    int objc;                          /* Number of arguments */
-    Tcl_Obj *CONST objv[];             /* List of all arguments */
-{
-    HtmlTree *pTree = (HtmlTree *)clientData;
-
-    treeBuild(pTree);
-    HtmlWalkTree(pTree, nodeHandlerCallbacks);
-
-    return TCL_OK;
 }
 
 /*

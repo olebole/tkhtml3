@@ -151,7 +151,7 @@ proc nodePrint {indent node} {
     return $ret
 }
 
-# This procedure is called whenever one of the "Statistics" reports is
+# This procedure is called whenever one of the "Reports" reports is
 # requested. Parameter type may be one of:
 #
 #     "tree"
@@ -182,15 +182,15 @@ proc build_gui {} {
     label .status -height 1 -anchor w -background white
 
     . config -menu [menu .m]
-    foreach cascade [list Statistics] {
+    foreach cascade [list Reports] {
         set newmenu [string tolower .m.$cascade]
         .m add cascade -label $cascade -menu [menu $newmenu]
         $newmenu configure -tearoff 0
     }
 
-    .m.statistics add command -label {Memory Usage} -command {dialog memory} 
-    .m.statistics add command -label {Document Info} -command {dialog info}
-    .m.statistics add command -label {Document Tree} -command {report tree}
+    .m.reports add command -label {Memory Usage} -command {dialog memory} 
+    .m.reports add command -label {Document Info} -command {dialog info}
+    .m.reports add command -label {Document Tree} -command {report tree}
 
     pack .vscroll -fill y -side right
     pack .status -fill x -side bottom 
