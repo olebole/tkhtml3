@@ -181,6 +181,11 @@ proc report {type} {
         tree {
             set report [nodePrint 0 [$::HTML node]]
         }
+        prim {
+            foreach p [$::HTML layout primitives] {
+                append report "$p\n"
+            }
+        }
         default {
             error "Can't happen"
         }
@@ -209,6 +214,7 @@ proc build_gui {} {
     .m.reports add command -label {Memory Usage} -command {dialog memory} 
     .m.reports add command -label {Document Info} -command {dialog info}
     .m.reports add command -label {Document Tree} -command {report tree}
+    .m.reports add command -label {Layout Primitives} -command {report prim}
 
     pack .vscroll -fill y -side right
     pack .status -fill x -side bottom 

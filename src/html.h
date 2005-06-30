@@ -257,7 +257,7 @@ EXTERN int HtmlClearImageArray(HtmlTree*);
 EXTERN void HtmlDrawCleanup(HtmlCanvas *);
 EXTERN void HtmlDrawDeleteControls(HtmlTree *, HtmlCanvas *);
 EXTERN void HtmlDrawCanvas(HtmlCanvas *, HtmlCanvas *, int, int, HtmlNode *);
-EXTERN void HtmlDrawText(HtmlCanvas*, Tcl_Obj*, int, int, int, Tk_Font,XColor*);
+EXTERN void HtmlDrawText(HtmlCanvas*,Tcl_Obj*,int,int,int,int,Tk_Font,XColor*);
 EXTERN void HtmlDrawImage(HtmlCanvas *, Tcl_Obj *, int, int, int, int);
 EXTERN void HtmlDrawWindow(HtmlCanvas *, Tcl_Obj *, int, int, int, int);
 EXTERN void HtmlDrawBackground(HtmlCanvas *, XColor *);

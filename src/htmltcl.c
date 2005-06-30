@@ -1,5 +1,5 @@
 static char const rcsid[] =
-        "@(#) $Id: htmltcl.c,v 1.25 2005/06/30 13:07:01 danielk1977 Exp $";
+        "@(#) $Id: htmltcl.c,v 1.26 2005/06/30 16:10:25 danielk1977 Exp $";
 
 /*
 ** The main routine for the HTML widget for Tcl/Tk
@@ -431,7 +431,7 @@ handlerScriptCmd(clientData, interp, objc, objv)
     pEntry = Tcl_CreateHashEntry(&pTree->aScriptHandler,(char *)tag,&newentry);
     if (!newentry) {
         Tcl_Obj *pOld = (Tcl_Obj *)Tcl_GetHashValue(pEntry);
-        Tcl_DecrRefCount(pScript);
+        Tcl_DecrRefCount(pOld);
     }
 
     Tcl_IncrRefCount(pScript);

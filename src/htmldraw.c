@@ -22,6 +22,7 @@ struct CanvasText {
     Tcl_Obj *pText;
     int x;
     int y;
+    int sw;
     Tk_Font font;
     XColor *color;
 };
@@ -275,6 +276,45 @@ void HtmlDrawCanvas(pCanvas, pCanvas2, x, y, pNode)
     if (pCanvas2->pFirst) {
         HtmlCanvasItem *pItem;
         HtmlCanvasItem *pItem2;
+
+	/* Special case: If the canvas being draw into the parent consists
+         * of a single text item, then see if it can be combined with a
+         * text item already in the parent canvas.
+         */
+#if 1
+        if (pCanvas2->pFirst == pCanvas2->pLast && 
+            pCanvas2->pFirst->type == CANVAS_TEXT &&
+            pCanvas->pFirst && pCanvas->pFirst->pNext &&
+            pCanvas->pFirst->pNext->pNext
+        ) {
+            HtmlCanvasItem *pO;
+            HtmlCanvasItem *pI;
+
+            HtmlCanvasItem *pNew = pCanvas2->pFirst;
+            for (pO = pCanvas->pFirst; pO->pNext->pNext->pNext; pO = pO->pNext);
+            pI = pO->pNext;
+            if (pO->type == CANVAS_ORIGIN &&
+                pI->type == CANVAS_TEXT && 
+                pI->x.t.font == pNew->x.t.font &&
+                pI->x.t.color == pNew->x.t.color && 
+                (pI->x.t.y + pO->x.o.y) == (pNew->x.t.y + y)
+            ) {
+                int xi = pO->x.o.x;
+                int xn;
+
+                xi += pO->x.o.right;
+                xn = pNew->x.t.x + x;
+
+                if ((xn - xi) == pI->x.t.sw) {
+                    Tcl_AppendToObj(pI->x.t.pText, " ", 1);
+                    Tcl_AppendObjToObj(pI->x.t.pText, pNew->x.t.pText);
+                    pO->x.o.right = (x + pCanvas2->right) - pO->x.o.x;
+                    HtmlDrawCleanup(pCanvas2);
+                    goto draw_canvas_out;
+                }
+            } 
+        }
+#endif
  
         pItem = (HtmlCanvasItem *)ckalloc(sizeof(HtmlCanvasItem));
         pItem->type = CANVAS_ORIGIN;
@@ -301,11 +341,6 @@ void HtmlDrawCanvas(pCanvas, pCanvas2, x, y, pNode)
         pItem->x.o.pSkip = pItem2;
         linkItem(pCanvas, pItem2);
 
-        pCanvas->left = MIN(pCanvas->left, x+pCanvas2->left);
-        pCanvas->top = MIN(pCanvas->top, y+pCanvas2->top);
-        pCanvas->bottom = MAX(pCanvas->bottom, y+pCanvas2->bottom);
-        pCanvas->right = MAX(pCanvas->right, x+pCanvas2->right);
-
         pItem2 = 0;
         for (pItem = pCanvas2->pWindow; pItem; pItem = pItem->x.w.pNext) {
             pItem->x.w.absx += x;
@@ -319,6 +354,12 @@ void HtmlDrawCanvas(pCanvas, pCanvas2, x, y, pNode)
             pCanvas->pWindow = pCanvas2->pWindow;
         }
     }
+
+draw_canvas_out:
+    pCanvas->left = MIN(pCanvas->left, x+pCanvas2->left);
+    pCanvas->top = MIN(pCanvas->top, y+pCanvas2->top);
+    pCanvas->bottom = MAX(pCanvas->bottom, y+pCanvas2->bottom);
+    pCanvas->right = MAX(pCanvas->right, x+pCanvas2->right);
 }
 
 /*
@@ -360,12 +401,13 @@ void HtmlDrawComment(pCanvas, zComment)
  *
  *---------------------------------------------------------------------------
  */
-void HtmlDrawText(pCanvas, pText, x, y, w, font, color)
+void HtmlDrawText(pCanvas, pText, x, y, w, sw, font, color)
     HtmlCanvas *pCanvas; 
     Tcl_Obj *pText; 
     int x;
     int y;
     int w;
+    int sw;
     Tk_Font font;
     XColor *color;
 {
@@ -378,6 +420,7 @@ void HtmlDrawText(pCanvas, pText, x, y, w, font, color)
     pItem->x.t.y = y;
     pItem->x.t.font = font;
     pItem->x.t.color = color;
+    pItem->x.t.sw = sw;
     Tcl_IncrRefCount(pText);
 
     Tk_GetFontMetrics(font, &fontMetrics);

@@ -2064,7 +2064,7 @@ markerLayout(pLayout, pBox, pNode)
     offset = Tk_TextWidth(font, "x", 1) + width;
     Tk_GetFontMetrics(font, &fontMetrics);
     yoffset = -1 * fontMetrics.ascent;
-    HtmlDrawText(&pBox->vc, pMarker, -1*offset, -1*yoffset, width, font, color);
+    HtmlDrawText(&pBox->vc, pMarker, -1*offset, -1*yoffset,width,0,font,color);
     return TCL_OK;
 }
 
@@ -3061,7 +3061,7 @@ inlineText(pLayout, pNode, pContext)
                 ta = fontmetrics.ascent;
                 td = fontmetrics.descent;
                 inlineContextSetBoxDimensions(pContext, tw, ta, td);
-                HtmlDrawText(pCanvas, pText, 0, 0, tw, font, color);
+                HtmlDrawText(pCanvas, pText, 0, 0, tw, sw, font, color);
                 break;
             }
             case Html_Space: {
