@@ -90,6 +90,87 @@ proc handle_link_node {base node} {
     $::HTML style parse author.1 $script
 }
 
+proc count_nodes {node} {
+    set ret 1
+    for {set i 0} {$i < [$node nChildren]} {incr i} {
+        incr ret [count_nodes [$node child $i]]
+    }
+    return $ret
+}
+
+# This procedure is called whenever one of the "Statistics" dialogs is
+# requested. Parameter type may be one of:
+#
+#     "memory"
+#     "info"
+#
+proc dialog {type} {
+    set report ""
+
+    switch -exact -- $type {
+        memory {
+            if {[catch {set report [memory info]}]} {
+                set report {No [memory] command available.}
+            }
+        }
+        info {
+            # Count the document nodes.
+            set node [$::HTML node]
+            set count [count_nodes $node]
+            set primitives [llength [$::HTML layout primitives]]
+            set report    "Document nodes: $count\n"
+            append report "Layout primitives: $primitives\n"
+        }
+        default {
+            error "Can't happen"
+        }
+    }
+
+    tk_dialog .dialog "Report" $report {} 0 Ok
+}
+
+proc nodePrint {indent node} {
+    set type [$node tag]
+    set istr [string repeat " " $indent]
+    set ret {}
+
+    if {$type == "text"} {
+        append ret $istr
+        append ret [$node text]
+        append ret "\n"
+    } else {
+        append ret $istr
+        append ret "<[$node tag]>\n"
+        for {set i 0} {$i < [$node nChildren]} {incr i} {
+            append ret [nodePrint [expr $indent + 2] [$node child $i]]
+        }
+        append ret $istr
+        append ret "</[$node tag]>\n"
+    }
+
+    return $ret
+}
+
+# This procedure is called whenever one of the "Statistics" reports is
+# requested. Parameter type may be one of:
+#
+#     "tree"
+#
+proc report {type} {
+    set report ""
+
+    switch -exact -- $type {
+        tree {
+            set report [nodePrint 0 [$::HTML node]]
+        }
+        default {
+            error "Can't happen"
+        }
+    }
+
+    puts $report
+}
+
 # This procedure is called once at the start of the script to build
 # the GUI used by the application. It also sets up the callbacks
 # supplied by this script to help the widget render html.
@@ -99,6 +180,17 @@ proc build_gui {} {
     scrollbar .vscroll -orient vertical
     scrollbar .hscroll -orient horizontal
     label .status -height 1 -anchor w -background white
+
+    . config -menu [menu .m]
+    foreach cascade [list Statistics] {
+        set newmenu [string tolower .m.$cascade]
+        .m add cascade -label $cascade -menu [menu $newmenu]
+        $newmenu configure -tearoff 0
+    }
+
+    .m.statistics add command -label {Memory Usage} -command {dialog memory} 
+    .m.statistics add command -label {Document Info} -command {dialog info}
+    .m.statistics add command -label {Document Tree} -command {report tree}
 
     pack .vscroll -fill y -side right
     pack .status -fill x -side bottom 

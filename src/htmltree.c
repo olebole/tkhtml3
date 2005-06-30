@@ -14,6 +14,15 @@ static char rcsid[] = "@(#) $Id:";
 #include <string.h>
 
 /*
+ * The following elements have optional opening and closing types:
+ *
+ *     <tbody>
+ *     <html>
+ *     <head>
+ *     <body>
+ */
+
+/*
  * The following functions:
  *
  *     * HtmlEmptyContent
@@ -82,6 +91,7 @@ int HtmlDlContent(pNode, tag)
     int tag;
 {
     if (tag==Html_DD || tag==Html_DT) return TAG_OK;
+    if (tag == Html_Text || tag == Html_Space) return TAG_OK;
     return TAG_PARENT;
 }
 
@@ -104,6 +114,7 @@ int HtmlUlContent(pNode, tag)
     int tag;
 {
     if (tag==Html_LI || tag==Html_EndLI) return TAG_OK;
+    if (tag == Html_Text || tag == Html_Space) return TAG_OK;
     return TAG_PARENT;
 }
 
@@ -152,6 +163,7 @@ int HtmlInlineContent(pNode, tag)
     int tag;
 {
     Html_u8 flags = HtmlMarkupFlags(tag);
+    if (tag == Html_Text || tag == Html_Space) return TAG_OK;
     if (!(flags&HTMLTAG_INLINE)) {
         return TAG_CLOSE;
     }
@@ -191,6 +203,7 @@ int HtmlFlowContent(pNode, tag)
     int tag;
 {
     Html_u8 flags = HtmlMarkupFlags(tag);
+    if (tag == Html_Text || tag == Html_Space) return TAG_OK;
     if (!(flags&(HTMLTAG_INLINE|HTMLTAG_BLOCK|HTMLTAG_END))) {
         return TAG_CLOSE;
     }
@@ -258,6 +271,7 @@ int HtmlTableContent(pNode, tag)
     ) { 
         return TAG_OK;
     }
+    if (tag == Html_Text || tag == Html_Space) return TAG_OK;
     return TAG_PARENT;
 }
 
@@ -282,6 +296,7 @@ int HtmlTableSectionContent(pNode, tag)
     HtmlNode *pNode;
     int tag;
 {
+    if (tag == Html_Text || tag == Html_Space) return TAG_OK;
     assert(0);
 }
 
@@ -311,6 +326,7 @@ int HtmlTableRowContent(pNode, tag)
     int tag;
 {
     if (tag==Html_TR) return TAG_CLOSE;
+    if (tag == Html_Text || tag == Html_Space) return TAG_OK;
     return TAG_PARENT;
 }
 
@@ -333,6 +349,7 @@ HtmlTableCellContent(pNode, tag)
     int tag;
 {
     if (tag==Html_TH || tag==Html_TD) return TAG_CLOSE;
+    if (tag == Html_Text || tag == Html_Space) return TAG_OK;
     return TAG_PARENT;
 }
 
@@ -355,6 +372,7 @@ HtmlLiContent(pNode, tag)
     int tag;
 {
     if (tag==Html_LI || tag==Html_DD || tag==Html_DT) return TAG_CLOSE;
+    if (tag == Html_Text || tag == Html_Space) return TAG_OK;
     return TAG_PARENT;
 }
 
@@ -391,7 +409,7 @@ isEndTag(pNode, pToken)
 {
     HtmlNode *pN;
     Html_u8 type;
-    
+
     /* If pToken is NULL, this means the end of the token list has been
      * reached. i.e. Close everything.
      */
@@ -399,6 +417,10 @@ isEndTag(pNode, pToken)
         return 1;
     }
     type = pToken->type;
+
+    if (HtmlNodeIsText(pNode)) {
+        return (type != Html_Text && type != Html_Space);
+    }
 
     for (pN=pNode; pN; pN=HtmlNodeParent(pN)) {
         HtmlContentTest xClose; 
@@ -420,102 +442,6 @@ isEndTag(pNode, pToken)
             }
         }
     }
-    return 0;
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * buildNode --
- *
- *     Build a document node from the element pointed to by pStart.
- *
- * Results:
- *     None
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-static int 
-buildNode(pTree, pParent, pStart, ppNext, ppNode, expect_inline)
-    HtmlTree *pTree;             /* Tree the node belongs to */
-    HtmlNode *pParent;           /* Parent of this node */
-    HtmlToken *pStart;           /* Start token */
-    HtmlToken **ppNext;          /* OUT: Next token for parent to process. */
-    HtmlNode **ppNode;           /* OUT: The node constructed (if any) */
-    int expect_inline;           /* True if this is an inline context */
-{
-    HtmlNode *pNode;                       /* The new node */
-    HtmlToken *pNext = pStart;
-
-    Html_u8 opentype = pStart->type;
-    Html_u8 flags = HtmlMarkupFlags((int)opentype);
-
-    /* If this function is called with a closing tag, do not create a new
-     * node, just advance to the next token.
-     */
-    if (flags&HTMLTAG_END) {
-        *ppNode = 0;
-        *ppNext = pNext->pNext;
-        return TCL_OK;
-    }
-
-    /* Allocate the node itself. If required, we change the size of the
-     * allocation using ckrealloc() below.
-     */
-    pNode = (HtmlNode *)ckalloc(sizeof(HtmlNode));
-    memset(pNode, 0, sizeof(HtmlNode));
-    pNode->pToken = pStart;
-    pNode->pParent = pParent;
-    pNext = pStart;
-
-    /* If the HTMLTAG_EMPTY flag is true for this kind of markup, then
-     * the node consists of a single element only. An easy case. Simply
-     * advance the iterator to the next token.
-     */
-    if( flags&HTMLTAG_EMPTY ){
-        pNext = pNext->pNext;
-    }
-
-    /* If the element this document node points to is of type Text or
-     * Space, then advance pNext until it points to an element of type
-     * other than Text or Space. Only a single node is required for
-     * a contiguous list of such elements.
-     */
-    else if( opentype==Html_Text || opentype==Html_Space ){
-        while (pNext && 
-              (pNext->type==Html_Text || pNext->type==Html_Space)
-        ){
-            pNext = pNext->pNext;
-        }
-    }
-
-    /* We must be dealing with a non-empty markup tag. */
-    else {
-        Html_u8 closetype = opentype+1;
-        assert( HtmlMarkupFlags(closetype)&HTMLTAG_END );
- 
-        pNext = pStart->pNext;
-        while (!isEndTag(pNode, pNext)) {
-            int n = (pNode->nChild+1)* sizeof(HtmlNode);
-            pNode->apChildren = (HtmlNode **)
-                    ckrealloc((char *)pNode->apChildren, n);
-            buildNode(pTree, pNode, pNext, &pNext, 
-                    &pNode->apChildren[pNode->nChild], expect_inline);
-            if (pNode->apChildren[pNode->nChild]) {
-                pNode->nChild++;
-            }
-        }
-
-        if (pNext && isExplicitClose(pNode, pNext->type)) {
-            pNext = pNext->pNext;
-        }
-    }
-
-    *ppNext = pNext;
-    *ppNode = pNode;
     return 0;
 }
 
@@ -580,6 +506,144 @@ void HtmlTreeFree(pTree)
 /*
  *---------------------------------------------------------------------------
  *
+ * nodeAddChild --
+ *
+ *     Add a new child node to node pNode. pToken becomes the starting
+ *     token for the new node. The value returned is the index of the new
+ *     child. So the call:
+ *
+ *          HtmlNodeChild(pNode, nodeAddChild(pNode, pToken))
+ *
+ *     returns the new child node.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+nodeAddChild(pNode, pToken)
+    HtmlNode *pNode;
+    HtmlToken *pToken;
+{
+    int n;             /* Number of bytes to alloc for pNode->apChildren */
+    int r;             /* Return value */
+    HtmlNode *pNew;    /* New child node */
+
+    assert(pNode);
+    assert(pToken);
+    
+    r = pNode->nChild++;
+    n = (r+1) * sizeof(HtmlNode*);
+    pNode->apChildren = (HtmlNode **)ckrealloc((char *)pNode->apChildren, n);
+
+    pNew = (HtmlNode *)ckalloc(sizeof(HtmlNode));
+    memset(pNew, 0, sizeof(HtmlNode));
+    pNew->pToken = pToken;
+    pNew->pParent = pNode;
+    pNode->apChildren[r] = pNew;
+
+    assert(r < pNode->nChild);
+    return r;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlAddToken --
+ *
+ *     Update the tree structure with token pToken.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     May modify the tree structure at HtmlTree.pRoot and
+ *     HtmlTree.pCurrent.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void 
+HtmlAddToken(pTree, pToken)
+    HtmlTree *pTree;
+    HtmlToken *pToken;
+{
+    HtmlNode *pCurrent = pTree->pCurrent;
+    assert((pCurrent && pTree->pRoot) || !pCurrent);
+
+    /* Variable HtmlTree.pCurrent is only manipulated by this function (not
+     * entirely true - it is also set to zero when the tree is deleted). It
+     * stores the node currently being constructed. All things being equal,
+     * if the next token parsed is an opening tag (i.e. "<strong>"), then
+     * it will create a new node that becomes the right-most child of
+     * pCurrent.
+     *
+     * From the point of view of building the tree, the token pToken may
+     * fall into one of three categories:
+     *
+     *     1. A text token (a token of type Html_Text or Html_Space). If
+     *        pCurrent is a text node, then nothing need be done. Otherwise,
+     *        the token starts a new node as the right-most child of
+     *        pCurrent.
+     *
+     *     2. An explicit closing tag (i.e. </strong>). This may close
+     *        pCurrent and zero or more of it's ancestors (it also may close
+     *        no tags at all)
+     *
+     *     3. An opening tag (i.e. <strong>). This may close pCurrent and
+     *        zero or more of it's ancestors. It also creates a new node, as
+     *        the right-most child of pCurrent or an ancestor.
+     *
+     * As well as the above three, the trivial case of an empty tree is
+     * handled seperately.
+     */
+
+    if (!pCurrent) {
+        /* If pCurrent is NULL, then this is the first token in the
+         * document. If the document is well-formed, a <html> tag (Html
+         * documents may have a DOCTYPE and other useless garbage in them,
+         * but the tokenizer should ignore all that.
+         */
+        pCurrent = (HtmlNode *)ckalloc(sizeof(HtmlNode));
+        memset(pCurrent, 0, sizeof(HtmlNode));
+        pCurrent->pToken = pToken;
+        pTree->pRoot = pCurrent;
+
+    } else {
+        int c = -1;
+        int breakout = 0;
+        Html_u8 flags = HtmlMarkupFlags((int)pToken->type);
+
+        while (!breakout && pCurrent && isEndTag(pCurrent, pToken)) {
+            if (flags&HTMLTAG_END && isExplicitClose(pCurrent, pToken->type)) {
+                breakout = 1;
+            }
+            pCurrent = HtmlNodeParent(pCurrent);
+        }
+
+        if (pToken->type == Html_Text || pToken->type == Html_Space) {
+            if (!HtmlNodeIsText(pCurrent)) {
+                c = nodeAddChild(pCurrent, pToken);
+            }
+        } else {
+            if (!(flags&HTMLTAG_END) && pCurrent && pToken) {
+                c = nodeAddChild(pCurrent, pToken);
+            }
+        }
+        if (c >= 0) {
+            pCurrent = HtmlNodeChild(pCurrent, c);
+        }
+    }
+
+    pTree->pCurrent = pCurrent;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * treeBuild --
  *
  *     Build the document tree using the linked list of tokens currently
@@ -598,42 +662,25 @@ treeBuild(pTree)
     HtmlTree *pTree;
 {
     HtmlToken *pStart = pTree->pFirst;
+    HtmlToken *pToken;
     HtmlTreeFree(pTree);
 
     /* We need to force the root of the document to be an <html> tag. 
      * So skip over all the white-space at the start of the document. If
      * the first thing we strike is not an <html> tag, then insert
      * an artficial one.
-     *
-     * TODO: Need to construct the other implicit tags, <head> and
-     *       <body>, if they are not missing. This should be done
-     *       in buildNode() though, not here. Maybe the <html> element
-     *       should be dealt with there as well.
      */
     while( pStart && pStart->type==Html_Space ){
         pStart = pStart->pNext;
     }
     assert(pStart);
-#if 0
-    if( !pStart || pStart->base.type!=Html_HTML ){
-        /* Allocate HtmlTree and a pretend <html> token */
-        int n = sizeof(HtmlTree) + sizeof(HtmlBaseElement);
-        HtmlBaseElement *pHtml;
-        p->pTree = (HtmlTree *)ckalloc(n);
-        memset(p->pTree, 0, n);
-        pHtml = (HtmlBaseElement *)&p->pTree[1];
-        pHtml->pNext = pStart;
-        pHtml->type = Html_HTML;
-        pStart = (HtmlElement *)pHtml;
-    }else{
-        /* Allocate just the HtmlTree. */
-        int n = sizeof(HtmlTree);
-        p->pTree = (HtmlTree *)ckalloc(n);
-        memset(p->pTree, 0, n);
-    }
-#endif
 
-    buildNode(pTree, 0, pStart, &pTree->pCurrent, &pTree->pRoot, 0);
+    pToken = pStart;
+    do {
+        HtmlAddToken(pTree, pToken);
+        pToken = pToken->pNext;
+    } while (pToken && pTree->pCurrent);
+
     return 0;
 }
 
