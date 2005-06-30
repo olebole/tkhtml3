@@ -1,5 +1,5 @@
 static char const rcsid[] =
-        "@(#) $Id: htmltcl.c,v 1.24 2005/06/30 10:37:33 danielk1977 Exp $";
+        "@(#) $Id: htmltcl.c,v 1.25 2005/06/30 13:07:01 danielk1977 Exp $";
 
 /*
 ** The main routine for the HTML widget for Tcl/Tk
@@ -257,7 +257,7 @@ varCommand(clientData, interp, objc, objv)
 /*
  *---------------------------------------------------------------------------
  *
- * clearWidget --
+ * resetCmd --
  *
  * Results:
  *     None.
@@ -267,7 +267,7 @@ varCommand(clientData, interp, objc, objv)
  *
  *---------------------------------------------------------------------------
  */
-int clearWidget(clientData, interp, objc, objv)
+int resetCmd(clientData, interp, objc, objv)
     ClientData clientData;             /* The HTML widget */
     Tcl_Interp *interp;                /* The interpreter */
     int objc;                          /* Number of arguments */
@@ -348,6 +348,42 @@ parseFinalCmd(clientData, interp, objc, objv)
     HtmlFinishNodeHandlers(pTree);
     return TCL_OK;
 }
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * rootCmd --
+ *
+ *     $widget internal root
+ *
+ *     Returns the node command for the root node of the document. Or, if
+ *     the tree has not been built, throws an error.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+rootCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget */
+    Tcl_Interp *interp;                /* The interpreter */
+    int objc;                          /* Number of arguments */
+    Tcl_Obj *CONST objv[];             /* List of all arguments */
+{
+    HtmlTree *pTree = (HtmlTree *)clientData;
+    if (!pTree->pRoot) {
+        Tcl_SetResult(interp, "", TCL_STATIC);
+    } else {
+        Tcl_Obj *pCmd = HtmlNodeCommand(interp, pTree->pRoot);
+        Tcl_SetObjResult(interp, pCmd);
+    }
+    return TCL_OK;
+}
+
 
 /*
  *---------------------------------------------------------------------------
@@ -492,16 +528,16 @@ int HtmlWidgetObjCommand(clientData, interp, objc, objv)
         {
         "internal", "parse", parseCmd}, {
         "internal", "parsefinal", parseFinalCmd}, {
+        "internal", "root",  rootCmd}, {
+        "internal", "reset", resetCmd}, {
 
         "handler", "script", handlerScriptCmd}, {
         "handler", "node", handlerNodeCmd}, {
 
-        "tree", "root",  HtmlTreeRoot}, {
 
         "style", "parse", HtmlStyleParse}, {
         "style", "apply", HtmlStyleApply}, {
         "style", "syntax_errs", HtmlStyleSyntaxErrs}, {
-
 
         "layout", "primitives", HtmlLayoutPrimitives}, {
         "layout", "image", HtmlLayoutImage}, {
@@ -513,7 +549,6 @@ int HtmlWidgetObjCommand(clientData, interp, objc, objv)
         "widget", "scroll", HtmlWidgetScroll}, {
         "widget", "mapcontrols", HtmlWidgetMapControls}, {
 
-        "clear", 0, clearWidget}, {
         "var", 0, varCommand}, { 
         "command", 0, commandCommand}, {
         "configure", 0, configureCommand}, {

@@ -203,10 +203,18 @@ proc ::tk::HtmlNode {win args} {
         set ylayout [expr $y + [$win var y]]
         return [$win layout node $xlayout $ylayout]
     } elseif {[llength $args] == 0} {
-        return [$win tree root]
+        return [$win internal root]
     } else {
         error "wrong # args: should be \"$win node ?x y?\""
     }
+}
+
+# <widget> reset
+#
+#     Reset the state of the widget.
+#
+proc ::tk::HtmlReset {win} {
+    $win internal reset
 }
 
 # <widget> default_style <style>
@@ -316,6 +324,7 @@ proc html {args} {
         xview         [list ::tk::HtmlView         $widget x] \
         yview         [list ::tk::HtmlView         $widget y] \
         node          [list ::tk::HtmlNode         $widget] \
+        reset         [list ::tk::HtmlReset        $widget] \
     ]
     foreach {cmd script} $cmds {
         $widget command $cmd $script

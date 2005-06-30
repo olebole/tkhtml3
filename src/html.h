@@ -219,7 +219,6 @@ struct HtmlTree {
 EXTERN void HtmlFinishNodeHandlers(HtmlTree *);
 EXTERN void HtmlAddToken(HtmlTree *, HtmlToken *);
 EXTERN int HtmlTreeBuild(ClientData, Tcl_Interp *, int, Tcl_Obj *CONST []);
-EXTERN int HtmlTreeRoot(ClientData, Tcl_Interp *, int, Tcl_Obj *CONST []);
 EXTERN Tcl_ObjCmdProc HtmlTreeCollapseWhitespace;
 EXTERN Tcl_ObjCmdProc HtmlStyleParse;
 EXTERN Tcl_ObjCmdProc HtmlStyleApply;

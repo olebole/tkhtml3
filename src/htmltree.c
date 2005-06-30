@@ -777,41 +777,6 @@ HtmlWalkTree(pTree, xCallback)
 /*
  *---------------------------------------------------------------------------
  *
- * HtmlTreeRoot --
- *
- *     $widget tree root
- *
- *     Returns the node command for the root node of the document. Or, if
- *     the tree has not been built, throws an error.
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-int 
-HtmlTreeRoot(clientData, interp, objc, objv)
-    ClientData clientData;             /* The HTML widget */
-    Tcl_Interp *interp;                /* The interpreter */
-    int objc;                          /* Number of arguments */
-    Tcl_Obj *CONST objv[];             /* List of all arguments */
-{
-    HtmlTree *pTree = (HtmlTree *)clientData;
-    if (!pTree->pRoot) {
-        Tcl_SetResult(interp, "", TCL_STATIC);
-    } else {
-        Tcl_Obj *pCmd = HtmlNodeCommand(interp, pTree->pRoot);
-        Tcl_SetObjResult(interp, pCmd);
-    }
-    return TCL_OK;
-}
-
-/*
- *---------------------------------------------------------------------------
- *
  * HtmlNodeNumChildren --
  *
  *

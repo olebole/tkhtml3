@@ -71,6 +71,24 @@ proc update_status {x y} {
     .status configure -text $status
 }
 
+# This procedure is called when the user clicks on the html widget. If the
+# mouse is over a hyper-link we load the new document.
+#
+proc click {x y} {
+    set link ""
+    for {set node [$::HTML node $x $y]} {$node!=""} {set node [$node parent]} {
+        if {[$node tag] == "a" && [$node attr href] != ""} {
+            set link [$node attr href]
+            break
+        }
+    }
+
+    if {$link != ""} {
+        set ::DOCUMENT $link
+        load_document [file join $::BASE $link]
+    }
+}
+
 # This procedure is called when a <style> tag is encountered during
 # parsing. The $script parameter holds the entire contents of the node.
 #
@@ -81,9 +99,9 @@ proc handle_style_node {script} {
 # This procedure is called when a <link> node is encountered while building
 # the document tree. It loads a stylesheet from a file on disk if required.
 #
-proc handle_link_node {base node} {
+proc handle_link_node {node} {
     if {[$node attr rel] == "stylesheet"} {
-        set fd [open [file join $base [$node attr href]]]
+        set fd [open [file join $::BASE [$node attr href]]]
         set script [read $fd]
         close $fd
     }
@@ -204,9 +222,10 @@ proc build_gui {} {
 
     bind $::HTML <Motion> "update_status %x %y"
     bind $::HTML <KeyPress-q> exit
+    bind $::HTML <ButtonPress> "click %x %y"
 
     $::HTML handler script style "handle_style_node"
-    $::HTML handler node link "handle_link_node [file dirname $::DOCUMENT]"
+    $::HTML handler node link "handle_link_node"
 
     focus $::HTML
 }
@@ -300,8 +319,9 @@ proc load_document {document} {
     close $fd
 
     set base [file dirname $document]
+    set ::BASE $base
 
-    $::HTML clear
+    $::HTML reset
     $::HTML default_style html
     $::HTML style parse agent.1 [subst -nocommands {
         IMG[src] {-tkhtml-replace:tcl(replace_img_node $base)}
