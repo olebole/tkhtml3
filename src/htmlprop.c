@@ -13,6 +13,147 @@ static char rcsid[] = "@(#) $Id:";
 #include <assert.h>
 #include <string.h>
 
+typedef struct PropertyCacheEntry PropertyCacheEntry;
+struct PropertyCacheEntry {
+    CssProperty prop;
+    PropertyCacheEntry *pNext;
+};
+
+/*
+ * Each node has a property cache, used to cache properties derived from
+ * the cascade algorithm. This is to avoid running the cascade more than
+ * required.
+ */
+struct HtmlPropertyCache {
+    PropertyCacheEntry *pStore;
+    CssProperty *apProp[120];
+};
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * newPropertyCache --
+ *
+ *     Allocate and return a new property cache.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static HtmlPropertyCache *
+newPropertyCache()
+{
+    HtmlPropertyCache *pRet;
+    pRet = (HtmlPropertyCache *)ckalloc(sizeof(HtmlPropertyCache));
+    memset(pRet, 0, sizeof(HtmlPropertyCache));
+    return pRet;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlDeletePropertyCache --
+ *
+ *     Delete a property cache previously returned by newPropertyCache().
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+void 
+HtmlDeletePropertyCache(pCache)
+    HtmlPropertyCache *pCache; 
+{
+    if (pCache) {
+        ckfree((char *)pCache);
+        /* TODO: Delete pCache->pStore */
+    }
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * setPropertyCache --
+ *
+ *     Set the value of property iProp in the property cache to pProp. The
+ *     pointer to pProp is copied, so *pProp must exist for the lifetime of
+ *     this property-cache.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void 
+setPropertyCache(pCache, iProp, pProp)
+    HtmlPropertyCache *pCache; 
+    int iProp;
+    CssProperty *pProp;
+{
+    pCache->apProp[iProp] = pProp;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * storePropertyCache --
+ *
+ *     Set the value of property iProp in the property cache to pProp. The
+ *     value is copied and released when the property cache is destroyed.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static CssProperty *storePropertyCache(pCache, pProp)
+    HtmlPropertyCache *pCache; 
+    CssProperty *pProp;
+{
+    PropertyCacheEntry *pEntry;
+    pEntry = (PropertyCacheEntry *)ckalloc(sizeof(PropertyCacheEntry));
+    pEntry->prop = *pProp;
+    pEntry->pNext = pCache->pStore;
+    pCache->pStore = pEntry;
+    return &pEntry->prop;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * getPropertyCache --
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static CssProperty *
+getPropertyCache(pCache, iProp)
+    HtmlPropertyCache *pCache; 
+    int iProp;
+{
+    return pCache->apProp[iProp];
+}
+    
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -614,7 +755,7 @@ static PropMapEntry *propmap[130];
  *
  *---------------------------------------------------------------------------
  */
-static void getProperty(interp, pNode, pEntry, inheriting, pOut)
+static CssProperty *getProperty(interp, pNode, pEntry, inheriting, pOut)
     Tcl_Interp *interp;
     HtmlNode *pNode;
     PropMapEntry *pEntry;
@@ -622,26 +763,27 @@ static void getProperty(interp, pNode, pEntry, inheriting, pOut)
     CssProperty *pOut;
 {
     CssProperty *pProp = 0;
+    CssProperty *pProp2 = 0;
     HtmlNode *pN;
     int spec = -1;
     int sheet = -1;
     int prop = pEntry->property;
     HtmlCachedProperty *pCache;
+    HtmlPropertyCache *pPropertyCache = pNode->pPropCache;
+
+    if (!pPropertyCache) {
+        pPropertyCache = newPropertyCache();
+        pNode->pPropCache = pPropertyCache;
+    }
 
     /* Before looking anywhere else, see if this property is present in the
-     * nodes local cache. This can happen if a Tcl script was invoked to
-     * find the value of the same property earlier.
+     * nodes local cache. 
      */
-    for (pCache=pNode->pCache; pCache; pCache=pCache->pNext) {
-        if (pCache->iProp==prop) {
-            if (pCache->pProp) {
-                *pOut = *pCache->pProp;
-            } else {
-                *pOut = pEntry->initial;
-            }
-            sheet = 0;
-            goto getproperty_out;
-        }
+    pProp = getPropertyCache(pPropertyCache, prop);
+    if (pProp) {
+        assert(pProp->eType != CSS_TYPE_TCL);
+        sheet = 1;
+        goto getproperty_out;
     }
 
     /* Query the style-sheet database. HtmlCssPropertiesGet2() returns the
@@ -653,9 +795,9 @@ static void getProperty(interp, pNode, pEntry, inheriting, pOut)
      * or other html attributes may not override it, so we jump to the end
      * of this function immediately.
      */
-    pProp = HtmlCssPropertiesGet2(pNode->pProperties, prop, &sheet, &spec);
-    if (pProp) {
-        *pOut = *pProp;
+    pProp2 = HtmlCssPropertiesGet2(pNode->pProperties, prop, &sheet, &spec);
+    if (pProp2) {
+        pProp = pProp2;
     }
     if (sheet==CSS_ORIGIN_AUTHOR && spec>10000) {
         goto getproperty_out;
@@ -668,9 +810,9 @@ static void getProperty(interp, pNode, pEntry, inheriting, pOut)
      * another html attribute, so jump to th eend of the funtion now.
      */
     if (pNode->pStyle) {
-        pProp = HtmlCssPropertiesGet(pNode->pStyle, prop);
-        if (pProp) {
-            *pOut = *pProp;
+        pProp2 = HtmlCssPropertiesGet(pNode->pStyle, prop);
+        if (pProp2) {
+            pProp = pProp2;
             sheet = 0;
             goto getproperty_out;
         }
@@ -688,6 +830,7 @@ static void getProperty(interp, pNode, pEntry, inheriting, pOut)
     /* See if we can get the property by translating an HTML attribute. */
     assert (!pEntry->attrinherit);
     if (pEntry->xAttrmap && pEntry->xAttrmap(pNode, pOut)) {
+        pProp = storePropertyCache(pPropertyCache, pOut);
         sheet = 0;
     }
 
@@ -699,11 +842,11 @@ getproperty_out:
      * parent node (if one exists).
      */ 
     if ((sheet < 0 && pEntry->inherit) || 
-        (sheet >= 0 && pOut->eType == CSS_TYPE_INHERIT)
+        (sheet >= 0 && pProp->eType == CSS_TYPE_INHERIT)
     ) {
         HtmlNode *pParent = HtmlNodeParent(pNode);
         if (pParent) {
-            HtmlNodeGetProperty(interp, pParent, pEntry->property, pOut);
+            pProp = getProperty(interp, pParent, pEntry, 1, pOut);
             sheet = 0;
         }
     }
@@ -711,9 +854,11 @@ getproperty_out:
     /* If we still have nothing, use the properties initial value. */
     if (sheet < 0) {
         if (pEntry->initial.eType==CSS_TYPE_COPYCOLOR) {
-            HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_COLOR, pOut);
+            PropMapEntry *pE= propmap[CSS_PROPERTY_COLOR];
+            pProp = getProperty(interp, pNode, pE, 0, pOut);
+            sheet = 0;
         } else {
-            *pOut = pEntry->initial;
+            pProp = &pEntry->initial;
         }
     }
 
@@ -721,10 +866,10 @@ getproperty_out:
      * step checks if the property is of type CSS_TYPE_TCL. If so, we need
      * to invoke a Tcl script to retrieve the value of this property.
      */
-    if (pOut->eType==CSS_TYPE_TCL) {
+    if (pProp->eType==CSS_TYPE_TCL) {
         int rc;
         Tcl_Obj *pNodeCmd = HtmlNodeCommand(interp, pNode);
-        Tcl_Obj *pEval = Tcl_NewStringObj(pOut->v.zVal, -1);
+        Tcl_Obj *pEval = Tcl_NewStringObj(pProp->v.zVal, -1);
 
         Tcl_IncrRefCount(pEval);
         Tcl_ListObjAppendElement(0, pEval, pNodeCmd);
@@ -743,7 +888,6 @@ getproperty_out:
              * that we don't have to execute the Tcl script again.
              */
             Tcl_Obj *pResult;
-            CssProperty *pProp;
 
             pResult = Tcl_GetObjResult(interp);
             pProp = HtmlCssStringToProperty(Tcl_GetString(pResult), -1);
@@ -751,16 +895,21 @@ getproperty_out:
             if (pProp->eType==CSS_TYPE_TCL) {
                 *pProp = pEntry->initial;
             }
-            *pOut = *pProp;
         } else {
             /* The Tcl script failed. Return the default property value.
 	     * Set the pointer in the cache to NULL so that we don't
 	     * execute this script next time.
             */
             pCache->pProp = 0;
-            *pOut = pEntry->initial;
+            pProp = &pEntry->initial;
         }
     }
+
+    if (pProp != pOut) {
+        assert(pProp->eType != CSS_TYPE_TCL);
+        setPropertyCache(pPropertyCache, prop, pProp);
+    }
+    return pProp;
 }
 
 /*
@@ -783,6 +932,7 @@ void HtmlNodeGetProperty(interp, pNode, prop, pOut)
     CssProperty *pOut;
 {
     PropMapEntry *pEntry;
+    CssProperty *pProp;
 
     /* If the property map is not already initialized, do so now. */
     if (!propMapisInit) {
@@ -797,7 +947,10 @@ void HtmlNodeGetProperty(interp, pNode, prop, pOut)
 
     pEntry = propmap[prop];
     assert(pEntry);
-    getProperty(interp, pNode, pEntry, 0, pOut);
+    pProp = getProperty(interp, pNode, pEntry, 0, pOut);
+    if (pProp != pOut) {
+        *pOut = *pProp;
+    }
 }
 
 /*

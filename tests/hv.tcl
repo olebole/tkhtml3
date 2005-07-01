@@ -4,15 +4,16 @@ catch {
 }
 
 set auto_path [concat . $auto_path]
-package require Tkhtml
+package require Tkhtml 3.0
 # source [file join [file dirname [info script]] tkhtml.tcl]
 
 # Global symbols:
-set ::HTML {}            ;# The HTML widget command
-set ::DOCUMENT {}        ;# Name of html file to load on startup.
-set ::EXIT 0             ;# True if -exit switch specified 
-set ::NODE {}            ;# Name of node under the cursor
-set ::WIDGET 1           ;# Counter used to generate unique widget names
+set ::HTML {}                ;# The HTML widget command
+set ::DOCUMENT {}            ;# Name of html file to load on startup.
+set ::EXIT 0                 ;# True if -exit switch specified 
+set ::NODE {}                ;# Name of node under the cursor
+set ::WIDGET 1               ;# Counter used to generate unique widget names
+array set ::ANCHORTONODE {}  ;# Map from anchor name to node command
 
 # If possible, load package "Img". Without it the script can still run,
 # but won't be able to load many image formats.
@@ -84,8 +85,18 @@ proc click {x y} {
     }
 
     if {$link != ""} {
-        set ::DOCUMENT $link
-        load_document [file join $::BASE $link]
+        set parts [split $link #]
+        set doc [lindex $parts 0]
+        set anchor [lindex $parts 1]
+        if {$doc == "" || [file join $::BASE $doc] == $::DOCUMENT} {
+            if {[info exists ::ANCHORTONODE($anchor)]} {
+                set node $::ANCHORTONODE($anchor)
+                $::HTML yview moveto $node
+            }
+        } else {
+            set ::DOCUMENT [file join $::BASE $doc]
+            load_document $::DOCUMENT $anchor
+        }
     }
 }
 
@@ -108,11 +119,34 @@ proc handle_link_node {node} {
     $::HTML style parse author.1 $script
 }
 
-proc count_nodes {node} {
-    set ret 1
-    for {set i 0} {$i < [$node nChildren]} {incr i} {
-        incr ret [count_nodes [$node child $i]]
+# This procedure is called when a <a> node is encountered while building
+# the document tree. If the <a> has a name attribute, put an entry in the
+# ::ANCHORTONODE map.
+#
+proc handle_a_node {node} {
+    set name [$node attr name]
+    if {$name != ""} {
+        set ::ANCHORTONODE($name) $node
     }
+}
+
+# Analyse the tree with node $node at it's head and return a two element
+# list. The first element of the list is the total number of nodes in the
+# tree. The second element is the number of "text" nodes in the tree.
+#
+proc count_nodes {node} {
+    if {[$node tag] == "text"} {
+        set ret {1 1}
+    } else {
+        set ret {1 0}
+    }
+    
+    for {set i 0} {$i < [$node nChildren]} {incr i} {
+        set c [count_nodes [$node child $i]]
+        lset ret 0 [expr [lindex $ret 0] + [lindex $c 0]]
+        lset ret 1 [expr [lindex $ret 1] + [lindex $c 1]]
+    }
+
     return $ret
 }
 
@@ -136,7 +170,10 @@ proc dialog {type} {
             set node [$::HTML node]
             set count [count_nodes $node]
             set primitives [llength [$::HTML layout primitives]]
-            set report    "Document nodes: $count\n"
+            set layout_time [lindex [$::HTML var layout_time] 0]
+            set report    "Layout time: $layout_time us\n"
+            append report "Document nodes: [lindex $count 0]"
+            append report " ([lindex $count 1] text)\n"
             append report "Layout primitives: $primitives\n"
         }
         default {
@@ -232,6 +269,7 @@ proc build_gui {} {
 
     $::HTML handler script style "handle_style_node"
     $::HTML handler node link "handle_link_node"
+    $::HTML handler node a "handle_a_node"
 
     focus $::HTML
 }
@@ -319,7 +357,7 @@ proc replace_select_node {base node} {
     return $menubutton
 }
 
-proc load_document {document} {
+proc load_document {document anchor} {
     set fd [open $document]
     set doc [read $fd]
     close $fd
@@ -327,6 +365,7 @@ proc load_document {document} {
     set base [file dirname $document]
     set ::BASE $base
 
+    array set ::ANCHORTONODE {}
     $::HTML reset
     $::HTML default_style html
     $::HTML style parse agent.1 [subst -nocommands {
@@ -335,11 +374,16 @@ proc load_document {document} {
         SELECT   {-tkhtml-replace:tcl(replace_select_node $base)}
     }]
     $::HTML parse $doc
+
+    if {$anchor != "" && [info exists ::ANCHORTONODE($anchor)]} {
+        update
+        $::HTML yview moveto $::ANCHORTONODE($anchor)
+    }
 }
 
 parse_args $argv
 build_gui
-load_document $::DOCUMENT
+load_document $::DOCUMENT {}
 
 if {$::EXIT} {
     update

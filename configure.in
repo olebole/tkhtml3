@@ -1,7 +1,7 @@
 dnl
 dnl Process this file with autoconf to produce a configure script.
 dnl
-AC_REVISION($Id: configure.in,v 1.16 2002/12/17 18:31:04 drh Exp $)
+AC_REVISION($Id: configure.in,v 1.17 2005/07/01 11:45:55 danielk1977 Exp $)
 
 #--------------------------------------------------------------------
 # Configure script for package 'tkhtml', as distributed at November 20, 2001.
@@ -29,7 +29,7 @@ AC_SUBST(CONFIGDIR)
 
 PACKAGE=Tkhtml
 
-MAJOR_VERSION=2
+MAJOR_VERSION=3
 MINOR_VERSION=0
 #MAJOR_VERSION=10
 #MINOR_VERSION=0

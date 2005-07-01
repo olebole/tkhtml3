@@ -1,5 +1,5 @@
 static char const rcsid[] =
-        "@(#) $Id: htmltcl.c,v 1.26 2005/06/30 16:10:25 danielk1977 Exp $";
+        "@(#) $Id: htmltcl.c,v 1.27 2005/07/01 11:45:55 danielk1977 Exp $";
 
 /*
 ** The main routine for the HTML widget for Tcl/Tk
@@ -530,6 +530,7 @@ int HtmlWidgetObjCommand(clientData, interp, objc, objv)
         "internal", "parsefinal", parseFinalCmd}, {
         "internal", "root",  rootCmd}, {
         "internal", "reset", resetCmd}, {
+        "internal", "bbox", HtmlLayoutBbox}, {
 
         "handler", "script", handlerScriptCmd}, {
         "handler", "node", handlerNodeCmd}, {
@@ -807,7 +808,9 @@ DLL_EXPORT int Tkhtml_Init(interp)
 
     Tcl_CreateObjCommand(interp, "html", newWidget, 0, 0);
 
+/*
     Tcl_StaticPackage(interp, "Tkhtml", Tkhtml_Init, Tkhtml_SafeInit);
     Tcl_PkgProvide(interp, HTML_PKGNAME, HTML_PKGVERSION);
+*/
     return TCL_OK;
 }

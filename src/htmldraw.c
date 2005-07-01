@@ -1252,3 +1252,80 @@ HtmlWidgetMapControls(clientData, interp, objc, objv)
     return TCL_OK;
 }
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlLayoutBbox --
+ *
+ *     <widget> internal bbox NODE
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+int 
+HtmlLayoutBbox(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    int rc;
+    Tcl_CmdInfo info;
+    HtmlNode *pNode = 0;
+    HtmlTree *pTree = (HtmlTree *)clientData;
+    HtmlCanvas *pCanvas = &pTree->canvas;
+    HtmlCanvasItem *pItem;
+    int bbox[4];
+    int x = 0;
+    int y = 0;
+
+    bbox[0] = pCanvas->right;  /* x1 */
+    bbox[1] = pCanvas->bottom; /* y1 */
+    bbox[2] = pCanvas->left;   /* x2 */
+    bbox[3] = pCanvas->top;    /* y2 */
+
+    if (objc != 4) {
+        Tcl_WrongNumArgs(interp, 3, objv, "NODE");
+        return TCL_ERROR;
+    }
+
+    if (0 == Tcl_GetCommandInfo(interp, Tcl_GetString(objv[3]), &info)) {
+        Tcl_AppendResult(interp, "no such node: ", Tcl_GetString(objv[3]), 0);
+        return TCL_ERROR;
+    }
+
+    pNode = (HtmlNode *)info.objClientData;
+    assert(pNode);
+
+    for (pItem=pCanvas->pFirst; pItem; pItem=pItem->pNext) {
+        if (pItem->type == CANVAS_ORIGIN) {
+            CanvasOrigin *pOrigin = &pItem->x.o;
+            HtmlNode *pN;
+            x += pOrigin->x;
+            y += pOrigin->y;
+            for (pN = pOrigin->pNode; pN; pN = HtmlNodeParent(pN)) { 
+                if (pN == pNode) {
+                    bbox[0] = MIN(bbox[0], x + pOrigin->left);
+                    bbox[1] = MIN(bbox[1], y + pOrigin->top);
+                    bbox[2] = MAX(bbox[2], x + pOrigin->right);
+                    bbox[3] = MAX(bbox[3], y + pOrigin->bottom);
+                    break;
+                }
+            }
+        }
+    }
+
+    if (bbox[0] < bbox[2] && bbox[1] < bbox[3]) {
+        char zBuf[128];
+        sprintf(zBuf, "%d %d %d %d", bbox[0], bbox[1], bbox[2], bbox[3]);
+        Tcl_SetResult(interp, zBuf, TCL_VOLATILE);
+    }
+
+    return TCL_OK;
+}
+

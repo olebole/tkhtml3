@@ -473,6 +473,7 @@ freeNode(pNode)
         }
         HtmlCssPropertiesFree(pNode->pProperties);
         HtmlCssPropertiesFree(pNode->pStyle);
+        HtmlDeletePropertyCache(pNode->pPropCache);
         ckfree((char *)pNode->apChildren);
         ckfree((char *)pNode);
     }

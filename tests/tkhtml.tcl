@@ -1,3 +1,4 @@
+package provide Tkhtml 3.0
 
 bind Html <Expose> {
     tk::HtmlExpose %W %x %y %w %h
@@ -114,7 +115,21 @@ proc ::tk::HtmlView {win axis args} {
             append e "view moveto fraction"
             error $e
         }
-        set newval [expr int(double($layout_len) * [lindex $args 1])]
+        set target [lindex $args 1]
+        if {[info commands $target] != ""} {
+            set bbox [$::HTML internal bbox $target]
+            if {[llength $bbox] == 4} {
+                if {$axis == "x"} {
+                    set newval [lindex $bbox 0]
+                } else {
+                    set newval [lindex $bbox 1]
+                }
+            } else {
+                set newval $offscreen_len
+            }
+        } else {
+            set newval [expr int(double($layout_len) * [lindex $args 1])]
+        }
 
     } elseif {$cmd == "scroll"} {
         if {[llength $args] != 3} {
@@ -250,7 +265,9 @@ proc ::tk::HtmlDoUpdate {win} {
 
     $win style apply
 
-    $win layout force -width $width
+    set layout_time [time {$win layout force -width $width}]
+    $win var layout_time $layout_time
+  
     $win widget paint 0 0 0 0 $width $height
     $win widget mapcontrols 0 0
 

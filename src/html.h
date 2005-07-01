@@ -61,6 +61,7 @@ typedef struct HtmlTokenMap HtmlTokenMap;
 typedef struct HtmlCanvas HtmlCanvas;
 typedef struct HtmlCanvasItem HtmlCanvasItem;
 typedef struct HtmlFloatList HtmlFloatList;
+typedef struct HtmlPropertyCache HtmlPropertyCache;
 
 typedef int (*HtmlContentTest)(HtmlNode *, int);
 
@@ -128,6 +129,7 @@ struct HtmlNode {
     CssProperties *pProperties;    /* The CSS properties from stylesheets */
     CssProperties *pStyle;         /* The CSS properties from style attribute */
     HtmlCachedProperty *pCache;    /* List of properties set by Tcl scripts. */
+    HtmlPropertyCache *pPropCache; /* Cached properties */
 
     Tcl_Obj *pCommand;             /* Tcl command for this node. */
 };
@@ -228,6 +230,7 @@ EXTERN Tcl_ObjCmdProc HtmlLayoutSize;
 EXTERN Tcl_ObjCmdProc HtmlLayoutNode;
 EXTERN Tcl_ObjCmdProc HtmlLayoutImage;
 EXTERN Tcl_ObjCmdProc HtmlLayoutPrimitives;
+EXTERN Tcl_ObjCmdProc HtmlLayoutBbox;
 EXTERN Tcl_ObjCmdProc HtmlWidgetPaint;
 EXTERN Tcl_ObjCmdProc HtmlWidgetScroll;
 EXTERN Tcl_ObjCmdProc HtmlWidgetMapControls;
@@ -249,6 +252,7 @@ EXTERN Tcl_Obj *HtmlNodeCommand(Tcl_Interp *interp, HtmlNode *pNode);
 
 EXTERN void HtmlNodeGetProperty(Tcl_Interp *, HtmlNode *, int , CssProperty *);
 EXTERN void HtmlNodeGetDefault(HtmlNode *, int , CssProperty *);
+EXTERN void HtmlDeletePropertyCache(HtmlPropertyCache *);
 
 EXTERN Tcl_Obj *HtmlResizeImage(HtmlTree *, CONST char *, int *, int *, int);
 EXTERN Tcl_Obj *HtmlXImageToImage(HtmlTree *, XImage *, int, int);
