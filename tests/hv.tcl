@@ -1,9 +1,13 @@
 
 catch {
   memory init on
+  for {set i 0} {$i < 50} {incr i} {
+       memory info
+  }
 }
 
 set auto_path [concat . $auto_path]
+puts $auto_path
 package require Tkhtml 3.0
 # source [file join [file dirname [info script]] tkhtml.tcl]
 
@@ -91,14 +95,16 @@ proc bytes {memreport} {
 
 proc layout_engine_report {} {
     lappend ::MEMARRAY [string trim [memory info]]
+    memory active mem[llength $::MEMARRAY].txt
     lappend ::TIMEARRAY [$::HTML var layout_time]
 
     $::HTML reset
     lappend ::MEMARRAY [string trim [memory info]]
+    memory active mem[llength $::MEMARRAY].txt
 
     load_document $::DOCUMENT {}
 
-    if {[llength $::MEMARRAY] < 6} {
+    if {[llength $::MEMARRAY] < 8} {
         after idle layout_engine_report
     } else {
         set report_lines [split [lindex $::MEMARRAY 0] "\n"]
@@ -111,14 +117,17 @@ proc layout_engine_report {} {
             }
         }
 
-        set leak1 [expr \
+        set leaks {}
+        lappend leaks [expr \
             [bytes [lindex $::MEMARRAY 2]] - [bytes [lindex $::MEMARRAY 0]]]
-        set leak2 [expr \
+        lappend leaks [expr \
             [bytes [lindex $::MEMARRAY 4]] - [bytes [lindex $::MEMARRAY 2]]]
+        lappend leaks [expr \
+            [bytes [lindex $::MEMARRAY 6]] - [bytes [lindex $::MEMARRAY 4]]]
 
         lappend report_lines {}
         lappend report_lines "Layout times (us): $::TIMEARRAY"
-        lappend report_lines "Growth (bytes): $leak1 $leak2"
+        lappend report_lines "Growth (bytes): $leaks"
         set report [join $report_lines "\n"]
         report_dialog $report
         set ::MEMARRAY {}

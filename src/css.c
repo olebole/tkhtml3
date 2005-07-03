@@ -1019,6 +1019,7 @@ static void propertySetFree(CssPropertySet *p){
     for(i=0; i<p->nProp; i++){
         ckfree((char *)p->aProp[i]);
     }
+    ckfree((char *)p->aProp);
     ckfree((char *)p);
 }
 
@@ -1414,6 +1415,7 @@ HtmlCssStyleSheetFree(pStyle)
             pRule2 = pRule;
         }
         ruleFree(pRule2);
+        ckfree((char *)pStyle);
     }
 }
 
@@ -2141,39 +2143,3 @@ void HtmlCssSelectorComma(pParse)
     pParse->nXtra++;
 }
 
-/*
- *---------------------------------------------------------------------------
- *
- * HtmlCssPropertiesTclize --
- * 
- *     Create a Tcl representation of a property set. This is returned
- *     as a new Tcl object with the ref-count set to 1. The caller must
- *     call Tcl_DecrRefCount() on the returned object at some point.
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-Tcl_Obj * HtmlCssPropertiesTclize(pProperties)
-    CssProperties * pProperties; 
-{
-    Tcl_Obj *pRet = Tcl_NewObj();
-    int i;
-    Tcl_IncrRefCount(pRet);
-    if( pProperties ){
-        for(i=0; i<127; i++){
-            CssProperty *pProp = HtmlCssPropertiesGet(pProperties, i);
-            if( pProp ){
-                Tcl_ListObjAppendElement(0, pRet, 
-                    Tcl_NewStringObj(tkhtmlCssPropertyToString(i), -1));
-                Tcl_ListObjAppendElement(0, pRet, 
-                    Tcl_NewStringObj(HtmlCssPropertyGetString(pProp), -1));
-            }
-        }
-    }
-    return pRet;
-}

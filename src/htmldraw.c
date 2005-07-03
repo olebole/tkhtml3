@@ -728,6 +728,8 @@ static Pixmap getPixmap(pTree, xcanvas, ycanvas, w, h)
     mask = GCForeground;
     gc = Tk_GetGC(pTree->win, mask, &gc_values);
     XFillRectangle(pDisplay, pmap, gc, 0, 0, w, h);
+    Tk_FreeGC(pDisplay, gc);
+    gc = 0;
 
     for (pItem=pCanvas->pFirst; pItem; pItem=pItem->pNext) {
         switch (pItem->type) {
@@ -825,6 +827,11 @@ static Pixmap getPixmap(pTree, xcanvas, ycanvas, w, h)
                 XFillRectangle(pDisplay, pmap, gc, 0, 0, w, h);
                 break;
             }
+        }
+
+        if (gc) {
+            Tk_FreeGC(pDisplay, gc);
+            gc = 0;
         }
     }
 
@@ -1097,6 +1104,7 @@ HtmlWidgetPaint(clientData, interp, objc, objv)
 
     XCopyArea(display, pixmap, Tk_WindowId(win), gc, 0, 0, width, height, x, y);
     Tk_FreePixmap(display, pixmap);
+
     Tk_FreeGC(display, gc);
     return TCL_OK;
 }
@@ -1164,6 +1172,8 @@ HtmlWidgetScroll(clientData, interp, objc, objv)
         XCopyArea(display, Tk_WindowId(win), Tk_WindowId(win), gc, 
                 source_x, source_y, width, height, dest_x, dest_y);
     }
+
+    Tk_FreeGC(display, gc);
 
     return TCL_OK;
 }

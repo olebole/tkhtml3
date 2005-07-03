@@ -128,7 +128,6 @@ void HtmlCssStyleSheetApply
 void HtmlCssPropertiesFree(CssProperties *);
 CssProperty *HtmlCssPropertiesGet(CssProperties *, int);
 CssProperty *HtmlCssPropertiesGet2(CssProperties *, int, int*, int*);
-Tcl_Obj * HtmlCssPropertiesTclize(CssProperties *pProperties);
 
 /* Future interface for :before and :after pseudo-elements. Need this to 
  * handle the <br> tag most elegantly.

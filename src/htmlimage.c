@@ -129,6 +129,7 @@ int HtmlClearImageArray(pTree)
 
     if (pNames) {
         Tcl_EvalObjEx(interp, pNames, TCL_EVAL_GLOBAL|TCL_EVAL_DIRECT);
+        Tcl_DecrRefCount(pNames);
     }
     return TCL_OK;
 }

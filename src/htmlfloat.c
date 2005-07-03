@@ -119,8 +119,20 @@ HtmlFloatList *HtmlFloatListNew()
  *
  *---------------------------------------------------------------------------
  */
-void HtmlFloatListDelete()
+void 
+HtmlFloatListDelete(pList)
+    HtmlFloatList *pList;
 {
+    if (pList) {
+        FloatListEntry *pEntry;
+        FloatListEntry *pEntry2 = 0;
+        for (pEntry = pList->pEntry; pEntry; pEntry = pEntry->pNext) {
+            if (pEntry2) ckfree((char *)pEntry2);
+            pEntry2 = pEntry;
+        }
+        if (pEntry2) ckfree((char *)pEntry2);
+        ckfree((char *)pList);
+    }
 }
 
 /*
