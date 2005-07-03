@@ -463,17 +463,22 @@ isEndTag(pNode, pToken)
  *---------------------------------------------------------------------------
  */
 static void 
-freeNode(pNode)
+freeNode(interp, pNode)
+    Tcl_Interp *interp;
     HtmlNode *pNode;
 {
     if( pNode ){
         int i;
         for(i=0; i<pNode->nChild; i++){
-            freeNode(pNode->apChildren[i]);
+            freeNode(interp, pNode->apChildren[i]);
         }
         HtmlCssPropertiesFree(pNode->pProperties);
         HtmlCssPropertiesFree(pNode->pStyle);
         HtmlDeletePropertyCache(pNode->pPropCache);
+        if (pNode->pCommand) {
+            Tcl_DeleteCommand(interp, Tcl_GetString(pNode->pCommand));
+            Tcl_DecrRefCount(pNode->pCommand);
+        }
         ckfree((char *)pNode->apChildren);
         ckfree((char *)pNode);
     }
@@ -498,7 +503,7 @@ void HtmlTreeFree(pTree)
     HtmlTree *pTree;
 {
     if( pTree->pRoot ){
-        freeNode(pTree->pRoot);
+        freeNode(pTree->interp, pTree->pRoot);
     }
     pTree->pRoot = 0;
     pTree->pCurrent = 0;

@@ -84,6 +84,11 @@ proc document_summary_report {} {
     report_dialog $report
 }
 
+proc bytes {memreport} {
+    set line [lindex [split $memreport "\n"] 3]
+    return [lindex $line end]
+}
+
 proc layout_engine_report {} {
     lappend ::MEMARRAY [string trim [memory info]]
     lappend ::TIMEARRAY [$::HTML var layout_time]
@@ -105,8 +110,15 @@ proc layout_engine_report {} {
                 incr l
             }
         }
+
+        set leak1 [expr \
+            [bytes [lindex $::MEMARRAY 2]] - [bytes [lindex $::MEMARRAY 0]]]
+        set leak2 [expr \
+            [bytes [lindex $::MEMARRAY 4]] - [bytes [lindex $::MEMARRAY 2]]]
+
         lappend report_lines {}
         lappend report_lines "Layout times (us): $::TIMEARRAY"
+        lappend report_lines "Growth (bytes): $leak1 $leak2"
         set report [join $report_lines "\n"]
         report_dialog $report
         set ::MEMARRAY {}
