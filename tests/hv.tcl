@@ -333,7 +333,7 @@ proc replace_input_node {base node} {
             set win [entry $winname]
         }
         password {
-            set win [entry $winname -show]
+            set win [entry $winname -show true]
         }
         submit {
             set win [button $winname -text [$node attr value]] 

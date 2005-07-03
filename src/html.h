@@ -128,7 +128,6 @@ struct HtmlNode {
 
     CssProperties *pProperties;    /* The CSS properties from stylesheets */
     CssProperties *pStyle;         /* The CSS properties from style attribute */
-    HtmlCachedProperty *pCache;    /* List of properties set by Tcl scripts. */
     HtmlPropertyCache *pPropCache; /* Cached properties */
 
     Tcl_Obj *pCommand;             /* Tcl command for this node. */

@@ -221,6 +221,10 @@ int styleNode(pTree, pNode)
         }
     }
 
+    /* Delete the property cache for the node, if one exists. */
+    HtmlDeletePropertyCache(pNode->pPropCache);
+    pNode->pPropCache = 0;
+
     return TCL_OK;
 }
 

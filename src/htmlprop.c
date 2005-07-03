@@ -13,6 +13,14 @@ static char rcsid[] = "@(#) $Id:";
 #include <assert.h>
 #include <string.h>
 
+/*
+ * A special value that the eType field of an initial property value can
+ * take. If eType==CSS_TYPE_SAMEASCOLOR, then the value of the 'color'
+ * property is used as the initial value for the property.
+ */
+#define CSS_TYPE_COPYCOLOR -1
+#define CSS_TYPE_FREEZVAL -1
+
 typedef struct PropertyCacheEntry PropertyCacheEntry;
 struct PropertyCacheEntry {
     CssProperty prop;
@@ -73,8 +81,18 @@ HtmlDeletePropertyCache(pCache)
     HtmlPropertyCache *pCache; 
 {
     if (pCache) {
+        PropertyCacheEntry *pStore = pCache->pStore;
+        PropertyCacheEntry *pStore2 = 0;
+
+        while (pStore) {
+            pStore2 = pStore->pNext;
+            if (pStore->prop.eType == CSS_TYPE_FREEZVAL) {
+                ckfree(pStore->prop.v.zVal);
+            }
+            ckfree((char *)pStore);
+            pStore = pStore2;
+        }
         ckfree((char *)pCache);
-        /* TODO: Delete pCache->pStore */
     }
 }
 
@@ -151,6 +169,33 @@ getPropertyCache(pCache, iProp)
     int iProp;
 {
     return pCache->apProp[iProp];
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * freeWithPropertyCache --
+ *
+ *     Call ckfree() on the supplied property pointer when this property
+ *     cache is deleted.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void 
+freeWithPropertyCache(pCache, pProp)
+    HtmlPropertyCache *pCache; 
+    CssProperty *pProp;
+{
+    CssProperty freeprop;
+    freeprop.eType = CSS_TYPE_FREEZVAL;
+    freeprop.v.zVal = (char *)pProp;
+    storePropertyCache(pCache, &freeprop);
 }
     
 
@@ -613,18 +658,11 @@ mapBorderSpacing(pNode, pOut)
     return 0;
 }
 
-/*
- * A special value that the eType field of an initial property value can
- * take. If eType==CSS_TYPE_SAMEASCOLOR, then the value of the 'color'
- * property is used as the initial value for the property.
- */
-#define CSS_TYPE_COPYCOLOR -1
-
 /* 
  * These macros just makes the array definition below format more neatly.
  */
-#define CSS_NONE   {CSS_TYPE_STRING, "none"}
 #define CSSSTR(x) {CSS_TYPE_STRING, (int)x}
+#define CSS_NONE CSSSTR("none")
 
 struct PropMapEntry {
     int property;
@@ -636,9 +674,9 @@ struct PropMapEntry {
 typedef struct PropMapEntry PropMapEntry;
 
 static PropMapEntry propmapdata[] = {
-    {CSS_PROPERTY_DISPLAY, 0, 0, 0, {CSS_TYPE_STRING, "inline"}},
-    {CSS_PROPERTY_FLOAT, 0, 0, 0, {CSS_TYPE_STRING, "none"}},
-    {CSS_PROPERTY_CLEAR, 0, 0, 0, {CSS_TYPE_STRING, "none"}},
+    {CSS_PROPERTY_DISPLAY, 0, 0, 0, CSSSTR("inline")},
+    {CSS_PROPERTY_FLOAT, 0, 0, 0, CSS_NONE},
+    {CSS_PROPERTY_CLEAR, 0, 0, 0, CSS_NONE},
 
     {CSS_PROPERTY_BACKGROUND_COLOR, 0, 0, mapBgColor, CSSSTR("transparent")},
     {CSS_PROPERTY_COLOR, 1, 0, mapColor, CSSSTR("black")},
@@ -655,8 +693,8 @@ static PropMapEntry propmapdata[] = {
     {CSS_PROPERTY_FONT_FAMILY, 1, 0, 0, CSSSTR("Helvetica")},
     {CSS_PROPERTY_FONT_STYLE, 1, 0, 0,  CSSSTR("normal")},
     {CSS_PROPERTY_FONT_WEIGHT, 1, 0, 0, CSSSTR("normal")},
-    {CSS_PROPERTY_TEXT_ALIGN, 1, 0, 0,  {CSS_TYPE_STRING, "left"}},
-    {CSS_PROPERTY_LINE_HEIGHT, 0, 0, 0, {CSS_TYPE_STRING, "normal"}},
+    {CSS_PROPERTY_TEXT_ALIGN, 1, 0, 0,  CSSSTR("left")},
+    {CSS_PROPERTY_LINE_HEIGHT, 0, 0, 0, CSSSTR("normal")},
 
     /* Width of borders. */
     {CSS_PROPERTY_BORDER_TOP_WIDTH,    0, 0, mapBorderWidth, CSSSTR("medium")},
@@ -768,7 +806,6 @@ static CssProperty *getProperty(interp, pNode, pEntry, inheriting, pOut)
     int spec = -1;
     int sheet = -1;
     int prop = pEntry->property;
-    HtmlCachedProperty *pCache;
     HtmlPropertyCache *pPropertyCache = pNode->pPropCache;
 
     if (!pPropertyCache) {
@@ -876,11 +913,6 @@ getproperty_out:
         rc = Tcl_EvalObjEx(interp, pEval, TCL_EVAL_GLOBAL|TCL_EVAL_DIRECT);
         Tcl_DecrRefCount(pEval);
 
-        pCache = (HtmlCachedProperty *)ckalloc(sizeof(HtmlCachedProperty));
-        pCache->iProp = prop;
-        pCache->pNext = pNode->pCache;
-        pNode->pCache = pCache;
-
         if (rc==TCL_OK) {
             /* If the Tcl script was successful, interpret the returned
              * string as a property value and return it. Put the
@@ -891,17 +923,15 @@ getproperty_out:
 
             pResult = Tcl_GetObjResult(interp);
             pProp = HtmlCssStringToProperty(Tcl_GetString(pResult), -1);
-            pCache->pProp = pProp;
             if (pProp->eType==CSS_TYPE_TCL) {
-                *pProp = pEntry->initial;
+                pProp = &pEntry->initial;
+            } else {
+                freeWithPropertyCache(pPropertyCache, pProp);
             }
         } else {
-            /* The Tcl script failed. Return the default property value.
-	     * Set the pointer in the cache to NULL so that we don't
-	     * execute this script next time.
-            */
-            pCache->pProp = 0;
+            /* The Tcl script failed. Return the default property value. */
             pProp = &pEntry->initial;
+            Tcl_BackgroundError(interp);
         }
     }
 
