@@ -23,8 +23,10 @@ bind Html <ButtonPress>     { focus %W }
 #     The following variables are stored in the widget dictionary using the
 #     [<widget> var] command:
 #     
-#         "x" - The number of pixels scrolled in the x-direction.
-#         "y" - The number of pixels scrolled in the y-direction.
+#         x           - The number of pixels scrolled in the x-direction.
+#         y           - The number of pixels scrolled in the y-direction.
+#         layout_time - The time consumed by the last complete run of the
+#                       layout engine (in us, integer value only).
 #
 
 # <Configure> event
@@ -266,7 +268,7 @@ proc ::tk::HtmlDoUpdate {win} {
     $win style apply
 
     set layout_time [time {$win layout force -width $width}]
-    $win var layout_time $layout_time
+    $win var layout_time [lindex $layout_time 0]
   
     $win widget paint 0 0 0 0 $width $height
     $win widget mapcontrols 0 0

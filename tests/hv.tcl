@@ -13,12 +13,105 @@ set ::DOCUMENT {}            ;# Name of html file to load on startup.
 set ::EXIT 0                 ;# True if -exit switch specified 
 set ::NODE {}                ;# Name of node under the cursor
 set ::WIDGET 1               ;# Counter used to generate unique widget names
+set ::MEMARRAY {}            ;# Used by proc layout_engine_report.
+set ::TIMEARRAY {}           ;# Used by proc layout_engine_report.
 array set ::ANCHORTONODE {}  ;# Map from anchor name to node command
 
 # If possible, load package "Img". Without it the script can still run,
 # but won't be able to load many image formats.
 catch {
   package require Img
+}
+
+proc nodePrint {indent node} {
+    set type [$node tag]
+    set istr [string repeat " " $indent]
+    set ret {}
+
+    if {$type == "text"} {
+        append ret $istr
+        append ret [$node text]
+        append ret "\n"
+    } else {
+        append ret $istr
+        append ret "<[$node tag]>\n"
+        for {set i 0} {$i < [$node nChildren]} {incr i} {
+            append ret [nodePrint [expr $indent + 2] [$node child $i]]
+        }
+        append ret $istr
+        append ret "</[$node tag]>\n"
+    }
+
+    return $ret
+}
+
+proc report_dialog {report} {
+    if {![winfo exists .report]} {
+        toplevel .report
+
+        text .report.text
+        scrollbar .report.scroll
+        .report.text configure -width 100
+        .report.text configure -yscrollcommand {.report.scroll set}
+        .report.scroll configure -command {.report.text yview}
+
+        pack .report.text -fill both -expand true -side left
+        pack .report.scroll -fill y -expand true
+    }
+
+    .report.text delete 0.0 end
+    .report.text insert 0.0 $report
+}
+
+proc layout_primitives_report {} {
+    report_dialog [join [$::HTML layout primitives] "\n"]
+}
+
+proc document_tree_report {} {
+    report_dialog [nodePrint 0 [$::HTML node]]
+}
+
+proc document_summary_report {} {
+    set report {}
+    set node [$::HTML node]
+    set count [count_nodes $node]
+    set primitives [llength [$::HTML layout primitives]]
+    set layout_time [lindex [$::HTML var layout_time] 0]
+    set report    "Layout time: $layout_time us\n"
+    append report "Document nodes: [lindex $count 0]"
+    append report " ([lindex $count 1] text)\n"
+    append report "Layout primitives: $primitives\n"
+    report_dialog $report
+}
+
+proc layout_engine_report {} {
+    lappend ::MEMARRAY [string trim [memory info]]
+    lappend ::TIMEARRAY [$::HTML var layout_time]
+
+    $::HTML reset
+    lappend ::MEMARRAY [string trim [memory info]]
+
+    load_document $::DOCUMENT {}
+
+    if {[llength $::MEMARRAY] < 6} {
+        after idle layout_engine_report
+    } else {
+        set report_lines [split [lindex $::MEMARRAY 0] "\n"]
+        foreach mem [lrange $::MEMARRAY 1 end] {
+            set l 0
+            foreach line [split $mem "\n"] {
+                set number [format {% 8s} [lindex $line end]]
+                lset report_lines $l "[lindex $report_lines $l] $number" 
+                incr l
+            }
+        }
+        lappend report_lines {}
+        lappend report_lines "Layout times (us): $::TIMEARRAY"
+        set report [join $report_lines "\n"]
+        report_dialog $report
+        set ::MEMARRAY {}
+        set ::TIMEARRAY {}
+    }
 }
 
 # Update the status bar. The mouse is at screen coordinates (x, y).
@@ -150,87 +243,6 @@ proc count_nodes {node} {
     return $ret
 }
 
-# This procedure is called whenever one of the "Statistics" dialogs is
-# requested. Parameter type may be one of:
-#
-#     "memory"
-#     "info"
-#
-proc dialog {type} {
-    set report ""
-
-    switch -exact -- $type {
-        memory {
-            if {[catch {set report [memory info]}]} {
-                set report {No [memory] command available.}
-            }
-        }
-        info {
-            # Count the document nodes.
-            set node [$::HTML node]
-            set count [count_nodes $node]
-            set primitives [llength [$::HTML layout primitives]]
-            set layout_time [lindex [$::HTML var layout_time] 0]
-            set report    "Layout time: $layout_time us\n"
-            append report "Document nodes: [lindex $count 0]"
-            append report " ([lindex $count 1] text)\n"
-            append report "Layout primitives: $primitives\n"
-        }
-        default {
-            error "Can't happen"
-        }
-    }
-
-    tk_dialog .dialog "Report" $report {} 0 Ok
-}
-
-proc nodePrint {indent node} {
-    set type [$node tag]
-    set istr [string repeat " " $indent]
-    set ret {}
-
-    if {$type == "text"} {
-        append ret $istr
-        append ret [$node text]
-        append ret "\n"
-    } else {
-        append ret $istr
-        append ret "<[$node tag]>\n"
-        for {set i 0} {$i < [$node nChildren]} {incr i} {
-            append ret [nodePrint [expr $indent + 2] [$node child $i]]
-        }
-        append ret $istr
-        append ret "</[$node tag]>\n"
-    }
-
-    return $ret
-}
-
-# This procedure is called whenever one of the "Reports" reports is
-# requested. Parameter type may be one of:
-#
-#     "tree"
-#
-proc report {type} {
-    set report ""
-
-    switch -exact -- $type {
-        tree {
-            set report [nodePrint 0 [$::HTML node]]
-        }
-        prim {
-            foreach p [$::HTML layout primitives] {
-                append report "$p\n"
-            }
-        }
-        default {
-            error "Can't happen"
-        }
-    }
-
-    puts $report
-}
-
 # This procedure is called once at the start of the script to build
 # the GUI used by the application. It also sets up the callbacks
 # supplied by this script to help the widget render html.
@@ -248,10 +260,12 @@ proc build_gui {} {
         $newmenu configure -tearoff 0
     }
 
-    .m.reports add command -label {Memory Usage} -command {dialog memory} 
-    .m.reports add command -label {Document Info} -command {dialog info}
-    .m.reports add command -label {Document Tree} -command {report tree}
-    .m.reports add command -label {Layout Primitives} -command {report prim}
+    .m.reports add command -label {Document Summary} \
+             -command document_summary_report
+    .m.reports add command -label {Document Tree} -command document_tree_report
+    .m.reports add command -label {Layout Primitives} \
+            -command layout_primitives_report
+    .m.reports add command -label {Layout Engine} -command layout_engine_report
 
     pack .vscroll -fill y -side right
     pack .status -fill x -side bottom 
