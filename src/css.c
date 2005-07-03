@@ -1024,7 +1024,7 @@ static void propertySetFree(CssPropertySet *p){
 
 /*--------------------------------------------------------------------------
  *
- * propertySetFree --
+ * selectorFree --
  *
  *     Delete a linked list of CssSelector structs, including the 
  *     CssSelector.zValue and CssSelector.zAttr fields.
@@ -1357,8 +1357,64 @@ int HtmlCssParseStyle(
     return 0;
 }
 
-void HtmlCssStyleSheetFree(CssStyleSheet *pStyle){
-    /* TODO: Cleanup! */
+/*
+ *---------------------------------------------------------------------------
+ *
+ * ruleFree --
+ *
+ *     Free the CssRule object pRule.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void ruleFree(pRule)
+    CssRule *pRule;
+{
+    if (pRule) {
+        Tcl_DecrRefCount(pRule->pStyleId);
+        selectorFree(pRule->pSelector);
+        if (pRule->freePropertySets) {
+            propertySetFree(pRule->pPropertySet);
+            propertySetFree(pRule->pImportant);
+        }
+        ckfree((char *)pRule);
+    }
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlCssStyleSheetFree --
+ *
+ *     Delete the internal representation of the stylesheet configuration.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+void 
+HtmlCssStyleSheetFree(pStyle)
+    CssStyleSheet *pStyle;
+{
+    CssRule *pRule;
+    CssRule *pRule2 = 0;
+
+    if (pStyle) {
+        for (pRule = pStyle->pUniversalRules; pRule; pRule = pRule->pNext) {
+            ruleFree(pRule2);
+            pRule2 = pRule;
+        }
+        ruleFree(pRule2);
+    }
 }
 
 /*
@@ -1561,10 +1617,11 @@ ruleCompare(CssRule *pLeft, CssRule *pRight) {
  *---------------------------------------------------------------------------
  */
 void 
-cssSelectorPropertySetPair(pParse, pSelector, pPropertySet)
+cssSelectorPropertySetPair(pParse, pSelector, pPropertySet, freePropertySets)
     CssParse *pParse;
     CssSelector *pSelector;
     CssPropertySet *pPropertySet;
+    int freePropertySets;
 {
     int spec = 0;
     CssSelector *pS = 0;
@@ -1574,6 +1631,7 @@ cssSelectorPropertySetPair(pParse, pSelector, pPropertySet)
 
     pPropertySet->nRef++;
     pRule->pImportant = 0;
+    pRule->freePropertySets = freePropertySets;
 
     /* Calculate the specificity of the rules. We use the following
      * formala:
@@ -1714,9 +1772,9 @@ void tkhtmlCssRule(pParse, success)
     pParse->nXtra = 0;
 
     if( success && pSelector && pPropertySet ){
-        cssSelectorPropertySetPair(pParse, pSelector, pPropertySet);
+        cssSelectorPropertySetPair(pParse, pSelector, pPropertySet, 1);
         for (i = 0; i < nXtra; i++){
-            cssSelectorPropertySetPair(pParse, apXtraSelector[i], pPropertySet);
+            cssSelectorPropertySetPair(pParse,apXtraSelector[i],pPropertySet,0);
         }
     }else{
         /* Some sort of a parse error has occured. We won't be including

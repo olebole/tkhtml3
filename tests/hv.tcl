@@ -264,7 +264,7 @@ proc build_gui {} {
     .hscroll configure -command "$::HTML xview"
 
     bind $::HTML <Motion> "update_status %x %y"
-    bind $::HTML <KeyPress-q> exit
+    bind $::HTML <KeyPress-q> "$::HTML reset ; exit"
     bind $::HTML <ButtonPress> "click %x %y"
 
     $::HTML handler script style "handle_style_node"

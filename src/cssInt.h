@@ -126,9 +126,10 @@ struct CssRule {
     Tcl_Obj *pStyleId;       /* Second and subsequent parts of stylesheet id */
     int specificity;         /* Specificity of the selector */
     CssSelector *pSelector;  /* The selector for this rule */
-    CssPropertySet *pPropertySet;   /* Property values for the rule. */
-    CssPropertySet *pImportant;     /* !IMPORTANT property values. */
-    CssRule *pNext;                 /* Next rule in this list. */
+    int freePropertySets;          /* True to delete pPropertySet/pImportant */
+    CssPropertySet *pPropertySet;  /* Property values for the rule. */
+    CssPropertySet *pImportant;    /* !IMPORTANT property values. */
+    CssRule *pNext;                /* Next rule in this list. */
 };
 
 /*

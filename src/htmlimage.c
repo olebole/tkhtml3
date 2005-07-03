@@ -12,6 +12,41 @@
 /*
  *---------------------------------------------------------------------------
  *
+ * photoputblock --
+ *
+ *     This is a wrapper around Tk_PhotoPutBlock(). In tk 8.5, the 'interp'
+ *     argument was added to the Tk_PhotoPutBlock() signature. This
+ *     function deals with this API change.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void 
+photoputblock(interp, handle, blockPtr, x, y, width, height, compRule)
+    Tcl_Interp *interp;
+    Tk_PhotoHandle handle;
+    Tk_PhotoImageBlock *blockPtr;
+    int x;
+    int y;
+    int width;
+    int height;
+    int compRule;
+{
+#if 1
+    Tk_PhotoPutBlock(handle, blockPtr, x, y, width, height, compRule);
+#else
+    Tk_PhotoPutBlock(interp, handle, blockPtr, x, y, width, height, compRule);
+#endif
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * imageChanged --
  *
  *     Dummy image-changed callback. Does nothing.
@@ -236,7 +271,7 @@ HtmlResizeImage(pTree, zImage, pWidth, pHeight, calculateSizeOnly)
                     zScale[3] = zOrig[block.offset[3]];
                 }
             }
-            Tk_PhotoPutBlock(interp,scaled_photo,&scaled_block,0,0,sw,sh,0);
+            photoputblock(interp, scaled_photo, &scaled_block, 0, 0, sw, sh, 0);
             ckfree(scaled_block.pixelPtr);
             pRet = pImage->pScaledImageName;
         } else {
@@ -319,7 +354,7 @@ Tcl_Obj *HtmlXImageToImage(pTree, pXImage, w, h)
     }
 
     photo = Tk_FindPhoto(interp, Tcl_GetString(pImage));
-    Tk_PhotoPutBlock(interp, photo, &block, 0, 0, w, h, 0);
+    photoputblock(interp, photo, &block, 0, 0, w, h, 0);
     ckfree(block.pixelPtr);
 
     return pImage;
