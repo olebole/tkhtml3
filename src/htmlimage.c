@@ -89,7 +89,7 @@ int HtmlClearImageArray(pTree)
 {
     Tcl_HashSearch s;
     Tcl_HashEntry *p;
-    Tcl_Obj *pNames;
+    Tcl_Obj *pNames = 0;
     Tcl_Interp *interp = pTree->interp;
 
     for (

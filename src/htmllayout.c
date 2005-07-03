@@ -4951,6 +4951,8 @@ HtmlLayoutForce(clientData, interp, objc, objv)
     int width = 600;               /* Default width if no -width option */
     BoxContext sBox;               /* The imaginary box <body> is inside */
     LayoutContext sLayout;
+    Tcl_HashSearch s;
+    Tcl_HashEntry *p;
 
     HtmlDrawDeleteControls(pTree, &pTree->canvas);
     HtmlDrawCleanup(&pTree->canvas);
@@ -5007,9 +5009,19 @@ HtmlLayoutForce(clientData, interp, objc, objv)
     sLayout.pTop = pBody;
     rc = blockLayout(&sLayout, &sBox, pBody, 0, 0);
 
+
     memcpy(&pTree->canvas, &sBox.vc, sizeof(HtmlCanvas));
 
+    /* Clear the width cache and delete the float-list. */
     HtmlFloatListDelete(sBox.pFloat);
+    for (
+        p = Tcl_FirstHashEntry(&sLayout.widthCache, &s); 
+        p; 
+        p = Tcl_NextHashEntry(&s)) 
+    {
+        ckfree((char *)Tcl_GetHashValue(p));
+    }
+    Tcl_DeleteHashTable(&sLayout.widthCache);
 
     return rc;
 }
