@@ -12,7 +12,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile.in,v 1.12 2005/07/01 11:45:55 danielk1977 Exp $
+# RCS: @(#) $Id: Makefile.in,v 1.13 2005/07/03 12:43:21 danielk1977 Exp $
 
 #========================================================================
 # Edit the following few lines when writing a new extension
@@ -228,6 +228,7 @@ install-binaries: binaries install-lib-binaries install-bin-binaries
 	    $(INSTALL_DATA) pkgIndex.tcl $(DESTDIR)$(pkglibdir); \
 	fi
 	$(INSTALL_DATA) $(srcdir)/tests/tkhtml.tcl $(DESTDIR)$(pkglibdir);
+	$(INSTALL_DATA) $(srcdir)/tests/html.css $(DESTDIR)$(pkglibdir);
 
 #========================================================================
 # This rule installs platform-independent files, such as header files.

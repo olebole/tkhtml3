@@ -18,6 +18,10 @@ bind Html <KeyPress-space>  { %W yview scroll 1 pages }
 bind Html <KeyPress-Prior>  { %W yview scroll -1 pages }
 bind Html <ButtonPress>     { focus %W }
 
+namespace eval tkhtml {
+    set PACKAGE_DIR [file dirname [info script]]
+}
+
 # Important variables:
 #
 #     The following variables are stored in the widget dictionary using the
@@ -247,7 +251,7 @@ proc ::tk::HtmlDefaultStyle {win stylename} {
     set varname "default_style_$stylename"
     set notloaded [catch {$win var $varname} style]
     if {$notloaded} {
-        set filename [file join [file dirname [info script]] $stylename.css]  
+        set filename [file join $::tkhtml::PACKAGE_DIR $stylename.css]  
         set nosuchfile [catch {open $filename} fd]
         if {$nosuchfile} {
             $win var $varname ""
