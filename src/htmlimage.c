@@ -7,6 +7,7 @@
  *
  * TODO: Copyright.
  */
+#include <assert.h>
 #include "html.h"
 
 /*
@@ -88,6 +89,8 @@ int HtmlClearImageArray(pTree)
 {
     Tcl_HashSearch s;
     Tcl_HashEntry *p;
+    Tcl_Obj *pNames;
+    Tcl_Interp *interp = pTree->interp;
 
     for (
         p = Tcl_FirstHashEntry(&pTree->aImage, &s); 
@@ -95,16 +98,39 @@ int HtmlClearImageArray(pTree)
         p = Tcl_NextHashEntry(&s)) 
     {
         HtmlScaledImage *pImage = (HtmlScaledImage *)Tcl_GetHashValue(p);
+        assert((!pImage->image && !pImage->pImageName) ||
+               (pImage->image && pImage->pImageName));
+        assert((!pImage->scaled_image && !pImage->pScaledImageName) ||
+               (pImage->scaled_image && pImage->pScaledImageName));
+
+        if (!pNames && (pImage->pScaledImageName || pImage->pImageName)) {
+            pNames = Tcl_NewObj();
+            Tcl_IncrRefCount(pNames);
+            Tcl_ListObjAppendElement(interp, 
+                    pNames, Tcl_NewStringObj("image", -1));
+            Tcl_ListObjAppendElement(interp, 
+                    pNames, Tcl_NewStringObj("delete", -1));
+        } 
 
         if (pImage->image) Tk_FreeImage(pImage->image);
         if (pImage->scaled_image) Tk_FreeImage(pImage->scaled_image);
-        if (pImage->pImageName) Tcl_DecrRefCount(pImage->pImageName);
-        if (pImage->pScaledImageName)Tcl_DecrRefCount(pImage->pScaledImageName);
-        
-        ckfree((char *)pImage);
+        if (pImage->pImageName) {
+            Tcl_ListObjAppendElement(interp, pNames, pImage->pImageName);
+            Tcl_DecrRefCount(pImage->pImageName);
+        }
+        if (pImage->pScaledImageName) {
+            Tcl_ListObjAppendElement(interp, pNames, pImage->pScaledImageName);
+            Tcl_DecrRefCount(pImage->pScaledImageName);
+        }
 
+        ckfree((char *)pImage);
         Tcl_DeleteHashEntry(p);
     }
+
+    if (pNames) {
+        Tcl_EvalObjEx(interp, pNames, TCL_EVAL_GLOBAL|TCL_EVAL_DIRECT);
+    }
+    return TCL_OK;
 }
 
 /*
