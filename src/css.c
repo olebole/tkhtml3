@@ -1509,10 +1509,15 @@ int HtmlCssParseStyle(
     CssStyleSheet *pStyle = 0;
     assert(ppProperties && !(*ppProperties));
     cssParse(n, z, 1, 0, 0, &pStyle);
-    if (pStyle && pStyle->pUniversalRules) {
-        propertiesAdd(ppProperties, pStyle->pUniversalRules);
+    if (pStyle) {
+        if (pStyle->pUniversalRules) {
+            assert(!pStyle->pUniversalRules->pNext);
+            propertiesAdd(ppProperties, pStyle->pUniversalRules);
+            pStyle->pUniversalRules = 0;
+        }
+        assert(!pStyle->pPriority);
+        HtmlCssStyleSheetFree(pStyle);
     }
-    /* Todo: Clean up pStyle. */
     return 0;
 }
 
