@@ -99,12 +99,10 @@ proc bytes {memreport} {
 
 proc layout_engine_report {} {
     lappend ::MEMARRAY [string trim [memory info]]
-    memory active mem[llength $::MEMARRAY].txt
     lappend ::TIMEARRAY [$::HTML var layout_time]
 
     $::HTML reset
     lappend ::MEMARRAY [string trim [memory info]]
-    memory active mem[llength $::MEMARRAY].txt
 
     load_document $::DOCUMENT {}
 

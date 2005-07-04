@@ -294,6 +294,11 @@ EXTERN int HtmlFloatListClear(HtmlFloatList*, int, int);
 EXTERN void HtmlFloatListNormalize(HtmlFloatList*, int, int);
 EXTERN void HtmlFloatListMargins(HtmlFloatList*, int, int, int *, int *);
 
+EXTERN HtmlPropertyCache * HtmlNewPropertyCache();
+EXTERN void HtmlDeletePropertyCache(HtmlPropertyCache *pCache);
+EXTERN void HtmlSetPropertyCache(HtmlPropertyCache *, int, CssProperty *);
+EXTERN void HtmlAttributesToPropertyCache(HtmlNode *pNode);
+
 #ifdef HTML_DEBUG
 EXTERN void HtmlDrawComment(HtmlCanvas *, CONST char *zComment);
 #else

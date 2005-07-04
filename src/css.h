@@ -106,7 +106,7 @@ void HtmlCssStyleSheetFree(CssStyleSheet *);
 /*
  * Function to apply a stylesheet to a document node.
  */
-void HtmlCssStyleSheetApply(CssStyleSheet *, HtmlNode *, CssProperties**);
+void HtmlCssStyleSheetApply(CssStyleSheet *, HtmlNode *);
 
 /*
  * Functions to interface with the results of a style application.

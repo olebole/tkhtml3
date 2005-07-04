@@ -1,4 +1,47 @@
 
+/*
+ *    The CSS "cascade":
+ *
+ *        1. Find all declarations that apply to the element/property in
+ *           question.  Declarations apply if the selector matches the
+ *           element in question. If no declarations apply, the inherited
+ *           value is used. If there is no inherited value (this is the
+ *           case for the 'HTML' element and for properties that do not
+ *           inherit), the initial value is used. 
+ *       
+ *        2. Sort the declarations by explicit weight: declarations marked
+ *           '!important' carry more weight than unmarked (normal)
+ *           declarations.  
+ * 
+ *        3. Sort by origin: the author's style sheets override the
+ *           reader's style sheet which override the UA's default values.
+ *           An imported style sheet has the same origin as the style sheet
+ *           from which it is imported. 
+ *
+ *        4. Sort by specificity of selector: more specific selectors will
+ *           override more general ones. To find the specificity, count the
+ *           number of ID attributes in the selector (a), the number of
+ *           CLASS attributes in the selector (b), and the number of tag
+ *           names in the selector (c). Concatenating the three numbers (in
+ *           a number system with a large base) gives the specificity. Some
+ *           examples:
+ *
+ *        5. Sort by order specified: if two rules have the same weight,
+ *           the latter specified wins. Rules in imported style sheets are
+ *           considered to be before any rules in the style sheet itself.
+ *
+ *     As well as rules specified as part of stylesheets, property values
+ *     may also come from:
+ * 
+ *           * Html style attributes. (i.e. <p style="...">). These
+ *             properties are treated as if they were specified at the end
+ *             of the author stylesheet with a single "id" selector.
+ *
+ *           * Other html attributes. (i.e. <p font="...">). These
+ *             properties are treated as if they occured at the start of
+ *             the author stylesheet with a single "type" selector.
+ */
+
 #include "css.h"
 #include "cssInt.h"
 #include "html.h"
@@ -2173,6 +2216,38 @@ void HtmlCssPropertiesFree(pPropertySet)
     }
 }
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * ruleToPropertyCache --
+ *
+ *     Copy the properties in rule pRule into the property-cache of pNode.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void 
+ruleToPropertyCache(pNode, pRule)
+    HtmlNode *pNode;
+    CssRule *pRule;
+{
+    HtmlPropertyCache *pCache = pNode->pPropCache;
+    CssPropertySet *pSet = pRule->pPropertySet;
+    int i;
+
+    assert(pCache);
+    assert(pSet);
+
+    for (i = 0; i < pSet->n; i++) {
+        HtmlSetPropertyCache(pCache, pSet->a[i].eProp, pSet->a[i].pProp);
+    }
+}
+
 /*--------------------------------------------------------------------------
  *
  * HtmlCssStyleSheetApply --
@@ -2183,57 +2258,66 @@ void HtmlCssPropertiesFree(pPropertySet)
  *
  *--------------------------------------------------------------------------
  */
-void HtmlCssStyleSheetApply(pStyle, pNode, ppProperties)
-    CssStyleSheet * pStyle; 
+void 
+HtmlCssStyleSheetApply(pStyle, pNode)
+    CssStyleSheet *pStyle; 
     HtmlNode *pNode; 
-    CssProperties **ppProperties;
 {
-    CssRule *pRule = 0;
-    CssRule *pRule2 = 0;
-    Tcl_HashEntry *pEntry;
+    CssRule *pRule;
+    int style_done = 0;
+    int attributes_done = 0;
 
-    /* For each rule in the style-sheets hash table for the given node-type,
-     * see if the selector matches the node. If so, add the rules properties
-     * to the property set.
-     */
-#if 0
-    pEntry = Tcl_FindHashEntry(&pStyle->rules, HtmlNodeTagName(pNode));
-    if( pEntry ){
-        pRule = (CssRule *)Tcl_GetHashValue(pEntry);
-    }
-#endif
-    pRule2 = pStyle->pUniversalRules;
-    if( !pRule ){
-        pRule = pRule2;
-        pRule2 = 0;
-    }
-
+    pRule = pStyle->pUniversalRules;
     while( pRule ){
-        int match = selectorTest(pRule->pSelector, pNode);
-        CssPropertySet *pPropertySet = pRule->pPropertySet;
+        CssPriority *pPriority = pRule->pPriority;
 
-#if TRACE_STYLE_APPLICATION
-        printf("Rule %p does %s node - ", pRule, match?"match":"NOT match");
-        for(i=0; i<127; i++){
-            const char *z = propertySetGet(pPropertySet, i);
-            if( z ){
-                printf("%s=\"%s\" ", tkhtmlCssPropertyToString(i), z);
+        /* If this rule is not "!important", and is on either the user or
+         * agent stylesheet, or has a specificity of less than or equal to
+         * a single "id" selector, then the "style" attribute should be
+         * considered before it.
+         */
+        if (!style_done && 
+            !pPriority->important &&
+            (pPriority->origin != CSS_ORIGIN_AUTHOR ||
+             pRule->specificity <= 10000)
+        ) {
+            style_done = 1;
+            if (pNode->pStyle) {
+                assert(pNode->pStyle->nRule == 1);
+                ruleToPropertyCache(pNode, pNode->pStyle->apRule[0]); 
             }
         }
-        printf("\n");
-#endif
 
-        if (match) {
-            propertiesAdd(ppProperties, pRule);
+        /* If this rule is not "!important", and is on either the user or
+         * agent stylesheet, or has a specificity of less than a single
+	 * class selector, then the nodes HTML attributes should be
+	 * considered before it.
+         */
+        if (!attributes_done && 
+            !pPriority->important &&
+            (pPriority->origin != CSS_ORIGIN_AUTHOR ||
+             pRule->specificity < 1)
+        ) {
+            attributes_done = 1;
+            HtmlAttributesToPropertyCache(pNode);
+        }
+
+        if (selectorTest(pRule->pSelector, pNode)) {
+            ruleToPropertyCache(pNode, pRule);
         }
 
         /* Advance pRule to the next rule */
         pRule = pRule->pNext;
-        if( !pRule ){
-            pRule = pRule2;
-            pRule2 = 0;
-        }
     }
+
+    if (!style_done && pNode->pStyle) {
+        assert(pNode->pStyle->nRule == 1);
+        ruleToPropertyCache(pNode, pNode->pStyle->apRule[0]);
+    }
+    if (!attributes_done) {
+        HtmlAttributesToPropertyCache(pNode);
+    }
+    
 }
 
 /*--------------------------------------------------------------------------

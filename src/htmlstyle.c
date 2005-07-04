@@ -103,12 +103,10 @@ int styleNode(pTree, pNode)
     CssProperty *pReplace;
     CONST char *zStyle;      /* Value of "style" attribute for node */
 
-    if( pNode->pProperties ){
-        HtmlCssPropertiesFree(pNode->pProperties);
-        pNode->pProperties = 0;
-    }
-    ppProp = &pNode->pProperties;
-    HtmlCssStyleSheetApply(pTree->pStyle, pNode, ppProp);
+    /* Delete the property cache for the node, if one exists. Then create a
+     * new one. 
+     */
+    HtmlDeletePropertyCache(pNode->pPropCache);
 
     /* If there is a "style" attribute on this node, parse the attribute
      * value and put the resulting mini-stylesheet in pNode->pStyle. 
@@ -125,10 +123,9 @@ int styleNode(pTree, pNode)
         }
     }
 
-    /* Delete the property cache for the node, if one exists. */
-    HtmlDeletePropertyCache(pNode->pPropCache);
-    pNode->pPropCache = 0;
-
+    /* Create and fill in the nodes property cache. */
+    pNode->pPropCache = HtmlNewPropertyCache();
+    HtmlCssStyleSheetApply(pTree->pStyle, pNode);
     return TCL_OK;
 }
 
@@ -170,7 +167,8 @@ HtmlStyleApply(clientData, interp, objc, objv)
  *
  *---------------------------------------------------------------------------
  */
-int HtmlStyleSyntaxErrs(clientData, interp, objc, objv)
+int 
+HtmlStyleSyntaxErrs(clientData, interp, objc, objv)
     ClientData clientData;             /* The HTML widget */
     Tcl_Interp *interp;                /* The interpreter */
     int objc;                          /* Number of arguments */
