@@ -18,9 +18,9 @@ typedef struct CssSelector CssSelector;
 typedef struct CssPropertySet CssPropertySet;
 typedef struct CssPropertyMask CssPropertyMask;
 typedef struct CssRule CssRule;
-
 typedef struct CssParse CssParse;
 typedef struct CssToken CssToken;
+typedef struct CssPriority CssPriority;
 
 typedef unsigned char u8;
 typedef unsigned int u32;
@@ -36,7 +36,7 @@ typedef unsigned int u32;
 /*
  * Simple selector types.
  */
-#define CSS_SELECTOR_UNIVERSAL           4
+#define CSS_SELECTOR_UNIVERSAL           4    /* eg. "*" */
 #define CSS_SELECTOR_TYPE                5
 #define CSS_SELECTOR_ATTR                7
 #define CSS_SELECTOR_ATTRVALUE           8
@@ -79,12 +79,23 @@ typedef unsigned int u32;
 #define CSS_SELECTOR_NEVERMATCH 32
 
 /*
- * A CSS2 selector is stored as a linked list of the CssSelector structure.
+ * Before they are passed to the lemon-generated parser, the tokenizer
+ * splits the output into tokens of the following type.
+ */
+struct CssToken {
+    const char *z;
+    int n;
+};
+
+/*
+ * A CSS selector is stored as a linked list of the CssSelector structure.
  * The first element in the list is the rightmost simple-selector in the 
  * selector text. For example, the selector "h1 h2 > p" (match elements of
  * type <p> that is a child of an <h2> that is a descendant of an <h1>)
  * is stored as [p]->[h2]->[h1].
  *
+ * See the function selectorTest() in css.c for details of how this is
+ * used.
  */
 struct CssSelector {
     u8 eSelector;     /* CSS_SELECTOR* or CSS_PSEUDO* value */
@@ -121,15 +132,43 @@ struct CssProperties {
 };
 
 struct CssRule {
-    u8 eMedia;               /* CSS_MEDIA_* value */
     u8 origin;               /* CSS_ORIGIN_* value */
     Tcl_Obj *pStyleId;       /* Second and subsequent parts of stylesheet id */
+
     int specificity;         /* Specificity of the selector */
-    CssSelector *pSelector;  /* The selector for this rule */
-    int freePropertySets;          /* True to delete pPropertySet/pImportant */
+    CssSelector *pSelector;  /* The selector-chain for this rule */
+    int freePropertySets;          /* True to delete pPropertySet */
     CssPropertySet *pPropertySet;  /* Property values for the rule. */
-    CssPropertySet *pImportant;    /* !IMPORTANT property values. */
     CssRule *pNext;                /* Next rule in this list. */
+};
+
+/*
+ * A linked list of the following structures is stored in
+ * CssStyleSheet.pPriority.
+ *
+ * Each time a call is made to [<widget> style] to add a new stylesheet to
+ * the configuration, two instances of this structure are allocated using
+ * ckalloc() and inserted into the list. The CssPriority.origin and
+ * CssPriority.pIdTail variables are set to the origin and id-tail of the
+ * new stylesheet (based on parsing the stylesheet-id) in both instances.
+ * In one instance the CssPriority.important flag is set to true, in the
+ * other false.
+ *
+ * The list is kept in order from highest priority to lowest priority based
+ * on the values of CssPriority.important, CssPriority.origin and
+ * CssPriority.pIdTail. Each time the list is reorganized, the values of
+ * CssPriority.iPriority are set such that higher priority list members
+ * have lower values of CssPriority.iPriority.
+ *
+ * Each CssRule structure has a pointer to it's associated CssPriority
+ * structure.
+ */
+struct CssPriority {
+    int important;           /* True if !IMPORTANT flag is set */
+    int origin;              /* One of CSS_ORIGIN_AGENT, _AUTHOR or _USER */ 
+    Tcl_Obj *pIdTail;        /* Tail of the stylesheet id */
+    int iPriority;
+    CssPriority *pNext;      /* Linked list pointer */
 };
 
 /*
@@ -143,23 +182,21 @@ struct CssRule {
  * list accessible by looking up "h1" in the rules hash table.
  */
 struct CssStyleSheet {
-    int nSyntaxErr;                 /* Number of syntax errors during parse */
-    Tcl_HashTable rules;
+    int nSyntaxErr;            /* Number of syntax errors during parsing */
     CssRule *pUniversalRules;
-    CssStyleSheet *pNext;
+    CssPriority *pPriority;
+#if 0
+    Tcl_HashTable aByType;
+    Tcl_HashTable aById;
+    Tcl_HashTable aByClass;
+#endif
 };
 
-struct CssToken {
-    const char *z;
-    int n;
-};
-
-struct CssCascade {
-    CssStyleSheet *pUser;
-    CssStyleSheet *pAuthor;
-    CssStyleSheet *pUserAgent;
-};
-
+/*
+ * A single instance of this object is used for each parse. After the parse
+ * is finished it is no longer required, the permanent record of the parsed
+ * stylesheet is built up in CssParse.pStyle.
+ */
 struct CssParse {
     CssStyleSheet *pStyle;
     CssSelector *pSelector;         /* Selector currently being parsed */
@@ -169,28 +206,24 @@ struct CssParse {
     CssPropertySet *pImportant;     /* !IMPORTANT declarations. */
     int origin;
     Tcl_Obj *pStyleId;
+    CssPriority *pPriority1;
+    CssPriority *pPriority2;
 };
 
 /*
- * Functions for dealing with CssPropertyMask.
+ * These functions are called by the lemon-generated parser (see
+ * cssparse.y). They add rules to the stylesheet.
  */
-void tkhtmlCssPropertyMaskSet(CssPropertyMask *pMask, int);
-void tkhtmlCssPropertyMaskClear(CssPropertyMask *pMask, int);
-int tkhtmlCssPropertyMaskGet(CssPropertyMask *pMask, int);
+void HtmlCssDeclaration(CssParse *, CssToken *, CssToken *);
+void HtmlCssSelector(CssParse *, int, CssToken *, CssToken *);
+void HtmlCssRule(CssParse *, int);
+void HtmlCssSelectorComma(CssParse *pParse);
 
 /*
- * Functions for manipulating objects of type CssPropertySet.
+ * Called by the parser to transform between the name of a psuedo-class or
+ * psuedo-selector to a CSS_PSEUDO... value that can be passed to
+ * HtmlCssSelector().
  */
-CssPropertySet *tkhtmlCssPropertySetNew();
-const char *tkhtmlCssPropertyGet(CssPropertySet *,int);
-int tkhtmlCssPropertyAdd(CssPropertySet *, int, int, const char *);
-void tkhtmlCssPropertySetDelete(CssPropertySet *);
-
-void tkhtmlCssDeclaration(CssParse *, CssToken *, CssToken *);
-void tkhtmlCssSelector(CssParse *, int, CssToken *, CssToken *);
-void tkhtmlCssRule(CssParse *, int);
-int tkhtmlCssPseudo(CssToken *);
-
-void HtmlCssSelectorComma(CssParse *pParse);
+int HtmlCssPseudo(CssToken *);
 
 #endif /* __CSS_H__ */

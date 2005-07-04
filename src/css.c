@@ -1209,6 +1209,145 @@ static void xCkfree(void *p){
     ckfree(p);
 }
 
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * comparePriority --
+ *
+ *     Compare stylesheet priorities *pLeft and *pRight, returning less
+ *     than, equal to or greater than zero if *pLeft is less than, equal
+ *     to, or greater than pRight. i.e the expression:
+ *
+ *         (*pLeft - *pRight)
+ *
+ *     Note that this comparison follows the rules of CSS2, not CSS1.
+ *
+ * Results:
+ *     Result of comparison (see above).
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+comparePriority(pLeft, pRight)
+    CssPriority *pLeft;
+    CssPriority *pRight;
+{
+    int aNormal[3] = {CSS_ORIGIN_AGENT, CSS_ORIGIN_USER, CSS_ORIGIN_AUTHOR};
+    int aImportant[3] = {CSS_ORIGIN_AGENT, CSS_ORIGIN_AUTHOR, CSS_ORIGIN_USER};
+    int *a = 0;
+
+    if (pLeft->important && pRight->important) {
+        a = aImportant;
+    }
+    if (!pLeft->important && !pRight->important) {
+        a = aNormal;
+    }
+
+    /* If a is set then the 'important' flags are both set or both cleared.
+     * This means we have to look at the origin (and possibly style-id)
+     * values.
+     */
+    if (a) { 
+        int i;
+        if (pLeft->origin == pRight->origin) {
+            CONST char *zLeft = Tcl_GetString(pLeft->pIdTail);
+            CONST char *zRight = Tcl_GetString(pRight->pIdTail);
+            return strcmp(zLeft, zRight);
+        }
+        for (i = 0; i < 3; i++) {
+            if (pLeft->origin == a[i]) return 1;
+            if (pRight->origin == a[i]) return -1;
+        }
+        assert(!"Impossible");
+    }
+
+    /* One 'important' flag is set and the other cleared. The highest
+     * priority is therefore the one with the 'important' flag set.
+     */
+    return pLeft->important ? 1 : -1;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * newCssPriority --
+ *
+ *     Add a new entry to the CssStyleSheet.pPriority list with values
+ *     origin, pIdTail and important. Update the CssPriority.iPriority
+ *     variable for all list members that require it.
+ *
+ *     See comments above CssPriority struct in cssInt.h for details.
+ *
+ *     The pointer to pIdList is copied and the reference count increased
+ *     by one. It is decreased when the new list entry is deleted (along
+ *     with the rest of the stylesheet).
+ *
+ * Results:
+ *     Pointer to new list entry.
+ *
+ * Side effects:
+ *     Modifies linked-list pStyle->pPriority. 
+ *
+ *---------------------------------------------------------------------------
+ */
+static CssPriority * 
+newCssPriority(pStyle, origin, pIdTail, important)
+    CssStyleSheet *pStyle;
+    int origin;
+    Tcl_Obj *pIdTail;
+    int important;
+{
+    CssPriority *pNew;      /* New list entry */
+    CssPriority *pPrev = 0; /* Entry just before the new one in the list */
+    CssPriority *pIter;
+
+    pNew = (CssPriority *)ckalloc(sizeof(CssPriority));
+    pNew->origin = origin;
+    pNew->important = important;
+    pNew->pIdTail = pIdTail;
+    Tcl_IncrRefCount(pIdTail);
+
+    /* Set pPrev to the entry in the list that will come just before the
+     * new entry, or to NULL if the new entry is the highest priority seen
+     * so far.
+     */
+    for (
+        pIter = pStyle->pPriority; 
+        pIter && comparePriority(pIter, pNew) > 0;
+        pIter = pIter->pNext
+    ) {
+        pPrev = pIter;
+    }
+
+    if (!pPrev) {
+        pNew->iPriority = 1;
+        pNew->pNext = 0;
+        pStyle->pPriority = pNew;
+    } else {
+        int n = pPrev->iPriority;
+        pNew->pNext = pPrev->pNext;
+        pPrev->pNext = pNew;
+        for (pIter = pNew; pIter; pIter = pIter->pNext) {
+	    pIter->iPriority = ++n;
+        }
+    }
+
+#ifndef NDEBUG
+    if (1) {
+        for (pIter = pNew; pIter; pIter = pIter->pNext) {
+	    assert(!pIter->pNext || pIter->iPriority < pIter->pNext->iPriority);
+	    assert(!pIter->pNext || comparePriority(pIter, pIter->pNext) >= 0);
+        }
+    }
+#endif
+
+    return pNew;
+}
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -1234,7 +1373,8 @@ static void xCkfree(void *p){
  *
  *---------------------------------------------------------------------------
  */
-int cssParse(n, z, isStyle, origin, pStyleId, ppStyle)
+static int 
+cssParse(n, z, isStyle, origin, pStyleId, ppStyle)
     int n;                       /* Size of z in bytes */
     CONST char *z;               /* Text of attribute/document */
     int isStyle;                 /* True if this is a style attribute */
@@ -1257,21 +1397,33 @@ int cssParse(n, z, isStyle, origin, pStyleId, ppStyle)
     }
     p = tkhtmlCssParserAlloc(xCkalloc);
 
+    /* If *ppStyle is NULL, then create a new CssStyleSheet object. If it
+     * is not zero, then append the rules from the new stylesheet document
+     * to the existing object.
+     */
     if (0==*ppStyle) {
         sParse.pStyle = (CssStyleSheet *)ckalloc(sizeof(CssStyleSheet));
         memset(sParse.pStyle, 0, sizeof(CssStyleSheet));
-        Tcl_InitHashTable(&sParse.pStyle->rules, TCL_STRING_KEYS);
     } else {
         sParse.pStyle = *ppStyle;
     }
 
+    /* If this is a stylesheet, not a style attribute, add the priority
+     * entries for both regular and "!important" properties for this
+     * stylesheet to the priority list.
+     */
+    if (!isStyle) {
+        sParse.pPriority1 = newCssPriority(sParse.pStyle, origin, pStyleId, 0);
+        sParse.pPriority2 = newCssPriority(sParse.pStyle, origin, pStyleId, 1);
+    }
+
+    /* If this is a style attribute, not a stylesheet, then feed the
+     * parser the tokens '*' and '{' before attempting to parse the style
+     * attribute text. After parsing the text, feed the parser a '}' to
+     * finish everything off. Thus a style is converted to a stylesheet
+     * with a rule, using the universal selector.
+     */
     if (isStyle) {
-        /* If this is a style attribute, not a stylesheet, then feed the
-         * parser the tokens '*' and '{' before attempting to parse the
-         * style attribute text. After parsing the text, feed the parser a
-         * '}' to finish everything off. Thus a style is converted to a
-         * stylesheet with a rule, using the universal selector.
-         */
          sToken.z = "*"; sToken.n = 1; 
          tkhtmlCssParser(p, CT_STAR, sToken, &sParse);
          sToken.z = "{"; sToken.n = 1; 
@@ -1286,8 +1438,10 @@ int cssParse(n, z, isStyle, origin, pStyleId, ppStyle)
         c += sToken.n;
     }
 
+    /* if this is a style, not a stylesheet (see above), then feed the
+     * closing '}' token to the parser.
+     */
     if (isStyle) {
-         /* Closing '}' if this is a style, not a stylesheet (see above) */
          sToken.z = "}"; sToken.n = 1; 
          tkhtmlCssParser(p, CT_RP, sToken, &sParse);
 
@@ -1317,7 +1471,8 @@ int cssParse(n, z, isStyle, origin, pStyleId, ppStyle)
  *
  *--------------------------------------------------------------------------
  */
-int HtmlCssParse(pText, origin, pStyleId, ppStyle)
+int 
+HtmlCssParse(pText, origin, pStyleId, ppStyle)
     Tcl_Obj *pText;
     int origin;
     Tcl_Obj *pStyleId;
@@ -1382,7 +1537,6 @@ static void ruleFree(pRule)
         selectorFree(pRule->pSelector);
         if (pRule->freePropertySets) {
             propertySetFree(pRule->pPropertySet);
-            propertySetFree(pRule->pImportant);
         }
         ckfree((char *)pRule);
     }
@@ -1430,7 +1584,7 @@ int HtmlCssStyleSheetSyntaxErrs(CssStyleSheet *pStyle){
 
 /*--------------------------------------------------------------------------
  *
- * tkhtmlCssDeclaration --
+ * HtmlCssDeclaration --
  *
  *     This function is called by the CSS parser when it parses a property 
  *     declaration (i.e "<property> : <expression>").
@@ -1442,12 +1596,12 @@ int HtmlCssStyleSheetSyntaxErrs(CssStyleSheet *pStyle){
  *
  *--------------------------------------------------------------------------
  */
-void tkhtmlCssDeclaration(CssParse *pParse, CssToken *pProp, CssToken *pExpr){
+void HtmlCssDeclaration(CssParse *pParse, CssToken *pProp, CssToken *pExpr){
     int prop; 
     char zBuf[64];
 
 #if TRACE_PARSER_CALLS
-    printf("tkhtmlCssDeclaration(%p, \"%.*s\", \"%.*s\")\n", 
+    printf("HtmlCssDeclaration(%p, \"%.*s\", \"%.*s\")\n", 
         pParse,
         pProp?pProp->n:0, pProp?pProp->z:"", 
         pExpr?pExpr->n:0, pExpr?pExpr->z:""
@@ -1508,7 +1662,7 @@ static void dequote(z)
 
 /*--------------------------------------------------------------------------
  *
- * tkhtmlCssSelector --
+ * HtmlCssSelector --
  *
  *     This is called whenever a simple selector is parsed. 
  *     i.e. "H1" or ":before".
@@ -1520,7 +1674,7 @@ static void dequote(z)
  *
  *--------------------------------------------------------------------------
  */
-void tkhtmlCssSelector(pParse, stype, pAttr, pValue)
+void HtmlCssSelector(pParse, stype, pAttr, pValue)
     CssParse *pParse; 
     int stype; 
     CssToken *pAttr; 
@@ -1534,7 +1688,7 @@ void tkhtmlCssSelector(pParse, stype, pAttr, pValue)
      * verified, it is not particularly useful trace output. But we'll leave
      * it here for the time being in case something comes up.
      */
-    printf("tkhtmlCssSelector(%p, %s, \"%.*s\", \"%.*s\")\n", 
+    printf("HtmlCssSelector(%p, %s, \"%.*s\", \"%.*s\")\n", 
         pParse, constantToString(stype), 
         pAttr?pAttr->n:0, pAttr?pAttr->z:"", 
         pValue?pValue->n:0, pValue?pValue->z:""
@@ -1633,7 +1787,6 @@ cssSelectorPropertySetPair(pParse, pSelector, pPropertySet, freePropertySets)
     memset(pRule, 0, sizeof(CssRule));
 
     pPropertySet->nRef++;
-    pRule->pImportant = 0;
     pRule->freePropertySets = freePropertySets;
 
     /* Calculate the specificity of the rules. We use the following
@@ -1687,6 +1840,7 @@ cssSelectorPropertySetPair(pParse, pSelector, pPropertySet, freePropertySets)
     }
 
     if( 0 && pSelector->eSelector==CSS_SELECTOR_TYPE ){
+#if 0
         Tcl_HashEntry *pEntry; 
         int n;         /* True if we add a a new hash table entry */
         assert( pSelector->zValue );
@@ -1694,6 +1848,7 @@ cssSelectorPropertySetPair(pParse, pSelector, pPropertySet, freePropertySets)
         pRule->pNext = Tcl_GetHashValue(pEntry);
         assert( (n && !pRule->pNext) || (!n && pRule->pNext) );
         Tcl_SetHashValue(pEntry, pRule);
+#endif
     }else{
         /* The rule doesn't belong in any hash table, so put it in the
          * default list.
@@ -1726,7 +1881,7 @@ cssSelectorPropertySetPair(pParse, pSelector, pPropertySet, freePropertySets)
     pRule->pPropertySet = pPropertySet;
 }
 
-int tkhtmlCssPseudo(pToken)
+int HtmlCssPseudo(pToken)
     CssToken *pToken;
 {
     char *zOptions[] = {"link", "visited"};
@@ -1744,7 +1899,7 @@ int tkhtmlCssPseudo(pToken)
 
 /*--------------------------------------------------------------------------
  *
- * tkhtmlCssRule --
+ * HtmlCssRule --
  *
  *     This is called when the parser has parsed an entire rule.
  *
@@ -1755,11 +1910,11 @@ int tkhtmlCssPseudo(pToken)
  * 
  *     If the parse was successful, then add the rule to the stylesheet.
  *     If unsuccessful, delete anything that was built up by calls to 
- *     tkhtmlCssDeclaration() or tkhtmlCssSelector().
+ *     HtmlCssDeclaration() or HtmlCssSelector().
  *
  *--------------------------------------------------------------------------
  */
-void tkhtmlCssRule(pParse, success)
+void HtmlCssRule(pParse, success)
     CssParse *pParse;
     int success;
 {
@@ -1881,7 +2036,8 @@ static int attrTest(eType, zString, zAttr)
 #define N_PARENT(x)      HtmlNodeParent(x)
 #define N_NUMCHILDREN(x) HtmlNodeNumChildren(x)
 #define N_CHILD(x,y)     HtmlNodeChild(x,y)
-static int selectorTest(pSelector, pNode)
+static int 
+selectorTest(pSelector, pNode)
     CssSelector *pSelector;
     HtmlNode *pNode;
 {
@@ -2021,10 +2177,12 @@ void HtmlCssStyleSheetApply(pStyle, pNode, ppProperties)
      * see if the selector matches the node. If so, add the rules properties
      * to the property set.
      */
+#if 0
     pEntry = Tcl_FindHashEntry(&pStyle->rules, HtmlNodeTagName(pNode));
     if( pEntry ){
         pRule = (CssRule *)Tcl_GetHashValue(pEntry);
     }
+#endif
     pRule2 = pStyle->pUniversalRules;
     if( !pRule ){
         pRule = pRule2;
@@ -2072,35 +2230,7 @@ void HtmlCssStyleSheetApply(pStyle, pNode, ppProperties)
  *--------------------------------------------------------------------------
  */
 CssProperty *
-HtmlCssPropertiesGet(pProperties, prop)
-    CssProperties * pProperties; 
-    int prop;
-{
-    CssProperty *zRet = 0;
-    if( pProperties ){
-        int i;
-        for(i=0; i<pProperties->nRule && !zRet; i++){
-            CssPropertySet *pPropertySet = pProperties->apRule[i]->pPropertySet;
-            zRet = propertySetGet(pPropertySet, prop);
-        }
-    }
-    return zRet;
-}
-
-/*--------------------------------------------------------------------------
- *
- * HtmlCssPropertiesGet2 --
- *     Retrieve the value of a specified property from a CssProperties
- *     object, or NULL if the property is not defined.
- *
- * Results:
- *
- * Side effects:
- *
- *--------------------------------------------------------------------------
- */
-CssProperty *
-HtmlCssPropertiesGet2(pProperties, prop, pSheetnum, pSpec)
+HtmlCssPropertiesGet(pProperties, prop, pSheetnum, pSpec)
     CssProperties * pProperties; 
     int prop;
     int *pSheetnum;

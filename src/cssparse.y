@@ -82,7 +82,7 @@ font_face ::= FONT_SYM LP declaration_list RP.
 ** Style sheet rules. e.g. "<selector> { <properties> }"
 */
 ruleset ::= selector_list LP ws declaration_list semicolon_opt RP. {
-    tkhtmlCssRule(pParse, 1);
+    HtmlCssRule(pParse, 1);
 }
 ruleset ::= page.
 
@@ -100,7 +100,7 @@ semicolon_opt ::= SEMICOLON ws.
 semicolon_opt ::= .
 
 declaration ::= IDENT(X) ws COLON ws expr(E). {
-    tkhtmlCssDeclaration(pParse, &X, &E);
+    HtmlCssDeclaration(pParse, &X, &E);
 }
 
 /*********************************************************************
@@ -112,20 +112,20 @@ selector ::= simple_selector combinator(X) selector.
 
 %type combinator {int}
 combinator ::= ws PLUS ws. {
-    tkhtmlCssSelector(pParse, CSS_SELECTORCHAIN_ADJACENT, 0, 0);
+    HtmlCssSelector(pParse, CSS_SELECTORCHAIN_ADJACENT, 0, 0);
 }
 combinator ::= ws GT ws. {
-    tkhtmlCssSelector(pParse, CSS_SELECTORCHAIN_CHILD, 0, 0);
+    HtmlCssSelector(pParse, CSS_SELECTORCHAIN_CHILD, 0, 0);
 }
 combinator ::= SPACE ws. {
-    tkhtmlCssSelector(pParse, CSS_SELECTORCHAIN_DESCENDANT, 0, 0);
+    HtmlCssSelector(pParse, CSS_SELECTORCHAIN_DESCENDANT, 0, 0);
 }
 
 simple_selector ::= IDENT(X) simple_selector_tail_opt. {
-    tkhtmlCssSelector(pParse, CSS_SELECTOR_TYPE, 0, &X);
+    HtmlCssSelector(pParse, CSS_SELECTOR_TYPE, 0, &X);
 }
 simple_selector ::= STAR simple_selector_tail_opt. {
-    tkhtmlCssSelector(pParse, CSS_SELECTOR_UNIVERSAL, 0, 0);
+    HtmlCssSelector(pParse, CSS_SELECTOR_UNIVERSAL, 0, 0);
 }
 simple_selector ::= simple_selector_tail.
 
@@ -134,7 +134,7 @@ simple_selector_tail_opt ::= .
 
 simple_selector_tail ::= HASH IDENT(X) simple_selector_tail_opt. {
     CssToken id = {"id", 2};
-    tkhtmlCssSelector(pParse, CSS_SELECTOR_ATTRVALUE, &id, &X);
+    HtmlCssSelector(pParse, CSS_SELECTOR_ATTRVALUE, &id, &X);
 }
 simple_selector_tail ::= DOT IDENT(X) simple_selector_tail_opt. {
     /* A CSS class selector may not begin with a digit. Presumably this is
@@ -144,30 +144,30 @@ simple_selector_tail ::= DOT IDENT(X) simple_selector_tail_opt. {
      */
     if (X.n > 0 && !isdigit((int)(*X.z))) {
         CssToken cls = {"class", 5};
-        tkhtmlCssSelector(pParse, CSS_SELECTOR_ATTRLISTVALUE, &cls, &X);
+        HtmlCssSelector(pParse, CSS_SELECTOR_ATTRLISTVALUE, &cls, &X);
     } else {
-        tkhtmlCssSelector(pParse, CSS_SELECTOR_NEVERMATCH, 0, 0);
+        HtmlCssSelector(pParse, CSS_SELECTOR_NEVERMATCH, 0, 0);
     }
 }
 simple_selector_tail ::= LSP IDENT(X) RSP simple_selector_tail_opt. {
-    tkhtmlCssSelector(pParse, CSS_SELECTOR_ATTR, &X, 0);
+    HtmlCssSelector(pParse, CSS_SELECTOR_ATTR, &X, 0);
 }
 simple_selector_tail ::= 
     LSP IDENT(X) EQUALS STRING(Y) RSP simple_selector_tail_opt. {
-    tkhtmlCssSelector(pParse, CSS_SELECTOR_ATTRVALUE, &X, &Y);
+    HtmlCssSelector(pParse, CSS_SELECTOR_ATTRVALUE, &X, &Y);
 }
 simple_selector_tail ::= 
     LSP IDENT(X) TILDE EQUALS STRING(Y) RSP simple_selector_tail_opt. {
-    tkhtmlCssSelector(pParse, CSS_SELECTOR_ATTRLISTVALUE, &X, &Y);
+    HtmlCssSelector(pParse, CSS_SELECTOR_ATTRLISTVALUE, &X, &Y);
 }
 simple_selector_tail ::= 
     LSP IDENT(X) PIPE EQUALS STRING(Y) RSP simple_selector_tail_opt. {
-    tkhtmlCssSelector(pParse, CSS_SELECTOR_ATTRHYPHEN, &X, &Y);
+    HtmlCssSelector(pParse, CSS_SELECTOR_ATTRHYPHEN, &X, &Y);
 }
 
 /* Todo: Deal with pseudo selectors. This rule makes the parser ignore them. */
 simple_selector_tail ::= COLON IDENT(X) simple_selector_tail_opt. {
-    tkhtmlCssSelector(pParse, tkhtmlCssPseudo(&X), 0, 0);
+    HtmlCssSelector(pParse, HtmlCssPseudo(&X), 0, 0);
 }
 
 /*********************************************************************

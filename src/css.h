@@ -27,6 +27,9 @@ typedef struct CssStyleSheet CssStyleSheet;
 typedef struct CssProperties CssProperties;
 typedef struct CssProperty CssProperty;
 
+/* Include html.h after we define our opaque types, because it includes
+ * structures that contain pointers to them.
+ */
 #include "html.h"
 
 /*
@@ -56,6 +59,9 @@ typedef struct CssProperty CssProperty;
 /* CSS2 Keywords */
 #define CSS_TYPE_INHERIT      13           /* No value */
 
+/*
+ * A CssProperty structure represents a single property value.
+ */
 struct CssProperty {
     int eType;
     union {
@@ -65,7 +71,17 @@ struct CssProperty {
     } v;
 };
 
+/*
+ * Retrieve the string value of a CSS property. This works with all
+ * CssProperty objects, regardless of the CSS_TYPE_XXX value.
+ */
 EXTERN CONST char *HtmlCssPropertyGetString(CssProperty *pProp);
+
+/*
+ * Create a property from a value string (i.e. "20ex" or "yellow", 
+ * not "h1 {font:large}").
+ */
+CssProperty *HtmlCssStringToProperty(CONST char *z, int n);
 
 /*
  * Functions to parse stylesheet and style data into CssStyleSheet objects.
@@ -99,8 +115,7 @@ void HtmlCssStyleSheetApply(CssStyleSheet *, HtmlNode *, CssProperties**);
 #define CSS_ORIGIN_USER   2
 #define CSS_ORIGIN_AUTHOR 3
 void HtmlCssPropertiesFree(CssProperties *);
-CssProperty *HtmlCssPropertiesGet(CssProperties *, int);
-CssProperty *HtmlCssPropertiesGet2(CssProperties *, int, int*, int*);
+CssProperty *HtmlCssPropertiesGet(CssProperties *, int, int*, int*);
 
 /* Future interface for :before and :after pseudo-elements. Need this to 
  * handle the <br> tag most elegantly.
@@ -112,7 +127,5 @@ CssProperties *HtmlCssPropertiesGetAfter(CssProperties *);
 #define CSS_HOVER     0x02
 #define CSS_ACTIVE    0x04
 #define CSS_FOCUS     0x08
-
-CssProperty *HtmlCssStringToProperty(CONST char *z, int n);
 
 #endif

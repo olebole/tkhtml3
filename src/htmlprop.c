@@ -177,7 +177,8 @@ getPropertyCache(pCache, iProp)
  * freeWithPropertyCache --
  *
  *     Call ckfree() on the supplied property pointer when this property
- *     cache is deleted.
+ *     cache is deleted. Presumably the same property is added to the
+ *     lookup table using setPropertyCache().
  *
  * Results:
  *     None.
@@ -823,7 +824,7 @@ static CssProperty *getProperty(interp, pNode, pEntry, inheriting, pOut)
         goto getproperty_out;
     }
 
-    /* Query the style-sheet database. HtmlCssPropertiesGet2() returns the
+    /* Query the style-sheet database. HtmlCssPropertiesGet() returns the
      * property value with the highest precedence (accounting for origin,
      * specificity and declaration order) for the node.
      *
@@ -832,7 +833,7 @@ static CssProperty *getProperty(interp, pNode, pEntry, inheriting, pOut)
      * or other html attributes may not override it, so we jump to the end
      * of this function immediately.
      */
-    pProp2 = HtmlCssPropertiesGet2(pNode->pProperties, prop, &sheet, &spec);
+    pProp2 = HtmlCssPropertiesGet(pNode->pProperties, prop, &sheet, &spec);
     if (pProp2) {
         pProp = pProp2;
     }
@@ -847,7 +848,7 @@ static CssProperty *getProperty(interp, pNode, pEntry, inheriting, pOut)
      * another html attribute, so jump to th eend of the funtion now.
      */
     if (pNode->pStyle) {
-        pProp2 = HtmlCssPropertiesGet(pNode->pStyle, prop);
+        pProp2 = HtmlCssPropertiesGet(pNode->pStyle, prop, 0, 0);
         if (pProp2) {
             pProp = pProp2;
             sheet = 0;
