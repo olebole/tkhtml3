@@ -668,70 +668,69 @@ mapBorderSpacing(pNode, pOut)
 struct PropMapEntry {
     int property;
     int inherit;
-    int attrinherit;
     int(*xAttrmap)(HtmlNode *, CssProperty *);
     CssProperty initial;
 };
 typedef struct PropMapEntry PropMapEntry;
 
 static PropMapEntry propmapdata[] = {
-    {CSS_PROPERTY_DISPLAY, 0, 0, 0, CSSSTR("inline")},
-    {CSS_PROPERTY_FLOAT, 0, 0, 0, CSS_NONE},
-    {CSS_PROPERTY_CLEAR, 0, 0, 0, CSS_NONE},
+    {CSS_PROPERTY_DISPLAY, 0, 0, CSSSTR("inline")},
+    {CSS_PROPERTY_FLOAT, 0, 0, CSS_NONE},
+    {CSS_PROPERTY_CLEAR, 0, 0, CSS_NONE},
 
-    {CSS_PROPERTY_BACKGROUND_COLOR, 0, 0, mapBgColor, CSSSTR("transparent")},
-    {CSS_PROPERTY_COLOR, 1, 0, mapColor, CSSSTR("black")},
-    {CSS_PROPERTY_WIDTH, 0, 0, mapWidth, CSSSTR("auto")},
-    {CSS_PROPERTY_MIN_WIDTH, 0, 0, 0, {CSS_TYPE_NONE, 0}},
-    {CSS_PROPERTY_MAX_WIDTH, 0, 0, 0, {CSS_TYPE_NONE, 0}},
-    {CSS_PROPERTY_HEIGHT, 0, 0, mapHeight, {CSS_TYPE_NONE, 0}},
+    {CSS_PROPERTY_BACKGROUND_COLOR, 0, mapBgColor, CSSSTR("transparent")},
+    {CSS_PROPERTY_COLOR, 1, mapColor, CSSSTR("black")},
+    {CSS_PROPERTY_WIDTH, 0, mapWidth, CSSSTR("auto")},
+    {CSS_PROPERTY_MIN_WIDTH, 0, 0, {CSS_TYPE_NONE, 0}},
+    {CSS_PROPERTY_MAX_WIDTH, 0, 0, {CSS_TYPE_NONE, 0}},
+    {CSS_PROPERTY_HEIGHT, 0, mapHeight, {CSS_TYPE_NONE, 0}},
 
     /* Font and text related properties */
-    {CSS_PROPERTY_TEXT_DECORATION, 0, 0, 0,     {CSS_TYPE_NONE, 0}},
-    {CSS_PROPERTY_FONT_SIZE, 0, 0, mapFontSize, {CSS_TYPE_NONE, 0}},
-    {CSS_PROPERTY_WHITE_SPACE, 1, 0, 0, {CSS_TYPE_NONE, 0}},
-    {CSS_PROPERTY_VERTICAL_ALIGN, 0, 0, mapVAlign, {CSS_TYPE_NONE, 0}},
-    {CSS_PROPERTY_FONT_FAMILY, 1, 0, 0, CSSSTR("Helvetica")},
-    {CSS_PROPERTY_FONT_STYLE, 1, 0, 0,  CSSSTR("normal")},
-    {CSS_PROPERTY_FONT_WEIGHT, 1, 0, 0, CSSSTR("normal")},
-    {CSS_PROPERTY_TEXT_ALIGN, 1, 0, 0,  CSSSTR("left")},
-    {CSS_PROPERTY_LINE_HEIGHT, 0, 0, 0, CSSSTR("normal")},
+    {CSS_PROPERTY_TEXT_DECORATION, 0, 0,     {CSS_TYPE_NONE, 0}},
+    {CSS_PROPERTY_FONT_SIZE, 0, mapFontSize, {CSS_TYPE_NONE, 0}},
+    {CSS_PROPERTY_WHITE_SPACE, 1, 0, {CSS_TYPE_NONE, 0}},
+    {CSS_PROPERTY_VERTICAL_ALIGN, 0, mapVAlign, {CSS_TYPE_NONE, 0}},
+    {CSS_PROPERTY_FONT_FAMILY, 1, 0, CSSSTR("Helvetica")},
+    {CSS_PROPERTY_FONT_STYLE, 1, 0,  CSSSTR("normal")},
+    {CSS_PROPERTY_FONT_WEIGHT, 1, 0, CSSSTR("normal")},
+    {CSS_PROPERTY_TEXT_ALIGN, 1, 0,  CSSSTR("left")},
+    {CSS_PROPERTY_LINE_HEIGHT, 0, 0, CSSSTR("normal")},
 
     /* Width of borders. */
-    {CSS_PROPERTY_BORDER_TOP_WIDTH,    0, 0, mapBorderWidth, CSSSTR("medium")},
-    {CSS_PROPERTY_BORDER_BOTTOM_WIDTH, 0, 0, mapBorderWidth, CSSSTR("medium")},
-    {CSS_PROPERTY_BORDER_LEFT_WIDTH,   0, 0, mapBorderWidth, CSSSTR("medium")},
-    {CSS_PROPERTY_BORDER_RIGHT_WIDTH,  0, 0, mapBorderWidth, CSSSTR("medium")},
+    {CSS_PROPERTY_BORDER_TOP_WIDTH,    0, mapBorderWidth, CSSSTR("medium")},
+    {CSS_PROPERTY_BORDER_BOTTOM_WIDTH, 0, mapBorderWidth, CSSSTR("medium")},
+    {CSS_PROPERTY_BORDER_LEFT_WIDTH,   0, mapBorderWidth, CSSSTR("medium")},
+    {CSS_PROPERTY_BORDER_RIGHT_WIDTH,  0, mapBorderWidth, CSSSTR("medium")},
 
     /* Color of borders. */
-    {CSS_PROPERTY_BORDER_TOP_COLOR,    0, 0, 0, {CSS_TYPE_COPYCOLOR, 0}},
-    {CSS_PROPERTY_BORDER_BOTTOM_COLOR, 0, 0, 0, {CSS_TYPE_COPYCOLOR, 0}},
-    {CSS_PROPERTY_BORDER_LEFT_COLOR,   0, 0, 0, {CSS_TYPE_COPYCOLOR, 0}},
-    {CSS_PROPERTY_BORDER_RIGHT_COLOR,  0, 0, 0, {CSS_TYPE_COPYCOLOR, 0}},
+    {CSS_PROPERTY_BORDER_TOP_COLOR,    0, 0, {CSS_TYPE_COPYCOLOR, 0}},
+    {CSS_PROPERTY_BORDER_BOTTOM_COLOR, 0, 0, {CSS_TYPE_COPYCOLOR, 0}},
+    {CSS_PROPERTY_BORDER_LEFT_COLOR,   0, 0, {CSS_TYPE_COPYCOLOR, 0}},
+    {CSS_PROPERTY_BORDER_RIGHT_COLOR,  0, 0, {CSS_TYPE_COPYCOLOR, 0}},
 
     /* Style of borders. */
-    {CSS_PROPERTY_BORDER_TOP_STYLE,    0, 0, mapBorderStyle, CSS_NONE},
-    {CSS_PROPERTY_BORDER_BOTTOM_STYLE, 0, 0, mapBorderStyle, CSS_NONE},
-    {CSS_PROPERTY_BORDER_LEFT_STYLE,   0, 0, mapBorderStyle, CSS_NONE},
-    {CSS_PROPERTY_BORDER_RIGHT_STYLE,  0, 0, mapBorderStyle, CSS_NONE},
+    {CSS_PROPERTY_BORDER_TOP_STYLE,    0, mapBorderStyle, CSS_NONE},
+    {CSS_PROPERTY_BORDER_BOTTOM_STYLE, 0, mapBorderStyle, CSS_NONE},
+    {CSS_PROPERTY_BORDER_LEFT_STYLE,   0, mapBorderStyle, CSS_NONE},
+    {CSS_PROPERTY_BORDER_RIGHT_STYLE,  0, mapBorderStyle, CSS_NONE},
 
     /* Padding */
-    {CSS_PROPERTY_PADDING_TOP,    0, 0, mapPadding, {CSS_TYPE_PX, 0}},
-    {CSS_PROPERTY_PADDING_LEFT,   0, 0, mapPadding, {CSS_TYPE_PX, 0}},
-    {CSS_PROPERTY_PADDING_RIGHT,  0, 0, mapPadding, {CSS_TYPE_PX, 0}},
-    {CSS_PROPERTY_PADDING_BOTTOM, 0, 0, mapPadding, {CSS_TYPE_PX, 0}},
+    {CSS_PROPERTY_PADDING_TOP,    0, mapPadding, {CSS_TYPE_PX, 0}},
+    {CSS_PROPERTY_PADDING_LEFT,   0, mapPadding, {CSS_TYPE_PX, 0}},
+    {CSS_PROPERTY_PADDING_RIGHT,  0, mapPadding, {CSS_TYPE_PX, 0}},
+    {CSS_PROPERTY_PADDING_BOTTOM, 0, mapPadding, {CSS_TYPE_PX, 0}},
 
     /* Margins */
-    {CSS_PROPERTY_MARGIN_TOP,    0, 0, 0, {CSS_TYPE_PX, 0}},
-    {CSS_PROPERTY_MARGIN_LEFT,   0, 0, 0, {CSS_TYPE_PX, 0}},
-    {CSS_PROPERTY_MARGIN_RIGHT,  0, 0, 0, {CSS_TYPE_PX, 0}},
-    {CSS_PROPERTY_MARGIN_BOTTOM, 0, 0, 0, {CSS_TYPE_PX, 0}},
+    {CSS_PROPERTY_MARGIN_TOP,    0, 0, {CSS_TYPE_PX, 0}},
+    {CSS_PROPERTY_MARGIN_LEFT,   0, 0, {CSS_TYPE_PX, 0}},
+    {CSS_PROPERTY_MARGIN_RIGHT,  0, 0, {CSS_TYPE_PX, 0}},
+    {CSS_PROPERTY_MARGIN_BOTTOM, 0, 0, {CSS_TYPE_PX, 0}},
 
     /* Custom Tkhtml properties */
-    {CSS_PROPERTY__TKHTML_REPLACE, 0, 0, 0, {CSS_TYPE_NONE, 0}},
+    {CSS_PROPERTY__TKHTML_REPLACE, 0, 0, {CSS_TYPE_NONE, 0}},
 
-    {CSS_PROPERTY_BORDER_SPACING, 1, 0, mapBorderSpacing, {CSS_TYPE_PX, 0}},
-    {CSS_PROPERTY_LIST_STYLE_TYPE, 1, 0, 0, CSSSTR("disc")},
+    {CSS_PROPERTY_BORDER_SPACING, 1, mapBorderSpacing, {CSS_TYPE_PX, 0}},
+    {CSS_PROPERTY_LIST_STYLE_TYPE, 1, 0, CSSSTR("disc")},
 };
 
 static int propMapisInit = 0;
@@ -794,7 +793,8 @@ static PropMapEntry *propmap[130];
  *
  *---------------------------------------------------------------------------
  */
-static CssProperty *getProperty(interp, pNode, pEntry, inheriting, pOut)
+static CssProperty *
+getProperty(interp, pNode, pEntry, inheriting, pOut)
     Tcl_Interp *interp;
     HtmlNode *pNode;
     PropMapEntry *pEntry;
@@ -866,7 +866,6 @@ static CssProperty *getProperty(interp, pNode, pEntry, inheriting, pOut)
     }
 
     /* See if we can get the property by translating an HTML attribute. */
-    assert (!pEntry->attrinherit);
     if (pEntry->xAttrmap && pEntry->xAttrmap(pNode, pOut)) {
         pProp = storePropertyCache(pPropertyCache, pOut);
         sheet = 0;
