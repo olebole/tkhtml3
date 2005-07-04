@@ -21,7 +21,6 @@
 
 #include <tk.h>
 #include "htmltokens.h"
-#include "css.h"
 
 /*
  * Version information for the package mechanism.
@@ -62,6 +61,8 @@ typedef struct HtmlCanvas HtmlCanvas;
 typedef struct HtmlCanvasItem HtmlCanvasItem;
 typedef struct HtmlFloatList HtmlFloatList;
 typedef struct HtmlPropertyCache HtmlPropertyCache;
+
+#include "css.h"
 
 typedef int (*HtmlContentTest)(HtmlNode *, int);
 
@@ -244,6 +245,7 @@ EXTERN HtmlNode *  HtmlNodeRightSibling(HtmlNode *);
 EXTERN int         HtmlNodeIsText(HtmlNode *);
 EXTERN HtmlNode *  HtmlNodeParent(HtmlNode *);
 EXTERN Html_u8     HtmlNodeTagType(HtmlNode *);
+EXTERN char CONST *HtmlNodeTagName(HtmlNode *);
 EXTERN char CONST *HtmlNodeAttr(HtmlNode *, char CONST *);
 EXTERN char *      HtmlNodeToString(HtmlNode *);
 

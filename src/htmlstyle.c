@@ -14,102 +14,6 @@ static char rcsid[] = "@(#) $Id:";
 #include <string.h>
 
 /*
- * --------------------------------------------------------------------------
- * Begin CssNodeInterface declaration.
- */
-static CONST char * 
-xType(node)
-    void *node;
-{
-    HtmlNode *pNode = (HtmlNode *)node;
-    return HtmlMarkupName(pNode->pToken->type);
-}
-static CONST char * 
-xAttr(node, zAttr)
-    void *node;
-    CONST char *zAttr;
-{
-    HtmlNode *pNode = (HtmlNode *)node;
-    return HtmlMarkupArg(pNode->pToken, zAttr, 0);
-}
-static void * 
-xParent(node)
-    void *node;
-{
-    HtmlNode *pNode = (HtmlNode *)node;
-    return HtmlNodeParent(pNode);
-}
-static int 
-xNumChild(node)
-    void *node;
-{
-    HtmlNode *pNode = (HtmlNode *)node;
-    return 0;
-}
-static void * 
-xChild(node, iChild)
-    void *node;
-    int iChild;
-{
-    HtmlNode *pNode = (HtmlNode *)node;
-    return 0;
-}
-static CONST char * 
-xLang(node)
-    void *node;
-{
-    HtmlNode *pNode = (HtmlNode *)node;
-    return "en";
-}
-static int 
-xParentIdx(node)
-    void *node;
-{
-    HtmlNode *pNode = (HtmlNode *)node;
-    return -1;
-}
-static CssProperties * 
-xProperties(node)
-    void *node;
-{
-    HtmlNode *pNode = (HtmlNode *)node;
-    return pNode->pProperties;
-}
-CssNodeInterface nodeinterface = {
-    xType,
-    xAttr,
-    xParent,
-    xNumChild,
-    xChild,
-    xLang,
-    xParentIdx,
-    xProperties
-};
-/*
- * End of CssNodeInterface declaration.
- * --------------------------------------------------------------------------
- */
-
-/*
- *---------------------------------------------------------------------------
- *
- * HtmlNodeInterface --
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-CONST CssNodeInterface * 
-HtmlNodeInterface()
-{
-    return &nodeinterface;
-}
-
-/*
  *---------------------------------------------------------------------------
  *
  * HtmlStyleParse --
@@ -204,7 +108,7 @@ int styleNode(pTree, pNode)
         pNode->pProperties = 0;
     }
     ppProp = &pNode->pProperties;
-    HtmlCssStyleSheetApply(pTree->pStyle, HtmlNodeInterface(), pNode, ppProp);
+    HtmlCssStyleSheetApply(pTree->pStyle, pNode, ppProp);
 
     /* If there is a "style" attribute on this node, parse the attribute
      * value and put the resulting mini-stylesheet in pNode->pStyle. 

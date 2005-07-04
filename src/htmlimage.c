@@ -38,7 +38,7 @@ photoputblock(interp, handle, blockPtr, x, y, width, height, compRule)
     int height;
     int compRule;
 {
-#if 1
+#if TCL_MINOR_VERSION < 5
     Tk_PhotoPutBlock(handle, blockPtr, x, y, width, height, compRule);
 #else
     Tk_PhotoPutBlock(interp, handle, blockPtr, x, y, width, height, compRule);

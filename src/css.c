@@ -1,6 +1,7 @@
 
 #include "css.h"
 #include "cssInt.h"
+#include "html.h"
 
 #include <stdlib.h>
 
@@ -1875,20 +1876,17 @@ static int attrTest(eType, zString, zAttr)
  *
  *--------------------------------------------------------------------------
  */
-#define NODE_TYPE(x)        (pNodeInterface->xType(x))
-#define NODE_ATTR(x,y)      (pNodeInterface->xAttr(x,y))
-#define NODE_PARENT(x)      (pNodeInterface->xParent(x))
-#define NODE_NUMCHILDREN(x) (pNodeInterface->xNumChildren(x))
-#define NODE_CHILD(x,y)     (pNodeInterface->xChild(x,y))
-#define NODE_PARENTIDX(x)   (pNodeInterface->xParentIdx(x))
-#define NODE_LANG(x)        (pNodeInterface->xLang(x))
-static int selectorTest(pSelector, pNodeInterface, pNode)
+#define N_TYPE(x)        HtmlNodeTagName(x)
+#define N_ATTR(x,y)      HtmlNodeAttr(x,y)
+#define N_PARENT(x)      HtmlNodeParent(x)
+#define N_NUMCHILDREN(x) HtmlNodeNumChildren(x)
+#define N_CHILD(x,y)     HtmlNodeChild(x,y)
+static int selectorTest(pSelector, pNode)
     CssSelector *pSelector;
-    CssNodeInterface *pNodeInterface;
-    void *pNode;
+    HtmlNode *pNode;
 {
     CssSelector *p = pSelector;
-    void *x = pNode;
+    HtmlNode *x = pNode;
     while( p && x ){
 
         switch( p->eSelector ){
@@ -1896,36 +1894,41 @@ static int selectorTest(pSelector, pNodeInterface, pNode)
                 break;
 
             case CSS_SELECTOR_TYPE:
-                if( strcmp(NODE_TYPE(x), p->zValue) ) return 0;
+                if( strcmp(N_TYPE(x), p->zValue) ) return 0;
                 break;
 
             case CSS_SELECTOR_ATTR:
             case CSS_SELECTOR_ATTRVALUE:
             case CSS_SELECTOR_ATTRLISTVALUE:
             case CSS_SELECTOR_ATTRHYPHEN:
-                if( !attrTest(p->eSelector, p->zValue, NODE_ATTR(x,p->zAttr)) ){
+                if( !attrTest(p->eSelector, p->zValue, N_ATTR(x,p->zAttr)) ){
                     return 0;
                 }
                 break;
 
             case CSS_SELECTORCHAIN_DESCENDANT: {
-                void *pParent = NODE_PARENT(x);
+                HtmlNode *pParent = N_PARENT(x);
                 CssSelector *pNext = p->pNext;
                 while (pParent) {
-                    if (selectorTest(pNext, pNodeInterface, pParent)) {
+                    if (selectorTest(pNext, pParent)) {
                         return 1;
                     }
-                    pParent = NODE_PARENT(pParent);
+                    pParent = N_PARENT(pParent);
                 }
                 return 0;
             }
             case CSS_SELECTORCHAIN_CHILD:
-                x = NODE_PARENT(x);
+                x = N_PARENT(x);
                 break;
             case CSS_SELECTORCHAIN_ADJACENT: {
-                int n = NODE_PARENTIDX(x);
-                if( n<=0 ) return 0;
-                x = NODE_CHILD(NODE_PARENT(x), n-1);
+                HtmlNode *pParent = N_PARENT(x);
+                int nChild = N_NUMCHILDREN(pParent);
+                int i;
+                for (i = 0; N_CHILD(pParent, i) != x; i++);
+                if (i==0)  {
+                    return 0;
+                }
+                x = N_CHILD(N_PARENT(x), i-1);
                 break;
             }
                 
@@ -1941,8 +1944,8 @@ static int selectorTest(pSelector, pNodeInterface, pNode)
                 /* Psuedo-class ":link". This rule matches any element with
                  * tag-type <a> and an href attribute.
                  */
-                if (strcmp(NODE_TYPE(x), "a") ||
-                    !attrTest(CSS_SELECTOR_ATTR, 0, NODE_ATTR(x,"href"))
+                if (strcmp(N_TYPE(x), "a") ||
+                    !attrTest(CSS_SELECTOR_ATTR, 0, N_ATTR(x,"href"))
                 ) {
                     return 0;
                 }
@@ -2005,10 +2008,9 @@ void HtmlCssPropertiesFree(pPropertySet)
  *
  *--------------------------------------------------------------------------
  */
-void HtmlCssStyleSheetApply(pStyle, pNodeInterface, pNode, ppProperties)
+void HtmlCssStyleSheetApply(pStyle, pNode, ppProperties)
     CssStyleSheet * pStyle; 
-    CONST CssNodeInterface *pNodeInterface;
-    void *pNode; 
+    HtmlNode *pNode; 
     CssProperties **ppProperties;
 {
     CssRule *pRule = 0;
@@ -2019,7 +2021,7 @@ void HtmlCssStyleSheetApply(pStyle, pNodeInterface, pNode, ppProperties)
      * see if the selector matches the node. If so, add the rules properties
      * to the property set.
      */
-    pEntry = Tcl_FindHashEntry(&pStyle->rules, NODE_TYPE(pNode));
+    pEntry = Tcl_FindHashEntry(&pStyle->rules, HtmlNodeTagName(pNode));
     if( pEntry ){
         pRule = (CssRule *)Tcl_GetHashValue(pEntry);
     }
@@ -2030,7 +2032,7 @@ void HtmlCssStyleSheetApply(pStyle, pNodeInterface, pNode, ppProperties)
     }
 
     while( pRule ){
-        int match = selectorTest(pRule->pSelector, pNodeInterface, pNode);
+        int match = selectorTest(pRule->pSelector, pNode);
         CssPropertySet *pPropertySet = pRule->pPropertySet;
 
 #if TRACE_STYLE_APPLICATION

@@ -22,17 +22,12 @@
  * CssStyleSheet:    The parsed representation of a style-sheet document or
  *                   an HTML style attribute (i.e. from a tag like: 
  *                   '<h1 style="font : italic">').
- *
- * CssNodeInterface: An interface implemented by the application and used by 
- *                   this module to access document nodes and their attributes
- *                   when applying the cascade algorithm. The theory is that
- *                   the module is completely agnostic as to the way the
- *                   document tree is implemented.
  */
 typedef struct CssStyleSheet CssStyleSheet;
 typedef struct CssProperties CssProperties;
 typedef struct CssProperty CssProperty;
-typedef struct CssNodeInterface CssNodeInterface;
+
+#include "html.h"
 
 /*
  * A single CSS property is represented by an instance of the following
@@ -93,31 +88,9 @@ int HtmlCssStyleSheetSyntaxErrs(CssStyleSheet *);
 void HtmlCssStyleSheetFree(CssStyleSheet *);
 
 /*
- * Functions (and a structure) to apply a stylesheet to a document node.
- *
- * xType:      Return the type of document node. (eg. "h1" or "p")
- * xAttr:      Return the value of the specified node attribute. Or NULL, if
- *             the attribute is not defined.
- * xParent:    Return the parent node. Or NULL, if the node is document root.
- * xNumChild:  Return the number of children the node has.
- * xChild:     Return the nth child of the node, 0 indexed from left to right.
- * xLang:      Return the language (i.e. "english") of the node.
- * xParendIdx: Return the index of the node in it's parent, or -1 if 
- *             the node is the document root.
- * xProperties: Return the CSS properties associated with the node.
+ * Function to apply a stylesheet to a document node.
  */
-struct CssNodeInterface {
-    const char * (*xType)(void *);
-    const char * (*xAttr)(void *, const char *);
-    void * (*xParent)(void *);
-    int (*xNumChild)(void *);
-    void * (*xChild)(void *, int);
-    const char * (*xLang)(void *);
-    int (*xParentIdx)(void *);
-    CssProperties *(*xProperties)(void *);
-};
-void HtmlCssStyleSheetApply
-(CssStyleSheet *, CssNodeInterface CONST *, void *, CssProperties**);
+void HtmlCssStyleSheetApply(CssStyleSheet *, HtmlNode *, CssProperties**);
 
 /*
  * Functions to interface with the results of a style application.
@@ -141,11 +114,5 @@ CssProperties *HtmlCssPropertiesGetAfter(CssProperties *);
 #define CSS_FOCUS     0x08
 
 CssProperty *HtmlCssStringToProperty(CONST char *z, int n);
-
-/*
-** Register the TCL interface with the supplied interpreter.
-*/
-#include <tcl.h>
-int tkhtmlCssTclInterface(Tcl_Interp *);
 
 #endif

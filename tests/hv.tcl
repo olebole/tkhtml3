@@ -27,6 +27,10 @@ catch {
   package require Img
 }
 
+proc bgerror {msg} {
+  puts "ERROR: $msg"
+}
+
 proc nodePrint {indent node} {
     set type [$node tag]
     set istr [string repeat " " $indent]

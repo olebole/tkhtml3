@@ -873,6 +873,31 @@ Html_u8 HtmlNodeTagType(pNode)
 /*
  *---------------------------------------------------------------------------
  *
+ * HtmlNodeTagName --
+ *
+ *     Return the name of the tag-type of the node, i.e. "p", "text" or
+ *     "div".
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+CONST char * HtmlNodeTagName(pNode)
+    HtmlNode *pNode;
+{
+    if (pNode && pNode->pToken) {
+        return HtmlMarkupName(pNode->pToken->type);
+    } 
+    return 0;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * HtmlNodeRightSibling --
  * 
  *     Get the right-hand sibling to a node, if it has one.
