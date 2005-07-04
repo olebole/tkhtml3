@@ -110,20 +110,13 @@ struct CssPropertyMask {
 
 /*
 ** A collection of CSS2 properties and values.
-**
-** A CssPropertyMask is defined above. It is a bitmask with one bit
-** for each CSS property, identifying the contents of this property-set.
-** The first N entries in 'aProp', where N is the number of bits set in 
-** 'mask', are pointers to property values. The entries are sorted 
-** according to the value assigned to the property constant (CSS_PROPERTY_*
-** symbol). nProp is the number of pointers allocated at aProp.
-**
 */
 struct CssPropertySet {
-    CssPropertyMask mask;   /* Contents of property-set. */
-    int nProp;              /* Allocated slots in aProp[] array. */
-    int nRef;               /* Number of CssRule objects that point to this */
-    CssProperty **aProp;    /* Array of pointers to property values. */
+    int n;
+    struct CssPropertySetItem {
+        int eProp;
+        CssProperty *pProp;
+    } *a;
 };
 
 struct CssProperties {

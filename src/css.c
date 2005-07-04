@@ -477,7 +477,6 @@ static int propertyMaskCnt(p, i)
     return r;
 }
 
-
 /*--------------------------------------------------------------------------
  *
  * propertySetNew --
@@ -493,7 +492,8 @@ static int propertyMaskCnt(p, i)
  *
  *--------------------------------------------------------------------------
  */
-static CssPropertySet *propertySetNew(){
+static CssPropertySet *
+propertySetNew(){
     CssPropertySet *p = (CssPropertySet *)ckalloc(sizeof(CssPropertySet));
     if( p ){
         memset(p, 0, sizeof(CssPropertySet));
@@ -509,24 +509,29 @@ static CssPropertySet *propertySetNew(){
  *
  * Results:
  *
- *     Return NULL if the property is not present, or a pointer to it's 
- *     string value if it is.
+ *     Return NULL if the property is not present, or a pointer to the
+ *     value if it is.
  *
  * Side effects:
  *     None.
  *
  *--------------------------------------------------------------------------
  */
-static CssProperty *propertySetGet(p, i)
+static CssProperty *
+propertySetGet(p, i)
     CssPropertySet *p;         /* Property set */
     int i;                     /* Property id (i.e CSS_PROPERTY_WIDTH) */
 {
-    CssProperty *zRet = 0;
+    int j;
     assert( i<128 && i>=0 );
-    if( PROPERTY_MASK_GET(&p->mask, i) ){
-        zRet = p->aProp[PROPERTY_MASK_CNT(&p->mask, i)];
+
+    for (j = 0; j < p->n; j++) {
+        if (i == p->a[j].eProp) {
+            return p->a[j].pProp;
+        }
     }
-    return zRet;
+
+    return 0;
 }
 
 /*--------------------------------------------------------------------------
@@ -543,32 +548,55 @@ static CssProperty *propertySetGet(p, i)
  *
  *--------------------------------------------------------------------------
  */
-static void propertySetAdd(p, i, v)
+static void 
+propertySetAdd(p, i, v)
     CssPropertySet *p;         /* Property set. */
     int i;                     /* Property id (i.e CSS_PROPERTY_WIDTH). */
     CssProperty *v;            /* Value for property. */
 {
+    int j;
+    int nBytes;
+
     assert( i<128 && i>=0 );
 
-    if( PROPERTY_MASK_GET(&p->mask, i) ){
-        int n = PROPERTY_MASK_CNT(&p->mask, i);
-        ckfree((char *)p->aProp[n]);
-        p->aProp[n] = v;
-    }else{
-        int n = p->nProp + 1;
-        int s;
-        int j;
-
-        p->aProp = (CssProperty **)
-                ckrealloc((char *)(p->aProp),(n)*(sizeof(CssProperty*)));
-        PROPERTY_MASK_SET(&p->mask, i);
-        s = PROPERTY_MASK_CNT(&p->mask, i);
-        for (j=(n-1); j>s; j--) {
-            p->aProp[j] = p->aProp[j-1];
+    for (j = 0; j < p->n; j++) {
+        if (i == p->a[j].eProp) {
+            ckfree((char *)p->a[j].pProp);
+            p->a[j].pProp = v;
+            return;
         }
-        p->aProp[s] = v;
-        p->nProp = n;
     }
+
+    nBytes = (p->n + 1) * sizeof(struct CssPropertySetItem);
+    p->a = (struct CssPropertySetItem *)ckrealloc((char *)p->a, nBytes);
+    p->a[p->n].pProp = v;
+    p->a[p->n].eProp = i;
+    p->n++;
+}
+
+/*--------------------------------------------------------------------------
+ *
+ * propertySetFree --
+ *
+ *     Delete a property set and it's contents.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *--------------------------------------------------------------------------
+ */
+static void 
+propertySetFree(CssPropertySet *p){
+    int i;
+    if( !p ) return;
+    for (i = 0; i < p->n; i++) {
+        ckfree((char *)p->a[i].pProp);
+    }
+    ckfree((char *)p->a);
+    ckfree((char *)p);
 }
 
 /*
@@ -998,30 +1026,6 @@ static void propertySetAddShortcutBorderColor(p, prop, v)
             propertySetAdd(p, CSS_PROPERTY_MARGIN_LEFT, apProp[3]);
             break;
     }
-}
-
-/*--------------------------------------------------------------------------
- *
- * propertySetFree --
- *
- *     Delete a property set and it's contents.
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *--------------------------------------------------------------------------
- */
-static void propertySetFree(CssPropertySet *p){
-    int i;
-    if( !p ) return;
-    for(i=0; i<p->nProp; i++){
-        ckfree((char *)p->aProp[i]);
-    }
-    ckfree((char *)p->aProp);
-    ckfree((char *)p);
 }
 
 /*--------------------------------------------------------------------------
@@ -1806,7 +1810,6 @@ cssSelectorPropertySetPair(pParse, pSelector, pPropertySet, freePropertySets)
     CssRule *pRule = (CssRule *)ckalloc(sizeof(CssRule));
     memset(pRule, 0, sizeof(CssRule));
 
-    pPropertySet->nRef++;
     pRule->freePropertySets = freePropertySets;
 
     /* Calculate the specificity of the rules. We use the following
