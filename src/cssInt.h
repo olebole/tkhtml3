@@ -132,9 +132,7 @@ struct CssProperties {
 };
 
 struct CssRule {
-    u8 origin;               /* CSS_ORIGIN_* value */
-    Tcl_Obj *pStyleId;       /* Second and subsequent parts of stylesheet id */
-
+    CssPriority *pPriority;  /* Pointer to the priority of source stylesheet */
     int specificity;         /* Specificity of the selector */
     CssSelector *pSelector;  /* The selector-chain for this rule */
     int freePropertySets;          /* True to delete pPropertySet */

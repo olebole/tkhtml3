@@ -1236,8 +1236,8 @@ comparePriority(pLeft, pRight)
     CssPriority *pLeft;
     CssPriority *pRight;
 {
-    int aNormal[3] = {CSS_ORIGIN_AGENT, CSS_ORIGIN_USER, CSS_ORIGIN_AUTHOR};
-    int aImportant[3] = {CSS_ORIGIN_AGENT, CSS_ORIGIN_AUTHOR, CSS_ORIGIN_USER};
+    int aNormal[3] = {CSS_ORIGIN_AUTHOR, CSS_ORIGIN_USER, CSS_ORIGIN_AGENT};
+    int aImportant[3] = {CSS_ORIGIN_USER, CSS_ORIGIN_AUTHOR, CSS_ORIGIN_AGENT};
     int *a = 0;
 
     if (pLeft->important && pRight->important) {
@@ -1322,26 +1322,28 @@ newCssPriority(pStyle, origin, pIdTail, important)
     ) {
         pPrev = pIter;
     }
-
+   
     if (!pPrev) {
-        pNew->iPriority = 1;
-        pNew->pNext = 0;
+        pNew->iPriority = 0;
+        pNew->pNext = pStyle->pPriority;
         pStyle->pPriority = pNew;
     } else {
-        int n = pPrev->iPriority;
+        pNew->iPriority = pPrev->iPriority;
         pNew->pNext = pPrev->pNext;
         pPrev->pNext = pNew;
-        for (pIter = pNew; pIter; pIter = pIter->pNext) {
-	    pIter->iPriority = ++n;
-        }
+    }
+
+    for (pIter = pNew; pIter; pIter = pIter->pNext) {
+	pIter->iPriority++;
     }
 
 #ifndef NDEBUG
-    if (1) {
-        for (pIter = pNew; pIter; pIter = pIter->pNext) {
-	    assert(!pIter->pNext || pIter->iPriority < pIter->pNext->iPriority);
-	    assert(!pIter->pNext || comparePriority(pIter, pIter->pNext) >= 0);
-        }
+    /* Check the list insertion code above worked (i.e. the list is still in
+     * priority order with the correct iPriority values). 
+     */
+    for (pIter = pNew; pIter && pIter->pNext; pIter = pIter->pNext) {
+	assert((pIter->iPriority + 1) == pIter->pNext->iPriority);
+        assert(comparePriority(pIter, pIter->pNext) >= 0);
     }
 #endif
 
@@ -1533,7 +1535,6 @@ static void ruleFree(pRule)
     CssRule *pRule;
 {
     if (pRule) {
-        Tcl_DecrRefCount(pRule->pStyleId);
         selectorFree(pRule->pSelector);
         if (pRule->freePropertySets) {
             propertySetFree(pRule->pPropertySet);
@@ -1561,15 +1562,25 @@ void
 HtmlCssStyleSheetFree(pStyle)
     CssStyleSheet *pStyle;
 {
-    CssRule *pRule;
-    CssRule *pRule2 = 0;
-
     if (pStyle) {
-        for (pRule = pStyle->pUniversalRules; pRule; pRule = pRule->pNext) {
-            ruleFree(pRule2);
-            pRule2 = pRule;
+        CssPriority *pPriority;
+        CssRule *pRule;
+
+        pRule = pStyle->pUniversalRules; 
+        while (pRule) { 
+            CssRule *pNext = pRule->pNext;
+            ruleFree(pRule);
+            pRule = pNext;
         }
-        ruleFree(pRule2);
+
+        pPriority = pStyle->pPriority;
+        while (pPriority) {
+            CssPriority *pNext = pPriority->pNext;
+            Tcl_DecrRefCount(pPriority->pIdTail);
+            ckfree((char *)pPriority);
+            pPriority = pNext;
+        }
+
         ckfree((char *)pStyle);
     }
 }
@@ -1736,18 +1747,22 @@ void HtmlCssSelector(pParse, stype, pAttr, pValue)
 static int 
 ruleCompare(CssRule *pLeft, CssRule *pRight) {
     int res = 0;
+
     assert(pLeft && pRight);
+    assert(pRight->pPriority);
+    assert(pLeft->pPriority);
+
+    /* In this case (right - left) is correct, because iPriority is a lower
+     * number for higher priority stylesheet documents. See comments above
+     * CssPriority struct in cssInt.h
+     */
+    res = pRight->pPriority->iPriority - pLeft->pPriority->iPriority;
 
     if (res == 0) {
-        res = pLeft->origin - pRight->origin;
-    }
-    if (res == 0) {
+        /* But here we want (left - right), because specificity is higher
+         * for more specific rules.
+         */
         res = pLeft->specificity - pRight->specificity;
-    }
-    if (res == 0) {
-        char *zLeft = Tcl_GetString(pLeft->pStyleId);
-        char *zRight = Tcl_GetString(pRight->pStyleId);
-        res = strcmp(zLeft, zRight);
     }
     return res;
 }
@@ -1833,11 +1848,7 @@ cssSelectorPropertySetPair(pParse, pSelector, pPropertySet, freePropertySets)
          }
     }
     pRule->specificity = spec;
-    pRule->origin = pParse->origin;
-    pRule->pStyleId = pParse->pStyleId;
-    if (pRule->pStyleId) {
-        Tcl_IncrRefCount(pRule->pStyleId);
-    }
+    pRule->pPriority = pParse->pPriority1;
 
     if( 0 && pSelector->eSelector==CSS_SELECTOR_TYPE ){
 #if 0
@@ -2237,14 +2248,18 @@ HtmlCssPropertiesGet(pProperties, prop, pSheetnum, pSpec)
     int *pSpec;
 {
     CssProperty *zRet = 0;
-    if( pProperties ){
+    if (pProperties) {
         int i;
-        for(i=0; i<pProperties->nRule && !zRet; i++){
+        for (i=0; i<pProperties->nRule && !zRet; i++){
             CssPropertySet *pPropertySet = pProperties->apRule[i]->pPropertySet;
             zRet = propertySetGet(pPropertySet, prop);
             if (zRet) {
-                if( pSheetnum ) *pSheetnum = pProperties->apRule[i]->origin;
-                if( pSpec ) *pSpec = pProperties->apRule[i]->specificity;
+                if (pSheetnum)  {
+                    *pSheetnum = pProperties->apRule[i]->pPriority->origin;
+                }
+                if (pSpec) {
+                    *pSpec = pProperties->apRule[i]->specificity;
+                }
             }
         }
     }
