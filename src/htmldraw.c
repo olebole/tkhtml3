@@ -156,21 +156,23 @@ HtmlDrawCleanup(pCanvas)
     HtmlCanvasItem *pPrev = 0;
 
     for (pItem = pCanvas->pFirst; pItem; pItem=pItem->pNext) {
+        Tcl_Obj *pObj = 0;
         switch (pItem->type) {
             case CANVAS_TEXT:
-                Tcl_DecrRefCount(pItem->x.t.pText);
+                pObj = pItem->x.t.pText;
                 break;
             case CANVAS_IMAGE:
-                if (pItem->x.i.pImage) {
-                    Tcl_DecrRefCount(pItem->x.i.pImage);
-                }
+                pObj = pItem->x.i.pImage;
                 break;
             case CANVAS_WINDOW:
-                Tcl_DecrRefCount(pItem->x.w.pWindow);
+                pObj = pItem->x.w.pWindow;
                 break;
             case CANVAS_COMMENT:
-                Tcl_DecrRefCount(pItem->x.c.pComment);
+                pObj = pItem->x.c.pComment;
                 break;
+        }
+        if (pObj) {
+            Tcl_DecrRefCount(pObj);
         }
         if (pPrev) {
             ckfree((char *)pPrev);
@@ -373,15 +375,19 @@ draw_canvas_out:
  *
  *---------------------------------------------------------------------------
  */
-void HtmlDrawComment(pCanvas, zComment)
+void HtmlDrawComment(pCanvas, zComment, size_only)
     HtmlCanvas *pCanvas; 
     CONST char *zComment;
+    int size_only;
 {
-    HtmlCanvasItem *pItem = (HtmlCanvasItem *)ckalloc(sizeof(HtmlCanvasItem));
-    pItem->type = CANVAS_COMMENT;
-    pItem->x.c.pComment = Tcl_NewStringObj(zComment, -1);
-    Tcl_IncrRefCount(pItem->x.c.pComment);
-    linkItem(pCanvas, pItem);
+    if (!size_only) {
+        HtmlCanvasItem *pItem;
+        pItem = (HtmlCanvasItem *)ckalloc(sizeof(HtmlCanvasItem));
+        pItem->type = CANVAS_COMMENT;
+        pItem->x.c.pComment = Tcl_NewStringObj(zComment, -1);
+        Tcl_IncrRefCount(pItem->x.c.pComment);
+        linkItem(pCanvas, pItem);
+    }
 }
 
 /*
@@ -508,7 +514,9 @@ HtmlDrawWindow(pCanvas, pWindow, x, y, w, h, size_only)
         pItem->x.w.y = y;
         pItem->x.w.absx = x;
         pItem->x.w.absy = y;
-        Tcl_IncrRefCount(pWindow);
+        if (pWindow) {
+            Tcl_IncrRefCount(pWindow);
+        }
         pItem->x.w.pNext = pCanvas->pWindow;
         pCanvas->pWindow = pItem;
         linkItem(pCanvas, pItem);

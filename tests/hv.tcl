@@ -26,6 +26,9 @@ catch {
   package require Img
 }
 
+# Background error proc. We don't want to pull up a dialog box for every
+# image that can't be found, so just output the error on stdout.
+#
 proc bgerror {msg} {
   puts "ERROR: $msg"
 }

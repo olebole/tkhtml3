@@ -32,14 +32,16 @@
 set ::constants [list]
 proc C {args} {set ::constants [concat $::constants $args]}
 
-C block inline list-item none                                ;# 'display'
-C run-in compact marker table inline-table table-caption
-C table-row-group table-header-group table-footer-group
-C table-row table-column-group table-column table-cell
+C inherit
+C block inline list-item none                     ;# 'display'
+C run-in compact marker table inline-table 
+C table-caption table-row-group table-cell
+C table-header-group table-footer-group table-row 
+C table-column-group table-column
 C left right none                                 ;# 'float'
 C left right none both                            ;# 'clear'
 C left right center justify                       ;# 'text-align'
-C auto
+C auto                                            ;# 'margin'
 C square disc circle none                         ;# 'list-style-type'
 C italic oblique                                  ;# 'font-style'
 C bold bolder                                     ;# 'font-weight'
@@ -57,8 +59,6 @@ C repeat no-repeat repeat-x repeat-y              ;# 'background-repeat'
 C top left right bottom center                    ;# 'background-position'
 C black silver gray white maroon red purple aqua  ;# Standard web colors
 C fuchsia green lime olive yellow navy blue teal
-
-
 
 # This is a list of all property names for properties that are not (a)
 # shortcut properties or (b) custom Tkhtml properties.
@@ -93,6 +93,11 @@ background border border-top border-right border-bottom border-left \
 border-color border-style border-width cue font padding outline margin\
 ]
 
+#########################################################################
+#########################################################################
+# End of configuration, start of code.
+#########################################################################
+#########################################################################
 
 # Return the C-code that defines the #define symbols for the CSS constants.
 #

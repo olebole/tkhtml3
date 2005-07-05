@@ -450,8 +450,8 @@ S int nodeGetTextAlign(LayoutContext *, HtmlNode *);
 S int nodeGetTextDecoration(LayoutContext *, HtmlNode *);
 S CONST char *nodeGetTkhtmlReplace(LayoutContext *, HtmlNode *);
 
-S void nodeComment(HtmlCanvas *, HtmlNode *);
-S void endNodeComment(HtmlCanvas *, HtmlNode *);
+S void nodeComment(LayoutContext *, HtmlCanvas *, HtmlNode *);
+S void endNodeComment(LayoutContext *, HtmlCanvas *, HtmlNode *);
 
 S void borderLayout(LayoutContext*, HtmlNode*, BoxContext*, int, int, int, int);
 S int floatLayout(LayoutContext*, BoxContext*, HtmlNode*, int*);
@@ -483,6 +483,8 @@ HtmlDrawWindow(a, b, c, d, e, f, pLayout->minmaxTest)
 HtmlDrawBackground(a, b, pLayout->minmaxTest)
 #define DRAW_QUAD(a, b, c, d, e, f, g, h, i, j) \
 HtmlDrawQuad(a, b, c, d, e, f, g, h, i, j, pLayout->minmaxTest)
+#define DRAW_COMMENT(a, b) \
+HtmlDrawComment(a, b, pLayout->minmaxTest)
 
 /*
  *---------------------------------------------------------------------------
@@ -1875,14 +1877,15 @@ static int nodeGetLineHeight(pLayout, pNode)
  *---------------------------------------------------------------------------
  */
 static void 
-nodeComment(pCanvas, pNode)
+nodeComment(pLayout, pCanvas, pNode)
+    LayoutContext *pLayout;
     HtmlCanvas *pCanvas;
     HtmlNode *pNode;
 {
 #ifdef HTML_DEBUG
     char *zComment;
     zComment = HtmlNodeToString(pNode);
-    HtmlDrawComment(pCanvas, zComment);
+    DRAW_COMMENT(pCanvas, zComment);
     ckfree(zComment);
 #endif
 }
@@ -1900,14 +1903,16 @@ nodeComment(pCanvas, pNode)
  *
  *---------------------------------------------------------------------------
  */
-static void endNodeComment(pCanvas, pNode)
+static void 
+endNodeComment(pLayout, pCanvas, pNode)
+    LayoutContext *pLayout;
     HtmlCanvas *pCanvas;
     HtmlNode *pNode;
 {
 #ifdef HTML_DEBUG
     char zComment[64];
     sprintf(zComment, "</%s>", HtmlMarkupName(HtmlNodeTagType(pNode)));
-    HtmlDrawComment(pCanvas, zComment);
+    DRAW_COMMENT(pCanvas, zComment);
 #endif
 }
 
@@ -2132,6 +2137,7 @@ markerLayout(pLayout, pBox, pNode)
     font = nodeGetFont(pLayout, pNode);
     color = nodeGetColour(pLayout, pNode);
     pMarker = Tcl_NewStringObj(zMarker, -1);
+    Tcl_IncrRefCount(pMarker);
     width = Tk_TextWidth(font, zMarker, strlen(zMarker));
 
     /* Todo: The code below assumes a value of 'outside' for property
@@ -2147,6 +2153,7 @@ markerLayout(pLayout, pBox, pNode)
     Tk_GetFontMetrics(font, &fontMetrics);
     yoffset = -1 * fontMetrics.ascent;
     DRAW_TEXT(&pBox->vc, pMarker, -1*offset, -1*yoffset, width, 0, font, color);
+    Tcl_DecrRefCount(pMarker);
     return TCL_OK;
 }
 
@@ -3142,11 +3149,13 @@ inlineText(pLayout, pNode, pContext)
 
                 pCanvas = inlineContextAddInlineCanvas(pContext, 0, pNode);
                 pText = Tcl_NewStringObj(pToken->x.zText, pToken->count);
+                Tcl_IncrRefCount(pText);
                 tw = Tk_TextWidth(font, pToken->x.zText, pToken->count);
                 ta = fontmetrics.ascent;
                 td = fontmetrics.descent;
                 inlineContextSetBoxDimensions(pContext, tw, ta, td);
                 DRAW_TEXT(pCanvas, pText, 0, 0, tw, sw, font, color);
+                Tcl_DecrRefCount(pText);
                 break;
             }
             case Html_Space: {
@@ -3334,9 +3343,7 @@ inlineLayoutNode(pLayout, pBox, pNode, pY, pContext)
 
         HtmlFloatListNormalize(sBox.pFloat, 0, -1*y);
         blockLayout(pLayout, &sBox, pNode, 0, 0);
-        if (!HtmlDrawIsEmpty(&sBox.vc)) {
-            DRAW_CANVAS(&pBox->vc, &sBox.vc, 0, y, pNode);
-        }
+        DRAW_CANVAS(&pBox->vc, &sBox.vc, 0, y, pNode);
         HtmlFloatListNormalize(sBox.pFloat, 0, y);
 
         y += sBox.height;
@@ -4546,7 +4553,10 @@ layoutReplacement(pLayout, pBox, pNode, zReplace)
     if (zReplace[0]=='.') {
         Tk_Window win = Tk_NameToWindow(interp, zReplace, tkwin);
         if (win) {
-            Tcl_Obj *pWin = Tcl_NewStringObj(zReplace, -1);
+            Tcl_Obj *pWin = 0;
+            if (!pLayout->minmaxTest) {
+                pWin = Tcl_NewStringObj(zReplace, -1);
+            }
             width = Tk_ReqWidth(win);
             height = Tk_ReqHeight(win);
             DRAW_WINDOW(&pBox->vc, pWin, 0, 0, width, height);
@@ -4558,6 +4568,7 @@ layoutReplacement(pLayout, pBox, pNode, zReplace)
         Tcl_Obj *pImg;
         int t = pLayout->minmaxTest;
         pImg = HtmlResizeImage(pLayout->pTree, zReplace, &width, &height, t);
+        assert(!pLayout->minmaxTest || !pImg);
         DRAW_IMAGE(&pBox->vc, pImg, 0, 0, width, height);
     }
 
@@ -4949,9 +4960,9 @@ static int blockLayout(pLayout, pBox, pNode, omitborder, noalign)
             borderLayout(pLayout, pNode, pBox, x1, y1, x2, y2);
         }
 
-        nodeComment(&pBox->vc, pNode);
+        nodeComment(pLayout, &pBox->vc, pNode);
         DRAW_CANVAS(&pBox->vc, &sBox.vc, x + hoffset, y, pNode);
-        endNodeComment(&pBox->vc, pNode);
+        endNodeComment(pLayout, &pBox->vc, pNode);
     
         pBox->height = sBox.height + y + 
             boxproperties.border_bottom + boxproperties.padding_bottom;
@@ -4999,6 +5010,7 @@ static int blockLayout(pLayout, pBox, pNode, omitborder, noalign)
          */
         pLayout->marginValue = collapseMargins(top_margin,margin.margin_bottom);
         pLayout->marginValid = marginValid;
+        HtmlDrawCleanup(&sBox.vc);
     }
 
     /* Restore the floating margins to the parent boxes coordinate system */

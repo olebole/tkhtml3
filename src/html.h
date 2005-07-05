@@ -306,9 +306,9 @@ EXTERN void HtmlAttributesToPropertyCache(HtmlNode *pNode);
 EXTERN Tcl_HashKeyType * HtmlCaseInsenstiveHashType();
 
 #ifdef HTML_DEBUG
-EXTERN void HtmlDrawComment(HtmlCanvas *, CONST char *zComment);
+EXTERN void HtmlDrawComment(HtmlCanvas *, CONST char *zComment, int);
 #else
-#define HtmlDrawComment(x, y)
+#define HtmlDrawComment(x, y, z)
 #endif
 
 #endif
