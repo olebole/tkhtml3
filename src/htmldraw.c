@@ -281,7 +281,6 @@ void HtmlDrawCanvas(pCanvas, pCanvas2, x, y, pNode)
          * of a single text item, then see if it can be combined with a
          * text item already in the parent canvas.
          */
-#if 1
         if (pCanvas2->pFirst == pCanvas2->pLast && 
             pCanvas2->pFirst->type == CANVAS_TEXT &&
             pCanvas->pFirst && pCanvas->pFirst->pNext &&
@@ -314,7 +313,6 @@ void HtmlDrawCanvas(pCanvas, pCanvas2, x, y, pNode)
                 }
             } 
         }
-#endif
  
         pItem = (HtmlCanvasItem *)ckalloc(sizeof(HtmlCanvasItem));
         pItem->type = CANVAS_ORIGIN;
@@ -401,7 +399,7 @@ void HtmlDrawComment(pCanvas, zComment)
  *
  *---------------------------------------------------------------------------
  */
-void HtmlDrawText(pCanvas, pText, x, y, w, sw, font, color)
+void HtmlDrawText(pCanvas, pText, x, y, w, sw, font, color, size_only)
     HtmlCanvas *pCanvas; 
     Tcl_Obj *pText; 
     int x;
@@ -410,26 +408,29 @@ void HtmlDrawText(pCanvas, pText, x, y, w, sw, font, color)
     int sw;
     Tk_Font font;
     XColor *color;
+    int size_only;
 {
-    HtmlCanvasItem *pItem = (HtmlCanvasItem *)ckalloc(sizeof(HtmlCanvasItem));
     Tk_FontMetrics fontMetrics;
 
-    pItem->type = CANVAS_TEXT;
-    pItem->x.t.pText = pText;
-    pItem->x.t.x = x;
-    pItem->x.t.y = y;
-    pItem->x.t.font = font;
-    pItem->x.t.color = color;
-    pItem->x.t.sw = sw;
-    Tcl_IncrRefCount(pText);
+    if (!size_only) {
+        HtmlCanvasItem *pItem; 
+        pItem = (HtmlCanvasItem *)ckalloc(sizeof(HtmlCanvasItem));
+        pItem->type = CANVAS_TEXT;
+        pItem->x.t.pText = pText;
+        pItem->x.t.x = x;
+        pItem->x.t.y = y;
+        pItem->x.t.font = font;
+        pItem->x.t.color = color;
+        pItem->x.t.sw = sw;
+        Tcl_IncrRefCount(pText);
+        linkItem(pCanvas, pItem);
+    }
 
     Tk_GetFontMetrics(font, &fontMetrics);
     pCanvas->left = MIN(pCanvas->left, x);
     pCanvas->right = MAX(pCanvas->right, x + w);
     pCanvas->bottom = MAX(pCanvas->bottom, y + fontMetrics.descent);
     pCanvas->top = MIN(pCanvas->top, y - fontMetrics.ascent);
-
-    linkItem(pCanvas, pItem);
 }
 
 /*
@@ -446,22 +447,26 @@ void HtmlDrawText(pCanvas, pText, x, y, w, sw, font, color)
  *---------------------------------------------------------------------------
  */
 void 
-HtmlDrawImage(pCanvas, pImage, x, y, w, h)
+HtmlDrawImage(pCanvas, pImage, x, y, w, h, size_only)
     HtmlCanvas *pCanvas;
     Tcl_Obj *pImage;          /* Image name or NULL */
     int x; 
     int y;
     int w;       /* Width of image */
     int h;       /* Height of image */
+    int size_only;
 {
-    HtmlCanvasItem *pItem = (HtmlCanvasItem *)ckalloc(sizeof(HtmlCanvasItem));
-
-    pItem->type = CANVAS_IMAGE;
-    pItem->x.i.pImage = pImage;
-    pItem->x.i.x = x;
-    pItem->x.i.y = y;
-    if (pImage) {
-        Tcl_IncrRefCount(pImage);
+    if (!size_only) {
+        HtmlCanvasItem *pItem; 
+        pItem = (HtmlCanvasItem *)ckalloc(sizeof(HtmlCanvasItem));
+        pItem->type = CANVAS_IMAGE;
+        pItem->x.i.pImage = pImage;
+        pItem->x.i.x = x;
+        pItem->x.i.y = y;
+        if (pImage) {
+            Tcl_IncrRefCount(pImage);
+        }
+        linkItem(pCanvas, pItem);
     }
 
     pCanvas->left = MIN(pCanvas->left, x);
@@ -469,7 +474,6 @@ HtmlDrawImage(pCanvas, pImage, x, y, w, h)
     pCanvas->bottom = MAX(pCanvas->bottom, y+h);
     pCanvas->top = MIN(pCanvas->top, y);
 
-    linkItem(pCanvas, pItem);
 }
 
 /*
@@ -486,32 +490,35 @@ HtmlDrawImage(pCanvas, pImage, x, y, w, h)
  *---------------------------------------------------------------------------
  */
 void 
-HtmlDrawWindow(pCanvas, pWindow, x, y, w, h)
+HtmlDrawWindow(pCanvas, pWindow, x, y, w, h, size_only)
     HtmlCanvas *pCanvas;
     Tcl_Obj *pWindow;
     int x; 
     int y;
     int w;       /* Width of window */
     int h;       /* Height of window */
+    int size_only;
 {
-    HtmlCanvasItem *pItem = (HtmlCanvasItem *)ckalloc(sizeof(HtmlCanvasItem));
-    pItem->type = CANVAS_WINDOW;
-    pItem->x.w.pWindow = pWindow;
-    pItem->x.w.x = x;
-    pItem->x.w.y = y;
-    pItem->x.w.absx = x;
-    pItem->x.w.absy = y;
-    Tcl_IncrRefCount(pWindow);
+    if (!size_only) {
+        HtmlCanvasItem *pItem; 
+        pItem = (HtmlCanvasItem *)ckalloc(sizeof(HtmlCanvasItem));
+        pItem->type = CANVAS_WINDOW;
+        pItem->x.w.pWindow = pWindow;
+        pItem->x.w.x = x;
+        pItem->x.w.y = y;
+        pItem->x.w.absx = x;
+        pItem->x.w.absy = y;
+        Tcl_IncrRefCount(pWindow);
+        pItem->x.w.pNext = pCanvas->pWindow;
+        pCanvas->pWindow = pItem;
+        linkItem(pCanvas, pItem);
+    }
 
     pCanvas->left = MIN(pCanvas->left, x);
     pCanvas->right = MAX(pCanvas->right, x+w);
     pCanvas->bottom = MAX(pCanvas->bottom, y+h);
     pCanvas->top = MIN(pCanvas->top, y);
 
-    pItem->x.w.pNext = pCanvas->pWindow;
-    pCanvas->pWindow = pItem;
-
-    linkItem(pCanvas, pItem);
 }
 
 /*
@@ -527,34 +534,37 @@ HtmlDrawWindow(pCanvas, pWindow, x, y, w, h)
  *
  *---------------------------------------------------------------------------
  */
-void HtmlDrawQuad(pCanvas, x1, y1, x2, y2, x3, y3, x4, y4, color)
+void HtmlDrawQuad(pCanvas, x1, y1, x2, y2, x3, y3, x4, y4, color, size_only)
     HtmlCanvas *pCanvas; 
     int x1, y1; 
     int x2, y2; 
     int x3, y3; 
     int x4, y4; 
     XColor *color;
+    int size_only;
 {
-    HtmlCanvasItem *pItem = (HtmlCanvasItem *)ckalloc(sizeof(HtmlCanvasItem));
-
-    pItem->type = CANVAS_QUAD;
-    pItem->x.q.x1 = x1;
-    pItem->x.q.y1 = y1;
-    pItem->x.q.x2 = x2;
-    pItem->x.q.y2 = y2;
-    pItem->x.q.x3 = x3;
-    pItem->x.q.y3 = y3;
-    pItem->x.q.y4 = y4;
-    pItem->x.q.x4 = x4;
-    pItem->x.q.x4 = x4;
-    pItem->x.q.color = color;
+    if (!size_only) {
+        HtmlCanvasItem *pItem;
+        pItem = (HtmlCanvasItem *)ckalloc(sizeof(HtmlCanvasItem));
+        pItem->type = CANVAS_QUAD;
+        pItem->x.q.x1 = x1;
+        pItem->x.q.y1 = y1;
+        pItem->x.q.x2 = x2;
+        pItem->x.q.y2 = y2;
+        pItem->x.q.x3 = x3;
+        pItem->x.q.y3 = y3;
+        pItem->x.q.y4 = y4;
+        pItem->x.q.x4 = x4;
+        pItem->x.q.x4 = x4;
+        pItem->x.q.color = color;
+        linkItem(pCanvas, pItem);
+    }
 
     pCanvas->left = MIN5(pCanvas->left, x1, x2, x3, x4);
     pCanvas->top = MIN5(pCanvas->top, y1, y2, y3, y4);
     pCanvas->bottom = MAX5(pCanvas->bottom, y1, y2, y3, y4);
     pCanvas->right = MAX5(pCanvas->right, x1, x2, x3, x4);
 
-    linkItem(pCanvas, pItem);
 }
 
 /*
@@ -570,14 +580,18 @@ void HtmlDrawQuad(pCanvas, x1, y1, x2, y2, x3, y3, x4, y4, color)
  *
  *---------------------------------------------------------------------------
  */
-void HtmlDrawBackground(pCanvas, color)
+void HtmlDrawBackground(pCanvas, color, size_only)
     HtmlCanvas *pCanvas;
     XColor *color;
+    int size_only;
 {
-    HtmlCanvasItem *pItem = (HtmlCanvasItem *)ckalloc(sizeof(HtmlCanvasItem));
-    pItem->type = CANVAS_BACKGROUND;
-    pItem->x.b.color = color;
-    linkItem(pCanvas, pItem);
+    if (!size_only) {
+        HtmlCanvasItem *pItem;
+        pItem = (HtmlCanvasItem *)ckalloc(sizeof(HtmlCanvasItem));
+        pItem->type = CANVAS_BACKGROUND;
+        pItem->x.b.color = color;
+        linkItem(pCanvas, pItem);
+    }
 }
 
 /*
@@ -914,7 +928,7 @@ int HtmlLayoutImage(clientData, interp, objc, objv)
 int HtmlDrawIsEmpty(pCanvas)
     HtmlCanvas *pCanvas;
 {
-    return (pCanvas->pFirst==0);
+    return (pCanvas->left==pCanvas->right && pCanvas->top==pCanvas->bottom);
 }
 
 /*

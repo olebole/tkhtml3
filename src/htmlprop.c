@@ -642,8 +642,16 @@ HtmlNewPropertyCache()
         }
         for (i=0; i<sizeof(propmapdata)/sizeof(PropMapEntry); i++) {
              PropMapEntry *p = &propmapdata[i];
+             CssProperty *pInitial = &p->initial;
              propmap[p->property] = p;
              idxmap[p->property] = i;
+
+             if (pInitial->eType == CSS_TYPE_STRING) {
+                 int e = HtmlCssStringToConstant(pInitial->v.zVal);
+                 if (e >= 0) {
+                     pInitial->eType = e;
+                 }
+             }
         }
         propMapisInit = 1;
     }
@@ -902,19 +910,17 @@ getProperty(interp, pNode, pEntry, pOut)
  *
  *---------------------------------------------------------------------------
  */
-void HtmlNodeGetProperty(interp, pNode, prop, pOut)
+CssProperty *HtmlNodeGetProperty(interp, pNode, prop)
     Tcl_Interp *interp;
     HtmlNode *pNode; 
     int prop; 
-    CssProperty *pOut;
 {
     PropMapEntry *pEntry;
     CssProperty *pProp;
 
     pEntry = propmap[prop];
     assert(pEntry);
-    pProp = getProperty(interp, pNode, pEntry);
-    *pOut = *pProp;
+    return getProperty(interp, pNode, pEntry);
 }
 
 /*
@@ -970,6 +976,12 @@ HtmlAttributesToPropertyCache(pNode)
             if (p->xAttrmap(pNode, &sProp)) {
                 CssProperty *pProp = storePropertyCache(pCache, &sProp);
                 setPropertyCache(pCache, p->property, pProp);
+                if (pProp->eType == CSS_TYPE_STRING) {
+                    int eConst = HtmlCssStringToConstant(pProp->v.zVal);
+                    if (eConst >= 0) {
+                        pProp->eType = eConst;
+                    }
+                }
             };
         }
     }

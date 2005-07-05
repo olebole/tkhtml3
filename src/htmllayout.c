@@ -371,7 +371,8 @@ static void inlineContextSetWhiteSpace(InlineContext *, int);
 static HtmlCanvas *inlineContextAddInlineCanvas(InlineContext*, int, HtmlNode*);
 static void inlineContextAddSpace(InlineContext *, int);
 static int 
-inlineContextGetLineBox(InlineContext*,int*,int,int,HtmlCanvas*,int*, int*);
+inlineContextGetLineBox(
+LayoutContext *pLayout, InlineContext*,int*,int,int,HtmlCanvas*,int*, int*);
 static int inlineContextIsEmpty(InlineContext *);
 static InlineBorder *inlineContextGetBorder(LayoutContext *, HtmlNode *, int);
 static int inlineContextPushBorder(InlineContext *, InlineBorder *);
@@ -383,40 +384,40 @@ static void inlineContextCleanup(InlineContext *);
  * Potential values for the 'display' property. Not supported yet are
  * 'run-in' and 'compact'. And some table types...
  */
-#define DISPLAY_BLOCK    1
-#define DISPLAY_INLINE   2
-#define DISPLAY_TABLE    3
-#define DISPLAY_LISTITEM 4
-#define DISPLAY_NONE     5
-#define DISPLAY_TABLECELL    6
+#define DISPLAY_BLOCK        CSS_CONST_BLOCK
+#define DISPLAY_INLINE       CSS_CONST_INLINE
+#define DISPLAY_TABLE        CSS_CONST_TABLE
+#define DISPLAY_LISTITEM     CSS_CONST_LIST_ITEM
+#define DISPLAY_NONE         CSS_CONST_NONE
+#define DISPLAY_TABLECELL    CSS_CONST_TABLE_CELL
 
-#define LISTSTYLETYPE_SQUARE 1 
-#define LISTSTYLETYPE_DISC   2 
-#define LISTSTYLETYPE_CIRCLE 3
-#define LISTSTYLETYPE_NONE   4
+#define LISTSTYLETYPE_SQUARE CSS_CONST_SQUARE 
+#define LISTSTYLETYPE_DISC   CSS_CONST_DISC 
+#define LISTSTYLETYPE_CIRCLE CSS_CONST_CIRCLE
+#define LISTSTYLETYPE_NONE   CSS_CONST_NONE
 
-#define VALIGN_MIDDLE 1
-#define VALIGN_TOP 2
-#define VALIGN_BOTTOM 3
-#define VALIGN_BASELINE 4
-#define VALIGN_SUB 5
-#define VALIGN_SUPER 6
-#define VALIGN_TEXT_TOP 7
-#define VALIGN_TEXT_BOTTOM 8
+#define VALIGN_MIDDLE        CSS_CONST_MIDDLE
+#define VALIGN_TOP           CSS_CONST_TOP
+#define VALIGN_BOTTOM        CSS_CONST_BOTTOM
+#define VALIGN_BASELINE      CSS_CONST_BASELINE
+#define VALIGN_SUB           CSS_CONST_SUB
+#define VALIGN_SUPER         CSS_CONST_SUPER
+#define VALIGN_TEXT_TOP      CSS_CONST_TEXT_TOP
+#define VALIGN_TEXT_BOTTOM   CSS_CONST_TEXT_BOTTOM
 
-#define TEXTALIGN_LEFT 1
-#define TEXTALIGN_RIGHT 2
-#define TEXTALIGN_CENTER 3
-#define TEXTALIGN_JUSTIFY 4
+#define TEXTALIGN_LEFT       CSS_CONST_LEFT
+#define TEXTALIGN_RIGHT      CSS_CONST_RIGHT
+#define TEXTALIGN_CENTER     CSS_CONST_CENTER
+#define TEXTALIGN_JUSTIFY    CSS_CONST_JUSTIFY
 
-#define TEXTDECORATION_NONE 1
-#define TEXTDECORATION_UNDERLINE 2
-#define TEXTDECORATION_OVERLINE 3
-#define TEXTDECORATION_LINETHROUGH 4
+#define TEXTDECORATION_NONE           CSS_CONST_NONE
+#define TEXTDECORATION_UNDERLINE      CSS_CONST_UNDERLINE
+#define TEXTDECORATION_OVERLINE       CSS_CONST_OVERLINE
+#define TEXTDECORATION_LINETHROUGH    CSS_CONST_LINE_THROUGH
 
-#define WHITESPACE_PRE 1
-#define WHITESPACE_NOWRAP 2
-#define WHITESPACE_NORMAL 3
+#define WHITESPACE_PRE       CSS_CONST_PRE
+#define WHITESPACE_NOWRAP    CSS_CONST_NOWRAP
+#define WHITESPACE_NORMAL    CSS_CONST_NORMAL
 
 /*
  * These are prototypes for all the static functions in this file. We
@@ -433,6 +434,7 @@ S XColor *propertyToColor(LayoutContext *, CssProperty*);
 S int physicalToPixels(LayoutContext *, double, char);
 S int propertyIsAuto(CssProperty *);
 
+S int nodeGetFontSize(LayoutContext *pLayout, HtmlNode *pNode);
 S int  nodeGetEmPixels(LayoutContext*, HtmlNode*);
 S int nodeGetExPixels(LayoutContext*, HtmlNode*);
 S void nodeGetDisplay(LayoutContext*, HtmlNode*, DisplayProperties*);
@@ -469,6 +471,19 @@ S int blockMinMaxWidth(LayoutContext *, HtmlNode *, int *, int *);
 
 #undef S
 
+#define DRAW_TEXT(a, b, c, d, e, f, g, h) \
+HtmlDrawText(a, b, c, d, e, f, g, h, pLayout->minmaxTest)
+#define DRAW_CANVAS(a, b, c, d, e) \
+HtmlDrawCanvas(a, b, c, d, e)
+#define DRAW_IMAGE(a, b, c, d, e, f) \
+HtmlDrawImage(a, b, c, d, e, f, pLayout->minmaxTest)
+#define DRAW_WINDOW(a, b, c, d, e, f) \
+HtmlDrawWindow(a, b, c, d, e, f, pLayout->minmaxTest)
+#define DRAW_BACKGROUND(a, b) \
+HtmlDrawBackground(a, b, pLayout->minmaxTest)
+#define DRAW_QUAD(a, b, c, d, e, f, g, h, i, j) \
+HtmlDrawQuad(a, b, c, d, e, f, g, h, i, j, pLayout->minmaxTest)
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -490,8 +505,9 @@ propertyToConstant(pProp, zOptions, eOptions, eDefault)
     int eDefault;
 {
     if (pProp && pProp->eType==CSS_TYPE_STRING) {
+        CONST char *z = HtmlCssPropertyGetString(pProp);
         while (*zOptions) {
-            if( 0==stricmp(pProp->v.zVal, *zOptions) ) return *eOptions;
+            if( 0==stricmp(z, *zOptions) ) return *eOptions;
             eOptions++;
             zOptions++;
         }
@@ -504,10 +520,11 @@ propertyToString(pProp, zDefault)
     CssProperty *pProp; 
     const char *zDefault;
 {
-    if (pProp && pProp->eType==CSS_TYPE_STRING) {
-        return pProp->v.zVal;
+    CONST char *z = HtmlCssPropertyGetString(pProp);
+    if (!z) {
+        z = zDefault;
     }
-    return zDefault;
+    return z;
 }
 
 /*
@@ -747,7 +764,7 @@ static int propertyIsAuto(pProp)
     CssProperty *pProp;
 {
     assert(pProp);
-    return (pProp->eType == CSS_TYPE_STRING && !strcmp(pProp->v.zVal, "auto"));
+    return (pProp->eType == CSS_CONST_AUTO);
 }
 
 /*
@@ -776,15 +793,22 @@ bwToPixels(pLayout, pNode, pProp, parentwidth, default_val)
     int parentwidth;
     int default_val;
 {
-    char const *zWidth[] = {
-        "thin", "medium", "thick",  0
-    };
-    int eWidth[] = {1, 2, 4};
-
-    if (pProp->eType == CSS_TYPE_STRING) {
-        return propertyToConstant(pProp, zWidth, eWidth, default_val);
+    int ret;
+    switch (pProp->eType) {
+        case CSS_CONST_THIN:
+            ret = 1;
+            break;
+        case CSS_CONST_MEDIUM:
+            ret = 2;
+            break;
+        case CSS_CONST_THICK:
+            ret = 4;
+            break;
+        default:
+            ret = propertyToPixels(
+                    pLayout, pNode, pProp, parentwidth, default_val);
     }
-    return propertyToPixels(pLayout, pNode, pProp, parentwidth, default_val);
+    return ret;
 }
 
 /*
@@ -806,49 +830,40 @@ bwToPixels(pLayout, pNode, pProp, parentwidth, default_val)
  *
  *---------------------------------------------------------------------------
  */
-static void nodeGetDisplay(pLayout, pNode, pDisplayProperties)
+static void 
+nodeGetDisplay(pLayout, pNode, pDisplayProperties)
     LayoutContext *pLayout;
     HtmlNode *pNode;
     DisplayProperties *pDisplayProperties;
 {
-    char const *zDisplay[] = {
-        "inline",         "block",           "none", 
-        "list-item",      "table",           "table-cell", 0
-    };
-    int eDisplay[] = {
-        DISPLAY_INLINE,   DISPLAY_BLOCK,     DISPLAY_NONE, 
-        DISPLAY_LISTITEM, DISPLAY_TABLE,     DISPLAY_TABLECELL
-    };
-
-    char const *zFloat[] = {
-        "left",         "right",           "none", 
-        0
-    };
-    int eFloat[] = {
-        FLOAT_LEFT,   FLOAT_RIGHT,     FLOAT_NONE
-    };
-
-    char const *zClear[] = {
-        "none",     "left",     "right",     "both",
-        0
-    };
-    int eClear[] = {
-        CLEAR_NONE, CLEAR_LEFT, CLEAR_RIGHT, CLEAR_BOTH
-    };
-
-    CssProperty prop;
+    CssProperty *pProp;
     int f;        /* 'float' */
     int d;        /* 'display' */
     int c;        /* 'clear' */
 
-    HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_DISPLAY, &prop);
-    d = propertyToConstant(&prop, zDisplay, eDisplay, DISPLAY_INLINE);
+    pProp = HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_DISPLAY);
+    d = pProp->eType;
+    if (d != DISPLAY_INLINE    && d != DISPLAY_BLOCK && 
+        d != DISPLAY_NONE      && d != DISPLAY_LISTITEM && 
+        d != DISPLAY_TABLE     && d != DISPLAY_NONE &&
+        d != DISPLAY_TABLECELL
+    ) {
+        d = DISPLAY_INLINE;
+    }
 
-    HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_FLOAT, &prop);
-    f = propertyToConstant(&prop, zFloat, eFloat, FLOAT_NONE);
+    pProp = HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_FLOAT);
+    f = pProp->eType;
+    if (f != FLOAT_NONE && f != FLOAT_LEFT && f != FLOAT_RIGHT) {
+        f = FLOAT_NONE;
+    }
 
-    HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_CLEAR, &prop);
-    c = propertyToConstant(&prop, zClear, eClear, CLEAR_NONE);
+    pProp = HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_CLEAR);
+    c = pProp->eType;
+    if (c != CLEAR_NONE        && c != CLEAR_LEFT && 
+        c != CLEAR_RIGHT       && c != CLEAR_BOTH
+    ) {
+        c = CLEAR_NONE;
+    }
 
     /* Force all floating boxes to have display type 'block' or 'table' */
     if (f!=FLOAT_NONE && d!=DISPLAY_TABLE) {
@@ -864,21 +879,62 @@ static int nodeGetListStyleType(pLayout, pNode)
     LayoutContext *pLayout; 
     HtmlNode *pNode;
 {
-    char const *zStyleOptions[] = {
-        "square",             "disc",             "circle",   
-        "none",               0
-    };
-    int eStyleOptions[] = {
-        LISTSTYLETYPE_SQUARE, LISTSTYLETYPE_DISC, LISTSTYLETYPE_CIRCLE,
-        LISTSTYLETYPE_NONE
-    };
-    CssProperty prop;
+    CssProperty *pProp;
+    int l;
     Tcl_Interp *interp = pLayout->pTree->interp;
 
-    HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_LIST_STYLE_TYPE, &prop);
-    return propertyToConstant(
-        &prop, zStyleOptions, eStyleOptions, LISTSTYLETYPE_DISC);
+    pProp = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_LIST_STYLE_TYPE);
+    l = pProp->eType;
+    if (l != LISTSTYLETYPE_SQUARE &&        l != LISTSTYLETYPE_DISC &&
+        l != LISTSTYLETYPE_CIRCLE &&        l != LISTSTYLETYPE_NONE
+    ) {
+        l = LISTSTYLETYPE_DISC;
+    }
+    return l;
 }
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * getScaledFontSize --
+ *
+ *     This is used to calculate the sizes of fonts in points when they are
+ *     specified relative to other font-sizes (i.e. "xx-small" or
+ *     "larger").
+ *
+ *     If paramter 'body' is true, then the font-size should be calculated
+ *     relative to the font-size of the <body> tag, or the root-node if no
+ *     <body> tag exists. Otherwise it is calculated relative to the parent
+ *     of pNode.
+ *
+ *     Pameter rVal is the scale by which the <body> or <parent> font-size
+ *     should be multiplied.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+getScaledFontSize(pLayout, pNode, rVal, body)
+    LayoutContext *pLayout;
+    HtmlNode *pNode;
+    double rVal;
+    int body;
+{
+    HtmlNode *pRelative;
+    pRelative = HtmlNodeParent(pNode);
+    if (body) {
+        while (pRelative && HtmlNodeTagType(pRelative) != Html_BODY) {
+            pRelative = HtmlNodeParent(pRelative);
+        }
+    }
+    return (int)(0.5 + ((double)nodeGetFontSize(pLayout, pRelative) * rVal));
+}
+    
 
 /*
  *---------------------------------------------------------------------------
@@ -896,59 +952,63 @@ static int nodeGetListStyleType(pLayout, pNode)
  *
  *---------------------------------------------------------------------------
  */
-static int nodeGetFontSize(pLayout, pNode)
+static int 
+nodeGetFontSize(pLayout, pNode)
     LayoutContext *pLayout;
     HtmlNode *pNode;
 {
     int val = 0;
-    CssProperty prop;
+    CssProperty *pProp;
 
     /* Default of 'font-size' should be "medium". */
     if (!pNode) return 10;
-    HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_FONT_SIZE, &prop);
+    pProp = HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_FONT_SIZE);
 
-    switch (prop.eType) {
+    switch (pProp->eType) {
         case CSS_TYPE_EM:
             val = nodeGetFontSize(pLayout, HtmlNodeParent(pNode));
-            val = val * prop.v.rVal;
+            val = val * pProp->v.rVal;
             break;
         case CSS_TYPE_EX:
             val = nodeGetExPixels(pLayout,  HtmlNodeParent(pNode));
-            val = val * prop.v.rVal;
+            val = val * pProp->v.rVal;
             break;
         case CSS_TYPE_PT:
-            val = prop.v.iVal;
+            val = pProp->v.iVal;
             break;
         case CSS_TYPE_PERCENT:
             val = nodeGetFontSize(pLayout, pNode->pParent);
-            val = (val * prop.v.iVal) / 100;
+            val = (val * pProp->v.iVal) / 100;
             break;
-        case CSS_TYPE_STRING: {
-            CONST char *zOptions[] = {
-                "xx-small", "x-small", "small", 
-                "medium", "large", "x-large", 
-                "xx-large", "smaller", "larger",
-                0};
-            int eOptions[] =  
-                {0, 1, 2, 3, 4, 5, 6, 7, 8};
-            double rOptions[] = {
-                0.6944, 0.8333, 1.0, 1.2, 1.44, 1.728, 2.074,
-                0.8333, 1.2
-            };
-            int i = propertyToConstant(&prop, zOptions, eOptions, -1);
-            if (i>=0) {
-                HtmlNode *pParent;
-                double r = rOptions[i];
-                pParent = HtmlNodeParent(pNode);
-                while (i<=6 && pParent && HtmlNodeTagType(pParent)!=Html_BODY) {
-                    pParent = HtmlNodeParent(pParent);
-                }
-                val = nodeGetFontSize(pLayout, pParent) * r;
-            }
+        case CSS_CONST_XX_SMALL: 
+            val = getScaledFontSize(pLayout, pNode, 0.6944, 0);
             break;
-        }
+        case CSS_CONST_X_SMALL: 
+            val = getScaledFontSize(pLayout, pNode, 0.8333, 0);
+            break;
+        case CSS_CONST_SMALL: 
+            val = getScaledFontSize(pLayout, pNode, 1.0, 0);
+            break;
+        case CSS_CONST_MEDIUM: 
+            val = getScaledFontSize(pLayout, pNode, 1.2, 0);
+            break;
+        case CSS_CONST_LARGE: 
+            val = getScaledFontSize(pLayout, pNode, 1.44, 0);
+            break;
+        case CSS_CONST_X_LARGE: 
+            val = getScaledFontSize(pLayout, pNode, 1.728, 0);
+            break;
+        case CSS_CONST_XX_LARGE: 
+            val = getScaledFontSize(pLayout, pNode, 2.074, 0);
+            break;
+        case CSS_CONST_SMALLER: 
+            val = getScaledFontSize(pLayout, pNode, 0.8333, 1);
+            break;
+        case CSS_CONST_LARGER: 
+            val = getScaledFontSize(pLayout, pNode, 1.2, 1);
+            break;
         default: {
-            int pixels = propertyToPixels(pLayout, pNode, &prop, 0, 0);
+            int pixels = propertyToPixels(pLayout, pNode, pProp, 0, 0);
             val = pixelsToPoints(pLayout, pixels);
         }
     }
@@ -999,15 +1059,15 @@ static Tcl_Obj *nodeGetFontFamily(pLayout, pNode)
         {"sans-serif", "Helvetica", 0},
         {"monospace",  "Courier", 0},
     };
-    CssProperty fontFamily;
+    CssProperty *pFamily;
     CONST char *zFamily;
     CONST char *zFamilyEnd;
     Tcl_Obj *pObj;
     Tcl_Obj *pFallback = 0;
     Tcl_Interp *interp = pLayout->interp;
 
-    HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_FONT_FAMILY, &fontFamily);
-    zFamily = propertyToString(&fontFamily, "Helvetica");
+    pFamily = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_FONT_FAMILY);
+    zFamily = propertyToString(pFamily, "Helvetica");
 
     /* Split the zFamily attribute on the "," character. If the list
      * contains any of the families contained in the "familyMap" array
@@ -1083,33 +1143,29 @@ static Tk_Font nodeGetFont(pLayout, pNode)
     LayoutContext *pLayout;
     HtmlNode *pNode;
 {
-    CssProperty *pFontStyle;
-    CssProperty *pFontWeight;
     int sz = nodeGetFontSize(pLayout, pNode);
-    int isItalic;
-    int isBold;
+    int isItalic = 0;
+    int isBold = 0;
     int i;
     int nFamily;
+    int eType;
     Tk_Font font = 0;
-    CssProperty fontStyle;            /* Property 'font-style' */
-    CssProperty fontWeight;           /* Property 'font-weight' */
-    CssProperty fontFamily;           /* Property 'font-family' */
-    Tcl_Obj *pFamily;                 /* List of potential font-families */
+    CssProperty *pFontStyle;            /* Property 'font-style' */
+    CssProperty *pFontWeight;           /* Property 'font-weight' */
+    CssProperty *pFontFamily;           /* Property 'font-family' */
+    Tcl_Obj *pFamily;                   /* List of potential font-families */
     Tcl_Interp *interp = pLayout->pTree->interp;
     Tcl_HashTable *pFontCache = &pLayout->pTree->aFontCache;
-
-    CONST char *zStyleOptions [] = {"italic", "oblique", 0};
-    int eStyleOptions [] = {1, 1};
-
-    CONST char *zWeightOptions [] = {"bold", "bolder", 0};
-    int eWeightOptions [] = {1, 1};
 
     /* If the 'font-style' attribute is set to either "italic" or
      * "oblique", add the option "-slant italic" to the string version
      * of the Tk font.
      */
-    HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_FONT_STYLE, &fontStyle);
-    isItalic = propertyToConstant(&fontStyle, zStyleOptions, eStyleOptions, 0);
+    pFontStyle = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_FONT_STYLE);
+    eType = pFontStyle->eType;
+    if (eType == CSS_CONST_ITALIC || eType == CSS_CONST_OBLIQUE) {
+        isItalic = 1;
+    }
 
     /* If the 'font-weight' attribute is set to either "bold" or
      * "bolder", add the option "-weight bold" to the string version
@@ -1119,8 +1175,11 @@ static Tk_Font nodeGetFont(pLayout, pNode)
      * of the font to "bold" or "normal", but we should try to do something
      * sensible with other options.
      */
-    HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_FONT_WEIGHT, &fontWeight);
-    isBold = propertyToConstant(&fontWeight, zWeightOptions, eWeightOptions, 0);
+    pFontWeight = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_FONT_WEIGHT);
+    eType = pFontWeight->eType;
+    if (eType == CSS_CONST_BOLD || eType == CSS_CONST_BOLDER) {
+        isBold = 1;
+    }
 
     pFamily = nodeGetFontFamily(pLayout, pNode);
     Tcl_ListObjLength(interp, pFamily, &nFamily);
@@ -1180,10 +1239,11 @@ static XColor *nodeGetColour(pLayout, pNode)
     HtmlNode *pNode;
 {
     XColor *color = 0;
+    CssProperty *pColor;
     CssProperty sColor;
 
-    HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_COLOR, &sColor);
-    color = propertyToColor(pLayout, &sColor);
+    pColor = HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_COLOR);
+    color = propertyToColor(pLayout, pColor);
 
     if (color) {
         return color;
@@ -1223,12 +1283,12 @@ nodeGetBorderSpacing(pLayout, pNode)
     LayoutContext *pLayout;
     HtmlNode *pNode;
 {
-    CssProperty prop;
+    CssProperty *pProp;
     int border_spacing;
     Tcl_Interp *interp = pLayout->pTree->interp;
 
-    HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BORDER_SPACING, &prop);
-    border_spacing = propertyToPixels(pLayout, pNode, &prop, 0, 0);
+    pProp = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BORDER_SPACING);
+    border_spacing = propertyToPixels(pLayout, pNode, pProp, 0, 0);
 
     return border_spacing;
 }
@@ -1247,19 +1307,35 @@ nodeGetBorderSpacing(pLayout, pNode)
  *     passes the default value for the context as the third parameter.
  *
  * Results:
- *     VALIGN_MIDDLE, VALIGN_TOP, VALIGN_BOTTOM or VALIGN_BASELINE.
+ *     One of the VALIGN_xxx constants.
  *
  * Side effects:
  *     None.
  *
  *---------------------------------------------------------------------------
  */
-static int nodeGetVAlign(pLayout, pNode, defval)
+static int 
+nodeGetVAlign(pLayout, pNode, defval)
     LayoutContext *pLayout;
     HtmlNode *pNode;
     int defval;
 {
-    CssProperty valign;
+#if 1
+    CssProperty *pValign;
+    int ret;
+    Tcl_Interp *interp = pLayout->interp;
+
+    pValign = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_VERTICAL_ALIGN);
+    ret = pValign->eType;
+    if (ret != VALIGN_TOP      && ret != VALIGN_MIDDLE && 
+        ret != VALIGN_BOTTOM   && ret != VALIGN_BASELINE && 
+        ret != VALIGN_SUB      && ret != VALIGN_SUPER && 
+        ret != VALIGN_TEXT_TOP && ret != VALIGN_TEXT_BOTTOM
+    ) {
+        ret = defval;
+    }
+#else
+    CssProperty *pValign;
     int ret;
     Tcl_Interp *interp = pLayout->interp;
 
@@ -1273,8 +1349,9 @@ static int nodeGetVAlign(pLayout, pNode, defval)
         VALIGN_SUB, VALIGN_SUPER,  VALIGN_TEXT_TOP, VALIGN_TEXT_BOTTOM
     };
 
-    HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_VERTICAL_ALIGN, &valign);
-    ret = propertyToConstant(&valign, zOptions, eOptions, defval);
+    pValign = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_VERTICAL_ALIGN);
+    ret = propertyToConstant(pValign, zOptions, eOptions, defval);
+#endif
 
     return ret;
 }
@@ -1363,19 +1440,19 @@ nodeGetBoxProperties(pLayout, pNode, parentwidth, pBoxProperties)
     int parentwidth;
     BoxProperties *pBoxProperties;
 {
-    CssProperty b;
-    CssProperty p;
+    CssProperty *b;
+    CssProperty *p;
     int w = parentwidth;
     Tcl_Interp *interp = pLayout->interp;
 
-    HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_PADDING_TOP, &p);
-    pBoxProperties->padding_top = propertyToPixels(pLayout, pNode, &p, w, 0);
-    HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_PADDING_LEFT, &p);
-    pBoxProperties->padding_left = propertyToPixels(pLayout, pNode, &p, w, 0);
-    HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_PADDING_RIGHT, &p);
-    pBoxProperties->padding_right = propertyToPixels(pLayout, pNode, &p, w, 0);
-    HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_PADDING_BOTTOM, &p);
-    pBoxProperties->padding_bottom = propertyToPixels(pLayout, pNode, &p, w, 0);
+    p = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_PADDING_TOP);
+    pBoxProperties->padding_top = propertyToPixels(pLayout, pNode, p, w, 0);
+    p = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_PADDING_LEFT);
+    pBoxProperties->padding_left = propertyToPixels(pLayout, pNode, p, w, 0);
+    p = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_PADDING_RIGHT);
+    pBoxProperties->padding_right = propertyToPixels(pLayout, pNode, p, w, 0);
+    p = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_PADDING_BOTTOM);
+    pBoxProperties->padding_bottom = propertyToPixels(pLayout, pNode, p, w, 0);
 
     /* A negative value is not allowed for padding. If one has been
      * specified, treat it as 0.  
@@ -1385,36 +1462,36 @@ nodeGetBoxProperties(pLayout, pNode, parentwidth, pBoxProperties)
     pBoxProperties->padding_left = MAX(0, pBoxProperties->padding_left);
     pBoxProperties->padding_right = MAX(0, pBoxProperties->padding_right);
 
-    HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BORDER_TOP_STYLE, &b);
-    if (b.eType==CSS_TYPE_STRING && 0==strcmp(b.v.zVal, "none")) {
+    b = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BORDER_TOP_STYLE);
+    if (b->eType == CSS_CONST_NONE) {
         pBoxProperties->border_top = 0;
     }else{
-        HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BORDER_TOP_WIDTH, &b);
-        pBoxProperties->border_top = bwToPixels(pLayout, pNode, &b, w, 0);
+        b = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BORDER_TOP_WIDTH);
+        pBoxProperties->border_top = bwToPixels(pLayout, pNode, b, w, 0);
     }
 
-    HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BORDER_BOTTOM_STYLE, &b);
-    if (b.eType==CSS_TYPE_STRING && 0==strcmp(b.v.zVal, "none")) {
+    b = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BORDER_BOTTOM_STYLE);
+    if (b->eType == CSS_CONST_NONE) {
         pBoxProperties->border_bottom = 0;
     }else{
-        HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BORDER_BOTTOM_WIDTH,&b);
-        pBoxProperties->border_bottom = bwToPixels(pLayout,pNode,&b,w,0);
+        b = HtmlNodeGetProperty(interp, pNode,CSS_PROPERTY_BORDER_BOTTOM_WIDTH);
+        pBoxProperties->border_bottom = bwToPixels(pLayout,pNode,b,w,0);
     }
 
-    HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BORDER_LEFT_STYLE, &b);
-    if (b.eType==CSS_TYPE_STRING && 0==strcmp(b.v.zVal, "none")) {
+    b = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BORDER_LEFT_STYLE);
+    if (b->eType == CSS_CONST_NONE) {
         pBoxProperties->border_left = 0;
     }else{
-        HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BORDER_LEFT_WIDTH, &b);
-        pBoxProperties->border_left = bwToPixels(pLayout,pNode,&b,w,0);
+        b = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BORDER_LEFT_WIDTH);
+        pBoxProperties->border_left = bwToPixels(pLayout,pNode,b,w,0);
     }
 
-    HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BORDER_RIGHT_STYLE, &b);
-    if (b.eType==CSS_TYPE_STRING && 0==strcmp(b.v.zVal, "none")) {
+    b = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BORDER_RIGHT_STYLE);
+    if (b->eType == CSS_CONST_NONE) {
         pBoxProperties->border_right = 0;
     }else{
-        HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BORDER_RIGHT_WIDTH, &b);
-        pBoxProperties->border_right = bwToPixels(pLayout,pNode,&b,w,0);
+        b = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BORDER_RIGHT_WIDTH);
+        pBoxProperties->border_right = bwToPixels(pLayout,pNode,b,w,0);
     }
 }
 
@@ -1438,11 +1515,11 @@ nodeGetColourProperty(pLayout, pNode, prop)
     int prop;
 {
     XColor *color;
-    CssProperty sProp;
+    CssProperty *pProp;
     CONST char *zColour;
 
-    HtmlNodeGetProperty(pLayout->interp, pNode, prop, &sProp);
-    color = propertyToColor(pLayout, &sProp);
+    pProp = HtmlNodeGetProperty(pLayout->interp, pNode, prop);
+    color = propertyToColor(pLayout, pProp);
     if (!color) {
         color = nodeGetColour(pLayout, pNode);
     }
@@ -1469,7 +1546,7 @@ nodeGetBorderProperties(pLayout, pNode, pBorderProperties)
     BorderProperties *pBorderProperties;
 {
     CONST char *zBg;
-    CssProperty bgcolor;
+    CssProperty *pBg;
     Tcl_Interp *interp = pLayout->interp;
 
     pBorderProperties->color_top = 
@@ -1484,10 +1561,10 @@ nodeGetBorderProperties(pLayout, pNode, pBorderProperties)
     /* Now figure out the background color for this block. This is done
      * here because the background is drawn at the same time as the border.
      */
-    HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BACKGROUND_COLOR, &bgcolor);
-    zBg = propertyToString(&bgcolor, 0);
+    pBg = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BACKGROUND_COLOR);
+    zBg = propertyToString(pBg, 0);
     if (zBg && strcmp(zBg, "transparent")) {
-        pBorderProperties->color_bg = propertyToColor(pLayout, &bgcolor);
+        pBorderProperties->color_bg = propertyToColor(pLayout, pBg);
     } else {
         pBorderProperties->color_bg = 0;
    }
@@ -1500,9 +1577,9 @@ static int nodeGetHeight(pLayout, pNode, pwidth, def)
     int def;
 {
     int val;
-    CssProperty height;
-    HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_HEIGHT, &height);
-    val = propertyToPixels(pLayout, pNode, &height, pwidth, def);
+    CssProperty *pHeight;
+    pHeight = HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_HEIGHT);
+    val = propertyToPixels(pLayout, pNode, pHeight, pwidth, def);
     return val;
 }
 
@@ -1537,16 +1614,16 @@ static int nodeGetWidth(pLayout, pNode, pwidth, def, pIsFixed, pIsAuto)
 {
     int val;
 
-    CssProperty width;
+    CssProperty *pWidth;
     int min;
     int max;
-    CssProperty minwidth;
-    CssProperty maxwidth;
+    CssProperty *pMin;
+    CssProperty *pMax;
 
-    HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_WIDTH, &width);
-    val = propertyToPixels(pLayout, pNode, &width, pwidth, def);
+    pWidth = HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_WIDTH);
+    val = propertyToPixels(pLayout, pNode, pWidth, pwidth, def);
 
-    switch (width.eType) {
+    switch (pWidth->eType) {
         case CSS_TYPE_PX:
             if (pIsFixed) *pIsFixed = 1;
             break;
@@ -1560,12 +1637,12 @@ static int nodeGetWidth(pLayout, pNode, pwidth, def, pIsFixed, pIsAuto)
              */
             int min;
             int max;
-            HtmlNodeGetProperty(
-                    pLayout->interp, pNode, CSS_PROPERTY_MIN_WIDTH, &minwidth);
-            HtmlNodeGetProperty(
-                    pLayout->interp, pNode, CSS_PROPERTY_MAX_WIDTH, &maxwidth);
-            min = propertyToPixels(pLayout, pNode, &minwidth, pwidth, 0);
-            max = propertyToPixels(pLayout, pNode, &maxwidth, pwidth, val);
+            pMin = HtmlNodeGetProperty(
+                    pLayout->interp, pNode, CSS_PROPERTY_MIN_WIDTH);
+            pMax = HtmlNodeGetProperty(
+                    pLayout->interp, pNode, CSS_PROPERTY_MAX_WIDTH);
+            min = propertyToPixels(pLayout, pNode, pMin, pwidth, 0);
+            max = propertyToPixels(pLayout, pNode, pMax, pwidth, val);
             val = MAX(val, min);
             val = MIN(val, max);
         }
@@ -1575,7 +1652,7 @@ static int nodeGetWidth(pLayout, pNode, pwidth, def, pIsFixed, pIsAuto)
            
     }
 
-    if (pIsAuto) *pIsAuto = propertyIsAuto(&width);
+    if (pIsAuto) *pIsAuto = propertyIsAuto(pWidth);
 
     return val;
 }
@@ -1603,9 +1680,18 @@ static int nodeGetTextAlign(pLayout, pNode)
     int eOptions[] = {
         TEXTALIGN_LEFT, TEXTALIGN_RIGHT, TEXTALIGN_CENTER, TEXTALIGN_JUSTIFY
     };
-    CssProperty prop;
-    HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_TEXT_ALIGN, &prop);
-    return propertyToConstant(&prop, zOptions, eOptions, TEXTALIGN_LEFT);
+    CssProperty *p;
+    int v;
+    p = HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_TEXT_ALIGN);
+
+    v = p->eType;
+    if (v != TEXTALIGN_LEFT &&      v != TEXTALIGN_RIGHT &&
+        v != TEXTALIGN_CENTER &&    v != TEXTALIGN_JUSTIFY
+    ) {
+        v = TEXTALIGN_LEFT;
+    }
+    
+    return v;
 }
 
 /*
@@ -1626,17 +1712,17 @@ nodeGetTextDecoration(pLayout, pNode)
     LayoutContext *pLayout;
     HtmlNode *pNode;
 {
-    char const *zOptions[] = {
-        "underline", "overline", "line-through", 0
-    };
-    int eOptions[] = {
-        TEXTDECORATION_UNDERLINE, TEXTDECORATION_OVERLINE,
-        TEXTDECORATION_LINETHROUGH
-    };
-    CssProperty prop;
+    CssProperty *p;
+    int ret;
     Tcl_Interp *interp = pLayout->interp;
-    HtmlNodeGetProperty(interp ,pNode, CSS_PROPERTY_TEXT_DECORATION, &prop);
-    return propertyToConstant(&prop, zOptions, eOptions, TEXTDECORATION_NONE);
+    p = HtmlNodeGetProperty(interp ,pNode, CSS_PROPERTY_TEXT_DECORATION);
+    ret = p->eType;
+    if (ret != TEXTDECORATION_UNDERLINE &&   ret != TEXTDECORATION_OVERLINE &&
+        ret != TEXTDECORATION_LINETHROUGH && ret != TEXTDECORATION_NONE
+    ) {
+        ret = TEXTDECORATION_NONE;
+    }
+    return ret;
 }
 
 /*
@@ -1660,13 +1746,10 @@ nodeGetTkhtmlReplace(pLayout, pNode)
     LayoutContext *pLayout;
     HtmlNode *pNode;
 {
-    CssProperty r;
+    CssProperty *pR;
     Tcl_Interp *interp = pLayout->pTree->interp;
-    HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY__TKHTML_REPLACE, &r);
-    if (r.eType==CSS_TYPE_STRING) {
-        return r.v.zVal;
-    }
-    return 0;
+    pR = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY__TKHTML_REPLACE);
+    return HtmlCssPropertyGetString(pR);
 }
 
 /*
@@ -1690,14 +1773,14 @@ static void nodeGetMargins(pLayout, pNode, parentWidth, pMargins)
     int parentWidth;
     MarginProperties *pMargins;
 {
-    CssProperty m;
+    CssProperty *pM;
     Tcl_Interp *interp = pLayout->pTree->interp;
     int widthisauto = 0;   /* True if the 'width' property is set to "auto" */
     int pw = parentWidth;
 
-    HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_WIDTH, &m);
+    pM = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_WIDTH);
     if (!nodeGetTkhtmlReplace(pLayout,pNode)) {
-        widthisauto = propertyIsAuto(&m);
+        widthisauto = propertyIsAuto(pM);
     }
 
     /* Todo: It is also legal to specify an integer between 1 and 4 for
@@ -1705,19 +1788,19 @@ static void nodeGetMargins(pLayout, pNode, parentWidth, pMargins)
      * doesn't know when it is converting is a margin, so it will have to
      * be done here.
      */
-    HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_MARGIN_TOP, &m);
-    pMargins->margin_top = propertyToPixels(pLayout, pNode, &m, pw, 0);
+    pM = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_MARGIN_TOP);
+    pMargins->margin_top = propertyToPixels(pLayout, pNode, pM, pw, 0);
 
-    HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_MARGIN_BOTTOM, &m);
-    pMargins->margin_bottom = propertyToPixels(pLayout, pNode, &m, pw, 0);
+    pM = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_MARGIN_BOTTOM);
+    pMargins->margin_bottom = propertyToPixels(pLayout, pNode, pM, pw, 0);
 
-    HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_MARGIN_LEFT, &m);
-    pMargins->margin_left = propertyToPixels(pLayout, pNode, &m, pw, 0);
-    pMargins->leftAuto = (!widthisauto?propertyIsAuto(&m):0);
+    pM = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_MARGIN_LEFT);
+    pMargins->margin_left = propertyToPixels(pLayout, pNode, pM, pw, 0);
+    pMargins->leftAuto = (!widthisauto?propertyIsAuto(pM):0);
 
-    HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_MARGIN_RIGHT, &m);
-    pMargins->margin_right = propertyToPixels(pLayout, pNode, &m, pw, 0);
-    pMargins->rightAuto = (!widthisauto?propertyIsAuto(&m):0);
+    pM = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_MARGIN_RIGHT);
+    pMargins->margin_right = propertyToPixels(pLayout, pNode, pM, pw, 0);
+    pMargins->rightAuto = (!widthisauto?propertyIsAuto(pM):0);
 }
 
 /*
@@ -1737,15 +1820,16 @@ static int nodeGetWhitespace(pLayout, pNode)
     LayoutContext *pLayout;
     HtmlNode *pNode;
 {
-    char const *zOptions[] = {
-        "pre", "nowrap", "normal", 0
-    };
-    int eOptions[] = {
-        WHITESPACE_PRE, WHITESPACE_NOWRAP, WHITESPACE_NORMAL
-    };
-    CssProperty prop;
-    HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_WHITE_SPACE, &prop);
-    return propertyToConstant(&prop, zOptions, eOptions, WHITESPACE_NORMAL);
+    CssProperty *p;
+    int ret;
+    p = HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_WHITE_SPACE);
+    ret = p->eType;
+    if (ret != WHITESPACE_PRE && ret != WHITESPACE_NORMAL && 
+        ret != WHITESPACE_NOWRAP
+    ) {
+        ret = WHITESPACE_NORMAL;
+    }
+    return ret;
 }
 
 /*
@@ -1770,10 +1854,10 @@ static int nodeGetLineHeight(pLayout, pNode)
     LayoutContext *pLayout;
     HtmlNode *pNode;
 {
-    CssProperty prop;
+    CssProperty *p;
     int font_pixels = nodeGetEmPixels(pLayout, pNode);
-    HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_LINE_HEIGHT,&prop);
-    return propertyToPixels(pLayout, pNode, &prop, font_pixels, 0);
+    p = HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_LINE_HEIGHT);
+    return propertyToPixels(pLayout, pNode, p, font_pixels, 0);
 }
 
 /*
@@ -1967,7 +2051,7 @@ static int floatLayout(pLayout, pBox, pNode, pY)
             x = leftFloat;
         }
     }
-    HtmlDrawCanvas(&pBox->vc, &sBox.vc, x, y, pNode);
+    DRAW_CANVAS(&pBox->vc, &sBox.vc, x, y, pNode);
 
     /* If the right-edge of this floating box exceeds the current actual
      * width of the box it is drawn in, set the actual width to the 
@@ -2064,7 +2148,7 @@ markerLayout(pLayout, pBox, pNode)
     offset = Tk_TextWidth(font, "x", 1) + width;
     Tk_GetFontMetrics(font, &fontMetrics);
     yoffset = -1 * fontMetrics.ascent;
-    HtmlDrawText(&pBox->vc, pMarker, -1*offset, -1*yoffset,width,0,font,color);
+    DRAW_TEXT(&pBox->vc, pMarker, -1*offset, -1*yoffset, width, 0, font, color);
     return TCL_OK;
 }
 
@@ -2480,8 +2564,9 @@ inlineContextAddNewLine(p, nHeight)
  *
  *---------------------------------------------------------------------------
  */
-static void 
-inlineContextDrawBorder(pCanvas, pBorder, x1, y1, x2, y2, drb, aRepX, nRepX)
+static void inlineContextDrawBorder(
+pLayout, pCanvas, pBorder, x1, y1, x2, y2, drb, aRepX, nRepX)
+    LayoutContext *pLayout;
     HtmlCanvas *pCanvas;
     InlineBorder *pBorder;
     int x1, y1;
@@ -2512,24 +2597,24 @@ inlineContextDrawBorder(pCanvas, pBorder, x1, y1, x2, y2, drb, aRepX, nRepX)
     y1 += pBorder->margin.margin_top;
     y2 -= pBorder->margin.margin_bottom;
     if (tw>0) {
-        HtmlDrawQuad(pCanvas, 
+        DRAW_QUAD(pCanvas, 
             x1, y1, x1+(dlb?lw:0), y1+tw, 
             x2-(drb?rw:0), y1+tw, x2, y1, 
             tc
         );
     }
     if (rw > 0 && drb) {
-        HtmlDrawQuad(pCanvas, x2, y1, x2-rw, y1+tw, x2-rw, y2-bw, x2, y2, rc);
+        DRAW_QUAD(pCanvas, x2, y1, x2-rw, y1+tw, x2-rw, y2-bw, x2, y2, rc);
     }
     if (bw>0) {
-        HtmlDrawQuad(pCanvas, 
+        DRAW_QUAD(pCanvas, 
             x2, y2, x2-(drb?rw:0), y2-bw,
             x1+(dlb?lw:0), y2-bw, x1, y2, 
             bc
         );
     }
     if (lw > 0 && dlb) {
-        HtmlDrawQuad(pCanvas, x1, y2, x1+lw, y2-bw, x1+lw, y1+tw, x1, y1, lc);
+        DRAW_QUAD(pCanvas, x1, y2, x1+lw, y2-bw, x1+lw, y1+tw, x1, y1, lc);
     }
 
     if (c) {
@@ -2538,7 +2623,7 @@ inlineContextDrawBorder(pCanvas, pBorder, x1, y1, x2, y2, drb, aRepX, nRepX)
         y1 += pBorder->box.border_top;
         y2 -= pBorder->box.border_bottom;
 
-        HtmlDrawQuad(pCanvas, x1, y1, x2, y1, x2, y2, x1, y2, c);
+        DRAW_QUAD(pCanvas, x1, y1, x2, y1, x2, y2, x1, y2, c);
     }
 
     if (textdecoration != TEXTDECORATION_NONE) {
@@ -2581,15 +2666,15 @@ inlineContextDrawBorder(pCanvas, pBorder, x1, y1, x2, y2, drb, aRepX, nRepX)
 
                 if (xs > xa) {
                     int xb = MIN(xs, x2);
-	            HtmlDrawQuad(pCanvas,xa,y,xb,y,xb,y+1,xa,y+1,color);
+	            DRAW_QUAD(pCanvas,xa,y,xb,y,xb,y+1,xa,y+1,color);
                 }
                 xa = xe;
             }
             if (xa < x2) {
-	        HtmlDrawQuad(pCanvas, xa, y, x2, y, x2, y+1, xa, y+1, color);
+	        DRAW_QUAD(pCanvas, xa, y, x2, y, x2, y+1, xa, y+1, color);
             }
         } else {
-	    HtmlDrawQuad(pCanvas, x1, y, x2, y, x2, y+1, x1, y+1, color);
+	    DRAW_QUAD(pCanvas, x1, y, x2, y, x2, y+1, x1, y+1, color);
         }
     }
 }
@@ -2616,7 +2701,9 @@ inlineContextDrawBorder(pCanvas, pBorder, x1, y1, x2, y2, drb, aRepX, nRepX)
  *---------------------------------------------------------------------------
  */
 static int 
-inlineContextGetLineBox(p,pWidth,forceline,forcebox,pCanvas,pVSpace,pAscent)
+inlineContextGetLineBox(
+pLayout, p, pWidth, forceline, forcebox, pCanvas, pVSpace, pAscent)
+    LayoutContext *pLayout;
     InlineContext *p;
     int *pWidth;              /* IN/OUT: See above */
     int forceline;            /* Draw line even if line is not full */
@@ -2814,7 +2901,7 @@ inlineContextGetLineBox(p,pWidth,forceline,forcebox,pCanvas,pVSpace,pAscent)
             aReplacedX[(nReplacedX-1)*2] = x1;
             aReplacedX[(nReplacedX-1)*2+1] = x1 + boxwidth;
         }
-        HtmlDrawCanvas(&content, &pBox->canvas, x1, 0, pBox->pNode);
+        DRAW_CANVAS(&content, &pBox->canvas, x1, 0, pBox->pNode);
         x += (boxwidth + pBox->nLeftPixels + pBox->nRightPixels);
 
         /* If any inline-borders end with this box, then draw them to the
@@ -2878,11 +2965,11 @@ inlineContextGetLineBox(p,pWidth,forceline,forcebox,pCanvas,pVSpace,pAscent)
             }
 
             memset(&tmpcanvas, 0, sizeof(HtmlCanvas));
-            HtmlDrawCanvas(&tmpcanvas, &borders, 0, 0, 0);
+            DRAW_CANVAS(&tmpcanvas, &borders, 0, 0, 0);
             memset(&borders, 0, sizeof(HtmlCanvas));
-            inlineContextDrawBorder(&borders, 
+            inlineContextDrawBorder(pLayout, &borders, 
                     pBorder, x1, y1, x2, y2, rb, aReplacedX, nReplacedX);
-            HtmlDrawCanvas(&borders, &tmpcanvas, 0, 0, 0);
+            DRAW_CANVAS(&borders, &tmpcanvas, 0, 0, 0);
         }
 
         for(j = 0; j < pBox->nBorderEnd; j++) {
@@ -2924,8 +3011,8 @@ inlineContextGetLineBox(p,pWidth,forceline,forcebox,pCanvas,pVSpace,pAscent)
     /* Draw the borders and content canvas into the target canvas. Draw the
      * borders canvas first so that it is under the content.
      */
-    HtmlDrawCanvas(pCanvas, &borders, 0, 0, 0);
-    HtmlDrawCanvas(pCanvas, &content, 0, 0, 0);
+    DRAW_CANVAS(pCanvas, &borders, 0, 0, 0);
+    DRAW_CANVAS(pCanvas, &content, 0, 0, 0);
 
     p->nInline -= nBox;
     memmove(p->aInline, &p->aInline[nBox], p->nInline * sizeof(InlineBox));
@@ -3061,7 +3148,7 @@ inlineText(pLayout, pNode, pContext)
                 ta = fontmetrics.ascent;
                 td = fontmetrics.descent;
                 inlineContextSetBoxDimensions(pContext, tw, ta, td);
-                HtmlDrawText(pCanvas, pText, 0, 0, tw, sw, font, color);
+                DRAW_TEXT(pCanvas, pText, 0, 0, tw, sw, font, color);
                 break;
             }
             case Html_Space: {
@@ -3130,14 +3217,15 @@ inlineLayoutDrawLines(pLayout, pBox, pContext, forceflag, pY)
 
         memset(&lc, 0, sizeof(HtmlCanvas));
         w = rightFloat - leftFloat;
-        have = inlineContextGetLineBox(pContext,&w,forceflag,f,&lc,&nV,&nA);
+        have = inlineContextGetLineBox(
+                pLayout, pContext, &w, forceflag, f, &lc, &nV, &nA);
 
         if (have) {
             if (pLayout->marginValid) {
                 y += pLayout->marginValue;
                 pLayout->marginValid = 0;
             }
-            HtmlDrawCanvas(&pBox->vc, &lc, leftFloat, y+nA, 0);
+            DRAW_CANVAS(&pBox->vc, &lc, leftFloat, y+nA, 0);
             y += nV;
             pBox->width = MAX(pBox->width, lc.right + leftFloat);
             pBox->height = MAX(pBox->height, y);
@@ -3249,7 +3337,7 @@ inlineLayoutNode(pLayout, pBox, pNode, pY, pContext)
         HtmlFloatListNormalize(sBox.pFloat, 0, -1*y);
         blockLayout(pLayout, &sBox, pNode, 0, 0);
         if (!HtmlDrawIsEmpty(&sBox.vc)) {
-            HtmlDrawCanvas(&pBox->vc, &sBox.vc, 0, y, pNode);
+            DRAW_CANVAS(&pBox->vc, &sBox.vc, 0, y, pNode);
         }
         HtmlFloatListNormalize(sBox.pFloat, 0, y);
 
@@ -3332,7 +3420,7 @@ inlineLayoutNode(pLayout, pBox, pNode, pY, pContext)
             }
 
             pCanvas = inlineContextAddInlineCanvas(pContext, 1, pNode);
-            HtmlDrawCanvas(pCanvas, &sBox.vc, 0, yoffset, pNode);
+            DRAW_CANVAS(pCanvas, &sBox.vc, 0, yoffset, pNode);
             inlineContextSetBoxDimensions(
                 pContext, sBox.width, -1 * yoffset, sBox.height + yoffset);
         }
@@ -3745,27 +3833,27 @@ static void borderLayout(pLayout, pNode, pBox, x1, y1, x2, y2)
 
     /* Top border polygon */
     if (tw>0) {
-        HtmlDrawQuad(&pBox->vc, x1, y1, x1+lw, y1+tw, x2-rw, y1+tw, x2, y1, tc);
+        DRAW_QUAD(&pBox->vc, x1, y1, x1+lw, y1+tw, x2-rw, y1+tw, x2, y1, tc);
     }
     if (rw>0) {
-        HtmlDrawQuad(&pBox->vc, x2, y1, x2-rw, y1+tw, x2-rw, y2-bw, x2, y2, rc);
+        DRAW_QUAD(&pBox->vc, x2, y1, x2-rw, y1+tw, x2-rw, y2-bw, x2, y2, rc);
     }
     if (bw>0) {
-        HtmlDrawQuad(&pBox->vc, x2, y2, x2-rw, y2-bw, x1+lw, y2-bw, x1, y2, bc);
+        DRAW_QUAD(&pBox->vc, x2, y2, x2-rw, y2-bw, x1+lw, y2-bw, x1, y2, bc);
     }
     if (lw>0) {
-        HtmlDrawQuad(&pBox->vc, x1, y2, x1+lw, y2-bw, x1+lw, y1+tw, x1, y1, lc);
+        DRAW_QUAD(&pBox->vc, x1, y2, x1+lw, y2-bw, x1+lw, y1+tw, x1, y1, lc);
     }
 
     if (borderproperties.color_bg) {
         if (pNode!=pLayout->pTop) {
-            HtmlDrawQuad(&pBox->vc, 
+            DRAW_QUAD(&pBox->vc, 
                     x1+lw, y1+tw, 
                     x2-rw, y1+tw, 
                     x2-rw, y2-bw, 
                     x1+lw, y2-bw, borderproperties.color_bg);
         } else {
-            HtmlDrawBackground(&pBox->vc, borderproperties.color_bg);
+            DRAW_BACKGROUND(&pBox->vc, borderproperties.color_bg);
         }
     }
 }
@@ -3838,7 +3926,7 @@ tableDrawRow(pNode, row, pContext)
                             (y2-y1-pCell->box.height) / 2;
                     break;
             }
-            HtmlDrawCanvas(&pData->pBox->vc, &pCell->box.vc,x,y,pCell->pNode);
+            DRAW_CANVAS(&pData->pBox->vc, &pCell->box.vc,x,y,pCell->pNode);
             memset(pCell, 0, sizeof(TableCell));
         }
         x += pData->aWidth[i] + pData->border_spacing;
@@ -4463,7 +4551,7 @@ layoutReplacement(pLayout, pBox, pNode, zReplace)
             Tcl_Obj *pWin = Tcl_NewStringObj(zReplace, -1);
             width = Tk_ReqWidth(win);
             height = Tk_ReqHeight(win);
-            HtmlDrawWindow(&pBox->vc, pWin, 0, 0, width, height);
+            DRAW_WINDOW(&pBox->vc, pWin, 0, 0, width, height);
         }
     } else {
 	/* Must be an image. Or garbage data returned by an bad Tcl proc.
@@ -4472,7 +4560,7 @@ layoutReplacement(pLayout, pBox, pNode, zReplace)
         Tcl_Obj *pImg;
         int t = pLayout->minmaxTest;
         pImg = HtmlResizeImage(pLayout->pTree, zReplace, &width, &height, t);
-        HtmlDrawImage(&pBox->vc, pImg, 0, 0, width, height);
+        DRAW_IMAGE(&pBox->vc, pImg, 0, 0, width, height);
     }
 
     pBox->width = MAX(pBox->width, width);
@@ -4634,7 +4722,7 @@ static int blockLayout(pLayout, pBox, pNode, omitborder, noalign)
     MarginProperties margin;       /* Margin properties of pNode */
     BoxProperties boxproperties;   /* Padding and border properties */
     BoxContext sBox;               /* Box that tableLayout() etc. use */
-    CssProperty replace;           /* Value of -tkhtml-replace property */
+    CONST char *zReplace;          /* Value of -tkhtml-replace property */
     int width;                     /* Explicit width of node */
     int availablewidth;            /* Maximum width available */
     int top_margin;                /* Actual top margin for box */
@@ -4658,14 +4746,14 @@ static int blockLayout(pLayout, pBox, pNode, omitborder, noalign)
     }
     nodeGetMargins(pLayout, pNode, pBox->parentWidth, &margin);
     nodeGetBoxProperties(pLayout, pNode, pBox->parentWidth, &boxproperties);
-    HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY__TKHTML_REPLACE, &replace);
+    zReplace = nodeGetTkhtmlReplace(pLayout, pNode);
 
     /* If the node is a table, or a replaced node (image or Tk window),
      * then it's content cannot wrap around any floating boxes. Also it
      * needs to be horizontally aligned after it's drawn. Set the
      * isBoxObject flag so we know to do these things.
      */
-    isReplaced = (replace.eType==CSS_TYPE_STRING);
+    isReplaced = (zReplace?1:0);
     isBoxObject = (display.eDisplay==DISPLAY_TABLE || isReplaced);
 
     /* Adjust the Y-coordinate to account for the 'clear' property. */
@@ -4780,7 +4868,7 @@ static int blockLayout(pLayout, pBox, pNode, omitborder, noalign)
         pLayout->marginParent = top_margin;
     }
     if (isReplaced) {
-        layoutReplacement(pLayout, &sBox, pNode, replace.v.zVal);
+        layoutReplacement(pLayout, &sBox, pNode, zReplace);
     } else {
         /* Draw the box using the function specific to it's display type,
          * then copy the drawing into the parent canvas.
@@ -4864,7 +4952,7 @@ static int blockLayout(pLayout, pBox, pNode, omitborder, noalign)
         }
 
         nodeComment(&pBox->vc, pNode);
-        HtmlDrawCanvas(&pBox->vc, &sBox.vc, x + hoffset, y, pNode);
+        DRAW_CANVAS(&pBox->vc, &sBox.vc, x + hoffset, y, pNode);
         endNodeComment(&pBox->vc, pNode);
     
         pBox->height = sBox.height + y + 

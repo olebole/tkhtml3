@@ -66,14 +66,14 @@ typedef struct HtmlPropertyCache HtmlPropertyCache;
 
 typedef int (*HtmlContentTest)(HtmlNode *, int);
 
-#define FLOAT_LEFT       1
-#define FLOAT_RIGHT      2
-#define FLOAT_NONE       3
+#define FLOAT_LEFT       CSS_CONST_LEFT
+#define FLOAT_RIGHT      CSS_CONST_RIGHT
+#define FLOAT_NONE       CSS_CONST_NONE
 
-#define CLEAR_NONE 1
-#define CLEAR_LEFT 2
-#define CLEAR_RIGHT 3
-#define CLEAR_BOTH 4
+#define CLEAR_NONE       CSS_CONST_NONE
+#define CLEAR_LEFT       CSS_CONST_LEFT
+#define CLEAR_RIGHT      CSS_CONST_RIGHT
+#define CLEAR_BOTH       CSS_CONST_BOTH
 
 struct HtmlTokenMap {
   char *zName;                    /* Name of a markup */
@@ -251,7 +251,7 @@ EXTERN char *      HtmlNodeToString(HtmlNode *);
 
 EXTERN Tcl_Obj *HtmlNodeCommand(Tcl_Interp *interp, HtmlNode *pNode);
 
-EXTERN void HtmlNodeGetProperty(Tcl_Interp *, HtmlNode *, int , CssProperty *);
+EXTERN CssProperty *HtmlNodeGetProperty(Tcl_Interp *, HtmlNode *, int);
 EXTERN void HtmlNodeGetDefault(HtmlNode *, int , CssProperty *);
 EXTERN void HtmlDeletePropertyCache(HtmlPropertyCache *);
 
@@ -261,12 +261,15 @@ EXTERN int HtmlClearImageArray(HtmlTree*);
 
 EXTERN void HtmlDrawCleanup(HtmlCanvas *);
 EXTERN void HtmlDrawDeleteControls(HtmlTree *, HtmlCanvas *);
-EXTERN void HtmlDrawCanvas(HtmlCanvas *, HtmlCanvas *, int, int, HtmlNode *);
-EXTERN void HtmlDrawText(HtmlCanvas*,Tcl_Obj*,int,int,int,int,Tk_Font,XColor*);
-EXTERN void HtmlDrawImage(HtmlCanvas *, Tcl_Obj *, int, int, int, int);
-EXTERN void HtmlDrawWindow(HtmlCanvas *, Tcl_Obj *, int, int, int, int);
-EXTERN void HtmlDrawBackground(HtmlCanvas *, XColor *);
-EXTERN void HtmlDrawQuad(HtmlCanvas*,int,int,int,int,int,int,int,int,XColor*);
+
+EXTERN void HtmlDrawCanvas(HtmlCanvas*,HtmlCanvas*,int,int,HtmlNode*);
+EXTERN void
+HtmlDrawText(HtmlCanvas*,Tcl_Obj*,int,int,int,int,Tk_Font,XColor*,int);
+EXTERN void HtmlDrawImage(HtmlCanvas *, Tcl_Obj *, int, int, int, int, int);
+EXTERN void HtmlDrawWindow(HtmlCanvas *, Tcl_Obj *, int, int, int, int, int);
+EXTERN void HtmlDrawBackground(HtmlCanvas *, XColor *, int);
+EXTERN void
+HtmlDrawQuad(HtmlCanvas*,int,int,int,int,int,int,int,int,XColor*,int);
 EXTERN int HtmlDrawIsEmpty(HtmlCanvas *);
 
 EXTERN int HtmlEmptyContent(HtmlNode *, int);
@@ -298,6 +301,8 @@ EXTERN HtmlPropertyCache * HtmlNewPropertyCache();
 EXTERN void HtmlDeletePropertyCache(HtmlPropertyCache *pCache);
 EXTERN void HtmlSetPropertyCache(HtmlPropertyCache *, int, CssProperty *);
 EXTERN void HtmlAttributesToPropertyCache(HtmlNode *pNode);
+
+EXTERN Tcl_HashKeyType * HtmlCaseInsenstiveHashType();
 
 #ifdef HTML_DEBUG
 EXTERN void HtmlDrawComment(HtmlCanvas *, CONST char *zComment);

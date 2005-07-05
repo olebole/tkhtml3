@@ -320,13 +320,6 @@ tokenToProperty(pToken)
         {-1,           3, "rgb"},
     };
 
-    struct KeywordFormat {
-        int type;
-        CONST char *zKeyword;
-    } keywords[] = {
-        {CSS_TYPE_INHERIT, "inherit"},
-    };
-
     CssProperty *pProp = 0;
     int i;
     double realval;       /* Real value, if token can be converted to float */
@@ -400,21 +393,20 @@ tokenToProperty(pToken)
         }
     }
 
-    for (i = 0; i < sizeof(keywords)/sizeof(struct KeywordFormat); i++) {
-        if (0 == strncmp(keywords[i].zKeyword, z, n)) {
-            pProp = (CssProperty *)ckalloc(sizeof(CssProperty));
-            pProp->eType = keywords[i].type;
-            break;
-        }
-    }
-
-    /* Finally, treat the property as a generic string. */
+    /* Finally, treat the property as a generic string. v.zVal will point at
+     * a NULL-terminated copy of the string. The eType field is set to
+     * either CSS_TYPE_STRING, or one of the symbols in cssprop.h (i.e.
+     * CSS_TYPE_BLOCK).
+     */
     if (!pProp) {
+        int eType;
         pProp = (CssProperty *)ckalloc(sizeof(CssProperty)+(n+1));
-        pProp->eType = CSS_TYPE_STRING;
         pProp->v.zVal = (char *)&pProp[1];
         memcpy(pProp->v.zVal, z, n);
         pProp->v.zVal[n] = '\0';
+
+        eType = HtmlCssStringToConstant(pProp->v.zVal);
+        pProp->eType = eType > 0 ? eType : CSS_TYPE_STRING;
 
         /* TODO: Dequote? */
     }
@@ -469,24 +461,15 @@ CONST char *
 HtmlCssPropertyGetString(pProp)
     CssProperty *pProp;
 {
-    static char zBuf[100];
-    zBuf[0] = '\0';
     if (pProp) {
-        switch (pProp->eType) {
-            case CSS_TYPE_STRING:
-                return pProp->v.zVal;
-            case CSS_TYPE_EM:
-                sprintf(zBuf, "%fem", pProp->v.rVal);
-                break;
-            case CSS_TYPE_PX:
-                sprintf(zBuf, "%dpx", pProp->v.iVal);
-                break;
-            case CSS_TYPE_PT:
-                sprintf(zBuf, "%dpt", pProp->v.iVal);
-                break;
+        int eType = pProp->eType;
+        if (eType == CSS_TYPE_STRING || 
+            eType >= CSS_CONST_MIN_CONSTANT && eType <= CSS_CONST_MAX_CONSTANT
+        ) {
+            return pProp->v.zVal;
         }
     }
-    return zBuf;
+    return 0;
 }
 
 
@@ -851,51 +834,37 @@ static void propertySetAddShortcutBorder(p, prop, v)
             CssToken token;
             CssProperty *pProp;
             int i;
+            int eType;
 
             token.z = z;
             token.n = n;
             pProp = tokenToProperty(&token);
+            eType = pProp->eType;
 
-            if (propertyIsLength(pProp) || pProp->eType==CSS_TYPE_FLOAT) {
+            if (propertyIsLength(pProp) || eType==CSS_TYPE_FLOAT) {
                 aProp = aWidth;
-            } else if (propertyIsString(pProp)) {
-                struct BorderString {
-                    CONST char *z;
-                    int *a;
-                } borderstring [] = {
-                    {"none",   aStyle},
-                    {"hidden", aStyle},
-                    {"dotted", aStyle},
-                    {"dashed", aStyle},
-                    {"solid",  aStyle},
-                    {"double", aStyle},
-                    {"groove", aStyle},
-                    {"ridge",  aStyle},
-                    {"outset", aStyle},
-                    {"inset", aStyle},
-                    {"thin",   aWidth},
-                    {"thick",  aWidth},
-                    {"medium", aWidth},
-                };
-                int nB = sizeof(borderstring)/sizeof(struct BorderString);
-                for (i=0; i < nB; i++) {
-                    if (0==strcmp(pProp->v.zVal, borderstring[i].z)) {
-                        aProp = borderstring[i].a;
-                        break;
-                    }
-                }
-                if (!aProp) {
-                    aProp = aColor;
-                }
+            } else if (
+                eType == CSS_CONST_NONE   || eType == CSS_CONST_HIDDEN ||
+                eType == CSS_CONST_DOTTED || eType == CSS_CONST_DASHED ||
+                eType == CSS_CONST_SOLID  || eType == CSS_CONST_DOUBLE ||
+                eType == CSS_CONST_GROOVE || eType == CSS_CONST_RIDGE  ||
+                eType == CSS_CONST_OUTSET || eType == CSS_CONST_INSET 
+            ) {
+                aProp = aStyle;
+            } else if (
+                eType == CSS_CONST_THIN || eType == CSS_CONST_THICK ||
+                eType == CSS_CONST_MEDIUM
+            ) {
+                aProp = aWidth;
+            } else {
+                aProp = aColor;
             }
 
-            if (aProp) {
-                for (i = iOffset; i < iOffset+nProp; i++) {
-                    if (i != iOffset) {
-                        pProp = propertyDup(pProp);
-                    }
-                    propertySetAdd(p, aProp[i], pProp);
+            for (i = iOffset; i < iOffset+nProp; i++) {
+                if (i != iOffset) {
+                    pProp = propertyDup(pProp);
                 }
+                propertySetAdd(p, aProp[i], pProp);
             }
             
             assert(n>0);
@@ -928,53 +897,48 @@ propertySetAddShortcutBackground(p, v)
     int n;
     int i;
 
-    struct ReservedWord {
-        CONST char *zWord;
-        int property;
-    } reserved [] = {
-        {"scroll", CSS_PROPERTY_BACKGROUND_ATTACHMENT},
-        {"fixed", CSS_PROPERTY_BACKGROUND_ATTACHMENT},
-        {"repeat", CSS_PROPERTY_BACKGROUND_REPEAT},
-        {"no-repeat", CSS_PROPERTY_BACKGROUND_REPEAT},
-        {"repeat-y", CSS_PROPERTY_BACKGROUND_REPEAT},
-        {"repeat-x", CSS_PROPERTY_BACKGROUND_REPEAT},
-        {"top", CSS_PROPERTY_BACKGROUND_POSITION},
-        {"left", CSS_PROPERTY_BACKGROUND_POSITION},
-        {"right", CSS_PROPERTY_BACKGROUND_POSITION},
-        {"bottom", CSS_PROPERTY_BACKGROUND_POSITION},
-        {"center", CSS_PROPERTY_BACKGROUND_POSITION},
-    };
-
     while (z) {
         CssProperty *pProp;
         z = getNextListItem(z, zEnd-z, &n);
         if (z) {
+            int eProp = 0;
             CssToken token;
+
             token.z = z;
             token.n = n;
             pProp = tokenToProperty(&token);
             z += n;
 
-            switch (pProp->eType) {
-                case CSS_TYPE_STRING: {
-                    int nReserved; 
-                    nReserved = sizeof(reserved) / sizeof(struct ReservedWord);
-                    for (i = 0; i < nReserved; i++) {
-                        if (0==strcmp(pProp->v.zVal, reserved[i].zWord)) {
-                            break;
-                        }
-                    }
-                    if (i == nReserved) {
-                        propertySetAdd(p, CSS_PROPERTY_BACKGROUND_COLOR, pProp);
-                    } else {
-                        propertySetAdd(p, reserved[i].property, pProp);
-                    }
-                    break;
+            if (propertyIsLength(pProp)) {
+                eProp = CSS_PROPERTY_BACKGROUND_POSITION;
+            } else {
+                switch (pProp->eType) {
+                    case CSS_CONST_SCROLL:
+                    case CSS_CONST_FIXED:
+                        eProp = CSS_PROPERTY_BACKGROUND_ATTACHMENT;
+                        break;
+                    case CSS_CONST_REPEAT:
+                    case CSS_CONST_NO_REPEAT:
+                    case CSS_CONST_REPEAT_X:
+                    case CSS_CONST_REPEAT_Y:
+                        eProp = CSS_PROPERTY_BACKGROUND_REPEAT;
+                        break;
+                    case CSS_CONST_TOP:
+                    case CSS_CONST_BOTTOM:
+                    case CSS_CONST_LEFT:
+                    case CSS_CONST_RIGHT:
+                    case CSS_CONST_CENTER:
+                    case CSS_TYPE_FLOAT:
+                        eProp = CSS_PROPERTY_BACKGROUND_POSITION;
+                        break;
+                    case CSS_TYPE_URL:
+                        eProp = CSS_PROPERTY_BACKGROUND_IMAGE;
+                        break;
+                    default:
+                        eProp = CSS_PROPERTY_BACKGROUND_COLOR;
                 }
-                case CSS_TYPE_URL:
-                    propertySetAdd(p, CSS_PROPERTY_BACKGROUND_IMAGE, pProp);
-                    break;
             }
+            propertySetAdd(p, eProp, pProp);
         }
     }
 }
@@ -1677,7 +1641,7 @@ void HtmlCssDeclaration(CssParse *pParse, CssToken *pProp, CssToken *pExpr){
     strncpy(zBuf, pProp->z, MIN(pProp->n, 63));
     zBuf[63] = 0;
     Tcl_UtfToLower(zBuf);
-    prop = tkhtmlCssPropertyFromString(MIN(63, pProp->n), zBuf);
+    prop = HtmlCssPropertyToString(MIN(63, pProp->n), zBuf);
     if( prop<0 ) return;
     if( !pParse->pPropertySet ){
         pParse->pPropertySet = propertySetNew();

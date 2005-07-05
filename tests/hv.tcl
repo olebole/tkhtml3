@@ -98,34 +98,47 @@ proc bytes {memreport} {
 }
 
 proc layout_engine_report {} {
-    lappend ::MEMARRAY [string trim [memory info]]
+    if {[info commands memory] != ""} {
+        lappend ::MEMARRAY [string trim [memory info]]
+    }
     lappend ::TIMEARRAY [$::HTML var layout_time]
 
     $::HTML reset
-    lappend ::MEMARRAY [string trim [memory info]]
+    if {[info commands memory] != ""} {
+        lappend ::MEMARRAY [string trim [memory info]]
+    } else {
+        lappend ::MEMARRAY N/A
+        lappend ::MEMARRAY N/A
+    }
 
     load_document $::DOCUMENT {}
 
     if {[llength $::MEMARRAY] < 8} {
         after idle layout_engine_report
     } else {
-        set report_lines [split [lindex $::MEMARRAY 0] "\n"]
-        foreach mem [lrange $::MEMARRAY 1 end] {
-            set l 0
-            foreach line [split $mem "\n"] {
-                set number [format {% 8s} [lindex $line end]]
-                lset report_lines $l "[lindex $report_lines $l] $number" 
-                incr l
-            }
-        }
+        set report_lines {}
 
-        set leaks {}
-        lappend leaks [expr \
-            [bytes [lindex $::MEMARRAY 2]] - [bytes [lindex $::MEMARRAY 0]]]
-        lappend leaks [expr \
-            [bytes [lindex $::MEMARRAY 4]] - [bytes [lindex $::MEMARRAY 2]]]
-        lappend leaks [expr \
-            [bytes [lindex $::MEMARRAY 6]] - [bytes [lindex $::MEMARRAY 4]]]
+        if {[info commands memory] != ""} {
+            set report_lines [split [lindex $::MEMARRAY 0] "\n"]
+            foreach mem [lrange $::MEMARRAY 1 end] {
+                set l 0
+                foreach line [split $mem "\n"] {
+                    set number [format {% 8s} [lindex $line end]]
+                    lset report_lines $l "[lindex $report_lines $l] $number" 
+                    incr l
+                }
+            }
+    
+            set leaks {}
+            lappend leaks [expr \
+                [bytes [lindex $::MEMARRAY 2]] - [bytes [lindex $::MEMARRAY 0]]]
+            lappend leaks [expr \
+                [bytes [lindex $::MEMARRAY 4]] - [bytes [lindex $::MEMARRAY 2]]]
+            lappend leaks [expr \
+                [bytes [lindex $::MEMARRAY 6]] - [bytes [lindex $::MEMARRAY 4]]]
+        } else {
+            set leaks N/A
+        }
 
         lappend report_lines {}
         lappend report_lines "Layout times (us): $::TIMEARRAY"

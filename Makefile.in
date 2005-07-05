@@ -12,7 +12,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile.in,v 1.14 2005/07/03 13:39:09 danielk1977 Exp $
+# RCS: @(#) $Id: Makefile.in,v 1.15 2005/07/05 09:30:00 danielk1977 Exp $
 
 #========================================================================
 # Edit the following few lines when writing a new extension
@@ -34,7 +34,7 @@ Tkhtml_SOURCES	=				\
                 cssparse.c      css.c           \
                 cssprop.c       htmlstyle.c     \
                 htmllayout.c    htmlprop.c      \
-                htmlfloat.c                     \
+                htmlfloat.c     htmlhash.c      \
 		@EXTRA_SOURCES@
 
 WIN_SOURCES	= 
