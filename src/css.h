@@ -59,6 +59,9 @@ typedef struct CssProperty CssProperty;
 /* CSS2 Keywords */
 #define CSS_TYPE_INHERIT      13           /* No value */
 
+/* Magical types */
+#define CSS_TYPE_XCOLOR      16            /* p points at XColor */
+
 /*
  * A CssProperty structure represents a single property value.
  */
@@ -68,6 +71,7 @@ struct CssProperty {
         int iVal;
         double rVal;
         char *zVal;
+        void *p;
     } v;
 };
 

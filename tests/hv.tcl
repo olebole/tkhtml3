@@ -7,7 +7,6 @@ catch {
 }
 
 set auto_path [concat . $auto_path]
-puts $auto_path
 package require Tkhtml 3.0
 # source [file join [file dirname [info script]] tkhtml.tcl]
 

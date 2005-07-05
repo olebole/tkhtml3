@@ -55,6 +55,8 @@ C ridge outset inset
 C scroll fixed                                    ;# 'background-attachment'
 C repeat no-repeat repeat-x repeat-y              ;# 'background-repeat'
 C top left right bottom center                    ;# 'background-position'
+C black silver gray white maroon red purple aqua  ;# Standard web colors
+C fuchsia green lime olive yellow navy blue teal
 
 
 

@@ -15,6 +15,10 @@ BODY            {
     background-color: white;
 }
 
+HTML {
+    background-color: white;
+}
+
 /* Rules for unordered-lists */
 LI                   { display: list-item }
 UL[type="square"]>LI { list-style-type : square } 

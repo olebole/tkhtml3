@@ -1262,10 +1262,18 @@ int HtmlTreeClear(pTree)
         p = Tcl_NextHashEntry(&s)) 
     {
         Tk_FreeFont((Tk_Font)Tcl_GetHashValue(p));
-        /* Tcl_DeleteHashEntry(p); */
+        Tcl_DeleteHashEntry(p);
     }
-    Tcl_DeleteHashTable(&pTree->aFontCache);
-    Tcl_InitHashTable(&pTree->aFontCache, TCL_STRING_KEYS);
+
+    /* Free the color-cache - pTree->aColor */
+    for (
+        p = Tcl_FirstHashEntry(&pTree->aColor, &s); 
+        p; 
+        p = Tcl_NextHashEntry(&s)) 
+    {
+        Tk_FreeColor((XColor *)Tcl_GetHashValue(p));
+        Tcl_DeleteHashEntry(p);
+    }
 
     /* Free the image-cache - pTree->aImage */
     HtmlClearImageArray(pTree);

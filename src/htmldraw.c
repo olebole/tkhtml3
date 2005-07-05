@@ -725,7 +725,7 @@ static Pixmap getPixmap(pTree, xcanvas, ycanvas, w, h)
     Tk_Window win = pTree->win;
     HtmlCanvasItem *pItem;
 
-    GC gc;
+    GC gc = 0;
     XGCValues gc_values;
     int mask;
 
@@ -737,13 +737,6 @@ static Pixmap getPixmap(pTree, xcanvas, ycanvas, w, h)
 
     pDisplay = Tk_Display(win);
     pmap = Tk_GetPixmap(pDisplay, Tk_WindowId(win), w, h, Tk_Depth(win));
-
-    gc_values.foreground = Tk_GetColor(pTree->interp, win, "white")->pixel;
-    mask = GCForeground;
-    gc = Tk_GetGC(pTree->win, mask, &gc_values);
-    XFillRectangle(pDisplay, pmap, gc, 0, 0, w, h);
-    Tk_FreeGC(pDisplay, gc);
-    gc = 0;
 
     for (pItem=pCanvas->pFirst; pItem; pItem=pItem->pNext) {
         switch (pItem->type) {

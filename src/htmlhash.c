@@ -15,6 +15,7 @@
  *---------------------------------------------------------------------------
  *
  * compareKey --
+ *
  *     Compare a new key to the key of an existing hash-entry.
  *
  * Results:
@@ -140,4 +141,3 @@ HtmlCaseInsenstiveHashType()
 {
     return &hash_key_type;
 }
-

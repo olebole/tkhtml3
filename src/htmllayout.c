@@ -672,72 +672,71 @@ propertyToPixels(pLayout, pNode, pProp, parentwidth, default_val)
  *
  *---------------------------------------------------------------------------
  */
-static XColor *propertyToColor(pLayout, pProp)
+static XColor *
+propertyToColor(pLayout, pProp)
     LayoutContext *pLayout;
     CssProperty *pProp;
 {
     XColor *color = 0;
-    CONST char *zColor;
-    Tcl_Interp *interp = pLayout->interp;
-    Tk_Window tkwin = pLayout->tkwin;
+    CONST char *zColor = 0;
 
-    zColor = propertyToString(pProp, 0);
+    /* The following constants are the web standard colors. */
+    switch (pProp->eType) {
+        case CSS_TYPE_XCOLOR:   
+            return (XColor *)pProp->v.p;
+        case CSS_CONST_BLACK:   zColor = "#000000"; break;
+        case CSS_CONST_SILVER:  zColor = "#C0C0C0"; break;
+        case CSS_CONST_GRAY:    zColor = "#808080"; break;
+        case CSS_CONST_WHITE:   zColor = "#FFFFFF"; break;
+        case CSS_CONST_MAROON:  zColor = "#800000"; break;
+        case CSS_CONST_RED:     zColor = "#FF0000"; break;
+        case CSS_CONST_PURPLE:  zColor = "#800080"; break;
+        case CSS_CONST_FUCHSIA: zColor = "#FF00FF"; break;
+        case CSS_CONST_GREEN:   zColor = "#008000"; break;
+        case CSS_CONST_LIME:    zColor = "#00FF00"; break;
+        case CSS_CONST_OLIVE:   zColor = "#808000"; break;
+        case CSS_CONST_YELLOW:  zColor = "#FFFF00"; break;
+        case CSS_CONST_NAVY:    zColor = "#000080"; break;
+        case CSS_CONST_BLUE:    zColor = "#0000FF"; break;
+        case CSS_CONST_TEAL:    zColor = "#008080"; break;
+        case CSS_CONST_AQUA:    zColor = "#00FFFF"; break;
+        case CSS_TYPE_STRING:
+            zColor = HtmlCssPropertyGetString(pProp);
+    }
+
     if (zColor) {
-        /* These are the 16 colors guarenteed to exist by HTML 4. We use
-	 * the HTML 4 definintions by preference, even though Tk may define
-	 * some of these colors differently.
-         */
-        struct MappedColor {
-            const char *zHtml;
-            const char *zTk;
-        } colors [] = {
-            {"black", "#000000"},
-            {"silver", "#C0C0C0"},
-            {"gray", "#808080"},
-            {"white", "#FFFFFF"},
-            {"maroon", "#800000"},
-            {"red", "#FF0000"},
-            {"purple", "#800080"},
-            {"fuchsia", "#FF00FF"},
-            {"green", "#008000"},
-            {"lime", "#00FF00"},
-            {"olive", "#808000"},
-            {"yellow", "#FFFF00"},
-            {"navy", "#000080"},
-            {"blue", "#0000FF"},
-            {"teal", "#008080"},
-            {"aqua", "#00FFFF"},
-        };
-        int i;
-        for (i = 0; i < (sizeof(colors) / sizeof(colors[0])); i++) {
-            if (0 == strcmp(zColor, colors[i].zHtml)) {
-                color = Tk_GetColor(interp, tkwin, colors[i].zTk);
-                break;
-            }
-        }
-        if (!color) {
-        color = Tk_GetColor(interp, tkwin, zColor);
-        }
-        if (!color) {
-	    /* Old versions of netscape used to support hex colors without
-             * the '#' character (i.e. "FFF" is the same as "#FFF"). So 
-             * naturally this has become a defacto standard, even though it
-             * is obviously wrong.
-             */
-            char zBuf[14];
-            int n = strlen(zColor);
-            if (n == 6 || n == 3 || n == 9 || n == 12) {
-                int i;
-                for (i = 0; i < n; i++) {
-                    if (!isxdigit(zColor[i]))
-                        break;
-                }
-                if (i == n) {
-                    sprintf(zBuf, "#%s", zColor);
-                    zColor = zBuf;
-                }
-            }
+        int newentry = 1;
+        Tcl_HashTable *pHash = &pLayout->pTree->aColor;
+        Tcl_HashEntry *pEntry;
+
+        pEntry = Tcl_CreateHashEntry(pHash, zColor, &newentry);
+        if (!newentry) {
+            color = (XColor *)Tcl_GetHashValue(pEntry);
+        } else {
+            Tk_Window tkwin = pLayout->tkwin;
+            Tcl_Interp *interp = pLayout->interp;
+
             color = Tk_GetColor(interp, tkwin, zColor);
+            if (!color && strlen(zColor) <= 12) {
+		/* Old versions of netscape used to support hex colors
+		 * without the '#' character (i.e. "FFF" is the same as
+		 * "#FFF"). So naturally this has become a defacto
+		 * standard, even though it is obviously wrong.
+                 */
+                char zBuf[14];
+                sprintf(zBuf, "#%s", zColor);
+                color = Tk_GetColor(interp, tkwin, zBuf);
+            }
+ 
+            if (!color) {
+                Tcl_DeleteHashEntry(pEntry);
+            } else {
+                Tcl_SetHashValue(pEntry, color);
+#if 0
+                pProp->eType = CSS_TYPE_XCOLOR;
+                pProp->v.p = (void *)color;
+#endif
+            }
         }
     }
 
@@ -935,7 +934,6 @@ getScaledFontSize(pLayout, pNode, rVal, body)
     return (int)(0.5 + ((double)nodeGetFontSize(pLayout, pRelative) * rVal));
 }
     
-
 /*
  *---------------------------------------------------------------------------
  *
@@ -5096,7 +5094,6 @@ HtmlLayoutForce(clientData, interp, objc, objv)
      */
     sLayout.pTop = pBody;
     rc = blockLayout(&sLayout, &sBox, pBody, 0, 0);
-
 
     memcpy(&pTree->canvas, &sBox.vc, sizeof(HtmlCanvas));
 

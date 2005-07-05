@@ -1,5 +1,5 @@
 static char const rcsid[] =
-        "@(#) $Id: htmltcl.c,v 1.27 2005/07/01 11:45:55 danielk1977 Exp $";
+        "@(#) $Id: htmltcl.c,v 1.28 2005/07/05 11:06:16 danielk1977 Exp $";
 
 /*
 ** The main routine for the HTML widget for Tcl/Tk
@@ -607,8 +607,6 @@ int HtmlWidgetObjCommand(clientData, interp, objc, objv)
          }
     }
 
-   
-
     /* Failed to find a matching sub-command. The remainder of this routine
      * is generating an error message. 
      */
@@ -726,6 +724,7 @@ static int newWidget(clientData, interp, objc, objv)
     Tcl_InitHashTable(&pTree->aNodeHandler, TCL_ONE_WORD_KEYS);
     Tcl_InitHashTable(&pTree->aImage, TCL_STRING_KEYS);
     Tcl_InitHashTable(&pTree->aFontCache, TCL_STRING_KEYS);
+    Tcl_InitHashTable(&pTree->aColor, TCL_STRING_KEYS);
     Tcl_InitHashTable(&pTree->aCmd, TCL_STRING_KEYS);
     Tcl_InitHashTable(&pTree->aVar, TCL_STRING_KEYS);
     Tcl_CreateObjCommand(interp,zCmd,HtmlWidgetObjCommand,pTree,deleteWidget);

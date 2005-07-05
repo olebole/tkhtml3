@@ -208,9 +208,10 @@ struct HtmlTree {
     CssStyleSheet *pStyle;          /* Style sheet configuration */
 
     Tcl_HashTable aFontCache;       /* All fonts used by canvas (by name) */
+    Tcl_HashTable aColor;           /* All colors used by canvas (by name) */ 
+
     Tcl_HashTable aImage;           /* All images used by document (by name) */ 
     HtmlCanvas canvas;              /* Canvas to render into */
-
     HtmlOptions options;            /* Configurable options */
     Tk_OptionTable optionTable;     /* Option table */
 };
