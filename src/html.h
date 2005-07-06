@@ -267,14 +267,6 @@ void HtmlDrawBackground(HtmlCanvas *, XColor *, int);
 void HtmlDrawQuad(HtmlCanvas*,int,int,int,int,int,int,int,int,XColor*,int);
 int HtmlDrawIsEmpty(HtmlCanvas *);
 
-int HtmlEmptyContent(HtmlNode *, int);
-int HtmlInlineContent(HtmlNode *, int);
-int HtmlFlowContent(HtmlNode *, int);
-int HtmlColgroupContent(HtmlNode *, int);
-int HtmlDlContent(HtmlNode *, int);
-int HtmlUlContent(HtmlNode *, int);
-int HtmlLiContent(HtmlNode *, int);
-
 int HtmlTableSectionContent(HtmlNode *, int);
 int HtmlTableRowContent(HtmlNode *, int);
 int HtmlTableContent(HtmlNode *, int);

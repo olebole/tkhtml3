@@ -1,5 +1,5 @@
 static char const rcsid[] =
-        "@(#) $Id: htmltcl.c,v 1.29 2005/07/06 10:01:07 danielk1977 Exp $";
+        "@(#) $Id: htmltcl.c,v 1.30 2005/07/06 10:42:02 danielk1977 Exp $";
 
 /*
 ** The main routine for the HTML widget for Tcl/Tk
@@ -495,8 +495,37 @@ handlerNodeCmd(clientData, interp, objc, objv)
     return TCL_OK;
 }
 
-static int 
-styleParseCmd(clientData, interp, objc, objv)
+/*
+ *---------------------------------------------------------------------------
+ *
+ * styleParseCmd --
+ * styleApplyCmd --
+ * styleSyntaxErrsCmd --
+ * layoutPrimitivesCmd --
+ * layoutImageCmd --
+ * layoutForceCmd --
+ * layoutSizeCmd --
+ * layoutNodeCmd --
+ * widgetPaintCmd --
+ * widgetScrollCmd --
+ * widgetMapControlsCmd --
+ * bboxCmd --
+ *
+ *     New versions of gcc don't allow pointers to non-local functions to
+ *     be used as constant initializers (which we need to do in the
+ *     aSubcommand[] array inside HtmlWidgetObjCommand(). So the following
+ *     functions are wrappers around Tcl_ObjCmdProc functions implemented
+ *     in other files.
+ *
+ * Results:
+ *     Tcl result (i.e. TCL_OK, TCL_ERROR).
+ *
+ * Side effects:
+ *     Whatever the called function does.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int styleParseCmd(clientData, interp, objc, objv)
     ClientData clientData;             /* The HTML widget data structure */
     Tcl_Interp *interp;                /* Current interpreter. */
     int objc;                          /* Number of arguments. */

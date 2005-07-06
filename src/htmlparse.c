@@ -1,7 +1,5 @@
-#define TokenMap(htmlPtr,idx) (htmlPtr->tokenMap?htmlPtr->tokenMap[idx]:(HtmlMarkupMap+idx))
-#define TokenapMap(htmlPtr,idx) (htmlPtr->tokenapMap?htmlPtr->tokenMap[idx]:apMap[idx])
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.42 2005/07/06 10:01:07 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.43 2005/07/06 10:42:02 danielk1977 Exp $";
 
 /*
 ** A tokenizer that converts raw HTML into a linked list of HTML elements.
@@ -21,12 +19,6 @@ static char const rcsid[] =
 #include <assert.h>
 #include "html.h"
 
-/* htmltokens.c is generated from source file tokenlist.txt during the
- * build process. It contains the HtmlMarkupMap constant array, declared as:
- *
- * HtmlTokenMap HtmlMarkupMap[] = {...};
- */
-
 
 /*
  * The following elements have optional opening and closing types:
@@ -35,9 +27,7 @@ static char const rcsid[] =
  *     <html>
  *     <head>
  *     <body>
- */
-
-/*
+ *
  * The following functions:
  *
  *     * HtmlEmptyContent
@@ -78,7 +68,8 @@ static char const rcsid[] =
  *
  *---------------------------------------------------------------------------
  */
-int HtmlEmptyContent(pNode, tag)
+static int 
+HtmlEmptyContent(pNode, tag)
     HtmlNode *pNode;
     int tag;
 {
@@ -98,7 +89,8 @@ int HtmlEmptyContent(pNode, tag)
  *
  *---------------------------------------------------------------------------
  */
-int HtmlDlContent(pNode, tag)
+static int 
+HtmlDlContent(pNode, tag)
     HtmlNode *pNode;
     int tag;
 {
@@ -121,7 +113,8 @@ int HtmlDlContent(pNode, tag)
  *
  *---------------------------------------------------------------------------
  */
-int HtmlUlContent(pNode, tag)
+static int 
+HtmlUlContent(pNode, tag)
     HtmlNode *pNode;
     int tag;
 {
@@ -148,7 +141,8 @@ int HtmlUlContent(pNode, tag)
  *
  *---------------------------------------------------------------------------
  */
-int HtmlInlineContent(pNode, tag)
+static int 
+HtmlInlineContent(pNode, tag)
     HtmlNode *pNode;
     int tag;
 {
@@ -188,7 +182,8 @@ int HtmlInlineContent(pNode, tag)
  *
  *---------------------------------------------------------------------------
  */
-int HtmlFlowContent(pNode, tag)
+static int 
+HtmlFlowContent(pNode, tag)
     HtmlNode *pNode;
     int tag;
 {
@@ -217,7 +212,8 @@ int HtmlFlowContent(pNode, tag)
  *
  *---------------------------------------------------------------------------
  */
-int HtmlColgroupContent(pNode, tag)
+static int 
+HtmlColgroupContent(pNode, tag)
     HtmlNode *pNode;
     int tag;
 {
@@ -248,7 +244,8 @@ int HtmlColgroupContent(pNode, tag)
  *
  *---------------------------------------------------------------------------
  */
-int HtmlTableContent(pNode, tag)
+static int 
+HtmlTableContent(pNode, tag)
     HtmlNode *pNode;
     int tag;
 {
@@ -282,7 +279,8 @@ int HtmlTableContent(pNode, tag)
  *
  *---------------------------------------------------------------------------
  */
-int HtmlTableSectionContent(pNode, tag)
+static int 
+HtmlTableSectionContent(pNode, tag)
     HtmlNode *pNode;
     int tag;
 {
@@ -311,7 +309,8 @@ int HtmlTableSectionContent(pNode, tag)
  *
  *---------------------------------------------------------------------------
  */
-int HtmlTableRowContent(pNode, tag)
+static int 
+HtmlTableRowContent(pNode, tag)
     HtmlNode *pNode;
     int tag;
 {
@@ -333,7 +332,7 @@ int HtmlTableRowContent(pNode, tag)
  *
  *---------------------------------------------------------------------------
  */
-int 
+static int 
 HtmlTableCellContent(pNode, tag)
     HtmlNode *pNode;
     int tag;
@@ -356,7 +355,7 @@ HtmlTableCellContent(pNode, tag)
  *
  *---------------------------------------------------------------------------
  */
-int 
+static int 
 HtmlLiContent(pNode, tag)
     HtmlNode *pNode;
     int tag;
@@ -366,8 +365,12 @@ HtmlLiContent(pNode, tag)
     return TAG_PARENT;
 }
 
+/* htmltokens.c is generated from source file tokenlist.txt during the
+ * build process. It contains the HtmlMarkupMap constant array, declared as:
+ *
+ * HtmlTokenMap HtmlMarkupMap[] = {...};
+ */
 #include "htmltokens.c"
-
 
 static HtmlTokenMap *HtmlHashLookup(void *htmlPtr, CONST char *zType);
 
@@ -1645,4 +1648,3 @@ char * HtmlMarkupArg(pToken, zTag, zDefault)
     }
     return zDefault;
 }
-
