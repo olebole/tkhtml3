@@ -118,8 +118,8 @@ proc C_get_constants {} {
     }
     incr val -1
     append ret "#define CSS_CONST_MAX_CONSTANT $val\n"
-    append ret "EXTERN int HtmlCssStringToConstant(CONST char *);\n"
-    append ret "EXTERN CONST char * HtmlCssConstantToString(int);\n"
+    append ret "int HtmlCssStringToConstant(CONST char *);\n"
+    append ret "CONST char * HtmlCssConstantToString(int);\n"
     return $ret
 }
 

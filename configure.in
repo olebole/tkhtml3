@@ -1,7 +1,7 @@
 dnl
 dnl Process this file with autoconf to produce a configure script.
 dnl
-AC_REVISION($Id: configure.in,v 1.17 2005/07/01 11:45:55 danielk1977 Exp $)
+AC_REVISION($Id: configure.in,v 1.18 2005/07/06 10:01:07 danielk1977 Exp $)
 
 #--------------------------------------------------------------------
 # Configure script for package 'tkhtml', as distributed at November 20, 2001.
@@ -201,17 +201,17 @@ TEA_PROG_WISH
 # AIX : Enforce usage of TCL_LIB's and X libraries in link line
 #--------------------------------------------------------------------
 
-if test X$GCC = Xyes
-then
-	gcclibdir=`gcc -v 2>&1 | grep 'Reading specs'`
-	if test "X$gcclibdir" != "X" ; then
-		gcclibdir=`echo $gcclibdir | sed -e "s|^Reading specs from ||"`
-		if test "X$gcclibdir" != "X" ; then
-			gcclibdir=`dirname $gcclibdir`
-			SHLIB_LD_LIBS="${SHLIB_LD_LIBS} -L$gcclibdir -lgcc"
-		fi
-	fi
-fi
+# if test X$GCC = Xyes
+# then
+# 	gcclibdir=`gcc -v 2>&1 | grep 'Reading specs'`
+# 	if test "X$gcclibdir" != "X" ; then
+# 		gcclibdir=`echo $gcclibdir | sed -e "s|^Reading specs from ||"`
+# 		if test "X$gcclibdir" != "X" ; then
+# 			gcclibdir=`dirname $gcclibdir`
+# 			SHLIB_LD_LIBS="${SHLIB_LD_LIBS} -L$gcclibdir -lgcc"
+# 		fi
+# 	fi
+# fi
 
 system=`uname -s`-`uname -r`
 case $system in

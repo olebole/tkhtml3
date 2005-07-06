@@ -81,13 +81,13 @@ struct CssProperty {
  * internally consistent CssProperty objects, regardless of the
  * CssProperty.eType value.
  */
-EXTERN CONST char *HtmlCssPropertyGetString(CssProperty *pProp);
+CONST char *HtmlCssPropertyGetString(CssProperty *pProp);
 
 /*
  * Create a property from a value string (i.e. "20ex" or "yellow", 
  * not "h1 {font:large}").
  */
-EXTERN CssProperty *HtmlCssStringToProperty(CONST char *z, int n);
+CssProperty *HtmlCssStringToProperty(CONST char *z, int n);
 
 /*
  * Functions to parse stylesheet and style data into CssStyleSheet objects.
@@ -104,15 +104,15 @@ EXTERN CssProperty *HtmlCssStringToProperty(CONST char *z, int n);
  * tkhtmlCssStyleSheetFree() frees the memory used to store a stylesheet
  * object internally.
  */
-EXTERN int HtmlCssParse(Tcl_Obj *, int, Tcl_Obj *, CssStyleSheet **);
-EXTERN int HtmlCssParseStyle(int, CONST char *, CssProperties **);
-EXTERN int HtmlCssStyleSheetSyntaxErrs(CssStyleSheet *);
-EXTERN void HtmlCssStyleSheetFree(CssStyleSheet *);
+int HtmlCssParse(Tcl_Obj *, int, Tcl_Obj *, CssStyleSheet **);
+int HtmlCssParseStyle(int, CONST char *, CssProperties **);
+int HtmlCssStyleSheetSyntaxErrs(CssStyleSheet *);
+void HtmlCssStyleSheetFree(CssStyleSheet *);
 
 /*
  * Function to apply a stylesheet to a document node.
  */
-EXTERN void HtmlCssStyleSheetApply(CssStyleSheet *, HtmlNode *);
+void HtmlCssStyleSheetApply(CssStyleSheet *, HtmlNode *);
 
 /*
  * Functions to interface with the results of a style application.
@@ -120,16 +120,16 @@ EXTERN void HtmlCssStyleSheetApply(CssStyleSheet *, HtmlNode *);
 #define CSS_ORIGIN_AGENT  1
 #define CSS_ORIGIN_USER   2
 #define CSS_ORIGIN_AUTHOR 3
-EXTERN void HtmlCssPropertiesFree(CssProperties *);
-EXTERN CssProperty *HtmlCssPropertiesGet(CssProperties *, int, int*, int*);
+void HtmlCssPropertiesFree(CssProperties *);
+CssProperty *HtmlCssPropertiesGet(CssProperties *, int, int*, int*);
 
 #if 0
 
 /* Future interface for :before and :after pseudo-elements. Need this to 
  * handle the <br> tag most elegantly.
  */
-EXTERN CssProperties *HtmlCssPropertiesGetBefore(CssProperties *);
-EXTERN CssProperties *HtmlCssPropertiesGetAfter(CssProperties *);
+CssProperties *HtmlCssPropertiesGetBefore(CssProperties *);
+CssProperties *HtmlCssPropertiesGetAfter(CssProperties *);
 
 #define CSS_VISITED   0x01
 #define CSS_HOVER     0x02

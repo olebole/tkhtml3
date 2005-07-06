@@ -1,5 +1,5 @@
 static char const rcsid[] =
-        "@(#) $Id: htmltcl.c,v 1.28 2005/07/05 11:06:16 danielk1977 Exp $";
+        "@(#) $Id: htmltcl.c,v 1.29 2005/07/06 10:01:07 danielk1977 Exp $";
 
 /*
 ** The main routine for the HTML widget for Tcl/Tk
@@ -495,6 +495,115 @@ handlerNodeCmd(clientData, interp, objc, objv)
     return TCL_OK;
 }
 
+static int 
+styleParseCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    return HtmlStyleParse(clientData, interp, objc, objv);
+}
+static int 
+styleApplyCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    return HtmlStyleApply(clientData, interp, objc, objv);
+}
+static int 
+styleSyntaxErrsCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    return HtmlStyleSyntaxErrs(clientData, interp, objc, objv);
+}
+static int 
+layoutPrimitivesCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    return HtmlLayoutPrimitives(clientData, interp, objc, objv);
+}
+static int 
+layoutImageCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    return HtmlLayoutImage(clientData, interp, objc, objv);
+}
+static int 
+layoutForceCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    return HtmlLayoutForce(clientData, interp, objc, objv);
+}
+static int 
+layoutSizeCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    return HtmlLayoutSize(clientData, interp, objc, objv);
+}
+static int 
+layoutNodeCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    return HtmlLayoutNode(clientData, interp, objc, objv);
+}
+static int 
+widgetPaintCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    return HtmlWidgetPaint(clientData, interp, objc, objv);
+}
+static int 
+widgetScrollCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    return HtmlWidgetScroll(clientData, interp, objc, objv);
+}
+static int 
+widgetMapControlsCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    return HtmlWidgetMapControls(clientData, interp, objc, objv);
+}
+static int 
+bboxCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    return HtmlLayoutBbox(clientData, interp, objc, objv);
+}
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -530,25 +639,24 @@ int HtmlWidgetObjCommand(clientData, interp, objc, objv)
         "internal", "parsefinal", parseFinalCmd}, {
         "internal", "root",  rootCmd}, {
         "internal", "reset", resetCmd}, {
-        "internal", "bbox", HtmlLayoutBbox}, {
+        "internal", "bbox", bboxCmd}, {
 
         "handler", "script", handlerScriptCmd}, {
         "handler", "node", handlerNodeCmd}, {
 
+        "style", "parse", styleParseCmd}, {
+        "style", "apply", styleApplyCmd}, {
+        "style", "syntax_errs", styleSyntaxErrsCmd}, {
 
-        "style", "parse", HtmlStyleParse}, {
-        "style", "apply", HtmlStyleApply}, {
-        "style", "syntax_errs", HtmlStyleSyntaxErrs}, {
+        "layout", "primitives", layoutPrimitivesCmd}, {
+        "layout", "image",      layoutImageCmd}, {
+        "layout", "force",      layoutForceCmd}, {
+        "layout", "size",       layoutSizeCmd}, {
+        "layout", "node",       layoutNodeCmd}, {
 
-        "layout", "primitives", HtmlLayoutPrimitives}, {
-        "layout", "image", HtmlLayoutImage}, {
-        "layout", "force", HtmlLayoutForce}, {
-        "layout", "size", HtmlLayoutSize}, {
-        "layout", "node", HtmlLayoutNode}, {
-
-        "widget", "paint", HtmlWidgetPaint}, {
-        "widget", "scroll", HtmlWidgetScroll}, {
-        "widget", "mapcontrols", HtmlWidgetMapControls}, {
+        "widget", "paint", widgetPaintCmd}, {
+        "widget", "scroll", widgetScrollCmd}, {
+        "widget", "mapcontrols", widgetMapControlsCmd}, {
 
         "var", 0, varCommand}, { 
         "command", 0, commandCommand}, {

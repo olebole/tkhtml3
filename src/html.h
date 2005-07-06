@@ -81,6 +81,10 @@ struct HtmlTokenMap {
 #define HTMLTAG_BLOCK       0x04
 #define HTMLTAG_EMPTY       0x08
 
+#define TAG_CLOSE 1
+#define TAG_PARENT 2
+#define TAG_OK 3
+
 struct HtmlToken {
     HtmlToken *pNext;           /* Next input token in a list of them all */
     HtmlToken *pPrev;           /* Previous token in a list of them all */
@@ -212,94 +216,91 @@ struct HtmlTree {
 #define MAX(x,y) ((x)>(y)?(x):(y))
 #define MIN(x,y) ((x)<(y)?(x):(y))
 
-EXTERN void HtmlFinishNodeHandlers(HtmlTree *);
-EXTERN void HtmlAddToken(HtmlTree *, HtmlToken *);
-EXTERN int HtmlTreeBuild(ClientData, Tcl_Interp *, int, Tcl_Obj *CONST []);
-EXTERN Tcl_ObjCmdProc HtmlTreeCollapseWhitespace;
-EXTERN Tcl_ObjCmdProc HtmlStyleParse;
-EXTERN Tcl_ObjCmdProc HtmlStyleApply;
-EXTERN Tcl_ObjCmdProc HtmlStyleSyntaxErrs;
-EXTERN Tcl_ObjCmdProc HtmlLayoutForce;
-EXTERN Tcl_ObjCmdProc HtmlLayoutSize;
-EXTERN Tcl_ObjCmdProc HtmlLayoutNode;
-EXTERN Tcl_ObjCmdProc HtmlLayoutImage;
-EXTERN Tcl_ObjCmdProc HtmlLayoutPrimitives;
-EXTERN Tcl_ObjCmdProc HtmlLayoutBbox;
-EXTERN Tcl_ObjCmdProc HtmlWidgetPaint;
-EXTERN Tcl_ObjCmdProc HtmlWidgetScroll;
-EXTERN Tcl_ObjCmdProc HtmlWidgetMapControls;
+void HtmlFinishNodeHandlers(HtmlTree *);
+void HtmlAddToken(HtmlTree *, HtmlToken *);
+int HtmlTreeBuild(ClientData, Tcl_Interp *, int, Tcl_Obj *CONST []);
+Tcl_ObjCmdProc HtmlTreeCollapseWhitespace;
+Tcl_ObjCmdProc HtmlStyleParse;
+Tcl_ObjCmdProc HtmlStyleApply;
+Tcl_ObjCmdProc HtmlStyleSyntaxErrs;
+Tcl_ObjCmdProc HtmlLayoutForce;
+Tcl_ObjCmdProc HtmlLayoutSize;
+Tcl_ObjCmdProc HtmlLayoutNode;
+Tcl_ObjCmdProc HtmlLayoutImage;
+Tcl_ObjCmdProc HtmlLayoutPrimitives;
+Tcl_ObjCmdProc HtmlLayoutBbox;
+Tcl_ObjCmdProc HtmlWidgetPaint;
+Tcl_ObjCmdProc HtmlWidgetScroll;
+Tcl_ObjCmdProc HtmlWidgetMapControls;
 
-EXTERN void HtmlTreeFree(HtmlTree *p);
-EXTERN int HtmlWalkTree(HtmlTree *, int (*)(HtmlTree *, HtmlNode *));
-EXTERN int HtmlTreeClear(HtmlTree *);
+void HtmlTreeFree(HtmlTree *p);
+int HtmlWalkTree(HtmlTree *, int (*)(HtmlTree *, HtmlNode *));
+int HtmlTreeClear(HtmlTree *);
+int         HtmlNodeNumChildren(HtmlNode *);
+HtmlNode *  HtmlNodeChild(HtmlNode *, int);
+HtmlNode *  HtmlNodeRightSibling(HtmlNode *);
+int         HtmlNodeIsText(HtmlNode *);
+HtmlNode *  HtmlNodeParent(HtmlNode *);
+Html_u8     HtmlNodeTagType(HtmlNode *);
+char CONST *HtmlNodeTagName(HtmlNode *);
+char CONST *HtmlNodeAttr(HtmlNode *, char CONST *);
+char *      HtmlNodeToString(HtmlNode *);
 
-EXTERN int         HtmlNodeNumChildren(HtmlNode *);
-EXTERN HtmlNode *  HtmlNodeChild(HtmlNode *, int);
-EXTERN HtmlNode *  HtmlNodeRightSibling(HtmlNode *);
-EXTERN int         HtmlNodeIsText(HtmlNode *);
-EXTERN HtmlNode *  HtmlNodeParent(HtmlNode *);
-EXTERN Html_u8     HtmlNodeTagType(HtmlNode *);
-EXTERN char CONST *HtmlNodeTagName(HtmlNode *);
-EXTERN char CONST *HtmlNodeAttr(HtmlNode *, char CONST *);
-EXTERN char *      HtmlNodeToString(HtmlNode *);
+Tcl_Obj *HtmlNodeCommand(Tcl_Interp *interp, HtmlNode *pNode);
 
-EXTERN Tcl_Obj *HtmlNodeCommand(Tcl_Interp *interp, HtmlNode *pNode);
+CssProperty *HtmlNodeGetProperty(Tcl_Interp *, HtmlNode *, int);
+void HtmlNodeGetDefault(HtmlNode *, int , CssProperty *);
+void HtmlDeletePropertyCache(HtmlPropertyCache *);
 
-EXTERN CssProperty *HtmlNodeGetProperty(Tcl_Interp *, HtmlNode *, int);
-EXTERN void HtmlNodeGetDefault(HtmlNode *, int , CssProperty *);
-EXTERN void HtmlDeletePropertyCache(HtmlPropertyCache *);
+Tcl_Obj *HtmlResizeImage(HtmlTree *, CONST char *, int *, int *, int);
+Tcl_Obj *HtmlXImageToImage(HtmlTree *, XImage *, int, int);
+int HtmlClearImageArray(HtmlTree*);
 
-EXTERN Tcl_Obj *HtmlResizeImage(HtmlTree *, CONST char *, int *, int *, int);
-EXTERN Tcl_Obj *HtmlXImageToImage(HtmlTree *, XImage *, int, int);
-EXTERN int HtmlClearImageArray(HtmlTree*);
+void HtmlDrawCleanup(HtmlCanvas *);
+void HtmlDrawDeleteControls(HtmlTree *, HtmlCanvas *);
 
-EXTERN void HtmlDrawCleanup(HtmlCanvas *);
-EXTERN void HtmlDrawDeleteControls(HtmlTree *, HtmlCanvas *);
+void HtmlDrawCanvas(HtmlCanvas*,HtmlCanvas*,int,int,HtmlNode*);
+void HtmlDrawText(HtmlCanvas*,Tcl_Obj*,int,int,int,int,Tk_Font,XColor*,int);
+void HtmlDrawImage(HtmlCanvas *, Tcl_Obj *, int, int, int, int, int);
+void HtmlDrawWindow(HtmlCanvas *, Tcl_Obj *, int, int, int, int, int);
+void HtmlDrawBackground(HtmlCanvas *, XColor *, int);
+void HtmlDrawQuad(HtmlCanvas*,int,int,int,int,int,int,int,int,XColor*,int);
+int HtmlDrawIsEmpty(HtmlCanvas *);
 
-EXTERN void HtmlDrawCanvas(HtmlCanvas*,HtmlCanvas*,int,int,HtmlNode*);
-EXTERN void
-HtmlDrawText(HtmlCanvas*,Tcl_Obj*,int,int,int,int,Tk_Font,XColor*,int);
-EXTERN void HtmlDrawImage(HtmlCanvas *, Tcl_Obj *, int, int, int, int, int);
-EXTERN void HtmlDrawWindow(HtmlCanvas *, Tcl_Obj *, int, int, int, int, int);
-EXTERN void HtmlDrawBackground(HtmlCanvas *, XColor *, int);
-EXTERN void
-HtmlDrawQuad(HtmlCanvas*,int,int,int,int,int,int,int,int,XColor*,int);
-EXTERN int HtmlDrawIsEmpty(HtmlCanvas *);
+int HtmlEmptyContent(HtmlNode *, int);
+int HtmlInlineContent(HtmlNode *, int);
+int HtmlFlowContent(HtmlNode *, int);
+int HtmlColgroupContent(HtmlNode *, int);
+int HtmlDlContent(HtmlNode *, int);
+int HtmlUlContent(HtmlNode *, int);
+int HtmlLiContent(HtmlNode *, int);
 
-EXTERN int HtmlEmptyContent(HtmlNode *, int);
-EXTERN int HtmlInlineContent(HtmlNode *, int);
-EXTERN int HtmlFlowContent(HtmlNode *, int);
-EXTERN int HtmlColgroupContent(HtmlNode *, int);
-EXTERN int HtmlDlContent(HtmlNode *, int);
-EXTERN int HtmlUlContent(HtmlNode *, int);
-EXTERN int HtmlLiContent(HtmlNode *, int);
+int HtmlTableSectionContent(HtmlNode *, int);
+int HtmlTableRowContent(HtmlNode *, int);
+int HtmlTableContent(HtmlNode *, int);
+int HtmlTableCellContent(HtmlNode *, int);
 
-EXTERN int HtmlTableSectionContent(HtmlNode *, int);
-EXTERN int HtmlTableRowContent(HtmlNode *, int);
-EXTERN int HtmlTableContent(HtmlNode *, int);
-EXTERN int HtmlTableCellContent(HtmlNode *, int);
+HtmlTokenMap *HtmlMarkup(int);
+CONST char * HtmlMarkupName(int);
+char * HtmlMarkupArg(HtmlToken *, CONST char *, char *);
 
-EXTERN HtmlTokenMap *HtmlMarkup(int);
-EXTERN CONST char * HtmlMarkupName(int);
-EXTERN char * HtmlMarkupArg(HtmlToken *, CONST char *, char *);
+void HtmlFloatListAdd(HtmlFloatList*, int, int, int, int);
+HtmlFloatList *HtmlFloatListNew();
+void HtmlFloatListDelete();
+int HtmlFloatListPlace(HtmlFloatList*, int, int, int, int);
+int HtmlFloatListClear(HtmlFloatList*, int, int);
+void HtmlFloatListNormalize(HtmlFloatList*, int, int);
+void HtmlFloatListMargins(HtmlFloatList*, int, int, int *, int *);
 
-EXTERN void HtmlFloatListAdd(HtmlFloatList*, int, int, int, int);
-EXTERN HtmlFloatList *HtmlFloatListNew();
-EXTERN void HtmlFloatListDelete();
-EXTERN int HtmlFloatListPlace(HtmlFloatList*, int, int, int, int);
-EXTERN int HtmlFloatListClear(HtmlFloatList*, int, int);
-EXTERN void HtmlFloatListNormalize(HtmlFloatList*, int, int);
-EXTERN void HtmlFloatListMargins(HtmlFloatList*, int, int, int *, int *);
+HtmlPropertyCache * HtmlNewPropertyCache();
+void HtmlDeletePropertyCache(HtmlPropertyCache *pCache);
+void HtmlSetPropertyCache(HtmlPropertyCache *, int, CssProperty *);
+void HtmlAttributesToPropertyCache(HtmlNode *pNode);
 
-EXTERN HtmlPropertyCache * HtmlNewPropertyCache();
-EXTERN void HtmlDeletePropertyCache(HtmlPropertyCache *pCache);
-EXTERN void HtmlSetPropertyCache(HtmlPropertyCache *, int, CssProperty *);
-EXTERN void HtmlAttributesToPropertyCache(HtmlNode *pNode);
-
-EXTERN Tcl_HashKeyType * HtmlCaseInsenstiveHashType();
+Tcl_HashKeyType * HtmlCaseInsenstiveHashType();
 
 #ifdef HTML_DEBUG
-EXTERN void HtmlDrawComment(HtmlCanvas *, CONST char *zComment, int);
+void HtmlDrawComment(HtmlCanvas *, CONST char *zComment, int);
 #else
 #define HtmlDrawComment(x, y, z)
 #endif

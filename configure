@@ -6849,17 +6849,17 @@ echo "$as_me: error: No wish found in PATH:  $search_path" >&2;}
 # AIX : Enforce usage of TCL_LIB's and X libraries in link line
 #--------------------------------------------------------------------
 
-if test X$GCC = Xyes
-then
-	gcclibdir=`gcc -v 2>&1 | grep 'Reading specs'`
-	if test "X$gcclibdir" != "X" ; then
-		gcclibdir=`echo $gcclibdir | sed -e "s|^Reading specs from ||"`
-		if test "X$gcclibdir" != "X" ; then
-			gcclibdir=`dirname $gcclibdir`
-			SHLIB_LD_LIBS="${SHLIB_LD_LIBS} -L$gcclibdir -lgcc"
-		fi
-	fi
-fi
+# if test X$GCC = Xyes
+# then
+# 	gcclibdir=`gcc -v 2>&1 | grep 'Reading specs'`
+# 	if test "X$gcclibdir" != "X" ; then
+# 		gcclibdir=`echo $gcclibdir | sed -e "s|^Reading specs from ||"`
+# 		if test "X$gcclibdir" != "X" ; then
+# 			gcclibdir=`dirname $gcclibdir`
+# 			SHLIB_LD_LIBS="${SHLIB_LD_LIBS} -L$gcclibdir -lgcc"
+# 		fi
+# 	fi
+# fi
 
 system=`uname -s`-`uname -r`
 case $system in

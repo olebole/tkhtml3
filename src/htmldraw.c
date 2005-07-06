@@ -893,7 +893,7 @@ int HtmlLayoutImage(clientData, interp, objc, objv)
         Tcl_Obj *pImage;
         XImage *pXImage;
         pixmap = getPixmap(pTree, 0, 0, w, h);
-        pXImage = XGetImage(pDisplay, pixmap, x, y, w, h, XAllPlanes(),ZPixmap);
+        pXImage = XGetImage(pDisplay, pixmap, x, y, w, h, AllPlanes, ZPixmap);
         pImage = HtmlXImageToImage(pTree, pXImage, w, h);
         XDestroyImage(pXImage);
         Tcl_SetObjResult(interp, pImage);
