@@ -1,17 +1,21 @@
+#
+# tkhtml.tcl --
+#
+#     This file contains the implementation of the html widget. Most of the
+#     heavy lifting is done by C-code of course. The [package ifneeded]
+#     script that loads this file should have already loaded the DLL or
+#     shared object that code is compiled to.
+#
+# ------------------------------------------------------------------------
+# COPYRIGHT:
+#
 
 package provide Tkhtml 3.0
 
-bind Html <Expose> {
-    tk::HtmlExpose %W %x %y %w %h
-}
-
-bind Html <Configure> {
-    tk::HtmlConfigure %W
-}
-
-bind Html <Destroy> {
-    tk::HtmlDestroy %W
-}
+bind Html <Expose>          { tk::HtmlExpose %W %x %y %w %h }
+bind Html <Configure>       { tk::HtmlConfigure %W }
+bind Html <Destroy>         { tk::HtmlDestroy %W }
+bind Html <ButtonPress>     { focus %W }
 
 bind Html <KeyPress-Up>     { %W yview scroll -1 units }
 bind Html <KeyPress-Down>   { %W yview scroll 1 units }
@@ -21,7 +25,6 @@ bind Html <KeyPress-Left>   { %W xview scroll -1 units }
 bind Html <KeyPress-Next>   { %W yview scroll 1 pages }
 bind Html <KeyPress-space>  { %W yview scroll 1 pages }
 bind Html <KeyPress-Prior>  { %W yview scroll -1 pages }
-bind Html <ButtonPress>     { focus %W }
 
 namespace eval tkhtml {
     set PACKAGE_DIR [file dirname [info script]]
