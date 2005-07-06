@@ -1,4 +1,11 @@
 
+/*
+ * css.h --
+ *  
+ *     This header file contains the interface used by other modules to
+ *     access the CSS parsing/cascade module.
+ */
+
 #ifndef __CSS_H__
 #define __CSS_H__
 
@@ -32,12 +39,6 @@ typedef struct CssProperty CssProperty;
  */
 #include "html.h"
 
-/*
- * A single CSS property is represented by an instance of the following
- * struct. The actual value is stored in one of the primitives inside
- * the union. The eType field is set to one of the CSS_TYPE_* constants
- * below. 
- */
 #define CSS_TYPE_EM           1            /* Value in 'rVal' */
 #define CSS_TYPE_PX           2            /* Value in 'iVal' */
 #define CSS_TYPE_PT           3            /* Value in 'iVal' */
@@ -51,19 +52,19 @@ typedef struct CssProperty CssProperty;
 #define CSS_TYPE_TCL          8            /* Value in 'zVal' */
 #define CSS_TYPE_URL          9            /* Value in 'zVal' */
 
-/* CSS2 physical units. */
+/* Physical units. */
 #define CSS_TYPE_CENTIMETER   10           /* Value in 'rVal */
 #define CSS_TYPE_INCH         11           /* Value in 'rVal */
 #define CSS_TYPE_MILLIMETER   12           /* Value in 'rVal */
 
-/* CSS2 Keywords */
-#define CSS_TYPE_INHERIT      13           /* No value */
-
 /* Magical types */
-#define CSS_TYPE_XCOLOR      16            /* p points at XColor */
+#define CSS_TYPE_XCOLOR       16           /* p points at XColor */
 
 /*
- * A CssProperty structure represents a single property value.
+ * A single CSS property is represented by an instance of the following
+ * struct. The actual value is stored in one of the primitives inside
+ * the union. The eType field is set to one of the CSS_TYPE_* constants
+ * below. 
  */
 struct CssProperty {
     int eType;
@@ -77,7 +78,8 @@ struct CssProperty {
 
 /*
  * Retrieve the string value of a CSS property. This works with all
- * CssProperty objects, regardless of the CSS_TYPE_XXX value.
+ * internally consistent CssProperty objects, regardless of the
+ * CssProperty.eType value.
  */
 EXTERN CONST char *HtmlCssPropertyGetString(CssProperty *pProp);
 
@@ -85,7 +87,7 @@ EXTERN CONST char *HtmlCssPropertyGetString(CssProperty *pProp);
  * Create a property from a value string (i.e. "20ex" or "yellow", 
  * not "h1 {font:large}").
  */
-CssProperty *HtmlCssStringToProperty(CONST char *z, int n);
+EXTERN CssProperty *HtmlCssStringToProperty(CONST char *z, int n);
 
 /*
  * Functions to parse stylesheet and style data into CssStyleSheet objects.
@@ -103,14 +105,14 @@ CssProperty *HtmlCssStringToProperty(CONST char *z, int n);
  * object internally.
  */
 EXTERN int HtmlCssParse(Tcl_Obj *, int, Tcl_Obj *, CssStyleSheet **);
-int HtmlCssParseStyle(int, const char *, CssProperties **);
-int HtmlCssStyleSheetSyntaxErrs(CssStyleSheet *);
-void HtmlCssStyleSheetFree(CssStyleSheet *);
+EXTERN int HtmlCssParseStyle(int, CONST char *, CssProperties **);
+EXTERN int HtmlCssStyleSheetSyntaxErrs(CssStyleSheet *);
+EXTERN void HtmlCssStyleSheetFree(CssStyleSheet *);
 
 /*
  * Function to apply a stylesheet to a document node.
  */
-void HtmlCssStyleSheetApply(CssStyleSheet *, HtmlNode *);
+EXTERN void HtmlCssStyleSheetApply(CssStyleSheet *, HtmlNode *);
 
 /*
  * Functions to interface with the results of a style application.
@@ -118,18 +120,22 @@ void HtmlCssStyleSheetApply(CssStyleSheet *, HtmlNode *);
 #define CSS_ORIGIN_AGENT  1
 #define CSS_ORIGIN_USER   2
 #define CSS_ORIGIN_AUTHOR 3
-void HtmlCssPropertiesFree(CssProperties *);
-CssProperty *HtmlCssPropertiesGet(CssProperties *, int, int*, int*);
+EXTERN void HtmlCssPropertiesFree(CssProperties *);
+EXTERN CssProperty *HtmlCssPropertiesGet(CssProperties *, int, int*, int*);
+
+#if 0
 
 /* Future interface for :before and :after pseudo-elements. Need this to 
  * handle the <br> tag most elegantly.
  */
-CssProperties *HtmlCssPropertiesGetBefore(CssProperties *);
-CssProperties *HtmlCssPropertiesGetAfter(CssProperties *);
+EXTERN CssProperties *HtmlCssPropertiesGetBefore(CssProperties *);
+EXTERN CssProperties *HtmlCssPropertiesGetAfter(CssProperties *);
 
 #define CSS_VISITED   0x01
 #define CSS_HOVER     0x02
 #define CSS_ACTIVE    0x04
 #define CSS_FOCUS     0x08
+
+#endif
 
 #endif

@@ -1,6 +1,13 @@
-
-# This Tcl script generates two files, cssprop.h and cssprop.c, that 
-# implement a way to resolve CSS property names and constants to symbols.
+#
+# cssprop.tcl --
+#
+#     This Tcl script generates two files, cssprop.h and cssprop.c, that
+#     implement a way to resolve CSS property names and constants to
+#     symbols.
+#
+# ------------------------------------------------------------------------
+# COPYRIGHT:
+#
 
 #
 # This list contains all the constant strings that are understood as

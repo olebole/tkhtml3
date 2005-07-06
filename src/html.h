@@ -1,14 +1,5 @@
 /*
- * htmltree.h --
- *
- *     This file defines the tree structure used by the widget to store
- *     and traverse documents. Even though the data structure is in this
- *     header file, and therefore accessible by all files in the package,
- *     files other than htmltree.c usually use the functions listed
- *     below to access the tree.
- *
- *     In theory this might make it easier to reuse some of the CSS code
- *     with a different tree structure, but this is a long way off yet.
+ * html.h --
  *
  * COPYRIGHT.
  *
@@ -17,7 +8,9 @@
 #ifndef __HTMLTREE_H__
 #define __HTMLTREE_H__
 
+#ifndef NDEBUG
 #define HTML_DEBUG
+#endif
 
 #include <tk.h>
 #include "htmltokens.h"
@@ -26,7 +19,7 @@
  * Version information for the package mechanism.
  */
 #define HTML_PKGNAME "Tkhtml"
-#define HTML_PKGVERSION "2.0"
+#define HTML_PKGVERSION "3.0"
 
 /*
  * Various data types.  This code is designed to run on a modern

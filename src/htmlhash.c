@@ -10,13 +10,15 @@
  */
 
 #include <tcl.h>
+#include "html.h"
 
 /*
  *---------------------------------------------------------------------------
  *
  * compareKey --
  *
- *     Compare a new key to the key of an existing hash-entry.
+ *     The compare function for the case-insensitive string hash. Compare a
+ *     new key to the key of an existing hash-entry.
  *
  * Results:
  *     True if the two keys are the same, false if not.
@@ -34,7 +36,7 @@ compareKey(keyPtr, hPtr)
     register CONST char *p1 = (CONST char *) keyPtr;
     register CONST char *p2 = (CONST char *) hPtr->key.string;
 
-    return !strcasecmp(p1, p2);
+    return !stricmp(p1, p2);
 }
 
 /*

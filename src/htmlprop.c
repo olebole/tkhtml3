@@ -581,7 +581,7 @@ static PropMapEntry propmapdata[] = {
 static int propMapisInit = 0;
 static PropMapEntry *propmap[130];
 static int idxmap[130];
-static CssProperty StaticInherit = {CSS_TYPE_INHERIT, 0};
+static CssProperty StaticInherit = {CSS_CONST_INHERIT, 0};
 
 /*
  *---------------------------------------------------------------------------
@@ -849,7 +849,7 @@ getProperty(interp, pNode, pEntry, pOut)
      * has been specified, then call getProperty() on the parent node (if
      * one exists). If one does not exist, return the initial value.
      */ 
-    if (pProp->eType == CSS_TYPE_INHERIT) {
+    if (pProp->eType == CSS_CONST_INHERIT) {
         HtmlNode *pParent = HtmlNodeParent(pNode);
         if (pParent) {
             pProp = getProperty(interp, pParent, pEntry);
