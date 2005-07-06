@@ -1,3 +1,4 @@
+
 package provide Tkhtml 3.0
 
 bind Html <Expose> {
@@ -6,6 +7,10 @@ bind Html <Expose> {
 
 bind Html <Configure> {
     tk::HtmlConfigure %W
+}
+
+bind Html <Destroy> {
+    tk::HtmlDestroy %W
 }
 
 bind Html <KeyPress-Up>     { %W yview scroll -1 units }
@@ -48,6 +53,16 @@ proc ::tk::HtmlConfigure {win} {
 #
 proc ::tk::HtmlExpose {win x y w h} {
     $win damage $x $y $w $h
+}
+
+# <Destroy> event
+# 
+#     Just before the window is destroyed, evaluate [<widget> reset]. This
+#     makes sure that the internal cache of fonts/colors etc. is freed if
+#     the application is shut down unexpectedly.
+#
+proc ::tk::HtmlDestroy {win} {
+    $win reset
 }
         
 # If either the -yscrollcommand or -xscrollcommand option is defined, then
