@@ -797,16 +797,18 @@ static Pixmap getPixmap(pTree, xcanvas, ycanvas, w, h)
 
             case CANVAS_IMAGE: {
                 CanvasImage *pI = &pItem->x.i;
-                CONST char *zImage = Tcl_GetString(pI->pImage);
-                Tk_Image tkimg;
-                int iw;
-                int ih;
-
-                gc = Tk_GetGC(pTree->win, 0, &gc_values);
-                tkimg = Tk_GetImage(pTree->interp, pTree->win, zImage, 0, 0);
-                Tk_SizeOfImage(tkimg, &iw, &ih);
-                Tk_RedrawImage(tkimg, 0, 0, iw, ih, pmap, pI->x+x, pI->y+y);
-                Tk_FreeImage(tkimg);
+                if (pI->pImage) {
+                    CONST char *zImage = Tcl_GetString(pI->pImage);
+                    Tk_Image img;
+                    int iw;
+                    int ih;
+    
+                    gc = Tk_GetGC(pTree->win, 0, &gc_values);
+                    img = Tk_GetImage(pTree->interp, pTree->win, zImage, 0, 0);
+                    Tk_SizeOfImage(img, &iw, &ih);
+                    Tk_RedrawImage(img, 0, 0, iw, ih, pmap, pI->x+x, pI->y+y);
+                    Tk_FreeImage(img);
+                }
                 
                 break;
             }
