@@ -1,5 +1,5 @@
 static char const rcsid[] =
-        "@(#) $Id: htmltcl.c,v 1.30 2005/07/06 10:42:02 danielk1977 Exp $";
+        "@(#) $Id: htmltcl.c,v 1.31 2005/07/08 08:31:19 danielk1977 Exp $";
 
 /*
 ** The main routine for the HTML widget for Tcl/Tk
@@ -942,11 +942,6 @@ DLL_EXPORT int Tkhtml_Init(interp)
     }
 #endif
 
-    Tcl_CreateObjCommand(interp, "html", newWidget, 0, 0);
-
-/*
-    Tcl_StaticPackage(interp, "Tkhtml", Tkhtml_Init, Tkhtml_SafeInit);
-    Tcl_PkgProvide(interp, HTML_PKGNAME, HTML_PKGVERSION);
-*/
+    Tcl_CreateObjCommand(interp, "::tk::htmlinternal", newWidget, 0, 0);
     return TCL_OK;
 }

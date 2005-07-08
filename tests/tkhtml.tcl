@@ -84,16 +84,21 @@ proc ::tk::HtmlScrollbarCb {win} {
 
 # <widget> xview
 # <widget> xview moveto FRACTION
+# <widget> xview moveto <node>
 # <widget> xview scroll NUMBER WHAT
 #
 # <widget> yview
 # <widget> yview moveto FRACTION
+# <widget> yview moveto <node>
 # <widget> yview scroll NUMBER WHAT
 #
 #     This is an implementation of the standard Tk widget xview and yview
 #     commands. The second argument, $axis, is always "x" or "y",
 #     indicating if this is an xview or yview command. The variable length
 #     $args parameter that follows contains 0 or more options:
+#
+#     It's a bit strange implementing [xview] and [yview] in Tcl. But it
+#     makes things a lot easier in the short term. 
 #
 proc ::tk::HtmlView {win axis args} {
 
@@ -103,15 +108,19 @@ proc ::tk::HtmlView {win axis args} {
     # $layout_len - Size of the virtual canvas the widget is a viewport into.
     # $offscreen_len - Number of pixels above or to the left of the viewport.
     # $screen_len - Number of pixels in the viewport.
+    # $bbox_index -    Index of the value in the list returned by a call to
+    #                  [$win internal bbox $node] to move the viewport to.
     #
     if {$axis == "x"} {
         set layout_len [lindex [$win layout size] 0]
         set offscreen_len [$win var x]
         set screen_len [winfo width $win]
+        set bbox_index 0
     } else {
         set layout_len [lindex [$win layout size] 1]
         set offscreen_len [$win var y]
         set screen_len [winfo height $win]
+        set bbox_index 1
     }
 
     # If this is a query, not a "scroll" or "moveto" command, then just
@@ -143,18 +152,13 @@ proc ::tk::HtmlView {win axis args} {
         if {[info commands $target] != ""} {
             set bbox [$::HTML internal bbox $target]
             if {[llength $bbox] == 4} {
-                if {$axis == "x"} {
-                    set newval [lindex $bbox 0]
-                } else {
-                    set newval [lindex $bbox 1]
-                }
+                set newval [lindex $bbox $bbox_index]
             } else {
                 set newval $offscreen_len
             }
         } else {
             set newval [expr int(double($layout_len) * [lindex $args 1])]
         }
-
     } elseif {$cmd == "scroll"} {
         if {[llength $args] != 3} {
             set e "wrong # args: should be \"$win $axis"
@@ -350,10 +354,9 @@ proc ::tk::HtmlParse {win args} {
 #     function. Then the widget commands implemented in Tcl in this file
 #     are added to the interface.
 #
-rename html htmlinternal
 proc html {args} {
     # Create the C-level widget.
-    set widget [eval [concat htmlinternal $args]]
+    set widget [eval [concat ::tk::htmlinternal $args]]
 
     # Add the commands defined in Tcl to the widget ensemble.
     set cmds [list \
