@@ -258,16 +258,23 @@ proc ::tk::HtmlNode {win args} {
 #
 proc ::tk::HtmlReset {win} {
     $win internal reset
+    ::tk::HtmlDefaultStyle $win [$win cget -defaultstyle]
 }
 
-# <widget> default_style <style>
+# ::tk::HtmlDefaultStyle widget stylename
 #
-#     Load the default stylesheet into the widget. Without the default
-#     stylesheet, most constructs will have no effect on the rendering.
+#     Load the default stylesheet $stylename into the widget. Without the
+#     default stylesheet, most constructs will have no effect on the
+#     rendering.
 #
 #     The default stylesheet is stored in the same directory as this file
-#     with the filename "$style.css". The first time it is loaded, it is
-#     cached in the widget variable "default_style_$style".
+#     with the filename "$stylename.css". The first time it is loaded, it is
+#     cached in the widget variable "default_style_$stylename".
+#
+#     It is the responsibility of the caller to determine that the default
+#     stylesheet is not currently loaded when this proc is called.
+#     Currently this means it is called when the widget is created and
+#     after every reset.
 #
 proc ::tk::HtmlDefaultStyle {win stylename} {
     set varname "default_style_$stylename"
@@ -356,33 +363,35 @@ proc ::tk::HtmlParse {win args} {
 #
 proc html {args} {
     # Create the C-level widget.
-    set widget [eval [concat ::tk::htmlinternal $args]]
+    set win [eval [concat ::tk::htmlinternal $args]]
 
     # Add the commands defined in Tcl to the widget ensemble.
     set cmds [list \
-        default_style [list ::tk::HtmlDefaultStyle $widget] \
-        parse         [list ::tk::HtmlParse        $widget] \
-        update        [list ::tk::HtmlUpdate       $widget] \
-        damage        [list ::tk::HtmlDamage       $widget] \
-        scrollbar_cb  [list ::tk::HtmlScrollbarCb  $widget] \
-        xview         [list ::tk::HtmlView         $widget x] \
-        yview         [list ::tk::HtmlView         $widget y] \
-        node          [list ::tk::HtmlNode         $widget] \
-        reset         [list ::tk::HtmlReset        $widget] \
+        parse         [list ::tk::HtmlParse        $win] \
+        update        [list ::tk::HtmlUpdate       $win] \
+        damage        [list ::tk::HtmlDamage       $win] \
+        scrollbar_cb  [list ::tk::HtmlScrollbarCb  $win] \
+        xview         [list ::tk::HtmlView         $win x] \
+        yview         [list ::tk::HtmlView         $win y] \
+        node          [list ::tk::HtmlNode         $win] \
+        reset         [list ::tk::HtmlReset        $win] \
     ]
     foreach {cmd script} $cmds {
-        $widget command $cmd $script
+        $win command $cmd $script
     }
 
     # Initialise some state variables:
-    $widget var update_pending 0
-    $widget var x 0
-    $widget var y 0
+    $win var update_pending 0
+    $win var x 0
+    $win var y 0
 
     # Set up a NULL callback to handle the <script> tag. The default
     # behaviour is just to throw away the contents of the <script> markup -
     # more complex behaviour could be added by overiding this handler.
-    $widget handler script script #
+    $win handler script script #
 
-    return $widget
+    # Load the default stylesheet.
+    ::tk::HtmlDefaultStyle $win [$win cget -defaultstyle]
+
+    return $win
 }

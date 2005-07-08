@@ -1,5 +1,5 @@
 static char const rcsid[] =
-        "@(#) $Id: htmltcl.c,v 1.31 2005/07/08 08:31:19 danielk1977 Exp $";
+        "@(#) $Id: htmltcl.c,v 1.32 2005/07/08 09:22:33 danielk1977 Exp $";
 
 /*
 ** The main routine for the HTML widget for Tcl/Tk
@@ -27,15 +27,26 @@ static char const rcsid[] =
     return TCL_ERROR; \
 }
 
+/*
+ * Default values for some of the options declared in htmlOptionSpec.
+ */
 #define DEF_HTML_HEIGHT "600"
 #define DEF_HTML_WIDTH "800"
 #define DEF_HTML_XSCROLLINCREMENT "20"
 #define DEF_HTML_YSCROLLINCREMENT "20"
+#define DEF_HTML_DEFAULTSTYLE "html"
+
+/*
+ * Mask flags for options declared in htmlOptionSpec.
+ */
+#define OPTION_REQUIRE_UPDATE 0x00000001
 
 static Tk_OptionSpec htmlOptionSpec[] = {
-    {TK_OPTION_PIXELS, "-height", "height", "Height", DEF_HTML_HEIGHT, 
+    {TK_OPTION_PIXELS, 
+     "-height", "height", "Height", DEF_HTML_HEIGHT, 
         -1, Tk_Offset(HtmlOptions, height), 0, 0, 0},
-    {TK_OPTION_PIXELS, "-width", "width", "Width", DEF_HTML_WIDTH, 
+    {TK_OPTION_PIXELS, 
+     "-width", "width", "Width", DEF_HTML_WIDTH, 
         -1, Tk_Offset(HtmlOptions, width), 0, 0, 0},
     {TK_OPTION_PIXELS, "-yscrollincrement", "yScrollIncrement", 
         "ScrollIncrement", DEF_HTML_YSCROLLINCREMENT, -1, 
@@ -49,6 +60,10 @@ static Tk_OptionSpec htmlOptionSpec[] = {
     {TK_OPTION_STRING, "-yscrollcommand", "yScrollCommand", 
         "ScrollCommand", "",  
          Tk_Offset(HtmlOptions, yscrollcommand), -1, 0, 0, 0},
+    {TK_OPTION_STRING, 
+        "-defaultstyle", "defaultStyle", "DefaultStyle", DEF_HTML_DEFAULTSTYLE,
+         Tk_Offset(HtmlOptions, defaultstyle), -1, OPTION_REQUIRE_UPDATE, 
+         0, 0 },
     {TK_OPTION_END, (char *) NULL, (char *) NULL, (char *) NULL,
         (char *) NULL, 0, 0, 0, 0}
 };
@@ -78,6 +93,7 @@ configureCommand(clientData, interp, objc, objv)
     Tcl_Obj *const *objv;              /* List of all arguments */
 {
     HtmlTree *pTree = (HtmlTree *)clientData;
+    int mask;
     int geometry_request = 0;
 
     if (!pTree->optionTable) {
@@ -88,7 +104,7 @@ configureCommand(clientData, interp, objc, objv)
     }
     if (TCL_OK != Tk_SetOptions(
             interp, (char *)&pTree->options, pTree->optionTable,
-            objc-2, &objv[2], pTree->tkwin, 0, 0)
+            objc-2, &objv[2], pTree->tkwin, 0, &mask)
     ) {
         return TCL_ERROR;
     }
@@ -101,6 +117,18 @@ configureCommand(clientData, interp, objc, objv)
         int w = pTree->options.width;
         int h = pTree->options.height;
         Tk_GeometryRequest(pTree->tkwin, w, h);
+    }
+
+    /* If the OPTION_REQUIRE_UPDATE bit is set in the returned mask, then
+     * one or more options that influence the layout have been modified.
+     * Invoke the Tcl script "$widget update" to deal with this.
+     */
+    if (mask & OPTION_REQUIRE_UPDATE) {
+        Tcl_Obj *pCmd = Tcl_DuplicateObj(objv[0]);
+        Tcl_IncrRefCount(pCmd);
+        Tcl_ListObjAppendElement(interp, pCmd, Tcl_NewStringObj("update", -1));
+        Tcl_EvalObjEx(interp, pCmd, TCL_EVAL_DIRECT);
+        Tcl_DecrRefCount(pCmd);
     }
 
     return TCL_OK;

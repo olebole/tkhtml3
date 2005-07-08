@@ -419,7 +419,6 @@ proc load_document {document anchor} {
 
     array set ::ANCHORTONODE {}
     $::HTML reset
-    $::HTML default_style html
     $::HTML style parse agent.1 [subst -nocommands {
         IMG[src] {-tkhtml-replace:tcl(replace_img_node $base)}
         INPUT    {-tkhtml-replace:tcl(replace_input_node $base)}
