@@ -375,8 +375,10 @@ draw_canvas_out:
  *
  *---------------------------------------------------------------------------
  */
-void HtmlDrawComment(pCanvas, zComment, size_only)
-    HtmlCanvas *pCanvas; 
+#ifdef HTML_DEBUG
+void 
+HtmlDrawComment(pCanvas, zComment, size_only)
+    HtmlCanvas *pCanvas;
     CONST char *zComment;
     int size_only;
 {
@@ -389,6 +391,7 @@ void HtmlDrawComment(pCanvas, zComment, size_only)
         linkItem(pCanvas, pItem);
     }
 }
+#endif
 
 /*
  *---------------------------------------------------------------------------
