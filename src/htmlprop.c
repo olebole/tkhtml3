@@ -531,7 +531,7 @@ static PropMapEntry propmapdata[] = {
     {CSS_PROPERTY_HEIGHT, 0, mapHeight, {CSS_TYPE_NONE, 0}},
 
     /* Font and text related properties */
-    {CSS_PROPERTY_TEXT_DECORATION, 0, 0,     {CSS_TYPE_NONE, 0}},
+    {CSS_PROPERTY_TEXT_DECORATION, 0, 0,     CSS_NONE},
     {CSS_PROPERTY_FONT_SIZE, 0, mapFontSize, {CSS_TYPE_NONE, 0}},
     {CSS_PROPERTY_WHITE_SPACE, 1, 0, {CSS_TYPE_NONE, 0}},
     {CSS_PROPERTY_VERTICAL_ALIGN, 0, mapVAlign, {CSS_TYPE_NONE, 0}},
@@ -910,7 +910,8 @@ getProperty(interp, pNode, pEntry, pOut)
  *
  *---------------------------------------------------------------------------
  */
-CssProperty *HtmlNodeGetProperty(interp, pNode, prop)
+CssProperty *
+HtmlNodeGetProperty(interp, pNode, prop)
     Tcl_Interp *interp;
     HtmlNode *pNode; 
     int prop; 

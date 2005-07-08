@@ -2250,18 +2250,26 @@ inlineContextPopBorder(p, pBorder)
     InlineContext *p;
     InlineBorder *pBorder;
 {
-    InlineBox *pBox;
-    if (p->nInline > 0) {
-        pBox = &p->aInline[p->nInline-1];
-        pBox->nBorderEnd++;
-        pBox->nRightPixels += pBorder->box.padding_right;
-        pBox->nRightPixels += pBorder->box.border_right;
-        pBox->nRightPixels += pBorder->margin.margin_right;
-    } else {
+    if (p->pBoxBorders) {
+        /* If there are any borders in the InlineContext.pBoxBorders list,
+         * then we are popping a border for a node that has no content.
+         * i.e. from the markup:
+         *
+         *     <a href="www.google.com"></a>
+         *
+	 * For this case just remove an entry from
+	 * InlineContext.pBoxBorders. The border will never be drawn.
+         */
         InlineBorder *pBorder = p->pBoxBorders;
-        if (pBorder) {
-            p->pBoxBorders = pBorder->pNext;
-            ckfree((char *)pBorder);
+        p->pBoxBorders = pBorder->pNext;
+        ckfree((char *)pBorder);
+    } else {
+        if (p->nInline > 0) {
+            InlineBox *pBox = &p->aInline[p->nInline-1];
+            pBox->nBorderEnd++;
+            pBox->nRightPixels += pBorder->box.padding_right;
+            pBox->nRightPixels += pBorder->box.border_right;
+            pBox->nRightPixels += pBorder->margin.margin_right;
         } else {
             pBorder = p->pBorders;
             assert(pBorder);
