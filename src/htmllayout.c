@@ -844,39 +844,46 @@ nodeGetDisplay(pLayout, pNode, pDisplayProperties)
     HtmlNode *pNode;
     DisplayProperties *pDisplayProperties;
 {
-    CssProperty *pProp;
     int f;        /* 'float' */
     int d;        /* 'display' */
     int c;        /* 'clear' */
 
-    pProp = HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_DISPLAY);
-    d = pProp->eType;
-    if (d != DISPLAY_INLINE    && d != DISPLAY_BLOCK && 
-        d != DISPLAY_NONE      && d != DISPLAY_LISTITEM && 
-        d != DISPLAY_TABLE     && d != DISPLAY_NONE &&
-        d != DISPLAY_TABLECELL
-    ) {
-        d = DISPLAY_INLINE;
-    }
-
-    pProp = HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_FLOAT);
-    f = pProp->eType;
-    if (f != FLOAT_NONE && f != FLOAT_LEFT && f != FLOAT_RIGHT) {
+    if (HtmlNodeIsText(pNode)) {
         f = FLOAT_NONE;
-    }
-
-    pProp = HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_CLEAR);
-    c = pProp->eType;
-    if (c != CLEAR_NONE        && c != CLEAR_LEFT && 
-        c != CLEAR_RIGHT       && c != CLEAR_BOTH
-    ) {
         c = CLEAR_NONE;
+        d = DISPLAY_INLINE;
+    } else {
+        CssProperty *pProp;
+        pProp = HtmlNodeGetProperty(pLayout->interp,pNode,CSS_PROPERTY_DISPLAY);
+        d = pProp->eType;
+        if (d != DISPLAY_INLINE    && d != DISPLAY_BLOCK && 
+            d != DISPLAY_NONE      && d != DISPLAY_LISTITEM && 
+            d != DISPLAY_TABLE     && d != DISPLAY_NONE &&
+            d != DISPLAY_TABLECELL
+        ) {
+            d = DISPLAY_INLINE;
+        }
+    
+        pProp = HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_FLOAT);
+        f = pProp->eType;
+        if (f != FLOAT_NONE && f != FLOAT_LEFT && f != FLOAT_RIGHT) {
+            f = FLOAT_NONE;
+        }
+    
+        pProp = HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_CLEAR);
+        c = pProp->eType;
+        if (c != CLEAR_NONE        && c != CLEAR_LEFT && 
+            c != CLEAR_RIGHT       && c != CLEAR_BOTH
+        ) {
+            c = CLEAR_NONE;
+        }
+
+        /* Force all floating boxes to have display type 'block' or 'table' */
+        if (f!=FLOAT_NONE && d!=DISPLAY_TABLE) {
+            d = DISPLAY_BLOCK;
+        }
     }
 
-    /* Force all floating boxes to have display type 'block' or 'table' */
-    if (f!=FLOAT_NONE && d!=DISPLAY_TABLE) {
-        d = DISPLAY_BLOCK;
-    }
 
     pDisplayProperties->eDisplay = d;
     pDisplayProperties->eFloat = f;
@@ -3173,11 +3180,13 @@ inlineText(pLayout, pNode, pContext)
     XColor *color;
     int sw;                    /* Space-Width in current font. */
     int nh;                    /* Newline-height in current font */
+    HtmlNode *pParent;
 
     assert(pNode && HtmlNodeIsText(pNode));
 
-    font = nodeGetFont(pLayout, pNode);
-    color = nodeGetColour(pLayout, pNode);
+    pParent = HtmlNodeParent(pNode);
+    font = nodeGetFont(pLayout, pParent);
+    color = nodeGetColour(pLayout, pParent);
 
     sw = Tk_TextWidth(font, " ", 1);
     Tk_GetFontMetrics(font, &fontmetrics);

@@ -916,12 +916,9 @@ HtmlNodeGetProperty(interp, pNode, prop)
     HtmlNode *pNode; 
     int prop; 
 {
-    PropMapEntry *pEntry;
-    CssProperty *pProp;
-
-    pEntry = propmap[prop];
-    assert(pEntry);
-    return getProperty(interp, pNode, pEntry);
+    assert(!HtmlNodeIsText(pNode));
+    assert(propmap[prop]);
+    return getProperty(interp, pNode, propmap[prop]);
 }
 
 /*

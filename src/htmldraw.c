@@ -656,11 +656,13 @@ int HtmlLayoutPrimitives(clientData, interp, objc, objv)
                 aObj[5] = pItem->x.t.pText;
                 break;
             case CANVAS_IMAGE:
-                nObj = 4;
-                aObj[0] = Tcl_NewStringObj("draw_image", -1);
-                aObj[1] = Tcl_NewIntObj(pItem->x.i.x);
-                aObj[2] = Tcl_NewIntObj(pItem->x.i.y);
-                aObj[3] = pItem->x.i.pImage;
+                if (pItem->x.i.pImage) {
+                    nObj = 4;
+                    aObj[0] = Tcl_NewStringObj("draw_image", -1);
+                    aObj[1] = Tcl_NewIntObj(pItem->x.i.x);
+                    aObj[2] = Tcl_NewIntObj(pItem->x.i.y);
+                    aObj[3] = pItem->x.i.pImage;
+                }
                 break;
             case CANVAS_WINDOW:
                 nObj = 4;

@@ -103,29 +103,31 @@ int styleNode(pTree, pNode)
     CssProperty *pReplace;
     CONST char *zStyle;      /* Value of "style" attribute for node */
 
-    /* Delete the property cache for the node, if one exists. Then create a
-     * new one. 
-     */
-    HtmlDeletePropertyCache(pNode->pPropCache);
-
-    /* If there is a "style" attribute on this node, parse the attribute
-     * value and put the resulting mini-stylesheet in pNode->pStyle. 
-     *
-     * We assume that if the pStyle attribute is not NULL, then this node
-     * has been styled before. The stylesheet configuration may have
-     * changed since then, so we have to recalculate pNode->pProperties,
-     * but the "style" attribute is constant so pStyle is never invalid.
-     */
-    if (!pNode->pStyle) {
-        zStyle = HtmlNodeAttr(pNode, "style");
-        if (zStyle) {
-            HtmlCssParseStyle(-1, zStyle, &pNode->pStyle);
+    if (!HtmlNodeIsText(pNode)) {
+	/* Delete the property cache for the node, if one exists. Then
+         * create a new one. 
+         */
+        HtmlDeletePropertyCache(pNode->pPropCache);
+    
+        /* If there is a "style" attribute on this node, parse the attribute
+         * value and put the resulting mini-stylesheet in pNode->pStyle. 
+         *
+         * We assume that if the pStyle attribute is not NULL, then this node
+         * has been styled before. The stylesheet configuration may have
+         * changed since then, so we have to recalculate pNode->pProperties,
+         * but the "style" attribute is constant so pStyle is never invalid.
+         */
+        if (!pNode->pStyle) {
+            zStyle = HtmlNodeAttr(pNode, "style");
+            if (zStyle) {
+                HtmlCssParseStyle(-1, zStyle, &pNode->pStyle);
+            }
         }
+    
+        /* Create and fill in the nodes property cache. */
+        pNode->pPropCache = HtmlNewPropertyCache();
+        HtmlCssStyleSheetApply(pTree->pStyle, pNode);
     }
-
-    /* Create and fill in the nodes property cache. */
-    pNode->pPropCache = HtmlNewPropertyCache();
-    HtmlCssStyleSheetApply(pTree->pStyle, pNode);
     return TCL_OK;
 }
 
