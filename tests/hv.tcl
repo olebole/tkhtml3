@@ -1,4 +1,6 @@
 
+package provide app-hv3 1.0
+
 catch {
   memory init on
   for {set i 0} {$i < 50} {incr i} {
@@ -152,6 +154,23 @@ proc layout_engine_report {} {
     }
 }
 
+proc scroll_test {{dir 1} {step 0}} {
+    set num_steps 1000
+
+    set yview [$::HTML yview]
+    set range [expr 1.0 - ([lindex $yview 1] - [lindex $yview 0])]
+   
+    
+    set fraction [expr ($range / $num_steps.0) * $step]
+    $::HTML yview moveto $fraction
+
+    incr step $dir
+    if {$step >= 0} {
+        if {$step == $num_steps} {set dir -1}
+        after 10 "scroll_test $dir $step"
+    }
+}
+
 # Update the status bar. The mouse is at screen coordinates (x, y).
 # This proc is tied to a <Motion> event on the main Html widget.
 #
@@ -292,7 +311,7 @@ proc build_gui {} {
     label .status -height 1 -anchor w -background white
 
     . config -menu [menu .m]
-    foreach cascade [list Reports] {
+    foreach cascade [list File Tests Reports] {
         set newmenu [string tolower .m.$cascade]
         .m add cascade -label $cascade -menu [menu $newmenu]
         $newmenu configure -tearoff 0
@@ -304,6 +323,8 @@ proc build_gui {} {
     .m.reports add command -label {Layout Primitives} \
             -command layout_primitives_report
     .m.reports add command -label {Layout Engine} -command layout_engine_report
+    .m.tests add command -label {Scroll test} -command scroll_test
+    .m.file add command -label {Exit} -command exit
 
     pack .vscroll -fill y -side right
     pack .status -fill x -side bottom 
@@ -432,9 +453,11 @@ proc load_document {document anchor} {
     }
 }
 
-parse_args $argv
-build_gui
-load_document $::DOCUMENT {}
+if {[info exists argv]} {
+    parse_args $argv
+    build_gui
+    load_document $::DOCUMENT {}
+}
 
 if {$::EXIT} {
     update

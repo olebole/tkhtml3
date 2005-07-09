@@ -13,6 +13,7 @@
 package provide Tkhtml 3.0
 
 bind Html <Expose>          { tk::HtmlExpose %W %x %y %w %h }
+bind Html <Visibility>      { tk::HtmlVisibility %W %s }
 bind Html <Configure>       { tk::HtmlConfigure %W }
 bind Html <Destroy>         { tk::HtmlDestroy %W }
 bind Html <ButtonPress>     { focus %W }
@@ -37,8 +38,13 @@ namespace eval tkhtml {
 #     
 #         x           - The number of pixels scrolled in the x-direction.
 #         y           - The number of pixels scrolled in the y-direction.
+#         newx        - Value to update x to in ::tk::HtmlScrollCb
+#         newy        - Value to update y to in ::tk::HtmlScrollCb
+#         pending     - "UPDATE", "SCROLL" or "".
 #         layout_time - The time consumed by the last complete run of the
 #                       layout engine (in us, integer value only).
+#         visibility -  The %s (state) field from the most recent
+#                       <Visibility> event.
 #
 
 # <Configure> event
@@ -55,7 +61,14 @@ proc ::tk::HtmlConfigure {win} {
 # <Expose> event
 #
 proc ::tk::HtmlExpose {win x y w h} {
+# puts "<Expose> $win x=$x y=$y w=$w h=$h"
     $win damage $x $y $w $h
+}
+
+# <Visibility> event
+#
+proc ::tk::HtmlVisibility {win s} {
+    $win var visibility $s
 }
 
 # <Destroy> event
@@ -193,41 +206,77 @@ proc ::tk::HtmlView {win axis args} {
     if {$newval < 0} {
         set newval 0
     }
-    $win var $axis $newval
 
-    set diff [expr $newval - $offscreen_len]
-    set adiff [expr int(abs($diff))]
+    $win var new$axis $newval
+    if {[$win var pending] == ""} {
+        $win var pending SCROLL
+        after idle "::tk::HtmlScrollCb $win"
+    } 
+}
+
+# ::tk::HtmlScrollCb <widget>
+#
+#     This is called to update the widget after it has been scrolled. The
+#     widget variables $newx and $newy store the values that widget
+#     variables $x and $y should be set to after the scroll operation has
+#     taken effect.
+#
+#     This proc updates the display and sets widget variables $x and $y.
+proc ::tk::HtmlScrollCb {win} {
+    if {[$win var pending] != "SCROLL"} return
+
+    set oldx [$win var x]
+    set oldy [$win var y]
+    set newx [$win var newx]
+    set newy [$win var newy]
+    if {$oldx == $newx && $oldy == $newy} {
+        $win var pending ""
+        return
+    }
+
+    set diff [expr $newy - $oldy]
+    set adiff [expr abs($diff)]
+
     set w [winfo width $win]
-    set h [winfo height $win]
+    set x 0
 
-    if {$adiff > 0} {
-        if {$adiff < $screen_len} {
-            if {$axis == "x"} {
-                $win widget scroll $diff 0
-            } else {
-                $win widget scroll 0 $diff
-            }
+    if {[$win var visibility] != "VisibilityUnobscured" || 
+        $newx != $oldx || 
+        $adiff >= [winfo height $win]
+    } {
+        set h [winfo height $win]
+        set y 0
+        set xc $newx
+        set yc $newy
+    } elseif {$diff > 0} {
+        set h $adiff
+        set y [expr [winfo height $win] - $diff]
+        set xc [expr $newx + $x]
+        set yc [expr $newy + $y]
+    } else {
+        set h $adiff
+        set y 0
+        set xc $newx
+        set yc $newy
+    }
 
-            if {$diff < 0} {
-                if {$axis == "x"} {
-                    $win damage 0 0 $adiff $h
-                } else {
-                    $win damage 0 0 $w $adiff
-                }
-            } else {
-                if {$axis == "x"} {
-                    $win damage [expr $w - $adiff] 0 $adiff $h
-                } else {
-                    $win damage 0 [expr $h - $adiff] $w $adiff
-                }
-            }
+    $win widget scroll 0 $diff
+    $win widget paint $xc $yc $x $y $w $h
+   
+    $win var x $newx
+    $win var y $newy
 
-        } else {
-            $win damage 0 0 $w $h
-        }
+    $win widget mapcontrols $newx $newy
+    $win scrollbar_cb
+    update idletasks
 
-        $win scrollbar_cb
-        $win widget mapcontrols [$win var x] [$win var y]
+    if {([$win var newx] != [$win var x] || 
+         [$win var newy] != [$win var y]) &&
+        [$win var pending] != "UPDATE"
+    } {
+        after idle "::tk::HtmlScrollCb $win"
+    } else {
+        $win var pending ""
     }
 }
 
@@ -293,7 +342,7 @@ proc ::tk::HtmlDefaultStyle {win stylename} {
 }
 
 proc ::tk::HtmlDoUpdate {win} {
-    $win var update_pending 0
+    $win var pending ""
 
     set width [winfo width $win]
     set height [winfo height $win]
@@ -316,8 +365,8 @@ proc ::tk::HtmlDoUpdate {win} {
 #     Schedule an update of the widget display for the next idle time.
 #
 proc ::tk::HtmlUpdate {win} {
-    if {![$win var update_pending]} {
-         $win var update_pending 1
+    if {[$win var pending] != "UPDATE"} {
+         $win var pending "UPDATE"
          after idle "::tk::HtmlDoUpdate $win"
     }
 }
@@ -325,10 +374,13 @@ proc ::tk::HtmlUpdate {win} {
 # <widget> damage x y width height
 #
 proc ::tk::HtmlDamage {win x y w h} {
-    if {![$win var update_pending]} {
+# puts "<Damage> x=$x y=$y w=$w h=$h"
+    if {[$win var pending] != "UPDATE"} {
         set xc [expr [$win var x] + $x]
         set yc [expr [$win var y] + $y]
-        after idle "$win widget paint $xc $yc $x $y $w $h"
+       # after idle [subst {
+       # }]
+            $win widget paint $xc $yc $x $y $w $h
     }
 }
 
@@ -381,9 +433,11 @@ proc html {args} {
     }
 
     # Initialise some state variables:
-    $win var update_pending 0
+    $win var pending ""
     $win var x 0
     $win var y 0
+    $win var newx 0
+    $win var newy 0
 
     # Set up a NULL callback to handle the <script> tag. The default
     # behaviour is just to throw away the contents of the <script> markup -

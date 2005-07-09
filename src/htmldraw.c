@@ -1171,6 +1171,11 @@ HtmlWidgetPaint(clientData, interp, objc, objv)
  *
  *     <widget> widget scroll X Y
  *
+ *     Scroll the widget X pixels in the X direction and Y pixels in the Y
+ *     direction. Y is positive if the user is scrolling the document from
+ *     top to bottom (i.e. presses PgDn). X is positive if the user scrolls
+ *     the document from left to right.
+ *
  * Results:
  *     None.
  *
@@ -1203,7 +1208,6 @@ HtmlWidgetScroll(clientData, interp, objc, objv)
         Tcl_WrongNumArgs(interp, 3, objv, "X Y");
         return TCL_ERROR;
     }
-
     if (TCL_OK != Tcl_GetIntFromObj(interp, objv[3], &x) ||
         TCL_OK != Tcl_GetIntFromObj(interp, objv[4], &y) 
     ) {
@@ -1229,6 +1233,7 @@ HtmlWidgetScroll(clientData, interp, objc, objv)
     }
 
     Tk_FreeGC(display, gc);
+    /* XFlush(display); */
 
     return TCL_OK;
 }
