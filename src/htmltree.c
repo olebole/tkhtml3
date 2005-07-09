@@ -380,19 +380,38 @@ HtmlAddToken(pTree, pToken)
 
     if (!pCurrent) {
         /* If pCurrent is NULL, then this is the first token in the
-         * document. If the document is well-formed, a <html> tag (Html
+         * document. If the document is well-formed, an <html> tag (Html
          * documents may have a DOCTYPE and other useless garbage in them,
-         * but the tokenizer should ignore all that.
+         * but the tokenizer should ignore all that).
+         *
+         * If the first thing we strike is not an <html> tag, then add one
+         * artificially.
          */
-        if (!(flags&HTMLTAG_END) && type != Html_Text && type != Html_Space) {
-            pCurrent = (HtmlNode *)ckalloc(sizeof(HtmlNode));
-            memset(pCurrent, 0, sizeof(HtmlNode));
-            pCurrent->pToken = pToken;
-            pTree->pRoot = pCurrent;
+        HtmlToken *pHtml = pToken;
+        if (type != Html_HTML) {
+            pHtml = (HtmlToken *)ckalloc(sizeof(HtmlToken));
+            memset(pHtml, 0, sizeof(HtmlToken));
+            pHtml->type = Html_HTML;
+            pHtml->pNext = pTree->pFirst;
+            pTree->pFirst = pHtml;
+            if (pHtml->pNext) {
+                pHtml->pNext->pPrev = pHtml;
+            }
         }
-    } else {
+        
+        pCurrent = (HtmlNode *)ckalloc(sizeof(HtmlNode));
+        memset(pCurrent, 0, sizeof(HtmlNode));
+        pCurrent->pToken = pHtml;
+        pTree->pRoot = pCurrent;
+
+        if (pHtml != pToken) {
+            HtmlAddToken(pTree, pToken);
+        }
+
+    } else if (type != Html_HTML) {
         int c = -1;
         int breakout = 0;
+
 
         while (!breakout && pCurrent && isEndTag(pCurrent, pToken)) {
             if (flags&HTMLTAG_END && isExplicitClose(pCurrent, type)) {
