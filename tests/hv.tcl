@@ -167,8 +167,20 @@ proc scroll_test {{dir 1} {step 0}} {
     incr step $dir
     if {$step >= 0} {
         if {$step == $num_steps} {set dir -1}
-        after 10 "scroll_test $dir $step"
+        after 1 "scroll_test $dir $step"
     }
+}
+
+proc resize_test {{x 800} {increment -20}} {
+    wm geometry . "[set x]x600"
+
+    incr x $increment
+    if {$x == 800} return
+    if {$x == 100} { 
+        set increment 20
+    }
+
+    after 1 "resize_test $x $increment"
 }
 
 # Update the status bar. The mouse is at screen coordinates (x, y).
@@ -324,6 +336,7 @@ proc build_gui {} {
             -command layout_primitives_report
     .m.reports add command -label {Layout Engine} -command layout_engine_report
     .m.tests add command -label {Scroll test} -command scroll_test
+    .m.tests add command -label {Resize test} -command resize_test
     .m.file add command -label {Exit} -command exit
 
     pack .vscroll -fill y -side right
