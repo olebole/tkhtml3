@@ -1,5 +1,5 @@
 #
-# $Revision: 1.18 $
+# $Revision: 1.19 $
 #
 # tokenlist.tcl -- 
 #
@@ -189,7 +189,7 @@ TAG marquee
 TAG nextid -content HtmlEmptyContent             
 TAG nobr                                
 TAG noembed                              
-TAG plaintext -content HtmlEmptyContent             
+TAG plaintext -content HtmlInlineContent             
 TAG wbr -content HtmlEmptyContent 
 TAG xmp 
 TAG bgsound -content HtmlEmptyContent 

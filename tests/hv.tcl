@@ -226,12 +226,13 @@ proc update_status {x y} {
     # to grow.
     #
     set pixels [expr [winfo width .status] - 30]
-    while {$status != "" && 
-           [font measure [.status cget -font] $status] > $pixels} {
-        set status [string range $status 0 end-10]
+    set letters 10
+    set font [.status cget -font]
+    while {$letters < [string length $status] && [font measure $font [string range $status 0 [expr $letters+10]]] < $pixels} {
+        incr letters 10
     }
 
-    .status configure -text $status
+    .status configure -text [string range $status 0 $letters]
 }
 
 # This procedure is called when the user clicks on the html widget. If the
@@ -338,6 +339,7 @@ proc build_gui {} {
     .m.tests add command -label {Scroll test} -command scroll_test
     .m.tests add command -label {Resize test} -command resize_test
     .m.file add command -label {Exit} -command exit
+    .m.file add command -label {Open...} -command open_document
 
     pack .vscroll -fill y -side right
     pack .status -fill x -side bottom 
@@ -442,6 +444,14 @@ proc replace_select_node {base node} {
     $menubutton configure -relief raised
 
     return $menubutton
+}
+
+proc open_document {} {
+    set doc [tk_getOpenFile] 
+    if {$doc != ""} {
+        set ::DOCUMENT $doc
+        load_document $doc {}
+    }
 }
 
 proc load_document {document anchor} {

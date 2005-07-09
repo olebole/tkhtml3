@@ -3221,7 +3221,7 @@ inlineText(pLayout, pNode, pContext)
     Tk_GetFontMetrics(font, &fontmetrics);
     nh = fontmetrics.ascent + fontmetrics.descent;
 
-    for(pToken=pNode->pToken; pToken; pToken=pToken->pNext) {
+    for (pToken=pNode->pToken; pToken; pToken=pToken->pNext) {
         switch(pToken->type) {
             case Html_Text: {
                 Tcl_Obj *pText;
