@@ -338,8 +338,9 @@ proc build_gui {} {
     .m.reports add command -label {Layout Engine} -command layout_engine_report
     .m.tests add command -label {Scroll test} -command scroll_test
     .m.tests add command -label {Resize test} -command resize_test
-    .m.file add command -label {Exit} -command exit
     .m.file add command -label {Open...} -command open_document
+    .m.file add command -label {Back} -command go_back
+    .m.file add command -label {Exit} -command exit
 
     pack .vscroll -fill y -side right
     pack .status -fill x -side bottom 
@@ -446,6 +447,14 @@ proc replace_select_node {base node} {
     return $menubutton
 }
 
+proc go_back {} {
+    set len [llength $::HISTORY]
+    if {$len == 1} return
+    foreach {doc anchor} [lindex $::HISTORY $len-2] {}
+    set ::HISTORY [lrange $::HISTORY 0 $len-2]
+    load_document $doc $anchor
+}
+
 proc open_document {} {
     set doc [tk_getOpenFile] 
     if {$doc != ""} {
@@ -458,6 +467,8 @@ proc load_document {document anchor} {
     set fd [open $document]
     set doc [read $fd]
     close $fd
+
+    lappend ::HISTORY [list $document anchor]
 
     set base [file dirname $document]
     set ::BASE $base

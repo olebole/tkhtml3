@@ -242,9 +242,9 @@ HtmlCssStringToConstant(z)
 set fd [open cssprop.h w]
 puts $fd "#ifndef __CSSPROP_H__"
 puts $fd "#define __CSSPROP_H__"
-puts $fd 
+puts $fd {}
 puts $fd {#include <tcl.h>}
-puts $fd 
+puts $fd {}
 puts $fd [C_get_constants]
 set i 0
 foreach p $properties {
@@ -265,6 +265,7 @@ close $fd
 
 set fd [open cssprop.c w]
 puts $fd {#include "cssprop.h"}
+puts $fd {#include "html.h"}
 puts $fd {#include <tcl.h>}
 puts $fd [C_get_functions]
 puts $fd "const char *tkhtmlCssPropertyToString(int i){"

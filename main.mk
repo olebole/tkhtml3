@@ -1,123 +1,100 @@
-# This file is included by linux-gcc.mk or linux-mingw.mk or possible
-# some other makefiles.  This file contains the rules that are common
-# to building regardless of the target.
+
+TOP = $(HOME)/work/tkhtml_cvs/htmlwidget
+
+TCL = $(HOME)/tcl
+TCLVERSION = 8.5
+
+TCLSH = $(TCL)/bin/tclsh$(TCLVERSION)
+TCLLIB = -L$(TCL)/lib -ltcl$(TCLVERSION) -ltk$(TCLVERSION)
+
+CC = gcc
+# CFLAGS = -O2 -DNDEBUG
+CFLAGS = -g
+CFLAGS += -I$(TCL)/include -I. -I$(TOP)/src/
+
+SHARED_LIB = libTkhtml3.so
+MKSHLIB = gcc -shared
+
+INSTALLDIR = $(TCL)/lib/Tkhtml3.0
+MANINSTALLDIR = $(TCL)/man/mann
+
+install: binaries
+	mkdir -p $(INSTALLDIR)
+	mkdir -p $(MANINSTALLDIR)
+	cp -f $(BINARIES) $(INSTALLDIR)
+	cp -f $(TOP)/doc/tkhtml.n $(MANINSTALLDIR)
+
 #
+# End of configuration section.
+###########################################################################
 
-XTCC = $(TCC) $(CFLAGS) $(INC) -I. -I$(SRCDIR)
+###########################################################################
+#
+# Generic part of Makefile for Tkhtml. The following variables should be
+# defined when this is sourced:
+#
+# CC                  Command to invoke C compiler.
+# CFLAGS              Flags to pass to C compiler.
+# SHARED_LIB          Name of shared-library to build.
+# MKSHLIB             Command to build shared library.
+# TCLSH               Command to execute a Tcl shell.
+# TCLLIB              Options to pass to CC to link with Tcl.
+# TOP                 Top of source tree (directory with this file).
+# 
 
+SRC = htmlparse.c htmldraw.c htmltcl.c htmlimage.c htmltree.c htmltagdb.c \
+      cssparse.c css.c cssprop.c htmlstyle.c htmllayout.c htmlprop.c \
+      htmlfloat.c htmlhash.c 
 
-SRC = \
-  $(SRCDIR)/src/htmlPs.c \
-  $(SRCDIR)/src/htmlPsImg.c \
-  $(SRCDIR)/src/htmlcmd.c \
-  $(SRCDIR)/src/htmldraw.c \
-  $(SRCDIR)/src/htmlexts.c \
-  $(SRCDIR)/src/htmlform.c \
-  $(SRCDIR)/src/htmlimage.c \
-  $(SRCDIR)/src/htmlindex.c \
-  $(SRCDIR)/src/htmllayout.c \
-  $(SRCDIR)/src/htmlparse.c \
-  $(SRCDIR)/src/htmlsizer.c \
-  $(SRCDIR)/src/htmltable.c \
-  $(SRCDIR)/src/htmltcl.c \
-  $(SRCDIR)/src/htmltest.c \
-  $(SRCDIR)/src/htmlurl.c \
-  $(SRCDIR)/src/htmlwidget.c
+SRCHDR = $(TOP)/src/html.h $(TOP)/src/cssInt.h $(TOP)/src/css.h
+GENHDR = cssprop.h htmltokens.h cssparse.h
 
-OBJ = \
-  htmlPs.o \
-  htmlPsImg.o \
-  htmlcmd.o \
-  htmldraw.o \
-  htmlexts.o \
-  htmlform.o \
-  htmlimage.o \
-  htmlindex.o \
-  htmllayout.o \
-  htmlparse.o \
-  htmlsizer.o \
-  htmltable.o \
-  htmltcl.o \
-  htmltest.o \
-  htmltokens.o \
-  htmlurl.o \
-  htmlwidget.o
+HDR = $(GENHDR) $(SRCHDR)
 
+OBJS = $(SRC:.c=.o)
 
-all:	$(LIBNAME) 
+LEMON = lemon
+BINARIES = html.css tkhtml.tcl $(SHARED_LIB) pkgIndex.tcl
 
-makeheaders:	$(SRCDIR)/tools/makeheaders.c
-	$(BCC) -o makeheaders $(SRCDIR)/tools/makeheaders.c
+binaries: $(BINARIES)
 
-$(LIBNAME):	headers $(OBJ)
-	$(AR) $(LIBNAME) $(OBJ)
-	$(RANLIB) $(LIBNAME)
+html.css: $(TOP)/tests/html.css
+	cp $< .
 
-htmltokens.c:	$(SRCDIR)/src/tokenlist.txt $(SRCDIR)/tools/maketokens.tcl
-	$(TCLSH) $(SRCDIR)/tools/maketokens.tcl  $(SRCDIR)/src/tokenlist.txt >htmltokens.c
+tkhtml.tcl: $(TOP)/tests/tkhtml.tcl
+	cp $< .
 
-headers:	makeheaders htmltokens.c $(SRC)
-	./makeheaders $(SRCDIR)/src/html.h htmltokens.c $(SRC)
-	touch headers
+pkgIndex.tcl: tkhtml.tcl $(SHARED_LIB)
+	(echo package require Tk \; pkg_mkIndex -load Tk . \; exit;) | $(TCLSH)
 
-srcdir:	headers htmltokens.c
-	mkdir -p srcdir
-	rm -f srcdir/*
-	cp $(SRC) htmltokens.c *.h srcdir
+$(SHARED_LIB): $(OBJS)
+	$(MKSHLIB) $(OBJS) -o $@
 
-clean:	
-	rm -f *.o $(LIBNAME)
-	rm -f makeheaders headers
-	rm -f htmlPs.h htmlPsImg.h htmlcmd.h htmldraw.h htmlexts.h htmlform.h htmlimage.h htmlindex.h htmllayout.h htmlparse.h htmlsizer.h htmltable.h htmltcl.h htmltest.h htmltokens.h htmlurl.h htmlwidget.h
+%.o: $(TOP)/src/%.c $(HDR)
+	$(CC) -c $(CFLAGS) $< -o $@
 
-htmlPs.o:	$(SRCDIR)/src/htmlPs.c htmlPs.h
-	$(XTCC) -o htmlPs.o -c $(SRCDIR)/src/htmlPs.c
+%.o: %.c $(HDR)
+	$(CC) -c $(CFLAGS) $< -o $@
 
-htmlPsImg.o:	$(SRCDIR)/src/htmlPsImg.c htmlPsImg.h
-	$(XTCC) -o htmlPsImg.o -c $(SRCDIR)/src/htmlPsImg.c
+cssprop.h: $(TOP)/src/cssprop.tcl
+	$(TCLSH) $<
 
-htmlcmd.o:	$(SRCDIR)/src/htmlcmd.c htmlcmd.h
-	$(XTCC) -o htmlcmd.o -c $(SRCDIR)/src/htmlcmd.c
+htmltokens.h:	$(TOP)/src/tokenlist.txt
+	$(TCLSH) $<
 
-htmldraw.o:	$(SRCDIR)/src/htmldraw.c htmldraw.h
-	$(XTCC) -o htmldraw.o -c $(SRCDIR)/src/htmldraw.c
+cssprop.c: cssprop.h
 
-htmlexts.o:	$(SRCDIR)/src/htmlexts.c htmlexts.h
-	$(XTCC) -o htmlexts.o -c $(SRCDIR)/src/htmlexts.c
+htmltokens.c: htmltokens.h
 
-htmlform.o:	$(SRCDIR)/src/htmlform.c htmlform.h
-	$(XTCC) -o htmlform.o -c $(SRCDIR)/src/htmlform.c
+$(LEMON): $(TOP)/tools/lemon.c
+	$(CC) $(CFLAGS) `echo $(TOP)/tools/lemon.c` -o $(LEMON)
 
-htmlimage.o:	$(SRCDIR)/src/htmlimage.c htmlimage.h
-	$(XTCC) -o htmlimage.o -c $(SRCDIR)/src/htmlimage.c
+cssparse.c: $(TOP)/src/cssparse.y $(LEMON)
+	cp $(TOP)/src/cssparse.y .
+	cp $(TOP)/tools/lempar.c .
+	./$(LEMON) cssparse.y
 
-htmlindex.o:	$(SRCDIR)/src/htmlindex.c htmlindex.h
-	$(XTCC) -o htmlindex.o -c $(SRCDIR)/src/htmlindex.c
+cssparse.h: cssparse.c
 
-htmllayout.o:	$(SRCDIR)/src/htmllayout.c htmllayout.h
-	$(XTCC) -o htmllayout.o -c $(SRCDIR)/src/htmllayout.c
-
-htmlparse.o:	$(SRCDIR)/src/htmlparse.c htmlparse.h
-	$(XTCC) -o htmlparse.o -c $(SRCDIR)/src/htmlparse.c
-
-htmlsizer.o:	$(SRCDIR)/src/htmlsizer.c htmlsizer.h
-	$(XTCC) -o htmlsizer.o -c $(SRCDIR)/src/htmlsizer.c
-
-htmltable.o:	$(SRCDIR)/src/htmltable.c htmltable.h
-	$(XTCC) -o htmltable.o -c $(SRCDIR)/src/htmltable.c
-
-htmltcl.o:	$(SRCDIR)/src/htmltcl.c htmltcl.h
-	$(XTCC) -o htmltcl.o -c $(SRCDIR)/src/htmltcl.c
-
-htmltest.o:	$(SRCDIR)/src/htmltest.c htmltest.h
-	$(XTCC) -o htmltest.o -c $(SRCDIR)/src/htmltest.c
-
-htmlurl.o:	$(SRCDIR)/src/htmlurl.c htmlurl.h
-	$(XTCC) -o htmlurl.o -c $(SRCDIR)/src/htmlurl.c
-
-htmlwidget.o:	$(SRCDIR)/src/htmlwidget.c htmlwidget.h
-	$(XTCC) -o htmlwidget.o -c $(SRCDIR)/src/htmlwidget.c
-
-htmltokens.o:	htmltokens.c htmltokens.h
-	$(XTCC) -o htmltokens.o -c htmltokens.c
-
+hwish: $(OBJS) $(TOP)/src/main.c
+	$(CC) $(CFLAGS) -DTCL_USE_STUBS=0 $^ $(TCLLIB) -o $@

@@ -1166,6 +1166,8 @@ static Tcl_Obj *nodeGetFontFamily(pLayout, pNode)
         Tcl_DecrRefCount(pFallback);
     }
 
+    Tcl_ListObjAppendElement(interp, pObj, Tcl_NewStringObj("Helvetica", -1));
+
     return pObj;
 }
 
@@ -3333,7 +3335,7 @@ inlineLayoutDrawLines(pLayout, pBox, pContext, forceflag, pY)
              * TODO: Pass the minimum height of the line-box to
              * HtmlFloatListPlace().
              */
-            assert(!f);
+            assert(!(f & LINEBOX_FORCEBOX));
             y = HtmlFloatListPlace(pBox->pFloat, pBox->parentWidth, w, 1, y);
             have = 1;
            

@@ -297,11 +297,6 @@ void HtmlDrawBackground(HtmlCanvas *, XColor *, int);
 void HtmlDrawQuad(HtmlCanvas*,int,int,int,int,int,int,int,int,XColor*,int);
 int HtmlDrawIsEmpty(HtmlCanvas *);
 
-int HtmlTableSectionContent(HtmlNode *, int);
-int HtmlTableRowContent(HtmlNode *, int);
-int HtmlTableContent(HtmlNode *, int);
-int HtmlTableCellContent(HtmlNode *, int);
-
 HtmlTokenMap *HtmlMarkup(int);
 CONST char * HtmlMarkupName(int);
 char * HtmlMarkupArg(HtmlToken *, CONST char *, char *);

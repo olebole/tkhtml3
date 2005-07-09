@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmltcl.c,v 1.34 2005/07/09 08:30:46 danielk1977 Exp $";
+        "@(#) $Id: htmltcl.c,v 1.35 2005/07/09 16:26:32 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -873,7 +873,8 @@ static void deleteWidget(clientData)
  *
  *---------------------------------------------------------------------------
  */
-static int newWidget(clientData, interp, objc, objv)
+static int 
+newWidget(clientData, interp, objc, objv)
     ClientData clientData;             /* The HTML widget data structure */
     Tcl_Interp *interp;                /* Current interpreter. */
     int objc;                          /* Number of arguments. */
@@ -935,6 +936,34 @@ error_out:
     return TCL_ERROR;
 }
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * exitCmd --
+ *
+ *     ::tk::htmlexit
+ *
+ *     Call exit(0).
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+exitCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    exit(0);
+    return TCL_OK;
+}
+
 #if INTERFACE
 #define DLL_EXPORT
 #endif
@@ -993,5 +1022,6 @@ DLL_EXPORT int Tkhtml_Init(interp)
 
     Tcl_PkgProvide(interp, "Tkhtmlinternal", "3.0");
     Tcl_CreateObjCommand(interp, "::tk::htmlinternal", newWidget, 0, 0);
+    Tcl_CreateObjCommand(interp, "::tk::htmlexit", exitCmd, 0, 0);
     return TCL_OK;
 }
