@@ -770,10 +770,10 @@ propertyToColor(pLayout, pProp)
                 Tcl_DeleteHashEntry(pEntry);
             } else {
                 Tcl_SetHashValue(pEntry, color);
-#if 0
+/*
                 pProp->eType = CSS_TYPE_XCOLOR;
                 pProp->v.p = (void *)color;
-#endif
+*/
             }
         }
     }
@@ -1000,65 +1000,76 @@ nodeGetFontSize(pLayout, pNode)
     LayoutContext *pLayout;
     HtmlNode *pNode;
 {
-    int val = 0;
-    CssProperty *pProp;
+    int val;
 
-    /* Default of 'font-size' should be "medium". */
-    if (!pNode) return 10;
-    pProp = HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_FONT_SIZE);
+    if (!pNode) {
+        /* Default of 'font-size' should be "medium". */
+        val = 10;
+    } else {
+        val = pNode->cache.font_size;
+        if (!val) {
+            CssProperty *pProp;
+            Tcl_Interp *interp;
+            pProp = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_FONT_SIZE);
+            switch (pProp->eType) {
+                case CSS_TYPE_EM:
+                    val = nodeGetFontSize(pLayout, HtmlNodeParent(pNode));
+                    val = val * pProp->v.rVal;
+                    break;
+                case CSS_TYPE_EX:
+                    val = nodeGetExPixels(pLayout,  HtmlNodeParent(pNode));
+                    val = val * pProp->v.rVal;
+                    break;
+                case CSS_TYPE_PT:
+                    val = pProp->v.iVal;
+                    break;
+                case CSS_TYPE_PERCENT:
+                    val = nodeGetFontSize(pLayout, pNode->pParent);
+                    val = (val * pProp->v.iVal) / 100;
+                    break;
+                case CSS_CONST_XX_SMALL: 
+                    val = getScaledFontSize(pLayout, pNode, 0.6944, 0);
+                    break;
+                case CSS_CONST_X_SMALL: 
+                    val = getScaledFontSize(pLayout, pNode, 0.8333, 0);
+                    break;
+                case CSS_CONST_SMALL: 
+                    val = getScaledFontSize(pLayout, pNode, 1.0, 0);
+                    break;
+                case CSS_CONST_MEDIUM: 
+                    val = getScaledFontSize(pLayout, pNode, 1.2, 0);
+                    break;
+                case CSS_CONST_LARGE: 
+                    val = getScaledFontSize(pLayout, pNode, 1.44, 0);
+                    break;
+                case CSS_CONST_X_LARGE: 
+                    val = getScaledFontSize(pLayout, pNode, 1.728, 0);
+                    break;
+                case CSS_CONST_XX_LARGE: 
+                    val = getScaledFontSize(pLayout, pNode, 2.074, 0);
+                    break;
+                case CSS_CONST_SMALLER: 
+                    val = getScaledFontSize(pLayout, pNode, 0.8333, 1);
+                    break;
+                case CSS_CONST_LARGER: 
+                    val = getScaledFontSize(pLayout, pNode, 1.2, 1);
+                    break;
+                default: {
+                    int pixels = propertyToPixels(pLayout, pNode, pProp, 0, 0);
+                    if (pixels > 0) {
+                        val = pixelsToPoints(pLayout, pixels);
+                    }
+                }
+            }
 
-    switch (pProp->eType) {
-        case CSS_TYPE_EM:
-            val = nodeGetFontSize(pLayout, HtmlNodeParent(pNode));
-            val = val * pProp->v.rVal;
-            break;
-        case CSS_TYPE_EX:
-            val = nodeGetExPixels(pLayout,  HtmlNodeParent(pNode));
-            val = val * pProp->v.rVal;
-            break;
-        case CSS_TYPE_PT:
-            val = pProp->v.iVal;
-            break;
-        case CSS_TYPE_PERCENT:
-            val = nodeGetFontSize(pLayout, pNode->pParent);
-            val = (val * pProp->v.iVal) / 100;
-            break;
-        case CSS_CONST_XX_SMALL: 
-            val = getScaledFontSize(pLayout, pNode, 0.6944, 0);
-            break;
-        case CSS_CONST_X_SMALL: 
-            val = getScaledFontSize(pLayout, pNode, 0.8333, 0);
-            break;
-        case CSS_CONST_SMALL: 
-            val = getScaledFontSize(pLayout, pNode, 1.0, 0);
-            break;
-        case CSS_CONST_MEDIUM: 
-            val = getScaledFontSize(pLayout, pNode, 1.2, 0);
-            break;
-        case CSS_CONST_LARGE: 
-            val = getScaledFontSize(pLayout, pNode, 1.44, 0);
-            break;
-        case CSS_CONST_X_LARGE: 
-            val = getScaledFontSize(pLayout, pNode, 1.728, 0);
-            break;
-        case CSS_CONST_XX_LARGE: 
-            val = getScaledFontSize(pLayout, pNode, 2.074, 0);
-            break;
-        case CSS_CONST_SMALLER: 
-            val = getScaledFontSize(pLayout, pNode, 0.8333, 1);
-            break;
-        case CSS_CONST_LARGER: 
-            val = getScaledFontSize(pLayout, pNode, 1.2, 1);
-            break;
-        default: {
-            int pixels = propertyToPixels(pLayout, pNode, pProp, 0, 0);
-            val = pixelsToPoints(pLayout, pixels);
+            if (val<=0) {
+                val = nodeGetFontSize(pLayout, pNode->pParent);
+            }
+
+            pNode->cache.font_size = val;
         }
     }
 
-    if (val<=0) {
-        val = nodeGetFontSize(pLayout, pNode->pParent);
-    }
     return val;
 }
 
@@ -1184,7 +1195,8 @@ static Tcl_Obj *nodeGetFontFamily(pLayout, pNode)
  *
  *---------------------------------------------------------------------------
  */
-static Tk_Font nodeGetFont(pLayout, pNode)
+static 
+Tk_Font nodeGetFont(pLayout, pNode)
     LayoutContext *pLayout;
     HtmlNode *pNode;
 {
@@ -1201,6 +1213,9 @@ static Tk_Font nodeGetFont(pLayout, pNode)
     Tcl_Obj *pFamily;                   /* List of potential font-families */
     Tcl_Interp *interp = pLayout->pTree->interp;
     Tcl_HashTable *pFontCache = &pLayout->pTree->aFontCache;
+
+    font = pNode->cache.font;
+    if (font) return font;
 
     /* If the 'font-style' attribute is set to either "italic" or
      * "oblique", add the option "-slant italic" to the string version
@@ -1287,16 +1302,18 @@ static XColor *nodeGetColour(pLayout, pNode)
     CssProperty *pColor;
     CssProperty sColor;
 
+    color = pNode->cache.color;
+    if (color) return color;
+
     pColor = HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_COLOR);
     color = propertyToColor(pLayout, pColor);
 
-    if (color) {
-        return color;
+    if (!color) {
+        HtmlNodeGetDefault(pNode, CSS_PROPERTY_COLOR, &sColor);
+        color = propertyToColor(pLayout, &sColor);
     }
-
-return_default:
-    HtmlNodeGetDefault(pNode, CSS_PROPERTY_COLOR, &sColor);
-    return propertyToColor(pLayout, &sColor);
+    pNode->cache.color = color;
+    return color;
 }
 
 /*

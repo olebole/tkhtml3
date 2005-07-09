@@ -155,6 +155,7 @@ int styleNode(pTree, pNode)
     
         /* Create and fill in the nodes property cache. */
         pNode->pPropCache = HtmlNewPropertyCache();
+        memset(&pNode->cache, 0, sizeof(HtmlNativePropertyCache));
         HtmlCssStyleSheetApply(pTree->pStyle, pNode);
     }
     return TCL_OK;

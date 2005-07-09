@@ -44,6 +44,10 @@
 #include <tk.h>
 #include "htmltokens.h"
 
+#ifdef HTML_MACROS
+#include "htmlmacros.h"
+#endif
+
 /*
  * Version information for the package mechanism.
  */
@@ -83,6 +87,7 @@ typedef struct HtmlCanvas HtmlCanvas;
 typedef struct HtmlCanvasItem HtmlCanvasItem;
 typedef struct HtmlFloatList HtmlFloatList;
 typedef struct HtmlPropertyCache HtmlPropertyCache;
+typedef struct HtmlNativePropertyCache HtmlNativePropertyCache;
 
 #include "css.h"
 
@@ -142,6 +147,12 @@ struct HtmlCachedProperty {
     HtmlCachedProperty *pNext; /* Nexted property cached by node */
 };
 
+struct HtmlNativePropertyCache {
+    int font_size;             /* Font size in points. */
+    Tk_Font font;              /* Font. */
+    XColor *color;             /* Color. */
+};
+
 /* Each node of the document tree is represented as an HtmlNode structure.
  * This structure carries no information to do with the node itself, it is
  * simply used to build the tree structure. All the information for the
@@ -155,7 +166,9 @@ struct HtmlNode {
 
     CssProperties *pProperties;    /* The CSS properties from stylesheets */
     CssProperties *pStyle;         /* The CSS properties from style attribute */
+
     HtmlPropertyCache *pPropCache; /* Cached properties */
+    HtmlNativePropertyCache cache;
 
     Tcl_Obj *pCommand;             /* Tcl command for this node. */
 };
@@ -269,12 +282,15 @@ int HtmlTreeClear(HtmlTree *);
 int         HtmlNodeNumChildren(HtmlNode *);
 HtmlNode *  HtmlNodeChild(HtmlNode *, int);
 HtmlNode *  HtmlNodeRightSibling(HtmlNode *);
-int         HtmlNodeIsText(HtmlNode *);
 HtmlNode *  HtmlNodeParent(HtmlNode *);
-Html_u8     HtmlNodeTagType(HtmlNode *);
 char CONST *HtmlNodeTagName(HtmlNode *);
 char CONST *HtmlNodeAttr(HtmlNode *, char CONST *);
 char *      HtmlNodeToString(HtmlNode *);
+
+#ifndef HTML_MACROS
+int         HtmlNodeIsText(HtmlNode *);
+Html_u8     HtmlNodeTagType(HtmlNode *);
+#endif
 
 Tcl_Obj *HtmlNodeCommand(Tcl_Interp *interp, HtmlNode *pNode);
 

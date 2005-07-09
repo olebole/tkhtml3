@@ -546,6 +546,7 @@ HtmlNodeChild(pNode, n)
  *
  *---------------------------------------------------------------------------
  */
+#ifndef HTML_MACROS
 int 
 HtmlNodeIsText(pNode)
     HtmlNode *pNode;
@@ -553,6 +554,7 @@ HtmlNodeIsText(pNode)
     int type = HtmlNodeTagType(pNode);
     return (type==Html_Text || type==Html_Space);
 }
+#endif
 
 /*
  *---------------------------------------------------------------------------
@@ -570,6 +572,7 @@ HtmlNodeIsText(pNode)
  *
  *---------------------------------------------------------------------------
  */
+#ifndef HTML_MACROS
 Html_u8 HtmlNodeTagType(pNode)
     HtmlNode *pNode;
 {
@@ -578,6 +581,7 @@ Html_u8 HtmlNodeTagType(pNode)
     } 
     return 0;
 }
+#endif
 
 /*
  *---------------------------------------------------------------------------
@@ -964,6 +968,9 @@ int HtmlTreeClear(pTree)
     Tcl_HashSearch s;
     Tcl_HashEntry *p;
 
+    /* Free the tree representation - pTree->pRoot */
+    HtmlTreeFree(pTree);
+
     /* Free the font-cache - pTree->aFontCache */
     for (
         p = Tcl_FirstHashEntry(&pTree->aFontCache, &s); 
@@ -986,9 +993,6 @@ int HtmlTreeClear(pTree)
 
     /* Free the image-cache - pTree->aImage */
     HtmlClearImageArray(pTree);
-
-    /* Free the tree representation - pTree->pRoot */
-    HtmlTreeFree(pTree);
 
     /* Free the token representation */
     for (pToken=pTree->pFirst; pToken; pToken = pToken->pNext) {

@@ -1,15 +1,19 @@
 
 TOP = $(HOME)/work/tkhtml_cvs/htmlwidget
 
-TCL = $(HOME)/tcl
-TCLVERSION = 8.5
+TCL = $(HOME)/profiletcl
+TCLLIB = -L$(TCL)/lib -ltcl$(TCLVERSION)g -ltk$(TCLVERSION)g -L/usr/X11R6/lib/ -lX11 -ldl -lm
 
+# TCL = $(HOME)/tcl
+# TCLLIB = -L$(TCL)/lib -ltcl$(TCLVERSION) -ltk$(TCLVERSION)
+
+TCLVERSION = 8.5
 TCLSH = $(TCL)/bin/tclsh$(TCLVERSION)
-TCLLIB = -L$(TCL)/lib -ltcl$(TCLVERSION) -ltk$(TCLVERSION)
+WISH = $(TCL)/bin/wish$(TCLVERSION)
 
 CC = gcc
-# CFLAGS = -O2 -DNDEBUG
-CFLAGS = -g
+# CFLAGS = -O2 -DNDEBUG -DHTML_MACROS
+CFLAGS = -g -pg -DHTML_MACROS
 CFLAGS += -I$(TCL)/include -I. -I$(TOP)/src/
 
 SHARED_LIB = libTkhtml3.so
@@ -65,7 +69,7 @@ tkhtml.tcl: $(TOP)/tests/tkhtml.tcl
 	cp $< .
 
 pkgIndex.tcl: tkhtml.tcl $(SHARED_LIB)
-	(echo package require Tk \; pkg_mkIndex -load Tk . \; exit;) | $(TCLSH)
+	(echo pkg_mkIndex -load Tk . \; exit;) | $(WISH)
 
 $(SHARED_LIB): $(OBJS)
 	$(MKSHLIB) $(OBJS) -o $@
