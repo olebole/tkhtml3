@@ -10,6 +10,7 @@
 # COPYRIGHT:
 #
 
+package require -exact Tkhtmlinternal 3.0
 package provide Tkhtml 3.0
 
 bind Html <Expose>          { tk::HtmlExpose %W %x %y %w %h }

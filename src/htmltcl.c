@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmltcl.c,v 1.33 2005/07/08 10:09:47 danielk1977 Exp $";
+        "@(#) $Id: htmltcl.c,v 1.34 2005/07/09 08:30:46 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -991,6 +991,7 @@ DLL_EXPORT int Tkhtml_Init(interp)
     }
 #endif
 
+    Tcl_PkgProvide(interp, "Tkhtmlinternal", "3.0");
     Tcl_CreateObjCommand(interp, "::tk::htmlinternal", newWidget, 0, 0);
     return TCL_OK;
 }

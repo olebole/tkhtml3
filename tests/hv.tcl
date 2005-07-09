@@ -155,7 +155,7 @@ proc layout_engine_report {} {
 }
 
 proc scroll_test {{dir 1} {step 0}} {
-    set num_steps 1000
+    set num_steps 500
 
     set yview [$::HTML yview]
     set range [expr 1.0 - ([lindex $yview 1] - [lindex $yview 0])]
