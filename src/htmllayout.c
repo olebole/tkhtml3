@@ -425,6 +425,7 @@ static void inlineContextCleanup(InlineContext *);
 #define DISPLAY_LISTITEM     CSS_CONST_LIST_ITEM
 #define DISPLAY_NONE         CSS_CONST_NONE
 #define DISPLAY_TABLECELL    CSS_CONST_TABLE_CELL
+#define DISPLAY_TABLEROW     CSS_CONST_TABLE_ROW
 
 #define LISTSTYLETYPE_SQUARE CSS_CONST_SQUARE 
 #define LISTSTYLETYPE_DISC   CSS_CONST_DISC 
@@ -887,7 +888,7 @@ nodeGetDisplay(pLayout, pNode, pDisplayProperties)
         if (d != DISPLAY_INLINE    && d != DISPLAY_BLOCK && 
             d != DISPLAY_NONE      && d != DISPLAY_LISTITEM && 
             d != DISPLAY_TABLE     && d != DISPLAY_NONE &&
-            d != DISPLAY_TABLECELL
+            d != DISPLAY_TABLECELL && d != DISPLAY_TABLEROW
         ) {
             d = DISPLAY_INLINE;
         }
@@ -4164,6 +4165,9 @@ tableIterate(pNode, xCallback, xRowCallback, pContext)
     int i;
     int maxrow = 0;
 
+    TableData *pData = (TableData *)pContext;
+    LayoutContext *pLayout = pData->pLayout;
+
     /* The following two variables are used to keep track of cells that
      * span multiple rows. The array aRowSpan is dynamically allocated as
      * needed and freed before this function returns. The allocated size
@@ -4179,8 +4183,9 @@ tableIterate(pNode, xCallback, xRowCallback, pContext)
 
     for (i=0; i<HtmlNodeNumChildren(pNode); i++) {
         HtmlNode *pChild = HtmlNodeChild(pNode, i);
-        int tagtype = HtmlNodeTagType(pChild);
-        if (tagtype==Html_TR) {
+        DisplayProperties display;
+        nodeGetDisplay(pLayout, pChild, &display);
+        if (display.eDisplay == DISPLAY_TABLEROW) {
             int col = 0;
             int j;
             int k;
