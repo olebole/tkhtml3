@@ -3728,22 +3728,30 @@ tableColWidthSingleSpan(pNode, col, colspan, row, rowspan, pContext)
         int w;
         int f = 0;
 
+        int *aMinWidth = pData->aMinWidth;
+        int *aMaxWidth = pData->aMaxWidth;
+        int *aWidth = pData->aWidth;
+
         /* See if the cell has an explicitly requested width. */
         w = nodeGetWidth(pData->pLayout, pNode, pData->availablewidth, 0, &f,0);
 
         /* And figure out the minimum and maximum widths of the content */
         blockMinMaxWidth(pData->pLayout, pNode, &min, &max);
 
-        if (w && f && w>min && w>pData->aMinWidth[col]) {
-            pData->aMinWidth[col] = w;
-            pData->aMaxWidth[col] = w;
-            pData->aWidth[col] = w;
+        if (w && f && w > min && w > aMinWidth[col]) {
+            aMinWidth[col] = w;
+            aMaxWidth[col] = w;
+            aWidth[col] = w;
         } else {
-            pData->aMinWidth[col] = MAX(pData->aMinWidth[col], min);
-            pData->aMaxWidth[col] = MAX(pData->aMaxWidth[col], max);
-            if (w && w>pData->aMinWidth[col]) {
-                pData->aWidth[col] = w;
-                pData->aMaxWidth[col] = w;
+            aMinWidth[col] = MAX(aMinWidth[col], min);
+            aMaxWidth[col] = MAX(aMaxWidth[col], max);
+            if (w && w > aMinWidth[col]) {
+                aWidth[col] = w;
+                aMaxWidth[col] = w;
+            }
+
+            if (aWidth[col] && aWidth[col] < aMinWidth[col]) {
+                aWidth[col] = aMinWidth[col];
             }
         }
     }
@@ -4328,6 +4336,14 @@ tableCalculateCellWidths(pData, width)
     int *aMinWidth = pData->aMinWidth;
     int *aMaxWidth = pData->aMaxWidth;
     int nCol = pData->nCol;
+
+#ifndef NDEBUG
+    for (i=0; i<nCol; i++) {
+        assert(!aWidth[i] || aWidth[i] >= aMinWidth[i]);
+        assert(!aWidth[i] || aWidth[i] <= aMaxWidth[i]);
+        assert(aMinWidth[i] <= aMaxWidth[i]);
+    }
+#endif
 
     aTmpWidth = (int *)ckalloc(sizeof(int)*nCol);
     space = width;
