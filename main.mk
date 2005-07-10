@@ -1,26 +1,43 @@
 
+##### Top of the Tkhtml source tree - the directory with this file in it.
+#
 TOP = $(HOME)/work/tkhtml_cvs/htmlwidget
 
 TCL = $(HOME)/profiletcl
-TCLLIB = -L$(TCL)/lib -ltcl$(TCLVERSION)g -ltk$(TCLVERSION)g -L/usr/X11R6/lib/ -lX11 -ldl -lm
+TCLVERSION = 8.5
 
 # TCL = $(HOME)/tcl
+
+##### Flags passed to the C-compiler to link to Tcl.
+#
+TCLLIB = -L$(TCL)/lib -ltcl$(TCLVERSION)g -ltk$(TCLVERSION)g 
 # TCLLIB = -L$(TCL)/lib -ltcl$(TCLVERSION) -ltk$(TCLVERSION)
 
-TCLVERSION = 8.5
+##### Extra libraries used by Tcl on Linux. These flags are only required to
+#     staticly link Tcl into an executable
+#
+TCLLIB += -L/usr/X11R6/lib/ -lX11 -ldl -lm
+
 TCLSH = $(TCL)/bin/tclsh$(TCLVERSION)
 WISH = $(TCL)/bin/wish$(TCLVERSION)
-
-CC = gcc
-# CFLAGS = -O2 -DNDEBUG -DHTML_MACROS
-CFLAGS = -g -pg -DHTML_MACROS
-CFLAGS += -I$(TCL)/include -I. -I$(TOP)/src/
-
-SHARED_LIB = libTkhtml3.so
-MKSHLIB = gcc -shared
-
 INSTALLDIR = $(TCL)/lib/Tkhtml3.0
 MANINSTALLDIR = $(TCL)/man/mann
+
+# CC = gcc343
+CC = gcc295
+# CFLAGS = -O2 -DNDEBUG -DHTML_MACROS
+# CFLAGS = -g -pg -DHTML_MACROS
+CFLAGS = -g -DHTML_MACROS
+
+SHARED_LIB = libTkhtml3.so
+MKSHLIB = $(CC) -shared
+
+
+#
+# End of configuration section.
+###########################################################################
+
+default: binaries
 
 install: binaries
 	mkdir -p $(INSTALLDIR)
@@ -28,8 +45,6 @@ install: binaries
 	cp -f $(BINARIES) $(INSTALLDIR)
 	cp -f $(TOP)/doc/tkhtml.n $(MANINSTALLDIR)
 
-#
-# End of configuration section.
 ###########################################################################
 
 ###########################################################################
@@ -45,6 +60,8 @@ install: binaries
 # TCLLIB              Options to pass to CC to link with Tcl.
 # TOP                 Top of source tree (directory with this file).
 # 
+
+CFLAGS += -I$(TCL)/include -I. -I$(TOP)/src/
 
 SRC = htmlparse.c htmldraw.c htmltcl.c htmlimage.c htmltree.c htmltagdb.c \
       cssparse.c css.c cssprop.c htmlstyle.c htmllayout.c htmlprop.c \

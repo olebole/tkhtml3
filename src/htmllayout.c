@@ -717,12 +717,22 @@ propertyToColor(pLayout, pProp)
 {
     XColor *color = 0;
     CONST char *zColor = 0;
+    Tk_Window tkwin = pLayout->tkwin;
+    Tcl_Interp *interp = pLayout->interp;
 
     /* The following constants are the web standard colors. */
     switch (pProp->eType) {
         case CSS_TYPE_XCOLOR:   
+            assert(pProp->v.p);
             return (XColor *)pProp->v.p;
-        case CSS_CONST_BLACK:   zColor = "#000000"; break;
+        case CSS_CONST_BLACK: {
+            HtmlTree *pTree = pLayout->pTree;
+            if (!pTree->pBlack) {
+                pTree->pBlack = Tk_GetColor(interp, tkwin, "#000000");
+                assert(pTree->pBlack);
+            }
+            return pTree->pBlack;
+        };
         case CSS_CONST_SILVER:  zColor = "#C0C0C0"; break;
         case CSS_CONST_GRAY:    zColor = "#808080"; break;
         case CSS_CONST_WHITE:   zColor = "#FFFFFF"; break;
@@ -751,9 +761,6 @@ propertyToColor(pLayout, pProp)
         if (!newentry) {
             color = (XColor *)Tcl_GetHashValue(pEntry);
         } else {
-            Tk_Window tkwin = pLayout->tkwin;
-            Tcl_Interp *interp = pLayout->interp;
-
             color = Tk_GetColor(interp, tkwin, zColor);
             if (!color && strlen(zColor) <= 12) {
 		/* Old versions of netscape used to support hex colors
@@ -770,10 +777,8 @@ propertyToColor(pLayout, pProp)
                 Tcl_DeleteHashEntry(pEntry);
             } else {
                 Tcl_SetHashValue(pEntry, color);
-/*
                 pProp->eType = CSS_TYPE_XCOLOR;
                 pProp->v.p = (void *)color;
-*/
             }
         }
     }
@@ -1302,9 +1307,6 @@ static XColor *nodeGetColour(pLayout, pNode)
     CssProperty *pColor;
     CssProperty sColor;
 
-    color = pNode->cache.color;
-    if (color) return color;
-
     pColor = HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_COLOR);
     color = propertyToColor(pLayout, pColor);
 
@@ -1312,7 +1314,6 @@ static XColor *nodeGetColour(pLayout, pNode)
         HtmlNodeGetDefault(pNode, CSS_PROPERTY_COLOR, &sColor);
         color = propertyToColor(pLayout, &sColor);
     }
-    pNode->cache.color = color;
     return color;
 }
 
@@ -1624,8 +1625,7 @@ nodeGetBorderProperties(pLayout, pNode, pBorderProperties)
      * here because the background is drawn at the same time as the border.
      */
     pBg = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BACKGROUND_COLOR);
-    zBg = propertyToString(pBg, 0);
-    if (zBg && strcmp(zBg, "transparent")) {
+    if (pBg->eType != CSS_CONST_TRANSPARENT) {
         pBorderProperties->color_bg = propertyToColor(pLayout, pBg);
     } else {
         pBorderProperties->color_bg = 0;
@@ -5072,7 +5072,11 @@ static int blockLayout(pLayout, pBox, pNode, omitborder, noalign)
             }
         }
 
-        /* Draw the border directly into the parent canvas. */
+
+	/* Draw the border directly into the parent canvas. Then copy the
+         * content from the sBox canvas into pBox.
+         */
+        nodeComment(pLayout, &pBox->vc, pNode);
         if (!omitborder) {
             int x1 = margin.margin_left + leftFloat + hoffset;
             int y1 = y - boxproperties.border_top - boxproperties.padding_top;
@@ -5088,8 +5092,6 @@ static int blockLayout(pLayout, pBox, pNode, omitborder, noalign)
                     boxproperties.border_bottom;
             borderLayout(pLayout, pNode, pBox, x1, y1, x2, y2);
         }
-
-        nodeComment(pLayout, &pBox->vc, pNode);
         DRAW_CANVAS(&pBox->vc, &sBox.vc, x + hoffset, y, pNode);
         endNodeComment(pLayout, &pBox->vc, pNode);
     

@@ -249,6 +249,7 @@ struct HtmlTree {
 
     Tcl_HashTable aFontCache;       /* All fonts used by canvas (by name) */
     Tcl_HashTable aColor;           /* All colors used by canvas (by name) */ 
+    XColor *pBlack;                 /* Default color. */
 
     Tcl_HashTable aImage;           /* All images used by document (by name) */ 
     HtmlCanvas canvas;              /* Canvas to render into */

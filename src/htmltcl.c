@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmltcl.c,v 1.35 2005/07/09 16:26:32 danielk1977 Exp $";
+        "@(#) $Id: htmltcl.c,v 1.36 2005/07/10 10:04:31 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -307,6 +307,10 @@ varCommand(clientData, interp, objc, objv)
  *---------------------------------------------------------------------------
  *
  * resetCmd --
+ * 
+ *     $html internal reset
+ *
+ *     Reset the widget so that no document or stylesheet is loaded.
  *
  * Results:
  *     None.
@@ -316,7 +320,8 @@ varCommand(clientData, interp, objc, objv)
  *
  *---------------------------------------------------------------------------
  */
-int resetCmd(clientData, interp, objc, objv)
+static int 
+resetCmd(clientData, interp, objc, objv)
     ClientData clientData;             /* The HTML widget */
     Tcl_Interp *interp;                /* The interpreter */
     int objc;                          /* Number of arguments */
@@ -841,6 +846,8 @@ int HtmlWidgetObjCommand(clientData, interp, objc, objv)
  *
  * deleteWidget --
  *
+ *     destroy $html
+ *
  * Results:
  *     None.
  *
@@ -849,11 +856,23 @@ int HtmlWidgetObjCommand(clientData, interp, objc, objv)
  *
  *---------------------------------------------------------------------------
  */
-static void deleteWidget(clientData)
+static void 
+deleteWidget(clientData)
     ClientData clientData;
 {
     HtmlTree *pTree = (HtmlTree *)clientData;
     HtmlTreeClear(pTree);
+
+    /* Calling HtmlTreeClear() deletes most resources allocated. The only
+     * things left are:
+     *
+     *     * the color black.
+     *     * memory allocated to store the HtmlTree structure itself.
+     */
+    if (pTree->pBlack) {
+        Tk_FreeColor(pTree->pBlack);
+    }
+    ckfree((char *)pTree);
 }
 
 /*
@@ -894,10 +913,6 @@ newWidget(clientData, interp, objc, objv)
     memset(pTree, 0, sizeof(HtmlTree));
 
     /* Create the Tk window.
-     *
-     * The outer window has the class "Html". The inner window is of class
-     * "HtmlClip". Some of the logic for the widget is implemented via
-     * bindings to these two window classes in file 'tkhtml.tcl'.
      */
     pTree->win = Tk_MainWindow(interp);
     pTree->tkwin = Tk_CreateWindowFromPath(interp, pTree->win, zCmd, NULL); 

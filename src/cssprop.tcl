@@ -94,6 +94,7 @@ C repeat no-repeat repeat-x repeat-y              ;# 'background-repeat'
 C top left right bottom center                    ;# 'background-position'
 C black silver gray white maroon red purple aqua  ;# Standard web colors
 C fuchsia green lime olive yellow navy blue teal
+C transparent                                     ;# 'background-color'
 
 # This is a list of all property names for properties that are not (a)
 # shortcut properties or (b) custom Tkhtml properties.
