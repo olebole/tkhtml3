@@ -11,5 +11,10 @@ if {[llength $argv] == 0} {
     set argv [file join [file dirname [info script]] index.html]
 }
 
+rename exit exit_original
+proc exit {args} {
+    ::tk::htmlexit
+}
+
 package require app-hv3
 

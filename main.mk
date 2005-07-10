@@ -154,5 +154,8 @@ hv3.vfs: binaries
 	if test -d $(TCL)/lib/Img1.3/ ; then \
 		cp -R $(TCL)/lib/Img1.3/ ./hv3.vfs/lib ; \
 	fi
+	if test -f $(TOP)/doc/tkhtml.html ; then \
+		cp $(TOP)/doc/tkhtml.html ./hv3.vfs/index.html ; \
+	fi
 
 
