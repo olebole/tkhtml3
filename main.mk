@@ -3,35 +3,59 @@
 #
 TOP = $(HOME)/work/tkhtml_cvs/htmlwidget
 
-TCL = $(HOME)/profiletcl
-TCLVERSION = 8.5
+##### BUILD can be DEBUG or RELEASE.
+#
+# BUILD = DEBUG
+BUILD = RELEASE
 
-# TCL = $(HOME)/tcl
+##### Version of and path to the Tcl installation to use.
+#
+TCLVERSION = 8.5
+TCL_RELEASE = $(HOME)/tcl
+TCL_DEBUG   = $(HOME)/profiletcl
+TCL = $(TCL_$(BUILD))
 
 ##### Flags passed to the C-compiler to link to Tcl.
 #
-TCLLIB = -L$(TCL)/lib -ltcl$(TCLVERSION)g -ltk$(TCLVERSION)g 
-# TCLLIB = -L$(TCL)/lib -ltcl$(TCLVERSION) -ltk$(TCLVERSION)
+TCLLIB_DEBUG   = -L$(TCL)/lib -ltcl$(TCLVERSION)g -ltk$(TCLVERSION)g 
+TCLLIB_RELEASE = -L$(TCL)/lib -ltcl$(TCLVERSION) -ltk$(TCLVERSION)
 
 ##### Extra libraries used by Tcl on Linux. These flags are only required to
 #     staticly link Tcl into an executable
 #
-TCLLIB += -L/usr/X11R6/lib/ -lX11 -ldl -lm
+TCLLIB_DEBUG += -L/usr/X11R6/lib/ -lX11 -ldl -lm
+TCLLIB = $(TCLLIB_$(BUILD))
 
-TCLSH = $(TCL)/bin/tclsh$(TCLVERSION)
-WISH = $(TCL)/bin/wish$(TCLVERSION)
-INSTALLDIR = $(TCL)/lib/Tkhtml3.0
-MANINSTALLDIR = $(TCL)/man/mann
+CC_RELEASE = gcc343
+CC_DEBUG   = gcc295
+CC = $(CC_$(BUILD))
 
-# CC = gcc343
-CC = gcc295
-# CFLAGS = -O2 -DNDEBUG -DHTML_MACROS
-# CFLAGS = -g -pg -DHTML_MACROS
-CFLAGS = -g -DHTML_MACROS
+CFLAGS_RELEASE = -O2 -DNDEBUG -DHTML_MACROS
+CFLAGS_DEBUG   = -g -pg -DHTML_MACROS
+CFLAGS = $(CFLAGS_$(BUILD))
 
-SHARED_LIB = libTkhtml3.so
+##### The name of the shared library file to build.
+#
+SHARED_LIB_DEBUG = libTkhtml3g.so
+SHARED_LIB_RELEASE = libTkhtml3.so
+SHARED_LIB = $(SHARED_LIB_$(BUILD))
+
+##### Command to build a shared library from a set of object files. The
+#     command executed will be:
+# 
+#         $(MKSHLIB) $(OBJS) -o $(SHARED_LIB)
+#
 MKSHLIB = $(CC) -shared
 
+##### Commands to run tclsh and wish.
+#
+TCLSH = $(TCL)/bin/tclsh$(TCLVERSION)
+WISH = $(TCL)/bin/wish$(TCLVERSION)
+
+##### Installation directories used by the 'install' target.
+#
+INSTALLDIR = $(TCL)/lib/Tkhtml3.0
+MANINSTALLDIR = $(TCL)/man/mann
 
 #
 # End of configuration section.
@@ -119,3 +143,16 @@ cssparse.h: cssparse.c
 
 hwish: $(OBJS) $(TOP)/src/main.c
 	$(CC) $(CFLAGS) -DTCL_USE_STUBS=0 $^ $(TCLLIB) -o $@
+
+hv3.vfs: binaries
+	mkdir -p ./hv3.vfs
+	mkdir -p ./hv3.vfs/lib
+	cp $(BINARIES) ./hv3.vfs/lib
+	cp $(TOP)/tests/hv.tcl ./hv3.vfs/lib
+	cp $(TOP)/tests/main.tcl ./hv3.vfs
+	(echo pkg_mkIndex -load Tk ./hv3.vfs/lib \; exit;) | $(WISH)
+	if test -d $(TCL)/lib/Img1.3/ ; then \
+		cp -R $(TCL)/lib/Img1.3/ ./hv3.vfs/lib ; \
+	fi
+
+
