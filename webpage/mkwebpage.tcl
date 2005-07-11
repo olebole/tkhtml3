@@ -2,7 +2,7 @@
 #
 # Construct the web page for tkhtml
 #
-# @(#) $Id: mkwebpage.tcl,v 1.12 2005/05/30 03:31:04 danielk1977 Exp $
+# @(#) $Id: mkwebpage.tcl,v 1.13 2005/07/11 15:25:53 danielk1977 Exp $
 #
 
 proc header {} {
@@ -72,12 +72,12 @@ p {
   It is a true widget, not a metawidget implemented using the Text or Canvas
   widgets of the Tcl/Tk core. The current version of Tkhtml 2.0, which has
   not changed significantly for several years. This page houses that version
-  and is also home to the (currently embryonic) plans for a revitalisation.
+  and is also home to the new version, currently at 3.alpha-1.
 }
 
 p {
   Tkhtml was created by D. Richard Hipp, and has since been enhanced by 
-  Peter MacDonald.
+  Peter MacDonald. 
 }
 
 h 2 {Current Status (Version 2.0)}
@@ -107,11 +107,26 @@ p {
   any version of "wish" beginning with 8.0.6.
 }
 
-h 2 {Revitalisation Effort}
+h 2 {Revitalisation Status (Version 3)}
+
+p {
+  This is currently at alpha stage. The rendering engine is not yet feature
+  complete by any means, but the majority of common HTML and CSS 1.0
+  constructs are supported. See 
+  <a href="http://tkhtml.tcl.tk/cvstrac/wiki?p=CssOne">this page</a> for a
+  list of know defects. Nothing dynamic is supported yet (i.e. changing
+  the color of something when the mouse floats over it etc.).
+}
+
+p {
+  The widget itself also needs some work, there is no selection support and
+  the widget doesn't support many of the standard options (for example
+  -pady or -borderwidth).
+}
 
 p { 
-  The current plan is to upgrade and modernise Tkhtml over the coming 
-  months. Some of the main goals of this are:
+  The current plan is to continue to upgrade and modernise Tkhtml over the
+  coming months. Some of the main goals of this are:
 <ul>
 <li>Support (where applicable) for the HTML 4.01, XHTML 1.1 and CSS 2.1 
     standards.</li>
@@ -180,9 +195,14 @@ p {
 h 2 {Source Code}
 
 p {
-  To obtain the source code for Tkhtml, use anonymous CVS (See 
-  <a href="http://www.cyclic.com/">http://www.cyclic.com/</a> for 
-  additional information on CVS.) Login as follows:
+  Version 3.alpha-1 source code is available 
+  <a href="tkhtml-3.alpha-1.tar.gz">here</a>.
+}
+
+p {
+  Alternatively, use anonymous CVS (See <a href="http://www.cyclic.com/">
+  http://www.cyclic.com/</a> for additional information on CVS.). This is
+  the only way to get version 2. Login as follows: 
 }
 
 p {
@@ -205,8 +225,8 @@ cvs -d :pserver:anonymous@tkhtml.tcl.tk:/tkhtml checkout htmlwidget
 
 p {
   <b>Update:</b> The above command is used to get the latest copy of
-  the sources from cvs. But recent changes haven't been tested well enough
-  for use in the wild yet. To obtain a more reliable copy, use:
+  the sources from cvs (version 3). But recent changes haven't been tested
+  well enough for use in the wild yet. To obtain a more reliable copy, use:
 }
 p {
   <blockquote><pre>
@@ -224,8 +244,8 @@ h 2 {Binaries}
 p {
   The following binaries are available. To quickly test the capabilities of 
   the widget on Linux or Windows x86, download and run one of the executable 
-  versions of the "Html Viewer" app.  The viewer app comes with a few 
-  built-in documents, or can load a document from the local file-system.
+  versions of the "Html Viewer" app.  The viewer app comes with a few
+  built-in demo documents, or can load a document from the local file-system.
 }
 
 append ::BODY <ul>
@@ -235,8 +255,10 @@ foreach {file desc} {
   spec.html       {A raw specification of how the tkhtml widget works}
   tkhtml.so       {Shared library suitable for use on Linux}
   tkhtml.dll      {A DLL suitable for use on Windows95/98/NT/2K}
-  hv.exe           {Executable version of the "Html Viewer" app for Windows}
-  hv.linux-x86-xft {Executable version of the "Html Viewer" app for Linux}
+  hv.exe           {Windows version of the "Html Viewer" version 2.0}
+  hv.linux-x86-xft {Linux x86 version of the "Html Viewer" version 2.0}
+  hv3.exe          {Windows version of the "Html Viewer" version 3.alpha-1}
+  hv3-linux-x86    {Linux x86 version of the "Html Viewer" version 3.alpha-1}
 } {
   if {![file readable $file]} continue
   lappend SendList $file
