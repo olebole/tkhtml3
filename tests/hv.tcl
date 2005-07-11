@@ -450,8 +450,8 @@ proc replace_select_node {base node} {
 proc go_back {} {
     set len [llength $::HISTORY]
     if {$len == 1} return
-    foreach {doc anchor} [lindex $::HISTORY $len-2] {}
-    set ::HISTORY [lrange $::HISTORY 0 $len-2]
+    foreach {doc anchor} [lindex $::HISTORY [expr $len-2]] {}
+    set ::HISTORY [lrange $::HISTORY 0 [expr $len-2]]
     load_document $doc $anchor
 }
 
