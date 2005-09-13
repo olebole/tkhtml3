@@ -1,291 +1,595 @@
-<! -- -*- tcl -*- doctools manpage
-   -->
-<html><head>
-<title>tkhtml - HTML Widget </title>
-</head>
-<! -- Generated from file './html.man' by tcllib/doctools with format 'html'
-   -->
-<! -- CVS: $Id: tkhtml.html,v 1.1 2005/07/10 13:28:52 danielk1977 Exp $ tkhtml.n
-   -->
 
-<body>
-<h1> tkhtml(n) 3.0 html &quot;HTML Widget&quot;</h1>
-<h2><a name="name">NAME</a></h2>
+       <html>
+       <head>
+       <title>tkhtml (n)</title>
+       </head>
+       <body>
+       <h1>tkhtml (n)</h1>
+       <p><a href="#TOC">Table Of Contents</a>
+       <h2 id="section1">Name</h2>
+
 <p>
-<p> tkhtml - Widget to render html documents
+tkhtml - Widget to render html documents.
+</p>
 
 
+<h2 id="section2">Synopsis</h2>
 
-<h2><a name="tableofcontents">TABLE OF CONTENTS</a></h2>
-<p>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tableofcontents">TABLE OF CONTENTS</a><br>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#synopsis">SYNOPSIS</a><br>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#description">DESCRIPTION</a><br>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#standardoptions">STANDARD OPTIONS</a><br>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#widgetspecificoptions">WIDGET-SPECIFIC OPTIONS</a><br>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#widgetcommand">WIDGET COMMAND</a><br>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#nodecommand">NODE COMMAND</a><br>&nbsp;&nbsp;&nbsp;&nbsp;<a href="#replacedobjects">REPLACED OBJECTS</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tkhtmlreplaceproperty">-tkhtml-replace property</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="#tclpropertyvalues">tcl() property values</a><br><h2><a name="synopsis">SYNOPSIS</a></h2>
 <p>
-<table border=1 width=100% cellspacing=0 cellpadding=0><tr            bgcolor=lightyellow><td bgcolor=lightyellow><table 0 width=100% cellspacing=0 cellpadding=0><tr valign=top ><td ><a href="#1"><b class='cmd'>html</b> <i class='arg'>pathName</i> ?<i class='arg'>options</i>?</a></td></tr>
-</table></td></tr></table>
-<h2><a name="description">DESCRIPTION</a></h2>
+html pathName ?options?
+</p>
+
+
+<h2 id="section3">Standard Options</h2>
+
+
+<div style="margin-left:8ex"><pre>
+-height
+-width
+-xscrollcommand   
+-yscrollcommand   
+-xscrollincrement
+-yscrollincrement                         
+</pre></div>
+
+
+
+<h2 id="section4">Widget-Specific Options</h2>
+
+
+
+    <p>Command-Line Name: -defaultstyle<br>
+       Database Name: defaultstyle<br>
+       Database Class: Defaultstyle
+    </p>
+    <div style="margin-left:8ex">
+
+       <p>
+This option determines the default style-sheet for the
+widget. Default style-sheets are stored in the package
+installation directory with the extension ".css". The first
+part of the style-sheet filename matches the value of this
+option. The style-sheet "html.css" is guaranteed to exist.
+</p>
+
 <p>
+The default value of this option is "html". This should be
+sufficient for most (all?) applications.
 
-The <b class='cmd'>html</b> command creates a new window (given by the <i class='arg'>pathName</i>
-argument) and makes it into an html widget. The html command returns its
-pathName argument. At the time this command is invoked, there must not
-exist a window named pathName, but pathName's parent must exist.
 
-<dl>
-\
-</dl>
+    </div>
+  
 
-<h2><a name="standardoptions">STANDARD OPTIONS</a></h2>
+
+
+    <p>Command-Line Name: -importcommand<br>
+       Database Name: importcommand<br>
+       Database Class: Importcommand
+    </p>
+    <div style="margin-left:8ex">
+
+       <p>
+Specify a Tcl command to be invoked when an "@import"
+directive is encountered in a stylesheet. Two arguments are
+appended to the value of this option before execution: the
+stylesheet-id (see below) of the stylesheet being parsed,
+and the URL following the "@import" keyword.
+</p>
+
 <p>
-<p><table><tr><td bgcolor=black>&nbsp;</td><td><pre class='sample'>
-<b class='cmd'>
--height			-width			-xscrollcommand   
--xscrollincrement	-yscrollincrement                         
-</b>
-</pre></td></tr></table></p>
+The -importcommand callback is always made from within 
+[pathName style] commands.
 
-<h2><a name="widgetspecificoptions">WIDGET-SPECIFIC OPTIONS</a></h2>
+
+    </div>
+  
+
+
+
+    <p>Command-Line Name: -imagecommand<br>
+       Database Name: imagecommand<br>
+       Database Class: Imagecommand
+    </p>
+    <div style="margin-left:8ex">
+
+       <p>
+Specify a Tcl command to be run when an image URI is
+encountered by the widget. The URI is appended to the value
+of this option and the resulting list evaluated. The value
+returned should be the name of a Tk image, or an empty
+string if an error occurs.
+</p>
+
 <p>
+See section "IMAGE LOADING" for more detail.
 
-<dl>
-<dt>Command-Line Switch:	<strong>-defaultstyle</strong><br>
-Database Name:	<strong>DefaultStyle</strong><br>
-Database Class:	<strong>DefaultStyle</strong><br>
-<dd>
-This command determines the default style-sheet for the widget. Default
-style-sheets are stored in the package installation directory with the
-extension &quot;.css&quot;. The first part of the style-sheet filename matches the
-<i class='arg'>style-name</i> value of this option. The style-sheet &quot;html.css&quot; is
-guaranteed to exist.
-<br><br>
-The default value of this option is &quot;html&quot;. This should be sufficient for
-most (all?) applications.
 
-<br><br>
-<dt>Command-Line Switch:	<strong>-importcommand</strong><br>
-Database Name:	<strong>ImportCommand</strong><br>
-Database Class:	<strong>ImportCommand</strong><br>
-<dd>
-Specify a Tcl command to be invoked when an &quot;@import&quot; directive is
-encountered in a stylesheet. Two arguments are appended to the value of
-this option before execution: the stylesheet-id (see below) of the
-stylesheet being parsed, and the URL following the &quot;@import&quot; keyword.
-<br><br>
-The <b class='cmd'>-importcommand</b> callback is always made from within 
-[<i class='arg'>pathName</i> <b class='cmd'>style</b>] commands.
+    </div>
+  
 
-</dl>
 
-<h2><a name="widgetcommand">WIDGET COMMAND</a></h2>
+
+<h2 id="section5">Description</h2>
+
+
 <p>
+The [html] command creates a new window (given by the pathName
+argument) and makes it into an html widget. The html command
+returns its pathName argument. At the time this command is invoked,
+there must not exist a window named pathName, but pathName's parent
+must exist.
+</p>
+
+
+<h2 id="section6">Widget Command</h2>
+
 <p>
-The <b class='cmd'>html</b> command creates a new Tcl command whose name is 
-<i class='arg'>pathName</i>. This command may be used to invoke various operations on
+The [html] command creates a new Tcl command whose name is
+pathName. This command may be used to invoke various operations on
 the widget as follows:
+</p>
 
-<dl>
 
-<dt><i class='arg'>pathName</i> <b class='cmd'>cget</b> <i class='arg'>option</i><dd>
-Retrieve the value of an option. This command works the same way as for all
-other Tk widgets.
 
-<br><br>
-<dt><i class='arg'>pathName</i> <b class='cmd'>configure</b> <i class='arg'>option</i> <i class='arg'>value</i><dd>
-Set the value of one or more options. This command works the same way as
-for all other Tk widgets.
+      <p>
+      pathName cget option
+      </p>
+  <div style="margin-left:8ex"><p>
+Returns the current value of the configuration option given
+by option. Option may have any of the values accepted by
+the [html] command.
+</div>
 
-<br><br>
-<dt><i class='arg'>pathName</i> <b class='cmd'>handler</b> <i class='arg'>type</i> <i class='arg'>tag</i> <i class='arg'>script</i><dd>
-This command is used to define &quot;handler&quot; scripts - Tcl callback scripts
-that are invoked by the widget when document elements of specified types
-are encountered. The widget supports two types of handler scripts: &quot;node&quot;
-and &quot;script&quot;. The <i class='arg'>type</i> parameter to this command must take one of
-these two values.
-<br><br>
-For a &quot;node&quot; handler script, whenever a document element having tag type
-<i class='arg'>tag</i> (e.g. &quot;p&quot; or &quot;link&quot;) is encountered during parsing, then 
-the node handle for the node is appended to <i class='arg'>script</i> and the resulting
-list evaluated as a Tcl command. See the section &quot;NODE COMMAND&quot; for details
-of how a node handle may be used to query and manipulate a document node.
-<br><br>
-If the handler script is a &quot;script&quot; handler, whenever a document node of
-type <i class='arg'>tag</i> is parsed, then the text that appears between the start and
-end tags of the node is appended to <i class='arg'>script</i> and the resulting list
-evaluated as a Tcl command.
-<br><br>
+
+
+
+      <p>
+      pathName configure option value
+      </p>
+  <div style="margin-left:8ex"><p>
+Query or modify the configuration options of the widget. If
+no option is specified, returns a list describing all of
+the available options for pathName (see Tk_ConfigureInfo
+for information on the format of this list). If option is
+specified with no value, then the command returns a list
+describing the one named option (this list will be
+identical to the corresponding sublist of the value
+returned if no option is specified). If one or more
+option-value pairs are specified, then the command modifies
+the given widget option(s) to have the given value(s); in
+this case the command returns an empty string. Option may
+have any of the values accepted by the [html] command.
+</div>
+
+
+
+
+      <p>
+      pathName handler type tag script
+      </p>
+  <div style="margin-left:8ex"><p>
+This command is used to define "handler" scripts - Tcl
+callback scripts that are invoked by the widget when
+document elements of specified types are encountered. The
+widget supports two types of handler scripts: "node" and
+"script". The type parameter to this command must
+take one of these two values.
+</p>
+
+<p>
+For a "node" handler script, whenever a document element
+having the specified tag type (e.g. "p" or "link") is
+encountered during parsing, then the node handle for the
+node is appended to script and the resulting list
+evaluated as a Tcl command. See the section "NODE COMMAND"
+for details of how a node handle may be used to query and
+manipulate a document node.
+</p>
+
+<p>
+If the handler script is a "script" handler, whenever a
+document node of type tag is parsed, then the text
+that appears between the start and end tags of the node is
+appended to script and the resulting list evaluated
+as a Tcl command.
+</p>
+
+<p>
 Handler callbacks are always made from within 
-[<i class='arg'>pathName</i> <b class='cmd'>parse</b>] commands. The callback for a given node
-is made as soon as the node is completely parsed.  This can happen because
-an implicit or explicit closing tag is parsed, or because there is no more
-document data and the <i class='arg'>-final</i> switch was passed to the 
-[<i class='arg'>pathName</i> <b class='cmd'>parse</b>]
+[pathName parse] commands. The callback for a given node
+is made as soon as the node is completely parsed.  This can
+happen because an implicit or explicit closing tag is
+parsed, or because there is no more document data and the
+-final switch was passed to the [pathName parse]
 command.
+</div>
 
-<br><br>
-<dt><i class='arg'>pathName</i> <b class='cmd'>node</b> ?<i class='arg'>x</i> <i class='arg'>y</i>?<dd>
-This command is used to retrieve a handle for a document node that is part
-of the currently parsed document. If the <i class='arg'>x</i> and <i class='arg'>y</i> parameters are
-omitted, then the handle returned is the root-node of the document, or an
-empty string if the document has no root-node (i.e. an empty document).
-<br><br>
-If the <i class='arg'>x</i> and <i class='arg'>y</i> arguments are present, then the handle returned
-is for the node which generated the document content currently located at
-viewport coordinates (<i class='arg'>x</i>, <i class='arg'>y</i>). If no content is located at
-the specified coordinates or the widget window is not mapped, then an empty
-string is returned.
-<br><br>
-The document node can be queried and manipulated using the interface
-described in section <a href="#nodecommand">NODE COMMAND</a>
 
-<br><br>
-<dt><i class='arg'>pathName</i> <b class='cmd'>parse</b> ?-final? <i class='arg'>html-text</i><dd>
-Append extra text to the end of the (possibly empty) document currently
-stored by the widget. 
-<br><br>
-If the -final option is present, this indicates that the supplied text is
-the last of the document. Any subsequent call to <b class='cmd'>parse</b> before a call
-to <b class='cmd'>reset</b> will raise an error.
 
-<br><br>
-<dt><i class='arg'>pathName</i> <b class='cmd'>reset</b><dd>
-This is used to clear the internal contents of the widget prior to parsing
-a new document. The widget is reset such that the document tree is empty
-(as if no calls to <b class='cmd'>parse</b> had ever been made) and no stylesheets
-except the default stylesheet are loaded (as if no invocations of <b class='cmd'>style</b> 
-had occured).
 
-<br><br>
-<dt><i class='arg'>pathName</i> <b class='cmd'>style</b> ?<i class='arg'>style-id</i>? <i class='arg'>stylesheet-text</i><dd>
-Add a stylesheet to the widgets internal configuration. The argument
-<i class='arg'>stylesheet-text</i> should contain the text of a complete stylesheet.
-Incremental parsing of stylesheets is not supported, although of course
-multiple stylesheets may be added to a single widget.
-<br><br>
-If present, the <i class='arg'>style-id</i> argument determines the priority taken by
-the style-sheet when assigning property values to document nodes (see
-chapter 6 of the CSS specification for more detail on this process). The
-first part of the style-sheet id must be one of the strings &quot;agent&quot;, &quot;user&quot;
-or &quot;author&quot;. Following this, a style-sheet id may contain any text.
-<br><br>
-When comparing two <i class='arg'>style-ids</i> to determine which stylesheet takes
-priority, the widget uses the following approach:
-<br><br>
-If the initial strings of the two <i class='arg'>style-id</i> values are not identical,
-then &quot;user&quot; takes precedence over &quot;author&quot;, and &quot;author&quot; takes precedence
-over &quot;agent&quot;. Otherwise, the lexographically largest <i class='arg'>style-id</i> value
-takes precedence.
+      <p>
+      pathName node ?x y?
+      </p>
+  <div style="margin-left:8ex"><p>
+This command is used to retrieve a handle for a document
+node that is part of the currently parsed document. If the
+x and y parameters are omitted, then the handle returned is
+the root-node of the document, or an empty string if the
+document has no root-node (i.e. an empty document).
+</p>
 
-<br><br>
-<dt><i class='arg'>pathName</i> <b class='cmd'>xview</b> ?<i class='arg'>options</i>?<dd>
-This command is used to query or adjust the horizontal position of the
-viewport relative to the document layout. It is identical to the 
-<b class='cmd'>xview</b> command implemented by the canvas and text widgets.
-
-<br><br>
-<dt><i class='arg'>pathName</i> <b class='cmd'>yview</b> ?<i class='arg'>options</i>?<dd>
-This command is used to query or adjust the vertical position of the
-viewport relative to the document layout. It is identical to the 
-<b class='cmd'>yview</b> command implemented by the canvas and text widgets.
-
-</dl>
-
-<h2><a name="nodecommand">NODE COMMAND</a></h2>
 <p>
+If the x and y arguments are present, then the handle
+returned is for the node which generated the document
+content currently located at viewport coordinates (x, y).
+If no content is located at the specified coordinates or
+the widget window is not mapped, then an empty string is
+returned.
+</p>
 
-There are several interfaces by which a script can obtain a &quot;node handle&quot;.
-Each node handle is a Tcl command that may be used to access the document
-node that it represents. A node handle is valid from the time it is
-obtained until the next call to <i class='arg'>pathName</i> <b class='cmd'>reset</b>. The node
-handle may be used as follows:
+<p>
+The document node can be queried and manipulated using the
+interface described in the "NODE COMMAND" section.
+</div>
 
-<dl>
-<dt><i class='arg'>node</i> <b class='cmd'>attr</b> <i class='arg'>attribute</i><dd>
-Return the value of the html attribute <i class='arg'>attribute</i>, or an empty string
-if <i class='arg'>attribute</i> is not specified for node <i class='arg'>node</i>. 
 
-<br><br>
-<dt><i class='arg'>node</i> <b class='cmd'>child</b> <i class='arg'>index</i><dd>
-Return the node handle for the index'th child node of node <i class='arg'>node</i>.
+
+
+      <p>
+      pathName parse -final html-text
+      </p>
+  <div style="margin-left:8ex"><p>
+Append extra text to the end of the (possibly empty)
+document currently stored by the widget. 
+</p>
+
+<p>
+If the -final option is present, this indicates that the
+supplied text is the last of the document. Any subsequent
+call to [pathName parse] before a call to [pathName reset]
+will raise an error.
+</div>
+
+
+
+
+      <p>
+      pathName reset
+      </p>
+  <div style="margin-left:8ex"><p>
+This is used to clear the internal contents of the widget
+prior to parsing a new document. The widget is reset such
+that the document tree is empty (as if no calls to 
+[pathName parse] had ever been made) and no stylesheets
+except the default stylesheet are loaded (as if no
+invocations of [pathName style] had occured).
+</div>
+
+
+
+
+      <p>
+      pathName style ?style-id? stylesheet-text
+      </p>
+  <div style="margin-left:8ex"><p>
+Add a stylesheet to the widgets internal configuration. The
+stylesheet-text argument should contain the text of a
+complete stylesheet.  Incremental parsing of stylesheets is
+not supported, although of course multiple stylesheets may
+be added to a single widget.
+</p>
+
+<p>
+If present, the style-id argument determines the priority
+taken by the style-sheet when assigning property values to
+document nodes (see chapter 6 of the CSS specification for
+more detail on this process).  The first part of the
+style-sheet id must be one of the strings "agent", "user"
+or "author". Following this, a style-sheet id may contain
+any text.  
+</p>
+
+<p>
+When comparing two style-ids to determine which stylesheet
+takes priority, the widget uses the following approach: If
+the initial strings of the two style-id values are not
+identical, then "user" takes precedence over "author", and
+"author" takes precedence over "agent". Otherwise, the
+lexographically largest style-id value takes precedence.
+For more detail on why this seemingly odd approach is
+taken, please refer to the "STYLESHEET LOADING"
+below.
+</div>
+
+
+
+
+      <p>
+      pathName xview ?options?
+      </p>
+  <div style="margin-left:8ex"><p>
+This command is used to query or adjust the horizontal
+position of the viewport relative to the document layout.
+It is identical to the [pathName xview] command
+implemented by the canvas and text widgets.
+</div>
+
+
+
+
+      <p>
+      pathName yview ?options?
+      </p>
+  <div style="margin-left:8ex"><p>
+This command is used to query or adjust the vertical
+position of the viewport relative to the document layout.
+It is identical to the [pathName yview] command
+implemented by the canvas and text widgets.
+</div>
+
+
+
+<h2 id="section7">Node Command</h2>
+
+<p>
+There are several interfaces by which a script can obtain a "node
+handle".  Each node handle is a Tcl command that may be used to
+access the document node that it represents. A node handle is valid
+from the time it is obtained until the next call to 
+[pathName reset]. The node handle may be used to query and
+manipulate the document node via the following subcommands:
+</p>
+
+
+
+      <p>
+      nodeHandle attr attribute
+      </p>
+  <div style="margin-left:8ex"><p>
+Return the value of the named html attribute, or an empty
+string if the attribute specified does not exist.
+</div>
+
+
+
+
+      <p>
+      nodeHandle child index
+      </p>
+  <div style="margin-left:8ex"><p>
+Return the node handle for the index'th child of the node.
 Children are numbered from zero upward.
+</div>
 
-<br><br>
-<dt><i class='arg'>node</i> <b class='cmd'>nChild</b><dd>
+
+
+      <p>
+      nodeHandle nChild
+      </p>
+  <div style="margin-left:8ex"><p>
 Return the number of children the node has.
+</div>
 
-<br><br>
-<dt><i class='arg'>node</i> <b class='cmd'>parent</b><dd>
-Return the node handle for the node's parent. If node <i class='arg'>node</i> does not
-have a parent (i.e. it is the document root), then return an empty string.
 
-<br><br>
-<dt><i class='arg'>node</i> <b class='cmd'>prop</b> <i class='arg'>property</i><dd>
-Return the value of CSS property <i class='arg'>property</i> for the node.
 
-<br><br>
-<dt><i class='arg'>node</i> <b class='cmd'>tag</b><dd>
-Return the name of the Html tag that generated this document node (i.e. &quot;p&quot;
-or &quot;link&quot;), or &quot;text&quot; if the node is a text node.
+      <p>
+      nodeHandle parent
+      </p>
+  <div style="margin-left:8ex"><p>
+Return the node handle for the node's parent. If the node
+does not have a parent (i.e. it is the document root), then
+return an empty string.
+</div>
 
-<br><br>
-<dt><i class='arg'>node</i> <b class='cmd'>text</b><dd>
-If the node is a &quot;text&quot; node, return the string contained by the node. If
-the node is not a &quot;text&quot; node, return an empty string.
 
-</dl>
 
-<h2><a name="replacedobjects">REPLACED OBJECTS</a></h2>
+      <p>
+      nodeHandle prop property
+      </p>
+  <div style="margin-left:8ex"><p>
+Return the value of the specified CSS property for the node.
+</div>
+
+
+
+      <p>
+      nodeHandle replace ? ?-deleteproc script? newValue?
+      </p>
+  <div style="margin-left:8ex"><p>
+This command is used to set and get the name of the
+replacement object for the node, if any. If the newValue
+argument is present, then this command sets the nodes
+replacement object name and returns the new value. If
+newValue is not present, then the current value is
+returned.
+</p>
+
 <p>
-Replaced objects are html document nodes that are replaced by either a Tk
-image or a Tk window. For example &lt;IMG&gt; or &lt;INPUT&gt; tags. To implement
-replaced objects in Tkhtml the user supplies the widget with a Tcl script
-to create and return the name of the image or window, and the widget maps,
-manages and eventually destroys the image or window. 
+A nodes replacement object may be set to the name of a Tk
+image, the name of a Tk window, or an empty string. If it
+is an empty string (the default and usual case), then the
+node is rendered normally. If it is set to the name of a Tk
+image, then the image is displayed in the widget in place
+of any other node content (for example to implement HTML
+&lt;img&gt; tags). If the node replacement object is set to the
+name of a Tk window, then the Tk window is mapped into the
+widget in place of any other content (for example to
+implement form elements or plugins).
+</p>
 
-<h3><a name="tkhtmlreplaceproperty">-tkhtml-replace property</a></h3>
 <p>
-The <b class='cmd'>-tkhtml-replace</b> property is a custom CSS property defined by
+When the value of the replacement object name is set for a
+node, a script may be specified using the -deleteproc
+switch. If this script is supplied and the replacement
+object name is not an empty string, the widget invokes the
+script with the replacement object name appended to it when
+the object is no longer being used by the widget (e.g.
+because a new document is being loaded). If the script is
+not supplied, or is set to an empty string, then the widget
+automatically deletes the window or image when it is no
+longer required.
+</div>
+
+
+
+      <p>
+      nodeHandle tag
+      </p>
+  <div style="margin-left:8ex"><p>
+Return the name of the Html tag that generated this
+document node (i.e. "p" or "link"), or "text" if the node
+is a text node.
+</div>
+
+
+
+      <p>
+      nodeHandle text
+      </p>
+  <div style="margin-left:8ex"><p>
+If the node is a "text" node, return the string contained
+by the node. If the node is not a "text" node, return an
+empty string.
+</div>
+
+
+
+<h2 id="section8">Replaced Objects</h2>
+
+<p>
+Replaced objects are html document nodes that are replaced by
+either a Tk image or a Tk window. For example &lt;IMG&gt; or &lt;INPUT&gt;
+tags. To implement replaced objects in Tkhtml the user supplies the
+widget with a Tcl script to create and return the name of the image
+or window, and the widget maps, manages and eventually destroys the
+image or window. 
+</p>
+
+
+<h3 id="section9">-tkhtml-replace property</h3>
+
+
+<p>
+The -tkhtml-replace property is a custom CSS property defined by
 Tkhtml. It may be assigned to by stylesheets and queried using the
-interface described under <a href="#nodecommand">NODE COMMAND</a>.
-<p>
-When the <b class='cmd'>-tkhtml-replace</b> property is assigned a value other than an
-empty string (the default), it is assumed to contain the name of a Tk
-window or image to replace the node with. A stylesheet rule such as:
-
-<p><table><tr><td bgcolor=black>&nbsp;</td><td><pre class='sample'>
-
-    IMG#myid { -tkhtml-replace: image1 }
-
-</pre></td></tr></table></p>
-
-causes the node &lt;img id=&quot;myid&quot;&gt; to be replaced by Tk image &quot;image1&quot;.
+interface described in the "NODE COMMAND" section.
+</p>
 
 <p>
-If the value of the <b class='cmd'>-tkhtml-replace</b> property is a window name, then
+When the -tkhtml-replace property is assigned a value other than an
+empty string (the default), it is assumed to contain the name of a
+Tk window or image to replace the node with. A stylesheet rule such
+</p>
+as:
+
+
+<div style="margin-left:8ex"><pre>
+IMG#myid { -tkhtml-replace: image1 }
+</pre></div>
+
+
+<p>
+causes the node &lt;img id="myid"&gt; to be replaced by Tk image
+"image1".
+</p>
+
+<p>
+If the value of the -tkhtml-replace property is a window name, then
 the window must be a child of the html widget window.
+</p>
 
-<h3><a name="tclpropertyvalues">tcl() property values</a></h3>
-<p>
-Any CSS property may be assigned a value of the form &quot;tcl(&lt;script&gt;)&quot;. The
-first time this property is required by the widget, the node handle is
-appended to &lt;script&gt; and the resulting list evaluated as a Tcl script. The
-return value of the Tcl script is cached and used as the actual property
-value. This could be used, for example along with the 
-<b class='cmd'>-tkhtml-replace</b> property to implement image support:
 
-<p><table><tr><td bgcolor=black>&nbsp;</td><td><pre class='sample'>
+<h3 id="section10">tcl() Property Values</h3>
 
-    /* Stylesheet code */
-    IMG[src] { -tkhtml-replace: tcl(load_image) }
-
-    # Tcl code
-    proc load_image {node} {
-        image create photo [unique_name] -file [$node attr src]
-    }
-</pre></td></tr></table></p>
 
 <p>
-Scripts specified as tcl(...) property values in stylesheets are executed
-once for each time the layout engine is run (or never, if the property is
-never read by the layout engine). No guarantees are made about when the
-layout engine is run or rerun.
+Any CSS property may be assigned a value of the form
+"tcl(&lt;script&gt;)". The first time this property is required by the
+widget, the node handle is appended to &lt;script&gt; and the resulting
+list evaluated as a Tcl script. The return value of the Tcl script
+is cached and used as the actual property value. This could be
+used, for example along with the -tkhtml-replace property to
+implement image support:
+</p>
 
-</body></html>
 
+<div style="margin-left:8ex"><pre>
+
+/* Stylesheet code */
+IMG[SQ src] { -tkhtml-replace: tcl(load_image) }
+
+# Tcl code
+proc load_image {node} {
+    set fname [SQ \$node attr src]
+    set photoname [SQ unique_name]
+    image create photo \$photoname -file \$fname
+}
+</pre></div>
+
+
+<p>
+Scripts specified as tcl(...) property values in stylesheets are
+executed once for each time the layout engine is run (or never, if
+the property is never read by the layout engine). No guarantees are
+made about when the layout engine is run or rerun.
+</p>
+
+
+<h2 id="section11">Image Loading</h2>
+
+<p>
+As well as for replaced objects, images are used in several other
+contexts in CSS formatted documents, for example as list markers or
+backgrounds. If the -imagecommand option is not set to an empty
+string (the default), then each time an image URI is encountered in
+the document, it is appended to the -imagecommand script and the
+resulting list evaluated. 
+</p>
+
+<p>
+The command should return either an empty string, the name of a Tk
+image, or a list of exactly two elements, the name of a Tk image
+and a script. If the result is an empty string, then no image can
+be displayed. If the result is a Tk image name, then the image is
+displayed in the widget. When the image is no longer required, it
+is deleted. If the result of the command is a list containing a Tk
+image name and a script, then instead of deleting the image when it
+is no longer required, the script is evaluated.
+</p>
+
+
+<h2 id="section12">Stylesheet Loading</h2>
+
+
+
+<h2 id="section13">Incremental Document Loading</h2>
+
+<p>
+This section discusses the widget API in the context of loading a
+document incrementally, for example from a network server. We
+assume both remote stylesheets and image files are retrieved as
+well as the document.
+</p>
+
+<p>
+Before a new document (html file) is loaded, any previous document
+should be purged from memory using the [pathName reset] command.
+The portion of the new document that is read is passed to the
+widget using the [pathName parse] command. As new chunks of the
+document are downloaded, they should also be passed to 
+[pathName parse]. When the final chunk of the document file is
+passed to the [pathName parse] command the -final option should
+be specified. This ensures node-handler callbacks (see the 
+description of the [pathname handler] command above) are made
+for tags that are closed implicitly by the end of the document.
+</p>
+
+<p>
+The widget display is updated in an idle callback scheduled after
+each invocation of the [pathName parse] command.
+
+       <h1 id="TOC">tkhtml (n) - Table Of Contents</h1>
+       <ul id="index"><li><a href="#section1">Name</a><li><a href="#section2">Synopsis</a><li><a href="#section3">Standard Options</a><li><a href="#section4">Widget-Specific Options</a><li><a href="#section5">Description</a><li><a href="#section6">Widget Command</a><li><a href="#section7">Node Command</a><li><a href="#section8">Replaced Objects</a><ul><li><a href="#section9">-tkhtml-replace property</a><li><a href="#section10">tcl() Property Values</a></ul><li><a href="#section11">Image Loading</a><li><a href="#section12">Stylesheet Loading</a><li><a href="#section13">Incremental Document Loading</a></ul>
+       </body>
+       </html>
+    

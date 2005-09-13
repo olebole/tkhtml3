@@ -759,7 +759,8 @@ int HtmlLayoutPrimitives(clientData, interp, objc, objv)
  *
  *---------------------------------------------------------------------------
  */
-static Pixmap getPixmap(pTree, xcanvas, ycanvas, w, h)
+static Pixmap 
+getPixmap(pTree, xcanvas, ycanvas, w, h)
     HtmlTree *pTree;
     int xcanvas;
     int ycanvas;
