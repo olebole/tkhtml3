@@ -24,12 +24,13 @@ html pathName ?options?
 
 
 <div style="margin-left:8ex"><pre>
+-exportselection
 -height
 -width
 -xscrollcommand   
--yscrollcommand   
 -xscrollincrement
--yscrollincrement                         
+-yscrollcommand   
+-yscrollincrement
 </pre></div>
 
 
@@ -53,8 +54,12 @@ option. The style-sheet "html.css" is guaranteed to exist.
 </p>
 
 <p>
-The default value of this option is "html". This should be
-sufficient for most (all?) applications.
+If the value is "html" (the default), then special
+HTML specific processing is used when parsing a document.
+For example, &lt;p&gt; and &lt;li&gt; tags (amongst others) are
+sometimes implicitly closed. The special processing applied
+in this case is described in the "HTML SPECIFIC PROCESSING"
+section below.
 
 
     </div>
@@ -62,33 +67,9 @@ sufficient for most (all?) applications.
 
 
 
-    <p>Command-Line Name: -importcommand<br>
-       Database Name: importcommand<br>
-       Database Class: Importcommand
-    </p>
-    <div style="margin-left:8ex">
-
-       <p>
-Specify a Tcl command to be invoked when an "@import"
-directive is encountered in a stylesheet. Two arguments are
-appended to the value of this option before execution: the
-stylesheet-id (see below) of the stylesheet being parsed,
-and the URL following the "@import" keyword.
-</p>
-
-<p>
-The -importcommand callback is always made from within 
-[pathName style] commands.
-
-
-    </div>
-  
-
-
-
-    <p>Command-Line Name: -imagecommand<br>
-       Database Name: imagecommand<br>
-       Database Class: Imagecommand
+    <p>Command-Line Name: -imagecmd<br>
+       Database Name: imagecmd<br>
+       Database Class: Imagecmd
     </p>
     <div style="margin-left:8ex">
 
@@ -208,7 +189,7 @@ command.
 
 
       <p>
-      pathName node ?x y?
+      pathName node ? ?-index? x y?
       </p>
   <div style="margin-left:8ex"><p>
 This command is used to retrieve a handle for a document
@@ -224,7 +205,19 @@ returned is for the node which generated the document
 content currently located at viewport coordinates (x, y).
 If no content is located at the specified coordinates or
 the widget window is not mapped, then an empty string is
-returned.
+returned. 
+</p>
+
+<p>
+If both the -index option is also specified, then instead
+of a node handle, a list of two elements is returned. The
+first element of the list is the node-handle. The second
+element is -1 if the returned node is not a text node (would
+return other than an empty string for [nodeHandle tag]).
+If the node is a text node, then the value returned is an
+index into the text obtainable by [nodeHandle text] for
+the character at coordinates (x, y). The index may be used
+with the [pathName select] commands.
 </p>
 
 <p>
@@ -236,7 +229,7 @@ interface described in the "NODE COMMAND" section.
 
 
       <p>
-      pathName parse -final html-text
+      pathName parse ?-final? html-text
       </p>
   <div style="margin-left:8ex"><p>
 Append extra text to the end of the (possibly empty)
@@ -269,7 +262,24 @@ invocations of [pathName style] had occured).
 
 
       <p>
-      pathName style ?style-id? stylesheet-text
+      pathName select clear<br>pathName select from ?nodeHandle ?index? ?<br>pathName select to ?nodeHandle ?index? ?
+      </p>
+  <div style="margin-left:8ex"><p>
+The [pathName select] commands are used to query and
+manipulate the widget selection. If the widget
+-exportselection option is set to true, then these commands
+may also manipulate the X11-selection.
+</p>
+
+<p>
+TODO: Describe these commands.
+</div>
+
+
+
+
+      <p>
+      pathName style ?options? stylesheet-text
       </p>
   <div style="margin-left:8ex"><p>
 Add a stylesheet to the widgets internal configuration. The
@@ -280,8 +290,20 @@ be added to a single widget.
 </p>
 
 <p>
-If present, the style-id argument determines the priority
-taken by the style-sheet when assigning property values to
+The following options are supported:
+</p>
+
+<div style="margin-left:8ex"><pre>
+Option                   Default Value
+--------------------------------------
+-id &lt;stylesheet-id&gt;      "author"
+-importcmd &lt;script&gt;      ""
+</pre></div>
+
+
+<p>
+The value of the -id option determines the priority taken
+by the style-sheet when assigning property values to
 document nodes (see chapter 6 of the CSS specification for
 more detail on this process).  The first part of the
 style-sheet id must be one of the strings "agent", "user"
@@ -297,8 +319,19 @@ identical, then "user" takes precedence over "author", and
 "author" takes precedence over "agent". Otherwise, the
 lexographically largest style-id value takes precedence.
 For more detail on why this seemingly odd approach is
-taken, please refer to the "STYLESHEET LOADING"
-below.
+taken, please refer to the "STYLESHEET LOADING" below.
+</p>
+
+<p>
+The -importcmd option is used to provide a handler script
+for @import directives encountered within the stylesheet
+text. Each time an @import directive is encountered, if the
+-importcmd option is set to other than an empty string, the
+URI to be imported is appended to the option value and the
+resulting list evaluated as a Tcl script. The return value
+of the script is ignored. If the script raises an error,
+then it is propagated up the call-chain to the 
+[pathName style] caller.
 </div>
 
 
@@ -343,11 +376,27 @@ manipulate the document node via the following subcommands:
 
 
       <p>
-      nodeHandle attr attribute
+      nodeHandle attr ?attribute?
       </p>
   <div style="margin-left:8ex"><p>
-Return the value of the named html attribute, or an empty
-string if the attribute specified does not exist.
+If the attribute argument is present, then return the value
+of the named html attribute, or an empty string if the
+attribute specified does not exist. If it is not present,
+return a key-value list of the defined attributes of the
+form that can be passed to [array set].
+</p>
+
+
+<div style="margin-left:8ex"><pre>
+# Html code for node
+&lt;p class="normal" id="second" style="color : red"&gt;
+
+# Value returned by [nodeHandle attr]
+{class normal id second style {color : red}}
+
+# Value returned by [nodeHandle attr class]
+normal
+</pre></div>
 </div>
 
 
@@ -384,16 +433,7 @@ return an empty string.
 
 
       <p>
-      nodeHandle prop property
-      </p>
-  <div style="margin-left:8ex"><p>
-Return the value of the specified CSS property for the node.
-</div>
-
-
-
-      <p>
-      nodeHandle replace ? ?-deleteproc script? newValue?
+      nodeHandle replace ? ?options? newValue?
       </p>
   <div style="margin-left:8ex"><p>
 This command is used to set and get the name of the
@@ -418,16 +458,66 @@ implement form elements or plugins).
 </p>
 
 <p>
-When the value of the replacement object name is set for a
-node, a script may be specified using the -deleteproc
-switch. If this script is supplied and the replacement
-object name is not an empty string, the widget invokes the
-script with the replacement object name appended to it when
-the object is no longer being used by the widget (e.g.
-because a new document is being loaded). If the script is
-not supplied, or is set to an empty string, then the widget
-automatically deletes the window or image when it is no
-longer required.
+The following options are supported:
+</p>
+
+
+<div style="margin-left:8ex"><pre>
+Option                   Default Value
+--------------------------------------
+-deletecmd    &lt;script&gt;   See below
+-configurecmd &lt;script&gt;   ""
+</pre></div>
+
+
+<p>
+When a replacement object is no longer being used by the
+widget (e.g. because the node has been deleted or 
+[pathName reset] is invoked), the value of the
+-deletecmd option is evaluated as Tcl script. The default
+-deletecmd script (used if no explicit -deletecmd option is
+provided) deletes the Tk image or window.
+</p>
+
+<p>
+If it is not set to an empty string (the default) each time
+the nodes CSS properties are recalculated, a serialized
+array is appended to the value of the -configurecmd option
+and the result evaluated as a Tcl command. The script
+should update the replacement objects appearance where
+appropriate to reflect the property values. The format of
+the appended argument is {p1 v1 p2 v2 ... pN vN} where the
+pX values are property names (i.e. "background-color") and
+the vX values are property values (i.e. "#CCCCCC"). The
+CSS properties that currently may be present in the array
+are listed below. More may be added in the future.
+</p>
+
+
+<div style="margin-left:8ex"><pre>
+background-color    color
+font                selected
+</pre></div>
+
+
+<p>
+The value of the "font" property, if present in the
+serialized array is not set to the value of the
+corresponding CSS property. Instead it is set to the name
+of a Tk font determined by combining the various
+font-related CSS properties. Unless they are set to
+"transparent", the two color values are guaranteed to parse
+as Tk colors. The "selected" property is either true or
+false, depending on whether or not the replaced object is
+part of the selection or not. Whether or not an object is
+part of the selection is governed by previous calls to the
+[pathName select] command.
+</p>
+
+<p>
+The -configurecmd callback is always executed at least once
+between the [nodeHandle replace] command and when the
+replaced object is mapped into the widget display.
 </div>
 
 
@@ -437,8 +527,8 @@ longer required.
       </p>
   <div style="margin-left:8ex"><p>
 Return the name of the Html tag that generated this
-document node (i.e. "p" or "link"), or "text" if the node
-is a text node.
+document node (i.e. "p" or "link"), or an empty string if
+the node is a text node.
 </div>
 
 
@@ -453,6 +543,11 @@ empty string.
 </div>
 
 
+<p>
+TODO: Add the "write" part of the DOM compatible interface to this
+section.
+</p>
+
 
 <h2 id="section8">Replaced Objects</h2>
 
@@ -465,84 +560,19 @@ or window, and the widget maps, manages and eventually destroys the
 image or window. 
 </p>
 
-
-<h3 id="section9">-tkhtml-replace property</h3>
-
-
 <p>
-The -tkhtml-replace property is a custom CSS property defined by
-Tkhtml. It may be assigned to by stylesheets and queried using the
-interface described in the "NODE COMMAND" section.
-</p>
-
-<p>
-When the -tkhtml-replace property is assigned a value other than an
-empty string (the default), it is assumed to contain the name of a
-Tk window or image to replace the node with. A stylesheet rule such
-</p>
-as:
-
-
-<div style="margin-left:8ex"><pre>
-IMG#myid { -tkhtml-replace: image1 }
-</pre></div>
-
-
-<p>
-causes the node &lt;img id="myid"&gt; to be replaced by Tk image
-"image1".
-</p>
-
-<p>
-If the value of the -tkhtml-replace property is a window name, then
-the window must be a child of the html widget window.
+TODO: Finish this section.
 </p>
 
 
-<h3 id="section10">tcl() Property Values</h3>
-
-
-<p>
-Any CSS property may be assigned a value of the form
-"tcl(&lt;script&gt;)". The first time this property is required by the
-widget, the node handle is appended to &lt;script&gt; and the resulting
-list evaluated as a Tcl script. The return value of the Tcl script
-is cached and used as the actual property value. This could be
-used, for example along with the -tkhtml-replace property to
-implement image support:
-</p>
-
-
-<div style="margin-left:8ex"><pre>
-
-/* Stylesheet code */
-IMG[SQ src] { -tkhtml-replace: tcl(load_image) }
-
-# Tcl code
-proc load_image {node} {
-    set fname [SQ \$node attr src]
-    set photoname [SQ unique_name]
-    image create photo \$photoname -file \$fname
-}
-</pre></div>
-
-
-<p>
-Scripts specified as tcl(...) property values in stylesheets are
-executed once for each time the layout engine is run (or never, if
-the property is never read by the layout engine). No guarantees are
-made about when the layout engine is run or rerun.
-</p>
-
-
-<h2 id="section11">Image Loading</h2>
+<h2 id="section9">Image Loading</h2>
 
 <p>
 As well as for replaced objects, images are used in several other
 contexts in CSS formatted documents, for example as list markers or
-backgrounds. If the -imagecommand option is not set to an empty
+backgrounds. If the -imagecmd option is not set to an empty
 string (the default), then each time an image URI is encountered in
-the document, it is appended to the -imagecommand script and the
+the document, it is appended to the -imagecmd script and the
 resulting list evaluated. 
 </p>
 
@@ -558,11 +588,200 @@ is no longer required, the script is evaluated.
 </p>
 
 
-<h2 id="section12">Stylesheet Loading</h2>
+<h2 id="section10">Stylesheet Loading</h2>
+
+<p>
+Apart from the default stylesheet that is always loaded (see the
+description of the -defaultstyle option above), a script may
+configure the widget with extra style information in the form of
+CSS stylesheet documents. Complete stylesheet documents (it is not
+possible to incrementally parse stylesheets as it is HTML document
+files) are passed to the widget using the [pathName style]
+command.
+</p>
+
+<p>
+As well as any stylesheets specified by the application,
+stylesheets may be included in HTML documents by document authors
+in several ways: 
+</p>
+
+
+<ul><li>
+Embedded in the document itself, using a &lt;style&gt; tag. To
+handle this case an application script must register a
+"script" type handler for &lt;style&gt; tags using the 
+[pathName handler] command. The handler command should
+call [pathName style] to configure the widget with the
+stylesheet text.
+<li>
+Linked from the document, using a &lt;link&gt; tag. To handle
+this case the application script should register a "node"
+type handler for &lt;link&gt; tags.
+<li>
+Linked from another stylesheet, using the @import
+directive. To handle this, an application needs to
+configure the widget -importcommand option.
+</ul>
 
 
 
-<h2 id="section13">Incremental Document Loading</h2>
+<div style="margin-left:8ex"><pre>
+# Implementations of application callbacks to load
+# stylesheets from the various sources enumerated above.
+# ".html" is the name of the applications tkhtml widget.
+# The variable $document contains an entire HTML document.
+# The pseudo-code &lt;LOAD URI CONTENTS&gt; is used to indicate
+# code to load and return the content located at $URI.
+
+proc script_handler {tagcontents} {
+    incr ::stylecount
+    set id "author.[format %.4d $::stylecount]"
+    set handler "import_handler $id"
+    .html style -id $id.9999 -importcmd $handler $tagcontents
+}
+
+proc link_handler {node} {
+    if {[node attr rel] == "stylesheet"} {
+        set URI [node attr href]
+	set stylesheet [&lt;LOAD URI CONTENTS&gt;]
+
+        incr ::stylecount
+        set id "author.[format %.4d $::stylecount]"
+        set handler "import_handler $id"
+        .html style -id $id.9999 -importcmd $handler $stylesheet
+    }
+}
+
+proc import_handler {parentid URI} {
+    set stylesheet [&lt;LOAD URI CONTENTS&gt;]
+
+    incr ::stylecount
+    set id "$parentid.[format %.4d $::stylecount]"
+    set handler "import_handler $id"
+    .html style -id $id.9999 -importcmd $handler $stylesheet
+}
+
+.html handler script style script_handler
+.html handler node link link_handler
+
+set ::stylecount 0
+
+.html parse -final $document
+</pre></div>
+
+
+<p>
+The complicated part of the example code above is the generation of
+stylesheet-ids, the values passed to the -id option of the 
+[.html style] command. Stylesheet-ids are used to determine the
+precedence of each stylesheet passed to the widget, and the role it
+plays in the CSS cascade algorithm used to assign properties to
+document nodes. The first part of each stylesheet-id, which must be
+either "user", "author" or "agent", determines the role the
+stylesheet plays in the cascade algorithm. In general, author
+stylesheets take precedence over user stylesheets which take
+precedence over agent stylesheets. An author stylesheet is one
+supplied or linked by the author of the document. A user stylesheet
+is supplied by the user of the viewing application, possibly by
+configuring a preferences dialog or similar. An agent stylesheet is
+supplied by the viewing application, for example the default
+stylesheet configured using the -defaultstyle option.
+</p>
+
+<p>
+The stylesheet id mechanism is designed so that the cascade can be
+correctly implemented even when the various stylesheets are passed
+to the widget asynchronously and out of order (as may be the case
+if they are being downloaded from a network server or servers).
+</p>
+
+
+<div style="margin-left:8ex"><pre>
+#
+# Contents of HTML document
+#
+
+&lt;html&gt;&lt;head&gt;
+    &lt;link rel="stylesheet" href="A.css"&gt;
+    &lt;style&gt;
+        @import uri("B.css")
+        @import uri("C.css")
+        ... rules ...
+    &lt;/style&gt;
+    &lt;link rel="stylesheet" href="D.css"&gt;
+... remainder of document ...
+
+#
+# Contents of B.css
+#
+
+@import "E.css"
+... rules ...
+</pre></div>
+
+
+<p>
+In the example above, the stylesheet documents A.css, B.css, C.css,
+D.css, E.css and the stylesheet embedded in the &lt;style&gt; tag are all
+author stylesheets. CSS states that the relative precedences of the
+stylesheets in this case is governed by the following rules:
+</p>
+
+
+<ul><li>
+Linked, embedded or imported stylesheets take precedence
+over stylesheets linked, embedded or imported earlier in
+the same document or stylesheet.
+<li>
+Rules specified in a stylesheet take precedence over rules
+specified in imported stylesheets.
+</ul>
+
+
+<p>
+Applying the above two rules to the example documents indicates
+that the order of the stylesheets from least to most important is:
+A.css, E.css, B.css, C.css, embedded &lt;stylesheet&gt;, D.css. For the
+widget to implement the cascade correctly, the stylesheet-ids
+passed to the six [pathName style] commands must sort
+lexigraphically in the same order as the stylesheet precedence
+determined by the above two rules. The example code above shows one
+approach to this. Using the example code, stylesheets would
+be associated with stylesheet-ids as follows: 
+</p>
+
+
+<div style="margin-left:8ex"><pre>
+Stylesheet         Stylesheet-id
+-------------------------------
+A.css              author.0001.9999
+&lt;embedded style&gt;   author.0002.9999
+B.css              author.0002.0003.9999
+E.css              author.0002.0003.0004.9999
+C.css              author.0002.0005.9999
+D.css              author.0006.9999
+</pre></div>
+
+
+<p>
+Entries are specified in the above table in the order in which the
+calls to [html style] would be made. Of course, the example code
+fails if 10000 or more individual stylesheet documents are loaded.
+More inventive solutions that avoid this kind of limitation are
+possible.
+</p>
+
+<p>
+Other factors, namely rule specificity and the !IMPORTANT directive
+are involved in determining the precedence of individual stylesheet
+rules. These are completely encapsulated by the widget, so are not
+described here. For complete details of the CSS cascade algorithm,
+refer to [1].
+</p>
+
+
+<h2 id="section11">Incremental Document Loading</h2>
 
 <p>
 This section discusses the widget API in the context of loading a
@@ -587,9 +806,24 @@ for tags that are closed implicitly by the end of the document.
 <p>
 The widget display is updated in an idle callback scheduled after
 each invocation of the [pathName parse] command.
+</p>
+
+
+<h2 id="section12">HTML Specific Processing</h2>
+
+<p>
+TODO: Detail implicit opening and closing tag rules here.
+</p>
+
+
+<h2 id="section13">References</h2>
+
+
+<p>
+[1] CSS2 specification.
 
        <h1 id="TOC">tkhtml (n) - Table Of Contents</h1>
-       <ul id="index"><li><a href="#section1">Name</a><li><a href="#section2">Synopsis</a><li><a href="#section3">Standard Options</a><li><a href="#section4">Widget-Specific Options</a><li><a href="#section5">Description</a><li><a href="#section6">Widget Command</a><li><a href="#section7">Node Command</a><li><a href="#section8">Replaced Objects</a><ul><li><a href="#section9">-tkhtml-replace property</a><li><a href="#section10">tcl() Property Values</a></ul><li><a href="#section11">Image Loading</a><li><a href="#section12">Stylesheet Loading</a><li><a href="#section13">Incremental Document Loading</a></ul>
+       <ul id="index"><li><a href="#section1">Name</a><li><a href="#section2">Synopsis</a><li><a href="#section3">Standard Options</a><li><a href="#section4">Widget-Specific Options</a><li><a href="#section5">Description</a><li><a href="#section6">Widget Command</a><li><a href="#section7">Node Command</a><li><a href="#section8">Replaced Objects</a><li><a href="#section9">Image Loading</a><li><a href="#section10">Stylesheet Loading</a><li><a href="#section11">Incremental Document Loading</a><li><a href="#section12">HTML Specific Processing</a><li><a href="#section13">References</a></ul>
        </body>
        </html>
     
