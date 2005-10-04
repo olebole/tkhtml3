@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmltcl.c,v 1.36 2005/07/10 10:04:31 danielk1977 Exp $";
+        "@(#) $Id: htmltcl.c,v 1.37 2005/10/04 06:04:36 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -958,13 +958,17 @@ error_out:
  *
  *     ::tk::htmlexit
  *
- *     Call exit(0).
+ *     Call exit(0). This is included for when tkhtml is used in a starkit
+ *     application. For reasons I don't understand yet, such deployments
+ *     always seg-fault while cleaning up the main interpreter. Exiting the
+ *     process this way avoids this unsightly seg-fault. Of course, this is
+ *     a cosmetic fix only, the real problem is somewhere else.
  *
  * Results:
- *     None.
+ *     None (does not return).
  *
  * Side effects:
- *     None.
+ *     Exits process.
  *
  *---------------------------------------------------------------------------
  */
@@ -979,6 +983,12 @@ exitCmd(clientData, interp, objc, objv)
     return TCL_OK;
 }
 
+/*
+ * Define the DLL_EXPORT macro, which must be set to something or other in
+ * order to export the Tkhtml_Init and Tkhtml_SafeInit symbols from a win32
+ * DLL file. I don't entirely understand the ins and outs of this, the
+ * block below was copied verbatim from another program.
+ */
 #if INTERFACE
 #define DLL_EXPORT
 #endif
@@ -986,7 +996,6 @@ exitCmd(clientData, interp, objc, objv)
 # undef DLL_EXPORT
 # define DLL_EXPORT __declspec(dllexport)
 #endif
-
 #ifndef DLL_EXPORT
 #define DLL_EXPORT
 #endif
@@ -994,32 +1003,15 @@ exitCmd(clientData, interp, objc, objv)
 /*
  *---------------------------------------------------------------------------
  *
- * Tkhtml_SafeInit --
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-DLL_EXPORT int Tkhtml_SafeInit(interp)
-    Tcl_Interp *interp;
-{
-    return Tkhtml_Init(interp);
-}
-
-/*
- *---------------------------------------------------------------------------
- *
  * Tkhtml_Init --
  *
+ *     Load the package into an interpreter.
+ *
  * Results:
- *     None.
+ *     Tcl result.
  *
  * Side effects:
- *     None.
+ *     Loads the tkhtml package into interpreter interp.
  *
  *---------------------------------------------------------------------------
  */
@@ -1039,4 +1031,30 @@ DLL_EXPORT int Tkhtml_Init(interp)
     Tcl_CreateObjCommand(interp, "::tk::htmlinternal", newWidget, 0, 0);
     Tcl_CreateObjCommand(interp, "::tk::htmlexit", exitCmd, 0, 0);
     return TCL_OK;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * Tkhtml_SafeInit --
+ *
+ *     Load the package into a safe interpreter.
+ *
+ *     Note that this function has to be below the Tkhtml_Init()
+ *     implementation. Otherwise the Tkhtml_Init() invocation in this
+ *     function counts as an implicit declaration which causes problems for
+ *     MSVC somewhere on down the line.
+ *
+ * Results:
+ *     Tcl result.
+ *
+ * Side effects:
+ *     Loads the tkhtml package into interpreter interp.
+ *
+ *---------------------------------------------------------------------------
+ */
+DLL_EXPORT int Tkhtml_SafeInit(interp)
+    Tcl_Interp *interp;
+{
+    return Tkhtml_Init(interp);
 }
