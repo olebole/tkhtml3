@@ -1,67 +1,35 @@
-dnl
-dnl Process this file with autoconf to produce a configure script.
-dnl
-AC_REVISION($Id: configure.in,v 1.18 2005/07/06 10:01:07 danielk1977 Exp $)
+#!/bin/bash -norc
+dnl	This file is an input file used by the GNU "autoconf" program to
+dnl	generate the file "configure", which is run during Tcl installation
+dnl	to configure the system for the local environment.
+#
+# RCS: @(#) $Id: configure.in,v 1.19 2005/10/06 14:46:30 danielk1977 Exp $
 
-#--------------------------------------------------------------------
-# Configure script for package 'tkhtml', as distributed at November 20, 2001.
-# TEA compliant.
-#--------------------------------------------------------------------
+#-----------------------------------------------------------------------
+# Sample configure.in for Tcl Extensions.  The only places you should
+# need to modify this file are marked by the string __CHANGE__
+#-----------------------------------------------------------------------
 
-#--------------------------------------------------------------------
-# This very first macro is used to verify that the configure script can 
-# find the sources.  The argument to AC_INIT is a unique filename for
-# this package.
-#--------------------------------------------------------------------
+#-----------------------------------------------------------------------
+# __CHANGE__
+# Set your package name and version numbers here.
+#
+# This initializes the environment with PACKAGE_NAME and PACKAGE_VERSION
+# set as provided.  These will also be added as -D defs in your Makefile
+# so you can encode the package version directly into the source files.
+#-----------------------------------------------------------------------
 
-AC_INIT(./src/html.h)
-
-AC_CONFIG_AUX_DIR(tclconfig)
-CONFIGDIR=${srcdir}/tclconfig
-AC_SUBST(CONFIGDIR)
-
-#--------------------------------------------------------------------
-# Setting our package name and version numbers.  The NODOT_VERSION is
-# required for constructing the library name on systems that don't like
-# dots in library names (Windows).  The VERSION variable is used on the
-# other systems.
-#--------------------------------------------------------------------
-
-PACKAGE=Tkhtml
-
-MAJOR_VERSION=3
-MINOR_VERSION=0
-#MAJOR_VERSION=10
-#MINOR_VERSION=0
-PATCHLEVEL=
-
-VERSION=${MAJOR_VERSION}.${MINOR_VERSION}${PATCHLEVEL}
-NODOT_VERSION=${MAJOR_VERSION}${MINOR_VERSION}
-TKHTML_VERSION=${VERSION}
-
-AC_SUBST(PACKAGE)
-AC_SUBST(VERSION)
-AC_SUBST(TKHTML_VERSION)
-
-# This package name must be replaced statically for AC_SUBST to work
-AC_SUBST(Tkhtml_LIB_FILE)
-# Substitute stub_LIB_FILE if your package creates a stub library too.
-AC_SUBST(Tkhtmlstub_LIB_FILE)
-
-#--------------------------------------------------------------------
-# This was placed here so that we can compile with -DVERSION="1.2" to
-# encode the package version directly into the source files.
-#--------------------------------------------------------------------
-
-eval AC_DEFINE_UNQUOTED(VERSION, "${VERSION}")
-eval AC_DEFINE_UNQUOTED(TKHTML_VERSION, "${TKHTML_VERSION}")
+AC_INIT([Tkhtml], [3.0])
 
 #--------------------------------------------------------------------
 # Call TEA_INIT as the first TEA_ macro to set up initial vars.
-# This will define a ${TEA_PLATFORM} variable == "unix" or "windows".
+# This will define a ${TEA_PLATFORM} variable == "unix" or "windows"
+# as well as PKG_LIB_FILE and PKG_STUB_LIB_FILE.
 #--------------------------------------------------------------------
 
-TEA_INIT
+TEA_INIT([3.2])
+
+AC_CONFIG_AUX_DIR(tclconfig)
 
 #--------------------------------------------------------------------
 # Load the tclConfig.sh file
@@ -71,7 +39,7 @@ TEA_PATH_TCLCONFIG
 TEA_LOAD_TCLCONFIG
 
 #--------------------------------------------------------------------
-# Load the tkConfig.sh file
+# Load the tkConfig.sh file if necessary (Tk extension)
 #--------------------------------------------------------------------
 
 TEA_PATH_TKCONFIG
@@ -93,6 +61,65 @@ TEA_PREFIX
 
 TEA_SETUP_COMPILER
 
+#-----------------------------------------------------------------------
+# __CHANGE__
+# Specify the C source files to compile in TEA_ADD_SOURCES,
+# public headers that need to be installed in TEA_ADD_HEADERS,
+# stub library C source files to compile in TEA_ADD_STUB_SOURCES,
+# and runtime Tcl library files in TEA_ADD_TCL_SOURCES.
+# This defines PKG(_STUB)_SOURCES, PKG(_STUB)_OBJECTS, PKG_HEADERS
+# and PKG_TCL_SOURCES.
+#-----------------------------------------------------------------------
+
+TEA_ADD_SOURCES([css.c])
+TEA_ADD_SOURCES([htmldraw.c])
+TEA_ADD_SOURCES([htmlfloat.c])
+TEA_ADD_SOURCES([htmlhash.c])
+TEA_ADD_SOURCES([htmlimage.c])
+TEA_ADD_SOURCES([htmllayout.c])
+TEA_ADD_SOURCES([htmlparse.c])
+TEA_ADD_SOURCES([htmlprop.c])
+TEA_ADD_SOURCES([htmlstyle.c])
+TEA_ADD_SOURCES([htmltagdb.c])
+TEA_ADD_SOURCES([htmltcl.c])
+TEA_ADD_SOURCES([htmltree.c])
+
+TEA_ADD_HEADERS([])
+TEA_ADD_INCLUDES([])
+TEA_ADD_LIBS([])
+TEA_ADD_CFLAGS([])
+TEA_ADD_STUB_SOURCES([])
+TEA_ADD_TCL_SOURCES([tests/tkhtml.tcl])
+TEA_ADD_TCL_SOURCES([tests/html.css])
+
+#--------------------------------------------------------------------
+# __CHANGE__
+# A few miscellaneous platform-specific items:
+#
+# Define a special symbol for Windows (BUILD_sample in this case) so
+# that we create the export library with the dll.
+#
+# Windows creates a few extra files that need to be cleaned up.
+# You can add more files to clean if your extension creates any extra
+# files.
+#
+# TEA_ADD_* any platform specific compiler/build info here.
+#--------------------------------------------------------------------
+
+if test "${TEA_PLATFORM}" = "windows" ; then
+    AC_DEFINE(BUILD_sample, 1, [Build windows export dll])
+    CLEANFILES="pkgIndex.tcl *.lib *.dll *.exp *.ilk *.pdb vc*.pch"
+    #TEA_ADD_SOURCES([win/winFile.c])
+    #TEA_ADD_INCLUDES([-I\"$(${CYGPATH} ${srcdir}/win)\"])
+    # TEA_ADD_LIBS([-lopengl32 -lglu32 -lgdi32])
+else
+    CLEANFILES="pkgIndex.tcl"
+    #TEA_ADD_SOURCES([unix/unixFile.c])
+    #TEA_ADD_LIBS([-lsuperfly])
+    # TEA_ADD_LIBS([-lGL -lGLU])
+fi
+AC_SUBST(CLEANFILES)
+
 #--------------------------------------------------------------------
 # __CHANGE__
 # Choose which headers you need.  Extension authors should try very
@@ -102,43 +129,16 @@ TEA_SETUP_COMPILER
 # This MUST be called after TEA_LOAD_TCLCONFIG / TEA_LOAD_TKCONFIG
 #--------------------------------------------------------------------
 
-#TEA_PUBLIC_TCL_HEADERS
-TEA_PRIVATE_TCL_HEADERS
+TEA_PUBLIC_TCL_HEADERS
+#TEA_PRIVATE_TCL_HEADERS
 
-#TEA_PUBLIC_TK_HEADERS
-TEA_PRIVATE_TK_HEADERS
-
-TEA_PATH_X
-
-#--------------------------------------------------------------------
-# A few miscellaneous platform-specific items:
-#
-# We have to define a special symbol for Windows (BUILD_Tkhtml in this
-# case) so that we create the export library with the dll.
-#
-# Windows creates a few extra files that need to be cleaned up.
-# We can add more files to clean if our extension creates any extra
-# files in the future.
-#
-# Define any extra compiler flags in the PACKAGE_CFLAGS variable.
-# These will be appended to the current set of compiler flags for
-# your system.
-#--------------------------------------------------------------------
-
-if test "${TEA_PLATFORM}" = "windows" ; then
-    AC_DEFINE(BUILD_Tkhtml)
-    CLEANFILES="pkgIndex.tcl *.lib *.dll *.exp *.ilk *.pdb vc*.pch"
-    EXTRA_SOURCES='$(WIN_SOURCES)'
-else
-    CLEANFILES="pkgIndex.tcl"
-    EXTRA_SOURCES='$(UNIX_SOURCES)'
-fi
-AC_SUBST(CLEANFILES)
-AC_SUBST(EXTRA_SOURCES)
+TEA_PUBLIC_TK_HEADERS
+#TEA_PRIVATE_TK_HEADERS
+#TEA_PATH_X
 
 #--------------------------------------------------------------------
 # Check whether --enable-threads or --disable-threads was given.
-# So far only Tcl responds to this one.
+# This auto-enables if Tcl was compiled threaded.
 #--------------------------------------------------------------------
 
 TEA_ENABLE_THREADS
@@ -168,11 +168,11 @@ TEA_ENABLE_SYMBOLS
 # Everyone should be linking against the Tcl stub library.  If you
 # can't for some reason, remove this definition.  If you aren't using
 # stubs, you also need to modify the SHLIB_LD_LIBS setting below to
-# link against the non-stubbed Tcl library.
+# link against the non-stubbed Tcl library.  Add Tk too if necessary.
 #--------------------------------------------------------------------
 
-AC_DEFINE(USE_TCL_STUBS)
-AC_DEFINE(USE_TK_STUBS)
+AC_DEFINE(USE_TCL_STUBS, 1, [Use Tcl stubs])
+AC_DEFINE(USE_TK_STUBS, 1, [Use Tk stubs])
 
 #--------------------------------------------------------------------
 # This macro generates a line to use when building a library.  It
@@ -195,37 +195,9 @@ TEA_PROG_TCLSH
 TEA_PROG_WISH
 
 #--------------------------------------------------------------------
-# Now we check if we need more libraries (depends on compiler)
-# and system.
-# gcc : Add -L/location/of/libgcc.* -lgcc
-# AIX : Enforce usage of TCL_LIB's and X libraries in link line
-#--------------------------------------------------------------------
-
-# if test X$GCC = Xyes
-# then
-# 	gcclibdir=`gcc -v 2>&1 | grep 'Reading specs'`
-# 	if test "X$gcclibdir" != "X" ; then
-# 		gcclibdir=`echo $gcclibdir | sed -e "s|^Reading specs from ||"`
-# 		if test "X$gcclibdir" != "X" ; then
-# 			gcclibdir=`dirname $gcclibdir`
-# 			SHLIB_LD_LIBS="${SHLIB_LD_LIBS} -L$gcclibdir -lgcc"
-# 		fi
-# 	fi
-# fi
-
-system=`uname -s`-`uname -r`
-case $system in
-    AIX*)
-	SHLIB_LD_LIBS="${SHLIB_LD_LIBS} \${TK_XLIBSW} \${TCL_LIBS}"
-    ;;
-esac
-
-#--------------------------------------------------------------------
 # Finally, substitute all of the various values into the Makefile.
 # You may alternatively have a special pkgIndex.tcl.in or other files
 # which require substituting th AC variables in.  Include these here.
 #--------------------------------------------------------------------
 
 AC_OUTPUT([Makefile])
-
-#--------------------------------------------------------------------
