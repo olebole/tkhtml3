@@ -109,10 +109,10 @@ if 0 {
 
 if 0 {
     $HTML handler script style "handle_style_script"
-    $HTML handler node link "handle_link_node"
     $HTML handler node a "handle_a_node"
 }
 
+    $HTML handler node link "handle_link_node"
     $HTML handler script style "handle_style_script"
     $HTML handler node img "handle_img_node"
 
@@ -127,6 +127,7 @@ if 0 {
 #
 #     gui_replaced_images
 set gui_replaced_images [list]
+set gui_style_count 0
 
 # handle_img_node_cb
 #
@@ -152,7 +153,27 @@ proc handle_img_node {node} {
 #
 #     handle_style_script SCRIPT
 proc handle_style_script {script} {
-  .html style -id author.0 $script
+  set id author.[format %.4d [incr ::gui_style_count]]
+  .html style -id $id $script
+}
+
+# handle_style_cb
+#
+#     handle_style_cb ID STYLE-TEXT
+proc handle_style_cb {id style} {
+  .html style -id $id $style
+  .html update
+}
+
+# handle_link_node
+#
+#     handle_link_node NODE
+proc handle_link_node {node} {
+  if {[$node attr rel] == "stylesheet"} {
+    set id author.[format %.4d [incr ::gui_style_count]]
+    set url [url_resolve [$node attr href]]
+    url_fetch $url -id $url -script [list handle_style_cb $id]
+  }
 }
 
 # gui_goto
@@ -176,6 +197,7 @@ proc gui_goto {doc} {
 #     loading the text.
 #
 proc gui_parse {doc text} {
+  set ::gui_style_count 0
   .html parse $text
   update
 
