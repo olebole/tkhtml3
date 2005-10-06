@@ -2,13 +2,64 @@
 #
 # Construct the web page for tkhtml
 #
-# @(#) $Id: mkwebpage.tcl,v 1.13 2005/07/11 15:25:53 danielk1977 Exp $
+# @(#) $Id: mkwebpage.tcl,v 1.14 2005/10/06 12:01:53 danielk1977 Exp $
 #
 
 proc header {} {
   puts {
     <html>
     <head>
+    <style>
+
+body {
+    background: #EEEEFF;
+}
+#body {
+    top: 2ex;
+    right: 1ex;
+    position: absolute;
+    left: 23ex;
+    padding: 0 3ex 0 3ex;
+}
+
+#toc {
+    position: absolute;
+    left: 1ex;
+    top: 2ex;
+    width: 20ex;
+}
+#toc ul {
+    margin: 1ex;
+    padding: 0;
+}
+#toc li {
+    display: block;
+    margin: 1em 0;
+    padding: 0;
+}
+#text {
+    padding: 3ex;
+}
+#toc,#text {
+    border: solid 1px;
+    background: #DDDDFF;
+}
+
+h1,h2 {
+    background: #000088;
+    color: white;
+    padding-left: 2ex;
+}
+
+h1 {
+    margin-bottom: 0;
+    margin-top: 0;
+}
+h2 {
+    margin-top: 2em;
+}
+
+    </style>
     <title>An HTML Widget For Tk</title>
     </head>
     <body>
@@ -42,6 +93,7 @@ proc h {level text} {
   if {$level==1} {
     set var ::TITLE
   }
+
   append $var <h$level>
   if {$level==2} {
     set name "part[incr ::H]"
@@ -54,18 +106,22 @@ proc h {level text} {
 
 proc output_page {} {
   header
-  puts $::TITLE
-  puts {<div id="links"><ul>}
+  puts {<div id="toc"><ul>}
   puts $::LINKS
   puts {</ul></div>}
+  puts {<div id="body">}
+  puts $::TITLE
+  puts {<div id="text">}
   puts $::BODY
+  puts {</div>}
+  puts {</div>}
   footer
 }
 ###########################################################################
 # Document content is below this line.
 
 h 1 {An HTML Widget For Tcl/Tk}
-append ::TITLE "<p><i>Last update: [clock format [clock seconds]]</i></p>"
+append ::BODY "<p><i>Last update: [clock format [clock seconds]]</i></p>"
 
 p {
   "Tkhtml" is a Tcl/Tk widget that displays HTML. Tkhtml is implemented in C.
@@ -77,7 +133,15 @@ p {
 
 p {
   Tkhtml was created by D. Richard Hipp, and has since been enhanced by 
-  Peter MacDonald. 
+  Peter MacDonald while working on his 
+  <a href="http://www.browsex.com">browsex web browser</a>.
+}
+
+p {
+   The changes for version 3 and in particular all of the work on style
+   sheets, has been done by Dan Kennedy. Dan has been able to work full-time
+   on the project for several months thanks to the financial support of 
+   <a href="http://www.eolas.com">Eolas Technologies, Inc.</a>.
 }
 
 h 2 {Current Status (Version 2.0)}
