@@ -12,7 +12,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile.in,v 1.19 2005/10/06 14:46:30 danielk1977 Exp $
+# RCS: @(#) $Id: Makefile.in,v 1.20 2005/10/06 15:03:16 danielk1977 Exp $
 
 #========================================================================
 # Add additional lines to handle any additional AC_SUBST cases that
@@ -279,18 +279,18 @@ $(PKG_STUB_LIB_FILE): $(PKG_STUB_OBJECTS)
 # As necessary, add $(srcdir):$(srcdir)/compat:....
 #========================================================================
 
-VPATH = $(srcdir):$(srcdir)/generic:$(srcdir)/unix:$(srcdir)/win:.
+VPATH = $(srcdir):$(srcdir)/src:$(srcdir)/unix:$(srcdir)/win:.
 
 HEADERS = html.h cssparse.h css.h cssInt.h cssprop.h htmltokens.h
 
 %.@OBJEXT@: %.c $(HEADERS)
-	$(COMPILE) -c -I. -I$(srcdir)/generic `@CYGPATH@ $<` -o $@
+	$(COMPILE) -c -I. -I$(srcdir)/src `@CYGPATH@ $<` -o $@
 
 #========================================================================
 # The special targets to generate C code from tcl and lemon files are 
 # here:
 
-htmltokens.c:	$(srcdir)/generic/tokenlist.txt
+htmltokens.c:	$(srcdir)/src/tokenlist.txt
 	$(TCLSH) $?
 
 htmltokens.h: htmltokens.c
@@ -305,8 +305,8 @@ LEMON = lemon$(EXEEXT)
 $(LEMON): $(srcdir)/tools/lemon.c
 	$(COMPILE) `@CYGPATH@ $(srcdir)/tools/lemon.c` -o $(LEMON)
 
-cssparse.h: $(srcdir)/generic/cssparse.y $(LEMON)
-	cp $(srcdir)/generic/cssparse.y .
+cssparse.h: $(srcdir)/src/cssparse.y $(LEMON)
+	cp $(srcdir)/src/cssparse.y .
 	cp $(srcdir)/tools/lempar.c .
 	./$(LEMON) cssparse.y
 
@@ -363,7 +363,7 @@ dist: dist-clean
 	chmod 664 $(DIST_DIR)/tclconfig/tcl.m4
 	chmod +x $(DIST_DIR)/tclconfig/install-sh
 
-	list='demos doc generic library mac tests unix win'; \
+	list='demos doc src library mac tests unix win'; \
 	for p in $$list; do \
 	    if test -d $(srcdir)/$$p ; then \
 		mkdir $(DIST_DIR)/$$p; \

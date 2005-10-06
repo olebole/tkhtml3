@@ -9,7 +9,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: tcl.m4,v 1.2 2005/10/06 14:46:30 danielk1977 Exp $
+# RCS: @(#) $Id: tcl.m4,v 1.3 2005/10/06 15:03:16 danielk1977 Exp $
 
 AC_PREREQ(2.50)
 
@@ -2755,7 +2755,7 @@ AC_DEFUN(TEA_ADD_SOURCES, [
 		;;
 	    *)
 		# check for existence - allows for generic/win/unix VPATH
-		if test ! -f "${srcdir}/$i" -a ! -f "${srcdir}/generic/$i" \
+		if test ! -f "${srcdir}/$i" -a ! -f "${srcdir}/src/$i" \
 		    -a ! -f "${srcdir}/win/$i" -a ! -f "${srcdir}/unix/$i" \
 		    ; then
 		    AC_MSG_ERROR([could not find source file '$i'])
@@ -2798,7 +2798,7 @@ AC_DEFUN(TEA_ADD_STUB_SOURCES, [
     vars="$@"
     for i in $vars; do
 	# check for existence - allows for generic/win/unix VPATH
-	if test ! -f "${srcdir}/$i" -a ! -f "${srcdir}/generic/$i" \
+	if test ! -f "${srcdir}/$i" -a ! -f "${srcdir}/src/$i" \
 	    -a ! -f "${srcdir}/win/$i" -a ! -f "${srcdir}/unix/$i" \
 	    ; then
 	    AC_MSG_ERROR([could not find stub source file '$i'])
@@ -3263,7 +3263,7 @@ AC_DEFUN(TEA_PRIVATE_TCL_HEADERS, [
 
     if test "${TEA_PLATFORM}" = "windows"; then
 	TCL_TOP_DIR_NATIVE=\"`${CYGPATH} ${TCL_SRC_DIR}`\"
-	TCL_GENERIC_DIR_NATIVE=\"`${CYGPATH} ${TCL_SRC_DIR}/generic`\"
+	TCL_GENERIC_DIR_NATIVE=\"`${CYGPATH} ${TCL_SRC_DIR}/src`\"
 	TCL_UNIX_DIR_NATIVE=\"`${CYGPATH} ${TCL_SRC_DIR}/unix`\"
 	TCL_WIN_DIR_NATIVE=\"`${CYGPATH} ${TCL_SRC_DIR}/win`\"
 	TCL_BMAP_DIR_NATIVE=\"`${CYGPATH} ${TCL_SRC_DIR}/bitmaps`\"
@@ -3274,7 +3274,7 @@ AC_DEFUN(TEA_PRIVATE_TCL_HEADERS, [
 	TCL_INCLUDES="-I${TCL_GENERIC_DIR_NATIVE} -I${TCL_PLATFORM_DIR_NATIVE}"
     else
 	TCL_TOP_DIR_NATIVE='$(TCL_SRC_DIR)'
-	TCL_GENERIC_DIR_NATIVE='${TCL_TOP_DIR_NATIVE}/generic'
+	TCL_GENERIC_DIR_NATIVE='${TCL_TOP_DIR_NATIVE}/src'
 	TCL_UNIX_DIR_NATIVE='${TCL_TOP_DIR_NATIVE}/unix'
 	TCL_WIN_DIR_NATIVE='${TCL_TOP_DIR_NATIVE}/win'
 	TCL_BMAP_DIR_NATIVE='${TCL_TOP_DIR_NATIVE}/bitmaps'
@@ -3363,7 +3363,7 @@ AC_DEFUN(TEA_PUBLIC_TCL_HEADERS, [
 		`ls -d ${temp_includedir}        2>/dev/null` \
 		`ls -d ${TCL_PREFIX}/include     2>/dev/null` \
 		`ls -d ${TCL_BIN_DIR}/../include 2>/dev/null` \
-		`ls -d ${TCL_SRC_DIR}/generic    2>/dev/null`"
+		`ls -d ${TCL_SRC_DIR}/src    2>/dev/null`"
 	    if test "${TEA_PLATFORM}" != "windows" -o "$GCC" = "yes"; then
 		list="$list /usr/local/include /usr/include"
 		if test x"${TCL_INCLUDE_SPEC}" != x ; then
@@ -3421,14 +3421,14 @@ AC_DEFUN(TEA_PRIVATE_TK_HEADERS, [
 	TK_TOP_DIR_NATIVE=\"`${CYGPATH} ${TK_SRC_DIR}`\"
 	TK_UNIX_DIR_NATIVE=\"`${CYGPATH} ${TK_SRC_DIR}/unix`\"
 	TK_WIN_DIR_NATIVE=\"`${CYGPATH} ${TK_SRC_DIR}/win`\"
-	TK_GENERIC_DIR_NATIVE=\"`${CYGPATH} ${TK_SRC_DIR}/generic`\"
+	TK_GENERIC_DIR_NATIVE=\"`${CYGPATH} ${TK_SRC_DIR}/src`\"
 	TK_XLIB_DIR_NATIVE=\"`${CYGPATH} ${TK_SRC_DIR}/xlib`\"
 	TK_PLATFORM_DIR_NATIVE=${TK_WIN_DIR_NATIVE}
 
 	TK_INCLUDES="-I${TK_GENERIC_DIR_NATIVE} -I${TK_PLATFORM_DIR_NATIVE} -I${TK_XLIB_DIR_NATIVE}"
     else
 	TK_TOP_DIR_NATIVE='${TK_SRC_DIR}'
-	TK_GENERIC_DIR_NATIVE='${TK_TOP_DIR_NATIVE}/generic'
+	TK_GENERIC_DIR_NATIVE='${TK_TOP_DIR_NATIVE}/src'
 	TK_UNIX_DIR_NATIVE='${TK_TOP_DIR_NATIVE}/unix'
 	TK_WIN_DIR_NATIVE='${TK_TOP_DIR_NATIVE}/win'
 	TK_PLATFORM_DIR_NATIVE=${TK_UNIX_DIR_NATIVE}
@@ -3519,7 +3519,7 @@ AC_DEFUN(TEA_PUBLIC_TK_HEADERS, [
 		`ls -d ${TK_PREFIX}/include      2>/dev/null` \
 		`ls -d ${TCL_PREFIX}/include     2>/dev/null` \
 		`ls -d ${TCL_BIN_DIR}/../include 2>/dev/null` \
-		`ls -d ${TK_SRC_DIR}/generic     2>/dev/null`"
+		`ls -d ${TK_SRC_DIR}/src     2>/dev/null`"
 	    if test "${TEA_PLATFORM}" != "windows" -o "$GCC" = "yes"; then
 		list="$list /usr/local/include /usr/include"
 	    fi

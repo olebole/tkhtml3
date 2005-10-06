@@ -6281,7 +6281,7 @@ done
 		;;
 	    *)
 		# check for existence - allows for generic/win/unix VPATH
-		if test ! -f "${srcdir}/$i" -a ! -f "${srcdir}/generic/$i" \
+		if test ! -f "${srcdir}/$i" -a ! -f "${srcdir}/src/$i" \
 		    -a ! -f "${srcdir}/win/$i" -a ! -f "${srcdir}/unix/$i" \
 		    ; then
 		    { { echo "$as_me:$LINENO: error: could not find source file '$i'" >&5
@@ -6315,7 +6315,7 @@ echo "$as_me: error: could not find source file '$i'" >&2;}
 		;;
 	    *)
 		# check for existence - allows for generic/win/unix VPATH
-		if test ! -f "${srcdir}/$i" -a ! -f "${srcdir}/generic/$i" \
+		if test ! -f "${srcdir}/$i" -a ! -f "${srcdir}/src/$i" \
 		    -a ! -f "${srcdir}/win/$i" -a ! -f "${srcdir}/unix/$i" \
 		    ; then
 		    { { echo "$as_me:$LINENO: error: could not find source file '$i'" >&5
@@ -6349,7 +6349,7 @@ echo "$as_me: error: could not find source file '$i'" >&2;}
 		;;
 	    *)
 		# check for existence - allows for generic/win/unix VPATH
-		if test ! -f "${srcdir}/$i" -a ! -f "${srcdir}/generic/$i" \
+		if test ! -f "${srcdir}/$i" -a ! -f "${srcdir}/src/$i" \
 		    -a ! -f "${srcdir}/win/$i" -a ! -f "${srcdir}/unix/$i" \
 		    ; then
 		    { { echo "$as_me:$LINENO: error: could not find source file '$i'" >&5
@@ -6383,7 +6383,7 @@ echo "$as_me: error: could not find source file '$i'" >&2;}
 		;;
 	    *)
 		# check for existence - allows for generic/win/unix VPATH
-		if test ! -f "${srcdir}/$i" -a ! -f "${srcdir}/generic/$i" \
+		if test ! -f "${srcdir}/$i" -a ! -f "${srcdir}/src/$i" \
 		    -a ! -f "${srcdir}/win/$i" -a ! -f "${srcdir}/unix/$i" \
 		    ; then
 		    { { echo "$as_me:$LINENO: error: could not find source file '$i'" >&5
@@ -6417,7 +6417,7 @@ echo "$as_me: error: could not find source file '$i'" >&2;}
 		;;
 	    *)
 		# check for existence - allows for generic/win/unix VPATH
-		if test ! -f "${srcdir}/$i" -a ! -f "${srcdir}/generic/$i" \
+		if test ! -f "${srcdir}/$i" -a ! -f "${srcdir}/src/$i" \
 		    -a ! -f "${srcdir}/win/$i" -a ! -f "${srcdir}/unix/$i" \
 		    ; then
 		    { { echo "$as_me:$LINENO: error: could not find source file '$i'" >&5
@@ -6451,7 +6451,7 @@ echo "$as_me: error: could not find source file '$i'" >&2;}
 		;;
 	    *)
 		# check for existence - allows for generic/win/unix VPATH
-		if test ! -f "${srcdir}/$i" -a ! -f "${srcdir}/generic/$i" \
+		if test ! -f "${srcdir}/$i" -a ! -f "${srcdir}/src/$i" \
 		    -a ! -f "${srcdir}/win/$i" -a ! -f "${srcdir}/unix/$i" \
 		    ; then
 		    { { echo "$as_me:$LINENO: error: could not find source file '$i'" >&5
@@ -6485,7 +6485,7 @@ echo "$as_me: error: could not find source file '$i'" >&2;}
 		;;
 	    *)
 		# check for existence - allows for generic/win/unix VPATH
-		if test ! -f "${srcdir}/$i" -a ! -f "${srcdir}/generic/$i" \
+		if test ! -f "${srcdir}/$i" -a ! -f "${srcdir}/src/$i" \
 		    -a ! -f "${srcdir}/win/$i" -a ! -f "${srcdir}/unix/$i" \
 		    ; then
 		    { { echo "$as_me:$LINENO: error: could not find source file '$i'" >&5
@@ -6519,7 +6519,7 @@ echo "$as_me: error: could not find source file '$i'" >&2;}
 		;;
 	    *)
 		# check for existence - allows for generic/win/unix VPATH
-		if test ! -f "${srcdir}/$i" -a ! -f "${srcdir}/generic/$i" \
+		if test ! -f "${srcdir}/$i" -a ! -f "${srcdir}/src/$i" \
 		    -a ! -f "${srcdir}/win/$i" -a ! -f "${srcdir}/unix/$i" \
 		    ; then
 		    { { echo "$as_me:$LINENO: error: could not find source file '$i'" >&5
@@ -6553,7 +6553,7 @@ echo "$as_me: error: could not find source file '$i'" >&2;}
 		;;
 	    *)
 		# check for existence - allows for generic/win/unix VPATH
-		if test ! -f "${srcdir}/$i" -a ! -f "${srcdir}/generic/$i" \
+		if test ! -f "${srcdir}/$i" -a ! -f "${srcdir}/src/$i" \
 		    -a ! -f "${srcdir}/win/$i" -a ! -f "${srcdir}/unix/$i" \
 		    ; then
 		    { { echo "$as_me:$LINENO: error: could not find source file '$i'" >&5
@@ -6587,7 +6587,7 @@ echo "$as_me: error: could not find source file '$i'" >&2;}
 		;;
 	    *)
 		# check for existence - allows for generic/win/unix VPATH
-		if test ! -f "${srcdir}/$i" -a ! -f "${srcdir}/generic/$i" \
+		if test ! -f "${srcdir}/$i" -a ! -f "${srcdir}/src/$i" \
 		    -a ! -f "${srcdir}/win/$i" -a ! -f "${srcdir}/unix/$i" \
 		    ; then
 		    { { echo "$as_me:$LINENO: error: could not find source file '$i'" >&5
@@ -6621,7 +6621,7 @@ echo "$as_me: error: could not find source file '$i'" >&2;}
 		;;
 	    *)
 		# check for existence - allows for generic/win/unix VPATH
-		if test ! -f "${srcdir}/$i" -a ! -f "${srcdir}/generic/$i" \
+		if test ! -f "${srcdir}/$i" -a ! -f "${srcdir}/src/$i" \
 		    -a ! -f "${srcdir}/win/$i" -a ! -f "${srcdir}/unix/$i" \
 		    ; then
 		    { { echo "$as_me:$LINENO: error: could not find source file '$i'" >&5
@@ -6655,7 +6655,7 @@ echo "$as_me: error: could not find source file '$i'" >&2;}
 		;;
 	    *)
 		# check for existence - allows for generic/win/unix VPATH
-		if test ! -f "${srcdir}/$i" -a ! -f "${srcdir}/generic/$i" \
+		if test ! -f "${srcdir}/$i" -a ! -f "${srcdir}/src/$i" \
 		    -a ! -f "${srcdir}/win/$i" -a ! -f "${srcdir}/unix/$i" \
 		    ; then
 		    { { echo "$as_me:$LINENO: error: could not find source file '$i'" >&5
@@ -6718,7 +6718,7 @@ echo "$as_me: error: could not find header file '${srcdir}/$i'" >&2;}
     vars=""
     for i in $vars; do
 	# check for existence - allows for generic/win/unix VPATH
-	if test ! -f "${srcdir}/$i" -a ! -f "${srcdir}/generic/$i" \
+	if test ! -f "${srcdir}/$i" -a ! -f "${srcdir}/src/$i" \
 	    -a ! -f "${srcdir}/win/$i" -a ! -f "${srcdir}/unix/$i" \
 	    ; then
 	    { { echo "$as_me:$LINENO: error: could not find stub source file '$i'" >&5
@@ -6852,7 +6852,7 @@ echo "$as_me: error: ${with_tclinclude} directory does not contain tcl.h" >&2;}
 		`ls -d ${temp_includedir}        2>/dev/null` \
 		`ls -d ${TCL_PREFIX}/include     2>/dev/null` \
 		`ls -d ${TCL_BIN_DIR}/../include 2>/dev/null` \
-		`ls -d ${TCL_SRC_DIR}/generic    2>/dev/null`"
+		`ls -d ${TCL_SRC_DIR}/src    2>/dev/null`"
 	    if test "${TEA_PLATFORM}" != "windows" -o "$GCC" = "yes"; then
 		list="$list /usr/local/include /usr/include"
 		if test x"${TCL_INCLUDE_SPEC}" != x ; then
@@ -6938,7 +6938,7 @@ echo "$as_me: error: ${with_tkinclude} directory does not contain tk.h" >&2;}
 		`ls -d ${TK_PREFIX}/include      2>/dev/null` \
 		`ls -d ${TCL_PREFIX}/include     2>/dev/null` \
 		`ls -d ${TCL_BIN_DIR}/../include 2>/dev/null` \
-		`ls -d ${TK_SRC_DIR}/generic     2>/dev/null`"
+		`ls -d ${TK_SRC_DIR}/src     2>/dev/null`"
 	    if test "${TEA_PLATFORM}" != "windows" -o "$GCC" = "yes"; then
 		list="$list /usr/local/include /usr/include"
 	    fi
