@@ -1,51 +1,74 @@
-#!/usr/bin/make
-#
-#### The toplevel directory of the source tree.
-#
-SRCDIR = /home/dan/work/tkhtml_cvs/htmlwidget
 
-#### C Compiler and options for use in building executables that
-#    will run on the platform that is doing the build.
+##### Top of the Tkhtml source tree - the directory with this file in it.
 #
-BCC = gcc -g -O2
+TOP = $(HOME)/work/tkhtml_cvs/htmlwidget
 
-#### Name of the generated static library file
+##### BUILD can be DEBUG or RELEASE.
 #
-LIBNAME = libtkhtml.a
+# BUILD = DEBUG
+BUILD = RELEASE
 
-#### The suffix to add to executable files.  ".exe" for windows.
-#    Nothing for unix.
+##### Version of and path to the Tcl installation to use.
 #
-E =
+TCLVERSION = 8.5
+TCL_RELEASE = $(HOME)/tcl
+TCL_DEBUG   = $(HOME)/profiletcl
+TCL = $(TCL_$(BUILD))
 
-#### C Compile and options for use in building executables that 
-#    will run on the target platform.  This is usually the same
-#    as BCC, unless you are cross-compiling.
+##### Flags passed to the C-compiler to link to Tcl.
 #
-TCC = gcc -O6
-#TCC = gcc -g -O0 -Wall
-#TCC = gcc -g -O0 -Wall -fprofile-arcs -ftest-coverage
-#TCC = /opt/mingw/bin/i386-mingw32msvc-gcc -O6 -DSTATIC_BUILD=1
+TCLLIB_DEBUG   = -L$(TCL)/lib -ltcl$(TCLVERSION)g -ltk$(TCLVERSION)g 
+TCLLIB_RELEASE = -L$(TCL)/lib -ltcl$(TCLVERSION) -ltk$(TCLVERSION)
 
-#### Include file directories for Tcl and Tk.
+##### Extra libraries used by Tcl on Linux. These flags are only required to
+#     staticly link Tcl into an executable
 #
-INC = -I/home/dan/tcl/include
+TCLLIB_DEBUG += -L/usr/X11R6/lib/ -lX11 -ldl -lm
+TCLLIB = $(TCLLIB_$(BUILD))
 
-#### Extra arguments for linking 
+CC_RELEASE = gcc343
+CC_DEBUG   = gcc295
+CC = $(CC_$(BUILD))
+
+CFLAGS_RELEASE = -O2 -DNDEBUG -DHTML_MACROS
+CFLAGS_DEBUG   = -g -pg -DHTML_MACROS
+CFLAGS = $(CFLAGS_$(BUILD))
+
+##### The name of the shared library file to build.
 #
-LIBS = 
+SHARED_LIB_DEBUG = libTkhtml3g.so
+SHARED_LIB_RELEASE = libTkhtml3.so
+SHARED_LIB = $(SHARED_LIB_$(BUILD))
 
-#### Command used to build a static library
+##### Command to build a shared library from a set of object files. The
+#     command executed will be:
+# 
+#         $(MKSHLIB) $(OBJS) -o $(SHARED_LIB)
 #
-#AR = /opt/mingw/bin/i386-mingw32msvc-ar r
-AR = ar r
-#RANLIB = /opt/mingw/bin/i386-mingw32msvc-ranlib
-RANLIB = ranlib
+MKSHLIB = $(CC) -shared
 
-#### The TCLSH command
+##### Commands to run tclsh and wish.
 #
-TCLSH = tclsh
+TCLSH = $(TCL)/bin/tclsh$(TCLVERSION)
+WISH = $(TCL)/bin/wish$(TCLVERSION)
 
+##### Installation directories used by the 'install' target.
+#
+INSTALLDIR = $(TCL)/lib/Tkhtml3.0
+MANINSTALLDIR = $(TCL)/man/mann
+
+#
+# End of configuration section.
 # You should not need to change anything below this line
+###########################################################################
+
+default: binaries
+
+install: binaries
+	mkdir -p $(INSTALLDIR)
+	mkdir -p $(MANINSTALLDIR)
+	cp -f $(BINARIES) $(INSTALLDIR)
+	cp -f $(TOP)/doc/tkhtml.n $(MANINSTALLDIR)
+
 ###############################################################################
 include $(SRCDIR)/main.mk
