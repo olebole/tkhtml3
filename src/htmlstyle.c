@@ -49,8 +49,6 @@ static char rcsid[] = "@(#) $Id:";
  *
  *     Compile a stylesheet document from text and add it to the widget.
  *
- *     Tcl: $widget style parse STYLE-SHEET-ID STYLE-SHEET
- *
  * Results:
  *     None.
  *
@@ -60,26 +58,21 @@ static char rcsid[] = "@(#) $Id:";
  *---------------------------------------------------------------------------
  */
 int 
-HtmlStyleParse(clientData, interp, objc, objv)
-    ClientData clientData;             /* The HTML widget */
-    Tcl_Interp *interp;                /* The interpreter */
-    int objc;                          /* Number of arguments */
-    Tcl_Obj *CONST objv[];             /* List of all arguments */
+HtmlStyleParse(pTree, interp, pStyleText, pId, pImportCmd)
+    HtmlTree *pTree;
+    Tcl_Interp *interp;
+    Tcl_Obj *pStyleText;
+    Tcl_Obj *pId;
+    Tcl_Obj *pImportCmd;
 {
     int stylesheet_origin;
     Tcl_Obj *pStyleId = 0;
     CONST char *zId;
-    HtmlTree *pTree = (HtmlTree *)clientData;
-
-    if (objc!=5) {
-        Tcl_WrongNumArgs(interp, 2, objv, "STYLE-SHEET-ID STYLE-SHEET");
-        return TCL_ERROR;
-    }
 
     /* Parse up the stylesheet id. It must begin with one of the strings
      * "agent", "user" or "author". After that it may contain any text.
      */
-    zId = Tcl_GetString(objv[3]);
+    zId = Tcl_GetString(pId);
     if (0==strncmp("agent", zId, 5)) {
         stylesheet_origin = CSS_ORIGIN_AGENT;
         pStyleId = Tcl_NewStringObj(&zId[5], -1);
@@ -105,7 +98,7 @@ HtmlStyleParse(clientData, interp, objc, objv)
      * stylesheet object, possibly created by combining text from multiple
      * stylesheet documents.
      */
-    HtmlCssParse(objv[4], stylesheet_origin, pStyleId, &pTree->pStyle);
+    HtmlCssParse(pStyleText, stylesheet_origin, pStyleId, &pTree->pStyle);
 
     Tcl_DecrRefCount(pStyleId);
     return TCL_OK;

@@ -174,10 +174,13 @@ proc ::tk::HtmlView {win axis args} {
     # to the left of the right hand side) of the viewport.
     #
     if {[llength $args] == 0} {
+        set ret [list 0 1]
+        catch {
         set ret [list \
                 [expr double($offscreen_len) / double($layout_len)] \
                 [expr double($screen_len+$offscreen_len)/double($layout_len)] \
         ]
+        }
         return $ret
     }
 
@@ -369,7 +372,7 @@ proc ::tk::HtmlDefaultStyle {win stylename} {
             $win var $varname $style
         }
     }
-    $win style parse agent.0 $style
+    $win style -id agent.0 $style
 }
 
 proc ::tk::HtmlDoUpdate {win} {
@@ -383,11 +386,11 @@ proc ::tk::HtmlDoUpdate {win} {
     set layout_time [time {$win layout force -width $width}]
     $win var layout_time [lindex $layout_time 0]
   
-    $win widget paint 0 0 0 0 $width $height
+    $win widget paint [$win var x] [$win var y] 0 0 $width $height
     $win widget mapcontrols 0 0
 
-    $win var x 0
-    $win var y 0
+    # $win var x 0
+    # $win var y 0
     $win scrollbar_cb
 }
 

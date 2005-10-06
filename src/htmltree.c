@@ -169,6 +169,13 @@ freeNode(interp, pNode)
             Tcl_DeleteCommand(interp, Tcl_GetString(pNode->pCommand));
             Tcl_DecrRefCount(pNode->pCommand);
         }
+        if (pNode->pReplacement) {
+            HtmlNodeReplacement *p = pNode->pReplacement;
+            if (p->pDelete) Tcl_DecrRefCount(p->pDelete);
+            if (p->pReplace) Tcl_DecrRefCount(p->pReplace);
+            if (p->pConfigure) Tcl_DecrRefCount(p->pConfigure);
+            ckfree((char *)p);
+        }
         ckfree((char *)pNode->apChildren);
         ckfree((char *)pNode);
     }
@@ -698,6 +705,7 @@ char CONST *HtmlNodeAttr(pNode, zAttr)
  *     $node child CHILD-NUMBER 
  *     $node parent
  *     $node text
+ *     $node replace ?options? ?NEW-VALUE?
  *
  *     This function is the implementation of the Tcl node command. A
  *     pointer to the HtmlNode struct is passed as clientData.
@@ -722,11 +730,11 @@ nodeCommand(clientData, interp, objc, objv)
 
     static CONST char *NODE_strs[] = {
         "attr", "tag", "nChildren", "child", "text", 
-        "parent", 0
+        "parent", "replace", 0
     };
     enum NODE_enum {
         NODE_ATTR, NODE_TAG, NODE_NCHILDREN, NODE_CHILD, NODE_TEXT,
-        NODE_PARENT
+        NODE_PARENT, NODE_REPLACE
     };
 
     if (objc<2) {
@@ -818,6 +826,88 @@ nodeCommand(clientData, interp, objc, objv)
             if (pParent) {
                 Tcl_SetObjResult(interp, HtmlNodeCommand(interp, pParent));
             } 
+            break;
+        }
+
+        /*
+         * nodeHandle replace ?new-value? ?options?
+         *
+         *     supported options are:
+         *
+         *         -configurecmd       <script>
+         *         -deletecmd          <script>
+         */
+        case NODE_REPLACE: {
+            if (objc > 2) {
+                const char *zArg;
+                Tcl_Obj *pNewValue = objv[2];
+                Tcl_Obj *pNewConfigure = 0;
+                Tcl_Obj *pNewDelete = 0;
+                int ii = 3;
+
+                Tcl_IncrRefCount(pNewValue);
+
+                while (ii < objc) {
+                    int nArg;
+                    zArg = Tcl_GetString(objv[ii]);
+                    nArg = strlen(zArg);
+                    if ((ii + 1) < objc && nArg > 2) {
+                        if (0 == strncmp("-configurecmd", zArg, nArg)) {
+                            if (pNewConfigure) {
+                                Tcl_DecrRefCount(pNewConfigure);
+                            }
+                            pNewConfigure = objv[++ii];
+                            Tcl_IncrRefCount(pNewConfigure);
+                        } else if (0 == strncmp("-deletecmd", zArg, nArg)) {
+                            if (pNewDelete) {
+                                Tcl_DecrRefCount(pNewDelete);
+                            }
+                            pNewDelete = objv[++ii];
+                            Tcl_IncrRefCount(pNewDelete);
+                        }
+                        else {
+                            break;
+                        }
+                    }
+                    else {
+                        break;
+                    }
+                }
+               
+                if (ii != objc || !pNewValue) {
+                    if (pNewValue) Tcl_DecrRefCount(pNewValue);
+                    if (pNewConfigure) Tcl_DecrRefCount(pNewConfigure);
+                    if (pNewDelete) Tcl_DecrRefCount(pNewDelete);
+
+                    Tcl_ResetResult(interp);
+                    Tcl_AppendResult(interp, "Bad option: ", zArg, 0);
+                    return TCL_ERROR;
+                } else {
+                    HtmlNodeReplacement *pReplace = (HtmlNodeReplacement *)
+                            ckalloc(sizeof(HtmlNodeReplacement));
+                    pReplace->pDelete = pNewDelete;
+                    pReplace->pReplace = pNewValue;
+                    pReplace->pConfigure = pNewConfigure;
+
+                    if (pNode->pReplacement) {
+                        HtmlNodeReplacement *p = pNode->pReplacement;
+                        if (p->pDelete) Tcl_DecrRefCount(p->pDelete);
+                        if (p->pReplace) Tcl_DecrRefCount(p->pReplace);
+                        if (p->pConfigure) Tcl_DecrRefCount(p->pConfigure);
+                        ckfree((char *)p);
+                    }
+
+                    pNode->pReplacement = pReplace;
+                }
+            }
+
+            /* The result of this command is the name of the current
+             * replacement object (or an empty string).
+             */
+            if (pNode->pReplacement) {
+                assert(pNode->pReplacement->pReplace);
+                Tcl_SetObjResult(interp, pNode->pReplacement->pReplace);
+            }
             break;
         }
 

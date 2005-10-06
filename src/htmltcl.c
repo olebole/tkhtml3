@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmltcl.c,v 1.37 2005/10/04 06:04:36 danielk1977 Exp $";
+        "@(#) $Id: htmltcl.c,v 1.38 2005/10/06 11:14:18 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -85,9 +85,152 @@ static Tk_OptionSpec htmlOptionSpec[] = {
         "-defaultstyle", "defaultStyle", "DefaultStyle", DEF_HTML_DEFAULTSTYLE,
          Tk_Offset(HtmlOptions, defaultstyle), -1, OPTION_REQUIRE_UPDATE, 
          0, 0 },
+    {TK_OPTION_STRING, 
+        "-imagecmd", "imageCmd", "ImageCmd", "",
+         Tk_Offset(HtmlOptions, imagecmd), -1, 
+         0, 0 },
     {TK_OPTION_END, (char *) NULL, (char *) NULL, (char *) NULL,
         (char *) NULL, 0, 0, 0, 0}
 };
+
+#define SWPROC_END     0
+#define SWPROC_ARG     1
+#define SWPROC_OPT     2
+#define SWPROC_SWITCH  3
+
+struct SwprocConf {
+  int eType;
+  const char *zSwitch;
+  const char *zDefault;
+  const char *zTrue;
+};
+typedef struct SwprocConf SwprocConf;
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * SwprocRt --
+ *
+ *     This function is used to interpret the arguments passed to a Tcl
+ *     command.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+SwprocRt(interp, objc, objv, aConf, apObj)
+    Tcl_Interp *interp;               /* Tcl interpreter */
+    int objc;
+    Tcl_Obj *CONST objv[];
+    SwprocConf *aConf;
+    Tcl_Obj **apObj;
+{
+    SwprocConf *pConf;
+    int ii;
+    int jj;
+    int argsatend = 0;
+    int argcnt = 0;       /* Number of compulsory arguments */
+    int firstarg;         /* Index of first compulsory arg in aConf */
+    int lastswitch;       /* Index of element after last switch or option */
+    char const *zSwitch;
+
+    /* Set all the entries in apObj[] to 0. This makes cleaning up in the
+     * case of an error easier. Also, check whether the compulsory
+     * arguments (if any) are at the start or end of the array. Set argcnt
+     * to the number of compulsory args.
+     */
+    argsatend = (aConf[0].eType == SWPROC_ARG) ? 0 : 1;
+    for (jj = 0; aConf[jj].eType != SWPROC_END; jj++) {
+        apObj[jj] = 0;
+        if (aConf[jj].eType == SWPROC_ARG) {
+            argcnt++;
+        }
+    }
+
+    /* Set values of compulsory arguments. Also set all switches and
+     * options to their default values. 
+     */
+    firstarg = argsatend ? (objc - argcnt) : 0;
+    ii = firstarg;
+    for (jj = 0; aConf[jj].eType != SWPROC_END; jj++) {
+        pConf = &aConf[jj];
+        if (pConf->eType == SWPROC_ARG) {
+            if (ii < objc && ii >= 0) {
+                apObj[jj] = objv[ii];
+                ii++;
+            } else {
+                goto error_insufficient_args;
+            }
+        } else {
+            apObj[jj] = Tcl_NewStringObj(pConf->zDefault, -1);
+        }
+        Tcl_IncrRefCount(apObj[jj]);
+    }
+
+    /* Now set values for any options or switches passed */
+    lastswitch = (argsatend ? firstarg : objc);
+    for (ii = (argsatend ? 0 : argcnt); ii < lastswitch ;ii++) {
+        zSwitch = Tcl_GetString(objv[ii]);
+        if (zSwitch[0] != '-') {
+            goto error_no_such_option;
+        }
+
+        for (jj = 0; aConf[jj].eType != SWPROC_END; jj++) {
+            pConf = &aConf[jj];
+            if (pConf->eType == SWPROC_OPT || pConf->eType == SWPROC_SWITCH) {
+                if (0 == strcmp(pConf->zSwitch, &zSwitch[1])) {
+                   if (pConf->eType == SWPROC_SWITCH) {
+                       Tcl_DecrRefCount(apObj[jj]);
+                       apObj[jj] = Tcl_NewStringObj(pConf->zTrue, -1);
+                       Tcl_IncrRefCount(apObj[jj]);
+                   } else if (ii+1 < lastswitch) {
+                       Tcl_DecrRefCount(apObj[jj]);
+                       ii++;
+                       apObj[jj] = objv[ii];
+                       Tcl_IncrRefCount(apObj[jj]);
+                   } else {
+                       goto error_option_requires_arg;
+                   }
+                   break;
+                }
+            }
+        }
+        if (aConf[jj].eType == SWPROC_END) {
+            goto error_no_such_option;
+        }
+    }
+
+    return TCL_OK;
+
+error_insufficient_args:
+    Tcl_AppendResult(interp, "Insufficient args", 0);
+    goto error_out;
+
+error_no_such_option:
+    Tcl_AppendResult(interp, "No such option: ", zSwitch, 0);
+    goto error_out;
+
+error_option_requires_arg:
+    Tcl_AppendResult(interp, "Option \"", zSwitch, "\"requires an argument", 0);
+    goto error_out;
+
+error_out:
+    /* Any error condition eventually jumps here. Discard any accumulated
+     * object references and return TCL_ERROR.
+     */
+    for (jj = 0; aConf[jj].eType != SWPROC_END; jj++) {
+        if (apObj[jj]) {
+            Tcl_DecrRefCount(apObj[jj]);
+            apObj[jj] = 0;
+        }
+    }
+    return TCL_ERROR;
+}
 
 /*
  *---------------------------------------------------------------------------
@@ -579,13 +722,35 @@ handlerNodeCmd(clientData, interp, objc, objv)
  *
  *---------------------------------------------------------------------------
  */
-static int styleParseCmd(clientData, interp, objc, objv)
+static int 
+styleParseCmd(clientData, interp, objc, objv)
     ClientData clientData;             /* The HTML widget data structure */
     Tcl_Interp *interp;                /* Current interpreter. */
     int objc;                          /* Number of arguments. */
     Tcl_Obj *CONST objv[];             /* Argument strings. */
 {
-    return HtmlStyleParse(clientData, interp, objc, objv);
+    SwprocConf aConf[3 + 1] = {
+        {SWPROC_OPT, "id", "author", 0},      /* -id <style-sheet id> */
+        {SWPROC_OPT, "importcmd", "", 0},     /* -importcmd <cmd> */
+        {SWPROC_ARG, 0, 0, 0},                /* STYLE-SHEET-TEXT */
+        {SWPROC_END, 0, 0, 0}
+    };
+    Tcl_Obj *apObj[3];
+    int rc;
+    int ii;
+    HtmlTree *pTree = (HtmlTree *)clientData;
+
+    assert(sizeof(apObj)/sizeof(apObj[0])+1 == sizeof(aConf)/sizeof(aConf[0]));
+
+    if (TCL_OK != SwprocRt(interp, objc - 2, &objv[2], aConf, apObj)) {
+        return TCL_ERROR;
+    }
+    rc = HtmlStyleParse(pTree, interp, apObj[2], apObj[0], apObj[1]);
+
+    for (ii = 0; ii < sizeof(apObj)/sizeof(apObj[0]); ii++) {
+        Tcl_DecrRefCount(apObj[ii]);
+    }
+    return rc;
 }
 static int 
 styleApplyCmd(clientData, interp, objc, objv)
@@ -727,9 +892,9 @@ int HtmlWidgetObjCommand(clientData, interp, objc, objv)
         "handler", "script", handlerScriptCmd}, {
         "handler", "node", handlerNodeCmd}, {
 
-        "style", "parse", styleParseCmd}, {
         "style", "apply", styleApplyCmd}, {
         "style", "syntax_errs", styleSyntaxErrsCmd}, {
+        "style", 0, styleParseCmd}, {
 
         "layout", "primitives", layoutPrimitivesCmd}, {
         "layout", "image",      layoutImageCmd}, {
@@ -984,6 +1149,153 @@ exitCmd(clientData, interp, objc, objv)
 }
 
 /*
+ *---------------------------------------------------------------------------
+ *
+ * resolveCmd --
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+#include <netdb.h>
+static int 
+resolveCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    struct hostent *pHostent;
+
+    if (objc != 2) {
+        Tcl_WrongNumArgs(interp, 1, objv, "HOST-NAME");
+        return TCL_ERROR;
+    }
+
+    pHostent = gethostbyname(Tcl_GetString(objv[1]));
+    if (!pHostent || pHostent->h_length < 1) {
+        Tcl_SetObjResult(interp, objv[1]);
+    } else {
+	struct in_addr in;
+        char *pAddr = pHostent->h_addr_list[0];
+	memcpy(&in.s_addr, pAddr, sizeof(in.s_addr));
+        Tcl_AppendResult(interp, inet_ntoa(in), 0);
+    }
+
+    return TCL_OK;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * swproc_rtCmd --
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+swproc_rtCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    SwprocConf aConf[2 + 1] = {
+        {SWPROC_ARG, "conf", 0, 0},         /* CONFIGURATION */
+        {SWPROC_ARG, "args", 0, 0},         /* ARGUMENTS */
+        {SWPROC_END, 0, 0, 0}
+    };
+    Tcl_Obj *apObj[2];
+    int rc;
+    int ii;
+    HtmlTree *pTree = (HtmlTree *)clientData;
+
+    assert(sizeof(apObj)/sizeof(apObj[0])+1 == sizeof(aConf)/sizeof(aConf[0]));
+    rc = SwprocRt(interp, objc - 1, &objv[1], aConf, apObj);
+    if (rc == TCL_OK) {
+        Tcl_Obj **apConf;
+        int nConf;
+
+        rc = Tcl_ListObjGetElements(interp, apObj[0], &nConf, &apConf);
+        if (rc == TCL_OK) {
+            SwprocConf *aScriptConf;
+            Tcl_Obj **apVars;
+
+            aScriptConf = (SwprocConf *)ckalloc(
+                    nConf * sizeof(Tcl_Obj*) + 
+                    (nConf + 1) * sizeof(SwprocConf)
+            );
+            apVars = (Tcl_Obj **)&aScriptConf[nConf + 1];
+            for (ii = 0; ii < nConf && rc == TCL_OK; ii++) {
+                SwprocConf *pConf = &aScriptConf[ii];
+                Tcl_Obj **apParams;
+                int nP;
+
+                rc = Tcl_ListObjGetElements(interp, apConf[ii], &nP, &apParams);
+                if (rc == TCL_OK) {
+                    switch (nP) {
+                        case 3:
+                            pConf->eType = SWPROC_SWITCH;
+                            pConf->zSwitch=Tcl_GetString(apParams[0]);
+                            pConf->zDefault=Tcl_GetString(apParams[1]);
+                            pConf->zTrue = Tcl_GetString(apParams[2]);
+                            break;
+                        case 2:
+                            pConf->eType = SWPROC_OPT;
+                            pConf->zSwitch=Tcl_GetString(apParams[0]);
+                            pConf->zDefault=Tcl_GetString(apParams[1]);
+                            break;
+                        case 1:
+                            pConf->eType = SWPROC_ARG;
+                            pConf->zSwitch=Tcl_GetString(apParams[0]);
+                            break;
+                        default:
+                            rc = TCL_ERROR;
+                            break;
+                    }
+                }
+            }
+            aScriptConf[nConf].eType = SWPROC_END;
+
+            if (rc == TCL_OK) {
+                Tcl_Obj **apArgs;
+                int nArgs;
+                rc = Tcl_ListObjGetElements(interp, apObj[1], &nArgs, &apArgs);
+                if (rc == TCL_OK) {
+                    rc = SwprocRt(interp, nArgs, apArgs, aScriptConf, apVars);
+                    if (rc == TCL_OK) {
+                        for (ii = 0; ii < nConf; ii++) {
+                            const char *zVar = aScriptConf[ii].zSwitch;
+                            const char *zVal = Tcl_GetString(apVars[ii]);
+                            Tcl_SetVar(interp, zVar, zVal, 0);
+                            Tcl_DecrRefCount(apVars[ii]);
+                        }
+                    }
+                }
+            }
+
+            ckfree(aScriptConf);
+        }
+
+        for (ii = 0; ii < sizeof(apObj)/sizeof(apObj[0]); ii++) {
+            assert(apObj[ii]);
+            Tcl_DecrRefCount(apObj[ii]);
+        }
+    }
+
+    return rc;
+}
+    
+/*
  * Define the DLL_EXPORT macro, which must be set to something or other in
  * order to export the Tkhtml_Init and Tkhtml_SafeInit symbols from a win32
  * DLL file. I don't entirely understand the ins and outs of this, the
@@ -1030,6 +1342,8 @@ DLL_EXPORT int Tkhtml_Init(interp)
     Tcl_PkgProvide(interp, "Tkhtmlinternal", "3.0");
     Tcl_CreateObjCommand(interp, "::tk::htmlinternal", newWidget, 0, 0);
     Tcl_CreateObjCommand(interp, "::tk::htmlexit", exitCmd, 0, 0);
+    Tcl_CreateObjCommand(interp, "::tk::htmlresolve", resolveCmd, 0, 0);
+    Tcl_CreateObjCommand(interp, "::tkhtml::swproc_rt", swproc_rtCmd, 0, 0);
     return TCL_OK;
 }
 

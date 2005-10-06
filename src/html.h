@@ -88,6 +88,7 @@ typedef struct HtmlCanvasItem HtmlCanvasItem;
 typedef struct HtmlFloatList HtmlFloatList;
 typedef struct HtmlPropertyCache HtmlPropertyCache;
 typedef struct HtmlNativePropertyCache HtmlNativePropertyCache;
+typedef struct HtmlNodeReplacement HtmlNodeReplacement;
 
 #include "css.h"
 
@@ -153,6 +154,12 @@ struct HtmlNativePropertyCache {
     XColor *color;             /* Color. */
 };
 
+struct HtmlNodeReplacement {
+    Tcl_Obj *pReplace;
+    Tcl_Obj *pConfigure;
+    Tcl_Obj *pDelete;
+};
+
 /* Each node of the document tree is represented as an HtmlNode structure.
  * This structure carries no information to do with the node itself, it is
  * simply used to build the tree structure. All the information for the
@@ -170,7 +177,8 @@ struct HtmlNode {
     HtmlPropertyCache *pPropCache; /* Cached properties */
     HtmlNativePropertyCache cache;
 
-    Tcl_Obj *pCommand;             /* Tcl command for this node. */
+    Tcl_Obj *pCommand;                  /* Tcl command for this node. */
+    HtmlNodeReplacement *pReplacement;  /* Replaced object, if any */
 };
 
 struct HtmlScaledImage {
@@ -196,9 +204,11 @@ struct HtmlOptions {
     int height;
     int xscrollincrement;
     int yscrollincrement;
+
     Tcl_Obj *yscrollcommand;
     Tcl_Obj *xscrollcommand;
     Tcl_Obj *defaultstyle;
+    Tcl_Obj *imagecmd;
 };
 
 /* 
@@ -264,7 +274,6 @@ void HtmlFinishNodeHandlers(HtmlTree *);
 void HtmlAddToken(HtmlTree *, HtmlToken *);
 int HtmlTreeBuild(ClientData, Tcl_Interp *, int, Tcl_Obj *CONST []);
 Tcl_ObjCmdProc HtmlTreeCollapseWhitespace;
-Tcl_ObjCmdProc HtmlStyleParse;
 Tcl_ObjCmdProc HtmlStyleApply;
 Tcl_ObjCmdProc HtmlStyleSyntaxErrs;
 Tcl_ObjCmdProc HtmlLayoutForce;
@@ -276,6 +285,8 @@ Tcl_ObjCmdProc HtmlLayoutBbox;
 Tcl_ObjCmdProc HtmlWidgetPaint;
 Tcl_ObjCmdProc HtmlWidgetScroll;
 Tcl_ObjCmdProc HtmlWidgetMapControls;
+
+int HtmlStyleParse(HtmlTree *, Tcl_Interp*, Tcl_Obj *, Tcl_Obj *, Tcl_Obj *);
 
 void HtmlTreeFree(HtmlTree *p);
 int HtmlWalkTree(HtmlTree *, int (*)(HtmlTree *, HtmlNode *));
