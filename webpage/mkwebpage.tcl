@@ -2,7 +2,7 @@
 #
 # Construct the web page for tkhtml
 #
-# @(#) $Id: mkwebpage.tcl,v 1.14 2005/10/06 12:01:53 danielk1977 Exp $
+# @(#) $Id: mkwebpage.tcl,v 1.15 2005/10/06 12:47:47 danielk1977 Exp $
 #
 
 proc header {} {
@@ -11,22 +11,24 @@ proc header {} {
     <head>
     <style>
 
-body {
+/* Page background color */
+html,body {
     background: #EEEEFF;
 }
-#body {
-    top: 2ex;
-    right: 1ex;
-    position: absolute;
-    left: 23ex;
-    padding: 0 3ex 0 3ex;
+
+body {
+    padding-top: 1em;
+    padding-bottom: 1em;
 }
 
+#body {
+    float: left;
+    padding: 0 2% 0 2%;
+    width: 75%;
+}
 #toc {
-    position: absolute;
-    left: 1ex;
-    top: 2ex;
-    width: 20ex;
+    float: left;
+    width: 20%;
 }
 #toc ul {
     margin: 1ex;
@@ -37,6 +39,7 @@ body {
     margin: 1em 0;
     padding: 0;
 }
+
 #text {
     padding: 3ex;
 }
@@ -45,15 +48,13 @@ body {
     background: #DDDDFF;
 }
 
-h1,h2 {
+h1,h2,h3 {
     background: #000088;
     color: white;
     padding-left: 2ex;
 }
-
-h1 {
-    margin-bottom: 0;
-    margin-top: 0;
+h1,h3 {
+    margin: 0;
 }
 h2 {
     margin-top: 2em;
@@ -106,7 +107,8 @@ proc h {level text} {
 
 proc output_page {} {
   header
-  puts {<div id="toc"><ul>}
+  puts {<div id="toc">}
+  puts {<h3>TOC</h3><ul>}
   puts $::LINKS
   puts {</ul></div>}
   puts {<div id="body">}
@@ -144,34 +146,11 @@ p {
    <a href="http://www.eolas.com">Eolas Technologies, Inc.</a>.
 }
 
-h 2 {Current Status (Version 2.0)}
-
-p {
-  The current version of Tkhtml is more or less compatible with the HTML 3.2
-  standard. The majority of documents on the web today are rendered 
-  acceptably, however results are sometimes less attractive than when using 
-  a more modern rendering engine, like Gecko or KHTML. This is particularly
-  true when stylesheets are in use. Having said that, some advantages of
-  Tkhtml over other similar widgets are:
-<ul>
-<li>It runs very fast and uses little memory.</li>
-<li>It supports smooth scrolling.</li>
-<li>It supports text wrap-around on images and tables.</li>
-<li>It has a full implementation of tables. Complex pages (such as 
-     <a href="http://www.scriptics.com/">http://www.scriptics.com/</a>)
-     are displayed correctly.</li>
-<li>It has an API that allows applications to provide configurable support 
-     for applets, scripts and forms via callbacks.</li>
-</ul>
-}
-
-p { 
-  Tkhtml 2.0 can be used with Tcl/Tk8.0 or later. Shared libraries use 
-  the TCL stubs mechanism, so you should be able to load Tkhtml with 
-  any version of "wish" beginning with 8.0.6.
-}
-
 h 2 {Revitalisation Status (Version 3)}
+
+p {See also 
+<a href="http://tkhtml.tcl.tk/cvstrac/wiki?p=CurrentStatus">
+The CurrentStatus wiki page</a>.}
 
 p {
   This is currently at alpha stage. The rendering engine is not yet feature
@@ -254,6 +233,33 @@ p {
   <br>
   <a href="mailto:drh@hwaci.com">drh@hwaci.com</a> (Richard)
   </blockquote>
+}
+
+h 2 {Current Status (Version 2.0)}
+
+p {
+  The current version of Tkhtml is more or less compatible with the HTML 3.2
+  standard. The majority of documents on the web today are rendered 
+  acceptably, however results are sometimes less attractive than when using 
+  a more modern rendering engine, like Gecko or KHTML. This is particularly
+  true when stylesheets are in use. Having said that, some advantages of
+  Tkhtml over other similar widgets are:
+<ul>
+<li>It runs very fast and uses little memory.</li>
+<li>It supports smooth scrolling.</li>
+<li>It supports text wrap-around on images and tables.</li>
+<li>It has a full implementation of tables. Complex pages (such as 
+     <a href="http://www.scriptics.com/">http://www.scriptics.com/</a>)
+     are displayed correctly.</li>
+<li>It has an API that allows applications to provide configurable support 
+     for applets, scripts and forms via callbacks.</li>
+</ul>
+}
+
+p { 
+  Tkhtml 2.0 can be used with Tcl/Tk8.0 or later. Shared libraries use 
+  the TCL stubs mechanism, so you should be able to load Tkhtml with 
+  any version of "wish" beginning with 8.0.6.
 }
 
 h 2 {Source Code}
