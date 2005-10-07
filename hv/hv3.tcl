@@ -72,6 +72,16 @@ proc cache_fetch {url} {
   return [[.html var cache] one $sql]
 }
 
+###########################################################################
+#
+# "Gui" routines:
+#
+# Global vars:
+#
+#     gui_replaced_images
+set gui_replaced_images [list]
+set gui_style_count 0
+
 # gui_build --
 #
 #     This procedure is called once at the start of the script to build
@@ -89,7 +99,10 @@ proc gui_build {} {
     scrollbar .vscroll -orient vertical
     scrollbar .hscroll -orient horizontal
     label .status -height 1 -anchor w
+    entry .entry
 
+    pack .entry -fill x -side top 
+    bind .entry <KeyPress-Return> {gui_goto [.entry get]}
     pack .vscroll -fill y -side right
     pack .status -fill x -side bottom 
     # pack .hscroll -fill x -side bottom
@@ -100,17 +113,10 @@ proc gui_build {} {
     $HTML configure -xscrollcommand {.hscroll set}
     .vscroll configure -command "$HTML yview"
 
-if 0 {
-    bind $HTML <Motion> "update_status %x %y"
-    bind $HTML <ButtonPress> "click %x %y"
-}
+    bind $HTML <Motion> "handle_event motion %x %y"
+    bind $HTML <ButtonPress> "handle_event click %x %y"
     bind $HTML <KeyPress-q> exit
     bind $HTML <KeyPress-Q> exit
-
-if 0 {
-    $HTML handler script style "handle_style_script"
-    $HTML handler node a "handle_a_node"
-}
 
     $HTML handler node link "handle_link_node"
     $HTML handler script style "handle_style_script"
@@ -119,15 +125,27 @@ if 0 {
     focus $HTML
 }
 
-###########################################################################
-#
-# "Gui" routines:
-#
-# Global vars:
-#
-#     gui_replaced_images
-set gui_replaced_images [list]
-set gui_style_count 0
+proc handle_event {e x y} {
+
+  set n [.html node $x $y]
+  for {} {$n != ""} {set n [$n parent]} {
+    if {[$n tag] == "a" && [$n attr href] != ""} {
+      switch -- $e {
+        motion {
+          .status configure -text [$n attr href]
+          . configure -cursor hand2
+        }
+        click  {gui_goto [$n attr href]}
+      }
+      break
+    }
+  }
+
+  if {$e == "motion" && $n == ""} {
+    .status configure -text ""
+    . configure -cursor ""
+  }
+}
 
 # handle_img_node_cb
 #
@@ -182,7 +200,14 @@ proc handle_link_node {node} {
 #
 #     Commence the process of loading the document at url $doc.
 proc gui_goto {doc} {
+  .html reset
+  .html update
+  update
+
   set url [url_resolve $doc -setbase]
+  .entry delete 0 end
+  .entry insert 0 $url
+
   .html var url $url
   url_fetch $url -id $url -script [list gui_parse $url]
 }

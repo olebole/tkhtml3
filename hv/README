@@ -1,0 +1,34 @@
+
+Demo Application hv3
+
+	This file describes the Tkhtml demo application hv3, implemented in
+	the *.tcl files in this directory. The acronmym 'hv' stands for
+	"Html Viewer" (inventive eh?). The '3' indicates Tkhtml version 3.
+
+Functionality
+
+	hv3 is a minimalist web-browser script that uses Tkhtml. The idea
+	is to have just enough functionality to test Tkhtml, but it's not
+	supposed to be usable as a real browser. The target feature (not
+	complete at time of writing) set is:
+
+		* Support for http:// and file::// URIs.
+		* Ability to load a new document, either by clicking on a
+		  hyper-link or by entering a URI.
+		* Support for anchors in documents (i.e. URIs like: 
+		  index.html#part1).
+		* Support for images, both as replaced objects and in other
+		  roles.
+		* Support for widgets as replaced objects for form
+		  elements. No support for submitting forms etc., this
+		  functionality is purely cosmetic.
+		* Support for selecting text from the rendered document
+		  and copying that text to the clipboard.
+
+	Optional:
+
+		* It would be good to try and figure out how to do the
+		  'real' smooth scrolling like IE does. This is a great
+		  feature of IE that seems to be overlooked by OS browsers.
+		  Is this plausible under X11?
+

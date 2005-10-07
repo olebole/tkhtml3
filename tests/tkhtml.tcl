@@ -340,7 +340,11 @@ proc ::tk::HtmlNode {win args} {
 #     Reset the state of the widget.
 #
 proc ::tk::HtmlReset {win} {
+    .html var x 0
+    .html var y 0
+
     $win internal reset
+    $win scrollbar_cb
     ::tk::HtmlDefaultStyle $win [$win cget -defaultstyle]
 }
 
