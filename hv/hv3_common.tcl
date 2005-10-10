@@ -24,6 +24,21 @@
 #     and supply a value for parameter "c" but not "b". This is not
 #     possible with commands created by regular Tcl [proc].
 #
+#     Commands created with [swproc] may also accept switches that do not
+#     take arguments. These should be specified as a list of three elements.
+#     The first is the name of the switch (and variable). The second is the
+#     default value of the variable (if the switch is not present), and the
+#     third is the value if the switch is present. For example, the
+#     following are equivalent:
+#
+#         proc abc {a} {...}
+#         abc b
+#         abc c
+#
+#         swproc abc {{a b c}} {...}
+#         abc
+#         abc -a
+#
 proc swproc {procname arguments script} {
   uplevel [subst {
     proc $procname {args} {

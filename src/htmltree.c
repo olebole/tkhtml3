@@ -39,6 +39,7 @@
 static char rcsid[] = "@(#) $Id:";
 
 #include "html.h"
+#include "swproc.h"
 #include <assert.h>
 #include <string.h>
 
@@ -113,7 +114,6 @@ isEndTag(pNode, pToken)
     }
 
     for (pN=pNode; pN; pN=HtmlNodeParent(pN)) {
-        HtmlContentTest xClose; 
 
         /* Check for explicit close */
         if (isExplicitClose(pN, type)) {
@@ -754,6 +754,9 @@ nodeCommand(clientData, interp, objc, objv)
             }
             zAttr = HtmlNodeAttr(pNode, Tcl_GetString(objv[2]));
             if (zAttr==0) {
+                /* Todo: Maybe "no such attribute" should throw an
+                 * exception instead? 
+                 */
                 zAttr = "";
             }
             Tcl_SetResult(interp, (char *)zAttr, TCL_VOLATILE);
@@ -839,66 +842,36 @@ nodeCommand(clientData, interp, objc, objv)
          */
         case NODE_REPLACE: {
             if (objc > 2) {
-                const char *zArg;
-                Tcl_Obj *pNewValue = objv[2];
-                Tcl_Obj *pNewConfigure = 0;
-                Tcl_Obj *pNewDelete = 0;
-                int ii = 3;
+                Tcl_Obj *aArgs[3];
+                HtmlNodeReplacement *pReplace; /* New pNode->pReplacement */
+                int nBytes;                    /* bytes allocated at pReplace */
 
-                Tcl_IncrRefCount(pNewValue);
+                SwprocConf aArgConf[4] = {
+                    {SWPROC_ARG, "new-value", 0, 0},
+                    {SWPROC_OPT, "configurecmd", "", 0},
+                    {SWPROC_OPT, "deletecmd", "", 0},
+                    {SWPROC_END, 0, 0, 0}
+                };
 
-                while (ii < objc) {
-                    int nArg;
-                    zArg = Tcl_GetString(objv[ii]);
-                    nArg = strlen(zArg);
-                    if ((ii + 1) < objc && nArg > 2) {
-                        if (0 == strncmp("-configurecmd", zArg, nArg)) {
-                            if (pNewConfigure) {
-                                Tcl_DecrRefCount(pNewConfigure);
-                            }
-                            pNewConfigure = objv[++ii];
-                            Tcl_IncrRefCount(pNewConfigure);
-                        } else if (0 == strncmp("-deletecmd", zArg, nArg)) {
-                            if (pNewDelete) {
-                                Tcl_DecrRefCount(pNewDelete);
-                            }
-                            pNewDelete = objv[++ii];
-                            Tcl_IncrRefCount(pNewDelete);
-                        }
-                        else {
-                            break;
-                        }
-                    }
-                    else {
-                        break;
-                    }
-                }
-               
-                if (ii != objc || !pNewValue) {
-                    if (pNewValue) Tcl_DecrRefCount(pNewValue);
-                    if (pNewConfigure) Tcl_DecrRefCount(pNewConfigure);
-                    if (pNewDelete) Tcl_DecrRefCount(pNewDelete);
-
-                    Tcl_ResetResult(interp);
-                    Tcl_AppendResult(interp, "Bad option: ", zArg, 0);
+                if (SwprocRt(interp, objc - 2, &objv[2], aArgConf, aArgs)) {
                     return TCL_ERROR;
-                } else {
-                    HtmlNodeReplacement *pReplace = (HtmlNodeReplacement *)
-                            ckalloc(sizeof(HtmlNodeReplacement));
-                    pReplace->pDelete = pNewDelete;
-                    pReplace->pReplace = pNewValue;
-                    pReplace->pConfigure = pNewConfigure;
-
-                    if (pNode->pReplacement) {
-                        HtmlNodeReplacement *p = pNode->pReplacement;
-                        if (p->pDelete) Tcl_DecrRefCount(p->pDelete);
-                        if (p->pReplace) Tcl_DecrRefCount(p->pReplace);
-                        if (p->pConfigure) Tcl_DecrRefCount(p->pConfigure);
-                        ckfree((char *)p);
-                    }
-
-                    pNode->pReplacement = pReplace;
                 }
+
+                nBytes = sizeof(HtmlNodeReplacement);
+                pReplace = (HtmlNodeReplacement *) ckalloc(nBytes);
+                pReplace->pReplace = aArgs[0];
+                pReplace->pConfigure = aArgs[1];
+                pReplace->pDelete = aArgs[2];
+
+                if (pNode->pReplacement) {
+                    HtmlNodeReplacement *p = pNode->pReplacement;
+                    if (p->pDelete) Tcl_DecrRefCount(p->pDelete);
+                    if (p->pReplace) Tcl_DecrRefCount(p->pReplace);
+                    if (p->pConfigure) Tcl_DecrRefCount(p->pConfigure);
+                    ckfree((char *)p);
+                }
+
+                pNode->pReplacement = pReplace;
             }
 
             /* The result of this command is the name of the current

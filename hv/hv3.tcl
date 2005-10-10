@@ -38,38 +38,10 @@ sourcefile hv3_url.tcl
 proc gui_init_globals {} {
   .html var baseurl "file:///[pwd]/"
   .html var url {}
-  cache_init
 }
 
 proc bgerror {args} {
   puts "BGERROR: $args"
-}
-
-# cache_init, cache_store, cache_query, cache_fetch --
-#
-#         cache_init
-#         cache_store URL DATA
-#         cache_query URL
-#         cache_fetch URL
-#
-#     A tiny API to implement a primitive web cache.
-#
-proc cache_init {} {
-  sqlite3 dbcache :memory:
-  .html var cache dbcache
-  [.html var cache] eval {CREATE TABLE cache(url PRIMARY KEY, data BLOB);}
-}
-proc cache_store {url data} {
-  set sql {REPLACE INTO cache(url, data) VALUES($url, $data);}
-  [.html var cache] eval $sql
-}
-proc cache_query {url} {
-  set sql {SELECT count(*) FROM cache WHERE url = $url}
-  return [[.html var cache] one $sql]
-}
-proc cache_fetch {url} {
-  set sql {SELECT data FROM cache WHERE url = $url}
-  return [[.html var cache] one $sql]
 }
 
 ###########################################################################
@@ -188,9 +160,14 @@ proc handle_style_cb {id style} {
 #     handle_link_node NODE
 proc handle_link_node {node} {
   if {[$node attr rel] == "stylesheet"} {
-    set id author.[format %.4d [incr ::gui_style_count]]
-    set url [url_resolve [$node attr href]]
-    url_fetch $url -id $url -script [list handle_style_cb $id]
+
+    # Check if the media is Ok. If so, download and apply the style.
+    set media [$node attr media]
+    if {$media == "" || [regexp all $media] || [regexp screen $media]} {
+      set id author.[format %.4d [incr ::gui_style_count]]
+      set url [url_resolve [$node attr href]]
+      url_fetch $url -id $url -script [list handle_style_cb $id]
+    }
   }
 }
 
@@ -242,12 +219,12 @@ proc gui_log {msg} {
     puts $msg
 }
 
-if {[llength $argv] != 1} {
-  puts stderr "Usage: $argv0 <url>"
-  exit -1
+swproc main {url {cache :memory:}} {
+  gui_build
+  gui_init_globals
+  cache_init $cache
+  gui_goto $url
 }
 
-gui_build
-gui_init_globals
-gui_goto [lindex $argv 0]
+eval [concat main $argv]
 

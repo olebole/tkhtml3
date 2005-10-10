@@ -19,6 +19,36 @@
 #      http_get_url
 #
 
+
+# cache_init, cache_store, cache_query, cache_fetch --
+#
+#         cache_init
+#         cache_store URL DATA
+#         cache_query URL
+#         cache_fetch URL
+#
+#     A tiny API to implement a primitive web cache.
+#
+proc cache_init {file} {
+  sqlite3 dbcache $file
+  .html var cache dbcache
+  catch {
+    [.html var cache] eval {CREATE TABLE cache(url PRIMARY KEY, data BLOB);}
+  }
+}
+proc cache_store {url data} {
+  set sql {REPLACE INTO cache(url, data) VALUES($url, $data);}
+  [.html var cache] eval $sql
+}
+proc cache_query {url} {
+  set sql {SELECT count(*) FROM cache WHERE url = $url}
+  return [[.html var cache] one $sql]
+}
+proc cache_fetch {url} {
+  set sql {SELECT data FROM cache WHERE url = $url}
+  return [[.html var cache] one $sql]
+}
+
 ###########################################################################
 # Enhancement to the http package - asychronous socket connection
 #
@@ -106,6 +136,7 @@ swproc url_fetch {url {script {}} {id {}} {cache {}}} {
       lappend script $data
       eval $script
     }
+    return
   }
 
   switch -regexp -- $url {
