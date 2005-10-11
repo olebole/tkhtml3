@@ -79,6 +79,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <errno.h>
+#include <ctype.h>
 
 #include "css.h"
 #include "cssInt.h"
@@ -119,6 +120,7 @@ static int cssGetToken(CONST char *, int , int *);
  *
  *---------------------------------------------------------------------------
  */
+#if TRACE_PARSER_CALLS
 static const char *constantToString(int c){
     switch( c ){
         case CSS_SELECTORCHAIN_DESCENDANT: 
@@ -184,6 +186,7 @@ static const char *constantToString(int c){
     }
     return "unknown";
 }
+#endif
 
 /*--------------------------------------------------------------------------
  *
@@ -494,7 +497,7 @@ HtmlCssPropertyGetString(pProp)
     if (pProp) {
         int eType = pProp->eType;
         if (eType == CSS_TYPE_STRING || 
-            eType >= CSS_CONST_MIN_CONSTANT && eType <= CSS_CONST_MAX_CONSTANT
+            (eType >= CSS_CONST_MIN_CONSTANT && eType <= CSS_CONST_MAX_CONSTANT)
         ) {
             return pProp->v.zVal;
         }
@@ -672,28 +675,6 @@ static int propertyIsLength(pProp)
         pProp->eType==CSS_TYPE_PX ||
         pProp->eType==CSS_TYPE_PERCENT
     );
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * propertyIsString --
- *
- *     Return true if the property passed as the first argument is a
- *     string.
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-static int propertyIsString(pProp)
-    CssProperty *pProp;
-{
-    return ( pProp->eType==CSS_TYPE_STRING );
 }
 
 /*
@@ -894,7 +875,6 @@ propertySetAddShortcutBackground(p, v)
     CONST char *z= v->z;
     CONST char *zEnd = z + v->n;
     int n;
-    int i;
 
     while (z) {
         CssProperty *pProp;
@@ -2017,7 +1997,7 @@ static int attrTest(eType, zString, zAttr)
             const char *pAttr = zAttr;
             int nAttr;
             int nString = strlen(zString);
-            while (pAttr=getNextListItem(pAttr, strlen(pAttr), &nAttr)) {
+            while ((pAttr=getNextListItem(pAttr, strlen(pAttr), &nAttr))) {
                 if (nString==nAttr && 0==strncasecmp(pAttr, zString, nAttr)) {
                     return 1;
                 }
@@ -2103,7 +2083,6 @@ selectorTest(pSelector, pNode)
                 break;
             case CSS_SELECTORCHAIN_ADJACENT: {
                 HtmlNode *pParent = N_PARENT(x);
-                int nChild = N_NUMCHILDREN(pParent);
                 int i;
                 for (i = 0; N_CHILD(pParent, i) != x; i++);
                 if (i==0)  {

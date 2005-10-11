@@ -39,6 +39,7 @@
 
 
 #include <assert.h>
+#include <X11/Xutil.h>
 #include "html.h"
 
 /*

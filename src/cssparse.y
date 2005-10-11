@@ -37,6 +37,7 @@
 %include {
 #include "cssInt.h"
 #include <string.h>
+#include <ctype.h>
 }
 
 /* Token prefix 'CT' stands for Css Token. */

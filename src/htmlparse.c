@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.44 2005/07/08 10:09:47 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.45 2005/10/11 04:22:39 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -1101,7 +1101,6 @@ Tokenize(pTree)
     int n;                       /* Number of characters processed so far */
     int iCol;                    /* Local copy of HtmlTree.iCol */
     int i, j;                    /* Loop counters */
-    int h;                       /* Result from HtmlHash() */
     int nByte;                   /* Space allocated for a single HtmlElement */
     int selfClose;               /* True for content free elements. Ex: <br/> */
     int argc;                    /* The number of arguments on a markup */
@@ -1110,11 +1109,6 @@ Tokenize(pTree)
 # define mxARG 200               /* Max parameters in a single markup */
     char *argv[mxARG];           /* Pointers to each markup argument. */
     int arglen[mxARG];           /* Length of each markup argument */
-    int rl, ol;
-    int pIsInScript = 0;
-    int pIsInNoScript = 0;
-    int pIsInNoFrames = 0;
-    int inli = 0;
 
     Tcl_Obj *pScript = 0;
     HtmlToken *pScriptToken = 0;

@@ -53,6 +53,7 @@
 #include "html.h"
 #include <assert.h>
 #include <string.h>
+#include <stdlib.h>
 
 /*
  * At the moment the widget supports two rendering targets:
@@ -463,7 +464,7 @@ static void inlineContextCleanup(InlineContext *);
  */
 #define S static
 
-S int  propertyToConstant(CssProperty *pProp, const char **, int *, int);
+/*S int  propertyToConstant(CssProperty *pProp, const char **, int *, * int); */
 S CONST char *propertyToString(CssProperty *pProp, const char *);
 S int propertyToPixels(LayoutContext*, HtmlNode*, CssProperty*, int, int);
 S XColor *propertyToColor(LayoutContext *, CssProperty*);
@@ -522,6 +523,7 @@ HtmlDrawQuad(a, b, c, d, e, f, g, h, i, j, pLayout->minmaxTest)
 #define DRAW_COMMENT(a, b) \
 HtmlDrawComment(a, b, pLayout->minmaxTest)
 
+#if 0
 /*
  *---------------------------------------------------------------------------
  *
@@ -552,6 +554,7 @@ propertyToConstant(pProp, zOptions, eOptions, eDefault)
     }
     return eDefault;
 }
+#endif
 
 static CONST char *
 propertyToString(pProp, zDefault)
@@ -1014,7 +1017,7 @@ nodeGetFontSize(pLayout, pNode)
         val = pNode->cache.font_size;
         if (!val) {
             CssProperty *pProp;
-            Tcl_Interp *interp;
+            Tcl_Interp *interp = pLayout->interp;
             pProp = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_FONT_SIZE);
             switch (pProp->eType) {
                 case CSS_TYPE_EM:
@@ -1214,7 +1217,6 @@ Tk_Font nodeGetFont(pLayout, pNode)
     Tk_Font font = 0;
     CssProperty *pFontStyle;            /* Property 'font-style' */
     CssProperty *pFontWeight;           /* Property 'font-weight' */
-    CssProperty *pFontFamily;           /* Property 'font-family' */
     Tcl_Obj *pFamily;                   /* List of potential font-families */
     Tcl_Interp *interp = pLayout->pTree->interp;
     Tcl_HashTable *pFontCache = &pLayout->pTree->aFontCache;
@@ -1579,7 +1581,6 @@ nodeGetColourProperty(pLayout, pNode, prop)
 {
     XColor *color;
     CssProperty *pProp;
-    CONST char *zColour;
 
     pProp = HtmlNodeGetProperty(pLayout->interp, pNode, prop);
     color = propertyToColor(pLayout, pProp);
@@ -1608,7 +1609,6 @@ nodeGetBorderProperties(pLayout, pNode, pBorderProperties)
     HtmlNode *pNode;
     BorderProperties *pBorderProperties;
 {
-    CONST char *zBg;
     CssProperty *pBg;
     Tcl_Interp *interp = pLayout->interp;
 
@@ -1693,8 +1693,6 @@ static int nodeGetWidth(pLayout, pNode, pwidth, def, pIsFixed, pIsAuto)
     int val;
 
     CssProperty *pWidth;
-    int min;
-    int max;
     CssProperty *pMin;
     CssProperty *pMax;
 
@@ -1752,12 +1750,6 @@ static int nodeGetTextAlign(pLayout, pNode)
     LayoutContext *pLayout;
     HtmlNode *pNode;
 {
-    char const *zOptions[] = {
-        "left", "right", "center", "justify", 0
-    };
-    int eOptions[] = {
-        TEXTALIGN_LEFT, TEXTALIGN_RIGHT, TEXTALIGN_CENTER, TEXTALIGN_JUSTIFY
-    };
     CssProperty *p;
     int v;
     p = HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_TEXT_ALIGN);
@@ -2039,9 +2031,7 @@ static int floatLayout(pLayout, pBox, pNode, pY)
     int y = *pY;
     int y2;                          /* y-coord of bottom of box */
     BoxContext sBox;                 /* Generated box. */
-    MarginProperties margins;        /* Generated box margins. */
     int width;                       /* Width of generated box content. */
-    int marginwidth;                 /* Width of box including margins */
     int leftFloat = 0;                   /* left floating margin */
     int rightFloat = pBox->parentWidth;  /* right floating margin */
     DisplayProperties display;       /* Display proprerties */
@@ -2192,7 +2182,7 @@ markerLayout(pLayout, pBox, pNode)
     HtmlNode *pNode;
 {
     int style; 
-    CONST char *zMarker;     /* Text to draw in the marker box. */
+    CONST char *zMarker = 0; /* Text to draw in the marker box. */
     Tcl_Obj *pMarker;        /* Tcl_Obj copy of zMarker */
     int width;               /* Width of string zMarker in current font */
     Tk_Font font;
@@ -2835,7 +2825,6 @@ pLayout, p, pWidth, flags, pCanvas, pVSpace, pAscent)
 
     int forceline = (flags & LINEBOX_FORCELINE);
     int forcebox = (flags & LINEBOX_FORCEBOX);
-    int closeborders = (flags & LINEBOX_CLOSEBORDERS);
 
     memset(&content, 0, sizeof(HtmlCanvas));
     memset(&borders, 0, sizeof(HtmlCanvas));
@@ -2851,8 +2840,6 @@ pLayout, p, pWidth, flags, pCanvas, pVSpace, pAscent)
      * the width of the line-box only.
      */
     for(i = 0; i < p->nInline; i++) {
-        int j;
-        InlineBorder *pBorder;
         InlineBox *pBox = &p->aInline[i];
         int boxwidth = pBox->nContentPixels;
         boxwidth += pBox->nRightPixels + pBox->nLeftPixels;
@@ -3597,7 +3584,6 @@ static int inlineLayout(pLayout, pBox, pNode)
     int y = 0;
     HtmlNode *pN;
     HtmlCanvas lastline;
-    int width;
     int rc;                       /* Return Code */
     HtmlNode *pParent;
     InlineBorder *pBorder;
@@ -3850,6 +3836,8 @@ static int tableColWidthMultiSpan(pNode, col, colspan, row, rowspan, pContext)
             }
         }
     }
+
+    return TCL_OK;
 }
 
 /*
@@ -4351,8 +4339,6 @@ tableCalculateCellWidths(pData, width)
     TableData *pData;
     int width;                       /* Total width available for cells */
 {
-    int extraspace;
-    int extraspace_req;
     int i;                           /* Counter variable for small loops */
     int space;                       /* Remaining pixels to allocate */
     int requested;                   /* How much extra space requested */
@@ -4514,7 +4500,6 @@ static int tableLayout(pLayout, pBox, pNode)
     int *aWidth = 0;         /* Actual width for each column */
     int *aY = 0;             /* Top y-coord for each row */
     TableCell *aCell = 0;    /* Array of nCol cells used during drawing */
-    int marginwidth = 0;
     TableData data;
 
     int marginValid;         /* Saved pLayout->marginValid value */
@@ -4868,14 +4853,12 @@ static int blockLayout(pLayout, pBox, pNode, omitborder, noalign)
     BoxProperties boxproperties;   /* Padding and border properties */
     BoxContext sBox;               /* Box that tableLayout() etc. use */
     CONST char *zReplace;          /* Value of -tkhtml-replace property */
-    int width;                     /* Explicit width of node */
     int availablewidth;            /* Maximum width available */
     int top_margin;                /* Actual top margin for box */
     int y = 0;
     int x = 0;
     int leftFloat = 0;             /* Floating margins. Used for tables */
     int rightFloat = 0;            /* and replaced blocks only. */
-    Tcl_Interp *interp = pLayout->interp;
     int isBoxObject;               /* True if the node cannot wrap. */
     int isReplaced;                /* True if the node is an image or window */
     int marginValid = pLayout->marginValid; /* Value of marginValid on entry */

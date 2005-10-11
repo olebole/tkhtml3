@@ -41,8 +41,10 @@ static char rcsid[] = "@(#) $Id:";
 #include "html.h"
 #include <assert.h>
 #include <string.h>
+#include <stdlib.h>
+#include <ctype.h>
 
-static void fillInPropertyCache(Tcl_Interp *interp, HtmlNode *pNode);
+/* static void fillInPropertyCache(Tcl_Interp *interp, HtmlNode *pNode); */
 
 /*
  * A special value that the eType field of an initial property value can
@@ -323,7 +325,6 @@ mapFontSize(pNode, pOut)
         if (zSize) {
             char *zStrings[7] = {"xx-small", "x-small", "small", 
                                  "medium", "large", "x-large", "xx-large"};
-            int i;
             int iSize = atoi(zSize);
             if (iSize==0) return 0;
             if (zSize[0]=='+' || zSize[0]=='-') {
@@ -536,7 +537,7 @@ mapBorderSpacing(pNode, pOut)
 /* 
  * These macros just makes the array definition below format more neatly.
  */
-#define CSSSTR(x) {CSS_TYPE_STRING, (int)x}
+#define CSSSTR(x) {CSS_TYPE_STRING, {(int)x}}
 #define CSS_NONE CSSSTR("none")
 
 struct PropMapEntry {
@@ -555,15 +556,15 @@ static PropMapEntry propmapdata[] = {
     {CSS_PROPERTY_BACKGROUND_COLOR, 0, mapBgColor, CSSSTR("transparent")},
     {CSS_PROPERTY_COLOR, 1, mapColor, CSSSTR("black")},
     {CSS_PROPERTY_WIDTH, 0, mapWidth, CSSSTR("auto")},
-    {CSS_PROPERTY_MIN_WIDTH, 0, 0, {CSS_TYPE_NONE, 0}},
-    {CSS_PROPERTY_MAX_WIDTH, 0, 0, {CSS_TYPE_NONE, 0}},
-    {CSS_PROPERTY_HEIGHT, 0, mapHeight, {CSS_TYPE_NONE, 0}},
+    {CSS_PROPERTY_MIN_WIDTH, 0, 0, {CSS_TYPE_NONE, {0}}},
+    {CSS_PROPERTY_MAX_WIDTH, 0, 0, {CSS_TYPE_NONE, {0}}},
+    {CSS_PROPERTY_HEIGHT, 0, mapHeight, {CSS_TYPE_NONE, {0}}},
 
     /* Font and text related properties */
     {CSS_PROPERTY_TEXT_DECORATION, 0, 0,     CSS_NONE},
-    {CSS_PROPERTY_FONT_SIZE, 0, mapFontSize, {CSS_TYPE_NONE, 0}},
-    {CSS_PROPERTY_WHITE_SPACE, 1, 0, {CSS_TYPE_NONE, 0}},
-    {CSS_PROPERTY_VERTICAL_ALIGN, 0, mapVAlign, {CSS_TYPE_NONE, 0}},
+    {CSS_PROPERTY_FONT_SIZE, 0, mapFontSize, {CSS_TYPE_NONE, {0}}},
+    {CSS_PROPERTY_WHITE_SPACE, 1, 0, {CSS_TYPE_NONE, {0}}},
+    {CSS_PROPERTY_VERTICAL_ALIGN, 0, mapVAlign, {CSS_TYPE_NONE, {0}}},
     {CSS_PROPERTY_FONT_FAMILY, 1, 0, CSSSTR("Helvetica")},
     {CSS_PROPERTY_FONT_STYLE, 1, 0,  CSSSTR("normal")},
     {CSS_PROPERTY_FONT_WEIGHT, 1, 0, CSSSTR("normal")},
@@ -577,10 +578,10 @@ static PropMapEntry propmapdata[] = {
     {CSS_PROPERTY_BORDER_RIGHT_WIDTH,  0, mapBorderWidth, CSSSTR("medium")},
 
     /* Color of borders. */
-    {CSS_PROPERTY_BORDER_TOP_COLOR,    0, 0, {CSS_TYPE_COPYCOLOR, 0}},
-    {CSS_PROPERTY_BORDER_BOTTOM_COLOR, 0, 0, {CSS_TYPE_COPYCOLOR, 0}},
-    {CSS_PROPERTY_BORDER_LEFT_COLOR,   0, 0, {CSS_TYPE_COPYCOLOR, 0}},
-    {CSS_PROPERTY_BORDER_RIGHT_COLOR,  0, 0, {CSS_TYPE_COPYCOLOR, 0}},
+    {CSS_PROPERTY_BORDER_TOP_COLOR,    0, 0, {CSS_TYPE_COPYCOLOR, {0}}},
+    {CSS_PROPERTY_BORDER_BOTTOM_COLOR, 0, 0, {CSS_TYPE_COPYCOLOR, {0}}},
+    {CSS_PROPERTY_BORDER_LEFT_COLOR,   0, 0, {CSS_TYPE_COPYCOLOR, {0}}},
+    {CSS_PROPERTY_BORDER_RIGHT_COLOR,  0, 0, {CSS_TYPE_COPYCOLOR, {0}}},
 
     /* Style of borders. */
     {CSS_PROPERTY_BORDER_TOP_STYLE,    0, mapBorderStyle, CSS_NONE},
@@ -589,28 +590,28 @@ static PropMapEntry propmapdata[] = {
     {CSS_PROPERTY_BORDER_RIGHT_STYLE,  0, mapBorderStyle, CSS_NONE},
 
     /* Padding */
-    {CSS_PROPERTY_PADDING_TOP,    0, mapPadding, {CSS_TYPE_PX, 0}},
-    {CSS_PROPERTY_PADDING_LEFT,   0, mapPadding, {CSS_TYPE_PX, 0}},
-    {CSS_PROPERTY_PADDING_RIGHT,  0, mapPadding, {CSS_TYPE_PX, 0}},
-    {CSS_PROPERTY_PADDING_BOTTOM, 0, mapPadding, {CSS_TYPE_PX, 0}},
+    {CSS_PROPERTY_PADDING_TOP,    0, mapPadding, {CSS_TYPE_PX, {0}}},
+    {CSS_PROPERTY_PADDING_LEFT,   0, mapPadding, {CSS_TYPE_PX, {0}}},
+    {CSS_PROPERTY_PADDING_RIGHT,  0, mapPadding, {CSS_TYPE_PX, {0}}},
+    {CSS_PROPERTY_PADDING_BOTTOM, 0, mapPadding, {CSS_TYPE_PX, {0}}},
 
     /* Margins */
-    {CSS_PROPERTY_MARGIN_TOP,    0, 0, {CSS_TYPE_PX, 0}},
-    {CSS_PROPERTY_MARGIN_LEFT,   0, 0, {CSS_TYPE_PX, 0}},
-    {CSS_PROPERTY_MARGIN_RIGHT,  0, 0, {CSS_TYPE_PX, 0}},
-    {CSS_PROPERTY_MARGIN_BOTTOM, 0, 0, {CSS_TYPE_PX, 0}},
+    {CSS_PROPERTY_MARGIN_TOP,    0, 0, {CSS_TYPE_PX, {0}}},
+    {CSS_PROPERTY_MARGIN_LEFT,   0, 0, {CSS_TYPE_PX, {0}}},
+    {CSS_PROPERTY_MARGIN_RIGHT,  0, 0, {CSS_TYPE_PX, {0}}},
+    {CSS_PROPERTY_MARGIN_BOTTOM, 0, 0, {CSS_TYPE_PX, {0}}},
 
-    {CSS_PROPERTY_BORDER_SPACING, 1, mapBorderSpacing, {CSS_TYPE_PX, 0}},
+    {CSS_PROPERTY_BORDER_SPACING, 1, mapBorderSpacing, {CSS_TYPE_PX, {0}}},
     {CSS_PROPERTY_LIST_STYLE_TYPE, 1, 0, CSSSTR("disc")},
 
     /* Custom Tkhtml properties */
-    {CSS_PROPERTY__TKHTML_REPLACE, 0, 0, {CSS_TYPE_NONE, 0}},
+    {CSS_PROPERTY__TKHTML_REPLACE, 0, 0, {CSS_TYPE_NONE, {0}}},
 };
 
 static int propMapisInit = 0;
 static PropMapEntry *propmap[130];
 static int idxmap[130];
-static CssProperty StaticInherit = {CSS_CONST_INHERIT, 0};
+static CssProperty StaticInherit = {CSS_CONST_INHERIT, {0}};
 
 /*
  *---------------------------------------------------------------------------
@@ -657,7 +658,6 @@ HtmlPropertyCache *
 HtmlNewPropertyCache()
 {
     HtmlPropertyCache *pRet;
-    int i;
     const int nBytes = 
             sizeof(HtmlPropertyCache) +
             (sizeof(propmapdata)/sizeof(PropMapEntry)) * sizeof(CssProperty *);

@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmltcl.c,v 1.39 2005/10/10 14:03:15 danielk1977 Exp $";
+        "@(#) $Id: htmltcl.c,v 1.40 2005/10/11 04:22:39 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -43,6 +43,9 @@ static char const rcsid[] =
 #include <assert.h>
 #include "html.h"
 #include "swproc.h"
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 #define SafeCheck(interp,str) if (Tcl_IsSafe(interp)) { \
     Tcl_AppendResult(interp, str, " invalid in safe interp", 0); \
@@ -545,7 +548,7 @@ handlerNodeCmd(clientData, interp, objc, objv)
     pEntry = Tcl_CreateHashEntry(&pTree->aNodeHandler,(char *)tag,&newentry);
     if (!newentry) {
         Tcl_Obj *pOld = (Tcl_Obj *)Tcl_GetHashValue(pEntry);
-        Tcl_DecrRefCount(pScript);
+        Tcl_DecrRefCount(pOld);
     }
 
     Tcl_IncrRefCount(pScript);
@@ -1079,7 +1082,6 @@ swproc_rtCmd(clientData, interp, objc, objv)
     Tcl_Obj *apObj[2];
     int rc;
     int ii;
-    HtmlTree *pTree = (HtmlTree *)clientData;
 
     assert(sizeof(apObj)/sizeof(apObj[0])+1 == sizeof(aConf)/sizeof(aConf[0]));
     rc = SwprocRt(interp, objc - 1, &objv[1], aConf, apObj);
@@ -1145,7 +1147,7 @@ swproc_rtCmd(clientData, interp, objc, objv)
                 }
             }
 
-            ckfree(aScriptConf);
+            ckfree((char *)aScriptConf);
         }
 
         for (ii = 0; ii < sizeof(apObj)/sizeof(apObj[0]); ii++) {

@@ -39,6 +39,8 @@
  */
 
 #include <tcl.h>
+#include <strings.h>
+#include <ctype.h>
 #include "html.h"
 
 /*

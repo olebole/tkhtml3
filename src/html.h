@@ -287,6 +287,9 @@ Tcl_ObjCmdProc HtmlWidgetScroll;
 Tcl_ObjCmdProc HtmlWidgetMapControls;
 
 int HtmlStyleParse(HtmlTree *, Tcl_Interp*, Tcl_Obj *, Tcl_Obj *, Tcl_Obj *);
+void HtmlTokenizerAppend(HtmlTree *, const char *, int);
+int HtmlNameToType(void *, char *);
+Html_u8 HtmlMarkupFlags(int);
 
 void HtmlTreeFree(HtmlTree *p);
 int HtmlWalkTree(HtmlTree *, int (*)(HtmlTree *, HtmlNode *));

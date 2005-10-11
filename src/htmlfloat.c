@@ -105,6 +105,9 @@ floatListPrint(pList)
     }
     printf("%s end=%d\n", Tcl_GetString(pObj), pList->yend);
     Tcl_DecrRefCount(pObj);
+
+    /* Prevent a "floatListPrint() is defined but not used" warning. */
+    if (0) floatListPrint(pList);
 }
 
 /*
@@ -298,8 +301,6 @@ HtmlFloatListAdd(pList, side, x, y1, y2)
     int y1;
     int y2;
 {
-    int ymax = y1 - 1;
-    int state = 0;
     FloatListEntry *pEntry;
 
     if (y1 == y2) {
@@ -567,7 +568,6 @@ HtmlFloatListMargins(pList, y1, y2, pLeft, pRight)
     int *pLeft;
     int *pRight;
 {
-    FloatListEntry *pEntry;
     int y1Normal = y1 - pList->yorigin;
     int y2Normal = y2 - pList->yorigin;
 

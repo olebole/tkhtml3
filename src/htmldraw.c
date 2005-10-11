@@ -34,6 +34,7 @@
 
 #include "html.h"
 #include <assert.h>
+#include <X11/Xutil.h>
 
 #define CANVAS_QUAD    1
 #define CANVAS_TEXT    2
@@ -771,7 +772,6 @@ getPixmap(pTree, xcanvas, ycanvas, w, h)
     Display *pDisplay;
     Tk_Window win = pTree->win;
     HtmlCanvasItem *pItem;
-    XColor *pWhite;
 
     GC gc = 0;
     XGCValues gc_values;
@@ -1346,7 +1346,6 @@ HtmlLayoutBbox(clientData, interp, objc, objv)
     int objc;                          /* Number of arguments. */
     Tcl_Obj *CONST objv[];             /* Argument strings. */
 {
-    int rc;
     Tcl_CmdInfo info;
     HtmlNode *pNode = 0;
     HtmlTree *pTree = (HtmlTree *)clientData;

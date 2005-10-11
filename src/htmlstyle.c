@@ -65,7 +65,7 @@ HtmlStyleParse(pTree, interp, pStyleText, pId, pImportCmd)
     Tcl_Obj *pId;
     Tcl_Obj *pImportCmd;
 {
-    int stylesheet_origin;
+    int stylesheet_origin = 0;
     Tcl_Obj *pStyleId = 0;
     CONST char *zId;
 
@@ -121,8 +121,6 @@ int styleNode(pTree, pNode)
     HtmlTree *pTree; 
     HtmlNode *pNode;
 {
-    CssProperties **ppProp;
-    CssProperty *pReplace;
     CONST char *zStyle;      /* Value of "style" attribute for node */
 
     if (!HtmlNodeIsText(pNode)) {

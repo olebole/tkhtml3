@@ -799,7 +799,6 @@ nodeCommand(clientData, interp, objc, objv)
             break;
         }
         case NODE_TEXT: {
-            int tag;
             int space_ok = 0;
             HtmlToken *pToken;
             Tcl_Obj *pRet = Tcl_NewObj();
