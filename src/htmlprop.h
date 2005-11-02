@@ -190,6 +190,8 @@ struct HtmlPropertyValuesCreator {
     HtmlNode *pNode;
     unsigned int em_mask;
     unsigned int ex_mask;
+
+    CssProperty *pDeleteList;
 };
 
 /*

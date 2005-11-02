@@ -143,9 +143,6 @@ PRE, PLAINTEXT, XMP {
 TD[nowrap] ,     TH[nowrap]     { white-space: nowrap; }
 TD[nowrap="0"] , TH[nowrap="0"] { white-space: normal; }
 
-BR[clear="all"]   { clear: both }
-BR[clear="left"]  { clear: left }
-BR[clear="right"] { clear: right }
 BR { 
     display: block;
     height: 1em;
@@ -153,46 +150,27 @@ BR {
 /* BR:before       { content: "\A" } */
 
 
-
-
 /*
- * The following is non-standard CSS syntax to do some mapping between HTML
- * attributes and CSS properties. The syntax used here is really an internal
- * interface, subject to change without notice. There are three special values
- * that may be assigned to properties:
- *
- *     attr(X)
- *         Sets the property to the value of html attribute X for the node
- *         matched by the selector.
- *
- *     ancestor_attr(X, Y)
- *         X is a tag type (i.e. table) and Y is an html attribute name (i.e.
- *         border). This syntax sets the property to the value of attribute Y
- *         if the selected node is of type X, or to the value of attribute Y
- *         from the nearest ancestor of type X.
- *
- *     ancestor_attr_exists(X, Y, Z) 
- *         Arguments X and Y are treated in the same way as for the
- *         ancestor_attr() syntax above. Z is parsed as a regular CSS property
- *         value. If the attribute identified by X and Y exists, then the
- *         property is set to Z.
- *
- * For all of the above, if the requested attribute does not exist, then this
- * is treated as if the declaration was a syntax error (i.e. as if the
- * declaration was not present - some lower priority is used to determine the
- * property value instead).
+ *************************************************************************
+ * Below this point are stylesheet rules for mapping presentational 
+ * attributes of Html to CSS property values. Strictly speaking, this 
+ * shouldn't be specified here (in the UA stylesheet), but it doesn't matter
+ * in practice. See CSS 2.1 spec for more details.
  */
 
+
 /* 'color' */
-[color]              { color: attr(color) }
-body a[href]:link    { color: ancestor_attr(body, link) }
-body a[href]:visited { color: ancestor_attr(body, vlink) }
+[color]              { color: tcl(::tkhtml::attr color) }
+body a[href]:link    { color: tcl(::tkhtml::aa body link) }
+body a[href]:visited { color: tcl(::tkhtml::aa body vlink) }
 
 /* 'width', 'height', 'background-color' and 'font-size' */
-[width]                    { width: attr(width) }
-[height]                   { height: attr(height) }
-[bgcolor]                  { background-color: attr(bgcolor) }
-font[size], basefont[size] { font-size: attr(size) }
+[width]                    { width:            tcl(::tkhtml::attr width -len) }
+[height]                   { height:           tcl(::tkhtml::attr height -len) }
+font[size], basefont[size] { font-size:        tcl(::tkhtml::attr size) }
+[bgcolor]                  { background-color: tcl(::tkhtml::attr bgcolor) }
+
+BR[clear]   { clear: tcl(::tkhtml::attr clear) }
 
 /*
  * Properties of table cells (th, td):
@@ -203,33 +181,30 @@ font[size], basefont[size] { font-size: attr(size) }
  *     'border-spacing'
  */
 table[border], table[border] td, table[border] th {
-    border-top-width:    ancestor_attr(table, border);
-    border-right-width:  ancestor_attr(table, border);
-    border-bottom-width: ancestor_attr(table, border);
-    border-left-width:   ancestor_attr(table, border);
-    border-top-style:    ancestor_attr_exists(table, border, solid);
-    border-right-style:  ancestor_attr_exists(table, border, solid);
-    border-bottom-style: ancestor_attr_exists(table, border, solid);
-    border-left-style:   ancestor_attr_exists(table, border, solid);
+    border-top-width:     tcl(::tkhtml::aa table border -len);
+    border-right-width:   tcl(::tkhtml::aa table border -len);
+    border-bottom-width:  tcl(::tkhtml::aa table border -len);
+    border-left-width:    tcl(::tkhtml::aa table border -len);
+
+    border-top-style:     tcl(::tkhtml::aa table border -if solid);
+    border-right-style:   tcl(::tkhtml::aa table border -if solid);
+    border-bottom-style:  tcl(::tkhtml::aa table border -if solid);
+    border-left-style:    tcl(::tkhtml::aa table border -if solid);
 }
 table[border=""], table[border=""] td, table[border=""] th {
-    border-top-width:    ancestor_attr_exists(table, border, 1px);
-    border-right-width:  ancestor_attr_exists(table, border, 1px);
-    border-bottom-width: ancestor_attr_exists(table, border, 1px);
-    border-left-width:   ancestor_attr_exists(table, border, 1px);
-    border-top-style:    ancestor_attr_exists(table, border, solid);
-    border-right-style:  ancestor_attr_exists(table, border, solid);
-    border-bottom-style: ancestor_attr_exists(table, border, solid);
-    border-left-style:   ancestor_attr_exists(table, border, solid);
+    border-top-width:     tcl(::tkhtml::aa table border -if 1px);
+    border-right-width:   tcl(::tkhtml::aa table border -if 1px);
+    border-bottom-width:  tcl(::tkhtml::aa table border -if 1px);
+    border-left-width:    tcl(::tkhtml::aa table border -if 1px);
 }
 table[cellpadding] td, table[cellpadding] th {
-    padding-top:    ancestor_attr(table, cellpadding);
-    padding-right:  ancestor_attr(table, cellpadding);
-    padding-bottom: ancestor_attr(table, cellpadding);
-    padding-left:   ancestor_attr(table, cellpadding);
+    padding-top:    tcl(::tkhtml::aa table cellpadding -len);
+    padding-right:  tcl(::tkhtml::aa table cellpadding -len);
+    padding-bottom: tcl(::tkhtml::aa table cellpadding -len);
+    padding-left:   tcl(::tkhtml::aa table cellpadding -len);
 }
 table[cellspacing] td, table[cellspacing] th {
-    border-spacing: ancestor_attr(table, cellspacing);
+    border-spacing: tcl(::tkhtml::aa table cellspacing -len);
 }
 
 

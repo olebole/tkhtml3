@@ -60,6 +60,44 @@ bind Html <KeyPress-Prior>  { %W yview scroll -1 pages }
 
 namespace eval tkhtml {
     set PACKAGE_DIR [file dirname [info script]]
+
+    proc len {val} {
+        if {[regexp {^[0-9]+$} $val]} {
+            append val px
+        }
+        return $val
+    }
+
+    swproc attr {attr {len 0 1}} {
+        upvar N node
+        set val [$node attr $attr]
+        if {$len} {
+            set val [len $val]
+        }
+        return $val
+    }
+
+    swproc aa {tag attr {len 0 1} {if NULL}} {
+        upvar N node
+        for {} {$node != ""} {set node [$node parent]} {
+            if {[$node tag] == $tag} {
+                set val [$node attr $attr]
+                if {$len} {
+                    set val [len $val]
+                }
+                if {$if != "NULL"} {
+                    set val $if
+                }
+                return $val
+            }
+        }
+        error "No such ancestor attribute: $tag $attr"
+    }
+}
+
+proc ::tkhtml::aae {node tag attr val} {
+    ::tkhtml::aa $node $tag $attr
+    return $val
 }
 
 # Important variables:

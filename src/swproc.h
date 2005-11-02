@@ -17,4 +17,6 @@ typedef struct SwprocConf SwprocConf;
 
 int SwprocRt(Tcl_Interp *, int, Tcl_Obj *CONST[], SwprocConf *, Tcl_Obj **);
 
+int SwprocInit(Tcl_Interp *);
+
 #endif

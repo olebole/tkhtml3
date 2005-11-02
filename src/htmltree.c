@@ -747,16 +747,16 @@ nodeCommand(clientData, interp, objc, objv)
     switch ((enum NODE_enum)choice) {
         case NODE_ATTR: {
             char CONST *zAttr;
+            char *zAttrName;
             if (objc!=3) {
                 Tcl_WrongNumArgs(interp, 2, objv, "ATTRIBUTE");
                 return TCL_ERROR;
             }
-            zAttr = HtmlNodeAttr(pNode, Tcl_GetString(objv[2]));
+            zAttrName = Tcl_GetString(objv[2]);
+            zAttr = HtmlNodeAttr(pNode, zAttrName);
             if (zAttr==0) {
-                /* Todo: Maybe "no such attribute" should throw an
-                 * exception instead? 
-                 */
-                zAttr = "";
+                Tcl_AppendResult(interp, "No such attr: ", zAttrName, 0);
+                return TCL_ERROR;
             }
             Tcl_SetResult(interp, (char *)zAttr, TCL_VOLATILE);
             break;

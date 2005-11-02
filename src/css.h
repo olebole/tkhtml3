@@ -64,6 +64,7 @@
 typedef struct CssStyleSheet CssStyleSheet;
 typedef struct CssProperties CssProperties;
 typedef struct CssProperty CssProperty;
+typedef struct CssAttrFunction CssAttrFunction;
 
 /* Include html.h after we define our opaque types, because it includes
  * structures that contain pointers to them.
@@ -82,6 +83,10 @@ typedef struct CssProperty CssProperty;
 
 #define CSS_TYPE_TCL          8            /* Value in 'zVal' */
 #define CSS_TYPE_URL          9            /* Value in 'zVal' */
+
+#define CSS_TYPE_ATTR              17           /* Value in 'p' */
+#define CSS_TYPE_ANCESTOR_ATTR     18           /* Value in 'p' */
+#define CSS_TYPE_IF_ANCESTOR_ATTR  19           /* Value in 'p' */
 
 /* Physical units. */
 #define CSS_TYPE_CENTIMETER   10           /* Value in 'rVal */
@@ -105,6 +110,12 @@ struct CssProperty {
         char *zVal;
         void *p;
     } v;
+};
+
+struct CssAttrFunction {
+    const char *zAttr;           /* Attribute name */
+    int iAncestorTag;            /* Ancestor tag */
+    CssProperty *pProp;          /* Property value */
 };
 
 /*

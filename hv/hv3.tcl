@@ -16,14 +16,11 @@ package require sqlite3
 # but won't be able to load many image formats.
 catch { package require Img }
 
-# Source the other script files that are part of this application. The file
-# hv3_common.tcl must be sourced first, because other files use the
-# [swproc] construction it provides to declare procedures.
+# Source the other script files that are part of this application.
 #
 proc sourcefile {file} {
   source [file join [file dirname [info script]] $file] 
 }
-sourcefile hv3_common.tcl
 sourcefile hv3_url.tcl
 
 ###########################################################################
@@ -86,9 +83,12 @@ proc gui_build {} {
     .vscroll configure -command "$HTML yview"
 
     bind $HTML <Motion> "handle_event motion %x %y"
-    bind $HTML <ButtonPress> "handle_event click %x %y"
+    bind $HTML <ButtonPress-1> "handle_event click %x %y"
     bind $HTML <KeyPress-q> exit
     bind $HTML <KeyPress-Q> exit
+
+    bind $HTML <ButtonPress-4> "$HTML yview scroll -2 units"
+    bind $HTML <ButtonPress-5> "$HTML yview scroll 2 units"
 
     $HTML handler node link "handle_link_node"
     $HTML handler script style "handle_style_script"
