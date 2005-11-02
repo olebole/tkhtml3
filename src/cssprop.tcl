@@ -45,16 +45,16 @@
 # 
 # Sequential values are assigned to the '#define' starting at
 # CSS_CONST_MIN_CONSTANT and ending with CSS_CONST_MAX_CONSTANT.  The value
-# are always above 1000.
+# are always above 99.
 #
 # i.e:
 #
-#     #define CSS_CONST_MIN_CONSTANT 1000
-#     #define CSS_CONST_BLOCK        1000
-#     #define CSS_CONST_INLINE       1001
-#     #define CSS_CONST_LIST_ITEM    1002
-#     #define CSS_CONST_NONE         1003
-#     #define CSS_CONST_MAX_CONSTANT 1003
+#     #define CSS_CONST_MIN_CONSTANT 100
+#     #define CSS_CONST_BLOCK        100
+#     #define CSS_CONST_INLINE       101
+#     #define CSS_CONST_LIST_ITEM    102
+#     #define CSS_CONST_NONE         103
+#     #define CSS_CONST_MAX_CONSTANT 103
 #
 # Two functions are also generated:
 #
@@ -79,7 +79,7 @@ C left right center justify                       ;# 'text-align'
 C auto                                            ;# 'margin'
 C square disc circle none                         ;# 'list-style-type'
 C italic oblique                                  ;# 'font-style'
-C bold bolder                                     ;# 'font-weight'
+C bold bolder lighter                             ;# 'font-weight'
 C top middle bottom baseline sub super            ;# 'vertical-align'
 C text-top text-bottom
 C underline overline line-through none            ;# 'text-decoration'
@@ -138,7 +138,7 @@ border-color border-style border-width cue font padding outline margin\
 # Return the C-code that defines the #define symbols for the CSS constants.
 #
 proc C_get_constants {} {
-    set val 1000
+    set val 100
     append ret "#define CSS_CONST_MIN_CONSTANT $val\n"
     foreach c [lsort -unique $::constants] {
         set foldedname [string map [list - _] [string toupper $c]]
@@ -248,11 +248,13 @@ puts $fd {#include <tcl.h>}
 puts $fd {}
 puts $fd [C_get_constants]
 set i 0
+puts $fd "#define CSS_PROPERTY_MIN_PROPERTY $i"
 foreach p $properties {
   set str [string map {- _} [string toupper $p]]
   puts $fd "#define CSS_PROPERTY_$str $i"
   incr i
 }
+puts $fd "#define CSS_PROPERTY_MAX_PROPERTY [expr $i -1]"
 foreach s $shortcut_properties {
   set str [string map {- _} [string toupper $s]]
   puts $fd "#define CSS_SHORTCUTPROPERTY_$str $i"

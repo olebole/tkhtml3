@@ -2161,9 +2161,7 @@ void HtmlCssPropertiesFree(pPropertySet)
 /*
  *---------------------------------------------------------------------------
  *
- * ruleToPropertyCache --
- *
- *     Copy the properties in rule pRule into the property-cache of pNode.
+ * ruleToPropertyValues --
  *
  * Results:
  *     None.
@@ -2174,19 +2172,24 @@ void HtmlCssPropertiesFree(pPropertySet)
  *---------------------------------------------------------------------------
  */
 static void 
-ruleToPropertyCache(pNode, pRule)
-    HtmlNode *pNode;
+ruleToPropertyValues(p, aPropDone, pRule)
+    HtmlPropertyValuesCreator *p;
+    int *aPropDone;
     CssRule *pRule;
 {
-    HtmlPropertyCache *pCache = pNode->pPropCache;
     CssPropertySet *pSet = pRule->pPropertySet;
     int i;
 
-    assert(pCache);
     assert(pSet);
 
     for (i = 0; i < pSet->n; i++) {
-        HtmlSetPropertyCache(pCache, pSet->a[i].eProp, pSet->a[i].pProp);
+        int eProp = pSet->a[i].eProp;
+        assert(eProp <= CSS_PROPERTY_MAX_PROPERTY);
+        if (0 == aPropDone[eProp]) {
+            if (0 == HtmlPropertyValuesSet(p, eProp, pSet->a[i].pProp)) {
+                aPropDone[eProp] = 1;
+            }
+        }
     }
 }
 
@@ -2194,23 +2197,48 @@ ruleToPropertyCache(pNode, pRule)
  *
  * HtmlCssStyleSheetApply --
  *
+ *     Argument pStyle contains the current stylesheet configuration for the
+ *     document. It is assumed that pNode->pStyle contains the stylesheet
+ *     parsed from any HTML style attribute attached to the node and that the
+ *     nodes property cache has been allocated but not yet populated. Once this
+ *     function returns, the property-cache of pNode is filled in with the
+ *     styler output for the node.
+ *
  * Results:
+ *
+ *     None.
  *
  * Side effects:
  *
  *--------------------------------------------------------------------------
  */
 void 
-HtmlCssStyleSheetApply(pStyle, pNode)
-    CssStyleSheet *pStyle; 
+HtmlCssStyleSheetApply(pTree, pNode)
+    HtmlTree *pTree; 
     HtmlNode *pNode; 
 {
-    CssRule *pRule;
-    int style_done = 0;
-    int attributes_done = 0;
+    CssStyleSheet *pStyle = pTree->pStyle;    /* Stylesheet config */
+    CssRule *pRule;                           /* Iterator variable */
+    int style_done = 0;      /* Set after considering the html "style" attr */
 
-    pRule = pStyle->pUniversalRules;
-    while( pRule ){
+    HtmlPropertyValuesCreator sCreator;
+
+    /* The array aPropDone is large enough to contain an entry for each
+     * property recognized by the CSS parser (approx 110, includes many that
+     * Tkhtml does not use). After a property value is successfully written
+     * into sCreator, the matching aPropDone entry is set to true.
+     */
+    int aPropDone[CSS_PROPERTY_MAX_PROPERTY + 1];
+
+    /* Initialise aPropDone and sCreator */
+    HtmlPropertyValuesInit(pTree, pNode, &sCreator);
+    memset(aPropDone, 0, sizeof(aPropDone));
+    assert(sizeof(aPropDone) == sizeof(int) * (CSS_PROPERTY_MAX_PROPERTY+1));
+
+    /* Loop through the list of CSS rules in the stylesheet. Rules that occur
+     * earlier in the list have a higher priority than those that occur later.
+     */
+    for (pRule = pStyle->pUniversalRules; pRule; pRule = pRule->pNext) {
         CssPriority *pPriority = pRule->pPriority;
 
         /* If this rule is not "!important", and is on either the user or
@@ -2225,41 +2253,27 @@ HtmlCssStyleSheetApply(pStyle, pNode)
         ) {
             style_done = 1;
             if (pNode->pStyle) {
+                CssRule *pRule2 = pNode->pStyle->apRule[0];
                 assert(pNode->pStyle->nRule == 1);
-                ruleToPropertyCache(pNode, pNode->pStyle->apRule[0]); 
+                ruleToPropertyValues(&sCreator, aPropDone, pRule2);
             }
         }
 
-        /* If this rule is not "!important", and is on either the user or
-         * agent stylesheet, or has a specificity of less than a single
-	 * class selector, then the nodes HTML attributes should be
-	 * considered before it.
-         */
-        if (!attributes_done && 
-            !pPriority->important &&
-            (pPriority->origin != CSS_ORIGIN_AUTHOR ||
-             pRule->specificity < 1)
-        ) {
-            attributes_done = 1;
-            HtmlAttributesToPropertyCache(pNode);
-        }
-
+        /* If the selector is a match for our node, apply the rule properties */
         if (selectorTest(pRule->pSelector, pNode)) {
-            ruleToPropertyCache(pNode, pRule);
+            ruleToPropertyValues(&sCreator, aPropDone, pRule);
         }
-
-        /* Advance pRule to the next rule */
-        pRule = pRule->pNext;
     }
 
     if (!style_done && pNode->pStyle) {
         assert(pNode->pStyle->nRule == 1);
-        ruleToPropertyCache(pNode, pNode->pStyle->apRule[0]);
+        ruleToPropertyValues(&sCreator, aPropDone, pNode->pStyle->apRule[0]);
     }
-    if (!attributes_done) {
-        HtmlAttributesToPropertyCache(pNode);
-    }
-    
+
+    /* Call HtmlPropertyValuesFinish() to finish creating teh
+     * HtmlPropertyValues structure.
+     */
+    pNode->pPropertyValues = HtmlPropertyValuesFinish(&sCreator);
 }
 
 /*--------------------------------------------------------------------------

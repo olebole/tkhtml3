@@ -31,7 +31,6 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
- * COPYRIGHT:
  */
 
 #ifndef __HTMLTREE_H__
@@ -42,6 +41,9 @@
 #endif
 
 #include <tk.h>
+#include <string.h>
+#include <assert.h>
+
 #include "htmltokens.h"
 
 #ifdef HTML_MACROS
@@ -91,6 +93,7 @@ typedef struct HtmlNativePropertyCache HtmlNativePropertyCache;
 typedef struct HtmlNodeReplacement HtmlNodeReplacement;
 
 #include "css.h"
+#include "htmlprop.h"
 
 typedef int (*HtmlContentTest)(HtmlNode *, int);
 
@@ -154,13 +157,24 @@ struct HtmlNativePropertyCache {
     XColor *color;             /* Color. */
 };
 
+/*
+ * For a replaced node, the HtmlNode.pReplacement variable points to an
+ * instance * of the following structure. The member objects are the name of
+ * the replaced object (an image or widget handle), the configure script if
+ * any, and the delete script if any. i.e. in Tcl:
+ *
+ *     $nodeHandle replace $pReplace \
+ *             -configurecmd $pConfigure -deletecmd $pDelete
+ *    
+ */
 struct HtmlNodeReplacement {
-    Tcl_Obj *pReplace;
-    Tcl_Obj *pConfigure;
-    Tcl_Obj *pDelete;
+    Tcl_Obj *pReplace;            /* Image or window name */
+    Tcl_Obj *pConfigure;          /* Script passed to -configurecmd */
+    Tcl_Obj *pDelete;             /* Script passed to -deletecmd */
 };
 
-/* Each node of the document tree is represented as an HtmlNode structure.
+/* 
+ * Each node of the document tree is represented as an HtmlNode structure.
  * This structure carries no information to do with the node itself, it is
  * simply used to build the tree structure. All the information for the
  * node is stored in the HtmlToken object.
@@ -171,14 +185,20 @@ struct HtmlNode {
     int nChild;                    /* Number of child nodes */
     HtmlNode **apChildren;         /* Array of pointers to children nodes */
 
-    CssProperties *pProperties;    /* The CSS properties from stylesheets */
-    CssProperties *pStyle;         /* The CSS properties from style attribute */
+    HtmlPropertyValues *pPropertyValues;     /* CSS property values */
+    Tcl_Obj *pCommand;                       /* Tcl command for this node */
+    HtmlNodeReplacement *pReplacement;       /* Replaced object, if any */
 
+    CssProperties *pStyle;     /* The CSS properties from style attribute */
+
+    /* Variables used by the layout engine */
+    int iBlockWidth;
+
+#if 0
+    CssProperties *pProperties;    /* The CSS properties from stylesheets */
     HtmlPropertyCache *pPropCache; /* Cached properties */
     HtmlNativePropertyCache cache;
-
-    Tcl_Obj *pCommand;                  /* Tcl command for this node. */
-    HtmlNodeReplacement *pReplacement;  /* Replaced object, if any */
+#endif
 };
 
 struct HtmlScaledImage {
@@ -212,7 +232,7 @@ struct HtmlOptions {
 };
 
 /* 
- * The Tk-windows used by the widget is stored in variable tkwin.
+ * The Tk-window used by the widget is stored in variable tkwin.
  * 
  * Variable 'iCol' stores the number of characters tokenized since the last
  * newline encountered in the document source. When we encounter a TAB
@@ -257,14 +277,25 @@ struct HtmlTree {
 
     CssStyleSheet *pStyle;          /* Style sheet configuration */
 
+#if 0
     Tcl_HashTable aFontCache;       /* All fonts used by canvas (by name) */
     Tcl_HashTable aColor;           /* All colors used by canvas (by name) */ 
     XColor *pBlack;                 /* Default color. */
+#endif
 
     Tcl_HashTable aImage;           /* All images used by document (by name) */ 
     HtmlCanvas canvas;              /* Canvas to render into */
     HtmlOptions options;            /* Configurable options */
     Tk_OptionTable optionTable;     /* Option table */
+
+    /* 
+     * Tables managed by code in htmlprop.c. Initialised in function
+     * HtmlPropertyValuesSetupTables().
+     */
+    Tcl_HashTable aColor;
+    Tcl_HashTable aFont;
+    Tcl_HashTable aValues;
+    int aFontSizeTable[7];
 };
 
 #define MAX(x,y) ((x)>(y)?(x):(y))
@@ -346,6 +377,8 @@ void HtmlSetPropertyCache(HtmlPropertyCache *, int, CssProperty *);
 void HtmlAttributesToPropertyCache(HtmlNode *pNode);
 
 Tcl_HashKeyType * HtmlCaseInsenstiveHashType();
+Tcl_HashKeyType * HtmlFontKeyHashType();
+Tcl_HashKeyType * HtmlPropertyValuesHashType();
 
 #ifdef HTML_DEBUG
 void HtmlDrawComment(HtmlCanvas *, CONST char *zComment, int);

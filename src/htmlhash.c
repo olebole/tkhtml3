@@ -1,9 +1,15 @@
 /*
  * htmlhash.c --
  *
- *     This file contains code to extend the Tcl hash mechanism to use
- *     case-insensitive strings as hash-keys. This code was copied from the
- *     Tcl core code for regular string hashes and modified only slightly.
+ *     This file contains code to extend the Tcl hash mechanism with some
+ *     extra key-types used by the widget:
+ *
+ *         * case-insensitive strings
+ *         * HtmlFontKey structures
+ *         * HtmlPropertyValues structures
+ * 
+ *     The code for case-insensitive strings was copied from the Tcl core code
+ *     for regular string hashes and modified only slightly.
  *
  *----------------------------------------------------------------------------
  * Copyright (c) 2005 Eolas Technologies Inc.
@@ -40,13 +46,16 @@
 
 #include <tcl.h>
 #include <strings.h>
+#include <string.h>
 #include <ctype.h>
+#include <assert.h>
 #include "html.h"
+#include "htmlprop.h"
 
 /*
  *---------------------------------------------------------------------------
  *
- * compareKey --
+ * compareCaseInsensitiveKey --
  *
  *     The compare function for the case-insensitive string hash. Compare a
  *     new key to the key of an existing hash-entry.
@@ -60,12 +69,12 @@
  *---------------------------------------------------------------------------
  */
 static int 
-compareKey(keyPtr, hPtr)
+compareCaseInsensitiveKey(keyPtr, hPtr)
     VOID *keyPtr;               /* New key to compare. */
     Tcl_HashEntry *hPtr;        /* Existing key to compare. */
 {   
-    register CONST char *p1 = (CONST char *) keyPtr;
-    register CONST char *p2 = (CONST char *) hPtr->key.string;
+    CONST char *p1 = (CONST char *) keyPtr;
+    CONST char *p2 = (CONST char *) hPtr->key.string;
 
     return !stricmp(p1, p2);
 }
@@ -73,7 +82,7 @@ compareKey(keyPtr, hPtr)
 /*
  *---------------------------------------------------------------------------
  *
- * hashKey --
+ * hashCaseInsensitiveKey --
  *
  *     Generate a 4-byte hash of the NULL-terminated string pointed to by 
  *     keyPtr. The hash is case-insensitive.
@@ -87,13 +96,13 @@ compareKey(keyPtr, hPtr)
  *---------------------------------------------------------------------------
  */
 static unsigned int 
-hashKey(tablePtr, keyPtr)
+hashCaseInsensitiveKey(tablePtr, keyPtr)
     Tcl_HashTable *tablePtr;    /* Hash table. */
     VOID *keyPtr;               /* Key from which to compute hash value. */
 {
-    register CONST char *string = (CONST char *) keyPtr;
-    register unsigned int result;
-    register int c;
+    CONST char *string = (CONST char *) keyPtr;
+    unsigned int result;
+    int c;
 
     result = 0;
 
@@ -106,7 +115,7 @@ hashKey(tablePtr, keyPtr)
 /*
  *---------------------------------------------------------------------------
  *
- * allocEntry --
+ * allocCaseInsenstiveEntry --
  *
  *     Allocate enough space for a Tcl_HashEntry and associated string key.
  *
@@ -119,7 +128,7 @@ hashKey(tablePtr, keyPtr)
  *---------------------------------------------------------------------------
  */
 static Tcl_HashEntry * 
-allocEntry(tablePtr, keyPtr)
+allocCaseInsenstiveEntry(tablePtr, keyPtr)
     Tcl_HashTable *tablePtr;    /* Hash table. */
     VOID *keyPtr;               /* Key to store in the hash table entry. */
 {
@@ -137,17 +146,6 @@ allocEntry(tablePtr, keyPtr)
     return hPtr;
 }
 
-/*
- * Hash key type for case-insensitive hash.
- */
-static Tcl_HashKeyType hash_key_type = {
-    0,                                  /* version */
-    0,                                  /* flags */
-    hashKey,                            /* hashKeyProc */
-    compareKey,                         /* compareKeysProc */
-    allocEntry,                         /* allocEntryProc */
-    NULL                                /* freeEntryProc */
-};
 
 /*
  *---------------------------------------------------------------------------
@@ -172,5 +170,349 @@ static Tcl_HashKeyType hash_key_type = {
 Tcl_HashKeyType *
 HtmlCaseInsenstiveHashType() 
 {
+    /*
+     * Hash key type for case-insensitive hash.
+     */
+    static Tcl_HashKeyType hash_key_type = {
+        TCL_HASH_KEY_TYPE_VERSION,          /* version */
+        0,                                  /* flags */
+        hashCaseInsensitiveKey,             /* hashKeyProc */
+        compareCaseInsensitiveKey,          /* compareKeysProc */
+        allocCaseInsenstiveEntry,           /* allocEntryProc */
+        NULL                                /* freeEntryProc */
+    };
     return &hash_key_type;
 }
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * hashFontKey --
+ *
+ *     Generate a 4-byte hash of the NULL-terminated string pointed to by 
+ *     keyPtr. The hash is case-insensitive.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static unsigned int 
+hashFontKey(tablePtr, keyPtr)
+    Tcl_HashTable *tablePtr;    /* Hash table. */
+    VOID *keyPtr;               /* Key from which to compute hash value. */
+{
+    HtmlFontKey *pKey = (HtmlFontKey *) keyPtr;
+    CONST char *zFontFamily = pKey->zFontFamily;
+    unsigned int result = 0;
+    int c;
+
+    for (c=*zFontFamily++ ; c ; c=*zFontFamily++) {
+        result += (result<<3) + c;
+    }
+    result += (result<<3) + pKey->iFontSize;
+    result += (result<<1) + (pKey->isItalic?1:0);
+    result += (result<<1) + (pKey->isBold?1:0);
+
+    return result;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * compareFontKey --
+ *
+ *     The compare function for the font-key hash. Compare a new key to the key
+ *     of an existing hash-entry.
+ *
+ * Results:
+ *     True if the two keys are the same, false if not.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+compareFontKey(keyPtr, hPtr)
+    VOID *keyPtr;               /* New key to compare. */
+    Tcl_HashEntry *hPtr;        /* Existing key to compare. */
+{   
+    HtmlFontKey *p1 = (HtmlFontKey *) keyPtr;
+    HtmlFontKey *p2 = (HtmlFontKey *) hPtr->key.string;
+
+    return ((
+        p1->iFontSize != p2->iFontSize ||
+        p1->isItalic != p2->isItalic ||
+        p1->isBold != p2->isBold ||
+        strcmp(p1->zFontFamily, p2->zFontFamily)
+    ) ? 0 : 1);
+}
+
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * allocFontEntry --
+ *
+ *     Allocate enough space for a Tcl_HashEntry and an HtmlFontKey key.
+ *
+ * Results:
+ *     Pointer to allocated TclHashEntry structure.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static Tcl_HashEntry * 
+allocFontEntry(tablePtr, keyPtr)
+    Tcl_HashTable *tablePtr;    /* Hash table. */
+    VOID *keyPtr;               /* Key to store in the hash table entry. */
+{
+    HtmlFontKey *pKey = (HtmlFontKey *)keyPtr;
+    unsigned int size;
+    Tcl_HashEntry *hPtr;
+    HtmlFontKey *pStoredKey;
+
+    assert(pKey->zFontFamily);
+    size = (
+        sizeof(Tcl_HashEntry) - sizeof(hPtr->key) +
+        strlen(pKey->zFontFamily) + 1 +
+        sizeof(HtmlFontKey)
+    );
+    assert(size >= sizeof(Tcl_HashEntry));
+
+    hPtr = (Tcl_HashEntry *) ckalloc(size);
+    pStoredKey = (HtmlFontKey *)(hPtr->key.string);
+    pStoredKey->iFontSize = pKey->iFontSize;
+    pStoredKey->isItalic = pKey->isItalic;
+    pStoredKey->isBold = pKey->isBold;
+    pStoredKey->zFontFamily = (char *)(&pStoredKey[1]);
+    strcpy((char *)pStoredKey->zFontFamily, pKey->zFontFamily);
+
+    return hPtr;
+}
+
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlFontKeyHashType --
+ *
+ *     Return a pointer to the hash key type for font-key hashes. The key-type
+ *     for the hash-table is HtmlFontKey (see htmlprop.h). This can be used to
+ *     initialize a hash table as follows:
+ *
+ *         Tcl_HashTable hash;
+ *         Tcl_HashKeyType *pFontKey = HtmlFontKeyHashType();
+ *         Tcl_InitCustomHashTable(&hash, TCL_CUSTOM_TYPE_KEYS, pFontKey);
+ *
+ * Results:
+ *     Pointer to hash_key_type (see above).
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+Tcl_HashKeyType * 
+HtmlFontKeyHashType() 
+{
+    /*
+     * Hash key type for font-key hash.
+     */
+    static Tcl_HashKeyType hash_key_type = {
+        TCL_HASH_KEY_TYPE_VERSION,          /* version */
+        0,                                  /* flags */
+        hashFontKey,                        /* hashKeyProc */
+        compareFontKey,                     /* compareKeysProc */
+        allocFontEntry,                     /* allocEntryProc */
+        NULL                                /* freeEntryProc */
+    };
+    return &hash_key_type;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * hashValuesKey --
+ *
+ *     Generate a 4-byte hash of the HtmlPropertyValues object pointed to by
+ *     keyPtr. All fields of the structure apart from 'nRef' may be used by
+ *     this function.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static unsigned int 
+hashValuesKey(tablePtr, keyPtr)
+    Tcl_HashTable *tablePtr;    /* Hash table. */
+    VOID *keyPtr;               /* Key from which to compute hash value. */
+{
+    HtmlPropertyValues *p= (HtmlPropertyValues *)keyPtr;
+    unsigned int result = 0;
+
+    result += (result<<3) + (int)(p->mask);
+    result += (result<<3) + (int)(p->eDisplay);
+    result += (result<<3) + (int)(p->eFloat);
+    result += (result<<3) + (int)(p->eClear);
+    result += (result<<3) + (int)(p->cColor);
+    result += (result<<3) + (int)(p->cBackgroundColor);
+    result += (result<<3) + (int)(p->eListStyleType);
+    result += (result<<3) + (int)(p->iVerticalAlign);
+    result += (result<<3) + (int)(p->iBorderSpacing);
+    result += (result<<3) + (int)(p->iLineHeight);
+    result += (result<<3) + (int)(p->fFont);
+    result += (result<<3) + (int)(p->eTextDecoration);
+    result += (result<<3) + (int)(p->eWhitespace);
+    result += (result<<3) + (int)(p->eTextAlign);
+    result += (result<<3) + (int)(p->iWidth);
+    result += (result<<3) + (int)(p->iMinWidth);
+    result += (result<<3) + (int)(p->iMaxWidth);
+    result += (result<<3) + (int)(p->iHeight);
+    result += (result<<3) + (int)(p->iMinHeight);
+    result += (result<<3) + (int)(p->iMaxHeight);
+    result += (result<<3) + (int)(p->padding.iTop);
+    result += (result<<3) + (int)(p->padding.iRight);
+    result += (result<<3) + (int)(p->padding.iBottom);
+    result += (result<<3) + (int)(p->padding.iLeft);
+    result += (result<<3) + (int)(p->margin.iTop);
+    result += (result<<3) + (int)(p->margin.iRight);
+    result += (result<<3) + (int)(p->margin.iBottom);
+    result += (result<<3) + (int)(p->margin.iLeft);
+    result += (result<<3) + (int)(p->eBorderTopStyle);
+    result += (result<<3) + (int)(p->eBorderRightStyle);
+    result += (result<<3) + (int)(p->eBorderBottomStyle);
+    result += (result<<3) + (int)(p->eBorderLeftStyle);
+    result += (result<<3) + (int)(p->border.iTop);
+    result += (result<<3) + (int)(p->border.iRight);
+    result += (result<<3) + (int)(p->border.iBottom);
+    result += (result<<3) + (int)(p->border.iLeft);
+    result += (result<<3) + (int)(p->cBorderTopColor);
+    result += (result<<3) + (int)(p->cBorderRightColor);
+    result += (result<<3) + (int)(p->cBorderBottomColor);
+    result += (result<<3) + (int)(p->cBorderLeftColor);
+
+    return result;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * compareValuesKey --
+ *
+ *     The compare function for the property-values hash. Compare a new key to
+ *     the key of an existing hash-entry.
+ *
+ * Results:
+ *     True if the two keys are the same, false if not.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+compareValuesKey(keyPtr, hPtr)
+    VOID *keyPtr;               /* New key to compare. */
+    Tcl_HashEntry *hPtr;        /* Existing key to compare. */
+{   
+    unsigned char *p1 = (unsigned char *) keyPtr;
+    unsigned char *p2 = (unsigned char *) hPtr->key.string;
+
+    static const int nBytes = sizeof(HtmlPropertyValues)-sizeof(int);
+
+    /* Do not compare the first field - nRef */
+    p1 += sizeof(int);
+    p2 += sizeof(int);
+
+    return (0 == memcmp(p1, p2, nBytes));
+}
+
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * allocValuesEntry --
+ *
+ *     Allocate enough space for a Tcl_HashEntry and an HtmlFontKey key.
+ *
+ * Results:
+ *     Pointer to allocated TclHashEntry structure.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static Tcl_HashEntry * 
+allocValuesEntry(tablePtr, keyPtr)
+    Tcl_HashTable *tablePtr;    /* Hash table. */
+    VOID *keyPtr;               /* Key to store in the hash table entry. */
+{
+    HtmlPropertyValues *pKey = (HtmlPropertyValues *)keyPtr;
+    HtmlPropertyValues *pStoredKey;
+    unsigned int size;
+    Tcl_HashEntry *hPtr;
+
+    size = (
+        sizeof(HtmlPropertyValues) +
+        sizeof(Tcl_HashEntry) - 
+        sizeof(hPtr->key)
+    );
+    assert(size >= sizeof(Tcl_HashEntry));
+
+    hPtr = (Tcl_HashEntry *) ckalloc(size);
+    pStoredKey = (HtmlPropertyValues *)(hPtr->key.string);
+    memcpy(pStoredKey, pKey, sizeof(HtmlPropertyValues));
+
+    return hPtr;
+}
+
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlPropertyValuesHashType --
+ *
+ *     Return a pointer to the hash key type for property-values hashes. The
+ *     key-type for the hash-table is HtmlFontKey (see htmlprop.h). This can be
+ *     used to initialize a hash table as follows:
+ *
+ *         Tcl_HashTable hash;
+ *         Tcl_HashKeyType *pFontKey = HtmlFontKeyHashType();
+ *         Tcl_InitCustomHashTable(&hash, TCL_CUSTOM_TYPE_KEYS, pFontKey);
+ *
+ * Results:
+ *     Pointer to hash_key_type (see above).
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+Tcl_HashKeyType * HtmlPropertyValuesHashType() 
+{
+    /*
+     * Hash key type for property-values hash.
+     */
+    static Tcl_HashKeyType hash_key_type = {
+        TCL_HASH_KEY_TYPE_VERSION,          /* version */
+        0,                                  /* flags */
+        hashValuesKey,                      /* hashKeyProc */
+        compareValuesKey,                   /* compareKeysProc */
+        allocValuesEntry,                   /* allocEntryProc */
+        NULL                                /* freeEntryProc */
+    };
+    return &hash_key_type;
+}
+

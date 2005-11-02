@@ -523,82 +523,99 @@ HtmlDrawQuad(a, b, c, d, e, f, g, h, i, j, pLayout->minmaxTest)
 #define DRAW_COMMENT(a, b) \
 HtmlDrawComment(a, b, pLayout->minmaxTest)
 
-#if 0
-/*
- *---------------------------------------------------------------------------
- *
- * propertyToConstant --
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-static int 
-propertyToConstant(pProp, zOptions, eOptions, eDefault)
-    CssProperty *pProp;
-    const char **zOptions;
-    int *eOptions;
-    int eDefault;
-{
-    if (pProp && pProp->eType==CSS_TYPE_STRING) {
-        CONST char *z = HtmlCssPropertyGetString(pProp);
-        while (*zOptions) {
-            if( 0==stricmp(z, *zOptions) ) return *eOptions;
-            eOptions++;
-            zOptions++;
-        }
-    }
-    return eDefault;
-}
+struct PixelDescription {
+    int offset;           /* Offset in HtmlPropertyValues to the iXXX var */
+    unsigned int mask;    /* Bit used to signify % in Values.mask */
+#ifndef NDEBUG
+    int allowAuto;
+    int allowNormal;
+    int allowNone;
+#endif
+};
+#ifndef NDEBUG
+    #define PD(v, w, x, y, z) {Tk_Offset(HtmlPropertyValues,v), w, x, y, z}
+#else
+    #define PD(v, w, x, y, z) {Tk_Offset(HtmlPropertyValues, v), w}
 #endif
 
-static CONST char *
-propertyToString(pProp, zDefault)
-    CssProperty *pProp; 
-    const char *zDefault;
+static struct PixelDescription pixel_descriptions [] = {
+
+#define PD_iWidth 0
+    PD(iWidth, PROP_MASK_WIDTH, 1, 0, 0),
+#define PD_iMinWidth 1
+    PD(iMinWidth, PROP_MASK_MINWIDTH, 0, 0, 0),
+#define PD_iMaxWidth 2
+    PD(iMaxWidth, PROP_MASK_MAXWIDTH, 0, 0, 1),
+
+#define PD_iHeight 3
+    PD(iHeight, PROP_MASK_HEIGHT, 1, 0, 0),
+#define PD_iMinHeight 4
+    PD(iMinHeight, PROP_MASK_MINHEIGHT, 0, 0, 0),
+#define PD_iMaxHeight 5
+    PD(iMaxHeight, PROP_MASK_MAXHEIGHT, 0, 0, 1),
+
+#define PD_iMarginTop 6
+    PD(margin.iTop, PROP_MASK_MARGINTOP, 1, 0, 0),
+#define PD_iMarginRight 7
+    PD(margin.iRight, PROP_MASK_MARGINRIGHT, 1, 0, 0),
+#define PD_iMarginBottom 8
+    PD(margin.iBottom, PROP_MASK_MARGINBOTTOM, 1, 0, 0),
+#define PD_iMarginLeft 9
+    PD(margin.iLeft, PROP_MASK_MARGINLEFT, 1, 0, 0),
+
+#define PD_iPaddingTop 10
+    PD(padding.iTop, PROP_MASK_PADDINGTOP, 0, 0, 0),
+#define PD_iPaddingRight 11
+    PD(padding.iRight, PROP_MASK_PADDINGRIGHT, 0, 0, 0),
+#define PD_iPaddingBottom 12
+    PD(padding.iBottom, PROP_MASK_PADDINGBOTTOM, 0, 0, 0),
+#define PD_iPaddingLeft 13
+    PD(padding.iLeft, PROP_MASK_PADDINGLEFT, 0, 0, 0),
+
+#define PD_iVerticalAlign 14
+    PD(padding.iLeft, PROP_MASK_VERTICALALIGN, 0, 0, 0),
+
+#define PD_iBorderWidthTop 15
+    PD(border.iTop, PROP_MASK_BORDERWIDTHTOP, 0, 0, 0),
+#define PD_iBorderWidthRight 16
+    PD(border.iRight, PROP_MASK_BORDERWIDTHRIGHT, 0, 0, 0),
+#define PD_iBorderWidthBottom 17
+    PD(border.iBottom, PROP_MASK_BORDERWIDTHBOTTOM, 0, 0, 0),
+#define PD_iBorderWidthLeft 18
+
+#define PD_iBorderSpacing 19
+    PD(border.iLeft, 0, 0, 0, 0),
+    PD(border.iLeft, 0, 0, 0, 0),
+};
+
+int 
+propertyValuesGetPixel(pNode, pPixel)
+    HtmlNode *pNode;
+    struct PixelDescription *pPixel;
 {
-    CONST char *z = HtmlCssPropertyGetString(pProp);
-    if (!z) {
-        z = zDefault;
+    int offset = pPixel->offset;
+    unsigned int mask = pPixel->mask;
+    int val = *(int *)(((unsigned char *)pNode->pPropertyValues) + offset);
+
+    if (val == PIXELVAL_INHERIT) {
+        HtmlNode *pParent = HtmlNodeParent(pNode);
+        assert(pParent);
+        return propertyValuesGetPixel(pParent, pPixel);
     }
-    return z;
+
+    if (pNode->pPropertyValues->mask & mask) {
+        val = (val * pNode->iBlockWidth) / 100;
+    }
+
+    assert(pPixel->allowAuto || val != PIXELVAL_AUTO);
+    assert(pPixel->allowNormal || val != PIXELVAL_NORMAL);
+    assert(pPixel->allowNone || val != PIXELVAL_NONE);
+
+    return val;
 }
 
-/*
- *---------------------------------------------------------------------------
- *
- * pixelsToPoints --
- *
- *     Convert a pixel length to points (1/72 of an inch). 
- *
- *     Note: An "inch" is an anachronism still in use in some of the more
- *           stubborn countries :). It is equivalent to approximately 25.4
- *           millimeters. 
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-static int 
-pixelsToPoints(pLayout, pixels)
-    LayoutContext *pLayout;
-    int pixels;
-{
-    double mm;
-    Tcl_Obj *pObj = Tcl_NewIntObj(pixels);
-    Tcl_IncrRefCount(pObj);
-    Tk_GetMMFromObj(pLayout->interp, pLayout->tkwin, pObj, &mm);
-    Tcl_DecrRefCount(pObj);
-    return (int) ((mm * 72.0 / 25.4) + 0.5);
-}
+#define GET_PIXEL_VALUE(pNode, var) \
+    propertyValuesGetPixel (pNode, &pixel_descriptions[PD_ ## var])
 
 /*
  *---------------------------------------------------------------------------
@@ -644,221 +661,6 @@ physicalToPixels(pLayout, rVal, type)
 /*
  *---------------------------------------------------------------------------
  *
- * propertyToPixels --
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-static int 
-propertyToPixels(pLayout, pNode, pProp, parentwidth, default_val)
-    LayoutContext *pLayout;
-    HtmlNode *pNode;
-    CssProperty *pProp;
-    int parentwidth;
-    int default_val;
-{
-    if (pProp) {
-        switch (pProp->eType) {
-            case CSS_TYPE_FLOAT:
-                return (int)(pProp->v.rVal);
-            case CSS_TYPE_PX:
-                return pProp->v.iVal;
-            case CSS_TYPE_EM: {
-                return pProp->v.rVal * nodeGetEmPixels(pLayout, pNode);
-            }
-            case CSS_TYPE_EX: {
-                return pProp->v.rVal * nodeGetExPixels(pLayout, pNode);
-            }
-            case CSS_TYPE_PERCENT: {
-                return (pProp->v.iVal * parentwidth) / 100;
-            }
-            case CSS_TYPE_CENTIMETER: {
-                return physicalToPixels(pLayout, pProp->v.rVal, 'c');
-            }
-            case CSS_TYPE_MILLIMETER: {
-                return physicalToPixels(pLayout, pProp->v.rVal, 'm');
-            }
-            case CSS_TYPE_INCH: {
-                return physicalToPixels(pLayout, pProp->v.rVal, 'i');
-            }
-            case CSS_TYPE_PC: {
-                return physicalToPixels(pLayout, pProp->v.rVal * 12.0, 'p');
-            }
-            case CSS_TYPE_PT: {
-                return physicalToPixels(pLayout, (double)pProp->v.iVal, 'p');
-            }
-        }
-    }
-
-    return default_val;
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * propertyToColor --
- *
- *     Convert a CSS property to an XColor*.
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-static XColor *
-propertyToColor(pLayout, pProp)
-    LayoutContext *pLayout;
-    CssProperty *pProp;
-{
-    XColor *color = 0;
-    CONST char *zColor = 0;
-    Tk_Window tkwin = pLayout->tkwin;
-    Tcl_Interp *interp = pLayout->interp;
-
-    /* The following constants are the web standard colors. */
-    switch (pProp->eType) {
-        case CSS_TYPE_XCOLOR:   
-            assert(pProp->v.p);
-            return (XColor *)pProp->v.p;
-        case CSS_CONST_BLACK: {
-            HtmlTree *pTree = pLayout->pTree;
-            if (!pTree->pBlack) {
-                pTree->pBlack = Tk_GetColor(interp, tkwin, "#000000");
-                assert(pTree->pBlack);
-            }
-            return pTree->pBlack;
-        };
-        case CSS_CONST_SILVER:  zColor = "#C0C0C0"; break;
-        case CSS_CONST_GRAY:    zColor = "#808080"; break;
-        case CSS_CONST_WHITE:   zColor = "#FFFFFF"; break;
-        case CSS_CONST_MAROON:  zColor = "#800000"; break;
-        case CSS_CONST_RED:     zColor = "#FF0000"; break;
-        case CSS_CONST_PURPLE:  zColor = "#800080"; break;
-        case CSS_CONST_FUCHSIA: zColor = "#FF00FF"; break;
-        case CSS_CONST_GREEN:   zColor = "#008000"; break;
-        case CSS_CONST_LIME:    zColor = "#00FF00"; break;
-        case CSS_CONST_OLIVE:   zColor = "#808000"; break;
-        case CSS_CONST_YELLOW:  zColor = "#FFFF00"; break;
-        case CSS_CONST_NAVY:    zColor = "#000080"; break;
-        case CSS_CONST_BLUE:    zColor = "#0000FF"; break;
-        case CSS_CONST_TEAL:    zColor = "#008080"; break;
-        case CSS_CONST_AQUA:    zColor = "#00FFFF"; break;
-        case CSS_TYPE_STRING:
-            zColor = HtmlCssPropertyGetString(pProp);
-    }
-
-    if (zColor) {
-        int newentry = 1;
-        Tcl_HashTable *pHash = &pLayout->pTree->aColor;
-        Tcl_HashEntry *pEntry;
-
-        pEntry = Tcl_CreateHashEntry(pHash, zColor, &newentry);
-        if (!newentry) {
-            color = (XColor *)Tcl_GetHashValue(pEntry);
-        } else {
-            color = Tk_GetColor(interp, tkwin, zColor);
-            if (!color && strlen(zColor) <= 12) {
-		/* Old versions of netscape used to support hex colors
-		 * without the '#' character (i.e. "FFF" is the same as
-		 * "#FFF"). So naturally this has become a defacto
-		 * standard, even though it is obviously wrong.
-                 */
-                char zBuf[14];
-                sprintf(zBuf, "#%s", zColor);
-                color = Tk_GetColor(interp, tkwin, zBuf);
-            }
- 
-            if (!color) {
-                Tcl_DeleteHashEntry(pEntry);
-            } else {
-                Tcl_SetHashValue(pEntry, color);
-                pProp->eType = CSS_TYPE_XCOLOR;
-                pProp->v.p = (void *)color;
-            }
-        }
-    }
-
-    return color;
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * propertyIsAuto --
- *
- *     Return non-zero if the CSS property passed as the first argument
- *     takes the string value "auto".
- *
- * Results:
- *     See above.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-static int propertyIsAuto(pProp)
-    CssProperty *pProp;
-{
-    assert(pProp);
-    return (pProp->eType == CSS_CONST_AUTO);
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * bwToPixels --
- *
- *     This function interprets a CSS property as a border-width and
- *     returns the corresponding number of pixels to use. A border length
- *     property may be either a <length> value or one of the constant
- *     strings "thin", "medium" or "thick".
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-static int 
-bwToPixels(pLayout, pNode, pProp, parentwidth, default_val)
-    LayoutContext *pLayout;
-    HtmlNode *pNode;
-    CssProperty *pProp;
-    int parentwidth;
-    int default_val;
-{
-    int ret;
-    switch (pProp->eType) {
-        case CSS_CONST_THIN:
-            ret = 1;
-            break;
-        case CSS_CONST_MEDIUM:
-            ret = 2;
-            break;
-        case CSS_CONST_THICK:
-            ret = 4;
-            break;
-        default:
-            ret = propertyToPixels(
-                    pLayout, pNode, pProp, parentwidth, default_val);
-    }
-    return ret;
-}
-
-/*
- *---------------------------------------------------------------------------
- *
  * nodeGetDisplay --
  *
  *     Query the 'display', 'position' and 'float' properties of a node.
@@ -890,30 +692,10 @@ nodeGetDisplay(pLayout, pNode, pDisplayProperties)
         c = CLEAR_NONE;
         d = DISPLAY_INLINE;
     } else {
-        CssProperty *pProp;
-        pProp = HtmlNodeGetProperty(pLayout->interp,pNode,CSS_PROPERTY_DISPLAY);
-        d = pProp->eType;
-        if (d != DISPLAY_INLINE    && d != DISPLAY_BLOCK && 
-            d != DISPLAY_NONE      && d != DISPLAY_LISTITEM && 
-            d != DISPLAY_TABLE     && d != DISPLAY_NONE &&
-            d != DISPLAY_TABLECELL && d != DISPLAY_TABLEROW
-        ) {
-            d = DISPLAY_INLINE;
-        }
-    
-        pProp = HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_FLOAT);
-        f = pProp->eType;
-        if (f != FLOAT_NONE && f != FLOAT_LEFT && f != FLOAT_RIGHT) {
-            f = FLOAT_NONE;
-        }
-    
-        pProp = HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_CLEAR);
-        c = pProp->eType;
-        if (c != CLEAR_NONE        && c != CLEAR_LEFT && 
-            c != CLEAR_RIGHT       && c != CLEAR_BOTH
-        ) {
-            c = CLEAR_NONE;
-        }
+        HtmlPropertyValues *pValues = pNode->pPropertyValues;
+        f = pValues->eFloat;
+        d = pValues->eDisplay;
+        c = pValues->eClear;
 
         /* Force all floating boxes to have display type 'block' or 'table' */
         if (f!=FLOAT_NONE && d!=DISPLAY_TABLE) {
@@ -927,64 +709,12 @@ nodeGetDisplay(pLayout, pNode, pDisplayProperties)
     pDisplayProperties->eClear = c;
 }
 
-static int nodeGetListStyleType(pLayout, pNode)
+static int 
+nodeGetListStyleType(pLayout, pNode)
     LayoutContext *pLayout; 
     HtmlNode *pNode;
 {
-    CssProperty *pProp;
-    int l;
-    Tcl_Interp *interp = pLayout->pTree->interp;
-
-    pProp = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_LIST_STYLE_TYPE);
-    l = pProp->eType;
-    if (l != LISTSTYLETYPE_SQUARE &&        l != LISTSTYLETYPE_DISC &&
-        l != LISTSTYLETYPE_CIRCLE &&        l != LISTSTYLETYPE_NONE
-    ) {
-        l = LISTSTYLETYPE_DISC;
-    }
-    return l;
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * getScaledFontSize --
- *
- *     This is used to calculate the sizes of fonts in points when they are
- *     specified relative to other font-sizes (i.e. "xx-small" or
- *     "larger").
- *
- *     If paramter 'body' is true, then the font-size should be calculated
- *     relative to the font-size of the <body> tag, or the root-node if no
- *     <body> tag exists. Otherwise it is calculated relative to the parent
- *     of pNode.
- *
- *     Pameter rVal is the scale by which the <body> or <parent> font-size
- *     should be multiplied.
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-static int 
-getScaledFontSize(pLayout, pNode, rVal, body)
-    LayoutContext *pLayout;
-    HtmlNode *pNode;
-    double rVal;
-    int body;
-{
-    HtmlNode *pRelative;
-    pRelative = HtmlNodeParent(pNode);
-    if (body) {
-        while (pRelative && HtmlNodeTagType(pRelative) != Html_BODY) {
-            pRelative = HtmlNodeParent(pRelative);
-        }
-    }
-    return (int)(0.5 + ((double)nodeGetFontSize(pLayout, pRelative) * rVal));
+    return pNode->pPropertyValues->eListStyleType;
 }
     
 /*
@@ -1008,186 +738,7 @@ nodeGetFontSize(pLayout, pNode)
     LayoutContext *pLayout;
     HtmlNode *pNode;
 {
-    int val;
-
-    if (!pNode) {
-        /* Default of 'font-size' should be "medium". */
-        val = 10;
-    } else {
-        val = pNode->cache.font_size;
-        if (!val) {
-            CssProperty *pProp;
-            Tcl_Interp *interp = pLayout->interp;
-            pProp = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_FONT_SIZE);
-            switch (pProp->eType) {
-                case CSS_TYPE_EM:
-                    val = nodeGetFontSize(pLayout, HtmlNodeParent(pNode));
-                    val = val * pProp->v.rVal;
-                    break;
-                case CSS_TYPE_EX:
-                    val = nodeGetExPixels(pLayout,  HtmlNodeParent(pNode));
-                    val = val * pProp->v.rVal;
-                    break;
-                case CSS_TYPE_PT:
-                    val = pProp->v.iVal;
-                    break;
-                case CSS_TYPE_PERCENT:
-                    val = nodeGetFontSize(pLayout, pNode->pParent);
-                    val = (val * pProp->v.iVal) / 100;
-                    break;
-                case CSS_CONST_XX_SMALL: 
-                    val = getScaledFontSize(pLayout, pNode, 0.6944, 0);
-                    break;
-                case CSS_CONST_X_SMALL: 
-                    val = getScaledFontSize(pLayout, pNode, 0.8333, 0);
-                    break;
-                case CSS_CONST_SMALL: 
-                    val = getScaledFontSize(pLayout, pNode, 1.0, 0);
-                    break;
-                case CSS_CONST_MEDIUM: 
-                    val = getScaledFontSize(pLayout, pNode, 1.2, 0);
-                    break;
-                case CSS_CONST_LARGE: 
-                    val = getScaledFontSize(pLayout, pNode, 1.44, 0);
-                    break;
-                case CSS_CONST_X_LARGE: 
-                    val = getScaledFontSize(pLayout, pNode, 1.728, 0);
-                    break;
-                case CSS_CONST_XX_LARGE: 
-                    val = getScaledFontSize(pLayout, pNode, 2.074, 0);
-                    break;
-                case CSS_CONST_SMALLER: 
-                    val = getScaledFontSize(pLayout, pNode, 0.8333, 1);
-                    break;
-                case CSS_CONST_LARGER: 
-                    val = getScaledFontSize(pLayout, pNode, 1.2, 1);
-                    break;
-                default: {
-                    int pixels = propertyToPixels(pLayout, pNode, pProp, 0, 0);
-                    if (pixels > 0) {
-                        val = pixelsToPoints(pLayout, pixels);
-                    }
-                }
-            }
-
-            if (val<=0) {
-                val = nodeGetFontSize(pLayout, pNode->pParent);
-            }
-
-            pNode->cache.font_size = val;
-        }
-    }
-
-    return val;
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * nodeGetFontFamily --
- *
- *     Return a Tcl list object with reference count 1 containing the names
- *     of potential font-families to use for this node. The first entry in
- *     the list has the highest priority.
- *
- *     CSS specifies that the font-families "serif", "sans-serif",
- *     "monospace", "fantasy" and "cursive" are always available. Tk on the
- *     other hand guarantees only families "Helvetica", "Courier" and
- *     "Times". The first three CSS families we can map directly to these.
- *
- *     What to do about "cursive" and "fantasy" is a bit of a problem. I
- *     think we will end up adding an option for the Tcl script to specify
- *     a font for these two. Or maybe not. The user shouldn't need to write
- *     100 scripts to get decent rendering from the widget.
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-static Tcl_Obj *nodeGetFontFamily(pLayout, pNode)
-    LayoutContext *pLayout;
-    HtmlNode *pNode;
-{
-    struct FamilyMap {
-        CONST char *cssFont;
-        CONST char *tkFont;
-        int isItalic;
-    } familyMap [] = {
-        {"serif",      "Times", 0},
-        {"sans-serif", "Helvetica", 0},
-        {"monospace",  "Courier", 0},
-    };
-    CssProperty *pFamily;
-    CONST char *zFamily;
-    CONST char *zFamilyEnd;
-    Tcl_Obj *pObj;
-    Tcl_Obj *pFallback = 0;
-    Tcl_Interp *interp = pLayout->interp;
-
-    pFamily = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_FONT_FAMILY);
-    zFamily = propertyToString(pFamily, "Helvetica");
-
-    /* Split the zFamily attribute on the "," character. If the list
-     * contains any of the families contained in the "familyMap" array
-     * above, then add the name of the Tk font to the end of the list. We
-     * use this as a last resort. For example, if the value of the
-     * font-family property is:
-     *
-     *     "Arial Mono, monospace"
-     *
-     * then return the Tcl list:
-     *
-     *     {{Arial Mono} monospace Courier}
-     *
-     * This means that if the user specifies "monospace", we give the
-     * system a chance to map the font before we default to Courier (which
-     * Tk always supports).
-     */
-    pObj = Tcl_NewObj();
-    Tcl_IncrRefCount(pObj);
-    for ( ; zFamily; zFamily = zFamilyEnd) {
-        int n;
-        Tcl_Obj *p;
-        CONST char *z;
-        int i;
-
-        zFamilyEnd = strchr(zFamily, (int)',');
-        if (!zFamilyEnd) {
-            n = strlen(zFamily);
-        } else {
-            n = zFamilyEnd - zFamily;
-        }
-        while (zFamilyEnd && (*zFamilyEnd==',' || *zFamilyEnd==' ')) {
-            zFamilyEnd++;
-        }
-
-        p = Tcl_NewStringObj(zFamily, n);
-        Tcl_IncrRefCount(p);
-        z = Tcl_GetString(p);
-        Tcl_ListObjAppendElement(interp, pObj, p);
-
-        for (i = 0; i < sizeof(familyMap)/sizeof(struct FamilyMap); i++) {
-            if (!pFallback && 0 == strcmp(familyMap[i].cssFont, z)) {
-                pFallback = Tcl_NewStringObj(familyMap[i].tkFont, -1); 
-                Tcl_IncrRefCount(pFallback);
-            }
-        }
-
-        Tcl_DecrRefCount(p);
-    }
-
-    if (pFallback) {
-        Tcl_ListObjAppendElement(interp, pObj, pFallback);
-        Tcl_DecrRefCount(pFallback);
-    }
-
-    Tcl_ListObjAppendElement(interp, pObj, Tcl_NewStringObj("Helvetica", -1));
-
-    return pObj;
+    return pNode->pPropertyValues->fFont->pKey->iFontSize;
 }
 
 /*
@@ -1208,84 +759,7 @@ Tk_Font nodeGetFont(pLayout, pNode)
     LayoutContext *pLayout;
     HtmlNode *pNode;
 {
-    int sz = nodeGetFontSize(pLayout, pNode);
-    int isItalic = 0;
-    int isBold = 0;
-    int i;
-    int nFamily;
-    int eType;
-    Tk_Font font = 0;
-    CssProperty *pFontStyle;            /* Property 'font-style' */
-    CssProperty *pFontWeight;           /* Property 'font-weight' */
-    Tcl_Obj *pFamily;                   /* List of potential font-families */
-    Tcl_Interp *interp = pLayout->pTree->interp;
-    Tcl_HashTable *pFontCache = &pLayout->pTree->aFontCache;
-
-    font = pNode->cache.font;
-    if (font) return font;
-
-    /* If the 'font-style' attribute is set to either "italic" or
-     * "oblique", add the option "-slant italic" to the string version
-     * of the Tk font.
-     */
-    pFontStyle = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_FONT_STYLE);
-    eType = pFontStyle->eType;
-    if (eType == CSS_CONST_ITALIC || eType == CSS_CONST_OBLIQUE) {
-        isItalic = 1;
-    }
-
-    /* If the 'font-weight' attribute is set to either "bold" or
-     * "bolder", add the option "-weight bold" to the string version
-     * of the Tk font.
-     *
-     * Todo: Handle numeric font-weight values. Tk restricts the weight
-     * of the font to "bold" or "normal", but we should try to do something
-     * sensible with other options.
-     */
-    pFontWeight = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_FONT_WEIGHT);
-    eType = pFontWeight->eType;
-    if (eType == CSS_CONST_BOLD || eType == CSS_CONST_BOLDER) {
-        isBold = 1;
-    }
-
-    pFamily = nodeGetFontFamily(pLayout, pNode);
-    Tcl_ListObjLength(interp, pFamily, &nFamily);
-    for (i = 0; font == 0 && i < nFamily; i++) {
-        Tcl_Obj *pFont;
-        Tcl_HashEntry *pEntry;
-        int newentry;
-
-        Tcl_ListObjIndex(interp, pFamily, i, &pFont);
-        pFont = Tcl_DuplicateObj(pFont);
-        Tcl_IncrRefCount(pFont);
-        Tcl_ListObjAppendElement(interp, pFont, Tcl_NewIntObj(sz));
-
-        if (isItalic) {
-            Tcl_Obj *p = Tcl_NewStringObj("italic", -1);
-            Tcl_ListObjAppendElement(interp, pFont, p);
-        }
-        if (isBold) {
-            Tcl_Obj *p = Tcl_NewStringObj("bold", -1);
-            Tcl_ListObjAppendElement(interp, pFont, p);
-        }
-
-        pEntry = Tcl_CreateHashEntry(pFontCache,Tcl_GetString(pFont),&newentry);
-        if (newentry) {
-            font = Tk_AllocFontFromObj(interp, pLayout->tkwin, pFont); 
-            if (font) {
-                Tcl_SetHashValue(pEntry, font);
-            } else {
-                Tcl_DeleteHashEntry(pEntry);
-            }
-        } else {
-            font = Tcl_GetHashValue(pEntry);
-        }
-        Tcl_DecrRefCount(pFont);
-    }
-    assert(font);
-
-    Tcl_DecrRefCount(pFamily);
-    return font;
+    return pNode->pPropertyValues->fFont->tkfont;
 }
 
 /*
@@ -1305,18 +779,7 @@ static XColor *nodeGetColour(pLayout, pNode)
     LayoutContext *pLayout;
     HtmlNode *pNode;
 {
-    XColor *color = 0;
-    CssProperty *pColor;
-    CssProperty sColor;
-
-    pColor = HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_COLOR);
-    color = propertyToColor(pLayout, pColor);
-
-    if (!color) {
-        HtmlNodeGetDefault(pNode, CSS_PROPERTY_COLOR, &sColor);
-        color = propertyToColor(pLayout, &sColor);
-    }
-    return color;
+    return pNode->pPropertyValues->cColor->xcolor;
 }
 
 /*
@@ -1348,14 +811,8 @@ nodeGetBorderSpacing(pLayout, pNode)
     LayoutContext *pLayout;
     HtmlNode *pNode;
 {
-    CssProperty *pProp;
-    int border_spacing;
-    Tcl_Interp *interp = pLayout->pTree->interp;
-
-    pProp = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BORDER_SPACING);
-    border_spacing = propertyToPixels(pLayout, pNode, pProp, 0, 0);
-
-    return border_spacing;
+    int iBorderSpacing = GET_PIXEL_VALUE(pNode, iBorderSpacing);
+    return iBorderSpacing;
 }
 
 /*
@@ -1385,40 +842,7 @@ nodeGetVAlign(pLayout, pNode, defval)
     HtmlNode *pNode;
     int defval;
 {
-#if 1
-    CssProperty *pValign;
-    int ret;
-    Tcl_Interp *interp = pLayout->interp;
-
-    pValign = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_VERTICAL_ALIGN);
-    ret = pValign->eType;
-    if (ret != VALIGN_TOP      && ret != VALIGN_MIDDLE && 
-        ret != VALIGN_BOTTOM   && ret != VALIGN_BASELINE && 
-        ret != VALIGN_SUB      && ret != VALIGN_SUPER && 
-        ret != VALIGN_TEXT_TOP && ret != VALIGN_TEXT_BOTTOM
-    ) {
-        ret = defval;
-    }
-#else
-    CssProperty *pValign;
-    int ret;
-    Tcl_Interp *interp = pLayout->interp;
-
-    const char *zOptions[] = {
-	"top",      "middle",      "bottom",        "baseline", 
-        "sub",      "super",       "text-top",      "text-bottom", 
-        0
-    };
-    int eOptions[] = {
-        VALIGN_TOP, VALIGN_MIDDLE, VALIGN_BOTTOM,   VALIGN_BASELINE,
-        VALIGN_SUB, VALIGN_SUPER,  VALIGN_TEXT_TOP, VALIGN_TEXT_BOTTOM
-    };
-
-    pValign = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_VERTICAL_ALIGN);
-    ret = propertyToConstant(pValign, zOptions, eOptions, defval);
-#endif
-
-    return ret;
+    return defval;
 }
 
 /*
@@ -1441,18 +865,7 @@ nodeGetEmPixels(pLayout, pNode)
     LayoutContext *pLayout;
     HtmlNode *pNode;
 {
-    int ret;
-    int points;
-/*
-    Tk_FontMetrics fontMetrics;
-    Tk_Font font = nodeGetFont(pLayout, pNode);
-    Tk_GetFontMetrics(font, &fontMetrics);
-    ret = fontMetrics.ascent;
-*/
-    points = nodeGetFontSize(pLayout, pNode);
-    ret = physicalToPixels(pLayout, (double)(points), 'p');
-    
-    return ret;
+    return pNode->pPropertyValues->fFont->em_pixels;
 }
 
 /*
@@ -1476,11 +889,12 @@ nodeGetEmPixels(pLayout, pNode)
  *
  *---------------------------------------------------------------------------
  */
-static int nodeGetExPixels(pLayout, pNode)
+static int 
+nodeGetExPixels(pLayout, pNode)
     LayoutContext *pLayout;
     HtmlNode *pNode;
 {
-    return (nodeGetEmPixels(pLayout, pNode) / 2);
+    return pNode->pPropertyValues->fFont->ex_pixels;
 }
 
 /*
@@ -1505,89 +919,27 @@ nodeGetBoxProperties(pLayout, pNode, parentwidth, pBoxProperties)
     int parentwidth;
     BoxProperties *pBoxProperties;
 {
-    CssProperty *b;
-    CssProperty *p;
-    int w = parentwidth;
-    Tcl_Interp *interp = pLayout->interp;
+    HtmlPropertyValues *pValues = pNode->pPropertyValues;
 
-    p = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_PADDING_TOP);
-    pBoxProperties->padding_top = propertyToPixels(pLayout, pNode, p, w, 0);
-    p = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_PADDING_LEFT);
-    pBoxProperties->padding_left = propertyToPixels(pLayout, pNode, p, w, 0);
-    p = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_PADDING_RIGHT);
-    pBoxProperties->padding_right = propertyToPixels(pLayout, pNode, p, w, 0);
-    p = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_PADDING_BOTTOM);
-    pBoxProperties->padding_bottom = propertyToPixels(pLayout, pNode, p, w, 0);
+    /* FIXME */ pNode->iBlockWidth = parentwidth;
 
-    /* A negative value is not allowed for padding. If one has been
-     * specified, treat it as 0.  
-     */
-    pBoxProperties->padding_bottom = MAX(0, pBoxProperties->padding_bottom);
-    pBoxProperties->padding_top = MAX(0, pBoxProperties->padding_top);
-    pBoxProperties->padding_left = MAX(0, pBoxProperties->padding_left);
-    pBoxProperties->padding_right = MAX(0, pBoxProperties->padding_right);
+    pBoxProperties->padding_top = GET_PIXEL_VALUE(pNode, iPaddingTop);
+    pBoxProperties->padding_bottom = GET_PIXEL_VALUE(pNode, iPaddingBottom);
+    pBoxProperties->padding_right = GET_PIXEL_VALUE(pNode, iPaddingRight);
+    pBoxProperties->padding_left = GET_PIXEL_VALUE(pNode, iPaddingLeft);
 
-    b = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BORDER_TOP_STYLE);
-    if (b->eType == CSS_CONST_NONE) {
-        pBoxProperties->border_top = 0;
-    }else{
-        b = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BORDER_TOP_WIDTH);
-        pBoxProperties->border_top = bwToPixels(pLayout, pNode, b, w, 0);
-    }
-
-    b = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BORDER_BOTTOM_STYLE);
-    if (b->eType == CSS_CONST_NONE) {
-        pBoxProperties->border_bottom = 0;
-    }else{
-        b = HtmlNodeGetProperty(interp, pNode,CSS_PROPERTY_BORDER_BOTTOM_WIDTH);
-        pBoxProperties->border_bottom = bwToPixels(pLayout,pNode,b,w,0);
-    }
-
-    b = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BORDER_LEFT_STYLE);
-    if (b->eType == CSS_CONST_NONE) {
-        pBoxProperties->border_left = 0;
-    }else{
-        b = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BORDER_LEFT_WIDTH);
-        pBoxProperties->border_left = bwToPixels(pLayout,pNode,b,w,0);
-    }
-
-    b = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BORDER_RIGHT_STYLE);
-    if (b->eType == CSS_CONST_NONE) {
-        pBoxProperties->border_right = 0;
-    }else{
-        b = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BORDER_RIGHT_WIDTH);
-        pBoxProperties->border_right = bwToPixels(pLayout,pNode,b,w,0);
-    }
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * nodeGetColourProperty --
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-static XColor *
-nodeGetColourProperty(pLayout, pNode, prop)
-    LayoutContext *pLayout;
-    HtmlNode *pNode;
-    int prop;
-{
-    XColor *color;
-    CssProperty *pProp;
-
-    pProp = HtmlNodeGetProperty(pLayout->interp, pNode, prop);
-    color = propertyToColor(pLayout, pProp);
-    if (!color) {
-        color = nodeGetColour(pLayout, pNode);
-    }
-    return color;
+    pBoxProperties->border_top = (
+            (pValues->eBorderTopStyle != CSS_CONST_NONE) ?
+            GET_PIXEL_VALUE(pNode, iBorderWidthTop) : 0);
+    pBoxProperties->border_right = (
+            (pValues->eBorderRightStyle != CSS_CONST_NONE) ?
+            GET_PIXEL_VALUE(pNode, iBorderWidthRight) : 0);
+    pBoxProperties->border_bottom = (
+            (pValues->eBorderBottomStyle != CSS_CONST_NONE) ?
+            GET_PIXEL_VALUE(pNode, iBorderWidthBottom) : 0);
+    pBoxProperties->border_left = (
+            (pValues->eBorderLeftStyle != CSS_CONST_NONE) ?
+            GET_PIXEL_VALUE(pNode, iBorderWidthLeft) : 0);
 }
 
 /*
@@ -1609,27 +961,13 @@ nodeGetBorderProperties(pLayout, pNode, pBorderProperties)
     HtmlNode *pNode;
     BorderProperties *pBorderProperties;
 {
-    CssProperty *pBg;
-    Tcl_Interp *interp = pLayout->interp;
+    HtmlPropertyValues *pValues = pNode->pPropertyValues;
 
-    pBorderProperties->color_top = 
-        nodeGetColourProperty(pLayout, pNode, CSS_PROPERTY_BORDER_TOP_COLOR);
-    pBorderProperties->color_bottom = 
-        nodeGetColourProperty(pLayout, pNode, CSS_PROPERTY_BORDER_BOTTOM_COLOR);
-    pBorderProperties->color_right = 
-        nodeGetColourProperty(pLayout, pNode, CSS_PROPERTY_BORDER_RIGHT_COLOR);
-    pBorderProperties->color_left = 
-        nodeGetColourProperty(pLayout, pNode, CSS_PROPERTY_BORDER_LEFT_COLOR);
-
-    /* Now figure out the background color for this block. This is done
-     * here because the background is drawn at the same time as the border.
-     */
-    pBg = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_BACKGROUND_COLOR);
-    if (pBg->eType != CSS_CONST_TRANSPARENT) {
-        pBorderProperties->color_bg = propertyToColor(pLayout, pBg);
-    } else {
-        pBorderProperties->color_bg = 0;
-   }
+    pBorderProperties->color_top = pValues->cBorderTopColor->xcolor;
+    pBorderProperties->color_right = pValues->cBorderRightColor->xcolor;
+    pBorderProperties->color_bottom = pValues->cBorderBottomColor->xcolor;
+    pBorderProperties->color_left = pValues->cBorderLeftColor->xcolor;
+    pBorderProperties->color_bg = pValues->cBackgroundColor->xcolor;
 }
 
 /*
@@ -1654,11 +992,11 @@ nodeGetHeight(pLayout, pNode, pwidth, def)
     int pwidth; 
     int def;
 {
-    int val;
-    CssProperty *pHeight;
-    pHeight = HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_HEIGHT);
-    val = propertyToPixels(pLayout, pNode, pHeight, pwidth, def);
-    return val;
+    int iHeight = GET_PIXEL_VALUE(pNode, iHeight);
+    if (iHeight == PIXELVAL_AUTO) {
+        iHeight = def;
+    }
+    return iHeight;
 }
 
 /*
@@ -1682,55 +1020,33 @@ nodeGetHeight(pLayout, pNode, pwidth, def)
  *
  *---------------------------------------------------------------------------
  */
-static int nodeGetWidth(pLayout, pNode, pwidth, def, pIsFixed, pIsAuto)
+static int 
+nodeGetWidth(pLayout, pNode, pwidth, def, pIsFixed, pIsAuto)
     LayoutContext *pLayout;   /* Layout context */
     HtmlNode *pNode;          /* Node */
-    int pwidth;               /* Value to calculate percentage widths of */
+    int pwidth;               /* Unused */
     int def;                  /* Default value */
     int *pIsFixed;            /* OUT: True if a pixel width */
     int *pIsAuto;             /* OUT: True if value is "auto" */
 {
-    int val;
+    int iWidth;
 
-    CssProperty *pWidth;
-    CssProperty *pMin;
-    CssProperty *pMax;
+    /* FIXME */ pNode->iBlockWidth = pwidth;
+    iWidth = GET_PIXEL_VALUE(pNode, iWidth);
 
-    pWidth = HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_WIDTH);
-    val = propertyToPixels(pLayout, pNode, pWidth, pwidth, def);
+    assert(iWidth != PIXELVAL_NONE && iWidth != PIXELVAL_NORMAL);
+    if (iWidth == PIXELVAL_AUTO) {
+        int iMinWidth = GET_PIXEL_VALUE(pNode, iMinWidth);
+        int iMaxWidth = GET_PIXEL_VALUE(pNode, iMaxWidth);
 
-    switch (pWidth->eType) {
-        case CSS_TYPE_PX:
-            if (pIsFixed) *pIsFixed = 1;
-            break;
-        case CSS_TYPE_STRING: {
-            /* The only string value the 'width' property can take is
-             * "auto". So we assume that this is the case if the property
-             * is a string.
-             *
-             * Note: In CSS2, 'width' can also be specified as "inherit".
-             * But HtmlNodeGetProperty() has already dealt with this case.
-             */
-            int min;
-            int max;
-            pMin = HtmlNodeGetProperty(
-                    pLayout->interp, pNode, CSS_PROPERTY_MIN_WIDTH);
-            pMax = HtmlNodeGetProperty(
-                    pLayout->interp, pNode, CSS_PROPERTY_MAX_WIDTH);
-            min = propertyToPixels(pLayout, pNode, pMin, pwidth, 0);
-            max = propertyToPixels(pLayout, pNode, pMax, pwidth, val);
-            val = MAX(val, min);
-            val = MIN(val, max);
+        iWidth = MAX(def, iMinWidth);
+        assert(iMaxWidth != PIXELVAL_AUTO && iMaxWidth != PIXELVAL_NORMAL);
+        if (iMaxWidth != PIXELVAL_NONE) {
+            iWidth = MIN(def, iMaxWidth);
         }
-        /* Fall through */
-        default:
-            if (pIsFixed) *pIsFixed = 0;
-           
     }
 
-    if (pIsAuto) *pIsAuto = propertyIsAuto(pWidth);
-
-    return val;
+    return iWidth;
 }
 
 /*
@@ -1750,18 +1066,7 @@ static int nodeGetTextAlign(pLayout, pNode)
     LayoutContext *pLayout;
     HtmlNode *pNode;
 {
-    CssProperty *p;
-    int v;
-    p = HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_TEXT_ALIGN);
-
-    v = p->eType;
-    if (v != TEXTALIGN_LEFT &&      v != TEXTALIGN_RIGHT &&
-        v != TEXTALIGN_CENTER &&    v != TEXTALIGN_JUSTIFY
-    ) {
-        v = TEXTALIGN_LEFT;
-    }
-    
-    return v;
+    return pNode->pPropertyValues->eTextAlign;
 }
 
 /*
@@ -1782,17 +1087,7 @@ nodeGetTextDecoration(pLayout, pNode)
     LayoutContext *pLayout;
     HtmlNode *pNode;
 {
-    CssProperty *p;
-    int ret;
-    Tcl_Interp *interp = pLayout->interp;
-    p = HtmlNodeGetProperty(interp ,pNode, CSS_PROPERTY_TEXT_DECORATION);
-    ret = p->eType;
-    if (ret != TEXTDECORATION_UNDERLINE &&   ret != TEXTDECORATION_OVERLINE &&
-        ret != TEXTDECORATION_LINETHROUGH && ret != TEXTDECORATION_NONE
-    ) {
-        ret = TEXTDECORATION_NONE;
-    }
-    return ret;
+    return pNode->pPropertyValues->eTextDecoration;
 }
 
 /*
@@ -1816,12 +1111,6 @@ nodeGetTkhtmlReplace(pLayout, pNode)
     LayoutContext *pLayout;
     HtmlNode *pNode;
 {
-/*
-    CssProperty *pR;
-    Tcl_Interp *interp = pLayout->pTree->interp;
-    pR = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY__TKHTML_REPLACE);
-    return HtmlCssPropertyGetString(pR);
-*/
     const char *zReplace = 0;
     if (pNode->pReplacement && pNode->pReplacement->pReplace) {
         zReplace = Tcl_GetString(pNode->pReplacement->pReplace);
@@ -1850,34 +1139,29 @@ static void nodeGetMargins(pLayout, pNode, parentWidth, pMargins)
     int parentWidth;
     MarginProperties *pMargins;
 {
-    CssProperty *pM;
-    Tcl_Interp *interp = pLayout->pTree->interp;
-    int widthisauto = 0;   /* True if the 'width' property is set to "auto" */
-    int pw = parentWidth;
+    int iMarginTop;
+    int iMarginRight;
+    int iMarginBottom;
+    int iMarginLeft;
+    int iWidth;
 
-    pM = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_WIDTH);
-    if (!nodeGetTkhtmlReplace(pLayout,pNode)) {
-        widthisauto = propertyIsAuto(pM);
+    /* FIXME */ pNode->iBlockWidth = parentWidth;
+
+    iMarginTop = GET_PIXEL_VALUE(pNode, iMarginTop);
+    iMarginRight = GET_PIXEL_VALUE(pNode, iMarginRight);
+    iMarginBottom = GET_PIXEL_VALUE(pNode, iMarginBottom);
+    iMarginLeft = GET_PIXEL_VALUE(pNode, iMarginLeft);
+    iWidth = GET_PIXEL_VALUE(pNode, iWidth);
+
+    pMargins->margin_top = ((iMarginTop > MAX_PIXELVAL)?iMarginTop:0);
+    pMargins->margin_bottom = ((iMarginBottom > MAX_PIXELVAL)?iMarginBottom:0);
+    pMargins->margin_left = ((iMarginLeft > MAX_PIXELVAL)?iMarginLeft:0);
+    pMargins->margin_right = ((iMarginRight > MAX_PIXELVAL)?iMarginRight:0);
+
+    if (iWidth != CSS_CONST_AUTO) {
+        pMargins->leftAuto = ((iMarginLeft == CSS_CONST_AUTO) ? 1 : 0);
+        pMargins->rightAuto = ((iMarginRight == CSS_CONST_AUTO) ? 1 : 0);
     }
-
-    /* Todo: It is also legal to specify an integer between 1 and 4 for
-     * margin width. propertyToPixels() can't deal with this because it
-     * doesn't know when it is converting is a margin, so it will have to
-     * be done here.
-     */
-    pM = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_MARGIN_TOP);
-    pMargins->margin_top = propertyToPixels(pLayout, pNode, pM, pw, 0);
-
-    pM = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_MARGIN_BOTTOM);
-    pMargins->margin_bottom = propertyToPixels(pLayout, pNode, pM, pw, 0);
-
-    pM = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_MARGIN_LEFT);
-    pMargins->margin_left = propertyToPixels(pLayout, pNode, pM, pw, 0);
-    pMargins->leftAuto = (!widthisauto?propertyIsAuto(pM):0);
-
-    pM = HtmlNodeGetProperty(interp, pNode, CSS_PROPERTY_MARGIN_RIGHT);
-    pMargins->margin_right = propertyToPixels(pLayout, pNode, pM, pw, 0);
-    pMargins->rightAuto = (!widthisauto?propertyIsAuto(pM):0);
 }
 
 /*
@@ -1897,16 +1181,7 @@ static int nodeGetWhitespace(pLayout, pNode)
     LayoutContext *pLayout;
     HtmlNode *pNode;
 {
-    CssProperty *p;
-    int ret;
-    p = HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_WHITE_SPACE);
-    ret = p->eType;
-    if (ret != WHITESPACE_PRE && ret != WHITESPACE_NORMAL && 
-        ret != WHITESPACE_NOWRAP
-    ) {
-        ret = WHITESPACE_NORMAL;
-    }
-    return ret;
+    return pNode->pPropertyValues->eWhitespace;
 }
 
 /*
@@ -1916,9 +1191,6 @@ static int nodeGetWhitespace(pLayout, pNode)
  *
  *     Return the value of the 'line-height' property, in pixels.
  *
- *     Percentage line-heights are calculated with respect to the font-size
- *     of the node.
- *
  * Results:
  *     None.
  *
@@ -1927,14 +1199,12 @@ static int nodeGetWhitespace(pLayout, pNode)
  *
  *---------------------------------------------------------------------------
  */
-static int nodeGetLineHeight(pLayout, pNode)
+static int 
+nodeGetLineHeight(pLayout, pNode)
     LayoutContext *pLayout;
     HtmlNode *pNode;
 {
-    CssProperty *p;
-    int font_pixels = nodeGetEmPixels(pLayout, pNode);
-    p = HtmlNodeGetProperty(pLayout->interp, pNode, CSS_PROPERTY_LINE_HEIGHT);
-    return propertyToPixels(pLayout, pNode, p, font_pixels, 0);
+    return pNode->pPropertyValues->iLineHeight;
 }
 
 /*
@@ -5225,11 +4495,12 @@ HtmlLayoutForce(clientData, interp, objc, objv)
         rc = blockLayout(&sLayout, &sBox, pBody, 0, 0);
         memcpy(&pTree->canvas, &sBox.vc, sizeof(HtmlCanvas));
     } else {
-        XColor *pWhite;
-        CssProperty prop;
-        prop.eType = CSS_CONST_WHITE;
-        pWhite = propertyToColor(&sLayout, &prop);
-        HtmlDrawBackground(&pTree->canvas, pWhite, 0);
+        HtmlColor *pColor;
+        Tcl_HashEntry *pEntry;
+        pEntry = Tcl_FindHashEntry(&pTree->aColor, "white");
+        assert(pEntry);
+        pColor = Tcl_GetHashValue(pEntry);
+        HtmlDrawBackground(&pTree->canvas, pColor->xcolor, 0);
         rc = TCL_OK;
     }
 

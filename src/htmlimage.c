@@ -302,7 +302,7 @@ HtmlResizeImage(pTree, zImage, pWidth, pHeight, calculateSizeOnly)
             scaled_photo = Tk_FindPhoto(interp, zScaled);
 
             Tk_PhotoGetImage(photo, &block);
-            scaled_block.pixelPtr = ckalloc(sw * sh * 4);
+            scaled_block.pixelPtr = (unsigned char *)ckalloc(sw * sh * 4);
             scaled_block.width = sw;
             scaled_block.height = sh;
             scaled_block.pitch = sw*4;
@@ -331,7 +331,7 @@ HtmlResizeImage(pTree, zImage, pWidth, pHeight, calculateSizeOnly)
                 }
             }
             photoputblock(interp, scaled_photo, &scaled_block, 0, 0, sw, sh, 0);
-            ckfree(scaled_block.pixelPtr);
+            ckfree((char *)scaled_block.pixelPtr);
             pRet = pImage->pScaledImageName;
         } else {
             /* Failed to get the photo-handle. This might happen because
@@ -381,7 +381,7 @@ Tcl_Obj *HtmlXImageToImage(pTree, pXImage, w, h)
     pImage = Tcl_GetObjResult(interp);
     Tcl_IncrRefCount(pImage);
 
-    block.pixelPtr = ckalloc(w * h * 4);
+    block.pixelPtr = (unsigned char *)ckalloc(w * h * 4);
     block.width = w;
     block.height = h;
     block.pitch = w*4;
@@ -402,9 +402,10 @@ Tcl_Obj *HtmlXImageToImage(pTree, pXImage, w, h)
 
     for (x=0; x<w; x++) {
         for (y=0; y<h; y++) {
-            char *pOut = &block.pixelPtr[x*block.pixelSize + y*block.pitch];
+            unsigned char *pOut;
             unsigned long pixel = XGetPixel(pXImage, x, y);
 
+            pOut = &block.pixelPtr[x*block.pixelSize + y*block.pitch];
             pOut[0] = (pixel&redmask)>>redshift;
             pOut[1] = (pixel&greenmask)>>greenshift;
             pOut[2] = (pixel&bluemask)>>blueshift;
@@ -414,7 +415,7 @@ Tcl_Obj *HtmlXImageToImage(pTree, pXImage, w, h)
 
     photo = Tk_FindPhoto(interp, Tcl_GetString(pImage));
     photoputblock(interp, photo, &block, 0, 0, w, h, 0);
-    ckfree(block.pixelPtr);
+    ckfree((char *)block.pixelPtr);
 
     return pImage;
 }

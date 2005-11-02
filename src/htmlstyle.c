@@ -124,10 +124,9 @@ int styleNode(pTree, pNode)
     CONST char *zStyle;      /* Value of "style" attribute for node */
 
     if (!HtmlNodeIsText(pNode)) {
-	/* Delete the property cache for the node, if one exists. Then
-         * create a new one. 
-         */
-        HtmlDeletePropertyCache(pNode->pPropCache);
+	/* Release the old property values structure, if any. */
+        HtmlPropertyValuesRelease(pNode->pPropertyValues);
+        pNode->pPropertyValues = 0;
     
         /* If there is a "style" attribute on this node, parse the attribute
          * value and put the resulting mini-stylesheet in pNode->pStyle. 
@@ -144,11 +143,9 @@ int styleNode(pTree, pNode)
             }
         }
     
-        /* Create and fill in the nodes property cache. */
-        pNode->pPropCache = HtmlNewPropertyCache();
-        memset(&pNode->cache, 0, sizeof(HtmlNativePropertyCache));
-        HtmlCssStyleSheetApply(pTree->pStyle, pNode);
+        HtmlCssStyleSheetApply(pTree, pNode);
     }
+
     return TCL_OK;
 }
 

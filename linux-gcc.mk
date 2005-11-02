@@ -1,33 +1,32 @@
 
 ##### Top of the Tkhtml source tree - the directory with this file in it.
 #
-TOP = $(HOME)/work/tkhtml_cvs/htmlwidget
+TOP = $(HOME)/work/tkhtml/htmlwidget
 
 ##### BUILD can be DEBUG or RELEASE.
 #
-# BUILD = DEBUG
-BUILD = RELEASE
+BUILD = DEBUG
+# BUILD = RELEASE
 
 ##### Version of and path to the Tcl installation to use.
 #
 TCLVERSION = 8.5
 TCL_RELEASE = $(HOME)/tcl
-TCL_DEBUG   = $(HOME)/profiletcl
+# TCL_DEBUG   = $(HOME)/profiletcl
+TCL_DEBUG   = $(HOME)/tcl
 TCL = $(TCL_$(BUILD))
 
 ##### Flags passed to the C-compiler to link to Tcl.
 #
-TCLLIB_DEBUG   = -L$(TCL)/lib -ltcl$(TCLVERSION)g -ltk$(TCLVERSION)g 
-TCLLIB_RELEASE = -L$(TCL)/lib -ltcl$(TCLVERSION) -ltk$(TCLVERSION)
+# TCLLIB_DEBUG   = -L$(TCL)/lib -ltcl$(TCLVERSION)g -ltk$(TCLVERSION)g 
+TCLLIB_RELEASE = -L$(TCL)/lib -ltcl$(TCLVERSION) -ltk$(TCLVERSION)   
+TCLLIB_DEBUG = -L$(TCL)/lib -ltcl$(TCLVERSION) -ltk$(TCLVERSION)   
+TCLLIB = -L/usr/X11R6/lib/ -lX11 -ldl -lm $(TCLLIB_$(BUILD))
 
-##### Extra libraries used by Tcl on Linux. These flags are only required to
-#     staticly link Tcl into an executable
+##### The C-compiler to use and the flags to pass to it.
 #
-TCLLIB_DEBUG += -L/usr/X11R6/lib/ -lX11 -ldl -lm
-TCLLIB = $(TCLLIB_$(BUILD))
-
-CC_RELEASE = gcc343
-CC_DEBUG   = gcc295
+CC_RELEASE = gcc
+CC_DEBUG   = gcc
 CC = $(CC_$(BUILD))
 
 CFLAGS_RELEASE = -O2 -DNDEBUG -DHTML_MACROS
@@ -71,4 +70,4 @@ install: binaries
 	cp -f $(TOP)/doc/tkhtml.n $(MANINSTALLDIR)
 
 ###############################################################################
-include $(SRCDIR)/main.mk
+include $(TOP)/main.mk

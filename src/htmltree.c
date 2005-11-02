@@ -162,9 +162,8 @@ freeNode(interp, pNode)
         for(i=0; i<pNode->nChild; i++){
             freeNode(interp, pNode->apChildren[i]);
         }
-        HtmlCssPropertiesFree(pNode->pProperties);
+        HtmlPropertyValuesRelease(pNode->pPropertyValues);
         HtmlCssPropertiesFree(pNode->pStyle);
-        HtmlDeletePropertyCache(pNode->pPropCache);
         if (pNode->pCommand) {
             Tcl_DeleteCommand(interp, Tcl_GetString(pNode->pCommand));
             Tcl_DecrRefCount(pNode->pCommand);
@@ -466,11 +465,11 @@ walkTree(pTree, xCallback, pNode)
 {
     int i;
     if( pNode ){
+        xCallback(pTree, pNode);
         for (i = 0; i<pNode->nChild; i++) {
             int rc = walkTree(pTree, xCallback, pNode->apChildren[i]);
             if (rc) return rc;
         }
-        xCallback(pTree, pNode);
     }
     return 0;
 }
@@ -1033,6 +1032,7 @@ int HtmlTreeClear(pTree)
     /* Free the tree representation - pTree->pRoot */
     HtmlTreeFree(pTree);
 
+#if 0
     /* Free the font-cache - pTree->aFontCache */
     for (
         p = Tcl_FirstHashEntry(&pTree->aFontCache, &s); 
@@ -1052,6 +1052,7 @@ int HtmlTreeClear(pTree)
         Tk_FreeColor((XColor *)Tcl_GetHashValue(p));
         Tcl_DeleteHashEntry(p);
     }
+#endif
 
     /* Free the image-cache - pTree->aImage */
     HtmlClearImageArray(pTree);

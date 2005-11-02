@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmltcl.c,v 1.40 2005/10/11 04:22:39 danielk1977 Exp $";
+        "@(#) $Id: htmltcl.c,v 1.41 2005/11/02 14:12:21 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -893,15 +893,10 @@ deleteWidget(clientData)
     HtmlTree *pTree = (HtmlTree *)clientData;
     HtmlTreeClear(pTree);
 
-    /* Calling HtmlTreeClear() deletes most resources allocated. The only
-     * things left are:
-     *
-     *     * the color black.
-     *     * memory allocated to store the HtmlTree structure itself.
-     */
-    if (pTree->pBlack) {
-        Tk_FreeColor(pTree->pBlack);
-    }
+    /* Clear the remaining colors etc. from the styler code hash tables */
+    HtmlPropertyValuesSetupTables(pTree);
+
+    /* Delete the structure itself */
     ckfree((char *)pTree);
 }
 
@@ -955,13 +950,14 @@ newWidget(clientData, interp, objc, objv)
     Tcl_InitHashTable(&pTree->aScriptHandler, TCL_ONE_WORD_KEYS);
     Tcl_InitHashTable(&pTree->aNodeHandler, TCL_ONE_WORD_KEYS);
     Tcl_InitHashTable(&pTree->aImage, TCL_STRING_KEYS);
-    Tcl_InitHashTable(&pTree->aFontCache, TCL_STRING_KEYS);
-    Tcl_InitHashTable(&pTree->aColor, TCL_STRING_KEYS);
     Tcl_InitHashTable(&pTree->aCmd, TCL_STRING_KEYS);
     Tcl_InitHashTable(&pTree->aVar, TCL_STRING_KEYS);
     Tcl_CreateObjCommand(interp,zCmd,HtmlWidgetObjCommand,pTree,deleteWidget);
 
     rc = configureCommand(pTree, interp, objc, objv);
+
+    /* Initialise the hash tables used by styler code */
+    HtmlPropertyValuesSetupTables(pTree);
 
     /* Return the name of the widget just created. */
     Tcl_SetObjResult(interp, objv[1]);
@@ -986,7 +982,7 @@ error_out:
  *
  * exitCmd --
  *
- *     ::tk::htmlexit
+ *         ::tk::htmlexit
  *
  *     Call exit(0). This is included for when tkhtml is used in a starkit
  *     application. For reasons I don't understand yet, such deployments
@@ -1018,8 +1014,13 @@ exitCmd(clientData, interp, objc, objv)
  *
  * resolveCmd --
  *
+ *         ::tk::htmlresolve HOST-NAME
+ *
+ *     Helper command for browser scripts that returns the dot-seperated ip
+ *     address that corresponds to the HOST-NAME argument.
+ *
  * Results:
- *     None.
+ *     Tcl result.
  *
  * Side effects:
  *     None.

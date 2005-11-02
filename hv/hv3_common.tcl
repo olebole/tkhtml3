@@ -29,7 +29,7 @@
 #     The first is the name of the switch (and variable). The second is the
 #     default value of the variable (if the switch is not present), and the
 #     third is the value if the switch is present. For example, the
-#     following are equivalent:
+#     following two blocks are equivalent:
 #
 #         proc abc {a} {...}
 #         abc b

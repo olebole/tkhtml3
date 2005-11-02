@@ -12,7 +12,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile.in,v 1.21 2005/10/10 14:03:14 danielk1977 Exp $
+# RCS: @(#) $Id: Makefile.in,v 1.22 2005/11/02 14:12:21 danielk1977 Exp $
 
 #========================================================================
 # Add additional lines to handle any additional AC_SUBST cases that
@@ -281,7 +281,8 @@ $(PKG_STUB_LIB_FILE): $(PKG_STUB_OBJECTS)
 
 VPATH = $(srcdir):$(srcdir)/src:$(srcdir)/unix:$(srcdir)/win:.
 
-HEADERS = html.h cssparse.h css.h cssInt.h cssprop.h htmltokens.h swproc.h
+HEADERS = htmlprop.h html.h cssparse.h css.h cssInt.h \
+          cssprop.h htmltokens.h swproc.h
 
 %.@OBJEXT@: %.c $(HEADERS)
 	$(COMPILE) -c -I. -I$(srcdir)/src `@CYGPATH@ $<` -o $@
