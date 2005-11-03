@@ -117,6 +117,8 @@ physicalToPixels(p, rVal, type)
     return pixels;
 }
 
+ 
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -505,6 +507,86 @@ propertyValuesSetLength(p, pIVal, em_mask, pProp)
 /*
  *---------------------------------------------------------------------------
  *
+ * propertyValuesSetVerticalAlign --
+ *
+ * Results: 
+ *     0 if value is successfully set. 1 if the value of *pProp is not a valid
+ *     a value for the 'vertical-align' property.
+ *
+ * Side effects:
+ *
+ *---------------------------------------------------------------------------
+ */
+static int
+propertyValuesSetVerticalAlign(p, pProp)
+    HtmlPropertyValuesCreator *p;
+    CssProperty *pProp;
+{
+    static const unsigned int MASK = PROP_MASK_VERTICALALIGN;
+    int rc = 0;
+
+    switch (pProp->eType) {
+        case CSS_CONST_INHERIT: {
+            HtmlNode *pParent = HtmlNodeParent(p->pNode);
+            HtmlPropertyValues *pPV;
+
+            assert(pParent && pParent->pPropertyValues);
+            pPV = pParent->pPropertyValues;
+
+            p->values.mask = (p->values.mask & (~MASK)) | (pPV->mask & MASK);
+            p->values.iVerticalAlign = pPV->iVerticalAlign;
+
+            p->eVerticalAlignPercent = 0;
+            p->em_mask &= (~MASK);
+            p->ex_mask &= (~MASK);
+
+            break;
+        }
+
+        case CSS_CONST_BASELINE:
+        case CSS_CONST_SUB:
+        case CSS_CONST_SUPER:
+        case CSS_CONST_TOP:
+        case CSS_CONST_TEXT_TOP:
+        case CSS_CONST_MIDDLE:
+        case CSS_CONST_BOTTOM:
+        case CSS_CONST_TEXT_BOTTOM:
+            p->values.mask &= (~MASK);
+            p->values.iVerticalAlign = pProp->eType;
+
+            p->eVerticalAlignPercent = 0;
+            p->em_mask &= (~MASK);
+            p->ex_mask &= (~MASK);
+            break;
+
+        case CSS_TYPE_PERCENT: {
+            p->values.mask |= MASK;
+            p->values.iVerticalAlign = 100 * pProp->v.iVal;
+
+            p->eVerticalAlignPercent = 1;
+            p->em_mask &= (~MASK);
+            p->ex_mask &= (~MASK);
+            break;
+        }
+
+        default: {
+            /* Try to treat the property as a <length> */
+            int *pIVal = &p->values.iVerticalAlign;
+            rc = propertyValuesSetLength(p, &pIVal, MASK, pProp);
+            if (rc == 0) {
+                p->values.mask |= MASK;
+                p->eVerticalAlignPercent = 0;
+            }
+            return 0;
+        }
+    }
+
+    return rc;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * propertyValuesSetSize --
  *
  * Results: 
@@ -535,7 +617,7 @@ propertyValuesSetSize(p, pIVal, p_mask, pProp)
         /* TODO Percentages are still stored as integers - this is wrong */
         case CSS_TYPE_PERCENT:
             p->values.mask |= p_mask;
-            *pIVal = pProp->v.iVal;
+            *pIVal = (pProp->v.iVal * 100);
             return 0;
 
         case CSS_CONST_INHERIT:
@@ -1026,11 +1108,10 @@ HtmlPropertyValuesSet(p, eProp, pProp)
                 PROP_MASK_MARGINBOTTOM, pProp
             );
 
-        /* 'vertical-align', special case */
-        case CSS_PROPERTY_VERTICAL_ALIGN: {
-            /* TODO */
-            return 0;
-        }
+        /* 'vertical-align', special case:
+         */
+        case CSS_PROPERTY_VERTICAL_ALIGN:
+            return propertyValuesSetVerticalAlign(p, pProp);
 
         case CSS_PROPERTY_LINE_HEIGHT: {
             /* TODO */
@@ -1362,6 +1443,20 @@ HtmlPropertyValuesFinish(p)
     if (!p->values.cBorderLeftColor) {
         p->values.cBorderLeftColor = pColor;
         pColor->nRef++;
+    }
+
+    /* Deal with the 'vertical-align' property */
+    if (p->eVerticalAlignPercent) {
+        /* TODO: Calculate as a % of 'line-height' */
+    }
+    if (p->values.eDisplay == CSS_CONST_TABLE_CELL && (
+           (p->values.mask & PROP_MASK_VERTICALALIGN) || (
+               p->values.iVerticalAlign != CSS_CONST_TOP &&
+               p->values.iVerticalAlign != CSS_CONST_BOTTOM &&
+               p->values.iVerticalAlign != CSS_CONST_MIDDLE))
+    ) {
+        p->values.mask &= ~PROP_MASK_VERTICALALIGN;
+        p->values.iVerticalAlign = CSS_CONST_BASELINE;
     }
 
     /* Look the values structure up in the hash-table. */

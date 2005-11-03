@@ -478,7 +478,7 @@ S void nodeGetDisplay(LayoutContext*, HtmlNode*, DisplayProperties*);
 S int  nodeGetListStyleType(LayoutContext *, HtmlNode *);
 S XColor *nodeGetColour(LayoutContext *, HtmlNode*);
 S int nodeGetBorderSpacing(LayoutContext *, HtmlNode*);
-S int nodeGetVAlign(LayoutContext *, HtmlNode*, int);
+S int nodeGetVAlign(LayoutContext *, HtmlNode*);
 S void nodeGetBoxProperties(LayoutContext *, HtmlNode *, int, BoxProperties *);
 S void nodeGetBorderProperties(LayoutContext *, HtmlNode *, BorderProperties *);
 S int nodeGetWidth(LayoutContext *, HtmlNode *, int, int, int*, int*);
@@ -604,12 +604,13 @@ propertyValuesGetPixel(pNode, pPixel)
     }
 
     if (pNode->pPropertyValues->mask & mask) {
-        val = (val * pNode->iBlockWidth) / 100;
+        val = (val * pNode->iBlockWidth) / 10000;
     }
 
-    assert(pPixel->allowAuto || val != PIXELVAL_AUTO);
+    /* These constraints should be enforced by the styler.  */
+    assert(pPixel->allowAuto   || val != PIXELVAL_AUTO);
     assert(pPixel->allowNormal || val != PIXELVAL_NORMAL);
-    assert(pPixel->allowNone || val != PIXELVAL_NONE);
+    assert(pPixel->allowNone   || val != PIXELVAL_NONE);
 
     return val;
 }
@@ -821,12 +822,6 @@ nodeGetBorderSpacing(pLayout, pNode)
  * nodeGetVAlign --
  * 
  *     Return the value of the 'vertical-align' property for pNode. 
- * 
- *     This property is a little strange (unique?) because the default
- *     value depends on the type of the node. If the node is a table-cell,
- *     then the default is VALIGN_MIDDLE. If it is an inline element, then
- *     the default value is VALIGN_BASELINE. To handle this, the caller
- *     passes the default value for the context as the third parameter.
  *
  * Results:
  *     One of the VALIGN_xxx constants.
@@ -837,12 +832,16 @@ nodeGetBorderSpacing(pLayout, pNode)
  *---------------------------------------------------------------------------
  */
 static int 
-nodeGetVAlign(pLayout, pNode, defval)
+nodeGetVAlign(pLayout, pNode)
     LayoutContext *pLayout;
     HtmlNode *pNode;
-    int defval;
 {
-    return defval;
+    HtmlPropertyValues *pV = pNode->pPropertyValues;
+    if (pV->mask & PROP_MASK_VERTICALALIGN) {
+        /* Todo: Handle pixel lengths */
+        return CSS_CONST_BASELINE;
+    }
+    return pNode->pPropertyValues->iVerticalAlign;
 }
 
 /*
@@ -1033,6 +1032,10 @@ nodeGetWidth(pLayout, pNode, pwidth, def, pIsFixed, pIsAuto)
 
     /* FIXME */ pNode->iBlockWidth = pwidth;
     iWidth = GET_PIXEL_VALUE(pNode, iWidth);
+
+    if (pIsAuto) {
+        *pIsAuto = ((iWidth == PIXELVAL_AUTO) ? 1 : 0);
+    }
 
     assert(iWidth != PIXELVAL_NONE && iWidth != PIXELVAL_NORMAL);
     if (iWidth == PIXELVAL_AUTO) {
@@ -2771,7 +2774,7 @@ inlineLayoutNode(pLayout, pBox, pNode, pY, pContext)
             pLayout->marginValue = marginValue;
             pLayout->marginParent = marginParent;
 
-            switch (nodeGetVAlign(pLayout, pNode, VALIGN_BASELINE)) {
+            switch (nodeGetVAlign(pLayout, pNode)) {
                 case VALIGN_TEXT_BOTTOM: {
                     Tk_FontMetrics fm;
                     Tk_Font font = nodeGetFont(pLayout, pParent);
@@ -3297,7 +3300,7 @@ tableDrawRow(pNode, row, pContext)
              *       only work if the top and bottom borders of the cell
              *       are of the same thickness. Same goes for the padding.
              */
-            valign = nodeGetVAlign(pData->pLayout, pCell->pNode, VALIGN_MIDDLE);
+            valign = nodeGetVAlign(pData->pLayout, pCell->pNode);
             switch (valign) {
                 case VALIGN_TOP:
                 case VALIGN_BASELINE:
@@ -3930,16 +3933,21 @@ layoutReplacement(pLayout, pBox, pNode, zReplace)
     CONST char *zReplace;
 {
     int width;
+    int autowidth;
     int height;
 
     Tk_Window tkwin = pLayout->tkwin;
     Tcl_Interp *interp = pLayout->interp;
 
-    /* Read any explicit 'width' or 'height' property values assigned to
-     * the node.
+    /* Block width to calculate percentages relative to. */
+    pNode->iBlockWidth = pBox->parentWidth;
+
+    /* Read the values of the 'width' and 'height' properties of the node.
+     * GET_PIXEL_VALUE either returns a value in pixels (0 or greater) or the
+     * constant PIXELVAL_AUTO.
      */
-    width = nodeGetWidth(pLayout, pNode, pBox->parentWidth, -1, 0, 0);
-    height = nodeGetHeight(pLayout, pNode, pBox->parentWidth, -1);
+    width  = GET_PIXEL_VALUE(pNode, iWidth);
+    height = GET_PIXEL_VALUE(pNode, iWidth);
 
     if (zReplace[0]=='.') {
         Tk_Window win = Tk_NameToWindow(interp, zReplace, tkwin);
@@ -3963,6 +3971,11 @@ layoutReplacement(pLayout, pBox, pNode, zReplace)
         DRAW_IMAGE(&pBox->vc, pImg, 0, 0, width, height);
     }
 
+    /* Note that width and height may still be PIXELVAL_AUTO here (if we failed
+     * to find the named replacement image or window). This makes no difference
+     * because PIXELVAL_AUTO is a large negative number.
+     */
+    assert(PIXELVAL_AUTO < 0);
     pBox->width = MAX(pBox->width, width);
     pBox->height = MAX(pBox->height, height);
 }

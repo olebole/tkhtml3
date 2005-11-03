@@ -138,6 +138,21 @@ struct HtmlColor {
  *         Section 4.3.3 of CSS spec 2.1 contains a statement regarding
  *         inheritance and percentage values.
  *
+ * iVerticalAlign:
+ *
+ *         The 'vertical-align' property, stored in iVerticalAlign is different
+ *         from the other iXXX values. The styler output for vertical align is
+ *         either a number of pixels or one of the constants 'baseline', 'sub'
+ *         'super', 'top', 'text-top', 'middle', 'bottom', 'text-bottom'. The
+ *         'vertical-align' property can be assigned a percentage value, but
+ *         the styler can resolve it. (This matches the CSS 2.1 description of
+ *         the computed value - section 10.8.1).
+ *
+ *         If 'vertical-align' is a pixel value, the PROP_MASK_VERTICALALIGN
+ *         bit is set in HtmlPropertyValues.mask and iVerticalAlign contains
+ *         the absolute number of pixels. If 'vertical-align' is one of the
+ *         constants, the PROP_MASK_VERTICALALIGN bit is cleared and
+ *         iVerticalAlign is set to the corresponding CSS_CONST_XXX value.
  */
 struct HtmlPropertyValues {
     int nRef;                         /* MUST BE FIRST (see htmlhash.c) */
@@ -190,7 +205,7 @@ struct HtmlPropertyValuesCreator {
     HtmlNode *pNode;
     unsigned int em_mask;
     unsigned int ex_mask;
-
+    int eVerticalAlignPercent;       /* True if 'vertical-align' is a % */
     CssProperty *pDeleteList;
 };
 

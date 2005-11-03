@@ -178,7 +178,7 @@ int HtmlClearImageArray(pTree)
  *     callback script for display by the html widget. pWidth and pHeight
  *     are pointers to integers that store the requested width and height
  *     of the image. If the intrinsic width or height is desired, then
- *     *pWidth or *pHeight should be set to -1.
+ *     *pWidth or *pHeight should be set to PIXELVAL_AUTO.
  *
  *     The value returned is a Tcl_Obj* containing the name of an image
  *     scaled as requested.
@@ -205,6 +205,9 @@ HtmlResizeImage(pTree, zImage, pWidth, pHeight, calculateSizeOnly)
     int w, h;                         /* Intrinsic width and height of image */
     Tcl_Obj *pRet = 0;                /* Return value */
     Tcl_Interp *interp = pTree->interp;
+
+    assert(*pWidth  == PIXELVAL_AUTO || *pWidth >= 0);
+    assert(*pHeight == PIXELVAL_AUTO || *pHeight >= 0);
 
     /* Look up the entry in HtmlTree.aImage for this image. If one does not
      * exist, create it. Even images that are never scaled need to have an
