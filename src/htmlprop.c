@@ -584,6 +584,11 @@ propertyValuesSetVerticalAlign(p, pProp)
     return rc;
 }
 
+#define SZ_AUTO     0x00000001
+#define SZ_INHERIT  0x00000002
+#define SZ_NONE     0x00000004
+#define SZ_PERCENT  0x00000008
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -599,11 +604,12 @@ propertyValuesSetVerticalAlign(p, pProp)
  *---------------------------------------------------------------------------
  */
 static int 
-propertyValuesSetSize(p, pIVal, p_mask, pProp)
+propertyValuesSetSize(p, pIVal, p_mask, pProp, allow_mask)
     HtmlPropertyValuesCreator *p;
     int *pIVal;
     unsigned int p_mask;
     CssProperty *pProp;
+    unsigned int allow_mask;
 {
     assert(p_mask != 0);
 
@@ -616,21 +622,33 @@ propertyValuesSetSize(p, pIVal, p_mask, pProp)
 
         /* TODO Percentages are still stored as integers - this is wrong */
         case CSS_TYPE_PERCENT:
-            p->values.mask |= p_mask;
-            *pIVal = (pProp->v.iVal * 100);
-            return 0;
+            if (allow_mask & SZ_PERCENT) {
+                p->values.mask |= p_mask;
+                *pIVal = (pProp->v.iVal * 100);
+                return 0;
+            }
+            return 1;
 
         case CSS_CONST_INHERIT:
-            *pIVal = PIXELVAL_INHERIT;
-            return 0;
+            if (allow_mask & SZ_INHERIT) {
+                *pIVal = PIXELVAL_INHERIT;
+                return 0;
+            }
+            return 1;
 
         case CSS_CONST_AUTO:
-            *pIVal = PIXELVAL_AUTO;
-            return 0;
+            if (allow_mask & SZ_AUTO) {
+                *pIVal = PIXELVAL_AUTO;
+                return 0;
+            }
+            return 1;
 
         case CSS_CONST_NONE:
-            *pIVal = PIXELVAL_NONE;
-            return 0;
+            if (allow_mask & SZ_NONE) {
+                *pIVal = PIXELVAL_NONE;
+                return 0;
+            }
+            return 1;
 
         case CSS_TYPE_FLOAT:
             *pIVal = pProp->v.rVal;
@@ -856,7 +874,17 @@ propertyValuesTclScript(p, eProp, zScript)
     rc = Tcl_Eval(interp, zScript);
     zRes = Tcl_GetStringResult(interp);
     if (rc == TCL_ERROR) {
-        Tcl_BackgroundError(interp);
+        if (*zRes) {
+            Tcl_Obj *pRes = Tcl_GetObjResult(interp);
+            Tcl_IncrRefCount(pRes);
+            Tcl_ResetResult(interp);
+            Tcl_AppendResult(
+                interp, "tkhtml: tcl() script error \"",
+                Tcl_GetString(pRes), "\"", 0
+            );
+            Tcl_DecrRefCount(pRes);
+            Tcl_BackgroundError(interp);
+        }
         return 1;
     }
 
@@ -865,8 +893,17 @@ propertyValuesTclScript(p, eProp, zScript)
     pVal = HtmlCssStringToProperty(zRes, -1);
 
     if (HtmlPropertyValuesSet(p, eProp, pVal)) {
+	/* A tcl() script has returned a value that caused a type-mismatch
+         * error. Throw a background error.
+         */
         ckfree((char *)pVal);
-        assert(0);
+        Tcl_ResetResult(interp);
+        Tcl_AppendResult(interp, 
+                 "tkhtml: tcl() script returned \"", zRes, "\""
+                 " - type mismatch for property "
+                 "'", tkhtmlCssPropertyToString(eProp), "'", 0
+        );
+        Tcl_BackgroundError(interp);
         return 1;
     }
 
@@ -1053,59 +1090,59 @@ HtmlPropertyValuesSet(p, eProp, pProp)
         /* Pixel values that may be percentages or inherit from percentages */
         case CSS_PROPERTY_WIDTH: 
             return propertyValuesSetSize(p, &(p->values.iWidth),
-                PROP_MASK_WIDTH, pProp
+                PROP_MASK_WIDTH, pProp, SZ_INHERIT|SZ_PERCENT|SZ_AUTO
             );
         case CSS_PROPERTY_MIN_WIDTH:
             return propertyValuesSetSize(p, &(p->values.iMinWidth),
-                PROP_MASK_MINWIDTH, pProp
+                PROP_MASK_MINWIDTH, pProp, SZ_INHERIT|SZ_PERCENT
             );
         case CSS_PROPERTY_MAX_WIDTH:
             return propertyValuesSetSize(p, &(p->values.iMaxWidth),
-                PROP_MASK_MAXWIDTH, pProp
+                PROP_MASK_MAXWIDTH, pProp, SZ_INHERIT|SZ_PERCENT|SZ_NONE
             );
         case CSS_PROPERTY_HEIGHT: 
             return propertyValuesSetSize(p, &(p->values.iHeight),
-                PROP_MASK_HEIGHT, pProp
+                PROP_MASK_HEIGHT, pProp, SZ_INHERIT|SZ_PERCENT|SZ_AUTO
             );
         case CSS_PROPERTY_MIN_HEIGHT:
             return propertyValuesSetSize(p, &(p->values.iMinHeight),
-                PROP_MASK_MINHEIGHT, pProp
+                PROP_MASK_MINHEIGHT, pProp, SZ_INHERIT|SZ_PERCENT
             );
         case CSS_PROPERTY_MAX_HEIGHT:
             return propertyValuesSetSize(p, &(p->values.iMaxHeight),
-                PROP_MASK_MAXHEIGHT, pProp
+                PROP_MASK_MAXHEIGHT, pProp, SZ_INHERIT|SZ_PERCENT|SZ_NONE
             );
         case CSS_PROPERTY_PADDING_TOP:
             return propertyValuesSetSize(p, &(p->values.padding.iTop),
-                PROP_MASK_PADDINGTOP, pProp
+                PROP_MASK_PADDINGTOP, pProp, SZ_INHERIT|SZ_PERCENT
             );
         case CSS_PROPERTY_PADDING_LEFT:
             return propertyValuesSetSize(p, &(p->values.padding.iLeft),
-                PROP_MASK_PADDINGLEFT, pProp
+                PROP_MASK_PADDINGLEFT, pProp, SZ_INHERIT|SZ_PERCENT
             );
         case CSS_PROPERTY_PADDING_RIGHT:
             return propertyValuesSetSize(p, &(p->values.padding.iRight),
-                PROP_MASK_PADDINGRIGHT, pProp
+                PROP_MASK_PADDINGRIGHT, pProp, SZ_INHERIT|SZ_PERCENT
             );
         case CSS_PROPERTY_PADDING_BOTTOM:
             return propertyValuesSetSize(p, &(p->values.padding.iBottom),
-                PROP_MASK_PADDINGBOTTOM, pProp
+                PROP_MASK_PADDINGBOTTOM, pProp, SZ_INHERIT|SZ_PERCENT
             );
         case CSS_PROPERTY_MARGIN_TOP:
             return propertyValuesSetSize(p, &(p->values.margin.iTop),
-                PROP_MASK_MARGINTOP, pProp
+                PROP_MASK_MARGINTOP, pProp, SZ_INHERIT|SZ_PERCENT|SZ_AUTO
             );
         case CSS_PROPERTY_MARGIN_LEFT:
             return propertyValuesSetSize(p, &(p->values.margin.iLeft),
-                PROP_MASK_MARGINLEFT, pProp
+                PROP_MASK_MARGINLEFT, pProp, SZ_INHERIT|SZ_PERCENT|SZ_AUTO
             );
         case CSS_PROPERTY_MARGIN_RIGHT:
             return propertyValuesSetSize(p, &(p->values.margin.iRight),
-                PROP_MASK_MARGINRIGHT, pProp
+                PROP_MASK_MARGINRIGHT, pProp, SZ_INHERIT|SZ_PERCENT|SZ_AUTO
             );
         case CSS_PROPERTY_MARGIN_BOTTOM:
             return propertyValuesSetSize(p, &(p->values.margin.iBottom),
-                PROP_MASK_MARGINBOTTOM, pProp
+                PROP_MASK_MARGINBOTTOM, pProp, SZ_INHERIT|SZ_PERCENT|SZ_AUTO
             );
 
         /* 'vertical-align', special case:

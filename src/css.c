@@ -1436,11 +1436,11 @@ cssParse(n, z, isStyle, origin, pStyleId, ppStyle)
     if (isStyle) {
          sToken.z = "}"; sToken.n = 1; 
          tkhtmlCssParser(p, CT_RP, sToken, &sParse);
-
-         /* Todo: The parser seems to need one more token to work... */
-         sToken.z = " "; sToken.n = 1; 
-         tkhtmlCssParser(p, CT_SPACE, sToken, &sParse);
     }
+
+    /* Pass the end-of-input token to the parser */
+    sToken.z = ""; sToken.n = 0; 
+    tkhtmlCssParser(p, 0, sToken, &sParse);
 
     *ppStyle = sParse.pStyle;
     tkhtmlCssParserFree(p, xCkfree);
@@ -2184,8 +2184,10 @@ ruleToPropertyValues(p, aPropDone, pRule)
 
     for (i = 0; i < pSet->n; i++) {
         int eProp = pSet->a[i].eProp;
-        assert(eProp <= CSS_PROPERTY_MAX_PROPERTY);
-        if (0 == aPropDone[eProp]) {
+	/* eProp may be greater than MAX_PROPERTY if it stores a composite
+	 * property that Tkhtml doesn't handle. In this case just ignore it.
+         */
+	if (eProp <= CSS_PROPERTY_MAX_PROPERTY && 0 == aPropDone[eProp]) {
             if (0 == HtmlPropertyValuesSet(p, eProp, pSet->a[i].pProp)) {
                 aPropDone[eProp] = 1;
             }

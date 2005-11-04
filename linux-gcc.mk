@@ -62,7 +62,7 @@ MANINSTALLDIR = $(TCL)/man/mann
 # You should not need to change anything below this line
 ###########################################################################
 
-default: binaries
+default: binaries hwish
 
 install: binaries
 	mkdir -p $(INSTALLDIR)

@@ -70,7 +70,7 @@ namespace eval tkhtml {
 
     swproc attr {attr {len 0 1}} {
         upvar N node
-        set val [$node attr $attr]
+        if {[catch {$node attr $attr} val]} {error ""}
         if {$len} {
             set val [len $val]
         }
@@ -81,7 +81,7 @@ namespace eval tkhtml {
         upvar N node
         for {} {$node != ""} {set node [$node parent]} {
             if {[$node tag] == $tag} {
-                set val [$node attr $attr]
+                if {[catch {$node attr $attr} val]} {error ""}
                 if {$len} {
                     set val [len $val]
                 }

@@ -14,7 +14,9 @@ package require sqlite3
 
 # If possible, load package "Img". Without it the script can still run,
 # but won't be able to load many image formats.
-catch { package require Img }
+if {[catch { package require Img }]} {
+  puts "WARNING: Failed to load package Img"
+}
 
 # Source the other script files that are part of this application.
 #
@@ -22,6 +24,7 @@ proc sourcefile {file} {
   source [file join [file dirname [info script]] $file] 
 }
 sourcefile hv3_url.tcl
+sourcefile hv3_image.tcl
 
 ###########################################################################
 # Global data:
@@ -40,6 +43,7 @@ proc gui_init_globals {} {
 proc bgerror {args} {
   puts "BGERROR: $args"
 }
+
 
 ###########################################################################
 #
@@ -68,10 +72,16 @@ proc gui_build {} {
     scrollbar .vscroll -orient vertical
     scrollbar .hscroll -orient horizontal
     label .status -height 1 -anchor w
-    entry .entry
 
+    frame .entry
+    entry .entry.entry
+    button .entry.clear -text {Clear ->} -command {.entry.entry delete 0 end}
+
+    pack .entry.clear -side left
+    pack .entry.entry -fill both -expand true
     pack .entry -fill x -side top 
-    bind .entry <KeyPress-Return> {gui_goto [.entry get]}
+    bind .entry.entry <KeyPress-Return> {gui_goto [.entry.entry get]}
+
     pack .vscroll -fill y -side right
     pack .status -fill x -side bottom 
     # pack .hscroll -fill x -side bottom
@@ -95,6 +105,33 @@ proc gui_build {} {
     $HTML handler node img "handle_img_node"
 
     focus $HTML
+
+    ###########################################################################
+    # Build the main window menu.
+    #
+    . config -menu [menu .m]
+    .m add cascade -label {File} -menu [menu .m.file]
+    .m add cascade -label {Image Tests} -menu [menu .m.image]
+    .m.image add command -label {800x600} -command "image_800x600"
+    .m.image add separator
+    .m.image add command -label {Save file...} -command "image_savefile $HTML"
+    .m.image add command -label {Save test case} -command "image_savetest $HTML"
+    .m.image add separator
+    .m.image add command -label {Run all tests} -command "image_runtests $HTML"
+    foreach f [list \
+        [file join $::tcl_library .. .. bin tkcon] \
+        [file join $::tcl_library .. .. bin tkcon.tcl]
+    ] {
+        if {[file exists $f]} {
+            catch {
+                uplevel #0 "source $f"
+                package require tkcon
+                .m.file add command -label Tkcon -command {tkcon show}
+            }
+            break
+        }
+    }
+    
 }
 
 proc handle_event {e x y} {
@@ -182,8 +219,8 @@ proc gui_goto {doc} {
   update
 
   set url [url_resolve $doc -setbase]
-  .entry delete 0 end
-  .entry insert 0 $url
+  .entry.entry delete 0 end
+  .entry.entry insert 0 $url
 
   .html var url $url
   url_fetch $url -id $url -script [list gui_parse $url]
@@ -201,7 +238,7 @@ proc gui_goto {doc} {
 proc gui_parse {doc text} {
   set ::gui_style_count 0
   .html parse $text
-  update
+  # update
 
   foreach {node url} $::gui_replaced_images {
     url_fetch $url -script [list handle_img_node_cb $node]
