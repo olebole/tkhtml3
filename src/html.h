@@ -417,6 +417,8 @@ Tcl_HashKeyType * HtmlPropertyValuesHashType();
 CONST char *HtmlDefaultTcl();
 CONST char *HtmlDefaultCss();
 
+void HtmlCallbackForce(HtmlTree *);
+
 #ifdef HTML_DEBUG
 void HtmlDrawComment(HtmlCanvas *, CONST char *zComment, int);
 #else

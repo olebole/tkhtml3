@@ -10,10 +10,12 @@ BUILD = DEBUG
 
 ##### Version of and path to the Tcl installation to use.
 #
-TCLVERSION = 8.5
-TCL_RELEASE = $(HOME)/tcl
 # TCL_DEBUG   = $(HOME)/profiletcl
-TCL_DEBUG   = $(HOME)/tcl
+# TCL_DEBUG   = $(HOME)/tcl
+
+TCLVERSION = 8.4
+TCL_RELEASE = $(HOME)/tcl
+TCL_DEBUG = /usr/local/ActiveTcl
 TCL = $(TCL_$(BUILD))
 
 ##### Flags passed to the C-compiler to link to Tcl.

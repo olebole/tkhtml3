@@ -26,6 +26,7 @@ proc sourcefile {file} {
 sourcefile hv3_url.tcl
 sourcefile hv3_image.tcl
 sourcefile hv3_log.tcl
+sourcefile hv3_nav.tcl
 
 ###########################################################################
 # Global data:
@@ -113,13 +114,6 @@ proc gui_build {} {
     #
     . config -menu [menu .m]
     .m add cascade -label {File} -menu [menu .m.file]
-    .m add cascade -label {Image Tests} -menu [menu .m.image]
-    .m.image add command -label {800x600} -command "image_800x600"
-    .m.image add separator
-    .m.image add command -label {Save file...} -command "image_savefile $HTML"
-    .m.image add command -label {Save test case} -command "image_savetest $HTML"
-    .m.image add separator
-    .m.image add command -label {Run all tests} -command "image_runtests $HTML"
     foreach f [list \
         [file join $::tcl_library .. .. bin tkcon] \
         [file join $::tcl_library .. .. bin tkcon.tcl]
@@ -133,21 +127,24 @@ proc gui_build {} {
             break
         }
     }
+    .m.file add separator
+    .m.file add command -label Exit -command exit
 
     log_init $HTML
+    image_init $HTML
 }
 
 proc handle_event {e x y} {
 
   set n [.html node $x $y]
   for {} {$n != ""} {set n [$n parent]} {
-    if {[$n tag] == "a" && [$n attr href] != ""} {
+    if {[$n tag] == "a" && 0 == [catch {set href [$n attr href]}]} {
       switch -- $e {
         motion {
-          .status configure -text [$n attr href]
+          .status configure -text $href
           . configure -cursor hand2
         }
-        click  {gui_goto [$n attr href]}
+        click  "gui_goto $href"
       }
       break
     }
@@ -216,7 +213,7 @@ proc handle_link_node {node} {
 #     Commence the process of loading the document at url $doc.
 proc gui_goto {doc} {
   .html reset
-  update
+  # update
 
   set url [url_resolve $doc -setbase]
   .entry.entry delete 0 end
@@ -256,11 +253,11 @@ proc gui_log {msg} {
     puts $msg
 }
 
-swproc main {url {cache :memory:}} {
+swproc main {{cache :memory:} {doclist ""}} {
   gui_build
   gui_init_globals
   cache_init $cache
-  gui_goto $url
+  nav_init $cache -doclist $doclist
 }
 
 eval [concat main $argv]

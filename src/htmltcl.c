@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmltcl.c,v 1.43 2005/11/06 07:27:04 danielk1977 Exp $";
+        "@(#) $Id: htmltcl.c,v 1.44 2005/11/06 13:20:42 danielk1977 Exp $";
 
 
 #include <tk.h>
@@ -326,6 +326,33 @@ callbackHandler(clientData)
         eCallbackAction == HTML_CALLBACK_STYLE
     ) {
         doScrollCallback(pTree);
+    }
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlCallbackForce --
+ *
+ *     If there is a callback scheduled, execute it now instead of waiting for
+ *     the idle loop.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+void 
+HtmlCallbackForce(pTree)
+    HtmlTree *pTree;
+{
+    if (pTree->cb.eCallbackAction != HTML_CALLBACK_NONE) {
+        ClientData clientData = (ClientData)pTree;
+        Tcl_CancelIdleCall(callbackHandler, clientData);
+        callbackHandler(clientData);
     }
 }
 

@@ -4316,6 +4316,10 @@ static int blockLayout(pLayout, pBox, pNode, omitborder, noalign)
     ) {
         int hoffset = 0;
 
+        if (display.eDisplay == DISPLAY_TABLECELL) {
+            noalign = 1;
+        }
+
         if (!noalign) {
             int textalign = 0;
     

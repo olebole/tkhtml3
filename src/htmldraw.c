@@ -927,9 +927,15 @@ int HtmlLayoutImage(clientData, interp, objc, objv)
 
     int x = 0;
     int y = 0;
-    int w = pCanvas->right;
-    int h = pCanvas->bottom;
+    int w;
+    int h;
 
+    /* Force any pending style and/or layout operations to run. */
+    HtmlCallbackForce(pTree);
+
+    w = pCanvas->right;
+    h = pCanvas->bottom;
+    assert(w >= 0 && h >= 0);
     if (w>0 && h>0) {
         Pixmap pixmap;
         Tcl_Obj *pImage;
