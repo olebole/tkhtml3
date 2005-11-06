@@ -31,7 +31,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmltcl.c,v 1.42 2005/11/02 18:11:35 danielk1977 Exp $";
+        "@(#) $Id: htmltcl.c,v 1.43 2005/11/06 07:27:04 danielk1977 Exp $";
+
 
 #include <tk.h>
 #include <ctype.h>
@@ -47,64 +48,211 @@ static char const rcsid[] =
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#include "htmldefaultstyle.c"
+
 #define SafeCheck(interp,str) if (Tcl_IsSafe(interp)) { \
     Tcl_AppendResult(interp, str, " invalid in safe interp", 0); \
     return TCL_ERROR; \
 }
 
-/*
- * Default values for some of the options declared in htmlOptionSpec.
- */
-#define DEF_HTML_HEIGHT "600"
-#define DEF_HTML_WIDTH "800"
-#define DEF_HTML_XSCROLLINCREMENT "20"
-#define DEF_HTML_YSCROLLINCREMENT "20"
-#define DEF_HTML_DEFAULTSTYLE "html"
-
-/*
- * Mask flags for options declared in htmlOptionSpec.
- */
-#define OPTION_REQUIRE_UPDATE 0x00000001
-
-static Tk_OptionSpec htmlOptionSpec[] = {
-    {TK_OPTION_PIXELS, 
-     "-height", "height", "Height", DEF_HTML_HEIGHT, 
-        -1, Tk_Offset(HtmlOptions, height), 0, 0, 0},
-    {TK_OPTION_PIXELS, 
-     "-width", "width", "Width", DEF_HTML_WIDTH, 
-        -1, Tk_Offset(HtmlOptions, width), 0, 0, 0},
-    {TK_OPTION_PIXELS, "-yscrollincrement", "yScrollIncrement", 
-        "ScrollIncrement", DEF_HTML_YSCROLLINCREMENT, -1, 
-         Tk_Offset(HtmlOptions, yscrollincrement), 0, 0, 0},
-    {TK_OPTION_PIXELS, "-xscrollincrement", "xScrollIncrement", 
-        "ScrollIncrement", DEF_HTML_XSCROLLINCREMENT, -1, 
-         Tk_Offset(HtmlOptions, xscrollincrement), 0, 0, 0},
-    {TK_OPTION_STRING, "-xscrollcommand", "xScrollCommand", 
-        "ScrollCommand", "",  
-         Tk_Offset(HtmlOptions, xscrollcommand), -1, 0, 0, 0},
-    {TK_OPTION_STRING, "-yscrollcommand", "yScrollCommand", 
-        "ScrollCommand", "",  
-         Tk_Offset(HtmlOptions, yscrollcommand), -1, 0, 0, 0},
-    {TK_OPTION_STRING, 
-        "-defaultstyle", "defaultStyle", "DefaultStyle", DEF_HTML_DEFAULTSTYLE,
-         Tk_Offset(HtmlOptions, defaultstyle), -1, OPTION_REQUIRE_UPDATE, 
-         0, 0 },
-    {TK_OPTION_STRING, 
-        "-imagecmd", "imageCmd", "ImageCmd", "",
-         Tk_Offset(HtmlOptions, imagecmd), -1, 
-         0, 0 },
-    {TK_OPTION_END, (char *) NULL, (char *) NULL, (char *) NULL,
-        (char *) NULL, 0, 0, 0, 0}
-};
 
 /*
  *---------------------------------------------------------------------------
  *
- * configureCommand --
+ * HtmlLog --
  *
- *     Implementation of the standard Tk "configure" command.
+ *     This function is used by various parts of the widget to output internal
+ *     information that may be useful in debugging. 
  *
- *     <widget> configure -OPTION VALUE ?-OPTION VALUE? ...
+ *     The first argument is the HtmlTree structure. The second is a string
+ *     identifying the sub-system logging the message. The third argument is a
+ *     printf() style format string and subsequent arguments are substituted
+ *     into it to form the logged message.
+ *
+ *     If -logcmd is set to an empty string, this function is a no-op.
+ *     Otherwise, the name of the subsystem and the formatted error message are
+ *     appended to the value of the -logcmd option and the result executed as a
+ *     Tcl script.
+ *
+ *     This function is replaced with an empty macro if NDEBUG is defined at
+ *     compilation time. If the "-logcmd" option is set to an empty string it
+ *     returns very quickly.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     Invokes the -logcmd script, if it is not "".
+ *
+ *---------------------------------------------------------------------------
+ */
+#ifndef NDEBUG
+void 
+HtmlLog(HtmlTree *pTree, CONST char *zSubject, CONST char *zFormat, ...)
+{
+    Tcl_Obj *pLogCmd = pTree->options.logcmd;
+
+    if (pLogCmd) {
+        char zBuf[200];
+        int nBuf;
+        va_list ap;
+        Tcl_Obj *pSubject;
+        Tcl_Obj *pMessage;
+        Tcl_Obj *apArgs[3];
+
+        va_start(ap, zFormat);
+        nBuf = vsnprintf(zBuf, 200, zFormat, ap);
+
+        pMessage = Tcl_NewStringObj(zBuf, nBuf);
+        Tcl_IncrRefCount(pMessage);
+        pSubject = Tcl_NewStringObj(zSubject, -1);
+        Tcl_IncrRefCount(pSubject);
+
+        apArgs[0] = pLogCmd;
+        apArgs[1] = pSubject;
+        apArgs[2] = pMessage;
+
+        if (Tcl_EvalObjv(pTree->interp, 3, apArgs, TCL_GLOBAL_ONLY)) {
+            Tcl_BackgroundError(pTree->interp);
+        }
+
+        Tcl_DecrRefCount(pMessage);
+        Tcl_DecrRefCount(pSubject);
+    }
+}
+#endif
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * doLoadDefaultStyle --
+ *
+ *     Load the default-style sheet into the current stylesheet configuration.
+ *     The text of the default stylesheet is stored in the -defaultstyle
+ *     option.
+ *
+ *     This function is called once when the widget is created and each time
+ *     [.html reset] is called thereafter.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     Loads the default style.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void
+doLoadDefaultStyle(pTree)
+    HtmlTree *pTree;
+{
+    Tcl_Obj *pObj = pTree->options.defaultstyle;
+    Tcl_Obj *pId = Tcl_NewStringObj("agent", 5);
+    assert(pObj);
+    Tcl_IncrRefCount(pId);
+    HtmlStyleParse(pTree, pTree->interp, pObj, pId, 0);
+    Tcl_DecrRefCount(pId);
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * doSingleScrollCallback --
+ *
+ *     Helper function for doScrollCallback().
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     May invoke the script in *pScript.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void
+doSingleScrollCallback(interp, pScript, iOffScreen, iTotal, iPage)
+    Tcl_Interp *interp;
+    Tcl_Obj *pScript;
+    int iOffScreen;
+    int iTotal;
+    int iPage;
+{
+    if (pScript) {
+        double fArg1;
+        double fArg2;
+        int rc;
+        Tcl_Obj *pEval; 
+
+        if (iTotal == 0){ 
+            fArg1 = 0.0;
+            fArg2 = 1.0;
+        } else {
+            fArg1 = (double)iOffScreen / (double)iTotal;
+            fArg2 = (double)(iOffScreen + iPage) / (double)iTotal;
+            fArg2 = MIN(1.0, fArg2);
+        }
+
+        pEval = Tcl_DuplicateObj(pScript);
+        Tcl_IncrRefCount(pEval);
+        Tcl_ListObjAppendElement(interp, pEval, Tcl_NewDoubleObj(fArg1));
+        Tcl_ListObjAppendElement(interp, pEval, Tcl_NewDoubleObj(fArg2));
+        rc = Tcl_EvalObjEx(interp, pEval, TCL_EVAL_DIRECT|TCL_EVAL_GLOBAL);
+        if (TCL_OK != rc) {
+            Tcl_BackgroundError(interp);
+        }
+        Tcl_DecrRefCount(pEval);
+    }
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * doScrollCallback --
+ *
+ *     Invoke both the -xscrollcommand and -yscrollcommand scripts (unless they
+ *     are set to empty strings). The arguments passed to the two scripts are
+ *     calculated based on the current values of HtmlTree.iScrollY,
+ *     HtmlTree.iScrollX and HtmlTree.canvas.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects: 
+ *     May invoke either or both of the -xscrollcommand and -yscrollcommand
+ *     scripts.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void 
+doScrollCallback(pTree)
+    HtmlTree *pTree;
+{
+    Tcl_Interp *interp = pTree->interp;
+    Tk_Window win = pTree->win;
+
+    Tcl_Obj *pScrollCommand;
+    int iOffScreen;
+    int iTotal;
+    int iPage;
+
+    pScrollCommand = pTree->options.yscrollcommand;
+    iOffScreen = pTree->iScrollY;
+    iTotal = pTree->canvas.bottom;
+    iPage = Tk_Height(win);
+    doSingleScrollCallback(interp, pScrollCommand, iOffScreen, iTotal, iPage);
+
+    pScrollCommand = pTree->options.xscrollcommand;
+    iOffScreen = pTree->iScrollX;
+    iTotal = pTree->canvas.right;
+    iPage = Tk_Width(win);
+    doSingleScrollCallback(interp, pScrollCommand, iOffScreen, iTotal, iPage);
+}
+
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * callbackHandler --
  *
  * Results:
  *     None.
@@ -114,59 +262,309 @@ static Tk_OptionSpec htmlOptionSpec[] = {
  *
  *---------------------------------------------------------------------------
  */
-static int 
-configureCommand(clientData, interp, objc, objv)
-    ClientData clientData;             /* The HTML widget */
-    Tcl_Interp *interp;                /* The interpreter */
-    int objc;                          /* Number of arguments */
-    Tcl_Obj *const *objv;              /* List of all arguments */
+static void
+callbackHandler(clientData)
+    ClientData clientData;
 {
     HtmlTree *pTree = (HtmlTree *)clientData;
-    int mask;
-    int geometry_request = 0;
+    int eCallbackAction = pTree->cb.eCallbackAction;
+    pTree->cb.eCallbackAction = HTML_CALLBACK_NONE;
 
-    if (!pTree->optionTable) {
-        pTree->optionTable = Tk_CreateOptionTable(interp, htmlOptionSpec);
-        Tk_InitOptions(interp, 
-                (char *)&pTree->options, pTree->optionTable, pTree->tkwin);
-        geometry_request = 1;
+    int x, y;
+    int w, h;
+
+    int canvas_x = 0;
+    int canvas_y = 0;
+
+    assert(
+        eCallbackAction == HTML_CALLBACK_LAYOUT ||
+        eCallbackAction == HTML_CALLBACK_STYLE ||
+        eCallbackAction == HTML_CALLBACK_DAMAGE
+    );
+
+    switch (eCallbackAction) {
+        case HTML_CALLBACK_STYLE:
+            HtmlStyleApply((ClientData)pTree, pTree->interp, 0, 0);
+        case HTML_CALLBACK_LAYOUT:
+            HtmlLayoutForce((ClientData)pTree, pTree->interp, 0, 0);
+            x = 0;
+            y = 0;
+            w = Tk_Width(pTree->tkwin);
+            h = Tk_Height(pTree->tkwin);
+            break;
+        case HTML_CALLBACK_DAMAGE: {
+            x = pTree->cb.x1;
+            y = pTree->cb.y1;
+            w = pTree->cb.x2 - x;
+            h = pTree->cb.y2 - y;
+            break;
+        }
     }
-    if (TCL_OK != Tk_SetOptions(
-            interp, (char *)&pTree->options, pTree->optionTable,
-            objc-2, &objv[2], pTree->tkwin, 0, &mask)
+
+    canvas_y = pTree->iScrollY;
+    canvas_x = pTree->iScrollX;
+
+    assert(w >= 0 && h >=0 && x >= 0 && y >= y);
+    HtmlWidgetPaint(pTree, x + canvas_x, y + canvas_y, x, y, w, h);
+
+    HtmlLog(pTree, "CALLBACK", "%s - %dx%d @ (%d, %d)",
+        eCallbackAction == HTML_CALLBACK_STYLE ?  "STYLE" :
+        eCallbackAction == HTML_CALLBACK_LAYOUT ? "LAYOUT" :
+        eCallbackAction == HTML_CALLBACK_DAMAGE ? "DAMAGE" :
+        "N/A",
+        w, h, x, y
+    );
+
+    pTree->cb.x1 = Tk_Width(pTree->tkwin) + 1;
+    pTree->cb.y1 = Tk_Height(pTree->tkwin) + 1;
+    pTree->cb.x2 = 0;
+    pTree->cb.y2 = 0;
+    assert(pTree->cb.eCallbackAction == HTML_CALLBACK_NONE);
+
+    if (
+        eCallbackAction == HTML_CALLBACK_LAYOUT || 
+        eCallbackAction == HTML_CALLBACK_STYLE
     ) {
-        return TCL_ERROR;
+        doScrollCallback(pTree);
+    }
+}
+
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlScheduleCallback --
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+void 
+HtmlCallbackSchedule(pTree, eCallbackAction)
+    HtmlTree *pTree;
+    int eCallbackAction;
+{
+    assert(
+        eCallbackAction == HTML_CALLBACK_LAYOUT ||
+        eCallbackAction == HTML_CALLBACK_STYLE ||
+        eCallbackAction == HTML_CALLBACK_DAMAGE
+    );
+
+    if (pTree->cb.eCallbackAction == HTML_CALLBACK_NONE) {
+        Tcl_DoWhenIdle(callbackHandler, (ClientData)pTree);
     }
 
-    /* The minimum values for width and height are 100 pixels */
-    pTree->options.height = MAX(pTree->options.height, 100);
-    pTree->options.width = MAX(pTree->options.width, 100);
-
-    if (geometry_request) {
-        int w = pTree->options.width;
-        int h = pTree->options.height;
-        Tk_GeometryRequest(pTree->tkwin, w, h);
-    }
-
-    /* If the OPTION_REQUIRE_UPDATE bit is set in the returned mask, then
-     * one or more options that influence the layout have been modified.
-     * Invoke the Tcl script "$widget update" to deal with this.
-     */
-    if (mask & OPTION_REQUIRE_UPDATE) {
-        Tcl_Obj *pCmd = Tcl_DuplicateObj(objv[0]);
-        Tcl_IncrRefCount(pCmd);
-        Tcl_ListObjAppendElement(interp, pCmd, Tcl_NewStringObj("update", -1));
-        Tcl_EvalObjEx(interp, pCmd, TCL_EVAL_DIRECT);
-        Tcl_DecrRefCount(pCmd);
-    }
-
-    return TCL_OK;
+    pTree->cb.eCallbackAction = MAX(eCallbackAction, pTree->cb.eCallbackAction);
 }
 
 /*
  *---------------------------------------------------------------------------
  *
- * cgetCommand --
+ * HtmlCallbackExtents --
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void 
+HtmlCallbackExtents(pTree, x, y, width, height)
+    HtmlTree *pTree;
+    int x, y;
+    int width, height;
+{
+    assert(width >= 0 && height >=0 && x >= 0 && y >= y);
+
+    pTree->cb.x1 = MIN(x, pTree->cb.x1);
+    pTree->cb.y1 = MIN(y, pTree->cb.y1);
+    pTree->cb.x2 = MAX(x + width, pTree->cb.x2);
+    pTree->cb.y2 = MAX(y + height, pTree->cb.y2);
+
+    assert(
+        pTree->cb.y1 >= 0 && 
+        pTree->cb.x1 >= 0 &&
+        pTree->cb.x2 >= pTree->cb.x1 && 
+        pTree->cb.y2 >= pTree->cb.y1
+    );
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * eventHandler --
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void 
+eventHandler(clientData, pEvent)
+    ClientData clientData;
+    XEvent *pEvent;
+{
+    HtmlTree *pTree = (HtmlTree *)clientData;
+
+    switch (pEvent->type) {
+        case ConfigureNotify: {
+            XConfigureEvent *p = (XConfigureEvent*)pEvent;
+
+            HtmlLog(pTree, "EVENT", "ConfigureNotify:");
+
+            if (Tk_Width(pTree->tkwin) != pTree->iCanvasWidth) {
+                HtmlCallbackSchedule(pTree, HTML_CALLBACK_LAYOUT);
+            }
+            break;
+        }
+
+        case Expose: {
+            XExposeEvent *p = (XExposeEvent *)pEvent;
+
+            HtmlLog(pTree, "EVENT", "Expose: x=%d y=%d width=%d height=%d",
+                p->x, p->y, p->width, p->height
+            );
+
+            HtmlCallbackSchedule(pTree, HTML_CALLBACK_DAMAGE);
+            HtmlCallbackExtents(pTree, p->x, p->y, p->width, p->height);
+            break;
+        }
+
+        case VisibilityNotify: {
+            XVisibilityEvent *p = (XVisibilityEvent *)pEvent;
+
+            HtmlLog(pTree, "EVENT", "VisibilityNotify: state=%s", 
+                p->state == VisibilityFullyObscured ?
+                        "VisibilityFullyObscured":
+                p->state == VisibilityPartiallyObscured ?
+                        "VisibilityPartiallyObscured":
+                p->state == VisibilityUnobscured ?
+                        "VisibilityUnobscured":
+                "N/A"
+            );
+
+            pTree->eVisibility = p->state;
+            break;
+        }
+
+    }
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * configureCmd --
+ *
+ *     Implementation of the standard Tk "configure" command.
+ *
+ *         <widget> configure -OPTION VALUE ?-OPTION VALUE? ...
+ *
+ *     TODO: Handle configure of the forms:
+ *         <widget> configure -OPTION 
+ *         <widget> configure
+ *
+ * Results:
+ *     Standard tcl result.
+ *
+ * Side effects:
+ *     May set values of HtmlTree.options struct. May call
+ *     Tk_GeometryRequest().
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+configureCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget */
+    Tcl_Interp *interp;                /* The interpreter */
+    int objc;                          /* Number of arguments */
+    Tcl_Obj *const *objv;              /* List of all arguments */
+{
+    /*
+     * Mask bits for options declared in htmlOptionSpec.
+     */
+    #define GEOMETRY_MASK 0x00000001
+
+    /*
+     * Macros to generate static Tk_OptionSpec structures for the
+     * htmlOptionSpec() array.
+     */
+    #define PIXELS(v, s1, s2, s3) \
+        {TK_OPTION_PIXELS, "-" #v, s1, s2, s3, -1, \
+         Tk_Offset(HtmlOptions, v), 0, 0, 0}
+    #define GEOMETRY(v, s1, s2, s3) \
+        {TK_OPTION_PIXELS, "-" #v, s1, s2, s3, -1, \
+         Tk_Offset(HtmlOptions, v), 0, 0, GEOMETRY_MASK}
+    #define STRING(v, s1, s2, s3) \
+        {TK_OPTION_STRING, "-" #v, s1, s2, s3, \
+         Tk_Offset(HtmlOptions, v), -1, TK_OPTION_NULL_OK, 0, 0}
+    
+    /* Option table definition for the html widget. */
+    static Tk_OptionSpec htmlOptionSpec[] = {
+        GEOMETRY(height, "height", "Height", "600"),
+        GEOMETRY(width, "width", "Width", "800"),
+        PIXELS(yscrollincrement, "yScrollIncrement", "ScrollIncrement", "20"),
+        PIXELS(xscrollincrement, "xScrollIncrement", "ScrollIncrement", "20"),
+    
+        STRING(xscrollcommand, "xScrollCommand", "ScrollCommand", ""),
+        STRING(yscrollcommand, "yScrollCommand", "ScrollCommand", ""),
+        STRING(defaultstyle, "defaultStyle", "DefaultStyle", HTML_DEFAULT_CSS),
+        STRING(imagecmd, "imageCmd", "ImageCmd", ""),
+    
+    #ifndef NDEBUG
+        STRING(logcmd, "logCmd", "LogCmd", ""),
+    #endif
+    
+        {TK_OPTION_END, 0, 0, 0, 0, 0, 0, 0, 0}
+    };
+    #undef PIXELS
+    #undef STRING
+
+    HtmlTree *pTree = (HtmlTree *)clientData;
+    char *pOptions = (char *)&pTree->options;
+    Tk_Window win = pTree->tkwin;
+    Tk_OptionTable otab = pTree->optionTable;
+
+    int mask = 0;
+    int init = 0;                /* True if Tk_InitOptions() is called */
+    int rc;
+
+    if (!otab) {
+        pTree->optionTable = Tk_CreateOptionTable(interp, htmlOptionSpec);
+        Tk_InitOptions(interp, pOptions, pTree->optionTable, win);
+        init = 1;
+        otab = pTree->optionTable;
+    }
+
+    rc = Tk_SetOptions(interp, pOptions, otab, objc-2, &objv[2], win, 0, &mask);
+    if (TCL_OK == rc) {
+        /* Hard-coded minimum values for width and height */
+        pTree->options.height = MAX(pTree->options.height, 100);
+        pTree->options.width = MAX(pTree->options.width, 100);
+    }
+
+    if (init || (mask & GEOMETRY_MASK)) {
+        int w = pTree->options.width;
+        int h = pTree->options.height;
+        Tk_GeometryRequest(pTree->tkwin, w, h);
+    }
+
+    return rc;
+    #undef GEOMETRY_MASK
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * cgetCmd --
  *
  *     Standard Tk "cget" command for querying options.
  *
@@ -180,7 +578,7 @@ configureCommand(clientData, interp, objc, objv)
  *
  *---------------------------------------------------------------------------
  */
-static int cgetCommand(clientData, interp, objc, objv)
+static int cgetCmd(clientData, interp, objc, objv)
     ClientData clientData;             /* The HTML widget */
     Tcl_Interp *interp;                /* The interpreter */
     int objc;                          /* Number of arguments */
@@ -188,19 +586,23 @@ static int cgetCommand(clientData, interp, objc, objv)
 {
     HtmlTree *pTree = (HtmlTree *)clientData;
     Tcl_Obj *pRet;
+    Tk_OptionTable otab = pTree->optionTable;
+    Tk_Window win = pTree->tkwin;
+    char *pOptions = (char *)&pTree->options;
+
+    assert(otab);
 
     if (objc != 3) {
         Tcl_WrongNumArgs(interp, 2, objv, "-OPTION");
         return TCL_ERROR;
     }
 
-    pRet = Tk_GetOptionValue(interp, (char *)&pTree->options, 
-            pTree->optionTable, objv[2], pTree->tkwin);
+    pRet = Tk_GetOptionValue(interp, pOptions, otab, objv[2], win);
     if( pRet ) {
         Tcl_SetObjResult(interp, pRet);
     } else {
-        Tcl_AppendResult(
-                interp, "unknown option \"", Tcl_GetString(objv[2]), "\"", 0);
+        char * zOpt = Tcl_GetString(objv[2]);
+        Tcl_AppendResult( interp, "unknown option \"", zOpt, "\"", 0);
         return TCL_ERROR;
     }
     return TCL_OK;
@@ -209,7 +611,7 @@ static int cgetCommand(clientData, interp, objc, objv)
 /*
  *---------------------------------------------------------------------------
  *
- * commandCommand --
+ * commandCmd --
  *
  *     <widget> command SUB-COMMAND SCRIPT
  *
@@ -224,7 +626,7 @@ static int cgetCommand(clientData, interp, objc, objv)
  *---------------------------------------------------------------------------
  */
 static int 
-commandCommand(clientData, interp, objc, objv)
+commandCmd(clientData, interp, objc, objv)
     ClientData clientData;             /* The HTML widget */
     Tcl_Interp *interp;                /* The interpreter */
     int objc;                          /* Number of arguments */
@@ -257,7 +659,7 @@ commandCommand(clientData, interp, objc, objv)
 /*
  *---------------------------------------------------------------------------
  *
- * varCommand --
+ * varCmd --
  *
  *     Set or get the value of a variable from the widgets built-in
  *     dictionary. This is used by the widget logic programmed in Tcl to
@@ -274,7 +676,7 @@ commandCommand(clientData, interp, objc, objv)
  *---------------------------------------------------------------------------
  */
 static int 
-varCommand(clientData, interp, objc, objv)
+varCmd(clientData, interp, objc, objv)
     ClientData clientData;             /* The HTML widget */
     Tcl_Interp *interp;                /* The interpreter */
     int objc;                          /* Number of arguments */
@@ -337,6 +739,7 @@ resetCmd(clientData, interp, objc, objv)
 {
     HtmlTree *pTree = (HtmlTree *)clientData;
     HtmlTreeClear(pTree);
+    doLoadDefaultStyle(pTree);
     return TCL_OK;
 }
 
@@ -345,10 +748,11 @@ resetCmd(clientData, interp, objc, objv)
  *
  * parseCmd --
  *
- *     $widget internal parse HTML-TEXT
+ *         $widget parse ?-final? HTML-TEXT
  * 
  *     Appends the given HTML text to the end of any HTML text that may have
- *     been inserted by prior calls to this command.
+ *     been inserted by prior calls to this command. See Tkhtml man page for
+ *     further details.
  *
  * Results:
  *     None.
@@ -364,16 +768,52 @@ parseCmd(clientData, interp, objc, objv)
     int objc;                          /* Number of arguments */
     Tcl_Obj *const *objv;              /* List of all arguments */
 {
-    int i;
-    char *arg1;
     HtmlTree *pTree = (HtmlTree *)clientData;
+
+    int isFinal;
+    char *zHtml;
+    int nHtml;
+
+    Tcl_Obj *aObj[2];
+    SwprocConf aConf[3] = {
+        {SWPROC_SWITCH, "final", "0", "1"},   /* -final */
+        {SWPROC_ARG, 0, 0, 0},                /* HTML-TEXT */
+        {SWPROC_END, 0, 0, 0}
+    };
+
+    if (
+        SwprocRt(interp, (objc - 2), &objv[2], aConf, aObj) ||
+        Tcl_GetBooleanFromObj(interp, aObj[0], &isFinal)
+    ) {
+        return TCL_ERROR;
+    }
+    zHtml = Tcl_GetStringFromObj(aObj[1], &nHtml);
+
+    assert(Tcl_IsShared(aObj[1]));
+    Tcl_DecrRefCount(aObj[0]);
+    Tcl_DecrRefCount(aObj[1]);
+
+    if (pTree->parseFinished) {
+        const char *zWidget = Tcl_GetString(objv[0]);
+        Tcl_ResetResult(interp);
+        Tcl_AppendResult(interp, 
+            "Cannot call [", zWidget, " parse]" 
+            "until after [", zWidget, "] reset", 0
+        );
+        return TCL_ERROR;
+    }
 
     /* Add the new text to the internal cache of the document. Also tokenize
      * it and add the new HtmlToken objects to the HtmlTree.pFirst/pLast 
      * linked list.
      */
-    arg1 = Tcl_GetStringFromObj(objv[3], &i);
-    HtmlTokenizerAppend(pTree, arg1, i);
+    HtmlTokenizerAppend(pTree, zHtml, nHtml);
+    if (isFinal) {
+        pTree->parseFinished = 1;
+        HtmlFinishNodeHandlers(pTree);
+    }
+
+    HtmlCallbackSchedule(pTree, HTML_CALLBACK_STYLE);
 
     return TCL_OK;
 }
@@ -381,15 +821,7 @@ parseCmd(clientData, interp, objc, objv)
 /*
  *---------------------------------------------------------------------------
  *
- * parseFinalCmd --
- *
- *     $widget internal parsefinal
- * 
- *     This is called by the Tcl part of the widget when the entire
- *     document has been parsed (i.e. when the -final switch is passed to
- *     [$widget parse]). We need to set a flag so that no more text may be
- *     added to the document and execute any outstanding node-handler 
- *     callbacks.
+ * viewCommon --
  *
  * Results:
  *     None.
@@ -399,53 +831,156 @@ parseCmd(clientData, interp, objc, objv)
  *---------------------------------------------------------------------------
  */
 static int 
-parseFinalCmd(clientData, interp, objc, objv)
+viewCommon(pTree, isXview, objc, objv)
+    HtmlTree *pTree;
+    int isXview;
+    int objc;
+    Tcl_Obj * CONST objv[];
+{
+    Tcl_Interp *interp = pTree->interp;
+    Tk_Window win = pTree->tkwin;
+
+    int iUnitPixels;
+    int iPagePixels;
+    int iMovePixels;
+    int iOffScreen; 
+    double aRet[2];
+    Tcl_Obj *pRet;
+    Tcl_Obj *pScrollCommand;
+
+    if (isXview) { 
+        iPagePixels = Tk_Width(win);
+        iUnitPixels = pTree->options.xscrollincrement;
+        iMovePixels = pTree->canvas.right;
+        iOffScreen = pTree->iScrollX;
+        pScrollCommand = pTree->options.xscrollcommand;
+    } else {
+        iPagePixels = Tk_Height(win);
+        iUnitPixels = pTree->options.yscrollincrement;
+        iMovePixels = pTree->canvas.bottom;
+        iOffScreen = pTree->iScrollY;
+        pScrollCommand = pTree->options.yscrollcommand;
+    }
+
+    if (objc > 2) {
+        double fraction;
+        int count;
+        int iNewVal;
+        int eType = Tk_GetScrollInfoObj(interp, objc, objv, &fraction, &count);
+
+        switch (eType) {
+            case TK_SCROLL_MOVETO:
+                iNewVal = (int)((double)iMovePixels * fraction);
+                break;
+            case TK_SCROLL_PAGES:
+                iNewVal = iOffScreen + ((count * iPagePixels) * 0.9);
+                break;
+            case TK_SCROLL_UNITS:
+                iNewVal = iOffScreen + (count * iUnitPixels);
+                break;
+            case TK_SCROLL_ERROR:
+                return TCL_ERROR;
+    
+            default: assert(!"Not possible");
+        }
+
+        iNewVal = MIN(iNewVal, iMovePixels - iPagePixels);
+        iNewVal = MAX(iNewVal, 0);
+
+        if (iNewVal != iOffScreen) {
+            if (isXview) {
+                assert(0);
+            } else {
+                int eVisibility = pTree->eVisibility;
+                int canvas_x = pTree->iScrollX;
+                int canvas_y = iNewVal;
+                int w = Tk_Width(win);
+                int h = Tk_Height(win);
+                int iScroll = iNewVal - iOffScreen;
+
+                HtmlWidgetScroll(pTree, 0, iScroll);
+                if (eVisibility == VisibilityFullyObscured) {
+                    /* Do nothing, window is not visible */
+                } else if (
+                    abs(iScroll) >= iPagePixels || 
+                    eVisibility == VisibilityPartiallyObscured
+                ) {
+                    HtmlWidgetPaint(pTree, canvas_x, canvas_y, 0, 0, w, h);
+                } else if (iScroll > 0) {
+                    HtmlWidgetPaint(pTree, 
+                        canvas_x, canvas_y + iPagePixels - iScroll, 
+                        0, iPagePixels - iScroll, 
+                        w, iScroll
+                    );
+                } else {
+                    HtmlWidgetPaint(pTree, 
+                        canvas_x, canvas_y, 
+                        0, 0,
+                        w, abs(iScroll)
+                    );
+                }
+                pTree->iScrollY = iNewVal;
+            } 
+            iOffScreen = iNewVal;
+        }
+
+    }
+
+    if (iMovePixels <= iPagePixels) {
+        aRet[0] = 0.0;
+        aRet[1] = 1.0;
+    } else {
+        assert(iMovePixels > 0);
+        assert(iOffScreen  >= 0);
+        assert(iPagePixels >= 0);
+        aRet[0] = (double)iOffScreen / (double)iMovePixels;
+        aRet[1] = (double)(iOffScreen + iPagePixels) / (double)iMovePixels;
+        aRet[1] = MIN(aRet[1], 1.0);
+    }
+
+    pRet = Tcl_NewObj();
+    Tcl_ListObjAppendElement(interp, pRet, Tcl_NewDoubleObj(aRet[0]));
+    Tcl_ListObjAppendElement(interp, pRet, Tcl_NewDoubleObj(aRet[1]));
+    Tcl_SetObjResult(interp, pRet);
+
+    if (objc > 2) {
+        doScrollCallback(pTree);
+    }
+
+    return TCL_OK;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * xviewCmd --
+ * yviewCmd --
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+xviewCmd(clientData, interp, objc, objv)
     ClientData clientData;             /* The HTML widget */
     Tcl_Interp *interp;                /* The interpreter */
     int objc;                          /* Number of arguments */
     Tcl_Obj *const *objv;              /* List of all arguments */
 {
-    HtmlTree *pTree = (HtmlTree *)clientData;
-    pTree->parseFinished = 1;
-    HtmlFinishNodeHandlers(pTree);
-    return TCL_OK;
+    return viewCommon((HtmlTree *)clientData, 1, objc, objv);
 }
-
-/*
- *---------------------------------------------------------------------------
- *
- * rootCmd --
- *
- *     $widget internal root
- *
- *     Returns the node command for the root node of the document. Or, if
- *     the tree has not been built, throws an error.
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
 static int 
-rootCmd(clientData, interp, objc, objv)
+yviewCmd(clientData, interp, objc, objv)
     ClientData clientData;             /* The HTML widget */
     Tcl_Interp *interp;                /* The interpreter */
     int objc;                          /* Number of arguments */
-    Tcl_Obj *CONST objv[];             /* List of all arguments */
+    Tcl_Obj *const *objv;              /* List of all arguments */
 {
-    HtmlTree *pTree = (HtmlTree *)clientData;
-    if (!pTree->pRoot) {
-        Tcl_SetResult(interp, "", TCL_STATIC);
-    } else {
-        Tcl_Obj *pCmd = HtmlNodeCommand(interp, pTree->pRoot);
-        Tcl_SetObjResult(interp, pCmd);
-    }
-    return TCL_OK;
+    return viewCommon((HtmlTree *)clientData, 0, objc, objv);
 }
-
 
 /*
  *---------------------------------------------------------------------------
@@ -557,36 +1092,6 @@ handlerNodeCmd(clientData, interp, objc, objv)
     return TCL_OK;
 }
 
-/*
- *---------------------------------------------------------------------------
- *
- * styleParseCmd --
- * styleApplyCmd --
- * styleSyntaxErrsCmd --
- * layoutPrimitivesCmd --
- * layoutImageCmd --
- * layoutForceCmd --
- * layoutSizeCmd --
- * layoutNodeCmd --
- * widgetPaintCmd --
- * widgetScrollCmd --
- * widgetMapControlsCmd --
- * bboxCmd --
- *
- *     New versions of gcc don't allow pointers to non-local functions to
- *     be used as constant initializers (which we need to do in the
- *     aSubcommand[] array inside HtmlWidgetObjCommand(). So the following
- *     functions are wrappers around Tcl_ObjCmdProc functions implemented
- *     in other files.
- *
- * Results:
- *     Tcl result (i.e. TCL_OK, TCL_ERROR).
- *
- * Side effects:
- *     Whatever the called function does.
- *
- *---------------------------------------------------------------------------
- */
 static int 
 styleParseCmd(clientData, interp, objc, objv)
     ClientData clientData;             /* The HTML widget data structure */
@@ -617,35 +1122,29 @@ styleParseCmd(clientData, interp, objc, objv)
     }
     return rc;
 }
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * imageCmd --
+ * nodeCmd --
+ *
+ *     New versions of gcc don't allow pointers to non-local functions to
+ *     be used as constant initializers (which we need to do in the
+ *     aSubcommand[] array inside HtmlWidgetObjCommand(). So the following
+ *     functions are wrappers around Tcl_ObjCmdProc functions implemented
+ *     in other files.
+ *
+ * Results:
+ *     Tcl result (i.e. TCL_OK, TCL_ERROR).
+ *
+ * Side effects:
+ *     Whatever the called function does.
+ *
+ *---------------------------------------------------------------------------
+ */
 static int 
-styleApplyCmd(clientData, interp, objc, objv)
-    ClientData clientData;             /* The HTML widget data structure */
-    Tcl_Interp *interp;                /* Current interpreter. */
-    int objc;                          /* Number of arguments. */
-    Tcl_Obj *CONST objv[];             /* Argument strings. */
-{
-    return HtmlStyleApply(clientData, interp, objc, objv);
-}
-static int 
-styleSyntaxErrsCmd(clientData, interp, objc, objv)
-    ClientData clientData;             /* The HTML widget data structure */
-    Tcl_Interp *interp;                /* Current interpreter. */
-    int objc;                          /* Number of arguments. */
-    Tcl_Obj *CONST objv[];             /* Argument strings. */
-{
-    return HtmlStyleSyntaxErrs(clientData, interp, objc, objv);
-}
-static int 
-layoutPrimitivesCmd(clientData, interp, objc, objv)
-    ClientData clientData;             /* The HTML widget data structure */
-    Tcl_Interp *interp;                /* Current interpreter. */
-    int objc;                          /* Number of arguments. */
-    Tcl_Obj *CONST objv[];             /* Argument strings. */
-{
-    return HtmlLayoutPrimitives(clientData, interp, objc, objv);
-}
-static int 
-layoutImageCmd(clientData, interp, objc, objv)
+imageCmd(clientData, interp, objc, objv)
     ClientData clientData;             /* The HTML widget data structure */
     Tcl_Interp *interp;                /* Current interpreter. */
     int objc;                          /* Number of arguments. */
@@ -654,67 +1153,13 @@ layoutImageCmd(clientData, interp, objc, objv)
     return HtmlLayoutImage(clientData, interp, objc, objv);
 }
 static int 
-layoutForceCmd(clientData, interp, objc, objv)
-    ClientData clientData;             /* The HTML widget data structure */
-    Tcl_Interp *interp;                /* Current interpreter. */
-    int objc;                          /* Number of arguments. */
-    Tcl_Obj *CONST objv[];             /* Argument strings. */
-{
-    return HtmlLayoutForce(clientData, interp, objc, objv);
-}
-static int 
-layoutSizeCmd(clientData, interp, objc, objv)
-    ClientData clientData;             /* The HTML widget data structure */
-    Tcl_Interp *interp;                /* Current interpreter. */
-    int objc;                          /* Number of arguments. */
-    Tcl_Obj *CONST objv[];             /* Argument strings. */
-{
-    return HtmlLayoutSize(clientData, interp, objc, objv);
-}
-static int 
-layoutNodeCmd(clientData, interp, objc, objv)
+nodeCmd(clientData, interp, objc, objv)
     ClientData clientData;             /* The HTML widget data structure */
     Tcl_Interp *interp;                /* Current interpreter. */
     int objc;                          /* Number of arguments. */
     Tcl_Obj *CONST objv[];             /* Argument strings. */
 {
     return HtmlLayoutNode(clientData, interp, objc, objv);
-}
-static int 
-widgetPaintCmd(clientData, interp, objc, objv)
-    ClientData clientData;             /* The HTML widget data structure */
-    Tcl_Interp *interp;                /* Current interpreter. */
-    int objc;                          /* Number of arguments. */
-    Tcl_Obj *CONST objv[];             /* Argument strings. */
-{
-    return HtmlWidgetPaint(clientData, interp, objc, objv);
-}
-static int 
-widgetScrollCmd(clientData, interp, objc, objv)
-    ClientData clientData;             /* The HTML widget data structure */
-    Tcl_Interp *interp;                /* Current interpreter. */
-    int objc;                          /* Number of arguments. */
-    Tcl_Obj *CONST objv[];             /* Argument strings. */
-{
-    return HtmlWidgetScroll(clientData, interp, objc, objv);
-}
-static int 
-widgetMapControlsCmd(clientData, interp, objc, objv)
-    ClientData clientData;             /* The HTML widget data structure */
-    Tcl_Interp *interp;                /* Current interpreter. */
-    int objc;                          /* Number of arguments. */
-    Tcl_Obj *CONST objv[];             /* Argument strings. */
-{
-    return HtmlWidgetMapControls(clientData, interp, objc, objv);
-}
-static int 
-bboxCmd(clientData, interp, objc, objv)
-    ClientData clientData;             /* The HTML widget data structure */
-    Tcl_Interp *interp;                /* Current interpreter. */
-    int objc;                          /* Number of arguments. */
-    Tcl_Obj *CONST objv[];             /* Argument strings. */
-{
-    return HtmlLayoutBbox(clientData, interp, objc, objv);
 }
 
 /*
@@ -724,11 +1169,26 @@ bboxCmd(clientData, interp, objc, objv)
  *
  *     This is the C function invoked for a widget command.
  *
+ *         cget
+ *         configure
+ *         handler
+ *         image
+ *         node
+ *         parse
+ *         reset
+ *         select (not implemented yet)
+ *         style
+ *         xview
+ *         yview
+ *
+ *         var
+ *         command
+ *
  * Results:
- *     None.
+ *     Tcl result.
  *
  * Side effects:
- *     None.
+ *     Whatever the command does.
  *
  *---------------------------------------------------------------------------
  */
@@ -738,43 +1198,31 @@ int HtmlWidgetObjCommand(clientData, interp, objc, objv)
     int objc;                          /* Number of arguments. */
     Tcl_Obj *CONST objv[];             /* Argument strings. */
 {
-    /* The following array defines all the widget commands.  This function
-     * just parses the first one or two arguments and vectors control to
-     * one of the command service routines defined in the following array.
+    /* The following array defines all the built-in widget commands.  This
+     * function just parses the first one or two arguments and vectors control
+     * to one of the command service routines defined in the following array.
      */
     static struct SC {
         char *zCmd1;                /* First-level subcommand.  Required */
         char *zCmd2;                /* Second-level subcommand.  May be NULL */
         Tcl_ObjCmdProc *xFuncObj;   /* Object cmd */
     } aSubcommand[] = {
-        {
-        "internal", "parse", parseCmd}, {
-        "internal", "parsefinal", parseFinalCmd}, {
-        "internal", "root",  rootCmd}, {
-        "internal", "reset", resetCmd}, {
-        "internal", "bbox", bboxCmd}, {
+        {"cget",      0,        cgetCmd},
+        {"configure", 0,        configureCmd},
+        {"handler",   "node",   handlerNodeCmd},
+        {"handler",   "script", handlerScriptCmd},
+        {"image",      0,       imageCmd},
+        {"node",      0,        nodeCmd},
+        {"parse",     0,        parseCmd},
+        {"reset",     0,        resetCmd},
+        {"style",     0,        styleParseCmd},
+        {"xview",     0,        xviewCmd},
+        {"yview",     0,        yviewCmd},
 
-        "handler", "script", handlerScriptCmd}, {
-        "handler", "node", handlerNodeCmd}, {
+        {"command", 0, commandCmd}, 
+        {"var", 0, varCmd},  
 
-        "style", "apply", styleApplyCmd}, {
-        "style", "syntax_errs", styleSyntaxErrsCmd}, {
-        "style", 0, styleParseCmd}, {
-
-        "layout", "primitives", layoutPrimitivesCmd}, {
-        "layout", "image",      layoutImageCmd}, {
-        "layout", "force",      layoutForceCmd}, {
-        "layout", "size",       layoutSizeCmd}, {
-        "layout", "node",       layoutNodeCmd}, {
-
-        "widget", "paint", widgetPaintCmd}, {
-        "widget", "scroll", widgetScrollCmd}, {
-        "widget", "mapcontrols", widgetMapControlsCmd}, {
-
-        "var", 0, varCommand}, { 
-        "command", 0, commandCommand}, {
-        "configure", 0, configureCommand}, {
-        "cget", 0, cgetCommand},
+        /* Todo: [<widget> select ...] command */
     };
 
     int i;
@@ -793,6 +1241,19 @@ int HtmlWidgetObjCommand(clientData, interp, objc, objv)
     }
     if (objc>2) {
         zArg2 = Tcl_GetString(objv[2]);
+    }
+
+    /* Search the array of built-in commands */
+    for (i=0; i<sizeof(aSubcommand)/sizeof(struct SC); i++) {
+         struct SC *pCommand = &aSubcommand[i];
+         if (zArg1 && 0==strcmp(zArg1, pCommand->zCmd1)) {
+             matchone = 1;
+             if (!pCommand->zCmd2 || 
+                 (zArg2 && 0==strcmp(zArg2, pCommand->zCmd2))) 
+             {
+                 return pCommand->xFuncObj(clientData, interp, objc, objv);
+             }
+         }
     }
 
     /* See if this is a Tcl implemented command */
@@ -815,18 +1276,6 @@ int HtmlWidgetObjCommand(clientData, interp, objc, objv)
         return rc;
     }
 
-    /* Search the array of built-in commands */
-    for (i=0; i<sizeof(aSubcommand)/sizeof(struct SC); i++) {
-         struct SC *pCommand = &aSubcommand[i];
-         if (zArg1 && 0==strcmp(zArg1, pCommand->zCmd1)) {
-             matchone = 1;
-             if (!pCommand->zCmd2 || 
-                 (zArg2 && 0==strcmp(zArg2, pCommand->zCmd2))) 
-             {
-                 return pCommand->xFuncObj(clientData, interp, objc, objv);
-             }
-         }
-    }
 
     /* Failed to find a matching sub-command. The remainder of this routine
      * is generating an error message. 
@@ -954,10 +1403,20 @@ newWidget(clientData, interp, objc, objv)
     Tcl_InitHashTable(&pTree->aVar, TCL_STRING_KEYS);
     Tcl_CreateObjCommand(interp,zCmd,HtmlWidgetObjCommand,pTree,deleteWidget);
 
-    rc = configureCommand(pTree, interp, objc, objv);
+    /* TODO: Handle the case where configureCmd() returns an error. */
+    rc = configureCmd(pTree, interp, objc, objv);
 
     /* Initialise the hash tables used by styler code */
     HtmlPropertyValuesSetupTables(pTree);
+
+    /* Set up an event handler for the widget window */
+    Tk_CreateEventHandler(pTree->tkwin, 
+            ExposureMask|StructureNotifyMask|VisibilityChangeMask, 
+            eventHandler, (ClientData)pTree
+    );
+
+    /* Load the default style-sheet, ready for the first document. */
+    doLoadDefaultStyle(pTree);
 
     /* Return the name of the widget just created. */
     Tcl_SetObjResult(interp, objv[1]);
@@ -1090,6 +1549,8 @@ resolveCmd(clientData, interp, objc, objv)
 DLL_EXPORT int Tkhtml_Init(interp)
     Tcl_Interp *interp;
 {
+    int rc;
+
 #ifdef USE_TCL_STUBS
     if (Tcl_InitStubs(interp, "8.3", 0) == 0) {
         return TCL_ERROR;
@@ -1099,12 +1560,15 @@ DLL_EXPORT int Tkhtml_Init(interp)
     }
 #endif
 
-    Tcl_PkgProvide(interp, "Tkhtmlinternal", "3.0");
-    Tcl_CreateObjCommand(interp, "::tk::htmlinternal", newWidget, 0, 0);
+    Tcl_PkgProvide(interp, "Tkhtml", "3.0");
+    Tcl_CreateObjCommand(interp, "html", newWidget, 0, 0);
     Tcl_CreateObjCommand(interp, "::tk::htmlexit", exitCmd, 0, 0);
     Tcl_CreateObjCommand(interp, "::tk::htmlresolve", resolveCmd, 0, 0);
 
     SwprocInit(interp);
+
+    rc = Tcl_EvalEx(interp, HTML_DEFAULT_TCL, -1, TCL_EVAL_GLOBAL);
+    assert(rc == TCL_OK);
     return TCL_OK;
 }
 

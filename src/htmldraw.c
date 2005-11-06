@@ -900,7 +900,7 @@ getPixmap(pTree, xcanvas, ycanvas, w, h)
  *
  * HtmlLayoutImage --
  *
- *     <widget> layout image
+ *     <widget> image
  * 
  *     Render the document to a Tk image and return the name of the image
  *     as the Tcl result. The calling script is responsible for deleting
@@ -1027,10 +1027,10 @@ HtmlLayoutSize(clientData, interp, objc, objv)
  *
  * HtmlLayoutNode --
  *
- *     <widget> layout node X Y
+ *     <widget> node X Y
  *
  *     Return the Tcl handle for the document node that lies at coordinates
- *     (X, Y), relative to the layout. Or, if no node populates the given
+ *     (X, Y), relative to the viewport. Or, if no node populates the given
  *     point, return an empty string.
  *
  * Results:
@@ -1058,40 +1058,49 @@ HtmlLayoutNode(clientData, interp, objc, objv)
 
     HtmlCanvas *pCanvas = &pTree->canvas;
 
-    if (objc != 5) {
-        Tcl_WrongNumArgs(interp, 3, objv, "X Y");
-        return TCL_ERROR;
-    }
-    if (TCL_OK != Tcl_GetIntFromObj(interp, objv[3], &x) ||
-        TCL_OK != Tcl_GetIntFromObj(interp, objv[4], &y) 
-    ) {
+    if (objc != 4 && objc != 2) {
+        Tcl_WrongNumArgs(interp, 2, objv, "?X Y?");
         return TCL_ERROR;
     }
 
-    for (pItem=pCanvas->pFirst; pItem; pItem=pItem->pNext) {
-        if (pItem->type == CANVAS_ORIGIN) {
-            CanvasOrigin *pOrigin = &pItem->x.o;
-            origin_x += pOrigin->x;
-            origin_y += pOrigin->y;
-            if (pOrigin->pSkip && 
-                (x < (pOrigin->left + origin_x) ||
-                 x > (pOrigin->right + origin_x) ||
-                 y < (pOrigin->top + origin_y) ||
-                 y > (pOrigin->bottom + origin_y))
-            ) {
-                pItem = pOrigin->pSkip;
-                origin_x -= pOrigin->x;
-                origin_y -= pOrigin->y;
-            } else {
-                 if (pOrigin->pNode) {
-                     pNode = pOrigin->pNode;
-                 }
+    if (objc == 4) {
+        if (TCL_OK != Tcl_GetIntFromObj(interp, objv[2], &x) ||
+            TCL_OK != Tcl_GetIntFromObj(interp, objv[3], &y) 
+        ) {
+            return TCL_ERROR;
+        }
+
+        /* Transform x and y from viewport to document coordinates */
+        x += pTree->iScrollX;
+        y += pTree->iScrollY;
+
+        for (pItem=pCanvas->pFirst; pItem; pItem=pItem->pNext) {
+            if (pItem->type == CANVAS_ORIGIN) {
+                CanvasOrigin *pOrigin = &pItem->x.o;
+                origin_x += pOrigin->x;
+                origin_y += pOrigin->y;
+                if (pOrigin->pSkip && 
+                    (x < (pOrigin->left + origin_x) ||
+                     x > (pOrigin->right + origin_x) ||
+                     y < (pOrigin->top + origin_y) ||
+                     y > (pOrigin->bottom + origin_y))
+                ) {
+                    pItem = pOrigin->pSkip;
+                    origin_x -= pOrigin->x;
+                    origin_y -= pOrigin->y;
+                } else {
+                     if (pOrigin->pNode) {
+                         pNode = pOrigin->pNode;
+                     }
+                }
             }
         }
+    } else {
+        pNode = pTree->pRoot;
     }
 
     if (pNode) {
-        Tcl_Obj *pCmd = HtmlNodeCommand(interp, pNode);
+        Tcl_Obj *pCmd = HtmlNodeCommand(interp, pTree, pNode);
         Tcl_SetObjResult(interp, pCmd);
     }
 
@@ -1116,55 +1125,37 @@ HtmlLayoutNode(clientData, interp, objc, objv)
  *---------------------------------------------------------------------------
  */
 int 
-HtmlWidgetPaint(clientData, interp, objc, objv)
-    ClientData clientData;             /* The HTML widget data structure */
-    Tcl_Interp *interp;                /* Current interpreter. */
-    int objc;                          /* Number of arguments. */
-    Tcl_Obj *CONST objv[];             /* Argument strings. */
-{
-    int x;
-    int y;
+HtmlWidgetPaint(pTree, canvas_x, canvas_y, x, y, width, height)
+    HtmlTree *pTree;
     int canvas_x;
     int canvas_y;
+    int x;
+    int y;
     int width;
     int height;
+{
     Pixmap pixmap;
     GC gc;
     XGCValues gc_values;
-    HtmlTree *pTree = (HtmlTree *)clientData;
-    Display *display; 
+    Display *pDisp; 
     Tk_Window win;                      /* Window to draw to */
- 
+
     win = pTree->tkwin;
     Tk_MakeWindowExist(win);
-    display = Tk_Display(win);
- 
-    if (objc != 9) {
-        Tcl_WrongNumArgs(interp, 3, objv, 
-                "CANVAS-X CANVAS-Y X Y WIDTH HEIGHT"); 
-        return TCL_ERROR;
-    }
-    if (TCL_OK != Tcl_GetIntFromObj(interp, objv[3], &canvas_x) ||
-        TCL_OK != Tcl_GetIntFromObj(interp, objv[4], &canvas_y) ||
-        TCL_OK != Tcl_GetIntFromObj(interp, objv[5], &x) ||
-        TCL_OK != Tcl_GetIntFromObj(interp, objv[6], &y) ||
-        TCL_OK != Tcl_GetIntFromObj(interp, objv[7], &width) ||
-        TCL_OK != Tcl_GetIntFromObj(interp, objv[8], &height)
-    ) {
-        return TCL_ERROR;
-    }
+    pDisp = Tk_Display(win);
 
     pixmap = getPixmap(pTree, canvas_x, canvas_y, width, height);
 
     memset(&gc_values, 0, sizeof(XGCValues));
     gc = Tk_GetGC(pTree->win, 0, &gc_values);
 
-    XCopyArea(display, pixmap, Tk_WindowId(win), gc, 0, 0, width, height, x, y);
-    Tk_FreePixmap(display, pixmap);
+    XCopyArea(pDisp, pixmap, Tk_WindowId(win), gc, 0, 0, width, height, x, y);
+    Tk_FreePixmap(pDisp, pixmap);
 
-    Tk_FreeGC(display, gc);
+    Tk_FreeGC(pDisp, gc);
     return TCL_OK;
 }
+
 
 /*
  *---------------------------------------------------------------------------
@@ -1187,14 +1178,11 @@ HtmlWidgetPaint(clientData, interp, objc, objv)
  *---------------------------------------------------------------------------
  */
 int 
-HtmlWidgetScroll(clientData, interp, objc, objv)
-    ClientData clientData;             /* The HTML widget data structure */
-    Tcl_Interp *interp;                /* Current interpreter. */
-    int objc;                          /* Number of arguments. */
-    Tcl_Obj *CONST objv[];             /* Argument strings. */
-{
+HtmlWidgetScroll(pTree, x, y)
+    HtmlTree *pTree;
     int x;
     int y;
+{
     Tk_Window win;
     Display *display;
     GC gc;
@@ -1203,18 +1191,6 @@ HtmlWidgetScroll(clientData, interp, objc, objv)
     int source_x, source_y;
     int dest_x, dest_y;
     int width, height;
-
-    HtmlTree *pTree = (HtmlTree *)clientData;
-
-    if (objc != 5) {
-        Tcl_WrongNumArgs(interp, 3, objv, "X Y");
-        return TCL_ERROR;
-    }
-    if (TCL_OK != Tcl_GetIntFromObj(interp, objv[3], &x) ||
-        TCL_OK != Tcl_GetIntFromObj(interp, objv[4], &y) 
-    ) {
-        return TCL_ERROR;
-    }
 
     win = pTree->tkwin; 
     display = Tk_Display(win);

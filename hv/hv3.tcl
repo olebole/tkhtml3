@@ -25,6 +25,7 @@ proc sourcefile {file} {
 }
 sourcefile hv3_url.tcl
 sourcefile hv3_image.tcl
+sourcefile hv3_log.tcl
 
 ###########################################################################
 # Global data:
@@ -88,6 +89,7 @@ proc gui_build {} {
     pack $HTML -fill both -expand true
 
     $HTML configure -yscrollcommand {.vscroll set}
+    # $HTML configure -yscrollcommand puts2
     .hscroll configure -command "$HTML xview"
     $HTML configure -xscrollcommand {.hscroll set}
     .vscroll configure -command "$HTML yview"
@@ -131,7 +133,8 @@ proc gui_build {} {
             break
         }
     }
-    
+
+    log_init $HTML
 }
 
 proc handle_event {e x y} {
@@ -163,7 +166,6 @@ proc handle_event {e x y} {
 proc handle_img_node_cb {node imgdata} {
   set img [image create photo -data $imgdata]
   $node replace $img
-  .html update
 }
 
 # handle_img_node
@@ -189,7 +191,6 @@ proc handle_style_script {script} {
 #     handle_style_cb ID STYLE-TEXT
 proc handle_style_cb {id style} {
   .html style -id $id $style
-  .html update
 }
 
 # handle_link_node
@@ -215,7 +216,6 @@ proc handle_link_node {node} {
 #     Commence the process of loading the document at url $doc.
 proc gui_goto {doc} {
   .html reset
-  .html update
   update
 
   set url [url_resolve $doc -setbase]

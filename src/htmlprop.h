@@ -4,7 +4,7 @@
  *     This header file contains the definition of the HtmlPropertyValues
  *     structure, which stores a set of CSS2 properties output by the
  *     styler. This information is used by the layout engine in
- *     htmllayout.c to create the runtime model of the document.
+ *     htmllayout.c to create the runtime model of the document. 
  *
  * -----------------------------------------------------------------------
  *     TODO: Copyright.
@@ -13,6 +13,10 @@
 #ifndef __HTMLPROP_H__
 #define __HTMLPROP_H__
 
+/*
+ * We need <limits.h> to get the INT_MIN symbol (the most negative number that
+ * can be stored in a C "int".
+ */
 #include <limits.h>
 
 typedef struct HtmlFourSides HtmlFourSides;

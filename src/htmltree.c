@@ -164,9 +164,12 @@ freeNode(interp, pNode)
         }
         HtmlPropertyValuesRelease(pNode->pPropertyValues);
         HtmlCssPropertiesFree(pNode->pStyle);
-        if (pNode->pCommand) {
-            Tcl_DeleteCommand(interp, Tcl_GetString(pNode->pCommand));
-            Tcl_DecrRefCount(pNode->pCommand);
+        if (pNode->pNodeCmd) {
+            Tcl_Obj *pCommand = pNode->pNodeCmd->pCommand;
+            Tcl_DeleteCommand(interp, Tcl_GetString(pCommand));
+            Tcl_DecrRefCount(pCommand);
+            ckfree((char *)pNode->pNodeCmd);
+            pNode->pNodeCmd = 0;
         }
         if (pNode->pReplacement) {
             HtmlNodeReplacement *p = pNode->pReplacement;
@@ -242,7 +245,7 @@ nodeHandlerCallbacks(pTree, pNode)
         pEval = Tcl_DuplicateObj(pScript);
         Tcl_IncrRefCount(pEval);
 
-        pNodeCmd = HtmlNodeCommand(interp, pNode); 
+        pNodeCmd = HtmlNodeCommand(interp, pTree, pNode); 
         Tcl_ListObjAppendElement(0, pEval, pNodeCmd);
         Tcl_EvalObjEx(interp, pEval, TCL_EVAL_DIRECT|TCL_EVAL_GLOBAL);
 
@@ -698,16 +701,20 @@ char CONST *HtmlNodeAttr(pNode, zAttr)
  *
  * nodeCommand --
  *
- *     $node tag
- *     $node attr HTML-ATTRIBUTE-NAME
- *     $node nChildren 
- *     $node child CHILD-NUMBER 
- *     $node parent
- *     $node text
- *     $node replace ?options? ?NEW-VALUE?
+ *         <node> tag
+ *         <node> attr HTML-ATTRIBUTE-NAME
+ *         <node> nChildren 
+ *         <node> child CHILD-NUMBER 
+ *         <node> parent
+ *         <node> text
+ *         <node> replace ?options? ?NEW-VALUE?
  *
- *     This function is the implementation of the Tcl node command. A
- *     pointer to the HtmlNode struct is passed as clientData.
+ *     This function is the implementation of the Tcl node handle command. The
+ *     clientData passed to the command is a pointer to the HtmlNode structure
+ *     for the document node. 
+ *
+ *     When this function is called, ((HtmlNode *)clientData)->pNodeCmd is 
+ *     guaranteed to point to a valid HtmlNodeCmd structure.
  *
  * Results:
  *     None.
@@ -725,6 +732,7 @@ nodeCommand(clientData, interp, objc, objv)
     Tcl_Obj *CONST objv[];
 {
     HtmlNode *pNode = (HtmlNode *)clientData;
+    HtmlTree *pTree = pNode->pNodeCmd->pTree;
     int choice;
 
     static CONST char *NODE_strs[] = {
@@ -793,7 +801,7 @@ nodeCommand(clientData, interp, objc, objv)
                 Tcl_SetResult(interp, "Parameter out of range", TCL_STATIC);
                 return TCL_ERROR;
             }
-            pCmd = HtmlNodeCommand(interp, HtmlNodeChild(pNode, n));
+            pCmd = HtmlNodeCommand(interp, pTree, HtmlNodeChild(pNode, n));
             Tcl_SetObjResult(interp, pCmd);
             break;
         }
@@ -825,7 +833,7 @@ nodeCommand(clientData, interp, objc, objv)
             HtmlNode *pParent;
             pParent = HtmlNodeParent(pNode);
             if (pParent) {
-                Tcl_SetObjResult(interp, HtmlNodeCommand(interp, pParent));
+                Tcl_SetObjResult(interp, HtmlNodeCommand(interp,pTree,pParent));
             } 
             break;
         }
@@ -861,15 +869,23 @@ nodeCommand(clientData, interp, objc, objv)
                 pReplace->pConfigure = aArgs[1];
                 pReplace->pDelete = aArgs[2];
 
-                if (pNode->pReplacement) {
+		/* Free any existing replacement object and set
+		 * pNode->pReplacement to point at the new structure. 
+                 *
+		 * Todo: We could just overwrite the existing values to deal
+		 * with this case.
+                 */
+		if (pNode->pReplacement) {
                     HtmlNodeReplacement *p = pNode->pReplacement;
                     if (p->pDelete) Tcl_DecrRefCount(p->pDelete);
                     if (p->pReplace) Tcl_DecrRefCount(p->pReplace);
                     if (p->pConfigure) Tcl_DecrRefCount(p->pConfigure);
                     ckfree((char *)p);
                 }
-
                 pNode->pReplacement = pReplace;
+
+                /* Run the layout engine. */
+                HtmlCallbackSchedule(pTree, HTML_CALLBACK_LAYOUT);
             }
 
             /* The result of this command is the name of the current
@@ -908,24 +924,29 @@ nodeCommand(clientData, interp, objc, objv)
  *---------------------------------------------------------------------------
  */
 Tcl_Obj *
-HtmlNodeCommand(interp, pNode)
+HtmlNodeCommand(interp, pTree, pNode)
     Tcl_Interp *interp;
+    HtmlTree *pTree;
     HtmlNode *pNode;
 {
     static int nodeNumber = 0;
-    Tcl_Obj *pCmd = pNode->pCommand;
+    HtmlNodeCmd *pNodeCmd = pNode->pNodeCmd;
 
-    if (!pCmd) {
+    if (!pNodeCmd) {
         char zBuf[100];
+        Tcl_Obj *pCmd;
         sprintf(zBuf, "::tkhtml::node%d", nodeNumber++);
 
         pCmd = Tcl_NewStringObj(zBuf, -1);
         Tcl_IncrRefCount(pCmd);
         Tcl_CreateObjCommand(interp, zBuf, nodeCommand, pNode, 0);
-        pNode->pCommand = pCmd;
+        pNodeCmd = (HtmlNodeCmd *)ckalloc(sizeof(HtmlNodeCmd));
+        pNodeCmd->pCommand = pCmd;
+        pNodeCmd->pTree = pTree;
+        pNode->pNodeCmd = pNodeCmd;
     }
 
-    return pCmd;
+    return pNodeCmd->pCommand;
 }
 
 /*
@@ -1081,6 +1102,9 @@ int HtmlTreeClear(pTree)
     /* Free the stylesheets */
     HtmlCssStyleSheetFree(pTree->pStyle);
     pTree->pStyle = 0;
+
+    pTree->iScrollX = 0;
+    pTree->iScrollY = 0;
     return TCL_OK;
 }
 

@@ -20,18 +20,12 @@
 
 [Section Widget-Specific Options]
 	[Option defaultstyle {
-		This option determines the default style-sheet for the
-		widget. Default style-sheets are stored in the package
-		installation directory with the extension ".css". The first
-		part of the style-sheet filename matches the value of this
-		option. The style-sheet "html.css" is guaranteed to exist.
+		This option is used to set the default style-sheet for the
+		widget. The option value should be the entire text of the
+		default style-sheet, or an empty string, in which case a
+		built-in default stylesheet (for HTML) is used. 
 
-		If the value is "html" (the default), then special
-		HTML specific processing is used when parsing a document.
-		For example, <p> and <li> tags (amongst others) are
-		sometimes implicitly closed. The special processing applied
-		in this case is described in the "HTML SPECIFIC PROCESSING"
-		section below.
+		TODO: Describe the role of the default stylesheet.
 	}]
 	[Option imagecmd {
 		Specify a Tcl command to be run when an image URI is
@@ -41,6 +35,9 @@
 		string if an error occurs.
 
 		See section "IMAGE LOADING" for more detail.
+	}]
+	[Option logcmd {
+		This option is only used for internally debugging the widget.
 	}]
 
 [Section Description]
@@ -109,6 +106,26 @@
 		parsed, or because there is no more document data and the
 		-final switch was passed to the [SQ pathName parse]
 		command.
+}]
+
+[Subcommand {
+	pathName image
+		This command returns the name of a new Tk image containing 
+		the rendered document. Where Tk widgets would be mapped in a 
+		live display, the image contains blank space.
+
+		The returned image should be deleted when the script has 
+		finished with it, for example:
+[Code {
+			set img \[.html image]
+			# ... Use $img ...
+			image delete $img
+}]
+
+		This command is included mainly for automated testing and 
+		should be used with care, as large documents can result in very
+		large images that take a long time to create and use vast
+		amounts of memory.
 }]
 
 [Subcommand {

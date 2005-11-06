@@ -29,9 +29,9 @@ CC_RELEASE = gcc
 CC_DEBUG   = gcc
 CC = $(CC_$(BUILD))
 
-CFLAGS_RELEASE = -O2 -DNDEBUG -DHTML_MACROS
+CFLAGS_RELEASE = -O2 -Wall -DNDEBUG -DHTML_MACROS
 # CFLAGS_DEBUG   = -g -pg -DHTML_MACROS
-CFLAGS_DEBUG   = -g -DHTML_MACROS
+CFLAGS_DEBUG   = -g -Wall -DHTML_MACROS
 CFLAGS = $(CFLAGS_$(BUILD))
 
 ##### The name of the shared library file to build.

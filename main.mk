@@ -16,7 +16,7 @@ CFLAGS += -I$(TCL)/include -I. -I$(TOP)/src/
 
 SRC = htmlparse.c htmldraw.c htmltcl.c htmlimage.c htmltree.c htmltagdb.c \
       cssparse.c css.c cssprop.c htmlstyle.c htmllayout.c htmlprop.c \
-      htmlfloat.c htmlhash.c swproc.c
+      htmlfloat.c htmlhash.c swproc.c 
 
 SRCHDR = $(TOP)/src/html.h $(TOP)/src/cssInt.h $(TOP)/src/css.h
 GENHDR = cssprop.h htmltokens.h cssparse.h
@@ -26,17 +26,11 @@ HDR = $(GENHDR) $(SRCHDR)
 OBJS = $(SRC:.c=.o)
 
 LEMON = lemon
-BINARIES = html.css tkhtml.tcl $(SHARED_LIB) pkgIndex.tcl
+BINARIES = $(SHARED_LIB) pkgIndex.tcl
 
 binaries: $(BINARIES)
 
-html.css: $(TOP)/tests/html.css
-	cp $< .
-
-tkhtml.tcl: $(TOP)/tests/tkhtml.tcl
-	cp $< .
-
-pkgIndex.tcl: tkhtml.tcl $(SHARED_LIB)
+pkgIndex.tcl: $(SHARED_LIB)
 	(echo pkg_mkIndex -load Tk . \; exit;) | $(WISH)
 
 $(SHARED_LIB): $(OBJS)
@@ -45,11 +39,18 @@ $(SHARED_LIB): $(OBJS)
 %.o: $(TOP)/src/%.c $(HDR)
 	$(CC) -c $(CFLAGS) $< -o $@
 
+htmltcl.o: $(TOP)/src/htmltcl.c $(HDR) htmldefaultstyle.c
+	$(CC) -c $(CFLAGS) $(TOP)/src/htmltcl.c -o $@
+
 %.o: %.c $(HDR)
 	$(CC) -c $(CFLAGS) $< -o $@
 
 cssprop.h: $(TOP)/src/cssprop.tcl
 	$(TCLSH) $<
+
+htmldefaultstyle.c: $(TOP)/tests/tkhtml.tcl  $(TOP)/tests/html.css \
+                    $(TOP)/src/mkdefaultstyle.tcl 
+	$(TCLSH) $(TOP)/src/mkdefaultstyle.tcl > htmldefaultstyle.c
 
 htmltokens.h:	$(TOP)/src/tokenlist.txt
 	$(TCLSH) $<

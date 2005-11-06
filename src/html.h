@@ -83,14 +83,14 @@ typedef struct HtmlTree HtmlTree;
 typedef struct HtmlNode HtmlNode;
 typedef struct HtmlToken HtmlToken;
 typedef struct HtmlScaledImage HtmlScaledImage;
-typedef struct HtmlCachedProperty HtmlCachedProperty;
 typedef struct HtmlTokenMap HtmlTokenMap;
 typedef struct HtmlCanvas HtmlCanvas;
 typedef struct HtmlCanvasItem HtmlCanvasItem;
 typedef struct HtmlFloatList HtmlFloatList;
 typedef struct HtmlPropertyCache HtmlPropertyCache;
-typedef struct HtmlNativePropertyCache HtmlNativePropertyCache;
 typedef struct HtmlNodeReplacement HtmlNodeReplacement;
+typedef struct HtmlCallback HtmlCallback;
+typedef struct HtmlNodeCmd HtmlNodeCmd;
 
 #include "css.h"
 #include "htmlprop.h"
@@ -135,28 +135,6 @@ struct HtmlToken {
     } x;
 };
 
-/* Stylesheets interpreted by Tkhtml may assign any property a value of the
- * form "tcl(TCL-SCRIPT)" (not normally valid CSS). When this property is
- * read for the first time during the layout process, the name of the node
- * object command is appended to the tcl-script and the result evaluated.
- * The return value is interpreted as a property string (i.e. "12px").
- *
- * The results of these callbacks are cached in the linked list starting at
- * HtmlNode.pCache. The cache is considered valid for the lifetime of
- * the tree.
- */
-struct HtmlCachedProperty {
-    int iProp;                 /* Property id - i.e. CSS_PROPERTY_WIDTH */
-    CssProperty *pProp;        /* Pointer to property */
-    HtmlCachedProperty *pNext; /* Nexted property cached by node */
-};
-
-struct HtmlNativePropertyCache {
-    int font_size;             /* Font size in points. */
-    Tk_Font font;              /* Font. */
-    XColor *color;             /* Color. */
-};
-
 /*
  * For a replaced node, the HtmlNode.pReplacement variable points to an
  * instance * of the following structure. The member objects are the name of
@@ -173,6 +151,15 @@ struct HtmlNodeReplacement {
     Tcl_Obj *pDelete;             /* Script passed to -deletecmd */
 };
 
+/*
+ * When a Tcl command representing a node-handle is created, an instance of the 
+ * following structure is allocated.
+ */
+struct HtmlNodeCmd {
+    Tcl_Obj *pCommand;
+    HtmlTree *pTree;
+};
+
 /* 
  * Each node of the document tree is represented as an HtmlNode structure.
  * This structure carries no information to do with the node itself, it is
@@ -185,20 +172,14 @@ struct HtmlNode {
     int nChild;                    /* Number of child nodes */
     HtmlNode **apChildren;         /* Array of pointers to children nodes */
 
-    HtmlPropertyValues *pPropertyValues;     /* CSS property values */
-    Tcl_Obj *pCommand;                       /* Tcl command for this node */
-    HtmlNodeReplacement *pReplacement;       /* Replaced object, if any */
-
     CssProperties *pStyle;     /* The CSS properties from style attribute */
+
+    HtmlPropertyValues *pPropertyValues;     /* CSS property values */
+    HtmlNodeReplacement *pReplacement;       /* Replaced object, if any */
+    HtmlNodeCmd *pNodeCmd;                   /* Tcl command for this node */
 
     /* Variables used by the layout engine */
     int iBlockWidth;
-
-#if 0
-    CssProperties *pProperties;    /* The CSS properties from stylesheets */
-    HtmlPropertyCache *pPropCache; /* Cached properties */
-    HtmlNativePropertyCache cache;
-#endif
 };
 
 struct HtmlScaledImage {
@@ -229,16 +210,45 @@ struct HtmlOptions {
     Tcl_Obj *xscrollcommand;
     Tcl_Obj *defaultstyle;
     Tcl_Obj *imagecmd;
+
+#ifndef NDEBUG
+    Tcl_Obj *logcmd;
+#endif
 };
+
+#ifndef NDEBUG
+void HtmlLog(HtmlTree *, CONST char *, CONST char *, ...);
+#else
+#define HtmlLog(...)
+#endif
+
+
+/*
+ * Widget state information information is stored in an instance of this
+ * structure, which is a part of the HtmlTree. The variables within control the
+ * behaviour of the idle callback scheduled to update the display.
+ *
+ * eCallbackAction may take the following values:
+ *
+ *     HTML_CALLBACK_NONE
+ *     HTML_CALLBACK_DAMAGE
+ *     HTML_CALLBACK_LAYOUT
+ *     HTML_CALLBACK_STYLE
+ */
+struct HtmlCallback {
+    int eCallbackAction;            /* Action to take in next callback */
+
+    int x1, y1;                     /* Top-left corner of damaged region */
+    int x2, y2;                     /* Bottom-right corner of damaged region */
+};
+
+#define HTML_CALLBACK_NONE    0
+#define HTML_CALLBACK_DAMAGE  1
+#define HTML_CALLBACK_LAYOUT  2
+#define HTML_CALLBACK_STYLE   3
 
 /* 
  * The Tk-window used by the widget is stored in variable tkwin.
- * 
- * Variable 'iCol' stores the number of characters tokenized since the last
- * newline encountered in the document source. When we encounter a TAB
- * character, it is converted to (8-(iCol%8)) spaces. This makes text
- * inside a block with the 'white-space' property set to "pre" look good
- * even if the input contains tabs. 
  *
  * The aImage hash table maps from image name (i.e. the string returned by
  * [image create photo]) and a pointer to an HtmlScaledImage structure. The
@@ -255,38 +265,53 @@ struct HtmlOptions {
  * The aFontCache hash table maps from font-name to Tk_Font value.
  */
 struct HtmlTree {
-    Tcl_Interp *interp;             /* Tcl interpreter widget owned by */
-    Tk_Window win;                  /* Main window of interpreter */
 
-    Tk_Window tkwin;                /* Widget window */
+    /*
+     * The interpreter and main window hosting this widget instance.
+     */
+    Tcl_Interp *interp;             /* Tcl interpreter */
+    Tk_Window win;                  /* Main window of interp */
 
+    /*
+     * The widget window.
+     */
+    Tk_Window tkwin;           /* Widget window */
+    int iScrollX;              /* Number of pixels offscreen to the left */
+    int iScrollY;              /* Number of pixels offscreen to the top */
+    int eVisibility;           /* Most recent XVisibilityEvent.state */
+
+    /*
+     * The following variables are used to stored the text of the current
+     * document (i.e. the *.html file).
+     * 
+     * Variable 'iCol' stores the number of characters tokenized since the last
+     * newline encountered in the document source. When we encounter a TAB
+     * character, it is converted to (8-(iCol%8)) spaces. This makes text
+     * inside a block with the 'white-space' property set to "pre" look good
+     * even if the input contains tabs. 
+     *
+     */
     Tcl_Obj *pDocument;             /* Text of the html document */
     int nParsed;                    /* Bytes of the html document tokenized */
     int iCol;                       /* Current column in document */
+    int parseFinished;              /* True if the html parse is finished */
 
     HtmlToken *pFirst;              /* First token parsed */
     HtmlToken *pLast;               /* Last token parsed */
     HtmlNode *pCurrent;             /* The node currently being built. */
     HtmlNode *pRoot;                /* The root-node of the document. */
-    int parseFinished;              /* True if the html parse is finished */
 
     Tcl_HashTable aScriptHandler;   /* Script handler callbacks. */
     Tcl_HashTable aNodeHandler;     /* Script handler callbacks. */
-    Tcl_HashTable aVar;             /* Tcl state data dictionary. */
-    Tcl_HashTable aCmd;             /* Map of sub-commands implemented in Tcl */
 
     CssStyleSheet *pStyle;          /* Style sheet configuration */
 
-#if 0
-    Tcl_HashTable aFontCache;       /* All fonts used by canvas (by name) */
-    Tcl_HashTable aColor;           /* All colors used by canvas (by name) */ 
-    XColor *pBlack;                 /* Default color. */
-#endif
-
     Tcl_HashTable aImage;           /* All images used by document (by name) */ 
-    HtmlCanvas canvas;              /* Canvas to render into */
     HtmlOptions options;            /* Configurable options */
     Tk_OptionTable optionTable;     /* Option table */
+
+    HtmlCanvas canvas;              /* Canvas to render into */
+    int iCanvasWidth;               /* Width of window for canvas */
 
     /* 
      * Tables managed by code in htmlprop.c. Initialised in function
@@ -296,6 +321,14 @@ struct HtmlTree {
     Tcl_HashTable aFont;
     Tcl_HashTable aValues;
     int aFontSizeTable[7];
+
+    /*
+     * Todo: Have to think seriously about these before any API freeze.
+     */
+    Tcl_HashTable aVar;             /* Tcl state data dictionary. */
+    Tcl_HashTable aCmd;             /* Map of sub-commands implemented in Tcl */
+
+    HtmlCallback cb;                /* See structure definition comments */
 };
 
 #define MAX(x,y) ((x)>(y)?(x):(y))
@@ -313,9 +346,10 @@ Tcl_ObjCmdProc HtmlLayoutNode;
 Tcl_ObjCmdProc HtmlLayoutImage;
 Tcl_ObjCmdProc HtmlLayoutPrimitives;
 Tcl_ObjCmdProc HtmlLayoutBbox;
-Tcl_ObjCmdProc HtmlWidgetPaint;
-Tcl_ObjCmdProc HtmlWidgetScroll;
 Tcl_ObjCmdProc HtmlWidgetMapControls;
+
+int HtmlWidgetScroll(HtmlTree *, int, int);
+int HtmlWidgetPaint(HtmlTree *, int, int, int, int, int, int);
 
 int HtmlStyleParse(HtmlTree *, Tcl_Interp*, Tcl_Obj *, Tcl_Obj *, Tcl_Obj *);
 void HtmlTokenizerAppend(HtmlTree *, const char *, int);
@@ -338,7 +372,7 @@ int         HtmlNodeIsText(HtmlNode *);
 Html_u8     HtmlNodeTagType(HtmlNode *);
 #endif
 
-Tcl_Obj *HtmlNodeCommand(Tcl_Interp *interp, HtmlNode *pNode);
+Tcl_Obj *HtmlNodeCommand(Tcl_Interp *interp, HtmlTree *, HtmlNode *pNode);
 
 CssProperty *HtmlNodeGetProperty(Tcl_Interp *, HtmlNode *, int);
 void HtmlNodeGetDefault(HtmlNode *, int , CssProperty *);
@@ -379,6 +413,9 @@ void HtmlAttributesToPropertyCache(HtmlNode *pNode);
 Tcl_HashKeyType * HtmlCaseInsenstiveHashType();
 Tcl_HashKeyType * HtmlFontKeyHashType();
 Tcl_HashKeyType * HtmlPropertyValuesHashType();
+
+CONST char *HtmlDefaultTcl();
+CONST char *HtmlDefaultCss();
 
 #ifdef HTML_DEBUG
 void HtmlDrawComment(HtmlCanvas *, CONST char *zComment, int);

@@ -23,7 +23,7 @@ html pathName ?options?
 <h2 id="section3">Standard Options</h2>
 
 
-<div style="margin-left:8ex"><pre>
+<div style="margin-left:8ex"><pre><p>
 -exportselection
 -height
 -width
@@ -189,6 +189,37 @@ command.
 
 
       <p>
+      pathName image
+      </p>
+  <div style="margin-left:8ex"><p>
+This command returns the name of a new Tk image containing 
+the rendered document. Where Tk widgets would be mapped in a 
+live display, the image contains blank space.
+</p>
+
+<p>
+The returned image should be deleted when the script has 
+finished with it, for example:
+</p>
+
+<div style="margin-left:8ex"><pre><p>
+set img [.html image]
+# ... Use $img ...
+image delete $img
+</pre></div>
+
+
+<p>
+This command is included mainly for automated testing and 
+should be used with care, as large documents can result in very
+large images that take a long time to create and use vast
+amounts of memory.
+</div>
+
+
+
+
+      <p>
       pathName node ? ?-index? x y?
       </p>
   <div style="margin-left:8ex"><p>
@@ -293,7 +324,7 @@ be added to a single widget.
 The following options are supported:
 </p>
 
-<div style="margin-left:8ex"><pre>
+<div style="margin-left:8ex"><pre><p>
 Option                   Default Value
 --------------------------------------
 -id &lt;stylesheet-id&gt;      "author"
@@ -387,13 +418,17 @@ form that can be passed to [array set].
 </p>
 
 
-<div style="margin-left:8ex"><pre>
+<div style="margin-left:8ex"><pre><p>
 # Html code for node
 &lt;p class="normal" id="second" style="color : red"&gt;
+</p>
 
+<p>
 # Value returned by [nodeHandle attr]
 {class normal id second style {color : red}}
+</p>
 
+<p>
 # Value returned by [nodeHandle attr class]
 normal
 </pre></div>
@@ -462,7 +497,7 @@ The following options are supported:
 </p>
 
 
-<div style="margin-left:8ex"><pre>
+<div style="margin-left:8ex"><pre><p>
 Option                   Default Value
 --------------------------------------
 -deletecmd    &lt;script&gt;   See below
@@ -494,7 +529,7 @@ are listed below. More may be added in the future.
 </p>
 
 
-<div style="margin-left:8ex"><pre>
+<div style="margin-left:8ex"><pre><p>
 background-color    color
 font                selected
 </pre></div>
@@ -626,47 +661,63 @@ configure the widget -importcommand option.
 
 
 
-<div style="margin-left:8ex"><pre>
+<div style="margin-left:8ex"><pre><p>
 # Implementations of application callbacks to load
 # stylesheets from the various sources enumerated above.
 # ".html" is the name of the applications tkhtml widget.
 # The variable $document contains an entire HTML document.
 # The pseudo-code &lt;LOAD URI CONTENTS&gt; is used to indicate
 # code to load and return the content located at $URI.
+</p>
 
+<p>
 proc script_handler {tagcontents} {
     incr ::stylecount
     set id "author.[format %.4d $::stylecount]"
     set handler "import_handler $id"
     .html style -id $id.9999 -importcmd $handler $tagcontents
 }
+</p>
 
+<p>
 proc link_handler {node} {
     if {[node attr rel] == "stylesheet"} {
         set URI [node attr href]
-	set stylesheet [&lt;LOAD URI CONTENTS&gt;]
+set stylesheet [&lt;LOAD URI CONTENTS&gt;]
+</p>
 
+<p>
         incr ::stylecount
         set id "author.[format %.4d $::stylecount]"
         set handler "import_handler $id"
         .html style -id $id.9999 -importcmd $handler $stylesheet
     }
 }
+</p>
 
+<p>
 proc import_handler {parentid URI} {
     set stylesheet [&lt;LOAD URI CONTENTS&gt;]
+</p>
 
+<p>
     incr ::stylecount
     set id "$parentid.[format %.4d $::stylecount]"
     set handler "import_handler $id"
     .html style -id $id.9999 -importcmd $handler $stylesheet
 }
+</p>
 
+<p>
 .html handler script style script_handler
 .html handler node link link_handler
+</p>
 
+<p>
 set ::stylecount 0
+</p>
 
+<p>
 .html parse -final $document
 </pre></div>
 
@@ -697,11 +748,13 @@ if they are being downloaded from a network server or servers).
 </p>
 
 
-<div style="margin-left:8ex"><pre>
+<div style="margin-left:8ex"><pre><p>
 #
 # Contents of HTML document
 #
+</p>
 
+<p>
 &lt;html&gt;&lt;head&gt;
     &lt;link rel="stylesheet" href="A.css"&gt;
     &lt;style&gt;
@@ -711,11 +764,15 @@ if they are being downloaded from a network server or servers).
     &lt;/style&gt;
     &lt;link rel="stylesheet" href="D.css"&gt;
 ... remainder of document ...
+</p>
 
+<p>
 #
 # Contents of B.css
 #
+</p>
 
+<p>
 @import "E.css"
 ... rules ...
 </pre></div>
@@ -752,7 +809,7 @@ be associated with stylesheet-ids as follows:
 </p>
 
 
-<div style="margin-left:8ex"><pre>
+<div style="margin-left:8ex"><pre><p>
 Stylesheet         Stylesheet-id
 -------------------------------
 A.css              author.0001.9999

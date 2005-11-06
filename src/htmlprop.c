@@ -868,7 +868,7 @@ propertyValuesTclScript(p, eProp, zScript)
     const char *zRes;
     CssProperty *pVal;
     Tcl_Interp *interp = p->pTree->interp;
-    Tcl_Obj *pCommand = HtmlNodeCommand(interp, p->pNode);
+    Tcl_Obj *pCommand = HtmlNodeCommand(interp, p->pTree, p->pNode);
 
     Tcl_SetVar2Ex(interp, "N", 0, pCommand, 0);
     rc = Tcl_Eval(interp, zScript);

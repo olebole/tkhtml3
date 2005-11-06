@@ -4452,7 +4452,7 @@ HtmlLayoutForce(clientData, interp, objc, objv)
     HtmlNode *pBody = 0;
     int rc;
     int i;
-    int width = 600;               /* Default width if no -width option */
+    int width = Tk_Width(pTree->tkwin); /* Default width if no -width option */
     BoxContext sBox;               /* The imaginary box <body> is inside */
     LayoutContext sLayout;
     Tcl_HashSearch s;
@@ -4529,5 +4529,8 @@ HtmlLayoutForce(clientData, interp, objc, objv)
     }
     Tcl_DeleteHashTable(&sLayout.widthCache);
 
+    if (rc == TCL_OK) {
+        pTree->iCanvasWidth = Tk_Width(pTree->tkwin);
+    }
     return rc;
 }
