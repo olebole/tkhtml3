@@ -211,16 +211,12 @@ struct HtmlOptions {
     Tcl_Obj *defaultstyle;
     Tcl_Obj *imagecmd;
 
-#ifndef NDEBUG
     Tcl_Obj *logcmd;
-#endif
+    Tcl_Obj *timercmd;
 };
 
-#ifndef NDEBUG
 void HtmlLog(HtmlTree *, CONST char *, CONST char *, ...);
-#else
-#define HtmlLog(...)
-#endif
+void HtmlTimer(HtmlTree *, CONST char *, CONST char *, ...);
 
 
 /*

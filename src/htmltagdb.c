@@ -122,7 +122,7 @@ HtmlMarkupName(markup)
     }
 
     if( markup==Html_Text || markup==Html_Space ){
-        return "text";
+        return "";
     }
 
     return "unknown";

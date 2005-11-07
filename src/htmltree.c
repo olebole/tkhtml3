@@ -737,11 +737,11 @@ nodeCommand(clientData, interp, objc, objv)
 
     static CONST char *NODE_strs[] = {
         "attr", "tag", "nChildren", "child", "text", 
-        "parent", "replace", 0
+        "parent", "prop", "replace", 0
     };
     enum NODE_enum {
         NODE_ATTR, NODE_TAG, NODE_NCHILDREN, NODE_CHILD, NODE_TEXT,
-        NODE_PARENT, NODE_REPLACE
+        NODE_PARENT, NODE_PROP, NODE_REPLACE
     };
 
     if (objc<2) {
@@ -835,6 +835,22 @@ nodeCommand(clientData, interp, objc, objv)
             if (pParent) {
                 Tcl_SetObjResult(interp, HtmlNodeCommand(interp,pTree,pParent));
             } 
+            break;
+        }
+
+        case NODE_PROP: {
+            HtmlNode *pN = pNode;
+            if (HtmlNodeIsText(pN)) {
+                pN = HtmlNodeParent(pNode);
+            }
+            if (0 == pN->pPropertyValues) {
+                Tcl_ResetResult(interp);
+                Tcl_AppendResult(interp,"Computed values not yet calculated",0);
+                return TCL_ERROR;
+            }
+            if (HtmlNodeProperties(interp, pN->pPropertyValues)) {
+                return TCL_ERROR;
+            }
             break;
         }
 

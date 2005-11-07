@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmltcl.c,v 1.44 2005/11/06 13:20:42 danielk1977 Exp $";
+        "@(#) $Id: htmltcl.c,v 1.45 2005/11/07 14:29:56 danielk1977 Exp $";
 
 
 #include <tk.h>
@@ -47,6 +47,7 @@ static char const rcsid[] =
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <time.h>
 
 #include "htmldefaultstyle.c"
 
@@ -60,6 +61,7 @@ static char const rcsid[] =
  *---------------------------------------------------------------------------
  *
  * HtmlLog --
+ * HtmlTimer --
  *
  *     This function is used by various parts of the widget to output internal
  *     information that may be useful in debugging. 
@@ -86,21 +88,22 @@ static char const rcsid[] =
  *
  *---------------------------------------------------------------------------
  */
-#ifndef NDEBUG
 void 
-HtmlLog(HtmlTree *pTree, CONST char *zSubject, CONST char *zFormat, ...)
+logCommon(
+    HtmlTree *pTree, 
+    Tcl_Obj *pLogCmd, 
+    CONST char *zSubject, 
+    CONST char *zFormat, 
+    va_list ap
+)
 {
-    Tcl_Obj *pLogCmd = pTree->options.logcmd;
-
     if (pLogCmd) {
         char zBuf[200];
         int nBuf;
-        va_list ap;
         Tcl_Obj *pSubject;
         Tcl_Obj *pMessage;
         Tcl_Obj *apArgs[3];
 
-        va_start(ap, zFormat);
         nBuf = vsnprintf(zBuf, 200, zFormat, ap);
 
         pMessage = Tcl_NewStringObj(zBuf, nBuf);
@@ -120,7 +123,19 @@ HtmlLog(HtmlTree *pTree, CONST char *zSubject, CONST char *zFormat, ...)
         Tcl_DecrRefCount(pSubject);
     }
 }
-#endif
+
+void 
+HtmlTimer(HtmlTree *pTree, CONST char *zSubject, CONST char *zFormat, ...) {
+    va_list ap;
+    va_start(ap, zFormat);
+    logCommon(pTree, pTree->options.timercmd, zSubject, zFormat, ap);
+}
+void 
+HtmlLog(HtmlTree *pTree, CONST char *zSubject, CONST char *zFormat, ...) {
+    va_list ap;
+    va_start(ap, zFormat);
+    logCommon(pTree, pTree->options.logcmd, zSubject, zFormat, ap);
+}
 
 /*
  *---------------------------------------------------------------------------
@@ -276,6 +291,9 @@ callbackHandler(clientData)
     int canvas_x = 0;
     int canvas_y = 0;
 
+    clock_t styleClock = 0;
+    clock_t layoutClock = 0;
+
     assert(
         eCallbackAction == HTML_CALLBACK_LAYOUT ||
         eCallbackAction == HTML_CALLBACK_STYLE ||
@@ -284,13 +302,17 @@ callbackHandler(clientData)
 
     switch (eCallbackAction) {
         case HTML_CALLBACK_STYLE:
+            styleClock = clock();
             HtmlStyleApply((ClientData)pTree, pTree->interp, 0, 0);
+            styleClock = clock() - styleClock;
         case HTML_CALLBACK_LAYOUT:
+            layoutClock = clock();
             HtmlLayoutForce((ClientData)pTree, pTree->interp, 0, 0);
             x = 0;
             y = 0;
             w = Tk_Width(pTree->tkwin);
             h = Tk_Height(pTree->tkwin);
+            layoutClock = clock() - layoutClock;
             break;
         case HTML_CALLBACK_DAMAGE: {
             x = pTree->cb.x1;
@@ -314,6 +336,15 @@ callbackHandler(clientData)
         "N/A",
         w, h, x, y
     );
+
+    if (styleClock) {
+        HtmlTimer(pTree, "STYLE",  "%f seconds", 
+            (double)styleClock / (double)CLOCKS_PER_SEC);
+    }
+    if (layoutClock) {
+        HtmlTimer(pTree, "LAYOUT",  "%f seconds", 
+            (double)layoutClock / (double)CLOCKS_PER_SEC);
+    }
 
     pTree->cb.x1 = Tk_Width(pTree->tkwin) + 1;
     pTree->cb.y1 = Tk_Height(pTree->tkwin) + 1;
@@ -546,9 +577,8 @@ configureCmd(clientData, interp, objc, objv)
         STRING(defaultstyle, "defaultStyle", "DefaultStyle", HTML_DEFAULT_CSS),
         STRING(imagecmd, "imageCmd", "ImageCmd", ""),
     
-    #ifndef NDEBUG
         STRING(logcmd, "logCmd", "LogCmd", ""),
-    #endif
+        STRING(timercmd, "timerCmd", "TimerCmd", ""),
     
         {TK_OPTION_END, 0, 0, 0, 0, 0, 0, 0, 0}
     };
@@ -1432,6 +1462,8 @@ newWidget(clientData, interp, objc, objv)
 
     /* TODO: Handle the case where configureCmd() returns an error. */
     rc = configureCmd(pTree, interp, objc, objv);
+    assert(!pTree->options.logcmd);
+    assert(!pTree->options.timercmd);
 
     /* Initialise the hash tables used by styler code */
     HtmlPropertyValuesSetupTables(pTree);

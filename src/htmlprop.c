@@ -522,7 +522,7 @@ propertyValuesSetVerticalAlign(p, pProp)
     HtmlPropertyValuesCreator *p;
     CssProperty *pProp;
 {
-    static const unsigned int MASK = PROP_MASK_VERTICALALIGN;
+    static const unsigned int MASK = PROP_MASK_VERTICAL_ALIGN;
     int rc = 0;
 
     switch (pProp->eType) {
@@ -1094,11 +1094,11 @@ HtmlPropertyValuesSet(p, eProp, pProp)
             );
         case CSS_PROPERTY_MIN_WIDTH:
             return propertyValuesSetSize(p, &(p->values.iMinWidth),
-                PROP_MASK_MINWIDTH, pProp, SZ_INHERIT|SZ_PERCENT
+                PROP_MASK_MIN_WIDTH, pProp, SZ_INHERIT|SZ_PERCENT
             );
         case CSS_PROPERTY_MAX_WIDTH:
             return propertyValuesSetSize(p, &(p->values.iMaxWidth),
-                PROP_MASK_MAXWIDTH, pProp, SZ_INHERIT|SZ_PERCENT|SZ_NONE
+                PROP_MASK_MAX_WIDTH, pProp, SZ_INHERIT|SZ_PERCENT|SZ_NONE
             );
         case CSS_PROPERTY_HEIGHT: 
             return propertyValuesSetSize(p, &(p->values.iHeight),
@@ -1106,43 +1106,43 @@ HtmlPropertyValuesSet(p, eProp, pProp)
             );
         case CSS_PROPERTY_MIN_HEIGHT:
             return propertyValuesSetSize(p, &(p->values.iMinHeight),
-                PROP_MASK_MINHEIGHT, pProp, SZ_INHERIT|SZ_PERCENT
+                PROP_MASK_MIN_HEIGHT, pProp, SZ_INHERIT|SZ_PERCENT
             );
         case CSS_PROPERTY_MAX_HEIGHT:
             return propertyValuesSetSize(p, &(p->values.iMaxHeight),
-                PROP_MASK_MAXHEIGHT, pProp, SZ_INHERIT|SZ_PERCENT|SZ_NONE
+                PROP_MASK_MAX_HEIGHT, pProp, SZ_INHERIT|SZ_PERCENT|SZ_NONE
             );
         case CSS_PROPERTY_PADDING_TOP:
             return propertyValuesSetSize(p, &(p->values.padding.iTop),
-                PROP_MASK_PADDINGTOP, pProp, SZ_INHERIT|SZ_PERCENT
+                PROP_MASK_PADDING_TOP, pProp, SZ_INHERIT|SZ_PERCENT
             );
         case CSS_PROPERTY_PADDING_LEFT:
             return propertyValuesSetSize(p, &(p->values.padding.iLeft),
-                PROP_MASK_PADDINGLEFT, pProp, SZ_INHERIT|SZ_PERCENT
+                PROP_MASK_PADDING_LEFT, pProp, SZ_INHERIT|SZ_PERCENT
             );
         case CSS_PROPERTY_PADDING_RIGHT:
             return propertyValuesSetSize(p, &(p->values.padding.iRight),
-                PROP_MASK_PADDINGRIGHT, pProp, SZ_INHERIT|SZ_PERCENT
+                PROP_MASK_PADDING_RIGHT, pProp, SZ_INHERIT|SZ_PERCENT
             );
         case CSS_PROPERTY_PADDING_BOTTOM:
             return propertyValuesSetSize(p, &(p->values.padding.iBottom),
-                PROP_MASK_PADDINGBOTTOM, pProp, SZ_INHERIT|SZ_PERCENT
+                PROP_MASK_PADDING_BOTTOM, pProp, SZ_INHERIT|SZ_PERCENT
             );
         case CSS_PROPERTY_MARGIN_TOP:
             return propertyValuesSetSize(p, &(p->values.margin.iTop),
-                PROP_MASK_MARGINTOP, pProp, SZ_INHERIT|SZ_PERCENT|SZ_AUTO
+                PROP_MASK_MARGIN_TOP, pProp, SZ_INHERIT|SZ_PERCENT|SZ_AUTO
             );
         case CSS_PROPERTY_MARGIN_LEFT:
             return propertyValuesSetSize(p, &(p->values.margin.iLeft),
-                PROP_MASK_MARGINLEFT, pProp, SZ_INHERIT|SZ_PERCENT|SZ_AUTO
+                PROP_MASK_MARGIN_LEFT, pProp, SZ_INHERIT|SZ_PERCENT|SZ_AUTO
             );
         case CSS_PROPERTY_MARGIN_RIGHT:
             return propertyValuesSetSize(p, &(p->values.margin.iRight),
-                PROP_MASK_MARGINRIGHT, pProp, SZ_INHERIT|SZ_PERCENT|SZ_AUTO
+                PROP_MASK_MARGIN_RIGHT, pProp, SZ_INHERIT|SZ_PERCENT|SZ_AUTO
             );
         case CSS_PROPERTY_MARGIN_BOTTOM:
             return propertyValuesSetSize(p, &(p->values.margin.iBottom),
-                PROP_MASK_MARGINBOTTOM, pProp, SZ_INHERIT|SZ_PERCENT|SZ_AUTO
+                PROP_MASK_MARGIN_BOTTOM, pProp, SZ_INHERIT|SZ_PERCENT|SZ_AUTO
             );
 
         /* 'vertical-align', special case:
@@ -1234,19 +1234,19 @@ HtmlPropertyValuesSet(p, eProp, pProp)
 
         case CSS_PROPERTY_BORDER_TOP_WIDTH:
             return propertyValuesSetBorderWidth(p, 
-                &(p->values.border.iTop), PROP_MASK_BORDERWIDTHTOP, pProp
+                &(p->values.border.iTop), PROP_MASK_BORDER_TOP_WIDTH, pProp
             );
         case CSS_PROPERTY_BORDER_BOTTOM_WIDTH:
             return propertyValuesSetBorderWidth(p, 
-                &(p->values.border.iBottom), PROP_MASK_BORDERWIDTHBOTTOM, pProp
+                &(p->values.border.iBottom),PROP_MASK_BORDER_BOTTOM_WIDTH, pProp
             );
         case CSS_PROPERTY_BORDER_LEFT_WIDTH:
             return propertyValuesSetBorderWidth(p, 
-                &(p->values.border.iLeft), PROP_MASK_BORDERWIDTHLEFT, pProp
+                &(p->values.border.iLeft), PROP_MASK_BORDER_LEFT_WIDTH, pProp
             );
         case CSS_PROPERTY_BORDER_RIGHT_WIDTH:
             return propertyValuesSetBorderWidth(p, 
-                &(p->values.border.iRight), PROP_MASK_BORDERWIDTHRIGHT, pProp
+                &(p->values.border.iRight), PROP_MASK_BORDER_RIGHT_WIDTH, pProp
             );
 
         default:
@@ -1406,24 +1406,24 @@ HtmlPropertyValuesFinish(p)
         int offset;
     } emexmap[] = {
         {PROP_MASK_WIDTH,             OFFSET(iWidth)},
-        {PROP_MASK_MINWIDTH,          OFFSET(iMinWidth)},
-        {PROP_MASK_MAXWIDTH,          OFFSET(iMaxWidth)},
+        {PROP_MASK_MIN_WIDTH,          OFFSET(iMinWidth)},
+        {PROP_MASK_MAX_WIDTH,          OFFSET(iMaxWidth)},
         {PROP_MASK_HEIGHT,            OFFSET(iHeight)},
-        {PROP_MASK_MINHEIGHT,         OFFSET(iMinHeight)},
-        {PROP_MASK_MAXHEIGHT,         OFFSET(iMaxHeight)},
-        {PROP_MASK_MARGINTOP,         OFFSET(margin.iTop)},
-        {PROP_MASK_MARGINRIGHT,       OFFSET(margin.iRight)},
-        {PROP_MASK_MARGINBOTTOM ,     OFFSET(margin.iBottom)},
-        {PROP_MASK_MARGINLEFT,        OFFSET(margin.iLeft)},
-        {PROP_MASK_PADDINGTOP,        OFFSET(padding.iTop)},
-        {PROP_MASK_PADDINGRIGHT,      OFFSET(padding.iRight)},
-        {PROP_MASK_PADDINGBOTTOM,     OFFSET(padding.iBottom)},
-        {PROP_MASK_PADDINGLEFT,       OFFSET(padding.iLeft)},
-        {PROP_MASK_VERTICALALIGN,     OFFSET(iVerticalAlign)},
-        {PROP_MASK_BORDERWIDTHTOP,    OFFSET(border.iTop)},
-        {PROP_MASK_BORDERWIDTHRIGHT,  OFFSET(border.iRight)},
-        {PROP_MASK_BORDERWIDTHBOTTOM, OFFSET(border.iBottom)},
-        {PROP_MASK_BORDERWIDTHLEFT,   OFFSET(border.iLeft)}
+        {PROP_MASK_MIN_HEIGHT,         OFFSET(iMinHeight)},
+        {PROP_MASK_MAX_HEIGHT,         OFFSET(iMaxHeight)},
+        {PROP_MASK_MARGIN_TOP,         OFFSET(margin.iTop)},
+        {PROP_MASK_MARGIN_RIGHT,       OFFSET(margin.iRight)},
+        {PROP_MASK_MARGIN_BOTTOM ,     OFFSET(margin.iBottom)},
+        {PROP_MASK_MARGIN_LEFT,        OFFSET(margin.iLeft)},
+        {PROP_MASK_PADDING_TOP,        OFFSET(padding.iTop)},
+        {PROP_MASK_PADDING_RIGHT,      OFFSET(padding.iRight)},
+        {PROP_MASK_PADDING_BOTTOM,     OFFSET(padding.iBottom)},
+        {PROP_MASK_PADDING_LEFT,       OFFSET(padding.iLeft)},
+        {PROP_MASK_VERTICAL_ALIGN,     OFFSET(iVerticalAlign)},
+        {PROP_MASK_BORDER_TOP_WIDTH,    OFFSET(border.iTop)},
+        {PROP_MASK_BORDER_RIGHT_WIDTH,  OFFSET(border.iRight)},
+        {PROP_MASK_BORDER_BOTTOM_WIDTH, OFFSET(border.iBottom)},
+        {PROP_MASK_BORDER_LEFT_WIDTH,   OFFSET(border.iLeft)}
     };
 #undef OFFSET
 
@@ -1487,13 +1487,21 @@ HtmlPropertyValuesFinish(p)
         /* TODO: Calculate as a % of 'line-height' */
     }
     if (p->values.eDisplay == CSS_CONST_TABLE_CELL && (
-           (p->values.mask & PROP_MASK_VERTICALALIGN) || (
+           (p->values.mask & PROP_MASK_VERTICAL_ALIGN) || (
                p->values.iVerticalAlign != CSS_CONST_TOP &&
                p->values.iVerticalAlign != CSS_CONST_BOTTOM &&
                p->values.iVerticalAlign != CSS_CONST_MIDDLE))
     ) {
-        p->values.mask &= ~PROP_MASK_VERTICALALIGN;
+        p->values.mask &= ~PROP_MASK_VERTICAL_ALIGN;
         p->values.iVerticalAlign = CSS_CONST_BASELINE;
+    }
+
+    /* Force all floating boxes to have display type 'block' or 'table' */
+    if (
+        p->values.eFloat != CSS_CONST_NONE &&  
+        p->values.eDisplay != CSS_CONST_TABLE
+    ) {
+        p->values.eDisplay = CSS_CONST_BLOCK;
     }
 
     /* Look the values structure up in the hash-table. */
@@ -1671,6 +1679,166 @@ HtmlPropertyValuesCleanupTables(pTree)
     HtmlTree *pTree;
 {
     assert(0);
+}
+
+
+int 
+HtmlNodeProperties(interp, pValues)
+    Tcl_Interp *interp;
+    HtmlPropertyValues *pValues;
+{
+    Tcl_Obj *pRet;
+
+#define ENUMVAL(eProp, var) \
+{ENUM, CSS_PROPERTY_ ## eProp, Tk_Offset(HtmlPropertyValues, var), 0}
+#define COLORVAL(eProp, var) \
+{COLOR, CSS_PROPERTY_ ## eProp, Tk_Offset(HtmlPropertyValues, var), 0}
+#define LENGTHVAL(eProp, var) \
+{LENGTH, CSS_PROPERTY_ ## eProp, Tk_Offset(HtmlPropertyValues, var), \
+PROP_MASK_ ## eProp}
+
+#define VERTICALALIGNVAL() {VERTICALALIGN, CSS_PROPERTY_VERTICAL_ALIGN, 0, 0}
+#define FONTVAL() {FONT, CSS_SHORTCUTPROPERTY_FONT, 0, 0}
+
+#define PROP_MASK_BORDER_SPACING   0x00000000
+#define PROP_MASK_LINE_HEIGHT   0x00000000
+
+    enum ValueType {
+        ENUM, COLOR, LENGTH, VERTICALALIGN, FONT
+    };
+    struct PVDef {
+        enum ValueType eType;
+        int eCssProperty;
+        int iOffset;
+        unsigned int mask;
+    } pvdef[] = {
+        COLORVAL (BACKGROUND_COLOR, cBackgroundColor),
+        COLORVAL (BORDER_BOTTOM_COLOR, cBorderBottomColor),
+        ENUMVAL  (BORDER_BOTTOM_STYLE, eBorderBottomStyle),
+        LENGTHVAL(BORDER_BOTTOM_WIDTH, border.iBottom),
+        COLORVAL (BORDER_LEFT_COLOR, cBorderLeftColor),
+        ENUMVAL  (BORDER_LEFT_STYLE, eBorderLeftStyle),
+        LENGTHVAL(BORDER_LEFT_WIDTH, border.iLeft),
+        COLORVAL (BORDER_RIGHT_COLOR, cBorderRightColor),
+        ENUMVAL  (BORDER_RIGHT_STYLE, eBorderRightStyle),
+        LENGTHVAL(BORDER_RIGHT_WIDTH, border.iRight),
+        LENGTHVAL(BORDER_SPACING, iBorderSpacing),
+        COLORVAL (BORDER_TOP_COLOR, cBorderTopColor),
+        ENUMVAL  (BORDER_TOP_STYLE, eBorderTopStyle),
+        LENGTHVAL(BORDER_TOP_WIDTH, border.iTop),
+
+        ENUMVAL  (CLEAR, eClear),
+        COLORVAL (COLOR, cColor),
+        ENUMVAL  (DISPLAY, eDisplay),
+        ENUMVAL  (FLOAT, eFloat),
+        FONTVAL(),
+        LENGTHVAL(HEIGHT, iHeight),
+        LENGTHVAL(LINE_HEIGHT, iLineHeight),
+        ENUMVAL  (LIST_STYLE_TYPE, eListStyleType),
+
+        LENGTHVAL(MARGIN_BOTTOM, margin.iBottom),
+        LENGTHVAL(MARGIN_LEFT, margin.iLeft),
+        LENGTHVAL(MARGIN_RIGHT, margin.iRight),
+        LENGTHVAL(MARGIN_TOP, margin.iTop),
+
+        LENGTHVAL(MAX_HEIGHT, iMaxHeight),
+        LENGTHVAL(MAX_WIDTH, iMaxWidth),
+        LENGTHVAL(MIN_HEIGHT, iMinHeight),
+        LENGTHVAL(MIN_WIDTH, iMinWidth),
+
+        LENGTHVAL(PADDING_BOTTOM, padding.iBottom),
+        LENGTHVAL(PADDING_LEFT, padding.iLeft),
+        LENGTHVAL(PADDING_RIGHT, padding.iRight),
+        LENGTHVAL(PADDING_TOP, padding.iTop),
+
+        ENUMVAL  (TEXT_ALIGN, eTextAlign),
+        ENUMVAL  (TEXT_DECORATION, eTextDecoration),
+
+        VERTICALALIGNVAL(),
+
+        ENUMVAL  (WHITE_SPACE, eWhitespace),
+        LENGTHVAL(WIDTH, iWidth)
+    };
+    int ii;
+    struct PVDef *pDef;
+    char *v = (char *)pValues;
+
+    pRet = Tcl_NewObj();
+    Tcl_IncrRefCount(pRet);
+
+    pDef = &pvdef[0];
+    for (ii = 0; ii < sizeof(pvdef) / sizeof(pvdef[0]); ii++, pDef++) {
+        Tcl_Obj *pValue;
+        CONST char *zName = tkhtmlCssPropertyToString(pDef->eCssProperty);
+        Tcl_ListObjAppendElement(interp, pRet, Tcl_NewStringObj(zName, -1));
+        switch (pDef->eType) {
+            case ENUM: {
+                int eValue = (int)*(unsigned char *)(v + pDef->iOffset);
+                CONST char *zValue = HtmlCssConstantToString(eValue);
+                pValue = Tcl_NewStringObj(zValue, -1);
+                break;
+            }
+
+            case COLOR: {
+                HtmlColor *pColor = *(HtmlColor **)(v + pDef->iOffset);
+                pValue = Tcl_NewStringObj(pColor->zColor, -1);
+                break;
+            }
+
+            case LENGTH: {
+                int iValue = *(int *)(v + pDef->iOffset);
+                switch (iValue) {
+                    case PIXELVAL_NONE:
+                        pValue = Tcl_NewStringObj("none", -1);
+                        break;
+                    case PIXELVAL_AUTO:
+                        pValue = Tcl_NewStringObj("auto", -1);
+                        break;
+                    case PIXELVAL_NORMAL:
+                        pValue = Tcl_NewStringObj("normal", -1);
+                        break;
+                    case PIXELVAL_INHERIT:
+                        pValue = Tcl_NewStringObj("inherit", -1);
+                        break;
+                    default: {
+                        char zBuf[64];
+                        if (pDef->mask & pValues->mask) {
+                            sprintf(zBuf, "%.2f%%", (double)iValue/100.0);
+                        } else {
+                            sprintf(zBuf, "%dpx", iValue);
+                        }
+                        pValue = Tcl_NewStringObj(zBuf, -1);
+                        break;
+                    }
+                }
+                break;
+            }
+            case VERTICALALIGN: {
+                int iValue = pValues->iVerticalAlign;
+                if (pValues->mask & PROP_MASK_VERTICAL_ALIGN) {
+                    char zBuf[64];
+                    sprintf(zBuf, "%dpx", iValue);
+                    pValue = Tcl_NewStringObj(zBuf, -1);
+                } else {
+                    CONST char *zValue = HtmlCssConstantToString(iValue);
+                    pValue = Tcl_NewStringObj(zValue, -1);
+                }
+                break;
+            }
+            case FONT: {
+                pValue = Tcl_NewStringObj(pValues->fFont->zFont, -1);
+                break;
+            }
+
+            default:
+                assert(!"Not possible");
+        }
+        Tcl_ListObjAppendElement(interp, pRet, pValue);
+    }
+
+    Tcl_SetObjResult(interp, pRet);
+    Tcl_DecrRefCount(pRet);
+    return TCL_OK;
 }
 
 

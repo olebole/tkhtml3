@@ -43,6 +43,25 @@
 
 /* #define DEBUG_FLOAT_LIST */
 
+/*
+ * External interface:
+ *
+ *     HtmlFloatListNew --
+ *     HtmlFloatListDelete --
+ *         Allocate and deallocate a float-list object:
+ *
+ *     HtmlFloatListAdd --
+ *         Add a floating margin to a float-list object
+ * 
+ *     HtmlFloatListPlace --
+ *     HtmlFloatListMargins --
+ *     HtmlFloatListClear --
+ *         Query a float-list object
+ *
+ *     HtmlFloatListNormalize -- 
+ *         Alter the origin point relative to which queries and additions to
+ *         the float list are made
+ */
 typedef struct FloatListEntry FloatListEntry;
 
 /*

@@ -55,6 +55,42 @@
 #include <string.h>
 #include <stdlib.h>
 
+
+/*
+ * Normal flow:
+ *
+ *     + A new flow is established by:
+ *         - the viewport (in the initial containing block)
+ *         - a float
+ *         - a table cell
+ *
+ *     + A flow contains a single block box.
+ *
+ *     + A flow has an associated float list (type HtmlFloatList*).
+ *
+ * Block box:
+ *
+ *     + A block box may contain either:
+ *         - zero or more block boxes.
+ *         - inline context.
+ *         - replaced content
+ *
+ *     + A replaced content box is one of:
+ *         - replaced node - i.e. a widget or image
+ *         - a table
+ *
+ *     + A replaced content box is different from other block boxes in
+ *       that it is placed around floats (other block boxes are placed under
+ *       floats, the box content wraps around them instead).
+ *
+ * Table:
+ *     + A table contains zero or more flows, arranged in a grid.  
+ *     + Generation of tables requires knowing the "minimum" and "maximum"
+ *       widths of the flow within each cell - important consideration for
+ *       design of other layout code. 
+ */
+
+
 /*
  * At the moment the widget supports two rendering targets:
  *     * Tk canvas, and
@@ -70,7 +106,6 @@
 typedef struct BoxProperties BoxProperties;
 typedef struct BorderProperties BorderProperties;
 typedef struct MarginProperties MarginProperties;
-typedef struct DisplayProperties DisplayProperties;
 
 typedef struct LayoutContext LayoutContext;
 typedef struct BoxContext BoxContext;
@@ -142,20 +177,6 @@ struct MarginProperties {
     int rightAuto;       /* True if ('margin-right' == "auto") */
 };
 
-/*
- * A DisplayProperties struct wraps up all the properties required to
- * decide how to layout a box:
- *     * display
- *     * float
- *     * position
- *     * clear
- */
-struct DisplayProperties {
-    int eDisplay;            /* DISPLAY_xxx constant */
-    int eFloat;              /* FLOAT_xxx constant */
-    int eClear;              /* CLEAR_xxx constant */
-};
-
 struct TableCell {
     BoxContext box;
     int startrow;
@@ -186,6 +207,8 @@ struct TableData {
     int x;                   /* x-coord to draw at */
     BoxContext *pBox;        /* Box to draw into */
 };
+
+#define DISPLAY(pV) (pV ? pV->eDisplay : CSS_CONST_INLINE)
 
 /*
  * Inline Context Requirements Notes:
@@ -327,6 +350,7 @@ struct TableData {
  *         context are horizontally aligned in the same way.
  *
  *     inlineContextSetWhiteSpace():
+ *         Todo: As of CSS 2.1, 'white-space' applies to all elements.
  *         Used to set the value of the 'white-space' property to be used.
  *         Like 'text-align', the 'white-space' property only applies to
  *         block-level elements.
@@ -416,18 +440,6 @@ static void inlineContextCleanup(InlineContext *);
 #define LINEBOX_FORCEBOX           0x02
 #define LINEBOX_CLOSEBORDERS       0x04
 
-/*
- * Potential values for the 'display' property. Not supported yet are
- * 'run-in' and 'compact'. And some table types...
- */
-#define DISPLAY_BLOCK        CSS_CONST_BLOCK
-#define DISPLAY_INLINE       CSS_CONST_INLINE
-#define DISPLAY_TABLE        CSS_CONST_TABLE
-#define DISPLAY_LISTITEM     CSS_CONST_LIST_ITEM
-#define DISPLAY_NONE         CSS_CONST_NONE
-#define DISPLAY_TABLECELL    CSS_CONST_TABLE_CELL
-#define DISPLAY_TABLEROW     CSS_CONST_TABLE_ROW
-
 #define LISTSTYLETYPE_SQUARE CSS_CONST_SQUARE 
 #define LISTSTYLETYPE_DISC   CSS_CONST_DISC 
 #define LISTSTYLETYPE_CIRCLE CSS_CONST_CIRCLE
@@ -474,7 +486,6 @@ S int propertyIsAuto(CssProperty *);
 S int nodeGetFontSize(LayoutContext *pLayout, HtmlNode *pNode);
 S int  nodeGetEmPixels(LayoutContext*, HtmlNode*);
 S int nodeGetExPixels(LayoutContext*, HtmlNode*);
-S void nodeGetDisplay(LayoutContext*, HtmlNode*, DisplayProperties*);
 S int  nodeGetListStyleType(LayoutContext *, HtmlNode *);
 S XColor *nodeGetColour(LayoutContext *, HtmlNode*);
 S int nodeGetBorderSpacing(LayoutContext *, HtmlNode*);
@@ -543,49 +554,49 @@ static struct PixelDescription pixel_descriptions [] = {
 #define PD_iWidth 0
     PD(iWidth, PROP_MASK_WIDTH, 1, 0, 0),
 #define PD_iMinWidth 1
-    PD(iMinWidth, PROP_MASK_MINWIDTH, 0, 0, 0),
+    PD(iMinWidth, PROP_MASK_MIN_WIDTH, 0, 0, 0),
 #define PD_iMaxWidth 2
-    PD(iMaxWidth, PROP_MASK_MAXWIDTH, 0, 0, 1),
+    PD(iMaxWidth, PROP_MASK_MAX_WIDTH, 0, 0, 1),
 
 #define PD_iHeight 3
     PD(iHeight, PROP_MASK_HEIGHT, 1, 0, 0),
 #define PD_iMinHeight 4
-    PD(iMinHeight, PROP_MASK_MINHEIGHT, 0, 0, 0),
+    PD(iMinHeight, PROP_MASK_MIN_HEIGHT, 0, 0, 0),
 #define PD_iMaxHeight 5
-    PD(iMaxHeight, PROP_MASK_MAXHEIGHT, 0, 0, 1),
+    PD(iMaxHeight, PROP_MASK_MAX_HEIGHT, 0, 0, 1),
 
 #define PD_iMarginTop 6
-    PD(margin.iTop, PROP_MASK_MARGINTOP, 1, 0, 0),
+    PD(margin.iTop, PROP_MASK_MARGIN_TOP, 1, 0, 0),
 #define PD_iMarginRight 7
-    PD(margin.iRight, PROP_MASK_MARGINRIGHT, 1, 0, 0),
+    PD(margin.iRight, PROP_MASK_MARGIN_RIGHT, 1, 0, 0),
 #define PD_iMarginBottom 8
-    PD(margin.iBottom, PROP_MASK_MARGINBOTTOM, 1, 0, 0),
+    PD(margin.iBottom, PROP_MASK_MARGIN_BOTTOM, 1, 0, 0),
 #define PD_iMarginLeft 9
-    PD(margin.iLeft, PROP_MASK_MARGINLEFT, 1, 0, 0),
+    PD(margin.iLeft, PROP_MASK_MARGIN_LEFT, 1, 0, 0),
 
 #define PD_iPaddingTop 10
-    PD(padding.iTop, PROP_MASK_PADDINGTOP, 0, 0, 0),
+    PD(padding.iTop, PROP_MASK_PADDING_TOP, 0, 0, 0),
 #define PD_iPaddingRight 11
-    PD(padding.iRight, PROP_MASK_PADDINGRIGHT, 0, 0, 0),
+    PD(padding.iRight, PROP_MASK_PADDING_RIGHT, 0, 0, 0),
 #define PD_iPaddingBottom 12
-    PD(padding.iBottom, PROP_MASK_PADDINGBOTTOM, 0, 0, 0),
+    PD(padding.iBottom, PROP_MASK_PADDING_BOTTOM, 0, 0, 0),
 #define PD_iPaddingLeft 13
-    PD(padding.iLeft, PROP_MASK_PADDINGLEFT, 0, 0, 0),
+    PD(padding.iLeft, PROP_MASK_PADDING_LEFT, 0, 0, 0),
 
 #define PD_iVerticalAlign 14
-    PD(padding.iLeft, PROP_MASK_VERTICALALIGN, 0, 0, 0),
+    PD(padding.iLeft, PROP_MASK_VERTICAL_ALIGN, 0, 0, 0),
 
 #define PD_iBorderWidthTop 15
-    PD(border.iTop, PROP_MASK_BORDERWIDTHTOP, 0, 0, 0),
+    PD(border.iTop, PROP_MASK_BORDER_TOP_WIDTH, 0, 0, 0),
 #define PD_iBorderWidthRight 16
-    PD(border.iRight, PROP_MASK_BORDERWIDTHRIGHT, 0, 0, 0),
+    PD(border.iRight, PROP_MASK_BORDER_RIGHT_WIDTH, 0, 0, 0),
 #define PD_iBorderWidthBottom 17
-    PD(border.iBottom, PROP_MASK_BORDERWIDTHBOTTOM, 0, 0, 0),
+    PD(border.iBottom, PROP_MASK_BORDER_BOTTOM_WIDTH, 0, 0, 0),
 #define PD_iBorderWidthLeft 18
+    PD(border.iLeft, PROP_MASK_BORDER_LEFT_WIDTH, 0, 0, 0),
 
 #define PD_iBorderSpacing 19
-    PD(border.iLeft, 0, 0, 0, 0),
-    PD(border.iLeft, 0, 0, 0, 0),
+    PD(iBorderSpacing, 0, 0, 0, 0),
 };
 
 int 
@@ -657,57 +668,6 @@ physicalToPixels(pLayout, rVal, type)
     sprintf(zBuf, "%f%c", rVal, type);
     Tk_GetPixels(pLayout->interp, pLayout->tkwin, zBuf, &pixels);
     return pixels;
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * nodeGetDisplay --
- *
- *     Query the 'display', 'position' and 'float' properties of a node.
- *     This function fixes any inconsistencies between these values 
- *     according to CSS2 section 9.7 "Relationships between 'display', 
- *     'position' and 'float'".
- * 
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     Fills in values of structure pointed to by pDisplayProperties.
- *
- *---------------------------------------------------------------------------
- */
-static void 
-nodeGetDisplay(pLayout, pNode, pDisplayProperties)
-    LayoutContext *pLayout;
-    HtmlNode *pNode;
-    DisplayProperties *pDisplayProperties;
-{
-    int f;        /* 'float' */
-    int d;        /* 'display' */
-    int c;        /* 'clear' */
-
-    if (HtmlNodeIsText(pNode)) {
-        f = FLOAT_NONE;
-        c = CLEAR_NONE;
-        d = DISPLAY_INLINE;
-    } else {
-        HtmlPropertyValues *pValues = pNode->pPropertyValues;
-        f = pValues->eFloat;
-        d = pValues->eDisplay;
-        c = pValues->eClear;
-
-        /* Force all floating boxes to have display type 'block' or 'table' */
-        if (f!=FLOAT_NONE && d!=DISPLAY_TABLE) {
-            d = DISPLAY_BLOCK;
-        }
-    }
-
-
-    pDisplayProperties->eDisplay = d;
-    pDisplayProperties->eFloat = f;
-    pDisplayProperties->eClear = c;
 }
 
 static int 
@@ -837,7 +797,7 @@ nodeGetVAlign(pLayout, pNode)
     HtmlNode *pNode;
 {
     HtmlPropertyValues *pV = pNode->pPropertyValues;
-    if (pV->mask & PROP_MASK_VERTICALALIGN) {
+    if (pV->mask & PROP_MASK_VERTICAL_ALIGN) {
         /* Todo: Handle pixel lengths */
         return CSS_CONST_BASELINE;
     }
@@ -1162,10 +1122,8 @@ nodeGetMargins(pLayout, pNode, parentWidth, pMargins)
     pMargins->margin_left = ((iMarginLeft > MAX_PIXELVAL)?iMarginLeft:0);
     pMargins->margin_right = ((iMarginRight > MAX_PIXELVAL)?iMarginRight:0);
 
-    if (iWidth != PIXELVAL_AUTO) {
-        pMargins->leftAuto = ((iMarginLeft == PIXELVAL_AUTO) ? 1 : 0);
-        pMargins->rightAuto = ((iMarginRight == PIXELVAL_AUTO) ? 1 : 0);
-    }
+    pMargins->leftAuto = ((iMarginLeft == PIXELVAL_AUTO) ? 1 : 0);
+    pMargins->rightAuto = ((iMarginRight == PIXELVAL_AUTO) ? 1 : 0);
 }
 
 /*
@@ -1302,13 +1260,13 @@ static int floatLayout(pLayout, pBox, pNode, pY)
     HtmlNode *pNode;         /* Node that generates floating box */
     int *pY;                 /* IN/OUT: y-coord to draw float at */
 {
+    HtmlPropertyValues *pV = pNode->pPropertyValues;
     int y = *pY;
     int y2;                          /* y-coord of bottom of box */
     BoxContext sBox;                 /* Generated box. */
     int width;                       /* Width of generated box content. */
     int leftFloat = 0;                   /* left floating margin */
     int rightFloat = pBox->parentWidth;  /* right floating margin */
-    DisplayProperties display;       /* Display proprerties */
     int x;
     int marginValid = pLayout->marginValid;
     int marginValue = pLayout->marginValue;
@@ -1337,14 +1295,9 @@ static int floatLayout(pLayout, pBox, pNode, pY)
     memset(&sBox, 0, sizeof(BoxContext));
     sBox.pFloat = HtmlFloatListNew();
 
-    /* Get the display properties. The caller should have already made
-     * sure that the node generates a floating block box. But we need
-     * to do this too in order to figure out if this is a FLOAT_LEFT or
-     * FLOAT_RIGHT box.
-     */
-    nodeGetDisplay(pLayout, pNode, &display);
-    assert(display.eFloat!=FLOAT_NONE);
-    assert(display.eDisplay==DISPLAY_BLOCK || display.eDisplay==DISPLAY_TABLE);
+    assert(pV);
+    assert(pV->eFloat!=FLOAT_NONE);
+    assert(pV->eDisplay==CSS_CONST_BLOCK || pV->eDisplay==CSS_CONST_TABLE);
 
     /* According to CSS, a floating box must have an explicit width or
      * replaced content. But if it doesn't, we just assign the minimum
@@ -1383,7 +1336,7 @@ static int floatLayout(pLayout, pBox, pNode, pY)
      * the parent box is not wide enough for this float, we may shift this
      * float downward until there is room.
      */
-    y = HtmlFloatListClear(pBox->pFloat, display.eClear, y);
+    y = HtmlFloatListClear(pBox->pFloat, pV->eClear, y);
     y = HtmlFloatListPlace(
             pBox->pFloat, pBox->parentWidth, sBox.width, sBox.height, y);
     y2 = y + sBox.height;
@@ -1395,7 +1348,7 @@ static int floatLayout(pLayout, pBox, pNode, pY)
      * Once we have the x coordinate, we can copy the generated box into
      * it's parent box pBox.
      */ 
-    if (display.eFloat==FLOAT_LEFT) {
+    if (pV->eFloat==FLOAT_LEFT) {
         x = leftFloat;
     } else {
         x = rightFloat - sBox.width;
@@ -1415,7 +1368,7 @@ static int floatLayout(pLayout, pBox, pNode, pY)
     /* Fix the float list in the parent block so that nothing overlaps
      * this floating box.
      */
-    if (display.eFloat==FLOAT_LEFT) {
+    if (pV->eFloat==FLOAT_LEFT) {
         int m = x + sBox.width;
         HtmlFloatListAdd(pBox->pFloat, FLOAT_LEFT, m, *pY, y + sBox.height);
     } else {
@@ -1618,7 +1571,7 @@ inlineContextPopBorder(p, pBorder)
  *
  *     The returned struct is considered private to the inlineContextXXX()
  *     routines. The only legitimate use is to pass the pointer to
- *     inlineContextPushBorders().
+ *     inlineContextPushBorder().
  *
  * Results:
  *     NULL or allocated InlineBorder structure.
@@ -2662,23 +2615,21 @@ inlineLayoutNode(pLayout, pBox, pNode, pY, pContext)
     int *pY;
     InlineContext *pContext;
 {
-    DisplayProperties display;   /* Display properties of pNode */
+    HtmlPropertyValues *pV = pNode->pPropertyValues;
     const char *zReplace = 0;
     int rc = 0;
-
-    nodeGetDisplay(pLayout, pNode, &display);
 
     /* A floating box. Draw it immediately and update the floating margins 
      * to account for it.
      */
-    if (display.eFloat != FLOAT_NONE) {
+    if (pV && pV->eFloat != FLOAT_NONE) {
         int y = *pY;
         floatLayout(pLayout, pBox, pNode, &y);
     }
 
     /* A block box. 
      */
-    else if (display.eDisplay != DISPLAY_INLINE) {
+    else if (pV && pV->eDisplay != CSS_CONST_INLINE) {
         BoxContext sBox;
         int y = *pY;
         int br_fix = 0;
@@ -3479,9 +3430,8 @@ tableIterate(pNode, xCallback, xRowCallback, pContext)
 
     for (i=0; i<HtmlNodeNumChildren(pNode); i++) {
         HtmlNode *pChild = HtmlNodeChild(pNode, i);
-        DisplayProperties display;
-        nodeGetDisplay(pLayout, pChild, &display);
-        if (display.eDisplay == DISPLAY_TABLEROW) {
+        HtmlPropertyValues *pV = pChild->pPropertyValues;
+        if (DISPLAY(pV) == CSS_CONST_TABLE_ROW) {
             int col = 0;
             int j;
             int k;
@@ -3761,6 +3711,7 @@ static int tableLayout(pLayout, pBox, pNode)
     BoxContext *pBox;
     HtmlNode *pNode;         /* The node to layout */
 {
+    HtmlPropertyValues *pV = pNode->pPropertyValues;
     int nCol = 0;            /* Number of columns in this table */
     int i;
     int minwidth;            /* Minimum width of entire table */
@@ -3786,13 +3737,7 @@ static int tableLayout(pLayout, pBox, pNode)
 
     assert(pBox->parentWidth>=0);
 
-    #ifndef NDEBUG
-    if (1) {
-        DisplayProperties display;
-        nodeGetDisplay(pLayout, pNode, &display);
-        assert(display.eDisplay==DISPLAY_TABLE);
-    }
-    #endif
+    assert(pV->eDisplay==CSS_CONST_TABLE);
 
     /* Read the value of the 'border-spacing' property (or 'cellspacing'
      * attribute if 'border-spacing' is not defined).
@@ -4132,7 +4077,7 @@ static int blockLayout(pLayout, pBox, pNode, omitborder, noalign)
     int omitborder;          /* True to allocate but not draw the border */
     int noalign;             /* True to ignore horizontal alignment props */
 {
-    DisplayProperties display;     /* Display properties of pNode */
+    HtmlPropertyValues *pV = pNode->pPropertyValues;
     MarginProperties margin;       /* Margin properties of pNode */
     BoxProperties boxproperties;   /* Padding and border properties */
     BoxContext sBox;               /* Box that tableLayout() etc. use */
@@ -4152,8 +4097,7 @@ static int blockLayout(pLayout, pBox, pNode, omitborder, noalign)
     /* Retrieve the required CSS property values. Return early if the
      * display is set to 'none'. There is nothing to draw for this box.
      */
-    nodeGetDisplay(pLayout, pNode, &display);
-    if (display.eDisplay==DISPLAY_NONE) {
+    if (DISPLAY(pV)==CSS_CONST_NONE) {
         return TCL_OK;
     }
     nodeGetMargins(pLayout, pNode, pBox->parentWidth, &margin);
@@ -4166,10 +4110,10 @@ static int blockLayout(pLayout, pBox, pNode, omitborder, noalign)
      * isBoxObject flag so we know to do these things.
      */
     isReplaced = (zReplace?1:0);
-    isBoxObject = (display.eDisplay==DISPLAY_TABLE || isReplaced);
+    isBoxObject = (DISPLAY(pV)==CSS_CONST_TABLE || isReplaced);
 
     /* Adjust the Y-coordinate to account for the 'clear' property. */
-    y = HtmlFloatListClear(pBox->pFloat, display.eClear, y);
+    y = HtmlFloatListClear(pBox->pFloat, pV->eClear, y);
 
     leftFloat = 0;
     rightFloat = pBox->parentWidth;
@@ -4197,9 +4141,9 @@ static int blockLayout(pLayout, pBox, pNode, omitborder, noalign)
             boxproperties.border_left - boxproperties.border_right -
             boxproperties.padding_left - boxproperties.padding_right;
 
-    if (display.eDisplay == DISPLAY_TABLECELL) {
+    if (DISPLAY(pV) == CSS_CONST_TABLE_CELL) {
         sBox.parentWidth = availablewidth;
-    } else if (display.eDisplay == DISPLAY_TABLE) {
+    } else if (DISPLAY(pV) == CSS_CONST_TABLE) {
         int isauto;
         int w = rightFloat - leftFloat;
         w = nodeGetWidth(pLayout, pNode, w, availablewidth, 0, &isauto);
@@ -4285,17 +4229,17 @@ static int blockLayout(pLayout, pBox, pNode, omitborder, noalign)
         /* Draw the box using the function specific to it's display type,
          * then copy the drawing into the parent canvas.
          */
-        switch (display.eDisplay) {
-            case DISPLAY_LISTITEM:
+        switch (DISPLAY(pV)) {
+            case CSS_CONST_LIST_ITEM:
                 markerLayout(pLayout, &sBox, pNode);
-            case DISPLAY_BLOCK:
-            case DISPLAY_INLINE:
-            case DISPLAY_TABLECELL:
+            case CSS_CONST_BLOCK:
+            case CSS_CONST_INLINE:
+            case CSS_CONST_TABLE_CELL:
                 if (HtmlNodeNumChildren(pNode)>0) {
                     inlineLayout(pLayout, &sBox, HtmlNodeChild(pNode, 0));
                 }
                 break;
-            case DISPLAY_TABLE:
+            case CSS_CONST_TABLE:
                 tableLayout(pLayout, &sBox, pNode);
                 break;
             default:
@@ -4311,43 +4255,44 @@ static int blockLayout(pLayout, pBox, pNode, omitborder, noalign)
      */
     if (!HtmlDrawIsEmpty(&sBox.vc) || 
         sBox.height > 0 || 
-        display.eDisplay == DISPLAY_TABLECELL ||
-        display.eClear != CLEAR_NONE
+        DISPLAY(pV) == CSS_CONST_TABLE_CELL ||
+        pV->eClear != CLEAR_NONE
     ) {
         int hoffset = 0;
 
-        if (display.eDisplay == DISPLAY_TABLECELL) {
+        if (DISPLAY(pV) == CSS_CONST_TABLE_CELL) {
             noalign = 1;
         }
 
         if (!noalign) {
             int textalign = 0;
     
-            /* A table or replaced object may be aligned horizontally using
-             * the 'text-align' property. This does not apply if the object
-             * is floated, as horizontal alignment is done by the caller in
-             * that case.
+	    /* There are two ways to specify the horizontal alignment of a a
+	     * block.  If the block is a non-floated table or a replaced
+	     * element, then it respects the 'text-align' property. (For other
+	     * blocks, 'text-align' centers the text inside the block, not the
+	     * block itself).
              */
-            if (isBoxObject) {
+            if (margin.leftAuto) {
+                if (margin.rightAuto) {
+                    textalign = CSS_CONST_CENTER;
+                } else {
+                    textalign = CSS_CONST_RIGHT;
+                } 
+            }
+
+            if (textalign == 0 && isBoxObject) {
                 textalign = nodeGetTextAlign(pLayout, pNode);
             }
     
-            /* There are two ways to specify the horizontal align a block. If
-             * the block is a table or a replaced element, then it respects the
-             * 'text-align' property. (For other blocks, 'text-align' 
-             */
-            if ((textalign == TEXTALIGN_CENTER || 
-                 textalign == TEXTALIGN_JUSTIFY ||
-                (margin.leftAuto && margin.rightAuto)) &&
-                availablewidth > sBox.width
-            ) {
-                hoffset = (availablewidth - sBox.width)/2;
-            }
-
-            else if ((textalign == TEXTALIGN_RIGHT || (margin.leftAuto)) &&
-                availablewidth > sBox.width 
-            ) {
-                hoffset = (availablewidth-sBox.width);
+            switch (textalign) {
+                case CSS_CONST_CENTER:
+                case CSS_CONST_JUSTIFY:
+                    hoffset = (availablewidth - sBox.width)/2;
+                    break;
+                case CSS_CONST_RIGHT:
+                    hoffset = (availablewidth-sBox.width);
+                    break;
             }
         }
 
