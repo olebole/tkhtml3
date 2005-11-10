@@ -6,7 +6,7 @@
  *
  *         * case-insensitive strings
  *         * HtmlFontKey structures
- *         * HtmlPropertyValues structures
+ *         * HtmlComputedValues structures
  * 
  *     The code for case-insensitive strings was copied from the Tcl core code
  *     for regular string hashes and modified only slightly.
@@ -341,7 +341,7 @@ HtmlFontKeyHashType()
  *
  * hashValuesKey --
  *
- *     Generate a 4-byte hash of the HtmlPropertyValues object pointed to by
+ *     Generate a 4-byte hash of the HtmlComputedValues object pointed to by
  *     keyPtr. All fields of the structure apart from 'nRef' may be used by
  *     this function.
  *
@@ -358,7 +358,7 @@ hashValuesKey(tablePtr, keyPtr)
     Tcl_HashTable *tablePtr;    /* Hash table. */
     VOID *keyPtr;               /* Key from which to compute hash value. */
 {
-    HtmlPropertyValues *p= (HtmlPropertyValues *)keyPtr;
+    HtmlComputedValues *p= (HtmlComputedValues *)keyPtr;
     unsigned int result = 0;
 
     result += (result<<3) + (int)(p->mask);
@@ -368,6 +368,7 @@ hashValuesKey(tablePtr, keyPtr)
     result += (result<<3) + (int)(p->cColor);
     result += (result<<3) + (int)(p->cBackgroundColor);
     result += (result<<3) + (int)(p->eListStyleType);
+    result += (result<<3) + (int)(p->eVerticalAlign);
     result += (result<<3) + (int)(p->iVerticalAlign);
     result += (result<<3) + (int)(p->iBorderSpacing);
     result += (result<<3) + (int)(p->iLineHeight);
@@ -429,7 +430,7 @@ compareValuesKey(keyPtr, hPtr)
     unsigned char *p1 = (unsigned char *) keyPtr;
     unsigned char *p2 = (unsigned char *) hPtr->key.string;
 
-    static const int nBytes = sizeof(HtmlPropertyValues)-sizeof(int);
+    static const int nBytes = sizeof(HtmlComputedValues)-sizeof(int);
 
     /* Do not compare the first field - nRef */
     p1 += sizeof(int);
@@ -459,21 +460,21 @@ allocValuesEntry(tablePtr, keyPtr)
     Tcl_HashTable *tablePtr;    /* Hash table. */
     VOID *keyPtr;               /* Key to store in the hash table entry. */
 {
-    HtmlPropertyValues *pKey = (HtmlPropertyValues *)keyPtr;
-    HtmlPropertyValues *pStoredKey;
+    HtmlComputedValues *pKey = (HtmlComputedValues *)keyPtr;
+    HtmlComputedValues *pStoredKey;
     unsigned int size;
     Tcl_HashEntry *hPtr;
 
     size = (
-        sizeof(HtmlPropertyValues) +
+        sizeof(HtmlComputedValues) +
         sizeof(Tcl_HashEntry) - 
         sizeof(hPtr->key)
     );
     assert(size >= sizeof(Tcl_HashEntry));
 
     hPtr = (Tcl_HashEntry *) ckalloc(size);
-    pStoredKey = (HtmlPropertyValues *)(hPtr->key.string);
-    memcpy(pStoredKey, pKey, sizeof(HtmlPropertyValues));
+    pStoredKey = (HtmlComputedValues *)(hPtr->key.string);
+    memcpy(pStoredKey, pKey, sizeof(HtmlComputedValues));
 
     return hPtr;
 }
@@ -482,7 +483,7 @@ allocValuesEntry(tablePtr, keyPtr)
 /*
  *---------------------------------------------------------------------------
  *
- * HtmlPropertyValuesHashType --
+ * HtmlComputedValuesHashType --
  *
  *     Return a pointer to the hash key type for property-values hashes. The
  *     key-type for the hash-table is HtmlFontKey (see htmlprop.h). This can be
@@ -500,7 +501,7 @@ allocValuesEntry(tablePtr, keyPtr)
  *
  *---------------------------------------------------------------------------
  */
-Tcl_HashKeyType * HtmlPropertyValuesHashType() 
+Tcl_HashKeyType * HtmlComputedValuesHashType() 
 {
     /*
      * Hash key type for property-values hash.

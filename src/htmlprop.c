@@ -65,7 +65,7 @@ static char rcsid[] = "@(#) $Id:";
  */
 static int 
 pixelsToPoints(p, pixels)
-    HtmlPropertyValuesCreator *p;
+    HtmlComputedValuesCreator *p;
     int pixels;
 {
     double mm;
@@ -106,7 +106,7 @@ pixelsToPoints(p, pixels)
  */
 static int 
 physicalToPixels(p, rVal, type)
-    HtmlPropertyValuesCreator *p;
+    HtmlComputedValuesCreator *p;
     double rVal;
     char type;
 {
@@ -124,7 +124,7 @@ physicalToPixels(p, rVal, type)
  *
  * propertyValuesSetFontSize --
  *
- *     This function sets the HtmlPropertyValuesCreator.fontKey.iFontSize
+ *     This function sets the HtmlComputedValuesCreator.fontKey.iFontSize
  *     variable in *p based on the value stored in property *pProp. This
  *     function handles the value 'inherit'.
  *
@@ -138,7 +138,7 @@ physicalToPixels(p, rVal, type)
  */
 static int 
 propertyValuesSetFontSize(p, pProp)
-    HtmlPropertyValuesCreator *p;
+    HtmlComputedValuesCreator *p;
     CssProperty *pProp;
 {
     int iPoints = 0;
@@ -252,12 +252,12 @@ propertyValuesSetFontSize(p, pProp)
 
 static unsigned char *
 getInheritPointer(p, pVar)
-    HtmlPropertyValuesCreator *p;
+    HtmlComputedValuesCreator *p;
     unsigned char *pVar;
 {
-    const int values_offset = Tk_Offset(HtmlPropertyValuesCreator, values);
-    const int fontkey_offset = Tk_Offset(HtmlPropertyValuesCreator, fontKey);
-    const int values_end = values_offset + sizeof(HtmlPropertyValues);
+    const int values_offset = Tk_Offset(HtmlComputedValuesCreator, values);
+    const int fontkey_offset = Tk_Offset(HtmlComputedValuesCreator, fontKey);
+    const int values_end = values_offset + sizeof(HtmlComputedValues);
     const int fontkey_end = fontkey_offset + sizeof(HtmlFontKey);
 
     int offset = pVar - (unsigned char *)p;
@@ -313,7 +313,7 @@ getInheritPointer(p, pVar)
  */
 static int 
 propertyValuesSetEnum(p, pEVar, aOptions, pProp)
-    HtmlPropertyValuesCreator *p;
+    HtmlComputedValuesCreator *p;
     unsigned char *pEVar;
     int *aOptions;
     CssProperty *pProp;
@@ -344,7 +344,7 @@ propertyValuesSetEnum(p, pEVar, aOptions, pProp)
  * propertyValuesSetColor --
  *
  *     Css property pProp contains a color-name. Set *pCVar (part of an
- *     HtmlPropertyValues structure) to point to the corresponding entry in the 
+ *     HtmlComputedValues structure) to point to the corresponding entry in the 
  *     pTree->aColor array. The entry may be created if required.
  *
  * Results: 
@@ -358,7 +358,7 @@ propertyValuesSetEnum(p, pEVar, aOptions, pProp)
  */
 static int 
 propertyValuesSetColor(p, pCVar, pProp)
-    HtmlPropertyValuesCreator *p;
+    HtmlComputedValuesCreator *p;
     HtmlColor **pCVar;
     CssProperty *pProp;
 {
@@ -459,7 +459,7 @@ setcolor_out:
  */
 static int 
 propertyValuesSetLength(p, pIVal, em_mask, pProp)
-    HtmlPropertyValuesCreator *p;
+    HtmlComputedValuesCreator *p;
     int *pIVal;
     unsigned int em_mask;
     CssProperty *pProp;
@@ -519,7 +519,7 @@ propertyValuesSetLength(p, pIVal, em_mask, pProp)
  */
 static int
 propertyValuesSetVerticalAlign(p, pProp)
-    HtmlPropertyValuesCreator *p;
+    HtmlComputedValuesCreator *p;
     CssProperty *pProp;
 {
     static const unsigned int MASK = PROP_MASK_VERTICAL_ALIGN;
@@ -528,13 +528,13 @@ propertyValuesSetVerticalAlign(p, pProp)
     switch (pProp->eType) {
         case CSS_CONST_INHERIT: {
             HtmlNode *pParent = HtmlNodeParent(p->pNode);
-            HtmlPropertyValues *pPV;
+            HtmlComputedValues *pPV;
 
             assert(pParent && pParent->pPropertyValues);
             pPV = pParent->pPropertyValues;
 
-            p->values.mask = (p->values.mask & (~MASK)) | (pPV->mask & MASK);
             p->values.iVerticalAlign = pPV->iVerticalAlign;
+            p->values.eVerticalAlign = pPV->eVerticalAlign;
 
             p->eVerticalAlignPercent = 0;
             p->em_mask &= (~MASK);
@@ -552,7 +552,8 @@ propertyValuesSetVerticalAlign(p, pProp)
         case CSS_CONST_BOTTOM:
         case CSS_CONST_TEXT_BOTTOM:
             p->values.mask &= (~MASK);
-            p->values.iVerticalAlign = pProp->eType;
+            p->values.eVerticalAlign = pProp->eType;
+            p->values.iVerticalAlign = 0;
 
             p->eVerticalAlignPercent = 0;
             p->em_mask &= (~MASK);
@@ -562,6 +563,7 @@ propertyValuesSetVerticalAlign(p, pProp)
         case CSS_TYPE_PERCENT: {
             p->values.mask |= MASK;
             p->values.iVerticalAlign = 100 * pProp->v.iVal;
+            p->values.eVerticalAlign = 0;
 
             p->eVerticalAlignPercent = 1;
             p->em_mask &= (~MASK);
@@ -576,6 +578,7 @@ propertyValuesSetVerticalAlign(p, pProp)
             if (rc == 0) {
                 p->values.mask |= MASK;
                 p->eVerticalAlignPercent = 0;
+                p->values.eVerticalAlign = 0;
             }
             return 0;
         }
@@ -605,7 +608,7 @@ propertyValuesSetVerticalAlign(p, pProp)
  */
 static int 
 propertyValuesSetSize(p, pIVal, p_mask, pProp, allow_mask)
-    HtmlPropertyValuesCreator *p;
+    HtmlComputedValuesCreator *p;
     int *pIVal;
     unsigned int p_mask;
     CssProperty *pProp;
@@ -631,7 +634,13 @@ propertyValuesSetSize(p, pIVal, p_mask, pProp, allow_mask)
 
         case CSS_CONST_INHERIT:
             if (allow_mask & SZ_INHERIT) {
-                *pIVal = PIXELVAL_INHERIT;
+                HtmlNode *pParent = HtmlNodeParent(p->pNode);
+                int *pInherit = (int *)getInheritPointer(p, pIVal);
+                assert(pInherit);
+                assert(pParent);
+
+                pIVal = *pInherit;
+                p->values.mask |= (pParent->pPropertyValues->mask & p_mask);
                 return 0;
             }
             return 1;
@@ -666,7 +675,7 @@ propertyValuesSetSize(p, pIVal, p_mask, pProp, allow_mask)
  * propertyValuesSetBorderWidth --
  *
  *     pIVal points to an integer to store the value of a 'border-width-xxx'
- *     property in pixels in (i.e. HtmlPropertyValues.border.iTop). This
+ *     property in pixels in (i.e. HtmlComputedValues.border.iTop). This
  *     function attempts to interpret *pProp as a <border-width> and writes the
  *     number of pixels to render the border as to *pIVal.
  *
@@ -686,7 +695,7 @@ propertyValuesSetSize(p, pIVal, p_mask, pProp, allow_mask)
  */
 static int 
 propertyValuesSetBorderWidth(p, pIVal, em_mask, pProp)
-    HtmlPropertyValuesCreator *p;
+    HtmlComputedValuesCreator *p;
     int *pIVal;
     unsigned int em_mask;
     CssProperty *pProp;
@@ -731,9 +740,9 @@ propertyValuesSetBorderWidth(p, pIVal, em_mask, pProp)
 /*
  *---------------------------------------------------------------------------
  *
- * HtmlPropertyValuesInit --
+ * HtmlComputedValuesInit --
  *   
- *     Initialise an HtmlPropertyValuesCreator structure.
+ *     Initialise an HtmlComputedValuesCreator structure.
  *
  * Results:
  *     None.
@@ -744,10 +753,10 @@ propertyValuesSetBorderWidth(p, pIVal, em_mask, pProp)
  *---------------------------------------------------------------------------
  */
 void
-HtmlPropertyValuesInit(pTree, pNode, p)
+HtmlComputedValuesInit(pTree, pNode, p)
     HtmlTree *pTree;
     HtmlNode *pNode;
-    HtmlPropertyValuesCreator *p;
+    HtmlComputedValuesCreator *p;
 {
     static CssProperty Medium = {CSS_CONST_MEDIUM, {(int)"medium"}};
     static CssProperty Transparent = {
@@ -758,7 +767,7 @@ HtmlPropertyValuesInit(pTree, pNode, p)
     HtmlNode *pParent = HtmlNodeParent(pNode);
     assert(p && pTree && pNode);
 
-    memset(p, 0, sizeof(HtmlPropertyValuesCreator));
+    memset(p, 0, sizeof(HtmlComputedValuesCreator));
     p->pTree = pTree;
     p->pNode = pNode;
 
@@ -774,7 +783,7 @@ HtmlPropertyValuesInit(pTree, pNode, p)
     if (!pParent) {
         static CssProperty Black   = {CSS_CONST_BLACK, {(int)"black"}};
 
-        /* Regular HtmlPropertyValues properties */
+        /* Regular HtmlComputedValues properties */
         p->values.eListStyleType  = CSS_CONST_DISC;     /* 'list-style-type' */
         p->values.eWhitespace     = CSS_CONST_NORMAL;   /* 'white-space' */
         p->values.eTextAlign      = CSS_CONST_LEFT;     /* 'text-align' */ 
@@ -790,7 +799,7 @@ HtmlPropertyValuesInit(pTree, pNode, p)
         p->fontKey.isBold = 0;                          /* 'font-weight'      */
     } else {
         static CssProperty Inherit = {CSS_CONST_INHERIT, {(int)"inherit"}};
-        HtmlPropertyValues *pV = pParent->pPropertyValues;
+        HtmlComputedValues *pV = pParent->pPropertyValues;
         HtmlFontKey *pFK = pV->fFont->pKey;
 
         /* The font properties */
@@ -839,16 +848,16 @@ HtmlPropertyValuesInit(pTree, pNode, p)
     p->values.cBorderBottomColor = 0;
     p->values.cBorderLeftColor = 0;
 
-    /* TODO: Look at this one. It's trickier than the others. */
-    p->values.iVerticalAlign = CSS_CONST_BASELINE;   /* 'vertical-align' */
+    p->values.eVerticalAlign = CSS_CONST_BASELINE;   /* 'vertical-align' */
+    p->values.iVerticalAlign = 0;
 }
 
 /*
  *---------------------------------------------------------------------------
  *
- * HtmlPropertyValuesInit --
+ * HtmlComputedValuesInit --
  *   
- *     Initialise an HtmlPropertyValuesCreator structure.
+ *     Initialise an HtmlComputedValuesCreator structure.
  *
  * Results:
  *     None.
@@ -860,7 +869,7 @@ HtmlPropertyValuesInit(pTree, pNode, p)
  */
 static int 
 propertyValuesTclScript(p, eProp, zScript)
-    HtmlPropertyValuesCreator *p;
+    HtmlComputedValuesCreator *p;
     int eProp;
     const char *zScript;
 {
@@ -892,7 +901,7 @@ propertyValuesTclScript(p, eProp, zScript)
     assert(zRes);
     pVal = HtmlCssStringToProperty(zRes, -1);
 
-    if (HtmlPropertyValuesSet(p, eProp, pVal)) {
+    if (HtmlComputedValuesSet(p, eProp, pVal)) {
 	/* A tcl() script has returned a value that caused a type-mismatch
          * error. Throw a background error.
          */
@@ -907,13 +916,13 @@ propertyValuesTclScript(p, eProp, zScript)
         return 1;
     }
 
-    /* Now that we've successfully called HtmlPropertyValuesSet(), the
+    /* Now that we've successfully called HtmlComputedValuesSet(), the
      * CssProperty structure (it's associated string data is what matters)
-     * cannot be ckfree()d until after HtmlPropertyValuesFinish() is called. So
+     * cannot be ckfree()d until after HtmlComputedValuesFinish() is called. So
      * we make a linked list of such structures at p->pDeleteList using
      * CssProperty.v.p as the pNext pointer.
      * 
-     * HtmlPropertyValuesFinish() deletes the list when it is called.
+     * HtmlComputedValuesFinish() deletes the list when it is called.
      */
     pVal->v.p = (void *)p->pDeleteList;
     p->pDeleteList = pVal;
@@ -924,17 +933,17 @@ propertyValuesTclScript(p, eProp, zScript)
 /*
  *---------------------------------------------------------------------------
  *
- * HtmlPropertyValuesSet --
+ * HtmlComputedValuesSet --
  *
- *     One or more calls to HtmlPropertyValuesSet() take place between the
- *     HtmlPropertyValuesInit() and HtmlPropertyValuesFinish() calls (see
- *     comments above HtmlPropertyValuesInit() for an API summary). The value
+ *     One or more calls to HtmlComputedValuesSet() take place between the
+ *     HtmlComputedValuesInit() and HtmlComputedValuesFinish() calls (see
+ *     comments above HtmlComputedValuesInit() for an API summary). The value
  *     of property eProp (one of the CSS_PROPERTY_XXX values) in either the
- *     HtmlPropertyValues or HtmlFontKey structure is set to the value
+ *     HtmlComputedValues or HtmlFontKey structure is set to the value
  *     contained by pProp.
  *
  *     Note: If pProp contains a pointer to a string, then the string must
- *           remain valid until HtmlPropertyValuesFinish() is called (see the
+ *           remain valid until HtmlComputedValuesFinish() is called (see the
  *           'font-family property handling below). 
  *
  * Results: 
@@ -947,8 +956,8 @@ propertyValuesTclScript(p, eProp, zScript)
  *---------------------------------------------------------------------------
  */
 int 
-HtmlPropertyValuesSet(p, eProp, pProp)
-    HtmlPropertyValuesCreator *p;
+HtmlComputedValuesSet(p, eProp, pProp)
+    HtmlComputedValuesCreator *p;
     int eProp;
     CssProperty *pProp;
 {
@@ -1286,7 +1295,6 @@ allocateNewFont(interp, tkwin, pFontKey)
 
     char zTkFontName[256];      /* Tk font name */
     HtmlFont *pFont;
-    Tk_FontMetrics metrics;
 
     int iFallback = -1;
     struct FamilyMap {
@@ -1369,9 +1377,10 @@ allocateNewFont(interp, tkwin, pFontKey)
     pFont->zFont = (char *)&pFont[1];
     strcpy(pFont->zFont, zTkFontName);
 
-    Tk_GetFontMetrics(tkfont, &metrics);
-    pFont->em_pixels = metrics.ascent + metrics.descent;
+    Tk_GetFontMetrics(tkfont, &pFont->metrics);
+    pFont->em_pixels = pFont->metrics.ascent + pFont->metrics.descent;
     pFont->ex_pixels = Tk_TextWidth(tkfont, "x", 1);
+    pFont->space_pixels = Tk_TextWidth(tkfont, " ", 1);
 
     return pFont;
 }
@@ -1380,7 +1389,7 @@ allocateNewFont(interp, tkwin, pFontKey)
 /*
  *---------------------------------------------------------------------------
  *
- * HtmlPropertyValuesFinish --
+ * HtmlComputedValuesFinish --
  *
  * Results: 
  *
@@ -1389,18 +1398,18 @@ allocateNewFont(interp, tkwin, pFontKey)
  *
  *---------------------------------------------------------------------------
  */
-HtmlPropertyValues *
-HtmlPropertyValuesFinish(p)
-    HtmlPropertyValuesCreator *p;
+HtmlComputedValues *
+HtmlComputedValuesFinish(p)
+    HtmlComputedValuesCreator *p;
 {
     Tcl_HashEntry *pEntry;
     int ne;                /* New Entry */
     HtmlFont *pFont;
     int ii;
-    HtmlPropertyValues *pValues = 0;
+    HtmlComputedValues *pValues = 0;
     HtmlColor *pColor;
 
-#define OFFSET(x) Tk_Offset(HtmlPropertyValues, x)
+#define OFFSET(x) Tk_Offset(HtmlComputedValues, x)
     struct EmExMap {
         unsigned int mask;
         int offset;
@@ -1487,13 +1496,11 @@ HtmlPropertyValuesFinish(p)
         /* TODO: Calculate as a % of 'line-height' */
     }
     if (p->values.eDisplay == CSS_CONST_TABLE_CELL && (
-           (p->values.mask & PROP_MASK_VERTICAL_ALIGN) || (
-               p->values.iVerticalAlign != CSS_CONST_TOP &&
-               p->values.iVerticalAlign != CSS_CONST_BOTTOM &&
-               p->values.iVerticalAlign != CSS_CONST_MIDDLE))
+           p->values.eVerticalAlign != CSS_CONST_TOP &&
+           p->values.eVerticalAlign != CSS_CONST_BOTTOM &&
+           p->values.eVerticalAlign != CSS_CONST_MIDDLE)
     ) {
-        p->values.mask &= ~PROP_MASK_VERTICAL_ALIGN;
-        p->values.iVerticalAlign = CSS_CONST_BASELINE;
+        p->values.eVerticalAlign = CSS_CONST_BASELINE;
     }
 
     /* Force all floating boxes to have display type 'block' or 'table' */
@@ -1506,7 +1513,7 @@ HtmlPropertyValuesFinish(p)
 
     /* Look the values structure up in the hash-table. */
     pEntry = Tcl_CreateHashEntry(&p->pTree->aValues, (char *)&p->values, &ne);
-    pValues = (HtmlPropertyValues *)Tcl_GetHashKey(&p->pTree->aValues, pEntry);
+    pValues = (HtmlComputedValues *)Tcl_GetHashKey(&p->pTree->aValues, pEntry);
     if (!ne) {
 	/* If this is not a new entry, we need to decrement the reference count
          * on the font and all the color values.
@@ -1536,8 +1543,8 @@ HtmlPropertyValuesFinish(p)
 }
 
 void 
-HtmlPropertyValuesRelease(pValues)
-    HtmlPropertyValues *pValues;
+HtmlComputedValuesRelease(pValues)
+    HtmlComputedValues *pValues;
 {
     if (pValues) {
         pValues->nRef--;
@@ -1552,7 +1559,7 @@ HtmlPropertyValuesRelease(pValues)
 /*
  *---------------------------------------------------------------------------
  *
- * HtmlPropertyValuesSetupTables --
+ * HtmlComputedValuesSetupTables --
  * 
  *     This function is called during widget initialisation to initialise the
  *     three hash-tables used by code in this file:
@@ -1581,7 +1588,7 @@ HtmlPropertyValuesRelease(pValues)
  *---------------------------------------------------------------------------
  */
 void 
-HtmlPropertyValuesSetupTables(pTree)
+HtmlComputedValuesSetupTables(pTree)
     HtmlTree *pTree;
 {
     static struct CssColor {
@@ -1617,7 +1624,7 @@ HtmlPropertyValuesSetupTables(pTree)
     pType = HtmlFontKeyHashType();
     Tcl_InitCustomHashTable(&pTree->aFont, TCL_CUSTOM_TYPE_KEYS, pType);
 
-    pType = HtmlPropertyValuesHashType();
+    pType = HtmlComputedValuesHashType();
     Tcl_InitCustomHashTable(&pTree->aValues, TCL_CUSTOM_TYPE_KEYS, pType);
 
     /* Initialise the color table */
@@ -1654,11 +1661,11 @@ HtmlPropertyValuesSetupTables(pTree)
 /*
  *---------------------------------------------------------------------------
  *
- * HtmlPropertyValuesCleanupTables --
+ * HtmlComputedValuesCleanupTables --
  * 
  *     This function is called during widget destruction to deallocate
- *     resources allocated by HtmlPropertyValuesSetupTables(). This should be
- *     called after HtmlPropertyValues references have been released (otherwise
+ *     resources allocated by HtmlComputedValuesSetupTables(). This should be
+ *     called after HtmlComputedValues references have been released (otherwise
  *     an assertion will fail).
  *
  *     Resources are currently:
@@ -1670,12 +1677,12 @@ HtmlPropertyValuesSetupTables(pTree)
  *     None.
  *
  * Side effects:
- *     Cleans up resources allocated by HtmlPropertyValuesSetupTables().
+ *     Cleans up resources allocated by HtmlComputedValuesSetupTables().
  *
  *---------------------------------------------------------------------------
  */
 void 
-HtmlPropertyValuesCleanupTables(pTree)
+HtmlComputedValuesCleanupTables(pTree)
     HtmlTree *pTree;
 {
     assert(0);
@@ -1685,16 +1692,16 @@ HtmlPropertyValuesCleanupTables(pTree)
 int 
 HtmlNodeProperties(interp, pValues)
     Tcl_Interp *interp;
-    HtmlPropertyValues *pValues;
+    HtmlComputedValues *pValues;
 {
     Tcl_Obj *pRet;
 
 #define ENUMVAL(eProp, var) \
-{ENUM, CSS_PROPERTY_ ## eProp, Tk_Offset(HtmlPropertyValues, var), 0}
+{ENUM, CSS_PROPERTY_ ## eProp, Tk_Offset(HtmlComputedValues, var), 0}
 #define COLORVAL(eProp, var) \
-{COLOR, CSS_PROPERTY_ ## eProp, Tk_Offset(HtmlPropertyValues, var), 0}
+{COLOR, CSS_PROPERTY_ ## eProp, Tk_Offset(HtmlComputedValues, var), 0}
 #define LENGTHVAL(eProp, var) \
-{LENGTH, CSS_PROPERTY_ ## eProp, Tk_Offset(HtmlPropertyValues, var), \
+{LENGTH, CSS_PROPERTY_ ## eProp, Tk_Offset(HtmlComputedValues, var), \
 PROP_MASK_ ## eProp}
 
 #define VERTICALALIGNVAL() {VERTICALALIGN, CSS_PROPERTY_VERTICAL_ALIGN, 0, 0}
@@ -1797,9 +1804,6 @@ PROP_MASK_ ## eProp}
                     case PIXELVAL_NORMAL:
                         pValue = Tcl_NewStringObj("normal", -1);
                         break;
-                    case PIXELVAL_INHERIT:
-                        pValue = Tcl_NewStringObj("inherit", -1);
-                        break;
                     default: {
                         char zBuf[64];
                         if (pDef->mask & pValues->mask) {
@@ -1814,13 +1818,14 @@ PROP_MASK_ ## eProp}
                 break;
             }
             case VERTICALALIGN: {
-                int iValue = pValues->iVerticalAlign;
-                if (pValues->mask & PROP_MASK_VERTICAL_ALIGN) {
+                int eValue = pValues->eVerticalAlign;
+                if (0 == eValue) {
                     char zBuf[64];
+                    int iValue = pValues->iVerticalAlign;
                     sprintf(zBuf, "%dpx", iValue);
                     pValue = Tcl_NewStringObj(zBuf, -1);
                 } else {
-                    CONST char *zValue = HtmlCssConstantToString(iValue);
+                    CONST char *zValue = HtmlCssConstantToString(eValue);
                     pValue = Tcl_NewStringObj(zValue, -1);
                 }
                 break;

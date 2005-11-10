@@ -5,7 +5,7 @@ catch { memory init on }
 
 # Load packages.
 set auto_path [concat . $auto_path]
-package require Tkhtml 
+package require Tkhtml 3.0
 package require Tk
 package require http 
 package require uri

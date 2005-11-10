@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmltcl.c,v 1.45 2005/11/07 14:29:56 danielk1977 Exp $";
+        "@(#) $Id: htmltcl.c,v 1.46 2005/11/10 10:30:00 danielk1977 Exp $";
 
 
 #include <tk.h>
@@ -307,7 +307,7 @@ callbackHandler(clientData)
             styleClock = clock() - styleClock;
         case HTML_CALLBACK_LAYOUT:
             layoutClock = clock();
-            HtmlLayoutForce((ClientData)pTree, pTree->interp, 0, 0);
+            HtmlLayout(pTree);
             x = 0;
             y = 0;
             w = Tk_Width(pTree->tkwin);
@@ -1218,6 +1218,15 @@ nodeCmd(clientData, interp, objc, objv)
 {
     return HtmlLayoutNode(clientData, interp, objc, objv);
 }
+static int 
+primitivesCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    return HtmlLayoutPrimitives(clientData, interp, objc, objv);
+}
 
 /*
  *---------------------------------------------------------------------------
@@ -1271,6 +1280,7 @@ int HtmlWidgetObjCommand(clientData, interp, objc, objv)
         {"image",      0,       imageCmd},
         {"node",      0,        nodeCmd},
         {"parse",     0,        parseCmd},
+        {"primitives",0,        primitivesCmd},
         {"reset",     0,        resetCmd},
         {"style",     0,        styleParseCmd},
         {"xview",     0,        xviewCmd},
@@ -1400,7 +1410,7 @@ deleteWidget(clientData)
     HtmlTreeClear(pTree);
 
     /* Clear the remaining colors etc. from the styler code hash tables */
-    HtmlPropertyValuesSetupTables(pTree);
+    HtmlComputedValuesSetupTables(pTree);
 
     /* Delete the structure itself */
     ckfree((char *)pTree);
@@ -1466,7 +1476,7 @@ newWidget(clientData, interp, objc, objv)
     assert(!pTree->options.timercmd);
 
     /* Initialise the hash tables used by styler code */
-    HtmlPropertyValuesSetupTables(pTree);
+    HtmlComputedValuesSetupTables(pTree);
 
     /* Set up an event handler for the widget window */
     Tk_CreateEventHandler(pTree->tkwin, 

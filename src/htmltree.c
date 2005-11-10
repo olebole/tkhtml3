@@ -162,7 +162,7 @@ freeNode(interp, pNode)
         for(i=0; i<pNode->nChild; i++){
             freeNode(interp, pNode->apChildren[i]);
         }
-        HtmlPropertyValuesRelease(pNode->pPropertyValues);
+        HtmlComputedValuesRelease(pNode->pPropertyValues);
         HtmlCssPropertiesFree(pNode->pStyle);
         if (pNode->pNodeCmd) {
             Tcl_Obj *pCommand = pNode->pNodeCmd->pCommand;

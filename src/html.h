@@ -43,6 +43,7 @@
 #include <tk.h>
 #include <string.h>
 #include <assert.h>
+#include <stdlib.h>
 
 #include "htmltokens.h"
 
@@ -174,12 +175,9 @@ struct HtmlNode {
 
     CssProperties *pStyle;     /* The CSS properties from style attribute */
 
-    HtmlPropertyValues *pPropertyValues;     /* CSS property values */
+    HtmlComputedValues *pPropertyValues;     /* CSS property values */
     HtmlNodeReplacement *pReplacement;       /* Replaced object, if any */
     HtmlNodeCmd *pNodeCmd;                   /* Tcl command for this node */
-
-    /* Variables used by the layout engine */
-    int iBlockWidth;
 };
 
 struct HtmlScaledImage {
@@ -306,12 +304,15 @@ struct HtmlTree {
     HtmlOptions options;            /* Configurable options */
     Tk_OptionTable optionTable;     /* Option table */
 
+    /*
+     * Internal representation of a completely layed-out document.
+     */
     HtmlCanvas canvas;              /* Canvas to render into */
     int iCanvasWidth;               /* Width of window for canvas */
 
     /* 
      * Tables managed by code in htmlprop.c. Initialised in function
-     * HtmlPropertyValuesSetupTables().
+     * HtmlComputedValuesSetupTables().
      */
     Tcl_HashTable aColor;
     Tcl_HashTable aFont;
@@ -336,7 +337,6 @@ int HtmlTreeBuild(ClientData, Tcl_Interp *, int, Tcl_Obj *CONST []);
 Tcl_ObjCmdProc HtmlTreeCollapseWhitespace;
 Tcl_ObjCmdProc HtmlStyleApply;
 Tcl_ObjCmdProc HtmlStyleSyntaxErrs;
-Tcl_ObjCmdProc HtmlLayoutForce;
 Tcl_ObjCmdProc HtmlLayoutSize;
 Tcl_ObjCmdProc HtmlLayoutNode;
 Tcl_ObjCmdProc HtmlLayoutImage;
@@ -346,6 +346,8 @@ Tcl_ObjCmdProc HtmlWidgetMapControls;
 
 int HtmlWidgetScroll(HtmlTree *, int, int);
 int HtmlWidgetPaint(HtmlTree *, int, int, int, int, int, int);
+
+int HtmlLayout(HtmlTree *);
 
 int HtmlStyleParse(HtmlTree *, Tcl_Interp*, Tcl_Obj *, Tcl_Obj *, Tcl_Obj *);
 void HtmlTokenizerAppend(HtmlTree *, const char *, int);
@@ -408,7 +410,7 @@ void HtmlAttributesToPropertyCache(HtmlNode *pNode);
 
 Tcl_HashKeyType * HtmlCaseInsenstiveHashType();
 Tcl_HashKeyType * HtmlFontKeyHashType();
-Tcl_HashKeyType * HtmlPropertyValuesHashType();
+Tcl_HashKeyType * HtmlComputedValuesHashType();
 
 CONST char *HtmlDefaultTcl();
 CONST char *HtmlDefaultCss();

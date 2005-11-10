@@ -31,26 +31,28 @@ proc image_savetest {HTML} {
 proc image_runtests {HTML} {
   image_800x600
   set db [.html var cache]
-  $db eval {SELECT oid as id, url, data FROM tests} v {
-    gui_goto $v(url)
-
-    #after 100 {set ::hv3_runtests_var 0}
-    #vwait ::hv3_runtests_var
-
-    set t [time {set img [$HTML image]}]
-    # puts "IMAGE-TIME: ($url) $t"
-    set newdata [image_to_serial $img]
-
-    if {$v(data) != $newdata} {
-      puts "TEST FAILURE: ($v(url)) -> $v(id).$::html_image_format"
-      $img write $v(id)_2.$::html_image_format -format $::html_image_format
-    } else {
-        puts "TEST SUCCESSFUL: ($v(url)) $v(id)"
+  set runtime [time {
+    $db eval {SELECT oid as id, url, data FROM tests} v {
+      gui_goto $v(url)
+  
+      #after 100 {set ::hv3_runtests_var 0}
+      #vwait ::hv3_runtests_var
+  
+      set t [time {set img [$HTML image]}]
+      # puts "IMAGE-TIME: ($url) $t"
+      set newdata [image_to_serial $img]
+  
+      if {$v(data) != $newdata} {
+        puts "TEST FAILURE: ($v(url)) -> $v(id).$::html_image_format"
+        $img write $v(id)_2.$::html_image_format -format $::html_image_format
+      } else {
+          puts "TEST SUCCESSFUL: ($v(url)) $v(id)"
+      }
+      image delete $img
     }
-    image delete $img
-  }
+  }]
 
-  puts "RUNTESTS FINISHED"
+  puts "RUNTESTS FINISHED - $runtime"
 }
 
 proc image_800x600 {} {

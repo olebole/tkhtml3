@@ -145,7 +145,6 @@ TD[nowrap="0"] , TH[nowrap="0"] { white-space: normal; }
 
 BR { 
     display: block;
-    height: 1em;
 }
 /* BR:before       { content: "\A" } */
 

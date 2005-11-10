@@ -117,7 +117,8 @@ HtmlStyleParse(pTree, interp, pStyleText, pId, pImportCmd)
  *
  *---------------------------------------------------------------------------
  */
-int styleNode(pTree, pNode)
+static int 
+styleNode(pTree, pNode)
     HtmlTree *pTree; 
     HtmlNode *pNode;
 {
@@ -125,7 +126,7 @@ int styleNode(pTree, pNode)
 
     if (!HtmlNodeIsText(pNode)) {
 	/* Release the old property values structure, if any. */
-        HtmlPropertyValuesRelease(pNode->pPropertyValues);
+        HtmlComputedValuesRelease(pNode->pPropertyValues);
         pNode->pPropertyValues = 0;
     
         /* If there is a "style" attribute on this node, parse the attribute

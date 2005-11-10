@@ -9,7 +9,7 @@ proc log_init {HTML} {
     $HTML configure -logcmd ""
     .m add cascade -label {Log} -menu [menu .m.log]
    
-    set modes [list CALLBACK EVENT]
+    set modes [list CALLBACK EVENT LAYOUTENGINE]
     set timermodes [list DAMAGE LAYOUT STYLE]
 
     # Command to run to make sure -logcmd and -timercmd are set as per the
@@ -28,6 +28,9 @@ proc log_init {HTML} {
         set ::html_log_timer($mode) 0
         trace add variable ::html_log_timer($mode) write $setlogcmd
     }
+    .m.log add separator
+    .m.log add command -label "Layout Primitives" \
+        -command [list log_primitives $HTML]
 
     eval $setlogcmd
 }
@@ -62,4 +65,9 @@ proc timer_puts {topic body} {
     }
 }
 
+proc log_primitives {HTML} {
+    foreach p [$HTML primitives] {
+        real_puts stdout $p
+    }
+}
 

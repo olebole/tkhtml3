@@ -12,7 +12,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile.in,v 1.23 2005/11/06 07:27:04 danielk1977 Exp $
+# RCS: @(#) $Id: Makefile.in,v 1.24 2005/11/10 10:29:59 danielk1977 Exp $
 
 #========================================================================
 # Add additional lines to handle any additional AC_SUBST cases that
@@ -36,7 +36,7 @@
 #========================================================================
 
 PKG_SOURCES	= @PKG_SOURCES@
-PKG_OBJECTS	= @PKG_OBJECTS@ cssprop.o cssparse.o 
+PKG_OBJECTS	= @PKG_OBJECTS@ cssprop.o cssparse.o
 
 PKG_STUB_SOURCES = @PKG_STUB_SOURCES@
 PKG_STUB_OBJECTS = @PKG_STUB_OBJECTS@
@@ -282,7 +282,7 @@ $(PKG_STUB_LIB_FILE): $(PKG_STUB_OBJECTS)
 VPATH = $(srcdir):$(srcdir)/src:$(srcdir)/unix:$(srcdir)/win:.
 
 HEADERS = htmlprop.h html.h cssparse.h css.h cssInt.h \
-          cssprop.h htmltokens.h swproc.h
+          cssprop.h htmltokens.h swproc.h htmldefaultstyle.c
 
 %.@OBJEXT@: %.c $(HEADERS)
 	$(COMPILE) -c -I. -I$(srcdir)/src `@CYGPATH@ $<` -o $@
@@ -294,15 +294,16 @@ HEADERS = htmlprop.h html.h cssparse.h css.h cssInt.h \
 htmltokens.c:	$(srcdir)/src/tokenlist.txt
 	$(TCLSH) $?
 
+htmldefaultstyle.c: $(srcdir)/tests/tkhtml.tcl  $(srcdir)/tests/html.css \
+                    $(srcdir)/src/mkdefaultstyle.tcl 
+	$(TCLSH) $(srcdir)/src/mkdefaultstyle.tcl > htmldefaultstyle.c
+
 htmltokens.h: htmltokens.c
 
 cssprop.h: cssprop.tcl
 	$(TCLSH) $?
 
 cssprop.c: cssprop.h
-
-htmldefaultstyle.c: mkdefaultstyle.tcl
-	$(TCLSH)) $?
 
 LEMON = lemon$(EXEEXT)
 

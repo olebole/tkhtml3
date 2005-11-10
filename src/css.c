@@ -2173,7 +2173,7 @@ void HtmlCssPropertiesFree(pPropertySet)
  */
 static void 
 ruleToPropertyValues(p, aPropDone, pRule)
-    HtmlPropertyValuesCreator *p;
+    HtmlComputedValuesCreator *p;
     int *aPropDone;
     CssRule *pRule;
 {
@@ -2188,7 +2188,7 @@ ruleToPropertyValues(p, aPropDone, pRule)
 	 * property that Tkhtml doesn't handle. In this case just ignore it.
          */
 	if (eProp <= CSS_PROPERTY_MAX_PROPERTY && 0 == aPropDone[eProp]) {
-            if (0 == HtmlPropertyValuesSet(p, eProp, pSet->a[i].pProp)) {
+            if (0 == HtmlComputedValuesSet(p, eProp, pSet->a[i].pProp)) {
                 aPropDone[eProp] = 1;
             }
         }
@@ -2223,7 +2223,7 @@ HtmlCssStyleSheetApply(pTree, pNode)
     CssRule *pRule;                           /* Iterator variable */
     int style_done = 0;      /* Set after considering the html "style" attr */
 
-    HtmlPropertyValuesCreator sCreator;
+    HtmlComputedValuesCreator sCreator;
 
     /* The array aPropDone is large enough to contain an entry for each
      * property recognized by the CSS parser (approx 110, includes many that
@@ -2233,7 +2233,7 @@ HtmlCssStyleSheetApply(pTree, pNode)
     int aPropDone[CSS_PROPERTY_MAX_PROPERTY + 1];
 
     /* Initialise aPropDone and sCreator */
-    HtmlPropertyValuesInit(pTree, pNode, &sCreator);
+    HtmlComputedValuesInit(pTree, pNode, &sCreator);
     memset(aPropDone, 0, sizeof(aPropDone));
     assert(sizeof(aPropDone) == sizeof(int) * (CSS_PROPERTY_MAX_PROPERTY+1));
 
@@ -2272,10 +2272,10 @@ HtmlCssStyleSheetApply(pTree, pNode)
         ruleToPropertyValues(&sCreator, aPropDone, pNode->pStyle->apRule[0]);
     }
 
-    /* Call HtmlPropertyValuesFinish() to finish creating teh
-     * HtmlPropertyValues structure.
+    /* Call HtmlComputedValuesFinish() to finish creating teh
+     * HtmlComputedValues structure.
      */
-    pNode->pPropertyValues = HtmlPropertyValuesFinish(&sCreator);
+    pNode->pPropertyValues = HtmlComputedValuesFinish(&sCreator);
 }
 
 /*--------------------------------------------------------------------------
