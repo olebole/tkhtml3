@@ -25,17 +25,8 @@ Functionality
 		* Support for selecting text from the rendered document
 		  and copying that text to the clipboard.
 
-	Optional:
-
-		* It would be good to try and figure out how to do the
-		  'real' smooth scrolling like IE does. This is a great
-		  feature of IE that seems to be overlooked by OS browsers.
-
-		  Q: Is this plausible under X11? 
-		  A: Must be, Mozilla does it.
-
 Dependencies
 
-	Tcl, Tk and Tcllib are required to run the hv3 script. If package Img
-	is installed it is loaded. 
+	Tcl, Tk, Tcllib and SQLite are required to run the hv3 script. If
+	package Img is installed it is loaded. 
 

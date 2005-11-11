@@ -21,7 +21,8 @@ if {[catch { package require Img }]} {
 # Source the other script files that are part of this application.
 #
 proc sourcefile {file} {
-  source [file join [file dirname [info script]] $file] 
+  set fname [file join [file dirname [info script]] $file] 
+  uplevel #0 [list source $fname]
 }
 sourcefile hv3_url.tcl
 sourcefile hv3_image.tcl
@@ -91,14 +92,12 @@ proc gui_build {} {
     pack $HTML -fill both -expand true
 
     $HTML configure -yscrollcommand {.vscroll set}
-    # $HTML configure -yscrollcommand puts2
     .hscroll configure -command "$HTML xview"
     $HTML configure -xscrollcommand {.hscroll set}
     .vscroll configure -command "$HTML yview"
 
     bind $HTML <Motion>        "handle_event motion %x %y"
     bind $HTML <ButtonPress-1> "handle_event click %x %y"
-    bind $HTML <ButtonPress-3> "handle_right_click $HTML %x %y"
     bind $HTML <KeyPress-q> exit
     bind $HTML <KeyPress-Q> exit
 
@@ -130,16 +129,13 @@ proc gui_build {} {
             break
         }
     }
+
+    .m.file add command -label Browser -command [list prop_updateBrowser $HTML]
     .m.file add separator
     .m.file add command -label Exit -command exit
 
     log_init $HTML
     image_init $HTML
-}
-
-
-proc handle_right_click {HTML x y} {
-    prop_click $HTML $x $y
 }
 
 proc handle_event {e x y} {

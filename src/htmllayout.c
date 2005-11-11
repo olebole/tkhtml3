@@ -15,8 +15,6 @@
  *       goal of being "pixel-perfect". The HTML spec did not contain
  *       sufficient detail to do this when the original module was
  *       created.
- *     * This version supports two targets, the internal widget and
- *       an external Tk canvas widget.
  *
  *--------------------------------------------------------------------------
  * Copyright (c) 2005 Eolas Technologies Inc.
@@ -49,12 +47,14 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.99 2005/11/11 09:05:43 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.100 2005/11/11 15:25:15 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
 #include <string.h>
 #include <stdlib.h>
+
+#define LOG if (pLayout->pTree->options.logcmd)
 
 /*
  * Normal flow:
@@ -271,7 +271,6 @@ static void drawBlock(LayoutContext*, BoxContext*, HtmlNode*, int,unsigned int);
  */
 #define DRAWBLOCK_OMITBORDER    0x00000001
 #define DRAWBLOCK_CONTENTWIDTH  0x00000002
-
 #define DRAWBLOCK_ENFORCEWIDTH  0x00000004
 #define DRAWBLOCK_ENFORCEHEIGHT 0x00000008
 
@@ -663,11 +662,11 @@ normalFlowLayoutFloat(pLayout, pBox, pNode, pY, pContext, pNormal)
         ((eFloat == CSS_CONST_LEFT) ? x + iTotalWidth : x),
         iTop, iTop + iTotalHeight);
 
-    if (!pLayout->minmaxTest) {
-        HtmlLog(pLayout->pTree, "LAYOUTENGINE", "normalFlowLayoutFloat() "
-            "%s %dx%d (%d, %d)", 
-            Tcl_GetString(HtmlNodeCommand(pLayout->pTree, pNode)),
-            iTotalWidth, iTotalHeight, x, iTop);
+    LOG if (!pLayout->minmaxTest) {
+        HtmlTree *pTree = pLayout->pTree;
+        char const *zNode = Tcl_GetString(HtmlNodeCommand(pTree, pNode));
+        HtmlLog(pTree, "LAYOUTENGINE", "%s (Float) %dx%d (%d,%d)", 
+            zNode, iTotalWidth, iTotalHeight, x, iTop);
     }
 
     return 0;

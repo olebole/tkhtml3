@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.48 2005/11/11 09:05:43 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.49 2005/11/11 15:25:15 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -241,7 +241,7 @@ doScrollCallback(pTree)
     HtmlTree *pTree;
 {
     Tcl_Interp *interp = pTree->interp;
-    Tk_Window win = pTree->win;
+    Tk_Window win = pTree->tkwin;
 
     Tcl_Obj *pScrollCommand;
     int iOffScreen;
@@ -795,6 +795,7 @@ resetCmd(clientData, interp, objc, objv)
     HtmlTree *pTree = (HtmlTree *)clientData;
     HtmlTreeClear(pTree);
     doLoadDefaultStyle(pTree);
+    pTree->parseFinished = 0;
     return TCL_OK;
 }
 
