@@ -27,6 +27,7 @@ sourcefile hv3_url.tcl
 sourcefile hv3_image.tcl
 sourcefile hv3_log.tcl
 sourcefile hv3_nav.tcl
+sourcefile hv3_prop.tcl
 
 ###########################################################################
 # Global data:
@@ -95,8 +96,9 @@ proc gui_build {} {
     $HTML configure -xscrollcommand {.hscroll set}
     .vscroll configure -command "$HTML yview"
 
-    bind $HTML <Motion> "handle_event motion %x %y"
+    bind $HTML <Motion>        "handle_event motion %x %y"
     bind $HTML <ButtonPress-1> "handle_event click %x %y"
+    bind $HTML <ButtonPress-3> "handle_right_click $HTML %x %y"
     bind $HTML <KeyPress-q> exit
     bind $HTML <KeyPress-Q> exit
 
@@ -106,6 +108,7 @@ proc gui_build {} {
     $HTML handler node link "handle_link_node"
     $HTML handler script style "handle_style_script"
     $HTML handler node img "handle_img_node"
+    $HTML handler script script "handle_script_script"
 
     focus $HTML
 
@@ -134,75 +137,15 @@ proc gui_build {} {
     image_init $HTML
 }
 
-proc dump_computed {description node} {
-    puts "Computed values for node {$description}:"
-    array set p [$node prop]
 
-    set p(padding) $p(padding-top)
-    if {
-            $p(padding-left) != $p(padding) ||
-            $p(padding-right) != $p(padding) ||
-            $p(padding-bottom) != $p(padding)
-    } {
-        lappend p(padding) $p(padding-right) $p(padding-bottom) $p(padding-left)
-    }
-    unset p(padding-left)
-    unset p(padding-right)
-    unset p(padding-bottom)
-    unset p(padding-top)
-
-    set p(margin) $p(margin-top)
-    if {
-            $p(margin-left) != $p(margin) ||
-            $p(margin-right) != $p(margin) ||
-            $p(margin-bottom) != $p(margin)
-    } {
-        lappend p(margin) $p(margin-right) $p(margin-bottom) $p(margin-left)
-    }
-    unset p(margin-left)
-    unset p(margin-right)
-    unset p(margin-bottom)
-    unset p(margin-top)
-
-    foreach edge {top right bottom left} { 
-        if {
-            $p(border-$edge-width) != "inherit" &&
-            $p(border-$edge-style) != "inherit" &&
-            $p(border-$edge-color) != "inherit"
-        } {
-            set p(border-$edge) [list \
-                $p(border-$edge-width) \
-                $p(border-$edge-style) \
-                $p(border-$edge-color) \
-            ]
-            unset p(border-$edge-width) 
-            unset p(border-$edge-style) 
-            unset p(border-$edge-color) 
-        }
-    }
-
-    if {
-        [info exists p(border-top)] &&
-        [info exists p(border-bottom)] &&
-        [info exists p(border-right)] &&
-        [info exists p(border-left)] &&
-        $p(border-top) == $p(border-right) &&
-        $p(border-right) == $p(border-bottom) &&
-        $p(border-bottom) == $p(border-left)
-    } {
-        set p(border) $p(border-top)
-        unset p(border-top)
-        unset p(border-left)
-        unset p(border-right)
-        unset p(border-bottom)
-    }
-
-    foreach key [lsort [array names p]] {
-        puts "    $key: $p($key)"
-    }
+proc handle_right_click {HTML x y} {
+    prop_click $HTML $x $y
 }
 
 proc handle_event {e x y} {
+  if {$e == "click"} {
+    catch {.prop_menu unpost}
+  }
 
   set node [.html node $x $y]
   set n $node
@@ -233,15 +176,9 @@ proc handle_event {e x y} {
           }
           set n [$n parent]
       }
+      .status configure -text $nodeid
 
-      switch -- $e {
-          motion {
-              .status configure -text $nodeid
-          }
-          click {
-              dump_computed $nodeid $node
-          }
-      }
+      if {$e == "click"} {real_puts "($x, $y)"}
     }
 }
 
@@ -250,8 +187,10 @@ proc handle_event {e x y} {
 #     handle_img_node_cb NODE IMG-DATA
 #
 proc handle_img_node_cb {node imgdata} {
-  set img [image create photo -data $imgdata]
-  $node replace $img
+  catch {
+    set img [image create photo -data $imgdata]
+    $node replace $img
+  }
 }
 
 # handle_img_node
@@ -270,6 +209,13 @@ proc handle_img_node {node} {
 proc handle_style_script {script} {
   set id author.[format %.4d [incr ::gui_style_count]]
   .html style -id $id $script
+}
+
+# handle_script_script
+#
+#     handle_script_script SCRIPT
+proc handle_script_script {script} {
+  return ""
 }
 
 # handle_style_cb
@@ -347,6 +293,59 @@ swproc main {{cache :memory:} {doclist ""}} {
   gui_init_globals
   cache_init $cache
   nav_init $cache -doclist $doclist
+}
+
+##########################################################################
+# Utility procedures designed for use in Tkcon:
+#
+#     hv3_findnode
+#     hv3_nodetostring
+#
+proc findNode {predicate N nodevar} {
+  set ret [list]
+  set $nodevar $N
+  catch {eval "if {$predicate} {lappend ret $N}"}
+  for {set i 0} {$i < [$N nChild]} {incr i} {
+      set ret [concat $ret [findNode $predicate [$N child $i] $nodevar]]
+  }
+  return $ret
+}
+
+swproc hv3_findnode {predicate {nodevar N}} {
+  set ret [list]
+  set N [.html node]
+
+  return [findNode $predicate $N $nodevar]
+}
+
+proc hv3_nodetostring {N} {
+    if {[$N tag] == ""} {
+        return "\"[string range [$N text] 0 20]\""
+    }
+    set d "<[$N tag]"
+    foreach {a v} [$N attr] {
+        append d " $a=\"$v\""
+    }
+    append d ">"
+    return $d
+}
+
+proc hv3_nodeprint {N} {
+    set stack [list]
+    for {set n $N} {$n != ""} {set n [$n parent]} {
+        lappend stack [hv3_nodetostring $n]
+    }
+
+    set ret ""
+    set indent 0
+    for {set i [expr [llength $stack] - 1]} {$i >= 0} {incr i -1} {
+        append ret [string repeat " " $indent]
+        append ret [lindex $stack $i]
+        append ret "\n"
+        incr indent 4
+    }
+
+    return $ret;
 }
 
 eval [concat main $argv]

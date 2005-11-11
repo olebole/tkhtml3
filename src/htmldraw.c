@@ -933,8 +933,8 @@ int HtmlLayoutImage(clientData, interp, objc, objv)
     /* Force any pending style and/or layout operations to run. */
     HtmlCallbackForce(pTree);
 
-    w = pCanvas->right;
-    h = pCanvas->bottom;
+    w = pTree->canvas.right;
+    h = pTree->canvas.bottom;
     assert(w >= 0 && h >= 0);
     if (w>0 && h>0) {
         Pixmap pixmap;
@@ -1106,7 +1106,7 @@ HtmlLayoutNode(clientData, interp, objc, objv)
     }
 
     if (pNode) {
-        Tcl_Obj *pCmd = HtmlNodeCommand(interp, pTree, pNode);
+        Tcl_Obj *pCmd = HtmlNodeCommand(pTree, pNode);
         Tcl_SetObjResult(interp, pCmd);
     }
 

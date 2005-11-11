@@ -6,11 +6,8 @@
 HEAD, SCRIPT    { display: none }
 
 BODY            { 
-    padding-top: 8px; 
-    padding-bottom:8px; 
-    padding-left:8px;
-    padding-right:8px;
-    line-height: 1.33; 
+    margin: 8px; 
+    line-height: 1.0; 
     background-color: white;
 }
 
@@ -67,6 +64,7 @@ TD, TH {
  * instead of a block because tables are laid out around floating boxes, 
  * whereas regular blocks are not.
  */
+/*
 HR { 
   display: table; 
   border-top: 1px solid grey45;
@@ -75,6 +73,14 @@ HR {
   width: 100%;
   text-align: center;
   margin: 0.5em 0;
+}
+*/
+
+HR {
+  display: block;
+  border-top:    1px solid grey45;
+  border-bottom: 1px solid grey80;
+  margin: 0.5em auto 0.5em auto;
 }
 
 /* Basic table tag rules. */

@@ -31,6 +31,7 @@ proc log_init {HTML} {
     .m.log add separator
     .m.log add command -label "Layout Primitives" \
         -command [list log_primitives $HTML]
+    .m.log add command -label "Tree" -command [list log_tree $HTML]
 
     eval $setlogcmd
 }
@@ -69,5 +70,32 @@ proc log_primitives {HTML} {
     foreach p [$HTML primitives] {
         real_puts stdout $p
     }
+}
+
+proc log_node {n indent} {
+
+    if {[$n tag] == ""} {
+        if {[string trim [$n text]] != ""} {  
+            puts -nonewline [string repeat " " $indent]
+            puts "\"[$n text]\""
+        }
+    } else {
+        puts -nonewline [string repeat " " $indent]
+        incr indent 4
+        set out "<[$n tag]"
+        foreach {a v} [$n attr] {
+            append out " $a=\"$v\""
+        }
+        append out ">"
+        puts $out
+        for {set ii 0} {$ii < [$n nChild]} {incr ii} {
+            log_node [$n child $ii] $indent
+        }
+    }
+}
+
+proc log_tree {HTML} {
+    set n [$HTML node]
+    log_node $n 0
 }
 

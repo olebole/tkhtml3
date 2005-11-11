@@ -264,6 +264,7 @@ struct HtmlComputedValuesCreator {
 #define PROP_MASK_BORDER_RIGHT_WIDTH  0x00010000
 #define PROP_MASK_BORDER_BOTTOM_WIDTH 0x00020000
 #define PROP_MASK_BORDER_LEFT_WIDTH   0x00040000
+#define PROP_MASK_LINE_HEIGHT         0x00080000
 
 /*
  * Pixel values in the HtmlComputedValues struct may also take the following

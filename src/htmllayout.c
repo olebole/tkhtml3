@@ -220,6 +220,7 @@ typedef struct NormalFlowCallback NormalFlowCallback;
 struct NormalFlow {
     int iMaxMargin;
     int iMinMargin;
+    int isValid;
     NormalFlowCallback *pCallbackList;
 };
 
@@ -262,7 +263,16 @@ static void normalFlowMarginCollapse(NormalFlow *, int *);
 static void normalFlowMarginAdd(NormalFlow *, int);
 
 static void drawReplacement(LayoutContext*, BoxContext*, HtmlNode*);
-static void drawBlock(LayoutContext*, BoxContext*, HtmlNode*, int, int);
+static void drawBlock(LayoutContext*, BoxContext*, HtmlNode*, int,unsigned int);
+
+/* 
+ * Flags that can be passed to drawBlock()
+ */
+#define DRAWBLOCK_OMITBORDER    0x00000001
+#define DRAWBLOCK_CONTENTWIDTH  0x00000002
+
+#define DRAWBLOCK_ENFORCEWIDTH  0x00000004
+#define DRAWBLOCK_ENFORCEHEIGHT 0x00000008
 
 /*
  *---------------------------------------------------------------------------
@@ -473,6 +483,7 @@ nodeGetMargins(pLayout, pNode, iContaining, pMargins)
  *---------------------------------------------------------------------------
  *
  * normalFlowMarginCollapse --
+ * normalFlowMarginQuery --
  * normalFlowMarginAdd --
  *
  *     The following two functions are used to manage collapsing vertical
@@ -486,18 +497,27 @@ nodeGetMargins(pLayout, pNode, iContaining, pMargins)
  *
  *---------------------------------------------------------------------------
  */
+static int 
+normalFlowMarginQuery(pNormal) 
+    NormalFlow *pNormal;
+{
+    return pNormal->iMinMargin + pNormal->iMaxMargin;
+}
 static void 
 normalFlowMarginCollapse(pNormal, pY) 
     NormalFlow *pNormal;
     int *pY;
 {
-    int iMargin = pNormal->iMinMargin + pNormal->iMaxMargin;
     NormalFlowCallback *pCallback = pNormal->pCallbackList;
+    int iMargin = pNormal->iMinMargin + pNormal->iMaxMargin;
     while (pCallback) {
         pCallback->xCallback(pNormal, pCallback, iMargin);
         pCallback = pCallback->pNext;
     }
     *pY += iMargin;
+
+    assert(pNormal->isValid || (!pNormal->iMaxMargin && !pNormal->iMaxMargin));
+    pNormal->isValid = 1;
     pNormal->iMaxMargin = 0;
     pNormal->iMinMargin = 0;
 }
@@ -506,8 +526,10 @@ normalFlowMarginAdd(pNormal, y)
     NormalFlow *pNormal;
     int y;
 {
-    pNormal->iMaxMargin = MAX(pNormal->iMaxMargin, y);
-    pNormal->iMinMargin = MIN(pNormal->iMinMargin, y);
+    if (pNormal->isValid) {
+        pNormal->iMaxMargin = MAX(pNormal->iMaxMargin, y);
+        pNormal->iMinMargin = MIN(pNormal->iMinMargin, y);
+    }
 }
 
 static void 
@@ -594,6 +616,7 @@ normalFlowLayoutFloat(pLayout, pBox, pNode, pY, pContext, pNormal)
     if (isReplaced) {
         drawReplacement(pLayout, &sBox, pNode);
     } else {
+        unsigned int flags = DRAWBLOCK_ENFORCEWIDTH | DRAWBLOCK_ENFORCEHEIGHT;
         iWidth = PIXELVAL(pV, WIDTH, iContaining);
         if (iWidth == PIXELVAL_AUTO) {
             int iMin; 
@@ -601,8 +624,10 @@ normalFlowLayoutFloat(pLayout, pBox, pNode, pY, pContext, pNormal)
 
             blockMinMaxWidth(pLayout, pNode, &iMin, &iMax);
             iWidth = MIN(MAX(iMin, iContaining), iMax);
+        } else {
+            flags |= DRAWBLOCK_CONTENTWIDTH;
         }
-        drawBlock(pLayout, &sBox, pNode, iWidth, 0);
+        drawBlock(pLayout, &sBox, pNode, iWidth, flags);
     }
 
     iTotalWidth = sBox.width;
@@ -610,8 +635,9 @@ normalFlowLayoutFloat(pLayout, pBox, pNode, pY, pContext, pNormal)
 
     iLeft = 0;
     iRight = iContaining;
+    iTop = HtmlFloatListClear(pFloat, pV->eClear, y);
     iTop = HtmlFloatListPlace(
-            pFloat, iContaining, iTotalWidth, iTotalHeight, y);
+            pFloat, iContaining, iTotalWidth, iTotalHeight, iTop);
     HtmlFloatListMargins(pFloat, iTop, iTop+iTotalHeight, &iLeft, &iRight);
 
     y = iTop + margin.margin_top;
@@ -635,6 +661,13 @@ normalFlowLayoutFloat(pLayout, pBox, pNode, pY, pContext, pNormal)
     HtmlFloatListAdd(pBox->pFloat, eFloat, 
         ((eFloat == CSS_CONST_LEFT) ? x + iTotalWidth : x),
         iTop, iTop + iTotalHeight);
+
+    if (!pLayout->minmaxTest) {
+        HtmlLog(pLayout->pTree, "LAYOUTENGINE", "normalFlowLayoutFloat() "
+            "%s %dx%d (%d, %d)", 
+            Tcl_GetString(HtmlNodeCommand(pLayout->pTree, pNode)),
+            iTotalWidth, iTotalHeight, x, iTop);
+    }
 
     return 0;
 }
@@ -957,18 +990,21 @@ normalFlowType(pNode)
  *
  *---------------------------------------------------------------------------
  */
-void
-drawBlock(pLayout, pBox, pNode, iAvailable, isOmitBorder)
+static void
+drawBlock(pLayout, pBox, pNode, iAvailable, flags)
     LayoutContext *pLayout;
     BoxContext *pBox;
     HtmlNode *pNode;
     int iAvailable;
-    int isOmitBorder;        /* If true, do not draw the border */
+    unsigned int flags;        /* Combination of DRAW_XXX flags */
 {
     HtmlComputedValues *pV = pNode->pPropertyValues;
     BoxContext sBox;
     BoxProperties box;
     MarginProperties margin;
+
+    NormalFlow sNormal;
+    memset(&sNormal, 0, sizeof(NormalFlow));
 
     int yBorderBottom; /* Y-coordinate for bottom of block border */
     int xBorderRight;  /* X-coordinate for right of block border */
@@ -980,18 +1016,25 @@ drawBlock(pLayout, pBox, pNode, iAvailable, isOmitBorder)
 
     memset(&sBox, 0, sizeof(BoxContext));   
 
-    sBox.iContaining = iAvailable -
-        margin.margin_left - box.border_left - box.padding_left -
-        margin.margin_right - box.border_right - box.padding_right;
-
+    sBox.iContaining = iAvailable;
+    if (!(flags & DRAWBLOCK_CONTENTWIDTH)) {
+        sBox.iContaining -=
+            margin.margin_left + box.border_left + box.padding_left +
+            margin.margin_right + box.border_right + box.padding_right;
+    } 
+    if (flags & DRAWBLOCK_ENFORCEWIDTH) {
+        sBox.width = sBox.iContaining;
+    }
     sBox.pFloat = HtmlFloatListNew();
 
     switch (DISPLAY(pV)) {
         case CSS_CONST_INLINE:
         case CSS_CONST_BLOCK:
         case CSS_CONST_TABLE_CELL: {
-            NormalFlow sNormal;
-            memset(&sNormal, 0, sizeof(NormalFlow));
+            if (pNode == pLayout->pTop) {
+                int tmp = 0;
+                normalFlowMarginCollapse(&sNormal, &tmp);
+            }
             normalFlowLayout(pLayout, &sBox, pNode, &sNormal);
             break;
         }
@@ -1002,19 +1045,29 @@ drawBlock(pLayout, pBox, pNode, iAvailable, isOmitBorder)
             assert(!"Bad display value in drawBlock()");
     }
 
+    if (flags & DRAWBLOCK_ENFORCEHEIGHT) {
+        int iHeight = PIXELVAL(pV, HEIGHT, pBox->iContaining);
+        sBox.height = MAX(sBox.height, iHeight);
+    }
+
     xContent = margin.margin_left + box.border_left + box.padding_left;
     yContent = box.border_top + box.padding_top; 
     yBorderBottom = yContent+sBox.height+box.border_bottom+box.padding_bottom;
     xBorderRight = xContent + sBox.width + box.border_right + box.padding_right;
 
-    if (!isOmitBorder) {
+    if (!(flags & DRAWBLOCK_OMITBORDER)) {
         int l = margin.margin_left;
         borderLayout(pLayout, pNode, pBox, l, 0, xBorderRight, yBorderBottom);
     }
     DRAW_CANVAS(&pBox->vc, &sBox.vc, xContent, yContent, pNode);
 
     pBox->height = MAX(pBox->height, yBorderBottom);
+    pBox->height = HtmlFloatListClear(sBox.pFloat, CSS_CONST_BOTH,pBox->height);
     pBox->width = MAX(pBox->width, xBorderRight + margin.margin_right);
+
+    if (pNode == pLayout->pTop) {
+        normalFlowMarginCollapse(&sNormal, &pBox->height);
+    }
 
     HtmlFloatListDelete(sBox.pFloat);
 }
@@ -1026,7 +1079,7 @@ HtmlLayoutTableCell(pLayout, pBox, pNode, iAvailable)
     HtmlNode *pNode;
     int iAvailable;
 {
-    drawBlock(pLayout, pBox, pNode, iAvailable, 1);
+    drawBlock(pLayout, pBox, pNode, iAvailable, DRAWBLOCK_OMITBORDER);
     return 0;
 }
 
@@ -1280,23 +1333,12 @@ normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
     nodeGetBoxProperties(pLayout, pNode, pBox->iContaining, &box);
     nodeGetMargins(pLayout, pNode, pBox->iContaining, &margin);
 
-    /* Account for the 'margin-top' property of this node. */
-    normalFlowMarginAdd(pNormal, margin.margin_top);
-
-    /* If this box has either top-padding or a top border, then collapse the
-     * vertical margin between this block and the one above now.
-     */
-    if (box.padding_top > 0 || box.border_top > 0) {
-        normalFlowMarginCollapse(pNormal, pY);
-    }
-
     /* Calculate iWidth, xBorderLeft, xBorderRight and yBorderTop. All are
      * interpreted as pixel values. For a non-replaced block element, the width
      * is always as calculated here, even if the content is not as wide.
      */
     iWidth = PIXELVAL(pV, WIDTH, pBox->iContaining);
     if (iWidth == PIXELVAL_AUTO) {
-        xBorderRight = pBox->iContaining - margin.margin_right;
         xBorderLeft = margin.margin_left;
         iWidth = pBox->iContaining -
             margin.margin_left - box.border_left - box.padding_left -
@@ -1307,17 +1349,28 @@ normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
             margin.margin_right - box.border_right - box.padding_right;
         if (margin.leftAuto & margin.rightAuto) {
             xBorderLeft = iSpareWidth / 2;
-            xBorderRight = pBox->iContaining - (iSpareWidth - xBorderLeft);
         }
         else if (margin.leftAuto) {
             xBorderLeft = iSpareWidth;
-            xBorderRight = pBox->iContaining;
         } else {
-            xBorderLeft = 0;
-            xBorderRight = iSpareWidth;
+            xBorderLeft = margin.margin_left;
         }
     }
-    yBorderTop = *pY;
+    xBorderRight = xBorderLeft + iWidth + 
+        box.border_left + box.padding_left +
+        box.border_right + box.padding_right;
+
+    /* Account for the 'margin-top' property of this node. */
+    normalFlowMarginAdd(pNormal, margin.margin_top);
+
+    /* If this box has either top-padding or a top border, then collapse the
+     * vertical margin between this block and the one above now.
+     */
+    if (box.padding_top > 0 || box.border_top > 0) {
+        normalFlowMarginCollapse(pNormal, pY);
+    }
+
+    yBorderTop = *pY + normalFlowMarginQuery(pNormal);
 
     /* Calculate x and y as pixel values. */
     *pY += box.border_top + box.padding_top;
@@ -1339,6 +1392,7 @@ normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
     if (box.padding_bottom > 0 || box.border_bottom > 0) {
         normalFlowMarginCollapse(pNormal, pY);
     }
+    *pY += box.padding_bottom + box.border_bottom;
     yBorderBottom = *pY;
 
     borderLayout(pLayout, pNode, pBox, 
@@ -1354,6 +1408,30 @@ normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
     normalFlowMarginAdd(pNormal, margin.margin_bottom);
 
     return 0;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * normalFlowClearFloat --
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void
+normalFlowClearFloat(pBox, pNode, pNormal, y)
+    BoxContext *pBox;
+    HtmlNode *pNode;
+    NormalFlow *pNormal;
+    int y;
+{
+    int y2 = HtmlFloatListClear(pBox->pFloat,pNode->pPropertyValues->eClear,y);
+    normalFlowMarginAdd(pNormal, y2 - y);
 }
 
 typedef struct MarkerLayoutArgs MarkerLayoutArgs;
@@ -1411,6 +1489,7 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
         /* A non-replaced block box.  */
 	case FLOWTYPE_BLOCK: {
             inlineLayoutDrawLines(pLayout, pBox, pContext, 1, pY, pNormal);
+            normalFlowClearFloat(pBox, pNode, pNormal, *pY);
             normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal);
             break;
         }
@@ -1430,6 +1509,7 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
             sArgs.pNode = pNode;
             sArgs.y = *pY;
            
+            normalFlowClearFloat(pBox, pNode, pNormal, *pY);
             normalFlowCbAdd(pNormal, &sCallback);
             normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal);
             normalFlowCbDelete(pNormal, &sCallback);
@@ -1449,6 +1529,7 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
                 *pY += pV->fFont->em_pixels;
             }
             inlineLayoutDrawLines(pLayout, pBox, pContext, 1, pY, pNormal);
+            normalFlowClearFloat(pBox, pNode, pNormal, *pY);
             normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal);
             break;
         }
@@ -1463,6 +1544,7 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
         /* A replaced block element. */
         case FLOWTYPE_BLOCK_REPLACED: {
             inlineLayoutDrawLines(pLayout, pBox, pContext, 1, pY, pNormal);
+            normalFlowClearFloat(pBox, pNode, pNormal, *pY);
             normalFlowLayoutReplaced(pLayout,pBox,pNode,pY,pContext,pNormal);
             break;
         }
@@ -1470,16 +1552,22 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
         /* A replaced inline element. */
         case FLOWTYPE_INLINE_REPLACED: {
             BoxContext sBox;
+            BoxContext sBox2;
             int yoffset;
+            int iHeight;
+            MarginProperties margin;
 
             memset(&sBox, 0, sizeof(BoxContext));
             sBox.pFloat = 0;
             sBox.iContaining = pBox->iContaining;
             drawReplacement(pLayout, &sBox, pNode);
 
+            nodeGetMargins(pLayout, pNode, pBox->iContaining, &margin);
+            iHeight = sBox.height + margin.margin_top + margin.margin_bottom;
+
             switch (pV->eVerticalAlign) {
                 case CSS_CONST_TEXT_BOTTOM: {
-                    yoffset = -1 * (sBox.height - pV->fFont->metrics.descent);
+                    yoffset = -1 * (iHeight - pV->fFont->metrics.descent);
                     break;
                 }
                 case CSS_CONST_TEXT_TOP: {
@@ -1487,17 +1575,20 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
                     break;
                 }
                 case CSS_CONST_MIDDLE: {
-                    yoffset = -1 * (sBox.height + pV->fFont->ex_pixels ) / 2;
+                    yoffset = -1 * (iHeight+pV->fFont->em_pixels ) / 2;
                     break;
                 }
                 case CSS_CONST_BASELINE:
                 default:
-                    yoffset = -1 * sBox.height;
+                    yoffset = -1 * (iHeight - margin.margin_top);
                     break;
             }
 
-	    HtmlInlineContextAddBox(pContext, pNode, &sBox.vc,
-                sBox.width, sBox.height, yoffset);
+            memset(&sBox2, 0, sizeof(BoxContext));
+            sBox2.pFloat = 0;
+            DRAW_CANVAS(&sBox2.vc, &sBox.vc, 0, margin.margin_top, pNode);
+	    HtmlInlineContextAddBox(pContext, pNode, &sBox2.vc,
+                sBox.width, iHeight, yoffset);
             break;
         }
 
@@ -1520,12 +1611,22 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
             break;
         }
 
-        /* An element with "display: none". Do nothing. */
-        case FLOWTYPE_NONE:
+	/* An element with "display: none". 
+         *
+	 * TODO: The CSS 2.1 spec says, in section 9.2.4, that an element with
+	 * display 'none' has no effect on layout at all. But rendering of
+	 * http://slashdot.org depends on honouring the 'clear' property on an
+	 * element with display 'none'. And Mozilla, KHTML and Opera do so.
+	 * Find out about this and if there are any other properties that need
+	 * handling here.
+         */
+	case FLOWTYPE_NONE:
+            normalFlowClearFloat(pBox, pNode, pNormal, *pY);
             break;
 
         case FLOWTYPE_TABLE: {
             inlineLayoutDrawLines(pLayout, pBox, pContext, 1, pY, pNormal);
+            normalFlowClearFloat(pBox, pNode, pNormal, *pY);
             normalFlowLayoutTable(pLayout, pBox, pNode, pY, pContext, pNormal);
             break;
         }
@@ -1688,7 +1789,7 @@ blockMinMaxWidth(pLayout, pNode, pMin, pMax)
          * up a canvas we will never use.
          */
         memset(&sBox, 0, sizeof(BoxContext));
-        drawBlock(pLayout, &sBox, pNode, 0, 1);
+        drawBlock(pLayout, &sBox, pNode, 0, DRAWBLOCK_OMITBORDER);
         HtmlDrawCleanup(&sBox.vc);
         min = sBox.width;
     
@@ -1699,7 +1800,7 @@ blockMinMaxWidth(pLayout, pNode, pMin, pMax)
          */
         memset(&sBox, 0, sizeof(BoxContext));
         sBox.iContaining = 10000;
-        drawBlock(pLayout, &sBox, pNode, 10000, 1);
+        drawBlock(pLayout, &sBox, pNode, 10000, DRAWBLOCK_OMITBORDER);
         HtmlDrawCleanup(&sBox.vc);
         max = sBox.width;
 
@@ -1758,19 +1859,28 @@ blockMinMaxWidth(pLayout, pNode, pMin, pMax)
  *---------------------------------------------------------------------------
  */
 void 
-borderLayout(pLayout, pNode, pBox, x1, y1, x2, y2)
+borderLayout(pLayout, pNode, pBox, xA, yA, xB, yB)
     LayoutContext *pLayout;
     HtmlNode *pNode;
     BoxContext *pBox;
-    int x1;
-    int y1;
-    int x2;
-    int y2;
+    int xA;
+    int yA;
+    int xB;
+    int yB;
 {
     BoxProperties boxproperties;
     BorderProperties borderproperties;
     int tw, rw, bw, lw;
     XColor *tc, *rc, *bc, *lc;
+    int x1, y1, x2, y2;
+
+    BoxContext sBox;
+    memset(&sBox, 0, sizeof(BoxContext));
+
+    x1 = 0;
+    y1 = 0;
+    x2 = xB - xA;
+    y2 = yB - yA;
 
     /* TODO: Parent width */
     nodeGetBoxProperties(pLayout, pNode, 0, &boxproperties);
@@ -1788,29 +1898,27 @@ borderLayout(pLayout, pNode, pBox, x1, y1, x2, y2)
 
     /* Top border polygon */
     if (tw>0) {
-        DRAW_QUAD(&pBox->vc, x1, y1, x1+lw, y1+tw, x2-rw, y1+tw, x2, y1, tc);
+        DRAW_QUAD(&sBox.vc, x1, y1, x1+lw, y1+tw, x2-rw, y1+tw, x2, y1, tc);
     }
     if (rw>0) {
-        DRAW_QUAD(&pBox->vc, x2, y1, x2-rw, y1+tw, x2-rw, y2-bw, x2, y2, rc);
+        DRAW_QUAD(&sBox.vc, x2, y1, x2-rw, y1+tw, x2-rw, y2-bw, x2, y2, rc);
     }
     if (bw>0) {
-        DRAW_QUAD(&pBox->vc, x2, y2, x2-rw, y2-bw, x1+lw, y2-bw, x1, y2, bc);
+        DRAW_QUAD(&sBox.vc, x2, y2, x2-rw, y2-bw, x1+lw, y2-bw, x1, y2, bc);
     }
     if (lw>0) {
-        DRAW_QUAD(&pBox->vc, x1, y2, x1+lw, y2-bw, x1+lw, y1+tw, x1, y1, lc);
+        DRAW_QUAD(&sBox.vc, x1, y2, x1+lw, y2-bw, x1+lw, y1+tw, x1, y1, lc);
     }
 
-    if (borderproperties.color_bg) {
-        if (pNode!=pLayout->pTop) {
-            DRAW_QUAD(&pBox->vc, 
-                    x1+lw, y1+tw, 
-                    x2-rw, y1+tw, 
-                    x2-rw, y2-bw, 
-                    x1+lw, y2-bw, borderproperties.color_bg);
-        } else {
-            DRAW_BACKGROUND(&pBox->vc, borderproperties.color_bg);
-        }
+    if (borderproperties.color_bg && pNode != pLayout->pTop) {
+        DRAW_QUAD(&sBox.vc, 
+            x1+lw, y1+tw, 
+            x2-rw, y1+tw, 
+            x2-rw, y2-bw, 
+            x1+lw, y2-bw, borderproperties.color_bg);
     }
+
+    DRAW_CANVAS(&pBox->vc, &sBox.vc, xA, yA, pNode);
 }
 
 
@@ -1847,6 +1955,9 @@ layoutReplacement(pLayout, pBox, pNode, zReplace)
      */
     width = PIXELVAL(pV, WIDTH, pBox->iContaining);
     height = PIXELVAL(pV, HEIGHT, pBox->iContaining);
+
+    if (width > MAX_PIXELVAL) width = MAX(width, 1);
+    if (height > MAX_PIXELVAL) height = MAX(height, 1);
 
     if (zReplace[0]=='.') {
         Tk_Window win = Tk_NameToWindow(interp, zReplace, tkwin);
@@ -1929,10 +2040,17 @@ HtmlLayout(pTree)
      */
     pBody = pTree->pRoot;
     if (pBody) {
+        XColor *c = pBody->pPropertyValues->cBackgroundColor->xcolor;
+        MarginProperties margin;
+        nodeGetMargins(&sLayout, pBody, width, &margin);
+        if (c) {
+            HtmlDrawBackground(&pTree->canvas, c, 0);
+        }
         sLayout.pTop = pBody;
         drawBlock(&sLayout, &sBox, pBody, width, 0);
-        /* rc = blockLayout(&sLayout, &sBox, pBody, 0, 0); */
-        memcpy(&pTree->canvas, &sBox.vc, sizeof(HtmlCanvas));
+        HtmlDrawCanvas(&pTree->canvas, &sBox.vc, 0, 0, pBody);
+        pTree->canvas.right = sBox.width;
+        pTree->canvas.bottom = sBox.height;
     } else {
         HtmlColor *pColor;
         Tcl_HashEntry *pEntry;

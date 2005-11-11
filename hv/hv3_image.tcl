@@ -32,7 +32,7 @@ proc image_runtests {HTML} {
   image_800x600
   set db [.html var cache]
   set runtime [time {
-    $db eval {SELECT oid as id, url, data FROM tests} v {
+    $db eval {SELECT oid as id, url, data FROM tests order by url} v {
       gui_goto $v(url)
   
       #after 100 {set ::hv3_runtests_var 0}

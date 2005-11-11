@@ -1002,6 +1002,7 @@ HtmlInlineContextNew(pNode, isSizeOnly)
 {
     HtmlComputedValues *pValues = pNode->pPropertyValues;
     InlineContext *pNew;
+    int iLineHeight;
 
     pNew = (InlineContext *)ckalloc(sizeof(InlineContext));
     memset(pNew, 0, sizeof(InlineContext));
@@ -1025,7 +1026,12 @@ HtmlInlineContextNew(pNode, isSizeOnly)
     /* The 'line-height' property for the block-box that generates this inline
      * context is used as the minimum line height for all generated line-boxes.
      */
-    pNew->lineHeight = pValues->iLineHeight;
+    iLineHeight = pValues->iLineHeight;
+    if (iLineHeight < 0) {
+        pNew->lineHeight = ((iLineHeight * pValues->fFont->em_pixels) / -100);
+    } else {
+        pNew->lineHeight = iLineHeight;
+    }
 
     pNew->whiteSpace = pValues->eWhitespace;
 
@@ -1062,6 +1068,7 @@ HtmlInlineContextAddText(pContext, pNode)
 
     HtmlNode *pParent;             /* Parent of text node */
     HtmlComputedValues *pValues;   /* Computed values of parent node */
+    int isFirst = 1;               /* Set to zero after first token */
 
     assert(pNode && HtmlNodeIsText(pNode) && HtmlNodeParent(pNode));
     assert(HtmlNodeParent(pNode)->pPropertyValues);
@@ -1101,14 +1108,18 @@ HtmlInlineContextAddText(pContext, pNode)
                 for (i = 0; i < pToken->count; i++) {
                     inlineContextAddSpace(pContext, sw);
                 }
-                if (pToken->x.newline) {
-                    inlineContextAddNewLine(pContext, nh, 0);
+                if (pToken->x.newline && !isFirst && pToken->pNext) {
+                    int eType = pToken->pNext->type;
+                    if (eType == Html_Text || eType == Html_Space) {
+                        inlineContextAddNewLine(pContext, nh, 0);
+                    }
                 }
                 break;
             }
             default:
                 return 0;
         }
+        isFirst = 0;
     }
 
     return 0;

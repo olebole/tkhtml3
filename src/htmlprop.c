@@ -507,6 +507,70 @@ propertyValuesSetLength(p, pIVal, em_mask, pProp)
 /*
  *---------------------------------------------------------------------------
  *
+ * propertyValuesSetLineHeight --
+ *
+ * Results: 
+ *     0 if value is successfully set. 1 if the value of *pProp is not a valid
+ *     a value for the 'line-height' property.
+ *
+ * Side effects:
+ *
+ *---------------------------------------------------------------------------
+ */
+static int
+propertyValuesSetLineHeight(p, pProp)
+    HtmlComputedValuesCreator *p;
+    CssProperty *pProp;
+{
+    int rc = 1;
+
+    switch (pProp->eType) {
+        case CSS_CONST_INHERIT: {
+            p->values.iLineHeight = 
+                HtmlNodeParent(p->pNode)->pPropertyValues->iLineHeight;
+            rc = 0;
+            break;
+        }
+        case CSS_CONST_NORMAL: {
+            p->values.iLineHeight = -100;
+            rc = 0;
+            break;
+        }
+        case CSS_TYPE_PERCENT: {
+            int iVal = (int)(pProp->v.iVal);
+            if (iVal > 0) {
+                p->values.iLineHeight = iVal;
+                p->em_mask |= PROP_MASK_LINE_HEIGHT;
+                rc = 0;
+            }
+            break;
+        }
+        case CSS_TYPE_FLOAT: {
+            double rVal = pProp->v.rVal;
+            if (rVal > 0) {
+                rc = 0;
+                p->values.iLineHeight = (-100.0 * rVal);
+            }
+            break;
+        }
+        default: {
+            /* Try to treat the property as a <length> */
+            int i = p->values.iLineHeight;
+            int *pIVal = &p->values.iLineHeight;
+            rc = propertyValuesSetLength(p,pIVal,PROP_MASK_LINE_HEIGHT,pProp);
+            if (*pIVal < 0) {
+                rc = 1;
+                *pIVal = i;
+            }
+            break;
+        }
+    }
+    return rc;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * propertyValuesSetVerticalAlign --
  *
  * Results: 
@@ -580,7 +644,7 @@ propertyValuesSetVerticalAlign(p, pProp)
                 p->eVerticalAlignPercent = 0;
                 p->values.eVerticalAlign = 0;
             }
-            return 0;
+            break;
         }
     }
 
@@ -724,6 +788,9 @@ propertyValuesSetBorderWidth(p, pIVal, em_mask, pProp)
         case CSS_CONST_THICK:
             *pIVal = 4;
             return 0;
+        case CSS_TYPE_FLOAT:
+            *pIVal = pProp->v.rVal;
+            return 0;
     }
 
     /* If it is not one of the above keywords, then the border-width may 
@@ -788,7 +855,7 @@ HtmlComputedValuesInit(pTree, pNode, p)
         p->values.eWhitespace     = CSS_CONST_NORMAL;   /* 'white-space' */
         p->values.eTextAlign      = CSS_CONST_LEFT;     /* 'text-align' */ 
         p->values.iBorderSpacing = 0;                   /* 'border-spacing' */
-        p->values.iLineHeight = PIXELVAL_NORMAL;        /* 'line-height' */
+        p->values.iLineHeight = -100;                   /* 'line-height' */
         rc = propertyValuesSetColor(p, &p->values.cColor, &Black); /* 'color' */
         assert(rc == 0);
 
@@ -877,7 +944,7 @@ propertyValuesTclScript(p, eProp, zScript)
     const char *zRes;
     CssProperty *pVal;
     Tcl_Interp *interp = p->pTree->interp;
-    Tcl_Obj *pCommand = HtmlNodeCommand(interp, p->pTree, p->pNode);
+    Tcl_Obj *pCommand = HtmlNodeCommand(p->pTree, p->pNode);
 
     Tcl_SetVar2Ex(interp, "N", 0, pCommand, 0);
     rc = Tcl_Eval(interp, zScript);
@@ -1154,15 +1221,14 @@ HtmlComputedValuesSet(p, eProp, pProp)
                 PROP_MASK_MARGIN_BOTTOM, pProp, SZ_INHERIT|SZ_PERCENT|SZ_AUTO
             );
 
-        /* 'vertical-align', special case:
-         */
+        /* 'vertical-align', special case: */
         case CSS_PROPERTY_VERTICAL_ALIGN:
             return propertyValuesSetVerticalAlign(p, pProp);
 
-        case CSS_PROPERTY_LINE_HEIGHT: {
-            /* TODO */
-            return 0;
-        }
+        /* 'line-height', special case: */
+        case CSS_PROPERTY_LINE_HEIGHT: 
+            return propertyValuesSetLineHeight(p, pProp);
+
         case CSS_PROPERTY_BORDER_SPACING: {
             /* TODO */
             return 0;
@@ -1432,7 +1498,8 @@ HtmlComputedValuesFinish(p)
         {PROP_MASK_BORDER_TOP_WIDTH,    OFFSET(border.iTop)},
         {PROP_MASK_BORDER_RIGHT_WIDTH,  OFFSET(border.iRight)},
         {PROP_MASK_BORDER_BOTTOM_WIDTH, OFFSET(border.iBottom)},
-        {PROP_MASK_BORDER_LEFT_WIDTH,   OFFSET(border.iLeft)}
+        {PROP_MASK_BORDER_LEFT_WIDTH,   OFFSET(border.iLeft)},
+        {PROP_MASK_LINE_HEIGHT,         OFFSET(iLineHeight)}
     };
 #undef OFFSET
 
@@ -1466,9 +1533,6 @@ HtmlComputedValuesFinish(p)
             *pVal = (*pVal * pFont->ex_pixels) / 100;
         }
     }
-
-    /* TODO: Deal with 'line-height' property */
-    p->values.iLineHeight = pFont->em_pixels;
 
     /* If no value has been assigned to any of the 'border-xxx-color'
      * properties, then copy the value of the 'color' property. 
@@ -1708,7 +1772,6 @@ PROP_MASK_ ## eProp}
 #define FONTVAL() {FONT, CSS_SHORTCUTPROPERTY_FONT, 0, 0}
 
 #define PROP_MASK_BORDER_SPACING   0x00000000
-#define PROP_MASK_LINE_HEIGHT   0x00000000
 
     enum ValueType {
         ENUM, COLOR, LENGTH, VERTICALALIGN, FONT

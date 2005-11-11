@@ -370,7 +370,7 @@ int         HtmlNodeIsText(HtmlNode *);
 Html_u8     HtmlNodeTagType(HtmlNode *);
 #endif
 
-Tcl_Obj *HtmlNodeCommand(Tcl_Interp *interp, HtmlTree *, HtmlNode *pNode);
+Tcl_Obj *HtmlNodeCommand(HtmlTree *, HtmlNode *pNode);
 
 CssProperty *HtmlNodeGetProperty(Tcl_Interp *, HtmlNode *, int);
 void HtmlNodeGetDefault(HtmlNode *, int , CssProperty *);

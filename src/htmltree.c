@@ -245,7 +245,7 @@ nodeHandlerCallbacks(pTree, pNode)
         pEval = Tcl_DuplicateObj(pScript);
         Tcl_IncrRefCount(pEval);
 
-        pNodeCmd = HtmlNodeCommand(interp, pTree, pNode); 
+        pNodeCmd = HtmlNodeCommand(pTree, pNode); 
         Tcl_ListObjAppendElement(0, pEval, pNodeCmd);
         Tcl_EvalObjEx(interp, pEval, TCL_EVAL_DIRECT|TCL_EVAL_GLOBAL);
 
@@ -470,7 +470,9 @@ walkTree(pTree, xCallback, pNode)
     if( pNode ){
         xCallback(pTree, pNode);
         for (i = 0; i<pNode->nChild; i++) {
-            int rc = walkTree(pTree, xCallback, pNode->apChildren[i]);
+            HtmlNode *pChild = pNode->apChildren[i];
+            int rc = walkTree(pTree, xCallback, pChild);
+            assert(HtmlNodeParent(pChild) == pNode);
             if (rc) return rc;
         }
     }
@@ -756,17 +758,28 @@ nodeCommand(clientData, interp, objc, objv)
         case NODE_ATTR: {
             char CONST *zAttr;
             char *zAttrName;
-            if (objc!=3) {
-                Tcl_WrongNumArgs(interp, 2, objv, "ATTRIBUTE");
+            if (objc != 3 && objc != 2) {
+                Tcl_WrongNumArgs(interp, 2, objv, "?ATTRIBUTE?");
                 return TCL_ERROR;
             }
-            zAttrName = Tcl_GetString(objv[2]);
-            zAttr = HtmlNodeAttr(pNode, zAttrName);
-            if (zAttr==0) {
-                Tcl_AppendResult(interp, "No such attr: ", zAttrName, 0);
-                return TCL_ERROR;
+            if (objc == 3) {
+                zAttrName = Tcl_GetString(objv[2]);
+                zAttr = HtmlNodeAttr(pNode, zAttrName);
+                if (zAttr==0) {
+                    Tcl_AppendResult(interp, "No such attr: ", zAttrName, 0);
+                    return TCL_ERROR;
+                }
+                Tcl_SetResult(interp, (char *)zAttr, TCL_VOLATILE);
+            } else if (!HtmlNodeIsText(pNode)) {
+                int i;
+                HtmlToken *pToken = pNode->pToken;
+                Tcl_Obj *p = Tcl_NewObj();
+                for (i = 2; i < pToken->count; i++) {
+                    Tcl_Obj *pArg = Tcl_NewStringObj(pToken->x.zArgs[i], -1);
+                    Tcl_ListObjAppendElement(interp, p, pArg);
+                }
+                Tcl_SetObjResult(interp, p);
             }
-            Tcl_SetResult(interp, (char *)zAttr, TCL_VOLATILE);
             break;
         }
         case NODE_TAG: {
@@ -801,7 +814,7 @@ nodeCommand(clientData, interp, objc, objv)
                 Tcl_SetResult(interp, "Parameter out of range", TCL_STATIC);
                 return TCL_ERROR;
             }
-            pCmd = HtmlNodeCommand(interp, pTree, HtmlNodeChild(pNode, n));
+            pCmd = HtmlNodeCommand(pTree, HtmlNodeChild(pNode, n));
             Tcl_SetObjResult(interp, pCmd);
             break;
         }
@@ -833,7 +846,7 @@ nodeCommand(clientData, interp, objc, objv)
             HtmlNode *pParent;
             pParent = HtmlNodeParent(pNode);
             if (pParent) {
-                Tcl_SetObjResult(interp, HtmlNodeCommand(interp,pTree,pParent));
+                Tcl_SetObjResult(interp, HtmlNodeCommand(pTree, pParent));
             } 
             break;
         }
@@ -940,8 +953,7 @@ nodeCommand(clientData, interp, objc, objv)
  *---------------------------------------------------------------------------
  */
 Tcl_Obj *
-HtmlNodeCommand(interp, pTree, pNode)
-    Tcl_Interp *interp;
+HtmlNodeCommand(pTree, pNode)
     HtmlTree *pTree;
     HtmlNode *pNode;
 {
@@ -955,7 +967,7 @@ HtmlNodeCommand(interp, pTree, pNode)
 
         pCmd = Tcl_NewStringObj(zBuf, -1);
         Tcl_IncrRefCount(pCmd);
-        Tcl_CreateObjCommand(interp, zBuf, nodeCommand, pNode, 0);
+        Tcl_CreateObjCommand(pTree->interp, zBuf, nodeCommand, pNode, 0);
         pNodeCmd = (HtmlNodeCmd *)ckalloc(sizeof(HtmlNodeCmd));
         pNodeCmd->pCommand = pCmd;
         pNodeCmd->pTree = pTree;
@@ -1068,28 +1080,6 @@ int HtmlTreeClear(pTree)
 
     /* Free the tree representation - pTree->pRoot */
     HtmlTreeFree(pTree);
-
-#if 0
-    /* Free the font-cache - pTree->aFontCache */
-    for (
-        p = Tcl_FirstHashEntry(&pTree->aFontCache, &s); 
-        p; 
-        p = Tcl_NextHashEntry(&s)) 
-    {
-        Tk_FreeFont((Tk_Font)Tcl_GetHashValue(p));
-        Tcl_DeleteHashEntry(p);
-    }
-
-    /* Free the color-cache - pTree->aColor */
-    for (
-        p = Tcl_FirstHashEntry(&pTree->aColor, &s); 
-        p; 
-        p = Tcl_NextHashEntry(&s)) 
-    {
-        Tk_FreeColor((XColor *)Tcl_GetHashValue(p));
-        Tcl_DeleteHashEntry(p);
-    }
-#endif
 
     /* Free the image-cache - pTree->aImage */
     HtmlClearImageArray(pTree);

@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmltcl.c,v 1.46 2005/11/10 10:30:00 danielk1977 Exp $";
+        "@(#) $Id: htmltcl.c,v 1.47 2005/11/11 08:42:30 danielk1977 Exp $";
 
 
 #include <tk.h>
@@ -1177,6 +1177,7 @@ styleParseCmd(clientData, interp, objc, objv)
     for (ii = 0; ii < sizeof(apObj)/sizeof(apObj[0]); ii++) {
         Tcl_DecrRefCount(apObj[ii]);
     }
+    HtmlCallbackSchedule(pTree, HTML_CALLBACK_STYLE);
     return rc;
 }
 
