@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static char rcsid[] = "@(#) $Id:";
+static const char rcsid[] = "$Id: htmltree.c,v 1.35 2005/11/11 08:57:44 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -1075,8 +1075,6 @@ int HtmlTreeClear(pTree)
     HtmlTree *pTree;
 {
     HtmlToken *pToken;
-    Tcl_HashSearch s;
-    Tcl_HashEntry *p;
 
     /* Free the tree representation - pTree->pRoot */
     HtmlTreeFree(pTree);
