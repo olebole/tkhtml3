@@ -334,6 +334,14 @@ void HtmlComputedValuesRelease(HtmlComputedValues*);
 void HtmlComputedValuesSetupTables(HtmlTree *);
 void HtmlComputedValuesCleanupTables(HtmlTree *);
 
+/* 
+ * This function formats the HtmlComputedValues structure as a Tcl list and
+ * sets the result of the interpreter to that list. Used to allow inspection of
+ * a nodes computed values from a Tcl script.
+ */
+int HtmlNodeProperties(Tcl_Interp *, HtmlComputedValues *);
+
+
 #define HTML_COMPUTED_MARGIN_TOP      margin.iTop
 #define HTML_COMPUTED_MARGIN_RIGHT    margin.iRight
 #define HTML_COMPUTED_MARGIN_BOTTOM   margin.iBottom

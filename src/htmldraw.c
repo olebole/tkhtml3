@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-
+static const char rcsid[] = "$Id: htmldraw.c,v 1.68 2005/11/11 09:05:43 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -922,7 +922,6 @@ int HtmlLayoutImage(clientData, interp, objc, objv)
     Tcl_Obj *CONST objv[];             /* Argument strings. */
 {
     HtmlTree *pTree = (HtmlTree *)clientData;
-    HtmlCanvas *pCanvas = &pTree->canvas;
     Display *pDisplay = Tk_Display(pTree->win);
 
     int x = 0;

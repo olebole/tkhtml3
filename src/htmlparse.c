@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.45 2005/10/11 04:22:39 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.46 2005/11/11 09:05:43 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -1294,7 +1294,6 @@ Tokenize(pTree)
          * the attribute name and the value.
          */
         else {
-          doMarkup:
             /* At this point, &z[n] points to the "<" character that opens
              * a markup tag. Variable 'i' is used to record the current
              * position, relative to &z[n], while parsing the tags name

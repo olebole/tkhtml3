@@ -30,6 +30,7 @@
  *         This is called to deallocate all resources associated with the
  *         InlineContext object.
  */
+static const char rcsid[] = "$Id: htmlinline.c,v 1.3 2005/11/11 09:05:43 danielk1977 Exp $";
 
 typedef struct InlineBox InlineBox;
 

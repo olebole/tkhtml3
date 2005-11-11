@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char rcsid[] = "@(#) $Id:";
+static char rcsid[] = "$Id: htmlstyle.c,v 1.15 2005/11/11 09:05:43 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>

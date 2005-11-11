@@ -37,6 +37,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+static const char rcsid[] = "$Id: main.c,v 1.3 2005/11/11 09:05:43 danielk1977 Exp $";
 
 #undef USE_TCL_STUBS
 #undef USE_TK_STUBS

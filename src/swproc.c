@@ -1,6 +1,7 @@
 
 #include <tcl.h>
 #include <assert.h>
+#include <string.h>
 #include "swproc.h"
 
 /*

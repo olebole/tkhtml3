@@ -43,6 +43,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  * COPYRIGHT:
  */
+static const char rcsid[] = "$Id: htmlhash.c,v 1.8 2005/11/11 09:05:43 danielk1977 Exp $";
 
 #include <tcl.h>
 #include <strings.h>

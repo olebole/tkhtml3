@@ -416,6 +416,7 @@ CONST char *HtmlDefaultTcl();
 CONST char *HtmlDefaultCss();
 
 void HtmlCallbackForce(HtmlTree *);
+void HtmlCallbackSchedule(HtmlTree *, int);
 
 #ifdef HTML_DEBUG
 void HtmlDrawComment(HtmlCanvas *, CONST char *zComment, int);

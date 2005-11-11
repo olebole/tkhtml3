@@ -49,6 +49,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+static const char rcsid[] = "$Id: htmllayout.c,v 1.99 2005/11/11 09:05:43 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>

@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char rcsid[] = "@(#) $Id:";
+static char rcsid[] = "$Id: htmlprop.c,v 1.32 2005/11/11 09:05:43 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -703,7 +703,7 @@ propertyValuesSetSize(p, pIVal, p_mask, pProp, allow_mask)
                 assert(pInherit);
                 assert(pParent);
 
-                pIVal = *pInherit;
+                *pIVal = *pInherit;
                 p->values.mask |= (pParent->pPropertyValues->mask & p_mask);
                 return 0;
             }
