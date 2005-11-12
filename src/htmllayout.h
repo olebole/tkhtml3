@@ -16,38 +16,31 @@
 #include "html.h"
 
 typedef struct LayoutContext LayoutContext;
-typedef struct BoxProperties BoxProperties;
-typedef struct BorderProperties BorderProperties;
-typedef struct MarginProperties MarginProperties;
 
 /*
  * A single Layout context object is allocated for use throughout
  * the entire layout process. It contains global resources required
  * by the drawing routines.
- *
- * The 'marginValid' and 'marginValue' variables are used to implement
- * collapsing margins.
  */
 struct LayoutContext {
     HtmlTree *pTree;       /* The Html widget. */
     HtmlNode *pTop;          /* Top level node rendered (<body>). */
     Tk_Window tkwin;
     Tcl_Interp *interp;      /* The interpreter */
+
     Tcl_HashTable widthCache;
-
     int minmaxTest;          /* Currently figuring out min/max widths */
-
-    int marginValid;         /* True to include the top margin in next block */
-    int marginValue;         /* Bottom margin of previous block box */
-    int marginParent;
 };
+
+typedef struct BoxProperties BoxProperties;
+typedef struct BorderProperties BorderProperties;
+typedef struct MarginProperties MarginProperties;
 
 struct BoxProperties {
     int padding_top;
     int padding_left;
     int padding_bottom;
     int padding_right;
-
     int border_top;
     int border_left;
     int border_bottom;
@@ -59,7 +52,6 @@ struct BorderProperties {
     XColor *color_left;
     XColor *color_bottom;
     XColor *color_right;
-
     XColor *color_bg;
 };
 
@@ -147,7 +139,6 @@ typedef struct BoxContext BoxContext;
 struct BoxContext {
     int iContaining;        /* DOWN:    Width of containing block. */
 
-    int contentWidth;       /* DOWN:    Horizontal width available. */
     HtmlFloatList *pFloat;  /* UP/DOWN: Floating margins. */
 
     int height;             /* UP: Generated box height. */
@@ -155,7 +146,6 @@ struct BoxContext {
     HtmlCanvas vc;          /* UP: Canvas to draw the block on. */
 };
 
-int nodeGetWidth(LayoutContext *, HtmlNode *, int, int, int*, int*);
 void nodeGetBoxProperties(LayoutContext *, HtmlNode *, int, BoxProperties *);
 void nodeGetBorderProperties(LayoutContext *, HtmlNode *, BorderProperties *);
 void nodeGetMargins(LayoutContext *, HtmlNode *, int, MarginProperties *);

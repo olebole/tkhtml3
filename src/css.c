@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.30 2005/11/11 09:05:43 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.31 2005/11/12 04:47:20 danielk1977 Exp $";
 
 /*
  *    The CSS "cascade":
@@ -2340,4 +2340,44 @@ void HtmlCssSelectorComma(pParse)
     pParse->pSelector = 0;
     pParse->nXtra++;
 }
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlCssPropertyStringForm --
+ * HtmlCssPropertyFreeStringForm --
+ *
+ *     These two functions are used to obtain and free string representations
+ *     of a CSS property (e.g. for debugging) respectively.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+#if 0
+char CONST *
+HtmlCssPropertyToString(pProp)
+    CssProperty *pProp;
+{
+    char CONST *zProp = HtmlCssPropertyGetString(pProp);
+    if (!zProp) {
+        switch (pProp->eType) {
+        }
+    }
+    return zProp;
+}
+void
+HtmlCssPropertyToStringFree(pProp, zProp)
+    CssProperty *pProp;
+    CONST char *zProp;
+{
+    if (zProp != HtmlCssPropertyGetString(pProp)) {
+        ckfree((char *)zProp);
+    }
+}
+#endif
 

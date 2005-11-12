@@ -81,12 +81,9 @@ typedef struct CssAttrFunction CssAttrFunction;
 #define CSS_TYPE_FLOAT        6            /* Value in 'rVal' */
 #define CSS_TYPE_NONE         7            /* No value */
 
+/* Function notation */
 #define CSS_TYPE_TCL          8            /* Value in 'zVal' */
 #define CSS_TYPE_URL          9            /* Value in 'zVal' */
-
-#define CSS_TYPE_ATTR              17           /* Value in 'p' */
-#define CSS_TYPE_ANCESTOR_ATTR     18           /* Value in 'p' */
-#define CSS_TYPE_IF_ANCESTOR_ATTR  19           /* Value in 'p' */
 
 /* Physical units. */
 #define CSS_TYPE_CENTIMETER   10           /* Value in 'rVal */

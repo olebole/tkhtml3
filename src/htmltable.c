@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char rcsid[] = "$Id: htmltable.c,v 1.55 2005/11/11 09:05:43 danielk1977 Exp $";
+static char rcsid[] = "$Id: htmltable.c,v 1.56 2005/11/12 04:47:20 danielk1977 Exp $";
 
 #include "htmllayout.h"
 
@@ -86,6 +86,61 @@ static int tableDrawRow(HtmlNode *, int, void *);
 static void tableCalculateCellWidths(TableData *, int);
 
 #define DISPLAY(pV) (pV ? pV->eDisplay : CSS_CONST_INLINE)
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * nodeGetWidth --
+ * 
+ *     Return the value of the 'width' property for a given node.
+ *
+ *     This function also handles the 'max-width' and 'min-width'
+ *     properties. If there is no 'width' attribute and the default value
+ *     supplied as the fourth argument is greater than zero, then the
+ *     'min-width' and 'max-width' properties are taken into account when
+ *     figuring out the return value.
+ * 
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+nodeGetWidth(pLayout, pNode, pwidth, def, pIsFixed, pIsAuto)
+    LayoutContext *pLayout;   /* Layout context */
+    HtmlNode *pNode;          /* Node */
+    int pwidth;               /* Unused */
+    int def;                  /* Default value */
+    int *pIsFixed;            /* OUT: True if a pixel width */
+    int *pIsAuto;             /* OUT: True if value is "auto" */
+{
+    HtmlComputedValues *pV = pNode->pPropertyValues;
+    int iWidth;
+
+    iWidth = PIXELVAL(pV, WIDTH, pwidth);
+
+    if (pIsAuto) {
+        *pIsAuto = ((iWidth == PIXELVAL_AUTO) ? 1 : 0);
+    }
+
+    assert(iWidth != PIXELVAL_NONE && iWidth != PIXELVAL_NORMAL);
+    if (iWidth == PIXELVAL_AUTO) {
+        int iMinWidth = PIXELVAL(pV, MIN_WIDTH, pwidth);
+        int iMaxWidth = PIXELVAL(pV, MAX_WIDTH, pwidth);
+
+        iWidth = MAX(def, iMinWidth);
+        assert(iMaxWidth != PIXELVAL_AUTO && iMaxWidth != PIXELVAL_NORMAL);
+        if (iMaxWidth != PIXELVAL_NONE) {
+            iWidth = MIN(def, iMaxWidth);
+        }
+    }
+
+    return iWidth;
+}
+
 
 /*
  *---------------------------------------------------------------------------
@@ -424,7 +479,6 @@ tableDrawCells(pNode, col, colspan, row, rowspan, pContext)
         pBox->iContaining += (pData->aWidth[i] + pData->border_spacing);
     }
 
-    pData->pLayout->marginValid = 0;
     HtmlLayoutTableCell(pData->pLayout, pBox, pNode, pBox->iContaining);
     belowY = y + pBox->height + pData->border_spacing;
 
@@ -788,11 +842,6 @@ int tableLayout(pLayout, pBox, pNode)
     TableCell *aCell = 0;    /* Array of nCol cells used during drawing */
     TableData data;
 
-    int marginValid;         /* Saved pLayout->marginValid value */
-    int marginValue;         /* Saved pLayout->marginValue value */
-    marginValid = pLayout->marginValid;
-    marginValue = pLayout->marginValue;
-
     memset(&data, 0, sizeof(struct TableData));
     data.pLayout = pLayout;
 
@@ -886,11 +935,7 @@ int tableLayout(pLayout, pBox, pNode)
      * worry about the implicit minimum and maximum width as determined by
      * the table content here.
      */
-    if (pBox->contentWidth) {
-        width = pBox->contentWidth;
-    } else {
-        width = MIN(pBox->iContaining, maxwidth);
-    }
+    width = MIN(pBox->iContaining, maxwidth);
     width = MAX(minwidth, width);
 
     /* Decide on some actual widths for the cells */
@@ -913,8 +958,6 @@ int tableLayout(pLayout, pBox, pNode)
     ckfree((char *)aY);
     ckfree((char *)aCell);
 
-    pLayout->marginValue = marginValue;
-    pLayout->marginValid = marginValid;
     return TCL_OK;
 }
 

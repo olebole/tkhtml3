@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.100 2005/11/11 15:25:15 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.101 2005/11/12 04:47:20 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -239,7 +239,6 @@ struct NormalFlowCallback {
  */
 
 static int markerLayout(LayoutContext*, BoxContext*, HtmlNode*, int);
-
 static void layoutReplacement(LayoutContext*,BoxContext*,HtmlNode*,CONST char*);
 
 static int inlineLayoutDrawLines
@@ -299,29 +298,40 @@ static void drawBlock(LayoutContext*, BoxContext*, HtmlNode*, int,unsigned int);
  *
  * nodeGetBoxProperties --
  *    
- *     Get the border and padding properties for a node.
+ *     Calculate and return the border and padding widths of a node as exact
+ *     pixel values based on the width of the containing block (parameter
+ *     iContaining) and the computed values of the following properties:
+ *
+ *         'padding'
+ *         'border-width'
+ *         'border-style'
+ *
+ *     Eight non-negative integer pixel values are returned, the top, right,
+ *     bottom and left paddings and the top, right, bottom and left border
+ *     widths (borders are always rendered as solid lines).
  *
  * Results:
  *     None.
  *
  * Side effects:
- *     None.
+ *     The eight calculated values are written into *pBoxProperties before
+ *     returning.
  *
  *---------------------------------------------------------------------------
  */
 void 
-nodeGetBoxProperties(pLayout, pNode, parentwidth, pBoxProperties)
-    LayoutContext *pLayout;
-    HtmlNode *pNode;
-    int parentwidth;
-    BoxProperties *pBoxProperties;
+nodeGetBoxProperties(pLayout, pNode, iContaining, pBoxProperties)
+    LayoutContext *pLayout;            /* Unused */
+    HtmlNode *pNode;                   /* Node to calculate values for */
+    int iContaining;                   /* Width of pNode's containing block */
+    BoxProperties *pBoxProperties;     /* OUT: Write pixel values here */
 {
     HtmlComputedValues *pV = pNode->pPropertyValues;
 
-    pBoxProperties->padding_top = PIXELVAL(pV, PADDING_TOP, parentwidth);
-    pBoxProperties->padding_right = PIXELVAL(pV, PADDING_RIGHT, parentwidth);
-    pBoxProperties->padding_bottom = PIXELVAL(pV, PADDING_BOTTOM, parentwidth);
-    pBoxProperties->padding_left = PIXELVAL(pV, PADDING_LEFT, parentwidth);
+    pBoxProperties->padding_top = PIXELVAL(pV, PADDING_TOP, iContaining);
+    pBoxProperties->padding_right = PIXELVAL(pV, PADDING_RIGHT, iContaining);
+    pBoxProperties->padding_bottom = PIXELVAL(pV, PADDING_BOTTOM, iContaining);
+    pBoxProperties->padding_left = PIXELVAL(pV, PADDING_LEFT, iContaining);
 
     /* Note: 'border-width' properties may not be set to % values, so access
      * them directly, not using the PIXELVAL macro.
@@ -338,6 +348,17 @@ nodeGetBoxProperties(pLayout, pNode, parentwidth, pBoxProperties)
     pBoxProperties->border_left = (
             (pV->eBorderLeftStyle != CSS_CONST_NONE) ?
             pV->border.iLeft : 0);
+
+    assert(
+        pBoxProperties->border_top >= 0 &&
+        pBoxProperties->border_right >= 0 &&
+        pBoxProperties->border_bottom >= 0 &&
+        pBoxProperties->border_left >= 0 &&
+        pBoxProperties->padding_top >= 0 &&
+        pBoxProperties->padding_right >= 0 &&
+        pBoxProperties->padding_bottom >= 0 &&
+        pBoxProperties->padding_left >= 0
+    );
 }
 
 /*
@@ -360,66 +381,11 @@ nodeGetBorderProperties(pLayout, pNode, pBorderProperties)
     BorderProperties *pBorderProperties;
 {
     HtmlComputedValues *pValues = pNode->pPropertyValues;
-
     pBorderProperties->color_top = pValues->cBorderTopColor->xcolor;
     pBorderProperties->color_right = pValues->cBorderRightColor->xcolor;
     pBorderProperties->color_bottom = pValues->cBorderBottomColor->xcolor;
     pBorderProperties->color_left = pValues->cBorderLeftColor->xcolor;
     pBorderProperties->color_bg = pValues->cBackgroundColor->xcolor;
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * nodeGetWidth --
- * 
- *     Return the value of the 'width' property for a given node.
- *
- *     This function also handles the 'max-width' and 'min-width'
- *     properties. If there is no 'width' attribute and the default value
- *     supplied as the fourth argument is greater than zero, then the
- *     'min-width' and 'max-width' properties are taken into account when
- *     figuring out the return value.
- * 
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-int 
-nodeGetWidth(pLayout, pNode, pwidth, def, pIsFixed, pIsAuto)
-    LayoutContext *pLayout;   /* Layout context */
-    HtmlNode *pNode;          /* Node */
-    int pwidth;               /* Unused */
-    int def;                  /* Default value */
-    int *pIsFixed;            /* OUT: True if a pixel width */
-    int *pIsAuto;             /* OUT: True if value is "auto" */
-{
-    HtmlComputedValues *pV = pNode->pPropertyValues;
-    int iWidth;
-
-    iWidth = PIXELVAL(pV, WIDTH, pwidth);
-
-    if (pIsAuto) {
-        *pIsAuto = ((iWidth == PIXELVAL_AUTO) ? 1 : 0);
-    }
-
-    assert(iWidth != PIXELVAL_NONE && iWidth != PIXELVAL_NORMAL);
-    if (iWidth == PIXELVAL_AUTO) {
-        int iMinWidth = PIXELVAL(pV, MIN_WIDTH, pwidth);
-        int iMaxWidth = PIXELVAL(pV, MAX_WIDTH, pwidth);
-
-        iWidth = MAX(def, iMinWidth);
-        assert(iMaxWidth != PIXELVAL_AUTO && iMaxWidth != PIXELVAL_NORMAL);
-        if (iMaxWidth != PIXELVAL_NONE) {
-            iWidth = MIN(def, iMaxWidth);
-        }
-    }
-
-    return iWidth;
 }
 
 /*
@@ -454,7 +420,10 @@ nodeGetMargins(pLayout, pNode, iContaining, pMargins)
     assert(pV);
 
     /* Margin properties do not apply to table cells or rows. So return zero
-     * for all. 
+     * for all. We have to do this sort of thing here in the layout engine, not
+     * in the styler code, because a table-cell can still have a computed value
+     * of a margin property (which may be inherited from), just not an actual
+     * one.
      */
     if (
         pV->eDisplay == CSS_CONST_TABLE_CELL ||
@@ -833,15 +802,6 @@ inlineLayoutDrawLines(pLayout, pBox, pContext, forceflag, pY, pNormal)
             assert(!(f & LINEBOX_FORCEBOX));
             y = HtmlFloatListPlace(pBox->pFloat, pBox->iContaining, w, 1, y);
             have = 1;
-           
-            /* If we shifted down to avoid a floating margin, then do not
-	     * worry about any vertical margin. 
-             *
-	     * Todo: Possibly we should collapse the existing margin with
-	     * the delta-y? Not sure about that right now though. It's a
-	     * pretty minor issue really.
-             */
-            pLayout->marginValid = 0;
         } 
 
 	/* floatListClear(pBox->pFloats, y); */

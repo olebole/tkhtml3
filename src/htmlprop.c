@@ -36,13 +36,15 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char rcsid[] = "$Id: htmlprop.c,v 1.32 2005/11/11 09:05:43 danielk1977 Exp $";
+static char rcsid[] = "$Id: htmlprop.c,v 1.33 2005/11/12 04:47:20 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
+
+#define LOG if (p->pTree->options.logcmd)
 
 /*
  *---------------------------------------------------------------------------
@@ -458,47 +460,58 @@ setcolor_out:
  *---------------------------------------------------------------------------
  */
 static int 
-propertyValuesSetLength(p, pIVal, em_mask, pProp)
+propertyValuesSetLength(p, pIVal, em_mask, pProp, allowNegative)
     HtmlComputedValuesCreator *p;
     int *pIVal;
     unsigned int em_mask;
     CssProperty *pProp;
+    int allowNegative;
 {
+    int iVal;
     switch (pProp->eType) {
 
         case CSS_TYPE_EM:
             if (em_mask == 0) return 1;
-            *pIVal = (int)(pProp->v.rVal * 100.0);
-            p->em_mask |= em_mask;
+            iVal = (int)(pProp->v.rVal * 100.0);
             break;
         case CSS_TYPE_EX:
             if (em_mask == 0) return 1;
-            *pIVal = (int)(pProp->v.rVal * 100.0);
-            p->ex_mask |= em_mask;
+            iVal = (int)(pProp->v.rVal * 100.0);
             break;
 
         case CSS_TYPE_PX:
-            *pIVal = pProp->v.iVal;
+            iVal = pProp->v.iVal;
             break;
 
         case CSS_TYPE_PT:
-            *pIVal = physicalToPixels(p, (double)pProp->v.iVal, 'p');
+            iVal = physicalToPixels(p, (double)pProp->v.iVal, 'p');
             break;
         case CSS_TYPE_PC:
-            *pIVal = physicalToPixels(p, pProp->v.rVal * 12.0, 'p');
+            iVal = physicalToPixels(p, pProp->v.rVal * 12.0, 'p');
             break;
         case CSS_TYPE_CENTIMETER:
-            *pIVal = physicalToPixels(p, pProp->v.rVal, 'c');
+            iVal = physicalToPixels(p, pProp->v.rVal, 'c');
             break;
         case CSS_TYPE_INCH:
-            *pIVal = physicalToPixels(p, pProp->v.rVal, 'i');
+            iVal = physicalToPixels(p, pProp->v.rVal, 'i');
             break;
         case CSS_TYPE_MILLIMETER:
-            *pIVal = physicalToPixels(p, pProp->v.rVal, 'm');
+            iVal = physicalToPixels(p, pProp->v.rVal, 'm');
             break;
 
         default:
             return 1;
+    }
+
+    if (iVal < MAX_PIXELVAL || iVal >= 0 || allowNegative) {
+        *pIVal = iVal;
+        if (pProp->eType == CSS_TYPE_EM) {
+            p->em_mask |= em_mask;
+        } else if (pProp->eType == CSS_TYPE_EX) {
+            p->ex_mask |= em_mask;
+        }
+    } else {
+        return 1;
     }
 
     return 0;
@@ -557,7 +570,7 @@ propertyValuesSetLineHeight(p, pProp)
             /* Try to treat the property as a <length> */
             int i = p->values.iLineHeight;
             int *pIVal = &p->values.iLineHeight;
-            rc = propertyValuesSetLength(p,pIVal,PROP_MASK_LINE_HEIGHT,pProp);
+            rc = propertyValuesSetLength(p,pIVal,PROP_MASK_LINE_HEIGHT,pProp,0);
             if (*pIVal < 0) {
                 rc = 1;
                 *pIVal = i;
@@ -638,7 +651,7 @@ propertyValuesSetVerticalAlign(p, pProp)
         default: {
             /* Try to treat the property as a <length> */
             int *pIVal = &p->values.iVerticalAlign;
-            rc = propertyValuesSetLength(p, &pIVal, MASK, pProp);
+            rc = propertyValuesSetLength(p, &pIVal, MASK, pProp, 1);
             if (rc == 0) {
                 p->values.mask |= MASK;
                 p->eVerticalAlignPercent = 0;
@@ -655,6 +668,7 @@ propertyValuesSetVerticalAlign(p, pProp)
 #define SZ_INHERIT  0x00000002
 #define SZ_NONE     0x00000004
 #define SZ_PERCENT  0x00000008
+#define SZ_NEGATIVE 0x00000010
 
 /*
  *---------------------------------------------------------------------------
@@ -688,13 +702,18 @@ propertyValuesSetSize(p, pIVal, p_mask, pProp, allow_mask)
     switch (pProp->eType) {
 
         /* TODO Percentages are still stored as integers - this is wrong */
-        case CSS_TYPE_PERCENT:
-            if (allow_mask & SZ_PERCENT) {
+        case CSS_TYPE_PERCENT: {
+            int iVal = pProp->v.iVal;
+            if (
+                (allow_mask & SZ_PERCENT) && 
+                (iVal >= 0 || allow_mask & SZ_NEGATIVE) 
+            ) {
                 p->values.mask |= p_mask;
-                *pIVal = (pProp->v.iVal * 100);
+                *pIVal = iVal * 100;
                 return 0;
             }
             return 1;
+        }
 
         case CSS_CONST_INHERIT:
             if (allow_mask & SZ_INHERIT) {
@@ -723,12 +742,19 @@ propertyValuesSetSize(p, pIVal, p_mask, pProp, allow_mask)
             }
             return 1;
 
-        case CSS_TYPE_FLOAT:
-            *pIVal = pProp->v.rVal;
-            return 0;
+        case CSS_TYPE_FLOAT: {
+            int iVal = pProp->v.rVal;
+  
+            if (iVal >= 0 || allow_mask & SZ_NEGATIVE) {
+                *pIVal = iVal;
+                return 0;
+            }
+            return 1;
+        }
 
         default:
-            return propertyValuesSetLength(p, pIVal, p_mask, pProp);
+            return propertyValuesSetLength(
+                p, pIVal, p_mask, pProp, allow_mask & SZ_NEGATIVE);
     }
 }
 
@@ -796,7 +822,7 @@ propertyValuesSetBorderWidth(p, pIVal, em_mask, pProp)
     /* If it is not one of the above keywords, then the border-width may 
      * be expressed as a CSS <length>.
      */
-    if (0 == propertyValuesSetLength(p, pIVal, em_mask, pProp)) {
+    if (0 == propertyValuesSetLength(p, pIVal, em_mask, pProp, 0)) {
         return 0;
     }
 
@@ -1206,19 +1232,23 @@ HtmlComputedValuesSet(p, eProp, pProp)
             );
         case CSS_PROPERTY_MARGIN_TOP:
             return propertyValuesSetSize(p, &(p->values.margin.iTop),
-                PROP_MASK_MARGIN_TOP, pProp, SZ_INHERIT|SZ_PERCENT|SZ_AUTO
+                PROP_MASK_MARGIN_TOP, pProp, 
+                SZ_INHERIT|SZ_PERCENT|SZ_AUTO|SZ_NEGATIVE
             );
         case CSS_PROPERTY_MARGIN_LEFT:
             return propertyValuesSetSize(p, &(p->values.margin.iLeft),
-                PROP_MASK_MARGIN_LEFT, pProp, SZ_INHERIT|SZ_PERCENT|SZ_AUTO
+                PROP_MASK_MARGIN_LEFT, pProp, 
+                SZ_INHERIT|SZ_PERCENT|SZ_AUTO|SZ_NEGATIVE
             );
         case CSS_PROPERTY_MARGIN_RIGHT:
             return propertyValuesSetSize(p, &(p->values.margin.iRight),
-                PROP_MASK_MARGIN_RIGHT, pProp, SZ_INHERIT|SZ_PERCENT|SZ_AUTO
+                PROP_MASK_MARGIN_RIGHT, pProp, 
+                SZ_INHERIT|SZ_PERCENT|SZ_AUTO|SZ_NEGATIVE
             );
         case CSS_PROPERTY_MARGIN_BOTTOM:
             return propertyValuesSetSize(p, &(p->values.margin.iBottom),
-                PROP_MASK_MARGIN_BOTTOM, pProp, SZ_INHERIT|SZ_PERCENT|SZ_AUTO
+                PROP_MASK_MARGIN_BOTTOM, pProp, 
+                SZ_INHERIT|SZ_PERCENT|SZ_AUTO|SZ_NEGATIVE
             );
 
         /* 'vertical-align', special case: */
