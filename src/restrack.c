@@ -29,7 +29,9 @@
 
 #ifndef NDEBUG 
 
+#ifdef HTML_RES_DEBUG
 #define RES_DEBUG
+#endif
 
 #define MAX(x,y) ((x)>(y)?(x):(y))
 #define MIN(x,y) ((x)<(y)?(x):(y))

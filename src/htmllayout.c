@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.102 2005/11/13 12:00:17 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.103 2005/11/13 13:42:24 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -942,8 +942,18 @@ normalFlowType(pNode)
  *           margins. The actual width of the returned rendering might be
  *           different from this.
  *
- *     If argument isOmitBorder is true, then the border is not drawn (although
- *     space is still allocated for it).
+ *     Flags:
+ *
+ *         Argument flags may be any combination of the following bitmasks:
+ *
+ *             DRAWBLOCK_OMITBORDER    
+ *                 Do not actually draw the border & background (but still
+ *                 allocate space for them).
+ *             DRAWBLOCK_CONTENTWIDTH 
+ *                 Parameter iAvailable refers to the content-width of the
+ *                 block, ont the width between the inside and outside margins. 
+ *             DRAWBLOCK_ENFORCEWIDTH
+ *             DRAWBLOCK_ENFORCEHEIGHT
  *
  * Results:
  *     None.
@@ -1131,19 +1141,21 @@ normalFlowLayoutTable(pLayout, pBox, pNode, pY, pContext, pNormal)
     InlineContext *pContext;
     NormalFlow *pNormal;
 {
-    int iMinWidth;
+    int iMinWidth;                  /* Minimum from blockMinMaxWidth */
     int iMaxWidth;
     int iLeftFloat = 0;
     int iRightFloat = pBox->iContaining;
 
+    int iWidth;
+    unsigned int flags;
+
     MarginProperties margin;          /* Margin properties of pNode */
-    BoxProperties box;                /* Box properties of pNode */
 
     int x, y;          /* Coords for content to be drawn */
     BoxContext sBox;   /* Box context for content to be drawn into */
 
     nodeGetMargins(pLayout, pNode, pBox->iContaining, &margin);
-    nodeGetBoxProperties(pLayout, pNode, pBox->iContaining, &box);
+
 
     /* Account for the 'margin-top' property of this node. The margin always
      * collapses for a table element.
@@ -1155,15 +1167,25 @@ normalFlowLayoutTable(pLayout, pBox, pNode, pY, pContext, pNormal)
      * unlikely circumstances the table will be placed lower in the flow than
      * would have been necessary. But it's not that big of a deal.
      */
-    blockMinMaxWidth(pLayout, pNode, &iMinWidth, &iMaxWidth);
-    *pY = HtmlFloatListPlace(
-	pBox->pFloat, pBox->iContaining, iMinWidth, 10000, *pY);
-    HtmlFloatListMargins(
-        pBox->pFloat, *pY, *pY + 10000, &iLeftFloat, &iRightFloat);
+
+    iWidth = PIXELVAL(pNode->pPropertyValues, WIDTH, pBox->iContaining);
+
+    if (iWidth == PIXELVAL_AUTO) {
+        blockMinMaxWidth(pLayout, pNode, &iMinWidth, &iMaxWidth);
+        *pY = HtmlFloatListPlace(
+            pBox->pFloat, pBox->iContaining, iMinWidth, 10000, *pY);
+        HtmlFloatListMargins(
+            pBox->pFloat, *pY, *pY + 10000, &iLeftFloat, &iRightFloat);
+        iWidth = iRightFloat - iLeftFloat;
+        flags = 0;
+    } else {
+        /* flags = DRAWBLOCK_ENFORCEWIDTH|DRAWBLOCK_CONTENTWIDTH; */
+        flags = DRAWBLOCK_ENFORCEWIDTH;
+    }
 
     memset(&sBox, 0, sizeof(BoxContext));
     sBox.iContaining = pBox->iContaining;
-    drawBlock(pLayout, &sBox, pNode, iRightFloat - iLeftFloat, 0);
+    drawBlock(pLayout, &sBox, pNode, iWidth, flags);
 
     y = *pY;
     *pY += sBox.height;

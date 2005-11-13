@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.57 2005/11/13 12:00:17 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.58 2005/11/13 13:42:24 danielk1977 Exp $";
 
 #include "htmllayout.h"
 
@@ -349,7 +349,19 @@ tableDrawRow(pNode, row, pContext)
     LayoutContext *pLayout = pData->pLayout;
     int nextrow = row+1;
     int x = pData->border_spacing;
+    int x1, y1, x2, y2;
     int i;
+
+    /* Add the background and border for the table-row. */
+    x1 = pData->border_spacing;
+    y1 = pData->aY[row];
+    y2 = pData->aY[nextrow];
+    x2 = x1;
+    for (i=0; i<pData->nCol; i++) {
+        x2 += pData->aWidth[i];
+    }
+    x2 += ((pData->nCol - 1) * pData->border_spacing);
+    borderLayout(pLayout, pNode, pData->pBox, x1, y1, x2, y2);
 
     for (i=0; i<pData->nCol; i++) {
         TableCell *pCell = &pData->aCell[i];
@@ -548,16 +560,16 @@ tableIterate(pNode, xCallback, xRowCallback, pContext)
     int *aRowSpan = 0;       /* Space to hold row-span data */
 
     for (i=0; i<HtmlNodeNumChildren(pNode); i++) {
-        HtmlNode *pChild = HtmlNodeChild(pNode, i);
-        HtmlComputedValues *pV = pChild->pPropertyValues;
+        HtmlNode *pRow = HtmlNodeChild(pNode, i);
+        HtmlComputedValues *pV = pRow->pPropertyValues;
         if (DISPLAY(pV) == CSS_CONST_TABLE_ROW) {
             int col = 0;
             int j;
             int k;
-            for (j=0; j<HtmlNodeNumChildren(pChild); j++) {
-                HtmlNode *p = HtmlNodeChild(pChild, j);
-                int tt = HtmlNodeTagType(p);
-                if (tt==Html_TD || tt==Html_TH) {
+            for (j=0; j<HtmlNodeNumChildren(pRow); j++) {
+                HtmlNode *pCell = HtmlNodeChild(pRow, j);
+                HtmlComputedValues *pV = pCell->pPropertyValues;
+                if (DISPLAY(pV) == CSS_CONST_TABLE_CELL) {
                     CONST char *zSpan;
                     int nSpan;
                     int nRSpan;
@@ -565,14 +577,14 @@ tableIterate(pNode, xCallback, xRowCallback, pContext)
                     int col_ok = 0;
 
                     /* Set nSpan to the number of columns this cell spans */
-                    zSpan = HtmlNodeAttr(p, "colspan");
+                    zSpan = HtmlNodeAttr(pCell, "colspan");
                     nSpan = zSpan?atoi(zSpan):1;
                     if (nSpan<0) {
                         nSpan = 1;
                     }
 
                     /* Set nRowSpan to the number of rows this cell spans */
-                    zSpan = HtmlNodeAttr(p, "rowspan");
+                    zSpan = HtmlNodeAttr(pCell, "rowspan");
                     nRSpan = zSpan?atoi(zSpan):1;
                     if (nRSpan<0) {
                         nRSpan = 1;
@@ -614,7 +626,7 @@ tableIterate(pNode, xCallback, xRowCallback, pContext)
                     }
 
                     maxrow = MAX(maxrow, row+nRSpan-1);
-                    rc = xCallback(p, col, nSpan, row, nRSpan, pContext);
+                    rc = xCallback(pCell, col, nSpan, row, nRSpan, pContext);
                     if (rc!=TCL_OK) {
                         HtmlFree((char *)aRowSpan);
                         return rc;
@@ -623,7 +635,7 @@ tableIterate(pNode, xCallback, xRowCallback, pContext)
                 }
             }
             if (xRowCallback) {
-                xRowCallback(pChild, row, pContext);
+                xRowCallback(pRow, row, pContext);
             }
             row++;
             for (k=0; k<nRowSpan; k++) {
@@ -853,8 +865,8 @@ int tableLayout(pLayout, pBox, pNode)
 
     assert(pV->eDisplay==CSS_CONST_TABLE);
 
-    /* Read the value of the 'border-spacing' property (or 'cellspacing'
-     * attribute if 'border-spacing' is not defined).
+    /* Read the value of the 'border-spacing' property. 'border-spacing' may
+     * not take a percentage value, so there is no need to use PIXELVAL().
      */
     data.border_spacing = pV->iBorderSpacing;
 
@@ -869,7 +881,6 @@ int tableLayout(pLayout, pBox, pNode)
     nCol = data.nCol;
 
     /* Allocate arrays for the minimum and maximum widths of each column */
-
     aMinWidth = (int *)HtmlAlloc(nCol*sizeof(int));
     memset(aMinWidth, 0, nCol*sizeof(int));
     aMaxWidth = (int *)HtmlAlloc(nCol*sizeof(int));
@@ -911,10 +922,9 @@ int tableLayout(pLayout, pBox, pNode)
     tableIterate(pNode, tableColWidthMultiSpan, 0, &data);
 
     /* Set variable 'width' to the actual width for the entire table. This
-     * is the sum of the widths of the cells plus the border-spacing, plus
-     * (Todo) the border of the table itself. Variables minwidth and
-     * maxwidth are the minimum and maximum allowable widths for the table
-     * based on the min and max widths of the columns.
+     * is the sum of the widths of the cells plus the border-spacing. Variables
+     * minwidth and maxwidth are the minimum and maximum allowable widths for
+     * the table based on the min and max widths of the columns.
      *
      * The actual width of the table is based on the following rules, in
      * order of precedence:
@@ -924,6 +934,10 @@ int tableLayout(pLayout, pBox, pNode)
      *       use the specifically requested width.
      *     * Otherwise use the smaller of maxwidth and the width of the
      *       parent box.
+     */
+
+    /* Set minwidth and maxwidth to the minimum and maximum width renderings of
+     * the table based on the content.
      */
     minwidth = (nCol+1) * data.border_spacing;
     maxwidth = (nCol+1) * data.border_spacing;
@@ -938,6 +952,9 @@ int tableLayout(pLayout, pBox, pNode)
      * worry about the implicit minimum and maximum width as determined by
      * the table content here.
      */
+    if (pBox->width != 0) {
+        maxwidth = pBox->width;
+    }
     width = MIN(pBox->iContaining, maxwidth);
     width = MAX(minwidth, width);
 
