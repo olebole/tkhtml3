@@ -43,13 +43,16 @@
 #
 bind Html <ButtonPress>     { focus %W }
 bind Html <KeyPress-Up>     { %W yview scroll -1 units }
-bind Html <KeyPress-Down>   { %W yview scroll 1 units }
-bind Html <KeyPress-Return> { %W yview scroll 1 units }
-bind Html <KeyPress-Right>  { %W xview scroll 1 units }
+bind Html <KeyPress-Down>   { %W yview scroll  1 units }
+bind Html <KeyPress-Return> { %W yview scroll  1 units }
+bind Html <KeyPress-Right>  { %W xview scroll  1 units }
 bind Html <KeyPress-Left>   { %W xview scroll -1 units }
-bind Html <KeyPress-Next>   { %W yview scroll 1 pages }
-bind Html <KeyPress-space>  { %W yview scroll 1 pages }
+bind Html <KeyPress-Next>   { %W yview scroll  1 pages }
+bind Html <KeyPress-space>  { %W yview scroll  1 pages }
 bind Html <KeyPress-Prior>  { %W yview scroll -1 pages }
+bind Html <ButtonPress-4>   { %W yview scroll -2 units }
+bind Html <ButtonPress-5>   { %W yview scroll  2 units }
+
 
 # Some Tcl procs used by html.css
 #

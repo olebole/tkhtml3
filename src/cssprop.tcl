@@ -37,37 +37,12 @@
 # POSSIBILITY OF SUCH DAMAGE.
 #
 
-#
-# This list contains all the constant strings that are understood as
-# property values by Tkhtml. For each entry, a '#define' constant with 
-# the name "CSS_CONST_<string>" where <string> is the value of the constant
-# folded to upper case. Any '-' characters are converted to '_'.
-# 
-# Sequential values are assigned to the '#define' starting at
-# CSS_CONST_MIN_CONSTANT and ending with CSS_CONST_MAX_CONSTANT.  The value
-# are always above 99.
-#
-# i.e:
-#
-#     #define CSS_CONST_MIN_CONSTANT 100
-#     #define CSS_CONST_BLOCK        100
-#     #define CSS_CONST_INLINE       101
-#     #define CSS_CONST_LIST_ITEM    102
-#     #define CSS_CONST_NONE         103
-#     #define CSS_CONST_MAX_CONSTANT 103
-#
-# Two functions are also generated:
-#
-#     int          HtmlCssStringToConstant(int n, const char *z);
-#     const char * HtmlCssConstantToString(int e);
-#
-# See Tcl procedures [C_get_constants] and [C_get_functions] in this file
-# for more details.
-#
-set ::constants [list]
-proc C {args} {set ::constants [concat $::constants $args]}
+proc C {args} {foreach a $args {lappend ::constants $a}}
+proc P {args} {foreach a $args {lappend ::properties $a}}
+proc S {args} {foreach a $args {lappend ::shortcut_properties $a}}
 
 C inherit
+C table-header-group table-footer-group table-row 
 C block inline list-item none                     ;# 'display'
 C run-in compact marker table inline-table 
 C table-caption table-row-group table-cell
@@ -81,8 +56,6 @@ C square disc circle none                         ;# 'list-style-type'
 C italic oblique                                  ;# 'font-style'
 C bold bolder lighter                             ;# 'font-weight'
 C top middle bottom baseline sub super            ;# 'vertical-align'
-C text-top text-bottom
-C underline overline line-through none            ;# 'text-decoration'
 C pre nowrap normal                               ;# 'white-space'
 C xx-small x-small small medium large x-large     ;# 'font-size'
 C xx-large larger smaller
@@ -95,39 +68,31 @@ C top left right bottom center                    ;# 'background-position'
 C black silver gray white maroon red purple aqua  ;# Standard web colors
 C fuchsia green lime olive yellow navy blue teal
 C transparent                                     ;# 'background-color'
+C underline overline line-through none            ;# 'text-decoration'
+C text-top text-bottom 
 
-# This is a list of all property names for properties that are not (a)
-# shortcut properties or (b) custom Tkhtml properties.
-#
-set properties [list \
-azimuth background-attachment background-color background-image \
-background-position background-repeat border-collapse border-spacing \
-border-top-color border-right-color border-bottom-color border-left-color \
-border-top-style border-right-style border-bottom-style border-left-style \
-border-top-width border-right-width border-bottom-width border-left-width \
-bottom caption-side clear clip color content counter-increment counter-reset \
-cue-after cue-before cursor direction display elevation empty-cells float \
-font-family font-size font-size-adjust font-stretch font-style font-variant \
-font-weight height left letter-spacing line-height list-style list-style-image \
-list-style-position list-style-type margin-top margin-right \
-margin-bottom margin-left marker-offset marks max-height max-width \
-min-height min-width orphans outline-color outline-style outline-width \
-overflow padding-top padding-right padding-bottom padding-left \
-page page-break-after page-break-before page-break-inside pause pause-after \
-pause-before pitch pitch-range play-during position quotes richness right \
-size speak speak-header speak-numeral speak-punctuation speech-rate stress \
-table-layout text-align text-decoration text-indent text-shadow text-transform \
-top unicode-bidi vertical-align visibility voice-family volume white-space \
-widows width word-spacing z-index \
-]
+P azimuth background-attachment background-color background-image 
+P background-position background-repeat border-collapse border-spacing 
+P border-top-color border-right-color border-bottom-color border-left-color 
+P border-top-style border-right-style border-bottom-style border-left-style 
+P border-top-width border-right-width border-bottom-width border-left-width 
+P bottom caption-side clear clip color content counter-increment counter-reset 
+P cue-after cue-before cursor direction display elevation empty-cells float 
+P font-family font-size font-size-adjust font-stretch font-style font-variant 
+P font-weight height left letter-spacing line-height list-style list-style-image
+P list-style-position list-style-type margin-top margin-right 
+P margin-bottom margin-left marker-offset marks max-height max-width 
+P min-height min-width orphans outline-color outline-style outline-width 
+P overflow padding-top padding-right padding-bottom padding-left 
+P page page-break-after page-break-before page-break-inside pause pause-after 
+P pause-before pitch pitch-range play-during position quotes richness right 
+P size speak speak-header speak-numeral speak-punctuation speech-rate stress 
+P table-layout text-align text-decoration text-indent text-shadow text-transform
+P top unicode-bidi vertical-align visibility voice-family volume white-space 
+P widows width word-spacing z-index 
 
-# Custom tkhtml properties:
-lappend properties -tkhtml-replace
-
-set shortcut_properties [list \
-background border border-top border-right border-bottom border-left \
-border-color border-style border-width cue font padding outline margin\
-]
+S background border border-top border-right border-bottom border-left
+S border-color border-style border-width cue font padding outline margin
 
 #########################################################################
 #########################################################################
@@ -135,223 +100,224 @@ border-color border-style border-width cue font padding outline margin\
 #########################################################################
 #########################################################################
 
-# Return the C-code that defines the #define symbols for the CSS constants.
+set ::cssprop_h {}          ;# Contents of cssprop_h file
+set ::cssprop_c {}          ;# Contents of cssprop_c file
+
+proc CodeInfrastructure {} {
+    append ::cssprop_c [regsub -all {\n        } {
+
+        typedef struct HashEntry HashEntry;
+        struct HashEntry {
+            const char *zString;       /* String for this entry */
+            int iNext;                 /* Next entry in hash-chain, or -1 */
+        };
+        
+        /*
+         * Return the hash of zString. The hash is guaranteed to be between 0
+         * and 127, inclusive.
+         */
+        static int 
+        Hash(nString, zString) 
+            int nString;
+            const char *zString;
+        {
+            unsigned int result = 0;
+            const char *string = zString;
+            const char *end = &zString[nString];
+            int c;
+            for (c=*string; string != end; c=*++string) {
+                result += (result<<3) + tolower(c);
+            }
+            if (result & 0x00000080) { 
+                result = ~result;
+            }
+            return (result & 0x000000FF);
+        }
+
+        static int
+        Lookup(nString, zString, aTable, aHashTable) 
+            int nString;
+            const char *zString;
+            int *aTable;
+            HashEntry *aHashTable;
+        {
+            int t;
+
+            if (nString < 0) {
+                nString = strlen(zString);
+            }
+
+            for (
+                 t = aTable[Hash(nString, zString)]; 
+                 t >= 0 && (
+                     strlen(aHashTable[t].zString) != nString || 
+                     strncasecmp(zString, aHashTable[t].zString, nString)
+                 );
+                 t = aHashTable[t].iNext
+            );
+
+            return t;
+        }
+    } "\n"]
+}
+
+proc Hash {string} {
+    set result 0
+    binary scan [string tolower $string] c* bytes
+    foreach b $bytes {
+        incr result [expr ($result<<3) + $b]
+    }
+    if {$result & 0x00000080} {
+        set r [expr ($result & 0x0000007F) ^ 0x0000007F]
+    } else {
+        set r [expr $result & 0x0000007F]
+    }
+    return $r
+}
+
 #
-proc C_get_constants {} {
-    set val 100
-    append ret "#define CSS_CONST_MIN_CONSTANT $val\n"
-    foreach c [lsort -unique $::constants] {
-        set foldedname [string map [list - _] [string toupper $c]]
-        append ret "#define CSS_CONST_$foldedname $val\n"
-        incr val
+# CodeLookup --
+#
+#     Write C code for a set of strings. The two function prototypes will be:
+#
+#         int          ${prefix}Lookup(int n, const char *z);
+#         const char * ${prefix}ToString(int e);
+#     
+#     The argument $entries is a list containing the data used by the Lookup()
+#     function. Each entry of the list is itself a list of length two, the
+#     string followed by it's numeric symbol. For example:
+#
+#         set entries [list                                              \
+#                 {display CSS_PROPERTY_DISPLAY}                         \
+#                 {border-width-right CSS_PROPERTY_BORDER_WIDTH_RIGHT}
+#         ]
+#
+#     The entries list should be in the order that the numerical constants
+#     should be assigned. The constant allocated is $firstconstant.
+#
+proc CodeLookup {prefix entries firstconstant} {
+
+    append ::cssprop_h "int ${prefix}Lookup(int, const char *);\n"
+    append ::cssprop_h "const char * ${prefix}ToString(int);\n"
+
+    # Setup array $hashtable. This array maps from 7-bit hash value to a list
+    # of constants that correspond to it.
+    foreach e $entries {
+        set s [lindex $e 0]
+        set c [lindex $e 1]
+        set h [Hash $s]
+        lappend hashtable($h) $c
     }
-    incr val -1
-    append ret "#define CSS_CONST_MAX_CONSTANT $val\n"
-    append ret "int HtmlCssStringToConstant(CONST char *);\n"
-    append ret "CONST char * HtmlCssConstantToString(int);\n"
-    return $ret
-}
 
-proc C_get_functions {} {
-
-    set template {
-#include <assert.h>
-
-/*
- *---------------------------------------------------------------------------
- *
- * HtmlCssConstantToString --
- *
- *    Retrieve the string value of a CSS constant. i.e:
- *
- *        char *zVal = HtmlCssConstantToString(CSS_CONST_BLOCK);
- *        assert(0 == strcmp(zVal, "block"));
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-CONST char * 
-HtmlCssConstantToString(e)
-    int e;
-{
-    CONST char *aStrings[] = {
-$strings
-    };
-    assert(e >= CSS_CONST_MIN_CONSTANT);
-    assert(e <= CSS_CONST_MAX_CONSTANT);
-    return aStrings[e - CSS_CONST_MIN_CONSTANT];
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * HtmlCssStringToConstant --
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-int 
-HtmlCssStringToConstant(z)
-    CONST char *z;
-{
-    static int isInit = 0;
-    static Tcl_HashTable h;
-    Tcl_HashEntry *pEntry;
-
-    /* TODO: Make this thread-safe */
-    if( !isInit ){
-        int i;
-        Tcl_HashKeyType *pCaseKey = HtmlCaseInsenstiveHashType();
-        Tcl_InitCustomHashTable(&h, TCL_CUSTOM_TYPE_KEYS, pCaseKey);
-        for(i = CSS_CONST_MIN_CONSTANT; i <= CSS_CONST_MAX_CONSTANT; i++){
-            int newEntry;
-            char const *zVal = HtmlCssConstantToString(i);
-            pEntry = Tcl_CreateHashEntry(&h, zVal, &newEntry);
-            Tcl_SetHashValue(pEntry, i);
+    foreach k [array names hashtable] {
+        set l $hashtable($k)
+        set inexttable([lindex $l 0]) -1
+        set ifirsttable($k) [lindex $l end]
+        for {set i [expr [llength $l] - 1]} {$i > 0} {incr i -1} {
+            set a [lindex $l $i]
+            set b [lindex $l [expr $i - 1]]
+            set inexttable($a) $b
         }
-        isInit = 1;
     }
 
-    pEntry = Tcl_FindHashEntry(&h, z);
+    set negval [expr -1 * ($firstconstant + 1)]
 
-    if( pEntry ){
-         return (int)Tcl_GetHashValue(pEntry);
-    }
-    return -1;
-}
-
-    }
-
-    foreach c [lsort -unique $::constants] {
-        append strings "        \"$c\", \n"
-    }
-    return [subst -nocommands $template]
-
-
-}
-
-set fd [open cssprop.h w]
-puts $fd "#ifndef __CSSPROP_H__"
-puts $fd "#define __CSSPROP_H__"
-puts $fd {}
-puts $fd {#include <tcl.h>}
-puts $fd {}
-puts $fd [C_get_constants]
-set i 0
-puts $fd "#define CSS_PROPERTY_MIN_PROPERTY $i"
-foreach p $properties {
-  set str [string map {- _} [string toupper $p]]
-  puts $fd "#define CSS_PROPERTY_$str $i"
-  incr i
-}
-puts $fd "#define CSS_PROPERTY_MAX_PROPERTY [expr $i -1]"
-foreach s $shortcut_properties {
-  set str [string map {- _} [string toupper $s]]
-  puts $fd "#define CSS_SHORTCUTPROPERTY_$str $i"
-  incr i
-}
-puts $fd "const char *tkhtmlCssPropertyToString(int i);"
-puts $fd "int HtmlCssPropertyToString(int n, const char *z);"
-puts $fd "#endif"
-set property_count $i
-close $fd
-
-set fd [open cssprop.c w]
-puts $fd {#include "cssprop.h"}
-puts $fd {#include "html.h"}
-puts $fd {#include <tcl.h>}
-puts $fd [C_get_functions]
-puts $fd "const char *tkhtmlCssPropertyToString(int i){"
-puts $fd "    static const char *property_names\[\] = {"
-foreach p $properties {
-  puts $fd "        \"$p\","
-}
-foreach s $shortcut_properties {
-  puts $fd "        \"$s\","
-}
-puts $fd "    };"
-puts $fd {    return property_names[i];}
-puts $fd "}"
-puts $fd ""
-puts $fd ""
-
-puts $fd [subst -nocommands -nobackslashes {
-
-/*
- *---------------------------------------------------------------------------
- *
- * HtmlCssPropertyToString --
- *
- *     Parameter 'z' points to a string containing a property name (i.e.
- *     "border-top-width"). Return the corresponding property-id (i.e.
- *     CSS_PROPERTY_BORDER_TOP_WIDTH). -1 is returned if the string cannot
- *     be matched.
- *
- *     Parameter 'n' is the number of bytes in the string. If 'n' is less
- *     than 0, then the string is NULL-terminated.
- *
- * Results:
- *     Property-id constant. 
- *
- * Side effects:
- *     May intitialize static hash table.
- *
- *---------------------------------------------------------------------------
- */
-int 
-HtmlCssPropertyToString(n, z)
-    int n;
-    CONST char *z;
-{
-    static int isInit = 0;
-    static Tcl_HashTable h;
-    Tcl_HashEntry *pEntry;
-    char *zTerm;
-
-    if( !isInit ){
-        int i;
-        Tcl_HashKeyType *pCaseKey = HtmlCaseInsenstiveHashType();
-        Tcl_InitCustomHashTable(&h, TCL_CUSTOM_TYPE_KEYS, pCaseKey);
-        for(i=0; i<$i; i++){
-            int newEntry;
-            char const *zProp = tkhtmlCssPropertyToString(i);
-            pEntry = Tcl_CreateHashEntry(&h, zProp, &newEntry);
-            Tcl_SetHashValue(pEntry, i);
+    append ::cssprop_c "\n"
+    append ::cssprop_c "static const HashEntry a${prefix}\[\] = \{\n"
+    set constant $firstconstant
+    foreach e $entries {
+        set s [lindex $e 0]
+        set c [lindex $e 1]
+        append ::cssprop_h "#define $c $constant\n"
+        set iNext $inexttable($c)
+        if {$iNext == "-1"} {
+            append ::cssprop_c "    \{\"$s\", $negval\},\n"
+        } else {
+            append ::cssprop_c "    \{\"$s\", $iNext - $firstconstant\},\n"
         }
-        isInit = 1;
+        incr constant
     }
+    append ::cssprop_c "\};\n"
 
-    if( n<0 ){
-      zTerm = (char *)z;
-    }else{
-      zTerm = ckalloc(n+1);
-      memcpy(zTerm, z, n);
-      zTerm[n] = '\0';
+    append ::cssprop_c "\n"
+    append ::cssprop_c "\n"
+
+    append ::cssprop_c "int\n"
+    append ::cssprop_c "${prefix}Lookup(n, z)\n"
+    append ::cssprop_c "    int n;\n"
+    append ::cssprop_c "    const char *z;\n"
+    append ::cssprop_c "\{\n"
+    append ::cssprop_c "    int aTable\[\] = \{\n"
+
+    set acc 0
+    for {set i 0} {$i < 128} {incr i} {
+        if {[info exists ifirsttable($i)]} {
+            set nextbit "$ifirsttable($i) - $firstconstant, "
+        } else {
+            set nextbit "$negval, "
+        }
+        if {($acc + [string length $nextbit]) > 70} {
+            append ::cssprop_c "\n"
+            set acc 0
+        }
+        if {$acc == 0} {
+            append ::cssprop_c "        "
+        }
+        append ::cssprop_c $nextbit
+        incr acc [string length $nextbit]
     }
-
-    pEntry = Tcl_FindHashEntry(&h, zTerm);
-
-    if( zTerm!=z ){
-      ckfree(zTerm);
+    if {$acc > 0} {
+        append ::cssprop_c "\n"
     }
-
-    if( pEntry ){
-         return (int)Tcl_GetHashValue(pEntry);
-    }
-    return -1;
+    append ::cssprop_c "    \};"
+    append ::cssprop_c "\n"
+    append ::cssprop_c "    return Lookup(n, z, aTable, a${prefix})"
+    append ::cssprop_c " + $firstconstant;\n"
+    append ::cssprop_c "\}\n"
+    append ::cssprop_c "\n"
+    append ::cssprop_c "\n"
+    append ::cssprop_c "const char *\n"
+    append ::cssprop_c "${prefix}ToString(e)\n"
+    append ::cssprop_c "    int e;\n"
+    append ::cssprop_c "\{\n"
+    append ::cssprop_c "    return a${prefix}\[e - $firstconstant\].zString;\n"
+    append ::cssprop_c "\}\n"
 }
 
-}]
+proc writefile {filename text} {
+    set fd [open $filename w]
+    puts $fd $text
+    close $fd
+}
 
-close $fd
+foreach a [lsort -unique $constants] {
+    set b "CSS_CONST_[string map {- _} [string toupper $a]]"
+    lappend ::constant_map [list $a $b]
+}
+foreach a [lsort -unique $properties] {
+    set b "CSS_PROPERTY_[string map {- _} [string toupper $a]]"
+    lappend ::property_map [list $a $b]
+}
+foreach a [lsort -unique $shortcut_properties] {
+    set b "CSS_SHORTCUTPROPERTY_[string map {- _} [string toupper $a]]"
+    lappend ::property_map [list $a $b]
+}
+
+append ::cssprop_c "#include \"cssprop.h\"\n"
+append ::cssprop_c "#include <string.h>        /* strlen() */\n"
+append ::cssprop_c "#include <ctype.h>         /* tolower() */\n"
+CodeInfrastructure
+CodeLookup HtmlCssConstant $constant_map  100
+CodeLookup HtmlCssProperty $property_map  0
+
+set max_constant [expr [llength $constant_map] + 100 - 1]
+set max_property [expr [llength [lsort -unique $properties]] - 1]
+
+append ::cssprop_h "#define CSS_CONST_MIN_CONSTANT 100\n"
+append ::cssprop_h "#define CSS_PROPERTY_MIN_PROPERTY 0\n"
+append ::cssprop_h "#define CSS_CONST_MAX_CONSTANT $max_constant\n"
+append ::cssprop_h "#define CSS_PROPERTY_MAX_PROPERTY $max_property\n"
+
+writefile cssprop.h $::cssprop_h
+writefile cssprop.c $::cssprop_c
 

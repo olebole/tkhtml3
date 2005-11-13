@@ -30,7 +30,7 @@
  *         This is called to deallocate all resources associated with the
  *         InlineContext object.
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.3 2005/11/11 09:05:43 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.4 2005/11/13 12:00:17 danielk1977 Exp $";
 
 typedef struct InlineBox InlineBox;
 
@@ -163,7 +163,7 @@ inlineContextPopBorder(p, pBorder)
          */
         InlineBorder *pBorder = p->pBoxBorders;
         p->pBoxBorders = pBorder->pNext;
-        ckfree((char *)pBorder);
+        HtmlFree((char *)pBorder);
     } else {
         if (p->nInline > 0) {
             InlineBox *pBox = &p->aInline[p->nInline-1];
@@ -175,7 +175,7 @@ inlineContextPopBorder(p, pBorder)
             pBorder = p->pBorders;
             assert(pBorder);
             p->pBorders = pBorder->pNext;
-            ckfree((char *)pBorder);
+            HtmlFree((char *)pBorder);
         }
     }
 }
@@ -188,7 +188,7 @@ inlineContextPopBorder(p, pBorder)
  *     This function retrieves the border, background, margin and padding
  *     properties for node pNode. If the properties still all have their
  *     default values, then NULL is returned. Otherwise an InlineBorder
- *     struct is allocated using ckalloc(), populated with the various
+ *     struct is allocated using HtmlAlloc(), populated with the various
  *     property values and returned.
  *
  *     The returned struct is considered private to the inlineContextXXX()
@@ -236,7 +236,7 @@ InlineBorder *inlineContextGetBorder(pLayout, pNode, parentblock)
         border.textdecoration != CSS_CONST_NONE
     ) {
         border.color = pValues->cColor->xcolor;
-        pBorder = (InlineBorder *)ckalloc(sizeof(InlineBorder));
+        pBorder = (InlineBorder *)HtmlAlloc(sizeof(InlineBorder));
         memcpy(pBorder, &border, sizeof(InlineBorder));
     }
 
@@ -299,7 +299,7 @@ inlineContextAddInlineCanvas(p, eReplaced, pNode)
          */
         char *a = (char *)p->aInline;
         int nAlloc = p->nInlineAlloc + 25;
-        p->aInline = (InlineBox *)ckrealloc(a, nAlloc*sizeof(InlineBox));
+        p->aInline = (InlineBox *)HtmlRealloc(a, nAlloc*sizeof(InlineBox));
         p->nInlineAlloc = nAlloc;
     }
 
@@ -773,7 +773,7 @@ pLayout, p, pWidth, flags, pCanvas, pVSpace, pAscent)
             int nBytes;
             nReplacedX++;
             nBytes = nReplacedX * 2 * sizeof(int);
-            aReplacedX = (int *)ckrealloc((char *)aReplacedX, nBytes);
+            aReplacedX = (int *)HtmlRealloc((char *)aReplacedX, nBytes);
             aReplacedX[(nReplacedX-1)*2] = x1;
             aReplacedX[(nReplacedX-1)*2+1] = x1 + boxwidth;
         }
@@ -857,7 +857,7 @@ pLayout, p, pWidth, flags, pCanvas, pVSpace, pAscent)
             } else {
                 p->pBorders = pBorder->pNext;
             }
-            ckfree((char *)pBorder);
+            HtmlFree((char *)pBorder);
         }
 
         x += pBox->nSpace;
@@ -901,7 +901,7 @@ pLayout, p, pWidth, flags, pCanvas, pVSpace, pAscent)
     }
 
     if (aReplacedX) {
-        ckfree((char *)aReplacedX);
+        HtmlFree((char *)aReplacedX);
     }
     return 1;
 }
@@ -956,24 +956,24 @@ HtmlInlineContextCleanup(pContext)
     InlineBorder *pBorder;
 
     if (pContext->aInline) {
-        ckfree((char *)pContext->aInline);
+        HtmlFree((char *)pContext->aInline);
     }
     
     pBorder = pContext->pBoxBorders;
     while (pBorder) {
         InlineBorder *pTmp = pBorder->pNext;
-        ckfree((char *)pBorder);
+        HtmlFree((char *)pBorder);
         pBorder = pTmp;
     }
 
     pBorder = pContext->pBorders;
     while (pBorder) {
         InlineBorder *pTmp = pBorder->pNext;
-        ckfree((char *)pBorder);
+        HtmlFree((char *)pBorder);
         pBorder = pTmp;
     }
 
-    ckfree((char *)pContext);
+    HtmlFree((char *)pContext);
 }
 
 /*
@@ -1005,7 +1005,7 @@ HtmlInlineContextNew(pNode, isSizeOnly)
     InlineContext *pNew;
     int iLineHeight;
 
-    pNew = (InlineContext *)ckalloc(sizeof(InlineContext));
+    pNew = (InlineContext *)HtmlAlloc(sizeof(InlineContext));
     memset(pNew, 0, sizeof(InlineContext));
 
     /* Set the value of the 'text-align' property to use when formatting an

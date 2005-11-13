@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.68 2005/11/11 09:05:43 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.69 2005/11/13 12:00:17 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -209,12 +209,12 @@ HtmlDrawCleanup(pCanvas)
             Tcl_DecrRefCount(pObj);
         }
         if (pPrev) {
-            ckfree((char *)pPrev);
+            HtmlFree((char *)pPrev);
         }
         pPrev = pItem;
     }
     if (pPrev) {
-        ckfree((char *)pPrev);
+        HtmlFree((char *)pPrev);
     }
     pCanvas->pFirst = 0;
     pCanvas->pLast = 0;
@@ -350,7 +350,7 @@ void HtmlDrawCanvas(pCanvas, pCanvas2, x, y, pNode)
             } 
         }
  
-        pItem = (HtmlCanvasItem *)ckalloc(sizeof(HtmlCanvasItem));
+        pItem = (HtmlCanvasItem *)HtmlAlloc(sizeof(HtmlCanvasItem));
         pItem->type = CANVAS_ORIGIN;
         pItem->x.o.x = x;
         pItem->x.o.y = y;
@@ -366,7 +366,7 @@ void HtmlDrawCanvas(pCanvas, pCanvas2, x, y, pNode)
         pCanvas2->pFirst = 0;
         pCanvas2->pLast = 0;
 
-        pItem2 = (HtmlCanvasItem *)ckalloc(sizeof(HtmlCanvasItem));
+        pItem2 = (HtmlCanvasItem *)HtmlAlloc(sizeof(HtmlCanvasItem));
         pItem2->type = CANVAS_ORIGIN;
         pItem2->x.o.x = x*-1;
         pItem2->x.o.y = y*-1;
@@ -418,7 +418,7 @@ HtmlDrawComment(pCanvas, zComment, size_only)
 {
     if (!size_only) {
         HtmlCanvasItem *pItem;
-        pItem = (HtmlCanvasItem *)ckalloc(sizeof(HtmlCanvasItem));
+        pItem = (HtmlCanvasItem *)HtmlAlloc(sizeof(HtmlCanvasItem));
         pItem->type = CANVAS_COMMENT;
         pItem->x.c.pComment = Tcl_NewStringObj(zComment, -1);
         Tcl_IncrRefCount(pItem->x.c.pComment);
@@ -457,7 +457,7 @@ void HtmlDrawText(pCanvas, pText, x, y, w, sw, font, color, size_only)
 
     if (!size_only) {
         HtmlCanvasItem *pItem; 
-        pItem = (HtmlCanvasItem *)ckalloc(sizeof(HtmlCanvasItem));
+        pItem = (HtmlCanvasItem *)HtmlAlloc(sizeof(HtmlCanvasItem));
         pItem->type = CANVAS_TEXT;
         pItem->x.t.pText = pText;
         pItem->x.t.x = x;
@@ -501,7 +501,7 @@ HtmlDrawImage(pCanvas, pImage, x, y, w, h, size_only)
 {
     if (!size_only) {
         HtmlCanvasItem *pItem; 
-        pItem = (HtmlCanvasItem *)ckalloc(sizeof(HtmlCanvasItem));
+        pItem = (HtmlCanvasItem *)HtmlAlloc(sizeof(HtmlCanvasItem));
         pItem->type = CANVAS_IMAGE;
         pItem->x.i.pImage = pImage;
         pItem->x.i.x = x;
@@ -544,7 +544,7 @@ HtmlDrawWindow(pCanvas, pWindow, x, y, w, h, size_only)
 {
     if (!size_only) {
         HtmlCanvasItem *pItem; 
-        pItem = (HtmlCanvasItem *)ckalloc(sizeof(HtmlCanvasItem));
+        pItem = (HtmlCanvasItem *)HtmlAlloc(sizeof(HtmlCanvasItem));
         pItem->type = CANVAS_WINDOW;
         pItem->x.w.pWindow = pWindow;
         pItem->x.w.x = x;
@@ -590,7 +590,7 @@ void HtmlDrawQuad(pCanvas, x1, y1, x2, y2, x3, y3, x4, y4, color, size_only)
 {
     if (!size_only) {
         HtmlCanvasItem *pItem;
-        pItem = (HtmlCanvasItem *)ckalloc(sizeof(HtmlCanvasItem));
+        pItem = (HtmlCanvasItem *)HtmlAlloc(sizeof(HtmlCanvasItem));
         pItem->type = CANVAS_QUAD;
         pItem->x.q.x1 = x1;
         pItem->x.q.y1 = y1;
@@ -632,7 +632,7 @@ void HtmlDrawBackground(pCanvas, color, size_only)
 {
     if (!size_only) {
         HtmlCanvasItem *pItem;
-        pItem = (HtmlCanvasItem *)ckalloc(sizeof(HtmlCanvasItem));
+        pItem = (HtmlCanvasItem *)HtmlAlloc(sizeof(HtmlCanvasItem));
         pItem->type = CANVAS_BACKGROUND;
         pItem->x.b.color = color;
         linkItem(pCanvas, pItem);

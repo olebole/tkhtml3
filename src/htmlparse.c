@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.46 2005/11/11 09:05:43 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.47 2005/11/13 12:00:17 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -1200,6 +1200,7 @@ Tokenize(pTree)
             Tcl_ResetResult(pTree->interp);
 
             pScript = 0;
+            HtmlFree(pScriptToken);
             pScriptToken = 0;
         }
 
@@ -1216,7 +1217,7 @@ Tokenize(pTree)
                 i++;
             }
             
-            pSpace = (HtmlToken *)ckalloc(sizeof(HtmlToken));
+            pSpace = (HtmlToken *)HtmlAlloc(sizeof(HtmlToken));
             pSpace->type = Html_Space;
 
             if (c == '\n' || c == '\r') {
@@ -1253,7 +1254,7 @@ Tokenize(pTree)
             }
 
             nBytes = 1 + i + sizeof(HtmlToken) + (i%sizeof(char *));
-            pText = (HtmlToken *)ckalloc(nBytes);
+            pText = (HtmlToken *)HtmlAlloc(nBytes);
             pText->type = Html_Text;
             pText->x.zText = (char *)&pText[1];
             strncpy(pText->x.zText, &z[n], i);
@@ -1466,14 +1467,14 @@ Tokenize(pTree)
                     nByte += arglen[j] + 1;
                 }
             }
-            pMarkup = (HtmlToken *)ckalloc(nByte);
+            pMarkup = (HtmlToken *)HtmlAlloc(nByte);
             pMarkup->type = pMap->type;
             pMarkup->count = argc - 1;
             pMarkup->x.zArgs = 0;
 
             /* If the tag had attributes, then copy all the attribute names
              * and values into the space just allocated. Translate escapes
-	     * on the way. The idea is that calling ckfree() on pToken frees
+	     * on the way. The idea is that calling HtmlFree() on pToken frees
 	     * the space used by the attributes as well as the HtmlToken.
              */
             if (argc > 1) {

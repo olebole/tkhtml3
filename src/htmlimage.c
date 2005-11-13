@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlimage.c,v 1.35 2005/11/11 09:05:43 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlimage.c,v 1.36 2005/11/13 12:00:17 danielk1977 Exp $";
 
 
 #include <assert.h>
@@ -156,7 +156,7 @@ int HtmlClearImageArray(pTree)
             Tcl_DecrRefCount(pImage->pScaledImageName);
         }
 
-        ckfree((char *)pImage);
+        HtmlFree((char *)pImage);
         Tcl_DeleteHashEntry(p);
     }
 
@@ -223,7 +223,7 @@ HtmlResizeImage(pTree, zImage, pWidth, pHeight, calculateSizeOnly)
             return 0;
         }
 
-        pImage = (HtmlScaledImage *)ckalloc(sizeof(HtmlScaledImage));
+        pImage = (HtmlScaledImage *)HtmlAlloc(sizeof(HtmlScaledImage));
         pImage->pImageName = Tcl_NewStringObj(zImage, -1);
         Tcl_IncrRefCount(pImage->pImageName);
         pImage->image = img;
@@ -306,7 +306,7 @@ HtmlResizeImage(pTree, zImage, pWidth, pHeight, calculateSizeOnly)
             scaled_photo = Tk_FindPhoto(interp, zScaled);
 
             Tk_PhotoGetImage(photo, &block);
-            scaled_block.pixelPtr = (unsigned char *)ckalloc(sw * sh * 4);
+            scaled_block.pixelPtr = (unsigned char *)HtmlAlloc(sw * sh * 4);
             scaled_block.width = sw;
             scaled_block.height = sh;
             scaled_block.pitch = sw*4;
@@ -335,7 +335,7 @@ HtmlResizeImage(pTree, zImage, pWidth, pHeight, calculateSizeOnly)
                 }
             }
             photoputblock(interp, scaled_photo, &scaled_block, 0, 0, sw, sh, 0);
-            ckfree((char *)scaled_block.pixelPtr);
+            HtmlFree((char *)scaled_block.pixelPtr);
             pRet = pImage->pScaledImageName;
         } else {
             /* Failed to get the photo-handle. This might happen because
@@ -385,7 +385,7 @@ Tcl_Obj *HtmlXImageToImage(pTree, pXImage, w, h)
     pImage = Tcl_GetObjResult(interp);
     Tcl_IncrRefCount(pImage);
 
-    block.pixelPtr = (unsigned char *)ckalloc(w * h * 4);
+    block.pixelPtr = (unsigned char *)HtmlAlloc(w * h * 4);
     block.width = w;
     block.height = h;
     block.pitch = w*4;
@@ -419,7 +419,7 @@ Tcl_Obj *HtmlXImageToImage(pTree, pXImage, w, h)
 
     photo = Tk_FindPhoto(interp, Tcl_GetString(pImage));
     photoputblock(interp, photo, &block, 0, 0, w, h, 0);
-    ckfree((char *)block.pixelPtr);
+    HtmlFree((char *)block.pixelPtr);
 
     return pImage;
 }

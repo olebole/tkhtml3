@@ -37,7 +37,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char rcsid[] = "$Id: htmltagdb.c,v 1.7 2005/11/11 09:05:43 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltagdb.c,v 1.8 2005/11/13 12:00:17 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>

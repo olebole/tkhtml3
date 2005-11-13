@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.31 2005/11/12 04:47:20 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.32 2005/11/13 12:00:17 danielk1977 Exp $";
 
 /*
  *    The CSS "cascade":
@@ -193,11 +193,11 @@ static const char *constantToString(int c){
  *
  * tokenToString --
  *
- *     This function returns a null-terminated string (allocated by ckalloc)
+ *     This function returns a null-terminated string (allocated by HtmlAlloc)
  *     populated with the contents of the supplied token.
  *
  * Results:
- *     Null-terminated string. Caller is responsible for calling ckfree()
+ *     Null-terminated string. Caller is responsible for calling HtmlFree()
  *     on it.
  *
  * Side effects:
@@ -210,7 +210,7 @@ static char *tokenToString(CssToken *pToken){
     if( !pToken || pToken->n<=0 ){
          return 0;
     }
-    zRet = (char *)ckalloc(pToken->n+1);
+    zRet = (char *)HtmlAlloc(pToken->n+1);
     memcpy(zRet, pToken->z, pToken->n);
     zRet[pToken->n] = '\0';
     return zRet;
@@ -330,18 +330,17 @@ tokenToProperty(pToken)
         int type;
         int len;
         char *zUnit;
-        int integer;
     } lengths[] = {
-        {CSS_TYPE_EM,         2, "em", 0},
-        {CSS_TYPE_EX,         2, "ex", 0},
-        {CSS_TYPE_PX,         2, "px", 1},
-        {CSS_TYPE_PT,         2, "pt", 1},
-        {CSS_TYPE_PERCENT,    1, "%", 1},
-        {CSS_TYPE_FLOAT,      0, "", 0},
-        {CSS_TYPE_CENTIMETER, 2, "cm", 0},
-        {CSS_TYPE_MILLIMETER, 2, "mm", 0},
-        {CSS_TYPE_INCH,       2, "in", 0},
-        {CSS_TYPE_PC,         2, "pc", 0},
+        {CSS_TYPE_EM,         2, "em"},
+        {CSS_TYPE_EX,         2, "ex"},
+        {CSS_TYPE_PX,         2, "px"},
+        {CSS_TYPE_PT,         2, "pt"},
+        {CSS_TYPE_PERCENT,    1, "%"},
+        {CSS_TYPE_FLOAT,      0, ""},
+        {CSS_TYPE_CENTIMETER, 2, "cm"},
+        {CSS_TYPE_MILLIMETER, 2, "mm"},
+        {CSS_TYPE_INCH,       2, "in"},
+        {CSS_TYPE_PC,         2, "pc"},
     };
 
     struct FunctionFormat {
@@ -371,13 +370,9 @@ tokenToProperty(pToken)
             CONST char *zTokenUnit = &z[reallen];
             if ((n-reallen)==lengths[i].len &&
                     0==strncmp(zTokenUnit, lengths[i].zUnit, lengths[i].len)) {
-                pProp = (CssProperty *)ckalloc(sizeof(CssProperty));
+                pProp = (CssProperty *)HtmlAlloc(sizeof(CssProperty));
                 pProp->eType = lengths[i].type;
-                if (lengths[i].integer) {
-                    pProp->v.iVal = (int)realval;
-                } else {
-                    pProp->v.rVal = realval;
-                }
+                pProp->v.rVal = realval;
                 break;
             }
         }
@@ -407,13 +402,13 @@ tokenToProperty(pToken)
 			 * string will be 7 characters long exactly.
                          */
                         int nAlloc = sizeof(CssProperty) + 7 + 1;
-                        pProp = (CssProperty *)ckalloc(nAlloc);
+                        pProp = (CssProperty *)HtmlAlloc(nAlloc);
                         pProp->eType = CSS_TYPE_STRING;
                         pProp->v.zVal = (char *)&pProp[1];
                         rgbToColor(pProp->v.zVal, zArg, nArg);
                     } else {
                         int nAlloc = sizeof(CssProperty) + nArg + 1;
-                        pProp = (CssProperty *)ckalloc(nAlloc);
+                        pProp = (CssProperty *)HtmlAlloc(nAlloc);
                         pProp->eType = functions[i].type;
                         pProp->v.zVal = (char *)&pProp[1];
                         strncpy(pProp->v.zVal, zArg, nArg);
@@ -434,12 +429,12 @@ tokenToProperty(pToken)
      */
     if (!pProp) {
         int eType;
-        pProp = (CssProperty *)ckalloc(sizeof(CssProperty)+(n+1));
+        pProp = (CssProperty *)HtmlAlloc(sizeof(CssProperty)+(n+1));
         pProp->v.zVal = (char *)&pProp[1];
         memcpy(pProp->v.zVal, z, n);
         pProp->v.zVal[n] = '\0';
 
-        eType = HtmlCssStringToConstant(pProp->v.zVal);
+        eType = HtmlCssConstantLookup(-1, pProp->v.zVal);
         pProp->eType = eType > 0 ? eType : CSS_TYPE_STRING;
 
         /* TODO: Dequote? */
@@ -454,7 +449,7 @@ tokenToProperty(pToken)
  *
  *     This is an externally available interface to convert the property
  *     value string pointed to by z, length n, to a property object. The
- *     caller should call ckfree() on the return value when it has finished
+ *     caller should call HtmlFree() on the return value when it has finished
  *     with it.
  *
  * Results:
@@ -523,7 +518,7 @@ HtmlCssPropertyGetString(pProp)
  */
 static CssPropertySet *
 propertySetNew(){
-    CssPropertySet *p = (CssPropertySet *)ckalloc(sizeof(CssPropertySet));
+    CssPropertySet *p = (CssPropertySet *)HtmlAlloc(sizeof(CssPropertySet));
     if( p ){
         memset(p, 0, sizeof(CssPropertySet));
     }
@@ -590,14 +585,14 @@ propertySetAdd(p, i, v)
 
     for (j = 0; j < p->n; j++) {
         if (i == p->a[j].eProp) {
-            ckfree((char *)p->a[j].pProp);
+            HtmlFree((char *)p->a[j].pProp);
             p->a[j].pProp = v;
             return;
         }
     }
 
     nBytes = (p->n + 1) * sizeof(struct CssPropertySetItem);
-    p->a = (struct CssPropertySetItem *)ckrealloc((char *)p->a, nBytes);
+    p->a = (struct CssPropertySetItem *)HtmlRealloc((char *)p->a, nBytes);
     p->a[p->n].pProp = v;
     p->a[p->n].eProp = i;
     p->n++;
@@ -622,10 +617,10 @@ propertySetFree(CssPropertySet *p){
     int i;
     if( !p ) return;
     for (i = 0; i < p->n; i++) {
-        ckfree((char *)p->a[i].pProp);
+        HtmlFree((char *)p->a[i].pProp);
     }
-    ckfree((char *)p->a);
-    ckfree((char *)p);
+    HtmlFree((char *)p->a);
+    HtmlFree((char *)p);
 }
 
 /*
@@ -644,7 +639,7 @@ propertySetFree(CssPropertySet *p){
 static CssProperty *propertyDup(pProp)
     CssProperty *pProp;
 {
-    CssProperty *pRet = (CssProperty *)ckalloc(sizeof(CssProperty));
+    CssProperty *pRet = (CssProperty *)HtmlAlloc(sizeof(CssProperty));
     memcpy(pRet, pProp, sizeof(CssProperty));
     return pRet;
 }
@@ -1035,9 +1030,9 @@ static void selectorFree(pSelector)
 {
     if( !pSelector ) return;
     selectorFree(pSelector->pNext);
-    ckfree(pSelector->zValue);
-    ckfree(pSelector->zAttr);
-    ckfree((char *)pSelector);
+    HtmlFree(pSelector->zValue);
+    HtmlFree(pSelector->zAttr);
+    HtmlFree((char *)pSelector);
 }
 
 /*
@@ -1191,13 +1186,13 @@ bad_token:
     return -1;
 }
 
-/* Versions of ckalloc() and ckfree() that are always functions (not macros). 
+/* Versions of HtmlAlloc() and HtmlFree() that are always functions (not macros). 
 */
 static void * xCkalloc(size_t n){
-    return ckalloc(n);
+    return HtmlAlloc(n);
 }
 static void xCkfree(void *p){
-    ckfree(p);
+    HtmlFree(p);
 }
 
 
@@ -1296,7 +1291,7 @@ newCssPriority(pStyle, origin, pIdTail, important)
     CssPriority *pPrev = 0; /* Entry just before the new one in the list */
     CssPriority *pIter;
 
-    pNew = (CssPriority *)ckalloc(sizeof(CssPriority));
+    pNew = (CssPriority *)HtmlAlloc(sizeof(CssPriority));
     pNew->origin = origin;
     pNew->important = important;
     pNew->pIdTail = pIdTail;
@@ -1380,6 +1375,7 @@ cssParse(n, z, isStyle, origin, pStyleId, ppStyle)
     void *p;
     int t;
     int c = 0;
+    int ii;
 
     memset(&sParse, 0, sizeof(CssParse));
     sParse.origin = origin;
@@ -1395,7 +1391,7 @@ cssParse(n, z, isStyle, origin, pStyleId, ppStyle)
      * to the existing object.
      */
     if (0==*ppStyle) {
-        sParse.pStyle = (CssStyleSheet *)ckalloc(sizeof(CssStyleSheet));
+        sParse.pStyle = (CssStyleSheet *)HtmlAlloc(sizeof(CssStyleSheet));
         memset(sParse.pStyle, 0, sizeof(CssStyleSheet));
     } else {
         sParse.pStyle = *ppStyle;
@@ -1445,6 +1441,14 @@ cssParse(n, z, isStyle, origin, pStyleId, ppStyle)
 
     *ppStyle = sParse.pStyle;
     tkhtmlCssParserFree(p, xCkfree);
+
+    /* Clean up anything left in sParse */
+    selectorFree(sParse.pSelector);
+    for (ii = 0; ii < sParse.nXtra; ii++) {
+        selectorFree(sParse.apXtraSelector[ii]);
+    }
+    propertySetFree(sParse.pPropertySet);
+    propertySetFree(sParse.pImportant);
 
     return 0;
 }
@@ -1527,7 +1531,8 @@ int HtmlCssParseStyle(
  *
  *---------------------------------------------------------------------------
  */
-static void ruleFree(pRule)
+static void 
+ruleFree(pRule)
     CssRule *pRule;
 {
     if (pRule) {
@@ -1535,7 +1540,7 @@ static void ruleFree(pRule)
         if (pRule->freePropertySets) {
             propertySetFree(pRule->pPropertySet);
         }
-        ckfree((char *)pRule);
+        HtmlFree((char *)pRule);
     }
 }
 
@@ -1573,11 +1578,11 @@ HtmlCssStyleSheetFree(pStyle)
         while (pPriority) {
             CssPriority *pNext = pPriority->pNext;
             Tcl_DecrRefCount(pPriority->pIdTail);
-            ckfree((char *)pPriority);
+            HtmlFree((char *)pPriority);
             pPriority = pNext;
         }
 
-        ckfree((char *)pStyle);
+        HtmlFree((char *)pStyle);
     }
 }
 
@@ -1603,7 +1608,12 @@ int HtmlCssStyleSheetSyntaxErrs(CssStyleSheet *pStyle){
  *
  *--------------------------------------------------------------------------
  */
-void HtmlCssDeclaration(CssParse *pParse, CssToken *pProp, CssToken *pExpr){
+void
+HtmlCssDeclaration(pParse, pProp, pExpr)
+    CssParse *pParse;
+    CssToken *pProp;
+    CssToken *pExpr;
+{
     int prop; 
     char zBuf[64];
 
@@ -1621,7 +1631,7 @@ void HtmlCssDeclaration(CssParse *pParse, CssToken *pProp, CssToken *pExpr){
     strncpy(zBuf, pProp->z, MIN(pProp->n, 63));
     zBuf[63] = 0;
     Tcl_UtfToLower(zBuf);
-    prop = HtmlCssPropertyToString(MIN(63, pProp->n), zBuf);
+    prop = HtmlCssPropertyLookup(MIN(63, pProp->n), zBuf);
     if( prop<0 ) return;
     if( !pParse->pPropertySet ){
         pParse->pPropertySet = propertySetNew();
@@ -1674,6 +1684,9 @@ static void dequote(z)
  *     This is called whenever a simple selector is parsed. 
  *     i.e. "H1" or ":before".
  *
+ *     A CssSelector struct is allocated and added to the beginning of the
+ *     linked list at pParse->pSelector;
+ *
  * Results:
  *     None.
  *
@@ -1702,7 +1715,7 @@ void HtmlCssSelector(pParse, stype, pAttr, pValue)
     );
 #endif
 
-    pSelector = (CssSelector *)ckalloc(sizeof(CssSelector));
+    pSelector = (CssSelector *)HtmlAlloc(sizeof(CssSelector));
     memset(pSelector, 0, sizeof(CssSelector));
     pSelector->eSelector = stype;
     pSelector->zValue = tokenToString(pValue);
@@ -1794,7 +1807,7 @@ cssSelectorPropertySetPair(pParse, pSelector, pPropertySet, freePropertySets)
     int spec = 0;
     CssSelector *pS = 0;
     CssStyleSheet *pStyle = pParse->pStyle;
-    CssRule *pRule = (CssRule *)ckalloc(sizeof(CssRule));
+    CssRule *pRule = (CssRule *)HtmlAlloc(sizeof(CssRule));
     memset(pRule, 0, sizeof(CssRule));
 
     pRule->freePropertySets = freePropertySets;
@@ -1952,7 +1965,7 @@ void HtmlCssRule(pParse, success)
     }
 
     if( apXtraSelector ){
-        ckfree((char *)apXtraSelector);
+        HtmlFree((char *)apXtraSelector);
     }
 }
 
@@ -2143,7 +2156,7 @@ static void propertiesAdd(ppProperties, pRule)
 
     assert( pRule );
 
-    pProperties = (CssProperties *)ckrealloc((char *)pProperties, nAlloc);
+    pProperties = (CssProperties *)HtmlRealloc((char *)pProperties, nAlloc);
     pProperties->nRule = n;
     pProperties->apRule = (CssRule **)&pProperties[1];
     pProperties->apRule[n-1] = pRule;
@@ -2155,7 +2168,11 @@ void HtmlCssPropertiesFree(pPropertySet)
     CssProperties *pPropertySet;
 {
     if (pPropertySet) {
-        ckfree((char *)pPropertySet);
+        int i;
+        for (i = 0; i < pPropertySet->nRule; i++) {
+            ruleFree(pPropertySet->apRule[i]);
+        }
+        HtmlFree((char *)pPropertySet);
     }
 }
 
@@ -2335,49 +2352,9 @@ void HtmlCssSelectorComma(pParse)
 {
     int n = (pParse->nXtra + 1) * sizeof(CssSelector *);
     pParse->apXtraSelector = 
-       (CssSelector **)ckrealloc((char *)pParse->apXtraSelector, n);
+       (CssSelector **)HtmlRealloc((char *)pParse->apXtraSelector, n);
     pParse->apXtraSelector[pParse->nXtra] = pParse->pSelector;
     pParse->pSelector = 0;
     pParse->nXtra++;
 }
-
-/*
- *---------------------------------------------------------------------------
- *
- * HtmlCssPropertyStringForm --
- * HtmlCssPropertyFreeStringForm --
- *
- *     These two functions are used to obtain and free string representations
- *     of a CSS property (e.g. for debugging) respectively.
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-#if 0
-char CONST *
-HtmlCssPropertyToString(pProp)
-    CssProperty *pProp;
-{
-    char CONST *zProp = HtmlCssPropertyGetString(pProp);
-    if (!zProp) {
-        switch (pProp->eType) {
-        }
-    }
-    return zProp;
-}
-void
-HtmlCssPropertyToStringFree(pProp, zProp)
-    CssProperty *pProp;
-    CONST char *zProp;
-{
-    if (zProp != HtmlCssPropertyGetString(pProp)) {
-        ckfree((char *)zProp);
-    }
-}
-#endif
 

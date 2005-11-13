@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char rcsid[] = "$Id: htmlprop.c,v 1.33 2005/11/12 04:47:20 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.34 2005/11/13 12:00:17 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -45,6 +45,11 @@ static char rcsid[] = "$Id: htmlprop.c,v 1.33 2005/11/12 04:47:20 danielk1977 Ex
 #include <ctype.h>
 
 #define LOG if (p->pTree->options.logcmd)
+
+/*
+ * Convert a double value from a CssProperty to an integer.
+ */
+#define INTEGER(x) ((int)((x) + 0.49))
 
 /*
  *---------------------------------------------------------------------------
@@ -175,7 +180,7 @@ propertyValuesSetFontSize(p, pProp)
         }
 
         case CSS_TYPE_PERCENT:
-            iScale = (double)pProp->v.iVal * 0.01;
+            iScale = pProp->v.rVal * 0.01;
             break;
         case CSS_CONST_SMALLER:
             iScale = 0.8333;
@@ -220,7 +225,7 @@ propertyValuesSetFontSize(p, pProp)
 
         /* Font-size is in pixels */
         case CSS_TYPE_PX:
-            iPixels = pProp->v.iVal;
+            iPixels = INTEGER(pProp->v.rVal);
             break;
 
         /* Font-size is already in points or picas*/
@@ -228,7 +233,7 @@ propertyValuesSetFontSize(p, pProp)
             iPoints = (int)(pProp->v.rVal / 12.0);
             break;
         case CSS_TYPE_PT:
-            iPoints = pProp->v.iVal;
+            iPoints = INTEGER(pProp->v.rVal);
             break;
 
         default:   /* Type-mismatch error */
@@ -398,7 +403,7 @@ propertyValuesSetColor(p, pCVar, pProp)
         }
 
         if (color) {
-            cVal = (HtmlColor *)ckalloc(sizeof(HtmlColor) + strlen(zColor) + 1);
+            cVal = (HtmlColor *)HtmlAlloc(sizeof(HtmlColor) + strlen(zColor) + 1);
             cVal->nRef = 0;
             cVal->xcolor = color;
             cVal->zColor = (char *)(&cVal[1]);
@@ -480,11 +485,11 @@ propertyValuesSetLength(p, pIVal, em_mask, pProp, allowNegative)
             break;
 
         case CSS_TYPE_PX:
-            iVal = pProp->v.iVal;
+            iVal = INTEGER(pProp->v.rVal);
             break;
 
         case CSS_TYPE_PT:
-            iVal = physicalToPixels(p, (double)pProp->v.iVal, 'p');
+            iVal = physicalToPixels(p, pProp->v.rVal, 'p');
             break;
         case CSS_TYPE_PC:
             iVal = physicalToPixels(p, pProp->v.rVal * 12.0, 'p');
@@ -550,7 +555,7 @@ propertyValuesSetLineHeight(p, pProp)
             break;
         }
         case CSS_TYPE_PERCENT: {
-            int iVal = (int)(pProp->v.iVal);
+            int iVal = INTEGER(pProp->v.rVal);
             if (iVal > 0) {
                 p->values.iLineHeight = iVal;
                 p->em_mask |= PROP_MASK_LINE_HEIGHT;
@@ -639,7 +644,7 @@ propertyValuesSetVerticalAlign(p, pProp)
 
         case CSS_TYPE_PERCENT: {
             p->values.mask |= MASK;
-            p->values.iVerticalAlign = 100 * pProp->v.iVal;
+            p->values.iVerticalAlign = INTEGER(100.0 * pProp->v.rVal);
             p->values.eVerticalAlign = 0;
 
             p->eVerticalAlignPercent = 1;
@@ -703,13 +708,13 @@ propertyValuesSetSize(p, pIVal, p_mask, pProp, allow_mask)
 
         /* TODO Percentages are still stored as integers - this is wrong */
         case CSS_TYPE_PERCENT: {
-            int iVal = pProp->v.iVal;
+            int iVal = INTEGER(pProp->v.rVal * 100.0);
             if (
                 (allow_mask & SZ_PERCENT) && 
                 (iVal >= 0 || allow_mask & SZ_NEGATIVE) 
             ) {
                 p->values.mask |= p_mask;
-                *pIVal = iVal * 100;
+                *pIVal = iVal;
                 return 0;
             }
             return 1;
@@ -743,8 +748,7 @@ propertyValuesSetSize(p, pIVal, p_mask, pProp, allow_mask)
             return 1;
 
         case CSS_TYPE_FLOAT: {
-            int iVal = pProp->v.rVal;
-  
+            int iVal = INTEGER(pProp->v.rVal);
             if (iVal >= 0 || allow_mask & SZ_NEGATIVE) {
                 *pIVal = iVal;
                 return 0;
@@ -851,9 +855,9 @@ HtmlComputedValuesInit(pTree, pNode, p)
     HtmlNode *pNode;
     HtmlComputedValuesCreator *p;
 {
-    static CssProperty Medium = {CSS_CONST_MEDIUM, {(int)"medium"}};
+    static CssProperty Medium = {CSS_CONST_MEDIUM, {"medium"}};
     static CssProperty Transparent = {
-        CSS_CONST_TRANSPARENT, {(int)"transparent"}
+        CSS_CONST_TRANSPARENT, {"transparent"}
     };
     int rc;
 
@@ -874,7 +878,7 @@ HtmlComputedValuesInit(pTree, pNode, p)
      * There are more of these, but we don't support them yet.
      */
     if (!pParent) {
-        static CssProperty Black   = {CSS_CONST_BLACK, {(int)"black"}};
+        static CssProperty Black   = {CSS_CONST_BLACK, {"black"}};
 
         /* Regular HtmlComputedValues properties */
         p->values.eListStyleType  = CSS_CONST_DISC;     /* 'list-style-type' */
@@ -891,7 +895,7 @@ HtmlComputedValuesInit(pTree, pNode, p)
         p->fontKey.isItalic = 0;                        /* 'font-style'       */
         p->fontKey.isBold = 0;                          /* 'font-weight'      */
     } else {
-        static CssProperty Inherit = {CSS_CONST_INHERIT, {(int)"inherit"}};
+        static CssProperty Inherit = {CSS_CONST_INHERIT, {"inherit"}};
         HtmlComputedValues *pV = pParent->pPropertyValues;
         HtmlFontKey *pFK = pV->fFont->pKey;
 
@@ -998,12 +1002,12 @@ propertyValuesTclScript(p, eProp, zScript)
 	/* A tcl() script has returned a value that caused a type-mismatch
          * error. Throw a background error.
          */
-        ckfree((char *)pVal);
+        HtmlFree((char *)pVal);
         Tcl_ResetResult(interp);
         Tcl_AppendResult(interp, 
                  "tkhtml: tcl() script returned \"", zRes, "\""
                  " - type mismatch for property "
-                 "'", tkhtmlCssPropertyToString(eProp), "'", 0
+                 "'", HtmlCssPropertyToString(eProp), "'", 0
         );
         Tcl_BackgroundError(interp);
         return 1;
@@ -1011,7 +1015,7 @@ propertyValuesTclScript(p, eProp, zScript)
 
     /* Now that we've successfully called HtmlComputedValuesSet(), the
      * CssProperty structure (it's associated string data is what matters)
-     * cannot be ckfree()d until after HtmlComputedValuesFinish() is called. So
+     * cannot be HtmlFree()d until after HtmlComputedValuesFinish() is called. So
      * we make a linked list of such structures at p->pDeleteList using
      * CssProperty.v.p as the pNext pointer.
      * 
@@ -1467,7 +1471,7 @@ allocateNewFont(interp, tkwin, pFontKey)
 
     } while (0 == tkfont);
 
-    pFont = (HtmlFont *)ckalloc(sizeof(HtmlFont) + strlen(zTkFontName) + 1);
+    pFont = (HtmlFont *)HtmlAlloc(sizeof(HtmlFont) + strlen(zTkFontName) + 1);
     pFont->nRef = 0;
     pFont->tkfont = tkfont;
     pFont->zFont = (char *)&pFont[1];
@@ -1626,7 +1630,7 @@ HtmlComputedValuesFinish(p)
         CssProperty *p1 = p->pDeleteList;
         while (p1) {
             CssProperty *p2 = (CssProperty *)p1->v.p;
-            ckfree((char *)p1);
+            HtmlFree((char *)p1);
             p1 = p2;
         }
         p->pDeleteList = 0;
@@ -1636,17 +1640,69 @@ HtmlComputedValuesFinish(p)
     return pValues;
 }
 
+static void 
+decrementFontRef(pTree, pFont)
+    HtmlTree *pTree;
+    HtmlFont *pFont;
+{
+    pFont->nRef--;
+    assert(pFont->nRef >= 0);
+    if (pFont->nRef == 0) {
+        CONST char *pKey = (CONST char *)pFont->pKey;
+        Tcl_HashEntry *pEntry = Tcl_FindHashEntry(&pTree->aFont, pKey);
+        Tcl_DeleteHashEntry(pEntry);
+        Tk_FreeFont(pFont->tkfont);
+        HtmlFree((char *)pFont);
+    }
+}
+
+static void 
+decrementColorRef(pTree, pColor)
+    HtmlTree *pTree;
+    HtmlColor *pColor;
+{
+    pColor->nRef--;
+    assert(pColor->nRef >= 0);
+    if (pColor->nRef == 0) {
+        Tcl_HashEntry *pEntry;
+        pEntry = Tcl_FindHashEntry(&pTree->aColor, pColor->zColor);
+        Tcl_DeleteHashEntry(pEntry);
+        if (pColor->xcolor) {
+            Tk_FreeColor(pColor->xcolor);
+        }
+        HtmlFree((char *)pColor);
+    }
+}
+
 void 
-HtmlComputedValuesRelease(pValues)
+HtmlComputedValuesRelease(pTree, pValues)
+    HtmlTree *pTree;
     HtmlComputedValues *pValues;
 {
     if (pValues) {
         pValues->nRef--;
         assert(pValues->nRef >= 0);
-    }
 
-    if (pValues->nRef == 0) {
-        /* Clean up structure, decrement ref-counts on colors and the font */
+        /* If the reference count on this values structure has reached 0, then
+         * decrement the reference counts on the font and colors and delete the
+         * values structure hash entry.
+         */
+        if (pValues->nRef == 0) {
+            Tcl_HashEntry *pEntry;
+    
+            pEntry = Tcl_FindHashEntry(&pTree->aValues, (CONST char *)pValues);
+            assert(pEntry);
+    
+            decrementFontRef(pTree, pValues->fFont);
+            decrementColorRef(pTree, pValues->cColor);
+            decrementColorRef(pTree, pValues->cBackgroundColor);
+            decrementColorRef(pTree, pValues->cBorderTopColor);
+            decrementColorRef(pTree, pValues->cBorderRightColor);
+            decrementColorRef(pTree, pValues->cBorderBottomColor);
+            decrementColorRef(pTree, pValues->cBorderLeftColor);
+    
+            Tcl_DeleteHashEntry(pEntry);
+        }
     }
 }
 
@@ -1723,7 +1779,7 @@ HtmlComputedValuesSetupTables(pTree)
 
     /* Initialise the color table */
     for (ii = 0; ii < sizeof(color_map)/sizeof(struct CssColor); ii++) {
-        pColor = (HtmlColor *)ckalloc(sizeof(HtmlColor));
+        pColor = (HtmlColor *)HtmlAlloc(sizeof(HtmlColor));
         pColor->zColor = color_map[ii].css;
         pColor->nRef = 1;
         pColor->xcolor = Tk_GetColor(interp, pTree->tkwin, color_map[ii].tk);
@@ -1736,7 +1792,7 @@ HtmlComputedValuesSetupTables(pTree)
     /* Add the "transparent" color */
     pEntry = Tcl_CreateHashEntry(&pTree->aColor, "transparent", &n);
     assert(pEntry && n);
-    pColor = (HtmlColor *)ckalloc(sizeof(HtmlColor));
+    pColor = (HtmlColor *)HtmlAlloc(sizeof(HtmlColor));
     pColor->zColor = "transparent";
     pColor->nRef = 1;
     pColor->xcolor = 0;
@@ -1779,7 +1835,34 @@ void
 HtmlComputedValuesCleanupTables(pTree)
     HtmlTree *pTree;
 {
-    assert(0);
+    CONST char **pzCursor;
+   
+    CONST char *azColor[] = {
+        "silver",
+        "gray",
+        "white",
+        "maroon",
+        "red",
+        "purple",
+        "fuchsia",
+        "green",
+        "lime",
+        "olive",
+        "yellow",
+        "navy",
+        "blue",
+        "teal",
+        "aqua",
+        "transparent",
+        0
+    };
+
+    for (pzCursor = azColor; *pzCursor; pzCursor++) {
+        Tcl_HashEntry *pEntry = Tcl_FindHashEntry(&pTree->aColor, *pzCursor);
+        assert(pEntry);
+        HtmlColor *pColor = (HtmlColor *)Tcl_GetHashValue(pEntry);
+        decrementColorRef(pTree, pColor);
+    }
 }
 
 
@@ -1869,7 +1952,7 @@ PROP_MASK_ ## eProp}
     pDef = &pvdef[0];
     for (ii = 0; ii < sizeof(pvdef) / sizeof(pvdef[0]); ii++, pDef++) {
         Tcl_Obj *pValue;
-        CONST char *zName = tkhtmlCssPropertyToString(pDef->eCssProperty);
+        CONST char *zName = HtmlCssPropertyToString(pDef->eCssProperty);
         Tcl_ListObjAppendElement(interp, pRet, Tcl_NewStringObj(zName, -1));
         switch (pDef->eType) {
             case ENUM: {

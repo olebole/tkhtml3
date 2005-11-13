@@ -98,11 +98,9 @@ proc gui_build {} {
 
     bind $HTML <Motion>        "handle_event motion %x %y"
     bind $HTML <ButtonPress-1> "handle_event click %x %y"
-    bind $HTML <KeyPress-q> exit
-    bind $HTML <KeyPress-Q> exit
-
-    bind $HTML <ButtonPress-4> "$HTML yview scroll -2 units"
-    bind $HTML <ButtonPress-5> "$HTML yview scroll 2 units"
+    bind $HTML <ButtonPress-2> "handle_event rightclick %x %y"
+    bind $HTML <KeyPress-q> hv3_exit
+    bind $HTML <KeyPress-Q> hv3_exit
 
     $HTML handler node link "handle_link_node"
     $HTML handler script style "handle_style_script"
@@ -130,7 +128,7 @@ proc gui_build {} {
         }
     }
 
-    .m.file add command -label Browser -command [list prop_updateBrowser $HTML]
+    .m.file add command -label Browser -command [list prop_browse $HTML]
     .m.file add separator
     .m.file add command -label Exit -command exit
 
@@ -138,14 +136,25 @@ proc gui_build {} {
     image_init $HTML
 }
 
+#--------------------------------------------------------------------------
+# handle_event E X Y
+#
+#     Handle an html window event. Argument E may be "motion", "click" or
+#     "rightclick". X and Y are the window coordinates where the event
+#     occured. For "motion" events, this means the position of the cursor
+#     after the event.
+#
 proc handle_event {e x y} {
-  if {$e == "click"} {
-    catch {.prop_menu unpost}
-  }
+    if {$e == "click"} {
+        catch {.prop_menu unpost}
+    }
 
-  set node [.html node $x $y]
+    set node [.html node $x $y]
+    if {$e == "rightclick"} {
+        prop_browse .html -node $node
+    }
+
   set n $node
-
   for {} {$n != ""} {set n [$n parent]} {
     if {[$n tag] == "a" && 0 == [catch {set href [$n attr href]}]} {
       switch -- $e {
@@ -173,9 +182,8 @@ proc handle_event {e x y} {
           set n [$n parent]
       }
       .status configure -text $nodeid
-
-      if {$e == "click"} {real_puts "($x, $y)"}
     }
+
 }
 
 # handle_img_node_cb
@@ -282,6 +290,18 @@ proc gui_parse {doc text} {
 #
 proc gui_log {msg} {
     puts $msg
+}
+
+# hv3_exit
+#
+#          hv3_exit
+#
+#     Exit the application.
+proc hv3_exit {} {
+    destroy .html 
+    catch {destroy .prop.html}
+    catch {::tk::htmlalloc}
+    exit
 }
 
 swproc main {{cache :memory:} {doclist ""}} {

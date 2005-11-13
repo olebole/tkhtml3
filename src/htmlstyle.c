@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char rcsid[] = "$Id: htmlstyle.c,v 1.15 2005/11/11 09:05:43 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlstyle.c,v 1.16 2005/11/13 12:00:17 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -126,7 +126,7 @@ styleNode(pTree, pNode)
 
     if (!HtmlNodeIsText(pNode)) {
 	/* Release the old property values structure, if any. */
-        HtmlComputedValuesRelease(pNode->pPropertyValues);
+        HtmlComputedValuesRelease(pTree, pNode->pPropertyValues);
         pNode->pPropertyValues = 0;
     
         /* If there is a "style" attribute on this node, parse the attribute

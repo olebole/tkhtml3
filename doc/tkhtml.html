@@ -46,20 +46,14 @@ html pathName ?options?
     <div style="margin-left:8ex">
 
        <p>
-This option determines the default style-sheet for the
-widget. Default style-sheets are stored in the package
-installation directory with the extension ".css". The first
-part of the style-sheet filename matches the value of this
-option. The style-sheet "html.css" is guaranteed to exist.
+This option is used to set the default style-sheet for the
+widget. The option value should be the entire text of the
+default style-sheet, or an empty string, in which case a
+built-in default stylesheet (for HTML) is used. 
 </p>
 
 <p>
-If the value is "html" (the default), then special
-HTML specific processing is used when parsing a document.
-For example, &lt;p&gt; and &lt;li&gt; tags (amongst others) are
-sometimes implicitly closed. The special processing applied
-in this case is described in the "HTML SPECIFIC PROCESSING"
-section below.
+TODO: Describe the role of the default stylesheet.
 
 
     </div>
@@ -83,6 +77,21 @@ string if an error occurs.
 
 <p>
 See section "IMAGE LOADING" for more detail.
+
+
+    </div>
+  
+
+
+
+    <p>Command-Line Name: -logcmd<br>
+       Database Name: logcmd<br>
+       Database Class: Logcmd
+    </p>
+    <div style="margin-left:8ex">
+
+       <p>
+This option is only used for internally debugging the widget.
 
 
     </div>

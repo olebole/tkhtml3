@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.35 2005/11/11 08:57:44 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.36 2005/11/13 12:00:17 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -153,22 +153,22 @@ isEndTag(pNode, pToken)
  *---------------------------------------------------------------------------
  */
 static void 
-freeNode(interp, pNode)
-    Tcl_Interp *interp;
+freeNode(pTree, pNode)
+    HtmlTree *pTree;
     HtmlNode *pNode;
 {
     if( pNode ){
         int i;
         for(i=0; i<pNode->nChild; i++){
-            freeNode(interp, pNode->apChildren[i]);
+            freeNode(pTree, pNode->apChildren[i]);
         }
-        HtmlComputedValuesRelease(pNode->pPropertyValues);
+        HtmlComputedValuesRelease(pTree, pNode->pPropertyValues);
         HtmlCssPropertiesFree(pNode->pStyle);
         if (pNode->pNodeCmd) {
             Tcl_Obj *pCommand = pNode->pNodeCmd->pCommand;
-            Tcl_DeleteCommand(interp, Tcl_GetString(pCommand));
+            Tcl_DeleteCommand(pTree->interp, Tcl_GetString(pCommand));
             Tcl_DecrRefCount(pCommand);
-            ckfree((char *)pNode->pNodeCmd);
+            HtmlFree((char *)pNode->pNodeCmd);
             pNode->pNodeCmd = 0;
         }
         if (pNode->pReplacement) {
@@ -176,10 +176,10 @@ freeNode(interp, pNode)
             if (p->pDelete) Tcl_DecrRefCount(p->pDelete);
             if (p->pReplace) Tcl_DecrRefCount(p->pReplace);
             if (p->pConfigure) Tcl_DecrRefCount(p->pConfigure);
-            ckfree((char *)p);
+            HtmlFree((char *)p);
         }
-        ckfree((char *)pNode->apChildren);
-        ckfree((char *)pNode);
+        HtmlFree((char *)pNode->apChildren);
+        HtmlFree((char *)pNode);
     }
 }
 
@@ -202,7 +202,7 @@ void HtmlTreeFree(pTree)
     HtmlTree *pTree;
 {
     if( pTree->pRoot ){
-        freeNode(pTree->interp, pTree->pRoot);
+        freeNode(pTree, pTree->pRoot);
     }
     pTree->pRoot = 0;
     pTree->pCurrent = 0;
@@ -318,9 +318,9 @@ nodeAddChild(pNode, pToken)
     
     r = pNode->nChild++;
     n = (r+1) * sizeof(HtmlNode*);
-    pNode->apChildren = (HtmlNode **)ckrealloc((char *)pNode->apChildren, n);
+    pNode->apChildren = (HtmlNode **)HtmlRealloc((char *)pNode->apChildren, n);
 
-    pNew = (HtmlNode *)ckalloc(sizeof(HtmlNode));
+    pNew = (HtmlNode *)HtmlAlloc(sizeof(HtmlNode));
     memset(pNew, 0, sizeof(HtmlNode));
     pNew->pToken = pToken;
     pNew->pParent = pNode;
@@ -398,7 +398,7 @@ HtmlAddToken(pTree, pToken)
          */
         HtmlToken *pHtml = pToken;
         if (type != Html_HTML) {
-            pHtml = (HtmlToken *)ckalloc(sizeof(HtmlToken));
+            pHtml = (HtmlToken *)HtmlAlloc(sizeof(HtmlToken));
             memset(pHtml, 0, sizeof(HtmlToken));
             pHtml->type = Html_HTML;
             pHtml->pNext = pTree->pFirst;
@@ -408,7 +408,7 @@ HtmlAddToken(pTree, pToken)
             }
         }
         
-        pCurrent = (HtmlNode *)ckalloc(sizeof(HtmlNode));
+        pCurrent = (HtmlNode *)HtmlAlloc(sizeof(HtmlNode));
         memset(pCurrent, 0, sizeof(HtmlNode));
         pCurrent->pToken = pHtml;
         pTree->pRoot = pCurrent;
@@ -893,7 +893,7 @@ nodeCommand(clientData, interp, objc, objv)
                 }
 
                 nBytes = sizeof(HtmlNodeReplacement);
-                pReplace = (HtmlNodeReplacement *) ckalloc(nBytes);
+                pReplace = (HtmlNodeReplacement *) HtmlAlloc(nBytes);
                 pReplace->pReplace = aArgs[0];
                 pReplace->pConfigure = aArgs[1];
                 pReplace->pDelete = aArgs[2];
@@ -909,7 +909,7 @@ nodeCommand(clientData, interp, objc, objv)
                     if (p->pDelete) Tcl_DecrRefCount(p->pDelete);
                     if (p->pReplace) Tcl_DecrRefCount(p->pReplace);
                     if (p->pConfigure) Tcl_DecrRefCount(p->pConfigure);
-                    ckfree((char *)p);
+                    HtmlFree((char *)p);
                 }
                 pNode->pReplacement = pReplace;
 
@@ -968,7 +968,7 @@ HtmlNodeCommand(pTree, pNode)
         pCmd = Tcl_NewStringObj(zBuf, -1);
         Tcl_IncrRefCount(pCmd);
         Tcl_CreateObjCommand(pTree->interp, zBuf, nodeCommand, pNode, 0);
-        pNodeCmd = (HtmlNodeCmd *)ckalloc(sizeof(HtmlNodeCmd));
+        pNodeCmd = (HtmlNodeCmd *)HtmlAlloc(sizeof(HtmlNodeCmd));
         pNodeCmd->pCommand = pCmd;
         pNodeCmd->pTree = pTree;
         pNode->pNodeCmd = pNodeCmd;
@@ -983,12 +983,12 @@ HtmlNodeCommand(pTree, pNode)
  * HtmlNodeToString --
  *
  *     Return a human-readable string representation of pNode in memory
- *     allocated by ckfree(). This function is only used for debugging.
+ *     allocated by HtmlFree(). This function is only used for debugging.
  *     Code to build string representations of nodes for other purposes
  *     should be done in Tcl using the node-command interface.
  *
  * Results:
- *     Pointer to string allocated by ckalloc().
+ *     Pointer to string allocated by HtmlAlloc().
  *
  * Side effects:
  *     None.
@@ -1044,11 +1044,11 @@ HtmlNodeToString(pNode)
         Tcl_AppendToObj(pStr, ">", -1);
     }
 
-    /* Copy the string from the Tcl_Obj* to memory obtained via ckalloc().
+    /* Copy the string from the Tcl_Obj* to memory obtained via HtmlAlloc().
      * Then release the reference to the Tcl_Obj*.
      */
     Tcl_GetStringFromObj(pStr, &len);
-    zStr = ckalloc(len+1);
+    zStr = HtmlAlloc(len+1);
     strcpy(zStr, Tcl_GetString(pStr));
     Tcl_DecrRefCount(pStr);
 
@@ -1084,9 +1084,9 @@ int HtmlTreeClear(pTree)
 
     /* Free the token representation */
     for (pToken=pTree->pFirst; pToken; pToken = pToken->pNext) {
-        ckfree((char *)pToken->pPrev);
+        HtmlFree((char *)pToken->pPrev);
     }
-    ckfree((char *)pTree->pLast);
+    HtmlFree((char *)pTree->pLast);
     pTree->pFirst = 0;
     pTree->pLast = 0;
 

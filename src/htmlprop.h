@@ -319,7 +319,7 @@ struct HtmlComputedValuesCreator {
 void HtmlComputedValuesInit(HtmlTree*, HtmlNode*, HtmlComputedValuesCreator*);
 int HtmlComputedValuesSet(HtmlComputedValuesCreator *, int, CssProperty*);
 HtmlComputedValues *HtmlComputedValuesFinish(HtmlComputedValuesCreator *);
-void HtmlComputedValuesRelease(HtmlComputedValues*);
+void HtmlComputedValuesRelease(HtmlTree *, HtmlComputedValues*);
 
 /*
  * The following two functions are used to initialise and destroy the following

@@ -37,7 +37,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  * COPYRIGHT:
  */
-static const char rcsid[] = "$Id: htmlfloat.c,v 1.7 2005/11/11 09:05:43 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlfloat.c,v 1.8 2005/11/13 12:00:17 danielk1977 Exp $";
 
 #include <assert.h>
 #include "html.h"
@@ -147,7 +147,7 @@ floatListPrint(pList)
  */
 HtmlFloatList *HtmlFloatListNew()
 {
-    HtmlFloatList *pList = (HtmlFloatList *)ckalloc(sizeof(HtmlFloatList));
+    HtmlFloatList *pList = (HtmlFloatList *)HtmlAlloc(sizeof(HtmlFloatList));
     memset(pList, 0, sizeof(HtmlFloatList));
 #ifdef DEBUG_FLOAT_LIST
     printf("HtmlFloatListNew()  -> %p\n", pList);
@@ -179,11 +179,11 @@ HtmlFloatListDelete(pList)
         FloatListEntry *pEntry;
         FloatListEntry *pEntry2 = 0;
         for (pEntry = pList->pEntry; pEntry; pEntry = pEntry->pNext) {
-            if (pEntry2) ckfree((char *)pEntry2);
+            if (pEntry2) HtmlFree((char *)pEntry2);
             pEntry2 = pEntry;
         }
-        if (pEntry2) ckfree((char *)pEntry2);
-        ckfree((char *)pList);
+        if (pEntry2) HtmlFree((char *)pEntry2);
+        HtmlFree((char *)pList);
     }
 }
 
@@ -222,7 +222,7 @@ void insertListEntry(pList, y)
 
     /* See if a new entry is required the start of the list. */
     if (pList->pEntry && pList->pEntry->y > y) {
-        pNew = (FloatListEntry *)ckalloc(sizeof(FloatListEntry));
+        pNew = (FloatListEntry *)HtmlAlloc(sizeof(FloatListEntry));
         memset(pNew, 0, sizeof(FloatListEntry));
         pNew->pNext = pList->pEntry;
         goto insert_out;
@@ -240,7 +240,7 @@ void insertListEntry(pList, y)
              * split it into two parts. The margins are the same in each
              * part.
              */
-            pNew = (FloatListEntry *)ckalloc(sizeof(FloatListEntry));
+            pNew = (FloatListEntry *)HtmlAlloc(sizeof(FloatListEntry));
             memcpy(pNew, pEntry, sizeof(FloatListEntry));
             pEntry->pNext = pNew;
             pNew->y = y;
@@ -256,7 +256,7 @@ void insertListEntry(pList, y)
     assert(!pEntry || !pEntry->pNext);
 
     if (pEntry || pList->endValid) {
-        pNew = (FloatListEntry *)ckalloc(sizeof(FloatListEntry));
+        pNew = (FloatListEntry *)HtmlAlloc(sizeof(FloatListEntry));
         memset(pNew, 0, sizeof(FloatListEntry));
         pNew->y = pList->yend;
         if (pEntry) {

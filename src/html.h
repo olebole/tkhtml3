@@ -37,6 +37,17 @@
 #define __HTMLTREE_H__
 
 #ifndef NDEBUG
+    #include "restrack.h"
+    #define HtmlAlloc Rt_Alloc
+    #define HtmlFree Rt_Free
+    #define HtmlRealloc Rt_Realloc
+#else
+    #define HtmlAlloc ckalloc
+    #define HtmlFree ckfree
+    #define HtmlRealloc ckrealloc
+#endif
+
+#ifndef NDEBUG
 #define HTML_DEBUG
 #endif
 
@@ -249,13 +260,6 @@ struct HtmlCallback {
  * HtmlScaledImage structure stores a scaled version of the image, if any
  * scaling was necessary.
  *
- * Each html tag to be treated as a script tag has an entry in the
- * 'aScriptHandler' hash table. The table maps from tag-type (i.e. Html_P)
- * to a Tcl_Obj* that contains the script to call when the tag type is
- * encountered. A single argument is appended to the script - all the text
- * between the start and end tag. The ref-count of the Tcl_Obj* should be
- * decremented if it is removed from the hash table.
- *
  * The aFontCache hash table maps from font-name to Tk_Font value.
  */
 struct HtmlTree {
@@ -283,7 +287,6 @@ struct HtmlTree {
      * character, it is converted to (8-(iCol%8)) spaces. This makes text
      * inside a block with the 'white-space' property set to "pre" look good
      * even if the input contains tabs. 
-     *
      */
     Tcl_Obj *pDocument;             /* Text of the html document */
     int nParsed;                    /* Bytes of the html document tokenized */
@@ -295,6 +298,16 @@ struct HtmlTree {
     HtmlNode *pCurrent;             /* The node currently being built. */
     HtmlNode *pRoot;                /* The root-node of the document. */
 
+    /*
+     * Handler callbacks configured by the [$widget handler] command.
+     *
+     * The aScriptHandler hash table contains entries representing
+     * script-handler callbacks. Each entry maps a tag-type (i.e. Html_P)
+     * to a Tcl_Obj* that contains the Tcl script to call when the tag type is
+     * encountered. A single argument is appended to the script - all the text
+     * between the start and end tag. The ref-count of the Tcl_Obj* should be
+     * decremented if it is removed from the hash table.
+     */
     Tcl_HashTable aScriptHandler;   /* Script handler callbacks. */
     Tcl_HashTable aNodeHandler;     /* Script handler callbacks. */
 

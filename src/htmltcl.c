@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.49 2005/11/11 15:25:15 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.50 2005/11/13 12:00:17 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -454,6 +454,35 @@ HtmlCallbackExtents(pTree, x, y, width, height)
 /*
  *---------------------------------------------------------------------------
  *
+ * deleteWidget --
+ *
+ *     destroy $html
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void 
+deleteWidget(clientData)
+    ClientData clientData;
+{
+    HtmlTree *pTree = (HtmlTree *)clientData;
+    HtmlTreeClear(pTree);
+
+    /* Clear the remaining colors etc. from the styler code hash tables */
+    HtmlComputedValuesCleanupTables(pTree);
+
+    /* Delete the structure itself */
+    HtmlFree((char *)pTree);
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * eventHandler --
  *
  * Results:
@@ -512,6 +541,11 @@ eventHandler(clientData, pEvent)
             break;
         }
 
+        case DestroyNotify: {
+            deleteWidget(pTree);
+            break;
+        }
+
     }
 }
 
@@ -565,16 +599,22 @@ configureCmd(clientData, interp, objc, objv)
     
     /* Option table definition for the html widget. */
     static Tk_OptionSpec htmlOptionSpec[] = {
+
+        /* Standard geometry interface */
         GEOMETRY(height, "height", "Height", "600"),
         GEOMETRY(width, "width", "Width", "800"),
+
+        /* Standard scroll interface - same as canvas, text */
         PIXELS(yscrollincrement, "yScrollIncrement", "ScrollIncrement", "20"),
         PIXELS(xscrollincrement, "xScrollIncrement", "ScrollIncrement", "20"),
-    
         STRING(xscrollcommand, "xScrollCommand", "ScrollCommand", ""),
         STRING(yscrollcommand, "yScrollCommand", "ScrollCommand", ""),
+
+        /* Non-debugging widget specific options */
         STRING(defaultstyle, "defaultStyle", "DefaultStyle", HTML_DEFAULT_CSS),
         STRING(imagecmd, "imageCmd", "ImageCmd", ""),
     
+        /* Options for logging info to debugging scripts */
         STRING(logcmd, "logCmd", "LogCmd", ""),
         STRING(timercmd, "timerCmd", "TimerCmd", ""),
     
@@ -1387,34 +1427,6 @@ int HtmlWidgetObjCommand(clientData, interp, objc, objv)
 }
 
 
-/*
- *---------------------------------------------------------------------------
- *
- * deleteWidget --
- *
- *     destroy $html
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-static void 
-deleteWidget(clientData)
-    ClientData clientData;
-{
-    HtmlTree *pTree = (HtmlTree *)clientData;
-    HtmlTreeClear(pTree);
-
-    /* Clear the remaining colors etc. from the styler code hash tables */
-    HtmlComputedValuesSetupTables(pTree);
-
-    /* Delete the structure itself */
-    ckfree((char *)pTree);
-}
 
 /*
  *---------------------------------------------------------------------------
@@ -1450,7 +1462,7 @@ newWidget(clientData, interp, objc, objv)
     }
     
     zCmd = Tcl_GetString(objv[1]);
-    pTree = (HtmlTree *)ckalloc(sizeof(HtmlTree));
+    pTree = (HtmlTree *)HtmlAlloc(sizeof(HtmlTree));
     memset(pTree, 0, sizeof(HtmlTree));
 
     /* Create the Tk window.
@@ -1500,7 +1512,7 @@ error_out:
         Tk_DestroyWindow(pTree->tkwin);
     }
     if (pTree) {
-        ckfree((char *)pTree);
+        HtmlFree((char *)pTree);
     }
     return TCL_ERROR;
 }
@@ -1583,6 +1595,18 @@ resolveCmd(clientData, interp, objc, objv)
     return TCL_OK;
 }
 
+#ifndef NDEBUG
+static int 
+allocCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    return Rt_AllocCommand(0, interp, objc, objv);
+}
+#endif
+
 /*
  * Define the DLL_EXPORT macro, which must be set to something or other in
  * order to export the Tkhtml_Init and Tkhtml_SafeInit symbols from a win32
@@ -1633,6 +1657,10 @@ DLL_EXPORT int Tkhtml_Init(interp)
     Tcl_CreateObjCommand(interp, "html", newWidget, 0, 0);
     Tcl_CreateObjCommand(interp, "::tk::htmlexit", exitCmd, 0, 0);
     Tcl_CreateObjCommand(interp, "::tk::htmlresolve", resolveCmd, 0, 0);
+
+#ifndef NDEBUG
+    Tcl_CreateObjCommand(interp, "::tk::htmlalloc", allocCmd, 0, 0);
+#endif
 
     SwprocInit(interp);
 

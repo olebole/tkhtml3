@@ -1,7 +1,53 @@
 
+###########################################################################
+# hv3_prop.tcl --
 #
-# hv3_prop.tcl
+#     This file contains code to implement the node browser window (the thing
+#     with the tree on the left and the node info on the right). The public
+#     interface to this file are the commands:
 #
+#         prop_browse HTML ?-node NODE?
+#
+
+swproc prop_browse {HTML {node ""}} {
+    if {[info commands .prop] == ""} {
+        toplevel .prop
+        bind .prop <KeyPress-q> {wm withdraw .prop}
+        bind .prop <KeyPress-Q> {wm withdraw .prop}
+
+        html .prop.html -width 400
+        canvas .prop.tree -width 300 -background white -borderwidth 10
+
+        scrollbar .prop.html_sb -orient vertical
+        scrollbar .prop.tree_sb -orient vertical
+    
+        .prop.html configure -yscrollcommand {.prop.html_sb set}
+        .prop.tree configure -yscrollcommand {.prop.tree_sb set}
+        .prop.html_sb configure -command ".prop.html yview"
+        .prop.tree_sb configure -command ".prop.tree yview"
+
+        pack .prop.tree -side left -fill both -expand true
+        pack .prop.html_sb -side right -fill y
+        pack .prop.html -side right -fill y
+        pack .prop.tree_sb -side right -fill y 
+    } 
+    wm state .prop normal
+
+    if {$node != "" && [info commands $node] != ""} {
+        set ::hv3_prop_selected $node
+        for {set n [$node parent]} {$n != ""} {set n [$n parent]} {
+            set ::hv3_prop_expanded($n) 1
+        }
+    }
+
+    .prop.tree delete all
+    prop_drawTree $HTML [$HTML node] 10 30
+    if {[info commands $::hv3_prop_selected] == ""} {
+        set ::hv3_prop_selected [$HTML node]
+    }
+    prop_displayNode $::hv3_prop_selected
+    .prop.tree configure -scrollregion [.prop.tree bbox all]
+}
 
 image create photo idir -data {
     R0lGODdhEAAQAPIAAAAAAHh4eLi4uPj4APj4+P///wAAAAAAACwAAAAAEAAQAAADPVi63P4w
@@ -122,8 +168,7 @@ proc prop_drawTree {HTML node x y} {
         } else {
           set ::hv3_prop_expanded($node) 1 
         }
-        set ::hv3_prop_selected $node
-        prop_updateBrowser $HTML
+        prop_browse $HTML -node $node
     }]
     
     set ret 1
@@ -147,40 +192,6 @@ proc prop_drawTree {HTML node x y} {
         }
     }
     return $ret
-}
-
-proc prop_updateBrowser {HTML} {
-    if {[info commands .prop] == ""} {
-        toplevel .prop
-        bind .prop <KeyPress-q> {wm withdraw .prop}
-        bind .prop <KeyPress-Q> {wm withdraw .prop}
-
-        html .prop.html -width 400
-        canvas .prop.tree -width 300 -background white -borderwidth 10
-
-        scrollbar .prop.html_sb -orient vertical
-        scrollbar .prop.tree_sb -orient vertical
-    
-        .prop.html configure -yscrollcommand {.prop.html_sb set}
-        .prop.tree configure -yscrollcommand {.prop.tree_sb set}
-        .prop.html_sb configure -command ".prop.html yview"
-        .prop.tree_sb configure -command ".prop.tree yview"
-    
-        pack .prop.tree -side left -fill both -expand true
-        pack .prop.html_sb -side right -fill y
-        pack .prop.html -side right -fill y
-        pack .prop.tree_sb -side right -fill y 
-        set ::hv3_prop_selected [$HTML node]
-    } 
-    wm state .prop normal
-
-    .prop.tree delete all
-    prop_drawTree $HTML [$HTML node] 10 30
-    if {[info commands $::hv3_prop_selected] == ""} {
-        set ::hv3_prop_selected [$HTML node]
-    }
-    prop_displayNode $::hv3_prop_selected
-    .prop.tree configure -scrollregion [.prop.tree bbox all]
 }
 
 proc prop_compress {props} {

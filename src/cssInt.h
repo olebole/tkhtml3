@@ -168,7 +168,7 @@ struct CssRule {
  *
  * Each time a call is made to [<widget> style] to add a new stylesheet to
  * the configuration, two instances of this structure are allocated using
- * ckalloc() and inserted into the list. The CssPriority.origin and
+ * HtmlAlloc() and inserted into the list. The CssPriority.origin and
  * CssPriority.pIdTail variables are set to the origin and id-tail of the
  * new stylesheet (based on parsing the stylesheet-id) in both instances.
  * In one instance the CssPriority.important flag is set to true, in the
@@ -219,11 +219,13 @@ struct CssStyleSheet {
  */
 struct CssParse {
     CssStyleSheet *pStyle;
+
     CssSelector *pSelector;         /* Selector currently being parsed */
     int nXtra;
     CssSelector **apXtraSelector;   /* Selectors also waiting for prop set. */
     CssPropertySet *pPropertySet;   /* Declarations being parsed. */
     CssPropertySet *pImportant;     /* !IMPORTANT declarations. */
+
     int origin;
     Tcl_Obj *pStyleId;
     CssPriority *pPriority1;

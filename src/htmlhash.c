@@ -43,7 +43,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  * COPYRIGHT:
  */
-static const char rcsid[] = "$Id: htmlhash.c,v 1.8 2005/11/11 09:05:43 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlhash.c,v 1.9 2005/11/13 12:00:17 danielk1977 Exp $";
 
 #include <tcl.h>
 #include <strings.h>
@@ -116,7 +116,7 @@ hashCaseInsensitiveKey(tablePtr, keyPtr)
 /*
  *---------------------------------------------------------------------------
  *
- * allocCaseInsenstiveEntry --
+ * allocCaseInsensitiveEntry --
  *
  *     Allocate enough space for a Tcl_HashEntry and associated string key.
  *
@@ -129,7 +129,7 @@ hashCaseInsensitiveKey(tablePtr, keyPtr)
  *---------------------------------------------------------------------------
  */
 static Tcl_HashEntry * 
-allocCaseInsenstiveEntry(tablePtr, keyPtr)
+allocCaseInsensitiveEntry(tablePtr, keyPtr)
     Tcl_HashTable *tablePtr;    /* Hash table. */
     VOID *keyPtr;               /* Key to store in the hash table entry. */
 {
@@ -141,12 +141,18 @@ allocCaseInsenstiveEntry(tablePtr, keyPtr)
     if (size < sizeof(Tcl_HashEntry)) {
         size = sizeof(Tcl_HashEntry);
     }
-    hPtr = (Tcl_HashEntry *) ckalloc(size);
+    hPtr = (Tcl_HashEntry *) HtmlAlloc(size);
     strcpy(hPtr->key.string, string);
 
     return hPtr;
 }
 
+static void
+freeCaseInsensitiveEntry(hPtr)
+    Tcl_HashEntry *hPtr;
+{
+    HtmlFree((char *)hPtr);
+}
 
 /*
  *---------------------------------------------------------------------------
@@ -179,8 +185,8 @@ HtmlCaseInsenstiveHashType()
         0,                                  /* flags */
         hashCaseInsensitiveKey,             /* hashKeyProc */
         compareCaseInsensitiveKey,          /* compareKeysProc */
-        allocCaseInsenstiveEntry,           /* allocEntryProc */
-        NULL                                /* freeEntryProc */
+        allocCaseInsensitiveEntry,          /* allocEntryProc */
+        freeCaseInsensitiveEntry            /* freeEntryProc */
     };
     return &hash_key_type;
 }
@@ -287,7 +293,7 @@ allocFontEntry(tablePtr, keyPtr)
     );
     assert(size >= sizeof(Tcl_HashEntry));
 
-    hPtr = (Tcl_HashEntry *) ckalloc(size);
+    hPtr = (Tcl_HashEntry *) HtmlAlloc(size);
     pStoredKey = (HtmlFontKey *)(hPtr->key.string);
     pStoredKey->iFontSize = pKey->iFontSize;
     pStoredKey->isItalic = pKey->isItalic;
@@ -332,7 +338,7 @@ HtmlFontKeyHashType()
         hashFontKey,                        /* hashKeyProc */
         compareFontKey,                     /* compareKeysProc */
         allocFontEntry,                     /* allocEntryProc */
-        NULL                                /* freeEntryProc */
+        freeCaseInsensitiveEntry            /* freeEntryProc */
     };
     return &hash_key_type;
 }
@@ -473,7 +479,7 @@ allocValuesEntry(tablePtr, keyPtr)
     );
     assert(size >= sizeof(Tcl_HashEntry));
 
-    hPtr = (Tcl_HashEntry *) ckalloc(size);
+    hPtr = (Tcl_HashEntry *) HtmlAlloc(size);
     pStoredKey = (HtmlComputedValues *)(hPtr->key.string);
     memcpy(pStoredKey, pKey, sizeof(HtmlComputedValues));
 
@@ -513,7 +519,7 @@ Tcl_HashKeyType * HtmlComputedValuesHashType()
         hashValuesKey,                      /* hashKeyProc */
         compareValuesKey,                   /* compareKeysProc */
         allocValuesEntry,                   /* allocEntryProc */
-        NULL                                /* freeEntryProc */
+        freeCaseInsensitiveEntry            /* freeEntryProc */
     };
     return &hash_key_type;
 }

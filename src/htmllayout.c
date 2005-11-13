@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.101 2005/11/12 04:47:20 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.102 2005/11/13 12:00:17 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -328,26 +328,29 @@ nodeGetBoxProperties(pLayout, pNode, iContaining, pBoxProperties)
 {
     HtmlComputedValues *pV = pNode->pPropertyValues;
 
-    pBoxProperties->padding_top = PIXELVAL(pV, PADDING_TOP, iContaining);
-    pBoxProperties->padding_right = PIXELVAL(pV, PADDING_RIGHT, iContaining);
-    pBoxProperties->padding_bottom = PIXELVAL(pV, PADDING_BOTTOM, iContaining);
-    pBoxProperties->padding_left = PIXELVAL(pV, PADDING_LEFT, iContaining);
+    /* Under some circumstance, a negative value may be passed for iContaining.
+     * If this happens, use 0 as the containing width when calculating padding
+     * widths with computed percentage values. Otherwise we will return a
+     * negative padding width, which is illegal.
+     */
+    int c = (iContaining >= 0 ? iContaining : 0);
+    pBoxProperties->padding_top =    PIXELVAL(pV, PADDING_TOP, c);
+    pBoxProperties->padding_right =  PIXELVAL(pV, PADDING_RIGHT, c);
+    pBoxProperties->padding_bottom = PIXELVAL(pV, PADDING_BOTTOM, c);
+    pBoxProperties->padding_left =   PIXELVAL(pV, PADDING_LEFT, c);
 
-    /* Note: 'border-width' properties may not be set to % values, so access
-     * them directly, not using the PIXELVAL macro.
+    /* For each border width, use the computed value if border-style is
+     * something other than 'none', otherwise use 0. The PIXELVAL macro is not
+     * used because 'border-width' properties may not be set to % values.
      */
     pBoxProperties->border_top = (
-            (pV->eBorderTopStyle != CSS_CONST_NONE) ?
-            pV->border.iTop : 0);
+        (pV->eBorderTopStyle != CSS_CONST_NONE) ? pV->border.iTop : 0);
     pBoxProperties->border_right = (
-            (pV->eBorderRightStyle != CSS_CONST_NONE) ?
-            pV->border.iRight : 0);
+        (pV->eBorderRightStyle != CSS_CONST_NONE) ? pV->border.iRight : 0);
     pBoxProperties->border_bottom = (
-            (pV->eBorderBottomStyle != CSS_CONST_NONE) ?
-            pV->border.iBottom : 0);
+        (pV->eBorderBottomStyle != CSS_CONST_NONE) ? pV->border.iBottom : 0);
     pBoxProperties->border_left = (
-            (pV->eBorderLeftStyle != CSS_CONST_NONE) ?
-            pV->border.iLeft : 0);
+        (pV->eBorderLeftStyle != CSS_CONST_NONE) ?  pV->border.iLeft : 0);
 
     assert(
         pBoxProperties->border_top >= 0 &&
@@ -1766,7 +1769,7 @@ blockMinMaxWidth(pLayout, pNode, pMin, pMax)
 
         assert(max>=min);
 
-        pCache = (int *)ckalloc(sizeof(int)*2);
+        pCache = (int *)HtmlAlloc(sizeof(int)*2);
         pCache[0] = min;
         pCache[1] = max;
         Tcl_SetHashValue(pEntry, pCache);
@@ -2028,7 +2031,7 @@ HtmlLayout(pTree)
         p; 
         p = Tcl_NextHashEntry(&s)) 
     {
-        ckfree((char *)Tcl_GetHashValue(p));
+        HtmlFree((char *)Tcl_GetHashValue(p));
     }
     Tcl_DeleteHashTable(&sLayout.widthCache);
 

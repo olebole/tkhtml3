@@ -64,7 +64,6 @@
 typedef struct CssStyleSheet CssStyleSheet;
 typedef struct CssProperties CssProperties;
 typedef struct CssProperty CssProperty;
-typedef struct CssAttrFunction CssAttrFunction;
 
 /* Include html.h after we define our opaque types, because it includes
  * structures that contain pointers to them.
@@ -72,12 +71,12 @@ typedef struct CssAttrFunction CssAttrFunction;
 #include "html.h"
 
 #define CSS_TYPE_EM           1            /* Value in 'rVal' */
-#define CSS_TYPE_PX           2            /* Value in 'iVal' */
-#define CSS_TYPE_PT           3            /* Value in 'iVal' */
+#define CSS_TYPE_PX           2            /* Value in 'rVal' */
+#define CSS_TYPE_PT           3            /* Value in 'rVal' */
 #define CSS_TYPE_PC           14           /* Value in 'rVal' */
 #define CSS_TYPE_EX           15           /* Value in 'rVal' */
 #define CSS_TYPE_STRING       4            /* Value in 'sVal' */
-#define CSS_TYPE_PERCENT      5            /* Value in 'iVal' */
+#define CSS_TYPE_PERCENT      5            /* Value in 'rVal' */
 #define CSS_TYPE_FLOAT        6            /* Value in 'rVal' */
 #define CSS_TYPE_NONE         7            /* No value */
 
@@ -90,9 +89,6 @@ typedef struct CssAttrFunction CssAttrFunction;
 #define CSS_TYPE_INCH         11           /* Value in 'rVal */
 #define CSS_TYPE_MILLIMETER   12           /* Value in 'rVal */
 
-/* Magical types */
-#define CSS_TYPE_XCOLOR       16           /* p points at XColor */
-
 /*
  * A single CSS property is represented by an instance of the following
  * struct. The actual value is stored in one of the primitives inside
@@ -102,17 +98,10 @@ typedef struct CssAttrFunction CssAttrFunction;
 struct CssProperty {
     int eType;
     union {
-        int iVal;
-        double rVal;
         char *zVal;
+        double rVal;
         void *p;
     } v;
-};
-
-struct CssAttrFunction {
-    const char *zAttr;           /* Attribute name */
-    int iAncestorTag;            /* Ancestor tag */
-    CssProperty *pProp;          /* Property value */
 };
 
 /*

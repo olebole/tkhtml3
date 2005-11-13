@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char rcsid[] = "$Id: htmltable.c,v 1.56 2005/11/12 04:47:20 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.57 2005/11/13 12:00:17 danielk1977 Exp $";
 
 #include "htmllayout.h"
 
@@ -488,6 +488,9 @@ tableDrawCells(pNode, col, colspan, row, rowspan, pContext)
         pData->aY[i] = MAX(pData->aY[row+rowspan], pData->aY[i]);
     }
 
+    HtmlFloatListDelete(pBox->pFloat);
+    pBox->pFloat = 0;
+
     return TCL_OK;
 }
 
@@ -598,7 +601,7 @@ tableIterate(pNode, xCallback, xRowCallback, pContext)
                     if (nRSpan!=1) {
                         if (nRowSpan<(col+nSpan)) {
                             int n = col+nSpan;
-                            aRowSpan = (int *)ckrealloc((char *)aRowSpan, 
+                            aRowSpan = (int *)HtmlRealloc((char *)aRowSpan, 
                                     sizeof(int)*n);
                             for (k=nRowSpan; k<n; k++) {
                                 aRowSpan[k] = 0;
@@ -613,7 +616,7 @@ tableIterate(pNode, xCallback, xRowCallback, pContext)
                     maxrow = MAX(maxrow, row+nRSpan-1);
                     rc = xCallback(p, col, nSpan, row, nRSpan, pContext);
                     if (rc!=TCL_OK) {
-                        ckfree((char *)aRowSpan);
+                        HtmlFree((char *)aRowSpan);
                         return rc;
                     }
                     col += nSpan;
@@ -634,7 +637,7 @@ tableIterate(pNode, xCallback, xRowCallback, pContext)
         row++;
     }
 
-    ckfree((char *)aRowSpan);
+    HtmlFree((char *)aRowSpan);
     return TCL_OK;
 }
 
@@ -697,7 +700,7 @@ tableCalculateCellWidths(pData, width)
     }
 #endif
 
-    aTmpWidth = (int *)ckalloc(sizeof(int)*nCol);
+    aTmpWidth = (int *)HtmlAlloc(sizeof(int)*nCol);
     space = width;
 
     requested = 0;
@@ -775,7 +778,7 @@ tableCalculateCellWidths(pData, width)
     }
 
     memcpy(aWidth, aTmpWidth, sizeof(int)*nCol);
-    ckfree((char *)aTmpWidth);
+    HtmlFree((char *)aTmpWidth);
 
 #ifndef NDEBUG
     for (i=0; i<nCol; i++) {
@@ -867,15 +870,15 @@ int tableLayout(pLayout, pBox, pNode)
 
     /* Allocate arrays for the minimum and maximum widths of each column */
 
-    aMinWidth = (int *)ckalloc(nCol*sizeof(int));
+    aMinWidth = (int *)HtmlAlloc(nCol*sizeof(int));
     memset(aMinWidth, 0, nCol*sizeof(int));
-    aMaxWidth = (int *)ckalloc(nCol*sizeof(int));
+    aMaxWidth = (int *)HtmlAlloc(nCol*sizeof(int));
     memset(aMaxWidth, 0, nCol*sizeof(int));
-    aWidth = (int *)ckalloc(nCol*sizeof(int));
+    aWidth = (int *)HtmlAlloc(nCol*sizeof(int));
     memset(aWidth, 0, nCol*sizeof(int));
-    aY = (int *)ckalloc((data.nRow+1)*sizeof(int));
+    aY = (int *)HtmlAlloc((data.nRow+1)*sizeof(int));
     memset(aY, 0, (data.nRow+1)*sizeof(int));
-    aCell = (TableCell *)ckalloc(data.nCol*sizeof(TableCell));
+    aCell = (TableCell *)HtmlAlloc(data.nCol*sizeof(TableCell));
     memset(aCell, 0, data.nCol*sizeof(TableCell));
 
     data.aMaxWidth = aMaxWidth;
@@ -952,11 +955,11 @@ int tableLayout(pLayout, pBox, pNode)
     pBox->height = MAX(pBox->height, data.aY[data.nRow]);
     pBox->width = MAX(pBox->width, width);
 
-    ckfree((char *)aMinWidth);
-    ckfree((char *)aMaxWidth);
-    ckfree((char *)aWidth);
-    ckfree((char *)aY);
-    ckfree((char *)aCell);
+    HtmlFree((char *)aMinWidth);
+    HtmlFree((char *)aMaxWidth);
+    HtmlFree((char *)aWidth);
+    HtmlFree((char *)aY);
+    HtmlFree((char *)aCell);
 
     return TCL_OK;
 }
