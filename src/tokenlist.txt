@@ -1,5 +1,5 @@
 #
-# $Revision: 1.19 $
+# $Revision: 1.20 $
 #
 # tokenlist.tcl -- 
 #
@@ -98,7 +98,7 @@ TAG big -flow inline
 TAG blockquote -flow block
 TAG body       
 TAG br -content HtmlEmptyContent -flow inline
-# TAG button
+TAG button
 TAG caption 
 TAG center -flow block
 TAG cite -flow inline

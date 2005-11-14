@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.50 2005/11/13 12:00:17 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.51 2005/11/14 12:20:41 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -354,6 +354,7 @@ callbackHandler(clientData)
         eCallbackAction == HTML_CALLBACK_LAYOUT || 
         eCallbackAction == HTML_CALLBACK_STYLE
     ) {
+        HtmlWidgetMapControls(pTree);
         doScrollCallback(pTree);
     }
 }
@@ -1040,6 +1041,7 @@ viewCommon(pTree, isXview, objc, objv)
     Tcl_SetObjResult(interp, pRet);
 
     if (objc > 2) {
+        HtmlWidgetMapControls(pTree);
         doScrollCallback(pTree);
     }
 

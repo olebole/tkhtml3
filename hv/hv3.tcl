@@ -29,6 +29,7 @@ sourcefile hv3_image.tcl
 sourcefile hv3_log.tcl
 sourcefile hv3_nav.tcl
 sourcefile hv3_prop.tcl
+sourcefile hv3_form.tcl
 
 ###########################################################################
 # Global data:
@@ -134,6 +135,7 @@ proc gui_build {} {
 
     log_init $HTML
     image_init $HTML
+    form_init $HTML
 }
 
 #--------------------------------------------------------------------------
@@ -145,6 +147,11 @@ proc gui_build {} {
 #     after the event.
 #
 proc handle_event {e x y} {
+
+    # Calculate the (rough) maximum number of chars .status can hold.
+    set pix [font measure [.status cget -font] -displayof .status xxxxxxxxxx]
+    set chars [expr 9 * ([winfo width .status] / $pix)]
+
     if {$e == "click"} {
         catch {.prop_menu unpost}
     }
@@ -154,19 +161,19 @@ proc handle_event {e x y} {
         prop_browse .html -node $node
     }
 
-  set n $node
-  for {} {$n != ""} {set n [$n parent]} {
-    if {[$n tag] == "a" && 0 == [catch {set href [$n attr href]}]} {
-      switch -- $e {
-        motion {
-          .status configure -text $href
-          . configure -cursor hand2
+    set n $node
+    for {} {$n != ""} {set n [$n parent]} {
+      if {[$n tag] == "a" && 0 == [catch {set href [$n attr href]}]} {
+        switch -- $e {
+          motion {
+            .status configure -text [string range $href 0 $chars]
+            . configure -cursor hand2
+          }
+          click  "gui_goto $href"
         }
-        click  "gui_goto $href"
+        break
       }
-      break
     }
-  }
 
   if {$n == ""} {
       . configure -cursor ""
@@ -181,7 +188,8 @@ proc handle_event {e x y} {
           }
           set n [$n parent]
       }
-      .status configure -text $nodeid
+
+      .status configure -text [string range $nodeid 0 $chars]
     }
 
 }
@@ -301,6 +309,9 @@ proc hv3_exit {} {
     destroy .html 
     catch {destroy .prop.html}
     catch {::tk::htmlalloc}
+    if {[llength [form_widget_list]] > 0} {
+        puts "Leaked widgets: [form_widget_list]"
+    }
     exit
 }
 

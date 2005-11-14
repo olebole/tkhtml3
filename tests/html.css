@@ -172,7 +172,8 @@ body a[href]:visited { color: tcl(::tkhtml::aa body vlink) }
 /* 'width', 'height', 'background-color' and 'font-size' */
 [width]                    { width:            tcl(::tkhtml::attr width -len) }
 [height]                   { height:           tcl(::tkhtml::attr height -len) }
-font[size], basefont[size] { font-size:        tcl(::tkhtml::attr size) }
+basefont[size]             { font-size:        tcl(::tkhtml::attr size) }
+font[size]                 { font-size:        tcl(::tkhtml::attr size) }
 [bgcolor]                  { background-color: tcl(::tkhtml::attr bgcolor) }
 
 BR[clear]   { clear: tcl(::tkhtml::attr clear) }

@@ -1,4 +1,13 @@
 
+#--------------------------------------------------------------------------
+# Global variables section
+ 
+#
+#
+#
+array unset ::hv3_log_layoutengine
+array set ::hv3_log_layoutengine [list]
+#--------------------------------------------------------------------------
 
 rename puts real_puts
 proc puts {args} {
@@ -56,6 +65,18 @@ proc log_setlogcmd {HTML modes args} {
 }
 
 proc log_puts {topic body} {
+    if {$topic == "LAYOUTENGINE"} {
+        if {$body == "START"} {
+            array unset ::hv3_log_layoutengine
+        } else {
+            set idx [string first " " $body]
+            set node [string range $body 0 [expr $idx - 1]]
+            set msg [string range $body [expr $idx + 1] end]
+            lappend ::hv3_log_layoutengine($node) $msg
+        }
+        return
+    }
+
     if {[info exists ::html_log_log($topic)] && $::html_log_log($topic)} {
         real_puts stdout "$topic: $body"
     }
@@ -73,7 +94,6 @@ proc log_primitives {HTML} {
 }
 
 proc log_node {n indent} {
-
     if {[$n tag] == ""} {
         if {[string trim [$n text]] != ""} {  
             puts -nonewline [string repeat " " $indent]

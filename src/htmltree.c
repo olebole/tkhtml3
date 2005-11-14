@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.36 2005/11/13 12:00:17 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.37 2005/11/14 12:20:41 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -173,7 +173,12 @@ freeNode(pTree, pNode)
         }
         if (pNode->pReplacement) {
             HtmlNodeReplacement *p = pNode->pReplacement;
-            if (p->pDelete) Tcl_DecrRefCount(p->pDelete);
+            if (p->pDelete) {
+                /* If there is a delete script, invoke it now. */
+                int flags = TCL_EVAL_DIRECT|TCL_EVAL_GLOBAL;
+                Tcl_EvalObjEx(pTree->interp, p->pDelete, flags);
+                Tcl_DecrRefCount(p->pDelete);
+            }
             if (p->pReplace) Tcl_DecrRefCount(p->pReplace);
             if (p->pConfigure) Tcl_DecrRefCount(p->pConfigure);
             HtmlFree((char *)p);
@@ -240,6 +245,7 @@ nodeHandlerCallbacks(pTree, pNode)
         Tcl_Obj *pEval;
         Tcl_Obj *pScript;
         Tcl_Obj *pNodeCmd;
+        int rc;
 
         pScript = (Tcl_Obj *)Tcl_GetHashValue(pEntry);
         pEval = Tcl_DuplicateObj(pScript);
@@ -247,7 +253,10 @@ nodeHandlerCallbacks(pTree, pNode)
 
         pNodeCmd = HtmlNodeCommand(pTree, pNode); 
         Tcl_ListObjAppendElement(0, pEval, pNodeCmd);
-        Tcl_EvalObjEx(interp, pEval, TCL_EVAL_DIRECT|TCL_EVAL_GLOBAL);
+        rc = Tcl_EvalObjEx(interp, pEval, TCL_EVAL_DIRECT|TCL_EVAL_GLOBAL);
+        if (rc != TCL_OK) {
+            Tcl_BackgroundError(interp);
+        }
 
         Tcl_DecrRefCount(pEval);
     }
@@ -704,7 +713,7 @@ char CONST *HtmlNodeAttr(pNode, zAttr)
  * nodeCommand --
  *
  *         <node> tag
- *         <node> attr HTML-ATTRIBUTE-NAME
+ *         <node> attr ?options? HTML-ATTRIBUTE-NAME
  *         <node> nChildren 
  *         <node> child CHILD-NUMBER 
  *         <node> parent
@@ -755,22 +764,47 @@ nodeCommand(clientData, interp, objc, objv)
     }
 
     switch ((enum NODE_enum)choice) {
+        /*
+         * nodeHandle attr ??-default DEFAULT-VALUE? ATTR-NAME?
+         *
+         *     supported options are:
+         *
+         *         -configurecmd       <script>
+         *         -deletecmd          <script>
+         */
         case NODE_ATTR: {
-            char CONST *zAttr;
-            char *zAttrName;
-            if (objc != 3 && objc != 2) {
-                Tcl_WrongNumArgs(interp, 2, objv, "?ATTRIBUTE?");
-                return TCL_ERROR;
+            char CONST *zAttr = 0;
+            char *zAttrName = 0;
+            char *zDefault = 0;
+
+            switch (objc) {
+                case 2:
+                    break;
+                case 3:
+                    zAttrName = Tcl_GetString(objv[2]);
+                    break;
+                case 5:
+                    if (strcmp(Tcl_GetString(objv[2]), "-default")) {
+                        goto node_attr_usage;
+                    }
+                    zDefault = Tcl_GetString(objv[3]);
+                    zAttrName = Tcl_GetString(objv[4]);
+                    break;
+                default:
+                    goto node_attr_usage;
             }
-            if (objc == 3) {
-                zAttrName = Tcl_GetString(objv[2]);
+
+            if (zAttrName) {
                 zAttr = HtmlNodeAttr(pNode, zAttrName);
+                zAttr = (zAttr ? zAttr : zDefault);
                 if (zAttr==0) {
                     Tcl_AppendResult(interp, "No such attr: ", zAttrName, 0);
                     return TCL_ERROR;
                 }
                 Tcl_SetResult(interp, (char *)zAttr, TCL_VOLATILE);
-            } else if (!HtmlNodeIsText(pNode)) {
+            } else 
+
+            if (!HtmlNodeIsText(pNode)) {
                 int i;
                 HtmlToken *pToken = pNode->pToken;
                 Tcl_Obj *p = Tcl_NewObj();
@@ -781,7 +815,16 @@ nodeCommand(clientData, interp, objc, objv)
                 Tcl_SetObjResult(interp, p);
             }
             break;
+
+node_attr_usage:
+            Tcl_ResetResult(interp);
+            Tcl_AppendResult(interp, "Usage: ",
+                Tcl_GetString(objv[0]), " ",
+                Tcl_GetString(objv[1]), " ",
+                "??-default DEFAULT-VALUE? ATTR-NAME?", 0);
+            return TCL_ERROR;
         }
+
         case NODE_TAG: {
             char CONST *zTag;
             if (objc!=2) {
@@ -1091,7 +1134,7 @@ int HtmlTreeClear(pTree)
     pTree->pLast = 0;
 
     /* Free the canvas representation */
-    HtmlDrawDeleteControls(pTree, &pTree->canvas);
+    /* HtmlDrawDeleteControls(pTree, &pTree->canvas); */
     HtmlDrawCleanup(&pTree->canvas);
     memset(&pTree->canvas, 0, sizeof(HtmlCanvas));
 

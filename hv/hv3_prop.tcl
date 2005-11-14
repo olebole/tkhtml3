@@ -16,7 +16,7 @@ swproc prop_browse {HTML {node ""}} {
         bind .prop <KeyPress-Q> {wm withdraw .prop}
 
         html .prop.html -width 400
-        canvas .prop.tree -width 300 -background white -borderwidth 10
+        canvas .prop.tree -width 400 -background white -borderwidth 10
 
         scrollbar .prop.html_sb -orient vertical
         scrollbar .prop.tree_sb -orient vertical
@@ -28,7 +28,7 @@ swproc prop_browse {HTML {node ""}} {
 
         pack .prop.tree -side left -fill both -expand true
         pack .prop.html_sb -side right -fill y
-        pack .prop.html -side right -fill y
+        pack .prop.html -side right -fill both -expand true
         pack .prop.tree_sb -side right -fill y 
     } 
     wm state .prop normal
@@ -81,7 +81,6 @@ proc prop_displayNode {node} {
             <html><head></head><body>
             <h1>Text</h1>
             <p>$text
-            </body></html>
         }]
     } else {
         set property_rows ""
@@ -106,9 +105,17 @@ proc prop_displayNode {node} {
                 $attribute_rows
 
             </table>
-            </body></html>
         }]
     }
+
+    if {[info exists ::hv3_log_layoutengine($node)]} {
+        append doc "<ul>\n"
+        foreach entry $::hv3_log_layoutengine($node) {
+            append doc "    <li>$entry\n"
+        }
+        append doc "</ul>\n"
+    }
+    append doc "</body></html>\n"
 
     .prop.html reset
     .prop.html parse -final $doc
@@ -147,12 +154,12 @@ proc prop_drawTree {HTML node x y} {
     }
 
     if {$leaf} {
-        .prop.tree create image $x $y -image ifile -anchor sw -tags $node
+        .prop.tree create image $x $y -image ifile -anchor sw -tags ${node}_img
     } else {
-        .prop.tree create image $x $y -image idir -anchor sw -tags $node
+        .prop.tree create image $x $y -image idir -anchor sw -tags ${node}_img
     }
 
-    set tid [.prop.tree create text [expr $x+$XINCR] $y -tags $node]
+    set tid [.prop.tree create text [expr $x+$XINCR] $y -tags ${node}_text]
     .prop.tree itemconfigure $tid -text $label -anchor sw
     if {$::hv3_prop_selected == $node} {
         set bbox [.prop.tree bbox $tid]
@@ -162,13 +169,17 @@ proc prop_drawTree {HTML node x y} {
         .prop.tree lower $rid $tid
     }
 
-    .prop.tree bind $node <1> [subst -nocommands {
+    .prop.tree bind ${node}_text <1> [subst -nocommands {
+        prop_browse $HTML -node $node
+    }]
+
+    .prop.tree bind ${node}_img <1> [subst -nocommands {
         if {[info exists ::hv3_prop_expanded($node)]} {
           unset ::hv3_prop_expanded($node)
         } else {
           set ::hv3_prop_expanded($node) 1 
         }
-        prop_browse $HTML -node $node
+        prop_browse $HTML
     }]
     
     set ret 1

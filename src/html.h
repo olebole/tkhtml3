@@ -355,8 +355,8 @@ Tcl_ObjCmdProc HtmlLayoutNode;
 Tcl_ObjCmdProc HtmlLayoutImage;
 Tcl_ObjCmdProc HtmlLayoutPrimitives;
 Tcl_ObjCmdProc HtmlLayoutBbox;
-Tcl_ObjCmdProc HtmlWidgetMapControls;
 
+int  HtmlWidgetMapControls(HtmlTree *);
 int HtmlWidgetScroll(HtmlTree *, int, int);
 int HtmlWidgetPaint(HtmlTree *, int, int, int, int, int, int);
 

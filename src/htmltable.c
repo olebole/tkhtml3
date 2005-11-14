@@ -32,9 +32,11 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.58 2005/11/13 13:42:24 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.59 2005/11/14 12:20:41 danielk1977 Exp $";
 
 #include "htmllayout.h"
+
+#define LOG if (pLayout->pTree->options.logcmd && !pLayout->minmaxTest)
 
 struct TableCell {
     BoxContext box;
@@ -352,16 +354,24 @@ tableDrawRow(pNode, row, pContext)
     int x1, y1, x2, y2;
     int i;
 
-    /* Add the background and border for the table-row. */
-    x1 = pData->border_spacing;
-    y1 = pData->aY[row];
-    y2 = pData->aY[nextrow];
-    x2 = x1;
-    for (i=0; i<pData->nCol; i++) {
-        x2 += pData->aWidth[i];
+    /* Add the background and border for the table-row, if a node exists. A
+     * node may not exist if the row is entirely populated by overflow from
+     * above. For example in the following document, there is no node for the
+     * second row of the table.
+     *
+     *     <table><tr><td rowspan=2></table>
+     */
+    if (pNode) {
+        x1 = pData->border_spacing;
+        y1 = pData->aY[row];
+        y2 = pData->aY[nextrow];
+        x2 = x1;
+        for (i=0; i<pData->nCol; i++) {
+            x2 += pData->aWidth[i];
+        }
+        x2 += ((pData->nCol - 1) * pData->border_spacing);
+        borderLayout(pLayout, pNode, pData->pBox, x1, y1, x2, y2);
     }
-    x2 += ((pData->nCol - 1) * pData->border_spacing);
-    borderLayout(pLayout, pNode, pData->pBox, x1, y1, x2, y2);
 
     for (i=0; i<pData->nCol; i++) {
         TableCell *pCell = &pData->aCell[i];
@@ -880,6 +890,15 @@ int tableLayout(pLayout, pBox, pNode)
     tableIterate(pNode, tableCountCells, 0, &data);
     nCol = data.nCol;
 
+    LOG {
+        HtmlTree *pTree = pLayout->pTree;
+        HtmlLog(pTree, "LAYOUTENGINE", "%s tableLayout() "
+            "Dimensions are %dx%d",
+            Tcl_GetString(HtmlNodeCommand(pTree, pNode)), 
+            data.nCol, data.nRow
+        );
+    }
+
     /* Allocate arrays for the minimum and maximum widths of each column */
     aMinWidth = (int *)HtmlAlloc(nCol*sizeof(int));
     memset(aMinWidth, 0, nCol*sizeof(int));
@@ -921,6 +940,41 @@ int tableLayout(pLayout, pBox, pNode)
     tableIterate(pNode, tableColWidthSingleSpan, 0, &data);
     tableIterate(pNode, tableColWidthMultiSpan, 0, &data);
 
+    LOG {
+        HtmlTree *pTree = pLayout->pTree;
+        Tcl_Interp *interp = pTree->interp;
+        Tcl_Obj *pWidths = Tcl_NewObj();
+        int ii;
+
+        /* Log the minimum widths */
+        pWidths = Tcl_NewObj();
+        Tcl_IncrRefCount(pWidths);
+        for (ii = 0; ii < data.nCol; ii++) {
+            Tcl_Obj *pInt = Tcl_NewIntObj(data.aMinWidth[ii]);
+            Tcl_ListObjAppendElement(interp, pWidths, pInt);
+        }
+        HtmlLog(pTree, "LAYOUTENGINE", "%s tableLayout()"
+            "Cell minimum widths: %s",
+            Tcl_GetString(HtmlNodeCommand(pTree, pNode)), 
+            Tcl_GetString(pWidths)
+        );
+        Tcl_DecrRefCount(pWidths);
+
+        /* Log the maximum widths */
+        pWidths = Tcl_NewObj();
+        Tcl_IncrRefCount(pWidths);
+        for (ii = 0; ii < data.nCol; ii++) {
+            Tcl_Obj *pInt = Tcl_NewIntObj(data.aMaxWidth[ii]);
+            Tcl_ListObjAppendElement(interp, pWidths, pInt);
+        }
+        HtmlLog(pTree, "LAYOUTENGINE", "%s tableLayout()"
+            "Cell maximum widths: %s",
+            Tcl_GetString(HtmlNodeCommand(pTree, pNode)), 
+            Tcl_GetString(pWidths)
+        );
+        Tcl_DecrRefCount(pWidths);
+    }
+
     /* Set variable 'width' to the actual width for the entire table. This
      * is the sum of the widths of the cells plus the border-spacing. Variables
      * minwidth and maxwidth are the minimum and maximum allowable widths for
@@ -947,6 +1001,15 @@ int tableLayout(pLayout, pBox, pNode)
     }
     assert(maxwidth>=minwidth);
 
+    LOG {
+        HtmlTree *pTree = pLayout->pTree;
+        HtmlLog(pTree, "LAYOUTENGINE", "%s tableLayout() "
+            "minwidth=%d  maxwidth=%d  containing=%d prescribed-width=%d",
+            Tcl_GetString(HtmlNodeCommand(pTree, pNode)), 
+            minwidth, maxwidth, pBox->iContaining, pBox->width
+        );
+    }
+
     /* When this function is called, the iContaining has already been set
      * by blockLayout() if there is an explicit 'width'. So we just need to
      * worry about the implicit minimum and maximum width as determined by
@@ -958,9 +1021,40 @@ int tableLayout(pLayout, pBox, pNode)
     width = MIN(pBox->iContaining, maxwidth);
     width = MAX(minwidth, width);
 
+    LOG {
+        HtmlTree *pTree = pLayout->pTree;
+        HtmlLog(pTree, "LAYOUTENGINE", "%s tableLayout()"
+            "Actual table width = %d",
+            Tcl_GetString(HtmlNodeCommand(pTree, pNode)), 
+            width
+        );
+    }
+
     /* Decide on some actual widths for the cells */
     availwidth = width - (nCol+1)*data.border_spacing;
     tableCalculateCellWidths(&data, availwidth);
+
+    LOG {
+        HtmlTree *pTree = pLayout->pTree;
+        Tcl_Interp *interp = pTree->interp;
+        Tcl_Obj *pWidths = Tcl_NewObj();
+        int ii;
+
+        /* Log the minimum widths */
+        pWidths = Tcl_NewObj();
+        Tcl_IncrRefCount(pWidths);
+        for (ii = 0; ii < data.nCol; ii++) {
+            Tcl_Obj *pInt = Tcl_NewIntObj(data.aWidth[ii]);
+            Tcl_ListObjAppendElement(interp, pWidths, pInt);
+        }
+        HtmlLog(pTree, "LAYOUTENGINE", "%s tableLayout()"
+            "Actual cell widths: %s",
+            Tcl_GetString(HtmlNodeCommand(pTree, pNode)), 
+            Tcl_GetString(pWidths)
+        );
+        Tcl_DecrRefCount(pWidths);
+    }
+
     
     /* Now actually draw the cells. */
     data.aY = aY;

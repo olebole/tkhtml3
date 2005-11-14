@@ -47,19 +47,22 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.103 2005/11/13 13:42:24 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.104 2005/11/14 12:20:40 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
 #include <string.h>
 #include <stdlib.h>
 
+/*
+ * Notes on layout-engine logging:
+ */
 #define LOG if (pLayout->pTree->options.logcmd)
 
 /*
  * Normal flow:
  *
- *     + A new flow is established by:
+ *     + A new normal flow is established by:
  *         - the viewport (in the initial containing block)
  *         - a float
  *         - a table cell
@@ -1148,14 +1151,13 @@ normalFlowLayoutTable(pLayout, pBox, pNode, pY, pContext, pNormal)
 
     int iWidth;
     unsigned int flags;
+    int eAlign = CSS_CONST_LEFT;
 
-    MarginProperties margin;          /* Margin properties of pNode */
-
-    int x, y;          /* Coords for content to be drawn */
-    BoxContext sBox;   /* Box context for content to be drawn into */
+    int x, y;                     /* Coords for content to be drawn */
+    BoxContext sBox;              /* Box context for content to be drawn into */
+    MarginProperties margin;      /* Margin properties of pNode */
 
     nodeGetMargins(pLayout, pNode, pBox->iContaining, &margin);
-
 
     /* Account for the 'margin-top' property of this node. The margin always
      * collapses for a table element.
@@ -1167,9 +1169,7 @@ normalFlowLayoutTable(pLayout, pBox, pNode, pY, pContext, pNormal)
      * unlikely circumstances the table will be placed lower in the flow than
      * would have been necessary. But it's not that big of a deal.
      */
-
     iWidth = PIXELVAL(pNode->pPropertyValues, WIDTH, pBox->iContaining);
-
     if (iWidth == PIXELVAL_AUTO) {
         blockMinMaxWidth(pLayout, pNode, &iMinWidth, &iMaxWidth);
         *pY = HtmlFloatListPlace(
@@ -1179,8 +1179,7 @@ normalFlowLayoutTable(pLayout, pBox, pNode, pY, pContext, pNormal)
         iWidth = iRightFloat - iLeftFloat;
         flags = 0;
     } else {
-        /* flags = DRAWBLOCK_ENFORCEWIDTH|DRAWBLOCK_CONTENTWIDTH; */
-        flags = DRAWBLOCK_ENFORCEWIDTH;
+        flags = DRAWBLOCK_ENFORCEWIDTH|DRAWBLOCK_CONTENTWIDTH;
     }
 
     memset(&sBox, 0, sizeof(BoxContext));
@@ -1191,12 +1190,56 @@ normalFlowLayoutTable(pLayout, pBox, pNode, pY, pContext, pNormal)
     *pY += sBox.height;
 
     if (margin.leftAuto && margin.rightAuto) {
-        int iSpare = (iRightFloat - iLeftFloat - sBox.width);
-        x = iLeftFloat + (iSpare / 2);
+        eAlign = CSS_CONST_CENTER;
     } else if (margin.leftAuto) {
-        x = iRightFloat - sBox.width;
+        eAlign = CSS_CONST_RIGHT;
     } else {
-        x = iLeftFloat;
+	/* In this case the box is over-constrained. So we'll respect the
+	 * text-align option of the parent node to select an alignment. 
+         *
+	 * I can't find anything to justify this in the specification, but
+	 * http://www.google.com has code like this:
+         *
+         *       <body>
+         *         <center>
+         *           <form>
+         *             <table>
+         *
+         * where the table is supposed to be centered within the body block.
+         * Todo: Find out more about this.
+         */
+        int eTextAlign = CSS_CONST_LEFT;
+        HtmlNode *pParent = HtmlNodeParent(pNode);
+        if (pParent) {
+            eTextAlign = pParent->pPropertyValues->eTextAlign;
+        }
+        switch (eTextAlign) {
+            case CSS_CONST_RIGHT:
+                eAlign = CSS_CONST_RIGHT;
+                break;
+            case CSS_CONST_CENTER:
+            case CSS_CONST_JUSTIFY:
+                eAlign = CSS_CONST_CENTER;
+                break;
+            case CSS_CONST_LEFT:
+            default:
+                eAlign = CSS_CONST_LEFT;
+                break;
+        }
+    }
+    switch (eAlign) {
+        case CSS_CONST_RIGHT:
+            x = iRightFloat - sBox.width;
+            break;
+        case CSS_CONST_CENTER: {
+            int iSpare = (iRightFloat - iLeftFloat - sBox.width);
+            x = iLeftFloat + (iSpare / 2);
+            break;
+        }
+        case CSS_CONST_LEFT:
+            x = iLeftFloat;
+            break;
+        default: assert(!"Impossible");
     }
 
     DRAW_CANVAS(&pBox->vc, &sBox.vc, x, y, pNode);
@@ -1797,6 +1840,19 @@ blockMinMaxWidth(pLayout, pNode, pMin, pMax)
         Tcl_SetHashValue(pEntry, pCache);
 
         pLayout->minmaxTest = minmaxTestOrig;
+
+        /* Log the fact that we just calculated a new minimum and maximum
+	 * width.
+         */
+	LOG if (0 == pLayout->minmaxTest) {
+            HtmlTree *pTree = pLayout->pTree;
+            HtmlLog(pTree, "LAYOUTENGINE", "%s blockMinMaxWidth() "
+                "min=%d max=%d",
+                Tcl_GetString(HtmlNodeCommand(pTree, pNode)), 
+                min, max
+            );
+        }
+
     } else {
         pCache = Tcl_GetHashValue(pEntry);
         min = pCache[0];
@@ -1805,6 +1861,7 @@ blockMinMaxWidth(pLayout, pNode, pMin, pMax)
 
     *pMin = min;
     *pMax = max;
+
     return TCL_OK;
 }
 
@@ -1906,6 +1963,78 @@ borderLayout(pLayout, pNode, pBox, xA, yA, xB, yB)
     DRAW_CANVAS(&pBox->vc, &sBox.vc, xA, yA, pNode);
 }
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * doConfigureCmd --
+ *
+ *     Argument pNode must be a pointer to a node that has been replaced (i.e.
+ *     using the [$node replace] interface) with a Tk window.  This function
+ *     executes the "-configurecmd" script to configure the window based on the
+ *     actual CSS property values for the node.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     If the -configurecmd script returns an error, Tcl_BackgroundError() is
+ *     called.
+ *---------------------------------------------------------------------------
+ */
+static void 
+doConfigureCmd(pTree, pNode)
+    HtmlTree *pTree;
+    HtmlNode *pNode;
+{
+    Tcl_Obj *pConfigure;                           /* -configurecmd script */
+
+    assert(pNode && pNode->pReplacement);
+    pConfigure = pNode->pReplacement->pConfigure;
+
+    if (pConfigure) {
+        Tcl_Interp *interp = pTree->interp;
+        HtmlComputedValues *pV = pNode->pPropertyValues;
+        HtmlNode *pTmp;
+        Tcl_Obj *pArray;
+        Tcl_Obj *pScript;
+        int rc;
+
+        pArray = Tcl_NewObj();
+        Tcl_ListObjAppendElement(interp, pArray, Tcl_NewStringObj("color",-1));
+        Tcl_ListObjAppendElement(interp, pArray, 
+                Tcl_NewStringObj(pV->cColor->zColor, -1)
+        );
+
+        pTmp = pNode;
+        while (pTmp && pTmp->pPropertyValues->cBackgroundColor->xcolor == 0) {
+            pTmp = HtmlNodeParent(pTmp);
+        }
+        if (pTmp) {
+            Tcl_ListObjAppendElement(interp, pArray, 
+                    Tcl_NewStringObj("background-color", -1)
+            );
+            Tcl_ListObjAppendElement(interp, pArray, 
+                    Tcl_NewStringObj(
+                            pTmp->pPropertyValues->cBackgroundColor->zColor, -1
+                    )
+            );
+        }
+
+        Tcl_ListObjAppendElement(interp, pArray, Tcl_NewStringObj("font",-1));
+        Tcl_ListObjAppendElement(interp, pArray, 
+                Tcl_NewStringObj(pV->fFont->zFont, -1)
+        );
+
+        pScript = Tcl_DuplicateObj(pConfigure);
+        Tcl_IncrRefCount(pScript);
+        Tcl_ListObjAppendElement(interp, pScript, pArray);
+        rc = Tcl_EvalObjEx(interp, pScript, TCL_EVAL_GLOBAL|TCL_EVAL_DIRECT);
+        if (rc != TCL_OK) {
+            Tcl_BackgroundError(interp);
+        }
+        Tcl_DecrRefCount(pScript);
+    }
+}
 
 /*
  *---------------------------------------------------------------------------
@@ -1949,6 +2078,7 @@ layoutReplacement(pLayout, pBox, pNode, zReplace)
         if (win) {
             Tcl_Obj *pWin = 0;
             if (!pLayout->minmaxTest) {
+                doConfigureCmd(pLayout->pTree, pNode);
                 pWin = Tcl_NewStringObj(zReplace, -1);
             }
             width = Tk_ReqWidth(win);
@@ -2004,7 +2134,7 @@ HtmlLayout(pTree)
     Tcl_HashEntry *p;
 
     /* Delete any existing document layout. */
-    HtmlDrawDeleteControls(pTree, &pTree->canvas);
+    /* HtmlDrawDeleteControls(pTree, &pTree->canvas); */
     HtmlDrawCleanup(&pTree->canvas);
     memset(&pTree->canvas, 0, sizeof(HtmlCanvas));
 
@@ -2019,6 +2149,8 @@ HtmlLayout(pTree)
     memset(&sBox, 0, sizeof(BoxContext));
     sBox.iContaining = width;
     sBox.pFloat = HtmlFloatListNew();
+
+    HtmlLog(pTree, "LAYOUTENGINE", "START");
 
     /* Call blockLayout() to layout the top level box, generated by the
      * root node.

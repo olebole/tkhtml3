@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.69 2005/11/13 12:00:17 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.70 2005/11/14 12:20:40 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -256,7 +256,7 @@ HtmlDrawDeleteControls(pTree, pCanvas)
             if (Tk_IsMapped(control)) {
                 Tk_UnmapWindow(control);
             }
-            Tk_DestroyWindow(control);
+            /* Tk_DestroyWindow(control); */
         }
     }
 }
@@ -1242,35 +1242,18 @@ HtmlWidgetScroll(pTree, x, y)
  *---------------------------------------------------------------------------
  */
 int 
-HtmlWidgetMapControls(clientData, interp, objc, objv)
-    ClientData clientData;             /* The HTML widget data structure */
-    Tcl_Interp *interp;                /* Current interpreter. */
-    int objc;                          /* Number of arguments. */
-    Tcl_Obj *CONST objv[];             /* Argument strings. */
+HtmlWidgetMapControls(pTree)
+    HtmlTree *pTree;
 {
-    int x;
-    int y;
+    int x = pTree->iScrollX;
+    int y = pTree->iScrollY;
     int w;
     int h;
-    HtmlTree *pTree = (HtmlTree *)clientData;
+    Tcl_Interp *interp = pTree->interp;
     HtmlCanvas *pCanvas = &pTree->canvas;
     HtmlCanvasItem *pItem;
 
     Tk_Window win = pTree->tkwin;
-
-    /* Check that the arguments are correct and copy the X and Y parameters
-     * into native C variables x and y. Then set w and h to the width and
-     * height of the viewport respectively.
-     */
-    if (objc != 5) {
-        Tcl_WrongNumArgs(interp, 3, objv, "X Y");
-        return TCL_ERROR;
-    }
-    if (TCL_OK != Tcl_GetIntFromObj(interp, objv[3], &x) ||
-        TCL_OK != Tcl_GetIntFromObj(interp, objv[4], &y) 
-    ) {
-        return TCL_ERROR;
-    }
     w = Tk_Width(pTree->tkwin);
     h = Tk_Height(pTree->tkwin);
 
