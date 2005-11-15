@@ -36,73 +36,11 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlstyle.c,v 1.16 2005/11/13 12:00:17 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlstyle.c,v 1.17 2005/11/15 10:29:21 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
 #include <string.h>
-
-/*
- *---------------------------------------------------------------------------
- *
- * HtmlStyleParse --
- *
- *     Compile a stylesheet document from text and add it to the widget.
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-int 
-HtmlStyleParse(pTree, interp, pStyleText, pId, pImportCmd)
-    HtmlTree *pTree;
-    Tcl_Interp *interp;
-    Tcl_Obj *pStyleText;
-    Tcl_Obj *pId;
-    Tcl_Obj *pImportCmd;
-{
-    int stylesheet_origin = 0;
-    Tcl_Obj *pStyleId = 0;
-    CONST char *zId;
-
-    /* Parse up the stylesheet id. It must begin with one of the strings
-     * "agent", "user" or "author". After that it may contain any text.
-     */
-    zId = Tcl_GetString(pId);
-    if (0==strncmp("agent", zId, 5)) {
-        stylesheet_origin = CSS_ORIGIN_AGENT;
-        pStyleId = Tcl_NewStringObj(&zId[5], -1);
-    }
-    else if (0==strncmp("user", zId, 4)) {
-        stylesheet_origin = CSS_ORIGIN_USER;
-        pStyleId = Tcl_NewStringObj(&zId[4], -1);
-    }
-    else if (0==strncmp("author", zId, 5)) {
-        stylesheet_origin = CSS_ORIGIN_AUTHOR;
-        pStyleId = Tcl_NewStringObj(&zId[6], -1);
-    }
-    if (!pStyleId) {
-        Tcl_AppendResult(interp, "Bad style-sheet-id: ", zId, 0);
-        return TCL_ERROR;
-    }
-    Tcl_IncrRefCount(pStyleId);
-
-    /* If there is already a stylesheet in pTree->pStyle, then this call will
-     * parse the stylesheet text in objv[3] and append rules to the
-     * existing stylesheet. If p->pStyle is NULL, then a new stylesheet is
-     * created. Within Tkhtml, each document only ever has a single
-     * stylesheet object, possibly created by combining text from multiple
-     * stylesheet documents.
-     */
-    HtmlCssParse(pStyleText, stylesheet_origin, pStyleId, &pTree->pStyle);
-
-    Tcl_DecrRefCount(pStyleId);
-    return TCL_OK;
-}
 
 /*
  *---------------------------------------------------------------------------

@@ -132,7 +132,7 @@ CssProperty *HtmlCssStringToProperty(CONST char *z, int n);
  * tkhtmlCssStyleSheetFree() frees the memory used to store a stylesheet
  * object internally.
  */
-int HtmlCssParse(Tcl_Obj *, int, Tcl_Obj *, CssStyleSheet **);
+int HtmlCssParse(Tcl_Obj *, int, Tcl_Obj *, Tcl_Obj *, CssStyleSheet **);
 int HtmlCssParseStyle(int, CONST char *, CssProperties **);
 int HtmlCssStyleSheetSyntaxErrs(CssStyleSheet *);
 void HtmlCssStyleSheetFree(CssStyleSheet *);

@@ -30,6 +30,7 @@ sourcefile hv3_log.tcl
 sourcefile hv3_nav.tcl
 sourcefile hv3_prop.tcl
 sourcefile hv3_form.tcl
+sourcefile hv3_style.tcl
 
 ###########################################################################
 # Global data:
@@ -58,7 +59,6 @@ proc bgerror {args} {
 #
 #     gui_replaced_images
 set gui_replaced_images [list]
-set gui_style_count 0
 
 # gui_build --
 #
@@ -103,8 +103,6 @@ proc gui_build {} {
     bind $HTML <KeyPress-q> hv3_exit
     bind $HTML <KeyPress-Q> hv3_exit
 
-    $HTML handler node link "handle_link_node"
-    $HTML handler script style "handle_style_script"
     $HTML handler node img "handle_img_node"
     $HTML handler script script "handle_script_script"
 
@@ -136,6 +134,7 @@ proc gui_build {} {
     log_init $HTML
     image_init $HTML
     form_init $HTML
+    style_init $HTML
 }
 
 #--------------------------------------------------------------------------
@@ -215,41 +214,11 @@ proc handle_img_node {node} {
   lappend ::gui_replaced_images $node $url
 }
 
-# handle_style_script
-#
-#     handle_style_script SCRIPT
-proc handle_style_script {script} {
-  set id author.[format %.4d [incr ::gui_style_count]]
-  .html style -id $id $script
-}
-
 # handle_script_script
 #
 #     handle_script_script SCRIPT
 proc handle_script_script {script} {
   return ""
-}
-
-# handle_style_cb
-#
-#     handle_style_cb ID STYLE-TEXT
-proc handle_style_cb {id style} {
-  .html style -id $id $style
-}
-
-# handle_link_node
-#
-#     handle_link_node NODE
-proc handle_link_node {node} {
-    if {[$node attr rel] == "stylesheet"} {
-        # Check if the media is Ok. If so, download and apply the style.
-        set media [$node attr -default "" media]
-        if {$media == "" || [regexp all $media] || [regexp screen $media]} {
-            set id author.[format %.4d [incr ::gui_style_count]]
-            set url [url_resolve [$node attr href]]
-            url_fetch $url -id $url -script [list handle_style_cb $id]
-        }
-    }
 }
 
 # gui_goto
@@ -279,7 +248,7 @@ proc gui_goto {doc} {
 #     loading the text.
 #
 proc gui_parse {doc text} {
-  set ::gui_style_count 0
+  style_newdocument .html
   .html parse $text
   # update
 

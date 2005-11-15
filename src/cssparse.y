@@ -67,7 +67,10 @@ ss_header ::= ws charset_opt imports_opt.
 charset_opt ::= CHARSET_SYM ws STRING ws SEMICOLON ws.
 charset_opt ::= .
 
-imports_opt ::= IMPORT_SYM ws STRING medium_list_opt SEMICOLON.
+imports_opt ::= imports_opt IMPORT_SYM ws term(X) medium_list_opt SEMICOLON ws.
+{
+    HtmlCssImport(pParse, &X);
+}
 imports_opt ::= .
 
 medium_list_opt ::= medium_list.

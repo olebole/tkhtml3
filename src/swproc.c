@@ -69,14 +69,15 @@ SwprocRt(interp, objc, objv, aConf, apObj)
         if (pConf->eType == SWPROC_ARG) {
             if (ii < objc && ii >= 0) {
                 apObj[jj] = objv[ii];
+                Tcl_IncrRefCount(apObj[jj]);
                 ii++;
             } else {
                 goto error_insufficient_args;
             }
-        } else {
+        } else if (pConf->zDefault) {
             apObj[jj] = Tcl_NewStringObj(pConf->zDefault, -1);
+            Tcl_IncrRefCount(apObj[jj]);
         }
-        Tcl_IncrRefCount(apObj[jj]);
     }
 
     /* Now set values for any options or switches passed */
@@ -91,12 +92,14 @@ SwprocRt(interp, objc, objv, aConf, apObj)
             pConf = &aConf[jj];
             if (pConf->eType == SWPROC_OPT || pConf->eType == SWPROC_SWITCH) {
                 if (0 == strcmp(pConf->zSwitch, &zSwitch[1])) {
-                   if (pConf->eType == SWPROC_SWITCH) {
+                   if (apObj[jj]) {
                        Tcl_DecrRefCount(apObj[jj]);
+                       apObj[jj] = 0;
+                   }
+                   if (pConf->eType == SWPROC_SWITCH) {
                        apObj[jj] = Tcl_NewStringObj(pConf->zTrue, -1);
                        Tcl_IncrRefCount(apObj[jj]);
                    } else if (ii+1 < lastswitch) {
-                       Tcl_DecrRefCount(apObj[jj]);
                        ii++;
                        apObj[jj] = objv[ii];
                        Tcl_IncrRefCount(apObj[jj]);
@@ -159,7 +162,9 @@ SwprocCleanup(apObj, nObj)
 {
     int ii;
     for (ii = 0; ii < nObj; ii++) {
-        Tcl_DecrRefCount(apObj[ii]);
+        if (apObj[ii]) {
+            Tcl_DecrRefCount(apObj[ii]);
+        }
     }
 }
 

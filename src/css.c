@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.33 2005/11/15 07:53:59 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.34 2005/11/15 10:29:21 danielk1977 Exp $";
 
 /*
  *    The CSS "cascade":
@@ -103,6 +103,7 @@ void tkhtmlCssParserFree(void *, void (*)(void *));
 
 static void propertiesAdd(CssProperties **, CssRule *);
 static int cssGetToken(CONST char *, int , int *);
+static int cssParse(int,CONST char*,int,int,Tcl_Obj*,Tcl_Obj*,Tcl_Interp*,CssStyleSheet**);
 
 /*
  *---------------------------------------------------------------------------
@@ -1121,11 +1122,11 @@ cssGetToken(z, n, pLen)
                 int n;
                 int t;
             } atkeywords[] = {
-                {"import", 6, CT_IMPORT_SYM},
-                {"page", 4, CT_PAGE_SYM},
-                {"media", 5, CT_MEDIA_SYM},
+                {"import",    6, CT_IMPORT_SYM},
+                {"page",      4, CT_PAGE_SYM},
+                {"media",     5, CT_MEDIA_SYM},
                 {"font-face", 9, CT_FONT_SYM},
-                {"charset", 7, CT_CHARSET_SYM},
+                {"charset",   7, CT_CHARSET_SYM},
             };
             int i;
             for(i=0; i<sizeof(atkeywords)/sizeof(struct AtKeyWord); i++){
@@ -1366,12 +1367,14 @@ newCssPriority(pStyle, origin, pIdTail, important)
  *---------------------------------------------------------------------------
  */
 static int 
-cssParse(n, z, isStyle, origin, pStyleId, ppStyle)
+cssParse(n, z, isStyle, origin, pStyleId, pImportCmd, interp, ppStyle)
     int n;                       /* Size of z in bytes */
     CONST char *z;               /* Text of attribute/document */
     int isStyle;                 /* True if this is a style attribute */
     int origin;                  /* CSS_ORIGIN_* value */
     Tcl_Obj *pStyleId;           /* Second and later parts of stylesheet id */
+    Tcl_Obj *pImportCmd;         /* Command to invoke to process @import */
+    Tcl_Interp *interp;          /* Interpreter for pImportCmd (if any) */
     CssStyleSheet **ppStyle;     /* IN/OUT: Stylesheet to append to   */
 {
     CssParse sParse;
@@ -1384,6 +1387,8 @@ cssParse(n, z, isStyle, origin, pStyleId, ppStyle)
     memset(&sParse, 0, sizeof(CssParse));
     sParse.origin = origin;
     sParse.pStyleId = pStyleId;
+    sParse.pImportCmd = pImportCmd;
+    sParse.interp = interp;
 
     if( n<0 ){
         n = strlen(z);
@@ -1473,16 +1478,89 @@ cssParse(n, z, isStyle, origin, pStyleId, ppStyle)
  *--------------------------------------------------------------------------
  */
 int 
-HtmlCssParse(pText, origin, pStyleId, ppStyle)
+HtmlCssParse(pText, origin, pStyleId, pImportCmd, ppStyle)
     Tcl_Obj *pText;
     int origin;
     Tcl_Obj *pStyleId;
+    Tcl_Obj *pImportCmd;
     CssStyleSheet **ppStyle;
 {
     int n;
     CONST char *z;
     z = Tcl_GetStringFromObj(pText, &n);
-    return cssParse(n, z, 0, origin, pStyleId, ppStyle);
+    return cssParse(n, z, 0, origin, pStyleId, pImportCmd, 0, ppStyle);
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlStyleParse --
+ *
+ *     Compile a stylesheet document from text and add it to the widget.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+int 
+HtmlStyleParse(pTree, interp, pStyleText, pId, pImportCmd)
+    HtmlTree *pTree;
+    Tcl_Interp *interp;
+    Tcl_Obj *pStyleText;
+    Tcl_Obj *pId;
+    Tcl_Obj *pImportCmd;
+{
+    int origin = 0;
+    Tcl_Obj *pStyleId = 0;
+    CONST char *zId;
+    CONST char *zStyleText;
+    int nStyleText;
+
+    /* Parse up the stylesheet id. It must begin with one of the strings
+     * "agent", "user" or "author". After that it may contain any text.
+     */
+    zId = Tcl_GetString(pId);
+    if (0==strncmp("agent", zId, 5)) {
+        origin = CSS_ORIGIN_AGENT;
+        pStyleId = Tcl_NewStringObj(&zId[5], -1);
+    }
+    else if (0==strncmp("user", zId, 4)) {
+        origin = CSS_ORIGIN_USER;
+        pStyleId = Tcl_NewStringObj(&zId[4], -1);
+    }
+    else if (0==strncmp("author", zId, 5)) {
+        origin = CSS_ORIGIN_AUTHOR;
+        pStyleId = Tcl_NewStringObj(&zId[6], -1);
+    }
+    if (!pStyleId) {
+        Tcl_AppendResult(interp, "Bad style-sheet-id: ", zId, 0);
+        return TCL_ERROR;
+    }
+    Tcl_IncrRefCount(pStyleId);
+
+    /* If there is already a stylesheet in pTree->pStyle, then this call will
+     * parse the stylesheet text in pStyleText and append rules to the
+     * existing stylesheet. If pTree->pStyle is NULL, then a new stylesheet is
+     * created. Within Tkhtml, each document only ever has a single stylesheet
+     * object, possibly created by combining text from multiple stylesheet
+     * documents.
+     */
+    zStyleText = Tcl_GetStringFromObj(pStyleText, &nStyleText);
+    cssParse(
+        nStyleText, zStyleText,            /* Stylesheet text */
+        0,                                 /* This is not a style attribute */
+        origin,                            /* Origin - CSS_ORIGIN_XXX */
+        pStyleId,                          /* Rest of -id option */
+        pImportCmd, pTree->interp,         /* How to handle @import */
+        &pTree->pStyle                     /* CssStylesheet to update/create */
+    );
+
+    Tcl_DecrRefCount(pStyleId);
+    return TCL_OK;
 }
 
 /*--------------------------------------------------------------------------
@@ -1507,7 +1585,7 @@ int HtmlCssParseStyle(
 ){
     CssStyleSheet *pStyle = 0;
     assert(ppProperties && !(*ppProperties));
-    cssParse(n, z, 1, 0, 0, &pStyle);
+    cssParse(n, z, 1, 0, 0, 0, 0, &pStyle);
     if (pStyle) {
         if (pStyle->pUniversalRules) {
             assert(!pStyle->pUniversalRules->pNext);
@@ -2409,5 +2487,33 @@ void HtmlCssSelectorComma(pParse)
     pParse->apXtraSelector[pParse->nXtra] = pParse->pSelector;
     pParse->pSelector = 0;
     pParse->nXtra++;
+}
+
+void HtmlCssImport(pParse, pToken)
+    CssParse *pParse;
+    CssToken *pToken;
+{
+    Tcl_Obj *pEval = pParse->pImportCmd;
+    if (pEval) {
+        Tcl_Interp *interp = pParse->interp;
+        CssProperty *p = tokenToProperty(pToken);
+        CONST char *zUrl;
+
+        switch (p->eType) {
+            case CSS_TYPE_URL:
+            case CSS_TYPE_STRING:
+                zUrl = p->v.zVal;
+                dequote(zUrl);
+                break;
+            default:
+                return;
+        }
+
+        pEval = Tcl_DuplicateObj(pEval);
+        Tcl_IncrRefCount(pEval);
+        Tcl_ListObjAppendElement(interp, pEval, Tcl_NewStringObj(zUrl, -1));
+        Tcl_EvalObjEx(interp, pEval, TCL_EVAL_GLOBAL|TCL_EVAL_DIRECT);
+        Tcl_DecrRefCount(pEval);
+    }
 }
 

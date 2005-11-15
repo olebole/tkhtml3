@@ -223,10 +223,13 @@ struct CssParse {
     CssPropertySet *pPropertySet;   /* Declarations being parsed. */
     CssPropertySet *pImportant;     /* !IMPORTANT declarations. */
 
-    int origin;
-    Tcl_Obj *pStyleId;
     CssPriority *pPriority1;
     CssPriority *pPriority2;
+
+    int origin;
+    Tcl_Obj *pStyleId;
+    Tcl_Obj *pImportCmd;            /* Script to invoke for @import */
+    Tcl_Interp *interp;             /* Interpreter to invoke pImportCmd */
 };
 
 /*
@@ -237,6 +240,7 @@ void HtmlCssDeclaration(CssParse *, CssToken *, CssToken *, int);
 void HtmlCssSelector(CssParse *, int, CssToken *, CssToken *);
 void HtmlCssRule(CssParse *, int);
 void HtmlCssSelectorComma(CssParse *pParse);
+void HtmlCssImport(CssParse *pParse, CssToken *);
 
 /*
  * Called by the parser to transform between the name of a psuedo-class or

@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.52 2005/11/15 07:53:59 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.53 2005/11/15 10:29:21 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -1216,7 +1216,7 @@ styleCmd(clientData, interp, objc, objv)
 {
     SwprocConf aConf[3 + 1] = {
         {SWPROC_OPT, "id", "author", 0},      /* -id <style-sheet id> */
-        {SWPROC_OPT, "importcmd", "", 0},     /* -importcmd <cmd> */
+        {SWPROC_OPT, "importcmd", 0, 0},      /* -importcmd <cmd> */
         {SWPROC_ARG, 0, 0, 0},                /* STYLE-SHEET-TEXT */
         {SWPROC_END, 0, 0, 0}
     };
