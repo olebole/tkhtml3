@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.34 2005/11/13 12:00:17 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.35 2005/11/15 07:53:59 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -994,7 +994,6 @@ propertyValuesTclScript(p, eProp, zScript)
         return 1;
     }
 
-    zRes = Tcl_GetStringResult(interp);
     assert(zRes);
     pVal = HtmlCssStringToProperty(zRes, -1);
 
@@ -1002,13 +1001,16 @@ propertyValuesTclScript(p, eProp, zScript)
 	/* A tcl() script has returned a value that caused a type-mismatch
          * error. Throw a background error.
          */
+        Tcl_Obj *pRes = Tcl_GetObjResult(interp);
+        Tcl_IncrRefCount(pRes);
         HtmlFree((char *)pVal);
         Tcl_ResetResult(interp);
         Tcl_AppendResult(interp, 
-                 "tkhtml: tcl() script returned \"", zRes, "\""
+                 "tkhtml: tcl() script returned \"", Tcl_GetString(pRes), "\""
                  " - type mismatch for property "
                  "'", HtmlCssPropertyToString(eProp), "'", 0
         );
+        Tcl_DecrRefCount(pRes);
         Tcl_BackgroundError(interp);
         return 1;
     }

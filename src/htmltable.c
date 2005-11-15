@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.59 2005/11/14 12:20:41 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.60 2005/11/15 07:53:59 danielk1977 Exp $";
 
 #include "htmllayout.h"
 
@@ -111,8 +111,7 @@ static void tableCalculateCellWidths(TableData *, int);
  *---------------------------------------------------------------------------
  */
 static int 
-nodeGetWidth(pLayout, pNode, pwidth, def, pIsFixed, pIsAuto)
-    LayoutContext *pLayout;   /* Layout context */
+nodeGetWidth(pNode, pwidth, def, pIsFixed, pIsAuto)
     HtmlNode *pNode;          /* Node */
     int pwidth;               /* Unused */
     int def;                  /* Default value */
@@ -182,7 +181,7 @@ tableColWidthSingleSpan(pNode, col, colspan, row, rowspan, pContext)
         int *aWidth = pData->aWidth;
 
         /* See if the cell has an explicitly requested width. */
-        w = nodeGetWidth(pData->pLayout, pNode, pData->availablewidth, 0, &f,0);
+        w = nodeGetWidth(pNode, pData->availablewidth, 0, &f,0);
 
         /* And figure out the minimum and maximum widths of the content */
         blockMinMaxWidth(pData->pLayout, pNode, &min, &max);

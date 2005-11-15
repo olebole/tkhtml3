@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.51 2005/11/14 12:20:41 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.52 2005/11/15 07:53:59 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -1190,8 +1190,25 @@ handlerNodeCmd(clientData, interp, objc, objv)
     return TCL_OK;
 }
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * styleCmd --
+ *
+ *         $widget style ?options? HTML-TEXT
+ *
+ *             -importcmd IMPORT-CMD
+ *             -id ID
+ *
+ * Results:
+ *     Tcl result (i.e. TCL_OK, TCL_ERROR).
+ *
+ * Side effects:
+ *
+ *---------------------------------------------------------------------------
+ */
 static int 
-styleParseCmd(clientData, interp, objc, objv)
+styleCmd(clientData, interp, objc, objv)
     ClientData clientData;             /* The HTML widget data structure */
     Tcl_Interp *interp;                /* Current interpreter. */
     int objc;                          /* Number of arguments. */
@@ -1205,20 +1222,31 @@ styleParseCmd(clientData, interp, objc, objv)
     };
     Tcl_Obj *apObj[3];
     int rc;
-    int ii;
     HtmlTree *pTree = (HtmlTree *)clientData;
 
+    /* First assert() that the sizes of the aConf and apObj array match. Then
+     * call SwprocRt() to parse the arguments. If the parse is successful then
+     * apObj[] contains the following: 
+     *
+     *     apObj[0] -> Value passed to -id option (or default "author")
+     *     apObj[1] -> Value passed to -importcmd option (or default "")
+     *     apObj[2] -> Text of stylesheet to parse
+     *
+     * Pass these on to the HtmlStyleParse() command to actually parse the
+     * stylesheet.
+     */
     assert(sizeof(apObj)/sizeof(apObj[0])+1 == sizeof(aConf)/sizeof(aConf[0]));
-
     if (TCL_OK != SwprocRt(interp, objc - 2, &objv[2], aConf, apObj)) {
         return TCL_ERROR;
     }
     rc = HtmlStyleParse(pTree, interp, apObj[2], apObj[0], apObj[1]);
 
-    for (ii = 0; ii < sizeof(apObj)/sizeof(apObj[0]); ii++) {
-        Tcl_DecrRefCount(apObj[ii]);
+    /* Clean up object references created by SwprocRt() */
+    SwprocCleanup(apObj, sizeof(apObj)/sizeof(Tcl_Obj *));
+
+    if (rc == TCL_OK) {
+        HtmlCallbackSchedule(pTree, HTML_CALLBACK_STYLE);
     }
-    HtmlCallbackSchedule(pTree, HTML_CALLBACK_STYLE);
     return rc;
 }
 
@@ -1324,7 +1352,7 @@ int HtmlWidgetObjCommand(clientData, interp, objc, objv)
         {"parse",     0,        parseCmd},
         {"primitives",0,        primitivesCmd},
         {"reset",     0,        resetCmd},
-        {"style",     0,        styleParseCmd},
+        {"style",     0,        styleCmd},
         {"xview",     0,        xviewCmd},
         {"yview",     0,        yviewCmd},
 

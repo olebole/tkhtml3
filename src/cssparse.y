@@ -133,9 +133,13 @@ declaration_list ::= declaration_list SEMICOLON ws declaration.
 semicolon_opt ::= SEMICOLON ws.
 semicolon_opt ::= .
 
-declaration ::= IDENT(X) ws COLON ws expr(E). {
-    HtmlCssDeclaration(pParse, &X, &E);
+declaration ::= IDENT(X) ws COLON ws expr(E) prio(I). {
+    HtmlCssDeclaration(pParse, &X, &E, I);
 }
+
+%type prio {int}
+prio(X) ::= IMPORTANT_SYM ws. {X = 1;}
+prio(X) ::= .                 {X = 0;}
 
 /*********************************************************************
 ** Selector syntax. This is in a section of it's own because it's
@@ -223,5 +227,4 @@ term(A) ::= STRING(X). { A = X; }
 term(A) ::= FUNCTION(X). { A = X; }
 term(A) ::= HASH(X) IDENT(Y). { A.z = X.z; A.n = (Y.z+Y.n - X.z); }
 term(A) ::= PLUS(X) IDENT(Y). { A.z = X.z; A.n = (Y.z+Y.n - X.z); }
-term(A) ::= IMPORTANT_SYM(X). { A.z = X.z; A.n = 0; }
 

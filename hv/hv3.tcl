@@ -241,16 +241,15 @@ proc handle_style_cb {id style} {
 #
 #     handle_link_node NODE
 proc handle_link_node {node} {
-  if {[$node attr rel] == "stylesheet"} {
-
-    # Check if the media is Ok. If so, download and apply the style.
-    set media [$node attr media]
-    if {$media == "" || [regexp all $media] || [regexp screen $media]} {
-      set id author.[format %.4d [incr ::gui_style_count]]
-      set url [url_resolve [$node attr href]]
-      url_fetch $url -id $url -script [list handle_style_cb $id]
+    if {[$node attr rel] == "stylesheet"} {
+        # Check if the media is Ok. If so, download and apply the style.
+        set media [$node attr -default "" media]
+        if {$media == "" || [regexp all $media] || [regexp screen $media]} {
+            set id author.[format %.4d [incr ::gui_style_count]]
+            set url [url_resolve [$node attr href]]
+            url_fetch $url -id $url -script [list handle_style_cb $id]
+        }
     }
-  }
 }
 
 # gui_goto

@@ -137,6 +137,11 @@ int HtmlCssParseStyle(int, CONST char *, CssProperties **);
 int HtmlCssStyleSheetSyntaxErrs(CssStyleSheet *);
 void HtmlCssStyleSheetFree(CssStyleSheet *);
 
+/* Values to pass as the second argument ("origin") of HtmlCssParse() */
+#define CSS_ORIGIN_AGENT  1
+#define CSS_ORIGIN_USER   2
+#define CSS_ORIGIN_AUTHOR 3
+
 /*
  * Function to apply a stylesheet to a document node.
  */
@@ -145,9 +150,6 @@ void HtmlCssStyleSheetApply(HtmlTree *, HtmlNode *);
 /*
  * Functions to interface with the results of a style application.
  */
-#define CSS_ORIGIN_AGENT  1
-#define CSS_ORIGIN_USER   2
-#define CSS_ORIGIN_AUTHOR 3
 void HtmlCssPropertiesFree(CssProperties *);
 CssProperty *HtmlCssPropertiesGet(CssProperties *, int, int*, int*);
 

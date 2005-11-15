@@ -364,10 +364,12 @@ int HtmlNodeProperties(Tcl_Interp *, HtmlComputedValues *);
 #define HTML_COMPUTED_MAX_HEIGHT      iMaxHeight
 #define HTML_COMPUTED_MAX_WIDTH       iMaxWidth
 
-#define PIXELVAL(pV, prop, percent_of) \
-    ((pV)->mask & PROP_MASK_ ## prop) ? \
-        (((pV)-> HTML_COMPUTED_ ## prop * (percent_of)) / 10000) : \
-        ((pV)-> HTML_COMPUTED_ ## prop)
+#define PIXELVAL(pV, prop, percent_of) ( \
+    ((pV)->mask & PROP_MASK_ ## prop) ? ( \
+        ((percent_of) <= 0) ? (percent_of) : \
+        (((pV)-> HTML_COMPUTED_ ## prop * (percent_of)) / 10000) \
+    ) : ((pV)-> HTML_COMPUTED_ ## prop) \
+)
 
 #endif
 

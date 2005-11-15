@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.104 2005/11/14 12:20:40 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.105 2005/11/15 07:53:59 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -60,7 +60,7 @@ static const char rcsid[] = "$Id: htmllayout.c,v 1.104 2005/11/14 12:20:40 danie
 #define LOG if (pLayout->pTree->options.logcmd)
 
 /*
- * Normal flow:
+ * The code to lay out a "normal-flow" is located in this file:
  *
  *     + A new normal flow is established by:
  *         - the viewport (in the initial containing block)
@@ -247,17 +247,30 @@ static void layoutReplacement(LayoutContext*,BoxContext*,HtmlNode*,CONST char*);
 static int inlineLayoutDrawLines
     (LayoutContext*,BoxContext*,InlineContext*,int,int*, NormalFlow*);
 
+#define FLOWTYPE_NONE              1
+#define FLOWTYPE_TEXT              2
+#define FLOWTYPE_INLINE            3
+#define FLOWTYPE_INLINE_REPLACED   4
+#define FLOWTYPE_FLOAT             5
+#define FLOWTYPE_BLOCK             6
+#define FLOWTYPE_TABLE             7
+#define FLOWTYPE_BLOCK_REPLACED    8
+#define FLOWTYPE_LIST_ITEM         9
+#define FLOWTYPE_BR                10
+
 static int normalFlowType(HtmlNode *);
 static int normalFlowLayout(LayoutContext*, BoxContext*, HtmlNode*,NormalFlow*);
 
 static int normalFlowLayoutNode
-    (LayoutContext*, BoxContext*, HtmlNode*, int*, InlineContext*,NormalFlow*);
+(LayoutContext*, BoxContext*, HtmlNode*, int*, InlineContext*,NormalFlow*);
 
 static int normalFlowLayoutFloat(
 LayoutContext*, BoxContext*, HtmlNode*, int*, InlineContext*, NormalFlow*);
 static int normalFlowLayoutBlock(
 LayoutContext*, BoxContext*, HtmlNode*, int*, InlineContext*, NormalFlow*);
 static int normalFlowLayoutReplaced(
+LayoutContext*, BoxContext*, HtmlNode*, int*, InlineContext*, NormalFlow*);
+static int normalFlowLayoutTable(
 LayoutContext*, BoxContext*, HtmlNode*, int*, InlineContext*, NormalFlow*);
 
 static void normalFlowCbAdd(NormalFlow *, NormalFlowCallback *);
@@ -331,12 +344,18 @@ nodeGetBoxProperties(pLayout, pNode, iContaining, pBoxProperties)
 {
     HtmlComputedValues *pV = pNode->pPropertyValues;
 
+
     /* Under some circumstance, a negative value may be passed for iContaining.
      * If this happens, use 0 as the containing width when calculating padding
      * widths with computed percentage values. Otherwise we will return a
      * negative padding width, which is illegal.
+     *
+     * Also, if we are running a min-max text, percentage widths are zero.
      */
     int c = (iContaining >= 0 ? iContaining : 0);
+    if (pLayout->minmaxTest) {
+        c = 0;
+    }
     pBoxProperties->padding_top =    PIXELVAL(pV, PADDING_TOP, c);
     pBoxProperties->padding_right =  PIXELVAL(pV, PADDING_RIGHT, c);
     pBoxProperties->padding_bottom = PIXELVAL(pV, PADDING_BOTTOM, c);
@@ -420,7 +439,6 @@ nodeGetMargins(pLayout, pNode, iContaining, pMargins)
     int iMarginRight;
     int iMarginBottom;
     int iMarginLeft;
-    int iWidth;
 
     HtmlComputedValues *pV = pNode->pPropertyValues;
     assert(pV);
@@ -439,7 +457,11 @@ nodeGetMargins(pLayout, pNode, iContaining, pMargins)
        return;
     }
 
-    iWidth =        PIXELVAL(pV, WIDTH, iContaining);
+    /* If we are running a min-max text, percentage widths are zero. */
+    if (pLayout->minmaxTest) {
+        iContaining = 0;
+    }
+
     iMarginTop =    PIXELVAL(pV, MARGIN_TOP, iContaining);
     iMarginRight =  PIXELVAL(pV, MARGIN_RIGHT, iContaining);
     iMarginBottom = PIXELVAL(pV, MARGIN_BOTTOM, iContaining);
@@ -592,7 +614,8 @@ normalFlowLayoutFloat(pLayout, pBox, pNode, pY, pContext, pNormal)
         drawReplacement(pLayout, &sBox, pNode);
     } else {
         unsigned int flags = DRAWBLOCK_ENFORCEWIDTH | DRAWBLOCK_ENFORCEHEIGHT;
-        iWidth = PIXELVAL(pV, WIDTH, iContaining);
+        int c = pLayout->minmaxTest ? PIXELVAL_AUTO : iContaining;
+        iWidth = PIXELVAL(pV, WIDTH, c);
         if (iWidth == PIXELVAL_AUTO) {
             int iMin; 
             int iMax;
@@ -816,17 +839,6 @@ inlineLayoutDrawLines(pLayout, pBox, pContext, forceflag, pY, pNormal)
 
     return 0;
 }
-
-#define FLOWTYPE_NONE              1
-#define FLOWTYPE_TEXT              2
-#define FLOWTYPE_INLINE            3
-#define FLOWTYPE_INLINE_REPLACED   4
-#define FLOWTYPE_FLOAT             5
-#define FLOWTYPE_BLOCK             6
-#define FLOWTYPE_TABLE             7
-#define FLOWTYPE_BLOCK_REPLACED    8
-#define FLOWTYPE_LIST_ITEM         9
-#define FLOWTYPE_BR                10
 
 /*
  *---------------------------------------------------------------------------
@@ -1169,7 +1181,10 @@ normalFlowLayoutTable(pLayout, pBox, pNode, pY, pContext, pNormal)
      * unlikely circumstances the table will be placed lower in the flow than
      * would have been necessary. But it's not that big of a deal.
      */
-    iWidth = PIXELVAL(pNode->pPropertyValues, WIDTH, pBox->iContaining);
+    iWidth = PIXELVAL(
+        pNode->pPropertyValues, WIDTH, 
+        pLayout->minmaxTest ? PIXELVAL_AUTO : pBox->iContaining
+    );
     if (iWidth == PIXELVAL_AUTO) {
         blockMinMaxWidth(pLayout, pNode, &iMinWidth, &iMaxWidth);
         *pY = HtmlFloatListPlace(
@@ -1365,7 +1380,9 @@ normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
      * interpreted as pixel values. For a non-replaced block element, the width
      * is always as calculated here, even if the content is not as wide.
      */
-    iWidth = PIXELVAL(pV, WIDTH, pBox->iContaining);
+    iWidth = PIXELVAL(
+        pV, WIDTH, pLayout->minmaxTest ? PIXELVAL_AUTO : pBox->iContaining
+    );
     if (iWidth == PIXELVAL_AUTO) {
         xBorderLeft = margin.margin_left;
         iWidth = pBox->iContaining -
@@ -1775,11 +1792,15 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
  *
  * blockMinMaxWidth --
  *
- *     Figure out the minimum and maximum widths that this block may use.
- *     This is used during table and floating box layout.
+ *     Figure out the minimum and maximum widths that the box generated by
+ *     pNode may use. This is used during table floating box layout.
  *
  *     The returned widths include the content, borders, padding and
  *     margins.
+ *
+ *     TODO: There's a huge bug in this function to do with % widths.
+ *     Observation indicate that similar bugs exist in KHTML and Gecko. Opera
+ *     handles the situation differently, but still not correctly.
  *
  * Results:
  *     None.
@@ -2067,7 +2088,9 @@ layoutReplacement(pLayout, pBox, pNode, zReplace)
      * PIXELVAL either returns a value in pixels (0 or greater) or the constant
      * PIXELVAL_AUTO.
      */
-    width = PIXELVAL(pV, WIDTH, pBox->iContaining);
+    width = PIXELVAL(
+        pV, WIDTH, pLayout->minmaxTest ? PIXELVAL_AUTO : pBox->iContaining
+    );
     height = PIXELVAL(pV, HEIGHT, pBox->iContaining);
 
     if (width > MAX_PIXELVAL) width = MAX(width, 1);

@@ -45,7 +45,6 @@
 
 typedef struct CssSelector CssSelector;
 typedef struct CssPropertySet CssPropertySet;
-typedef struct CssPropertyMask CssPropertyMask;
 typedef struct CssRule CssRule;
 typedef struct CssParse CssParse;
 typedef struct CssToken CssToken;
@@ -133,10 +132,6 @@ struct CssSelector {
     CssSelector *pNext;  /* Next simple-selector in chain */
 };
 
-struct CssPropertyMask {
-  u32 a[4];
-};
-
 /*
 ** A collection of CSS2 properties and values.
 */
@@ -158,6 +153,7 @@ struct CssRule {
     int specificity;         /* Specificity of the selector */
     CssSelector *pSelector;  /* The selector-chain for this rule */
     int freePropertySets;          /* True to delete pPropertySet */
+    int freeSelector;              /* True to delete pSelector */
     CssPropertySet *pPropertySet;  /* Property values for the rule. */
     CssRule *pNext;                /* Next rule in this list. */
 };
@@ -223,6 +219,7 @@ struct CssParse {
     CssSelector *pSelector;         /* Selector currently being parsed */
     int nXtra;
     CssSelector **apXtraSelector;   /* Selectors also waiting for prop set. */
+
     CssPropertySet *pPropertySet;   /* Declarations being parsed. */
     CssPropertySet *pImportant;     /* !IMPORTANT declarations. */
 
@@ -236,7 +233,7 @@ struct CssParse {
  * These functions are called by the lemon-generated parser (see
  * cssparse.y). They add rules to the stylesheet.
  */
-void HtmlCssDeclaration(CssParse *, CssToken *, CssToken *);
+void HtmlCssDeclaration(CssParse *, CssToken *, CssToken *, int);
 void HtmlCssSelector(CssParse *, int, CssToken *, CssToken *);
 void HtmlCssRule(CssParse *, int);
 void HtmlCssSelectorComma(CssParse *pParse);

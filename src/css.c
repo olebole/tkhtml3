@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.32 2005/11/13 12:00:17 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.33 2005/11/15 07:53:59 danielk1977 Exp $";
 
 /*
  *    The CSS "cascade":
@@ -583,6 +583,8 @@ propertySetAdd(p, i, v)
 
     assert( i<128 && i>=0 );
 
+    assert(!p->a || p->n > 0);
+
     for (j = 0; j < p->n; j++) {
         if (i == p->a[j].eProp) {
             HtmlFree((char *)p->a[j].pProp);
@@ -1135,8 +1137,10 @@ cssGetToken(z, n, pLen)
             goto bad_token;
         }
         case '!': {
-            if( 0==strncmp(&z[1], "important", 9) ){
-                 *pLen = 9 + 1;
+            int a = 1;
+            while (z[a] && isspace(z[a])) a++; 
+            if( 0==strncmp(&z[a], "important", 9) ){
+                 *pLen = 9 + a;
                  return CT_IMPORTANT_SYM;
             }
             goto bad_token;
@@ -1419,9 +1423,9 @@ cssParse(n, z, isStyle, origin, pStyleId, ppStyle)
          tkhtmlCssParser(p, CT_LP, sToken, &sParse);
     }
 
-    while( (t=cssGetToken(&z[c], n-c, &sToken.n)) ){
+    while ((t = cssGetToken(&z[c], n-c, &sToken.n))) {
         sToken.z = &z[c];
-        if( t>0 && t!=CT_IMPORTANT_SYM ){
+        if (t > 0) {
             tkhtmlCssParser(p, t, sToken, &sParse);
         }
         c += sToken.n;
@@ -1536,7 +1540,9 @@ ruleFree(pRule)
     CssRule *pRule;
 {
     if (pRule) {
-        selectorFree(pRule->pSelector);
+        if (pRule->freeSelector) {
+            selectorFree(pRule->pSelector);
+        }
         if (pRule->freePropertySets) {
             propertySetFree(pRule->pPropertySet);
         }
@@ -1609,13 +1615,15 @@ int HtmlCssStyleSheetSyntaxErrs(CssStyleSheet *pStyle){
  *--------------------------------------------------------------------------
  */
 void
-HtmlCssDeclaration(pParse, pProp, pExpr)
+HtmlCssDeclaration(pParse, pProp, pExpr, isImportant)
     CssParse *pParse;
     CssToken *pProp;
     CssToken *pExpr;
+    int isImportant;         /* True if the !IMPORTANT symbol was seen */
 {
     int prop; 
     char zBuf[64];
+    CssPropertySet **ppPropertySet;
 
 #if TRACE_PARSER_CALLS
     printf("HtmlCssDeclaration(%p, \"%.*s\", \"%.*s\")\n", 
@@ -1625,16 +1633,23 @@ HtmlCssDeclaration(pParse, pProp, pExpr)
     );
 #endif
 
-    /* Resolve the property name. If we don't recognize it, then ignore
-     * the entire declaration (CSS2 spec says to do this).
+    /* Resolve the property name. If we don't recognize it, then ignore the
+     * declaration (CSS2 spec says to do this - besides, what else could we
+     * do?).
      */
     strncpy(zBuf, pProp->z, MIN(pProp->n, 63));
     zBuf[63] = 0;
     Tcl_UtfToLower(zBuf);
     prop = HtmlCssPropertyLookup(MIN(63, pProp->n), zBuf);
     if( prop<0 ) return;
-    if( !pParse->pPropertySet ){
-        pParse->pPropertySet = propertySetNew();
+
+    if (isImportant) {
+        ppPropertySet = &pParse->pImportant;
+    } else {
+        ppPropertySet = &pParse->pPropertySet;
+    }
+    if( !*ppPropertySet ){
+        *ppPropertySet = propertySetNew();
     }
 
     switch (prop) {
@@ -1643,20 +1658,20 @@ HtmlCssDeclaration(pParse, pProp, pExpr)
         case CSS_SHORTCUTPROPERTY_BORDER_RIGHT:
         case CSS_SHORTCUTPROPERTY_BORDER_TOP:
         case CSS_SHORTCUTPROPERTY_BORDER_BOTTOM:
-            propertySetAddShortcutBorder(pParse->pPropertySet, prop, pExpr);
+            propertySetAddShortcutBorder(*ppPropertySet, prop, pExpr);
             break;
         case CSS_SHORTCUTPROPERTY_BORDER_COLOR:
         case CSS_SHORTCUTPROPERTY_BORDER_STYLE:
         case CSS_SHORTCUTPROPERTY_BORDER_WIDTH:
         case CSS_SHORTCUTPROPERTY_PADDING:
         case CSS_SHORTCUTPROPERTY_MARGIN:
-            propertySetAddShortcutBorderColor(pParse->pPropertySet,prop,pExpr);
+            propertySetAddShortcutBorderColor(*ppPropertySet,prop,pExpr);
             break;
         case CSS_SHORTCUTPROPERTY_BACKGROUND:
-            propertySetAddShortcutBackground(pParse->pPropertySet, pExpr);
+            propertySetAddShortcutBackground(*ppPropertySet, pExpr);
             break;
         default:
-            propertySetAdd(pParse->pPropertySet, prop, tokenToProperty(pExpr));
+            propertySetAdd(*ppPropertySet, prop, tokenToProperty(pExpr));
     }
 }
 
@@ -1797,12 +1812,15 @@ ruleCompare(CssRule *pLeft, CssRule *pRight) {
  *
  *---------------------------------------------------------------------------
  */
-void 
-cssSelectorPropertySetPair(pParse, pSelector, pPropertySet, freePropertySets)
+#define FREE_SELECTOR    0x00000001
+#define FREE_PROPERTYSET 0x00000002
+#define FREE_BOTH        0x00000003
+static void 
+cssSelectorPropertySetPair(pParse, pSelector, pPropertySet, freeWhat)
     CssParse *pParse;
     CssSelector *pSelector;
     CssPropertySet *pPropertySet;
-    int freePropertySets;
+    unsigned int freeWhat;
 {
     int spec = 0;
     CssSelector *pS = 0;
@@ -1810,7 +1828,14 @@ cssSelectorPropertySetPair(pParse, pSelector, pPropertySet, freePropertySets)
     CssRule *pRule = (CssRule *)HtmlAlloc(sizeof(CssRule));
     memset(pRule, 0, sizeof(CssRule));
 
-    pRule->freePropertySets = freePropertySets;
+    assert(pPropertySet && pPropertySet->n > 0);
+
+    if (freeWhat & FREE_PROPERTYSET) {
+        pRule->freePropertySets = 1;
+    }
+    if (freeWhat & FREE_SELECTOR) {
+        pRule->freeSelector = 1;
+    }
 
     /* Calculate the specificity of the rules. We use the following
      * formala:
@@ -1856,7 +1881,15 @@ cssSelectorPropertySetPair(pParse, pSelector, pPropertySet, freePropertySets)
          }
     }
     pRule->specificity = spec;
-    pRule->pPriority = pParse->pPriority1;
+    assert(
+        pPropertySet == pParse->pPropertySet || 
+        pPropertySet == pParse->pImportant
+    );
+    if (pParse->pPropertySet == pPropertySet) {
+        pRule->pPriority = pParse->pPriority1;
+    } else {
+        pRule->pPriority = pParse->pPriority2;
+    }
 
     if( 0 && pSelector->eSelector==CSS_SELECTOR_TYPE ){
 #if 0
@@ -1939,30 +1972,50 @@ void HtmlCssRule(pParse, success)
 {
     CssSelector *pSelector = pParse->pSelector;
     CssPropertySet *pPropertySet = pParse->pPropertySet;
+    CssPropertySet *pImportant = pParse->pImportant;
     CssSelector **apXtraSelector = pParse->apXtraSelector;
     int nXtra = pParse->nXtra;
     int i;
 
-    pParse->pSelector = 0;
-    pParse->pPropertySet = 0;
-    pParse->apXtraSelector = 0;
-    pParse->nXtra = 0;
+    if (success && pSelector && (pPropertySet || pImportant)) {
 
-    if( success && pSelector && pPropertySet ){
-        cssSelectorPropertySetPair(pParse, pSelector, pPropertySet, 1);
-        for (i = 0; i < nXtra; i++){
-            cssSelectorPropertySetPair(pParse,apXtraSelector[i],pPropertySet,0);
+        if (pPropertySet) {
+            unsigned int flags = FREE_BOTH;
+            cssSelectorPropertySetPair(pParse, pSelector, pPropertySet, flags);
+            for (i = 0; i < nXtra; i++){
+                unsigned int flags2 = FREE_SELECTOR;
+                CssSelector *pS = apXtraSelector[i];
+                cssSelectorPropertySetPair(pParse, pS, pPropertySet, flags2);
+            }
         }
+
+        if (pImportant) {
+            unsigned int flags = (pPropertySet ? FREE_PROPERTYSET : FREE_BOTH);
+            cssSelectorPropertySetPair(pParse, pSelector, pImportant, flags);
+            for (i = 0; i < nXtra; i++){
+                unsigned int flags2 = (pPropertySet ? 0 : FREE_SELECTOR);
+                CssSelector *pS = apXtraSelector[i];
+                cssSelectorPropertySetPair(pParse, pS, pImportant, flags2);
+            }
+        }
+
     }else{
         /* Some sort of a parse error has occured. We won't be including
          * this rule, so just free these structs so we don't leak memory.
          */ 
         selectorFree(pSelector);
         propertySetFree(pPropertySet);
+        propertySetFree(pImportant);
         for (i = 0; i < nXtra; i++){
             selectorFree(apXtraSelector);
         }
     }
+
+    pParse->pSelector = 0;
+    pParse->pPropertySet = 0;
+    pParse->pImportant = 0;
+    pParse->apXtraSelector = 0;
+    pParse->nXtra = 0;
 
     if( apXtraSelector ){
         HtmlFree((char *)apXtraSelector);

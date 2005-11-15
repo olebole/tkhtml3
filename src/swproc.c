@@ -142,6 +142,30 @@ error_out:
 /*
  *---------------------------------------------------------------------------
  *
+ * SwprocCleanup --
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+void 
+SwprocCleanup(apObj, nObj)
+    Tcl_Obj **apObj;
+    int nObj;
+{
+    int ii;
+    for (ii = 0; ii < nObj; ii++) {
+        Tcl_DecrRefCount(apObj[ii]);
+    }
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * swproc_rtCmd --
  *
  * Results:
