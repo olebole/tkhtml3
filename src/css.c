@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.34 2005/11/15 10:29:21 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.35 2005/11/15 10:45:10 danielk1977 Exp $";
 
 /*
  *    The CSS "cascade":
@@ -1148,6 +1148,16 @@ cssGetToken(z, n, pLen)
         }
 
         default: {
+            /* Weed out HTML comment symbols: <!-- and --> */
+            if (n >= 4 && 0 == strncmp("<!--", z, 4)) {
+                *pLen = 4;
+                return -1;
+            }
+            if (n >= 3 && 0 == strncmp("-->", z, 3)) {
+                *pLen = 3;
+                return -1;
+            }
+                
             /* This must be either an identifier or a function. For the
             ** ASCII character range 0-127, the 'charmap' array is 1 for
             ** characters allowed in an identifier or function name, 0
