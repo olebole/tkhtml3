@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.53 2005/11/15 10:29:21 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.54 2005/11/15 14:14:20 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -582,7 +582,8 @@ configureCmd(clientData, interp, objc, objv)
     /*
      * Mask bits for options declared in htmlOptionSpec.
      */
-    #define GEOMETRY_MASK 0x00000001
+    #define GEOMETRY_MASK  0x00000001
+    #define FT_MASK        0x00000002    
 
     /*
      * Macros to generate static Tk_OptionSpec structures for the
@@ -597,6 +598,10 @@ configureCmd(clientData, interp, objc, objv)
     #define STRING(v, s1, s2, s3) \
         {TK_OPTION_STRING, "-" #v, s1, s2, s3, \
          Tk_Offset(HtmlOptions, v), -1, TK_OPTION_NULL_OK, 0, 0}
+
+    #define OBJ(v, s1, s2, s3, f) \
+        {TK_OPTION_STRING, "-" #v, s1, s2, s3, \
+         Tk_Offset(HtmlOptions, v), -1, 0, 0, f}
     
     /* Option table definition for the html widget. */
     static Tk_OptionSpec htmlOptionSpec[] = {
@@ -618,6 +623,8 @@ configureCmd(clientData, interp, objc, objv)
         /* Options for logging info to debugging scripts */
         STRING(logcmd, "logCmd", "LogCmd", ""),
         STRING(timercmd, "timerCmd", "TimerCmd", ""),
+
+        OBJ(fonttable, "fontTable", "FontTable", "7 8 9 10 12 14 16", FT_MASK),
     
         {TK_OPTION_END, 0, 0, 0, 0, 0, 0, 0, 0}
     };
@@ -645,16 +652,40 @@ configureCmd(clientData, interp, objc, objv)
         /* Hard-coded minimum values for width and height */
         pTree->options.height = MAX(pTree->options.height, 100);
         pTree->options.width = MAX(pTree->options.width, 100);
-    }
 
-    if (init || (mask & GEOMETRY_MASK)) {
-        int w = pTree->options.width;
-        int h = pTree->options.height;
-        Tk_GeometryRequest(pTree->tkwin, w, h);
+        if (init || (mask & GEOMETRY_MASK)) {
+            int w = pTree->options.width;
+            int h = pTree->options.height;
+            Tk_GeometryRequest(pTree->tkwin, w, h);
+        }
+    
+        if (init || mask & FT_MASK) {
+            int nSize;
+            Tcl_Obj **apSize;
+            int aFontSize[7];
+            Tcl_Obj *pFT = pTree->options.fonttable;
+            if (
+                Tcl_ListObjGetElements(interp, pFT, &nSize, &apSize) ||
+                nSize != 7 ||
+                Tcl_GetIntFromObj(interp, apSize[0], &aFontSize[0]) ||
+                Tcl_GetIntFromObj(interp, apSize[1], &aFontSize[1]) ||
+                Tcl_GetIntFromObj(interp, apSize[2], &aFontSize[2]) ||
+                Tcl_GetIntFromObj(interp, apSize[3], &aFontSize[3]) ||
+                Tcl_GetIntFromObj(interp, apSize[4], &aFontSize[4]) ||
+                Tcl_GetIntFromObj(interp, apSize[5], &aFontSize[5]) ||
+                Tcl_GetIntFromObj(interp, apSize[6], &aFontSize[6])
+            ) {
+                rc = TCL_ERROR;
+            } else {
+                memcpy(pTree->aFontSizeTable, aFontSize, sizeof(aFontSize));
+                HtmlCallbackSchedule(pTree, HTML_CALLBACK_STYLE);
+            }
+        }
     }
 
     return rc;
     #undef GEOMETRY_MASK
+    #undef FT_MASK
 }
 
 /*

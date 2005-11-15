@@ -9,7 +9,6 @@ package require Tkhtml 3.0
 package require Tk
 package require http 
 package require uri
-package require dns
 package require sqlite3
 
 # If possible, load package "Img". Without it the script can still run,
@@ -130,6 +129,20 @@ proc gui_build {} {
     .m.file add command -label Browser -command [list prop_browse $HTML]
     .m.file add separator
     .m.file add command -label Exit -command exit
+
+    # Add the 'Font Size Table' menu
+    #
+    .m add cascade -label {Font Size Table} -menu [menu .m.font]
+    foreach {label table} [list \
+        Normal {7 8 9 10 12 14 16} \
+        Large  {9 10 11 12 14 16 18} \
+        {Very Large}  {11 12 13 14 16 18 20} \
+        {Recklessly Large}  {13 14 15 16 18 20 22}
+    ] {
+        .m.font add command -label $label -command [list \
+            $HTML configure -fonttable $table
+        ]
+    }
 
     log_init $HTML
     image_init $HTML

@@ -220,6 +220,8 @@ struct HtmlOptions {
     Tcl_Obj *defaultstyle;
     Tcl_Obj *imagecmd;
 
+    Tcl_Obj *fonttable;
+
     Tcl_Obj *logcmd;
     Tcl_Obj *timercmd;
 };
@@ -325,7 +327,8 @@ struct HtmlTree {
 
     /* 
      * Tables managed by code in htmlprop.c. Initialised in function
-     * HtmlComputedValuesSetupTables().
+     * HtmlComputedValuesSetupTables(), except for aFontSizeTable[], which is
+     * set via the -fonttable option. 
      */
     Tcl_HashTable aColor;
     Tcl_HashTable aFont;

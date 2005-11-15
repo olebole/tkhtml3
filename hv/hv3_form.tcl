@@ -169,6 +169,7 @@ proc form_config {w widget props} {
             $w configure -foreground $p(color)
         }
         entry {
+            $w configure -font $p(font)
             $w configure -foreground $p(color)
             $w configure -background $p(background-color)
         }

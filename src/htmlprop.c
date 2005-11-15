@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.35 2005/11/15 07:53:59 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.36 2005/11/15 14:14:20 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -153,6 +153,7 @@ propertyValuesSetFontSize(p, pProp)
     double iScale = -1.0;
     assert(pProp);
 
+    /* Handle 'inherit' separately. */
     if (pProp->eType == CSS_CONST_INHERIT) {
         HtmlNode *pParent = HtmlNodeParent(p->pNode);
         if (pParent) {
@@ -178,16 +179,36 @@ propertyValuesSetFontSize(p, pProp)
             }
             break;
         }
-
         case CSS_TYPE_PERCENT:
             iScale = pProp->v.rVal * 0.01;
             break;
-        case CSS_CONST_SMALLER:
-            iScale = 0.8333;
+
+        case CSS_CONST_SMALLER: {
+            HtmlNode *pParent = HtmlNodeParent(p->pNode);
+            if (pParent) {
+                int ii;
+                int *aSize = p->pTree->aFontSizeTable;
+                int ps = pParent->pPropertyValues->fFont->pKey->iFontSize;
+                for (ii = 1; ii < 7 && aSize[ii] < ps; ii++);
+                iPoints = ps + (aSize[ii-1] - aSize[ii]);
+            } else {
+                iPoints = p->pTree->aFontSizeTable[2];
+            }
             break;
-        case CSS_CONST_LARGER:
-            iScale = 1.2;
+        }
+        case CSS_CONST_LARGER: {
+            HtmlNode *pParent = HtmlNodeParent(p->pNode);
+            if (pParent) {
+                int ii;
+                int *aSize = p->pTree->aFontSizeTable;
+                int ps = pParent->pPropertyValues->fFont->pKey->iFontSize;
+                for (ii = 0; ii < 6 && aSize[ii] < ps; ii++);
+                iPoints = ps + (aSize[ii+1] - aSize[ii]);
+            } else {
+                iPoints = p->pTree->aFontSizeTable[2];
+            }
             break;
+        }
 
         /* Font-size is in terms of the font-size table */
         case CSS_CONST_XX_SMALL:
@@ -1720,10 +1741,6 @@ HtmlComputedValuesRelease(pTree, pValues)
  *         HtmlTree.aFont
  *         HtmlTree.aValues
  *
- *     and the font-size lookup table:
- * 
- *         HtmlTree.aFontSizeTable
- *
  *     The aColor array is pre-loaded with 16 colors - the colors defined by
  *     the CSS standard. This is because the RGB definitions of these colors in
  *     CSS may be different than Tk's definition. If we preload all 16 and
@@ -1799,15 +1816,6 @@ HtmlComputedValuesSetupTables(pTree)
     pColor->nRef = 1;
     pColor->xcolor = 0;
     Tcl_SetHashValue(pEntry, pColor);
-   
-    /* Initialise the font-size table */
-    pTree->aFontSizeTable[3] = 10;            /* medium */
-    pTree->aFontSizeTable[4] = pTree->aFontSizeTable[3] * (1.2);
-    pTree->aFontSizeTable[5] = pTree->aFontSizeTable[3] * (1.2 * 1.2);
-    pTree->aFontSizeTable[6] = pTree->aFontSizeTable[3] * (1.2 * 1.2 * 1.2);
-    pTree->aFontSizeTable[2] = pTree->aFontSizeTable[3] / (1.2);
-    pTree->aFontSizeTable[1] = pTree->aFontSizeTable[3] / (1.2 * 1.2);
-    pTree->aFontSizeTable[0] = pTree->aFontSizeTable[3] / (1.2 * 1.2 * 1.2);
 }
 
 /*

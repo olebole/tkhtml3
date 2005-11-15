@@ -80,6 +80,12 @@ struct HtmlColor {
     XColor *xcolor;        /* The XColor* */
 };
 
+struct HtmlImage {
+    int nRef;
+    Tcl_Obj *pImage;
+    char *zUrl;
+};
+
 /*
  * An instance of this structure stores a set of property values as assigned by
  * the styler process. The values are as far as I can tell "computed" values,
