@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.107 2005/11/16 11:39:30 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.108 2005/11/16 17:04:31 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -784,93 +784,124 @@ markerLayout(pLayout, pBox, pNode, y)
     HtmlNode *pNode;
     int y;
 {
-    int style; 
     CONST char *zMarker = 0; /* Text to draw in the marker box. */
     Tcl_Obj *pMarker;        /* Tcl_Obj copy of zMarker */
-    int width;               /* Width of string zMarker in current font */
-    Tk_Font font;
-    XColor *color;
-    int offset;
-    int yoffset;
     HtmlComputedValues *pComputed = pNode->pPropertyValues;
+    int yoffset = pComputed->fFont->metrics.ascent;
+    int offset;
+    HtmlCanvas sCanvas;
+    int width;               /* Width of string zMarker in current font */
 
-    char zBuf[128];
-    int iList = 1;
-    HtmlNode *pParent = HtmlNodeParent(pNode);
-    if (pParent) {
-        int ii;
-        for (ii = 0; ii < HtmlNodeNumChildren(pParent); ii++) {
-            HtmlNode *pSibling = HtmlNodeChild(pParent, ii);
-            if (pSibling == pNode) {
-                break;
-            }
-            if (DISPLAY(pSibling->pPropertyValues) == CSS_CONST_LIST_ITEM) {
-                iList++;
+    memset(&sCanvas, 0, sizeof(HtmlCanvas));
+
+    if (pComputed->imListStyleImage) {
+        int iMarginLeft = PIXELVAL(pComputed, MARGIN_LEFT, pBox->iContaining);
+        iMarginLeft = MAX(40, iMarginLeft);
+        width = iMarginLeft - pComputed->fFont->ex_pixels;
+
+        if (pComputed->eListStylePosition == CSS_CONST_OUTSIDE) {
+            HtmlDrawImage2(&sCanvas, pComputed->imListStyleImage,
+                10000, 10000, 1, CSS_CONST_NO_REPEAT,
+                -1 * iMarginLeft, y,
+                width, yoffset, pLayout->minmaxTest
+            );
+        } else {
+            HtmlDrawImage2(&sCanvas, pComputed->imListStyleImage,
+                0, 10000, 1, CSS_CONST_NO_REPEAT,
+                0, y,
+                width, yoffset, pLayout->minmaxTest
+            );
+            HtmlFloatListAdd(pBox->pFloat, FLOAT_LEFT, 
+                  iMarginLeft, y, y + yoffset);
+        }
+    } else {
+        XColor *color;
+        Tk_Font font;
+        int style;
+        char zBuf[128];
+        int iList = 1;
+
+        HtmlNode *pParent = HtmlNodeParent(pNode);
+        if (pParent) {
+            int ii;
+            for (ii = 0; ii < HtmlNodeNumChildren(pParent); ii++) {
+                HtmlNode *pSibling = HtmlNodeChild(pParent, ii);
+                if (pSibling == pNode) {
+                    break;
+                }
+                if (DISPLAY(pSibling->pPropertyValues) == CSS_CONST_LIST_ITEM) {
+                    iList++;
+                }
             }
         }
-    }
 
-    style = pComputed->eListStyleType;
-    if (style == CSS_CONST_LOWER_ALPHA || style == CSS_CONST_UPPER_ALPHA) {
-        if (iList > 26) {
-            style = CSS_CONST_DECIMAL;
+        style = pComputed->eListStyleType;
+        if (style == CSS_CONST_LOWER_ALPHA || style == CSS_CONST_UPPER_ALPHA) {
+            if (iList > 26) {
+                style = CSS_CONST_DECIMAL;
+            }
         }
+        switch (style) {
+            case CSS_CONST_SQUARE:
+                 zMarker = "\xe2\x96\xa1";      /* Unicode 0x25A1 */ 
+                 break;
+            case CSS_CONST_CIRCLE:
+                 zMarker = "\xe2\x97\x8b";      /* Unicode 0x25CB */ 
+                 break;
+            case CSS_CONST_DISC:
+                 zMarker = "\xe2\x80\xa2";      /* Unicode 0x25CF */ 
+                 break;
+    
+            case CSS_CONST_LOWER_ALPHA:
+                 sprintf(zBuf, "%c.", iList + 96);
+                 zMarker = zBuf;
+                 break;
+            case CSS_CONST_UPPER_ALPHA:
+                 sprintf(zBuf, "%c.", iList + 64);
+                 zMarker = zBuf;
+                 break;
+    
+            case CSS_CONST_LOWER_ROMAN:
+                 getRomanIndex(zBuf, iList, 0);
+                 zMarker = zBuf;
+                 break;
+            case CSS_CONST_UPPER_ROMAN:
+                 getRomanIndex(zBuf, iList, 1);
+                 zMarker = zBuf;
+                 break;
+            case CSS_CONST_DECIMAL:
+                 sprintf(zBuf, "%d.", iList);
+                 zMarker = zBuf;
+                 break;
+            case CSS_CONST_NONE:
+                 zMarker = "";                  /* Nothin' */
+                 break;
+        }
+        font = pComputed->fFont->tkfont;
+        color = pComputed->cColor->xcolor;
+        pMarker = Tcl_NewStringObj(zMarker, -1);
+        Tcl_IncrRefCount(pMarker);
+        width = Tk_TextWidth(font, zMarker, strlen(zMarker));
+    
+        if (pComputed->eListStylePosition == CSS_CONST_OUTSIDE) {
+	    /* It's not specified in CSS 2.1 exactly where the list marker
+	     * should be drawn when the 'list-style-position' property is
+	     * 'outside'.  The algorithm used is to draw it the width of 1 'x'
+	     * character in the current font to the left of the content box.
+             */
+            offset = pComputed->fFont->ex_pixels + width;
+        } else {
+            assert(pComputed->eListStylePosition == CSS_CONST_INSIDE);
+            offset = 0;
+            HtmlFloatListAdd(pBox->pFloat, FLOAT_LEFT, 
+                  pComputed->fFont->ex_pixels + width, y, y + yoffset);
+        }
+        DRAW_TEXT(&sCanvas, pMarker, -1*offset, y+yoffset, width, 0,font,color);
+    
+        Tcl_DecrRefCount(pMarker);
     }
-    switch (style) {
-        case CSS_CONST_SQUARE:
-             zMarker = "\xe2\x96\xa1";      /* Unicode 0x25A1 */ 
-             break;
-        case CSS_CONST_CIRCLE:
-             zMarker = "\xe2\x97\x8b";      /* Unicode 0x25CB */ 
-             break;
-        case CSS_CONST_DISC:
-             zMarker = "\xe2\x80\xa2";      /* Unicode 0x25CF */ 
-             break;
 
-        case CSS_CONST_LOWER_ALPHA:
-             sprintf(zBuf, "%c.", iList + 96);
-             zMarker = zBuf;
-             break;
-        case CSS_CONST_UPPER_ALPHA:
-             sprintf(zBuf, "%c.", iList + 64);
-             zMarker = zBuf;
-             break;
-
-        case CSS_CONST_LOWER_ROMAN:
-             getRomanIndex(zBuf, iList, 0);
-             zMarker = zBuf;
-             break;
-        case CSS_CONST_UPPER_ROMAN:
-             getRomanIndex(zBuf, iList, 1);
-             zMarker = zBuf;
-             break;
-        case CSS_CONST_DECIMAL:
-             sprintf(zBuf, "%d.", iList);
-             zMarker = zBuf;
-             break;
-        case CSS_CONST_NONE:
-             zMarker = "";                  /* Nothin' */
-             break;
-    }
-    font = pComputed->fFont->tkfont;
-    color = pComputed->cColor->xcolor;
-    pMarker = Tcl_NewStringObj(zMarker, -1);
-    Tcl_IncrRefCount(pMarker);
-    width = Tk_TextWidth(font, zMarker, strlen(zMarker));
-
-    /* Todo: The code below assumes a value of 'outside' for property
-     * 'list-marker-position'. Should handle 'inside' as well.
-     */
-
-    /* It's not clear to me exactly where the list marker should be
-     * drawn when the 'list-style-position' property is 'outside'.
-     * The algorithm used is to draw it the width of 1 'x' character
-     * in the current font to the left of the content box.
-     */
-    offset = pComputed->fFont->ex_pixels + width;
-    yoffset = -1 * pComputed->fFont->metrics.ascent;
-    DRAW_TEXT(&pBox->vc, pMarker, -1*offset, y-yoffset, width, 0, font, color);
-    Tcl_DecrRefCount(pMarker);
+    DRAW_CANVAS(&pBox->vc, &sCanvas, 0, 0, pNode);
     return TCL_OK;
 }
 

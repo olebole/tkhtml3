@@ -137,7 +137,8 @@ proc gui_build {} {
         Normal {7 8 9 10 12 14 16} \
         Large  {9 10 11 12 14 16 18} \
         {Very Large}  {11 12 13 14 16 18 20} \
-        {Recklessly Large}  {13 14 15 16 18 20 22}
+        {Extra Large}  {13 14 15 16 18 20 22} \
+        {Recklessly Large}  {15 16 17 18 20 22 24}
     ] {
         .m.font add command -label $label -command [list \
             $HTML configure -fonttable $table

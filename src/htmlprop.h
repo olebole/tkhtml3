@@ -200,7 +200,8 @@ struct HtmlComputedValues {
     HtmlColor *cBackgroundColor;      /* 'background-color' */
 
     unsigned char eListStyleType;     /* 'list-style-type' */
-
+    unsigned char eListStylePosition; /* 'list-style-position' */
+    HtmlImage *imListStyleImage;      /* 'list-style-image' */
 
     /* 'font-size', 'font-family', 'font-style', 'font-weight' */
     HtmlFont *fFont;

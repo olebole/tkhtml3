@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.38 2005/11/16 11:39:30 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.39 2005/11/16 17:04:31 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -626,7 +626,7 @@ imageChangedProc(clientData, x, y, w, h, iw, ih)
 /*
  *---------------------------------------------------------------------------
  *
- * propertyValuesSetBackgroundImage --
+ * propertyValuesSetImage --
  *
  * Results: 
  *     0 if value is successfully set. 1 if the value of *pProp is not a valid
@@ -637,89 +637,103 @@ imageChangedProc(clientData, x, y, w, h, iw, ih)
  *---------------------------------------------------------------------------
  */
 static int
-propertyValuesSetBackgroundImage(p, pProp)
+propertyValuesSetImage(p, pImVar, pProp)
     HtmlComputedValuesCreator *p;
+    HtmlImage **pImVar;
     CssProperty *pProp;
 {
-    CONST char *zUrl;
-    Tcl_HashEntry *pEntry;
-    int newEntry;
-    HtmlImage *pImage = 0;
-    Tcl_Obj *pImageCmd = p->pTree->options.imagecmd;
+    HtmlImage *pNew = 0;
+    CONST char *zUrl = 0;
 
-    if (!pImageCmd) {
-        return 0;
-    }
-
-    assert(!p->values.imBackgroundImage);
     switch (pProp->eType) {
         case CSS_CONST_INHERIT: {
-            HtmlComputedValues *pPV = HtmlNodeParent(p->pNode)->pPropertyValues;
-            if (pPV->imBackgroundImage) {
-                p->values.imBackgroundImage = pPV->imBackgroundImage;
-                p->values.imBackgroundImage->nRef++;
+            unsigned char *v = (unsigned char *)pImVar;
+            HtmlImage **pInherit = (HtmlImage **)getInheritPointer(p, v);
+            *pImVar = *pInherit;
+            if (*pImVar) {
+                (*pImVar)->nRef++;
             }
             return 0;
+        }
 
         case CSS_CONST_NONE:
-            return 0;
+            break;
 
         case CSS_TYPE_URL:
         case CSS_TYPE_STRING: 
+            zUrl = pProp->v.zVal;
             break;
  
         default:
             return 1;
-        }
     }
 
-    zUrl = pProp->v.zVal;
-    pEntry = Tcl_CreateHashEntry(&p->pTree->aImage, zUrl, &newEntry);
-    if (newEntry) {
-        Tcl_Interp *interp = p->pTree->interp;
-        Tcl_Obj *pUrl = Tcl_NewStringObj(zUrl, -1);
-        Tcl_Obj *pEval = Tcl_DuplicateObj(pImageCmd);
+    if (zUrl) {
+        Tcl_HashEntry *pEntry;
+        int newEntry;
+        Tcl_Obj *pImageCmd = p->pTree->options.imagecmd;
 
-        Tcl_IncrRefCount(pEval);
-        Tcl_ListObjAppendElement(interp, pEval, pUrl);
-        if (Tcl_EvalObjEx(interp, pEval, TCL_EVAL_DIRECT|TCL_EVAL_GLOBAL)) {
-            Tcl_BackgroundError(interp);
-            return 0;
+        pEntry = Tcl_CreateHashEntry(&p->pTree->aImage, zUrl, &newEntry);
+        if (newEntry) {
+            Tcl_Interp *interp = p->pTree->interp;
+            Tcl_Obj *pUrl = Tcl_NewStringObj(zUrl, -1);
+            Tcl_Obj *pEval = Tcl_DuplicateObj(pImageCmd);
+    
+            Tcl_IncrRefCount(pEval);
+            Tcl_ListObjAppendElement(interp, pEval, pUrl);
+            if (Tcl_EvalObjEx(interp, pEval, TCL_EVAL_DIRECT|TCL_EVAL_GLOBAL)) {
+                Tcl_BackgroundError(interp);
+                return 0;
+            } else {
+                int nObj = 0;
+                Tcl_Obj **apObj;
+                Tcl_Obj *pResult = Tcl_GetObjResult(interp);
+    
+                Tcl_ListObjGetElements(interp, pResult, &nObj, &apObj);
+                if (nObj == 1 || nObj ==2) {
+                    int nBytes = sizeof(HtmlImage) + strlen(zUrl) + 1;
+    
+                    Tk_Image img = Tk_GetImage(
+                            interp, p->pTree->tkwin, Tcl_GetString(apObj[0]),
+                            imageChangedProc, p->pTree
+                    );
+                    if (!img) {
+                        Tcl_ResetResult(interp);
+                        Tcl_AppendResult(interp,  
+                            "-imagecmd script returned bad value", 0
+                        );
+                        Tcl_BackgroundError(interp);
+                        return 0;
+                    }
+    
+                    pNew = (HtmlImage*)HtmlAlloc(nBytes);
+                    pNew->image = img;
+                    pNew->nRef = 0;
+                    pNew->pImage = apObj[0];
+                    Tcl_IncrRefCount(pNew->pImage);
+                    pNew->pDelete = 0;
+                    pNew->zUrl = (char *)&pNew[1];
+                    strcpy(pNew->zUrl, zUrl);
+                }
+                if (nObj == 2) {
+                    pNew->pDelete = apObj[1];
+                    Tcl_IncrRefCount(pNew->pDelete);
+                }
+                Tcl_SetHashValue(pEntry, pNew);
+            }
         } else {
-            int nObj = 0;
-            Tcl_Obj **apObj;
-            Tcl_Obj *pResult = Tcl_GetObjResult(interp);
-
-            Tcl_ListObjGetElements(interp, pResult, &nObj, &apObj);
-            if (nObj == 1 || nObj ==2) {
-                int nBytes = sizeof(HtmlImage) + strlen(zUrl) + 1;
-                pImage = (HtmlImage*)HtmlAlloc(nBytes);
-                pImage->nRef = 0;
-                pImage->pImage = apObj[0];
-                Tcl_IncrRefCount(pImage->pImage);
-                pImage->pDelete = 0;
-                pImage->zUrl = (char *)&pImage[1];
-                strcpy(pImage->zUrl, zUrl);
-                pImage->image = Tk_GetImage(
-                        interp, p->pTree->tkwin, Tcl_GetString(pImage->pImage),
-                        imageChangedProc, p->pTree
-                );
-            }
-            if (nObj == 2) {
-                pImage->pDelete = apObj[1];
-                Tcl_IncrRefCount(pImage->pDelete);
-            }
-            Tcl_SetHashValue(pEntry, pImage);
+            pNew = (HtmlImage *)Tcl_GetHashValue(pEntry);
         }
-    } else {
-        pImage = (HtmlImage *)Tcl_GetHashValue(pEntry);
     }
 
-    if (pImage) {
-        pImage->nRef++;
+    if (*pImVar) {
+        assert((*pImVar)->nRef > 1);
+        (*pImVar)->nRef--;
     }
-    p->values.imBackgroundImage = pImage;
-
+    if (pNew) {
+        pNew->nRef++;
+    }
+    *pImVar = pNew;
     return 0;
 }
 
@@ -1018,13 +1032,17 @@ HtmlComputedValuesInit(pTree, pNode, p)
         static CssProperty Black   = {CSS_CONST_BLACK, {"black"}};
 
         /* Regular HtmlComputedValues properties */
-        p->values.eListStyleType  = CSS_CONST_DISC;     /* 'list-style-type' */
         p->values.eWhitespace     = CSS_CONST_NORMAL;   /* 'white-space' */
         p->values.eTextAlign      = CSS_CONST_LEFT;     /* 'text-align' */ 
         p->values.iBorderSpacing = 0;                   /* 'border-spacing' */
         p->values.iLineHeight = -100;                   /* 'line-height' */
         rc = propertyValuesSetColor(p, &p->values.cColor, &Black); /* 'color' */
         assert(rc == 0);
+
+        /* List properties */
+        p->values.eListStyleType  = CSS_CONST_DISC;     
+        p->values.eListStylePosition = CSS_CONST_OUTSIDE;
+        p->values.imListStyleImage = 0;
 
         /* The font properties */
         propertyValuesSetFontSize(p, &Medium);          /* 'font-size'  */
@@ -1039,7 +1057,12 @@ HtmlComputedValuesInit(pTree, pNode, p)
         /* The font properties */
         memcpy(&p->fontKey, pFK, sizeof(HtmlFontKey));
 
+        /* List properties */
         p->values.eListStyleType = pV->eListStyleType;  /* 'list-style-type' */
+        p->values.eListStylePosition = pV->eListStylePosition;
+        rc = propertyValuesSetImage(p, &p->values.imListStyleImage, &Inherit); 
+        assert(rc == 0);
+
         p->values.eWhitespace = pV->eWhitespace;        /* 'white-space' */
         p->values.eTextAlign = pV->eTextAlign;          /* 'text-align' */ 
         p->values.iBorderSpacing = pV->iBorderSpacing;  /* 'border-spacing' */
@@ -1287,6 +1310,13 @@ HtmlComputedValuesSet(p, eProp, pProp)
             unsigned char *pEVar = &(p->values.eListStyleType);
             return propertyValuesSetEnum(p, pEVar, options, pProp);
         }
+        case CSS_PROPERTY_LIST_STYLE_POSITION: {
+            int options[] = {
+                CSS_CONST_OUTSIDE, CSS_CONST_INSIDE, 0
+            };
+            unsigned char *pEVar = &(p->values.eListStylePosition);
+            return propertyValuesSetEnum(p, pEVar, options, pProp);
+        }
         case CSS_PROPERTY_BORDER_TOP_STYLE: {
             unsigned char *pEVar = &(p->values.eBorderTopStyle);
             return propertyValuesSetEnum(p, pEVar, border_style_options, pProp);
@@ -1522,7 +1552,13 @@ HtmlComputedValuesSet(p, eProp, pProp)
             );
 
         case CSS_PROPERTY_BACKGROUND_IMAGE:
-            return propertyValuesSetBackgroundImage(p, pProp);
+            return propertyValuesSetImage(p, 
+                &p->values.imBackgroundImage, pProp
+            );
+        case CSS_PROPERTY_LIST_STYLE_IMAGE:
+            return propertyValuesSetImage(p, 
+                &p->values.imListStyleImage, pProp
+            );
 
         default:
             /* Unknown property */
@@ -1793,6 +1829,10 @@ HtmlComputedValuesFinish(p)
             pValues->imBackgroundImage->nRef--;
             assert(pValues->imBackgroundImage->nRef > 0);
         }
+        if (pValues->imListStyleImage) {
+            pValues->imListStyleImage->nRef--;
+            assert(pValues->imListStyleImage->nRef > 0);
+        }
     }
 
     /* Delete any CssProperty structures allocated for Tcl properties */
@@ -1861,6 +1901,10 @@ decrementImageRef(pTree, pImage)
         if (pImage->image) {
             Tk_FreeImage(pImage->image);
         }
+        if (pImage->pDelete) {
+            int flags = TCL_EVAL_GLOBAL|TCL_EVAL_DIRECT;
+            Tcl_EvalObjEx(pTree->interp, pImage->pDelete, flags);
+        }
         HtmlFree((char *)pImage);
     }
 }
@@ -1892,6 +1936,7 @@ HtmlComputedValuesRelease(pTree, pValues)
             decrementColorRef(pTree, pValues->cBorderBottomColor);
             decrementColorRef(pTree, pValues->cBorderLeftColor);
             decrementImageRef(pTree, pValues->imBackgroundImage);
+            decrementImageRef(pTree, pValues->imListStyleImage);
     
             Tcl_DeleteHashEntry(pEntry);
         }
@@ -2104,6 +2149,7 @@ PROP_MASK_ ## eProp}
         LENGTHVAL(HEIGHT, iHeight),
         LENGTHVAL(LINE_HEIGHT, iLineHeight),
         ENUMVAL  (LIST_STYLE_TYPE, eListStyleType),
+        ENUMVAL  (LIST_STYLE_POSITION, eListStylePosition),
 
         LENGTHVAL(MARGIN_BOTTOM, margin.iBottom),
         LENGTHVAL(MARGIN_LEFT, margin.iLeft),
@@ -2129,6 +2175,7 @@ PROP_MASK_ ## eProp}
         LENGTHVAL(WIDTH, iWidth),
 
         IMAGEVAL(BACKGROUND_IMAGE, imBackgroundImage),
+        IMAGEVAL(LIST_STYLE_IMAGE, imListStyleImage),
         ENUMVAL (BACKGROUND_REPEAT, eBackgroundRepeat),
         BACKGROUNDPOSITIONVAL()
     };

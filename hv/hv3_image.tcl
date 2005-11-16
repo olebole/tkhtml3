@@ -43,7 +43,7 @@ proc imageCmd {HTML url} {
     set url [url_resolve $url]
     url_fetch $url -id $url -script [list imageCallback $name]
 
-    return $name
+    return [list $name [list image delete $name]]
 }
 
 
