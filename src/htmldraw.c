@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.71 2005/11/16 08:46:43 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.72 2005/11/16 11:01:06 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -567,7 +567,7 @@ HtmlDrawImage2(
         pItem->x.i2.h = h;
         pItem->x.i2.iPositionX = iPositionX;
         pItem->x.i2.iPositionY = iPositionY;
-        pItem->x.i2.isPositionPercent = iPositionY;
+        pItem->x.i2.isPositionPercent = isPositionPercent;
         linkItem(pCanvas, pItem);
     }
 

@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.36 2005/11/16 08:46:42 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.37 2005/11/16 11:01:06 danielk1977 Exp $";
 
 /*
  *    The CSS "cascade":
@@ -852,11 +852,64 @@ static void propertySetAddShortcutBorder(p, prop, v)
     }
 }
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * propertyTransformBgPosition --
+ *
+ *     This function is called on values that might be assigned to the
+ *     'background-position' property. If the property contains one of the
+ *     following constants, it is overwritten with the corresponding percentage
+ *     value before this function returns.
+ *
+ *         'top'    -> 0%
+ *         'left'   -> 0%
+ *         'bottom' -> 100%
+ *         'right'  -> 100%
+ *         'center' -> 50%
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void
+propertyTransformBgPosition(pProp)
+    CssProperty *pProp;
+{
+    double rVal;
+    switch (pProp->eType) {
+        case CSS_CONST_RIGHT:
+        case CSS_CONST_BOTTOM:
+            rVal = 100.0; 
+            break;
+
+        case CSS_CONST_CENTER:
+            rVal = 50.0; 
+            break;
+ 
+        case CSS_CONST_TOP:
+        case CSS_CONST_LEFT:
+            rVal = 0.0; 
+            break;
+
+        default: 
+            return;
+    }
+
+    pProp->eType = CSS_TYPE_PERCENT;
+    pProp->v.rVal = rVal;
+}
 
 /*
  *---------------------------------------------------------------------------
  *
  * propertySetAddShortcutBackground --
+ *
+ *     This function is called to handle the short cut property 'background'.
  *
  * Results:
  *     None.
@@ -873,51 +926,106 @@ propertySetAddShortcutBackground(p, v)
 {
     CONST char *z= v->z;
     CONST char *zEnd = z + v->n;
-    int n;
+    int nProp = 0;
+    int ii;
 
-    while (z) {
-        CssProperty *pProp;
+    CssProperty *pColor = 0;
+    CssProperty *pImage = 0;
+    CssProperty *pRepeat = 0;
+    CssProperty *pAttachment = 0;
+    CssProperty *pPositionX = 0;
+    CssProperty *pPositionY = 0;
+
+    CssProperty *apProp[6];
+    while (z && nProp<6) {
+        int n;
         z = getNextListItem(z, zEnd-z, &n);
         if (z) {
-            int eProp = 0;
             CssToken token;
-
             token.z = z;
             token.n = n;
-            pProp = tokenToProperty(&token);
+            apProp[nProp] = tokenToProperty(&token);
+            nProp++;
+            assert(n>0);
             z += n;
-
-            if (propertyIsLength(pProp)) {
-                eProp = CSS_PROPERTY_BACKGROUND_POSITION_X;
-            } else {
-                switch (pProp->eType) {
-                    case CSS_CONST_SCROLL:
-                    case CSS_CONST_FIXED:
-                        eProp = CSS_PROPERTY_BACKGROUND_ATTACHMENT;
-                        break;
-                    case CSS_CONST_REPEAT:
-                    case CSS_CONST_NO_REPEAT:
-                    case CSS_CONST_REPEAT_X:
-                    case CSS_CONST_REPEAT_Y:
-                        eProp = CSS_PROPERTY_BACKGROUND_REPEAT;
-                        break;
-                    case CSS_CONST_TOP:
-                    case CSS_CONST_BOTTOM:
-                    case CSS_CONST_LEFT:
-                    case CSS_CONST_RIGHT:
-                    case CSS_CONST_CENTER:
-                    case CSS_TYPE_FLOAT:
-                        eProp = CSS_PROPERTY_BACKGROUND_POSITION_X;
-                        break;
-                    case CSS_TYPE_URL:
-                        eProp = CSS_PROPERTY_BACKGROUND_IMAGE;
-                        break;
-                    default:
-                        eProp = CSS_PROPERTY_BACKGROUND_COLOR;
-                }
-            }
-            propertySetAdd(p, eProp, pProp);
         }
+    }
+
+    for (ii = 0; ii < nProp; ii++) {
+        CssProperty *pProp = apProp[ii];
+        propertyTransformBgPosition(pProp);
+        if (propertyIsLength(pProp)) {
+            if (!pPositionX) {
+                if (pPositionY) goto error_out;
+                pPositionX = pProp;
+            } else {
+                pPositionY = pProp;
+            }
+        } else {
+            switch (pProp->eType) {
+                case CSS_CONST_SCROLL:
+                case CSS_CONST_FIXED:
+                    if (pAttachment) goto error_out;
+                    pAttachment = pProp;
+                    break;
+
+                case CSS_CONST_REPEAT:
+                case CSS_CONST_NO_REPEAT:
+                case CSS_CONST_REPEAT_X:
+                case CSS_CONST_REPEAT_Y:
+                    if (pRepeat) goto error_out;
+                    pRepeat = pProp;
+                    break;
+
+                case CSS_TYPE_URL:
+                case CSS_CONST_NONE:
+                    if (pImage) goto error_out;
+                    pImage = pProp;
+                    break;
+
+                default:
+                    if (pColor) goto error_out;
+                    pColor = pProp;
+                    break;
+            }
+        }
+    }
+
+    if (
+        pPositionX && pPositionY && 
+        ((pPositionX->eType == CSS_TYPE_PERCENT) ? 1 : 0) !=
+        ((pPositionY->eType == CSS_TYPE_PERCENT) ? 1 : 0)
+    ) {
+        goto error_out;
+    }
+
+    if (pImage) {
+        propertySetAdd(p, CSS_PROPERTY_BACKGROUND_IMAGE, pImage);
+    }
+    if (pAttachment) {
+        propertySetAdd(p, CSS_PROPERTY_BACKGROUND_ATTACHMENT, pAttachment);
+    }
+    if (pColor) {
+        propertySetAdd(p, CSS_PROPERTY_BACKGROUND_COLOR, pColor);
+    }
+    if (pRepeat) {
+        propertySetAdd(p, CSS_PROPERTY_BACKGROUND_REPEAT, pRepeat);
+    }
+    if (pPositionX) {
+        propertySetAdd(p, CSS_PROPERTY_BACKGROUND_POSITION_X, pPositionX);
+        if (!pPositionY) {
+            pPositionY = propertyDup(pPositionX);
+        }
+    }
+    if (pPositionY) {
+        propertySetAdd(p, CSS_PROPERTY_BACKGROUND_POSITION_Y, pPositionY);
+    }
+
+    return;
+
+error_out:
+    for (ii = 0; ii < nProp; ii++) {
+        HtmlFree((char *)apProp[ii]);
     }
 }
 
@@ -952,22 +1060,7 @@ propertySetAddShortcutBackgroundPosition(p, v)
             token.z = z;
             token.n = n;
             apProp[i] = tokenToProperty(&token);
-            switch (apProp[i]->eType) {
-                case CSS_CONST_RIGHT:
-                case CSS_CONST_BOTTOM:
-                    apProp[i]->eType = CSS_TYPE_PERCENT; 
-                    apProp[i]->v.rVal = 100.0; 
-                    break;
-                case CSS_CONST_CENTER:
-                    apProp[i]->eType = CSS_TYPE_PERCENT; 
-                    apProp[i]->v.rVal = 50.0; 
-                    break;
-                case CSS_CONST_TOP:
-                case CSS_CONST_LEFT:
-                    apProp[i]->eType = CSS_TYPE_PERCENT; 
-                    apProp[i]->v.rVal = 0.0; 
-                    break;
-            }
+            propertyTransformBgPosition(apProp[i]);
             i++;
             assert(n>0);
             z += n;
