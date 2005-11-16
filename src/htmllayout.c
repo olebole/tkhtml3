@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.106 2005/11/16 08:46:43 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.107 2005/11/16 11:39:30 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -684,6 +684,79 @@ normalFlowLayoutFloat(pLayout, pBox, pNode, pY, pContext, pNormal)
 /*
  *---------------------------------------------------------------------------
  *
+ * getRomanIndex --
+ *
+ *     Print an ordered list index into the given buffer.  Use roman
+ *     numerals.  For indices greater than a few thousand, revert to
+ *     decimal.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void 
+getRomanIndex(zBuf, index, isUpper)
+    char *zBuf;
+    int index;
+    int isUpper;
+{
+    int i = 0;
+    int j;
+    static struct {
+        int value;
+        char *name;
+    } values[] = {
+        { 1000, "m" },
+        { 999, "im" },
+        { 990, "xm" },
+        { 900, "cm" },
+        { 500, "d"  },
+        { 499, "id" },
+        { 490, "xd" },
+        { 400, "cd" },
+        { 100, "c"  },
+        { 99, "ic"  },
+        { 90, "xc"  },
+        { 50, "l"   },
+        { 49, "il"  },
+        { 40, "xl"  },
+        { 10, "x"   },
+        { 9, "ix"   },
+        { 5, "v"    },
+        { 4, "iv"   },
+        { 1, "i"    },
+    };
+    if (index<1 || index>=5000) {
+        sprintf(zBuf, "%d", index);
+        return;
+    }
+    for (j = 0; index > 0 && j < sizeof(values)/sizeof(values[0]); j++) {
+        int k;
+        while (index >= values[j].value) {
+            for (k = 0; values[j].name[k]; k++) {
+                zBuf[i++] = values[j].name[k];
+            }
+            index -= values[j].value;
+        }
+    }
+    zBuf[i] = 0;
+    if (isUpper) {
+        for(i=0; zBuf[i]; i++){
+            zBuf[i] += 'A' - 'a';
+        }
+    }
+    strcat(zBuf,".");
+}
+
+
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * markerLayout --
  *
  *     This is called just before the block part of a list item is 
@@ -721,7 +794,28 @@ markerLayout(pLayout, pBox, pNode, y)
     int yoffset;
     HtmlComputedValues *pComputed = pNode->pPropertyValues;
 
+    char zBuf[128];
+    int iList = 1;
+    HtmlNode *pParent = HtmlNodeParent(pNode);
+    if (pParent) {
+        int ii;
+        for (ii = 0; ii < HtmlNodeNumChildren(pParent); ii++) {
+            HtmlNode *pSibling = HtmlNodeChild(pParent, ii);
+            if (pSibling == pNode) {
+                break;
+            }
+            if (DISPLAY(pSibling->pPropertyValues) == CSS_CONST_LIST_ITEM) {
+                iList++;
+            }
+        }
+    }
+
     style = pComputed->eListStyleType;
+    if (style == CSS_CONST_LOWER_ALPHA || style == CSS_CONST_UPPER_ALPHA) {
+        if (iList > 26) {
+            style = CSS_CONST_DECIMAL;
+        }
+    }
     switch (style) {
         case CSS_CONST_SQUARE:
              zMarker = "\xe2\x96\xa1";      /* Unicode 0x25A1 */ 
@@ -731,6 +825,28 @@ markerLayout(pLayout, pBox, pNode, y)
              break;
         case CSS_CONST_DISC:
              zMarker = "\xe2\x80\xa2";      /* Unicode 0x25CF */ 
+             break;
+
+        case CSS_CONST_LOWER_ALPHA:
+             sprintf(zBuf, "%c.", iList + 96);
+             zMarker = zBuf;
+             break;
+        case CSS_CONST_UPPER_ALPHA:
+             sprintf(zBuf, "%c.", iList + 64);
+             zMarker = zBuf;
+             break;
+
+        case CSS_CONST_LOWER_ROMAN:
+             getRomanIndex(zBuf, iList, 0);
+             zMarker = zBuf;
+             break;
+        case CSS_CONST_UPPER_ROMAN:
+             getRomanIndex(zBuf, iList, 1);
+             zMarker = zBuf;
+             break;
+        case CSS_CONST_DECIMAL:
+             sprintf(zBuf, "%d.", iList);
+             zMarker = zBuf;
              break;
         case CSS_CONST_NONE:
              zMarker = "";                  /* Nothin' */

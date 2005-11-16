@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.37 2005/11/16 08:46:43 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.38 2005/11/16 11:39:30 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1280,7 +1280,9 @@ HtmlComputedValuesSet(p, eProp, pProp)
         case CSS_PROPERTY_LIST_STYLE_TYPE: {
             int options[] = {
                 CSS_CONST_DISC,      CSS_CONST_CIRCLE,  CSS_CONST_SQUARE,
-                CSS_CONST_NONE,      0
+		CSS_CONST_NONE,      CSS_CONST_DECIMAL, CSS_CONST_LOWER_ALPHA,
+		CSS_CONST_UPPER_ALPHA, CSS_CONST_LOWER_ROMAN,
+                CSS_CONST_UPPER_ROMAN, 0 
             };
             unsigned char *pEVar = &(p->values.eListStyleType);
             return propertyValuesSetEnum(p, pEVar, options, pProp);
