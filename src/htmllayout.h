@@ -53,6 +53,11 @@ struct BorderProperties {
     XColor *color_bottom;
     XColor *color_right;
     XColor *color_bg;
+    HtmlImage *pBgImage;
+    unsigned char eBgRepeat;
+    int iPositionX;
+    int iPositionY;
+    unsigned char isPositionPercent;
 };
 
 struct MarginProperties {

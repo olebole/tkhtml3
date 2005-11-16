@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlimage.c,v 1.36 2005/11/13 12:00:17 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlimage.c,v 1.37 2005/11/16 08:46:43 danielk1977 Exp $";
 
 
 #include <assert.h>
@@ -126,7 +126,7 @@ int HtmlClearImageArray(pTree)
     Tcl_Interp *interp = pTree->interp;
 
     for (
-        p = Tcl_FirstHashEntry(&pTree->aImage, &s); 
+        p = Tcl_FirstHashEntry(&pTree->aScaledImage, &s); 
         p; 
         p = Tcl_NextHashEntry(&s)) 
     {
@@ -188,7 +188,7 @@ int HtmlClearImageArray(pTree)
  *     Name of scaled image.
  *
  * Side effects:
- *     Modifies entries in HtmlTree.aImage.
+ *     Modifies entries in HtmlTree.aScaledImage.
  *
  *---------------------------------------------------------------------------
  */
@@ -214,7 +214,7 @@ HtmlResizeImage(pTree, zImage, pWidth, pHeight, calculateSizeOnly)
      * exist, create it. Even images that are never scaled need to have an
      * entry - this is how we delete them when they are no longer required.
      */
-    pEntry = Tcl_CreateHashEntry(&pTree->aImage, zImage, &newentry);
+    pEntry = Tcl_CreateHashEntry(&pTree->aScaledImage, zImage, &newentry);
     if (newentry) {
         Tk_Image img;
         img = Tk_GetImage(interp, pTree->win, zImage, imageChanged, 0);

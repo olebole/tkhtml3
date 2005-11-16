@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.35 2005/11/15 10:45:10 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.36 2005/11/16 08:46:42 danielk1977 Exp $";
 
 /*
  *    The CSS "cascade":
@@ -888,7 +888,7 @@ propertySetAddShortcutBackground(p, v)
             z += n;
 
             if (propertyIsLength(pProp)) {
-                eProp = CSS_PROPERTY_BACKGROUND_POSITION;
+                eProp = CSS_PROPERTY_BACKGROUND_POSITION_X;
             } else {
                 switch (pProp->eType) {
                     case CSS_CONST_SCROLL:
@@ -907,7 +907,7 @@ propertySetAddShortcutBackground(p, v)
                     case CSS_CONST_RIGHT:
                     case CSS_CONST_CENTER:
                     case CSS_TYPE_FLOAT:
-                        eProp = CSS_PROPERTY_BACKGROUND_POSITION;
+                        eProp = CSS_PROPERTY_BACKGROUND_POSITION_X;
                         break;
                     case CSS_TYPE_URL:
                         eProp = CSS_PROPERTY_BACKGROUND_IMAGE;
@@ -918,6 +918,69 @@ propertySetAddShortcutBackground(p, v)
             }
             propertySetAdd(p, eProp, pProp);
         }
+    }
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * propertySetAddShortcutBackgroundPosition --
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void 
+propertySetAddShortcutBackgroundPosition(p, v)
+    CssPropertySet *p;         /* Property set */
+    CssToken *v;               /* Value for 'background' property */
+{
+    CONST char *z= v->z;
+    CONST char *zEnd = z + v->n;
+    int i = 0;
+    CssProperty *apProp[4];
+
+    while (z && i<2) {
+        int n;
+        z = getNextListItem(z, zEnd-z, &n);
+        if (z) {
+            CssToken token;
+            token.z = z;
+            token.n = n;
+            apProp[i] = tokenToProperty(&token);
+            switch (apProp[i]->eType) {
+                case CSS_CONST_RIGHT:
+                case CSS_CONST_BOTTOM:
+                    apProp[i]->eType = CSS_TYPE_PERCENT; 
+                    apProp[i]->v.rVal = 100.0; 
+                    break;
+                case CSS_CONST_CENTER:
+                    apProp[i]->eType = CSS_TYPE_PERCENT; 
+                    apProp[i]->v.rVal = 50.0; 
+                    break;
+                case CSS_CONST_TOP:
+                case CSS_CONST_LEFT:
+                    apProp[i]->eType = CSS_TYPE_PERCENT; 
+                    apProp[i]->v.rVal = 0.0; 
+                    break;
+            }
+            i++;
+            assert(n>0);
+            z += n;
+        }
+    }
+
+    if (i > 0) {
+        assert(i == 1 || i == 2);
+        if (i == 1) {
+            apProp[1] = propertyDup(apProp[0]);
+        }   
+        propertySetAdd(p, CSS_PROPERTY_BACKGROUND_POSITION_X, apProp[0]);
+        propertySetAdd(p, CSS_PROPERTY_BACKGROUND_POSITION_Y, apProp[1]);
     }
 }
 
@@ -1757,6 +1820,9 @@ HtmlCssDeclaration(pParse, pProp, pExpr, isImportant)
             break;
         case CSS_SHORTCUTPROPERTY_BACKGROUND:
             propertySetAddShortcutBackground(*ppPropertySet, pExpr);
+            break;
+        case CSS_SHORTCUTPROPERTY_BACKGROUND_POSITION:
+            propertySetAddShortcutBackgroundPosition(*ppPropertySet, pExpr);
             break;
         default:
             propertySetAdd(*ppPropertySet, prop, tokenToProperty(pExpr));

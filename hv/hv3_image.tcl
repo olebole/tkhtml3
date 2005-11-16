@@ -1,4 +1,52 @@
 
+###########################################################################
+# hv3_image.tcl --
+#
+#     This file contains code to add image capabilities to the widget.
+#     The public interface to this file are the commands:
+#
+#         image_init HTML
+#
+
+
+#--------------------------------------------------------------------------
+# Global variables section
+set ::hv3_image_name 0
+
+#--------------------------------------------------------------------------
+
+# imageCallback --
+# 
+#         imageCmd IMAGE-NAME DATA
+#
+#     This proc is called when an image requested by the -imagecmd callback
+#     ([imageCmd]) has finished downloading. The first argument is the name of
+#     a Tk image. The second argument is the downloaded data (presumably a
+#     binary image format like gif). This proc sets the named Tk image to
+#     contain the downloaded data.
+#
+proc imageCallback {name data} {
+    if {[info commands $name] == ""} return 
+    $name put $data
+}
+
+# imageCmd --
+# 
+#         imageCmd HTML URL
+#
+#     This proc is registered as the -imagecmd script for the Html widget.
+#
+proc imageCmd {HTML url} {
+    set name hv3_image[incr ::hv3_image_name]
+    image create photo $name
+
+    set url [url_resolve $url]
+    url_fetch $url -id $url -script [list imageCallback $name]
+
+    return $name
+}
+
+
 set ::html_image_format jpeg
 
 proc image_to_serial {img} {
@@ -72,5 +120,6 @@ proc image_init {HTML} {
     } else {
         .m add command -label "Image tests require Tcl package Img"
     }
-  
+
+    $HTML configure -imagecmd [list imageCmd $HTML]
 }

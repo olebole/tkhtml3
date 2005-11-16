@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.54 2005/11/15 14:14:20 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.55 2005/11/16 08:46:43 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -431,7 +431,7 @@ HtmlCallbackSchedule(pTree, eCallbackAction)
  *
  *---------------------------------------------------------------------------
  */
-static void 
+void 
 HtmlCallbackExtents(pTree, x, y, width, height)
     HtmlTree *pTree;
     int x, y;
@@ -1538,7 +1538,7 @@ newWidget(clientData, interp, objc, objv)
     pTree->interp = interp;
     Tcl_InitHashTable(&pTree->aScriptHandler, TCL_ONE_WORD_KEYS);
     Tcl_InitHashTable(&pTree->aNodeHandler, TCL_ONE_WORD_KEYS);
-    Tcl_InitHashTable(&pTree->aImage, TCL_STRING_KEYS);
+    Tcl_InitHashTable(&pTree->aScaledImage, TCL_STRING_KEYS);
     Tcl_InitHashTable(&pTree->aCmd, TCL_STRING_KEYS);
     Tcl_InitHashTable(&pTree->aVar, TCL_STRING_KEYS);
     Tcl_CreateObjCommand(interp,zCmd,HtmlWidgetObjCommand,pTree,deleteWidget);

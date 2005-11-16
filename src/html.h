@@ -315,7 +315,7 @@ struct HtmlTree {
 
     CssStyleSheet *pStyle;          /* Style sheet configuration */
 
-    Tcl_HashTable aImage;           /* All images used by document (by name) */ 
+    Tcl_HashTable aScaledImage;     /* All images used by document (by name) */ 
     HtmlOptions options;            /* Configurable options */
     Tk_OptionTable optionTable;     /* Option table */
 
@@ -333,6 +333,7 @@ struct HtmlTree {
     Tcl_HashTable aColor;
     Tcl_HashTable aFont;
     Tcl_HashTable aValues;
+    Tcl_HashTable aImage;
     int aFontSizeTable[7];
 
     /*
@@ -405,7 +406,10 @@ void HtmlDrawImage(HtmlCanvas *, Tcl_Obj *, int, int, int, int, int);
 void HtmlDrawWindow(HtmlCanvas *, Tcl_Obj *, int, int, int, int, int);
 void HtmlDrawBackground(HtmlCanvas *, XColor *, int);
 void HtmlDrawQuad(HtmlCanvas*,int,int,int,int,int,int,int,int,XColor*,int);
-int HtmlDrawIsEmpty(HtmlCanvas *);
+int  HtmlDrawIsEmpty(HtmlCanvas *);
+
+void HtmlDrawImage2(HtmlCanvas *, HtmlImage *, int, int, unsigned char, 
+                    unsigned char, int, int, int, int, int);
 
 HtmlTokenMap *HtmlMarkup(int);
 CONST char * HtmlMarkupName(int);
@@ -433,6 +437,7 @@ CONST char *HtmlDefaultCss();
 
 void HtmlCallbackForce(HtmlTree *);
 void HtmlCallbackSchedule(HtmlTree *, int);
+void HtmlCallbackExtents(HtmlTree *, int, int, int, int);
 
 #ifdef HTML_DEBUG
 void HtmlDrawComment(HtmlCanvas *, CONST char *zComment, int);

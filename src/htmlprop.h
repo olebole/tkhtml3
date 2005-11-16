@@ -25,6 +25,7 @@ typedef struct HtmlComputedValues HtmlComputedValues;
 typedef struct HtmlComputedValuesCreator HtmlComputedValuesCreator;
 typedef struct HtmlFontKey HtmlFontKey;
 typedef struct HtmlColor HtmlColor;
+typedef struct HtmlImage HtmlImage;
 
 /* 
  * This structure is used to group four padding, margin or border-width
@@ -80,9 +81,21 @@ struct HtmlColor {
     XColor *xcolor;        /* The XColor* */
 };
 
+/*
+ * An HtmlImage structure is used to store each image in use by the document.
+ * This does not include images that have replaced elements, only those
+ * returned by the -imagecmd callback. At the moment this is background images
+ * ('background-image' property) and list item images ('list-style-image'
+ * property).
+ *
+ * HtmlImage structures are stored in the Htmltree.aImage array. The index to
+ * the array is the URI specified for the image.
+ */
 struct HtmlImage {
-    int nRef;
+    int nRef;              /* Number of pointers to this structure */
     Tcl_Obj *pImage;
+    Tcl_Obj *pDelete;
+    Tk_Image image;
     char *zUrl;
 };
 
@@ -173,6 +186,7 @@ struct HtmlImage {
  *     iLineHeight:
  *         Todo: Note that inheritance is not done correctly for this property
  *         if it is set to <number>.
+ *
  */
 struct HtmlComputedValues {
     int nRef;                         /* MUST BE FIRST (see htmlhash.c) */
@@ -219,6 +233,11 @@ struct HtmlComputedValues {
     HtmlColor *cBorderRightColor;     /* 'border-right-color' */
     HtmlColor *cBorderBottomColor;    /* 'border-bottom-color' */
     HtmlColor *cBorderLeftColor;      /* 'border-left-color' */
+
+    HtmlImage *imBackgroundImage;     /* 'background-image' */
+    unsigned char eBackgroundRepeat;  /* 'background-repeat' */
+    int iBackgroundPositionX;
+    int iBackgroundPositionY;
 };
 
 struct HtmlComputedValuesCreator {
@@ -251,26 +270,28 @@ struct HtmlComputedValuesCreator {
  * HtmlComputedValues.iVerticalAlign should be interpreted as a constant value
  * (like an HtmlComputedValues.eXXX variable).
  */
-#define PROP_MASK_WIDTH          0x00000001
-#define PROP_MASK_MIN_WIDTH       0x00000002
-#define PROP_MASK_MAX_WIDTH       0x00000004
-#define PROP_MASK_HEIGHT         0x00000008
-#define PROP_MASK_MIN_HEIGHT      0x00000010
-#define PROP_MASK_MAX_HEIGHT      0x00000020
-#define PROP_MASK_MARGIN_TOP      0x00000040
-#define PROP_MASK_MARGIN_RIGHT    0x00000080
-#define PROP_MASK_MARGIN_BOTTOM   0x00000100
-#define PROP_MASK_MARGIN_LEFT     0x00000200
-#define PROP_MASK_PADDING_TOP     0x00000400
-#define PROP_MASK_PADDING_RIGHT   0x00000800
-#define PROP_MASK_PADDING_BOTTOM  0x00001000
-#define PROP_MASK_PADDING_LEFT    0x00002000
-#define PROP_MASK_VERTICAL_ALIGN     0x00004000
-#define PROP_MASK_BORDER_TOP_WIDTH    0x00008000
-#define PROP_MASK_BORDER_RIGHT_WIDTH  0x00010000
-#define PROP_MASK_BORDER_BOTTOM_WIDTH 0x00020000
-#define PROP_MASK_BORDER_LEFT_WIDTH   0x00040000
-#define PROP_MASK_LINE_HEIGHT         0x00080000
+#define PROP_MASK_WIDTH                   0x00000001
+#define PROP_MASK_MIN_WIDTH               0x00000002
+#define PROP_MASK_MAX_WIDTH               0x00000004
+#define PROP_MASK_HEIGHT                  0x00000008
+#define PROP_MASK_MIN_HEIGHT              0x00000010
+#define PROP_MASK_MAX_HEIGHT              0x00000020
+#define PROP_MASK_MARGIN_TOP              0x00000040
+#define PROP_MASK_MARGIN_RIGHT            0x00000080
+#define PROP_MASK_MARGIN_BOTTOM           0x00000100
+#define PROP_MASK_MARGIN_LEFT             0x00000200
+#define PROP_MASK_PADDING_TOP             0x00000400
+#define PROP_MASK_PADDING_RIGHT           0x00000800
+#define PROP_MASK_PADDING_BOTTOM          0x00001000
+#define PROP_MASK_PADDING_LEFT            0x00002000
+#define PROP_MASK_VERTICAL_ALIGN          0x00004000
+#define PROP_MASK_BORDER_TOP_WIDTH        0x00008000
+#define PROP_MASK_BORDER_RIGHT_WIDTH      0x00010000
+#define PROP_MASK_BORDER_BOTTOM_WIDTH     0x00020000
+#define PROP_MASK_BORDER_LEFT_WIDTH       0x00040000
+#define PROP_MASK_LINE_HEIGHT             0x00080000
+#define PROP_MASK_BACKGROUND_POSITION_X   0x00100000
+#define PROP_MASK_BACKGROUND_POSITION_Y   0x00200000
 
 /*
  * Pixel values in the HtmlComputedValues struct may also take the following

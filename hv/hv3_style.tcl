@@ -15,11 +15,25 @@ set ::hv3_style_count 0
 
 #--------------------------------------------------------------------------
 
+# style_init --
+#
+#         style_init HTML
+#
+#     This is called just after the html widget ($HTML) is created. The two
+#     handler commands are registered.
+#
 proc style_init {HTML} {
     $HTML handler node link    "styleHandleLink $HTML"
     $HTML handler script style "styleHandleStyle $HTML"
 }
 
+# style_newdocument --
+#
+#         style_newdocument HTML
+#
+#     This should be called before each new document begins loading (i.e. from
+#     [gui_goto]).
+#
 proc style_newdocument {HTML} {
     set ::hv3_style_count 0
 }

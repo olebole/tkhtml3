@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.70 2005/11/14 12:20:40 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.71 2005/11/16 08:46:43 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -44,6 +44,8 @@ static const char rcsid[] = "$Id: htmldraw.c,v 1.70 2005/11/14 12:20:40 danielk1
 #define CANVAS_BACKGROUND  6
 #define CANVAS_COMMENT  7
 
+#define CANVAS_IMAGE2  8
+
 typedef struct CanvasText CanvasText;
 typedef struct CanvasImage CanvasImage;
 typedef struct CanvasWindow CanvasWindow;
@@ -51,6 +53,8 @@ typedef struct CanvasOrigin CanvasOrigin;
 typedef struct CanvasQuad CanvasQuad;
 typedef struct CanvasBackground CanvasBackground;
 typedef struct CanvasComment CanvasComment;
+
+typedef struct CanvasImage2 CanvasImage2;
 
 struct CanvasText {
     Tcl_Obj *pText;
@@ -65,6 +69,18 @@ struct CanvasImage {
     Tcl_Obj *pImage;
     int x;
     int y;
+};
+
+struct CanvasImage2 {
+    HtmlImage *pImage;
+    int iPositionX;
+    int iPositionY;
+    unsigned char isPositionPercent;
+    unsigned char eRepeat;
+    int x;
+    int y;
+    int w;
+    int h;
 };
 
 struct CanvasWindow {
@@ -107,6 +123,7 @@ struct HtmlCanvasItem {
     union {
         CanvasText t;
         CanvasImage i;
+        CanvasImage2 i2;
         CanvasWindow w;
         CanvasQuad q;
         CanvasOrigin o;
@@ -519,6 +536,47 @@ HtmlDrawImage(pCanvas, pImage, x, y, w, h, size_only)
 
 }
 
+void 
+HtmlDrawImage2(
+        pCanvas, pImage, 
+        iPositionX, iPositionY, isPositionPercent, eRepeat, 
+        x, y, w, h, 
+        size_only
+)
+    HtmlCanvas *pCanvas;
+    HtmlImage *pImage;               /* Image name or NULL */
+    int iPositionX;
+    int iPositionY;
+    unsigned char isPositionPercent;
+    unsigned char eRepeat;           /* e.g. CSS_CONST_REPEAT_X */
+    int x; 
+    int y;
+    int w;                      /* Width of image */
+    int h;                      /* Height of image */
+    int size_only;
+{
+    if (!size_only) {
+        HtmlCanvasItem *pItem; 
+        pItem = (HtmlCanvasItem *)HtmlAlloc(sizeof(HtmlCanvasItem));
+        pItem->type = CANVAS_IMAGE2;
+        pItem->x.i2.pImage = pImage;
+        pItem->x.i2.eRepeat = eRepeat;
+        pItem->x.i2.x = x;
+        pItem->x.i2.y = y;
+        pItem->x.i2.w = w;
+        pItem->x.i2.h = h;
+        pItem->x.i2.iPositionX = iPositionX;
+        pItem->x.i2.iPositionY = iPositionY;
+        pItem->x.i2.isPositionPercent = iPositionY;
+        linkItem(pCanvas, pItem);
+    }
+
+    pCanvas->left = MIN(pCanvas->left, x);
+    pCanvas->right = MAX(pCanvas->right, x+w);
+    pCanvas->bottom = MAX(pCanvas->bottom, y+h);
+    pCanvas->top = MIN(pCanvas->top, y);
+}
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -701,6 +759,36 @@ int HtmlLayoutPrimitives(clientData, interp, objc, objv)
                     aObj[3] = pItem->x.i.pImage;
                 }
                 break;
+            case CANVAS_IMAGE2:
+                if (pItem->x.i2.pImage) {
+                    nObj = 9;
+                    aObj[0] = Tcl_NewStringObj("draw_image2", -1);
+                    aObj[1] = Tcl_NewStringObj(
+                            HtmlCssConstantToString(pItem->x.i2.eRepeat), -1);
+                    if (pItem->x.i2.isPositionPercent) {
+                        char zBuf[128];
+                        sprintf(zBuf, "%.2f%%", 
+                            (double)pItem->x.i2.iPositionX / 100.0
+                        );
+                        aObj[2] = Tcl_NewStringObj(zBuf, -1);
+                        sprintf(zBuf, "%.2f%%", 
+                            (double)pItem->x.i2.iPositionY / 100.0
+                        );
+                        aObj[3] = Tcl_NewStringObj(zBuf, -1);
+                    } else {
+                        char zBuf[128];
+                        sprintf(zBuf, "%dpx", pItem->x.i2.iPositionX);
+                        aObj[2] = Tcl_NewStringObj(zBuf, -1);
+                        sprintf(zBuf, "%dpx", pItem->x.i2.iPositionY);
+                        aObj[3] = Tcl_NewStringObj(zBuf, -1);
+                    }
+                    aObj[4] = Tcl_NewIntObj(pItem->x.i2.x);
+                    aObj[5] = Tcl_NewIntObj(pItem->x.i2.y);
+                    aObj[6] = Tcl_NewIntObj(pItem->x.i2.w);
+                    aObj[7] = Tcl_NewIntObj(pItem->x.i2.h);
+                    aObj[8] = pItem->x.i2.pImage->pImage;
+                }
+                break;
             case CANVAS_WINDOW:
                 nObj = 4;
                 aObj[0] = Tcl_NewStringObj("draw_window", -1);
@@ -850,6 +938,68 @@ getPixmap(pTree, xcanvas, ycanvas, w, h)
                     Tk_FreeImage(img);
                 }
                 
+                break;
+            }
+            case CANVAS_IMAGE2: {
+                CanvasImage2 *pI2 = &pItem->x.i2;
+                if (pI2->pImage) {
+                    int iw;
+                    int ih;
+
+                    Tk_Image img = pI2->pImage->image;
+                    Tk_SizeOfImage(img, &iw, &ih);
+
+                    if (iw > 0 && ih > 0) {
+                        int xiter;
+                        int yiter;
+
+                        int x2;
+                        int y2;
+                        int xi = 0;
+                        int yi = 0;
+                        int x1 = pI2->iPositionX;
+                        int y1 = pI2->iPositionY;
+                        if (pI2->isPositionPercent) {
+                            x1 = (double)x1 * (double)(pI2->w - iw) / 10000.0;
+                            y1 = (double)y1 * (double)(pI2->h - ih) / 10000.0;
+                        }
+                        x2 = x1 + iw;
+                        y2 = y1 + ih;
+
+                        if (
+                            pI2->eRepeat == CSS_CONST_REPEAT || 
+                            pI2->eRepeat == CSS_CONST_REPEAT_X
+                        ) {
+                            xi = iw - (x1 % iw);
+                            x1 = 0;
+                            x2 = pI2->w;
+                        }
+                        if (
+                            pI2->eRepeat == CSS_CONST_REPEAT || 
+                            pI2->eRepeat == CSS_CONST_REPEAT_Y
+                        ) {
+                            yi = ih - (y1 % ih);
+                            y1 = 0;
+                            y2 = pI2->h;
+                        }
+
+                        for (xiter = x1 - xi; xiter < x2; xiter += iw) {
+                            for (yiter = y1 - yi; yiter < y2; yiter += ih) {
+                                int img_x = MAX(0, x1 - xiter);
+                                int img_y = MAX(0, y1 - yiter); 
+                                int img_w = MIN(iw, x2 - xiter);
+                                int img_h = MIN(ih, y2 - yiter);
+                                Tk_RedrawImage(img,
+                                    img_x, img_y,
+                                    img_w, img_h,
+                                    pmap, 
+                                    pI2->x + x + xiter + img_x, 
+                                    pI2->y + y + yiter + img_y
+                                );
+                            }
+                        }
+                    }
+                }
                 break;
             }
 

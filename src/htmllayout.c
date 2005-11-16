@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.105 2005/11/15 07:53:59 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.106 2005/11/16 08:46:43 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -411,6 +411,17 @@ nodeGetBorderProperties(pLayout, pNode, pBorderProperties)
     pBorderProperties->color_bottom = pValues->cBorderBottomColor->xcolor;
     pBorderProperties->color_left = pValues->cBorderLeftColor->xcolor;
     pBorderProperties->color_bg = pValues->cBackgroundColor->xcolor;
+
+    assert(
+        ((pValues->mask & PROP_MASK_BACKGROUND_POSITION_X) ? 1 : 0) ==
+        ((pValues->mask & PROP_MASK_BACKGROUND_POSITION_Y) ? 1 : 0)
+    );
+    pBorderProperties->pBgImage = pValues->imBackgroundImage;
+    pBorderProperties->eBgRepeat = pValues->eBackgroundRepeat;
+    pBorderProperties->iPositionX = pValues->iBackgroundPositionX;
+    pBorderProperties->iPositionY = pValues->iBackgroundPositionY;
+    pBorderProperties->isPositionPercent = 
+        ((pValues->mask & PROP_MASK_BACKGROUND_POSITION_X) ? 1 : 0);
 }
 
 /*
@@ -1973,12 +1984,27 @@ borderLayout(pLayout, pNode, pBox, xA, yA, xB, yB)
         DRAW_QUAD(&sBox.vc, x1, y2, x1+lw, y2-bw, x1+lw, y1+tw, x1, y1, lc);
     }
 
-    if (borderproperties.color_bg && pNode != pLayout->pTop) {
-        DRAW_QUAD(&sBox.vc, 
-            x1+lw, y1+tw, 
-            x2-rw, y1+tw, 
-            x2-rw, y2-bw, 
-            x1+lw, y2-bw, borderproperties.color_bg);
+    if (pNode != pLayout->pTop) {
+        if (borderproperties.color_bg) {
+            DRAW_QUAD(&sBox.vc, 
+                x1+lw, y1+tw, 
+                x2-rw, y1+tw, 
+                x2-rw, y2-bw, 
+                x1+lw, y2-bw, borderproperties.color_bg);
+        }
+        if (borderproperties.pBgImage) {
+            HtmlDrawImage2(
+                &sBox.vc,                            /* canvas */
+                borderproperties.pBgImage,           /* Html image */
+                borderproperties.iPositionX,         /* 'background-position' */
+                borderproperties.iPositionY, 
+                borderproperties.isPositionPercent, 
+                borderproperties.eBgRepeat,          /* 'background-repeat' */
+                x1+lw, y1+tw,                        /* x, y */
+                x2-rw, y2-bw,                        /* width, height */
+                pLayout->minmaxTest                  /* Size-only mode */
+            );
+        }
     }
 
     DRAW_CANVAS(&pBox->vc, &sBox.vc, xA, yA, pNode);

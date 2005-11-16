@@ -72,7 +72,7 @@ C underline overline line-through none            ;# 'text-decoration'
 C text-top text-bottom 
 
 P azimuth background-attachment background-color background-image 
-P background-position background-repeat border-collapse border-spacing 
+P background-repeat border-collapse border-spacing 
 P border-top-color border-right-color border-bottom-color border-left-color 
 P border-top-style border-right-style border-bottom-style border-left-style 
 P border-top-width border-right-width border-bottom-width border-left-width 
@@ -93,6 +93,12 @@ P widows width word-spacing z-index
 
 S background border border-top border-right border-bottom border-left
 S border-color border-style border-width cue font padding outline margin
+
+# We treat property 'background-position' as a composite property that sets
+# invented properties background-position-x and background-position-y.
+#
+P background-position-x background-position-y
+S background-position
 
 #########################################################################
 #########################################################################

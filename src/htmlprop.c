@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.36 2005/11/15 14:14:20 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.37 2005/11/16 08:46:43 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -607,6 +607,122 @@ propertyValuesSetLineHeight(p, pProp)
     return rc;
 }
 
+static void
+imageChangedProc(clientData, x, y, w, h, iw, ih)
+    ClientData clientData;
+    int x;
+    int y;
+    int w;
+    int h;
+    int iw;
+    int ih;
+{
+    HtmlTree *pTree = (HtmlTree *)clientData;
+    Tk_Window tkwin = pTree->tkwin;
+    HtmlCallbackSchedule(pTree, HTML_CALLBACK_DAMAGE);
+    HtmlCallbackExtents(pTree, 0, 0, Tk_Width(tkwin), Tk_Height(tkwin));
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * propertyValuesSetBackgroundImage --
+ *
+ * Results: 
+ *     0 if value is successfully set. 1 if the value of *pProp is not a valid
+ *     a value for the 'vertical-align' property.
+ *
+ * Side effects:
+ *
+ *---------------------------------------------------------------------------
+ */
+static int
+propertyValuesSetBackgroundImage(p, pProp)
+    HtmlComputedValuesCreator *p;
+    CssProperty *pProp;
+{
+    CONST char *zUrl;
+    Tcl_HashEntry *pEntry;
+    int newEntry;
+    HtmlImage *pImage = 0;
+    Tcl_Obj *pImageCmd = p->pTree->options.imagecmd;
+
+    if (!pImageCmd) {
+        return 0;
+    }
+
+    assert(!p->values.imBackgroundImage);
+    switch (pProp->eType) {
+        case CSS_CONST_INHERIT: {
+            HtmlComputedValues *pPV = HtmlNodeParent(p->pNode)->pPropertyValues;
+            if (pPV->imBackgroundImage) {
+                p->values.imBackgroundImage = pPV->imBackgroundImage;
+                p->values.imBackgroundImage->nRef++;
+            }
+            return 0;
+
+        case CSS_CONST_NONE:
+            return 0;
+
+        case CSS_TYPE_URL:
+        case CSS_TYPE_STRING: 
+            break;
+ 
+        default:
+            return 1;
+        }
+    }
+
+    zUrl = pProp->v.zVal;
+    pEntry = Tcl_CreateHashEntry(&p->pTree->aImage, zUrl, &newEntry);
+    if (newEntry) {
+        Tcl_Interp *interp = p->pTree->interp;
+        Tcl_Obj *pUrl = Tcl_NewStringObj(zUrl, -1);
+        Tcl_Obj *pEval = Tcl_DuplicateObj(pImageCmd);
+
+        Tcl_IncrRefCount(pEval);
+        Tcl_ListObjAppendElement(interp, pEval, pUrl);
+        if (Tcl_EvalObjEx(interp, pEval, TCL_EVAL_DIRECT|TCL_EVAL_GLOBAL)) {
+            Tcl_BackgroundError(interp);
+            return 0;
+        } else {
+            int nObj = 0;
+            Tcl_Obj **apObj;
+            Tcl_Obj *pResult = Tcl_GetObjResult(interp);
+
+            Tcl_ListObjGetElements(interp, pResult, &nObj, &apObj);
+            if (nObj == 1 || nObj ==2) {
+                int nBytes = sizeof(HtmlImage) + strlen(zUrl) + 1;
+                pImage = (HtmlImage*)HtmlAlloc(nBytes);
+                pImage->nRef = 0;
+                pImage->pImage = apObj[0];
+                Tcl_IncrRefCount(pImage->pImage);
+                pImage->pDelete = 0;
+                pImage->zUrl = (char *)&pImage[1];
+                strcpy(pImage->zUrl, zUrl);
+                pImage->image = Tk_GetImage(
+                        interp, p->pTree->tkwin, Tcl_GetString(pImage->pImage),
+                        imageChangedProc, p->pTree
+                );
+            }
+            if (nObj == 2) {
+                pImage->pDelete = apObj[1];
+                Tcl_IncrRefCount(pImage->pDelete);
+            }
+            Tcl_SetHashValue(pEntry, pImage);
+        }
+    } else {
+        pImage = (HtmlImage *)Tcl_GetHashValue(pEntry);
+    }
+
+    if (pImage) {
+        pImage->nRef++;
+    }
+    p->values.imBackgroundImage = pImage;
+
+    return 0;
+}
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -966,6 +1082,11 @@ HtmlComputedValuesInit(pTree, pNode, p)
     p->values.cBorderBottomColor = 0;
     p->values.cBorderLeftColor = 0;
 
+    p->values.imBackgroundImage = 0;
+    p->values.eBackgroundRepeat = CSS_CONST_REPEAT;
+    p->values.iBackgroundPositionX = 0;
+    p->values.iBackgroundPositionY = 0;
+
     p->values.eVerticalAlign = CSS_CONST_BASELINE;   /* 'vertical-align' */
     p->values.iVerticalAlign = 0;
 }
@@ -1180,6 +1301,14 @@ HtmlComputedValuesSet(p, eProp, pProp)
             unsigned char *pEVar = &(p->values.eBorderRightStyle);
             return propertyValuesSetEnum(p, pEVar, border_style_options, pProp);
         }
+        case CSS_PROPERTY_BACKGROUND_REPEAT: {
+            int options[] = {
+                CSS_CONST_REPEAT,    CSS_CONST_REPEAT_X,  CSS_CONST_REPEAT_Y,
+                CSS_CONST_NO_REPEAT, 0
+            };
+            unsigned char *pEVar = &(p->values.eBackgroundRepeat);
+            return propertyValuesSetEnum(p, pEVar, options, pProp);
+        }
 
 
         /* 
@@ -1276,6 +1405,15 @@ HtmlComputedValuesSet(p, eProp, pProp)
             return propertyValuesSetSize(p, &(p->values.margin.iBottom),
                 PROP_MASK_MARGIN_BOTTOM, pProp, 
                 SZ_INHERIT|SZ_PERCENT|SZ_AUTO|SZ_NEGATIVE
+            );
+
+        case CSS_PROPERTY_BACKGROUND_POSITION_X:
+            return propertyValuesSetSize(p, &(p->values.iBackgroundPositionX),
+                PROP_MASK_BACKGROUND_POSITION_X, pProp, SZ_INHERIT|SZ_PERCENT
+            );
+        case CSS_PROPERTY_BACKGROUND_POSITION_Y:
+            return propertyValuesSetSize(p, &(p->values.iBackgroundPositionY),
+                PROP_MASK_BACKGROUND_POSITION_Y, pProp, SZ_INHERIT|SZ_PERCENT
             );
 
         /* 'vertical-align', special case: */
@@ -1380,6 +1518,9 @@ HtmlComputedValuesSet(p, eProp, pProp)
             return propertyValuesSetBorderWidth(p, 
                 &(p->values.border.iRight), PROP_MASK_BORDER_RIGHT_WIDTH, pProp
             );
+
+        case CSS_PROPERTY_BACKGROUND_IMAGE:
+            return propertyValuesSetBackgroundImage(p, pProp);
 
         default:
             /* Unknown property */
@@ -1637,7 +1778,7 @@ HtmlComputedValuesFinish(p)
     pValues = (HtmlComputedValues *)Tcl_GetHashKey(&p->pTree->aValues, pEntry);
     if (!ne) {
 	/* If this is not a new entry, we need to decrement the reference count
-         * on the font and all the color values.
+         * on the font, image and color values.
          */
         pValues->fFont->nRef--;
         pValues->cColor->nRef--;
@@ -1646,6 +1787,10 @@ HtmlComputedValuesFinish(p)
         pValues->cBorderRightColor->nRef--;
         pValues->cBorderBottomColor->nRef--;
         pValues->cBorderLeftColor->nRef--;
+        if (pValues->imBackgroundImage) {
+            pValues->imBackgroundImage->nRef--;
+            assert(pValues->imBackgroundImage->nRef > 0);
+        }
     }
 
     /* Delete any CssProperty structures allocated for Tcl properties */
@@ -1697,6 +1842,27 @@ decrementColorRef(pTree, pColor)
     }
 }
 
+static void
+decrementImageRef(pTree, pImage)
+    HtmlTree *pTree;
+    HtmlImage *pImage;
+{
+    if (!pImage) return;
+
+    pImage->nRef--;
+    assert(pImage->nRef >= 0);
+    if (pImage->nRef == 0) {
+        Tcl_HashEntry *pEntry;
+        pEntry = Tcl_FindHashEntry(&pTree->aImage, pImage->zUrl);
+        assert(pEntry);
+        Tcl_DeleteHashEntry(pEntry);
+        if (pImage->image) {
+            Tk_FreeImage(pImage->image);
+        }
+        HtmlFree((char *)pImage);
+    }
+}
+
 void 
 HtmlComputedValuesRelease(pTree, pValues)
     HtmlTree *pTree;
@@ -1723,6 +1889,7 @@ HtmlComputedValuesRelease(pTree, pValues)
             decrementColorRef(pTree, pValues->cBorderRightColor);
             decrementColorRef(pTree, pValues->cBorderBottomColor);
             decrementColorRef(pTree, pValues->cBorderLeftColor);
+            decrementImageRef(pTree, pValues->imBackgroundImage);
     
             Tcl_DeleteHashEntry(pEntry);
         }
@@ -1795,6 +1962,8 @@ HtmlComputedValuesSetupTables(pTree)
 
     pType = HtmlComputedValuesHashType();
     Tcl_InitCustomHashTable(&pTree->aValues, TCL_CUSTOM_TYPE_KEYS, pType);
+
+    Tcl_InitHashTable(&pTree->aImage, TCL_STRING_KEYS);
 
     /* Initialise the color table */
     for (ii = 0; ii < sizeof(color_map)/sizeof(struct CssColor); ii++) {
@@ -1891,13 +2060,18 @@ HtmlNodeProperties(interp, pValues)
 {LENGTH, CSS_PROPERTY_ ## eProp, Tk_Offset(HtmlComputedValues, var), \
 PROP_MASK_ ## eProp}
 
+#define IMAGEVAL(eProp, var) \
+{IMAGE, CSS_PROPERTY_ ## eProp, Tk_Offset(HtmlComputedValues, var), 0}
+
 #define VERTICALALIGNVAL() {VERTICALALIGN, CSS_PROPERTY_VERTICAL_ALIGN, 0, 0}
 #define FONTVAL() {FONT, CSS_SHORTCUTPROPERTY_FONT, 0, 0}
+#define BACKGROUNDPOSITIONVAL() \
+{BACKGROUNDPOSITION, CSS_SHORTCUTPROPERTY_BACKGROUND_POSITION, 0, 0}
 
 #define PROP_MASK_BORDER_SPACING   0x00000000
 
     enum ValueType {
-        ENUM, COLOR, LENGTH, VERTICALALIGN, FONT
+        ENUM, COLOR, LENGTH, VERTICALALIGN, FONT, IMAGE, BACKGROUNDPOSITION
     };
     struct PVDef {
         enum ValueType eType;
@@ -1950,7 +2124,11 @@ PROP_MASK_ ## eProp}
         VERTICALALIGNVAL(),
 
         ENUMVAL  (WHITE_SPACE, eWhitespace),
-        LENGTHVAL(WIDTH, iWidth)
+        LENGTHVAL(WIDTH, iWidth),
+
+        IMAGEVAL(BACKGROUND_IMAGE, imBackgroundImage),
+        ENUMVAL (BACKGROUND_REPEAT, eBackgroundRepeat),
+        BACKGROUNDPOSITIONVAL()
     };
     int ii;
     struct PVDef *pDef;
@@ -1994,6 +2172,13 @@ PROP_MASK_ ## eProp}
                         char zBuf[64];
                         if (pDef->mask & pValues->mask) {
                             sprintf(zBuf, "%.2f%%", (double)iValue/100.0);
+                        } else 
+
+                        if (
+                            pDef->eCssProperty == CSS_PROPERTY_LINE_HEIGHT && 
+                            iValue < 0
+                        ) {
+                            sprintf(zBuf, "%.2fem", (double)iValue / -100.0);
                         } else {
                             sprintf(zBuf, "%dpx", iValue);
                         }
@@ -2018,6 +2203,34 @@ PROP_MASK_ ## eProp}
             }
             case FONT: {
                 pValue = Tcl_NewStringObj(pValues->fFont->zFont, -1);
+                break;
+            }
+            case IMAGE: {
+                HtmlImage *imValue = *(HtmlImage **)(v + pDef->iOffset);
+                if (imValue) {
+                    pValue = Tcl_NewStringObj(imValue->zUrl, -1);
+                } else {
+                    pValue = Tcl_NewStringObj("none", 4);
+                }
+                break;
+            }
+
+            case BACKGROUNDPOSITION: {
+                char zBuf[128];
+                if (pValues->mask & PROP_MASK_BACKGROUND_POSITION_X) {
+                    assert(pValues->mask & PROP_MASK_BACKGROUND_POSITION_Y);
+                    sprintf(zBuf, "%.2f%% %.2f%%", 
+                        (double)pValues->iBackgroundPositionX/100.0,
+                        (double)pValues->iBackgroundPositionY/100.0
+                    );
+                } else {
+                    assert(!(pValues->mask & PROP_MASK_BACKGROUND_POSITION_Y));
+                    sprintf(zBuf, "%dpx %dpx", 
+                        pValues->iBackgroundPositionX,
+                        pValues->iBackgroundPositionY
+                    );
+                }
+                pValue = Tcl_NewStringObj(zBuf, -1);
                 break;
             }
 
