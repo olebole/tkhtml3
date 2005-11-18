@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.40 2005/11/18 12:28:28 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.41 2005/11/18 15:05:04 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1182,8 +1182,8 @@ propertyValuesTclScript(p, eProp, zScript)
 
     /* Now that we've successfully called HtmlComputedValuesSet(), the
      * CssProperty structure (it's associated string data is what matters)
-     * cannot be HtmlFree()d until after HtmlComputedValuesFinish() is called. So
-     * we make a linked list of such structures at p->pDeleteList using
+     * cannot be HtmlFree()d until after HtmlComputedValuesFinish() is called.
+     * So we make a linked list of such structures at p->pDeleteList using
      * CssProperty.v.p as the pNext pointer.
      * 
      * HtmlComputedValuesFinish() deletes the list when it is called.
@@ -1231,6 +1231,10 @@ HtmlComputedValuesSet(p, eProp, pProp)
         CSS_CONST_GROOVE,  CSS_CONST_RIDGE,     CSS_CONST_INSET,
         CSS_CONST_OUTSET,  0
     };
+
+    if (!pProp) {
+        return 0;
+    }
 
     /* Silently ignore any attempt to set a root-node property to 'inherit'.
      * It's not a type-mismatch, we just want to leave the value unchanged.
@@ -1488,7 +1492,7 @@ HtmlComputedValuesSet(p, eProp, pProp)
          */
         case CSS_PROPERTY_FONT_STYLE: {
             int eType = pProp->eType;
-            if (eType == CSS_CONST_ITALIC || CSS_CONST_OBLIQUE) {
+            if (eType == CSS_CONST_ITALIC || eType == CSS_CONST_OBLIQUE) {
                 p->fontKey.isItalic = 1;
             } else if (eType == CSS_CONST_NORMAL) {
                 p->fontKey.isItalic = 0;

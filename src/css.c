@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.37 2005/11/16 11:01:06 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.38 2005/11/18 15:05:04 danielk1977 Exp $";
 
 /*
  *    The CSS "cascade":
@@ -441,6 +441,30 @@ tokenToProperty(pToken)
         /* TODO: Dequote? */
     }
     return pProp;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * textToProperty --
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static CssProperty *
+textToProperty(z, n)
+    CONST char *z;
+    int n;
+{
+    CssToken token;
+    token.n = (n < 0) ? strlen(z): n;
+    token.z = z;
+    return tokenToProperty(&token);
 }
 
 /*
@@ -1028,6 +1052,126 @@ error_out:
         HtmlFree((char *)apProp[ii]);
     }
 }
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * propertySetAddShortcutFont --
+ *
+ *     [ <font-style> || <font-variant> || <font-weight> ]? 
+ *         <font-size> [ / <line-height> ]? <font-family>
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void
+propertySetAddShortcutFont(p, v)
+    CssPropertySet *p;         /* Property set */
+    CssToken *v;               /* Value for 'background' property */
+{
+    CONST char *z= v->z;
+    CONST char *zEnd = z + v->n;
+
+    CssProperty *pStyle = 0;
+    CssProperty *pVariant = 0;
+    CssProperty *pWeight = 0;
+    CssProperty *pSize = 0;
+    CssProperty *pLineHeight = 0;
+    CssProperty *pFamily = 0;
+
+    CssProperty *pProp = 0;
+
+    while (z) {
+        int n;
+        z = getNextListItem(z, zEnd-z, &n);
+        if (z) {
+            pProp = textToProperty(z, n);
+            switch (pProp->eType) {
+                case CSS_CONST_NORMAL:
+                    HtmlFree((char *)pProp);
+                    break;
+    
+                case CSS_CONST_ITALIC:
+                case CSS_CONST_OBLIQUE:
+                    if (pStyle) goto bad_parse;
+                    pStyle = pProp;
+                    break;
+    
+                case CSS_CONST_BOLD:
+                case CSS_CONST_BOLDER:
+                case CSS_CONST_LIGHTER:
+                case CSS_TYPE_FLOAT:
+                    if (pWeight) goto bad_parse;
+                    pWeight = pProp;
+                    break;
+    
+                case CSS_CONST_SMALL_CAPS:
+                    if (pVariant) goto bad_parse;
+                    pVariant = pProp;
+                    break;
+
+                default: {
+                    int hasLineHeight = 0;
+                    if (pProp->eType == CSS_TYPE_STRING) {
+                        int j;
+                        for (j = 0; j < n && z[j] != '/'; j++);
+                        if (j == n) goto bad_parse;
+                        HtmlFree(pProp);
+                        n = j;
+                        pProp = textToProperty(z, j);
+                    } 
+                    pSize = pProp;
+                    pProp = 0;
+                    z += n;
+                    while (isspace(*z) || *z == '/') {
+                        if (*z == '/') hasLineHeight = 1;
+                        z++;
+                    }
+    
+                    if (hasLineHeight) {
+                        z = getNextListItem(z, zEnd-z, &n);
+                        pLineHeight = textToProperty(z, n);
+                        z += n;
+                    } 
+                    z = getNextListItem(z, zEnd-z, &n);
+                    if (!z) goto bad_parse;
+                    pFamily = textToProperty(z, zEnd-z);
+                    z = 0;
+               }
+            }
+
+            if (z) {
+                z += n;
+            }
+        }
+    }
+
+    if (!pFamily) goto bad_parse;
+
+    propertySetAdd(p, CSS_PROPERTY_FONT_STYLE, pStyle);
+    propertySetAdd(p, CSS_PROPERTY_FONT_VARIANT, pVariant);
+    propertySetAdd(p, CSS_PROPERTY_FONT_WEIGHT, pWeight);
+    propertySetAdd(p, CSS_PROPERTY_FONT_SIZE, pSize);
+    propertySetAdd(p, CSS_PROPERTY_FONT_FAMILY, pFamily);
+    propertySetAdd(p, CSS_PROPERTY_LINE_HEIGHT, pLineHeight);
+
+    return;
+
+bad_parse:
+    if (pProp) HtmlFree((char *)pProp);
+    if (pStyle) HtmlFree((char *)pStyle);
+    if (pVariant) HtmlFree((char *)pVariant);
+    if (pWeight) HtmlFree((char *)pWeight);
+    if (pSize) HtmlFree((char *)pSize);
+    if (pFamily) HtmlFree((char *)pFamily);
+    if (pLineHeight) HtmlFree((char *)pLineHeight);
+}
+
 
 /*
  *---------------------------------------------------------------------------
@@ -1881,10 +2025,7 @@ HtmlCssDeclaration(pParse, pProp, pExpr, isImportant)
      * declaration (CSS2 spec says to do this - besides, what else could we
      * do?).
      */
-    strncpy(zBuf, pProp->z, MIN(pProp->n, 63));
-    zBuf[63] = 0;
-    Tcl_UtfToLower(zBuf);
-    prop = HtmlCssPropertyLookup(MIN(63, pProp->n), zBuf);
+    prop = HtmlCssPropertyLookup(pProp->n, pProp->z);
     if( prop<0 ) return;
 
     if (isImportant) {
@@ -1909,13 +2050,16 @@ HtmlCssDeclaration(pParse, pProp, pExpr, isImportant)
         case CSS_SHORTCUTPROPERTY_BORDER_WIDTH:
         case CSS_SHORTCUTPROPERTY_PADDING:
         case CSS_SHORTCUTPROPERTY_MARGIN:
-            propertySetAddShortcutBorderColor(*ppPropertySet,prop,pExpr);
+            propertySetAddShortcutBorderColor(*ppPropertySet, prop, pExpr);
             break;
         case CSS_SHORTCUTPROPERTY_BACKGROUND:
             propertySetAddShortcutBackground(*ppPropertySet, pExpr);
             break;
         case CSS_SHORTCUTPROPERTY_BACKGROUND_POSITION:
             propertySetAddShortcutBackgroundPosition(*ppPropertySet, pExpr);
+            break;
+        case CSS_SHORTCUTPROPERTY_FONT:
+            propertySetAddShortcutFont(*ppPropertySet, pExpr);
             break;
         default:
             propertySetAdd(*ppPropertySet, prop, tokenToProperty(pExpr));
