@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.39 2005/11/16 17:04:31 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.40 2005/11/18 12:28:28 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1598,7 +1598,6 @@ allocateNewFont(interp, tkwin, pFontKey)
     char zTkFontName[256];      /* Tk font name */
     HtmlFont *pFont;
 
-    int iFallback = -1;
     struct FamilyMap {
         CONST char *cssFont;
         CONST char *tkFont;
@@ -1613,39 +1612,34 @@ allocateNewFont(interp, tkwin, pFontKey)
         int iF = 0;          /* Length of tk font family name in bytes */
 
         if (0 == *zFamily) {
-            if (iF < 0) {
-                iF = 1;     /* End of the line default font: Helvetica */
-            }
-            zF = familyMap[iFallback].tkFont;
+            /* End of the line default font: Helvetica */
+            zF = familyMap[1].tkFont;
             iF = strlen(zF);
         } else {
+            int i;
             zF = zFamily;
             while (*zFamily && *zFamily != ',') zFamily++;
             iF = (zFamily - zF);
             if (*zFamily == ',') {
-                iF--;
                 zFamily++;
             }
             while (*zFamily == ' ') zFamily++;
 
             /* Trim spaces from the beginning and end of the string */
-            while (iF > 0 && zF[iF] == ' ') iF--;
+            while (iF > 0 && zF[iF-1] == ' ') iF--;
             while (iF > 0 && *zF == ' ') {
                 iF--;
                 zF++;
             }
 
-            if (iF < 0) {
-                const int n = sizeof(familyMap)/sizeof(struct FamilyMap);
-                int i;
-                for (i = 0; i < n; i++) {
-                    if (
-                        iF == strlen(familyMap[i].cssFont) && 
-                        0 == strncmp(zF, familyMap[i].cssFont, iF)
-                    ) {
-                        iFallback = i;
-                        break;
-                    }
+            for (i = 0; i < sizeof(familyMap)/sizeof(struct FamilyMap); i++) {
+                if (
+                    iF == strlen(familyMap[i].cssFont) && 
+                    0 == strncmp(zF, familyMap[i].cssFont, iF)
+                ) {
+                    zF = familyMap[i].tkFont;
+                    iF = strlen(zF);
+                    break;
                 }
             }
         }
