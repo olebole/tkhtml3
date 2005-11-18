@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.38 2005/11/18 15:05:04 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.39 2005/11/18 15:33:04 danielk1977 Exp $";
 
 /*
  *    The CSS "cascade":
@@ -1052,6 +1052,96 @@ error_out:
         HtmlFree((char *)apProp[ii]);
     }
 }
+/*
+ *---------------------------------------------------------------------------
+ *
+ * propertySetAddShortcutListStyle --
+ *
+ * 	[ <'list-style-type'> || <'list-style-position'> ||
+ * 	    <'list-style-image'> ] | inherit
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void
+propertySetAddShortcutListStyle(p, v)
+    CssPropertySet *p;         /* Property set */
+    CssToken *v;               /* Value for 'list-style' property */
+{
+    CONST char *z= v->z;
+    CONST char *zEnd = z + v->n;
+
+    CssProperty *pType = 0;
+    CssProperty *pPosition = 0;
+    CssProperty *pImage = 0;
+    CssProperty *pProp = 0;
+
+    while (z) {
+        int n;
+        z = getNextListItem(z, zEnd-z, &n);
+        if (z) {
+            pProp = textToProperty(z, n);
+            switch (pProp->eType) {
+                case CSS_CONST_INHERIT:
+                    if (pType || pPosition || pImage) {
+                        goto bad_parse;
+                    }
+                    pType = pProp;
+                    pPosition = propertyDup(pProp);
+                    pImage = propertyDup(pProp);
+                    z = 0;
+                    break;
+
+                case CSS_CONST_INSIDE:
+                case CSS_CONST_OUTSIDE:
+                    if (pPosition) goto bad_parse;
+                    pPosition = pProp;
+                    break;
+
+                case CSS_TYPE_URL:
+                case CSS_TYPE_STRING:
+                    if (pImage) goto bad_parse;
+                    pImage = pProp;
+                    break;
+
+                case CSS_CONST_DISC:
+                case CSS_CONST_CIRCLE:
+                case CSS_CONST_SQUARE:
+                case CSS_CONST_NONE:
+                case CSS_CONST_DECIMAL:
+                case CSS_CONST_LOWER_ALPHA:
+                case CSS_CONST_UPPER_ALPHA:
+                case CSS_CONST_LOWER_ROMAN:
+                case CSS_CONST_UPPER_ROMAN:
+                    if (pType) goto bad_parse;
+                    pType = pProp;
+                    break;
+
+                default:
+                    goto bad_parse;
+            }
+            if (z) {
+                z += n;
+            }
+        }
+    }
+
+    propertySetAdd(p, CSS_PROPERTY_LIST_STYLE_TYPE, pType);
+    propertySetAdd(p, CSS_PROPERTY_LIST_STYLE_POSITION, pPosition);
+    propertySetAdd(p, CSS_PROPERTY_LIST_STYLE_IMAGE, pImage);
+
+    return;
+
+bad_parse:
+    if (pProp) HtmlFree((char *)pProp);
+    if (pImage) HtmlFree((char *)pImage);
+    if (pPosition) HtmlFree((char *)pPosition);
+    if (pType) HtmlFree((char *)pType);
+}
 
 /*
  *---------------------------------------------------------------------------
@@ -1092,6 +1182,21 @@ propertySetAddShortcutFont(p, v)
         if (z) {
             pProp = textToProperty(z, n);
             switch (pProp->eType) {
+                case CSS_CONST_INHERIT:
+                    if (pStyle || pVariant || pWeight || 
+                            pSize || pLineHeight || pFamily
+                    ) {
+                        goto bad_parse;
+                    }
+                    pStyle = pProp;
+                    pVariant = propertyDup(pProp);
+                    pWeight = propertyDup(pProp);
+                    pSize = propertyDup(pProp);
+                    pLineHeight = propertyDup(pProp);
+                    pFamily = propertyDup(pProp);
+                    z = 0;
+                    break;
+
                 case CSS_CONST_NORMAL:
                     HtmlFree((char *)pProp);
                     break;
@@ -1121,7 +1226,7 @@ propertySetAddShortcutFont(p, v)
                         int j;
                         for (j = 0; j < n && z[j] != '/'; j++);
                         if (j == n) goto bad_parse;
-                        HtmlFree(pProp);
+                        HtmlFree((char *)pProp);
                         n = j;
                         pProp = textToProperty(z, j);
                     } 
@@ -2010,7 +2115,6 @@ HtmlCssDeclaration(pParse, pProp, pExpr, isImportant)
     int isImportant;         /* True if the !IMPORTANT symbol was seen */
 {
     int prop; 
-    char zBuf[64];
     CssPropertySet **ppPropertySet;
 
 #if TRACE_PARSER_CALLS
@@ -2060,6 +2164,9 @@ HtmlCssDeclaration(pParse, pProp, pExpr, isImportant)
             break;
         case CSS_SHORTCUTPROPERTY_FONT:
             propertySetAddShortcutFont(*ppPropertySet, pExpr);
+            break;
+        case CSS_SHORTCUTPROPERTY_LIST_STYLE:
+            propertySetAddShortcutListStyle(*ppPropertySet, pExpr);
             break;
         default:
             propertySetAdd(*ppPropertySet, prop, tokenToProperty(pExpr));
@@ -2367,6 +2474,15 @@ void HtmlCssRule(pParse, success)
     CssSelector **apXtraSelector = pParse->apXtraSelector;
     int nXtra = pParse->nXtra;
     int i;
+
+    if (pPropertySet && pPropertySet->n == 0) {
+        propertySetFree(pPropertySet);
+        pPropertySet = 0;
+    }
+    if (pImportant && pImportant->n == 0) {
+        propertySetFree(pImportant);
+        pImportant = 0;
+    }
 
     if (success && pSelector && (pPropertySet || pImportant)) {
 

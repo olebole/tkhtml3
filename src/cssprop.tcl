@@ -83,7 +83,7 @@ P border-top-width border-right-width border-bottom-width border-left-width
 P bottom caption-side clear clip color content counter-increment counter-reset 
 P cue-after cue-before cursor direction display elevation empty-cells float 
 P font-family font-size font-size-adjust font-stretch font-style font-variant 
-P font-weight height left letter-spacing line-height list-style list-style-image
+P font-weight height left letter-spacing line-height list-style-image
 P list-style-position list-style-type margin-top margin-right 
 P margin-bottom margin-left marker-offset marks max-height max-width 
 P min-height min-width orphans outline-color outline-style outline-width 
@@ -97,6 +97,7 @@ P widows width word-spacing z-index
 
 S background border border-top border-right border-bottom border-left
 S border-color border-style border-width cue font padding outline margin
+S list-style
 
 # We treat property 'background-position' as a composite property that sets
 # invented properties background-position-x and background-position-y.
