@@ -226,6 +226,12 @@ struct CssParse {
     CssPriority *pPriority1;
     CssPriority *pPriority2;
 
+    /* The parser sets the isIgnore flag to true when it enters an @media {}
+     * block that does *not* apply, and sets it back to false when it exits the
+     * @media block.
+     */
+    int isIgnore;                   /* True to ignore new elements */
+
     int origin;
     Tcl_Obj *pStyleId;
     Tcl_Obj *pImportCmd;            /* Script to invoke for @import */

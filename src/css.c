@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.39 2005/11/18 15:33:04 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.40 2005/11/19 07:43:49 danielk1977 Exp $";
 
 /*
  *    The CSS "cascade":
@@ -1810,6 +1810,8 @@ cssParse(n, z, isStyle, origin, pStyleId, pImportCmd, interp, ppStyle)
     }
     p = tkhtmlCssParserAlloc(xCkalloc);
 
+/* tkhtmlCssParserTrace(stdout, "Parser: "); */
+
     /* If *ppStyle is NULL, then create a new CssStyleSheet object. If it
      * is not zero, then append the rules from the new stylesheet document
      * to the existing object.
@@ -2117,6 +2119,9 @@ HtmlCssDeclaration(pParse, pProp, pExpr, isImportant)
     int prop; 
     CssPropertySet **ppPropertySet;
 
+    /* Do nothing if the isIgnore flag is set */
+    if (pParse->isIgnore) return;
+
 #if TRACE_PARSER_CALLS
     printf("HtmlCssDeclaration(%p, \"%.*s\", \"%.*s\")\n", 
         pParse,
@@ -2214,6 +2219,9 @@ void HtmlCssSelector(pParse, stype, pAttr, pValue)
     CssToken *pValue;
 {
     CssSelector *pSelector;
+
+    /* Do nothing if the isIgnore flag is set */
+    if (pParse->isIgnore) return;
 
 #if TRACE_PARSER_CALLS
     /* I used this to make sure the parser was passing the components of
@@ -2474,6 +2482,9 @@ void HtmlCssRule(pParse, success)
     CssSelector **apXtraSelector = pParse->apXtraSelector;
     int nXtra = pParse->nXtra;
     int i;
+
+    /* Do nothing if the isIgnore flag is set */
+    if (pParse->isIgnore) return;
 
     if (pPropertySet && pPropertySet->n == 0) {
         propertySetFree(pPropertySet);
@@ -2911,6 +2922,10 @@ void HtmlCssSelectorComma(pParse)
     CssParse *pParse;
 {
     int n = (pParse->nXtra + 1) * sizeof(CssSelector *);
+
+    /* Do nothing if the isIgnore flag is set */
+    if (pParse->isIgnore) return;
+
     pParse->apXtraSelector = 
        (CssSelector **)HtmlRealloc((char *)pParse->apXtraSelector, n);
     pParse->apXtraSelector[pParse->nXtra] = pParse->pSelector;
@@ -2923,6 +2938,10 @@ void HtmlCssImport(pParse, pToken)
     CssToken *pToken;
 {
     Tcl_Obj *pEval = pParse->pImportCmd;
+
+    /* Do nothing if the isIgnore flag is set */
+    if (pParse->isIgnore) return;
+
     if (pEval) {
         Tcl_Interp *interp = pParse->interp;
         CssProperty *p = tokenToProperty(pToken);

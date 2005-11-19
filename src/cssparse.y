@@ -1,5 +1,10 @@
-
-/*----------------------------------------------------------------------------
+/*
+ * cssparse.c --
+ *
+ *     This file contains a lemon parser syntax for CSS stylesheets as parsed
+ *     by Tkhtml.
+ *
+ *----------------------------------------------------------------------------
  * Copyright (c) 2005 Eolas Technologies Inc.
  * All rights reserved.
  *
@@ -30,7 +35,6 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-
 
 %name tkhtmlCssParser
 %extra_argument {CssParse *pParse}
@@ -94,13 +98,33 @@ ss_body_item ::= font_face.
 /*********************************************************************
 ** @media {...} block.
 */
-media ::= MEDIA_SYM ws medium_list LP ws ruleset_list RP.
+media ::= MEDIA_SYM ws medium_list LP ws ruleset_list RP. {
+    pParse->isIgnore = 0;
+}
 
-medium_list ::= IDENT ws.
-medium_list ::= IDENT ws COMMA ws medium_list.
+%type medium_list {int}
+%type medium_list_item {int}
 
-ruleset_list ::= ruleset ws.
-ruleset_list ::= ruleset ws ruleset_list.
+medium_list_item(A) ::= IDENT(X). {
+    if (
+        (X.n == 3 && 0 == strncasecmp(X.z, "all", 3)) ||
+        (X.n == 6 && 0 == strncasecmp(X.z, "screen", 6))
+    ) {
+        A = 0;
+    } else {
+        A = 1;
+    }
+}
+
+medium_list(A) ::= medium_list_item(X) ws. {
+    A = X;
+    pParse->isIgnore = A;
+}
+
+medium_list(A) ::= medium_list_item(X) ws COMMA ws medium_list(Y). {
+    A = (X && Y) ? 1 : 0;
+    pParse->isIgnore = A;
+}
 
 /*********************************************************************
 ** @page {...} block. 
@@ -118,6 +142,9 @@ font_face ::= FONT_SYM LP declaration_list RP.
 /*********************************************************************
 ** Style sheet rules. e.g. "<selector> { <properties> }"
 */
+ruleset_list ::= ruleset ws.
+ruleset_list ::= ruleset ws ruleset_list.
+
 ruleset ::= selector_list LP ws declaration_list semicolon_opt RP. {
     HtmlCssRule(pParse, 1);
 }

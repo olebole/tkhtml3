@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.108 2005/11/16 17:04:31 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.109 2005/11/19 07:43:49 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -247,6 +247,7 @@ static void layoutReplacement(LayoutContext*,BoxContext*,HtmlNode*,CONST char*);
 static int inlineLayoutDrawLines
     (LayoutContext*,BoxContext*,InlineContext*,int,int*, NormalFlow*);
 
+/* Values returned by normalFlowType() */
 #define FLOWTYPE_NONE              1
 #define FLOWTYPE_TEXT              2
 #define FLOWTYPE_INLINE            3
@@ -1875,18 +1876,17 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
  *         following NormalFlow variables are used to manage collapsing
  *         margins:
  *
- *             int iMaxTopMargin;
- *             int iMinTopMargin;
- *             int iMaxBottomMargin;
- *             int iMinBottomMargin;
+ *             int iMaxMargin;
+ *             int iMinMargin;
+ *             int isValid;
  *
  *         When this function is called to create a new normal flow context,
  *         all these variables are set to 0. 
  *
  *         An element collapses the margins above it if:
  *
- *             * It has top-padding
- *             * It has a top, left or right border
+ *             * It has top-padding, or
+ *             * It has a top border, or
  *             * It's a text, table or replaced node
  *
  * Results:
@@ -1915,7 +1915,7 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
         DISPLAY(pNode->pPropertyValues) == CSS_CONST_TABLE_CELL ||
         DISPLAY(pNode->pPropertyValues) == CSS_CONST_LIST_ITEM ||
  
-        /* TODO: Get rid of this case! */
+        /* TODO: Should this case really be here? */
         DISPLAY(pNode->pPropertyValues) == CSS_CONST_INLINE
     );
     assert(!pNode->pReplacement);
@@ -1937,7 +1937,10 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
         normalFlowLayoutNode(pLayout, pBox, p, &y, pContext, pNormal);
     }
 
-    /* Todo: Should we pop pBorder? */
+    /* Finish the inline-border started by the parent, if any. */
+    if (pBorder) {
+        inlineContextPopBorder(pContext, pBorder);
+    }
 
     rc = inlineLayoutDrawLines(pLayout, pBox, pContext, 1, &y, pNormal);
     HtmlInlineContextCleanup(pContext);
