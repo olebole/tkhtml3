@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.72 2005/11/16 11:01:06 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.73 2005/11/19 08:03:30 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -930,11 +930,22 @@ getPixmap(pTree, xcanvas, ycanvas, w, h)
                     Tk_Image img;
                     int iw;
                     int ih;
+                    int ix;              /* Image x */
+                    int iy;              /* Image y */
+                    int dx;              /* Drawable x */
+                    int dy;              /* Drawable y */
+
+                    dx = MAX(0, pI->x + x);
+                    dy = MAX(0, pI->y + y);
+                    ix = MAX(0, -1 * (pI->x + x));
+                    iy = MAX(0, -1 * (pI->y + y));
     
                     gc = Tk_GetGC(pTree->win, 0, &gc_values);
                     img = Tk_GetImage(pTree->interp, pTree->win, zImage, 0, 0);
                     Tk_SizeOfImage(img, &iw, &ih);
-                    Tk_RedrawImage(img, 0, 0, iw, ih, pmap, pI->x+x, pI->y+y);
+                    iw = MIN(iw, w - dx);
+                    ih = MIN(ih, h - dy);
+                    Tk_RedrawImage(img, ix, iy, iw, ih, pmap, dx, dy);
                     Tk_FreeImage(img);
                 }
                 

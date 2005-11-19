@@ -115,6 +115,8 @@ proc prop_displayNode {node} {
         }
         append doc "</ul>\n"
     }
+
+    append doc "<p>Replacement object: \"[$node replace]\"</p>"
     append doc "</body></html>\n"
 
     .prop.html reset
