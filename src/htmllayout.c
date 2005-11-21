@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.109 2005/11/19 07:43:49 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.110 2005/11/21 05:53:11 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -890,14 +890,16 @@ markerLayout(pLayout, pBox, pNode, y)
 	     * 'outside'.  The algorithm used is to draw it the width of 1 'x'
 	     * character in the current font to the left of the content box.
              */
-            offset = pComputed->fFont->ex_pixels + width;
+            /* offset = pComputed->fFont->ex_pixels + width; */
+            offset = MAX(0, PIXELVAL(pComputed, MARGIN_LEFT, 0));
+            offset -= (pComputed->fFont->ex_pixels + width);
         } else {
             assert(pComputed->eListStylePosition == CSS_CONST_INSIDE);
-            offset = 0;
+            offset = MAX(0, PIXELVAL(pComputed, MARGIN_LEFT, 0));
             HtmlFloatListAdd(pBox->pFloat, FLOAT_LEFT, 
                   pComputed->fFont->ex_pixels + width, y, y + yoffset);
         }
-        DRAW_TEXT(&sCanvas, pMarker, -1*offset, y+yoffset, width, 0,font,color);
+        DRAW_TEXT(&sCanvas, pMarker, offset, y + yoffset, width, 0,font,color);
     
         Tcl_DecrRefCount(pMarker);
     }
