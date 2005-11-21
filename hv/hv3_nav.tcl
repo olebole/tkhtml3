@@ -1,54 +1,78 @@
 
+###########################################################################
+# hv3_nav.tcl --
+#
+#     The public interface to this file is the commands:
+#
+#         nav_init HTML
+#         nav_add HTML URL
+# 
 
-swproc nav_init {HTML {doclist ""}} {
+#--------------------------------------------------------------------------
+# Global variables section
+set ::html_nav_doclist [list]
+set ::html_nav_where -1
+ 
+#--------------------------------------------------------------------------
+
+proc nav_init {HTML} {
     .m add cascade -label {Navigation} -menu [menu .m.nav]
-
-    .m.nav add command -label {Forward} -command [list nav_forward $HTML]
-    .m.nav add command -label {Back}    -command [list nav_back $HTML]
+    .m.nav add command -label {Forward} -command [list navForward $HTML]
+    .m.nav add command -label {Back}    -command [list navBack $HTML]
     .m.nav add separator
 
-    set ::html_nav_doclist $doclist
-    set ::html_nav_where -1
+    set ::html_nav_doclist [list]
+    navEnableDisable
+}
 
-    if {[llength $::html_nav_doclist]} {
-        nav_goto 0
-    } else {
-        nav_enabledisable
+proc nav_add {HTML url} {
+    if {$url == [lindex $::html_nav_doclist $::html_nav_where]} return
+
+    if {$url !=  [lindex $::html_nav_doclist [expr $::html_nav_where + 1]]} {
+        set ::html_nav_doclist [lrange $::html_nav_doclist 0 $::html_nav_where]
+        lappend ::html_nav_doclist $url
     }
+    incr ::html_nav_where
+    navEnableDisable
 }
 
-proc nav_forward {HTML} {
-    nav_goto [expr $::html_nav_where + 1]
+proc navForward {HTML} {
+    navGoto [expr $::html_nav_where + 1]
 }
 
-proc nav_back {HTML} {
-    nav_goto [expr $::html_nav_where - 1]
+proc navBack {HTML} {
+    navGoto [expr $::html_nav_where - 1]
 }
 
-proc nav_goto {where} {
+proc navGoto {where} {
     set ::html_nav_where $where
     gui_goto [lindex $::html_nav_doclist $::html_nav_where]
-    nav_enabledisable
+    navEnableDisable
 }
 
-proc nav_enabledisable {} {
+proc navEnableDisable {} {
     if {$::html_nav_where < 1} {
         .m.nav entryconfigure Back -state disabled
     } else {
         .m.nav entryconfigure Back -state normal
     }
-    if {$::html_nav_where == [llength $::html_nav_doclist]} {
+    if {$::html_nav_where == ([llength $::html_nav_doclist] - 1)} {
         .m.nav entryconfigure Forward -state disabled
     } else {
         .m.nav entryconfigure Forward -state normal
     }
 
-    .m.nav delete 3 end
+    if {[.m.nav index end] > 3} {
+        .m.nav delete 4 end
+    }
     for {set ii 0} {$ii < [llength $::html_nav_doclist]} {incr ii} {
         set doc [lindex $::html_nav_doclist $ii]
-        .m.nav add command -label $doc -command [list nav_goto $ii]
+        .m.nav add command -label $doc -command [list navGoto $ii]
     }
 
-    .m.nav entryconfigure [expr $::html_nav_where + 3] -background white -state disabled
+    if {[.m.nav index end] > 3} {
+        set idx [expr $::html_nav_where + 4] 
+        .m.nav entryconfigure $idx -background white -state disabled
+    }
 }
 

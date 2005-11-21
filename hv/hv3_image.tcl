@@ -40,8 +40,8 @@ proc imageCmd {HTML url} {
     set name hv3_image[incr ::hv3_image_name]
     image create photo $name
 
-    set url [url_resolve $url]
-    url_fetch $url -id $url -script [list imageCallback $name]
+    set fullurl [url_resolve $url]
+    url_fetch $fullurl -id $fullurl -script [list imageCallback $name] -binary
 
     return [list $name [list image delete $name]]
 }

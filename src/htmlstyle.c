@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlstyle.c,v 1.17 2005/11/15 10:29:21 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlstyle.c,v 1.18 2005/11/21 05:13:42 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -109,6 +109,7 @@ HtmlStyleApply(clientData, interp, objc, objv)
     Tcl_Obj *CONST objv[];             /* List of all arguments */
 {
     HtmlTree *pTree = (HtmlTree *)clientData;
+    HtmlLog(pTree, "STYLEENGINE", "START");
     HtmlWalkTree(pTree, styleNode);
     return TCL_OK;
 }

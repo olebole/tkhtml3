@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.41 2005/11/18 15:05:04 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.42 2005/11/21 05:13:42 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -50,6 +50,46 @@ static const char rcsid[] = "$Id: htmlprop.c,v 1.41 2005/11/18 15:05:04 danielk1
  * Convert a double value from a CssProperty to an integer.
  */
 #define INTEGER(x) ((int)((x) + 0.49))
+
+char *
+propertyToString(pProp, pzFree)
+    CssProperty *pProp;
+    char **pzFree;
+{
+    char *zRet = (char *)HtmlCssPropertyGetString(pProp);
+    *pzFree = 0;
+
+    if (!zRet) {
+        if (pProp->eType == CSS_TYPE_TCL || pProp->eType == CSS_TYPE_URL) {
+            zRet = HtmlAlloc(strlen(pProp->v.zVal) + 6);
+            sprintf(zRet, "%s(%s)", 
+                    (pProp->eType==CSS_TYPE_TCL)?"tcl":"url", pProp->v.zVal
+            );
+        } else {
+            char *zSym = 0;
+            switch (pProp->eType) {
+                case CSS_TYPE_EM:         zSym = "em"; break;
+                case CSS_TYPE_PX:         zSym = "px"; break;
+                case CSS_TYPE_PT:         zSym = "pt"; break;
+                case CSS_TYPE_PC:         zSym = "pc"; break;
+                case CSS_TYPE_EX:         zSym = "ex"; break;
+                case CSS_TYPE_PERCENT:    zSym = "%"; break;
+                case CSS_TYPE_FLOAT:      zSym = ""; break;
+                case CSS_TYPE_CENTIMETER: zSym = "cm"; break;
+                case CSS_TYPE_INCH:       zSym = "in"; break;
+                case CSS_TYPE_MILLIMETER: zSym = "mm"; break;
+                default:
+                    assert(!"Unknown CssProperty.eType value");
+            }
+
+            zRet = HtmlAlloc(128);
+            sprintf(zRet, "%.2f%s", pProp->v.rVal, zSym);
+        }
+        *pzFree = zRet;
+    }
+
+    return zRet;
+}
 
 /*
  *---------------------------------------------------------------------------
@@ -1146,15 +1186,15 @@ propertyValuesTclScript(p, eProp, zScript)
     zRes = Tcl_GetStringResult(interp);
     if (rc == TCL_ERROR) {
         if (*zRes) {
-            Tcl_Obj *pRes = Tcl_GetObjResult(interp);
-            Tcl_IncrRefCount(pRes);
-            Tcl_ResetResult(interp);
-            Tcl_AppendResult(
-                interp, "tkhtml: tcl() script error \"",
-                Tcl_GetString(pRes), "\"", 0
-            );
-            Tcl_DecrRefCount(pRes);
-            Tcl_BackgroundError(interp);
+    	    /* A tcl() script has returned a value that caused a type-mismatch
+             * error. Run the -logcmd script if one exists.
+             */
+            LOG {
+                HtmlLog(p->pTree, "STYLEENGINE", "%s "
+                    "tcl() script error: %s",
+                    Tcl_GetString(HtmlNodeCommand(p->pTree, p->pNode)), zRes
+                );
+            }
         }
         return 1;
     }
@@ -1164,19 +1204,16 @@ propertyValuesTclScript(p, eProp, zScript)
 
     if (HtmlComputedValuesSet(p, eProp, pVal)) {
 	/* A tcl() script has returned a value that caused a type-mismatch
-         * error. Throw a background error.
+         * error. Run the -logcmd script if one exists.
          */
-        Tcl_Obj *pRes = Tcl_GetObjResult(interp);
-        Tcl_IncrRefCount(pRes);
-        HtmlFree((char *)pVal);
-        Tcl_ResetResult(interp);
-        Tcl_AppendResult(interp, 
-                 "tkhtml: tcl() script returned \"", Tcl_GetString(pRes), "\""
-                 " - type mismatch for property "
-                 "'", HtmlCssPropertyToString(eProp), "'", 0
-        );
-        Tcl_DecrRefCount(pRes);
-        Tcl_BackgroundError(interp);
+        LOG {
+            HtmlLog(p->pTree, "STYLEENGINE", "%s "
+                "tcl() script returned \"%s\" - "
+                "type mismatch for property '%s'",
+                Tcl_GetString(HtmlNodeCommand(p->pTree, p->pNode)),
+                zRes, HtmlCssPropertyToString(eProp)
+            );
+        }
         return 1;
     }
 
@@ -1234,6 +1271,16 @@ HtmlComputedValuesSet(p, eProp, pProp)
 
     if (!pProp) {
         return 0;
+    }
+
+    LOG {
+        char *zFree;
+        char *zPropVal = propertyToString(pProp, &zFree);
+        HtmlLog(p->pTree, "STYLEENGINE", "%s %s -> %s",
+                Tcl_GetString(HtmlNodeCommand(p->pTree, p->pNode)),
+                HtmlCssPropertyToString(eProp), zPropVal
+        );
+        if (zFree) HtmlFree(zFree);
     }
 
     /* Silently ignore any attempt to set a root-node property to 'inherit'.

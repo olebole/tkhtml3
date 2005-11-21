@@ -8,6 +8,7 @@
 #
 #         prop_browse HTML ?-node NODE?
 #
+set ::hv3_prop_selected ""
 
 swproc prop_browse {HTML {node ""}} {
     if {[info commands .prop] == ""} {
@@ -77,10 +78,13 @@ proc prop_displayNode {node} {
     if {[$node tag] == ""} {
         append doc "<h1>Text</h1>"
         set text [string map {< &lt; > &gt;} [$node text]]
+        set tokens [string map {< &lt; > &gt;} [$node text -tokens]]
         set doc [subst {
             <html><head></head><body>
             <h1>Text</h1>
             <p>$text
+            <h1>Tokens</h1>
+            <p>$tokens
         }]
     } else {
         set property_rows ""
@@ -96,6 +100,7 @@ proc prop_displayNode {node} {
             <html><head></head><body>
             <h1>&lt;[$node tag]&gt;</h1>
             <p>Tcl command: <span class="code">\[$node\]</span>
+            <p>Replacement: <span class="code">\[[$node replace]\]</span>
             <table class=computed>
                 <tr><th colspan=2>Computed Properties
                 $property_rows
@@ -109,14 +114,22 @@ proc prop_displayNode {node} {
     }
 
     if {[info exists ::hv3_log_layoutengine($node)]} {
+        append doc "<h>Layout Engine:</h1>\n"
         append doc "<ul>\n"
         foreach entry $::hv3_log_layoutengine($node) {
             append doc "    <li>$entry\n"
         }
         append doc "</ul>\n"
     }
+    if {[info exists ::hv3_log_styleengine($node)]} {
+        append doc "<h>Style Engine:</h1>\n"
+        append doc "<ul>\n"
+        foreach entry $::hv3_log_styleengine($node) {
+            append doc "    <li>$entry\n"
+        }
+        append doc "</ul>\n"
+    }
 
-    append doc "<p>Replacement object: \"[$node replace]\"</p>"
     append doc "</body></html>\n"
 
     .prop.html reset

@@ -76,7 +76,7 @@ namespace eval tkhtml {
         upvar N node
         for {} {$node != ""} {set node [$node parent]} {
             if {[$node tag] == $tag} {
-                set val [$node attr -default "" $attr]
+                if {[catch {$node attr $attr} val]} {error ""}
 
                 if {$if != "NULL"} {return $if}
                 if {$val == ""}    {error ""}

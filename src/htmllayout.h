@@ -106,7 +106,6 @@ int inlineContextIsEmpty(InlineContext *);
 InlineBorder *inlineContextGetBorder(LayoutContext *, HtmlNode *, int);
 int inlineContextPushBorder(InlineContext *, InlineBorder *);
 void inlineContextPopBorder(InlineContext *, InlineBorder *);
-void inlineContextAddNewLine(InlineContext *, int, int);
 
 /* End of htmllayoutinline.c interface
  *-------------------------------------------------------------------------*/

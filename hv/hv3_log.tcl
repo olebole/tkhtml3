@@ -2,11 +2,10 @@
 #--------------------------------------------------------------------------
 # Global variables section
  
-#
-#
-#
+array unset ::hv3_log_styleengine
 array unset ::hv3_log_layoutengine
 array set ::hv3_log_layoutengine [list]
+array set ::hv3_log_styleengine [list]
 #--------------------------------------------------------------------------
 
 rename puts real_puts
@@ -18,8 +17,8 @@ proc log_init {HTML} {
     $HTML configure -logcmd ""
     .m add cascade -label {Log} -menu [menu .m.log]
    
-    set modes [list CALLBACK EVENT LAYOUTENGINE]
-    set timermodes [list DAMAGE LAYOUT STYLE]
+    set modes [list CALLBACK EVENT ENGINES]
+    set timermodes [list LAYOUT STYLE]
 
     # Command to run to make sure -logcmd and -timercmd are set as per the
     # configuration in array variables ::html_log_log and ::html_log_timer
@@ -73,6 +72,18 @@ proc log_puts {topic body} {
             set node [string range $body 0 [expr $idx - 1]]
             set msg [string range $body [expr $idx + 1] end]
             lappend ::hv3_log_layoutengine($node) $msg
+        }
+        return
+    }
+
+    if {$topic == "STYLEENGINE"} {
+        if {$body == "START"} {
+            array unset ::hv3_log_styleengine
+        } else {
+            set idx [string first " " $body]
+            set node [string range $body 0 [expr $idx - 1]]
+            set msg [string range $body [expr $idx + 1] end]
+            lappend ::hv3_log_styleengine($node) $msg
         }
         return
     }

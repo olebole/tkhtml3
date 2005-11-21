@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.40 2005/11/19 07:43:49 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.41 2005/11/21 05:13:42 danielk1977 Exp $";
 
 /*
  *    The CSS "cascade":
@@ -189,6 +189,49 @@ static const char *constantToString(int c){
     return "unknown";
 }
 #endif
+
+/*--------------------------------------------------------------------------
+ *
+ * dequote --
+ *
+ *     This function is used to dequote a CSS string value. 
+ * 
+ *     Argument z is a pointer to a buffer containing a possibly quoted,
+ *     null-terminated string. If it is quoted, then this function overwrites
+ *     the buffer with the unquoted version. CSS strings may be quoted with
+ *     single or double quotes. The quote character may occur within a string
+ *     only if it is escaped with a "\" character.
+ *
+ * Results:
+ *     None
+ *
+ * Side effects:
+ *     May modify the contents of buffer pointed to by z.
+ *
+ *--------------------------------------------------------------------------
+ */
+static void 
+dequote(z)
+    char *z;
+{
+    if (z) {
+        int n = strlen(z);;
+        char q = z[0];
+        if (n > 1 && (q == '"' || q == '\'') && z[n-1] == q && z[n-2] != '\\') {
+            int i;
+            char *zOut = z;
+            for (i = 1; i < (n - 1); i++) {
+                char o = z[i];
+                if (o == '\\' && (z[i+1] == '\\' || z[i+1] == q)) {
+                    o = z[++i];
+                } 
+                *zOut++ = o;
+            }
+            *zOut++ = 0;
+        }
+    }
+}
+
 
 /*--------------------------------------------------------------------------
  *
@@ -416,7 +459,9 @@ tokenToProperty(pToken)
                         pProp->v.zVal[nArg] = '\0';
                     }
 
-                    /* TODO: Dequote? */
+                    if (pProp->eType == CSS_TYPE_URL) {
+                        dequote(pProp->v.zVal);
+                    }
                     break;
                 }
             }
@@ -438,7 +483,9 @@ tokenToProperty(pToken)
         eType = HtmlCssConstantLookup(-1, pProp->v.zVal);
         pProp->eType = eType > 0 ? eType : CSS_TYPE_STRING;
 
-        /* TODO: Dequote? */
+        if (pProp->eType == CSS_TYPE_STRING) {
+            dequote(pProp->v.zVal);
+        }
     }
     return pProp;
 }
@@ -2178,21 +2225,6 @@ HtmlCssDeclaration(pParse, pProp, pExpr, isImportant)
     }
 }
 
-
-static void dequote(z)
-    char *z;
-{
-    int n;
-    if (!z) return;
-    n = strlen(z);
-    if (z[0]=='"' && z[n-1]=='"') {
-        int i;
-        for (i=0; i<(n-2); i++) {
-             z[i] = z[i+1];
-        }
-        z[n-2] = '\0';
-    }
-}
 
 
 /*--------------------------------------------------------------------------

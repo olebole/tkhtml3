@@ -1,4 +1,17 @@
 ###########################################################################
+# hv3_url.tcl --
+#
+#     This file contains code to manipulate and download data from URI's.
+#
+
+#--------------------------------------------------------------------------
+# Global variables section
+array unset url_g_scripts
+set http_current_socket -1
+array unset http_name_cache
+
+#--------------------------------------------------------------------------
+
 #
 # "Url" public commands:
 #
@@ -122,12 +135,13 @@ swproc url_resolve {url {setbase 0 1}} {
 #         -script        (default {})
 #         -id            (default {})
 #         -cache         (default {})
+#         -binary
 # 
 #     This procedure is used to retrieve remote files. Argument -url is the
 #     url to retrieve. When it has been retrieved, the data is appended to
 #     the script -script (if any) and the result invoked.
 # 
-swproc url_fetch {url {script {}} {id {}} {cache {}}} {
+swproc url_fetch {url {script {}} {id {}} {cache {}} {binary 0 1}} {
 
   # Check the cache before doing anything else.
   if {[cache_query $url]} {
@@ -147,7 +161,9 @@ swproc url_fetch {url {script {}} {id {}} {cache {}}} {
       set rc [catch {
         set fname [string range $url 7 end]
         set f [open $fname]
-        fconfigure $f -encoding binary -translation binary
+        if {$binary} {
+            fconfigure $f -encoding binary -translation binary
+        }
         set data [read $f]
         close $f
         if {$script != ""} {

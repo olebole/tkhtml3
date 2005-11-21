@@ -248,6 +248,8 @@ proc gui_goto {doc} {
   .entry.entry delete 0 end
   .entry.entry insert 0 $url
 
+  nav_add .html $url
+
   .html var url $url
   url_fetch $url -id $url -script [list gui_parse $url]
 }
@@ -267,7 +269,7 @@ proc gui_parse {doc text} {
   # update
 
   foreach {node url} $::gui_replaced_images {
-    url_fetch $url -script [list handle_img_node_cb $node]
+    url_fetch $url -script [list handle_img_node_cb $node] -binary
   }
   set ::gui_replaced_images [list]
 }
@@ -297,11 +299,12 @@ proc hv3_exit {} {
     exit
 }
 
-swproc main {{cache :memory:} {doclist ""}} {
+swproc main {doc {cache :memory:}} {
   gui_build
   gui_init_globals
   cache_init $cache
-  nav_init $cache -doclist $doclist
+  nav_init .html
+  gui_goto $doc
 }
 
 ##########################################################################

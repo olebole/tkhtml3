@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.37 2005/11/14 12:20:41 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.38 2005/11/21 05:13:42 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -861,23 +861,57 @@ node_attr_usage:
             Tcl_SetObjResult(interp, pCmd);
             break;
         }
-        case NODE_TEXT: {
-            int space_ok = 0;
-            HtmlToken *pToken;
-            Tcl_Obj *pRet = Tcl_NewObj();
 
+        /*
+         * nodeHandle text ?-tokens?
+         *
+         */
+        case NODE_TEXT: {
+            HtmlToken *pT;
+            Tcl_Obj *pRet;
+            int tokens;
+
+            if (
+                (objc != 2 && objc != 3) ||
+                (objc == 3 && strcmp(Tcl_GetString(objv[2]), "-tokens"))
+            ) {
+                Tcl_WrongNumArgs(interp, 2, objv, "?-tokens?");
+                return TCL_ERROR;
+            }
+
+            tokens = ((objc == 3) ? 1 : 0);
+            pRet = Tcl_NewObj();
             Tcl_IncrRefCount(pRet);
-            pToken = pNode->pToken;
-            while (pToken && 
-                    (pToken->type==Html_Space || pToken->type==Html_Text)) {
-                if (pToken->type==Html_Text) {
-                    Tcl_AppendToObj(pRet, pToken->x.zText, pToken->count);
-                    space_ok = 1;
+            for (
+                pT = pNode->pToken;
+                pT && (pT->type==Html_Space || pT->type==Html_Text);
+                pT = pT->pNext
+            ) {
+                if (pT->type==Html_Text) {
+                    if (tokens) {
+                        Tcl_Obj *pObj = Tcl_NewStringObj("TEXT(", -1);
+                        Tcl_AppendToObj(pObj, pT->x.zText, pT->count);
+                        Tcl_AppendToObj(pObj, ")", -1);
+                        Tcl_ListObjAppendElement(interp, pRet, pObj);
+                    } else {
+                        Tcl_AppendToObj(pRet, pT->x.zText, pT->count);
+                    }
                 } else {
-                    Tcl_AppendToObj(pRet, " ", 1);
-                    space_ok = 0;
+                    if (tokens) {
+                        if (pT->x.newline) {
+                            Tcl_Obj *pObj = Tcl_NewStringObj("NEWLINE", -1);
+                            Tcl_ListObjAppendElement(interp, pRet, pObj);
+                        } else {
+                            Tcl_Obj *pObj;
+                            char zBuf[128];
+                            sprintf(zBuf, "SPACE(%d)", pT->count);
+                            pObj = Tcl_NewStringObj(zBuf, -1);
+                            Tcl_ListObjAppendElement(interp, pRet, pObj);
+                        }
+                    } else {
+                        Tcl_AppendToObj(pRet, " ", 1);
+                    }
                 }
-                pToken = pToken->pNext;
             }
 
             Tcl_SetObjResult(interp, pRet);
