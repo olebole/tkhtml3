@@ -215,7 +215,7 @@ proc handle_img_node_cb {node imgdata} {
   catch {
     set img [image create photo -data $imgdata]
     $node replace $img
-  }
+  } 
 }
 
 # handle_img_node

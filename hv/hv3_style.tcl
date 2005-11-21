@@ -51,7 +51,7 @@ proc styleHandleStyle {HTML script} {
 
 # styleUrl --
 #
-#     styleCallback BASE-URL URL
+#     styleUrl BASE-URL URL
 #
 proc styleUrl {baseurl url} {
     set ret $url

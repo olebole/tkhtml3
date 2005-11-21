@@ -82,7 +82,7 @@ typedef struct CssProperty CssProperty;
 
 /* Function notation */
 #define CSS_TYPE_TCL          8            /* Value in 'zVal' */
-#DEFIne CSS_TYPE_URL          9            /* Value in 'zVal' */
+#define CSS_TYPE_URL          9            /* Value in 'zVal' */
 
 /* Physical units. */
 #define CSS_TYPE_CENTIMETER   10           /* Value in 'rVal */

@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.42 2005/11/21 08:33:10 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.43 2005/11/21 09:30:02 danielk1977 Exp $";
 
 /*
  *    The CSS "cascade":
@@ -1016,7 +1016,7 @@ propertyTransformBgPosition(pProp)
 /*
  *---------------------------------------------------------------------------
  *
- * propertySetAddShortcutBackground --
+ * shortcutBackground --
  *
  *     This function is called to handle the short cut property 'background'.
  *
@@ -1029,7 +1029,8 @@ propertyTransformBgPosition(pProp)
  *---------------------------------------------------------------------------
  */
 static void 
-propertySetAddShortcutBackground(p, v)
+shortcutBackground(pParse, p, v)
+    CssParse *pParse;
     CssPropertySet *p;         /* Property set */
     CssToken *v;               /* Value for 'background' property */
 {
@@ -1053,7 +1054,7 @@ propertySetAddShortcutBackground(p, v)
             CssToken token;
             token.z = z;
             token.n = n;
-            apProp[nProp] = tokenToProperty(0, &token);
+            apProp[nProp] = tokenToProperty(pParse, &token);
             nProp++;
             assert(n>0);
             z += n;
@@ -2254,7 +2255,7 @@ HtmlCssDeclaration(pParse, pProp, pExpr, isImportant)
             propertySetAddShortcutBorderColor(*ppPropertySet, prop, pExpr);
             break;
         case CSS_SHORTCUTPROPERTY_BACKGROUND:
-            propertySetAddShortcutBackground(*ppPropertySet, pExpr);
+            shortcutBackground(pParse, *ppPropertySet, pExpr);
             break;
         case CSS_SHORTCUTPROPERTY_BACKGROUND_POSITION:
             propertySetAddShortcutBackgroundPosition(*ppPropertySet, pExpr);
