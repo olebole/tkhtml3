@@ -9,6 +9,8 @@
 #         style_newdocument HTML
 #
 
+package require uri
+
 #--------------------------------------------------------------------------
 # Global variables section
 set ::hv3_style_count 0
@@ -44,15 +46,40 @@ proc style_newdocument {HTML} {
 #
 proc styleHandleStyle {HTML script} {
   set id author.[format %.4d [incr ::hv3_style_count]]
-  styleCallback $HTML $id $script
+  styleCallback $HTML [$HTML var url] $id $script
+}
+
+# styleUrl --
+#
+#     styleCallback BASE-URL URL
+#
+proc styleUrl {baseurl url} {
+    set ret $url
+    if {[::uri::isrelative $url]} {
+        set ret "${baseurl}${url}"
+    }
+    return $ret
 }
 
 # styleCallback --
 #
-#     styleCallback HTML ID STYLE-TEXT
+#     styleCallback HTML URL ID STYLE-TEXT
 #
-proc styleCallback {HTML id style} {
-  $HTML style -id $id -importcmd [list styleImport $HTML $id] $style
+proc styleCallback {HTML url id style} {
+    # Argument $url is the full URL of the stylesheet just loaded.
+    if {[::uri::isrelative $url]} {
+        error {assert($url is relative)}
+    }
+
+    array set u [::uri::split $url]
+    regexp -expanded {^(.*/)[^/]*$} $u(path) dummy u(path)
+    set baseurl [eval [concat ::uri::join [array get u]]]
+
+    $HTML style \
+        -id $id \
+        -importcmd [list styleImport $HTML $id] \
+        -urlcmd [list styleUrl $baseurl] \
+        $style
 }
 
 # styleImport --
@@ -62,7 +89,7 @@ proc styleCallback {HTML id style} {
 proc styleImport {HTML parentid url} {
     set id ${parentid}.[format %.4d [incr ::hv3_style_count]]
     set url [url_resolve $url]
-    url_fetch $url -id $url -script [list styleCallback $HTML $id]
+    url_fetch $url -id $url -script [list styleCallback $HTML $url $id]
 }
 
 # styleHandleLink --
@@ -76,7 +103,7 @@ proc styleHandleLink {HTML node} {
         if {$media == "" || [regexp all $media] || [regexp screen $media]} {
             set id author.[format %.4d [incr ::hv3_style_count]]
             set url [url_resolve [$node attr href]]
-            url_fetch $url -id $url -script [list styleCallback $HTML $id]
+            url_fetch $url -id $url -script [list styleCallback $HTML $url $id]
         }
     }
 }

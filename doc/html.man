@@ -204,6 +204,7 @@
 			--------------------------------------
 			-id <stylesheet-id>      "author"
 			-importcmd <script>      ""
+			-urlcmd    <script>      ""
 }]
 
 		The value of the -id option determines the priority taken
@@ -232,6 +233,12 @@
 		of the script is ignored. If the script raises an error,
 		then it is propagated up the call-chain to the 
 		[SQ pathName style] caller.
+
+		The -urlcmd option is used to supply a script to translate
+		"url(...)" CSS attribute values. If this option is not set to
+		"", each time a url() value is encountered the URI is appended
+		to the value of -urlcmd and the resulting script evaluated. The
+		return value is stored as the URL in the parsed stylesheet.
 }]
 
 [Subcommand {

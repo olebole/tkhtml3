@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.41 2005/11/21 05:13:42 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.42 2005/11/21 08:33:10 danielk1977 Exp $";
 
 /*
  *    The CSS "cascade":
@@ -103,7 +103,7 @@ void tkhtmlCssParserFree(void *, void (*)(void *));
 
 static void propertiesAdd(CssProperties **, CssRule *);
 static int cssGetToken(CONST char *, int , int *);
-static int cssParse(int,CONST char*,int,int,Tcl_Obj*,Tcl_Obj*,Tcl_Interp*,CssStyleSheet**);
+static int cssParse(int,CONST char*,int,int,Tcl_Obj*,Tcl_Obj*,Tcl_Interp*,Tcl_Obj*,CssStyleSheet**);
 
 /*
  *---------------------------------------------------------------------------
@@ -353,6 +353,32 @@ rgbToColor(zOut, zRgb, nRgb)
     assert(n==7);
 }
 
+static int
+doUrlCmd(pParse, zArg, nArg)
+    CssParse *pParse;
+    CONST char *zArg;
+    int nArg;
+{
+    const int eval_flags = TCL_EVAL_DIRECT|TCL_EVAL_GLOBAL;
+    char *zCopy = HtmlAlloc(nArg + 1);
+    Tcl_Obj *pCopy;
+    Tcl_Obj *pScript = Tcl_DuplicateObj(pParse->pUrlCmd);
+
+    memcpy(zCopy, zArg, nArg);
+    zCopy[nArg] = '\0';
+    dequote(zCopy);
+    pCopy = Tcl_NewStringObj(zCopy, -1);
+
+    Tcl_IncrRefCount(pScript);
+    Tcl_ListObjAppendElement(0, pScript, pCopy);
+    Tcl_EvalObjEx(pParse->interp, pScript, eval_flags);
+    Tcl_DecrRefCount(pScript);
+
+    HtmlFree(zCopy);
+
+    return TCL_OK;
+}
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -367,7 +393,8 @@ rgbToColor(zOut, zRgb, nRgb)
  *---------------------------------------------------------------------------
  */
 static CssProperty *
-tokenToProperty(pToken)
+tokenToProperty(pParse, pToken)
+    CssParse *pParse;
     CssToken *pToken;
 {
     struct LengthFormat {
@@ -439,6 +466,16 @@ tokenToProperty(pToken)
                     zArg = &z[l+1];
                     nArg = (n-l-2); /* len(token)-len(func)-len('(')-len(')') */
 
+                    if (
+                        functions[i].type == CSS_TYPE_URL &&
+                        pParse &&
+                        pParse->pUrlCmd
+                    ) {
+                        doUrlCmd(pParse, zArg, nArg);
+                        zArg = Tcl_GetStringResult(pParse->interp);
+                        nArg = strlen(zArg);
+                    }
+
                     if (functions[i].type==-1) {
                         /* -1 means this is an RGB value. Transform to a
                          * color string that Tcl can understand before
@@ -504,14 +541,15 @@ tokenToProperty(pToken)
  *---------------------------------------------------------------------------
  */
 static CssProperty *
-textToProperty(z, n)
+textToProperty(pParse, z, n)
+    CssParse *pParse;
     CONST char *z;
     int n;
 {
     CssToken token;
     token.n = (n < 0) ? strlen(z): n;
     token.z = z;
-    return tokenToProperty(&token);
+    return tokenToProperty(pParse, &token);
 }
 
 /*
@@ -542,7 +580,7 @@ CssProperty *HtmlCssStringToProperty(z, n)
     }
     sToken.z = z;
     sToken.n = n;
-    return tokenToProperty(&sToken);
+    return tokenToProperty(0, &sToken);
 }
 
 /*
@@ -888,7 +926,7 @@ static void propertySetAddShortcutBorder(p, prop, v)
 
             token.z = z;
             token.n = n;
-            pProp = tokenToProperty(&token);
+            pProp = tokenToProperty(0, &token);
             eType = pProp->eType;
 
             if (propertyIsLength(pProp) || eType==CSS_TYPE_FLOAT) {
@@ -1015,7 +1053,7 @@ propertySetAddShortcutBackground(p, v)
             CssToken token;
             token.z = z;
             token.n = n;
-            apProp[nProp] = tokenToProperty(&token);
+            apProp[nProp] = tokenToProperty(0, &token);
             nProp++;
             assert(n>0);
             z += n;
@@ -1102,7 +1140,7 @@ error_out:
 /*
  *---------------------------------------------------------------------------
  *
- * propertySetAddShortcutListStyle --
+ * shortcutListStyle --
  *
  * 	[ <'list-style-type'> || <'list-style-position'> ||
  * 	    <'list-style-image'> ] | inherit
@@ -1115,7 +1153,8 @@ error_out:
  *---------------------------------------------------------------------------
  */
 static void
-propertySetAddShortcutListStyle(p, v)
+shortcutListStyle(pParse, p, v)
+    CssParse *pParse;
     CssPropertySet *p;         /* Property set */
     CssToken *v;               /* Value for 'list-style' property */
 {
@@ -1131,7 +1170,7 @@ propertySetAddShortcutListStyle(p, v)
         int n;
         z = getNextListItem(z, zEnd-z, &n);
         if (z) {
-            pProp = textToProperty(z, n);
+            pProp = textToProperty(pParse, z, n);
             switch (pProp->eType) {
                 case CSS_CONST_INHERIT:
                     if (pType || pPosition || pImage) {
@@ -1227,7 +1266,7 @@ propertySetAddShortcutFont(p, v)
         int n;
         z = getNextListItem(z, zEnd-z, &n);
         if (z) {
-            pProp = textToProperty(z, n);
+            pProp = textToProperty(0, z, n);
             switch (pProp->eType) {
                 case CSS_CONST_INHERIT:
                     if (pStyle || pVariant || pWeight || 
@@ -1275,7 +1314,7 @@ propertySetAddShortcutFont(p, v)
                         if (j == n) goto bad_parse;
                         HtmlFree((char *)pProp);
                         n = j;
-                        pProp = textToProperty(z, j);
+                        pProp = textToProperty(0, z, j);
                     } 
                     pSize = pProp;
                     pProp = 0;
@@ -1287,12 +1326,12 @@ propertySetAddShortcutFont(p, v)
     
                     if (hasLineHeight) {
                         z = getNextListItem(z, zEnd-z, &n);
-                        pLineHeight = textToProperty(z, n);
+                        pLineHeight = textToProperty(0, z, n);
                         z += n;
                     } 
                     z = getNextListItem(z, zEnd-z, &n);
                     if (!z) goto bad_parse;
-                    pFamily = textToProperty(z, zEnd-z);
+                    pFamily = textToProperty(0, z, zEnd-z);
                     z = 0;
                }
             }
@@ -1355,7 +1394,7 @@ propertySetAddShortcutBackgroundPosition(p, v)
             CssToken token;
             token.z = z;
             token.n = n;
-            apProp[i] = tokenToProperty(&token);
+            apProp[i] = tokenToProperty(0, &token);
             propertyTransformBgPosition(apProp[i]);
             i++;
             assert(n>0);
@@ -1405,7 +1444,7 @@ static void propertySetAddShortcutBorderColor(p, prop, v)
             CssToken token;
             token.z = z;
             token.n = n;
-            apProp[i] = tokenToProperty(&token);
+            apProp[i] = tokenToProperty(0, &token);
             i++;
             assert(n>0);
             z += n;
@@ -1829,7 +1868,7 @@ newCssPriority(pStyle, origin, pIdTail, important)
  *---------------------------------------------------------------------------
  */
 static int 
-cssParse(n, z, isStyle, origin, pStyleId, pImportCmd, interp, ppStyle)
+cssParse(n, z, isStyle, origin, pStyleId, pImportCmd, interp, pUrlCmd, ppStyle)
     int n;                       /* Size of z in bytes */
     CONST char *z;               /* Text of attribute/document */
     int isStyle;                 /* True if this is a style attribute */
@@ -1837,6 +1876,7 @@ cssParse(n, z, isStyle, origin, pStyleId, pImportCmd, interp, ppStyle)
     Tcl_Obj *pStyleId;           /* Second and later parts of stylesheet id */
     Tcl_Obj *pImportCmd;         /* Command to invoke to process @import */
     Tcl_Interp *interp;          /* Interpreter for pImportCmd (if any) */
+    Tcl_Obj *pUrlCmd;            /* Command to invoke to translate url() */
     CssStyleSheet **ppStyle;     /* IN/OUT: Stylesheet to append to   */
 {
     CssParse sParse;
@@ -1850,6 +1890,7 @@ cssParse(n, z, isStyle, origin, pStyleId, pImportCmd, interp, ppStyle)
     sParse.origin = origin;
     sParse.pStyleId = pStyleId;
     sParse.pImportCmd = pImportCmd;
+    sParse.pUrlCmd = pUrlCmd;
     sParse.interp = interp;
 
     if( n<0 ){
@@ -1941,6 +1982,7 @@ cssParse(n, z, isStyle, origin, pStyleId, pImportCmd, interp, ppStyle)
  *
  *--------------------------------------------------------------------------
  */
+#if 0
 int 
 HtmlCssParse(pText, origin, pStyleId, pImportCmd, ppStyle)
     Tcl_Obj *pText;
@@ -1952,8 +1994,9 @@ HtmlCssParse(pText, origin, pStyleId, pImportCmd, ppStyle)
     int n;
     CONST char *z;
     z = Tcl_GetStringFromObj(pText, &n);
-    return cssParse(n, z, 0, origin, pStyleId, pImportCmd, 0, ppStyle);
+    return cssParse(n, z, 0, origin, pStyleId, pImportCmd, 0, 0, ppStyle);
 }
+#endif
 
 /*
  *---------------------------------------------------------------------------
@@ -1971,12 +2014,13 @@ HtmlCssParse(pText, origin, pStyleId, pImportCmd, ppStyle)
  *---------------------------------------------------------------------------
  */
 int 
-HtmlStyleParse(pTree, interp, pStyleText, pId, pImportCmd)
+HtmlStyleParse(pTree, interp, pStyleText, pId, pImportCmd, pUrlCmd)
     HtmlTree *pTree;
     Tcl_Interp *interp;
     Tcl_Obj *pStyleText;
     Tcl_Obj *pId;
     Tcl_Obj *pImportCmd;
+    Tcl_Obj *pUrlCmd;
 {
     int origin = 0;
     Tcl_Obj *pStyleId = 0;
@@ -2020,6 +2064,7 @@ HtmlStyleParse(pTree, interp, pStyleText, pId, pImportCmd)
         origin,                            /* Origin - CSS_ORIGIN_XXX */
         pStyleId,                          /* Rest of -id option */
         pImportCmd, pTree->interp,         /* How to handle @import */
+        pUrlCmd,                           /* How to handle url() */
         &pTree->pStyle                     /* CssStylesheet to update/create */
     );
 
@@ -2049,7 +2094,7 @@ int HtmlCssParseStyle(
 ){
     CssStyleSheet *pStyle = 0;
     assert(ppProperties && !(*ppProperties));
-    cssParse(n, z, 1, 0, 0, 0, 0, &pStyle);
+    cssParse(n, z, 1, 0, 0, 0, 0, 0,&pStyle);
     if (pStyle) {
         if (pStyle->pUniversalRules) {
             assert(!pStyle->pUniversalRules->pNext);
@@ -2218,10 +2263,10 @@ HtmlCssDeclaration(pParse, pProp, pExpr, isImportant)
             propertySetAddShortcutFont(*ppPropertySet, pExpr);
             break;
         case CSS_SHORTCUTPROPERTY_LIST_STYLE:
-            propertySetAddShortcutListStyle(*ppPropertySet, pExpr);
+            shortcutListStyle(pParse, *ppPropertySet, pExpr);
             break;
         default:
-            propertySetAdd(*ppPropertySet, prop, tokenToProperty(pExpr));
+            propertySetAdd(*ppPropertySet, prop, tokenToProperty(pParse,pExpr));
     }
 }
 
@@ -2965,6 +3010,22 @@ void HtmlCssSelectorComma(pParse)
     pParse->nXtra++;
 }
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlCssImport --
+ *
+ *     The parser calls this function when an @import directive is encountered.
+ *     The pToken argument contains the specified URL.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     May invoke the -importcmd script.
+ *
+ *---------------------------------------------------------------------------
+ */
 void HtmlCssImport(pParse, pToken)
     CssParse *pParse;
     CssToken *pToken;
@@ -2976,14 +3037,17 @@ void HtmlCssImport(pParse, pToken)
 
     if (pEval) {
         Tcl_Interp *interp = pParse->interp;
-        CssProperty *p = tokenToProperty(pToken);
-        CONST char *zUrl;
+        CssProperty *p = tokenToProperty(pParse, pToken);
+        CONST char *zUrl = p->v.zVal;
 
         switch (p->eType) {
             case CSS_TYPE_URL:
+                break;
             case CSS_TYPE_STRING:
-                zUrl = p->v.zVal;
-                dequote(zUrl);
+                if (pParse && pParse->pUrlCmd) {
+                    doUrlCmd(pParse, zUrl, strlen(zUrl));
+                    zUrl = Tcl_GetStringResult(pParse->interp);
+                }
                 break;
             default:
                 return;
