@@ -8,7 +8,6 @@ set auto_path [concat . $auto_path]
 package require Tkhtml 3.0
 package require Tk
 package require http 
-package require uri
 package require sqlite3
 
 # If possible, load package "Img". Without it the script can still run,
@@ -37,7 +36,7 @@ sourcefile hv3_style.tcl
 # The following variables are stored in the widget dictionary:
 #
 #     $baseurl              # The current base URI
-#     $uri                  # The current document URI
+#     $url                  # The current document URI
 #     $cache                # Name of sqlite3 handle for cache db
 #
 proc gui_init_globals {} {
@@ -47,6 +46,8 @@ proc gui_init_globals {} {
 
 proc bgerror {args} {
   puts "BGERROR: $args"
+  puts "$::errorInfo"
+  puts "$::errorCode"
 }
 
 
@@ -224,7 +225,7 @@ proc handle_img_node_cb {node imgdata} {
 proc handle_img_node {node} {
   set src [$node attr src]
   if {$src == ""} return
-  set url [url_resolve $src]
+  set url [url_resolve [.html var url] $src]
   lappend ::gui_replaced_images $node $url
 }
 
@@ -235,6 +236,17 @@ proc handle_script_script {script} {
   return ""
 }
 
+# handle_a_node
+#
+#     handle_a_node FRAGMENT NODE
+#
+proc handle_a_node {fragment node} {
+    set id [$node attr -default "" name]
+    if {$id == $fragment} {
+        set ::hv3_goto_node $node
+    }
+}
+
 # gui_goto
 #
 #         gui_goto DOC
@@ -242,36 +254,53 @@ proc handle_script_script {script} {
 #     Commence the process of loading the document at url $doc.
 proc gui_goto {doc} {
   .html reset
-  # update
 
-  set url [url_resolve $doc -setbase]
+  set url [url_resolve [.html var url] $doc]
   .entry.entry delete 0 end
   .entry.entry insert 0 $url
-
   nav_add .html $url
-
   .html var url $url
-  url_fetch $url -id $url -script [list gui_parse $url]
+
+  url_get $url -fragment fragment -prefragment prefragment
+  url_fetch $prefragment -id $prefragment -script [list gui_parse $fragment]
 }
 
 # gui_parse 
 #
-#         gui_parse DOC TEXT
+#         gui_parse FRAGMENT TEXT
 #
 #     Append the text TEXT to the current document. Argument DOC
 #     is the URL from whence the new document data was received. If this
 #     is different from the current URL, then clear the widget before
 #     loading the text.
 #
-proc gui_parse {doc text} {
-  style_newdocument .html
-  .html parse $text
-  # update
+#     If argument FRAGMENT is not "", then it is the name of an anchor within
+#     the document to jump to.
+#
+proc gui_parse {fragment text} {
+    style_newdocument .html
 
-  foreach {node url} $::gui_replaced_images {
-    url_fetch $url -script [list handle_img_node_cb $node] -binary
-  }
-  set ::gui_replaced_images [list]
+    if {$fragment != ""} {
+        .html handler node a [list handle_a_node $fragment]
+    }
+    .html parse $text
+    .html handler node a ""
+
+    foreach {node url} $::gui_replaced_images {
+        url_fetch $url -script [list handle_img_node_cb $node] -binary
+    }
+    set ::gui_replaced_images [list]
+
+    if {[info exists ::hv3_goto_node]} {
+        set coords  [.html bbox $::hv3_goto_node]
+        set coords2 [.html bbox [.html node]]
+        if {[llength $coords] > 0} {
+            set ypix [lindex $coords 1]
+            set ycanvas [lindex $coords2 3]
+            .html yview moveto [expr double($ypix) / double($ycanvas)]
+        }
+    }
+    unset ::hv3_goto_node
 }
 
 # gui_log
@@ -304,6 +333,7 @@ swproc main {doc {cache :memory:}} {
   gui_init_globals
   cache_init $cache
   nav_init .html
+  .html var url file://[pwd]/
   gui_goto $doc
 }
 

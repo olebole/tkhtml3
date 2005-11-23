@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.73 2005/11/19 08:03:30 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.74 2005/11/23 10:45:49 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1454,7 +1454,7 @@ HtmlWidgetMapControls(pTree)
  *
  * HtmlLayoutBbox --
  *
- *     <widget> internal bbox NODE
+ *     <widget> bbox NODE
  *
  * Results:
  *     None.
@@ -1480,18 +1480,20 @@ HtmlLayoutBbox(clientData, interp, objc, objv)
     int x = 0;
     int y = 0;
 
+    HtmlCallbackForce(pTree);
+
     bbox[0] = pCanvas->right;  /* x1 */
     bbox[1] = pCanvas->bottom; /* y1 */
     bbox[2] = pCanvas->left;   /* x2 */
     bbox[3] = pCanvas->top;    /* y2 */
 
-    if (objc != 4) {
+    if (objc != 3) {
         Tcl_WrongNumArgs(interp, 3, objv, "NODE");
         return TCL_ERROR;
     }
 
-    if (0 == Tcl_GetCommandInfo(interp, Tcl_GetString(objv[3]), &info)) {
-        Tcl_AppendResult(interp, "no such node: ", Tcl_GetString(objv[3]), 0);
+    if (0 == Tcl_GetCommandInfo(interp, Tcl_GetString(objv[2]), &info)) {
+        Tcl_AppendResult(interp, "no such node: ", Tcl_GetString(objv[2]), 0);
         return TCL_ERROR;
     }
 

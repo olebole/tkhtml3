@@ -32,6 +32,129 @@ array unset http_name_cache
 #      http_get_url
 #
 
+# urlNormalize --
+#
+#         urlNormalize PATH
+#
+#     The argument is expected to be the path component of a URL (i.e. similar
+#     to a unix file system path). ".." and "." components are removed and the
+#     result returned.
+#
+proc urlNormalize {path} {
+    set ret [list]
+    foreach c [split $path /] {
+        if {$c == ".."} {
+            set ret [lrange $ret 0 end-1]
+        } elseif {$c == "."} {
+            # Do nothing...
+        } else {
+            lappend ret $c
+        }
+    }
+    return [join $ret /]
+}
+
+# urlSplit --
+#
+#         urlSplit URL
+#
+#     Form of URL parsed:
+#         <scheme>://<host>:<port>/<path>?<query>#<fragment>
+#
+proc urlSplit {url} {
+    set re_scheme   {((?:[a-z]+:)?)}
+    set re_host     {((?://[A-Za-z0-9.]*)?)}
+    set re_port     {((?::[0-9]*)?)}
+    set re_path     {((?:[^#?]*)?)}
+    set re_query    {((?:\?[^?]*)?)}
+    set re_fragment {((?:#.*)?)}
+
+    set re "${re_scheme}${re_host}${re_port}${re_path}${re_query}${re_fragment}"
+
+    if {![regexp $re $url X \
+            u(scheme) \
+            u(host) \
+            u(port) \
+            u(path) \
+            u(query) \
+            u(fragment)
+    ]} {
+        error "Bad URL: $url"
+    }
+
+    return [array get u]
+}
+
+# url_resolve --
+#
+#     This command is used to transform a (possibly) relative URL into an
+#     absolute URL. Example:
+#
+#         $ url_resolve http://host.com/dir1/dir2/doc.html ../dir3/doc2.html
+#         http://host.com/dir1/dir3/doc2.html
+#
+proc url_resolve {baseurl url} {
+
+    array set u [urlSplit $url]
+    array set b [urlSplit $baseurl]
+
+    set ret {}
+    foreach part [list scheme host port] {
+        if {$u($part) != ""} {
+            append ret $u($part)
+        } else {
+            append ret $b($part)
+        }
+    }
+
+    if {$b(path) == ""} {set b(path) "/"}
+
+    if {[regexp {^/} $u(path)] || $u(host) != ""} {
+        set path $u(path)
+    } else {
+        if {$u(path) == ""} {
+            set path $b(path)
+        } else {
+            regexp {.*/} $b(path) path
+            append path $u(path)
+        }
+    }
+
+    append ret [urlNormalize $path]
+    append ret $u(query)
+    append ret $u(fragment)
+
+    puts "$baseurl + $url -> $ret"
+    return $ret
+}
+
+swproc url_get {url {fragment ""} {prefragment ""} {port ""} {host ""}} {
+    array set u [urlSplit $url]
+
+    if {$fragment != ""} {
+        uplevel [subst {
+            set $fragment "[string range $u(fragment) 1 end]"
+        }]
+    }
+
+    if {$prefragment != ""} {
+        uplevel [subst {
+            set $prefragment "$u(scheme)$u(host)$u(port)$u(path)$u(query)"
+        }]
+    }
+
+    if {$host != ""} {
+        uplevel [subst {
+            set $host "[string range $u(host) 2 end]"
+        }]
+    }
+
+    if {$port != ""} {
+        uplevel [subst {
+            set $port "[string range $u(port) 1 end]"
+        }]
+    }
+}
 
 #--------------------------------------------------------------------------
 # cache_init, cache_store, cache_query, cache_fetch --
@@ -88,53 +211,27 @@ proc http_get_socket {args} {
 }
 
 proc http_get_url {url args} {
-  array set urlargs [::uri::split $url]
-  set server $urlargs(host)
-  set port $urlargs(port)
-  if {$port == ""} {
-    set port 80
-  }
 
-  if {![info exists ::http_name_cache($server)]} {
-    set ::http_name_cache($server) [::tk::htmlresolve $server]
-  }
-  set server_ip $::http_name_cache($server)
+    url_get $url -port port -host server
+    if {$port == ""} {
+        set port 80
+    } 
+puts "$url -> $server $port"
+  
+    if {![info exists ::http_name_cache($server)]} {
+        set ::http_name_cache($server) [::tk::htmlresolve $server]
+    }
+    set server_ip $::http_name_cache($server)
 
-  set script [concat [list ::http::geturl $url] $args]
-  set s [socket -async $server_ip $port]
-  fileevent $s writable [subst -nocommands {
-    set ::http_current_socket $s
-    $script
-    if {[http_get_socket] != -1} {error "assert()"}
-  }]
+    set script [concat [list ::http::geturl $url] $args]
+    set s [socket -async $server_ip $port]
+    fileevent $s writable [subst -nocommands {
+        set ::http_current_socket $s
+        $script
+        if {[http_get_socket] != -1} {error "assert()"}
+    }]
 }
 #--------------------------------------------------------------------------
-
-# url_resolve --
-#
-#         url_resolve URL ?options?
-#
-#         -setbase       (default false) 
-#
-#     Return a canonical, non-relative version of URL. If the -setbase
-#     option is true, then the base of the returned URL is stored in the
-#     widget dictionary and used by later invocations of url_resolve.
-#
-swproc url_resolve {url {setbase 0 1}} {
-  set base [.html var baseurl]
-  set ret $url
-
-  set ret [uri::canonicalize [uri::resolve $base $url]]
-
-  if {$setbase} {
-    if {0 == [regexp {^(.*/)[^/]*$} $ret newbase]} {
-      set newbase {}
-    }
-    .html var baseurl $newbase
-  }
-
-  return $ret
-}
 
 # url_fetch --
 #

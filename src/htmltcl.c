@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.56 2005/11/21 08:33:10 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.57 2005/11/23 10:45:49 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -1209,14 +1209,20 @@ handlerNodeCmd(clientData, interp, objc, objv)
         return TCL_ERROR;
     }
 
-    pEntry = Tcl_CreateHashEntry(&pTree->aNodeHandler,(char *)tag,&newentry);
-    if (!newentry) {
-        Tcl_Obj *pOld = (Tcl_Obj *)Tcl_GetHashValue(pEntry);
-        Tcl_DecrRefCount(pOld);
+    if (Tcl_GetCharLength(pScript) == 0) {
+        pEntry = Tcl_FindHashEntry(&pTree->aNodeHandler, (char *)tag);
+        if (pEntry) {
+            Tcl_DeleteHashEntry(pEntry);
+        }
+    } else {
+        pEntry = Tcl_CreateHashEntry(&pTree->aNodeHandler,(char*)tag,&newentry);
+        if (!newentry) {
+            Tcl_Obj *pOld = (Tcl_Obj *)Tcl_GetHashValue(pEntry);
+            Tcl_DecrRefCount(pOld);
+        }
+        Tcl_IncrRefCount(pScript);
+        Tcl_SetHashValue(pEntry, (ClientData)pScript);
     }
-
-    Tcl_IncrRefCount(pScript);
-    Tcl_SetHashValue(pEntry, (ClientData)pScript);
 
     return TCL_OK;
 }
@@ -1305,6 +1311,15 @@ styleCmd(clientData, interp, objc, objv)
  *---------------------------------------------------------------------------
  */
 static int 
+bboxCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    return HtmlLayoutBbox(clientData, interp, objc, objv);
+}
+static int 
 imageCmd(clientData, interp, objc, objv)
     ClientData clientData;             /* The HTML widget data structure */
     Tcl_Interp *interp;                /* Current interpreter. */
@@ -1377,6 +1392,7 @@ int HtmlWidgetObjCommand(clientData, interp, objc, objv)
         char *zCmd2;                /* Second-level subcommand.  May be NULL */
         Tcl_ObjCmdProc *xFuncObj;   /* Object cmd */
     } aSubcommand[] = {
+        {"bbox",      0,        bboxCmd},
         {"cget",      0,        cgetCmd},
         {"configure", 0,        configureCmd},
         {"handler",   "node",   handlerNodeCmd},

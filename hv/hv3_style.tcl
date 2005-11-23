@@ -9,8 +9,6 @@
 #         style_newdocument HTML
 #
 
-package require uri
-
 #--------------------------------------------------------------------------
 # Global variables section
 set ::hv3_style_count 0
@@ -54,11 +52,7 @@ proc styleHandleStyle {HTML script} {
 #     styleUrl BASE-URL URL
 #
 proc styleUrl {baseurl url} {
-    set ret $url
-    if {[::uri::isrelative $url]} {
-        set ret "${baseurl}${url}"
-    }
-    return $ret
+    return [url_resolve $baseurl $url]
 }
 
 # styleCallback --
@@ -66,19 +60,10 @@ proc styleUrl {baseurl url} {
 #     styleCallback HTML URL ID STYLE-TEXT
 #
 proc styleCallback {HTML url id style} {
-    # Argument $url is the full URL of the stylesheet just loaded.
-    if {[::uri::isrelative $url]} {
-        error {assert($url is relative)}
-    }
-
-    array set u [::uri::split $url]
-    regexp -expanded {^(.*/)[^/]*$} $u(path) dummy u(path)
-    set baseurl [eval [concat ::uri::join [array get u]]]
-
     $HTML style \
         -id $id \
         -importcmd [list styleImport $HTML $id] \
-        -urlcmd [list styleUrl $baseurl] \
+        -urlcmd [list styleUrl $url] \
         $style
 }
 
@@ -88,7 +73,6 @@ proc styleCallback {HTML url id style} {
 #
 proc styleImport {HTML parentid url} {
     set id ${parentid}.[format %.4d [incr ::hv3_style_count]]
-    set url [url_resolve $url]
     url_fetch $url -id $url -script [list styleCallback $HTML $url $id]
 }
 
@@ -102,7 +86,7 @@ proc styleHandleLink {HTML node} {
         set media [$node attr -default "" media]
         if {$media == "" || [regexp all $media] || [regexp screen $media]} {
             set id author.[format %.4d [incr ::hv3_style_count]]
-            set url [url_resolve [$node attr href]]
+            set url [url_resolve [$HTML var url] [$node attr href]]
             url_fetch $url -id $url -script [list styleCallback $HTML $url $id]
         }
     }

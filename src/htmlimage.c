@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlimage.c,v 1.37 2005/11/16 08:46:43 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlimage.c,v 1.38 2005/11/23 10:45:49 danielk1977 Exp $";
 
 
 #include <assert.h>
@@ -251,7 +251,7 @@ HtmlResizeImage(pTree, zImage, pWidth, pHeight, calculateSizeOnly)
         return 0;
     }
 
-    if (*pWidth==w && *pHeight==h) {
+    if ((*pWidth==w && *pHeight==h) || w==0 || h==0) {
         /* If the requested dimensions match the intrinsic dimensions,
          * just return the name of the original image.
          */
