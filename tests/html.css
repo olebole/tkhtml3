@@ -213,4 +213,9 @@ table[cellspacing] td, table[cellspacing] th {
     border-spacing: tcl(::tkhtml::aa table cellspacing -len);
 }
 
+/* Support the "background" and "text" attributes on the <body> tag */
+body[text]       {color: tcl(::tkhtml::attr text)}
+body {
+    background-image: tcl(format "url(%s)" [::tkhtml::attr background])
+}
 

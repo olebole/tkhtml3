@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.60 2005/11/15 07:53:59 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.61 2005/11/23 05:52:02 danielk1977 Exp $";
 
 #include "htmllayout.h"
 
@@ -113,7 +113,7 @@ static void tableCalculateCellWidths(TableData *, int);
 static int 
 nodeGetWidth(pNode, pwidth, def, pIsFixed, pIsAuto)
     HtmlNode *pNode;          /* Node */
-    int pwidth;               /* Unused */
+    int pwidth;               /* Width of the containing block */
     int def;                  /* Default value */
     int *pIsFixed;            /* OUT: True if a pixel width */
     int *pIsAuto;             /* OUT: True if value is "auto" */
@@ -125,6 +125,9 @@ nodeGetWidth(pNode, pwidth, def, pIsFixed, pIsAuto)
 
     if (pIsAuto) {
         *pIsAuto = ((iWidth == PIXELVAL_AUTO) ? 1 : 0);
+    }
+    if (pIsFixed) {
+        *pIsFixed = (PIXELVAL(pV, WIDTH, -1) >= 0); 
     }
 
     assert(iWidth != PIXELVAL_NONE && iWidth != PIXELVAL_NORMAL);
@@ -170,7 +173,7 @@ tableColWidthSingleSpan(pNode, col, colspan, row, rowspan, pContext)
 {
     TableData *pData = (TableData *)pContext;
 
-    if (colspan==1) {
+    if (colspan == 1) {
         int max;
         int min;
         int w;
@@ -1073,5 +1076,4 @@ int tableLayout(pLayout, pBox, pNode)
 
     return TCL_OK;
 }
-
 

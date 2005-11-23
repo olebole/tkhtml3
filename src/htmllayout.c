@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.110 2005/11/21 05:53:11 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.111 2005/11/23 05:52:02 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -1195,6 +1195,9 @@ drawBlock(pLayout, pBox, pNode, iAvailable, flags)
     }
 
     if (flags & DRAWBLOCK_ENFORCEHEIGHT) {
+	/* Note: This is a bug (calculating percentage height relative to the
+         * *width* of the containing block. But it could be worse...
+         */
         int iHeight = PIXELVAL(pV, HEIGHT, pBox->iContaining);
         sBox.height = MAX(sBox.height, iHeight);
     }
@@ -1228,7 +1231,8 @@ HtmlLayoutTableCell(pLayout, pBox, pNode, iAvailable)
     HtmlNode *pNode;
     int iAvailable;
 {
-    drawBlock(pLayout, pBox, pNode, iAvailable, DRAWBLOCK_OMITBORDER);
+    unsigned int flags = (DRAWBLOCK_OMITBORDER|DRAWBLOCK_ENFORCEHEIGHT);
+    drawBlock(pLayout, pBox, pNode, iAvailable, flags);
     return 0;
 }
 

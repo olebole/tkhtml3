@@ -33,6 +33,7 @@ array unset http_name_cache
 #
 
 
+#--------------------------------------------------------------------------
 # cache_init, cache_store, cache_query, cache_fetch --
 #
 #         cache_init
@@ -61,13 +62,20 @@ proc cache_fetch {url} {
   set sql {SELECT data FROM cache WHERE url = $url}
   return [[.html var cache] one $sql]
 }
+#
+#--------------------------------------------------------------------------
 
-###########################################################################
+#--------------------------------------------------------------------------
 # Enhancement to the http package - asychronous socket connection
 #
-::http::register http 80 http_get_socket
-
+#     The tcllib http package does not support asynchronous connections
+#     (although asynchronous IO is supported after the connection is
+#     established). The following code is a hack to work around that.
+#
+#     Note: Asynchronous dns lookup is required too!
+#
 set UA "Mozilla/5.0 (compatible; Konqueror/3.3; Linux) (KHTML, like Gecko)"
+::http::register http 80 http_get_socket
 ::http::config -useragent $UA
 
 set http_current_socket -1
@@ -100,7 +108,7 @@ proc http_get_url {url args} {
     if {[http_get_socket] != -1} {error "assert()"}
   }]
 }
-###########################################################################
+#--------------------------------------------------------------------------
 
 # url_resolve --
 #
