@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.43 2005/11/21 09:30:02 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.44 2005/11/23 15:24:42 danielk1977 Exp $";
 
 /*
  *    The CSS "cascade":
@@ -805,7 +805,8 @@ static int propertyIsLength(pProp)
  *
  *---------------------------------------------------------------------------
  */
-static CONST char *getNextListItem(zList, nList, pN)
+static CONST char *
+getNextListItem(zList, nList, pN)
     CONST char *zList;
     int nList;
     int *pN;
@@ -1816,6 +1817,7 @@ newCssPriority(pStyle, origin, pIdTail, important)
         pPrev = pIter;
     }
    
+#if 0
     if (!pPrev) {
         pNew->iPriority = 0;
         pNew->pNext = pStyle->pPriority;
@@ -1839,6 +1841,29 @@ newCssPriority(pStyle, origin, pIdTail, important)
         assert(comparePriority(pIter, pIter->pNext) >= 0);
     }
 #endif
+#endif
+
+    switch (origin) {
+        case CSS_ORIGIN_AGENT:
+            pNew->iPriority = 1;
+            break;
+        case CSS_ORIGIN_USER:
+            if (important) {
+                pNew->iPriority = 5;
+            } else {
+                pNew->iPriority = 2;
+            }
+            break;
+        case CSS_ORIGIN_AUTHOR:
+            if (important) {
+                pNew->iPriority = 4;
+            } else {
+                pNew->iPriority = 3;
+            }
+            break;
+        default:
+            assert(!"Impossible");
+    }
 
     return pNew;
 }
@@ -2360,17 +2385,19 @@ ruleCompare(CssRule *pLeft, CssRule *pRight) {
     assert(pRight->pPriority);
     assert(pLeft->pPriority);
 
-    /* In this case (right - left) is correct, because iPriority is a lower
-     * number for higher priority stylesheet documents. See comments above
-     * CssPriority struct in cssInt.h
-     */
-    res = pRight->pPriority->iPriority - pLeft->pPriority->iPriority;
+    res = pLeft->pPriority->iPriority - pRight->pPriority->iPriority;
 
     if (res == 0) {
         /* But here we want (left - right), because specificity is higher
          * for more specific rules.
          */
         res = pLeft->specificity - pRight->specificity;
+
+        if (res == 0) {
+            CONST char *zLeft = Tcl_GetString(pLeft->pPriority->pIdTail);
+            CONST char *zRight = Tcl_GetString(pLeft->pPriority->pIdTail);
+            res = strcmp(zLeft, zRight);
+        }
     }
     return res;
 }

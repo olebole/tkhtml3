@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.42 2005/11/21 05:13:42 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.43 2005/11/23 15:24:43 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -449,7 +449,23 @@ propertyValuesSetColor(p, pCVar, pProp)
     pEntry = Tcl_CreateHashEntry(&pTree->aColor, zColor, &newEntry);
     if (newEntry) {
         XColor *color;
-        color = Tk_GetColor(pTree->interp, pTree->tkwin, zColor);
+
+        if (zColor[0] == '#' && strlen(zColor) == 4) {
+	    /* Tk interprets a color value of "#ABC" as the same as "#A0B0C0".
+             * But CSS implementations generally assume that it is equivalent
+             * to "#AABBCC".
+             */
+	    char zBuf[8];
+            zBuf[0] = '#';
+            zBuf[1] = zColor[1]; zBuf[2] = zColor[1];
+            zBuf[3] = zColor[2]; zBuf[4] = zColor[2];
+            zBuf[5] = zColor[3]; zBuf[6] = zColor[3];
+            zBuf[7] = '\0';
+            color = Tk_GetColor(pTree->interp, pTree->tkwin, zBuf);
+        } else {
+            color = Tk_GetColor(pTree->interp, pTree->tkwin, zColor);
+        }
+
         if (!color && strlen(zColor) <= 12) {
             /* Old versions of netscape used to support hex colors
              * without the '#' character (i.e. "FFF" is the same as
@@ -464,7 +480,7 @@ propertyValuesSetColor(p, pCVar, pProp)
         }
 
         if (color) {
-            cVal = (HtmlColor *)HtmlAlloc(sizeof(HtmlColor) + strlen(zColor) + 1);
+            cVal = (HtmlColor *)HtmlAlloc(sizeof(HtmlColor)+strlen(zColor)+1);
             cVal->nRef = 0;
             cVal->xcolor = color;
             cVal->zColor = (char *)(&cVal[1]);

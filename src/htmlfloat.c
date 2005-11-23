@@ -37,7 +37,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  * COPYRIGHT:
  */
-static const char rcsid[] = "$Id: htmlfloat.c,v 1.8 2005/11/13 12:00:17 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlfloat.c,v 1.9 2005/11/23 15:24:42 danielk1977 Exp $";
 
 #include <assert.h>
 #include "html.h"
@@ -354,7 +354,7 @@ HtmlFloatListAdd(pList, side, x, y1, y2)
      */
     for (pEntry = pList->pEntry; pEntry; pEntry = pEntry->pNext) {
         int yend = pEntry->pNext ? pEntry->pNext->y : pList->yend;
-        if (y2 >= pEntry->y && y1 <= yend) {
+        if (y2 > pEntry->y && y1 < yend) {
             if (side==FLOAT_LEFT) {
                 if (pEntry->leftValid) {
                     pEntry->left = MAX(pEntry->left, x);
@@ -679,3 +679,22 @@ place_out:
 #endif
     return ret;
 }
+
+void 
+HtmlFloatListLog(pTree, zNode, pList)
+    HtmlTree *pTree;
+    CONST char *zNode;
+    HtmlFloatList *pList;
+{
+    FloatListEntry *pCsr = pList->pEntry;
+    HtmlLog(pTree, "LAYOUTENGINE", "%s Float-list: %d %d %d %d",
+        zNode, pList->xorigin, pList->yorigin, pList->yend, pList->endValid);
+
+    while (pCsr) {
+        HtmlLog(pTree, "LAYOUTENGINE", "%s Float-list Entry: %d %d %d %d %d",
+            zNode, pCsr->y, pCsr->left, pCsr->right, 
+            pCsr->leftValid, pCsr->rightValid);
+        pCsr = pCsr->pNext;
+    }
+}
+

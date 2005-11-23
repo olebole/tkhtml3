@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.111 2005/11/23 05:52:02 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.112 2005/11/23 15:24:42 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -665,6 +665,13 @@ normalFlowLayoutFloat(pLayout, pBox, pNode, pY, pContext, pNormal)
      */
     pBox->width = MAX(x + iTotalWidth, pBox->width);
 
+    LOG if (!pLayout->minmaxTest) {
+        HtmlTree *pTree = pLayout->pTree;
+        char const *zNode = Tcl_GetString(HtmlNodeCommand(pTree, pNode));
+        HtmlFloatListLog(pTree, zNode, pBox->pFloat);
+        HtmlLog(pTree, "LAYOUTENGINE", "%s !!!!!!!!!!!!!!!", zNode);
+    }
+
     /* Fix the float list in the parent block so that nothing overlaps
      * this floating box.
      */
@@ -677,7 +684,10 @@ normalFlowLayoutFloat(pLayout, pBox, pNode, pY, pContext, pNormal)
         char const *zNode = Tcl_GetString(HtmlNodeCommand(pTree, pNode));
         HtmlLog(pTree, "LAYOUTENGINE", "%s (Float) %dx%d (%d,%d)", 
             zNode, iTotalWidth, iTotalHeight, x, iTop);
+        HtmlLog(pTree, "LAYOUTENGINE", "%s !!!!!!!!!!!!!!!", zNode);
+        HtmlFloatListLog(pTree, zNode, pBox->pFloat);
     }
+
 
     return 0;
 }
@@ -990,7 +1000,7 @@ inlineLayoutDrawLines(pLayout, pBox, pContext, forceflag, pY, pNormal)
              * HtmlFloatListPlace().
              */
             assert(!(f & LINEBOX_FORCEBOX));
-            y = HtmlFloatListPlace(pBox->pFloat, pBox->iContaining, w, 1, y);
+            y = HtmlFloatListPlace(pBox->pFloat, pBox->iContaining, w, 10, y);
             have = 1;
         } 
 

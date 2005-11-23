@@ -124,7 +124,7 @@ proc url_resolve {baseurl url} {
     append ret $u(query)
     append ret $u(fragment)
 
-    puts "$baseurl + $url -> $ret"
+    # puts "$baseurl + $url -> $ret"
     return $ret
 }
 

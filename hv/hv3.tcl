@@ -299,8 +299,8 @@ proc gui_parse {fragment text} {
             set ycanvas [lindex $coords2 3]
             .html yview moveto [expr double($ypix) / double($ycanvas)]
         }
+        unset ::hv3_goto_node
     }
-    unset ::hv3_goto_node
 }
 
 # gui_log
