@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.74 2005/11/23 10:45:49 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.75 2005/11/28 15:56:58 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -954,18 +954,19 @@ getPixmap(pTree, xcanvas, ycanvas, w, h)
             case CANVAS_IMAGE2: {
                 CanvasImage2 *pI2 = &pItem->x.i2;
                 if (pI2->pImage) {
-                    int iw;
-                    int ih;
+                    int iw;            /* Intrinsic width of image */
+                    int ih;            /* Intrinsic height of image */
 
                     Tk_Image img = pI2->pImage->image;
                     Tk_SizeOfImage(img, &iw, &ih);
 
                     if (iw > 0 && ih > 0) {
+                        Pixmap imgpix = 0;
                         int xiter;
                         int yiter;
 
-                        int x2;
-                        int y2;
+                        int bw;
+                        int bh;
                         int xi = 0;
                         int yi = 0;
                         int x1 = pI2->iPositionX;
@@ -974,8 +975,8 @@ getPixmap(pTree, xcanvas, ycanvas, w, h)
                             x1 = (double)x1 * (double)(pI2->w - iw) / 10000.0;
                             y1 = (double)y1 * (double)(pI2->h - ih) / 10000.0;
                         }
-                        x2 = x1 + iw;
-                        y2 = y1 + ih;
+                        bw = iw;
+                        bh = ih;
 
                         if (
                             pI2->eRepeat == CSS_CONST_REPEAT || 
@@ -983,7 +984,7 @@ getPixmap(pTree, xcanvas, ycanvas, w, h)
                         ) {
                             xi = iw - (x1 % iw);
                             x1 = 0;
-                            x2 = pI2->w;
+                            bw = pI2->w;
                         }
                         if (
                             pI2->eRepeat == CSS_CONST_REPEAT || 
@@ -991,24 +992,24 @@ getPixmap(pTree, xcanvas, ycanvas, w, h)
                         ) {
                             yi = ih - (y1 % ih);
                             y1 = 0;
-                            y2 = pI2->h;
+                            bh = pI2->h;
                         }
+                        x1 += (pI2->x + x);
+                        y1 += (pI2->y + y);
 
-                        for (xiter = x1 - xi; xiter < x2; xiter += iw) {
-                            for (yiter = y1 - yi; yiter < y2; yiter += ih) {
-                                int img_x = MAX(0, x1 - xiter);
-                                int img_y = MAX(0, y1 - yiter); 
-                                int img_w = MIN(iw, x2 - xiter);
-                                int img_h = MIN(ih, y2 - yiter);
-                                Tk_RedrawImage(img,
-                                    img_x, img_y,
-                                    img_w, img_h,
-                                    pmap, 
-                                    pI2->x + x + xiter + img_x, 
-                                    pI2->y + y + yiter + img_y
-                                );
-                            }
-                        }
+                        imgpix = Tk_GetPixmap(pDisplay, Tk_WindowId(win), iw, ih, Tk_Depth(win));
+                        Tk_RedrawImage(img, 0, 0, iw, ih, imgpix, 0, 0);
+                        gc_values.tile = imgpix;
+                        gc_values.ts_x_origin = x1 - xi;
+                        gc_values.ts_y_origin = y1 - yi;
+                        gc_values.fill_style = FillTiled;
+                        gc = Tk_GetGC(pTree->win, 
+                            GCTile|GCTileStipXOrigin|
+                            GCTileStipYOrigin|GCFillStyle, 
+                            &gc_values
+                        );
+                        XFillRectangle(pDisplay, pmap, gc, x1, y1, bw, bh);
+                        Tk_FreePixmap(pDisplay, imgpix);
                     }
                 }
                 break;
