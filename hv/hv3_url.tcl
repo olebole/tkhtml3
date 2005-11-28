@@ -18,6 +18,7 @@ array unset http_name_cache
 #      url_resolve
 #      url_fetch
 #      url_cancel
+#      url_get
 #
 # The url procedures use the following global variables:
 #
@@ -93,6 +94,8 @@ proc urlSplit {url} {
 #         $ url_resolve http://host.com/dir1/dir2/doc.html ../dir3/doc2.html
 #         http://host.com/dir1/dir3/doc2.html
 #
+#     This is purely a string manipulation procedure.
+#
 proc url_resolve {baseurl url} {
 
     array set u [urlSplit $url]
@@ -128,6 +131,11 @@ proc url_resolve {baseurl url} {
     return $ret
 }
 
+# url_get --
+#
+#     This is a high-level string manipulation procedure to extract components
+#     from a URL.
+#
 swproc url_get {url {fragment ""} {prefragment ""} {port ""} {host ""}} {
     array set u [urlSplit $url]
 

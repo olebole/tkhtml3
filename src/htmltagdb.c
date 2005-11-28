@@ -37,13 +37,26 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltagdb.c,v 1.8 2005/11/13 12:00:17 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltagdb.c,v 1.9 2005/11/28 12:48:08 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
 #include <string.h>
 
 extern HtmlTokenMap HtmlMarkupMap[];
+
+
+static int 
+textContent(pTree, pNode, tag)
+    HtmlTree *pTree;
+    HtmlNode *pNode;
+    int tag;
+{
+    if (tag == Html_Space || tag == Html_Text) {
+        return TAG_OK;
+    }
+    return TAG_CLOSE;
+}
 
 /*
  *---------------------------------------------------------------------------
@@ -62,9 +75,20 @@ HtmlTokenMap *
 HtmlMarkup(markup)
     int markup;
 {
-    int i = markup-Html_A;
-    assert(i>=0 && i<HTML_MARKUP_COUNT);
-    return &HtmlMarkupMap[i];
+    if (markup == Html_Text || markup == Html_Space) {
+        static HtmlTokenMap textmapentry = {
+            "text",
+            Html_Text,
+            HTMLTAG_INLINE,
+            textContent,
+            0
+        };
+        return &textmapentry;
+    } else {
+        int i = markup-Html_A;
+        assert(i>=0 && i<HTML_MARKUP_COUNT);
+        return &HtmlMarkupMap[i];
+    }
 }
 
 /*

@@ -1,5 +1,5 @@
 #
-# $Revision: 1.21 $
+# $Revision: 1.22 $
 #
 # tokenlist.tcl -- 
 #
@@ -247,6 +247,10 @@ proc _TAG {args} {
     if {$flow!=0} {
         set flags $flow
     } 
+    if {$xClose == "HtmlEmptyContent"} {
+        append flags |HTMLTAG_EMPTY
+        set xClose 0
+    }
     puts $::c_file [format $fmt "\"$tag\"," $opensym, $flags, $xClose, 0]
     set flags HTMLTAG_END
     puts $::c_file [format $fmt "\"/$tag\"," $closesym, $flags, 0, 0]

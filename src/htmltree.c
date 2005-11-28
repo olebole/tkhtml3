@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.38 2005/11/21 05:13:42 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.39 2005/11/28 12:48:08 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -62,8 +62,11 @@ static int isExplicitClose(pNode, tag)
     HtmlNode *pNode;
     int tag;
 {
-    int opentag = pNode->pToken->type;
-    return (tag==(opentag+1));
+    if (tag != Html_Text && tag != Html_Space) {
+        int opentag = pNode->pToken->type;
+        return (tag==(opentag+1));
+    }
+    return 0;
 }
 
 
@@ -93,6 +96,7 @@ static int isExplicitClose(pNode, tag)
  *
  *---------------------------------------------------------------------------
  */
+#if 0
 static int 
 isEndTag(pNode, pToken)
     HtmlNode *pNode;
@@ -133,6 +137,127 @@ isEndTag(pNode, pToken)
         }
     }
     return 0;
+}
+#endif
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * tokenAction --
+ *
+ *     Figure out the effect on the document tree of the token in pToken.
+ *
+ * Results:
+ *     True if the token creates a new node, false if it does not (i.e. if it
+ *     is a closing tag).
+ *
+ * Side effects:
+ *     May modify pTree->pCurrent.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+tokenAction(pTree, pToken, pNClose)
+    HtmlTree *pTree;
+    HtmlToken *pToken;
+    int *pNClose;
+{
+    HtmlNode *pCurrent = pTree->pCurrent;
+    int nClose = 0;
+    int nLevel = 0;
+    int rc = 0;
+    int tag = pToken->type;
+    int seenImplicit = 0;
+
+    if (tag == Html_Space) {
+        HtmlToken *pT;
+        for (pT = pToken; pT && pT->type == Html_Space; pT = pT->pNext);
+        if (pT && pT->type == Html_Text) {
+            tag = Html_Text;
+        }
+    }
+
+    /* If pToken is NULL, this means the end of the token list has been
+     * reached. Close all nodes and set pTree->pCurrent to NULL.
+     */ 
+    if (!pToken) {
+        HtmlNode *p;
+        for (p = pCurrent; p; p = HtmlNodeParent(p)) {
+            nClose++;
+        }
+        pCurrent = 0;
+    }
+
+    else {
+        HtmlNode *p = pCurrent;
+        while (p) {
+            HtmlTokenMap *pMap = HtmlMarkup(HtmlNodeTagType(p));
+            int a;
+            int isExplicit = 0;
+            if (isExplicitClose(p, tag)) {
+                a = TAG_CLOSE;
+                isExplicit = 1;
+            } else if (pMap && pMap->xClose) {
+                a = pMap->xClose(pTree, p, tag);
+            } else {
+                a = TAG_PARENT;
+            }
+
+            if (seenImplicit && a == TAG_PARENT) {
+                a = TAG_OK;
+            }
+            assert(!seenImplicit || a != TAG_CLOSE);
+
+            switch (a) {
+                case TAG_CLOSE:
+                    assert(!seenImplicit);
+                    p = HtmlNodeParent(p);
+                    if (p) {
+                        pCurrent = p;
+                        nLevel++;
+                    } else {
+                        pCurrent = pTree->pRoot;
+                    }
+                    nClose = nLevel;
+                    break;
+                case TAG_OK:
+                    p = 0;
+                    break;
+                case TAG_IMPLICIT:
+                    seenImplicit = 1;
+                    assert(HtmlNodeNumChildren(p) > 0);
+                    p = HtmlNodeChild(p, HtmlNodeNumChildren(p) - 1);
+                    assert(p);
+                    pCurrent = p;
+                    break;
+                case TAG_PARENT:
+                    nLevel++;
+                    p = HtmlNodeParent(p);
+                    break;
+
+                default: assert(!"Impossible");
+            }
+            if (isExplicit) {
+                p = 0;
+            }
+        }
+
+        assert(!HtmlNodeIsText(pCurrent) || tag==Html_Space || tag==Html_Text);
+
+        if (
+            !(HTMLTAG_END & HtmlMarkupFlags(tag)) && 
+            !HtmlNodeIsText(pCurrent)
+        ) {
+            assert(pCurrent);
+            rc = 1;
+        }
+    }
+
+    assert(!seenImplicit || rc);
+    
+    pTree->pCurrent = pCurrent;
+    *pNClose = nClose;
+    return rc;
 }
 
 /*
@@ -306,7 +431,7 @@ HtmlFinishNodeHandlers(pTree)
  *     returns the new child node.
  *
  * Results:
- *     None.
+ *     Index of the child added to pNode.
  *
  * Side effects:
  *     None.
@@ -362,7 +487,6 @@ HtmlAddToken(pTree, pToken)
 {
     HtmlNode *pCurrent = pTree->pCurrent;
     int type = pToken->type;
-    Html_u8 flags = HtmlMarkupFlags(type);
 
     assert((pCurrent && pTree->pRoot) || !pCurrent);
     if (!pCurrent && pTree->pRoot) {
@@ -412,6 +536,7 @@ HtmlAddToken(pTree, pToken)
             pHtml->type = Html_HTML;
             pHtml->pNext = pTree->pFirst;
             pTree->pFirst = pHtml;
+            pTree->pLast = pHtml;
             if (pHtml->pNext) {
                 pHtml->pNext->pPrev = pHtml;
             }
@@ -421,35 +546,42 @@ HtmlAddToken(pTree, pToken)
         memset(pCurrent, 0, sizeof(HtmlNode));
         pCurrent->pToken = pHtml;
         pTree->pRoot = pCurrent;
+        pTree->pCurrent = pCurrent;
 
         if (pHtml != pToken) {
             HtmlAddToken(pTree, pToken);
         }
 
     } else if (type != Html_HTML) {
-        int c = -1;
-        int breakout = 0;
+        int nClose = 0;
+        int i;
+        int r = tokenAction(pTree, pToken, &nClose);
 
-
-        while (!breakout && pCurrent && isEndTag(pCurrent, pToken)) {
-            if (flags&HTMLTAG_END && isExplicitClose(pCurrent, type)) {
-                breakout = 1;
-            }
+        for (i = 0; i < nClose; i++) {
             nodeHandlerCallbacks(pTree, pCurrent);
             pCurrent = HtmlNodeParent(pCurrent);
         }
 
-        if (type == Html_Text || type == Html_Space) {
-            if (!HtmlNodeIsText(pCurrent)) {
-                c = nodeAddChild(pCurrent, pToken);
-            }
-        } else {
-            if (!(flags&HTMLTAG_END) && pCurrent && pToken) {
-                c = nodeAddChild(pCurrent, pToken);
+#ifndef NDEBUG
+        {
+            HtmlNode *pTmp = pCurrent;
+            assert(r || pTmp == pTree->pCurrent);
+            while (pTmp != pCurrent) {
+                assert(HtmlNodeNumChildren(pTmp) > 0);
+                pTmp = HtmlNodeChild(pTmp, HtmlNodeNumChildren(pTmp) - 1);
             }
         }
-        if (c >= 0) {
-            pCurrent = HtmlNodeChild(pCurrent, c);
+#endif
+
+        pCurrent = pTree->pCurrent;
+        if (r) {
+            assert(!HtmlNodeIsText(pTree->pCurrent));
+            pCurrent = HtmlNodeChild(pCurrent, nodeAddChild(pCurrent, pToken));
+        }
+
+        if (HtmlMarkupFlags(type) & HTMLTAG_EMPTY) {
+            nodeHandlerCallbacks(pTree, pCurrent);
+            pCurrent = HtmlNodeParent(pCurrent);
         }
     }
 
@@ -575,6 +707,23 @@ HtmlNodeIsText(pNode)
     return (type==Html_Text || type==Html_Space);
 }
 #endif
+
+int 
+HtmlNodeIsWhitespace(pNode)
+    HtmlNode *pNode;
+{
+    HtmlToken *p;
+    if (!HtmlNodeIsText(pNode)) {
+        return 0;
+    }
+
+    for (p = pNode->pToken; p && p->type == Html_Space; p = p->pNext);
+    if (p && p->type == Html_Text) {
+        return 0;
+    }
+
+    return 1;
+}
 
 /*
  *---------------------------------------------------------------------------
@@ -821,7 +970,7 @@ node_attr_usage:
             Tcl_AppendResult(interp, "Usage: ",
                 Tcl_GetString(objv[0]), " ",
                 Tcl_GetString(objv[1]), " ",
-                "??-default DEFAULT-VALUE? ATTR-NAME?", 0);
+                "? ?-default DEFAULT-VALUE? ATTR-NAME?", 0);
             return TCL_ERROR;
         }
 
@@ -1111,7 +1260,7 @@ HtmlNodeToString(pNode)
         HtmlToken *pToken = pNode->pToken;
         Tcl_AppendToObj(pStr, "<", -1);
         Tcl_AppendToObj(pStr, HtmlMarkupName(tag), -1);
-        for (i = 0; i < pToken->count; i += 2) {
+        for (i = 2; i < pToken->count; i += 2) {
             Tcl_AppendToObj(pStr, " ", -1);
             Tcl_AppendToObj(pStr, pToken->x.zArgs[i], -1);
             Tcl_AppendToObj(pStr, "=\"", -1);

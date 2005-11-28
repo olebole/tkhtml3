@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.47 2005/11/13 12:00:17 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.48 2005/11/28 12:48:08 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -40,13 +40,114 @@ static char const rcsid[] =
 #include <assert.h>
 #include "html.h"
 
+static void
+AppendTextToken(pTree, pToken)
+    HtmlTree *pTree;
+    HtmlToken *pToken;
+{
+    if (!pTree->pTextFirst) {
+        assert(!pTree->pTextLast);
+        pTree->pTextFirst = pToken;
+        pTree->pTextLast = pToken;
+        pToken->pPrev = 0;
+    } else {
+        assert(pTree->pTextLast);
+        pTree->pTextLast->pNext = pToken;
+        pToken->pPrev = pTree->pTextLast;
+        pTree->pTextLast = pToken;
+    }
+    pToken->pNext = 0;
+}
+
 /*
- * The following elements have optional opening and closing types:
+ *---------------------------------------------------------------------------
+ *
+ * AppendToken --
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void 
+AppendToken(pTree, pToken)
+    HtmlTree *pTree;
+    HtmlToken *pToken;
+{
+    if (pTree->pTextFirst) {
+        HtmlToken *pTextFirst = pTree->pTextFirst;
+        HtmlToken *pTextLast = pTree->pTextLast;
+        pTree->pTextLast = 0;
+        pTree->pTextFirst = 0;
+
+        HtmlAddToken(pTree, pTextFirst);
+        if (pTree->pFirst) {
+            assert(pTree->pLast);
+            pTree->pLast->pNext = pTextFirst;
+            pTextFirst->pPrev = pTree->pLast;
+        } else {
+            assert(!pTree->pLast);
+            pTree->pFirst = pTextFirst;
+        }
+        pTree->pLast = pTextLast;
+    }
+
+    pToken->pNext = 0;
+    pToken->pPrev = 0;
+    HtmlAddToken(pTree, pToken);
+    if (pTree->pFirst) {
+        assert(pTree->pLast);
+        pTree->pLast->pNext = pToken;
+        pToken->pPrev = pTree->pLast;
+    } else {
+        assert(!pTree->pLast);
+        pTree->pFirst = pToken;
+        pToken->pPrev = 0;
+    }
+    pTree->pLast = pToken;
+}
+
+static void
+AppendImplicitToken(pTree, pNode, tag)
+    HtmlTree *pTree;
+    HtmlNode *pNode;
+    int tag;
+{
+    HtmlNode *pCurrent = pTree->pCurrent;
+    HtmlToken *pImplicit = (HtmlToken *)HtmlAlloc(sizeof(HtmlToken));
+    memset(pImplicit, 0, sizeof(HtmlToken));
+    pImplicit->type = tag;
+
+    pTree->pCurrent = pNode;
+    AppendToken(pTree, pImplicit);
+    pTree->pCurrent = pCurrent;
+}
+
+/*
+ * The following elements have optional opening and closing tags:
  *
  *     <tbody>
  *     <html>
  *     <head>
  *     <body>
+ *
+ * These have optional end tags:
+ *
+ *     <dd>
+ *     <dt>
+ *     <li>
+ *     <option>
+ *     <p>
+ *
+ *     <colgroup>
+ *     <td>
+ *     <th>
+ *     <tr>
+ *     <thead>
+ *     <tfoot>
  *
  * The following functions:
  *
@@ -89,7 +190,8 @@ static char const rcsid[] =
  *---------------------------------------------------------------------------
  */
 static int 
-HtmlEmptyContent(pNode, tag)
+HtmlEmptyContent(pTree, pNode, tag)
+    HtmlTree *pTree;
     HtmlNode *pNode;
     int tag;
 {
@@ -110,7 +212,8 @@ HtmlEmptyContent(pNode, tag)
  *---------------------------------------------------------------------------
  */
 static int 
-HtmlDlContent(pNode, tag)
+HtmlDlContent(pTree, pNode, tag)
+    HtmlTree *pTree;
     HtmlNode *pNode;
     int tag;
 {
@@ -134,7 +237,8 @@ HtmlDlContent(pNode, tag)
  *---------------------------------------------------------------------------
  */
 static int 
-HtmlUlContent(pNode, tag)
+HtmlUlContent(pTree, pNode, tag)
+    HtmlTree *pTree;
     HtmlNode *pNode;
     int tag;
 {
@@ -162,7 +266,8 @@ HtmlUlContent(pNode, tag)
  *---------------------------------------------------------------------------
  */
 static int 
-HtmlInlineContent(pNode, tag)
+HtmlInlineContent(pTree, pNode, tag)
+    HtmlTree *pTree;
     HtmlNode *pNode;
     int tag;
 {
@@ -203,7 +308,8 @@ HtmlInlineContent(pNode, tag)
  *---------------------------------------------------------------------------
  */
 static int 
-HtmlFlowContent(pNode, tag)
+HtmlFlowContent(pTree, pNode, tag)
+    HtmlTree *pTree;
     HtmlNode *pNode;
     int tag;
 {
@@ -233,7 +339,8 @@ HtmlFlowContent(pNode, tag)
  *---------------------------------------------------------------------------
  */
 static int 
-HtmlColgroupContent(pNode, tag)
+HtmlColgroupContent(pTree, pNode, tag)
+    HtmlTree *pTree;
     HtmlNode *pNode;
     int tag;
 {
@@ -265,20 +372,28 @@ HtmlColgroupContent(pNode, tag)
  *---------------------------------------------------------------------------
  */
 static int 
-HtmlTableContent(pNode, tag)
+HtmlTableContent(pTree, pNode, tag)
+    HtmlTree *pTree;
     HtmlNode *pNode;
     int tag;
 {
-    if (    tag==Html_EndTR || 
-            tag==Html_EndTD ||
-            tag==Html_EndTH ||
-            tag==Html_TR    ||
-            tag==Html_TD    ||
-            tag==Html_TH
+    if (
+        tag==Html_EndTR ||
+        tag==Html_EndTD || 
+        tag==Html_EndTH ||
+        tag==Html_TR    ||
+        tag==Html_TD    ||
+        tag==Html_TH    ||
+        tag==Html_Space
     ) { 
         return TAG_OK;
     }
-    if (tag == Html_Text || tag == Html_Space) return TAG_OK;
+
+    if (!(HtmlMarkupFlags(tag) & HTMLTAG_END)) {
+        AppendImplicitToken(pTree, pNode, Html_TR);
+        return TAG_IMPLICIT;
+    }
+
     return TAG_PARENT;
 }
 
@@ -300,7 +415,8 @@ HtmlTableContent(pNode, tag)
  *---------------------------------------------------------------------------
  */
 static int 
-HtmlTableSectionContent(pNode, tag)
+HtmlTableSectionContent(pTree, pNode, tag)
+    HtmlTree *pTree;
     HtmlNode *pNode;
     int tag;
 {
@@ -330,13 +446,22 @@ HtmlTableSectionContent(pNode, tag)
  *---------------------------------------------------------------------------
  */
 static int 
-HtmlTableRowContent(pNode, tag)
+HtmlTableRowContent(pTree, pNode, tag)
+    HtmlTree *pTree;
     HtmlNode *pNode;
     int tag;
 {
-    if (tag==Html_TR) return TAG_CLOSE;
-    if (tag == Html_Text || tag == Html_Space) return TAG_OK;
-    return TAG_PARENT;
+    if (tag == Html_TR) {
+        return TAG_CLOSE;
+    }
+    if (tag == Html_TD || tag == Html_TH || tag == Html_Space) {
+        return TAG_OK;
+    }
+    if (HtmlMarkupFlags(tag) & HTMLTAG_END) {
+        return TAG_PARENT;
+    }
+    AppendImplicitToken(pTree, pNode, Html_TD);
+    return TAG_IMPLICIT;
 }
 
 /*
@@ -353,12 +478,13 @@ HtmlTableRowContent(pNode, tag)
  *---------------------------------------------------------------------------
  */
 static int 
-HtmlTableCellContent(pNode, tag)
+HtmlTableCellContent(pTree, pNode, tag)
+    HtmlTree *pTree;
     HtmlNode *pNode;
     int tag;
 {
-    if (tag==Html_TH || tag==Html_TD) return TAG_CLOSE;
-    if (tag == Html_Text || tag == Html_Space) return TAG_OK;
+    if (tag==Html_TH || tag==Html_TD || tag==Html_TR) return TAG_CLOSE;
+    if (!(HtmlMarkupFlags(tag) & HTMLTAG_END)) return TAG_OK;
     return TAG_PARENT;
 }
 
@@ -376,7 +502,8 @@ HtmlTableCellContent(pNode, tag)
  *---------------------------------------------------------------------------
  */
 static int 
-HtmlLiContent(pNode, tag)
+HtmlLiContent(pTree, pNode, tag)
+    HtmlTree *pTree;
     HtmlNode *pNode;
     int tag;
 {
@@ -968,38 +1095,6 @@ HtmlHashInit(htmlPtr, start)
 #endif
 }
 
-/*
- *---------------------------------------------------------------------------
- *
- * AppendToken --
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-static void 
-AppendToken(pTree, pToken)
-    HtmlTree *pTree;
-    HtmlToken *pToken;
-{
-    pToken->pNext = 0;
-    if (pTree->pFirst) {
-        assert(pTree->pLast);
-        pTree->pLast->pNext = pToken;
-        pToken->pPrev = pTree->pLast;
-    } else {
-        assert(!pTree->pLast);
-        pTree->pFirst = pToken;
-        pToken->pPrev = 0;
-    }
-    pTree->pLast = pToken;
-
-    HtmlAddToken(pTree, pToken);
-}
 
 /*
  *---------------------------------------------------------------------------
@@ -1209,10 +1304,11 @@ Tokenize(pTree)
          */
         else if (isspace(c)) {
             HtmlToken *pSpace;
-            for (i = 0;
+            for (
+                 i = 0;
                  (c = z[n + i]) != 0 && isspace(c) && c != '\n' && c != '\r';
-                 i++) {
-            }
+                 i++
+            );
             if (c == '\r' && z[n + i + 1] == '\n') {
                 i++;
             }
@@ -1234,7 +1330,7 @@ Tokenize(pTree)
                 }
                 pSpace->count = iCol - iColStart;
             }
-            AppendToken(pTree, pSpace);
+            AppendTextToken(pTree, pSpace);
             n += i;
         }
 
@@ -1259,7 +1355,7 @@ Tokenize(pTree)
             pText->x.zText = (char *)&pText[1];
             strncpy(pText->x.zText, &z[n], i);
             pText->x.zText[i] = 0;
-            AppendToken(pTree, pText);
+            AppendTextToken(pTree, pText);
             HtmlTranslateEscapes(pText->x.zText);
             pText->count = strlen(pText->x.zText);
             n += i;

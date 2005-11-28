@@ -107,7 +107,7 @@ typedef struct HtmlNodeCmd HtmlNodeCmd;
 #include "css.h"
 #include "htmlprop.h"
 
-typedef int (*HtmlContentTest)(HtmlNode *, int);
+typedef int (*HtmlContentTest)(HtmlTree *, HtmlNode *, int);
 
 #define FLOAT_LEFT       CSS_CONST_LEFT
 #define FLOAT_RIGHT      CSS_CONST_RIGHT
@@ -126,14 +126,15 @@ struct HtmlTokenMap {
   HtmlTokenMap *pCollide;         /* Hash table collision chain */
 };
 
-#define HTMLTAG_END         0x01
-#define HTMLTAG_INLINE      0x02
-#define HTMLTAG_BLOCK       0x04
-#define HTMLTAG_EMPTY       0x08
+#define HTMLTAG_END         0x01  /* Set for a closing tag (i.e. </p>) */
+#define HTMLTAG_INLINE      0x02  /* Set for an HTML inline tag */
+#define HTMLTAG_BLOCK       0x04  /* Set for an HTML block tag */
+#define HTMLTAG_EMPTY       0x08  /* Set for an empty tag (i.e. <img>) */
 
-#define TAG_CLOSE 1
-#define TAG_PARENT 2
-#define TAG_OK 3
+#define TAG_CLOSE    1
+#define TAG_PARENT   2
+#define TAG_OK       3
+#define TAG_IMPLICIT 4
 
 struct HtmlToken {
     HtmlToken *pNext;           /* Next input token in a list of them all */
@@ -300,6 +301,9 @@ struct HtmlTree {
     HtmlNode *pCurrent;             /* The node currently being built. */
     HtmlNode *pRoot;                /* The root-node of the document. */
 
+    HtmlToken *pTextLast;           /* Currently parsing text node */
+    HtmlToken *pTextFirst;          /* Currently parsing text node */
+
     /*
      * Handler callbacks configured by the [$widget handler] command.
      *
@@ -386,6 +390,7 @@ char *      HtmlNodeToString(HtmlNode *);
 int         HtmlNodeIsText(HtmlNode *);
 Html_u8     HtmlNodeTagType(HtmlNode *);
 #endif
+int         HtmlNodeIsWhitespace(HtmlNode *);
 
 Tcl_Obj *HtmlNodeCommand(HtmlTree *, HtmlNode *pNode);
 
