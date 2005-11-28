@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.43 2005/11/23 15:24:43 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.44 2005/11/28 13:27:37 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1230,6 +1230,7 @@ propertyValuesTclScript(p, eProp, zScript)
                 zRes, HtmlCssPropertyToString(eProp)
             );
         }
+        HtmlFree((char *)pVal);
         return 1;
     }
 

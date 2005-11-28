@@ -371,7 +371,7 @@ int HtmlWidgetPaint(HtmlTree *, int, int, int, int, int, int);
 int HtmlLayout(HtmlTree *);
 
 int HtmlStyleParse(HtmlTree*, Tcl_Interp*, Tcl_Obj*,Tcl_Obj*,Tcl_Obj*,Tcl_Obj*);
-void HtmlTokenizerAppend(HtmlTree *, const char *, int);
+void HtmlTokenizerAppend(HtmlTree *, const char *, int, int);
 int HtmlNameToType(void *, char *);
 Html_u8 HtmlMarkupFlags(int);
 

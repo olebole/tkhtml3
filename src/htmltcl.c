@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.57 2005/11/23 10:45:49 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.58 2005/11/28 13:27:37 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -935,7 +935,7 @@ parseCmd(clientData, interp, objc, objv)
      * it and add the new HtmlToken objects to the HtmlTree.pFirst/pLast 
      * linked list.
      */
-    HtmlTokenizerAppend(pTree, zHtml, nHtml);
+    HtmlTokenizerAppend(pTree, zHtml, nHtml, isFinal);
     if (isFinal) {
         pTree->parseFinished = 1;
         HtmlFinishNodeHandlers(pTree);

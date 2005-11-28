@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.44 2005/11/23 15:24:42 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.45 2005/11/28 13:27:37 danielk1977 Exp $";
 
 /*
  *    The CSS "cascade":
@@ -1796,52 +1796,14 @@ newCssPriority(pStyle, origin, pIdTail, important)
     int important;
 {
     CssPriority *pNew;      /* New list entry */
-    CssPriority *pPrev = 0; /* Entry just before the new one in the list */
     CssPriority *pIter;
 
     pNew = (CssPriority *)HtmlAlloc(sizeof(CssPriority));
+    memset(pNew, 0, sizeof(CssProperty));
     pNew->origin = origin;
     pNew->important = important;
     pNew->pIdTail = pIdTail;
     Tcl_IncrRefCount(pIdTail);
-
-    /* Set pPrev to the entry in the list that will come just before the
-     * new entry, or to NULL if the new entry is the highest priority seen
-     * so far.
-     */
-    for (
-        pIter = pStyle->pPriority; 
-        pIter && comparePriority(pIter, pNew) > 0;
-        pIter = pIter->pNext
-    ) {
-        pPrev = pIter;
-    }
-   
-#if 0
-    if (!pPrev) {
-        pNew->iPriority = 0;
-        pNew->pNext = pStyle->pPriority;
-        pStyle->pPriority = pNew;
-    } else {
-        pNew->iPriority = pPrev->iPriority;
-        pNew->pNext = pPrev->pNext;
-        pPrev->pNext = pNew;
-    }
-
-    for (pIter = pNew; pIter; pIter = pIter->pNext) {
-	pIter->iPriority++;
-    }
-
-#ifndef NDEBUG
-    /* Check the list insertion code above worked (i.e. the list is still in
-     * priority order with the correct iPriority values). 
-     */
-    for (pIter = pNew; pIter && pIter->pNext; pIter = pIter->pNext) {
-	assert((pIter->iPriority + 1) == pIter->pNext->iPriority);
-        assert(comparePriority(pIter, pIter->pNext) >= 0);
-    }
-#endif
-#endif
 
     switch (origin) {
         case CSS_ORIGIN_AGENT:
@@ -1864,6 +1826,9 @@ newCssPriority(pStyle, origin, pIdTail, important)
         default:
             assert(!"Impossible");
     }
+
+    pNew->pNext = pStyle->pPriority;
+    pStyle->pPriority = pNew;
 
     return pNew;
 }
@@ -3086,6 +3051,7 @@ void HtmlCssImport(pParse, pToken)
         Tcl_ListObjAppendElement(interp, pEval, Tcl_NewStringObj(zUrl, -1));
         Tcl_EvalObjEx(interp, pEval, TCL_EVAL_GLOBAL|TCL_EVAL_DIRECT);
         Tcl_DecrRefCount(pEval);
+        HtmlFree((char *)p);
     }
 }
 
