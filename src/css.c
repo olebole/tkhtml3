@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.45 2005/11/28 13:27:37 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.46 2005/11/29 05:26:29 danielk1977 Exp $";
 
 /*
  *    The CSS "cascade":
@@ -1725,6 +1725,7 @@ static void xCkfree(void *p){
  *
  *---------------------------------------------------------------------------
  */
+#if 0
 static int 
 comparePriority(pLeft, pRight)
     CssPriority *pLeft;
@@ -1764,6 +1765,7 @@ comparePriority(pLeft, pRight)
      */
     return pLeft->important ? 1 : -1;
 }
+#endif
 
 /*
  *---------------------------------------------------------------------------
@@ -1796,7 +1798,6 @@ newCssPriority(pStyle, origin, pIdTail, important)
     int important;
 {
     CssPriority *pNew;      /* New list entry */
-    CssPriority *pIter;
 
     pNew = (CssPriority *)HtmlAlloc(sizeof(CssPriority));
     memset(pNew, 0, sizeof(CssProperty));

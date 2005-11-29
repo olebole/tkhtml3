@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.75 2005/11/28 15:56:58 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.76 2005/11/29 05:26:29 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -835,6 +835,110 @@ int HtmlLayoutPrimitives(clientData, interp, objc, objv)
 /*
  *---------------------------------------------------------------------------
  *
+ * drawImage2 --
+ *
+ *     This function is used to draw a CANVAS_IMAGE2 primitive to the drawable
+ *     *pDrawable.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void 
+drawImage2(pTree, pI2, pDrawable, x, y, w, h)
+    HtmlTree *pTree;
+    CanvasImage2 *pI2;
+    Drawable *pDrawable;
+    int x;                 /* X-coord in *pDrawable */
+    int y;                 /* Y-coord in *pDrawable */
+    int w;                 /* Total width of *pDrawable */
+    int h;                 /* Total height of *pDrawable */
+{
+    if (pI2->pImage) {
+        int iw;                /* Intrinsic width of image */
+        int ih;                /* Intrinsic height of image */
+
+        Tk_Image img = pI2->pImage->image;
+        Tk_SizeOfImage(img, &iw, &ih);
+
+        if (iw > 0 && ih > 0) {
+            GC gc;                 /* Graphics context to draw with */
+            XGCValues gc_values;   /* Structure used to specify gc */
+            Pixmap imgpix = 0;     /* Pixmap of image */
+            int bw;                /* Width of rectangle to paint */
+            int bh;                /* Height of rectangle to paint */
+            Tk_Window win = pTree->tkwin;
+            Display *pDisplay = Tk_Display(win);
+            int depth = Tk_Depth(win);
+
+            int x1 = pI2->iPositionX;
+            int y1 = pI2->iPositionY;
+            if (pI2->isPositionPercent) {
+                x1 = (double)x1 * (double)(pI2->w - iw) / 10000.0;
+                y1 = (double)y1 * (double)(pI2->h - ih) / 10000.0;
+            }
+            bw = iw;
+            bh = ih;
+
+            gc_values.ts_x_origin = x1 + pI2->x + x;
+            gc_values.ts_y_origin = y1 + pI2->y + y;
+
+            if (
+                pI2->eRepeat == CSS_CONST_REPEAT || 
+                pI2->eRepeat == CSS_CONST_REPEAT_X
+            ) {
+                x1 = 0;
+                bw = pI2->w;
+            }
+            if (
+                pI2->eRepeat == CSS_CONST_REPEAT || 
+                pI2->eRepeat == CSS_CONST_REPEAT_Y
+            ) {
+                y1 = 0;
+                bh = pI2->h;
+            }
+            x1 += (pI2->x + x);
+            y1 += (pI2->y + y);
+
+            if (x1 < 0) {
+                bw = bw + x1;
+                x1 = 0;
+            }
+            if (y1 < 0) {
+                bh = bh + y1;
+                y1 = 0;
+            }
+            if ((x1 + bw) > w) {
+                bw = (w - x1);
+            }
+            if ((y1 + bh) > h) {
+                bh = (h - y1);
+            }
+
+            imgpix = Tk_GetPixmap(pDisplay, Tk_WindowId(win), iw, ih, depth);
+            Tk_RedrawImage(img, 0, 0, iw, ih, imgpix, 0, 0);
+
+            gc_values.tile = imgpix;
+            gc_values.fill_style = FillTiled;
+            gc = Tk_GetGC(pTree->win, 
+                GCTile|GCTileStipXOrigin|
+                GCTileStipYOrigin|GCFillStyle, 
+                &gc_values
+            );
+            XFillRectangle(pDisplay, *pDrawable, gc, x1, y1, bw, bh);
+            Tk_FreePixmap(pDisplay, imgpix);
+            Tk_FreeGC(pDisplay, gc);
+        }
+    }
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * getPixmap --
  *
  *    Return a Pixmap containing the rendered document. The caller is
@@ -952,66 +1056,7 @@ getPixmap(pTree, xcanvas, ycanvas, w, h)
                 break;
             }
             case CANVAS_IMAGE2: {
-                CanvasImage2 *pI2 = &pItem->x.i2;
-                if (pI2->pImage) {
-                    int iw;            /* Intrinsic width of image */
-                    int ih;            /* Intrinsic height of image */
-
-                    Tk_Image img = pI2->pImage->image;
-                    Tk_SizeOfImage(img, &iw, &ih);
-
-                    if (iw > 0 && ih > 0) {
-                        Pixmap imgpix = 0;
-                        int xiter;
-                        int yiter;
-
-                        int bw;
-                        int bh;
-                        int xi = 0;
-                        int yi = 0;
-                        int x1 = pI2->iPositionX;
-                        int y1 = pI2->iPositionY;
-                        if (pI2->isPositionPercent) {
-                            x1 = (double)x1 * (double)(pI2->w - iw) / 10000.0;
-                            y1 = (double)y1 * (double)(pI2->h - ih) / 10000.0;
-                        }
-                        bw = iw;
-                        bh = ih;
-
-                        if (
-                            pI2->eRepeat == CSS_CONST_REPEAT || 
-                            pI2->eRepeat == CSS_CONST_REPEAT_X
-                        ) {
-                            xi = iw - (x1 % iw);
-                            x1 = 0;
-                            bw = pI2->w;
-                        }
-                        if (
-                            pI2->eRepeat == CSS_CONST_REPEAT || 
-                            pI2->eRepeat == CSS_CONST_REPEAT_Y
-                        ) {
-                            yi = ih - (y1 % ih);
-                            y1 = 0;
-                            bh = pI2->h;
-                        }
-                        x1 += (pI2->x + x);
-                        y1 += (pI2->y + y);
-
-                        imgpix = Tk_GetPixmap(pDisplay, Tk_WindowId(win), iw, ih, Tk_Depth(win));
-                        Tk_RedrawImage(img, 0, 0, iw, ih, imgpix, 0, 0);
-                        gc_values.tile = imgpix;
-                        gc_values.ts_x_origin = x1 - xi;
-                        gc_values.ts_y_origin = y1 - yi;
-                        gc_values.fill_style = FillTiled;
-                        gc = Tk_GetGC(pTree->win, 
-                            GCTile|GCTileStipXOrigin|
-                            GCTileStipYOrigin|GCFillStyle, 
-                            &gc_values
-                        );
-                        XFillRectangle(pDisplay, pmap, gc, x1, y1, bw, bh);
-                        Tk_FreePixmap(pDisplay, imgpix);
-                    }
-                }
+                drawImage2(pTree, &pItem->x.i2, &pmap, x, y, w, h);
                 break;
             }
 
