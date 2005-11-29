@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.44 2005/11/28 13:27:37 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.45 2005/11/29 08:48:34 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1657,6 +1657,7 @@ allocateNewFont(interp, tkwin, pFontKey)
     HtmlFontKey *pFontKey;
 {
     Tk_Font tkfont = 0;
+    const char *DEFAULT_FONT_FAMILY = "Helvetica";
 
     int iFontSize = pFontKey->iFontSize;
     const char *zFamily = pFontKey->zFontFamily;
@@ -1681,7 +1682,7 @@ allocateNewFont(interp, tkwin, pFontKey)
 
         if (0 == *zFamily) {
             /* End of the line default font: Helvetica */
-            zF = familyMap[1].tkFont;
+            zF = DEFAULT_FONT_FAMILY;
             iF = strlen(zF);
         } else {
             int i;
@@ -1720,7 +1721,7 @@ allocateNewFont(interp, tkwin, pFontKey)
         );
 
         tkfont = Tk_GetFont(interp, tkwin, zTkFontName);
-        if (!tkfont && *zFamily == 0) {
+        if (!tkfont && zF == DEFAULT_FONT_FAMILY) {
             if (isItalic) {
                 isItalic = 0;
             } else if (isBold) {
