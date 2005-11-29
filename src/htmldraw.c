@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.76 2005/11/29 05:26:29 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.77 2005/11/29 12:19:59 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -868,7 +868,6 @@ drawImage2(pTree, pI2, pDrawable, x, y, w, h)
         if (iw > 0 && ih > 0) {
             GC gc;                 /* Graphics context to draw with */
             XGCValues gc_values;   /* Structure used to specify gc */
-            Pixmap imgpix = 0;     /* Pixmap of image */
             int bw;                /* Width of rectangle to paint */
             int bh;                /* Height of rectangle to paint */
             Tk_Window win = pTree->tkwin;
@@ -919,19 +918,22 @@ drawImage2(pTree, pI2, pDrawable, x, y, w, h)
                 bh = (h - y1);
             }
 
-            imgpix = Tk_GetPixmap(pDisplay, Tk_WindowId(win), iw, ih, depth);
-            Tk_RedrawImage(img, 0, 0, iw, ih, imgpix, 0, 0);
-
-            gc_values.tile = imgpix;
-            gc_values.fill_style = FillTiled;
-            gc = Tk_GetGC(pTree->win, 
-                GCTile|GCTileStipXOrigin|
-                GCTileStipYOrigin|GCFillStyle, 
-                &gc_values
-            );
-            XFillRectangle(pDisplay, *pDrawable, gc, x1, y1, bw, bh);
-            Tk_FreePixmap(pDisplay, imgpix);
-            Tk_FreeGC(pDisplay, gc);
+            if (bh > 0 && bw > 0) {
+                Pixmap ipix;             /* Pixmap of image */
+                ipix = Tk_GetPixmap(pDisplay, Tk_WindowId(win), iw, ih, depth);
+                Tk_RedrawImage(img, 0, 0, iw, ih, ipix, 0, 0);
+    
+                gc_values.tile = ipix;
+                gc_values.fill_style = FillTiled;
+                gc = Tk_GetGC(pTree->win, 
+                    GCTile|GCTileStipXOrigin|
+                    GCTileStipYOrigin|GCFillStyle, 
+                    &gc_values
+                );
+                XFillRectangle(pDisplay, *pDrawable, gc, x1, y1, bw, bh);
+                Tk_FreePixmap(pDisplay, ipix);
+                Tk_FreeGC(pDisplay, gc);
+            }
         }
     }
 }

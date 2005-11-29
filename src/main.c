@@ -37,13 +37,13 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: main.c,v 1.3 2005/11/11 09:05:43 danielk1977 Exp $";
-
-#undef USE_TCL_STUBS
-#undef USE_TK_STUBS
+static const char rcsid[] = "$Id: main.c,v 1.4 2005/11/29 12:19:59 danielk1977 Exp $";
 
 #include "tk.h"
 #include "locale.h"
+
+// #undef USE_TCL_STUBS
+// #undef USE_TK_STUBS
 
 #ifdef TK_TEST
 extern int		Tktest_Init _ANSI_ARGS_((Tcl_Interp *interp));
@@ -93,6 +93,9 @@ main(argc, argv)
     extern int TK_LOCAL_MAIN_HOOK _ANSI_ARGS_((int *argc, char ***argv));
     TK_LOCAL_MAIN_HOOK(&argc, &argv);
 #endif
+
+//    Tcl_InitStubs(0, "8.4", 0);
+//    Tk_InitStubs(0, "8.4", 0);
 
     Tk_Main(argc, argv, TK_LOCAL_APPINIT);
     return 0;			/* Needed only to prevent compiler warning. */

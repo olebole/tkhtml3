@@ -6,21 +6,21 @@
        <body>
        <h1>tkhtml (n)</h1>
        <p><a href="#TOC">Table Of Contents</a>
-       <h2 id="section1">Name</h2>
+       <a name="section1"><h2>Name</h2></a>
 
 <p>
 tkhtml - Widget to render html documents.
 </p>
 
 
-<h2 id="section2">Synopsis</h2>
+<a name="section2"><h2>Synopsis</h2></a>
 
 <p>
 html pathName ?options?
 </p>
 
 
-<h2 id="section3">Standard Options</h2>
+<a name="section3"><h2>Standard Options</h2></a>
 
 
 <div style="margin-left:8ex"><pre><p>
@@ -35,7 +35,7 @@ html pathName ?options?
 
 
 
-<h2 id="section4">Widget-Specific Options</h2>
+<a name="section4"><h2>Widget-Specific Options</h2></a>
 
 
 
@@ -99,7 +99,7 @@ This option is only used for internally debugging the widget.
 
 
 
-<h2 id="section5">Description</h2>
+<a name="section5"><h2>Description</h2></a>
 
 
 <p>
@@ -111,7 +111,7 @@ must exist.
 </p>
 
 
-<h2 id="section6">Widget Command</h2>
+<a name="section6"><h2>Widget Command</h2></a>
 
 <p>
 The [html] command creates a new Tcl command whose name is
@@ -338,6 +338,7 @@ Option                   Default Value
 --------------------------------------
 -id &lt;stylesheet-id&gt;      "author"
 -importcmd &lt;script&gt;      ""
+-urlcmd    &lt;script&gt;      ""
 </pre></div>
 
 
@@ -372,6 +373,14 @@ resulting list evaluated as a Tcl script. The return value
 of the script is ignored. If the script raises an error,
 then it is propagated up the call-chain to the 
 [pathName style] caller.
+</p>
+
+<p>
+The -urlcmd option is used to supply a script to translate
+"url(...)" CSS attribute values. If this option is not set to
+"", each time a url() value is encountered the URI is appended
+to the value of -urlcmd and the resulting script evaluated. The
+return value is stored as the URL in the parsed stylesheet.
 </div>
 
 
@@ -402,7 +411,7 @@ implemented by the canvas and text widgets.
 
 
 
-<h2 id="section7">Node Command</h2>
+<a name="section7"><h2>Node Command</h2></a>
 
 <p>
 There are several interfaces by which a script can obtain a "node
@@ -593,7 +602,7 @@ section.
 </p>
 
 
-<h2 id="section8">Replaced Objects</h2>
+<a name="section8"><h2>Replaced Objects</h2></a>
 
 <p>
 Replaced objects are html document nodes that are replaced by
@@ -609,7 +618,7 @@ TODO: Finish this section.
 </p>
 
 
-<h2 id="section9">Image Loading</h2>
+<a name="section9"><h2>Image Loading</h2></a>
 
 <p>
 As well as for replaced objects, images are used in several other
@@ -632,7 +641,7 @@ is no longer required, the script is evaluated.
 </p>
 
 
-<h2 id="section10">Stylesheet Loading</h2>
+<a name="section10"><h2>Stylesheet Loading</h2></a>
 
 <p>
 Apart from the default stylesheet that is always loaded (see the
@@ -847,7 +856,7 @@ refer to [1].
 </p>
 
 
-<h2 id="section11">Incremental Document Loading</h2>
+<a name="section11"><h2>Incremental Document Loading</h2></a>
 
 <p>
 This section discusses the widget API in the context of loading a
@@ -875,21 +884,22 @@ each invocation of the [pathName parse] command.
 </p>
 
 
-<h2 id="section12">HTML Specific Processing</h2>
+<a name="section12"><h2>HTML Specific Processing</h2></a>
 
 <p>
 TODO: Detail implicit opening and closing tag rules here.
 </p>
 
 
-<h2 id="section13">References</h2>
+<a name="section13"><h2>References</h2></a>
 
 
 <p>
 [1] CSS2 specification.
 
-       <h1 id="TOC">tkhtml (n) - Table Of Contents</h1>
-       <ul id="index"><li><a href="#section1">Name</a><li><a href="#section2">Synopsis</a><li><a href="#section3">Standard Options</a><li><a href="#section4">Widget-Specific Options</a><li><a href="#section5">Description</a><li><a href="#section6">Widget Command</a><li><a href="#section7">Node Command</a><li><a href="#section8">Replaced Objects</a><li><a href="#section9">Image Loading</a><li><a href="#section10">Stylesheet Loading</a><li><a href="#section11">Incremental Document Loading</a><li><a href="#section12">HTML Specific Processing</a><li><a href="#section13">References</a></ul>
+       </p>
+       <a name="TOC"><h1>tkhtml (n) - Table Of Contents</h1></a>
+       <a name="index"><ul></a><li><a href="#section1">Name</a><li><a href="#section2">Synopsis</a><li><a href="#section3">Standard Options</a><li><a href="#section4">Widget-Specific Options</a><li><a href="#section5">Description</a><li><a href="#section6">Widget Command</a><li><a href="#section7">Node Command</a><li><a href="#section8">Replaced Objects</a><li><a href="#section9">Image Loading</a><li><a href="#section10">Stylesheet Loading</a><li><a href="#section11">Incremental Document Loading</a><li><a href="#section12">HTML Specific Processing</a><li><a href="#section13">References</a></ul>
        </body>
        </html>
     

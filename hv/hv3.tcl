@@ -1,12 +1,12 @@
 
-package provide app-hv3 2.0
-
 catch { memory init on }
 
 # Load packages.
-set auto_path [concat . $auto_path]
-package require Tkhtml 3.0
+if {[info exists auto_path]} {
+    set auto_path [concat . $auto_path]
+}
 package require Tk
+package require Tkhtml 3.0
 package require http 
 package require sqlite3
 
@@ -133,7 +133,7 @@ proc gui_build {} {
 
     .m.file add command -label Browser -command [list prop_browse $HTML]
     .m.file add separator
-    .m.file add command -label Exit -command exit
+    .m.file add command -label Exit -command hv3_exit
 
     # Add the 'Font Size Table' menu
     #
@@ -355,7 +355,7 @@ proc hv3_exit {} {
     if {[llength [form_widget_list]] > 0} {
         puts "Leaked widgets: [form_widget_list]"
     }
-    exit
+    ::tk::htmlexit
 }
 
 # main

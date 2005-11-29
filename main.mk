@@ -13,6 +13,7 @@
 # 
 
 CFLAGS += -I$(TCL)/include -I. -I$(TOP)/src/
+STUBSFLAGS = -DUSE_TCL_STUBS -DUSE_TK_STUBS
 
 SRC = htmlparse.c htmldraw.c htmltcl.c htmlimage.c htmltree.c htmltagdb.c \
       cssparse.c css.c cssprop.c htmlstyle.c htmllayout.c htmlprop.c \
@@ -37,13 +38,13 @@ $(SHARED_LIB): $(OBJS)
 	$(MKSHLIB) $(OBJS) -o $@
 
 %.o: $(TOP)/src/%.c $(HDR)
-	$(CC) -c $(CFLAGS) $< -o $@
+	$(CC) -c $(CFLAGS) $(STUBSFLAGS) $< -o $@
 
 htmltcl.o: $(TOP)/src/htmltcl.c $(HDR) htmldefaultstyle.c
-	$(CC) -c $(CFLAGS) $(TOP)/src/htmltcl.c -o $@
+	$(CC) -c $(CFLAGS) $(STUBSFLAGS) $(TOP)/src/htmltcl.c -o $@
 
 %.o: %.c $(HDR)
-	$(CC) -c $(CFLAGS) $< -o $@
+	$(CC) -c $(CFLAGS) $(STUBSFLAGS) $< -o $@
 
 cssprop.h: $(TOP)/src/cssprop.tcl
 	$(TCLSH) $<
@@ -70,20 +71,19 @@ cssparse.c: $(TOP)/src/cssparse.y $(LEMON)
 cssparse.h: cssparse.c
 
 hwish: $(OBJS) $(TOP)/src/main.c
-	$(CC) $(CFLAGS) -DTCL_USE_STUBS=0 $^ $(TCLLIB) -o $@
+	$(CC) $(CFLAGS) $^ $(TCLLIB) -o $@
 
 hv3.vfs: binaries
 	mkdir -p ./hv3.vfs
 	mkdir -p ./hv3.vfs/lib
 	cp $(BINARIES) ./hv3.vfs/lib
-	cp $(TOP)/tests/hv.tcl ./hv3.vfs/lib
-	cp $(TOP)/tests/main.tcl ./hv3.vfs
-	(echo pkg_mkIndex -load Tk ./hv3.vfs/lib \; exit;) | $(WISH)
-	if test -d $(TCL)/lib/Img1.3/ ; then \
-		cp -R $(TCL)/lib/Img1.3/ ./hv3.vfs/lib ; \
+	cp $(TOP)/hv/hv*.tcl ./hv3.vfs/
+	cp $(TOP)/hv/main.tcl ./hv3.vfs/
+	if test -d $(TCL)/lib/Img*/ ; then \
+		cp -R $(TCL)/lib/Img*/ ./hv3.vfs/lib ; \
 	fi
-	if test -f $(TOP)/doc/tkhtml.html ; then \
-		cp $(TOP)/doc/tkhtml.html ./hv3.vfs/index.html ; \
+	if test -d $(TCL)/lib/sqlite*/ ; then \
+		cp -R $(TCL)/lib/sqlite*/ ./hv3.vfs/lib ; \
 	fi
 
 
