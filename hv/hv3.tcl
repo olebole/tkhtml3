@@ -103,8 +103,12 @@ proc gui_build {} {
     bind $HTML <KeyPress-q> hv3_exit
     bind $HTML <KeyPress-Q> hv3_exit
 
+    bind $HTML <Enter>        "handle_enterleave enter"
+    bind $HTML <Leave>        "handle_enterleave leave"
+
     $HTML handler node img "handle_img_node"
     $HTML handler script script "handle_script_script"
+    trace add variable ::hv3_url_status write handle_statuschange
 
     focus $HTML
 
@@ -151,6 +155,30 @@ proc gui_build {} {
     form_init $HTML
     style_init $HTML
 }
+
+#--------------------------------------------------------------------------
+# handle_enterleave
+# handle_statuschange
+#
+proc handle_enterleave {e} {
+    if {$e == "leave"} {
+        set ::hv3_gui_mouseoverhtml 0
+        handle_statuschange
+    } else {
+        set ::hv3_gui_mouseoverhtml 1
+    }
+}
+proc handle_statuschange {args} {
+    if {
+        [info exists ::hv3_gui_mouseoverhtml] && 
+        [info exists ::hv3_url_status] && 
+        0 == $::hv3_gui_mouseoverhtml
+    } {
+        .status configure -text $::hv3_url_status
+    }
+}
+#--------------------------------------------------------------------------
+
 
 #--------------------------------------------------------------------------
 # handle_event E X Y
@@ -261,8 +289,9 @@ proc gui_goto {doc} {
   nav_add .html $url
   .html var url $url
 
+  url_cancel
   url_get $url -fragment fragment -prefragment prefragment
-  url_fetch $prefragment -id $prefragment -script [list gui_parse $fragment]
+  url_fetch $prefragment -script [list gui_parse $fragment] -type Document
 }
 
 # gui_parse 
@@ -287,7 +316,8 @@ proc gui_parse {fragment text} {
     .html handler node a ""
 
     foreach {node url} $::gui_replaced_images {
-        url_fetch $url -script [list handle_img_node_cb $node] -binary
+        set cmd [list handle_img_node_cb $node]
+        url_fetch $url -script $cmd -binary -type Image
     }
     set ::gui_replaced_images [list]
 
@@ -328,6 +358,10 @@ proc hv3_exit {} {
     exit
 }
 
+# main
+#
+#     main URL -cache FILENAME
+#
 swproc main {doc {cache :memory:}} {
   gui_build
   gui_init_globals

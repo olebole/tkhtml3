@@ -3,6 +3,15 @@
 #
 #     This file contains code to manipulate and download data from URI's.
 #
+# Public interface:
+#
+#     String manipulation: [url_resolve] [url_get]
+#     Networking:          [url_fetch] [url_cancel]
+#
+#     Additionally, the variable ::hv3_url_status is sometimes set to indicate
+#     the status of network activities (is suitable for display in web-browser
+#     "status" bar).
+#
 
 #--------------------------------------------------------------------------
 # Global variables section
@@ -10,16 +19,34 @@ array unset url_g_scripts
 set http_current_socket -1
 array unset http_name_cache
 
+array unset ::hv3_url_status_info
+set         ::hv3_url_status {}
+array unset ::hv3_url_tokens
 #--------------------------------------------------------------------------
 
-#
-# "Url" public commands:
-#
-#      url_resolve
-#      url_fetch
-#      url_cancel
-#      url_get
-#
+proc urlSetStatus {} {
+    set newval {}
+    foreach k [array names ::hv3_url_status_info] {
+        append newval "${k}s: [join $::hv3_url_status_info($k) /]  "
+    }
+    set ::hv3_url_status $newval
+}
+proc urlStart {type} {
+    if {![info exists ::hv3_url_status_info($type)]} {
+        set ::hv3_url_status_info($type) [list 0 0]
+    } 
+    lset ::hv3_url_status_info($type) 1 [
+        expr [lindex $::hv3_url_status_info($type) 1] + 1
+    ]
+    urlSetStatus
+}
+proc urlFinish {type} {
+    lset ::hv3_url_status_info($type) 0 [
+        expr [lindex $::hv3_url_status_info($type) 0] + 1
+    ]
+    urlSetStatus
+}
+
 # The url procedures use the following global variables:
 #
 #      url_g_scripts
@@ -33,6 +60,7 @@ array unset http_name_cache
 #      http_get_url
 #
 
+#--------------------------------------------------------------------------
 # urlNormalize --
 #
 #         urlNormalize PATH
@@ -55,6 +83,7 @@ proc urlNormalize {path} {
     return [join $ret /]
 }
 
+#--------------------------------------------------------------------------
 # urlSplit --
 #
 #         urlSplit URL
@@ -86,6 +115,7 @@ proc urlSplit {url} {
     return [array get u]
 }
 
+#--------------------------------------------------------------------------
 # url_resolve --
 #
 #     This command is used to transform a (possibly) relative URL into an
@@ -131,10 +161,16 @@ proc url_resolve {baseurl url} {
     return $ret
 }
 
+#--------------------------------------------------------------------------
 # url_get --
 #
 #     This is a high-level string manipulation procedure to extract components
 #     from a URL.
+#
+#         -fragment
+#         -prefragment
+#         -port
+#         -host
 #
 swproc url_get {url {fragment ""} {prefragment ""} {port ""} {host ""}} {
     array set u [urlSplit $url]
@@ -218,20 +254,23 @@ proc http_get_socket {args} {
   return $ret
 }
 
-proc http_get_url {url args} {
+proc http_socket_ready {url args} {
+    set ::hv3_url_tokens([eval [concat ::http::geturl $url $args]]) 1
+}
 
+proc http_get_url {url args} {
     url_get $url -port port -host server
     if {$port == ""} {
         set port 80
     } 
-puts "$url -> $server $port"
   
     if {![info exists ::http_name_cache($server)]} {
         set ::http_name_cache($server) [::tk::htmlresolve $server]
     }
     set server_ip $::http_name_cache($server)
 
-    set script [concat [list ::http::geturl $url] $args]
+   # set script [concat [list ::http::geturl $url] $args]
+    set script [concat [list http_socket_ready $url] $args]
     set s [socket -async $server_ip $port]
     fileevent $s writable [subst -nocommands {
         set ::http_current_socket $s
@@ -241,36 +280,38 @@ puts "$url -> $server $port"
 }
 #--------------------------------------------------------------------------
 
+#--------------------------------------------------------------------------
 # url_fetch --
 #
 #         url_fetch URL ?-switches ...?
 #
 #         -script        (default {})
-#         -id            (default {})
 #         -cache         (default {})
+#         -type          (default Document)
 #         -binary
 # 
 #     This procedure is used to retrieve remote files. Argument -url is the
 #     url to retrieve. When it has been retrieved, the data is appended to
 #     the script -script (if any) and the result invoked.
 # 
-swproc url_fetch {url {script {}} {id {}} {cache {}} {binary 0 1}} {
+swproc url_fetch {url {script {}} {cache {}} {type Document} {binary 0 1}} {
 
-  # Check the cache before doing anything else.
-  if {[cache_query $url]} {
-    if {$script != ""} {
-      set data [cache_fetch $url]
-      lappend script $data
-      eval $script
+    # Check the cache before doing anything else. If we can find the data in
+    # the cache then invoke the script immediately.
+    if {[cache_query $url]} {
+        if {$script != ""} {
+            set data [cache_fetch $url]
+            lappend script $data
+            eval $script
+        }
+        return
     }
-    return
-  }
 
   switch -regexp -- $url {
 
     {^file://} {
       # Handle file:// URLs by loading the contents of the specified file
-      # system entry.
+      # system entry. Invoke any -script directly.
       set rc [catch {
         set fname [string range $url 7 end]
         set f [open $fname]
@@ -288,10 +329,12 @@ swproc url_fetch {url {script {}} {id {}} {cache {}} {binary 0 1}} {
 
     {^http://} {
       if {0 == [info exists ::url_g_scripts($url)]} {
+        set cmd [list url_callback -type $type] 
         set rc [catch {
-          http_get_url $url -command [list url_callback] -timeout 120000
+          http_get_url $url -command $cmd -timeout 120000
         } msg]
         set ::url_g_scripts($url) [list]
+        urlStart $type
         gui_log "DOWNLOAD Start: \"$url\""
       }
       if {$script != ""} {
@@ -309,11 +352,18 @@ swproc url_fetch {url {script {}} {id {}} {cache {}} {binary 0 1}} {
 
 # url_cancel --
 #
-#         url_cancel ID
+#         url_cancel
 #
-#     Cancel all currently executing downloads associated with id $id.
+#     Cancel all currently executing downloads. Do not invoke any -script
+#     scripts passed to url_fetch.
 #
-proc url_cancel {id} {
+proc url_cancel {} {
+    array unset ::hv3_url_status_info
+    urlSetStatus
+    foreach k [array names ::hv3_url_tokens] {
+        ::http::reset $k
+    }
+    array unset ::hv3_url_tokens
 }
 
 # url_callback --
@@ -323,13 +373,15 @@ proc url_cancel {id} {
 #     This callback is made by the http package when the response to an
 #     http request has been received.
 #
-proc url_callback {token} {
+swproc url_callback {{type Document} token} {
   # The following line is a trick of the http package. $token is the name
   # of a Tcl array in the global context that contains the downloaded
   # information. The [upvar] command makes "state" a local alias for that
   # array variable.
   upvar #0 $token state
-
+  
+  unset ::hv3_url_tokens($token)
+  urlFinish $type
   gui_log "DOWNLOAD Finished: \"$state(url)\""
   cache_store $state(url) $state(body)
 
@@ -339,9 +391,9 @@ proc url_callback {token} {
   foreach {n v} $state(meta) {
     if {[regexp -nocase ^location$ $n]} {
       foreach script $::url_g_scripts($state(url)) {
-        url_fetch [string trim $v] -script $script
+        url_fetch [string trim $v] -script $script -type $type
       }
-      url_fetch [string trim $v]
+      url_fetch [string trim $v] -type $type
       return
     }
   }

@@ -73,7 +73,7 @@ proc styleCallback {HTML url id style} {
 #
 proc styleImport {HTML parentid url} {
     set id ${parentid}.[format %.4d [incr ::hv3_style_count]]
-    url_fetch $url -id $url -script [list styleCallback $HTML $url $id]
+    url_fetch $url -script [list styleCallback $HTML $url $id] -type Stylesheet
 }
 
 # styleHandleLink --
@@ -87,7 +87,8 @@ proc styleHandleLink {HTML node} {
         if {$media == "" || [regexp all $media] || [regexp screen $media]} {
             set id author.[format %.4d [incr ::hv3_style_count]]
             set url [url_resolve [$HTML var url] [$node attr href]]
-            url_fetch $url -id $url -script [list styleCallback $HTML $url $id]
+            set cmd [list styleCallback $HTML $url $id] 
+            url_fetch $url -script $cmd -type Stylesheet
         }
     }
 }

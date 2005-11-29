@@ -41,7 +41,7 @@ proc imageCmd {HTML url} {
     image create photo $name
 
     set fullurl [url_resolve [$HTML var url] $url]
-    url_fetch $fullurl -id $fullurl -script [list imageCallback $name] -binary
+    url_fetch $fullurl -script [list imageCallback $name] -binary -type Image
 
     return [list $name [list image delete $name]]
 }
