@@ -89,12 +89,12 @@ proc gui_build {} {
 
     pack .vscroll -fill y -side right
     pack .status -fill x -side bottom 
-    # pack .hscroll -fill x -side bottom
+    pack .hscroll -fill x -side bottom
     pack $HTML -fill both -expand true
 
-    $HTML configure -yscrollcommand {.vscroll set}
+    $HTML configure -yscrollcommand {gui_scroll .vscroll}
     .hscroll configure -command "$HTML xview"
-    $HTML configure -xscrollcommand {.hscroll set}
+    $HTML configure -xscrollcommand {gui_scroll .hscroll}
     .vscroll configure -command "$HTML yview"
 
     bind $HTML <Motion>        "handle_event motion %x %y"
@@ -154,6 +154,27 @@ proc gui_build {} {
     image_init $HTML
     form_init $HTML
     style_init $HTML
+}
+
+#
+# gui_scroll sb args
+#
+#     This proc is registered as the -xscrollcommand and -yscrollcommand 
+#     options of the html widget. The first argument is the name of the 
+#     scrollabar - either ".hscroll" or ".vscroll". The remaining args
+#     are those appended by the widget.
+#
+#     The position of the scrollbar is adjusted. If it is not required,
+#     the scrollbar is made to disappear by setting it's width and border
+#     width to zero.
+#
+proc gui_scroll {sb args} {
+  eval [concat $sb set $args]
+  if {$args == "0.0 1.0"} {
+    $sb configure -width 0 -borderwidth 0
+  } else {
+    $sb configure -width 15 -borderwidth 2 
+  }
 }
 
 #--------------------------------------------------------------------------

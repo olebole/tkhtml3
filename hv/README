@@ -1,4 +1,18 @@
 
+Caching web objects and DNS lookups
+
+	A previous incarnation of hv3 implemented a simple web and dns
+	lookup cache in an SQLite database. That functionality is now
+	removed, and the current policy is that hv3 should be run together
+	with a local web proxy. If it is not already running, you can start
+	squid on most linux installations in non-daemon mode with something 
+	like:
+
+		# squid -N -D -d 10
+
+	hv3 is hard-coded to use a web proxy running on the localhost, 
+	port 3128. Grep for "3128" in the source if you wish to change this.
+
 Demo Application hv3
 
 	This file describes the Tkhtml demo application hv3, implemented in
@@ -12,7 +26,7 @@ Functionality
 	supposed to be usable as a real browser. The target feature (not
 	complete at time of writing) set is:
 
-		* Support for http:// and file::// URIs.
+		* Support for http:// and file:// URIs.
 		* Ability to load a new document, either by clicking on a
 		  hyper-link or by entering a URI.
 		* Support for anchors in documents (i.e. URIs like: 

@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.77 2005/11/29 12:19:59 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.78 2006/02/04 14:52:41 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1353,6 +1353,10 @@ HtmlWidgetPaint(pTree, canvas_x, canvas_y, x, y, width, height)
     XGCValues gc_values;
     Display *pDisp; 
     Tk_Window win;                      /* Window to draw to */
+
+    if (width <= 0 || height <= 0) {
+        return TCL_OK;
+    }
 
     win = pTree->tkwin;
     Tk_MakeWindowExist(win);

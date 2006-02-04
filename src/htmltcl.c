@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.58 2005/11/28 13:27:37 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.59 2006/02/04 14:52:41 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -961,17 +961,17 @@ parseCmd(clientData, interp, objc, objv)
 static int 
 viewCommon(pTree, isXview, objc, objv)
     HtmlTree *pTree;
-    int isXview;
+    int isXview;               /* True for [xview], zero for [yview] */
     int objc;
     Tcl_Obj * CONST objv[];
 {
     Tcl_Interp *interp = pTree->interp;
     Tk_Window win = pTree->tkwin;
 
-    int iUnitPixels;
-    int iPagePixels;
-    int iMovePixels;
-    int iOffScreen; 
+    int iUnitPixels;           /* Value of -[xy]scrollincrement in pixels */
+    int iPagePixels;           /* Width or height of the viewport */
+    int iMovePixels;           /* Width or height of canvas */
+    int iOffScreen;            /* Current scroll position */
     double aRet[2];
     Tcl_Obj *pRet;
     Tcl_Obj *pScrollCommand;
@@ -993,9 +993,10 @@ viewCommon(pTree, isXview, objc, objv)
     if (objc > 2) {
         double fraction;
         int count;
-        int iNewVal;
-        int eType = Tk_GetScrollInfoObj(interp, objc, objv, &fraction, &count);
+        int iNewVal;     /* New value of iScrollY or iScrollX */
+        int eType;       /* One of the TK_SCROLL_ symbols */
 
+        eType = Tk_GetScrollInfoObj(interp, objc, objv, &fraction, &count);
         switch (eType) {
             case TK_SCROLL_MOVETO:
                 iNewVal = (int)((double)iMovePixels * fraction);
@@ -1011,47 +1012,63 @@ viewCommon(pTree, isXview, objc, objv)
     
             default: assert(!"Not possible");
         }
-
         iNewVal = MIN(iNewVal, iMovePixels - iPagePixels);
         iNewVal = MAX(iNewVal, 0);
 
         if (iNewVal != iOffScreen) {
-            if (isXview) {
-                assert(0);
-            } else {
-                int eVisibility = pTree->eVisibility;
-                int canvas_x = pTree->iScrollX;
-                int canvas_y = iNewVal;
-                int w = Tk_Width(win);
-                int h = Tk_Height(win);
-                int iScroll = iNewVal - iOffScreen;
+            int eVisibility = pTree->eVisibility;
+            int canvas_x = pTree->iScrollX;
+            int canvas_y = pTree->iScrollY;
+            int w = Tk_Width(win);
+            int h = Tk_Height(win);
+            int iScrollV = 0;
+            int iScrollH = 0;
 
-                HtmlWidgetScroll(pTree, 0, iScroll);
-                if (eVisibility == VisibilityFullyObscured) {
-                    /* Do nothing, window is not visible */
-                } else if (
-                    abs(iScroll) >= iPagePixels || 
-                    eVisibility == VisibilityPartiallyObscured
-                ) {
-                    HtmlWidgetPaint(pTree, canvas_x, canvas_y, 0, 0, w, h);
-                } else if (iScroll > 0) {
-                    HtmlWidgetPaint(pTree, 
-                        canvas_x, canvas_y + iPagePixels - iScroll, 
-                        0, iPagePixels - iScroll, 
-                        w, iScroll
-                    );
-                } else {
-                    HtmlWidgetPaint(pTree, 
-                        canvas_x, canvas_y, 
-                        0, 0,
-                        w, abs(iScroll)
-                    );
-                }
-                pTree->iScrollY = iNewVal;
-            } 
+            if( isXview ){
+                canvas_x = iNewVal;
+                iScrollH = iNewVal - iOffScreen;
+            } else {
+                iScrollV = iNewVal - iOffScreen;
+                canvas_y = iNewVal;
+            }
+
+            if (eVisibility == VisibilityFullyObscured) {
+                /* Do nothing, window is not visible */
+            } else if (
+                abs(iScrollV) >= iPagePixels || 
+                abs(iScrollH) >= iPagePixels || 
+                eVisibility == VisibilityPartiallyObscured 
+            ) {
+                /* Redraw the entire window. */
+                HtmlWidgetPaint(pTree, canvas_x, canvas_y, 0, 0, w, h);
+            } else {
+                HtmlWidgetScroll(pTree, iScrollH, iScrollV);
+                HtmlWidgetPaint(pTree, 
+                    canvas_x, canvas_y + iPagePixels - iScrollV, 
+                    0, iPagePixels - iScrollV, 
+                    w, iScrollV
+                );
+                HtmlWidgetPaint(pTree, 
+                    canvas_x, canvas_y, 
+                    0, 0,
+                    w, iScrollV * -1
+                );
+                HtmlWidgetPaint(pTree, 
+                    canvas_x + iPagePixels - iScrollH, canvas_y,
+                    iPagePixels - iScrollH, 0,
+                    iScrollH, h
+                );
+                HtmlWidgetPaint(pTree, 
+                    canvas_x, canvas_y, 
+                    0, 0,
+                    iScrollH * -1, h
+                );
+            }
+
+            pTree->iScrollY = canvas_y;
+            pTree->iScrollX = canvas_x;
             iOffScreen = iNewVal;
         }
-
     }
 
     if (iMovePixels <= iPagePixels) {
