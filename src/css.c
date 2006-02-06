@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.46 2005/11/29 05:26:29 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.47 2006/02/06 12:34:40 danielk1977 Exp $";
 
 /*
  *    The CSS "cascade":
@@ -1907,7 +1907,7 @@ cssParse(n, z, isStyle, origin, pStyleId, pImportCmd, interp, pUrlCmd, ppStyle)
      * entries for both regular and "!important" properties for this
      * stylesheet to the priority list.
      */
-    if (!isStyle) {
+    if (pStyleId) {
         sParse.pPriority1 = newCssPriority(sParse.pStyle, origin, pStyleId, 0);
         sParse.pPriority2 = newCssPriority(sParse.pStyle, origin, pStyleId, 1);
     }
@@ -3055,4 +3055,92 @@ void HtmlCssImport(pParse, pToken)
         HtmlFree((char *)p);
     }
 }
+
+struct CssSearch {
+  CssSelector *pSelector;
+  Tcl_Obj *pResult;
+  HtmlTree *pTree;
+};
+typedef struct CssSearch CssSearch;
+
+static int 
+cssSearchCallback(pTree, pNode, clientData)
+    HtmlTree *pTree; 
+    HtmlNode *pNode;
+    ClientData clientData;
+{
+    CssSearch *pSearch = (CssSearch *)clientData;
+    assert(pSearch->pSelector);
+    assert(pSearch->pResult);
+    if (selectorTest(pSearch->pSelector, pNode)) {
+        Tcl_Obj *pCmd = HtmlNodeCommand(pSearch->pTree, pNode);
+        Tcl_ListObjAppendElement(0, pSearch->pResult, pCmd);
+    }
+    return 0;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlCssSearch --
+ *
+ *     widget search CSS-SELECTOR
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *
+ *---------------------------------------------------------------------------
+ */
+int 
+HtmlCssSearch(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget */
+    Tcl_Interp *interp;                /* The interpreter */
+    int objc;                          /* Number of arguments */
+    Tcl_Obj *CONST objv[];             /* List of all arguments */
+{
+    HtmlTree *pTree = (HtmlTree *)clientData;
+    char *zOrig;
+    char *z;
+    int n;
+    int rc = TCL_OK;
+    CssStyleSheet *pStyle = 0;
+
+    if (objc != 3) {
+        Tcl_WrongNumArgs(interp, 2, objv, "CSS-SELECTOR");
+        return TCL_ERROR;
+    }
+
+    zOrig = Tcl_GetStringFromObj(objv[2], &n);
+    assert(n == strlen(zOrig));
+    n += 14;
+    z = (char *)HtmlAlloc(n);
+    sprintf(z, "%s {color:blue}", zOrig);
+
+    cssParse(n, z, 0, 0, 0, 0, 0, 0,&pStyle);
+    if (
+        !pStyle || 
+        !pStyle->pUniversalRules || 
+        pStyle->pUniversalRules->pNext
+    ) {
+        rc = TCL_ERROR;
+        Tcl_AppendResult(interp, "Bad css selector: \"", zOrig, "\"", 0); 
+    } else {
+        CssSelector *pSelector = pStyle->pUniversalRules->pSelector;
+        CssSearch sSearch;
+        Tcl_Obj *pObj = Tcl_NewObj();
+        sSearch.pSelector = pSelector;
+        sSearch.pResult = pObj;
+        sSearch.pTree = pTree;
+        HtmlWalkTree(pTree, cssSearchCallback, (ClientData)&sSearch);
+
+        Tcl_SetObjResult(interp, pObj);
+    }
+
+    HtmlCssStyleSheetFree(pStyle);
+    HtmlFree(z);
+    return rc;
+}
+
 

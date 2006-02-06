@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.49 2005/11/28 13:27:37 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.50 2006/02/06 12:34:40 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -1656,17 +1656,34 @@ HtmlTokenizerAppend(pTree, zText, nText, isFinal)
     int isFinal;
 {
     /* TODO: Add a flag to prevent recursive calls to this routine. */
+    const char *z = zText;
+    int n = nText;
+    Tcl_DString utf8;
 
     if (!pTree->pDocument) {
         pTree->pDocument = Tcl_NewObj();
         Tcl_IncrRefCount(pTree->pDocument);
     }
-    Tcl_AppendToObj(pTree->pDocument, zText, nText);
+
+    if (pTree->options.encoding) {
+        Tcl_Interp *interp = pTree->interp;
+        const char *zEnc = Tcl_GetString(pTree->options.encoding);
+        Tcl_Encoding enc = Tcl_GetEncoding(interp, zEnc);
+        if (enc) {
+            Tcl_ExternalToUtfDString(enc, zText, nText, &utf8);
+            z = Tcl_DStringValue(&utf8);
+            n = Tcl_DStringLength(&utf8);
+        }
+    } 
+    Tcl_AppendToObj(pTree->pDocument, z, n);
 
     pTree->nParsed = Tokenize(pTree);
-
     if (isFinal) {
         AppendToken(pTree, 0);
+    }
+
+    if (z != zText) {
+        Tcl_DStringFree(&utf8);
     }
 }
 

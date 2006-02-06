@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.59 2006/02/04 14:52:41 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.60 2006/02/06 12:34:40 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -619,6 +619,7 @@ configureCmd(clientData, interp, objc, objv)
         /* Non-debugging widget specific options */
         STRING(defaultstyle, "defaultStyle", "DefaultStyle", HTML_DEFAULT_CSS),
         STRING(imagecmd, "imageCmd", "ImageCmd", ""),
+        STRING(encoding, "encoding", "Encoding", ""),
     
         /* Options for logging info to debugging scripts */
         STRING(logcmd, "logCmd", "LogCmd", ""),
@@ -1312,6 +1313,8 @@ styleCmd(clientData, interp, objc, objv)
  *
  * imageCmd --
  * nodeCmd --
+ * primitivesCmd --
+ * bboxCmd --
  *
  *     New versions of gcc don't allow pointers to non-local functions to
  *     be used as constant initializers (which we need to do in the
@@ -1363,6 +1366,15 @@ primitivesCmd(clientData, interp, objc, objv)
 {
     return HtmlLayoutPrimitives(clientData, interp, objc, objv);
 }
+static int 
+searchCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    return HtmlCssSearch(clientData, interp, objc, objv);
+}
 
 /*
  *---------------------------------------------------------------------------
@@ -1409,22 +1421,23 @@ int HtmlWidgetObjCommand(clientData, interp, objc, objv)
         char *zCmd2;                /* Second-level subcommand.  May be NULL */
         Tcl_ObjCmdProc *xFuncObj;   /* Object cmd */
     } aSubcommand[] = {
-        {"bbox",      0,        bboxCmd},
-        {"cget",      0,        cgetCmd},
-        {"configure", 0,        configureCmd},
-        {"handler",   "node",   handlerNodeCmd},
-        {"handler",   "script", handlerScriptCmd},
-        {"image",      0,       imageCmd},
-        {"node",      0,        nodeCmd},
-        {"parse",     0,        parseCmd},
-        {"primitives",0,        primitivesCmd},
-        {"reset",     0,        resetCmd},
-        {"style",     0,        styleCmd},
-        {"xview",     0,        xviewCmd},
-        {"yview",     0,        yviewCmd},
+        {"bbox",       0,        bboxCmd},
+        {"cget",       0,        cgetCmd},
+        {"configure",  0,        configureCmd},
+        {"handler",    "node",   handlerNodeCmd},
+        {"handler",    "script", handlerScriptCmd},
+        {"image",      0,        imageCmd},
+        {"node",       0,        nodeCmd},
+        {"parse",      0,        parseCmd},
+        {"primitives", 0,        primitivesCmd},
+        {"reset",      0,        resetCmd},
+        {"search",     0,        searchCmd},
+        {"style",      0,        styleCmd},
+        {"xview",      0,        xviewCmd},
+        {"yview",      0,        yviewCmd},
 
-        {"command", 0, commandCmd}, 
-        {"var", 0, varCmd},  
+        {"command",    0, commandCmd}, 
+        {"var",        0, varCmd},  
 
         /* Todo: [<widget> select ...] command */
     };

@@ -215,11 +215,8 @@ proc handle_event {e x y} {
     set pix [font measure [.status cget -font] -displayof .status xxxxxxxxxx]
     set chars [expr 9 * ([winfo width .status] / $pix)]
 
-    if {$e == "click"} {
-        catch {.prop_menu unpost}
-    }
-
     set node [.html node $x $y]
+
     if {$e == "rightclick"} {
         prop_browse .html -node $node
     }
@@ -315,6 +312,14 @@ proc gui_goto {doc} {
   url_fetch $prefragment -script [list gui_parse $fragment] -type Document
 }
 
+proc gui_next_node {node} {
+  set ret [$node right_sibling]
+  if {$ret==""} {
+    set ret [$node parent]
+  }
+  return $ret
+}
+
 # gui_parse 
 #
 #         gui_parse FRAGMENT TEXT
@@ -329,12 +334,7 @@ proc gui_goto {doc} {
 #
 proc gui_parse {fragment text} {
     style_newdocument .html
-
-    if {$fragment != ""} {
-        .html handler node a [list handle_a_node $fragment]
-    }
     .html parse $text
-    .html handler node a ""
 
     foreach {node url} $::gui_replaced_images {
         set cmd [list handle_img_node_cb $node]
@@ -342,15 +342,22 @@ proc gui_parse {fragment text} {
     }
     set ::gui_replaced_images [list]
 
-    if {[info exists ::hv3_goto_node]} {
-        set coords  [.html bbox $::hv3_goto_node]
-        set coords2 [.html bbox [.html node]]
-        if {[llength $coords] > 0} {
-            set ypix [lindex $coords 1]
-            set ycanvas [lindex $coords2 3]
-            .html yview moveto [expr double($ypix) / double($ycanvas)]
+    if {$fragment != ""} {
+        set selector [format {[name="%s"]} $fragment]
+        set goto_node [lindex [.html search $selector] 0]
+        if {$goto_node!=""} {
+            set coords2 [.html bbox [.html node]]
+            set coords  [.html bbox $goto_node]
+            while {[llength $coords] == 0 && $goto_node!=[.html node]} {
+                set goto_node [gui_next_node $goto_node]
+                set coords  [.html bbox $goto_node]
+            }
+            if {[llength $coords] > 0} {
+                set ypix [lindex $coords 1]
+                set ycanvas [lindex $coords2 3]
+                .html yview moveto [expr double($ypix) / double($ycanvas)]
+            }
         }
-        unset ::hv3_goto_node
     }
 }
 

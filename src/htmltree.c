@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.40 2005/11/28 13:27:37 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.41 2006/02/06 12:34:40 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -602,17 +602,18 @@ HtmlAddToken(pTree, pToken)
  *---------------------------------------------------------------------------
  */
 static int 
-walkTree(pTree, xCallback, pNode)
+walkTree(pTree, xCallback, pNode, clientData)
     HtmlTree *pTree;
-    int (*xCallback)(HtmlTree *, HtmlNode *);
+    int (*xCallback)(HtmlTree *, HtmlNode *, ClientData clientData);
     HtmlNode *pNode;
+    ClientData clientData;
 {
     int i;
     if( pNode ){
-        xCallback(pTree, pNode);
+        xCallback(pTree, pNode, clientData);
         for (i = 0; i<pNode->nChild; i++) {
             HtmlNode *pChild = pNode->apChildren[i];
-            int rc = walkTree(pTree, xCallback, pChild);
+            int rc = walkTree(pTree, xCallback, pChild, clientData);
             assert(HtmlNodeParent(pChild) == pNode);
             if (rc) return rc;
         }
@@ -634,11 +635,12 @@ walkTree(pTree, xCallback, pNode)
  *---------------------------------------------------------------------------
  */
 int 
-HtmlWalkTree(pTree, xCallback)
+HtmlWalkTree(pTree, xCallback, clientData)
     HtmlTree *pTree;
-    int (*xCallback)(HtmlTree *, HtmlNode *);
+    int (*xCallback)(HtmlTree *, HtmlNode *, ClientData clientData);
+    ClientData clientData;
 {
-    return walkTree(pTree, xCallback, pTree->pRoot);
+    return walkTree(pTree, xCallback, pTree->pRoot, clientData);
 }
 
 /*
@@ -868,6 +870,7 @@ char CONST *HtmlNodeAttr(pNode, zAttr)
  *         <node> parent
  *         <node> text
  *         <node> replace ?options? ?NEW-VALUE?
+ *         <node> right_sibling
  *
  *     This function is the implementation of the Tcl node handle command. The
  *     clientData passed to the command is a pointer to the HtmlNode structure
@@ -897,11 +900,11 @@ nodeCommand(clientData, interp, objc, objv)
 
     static CONST char *NODE_strs[] = {
         "attr", "tag", "nChildren", "child", "text", 
-        "parent", "prop", "replace", 0
+        "parent", "prop", "replace", "right_sibling", 0
     };
     enum NODE_enum {
         NODE_ATTR, NODE_TAG, NODE_NCHILDREN, NODE_CHILD, NODE_TEXT,
-        NODE_PARENT, NODE_PROP, NODE_REPLACE
+        NODE_PARENT, NODE_PROP, NODE_REPLACE, NODE_RIGHT_SIBLING
     };
 
     if (objc<2) {
@@ -1150,6 +1153,21 @@ node_attr_usage:
                 assert(pNode->pReplacement->pReplace);
                 Tcl_SetObjResult(interp, pNode->pReplacement->pReplace);
             }
+            break;
+        }
+
+        /*
+         * nodeHandle right_sibling
+         *
+         *     Return the right-sibling of the node, or an empty string
+         *     if no such sibling exists.
+         */
+        case NODE_RIGHT_SIBLING: {
+            HtmlNode *pSibling;
+            pSibling = HtmlNodeRightSibling(pNode);
+            if (pSibling) {
+                Tcl_SetObjResult(interp, HtmlNodeCommand(pTree, pSibling));
+            } 
             break;
         }
 

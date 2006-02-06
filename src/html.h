@@ -220,6 +220,7 @@ struct HtmlOptions {
     Tcl_Obj *xscrollcommand;
     Tcl_Obj *defaultstyle;
     Tcl_Obj *imagecmd;
+    Tcl_Obj *encoding;
 
     Tcl_Obj *fonttable;
 
@@ -376,7 +377,7 @@ int HtmlNameToType(void *, char *);
 Html_u8 HtmlMarkupFlags(int);
 
 void HtmlTreeFree(HtmlTree *p);
-int HtmlWalkTree(HtmlTree *, int (*)(HtmlTree *, HtmlNode *));
+int HtmlWalkTree(HtmlTree*, int (*)(HtmlTree*,HtmlNode*,ClientData),ClientData);
 int HtmlTreeClear(HtmlTree *);
 int         HtmlNodeNumChildren(HtmlNode *);
 HtmlNode *  HtmlNodeChild(HtmlNode *, int);

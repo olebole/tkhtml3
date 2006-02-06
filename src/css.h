@@ -153,6 +153,8 @@ void HtmlCssStyleSheetApply(HtmlTree *, HtmlNode *);
 void HtmlCssPropertiesFree(CssProperties *);
 CssProperty *HtmlCssPropertiesGet(CssProperties *, int, int*, int*);
 
+Tcl_ObjCmdProc HtmlCssSearch;
+
 #if 0
 
 /* Future interface for :before and :after pseudo-elements. Need this to 

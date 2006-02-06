@@ -2,7 +2,7 @@
 #
 # Construct the web page for tkhtml
 #
-# @(#) $Id: mkwebpage.tcl,v 1.15 2005/10/06 12:47:47 danielk1977 Exp $
+# @(#) $Id: mkwebpage.tcl,v 1.16 2006/02/06 12:34:41 danielk1977 Exp $
 #
 
 proc header {} {
@@ -13,7 +13,7 @@ proc header {} {
 
 /* Page background color */
 html,body {
-    background: #EEEEFF;
+    background: #DDDDDD;
 }
 
 body {
@@ -45,7 +45,7 @@ body {
 }
 #toc,#text {
     border: solid 1px;
-    background: #DDDDFF;
+    background: #FFFFFF;
 }
 
 h1,h2,h3 {
