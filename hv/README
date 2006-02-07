@@ -1,4 +1,10 @@
 
+Demo Application hv3
+
+	This file describes the Tkhtml demo application hv3, implemented in
+	the *.tcl files in this directory. The acronmym 'hv' stands for
+	"Html Viewer" (inventive eh?). The '3' indicates Tkhtml version 3.
+
 Caching web objects and DNS lookups
 
 	A previous incarnation of hv3 implemented a simple web and dns
@@ -12,12 +18,6 @@ Caching web objects and DNS lookups
 
 	hv3 is hard-coded to use a web proxy running on the localhost, 
 	port 3128. Grep for "3128" in the source if you wish to change this.
-
-Demo Application hv3
-
-	This file describes the Tkhtml demo application hv3, implemented in
-	the *.tcl files in this directory. The acronmym 'hv' stands for
-	"Html Viewer" (inventive eh?). The '3' indicates Tkhtml version 3.
 
 Functionality
 

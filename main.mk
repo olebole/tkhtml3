@@ -10,6 +10,7 @@
 # TCLSH               Command to execute a Tcl shell.
 # TCLLIB              Options to pass to CC to link with Tcl.
 # TOP                 Top of source tree (directory with this file).
+# MKSTARKIT           Command to transform a *.vfs directory to *.kit file.
 # 
 
 CFLAGS += -I$(TCL)/include -I. -I$(TOP)/src/
@@ -73,17 +74,39 @@ cssparse.h: cssparse.c
 hwish: $(OBJS) $(TOP)/src/main.c
 	$(CC) $(CFLAGS) $^ $(TCLLIB) -o $@
 
+hv3_img.vfs: binaries
+	mkdir -p ./hv3_img.vfs
+	mkdir -p ./hv3_img.vfs/lib
+	cp $(BINARIES) ./hv3.vfs/lib
+	cp $(TOP)/hv/hv*.tcl ./hv3_img.vfs/
+	cp $(TOP)/hv/main.tcl ./hv3_img.vfs/
+	if test -d $(TCL)/lib/Img*/ ; then \
+		cp -R $(TCL)/lib/Img*/ ./hv3_img.vfs/lib ; \
+	fi
+
 hv3.vfs: binaries
 	mkdir -p ./hv3.vfs
 	mkdir -p ./hv3.vfs/lib
 	cp $(BINARIES) ./hv3.vfs/lib
 	cp $(TOP)/hv/hv*.tcl ./hv3.vfs/
 	cp $(TOP)/hv/main.tcl ./hv3.vfs/
-	if test -d $(TCL)/lib/Img*/ ; then \
-		cp -R $(TCL)/lib/Img*/ ./hv3.vfs/lib ; \
-	fi
-	if test -d $(TCL)/lib/sqlite*/ ; then \
-		cp -R $(TCL)/lib/sqlite*/ ./hv3.vfs/lib ; \
-	fi
 
+hv3_img.kit: hv3_img.vfs
+	$(MKSTARKIT) hv3_img.kit
+
+hv3.kit: hv3.vfs
+	$(MKSTARKIT) hv3.kit
+
+website: hv3.kit hv3_img.kit
+	mkdir -p www
+	$(TCLSH) $(TOP)/webpage/mkwebpage.tcl > www/index.html
+	$(TCLSH) $(TOP)/webpage/mksupportpage.tcl > www/support.html
+	$(TCLSH) $(TOP)/webpage/mkhv3page.tcl > www/hv3.html
+	$(TCLSH) $(TOP)/doc/macros.tcl -html $(TOP)/doc/html.man > www/tkhtml.html
+	$(TCLSH) $(TOP)/doc/tkhtml_requirements.tcl > www/requirements.html
+	cp $(TOP)/webpage/tkhtml_tcl_tk.css www/tkhtml_tcl_tk.css
+	cp hv3.kit www/
+	chmod 644 www/hv3.kit
+	cp hv3_img.kit www/
+	chmod 644 www/hv3_img.kit
 

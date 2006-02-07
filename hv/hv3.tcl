@@ -8,7 +8,7 @@ if {[info exists auto_path]} {
 package require Tk
 package require Tkhtml 3.0
 package require http 
-package require sqlite3
+catch {package require sqlite3}
 
 # If possible, load package "Img". Without it the script can still run,
 # but won't be able to load many image formats.
@@ -37,7 +37,6 @@ sourcefile hv3_style.tcl
 #
 #     $baseurl              # The current base URI
 #     $url                  # The current document URI
-#     $cache                # Name of sqlite3 handle for cache db
 #
 proc gui_init_globals {} {
   .html var baseurl "file:///[pwd]/"
@@ -299,6 +298,7 @@ proc handle_a_node {fragment node} {
 #
 #     Commence the process of loading the document at url $doc.
 proc gui_goto {doc} {
+  cache_flush
   .html reset
 
   set url [url_resolve [.html var url] $doc]
@@ -393,7 +393,6 @@ proc hv3_exit {} {
 swproc main {doc {cache :memory:}} {
   gui_build
   gui_init_globals
-  cache_init $cache
   nav_init .html
   .html var url file://[pwd]/
   gui_goto $doc

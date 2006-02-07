@@ -18,6 +18,8 @@ TCL_DEBUG = /usr/local/ActiveTcl
 TCL_RELEASE = /usr/local/ActiveTcl
 TCL = $(TCL_$(BUILD))
 
+MKSTARKIT = ~/tcl/bin/tclkit-linux-x86-xft ~/bin/sdx.kit wrap
+
 ##### Flags passed to the C-compiler to link to Tcl.
 #
 # TCLLIB_DEBUG   = -L$(TCL)/lib -ltcl$(TCLVERSION)g -ltk$(TCLVERSION)g 

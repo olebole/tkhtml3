@@ -1,0 +1,67 @@
+
+/*
+** Stylesheet for pages on the Tkhtml website. All pages must adhere to the 
+** following guidelines:
+**
+**     + TODO
+*/
+
+
+html,body {
+    background: #DDDDDD;
+}
+body {
+    padding-top: 1em;
+    padding-bottom: 1em;
+}
+
+#body {
+    float: left;
+    padding: 0 2% 0 2%;
+    width: 75%;
+}
+
+.sidebox {
+    float: left;
+    width: 20%;
+}
+.sidebox ul {
+    margin: 1ex;
+    padding: 0;
+}
+.sidebox li {
+    display: block;
+    margin: 1em 0;
+    padding: 0;
+}
+
+#text {
+    padding: 3ex;
+}
+#sitemap,#toc,#text {
+    border: solid 1px;
+    background: white;
+    margin-bottom:1em;
+}
+
+h1,h2,h3 {
+    background: #000088;
+    color: white;
+    padding-left: 2ex;
+}
+h1,h3 {
+    margin: 0;
+}
+h2 {
+    margin-top: 1em;
+}
+
+table {
+    margin: 1em auto;
+    width:80%;
+}
+td           {padding: 0px .5em}
+.nosupport   {color: grey}
+.support     {color: darkblue}
+
+

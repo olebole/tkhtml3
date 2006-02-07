@@ -2,65 +2,16 @@
 #
 # Construct the web page for tkhtml
 #
-# @(#) $Id: mkwebpage.tcl,v 1.16 2006/02/06 12:34:41 danielk1977 Exp $
+# @(#) $Id: mkwebpage.tcl,v 1.17 2006/02/07 12:14:48 danielk1977 Exp $
 #
+
+source [file join [file dirname [info script]] common.tcl]
 
 proc header {} {
   puts {
     <html>
     <head>
-    <style>
-
-/* Page background color */
-html,body {
-    background: #DDDDDD;
-}
-
-body {
-    padding-top: 1em;
-    padding-bottom: 1em;
-}
-
-#body {
-    float: left;
-    padding: 0 2% 0 2%;
-    width: 75%;
-}
-#toc {
-    float: left;
-    width: 20%;
-}
-#toc ul {
-    margin: 1ex;
-    padding: 0;
-}
-#toc li {
-    display: block;
-    margin: 1em 0;
-    padding: 0;
-}
-
-#text {
-    padding: 3ex;
-}
-#toc,#text {
-    border: solid 1px;
-    background: #FFFFFF;
-}
-
-h1,h2,h3 {
-    background: #000088;
-    color: white;
-    padding-left: 2ex;
-}
-h1,h3 {
-    margin: 0;
-}
-h2 {
-    margin-top: 2em;
-}
-
-    </style>
+    <link rel="stylesheet" href="tkhtml_tcl_tk.css">
     <title>An HTML Widget For Tk</title>
     </head>
     <body>
@@ -75,17 +26,12 @@ proc footer {} {
 }
 
 set ::TITLE {}   ;# The title
-set ::LINKS {}   ;# Links are added to this variable.
 set ::BODY {}    ;# Body of html document is built up in this variable
 
 proc p {text} {
   append ::BODY <p>
   append ::BODY $text
   append ::BODY </p>
-}
-
-proc link {caption href} {
-  append ::LINKS "<li><a href=\"#$href\">$caption</a></li>"
 }
 
 set ::H 0
@@ -99,7 +45,7 @@ proc h {level text} {
   if {$level==2} {
     set name "part[incr ::H]"
     append ::BODY "<a name=\"$name\"></a>"
-    link $text $name
+    addPageSection $text $name
   }
   append $var $text
   append $var </h$level>
@@ -107,10 +53,9 @@ proc h {level text} {
 
 proc output_page {} {
   header
-  puts {<div id="toc">}
-  puts {<h3>TOC</h3><ul>}
-  puts $::LINKS
-  puts {</ul></div>}
+
+  puts [getSideBoxes]
+
   puts {<div id="body">}
   puts $::TITLE
   puts {<div id="text">}
