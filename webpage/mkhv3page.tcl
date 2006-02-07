@@ -70,9 +70,12 @@ puts [subst -novariables {
 
 
 <h2><a name="screenshots">Screenshots</a></h2>
+  <a href="screenshot1.gif"><img src="screenshot1_small.gif"></a>
+  <a href="screenshot2.gif"><img src="screenshot2_small.gif"></a>
+  <a href="screenshot3.gif"><img src="screenshot3_small.gif"></a>
 
 
-<h2><a name="demo">Running the Demo</a></h2>
+<h2><a name="download">Download</a></h2>
   <p>
     The source code to hv3 is part of the Tkhtml source bundle and so is 
     available from the <a href="index.html#part4">same place</a>. Or, for
@@ -87,7 +90,7 @@ puts [subst -novariables {
     <b>TODO:</b> Starkits for windows. Or make these ones cross-platform.
   </p>
   <p>
-    To use a starkit, download a tclkit runtime for your platform from 
+    To use the starkit, download a tclkit runtime for your platform from 
     <a href="http://www.equi4.com/pub/tk/downloads.html">equi4.com</a>.
     I used <a href="http://www.equi4.com/pub/tk/8.5a4/tclkit-linux-x86-xft.gz">
     http://www.equi4.com/pub/tk/8.5a4/tclkit-linux-x86-xft.gz</a> because

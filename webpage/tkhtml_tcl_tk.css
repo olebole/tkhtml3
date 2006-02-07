@@ -64,4 +64,7 @@ td           {padding: 0px .5em}
 .nosupport   {color: grey}
 .support     {color: darkblue}
 
+img {
+  margin: 1em;
+}
 

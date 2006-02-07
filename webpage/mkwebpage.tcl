@@ -2,7 +2,7 @@
 #
 # Construct the web page for tkhtml
 #
-# @(#) $Id: mkwebpage.tcl,v 1.17 2006/02/07 12:14:48 danielk1977 Exp $
+# @(#) $Id: mkwebpage.tcl,v 1.18 2006/02/07 13:31:31 danielk1977 Exp $
 #
 
 source [file join [file dirname [info script]] common.tcl]
@@ -68,22 +68,24 @@ proc output_page {} {
 # Document content is below this line.
 
 h 1 {An HTML Widget For Tcl/Tk}
-append ::BODY "<p><i>Last update: [clock format [clock seconds]]</i></p>"
 
 p {
   "Tkhtml" is a Tcl/Tk widget that displays HTML. Tkhtml is implemented in C.
   It is a true widget, not a metawidget implemented using the Text or Canvas
-  widgets of the Tcl/Tk core. The current version of Tkhtml 2.0, which has
-  not changed significantly for several years. This page houses that version
-  and is also home to the new version, currently at 3.alpha-1.
+  widgets of the Tcl/Tk core. 
 }
-
+p {
+  There are two versions of Tkhtml, version 2.0, which has not changed
+  significantly for several years, and version 3, currently still under
+  development. Unless otherwise specified, all information on this site
+  pertains to version 3. The interfaces supported by Tkhtml versions 2.0 
+  and 3 are not at all similar.
+}
 p {
   Tkhtml was created by D. Richard Hipp, and has since been enhanced by 
   Peter MacDonald while working on his 
   <a href="http://www.browsex.com">browsex web browser</a>.
 }
-
 p {
    The changes for version 3 and in particular all of the work on style
    sheets, has been done by Dan Kennedy. Dan has been able to work full-time
@@ -91,18 +93,14 @@ p {
    <a href="http://www.eolas.com">Eolas Technologies, Inc.</a>.
 }
 
-h 2 {Revitalisation Status (Version 3)}
-
-p {See also 
-<a href="http://tkhtml.tcl.tk/cvstrac/wiki?p=CurrentStatus">
-The CurrentStatus wiki page</a>.}
+h 2 {Current Status (Version 3)}
 
 p {
   This is currently at alpha stage. The rendering engine is not yet feature
   complete by any means, but the majority of common HTML and CSS 1.0
   constructs are supported. See 
   <a href="http://tkhtml.tcl.tk/cvstrac/wiki?p=CssOne">this page</a> for a
-  list of know defects. Nothing dynamic is supported yet (i.e. changing
+  list of known defects. Nothing dynamic is supported yet (i.e. changing
   the color of something when the mouse floats over it etc.).
 }
 
@@ -139,10 +137,6 @@ p {
 <li>Write a TCL application to help test the code as it evolves.</li>
 <li>Help with designing and reviewing the new interface.</li>
 <li>Improve internal or external documentation.</li>
-<li>Create a better design for this webpage</li>
-<li>Help with the interpretation of the HTML/CSS specifications (it would 
-    be great to have someone who knows these well to act as a consultant,
-    even if your time is very limited).</li>
 </ul>
 }
 
@@ -257,38 +251,13 @@ p {
 h 2 {Binaries}
 
 p {
-  The following binaries are available. To quickly test the capabilities of 
-  the widget on Linux or Windows x86, download and run one of the executable 
-  versions of the "Html Viewer" app.  The viewer app comes with a few
-  built-in demo documents, or can load a document from the local file-system.
+  Binary distributions of Tkhtml version 2.0 are available as part of 
+  <a href="http://www.activestate.com/Products/ActiveTcl/">ActiveTcl</a>.
 }
-
-append ::BODY <ul>
-foreach {file desc} {
-  tkhtml.tar.gz   {A tarball containing all the latest source code}
-  hv.tcl          {The "Html Viewer" example application}
-  spec.html       {A raw specification of how the tkhtml widget works}
-  tkhtml.so       {Shared library suitable for use on Linux}
-  tkhtml.dll      {A DLL suitable for use on Windows95/98/NT/2K}
-  hv.exe           {Windows version of the "Html Viewer" version 2.0}
-  hv.linux-x86-xft {Linux x86 version of the "Html Viewer" version 2.0}
-  hv3.exe          {Windows version of the "Html Viewer" version 3.alpha-1}
-  hv3-linux-x86    {Linux x86 version of the "Html Viewer" version 3.alpha-1}
-} {
-  if {![file readable $file]} continue
-  lappend SendList $file
-  append ::BODY "<li><p><a href=\"$file\">$file</a><br>"
-  append ::BODY "Description: $desc<br>"
-  append ::BODY "Size: [file size $file] bytes<br>"
-  append ::BODY "Last modified: [clock format [file mtime $file]]"
-  if {![catch {exec strings $file | grep {$Id: }} ident]} {
-    append ::BODY "<br>Version information:"
-    append ::BODY "<pre>\n$ident</pre>"
-  }
-  append ::BODY "</p></li>\n"
+p {
+  Binary distributions of Tkhtml version 3.0 are available as part of 
+  the <a href="hv3.html">hv3 demo application</a> starkit.
 }
-append ::BODY </ul>
-
 ###########################################################################
 output_page
 
