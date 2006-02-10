@@ -182,7 +182,7 @@ namespace eval hv3 {
   proc handleStyleScript {PATH style} {
     importVars $PATH
     set id [styleId $PATH author]
-    ::hv3::styleCallback $PATH $myUrl $id $script
+    ::hv3::styleCallback $PATH $myUrl $id $style
   }
 
   # handleScriptScript SCRIPT
@@ -414,7 +414,12 @@ namespace eval hv3 {
     set myStatusInfo [array get status]
     
     set callback [list ::hv3::downloadCallback $PATH $script $type]
-    $cmd $url -script $callback -binary $binary
+    if {[catch {
+      $cmd $url -script $callback -binary $binary
+    }]} {
+      puts "Error: Cannot fetch $url"
+      return
+    }
     downloadSetStatus $PATH
   }
 
