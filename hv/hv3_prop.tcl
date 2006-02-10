@@ -8,6 +8,13 @@
 #
 #         prop_browse HTML ?-node NODE?
 #
+#     Globals:
+#
+#         ::hv3_prop_selected
+#         ::hv3_prop_expanded
+#         ::hv3_log_layoutengine
+#         ::hv3_log_styleengine
+#
 set ::hv3_prop_selected ""
 
 swproc prop_browse {HTML {node ""}} {

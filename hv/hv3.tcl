@@ -1,455 +1,612 @@
-
-catch { memory init on }
-
-# Load packages.
-if {[info exists auto_path]} {
-    set auto_path [concat . $auto_path]
-}
-package require Tk
-package require Tkhtml 3.0
-package require http 
-catch {package require sqlite3}
-
-# If possible, load package "Img". Without it the script can still run,
-# but won't be able to load many image formats.
-if {[catch { package require Img }]} {
-  puts "WARNING: Failed to load package Img"
-}
-
-# Source the other script files that are part of this application.
 #
-proc sourcefile {file} {
-  set fname [file join [file dirname [info script]] $file] 
-  uplevel #0 [list source $fname]
-}
-sourcefile hv3_url.tcl
-sourcefile hv3_image.tcl
-sourcefile hv3_log.tcl
-sourcefile hv3_nav.tcl
-sourcefile hv3_prop.tcl
-sourcefile hv3_form.tcl
-sourcefile hv3_style.tcl
-
-###########################################################################
-# Global data:
+# Public API to hv3 functionality.
 #
-# The following variables are stored in the widget dictionary:
+# hv3Init PATH ?option value...?
 #
-#     $baseurl              # The current base URI
-#     $url                  # The current document URI
+#     Initialise an instance of the Hv3 embedded app. The parameter PATH is a
+#     Tk window path-name for a frame widget that will be created. The 
+#     following widgets are created when this command is invoked:
 #
-proc gui_init_globals {} {
-  .html var baseurl "file:///[pwd]/"
-  .html var url {}
-}
-
-proc bgerror {args} {
-  puts "BGERROR: $args"
-  puts "$::errorInfo"
-  puts "$::errorCode"
-}
-
-
-###########################################################################
+#         $PATH                 Frame widget
+#         $PATH.html            Html widget
+#         $PATH.vsb             Vertical scrollbar widget
+#         $PATH.hsb             Horizontal scrollbar widget
+#         $PATH.status          Label widget (browser "status")
 #
-# "Gui" routines:
+#     Options are:
 #
-# Global vars:
+#         -gotocallback         Goto callback.
 #
-#     gui_replaced_images
-set gui_replaced_images [list]
-
-# gui_build --
 #
-#     This procedure is called once at the start of the script to build
-#     the GUI used by the application. It also sets up the callbacks
-#     supplied by this script to help the widget render html.
+# hv3Destroy PATH
 #
-#     It populates the top-level frame "." with the following widgets:
+#     Destroy the widgets created by hv3Init and deallocate all resources
+#     for application instance PATH.
 #
-#         .html
-#         .status
-#         .goto
 #
-proc gui_build {} {
-    set HTML [html .html]
-    scrollbar .vscroll -orient vertical
-    scrollbar .hscroll -orient horizontal
-    label .status -height 1 -anchor w
+# hv3Goto PATH URI
+#
+#     Retrieve and display the document at URI $URI.
+#
+#
+# hv3Image PATH
+#
+#     Return the name of a Tk image containing a copy of the current 
+#     canvas contents.
+#
+#
+# hv3RegisterProtocol PATH protocol cmd
+#
+#     Register a protocol handler command. The protocol is the first part of
+#     the fully-qualified URIs that the command can handle, i.e "file" or 
+#     "http". A protocol command must support the following invocations:
+#
+#         $cmd URI -callback SCRIPT ?-binary BOOLEAN?
+#         $cmd -reset
+#     
 
-    frame .entry
-    entry .entry.entry
-    button .entry.clear -text {Clear ->} -command {.entry.entry delete 0 end}
+swproc hv3Init {PATH {gotocallback ""}} {
+  ::hv3::initVars $PATH
+  ::hv3::importVars $PATH
 
-    pack .entry.clear -side left
-    pack .entry.entry -fill both -expand true
-    pack .entry -fill x -side top 
-    bind .entry.entry <KeyPress-Return> {gui_goto [.entry.entry get]}
+  set myUrl file://[pwd]/
+  set myGotoCallback $gotocallback
 
-    pack .vscroll -fill y -side right
-    pack .status -fill x -side bottom 
-    pack .hscroll -fill x -side bottom
-    pack $HTML -fill both -expand true
+  # Create the widgets and pack them all into the frame. The caller 
+  # must pack the frame itself.
+  frame $PATH
+  html $PATH.html
+  scrollbar $PATH.vsb -orient vertical
+  scrollbar $PATH.hsb -orient horizontal
+  label $PATH.status -height 1 -anchor w
+  pack $PATH.vsb -fill y -side right
+  pack $PATH.status -fill x -side bottom 
+  pack $PATH.hsb -fill x -side bottom
+  pack $PATH.html -fill both -expand true
 
-    $HTML configure -yscrollcommand {gui_scroll .vscroll}
-    .hscroll configure -command "$HTML xview"
-    $HTML configure -xscrollcommand {gui_scroll .hscroll}
-    .vscroll configure -command "$HTML yview"
+  # Set up scrollbar callbacks.
+  $PATH.html configure -yscrollcommand "::hv3::scrollCallback $PATH.vsb"
+  $PATH.hsb configure -command "$PATH.html xview"
+  $PATH.html configure -xscrollcommand "::hv3::scrollCallback $PATH.hsb"
+  $PATH.vsb configure -command "$PATH.html yview"
 
-    bind $HTML <Motion>        "handle_event motion %x %y"
-    bind $HTML <ButtonPress-1> "handle_event click %x %y"
-    bind $HTML <ButtonPress-2> "handle_event rightclick %x %y"
-    bind $HTML <KeyPress-q> hv3_exit
-    bind $HTML <KeyPress-Q> hv3_exit
+  # Image callback.
+  $PATH.html configure -imagecmd [list ::hv3::imageCmd $PATH]
 
-    bind $HTML <Enter>        "handle_enterleave enter"
-    bind $HTML <Leave>        "handle_enterleave leave"
+  # Set up Handler callbacks for <link>, <style>, <script> and <img> tags.
+  $PATH.html handler script script "::hv3::handleScriptScript"
+  $PATH.html handler node img      "::hv3::handleImgNode $PATH"
+  $PATH.html handler node link     "::hv3::handleLinkNode     $PATH"
+  $PATH.html handler script style  "::hv3::handleStyleScript  $PATH"
 
-    $HTML handler node img "handle_img_node"
-    $HTML handler script script "handle_script_script"
-    trace add variable ::hv3_url_status write handle_statuschange
+  # Widget bindings
+  bind $PATH.html <Motion> "::hv3::guiMotion $PATH \[$PATH.html node %x %y\]"
+  bind $PATH.html <1> "::hv3::guiLeftClick $PATH \[$PATH.html node %x %y\]"
+  bind $PATH.html <2> "::hv3::guiMiddleClick $PATH"
+  bind $PATH.html <3> "::hv3::guiRightClick $PATH \[$PATH.html node %x %y\]"
+  bind $PATH.html <KeyPress-q> exit
+  bind $PATH.html <KeyPress-Q> exit
 
-    focus $HTML
+  ::hv3::guiMiddleClick $PATH
 
-    ###########################################################################
-    # Build the main window menu.
-    #
-    . config -menu [menu .m]
-    .m add cascade -label {File} -menu [menu .m.file]
-    foreach f [list \
-        [file join $::tcl_library .. .. bin tkcon] \
-        [file join $::tcl_library .. .. bin tkcon.tcl]
-    ] {
-        if {[file exists $f]} {
-            catch {
-                uplevel #0 "source $f"
-                package require tkcon
-                .m.file add command -label Tkcon -command {tkcon show}
-            }
-            break
-        }
-    }
+  # Register the built-in URI protocol "file"
+  hv3RegisterProtocol $PATH file ::hv3::fileProtocol
 
-    .m.file add command -label Browser -command [list prop_browse $HTML]
-    .m.file add separator
-    .m.file add command -label Exit -command hv3_exit
-
-    # Add the 'Font Size Table' menu
-    #
-    .m add cascade -label {Font Size Table} -menu [menu .m.font]
-    foreach {label table} [list \
-        Normal {7 8 9 10 12 14 16} \
-        Large  {9 10 11 12 14 16 18} \
-        {Very Large}  {11 12 13 14 16 18 20} \
-        {Extra Large}  {13 14 15 16 18 20 22} \
-        {Recklessly Large}  {15 16 17 18 20 22 24}
-    ] {
-        .m.font add command -label $label -command [list \
-            $HTML configure -fonttable $table
-        ]
-    }
-
-    log_init $HTML
-    image_init $HTML
-    form_init $HTML
-    style_init $HTML
+  return $PATH
 }
 
-#
-# gui_scroll sb args
-#
-#     This proc is registered as the -xscrollcommand and -yscrollcommand 
-#     options of the html widget. The first argument is the name of the 
-#     scrollabar - either ".hscroll" or ".vscroll". The remaining args
-#     are those appended by the widget.
-#
-#     The position of the scrollbar is adjusted. If it is not required,
-#     the scrollbar is made to disappear by setting it's width and border
-#     width to zero.
-#
-proc gui_scroll {sb args} {
-  eval [concat $sb set $args]
-  if {$args == "0.0 1.0"} {
-    $sb configure -width 0 -borderwidth 0
-  } else {
-    $sb configure -width 15 -borderwidth 2 
+swproc hv3Goto {PATH url {nocallback 0 1}} {
+  ::hv3::importVars $PATH
+  $PATH.html reset
+
+  set url [url_resolve $myUrl $url]
+  set myUrl $url
+
+  if {$myGotoCallback != "" && !$nocallback} {
+    eval $myGotoCallback $myUrl
   }
+
+  url_get $url -fragment f -prefragment prefragment
+  set script [list ::hv3::parse $PATH $f] 
+  ::hv3::download $PATH $url -script $script -type Document -reset
 }
 
-#--------------------------------------------------------------------------
-# handle_enterleave
-# handle_statuschange
-#
-proc handle_enterleave {e} {
-    if {$e == "leave"} {
-        set ::hv3_gui_mouseoverhtml 0
-        handle_statuschange
+proc hv3Destroy {PATH} {
+}
+
+proc hv3Image {PATH} {
+}
+
+proc hv3RegisterProtocol {PATH protocol cmd} {
+  ::hv3::importVars $PATH
+  array set protocols $myProtocols
+  set protocols($protocol) $cmd
+  set myProtocols [array get protocols]
+}
+
+namespace eval hv3 {
+
+  proc VAR {n {d {}}} {uplevel [list lappend vars $n $d]}
+
+  VAR myProxyHost 
+  VAR myProxyPort
+  VAR myGotoCallback
+  VAR myStateVar 
+
+  VAR myStyleCount 0       ;# Used by [styleId] to assign style-ids
+  VAR myUrl                ;# Current URL being displayed (or loaded)
+  VAR myStatus1            ;# Cursor position status text
+  VAR myStatus2            ;# Download progress status text
+  VAR myStatusVar 2        ;# Either 1 or 2 - the current status text
+  VAR myStatusInfo         ;# Serialized array of download status info
+  VAR myProtocols          ;# Serialized array of protocol commands
+
+  proc initVars {PATH} {
+    foreach {var default} $::hv3::vars {
+      set ::hv3::objectvars(${PATH},$var) $default
+    }
+  }
+  proc importVars {PATH} {
+    foreach {var default} $::hv3::vars {
+      uplevel [subst {
+        upvar #0 ::hv3::objectvars(${PATH},$var) $var
+      }]
+    }
+  }
+
+  set ::hv3::image_name 0
+
+  # scrollCallback SB args
+  #
+  #     This proc is registered as the -xscrollcommand and -yscrollcommand 
+  #     options of the html widget. The first argument is the name of a 
+  #     scrollbar - either "$PATH.hsb" or "$PATH.vsb". The remaining args
+  #     are those appended by the widget.
+  #
+  #     The position of the scrollbar is adjusted. If it is not required,
+  #     the scrollbar is made to disappear by setting it's width and border
+  #     width to zero.
+  proc scrollCallback {sb args} {
+    eval [concat $sb set $args]
+    if {$args == "0.0 1.0"} {
+      $sb configure -width 0 -borderwidth 0
     } else {
-        set ::hv3_gui_mouseoverhtml 1
+      $sb configure -width 15 -borderwidth 2 
     }
-}
-proc handle_statuschange {args} {
-    if {
-        [info exists ::hv3_gui_mouseoverhtml] && 
-        [info exists ::hv3_url_status] && 
-        0 == $::hv3_gui_mouseoverhtml
-    } {
-        .status configure -text $::hv3_url_status
+  }
+
+  # handleStyleScript PATH STYLE
+  #
+  #     This is called as a [node handler script] to handle a <style> tag.
+  #     The second argument, $script, contains the text of the stylesheet.
+  proc handleStyleScript {PATH style} {
+    importVars $PATH
+    set id [styleId $PATH author]
+    ::hv3::styleCallback $PATH $myUrl $id $script
+  }
+
+  # handleScriptScript SCRIPT
+  #
+  #     This is invoked as a [node handler script] callback to handle 
+  #     the contents of a <script> tag. It is a no-op.
+  proc handleScriptScript {script} {
+    return ""
+  }
+
+  # handleImgNode PATH NODE
+  #
+  #     This is called as a [node handler node] callback to handle
+  #     an <img> node. This callback works by invoking the script 
+  #     configured as the -imagecmd option of the html widget. All the 
+  #     image handling is done there (see imageCmd and imageCallback).
+  proc handleImgNode {PATH node} {
+    set src [$node attr src]
+    if {$src != ""} {
+      set imagecmdout [eval [$PATH.html cget -imagecmd] $src]
+      foreach {img del} $imagecmdout {
+        $node replace $img -deletecmd $del
+      }
     }
-}
-#--------------------------------------------------------------------------
+  }
 
-
-#--------------------------------------------------------------------------
-# handle_event E X Y
-#
-#     Handle an html window event. Argument E may be "motion", "click" or
-#     "rightclick". X and Y are the window coordinates where the event
-#     occured. For "motion" events, this means the position of the cursor
-#     after the event.
-#
-proc handle_event {e x y} {
-
-    # Calculate the (rough) maximum number of chars .status can hold.
-    set pix [font measure [.status cget -font] -displayof .status xxxxxxxxxx]
-    set chars [expr 9 * ([winfo width .status] / $pix)]
-
-    set node [.html node $x $y]
-
-    if {$e == "rightclick"} {
-        prop_browse .html -node $node
+  # handleLinkNode PATH NODE
+  #
+  #     Handle a <link> node. The only <link> nodes we care about are those
+  #     that load stylesheets for media-types "all" or "visual". i.e.:
+  #
+  #         <link rel="stylesheet" media="all" href="style.css">
+  #
+  proc handleLinkNode {PATH node} {
+    importVars $PATH
+    set rel   [$node attr -default "" rel]
+    set media [$node attr -default all media]
+    if {$rel=="stylesheet" && [regexp all|screen $media]} {
+      set id [styleId $PATH author]
+      set url [url_resolve $myUrl [$node attr href]]
+      set cmd [list ::hv3::styleCallback $PATH $url $id] 
+      download $PATH $url -script $cmd -type Stylesheet
     }
+  }
+  
+  # imageCallback IMAGE-NAME DATA
+  #
+  #     This proc is called when an image requested by the -imagecmd callback
+  #     ([imageCmd]) has finished downloading. The first argument is the name of
+  #     a Tk image. The second argument is the downloaded data (presumably a
+  #     binary image format like gif). This proc sets the named Tk image to
+  #     contain the downloaded data.
+  #
+  proc imageCallback {name data} {
+    if {[info commands $name] == ""} return 
+    $name put $data
+  }
+  
+  # imageCmd PATH URL
+  # 
+  #     This proc is registered as the -imagecmd script for the Html widget.
+  #     The first argument is the name of the Html widget. The second argument
+  #     is the URI of the image required.
+  #
+  #     This proc creates a Tk image immediately. It also kicks off a fetch 
+  #     request to obtain the image data. When the fetch request is complete,
+  #     the contents of the Tk image are set to the returned data in proc 
+  #     ::hv3::imageCallback.
+  #
+  proc imageCmd {PATH url} {
+    importVars $PATH
+    set name hv3_image[incr ::hv3::image_name]
+    image create photo $name
+    set fullurl [url_resolve $myUrl $url]
+    set cmd [list ::hv3::imageCallback $name] 
+    download $PATH $fullurl -script $cmd -binary -type Image
+    return [list $name [list image delete $name]]
+  }
 
-    set n $node
-    for {} {$n != ""} {set n [$n parent]} {
-      if {[$n tag] == "a" && 0 == [catch {set href [$n attr href]}]} {
-        switch -- $e {
-          motion {
-            .status configure -text [string range $href 0 $chars]
-            . configure -cursor hand2
-          }
-          click  "gui_goto $href"
-        }
+  # styleCallback PATH url id style
+  #
+  #     This proc is invoked when a stylesheet has finished downloading 
+  #     (stylesheet downloads may be started by procs ::hv3::handleLinkNode 
+  #     or ::hv3::styleImportCmd).
+  proc styleCallback {PATH url id style} {
+    set importcmd [list ::hv3::styleImport $PATH $id] 
+    set urlcmd [list url_resolve $url]
+    $PATH.html style -id $id -importcmd $importcmd -urlcmd $urlcmd $style
+  }
+
+  # styleImport styleImport PATH PARENTID URL
+  #
+  #     This proc is passed as the -importcmd option to a [html style] 
+  #     command (see proc styleCallback).
+  proc styleImport {PATH parentid url} {
+    importVars $PATH
+    set id [styleId $PATH $parentid]
+    set script [list ::hv3::styleCallback $PATH $url $id] 
+    download $PATH $url -script $script -type Stylesheet
+  }
+
+  # styleId PATH parentid
+  #
+  #     Return the id string for a stylesheet with parent stylesheet 
+  #     $parentid.
+  proc styleId {PATH parentid} {
+    importVars $PATH
+    format %s.%.4d $parentid [incr myStyleCount]
+  }
+
+  # guiRightClick PATH x y
+  #
+  #     Called when the user right-clicks on the html window. 
+  proc guiRightClick {PATH node} {
+    if {$node!=""} {
+      prop_browse $PATH.html -node $node
+    }
+  }
+
+  # guiMiddleClick
+  #
+  #     Called when the user right-clicks on the html window. 
+  proc guiMiddleClick {PATH} {
+    importVars $PATH
+    set myStatusVar [expr ($myStatusVar % 2) + 1]
+    set v ::hv3::objectvars($PATH,myStatus$myStatusVar)
+    $PATH.status configure -textvariable $v
+  }
+
+  # guiLeftClick PATH node
+  #
+  #     Called when the user left-clicks on the html window. 
+  proc guiLeftClick {PATH node} {
+    for {set n $node} {$n!=""} {set n [$n parent]} {
+      if {[$n tag]=="a" && [$n attr -default "" href]!=""} {
+        hv3Goto $PATH [$n attr href]
         break
       }
     }
-
-  if {$n == ""} {
-      . configure -cursor ""
-      set n $node
-
-      set nodeid ""
-      while {$n != ""} {
-          if {[$n tag] == ""} {
-              set nodeid [string range [$n text] 0 20]
-          } else {
-              set nodeid "<[$n tag]>$nodeid"
-          }
-          set n [$n parent]
-      }
-
-      .status configure -text [string range $nodeid 0 $chars]
-    }
-
-}
-
-# handle_img_node_cb
-#
-#     handle_img_node_cb NODE IMG-DATA
-#
-proc handle_img_node_cb {node imgdata} {
-  catch {
-    set img [image create photo -data $imgdata]
-    $node replace $img
-  } 
-}
-
-# handle_img_node
-#
-#     handle_img_node NODE
-proc handle_img_node {node} {
-  set src [$node attr src]
-  if {$src == ""} return
-  set url [url_resolve [.html var url] $src]
-  lappend ::gui_replaced_images $node $url
-}
-
-# handle_script_script
-#
-#     handle_script_script SCRIPT
-proc handle_script_script {script} {
-  return ""
-}
-
-# handle_a_node
-#
-#     handle_a_node FRAGMENT NODE
-#
-proc handle_a_node {fragment node} {
-    set id [$node attr -default "" name]
-    if {$id == $fragment} {
-        set ::hv3_goto_node $node
-    }
-}
-
-# gui_goto
-#
-#         gui_goto DOC
-#
-#     Commence the process of loading the document at url $doc.
-proc gui_goto {doc} {
-  cache_flush
-  .html reset
-
-  set url [url_resolve [.html var url] $doc]
-  .entry.entry delete 0 end
-  .entry.entry insert 0 $url
-  nav_add .html $url
-  .html var url $url
-
-  url_cancel
-  url_get $url -fragment fragment -prefragment prefragment
-  url_fetch $prefragment -script [list gui_parse $fragment] -type Document
-}
-
-proc gui_next_node {node} {
-  set ret [$node right_sibling]
-  if {$ret==""} {
-    set ret [$node parent]
   }
-  return $ret
-}
 
-# gui_parse 
-#
-#         gui_parse FRAGMENT TEXT
-#
-#     Append the text TEXT to the current document. Argument DOC
-#     is the URL from whence the new document data was received. If this
-#     is different from the current URL, then clear the widget before
-#     loading the text.
-#
-#     If argument FRAGMENT is not "", then it is the name of an anchor within
-#     the document to jump to.
-#
-proc gui_parse {fragment text} {
-    style_newdocument .html
-    .html parse $text
-
-    foreach {node url} $::gui_replaced_images {
-        set cmd [list handle_img_node_cb $node]
-        url_fetch $url -script $cmd -binary -type Image
+  # guiMotion PATH node
+  #
+  #     Called when the mouse moves over the html window. Parameter $node is
+  #     the node the mouse is currently floating over, or "" if the pointer is
+  #     not over any node.
+  proc guiMotion {PATH node} {
+    importVars $PATH
+    set txt ""
+    $PATH configure -cursor ""
+    for {set n $node} {$n!=""} {set n [$n parent]} {
+      set tag [$n tag]
+      if {$tag=="a" && [$n attr -default "" href]!=""} {
+        $PATH configure -cursor hand2
+        set txt "hyper-link: [$n attr href]"
+        break
+      } elseif {$tag==""} {
+        set txt [string range [$n text] 0 20]
+      } else {
+        set txt "<[$n tag]>$txt"
+      }
     }
-    set ::gui_replaced_images [list]
+    set myStatus1 [string range $txt 0 80]
+  }
+
+  # parse PATH fragment text 
+  #
+  #     Append the text TEXT to the current document.  If argument FRAGMENT is
+  #     not "", then it is the name of an anchor within the document to jump
+  #     to.
+  #
+  proc parse {PATH fragment text} {
+    importVars $PATH
+    set myStyleCount 0
+    $PATH.html parse $text
 
     if {$fragment != ""} {
-        set selector [format {[name="%s"]} $fragment]
-        set goto_node [lindex [.html search $selector] 0]
-        if {$goto_node!=""} {
-            set coords2 [.html bbox [.html node]]
-            set coords  [.html bbox $goto_node]
-            while {[llength $coords] == 0 && $goto_node!=[.html node]} {
-                set goto_node [gui_next_node $goto_node]
-                set coords  [.html bbox $goto_node]
-            }
-            if {[llength $coords] > 0} {
-                set ypix [lindex $coords 1]
-                set ycanvas [lindex $coords2 3]
-                .html yview moveto [expr double($ypix) / double($ycanvas)]
-            }
+      set H $PATH.html
+      set selector [format {[name="%s"]} $fragment]
+      set goto_node [lindex [$H search $selector] 0]
+      if {$goto_node!=""} {
+        set coords2 [$H bbox [$H node]]
+        set coords  [$H bbox $goto_node]
+        while {[llength $coords] == 0 && $goto_node!=[$H node]} {
+          set next_node [$goto_node right_sibling]
+          if {$next_node==""} {
+            set next_node [$goto_node parent]
+          }
+          set goto_node $next_node
+          set coords  [$H bbox $goto_node]
+        }
+        if {[llength $coords] > 0} {
+          set ypix [lindex $coords 1]
+          set ycanvas [lindex $coords2 3]
+          $H yview moveto [expr double($ypix) / double($ycanvas)]
+        }
+      }
+    }
+  }
+
+  # download PATH url ?-script script? ?-type type? ?-binary? ?-reset?
+  #
+  #     Retrieve the contents of the url $url, by invoking one of the 
+  #     protocol callbacks registered via proc hv3RegisterProtocol.
+  swproc download {PATH url \
+    {script ""} \
+    {type Document} \
+    {binary 0 1} \
+    {reset 0 1}} \
+  {
+    importVars $PATH
+    url_get $url -scheme scheme
+    array set protocols $myProtocols
+    if {[catch {set cmd $protocols($scheme)}]} {
+      error "Unknown protocol: \"$scheme\""
+    }
+
+    if {$reset} {
+      $cmd -reset
+      set myStatusInfo [list]
+    }
+
+    array set status $myStatusInfo
+    if {[info exists status($type)]} {
+      lset status($type) 1 [expr [lindex $status($type) 1] + 1]
+    } else {
+      set status($type) [list 0 1]
+    }
+    set myStatusInfo [array get status]
+    
+    set callback [list ::hv3::downloadCallback $PATH $script $type]
+    $cmd $url -script $callback -binary $binary
+    downloadSetStatus $PATH
+  }
+
+  proc downloadCallback {PATH script type data} {
+    importVars $PATH
+    array set status $myStatusInfo
+    lset status($type) 0 [expr [lindex $status($type) 0] + 1]
+    set myStatusInfo [array get status]
+    lappend script $data
+    eval $script
+    downloadSetStatus $PATH
+  }
+
+  proc downloadSetStatus {PATH} {
+    importVars $PATH
+    set myStatus2 ""
+    foreach {k v} $myStatusInfo {
+      append myStatus2 "$k [lindex $v 0]/[lindex $v 1]  "
+    }
+  }
+
+  # fileProtocol
+  #
+  #     This command is registered as the handler for the builtin file://
+  #     protocol.
+  # 
+  swproc fileProtocol {url {script ""} {binary 0}} {
+    if {$url=="-reset"} {
+      return
+    }
+    set fname [string range $url 7 end]
+    set f [open $fname]
+    if {$binary} {
+      fconfigure $f -encoding binary -translation binary
+    }
+    set data [read $f]
+    close $f
+    if {$script != ""} {
+      lappend script $data
+      eval $script
+    }
+  }
+}
+
+
+
+#--------------------------------------------------------------------------
+# urlNormalize --
+#
+#         urlNormalize PATH
+#
+#     The argument is expected to be the path component of a URL (i.e. similar
+#     to a unix file system path). ".." and "." components are removed and the
+#     result returned.
+#
+proc urlNormalize {path} {
+    set ret [list]
+    foreach c [split $path /] {
+        if {$c == ".."} {
+            set ret [lrange $ret 0 end-1]
+        } elseif {$c == "."} {
+            # Do nothing...
+        } else {
+            lappend ret $c
         }
     }
+    return [join $ret /]
 }
 
-# gui_log
+#--------------------------------------------------------------------------
+# urlSplit --
 #
-#         gui_log MSG
+#         urlSplit URL
 #
-#     Log a message to the log file (stdout).
+#     Form of URL parsed:
+#         <scheme>://<host>:<port>/<path>?<query>#<fragment>
 #
-proc gui_log {msg} {
-    puts $msg
-}
+proc urlSplit {url} {
+    set re_scheme   {((?:[a-z]+:)?)}
+    set re_host     {((?://[A-Za-z0-9.]*)?)}
+    set re_port     {((?::[0-9]*)?)}
+    set re_path     {((?:[^#?]*)?)}
+    set re_query    {((?:\?[^?]*)?)}
+    set re_fragment {((?:#.*)?)}
 
-# hv3_exit
-#
-#          hv3_exit
-#
-#     Exit the application.
-proc hv3_exit {} {
-    destroy .html 
-    catch {destroy .prop.html}
-    catch {::tk::htmlalloc}
-    if {[llength [form_widget_list]] > 0} {
-        puts "Leaked widgets: [form_widget_list]"
-    }
-    ::tk::htmlexit
-}
+    set re "${re_scheme}${re_host}${re_port}${re_path}${re_query}${re_fragment}"
 
-# main
-#
-#     main URL -cache FILENAME
-#
-swproc main {doc {cache :memory:}} {
-  gui_build
-  gui_init_globals
-  nav_init .html
-  .html var url file://[pwd]/
-  gui_goto $doc
-}
-
-##########################################################################
-# Utility procedures designed for use in Tkcon:
-#
-#     hv3_findnode
-#     hv3_nodetostring
-#
-proc findNode {predicate N nodevar} {
-  set ret [list]
-  set $nodevar $N
-  catch {eval "if {$predicate} {lappend ret $N}"}
-  for {set i 0} {$i < [$N nChild]} {incr i} {
-      set ret [concat $ret [findNode $predicate [$N child $i] $nodevar]]
-  }
-  return $ret
-}
-
-swproc hv3_findnode {predicate {nodevar N}} {
-  set ret [list]
-  set N [.html node]
-
-  return [findNode $predicate $N $nodevar]
-}
-
-proc hv3_nodetostring {N} {
-    if {[$N tag] == ""} {
-        return "\"[string range [$N text] 0 20]\""
-    }
-    set d "<[$N tag]"
-    foreach {a v} [$N attr] {
-        append d " $a=\"$v\""
-    }
-    append d ">"
-    return $d
-}
-
-proc hv3_nodeprint {N} {
-    set stack [list]
-    for {set n $N} {$n != ""} {set n [$n parent]} {
-        lappend stack [hv3_nodetostring $n]
+    if {![regexp $re $url X \
+            u(scheme) \
+            u(host) \
+            u(port) \
+            u(path) \
+            u(query) \
+            u(fragment)
+    ]} {
+        error "Bad URL: $url"
     }
 
-    set ret ""
-    set indent 0
-    for {set i [expr [llength $stack] - 1]} {$i >= 0} {incr i -1} {
-        append ret [string repeat " " $indent]
-        append ret [lindex $stack $i]
-        append ret "\n"
-        incr indent 4
-    }
-
-    return $ret;
+    return [array get u]
 }
 
-eval [concat main $argv]
+#--------------------------------------------------------------------------
+# url_resolve --
+#
+#     This command is used to transform a (possibly) relative URL into an
+#     absolute URL. Example:
+#
+#         $ url_resolve http://host.com/dir1/dir2/doc.html ../dir3/doc2.html
+#         http://host.com/dir1/dir3/doc2.html
+#
+#     This is purely a string manipulation procedure.
+#
+proc url_resolve {baseurl url} {
 
+    array set u [urlSplit $url]
+    array set b [urlSplit $baseurl]
+
+    set ret {}
+    foreach part [list scheme host port] {
+        if {$u($part) != ""} {
+            append ret $u($part)
+        } else {
+            append ret $b($part)
+        }
+    }
+
+    if {$b(path) == ""} {set b(path) "/"}
+
+    if {[regexp {^/} $u(path)] || $u(host) != ""} {
+        set path $u(path)
+    } else {
+        if {$u(path) == ""} {
+            set path $b(path)
+        } else {
+            regexp {.*/} $b(path) path
+            append path $u(path)
+        }
+    }
+
+    append ret [urlNormalize $path]
+    append ret $u(query)
+    append ret $u(fragment)
+
+    # puts "$baseurl + $url -> $ret"
+    return $ret
+}
+
+#--------------------------------------------------------------------------
+# url_get --
+#
+#     This is a high-level string manipulation procedure to extract components
+#     from a URL.
+#
+#         -fragment
+#         -prefragment
+#         -port
+#         -host
+#
+#     For the url "http://www.google.com:1234/index.html#part5"
+#
+swproc url_get {url \
+    {fragment ""} {prefragment ""} {port ""} {host ""} {scheme ""}} \
+{
+    array set u [urlSplit $url]
+
+    if {$fragment != ""} {
+        uplevel [subst {
+            set $fragment "[string range $u(fragment) 1 end]"
+        }]
+    }
+
+    if {$prefragment != ""} {
+        uplevel [subst {
+            set $prefragment "$u(scheme)$u(host)$u(port)$u(path)$u(query)"
+        }]
+    }
+
+    if {$host != ""} {
+        uplevel [subst {
+            set $host "[string range $u(host) 2 end]"
+        }]
+    }
+
+    if {$port != ""} {
+        uplevel [subst {
+            set $port "[string range $u(port) 1 end]"
+        }]
+    }
+
+    if {$scheme != ""} {
+        uplevel [subst {
+            set $scheme "[string range $u(scheme) 0 end-1]"
+        }]
+    }
+}
