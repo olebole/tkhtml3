@@ -181,8 +181,8 @@ proc do_image_test {db url} {
   image create photo newimage -data $newdata
   .main.canvas create image 0 0 -image newimage -anchor nw -tag newimage
   if {$olddata!={}} {
-    image create photo oldimage -data $newdata
-    .main.canvas create image 0 0 -image newimage -anchor nw -tag oldimage
+    image create photo oldimage -data $olddata
+    .main.canvas create image 0 0 -image oldimage -anchor nw -tag oldimage
   }
   set dim [.main.canvas bbox all]
   .main.canvas configure -scrollregion $dim
