@@ -77,7 +77,7 @@ hwish: $(OBJS) $(TOP)/src/main.c
 hv3_img.vfs: binaries
 	mkdir -p ./hv3_img.vfs
 	mkdir -p ./hv3_img.vfs/lib
-	cp $(BINARIES) ./hv3.vfs/lib
+	cp $(BINARIES) ./hv3_img.vfs/lib
 	cp $(TOP)/hv/hv*.tcl ./hv3_img.vfs/
 	cp $(TOP)/hv/main.tcl ./hv3_img.vfs/
 	if test -d $(TCL)/lib/Img*/ ; then \
