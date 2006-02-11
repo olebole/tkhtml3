@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.47 2006/02/06 12:34:40 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.48 2006/02/11 08:52:04 danielk1977 Exp $";
 
 /*
  *    The CSS "cascade":
@@ -1890,7 +1890,7 @@ cssParse(n, z, isStyle, origin, pStyleId, pImportCmd, interp, pUrlCmd, ppStyle)
     }
     p = tkhtmlCssParserAlloc(xCkalloc);
 
-/* tkhtmlCssParserTrace(stdout, "Parser: "); */
+ /* tkhtmlCssParserTrace(stdout, "Parser: "); */
 
     /* If *ppStyle is NULL, then create a new CssStyleSheet object. If it
      * is not zero, then append the rules from the new stylesheet document

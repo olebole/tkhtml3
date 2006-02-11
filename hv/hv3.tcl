@@ -29,12 +29,6 @@
 #     Retrieve and display the document at URI $URI.
 #
 #
-# hv3Image PATH
-#
-#     Return the name of a Tk image containing a copy of the current 
-#     canvas contents.
-#
-#
 # hv3RegisterProtocol PATH protocol cmd
 #
 #     Register a protocol handler command. The protocol is the first part of

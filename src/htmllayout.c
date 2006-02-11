@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.112 2005/11/23 15:24:42 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.113 2006/02/11 08:52:04 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -2342,11 +2342,25 @@ HtmlLayout(pTree)
 {
     HtmlNode *pBody = 0;
     int rc;
-    int width = Tk_Width(pTree->tkwin); /* Default width if no -width option */
+    int nWidth;
     BoxContext sBox;               /* The imaginary box <body> is inside */
     LayoutContext sLayout;
     Tcl_HashSearch s;
     Tcl_HashEntry *p;
+
+    /* Set variable nWidth to the pixel width of the viewport to render 
+     * to. This code should use the actual width of the window if the
+     * widget is displayed, or the configured width if it is not (i.e. if 
+     * the widget is never packed).
+     *
+     * It would be better to use the Tk_IsMapped() function here, but for
+     * some reason I can't make it work. So instead depend on the observed 
+     * behaviour that Tk_Width() returns 1 if the window is not mapped.
+     */
+    nWidth = Tk_Width(pTree->tkwin);
+    if (nWidth<5) {
+        nWidth = pTree->options.width;
+    }
 
     /* Delete any existing document layout. */
     /* HtmlDrawDeleteControls(pTree, &pTree->canvas); */
@@ -2362,7 +2376,7 @@ HtmlLayout(pTree)
 
     /* Set up the box context object. */
     memset(&sBox, 0, sizeof(BoxContext));
-    sBox.iContaining = width;
+    sBox.iContaining = nWidth;
     sBox.pFloat = HtmlFloatListNew();
 
     HtmlLog(pTree, "LAYOUTENGINE", "START");
@@ -2374,12 +2388,12 @@ HtmlLayout(pTree)
     if (pBody) {
         XColor *c = pBody->pPropertyValues->cBackgroundColor->xcolor;
         MarginProperties margin;
-        nodeGetMargins(&sLayout, pBody, width, &margin);
+        nodeGetMargins(&sLayout, pBody, nWidth, &margin);
         if (c) {
             HtmlDrawBackground(&pTree->canvas, c, 0);
         }
         sLayout.pTop = pBody;
-        drawBlock(&sLayout, &sBox, pBody, width, 0);
+        drawBlock(&sLayout, &sBox, pBody, nWidth, 0);
         HtmlDrawCanvas(&pTree->canvas, &sBox.vc, 0, 0, pBody);
         pTree->canvas.right = sBox.width;
         pTree->canvas.bottom = sBox.height;
