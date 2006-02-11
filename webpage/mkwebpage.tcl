@@ -2,7 +2,7 @@
 #
 # Construct the web page for tkhtml
 #
-# @(#) $Id: mkwebpage.tcl,v 1.18 2006/02/07 13:31:31 danielk1977 Exp $
+# @(#) $Id: mkwebpage.tcl,v 1.19 2006/02/11 11:28:49 danielk1977 Exp $
 #
 
 source [file join [file dirname [info script]] common.tcl]
@@ -98,10 +98,10 @@ h 2 {Current Status (Version 3)}
 p {
   This is currently at alpha stage. The rendering engine is not yet feature
   complete by any means, but the majority of common HTML and CSS 1.0
-  constructs are supported. See 
-  <a href="http://tkhtml.tcl.tk/cvstrac/wiki?p=CssOne">this page</a> for a
-  list of known defects. Nothing dynamic is supported yet (i.e. changing
-  the color of something when the mouse floats over it etc.).
+  constructs are supported. See <a href="support.html">this page</a> for a
+  comparison of current capabilities against the CSS 1.0 specification. 
+  Nothing dynamic is supported yet (i.e. changing the color of something when
+  the mouse floats over it etc.).
 }
 
 p {
