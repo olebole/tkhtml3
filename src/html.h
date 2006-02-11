@@ -283,6 +283,12 @@ struct HtmlTree {
     int eVisibility;           /* Most recent XVisibilityEvent.state */
 
     /*
+     * The widget command.
+     */
+    Tcl_Command cmd;           /* Widget command */
+    int isDeleted;             /* True once the widget-delete has begun */
+
+    /*
      * The following variables are used to stored the text of the current
      * document (i.e. the *.html file).
      * 

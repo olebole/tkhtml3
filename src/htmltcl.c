@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.60 2006/02/06 12:34:40 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.61 2006/02/11 12:28:20 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -484,6 +484,39 @@ deleteWidget(clientData)
 /*
  *---------------------------------------------------------------------------
  *
+ * widgetCmdDel --
+ *
+ *     This command is invoked by Tcl when a widget object command is
+ *     deleted. This can happen under two circumstances:
+ *
+ *         * A script deleted the command. In this case we should delete
+ *           the widget window (and everything else via the window event
+ *           callback) as well.
+ *         * A script deleted the widget window. In this case we need
+ *           do nothing.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void 
+widgetCmdDel(clientData)
+    ClientData clientData;
+{
+    HtmlTree *pTree = (HtmlTree *)clientData;
+    if( !pTree->isDeleted ){
+      pTree->cmd = 0;
+      Tk_DestroyWindow(pTree->tkwin);
+    }
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * eventHandler --
  *
  * Results:
@@ -543,6 +576,8 @@ eventHandler(clientData, pEvent)
         }
 
         case DestroyNotify: {
+            pTree->isDeleted = 1;
+            Tcl_DeleteCommandFromToken(pTree->interp, pTree->cmd);
             deleteWidget(pTree);
             break;
         }
@@ -1318,7 +1353,7 @@ styleCmd(clientData, interp, objc, objv)
  *
  *     New versions of gcc don't allow pointers to non-local functions to
  *     be used as constant initializers (which we need to do in the
- *     aSubcommand[] array inside HtmlWidgetObjCommand(). So the following
+ *     aSubcommand[] array inside widgetCmd(). So the following
  *     functions are wrappers around Tcl_ObjCmdProc functions implemented
  *     in other files.
  *
@@ -1379,7 +1414,7 @@ searchCmd(clientData, interp, objc, objv)
 /*
  *---------------------------------------------------------------------------
  *
- * HtmlWidgetObjCommand --
+ * widgetCmd --
  *
  *     This is the C function invoked for a widget command.
  *
@@ -1406,7 +1441,7 @@ searchCmd(clientData, interp, objc, objv)
  *
  *---------------------------------------------------------------------------
  */
-int HtmlWidgetObjCommand(clientData, interp, objc, objv)
+int widgetCmd(clientData, interp, objc, objv)
     ClientData clientData;             /* The HTML widget data structure */
     Tcl_Interp *interp;                /* Current interpreter. */
     int objc;                          /* Number of arguments. */
@@ -1590,7 +1625,7 @@ newWidget(clientData, interp, objc, objv)
     Tcl_InitHashTable(&pTree->aScaledImage, TCL_STRING_KEYS);
     Tcl_InitHashTable(&pTree->aCmd, TCL_STRING_KEYS);
     Tcl_InitHashTable(&pTree->aVar, TCL_STRING_KEYS);
-    Tcl_CreateObjCommand(interp,zCmd,HtmlWidgetObjCommand,pTree,deleteWidget);
+    pTree->cmd = Tcl_CreateObjCommand(interp,zCmd,widgetCmd,pTree,widgetCmdDel);
 
     /* TODO: Handle the case where configureCmd() returns an error. */
     rc = configureCmd(pTree, interp, objc, objv);
