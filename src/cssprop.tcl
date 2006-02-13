@@ -95,6 +95,8 @@ P table-layout text-align text-decoration text-indent text-shadow text-transform
 P top unicode-bidi vertical-align visibility voice-family volume white-space 
 P widows width word-spacing z-index 
 
+P -tkhtml-replacement-image
+
 S background border border-top border-right border-bottom border-left
 S border-color border-style border-width cue font padding outline margin
 S list-style

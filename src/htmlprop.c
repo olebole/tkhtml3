@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.45 2005/11/29 08:48:34 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.46 2006/02/13 12:36:07 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -663,22 +663,6 @@ propertyValuesSetLineHeight(p, pProp)
     return rc;
 }
 
-static void
-imageChangedProc(clientData, x, y, w, h, iw, ih)
-    ClientData clientData;
-    int x;
-    int y;
-    int w;
-    int h;
-    int iw;
-    int ih;
-{
-    HtmlTree *pTree = (HtmlTree *)clientData;
-    Tk_Window tkwin = pTree->tkwin;
-    HtmlCallbackSchedule(pTree, HTML_CALLBACK_DAMAGE);
-    HtmlCallbackExtents(pTree, 0, 0, Tk_Width(tkwin), Tk_Height(tkwin));
-}
-
 /*
  *---------------------------------------------------------------------------
  *
@@ -686,7 +670,7 @@ imageChangedProc(clientData, x, y, w, h, iw, ih)
  *
  * Results: 
  *     0 if value is successfully set. 1 if the value of *pProp is not a valid
- *     a value for the 'vertical-align' property.
+ *     value for an image property.
  *
  * Side effects:
  *
@@ -695,20 +679,18 @@ imageChangedProc(clientData, x, y, w, h, iw, ih)
 static int
 propertyValuesSetImage(p, pImVar, pProp)
     HtmlComputedValuesCreator *p;
-    HtmlImage **pImVar;
+    HtmlImage2 **pImVar;
     CssProperty *pProp;
 {
-    HtmlImage *pNew = 0;
+    HtmlImage2 *pNew = 0;
     CONST char *zUrl = 0;
 
     switch (pProp->eType) {
         case CSS_CONST_INHERIT: {
             unsigned char *v = (unsigned char *)pImVar;
-            HtmlImage **pInherit = (HtmlImage **)getInheritPointer(p, v);
+            HtmlImage2 **pInherit = (HtmlImage2 **)getInheritPointer(p, v);
             *pImVar = *pInherit;
-            if (*pImVar) {
-                (*pImVar)->nRef++;
-            }
+            HtmlImageRef(*pImVar);
             return 0;
         }
 
@@ -725,69 +707,10 @@ propertyValuesSetImage(p, pImVar, pProp)
     }
 
     if (zUrl) {
-        Tcl_HashEntry *pEntry;
-        int newEntry;
-        Tcl_Obj *pImageCmd = p->pTree->options.imagecmd;
-
-        pEntry = Tcl_CreateHashEntry(&p->pTree->aImage, zUrl, &newEntry);
-        if (newEntry) {
-            Tcl_Interp *interp = p->pTree->interp;
-            Tcl_Obj *pUrl = Tcl_NewStringObj(zUrl, -1);
-            Tcl_Obj *pEval = Tcl_DuplicateObj(pImageCmd);
-    
-            Tcl_IncrRefCount(pEval);
-            Tcl_ListObjAppendElement(interp, pEval, pUrl);
-            if (Tcl_EvalObjEx(interp, pEval, TCL_EVAL_DIRECT|TCL_EVAL_GLOBAL)) {
-                Tcl_BackgroundError(interp);
-                return 0;
-            } else {
-                int nObj = 0;
-                Tcl_Obj **apObj;
-                Tcl_Obj *pResult = Tcl_GetObjResult(interp);
-    
-                Tcl_ListObjGetElements(interp, pResult, &nObj, &apObj);
-                if (nObj == 1 || nObj ==2) {
-                    int nBytes = sizeof(HtmlImage) + strlen(zUrl) + 1;
-    
-                    Tk_Image img = Tk_GetImage(
-                            interp, p->pTree->tkwin, Tcl_GetString(apObj[0]),
-                            imageChangedProc, p->pTree
-                    );
-                    if (!img) {
-                        Tcl_ResetResult(interp);
-                        Tcl_AppendResult(interp,  
-                            "-imagecmd script returned bad value", 0
-                        );
-                        Tcl_BackgroundError(interp);
-                        return 0;
-                    }
-    
-                    pNew = (HtmlImage*)HtmlAlloc(nBytes);
-                    pNew->image = img;
-                    pNew->nRef = 0;
-                    pNew->pImage = apObj[0];
-                    Tcl_IncrRefCount(pNew->pImage);
-                    pNew->pDelete = 0;
-                    pNew->zUrl = (char *)&pNew[1];
-                    strcpy(pNew->zUrl, zUrl);
-                }
-                if (nObj == 2) {
-                    pNew->pDelete = apObj[1];
-                    Tcl_IncrRefCount(pNew->pDelete);
-                }
-                Tcl_SetHashValue(pEntry, pNew);
-            }
-        } else {
-            pNew = (HtmlImage *)Tcl_GetHashValue(pEntry);
-        }
+        pNew = HtmlImageServerGet(p->pTree->pImageServer, zUrl);
     }
-
     if (*pImVar) {
-        assert((*pImVar)->nRef > 1);
-        (*pImVar)->nRef--;
-    }
-    if (pNew) {
-        pNew->nRef++;
+        HtmlImageFree(*pImVar);
     }
     *pImVar = pNew;
     return 0;
@@ -1165,6 +1088,8 @@ HtmlComputedValuesInit(pTree, pNode, p)
     p->values.eBackgroundRepeat = CSS_CONST_REPEAT;
     p->values.iBackgroundPositionX = 0;
     p->values.iBackgroundPositionY = 0;
+
+    p->values.imReplacementImage = 0;
 
     p->values.eVerticalAlign = CSS_CONST_BASELINE;   /* 'vertical-align' */
     p->values.iVerticalAlign = 0;
@@ -1619,6 +1544,10 @@ HtmlComputedValuesSet(p, eProp, pProp)
                 &(p->values.border.iRight), PROP_MASK_BORDER_RIGHT_WIDTH, pProp
             );
 
+        case CSS_PROPERTY__TKHTML_REPLACEMENT_IMAGE:
+            return propertyValuesSetImage(p, 
+                &p->values.imReplacementImage, pProp
+            );
         case CSS_PROPERTY_BACKGROUND_IMAGE:
             return propertyValuesSetImage(p, 
                 &p->values.imBackgroundImage, pProp
@@ -1888,15 +1817,13 @@ HtmlComputedValuesFinish(p)
         pValues->cBorderRightColor->nRef--;
         pValues->cBorderBottomColor->nRef--;
         pValues->cBorderLeftColor->nRef--;
-        if (pValues->imBackgroundImage) {
-            pValues->imBackgroundImage->nRef--;
-            assert(pValues->imBackgroundImage->nRef > 0);
-        }
-        if (pValues->imListStyleImage) {
-            pValues->imListStyleImage->nRef--;
-            assert(pValues->imListStyleImage->nRef > 0);
-        }
+        HtmlImageFree(pValues->imReplacementImage);
+        HtmlImageFree(pValues->imBackgroundImage);
+        HtmlImageFree(pValues->imListStyleImage);
     }
+    HtmlImageCheck(pValues->imReplacementImage);
+    HtmlImageCheck(pValues->imBackgroundImage);
+    HtmlImageCheck(pValues->imListStyleImage);
 
     /* Delete any CssProperty structures allocated for Tcl properties */
     if (p->pDeleteList) {
@@ -1947,31 +1874,6 @@ decrementColorRef(pTree, pColor)
     }
 }
 
-static void
-decrementImageRef(pTree, pImage)
-    HtmlTree *pTree;
-    HtmlImage *pImage;
-{
-    if (!pImage) return;
-
-    pImage->nRef--;
-    assert(pImage->nRef >= 0);
-    if (pImage->nRef == 0) {
-        Tcl_HashEntry *pEntry;
-        pEntry = Tcl_FindHashEntry(&pTree->aImage, pImage->zUrl);
-        assert(pEntry);
-        Tcl_DeleteHashEntry(pEntry);
-        if (pImage->image) {
-            Tk_FreeImage(pImage->image);
-        }
-        if (pImage->pDelete) {
-            int flags = TCL_EVAL_GLOBAL|TCL_EVAL_DIRECT;
-            Tcl_EvalObjEx(pTree->interp, pImage->pDelete, flags);
-        }
-        HtmlFree((char *)pImage);
-    }
-}
-
 void 
 HtmlComputedValuesRelease(pTree, pValues)
     HtmlTree *pTree;
@@ -1998,8 +1900,9 @@ HtmlComputedValuesRelease(pTree, pValues)
             decrementColorRef(pTree, pValues->cBorderRightColor);
             decrementColorRef(pTree, pValues->cBorderBottomColor);
             decrementColorRef(pTree, pValues->cBorderLeftColor);
-            decrementImageRef(pTree, pValues->imBackgroundImage);
-            decrementImageRef(pTree, pValues->imListStyleImage);
+            HtmlImageFree(pValues->imReplacementImage);
+            HtmlImageFree(pValues->imBackgroundImage);
+            HtmlImageFree(pValues->imListStyleImage);
     
             Tcl_DeleteHashEntry(pEntry);
         }
@@ -2237,6 +2140,7 @@ PROP_MASK_ ## eProp}
         ENUMVAL  (WHITE_SPACE, eWhitespace),
         LENGTHVAL(WIDTH, iWidth),
 
+        IMAGEVAL(_TKHTML_REPLACEMENT_IMAGE, imReplacementImage),
         IMAGEVAL(BACKGROUND_IMAGE, imBackgroundImage),
         IMAGEVAL(LIST_STYLE_IMAGE, imListStyleImage),
         ENUMVAL (BACKGROUND_REPEAT, eBackgroundRepeat),
@@ -2318,9 +2222,9 @@ PROP_MASK_ ## eProp}
                 break;
             }
             case IMAGE: {
-                HtmlImage *imValue = *(HtmlImage **)(v + pDef->iOffset);
+                HtmlImage2 *imValue = *(HtmlImage2 **)(v + pDef->iOffset);
                 if (imValue) {
-                    pValue = Tcl_NewStringObj(imValue->zUrl, -1);
+                    pValue = Tcl_NewStringObj(HtmlImageUrl(imValue), -1);
                 } else {
                     pValue = Tcl_NewStringObj("none", 4);
                 }

@@ -39,13 +39,14 @@
 #ifndef NDEBUG
     #include "restrack.h"
     #define HtmlAlloc Rt_Alloc
-    #define HtmlFree Rt_Free
+    #define HtmlFree(x) Rt_Free((char *)x)
     #define HtmlRealloc Rt_Realloc
 #else
     #define HtmlAlloc ckalloc
-    #define HtmlFree ckfree
+    #define HtmlFree(x) ckfree((char *)x)
     #define HtmlRealloc ckrealloc
 #endif
+char *HtmlClearAlloc(int);
 
 #ifndef NDEBUG
 #define HTML_DEBUG
@@ -104,6 +105,9 @@ typedef struct HtmlNodeReplacement HtmlNodeReplacement;
 typedef struct HtmlCallback HtmlCallback;
 typedef struct HtmlNodeCmd HtmlNodeCmd;
 
+typedef struct HtmlImageServer HtmlImageServer;
+typedef struct HtmlImage2 HtmlImage2;
+
 #include "css.h"
 #include "htmlprop.h"
 
@@ -151,15 +155,15 @@ struct HtmlToken {
 /*
  * For a replaced node, the HtmlNode.pReplacement variable points to an
  * instance * of the following structure. The member objects are the name of
- * the replaced object (an image or widget handle), the configure script if
- * any, and the delete script if any. i.e. in Tcl:
+ * the replaced object (widget handle), the configure script if any, and the
+ * delete script if any. i.e. in Tcl:
  *
  *     $nodeHandle replace $pReplace \
  *             -configurecmd $pConfigure -deletecmd $pDelete
  *    
  */
 struct HtmlNodeReplacement {
-    Tcl_Obj *pReplace;            /* Image or window name */
+    Tcl_Obj *pReplace;            /* Replacement window name */
     Tcl_Obj *pConfigure;          /* Script passed to -configurecmd */
     Tcl_Obj *pDelete;             /* Script passed to -deletecmd */
 };
@@ -289,6 +293,11 @@ struct HtmlTree {
     int isDeleted;             /* True once the widget-delete has begun */
 
     /*
+     * The image server object.
+     */
+    HtmlImageServer *pImageServer;
+
+    /*
      * The following variables are used to stored the text of the current
      * document (i.e. the *.html file).
      * 
@@ -405,10 +414,6 @@ CssProperty *HtmlNodeGetProperty(Tcl_Interp *, HtmlNode *, int);
 void HtmlNodeGetDefault(HtmlNode *, int , CssProperty *);
 void HtmlDeletePropertyCache(HtmlPropertyCache *);
 
-Tcl_Obj *HtmlResizeImage(HtmlTree *, CONST char *, int *, int *, int);
-Tcl_Obj *HtmlXImageToImage(HtmlTree *, XImage *, int, int);
-int HtmlClearImageArray(HtmlTree*);
-
 void HtmlDrawCleanup(HtmlCanvas *);
 void HtmlDrawDeleteControls(HtmlTree *, HtmlCanvas *);
 
@@ -420,7 +425,7 @@ void HtmlDrawBackground(HtmlCanvas *, XColor *, int);
 void HtmlDrawQuad(HtmlCanvas*,int,int,int,int,int,int,int,int,XColor*,int);
 int  HtmlDrawIsEmpty(HtmlCanvas *);
 
-void HtmlDrawImage2(HtmlCanvas *, HtmlImage *, int, int, unsigned char, 
+void HtmlDrawImage2(HtmlCanvas *, HtmlImage2 *, int, int, unsigned char, 
                     unsigned char, int, int, int, int, int);
 
 HtmlTokenMap *HtmlMarkup(int);
@@ -451,6 +456,19 @@ CONST char *HtmlDefaultCss();
 void HtmlCallbackForce(HtmlTree *);
 void HtmlCallbackSchedule(HtmlTree *, int);
 void HtmlCallbackExtents(HtmlTree *, int, int, int, int);
+
+/* Functions from htmlimage.c */
+void HtmlImageServerInit(HtmlTree *);
+void HtmlImageServerShutdown(HtmlTree *);
+HtmlImage2 *HtmlImageServerGet(HtmlImageServer *, const char *);
+HtmlImage2 *HtmlImageScale(HtmlImage2 *, int *, int *, int);
+Tcl_Obj *HtmlImageUnscaledName(HtmlImage2 *);
+Tk_Image HtmlImageImage(HtmlImage2 *);
+void HtmlImageFree(HtmlImage2 *);
+void HtmlImageRef(HtmlImage2 *);
+const char *HtmlImageUrl(HtmlImage2 *);
+void HtmlImageCheck(HtmlImage2 *);
+Tcl_Obj *HtmlXImageToImage(HtmlTree *, XImage *, int, int);
 
 #ifdef HTML_DEBUG
 void HtmlDrawComment(HtmlCanvas *, CONST char *zComment, int);

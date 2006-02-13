@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.113 2006/02/11 08:52:04 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.114 2006/02/13 12:36:07 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -242,7 +242,7 @@ struct NormalFlowCallback {
  */
 
 static int markerLayout(LayoutContext*, BoxContext*, HtmlNode*, int);
-static void layoutReplacement(LayoutContext*,BoxContext*,HtmlNode*,CONST char*);
+static void layoutReplacement(LayoutContext*, BoxContext*, HtmlNode*);
 
 static int inlineLayoutDrawLines
     (LayoutContext*,BoxContext*,InlineContext*,int,int*, NormalFlow*);
@@ -570,6 +570,36 @@ normalFlowCbDelete(pNormal, pCallback)
 /*
  *---------------------------------------------------------------------------
  *
+ * nodeIsReplaced --
+ *
+ *     Return true if the node should be handled as a replaced node, 
+ *     false otherwise. A node is handled as a replaced node if a 
+ *     replacement widget has been supplied via [node replace], or
+ *     if the custom -tkhtml-replacement-image property is defined.
+ *
+ * Results:
+ *     1 or 0.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int
+nodeIsReplaced(pNode)
+    HtmlNode *pNode;
+{
+    HtmlComputedValues *pComputed = pNode->pPropertyValues;
+    return (
+        pNode->pReplacement || 
+        (pComputed && pComputed->imReplacementImage)
+    ) ? 1 : 0;
+}
+
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * normalFlowLayoutFloat --
  * 
  * Results:
@@ -590,7 +620,7 @@ normalFlowLayoutFloat(pLayout, pBox, pNode, pY, pContext, pNormal)
     NormalFlow *pNormal;
 {
     HtmlComputedValues *pV = pNode->pPropertyValues;
-    int isReplaced = (pNode->pReplacement ? 1 : 0);
+    int isReplaced = nodeIsReplaced(pNode);
     int eFloat = pV->eFloat;
     int iContaining = pBox->iContaining;
     HtmlFloatList *pFloat = pBox->pFloat;
@@ -1050,10 +1080,9 @@ normalFlowType(pNode)
     HtmlNode *pNode;
 {
     int eDisplay   = DISPLAY(pNode->pPropertyValues);
-    int isReplaced = pNode->pReplacement ? 1 : 0;
+    int isReplaced = nodeIsReplaced(pNode);
     int isText     = HtmlNodeIsText(pNode);
     int eFloat     = isText ? CSS_CONST_NONE : pNode->pPropertyValues->eFloat;
-
     int eRet = FLOWTYPE_NONE;
 
     if (eDisplay == CSS_CONST_INLINE) {
@@ -1279,7 +1308,6 @@ drawReplacement(pLayout, pBox, pNode)
 {
     BoxProperties box;                /* Box properties of pNode */
     MarginProperties margin;          /* Margin properties of pNode */
-    CONST char *zReplace;             /* Name of replacement object */
     BoxContext sBox;
 
     int yBorderBottom; /* Y-coordinate for bottom of block border */
@@ -1292,9 +1320,7 @@ drawReplacement(pLayout, pBox, pNode)
 
     memset(&sBox, 0, sizeof(BoxContext));
     sBox.iContaining = pBox->iContaining;
-    zReplace = Tcl_GetString(pNode->pReplacement->pReplace);
-    assert(zReplace);
-    layoutReplacement(pLayout, &sBox, pNode, zReplace);
+    layoutReplacement(pLayout, &sBox, pNode);
 
     xBorderLeft = margin.margin_left;
     x = xBorderLeft + box.border_left + box.padding_left;
@@ -1934,7 +1960,7 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
         /* TODO: Should this case really be here? */
         DISPLAY(pNode->pPropertyValues) == CSS_CONST_INLINE
     );
-    assert(!pNode->pReplacement);
+    assert(!nodeIsReplaced(pNode));
 
     /* Create the InlineContext object for this containing box */
     pContext = HtmlInlineContextNew(pNode, pLayout->minmaxTest);
@@ -2263,11 +2289,10 @@ doConfigureCmd(pTree, pNode)
  *---------------------------------------------------------------------------
  */
 static void 
-layoutReplacement(pLayout, pBox, pNode, zReplace)
+layoutReplacement(pLayout, pBox, pNode)
     LayoutContext *pLayout;
     BoxContext *pBox;
     HtmlNode *pNode;
-    CONST char *zReplace;
 {
     int width;
     int height;
@@ -2276,19 +2301,22 @@ layoutReplacement(pLayout, pBox, pNode, zReplace)
     Tk_Window tkwin = pLayout->tkwin;
     Tcl_Interp *interp = pLayout->interp;
 
+    assert(nodeIsReplaced(pNode));
+
     /* Read the values of the 'width' and 'height' properties of the node.
      * PIXELVAL either returns a value in pixels (0 or greater) or the constant
-     * PIXELVAL_AUTO.
+     * PIXELVAL_AUTO. A value of less than 1 pixel that is not PIXELVAL_AUTO
+     * is treated as exactly 1 pixel.
      */
     width = PIXELVAL(
         pV, WIDTH, pLayout->minmaxTest ? PIXELVAL_AUTO : pBox->iContaining
     );
     height = PIXELVAL(pV, HEIGHT, pBox->iContaining);
-
     if (width > MAX_PIXELVAL) width = MAX(width, 1);
     if (height > MAX_PIXELVAL) height = MAX(height, 1);
 
-    if (zReplace[0]=='.') {
+    if (pNode->pReplacement) {
+        CONST char *zReplace = Tcl_GetString(pNode->pReplacement->pReplace);
         Tk_Window win = Tk_NameToWindow(interp, zReplace, tkwin);
         if (win) {
             Tcl_Obj *pWin = 0;
@@ -2301,14 +2329,12 @@ layoutReplacement(pLayout, pBox, pNode, zReplace)
             DRAW_WINDOW(&pBox->vc, pWin, 0, 0, width, height);
         }
     } else {
-	/* Must be an image. Or garbage data returned by an bad Tcl proc.
-         * If the later, then resizeImage will return 0.
-         */
-        Tcl_Obj *pImg;
         int t = pLayout->minmaxTest;
-        pImg = HtmlResizeImage(pLayout->pTree, zReplace, &width, &height, t);
-        assert(!pLayout->minmaxTest || !pImg);
-        DRAW_IMAGE(&pBox->vc, pImg, 0, 0, width, height);
+        int e = CSS_CONST_NO_REPEAT;
+        HtmlImage2 *pImg = pV->imReplacementImage;
+        pImg = HtmlImageScale(pImg, &width, &height, (t ? 0 : 1));
+        HtmlDrawImage2(&pBox->vc, pImg, 0, 0, 0, e, 0, 0, width, height, t);
+        HtmlImageFree(pImg);
     }
 
     /* Note that width and height may still be PIXELVAL_AUTO here (if we failed

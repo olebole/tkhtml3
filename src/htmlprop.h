@@ -25,7 +25,6 @@ typedef struct HtmlComputedValues HtmlComputedValues;
 typedef struct HtmlComputedValuesCreator HtmlComputedValuesCreator;
 typedef struct HtmlFontKey HtmlFontKey;
 typedef struct HtmlColor HtmlColor;
-typedef struct HtmlImage HtmlImage;
 
 /* 
  * This structure is used to group four padding, margin or border-width
@@ -79,24 +78,6 @@ struct HtmlColor {
     int nRef;              /* Number of pointers to this structure */
     char *zColor;          /* Name of color */
     XColor *xcolor;        /* The XColor* */
-};
-
-/*
- * An HtmlImage structure is used to store each image in use by the document.
- * This does not include images that have replaced elements, only those
- * returned by the -imagecmd callback. At the moment this is background images
- * ('background-image' property) and list item images ('list-style-image'
- * property).
- *
- * HtmlImage structures are stored in the Htmltree.aImage array. The index to
- * the array is the URI specified for the image.
- */
-struct HtmlImage {
-    int nRef;              /* Number of pointers to this structure */
-    Tcl_Obj *pImage;
-    Tcl_Obj *pDelete;
-    Tk_Image image;
-    char *zUrl;
 };
 
 /*
@@ -201,7 +182,7 @@ struct HtmlComputedValues {
 
     unsigned char eListStyleType;     /* 'list-style-type' */
     unsigned char eListStylePosition; /* 'list-style-position' */
-    HtmlImage *imListStyleImage;      /* 'list-style-image' */
+    HtmlImage2 *imListStyleImage;     /* 'list-style-image' */
 
     /* 'font-size', 'font-family', 'font-style', 'font-weight' */
     HtmlFont *fFont;
@@ -235,10 +216,12 @@ struct HtmlComputedValues {
     HtmlColor *cBorderBottomColor;    /* 'border-bottom-color' */
     HtmlColor *cBorderLeftColor;      /* 'border-left-color' */
 
-    HtmlImage *imBackgroundImage;     /* 'background-image' */
+    HtmlImage2 *imBackgroundImage;    /* 'background-image' */
     unsigned char eBackgroundRepeat;  /* 'background-repeat' */
     int iBackgroundPositionX;
     int iBackgroundPositionY;
+
+    HtmlImage2 *imReplacementImage;   /* '-tkhtml-replacement-image' */
 };
 
 struct HtmlComputedValuesCreator {

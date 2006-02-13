@@ -324,11 +324,13 @@ Rt_Alloc(n)
 {
     int nAlloc = n + 4 * sizeof(int);
     int *z = (int *)ckalloc(nAlloc);
+    char *zRet = (char *)&z[2];
     z[0] = 0xFED00FED;
     z[1] = n;
     z[3 + n / sizeof(int)] = 0xBAD00BAD;
     ResAlloc(RES_ALLOC, z);
-    return (char *)&z[2];
+    memset(zRet, 0x55, n);
+    return zRet;
 }
 
 /*

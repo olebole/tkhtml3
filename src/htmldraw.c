@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.78 2006/02/04 14:52:41 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.79 2006/02/13 12:36:07 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -72,7 +72,7 @@ struct CanvasImage {
 };
 
 struct CanvasImage2 {
-    HtmlImage *pImage;
+    HtmlImage2 *pImage;
     int iPositionX;
     int iPositionY;
     unsigned char isPositionPercent;
@@ -214,6 +214,9 @@ HtmlDrawCleanup(pCanvas)
                 break;
             case CANVAS_IMAGE:
                 pObj = pItem->x.i.pImage;
+                break;
+            case CANVAS_IMAGE2:
+                HtmlImageFree(pItem->x.i2.pImage);
                 break;
             case CANVAS_WINDOW:
                 pObj = pItem->x.w.pWindow;
@@ -544,7 +547,7 @@ HtmlDrawImage2(
         size_only
 )
     HtmlCanvas *pCanvas;
-    HtmlImage *pImage;               /* Image name or NULL */
+    HtmlImage2 *pImage;               /* Image name or NULL */
     int iPositionX;
     int iPositionY;
     unsigned char isPositionPercent;
@@ -555,11 +558,13 @@ HtmlDrawImage2(
     int h;                      /* Height of image */
     int size_only;
 {
+    HtmlImageCheck(pImage);
     if (!size_only) {
         HtmlCanvasItem *pItem; 
         pItem = (HtmlCanvasItem *)HtmlAlloc(sizeof(HtmlCanvasItem));
         pItem->type = CANVAS_IMAGE2;
         pItem->x.i2.pImage = pImage;
+        HtmlImageRef(pImage);
         pItem->x.i2.eRepeat = eRepeat;
         pItem->x.i2.x = x;
         pItem->x.i2.y = y;
@@ -786,7 +791,7 @@ int HtmlLayoutPrimitives(clientData, interp, objc, objv)
                     aObj[5] = Tcl_NewIntObj(pItem->x.i2.y);
                     aObj[6] = Tcl_NewIntObj(pItem->x.i2.w);
                     aObj[7] = Tcl_NewIntObj(pItem->x.i2.h);
-                    aObj[8] = pItem->x.i2.pImage->pImage;
+                    aObj[8] = HtmlImageUnscaledName(pItem->x.i2.pImage);
                 }
                 break;
             case CANVAS_WINDOW:
@@ -862,10 +867,9 @@ drawImage2(pTree, pI2, pDrawable, x, y, w, h)
         int iw;                /* Intrinsic width of image */
         int ih;                /* Intrinsic height of image */
 
-        Tk_Image img = pI2->pImage->image;
+        Tk_Image img = HtmlImageImage(pI2->pImage);
         Tk_SizeOfImage(img, &iw, &ih);
-
-        if (iw > 0 && ih > 0) {
+        if (pI2->eRepeat!=CSS_CONST_NO_REPEAT && iw > 0 && ih > 0) {
             GC gc;                 /* Graphics context to draw with */
             XGCValues gc_values;   /* Structure used to specify gc */
             int bw;                /* Width of rectangle to paint */
@@ -874,8 +878,8 @@ drawImage2(pTree, pI2, pDrawable, x, y, w, h)
             Display *pDisplay = Tk_Display(win);
             int depth = Tk_Depth(win);
 
-            int x1 = pI2->iPositionX;
-            int y1 = pI2->iPositionY;
+            int x1 = pI2->iPositionX;   /* Drawable coordinate */
+            int y1 = pI2->iPositionY;   /* Drawable coordinate */
             if (pI2->isPositionPercent) {
                 x1 = (double)x1 * (double)(pI2->w - iw) / 10000.0;
                 y1 = (double)y1 * (double)(pI2->h - ih) / 10000.0;
@@ -920,9 +924,9 @@ drawImage2(pTree, pI2, pDrawable, x, y, w, h)
 
             if (bh > 0 && bw > 0) {
                 Pixmap ipix;             /* Pixmap of image */
-                ipix = Tk_GetPixmap(pDisplay, Tk_WindowId(win), iw, ih, depth);
+                ipix = Tk_GetPixmap(pDisplay, Tk_WindowId(win),iw,ih,depth);
                 Tk_RedrawImage(img, 0, 0, iw, ih, ipix, 0, 0);
-    
+        
                 gc_values.tile = ipix;
                 gc_values.fill_style = FillTiled;
                 gc = Tk_GetGC(pTree->win, 
@@ -934,6 +938,19 @@ drawImage2(pTree, pI2, pDrawable, x, y, w, h)
                 Tk_FreePixmap(pDisplay, ipix);
                 Tk_FreeGC(pDisplay, gc);
             }
+        } else if (ih > 0 && iw > 0) {
+            int ix;              /* Image x */
+            int iy;              /* Image y */
+            int dx;              /* Drawable x */
+            int dy;              /* Drawable y */
+
+            dx = MAX(0, pI2->x + x);
+            dy = MAX(0, pI2->y + y);
+            ix = MAX(0, -1 * (pI2->x + x));
+            iy = MAX(0, -1 * (pI2->y + y));
+            iw = MIN(iw, w - dx);
+            ih = MIN(ih, h - dy);
+            Tk_RedrawImage(img, ix, iy, iw, ih, *pDrawable, dx, dy);
         }
     }
 }

@@ -183,6 +183,9 @@ font[size]                 { font-size:        tcl(::tkhtml::attr size) }
 
 BR[clear]   { clear: tcl(::tkhtml::attr clear) }
 
+/* Standard html <img> tags - replace the node with the image at url $src */
+IMG[src]              { -tkhtml-replacement-image: tcl(::tkhtml::attr src) }
+
 /*
  * Properties of table cells (th, td):
  *

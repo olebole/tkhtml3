@@ -69,7 +69,7 @@ swproc hv3Init {PATH {gotocallback ""}} {
 
   # Set up Handler callbacks for <link>, <style>, <script> and <img> tags.
   $PATH.html handler script script "::hv3::handleScriptScript"
-  $PATH.html handler node img      "::hv3::handleImgNode $PATH"
+  # $PATH.html handler node img      "::hv3::handleImgNode $PATH"
   $PATH.html handler node link     "::hv3::handleLinkNode     $PATH"
   $PATH.html handler script style  "::hv3::handleStyleScript  $PATH"
 
@@ -106,9 +106,6 @@ swproc hv3Goto {PATH url {nocallback 0 1}} {
 }
 
 proc hv3Destroy {PATH} {
-}
-
-proc hv3Image {PATH} {
 }
 
 proc hv3RegisterProtocol {PATH protocol cmd} {
@@ -232,7 +229,7 @@ namespace eval hv3 {
   #
   proc imageCallback {name data} {
     if {[info commands $name] == ""} return 
-    $name put $data
+    $name configure -data $data
   }
   
   # imageCmd PATH URL

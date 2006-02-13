@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.61 2006/02/11 12:28:20 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.62 2006/02/13 12:36:07 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -476,6 +476,9 @@ deleteWidget(clientData)
 
     /* Clear the remaining colors etc. from the styler code hash tables */
     HtmlComputedValuesCleanupTables(pTree);
+
+    /* Delete the image-server */
+    HtmlImageServerShutdown(pTree);
 
     /* Delete the structure itself */
     HtmlFree((char *)pTree);
@@ -1607,8 +1610,7 @@ newWidget(clientData, interp, objc, objv)
     }
     
     zCmd = Tcl_GetString(objv[1]);
-    pTree = (HtmlTree *)HtmlAlloc(sizeof(HtmlTree));
-    memset(pTree, 0, sizeof(HtmlTree));
+    pTree = (HtmlTree *)HtmlClearAlloc(sizeof(HtmlTree));
 
     /* Create the Tk window.
      */
@@ -1641,6 +1643,9 @@ newWidget(clientData, interp, objc, objv)
             eventHandler, (ClientData)pTree
     );
 
+    /* Create the image-server */
+    HtmlImageServerInit(pTree);
+
     /* Load the default style-sheet, ready for the first document. */
     doLoadDefaultStyle(pTree);
 
@@ -1660,6 +1665,15 @@ error_out:
         HtmlFree((char *)pTree);
     }
     return TCL_ERROR;
+}
+
+char *
+HtmlClearAlloc(nBytes)
+    int nBytes;
+{
+    char *zRet = HtmlAlloc(nBytes);
+    memset(zRet, 0, nBytes);
+    return zRet;
 }
 
 /*
