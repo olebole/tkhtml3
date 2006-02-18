@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.114 2006/02/13 12:36:07 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.115 2006/02/18 14:43:55 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -939,7 +939,8 @@ markerLayout(pLayout, pBox, pNode, y)
             HtmlFloatListAdd(pBox->pFloat, FLOAT_LEFT, 
                   pComputed->fFont->ex_pixels + width, y, y + yoffset);
         }
-        DRAW_TEXT(&sCanvas, pMarker, offset, y + yoffset, width, 0,font,color);
+        DRAW_TEXT(&sCanvas, pMarker, offset, y + yoffset, width, 
+            pComputed->fFont, color);
     
         Tcl_DecrRefCount(pMarker);
     }

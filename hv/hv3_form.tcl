@@ -67,6 +67,7 @@ proc formHandleSelect {HTML node} {
 
     set winmenu ${winname}.menu
     set win [menubutton $winname -menu $winmenu -text [lindex $options 0]]
+    $win configure -indicatoron 1 -relief raised
     menu $winmenu -tearoff 0
     foreach o $options {
         $winmenu add command -label $o -command "$win configure -text \"$o\""

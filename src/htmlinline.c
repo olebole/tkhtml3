@@ -30,7 +30,7 @@
  *         This is called to deallocate all resources associated with the
  *         InlineContext object.
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.5 2005/11/21 05:13:42 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.6 2006/02/18 14:43:55 danielk1977 Exp $";
 
 typedef struct InlineBox InlineBox;
 
@@ -1060,6 +1060,7 @@ HtmlInlineContextAddText(pContext, pNode)
     HtmlNode *pParent;             /* Parent of text node */
     HtmlComputedValues *pValues;   /* Computed values of parent node */
     int isFirst = 1;               /* Set to zero after first token */
+    int iIndex = 0;
 
     assert(pNode && HtmlNodeIsText(pNode) && HtmlNodeParent(pNode));
     assert(HtmlNodeParent(pNode)->pPropertyValues);
@@ -1092,8 +1093,9 @@ HtmlInlineContextAddText(pContext, pNode)
                 td = pFont->metrics.descent;
                 tem = pFont->em_pixels;
                 inlineContextSetBoxDimensions(pContext, tw, ta, td, tem);
-                HtmlDrawText(pCanvas,pText,0,0,tw,sw,tkfont,color,szonly);
+                HtmlDrawText(pCanvas,pText,0,0,tw,pFont,color,szonly,pNode,iIndex);
                 Tcl_DecrRefCount(pText);
+                iIndex += pToken->count;
                 break;
             }
             case Html_Space: {
@@ -1109,6 +1111,7 @@ HtmlInlineContextAddText(pContext, pNode)
                         inlineContextAddSpace(pContext, sw);
                     }
                 }
+                iIndex++;
                 break;
             }
             default:

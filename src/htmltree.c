@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.42 2006/02/13 12:36:07 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.43 2006/02/18 14:43:55 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -585,6 +585,7 @@ HtmlAddToken(pTree, pToken)
         }
     }
 
+    pCurrent->iNode = pTree->iNextNode++;
     pTree->pCurrent = pCurrent;
 }
 
@@ -1355,8 +1356,50 @@ int HtmlTreeClear(pTree)
     HtmlCssStyleSheetFree(pTree->pStyle);
     pTree->pStyle = 0;
 
+    /* Set the scroll position to top-left and clear the selection */
     pTree->iScrollX = 0;
     pTree->iScrollY = 0;
+
+    pTree->pFromNode = 0;
+    pTree->pToNode = 0;
+    pTree->iFromIndex = 0;
+    pTree->iToIndex = 0;
+    pTree->iNextNode = 0;
     return TCL_OK;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlNodeGetPointer --
+ *
+ *     String argument zCmd is the name of a node command created for
+ *     some node of tree pTree. Find the corresponding HtmlNode pointer
+ *     and return it. If zCmd is not the name of a node command, leave
+ *     an error in pTree->interp and return NULL.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+HtmlNode *
+HtmlNodeGetPointer(pTree, zCmd)
+    HtmlTree *pTree;
+    char CONST *zCmd;
+{
+    Tcl_Interp *interp = pTree->interp;
+    Tcl_CmdInfo info;
+    int rc;
+
+    rc = Tcl_GetCommandInfo(interp, zCmd, &info);
+    if (rc == 0 || info.objProc != nodeCommand){ 
+        Tcl_AppendResult(interp, "no such node: ", zCmd, 0);
+        return 0;
+    }
+    return (HtmlNode *)info.objClientData;
 }
 

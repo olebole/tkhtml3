@@ -74,12 +74,15 @@ swproc hv3Init {PATH {gotocallback ""}} {
   $PATH.html handler script style  "::hv3::handleStyleScript  $PATH"
 
   # Widget bindings
-  bind $PATH.html <Motion> "::hv3::guiMotion $PATH \[$PATH.html node %x %y\]"
+  bind $PATH.html <Motion> "::hv3::guiMotion $PATH %x %y"
   bind $PATH.html <1> "::hv3::guiLeftClick $PATH \[$PATH.html node %x %y\]"
   bind $PATH.html <2> "::hv3::guiMiddleClick $PATH"
   bind $PATH.html <3> "::hv3::guiRightClick $PATH \[$PATH.html node %x %y\]"
   bind $PATH.html <KeyPress-q> exit
   bind $PATH.html <KeyPress-Q> exit
+
+  bind $PATH.html <ButtonPress-1>   "::hv3::guiLeftPress $PATH %x %y"
+  bind $PATH.html <ButtonRelease-1> "::hv3::guiLeftRelease $PATH %x %y"
 
   ::hv3::guiMiddleClick $PATH
 
@@ -131,6 +134,7 @@ namespace eval hv3 {
   VAR myStatusVar 2        ;# Either 1 or 2 - the current status text
   VAR myStatusInfo         ;# Serialized array of download status info
   VAR myProtocols          ;# Serialized array of protocol commands
+  VAR myDrag 0             ;# True when dragging the cursor
 
   proc initVars {PATH} {
     foreach {var default} $::hv3::vars {
@@ -303,16 +307,32 @@ namespace eval hv3 {
     $PATH.status configure -textvariable $v
   }
 
-  # guiLeftClick PATH node
-  #
-  #     Called when the user left-clicks on the html window. 
-  proc guiLeftClick {PATH node} {
-    for {set n $node} {$n!=""} {set n [$n parent]} {
+  proc guiDrag {PATH x y} {
+    set to [$PATH.html node -index $x $y]
+    if {[llength $to]==2} {
+      foreach {node index} $to {}
+      $PATH.html select to $node $index
+    }
+  }
+  proc guiLeftPress {PATH x y} {
+    importVars $PATH
+    set from [$PATH.html node -index $x $y]
+    if {[llength $from]==2} {
+      foreach {node index} $from {}
+      $PATH.html select from $node $index
+      $PATH.html select to $node $index
+    }
+    for {set n [$PATH.html node $x $y]} {$n!=""} {set n [$n parent]} {
       if {[$n tag]=="a" && [$n attr -default "" href]!=""} {
         hv3Goto $PATH [$n attr href]
         break
       }
     }
+    set myDrag 1
+  }
+  proc guiLeftRelease {PATH x y} {
+    importVars $PATH
+    set myDrag 0
   }
 
   # guiMotion PATH node
@@ -320,8 +340,9 @@ namespace eval hv3 {
   #     Called when the mouse moves over the html window. Parameter $node is
   #     the node the mouse is currently floating over, or "" if the pointer is
   #     not over any node.
-  proc guiMotion {PATH node} {
+  proc guiMotion {PATH x y} {
     importVars $PATH
+    set node [$PATH.html node $x $y]
     set txt ""
     $PATH configure -cursor ""
     for {set n $node} {$n!=""} {set n [$n parent]} {
@@ -331,12 +352,17 @@ namespace eval hv3 {
         set txt "hyper-link: [$n attr href]"
         break
       } elseif {$tag==""} {
+        $PATH configure -cursor xterm
         set txt [string range [$n text] 0 20]
       } else {
         set txt "<[$n tag]>$txt"
       }
     }
     set myStatus1 [string range $txt 0 80]
+
+    if {$myDrag} {
+      guiDrag $PATH $x $y
+    }
   }
 
   # parse PATH fragment text 

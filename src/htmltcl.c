@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.62 2006/02/13 12:36:07 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.63 2006/02/18 14:43:55 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -636,6 +636,9 @@ configureCmd(clientData, interp, objc, objv)
     #define STRING(v, s1, s2, s3) \
         {TK_OPTION_STRING, "-" #v, s1, s2, s3, \
          Tk_Offset(HtmlOptions, v), -1, TK_OPTION_NULL_OK, 0, 0}
+    #define XCOLOR(v, s1, s2, s3) \
+        {TK_OPTION_COLOR, "-" #v, s1, s2, s3, -1, \
+         Tk_Offset(HtmlOptions, v), 0, 0, 0}
 
     #define OBJ(v, s1, s2, s3, f) \
         {TK_OPTION_STRING, "-" #v, s1, s2, s3, \
@@ -658,6 +661,8 @@ configureCmd(clientData, interp, objc, objv)
         STRING(defaultstyle, "defaultStyle", "DefaultStyle", HTML_DEFAULT_CSS),
         STRING(imagecmd, "imageCmd", "ImageCmd", ""),
         STRING(encoding, "encoding", "Encoding", ""),
+        XCOLOR(selectbackground, "selectBackground", "Background", "darkgrey"),
+        XCOLOR(selectforeground, "selectForeground", "Foreground", "white"),
     
         /* Options for logging info to debugging scripts */
         STRING(logcmd, "logCmd", "LogCmd", ""),
@@ -669,6 +674,7 @@ configureCmd(clientData, interp, objc, objv)
     };
     #undef PIXELS
     #undef STRING
+    #undef XCOLOR
 
     HtmlTree *pTree = (HtmlTree *)clientData;
     char *pOptions = (char *)&pTree->options;
@@ -1417,6 +1423,88 @@ searchCmd(clientData, interp, objc, objv)
 /*
  *---------------------------------------------------------------------------
  *
+ * selectCmd --
+ *
+ *     html select from ?NODE ?INDEX??
+ *     html select to ?NODE ?INDEX??
+ *
+ *     The [html select clear] command is handled by the C function 
+ *     selectClearCmd() (see above).
+ *
+ * Results:
+ *     Tcl result (i.e. TCL_OK, TCL_ERROR).
+ *
+ * Side effects:
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+selectCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    HtmlTree *pTree = (HtmlTree *)clientData;
+    const char *zArg = Tcl_GetString(objv[2]);
+    int *piIndex = &pTree->iFromIndex;
+    HtmlNode **ppNode = &pTree->pFromNode;
+    Tcl_Obj *pRes;
+
+    assert(0 == strcmp(zArg, "to") || 0 == strcmp(zArg, "from"));
+    if (*zArg=='t') {
+        piIndex = &pTree->iToIndex;
+        ppNode = &pTree->pToNode;
+    }
+
+    if (objc > 3) {
+        HtmlNode *pNewNode;
+        HtmlNode *pOldNode = *ppNode;
+        int iOldIndex = *piIndex;
+        int iNewIndex = -1;
+        Tk_Window tkwin = pTree->tkwin;
+
+        pNewNode = HtmlNodeGetPointer(pTree, Tcl_GetString(objv[3]));
+        if (0 == pNewNode) {
+            return TCL_ERROR;
+        }
+        if (objc == 5 && Tcl_GetIntFromObj(interp, objv[4], &iNewIndex)) {
+            return TCL_ERROR;
+        }
+
+        *piIndex = iNewIndex;
+        *ppNode = pNewNode;
+
+        if (pTree->pFromNode && !pTree->pToNode) {
+            pTree->pToNode = pTree->pFromNode;
+            pTree->iToIndex = pTree->iFromIndex;
+        }
+        if (!pTree->pFromNode && pTree->pToNode) {
+            pTree->pFromNode = pTree->pToNode;
+            pTree->iFromIndex = pTree->iToIndex;
+        }
+        if (pOldNode) {
+            HtmlLayoutPaintText(
+                pTree, pNewNode->iNode, iNewIndex, pOldNode->iNode, iOldIndex
+            );
+        }
+    }
+
+    Tcl_ResetResult(interp);
+    if (*ppNode) {
+        assert((*ppNode)->pNodeCmd);
+        pRes = Tcl_DuplicateObj((*ppNode)->pNodeCmd->pCommand);
+        if (*piIndex>=0) {
+            Tcl_ListObjAppendElement(interp, pRes, Tcl_NewIntObj(*piIndex));
+        }
+        Tcl_SetObjResult(interp, pRes);
+    }
+    return TCL_OK;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * widgetCmd --
  *
  *     This is the C function invoked for a widget command.
@@ -1470,6 +1558,8 @@ int widgetCmd(clientData, interp, objc, objv)
         {"primitives", 0,        primitivesCmd},
         {"reset",      0,        resetCmd},
         {"search",     0,        searchCmd},
+        {"select",     "to",     selectCmd},
+        {"select",     "from",   selectCmd},
         {"style",      0,        styleCmd},
         {"xview",      0,        xviewCmd},
         {"yview",      0,        yviewCmd},

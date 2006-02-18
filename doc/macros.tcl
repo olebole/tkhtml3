@@ -173,7 +173,7 @@ namespace export process_text process_index
 
 proc process_index {} {
   set state 1
-  set html {<a name="index"><ul></a>}
+  set html {<a name="index"></a><ul>}
   set i 0
 
   foreach s $::HtmlMacros::Index {
@@ -354,14 +354,19 @@ switch -- $mode {
        <html>
        <head>
        <title>$::HtmlMacros::Title</title>
+       <link rel="stylesheet" href="tkhtml_tcl_tk.css"</link>
        </head>
        <body>
+       <div class="sidebox"><div id="toc">
+         <a name="TOC"><h3>Table Of Contents</h3></a>
+         [process_index]
+       </div></div>
+
+       <div id="body">
        <h1>$::HtmlMacros::Title</h1>
-       <p><a href="#TOC">Table Of Contents</a>
-       $text
-       </p>
-       <a name="TOC"><h1>$::HtmlMacros::Title - Table Of Contents</h1></a>
-       [process_index]
+       <div id="text">
+         $text
+       </div></div>
        </body>
        </html>
     }]

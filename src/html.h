@@ -194,6 +194,7 @@ struct HtmlNode {
     HtmlComputedValues *pPropertyValues;     /* CSS property values */
     HtmlNodeReplacement *pReplacement;       /* Replaced object, if any */
     HtmlNodeCmd *pNodeCmd;                   /* Tcl command for this node */
+    int iNode;
 };
 
 struct HtmlScaledImage {
@@ -219,6 +220,9 @@ struct HtmlOptions {
     int height;
     int xscrollincrement;
     int yscrollincrement;
+
+    XColor *selectforeground;
+    XColor *selectbackground;
 
     Tcl_Obj *yscrollcommand;
     Tcl_Obj *xscrollcommand;
@@ -357,6 +361,16 @@ struct HtmlTree {
     int aFontSizeTable[7];
 
     /*
+     * These variables store the persistent data for the [widget select]
+     * command.
+     */
+    HtmlNode *pFromNode;
+    int iFromIndex;
+    HtmlNode *pToNode;
+    int iToIndex;
+    int iNextNode;       /* Next node index to allocate */
+
+    /*
      * Todo: Have to think seriously about these before any API freeze.
      */
     Tcl_HashTable aVar;             /* Tcl state data dictionary. */
@@ -365,8 +379,8 @@ struct HtmlTree {
     HtmlCallback cb;                /* See structure definition comments */
 };
 
-#define MAX(x,y) ((x)>(y)?(x):(y))
-#define MIN(x,y) ((x)<(y)?(x):(y))
+#define MAX(x,y)  ((x)>(y)?(x):(y))
+#define MIN(x,y)  ((x)<(y)?(x):(y))
 
 void HtmlFinishNodeHandlers(HtmlTree *);
 void HtmlAddToken(HtmlTree *, HtmlToken *);
@@ -401,6 +415,7 @@ HtmlNode *  HtmlNodeParent(HtmlNode *);
 char CONST *HtmlNodeTagName(HtmlNode *);
 char CONST *HtmlNodeAttr(HtmlNode *, char CONST *);
 char *      HtmlNodeToString(HtmlNode *);
+HtmlNode *  HtmlNodeGetPointer(HtmlTree *, char CONST *);
 
 #ifndef HTML_MACROS
 int         HtmlNodeIsText(HtmlNode *);
@@ -418,7 +433,7 @@ void HtmlDrawCleanup(HtmlCanvas *);
 void HtmlDrawDeleteControls(HtmlTree *, HtmlCanvas *);
 
 void HtmlDrawCanvas(HtmlCanvas*,HtmlCanvas*,int,int,HtmlNode*);
-void HtmlDrawText(HtmlCanvas*,Tcl_Obj*,int,int,int,int,Tk_Font,XColor*,int);
+void HtmlDrawText(HtmlCanvas*,Tcl_Obj*,int,int,int,HtmlFont*,XColor*,int,HtmlNode*,int);
 void HtmlDrawImage(HtmlCanvas *, Tcl_Obj *, int, int, int, int, int);
 void HtmlDrawWindow(HtmlCanvas *, Tcl_Obj *, int, int, int, int, int);
 void HtmlDrawBackground(HtmlCanvas *, XColor *, int);
@@ -427,6 +442,7 @@ int  HtmlDrawIsEmpty(HtmlCanvas *);
 
 void HtmlDrawImage2(HtmlCanvas *, HtmlImage2 *, int, int, unsigned char, 
                     unsigned char, int, int, int, int, int);
+int HtmlLayoutPaintNodes(HtmlTree *, int, int, int, int);
 
 HtmlTokenMap *HtmlMarkup(int);
 CONST char * HtmlMarkupName(int);

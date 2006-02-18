@@ -100,7 +100,13 @@ proc timer_puts {topic body} {
 
 proc log_primitives {HTML} {
     foreach p [$HTML primitives] {
+        set type [lindex $p 0]
+        if {[catch {incr hist($type)}]} {set hist($type) 1}
         real_puts stdout $p
+    }
+    puts ""
+    foreach t [array names hist] {
+      puts "$t -> $hist($t)"
     }
 }
 
