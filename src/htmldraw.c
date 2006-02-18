@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.80 2006/02/18 14:43:55 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.81 2006/02/18 16:17:46 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -76,7 +76,7 @@ static const char rcsid[] = "$Id: htmldraw.c,v 1.80 2006/02/18 14:43:55 danielk1
 #define CANVAS_BACKGROUND  6
 #define CANVAS_COMMENT  7
 
-#define CANVAS_IMAGE2  8
+#define CANVAS_IMAGE  8
 
 typedef struct CanvasText CanvasText;
 typedef struct CanvasWindow CanvasWindow;
@@ -85,7 +85,7 @@ typedef struct CanvasQuad CanvasQuad;
 typedef struct CanvasBackground CanvasBackground;
 typedef struct CanvasComment CanvasComment;
 
-typedef struct CanvasImage2 CanvasImage2;
+typedef struct CanvasImage CanvasImage;
 
 struct CanvasText {
     int x;                   /* Relative x coordinate to render at */
@@ -94,11 +94,11 @@ struct CanvasText {
     Tcl_Obj *pText;          /* Text to render */
     HtmlFont *pFont;         /* Font to render text with */
     XColor *color;           /* Color to draw in */
-    HtmlNode *pNode;         /* Color to draw in */
+    HtmlNode *pNode;         /* Text node, if any */
     int iIndex;              /* Index in pNode text of this item */
 };
 
-struct CanvasImage2 {
+struct CanvasImage {
     int x;                   /* Relative x coordinate to render at */
     int y;                   /* Relative y coordinate to render at */
 
@@ -151,7 +151,7 @@ struct HtmlCanvasItem {
     int type;
     union {
         CanvasText t;
-        CanvasImage2 i2;
+        CanvasImage i2;
         CanvasWindow w;
         CanvasQuad q;
         CanvasOrigin o;
@@ -240,7 +240,7 @@ HtmlDrawCleanup(pCanvas)
             case CANVAS_TEXT:
                 pObj = pItem->x.t.pText;
                 break;
-            case CANVAS_IMAGE2:
+            case CANVAS_IMAGE:
                 HtmlImageFree(pItem->x.i2.pImage);
                 break;
             case CANVAS_WINDOW:
@@ -385,6 +385,7 @@ void HtmlDrawCanvas(pCanvas, pCanvas2, x, y, pNode)
                 pI->type == CANVAS_TEXT && 
                 pI->x.t.pFont == pNew->x.t.pFont &&
                 pI->x.t.color == pNew->x.t.color && 
+                pI->x.t.pNode == pNew->x.t.pNode && 
                 (pI->x.t.y + pO->x.o.y) == (pNew->x.t.y + y)
             ) {
                 int xi = pO->x.o.x;
@@ -423,7 +424,6 @@ void HtmlDrawCanvas(pCanvas, pCanvas2, x, y, pNode)
             pFirst2->x.o.y += y;
 
             assert(pLast2->x.o.pSkip == 0);
-            assert(pLast2->x.o.pNode == 0);
             assert(pLast2->type == CANVAS_ORIGIN);
             pLast2->x.o.x -= x;
             pLast2->x.o.y -= y;
@@ -452,12 +452,10 @@ void HtmlDrawCanvas(pCanvas, pCanvas2, x, y, pNode)
         pCanvas2->pLast = 0;
 
         if (requireOrigin) {
-            pItem2 = (HtmlCanvasItem *)HtmlAlloc(sizeof(HtmlCanvasItem));
+            pItem2 = (HtmlCanvasItem *)HtmlClearAlloc(sizeof(HtmlCanvasItem));
             pItem2->type = CANVAS_ORIGIN;
             pItem2->x.o.x = x*-1;
             pItem2->x.o.y = y*-1;
-            pItem2->x.o.pSkip = 0;
-            pItem2->x.o.pNode = 0;
             pItem->x.o.pSkip = pItem2;
             linkItem(pCanvas, pItem2);
         }
@@ -585,7 +583,7 @@ HtmlDrawImage2(
     if (!size_only) {
         HtmlCanvasItem *pItem; 
         pItem = (HtmlCanvasItem *)HtmlAlloc(sizeof(HtmlCanvasItem));
-        pItem->type = CANVAS_IMAGE2;
+        pItem->type = CANVAS_IMAGE;
         pItem->x.i2.pImage = pImage;
         HtmlImageRef(pImage);
         pItem->x.i2.eRepeat = eRepeat;
@@ -780,7 +778,7 @@ int HtmlLayoutPrimitives(clientData, interp, objc, objv)
                 aObj[4] = Tcl_NewStringObj(Tk_NameOfColor(pItem->x.t.color),-1);
                 aObj[5] = pItem->x.t.pText;
                 break;
-            case CANVAS_IMAGE2:
+            case CANVAS_IMAGE:
                 if (pItem->x.i2.pImage) {
                     nObj = 9;
                     aObj[0] = Tcl_NewStringObj("draw_image2", -1);
@@ -858,7 +856,7 @@ int HtmlLayoutPrimitives(clientData, interp, objc, objv)
  *
  * drawImage2 --
  *
- *     This function is used to draw a CANVAS_IMAGE2 primitive to the drawable
+ *     This function is used to draw a CANVAS_IMAGE primitive to the drawable
  *     *pDrawable.
  *
  * Results:
@@ -872,7 +870,7 @@ int HtmlLayoutPrimitives(clientData, interp, objc, objv)
 static void 
 drawImage2(pTree, pI2, pDrawable, x, y, w, h)
     HtmlTree *pTree;
-    CanvasImage2 *pI2;
+    CanvasImage *pI2;
     Drawable *pDrawable;
     int x;                 /* X-coord in *pDrawable */
     int y;                 /* Y-coord in *pDrawable */
@@ -1155,7 +1153,7 @@ getPixmap(pTree, xcanvas, ycanvas, w, h)
                 break;
             }
 
-            case CANVAS_IMAGE2: {
+            case CANVAS_IMAGE: {
                 drawImage2(pTree, &pItem->x.i2, &pmap, x, y, w, h);
                 break;
             }
@@ -1343,12 +1341,14 @@ searchCanvas(pTree, ymin, ymax, xFunc, clientData)
     ClientData clientData;
 {
     HtmlCanvasItem *pItem;
+    HtmlCanvasItem *pSkip = 0;
     HtmlCanvas *pCanvas = &pTree->canvas;
     int origin_x = 0;
     int origin_y = 0;
     int rc = 0;
-
-    for (pItem = pCanvas->pFirst; pItem; pItem = pItem->pNext) {
+     
+    for (pItem = pCanvas->pFirst; pItem; pItem = (pSkip?pSkip:pItem->pNext)) {
+        pSkip = 0;
         if (pItem->type == CANVAS_ORIGIN) {
             CanvasOrigin *pOrigin = &pItem->x.o;
             origin_x += pOrigin->x;
@@ -1357,13 +1357,10 @@ searchCanvas(pTree, ymin, ymax, xFunc, clientData)
                 (ymax >= 0 && (origin_y + pOrigin->top) > ymax) ||
                 (ymin >= 0 && (origin_y + pOrigin->bottom) < ymin))
             ) {
-               pItem = pOrigin->pSkip;
-               assert(pItem->type == CANVAS_ORIGIN);
-               assert(!pItem->x.o.pSkip);
-               origin_x -= pOrigin->x;
-               origin_y -= pOrigin->y;
+               pSkip = pOrigin->pSkip;
             }
-        } else if (0 != (rc = xFunc(pItem, origin_x, origin_y, clientData))) {
+        } 
+        if (0 != (rc = xFunc(pItem, origin_x, origin_y, clientData))) {
             return rc;
         }
     }
@@ -1539,7 +1536,7 @@ layoutNodeCmd(pTree, x, y)
  *
  * HtmlLayoutNode --
  *
- *     <widget> node -index? X Y?
+ *     <widget> node ??-index? X Y?
  *
  *     Return the Tcl handle for the document node that lies at coordinates
  *     (X, Y), relative to the viewport. Or, if no node populates the given
@@ -1945,6 +1942,41 @@ HtmlWidgetMapControls(pTree)
     return TCL_OK;
 }
 
+typedef struct LayoutBboxQuery LayoutBboxQuery;
+struct LayoutBboxQuery {
+    HtmlNode *pNode;
+    int left;
+    int right;
+    int top;
+    int bottom;
+};
+
+static int
+layoutBboxCb(pItem, x, y, clientData)
+    HtmlCanvasItem *pItem;
+    int x;
+    int y;
+    ClientData clientData;
+{
+    if (pItem->type == CANVAS_ORIGIN) {
+        CanvasOrigin *pOrigin = &pItem->x.o;
+        LayoutBboxQuery *pQuery = (LayoutBboxQuery *)clientData;
+        if (pOrigin->pSkip) {
+            HtmlNode *pN;
+            for (pN = pOrigin->pNode; pN; pN = HtmlNodeParent(pN)) { 
+                if (pN == pQuery->pNode) {
+                    pQuery->left = MIN(pQuery->left, x + pOrigin->left);
+                    pQuery->top = MIN(pQuery->top, y + pOrigin->top);
+                    pQuery->right = MAX(pQuery->right,x + pOrigin->right);
+                    pQuery->bottom = MAX(pQuery->bottom, y + pOrigin->bottom);
+                    break;
+                }
+            }
+        }
+    }
+    return 0;
+}
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -1968,20 +2000,16 @@ HtmlLayoutBbox(clientData, interp, objc, objv)
     Tcl_Obj *CONST objv[];             /* Argument strings. */
 {
     Tcl_CmdInfo info;
-    HtmlNode *pNode = 0;
     HtmlTree *pTree = (HtmlTree *)clientData;
     HtmlCanvas *pCanvas = &pTree->canvas;
-    HtmlCanvasItem *pItem;
-    int bbox[4];
-    int x = 0;
-    int y = 0;
+    LayoutBboxQuery sQuery;
 
     HtmlCallbackForce(pTree);
 
-    bbox[0] = pCanvas->right;  /* x1 */
-    bbox[1] = pCanvas->bottom; /* y1 */
-    bbox[2] = pCanvas->left;   /* x2 */
-    bbox[3] = pCanvas->top;    /* y2 */
+    sQuery.left = pCanvas->right;
+    sQuery.right = pCanvas->left;
+    sQuery.top = pCanvas->bottom;
+    sQuery.bottom = pCanvas->top;
 
     if (objc != 3) {
         Tcl_WrongNumArgs(interp, 3, objv, "NODE");
@@ -1993,9 +2021,12 @@ HtmlLayoutBbox(clientData, interp, objc, objv)
         return TCL_ERROR;
     }
 
-    pNode = (HtmlNode *)info.objClientData;
-    assert(pNode);
+    sQuery.pNode = (HtmlNode *)info.objClientData;
+    assert(sQuery.pNode);
+    searchCanvas(pTree, -1, -1, layoutBboxCb, (ClientData)&sQuery);
 
+
+#if 0
     for (pItem=pCanvas->pFirst; pItem; pItem=pItem->pNext) {
         if (pItem->type == CANVAS_ORIGIN) {
             CanvasOrigin *pOrigin = &pItem->x.o;
@@ -2013,10 +2044,12 @@ HtmlLayoutBbox(clientData, interp, objc, objv)
             }
         }
     }
+#endif
 
-    if (bbox[0] < bbox[2] && bbox[1] < bbox[3]) {
+    if (sQuery.left < sQuery.right && sQuery.top < sQuery.bottom) {
         char zBuf[128];
-        sprintf(zBuf, "%d %d %d %d", bbox[0], bbox[1], bbox[2], bbox[3]);
+        sprintf(zBuf, "%d %d %d %d", sQuery.left, sQuery.top, 
+            sQuery.right, sQuery.bottom);
         Tcl_SetResult(interp, zBuf, TCL_VOLATILE);
     }
 

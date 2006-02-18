@@ -94,18 +94,24 @@ swproc hv3Init {PATH {gotocallback ""}} {
 
 swproc hv3Goto {PATH url {nocallback 0 1}} {
   ::hv3::importVars $PATH
-  $PATH.html reset
 
   set url [url_resolve $myUrl $url]
-  set myUrl $url
 
   if {$myGotoCallback != "" && !$nocallback} {
-    eval $myGotoCallback $myUrl
+    eval $myGotoCallback $url
   }
 
   url_get $url -fragment f -prefragment prefragment
-  set script [list ::hv3::parse $PATH $f] 
-  ::hv3::download $PATH $url -script $script -type Document -reset
+  url_get $myUrl -prefragment current
+  set myUrl $url
+
+  if {$current == $prefragment && $f != ""} {
+    ::hv3::goto_fragment $PATH $f
+  } else {
+    $PATH.html reset
+    set script [list ::hv3::parse $PATH $f] 
+    ::hv3::download $PATH $prefragment -script $script -type Document -reset
+  }
 }
 
 proc hv3Destroy {PATH} {
@@ -365,6 +371,29 @@ namespace eval hv3 {
     }
   }
 
+  proc goto_fragment {PATH fragment} {
+    set H $PATH.html
+    set selector [format {[name="%s"]} $fragment]
+    set goto_node [lindex [$H search $selector] 0]
+    if {$goto_node!=""} {
+      set coords2 [$H bbox [$H node]]
+      set coords  [$H bbox $goto_node]
+      while {[llength $coords] == 0 && $goto_node!=[$H node]} {
+        set next_node [$goto_node right_sibling]
+        if {$next_node==""} {
+          set next_node [$goto_node parent]
+        }
+        set goto_node $next_node
+        set coords  [$H bbox $goto_node]
+      }
+      if {[llength $coords] > 0} {
+        set ypix [lindex $coords 1]
+        set ycanvas [lindex $coords2 3]
+        $H yview moveto [expr double($ypix) / double($ycanvas)]
+      }
+    }
+  }
+
   # parse PATH fragment text 
   #
   #     Append the text TEXT to the current document.  If argument FRAGMENT is
@@ -377,26 +406,7 @@ namespace eval hv3 {
     $PATH.html parse $text
 
     if {$fragment != ""} {
-      set H $PATH.html
-      set selector [format {[name="%s"]} $fragment]
-      set goto_node [lindex [$H search $selector] 0]
-      if {$goto_node!=""} {
-        set coords2 [$H bbox [$H node]]
-        set coords  [$H bbox $goto_node]
-        while {[llength $coords] == 0 && $goto_node!=[$H node]} {
-          set next_node [$goto_node right_sibling]
-          if {$next_node==""} {
-            set next_node [$goto_node parent]
-          }
-          set goto_node $next_node
-          set coords  [$H bbox $goto_node]
-        }
-        if {[llength $coords] > 0} {
-          set ypix [lindex $coords 1]
-          set ycanvas [lindex $coords2 3]
-          $H yview moveto [expr double($ypix) / double($ycanvas)]
-        }
-      }
+      goto_fragment $PATH $fragment
     }
   }
 
