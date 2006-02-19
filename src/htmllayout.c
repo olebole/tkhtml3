@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.115 2006/02/18 14:43:55 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.116 2006/02/19 11:51:12 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -1014,7 +1014,7 @@ inlineLayoutDrawLines(pLayout, pBox, pContext, forceflag, pY, pNormal)
         f = (forcebox ? LINEBOX_FORCEBOX : 0) | 
             (forceflag ? LINEBOX_FORCELINE : 0) |
             (closeborders ? LINEBOX_CLOSEBORDERS : 0);
-        have = inlineContextGetLineBox(pLayout, pContext, &w, f, &lc, &nV, &nA);
+        have = HtmlInlineContextGetLineBox(pLayout, pContext, &w, f, &lc, &nV, &nA);
 
 	if (have) {
             DRAW_CANVAS(&pBox->vc, &lc, leftFloat, y+nA, 0);
@@ -1843,18 +1843,14 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
         case FLOWTYPE_INLINE: {
             int i;
             InlineBorder *pBorder;
-            pBorder = inlineContextGetBorder(pLayout, pNode, 0);
-            if (pBorder) {
-                inlineContextPushBorder(pContext, pBorder);
-            }
+            pBorder = HtmlGetInlineBorder(pLayout, pNode, 0);
+            HtmlInlineContextPushBorder(pContext, pBorder);
             for(i=0; i<HtmlNodeNumChildren(pNode) && 0==rc; i++) {
                 HtmlNode *pChild = HtmlNodeChild(pNode, i);
                 rc = normalFlowLayoutNode(pLayout, pBox, pChild, pY, pContext,
                     pNormal);
             }
-            if (pBorder) {
-                inlineContextPopBorder(pContext, pBorder);
-            }
+            HtmlInlineContextPopBorder(pContext, pBorder);
             break;
         }
 
@@ -1970,9 +1966,8 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
      * normal-flow to the InlineContext. Actual border attributes do not apply
      * in this case, but the 'text-decoration' attribute may.
      */
-    if ((pBorder = inlineContextGetBorder(pLayout, pNode, 1))) {
-        inlineContextPushBorder(pContext, pBorder);
-    }
+    pBorder = HtmlGetInlineBorder(pLayout, pNode, 1);
+    HtmlInlineContextPushBorder(pContext, pBorder);
 
     /* Layout each of the child nodes into BoxContext. */
     for(ii = 0; ii < HtmlNodeNumChildren(pNode) ; ii++) {
@@ -1981,9 +1976,7 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
     }
 
     /* Finish the inline-border started by the parent, if any. */
-    if (pBorder) {
-        inlineContextPopBorder(pContext, pBorder);
-    }
+    HtmlInlineContextPopBorder(pContext, pBorder);
 
     rc = inlineLayoutDrawLines(pLayout, pBox, pContext, 1, &y, pNormal);
     HtmlInlineContextCleanup(pContext);

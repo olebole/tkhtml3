@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.81 2006/02/18 16:17:46 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.82 2006/02/19 11:51:12 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -2024,27 +2024,6 @@ HtmlLayoutBbox(clientData, interp, objc, objv)
     sQuery.pNode = (HtmlNode *)info.objClientData;
     assert(sQuery.pNode);
     searchCanvas(pTree, -1, -1, layoutBboxCb, (ClientData)&sQuery);
-
-
-#if 0
-    for (pItem=pCanvas->pFirst; pItem; pItem=pItem->pNext) {
-        if (pItem->type == CANVAS_ORIGIN) {
-            CanvasOrigin *pOrigin = &pItem->x.o;
-            HtmlNode *pN;
-            x += pOrigin->x;
-            y += pOrigin->y;
-            for (pN = pOrigin->pNode; pN; pN = HtmlNodeParent(pN)) { 
-                if (pN == pNode) {
-                    bbox[0] = MIN(bbox[0], x + pOrigin->left);
-                    bbox[1] = MIN(bbox[1], y + pOrigin->top);
-                    bbox[2] = MAX(bbox[2], x + pOrigin->right);
-                    bbox[3] = MAX(bbox[3], y + pOrigin->bottom);
-                    break;
-                }
-            }
-        }
-    }
-#endif
 
     if (sQuery.left < sQuery.right && sQuery.top < sQuery.bottom) {
         char zBuf[128];

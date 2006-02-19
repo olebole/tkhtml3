@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlimage.c,v 1.39 2006/02/13 12:36:07 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlimage.c,v 1.40 2006/02/19 11:51:12 danielk1977 Exp $";
 
 #include <assert.h>
 #include <X11/Xutil.h>
@@ -452,14 +452,20 @@ HtmlImageScale(pImage, pWidth, pHeight, doScale)
         *pWidth = pUnscaled->width;
         *pHeight = pUnscaled->height;
     } else if (PIXELVAL_AUTO == *pWidth) {
-        *pWidth = (*pHeight * pUnscaled->width) / pUnscaled->height;
+        *pWidth = 0;
+        if (pUnscaled->height) {
+            *pWidth = (*pHeight * pUnscaled->width) / pUnscaled->height;
+        }
     } else if (PIXELVAL_AUTO == *pHeight) {
-        *pHeight = (*pWidth * pUnscaled->height) / pUnscaled->width;
+        *pHeight = 0;
+        if (pUnscaled->width) {
+            *pHeight = (*pWidth * pUnscaled->height) / pUnscaled->width;
+        }
     }
     w = *pWidth;
     h = *pHeight;
 
-    if( !doScale ){
+    if(!doScale || w == 0 || h == 0) {
         return 0;
     }
 
@@ -467,6 +473,9 @@ HtmlImageScale(pImage, pWidth, pHeight, doScale)
      * If one cannot be found, allocate a new image. Mark it as invalid.
      */
     for (pRet = pUnscaled; pRet; pRet = pRet->pNext) {
+        if (pRet->width == 0 && pRet->height == h) {
+            break;
+        }
         if (pRet->width == w && pRet->height == h) {
             break;
         }

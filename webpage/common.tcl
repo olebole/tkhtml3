@@ -7,24 +7,23 @@
 # This global variable contains the complete html text of the 
 # "Site Contents" box.
 set ::SiteMap {
-  <!--
-	The following <div> block implements the "Site Contents" box. The
-	original text (from which each page copies this block) is contained in
-	the file webpage/common.tcl of the source distribution. If you need to
-	edit it, change it in webpage/common.tcl and regenerate the site.
-  -->
-  <div id="sitemap">
-    <h3>Site Contents</h3><ul>
-    <ul>
-      <li> <a href="index.html">Front page</a>
-      <li> <a href="support.html">Supported CSS/HTML</a>
-      <li> <a href="tkhtml.html">Widget man page</a>
-      <li> <a href="hv3.html">hv3 (demo &amp; screenshots)</a>
-      <li> <a href="requirements.html">Requirements Document</a>
-      <li> <a href="http://tkhtml.tcl.tk/cvstrac/timeline">Change log (Cvstrac)</a>
-      <li>
-    </ul>
-  </div>
+    <!--
+  	The following <div> block implements the "Site Contents" box. The
+  	original text (from which each page copies this block) is contained in
+  	the file webpage/common.tcl of the source distribution. If you need to
+  	edit it, change it in webpage/common.tcl and regenerate the site.
+    -->
+    <div id="sitemap">
+      <h3>Site Contents</h3><ul>
+      <ul>
+        <li> <a href="index.html">Front page</a>
+        <li> <a href="support.html">Supported CSS/HTML</a>
+        <li> <a href="tkhtml.html">Widget man page</a>
+        <li> <a href="hv3.html">hv3 (demo &amp; screenshots)</a>
+        <li> <a href="requirements.html">Requirements Document</a>
+        <li> <a href="http://tkhtml.tcl.tk/cvstrac/timeline">Change log (Cvstrac)</a>
+      </ul>
+    </div>
 }
 
 set ::PageSectionList [list]

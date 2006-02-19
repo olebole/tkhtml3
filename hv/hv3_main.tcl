@@ -68,6 +68,10 @@ proc gui_build {} {
   }
   .m.file add command -label Browser -command [list prop_browse $HTML]
   .m.file add separator
+
+  .m.file add command -label "Select All" -command gui_select_all
+
+  .m.file add separator
   .m.file add command -label Exit -command hv3_exit
 
   # Add the 'Font Size Table' menu
@@ -83,6 +87,15 @@ proc gui_build {} {
       $HTML configure -fonttable $table
     ]
   }
+}
+
+proc gui_select_all {} {
+  set n [.hv3.html node]
+  .hv3.html select from $n
+  while {[$n nChildren] > 0} {
+    set n [$n child [expr [$n nChildren]-1]]
+  }
+  .hv3.html select to $n
 }
 
 #--------------------------------------------------------------------------

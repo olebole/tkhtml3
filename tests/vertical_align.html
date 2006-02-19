@@ -1,0 +1,81 @@
+
+<html>
+  <head>
+
+    <!-- The contents of this element should be duplicated in the "pre" 
+         element in the document body below.  -->
+    <style>
+      .sub   {vertical-align: sub ; color: red}
+      .super {vertical-align: super ; color: red}
+
+      .percent50  {vertical-align: 50% ; color: green}
+      .bigfont    {font-size: 1cm}
+
+      .drop1cm    {vertical-align: -1cm ; color: blue}
+      .raise1cm   {vertical-align: 1cm ; color: blue}
+    </style>
+
+  </head>
+  <body>
+    <pre>
+      .sub   {vertical-align: sub ; color: red}
+      .super {vertical-align: super ; color: red}
+
+      .percent50  {vertical-align: 50% ; color: green}
+      .bigfont    {font-size: 1cm}
+
+      .drop1cm    {vertical-align: -1cm ; color: blue}
+      .raise1cm   {vertical-align: 1cm ; color: blue}
+    </pre>
+
+    <hr>
+    <p>
+      Smoke test: This paragraph contains <i class="super">superscript</i> 
+      and <i class="sub">subscript</i> text. The subscript text in the 
+      previous sentence should cause the following line to shift down
+      a little to make room. Fill this paragraph up with text so that 
+      this is more obvious. Fill this paragraph up with text so that 
+      this is more obvious. Fill this paragraph up with text so that 
+      this is more obvious. 
+    </p>
+
+    <hr>
+    <p>
+      Test for percentage values of vertical-align. Both the green 
+      elements <i class="percent50">in this</i> paragraph have a 
+      vertical-align of 50%. But one element occurs in a 
+      <i class="bigfont">taller</i> line box than the other. Is the 50% 
+      <i class="percent50">based on</i> the actual height of the line-box?
+    </p>
+    <p>
+      A similar test to the previous. What if the text with the vertical
+      align is itself rendered in a <span class="bigfont">
+      <i class="percent50">really big</i></span> font? Again, put some filler
+      text in this paragraph to make the effects easier to observe. Again, put
+      some filler text in this paragraph to make the effects easier to observe.
+      Again, put some filler text in this paragraph to make the effects easier
+      to observe.  Again, put some filler text in this paragraph to make the
+      effects easier to observe.
+    </p>
+    <p>
+      According to Mozilla and Konqueror, percentage values for 
+      vertical align are calculated relative to the line-height of the 
+      inline element itself. Opera calculates relative to the line-height of 
+      the parent block. It seems to me M and K have it right.
+    </p>
+
+    <hr>
+    <p>
+      When text is dropped or <i class="raise1cm">raised</i>, the size of 
+      the line box should be increased so that the lines do not bleed 
+      into each other. I first noticed this problem with 
+      <i class="drop1cm">dropped</i> text. xx xx  xx xx  xx xx  xx xx  xx 
+      xx  xx xx  xx xx  xx xx  xx xx  xx xx  xx xx  xx xx  xx xx  xx xx  xx 
+      xx  xx xx  xx xx  xx xx  xx xx  xx xx  xx xx  xx xx  xx xx  xx xx  xx 
+      xx  xx xx  xx xx  xx xx  xx xx  xx xx  xx xx  xx xx  xx xx  xx xx  xx 
+      xx  xx xx  xx xx  xx xx  xx xx  xx xx  xx xx  xx xx  xx xx  xx xx  xx 
+    </p>
+
+  </body>
+</html>
+

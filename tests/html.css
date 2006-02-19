@@ -7,7 +7,7 @@ HEAD, SCRIPT    { display: none }
 
 BODY            { 
     margin: 8px; 
-    line-height: 1.0; 
+/*    line-height: 1.0;  */
     background-color: white;
 }
 

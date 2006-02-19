@@ -86,26 +86,20 @@ void HtmlInlineContextCleanup(InlineContext *);
 /* Add a text node to the inline context */
 int HtmlInlineContextAddText(InlineContext*, HtmlNode *);
 
-/* Test to see if the inline-context contains any more boxes */
-int HtmlInlineContextIsEmpty(InlineContext *);
-
-/* Enter and exit nodes (that may have borders or underlining) */
-void HtmlInlineContextEnter(InlineContext *, HtmlNode *);
-void HtmlInlineContextExit(InlineContext *, HtmlNode *);
-
 /* Add box (i.e. replaced) inline elements to the inline context */
 void HtmlInlineContextAddBox(InlineContext*,HtmlNode*,HtmlCanvas*,int,int,int);
 
-/* Retrieve the next line-box from an inline context TODO: Look at this... */
-int HtmlInlineContextGetLineBox(InlineContext*,int*,int,HtmlCanvas*,int*, int*);
+/* Test to see if the inline-context contains any more boxes */
+int HtmlInlineContextIsEmpty(InlineContext *);
 
-int inlineContextGetLineBox(
+/* Retrieve the next line-box from an inline context */
+int HtmlInlineContextGetLineBox(
 LayoutContext *, InlineContext*,int*,int,HtmlCanvas*,int*, int*);
-int inlineContextIsEmpty(InlineContext *);
 
-InlineBorder *inlineContextGetBorder(LayoutContext *, HtmlNode *, int);
-int inlineContextPushBorder(InlineContext *, InlineBorder *);
-void inlineContextPopBorder(InlineContext *, InlineBorder *);
+/* Manage inline borders and text-decoration */
+InlineBorder *HtmlGetInlineBorder(LayoutContext *, HtmlNode *, int);
+int HtmlInlineContextPushBorder(InlineContext *, InlineBorder *);
+void HtmlInlineContextPopBorder(InlineContext *, InlineBorder *);
 
 /* End of htmllayoutinline.c interface
  *-------------------------------------------------------------------------*/
@@ -127,7 +121,7 @@ HtmlDrawComment(a, b, pLayout->minmaxTest)
 
 
 /* The following flags may be passed as the 4th argument to
- * inlineContextGetLineBox().
+ * HtmlInlineContextGetLineBox().
  */
 #define LINEBOX_FORCELINE          0x01
 #define LINEBOX_FORCEBOX           0x02

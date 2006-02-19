@@ -129,9 +129,9 @@ SUPPORTTABLE {Text Properties} \
 		(e.g. an underline and an overline) are not supported.
 	} \
 	[CSSREF vertical-align] {
-		No support on inline elements. This is pretty
-		important, as superscript and subscript text in html documents
-		depends on this property.
+		No support for the following values: 'middle', 'top', 'bottom', 
+		'text-top'or 'text-bottom'. Values 'baseline', 'sub' and 
+		'super', or any percentage or length work.
         } \
 	[CSSREF text-transform nosupport] {} \
 	[CSSREF text-align] {} \

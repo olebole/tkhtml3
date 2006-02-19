@@ -108,7 +108,6 @@ swproc hv3Goto {PATH url {nocallback 0 1}} {
   if {$current == $prefragment && $f != ""} {
     ::hv3::goto_fragment $PATH $f
   } else {
-    $PATH.html reset
     set script [list ::hv3::parse $PATH $f] 
     ::hv3::download $PATH $prefragment -script $script -type Document -reset
   }
@@ -401,6 +400,8 @@ namespace eval hv3 {
   #     to.
   #
   proc parse {PATH fragment text} {
+    $PATH.html reset
+
     importVars $PATH
     set myStyleCount 0
     $PATH.html parse $text

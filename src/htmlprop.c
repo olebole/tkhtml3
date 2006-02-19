@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.46 2006/02/13 12:36:07 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.47 2006/02/19 11:51:12 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -627,7 +627,8 @@ propertyValuesSetLineHeight(p, pProp)
             break;
         }
         case CSS_CONST_NORMAL: {
-            p->values.iLineHeight = -100;
+            /* p->values.iLineHeight = -100; */
+            p->values.iLineHeight = PIXELVAL_NORMAL;
             rc = 0;
             break;
         }
@@ -786,7 +787,7 @@ propertyValuesSetVerticalAlign(p, pProp)
         default: {
             /* Try to treat the property as a <length> */
             int *pIVal = &p->values.iVerticalAlign;
-            rc = propertyValuesSetLength(p, &pIVal, MASK, pProp, 1);
+            rc = propertyValuesSetLength(p, pIVal, MASK, pProp, 1);
             if (rc == 0) {
                 p->values.mask |= MASK;
                 p->eVerticalAlignPercent = 0;
@@ -1014,7 +1015,7 @@ HtmlComputedValuesInit(pTree, pNode, p)
         p->values.eWhitespace     = CSS_CONST_NORMAL;   /* 'white-space' */
         p->values.eTextAlign      = CSS_CONST_LEFT;     /* 'text-align' */ 
         p->values.iBorderSpacing = 0;                   /* 'border-spacing' */
-        p->values.iLineHeight = -100;                   /* 'line-height' */
+        p->values.iLineHeight = PIXELVAL_NORMAL;        /* 'line-height' */
         rc = propertyValuesSetColor(p, &p->values.cColor, &Black); /* 'color' */
         assert(rc == 0);
 
@@ -1783,14 +1784,36 @@ HtmlComputedValuesFinish(p)
         pColor->nRef++;
     }
 
-    /* Deal with the 'vertical-align' property */
+    /* Post-processing for the 'vertical-align' property:
+     * 
+     *     1. If the value was specified as a percentage, transform it
+     *        to a pixel length here. This is tricky, because the computed 
+     *        value of 'line-height' (the property percentages are calculated
+     *        relative to) may be stored as a multiple of the font em-pixels.
+     *
+     *        The reason iLineHeight is not always stored as an absolute
+     *        pixel value is that if it is specified as a <number>, it
+     *        is equivalent to an em-pixels value for the current node, but 
+     *        the inherited value is as specified.
+     *
+     *     2. If the node is a table-cell, then the only valid values are 
+     *        "baseline", "top", "middle" and "bottom". If anything else has
+     *        been specified, set the property to "baseline" instead.
+     */
     if (p->eVerticalAlignPercent) {
-        /* TODO: Calculate as a % of 'line-height' */
+        int line_height = p->values.iLineHeight;
+        if (line_height == PIXELVAL_NORMAL) {
+            line_height = -100;
+        }
+        if (line_height < 0) {
+            line_height = (line_height * pFont->em_pixels) / -100;
+        }
+        p->values.iVerticalAlign = (p->values.iVerticalAlign*line_height)/10000;
     }
-    if (p->values.eDisplay == CSS_CONST_TABLE_CELL && (
-           p->values.eVerticalAlign != CSS_CONST_TOP &&
-           p->values.eVerticalAlign != CSS_CONST_BOTTOM &&
-           p->values.eVerticalAlign != CSS_CONST_MIDDLE)
+    if (p->values.eDisplay == CSS_CONST_TABLE_CELL && 
+        p->values.eVerticalAlign != CSS_CONST_TOP &&
+        p->values.eVerticalAlign != CSS_CONST_BOTTOM &&
+        p->values.eVerticalAlign != CSS_CONST_MIDDLE
     ) {
         p->values.eVerticalAlign = CSS_CONST_BASELINE;
     }
