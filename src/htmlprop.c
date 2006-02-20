@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.47 2006/02/19 11:51:12 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.48 2006/02/20 16:44:48 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1451,7 +1451,14 @@ HtmlComputedValuesSet(p, eProp, pProp)
             return propertyValuesSetLineHeight(p, pProp);
 
         case CSS_PROPERTY_BORDER_SPACING: {
-            /* TODO */
+            /* Note: The CSS2 property 'border-spacing' can be set to
+             * either a single or pair of length values. Only a single
+             * value is supported at the moment, which is enough to support
+             * the html 4.01 cellspacing attribute.
+             */
+            return propertyValuesSetSize(p, &(p->values.iBorderSpacing),
+                PROP_MASK_BORDER_SPACING, pProp, 0
+            );
             return 0;
         }
 
@@ -2103,8 +2110,6 @@ PROP_MASK_ ## eProp}
 #define FONTVAL() {FONT, CSS_SHORTCUTPROPERTY_FONT, 0, 0}
 #define BACKGROUNDPOSITIONVAL() \
 {BACKGROUNDPOSITION, CSS_SHORTCUTPROPERTY_BACKGROUND_POSITION, 0, 0}
-
-#define PROP_MASK_BORDER_SPACING   0x00000000
 
     enum ValueType {
         ENUM, COLOR, LENGTH, VERTICALALIGN, FONT, IMAGE, BACKGROUNDPOSITION

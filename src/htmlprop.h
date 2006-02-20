@@ -276,6 +276,7 @@ struct HtmlComputedValuesCreator {
 #define PROP_MASK_LINE_HEIGHT             0x00080000
 #define PROP_MASK_BACKGROUND_POSITION_X   0x00100000
 #define PROP_MASK_BACKGROUND_POSITION_Y   0x00200000
+#define PROP_MASK_BORDER_SPACING          0x00400000
 
 /*
  * Pixel values in the HtmlComputedValues struct may also take the following
