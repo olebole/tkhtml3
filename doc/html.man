@@ -9,7 +9,6 @@
 
 [Section Standard Options]
 	[Code {
-		-exportselection
 		-height
 		-width
 		-xscrollcommand   
@@ -183,10 +182,9 @@
 	pathName select clear
 	pathName select from ?nodeHandle ?index? ?
 	pathName select to ?nodeHandle ?index? ?
+	pathName select span
 		The [SQ pathName select] commands are used to query and
-		manipulate the widget selection. If the widget
-		-exportselection option is set to true, then these commands
-		may also manipulate the X11-selection.
+		manipulate the widget selection.
 
 		TODO: Describe these commands.
 }]

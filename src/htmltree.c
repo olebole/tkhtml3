@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.43 2006/02/18 14:43:55 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.44 2006/02/20 13:39:54 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -919,11 +919,6 @@ nodeCommand(clientData, interp, objc, objv)
     switch ((enum NODE_enum)choice) {
         /*
          * nodeHandle attr ??-default DEFAULT-VALUE? ATTR-NAME?
-         *
-         *     supported options are:
-         *
-         *         -configurecmd       <script>
-         *         -deletecmd          <script>
          */
         case NODE_ATTR: {
             char CONST *zAttr = 0;

@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.64 2006/02/20 12:19:06 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.65 2006/02/20 13:39:54 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -1423,6 +1423,61 @@ searchCmd(clientData, interp, objc, objv)
 /*
  *---------------------------------------------------------------------------
  *
+ * selectSpanCmd --
+ *
+ *     html select span 
+ *
+ * Results:
+ *     Tcl result (i.e. TCL_OK, TCL_ERROR).
+ *
+ * Side effects:
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+selectSpanCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    HtmlTree *pTree = (HtmlTree *)clientData;
+    Tcl_Obj *pRet = Tcl_NewObj();
+
+    /* Check no arguments were passed to this command. */
+    if (objc != 3) {
+        Tcl_WrongNumArgs(interp, 3, objv, "");
+        return TCL_ERROR;
+    }
+
+    if (pTree->pToNode) {
+        HtmlNode *pTo = pTree->pToNode; 
+        HtmlNode *pFrom = pTree->pFromNode;
+        int iTo = pTree->iToIndex;
+        int iFrom = pTree->iFromIndex;
+
+        if (pFrom->iNode > pTo->iNode ||
+           (pFrom->iNode == pTo->iNode && iFrom > iTo)
+        ) {
+            pTo = pFrom;
+            pFrom = pTree->pToNode;
+            iTo = iFrom;
+            iFrom = pTree->iToIndex;
+        }
+
+        Tcl_ListObjAppendElement(0, pRet, HtmlNodeCommand(pTree, pFrom));
+        Tcl_ListObjAppendElement(0, pRet, Tcl_NewIntObj(iFrom));
+        Tcl_ListObjAppendElement(0, pRet, HtmlNodeCommand(pTree, pTo));
+        Tcl_ListObjAppendElement(0, pRet, Tcl_NewIntObj(iTo));
+    }
+
+    Tcl_SetObjResult(interp, pRet);
+    return TCL_OK;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * selectClearCmd --
  *
  *     html select clear 
@@ -1610,9 +1665,10 @@ int widgetCmd(clientData, interp, objc, objv)
         {"primitives", 0,        primitivesCmd},
         {"reset",      0,        resetCmd},
         {"search",     0,        searchCmd},
-        {"select",     "to",     selectCmd},
-        {"select",     "from",   selectCmd},
         {"select",     "clear",  selectClearCmd},
+        {"select",     "from",   selectCmd},
+        {"select",     "to",     selectCmd},
+        {"select",     "span",   selectSpanCmd},
         {"style",      0,        styleCmd},
         {"xview",      0,        xviewCmd},
         {"yview",      0,        yviewCmd},

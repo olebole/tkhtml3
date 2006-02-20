@@ -84,10 +84,15 @@ swproc hv3Init {PATH {gotocallback ""}} {
   bind $PATH.html <ButtonPress-1>   "::hv3::guiLeftPress $PATH %x %y"
   bind $PATH.html <ButtonRelease-1> "::hv3::guiLeftRelease $PATH %x %y"
 
-  ::hv3::guiMiddleClick $PATH
+  # Set up a selection handler callback
+  selection handle $PATH.html [list ::hv3::guiGetSelection $PATH]
 
   # Register the built-in URI protocol "file"
   hv3RegisterProtocol $PATH file ::hv3::fileProtocol
+
+  # Force the status bar variables to initialise by pretending someone 
+  # middle-clicked on the html widget.
+  ::hv3::guiMiddleClick $PATH
 
   return $PATH
 }
@@ -318,6 +323,7 @@ namespace eval hv3 {
       foreach {node index} $to {}
       $PATH.html select to $node $index
     }
+    selection own $PATH.html
   }
   proc guiLeftPress {PATH x y} {
     importVars $PATH
@@ -327,12 +333,16 @@ namespace eval hv3 {
       $PATH.html select from $node $index
       $PATH.html select to $node $index
     }
-    for {set n [$PATH.html node $x $y]} {$n!=""} {set n [$n parent]} {
-      if {[$n tag]=="a" && [$n attr -default "" href]!=""} {
-        hv3Goto $PATH [$n attr href]
-        break
+
+    foreach n [$PATH.html node $x $y] {
+      for {} {$n!=""} {set n [$n parent]} {
+        if {[$n tag]=="a" && [$n attr -default "" href]!=""} {
+          hv3Goto $PATH [$n attr href]
+          break
+        }
       }
     }
+
     set myDrag 1
   }
   proc guiLeftRelease {PATH x y} {
@@ -379,6 +389,61 @@ namespace eval hv3 {
     if {$myDrag} {
       guiDrag $PATH $x $y
     }
+  }
+
+  # guiGetSelection PATH offset maxChars
+  #
+  #     This command is invoked whenever the current selection is selected
+  #     while it is owned by the html widget. The text of the selected
+  #     region is returned.
+  #
+  proc guiGetSelection {PATH offset maxChars} {
+catch {
+    set span [$PATH.html select span]
+    if {[llength $span] != 4} {
+      return ""
+    }
+    foreach {n1 i1 n2 i2} $span {}
+
+    set not_empty 0
+    set T ""
+    set N $n1
+    while {1} {
+
+      if {[$N tag] eq ""} {
+        set index1 0
+        set index2 end
+        if {$N == $n1} {set index1 $i1}
+        if {$N == $n2} {set index2 $i2}
+
+        set text [string range [$N text] $index1 $index2]
+        append T $text
+        if {[string trim $text] ne ""} {set not_empty 1}
+      } else {
+        array set prop [$N prop]
+        if {$prop(display) ne "inline" && $not_empty} {
+          append T "\n"
+          set not_empty 0
+        }
+      }
+
+      if {$N eq $n2} break 
+
+      if {[$N nChild] > 0} {
+        set N [$N child 0]
+      } else {
+        while {[set next_node [$N right_sibling]] eq ""} {
+          set N [$N parent]
+        }
+        set N $next_node
+      }
+
+      if {$N eq ""} {error "End of tree!"}
+    }
+
+    set T [string range $T $offset [expr $offset + $maxChars]]
+} msg
+    return $msg
   }
 
   proc goto_fragment {PATH fragment} {
