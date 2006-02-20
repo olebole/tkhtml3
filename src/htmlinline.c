@@ -31,7 +31,7 @@
  * 
  *     HtmlInlineContextIsEmpty
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.7 2006/02/19 11:51:12 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.8 2006/02/20 12:19:06 danielk1977 Exp $";
 
 typedef struct InlineBox InlineBox;
 
@@ -252,9 +252,6 @@ HtmlGetInlineBorder(pLayout, pNode, parentblock)
             border.iVerticalAlign = pValues->iVerticalAlign;
             break;
 
-        case CSS_CONST_MIDDLE:
-            border.iVerticalAlign = pFont->ex_pixels / 2;
-            break;
         case CSS_CONST_SUPER:
             border.iVerticalAlign = (pFont->ex_pixels * 4) / 5;
             break;

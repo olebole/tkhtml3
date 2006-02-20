@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.82 2006/02/19 11:51:12 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.83 2006/02/20 12:19:06 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -494,7 +494,6 @@ draw_canvas_out:
  *
  *---------------------------------------------------------------------------
  */
-#ifdef HTML_DEBUG
 void 
 HtmlDrawComment(pCanvas, zComment, size_only)
     HtmlCanvas *pCanvas;
@@ -510,7 +509,6 @@ HtmlDrawComment(pCanvas, zComment, size_only)
         linkItem(pCanvas, pItem);
     }
 }
-#endif
 
 /*
  *---------------------------------------------------------------------------
@@ -1448,21 +1446,20 @@ layoutNodeIndexCb(pItem, origin_x, origin_y, clientData)
  *         <widget> node -index X Y
  *
  * Results:
- *     Pointer to HtmlNode, or NULL.
+ *     No results returned.
  *
  * Side effects:
- *     None.
+ *     The tcl interpreter HtmlTree.interp is loaded with the result of
+ *     the [<widget> node -index X Y] command.
  *
  *---------------------------------------------------------------------------
  */
-static HtmlNode *
-layoutNodeIndexCmd(pTree, x, y, piIndex)
+static void
+layoutNodeIndexCmd(pTree, x, y)
     HtmlTree *pTree;        /* Widget tree */
     int x;                  /* Document (not viewport) X coordinate */
     int y;                  /* Document (not viewport) Y coordinate */
-    int *piIndex;           /* OUT: Write the index integer here */
 {
-    int iIndex = 0;
     NodeIndexQuery sQuery;
     ClientData cd = (ClientData *)&sQuery;
 
@@ -1480,6 +1477,10 @@ layoutNodeIndexCmd(pTree, x, y, piIndex)
     }
 
     if (sQuery.pClosest) {
+        HtmlNode *pNode = sQuery.pClosest->pNode;     /* Node to return */
+        int iIndex = 0;                               /* Index to return */
+
+        /* Calculate the index to return */
         int dummy;
         int n;
         const char *z;
@@ -1487,13 +1488,69 @@ layoutNodeIndexCmd(pTree, x, y, piIndex)
         z = Tcl_GetStringFromObj(sQuery.pClosest->pText, &n);
         iIndex = Tk_MeasureChars(font, z, n, x - sQuery.closest_x, 0, &dummy);
         iIndex += sQuery.pClosest->iIndex;
-    }
 
-    *piIndex = iIndex;
-    return (sQuery.pClosest ? sQuery.pClosest->pNode : 0);
+        /* Load the result into the Tcl interpreter */
+        Tcl_Obj *pCmd = Tcl_DuplicateObj(HtmlNodeCommand(pTree, pNode));
+        Tcl_ListObjAppendElement(0, pCmd, Tcl_NewIntObj(iIndex));
+        Tcl_SetObjResult(pTree->interp, pCmd);
+    }
 }
 
-static HtmlNode *
+/*
+ *---------------------------------------------------------------------------
+ *
+ * returnDescNode --
+ *
+ *     Arguments pNode1 and pNode2 are two document nodes. If one of the 
+ *     nodes is a descendant of another (is part of the subtree rooted 
+ *     at the other node), then return the pointer to the descendant node.
+ *     Otherwise return NULL.
+ *
+ *    
+ * Results:
+ *     See above.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+HtmlNode *
+returnDescNode(pNode1, pNode2)
+    HtmlNode *pNode1;
+    HtmlNode *pNode2;
+{
+    HtmlNode *pN;
+    for (pN = pNode1; pN && pN != pNode2; pN = HtmlNodeParent(pN));
+    if (pN) {
+        return pNode1;
+    }
+    for (pN = pNode2; pN && pN != pNode1; pN = HtmlNodeParent(pN));
+    if (pN) {
+        return pNode2;
+    }
+    return 0;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * layoutNodeCmd --
+ *
+ *     This function is called to process a command of the form:
+ *
+ *         <widget> node X Y
+ *    
+ * Results:
+ *     No results returned.
+ *
+ * Side effects:
+ *     The tcl interpreter HtmlTree.interp is loaded with the result of
+ *     the [<widget> node X Y] command.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void
 layoutNodeCmd(pTree, x, y)
     HtmlTree *pTree;
     int x;
@@ -1502,8 +1559,11 @@ layoutNodeCmd(pTree, x, y)
     int origin_x = 0;
     int origin_y = 0;
     HtmlCanvas *pCanvas = &pTree->canvas;
-    HtmlNode *pNode = 0;
     HtmlCanvasItem *pItem;
+
+    HtmlNode **apNode = 0;
+    int nNodeAlloc = 0;
+    int nNode = 0;
 
     for (pItem=pCanvas->pFirst; pItem; pItem=pItem->pNext) {
         if (pItem->type == CANVAS_ORIGIN) {
@@ -1521,13 +1581,40 @@ layoutNodeCmd(pTree, x, y)
                 origin_y -= pOrigin->y;
             } else {
                  if (pOrigin->pNode) {
-                     pNode = pOrigin->pNode;
+                     int i;
+                     HtmlNode *pDesc;
+                     for (i = 0; i < nNode; i++) {
+                         pDesc = returnDescNode(pOrigin->pNode, apNode[i]);
+                         if (pDesc) {
+                             apNode[i] = pDesc;
+                             break;
+                         }
+                     }
+                     if (i == nNode) {
+                         nNode++;
+                         if (nNode > nNodeAlloc) {
+                             int nByte;
+                             nNodeAlloc += 16;
+                             nByte = nNodeAlloc * sizeof(HtmlNode *);
+                             apNode = (HtmlNode **)HtmlRealloc(apNode, nByte);
+                         }
+                         apNode[nNode - 1] = pOrigin->pNode;
+                     }
                  }
             }
         }
     }
 
-    return pNode;
+    if (nNode > 0) {
+        int i;
+        Tcl_Obj *pRet = Tcl_NewObj();
+        for (i = 0; i < nNode; i++) {
+            Tcl_Obj *pCmd = HtmlNodeCommand(pTree, apNode[i]);
+            Tcl_ListObjAppendElement(0, pRet, pCmd);
+        }
+        Tcl_SetObjResult(pTree->interp, pRet);
+    }
+    HtmlFree(apNode);
 }
   
 
@@ -1559,14 +1646,14 @@ HtmlLayoutNode(clientData, interp, objc, objv)
 {
     int x;
     int y;
-    int isIndex = 0;
-    int iIndex = 0;
 
-    HtmlNode *pNode = 0;
     HtmlTree *pTree = (HtmlTree *)clientData;
 
     if (objc == 2){
-        pNode = pTree->pRoot;
+        if (pTree->pRoot) {
+            Tcl_Obj *pCmd = HtmlNodeCommand(pTree, pTree->pRoot);
+            Tcl_SetObjResult(interp, pCmd);
+        }
     } else if (objc == 4 || objc == 5) {
         if (TCL_OK != Tcl_GetIntFromObj(interp, objv[objc - 2], &x) ||
             TCL_OK != Tcl_GetIntFromObj(interp, objv[objc - 1], &y) 
@@ -1579,22 +1666,13 @@ HtmlLayoutNode(clientData, interp, objc, objv)
         y += pTree->iScrollY;
 
         if (objc == 4){
-            pNode = layoutNodeCmd(pTree, x, y);
+            layoutNodeCmd(pTree, x, y);
         } else {
-            isIndex = 1;
-            pNode = layoutNodeIndexCmd(pTree, x, y, &iIndex);
+            layoutNodeIndexCmd(pTree, x, y);
         }
     } else {
         Tcl_WrongNumArgs(interp, 2, objv, "?-index ?X Y??");
         return TCL_ERROR;
-    }
-
-    if (pNode) {
-        Tcl_Obj *pCmd = Tcl_DuplicateObj(HtmlNodeCommand(pTree, pNode));
-        if (isIndex) {
-            Tcl_ListObjAppendElement(interp, pCmd, Tcl_NewIntObj(iIndex));
-        }
-        Tcl_SetObjResult(interp, pCmd);
     }
 
     return TCL_OK;

@@ -10,10 +10,13 @@
 #
 #     The following Tk widgets are used for form elements:
 #
-#     <input>            -> button|radiobutton|menubutton|entry|image
-#     <button>           -> button|image
-#     <select>           -> menubutton
-#     <textarea>         -> text
+#         <input>            -> button|radiobutton|menubutton|entry|image
+#         <button>           -> button|image
+#         <select>           -> menubutton
+#         <textarea>         -> text
+#
+#     We attempt to baseline align the button, entry, radiobutton and 
+#     menubutton widgets.
 #
 
 #--------------------------------------------------------------------------

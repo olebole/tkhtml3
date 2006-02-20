@@ -72,7 +72,7 @@ proc gui_build {} {
   .m.file add command -label "Select All" -command gui_select_all
 
   .m.file add separator
-  .m.file add command -label Exit -command hv3_exit
+  .m.file add command -label Exit -command exit
 
   # Add the 'Font Size Table' menu
   .m add cascade -label {Font Size Table} -menu [menu .m.font]

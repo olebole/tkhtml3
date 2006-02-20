@@ -36,17 +36,24 @@
 #ifndef __HTMLTREE_H__
 #define __HTMLTREE_H__
 
+/*
+ * Without exception the tkhtml code uses the wrapper functions HtmlAlloc(),
+ * HtmlFree() and HtmlRealloc() in place of the regular Tcl ckalloc(), ckfree()
+ * and ckrealloc() functions.
+ */
 #ifndef NDEBUG
     #include "restrack.h"
     #define HtmlAlloc Rt_Alloc
-    #define HtmlFree(x) Rt_Free((char *)x)
-    #define HtmlRealloc Rt_Realloc
+    #define HtmlFree(x) Rt_Free((char *)(x))
+    #define HtmlRealloc(x, n) Rt_Realloc((char *)(x), (n))
 #else
     #define HtmlAlloc ckalloc
-    #define HtmlFree(x) ckfree((char *)x)
+    #define HtmlFree(x) ckfree((char *)(x))
     #define HtmlRealloc ckrealloc
 #endif
-char *HtmlClearAlloc(int);
+
+/* HtmlClearAlloc() is a version of HtmlAlloc() that returns zeroed memory */
+#define HtmlClearAlloc(x) ((char *)memset(HtmlAlloc((x)), 0, (x)))
 
 #ifndef NDEBUG
 #define HTML_DEBUG
@@ -442,7 +449,7 @@ int  HtmlDrawIsEmpty(HtmlCanvas *);
 
 void HtmlDrawImage2(HtmlCanvas *, HtmlImage2 *, int, int, unsigned char, 
                     unsigned char, int, int, int, int, int);
-int HtmlLayoutPaintNodes(HtmlTree *, int, int, int, int);
+void HtmlLayoutPaintText(HtmlTree *, int, int, int, int);
 
 HtmlTokenMap *HtmlMarkup(int);
 CONST char * HtmlMarkupName(int);

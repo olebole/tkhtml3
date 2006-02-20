@@ -3,10 +3,11 @@
 #
 TOP = $(HOME)/work/tkhtml/htmlwidget
 
-##### BUILD can be DEBUG or RELEASE.
+##### BUILD can be DEBUG, RELEASE or MEMDEBUG.
 #
 BUILD = DEBUG
 # BUILD = RELEASE
+# BUILD = MEMDEBUG
 
 ##### Version of and path to the Tcl installation to use.
 #
@@ -14,7 +15,8 @@ BUILD = DEBUG
 # TCL_DEBUG   = $(HOME)/tcl
 
 TCLVERSION = 8.4
-TCL_DEBUG = /usr/local/ActiveTcl
+TCL_DEBUG    = /usr/local/ActiveTcl
+TCL_MEMDEBUG = $(TCL_DEBUG)
 TCL_RELEASE = /usr/local/ActiveTcl
 TCL = $(TCL_$(BUILD))
 
@@ -23,26 +25,31 @@ MKSTARKIT = ~/tcl/bin/tclkit-linux-x86-xft ~/bin/sdx.kit wrap
 ##### Flags passed to the C-compiler to link to Tcl.
 #
 # TCLLIB_DEBUG   = -L$(TCL)/lib -ltcl$(TCLVERSION)g -ltk$(TCLVERSION)g 
-TCLLIB_RELEASE = -L$(TCL)/lib -ltcl$(TCLVERSION) -ltk$(TCLVERSION)   
-TCLLIB_DEBUG = -L$(TCL)/lib -ltcl$(TCLVERSION) -ltk$(TCLVERSION)   
+TCLLIB_RELEASE  = -L$(TCL)/lib -ltcl$(TCLVERSION) -ltk$(TCLVERSION)   
+TCLLIB_DEBUG    = -L$(TCL)/lib -ltcl$(TCLVERSION) -ltk$(TCLVERSION)   
+TCLLIB_MEMDEBUG = $(TCLLIB_DEBUG)
+
 TCLLIB = -L/usr/X11R6/lib/ -lX11 -ldl -lm $(TCLLIB_$(BUILD))
 
 ##### The C-compiler to use and the flags to pass to it.
 #
-CC_RELEASE = gcc
-CC_DEBUG   = gcc
+CC_RELEASE  = gcc
+CC_DEBUG    = gcc
+CC_MEMDEBUG = $(CC_DEBUG)
 CC = $(CC_$(BUILD))
 
 CFLAGS_RELEASE = -O2 -Wall -DNDEBUG -DHTML_MACROS
 # CFLAGS_DEBUG   = -g -pg -DHTML_MACROS
 #CFLAGS_DEBUG   = -g -Wall -DHTML_MACROS -DHTML_RES_DEBUG
-CFLAGS_DEBUG   = -g -Wall -DHTML_MACROS 
+CFLAGS_DEBUG    = -g -Wall -DHTML_MACROS 
+CFLAGS_MEMDEBUG = -g -Wall -DHTML_MACROS -DRES_DEBUG
 CFLAGS = $(CFLAGS_$(BUILD))
 
 ##### The name of the shared library file to build.
 #
-SHARED_LIB_DEBUG = libTkhtml3g.so
-SHARED_LIB_RELEASE = libTkhtml3.so
+SHARED_LIB_DEBUG    = libTkhtml3g.so
+SHARED_LIB_MEMDEBUG = $(SHARED_LIB_DEBUG)
+SHARED_LIB_RELEASE  = libTkhtml3.so
 SHARED_LIB = $(SHARED_LIB_$(BUILD))
 
 ##### Command to build a shared library from a set of object files. The

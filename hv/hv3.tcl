@@ -347,22 +347,33 @@ namespace eval hv3 {
   #     not over any node.
   proc guiMotion {PATH x y} {
     importVars $PATH
-    set node [$PATH.html node $x $y]
     set txt ""
     $PATH configure -cursor ""
-    for {set n $node} {$n!=""} {set n [$n parent]} {
-      set tag [$n tag]
-      if {$tag=="a" && [$n attr -default "" href]!=""} {
-        $PATH configure -cursor hand2
-        set txt "hyper-link: [$n attr href]"
-        break
-      } elseif {$tag==""} {
-        $PATH configure -cursor xterm
-        set txt [string range [$n text] 0 20]
-      } else {
-        set txt "<[$n tag]>$txt"
+
+    set node ""
+    foreach node [$PATH.html node $x $y] {
+      for {set n $node} {$n!=""} {set n [$n parent]} {
+        set tag [$n tag]
+        if {$tag=="a" && [$n attr -default "" href]!=""} {
+          $PATH configure -cursor hand2
+          set txt "hyper-link: [$n attr href]"
+          break
+        } 
       }
     }
+
+    if {$txt == "" && $node != ""} {
+      for {set n $node} {$n!=""} {set n [$n parent]} {
+        set tag [$n tag]
+        if {$tag==""} {
+          $PATH configure -cursor xterm
+          set txt [string range [$n text] 0 20]
+        } else {
+          set txt "<[$n tag]>$txt"
+        }
+      }
+    }
+
     set myStatus1 [string range $txt 0 80]
 
     if {$myDrag} {

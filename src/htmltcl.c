@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.63 2006/02/18 14:43:55 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.64 2006/02/20 12:19:06 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -1423,6 +1423,59 @@ searchCmd(clientData, interp, objc, objv)
 /*
  *---------------------------------------------------------------------------
  *
+ * selectClearCmd --
+ *
+ *     html select clear 
+ *
+ * Results:
+ *     Tcl result (i.e. TCL_OK, TCL_ERROR).
+ *
+ * Side effects:
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+selectClearCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    HtmlTree *pTree = (HtmlTree *)clientData;
+
+    /* Check no arguments were passed to this command. */
+    if (objc != 3) {
+        Tcl_WrongNumArgs(interp, 3, objv, "");
+        return TCL_ERROR;
+    }
+
+    if (pTree->pToNode) {
+        /* If HtmlTree.pToNode is NULL, then the selection is already clear,
+         * do nothing. Otherwise, call HtmlLayoutPaintText to repaint the
+         * entire selected area, then clear the selection related HtmlTree 
+         * variables. 
+         *
+	 * It doesn't matter that we call HtmlLayoutPaintText() before
+	 * modifying the state of the widget, as HtmlLayoutPaintText() only
+	 * schedules a drawing callback, it does not do any actual drawing. By
+	 * the time the scheduled callback is dispatched, the HtmlTree state
+	 * has been modified to reflect the cleared selection.
+         */
+        assert(pTree->pFromNode);
+        HtmlLayoutPaintText(pTree, 
+            pTree->pFromNode->iNode, pTree->iFromIndex,
+            pTree->pToNode->iNode, pTree->iToIndex
+        );
+        pTree->pFromNode = 0;
+        pTree->pToNode = 0;
+    }
+
+    return TCL_OK;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * selectCmd --
  *
  *     html select from ?NODE ?INDEX??
@@ -1462,7 +1515,6 @@ selectCmd(clientData, interp, objc, objv)
         HtmlNode *pOldNode = *ppNode;
         int iOldIndex = *piIndex;
         int iNewIndex = -1;
-        Tk_Window tkwin = pTree->tkwin;
 
         pNewNode = HtmlNodeGetPointer(pTree, Tcl_GetString(objv[3]));
         if (0 == pNewNode) {
@@ -1560,6 +1612,7 @@ int widgetCmd(clientData, interp, objc, objv)
         {"search",     0,        searchCmd},
         {"select",     "to",     selectCmd},
         {"select",     "from",   selectCmd},
+        {"select",     "clear",  selectClearCmd},
         {"style",      0,        styleCmd},
         {"xview",      0,        xviewCmd},
         {"yview",      0,        yviewCmd},
@@ -1755,15 +1808,6 @@ error_out:
         HtmlFree((char *)pTree);
     }
     return TCL_ERROR;
-}
-
-char *
-HtmlClearAlloc(nBytes)
-    int nBytes;
-{
-    char *zRet = HtmlAlloc(nBytes);
-    memset(zRet, 0, nBytes);
-    return zRet;
 }
 
 /*
