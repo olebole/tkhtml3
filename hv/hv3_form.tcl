@@ -188,6 +188,11 @@ proc form_config {w widget props} {
             $w configure -activebackground $p(background-color)
         }
     }
+
+    set descent [font metrics $p(font) -descent]
+    set ascent  [font metrics $p(font) -ascent]
+    set drop [expr ([winfo reqheight $w] + $descent - $ascent) / 2]
+    return $drop
 }
 
 #

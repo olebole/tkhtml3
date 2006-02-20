@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.83 2006/02/20 12:19:06 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.84 2006/02/20 16:07:42 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -494,6 +494,7 @@ draw_canvas_out:
  *
  *---------------------------------------------------------------------------
  */
+#ifdef HTML_DEBUG
 void 
 HtmlDrawComment(pCanvas, zComment, size_only)
     HtmlCanvas *pCanvas;
@@ -509,6 +510,7 @@ HtmlDrawComment(pCanvas, zComment, size_only)
         linkItem(pCanvas, pItem);
     }
 }
+#endif
 
 /*
  *---------------------------------------------------------------------------

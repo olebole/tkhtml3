@@ -173,6 +173,7 @@ struct HtmlNodeReplacement {
     Tcl_Obj *pReplace;            /* Replacement window name */
     Tcl_Obj *pConfigure;          /* Script passed to -configurecmd */
     Tcl_Obj *pDelete;             /* Script passed to -deletecmd */
+    int iOffset;
 };
 
 /*

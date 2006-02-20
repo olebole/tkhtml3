@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.116 2006/02/19 11:51:12 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.117 2006/02/20 16:07:42 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -1812,6 +1812,7 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
             nodeGetMargins(pLayout, pNode, pBox->iContaining, &margin);
             iHeight = sBox.height + margin.margin_top + margin.margin_bottom;
 
+#if 0
             switch (pV->eVerticalAlign) {
                 case CSS_CONST_TEXT_BOTTOM: {
                     yoffset = -1 * (iHeight - pV->fFont->metrics.descent);
@@ -1829,6 +1830,12 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
                 default:
                     yoffset = -1 * (iHeight - margin.margin_top);
                     break;
+            }
+#endif
+
+            yoffset = -1 * (iHeight - margin.margin_bottom);
+            if (pNode->pReplacement) {
+              yoffset += pNode->pReplacement->iOffset;
             }
 
             memset(&sBox2, 0, sizeof(BoxContext));
@@ -2230,6 +2237,7 @@ doConfigureCmd(pTree, pNode)
         HtmlNode *pTmp;
         Tcl_Obj *pArray;
         Tcl_Obj *pScript;
+        Tcl_Obj *pRes;
         int rc;
 
         pArray = Tcl_NewObj();
@@ -2266,6 +2274,10 @@ doConfigureCmd(pTree, pNode)
             Tcl_BackgroundError(interp);
         }
         Tcl_DecrRefCount(pScript);
+
+        pRes = Tcl_GetObjResult(interp);
+        pNode->pReplacement->iOffset = 0;
+        Tcl_GetIntFromObj(0, pRes, &pNode->pReplacement->iOffset);
     }
 }
 
@@ -2314,12 +2326,14 @@ layoutReplacement(pLayout, pBox, pNode)
         Tk_Window win = Tk_NameToWindow(interp, zReplace, tkwin);
         if (win) {
             Tcl_Obj *pWin = 0;
+            int iOffset;
             if (!pLayout->minmaxTest) {
                 doConfigureCmd(pLayout->pTree, pNode);
                 pWin = Tcl_NewStringObj(zReplace, -1);
             }
             width = Tk_ReqWidth(win);
             height = Tk_ReqHeight(win);
+            iOffset = pNode->pReplacement->iOffset;
             DRAW_WINDOW(&pBox->vc, pWin, 0, 0, width, height);
         }
     } else {
