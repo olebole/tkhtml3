@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.117 2006/02/20 16:07:42 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.118 2006/02/22 16:42:38 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -2230,6 +2230,7 @@ doConfigureCmd(pTree, pNode)
 
     assert(pNode && pNode->pReplacement);
     pConfigure = pNode->pReplacement->pConfigure;
+    pNode->pReplacement->iOffset = 0;
 
     if (pConfigure) {
         Tcl_Interp *interp = pTree->interp;

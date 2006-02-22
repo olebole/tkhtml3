@@ -66,7 +66,7 @@ proc gui_build {} {
       break
     }
   }
-  .m.file add command -label Browser -command [list prop_browse $HTML]
+  .m.file add command -label Browser -command [list HtmlDebug::browse $HTML]
   .m.file add separator
 
   .m.file add command -label "Select All" -command gui_select_all
@@ -221,6 +221,8 @@ proc main {{doc index.html}} {
   hv3Init .hv3 -gotocallback guiGotoCallback
   hv3RegisterProtocol .hv3 http httpProtocol
   set ::HTML .hv3.html
+  bind $::HTML <KeyPress-q> exit
+  bind $::HTML <KeyPress-Q> exit
   gui_build
   log_init .hv3.html
   form_init .hv3.html

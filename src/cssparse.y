@@ -157,6 +157,7 @@ comma ::= COMMA. {
     HtmlCssSelectorComma(pParse);
 }
 
+declaration_list ::= .
 declaration_list ::= declaration.
 declaration_list ::= declaration_list SEMICOLON ws declaration.
 

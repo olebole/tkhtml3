@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.65 2006/02/20 13:39:54 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.66 2006/02/22 16:42:38 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -98,27 +98,20 @@ logCommon(
     if (pLogCmd) {
         char zBuf[200];
         int nBuf;
-        Tcl_Obj *pSubject;
-        Tcl_Obj *pMessage;
-        Tcl_Obj *apArgs[3];
+        Tcl_Obj *pCmd;
 
         nBuf = vsnprintf(zBuf, 200, zFormat, ap);
 
-        pMessage = Tcl_NewStringObj(zBuf, nBuf);
-        Tcl_IncrRefCount(pMessage);
-        pSubject = Tcl_NewStringObj(zSubject, -1);
-        Tcl_IncrRefCount(pSubject);
+        pCmd = Tcl_DuplicateObj(pLogCmd);
+        Tcl_IncrRefCount(pCmd);
+        Tcl_ListObjAppendElement(0, pCmd, Tcl_NewStringObj(zSubject, -1));
+        Tcl_ListObjAppendElement(0, pCmd, Tcl_NewStringObj(zBuf, nBuf));
 
-        apArgs[0] = pLogCmd;
-        apArgs[1] = pSubject;
-        apArgs[2] = pMessage;
-
-        if (Tcl_EvalObjv(pTree->interp, 3, apArgs, TCL_GLOBAL_ONLY)) {
+        if (Tcl_EvalObjEx(pTree->interp, pCmd, TCL_GLOBAL_ONLY)) {
             Tcl_BackgroundError(pTree->interp);
         }
 
-        Tcl_DecrRefCount(pMessage);
-        Tcl_DecrRefCount(pSubject);
+        Tcl_DecrRefCount(pCmd);
     }
 }
 
@@ -1322,7 +1315,8 @@ styleCmd(clientData, interp, objc, objv)
         {SWPROC_END, 0, 0, 0}
     };
     Tcl_Obj *apObj[4];
-    int rc;
+    int rc = TCL_OK;
+    int n;
     HtmlTree *pTree = (HtmlTree *)clientData;
 
     /* First assert() that the sizes of the aConf and apObj array match. Then
@@ -1341,7 +1335,11 @@ styleCmd(clientData, interp, objc, objv)
     if (TCL_OK != SwprocRt(interp, objc - 2, &objv[2], aConf, apObj)) {
         return TCL_ERROR;
     }
-    rc = HtmlStyleParse(pTree, interp, apObj[3], apObj[0], apObj[1], apObj[2]);
+
+    Tcl_GetStringFromObj(apObj[3], &n);
+    if (n > 0) {
+        rc = HtmlStyleParse(pTree,interp,apObj[3],apObj[0],apObj[1],apObj[2]);
+    }
 
     /* Clean up object references created by SwprocRt() */
     SwprocCleanup(apObj, sizeof(apObj)/sizeof(Tcl_Obj *));

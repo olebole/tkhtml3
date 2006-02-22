@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.44 2006/02/20 13:39:54 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.45 2006/02/22 16:42:39 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -1108,8 +1108,8 @@ node_attr_usage:
 
                 SwprocConf aArgConf[4] = {
                     {SWPROC_ARG, "new-value", 0, 0},
-                    {SWPROC_OPT, "configurecmd", "", 0},
-                    {SWPROC_OPT, "deletecmd", "", 0},
+                    {SWPROC_OPT, "configurecmd", 0, 0},
+                    {SWPROC_OPT, "deletecmd", 0, 0},
                     {SWPROC_END, 0, 0, 0}
                 };
 
@@ -1118,7 +1118,7 @@ node_attr_usage:
                 }
 
                 nBytes = sizeof(HtmlNodeReplacement);
-                pReplace = (HtmlNodeReplacement *) HtmlAlloc(nBytes);
+                pReplace = (HtmlNodeReplacement *) HtmlClearAlloc(nBytes);
                 pReplace->pReplace = aArgs[0];
                 pReplace->pConfigure = aArgs[1];
                 pReplace->pDelete = aArgs[2];

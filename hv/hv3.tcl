@@ -78,8 +78,6 @@ swproc hv3Init {PATH {gotocallback ""}} {
   bind $PATH.html <1> "::hv3::guiLeftClick $PATH \[$PATH.html node %x %y\]"
   bind $PATH.html <2> "::hv3::guiMiddleClick $PATH"
   bind $PATH.html <3> "::hv3::guiRightClick $PATH \[$PATH.html node %x %y\]"
-  bind $PATH.html <KeyPress-q> exit
-  bind $PATH.html <KeyPress-Q> exit
 
   bind $PATH.html <ButtonPress-1>   "::hv3::guiLeftPress $PATH %x %y"
   bind $PATH.html <ButtonRelease-1> "::hv3::guiLeftRelease $PATH %x %y"
@@ -303,7 +301,7 @@ namespace eval hv3 {
   #     Called when the user right-clicks on the html window. 
   proc guiRightClick {PATH node} {
     if {$node!=""} {
-      prop_browse $PATH.html -node $node
+      HtmlDebug::browse $PATH.html [lindex $node 0]
     }
   }
 

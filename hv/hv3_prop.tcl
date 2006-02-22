@@ -2,70 +2,296 @@
 ###########################################################################
 # hv3_prop.tcl --
 #
-#     This file contains code to implement the node browser window (the thing
-#     with the tree on the left and the node info on the right). The public
-#     interface to this file are the commands:
+#     This file contains code to implement the Tkhtml debugging interface.
 #
-#         prop_browse HTML ?-node NODE?
+
+package require Itcl
+package require Tk
+
+#--------------------------------------------------------------------------
+# class HtmlDebug --
 #
-#     Globals:
+#     This class encapsulates code used for debugging the Html widget. 
+#     It manages a gui which can be used to investigate the structure and
+#     Tkhtml's handling of a currently loaded Html document.
 #
-#         ::hv3_prop_selected
-#         ::hv3_prop_expanded
-#         ::hv3_log_layoutengine
-#         ::hv3_log_styleengine
 #
-set ::hv3_prop_selected ""
+itcl::class HtmlDebug {
 
-swproc prop_browse {HTML {node ""}} {
-    if {[info commands .prop] == ""} {
-        toplevel .prop
-        bind .prop <KeyPress-q> {wm withdraw .prop}
-        bind .prop <KeyPress-Q> {wm withdraw .prop}
+  # Public interface
+  public {
+    # The first argument, $HTML, must be the name of an html widget that
+    # exists somewhere in the application. If one does not already exist,
+    # invoking this proc instantiates an HtmlDebug object associated with
+    # the specified html widget. This in turn creates a top-level 
+    # debugging window exclusively associated with the specified widget.
+    # The HtmlDebug instance is deleted when the top-level window is 
+    # destroyed, either by hitting 'q' or 'Q' while the window has focus,
+    # or by closing the window using a window-manager interface.
+    #
+    # If the second argument is not "", then it is the name of a node 
+    # within the document currently loaded by the specified html widget.
+    # If this node exists, the debugging window presents information 
+    # related to it.
+    #
+    proc browse {HTML {node ""}}
+  }
 
-        html .prop.html -width 400
-        canvas .prop.tree -width 400 -background white -borderwidth 10
+  # Class internals
+  private {
+    common Template
 
-        scrollbar .prop.html_sb -orient vertical
-        scrollbar .prop.tree_sb -orient vertical
-    
-        .prop.html configure -yscrollcommand {.prop.html_sb set}
-        .prop.tree configure -yscrollcommand {.prop.tree_sb set}
-        .prop.html_sb configure -command ".prop.html yview"
-        .prop.tree_sb configure -command ".prop.tree yview"
+    common myCommonWidgets       ;# Map from <html-widget> -> HtmlDebug obj
+    variable mySelected ""       ;# Currently selected node
+    variable myExpanded          ;# Array. Entries are present for exp. nodes
+    variable myHtml              ;# Name of html widget
 
-        pack .prop.tree -side left -fill both -expand true
-        pack .prop.html_sb -side right -fill y
-        pack .prop.html -side right -fill both -expand true
-        pack .prop.tree_sb -side right -fill y 
-    } 
-    wm state .prop normal
+    # Debugging window widgets:
+    variable myTopLevel          ;# Name of top-level window for debugger
+    variable myTree              ;# Name of canvas widget
+    variable myRelayout          ;# Name of re-layout button
+    variable mySearchField       ;# Name of "search for node" entry widget
 
-    if {$node != "" && [info commands $node] != ""} {
-        set ::hv3_prop_selected $node
-        for {set n [$node parent]} {$n != ""} {set n [$n parent]} {
-            set ::hv3_prop_expanded($n) 1
+    variable myStyleEngineLog
+    variable myLayoutEngineLog
+
+    variable mySearchResults ""
+
+    method drawSubTree    {node x y}
+    method browseNode {node}
+    constructor           {HTML} {}
+    destructor            {}
+  }
+
+  # These are not actually part of the public interface, but they must
+  # be declared public because they are invoked by widget callback scripts
+  # and so on. They are really private methods.
+  public {
+    method rerender       {}
+    method searchNode     {}
+    method toggleExpanded {node}
+    method report         {{node ""}}
+    method configureTree  {}
+    method logcmd         {args}
+  }
+}
+#--------------------------------------------------------------------------
+
+#--------------------------------------------------------------------------
+# Document template for the debugging window document.
+#
+set HtmlDebug::Template {
+  <html>
+    <head>
+      <style>
+
+        /* Table display parameters */
+        table,th,td { border: 1px solid; }
+        td          { padding:0px 15px; }
+        table       { margin: 20px; }
+
+        /* Do not display borders for <table class="noborder"> elements */
+        .noborder, .noborder>tr>td, .noborder>tr>th { border: none; }
+
+        /* Elements of class "code" are rendered in fixed font */
+        .code       { font-family: fixed; }
+  
+        /* Border for elements of class "border" */
+        .border {
+            border: solid 2px;
+            border-color: grey60 grey25 grey25 grey60;
+            margin: 0 0.25;
         }
-    }
 
-    .prop.tree delete all
-    prop_drawTree $HTML [$HTML node] 10 30
-    if {[info commands $::hv3_prop_selected] == ""} {
-        set ::hv3_prop_selected [$HTML node]
-    }
-    prop_displayNode $::hv3_prop_selected
-    .prop.tree configure -scrollregion [.prop.tree bbox all]
+      </style>
+    </head>
+    <body>
+      <h1><center>Tkhtml Debugging Interface</center></h1>
+
+      <!-- Apart from the heading, the entire document is encapsulated 
+           within a borderless table. The table consists of two cells 
+           in a single row. The left cell contains the "tree" widget. The
+           right-hand cell contains everything else.  
+      -->
+      <table class="noborder">
+        <tr>
+
+          <td>    <!-- Left-hand cell - tree widget only -->
+            <input 
+                class="border" 
+                widget="$myTree" 
+                tcl="$this configureTree" 
+                style="float:left"
+            />
+
+          <td>    <!-- Right-hand cell - everything else -->
+
+            <!-- The "Re-Render With Logging" and "Search for node" widgets -->
+            <div class="border" style="padding: 20px">
+              <input widget="$myRelayout"/>
+              <p style="margin:20px 0px 0px">
+                Search For Node: <input widget="$mySearchField"/>
+              </p>
+$mySearchResults
+            </div>
+$CONTENT
+
+          </td>
+        </tr>
+      </table>
+    </body>
+  </html>
+}
+#--------------------------------------------------------------------------
+
+# HtmlDebug::browse + HtmlDebug::browseNode
+#
+itcl::body HtmlDebug::browse {HTML {node ""}} {
+  if {![info exists myCommonWidgets($HTML)]} {
+    HtmlDebug #auto $HTML
+  }
+  return [$myCommonWidgets($HTML) browseNode $node]
+}
+itcl::body HtmlDebug::browseNode {node} {
+  hv3Goto $myTopLevel.hv3 "tcl:///$this report $node"
+  wm state $myTopLevel normal
+  wm deiconify $myTopLevel
 }
 
-image create photo idir -data {
-    R0lGODdhEAAQAPIAAAAAAHh4eLi4uPj4APj4+P///wAAAAAAACwAAAAAEAAQAAADPVi63P4w
-    LkKCtTTnUsXwQqBtAfh910UU4ugGAEucpgnLNY3Gop7folwNOBOeiEYQ0acDpp6pGAFArVqt
-    hQQAO///
+swproc tclProtocol {url {script ""} {binary 0}} {
+  if {$url=="-reset"} {
+    return
+  }
+  if {$script != ""} {
+    set cmd [string range $url 7 end]
+    set result [eval $cmd]
+    lappend script $result
+    eval $script
+  }
 }
-image create photo ifile -data {
-    R0lGODdhEAAQAPIAAAAAAHh4eLi4uPj4+P///wAAAAAAAAAAACwAAAAAEAAQAAADPkixzPOD
-    yADrWE8qC8WN0+BZAmBq1GMOqwigXFXCrGk/cxjjr27fLtout6n9eMIYMTXsFZsogXRKJf6u
-    P0kCADv/
+proc tclInputHandler {node} {
+  set widget [$node attr -default "" widget]
+  if {$widget != ""} {
+    $node replace $widget -configurecmd [list tclInputConfigure $widget]
+  }
+  set tcl [$node attr -default "" tcl]
+  if {$tcl != ""} {
+    eval $tcl
+  }
+}
+proc tclInputConfigure {widget args} {
+  if {[catch {set font [$widget cget -font]}]} {return 0}
+  set descent [font metrics $font -descent]
+  set ascent  [font metrics $font -ascent]
+  set drop [expr ([winfo reqheight $widget] + $descent - $ascent) / 2]
+  return $drop
+}
+
+itcl::body HtmlDebug::logcmd {subject message} {
+  set arrayvar ""
+  switch -- $subject {
+    STYLEENGINE {
+      set arrayvar myStyleEngineLog
+    }
+    LAYOUTENGINE {
+      set arrayvar myLayoutEngineLog
+    }
+  }
+
+  if {$arrayvar != ""} {
+    if {$message == "START"} {
+      unset -nocomplain $arrayvar
+    } else {
+      set idx [string first " " $message]
+      set node [string range $message 0 [expr $idx-1]]
+      set msg  [string range $message [expr $idx+1] end]
+      lappend ${arrayvar}($node) $msg
+    }
+  }
+}
+
+itcl::body HtmlDebug::searchNode {} {
+  set selector [$mySearchField get]
+  set mySearchResults <ul>
+  set nodelist [$myHtml search $selector]
+  foreach node $nodelist {
+    # set script "after idle {::HtmlDebug::browse $myHtml $node}"
+    # set script "::HtmlDebug::browse $myHtml $node"
+    set script "$this report $node"
+    append mySearchResults "<li><a href=\"tcl:///$script\">"
+    append mySearchResults "$node"
+    append mySearchResults "</li>"
+  }
+  append mySearchResults </ul>
+  HtmlDebug::browse $myHtml [lindex $nodelist 0]
+}
+
+# HtmlDebug::rerender
+#
+#     This method is called to force the attached html widget to rerun the
+#     style and layout engines.
+#
+itcl::body HtmlDebug::rerender {} {
+  $myHtml configure -logcmd [list $this logcmd]
+  $myHtml style ""
+  after idle [list ::HtmlDebug::browse $myHtml $mySelected]
+  after idle [list $myHtml configure -logcmd {}]
+}
+
+# HtmlDebug constructor
+#
+#     Create a new html widget debugger for the widget $HTML.
+#
+itcl::body HtmlDebug::constructor {HTML} {
+  set myHtml $HTML
+  set myTopLevel [string map {: _} ".${this}_toplevel"]
+
+  set myTree $myTopLevel.hv3.html.tree
+  set myRelayout $myTopLevel.hv3.html.relayout
+  set mySearchField $myTopLevel.hv3.html.search
+
+  toplevel $myTopLevel
+
+  bind $myTopLevel <KeyPress-q> [list destroy $myTopLevel]
+  bind $myTopLevel <KeyPress-Q> [list destroy $myTopLevel]
+
+  hv3Init $myTopLevel.hv3
+  hv3RegisterProtocol $myTopLevel.hv3 tcl tclProtocol
+  $myTopLevel.hv3.html handler node input tclInputHandler
+  $myTopLevel.hv3.html configure -width 800
+  pack $myTopLevel.hv3 -side right -fill both -expand true
+
+  canvas $myTree -background white -borderwidth 10
+  button $myRelayout -text "Re-Render Document With Logging" \
+     -command [list $this rerender]
+
+  entry $mySearchField
+  bind $mySearchField <Return> [list $this searchNode]
+
+  bind $myTree <4> [list event generate $myTopLevel.hv3.html <4> ]
+  bind $myTree <5> [list event generate $myTopLevel.hv3.html <5> ]
+
+  bind $myTopLevel.hv3 <Destroy>    [list itcl::delete object $this]
+  set myCommonWidgets($HTML) $this
+}
+
+# HtmlDebug Destructor
+#
+itcl::body HtmlDebug::destructor {} {
+  unset myCommonWidgets($myHtml)
+}
+
+itcl::body HtmlDebug::configureTree {} {
+  $myTree delete all
+  if {$mySelected != ""} {
+    drawSubTree [$myHtml node] 15 30
+    set box [$myTree bbox all]
+    set width [lindex $box 2]
+    set height [lindex $box 3]
+    set width [expr $width < 250 ? 250 : $width]
+    set height [expr $height < 250 ? 250 : $height]
+    $myTree configure -height $height -width $width
+  }
 }
 
 proc prop_nodeToLabel {node} {
@@ -79,15 +305,32 @@ proc prop_nodeToLabel {node} {
     append d ">"
 }
 
+# HtmlDebug::report node
+#
+#     This method generates an html formated report about node $node.
+#
+itcl::body HtmlDebug::report {{node ""}} {
 
-proc prop_displayNode {node} {
+    if {$node != "" && [info commands $node] != ""} {
+      set mySelected $node
+      for {set n [$node parent]} {$n != ""} {set n [$n parent]} {
+        set myExpanded($n) 1
+      }
+    } 
+    if {$mySelected == "" || [info commands $mySelected] == ""} {
+      set mySelected [$myHtml node]
+      set mySearchResults {}
+    }
+    set node $mySelected
+    if {$node eq ""} return ""
+
+    set doc {}
 
     if {[$node tag] == ""} {
         append doc "<h1>Text</h1>"
         set text [string map {< &lt; > &gt;} [$node text]]
         set tokens [string map {< &lt; > &gt;} [$node text -tokens]]
-        set doc [subst {
-            <html><head></head><body>
+        append doc [subst {
             <h1>Text</h1>
             <p>$text
             <h1>Tokens</h1>
@@ -103,8 +346,7 @@ proc prop_displayNode {node} {
             append attribute_rows "<tr><td>$p<td>$v"
         }
         
-        set doc [subst {
-            <html><head></head><body>
+        append doc [subst {
             <h1>&lt;[$node tag]&gt;</h1>
             <p>Tcl command: <span class="code">\[$node\]</span>
             <p>Replacement: <span class="code">\[[$node replace]\]</span>
@@ -120,44 +362,36 @@ proc prop_displayNode {node} {
         }]
     }
 
-    if {[info exists ::hv3_log_layoutengine($node)]} {
-        append doc "<h>Layout Engine:</h1>\n"
-        append doc "<ul>\n"
-        foreach entry $::hv3_log_layoutengine($node) {
-            append doc "    <li>$entry\n"
+    if {[info exists myLayoutEngineLog($node)]} {
+        append doc {<table class=layout_engine><tr><th>Layout Engine}
+        foreach entry $myLayoutEngineLog($node) {
+            append doc "    <tr><td>$entry\n"
         }
-        append doc "</ul>\n"
+        append doc "</table>\n"
     }
-    if {[info exists ::hv3_log_styleengine($node)]} {
-        append doc "<h>Style Engine:</h1>\n"
-        append doc "<ul>\n"
-        foreach entry $::hv3_log_styleengine($node) {
-            append doc "    <li>$entry\n"
+    if {[info exists myStyleEngineLog($node)]} {
+        append doc {<table class=style_engine><tr><th>Style Engine}
+        foreach entry $myStyleEngineLog($node) {
+            append doc "    <tr><td>$entry\n"
         }
-        append doc "</ul>\n"
+        append doc "</table>\n"
     }
 
-    append doc "</body></html>\n"
-
-    .prop.html reset
-    .prop.html parse -final $doc
-    .prop.html style {
-        table,th,td {
-          border: 1px solid;
-        }
-        td {
-          padding:0px 15px;
-        }
-        table {
-          margin: 20px;
-        }
-        .code {
-          font-family: fixed;
-        }
-    }
+    set CONTENT $doc
+    set doc [subst $Template]
+    return $doc
 }
 
-proc prop_drawTree {HTML node x y} {
+itcl::body HtmlDebug::toggleExpanded {node} {
+  if {[info exists myExpanded($node)]} {
+    unset myExpanded($node)
+  } else {
+    set myExpanded($node) 1 
+  }
+  HtmlDebug::browse $myHtml
+}
+
+itcl::body HtmlDebug::drawSubTree {node x y} {
     set IWIDTH [image width idir]
     set IHEIGHT [image width idir]
 
@@ -176,52 +410,42 @@ proc prop_drawTree {HTML node x y} {
     }
 
     if {$leaf} {
-        .prop.tree create image $x $y -image ifile -anchor sw -tags ${node}_img
+      set iid [$myTree create image $x $y -image ifile -anchor sw]
     } else {
-        .prop.tree create image $x $y -image idir -anchor sw -tags ${node}_img
+      set iid [$myTree create image $x $y -image idir -anchor sw]
     }
 
-    set tid [.prop.tree create text [expr $x+$XINCR] $y -tags ${node}_text]
-    .prop.tree itemconfigure $tid -text $label -anchor sw
-    if {$::hv3_prop_selected == $node} {
-        set bbox [.prop.tree bbox $tid]
+    set tid [$myTree create text [expr $x+$XINCR] $y]
+    $myTree itemconfigure $tid -text $label -anchor sw
+    if {$mySelected == $node} {
+        set bbox [$myTree bbox $tid]
         set rid [
-            .prop.tree create rectangle $bbox -fill skyblue -outline skyblue
+            $myTree create rectangle $bbox -fill skyblue -outline skyblue
         ]
-        .prop.tree lower $rid $tid
+        $myTree lower $rid $tid
     }
 
-    .prop.tree bind ${node}_text <1> [subst -nocommands {
-        prop_browse $HTML -node $node
-    }]
-
-    .prop.tree bind ${node}_img <1> [subst -nocommands {
-        if {[info exists ::hv3_prop_expanded($node)]} {
-          unset ::hv3_prop_expanded($node)
-        } else {
-          set ::hv3_prop_expanded($node) 1 
-        }
-        prop_browse $HTML
-    }]
+    $myTree bind $tid <1> [list HtmlDebug::browse $myHtml $node]
+    $myTree bind $iid <1> [list $this toggleExpanded $node]
     
     set ret 1
-    if {[info exists ::hv3_prop_expanded($node)]} {
+    if {[info exists myExpanded($node)]} {
         set xnew [expr $x+$XINCR]
         for {set i 0} {$i < [$node nChild]} {incr i} {
             set ynew [expr $y + $YINCR*$ret]
             set child [$node child $i]
-            set incrret [prop_drawTree $HTML $child $xnew $ynew]
+            set incrret [drawSubTree $child $xnew $ynew]
             incr ret $incrret
             if {$incrret > 0} {
                 set y1 [expr $ynew - $IHEIGHT * 0.5]
                 set x1 [expr $x + $XINCR * 0.5]
                 set x2 [expr $x + $XINCR]
-                .prop.tree create line $x1 $y1 $x2 $y1 -fill black
+                $myTree create line $x1 $y1 $x2 $y1 -fill black
             }
         }
 
         catch {
-          .prop.tree create line $x1 $y $x1 $y1 -fill black
+          $myTree create line $x1 $y $x1 $y1 -fill black
         }
     }
     return $ret
@@ -296,3 +520,13 @@ proc prop_compress {props} {
     return $ret
 }
 
+image create photo idir -data {
+    R0lGODdhEAAQAPIAAAAAAHh4eLi4uPj4APj4+P///wAAAAAAACwAAAAAEAAQAAADPVi63P4w
+    LkKCtTTnUsXwQqBtAfh910UU4ugGAEucpgnLNY3Gop7folwNOBOeiEYQ0acDpp6pGAFArVqt
+    hQQAO///
+}
+image create photo ifile -data {
+    R0lGODdhEAAQAPIAAAAAAHh4eLi4uPj4+P///wAAAAAAAAAAACwAAAAAEAAQAAADPkixzPOD
+    yADrWE8qC8WN0+BZAmBq1GMOqwigXFXCrGk/cxjjr27fLtout6n9eMIYMTXsFZsogXRKJf6u
+    P0kCADv/
+}

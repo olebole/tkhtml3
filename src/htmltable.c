@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.61 2005/11/23 05:52:02 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.62 2006/02/22 16:42:38 danielk1977 Exp $";
 
 #include "htmllayout.h"
 
@@ -908,7 +908,7 @@ int tableLayout(pLayout, pBox, pNode)
     memset(aMaxWidth, 0, nCol*sizeof(int));
     aWidth = (int *)HtmlAlloc(nCol*sizeof(int));
     memset(aWidth, 0, nCol*sizeof(int));
-    aY = (int *)HtmlAlloc((data.nRow+1)*sizeof(int));
+    aY = (int *)HtmlClearAlloc((data.nRow+1)*sizeof(int));
     memset(aY, 0, (data.nRow+1)*sizeof(int));
     aCell = (TableCell *)HtmlAlloc(data.nCol*sizeof(TableCell));
     memset(aCell, 0, data.nCol*sizeof(TableCell));
@@ -1067,6 +1067,9 @@ int tableLayout(pLayout, pBox, pNode)
 
     pBox->height = MAX(pBox->height, data.aY[data.nRow]);
     pBox->width = MAX(pBox->width, width);
+
+    assert(pBox->height < 10000000);
+    assert(pBox->width < 10000000);
 
     HtmlFree((char *)aMinWidth);
     HtmlFree((char *)aMaxWidth);

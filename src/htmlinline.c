@@ -31,7 +31,7 @@
  * 
  *     HtmlInlineContextIsEmpty
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.8 2006/02/20 12:19:06 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.9 2006/02/22 16:42:38 danielk1977 Exp $";
 
 typedef struct InlineBox InlineBox;
 
@@ -1045,8 +1045,7 @@ HtmlInlineContextNew(pNode, isSizeOnly)
     HtmlComputedValues *pValues = pNode->pPropertyValues;
     InlineContext *pNew;
 
-    pNew = (InlineContext *)HtmlAlloc(sizeof(InlineContext));
-    memset(pNew, 0, sizeof(InlineContext));
+    pNew = (InlineContext *)HtmlClearAlloc(sizeof(InlineContext));
 
     /* Set the value of the 'text-align' property to use when formatting an
      * inline-context. An entire inline context always has the same value
@@ -1201,6 +1200,9 @@ HtmlInlineContextAddBox(pContext, pNode, pCanvas, iWidth, iHeight, iOffset)
     HtmlCanvas *pInlineCanvas;
     int ascent = -1 * iOffset;           /* Ascent of added box */
     int descent = iHeight + iOffset;     /* Descent of added box */
+
+    assert(ascent < 10000000);
+    assert(descent < 10000000);
 
     pInlineCanvas = inlineContextAddInlineCanvas(pContext, 1, pNode);
     DRAW_CANVAS(pInlineCanvas, pCanvas, 0, iOffset, pNode);
