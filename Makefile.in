@@ -12,7 +12,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile.in,v 1.24 2005/11/10 10:29:59 danielk1977 Exp $
+# RCS: @(#) $Id: Makefile.in,v 1.25 2006/02/22 17:01:54 danielk1977 Exp $
 
 #========================================================================
 # Add additional lines to handle any additional AC_SUBST cases that
@@ -113,8 +113,8 @@ STLIB_LD	= @STLIB_LD@
 #TCL_DEFS	= @TCL_DEFS@
 TCL_BIN_DIR	= @TCL_BIN_DIR@
 TCL_SRC_DIR	= @TCL_SRC_DIR@
-#TK_BIN_DIR	= @TK_BIN_DIR@
-#TK_SRC_DIR	= @TK_SRC_DIR@
+TK_BIN_DIR	= @TK_BIN_DIR@
+TK_SRC_DIR	= @TK_SRC_DIR@
 
 # This is no longer necessary even for packages that use private Tcl headers
 #TCL_TOP_DIR_NATIVE	= @TCL_TOP_DIR_NATIVE@
@@ -128,8 +128,8 @@ TCL_SRC_DIR	= @TCL_SRC_DIR@
 # require for testing here (like TCLX_LIBRARY).
 #========================================================================
 
-EXTRA_PATH	= $(top_builddir):$(TCL_BIN_DIR)
-#EXTRA_PATH	= $(top_builddir):$(TCL_BIN_DIR):$(TK_BIN_DIR)
+#EXTRA_PATH	= $(top_builddir):$(TCL_BIN_DIR)
+EXTRA_PATH	= $(top_builddir):$(TCL_BIN_DIR):$(TK_BIN_DIR)
 TCLLIBPATH	= $(top_builddir)
 TCLSH_ENV	= TCL_LIBRARY=`@CYGPATH@ $(TCL_SRC_DIR)/library` \
 		  @LD_LIBRARY_PATH_VAR@="$(EXTRA_PATH):$(@LD_LIBRARY_PATH_VAR@)" \
@@ -142,8 +142,8 @@ WISH_PROG	= @WISH_PROG@
 WISH		= $(TCLSH_ENV) $(WISH_PROG)
 SHARED_BUILD	= @SHARED_BUILD@
 
-INCLUDES	= @PKG_INCLUDES@ @TCL_INCLUDES@
-#INCLUDES	= @PKG_INCLUDES@ @TCL_INCLUDES@ @TK_INCLUDES@ @TK_XINCLUDES@
+#INCLUDES	= @PKG_INCLUDES@ @TCL_INCLUDES@
+INCLUDES	= @PKG_INCLUDES@ @TCL_INCLUDES@ @TK_INCLUDES@ @TK_XINCLUDES@
 
 PKG_CFLAGS	= @PKG_CFLAGS@
 

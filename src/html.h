@@ -41,7 +41,7 @@
  * HtmlFree() and HtmlRealloc() in place of the regular Tcl ckalloc(), ckfree()
  * and ckrealloc() functions.
  */
-#ifndef NDEBUG
+#ifdef HTML_DEBUG
     #include "restrack.h"
     #define HtmlAlloc Rt_Alloc
     #define HtmlFree(x) Rt_Free((char *)(x))
@@ -54,10 +54,6 @@
 
 /* HtmlClearAlloc() is a version of HtmlAlloc() that returns zeroed memory */
 #define HtmlClearAlloc(x) ((char *)memset(HtmlAlloc((x)), 0, (x)))
-
-#ifndef NDEBUG
-#define HTML_DEBUG
-#endif
 
 #include <tk.h>
 #include <string.h>
