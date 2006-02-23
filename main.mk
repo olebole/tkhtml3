@@ -36,7 +36,7 @@ pkgIndex.tcl: $(SHARED_LIB)
 	(echo pkg_mkIndex -load Tk . \; exit;) | $(WISH)
 
 $(SHARED_LIB): $(OBJS)
-	$(MKSHLIB) $(OBJS) -o $@
+	$(MKSHLIB) $(OBJS) $(TCLSTUBSLIB) -o $@
 
 %.o: $(TOP)/src/%.c $(HDR)
 	$(CC) -c $(CFLAGS) $(STUBSFLAGS) $< -o $@
@@ -50,8 +50,7 @@ htmltcl.o: $(TOP)/src/htmltcl.c $(HDR) htmldefaultstyle.c
 cssprop.h: $(TOP)/src/cssprop.tcl
 	$(TCLSH) $<
 
-htmldefaultstyle.c: $(TOP)/tests/tkhtml.tcl  $(TOP)/tests/html.css \
-                    $(TOP)/src/mkdefaultstyle.tcl 
+htmldefaultstyle.c: $(TOP)/tests/tkhtml.tcl  $(TOP)/tests/html.css $(TOP)/src/mkdefaultstyle.tcl 
 	$(TCLSH) $(TOP)/src/mkdefaultstyle.tcl > htmldefaultstyle.c
 
 htmltokens.h:	$(TOP)/src/tokenlist.txt

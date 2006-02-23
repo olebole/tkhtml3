@@ -36,10 +36,9 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlimage.c,v 1.40 2006/02/19 11:51:12 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlimage.c,v 1.41 2006/02/23 13:06:40 danielk1977 Exp $";
 
 #include <assert.h>
-#include <X11/Xutil.h>
 #include "html.h"
 
 /*----------------------------------------------------------------------------
@@ -699,6 +698,8 @@ void HtmlImageCheck(pImage)
  *
  *---------------------------------------------------------------------------
  */
+#ifndef WIN32
+#include <X11/Xutil.h>
 Tcl_Obj *HtmlXImageToImage(pTree, pXImage, w, h)
     HtmlTree *pTree;
     XImage *pXImage;
@@ -759,3 +760,13 @@ Tcl_Obj *HtmlXImageToImage(pTree, pXImage, w, h)
 
     return pImage;
 }
+#else
+Tcl_Obj *HtmlXImageToImage(pTree, pXImage, w, h)
+    HtmlTree *pTree;
+    XImage *pXImage;
+    int w;
+    int h;
+{
+    return 0;
+}
+#endif

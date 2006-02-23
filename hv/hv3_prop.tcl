@@ -117,16 +117,7 @@ set HtmlDebug::Template {
         <tr>
 
           <td>    <!-- Left-hand cell - tree widget only -->
-            <input 
-                class="border" 
-                widget="$myTree" 
-                tcl="$this configureTree" 
-                style="float:left"
-            />
 
-          <td>    <!-- Right-hand cell - everything else -->
-
-            <!-- The "Re-Render With Logging" and "Search for node" widgets -->
             <div class="border" style="padding: 20px">
               <input widget="$myRelayout"/>
               <p style="margin:20px 0px 0px">
@@ -134,8 +125,18 @@ set HtmlDebug::Template {
               </p>
 $mySearchResults
             </div>
-$CONTENT
 
+            <input 
+                class="border" 
+                widget="$myTree" 
+                tcl="$this configureTree" 
+                style="margin-top: 20px"
+            />
+
+          <td>    <!-- Right-hand cell - everything else -->
+
+            <!-- The "Re-Render With Logging" and "Search for node" widgets -->
+$CONTENT
           </td>
         </tr>
       </table>
@@ -153,7 +154,8 @@ itcl::body HtmlDebug::browse {HTML {node ""}} {
   return [$myCommonWidgets($HTML) browseNode $node]
 }
 itcl::body HtmlDebug::browseNode {node} {
-  hv3Goto $myTopLevel.hv3 "tcl:///$this report $node"
+  puts "tcl:///$this report $node"
+  hv3Goto $myTopLevel.hv3 "tcl:///$this report $node" -noresolve
   wm state $myTopLevel normal
   wm deiconify $myTopLevel
 }

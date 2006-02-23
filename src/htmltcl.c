@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.66 2006/02/22 16:42:38 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.67 2006/02/23 13:06:40 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -42,9 +42,7 @@ static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.66 2006/02/22 16:42:38 dani
 #include <assert.h>
 #include "html.h"
 #include "swproc.h"
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
+
 #include <time.h>
 
 #include "htmldefaultstyle.c"
@@ -1896,52 +1894,6 @@ exitCmd(clientData, interp, objc, objv)
     return TCL_OK;
 }
 
-/*
- *---------------------------------------------------------------------------
- *
- * resolveCmd --
- *
- *         ::tk::htmlresolve HOST-NAME
- *
- *     Helper command for browser scripts that returns the dot-seperated ip
- *     address that corresponds to the HOST-NAME argument.
- *
- * Results:
- *     Tcl result.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-#include <netdb.h>
-static int 
-resolveCmd(clientData, interp, objc, objv)
-    ClientData clientData;             /* The HTML widget data structure */
-    Tcl_Interp *interp;                /* Current interpreter. */
-    int objc;                          /* Number of arguments. */
-    Tcl_Obj *CONST objv[];             /* Argument strings. */
-{
-    struct hostent *pHostent;
-
-    if (objc != 2) {
-        Tcl_WrongNumArgs(interp, 1, objv, "HOST-NAME");
-        return TCL_ERROR;
-    }
-
-    pHostent = gethostbyname(Tcl_GetString(objv[1]));
-    if (!pHostent || pHostent->h_length < 1) {
-        Tcl_SetObjResult(interp, objv[1]);
-    } else {
-	struct in_addr in;
-        char *pAddr = pHostent->h_addr_list[0];
-	memcpy(&in.s_addr, pAddr, sizeof(in.s_addr));
-        Tcl_AppendResult(interp, inet_ntoa(in), 0);
-    }
-
-    return TCL_OK;
-}
-
 #ifndef NDEBUG
 static int 
 allocCmd(clientData, interp, objc, objv)
@@ -2003,7 +1955,6 @@ DLL_EXPORT int Tkhtml_Init(interp)
     Tcl_PkgProvide(interp, "Tkhtml", "3.0");
     Tcl_CreateObjCommand(interp, "html", newWidget, 0, 0);
     Tcl_CreateObjCommand(interp, "::tk::htmlexit", exitCmd, 0, 0);
-    Tcl_CreateObjCommand(interp, "::tk::htmlresolve", resolveCmd, 0, 0);
 
 #ifndef NDEBUG
     Tcl_CreateObjCommand(interp, "::tk::htmlalloc", allocCmd, 0, 0);

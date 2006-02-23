@@ -18,20 +18,23 @@
  *-------------------------------------------------------------------------
  */
 
+#ifdef HTML_RES_DEBUG
+#define RES_DEBUG
+#endif
+
 #include "tcl.h"
 #include "tk.h"
 
 #include <stdio.h>
-#include <execinfo.h> 
+
+#ifdef RES_DEBUG 
+  #include <execinfo.h> 
+#endif
 
 #include <string.h>
 #include <assert.h>
 
 #ifndef NDEBUG 
-
-#ifdef HTML_RES_DEBUG
-#define RES_DEBUG
-#endif
 
 #define MAX(x,y) ((x)>(y)?(x):(y))
 #define MIN(x,y) ((x)<(y)?(x):(y))

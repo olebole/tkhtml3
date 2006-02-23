@@ -95,10 +95,12 @@ swproc hv3Init {PATH {gotocallback ""}} {
   return $PATH
 }
 
-swproc hv3Goto {PATH url {nocallback 0 1}} {
+swproc hv3Goto {PATH url {noresolve 0 1} {nocallback 0 1}} {
   ::hv3::importVars $PATH
 
-  set url [url_resolve $myUrl $url]
+  if {!$noresolve} {
+    set url [url_resolve $myUrl $url]
+  }
 
   if {$myGotoCallback != "" && !$nocallback} {
     eval $myGotoCallback $url
