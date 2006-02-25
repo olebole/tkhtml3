@@ -86,6 +86,7 @@ puts [subst -novariables {
     <li><a href="hv3_img.kit">Linux starkit with Img package</a> 
         (handles more image types)
     <li><a href="hv3_w32.kit">Windows starkit without Img package</a>
+    <li><a href="hv3_img_w32.kit">Windows starkit with Img package</a>
   </ul>
   <p>
     To use the starkit, download a tclkit runtime for your platform from 
