@@ -2,7 +2,7 @@
 #
 # Construct the web page for tkhtml
 #
-# @(#) $Id: mkwebpage.tcl,v 1.19 2006/02/11 11:28:49 danielk1977 Exp $
+# @(#) $Id: mkwebpage.tcl,v 1.20 2006/02/25 13:05:48 danielk1977 Exp $
 #
 
 source [file join [file dirname [info script]] common.tcl]
@@ -93,23 +93,6 @@ p {
    <a href="http://www.eolas.com">Eolas Technologies, Inc.</a>.
 }
 
-h 2 {Current Status (Version 3)}
-
-p {
-  This is currently at alpha stage. The rendering engine is not yet feature
-  complete by any means, but the majority of common HTML and CSS 1.0
-  constructs are supported. See <a href="support.html">this page</a> for a
-  comparison of current capabilities against the CSS 1.0 specification. 
-  Nothing dynamic is supported yet (i.e. changing the color of something when
-  the mouse floats over it etc.).
-}
-
-p {
-  The widget itself also needs some work, there is no selection support and
-  the widget doesn't support many of the standard options (for example
-  -pady or -borderwidth).
-}
-
 p { 
   The current plan is to continue to upgrade and modernise Tkhtml over the
   coming months. Some of the main goals of this are:
@@ -145,33 +128,31 @@ p {
   one of the contacts below if you are interested. Don't be shy!
 }
 
-h 2 {Contacts/Support}
+h 2 {Current Status (Version 3)}
 
 p {
-  You can view a log of changes, create trouble tickets, or read or
-  enter Wiki about TkHTML by visiting the CVSTrac server at:
-  <blockquote>
-  <a href="http://tkhtml.tcl.tk/cvstrac">http://tkhtml.tcl.tk/cvstrac</a> 
-  </blockquote>
+  <b>Alpha release 2</b>
 }
-
 p {
-  There is a mailing list hosted by Yahoo groups. You can sign up
-  or review the archive at:
-  <blockquote>
-    <a href="http://groups.yahoo.com/group/tkhtml/">
-    http://groups.yahoo.com/group/tkhtml/</a>
-  </blockquote>
+  There is now an alpha release available for download. Both as 
+  <a href="tkhtml3-alpha-2.tar.gz">source code</a> and in binary form.
+  Binaries are available as part of the starkit builds of the demo 
+  application, <a href="hv3.html">hv3</a>.
 }
-
 p {
-  If you want to help, then you can send mail to one of the following 
-  contacts (who are both subscribed to and read the mailing list).
-  <blockquote>
-  <a href="mailto:danielk1977@yahoo.com">danielk1977@yahoo.com</a> (Dan)
-  <br>
-  <a href="mailto:drh@hwaci.com">drh@hwaci.com</a> (Richard)
-  </blockquote>
+  The alpha release is undoubtably still full of bugs. But it compiles and
+  runs on both windows and linux, and the code and <a href="tkhtml.html">the
+  widget documentation</a> have converged.  The rendering engine is not yet
+  feature complete by any means, but the majority of common HTML and CSS 1.0
+  constructs are supported. See <a href="support.html">this page</a> for a
+  comparison of current capabilities against the CSS 1.0 specification.
+  Nothing dynamic is supported yet (i.e.  changing the color of something when
+  the mouse floats over it etc.).  
+}
+p {
+  Please help by testing the alpha release and filing bug tickets 
+  at the Tkhtml cvstrac site: <a href="http://tkhtml.tcl.tk/cvstrac/">
+  http://tkhtml.tcl.tk/cvstrac/</a>.
 }
 
 h 2 {Current Status (Version 2.0)}
@@ -201,62 +182,73 @@ p {
   any version of "wish" beginning with 8.0.6.
 }
 
-h 2 {Source Code}
-
-p {
-  Version 3.alpha-1 source code is available 
-  <a href="tkhtml-3.alpha-1.tar.gz">here</a>.
-}
-
-p {
-  Alternatively, use anonymous CVS (See <a href="http://www.cyclic.com/">
-  http://www.cyclic.com/</a> for additional information on CVS.). This is
-  the only way to get version 2. Login as follows: 
-}
-
-p {
-  <blockquote><pre>
-cvs -d :pserver:anonymous@tkhtml.tcl.tk:/tkhtml login
-  </pre></blockquote>
-}
-
-p {
-  You will be prompted for a password.  Use "<tt>anonymous</tt>".  After
-  you get logged in successfully, you can check out the source tree
-  like this:
-}
-
-p {
-  <blockquote><pre>
-cvs -d :pserver:anonymous@tkhtml.tcl.tk:/tkhtml checkout htmlwidget
-  </pre></blockquote>
-}
-
-p {
-  <b>Update:</b> The above command is used to get the latest copy of
-  the sources from cvs (version 3). But recent changes haven't been tested
-  well enough for use in the wild yet. To obtain a more reliable copy, use:
-}
-p {
-  <blockquote><pre>
-cvs -d :pserver:anonymous@tkhtml.tcl.tk:/tkhtml checkout -D 2005-01-01 htmlwidget
-  </pre></blockquote>
-}
-
-p {
-  This command creates a directory named "<tt>htmlwidget</tt>" and
-  fills it with the latest version of the sources.
-}
-
-h 2 {Binaries}
-
 p {
   Binary distributions of Tkhtml version 2.0 are available as part of 
   <a href="http://www.activestate.com/Products/ActiveTcl/">ActiveTcl</a>.
 }
+
+h 2 {Contacts/Support}
+
 p {
-  Binary distributions of Tkhtml version 3.0 are available as part of 
-  the <a href="hv3.html">hv3 demo application</a> starkit.
+  You can view a log of changes, create trouble tickets, or read or
+  enter Wiki about TkHTML by visiting the CVSTrac server at:
+  <blockquote>
+  <a href="http://tkhtml.tcl.tk/cvstrac">http://tkhtml.tcl.tk/cvstrac</a> 
+  </blockquote>
+}
+
+p {
+  There is a mailing list hosted by Yahoo groups. You can sign up
+  or review the archive at:
+  <blockquote>
+    <a href="http://groups.yahoo.com/group/tkhtml/">
+    http://groups.yahoo.com/group/tkhtml/</a>
+  </blockquote>
+}
+
+p {
+  If you want to help, then you can send mail to one of the following 
+  contacts (who are both subscribed to and read the mailing list).
+  <blockquote>
+  <a href="mailto:danielk1977@yahoo.com">danielk1977@yahoo.com</a> (Dan)
+  <br>
+  <a href="mailto:drh@hwaci.com">drh@hwaci.com</a> (Richard)
+  </blockquote>
+}
+
+
+###########################################################################
+h 2 {Source Code}
+
+p {
+  Source code is available via anonymous CVS (See 
+  <a href="http://www.cyclic.com/">http://www.cyclic.com/</a> 
+  for additional information on CVS.).  The following procedure creates a
+  directory named "<tt>htmlwidget</tt>" and fills it with the latest 
+  version of the sources:
+}
+
+p {
+    <b>1.</b> Log in with the following command:
+    <blockquote><pre>
+  cvs -d :pserver:anonymous@tkhtml.tcl.tk:/tkhtml login
+    </pre></blockquote>
+}
+  
+p {
+    <b>2.</b> You will be prompted for a password. Use "<tt>anonymous</tt>".
+}
+  
+p {
+    <b>3a.</b> Obtain the lastest version 3 source code:
+    <blockquote><pre>
+  cvs -d :pserver:anonymous@tkhtml.tcl.tk:/tkhtml checkout htmlwidget
+    </pre></blockquote>
+  
+    <b>3b.</b> Or the version 2 source code:
+    <blockquote><pre>
+  cvs -d :pserver:anonymous@tkhtml.tcl.tk:/tkhtml checkout -D 2005-01-01 htmlwidget
+    </pre></blockquote>
 }
 ###########################################################################
 output_page
