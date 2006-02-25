@@ -141,7 +141,7 @@ namespace eval hv3 {
   VAR myUrl                ;# Current URL being displayed (or loaded)
   VAR myStatus1            ;# Cursor position status text
   VAR myStatus2            ;# Download progress status text
-  VAR myStatusVar 2        ;# Either 1 or 2 - the current status text
+  VAR myStatusVar 1        ;# Either 1 or 2 - the current status text
   VAR myStatusInfo         ;# Serialized array of download status info
   VAR myProtocols          ;# Serialized array of protocol commands
   VAR myDrag 0             ;# True when dragging the cursor

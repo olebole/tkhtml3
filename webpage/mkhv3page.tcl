@@ -1,9 +1,9 @@
 
 source [file join [file dirname [info script]] common.tcl]
 
-addPageSection "Overview" overview
+addPageSection "Overview"    overview
 addPageSection "Screenshots" screenshots
-addPageSection "Download" download
+addPageSection "Download"    download
 
 puts [subst -novariables {
 
@@ -79,22 +79,20 @@ puts [subst -novariables {
   <p>
     The source code to hv3 is part of the Tkhtml source bundle and so is 
     available from the <a href="index.html#part4">same place</a>. Or, for
-    linux-x86, starkits are available:
+    linux or windows on x86, starkits are available:
   </p>
   <ul>
-    <li><a href="hv3.kit">Starkit without Img package</a>
-    <li><a href="hv3_img.kit">Starkit with Img package</a> 
+    <li><a href="hv3.kit">Linux starkit without Img package</a>
+    <li><a href="hv3_img.kit">Linux starkit with Img package</a> 
         (handles more image types)
+    <li><a href="hv3_w32.kit">Windows starkit without Img package</a>
   </ul>
-  <p>
-    <b>TODO:</b> Starkits for windows. Or make these ones cross-platform.
-  </p>
   <p>
     To use the starkit, download a tclkit runtime for your platform from 
     <a href="http://www.equi4.com/pub/tk/downloads.html">equi4.com</a>.
     I used <a href="http://www.equi4.com/pub/tk/8.5a4/tclkit-linux-x86-xft.gz">
-    http://www.equi4.com/pub/tk/8.5a4/tclkit-linux-x86-xft.gz</a> because
-    it takes advantage of fontconfig and xft.
+    http://www.equi4.com/pub/tk/8.5a4/tclkit-linux-x86-xft.gz</a> with linux 
+    because it takes advantage of fontconfig and xft.
   </p>
 </div>
 </div>

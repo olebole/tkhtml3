@@ -1,4 +1,4 @@
-.TH "tkhtml" "n" "Fri Nov 04 02:17:49 PM ICT 2005"
+.TH "tkhtml" "n" "Sat Feb 25 06:44:47 PM ICT 2006"
 
 
 .SH "NAME"
@@ -11,7 +11,6 @@ html pathName ?options?
 .RS
 
 .nf
--exportselection
 -height
 -width
 -xscrollcommand   
@@ -30,18 +29,19 @@ Database Class: Defaultstyle
 .br
 .RS
 .PP
-This option determines the default style-sheet for the
-widget. Default style-sheets are stored in the package
-installation directory with the extension ".css". The first
-part of the style-sheet filename matches the value of this
-option. The style-sheet "html.css" is guaranteed to exist.
+This option is used to set the default style-sheet for the
+widget. The option value should be the entire text of the
+default style-sheet, or an empty string, in which case a
+built-in default stylesheet (for HTML) is used. 
 
-If the value is "html" (the default), then special
-HTML specific processing is used when parsing a document.
-For example, <p> and <li> tags (amongst others) are
-sometimes implicitly closed. The special processing applied
-in this case is described in the "HTML SPECIFIC PROCESSING"
-section below.
+At the moment, this option is not very useful. The default
+stylesheet defines things that are "built-in" to the 
+document - for example the behaviour of <p> or <img> tags
+in html. The idea behind making it flexible is to allow
+Tkhtml to display anything that looks roughly like an XML
+document. But it will not work at the moment because of
+other assumptions the implementation makes about the set
+of valid tags.
 .RE
 Command-Line Name:-imagecmd
 .br
@@ -51,13 +51,36 @@ Database Class: Imagecmd
 .br
 .RS
 .PP
-Specify a Tcl command to be run when an image URI is
-encountered by the widget. The URI is appended to the value
-of this option and the resulting list evaluated. The value
-returned should be the name of a Tk image, or an empty
-string if an error occurs.
+As well as for replacing entire document nodes (i.e. <img>),
+images are used in several other contexts in CSS formatted
+documents, for example as list markers or backgrounds. If the
+-imagecmd option is not set to an empty string (the default),
+then each time an image URI is encountered in the document, it
+is appended to the -imagecmd script and the resulting list
+evaluated.
 
-See section "IMAGE LOADING" for more detail.
+The command should return either an empty string, the name of a
+Tk image, or a list of exactly two elements, the name of a Tk
+image and a script. If the result is an empty string, then no
+image can be displayed. If the result is a Tk image name, then
+the image is displayed in the widget. When the image is no
+longer required, it is deleted. If the result of the command is
+a list containing a Tk image name and a script, then instead of
+deleting the image when it is no longer required, the script is
+evaluated.
+
+If the size or content of the image are modified while it is in
+use the widget display is updated automatically.
+.RE
+Command-Line Name:-logcmd
+.br
+Database Name:  logcmd
+.br
+Database Class: Logcmd
+.br
+.RS
+.PP
+This option is used for internally debugging the widget.
 .RE
 
 .SH "DESCRIPTION"
@@ -73,6 +96,19 @@ The [html] command creates a new Tcl command whose name is
 pathName. This command may be used to invoke various operations on
 the widget as follows:
 
+pathName bbox nodeHandle
+.br
+.RS
+If node nodeHandle generates content, this command returns a
+list of four integers that define the bounding-box of the
+generated content, relative to the top-left hand corner of the
+rendered document. The first two integers are the x and y
+coordinates of the top-left corner of the bounding-box, the
+later two are the x and y coordinates of the bottom-right
+corner of the same box. If the node does not generate content,
+then an empty string is returned.
+.RE
+
 pathName cget option
 .br
 .RS
@@ -81,7 +117,7 @@ by option. Option may have any of the values accepted by
 the [html] command.
 .RE
 
-pathName configure option value
+pathName configure ?option? ?value?
 .br
 .RS
 Query or modify the configuration options of the widget. If
@@ -129,6 +165,9 @@ happen because an implicit or explicit closing tag is
 parsed, or because there is no more document data and the
 -final switch was passed to the [pathName parse]
 command.
+
+TODO: Return values of handler scripts? If an exception
+occurs in a handler script?
 .RE
 
 pathName image
@@ -153,32 +192,36 @@ This command is included mainly for automated testing and
 should be used with care, as large documents can result in very
 large images that take a long time to create and use vast
 amounts of memory.
+
+Currently this command is not available on windows. On that
+platform an empty string is always returned.
 .RE
 
 pathName node ? ?-index? x y?
 .br
 .RS
-This command is used to retrieve a handle for a document
-node that is part of the currently parsed document. If the
-x and y parameters are omitted, then the handle returned is
-the root-node of the document, or an empty string if the
-document has no root-node (i.e. an empty document).
+This command is used to retrieve one or more document node
+handles from the current document. If the x and y parameters
+are omitted, then the handle returned is the root-node of the
+document, or an empty string if the document has no root-node
+(i.e. an empty document).
 
-If the x and y arguments are present, then the handle
-returned is for the node which generated the document
-content currently located at viewport coordinates (x, y).
-If no content is located at the specified coordinates or
-the widget window is not mapped, then an empty string is
-returned. 
+If the x and y arguments are present, then a list of node 
+handles is returned. The list contains one handle for each
+node that generates content currently located at viewport
+coordinates (x, y). Usually this is only a single node, but
+floating boxes and other overlapped content can cause
+this command to return more than one node.  If no content is
+located at the specified coordinates or the widget window is
+not mapped, then an empty string is returned. 
 
-If both the -index option is also specified, then instead
-of a node handle, a list of two elements is returned. The
-first element of the list is the node-handle. The second
-element is -1 if the returned node is not a text node (would
-return other than an empty string for [nodeHandle tag]).
-If the node is a text node, then the value returned is an
-index into the text obtainable by [nodeHandle text] for
-the character at coordinates (x, y). The index may be used
+If the -index option is specified along with the x and y 
+coordinates, then instead of a list of node handles, a list of
+two elements is returned. The first element of the list is the
+node-handle associated with the generated text closest to 
+the specified (x, y) coordinates. The second list value is an
+index into the text obtainable by [nodeHandle text] for the
+character closest to coordinates (x, y). The index may be used
 with the [pathName select] commands.
 
 The document node can be queried and manipulated using the
@@ -214,11 +257,11 @@ pathName select from ?nodeHandle ?index? ?
 .br
 pathName select to ?nodeHandle ?index? ?
 .br
+pathName select span
+.br
 .RS
 The [pathName select] commands are used to query and
-manipulate the widget selection. If the widget
--exportselection option is set to true, then these commands
-may also manipulate the X11-selection.
+manipulate the widget selection.
 
 TODO: Describe these commands.
 .RE
@@ -240,6 +283,7 @@ Option                   Default Value
 --------------------------------------
 -id <stylesheet-id>      "author"
 -importcmd <script>      ""
+-urlcmd    <script>      ""
 .fi
 .RE
 
@@ -269,6 +313,12 @@ resulting list evaluated as a Tcl script. The return value
 of the script is ignored. If the script raises an error,
 then it is propagated up the call-chain to the 
 [pathName style] caller.
+
+The -urlcmd option is used to supply a script to translate
+"url(...)" CSS attribute values. If this option is not set to
+"", each time a url() value is encountered the URI is appended
+to the value of -urlcmd and the resulting script evaluated. The
+return value is stored as the URL in the parsed stylesheet.
 .RE
 
 pathName xview ?options?
@@ -352,15 +402,12 @@ newValue is not present, then the current value is
 returned.
 
 A nodes replacement object may be set to the name of a Tk
-image, the name of a Tk window, or an empty string. If it
-is an empty string (the default and usual case), then the
-node is rendered normally. If it is set to the name of a Tk
-image, then the image is displayed in the widget in place
-of any other node content (for example to implement HTML
-<img> tags). If the node replacement object is set to the
-name of a Tk window, then the Tk window is mapped into the
-widget in place of any other content (for example to
-implement form elements or plugins).
+window or an empty string. If it is an empty string (the
+default and usual case), then the node is rendered normally.
+If the node replacement object is set to the name of a Tk
+window, then the Tk window is mapped into the widget in place
+of any other content (for example to implement form elements or
+plugins).
 
 The following options are supported:
 .RS
@@ -368,7 +415,7 @@ The following options are supported:
 .nf
 Option                   Default Value
 --------------------------------------
--deletecmd    <script>   See below
+-deletecmd    <script>   "destroy <window>"
 -configurecmd <script>   ""
 .fi
 .RE
@@ -376,9 +423,7 @@ Option                   Default Value
 When a replacement object is no longer being used by the
 widget (e.g. because the node has been deleted or 
 [pathName reset] is invoked), the value of the
--deletecmd option is evaluated as Tcl script. The default
--deletecmd script (used if no explicit -deletecmd option is
-provided) deletes the Tk image or window.
+-deletecmd option is evaluated as Tcl script. 
 
 If it is not set to an empty string (the default) each time
 the nodes CSS properties are recalculated, a serialized
@@ -435,33 +480,6 @@ empty string.
 TODO: Add the "write" part of the DOM compatible interface to this
 section.
 
-.SH "REPLACED OBJECTS"
-Replaced objects are html document nodes that are replaced by
-either a Tk image or a Tk window. For example <IMG> or <INPUT>
-tags. To implement replaced objects in Tkhtml the user supplies the
-widget with a Tcl script to create and return the name of the image
-or window, and the widget maps, manages and eventually destroys the
-image or window. 
-
-TODO: Finish this section.
-
-.SH "IMAGE LOADING"
-As well as for replaced objects, images are used in several other
-contexts in CSS formatted documents, for example as list markers or
-backgrounds. If the -imagecmd option is not set to an empty
-string (the default), then each time an image URI is encountered in
-the document, it is appended to the -imagecmd script and the
-resulting list evaluated. 
-
-The command should return either an empty string, the name of a Tk
-image, or a list of exactly two elements, the name of a Tk image
-and a script. If the result is an empty string, then no image can
-be displayed. If the result is a Tk image name, then the image is
-displayed in the widget. When the image is no longer required, it
-is deleted. If the result of the command is a list containing a Tk
-image name and a script, then instead of deleting the image when it
-is no longer required, the script is evaluated.
-
 .SH "STYLESHEET LOADING"
 Apart from the default stylesheet that is always loaded (see the
 description of the -defaultstyle option above), a script may
@@ -511,7 +529,7 @@ proc script_handler {tagcontents} {
 proc link_handler {node} {
     if {[node attr rel] == "stylesheet"} {
         set URI [node attr href]
-set stylesheet [<LOAD URI CONTENTS>]
+        set stylesheet [<LOAD URI CONTENTS>]
 
         incr ::stylecount
         set id "author.[format %.4d $::stylecount]"
@@ -653,8 +671,11 @@ for tags that are closed implicitly by the end of the document.
 The widget display is updated in an idle callback scheduled after
 each invocation of the [pathName parse] command.
 
+TODO: Finish this section.
+
 .SH "HTML SPECIFIC PROCESSING"
-TODO: Detail implicit opening and closing tag rules here.
+TODO: Detail implicit opening and closing tag rules here. LATER: If 
+only I could figure them out...
 
 .SH "REFERENCES"
 

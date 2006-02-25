@@ -24,19 +24,39 @@
 		default style-sheet, or an empty string, in which case a
 		built-in default stylesheet (for HTML) is used. 
 
-		TODO: Describe the role of the default stylesheet.
+		At the moment, this option is not very useful. The default
+		stylesheet defines things that are "built-in" to the 
+		document - for example the behaviour of <p> or <img> tags
+		in html. The idea behind making it flexible is to allow
+		Tkhtml to display anything that looks roughly like an XML
+		document. But it will not work at the moment because of
+		other assumptions the implementation makes about the set
+		of valid tags.
 	}]
 	[Option imagecmd {
-		Specify a Tcl command to be run when an image URI is
-		encountered by the widget. The URI is appended to the value
-		of this option and the resulting list evaluated. The value
-		returned should be the name of a Tk image, or an empty
-		string if an error occurs.
+		As well as for replacing entire document nodes (i.e. <img>),
+		images are used in several other contexts in CSS formatted
+		documents, for example as list markers or backgrounds. If the
+		-imagecmd option is not set to an empty string (the default),
+		then each time an image URI is encountered in the document, it
+		is appended to the -imagecmd script and the resulting list
+		evaluated.
 
-		See section "IMAGE LOADING" for more detail.
+		The command should return either an empty string, the name of a
+		Tk image, or a list of exactly two elements, the name of a Tk
+		image and a script. If the result is an empty string, then no
+		image can be displayed. If the result is a Tk image name, then
+		the image is displayed in the widget. When the image is no
+		longer required, it is deleted. If the result of the command is
+		a list containing a Tk image name and a script, then instead of
+		deleting the image when it is no longer required, the script is
+		evaluated.
+
+		If the size or content of the image are modified while it is in
+		use the widget display is updated automatically.
 	}]
 	[Option logcmd {
-		This option is only used for internally debugging the widget.
+		This option is used for internally debugging the widget.
 	}]
 
 [Section Description]
@@ -53,6 +73,18 @@
 	the widget as follows:
 
 [Subcommand {
+	pathName bbox nodeHandle
+		If node nodeHandle generates content, this command returns a
+		list of four integers that define the bounding-box of the
+		generated content, relative to the top-left hand corner of the
+		rendered document. The first two integers are the x and y
+		coordinates of the top-left corner of the bounding-box, the
+		later two are the x and y coordinates of the bottom-right
+		corner of the same box. If the node does not generate content,
+		then an empty string is returned.
+}]
+
+[Subcommand {
 	pathName cget option
 		Returns the current value of the configuration option given
 		by option. Option may have any of the values accepted by
@@ -60,7 +92,7 @@
 }]
 
 [Subcommand {
-	pathName configure option value
+	pathName configure ?option? ?value?
 		Query or modify the configuration options of the widget. If
 		no option is specified, returns a list describing all of
 		the available options for pathName (see Tk_ConfigureInfo
@@ -105,6 +137,9 @@
 		parsed, or because there is no more document data and the
 		-final switch was passed to the [SQ pathName parse]
 		command.
+
+		TODO: Return values of handler scripts? If an exception
+		occurs in a handler script?
 }]
 
 [Subcommand {
@@ -125,6 +160,9 @@
 		should be used with care, as large documents can result in very
 		large images that take a long time to create and use vast
 		amounts of memory.
+
+		Currently this command is not available on windows. On that
+		platform an empty string is always returned.
 }]
 
 [Subcommand {
@@ -178,7 +216,7 @@
 		invocations of [SQ pathName style] had occured).
 }]
 
-[Subcommand -3 {
+[Subcommand -4 {
 	pathName select clear
 	pathName select from ?nodeHandle ?index? ?
 	pathName select to ?nodeHandle ?index? ?
@@ -309,31 +347,26 @@
 		returned.
 
 		A nodes replacement object may be set to the name of a Tk
-		image, the name of a Tk window, or an empty string. If it
-		is an empty string (the default and usual case), then the
-		node is rendered normally. If it is set to the name of a Tk
-		image, then the image is displayed in the widget in place
-		of any other node content (for example to implement HTML
-		<img> tags). If the node replacement object is set to the
-		name of a Tk window, then the Tk window is mapped into the
-		widget in place of any other content (for example to
-		implement form elements or plugins).
+		window or an empty string. If it is an empty string (the
+		default and usual case), then the node is rendered normally.
+		If the node replacement object is set to the name of a Tk
+		window, then the Tk window is mapped into the widget in place
+		of any other content (for example to implement form elements or
+		plugins).
 
 		The following options are supported:
 
 [Code {
 			Option                   Default Value
 			--------------------------------------
-			-deletecmd    <script>   See below
+			-deletecmd    <script>   "destroy <window>"
 			-configurecmd <script>   ""
 }]
 
 		When a replacement object is no longer being used by the
 		widget (e.g. because the node has been deleted or 
 		[SQ pathName reset] is invoked), the value of the
-		-deletecmd option is evaluated as Tcl script. The default
-		-deletecmd script (used if no explicit -deletecmd option is
-		provided) deletes the Tk image or window.
+		-deletecmd option is evaluated as Tcl script. 
 
 		If it is not set to an empty string (the default) each time
 		the nodes CSS properties are recalculated, a serialized
@@ -384,33 +417,6 @@
 	TODO: Add the "write" part of the DOM compatible interface to this
 	section.
 
-[Section Replaced Objects]
-	Replaced objects are html document nodes that are replaced by
-	either a Tk image or a Tk window. For example <IMG> or <INPUT>
-	tags. To implement replaced objects in Tkhtml the user supplies the
-	widget with a Tcl script to create and return the name of the image
-	or window, and the widget maps, manages and eventually destroys the
-	image or window. 
-
-	TODO: Finish this section.
-
-[Section Image Loading]
-	As well as for replaced objects, images are used in several other
-	contexts in CSS formatted documents, for example as list markers or
-	backgrounds. If the -imagecmd option is not set to an empty
-	string (the default), then each time an image URI is encountered in
-	the document, it is appended to the -imagecmd script and the
-	resulting list evaluated. 
-
-	The command should return either an empty string, the name of a Tk
-	image, or a list of exactly two elements, the name of a Tk image
-	and a script. If the result is an empty string, then no image can
-	be displayed. If the result is a Tk image name, then the image is
-	displayed in the widget. When the image is no longer required, it
-	is deleted. If the result of the command is a list containing a Tk
-	image name and a script, then instead of deleting the image when it
-	is no longer required, the script is evaluated.
-
 [Section Stylesheet Loading]
 	Apart from the default stylesheet that is always loaded (see the
 	description of the -defaultstyle option above), a script may
@@ -459,7 +465,7 @@
 		proc link_handler {node} {
 		    if {[node attr rel] == "stylesheet"} {
 		        set URI [node attr href]
-			set stylesheet [<LOAD URI CONTENTS>]
+		        set stylesheet [<LOAD URI CONTENTS>]
 
 		        incr ::stylecount
 		        set id "author.[format %.4d $::stylecount]"
@@ -596,8 +602,11 @@
 	The widget display is updated in an idle callback scheduled after
 	each invocation of the [SQ pathName parse] command.
 
+	TODO: Finish this section.
+
 [Section HTML Specific Processing]
-	TODO: Detail implicit opening and closing tag rules here.
+	TODO: Detail implicit opening and closing tag rules here. LATER: If 
+	only I could figure them out...
 
 [Section References]
 

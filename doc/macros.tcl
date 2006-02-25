@@ -204,7 +204,7 @@ proc process_index {} {
   return $html
 }
 
-proc process_text {input {nocommands 0}} {
+proc process_text {input {nocommands 0} {noparagraphs 0}} {
   if {$nocommands} {
     set output [subst -novariables -nocommands $input]
   } else {
@@ -234,7 +234,7 @@ proc process_text {input {nocommands 0}} {
         if {$isempty && $paraopen} {
           append out "</p>\n"
           set paraopen 0
-        } elseif {!$isempty && !$paraopen} {
+        } elseif {!$noparagraphs && !$isempty && !$paraopen} {
           append out "<p>\n"
           set paraopen 1
         }
@@ -273,7 +273,7 @@ proc Subsection {args} {
 
 proc Code {args} {
   if {[llength $args] == 1} {set args [lindex $args 0]}
-  set text [process_text $args 1]
+  set text [process_text $args 1 1] 
   return [Block "<div style=\"margin-left:8ex\"><pre>$text</pre></div>"]
 }
 
