@@ -79,6 +79,7 @@ hv3_img.vfs: binaries
 	cp $(BINARIES) ./hv3_img.vfs/lib
 	cp $(TOP)/hv/hv*.tcl ./hv3_img.vfs/
 	cp $(TOP)/hv/main.tcl ./hv3_img.vfs/
+	cp $(TOP)/hv/combobox.tcl ./hv3_img.vfs/
 	cp $(TOP)/hv/index.html ./hv3_img.vfs/
 	if test -d $(TCL)/lib/Img*/ ; then \
 		cp -R $(TCL)/lib/Img*/ ./hv3_img.vfs/lib ; \
@@ -89,6 +90,7 @@ hv3.vfs: binaries
 	mkdir -p ./hv3.vfs/lib
 	cp $(BINARIES) ./hv3.vfs/lib
 	cp $(TOP)/hv/hv*.tcl ./hv3.vfs/
+	cp $(TOP)/hv/combobox.tcl ./hv3.vfs/
 	cp $(TOP)/hv/main.tcl ./hv3.vfs/
 	cp $(TOP)/hv/index.html ./hv3.vfs/
 

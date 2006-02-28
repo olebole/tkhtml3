@@ -217,8 +217,8 @@ table[cellpadding] td, table[cellpadding] th {
     padding-bottom: tcl(::tkhtml::aa table cellpadding -len);
     padding-left:   tcl(::tkhtml::aa table cellpadding -len);
 }
-table[cellspacing] td, table[cellspacing] th {
-    border-spacing: tcl(::tkhtml::aa table cellspacing -len);
+table[cellspacing], table[cellspacing] {
+    border-spacing: tcl(::tkhtml::attr cellspacing -len);
 }
 
 /* Support the "background" and "text" attributes on the <body> tag */

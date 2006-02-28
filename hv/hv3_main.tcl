@@ -24,6 +24,7 @@ proc sourcefile {file} {
 sourcefile hv3_log.tcl
 sourcefile hv3_prop.tcl
 sourcefile hv3_form.tcl
+sourcefile combobox.tcl
 sourcefile hv3.tcl
 
 #--------------------------------------------------------------------------
@@ -209,9 +210,10 @@ proc exit {args} {
   destroy $HTML 
   catch {destroy .prop$HTML}
   catch {::tk::htmlalloc}
-  if {[llength [form_widget_list]] > 0} {
-    puts "Leaked widgets: [form_widget_list]"
-  }
+#  if {[llength [form_widget_list]] > 0} {
+#    puts "Leaked widgets: [form_widget_list]"
+#  }
+puts [array names ::HtmlForm::instance]
   eval [concat tcl_exit $args]
 }
 
@@ -225,7 +227,7 @@ proc main {{doc index.html}} {
   bind $::HTML <KeyPress-Q> exit
   gui_build
   log_init .hv3.html
-  form_init .hv3.html
+  form_init .hv3.html [list hv3Goto .hv3]
   hv3Goto .hv3 $doc
 }
 eval [concat main $argv]
