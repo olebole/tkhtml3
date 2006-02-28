@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.49 2006/02/22 16:42:38 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.50 2006/02/28 14:56:45 danielk1977 Exp $";
 
 /*
  *    The CSS "cascade":
@@ -1064,12 +1064,11 @@ shortcutBackground(pParse, p, v)
 
     for (ii = 0; ii < nProp; ii++) {
         CssProperty *pProp = apProp[ii];
-        propertyTransformBgPosition(pProp);
         if (propertyIsLength(pProp)) {
             if (!pPositionX) {
-                if (pPositionY) goto error_out;
                 pPositionX = pProp;
             } else {
+                if (pPositionY) goto error_out;
                 pPositionY = pProp;
             }
         } else {
@@ -1092,6 +1091,30 @@ shortcutBackground(pParse, p, v)
                 case CSS_CONST_NONE:
                     if (pImage) goto error_out;
                     pImage = pProp;
+                    break;
+
+                case CSS_CONST_TOP:
+                case CSS_CONST_BOTTOM:
+                    if (pPositionY) goto error_out;
+                    propertyTransformBgPosition(pProp);
+                    pPositionY = pProp;
+                    break;
+
+                case CSS_CONST_RIGHT:
+                case CSS_CONST_LEFT:
+                    if (pPositionX) goto error_out;
+                    propertyTransformBgPosition(pProp);
+                    pPositionX = pProp;
+                    break;
+
+                case CSS_CONST_CENTER:
+                    propertyTransformBgPosition(pProp);
+                    if (!pPositionX) {
+                        pPositionX = pProp;
+                    } else {
+                        if (pPositionY) goto error_out;
+                        pPositionY = pProp;
+                    }
                     break;
 
                 default:
@@ -1397,18 +1420,38 @@ propertySetAddShortcutBackgroundPosition(p, v)
             token.z = z;
             token.n = n;
             apProp[i] = tokenToProperty(0, &token);
-            propertyTransformBgPosition(apProp[i]);
             i++;
             assert(n>0);
             z += n;
         }
     }
 
+
     if (i > 0) {
         assert(i == 1 || i == 2);
         if (i == 1) {
             apProp[1] = propertyDup(apProp[0]);
         }   
+
+        if (
+            apProp[0]->eType == CSS_CONST_TOP     || 
+            apProp[0]->eType == CSS_CONST_BOTTOM  ||
+            apProp[1]->eType == CSS_CONST_LEFT    || 
+            apProp[1]->eType == CSS_CONST_RIGHT
+        ) {
+            CssProperty *pProp = apProp[0];
+            apProp[0] = apProp[1];
+            apProp[1] = pProp;
+        }
+        if (
+            apProp[0]->eType == CSS_CONST_TOP     || 
+            apProp[0]->eType == CSS_CONST_BOTTOM  ||
+            apProp[1]->eType == CSS_CONST_LEFT    || 
+            apProp[1]->eType == CSS_CONST_RIGHT
+        ) {
+            return;
+        }
+
         propertySetAdd(p, CSS_PROPERTY_BACKGROUND_POSITION_X, apProp[0]);
         propertySetAdd(p, CSS_PROPERTY_BACKGROUND_POSITION_Y, apProp[1]);
     }

@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.84 2006/02/20 16:07:42 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.85 2006/02/28 14:56:45 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -2091,19 +2091,27 @@ HtmlLayoutBbox(clientData, interp, objc, objv)
     sQuery.top = pCanvas->bottom;
     sQuery.bottom = pCanvas->top;
 
-    if (objc != 3) {
-        Tcl_WrongNumArgs(interp, 3, objv, "NODE");
+    if (objc != 3 && objc != 2) {
+        Tcl_WrongNumArgs(interp, 3, objv, "?NODE?");
         return TCL_ERROR;
     }
 
-    if (0 == Tcl_GetCommandInfo(interp, Tcl_GetString(objv[2]), &info)) {
-        Tcl_AppendResult(interp, "no such node: ", Tcl_GetString(objv[2]), 0);
-        return TCL_ERROR;
+    if (objc == 3) {
+        const char *zNode = Tcl_GetString(objv[2]);
+        if (0 == Tcl_GetCommandInfo(interp, zNode, &info)) {
+            Tcl_AppendResult(interp, "no such node: ", zNode, 0);
+            return TCL_ERROR;
+        }
+    
+        sQuery.pNode = (HtmlNode *)info.objClientData;
+        assert(sQuery.pNode);
+        searchCanvas(pTree, -1, -1, layoutBboxCb, (ClientData)&sQuery);
+    } else {
+        sQuery.left   = pTree->canvas.left;
+        sQuery.right  = pTree->canvas.right;
+        sQuery.top    = pTree->canvas.top;
+        sQuery.bottom = pTree->canvas.bottom;
     }
-
-    sQuery.pNode = (HtmlNode *)info.objClientData;
-    assert(sQuery.pNode);
-    searchCanvas(pTree, -1, -1, layoutBboxCb, (ClientData)&sQuery);
 
     if (sQuery.left < sQuery.right && sQuery.top < sQuery.bottom) {
         char zBuf[128];

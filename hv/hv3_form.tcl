@@ -219,6 +219,7 @@ class HtmlButton {
     set type [$node attr -default "" type]
 
     button $myWidget
+    $myWidget configure -pady 0
     if {$type=="file"} {
       $myWidget configure -text "Select File..."
     } else {

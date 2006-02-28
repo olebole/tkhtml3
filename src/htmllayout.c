@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.118 2006/02/22 16:42:38 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.119 2006/02/28 14:56:45 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -2421,6 +2421,7 @@ HtmlLayout(pTree)
      */
     pBody = pTree->pRoot;
     if (pBody) {
+        int xoffset;
         XColor *c = pBody->pPropertyValues->cBackgroundColor->xcolor;
         MarginProperties margin;
         nodeGetMargins(&sLayout, pBody, nWidth, &margin);
@@ -2429,8 +2430,9 @@ HtmlLayout(pTree)
         }
         sLayout.pTop = pBody;
         drawBlock(&sLayout, &sBox, pBody, nWidth, 0);
-        HtmlDrawCanvas(&pTree->canvas, &sBox.vc, 0, 0, pBody);
-        pTree->canvas.right = sBox.width;
+        xoffset = MAX(-1 * sBox.vc.left, 0);
+        HtmlDrawCanvas(&pTree->canvas, &sBox.vc, xoffset, 0, pBody);
+        pTree->canvas.right = sBox.width + xoffset;
         pTree->canvas.bottom = sBox.height;
     } else {
         HtmlColor *pColor;

@@ -153,11 +153,25 @@ itcl::body HtmlDebug::browse {HTML {node ""}} {
   }
   return [$myCommonWidgets($HTML) browseNode $node]
 }
+
 itcl::body HtmlDebug::browseNode {node} {
+
+  set iTotal     [lindex [$myTopLevel.hv3.html bbox] 3]
+  set iOffscreen 0
+  if {$iTotal != ""} {
+    set iOffscreen [expr [lindex [$myTopLevel.hv3.html yview] 0] * $iTotal]
+  }
+puts $iOffscreen
+
   puts "tcl:///$this report $node"
   hv3Goto $myTopLevel.hv3 "tcl:///$this report $node" -noresolve
   wm state $myTopLevel normal
   wm deiconify $myTopLevel
+
+  set iTotal [lindex [$myTopLevel.hv3.html bbox] 3]
+  if {$iTotal != "" && $iTotal > 0} {
+    $myTopLevel.hv3.html yview moveto [expr $iOffscreen / $iTotal]
+  }
 }
 
 swproc tclProtocol {url {script ""} {binary 0}} {
