@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.48 2006/02/20 16:44:48 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.49 2006/03/01 05:36:12 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1680,7 +1680,8 @@ allocateNewFont(interp, tkwin, pFontKey)
     strcpy(pFont->zFont, zTkFontName);
 
     Tk_GetFontMetrics(tkfont, &pFont->metrics);
-    pFont->em_pixels = pFont->metrics.ascent + pFont->metrics.descent;
+    /* pFont->em_pixels = pFont->metrics.ascent + pFont->metrics.descent; */
+    pFont->em_pixels = pFont->metrics.ascent;
     pFont->ex_pixels = Tk_TextWidth(tkfont, "x", 1);
     pFont->space_pixels = Tk_TextWidth(tkfont, " ", 1);
 

@@ -318,7 +318,7 @@ class HtmlComboBox {
         lappend myLabels $label
         lappend myValues $value
 
-        if {[$child attr -default 0 selected] || [llength $myLabels]==1} {
+        if {![catch {$child attr selected}] || [llength $myLabels]==1} {
           set idx [expr [llength $myLabels] - 1]
         } 
       }
@@ -329,7 +329,7 @@ class HtmlComboBox {
     combobox::combobox $myWidget 
     $myWidget configure -listvar [itcl::scope myLabels]
     $myWidget configure -editable false
-    $myWidget configure -height 0 
+    $myWidget configure -height 0 -width 0
     $myWidget configure -maxheight [$node attr -default 10 size]
     $myWidget select $idx
 
