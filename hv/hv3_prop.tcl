@@ -44,13 +44,19 @@ itcl::class HtmlDebug {
     common myCommonWidgets       ;# Map from <html-widget> -> HtmlDebug obj
     variable mySelected ""       ;# Currently selected node
     variable myExpanded          ;# Array. Entries are present for exp. nodes
-    variable myHtml              ;# Name of html widget
+    variable myHtml              ;# Name of html widget being debugged
 
     # Debugging window widgets:
+    #
+    #   $myTopLevel.tree_frame              ;# frame
+    #     $myTopLevel.tree_frame.canvas     ;# canvas
+    #     $myTopLevel.tree_frame.vsb        ;# scrollbar
+    #     $myTopLevel.tree_frame.hsb        ;# scrollbar
+    #   $myTopLevel.header                  ;# Hv3 mega-widget
+    #     $myTopLevel.header.html.relayout  ;# button
+    #     $myTopLevel.header.html.search    ;# entry
+    #   $myTopLevel.report                  ;# Hv3 mega-widget
     variable myTopLevel          ;# Name of top-level window for debugger
-    variable myTree              ;# Name of canvas widget
-    variable myRelayout          ;# Name of re-layout button
-    variable mySearchField       ;# Name of "search for node" entry widget
 
     variable myStyleEngineLog
     variable myLayoutEngineLog
@@ -58,6 +64,7 @@ itcl::class HtmlDebug {
     variable mySearchResults ""
 
     method drawSubTree    {node x y}
+    method redrawCanvas {}
     method browseNode {node}
     constructor           {HTML} {}
     destructor            {}
@@ -68,7 +75,7 @@ itcl::class HtmlDebug {
   # and so on. They are really private methods.
   public {
     method rerender       {}
-    method searchNode     {}
+    method searchNode     {{idx 0}}
     method toggleExpanded {node}
     method report         {{node ""}}
     method configureTree  {}
@@ -78,71 +85,8 @@ itcl::class HtmlDebug {
 #--------------------------------------------------------------------------
 
 #--------------------------------------------------------------------------
-# Document template for the debugging window document.
+# Document template for the debugging window report.
 #
-set HtmlDebug::Template {
-  <html>
-    <head>
-      <style>
-
-        /* Table display parameters */
-        table,th,td { border: 1px solid; }
-        td          { padding:0px 15px; }
-        table       { margin: 20px; }
-
-        /* Do not display borders for <table class="noborder"> elements */
-        .noborder, .noborder>tr>td, .noborder>tr>th { border: none; }
-
-        /* Elements of class "code" are rendered in fixed font */
-        .code       { font-family: fixed; }
-  
-        /* Border for elements of class "border" */
-        .border {
-            border: solid 2px;
-            border-color: grey60 grey25 grey25 grey60;
-            margin: 0 0.25;
-        }
-
-      </style>
-    </head>
-    <body>
-      <h1><center>Tkhtml Debugging Interface</center></h1>
-
-      <!-- Apart from the heading, the entire document is encapsulated 
-           within a borderless table. The table consists of two cells 
-           in a single row. The left cell contains the "tree" widget. The
-           right-hand cell contains everything else.  
-      -->
-      <table class="noborder">
-        <tr>
-
-          <td>    <!-- Left-hand cell - tree widget only -->
-
-            <div class="border" style="padding: 20px">
-              <input widget="$myRelayout"/>
-              <p style="margin:20px 0px 0px">
-                Search For Node: <input widget="$mySearchField"/>
-              </p>
-$mySearchResults
-            </div>
-
-            <input 
-                class="border" 
-                widget="$myTree" 
-                tcl="$this configureTree" 
-                style="margin-top: 20px"
-            />
-
-          <td>    <!-- Right-hand cell - everything else -->
-
-            <!-- The "Re-Render With Logging" and "Search for node" widgets -->
-$CONTENT
-          </td>
-        </tr>
-      </table>
-    </body>
-  </html>
-}
 #--------------------------------------------------------------------------
 
 # HtmlDebug::browse + HtmlDebug::browseNode
@@ -155,23 +99,10 @@ itcl::body HtmlDebug::browse {HTML {node ""}} {
 }
 
 itcl::body HtmlDebug::browseNode {node} {
-
-  set iTotal     [lindex [$myTopLevel.hv3.html bbox] 3]
-  set iOffscreen 0
-  if {$iTotal != ""} {
-    set iOffscreen [expr [lindex [$myTopLevel.hv3.html yview] 0] * $iTotal]
-  }
-puts $iOffscreen
-
-  puts "tcl:///$this report $node"
-  hv3Goto $myTopLevel.hv3 "tcl:///$this report $node" -noresolve
   wm state $myTopLevel normal
   wm deiconify $myTopLevel
-
-  set iTotal [lindex [$myTopLevel.hv3.html bbox] 3]
-  if {$iTotal != "" && $iTotal > 0} {
-    $myTopLevel.hv3.html yview moveto [expr $iOffscreen / $iTotal]
-  }
+  puts "tcl:///$this report $node"
+  hv3Goto $myTopLevel.report "tcl:///$this report $node" -noresolve
 }
 
 swproc tclProtocol {url {script ""} {binary 0}} {
@@ -226,20 +157,61 @@ itcl::body HtmlDebug::logcmd {subject message} {
   }
 }
 
-itcl::body HtmlDebug::searchNode {} {
-  set selector [$mySearchField get]
-  set mySearchResults <ul>
-  set nodelist [$myHtml search $selector]
-  foreach node $nodelist {
-    # set script "after idle {::HtmlDebug::browse $myHtml $node}"
-    # set script "::HtmlDebug::browse $myHtml $node"
-    set script "$this report $node"
-    append mySearchResults "<li><a href=\"tcl:///$script\">"
-    append mySearchResults "$node"
-    append mySearchResults "</li>"
+itcl::body HtmlDebug::searchNode {{idx 0}} {
+  set Template {
+    <html><head>
+      <style>
+        td { padding-left: 10px ; padding-right: 10px }
+      </style>
+    </head><body>
+      <h1>Tkhtml Document Tree Browser</h1>
+      <input widget="relayout">
+      <p>
+        Search for node: <input widget="search">
+      </p>
+      $search_results
+    </body></html>
   }
-  append mySearchResults </ul>
-  HtmlDebug::browse $myHtml [lindex $nodelist 0]
+
+  set search_results {}
+  set nodelist [list]
+  set selector [$myTopLevel.header.html.search get]
+  if {$selector != ""} {
+    set search_results <table><tr>
+    set nodelist [$myHtml search $selector]
+    set ii 0
+    foreach node $nodelist {
+      # set script "after idle {::HtmlDebug::browse $myHtml $node}"
+      # set script "::HtmlDebug::browse $myHtml $node"
+      set script "$this searchNode $ii"
+      append search_results "<td><a href=\"tcl:///$script\">$node</a>"
+      incr ii
+      if {($ii % 5)==0} {
+        append search_results "</tr><tr>"
+      }
+    }
+    append search_results </table>
+  }
+
+  $myTopLevel.header.html reset
+  $myTopLevel.header.html parse -final [subst $Template]
+  foreach node [$myTopLevel.header.html search {input[widget]}] {
+    set widget [$node attr widget]
+    $node replace $myTopLevel.header.html.$widget -deletecmd {}
+  }
+
+  set h [lindex [$myTopLevel.header.html bbox] 3]
+  if {$selector != ""} {
+    set mh [expr [winfo height $myTopLevel]/2]
+    if {$h > $mh} {set h $mh}
+  }
+  $myTopLevel.header.html configure -height $h
+
+  if {[llength $nodelist]>$idx} {
+    HtmlDebug::browse $myHtml [lindex $nodelist $idx]
+  }
+
+  return ""
 }
 
 # HtmlDebug::rerender
@@ -254,6 +226,13 @@ itcl::body HtmlDebug::rerender {} {
   after idle [list $myHtml configure -logcmd {}]
 }
 
+proc wireup_scrollbar {x_or_y widget scrollbar} {
+  set scrollcommand "-${x_or_y}scrollcommand"
+  set view "${x_or_y}view"
+  $widget configure $scrollcommand [list $scrollbar set]
+  $scrollbar configure -command [list $widget $view]
+}
+
 # HtmlDebug constructor
 #
 #     Create a new html widget debugger for the widget $HTML.
@@ -262,32 +241,47 @@ itcl::body HtmlDebug::constructor {HTML} {
   set myHtml $HTML
   set myTopLevel [string map {: _} ".${this}_toplevel"]
 
-  set myTree $myTopLevel.hv3.html.tree
-  set myRelayout $myTopLevel.hv3.html.relayout
-  set mySearchField $myTopLevel.hv3.html.search
+  # Top level window
+  toplevel $myTopLevel -height 600
+  bind $myTopLevel <KeyPress-q>  [list destroy $myTopLevel]
+  bind $myTopLevel <KeyPress-Q>  [list destroy $myTopLevel]
 
-  toplevel $myTopLevel
+  # Header html widget
+  hv3Init  $myTopLevel.header
+  hv3RegisterProtocol $myTopLevel.header tcl tclProtocol
+  # $myTopLevel.header.html configure -height 100
+  pack forget $myTopLevel.header.status 
+  set b [button $myTopLevel.header.html.relayout]
+  $b configure -text "Re-Render Document With Logging" 
+  $b configure -command [list $this rerender]
+  set e [entry $myTopLevel.header.html.search]
+  bind $e <Return> [list $this searchNode]
+  $this searchNode
 
-  bind $myTopLevel <KeyPress-q> [list destroy $myTopLevel]
-  bind $myTopLevel <KeyPress-Q> [list destroy $myTopLevel]
+  # Report html widget
+  hv3Init  $myTopLevel.report
+  hv3RegisterProtocol $myTopLevel.report tcl tclProtocol
+  $myTopLevel.report.html configure -width 300 -height 500
+  pack forget $myTopLevel.report.status 
 
-  hv3Init $myTopLevel.hv3
-  hv3RegisterProtocol $myTopLevel.hv3 tcl tclProtocol
-  $myTopLevel.hv3.html handler node input tclInputHandler
-  $myTopLevel.hv3.html configure -width 800
-  pack $myTopLevel.hv3 -side right -fill both -expand true
+  # Tree canvas widget and scrollbars
+  frame $myTopLevel.tree_frame
+  canvas $myTopLevel.tree_frame.canvas -background white -borderwidth 10
+  $myTopLevel.tree_frame.canvas configure -width 350
+  scrollbar $myTopLevel.tree_frame.hsb -orient horizontal
+  scrollbar $myTopLevel.tree_frame.vsb
+  pack $myTopLevel.tree_frame.hsb    -fill x -side bottom
+  pack $myTopLevel.tree_frame.canvas -fill both -expand true -side left
+  pack $myTopLevel.tree_frame.vsb    -fill y -side right
 
-  canvas $myTree -background white -borderwidth 10
-  button $myRelayout -text "Re-Render Document With Logging" \
-     -command [list $this rerender]
+  wireup_scrollbar x $myTopLevel.tree_frame.canvas $myTopLevel.tree_frame.hsb
+  wireup_scrollbar y $myTopLevel.tree_frame.canvas $myTopLevel.tree_frame.vsb
 
-  entry $mySearchField
-  bind $mySearchField <Return> [list $this searchNode]
+  pack $myTopLevel.header     -side top -fill x
+  pack $myTopLevel.report     -side right -fill both -expand true
+  pack $myTopLevel.tree_frame -side left -fill both -expand true
 
-  bind $myTree <4> [list event generate $myTopLevel.hv3.html <4> ]
-  bind $myTree <5> [list event generate $myTopLevel.hv3.html <5> ]
-
-  bind $myTopLevel.hv3 <Destroy>    [list itcl::delete object $this]
+  bind $myTopLevel.report <Destroy> [list itcl::delete object $this]
   set myCommonWidgets($HTML) $this
 }
 
@@ -295,19 +289,6 @@ itcl::body HtmlDebug::constructor {HTML} {
 #
 itcl::body HtmlDebug::destructor {} {
   unset myCommonWidgets($myHtml)
-}
-
-itcl::body HtmlDebug::configureTree {} {
-  $myTree delete all
-  if {$mySelected != ""} {
-    drawSubTree [$myHtml node] 15 30
-    set box [$myTree bbox all]
-    set width [lindex $box 2]
-    set height [lindex $box 3]
-    set width [expr $width < 250 ? 250 : $width]
-    set height [expr $height < 250 ? 250 : $height]
-    $myTree configure -height $height -width $width
-  }
 }
 
 proc prop_nodeToLabel {node} {
@@ -323,24 +304,57 @@ proc prop_nodeToLabel {node} {
 
 # HtmlDebug::report node
 #
-#     This method generates an html formated report about node $node.
+#     This method generates and returns an html formated report about 
+#     document node $node. It also sets the tree widget so that node 
+#     $node is the selected node and it's ancestor nodes are all 
+#     expanded.
+#
+#     If $node is an empty string or is not a node of the current document
+#     the currently selected node is used instead. If there is no currently 
+#     selected node, or if it is not a node of the current document, the
+#     root node of the current document is used instead.
 #
 itcl::body HtmlDebug::report {{node ""}} {
 
-    if {$node != "" && [info commands $node] != ""} {
-      set mySelected $node
-      for {set n [$node parent]} {$n != ""} {set n [$n parent]} {
-        set myExpanded($n) 1
-      }
-    } 
-    if {$mySelected == "" || [info commands $mySelected] == ""} {
-      set mySelected [$myHtml node]
-      set mySearchResults {}
-    }
-    set node $mySelected
-    if {$node eq ""} return ""
+  # Template for the node report. The $CONTENT variable is replaced by
+  # some content generated by the Tcl code below.
+  set Template {
+    <html>
+      <head>
+        <style>
+          /* Table display parameters */
+          table,th,td { border: 1px solid; }
+          td          { padding:0px 15px; }
+          table       { margin: 20px; }
 
-    set doc {}
+          /* Elements of class "code" are rendered in fixed font */
+          .code       { font-family: fixed; }
+
+        </style>
+      </head>
+      <body>
+        $CONTENT
+      </body>
+    </html>
+  }
+
+  if {$node != "" && [info commands $node] != ""} {
+    # The second argument to this proc is a valid node.
+    set mySelected $node
+    for {set n [$node parent]} {$n != ""} {set n [$n parent]} {
+      set myExpanded($n) 1
+    }
+    redrawCanvas
+
+  }
+  if {$mySelected == "" || [info commands $mySelected] == ""} {
+    set mySelected [$myHtml node]
+    set mySearchResults {}
+  }
+  set node $mySelected
+  if {$node eq ""} return ""
+
+  set doc {}
 
     if {[$node tag] == ""} {
         append doc "<h1>Text</h1>"
@@ -404,7 +418,14 @@ itcl::body HtmlDebug::toggleExpanded {node} {
   } else {
     set myExpanded($node) 1 
   }
-  HtmlDebug::browse $myHtml
+  redrawCanvas
+}
+
+itcl::body HtmlDebug::redrawCanvas {} {
+  set canvas $myTopLevel.tree_frame.canvas
+  $canvas delete all
+  drawSubTree [$myHtml node] 15 30
+  $canvas configure -scrollregion [$canvas bbox all]
 }
 
 itcl::body HtmlDebug::drawSubTree {node x y} {
@@ -413,6 +434,8 @@ itcl::body HtmlDebug::drawSubTree {node x y} {
 
     set XINCR [expr $IWIDTH + 2]
     set YINCR [expr $IHEIGHT + 5]
+
+    set tree $myTopLevel.tree_frame.canvas
 
     set label [prop_nodeToLabel $node]
     if {$label == ""} {return 0}
@@ -426,23 +449,23 @@ itcl::body HtmlDebug::drawSubTree {node x y} {
     }
 
     if {$leaf} {
-      set iid [$myTree create image $x $y -image ifile -anchor sw]
+      set iid [$tree create image $x $y -image ifile -anchor sw]
     } else {
-      set iid [$myTree create image $x $y -image idir -anchor sw]
+      set iid [$tree create image $x $y -image idir -anchor sw]
     }
 
-    set tid [$myTree create text [expr $x+$XINCR] $y]
-    $myTree itemconfigure $tid -text $label -anchor sw
+    set tid [$tree create text [expr $x+$XINCR] $y]
+    $tree itemconfigure $tid -text $label -anchor sw
     if {$mySelected == $node} {
-        set bbox [$myTree bbox $tid]
+        set bbox [$tree bbox $tid]
         set rid [
-            $myTree create rectangle $bbox -fill skyblue -outline skyblue
+            $tree create rectangle $bbox -fill skyblue -outline skyblue
         ]
-        $myTree lower $rid $tid
+        $tree lower $rid $tid
     }
 
-    $myTree bind $tid <1> [list HtmlDebug::browse $myHtml $node]
-    $myTree bind $iid <1> [list $this toggleExpanded $node]
+    $tree bind $tid <1> [list HtmlDebug::browse $myHtml $node]
+    $tree bind $iid <1> [list $this toggleExpanded $node]
     
     set ret 1
     if {[info exists myExpanded($node)]} {
@@ -456,12 +479,12 @@ itcl::body HtmlDebug::drawSubTree {node x y} {
                 set y1 [expr $ynew - $IHEIGHT * 0.5]
                 set x1 [expr $x + $XINCR * 0.5]
                 set x2 [expr $x + $XINCR]
-                $myTree create line $x1 $y1 $x2 $y1 -fill black
+                $tree create line $x1 $y1 $x2 $y1 -fill black
             }
         }
 
         catch {
-          $myTree create line $x1 $y $x1 $y1 -fill black
+          $tree create line $x1 $y $x1 $y1 -fill black
         }
     }
     return $ret

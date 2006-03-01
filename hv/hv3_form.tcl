@@ -120,19 +120,29 @@ class HtmlControl {
     variable myWidget
   }
 
-  public {
+  constructor {} {}
 
-    method success {}
-    method value {}
-    method configure {props}
-
-    method name {}    {return $myName}
-    method init {node getcmd} {}
-    constructor {} {}
-    destructor {}
-
+  destructor {
+    catch {$myForm del_control $this}
+    destroy $myWidget
   }
 
+  method name {} {
+    return $myName
+  }
+
+  method init {getcmd node} {
+    set myName [$node attr -default "" name]
+    set myForm [find_form $this $getcmd $node]
+    $node replace $myWidget                    \
+      -configurecmd [list $this configure]     \
+      -deletecmd    [list itcl::delete object $this]
+  }
+
+  # HtmlControl methods that will be implemented by derived classes.
+  method success {}
+  method value {}
+  method configure {props}
 
   proc font_to_offset {w font} {
     set descent [font metrics $font -descent]
@@ -140,23 +150,6 @@ class HtmlControl {
     set drop [expr ([winfo reqheight $w] + $descent - $ascent) / 2]
     return $drop
   }
-}
-
-itcl::body HtmlControl::init {getcmd node} {
-  set myName [$node attr -default "" name]
-  $node replace $myWidget                    \
-    -configurecmd [list $this configure]     \
-    -deletecmd    [list itcl::delete object $this]
-
-  set myForm [find_form $this $getcmd $node]
-}
-
-itcl::body HtmlControl::constructor {} {
-}
-
-itcl::body HtmlControl::destructor {} {
-  $myForm del_control $this
-  destroy $myWidget
 }
 
 #--------------------------------------------------------------------------
@@ -329,7 +322,7 @@ class HtmlComboBox {
     combobox::combobox $myWidget 
     $myWidget configure -listvar [itcl::scope myLabels]
     $myWidget configure -editable false
-    $myWidget configure -height 0 -width 0
+    $myWidget configure -height 0
     $myWidget configure -maxheight [$node attr -default 10 size]
     $myWidget select $idx
 
@@ -339,6 +332,8 @@ class HtmlComboBox {
 
   method configure {props} {
     array set p $props
+    $myWidget configure -font $p(font)
+    $myWidget configure -width 0
     return [font_to_offset $myWidget $p(font)]
   }
 

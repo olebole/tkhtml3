@@ -476,14 +476,16 @@ catch {
   #     to.
   #
   proc parse {PATH fragment text} {
-    $PATH.html reset
-
-    importVars $PATH
-    set myStyleCount 0
-    $PATH.html parse $text
-
-    if {$fragment != ""} {
-      goto_fragment $PATH $fragment
+    if {$text != ""} {
+      $PATH.html reset
+  
+      importVars $PATH
+      set myStyleCount 0
+      $PATH.html parse $text
+  
+      if {$fragment != ""} {
+        goto_fragment $PATH $fragment
+      }
     }
   }
 
