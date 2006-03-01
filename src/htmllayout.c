@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.119 2006/02/28 14:56:45 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.120 2006/03/01 06:11:38 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -1406,7 +1406,11 @@ normalFlowLayoutTable(pLayout, pBox, pNode, pY, pContext, pNormal)
     y = *pY;
     *pY += sBox.height;
 
-    if (margin.leftAuto && margin.rightAuto) {
+ 
+    if (pLayout->minmaxTest) {
+        /* If this is a min-max size test, leave the table left-aligned. */
+        assert(eAlign == CSS_CONST_LEFT);
+    } else if (margin.leftAuto && margin.rightAuto) {
         eAlign = CSS_CONST_CENTER;
     } else if (margin.leftAuto) {
         eAlign = CSS_CONST_RIGHT;
@@ -1423,7 +1427,8 @@ normalFlowLayoutTable(pLayout, pBox, pNode, pY, pContext, pNormal)
          *             <table>
          *
          * where the table is supposed to be centered within the body block.
-         * Todo: Find out more about this.
+         * Todo: Find out more about this. Later: Also http://www.yahoo.com. 
+         * This use of the <center> tag seems pretty common.
          */
         int eTextAlign = CSS_CONST_LEFT;
         HtmlNode *pParent = HtmlNodeParent(pNode);

@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.49 2006/03/01 05:36:12 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.50 2006/03/01 06:11:38 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1680,10 +1680,17 @@ allocateNewFont(interp, tkwin, pFontKey)
     strcpy(pFont->zFont, zTkFontName);
 
     Tk_GetFontMetrics(tkfont, &pFont->metrics);
-    /* pFont->em_pixels = pFont->metrics.ascent + pFont->metrics.descent; */
-    pFont->em_pixels = pFont->metrics.ascent;
     pFont->ex_pixels = Tk_TextWidth(tkfont, "x", 1);
     pFont->space_pixels = Tk_TextWidth(tkfont, " ", 1);
+
+    /* Set the number of pixels to be used for 1 "em" unit for this font.
+     * Setting the em-pixels to the ascent + the descent worked Ok for
+     * the old X11 fonts. However the value turns out to be too large with 
+     * the new Xft fonts (Tk 8.5). So for now, use the font-ascent as the
+     * em-pixels value. I'm not entirely satisfied with this.
+     */
+    /* pFont->em_pixels = pFont->metrics.ascent + pFont->metrics.descent; */
+    pFont->em_pixels = pFont->metrics.ascent;
 
     return pFont;
 }
