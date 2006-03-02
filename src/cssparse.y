@@ -53,6 +53,7 @@
 
 %syntax_error {
     pParse->pStyle->nSyntaxErr++;
+    pParse->isIgnore = 0;
 }
 
 /* Style sheet consists of a header followed by a body. */
@@ -129,10 +130,16 @@ medium_list(A) ::= medium_list_item(X) ws COMMA ws medium_list(Y). {
 /*********************************************************************
 ** @page {...} block. 
 */
-page ::= PAGE_SYM ws pseudo_opt LP ws declaration_list RP.
+page ::= page_sym ws pseudo_opt LP ws declaration_list RP. {
+  pParse->isIgnore = 0;
+}
 
 pseudo_opt ::= COLON IDENT ws.
 pseudo_opt ::= .
+
+page_sym ::= PAGE_SYM. {
+  pParse->isIgnore = 1;
+}
 
 /*********************************************************************
 ** @font_face {...} block.
