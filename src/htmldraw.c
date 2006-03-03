@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.86 2006/03/03 07:10:10 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.87 2006/03/03 12:29:56 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -84,7 +84,6 @@ typedef struct CanvasOrigin CanvasOrigin;
 typedef struct CanvasQuad CanvasQuad;
 typedef struct CanvasBackground CanvasBackground;
 typedef struct CanvasComment CanvasComment;
-
 typedef struct CanvasImage CanvasImage;
 
 struct CanvasText {
@@ -854,10 +853,10 @@ int HtmlLayoutPrimitives(clientData, interp, objc, objv)
 /*
  *---------------------------------------------------------------------------
  *
- * drawImage2 --
+ * drawImage --
  *
- *     This function is used to draw a CANVAS_IMAGE primitive to the drawable
- *     *pDrawable.
+ *     This function is used to draw a CANVAS_IMAGE primitive to the 
+ *     drawable *pDrawable.
  *
  * Results:
  *     None.
@@ -868,7 +867,7 @@ int HtmlLayoutPrimitives(clientData, interp, objc, objv)
  *---------------------------------------------------------------------------
  */
 static void 
-drawImage2(pTree, pI2, pDrawable, x, y, w, h)
+drawImage(pTree, pI2, pDrawable, x, y, w, h)
     HtmlTree *pTree;
     CanvasImage *pI2;
     Drawable *pDrawable;
@@ -928,7 +927,7 @@ drawImage2(pTree, pI2, pDrawable, x, y, w, h)
             y1 += (pI2->y + y);
 
             if (x1 < 0) {
-                bw = bw + x1;
+                bw += x1;
                 x1 = 0;
             }
             if (y1 < 0) {
@@ -943,8 +942,9 @@ drawImage2(pTree, pI2, pDrawable, x, y, w, h)
             }
 
             if (bh > 0 && bw > 0) {
-                Pixmap ipix;             /* Pixmap of image */
-                ipix = Tk_GetPixmap(pDisplay, Tk_WindowId(win),iw,ih,depth);
+                /* Create a pixmap of the image */
+                Pixmap ipix;
+                ipix = Tk_GetPixmap(pDisplay, Tk_WindowId(win), iw, ih, depth);
                 Tk_RedrawImage(img, 0, 0, iw, ih, ipix, 0, 0);
         
                 gc_values.tile = ipix;
@@ -1159,7 +1159,7 @@ getPixmap(pTree, xcanvas, ycanvas, w, h)
             }
 
             case CANVAS_IMAGE: {
-                drawImage2(pTree, &pItem->x.i2, &pmap, x, y, w, h);
+                drawImage(pTree, &pItem->x.i2, &pmap, x, y, w, h);
                 break;
             }
 

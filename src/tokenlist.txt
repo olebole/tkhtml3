@@ -1,5 +1,5 @@
 #
-# $Revision: 1.23 $
+# $Revision: 1.24 $
 #
 # tokenlist.tcl -- 
 #
@@ -253,6 +253,7 @@ proc _TAG {args} {
     }
     puts $::c_file [format $fmt "\"$tag\"," $opensym, $flags, $xClose, 0]
     set flags HTMLTAG_END
+    if {$flow!=0} { append flags |$flow } 
     puts $::c_file [format $fmt "\"/$tag\"," $closesym, $flags, 0, 0]
 }
 
