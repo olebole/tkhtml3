@@ -150,12 +150,20 @@ proc guiBack {} {
 #     We require an http proxy running on the localhost, tcp port 3128, '
 #     for this to work. This command depends on the tcl http package.
 #
-#     One global variable is used:
+#     Two global variables are used:
 #    
 #         ::hv3_http_token_list
+#         ::hv3_http_cookies
 #
-#     This stores the list of outstanding http tokens. It is used to
-#     cancel downloads if [httpProtocol -reset] is called.
+#     Global var ::hv3_http_token_list stores the list of outstanding http
+#     tokens. It is used to cancel downloads if [httpProtocol -reset] is
+#     called.
+#
+#     The ::hv3_http_cookies variable is the current list of cookies 
+#     stored in memory. Each list entry is itself a list, formatted
+#     as follows:
+#
+#         {domain name=value}
 #
 #     Two procs are declared:
 #
@@ -175,6 +183,7 @@ swproc httpProtocol {url {script ""} {binary 0}} {
   if {![info exists ::hv3_http_token_list]} {
     package require http
     set ::hv3_http_token_list [list]
+    set ::hv3_http_cookies [list]
     ::http::config -proxyhost localhost
     ::http::config -proxyport 3128
   }
@@ -190,11 +199,17 @@ swproc httpProtocol {url {script ""} {binary 0}} {
 
   puts $url
 
+  set headers "Cookie "
+  foreach cookie $::hv3_http_cookies {
+    append headers [lindex $cookie 1]
+  }
+
   # Start the download and append the token to the global token
   # list. When the download is finished, [httpProtocolCallback] will
   # be invoked.
   set cmd [list httpProtocolCallback $script $binary]
-  set token [::http::geturl $url -command $cmd]
+  set token [::http::geturl $url -command $cmd -headers $headers]
+  # set token [::http::geturl $url -command $cmd]
   lappend ::hv3_http_token_list $token
 }
 
@@ -204,18 +219,26 @@ swproc httpProtocol {url {script ""} {binary 0}} {
 #     has finished downloading.
 #
 proc httpProtocolCallback {script binary token} {
-  # Check for a redirect:
-if 0 {
-  foreach {name value} [::http::meta $token] {
-    if {[regexp -nocase ^location$ $name]} {
-      httpProtocol $value $script $binary
-      return 
+  upvar \#0 $token state 
+  if {[info exists state(meta)]} {
+    foreach {name value} $state(meta) {
+      if {$name eq "Set-Cookie"} {
+        puts "COOKIE: $value"
+        regexp {^[^ ]*} $value nv_pair
+        lappend ::hv3_http_cookies [list {} $nv_pair]
+      }
     }
-  }
-}
+    foreach {name value} $state(meta) {
+      if {$name eq "Location"} {
+        puts "REDIRECT: $value"
+        httpProtocol $value -script $script -binary $binary
+        return
+      }
+    }
+  } 
 
   set cmd $script
-  lappend cmd [::http::data $token]
+  lappend cmd $state(body)
   eval $cmd
 }
 
