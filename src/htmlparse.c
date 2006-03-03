@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.51 2006/02/20 15:00:08 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.52 2006/03/03 07:10:10 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -382,24 +382,7 @@ HtmlTableContent(pTree, pNode, tag)
     HtmlNode *pNode;
     int tag;
 {
-    if (
-        tag==Html_EndTR ||
-        tag==Html_EndTD || 
-        tag==Html_EndTH ||
-        tag==Html_TR    ||
-        tag==Html_TD    ||
-        tag==Html_TH    ||
-        tag==Html_Space
-    ) { 
-        return TAG_OK;
-    }
-
-    if (!(HtmlMarkupFlags(tag) & HTMLTAG_END)) {
-        AppendImplicitToken(pTree, pNode, Html_TR);
-        return TAG_IMPLICIT;
-    }
-
-    return TAG_PARENT;
+    return TAG_OK;
 }
 
 /*
@@ -470,8 +453,8 @@ HtmlTableRowContent(pTree, pNode, tag)
     if (HtmlMarkupFlags(tag) & HTMLTAG_END) {
         return TAG_PARENT;
     }
-    AppendImplicitToken(pTree, pNode, Html_TD);
-    return TAG_IMPLICIT;
+
+    return TAG_OK;
 }
 
 /*

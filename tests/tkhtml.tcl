@@ -64,15 +64,24 @@ namespace eval tkhtml {
         return $val
     }
 
-    swproc attr {attr {len 0 1}} {
+    proc color {val} {
+        set len [string length $val]
+        if {0==($len % 3) && [regexp {^[0-9a-fA-F]*$} $val]} {
+            return "#$val"
+        }
+        return $val
+    }
+
+    swproc attr {attr {len 0 1} {color 0 1}} {
         upvar N node
         set val [$node attr -default "" $attr]
         if {$val == ""}    {error ""}
         if {$len}          {return [len $val]}
+        if {$color}        {return [color $val]}
         return $val
     }
 
-    swproc aa {tag attr {len 0 1} {if NULL}} {
+    swproc aa {tag attr {len 0 1} {if NULL} {color 0 1}} {
         upvar N node
         for {} {$node != ""} {set node [$node parent]} {
             if {[$node tag] == $tag} {
@@ -81,6 +90,7 @@ namespace eval tkhtml {
                 if {$if != "NULL"} {return $if}
                 if {$val == ""}    {error ""}
                 if {$len}          {return [len $val]}
+                if {$color}        {return [color $val]}
                 return $val
             }
         }

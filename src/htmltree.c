@@ -36,12 +36,177 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.45 2006/02/22 16:42:39 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.46 2006/03/03 07:10:11 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
 #include <assert.h>
 #include <string.h>
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * moveToLeftSibling --
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     Modifies tree structure.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void
+moveToLeftSibling(pNode, pNewSibling)
+    HtmlNode *pNode;
+    HtmlNode *pNewSibling;
+{
+    HtmlNode *pOldParent = HtmlNodeParent(pNewSibling);
+    HtmlNode *pNewParent = HtmlNodeParent(pNode);
+    int i;
+    int found = 0;
+
+    assert(pOldParent && pNewParent);
+
+    /* Remove pNewSibling from it's old parent */
+    for (i = 0; i < HtmlNodeNumChildren(pOldParent); i++) {
+        if (found) {
+            pOldParent->apChildren[i - 1] = pOldParent->apChildren[i];
+        } else if (HtmlNodeChild(pOldParent, i) == pNewSibling) {
+            found = 1;
+        }
+    }
+    assert(found);
+    pOldParent->nChild--;
+
+    /* Insert it into the new parent */
+    pNewParent->apChildren = (HtmlNode **)HtmlRealloc(
+            pNewParent->apChildren, 
+            sizeof(HtmlNode *) * (pNewParent->nChild + 1)
+    );
+    for (found = 0, i = HtmlNodeNumChildren(pNewParent) - 1; i >= 0; i--) {
+        HtmlNode *pChild = HtmlNodeChild(pNewParent, i);
+        if (!found) {
+            pNewParent->apChildren[i + 1] = pChild;
+        }
+        if (pChild == pNode) {
+            found = 1;
+            pNewParent->apChildren[i] = pNewSibling;
+            pNewSibling->pParent = pNewParent;
+        }
+    }
+    assert(found);
+    pNewParent->nChild++;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * reworkTableNode --
+ *
+ *     Node *pNode is a <table> element. This function modifies the tree
+ *     rooted at pNode so that the layout engine can handle the table 
+ *     correctly.
+ *
+ *     The precise way in which this function manipulates the tree structure
+ *     is documented as part of the "support.html" page of the website 
+ *     (auto-generated from the webpage/mksupportpage.html file.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     Modifies tree structure.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void
+reworkTableNode(pNode)
+    HtmlNode *pNode;
+{
+    assert(HtmlNodeTagType(pNode) == Html_TABLE);
+    int i;
+
+    for (i = HtmlNodeNumChildren(pNode) - 1; i >= 0; i--) {
+        HtmlNode *pChild = HtmlNodeChild(pNode, i);
+        int tag = HtmlNodeTagType(pChild);
+
+        if (tag == Html_TR) {
+            /* Any child of a <tr> that is not a <td> or <th> is 
+             * moved to become a left-hand sibling of the <table>.
+             */
+            int j;
+            for (j = HtmlNodeNumChildren(pChild) - 1; j >= 0; j--) {
+                HtmlNode *pGrandChild = HtmlNodeChild(pChild, j);
+                int tag = HtmlNodeTagType(pGrandChild);
+                if (tag != Html_TD && tag != Html_TH) {
+                    moveToLeftSibling(pNode, pGrandChild);
+                }
+            }
+        } else if (tag != Html_TD && tag != Html_TH) {
+            /* Any child of the <table> element apart from <tr>, <td>, <th>
+             * is moved to become a left-hand sibling of the <table>.
+             */
+            moveToLeftSibling(pNode, pChild);
+        }
+    }
+
+    for (i = 0; i < HtmlNodeNumChildren(pNode); i++) {
+        HtmlNode *pChild = HtmlNodeChild(pNode, i);
+        int tag = HtmlNodeTagType(pChild);
+        assert(tag == Html_TR || tag == Html_TD || tag == Html_TH);
+        if (tag != Html_TR) {
+            /* A <td> or <th> element as a child of a <table>. Insert a
+             * <tr> element between them. The <tr> element becomes the
+             * parent of this table-cell and any others in the tree directly 
+             * to the right.
+             */
+            HtmlToken *pRowToken;
+            HtmlNode *pRowNode;
+
+            int nMove;
+            int j;
+            for (j = i + 1; j < HtmlNodeNumChildren(pNode); j++) {
+                HtmlNode *pSibling = HtmlNodeChild(pNode, j);
+                int tag2 = HtmlNodeTagType(pSibling);
+                assert(tag2 == Html_TR || tag2 == Html_TD || tag2 == Html_TH);
+                if (tag2 == Html_TR) break;
+            }
+            nMove = j - i;
+            assert(nMove > 0);
+
+            /* Create a token and link it into the token list just 
+             * before it's first adopted child.
+             */
+            pRowToken = (HtmlToken *)HtmlClearAlloc(sizeof(HtmlToken));
+            pRowToken->type = Html_TR;
+            pRowToken->pNext = pChild->pToken;
+            pRowToken->pPrev = pChild->pToken->pPrev;
+            pChild->pToken->pPrev->pNext = pRowToken;
+            pChild->pToken->pPrev = pRowToken;
+
+            /* Create an HtmlNode for the new <tr> */
+            pRowNode = (HtmlNode *)HtmlClearAlloc(sizeof(HtmlNode));
+            pRowNode->pParent = pNode;
+            pRowNode->pToken = pRowToken;
+            pRowNode->nChild = nMove;
+            pRowNode->apChildren = 
+                (HtmlNode **)HtmlClearAlloc(sizeof(HtmlNode*) * nMove);
+            for (j = 0; j < nMove; j++) {
+                pRowNode->apChildren[j] = pNode->apChildren[i + j];
+                pRowNode->apChildren[j]->pParent = pRowNode;
+            }
+
+            pNode->apChildren[i] = pRowNode;
+            for (j = i + nMove; j < pNode->nChild; j++) {
+                pNode->apChildren[j - (nMove - 1)] = pNode->apChildren[j];
+            }
+            pNode->nChild -= (nMove - 1);
+
+            i += (nMove - 1);
+        }
+    }
+}
 
 /*
  *---------------------------------------------------------------------------
@@ -69,76 +234,6 @@ static int isExplicitClose(pNode, tag)
     return 0;
 }
 
-
-/*
- *---------------------------------------------------------------------------
- *
- * isEndTag --
- *
- *     Check if token pToken closes the document node currently
- *     being constructed. The algorithm for detecting a closing tag works
- *     like this:
- *
- *         1. If the tag is the explicit closing tag for pNode (i.e. pNode
- *            was created by a <p> and tag is a </p>), return true.
- *         2. Call the content function assigned to pNode with the -content
- *            option in tokenlist.txt. If it returns TAG_CLOSE, return
- *            true. If it returns TAG_OK, return false.
- *         3. If the content function returned TAG_PARENT, set pNode to the
- *            parent of pNode and if pNode is not now NULL goto step 1. If
- *            it is NULL, return false.
- *
- * Results:
- *     True if pToken does close the current node, otherwise false.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-#if 0
-static int 
-isEndTag(pNode, pToken)
-    HtmlNode *pNode;
-    HtmlToken *pToken;
-{
-    HtmlNode *pN;
-    Html_u8 type;
-
-    /* If pToken is NULL, this means the end of the token list has been
-     * reached. i.e. Close everything.
-     */
-    if (!pToken) {
-        return 1;
-    }
-    type = pToken->type;
-
-    if (HtmlNodeIsText(pNode)) {
-        return (type != Html_Text && type != Html_Space);
-    }
-
-    for (pN=pNode; pN; pN=HtmlNodeParent(pN)) {
-
-        /* Check for explicit close */
-        if (isExplicitClose(pN, type)) {
-            return 1;
-
-        /* Check for implicit close */
-        } else {
-            HtmlContentTest xClose = HtmlMarkup(pN->pToken->type)->xClose;
-            if (xClose) {
-                switch (xClose(pN, type)) {
-                    case TAG_OK:
-                        return 0;
-                    case TAG_CLOSE:
-                        return 1;
-                }
-            }
-        }
-    }
-    return 0;
-}
-#endif
 
 /*
  *---------------------------------------------------------------------------
@@ -364,7 +459,15 @@ nodeHandlerCallbacks(pTree, pNode)
     int tag;
     Tcl_Interp *interp = pTree->interp;
 
+    /* If the node is a <table> element, do the special processing before
+     * invoking any node-handler callback. Precisely why anyone would use
+     * a node-handler callback on a <table> element I'm not clear on.
+     */
     tag = HtmlNodeTagType(pNode);
+    if (tag == Html_TABLE) {
+      reworkTableNode(pNode);
+    }
+
     pEntry = Tcl_FindHashEntry(&pTree->aNodeHandler, (char *)tag);
     if (pEntry) {
         Tcl_Obj *pEval;
@@ -864,14 +967,15 @@ char CONST *HtmlNodeAttr(pNode, zAttr)
  *
  * nodeCommand --
  *
- *         <node> tag
  *         <node> attr ?options? HTML-ATTRIBUTE-NAME
- *         <node> nChildren 
  *         <node> child CHILD-NUMBER 
+ *         <node> nChildren 
  *         <node> parent
- *         <node> text
+ *         <node> prop
  *         <node> replace ?options? ?NEW-VALUE?
  *         <node> right_sibling
+ *         <node> tag
+ *         <node> text
  *
  *     This function is the implementation of the Tcl node handle command. The
  *     clientData passed to the command is a pointer to the HtmlNode structure
@@ -1231,7 +1335,8 @@ HtmlNodeCommand(pTree, pNode)
  *     Pointer to string allocated by HtmlAlloc().
  *
  * Side effects:
- *     None.
+ *     Allocates memory. Since this function is usually called from a 
+ *     debugger, this memory is unlikely to get freed.
  *
  *---------------------------------------------------------------------------
  */
@@ -1307,7 +1412,7 @@ HtmlNodeToString(pNode)
  *     None.
  *
  * Side effects:
- *     None.
+ *     Deletes internal document representation.
  *
  *---------------------------------------------------------------------------
  */
@@ -1374,7 +1479,7 @@ int HtmlTreeClear(pTree)
  *     an error in pTree->interp and return NULL.
  *
  * Results:
- *     None.
+ *     Pointer to node object associated with Tcl command zCmd, or NULL.
  *
  * Side effects:
  *     None.

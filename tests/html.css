@@ -170,16 +170,16 @@ BR {
 
 
 /* 'color' */
-[color]              { color: tcl(::tkhtml::attr color) }
-body a[href]:link    { color: tcl(::tkhtml::aa body link) }
-body a[href]:visited { color: tcl(::tkhtml::aa body vlink) }
+[color]              { color: tcl(::tkhtml::attr color -color) }
+body a[href]:link    { color: tcl(::tkhtml::aa body link -color) }
+body a[href]:visited { color: tcl(::tkhtml::aa body vlink -color) }
 
 /* 'width', 'height', 'background-color' and 'font-size' */
-[width]                    { width:            tcl(::tkhtml::attr width -len) }
-[height]                   { height:           tcl(::tkhtml::attr height -len) }
-basefont[size]             { font-size:        tcl(::tkhtml::attr size) }
-font[size]                 { font-size:        tcl(::tkhtml::attr size) }
-[bgcolor]                  { background-color: tcl(::tkhtml::attr bgcolor) }
+[width]            { width:            tcl(::tkhtml::attr width -len) }
+[height]           { height:           tcl(::tkhtml::attr height -len) }
+basefont[size]     { font-size:        tcl(::tkhtml::attr size) }
+font[size]         { font-size:        tcl(::tkhtml::attr size) }
+[bgcolor]          { background-color: tcl(::tkhtml::attr bgcolor -color) }
 
 BR[clear]   { clear: tcl(::tkhtml::attr clear) }
 
@@ -221,8 +221,17 @@ table[cellspacing], table[cellspacing] {
     border-spacing: tcl(::tkhtml::attr cellspacing -len);
 }
 
+/* Map the valign attribute to the 'vertical-align' property for table 
+ * cells. The default value is "middle", or use the actual value of 
+ * valign if it is defined.
+ */
+TD,TH                        {vertical-align: middle}
+TR[valign]>TD, TR[valign]>TH {vertical-align: tcl(::tkhtml::aa tr valign)}
+TR>TD[valign], TR>TH[valign] {vertical-align: tcl(::tkhtml::attr  valign)}
+
+
 /* Support the "background" and "text" attributes on the <body> tag */
-body[text]       {color: tcl(::tkhtml::attr text)}
+body[text]       {color: tcl(::tkhtml::attr text -color)}
 body {
     background-image: tcl(format "url(%s)" [::tkhtml::attr background])
 }

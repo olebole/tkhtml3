@@ -52,6 +52,7 @@ proc gui_build {} {
   # Build the main window menu.
   . config -menu [menu .m]
   .m add cascade -label {File} -menu [menu .m.file]
+  .m.file add command -label "Open File..." -command guiOpenFile
   .m.file add command -label Back -command guiBack -state disabled
   .m.file add separator
   foreach f [list \
@@ -97,6 +98,17 @@ proc gui_select_all {} {
     set n [$n child [expr [$n nChildren]-1]]
   }
   .hv3.html select to $n
+}
+
+proc guiOpenFile {} {
+  set f [tk_getOpenFile -filetypes [list \
+      {{Html Files} {.html}} \
+      {{Html Files} {.htm}}  \
+      {{All Files} *}
+  ]]
+  if {$f != ""} {
+    hv3Goto .hv3 file://$f 
+  }
 }
 
 #--------------------------------------------------------------------------
@@ -192,6 +204,16 @@ swproc httpProtocol {url {script ""} {binary 0}} {
 #     has finished downloading.
 #
 proc httpProtocolCallback {script binary token} {
+  # Check for a redirect:
+if 0 {
+  foreach {name value} [::http::meta $token] {
+    if {[regexp -nocase ^location$ $name]} {
+      httpProtocol $value $script $binary
+      return 
+    }
+  }
+}
+
   set cmd $script
   lappend cmd [::http::data $token]
   eval $cmd

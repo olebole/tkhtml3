@@ -163,14 +163,14 @@ itcl::body HtmlDebug::searchNode {{idx 0}} {
       <style>
         td { padding-left: 10px ; padding-right: 10px }
       </style>
-    </head><body>
+    </head><body><center>
       <h1>Tkhtml Document Tree Browser</h1>
       <input widget="relayout">
       <p>
         Search for node: <input widget="search">
       </p>
       $search_results
-    </body></html>
+    </center></body></html>
   }
 
   set search_results {}

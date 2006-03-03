@@ -49,7 +49,7 @@
 #else
     #define HtmlAlloc ckalloc
     #define HtmlFree(x) ckfree((char *)(x))
-    #define HtmlRealloc ckrealloc
+    #define HtmlRealloc(x, n) ckrealloc((char *)(x), n)
 #endif
 
 /* HtmlClearAlloc() is a version of HtmlAlloc() that returns zeroed memory */
@@ -98,7 +98,6 @@ typedef struct HtmlOptions HtmlOptions;
 typedef struct HtmlTree HtmlTree;
 typedef struct HtmlNode HtmlNode;
 typedef struct HtmlToken HtmlToken;
-typedef struct HtmlScaledImage HtmlScaledImage;
 typedef struct HtmlTokenMap HtmlTokenMap;
 typedef struct HtmlCanvas HtmlCanvas;
 typedef struct HtmlCanvasItem HtmlCanvasItem;
@@ -201,13 +200,6 @@ struct HtmlNode {
     int iNode;
 };
 
-struct HtmlScaledImage {
-    Tk_Image image;
-    Tcl_Obj *pImageName ;
-    Tk_Image scaled_image;
-    Tcl_Obj *pScaledImageName ;
-};
-
 struct HtmlCanvas {
     int left;
     int right;
@@ -268,16 +260,6 @@ struct HtmlCallback {
 #define HTML_CALLBACK_LAYOUT  2
 #define HTML_CALLBACK_STYLE   3
 
-/* 
- * The Tk-window used by the widget is stored in variable tkwin.
- *
- * The aImage hash table maps from image name (i.e. the string returned by
- * [image create photo]) and a pointer to an HtmlScaledImage structure. The
- * HtmlScaledImage structure stores a scaled version of the image, if any
- * scaling was necessary.
- *
- * The aFontCache hash table maps from font-name to Tk_Font value.
- */
 struct HtmlTree {
 
     /*

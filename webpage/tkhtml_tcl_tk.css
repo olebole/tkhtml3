@@ -68,3 +68,11 @@ img {
   margin: 1em;
 }
 
+pre[class="code"] {
+  margin: 0.5em 3em;
+  padding: 0.5em;
+  border: solid black 1px;
+  background: #DDDDDD;       /* Same color as background of <body>, <html> */
+}
+
+

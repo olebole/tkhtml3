@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.85 2006/02/28 14:56:45 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.86 2006/03/03 07:10:10 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1038,6 +1038,11 @@ drawText(pTree, pItem, drawable, x, y)
         gc_values.foreground = pT->color->pixel;
         gc_values.font = Tk_FontId(font);
         gc = Tk_GetGC(pTree->win, mask, &gc_values);
+
+	/* Todo: There seems to be a bug in Tk_DrawChars triggered by
+         * attempting to draw a string that lies wholly outside the drawable
+         * region. So avoid this...
+         */ 
         Tk_DrawChars(disp, drawable, gc, font, z, n, pT->x + x, pT->y + y);
         Tk_FreeGC(disp, gc);
     }

@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.121 2006/03/01 12:29:52 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.122 2006/03/03 07:10:10 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -413,10 +413,12 @@ nodeGetBorderProperties(pLayout, pNode, pBorderProperties)
     pBorderProperties->color_left = pValues->cBorderLeftColor->xcolor;
     pBorderProperties->color_bg = pValues->cBackgroundColor->xcolor;
 
+#if 0
     assert(
         ((pValues->mask & PROP_MASK_BACKGROUND_POSITION_X) ? 1 : 0) ==
         ((pValues->mask & PROP_MASK_BACKGROUND_POSITION_Y) ? 1 : 0)
     );
+#endif
     pBorderProperties->pBgImage = pValues->imBackgroundImage;
     pBorderProperties->eBgRepeat = pValues->eBackgroundRepeat;
     pBorderProperties->iPositionX = pValues->iBackgroundPositionX;
