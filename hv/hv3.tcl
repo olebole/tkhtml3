@@ -38,12 +38,13 @@
 #         $cmd URI -callback SCRIPT ?-binary BOOLEAN?
 #         $cmd -reset
 #     
+package require Itcl
 
 swproc hv3Init {PATH {gotocallback ""}} {
   ::hv3::initVars $PATH
   ::hv3::importVars $PATH
 
-  set myUrl file://[pwd]/
+  set myUrl [Hv3Uri #auto -path [pwd]/]
   set myGotoCallback $gotocallback
 
   # Create the widgets and pack them all into the frame. The caller 
@@ -69,7 +70,6 @@ swproc hv3Init {PATH {gotocallback ""}} {
 
   # Set up Handler callbacks for <link>, <style>, <script> and <img> tags.
   $PATH.html handler script script "::hv3::handleScriptScript"
-  # $PATH.html handler node img      "::hv3::handleImgNode $PATH"
   $PATH.html handler node link     "::hv3::handleLinkNode     $PATH"
   $PATH.html handler script style  "::hv3::handleStyleScript  $PATH"
 
@@ -98,17 +98,18 @@ swproc hv3Init {PATH {gotocallback ""}} {
 swproc hv3Goto {PATH url {noresolve 0 1} {nocallback 0 1}} {
   ::hv3::importVars $PATH
 
-  if {!$noresolve} {
-    set url [url_resolve $myUrl $url]
+  set current     [$myUrl get -nofragment]
+  if {$noresolve} {
+    $myUrl configure -authority "" -path / -query "" -fragment ""
   }
+  $myUrl load $url
 
   if {$myGotoCallback != "" && !$nocallback} {
     eval $myGotoCallback $url
   }
 
-  url_get $url -fragment f -prefragment prefragment
-  url_get $myUrl -prefragment current
-  set myUrl $url
+  set f [$myUrl cget -fragment]
+  set prefragment [$myUrl get -nofragment]
 
   if {$current == $prefragment && $f != ""} {
     ::hv3::goto_fragment $PATH $f
@@ -187,7 +188,7 @@ namespace eval hv3 {
   proc handleStyleScript {PATH style} {
     importVars $PATH
     set id [styleId $PATH author]
-    ::hv3::styleCallback $PATH $myUrl $id $style
+    ::hv3::styleCallback $PATH [$myUrl get] $id $style
   }
 
   # handleScriptScript SCRIPT
@@ -196,22 +197,6 @@ namespace eval hv3 {
   #     the contents of a <script> tag. It is a no-op.
   proc handleScriptScript {script} {
     return ""
-  }
-
-  # handleImgNode PATH NODE
-  #
-  #     This is called as a [node handler node] callback to handle
-  #     an <img> node. This callback works by invoking the script 
-  #     configured as the -imagecmd option of the html widget. All the 
-  #     image handling is done there (see imageCmd and imageCallback).
-  proc handleImgNode {PATH node} {
-    set src [$node attr src]
-    if {$src != ""} {
-      set imagecmdout [eval [$PATH.html cget -imagecmd] $src]
-      foreach {img del} $imagecmdout {
-        $node replace $img -deletecmd $del
-      }
-    }
   }
 
   # handleLinkNode PATH NODE
@@ -227,8 +212,10 @@ namespace eval hv3 {
     set media [$node attr -default all media]
     if {$rel=="stylesheet" && [regexp all|screen $media]} {
       set id [styleId $PATH author]
-      set url [url_resolve $myUrl [$node attr href]]
-      set cmd [list ::hv3::styleCallback $PATH $url $id] 
+
+      set url [resolve [$myUrl get] [$node attr href]]
+      set cmd [list ::hv3::styleCallback $PATH $url $id]
+
       download $PATH $url -script $cmd -type Stylesheet
     }
   }
@@ -261,7 +248,7 @@ namespace eval hv3 {
     importVars $PATH
     set name hv3_image[incr ::hv3::image_name]
     image create photo $name
-    set fullurl [url_resolve $myUrl $url]
+    set fullurl [resolve [$myUrl get] $url]
     set cmd [list ::hv3::imageCallback $name] 
     download $PATH $fullurl -script $cmd -binary -type Image
     return [list $name [list image delete $name]]
@@ -274,7 +261,7 @@ namespace eval hv3 {
   #     or ::hv3::styleImportCmd).
   proc styleCallback {PATH url id style} {
     set importcmd [list ::hv3::styleImport $PATH $id] 
-    set urlcmd [list url_resolve $url]
+    set urlcmd [list resolve $url]
     $PATH.html style -id $id -importcmd $importcmd -urlcmd $urlcmd $style
   }
 
@@ -500,7 +487,12 @@ catch {
     {reset 0 1}} \
   {
     importVars $PATH
-    url_get $url -scheme scheme
+
+    set obj [Hv3Uri #auto]
+    $obj load $url
+    set scheme [$obj cget -scheme]
+    ::itcl::delete object $obj
+
     array set protocols $myProtocols
     if {[catch {set cmd $protocols($scheme)}]} {
       error "Unknown protocol: \"$scheme\""
@@ -568,156 +560,188 @@ catch {
       eval $script
     }
   }
+
+
+  # resolve baseurl url
+  #
+  #     This command is used to transform a (possibly) relative URL into an
+  #     absolute URL. Example:
+  #
+  #         $ resolve http://host.com/dir1/dir2/doc.html ../dir3/doc2.html
+  #         http://host.com/dir1/dir3/doc2.html
+  #
+  #     This is purely a string manipulation procedure.
+  #
+  proc resolve {baseurl url} {
+      set obj [Hv3Uri #auto]
+      $obj load $baseurl
+      $obj load $url
+      set ret [$obj get]
+      ::itcl::delete object $obj
+      return $ret
+  }
 }
 
+#--------------------------------------------------------------------------
+# Class Hv3Download
+#
+itcl::class Hv3Download {
 
+  # Query interface
+  method binary   {}
+
+  # Interface for returning data
+  method append   {data}
+  method finished {}
+  method redirect {uri}
+}
 
 #--------------------------------------------------------------------------
-# urlNormalize --
+# Class Hv3Uri
 #
-#         urlNormalize PATH
+#     A very simple class for handling URI references. A partial 
+#     implementation of the syntax specification found at: 
 #
-#     The argument is expected to be the path component of a URL (i.e. similar
-#     to a unix file system path). ".." and "." components are removed and the
-#     result returned.
+#         http://www.gbiv.com/protocols/uri/rfc/rfc3986.html
 #
-proc urlNormalize {path} {
-    set ret [list]
-    foreach c [split $path /] {
-        if {$c == ".."} {
-            set ret [lrange $ret 0 end-1]
-        } elseif {$c == "."} {
-            # Do nothing...
-        } else {
-            lappend ret $c
+itcl::class Hv3Uri {
+
+  # Public get/set variables for URI components
+  public variable scheme    file
+  public variable path      "/"
+  public variable authority ""
+  public variable query     ""
+  public variable fragment  ""
+
+  # Constructor and destructor
+  constructor {args} {eval $this configure $args}
+  destructor  {}
+
+  # Return a copy of this object (must be passed to [delete object])
+  method clone {} {
+    set script [list Hv3Uri #auto]
+    foreach var [list scheme authority path query fragment] {
+      lappend script -${var} [set $var]
+    }
+    eval $script
+  }
+
+  # Set the contents of the object to the specified URI.
+  method load {uri} {
+
+    proc OPT     {args} { eval append res (?: $args )? }
+    proc CAPTURE {args} { eval append res ( $args ) }
+    
+    set SCHEME    {[A-Za-z][A-Za-z0-9+-\.]*}
+    set AUTHORITY {[^/#?]*}
+    set PATH      {[^#?]+}
+    set QUERY     {[^#]+}
+    set FRAGMENT  {.*}
+
+    append re \
+        [CAPTURE [OPT $SCHEME :]]            \
+        [CAPTURE [OPT // $AUTHORITY]]        \
+        [CAPTURE [OPT $PATH]]                \
+        [CAPTURE [OPT $QUERY]]               \
+        [CAPTURE [OPT $FRAGMENT]]
+
+    regexp $re $uri X r(scheme) r(authority) r(path) r(query) r(fragment)
+    if {![info exists r]} {
+      error "Bad URL: $url"
+    }
+    set ok 0
+    foreach var [list scheme authority path query fragment] {
+      if {$r($var) != "" } {
+        set ok 1
+      }
+      if {$ok} {
+        if {$var eq "path"} {
+          if {![string match /* $r(path)]} {
+            set dir [file dirname $path]
+            if {[string match */ $dir]} { 
+              set r(path) "${dir}$r(path)"
+            } else {
+              set r(path) "${dir}/$r(path)"
+            }
+          }
+          set ret [list]
+          foreach c [split $r(path) /] {
+            if {$c == ".."} {
+              set ret [lrange $ret 0 end-1]
+            } elseif {$c == "."} {
+              # Do nothing...
+            } else {
+              lappend ret $c
+            }
+          }
+          set r(path) [join $ret /]
         }
+        set $var $r($var)
+        if {$var eq "scheme"} {set scheme [string range $scheme 0 end-1]}
+        if {$var eq "authority"} {set authority [string range $authority 2 end]}
+        if {$var eq "fragment"} {set fragment [string range $fragment 1 end]}
+      }
     }
-    return [join $ret /]
+  }
+
+  # Return the contents of the object formatted as a URI.
+  method get {{nofragment ""}} {
+    set result "${scheme}://${authority}"
+    if {$path != ""}     {append result "${path}"}
+    if {$query != ""}    {append result "?${query}"}
+    if {$nofragment eq "" && $fragment ne ""} {append result "#${fragment}"}
+    return $result
+  }
 }
+# End of class Hv3Uri
+#--------------------------------------------------------------------------
 
 #--------------------------------------------------------------------------
-# urlSplit --
-#
-#         urlSplit URL
-#
-#     Form of URL parsed:
-#         <scheme>://<host>:<port>/<path>?<query>#<fragment>
-#
-proc urlSplit {url} {
-    set re_scheme   {((?:[a-z]+:)?)}
-    set re_host     {((?://[A-Za-z0-9.]*)?)}
-    set re_port     {((?::[0-9]*)?)}
-    set re_path     {((?:[^#?]*)?)}
-    set re_query    {((?:\?[^?]*)?)}
-    set re_fragment {((?:#.*)?)}
+# Tests for Hv3Uri:
+#     The following block runs some quick regression tests on the Hv3Uri 
+#     implementation. These take next to no time to run, so there's little
+#     harm in leaving them in.
+if 1 {
+  set test_data [list                                                 \
+    {http://tkhtml.tcl.tk/index.html}                                 \
+        -scheme http       -authority tkhtml.tcl.tk                   \
+        -path /index.html  -query "" -fragment ""                     \
+    {http:///index.html}                                              \
+        -scheme http       -authority ""                              \
+        -path /index.html  -query "" -fragment ""                     \
+    {http://tkhtml.tcl.tk}                                            \
+        -scheme http       -authority tkhtml.tcl.tk                   \
+        -path "/"          -query "" -fragment ""                     \
+    {/index.html}                                                     \
+        -scheme http       -authority tkhtml.tcl.tk                   \
+        -path /index.html  -query "" -fragment ""                     \
+    {other.html}                                                      \
+        -scheme http       -authority tkhtml.tcl.tk                   \
+        -path /other.html  -query "" -fragment ""                     \
+    {http://tkhtml.tcl.tk:80/a/b/c/index.html}                        \
+        -scheme http       -authority tkhtml.tcl.tk:80                \
+        -path "/a/b/c/index.html" -query "" -fragment ""              \
+    {http://wiki.tcl.tk/}                                             \
+        -scheme http       -authority wiki.tcl.tk                     \
+        -path "/"          -query "" -fragment ""                     \
+  ]
 
-    set re "${re_scheme}${re_host}${re_port}${re_path}${re_query}${re_fragment}"
-
-    if {![regexp $re $url X \
-            u(scheme) \
-            u(host) \
-            u(port) \
-            u(path) \
-            u(query) \
-            u(fragment)
-    ]} {
-        error "Bad URL: $url"
+  set obj [Hv3Uri #auto]
+  for {set ii 0} {$ii < [llength $test_data]} {incr ii} {
+    set uri [lindex $test_data $ii]
+    $obj load $uri 
+    while {[string match -* [lindex $test_data [expr $ii+1]]]} {
+      set switch [lindex $test_data [expr $ii+1]]
+      set value [lindex $test_data [expr $ii+2]]
+      if {[$obj cget $switch] ne $value} {
+        puts "URI: $uri"
+        puts "SWITCH: $switch"
+        puts "EXPECTED: $value"
+        puts "GOT: [$obj cget $switch]"
+        puts ""
+      }
+      incr ii 2
     }
-
-    return [array get u]
-}
-
-#--------------------------------------------------------------------------
-# url_resolve --
-#
-#     This command is used to transform a (possibly) relative URL into an
-#     absolute URL. Example:
-#
-#         $ url_resolve http://host.com/dir1/dir2/doc.html ../dir3/doc2.html
-#         http://host.com/dir1/dir3/doc2.html
-#
-#     This is purely a string manipulation procedure.
-#
-proc url_resolve {baseurl url} {
-
-    array set u [urlSplit $url]
-    array set b [urlSplit $baseurl]
-
-    set ret {}
-    foreach part [list scheme host port] {
-        if {$u($part) != ""} {
-            append ret $u($part)
-        } else {
-            append ret $b($part)
-        }
-    }
-
-    if {$b(path) == ""} {set b(path) "/"}
-
-    if {[regexp {^/} $u(path)] || $u(host) != ""} {
-        set path $u(path)
-    } else {
-        if {$u(path) == ""} {
-            set path $b(path)
-        } else {
-            regexp {.*/} $b(path) path
-            append path $u(path)
-        }
-    }
-
-    append ret [urlNormalize $path]
-    append ret $u(query)
-    append ret $u(fragment)
-
-    # puts "$baseurl + $url -> $ret"
-    return $ret
-}
-
-#--------------------------------------------------------------------------
-# url_get --
-#
-#     This is a high-level string manipulation procedure to extract components
-#     from a URL.
-#
-#         -fragment
-#         -prefragment
-#         -port
-#         -host
-#
-#     For the url "http://www.google.com:1234/index.html#part5"
-#
-swproc url_get {url \
-    {fragment ""} {prefragment ""} {port ""} {host ""} {scheme ""}} \
-{
-    array set u [urlSplit $url]
-
-    if {$fragment != ""} {
-        uplevel [subst {
-            set $fragment "[string range $u(fragment) 1 end]"
-        }]
-    }
-
-    if {$prefragment != ""} {
-        uplevel [subst {
-            set $prefragment "$u(scheme)$u(host)$u(port)$u(path)$u(query)"
-        }]
-    }
-
-    if {$host != ""} {
-        uplevel [subst {
-            set $host "[string range $u(host) 2 end]"
-        }]
-    }
-
-    if {$port != ""} {
-        uplevel [subst {
-            set $port "[string range $u(port) 1 end]"
-        }]
-    }
-
-    if {$scheme != ""} {
-        uplevel [subst {
-            set $scheme "[string range $u(scheme) 0 end-1]"
-        }]
-    }
+  }
+  itcl::delete object $obj
 }

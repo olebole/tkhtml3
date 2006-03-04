@@ -57,8 +57,8 @@ proc SQ {args} {
 #
 namespace eval NroffMacros {
 
-namespace export TH Section Option Bulletlist Code Subcommand Subsection
-namespace export process_text
+namespace export TH Section Option Bulletlist Code 
+namespace export Subcommand Subsection process_text
 
 proc process_text {input {nocommands 0}} {
   if {$nocommands} {
@@ -66,6 +66,11 @@ proc process_text {input {nocommands 0}} {
   } else {
     set output [subst -novariables $input]
   }
+
+  set output [
+    regsub -all {_([^ \n]*)_} $output {\1}
+  ]
+
   set output [string trim [strip_leading_tabs $output]]
   set output [regsub -all {[\n]*REMOVELINEBREAK\n} $output \n]
 
@@ -211,6 +216,10 @@ proc process_text {input {nocommands 0} {noparagraphs 0}} {
     set output [subst -novariables $input]
   }
   set output [string trim [strip_leading_tabs $output]]
+
+  set output [
+    regsub -all {_([^ \n]*)_} $output {<i>\1</i>}
+  ]
 
   set blocknest 0
   set paraopen 0

@@ -3,7 +3,8 @@
   FRAME, FRAMESET, H1, H2, H3, H4, H5, H6, IFRAME, NOFRAMES, 
   OBJECT, OL, P, UL, APPLET, CENTER, DIR, HR, MENU, PRE
                 { display: block }
-HEAD, SCRIPT    { display: none }
+HEAD, SCRIPT, TITLE
+                { display: none }
 
 BODY            { 
     margin: 8px; 
