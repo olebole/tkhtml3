@@ -1,0 +1,153 @@
+[TH hv3 n]
+
+[Section Name]
+	hv3 - Mega-widget building on Tkhtml.
+
+[Section Synopsis]
+	[Code {
+		package require hv3
+		hv3 pathName ?options?
+	}]
+
+[Section Standard Options]
+	[Code {
+		-height
+		-width
+	}]
+
+[Section Html Options]
+	The following Tkhtml options are exposed as public options of 
+	this mega-widget.
+
+	[Code {
+		-logcmd
+	}]
+
+[Section Widget-Specific Options]
+	[Option statusvar {
+		If not set to an empty string (the default value), this 
+		option is set to the name of a Tcl variable in which the
+		widget stores an English language message describing the
+		outstanding downloads the widget is waiting on. The 
+		description is dynamically updated as download status 
+		changes.
+	}]
+	[Option cursorvar {
+		If not set to an empty string (the default value), this 
+		option is set to the name of a Tcl variable in which the
+		widget stores an English language message based on the
+		node currently under the pointer. If the node is a 
+		hyper-link, the message displays the link target. Otherwise
+		it displays the node element type, and the element types of
+		the parent and ancestor nodes. The description is dynamically
+		updated as the cursor moves. 
+	}]
+
+[Section Description]
+
+	The [SQ hv3] command creates a new window (given by the pathName
+	argument) and makes it into hv3 widget. The hv3 command
+	returns its pathName argument. At the time this command is invoked,
+	there must not exist a window named pathName, but pathName's parent
+	must exist.
+
+	An [SQ hv3] widget provides the following features on top of the
+	[SQ html] widget:
+
+[Bulletlist {
+		Built-in scrollbars.
+} {
+		Support for selecting text with the pointer.
+} {
+		Built-in support for the file:// protocol and an API to 
+		allow further protocols (http://, https:// ...) to be added.
+} {
+		Support for loading linked images and stylesheets from URIs.
+} {
+		Support for loading a new document by clicking on a 
+		hyper-link.
+}]
+	
+[Section Widget Command]
+	The [SQ hv3] command creates a new Tcl command whose name is
+	pathName. This command may be used to invoke various operations on
+	the widget as follows:
+
+[Subcommand {
+	pathName cget _option_
+		Returns the current value of the configuration option given
+		by option. Option may have any of the values accepted by
+		the [SQ hv3] command.
+}]
+
+[Subcommand {
+	pathName configure _?option?_ _?value?_
+		Query or modify the configuration options of the widget. If
+		no option is specified, returns a list describing all of
+		the available options for pathName (see Tk_ConfigureInfo
+		for information on the format of this list). If option is
+		specified with no value, then the command returns a list
+		describing the one named option (this list will be
+		identical to the corresponding sublist of the value
+		returned if no option is specified). If one or more
+		option-value pairs are specified, then the command modifies
+		the given widget option(s) to have the given value(s); in
+		this case the command returns an empty string. Option may
+		have any of the values accepted by the [SQ hv3] command.
+}]
+
+[Subcommand {
+	pathName goto _url_ _?options?_
+		Where available options are:
+	[Code {
+		-noresolve
+		-nocallback
+	}]
+}]
+
+[Subcommand {
+	pathName protocol _protocol_ _script_
+		Register a new protocol handler with the widget. The 
+		protocol parameter is the name of the new protocol to 
+		handle, for example "http" or "https". When hv3 requires 
+		data from a URI matching the specified protocol it appends
+		a download-handle to the supplied script and evaluates the
+		result. See the "download-handle" section below for a
+		description of the interface a protocol-handler script 
+		uses to return downloaded data to the widget.
+}]
+
+[Section Download Handle]
+	A download handle is passed to a protocol-handler script. It's 
+	job is to retrieve the data for a specified URI and pass it on
+	to the hv3 widget. A download-handle is itself a Tcl command
+	implementing the following sub-commands:
+
+[Subcommand {
+	downloadHandle append _data_
+}]
+
+[Subcommand {
+	downloadHandle binary
+		Return true if binary data is expected, false if UTF-8.
+}]
+
+[Subcommand {
+	downloadHandle finish _data_
+}]
+
+[Subcommand {
+	downloadHandle redirect _uri_
+}]
+
+[Subcommand {
+	downloadHandle uri
+		Return the URI to be retrieved. The URI is never relative 
+		and never includes a fragment (a URI fragment is the bit on 
+		the end after a # character).
+}]
+
+[Subcommand {
+	downloadHandle cancelvar _varname_
+}]
+

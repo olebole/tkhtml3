@@ -44,7 +44,7 @@ swproc hv3Init {PATH {gotocallback ""}} {
   ::hv3::initVars $PATH
   ::hv3::importVars $PATH
 
-  set myUrl [Hv3Uri #auto -path [pwd]/]
+  set myUrl [Hv3Uri #auto [pwd]/]
   set myGotoCallback $gotocallback
 
   # Create the widgets and pack them all into the frame. The caller 
@@ -86,7 +86,7 @@ swproc hv3Init {PATH {gotocallback ""}} {
   selection handle $PATH.html [list ::hv3::guiGetSelection $PATH]
 
   # Register the built-in URI protocol "file"
-  hv3RegisterProtocol $PATH file ::hv3::fileProtocol
+  hv3RegisterProtocol $PATH file Hv3FileProtocol
 
   # Force the status bar variables to initialise by pretending someone 
   # middle-clicked on the html widget.
@@ -105,7 +105,7 @@ swproc hv3Goto {PATH url {noresolve 0 1} {nocallback 0 1}} {
   $myUrl load $url
 
   if {$myGotoCallback != "" && !$nocallback} {
-    eval $myGotoCallback $url
+    eval $myGotoCallback [$myUrl get]
   }
 
   set f [$myUrl cget -fragment]
@@ -488,8 +488,7 @@ catch {
   {
     importVars $PATH
 
-    set obj [Hv3Uri #auto]
-    $obj load $url
+    set obj [Hv3Uri #auto $url]
     set scheme [$obj cget -scheme]
     ::itcl::delete object $obj
 
@@ -499,7 +498,7 @@ catch {
     }
 
     if {$reset} {
-      $cmd -reset
+      # TODO
       set myStatusInfo [list]
     }
 
@@ -511,18 +510,26 @@ catch {
     }
     set myStatusInfo [array get status]
     
-    set callback [list ::hv3::downloadCallback $PATH $script $type]
     if {[catch {
-      $cmd $url -script $callback -binary $binary
-    }]} {
-      puts "Error: Cannot fetch $url"
+      set dl [Hv3Download ::#auto]
+      set callback [list ::hv3::downloadCallback $dl $PATH $script $type]
+      $dl configure -finscript $callback -binary $binary -uri $url
+      $cmd $dl
+    } msg]} {
+      puts "Error: Cannot fetch $url: $msg"
       return
     }
     downloadSetStatus $PATH
   }
 
-  proc downloadCallback {PATH script type data} {
+  proc downloadCallback {downloadHandle PATH script type data} {
     importVars $PATH
+
+    if {$type eq "Document"} {
+      $myUrl load [$downloadHandle cget -uri]
+    }
+
+
     array set status $myStatusInfo
     lset status($type) 0 [expr [lindex $status($type) 0] + 1]
     set myStatusInfo [array get status]
@@ -539,29 +546,6 @@ catch {
     }
   }
 
-  # fileProtocol
-  #
-  #     This command is registered as the handler for the builtin file://
-  #     protocol.
-  # 
-  swproc fileProtocol {url {script ""} {binary 0}} {
-    if {$url=="-reset"} {
-      return
-    }
-    set fname [string range $url 7 end]
-    set f [open $fname]
-    if {$binary} {
-      fconfigure $f -encoding binary -translation binary
-    }
-    set data [read $f]
-    close $f
-    if {$script != ""} {
-      lappend script $data
-      eval $script
-    }
-  }
-
-
   # resolve baseurl url
   #
   #     This command is used to transform a (possibly) relative URL into an
@@ -573,28 +557,87 @@ catch {
   #     This is purely a string manipulation procedure.
   #
   proc resolve {baseurl url} {
-      set obj [Hv3Uri #auto]
-      $obj load $baseurl
-      $obj load $url
-      set ret [$obj get]
-      ::itcl::delete object $obj
-      return $ret
+    set obj [Hv3Uri #auto $baseurl]
+    $obj load $url
+    set ret [$obj get]
+    ::itcl::delete object $obj
+    return $ret
   }
 }
 
 #--------------------------------------------------------------------------
 # Class Hv3Download
 #
+#     Instances of this class are used to interface between 
+#     protocol-implementations and the hv3 widget. Refer to the hv3
+#     man page for a description of the interface as used by protocol 
+#     implementations.
+#
 itcl::class Hv3Download {
+  variable myData ""
 
-  # Query interface
-  method binary   {}
+  public variable binary 0
+  public variable uri ""
 
-  # Interface for returning data
-  method append   {data}
-  method finished {}
-  method redirect {uri}
+  public variable incrscript  ""
+  public variable finscript   ""
+  public variable redirscript ""
+
+  # Query interface used by protocol implementations
+  method binary    {} {return $binary}
+  method uri       {} {return $uri}
+
+  # Interface for returning data.
+  method append {data} {
+    if {$incrscript != ""} {
+      eval [linsert $incrscript end $data]
+    } else {
+      ::append myData $data
+    }
+  }
+
+  # Called after all data has been passed to [append].
+  method finish {} {
+    if {$finscript != ""} {
+      eval [linsert $finscript end $myData] 
+    } 
+    itcl::delete object $this
+  }
+
+  # Interface for returning a redirect
+  method redirect {new_uri} {
+    if {$redirscript != ""} {
+      eval [linsert $redirscript end $new_uri]
+    } 
+    set uri $new_uri
+  }
 }
+#--------------------------------------------------------------------------
+
+#--------------------------------------------------------------------------
+# Protocol implementation for file:// protocol.
+#
+proc Hv3FileProtocol {downloadHandle} {
+  set uri [$downloadHandle uri]
+  set url_obj [Hv3Uri #auto $uri]
+  set fname [$url_obj cget -path]
+  itcl::delete object $url_obj
+
+  set rc [catch {
+    set f [open $fname]
+    if {[$downloadHandle binary]} {
+      fconfigure $f -encoding binary -translation binary
+    }
+    set data [read $f]
+    $downloadHandle append $data
+    close $f
+  } msg]
+
+  $downloadHandle finish
+
+  if {$rc} {error $msg}
+}
+#--------------------------------------------------------------------------
 
 #--------------------------------------------------------------------------
 # Class Hv3Uri
@@ -614,16 +657,17 @@ itcl::class Hv3Uri {
   public variable fragment  ""
 
   # Constructor and destructor
-  constructor {args} {eval $this configure $args}
+  constructor {{url {}}} {load $url}
   destructor  {}
 
   # Return a copy of this object (must be passed to [delete object])
   method clone {} {
-    set script [list Hv3Uri #auto]
+    set obj [Hv3Uri #auto]
     foreach var [list scheme authority path query fragment] {
       lappend script -${var} [set $var]
     }
-    eval $script
+    eval $obj configure $script
+    return $obj
   }
 
   # Set the contents of the object to the specified URI.
@@ -657,10 +701,13 @@ itcl::class Hv3Uri {
       if {$ok} {
         if {$var eq "path"} {
           if {![string match /* $r(path)]} {
-            set dir [file dirname $path]
-            if {[string match */ $dir]} { 
-              set r(path) "${dir}$r(path)"
+            if {[string match */ $path]} {
+              set r(path) "${path}$r(path)"
             } else {
+              set dir [file dirname $path]
+              if {[string match */ $dir]} {
+                set dir [string range $dir 0 end-1]
+              } 
               set r(path) "${dir}/$r(path)"
             }
           }
@@ -680,6 +727,7 @@ itcl::class Hv3Uri {
         if {$var eq "scheme"} {set scheme [string range $scheme 0 end-1]}
         if {$var eq "authority"} {set authority [string range $authority 2 end]}
         if {$var eq "fragment"} {set fragment [string range $fragment 1 end]}
+        if {$var eq "query"} {set query [string range $query 1 end]}
       }
     }
   }
@@ -745,3 +793,6 @@ if 1 {
   }
   itcl::delete object $obj
 }
+# End of tests for Hv3Uri.
+#--------------------------------------------------------------------------
+

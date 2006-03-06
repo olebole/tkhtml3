@@ -175,7 +175,10 @@ proc guiBack {} {
 #
 #     This command is registered as the handler for the http:// protocol.
 #
-swproc httpProtocol {url {script ""} {binary 0}} {
+# swproc httpProtocol {url {script ""} {binary 0}} {
+proc httpProtocol {downloadHandle} {
+
+  set uri [$downloadHandle uri]
 
   # If this is the first invocation of this proc, initialise
   # the global outstanding-tokens list to an empty list. Also
@@ -188,28 +191,21 @@ swproc httpProtocol {url {script ""} {binary 0}} {
     ::http::config -proxyport 3128
   }
 
-  # If the caller has invoked [httpProtocol -reset] cancel all 
-  # currently outstanding downloads and return.
-  if {$url=="-reset"} {
-    foreach token $::hv3_http_token_list {
-      ::http::cleanup $token
-    }
-    return
-  }
+  puts $uri
 
-  puts $url
-
+if 0 {
   set headers "Cookie "
   foreach cookie $::hv3_http_cookies {
     append headers [lindex $cookie 1]
   }
+}
 
   # Start the download and append the token to the global token
   # list. When the download is finished, [httpProtocolCallback] will
   # be invoked.
-  set cmd [list httpProtocolCallback $script $binary]
-  set token [::http::geturl $url -command $cmd -headers $headers]
-  # set token [::http::geturl $url -command $cmd]
+  set cmd [list httpProtocolCallback $downloadHandle]
+  # set token [::http::geturl $uri -command $cmd -headers $headers]
+  set token [::http::geturl $uri -command $cmd]
   lappend ::hv3_http_token_list $token
 }
 
@@ -218,8 +214,9 @@ swproc httpProtocol {url {script ""} {binary 0}} {
 #     This proc is invoked when an http request made by proc httpProtocol
 #     has finished downloading.
 #
-proc httpProtocolCallback {script binary token} {
+proc httpProtocolCallback {downloadHandle token} {
   upvar \#0 $token state 
+
   if {[info exists state(meta)]} {
     foreach {name value} $state(meta) {
       if {$name eq "Set-Cookie"} {
@@ -231,15 +228,15 @@ proc httpProtocolCallback {script binary token} {
     foreach {name value} $state(meta) {
       if {$name eq "Location"} {
         puts "REDIRECT: $value"
-        httpProtocol $value -script $script -binary $binary
+        $downloadHandle redirect $value
+        httpProtocol $downloadHandle
         return
       }
     }
   } 
 
-  set cmd $script
-  lappend cmd $state(body)
-  eval $cmd
+  $downloadHandle append $state(body)
+  $downloadHandle finish
 }
 
 # End of http:// protocol implementation
