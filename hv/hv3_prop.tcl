@@ -105,17 +105,12 @@ itcl::body HtmlDebug::browseNode {node} {
   hv3Goto $myTopLevel.report "tcl:///$this report $node" -noresolve
 }
 
-swproc tclProtocol {url {script ""} {binary 0}} {
-  if {$url=="-reset"} {
-    return
-  }
-  if {$script != ""} {
-    set cmd [string range $url 7 end]
-    set result [eval $cmd]
-    lappend script $result
-    eval $script
-  }
+proc tclProtocol {downloadHandle} {
+  set cmd [string range [$downloadHandle uri] 7 end]
+  $downloadHandle append [eval $cmd]
+  $downloadHandle finish
 }
+
 proc tclInputHandler {node} {
   set widget [$node attr -default "" widget]
   if {$widget != ""} {

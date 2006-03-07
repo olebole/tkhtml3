@@ -261,7 +261,7 @@ namespace eval hv3 {
   #     or ::hv3::styleImportCmd).
   proc styleCallback {PATH url id style} {
     set importcmd [list ::hv3::styleImport $PATH $id] 
-    set urlcmd [list resolve $url]
+    set urlcmd [itcl::code resolve $url]
     $PATH.html style -id $id -importcmd $importcmd -urlcmd $urlcmd $style
   }
 
@@ -529,7 +529,6 @@ catch {
       $myUrl load [$downloadHandle cget -uri]
     }
 
-
     array set status $myStatusInfo
     lset status($type) 0 [expr [lindex $status($type) 0] + 1]
     set myStatusInfo [array get status]
@@ -635,17 +634,29 @@ proc Hv3FileProtocol {downloadHandle} {
 
   $downloadHandle finish
 
-  if {$rc} {error $msg}
+  if {$rc} {
+    error $msg $::errorInfo
+  }
 }
 #--------------------------------------------------------------------------
 
 #--------------------------------------------------------------------------
-# Class Hv3Uri
+# Class Hv3Uri:
 #
 #     A very simple class for handling URI references. A partial 
 #     implementation of the syntax specification found at: 
 #
 #         http://www.gbiv.com/protocols/uri/rfc/rfc3986.html
+# 
+# Usage:
+#
+#     set uri_obj [Hv3Uri #auto $URI]
+#
+#     $uri_obj load $URI
+#     $uri_obj get
+#     $uri_obj cget ?option?
+#
+#     ::itcl::delete object $uri_obj
 #
 itcl::class Hv3Uri {
 
@@ -657,7 +668,7 @@ itcl::class Hv3Uri {
   public variable fragment  ""
 
   # Constructor and destructor
-  constructor {{url {}}} {load $url}
+  constructor {{url {}}} {$this load $url}
   destructor  {}
 
   # Return a copy of this object (must be passed to [delete object])
@@ -735,20 +746,23 @@ itcl::class Hv3Uri {
   # Return the contents of the object formatted as a URI.
   method get {{nofragment ""}} {
     set result "${scheme}://${authority}"
-    if {$path != ""}     {append result "${path}"}
-    if {$query != ""}    {append result "?${query}"}
-    if {$nofragment eq "" && $fragment ne ""} {append result "#${fragment}"}
+    if {$path != ""}     {::append result "${path}"}
+    if {$query != ""}    {::append result "?${query}"}
+    if {$nofragment eq "" && $fragment ne ""} {::append result "#${fragment}"}
     return $result
   }
 }
 # End of class Hv3Uri
 #--------------------------------------------------------------------------
 
+
 #--------------------------------------------------------------------------
-# Tests for Hv3Uri:
+# Automated tests for Hv3Uri:
+#
 #     The following block runs some quick regression tests on the Hv3Uri 
 #     implementation. These take next to no time to run, so there's little
 #     harm in leaving them in.
+#
 if 1 {
   set test_data [list                                                 \
     {http://tkhtml.tcl.tk/index.html}                                 \
@@ -795,4 +809,3 @@ if 1 {
 }
 # End of tests for Hv3Uri.
 #--------------------------------------------------------------------------
-
