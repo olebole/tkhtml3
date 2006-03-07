@@ -12,7 +12,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile.in,v 1.25 2006/02/22 17:01:54 danielk1977 Exp $
+# RCS: @(#) $Id: Makefile.in,v 1.26 2006/03/07 10:35:58 danielk1977 Exp $
 
 #========================================================================
 # Add additional lines to handle any additional AC_SUBST cases that
@@ -116,8 +116,6 @@ TCL_SRC_DIR	= @TCL_SRC_DIR@
 TK_BIN_DIR	= @TK_BIN_DIR@
 TK_SRC_DIR	= @TK_SRC_DIR@
 
-# This is no longer necessary even for packages that use private Tcl headers
-#TCL_TOP_DIR_NATIVE	= @TCL_TOP_DIR_NATIVE@
 # Not used, but retained for reference of what libs Tcl required
 #TCL_LIBS	= @TCL_LIBS@
 
@@ -196,7 +194,7 @@ libraries:
 #========================================================================
 
 doc:
-	cp $(srcdir)/doc/tkhtml.n .
+	$(TCLSH) $(srcdir)/doc/macros.tcl -nroff $(srcdir)/doc/html.man>tkhtml.n
 
 install: all install-binaries install-libraries install-doc
 
