@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.122 2006/03/03 07:10:10 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.123 2006/03/07 06:34:14 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -2144,8 +2144,8 @@ borderLayout(pLayout, pNode, pBox, xA, yA, xB, yB)
 {
     BoxProperties boxproperties;
     BorderProperties borderproperties;
-    int tw, rw, bw, lw;
-    XColor *tc, *rc, *bc, *lc;
+    int tw, rw, bw, lw;                  /* Border pixel widths */
+    XColor *tc, *rc, *bc, *lc;           /* Border colors */
     int x1, y1, x2, y2;
 
     BoxContext sBox;
@@ -2201,7 +2201,7 @@ borderLayout(pLayout, pNode, pBox, xA, yA, xB, yB)
                 borderproperties.isPositionPercent, 
                 borderproperties.eBgRepeat,          /* 'background-repeat' */
                 x1+lw, y1+tw,                        /* x, y */
-                x2-rw, y2-bw,                        /* width, height */
+                x2-rw-lw, y2-bw-tw,                  /* width, height */
                 pLayout->minmaxTest                  /* Size-only mode */
             );
         }
