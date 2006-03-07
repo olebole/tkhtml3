@@ -711,7 +711,7 @@ itcl::class Hv3Uri {
       }
       if {$ok} {
         if {$var eq "path"} {
-          if {![string match /* $r(path)]} {
+          if {![string match /* $r(path)] && $r(authority) eq ""} {
             if {[string match */ $path]} {
               set r(path) "${path}$r(path)"
             } else {
@@ -739,6 +739,7 @@ itcl::class Hv3Uri {
         if {$var eq "authority"} {set authority [string range $authority 2 end]}
         if {$var eq "fragment"} {set fragment [string range $fragment 1 end]}
         if {$var eq "query"} {set query [string range $query 1 end]}
+        if {$var eq "path" && $path eq ""} {set path "/"}
       }
     }
   }
@@ -786,6 +787,12 @@ if 1 {
     {http://wiki.tcl.tk/}                                             \
         -scheme http       -authority wiki.tcl.tk                     \
         -path "/"          -query "" -fragment ""                     \
+    {file:///home/dan/fbi.html}                                       \
+        -scheme file       -authority ""                              \
+        -path "/home/dan/fbi.html"  -query "" -fragment ""            \
+    {http://www.tclscripting.com}                                     \
+        -scheme http       -authority "www.tclscripting.com"          \
+        -path "/"  -query "" -fragment ""                             \
   ]
 
   set obj [Hv3Uri #auto]

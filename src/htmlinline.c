@@ -31,7 +31,7 @@
  * 
  *     HtmlInlineContextIsEmpty
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.9 2006/02/22 16:42:38 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.10 2006/03/07 11:13:15 danielk1977 Exp $";
 
 typedef struct InlineBox InlineBox;
 
@@ -1060,8 +1060,16 @@ HtmlInlineContextNew(pNode, isSizeOnly)
      *
      * all lines are centered. The style attribute of the <span> tag has no
      * effect on the layout.
+     *
+     * If the 'white-space' property is set to other than 'normal', then
+     * any specified value of 'text-align' is ignored and inline blocks
+     * are aligned against the left margin.
      */
-    pNew->textAlign = isSizeOnly ? CSS_CONST_LEFT : pValues->eTextAlign;
+    pNew->whiteSpace = pValues->eWhitespace;
+    pNew->textAlign = pValues->eTextAlign;
+    if (isSizeOnly || pValues->eWhitespace != CSS_CONST_NORMAL) {
+        pNew->textAlign = CSS_CONST_LEFT;
+    }
 
     /* The 'line-height' property for the block-box that generates this 
      * inline context is used as the minimum line height for all generated 
@@ -1072,7 +1080,6 @@ HtmlInlineContextNew(pNode, isSizeOnly)
         pNew->lineHeight = -100;
     }
 
-    pNew->whiteSpace = pValues->eWhitespace;
     pNew->isSizeOnly = isSizeOnly;
     return pNew;
 }
