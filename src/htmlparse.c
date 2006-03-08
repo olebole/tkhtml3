@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.53 2006/03/08 12:03:54 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.54 2006/03/08 13:54:12 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -1435,8 +1435,9 @@ getScriptHandler(pTree, tag)
  *---------------------------------------------------------------------------
  */
 static int 
-Tokenize(pTree)
+Tokenize(pTree, isFinal)
     HtmlTree *pTree;             /* The HTML widget doing the parsing */
+    int isFinal;
 {
     char *z;                     /* The input HTML text */
     int c;                       /* The next character of input */
@@ -1594,7 +1595,7 @@ Tokenize(pTree)
             int nBytes;
 
             for (i = 1; (c = z[n + i]) != 0 && !isspace(c) && c != '<'; i++);
-            if (c == 0) {
+            if (c == 0 && !isFinal) {
                 goto incomplete;
             }
 
@@ -1917,7 +1918,7 @@ HtmlTokenizerAppend(pTree, zText, nText, isFinal)
     } 
     Tcl_AppendToObj(pTree->pDocument, z, n);
 
-    pTree->nParsed = Tokenize(pTree);
+    pTree->nParsed = Tokenize(pTree, isFinal);
     if (isFinal) {
         AppendToken(pTree, 0);
     }
