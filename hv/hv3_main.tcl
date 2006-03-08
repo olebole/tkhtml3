@@ -21,6 +21,7 @@ proc sourcefile {file} {
   uplevel #0 [list source $fname]
 }
 
+sourcefile snit.tcl
 sourcefile hv3_log.tcl
 sourcefile hv3_prop.tcl
 sourcefile hv3_form.tcl
@@ -143,104 +144,82 @@ proc guiBack {} {
 # End of implementation of File->Back command.
 #--------------------------------------------------------------------------
 
+snit::type Hv3HttpProtcol {
 
-#--------------------------------------------------------------------------
-# Implementation of http:// protocol for hv3.
-#
-#     We require an http proxy running on the localhost, tcp port 3128, '
-#     for this to work. This command depends on the tcl http package.
-#
-#     Two global variables are used:
-#    
-#         ::hv3_http_token_list
-#         ::hv3_http_cookies
-#
-#     Global var ::hv3_http_token_list stores the list of outstanding http
-#     tokens. It is used to cancel downloads if [httpProtocol -reset] is
-#     called.
-#
-#     The ::hv3_http_cookies variable is the current list of cookies 
-#     stored in memory. Each list entry is itself a list, formatted
-#     as follows:
-#
-#         {domain name=value}
-#
-#     Two procs are declared:
-#
-#         httpProtocol
-#         httpProtocolCallback
-# 
+  option -proxyport -default 3128      -configuremethod _ConfigureProxy
+  option -proxyhost -default localhost -configuremethod _ConfigureProxy
 
-# httpProtocol
-#
-#     This command is registered as the handler for the http:// protocol.
-#
-# swproc httpProtocol {url {script ""} {binary 0}} {
-proc httpProtocol {downloadHandle} {
+  variable myCookies -array [list]
 
-  set uri [$downloadHandle uri]
-
-  # If this is the first invocation of this proc, initialise
-  # the global outstanding-tokens list to an empty list. Also
-  # configure the http module to use the web proxy.
-  if {![info exists ::hv3_http_token_list]} {
+  constructor {} {
     package require http
-    set ::hv3_http_token_list [list]
-    set ::hv3_http_cookies [list]
-    ::http::config -proxyhost localhost
-    ::http::config -proxyport 3128
+    $self _ConfigureProxy
   }
 
-  puts $uri
+  method download {downloadHandle} {
+    set uri [$downloadHandle uri]
+    set finish [mymethod _DownloadCallback $downloadHandle]
+    set append [mymethod _AppendCallback $downloadHandle]
 
-if 0 {
-  set headers "Cookie "
-  foreach cookie $::hv3_http_cookies {
-    append headers [lindex $cookie 1]
+    set headers ""
+    set authority [$downloadHandle authority]
+    if {[info exists myCookies($authority)]} {
+      set headers "Cookie "
+      foreach cookie $myCookies($authority) {
+        lappend headers $cookie
+      }
+    }
+
+    ::http::geturl $uri -command $finish -handler $append -headers $headers
+  }
+
+  # Configure the http package to use a proxy as specified by
+  # the -proxyhost and -proxyport options on this object.
+  #
+  method _ConfigureProxy {} {
+    ::http::config -proxyhost $options(-proxyhost)
+    ::http::config -proxyport $options(-proxyport)
+  }
+
+  # Invoked when data is available from an http request. Pass the data
+  # along to hv3 via the downloadHandle.
+  #
+  method _AppendCallback {downloadHandle socket token} {
+    upvar \#0 $token state 
+    set data [read $socket 2048]
+    $downloadHandle append $data
+    set nbytes [string length $data]
+    return $nbytes
+  }
+
+  # Invoked when an http request has concluded.
+  #
+  method _DownloadCallback {downloadHandle token} {
+    upvar \#0 $token state 
+
+    if {[info exists state(meta)]} {
+      foreach {name value} $state(meta) {
+        if {$name eq "Set-Cookie"} {
+          puts "COOKIE: $value"
+          regexp {^[^ ]*} $value nv_pair
+          puts "STORE: [$downloadHandle authority] $nv_pair"
+          lappend myCookies([$downloadHandle authority]) $nv_pair
+        }
+      }
+      foreach {name value} $state(meta) {
+        if {$name eq "Location"} {
+          puts "REDIRECT: $value"
+          $downloadHandle redirect $value
+          $self download $downloadHandle
+          return
+        }
+      }
+    } 
+
+    $downloadHandle append $state(body)
+    $downloadHandle finish
   }
 }
-
-  # Start the download and append the token to the global token
-  # list. When the download is finished, [httpProtocolCallback] will
-  # be invoked.
-  set cmd [list httpProtocolCallback $downloadHandle]
-  # set token [::http::geturl $uri -command $cmd -headers $headers]
-  set token [::http::geturl $uri -command $cmd]
-  lappend ::hv3_http_token_list $token
-}
-
-# httpProtocolCallback 
-#
-#     This proc is invoked when an http request made by proc httpProtocol
-#     has finished downloading.
-#
-proc httpProtocolCallback {downloadHandle token} {
-  upvar \#0 $token state 
-
-  if {[info exists state(meta)]} {
-    foreach {name value} $state(meta) {
-      if {$name eq "Set-Cookie"} {
-        puts "COOKIE: $value"
-        regexp {^[^ ]*} $value nv_pair
-        lappend ::hv3_http_cookies [list {} $nv_pair]
-      }
-    }
-    foreach {name value} $state(meta) {
-      if {$name eq "Location"} {
-        puts "REDIRECT: $value"
-        $downloadHandle redirect $value
-        httpProtocol $downloadHandle
-        return
-      }
-    }
-  } 
-
-  $downloadHandle append $state(body)
-  $downloadHandle finish
-}
-
-# End of http:// protocol implementation
-#--------------------------------------------------------------------------
 
 #
 # Override the [exit] command to check if the widget code leaked memory
@@ -263,7 +242,11 @@ puts [array names ::HtmlForm::instance]
 #
 proc main {{doc index.html}} {
   hv3Init .hv3 -gotocallback guiGotoCallback
-  hv3RegisterProtocol .hv3 http httpProtocol
+
+  set http_obj [Hv3HttpProtcol create %AUTO%]
+  hv3RegisterProtocol .hv3 http [list $http_obj download]
+  # hv3RegisterProtocol .hv3 http httpProtocol
+
   set ::HTML .hv3.html
   bind $::HTML <KeyPress-q> exit
   bind $::HTML <KeyPress-Q> exit

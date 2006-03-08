@@ -38,13 +38,14 @@
 #         $cmd URI -callback SCRIPT ?-binary BOOLEAN?
 #         $cmd -reset
 #     
+package require snit
 package require Itcl
 
 swproc hv3Init {PATH {gotocallback ""}} {
   ::hv3::initVars $PATH
   ::hv3::importVars $PATH
 
-  set myUrl [Hv3Uri #auto [pwd]/]
+  set myUrl [Hv3Uri %AUTO% [pwd]/]
   set myGotoCallback $gotocallback
 
   # Create the widgets and pack them all into the frame. The caller 
@@ -114,8 +115,7 @@ swproc hv3Goto {PATH url {noresolve 0 1} {nocallback 0 1}} {
   if {$current == $prefragment && $f != ""} {
     ::hv3::goto_fragment $PATH $f
   } else {
-    set script [list ::hv3::parse $PATH $f] 
-    ::hv3::download $PATH $prefragment -script $script -type Document -reset
+    ::hv3::download $PATH $prefragment -type Document -reset
   }
 }
 
@@ -137,6 +137,8 @@ namespace eval hv3 {
   VAR myProxyPort
   VAR myGotoCallback
   VAR myStateVar 
+
+  VAR myResetPending 0     
 
   VAR myStyleCount 0       ;# Used by [styleId] to assign style-ids
   VAR myUrl                ;# Current URL being displayed (or loaded)
@@ -261,7 +263,7 @@ namespace eval hv3 {
   #     or ::hv3::styleImportCmd).
   proc styleCallback {PATH url id style} {
     set importcmd [list ::hv3::styleImport $PATH $id] 
-    set urlcmd [itcl::code resolve $url]
+    set urlcmd [namespace code [list resolve $url]]
     $PATH.html style -id $id -importcmd $importcmd -urlcmd $urlcmd $style
   }
 
@@ -442,25 +444,40 @@ catch {
     }
   }
 
-  # parse PATH fragment text 
+  # parse PATH text 
   #
   #     Append the text TEXT to the current document.  If argument FRAGMENT is
   #     not "", then it is the name of an anchor within the document to jump
   #     to.
   #
-  proc parse {PATH fragment text} {
+  proc parse {PATH text} {
+    importVars $PATH
     if {$text != ""} {
-      $PATH.html reset
-  
       importVars $PATH
-      set myStyleCount 0
+
+      if {$myResetPending} {
+        $PATH.html reset
+        set myResetPending 0
+        set myStyleCount 0
+      }
+  
       $PATH.html parse $text
   
+      set fragment [$myUrl cget -fragment]
       if {$fragment != ""} {
         goto_fragment $PATH $fragment
       }
     }
   }
+  proc parsefinished {PATH dummy} {
+    importVars $PATH
+    parse $PATH ""
+    $PATH.html parse -final ""
+  }
+  proc setResetPending {PATH args} {
+    importVars $PATH
+    set myResetPending 1
+  } 
 
   # download PATH url ?-script script? ?-type type? ?-binary? ?-reset?
   #
@@ -474,9 +491,9 @@ catch {
   {
     importVars $PATH
 
-    set obj [Hv3Uri #auto $url]
+    set obj [Hv3Uri %AUTO% $url]
     set scheme [$obj cget -scheme]
-    ::itcl::delete object $obj
+    $obj destroy
 
     array set protocols $myProtocols
     if {[catch {set cmd $protocols($scheme)}]} {
@@ -497,10 +514,22 @@ catch {
     set myStatusInfo [array get status]
     
     if {[catch {
-      set dl [Hv3Download ::#auto]
-      set callback [list ::hv3::downloadCallback $dl $PATH $script $type]
-      $dl configure -finscript $callback -binary $binary -uri $url
-      $cmd $dl
+      set dl [Hv3Download %AUTO%]
+      
+      if {$type == "Document"} {
+        set myResetPending 1
+        set script [list ::hv3::parsefinished $PATH]
+        set fin [list ::hv3::downloadCallback $dl $PATH $script $type]
+        set app [list ::hv3::parse $PATH]
+        set red [list ::hv3::setResetPending $PATH]
+        $dl configure -finscript $fin -incrscript $app -redirscript $red \
+            -binary $binary -uri $url
+      } else {
+        set fin [list ::hv3::downloadCallback $dl $PATH $script $type]
+        set app ""
+        $dl configure -finscript $fin -binary $binary -uri $url
+      }
+      eval [linsert $cmd end $dl]
     } msg]} {
       puts "Error: Cannot fetch $url: $msg"
       return
@@ -519,7 +548,9 @@ catch {
     lset status($type) 0 [expr [lindex $status($type) 0] + 1]
     set myStatusInfo [array get status]
     lappend script $data
-    eval $script
+    if {$script != ""} {
+      eval $script
+    }
     downloadSetStatus $PATH
   }
 
@@ -542,10 +573,10 @@ catch {
   #     This is purely a string manipulation procedure.
   #
   proc resolve {baseurl url} {
-    set obj [Hv3Uri #auto $baseurl]
+    set obj [Hv3Uri %AUTO% $baseurl]
     $obj load $url
     set ret [$obj get]
-    ::itcl::delete object $obj
+    $obj destroy
     return $ret
   }
 }
@@ -558,24 +589,33 @@ catch {
 #     man page for a description of the interface as used by protocol 
 #     implementations.
 #
-itcl::class Hv3Download {
+snit::type Hv3Download {
   variable myData ""
 
-  public variable binary 0
-  public variable uri ""
+  option -binary      -default 0
+  option -uri         -default ""
+  option -incrscript  -default ""
+  option -finscript   -default ""
+  option -redirscript -default ""
 
-  public variable incrscript  ""
-  public variable finscript   ""
-  public variable redirscript ""
+  # Constructor and destructor
+  constructor {args} {eval $self configure $args}
+  destructor  {}
 
   # Query interface used by protocol implementations
-  method binary    {} {return $binary}
-  method uri       {} {return $uri}
+  method binary    {} {return $options(-binary)}
+  method uri       {} {return $options(-uri)}
+  method authority {} {
+    set obj [Hv3Uri %AUTO% $options(-uri)]
+    set authority [$obj cget -authority]
+    $obj destroy
+    return $authority
+  }
 
   # Interface for returning data.
   method append {data} {
-    if {$incrscript != ""} {
-      eval [linsert $incrscript end $data]
+    if {$options(-incrscript) != ""} {
+      eval [linsert $options(-incrscript) end $data]
     } else {
       ::append myData $data
     }
@@ -583,18 +623,19 @@ itcl::class Hv3Download {
 
   # Called after all data has been passed to [append].
   method finish {} {
-    if {$finscript != ""} {
-      eval [linsert $finscript end $myData] 
+    if {$options(-finscript) != ""} {
+      eval [linsert $options(-finscript) end $myData] 
     } 
-    itcl::delete object $this
+    $self destroy
   }
 
   # Interface for returning a redirect
   method redirect {new_uri} {
-    if {$redirscript != ""} {
-      eval [linsert $redirscript end $new_uri]
+    if {$options(-redirscript) != ""} {
+      eval [linsert $options(-redirscript) end $new_uri]
     } 
-    set uri $new_uri
+    set options(-uri) $new_uri
+    set myData {}
   }
 }
 #--------------------------------------------------------------------------
@@ -604,9 +645,9 @@ itcl::class Hv3Download {
 #
 proc Hv3FileProtocol {downloadHandle} {
   set uri [$downloadHandle uri]
-  set url_obj [Hv3Uri #auto $uri]
+  set url_obj [Hv3Uri %AUTO% $uri]
   set fname [$url_obj cget -path]
-  itcl::delete object $url_obj
+  $url_obj destroy
 
   set rc [catch {
     set f [open $fname]
@@ -636,43 +677,33 @@ proc Hv3FileProtocol {downloadHandle} {
 # 
 # Usage:
 #
-#     set uri_obj [Hv3Uri #auto $URI]
+#     set uri_obj [Hv3Uri %AUTO% $URI]
 #
 #     $uri_obj load $URI
 #     $uri_obj get
 #     $uri_obj cget ?option?
 #
-#     ::itcl::delete object $uri_obj
+#     $uri_obj destroy
 #
-itcl::class Hv3Uri {
+snit::type Hv3Uri {
 
   # Public get/set variables for URI components
-  public variable scheme    file
-  public variable path      "/"
-  public variable authority ""
-  public variable query     ""
-  public variable fragment  ""
+  option -scheme    file
+  option -path      "/"
+  option -authority ""
+  option -query     ""
+  option -fragment  ""
 
   # Constructor and destructor
-  constructor {{url {}}} {$this load $url}
+  constructor {{url {}}} {$self load $url}
   destructor  {}
-
-  # Return a copy of this object (must be passed to [delete object])
-  method clone {} {
-    set obj [Hv3Uri #auto]
-    foreach var [list scheme authority path query fragment] {
-      lappend script -${var} [set $var]
-    }
-    eval $obj configure $script
-    return $obj
-  }
 
   # Set the contents of the object to the specified URI.
   method load {uri} {
 
     proc OPT     {args} { eval append res (?: $args )? }
     proc CAPTURE {args} { eval append res ( $args ) }
-    
+
     set SCHEME    {[A-Za-z][A-Za-z0-9+-\.]*}
     set AUTHORITY {[^/#?]*}
     set PATH      {[^#?]+}
@@ -698,10 +729,10 @@ itcl::class Hv3Uri {
       if {$ok} {
         if {$var eq "path"} {
           if {![string match /* $r(path)] && $r(authority) eq ""} {
-            if {[string match */ $path]} {
-              set r(path) "${path}$r(path)"
+            if {[string match */ $options(-path)]} {
+              set r(path) "$options(-path)$r(path)"
             } else {
-              set dir [file dirname $path]
+              set dir [file dirname $options(-path)]
               if {[string match */ $dir]} {
                 set dir [string range $dir 0 end-1]
               } 
@@ -720,22 +751,40 @@ itcl::class Hv3Uri {
           }
           set r(path) [join $ret /]
         }
-        set $var $r($var)
-        if {$var eq "scheme"} {set scheme [string range $scheme 0 end-1]}
-        if {$var eq "authority"} {set authority [string range $authority 2 end]}
-        if {$var eq "fragment"} {set fragment [string range $fragment 1 end]}
-        if {$var eq "query"} {set query [string range $query 1 end]}
-        if {$var eq "path" && $path eq ""} {set path "/"}
+
+        set options(-$var) $r($var)
+
+        switch -- $var {
+          scheme {
+            set options(-scheme) [string range $options(-scheme) 0 end-1]
+          }
+          authority {
+            set options(-authority) [string range $options(-authority) 2 end]
+          }
+          fragment {
+            set options(-fragment) [string range $options(-fragment) 1 end]
+          }
+          query {
+            set options(-query) [string range $options(-query) 1 end]
+          }
+          path {
+            if {$options(-path) eq ""} {set options(-path) "/"}
+          }
+        }
       }
     }
   }
 
   # Return the contents of the object formatted as a URI.
   method get {{nofragment ""}} {
-    set result "${scheme}://${authority}"
-    if {$path != ""}     {::append result "${path}"}
-    if {$query != ""}    {::append result "?${query}"}
-    if {$nofragment eq "" && $fragment ne ""} {::append result "#${fragment}"}
+    set result "$options(-scheme)://$options(-authority)"
+    ::append result "$options(-path)"
+    if {$options(-query) != ""}    {
+      ::append result "?$options(-query)"
+    }
+    if {$nofragment eq "" && $options(-fragment) ne ""} {
+      ::append result "#$options(-fragment)"
+    }
     return $result
   }
 }
@@ -781,7 +830,7 @@ if 1 {
         -path "/"  -query "" -fragment ""                             \
   ]
 
-  set obj [Hv3Uri #auto]
+  set obj [Hv3Uri %AUTO%]
   for {set ii 0} {$ii < [llength $test_data]} {incr ii} {
     set uri [lindex $test_data $ii]
     $obj load $uri 
@@ -798,7 +847,7 @@ if 1 {
       incr ii 2
     }
   }
-  itcl::delete object $obj
+  $obj destroy
 }
 # End of tests for Hv3Uri.
 #--------------------------------------------------------------------------
