@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.71 2006/03/08 05:44:10 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.72 2006/03/08 14:57:20 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -686,8 +686,8 @@ configureCmd(clientData, interp, objc, objv)
     rc = Tk_SetOptions(interp, pOptions, otab, objc-2, &objv[2], win, 0, &mask);
     if (TCL_OK == rc) {
         /* Hard-coded minimum values for width and height */
-        pTree->options.height = MAX(pTree->options.height, 100);
-        pTree->options.width = MAX(pTree->options.width, 100);
+        pTree->options.height = MAX(pTree->options.height, 1);
+        pTree->options.width = MAX(pTree->options.width, 1);
 
         if (init || (mask & GEOMETRY_MASK)) {
             int w = pTree->options.width;

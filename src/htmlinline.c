@@ -31,7 +31,7 @@
  * 
  *     HtmlInlineContextIsEmpty
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.10 2006/03/07 11:13:15 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.11 2006/03/08 14:57:20 danielk1977 Exp $";
 
 typedef struct InlineBox InlineBox;
 
@@ -1164,6 +1164,14 @@ HtmlInlineContextAddText(pContext, pNode)
                 ) {
                     inlineContextAddNewLine(pContext, nh);
                 } else {
+                    if (
+                        pContext->whiteSpace == CSS_CONST_PRE &&
+                        HtmlInlineContextIsEmpty(pContext) &&
+                        !pToken->x.newline
+                    ) {
+                        inlineContextAddInlineCanvas(pContext, 0, pNode);
+                        inlineContextSetBoxDimensions(pContext, 0, 0, 0, 0);
+                    }
                     for (i = 0; i < pToken->count; i++) {
                         inlineContextAddSpace(pContext, sw);
                     }
