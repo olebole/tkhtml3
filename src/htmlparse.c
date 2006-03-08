@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.52 2006/03/03 07:10:10 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.53 2006/03/08 12:03:54 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -1452,6 +1452,7 @@ Tokenize(pTree)
     char *argv[mxARG];           /* Pointers to each markup argument. */
     int arglen[mxARG];           /* Length of each markup argument */
 
+    int nStartScript;
     Tcl_Obj *pScript = 0;
     HtmlToken *pScriptToken = 0;
     int rc;
@@ -1504,6 +1505,7 @@ Tokenize(pTree)
             }
 
             if (z[i] == 0) {
+                n = nStartScript;
                 goto incomplete;
             }
 
@@ -1644,6 +1646,7 @@ Tokenize(pTree)
              * and attributes. The pointer to the tag name, argv[0], is 
              * therefore &z[n+1].
              */
+            nStartScript = n;
             argc = 1;
             argv[0] = &z[n + 1];
             assert( c=='<' );

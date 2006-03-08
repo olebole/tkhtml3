@@ -1,0 +1,114 @@
+
+set ::script_handler_count 0
+proc scriptHandler {data} {
+  incr ::script_handler_count
+  return ""
+}
+
+proc get_tree {{indent 0} {node ""}} {
+  if {$node eq ""} {
+    set node [.h node]
+  }
+
+  set output [string repeat " " $indent]
+
+  set tag [$node tag]
+  if {$tag eq ""} {
+    append output "[$node text -tokens]\n"
+  } else {
+    append output "<${tag}>\n"
+  }
+
+  for {set ii 0} {$ii < [$node nChildren]} {incr ii} {
+    append output [get_tree [expr $indent + 2] [$node child $ii]]
+  }
+
+  if {$tag ne ""} {
+    append output [string repeat " " $indent]
+    append output "</${tag}>\n"
+  }
+
+  return $output
+}
+
+tcltest::test tree-1.0 {} -body {
+  html .h
+  .h handler script script scriptHandler 
+  set ::script_handler_count
+} -result 0
+
+tcltest::test tree-1.1 {} -body {
+  .h parse -final [string trim {
+    <html>
+    <body>
+    <p>Hello World
+    <script>
+      A whole bunch of script!!!
+      A whole bunch of script!!!
+      A whole bunch of script!!!
+    </script>
+    <p>Hello Again World
+    </body>
+    </html>
+  }]
+  set ::script_handler_count
+} -result 1
+
+tcltest::test tree-1.2 {} -body {
+  string trim [get_tree]
+} -result [string trim {
+<html>
+  NEWLINE SPACE(4)
+  <body>
+    NEWLINE SPACE(4)
+    <p>
+      TEXT(Hello) SPACE(1) TEXT(World) NEWLINE SPACE(4) NEWLINE SPACE(4)
+    </p>
+    <p>
+      TEXT(Hello) SPACE(1) TEXT(Again) SPACE(1) TEXT(World) NEWLINE SPACE(4)
+    </p>
+  </body>
+  NEWLINE SPACE(4)
+</html>
+}]
+
+tcltest::test tree-1.3 {} -body {
+  .h reset
+  .h parse [string trim {
+    <html>
+    <body>
+    <p>Hello World
+    <script>
+      A whole bunch of script!!!
+      A whole bunch of script!!!
+  }]
+
+  .h parse -final [string trim {
+      A whole bunch of script!!!
+    </script>
+    <p>Hello Again World
+    </body>
+    </html>
+  }]
+  set ::script_handler_count
+} -result 2
+
+tcltest::test tree-1.4 {} -body {
+  string trim [get_tree]
+} -result [string trim {
+<html>
+  NEWLINE SPACE(4)
+  <body>
+    NEWLINE SPACE(4)
+    <p>
+      TEXT(Hello) SPACE(1) TEXT(World) NEWLINE SPACE(4) NEWLINE SPACE(4)
+    </p>
+    <p>
+      TEXT(Hello) SPACE(1) TEXT(Again) SPACE(1) TEXT(World) NEWLINE SPACE(4)
+    </p>
+  </body>
+  NEWLINE SPACE(4)
+</html>
+}]
+
+
