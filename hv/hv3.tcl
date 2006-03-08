@@ -438,21 +438,7 @@ catch {
     set selector [format {[name="%s"]} $fragment]
     set goto_node [lindex [$H search $selector] 0]
     if {$goto_node!=""} {
-      set coords2 [$H bbox [$H node]]
-      set coords  [$H bbox $goto_node]
-      while {[llength $coords] == 0 && $goto_node!=[$H node]} {
-        set next_node [$goto_node right_sibling]
-        if {$next_node==""} {
-          set next_node [$goto_node parent]
-        }
-        set goto_node $next_node
-        set coords  [$H bbox $goto_node]
-      }
-      if {[llength $coords] > 0} {
-        set ypix [lindex $coords 1]
-        set ycanvas [lindex $coords2 3]
-        $H yview moveto [expr double($ypix) / double($ycanvas)]
-      }
+      $H yview $goto_node
     }
   }
 

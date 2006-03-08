@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.69 2006/02/28 14:56:45 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.70 2006/03/08 04:43:08 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -1031,23 +1031,33 @@ viewCommon(pTree, isXview, objc, objv)
         double fraction;
         int count;
         int iNewVal;     /* New value of iScrollY or iScrollX */
-        int eType;       /* One of the TK_SCROLL_ symbols */
 
-        eType = Tk_GetScrollInfoObj(interp, objc, objv, &fraction, &count);
-        switch (eType) {
-            case TK_SCROLL_MOVETO:
-                iNewVal = (int)((double)iMovePixels * fraction);
-                break;
-            case TK_SCROLL_PAGES:
-                iNewVal = iOffScreen + ((count * iPagePixels) * 0.9);
-                break;
-            case TK_SCROLL_UNITS:
-                iNewVal = iOffScreen + (count * iUnitPixels);
-                break;
-            case TK_SCROLL_ERROR:
+        /* The [widget yview] command also supports "scroll-to-node" */
+        if (!isXview && objc == 3) {
+            const char *zCmd = Tcl_GetString(objv[2]);
+            HtmlNode *pNode = HtmlNodeGetPointer(pTree, zCmd);
+            if (!pNode) {
                 return TCL_ERROR;
-    
-            default: assert(!"Not possible");
+            }
+            iNewVal = HtmlLayoutScrollToNode(pTree, pNode->iNode);
+        } else {
+            int eType;       /* One of the TK_SCROLL_ symbols */
+            eType = Tk_GetScrollInfoObj(interp, objc, objv, &fraction, &count);
+            switch (eType) {
+                case TK_SCROLL_MOVETO:
+                    iNewVal = (int)((double)iMovePixels * fraction);
+                    break;
+                case TK_SCROLL_PAGES:
+                    iNewVal = iOffScreen + ((count * iPagePixels) * 0.9);
+                    break;
+                case TK_SCROLL_UNITS:
+                    iNewVal = iOffScreen + (count * iUnitPixels);
+                    break;
+                case TK_SCROLL_ERROR:
+                    return TCL_ERROR;
+        
+                default: assert(!"Not possible");
+            }
         }
         iNewVal = MIN(iNewVal, iMovePixels - iPagePixels);
         iNewVal = MAX(iNewVal, 0);

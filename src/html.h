@@ -429,6 +429,7 @@ int  HtmlDrawIsEmpty(HtmlCanvas *);
 void HtmlDrawImage2(HtmlCanvas *, HtmlImage2 *, int, int, unsigned char, 
                     unsigned char, int, int, int, int, int);
 void HtmlLayoutPaintText(HtmlTree *, int, int, int, int);
+int HtmlLayoutScrollToNode(HtmlTree *, int);
 
 HtmlTokenMap *HtmlMarkup(int);
 CONST char * HtmlMarkupName(int);
