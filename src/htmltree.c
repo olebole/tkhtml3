@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.46 2006/03/03 07:10:11 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.47 2006/03/08 05:44:10 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -355,6 +355,33 @@ tokenAction(pTree, pToken, pNClose)
     return rc;
 }
 
+static void
+clearReplacement(pTree, pNode)
+    HtmlTree *pTree;
+    HtmlNode *pNode;
+{
+    HtmlNodeReplacement *p = pNode->pReplacement;
+    pNode->pReplacement = 0;
+    if (p) {
+        if (p->pDelete) {
+            /* If there is a delete script, invoke it now. */
+            int flags = TCL_EVAL_DIRECT|TCL_EVAL_GLOBAL;
+            Tcl_EvalObjEx(pTree->interp, p->pDelete, flags);
+            Tcl_DecrRefCount(p->pDelete);
+        }
+        if (p->pReplace) {
+            /* Cancel geometry management */
+            if (p->win) {
+                Tk_ManageGeometry(p->win, 0, 0);
+            }
+            Tcl_DecrRefCount(p->pReplace);
+        }
+        if (p->pConfigure) Tcl_DecrRefCount(p->pConfigure);
+        HtmlFree((char *)p);
+    }
+}
+
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -391,18 +418,7 @@ freeNode(pTree, pNode)
             HtmlFree((char *)pNode->pNodeCmd);
             pNode->pNodeCmd = 0;
         }
-        if (pNode->pReplacement) {
-            HtmlNodeReplacement *p = pNode->pReplacement;
-            if (p->pDelete) {
-                /* If there is a delete script, invoke it now. */
-                int flags = TCL_EVAL_DIRECT|TCL_EVAL_GLOBAL;
-                Tcl_EvalObjEx(pTree->interp, p->pDelete, flags);
-                Tcl_DecrRefCount(p->pDelete);
-            }
-            if (p->pReplace) Tcl_DecrRefCount(p->pReplace);
-            if (p->pConfigure) Tcl_DecrRefCount(p->pConfigure);
-            HtmlFree((char *)p);
-        }
+        clearReplacement(pTree, pNode);
         HtmlFree((char *)pNode->apChildren);
         HtmlFree((char *)pNode);
     }
@@ -961,6 +977,15 @@ char CONST *HtmlNodeAttr(pNode, zAttr)
     return 0;
 }
 
+static void 
+geomRequestProc(clientData, widget)
+    ClientData clientData;
+    Tk_Window widget;
+{
+    HtmlTree *pTree = (HtmlTree *)clientData;
+    HtmlCallbackSchedule(pTree, HTML_CALLBACK_LAYOUT);
+}
+
 
 /*
  *---------------------------------------------------------------------------
@@ -1209,6 +1234,8 @@ node_attr_usage:
                 Tcl_Obj *aArgs[3];
                 HtmlNodeReplacement *pReplace; /* New pNode->pReplacement */
                 int nBytes;                    /* bytes allocated at pReplace */
+                Tk_Window widget;              /* Replacement widget */
+                Tk_Window win = pTree->win;    /* Application main window */
 
                 SwprocConf aArgConf[4] = {
                     {SWPROC_ARG, "new-value", 0, 0},
@@ -1221,11 +1248,27 @@ node_attr_usage:
                     return TCL_ERROR;
                 }
 
+                /* Make sure the replacement object is a Tk window. Register
+                 * Tkhtml as the geometry manager.
+                 */
+                widget = Tk_NameToWindow(interp, Tcl_GetString(aArgs[0]), win);
+                if (!widget) {
+                    return TCL_ERROR;
+                } else {
+                    static Tk_GeomMgr sManage = {
+                        "Tkhtml",
+                        geomRequestProc,
+                        0
+                    };
+                    Tk_ManageGeometry(widget, &sManage, pTree);
+                }
+
                 nBytes = sizeof(HtmlNodeReplacement);
                 pReplace = (HtmlNodeReplacement *) HtmlClearAlloc(nBytes);
                 pReplace->pReplace = aArgs[0];
                 pReplace->pConfigure = aArgs[1];
                 pReplace->pDelete = aArgs[2];
+                pReplace->win = widget;
 
 		/* Free any existing replacement object and set
 		 * pNode->pReplacement to point at the new structure. 
@@ -1233,13 +1276,7 @@ node_attr_usage:
 		 * Todo: We could just overwrite the existing values to deal
 		 * with this case.
                  */
-		if (pNode->pReplacement) {
-                    HtmlNodeReplacement *p = pNode->pReplacement;
-                    if (p->pDelete) Tcl_DecrRefCount(p->pDelete);
-                    if (p->pReplace) Tcl_DecrRefCount(p->pReplace);
-                    if (p->pConfigure) Tcl_DecrRefCount(p->pConfigure);
-                    HtmlFree((char *)p);
-                }
+                clearReplacement(pTree, pNode);
                 pNode->pReplacement = pReplace;
 
                 /* Run the layout engine. */

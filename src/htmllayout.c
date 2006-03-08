@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.123 2006/03/07 06:34:14 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.124 2006/03/08 05:44:10 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -2330,7 +2330,7 @@ layoutReplacement(pLayout, pBox, pNode)
 
     if (pNode->pReplacement) {
         CONST char *zReplace = Tcl_GetString(pNode->pReplacement->pReplace);
-        Tk_Window win = Tk_NameToWindow(interp, zReplace, tkwin);
+        Tk_Window win = pNode->pReplacement->win;
         if (win) {
             Tcl_Obj *pWin = 0;
             int iOffset;

@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.70 2006/03/08 04:43:08 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.71 2006/03/08 05:44:10 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -339,7 +339,6 @@ callbackHandler(clientData)
     pTree->cb.y1 = Tk_Height(pTree->tkwin) + 1;
     pTree->cb.x2 = 0;
     pTree->cb.y2 = 0;
-    assert(pTree->cb.eCallbackAction == HTML_CALLBACK_NONE);
 
     if (
         eCallbackAction == HTML_CALLBACK_LAYOUT || 

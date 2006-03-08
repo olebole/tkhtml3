@@ -166,6 +166,7 @@ struct HtmlToken {
  */
 struct HtmlNodeReplacement {
     Tcl_Obj *pReplace;            /* Replacement window name */
+    Tk_Window win;                /* Replacement window */
     Tcl_Obj *pConfigure;          /* Script passed to -configurecmd */
     Tcl_Obj *pDelete;             /* Script passed to -deletecmd */
     int iOffset;
