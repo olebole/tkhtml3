@@ -469,9 +469,9 @@ catch {
       }
     }
   }
-  proc parsefinished {PATH dummy} {
+  proc parsefinished {PATH text} {
     importVars $PATH
-    parse $PATH ""
+    parse $PATH $text
     $PATH.html parse -final ""
   }
   proc setResetPending {PATH args} {
@@ -591,6 +591,7 @@ catch {
 #
 snit::type Hv3Download {
   variable myData ""
+  variable myChunksize 2048
 
   option -binary      -default 0
   option -uri         -default ""
@@ -614,17 +615,18 @@ snit::type Hv3Download {
 
   # Interface for returning data.
   method append {data} {
-    if {$options(-incrscript) != ""} {
-      eval [linsert $options(-incrscript) end $data]
-    } else {
-      ::append myData $data
-    }
+    ::append myData $data
+    set nData [string length $myData]
+    if {$options(-incrscript) != "" && $nData >= $myChunksize} {
+      eval [linsert $options(-incrscript) end $myData]
+      set myData {}
+      set myChunksize [expr $myChunksize * 2]
+    } 
   }
 
   # Called after all data has been passed to [append].
   method finish {} {
-    if {$options(-finscript) != ""} {
-      eval [linsert $options(-finscript) end $myData] 
+    if {$options(-finscript) != ""} { eval [linsert $options(-finscript) end $myData] 
     } 
     $self destroy
   }
