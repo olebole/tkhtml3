@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.90 2006/03/10 07:42:00 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.91 2006/03/10 14:35:56 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -934,7 +934,7 @@ fill_quad(win, d, xcolor, x1, y1, x2, y2, x3, y3, x4, y4)
     Display *display = Tk_Display(win);
     GC gc;
     XGCValues gc_values;
-    int rc;
+    int rc = 0;
 
     gc_values.foreground = xcolor->pixel;
     gc = Tk_GetGC(win, GCForeground, &gc_values);
@@ -942,7 +942,7 @@ fill_quad(win, d, xcolor, x1, y1, x2, y2, x3, y3, x4, y4)
     points[1].x = x2; points[1].y = y2;
     points[2].x = x3; points[2].y = y3;
     points[3].x = x4; points[3].y = y4;
-    rc = XFillPolygon(display, d, gc, points, 4, Convex, CoordModePrevious);
+    XFillPolygon(display, d, gc, points, 4, Convex, CoordModePrevious);
     Tk_FreeGC(display, gc);
 
     return rc;
