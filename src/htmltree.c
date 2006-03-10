@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.48 2006/03/10 06:45:48 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.49 2006/03/10 07:42:00 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -696,6 +696,7 @@ HtmlAddToken(pTree, pToken)
         if (r) {
             assert(!HtmlNodeIsText(pTree->pCurrent));
             pCurrent = HtmlNodeChild(pCurrent, nodeAddChild(pCurrent, pToken));
+            pCurrent->iNode = pTree->iNextNode++;
         }
 
         if (HtmlMarkupFlags(type) & HTMLTAG_EMPTY) {
@@ -704,7 +705,6 @@ HtmlAddToken(pTree, pToken)
         }
     }
 
-    pCurrent->iNode = pTree->iNextNode++;
     pTree->pCurrent = pCurrent;
 }
 

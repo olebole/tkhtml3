@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.125 2006/03/10 06:45:48 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.126 2006/03/10 07:42:00 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -696,6 +696,7 @@ normalFlowLayoutFloat(pLayout, pBox, pNode, pY, pContext, pNormal)
      * box.
      */
     pBox->width = MAX(x + iTotalWidth, pBox->width);
+    pBox->height = MAX(y + iTotalHeight, pBox->height);
 
     LOG if (!pLayout->minmaxTest) {
         HtmlTree *pTree = pLayout->pTree;

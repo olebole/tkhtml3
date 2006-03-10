@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.89 2006/03/10 06:45:48 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.90 2006/03/10 07:42:00 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -2515,6 +2515,7 @@ HtmlLayoutBbox(clientData, interp, objc, objv)
 
 typedef struct ScrollToQuery ScrollToQuery;
 struct ScrollToQuery {
+    HtmlTree *pTree;
     int iNode;
     int iReturn;
 };
@@ -2568,6 +2569,7 @@ HtmlLayoutScrollToNode(pTree, iNode)
     HtmlCallbackForce(pTree);
     sQuery.iNode = iNode;
     sQuery.iReturn = 0;
+    sQuery.pTree = pTree;
     searchCanvas(pTree, -1, -1, scrollToNodeCb, (ClientData)&sQuery);
     return sQuery.iReturn;
 }
