@@ -218,6 +218,8 @@ struct HtmlOptions {
     int xscrollincrement;
     int yscrollincrement;
 
+    int shrink;
+
     XColor *selectforeground;
     XColor *selectbackground;
 

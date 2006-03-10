@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.126 2006/03/10 07:42:00 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.127 2006/03/10 14:21:02 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -2333,7 +2333,7 @@ HtmlLayout(pTree)
     HtmlTree *pTree;
 {
     HtmlNode *pBody = 0;
-    int rc;
+    int rc = TCL_OK;
     int nWidth;
     BoxContext sBox;               /* The imaginary box <body> is inside */
     LayoutContext sLayout;
@@ -2414,6 +2414,11 @@ HtmlLayout(pTree)
 
     if (rc == TCL_OK) {
         pTree->iCanvasWidth = Tk_Width(pTree->tkwin);
+        if (pTree->options.shrink) {
+            Tk_GeometryRequest(
+                pTree->tkwin, pTree->canvas.right, pTree->canvas.bottom
+            );
+        }
     }
     return rc;
 }

@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.72 2006/03/08 14:57:20 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.73 2006/03/10 14:21:02 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -630,7 +630,9 @@ configureCmd(clientData, interp, objc, objv)
     #define XCOLOR(v, s1, s2, s3) \
         {TK_OPTION_COLOR, "-" #v, s1, s2, s3, -1, \
          Tk_Offset(HtmlOptions, v), 0, 0, 0}
-
+    #define BOOLEAN(v, s1, s2, s3) \
+        {TK_OPTION_BOOLEAN, "-" #v, s1, s2, s3, -1, \
+         Tk_Offset(HtmlOptions, v), 0, 0, 0}
     #define OBJ(v, s1, s2, s3, f) \
         {TK_OPTION_STRING, "-" #v, s1, s2, s3, \
          Tk_Offset(HtmlOptions, v), -1, 0, 0, f}
@@ -641,6 +643,7 @@ configureCmd(clientData, interp, objc, objv)
         /* Standard geometry interface */
         GEOMETRY(height, "height", "Height", "600"),
         GEOMETRY(width, "width", "Width", "800"),
+        BOOLEAN(shrink, "shrink", "Shrink", "0"),
 
         /* Standard scroll interface - same as canvas, text */
         PIXELS(yscrollincrement, "yScrollIncrement", "ScrollIncrement", "20"),
@@ -666,6 +669,7 @@ configureCmd(clientData, interp, objc, objv)
     #undef PIXELS
     #undef STRING
     #undef XCOLOR
+    #undef BOOLEAN
 
     HtmlTree *pTree = (HtmlTree *)clientData;
     char *pOptions = (char *)&pTree->options;
@@ -686,8 +690,8 @@ configureCmd(clientData, interp, objc, objv)
     rc = Tk_SetOptions(interp, pOptions, otab, objc-2, &objv[2], win, 0, &mask);
     if (TCL_OK == rc) {
         /* Hard-coded minimum values for width and height */
-        pTree->options.height = MAX(pTree->options.height, 1);
-        pTree->options.width = MAX(pTree->options.width, 1);
+        pTree->options.height = MAX(pTree->options.height, 0);
+        pTree->options.width = MAX(pTree->options.width, 0);
 
         if (init || (mask & GEOMETRY_MASK)) {
             int w = pTree->options.width;
