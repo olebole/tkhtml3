@@ -101,7 +101,6 @@ itcl::body HtmlDebug::browse {HTML {node ""}} {
 itcl::body HtmlDebug::browseNode {node} {
   wm state $myTopLevel normal
   wm deiconify $myTopLevel
-  puts "tcl:///$this report $node"
   hv3Goto $myTopLevel.report "tcl:///$this report $node" -noresolve
 }
 

@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.50 2006/02/28 14:56:45 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.51 2006/03/10 06:45:48 danielk1977 Exp $";
 
 /*
  *    The CSS "cascade":
@@ -1452,6 +1452,8 @@ propertySetAddShortcutBackgroundPosition(p, v)
             return;
         }
 
+        propertyTransformBgPosition(apProp[0]);
+        propertyTransformBgPosition(apProp[1]);
         propertySetAdd(p, CSS_PROPERTY_BACKGROUND_POSITION_X, apProp[0]);
         propertySetAdd(p, CSS_PROPERTY_BACKGROUND_POSITION_Y, apProp[1]);
     }

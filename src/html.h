@@ -422,6 +422,7 @@ void HtmlDrawDeleteControls(HtmlTree *, HtmlCanvas *);
 void HtmlDrawCanvas(HtmlCanvas*,HtmlCanvas*,int,int,HtmlNode*);
 void HtmlDrawText(HtmlCanvas*,Tcl_Obj*,int,int,int,HtmlFont*,XColor*,int,HtmlNode*,int);
 void HtmlDrawImage(HtmlCanvas *, Tcl_Obj *, int, int, int, int, int);
+void HtmlDrawBox(HtmlCanvas *, int, int, int, int, HtmlNode *, int);
 void HtmlDrawWindow(HtmlCanvas *, Tcl_Obj *, int, int, int, int, int);
 void HtmlDrawBackground(HtmlCanvas *, XColor *, int);
 void HtmlDrawQuad(HtmlCanvas*,int,int,int,int,int,int,int,int,XColor*,int);

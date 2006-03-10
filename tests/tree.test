@@ -129,3 +129,5 @@ tcltest::test tree-2.1 {} -body {
   </body>
 </html>
 }]
+
+destroy .h

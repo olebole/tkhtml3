@@ -1,0 +1,45 @@
+
+
+html .h
+.h handler script style styleHandler 
+proc styleHandler {data} {
+  .h style $data
+}
+
+proc property {node prop} {
+  array set properties [$node prop]
+  return $properties($prop)
+}
+
+#--------------------------------------------------------------------------
+# Test cases style-1.* test the parsing of the 'background-position' property.
+#
+tcltest::test style-1.0 {} -body {
+  .h parse -final {
+    <html>
+    <style>
+      .one {background-position: 50% 50%}
+      .two {background-position: center center}
+    </style>
+    <body>
+    <div class="one"/>
+    <div class="two"/>
+    <div class="three"/>
+    <div class="four"/>
+    </body>
+    </html>
+  }
+
+  set node [lindex [.h search .one] 0]
+  property $node background-position
+} -result {50.00% 50.00%}
+
+tcltest::test style-1.1 {} -body {
+  set node [lindex [.h search .two] 0]
+  property $node background-position
+} -result {50.00% 50.00%}
+
+
+
+
+

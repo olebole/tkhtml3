@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.124 2006/03/08 05:44:10 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.125 2006/03/10 06:45:48 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -2156,57 +2156,7 @@ borderLayout(pLayout, pNode, pBox, xA, yA, xB, yB)
     x2 = xB - xA;
     y2 = yB - yA;
 
-    /* TODO: Parent width */
-    nodeGetBoxProperties(pLayout, pNode, 0, &boxproperties);
-    nodeGetBorderProperties(pLayout, pNode, &borderproperties);
-
-    tw = boxproperties.border_top;
-    rw = boxproperties.border_right;
-    bw = boxproperties.border_bottom;
-    lw = boxproperties.border_left;
-
-    tc = borderproperties.color_top;
-    rc = borderproperties.color_right;
-    bc = borderproperties.color_bottom;
-    lc = borderproperties.color_left;
-
-    /* Top border polygon */
-    if (tw>0) {
-        DRAW_QUAD(&sBox.vc, x1, y1, x1+lw, y1+tw, x2-rw, y1+tw, x2, y1, tc);
-    }
-    if (rw>0) {
-        DRAW_QUAD(&sBox.vc, x2, y1, x2-rw, y1+tw, x2-rw, y2-bw, x2, y2, rc);
-    }
-    if (bw>0) {
-        DRAW_QUAD(&sBox.vc, x2, y2, x2-rw, y2-bw, x1+lw, y2-bw, x1, y2, bc);
-    }
-    if (lw>0) {
-        DRAW_QUAD(&sBox.vc, x1, y2, x1+lw, y2-bw, x1+lw, y1+tw, x1, y1, lc);
-    }
-
-    if (pNode != pLayout->pTop) {
-        if (borderproperties.color_bg) {
-            DRAW_QUAD(&sBox.vc, 
-                x1+lw, y1+tw, 
-                x2-rw, y1+tw, 
-                x2-rw, y2-bw, 
-                x1+lw, y2-bw, borderproperties.color_bg);
-        }
-        if (borderproperties.pBgImage) {
-            HtmlDrawImage2(
-                &sBox.vc,                            /* canvas */
-                borderproperties.pBgImage,           /* Html image */
-                borderproperties.iPositionX,         /* 'background-position' */
-                borderproperties.iPositionY, 
-                borderproperties.isPositionPercent, 
-                borderproperties.eBgRepeat,          /* 'background-repeat' */
-                x1+lw, y1+tw,                        /* x, y */
-                x2-rw-lw, y2-bw-tw,                  /* width, height */
-                pLayout->minmaxTest                  /* Size-only mode */
-            );
-        }
-    }
-
+    HtmlDrawBox(&sBox.vc, x1, y1, x2, y2, pNode, pLayout->minmaxTest);
     DRAW_CANVAS(&pBox->vc, &sBox.vc, xA, yA, pNode);
 }
 

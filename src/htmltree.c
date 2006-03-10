@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.47 2006/03/08 05:44:10 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.48 2006/03/10 06:45:48 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -1211,8 +1211,11 @@ node_attr_usage:
                 pN = HtmlNodeParent(pNode);
             }
             if (0 == pN->pPropertyValues) {
+                HtmlCallbackForce(pTree);
+            }
+            if (0 == pN->pPropertyValues) {
                 Tcl_ResetResult(interp);
-                Tcl_AppendResult(interp,"Computed values not yet calculated",0);
+                Tcl_AppendResult(interp,"Computed values cannot be obtained",0);
                 return TCL_ERROR;
             }
             if (HtmlNodeProperties(interp, pN->pPropertyValues)) {

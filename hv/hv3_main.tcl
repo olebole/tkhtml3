@@ -202,7 +202,6 @@ snit::type Hv3HttpProtcol {
         if {$name eq "Set-Cookie"} {
           puts "COOKIE: $value"
           regexp {^[^ ]*} $value nv_pair
-          puts "STORE: [$downloadHandle authority] $nv_pair"
           lappend myCookies([$downloadHandle authority]) $nv_pair
         }
       }

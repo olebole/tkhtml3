@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.88 2006/03/08 04:43:08 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.89 2006/03/10 06:45:48 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -76,7 +76,10 @@ static const char rcsid[] = "$Id: htmldraw.c,v 1.88 2006/03/08 04:43:08 danielk1
 #define CANVAS_BACKGROUND  6
 #define CANVAS_COMMENT  7
 
+
 #define CANVAS_IMAGE  8
+
+#define CANVAS_BOX  9
 
 typedef struct CanvasText CanvasText;
 typedef struct CanvasWindow CanvasWindow;
@@ -85,6 +88,7 @@ typedef struct CanvasQuad CanvasQuad;
 typedef struct CanvasBackground CanvasBackground;
 typedef struct CanvasComment CanvasComment;
 typedef struct CanvasImage CanvasImage;
+typedef struct CanvasBox CanvasBox;
 
 struct CanvasText {
     int x;                   /* Relative x coordinate to render at */
@@ -95,6 +99,14 @@ struct CanvasText {
     XColor *color;           /* Color to draw in */
     HtmlNode *pNode;         /* Text node, if any */
     int iIndex;              /* Index in pNode text of this item */
+};
+
+struct CanvasBox {
+    int x;                   /* Relative x coordinate to render at */
+    int y;                   /* Relative y coordinate to render at */
+    int w;                   /* Width of box area */
+    int h;                   /* Height of box area */
+    HtmlNode *pNode;         /* Use computed properties from this node */
 };
 
 struct CanvasImage {
@@ -156,6 +168,7 @@ struct HtmlCanvasItem {
         CanvasOrigin o;
         CanvasBackground b;
         CanvasComment c;
+        CanvasBox box;
     } x;
     HtmlCanvasItem *pNext;
 };
@@ -514,6 +527,54 @@ HtmlDrawComment(pCanvas, zComment, size_only)
 /*
  *---------------------------------------------------------------------------
  *
+ * HtmlDrawBox --
+ *
+ *     Draw a "box" based on the computed properties of node pNode. A "box"
+ *     consists of zero or more of the following optional components:
+ *
+ *         - A border,
+ *         - A solid background color,
+ *         - A background image.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     Adds an item to the canvas pCanvas.
+ *
+ *---------------------------------------------------------------------------
+ */
+void 
+HtmlDrawBox(pCanvas, x, y, w, h, pNode, size_only)
+    HtmlCanvas *pCanvas;
+    int x;
+    int y;
+    int w;
+    int h;
+    HtmlNode *pNode;
+    int size_only;
+{
+    if (!size_only) {
+        HtmlCanvasItem *pItem; 
+        pItem = (HtmlCanvasItem *)HtmlAlloc(sizeof(HtmlCanvasItem));
+        pItem->type = CANVAS_BOX;
+        pItem->x.box.x = x;
+        pItem->x.box.y = y;
+        pItem->x.box.w = w;
+        pItem->x.box.h = h;
+        pItem->x.box.pNode = pNode;
+        linkItem(pCanvas, pItem);
+    }
+
+    pCanvas->left = MIN(pCanvas->left, x);
+    pCanvas->right = MAX(pCanvas->right, x + w);
+    pCanvas->bottom = MAX(pCanvas->bottom, y + h);
+    pCanvas->top = MIN(pCanvas->top, y);
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * HtmlDrawText --
  *
  *     Add a single line of text drawn in a single font to a canvas.
@@ -836,6 +897,15 @@ int HtmlLayoutPrimitives(clientData, interp, objc, objv)
                 pList = Tcl_NewStringObj("# ", 2);
                 Tcl_AppendObjToObj(pList, pItem->x.c.pComment);
                 break;
+            case CANVAS_BOX:
+                nObj = 6;
+                aObj[0] = Tcl_NewStringObj("draw_box", -1);
+                aObj[1] = Tcl_NewIntObj(pItem->x.box.x);
+                aObj[2] = Tcl_NewIntObj(pItem->x.box.y);
+                aObj[3] = Tcl_NewIntObj(pItem->x.box.w);
+                aObj[4] = Tcl_NewIntObj(pItem->x.box.h);
+                aObj[5] = HtmlNodeCommand(pTree, pItem->x.box.pNode);
+                break;
         }
         if (nObj>0) {
             pList = Tcl_NewObj();
@@ -848,6 +918,206 @@ int HtmlLayoutPrimitives(clientData, interp, objc, objv)
     pCanvas->pPrimitives = pPrimitives;
     Tcl_SetObjResult(interp, pPrimitives);
     return TCL_OK;
+}
+
+static int
+fill_quad(win, d, xcolor, x1, y1, x2, y2, x3, y3, x4, y4)
+    Tk_Window win;
+    Drawable d;
+    XColor *xcolor;
+    int x1; int y1;
+    int x2; int y2;
+    int x3; int y3;
+    int x4; int y4;
+{
+    XPoint points[4];
+    Display *display = Tk_Display(win);
+    GC gc;
+    XGCValues gc_values;
+    int rc;
+
+    gc_values.foreground = xcolor->pixel;
+    gc = Tk_GetGC(win, GCForeground, &gc_values);
+    points[0].x = x1; points[0].y = y1;
+    points[1].x = x2; points[1].y = y2;
+    points[2].x = x3; points[2].y = y3;
+    points[3].x = x4; points[3].y = y4;
+    rc = XFillPolygon(display, d, gc, points, 4, Convex, CoordModePrevious);
+    Tk_FreeGC(display, gc);
+
+    return rc;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * drawBox --
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void 
+drawBox(pTree, pBox, drawable, x, y, w, h)
+    HtmlTree *pTree;
+    CanvasBox *pBox;
+    Drawable drawable;
+    int x;                 /* X-coord in *pDrawable */
+    int y;                 /* Y-coord in *pDrawable */
+    int w;                 /* Total width of *pDrawable */
+    int h;                 /* Total height of *pDrawable */
+{
+    HtmlComputedValues *pV = pBox->pNode->pPropertyValues;
+
+    /* Figure out the widths of the top, bottom, right and left borders */
+    int tw = ((pV->eBorderTopStyle != CSS_CONST_NONE) ? pV->border.iTop : 0);
+    int bw = ((pV->eBorderBottomStyle != CSS_CONST_NONE)?pV->border.iBottom:0);
+    int rw = ((pV->eBorderRightStyle != CSS_CONST_NONE) ? pV->border.iRight :0);
+    int lw = ((pV->eBorderLeftStyle != CSS_CONST_NONE) ? pV->border.iLeft : 0);
+
+    int bg_x = x + pBox->x + lw;
+    int bg_y = y + pBox->y + tw;
+    int bg_w = pBox->w - lw - rw;
+    int bg_h = pBox->h - tw - bw;
+
+    /* Figure out the colors of the top, bottom, right and left borders */
+    XColor *tc = pV->cBorderTopColor->xcolor;
+    XColor *rc = pV->cBorderRightColor->xcolor;
+    XColor *bc = pV->cBorderBottomColor->xcolor;
+    XColor *lc = pV->cBorderLeftColor->xcolor;
+
+    /* Top border */
+    if (tw > 0 && tc) {
+        fill_quad(pTree->win, drawable, tc,
+            x + pBox->x, y + pBox->y,
+            lw, tw,
+            pBox->w - lw - rw, 0,
+            rw, -1 * tw
+        );
+    }
+
+    /* Left border, if required */
+    if (lw > 0 && lc) {
+        fill_quad(pTree->win, drawable, lc,
+            x + pBox->x, y + pBox->y,
+            lw, tw,
+            0, pBox->h - tw - bw,
+            -1 * lw, bw
+        );
+    }
+
+    /* Bottom border, if required */
+    if (lw > 0 && lc) {
+        fill_quad(pTree->win, drawable, bc,
+            x + pBox->x, y + pBox->y + pBox->h,
+            lw, - 1 * bw,
+            pBox->w - lw - rw, 0,
+            rw, bw
+        );
+    }
+
+    /* Right border, if required */
+    if (rw > 0 && rc) {
+        fill_quad(pTree->win, drawable, rc,
+            x + pBox->x + pBox->w, y + pBox->y,
+            -1 * rw, tw,
+            0, pBox->h - tw - bw,
+            rw, bw
+        );
+    }
+
+    /* Solid background, if required */
+    if (pV->cBackgroundColor->xcolor) {
+        fill_quad(pTree->win, drawable, pV->cBackgroundColor->xcolor,
+            bg_x, bg_y,
+            bg_w, 0,
+            0, bg_h,
+            -1 * bg_w, 0
+        );
+    }
+
+    /* Image background, if required. This bit's a little tricky. */
+    if (pV->imBackgroundImage) {
+        Tk_Image img;
+        Pixmap ipix;
+        GC gc;
+        XGCValues gc_values;
+        int iWidth;
+        int iHeight;
+        int iPosX;
+        int iPosY;
+        Tk_Window win = pTree->win;
+        Display *display = Tk_Display(win);
+        int dep = Tk_Depth(win);
+        int eR = pV->eBackgroundRepeat;
+ 
+        img = HtmlImageImage(pV->imBackgroundImage);
+        Tk_SizeOfImage(img, &iWidth, &iHeight);
+
+        if (iWidth > 0 && iHeight > 0) {
+            HtmlNode *pBgNode = pBox->pNode;
+    
+            /* Create a pixmap of the image */
+            ipix = Tk_GetPixmap(display, Tk_WindowId(win),iWidth, iHeight, dep);
+            for ( ; pBgNode; pBgNode = HtmlNodeParent(pBgNode)) {
+                HtmlComputedValues *pV2 = pBgNode->pPropertyValues;
+                if (pV2->cBackgroundColor->xcolor) {
+                    fill_quad(pTree->win, ipix, pV2->cBackgroundColor->xcolor,
+                        0, 0, iWidth, 0, 0, iHeight, -1 * iWidth, 0
+                    );
+                    break;
+                }
+            }
+            Tk_RedrawImage(img, 0, 0, iWidth, iHeight, ipix, 0, 0);
+    
+            iPosX = pV->iBackgroundPositionX;
+            iPosY = pV->iBackgroundPositionY;
+            if ( pV->mask & PROP_MASK_BACKGROUND_POSITION_X ){
+                iPosX = (double)iPosX * (double)(bg_w - iWidth) / 10000.0;
+                iPosY = (double)iPosY * (double)(bg_h - iHeight) / 10000.0;
+            }
+            iPosX += bg_x;
+            iPosY += bg_y;
+    
+            gc_values.ts_x_origin = iPosX;
+            gc_values.ts_y_origin = iPosY;
+    
+            if (eR != CSS_CONST_REPEAT && eR != CSS_CONST_REPEAT_X) {
+                int draw_x1 = MAX(bg_x, iPosX);
+                int draw_x2 = MIN(bg_x + bg_w, iPosX + iWidth);
+                bg_x = draw_x1;
+                bg_w = draw_x2 - draw_x1;
+            } 
+    
+            if (eR != CSS_CONST_REPEAT && eR != CSS_CONST_REPEAT_Y) {
+                int draw_y1 = MAX(bg_y, iPosY);
+                int draw_y2 = MIN(bg_y + bg_h, iPosY + iHeight);
+                bg_y = draw_y1;
+                bg_h = draw_y2 - draw_y1;
+            }
+    
+            /* Draw a rectangle to the drawable with origin (bg_x, bg_y). The
+             * size of the rectangle is (bg_w *  bg_h). The background image
+             * is tiled across the region with a relative origin point as
+             * defined by (gc_values.ts_x_origin, gc_values.ts_y_origin).
+             */
+            gc_values.tile = ipix;
+            gc_values.fill_style = FillTiled;
+            gc = Tk_GetGC(pTree->win, 
+                GCTile | GCTileStipXOrigin | GCTileStipYOrigin | GCFillStyle, 
+                &gc_values
+            );
+            if (bg_h > 0 && bg_w > 0) {
+                XFillRectangle(display, drawable, gc, bg_x, bg_y, bg_w, bg_h);
+            }
+            Tk_FreePixmap(display, ipix);
+            Tk_FreeGC(display, gc);
+        }
+    }
 }
 
 /*
@@ -879,15 +1149,120 @@ drawImage(pTree, pI2, pDrawable, x, y, w, h)
     if (pI2->pImage) {
         int iw;                /* Intrinsic width of image */
         int ih;                /* Intrinsic height of image */
+        int bw;                /* Width of block to draw */
+        int bh;                /* Height of block to draw */
+        int bx;                /* X-coordinate of block in drawable */
+        int by;                /* Y-coordinate of block in drawable */
+        int ix = 0;
+        int iy = 0;
 
+        int clipx1, clipx2;
+        int clipy1, clipy2;
+
+        int iPosX = pI2->iPositionX;
+        int iPosY = pI2->iPositionY;
+
+        const int eR = pI2->eRepeat;          /* Copy of pI2->eRepeat */
+
+        /* Retrieve the Tk-image and measure it. */
         Tk_Image img = HtmlImageImage(pI2->pImage);
         Tk_SizeOfImage(img, &iw, &ih);
+        if (iw <= 0 || ih <= 0) {
+            /* Nothing to draw for an empty image */
+            return;
+        }
+
+        /* Make sure iPosX and iPosY are pixel values.
+         */
+        if (pI2->isPositionPercent) {
+            iPosX = (double)iPosX * (double)(pI2->w - iw) / 10000.0;
+            iPosY = (double)iPosY * (double)(pI2->h - ih) / 10000.0;
+        }
+
+        /* Figure out the X and Y coordinates of the block origin. */
+        if (eR == CSS_CONST_REPEAT || eR == CSS_CONST_REPEAT_X) {
+            bx = x + pI2->x;
+        } else {
+            bx = x + iPosX + pI2->x;
+            bw = iw;
+        }
+        if (eR == CSS_CONST_REPEAT || eR == CSS_CONST_REPEAT_Y) {
+            by = y + pI2->y;
+        } else {
+            by = y + iPosY + pI2->y;
+            bh = ih;
+        }
+
+        clipx1 = MAX(0, pI2->x + x);
+        clipy1 = MAX(0, pI2->y + y);
+
+        clipx2 = MIN(w, pI2->x + x + pI2->w);
+        clipy2 = MIN(h, pI2->y + y + pI2->h);
+
+        /* Clip the values to make sure we don't paint outside the drawable */
+        if (bx < clipx1) {
+            bw = bw - (clipx1 - bx);
+            iPosX = (clipx1 - bx);
+            bx = clipx1;
+        }
+        if (by < clipy1) {
+            bh = bh - (clipy1 - by);
+            iPosY = (clipy1 - by);
+            by = clipy1;
+        }
+        if (bx + bw > clipx2)  bw = clipx2 - bx;
+        if (by + bh > clipy2)  bh = clipy2 - by;
+
+        /* There are two ways to draw an image to the drawable. The first
+         * is to draw it directly using Tk_RedrawImage(). The second is to
+         * draw the image to a new pixmap, request a graphics context with 
+         * the newly allocated pixmap as the background tile and call 
+         * XFillRectangle().
+         *
+         * The second method can be more efficient for background images. If
+         * a small (perhaps 1x1) image is tiled over a large area, hundreds
+         * or even thousands of copies are made. Doing this in client code
+         * via multiple calls to Tk_RedrawImage() is too slow in some cases.
+         * The disadvantage is that images featuring transparency are 
+         * handled incorrectly.
+         *
+         * We must use the second method if the CanvasImage.eRepeat variable
+         * is set to other than 'no-repeat'.
+         */
+        if (eR == CSS_CONST_NO_REPEAT) {
+            Tk_RedrawImage(img, iPosX, iPosY, bw, bh, *pDrawable, bx, by);
+        } else {
+            GC gc;                 /* Graphics context to draw with */
+            XGCValues gc_values;   /* Structure used to specify gc */
+
+            Tk_Window win = pTree->tkwin;
+            Display *pDisplay = Tk_Display(win);
+            int depth = Tk_Depth(win);
+
+            /* Create a pixmap of the image */
+            Pixmap ipix;
+            ipix = Tk_GetPixmap(pDisplay, Tk_WindowId(win), iw, ih, depth);
+            Tk_RedrawImage(img, 0, 0, iw, ih, ipix, 0, 0);
+        
+            gc_values.tile = ipix;
+            gc_values.fill_style = FillTiled;
+            gc_values.ts_x_origin = iPosX;
+            gc_values.ts_y_origin = iPosY;
+            gc = Tk_GetGC(pTree->win, 
+                GCTile|GCTileStipXOrigin|
+                GCTileStipYOrigin|GCFillStyle, 
+                &gc_values
+            );
+            XFillRectangle(pDisplay, *pDrawable, gc, bx, by, bw, bh);
+            Tk_FreePixmap(pDisplay, ipix);
+            Tk_FreeGC(pDisplay, gc);
+        }
+
+#if 0
         if (
-            (pI2->eRepeat != CSS_CONST_NO_REPEAT ||
-             pI2->iPositionX != 0 || 
-             pI2->iPositionY != 0) &&
-            iw > 0 && 
-            ih > 0
+            pI2->eRepeat != CSS_CONST_NO_REPEAT ||
+            pI2->iPositionX != 0 || 
+            pI2->iPositionY != 0
         ) {
             GC gc;                 /* Graphics context to draw with */
             XGCValues gc_values;   /* Structure used to specify gc */
@@ -958,7 +1333,7 @@ drawImage(pTree, pI2, pDrawable, x, y, w, h)
                 Tk_FreePixmap(pDisplay, ipix);
                 Tk_FreeGC(pDisplay, gc);
             }
-        } else if (ih > 0 && iw > 0) {
+        } else {
             int ix;              /* Image x */
             int iy;              /* Image y */
             int dx;              /* Drawable x */
@@ -968,10 +1343,15 @@ drawImage(pTree, pI2, pDrawable, x, y, w, h)
             dy = MAX(0, pI2->y + y);
             ix = MAX(0, -1 * (pI2->x + x));
             iy = MAX(0, -1 * (pI2->y + y));
+
             iw = MIN(iw, w - dx);
             ih = MIN(ih, h - dy);
+            iw = MIN(iw, pI2->w);
+            ih = MIN(ih, pI2->h);
+
             Tk_RedrawImage(img, ix, iy, iw, ih, *pDrawable, dx, dy);
         }
+#endif
     }
 }
 
@@ -1160,6 +1540,11 @@ getPixmap(pTree, xcanvas, ycanvas, w, h)
 
             case CANVAS_IMAGE: {
                 drawImage(pTree, &pItem->x.i2, &pmap, x, y, w, h);
+                break;
+            }
+
+            case CANVAS_BOX: {
+                drawBox(pTree, &pItem->x.box, pmap, x, y, w, h);
                 break;
             }
 

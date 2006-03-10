@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.50 2006/03/01 06:11:38 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.51 2006/03/10 06:45:48 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -2291,6 +2291,9 @@ PROP_MASK_ ## eProp}
         }
         Tcl_ListObjAppendElement(interp, pRet, pValue);
     }
+
+    Tcl_ListObjAppendElement(interp, pRet, Tcl_NewStringObj("nRef", -1));
+    Tcl_ListObjAppendElement(interp, pRet, Tcl_NewIntObj(pValues->nRef));
 
     Tcl_SetObjResult(interp, pRet);
     Tcl_DecrRefCount(pRet);

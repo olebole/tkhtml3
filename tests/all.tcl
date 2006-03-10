@@ -10,6 +10,7 @@ proc sourcefile {file} {
 tcltest::verbose {pass body error}
 
 sourcefile tree.test
+sourcefile style.test
 
 catch {
   destroy .
