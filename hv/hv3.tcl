@@ -651,6 +651,9 @@ proc Hv3FileProtocol {downloadHandle} {
   set fname [$url_obj cget -path]
   $url_obj destroy
 
+  # Account for wierd windows filenames
+  set fname [regsub {^/(.)/} $fname {\1:/}]
+
   set rc [catch {
     set f [open $fname]
     if {[$downloadHandle binary]} {
@@ -706,7 +709,7 @@ snit::type Hv3Uri {
     proc OPT     {args} { eval append res (?: $args )? }
     proc CAPTURE {args} { eval append res ( $args ) }
 
-    set SCHEME    {[A-Za-z][A-Za-z0-9+-\.]*}
+    set SCHEME    {[A-Za-z][A-Za-z0-9+-\.]+}
     set AUTHORITY {[^/#?]*}
     set PATH      {[^#?]+}
     set QUERY     {[^#]+}
@@ -752,6 +755,7 @@ snit::type Hv3Uri {
             }
           }
           set r(path) [join $ret /]
+          set r(path) [regsub {^(/.):} $r(path) {\1}]
         }
 
         set options(-$var) $r($var)
@@ -830,7 +834,13 @@ if 1 {
     {http://www.tclscripting.com}                                     \
         -scheme http       -authority "www.tclscripting.com"          \
         -path "/"  -query "" -fragment ""                             \
-  ]
+    {file:///c:/dir1/dir2/file.html}                                  \
+        -scheme file       -authority ""                              \
+        -path "/c/dir1/dir2/file.html"  -query "" -fragment ""       \
+    {relative.html}                                                   \
+        -scheme file       -authority ""                              \
+        -path "/c/dir1/dir2/relative.html"  -query "" -fragment ""   \
+    ]
 
   set obj [Hv3Uri %AUTO%]
   for {set ii 0} {$ii < [llength $test_data]} {incr ii} {
