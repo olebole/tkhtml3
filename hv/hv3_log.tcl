@@ -99,10 +99,17 @@ proc timer_puts {topic body} {
 }
 
 proc log_primitives {HTML} {
+    set indent 0
     foreach p [$HTML primitives] {
         set type [lindex $p 0]
+        if {$type eq "draw_origin" && [llength $p] == 3} {
+          incr indent -2
+        }
         if {[catch {incr hist($type)}]} {set hist($type) 1}
-        real_puts stdout $p
+        real_puts stdout "[string repeat { } $indent]$p"
+        if {$type eq "draw_origin" && [llength $p] > 3} {
+          incr indent 2
+        }
     }
     puts ""
     foreach t [array names hist] {
