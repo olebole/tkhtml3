@@ -2,7 +2,7 @@
 #
 # Construct the web page for tkhtml
 #
-# @(#) $Id: mkwebpage.tcl,v 1.20 2006/02/25 13:05:48 danielk1977 Exp $
+# @(#) $Id: mkwebpage.tcl,v 1.21 2006/03/11 04:52:39 danielk1977 Exp $
 #
 
 source [file join [file dirname [info script]] common.tcl]
@@ -131,11 +131,11 @@ p {
 h 2 {Current Status (Version 3)}
 
 p {
-  <b>Alpha release 2</b>
+  <b>Alpha release 3</b>
 }
 p {
   There is now an alpha release available for download. Both as 
-  <a href="tkhtml3-alpha-2.tar.gz">source code</a> and in binary form.
+  <a href="tkhtml3-alpha-3.tar.gz">source code</a> and in binary form.
   Binaries are available as part of the starkit builds of the demo 
   application, <a href="hv3.html">hv3</a>.
 }
