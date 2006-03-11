@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.94 2006/03/11 19:41:51 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.95 2006/03/11 20:22:38 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -528,7 +528,9 @@ void HtmlDrawCanvas(pCanvas, pCanvas2, x, y, pNode)
                 break;
             }
         }
-        pCanvas->pWindow = pCanvas2->pWindow;
+        if (pCanvas2->pWindow) {
+            pCanvas->pWindow = pCanvas2->pWindow;
+        }
     }
 
     pCanvas->left = MIN(pCanvas->left, x+pCanvas2->left);
