@@ -422,16 +422,19 @@ void HtmlDrawCleanup(HtmlCanvas *);
 void HtmlDrawDeleteControls(HtmlTree *, HtmlCanvas *);
 
 void HtmlDrawCanvas(HtmlCanvas*,HtmlCanvas*,int,int,HtmlNode*);
-void HtmlDrawText(HtmlCanvas*,Tcl_Obj*,int,int,int,HtmlFont*,XColor*,int,HtmlNode*,int);
-void HtmlDrawImage(HtmlCanvas *, Tcl_Obj *, int, int, int, int, int);
-void HtmlDrawBox(HtmlCanvas *, int, int, int, int, HtmlNode *, int);
+void HtmlDrawText(HtmlCanvas*,Tcl_Obj*,int,int,int,int,HtmlNode*,int);
+
+#define CANVAS_BOX_OPEN_LEFT    0x01      /* Open left-border */
+#define CANVAS_BOX_OPEN_RIGHT   0x02      /* Open right-border */
+void HtmlDrawBox(HtmlCanvas *, int, int, int, int, HtmlNode *, int, int);
+void HtmlDrawLine(HtmlCanvas *, int, int, int, int, int, HtmlNode *, int);
+
 void HtmlDrawWindow(HtmlCanvas *, Tcl_Obj *, int, int, int, int, int);
 void HtmlDrawBackground(HtmlCanvas *, XColor *, int);
 void HtmlDrawQuad(HtmlCanvas*,int,int,int,int,int,int,int,int,XColor*,int);
 int  HtmlDrawIsEmpty(HtmlCanvas *);
 
-void HtmlDrawImage2(HtmlCanvas *, HtmlImage2 *, int, int, unsigned char, 
-                    unsigned char, int, int, int, int, int);
+void HtmlDrawImage(HtmlCanvas*, HtmlImage2*, int, int, int, int, HtmlNode*, int);
 void HtmlLayoutPaintText(HtmlTree *, int, int, int, int);
 int HtmlLayoutScrollToNode(HtmlTree *, int);
 
@@ -476,12 +479,6 @@ void HtmlImageRef(HtmlImage2 *);
 const char *HtmlImageUrl(HtmlImage2 *);
 void HtmlImageCheck(HtmlImage2 *);
 Tcl_Obj *HtmlXImageToImage(HtmlTree *, XImage *, int, int);
-
-#ifdef HTML_DEBUG
-void HtmlDrawComment(HtmlCanvas *, CONST char *zComment, int);
-#else
-#define HtmlDrawComment(x, y, z)
-#endif
 
 #endif
 

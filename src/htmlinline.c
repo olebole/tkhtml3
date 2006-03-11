@@ -31,7 +31,7 @@
  * 
  *     HtmlInlineContextIsEmpty
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.11 2006/03/08 14:57:20 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.12 2006/03/11 15:53:12 danielk1977 Exp $";
 
 typedef struct InlineBox InlineBox;
 
@@ -44,6 +44,8 @@ struct InlineBorder {
   XColor *color;              /* Color for text-decoration */
   int iStartBox;              /* Leftmost inline-box */
   int iStartPixel;            /* Leftmost pixel of outer margin */
+  HtmlNode *pNode;            /* Document node that generated this border */
+  int parentblock;
   InlineBorder *pNext;
 };
 
@@ -278,6 +280,8 @@ HtmlGetInlineBorder(pLayout, pNode, parentblock)
         border.color = pValues->cColor->xcolor;
         pBorder = (InlineBorder *)HtmlAlloc(sizeof(InlineBorder));
         memcpy(pBorder, &border, sizeof(InlineBorder));
+        pBorder->parentblock = parentblock;
+        pBorder->pNode = pNode;
     }
 
     return pBorder;
@@ -478,52 +482,19 @@ pLayout, pCanvas, pBorder, x1, y1, x2, y2, drb, aRepX, nRepX)
     XColor *c = pBorder->border.color_bg;
     int textdecoration = pBorder->textdecoration;
 
-    int tw, rw, bw, lw;
-    XColor *tc, *rc, *bc, *lc;
     int dlb = (pBorder->iStartBox >= 0);        /* Draw Left Border */
 
-    tw = pBorder->box.border_top;
-    rw = pBorder->box.border_right;
-    bw = pBorder->box.border_bottom;
-    lw = pBorder->box.border_left;
-
-    tc = pBorder->border.color_top;
-    rc = pBorder->border.color_right;
-    bc = pBorder->border.color_bottom;
-    lc = pBorder->border.color_left;
+    int flags = (dlb?0:CANVAS_BOX_OPEN_LEFT)|(drb?0:CANVAS_BOX_OPEN_RIGHT);
+    int mmt = pLayout->minmaxTest;
+    HtmlNode *pNode = pBorder->pNode;
 
     x1 += (dlb ? pBorder->margin.margin_left : 0);
     x2 -= (drb ? pBorder->margin.margin_right : 0);
     y1 += pBorder->margin.margin_top;
     y2 -= pBorder->margin.margin_bottom;
-    if (tw>0) {
-        DRAW_QUAD(pCanvas, 
-            x1, y1, x1+(dlb?lw:0), y1+tw, 
-            x2-(drb?rw:0), y1+tw, x2, y1, 
-            tc
-        );
-    }
-    if (rw > 0 && drb) {
-        DRAW_QUAD(pCanvas, x2, y1, x2-rw, y1+tw, x2-rw, y2-bw, x2, y2, rc);
-    }
-    if (bw>0) {
-        DRAW_QUAD(pCanvas, 
-            x2, y2, x2-(drb?rw:0), y2-bw,
-            x1+(dlb?lw:0), y2-bw, x1, y2, 
-            bc
-        );
-    }
-    if (lw > 0 && dlb) {
-        DRAW_QUAD(pCanvas, x1, y2, x1+lw, y2-bw, x1+lw, y1+tw, x1, y1, lc);
-    }
 
-    if (c) {
-        x1 += (dlb ? pBorder->box.border_left : 0);
-        x2 -= (drb ? pBorder->box.border_right : 0);
-        y1 += pBorder->box.border_top;
-        y2 -= pBorder->box.border_bottom;
-
-        DRAW_QUAD(pCanvas, x1, y1, x2, y1, x2, y2, x1, y2, c);
+    if (!pBorder->parentblock) {
+        HtmlDrawBox(pCanvas, x1, y1, x2-x1, y2-y1, pNode, flags, mmt);
     }
 
     if (textdecoration != CSS_CONST_NONE) {
@@ -531,24 +502,18 @@ pLayout, pCanvas, pBorder, x1, y1, x2, y2, drb, aRepX, nRepX)
         int i;
         XColor *color = pBorder->color;
 
+        int y_o;
+        int y_t;
+        int y_u;
+
         x1 += (dlb ? pBorder->box.padding_left : 0);
         x2 -= (drb ? pBorder->box.padding_right : 0);
         y1 += pBorder->box.padding_top;
         y2 -= pBorder->box.padding_bottom;
 
-        switch (textdecoration) {
-            case CSS_CONST_OVERLINE:
-                y = y1;
-                break;
-            case CSS_CONST_LINE_THROUGH:
-                y = (y2+y1)/2;
-                break;
-            case CSS_CONST_UNDERLINE:
-                y = 1;
-                break;
-            default:
-                assert(0);
-        }
+        y_o = y1;
+        y_t = (y2+y1)/2;
+        y_u = 1;
 
 	/* At this point we draw a horizontal line for the underline,
 	 * linethrough or overline decoration. The line is to be drawn
@@ -566,15 +531,15 @@ pLayout, pCanvas, pBorder, x1, y1, x2, y2, drb, aRepX, nRepX)
 
                 if (xs > xa) {
                     int xb = MIN(xs, x2);
-	            DRAW_QUAD(pCanvas,xa,y,xb,y,xb,y+1,xa,y+1,color);
+                    HtmlDrawLine(pCanvas, xa, xb-xa, y_o, y_t, y_u, pNode, mmt);
                 }
                 xa = xe;
             }
             if (xa < x2) {
-	        DRAW_QUAD(pCanvas, xa, y, x2, y, x2, y+1, xa, y+1, color);
+                HtmlDrawLine(pCanvas, xa, x2-xa, y_o, y_t, y_u, pNode, mmt);
             }
         } else {
-	    DRAW_QUAD(pCanvas, x1, y, x2, y, x2, y+1, x1, y+1, color);
+            HtmlDrawLine(pCanvas, x1, x2 - x1, y_o, y_t, y_u, pNode, mmt);
         }
     }
 }
@@ -1150,7 +1115,7 @@ HtmlInlineContextAddText(pContext, pNode)
                 td = pFont->metrics.descent;
                 tem = pFont->em_pixels;
                 inlineContextSetBoxDimensions(pContext, tw, ta, td, tem);
-                HtmlDrawText(p,pText,0,0,tw,pFont,color,szonly,pNode,iIndex);
+                HtmlDrawText(p,pText,0,0,tw,szonly,pNode,iIndex);
                 Tcl_DecrRefCount(pText);
                 iIndex += pToken->count;
                 break;

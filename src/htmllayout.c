@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.127 2006/03/10 14:21:02 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.128 2006/03/11 15:53:12 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -839,24 +839,25 @@ markerLayout(pLayout, pBox, pNode, y)
     memset(&sCanvas, 0, sizeof(HtmlCanvas));
 
     if (pComputed->imListStyleImage) {
-        int iMarginLeft = PIXELVAL(pComputed, MARGIN_LEFT, pBox->iContaining);
-        iMarginLeft = MAX(40, iMarginLeft);
-        width = iMarginLeft - pComputed->fFont->ex_pixels;
+        int iWidth = PIXELVAL_AUTO;
+        int iHeight = PIXELVAL_AUTO;
+
+        HtmlImageScale(pComputed->imListStyleImage, &iWidth, &iHeight, 0);
+        offset = MAX(0, PIXELVAL(pComputed, MARGIN_LEFT, 0));
+        offset -= (pComputed->fFont->ex_pixels + iWidth);
 
         if (pComputed->eListStylePosition == CSS_CONST_OUTSIDE) {
-            HtmlDrawImage2(&sCanvas, pComputed->imListStyleImage,
-                10000, 10000, 1, CSS_CONST_NO_REPEAT,
-                -1 * iMarginLeft, y,
-                width, yoffset, pLayout->minmaxTest
+            HtmlDrawImage(&sCanvas, pComputed->imListStyleImage,
+                offset, y,
+                iWidth, iHeight, pNode, pLayout->minmaxTest
             );
         } else {
-            HtmlDrawImage2(&sCanvas, pComputed->imListStyleImage,
-                0, 10000, 1, CSS_CONST_NO_REPEAT,
-                0, y,
-                width, yoffset, pLayout->minmaxTest
+            HtmlDrawImage(&sCanvas, pComputed->imListStyleImage,
+                0, y, 
+                iWidth, iHeight, pNode, pLayout->minmaxTest
             );
-            HtmlFloatListAdd(pBox->pFloat, FLOAT_LEFT, 
-                  iMarginLeft, y, y + yoffset);
+            HtmlFloatListAdd(pBox->pFloat, FLOAT_LEFT, iWidth, y, 
+                y + iHeight);
         }
     } else {
         XColor *color;
@@ -942,8 +943,9 @@ markerLayout(pLayout, pBox, pNode, y)
             HtmlFloatListAdd(pBox->pFloat, FLOAT_LEFT, 
                   pComputed->fFont->ex_pixels + width, y, y + yoffset);
         }
-        DRAW_TEXT(&sCanvas, pMarker, offset, y + yoffset, width, 
-            pComputed->fFont, color);
+
+        HtmlDrawText(&sCanvas, pMarker, offset, y + yoffset, width,
+                pLayout->minmaxTest, pNode, -1);
     
         Tcl_DecrRefCount(pMarker);
     }
@@ -2157,7 +2159,7 @@ borderLayout(pLayout, pNode, pBox, xA, yA, xB, yB)
     x2 = xB - xA;
     y2 = yB - yA;
 
-    HtmlDrawBox(&sBox.vc, x1, y1, x2, y2, pNode, pLayout->minmaxTest);
+    HtmlDrawBox(&sBox.vc, x1, y1, x2, y2, pNode, 0, pLayout->minmaxTest);
     DRAW_CANVAS(&pBox->vc, &sBox.vc, xA, yA, pNode);
 }
 
@@ -2296,10 +2298,9 @@ layoutReplacement(pLayout, pBox, pNode)
         }
     } else {
         int t = pLayout->minmaxTest;
-        int e = CSS_CONST_NO_REPEAT;
         HtmlImage2 *pImg = pV->imReplacementImage;
         pImg = HtmlImageScale(pImg, &width, &height, (t ? 0 : 1));
-        HtmlDrawImage2(&pBox->vc, pImg, 0, 0, 0, e, 0, 0, width, height, t);
+        HtmlDrawImage(&pBox->vc, pImg, 0, 0, width, height, pNode, t);
         HtmlImageFree(pImg);
     }
 
@@ -2379,26 +2380,14 @@ HtmlLayout(pTree)
     pBody = pTree->pRoot;
     if (pBody) {
         int xoffset;
-        XColor *c = pBody->pPropertyValues->cBackgroundColor->xcolor;
         MarginProperties margin;
         nodeGetMargins(&sLayout, pBody, nWidth, &margin);
-        if (c) {
-            HtmlDrawBackground(&pTree->canvas, c, 0);
-        }
         sLayout.pTop = pBody;
         drawBlock(&sLayout, &sBox, pBody, nWidth, 0);
         xoffset = MAX(-1 * sBox.vc.left, 0);
         HtmlDrawCanvas(&pTree->canvas, &sBox.vc, xoffset, 0, pBody);
         pTree->canvas.right = sBox.width + xoffset;
         pTree->canvas.bottom = sBox.height;
-    } else {
-        HtmlColor *pColor;
-        Tcl_HashEntry *pEntry;
-        pEntry = Tcl_FindHashEntry(&pTree->aColor, "white");
-        assert(pEntry);
-        pColor = Tcl_GetHashValue(pEntry);
-        HtmlDrawBackground(&pTree->canvas, pColor->xcolor, 0);
-        rc = TCL_OK;
     }
 
     /* Clear the width cache and delete the float-list. */

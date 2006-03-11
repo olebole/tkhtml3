@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.73 2006/03/10 14:21:02 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.74 2006/03/11 15:53:12 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -1966,6 +1966,9 @@ DLL_EXPORT int Tkhtml_Init(interp)
     }
 #endif
 
+    if (0 == Tcl_PkgRequire(interp, "Tk", "8.4", 0)) {
+        return TCL_ERROR;
+    }
     Tcl_PkgProvide(interp, "Tkhtml", "3.0");
     Tcl_CreateObjCommand(interp, "html", newWidget, 0, 0);
     Tcl_CreateObjCommand(interp, "::tk::htmlexit", exitCmd, 0, 0);

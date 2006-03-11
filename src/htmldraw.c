@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.91 2006/03/10 14:35:56 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.92 2006/03/11 15:53:12 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -48,15 +48,14 @@ static const char rcsid[] = "$Id: htmldraw.c,v 1.91 2006/03/10 14:35:56 danielk1
  *     positioning them relative to the widget window. A primitive may be one
  *     of the following:
  *
- *         * Rect       - Solid rectangle
- *         * Border     - Border segment
+ *         * Box        - CSS style border and background.
  *         * Text       - Single line of text
- *         * Image      - An image (or region to be tiled with an image)
+ *         * Line       - Horizontal line used for 'text-decoration'.
+ *         * Image      - An image.
  *         * Window     - A Tk widget window (set by [node replace])
  *
  *     All web documents are reduced by the layout engine to zero or more 
- *     of these primitives. Todo: Possibly a document has a background 
- *     image also?
+ *     of these primitives. 
  *
  * USE CASES
  *
@@ -67,78 +66,93 @@ static const char rcsid[] = "$Id: htmldraw.c,v 1.91 2006/03/10 14:35:56 danielk1
  *         2. Selection modification
  *         3. Find window coordinates (bbox) given node.
  *         4. Find node given window coordinates (a single point).
+ *
  */
-
-#define CANVAS_QUAD    1
-#define CANVAS_TEXT    2
-#define CANVAS_WINDOW  4
-#define CANVAS_ORIGIN  5
-#define CANVAS_BACKGROUND  6
-#define CANVAS_COMMENT  7
-
-
-#define CANVAS_IMAGE  8
-
-#define CANVAS_BOX  9
+#define CANVAS_TEXT    1
+#define CANVAS_WINDOW  2
+#define CANVAS_ORIGIN  3
+#define CANVAS_IMAGE   4
+#define CANVAS_BOX     5
+#define CANVAS_LINE    6
 
 typedef struct CanvasText CanvasText;
 typedef struct CanvasWindow CanvasWindow;
 typedef struct CanvasOrigin CanvasOrigin;
-typedef struct CanvasQuad CanvasQuad;
-typedef struct CanvasBackground CanvasBackground;
-typedef struct CanvasComment CanvasComment;
 typedef struct CanvasImage CanvasImage;
 typedef struct CanvasBox CanvasBox;
+typedef struct CanvasLine CanvasLine;
 
+/* A single line of text. The relative coordinates (x, y) are as required
+ * by Tk_DrawChars() - the far left-edge of the text baseline. The color
+ * and font of the text are determined by the properties of CanvasText.pNode.
+ */
 struct CanvasText {
     int x;                   /* Relative x coordinate to render at */
     int y;                   /* Relative y coordinate to render at */
-
     Tcl_Obj *pText;          /* Text to render */
-    HtmlFont *pFont;         /* Font to render text with */
-    XColor *color;           /* Color to draw in */
-    HtmlNode *pNode;         /* Text node, if any */
-    int iIndex;              /* Index in pNode text of this item */
+    HtmlNode *pNode;         /* Text node */
+    int iIndex;              /* Index in pNode text of this item (or -1) */
 };
 
+/* A square box, with borders, background color and image as determined
+ * by the properties of pNode. Top-left hand corner is at (x, y). The
+ * width and height of the box, as measured from the outer edge of the
+ * borders, are w and h pixels, respectively. 
+ */
 struct CanvasBox {
     int x;                   /* Relative x coordinate to render at */
     int y;                   /* Relative y coordinate to render at */
     int w;                   /* Width of box area */
     int h;                   /* Height of box area */
+    int flags;               /* Combination of CANVAS_BOX flags */
     HtmlNode *pNode;         /* Use computed properties from this node */
 };
 
+/* An image. Nothing to see here. */
 struct CanvasImage {
     int x;                   /* Relative x coordinate to render at */
     int y;                   /* Relative y coordinate to render at */
-
-    HtmlImage2 *pImage;
     int w;                   /* Width of image region */
     int h;                   /* Height of image region */
-    int iPositionX;
-    int iPositionY;
-    unsigned char isPositionPercent;
-    unsigned char eRepeat;
+    HtmlImage2 *pImage;      /* Image pointer */
+    HtmlNode *pNode;         /* Associate document node */
+};
+
+/* This primitive is used to implement the 'text-decoration' property.
+ * It draws zero or more horizontal lines of width CanvasLine.w starting 
+ * at relative x-coordinate CanvasLine.x.
+ *
+ * The lines draw depend on the 'text-decoration' property of 
+ * CanvasLine.pNode. If the property is set to 'overline', then the
+ * relative y-coordinate of the line is CanvasLine.y_overline. Similarly
+ * if the text-decoration property of the node is 'line-through' or 
+ * 'underline', then CanvasLine.y_linethrough or CanvasLine.y_underline
+ * is used as the relative y-coordinate of the rendered line.
+ *
+ * The color of the line is determined by the 'color' property of 
+ * CanvasLine.pNode.
+ *
+ * Todo: Above, it says "zero or more" horizontal lines. At the moment, the
+ * truth is that zero or one line is drawn. This is a limitation of
+ * the HtmlComputedValues structure. Once that code is fixed, this primitive
+ * may draw (for example) both an overline and a linethrough decoration.
+ */
+struct CanvasLine {
+    int x;                   /* Relative x coordinate to render at */
+    int w;                   /* Width of line */
+    int y_overline;          /* Relative y coordinate for overline */
+    int y_underline;         /* Relative y coordinate for underline */
+    int y_linethrough;       /* Relative y coordinate for line-through */
+    HtmlNode *pNode;         /* Node pointer */
 };
 
 struct CanvasWindow {
     int x;                   /* Relative x coordinate */
     int y;                   /* Relative y coordinate */
-
-    Tcl_Obj *pWindow;
-    int absx;
-    int absy;
-    HtmlCanvasItem *pNext;
-};
-
-struct CanvasQuad {
-    Tcl_Obj *pWindow;
-    int x1, y1;
-    int x2, y2;
-    int x3, y3;
-    int x4, y4;
-    XColor *color;
+    Tcl_Obj *pWindow;        /* Name of Tk window */
+    int absx;                /* Absolute canvas x coordinate */
+    int absy;                /* Absolute canvas y coordinate */
+    HtmlCanvasItem *pNext;   /* Next mapped window on this canvas */
 };
 
 struct CanvasOrigin {
@@ -150,25 +164,15 @@ struct CanvasOrigin {
     HtmlNode *pNode;
 };
 
-struct CanvasComment {
-    Tcl_Obj *pComment;
-};
-
-struct CanvasBackground {
-    XColor *color;
-};
-
 struct HtmlCanvasItem {
     int type;
     union {
         CanvasText t;
-        CanvasImage i2;
         CanvasWindow w;
-        CanvasQuad q;
         CanvasOrigin o;
-        CanvasBackground b;
-        CanvasComment c;
-        CanvasBox box;
+        CanvasImage i2;
+        CanvasBox   box;
+        CanvasLine  line;
     } x;
     HtmlCanvasItem *pNext;
 };
@@ -258,9 +262,6 @@ HtmlDrawCleanup(pCanvas)
             case CANVAS_WINDOW:
                 pObj = pItem->x.w.pWindow;
                 break;
-            case CANVAS_COMMENT:
-                pObj = pItem->x.c.pComment;
-                break;
         }
         if (pObj) {
             Tcl_DecrRefCount(pObj);
@@ -346,6 +347,29 @@ static void linkItem(pCanvas, pItem)
     pCanvas->pLast = pItem;
 }
 
+static HtmlFont *
+fontFromNode(pNode)
+    HtmlNode *pNode;
+{
+    HtmlNode *p = pNode;
+    if (!p->pPropertyValues) {
+        p = HtmlNodeParent(p);
+    }
+    assert(p && p->pPropertyValues);
+    return p->pPropertyValues->fFont;
+}
+static HtmlColor *
+colorFromNode(pNode)
+    HtmlNode *pNode;
+{
+    HtmlNode *p = pNode;
+    if (!p->pPropertyValues) {
+        p = HtmlNodeParent(p);
+    }
+    assert(p && p->pPropertyValues);
+    return p->pPropertyValues->cColor;
+}
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -395,18 +419,17 @@ void HtmlDrawCanvas(pCanvas, pCanvas2, x, y, pNode)
             pI = pO->pNext;
             if (pO->type == CANVAS_ORIGIN &&
                 pI->type == CANVAS_TEXT && 
-                pI->x.t.pFont == pNew->x.t.pFont &&
-                pI->x.t.color == pNew->x.t.color && 
                 pI->x.t.pNode == pNew->x.t.pNode && 
                 (pI->x.t.y + pO->x.o.y) == (pNew->x.t.y + y)
             ) {
                 int xi = pO->x.o.x;
                 int xn;
+                HtmlFont *pFont = fontFromNode(pI->x.t.pNode);
 
                 xi += pO->x.o.right;
                 xn = pNew->x.t.x + x;
 
-                if ((xn - xi) == pI->x.t.pFont->space_pixels) {
+                if ((xn - xi) == pFont->space_pixels) {
                     Tcl_AppendToObj(pI->x.t.pText, " ", 1);
                     Tcl_AppendObjToObj(pI->x.t.pText, pNew->x.t.pText);
                     pO->x.o.right = (x + pCanvas2->right) - pO->x.o.x;
@@ -496,37 +519,6 @@ draw_canvas_out:
 /*
  *---------------------------------------------------------------------------
  *
- * HtmlDrawComment --
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-#ifdef HTML_DEBUG
-void 
-HtmlDrawComment(pCanvas, zComment, size_only)
-    HtmlCanvas *pCanvas;
-    CONST char *zComment;
-    int size_only;
-{
-    if (!size_only) {
-        HtmlCanvasItem *pItem;
-        pItem = (HtmlCanvasItem *)HtmlAlloc(sizeof(HtmlCanvasItem));
-        pItem->type = CANVAS_COMMENT;
-        pItem->x.c.pComment = Tcl_NewStringObj(zComment, -1);
-        Tcl_IncrRefCount(pItem->x.c.pComment);
-        linkItem(pCanvas, pItem);
-    }
-}
-#endif
-
-/*
- *---------------------------------------------------------------------------
- *
  * HtmlDrawBox --
  *
  *     Draw a "box" based on the computed properties of node pNode. A "box"
@@ -545,13 +537,14 @@ HtmlDrawComment(pCanvas, zComment, size_only)
  *---------------------------------------------------------------------------
  */
 void 
-HtmlDrawBox(pCanvas, x, y, w, h, pNode, size_only)
+HtmlDrawBox(pCanvas, x, y, w, h, pNode, flags, size_only)
     HtmlCanvas *pCanvas;
     int x;
     int y;
     int w;
     int h;
     HtmlNode *pNode;
+    int flags;
     int size_only;
 {
     if (!size_only) {
@@ -563,6 +556,7 @@ HtmlDrawBox(pCanvas, x, y, w, h, pNode, size_only)
         pItem->x.box.w = w;
         pItem->x.box.h = h;
         pItem->x.box.pNode = pNode;
+        pItem->x.box.flags = flags;
         linkItem(pCanvas, pItem);
     }
 
@@ -570,6 +564,39 @@ HtmlDrawBox(pCanvas, x, y, w, h, pNode, size_only)
     pCanvas->right = MAX(pCanvas->right, x + w);
     pCanvas->bottom = MAX(pCanvas->bottom, y + h);
     pCanvas->top = MIN(pCanvas->top, y);
+}
+
+void 
+HtmlDrawLine(pCanvas, x, w, y_over, y_through, y_under, pNode, size_only)
+    HtmlCanvas *pCanvas;
+    int x;
+    int w;
+    int y_over;
+    int y_through;
+    int y_under;
+    HtmlNode *pNode;
+    int size_only;
+{
+    if (!size_only) {
+        HtmlCanvasItem *pItem; 
+        pItem = (HtmlCanvasItem *)HtmlAlloc(sizeof(HtmlCanvasItem));
+        pItem->type = CANVAS_LINE;
+        pItem->x.line.x = x;
+        pItem->x.line.w = w;
+        pItem->x.line.y_overline = y_over;
+        pItem->x.line.y_underline = y_under;
+        pItem->x.line.y_linethrough = y_through;
+        pItem->x.line.pNode = pNode;
+        linkItem(pCanvas, pItem);
+    }
+
+    assert(y_over <= y_through);
+    assert(y_through <= y_under);
+
+    pCanvas->left = MIN(pCanvas->left, x);
+    pCanvas->right = MAX(pCanvas->right, x + w);
+    pCanvas->bottom = MAX(pCanvas->bottom, y_under);
+    pCanvas->top = MIN(pCanvas->top, y_over);
 }
 
 /*
@@ -587,18 +614,18 @@ HtmlDrawBox(pCanvas, x, y, w, h, pNode, size_only)
  *
  *---------------------------------------------------------------------------
  */
-void HtmlDrawText(pCanvas, pText, x, y, w, pFont, color, size_only, pNode, iIndex)
+void HtmlDrawText(pCanvas, pText, x, y, w, size_only, pNode, iIndex)
     HtmlCanvas *pCanvas; 
     Tcl_Obj *pText; 
     int x;
     int y;
     int w;
-    HtmlFont *pFont;
-    XColor *color;
     int size_only;
     HtmlNode *pNode;
     int iIndex;
 {
+    HtmlFont *pFont = fontFromNode(pNode);
+
     if (!size_only) {
         HtmlCanvasItem *pItem; 
         pItem = (HtmlCanvasItem *)HtmlAlloc(sizeof(HtmlCanvasItem));
@@ -606,8 +633,6 @@ void HtmlDrawText(pCanvas, pText, x, y, w, pFont, color, size_only, pNode, iInde
         pItem->x.t.pText = pText;
         pItem->x.t.x = x;
         pItem->x.t.y = y;
-        pItem->x.t.color = color;
-        pItem->x.t.pFont = pFont;
         pItem->x.t.pNode = pNode;
         pItem->x.t.iIndex = iIndex;
         Tcl_IncrRefCount(pText);
@@ -621,18 +646,15 @@ void HtmlDrawText(pCanvas, pText, x, y, w, pFont, color, size_only, pNode, iInde
 }
 
 void 
-HtmlDrawImage2(
+HtmlDrawImage(
         pCanvas, pImage, 
-        iPositionX, iPositionY, isPositionPercent, eRepeat, 
         x, y, w, h, 
+        pNode,
         size_only
 )
     HtmlCanvas *pCanvas;
     HtmlImage2 *pImage;               /* Image name or NULL */
-    int iPositionX;
-    int iPositionY;
-    unsigned char isPositionPercent;
-    unsigned char eRepeat;           /* e.g. CSS_CONST_REPEAT_X */
+    HtmlNode *pNode;
     int x; 
     int y;
     int w;                      /* Width of image */
@@ -646,14 +668,11 @@ HtmlDrawImage2(
         pItem->type = CANVAS_IMAGE;
         pItem->x.i2.pImage = pImage;
         HtmlImageRef(pImage);
-        pItem->x.i2.eRepeat = eRepeat;
         pItem->x.i2.x = x;
         pItem->x.i2.y = y;
         pItem->x.i2.w = w;
         pItem->x.i2.h = h;
-        pItem->x.i2.iPositionX = iPositionX;
-        pItem->x.i2.iPositionY = iPositionY;
-        pItem->x.i2.isPositionPercent = isPositionPercent;
+        pItem->x.i2.pNode = pNode;
         linkItem(pCanvas, pItem);
     }
 
@@ -713,79 +732,6 @@ HtmlDrawWindow(pCanvas, pWindow, x, y, w, h, size_only)
 /*
  *---------------------------------------------------------------------------
  *
- * HtmlDrawQuad --
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-void HtmlDrawQuad(pCanvas, x1, y1, x2, y2, x3, y3, x4, y4, color, size_only)
-    HtmlCanvas *pCanvas; 
-    int x1, y1; 
-    int x2, y2; 
-    int x3, y3; 
-    int x4, y4; 
-    XColor *color;
-    int size_only;
-{
-    if (!size_only) {
-        HtmlCanvasItem *pItem;
-        pItem = (HtmlCanvasItem *)HtmlAlloc(sizeof(HtmlCanvasItem));
-        pItem->type = CANVAS_QUAD;
-        pItem->x.q.x1 = x1;
-        pItem->x.q.y1 = y1;
-        pItem->x.q.x2 = x2;
-        pItem->x.q.y2 = y2;
-        pItem->x.q.x3 = x3;
-        pItem->x.q.y3 = y3;
-        pItem->x.q.y4 = y4;
-        pItem->x.q.x4 = x4;
-        pItem->x.q.x4 = x4;
-        pItem->x.q.color = color;
-        linkItem(pCanvas, pItem);
-    }
-
-    pCanvas->left = MIN5(pCanvas->left, x1, x2, x3, x4);
-    pCanvas->top = MIN5(pCanvas->top, y1, y2, y3, y4);
-    pCanvas->bottom = MAX5(pCanvas->bottom, y1, y2, y3, y4);
-    pCanvas->right = MAX5(pCanvas->right, x1, x2, x3, x4);
-
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * HtmlDrawBackground --
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-void HtmlDrawBackground(pCanvas, color, size_only)
-    HtmlCanvas *pCanvas;
-    XColor *color;
-    int size_only;
-{
-    if (!size_only) {
-        HtmlCanvasItem *pItem;
-        pItem = (HtmlCanvasItem *)HtmlAlloc(sizeof(HtmlCanvasItem));
-        pItem->type = CANVAS_BACKGROUND;
-        pItem->x.b.color = color;
-        linkItem(pCanvas, pItem);
-    }
-}
-
-/*
- *---------------------------------------------------------------------------
- *
  * HtmlLayoutPrimitives --
  *
  * Results:
@@ -827,45 +773,26 @@ int HtmlLayoutPrimitives(clientData, interp, objc, objv)
                 aObj[1] = Tcl_NewIntObj(pItem->x.o.x);
                 aObj[2] = Tcl_NewIntObj(pItem->x.o.y);
                 break;
-            case CANVAS_TEXT:
+            case CANVAS_TEXT: {
                 nObj = 6;
                 aObj[0] = Tcl_NewStringObj("draw_text", -1);
                 aObj[1] = Tcl_NewIntObj(pItem->x.t.x);
                 aObj[2] = Tcl_NewIntObj(pItem->x.t.y);
-                aObj[3] = Tcl_NewStringObj(
-                    Tk_NameOfFont(pItem->x.t.pFont->tkfont), -1
-                ); 
-                aObj[4] = Tcl_NewStringObj(Tk_NameOfColor(pItem->x.t.color),-1);
+                aObj[3] = HtmlNodeCommand(pTree, pItem->x.t.pNode);
+                aObj[4] = Tcl_NewIntObj(pItem->x.t.iIndex);
                 aObj[5] = pItem->x.t.pText;
                 break;
+            }
             case CANVAS_IMAGE:
                 if (pItem->x.i2.pImage) {
-                    nObj = 9;
-                    aObj[0] = Tcl_NewStringObj("draw_image2", -1);
-                    aObj[1] = Tcl_NewStringObj(
-                            HtmlCssConstantToString(pItem->x.i2.eRepeat), -1);
-                    if (pItem->x.i2.isPositionPercent) {
-                        char zBuf[128];
-                        sprintf(zBuf, "%.2f%%", 
-                            (double)pItem->x.i2.iPositionX / 100.0
-                        );
-                        aObj[2] = Tcl_NewStringObj(zBuf, -1);
-                        sprintf(zBuf, "%.2f%%", 
-                            (double)pItem->x.i2.iPositionY / 100.0
-                        );
-                        aObj[3] = Tcl_NewStringObj(zBuf, -1);
-                    } else {
-                        char zBuf[128];
-                        sprintf(zBuf, "%dpx", pItem->x.i2.iPositionX);
-                        aObj[2] = Tcl_NewStringObj(zBuf, -1);
-                        sprintf(zBuf, "%dpx", pItem->x.i2.iPositionY);
-                        aObj[3] = Tcl_NewStringObj(zBuf, -1);
-                    }
-                    aObj[4] = Tcl_NewIntObj(pItem->x.i2.x);
-                    aObj[5] = Tcl_NewIntObj(pItem->x.i2.y);
-                    aObj[6] = Tcl_NewIntObj(pItem->x.i2.w);
-                    aObj[7] = Tcl_NewIntObj(pItem->x.i2.h);
-                    aObj[8] = HtmlImageUnscaledName(pItem->x.i2.pImage);
+                    nObj = 7;
+                    aObj[0] = Tcl_NewStringObj("draw_image", -1);
+                    aObj[1] = Tcl_NewIntObj(pItem->x.i2.x);
+                    aObj[2] = Tcl_NewIntObj(pItem->x.i2.y);
+                    aObj[3] = Tcl_NewIntObj(pItem->x.i2.w);
+                    aObj[4] = Tcl_NewIntObj(pItem->x.i2.h);
+                    aObj[5] = HtmlNodeCommand(pTree, pItem->x.i2.pNode);
+                    aObj[6] = HtmlImageUnscaledName(pItem->x.i2.pImage);
                 }
                 break;
             case CANVAS_WINDOW:
@@ -875,28 +802,6 @@ int HtmlLayoutPrimitives(clientData, interp, objc, objv)
                 aObj[2] = Tcl_NewIntObj(pItem->x.w.y);
                 aObj[3] = pItem->x.w.pWindow;
                 break;
-            case CANVAS_QUAD:
-                nObj = 10;
-                aObj[0] = Tcl_NewStringObj("draw_quad", -1);
-                aObj[1] = Tcl_NewIntObj(pItem->x.q.x1);
-                aObj[2] = Tcl_NewIntObj(pItem->x.q.y1);
-                aObj[3] = Tcl_NewIntObj(pItem->x.q.x2);
-                aObj[4] = Tcl_NewIntObj(pItem->x.q.y2);
-                aObj[5] = Tcl_NewIntObj(pItem->x.q.x3);
-                aObj[6] = Tcl_NewIntObj(pItem->x.q.y3);
-                aObj[7] = Tcl_NewIntObj(pItem->x.q.x4);
-                aObj[8] = Tcl_NewIntObj(pItem->x.q.y4);
-                aObj[9] = Tcl_NewStringObj(Tk_NameOfColor(pItem->x.q.color),-1);
-                break;
-            case CANVAS_BACKGROUND:
-                nObj = 2;
-                aObj[0] = Tcl_NewStringObj("draw_background", -1);
-                aObj[1] = Tcl_NewStringObj(Tk_NameOfColor(pItem->x.b.color),-1);
-                break;
-            case CANVAS_COMMENT:
-                pList = Tcl_NewStringObj("# ", 2);
-                Tcl_AppendObjToObj(pList, pItem->x.c.pComment);
-                break;
             case CANVAS_BOX:
                 nObj = 6;
                 aObj[0] = Tcl_NewStringObj("draw_box", -1);
@@ -905,6 +810,16 @@ int HtmlLayoutPrimitives(clientData, interp, objc, objv)
                 aObj[3] = Tcl_NewIntObj(pItem->x.box.w);
                 aObj[4] = Tcl_NewIntObj(pItem->x.box.h);
                 aObj[5] = HtmlNodeCommand(pTree, pItem->x.box.pNode);
+                break;
+            case CANVAS_LINE:
+                nObj = 7;
+                aObj[0] = Tcl_NewStringObj("draw_line", -1);
+                aObj[1] = Tcl_NewIntObj(pItem->x.line.x);
+                aObj[2] = Tcl_NewIntObj(pItem->x.line.w);
+                aObj[3] = Tcl_NewIntObj(pItem->x.line.y_overline);
+                aObj[4] = Tcl_NewIntObj(pItem->x.line.y_linethrough);
+                aObj[5] = Tcl_NewIntObj(pItem->x.line.y_underline);
+                aObj[6] = HtmlNodeCommand(pTree, pItem->x.line.pNode);
                 break;
         }
         if (nObj>0) {
@@ -990,6 +905,15 @@ drawBox(pTree, pBox, drawable, x, y, w, h)
     XColor *bc = pV->cBorderBottomColor->xcolor;
     XColor *lc = pV->cBorderLeftColor->xcolor;
 
+    int isInline = (pV->eDisplay == CSS_CONST_INLINE);
+
+    if (pBox->flags & CANVAS_BOX_OPEN_LEFT) {
+        lw = 0;
+    }
+    if (pBox->flags & CANVAS_BOX_OPEN_RIGHT) {
+        rw = 0;
+    }
+
     /* Top border */
     if (tw > 0 && tc) {
         fill_quad(pTree->win, drawable, tc,
@@ -1011,7 +935,7 @@ drawBox(pTree, pBox, drawable, x, y, w, h)
     }
 
     /* Bottom border, if required */
-    if (lw > 0 && lc) {
+    if (bw > 0 && bc) {
         fill_quad(pTree->win, drawable, bc,
             x + pBox->x, y + pBox->y + pBox->h,
             lw, - 1 * bw,
@@ -1031,7 +955,7 @@ drawBox(pTree, pBox, drawable, x, y, w, h)
     }
 
     /* Solid background, if required */
-    if (pV->cBackgroundColor->xcolor) {
+    if (!isInline && pV->cBackgroundColor->xcolor) {
         fill_quad(pTree->win, drawable, pV->cBackgroundColor->xcolor,
             bg_x, bg_y,
             bg_w, 0,
@@ -1041,7 +965,7 @@ drawBox(pTree, pBox, drawable, x, y, w, h)
     }
 
     /* Image background, if required. This bit's a little tricky. */
-    if (pV->imBackgroundImage) {
+    if (!isInline && pV->imBackgroundImage) {
         Tk_Image img;
         Pixmap ipix;
         GC gc;
@@ -1137,222 +1061,73 @@ drawBox(pTree, pBox, drawable, x, y, w, h)
  *---------------------------------------------------------------------------
  */
 static void 
-drawImage(pTree, pI2, pDrawable, x, y, w, h)
+drawImage(pTree, pI2, drawable, x, y, w, h)
     HtmlTree *pTree;
     CanvasImage *pI2;
-    Drawable *pDrawable;
+    Drawable drawable;
     int x;                 /* X-coord in *pDrawable */
     int y;                 /* Y-coord in *pDrawable */
     int w;                 /* Total width of *pDrawable */
     int h;                 /* Total height of *pDrawable */
 {
     if (pI2->pImage) {
-        int iw;                /* Intrinsic width of image */
-        int ih;                /* Intrinsic height of image */
-        int bw;                /* Width of block to draw */
-        int bh;                /* Height of block to draw */
-        int bx;                /* X-coordinate of block in drawable */
-        int by;                /* Y-coordinate of block in drawable */
-        int ix = 0;
-        int iy = 0;
+        int imW;                   /* Image width */
+        int imH;                   /* Image height */
+        Tk_Image img;              /* Tk Image */
 
-        int clipx1, clipx2;
-        int clipy1, clipy2;
-
-        int iPosX = pI2->iPositionX;
-        int iPosY = pI2->iPositionY;
-
-        const int eR = pI2->eRepeat;          /* Copy of pI2->eRepeat */
-
-        /* Retrieve the Tk-image and measure it. */
-        Tk_Image img = HtmlImageImage(pI2->pImage);
-        Tk_SizeOfImage(img, &iw, &ih);
-        if (iw <= 0 || ih <= 0) {
-            /* Nothing to draw for an empty image */
-            return;
-        }
-
-        /* Make sure iPosX and iPosY are pixel values.
-         */
-        if (pI2->isPositionPercent) {
-            iPosX = (double)iPosX * (double)(pI2->w - iw) / 10000.0;
-            iPosY = (double)iPosY * (double)(pI2->h - ih) / 10000.0;
-        }
-
-        /* Figure out the X and Y coordinates of the block origin. */
-        if (eR == CSS_CONST_REPEAT || eR == CSS_CONST_REPEAT_X) {
-            bx = x + pI2->x;
-        } else {
-            bx = x + iPosX + pI2->x;
-            bw = iw;
-        }
-        if (eR == CSS_CONST_REPEAT || eR == CSS_CONST_REPEAT_Y) {
-            by = y + pI2->y;
-        } else {
-            by = y + iPosY + pI2->y;
-            bh = ih;
-        }
-
-        clipx1 = MAX(0, pI2->x + x);
-        clipy1 = MAX(0, pI2->y + y);
-
-        clipx2 = MIN(w, pI2->x + x + pI2->w);
-        clipy2 = MIN(h, pI2->y + y + pI2->h);
-
-        /* Clip the values to make sure we don't paint outside the drawable */
-        if (bx < clipx1) {
-            bw = bw - (clipx1 - bx);
-            iPosX = (clipx1 - bx);
-            bx = clipx1;
-        }
-        if (by < clipy1) {
-            bh = bh - (clipy1 - by);
-            iPosY = (clipy1 - by);
-            by = clipy1;
-        }
-        if (bx + bw > clipx2)  bw = clipx2 - bx;
-        if (by + bh > clipy2)  bh = clipy2 - by;
-
-        /* There are two ways to draw an image to the drawable. The first
-         * is to draw it directly using Tk_RedrawImage(). The second is to
-         * draw the image to a new pixmap, request a graphics context with 
-         * the newly allocated pixmap as the background tile and call 
-         * XFillRectangle().
-         *
-         * The second method can be more efficient for background images. If
-         * a small (perhaps 1x1) image is tiled over a large area, hundreds
-         * or even thousands of copies are made. Doing this in client code
-         * via multiple calls to Tk_RedrawImage() is too slow in some cases.
-         * The disadvantage is that images featuring transparency are 
-         * handled incorrectly.
-         *
-         * We must use the second method if the CanvasImage.eRepeat variable
-         * is set to other than 'no-repeat'.
-         */
-        if (eR == CSS_CONST_NO_REPEAT) {
-            Tk_RedrawImage(img, iPosX, iPosY, bw, bh, *pDrawable, bx, by);
-        } else {
-            GC gc;                 /* Graphics context to draw with */
-            XGCValues gc_values;   /* Structure used to specify gc */
-
-            Tk_Window win = pTree->tkwin;
-            Display *pDisplay = Tk_Display(win);
-            int depth = Tk_Depth(win);
-
-            /* Create a pixmap of the image */
-            Pixmap ipix;
-            ipix = Tk_GetPixmap(pDisplay, Tk_WindowId(win), iw, ih, depth);
-            Tk_RedrawImage(img, 0, 0, iw, ih, ipix, 0, 0);
-        
-            gc_values.tile = ipix;
-            gc_values.fill_style = FillTiled;
-            gc_values.ts_x_origin = iPosX;
-            gc_values.ts_y_origin = iPosY;
-            gc = Tk_GetGC(pTree->win, 
-                GCTile|GCTileStipXOrigin|
-                GCTileStipYOrigin|GCFillStyle, 
-                &gc_values
-            );
-            XFillRectangle(pDisplay, *pDrawable, gc, bx, by, bw, bh);
-            Tk_FreePixmap(pDisplay, ipix);
-            Tk_FreeGC(pDisplay, gc);
-        }
-
-#if 0
-        if (
-            pI2->eRepeat != CSS_CONST_NO_REPEAT ||
-            pI2->iPositionX != 0 || 
-            pI2->iPositionY != 0
-        ) {
-            GC gc;                 /* Graphics context to draw with */
-            XGCValues gc_values;   /* Structure used to specify gc */
-            int bw;                /* Width of rectangle to paint */
-            int bh;                /* Height of rectangle to paint */
-            Tk_Window win = pTree->tkwin;
-            Display *pDisplay = Tk_Display(win);
-            int depth = Tk_Depth(win);
-
-            int x1 = pI2->iPositionX;   /* Drawable coordinate */
-            int y1 = pI2->iPositionY;   /* Drawable coordinate */
-            if (pI2->isPositionPercent) {
-                x1 = (double)x1 * (double)(pI2->w - iw) / 10000.0;
-                y1 = (double)y1 * (double)(pI2->h - ih) / 10000.0;
-            }
-            bw = iw;
-            bh = ih;
-
-            gc_values.ts_x_origin = x1 + pI2->x + x;
-            gc_values.ts_y_origin = y1 + pI2->y + y;
-
-            if (
-                pI2->eRepeat == CSS_CONST_REPEAT || 
-                pI2->eRepeat == CSS_CONST_REPEAT_X
-            ) {
-                x1 = 0;
-                bw = pI2->w;
-            }
-            if (
-                pI2->eRepeat == CSS_CONST_REPEAT || 
-                pI2->eRepeat == CSS_CONST_REPEAT_Y
-            ) {
-                y1 = 0;
-                bh = pI2->h;
-            }
-            x1 += (pI2->x + x);
-            y1 += (pI2->y + y);
-
-            if (x1 < 0) {
-                bw += x1;
-                x1 = 0;
-            }
-            if (y1 < 0) {
-                bh = bh + y1;
-                y1 = 0;
-            }
-            if ((x1 + bw) > w) {
-                bw = (w - x1);
-            }
-            if ((y1 + bh) > h) {
-                bh = (h - y1);
-            }
-
-            if (bh > 0 && bw > 0) {
-                /* Create a pixmap of the image */
-                Pixmap ipix;
-                ipix = Tk_GetPixmap(pDisplay, Tk_WindowId(win), iw, ih, depth);
-                Tk_RedrawImage(img, 0, 0, iw, ih, ipix, 0, 0);
-        
-                gc_values.tile = ipix;
-                gc_values.fill_style = FillTiled;
-                gc = Tk_GetGC(pTree->win, 
-                    GCTile|GCTileStipXOrigin|
-                    GCTileStipYOrigin|GCFillStyle, 
-                    &gc_values
-                );
-                XFillRectangle(pDisplay, *pDrawable, gc, x1, y1, bw, bh);
-                Tk_FreePixmap(pDisplay, ipix);
-                Tk_FreeGC(pDisplay, gc);
-            }
-        } else {
-            int ix;              /* Image x */
-            int iy;              /* Image y */
-            int dx;              /* Drawable x */
-            int dy;              /* Drawable y */
-
-            dx = MAX(0, pI2->x + x);
-            dy = MAX(0, pI2->y + y);
-            ix = MAX(0, -1 * (pI2->x + x));
-            iy = MAX(0, -1 * (pI2->y + y));
-
-            iw = MIN(iw, w - dx);
-            ih = MIN(ih, h - dy);
-            iw = MIN(iw, pI2->w);
-            ih = MIN(ih, pI2->h);
-
-            Tk_RedrawImage(img, ix, iy, iw, ih, *pDrawable, dx, dy);
-        }
-#endif
+        img = HtmlImageImage(pI2->pImage);
+        Tk_SizeOfImage(img, &imW, &imH);
+        Tk_RedrawImage(img, 0, 0, imW, imH, drawable, x + pI2->x, y + pI2-> y);
     }
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * drawLine --
+ *
+ *     This function is used to draw a CANVAS_LINE primitive to the 
+ *     drawable.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void 
+drawLine(pTree, pLine, drawable, x, y, w, h)
+    HtmlTree *pTree;
+    CanvasLine *pLine;
+    Drawable drawable;
+    int x;                 /* X-coord in *pDrawable */
+    int y;                 /* Y-coord in *pDrawable */
+    int w;                 /* Total width of *pDrawable */
+    int h;                 /* Total height of *pDrawable */
+{
+    XColor *xcolor;
+    int yrel;
+
+    switch (pLine->pNode->pPropertyValues->eTextDecoration) {
+        case CSS_CONST_LINE_THROUGH:
+            yrel = pLine->y_linethrough; 
+            break;
+        case CSS_CONST_UNDERLINE:
+            yrel = pLine->y_underline; 
+            break;
+        case CSS_CONST_OVERLINE:
+            yrel = pLine->y_overline; 
+            break;
+        default:
+            return;
+    }
+    xcolor = pLine->pNode->pPropertyValues->cColor->xcolor;
+
+    fill_quad(pTree->tkwin, drawable, xcolor, 
+        x + pLine->x, y + yrel, pLine->w, 0, 0, 1, -1 * pLine->w, 0
+    );
 }
 
 #define SWAPINT(x,y) {int tmp = x; x = y; y = tmp;}
@@ -1374,7 +1149,9 @@ drawText(pTree, pItem, drawable, x, y)
     int mask;
 
     int n;
-    Tk_Font font = pT->pFont->tkfont;
+    HtmlFont *pFont = fontFromNode(pT->pNode);
+    HtmlColor *pColor = colorFromNode(pT->pNode);
+    Tk_Font font = pFont->tkfont;
 
     int iSelFrom;      /* Index in this string where the selection starts */
     int iSelTo = 0;    /* Index in this string where the selection ends */
@@ -1382,7 +1159,7 @@ drawText(pTree, pItem, drawable, x, y)
     z = Tcl_GetStringFromObj(pT->pText, &n);
     iSelFrom = n;
 
-    if (pTree->pFromNode && pT->pNode) {
+    if (pTree->pFromNode && pT->iIndex >= 0) {
         int iToNode    = pTree->pToNode->iNode;
         int iFromNode  = pTree->pFromNode->iNode;
         int iToIndex   = pTree->iToIndex;
@@ -1415,7 +1192,7 @@ drawText(pTree, pItem, drawable, x, y)
     /* Unless the entire line is selected, draw the text in the regular way */
     if (iSelTo < n || iSelFrom > 0) {
         mask = GCForeground | GCFont;
-        gc_values.foreground = pT->color->pixel;
+        gc_values.foreground = pColor->xcolor->pixel;
         gc_values.font = Tk_FontId(font);
         gc = Tk_GetGC(pTree->win, mask, &gc_values);
 
@@ -1441,8 +1218,8 @@ drawText(pTree, pItem, drawable, x, y)
             xs += Tk_TextWidth(font, z, iSelFrom);
         }
         w = Tk_TextWidth(font, zSel, nSel);
-        h = pT->pFont->metrics.ascent + pT->pFont->metrics.descent;
-        ybg = pT->y + y - pT->pFont->metrics.ascent;
+        h = pFont->metrics.ascent + pFont->metrics.descent;
+        ybg = pT->y + y - pFont->metrics.ascent;
 
         mask = GCForeground;
         gc_values.foreground = pTree->options.selectbackground->pixel;
@@ -1496,10 +1273,23 @@ getPixmap(pTree, xcanvas, ycanvas, w, h)
     int x = xcanvas * -1;
     int y = ycanvas * -1;
 
+    XColor *bg_color;
+
     Tk_MakeWindowExist(win);
 
     pDisplay = Tk_Display(win);
     pmap = Tk_GetPixmap(pDisplay, Tk_WindowId(win), w, h, Tk_Depth(win));
+
+
+    if (pTree->pRoot) {
+        bg_color = pTree->pRoot->pPropertyValues->cBackgroundColor->xcolor;
+    } else {
+        Tcl_HashEntry *pEntry;
+        pEntry = Tcl_FindHashEntry(&pTree->aColor, "white");
+        assert(pEntry);
+        bg_color = ((HtmlColor *)Tcl_GetHashValue(pEntry))->xcolor;
+    }
+    fill_quad(win, pmap, bg_color, 0, 0, w, 0, 0, h, -1 * w, 0);
 
     for (pItem=pCanvas->pFirst; pItem; pItem=pItem->pNext) {
         switch (pItem->type) {
@@ -1539,7 +1329,7 @@ getPixmap(pTree, xcanvas, ycanvas, w, h)
             }
 
             case CANVAS_IMAGE: {
-                drawImage(pTree, &pItem->x.i2, &pmap, x, y, w, h);
+                drawImage(pTree, &pItem->x.i2, pmap, x, y, w, h);
                 break;
             }
 
@@ -1548,37 +1338,14 @@ getPixmap(pTree, xcanvas, ycanvas, w, h)
                 break;
             }
 
+            case CANVAS_LINE: {
+                drawLine(pTree, &pItem->x.line, pmap, x, y, w, h);
+                break;
+            }
+
             case CANVAS_WINDOW:
                 break;
 
-            case CANVAS_QUAD: {
-                XPoint points[4];
-
-                gc_values.foreground = pItem->x.q.color->pixel;
-                mask = GCForeground;
-                gc = Tk_GetGC(pTree->win, mask, &gc_values);
-
-                points[0].x = pItem->x.q.x1 + x;
-                points[1].x = pItem->x.q.x2 + x;
-                points[2].x = pItem->x.q.x3 + x;
-                points[3].x = pItem->x.q.x4 + x;
-
-                points[0].y = pItem->x.q.y1 + y;
-                points[1].y = pItem->x.q.y2 + y;
-                points[2].y = pItem->x.q.y3 + y;
-                points[3].y = pItem->x.q.y4 + y;
-
-                XFillPolygon(
-                    pDisplay, pmap, gc, points, 4, Convex, CoordModeOrigin);
-                break;
-            }
-            case CANVAS_BACKGROUND: {
-                gc_values.foreground = pItem->x.b.color->pixel;
-                mask = GCForeground;
-                gc = Tk_GetGC(pTree->win, mask, &gc_values);
-                XFillRectangle(pDisplay, pmap, gc, 0, 0, w, h);
-                break;
-            }
         }
 
         if (gc) {
@@ -1795,18 +1562,19 @@ layoutNodeIndexCb(pItem, origin_x, origin_y, clientData)
     if (pItem->type == CANVAS_TEXT) {
         NodeIndexQuery *pQuery = (NodeIndexQuery *)clientData;
         CanvasText *pT = &pItem->x.t;
+        HtmlFont *pFont = fontFromNode(pT->pNode);
         int left   = pT->x + origin_x;
-        int top    = origin_y + pT->y - pT->pFont->metrics.ascent;
-        int bottom = origin_y + pT->y + pT->pFont->metrics.descent;
+        int top    = origin_y + pT->y - pFont->metrics.ascent;
+        int bottom = origin_y + pT->y + pFont->metrics.descent;
 
-        if (pT->pNode && left <= pQuery->x && top <= pQuery->y) {
+        if (pT->iIndex >= 0 && left <= pQuery->x && top <= pQuery->y) {
             int n;
             const char *z;
             int right;
             int dist = 0;
 
             z = Tcl_GetStringFromObj(pT->pText, &n);
-            right = left + Tk_TextWidth(pT->pFont->tkfont, z, n);
+            right = left + Tk_TextWidth(pFont->tkfont, z, n);
 
             dist += MAX(pQuery->y - bottom, 0);
             dist += MAX(top - pQuery->y, 0);
@@ -1876,7 +1644,7 @@ layoutNodeIndexCmd(pTree, x, y)
         int dummy;
         int n;
         const char *z;
-        Tk_Font font = sQuery.pClosest->pFont->tkfont;
+        Tk_Font font = fontFromNode(sQuery.pClosest->pNode)->tkfont;
         z = Tcl_GetStringFromObj(sQuery.pClosest->pText, &n);
         iIndex = Tk_MeasureChars(font, z, n, x - sQuery.closest_x, 0, &dummy);
         iIndex += sQuery.pClosest->iIndex;
@@ -2166,7 +1934,8 @@ paintNodesSearchCb(pItem, origin_x, origin_y, clientData)
 
     if (pItem->type == CANVAS_TEXT) {
         CanvasText *pT = &(pItem->x.t);
-        if (pT->pNode) {
+        HtmlFont *pFont = fontFromNode(pT->pNode);
+        if (pT->iIndex >= 0) {
             int iNode = pT->pNode->iNode;
             if (iNode >= p->iNodeStart && iNode <= p->iNodeFin) {
                 int n;
@@ -2181,8 +1950,8 @@ paintNodesSearchCb(pItem, origin_x, origin_y, clientData)
                     (iNode != p->iNodeStart || iIndex2 >= p->iIndexStart) &&
                     (iNode != p->iNodeFin || iIndex <= p->iIndexFin)
                 ) {
-                    int top    = origin_y + pT->y - pT->pFont->metrics.ascent;
-                    int bottom = origin_y + pT->y + pT->pFont->metrics.descent;
+                    int top    = origin_y + pT->y - pFont->metrics.ascent;
+                    int bottom = origin_y + pT->y + pFont->metrics.descent;
                     int left   = origin_x + pT->x;
                     int right;
                     int nFin = n;
@@ -2190,12 +1959,12 @@ paintNodesSearchCb(pItem, origin_x, origin_y, clientData)
                     if (iNode == p->iNodeFin && p->iIndexFin >= 0) {
                         nFin = MIN(n, 1 + p->iIndexFin - pT->iIndex);
                     }
-                    right = Tk_TextWidth(pT->pFont->tkfont, z, nFin) + left;
+                    right = Tk_TextWidth(pFont->tkfont, z, nFin) + left;
                     if (iNode == p->iNodeStart && p->iIndexStart > 0) {
                         int nStart = MAX(0, p->iIndexStart - pT->iIndex);
                         if (nStart > 0) {
                             assert(nStart <= n);
-                            left += Tk_TextWidth(pT->pFont->tkfont, z, nStart);
+                            left += Tk_TextWidth(pFont->tkfont, z, nStart);
                         }
                     }
     
@@ -2361,7 +2130,7 @@ HtmlWidgetScroll(pTree, x, y)
  *     None.
  *
  * Side effects:
- *     None.
+ *     May map or unmap widgets. May move widgets around the viewport.
  *
  *---------------------------------------------------------------------------
  */
@@ -2513,6 +2282,9 @@ HtmlLayoutBbox(clientData, interp, objc, objv)
     return TCL_OK;
 }
 
+/*
+ * The client-data for the search-callback used by HtmlLayoutScrollToNode()
+ */
 typedef struct ScrollToQuery ScrollToQuery;
 struct ScrollToQuery {
     HtmlTree *pTree;
@@ -2520,6 +2292,20 @@ struct ScrollToQuery {
     int iReturn;
 };
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * scrollToNodeCb --
+ *     
+ *     This function is the search-callback for HtmlLayoutScrollToNode().
+ *
+ * Results:
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
 static int
 scrollToNodeCb(pItem, x, y, clientData)
     HtmlCanvasItem *pItem;

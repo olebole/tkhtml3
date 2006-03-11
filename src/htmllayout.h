@@ -104,21 +104,14 @@ void HtmlInlineContextPopBorder(InlineContext *, InlineBorder *);
 /* End of htmllayoutinline.c interface
  *-------------------------------------------------------------------------*/
 
-#define DRAW_TEXT(a, b, c, d, e, f, g) \
-HtmlDrawText(a, b, c, d, e, f, g, pLayout->minmaxTest, 0, 0)
 #define DRAW_CANVAS(a, b, c, d, e) \
 HtmlDrawCanvas(a, b, c, d, e)
-#define DRAW_IMAGE(a, b, c, d, e, f) \
-HtmlDrawImage(a, b, c, d, e, f, pLayout->minmaxTest)
 #define DRAW_WINDOW(a, b, c, d, e, f) \
 HtmlDrawWindow(a, b, c, d, e, f, pLayout->minmaxTest)
 #define DRAW_BACKGROUND(a, b) \
 HtmlDrawBackground(a, b, pLayout->minmaxTest)
 #define DRAW_QUAD(a, b, c, d, e, f, g, h, i, j) \
 HtmlDrawQuad(a, b, c, d, e, f, g, h, i, j, pLayout->minmaxTest)
-#define DRAW_COMMENT(a, b) \
-HtmlDrawComment(a, b, pLayout->minmaxTest)
-
 
 /* The following flags may be passed as the 4th argument to
  * HtmlInlineContextGetLineBox().
