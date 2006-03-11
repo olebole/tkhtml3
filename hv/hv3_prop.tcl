@@ -101,7 +101,7 @@ itcl::body HtmlDebug::browse {HTML {node ""}} {
 itcl::body HtmlDebug::browseNode {node} {
   wm state $myTopLevel normal
   wm deiconify $myTopLevel
-  hv3Goto $myTopLevel.report "tcl:///$this report $node" -noresolve
+  hv3Goto $myTopLevel.report "tcl:///:$this report $node" -noresolve
 }
 
 proc tclProtocol {downloadHandle} {
@@ -178,7 +178,7 @@ itcl::body HtmlDebug::searchNode {{idx 0}} {
       # set script "after idle {::HtmlDebug::browse $myHtml $node}"
       # set script "::HtmlDebug::browse $myHtml $node"
       set script "$this searchNode $ii"
-      append search_results "<td><a href=\"tcl:///$script\">$node</a>"
+      append search_results "<td><a href=\"tcl:///:$script\">$node</a>"
       incr ii
       if {($ii % 5)==0} {
         append search_results "</tr><tr>"
