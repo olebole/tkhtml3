@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.128 2006/03/11 15:53:12 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.129 2006/03/11 19:41:51 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -2159,8 +2159,7 @@ borderLayout(pLayout, pNode, pBox, xA, yA, xB, yB)
     x2 = xB - xA;
     y2 = yB - yA;
 
-    HtmlDrawBox(&sBox.vc, x1, y1, x2, y2, pNode, 0, pLayout->minmaxTest);
-    DRAW_CANVAS(&pBox->vc, &sBox.vc, xA, yA, pNode);
+    HtmlDrawBox(&pBox->vc, xA, yA, xB-xA, yB-yA, pNode, 0, pLayout->minmaxTest);
 }
 
 /*

@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.93 2006/03/11 19:23:55 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.94 2006/03/11 19:41:51 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -525,6 +525,7 @@ void HtmlDrawCanvas(pCanvas, pCanvas2, x, y, pNode)
             pWin->x.w.absy += y;
             if (!pWin->x.w.pNext) {
                 pWin->x.w.pNext = pCanvas->pWindow;
+                break;
             }
         }
         pCanvas->pWindow = pCanvas2->pWindow;
@@ -534,6 +535,24 @@ void HtmlDrawCanvas(pCanvas, pCanvas2, x, y, pNode)
     pCanvas->top = MIN(pCanvas->top, y+pCanvas2->top);
     pCanvas->bottom = MAX(pCanvas->bottom, y+pCanvas2->bottom);
     pCanvas->right = MAX(pCanvas->right, x+pCanvas2->right);
+}
+
+static int 
+requireBox(pNode)
+    HtmlNode *pNode;
+{
+    HtmlComputedValues *pV = pNode->pPropertyValues;
+    if (
+        pV->cBackgroundColor->xcolor ||
+        pV->imBackgroundImage ||
+        pV->eBorderTopStyle != CSS_CONST_NONE ||
+        pV->eBorderBottomStyle != CSS_CONST_NONE ||
+        pV->eBorderRightStyle != CSS_CONST_NONE ||
+        pV->eBorderLeftStyle != CSS_CONST_NONE
+    ) {
+        return 1;
+    }
+    return 0;
 }
 
 /*
@@ -567,7 +586,7 @@ HtmlDrawBox(pCanvas, x, y, w, h, pNode, flags, size_only)
     int flags;
     int size_only;
 {
-    if (!size_only) {
+    if (!size_only && requireBox(pNode)) {
         HtmlCanvasItem *pItem; 
         pItem = (HtmlCanvasItem *)HtmlAlloc(sizeof(HtmlCanvasItem));
         pItem->type = CANVAS_BOX;
