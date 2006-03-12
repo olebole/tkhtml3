@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.53 2006/03/12 15:35:03 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.54 2006/03/12 16:15:23 danielk1977 Exp $";
 
 /*
  *    The CSS "cascade":
@@ -1064,7 +1064,7 @@ shortcutBackground(pParse, p, v)
 
     for (ii = 0; ii < nProp; ii++) {
         CssProperty *pProp = apProp[ii];
-        if (propertyIsLength(pProp)) {
+        if (propertyIsLength(pProp) || pProp->eType==CSS_TYPE_FLOAT) {
             if (!pPositionX) {
                 pPositionX = pProp;
             } else {

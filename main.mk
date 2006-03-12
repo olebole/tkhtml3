@@ -115,3 +115,6 @@ website: hv3.kit hv3_img.kit
 	cp hv3_img.kit www/
 	chmod 644 www/hv3_img.kit
 
+test: hwish
+	./hwish $(TOP)/tests/all.tcl
+

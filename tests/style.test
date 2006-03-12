@@ -20,6 +20,7 @@ tcltest::test style-1.0 {} -body {
     <style>
       .one {background-position: 50% 50%}
       .two {background-position: center center}
+      .three {background-position: 111 222}
     </style>
     <body>
     <div class="one"/>
@@ -39,7 +40,45 @@ tcltest::test style-1.1 {} -body {
   property $node background-position
 } -result {50.00% 50.00%}
 
+tcltest::test style-1.2 {} -body {
+  set node [lindex [.h search .three] 0]
+  property $node background-position
+} -result {111px 222px}
 
 
+#--------------------------------------------------------------------------
+# Test cases style-2.* test the parsing of the 'background' property.
+#
+tcltest::test style-2.0 {} -body {
+  .h reset
+  .h parse -final {
+    <html>
+    <style>
+      .one {background: black url(shell-bg.jpg) 0 0 no-repeat fixed;}
+      .two {background: black url(shell-bg.jpg) 50 no-repeat 100 fixed;}
+    </style>
+    <body>
+    <div class="one"/>
+    <div class="two"/>
+    </body>
+    </html>
+  }
+
+  set node [lindex [.h search .one] 0]
+  property $node background-position
+} -result {0px 0px}
+
+tcltest::test style-2.1 {} -body {
+  property $node background-color
+} -result {black}
+
+tcltest::test style-2.2 {} -body {
+  set node2 [lindex [.h search .two] 0]
+  property $node2 background-position
+} -result {50px 100px}
+
+tcltest::test style-2.3 {} -body {
+  property $node2 background-repeat
+} -result {no-repeat}
 
 
