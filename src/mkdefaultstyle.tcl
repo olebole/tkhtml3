@@ -13,8 +13,10 @@ proc FileToDefine {file define} {
 
 set css_file [file join [file dirname [info script]] .. tests html.css]
 set tcl_file [file join [file dirname [info script]] .. tests tkhtml.tcl]
+set quirks_file [file join [file dirname [info script]] quirks.css]
 
 puts ""
-puts [FileToDefine $css_file HTML_DEFAULT_CSS]
-puts [FileToDefine $tcl_file HTML_DEFAULT_TCL]
+puts [FileToDefine $tcl_file    HTML_DEFAULT_TCL]
+puts [FileToDefine $css_file    HTML_DEFAULT_CSS]
+puts [FileToDefine $quirks_file HTML_DEFAULT_QUIRKS]
 

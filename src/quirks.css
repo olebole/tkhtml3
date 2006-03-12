@@ -1,0 +1,19 @@
+
+/*------------------------------*/
+/*      QUIRKS MODE RULES       */
+/*------------------------------*/
+ 
+/* Tables are historically special. All font attributes except font-family,
+ * text-align, white-space and line-height) take their initial values.
+ */
+TABLE {
+  text-align:   left;
+  white-space:  normal;
+  line-height:  normal;
+  font-size:    medium;
+  font-weight:  normal;
+  font-style:   normal;
+  font-variant: normal;
+}
+
+

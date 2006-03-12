@@ -37,7 +37,7 @@ TABLE[align="right"]      { float:right }
 TABLE[align="center"]     { 
     margin-left:auto; 
     margin-right:auto; 
-    text-align:left; 
+    text-align:left;
 }
 IMG[align="left"]         { float:left }
 IMG[align="right"]        { float:right }
@@ -52,7 +52,6 @@ IMG[align="right"]        { float:right }
 [align="right"]   { text-align:right }
 [align="left"]    { text-align:left }
 CENTER            { text-align: center }
-TABLE             { text-align: left }
 
 
 /* Rules for unordered-lists */
@@ -160,7 +159,6 @@ BR {
 }
 /* BR:before       { content: "\A" } */
 
-
 /*
  *************************************************************************
  * Below this point are stylesheet rules for mapping presentational 
@@ -195,7 +193,7 @@ IMG[src]              { -tkhtml-replacement-image: tcl(::tkhtml::attr src) }
  *     'padding'
  *     'border-spacing'
  */
-table[border], table[border] td, table[border] th {
+TABLE[border], TABLE[border] TD, TABLE[border] TH {
     border-top-width:     tcl(::tkhtml::aa table border -len);
     border-right-width:   tcl(::tkhtml::aa table border -len);
     border-bottom-width:  tcl(::tkhtml::aa table border -len);
@@ -206,19 +204,19 @@ table[border], table[border] td, table[border] th {
     border-bottom-style:  tcl(::tkhtml::aa table border -if solid);
     border-left-style:    tcl(::tkhtml::aa table border -if solid);
 }
-table[border=""], table[border=""] td, table[border=""] th {
+TABLE[border=""], TABLE[border=""] td, TABLE[border=""] th {
     border-top-width:     tcl(::tkhtml::aa table border -if 1px);
     border-right-width:   tcl(::tkhtml::aa table border -if 1px);
     border-bottom-width:  tcl(::tkhtml::aa table border -if 1px);
     border-left-width:    tcl(::tkhtml::aa table border -if 1px);
 }
-table[cellpadding] td, table[cellpadding] th {
+TABLE[cellpadding] td, TABLE[cellpadding] th {
     padding-top:    tcl(::tkhtml::aa table cellpadding -len);
     padding-right:  tcl(::tkhtml::aa table cellpadding -len);
     padding-bottom: tcl(::tkhtml::aa table cellpadding -len);
     padding-left:   tcl(::tkhtml::aa table cellpadding -len);
 }
-table[cellspacing], table[cellspacing] {
+TABLE[cellspacing], table[cellspacing] {
     border-spacing: tcl(::tkhtml::attr cellspacing -len);
 }
 

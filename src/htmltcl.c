@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.74 2006/03/11 15:53:12 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.75 2006/03/12 07:48:04 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -652,7 +652,8 @@ configureCmd(clientData, interp, objc, objv)
         STRING(yscrollcommand, "yScrollCommand", "ScrollCommand", ""),
 
         /* Non-debugging widget specific options */
-        STRING(defaultstyle, "defaultStyle", "DefaultStyle", HTML_DEFAULT_CSS),
+        STRING(defaultstyle, "defaultStyle", "DefaultStyle", 
+            HTML_DEFAULT_CSS HTML_DEFAULT_QUIRKS),
         STRING(imagecmd, "imageCmd", "ImageCmd", ""),
         STRING(encoding, "encoding", "Encoding", ""),
         XCOLOR(selectbackground, "selectBackground", "Background", "darkgrey"),
@@ -1879,32 +1880,38 @@ error_out:
 /*
  *---------------------------------------------------------------------------
  *
- * exitCmd --
+ * htmlstyleCmd --
  *
- *         ::tk::htmlexit
- *
- *     Call exit(0). This is included for when tkhtml is used in a starkit
- *     application. For reasons I don't understand yet, such deployments
- *     always seg-fault while cleaning up the main interpreter. Exiting the
- *     process this way avoids this unsightly seg-fault. Of course, this is
- *     a cosmetic fix only, the real problem is somewhere else.
+ *     ::tkhtml::htmlstyle ?-quirks?
  *
  * Results:
- *     None (does not return).
+ *     Built-in html style-sheet, including quirks if the -quirks option
+ *     was specified.
  *
  * Side effects:
- *     Exits process.
+ *     None.
  *
  *---------------------------------------------------------------------------
  */
 static int 
-exitCmd(clientData, interp, objc, objv)
+htmlstyleCmd(clientData, interp, objc, objv)
     ClientData clientData;             /* The HTML widget data structure */
     Tcl_Interp *interp;                /* Current interpreter. */
     int objc;                          /* Number of arguments. */
     Tcl_Obj *CONST objv[];             /* Argument strings. */
 {
-    exit(0);
+    const char *zRet;
+
+    if (objc > 1 && objc != 2 && strcmp(Tcl_GetString(objv[1]), "-quirks")) {
+        Tcl_WrongNumArgs(interp, 1, objv, "?-quirks?");
+        return TCL_ERROR;
+    }
+
+    Tcl_SetResult(interp, HTML_DEFAULT_CSS, TCL_STATIC);
+    if (objc == 2) {
+        Tcl_AppendResult(interp, HTML_DEFAULT_QUIRKS);
+    }
+
     return TCL_OK;
 }
 
@@ -1971,10 +1978,11 @@ DLL_EXPORT int Tkhtml_Init(interp)
     }
     Tcl_PkgProvide(interp, "Tkhtml", "3.0");
     Tcl_CreateObjCommand(interp, "html", newWidget, 0, 0);
-    Tcl_CreateObjCommand(interp, "::tk::htmlexit", exitCmd, 0, 0);
+
+    Tcl_CreateObjCommand(interp, "::tkhtml::htmlstyle", htmlstyleCmd, 0, 0);
 
 #ifndef NDEBUG
-    Tcl_CreateObjCommand(interp, "::tk::htmlalloc", allocCmd, 0, 0);
+    Tcl_CreateObjCommand(interp, "::tkhtml::htmlalloc", allocCmd, 0, 0);
 #endif
 
     SwprocInit(interp);

@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.51 2006/03/10 06:45:48 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.52 2006/03/12 07:48:04 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -51,7 +51,34 @@ static const char rcsid[] = "$Id: htmlprop.c,v 1.51 2006/03/10 06:45:48 danielk1
  */
 #define INTEGER(x) ((int)((x) + 0.49))
 
-char *
+/*
+ *---------------------------------------------------------------------------
+ *
+ * propertyToString --
+ *
+ *     This function is used for logging debugging info only.
+ * 
+ *     Return a pointer to a string representation of the CSS specified
+ *     value contained in argument pProp. *pzFree is set to the value
+ *     of a pointer (possibly NULL) that should be passed to HtmlFree()
+ *     when the returned string is no longer required. Example:
+ *
+ *         char *zFree;
+ *         char *zString;
+ * 
+ *         zString = propertyToString(pProp, &zFree);
+ *         // Use zString for something (i.e. print to stdout)
+ *         HtmlFree(zFree);
+ *
+ * Results:
+ *     Pointer to string representation of property pProp.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static char *
 propertyToString(pProp, pzFree)
     CssProperty *pProp;
     char **pzFree;
@@ -103,7 +130,7 @@ propertyToString(pProp, pzFree)
  *           millimeters. 
  *
  * Results:
- *     None.
+ *     Integer length in points.
  *
  * Side effects:
  *     None.
@@ -2299,5 +2326,4 @@ PROP_MASK_ ## eProp}
     Tcl_DecrRefCount(pRet);
     return TCL_OK;
 }
-
 

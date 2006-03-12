@@ -229,7 +229,7 @@ proc exit {args} {
   global HTML
   destroy $HTML 
   catch {destroy .prop$HTML}
-  catch {::tk::htmlalloc}
+  catch {::tkhtml::htmlalloc}
 #  if {[llength [form_widget_list]] > 0} {
 #    puts "Leaked widgets: [form_widget_list]"
 #  }
