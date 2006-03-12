@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.96 2006/03/12 07:48:04 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.97 2006/03/12 15:35:03 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -447,7 +447,8 @@ void HtmlDrawCanvas(pCanvas, pCanvas2, x, y, pNode)
     int y;
     HtmlNode *pNode;
 {
-#define CANVAS_ORIGIN_FANOUT 2
+
+#define CANVAS_ORIGIN_FANOUT 0
 
     if (pCanvas2->pFirst) {
         HtmlCanvasItem *pOrigin = 0;
@@ -455,7 +456,7 @@ void HtmlDrawCanvas(pCanvas, pCanvas2, x, y, pNode)
 
         if (x == 0 && y == 0) {
             /* Do nothing ... */
-        } else if (countPrimitives(pCanvas2) < CANVAS_ORIGIN_FANOUT) {
+        } else if (1 || countPrimitives(pCanvas2) < CANVAS_ORIGIN_FANOUT) {
             movePrimitives(pCanvas2, x, y);
         } else {
             pOrigin = (HtmlCanvasItem *)HtmlAlloc(sizeof(HtmlCanvasItem));
@@ -1288,6 +1289,157 @@ drawText(pTree, pItem, drawable, x, y)
     }
 }
 
+static HtmlNode *
+itemToBox(pItem, origin_x, origin_y, pX, pY, pW, pH)
+    HtmlCanvasItem *pItem;
+    int origin_x;
+    int origin_y;
+    int *pX;
+    int *pY;
+    int *pW;
+    int *pH;
+{
+    switch (pItem->type) {
+        case CANVAS_BOX:
+            *pX = pItem->x.box.x + origin_x;
+            *pY = pItem->x.box.y + origin_y;
+            *pW = pItem->x.box.w;
+            *pH = pItem->x.box.h;
+            return pItem->x.box.pNode;
+        case CANVAS_TEXT: {
+            HtmlFont *pFont = fontFromNode(pItem->x.t.pNode);
+            *pX = pItem->x.t.x + origin_x;
+            *pY = pItem->x.t.y + origin_y - pFont->metrics.ascent;
+            *pW = pItem->x.t.w;
+            *pH = pFont->metrics.ascent + pFont->metrics.descent;
+            return pItem->x.t.pNode;
+        }
+        case CANVAS_IMAGE:
+            *pX = pItem->x.i2.x + origin_x;
+            *pY = pItem->x.i2.y + origin_y;
+            *pW = pItem->x.i2.w;
+            *pH = pItem->x.i2.h;
+            return pItem->x.i2.pNode;
+        case CANVAS_LINE:
+            *pX = pItem->x.line.x + origin_x;
+            *pY = pItem->x.line.y + origin_y;
+            *pW = pItem->x.line.w;
+            *pH = pItem->x.line.y_underline + 1;
+            return pItem->x.line.pNode;
+        case CANVAS_WINDOW:
+            *pX = pItem->x.w.x + origin_x;
+            *pY = pItem->x.w.y + origin_y;
+            /* TODO */
+            *pW = 10;
+            *pH = 10;
+            return pItem->x.line.pNode;
+        default:
+            assert(pItem->type == CANVAS_ORIGIN);
+            return 0;
+    }
+}
+
+
+static int    
+searchCanvas(pTree, ymin, ymax, xFunc, clientData)
+    HtmlTree *pTree;
+    int ymin;
+    int ymax;
+    int (*xFunc)(HtmlCanvasItem *, int, int, ClientData);
+    ClientData clientData;
+{
+    HtmlCanvasItem *pItem;
+    HtmlCanvasItem *pSkip = 0;
+    HtmlCanvas *pCanvas = &pTree->canvas;
+    int origin_x = 0;
+    int origin_y = 0;
+    int rc = 0;
+
+    int nTest = 0;
+    int nCallback = 0;
+     
+    for (pItem = pCanvas->pFirst; pItem; pItem = (pSkip?pSkip:pItem->pNext)) {
+        pSkip = 0;
+        if (pItem->type == CANVAS_ORIGIN) {
+            CanvasOrigin *pOrigin = &pItem->x.o;
+            origin_x += pOrigin->x;
+            origin_y += pOrigin->y;
+            if (pOrigin->pSkip && (
+                (ymax >= 0 && (origin_y + pOrigin->top) > ymax) ||
+                (ymin >= 0 && (origin_y + pOrigin->bottom) < ymin))
+            ) {
+               pSkip = pOrigin->pSkip;
+            }
+        } else {
+            int x, y, w, h;
+            nTest++;
+            itemToBox(pItem, origin_x, origin_y, &x, &y, &w, &h);
+            if ((ymax < 0 || y <= ymax) && (ymin < 0 || (y + h) >= ymin)) {
+                if (0 != (rc = xFunc(pItem, origin_x, origin_y, clientData))) {
+                    return rc;
+                }
+                nCallback++;
+            }
+        }
+    }
+
+#if 0
+printf("Search(%d, %d) -> %d tests %d callbacks\n",ymin,ymax,nTest,nCallback);
+#endif
+ 
+    return 0;
+}
+
+
+typedef struct GetPixmapQuery GetPixmapQuery;
+struct GetPixmapQuery {
+    HtmlTree *pTree;
+    int x;
+    int y;
+    int w;
+    int h;
+    Pixmap pmap;
+};
+
+static int
+pixmapQueryCb(pItem, origin_x, origin_y, clientData)
+    HtmlCanvasItem *pItem;
+    int origin_x;
+    int origin_y;
+    ClientData clientData;
+{
+    GetPixmapQuery *pQuery = (GetPixmapQuery *)clientData;
+    int x = origin_x + pQuery->x;
+    int y = origin_y + pQuery->y;
+
+    int w = pQuery->x;
+    int h = pQuery->h;
+
+    switch (pItem->type) {
+        case CANVAS_TEXT: {
+            drawText(pQuery->pTree, pItem, pQuery->pmap, x, y);
+            break;
+        }
+
+        case CANVAS_IMAGE: {
+            drawImage(pQuery->pTree, &pItem->x.i2, pQuery->pmap, x, y, w, h);
+            break;
+        }
+
+        case CANVAS_BOX: {
+            drawBox(pQuery->pTree, &pItem->x.box, pQuery->pmap, x, y, w, h);
+            break;
+        }
+
+        case CANVAS_LINE: {
+            drawLine(pQuery->pTree, &pItem->x.line, pQuery->pmap, x, y, w, h);
+            break;
+        }
+    }
+
+    return 0;
+}
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -1317,21 +1469,16 @@ getPixmap(pTree, xcanvas, ycanvas, w, h)
     Tk_Window win = pTree->win;
     HtmlCanvasItem *pItem;
 
-    GC gc = 0;
-    XGCValues gc_values;
-    int mask;
-
     HtmlCanvas *pCanvas = &pTree->canvas;
     int x = xcanvas * -1;
     int y = ycanvas * -1;
-
     XColor *bg_color;
 
-    Tk_MakeWindowExist(win);
+    GetPixmapQuery sQuery;
 
+    Tk_MakeWindowExist(win);
     pDisplay = Tk_Display(win);
     pmap = Tk_GetPixmap(pDisplay, Tk_WindowId(win), w, h, Tk_Depth(win));
-
 
     if (pTree->pRoot) {
         bg_color = pTree->pRoot->pPropertyValues->cBackgroundColor->xcolor;
@@ -1343,6 +1490,19 @@ getPixmap(pTree, xcanvas, ycanvas, w, h)
     }
     fill_quad(win, pmap, bg_color, 0, 0, w, 0, 0, h, -1 * w, 0);
 
+    sQuery.pTree = pTree;
+    sQuery.pmap = pmap;
+    sQuery.x = xcanvas * -1;
+    sQuery.y = ycanvas * -1;
+    sQuery.w = w;
+    sQuery.h = h;
+
+    searchCanvas(pTree, ycanvas, ycanvas+h, pixmapQueryCb, (ClientData)&sQuery);
+  
+    return pmap;
+    
+
+#if 0
     for (pItem=pCanvas->pFirst; pItem; pItem=pItem->pNext) {
         switch (pItem->type) {
 
@@ -1405,6 +1565,7 @@ getPixmap(pTree, xcanvas, ycanvas, w, h)
             gc = 0;
         }
     }
+#endif
 
     return pmap;
 }
@@ -1541,41 +1702,6 @@ HtmlLayoutSize(clientData, interp, objc, objv)
     return TCL_OK;
 }
 
-static int    
-searchCanvas(pTree, ymin, ymax, xFunc, clientData)
-    HtmlTree *pTree;
-    int ymin;
-    int ymax;
-    int (*xFunc)(HtmlCanvasItem *, int, int, ClientData);
-    ClientData clientData;
-{
-    HtmlCanvasItem *pItem;
-    HtmlCanvasItem *pSkip = 0;
-    HtmlCanvas *pCanvas = &pTree->canvas;
-    int origin_x = 0;
-    int origin_y = 0;
-    int rc = 0;
-     
-    for (pItem = pCanvas->pFirst; pItem; pItem = (pSkip?pSkip:pItem->pNext)) {
-        pSkip = 0;
-        if (pItem->type == CANVAS_ORIGIN) {
-            CanvasOrigin *pOrigin = &pItem->x.o;
-            origin_x += pOrigin->x;
-            origin_y += pOrigin->y;
-            if (pOrigin->pSkip && (
-                (ymax >= 0 && (origin_y + pOrigin->top) > ymax) ||
-                (ymin >= 0 && (origin_y + pOrigin->bottom) < ymin))
-            ) {
-               pSkip = pOrigin->pSkip;
-            }
-        } 
-        if (0 != (rc = xFunc(pItem, origin_x, origin_y, clientData))) {
-            return rc;
-        }
-    }
- 
-    return 0;
-}
 
 typedef struct NodeIndexQuery NodeIndexQuery;
 struct NodeIndexQuery {
@@ -1755,43 +1881,6 @@ struct NodeQuery {
     int nNodeAlloc;
     int nNode;
 };
-
-static HtmlNode *
-itemToBox(pItem, origin_x, origin_y, pX, pY, pW, pH)
-    HtmlCanvasItem *pItem;
-    int origin_x;
-    int origin_y;
-    int *pX;
-    int *pY;
-    int *pW;
-    int *pH;
-{
-    switch (pItem->type) {
-        case CANVAS_BOX:
-            *pX = pItem->x.box.x + origin_x;
-            *pY = pItem->x.box.y + origin_y;
-            *pW = pItem->x.box.w;
-            *pH = pItem->x.box.h;
-            return pItem->x.box.pNode;
-        case CANVAS_TEXT: {
-            HtmlFont *pFont = fontFromNode(pItem->x.t.pNode);
-            *pX = pItem->x.t.x + origin_x;
-            *pY = pItem->x.t.y + origin_y - pFont->metrics.ascent;
-            *pW = pItem->x.t.w;
-            *pH = pFont->metrics.ascent + pFont->metrics.descent;
-            return pItem->x.t.pNode;
-        }
-        case CANVAS_IMAGE:
-            *pX = pItem->x.i2.x + origin_x;
-            *pY = pItem->x.i2.y + origin_y;
-            *pW = pItem->x.i2.w;
-            *pH = pItem->x.i2.h;
-            return pItem->x.i2.pNode;
-        default:
-            return 0;
-    }
-
-}
 
 static int
 layoutNodeCb(pItem, origin_x, origin_y, clientData)
@@ -2457,6 +2546,7 @@ HtmlLayoutScrollToNode(pTree, iNode)
     sQuery.iReturn = 0;
     sQuery.pTree = pTree;
     searchCanvas(pTree, -1, -1, scrollToNodeCb, (ClientData)&sQuery);
+printf("returning %d\n", sQuery.iReturn);
     return sQuery.iReturn;
 }
 

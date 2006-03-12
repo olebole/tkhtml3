@@ -62,10 +62,6 @@
 
 #include "htmltokens.h"
 
-#ifdef HTML_MACROS
-#include "htmlmacros.h"
-#endif
-
 /*
  * Version information for the package mechanism.
  */
@@ -406,10 +402,8 @@ char CONST *HtmlNodeAttr(HtmlNode *, char CONST *);
 char *      HtmlNodeToString(HtmlNode *);
 HtmlNode *  HtmlNodeGetPointer(HtmlTree *, char CONST *);
 
-#ifndef HTML_MACROS
 int         HtmlNodeIsText(HtmlNode *);
 Html_u8     HtmlNodeTagType(HtmlNode *);
-#endif
 int         HtmlNodeIsWhitespace(HtmlNode *);
 
 Tcl_Obj *HtmlNodeCommand(HtmlTree *, HtmlNode *pNode);

@@ -176,7 +176,7 @@ declaration ::= IDENT(X) ws COLON ws expr(E) prio(I). {
 }
 
 %type prio {int}
-prio(X) ::= IMPORTANT_SYM ws. {X = 1;}
+prio(X) ::= IMPORTANT_SYM ws. {X = (pParse->pStyleId) ? 1 : 0;}
 prio(X) ::= .                 {X = 0;}
 
 /*********************************************************************

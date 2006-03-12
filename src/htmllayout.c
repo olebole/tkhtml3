@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.129 2006/03/11 19:41:51 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.130 2006/03/12 15:35:03 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -2172,6 +2172,10 @@ borderLayout(pLayout, pNode, pBox, xA, yA, xB, yB)
  *     executes the "-configurecmd" script to configure the window based on the
  *     actual CSS property values for the node.
  *
+ *     Currently, the configuration array contains the following:
+ *
+ *         
+ *
  * Results:
  *     None.
  *
@@ -2181,9 +2185,10 @@ borderLayout(pLayout, pNode, pBox, xA, yA, xB, yB)
  *---------------------------------------------------------------------------
  */
 static void 
-doConfigureCmd(pTree, pNode)
+doConfigureCmd(pTree, pNode, iContaining)
     HtmlTree *pTree;
     HtmlNode *pNode;
+    int iContaining;
 {
     Tcl_Obj *pConfigure;                           /* -configurecmd script */
 
@@ -2199,6 +2204,7 @@ doConfigureCmd(pTree, pNode)
         Tcl_Obj *pScript;
         Tcl_Obj *pRes;
         int rc;
+        int iWidth;
 
         pArray = Tcl_NewObj();
         Tcl_ListObjAppendElement(interp, pArray, Tcl_NewStringObj("color",-1));
@@ -2224,6 +2230,16 @@ doConfigureCmd(pTree, pNode)
         Tcl_ListObjAppendElement(interp, pArray, 
                 Tcl_NewStringObj(pV->fFont->zFont, -1)
         );
+
+        /* If the 'width' attribute is not PIXELVAL_AUTO, pass it to the
+         * replacement window.
+         */
+        if (PIXELVAL_AUTO != (iWidth = PIXELVAL(pV, WIDTH, iContaining))) {
+            Tcl_Obj *pWidth = Tcl_NewStringObj("width",-1);
+            iWidth = MAX(iWidth, 1);
+            Tcl_ListObjAppendElement(interp, pArray, pWidth);
+            Tcl_ListObjAppendElement(interp, pArray, Tcl_NewIntObj(iWidth));
+        }
 
         pScript = Tcl_DuplicateObj(pConfigure);
         Tcl_IncrRefCount(pScript);
@@ -2287,7 +2303,7 @@ layoutReplacement(pLayout, pBox, pNode)
             Tcl_Obj *pWin = 0;
             int iOffset;
             if (!pLayout->minmaxTest) {
-                doConfigureCmd(pLayout->pTree, pNode);
+                doConfigureCmd(pLayout->pTree, pNode, pBox->iContaining);
                 pWin = Tcl_NewStringObj(zReplace, -1);
             }
             width = Tk_ReqWidth(win);

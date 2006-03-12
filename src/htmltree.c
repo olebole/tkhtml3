@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.50 2006/03/10 14:21:02 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.51 2006/03/12 15:35:03 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -809,7 +809,8 @@ HtmlNodeChild(pNode, n)
  *
  * HtmlNodeIsText --
  *
- *     Test if a node is a text node.
+ *     Return non-zero if the node is a (possibly empty) text node, or zero
+ *     otherwise.
  *
  * Results:
  *     Non-zero if the node is text, else zero.
@@ -819,7 +820,6 @@ HtmlNodeChild(pNode, n)
  *
  *---------------------------------------------------------------------------
  */
-#ifndef HTML_MACROS
 int 
 HtmlNodeIsText(pNode)
     HtmlNode *pNode;
@@ -827,7 +827,6 @@ HtmlNodeIsText(pNode)
     int type = HtmlNodeTagType(pNode);
     return (type==Html_Text || type==Html_Space);
 }
-#endif
 
 int 
 HtmlNodeIsWhitespace(pNode)
@@ -855,14 +854,13 @@ HtmlNodeIsWhitespace(pNode)
  *     Html_Space.
  *
  * Results:
- *     None.
+ *     Integer tag type.
  *
  * Side effects:
  *     None.
  *
  *---------------------------------------------------------------------------
  */
-#ifndef HTML_MACROS
 Html_u8 HtmlNodeTagType(pNode)
     HtmlNode *pNode;
 {
@@ -871,7 +869,6 @@ Html_u8 HtmlNodeTagType(pNode)
     } 
     return 0;
 }
-#endif
 
 /*
  *---------------------------------------------------------------------------
@@ -882,7 +879,7 @@ Html_u8 HtmlNodeTagType(pNode)
  *     "div".
  *
  * Results:
- *     None.
+ *     Boolean.
  *
  * Side effects:
  *     None.

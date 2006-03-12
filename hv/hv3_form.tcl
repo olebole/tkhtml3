@@ -195,6 +195,12 @@ class HtmlEntry {
     $myWidget configure -font $p(font)
     $myWidget configure -foreground $p(color)
     $myWidget configure -background $p(background-color)
+
+    if {[info exists p(width)]} {
+      set charwidth [expr $p(width) / [font measure $p(font) o]]
+      $myWidget configure -width $charwidth
+    }
+
     return [font_to_offset $myWidget $p(font)]
   }
 

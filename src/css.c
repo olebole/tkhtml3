@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.52 2006/03/12 07:48:04 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.53 2006/03/12 15:35:03 danielk1977 Exp $";
 
 /*
  *    The CSS "cascade":
@@ -1953,6 +1953,10 @@ cssParse(n, z, isStyle, origin, pStyleId, pImportCmd, interp, pUrlCmd, ppStyle)
     /* If this is a stylesheet, not a style attribute, add the priority
      * entries for both regular and "!important" properties for this
      * stylesheet to the priority list.
+     *
+     * TODO: Sometimes people specify "!important" inside of style 
+     * attributes. Tkhtml currently ignores this. Not sure if that's 
+     * right or not...
      */
     if (pStyleId) {
         sParse.pPriority1 = newCssPriority(sParse.pStyle, origin, pStyleId, 0);
@@ -2395,8 +2399,8 @@ ruleCompare(CssRule *pLeft, CssRule *pRight) {
     int res = 0;
 
     assert(pLeft && pRight);
-    assert(pRight->pPriority);
     assert(pLeft->pPriority);
+    assert(pRight->pPriority);
 
     res = pLeft->pPriority->iPriority - pRight->pPriority->iPriority;
 

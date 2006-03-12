@@ -13,7 +13,6 @@
  *     Html_Space.
  *
  * Results:
- *     Integer tag type.
  *
  * Side effects:
  *     None.
