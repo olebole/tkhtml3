@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlimage.c,v 1.41 2006/02/23 13:06:40 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlimage.c,v 1.42 2006/03/13 12:59:43 danielk1977 Exp $";
 
 #include <assert.h>
 #include "html.h"
@@ -101,6 +101,8 @@ struct HtmlImage2 {
     int height;                      /* Height of HtmlImage2.image */
     Tk_Image image;                  /* Scaled (or unscaled) image */
 
+    int eAlpha;                      /* An ALPHA_CHANNEL_XXX value */
+
     int nRef;                        /* Number of references to this struct */
     Tcl_Obj *pImageName;             /* Image name, if this is unscaled */
     Tcl_Obj *pDelete;                /* Delete script, if this is unscaled */
@@ -108,6 +110,10 @@ struct HtmlImage2 {
 
     HtmlImage2 *pNext;               /* Next in list of scaled copies */
 };
+
+#define ALPHA_CHANNEL_UNKNOWN 0
+#define ALPHA_CHANNEL_TRUE    1
+#define ALPHA_CHANNEL_FALSE   2
 
 
 /*
@@ -245,6 +251,7 @@ static void imageChanged(clientData, x, y, width, height, imgWidth, imgHeight)
             pImage->height = imgHeight;
             HtmlCallbackSchedule(pTree, HTML_CALLBACK_LAYOUT);
         }
+        pImage->eAlpha = ALPHA_CHANNEL_UNKNOWN;
     }
 }
 
@@ -674,6 +681,61 @@ void HtmlImageCheck(pImage)
     if (pImage) {
         assert(pImage->isValid == 0 || pImage->isValid == 1);
     }
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlImageAlphaChannel --
+ *
+ * Results:
+ *
+ *     1 if there are one or more pixels in the image with an 
+ *     alpha-channel value of other than 100%. Otherwise 0.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+int 
+HtmlImageAlphaChannel(pTree, pImage)
+    HtmlTree *pTree;
+    HtmlImage2 *pImage;
+{
+
+    HtmlImage2 *p = (pImage->pUnscaled ? pImage->pUnscaled : pImage);
+
+    if (p->eAlpha == ALPHA_CHANNEL_UNKNOWN) {
+        Tk_PhotoHandle photo;
+        Tk_PhotoImageBlock block;
+        int x, y;
+
+        int w = p->width;
+        int h = p->height;
+ 
+        p->eAlpha = ALPHA_CHANNEL_FALSE;
+        photo = Tk_FindPhoto(pTree->interp, Tcl_GetString(p->pImageName));
+        if (!photo) return 0;
+        Tk_PhotoGetImage(photo, &block);
+
+        if (!block.pixelPtr) return 0;
+
+        for (x = 0; x < w; x++) {
+            for (y = 0; y < h; y++) {
+                unsigned char *z = &block.pixelPtr[
+                    x * block.pixelSize + y * block.pitch + block.offset[3]
+                ];
+
+                if (*z != 255) {
+                    p->eAlpha = ALPHA_CHANNEL_TRUE;
+                    return 1;
+                }
+            }
+        }
+    }
+
+    return ((p->eAlpha == ALPHA_CHANNEL_TRUE) ? 1 : 0);
 }
 
 /*

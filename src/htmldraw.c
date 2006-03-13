@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.97 2006/03/12 15:35:03 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.98 2006/03/13 12:59:43 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -916,6 +916,68 @@ fill_quad(win, d, xcolor, x1, y1, x2, y2, x3, y3, x4, y4)
     return rc;
 }
 
+static void
+tileimage(
+drawable, d_w, d_h, img, i_w, i_h, bg_x, bg_y, bg_w, bg_h, iPosX, iPosY)
+    Drawable drawable;        /* Where to draw */
+    int d_w; int d_h;         /* Total width and height of drawable */
+    Tk_Image img;             /* Tk image to tile with */
+    int i_w; int i_h;         /* Width and height img */
+    int bg_x; int bg_y;       /* Drawable coords for drawn block */
+    int bg_w; int bg_h;       /* Width and height of drawn block */
+    int iPosX; int iPosY;     /* Origin of image in drawable */
+{
+    int x1, y1;
+
+    int clip_x1 = MAX(0, bg_x);
+    int clip_y1 = MAX(0, bg_y);
+    int clip_x2 = MIN(d_w, bg_x + bg_w);
+    int clip_y2 = MIN(d_h, bg_y + bg_h);
+
+    x1 = iPosX;
+    if (iPosX != bg_x) {
+        x1 -= (1 + (iPosX - bg_x) / i_w) * i_w;
+    }
+
+    for (; x1 < bg_x + bg_w; x1 += i_w) {
+        y1 = iPosY;
+        if (iPosY != bg_y) {
+            y1 -= (1 + (iPosY - bg_y) / i_h) * i_h;
+        }
+        for (; y1 < bg_y + bg_h; y1 += i_h) {
+
+            int w = i_w;
+            int h = i_h;
+            int im_x = 0;
+            int im_y = 0;
+            int x = x1;
+            int y = y1;
+
+            if (x + w > clip_x2) {
+                w = (clip_x2 - x);
+            }
+            if (y + h > clip_y2) {
+                h = (clip_y2 - y);
+            }
+
+            if (x < clip_x1) {
+                im_x = clip_x1 - x;
+                w -= (clip_x1 - x);
+                x = clip_x1;
+            }
+            if (y < clip_y1) {
+                im_y = clip_y1 - y;
+                h -= im_y;
+                y = clip_y1;
+            }
+
+            if (w > 0 && h > 0) {
+                Tk_RedrawImage(img, im_x, im_y, w, h, drawable, x, y);
+            }
+        }
+    }
+}
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -1017,7 +1079,10 @@ drawBox(pTree, pBox, drawable, x, y, w, h)
         );
     }
 
-    /* Image background, if required. This bit's a little tricky. */
+    /* Image background, if required and the generating node is not inline. 
+     * Tkhtml does not draw background images for inline nodes. That's Ok
+     * for now, because they're not terribly common.
+     */
     if (!isInline && pV->imBackgroundImage) {
         Tk_Image img;
         Pixmap ipix;
@@ -1031,25 +1096,15 @@ drawBox(pTree, pBox, drawable, x, y, w, h)
         Display *display = Tk_Display(win);
         int dep = Tk_Depth(win);
         int eR = pV->eBackgroundRepeat;
+
  
         img = HtmlImageImage(pV->imBackgroundImage);
         Tk_SizeOfImage(img, &iWidth, &iHeight);
 
         if (iWidth > 0 && iHeight > 0) {
             HtmlNode *pBgNode = pBox->pNode;
-    
-            /* Create a pixmap of the image */
-            ipix = Tk_GetPixmap(display, Tk_WindowId(win),iWidth, iHeight, dep);
-            for ( ; pBgNode; pBgNode = HtmlNodeParent(pBgNode)) {
-                HtmlComputedValues *pV2 = pBgNode->pPropertyValues;
-                if (pV2->cBackgroundColor->xcolor) {
-                    fill_quad(pTree->win, ipix, pV2->cBackgroundColor->xcolor,
-                        0, 0, iWidth, 0, 0, iHeight, -1 * iWidth, 0
-                    );
-                    break;
-                }
-            }
-            Tk_RedrawImage(img, 0, 0, iWidth, iHeight, ipix, 0, 0);
+
+            int isAlpha = HtmlImageAlphaChannel(pTree, pV->imBackgroundImage);
     
             iPosX = pV->iBackgroundPositionX;
             iPosY = pV->iBackgroundPositionY;
@@ -1059,9 +1114,6 @@ drawBox(pTree, pBox, drawable, x, y, w, h)
             }
             iPosX += bg_x;
             iPosY += bg_y;
-    
-            gc_values.ts_x_origin = iPosX;
-            gc_values.ts_y_origin = iPosY;
     
             if (eR != CSS_CONST_REPEAT && eR != CSS_CONST_REPEAT_X) {
                 int draw_x1 = MAX(bg_x, iPosX);
@@ -1076,23 +1128,52 @@ drawBox(pTree, pBox, drawable, x, y, w, h)
                 bg_y = draw_y1;
                 bg_h = draw_y2 - draw_y1;
             }
-    
-            /* Draw a rectangle to the drawable with origin (bg_x, bg_y). The
-             * size of the rectangle is (bg_w *  bg_h). The background image
-             * is tiled across the region with a relative origin point as
-             * defined by (gc_values.ts_x_origin, gc_values.ts_y_origin).
-             */
-            gc_values.tile = ipix;
-            gc_values.fill_style = FillTiled;
-            gc = Tk_GetGC(pTree->win, 
-                GCTile | GCTileStipXOrigin | GCTileStipYOrigin | GCFillStyle, 
-                &gc_values
-            );
-            if (bg_h > 0 && bg_w > 0) {
-                XFillRectangle(display, drawable, gc, bg_x, bg_y, bg_w, bg_h);
+
+            if (isAlpha) {
+                tileimage(
+                    drawable, w, h, 
+                    img, iWidth, iHeight, 
+                    bg_x, bg_y, bg_w, bg_h, 
+                    iPosX, iPosY
+                );
+            } else {
+
+                /* Create a pixmap of the image */
+                ipix = Tk_GetPixmap(
+                    display, Tk_WindowId(win),iWidth, iHeight, dep
+                );
+                for ( ; pBgNode; pBgNode = HtmlNodeParent(pBgNode)) {
+                    HtmlComputedValues *pV2 = pBgNode->pPropertyValues;
+                    if (pV2->cBackgroundColor->xcolor) {
+                        fill_quad(pTree->win, ipix, 
+                            pV2->cBackgroundColor->xcolor,
+                            0, 0, iWidth, 0, 0, iHeight, -1 * iWidth, 0
+                        );
+                        break;
+                    }
+                }
+                Tk_RedrawImage(img, 0, 0, iWidth, iHeight, ipix, 0, 0);
+        
+		/* Draw a rectangle to the drawable with origin (bg_x, bg_y).
+		 * The size of the rectangle is (bg_w *  bg_h). The background
+		 * image is tiled across the region with a relative origin
+		 * point as defined by (gc_values.ts_x_origin,
+		 * gc_values.ts_y_origin).
+                 */
+                gc_values.ts_x_origin = iPosX;
+                gc_values.ts_y_origin = iPosY;
+                gc_values.tile = ipix;
+                gc_values.fill_style = FillTiled;
+                gc = Tk_GetGC(pTree->win, 
+                    GCTile|GCTileStipXOrigin|GCTileStipYOrigin|GCFillStyle, 
+                    &gc_values
+                );
+                if (bg_h > 0 && bg_w > 0) {
+                    XFillRectangle(display,drawable,gc,bg_x,bg_y,bg_w,bg_h);
+                }
+                Tk_FreePixmap(display, ipix);
+                Tk_FreeGC(display, gc);
             }
-            Tk_FreePixmap(display, ipix);
-            Tk_FreeGC(display, gc);
         }
     }
 }
@@ -1130,7 +1211,14 @@ drawImage(pTree, pI2, drawable, x, y, w, h)
 
         img = HtmlImageImage(pI2->pImage);
         Tk_SizeOfImage(img, &imW, &imH);
-        Tk_RedrawImage(img, 0, 0, imW, imH, drawable, x + pI2->x, y + pI2-> y);
+
+        tileimage(
+            drawable, w, h, 
+            img, imW, imH, 
+            x + pI2->x, y + pI2->y,
+            imW, imH,
+            x + pI2->x, y + pI2->y
+        );
     }
 }
 
@@ -1412,7 +1500,7 @@ pixmapQueryCb(pItem, origin_x, origin_y, clientData)
     int x = origin_x + pQuery->x;
     int y = origin_y + pQuery->y;
 
-    int w = pQuery->x;
+    int w = pQuery->w;
     int h = pQuery->h;
 
     switch (pItem->type) {
