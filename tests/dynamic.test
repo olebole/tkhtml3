@@ -65,8 +65,6 @@ tcltest::test dynamic-2.1 {} -body {
   $::node dynamic set
 } -result {hover}
 
-update
-
 tcltest::test dynamic-2.2 {} -body {
   property $::node color
 } -result {white}

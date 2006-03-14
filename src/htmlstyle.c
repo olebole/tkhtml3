@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlstyle.c,v 1.20 2006/03/14 09:10:16 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlstyle.c,v 1.21 2006/03/14 11:20:26 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -77,9 +77,6 @@ styleNode(pTree, pNode, clientData)
          */
         if (trashDynamics) {
             HtmlCssFreeDynamics(pNode);
-            HtmlComputedValuesRelease(pTree, pV);
-            pV = 0;
-            HtmlCallbackSchedule(pTree, HTML_CALLBACK_LAYOUT);
         }
     
         /* If there is a "style" attribute on this node, parse the attribute
@@ -99,7 +96,12 @@ styleNode(pTree, pNode, clientData)
     
         HtmlCssStyleSheetApply(pTree, pNode);
 
-	/* Release the old property values structure, if any. */
+
+        if (trashDynamics) {
+            HtmlComputedValuesRelease(pTree, pV);
+            pV = 0;
+            HtmlCallbackSchedule(pTree, HTML_CALLBACK_LAYOUT);
+        }
         HtmlComputedValuesRelease(pTree, pNode->pPreviousValues);
         pNode->pPreviousValues = pV;
 
