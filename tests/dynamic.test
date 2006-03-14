@@ -69,3 +69,61 @@ tcltest::test dynamic-2.2 {} -body {
   property $::node color
 } -result {white}
 
+tcltest::test dynamic-3.0 {} -body {
+  .h reset
+  .h parse -final {
+    <html>
+    <style>
+      a:link    {color:white}
+      a:visited {color:blue}
+      a         {color:black}
+    </style>
+    <body>
+    <a>Some Text</a>
+    </html>
+  }
+
+  set ::node [lindex [.h search a] 0]
+  property $::node color
+} -result {black}
+
+tcltest::test dynamic-3.1 {} -body {
+  $::node dynamic set visited
+  $::node dynamic set
+} -result visited
+
+tcltest::test dynamic-3.2 {} -body {
+  property $::node color
+} -result {blue}
+
+tcltest::test dynamic-3.3 {} -body {
+  $::node dynamic set link
+  property $::node color
+} -result {blue}
+tcltest::test dynamic-3.4 {} -body {
+  $::node dynamic clear visited
+  property $::node color
+} -result {white}
+tcltest::test dynamic-3.5 {} -body {
+  $::node dynamic clear link
+  $::node dynamic set
+} -result {}
+tcltest::test dynamic-3.6 {} -body {
+  property $::node color
+} -result {black}
+
+tcltest::test dynamic-4.0 {} -body {
+  .h reset
+  .h parse -final {
+    <html>
+    <style>
+      body a:hover {color:red}
+    </style>
+    <body>
+    <a>Some Text</a>
+    </html>
+  }
+  set ::node [lindex [.h search a] 0]
+  $::node dynamic conditions
+} -result {:link {body a:hover}}
+

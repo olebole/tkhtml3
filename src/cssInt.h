@@ -261,4 +261,10 @@ int HtmlCssSelectorTest(CssSelector *, HtmlNode *, int);
 
 void HtmlCssAddDynamic(HtmlNode *, CssSelector *, int);
 
+/* Append the string representation of the supplied selector to the object. */
+void HtmlCssSelectorToString(CssSelector *, Tcl_Obj *);
+
+int HtmlCssTclNodeDynamics(Tcl_Interp *, HtmlNode *);
+
 #endif /* __CSS_H__ */
+

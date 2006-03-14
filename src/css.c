@@ -29,7 +29,9 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.55 2006/03/14 09:10:16 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.56 2006/03/14 18:08:00 danielk1977 Exp $";
+
+#define LOG if (pTree->options.logcmd)
 
 /*
  *    The CSS "cascade":
@@ -2362,6 +2364,7 @@ void HtmlCssSelector(pParse, stype, pAttr, pValue)
     pSelector->zValue = tokenToString(pValue);
     dequote(pSelector->zValue);
     pSelector->zAttr = tokenToString(pAttr);
+
     pSelector->pNext = pParse->pSelector;
     pParse->pSelector = pSelector;
 
@@ -2569,7 +2572,8 @@ int HtmlCssPseudo(pToken)
     };
     int eOptions[] = {
         CSS_PSEUDOCLASS_LINK, CSS_PSEUDOCLASS_VISITED, 
-        CSS_PSEUDOCLASS_ACTIVE, CSS_PSEUDOCLASS_HOVER, CSS_PSEUDOCLASS_FOCUS
+        CSS_PSEUDOCLASS_ACTIVE, CSS_PSEUDOCLASS_HOVER, 
+        CSS_PSEUDOCLASS_FOCUS
     };
     int i;
 
@@ -2813,17 +2817,6 @@ HtmlCssSelectorTest(pSelector, pNode, dynamic_true)
             case CSS_PSEUDOCLASS_LANG:
             case CSS_PSEUDOCLASS_FIRSTCHILD:
                 return 0;
-            case CSS_PSEUDOCLASS_LINK:
-                /* Psuedo-class ":link". This rule matches any element with
-                 * tag-type <a> and an href attribute.
-                 */
-                if (strcmp(N_TYPE(x), "a") ||
-                    !attrTest(CSS_SELECTOR_ATTR, 0, N_ATTR(x,"href"))
-                ) {
-                    return 0;
-                }
-                break;
-            case CSS_PSEUDOCLASS_VISITED:
             case CSS_PSEUDOELEMENT_FIRSTLINE:
             case CSS_PSEUDOELEMENT_FIRSTLETTER:
             case CSS_PSEUDOELEMENT_BEFORE:
@@ -2831,13 +2824,19 @@ HtmlCssSelectorTest(pSelector, pNode, dynamic_true)
                 return 0;
 
             case CSS_PSEUDOCLASS_ACTIVE:
-                if (dynamic_true || (pNode->flags & HTML_DYNAMIC_ACTIVE)) break;
+                if (dynamic_true || (x->flags & HTML_DYNAMIC_ACTIVE)) break;
                 return 0;
             case CSS_PSEUDOCLASS_HOVER:
-                if (dynamic_true || (pNode->flags & HTML_DYNAMIC_HOVER)) break;
+                if (dynamic_true || (x->flags & HTML_DYNAMIC_HOVER)) break;
                 return 0;
             case CSS_PSEUDOCLASS_FOCUS:
-                if (dynamic_true || (pNode->flags & HTML_DYNAMIC_FOCUS)) break;
+                if (dynamic_true || (x->flags & HTML_DYNAMIC_FOCUS)) break;
+                return 0;
+            case CSS_PSEUDOCLASS_LINK:
+                if (dynamic_true || (x->flags & HTML_DYNAMIC_LINK)) break;
+                return 0;
+            case CSS_PSEUDOCLASS_VISITED:
+                if (dynamic_true || (x->flags & HTML_DYNAMIC_VISITED)) break;
                 return 0;
 
             case CSS_SELECTOR_NEVERMATCH:
@@ -2929,6 +2928,8 @@ selectorIsDynamic(pSelector)
             case CSS_PSEUDOCLASS_ACTIVE:
             case CSS_PSEUDOCLASS_HOVER:
             case CSS_PSEUDOCLASS_FOCUS:
+            case CSS_PSEUDOCLASS_LINK:
+            case CSS_PSEUDOCLASS_VISITED:
                 return 1;
         }
     }
@@ -3006,11 +3007,20 @@ HtmlCssStyleSheetApply(pTree, pNode)
         /* If the selector is a match for our node, apply the rule properties */
         isMatch = HtmlCssSelectorTest(pSelector, pNode, 0);
         if (isMatch) {
+            LOG {
+                Tcl_Obj *pS = Tcl_NewObj();
+                Tcl_IncrRefCount(pS);
+                HtmlCssSelectorToString(pSelector, pS);
+                HtmlLog(pTree, "STYLEENGINE", "%s matches \"%s\"",
+                    Tcl_GetString(HtmlNodeCommand(pTree, pNode)),
+                    Tcl_GetString(pS)
+                );
+                Tcl_DecrRefCount(pS);
+            }                   
             ruleToPropertyValues(&sCreator, aPropDone, pRule);
         }
 
         if (
-            !pNode->pDynamic && 
             selectorIsDynamic(pSelector) &&
             HtmlCssSelectorTest(pSelector, pNode, 1)
         ) {
@@ -3234,4 +3244,62 @@ HtmlCssSearch(clientData, interp, objc, objv)
     return rc;
 }
 
+
+void
+HtmlCssSelectorToString(pSelector, pObj)
+    CssSelector *pSelector;
+    Tcl_Obj *pObj;
+{
+    char *z = 0;
+    if (!pSelector) return;
+
+    if (pSelector->pNext) {
+        HtmlCssSelectorToString(pSelector->pNext, pObj);
+    }
+ 
+    switch (pSelector->eSelector) {
+        case CSS_SELECTORCHAIN_DESCENDANT:         z = " ";       break;
+        case CSS_SELECTORCHAIN_CHILD:              z = " > ";     break;
+        case CSS_SELECTORCHAIN_ADJACENT:           z = " + ";     break;
+        case CSS_SELECTOR_UNIVERSAL:               z = "*";       break;
+        case CSS_PSEUDOCLASS_LANG:                 z = ":lang";         break;
+        case CSS_PSEUDOCLASS_FIRSTCHILD:           z = ":first-child";  break;
+        case CSS_PSEUDOCLASS_LINK:                 z = ":link";         break;
+        case CSS_PSEUDOCLASS_VISITED:              z = ":visited";      break;
+        case CSS_PSEUDOCLASS_ACTIVE:               z = ":active";       break;
+        case CSS_PSEUDOCLASS_HOVER:                z = ":hover";        break;
+        case CSS_PSEUDOCLASS_FOCUS:                z = ":focus";        break;
+        case CSS_PSEUDOELEMENT_FIRSTLINE:          z = ":first-line";   break;
+        case CSS_PSEUDOELEMENT_FIRSTLETTER:        z = ":first-letter"; break;
+        case CSS_PSEUDOELEMENT_BEFORE:             z = ":before";       break;
+        case CSS_PSEUDOELEMENT_AFTER:              z = ":after";        break;
+
+        case CSS_SELECTOR_TYPE:
+            z = pSelector->zValue;
+            break;
+
+        case CSS_SELECTOR_ATTR: 
+            Tcl_AppendStringsToObj(pObj, "[", pSelector->zAttr, "]", 0);
+            break;
+           
+        case CSS_SELECTOR_ATTRVALUE: 
+            Tcl_AppendStringsToObj(pObj, 
+                "[", pSelector->zAttr, "=\"", pSelector->zValue, "\"]", 0);
+            break;
+
+        case CSS_SELECTOR_ATTRLISTVALUE: 
+            Tcl_AppendStringsToObj(pObj, 
+                "[", pSelector->zAttr, "~=\"", pSelector->zValue, "\"]", 0);
+            break;
+        case CSS_SELECTOR_ATTRHYPHEN: 
+            Tcl_AppendStringsToObj(pObj, 
+                "[", pSelector->zAttr, "|=\"", pSelector->zValue, "\"]", 0);
+            break;
+
+        default:
+            assert(!"Unknown CSS_SELECTOR_XXX value in HtmlSelectorToString()");
+    }
+
+    if (z) Tcl_AppendToObj(pObj, z, -1);
+}
 

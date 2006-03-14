@@ -72,6 +72,7 @@ swproc hv3Init {PATH {gotocallback ""}} {
   # Set up Handler callbacks for <link>, <style>, <script> and <img> tags.
   $PATH.html handler script script "::hv3::handleScriptScript"
   $PATH.html handler node link     "::hv3::handleLinkNode     $PATH"
+  $PATH.html handler node a        "::hv3::handleANode"
   $PATH.html handler script style  "::hv3::handleStyleScript  $PATH"
 
   # Widget bindings
@@ -222,6 +223,14 @@ namespace eval hv3 {
 
       download $PATH $url -script $cmd -type Stylesheet
     }
+  }
+
+  # handleANode NODE
+  #
+  proc handleANode {node} {
+      if {![catch {$node attr href}]} {
+          $node dynamic set link
+      }
   }
   
   # imageCallback IMAGE-NAME DATA

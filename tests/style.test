@@ -81,4 +81,30 @@ tcltest::test style-2.3 {} -body {
   property $node2 background-repeat
 } -result {no-repeat}
 
+#--------------------------------------------------------------------------
+# Test cases style-3.* test some selectors
+#
+tcltest::test style-3.0 {} -body {
+  .h reset
+  .h parse -final {
+    <html>
+    <style>
+      i {color:red}
+      body>b {color:red}
+    </style>
+    <body>
+    <i>Hello</i>
+    <b>Hello</i>
+    </body>
+    </html>
+  }
+
+  set node [lindex [.h search i] 0]
+  property $node color
+} -result {red}
+tcltest::test style-3.1 {} -body {
+  set node [lindex [.h search b] 0]
+  property $node color
+} -result {red}
+
 

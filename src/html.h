@@ -207,6 +207,8 @@ struct HtmlNode {
 #define HTML_DYNAMIC_HOVER   0x01
 #define HTML_DYNAMIC_FOCUS   0x02
 #define HTML_DYNAMIC_ACTIVE  0x04
+#define HTML_DYNAMIC_LINK    0x08
+#define HTML_DYNAMIC_VISITED 0x10
 
 struct HtmlCanvas {
     int left;

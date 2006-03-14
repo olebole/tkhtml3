@@ -386,6 +386,13 @@ itcl::body HtmlDebug::report {{node ""}} {
         }]
     }
 
+    append doc {<table><tr><th>CSS Dynamic Conditions}
+    foreach condition [$node dynamic conditions] {
+        set c [string map {< &lt; > &gt;} $condition]
+        append doc "<tr><td>$c"
+    }
+    append doc {</table>}
+
     if {[info exists myLayoutEngineLog($node)]} {
         append doc {<table class=layout_engine><tr><th>Layout Engine}
         foreach entry $myLayoutEngineLog($node) {

@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.53 2006/03/14 11:20:26 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.54 2006/03/14 18:08:00 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -1330,30 +1330,41 @@ node_attr_usage:
 
         /*
          * nodeHandle dynamic set|clear ?flag?
-         *
+         * nodeHandle dynamic conditions
          */
         case NODE_DYNAMIC: {
             struct DynamicFlag {
                 const char *zName;
                 Html_u8 flag;
             } flags[] = {
-                {"active", HTML_DYNAMIC_ACTIVE}, 
-                {"focus",  HTML_DYNAMIC_FOCUS}, 
-                {"hover",  HTML_DYNAMIC_HOVER},
+                {"active",  HTML_DYNAMIC_ACTIVE}, 
+                {"focus",   HTML_DYNAMIC_FOCUS}, 
+                {"hover",   HTML_DYNAMIC_HOVER},
+                {"link",    HTML_DYNAMIC_LINK},
+                {"visited", HTML_DYNAMIC_VISITED},
                 {0, 0}
             };
             const char *zArg1 = (objc>2) ? Tcl_GetString(objv[2]) : 0;
             const char *zArg2 = (objc>3) ? Tcl_GetString(objv[3]) : 0;
             Tcl_Obj *pRet;
             int i;
-
             Html_u8 mask = 0;
+
+            if (zArg1 && 0 == strcmp(zArg1, "conditions")) {
+                HtmlCallbackForce(pTree);
+                return HtmlCssTclNodeDynamics(interp, pNode);
+            }
 
             if (zArg2) {
                 for (i = 0; flags[i].zName; i++) {
                     if (0 == strcmp(zArg2, flags[i].zName)) {
                         mask = flags[i].flag;
                     }
+                }
+                if (!mask) {
+                    Tcl_AppendResult(interp, 
+                        "Unsupported dynamic CSS flag: ", zArg2, 0);
+                    return TCL_ERROR;
                 }
             }
 

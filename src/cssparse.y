@@ -184,9 +184,19 @@ prio(X) ::= .                 {X = 0;}
 ** complicated.
 */
 selector ::= simple_selector ws.
-selector ::= simple_selector combinator(X) selector. 
+selector ::= simple_selector combinator selector.
 
-%type combinator {int}
+/* 
+ * CSS Selector Grammar Summary:
+ *
+ *     <selector>        := <simple-selector> ?<combinator> <selector>?
+ *     <combinator>      := "+" | ">" | " " 
+ *     <simple-selector> := <tag> <s-selector-tail>
+ *     <tag>             := "*" | id | ""
+ *     <s-selector-tail> := (#id | .id | :id | [id] | [id <sym> string])*
+ *     <sym>             := "=" | "|=" | "~="
+ */
+
 combinator ::= ws PLUS ws. {
     HtmlCssSelector(pParse, CSS_SELECTORCHAIN_ADJACENT, 0, 0);
 }
@@ -197,22 +207,21 @@ combinator ::= SPACE ws. {
     HtmlCssSelector(pParse, CSS_SELECTORCHAIN_DESCENDANT, 0, 0);
 }
 
-simple_selector ::= IDENT(X) simple_selector_tail_opt. {
-    HtmlCssSelector(pParse, CSS_SELECTOR_TYPE, 0, &X);
-}
-simple_selector ::= STAR simple_selector_tail_opt. {
-    HtmlCssSelector(pParse, CSS_SELECTOR_UNIVERSAL, 0, 0);
-}
+simple_selector ::= tag simple_selector_tail.
 simple_selector ::= simple_selector_tail.
+simple_selector ::= tag.
 
-simple_selector_tail_opt ::= simple_selector_tail.
-simple_selector_tail_opt ::= .
+tag ::= IDENT(X). { HtmlCssSelector(pParse, CSS_SELECTOR_TYPE, 0, &X); }
+tag ::= STAR.     { HtmlCssSelector(pParse, CSS_SELECTOR_UNIVERSAL, 0, 0); }
 
-simple_selector_tail ::= HASH IDENT(X) simple_selector_tail_opt. {
+simple_selector_tail ::= simple_selector_tail_component.
+simple_selector_tail ::= simple_selector_tail_component simple_selector_tail.
+
+simple_selector_tail_component ::= HASH IDENT(X). {
     CssToken id = {"id", 2};
     HtmlCssSelector(pParse, CSS_SELECTOR_ATTRVALUE, &id, &X);
 }
-simple_selector_tail ::= DOT IDENT(X) simple_selector_tail_opt. {
+simple_selector_tail_component ::= DOT IDENT(X). {
     /* A CSS class selector may not begin with a digit. Presumably this is
      * because they expect to use this syntax for something else in a
      * future version. For now, just insert a "never-match" condition into
@@ -225,26 +234,22 @@ simple_selector_tail ::= DOT IDENT(X) simple_selector_tail_opt. {
         HtmlCssSelector(pParse, CSS_SELECTOR_NEVERMATCH, 0, 0);
     }
 }
-simple_selector_tail ::= LSP IDENT(X) RSP simple_selector_tail_opt. {
+simple_selector_tail_component ::= LSP IDENT(X) RSP. {
     HtmlCssSelector(pParse, CSS_SELECTOR_ATTR, &X, 0);
 }
-simple_selector_tail ::= 
-    LSP IDENT(X) EQUALS STRING(Y) RSP simple_selector_tail_opt. {
+simple_selector_tail_component ::= LSP IDENT(X) EQUALS STRING(Y) RSP. {
     HtmlCssSelector(pParse, CSS_SELECTOR_ATTRVALUE, &X, &Y);
 }
-simple_selector_tail ::= 
-    LSP IDENT(X) TILDE EQUALS STRING(Y) RSP simple_selector_tail_opt. {
+simple_selector_tail_component ::= LSP IDENT(X) TILDE EQUALS STRING(Y) RSP. {
     HtmlCssSelector(pParse, CSS_SELECTOR_ATTRLISTVALUE, &X, &Y);
 }
-simple_selector_tail ::= 
-    LSP IDENT(X) PIPE EQUALS STRING(Y) RSP simple_selector_tail_opt. {
+simple_selector_tail_component ::= LSP IDENT(X) PIPE EQUALS STRING(Y) RSP. {
     HtmlCssSelector(pParse, CSS_SELECTOR_ATTRHYPHEN, &X, &Y);
 }
-
-/* Todo: Deal with pseudo selectors. This rule makes the parser ignore them. */
-simple_selector_tail ::= COLON IDENT(X) simple_selector_tail_opt. {
+simple_selector_tail_component ::= COLON IDENT(X). {
     HtmlCssSelector(pParse, HtmlCssPseudo(&X), 0, 0);
 }
+
 
 /*********************************************************************
 ** Expression syntax. This is very simple, it may need to be extended

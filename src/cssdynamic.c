@@ -26,10 +26,23 @@ HtmlCssAddDynamic(pNode, pSelector, isSet)
     CssSelector *pSelector;
     int isSet;
 {
-    CssDynamic *pNew = (CssDynamic *)HtmlClearAlloc(sizeof(CssDynamic));
+    CssDynamic *pNew;
+    for (pNew = pNode->pDynamic; pNew ; pNew = pNew->pNext) {
+        if (pNew->pSelector == pSelector) return;
+    }
+    pNew = 0;
+    
 #if 0
-printf("Attach dynamic selector\n");
+    {
+        Tcl_Obj *pObj = Tcl_NewObj();
+        Tcl_IncrRefCount(pObj);
+        HtmlCssSelectorToString(pSelector, pObj);
+        printf("Attach dynamic selector %s\n", Tcl_GetString(pObj));
+        Tcl_DecrRefCount(pObj);
+    }
 #endif
+
+    pNew = (CssDynamic *)HtmlClearAlloc(sizeof(CssDynamic));
     pNew->isSet = (isSet ? 1 : 0);
     pNew->pSelector = pSelector;
     pNew->pNext = pNode->pDynamic;
@@ -77,5 +90,21 @@ HtmlCssCheckDynamic(pTree)
     }
     pTree->cb.isCssDynamic = 0;
     pTree->cb.pDynamic = 0;
+}
+
+int
+HtmlCssTclNodeDynamics(interp, pNode)
+    Tcl_Interp *interp;
+    HtmlNode *pNode;
+{
+    CssDynamic *p;
+    Tcl_Obj *pRet = Tcl_NewObj();
+    for (p = pNode->pDynamic; p ; p = p->pNext) {
+        Tcl_Obj *pOther = Tcl_NewObj();
+        HtmlCssSelectorToString(p->pSelector, pOther);
+        Tcl_ListObjAppendElement(0, pRet, pOther);
+    }
+    Tcl_SetObjResult(interp, pRet);
+    return TCL_OK;
 }
 
