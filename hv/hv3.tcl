@@ -149,6 +149,8 @@ namespace eval hv3 {
   VAR myProtocols          ;# Serialized array of protocol commands
   VAR myDrag 0             ;# True when dragging the cursor
 
+  VAR myPointerNode ""     ;# The node under the cursor
+
   proc initVars {PATH} {
     foreach {var default} $::hv3::vars {
       set ::hv3::objectvars(${PATH},$var) $default
@@ -373,6 +375,18 @@ namespace eval hv3 {
       }
     }
 
+    if {$myPointerNode ne $node} {
+        for {set n $node} {$n ne ""} {set n [$n parent]} {
+            if {[lsearch [$n dynamic set] hover] != -1} break
+            $n dynamic set hover
+        }
+        set N $n
+        for {set n $myPointerNode} {$n ne "" && $n ne $N} {set n [$n parent]} {
+            $n dynamic clear hover
+        }
+        set myPointerNode $node
+    }
+
     set myStatus1 [string range $txt 0 80]
 
     if {$myDrag} {
@@ -457,6 +471,7 @@ catch {
 
       if {$myResetPending} {
         $PATH.html reset
+        set myPointerNode ""
         set myResetPending 0
         set myStyleCount 0
       }
@@ -512,6 +527,8 @@ catch {
       set status($type) [list 0 1]
     }
     set myStatusInfo [array get status]
+
+puts "download: $url"
     
     if {[catch {
       set dl [Hv3Download %AUTO%]

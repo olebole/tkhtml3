@@ -256,4 +256,9 @@ void HtmlCssImport(CssParse *pParse, CssToken *);
  */
 int HtmlCssPseudo(CssToken *);
 
+/* Test if a selector matches a node */
+int HtmlCssSelectorTest(CssSelector *, HtmlNode *, int);
+
+void HtmlCssAddDynamic(HtmlNode *, CssSelector *, int);
+
 #endif /* __CSS_H__ */

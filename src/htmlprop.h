@@ -353,6 +353,13 @@ void HtmlComputedValuesCleanupTables(HtmlTree *);
  */
 int HtmlNodeProperties(Tcl_Interp *, HtmlComputedValues *);
 
+/*
+ * Determine if changing the computed properties of a node from one
+ * argument structure to the other requires a re-layout. Return 1 if it
+ * does, or 0 otherwise.
+ */
+int HtmlComputedValuesCompare(HtmlComputedValues *, HtmlComputedValues *);
+
 
 #define HTML_COMPUTED_MARGIN_TOP      margin.iTop
 #define HTML_COMPUTED_MARGIN_RIGHT    margin.iRight

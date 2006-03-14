@@ -64,6 +64,7 @@
 typedef struct CssStyleSheet CssStyleSheet;
 typedef struct CssProperties CssProperties;
 typedef struct CssProperty CssProperty;
+typedef struct CssDynamic CssDynamic;
 
 /* Include html.h after we define our opaque types, because it includes
  * structures that contain pointers to them.
@@ -154,6 +155,9 @@ void HtmlCssPropertiesFree(CssProperties *);
 CssProperty *HtmlCssPropertiesGet(CssProperties *, int, int*, int*);
 
 Tcl_ObjCmdProc HtmlCssSearch;
+
+void HtmlCssCheckDynamic(HtmlTree *);
+void HtmlCssFreeDynamics(HtmlNode *);
 
 #if 0
 

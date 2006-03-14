@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.130 2006/03/12 15:35:03 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.131 2006/03/14 09:10:16 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -385,46 +385,6 @@ nodeGetBoxProperties(pLayout, pNode, iContaining, pBoxProperties)
         pBoxProperties->padding_bottom >= 0 &&
         pBoxProperties->padding_left >= 0
     );
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * nodeGetBorderProperties --
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-void 
-nodeGetBorderProperties(pLayout, pNode, pBorderProperties)
-    LayoutContext *pLayout;
-    HtmlNode *pNode;
-    BorderProperties *pBorderProperties;
-{
-    HtmlComputedValues *pValues = pNode->pPropertyValues;
-    pBorderProperties->color_top = pValues->cBorderTopColor->xcolor;
-    pBorderProperties->color_right = pValues->cBorderRightColor->xcolor;
-    pBorderProperties->color_bottom = pValues->cBorderBottomColor->xcolor;
-    pBorderProperties->color_left = pValues->cBorderLeftColor->xcolor;
-    pBorderProperties->color_bg = pValues->cBackgroundColor->xcolor;
-
-#if 0
-    assert(
-        ((pValues->mask & PROP_MASK_BACKGROUND_POSITION_X) ? 1 : 0) ==
-        ((pValues->mask & PROP_MASK_BACKGROUND_POSITION_Y) ? 1 : 0)
-    );
-#endif
-    pBorderProperties->pBgImage = pValues->imBackgroundImage;
-    pBorderProperties->eBgRepeat = pValues->eBackgroundRepeat;
-    pBorderProperties->iPositionX = pValues->iBackgroundPositionX;
-    pBorderProperties->iPositionY = pValues->iBackgroundPositionY;
-    pBorderProperties->isPositionPercent = 
-        ((pValues->mask & PROP_MASK_BACKGROUND_POSITION_X) ? 1 : 0);
 }
 
 /*
@@ -860,7 +820,6 @@ markerLayout(pLayout, pBox, pNode, y)
                 y + iHeight);
         }
     } else {
-        XColor *color;
         Tk_Font font;
         int style;
         char zBuf[128];
@@ -923,7 +882,6 @@ markerLayout(pLayout, pBox, pNode, y)
                  break;
         }
         font = pComputed->fFont->tkfont;
-        color = pComputed->cColor->xcolor;
         pMarker = Tcl_NewStringObj(zMarker, -1);
         Tcl_IncrRefCount(pMarker);
         width = Tk_TextWidth(font, zMarker, strlen(zMarker));
@@ -2147,8 +2105,6 @@ borderLayout(pLayout, pNode, pBox, xA, yA, xB, yB)
 {
     BoxProperties boxproperties;
     BorderProperties borderproperties;
-    int tw, rw, bw, lw;                  /* Border pixel widths */
-    XColor *tc, *rc, *bc, *lc;           /* Border colors */
     int x1, y1, x2, y2;
 
     BoxContext sBox;

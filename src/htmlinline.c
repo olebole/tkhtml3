@@ -31,12 +31,14 @@
  * 
  *     HtmlInlineContextIsEmpty
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.12 2006/03/11 15:53:12 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.13 2006/03/14 09:10:16 danielk1977 Exp $";
 
 typedef struct InlineBox InlineBox;
 
 struct InlineBorder {
+/*
   BorderProperties border;
+*/
   MarginProperties margin;
   BoxProperties box;
   int iVerticalAlign;         /* Vertical offset for content (+ve = upwards) */
@@ -233,7 +235,6 @@ HtmlGetInlineBorder(pLayout, pNode, parentblock)
     if (!parentblock) {
         nodeGetBoxProperties(pLayout, pNode, 0,&border.box);
         nodeGetMargins(pLayout, pNode, 0, &border.margin);
-        nodeGetBorderProperties(pLayout, pNode, &border.border);
     } else {
         memset(&border, 0, sizeof(InlineBorder));
     }
@@ -273,9 +274,10 @@ HtmlGetInlineBorder(pLayout, pNode, parentblock)
         border.box.border_top     || border.box.border_bottom     ||
         border.margin.margin_left || border.margin.margin_right   ||
         border.margin.margin_top  || border.margin.margin_bottom  ||
-        border.border.color_bg    || 
+        pValues->cBackgroundColor->xcolor ||
         border.iVerticalAlign != CSS_CONST_BASELINE ||
-        border.textdecoration != CSS_CONST_NONE
+        border.textdecoration != CSS_CONST_NONE ||
+        pNode->pDynamic
     ) {
         border.color = pValues->cColor->xcolor;
         pBorder = (InlineBorder *)HtmlAlloc(sizeof(InlineBorder));
@@ -479,7 +481,6 @@ pLayout, pCanvas, pBorder, x1, y1, x2, y2, drb, aRepX, nRepX)
     int *aRepX;
     int nRepX;
 {
-    XColor *c = pBorder->border.color_bg;
     int textdecoration = pBorder->textdecoration;
 
     int dlb = (pBorder->iStartBox >= 0);        /* Draw Left Border */
@@ -497,14 +498,10 @@ pLayout, pCanvas, pBorder, x1, y1, x2, y2, drb, aRepX, nRepX)
         HtmlDrawBox(pCanvas, x1, y1, x2-x1, y2-y1, pNode, flags, mmt);
     }
 
-    if (textdecoration != CSS_CONST_NONE) {
-        int y;                /* y-coordinate for horizontal line */
-        int i;
-        XColor *color = pBorder->color;
-
-        int y_o;
-        int y_t;
-        int y_u;
+    if (textdecoration != CSS_CONST_NONE || pNode->pDynamic ) {
+        int y_o;                  /* Y-coord for overline */
+        int y_t;                  /* Y-coord for linethough */
+        int y_u;                  /* Y-coord for underline */
 
         x1 += (dlb ? pBorder->box.padding_left : 0);
         x2 -= (drb ? pBorder->box.padding_right : 0);
@@ -524,6 +521,7 @@ pLayout, pCanvas, pBorder, x1, y1, x2, y2, drb, aRepX, nRepX)
          */
         if (nRepX > 0) {
             int xa = x1;
+            int i;
             for (i = 0; i < nRepX; i++) {
                 int xs = aRepX[i*2]; 
                 int xe = aRepX[i*2+1]; 

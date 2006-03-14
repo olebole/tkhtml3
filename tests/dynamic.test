@@ -1,0 +1,73 @@
+
+package require tcltest
+package require Tkhtml
+tcltest::verbose {pass body error}
+
+if {[catch {.h cget -width}]} {
+  html .h
+  .h handler script style styleHandler 
+  proc styleHandler {data} {
+    .h style $data
+  }
+}
+
+proc property {node prop} {
+  array set properties [$node prop]
+  return $properties($prop)
+}
+
+tcltest::test dynamic-1.0 {} -body {
+  .h reset
+  .h parse -final {
+    <html>
+    <body>
+    <a>Some Text</a>
+    <b>Some Text</b>
+    </html>
+  }
+
+  set ::node_a [lindex [.h search a] 0]
+  set ::node_b [lindex [.h search b] 0]
+
+  $::node_a dynamic set
+} -result {}
+
+tcltest::test dynamic-1.1 {} -body {
+  $::node_b dynamic set
+} -result {}
+
+tcltest::test dynamic-1.2 {} -body {
+  $::node_a dynamic set hover
+} -result {hover}
+
+tcltest::test dynamic-1.3 {} -body {
+  $::node_a dynamic set 
+} -result {hover}
+
+tcltest::test dynamic-2.0 {} -body {
+  .h reset
+  .h parse -final {
+    <html>
+    <style>
+      :hover {color:white}
+    </style>
+    <body>
+    <a>Some Text</a>
+    </html>
+  }
+
+  set ::node [lindex [.h search a] 0]
+  property $::node color
+} -result {black}
+
+tcltest::test dynamic-2.1 {} -body {
+  $::node dynamic set hover
+  $::node dynamic set
+} -result {hover}
+
+update
+
+tcltest::test dynamic-2.2 {} -body {
+  property $::node color
+} -result {white}
+

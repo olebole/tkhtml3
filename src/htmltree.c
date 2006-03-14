@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.51 2006/03/12 15:35:03 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.52 2006/03/14 09:10:16 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -410,6 +410,7 @@ freeNode(pTree, pNode)
             freeNode(pTree, pNode->apChildren[i]);
         }
         HtmlComputedValuesRelease(pTree, pNode->pPropertyValues);
+        HtmlComputedValuesRelease(pTree, pNode->pPreviousValues);
         HtmlCssPropertiesFree(pNode->pStyle);
         if (pNode->pNodeCmd) {
             Tcl_Obj *pCommand = pNode->pNodeCmd->pCommand;
@@ -754,12 +755,13 @@ walkTree(pTree, xCallback, pNode, clientData)
  *---------------------------------------------------------------------------
  */
 int 
-HtmlWalkTree(pTree, xCallback, clientData)
+HtmlWalkTree(pTree, pNode, xCallback, clientData)
     HtmlTree *pTree;
+    HtmlNode *pNode;
     int (*xCallback)(HtmlTree *, HtmlNode *, ClientData clientData);
     ClientData clientData;
 {
-    return walkTree(pTree, xCallback, pTree->pRoot, clientData);
+    return walkTree(pTree, xCallback, pNode?pNode:pTree->pRoot, clientData);
 }
 
 /*
@@ -982,6 +984,25 @@ geomRequestProc(clientData, widget)
     HtmlCallbackSchedule(pTree, HTML_CALLBACK_LAYOUT);
 }
 
+static HtmlNode *
+commonParent(pNodeA, pNodeB) 
+    HtmlNode *pNodeA;
+    HtmlNode *pNodeB;
+{
+    HtmlNode *pA;
+    HtmlNode *pB;
+
+    assert(pNodeB);
+
+    for (pA = pNodeA; pA; pA = HtmlNodeParent(pA)) {
+        for (pB = pNodeB; pB; pB = HtmlNodeParent(pB)) {
+            if (pB == pA) return pA;
+        }
+    }
+
+    assert(!pNodeA);
+    return pNodeB;
+}
 
 /*
  *---------------------------------------------------------------------------
@@ -1026,11 +1047,13 @@ nodeCommand(clientData, interp, objc, objv)
 
     static CONST char *NODE_strs[] = {
         "attr", "tag", "nChildren", "child", "text", 
-        "parent", "prop", "replace", "right_sibling", 0
+        "parent", "prop", "replace", "right_sibling", 
+        "dynamic", 0
     };
     enum NODE_enum {
         NODE_ATTR, NODE_TAG, NODE_NCHILDREN, NODE_CHILD, NODE_TEXT,
-        NODE_PARENT, NODE_PROP, NODE_REPLACE, NODE_RIGHT_SIBLING
+        NODE_PARENT, NODE_PROP, NODE_REPLACE, NODE_RIGHT_SIBLING,
+        NODE_DYNAMIC
     };
 
     if (objc<2) {
@@ -1307,6 +1330,66 @@ node_attr_usage:
             break;
         }
 
+        /*
+         * nodeHandle dynamic set|clear ?flag?
+         *
+         */
+        case NODE_DYNAMIC: {
+            struct DynamicFlag {
+                const char *zName;
+                Html_u8 flag;
+            } flags[] = {
+                {"active", HTML_DYNAMIC_ACTIVE}, 
+                {"focus",  HTML_DYNAMIC_FOCUS}, 
+                {"hover",  HTML_DYNAMIC_HOVER},
+                {0, 0}
+            };
+            const char *zArg1 = (objc>2) ? Tcl_GetString(objv[2]) : 0;
+            const char *zArg2 = (objc>3) ? Tcl_GetString(objv[3]) : 0;
+            Tcl_Obj *pRet;
+            int i;
+
+            Html_u8 mask = 0;
+
+            if (zArg2) {
+                for (i = 0; flags[i].zName; i++) {
+                    if (0 == strcmp(zArg2, flags[i].zName)) {
+                        mask = flags[i].flag;
+                    }
+                }
+            }
+
+            if ( 
+                !zArg1 || 
+                (strcmp(zArg1, "set") && strcmp(zArg1, "clear")) ||
+                (zArg2 && !mask)
+            ) {
+                Tcl_WrongNumArgs(interp, 2, objv, "set|clear ?flag?");
+                return TCL_ERROR;
+            }
+
+            if (*zArg1 == 's') {
+                pNode->flags |= mask;
+            } else {
+                pNode->flags &= ~(mask?mask:0xFF);
+            }
+
+            pRet = Tcl_NewObj();
+            for (i = 0; flags[i].zName; i++) {
+                if (pNode->flags & flags[i].flag) {
+                    Tcl_Obj *pNew = Tcl_NewStringObj(flags[i].zName, -1);
+                    Tcl_ListObjAppendElement(0, pRet, pNew);
+                }
+            }
+            Tcl_SetObjResult(interp, pRet);
+
+            pTree->cb.pDynamic = commonParent(pTree->cb.pDynamic, pNode);
+            pTree->cb.isCssDynamic = 1;
+            HtmlCallbackSchedule(pTree, HTML_CALLBACK_DYNAMIC);
+
+            break;
+        }
+
         default:
             assert(!"Impossible!");
     }
@@ -1496,10 +1579,16 @@ int HtmlTreeClear(pTree)
     pTree->iScrollX = 0;
     pTree->iScrollY = 0;
 
+    /* Clear the selection */
     pTree->pFromNode = 0;
     pTree->pToNode = 0;
     pTree->iFromIndex = 0;
     pTree->iToIndex = 0;
+
+    /* Deschedule any dynamic callback */
+    pTree->cb.isCssDynamic = 0;
+    pTree->cb.pDynamic = 0;
+
     pTree->iNextNode = 0;
     return TCL_OK;
 }

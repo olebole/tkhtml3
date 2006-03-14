@@ -339,6 +339,32 @@
 		Return the node handle for the index'th child of the node.
 		Children are numbered from zero upward.
 }]
+[Subcommand -2 {
+	nodeHandle dynamic set ?flag?
+	nodeHandle dynamic clear ?flag?
+		Set or clear a dynamic flag on a node. 
+
+		The supported values for the  ?flag? argument are "active",
+		"hover" and "focus". The status of each dynamic flag 
+		determines whether or not the corresponding CSS dynamic
+		pseudo-classes are considered to match the node. For
+		example, when the mouse moves over node $N, a script
+		could invoke:
+	[Code {
+		$N dynamic set hover
+	}]
+		Or possibly, if $PN were the node the mouse hovered over
+		previously:
+	[Code {
+		for {set n $PN} {$n ne ""} {set n [$n parent]} {
+			$n dynamic clear hover
+                }
+		for {set n $N} {$n ne ""} {set n [$n parent]} {
+			$n dynamic set hover
+                }
+	}]
+
+}]
 [Subcommand {
 	nodeHandle nChild
 		Return the number of children the node has.

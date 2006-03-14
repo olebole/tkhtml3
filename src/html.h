@@ -192,10 +192,21 @@ struct HtmlNode {
     CssProperties *pStyle;     /* The CSS properties from style attribute */
 
     HtmlComputedValues *pPropertyValues;     /* CSS property values */
+    HtmlComputedValues *pPreviousValues;     /* Previous CSS property values */
+    CssDynamic *pDynamic;                    /* CSS dynamic conditions */
+    Html_u8 flags;                           /* HTML_DYNAMIC_XXX flags */
+
     HtmlNodeReplacement *pReplacement;       /* Replaced object, if any */
     HtmlNodeCmd *pNodeCmd;                   /* Tcl command for this node */
-    int iNode;
+    int iNode;                               /* Node index */
 };
+
+/* Values for HtmlNode.flags. These may be set and cleared via the Tcl
+ * interface on the node command: [$node dynamic set|clear ...]
+ */
+#define HTML_DYNAMIC_HOVER   0x01
+#define HTML_DYNAMIC_FOCUS   0x02
+#define HTML_DYNAMIC_ACTIVE  0x04
 
 struct HtmlCanvas {
     int left;
@@ -243,6 +254,7 @@ void HtmlTimer(HtmlTree *, CONST char *, CONST char *, ...);
  * eCallbackAction may take the following values:
  *
  *     HTML_CALLBACK_NONE
+ *     HTML_CALLBACK_DYNAMIC
  *     HTML_CALLBACK_DAMAGE
  *     HTML_CALLBACK_LAYOUT
  *     HTML_CALLBACK_STYLE
@@ -252,12 +264,16 @@ struct HtmlCallback {
 
     int x1, y1;                     /* Top-left corner of damaged region */
     int x2, y2;                     /* Bottom-right corner of damaged region */
+
+    HtmlNode *pDynamic;             /* Recalculate dynamic CSS for this node */
+    int isCssDynamic;               /* True to check for dynamic CSS rules */ 
 };
 
 #define HTML_CALLBACK_NONE    0
-#define HTML_CALLBACK_DAMAGE  1
-#define HTML_CALLBACK_LAYOUT  2
-#define HTML_CALLBACK_STYLE   3
+#define HTML_CALLBACK_DYNAMIC 1
+#define HTML_CALLBACK_DAMAGE  2
+#define HTML_CALLBACK_LAYOUT  3
+#define HTML_CALLBACK_STYLE   4
 
 struct HtmlTree {
 
@@ -391,7 +407,8 @@ int HtmlNameToType(void *, char *);
 Html_u8 HtmlMarkupFlags(int);
 
 void HtmlTreeFree(HtmlTree *p);
-int HtmlWalkTree(HtmlTree*, int (*)(HtmlTree*,HtmlNode*,ClientData),ClientData);
+int HtmlWalkTree(HtmlTree*, HtmlNode *, 
+        int (*)(HtmlTree*,HtmlNode*,ClientData),ClientData);
 int HtmlTreeClear(HtmlTree *);
 int         HtmlNodeNumChildren(HtmlNode *);
 HtmlNode *  HtmlNodeChild(HtmlNode *, int);
@@ -474,6 +491,8 @@ const char *HtmlImageUrl(HtmlImage2 *);
 void HtmlImageCheck(HtmlImage2 *);
 Tcl_Obj *HtmlXImageToImage(HtmlTree *, XImage *, int, int);
 int HtmlImageAlphaChannel(HtmlTree *, HtmlImage2 *);
+
+void HtmlLayoutPaintNode(HtmlTree *, HtmlNode *);
 
 #endif
 

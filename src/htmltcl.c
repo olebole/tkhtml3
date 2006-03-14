@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.75 2006/03/12 07:48:04 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.76 2006/03/14 09:10:16 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -51,6 +51,47 @@ static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.75 2006/03/12 07:48:04 dani
     Tcl_AppendResult(interp, str, " invalid in safe interp", 0); \
     return TCL_ERROR; \
 }
+
+#ifndef NDEBUG
+static int 
+allocCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    return Rt_AllocCommand(0, interp, objc, objv);
+}
+static int 
+hashstatsCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    HtmlTree *pTree = (HtmlTree *)clientData;
+    Tcl_HashEntry *p;
+    Tcl_HashSearch search;
+    int nObj = 0;
+    int nRef = 0;
+    char zRes[128];
+
+    for (
+        p = Tcl_FirstHashEntry(&pTree->aValues, &search); 
+        p; 
+        p = Tcl_NextHashEntry(&search)
+    ) {
+        HtmlComputedValues *pV = 
+            (HtmlComputedValues *)Tcl_GetHashKey(&pTree->aValues, p);
+        nObj++;
+        nRef += pV->nRef;
+    }
+
+    sprintf(zRes, "%d %d", nObj, nRef);
+    Tcl_SetResult(interp, zRes, TCL_VOLATILE);
+    return TCL_OK;
+}
+#endif
 
 
 /*
@@ -271,11 +312,12 @@ callbackHandler(clientData)
     ClientData clientData;
 {
     HtmlTree *pTree = (HtmlTree *)clientData;
-    int eCallbackAction = pTree->cb.eCallbackAction;
-    pTree->cb.eCallbackAction = HTML_CALLBACK_NONE;
+    int eCallbackAction;
 
-    int x, y;
-    int w, h;
+    int x = 0;
+    int y = 0;
+    int w = 0;
+    int h = 0;
 
     int canvas_x = 0;
     int canvas_y = 0;
@@ -283,10 +325,21 @@ callbackHandler(clientData)
     clock_t styleClock = 0;
     clock_t layoutClock = 0;
 
+    /* If the HtmlCallback.isCssDynamic flag is set, then see if we need to
+     * modify this callback operation due to dynamic CSS rules before
+     * proceeding.  If this is the case, HtmlCssCheckDynamic() will modify
+     * variables in the HtmlTree.cb structure.
+     */
+    HtmlCssCheckDynamic(pTree);
+    pTree->cb.isCssDynamic = 0;
+    eCallbackAction = pTree->cb.eCallbackAction;
+    pTree->cb.eCallbackAction = HTML_CALLBACK_NONE;
+
     assert(
         eCallbackAction == HTML_CALLBACK_LAYOUT ||
         eCallbackAction == HTML_CALLBACK_STYLE ||
-        eCallbackAction == HTML_CALLBACK_DAMAGE
+        eCallbackAction == HTML_CALLBACK_DAMAGE ||
+        eCallbackAction == HTML_CALLBACK_DYNAMIC
     );
 
     switch (eCallbackAction) {
@@ -315,7 +368,7 @@ callbackHandler(clientData)
     canvas_y = pTree->iScrollY;
     canvas_x = pTree->iScrollX;
 
-    assert(w >= 0 && h >=0 && x >= 0 && y >= y);
+    assert(w >= 0 && h >=0 && x >= 0 && y >= 0);
     HtmlWidgetPaint(pTree, x + canvas_x, y + canvas_y, x, y, w, h);
 
     HtmlLog(pTree, "CALLBACK", "%s - %dx%d @ (%d, %d)",
@@ -399,7 +452,8 @@ HtmlCallbackSchedule(pTree, eCallbackAction)
     assert(
         eCallbackAction == HTML_CALLBACK_LAYOUT ||
         eCallbackAction == HTML_CALLBACK_STYLE ||
-        eCallbackAction == HTML_CALLBACK_DAMAGE
+        eCallbackAction == HTML_CALLBACK_DAMAGE ||
+        eCallbackAction == HTML_CALLBACK_DYNAMIC
     );
 
     if (pTree->cb.eCallbackAction == HTML_CALLBACK_NONE) {
@@ -430,8 +484,8 @@ HtmlCallbackExtents(pTree, x, y, width, height)
 {
     assert(width >= 0 && height >=0 && x >= 0 && y >= y);
 
-    pTree->cb.x1 = MIN(x, pTree->cb.x1);
-    pTree->cb.y1 = MIN(y, pTree->cb.y1);
+    pTree->cb.x1 = MIN(MAX(0, x), pTree->cb.x1);
+    pTree->cb.y1 = MIN(MAX(0, y), pTree->cb.y1);
     pTree->cb.x2 = MAX(x + width, pTree->cb.x2);
     pTree->cb.y2 = MAX(y + height, pTree->cb.y2);
 
@@ -1687,6 +1741,10 @@ int widgetCmd(clientData, interp, objc, objv)
         {"command",    0, commandCmd}, 
         {"var",        0, varCmd},  
 
+#ifndef NDEBUG
+        {"_hashstats", 0, hashstatsCmd},  
+#endif
+
         /* Todo: [<widget> select ...] command */
     };
 
@@ -1900,8 +1958,6 @@ htmlstyleCmd(clientData, interp, objc, objv)
     int objc;                          /* Number of arguments. */
     Tcl_Obj *CONST objv[];             /* Argument strings. */
 {
-    const char *zRet;
-
     if (objc > 1 && objc != 2 && strcmp(Tcl_GetString(objv[1]), "-quirks")) {
         Tcl_WrongNumArgs(interp, 1, objv, "?-quirks?");
         return TCL_ERROR;
@@ -1914,18 +1970,6 @@ htmlstyleCmd(clientData, interp, objc, objv)
 
     return TCL_OK;
 }
-
-#ifndef NDEBUG
-static int 
-allocCmd(clientData, interp, objc, objv)
-    ClientData clientData;             /* The HTML widget data structure */
-    Tcl_Interp *interp;                /* Current interpreter. */
-    int objc;                          /* Number of arguments. */
-    Tcl_Obj *CONST objv[];             /* Argument strings. */
-{
-    return Rt_AllocCommand(0, interp, objc, objv);
-}
-#endif
 
 /*
  * Define the DLL_EXPORT macro, which must be set to something or other in

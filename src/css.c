@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.54 2006/03/12 16:15:23 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.55 2006/03/14 09:10:16 danielk1977 Exp $";
 
 /*
  *    The CSS "cascade":
@@ -2334,7 +2334,7 @@ HtmlCssDeclaration(pParse, pProp, pExpr, isImportant)
  */
 void HtmlCssSelector(pParse, stype, pAttr, pValue)
     CssParse *pParse; 
-    int stype; 
+    int stype;               /* One of the CSS_SELECTOR_TYPE_XXX values */
     CssToken *pAttr; 
     CssToken *pValue;
 {
@@ -2564,8 +2564,13 @@ cssSelectorPropertySetPair(pParse, pSelector, pPropertySet, freeWhat)
 int HtmlCssPseudo(pToken)
     CssToken *pToken;
 {
-    char *zOptions[] = {"link", "visited"};
-    int eOptions[] = {CSS_PSEUDOCLASS_LINK, CSS_PSEUDOCLASS_VISITED};
+    char *zOptions[] = {
+        "link", "visited", "active", "hover", "focus"
+    };
+    int eOptions[] = {
+        CSS_PSEUDOCLASS_LINK, CSS_PSEUDOCLASS_VISITED, 
+        CSS_PSEUDOCLASS_ACTIVE, CSS_PSEUDOCLASS_HOVER, CSS_PSEUDOCLASS_FOCUS
+    };
     int i;
 
     for (i=0; i<sizeof(zOptions)/sizeof(char *); i++) {
@@ -2731,7 +2736,7 @@ static int attrTest(eType, zString, zAttr)
 
 /*--------------------------------------------------------------------------
  *
- * selectorTest --
+ * HtmlCssSelectorTest --
  *
  *     Test if a selector matches a document node.
  *
@@ -2748,10 +2753,11 @@ static int attrTest(eType, zString, zAttr)
 #define N_PARENT(x)      HtmlNodeParent(x)
 #define N_NUMCHILDREN(x) HtmlNodeNumChildren(x)
 #define N_CHILD(x,y)     HtmlNodeChild(x,y)
-static int 
-selectorTest(pSelector, pNode)
+int 
+HtmlCssSelectorTest(pSelector, pNode, dynamic_true)
     CssSelector *pSelector;
     HtmlNode *pNode;
+    int dynamic_true;
 {
     CssSelector *p = pSelector;
     HtmlNode *x = pNode;
@@ -2778,7 +2784,7 @@ selectorTest(pSelector, pNode)
                 HtmlNode *pParent = N_PARENT(x);
                 CssSelector *pNext = p->pNext;
                 while (pParent) {
-                    if (selectorTest(pNext, pParent)) {
+                    if (HtmlCssSelectorTest(pNext, pParent, dynamic_true)) {
                         return 1;
                     }
                     pParent = N_PARENT(pParent);
@@ -2818,13 +2824,20 @@ selectorTest(pSelector, pNode)
                 }
                 break;
             case CSS_PSEUDOCLASS_VISITED:
-            case CSS_PSEUDOCLASS_ACTIVE:
-            case CSS_PSEUDOCLASS_HOVER:
-            case CSS_PSEUDOCLASS_FOCUS:
             case CSS_PSEUDOELEMENT_FIRSTLINE:
             case CSS_PSEUDOELEMENT_FIRSTLETTER:
             case CSS_PSEUDOELEMENT_BEFORE:
             case CSS_PSEUDOELEMENT_AFTER:
+                return 0;
+
+            case CSS_PSEUDOCLASS_ACTIVE:
+                if (dynamic_true || (pNode->flags & HTML_DYNAMIC_ACTIVE)) break;
+                return 0;
+            case CSS_PSEUDOCLASS_HOVER:
+                if (dynamic_true || (pNode->flags & HTML_DYNAMIC_HOVER)) break;
+                return 0;
+            case CSS_PSEUDOCLASS_FOCUS:
+                if (dynamic_true || (pNode->flags & HTML_DYNAMIC_FOCUS)) break;
                 return 0;
 
             case CSS_SELECTOR_NEVERMATCH:
@@ -2906,6 +2919,22 @@ ruleToPropertyValues(p, aPropDone, pRule)
     }
 }
 
+static int 
+selectorIsDynamic(pSelector)
+    CssSelector *pSelector;
+{
+    CssSelector *p; 
+    for (p = pSelector; p; p = p->pNext) {
+        switch (p->eSelector) {
+            case CSS_PSEUDOCLASS_ACTIVE:
+            case CSS_PSEUDOCLASS_HOVER:
+            case CSS_PSEUDOCLASS_FOCUS:
+                return 1;
+        }
+    }
+    return 0;
+}
+
 /*--------------------------------------------------------------------------
  *
  * HtmlCssStyleSheetApply --
@@ -2953,6 +2982,8 @@ HtmlCssStyleSheetApply(pTree, pNode)
      */
     for (pRule = pStyle->pUniversalRules; pRule; pRule = pRule->pNext) {
         CssPriority *pPriority = pRule->pPriority;
+        CssSelector *pSelector = pRule->pSelector;
+        int isMatch = 0;
 
         /* If this rule is not "!important", and is on either the user or
          * agent stylesheet, or has a specificity of less than or equal to
@@ -2973,8 +3004,17 @@ HtmlCssStyleSheetApply(pTree, pNode)
         }
 
         /* If the selector is a match for our node, apply the rule properties */
-        if (selectorTest(pRule->pSelector, pNode)) {
+        isMatch = HtmlCssSelectorTest(pSelector, pNode, 0);
+        if (isMatch) {
             ruleToPropertyValues(&sCreator, aPropDone, pRule);
+        }
+
+        if (
+            !pNode->pDynamic && 
+            selectorIsDynamic(pSelector) &&
+            HtmlCssSelectorTest(pSelector, pNode, 1)
+        ) {
+            HtmlCssAddDynamic(pNode, pSelector, isMatch);
         }
     }
 
@@ -3123,7 +3163,7 @@ cssSearchCallback(pTree, pNode, clientData)
     CssSearch *pSearch = (CssSearch *)clientData;
     assert(pSearch->pSelector);
     assert(pSearch->pResult);
-    if (selectorTest(pSearch->pSelector, pNode)) {
+    if (HtmlCssSelectorTest(pSearch->pSelector, pNode, 0)) {
         Tcl_Obj *pCmd = HtmlNodeCommand(pSearch->pTree, pNode);
         Tcl_ListObjAppendElement(0, pSearch->pResult, pCmd);
     }
@@ -3184,7 +3224,7 @@ HtmlCssSearch(clientData, interp, objc, objv)
         sSearch.pSelector = pSelector;
         sSearch.pResult = pObj;
         sSearch.pTree = pTree;
-        HtmlWalkTree(pTree, cssSearchCallback, (ClientData)&sSearch);
+        HtmlWalkTree(pTree, 0, cssSearchCallback, (ClientData)&sSearch);
 
         Tcl_SetObjResult(interp, pObj);
     }

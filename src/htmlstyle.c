@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlstyle.c,v 1.19 2006/02/06 12:34:40 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlstyle.c,v 1.20 2006/03/14 09:10:16 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -62,11 +62,25 @@ styleNode(pTree, pNode, clientData)
     ClientData clientData;
 {
     CONST char *zStyle;      /* Value of "style" attribute for node */
+    int trashDynamics = (int)clientData;
 
     if (!HtmlNodeIsText(pNode)) {
-	/* Release the old property values structure, if any. */
-        HtmlComputedValuesRelease(pTree, pNode->pPropertyValues);
+        HtmlComputedValues *pV = pNode->pPropertyValues;
         pNode->pPropertyValues = 0;
+
+        /* If the clientData was set to a non-zero value, then the 
+         * stylesheet configuration has changed. In this case we need to
+         * recalculate the nodes list of dynamic conditions.
+         *
+         * Also, don't bother to save any previous values structure. The 
+         * layout engine will need to run again regardless.
+         */
+        if (trashDynamics) {
+            HtmlCssFreeDynamics(pNode);
+            HtmlComputedValuesRelease(pTree, pV);
+            pV = 0;
+            HtmlCallbackSchedule(pTree, HTML_CALLBACK_LAYOUT);
+        }
     
         /* If there is a "style" attribute on this node, parse the attribute
          * value and put the resulting mini-stylesheet in pNode->pStyle. 
@@ -84,6 +98,16 @@ styleNode(pTree, pNode, clientData)
         }
     
         HtmlCssStyleSheetApply(pTree, pNode);
+
+	/* Release the old property values structure, if any. */
+        HtmlComputedValuesRelease(pTree, pNode->pPreviousValues);
+        pNode->pPreviousValues = pV;
+
+        if (pV && pTree->cb.eCallbackAction < HTML_CALLBACK_LAYOUT) {
+            if (HtmlComputedValuesCompare(pNode->pPropertyValues, pV)) {
+                HtmlCallbackSchedule(pTree, HTML_CALLBACK_LAYOUT);
+            }
+        }
     }
 
     return TCL_OK;
@@ -111,9 +135,32 @@ HtmlStyleApply(clientData, interp, objc, objv)
 {
     HtmlTree *pTree = (HtmlTree *)clientData;
     HtmlLog(pTree, "STYLEENGINE", "START");
-    HtmlWalkTree(pTree, styleNode, 0);
+    HtmlWalkTree(pTree, 0, styleNode, (ClientData)1);
     return TCL_OK;
 }
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlRestyleNode --
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+int 
+HtmlRestyleNode(pTree, pNode)
+    HtmlTree *pTree;
+    HtmlNode *pNode;
+{
+    HtmlWalkTree(pTree, pNode, styleNode, 0);
+    return TCL_OK;
+}
+
 
 /*
  *---------------------------------------------------------------------------

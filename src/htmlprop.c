@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.52 2006/03/12 07:48:04 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.53 2006/03/14 09:10:16 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -2122,6 +2122,110 @@ HtmlComputedValuesCleanupTables(pTree)
     }
 }
 
+enum PropertyValueType {
+    ENUM, COLOR, LENGTH, VERTICALALIGN, FONT, IMAGE, BACKGROUNDPOSITION
+};
+
+#define ENUMVAL(eProp, var) \
+{ENUM, CSS_PROPERTY_ ## eProp, Tk_Offset(HtmlComputedValues, var), 0}
+
+/* 
+ * A Color value. Since a red pixel is on most displays the same size as a
+ * green one, color values never change the layout of a document. 
+ */
+#define COLORVAL(eProp, var) \
+{COLOR, CSS_PROPERTY_ ## eProp, Tk_Offset(HtmlComputedValues, var), 0}
+
+/*
+ * A length. Changing a length requires a re-layout.
+ */
+#define LENGTHVAL(eProp, var) \
+{LENGTH, CSS_PROPERTY_ ## eProp, Tk_Offset(HtmlComputedValues, var), \
+PROP_MASK_ ## eProp}
+
+/*
+ * An image. Changing a background image does not require a relayout, but
+ * modifying a replacement or list-marker image does.
+ */
+#define IMAGEVAL(eProp, var) \
+{IMAGE, CSS_PROPERTY_ ## eProp, Tk_Offset(HtmlComputedValues, var), 0}
+
+/*
+ * Property 'vertical-align' is in a catetory of it's own. It causes relayout.
+ */
+#define VERTICALALIGNVAL() {VERTICALALIGN, CSS_PROPERTY_VERTICAL_ALIGN, 0, 0}
+
+/*
+ * The font - HtmlComputedValues.fFont. Changing it causes relayout.
+ */
+#define FONTVAL() {FONT, CSS_SHORTCUTPROPERTY_FONT, 0, 0}
+
+/*
+ * The 'background-position' property. Changing it does not cause relayout.
+ */
+#define BACKGROUNDPOSITIONVAL() \
+{BACKGROUNDPOSITION, CSS_SHORTCUTPROPERTY_BACKGROUND_POSITION, 0, 0}
+
+struct PVDef {
+    enum PropertyValueType eType;
+    int eCssProperty;
+    int iOffset;
+    unsigned int mask;
+} pvdef[] = {
+    COLORVAL (BACKGROUND_COLOR, cBackgroundColor),
+    COLORVAL (BORDER_BOTTOM_COLOR, cBorderBottomColor),
+    ENUMVAL  (BORDER_BOTTOM_STYLE, eBorderBottomStyle),
+    LENGTHVAL(BORDER_BOTTOM_WIDTH, border.iBottom),
+    COLORVAL (BORDER_LEFT_COLOR, cBorderLeftColor),
+    ENUMVAL  (BORDER_LEFT_STYLE, eBorderLeftStyle),
+    LENGTHVAL(BORDER_LEFT_WIDTH, border.iLeft),
+    COLORVAL (BORDER_RIGHT_COLOR, cBorderRightColor),
+    ENUMVAL  (BORDER_RIGHT_STYLE, eBorderRightStyle),
+    LENGTHVAL(BORDER_RIGHT_WIDTH, border.iRight),
+    LENGTHVAL(BORDER_SPACING, iBorderSpacing),
+    COLORVAL (BORDER_TOP_COLOR, cBorderTopColor),
+    ENUMVAL  (BORDER_TOP_STYLE, eBorderTopStyle),
+    LENGTHVAL(BORDER_TOP_WIDTH, border.iTop),
+
+    ENUMVAL  (CLEAR, eClear),
+    COLORVAL (COLOR, cColor),
+    ENUMVAL  (DISPLAY, eDisplay),
+    ENUMVAL  (FLOAT, eFloat),
+    FONTVAL(),
+    LENGTHVAL(HEIGHT, iHeight),
+    LENGTHVAL(LINE_HEIGHT, iLineHeight),
+    ENUMVAL  (LIST_STYLE_TYPE, eListStyleType),
+    ENUMVAL  (LIST_STYLE_POSITION, eListStylePosition),
+
+    LENGTHVAL(MARGIN_BOTTOM, margin.iBottom),
+    LENGTHVAL(MARGIN_LEFT, margin.iLeft),
+    LENGTHVAL(MARGIN_RIGHT, margin.iRight),
+    LENGTHVAL(MARGIN_TOP, margin.iTop),
+
+    LENGTHVAL(MAX_HEIGHT, iMaxHeight),
+    LENGTHVAL(MAX_WIDTH, iMaxWidth),
+    LENGTHVAL(MIN_HEIGHT, iMinHeight),
+    LENGTHVAL(MIN_WIDTH, iMinWidth),
+
+    LENGTHVAL(PADDING_BOTTOM, padding.iBottom),
+    LENGTHVAL(PADDING_LEFT, padding.iLeft),
+    LENGTHVAL(PADDING_RIGHT, padding.iRight),
+    LENGTHVAL(PADDING_TOP, padding.iTop),
+
+    ENUMVAL  (TEXT_ALIGN, eTextAlign),
+    ENUMVAL  (TEXT_DECORATION, eTextDecoration),
+
+    VERTICALALIGNVAL(),
+
+    ENUMVAL  (WHITE_SPACE, eWhitespace),
+    LENGTHVAL(WIDTH, iWidth),
+
+    IMAGEVAL(_TKHTML_REPLACEMENT_IMAGE, imReplacementImage),
+    IMAGEVAL(BACKGROUND_IMAGE, imBackgroundImage),
+    IMAGEVAL(LIST_STYLE_IMAGE, imListStyleImage),
+    ENUMVAL (BACKGROUND_REPEAT, eBackgroundRepeat),
+    BACKGROUNDPOSITIONVAL()
+};
 
 int 
 HtmlNodeProperties(interp, pValues)
@@ -2130,85 +2234,6 @@ HtmlNodeProperties(interp, pValues)
 {
     Tcl_Obj *pRet;
 
-#define ENUMVAL(eProp, var) \
-{ENUM, CSS_PROPERTY_ ## eProp, Tk_Offset(HtmlComputedValues, var), 0}
-#define COLORVAL(eProp, var) \
-{COLOR, CSS_PROPERTY_ ## eProp, Tk_Offset(HtmlComputedValues, var), 0}
-#define LENGTHVAL(eProp, var) \
-{LENGTH, CSS_PROPERTY_ ## eProp, Tk_Offset(HtmlComputedValues, var), \
-PROP_MASK_ ## eProp}
-
-#define IMAGEVAL(eProp, var) \
-{IMAGE, CSS_PROPERTY_ ## eProp, Tk_Offset(HtmlComputedValues, var), 0}
-
-#define VERTICALALIGNVAL() {VERTICALALIGN, CSS_PROPERTY_VERTICAL_ALIGN, 0, 0}
-#define FONTVAL() {FONT, CSS_SHORTCUTPROPERTY_FONT, 0, 0}
-#define BACKGROUNDPOSITIONVAL() \
-{BACKGROUNDPOSITION, CSS_SHORTCUTPROPERTY_BACKGROUND_POSITION, 0, 0}
-
-    enum ValueType {
-        ENUM, COLOR, LENGTH, VERTICALALIGN, FONT, IMAGE, BACKGROUNDPOSITION
-    };
-    struct PVDef {
-        enum ValueType eType;
-        int eCssProperty;
-        int iOffset;
-        unsigned int mask;
-    } pvdef[] = {
-        COLORVAL (BACKGROUND_COLOR, cBackgroundColor),
-        COLORVAL (BORDER_BOTTOM_COLOR, cBorderBottomColor),
-        ENUMVAL  (BORDER_BOTTOM_STYLE, eBorderBottomStyle),
-        LENGTHVAL(BORDER_BOTTOM_WIDTH, border.iBottom),
-        COLORVAL (BORDER_LEFT_COLOR, cBorderLeftColor),
-        ENUMVAL  (BORDER_LEFT_STYLE, eBorderLeftStyle),
-        LENGTHVAL(BORDER_LEFT_WIDTH, border.iLeft),
-        COLORVAL (BORDER_RIGHT_COLOR, cBorderRightColor),
-        ENUMVAL  (BORDER_RIGHT_STYLE, eBorderRightStyle),
-        LENGTHVAL(BORDER_RIGHT_WIDTH, border.iRight),
-        LENGTHVAL(BORDER_SPACING, iBorderSpacing),
-        COLORVAL (BORDER_TOP_COLOR, cBorderTopColor),
-        ENUMVAL  (BORDER_TOP_STYLE, eBorderTopStyle),
-        LENGTHVAL(BORDER_TOP_WIDTH, border.iTop),
-
-        ENUMVAL  (CLEAR, eClear),
-        COLORVAL (COLOR, cColor),
-        ENUMVAL  (DISPLAY, eDisplay),
-        ENUMVAL  (FLOAT, eFloat),
-        FONTVAL(),
-        LENGTHVAL(HEIGHT, iHeight),
-        LENGTHVAL(LINE_HEIGHT, iLineHeight),
-        ENUMVAL  (LIST_STYLE_TYPE, eListStyleType),
-        ENUMVAL  (LIST_STYLE_POSITION, eListStylePosition),
-
-        LENGTHVAL(MARGIN_BOTTOM, margin.iBottom),
-        LENGTHVAL(MARGIN_LEFT, margin.iLeft),
-        LENGTHVAL(MARGIN_RIGHT, margin.iRight),
-        LENGTHVAL(MARGIN_TOP, margin.iTop),
-
-        LENGTHVAL(MAX_HEIGHT, iMaxHeight),
-        LENGTHVAL(MAX_WIDTH, iMaxWidth),
-        LENGTHVAL(MIN_HEIGHT, iMinHeight),
-        LENGTHVAL(MIN_WIDTH, iMinWidth),
-
-        LENGTHVAL(PADDING_BOTTOM, padding.iBottom),
-        LENGTHVAL(PADDING_LEFT, padding.iLeft),
-        LENGTHVAL(PADDING_RIGHT, padding.iRight),
-        LENGTHVAL(PADDING_TOP, padding.iTop),
-
-        ENUMVAL  (TEXT_ALIGN, eTextAlign),
-        ENUMVAL  (TEXT_DECORATION, eTextDecoration),
-
-        VERTICALALIGNVAL(),
-
-        ENUMVAL  (WHITE_SPACE, eWhitespace),
-        LENGTHVAL(WIDTH, iWidth),
-
-        IMAGEVAL(_TKHTML_REPLACEMENT_IMAGE, imReplacementImage),
-        IMAGEVAL(BACKGROUND_IMAGE, imBackgroundImage),
-        IMAGEVAL(LIST_STYLE_IMAGE, imListStyleImage),
-        ENUMVAL (BACKGROUND_REPEAT, eBackgroundRepeat),
-        BACKGROUNDPOSITIONVAL()
-    };
     int ii;
     struct PVDef *pDef;
     char *v = (char *)pValues;
@@ -2325,5 +2350,63 @@ PROP_MASK_ ## eProp}
     Tcl_SetObjResult(interp, pRet);
     Tcl_DecrRefCount(pRet);
     return TCL_OK;
+}
+
+int 
+HtmlComputedValuesCompare(pV1, pV2) 
+    HtmlComputedValues *pV1;
+    HtmlComputedValues *pV2;
+{
+    struct PVDef *pDef;
+    unsigned char *v1 = (unsigned char *)pV1;
+    unsigned char *v2 = (unsigned char *)pV1;
+    int ii;
+
+    /* 
+     * Check for changes in the following properties:
+     *
+     *     '-tkhtml-replacement-image'
+     *     'list-style-image'
+     *     'font'
+     *     'vertical-align'
+     */
+    if (
+        !pV1 || !pV2 ||
+        pV1->imReplacementImage != pV2->imReplacementImage ||
+        pV1->imListStyleImage != pV2->imListStyleImage     ||
+        pV1->fFont != pV2->fFont ||
+        pV1->eVerticalAlign != pV2->eVerticalAlign ||
+        (!pV1->eVerticalAlign && pV1->iVerticalAlign != pV1->iVerticalAlign)
+    ) {
+        return 1;
+    }
+
+    pDef = &pvdef[0];
+    for (ii = 0; ii < sizeof(pvdef) / sizeof(pvdef[0]); ii++, pDef++) {
+        switch (pDef->eType) {
+            case ENUM:
+                if (pDef->eCssProperty != CSS_PROPERTY_TEXT_DECORATION) {
+                    if (*(v1 + pDef->iOffset) != *(v2 + pDef->iOffset)) {
+                        return 1;
+                    }
+                }
+                break;
+            case LENGTH: {
+                int *pL1 = (int *)(v1 + pDef->iOffset);
+                int *pL2 = (int *)(v2 + pDef->iOffset);
+ 
+                if (
+                    *pL1 != *pL2 || 
+                    (pDef->mask & pV1->mask != pDef->mask & pV2->mask)
+                ) {
+                    return 1;
+                }
+ 
+                break;
+            }
+        }
+    }
+
+    return 0;
 }
 

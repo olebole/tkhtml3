@@ -75,4 +75,7 @@ pre[class="code"] {
   background: #DDDDDD;       /* Same color as background of <body>, <html> */
 }
 
+a:hover {
+  text-decoration: none;
+}
 

@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.98 2006/03/13 12:59:43 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.99 2006/03/14 09:10:16 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -545,6 +545,7 @@ requireBox(pNode)
 {
     HtmlComputedValues *pV = pNode->pPropertyValues;
     if (
+        pNode->pDynamic ||
         pV->cBackgroundColor->xcolor ||
         pV->imBackgroundImage ||
         pV->eBorderTopStyle != CSS_CONST_NONE ||
@@ -1070,7 +1071,7 @@ drawBox(pTree, pBox, drawable, x, y, w, h)
     }
 
     /* Solid background, if required */
-    if (!isInline && pV->cBackgroundColor->xcolor) {
+    if (pV->cBackgroundColor->xcolor) {
         fill_quad(pTree->win, drawable, pV->cBackgroundColor->xcolor,
             bg_x, bg_y,
             bg_w, 0,
@@ -1420,7 +1421,7 @@ itemToBox(pItem, origin_x, origin_y, pX, pY, pW, pH)
             /* TODO */
             *pW = 10;
             *pH = 10;
-            return pItem->x.line.pNode;
+            return 0;
         default:
             assert(pItem->type == CANVAS_ORIGIN);
             return 0;
@@ -1555,11 +1556,7 @@ getPixmap(pTree, xcanvas, ycanvas, w, h)
     Pixmap pmap;
     Display *pDisplay;
     Tk_Window win = pTree->win;
-    HtmlCanvasItem *pItem;
 
-    HtmlCanvas *pCanvas = &pTree->canvas;
-    int x = xcanvas * -1;
-    int y = ycanvas * -1;
     XColor *bg_color;
 
     GetPixmapQuery sQuery;
@@ -2554,6 +2551,31 @@ HtmlLayoutBbox(clientData, interp, objc, objv)
     }
 
     return TCL_OK;
+}
+
+
+void
+HtmlLayoutPaintNode(pTree, pNode)
+    HtmlTree *pTree;
+    HtmlNode *pNode;
+{
+    LayoutBboxQuery sQuery;
+    sQuery.left = pTree->canvas.right;
+    sQuery.right = pTree->canvas.left;
+    sQuery.top = pTree->canvas.bottom;
+    sQuery.bottom = pTree->canvas.top;
+    sQuery.pNode = pNode;
+    searchCanvas(pTree, -1, -1, layoutBboxCb, (ClientData)&sQuery);
+
+    if (sQuery.right > sQuery.left) {
+        HtmlCallbackSchedule(pTree, HTML_CALLBACK_DAMAGE);
+        HtmlCallbackExtents(pTree, 
+            sQuery.left - pTree->iScrollX, 
+            sQuery.top - pTree->iScrollY, 
+            sQuery.right - sQuery.left,
+            sQuery.bottom - sQuery.top
+        );
+    }
 }
 
 /*
