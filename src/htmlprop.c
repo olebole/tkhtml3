@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.53 2006/03/14 09:10:16 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.54 2006/03/16 13:56:47 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -2359,7 +2359,7 @@ HtmlComputedValuesCompare(pV1, pV2)
 {
     struct PVDef *pDef;
     unsigned char *v1 = (unsigned char *)pV1;
-    unsigned char *v2 = (unsigned char *)pV1;
+    unsigned char *v2 = (unsigned char *)pV2;
     int ii;
 
     /* 
