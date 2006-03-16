@@ -96,5 +96,20 @@ namespace eval tkhtml {
         }
         error "No such ancestor attribute: $tag $attr"
     }
+
+    proc create_image_tile {img} {
+        set w [image width $img]
+        set h [image width $img]
+        if {$w <= 0 || $h <= 0} {error "empty image"}
+
+        set tw [expr int(200 / $w) * $w]
+        set th [expr int(200 / $h) * $h]
+        if {$tw == 0} {set tw $w}
+        if {$th == 0} {set th $h}
+
+        set newimg [image create photo]
+        $newimg copy $img -from 0 0 -to 0 0 $tw $th
+        return $newimg
+    }
 }
 

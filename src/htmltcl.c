@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.77 2006/03/14 11:20:26 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.78 2006/03/16 10:00:25 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -670,6 +670,7 @@ configureCmd(clientData, interp, objc, objv)
      */
     #define GEOMETRY_MASK  0x00000001
     #define FT_MASK        0x00000002    
+    #define DS_MASK        0x00000004    
 
     /*
      * Macros to generate static Tk_OptionSpec structures for the
@@ -709,8 +710,8 @@ configureCmd(clientData, interp, objc, objv)
         STRING(yscrollcommand, "yScrollCommand", "ScrollCommand", ""),
 
         /* Non-debugging widget specific options */
-        STRING(defaultstyle, "defaultStyle", "DefaultStyle", 
-            HTML_DEFAULT_CSS HTML_DEFAULT_QUIRKS),
+        OBJ(defaultstyle, "defaultStyle", "DefaultStyle", 
+            HTML_DEFAULT_CSS HTML_DEFAULT_QUIRKS, FT_MASK),
         STRING(imagecmd, "imageCmd", "ImageCmd", ""),
         STRING(encoding, "encoding", "Encoding", ""),
         XCOLOR(selectbackground, "selectBackground", "Background", "darkgrey"),

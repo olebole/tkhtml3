@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlimage.c,v 1.42 2006/03/13 12:59:43 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlimage.c,v 1.43 2006/03/16 10:00:25 danielk1977 Exp $";
 
 #include <assert.h>
 #include "html.h"
@@ -65,8 +65,10 @@ static const char rcsid[] = "$Id: htmlimage.c,v 1.42 2006/03/13 12:59:43 danielk
  *    
  *         HtmlImageUnscaledName()
  *         HtmlImageScale()
+ *         HtmlImageTile()
  *         HtmlImageImage()
  *         HtmlImageFree()
+ *         HtmlImageAlphaChannel()
  *
  * IMAGE CONVERSION ROUTINES
  *
@@ -100,6 +102,9 @@ struct HtmlImage2 {
     int width;                       /* Width of HtmlImage2.image */
     int height;                      /* Height of HtmlImage2.image */
     Tk_Image image;                  /* Scaled (or unscaled) image */
+
+    Tcl_Obj *pTileName;              /* Name of Tk tile image */
+    Tk_Image tile;                   /* Tiled image, or zero */
 
     int eAlpha;                      /* An ALPHA_CHANNEL_XXX value */
 
@@ -138,7 +143,7 @@ HtmlImageServerInit(pTree)
 {
     HtmlImageServer *p;
     assert(!pTree->pImageServer);
-    p = (HtmlImageServer *)HtmlAlloc(sizeof(HtmlImageServer));
+    p = (HtmlImageServer *)HtmlClearAlloc(sizeof(HtmlImageServer));
     memset(p, 0, sizeof(HtmlImageServer));
     Tcl_InitHashTable(&p->aImage, TCL_STRING_KEYS);
     p->pTree = pTree;
@@ -210,6 +215,27 @@ photoputblock(interp, handle, blockPtr, x, y, width, height, compRule)
 #endif
 }
 
+static void
+freeTile(pImage)
+    HtmlImage2 *pImage;
+{
+    HtmlTree *pTree = pImage->pImageServer->pTree;
+    int flags = TCL_GLOBAL_ONLY;
+    Tcl_Obj *pScript;
+    if (!pImage->pTileName) return;
+
+    pScript = Tcl_NewStringObj("image delete", -1);
+    Tcl_IncrRefCount(pScript);
+    Tcl_ListObjAppendElement(0, pScript, pImage->pTileName);
+    Tcl_EvalObjEx(pTree->interp, pScript, flags);
+    Tcl_DecrRefCount(pScript);
+
+    Tcl_DecrRefCount(pImage->pTileName);
+    pImage->tile = 0;
+    pImage->pTileName = 0;
+}
+
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -235,13 +261,15 @@ static void imageChanged(clientData, x, y, width, height, imgWidth, imgHeight)
     int imgHeight;
 {
     HtmlImage2 *pImage = (HtmlImage2 *)clientData;
-    if (!pImage->pUnscaled) {
+    if (pImage && !pImage->pUnscaled) {
         HtmlImage2 *p;
         HtmlTree *pTree = pImage->pImageServer->pTree;
         assert(pImage->image);
         for (p = pImage->pNext; p; p = p->pNext) {
             p->isValid = 0;
+            assert(!p->pTileName);
         }
+        freeTile(pImage);
         if (imgWidth==pImage->width && imgHeight==pImage->height) {
             Tk_Window tkwin = pTree->tkwin;
             HtmlCallbackSchedule(pTree, HTML_CALLBACK_DAMAGE);
@@ -655,6 +683,7 @@ HtmlImageFree(pImage)
             Tcl_DeleteHashEntry(pEntry);
         }
 
+        freeTile(pImage);
         HtmlFree(pImage);
     }
 }
@@ -713,6 +742,14 @@ HtmlImageAlphaChannel(pTree, pImage)
 
         int w = p->width;
         int h = p->height;
+
+        /* If the image consists of more than 40,000 pixels, assume
+         * it contains a semi-translucent pixel.
+         */ 
+        if ((w * h) > 40000) {
+            p->eAlpha = ALPHA_CHANNEL_TRUE;
+            return 1;
+        }
  
         p->eAlpha = ALPHA_CHANNEL_FALSE;
         photo = Tk_FindPhoto(pTree->interp, Tcl_GetString(p->pImageName));
@@ -736,6 +773,54 @@ HtmlImageAlphaChannel(pTree, pImage)
     }
 
     return ((p->eAlpha == ALPHA_CHANNEL_TRUE) ? 1 : 0);
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlImageTile --
+ *
+ * Results:
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+Tk_Image 
+HtmlImageTile(pImage)
+    HtmlImage2 *pImage;    /* Image object */
+{
+    HtmlTree *pTree = pImage->pImageServer->pTree;
+    Tcl_Interp *interp = pTree->interp;
+
+    Tcl_Obj *pScript;
+    int flags = TCL_GLOBAL_ONLY;
+    int rc;
+
+    if (pImage->pTileName) {
+        return pImage->tile;
+    }
+
+    if ((pImage->width * pImage->height) >= 20000) {
+        return HtmlImageImage(pImage);
+    }
+
+    pScript = Tcl_NewStringObj("::tkhtml::create_image_tile", -1);
+    Tcl_IncrRefCount(pScript);
+    Tcl_ListObjAppendElement(0, pScript, pImage->pImageName);
+    rc = Tcl_EvalObjEx(interp, pScript, flags);
+    Tcl_DecrRefCount(pScript);
+
+    if (rc == TCL_OK) {
+        const char *zImg;
+        pImage->pTileName = Tcl_GetObjResult(interp);
+        Tcl_IncrRefCount(pImage->pTileName);
+        zImg = Tcl_GetString(pImage->pTileName);
+        pImage->tile = Tk_GetImage(interp, pTree->tkwin, zImg, imageChanged, 0);
+    }
+
+    return pImage->tile;
 }
 
 /*

@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.99 2006/03/14 09:10:16 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.100 2006/03/16 10:00:25 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -49,10 +49,10 @@ static const char rcsid[] = "$Id: htmldraw.c,v 1.99 2006/03/14 09:10:16 danielk1
  *     of the following:
  *
  *         * Box        - CSS style border and background.
- *         * Text       - Single line of text
  *         * Line       - Horizontal line used for 'text-decoration'.
- *         * Image      - An image.
- *         * Window     - A Tk widget window (set by [node replace])
+ *         * Text       - Single line of text
+ *         * Image      - An image. Used for replacement + list-marker images.
+ *         * Window     - A Tk widget window (set via [node replace])
  *
  *     All web documents are reduced by the layout engine to zero or more 
  *     of these primitives. 
@@ -917,13 +917,25 @@ fill_quad(win, d, xcolor, x1, y1, x2, y2, x3, y3, x4, y4)
     return rc;
 }
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlLayoutPrimitives --
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
 static void
 tileimage(
-drawable, d_w, d_h, img, i_w, i_h, bg_x, bg_y, bg_w, bg_h, iPosX, iPosY)
+drawable, d_w, d_h, pImage, bg_x, bg_y, bg_w, bg_h, iPosX, iPosY)
     Drawable drawable;        /* Where to draw */
     int d_w; int d_h;         /* Total width and height of drawable */
-    Tk_Image img;             /* Tk image to tile with */
-    int i_w; int i_h;         /* Width and height img */
+    HtmlImage2 *pImage;
     int bg_x; int bg_y;       /* Drawable coords for drawn block */
     int bg_w; int bg_h;       /* Width and height of drawn block */
     int iPosX; int iPosY;     /* Origin of image in drawable */
@@ -934,6 +946,17 @@ drawable, d_w, d_h, img, i_w, i_h, bg_x, bg_y, bg_w, bg_h, iPosX, iPosY)
     int clip_y1 = MAX(0, bg_y);
     int clip_x2 = MIN(d_w, bg_x + bg_w);
     int clip_y2 = MIN(d_h, bg_y + bg_h);
+
+    Tk_Image img;
+    int i_w;
+    int i_h;
+
+    img = HtmlImageImage(pImage);
+    Tk_SizeOfImage(img, &i_w, &i_h);
+    if (bg_h > (i_h * 2) && bg_w > (i_w * 2)) {
+        img = HtmlImageTile(pImage);
+        Tk_SizeOfImage(img, &i_w, &i_h);
+    }
 
     x1 = iPosX;
     if (iPosX != bg_x) {
@@ -1133,7 +1156,7 @@ drawBox(pTree, pBox, drawable, x, y, w, h)
             if (isAlpha) {
                 tileimage(
                     drawable, w, h, 
-                    img, iWidth, iHeight, 
+                    pV->imBackgroundImage,
                     bg_x, bg_y, bg_w, bg_h, 
                     iPosX, iPosY
                 );
@@ -1215,7 +1238,7 @@ drawImage(pTree, pI2, drawable, x, y, w, h)
 
         tileimage(
             drawable, w, h, 
-            img, imW, imH, 
+            pI2->pImage,
             x + pI2->x, y + pI2->y,
             imW, imH,
             x + pI2->x, y + pI2->y
@@ -1557,7 +1580,7 @@ getPixmap(pTree, xcanvas, ycanvas, w, h)
     Display *pDisplay;
     Tk_Window win = pTree->win;
 
-    XColor *bg_color;
+    XColor *bg_color = 0;
 
     GetPixmapQuery sQuery;
 
@@ -1567,7 +1590,9 @@ getPixmap(pTree, xcanvas, ycanvas, w, h)
 
     if (pTree->pRoot) {
         bg_color = pTree->pRoot->pPropertyValues->cBackgroundColor->xcolor;
-    } else {
+    } 
+
+    if (!bg_color) {
         Tcl_HashEntry *pEntry;
         pEntry = Tcl_FindHashEntry(&pTree->aColor, "white");
         assert(pEntry);

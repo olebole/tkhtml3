@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.131 2006/03/14 09:10:16 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.132 2006/03/16 10:00:25 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -2104,7 +2104,6 @@ borderLayout(pLayout, pNode, pBox, xA, yA, xB, yB)
     int yB;
 {
     BoxProperties boxproperties;
-    BorderProperties borderproperties;
     int x1, y1, x2, y2;
 
     BoxContext sBox;

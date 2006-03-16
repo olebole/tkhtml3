@@ -33,7 +33,6 @@ struct LayoutContext {
 };
 
 typedef struct BoxProperties BoxProperties;
-typedef struct BorderProperties BorderProperties;
 typedef struct MarginProperties MarginProperties;
 
 struct BoxProperties {
@@ -45,19 +44,6 @@ struct BoxProperties {
     int border_left;
     int border_bottom;
     int border_right;
-};
-
-struct BorderProperties {
-    XColor *color_top;
-    XColor *color_left;
-    XColor *color_bottom;
-    XColor *color_right;
-    XColor *color_bg;
-    HtmlImage2 *pBgImage;
-    unsigned char eBgRepeat;
-    int iPositionX;
-    int iPositionY;
-    unsigned char isPositionPercent;
 };
 
 struct MarginProperties {
@@ -138,7 +124,6 @@ struct BoxContext {
 };
 
 void nodeGetBoxProperties(LayoutContext *, HtmlNode *, int, BoxProperties *);
-void nodeGetBorderProperties(LayoutContext *, HtmlNode *, BorderProperties *);
 void nodeGetMargins(LayoutContext *, HtmlNode *, int, MarginProperties *);
 
 int  blockMinMaxWidth(LayoutContext *, HtmlNode *, int *, int *);

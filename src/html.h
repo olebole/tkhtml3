@@ -487,6 +487,7 @@ HtmlImage2 *HtmlImageServerGet(HtmlImageServer *, const char *);
 HtmlImage2 *HtmlImageScale(HtmlImage2 *, int *, int *, int);
 Tcl_Obj *HtmlImageUnscaledName(HtmlImage2 *);
 Tk_Image HtmlImageImage(HtmlImage2 *);
+Tk_Image HtmlImageTile(HtmlImage2 *);
 void HtmlImageFree(HtmlImage2 *);
 void HtmlImageRef(HtmlImage2 *);
 const char *HtmlImageUrl(HtmlImage2 *);
