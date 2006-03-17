@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.132 2006/03/16 10:00:25 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.133 2006/03/17 15:47:10 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -218,6 +218,8 @@ static const char rcsid[] = "$Id: htmllayout.c,v 1.132 2006/03/16 10:00:25 danie
  *     and borders correctly.
  */
 
+
+
 typedef struct NormalFlow NormalFlow;
 typedef struct NormalFlowCallback NormalFlowCallback;
 
@@ -233,6 +235,29 @@ struct NormalFlowCallback {
     ClientData clientData;
     NormalFlowCallback *pNext;
 };
+
+#define CACHE_MINMAX_VALID 0x01
+#define CACHE_LAYOUT_VALID 0x02
+struct HtmlLayoutCache {
+    unsigned char flags;     /* Combination of CACHE_XXX_VALID values */
+
+    /* Cached return values for blockMinMaxWidth() */
+    int iMinWidth;
+    int iMaxWidth;
+
+    /* Cached input values for normalFlowLayout() */
+    NormalFlow normalFlowIn;
+    int iContaining;
+    int iFloatLeft;
+    int iFloatRight;
+
+    /* Cached output values for normalFlowLayout() */
+    NormalFlow normalFlowOut;
+    int iWidth;
+    int iHeight;
+    HtmlCanvas canvas;
+};
+
 
 /*
  * These are prototypes for all the static functions in this file. We
@@ -1191,7 +1216,7 @@ drawBlock(pLayout, pBox, pNode, iAvailable, flags)
             break;
         }
         case CSS_CONST_TABLE:
-            tableLayout(pLayout, &sBox, pNode);
+            HtmlTableLayout(pLayout, &sBox, pNode);
             break;
         default:
             assert(!"Bad display value in drawBlock()");
@@ -1920,9 +1945,13 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
 {
     InlineContext *pContext;
     int y = 0;
-    int rc;                       /* Return Code */
+    int rc = 0;                       /* Return Code */
     InlineBorder *pBorder;
     int ii;
+    HtmlLayoutCache *pCache = pNode->pLayoutCache;
+
+    int left = 0; 
+    int right = pBox->iContaining;
 
     assert( 
         DISPLAY(pNode->pPropertyValues) == CSS_CONST_BLOCK ||
@@ -1933,6 +1962,51 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
         DISPLAY(pNode->pPropertyValues) == CSS_CONST_INLINE
     );
     assert(!nodeIsReplaced(pNode));
+
+    pNormal->isValid = (pNormal->isValid ? 1 : 0);
+
+    /* Figure out if a cached layout can be used. The more often a cached 
+     * layout can be used, the more efficient reflow (and incremental layout
+     * will be).
+     */
+    HtmlFloatListMargins(pBox->pFloat, 0, 1, &left, &right);
+    if (
+        !pLayout->minmaxTest && 
+        pCache && (pCache->flags & CACHE_LAYOUT_VALID) &&
+        pNormal->isValid == pCache->normalFlowIn.isValid &&
+        (0 == pNormal->isValid || (
+            pNormal->iMinMargin == pCache->normalFlowIn.iMinMargin &&
+            pNormal->iMaxMargin == pCache->normalFlowIn.iMaxMargin)
+        ) &&
+        pBox->iContaining == pCache->iContaining &&
+        left == pCache->iFloatLeft && right == pCache->iFloatRight &&
+        HtmlFloatListIsConstant(pBox->pFloat, pCache->iHeight)
+    ) {
+        /* In this case we can use the cached layout. */
+        assert(!pBox->vc.pFirst);
+        assert(!pLayout->minmaxTest);
+
+        HtmlDrawCopyCanvas(&pBox->vc, &pCache->canvas);
+        pBox->width = pCache->iWidth;
+        pBox->height = pCache->iHeight;
+
+        pNormal->iMaxMargin = pCache->normalFlowOut.iMaxMargin;
+        pNormal->iMinMargin = pCache->normalFlowOut.iMinMargin;
+        pNormal->isValid = pCache->normalFlowOut.isValid;
+        return rc;
+    }
+    if (!pCache) {
+        pCache = (HtmlLayoutCache *)HtmlClearAlloc(sizeof(HtmlLayoutCache));
+        pNode->pLayoutCache = pCache;
+    }
+    HtmlDrawCleanup(&pCache->canvas);
+    pCache->flags &= ~(CACHE_LAYOUT_VALID);
+    pCache->normalFlowIn.iMaxMargin = pNormal->iMaxMargin;
+    pCache->normalFlowIn.iMinMargin = pNormal->iMinMargin;
+    pCache->normalFlowIn.isValid = pNormal->isValid;
+    pCache->iContaining = pBox->iContaining;
+    pCache->iFloatLeft = left;
+    pCache->iFloatRight = right;
 
     /* Create the InlineContext object for this containing box */
     pContext = HtmlInlineContextNew(pNode, pLayout->minmaxTest);
@@ -1955,6 +2029,25 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
 
     rc = inlineLayoutDrawLines(pLayout, pBox, pContext, 1, &y, pNormal);
     HtmlInlineContextCleanup(pContext);
+
+    left = 0;
+    right = pBox->iContaining;
+    assert(pBox->iContaining == pCache->iContaining);
+    HtmlFloatListMargins(pBox->pFloat,pBox->height-1,pBox->height,&left,&right);
+    if (
+        !pLayout->minmaxTest && 
+        pCache->iFloatLeft == left &&
+        pCache->iFloatRight == right 
+    ) {
+        HtmlDrawOrigin(&pBox->vc);
+        HtmlDrawCopyCanvas(&pCache->canvas, &pBox->vc);
+        pCache->iWidth = pBox->width;
+        pCache->iHeight = pBox->height;
+        pCache->normalFlowOut.iMaxMargin = pNormal->iMaxMargin;
+        pCache->normalFlowOut.iMinMargin = pNormal->iMinMargin;
+        pCache->normalFlowOut.isValid = pNormal->isValid;
+        pCache->flags |= CACHE_LAYOUT_VALID;
+    }
 
     return rc;
 }
@@ -1989,25 +2082,26 @@ blockMinMaxWidth(pLayout, pNode, pMin, pMax)
     int *pMin;
     int *pMax;
 {
-    BoxContext sBox;
     int min;        /* Minimum width of this block */
     int max;        /* Maximum width of this block */
-    int *pCache;
 
-    Tcl_HashEntry *pEntry;
-    int newentry = 1;
+    HtmlLayoutCache *pCache = pNode->pLayoutCache;
 
-    pEntry = Tcl_CreateHashEntry(
-        &pLayout->widthCache, (char*)pNode, &newentry);
-    if (newentry) {
+    if (!pCache) {
+        pCache = (HtmlLayoutCache *)HtmlClearAlloc(sizeof(HtmlLayoutCache));
+        pNode->pLayoutCache = pCache;
+    }
+
+    if (pCache->flags & CACHE_MINMAX_VALID) {
+        min = pCache->iMinWidth;
+        max = pCache->iMaxWidth;
+    } else {
+        BoxContext sBox;
         int minmaxTestOrig = pLayout->minmaxTest;
         pLayout->minmaxTest = 1;
 
         /* Figure out the minimum width of the box by
          * pretending to lay it out with a parent-width of 0.
-         * Todo: We should make the virtual canvas sBox.vc a
-         * black-hole here, so we don't waste energy building
-         * up a canvas we will never use.
          */
         memset(&sBox, 0, sizeof(BoxContext));
         drawBlock(pLayout, &sBox, pNode, 0, DRAWBLOCK_OMITBORDER);
@@ -2026,11 +2120,9 @@ blockMinMaxWidth(pLayout, pNode, pMin, pMax)
         max = sBox.width;
 
         assert(max>=min);
-
-        pCache = (int *)HtmlAlloc(sizeof(int)*2);
-        pCache[0] = min;
-        pCache[1] = max;
-        Tcl_SetHashValue(pEntry, pCache);
+        pCache->iMinWidth = min;
+        pCache->iMaxWidth = max;
+        pCache->flags |= CACHE_MINMAX_VALID;
 
         pLayout->minmaxTest = minmaxTestOrig;
 
@@ -2046,11 +2138,7 @@ blockMinMaxWidth(pLayout, pNode, pMin, pMax)
             );
         }
 
-    } else {
-        pCache = Tcl_GetHashValue(pEntry);
-        min = pCache[0];
-        max = pCache[1];
-    }
+    } 
 
     *pMin = min;
     *pMax = max;
@@ -2381,3 +2469,15 @@ HtmlLayout(pTree)
     }
     return rc;
 }
+
+void 
+HtmlLayoutInvalidateCache(pNode)
+    HtmlNode *pNode;
+{
+    if (pNode->pLayoutCache) {
+        HtmlDrawCleanup(&pNode->pLayoutCache->canvas);
+        HtmlFree(pNode->pLayoutCache);
+        pNode->pLayoutCache = 0;
+    }
+}
+

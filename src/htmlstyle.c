@@ -36,11 +36,21 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlstyle.c,v 1.21 2006/03/14 11:20:26 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlstyle.c,v 1.22 2006/03/17 15:47:10 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
 #include <string.h>
+
+static void 
+invalidateAncestors(pNode)
+    HtmlNode *pNode;
+{
+    HtmlNode *p;
+    for (p = pNode; p; p = HtmlNodeParent(p)) {
+        HtmlLayoutInvalidateCache(p);
+    }
+}
 
 /*
  *---------------------------------------------------------------------------
@@ -101,6 +111,7 @@ styleNode(pTree, pNode, clientData)
             HtmlComputedValuesRelease(pTree, pV);
             pV = 0;
             HtmlCallbackSchedule(pTree, HTML_CALLBACK_LAYOUT);
+            HtmlLayoutInvalidateCache(pNode);
         }
         HtmlComputedValuesRelease(pTree, pNode->pPreviousValues);
         pNode->pPreviousValues = pV;
@@ -108,6 +119,7 @@ styleNode(pTree, pNode, clientData)
         if (pV && pTree->cb.eCallbackAction < HTML_CALLBACK_LAYOUT) {
             if (HtmlComputedValuesCompare(pNode->pPropertyValues, pV)) {
                 HtmlCallbackSchedule(pTree, HTML_CALLBACK_LAYOUT);
+                invalidateAncestors(pNode);
             }
         }
     }

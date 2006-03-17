@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlimage.c,v 1.43 2006/03/16 10:00:25 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlimage.c,v 1.44 2006/03/17 15:47:10 danielk1977 Exp $";
 
 #include <assert.h>
 #include "html.h"
@@ -235,6 +235,27 @@ freeTile(pImage)
     pImage->pTileName = 0;
 }
 
+static int
+imageChangedCb(pTree, pNode, clientData)
+    HtmlTree *pTree;
+    HtmlNode *pNode;
+    ClientData clientData;
+{
+    HtmlComputedValues *pV = pNode->pPropertyValues;
+    HtmlImage2 *pImage = (HtmlImage2 *)clientData;
+    assert(!pImage->pUnscaled);
+    if (pV) {
+        assert(!pV->imReplacementImage || !pV->imReplacementImage->pUnscaled);
+        assert(!pV->imListStyleImage || !pV->imListStyleImage->pUnscaled);
+        if (pV->imReplacementImage==pImage || pV->imListStyleImage==pImage) {
+            HtmlNode *p;
+            for (p = pNode; p ; p = HtmlNodeParent(p)) {
+                HtmlLayoutInvalidateCache(p);
+            }
+        }
+    }
+    return 0;
+}
 
 /*
  *---------------------------------------------------------------------------
@@ -251,7 +272,8 @@ freeTile(pImage)
  *
  *---------------------------------------------------------------------------
  */
-static void imageChanged(clientData, x, y, width, height, imgWidth, imgHeight)
+static void 
+imageChanged(clientData, x, y, width, height, imgWidth, imgHeight)
     ClientData clientData;
     int x;
     int y;
@@ -271,12 +293,19 @@ static void imageChanged(clientData, x, y, width, height, imgWidth, imgHeight)
         }
         freeTile(pImage);
         if (imgWidth==pImage->width && imgHeight==pImage->height) {
+            /* If the image contents have been modified but the size is
+             * constant, then just redraw the display. This is lazy. If
+             * there were an efficient way to determine the minimum region
+             * to draw, then stuff like animated gifs would be much more
+             * efficient.
+             */
             Tk_Window tkwin = pTree->tkwin;
             HtmlCallbackSchedule(pTree, HTML_CALLBACK_DAMAGE);
             HtmlCallbackExtents(pTree, 0, 0, Tk_Width(tkwin), Tk_Height(tkwin));
         } else {
             pImage->width = imgWidth;
             pImage->height = imgHeight;
+            HtmlWalkTree(pTree, 0, imageChangedCb, (ClientData)pImage);
             HtmlCallbackSchedule(pTree, HTML_CALLBACK_LAYOUT);
         }
         pImage->eAlpha = ALPHA_CHANNEL_UNKNOWN;

@@ -384,6 +384,7 @@ namespace eval hv3 {
       }
     }
 
+    if {[info commands $myPointerNode] == ""} {set myPointerNode ""}
     if {$myPointerNode ne $node} {
         for {set n $node} {$n ne ""} {set n [$n parent]} {
             if {[lsearch [$n dynamic set] hover] != -1} break

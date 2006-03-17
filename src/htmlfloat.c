@@ -37,7 +37,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  * COPYRIGHT:
  */
-static const char rcsid[] = "$Id: htmlfloat.c,v 1.9 2005/11/23 15:24:42 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlfloat.c,v 1.10 2006/03/17 15:47:10 danielk1977 Exp $";
 
 #include <assert.h>
 #include "html.h"
@@ -54,6 +54,7 @@ static const char rcsid[] = "$Id: htmlfloat.c,v 1.9 2005/11/23 15:24:42 danielk1
  *     HtmlFloatListAdd --
  *         Add a floating margin to a float-list object
  * 
+ *     HtmlFloatListIsConstant
  *     HtmlFloatListPlace --
  *     HtmlFloatListMargins --
  *     HtmlFloatListClear --
@@ -62,6 +63,9 @@ static const char rcsid[] = "$Id: htmlfloat.c,v 1.9 2005/11/23 15:24:42 danielk1
  *     HtmlFloatListNormalize -- 
  *         Alter the origin point relative to which queries and additions to
  *         the float list are made
+ *
+ *     HtmlFloatListLog --
+ *         Output the state of the float-list to the debugging log.
  */
 typedef struct FloatListEntry FloatListEntry;
 
@@ -696,5 +700,26 @@ HtmlFloatListLog(pTree, zNode, pList)
             pCsr->leftValid, pCsr->rightValid);
         pCsr = pCsr->pNext;
     }
+}
+
+int
+HtmlFloatListIsConstant(pList, iHeight)
+    HtmlFloatList *pList;
+    int iHeight;
+{
+    int y1 = pList->yorigin * -1;
+    int y2 = y1 + iHeight;
+    FloatListEntry *p;
+
+    #define BETWEEN(a, b, c) ((a)<=(b) && (b)<=(c))
+
+    assert(y2 >= y1);
+    if (pList->endValid && BETWEEN(y1, pList->yend, y2)) return 0;
+
+    for (p = pList->pEntry; p; p = p->pNext) {
+        if (BETWEEN(y1, p->y, y2)) return 0;
+    }
+
+    return 1;
 }
 

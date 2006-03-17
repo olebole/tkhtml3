@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.54 2006/03/14 18:08:00 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.55 2006/03/17 15:47:10 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -421,6 +421,8 @@ freeNode(pTree, pNode)
         }
         clearReplacement(pTree, pNode);
         HtmlFree((char *)pNode->apChildren);
+        HtmlLayoutInvalidateCache(pNode);
+        HtmlCssFreeDynamics(pNode);
         HtmlFree((char *)pNode);
     }
 }

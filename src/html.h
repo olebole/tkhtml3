@@ -102,6 +102,7 @@ typedef struct HtmlPropertyCache HtmlPropertyCache;
 typedef struct HtmlNodeReplacement HtmlNodeReplacement;
 typedef struct HtmlCallback HtmlCallback;
 typedef struct HtmlNodeCmd HtmlNodeCmd;
+typedef struct HtmlLayoutCache HtmlLayoutCache;
 
 typedef struct HtmlImageServer HtmlImageServer;
 typedef struct HtmlImage2 HtmlImage2;
@@ -196,6 +197,8 @@ struct HtmlNode {
     CssDynamic *pDynamic;                    /* CSS dynamic conditions */
     Html_u8 flags;                           /* HTML_DYNAMIC_XXX flags */
 
+    HtmlLayoutCache *pLayoutCache;           /* Cached layout, if any */
+
     HtmlNodeReplacement *pReplacement;       /* Replaced object, if any */
     HtmlNodeCmd *pNodeCmd;                   /* Tcl command for this node */
     int iNode;                               /* Node index */
@@ -217,8 +220,8 @@ struct HtmlCanvas {
     int bottom;
     HtmlCanvasItem *pFirst;
     HtmlCanvasItem *pLast;
+    int isWindowListOk;
     HtmlCanvasItem *pWindow;
-    Tcl_Obj *pPrimitives;
 };
 
 struct HtmlOptions {
@@ -448,6 +451,9 @@ void HtmlDrawQuad(HtmlCanvas*,int,int,int,int,int,int,int,int,XColor*,int);
 int  HtmlDrawIsEmpty(HtmlCanvas *);
 
 void HtmlDrawImage(HtmlCanvas*, HtmlImage2*, int, int, int, int, HtmlNode*, int);
+void HtmlDrawOrigin(HtmlCanvas*);
+void HtmlDrawCopyCanvas(HtmlCanvas*, HtmlCanvas*);
+
 void HtmlLayoutPaintText(HtmlTree *, int, int, int, int);
 int HtmlLayoutScrollToNode(HtmlTree *, int);
 
@@ -463,6 +469,7 @@ int HtmlFloatListClear(HtmlFloatList*, int, int);
 void HtmlFloatListNormalize(HtmlFloatList*, int, int);
 void HtmlFloatListMargins(HtmlFloatList*, int, int, int *, int *);
 void HtmlFloatListLog(HtmlTree *, CONST char *, HtmlFloatList *);
+int HtmlFloatListIsConstant(HtmlFloatList*, int);
 
 HtmlPropertyCache * HtmlNewPropertyCache();
 void HtmlDeletePropertyCache(HtmlPropertyCache *pCache);
@@ -496,6 +503,7 @@ Tcl_Obj *HtmlXImageToImage(HtmlTree *, XImage *, int, int);
 int HtmlImageAlphaChannel(HtmlTree *, HtmlImage2 *);
 
 void HtmlLayoutPaintNode(HtmlTree *, HtmlNode *);
+void HtmlLayoutInvalidateCache(HtmlNode *);
 
 #endif
 

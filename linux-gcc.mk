@@ -8,6 +8,7 @@ TOP = $(HOME)/work/tkhtml/htmlwidget
 BUILD = DEBUG
 # BUILD = RELEASE
 # BUILD = MEMDEBUG
+# BUILD = PROFILE
 
 ##### Version of and path to the Tcl installation to use.
 #
@@ -16,6 +17,7 @@ BUILD = DEBUG
 
 TCLVERSION = 8.4
 TCL_DEBUG    = /usr/local/ActiveTcl
+TCL_PROFILE  = /usr/local/ActiveTcl
 TCL_MEMDEBUG = $(TCL_DEBUG)
 TCL_RELEASE = /usr/local/ActiveTcl
 TCL = $(TCL_$(BUILD))
@@ -27,6 +29,7 @@ MKSTARKIT = ~/tcl/bin/tclkit-linux-x86-xft ~/bin/sdx.kit wrap
 # TCLLIB_DEBUG   = -L$(TCL)/lib -ltcl$(TCLVERSION)g -ltk$(TCLVERSION)g 
 TCLLIB_RELEASE  = -L$(TCL)/lib -ltcl$(TCLVERSION) -ltk$(TCLVERSION)   
 TCLLIB_DEBUG    = -L$(TCL)/lib -ltcl$(TCLVERSION) -ltk$(TCLVERSION)   
+TCLLIB_PROFILE  = -L$(TCL)/lib -ltcl$(TCLVERSION) -ltk$(TCLVERSION)   
 TCLLIB_MEMDEBUG = $(TCLLIB_DEBUG)
 
 TCLLIB = -L/usr/X11R6/lib/ -lX11 -ldl -lm $(TCLLIB_$(BUILD))
@@ -36,18 +39,21 @@ TCLLIB = -L/usr/X11R6/lib/ -lX11 -ldl -lm $(TCLLIB_$(BUILD))
 CC_RELEASE  = gcc
 CC_DEBUG    = gcc
 CC_MEMDEBUG = $(CC_DEBUG)
+CC_PROFILE  = $(CC_DEBUG)
 CC = $(CC_$(BUILD))
 
 CFLAGS_RELEASE = -O2 -Wall -DNDEBUG -DHTML_MACROS
 # CFLAGS_DEBUG   = -g -pg -DHTML_MACROS
 #CFLAGS_DEBUG   = -g -Wall -DHTML_MACROS -DHTML_RES_DEBUG
-CFLAGS_DEBUG    = -g -Wall -DHTML_MACROS -DHTML_DEBUG
-CFLAGS_MEMDEBUG = -g -Wall -DHTML_MACROS -DRES_DEBUG -DHTML_DEBUG
+CFLAGS_DEBUG    = -g -Wall -DHTML_DEBUG
+CFLAGS_PROFILE  = -g -pg -Wall -DNDEBUG
+CFLAGS_MEMDEBUG = -g -Wall -DRES_DEBUG -DHTML_DEBUG
 CFLAGS = $(CFLAGS_$(BUILD))
 
 ##### The name of the shared library file to build.
 #
 SHARED_LIB_DEBUG    = libTkhtml3g.so
+SHARED_LIB_PROFILE  = libTkhtml3pg.so
 SHARED_LIB_MEMDEBUG = $(SHARED_LIB_DEBUG)
 SHARED_LIB_RELEASE  = libTkhtml3.so
 SHARED_LIB = $(SHARED_LIB_$(BUILD))

@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.62 2006/02/22 16:42:38 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.63 2006/03/17 15:47:10 danielk1977 Exp $";
 
 #include "htmllayout.h"
 
@@ -48,7 +48,7 @@ struct TableCell {
 typedef struct TableCell TableCell;
 
 /*
- * Structure used whilst laying out tables. See tableLayout().
+ * Structure used whilst laying out tables. See HtmlTableLayout().
  */
 struct TableData {
     LayoutContext *pLayout;
@@ -523,7 +523,7 @@ tableDrawCells(pNode, col, colspan, row, rowspan, pContext)
  *
  * tableIterate --
  *
- *     Helper function for tableLayout, used to iterate through cells
+ *     Helper function for HtmlTableLayout, used to iterate through cells
  *     of the table. For the table below, the iteration order is W, X,
  *     Y, Z.
  *
@@ -814,7 +814,7 @@ tableCalculateCellWidths(pData, width)
 /*
  *---------------------------------------------------------------------------
  *
- * tableLayout --
+ * HtmlTableLayout --
  *
  *     Lay out a table node.
  *
@@ -849,7 +849,7 @@ tableCalculateCellWidths(pData, width)
  *
  *---------------------------------------------------------------------------
  */
-int tableLayout(pLayout, pBox, pNode)
+int HtmlTableLayout(pLayout, pBox, pNode)
     LayoutContext *pLayout;
     BoxContext *pBox;
     HtmlNode *pNode;         /* The node to layout */
@@ -894,7 +894,7 @@ int tableLayout(pLayout, pBox, pNode)
 
     LOG {
         HtmlTree *pTree = pLayout->pTree;
-        HtmlLog(pTree, "LAYOUTENGINE", "%s tableLayout() "
+        HtmlLog(pTree, "LAYOUTENGINE", "%s HtmlTableLayout() "
             "Dimensions are %dx%d",
             Tcl_GetString(HtmlNodeCommand(pTree, pNode)), 
             data.nCol, data.nRow
@@ -955,7 +955,7 @@ int tableLayout(pLayout, pBox, pNode)
             Tcl_Obj *pInt = Tcl_NewIntObj(data.aMinWidth[ii]);
             Tcl_ListObjAppendElement(interp, pWidths, pInt);
         }
-        HtmlLog(pTree, "LAYOUTENGINE", "%s tableLayout()"
+        HtmlLog(pTree, "LAYOUTENGINE", "%s HtmlTableLayout()"
             "Cell minimum widths: %s",
             Tcl_GetString(HtmlNodeCommand(pTree, pNode)), 
             Tcl_GetString(pWidths)
@@ -969,7 +969,7 @@ int tableLayout(pLayout, pBox, pNode)
             Tcl_Obj *pInt = Tcl_NewIntObj(data.aMaxWidth[ii]);
             Tcl_ListObjAppendElement(interp, pWidths, pInt);
         }
-        HtmlLog(pTree, "LAYOUTENGINE", "%s tableLayout()"
+        HtmlLog(pTree, "LAYOUTENGINE", "%s HtmlTableLayout()"
             "Cell maximum widths: %s",
             Tcl_GetString(HtmlNodeCommand(pTree, pNode)), 
             Tcl_GetString(pWidths)
@@ -1005,7 +1005,7 @@ int tableLayout(pLayout, pBox, pNode)
 
     LOG {
         HtmlTree *pTree = pLayout->pTree;
-        HtmlLog(pTree, "LAYOUTENGINE", "%s tableLayout() "
+        HtmlLog(pTree, "LAYOUTENGINE", "%s HtmlTableLayout() "
             "minwidth=%d  maxwidth=%d  containing=%d prescribed-width=%d",
             Tcl_GetString(HtmlNodeCommand(pTree, pNode)), 
             minwidth, maxwidth, pBox->iContaining, pBox->width
@@ -1025,7 +1025,7 @@ int tableLayout(pLayout, pBox, pNode)
 
     LOG {
         HtmlTree *pTree = pLayout->pTree;
-        HtmlLog(pTree, "LAYOUTENGINE", "%s tableLayout()"
+        HtmlLog(pTree, "LAYOUTENGINE", "%s HtmlTableLayout()"
             "Actual table width = %d",
             Tcl_GetString(HtmlNodeCommand(pTree, pNode)), 
             width
@@ -1049,7 +1049,7 @@ int tableLayout(pLayout, pBox, pNode)
             Tcl_Obj *pInt = Tcl_NewIntObj(data.aWidth[ii]);
             Tcl_ListObjAppendElement(interp, pWidths, pInt);
         }
-        HtmlLog(pTree, "LAYOUTENGINE", "%s tableLayout()"
+        HtmlLog(pTree, "LAYOUTENGINE", "%s HtmlTableLayout()"
             "Actual cell widths: %s",
             Tcl_GetString(HtmlNodeCommand(pTree, pNode)), 
             Tcl_GetString(pWidths)

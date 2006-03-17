@@ -110,7 +110,7 @@ HtmlDrawQuad(a, b, c, d, e, f, g, h, i, j, pLayout->minmaxTest)
 /*
  * A seperate BoxContext struct is used for each block box layed out.
  *
- *     tableLayout()
+ *     HtmlTableLayout()
  */
 typedef struct BoxContext BoxContext;
 struct BoxContext {
@@ -130,11 +130,11 @@ int  blockMinMaxWidth(LayoutContext *, HtmlNode *, int *, int *);
 void borderLayout(LayoutContext*, HtmlNode*, BoxContext*, int, int, int, int);
 
 /*--------------------------------------------------------------------------*
- * htmlTableLayout.c --
+ * htmltable.c --
  *
  *     htmlTableLayout.c contains code to layout HTML/CSS tables.
  */
-int tableLayout(LayoutContext*, BoxContext*, HtmlNode*);
+int HtmlTableLayout(LayoutContext*, BoxContext*, HtmlNode*);
 
 /* End of htmlTableLayout.c interface
  *-------------------------------------------------------------------------*/
