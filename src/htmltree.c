@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.55 2006/03/17 15:47:10 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.56 2006/03/18 18:29:03 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -1395,7 +1395,6 @@ node_attr_usage:
             Tcl_SetObjResult(interp, pRet);
 
             pTree->cb.pDynamic = commonParent(pTree->cb.pDynamic, pNode);
-            pTree->cb.isCssDynamic = 1;
             HtmlCallbackSchedule(pTree, HTML_CALLBACK_DYNAMIC);
 
             break;
@@ -1597,8 +1596,8 @@ int HtmlTreeClear(pTree)
     pTree->iToIndex = 0;
 
     /* Deschedule any dynamic callback */
-    pTree->cb.isCssDynamic = 0;
     pTree->cb.pDynamic = 0;
+    pTree->cb.pRestyle = 0;
 
     pTree->iNextNode = 0;
     return TCL_OK;

@@ -15,8 +15,8 @@ BUILD = DEBUG
 # TCL_DEBUG   = $(HOME)/profiletcl
 # TCL_DEBUG   = $(HOME)/tcl
 
-TCLVERSION = 8.4
-TCL_DEBUG    = /usr/local/ActiveTcl
+TCLVERSION = 8.5
+TCL_DEBUG    = /home/dan/tcl
 TCL_PROFILE  = /usr/local/ActiveTcl
 TCL_MEMDEBUG = $(TCL_DEBUG)
 TCL_RELEASE = /usr/local/ActiveTcl

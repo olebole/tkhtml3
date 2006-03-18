@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.79 2006/03/18 15:29:35 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.80 2006/03/18 18:29:03 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -325,13 +325,12 @@ callbackHandler(clientData)
     clock_t styleClock = 0;
     clock_t layoutClock = 0;
 
-    /* If the HtmlCallback.isCssDynamic flag is set, then see if we need to
+    /* If the HtmlCallback.pDynamic variable is set, then see if we need to
      * modify this callback operation due to dynamic CSS rules before
      * proceeding.  If this is the case, HtmlCssCheckDynamic() will modify
      * variables in the HtmlTree.cb structure.
      */
     HtmlCssCheckDynamic(pTree);
-    pTree->cb.isCssDynamic = 0;
     eCallbackAction = pTree->cb.eCallbackAction;
     pTree->cb.eCallbackAction = HTML_CALLBACK_NONE;
 
@@ -345,8 +344,9 @@ callbackHandler(clientData)
     switch (eCallbackAction) {
         case HTML_CALLBACK_STYLE:
             styleClock = clock();
-            HtmlStyleApply((ClientData)pTree, pTree->interp, 0, 0);
+            HtmlStyleApply(pTree, pTree->cb.pRestyle);
             styleClock = clock() - styleClock;
+            pTree->cb.pRestyle = 0;
         case HTML_CALLBACK_LAYOUT:
             layoutClock = clock();
             HtmlLayout(pTree);
@@ -379,11 +379,11 @@ callbackHandler(clientData)
         w, h, x, y
     );
 
-    if (styleClock) {
+    if (eCallbackAction >= HTML_CALLBACK_STYLE) {
         HtmlTimer(pTree, "STYLE",  "%f seconds", 
             (double)styleClock / (double)CLOCKS_PER_SEC);
     }
-    if (layoutClock) {
+    if (eCallbackAction >= HTML_CALLBACK_LAYOUT) {
         HtmlTimer(pTree, "LAYOUT",  "%f seconds", 
             (double)layoutClock / (double)CLOCKS_PER_SEC);
     }
@@ -461,6 +461,27 @@ HtmlCallbackSchedule(pTree, eCallbackAction)
     }
 
     pTree->cb.eCallbackAction = MAX(eCallbackAction, pTree->cb.eCallbackAction);
+}
+
+void 
+HtmlCallbackRestyle(pTree, pNode)
+    HtmlTree *pTree;
+    HtmlNode *pNode;
+{
+    HtmlNode *pA;
+    HtmlNode *pB;
+
+    for (pA = pTree->cb.pRestyle; pA; pA = HtmlNodeParent(pA)) {
+        for (pB = pNode; pB; pB = HtmlNodeParent(pB)) {
+            if (pB == pA) {
+                pTree->cb.pRestyle = pB;
+                return;
+            }  
+        }
+    }
+
+    pTree->cb.pRestyle = pNode;
+    HtmlCallbackSchedule(pTree, HTML_CALLBACK_STYLE);
 }
 
 /*
@@ -778,7 +799,7 @@ configureCmd(clientData, interp, objc, objv)
                 rc = TCL_ERROR;
             } else {
                 memcpy(pTree->aFontSizeTable, aFontSize, sizeof(aFontSize));
-                HtmlCallbackSchedule(pTree, HTML_CALLBACK_STYLE);
+                HtmlCallbackRestyle(pTree, pTree->pRoot);
             }
         }
     }
@@ -997,6 +1018,7 @@ parseCmd(clientData, interp, objc, objv)
     Tcl_Obj *const *objv;              /* List of all arguments */
 {
     HtmlTree *pTree = (HtmlTree *)clientData;
+    HtmlNode *pCurrent = pTree->pCurrent;
 
     int isFinal;
     char *zHtml;
@@ -1041,7 +1063,11 @@ parseCmd(clientData, interp, objc, objv)
         HtmlFinishNodeHandlers(pTree);
     }
 
-    HtmlCallbackSchedule(pTree, HTML_CALLBACK_STYLE);
+    HtmlCallbackRestyle(pTree, pCurrent ? pCurrent : pTree->pRoot);
+    HtmlCallbackRestyle(pTree, pTree->pCurrent);
+    for ( ; pCurrent ; pCurrent = HtmlNodeParent(pCurrent)) {
+        HtmlLayoutInvalidateCache(pCurrent);
+    }
 
     return TCL_OK;
 }

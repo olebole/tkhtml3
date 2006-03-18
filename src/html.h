@@ -272,7 +272,7 @@ struct HtmlCallback {
     int x2, y2;                     /* Bottom-right corner of damaged region */
 
     HtmlNode *pDynamic;             /* Recalculate dynamic CSS for this node */
-    int isCssDynamic;               /* True to check for dynamic CSS rules */ 
+    HtmlNode *pRestyle;             /* Restyle this node */
 };
 
 #define HTML_CALLBACK_NONE    0
@@ -393,13 +393,14 @@ void HtmlFinishNodeHandlers(HtmlTree *);
 void HtmlAddToken(HtmlTree *, HtmlToken *);
 int HtmlTreeBuild(ClientData, Tcl_Interp *, int, Tcl_Obj *CONST []);
 Tcl_ObjCmdProc HtmlTreeCollapseWhitespace;
-Tcl_ObjCmdProc HtmlStyleApply;
 Tcl_ObjCmdProc HtmlStyleSyntaxErrs;
 Tcl_ObjCmdProc HtmlLayoutSize;
 Tcl_ObjCmdProc HtmlLayoutNode;
 Tcl_ObjCmdProc HtmlLayoutImage;
 Tcl_ObjCmdProc HtmlLayoutPrimitives;
 Tcl_ObjCmdProc HtmlLayoutBbox;
+
+int HtmlStyleApply(HtmlTree *, HtmlNode *);
 
 int  HtmlWidgetMapControls(HtmlTree *);
 int HtmlWidgetScroll(HtmlTree *, int, int);
@@ -487,6 +488,7 @@ CONST char *HtmlDefaultCss();
 void HtmlCallbackForce(HtmlTree *);
 void HtmlCallbackSchedule(HtmlTree *, int);
 void HtmlCallbackExtents(HtmlTree *, int, int, int, int);
+void HtmlCallbackRestyle(HtmlTree *, HtmlNode *);
 
 /* Functions from htmlimage.c */
 void HtmlImageServerInit(HtmlTree *);

@@ -89,6 +89,7 @@ swproc hv3Init {PATH {gotocallback ""}} {
 
   # Register the built-in URI protocol "file"
   hv3RegisterProtocol $PATH file Hv3FileProtocol
+  hv3RegisterProtocol $PATH slow [list Hv3SlowDownload %AUTO%]
 
   # Force the status bar variables to initialise by pretending someone 
   # middle-clicked on the html widget.
@@ -647,7 +648,7 @@ snit::type Hv3Download {
     if {$options(-incrscript) != "" && $nData >= $myChunksize} {
       eval [linsert $options(-incrscript) end $myData]
       set myData {}
-      set myChunksize [expr $myChunksize * 2]
+      # set myChunksize [expr $myChunksize * 2]
     } 
   }
 
@@ -695,6 +696,49 @@ proc Hv3FileProtocol {downloadHandle} {
 
   if {$rc} {
     error $msg $::errorInfo
+  }
+}
+#--------------------------------------------------------------------------
+
+#--------------------------------------------------------------------------
+# Protocol implementation for slow:// protocol.
+#
+snit::type Hv3SlowDownload {
+  variable myData ""
+  variable myDownloadHandle 
+
+  option -chunk 1024
+  option -tick 300
+
+  constructor {downloadHandle} {
+    set myDownloadHandle $downloadHandle
+
+    set uri [$myDownloadHandle uri]
+    set uri_obj [Hv3Uri %AUTO% $uri]
+    set fname [$uri_obj cget -path]
+    $uri_obj destroy
+
+    set f [open $fname]
+    if {[$myDownloadHandle binary]} {
+      fconfigure $f -encoding binary -translation binary
+    }
+    set myData [read $f]
+    close $f
+    after $options(-tick) [mymethod tick]
+  }
+
+  destructor { }
+
+  method tick {} {
+    set data [string range $myData 0 $options(-chunk)]
+    set myData [string range $myData [expr $options(-chunk) + 1] end]
+    $myDownloadHandle append $data
+    if {[string length $myData] == 0} {
+      $myDownloadHandle finish
+      $self destroy
+    } else {
+      after $options(-tick) [mymethod tick]
+    }
   }
 }
 #--------------------------------------------------------------------------

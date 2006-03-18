@@ -73,8 +73,7 @@ checkDynamicCb(pTree, pNode, clientData)
     for (p = pNode->pDynamic; p; p = p->pNext) {
         int res = HtmlCssSelectorTest(p->pSelector, pNode, 0) ? 1 : 0; 
         if (res != p->isSet) {
-            HtmlRestyleNode(pTree, pNode);
-            HtmlLayoutPaintNode(pTree, pNode);
+            HtmlCallbackRestyle(pTree, pNode);
         }
         p->isSet = res;
     }
@@ -85,10 +84,9 @@ void
 HtmlCssCheckDynamic(pTree)
     HtmlTree *pTree;
 {
-    if (pTree->cb.isCssDynamic) {
+    if (pTree->cb.pDynamic) {
         HtmlWalkTree(pTree, pTree->cb.pDynamic, checkDynamicCb, 0);
     }
-    pTree->cb.isCssDynamic = 0;
     pTree->cb.pDynamic = 0;
 }
 

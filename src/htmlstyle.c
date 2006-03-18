@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlstyle.c,v 1.22 2006/03/17 15:47:10 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlstyle.c,v 1.23 2006/03/18 18:29:03 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -106,21 +106,11 @@ styleNode(pTree, pNode, clientData)
     
         HtmlCssStyleSheetApply(pTree, pNode);
 
-
-        if (trashDynamics) {
-            HtmlComputedValuesRelease(pTree, pV);
-            pV = 0;
-            HtmlCallbackSchedule(pTree, HTML_CALLBACK_LAYOUT);
-            HtmlLayoutInvalidateCache(pNode);
-        }
         HtmlComputedValuesRelease(pTree, pNode->pPreviousValues);
         pNode->pPreviousValues = pV;
 
-        if (pV && pTree->cb.eCallbackAction < HTML_CALLBACK_LAYOUT) {
-            if (HtmlComputedValuesCompare(pNode->pPropertyValues, pV)) {
-                HtmlCallbackSchedule(pTree, HTML_CALLBACK_LAYOUT);
-                invalidateAncestors(pNode);
-            }
+        if (!pV || HtmlComputedValuesCompare(pNode->pPropertyValues, pV)) {
+            invalidateAncestors(pNode);
         }
     }
 
@@ -141,15 +131,13 @@ styleNode(pTree, pNode, clientData)
  *---------------------------------------------------------------------------
  */
 int 
-HtmlStyleApply(clientData, interp, objc, objv)
-    ClientData clientData;             /* The HTML widget */
-    Tcl_Interp *interp;                /* The interpreter */
-    int objc;                          /* Number of arguments */
-    Tcl_Obj *CONST objv[];             /* List of all arguments */
+HtmlStyleApply(pTree, pNode)
+    HtmlTree *pTree;
+    HtmlNode *pNode;
 {
-    HtmlTree *pTree = (HtmlTree *)clientData;
+    int isRoot = ((pNode == pTree->pRoot) ? 1 : 0);
     HtmlLog(pTree, "STYLEENGINE", "START");
-    HtmlWalkTree(pTree, 0, styleNode, (ClientData)1);
+    HtmlWalkTree(pTree, pNode, styleNode, (ClientData)isRoot);
     return TCL_OK;
 }
 
