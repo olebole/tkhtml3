@@ -37,7 +37,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  * COPYRIGHT:
  */
-static const char rcsid[] = "$Id: htmlfloat.c,v 1.10 2006/03/17 15:47:10 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlfloat.c,v 1.11 2006/03/18 15:29:35 danielk1977 Exp $";
 
 #include <assert.h>
 #include "html.h"
@@ -684,21 +684,52 @@ place_out:
     return ret;
 }
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlFloatListLog --
+ *
+ *     This function is used to log the current state of the float list
+ *     for debugging purposes using HtmlLog().
+ *     
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     Calls HtmlLog().
+ *
+ *---------------------------------------------------------------------------
+ */
 void 
 HtmlFloatListLog(pTree, zNode, pList)
     HtmlTree *pTree;
     CONST char *zNode;
     HtmlFloatList *pList;
 {
-    FloatListEntry *pCsr = pList->pEntry;
+    FloatListEntry *pCsr;
+    int y = pList->yorigin;
+    int x = pList->xorigin;
+
+#if 0
     HtmlLog(pTree, "LAYOUTENGINE", "%s Float-list: %d %d %d %d",
         zNode, pList->xorigin, pList->yorigin, pList->yend, pList->endValid);
+#endif
+    if (pList->endValid) {
+        int yend = pList->yend;
+        HtmlLog(pTree, "LAYOUTENGINE", "%s Float-list: end=%d\n", zNode, yend);
+    } else {
+        HtmlLog(pTree, "LAYOUTENGINE", "%s Float-list: end=N/A\n", zNode);
+    }
 
-    while (pCsr) {
-        HtmlLog(pTree, "LAYOUTENGINE", "%s Float-list Entry: %d %d %d %d %d",
-            zNode, pCsr->y, pCsr->left, pCsr->right, 
-            pCsr->leftValid, pCsr->rightValid);
-        pCsr = pCsr->pNext;
+    for (pCsr = pList->pEntry; pCsr; pCsr = pCsr->pNext) {
+        const char *zF = "%s Entry: y=%d left=%s right=%s";
+        char zLeft[20];
+        char zRight[20];
+        strcpy(zLeft, "N/A");
+        strcpy(zRight, "N/A");
+        if (pCsr->leftValid)  { sprintf(zLeft, "%d", pCsr->left - x); }
+        if (pCsr->rightValid) { sprintf(zRight, "%d", pCsr->right - x); }
+        HtmlLog(pTree, "LAYOUTENGINE", zF, zNode, pCsr->y - y, zLeft, zRight);
     }
 }
 

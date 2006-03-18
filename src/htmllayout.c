@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.133 2006/03/17 15:47:10 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.134 2006/03/18 15:29:35 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -681,7 +681,7 @@ normalFlowLayoutFloat(pLayout, pBox, pNode, pY, pContext, pNormal)
      * box.
      */
     pBox->width = MAX(x + iTotalWidth, pBox->width);
-    pBox->height = MAX(y + iTotalHeight, pBox->height);
+    /* pBox->height = MAX(y + iTotalHeight, pBox->height); */
 
     LOG if (!pLayout->minmaxTest) {
         HtmlTree *pTree = pLayout->pTree;
@@ -1155,7 +1155,7 @@ normalFlowType(pNode)
  *                 allocate space for them).
  *             DRAWBLOCK_CONTENTWIDTH 
  *                 Parameter iAvailable refers to the content-width of the
- *                 block, ont the width between the inside and outside margins. 
+ *                 block, not the width between the inside and outside margins. 
  *             DRAWBLOCK_ENFORCEWIDTH
  *             DRAWBLOCK_ENFORCEHEIGHT
  *
@@ -1350,6 +1350,7 @@ normalFlowLayoutTable(pLayout, pBox, pNode, pY, pContext, pNormal)
     int iMaxWidth;
     int iLeftFloat = 0;
     int iRightFloat = pBox->iContaining;
+    int iAvailable;
 
     int iWidth;
     unsigned int flags;
@@ -1371,29 +1372,31 @@ normalFlowLayoutTable(pLayout, pBox, pNode, pY, pContext, pNormal)
      * unlikely circumstances the table will be placed lower in the flow than
      * would have been necessary. But it's not that big of a deal.
      */
+    blockMinMaxWidth(pLayout, pNode, &iMinWidth, &iMaxWidth);
+    *pY = HtmlFloatListPlace(
+        pBox->pFloat, pBox->iContaining, iMinWidth, 10000, *pY);
+    HtmlFloatListMargins(
+            pBox->pFloat, *pY, *pY + 10000, &iLeftFloat, &iRightFloat);
+    iAvailable = iRightFloat - iLeftFloat;
+
     iWidth = PIXELVAL(
         pNode->pPropertyValues, WIDTH, 
-        pLayout->minmaxTest ? PIXELVAL_AUTO : pBox->iContaining
+        pLayout->minmaxTest ? PIXELVAL_AUTO : iAvailable
     );
     if (iWidth == PIXELVAL_AUTO) {
-        blockMinMaxWidth(pLayout, pNode, &iMinWidth, &iMaxWidth);
-        *pY = HtmlFloatListPlace(
-            pBox->pFloat, pBox->iContaining, iMinWidth, 10000, *pY);
-        HtmlFloatListMargins(
-            pBox->pFloat, *pY, *pY + 10000, &iLeftFloat, &iRightFloat);
-        iWidth = iRightFloat - iLeftFloat;
+        iWidth = iAvailable;
         flags = 0;
     } else {
-        flags = DRAWBLOCK_ENFORCEWIDTH|DRAWBLOCK_CONTENTWIDTH;
+        flags = DRAWBLOCK_ENFORCEWIDTH;
     }
 
     memset(&sBox, 0, sizeof(BoxContext));
     sBox.iContaining = pBox->iContaining;
     drawBlock(pLayout, &sBox, pNode, iWidth, flags);
 
-    y = *pY;
-    *pY += sBox.height;
-
+    y = HtmlFloatListPlace(
+            pBox->pFloat, pBox->iContaining, sBox.width, sBox.height, *pY);
+    *pY = y + sBox.height;
  
     if (pLayout->minmaxTest) {
         /* If this is a min-max size test, leave the table left-aligned. */
@@ -1971,6 +1974,7 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
      */
     HtmlFloatListMargins(pBox->pFloat, 0, 1, &left, &right);
     if (
+        pLayout->pTree->options.layoutcache && 
         !pLayout->minmaxTest && 
         pCache && (pCache->flags & CACHE_LAYOUT_VALID) &&
         pNormal->isValid == pCache->normalFlowIn.isValid &&
@@ -1985,11 +1989,9 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
         /* In this case we can use the cached layout. */
         assert(!pBox->vc.pFirst);
         assert(!pLayout->minmaxTest);
-
         HtmlDrawCopyCanvas(&pBox->vc, &pCache->canvas);
         pBox->width = pCache->iWidth;
         pBox->height = pCache->iHeight;
-
         pNormal->iMaxMargin = pCache->normalFlowOut.iMaxMargin;
         pNormal->iMinMargin = pCache->normalFlowOut.iMinMargin;
         pNormal->isValid = pCache->normalFlowOut.isValid;
@@ -2007,6 +2009,12 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
     pCache->iContaining = pBox->iContaining;
     pCache->iFloatLeft = left;
     pCache->iFloatRight = right;
+
+    LOG {
+        HtmlTree *pTree = pLayout->pTree;
+        const char *zNode = Tcl_GetString(HtmlNodeCommand(pTree, pNode));
+        HtmlFloatListLog(pTree, zNode, pBox->pFloat);
+    }
 
     /* Create the InlineContext object for this containing box */
     pContext = HtmlInlineContextNew(pNode, pLayout->minmaxTest);
@@ -2035,6 +2043,7 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
     assert(pBox->iContaining == pCache->iContaining);
     HtmlFloatListMargins(pBox->pFloat,pBox->height-1,pBox->height,&left,&right);
     if (
+        pLayout->pTree->options.layoutcache && 
         !pLayout->minmaxTest && 
         pCache->iFloatLeft == left &&
         pCache->iFloatRight == right 
@@ -2092,7 +2101,10 @@ blockMinMaxWidth(pLayout, pNode, pMin, pMax)
         pNode->pLayoutCache = pCache;
     }
 
-    if (pCache->flags & CACHE_MINMAX_VALID) {
+    if (
+        pLayout->pTree->options.layoutcache && 
+        (pCache->flags & CACHE_MINMAX_VALID)
+    ) {
         min = pCache->iMinWidth;
         max = pCache->iMaxWidth;
     } else {
@@ -2191,7 +2203,6 @@ borderLayout(pLayout, pNode, pBox, xA, yA, xB, yB)
     int xB;
     int yB;
 {
-    BoxProperties boxproperties;
     int x1, y1, x2, y2;
 
     BoxContext sBox;
@@ -2322,9 +2333,6 @@ layoutReplacement(pLayout, pBox, pNode)
     int height;
 
     HtmlComputedValues *pV = pNode->pPropertyValues;
-    Tk_Window tkwin = pLayout->tkwin;
-    Tcl_Interp *interp = pLayout->interp;
-
     assert(nodeIsReplaced(pNode));
 
     /* Read the values of the 'width' and 'height' properties of the node.

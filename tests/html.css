@@ -180,7 +180,8 @@ basefont[size]     { font-size:        tcl(::tkhtml::attr size) }
 font[size]         { font-size:        tcl(::tkhtml::attr size) }
 [bgcolor]          { background-color: tcl(::tkhtml::attr bgcolor -color) }
 
-BR[clear]   { clear: tcl(::tkhtml::attr clear) }
+BR[clear]          { clear: tcl(::tkhtml::attr clear) }
+BR[clear="all"]    { clear: both; }
 
 /* Standard html <img> tags - replace the node with the image at url $src */
 IMG[src]              { -tkhtml-replacement-image: tcl(::tkhtml::attr src) }

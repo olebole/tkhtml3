@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.78 2006/03/16 10:00:25 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.79 2006/03/18 15:29:35 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -702,6 +702,7 @@ configureCmd(clientData, interp, objc, objv)
         GEOMETRY(height, "height", "Height", "600"),
         GEOMETRY(width, "width", "Width", "800"),
         BOOLEAN(shrink, "shrink", "Shrink", "0"),
+        BOOLEAN(layoutcache, "layoutCache", "LayoutCache", "1"),
 
         /* Standard scroll interface - same as canvas, text */
         PIXELS(yscrollincrement, "yScrollIncrement", "ScrollIncrement", "20"),

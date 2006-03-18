@@ -135,6 +135,7 @@ itcl::body HtmlDebug::logcmd {subject message} {
       set arrayvar myStyleEngineLog
     }
     LAYOUTENGINE {
+puts "LAYOUTENGINE $message"
       set arrayvar myLayoutEngineLog
     }
   }
@@ -215,9 +216,11 @@ itcl::body HtmlDebug::searchNode {{idx 0}} {
 #
 itcl::body HtmlDebug::rerender {} {
   $myHtml configure -logcmd [list $this logcmd]
+  $myHtml configure -layoutcache 0
   $myHtml style ""
   after idle [list ::HtmlDebug::browse $myHtml $mySelected]
   after idle [list $myHtml configure -logcmd {}]
+  after idle [list $myHtml configure -layoutcache 1]
 }
 
 proc wireup_scrollbar {x_or_y widget scrollbar} {
@@ -321,6 +324,8 @@ itcl::body HtmlDebug::report {{node ""}} {
           td          { padding:0px 15px; }
           table       { margin: 20px; }
 
+          td:hover    { background: grey80 }
+
           /* Elements of class "code" are rendered in fixed font */
           .code       { font-family: fixed; }
 
@@ -403,7 +408,11 @@ itcl::body HtmlDebug::report {{node ""}} {
     if {[info exists myStyleEngineLog($node)]} {
         append doc {<table class=style_engine><tr><th>Style Engine}
         foreach entry $myStyleEngineLog($node) {
-            append doc "    <tr><td>$entry\n"
+            if {[string match matches* $entry]} {
+                append doc "    <tr><td><b>$entry<b>\n"
+            } else {
+                append doc "    <tr><td>$entry\n"
+            }
         }
         append doc "</table>\n"
     }
