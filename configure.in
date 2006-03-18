@@ -3,7 +3,7 @@ dnl	This file is an input file used by the GNU "autoconf" program to
 dnl	generate the file "configure", which is run during Tcl installation
 dnl	to configure the system for the local environment.
 #
-# RCS: @(#) $Id: configure.in,v 1.24 2006/03/07 10:35:58 danielk1977 Exp $
+# RCS: @(#) $Id: configure.in,v 1.25 2006/03/18 09:38:17 danielk1977 Exp $
 
 #-----------------------------------------------------------------------
 # Sample configure.in for Tcl Extensions.  The only places you should
@@ -72,6 +72,7 @@ TEA_SETUP_COMPILER
 #-----------------------------------------------------------------------
 
 TEA_ADD_SOURCES([css.c])
+TEA_ADD_SOURCES([cssdynamic.c])
 TEA_ADD_SOURCES([htmldraw.c])
 TEA_ADD_SOURCES([htmlfloat.c])
 TEA_ADD_SOURCES([htmlhash.c])
