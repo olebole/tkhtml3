@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlstyle.c,v 1.24 2006/03/21 08:02:45 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlstyle.c,v 1.25 2006/03/21 16:47:16 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -105,8 +105,12 @@ styleNode(pTree, pNode, clientData)
     
         HtmlCssStyleSheetApply(pTree, pNode);
 
-        HtmlComputedValuesRelease(pTree, pNode->pPreviousValues);
-        pNode->pPreviousValues = pV;
+        if (pV == pNode->pPropertyValues) {
+            HtmlComputedValuesRelease(pTree, pV);
+        } else {
+            HtmlComputedValuesRelease(pTree, pNode->pPreviousValues);
+            pNode->pPreviousValues = pV;
+        }
 
         redrawmode = HtmlComputedValuesCompare(pNode->pPropertyValues, pV);
         if (!pV || redrawmode == 2) {

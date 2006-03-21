@@ -654,7 +654,8 @@ snit::type Hv3Download {
 
   # Called after all data has been passed to [append].
   method finish {} {
-    if {$options(-finscript) != ""} { eval [linsert $options(-finscript) end $myData] 
+    if {$options(-finscript) != ""} { 
+      eval [linsert $options(-finscript) end $myData] 
     } 
     $self destroy
   }

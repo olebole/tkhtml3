@@ -28,7 +28,6 @@ struct LayoutContext {
     Tk_Window tkwin;
     Tcl_Interp *interp;      /* The interpreter */
 
-    Tcl_HashTable widthCache;
     int minmaxTest;          /* Currently figuring out min/max widths */
 };
 
@@ -115,9 +114,6 @@ HtmlDrawQuad(a, b, c, d, e, f, g, h, i, j, pLayout->minmaxTest)
 typedef struct BoxContext BoxContext;
 struct BoxContext {
     int iContaining;        /* DOWN:    Width of containing block. */
-
-    HtmlFloatList *pFloat;  /* UP/DOWN: Floating margins. */
-
     int height;             /* UP: Generated box height. */
     int width;              /* UP: Generated box width. */
     HtmlCanvas vc;          /* UP: Canvas to draw the block on. */

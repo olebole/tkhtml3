@@ -244,7 +244,6 @@ proc main {{doc index.html}} {
 
   set http_obj [Hv3HttpProtcol create %AUTO%]
   hv3RegisterProtocol .hv3 http [list $http_obj download]
-  # hv3RegisterProtocol .hv3 http httpProtocol
 
   set ::HTML .hv3.html
   bind $::HTML <KeyPress-q> exit
@@ -255,6 +254,7 @@ proc main {{doc index.html}} {
   # set ::html_log_timer(LAYOUT) 1
   # set ::html_log_timer(STYLE) 1
   # set ::html_log_log(CALLBACK) 1
+  .hv3.html configure -layoutcache 1
   hv3Goto .hv3 $doc
 }
 eval [concat main $argv]

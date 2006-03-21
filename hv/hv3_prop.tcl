@@ -135,7 +135,6 @@ itcl::body HtmlDebug::logcmd {subject message} {
       set arrayvar myStyleEngineLog
     }
     LAYOUTENGINE {
-puts "LAYOUTENGINE $message"
       set arrayvar myLayoutEngineLog
     }
   }
@@ -216,11 +215,9 @@ itcl::body HtmlDebug::searchNode {{idx 0}} {
 #
 itcl::body HtmlDebug::rerender {} {
   $myHtml configure -logcmd [list $this logcmd]
-  $myHtml configure -layoutcache 0
-  $myHtml style ""
+  $myHtml relayout
   after idle [list ::HtmlDebug::browse $myHtml $mySelected]
   after idle [list $myHtml configure -logcmd {}]
-  after idle [list $myHtml configure -layoutcache 1]
 }
 
 proc wireup_scrollbar {x_or_y widget scrollbar} {

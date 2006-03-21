@@ -37,7 +37,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  * COPYRIGHT:
  */
-static const char rcsid[] = "$Id: htmlfloat.c,v 1.11 2006/03/18 15:29:35 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlfloat.c,v 1.12 2006/03/21 16:47:16 danielk1977 Exp $";
 
 #include <assert.h>
 #include "html.h"
@@ -734,11 +734,12 @@ HtmlFloatListLog(pTree, zNode, pList)
 }
 
 int
-HtmlFloatListIsConstant(pList, iHeight)
+HtmlFloatListIsConstant(pList, y, iHeight)
     HtmlFloatList *pList;
+    int y;
     int iHeight;
 {
-    int y1 = pList->yorigin * -1;
+    int y1 = y - pList->yorigin;
     int y2 = y1 + iHeight;
     FloatListEntry *p;
 

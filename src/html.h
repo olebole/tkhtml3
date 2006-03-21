@@ -485,7 +485,7 @@ int HtmlFloatListClear(HtmlFloatList*, int, int);
 void HtmlFloatListNormalize(HtmlFloatList*, int, int);
 void HtmlFloatListMargins(HtmlFloatList*, int, int, int *, int *);
 void HtmlFloatListLog(HtmlTree *, CONST char *, HtmlFloatList *);
-int HtmlFloatListIsConstant(HtmlFloatList*, int);
+int HtmlFloatListIsConstant(HtmlFloatList*, int, int);
 
 HtmlPropertyCache * HtmlNewPropertyCache();
 void HtmlDeletePropertyCache(HtmlPropertyCache *pCache);

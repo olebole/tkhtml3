@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.63 2006/03/17 15:47:10 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.64 2006/03/21 16:47:16 danielk1977 Exp $";
 
 #include "htmllayout.h"
 
@@ -496,8 +496,6 @@ tableDrawCells(pNode, col, colspan, row, rowspan, pContext)
     pData->aCell[col].pNode = pNode;
     pData->aCell[col].colspan = colspan;
 
-    pBox->pFloat = HtmlFloatListNew();
-
     pBox->iContaining = pData->aWidth[col];
     for (i=col+1; i<col+colspan; i++) {
         pBox->iContaining += (pData->aWidth[i] + pData->border_spacing);
@@ -511,9 +509,6 @@ tableDrawCells(pNode, col, colspan, row, rowspan, pContext)
     for (i=row+rowspan+1; i<=pData->nRow; i++) {
         pData->aY[i] = MAX(pData->aY[row+rowspan], pData->aY[i]);
     }
-
-    HtmlFloatListDelete(pBox->pFloat);
-    pBox->pFloat = 0;
 
     return TCL_OK;
 }

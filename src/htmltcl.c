@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.81 2006/03/21 08:02:45 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.82 2006/03/21 16:47:16 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -46,6 +46,8 @@ static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.81 2006/03/21 08:02:45 dani
 #include <time.h>
 
 #include "htmldefaultstyle.c"
+
+#define LOG if (pTree->options.logcmd)
 
 #define SafeCheck(interp,str) if (Tcl_IsSafe(interp)) { \
     Tcl_AppendResult(interp, str, " invalid in safe interp", 0); \
@@ -534,6 +536,12 @@ HtmlCallbackLayout(pTree, pNode)
 {
     if (pNode) {
         HtmlNode *p;
+
+        LOG {
+            char *zNode = Tcl_GetString(HtmlNodeCommand(pTree, pNode));
+            HtmlLog(pTree, "CALLBACK", "Schedule LAYOUT. Node=%s", zNode);
+        }
+
         if (!pTree->cb.flags) {
             Tcl_DoWhenIdle(callbackHandler, (ClientData)pTree);
         }
@@ -1097,6 +1105,68 @@ resetCmd(clientData, interp, objc, objv)
     return TCL_OK;
 }
 
+static int 
+relayoutCb(pTree, pNode, clientData)
+    HtmlTree *pTree;
+    HtmlTree *pNode;
+    ClientData clientData;
+{
+    HtmlCallbackLayout(pTree, pNode);
+    return 0;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * relayoutCmd --
+ * 
+ *         $html relayout ?-layout|-style? ?NODE?
+ *
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+relayoutCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget */
+    Tcl_Interp *interp;                /* The interpreter */
+    int objc;                          /* Number of arguments */
+    Tcl_Obj *const *objv;              /* List of all arguments */
+{
+    HtmlTree *pTree = (HtmlTree *)clientData;
+
+    if (objc == 2) {
+        HtmlCallbackRestyle(pTree, pTree->pRoot);
+        HtmlWalkTree(pTree, pTree->pRoot, relayoutCb, 0);
+    } else {
+        char *zArg3 = ((objc >= 3) ? Tcl_GetString(objv[2]) : 0);
+        char *zArg4 = ((objc >= 4) ? Tcl_GetString(objv[3]) : 0);
+        HtmlNode *pNode;
+
+        pNode = HtmlNodeGetPointer(pTree, zArg4 ? zArg4 : zArg3);
+        if (!zArg4) {
+            HtmlCallbackRestyle(pTree, pNode);
+            HtmlCallbackLayout(pTree, pNode);
+        } else if (0 == strcmp(zArg3, "-layout")) {
+            HtmlCallbackLayout(pTree, pNode);
+        } else if (0 == strcmp(zArg3, "-style")) {
+            HtmlCallbackRestyle(pTree, pNode);
+        } else {
+            Tcl_AppendResult(interp, 
+                "Bad option \"", zArg3, "\": must be -layout or -style", 0
+            );
+            return TCL_ERROR;
+        }
+    }
+
+    return TCL_OK;
+}
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -1170,9 +1240,7 @@ parseCmd(clientData, interp, objc, objv)
 
     HtmlCallbackRestyle(pTree, pCurrent ? pCurrent : pTree->pRoot);
     HtmlCallbackRestyle(pTree, pTree->pCurrent);
-    for ( ; pCurrent ; pCurrent = HtmlNodeParent(pCurrent)) {
-        HtmlLayoutInvalidateCache(pCurrent);
-    }
+    HtmlCallbackLayout(pTree, pCurrent);
 
     return TCL_OK;
 }
@@ -1853,6 +1921,7 @@ int widgetCmd(clientData, interp, objc, objv)
         {"parse",      0,        parseCmd},
         {"primitives", 0,        primitivesCmd},     /* debugging command */
         {"reset",      0,        resetCmd},
+        {"relayout",   0,        relayoutCmd},
         {"search",     0,        searchCmd},
         {"select",     "clear",  selectClearCmd},
         {"select",     "from",   selectCmd},
