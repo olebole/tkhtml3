@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.56 2006/03/14 18:08:00 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.57 2006/03/21 08:02:43 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -2362,11 +2362,18 @@ void HtmlCssSelector(pParse, stype, pAttr, pValue)
     memset(pSelector, 0, sizeof(CssSelector));
     pSelector->eSelector = stype;
     pSelector->zValue = tokenToString(pValue);
-    dequote(pSelector->zValue);
     pSelector->zAttr = tokenToString(pAttr);
-
     pSelector->pNext = pParse->pSelector;
+    pSelector->isDynamic = (
+        (pSelector->pNext && pSelector->pNext->isDynamic) ||
+        (stype == CSS_PSEUDOCLASS_LINK)                   ||
+        (stype == CSS_PSEUDOCLASS_VISITED)                ||
+        (stype == CSS_PSEUDOCLASS_HOVER)                  ||
+        (stype == CSS_PSEUDOCLASS_FOCUS)                  ||
+        (stype == CSS_PSEUDOCLASS_ACTIVE)
+    ) ? 1 : 0;
     pParse->pSelector = pSelector;
+    dequote(pSelector->zValue);
 
     /* Tag names are case-insensitive - fold to lower case */
     if( stype==CSS_SELECTOR_TYPE ){
@@ -3021,7 +3028,8 @@ HtmlCssStyleSheetApply(pTree, pNode)
         }
 
         if (
-            selectorIsDynamic(pSelector) &&
+            /* selectorIsDynamic(pSelector) && */
+            pSelector->isDynamic &&
             HtmlCssSelectorTest(pSelector, pNode, 1)
         ) {
             HtmlCssAddDynamic(pNode, pSelector, isMatch);

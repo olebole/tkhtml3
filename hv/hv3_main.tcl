@@ -254,6 +254,7 @@ proc main {{doc index.html}} {
   form_init .hv3.html [list hv3Goto .hv3]
   # set ::html_log_timer(LAYOUT) 1
   # set ::html_log_timer(STYLE) 1
+  # set ::html_log_log(CALLBACK) 1
   hv3Goto .hv3 $doc
 }
 eval [concat main $argv]

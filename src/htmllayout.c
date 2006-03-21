@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.134 2006/03/18 15:29:35 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.135 2006/03/21 08:02:44 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -2040,6 +2040,7 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
 
     left = 0;
     right = pBox->iContaining;
+    assert(pNode->pLayoutCache == pCache);
     assert(pBox->iContaining == pCache->iContaining);
     HtmlFloatListMargins(pBox->pFloat,pBox->height-1,pBox->height,&left,&right);
     if (
@@ -2360,7 +2361,7 @@ layoutReplacement(pLayout, pBox, pNode)
             width = Tk_ReqWidth(win);
             height = Tk_ReqHeight(win);
             iOffset = pNode->pReplacement->iOffset;
-            DRAW_WINDOW(&pBox->vc, pWin, 0, 0, width, height);
+            DRAW_WINDOW(&pBox->vc, pNode, 0, 0, width, height);
         }
     } else {
         int t = pLayout->minmaxTest;
@@ -2488,4 +2489,19 @@ HtmlLayoutInvalidateCache(pNode)
         pNode->pLayoutCache = 0;
     }
 }
+
+HtmlCanvas *
+HtmlLayoutGetCanvas(pTree, pNode)
+    HtmlTree *pTree;
+    HtmlNode *pNode;
+{
+    HtmlNode *p;
+    for (p = pNode; p; p = HtmlNodeParent(p)) {
+        if (p->pLayoutCache && (p->pLayoutCache->flags & CACHE_LAYOUT_VALID)) {
+            return &p->pLayoutCache->canvas;
+        }
+    }
+    return &pTree->canvas;
+}
+
 

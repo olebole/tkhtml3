@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.54 2006/03/16 13:56:47 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.55 2006/03/21 08:02:45 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -2352,6 +2352,9 @@ HtmlNodeProperties(interp, pValues)
     return TCL_OK;
 }
 
+#define HTML_LAYOUT 2
+#define HTML_PAINT  1
+#define HTML_OK     0
 int 
 HtmlComputedValuesCompare(pV1, pV2) 
     HtmlComputedValues *pV1;
@@ -2361,6 +2364,10 @@ HtmlComputedValuesCompare(pV1, pV2)
     unsigned char *v1 = (unsigned char *)pV1;
     unsigned char *v2 = (unsigned char *)pV2;
     int ii;
+
+    if (pV1 == pV2) {
+        return HTML_OK;
+    }
 
     /* 
      * Check for changes in the following properties:
@@ -2378,7 +2385,7 @@ HtmlComputedValuesCompare(pV1, pV2)
         pV1->eVerticalAlign != pV2->eVerticalAlign ||
         (!pV1->eVerticalAlign && pV1->iVerticalAlign != pV1->iVerticalAlign)
     ) {
-        return 1;
+        return HTML_LAYOUT;
     }
 
     pDef = &pvdef[0];
@@ -2387,7 +2394,7 @@ HtmlComputedValuesCompare(pV1, pV2)
             case ENUM:
                 if (pDef->eCssProperty != CSS_PROPERTY_TEXT_DECORATION) {
                     if (*(v1 + pDef->iOffset) != *(v2 + pDef->iOffset)) {
-                        return 1;
+                        return HTML_LAYOUT;
                     }
                 }
                 break;
@@ -2399,7 +2406,7 @@ HtmlComputedValuesCompare(pV1, pV2)
                     *pL1 != *pL2 || 
                     (pDef->mask & pV1->mask != pDef->mask & pV2->mask)
                 ) {
-                    return 1;
+                    return HTML_LAYOUT;
                 }
  
                 break;
@@ -2407,6 +2414,6 @@ HtmlComputedValuesCompare(pV1, pV2)
         }
     }
 
-    return 0;
+    return HTML_PAINT;
 }
 

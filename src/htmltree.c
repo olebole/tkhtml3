@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.56 2006/03/18 18:29:03 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.57 2006/03/21 08:02:46 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -983,27 +983,9 @@ geomRequestProc(clientData, widget)
     Tk_Window widget;
 {
     HtmlTree *pTree = (HtmlTree *)clientData;
-    HtmlCallbackSchedule(pTree, HTML_CALLBACK_LAYOUT);
-}
-
-static HtmlNode *
-commonParent(pNodeA, pNodeB) 
-    HtmlNode *pNodeA;
-    HtmlNode *pNodeB;
-{
-    HtmlNode *pA;
-    HtmlNode *pB;
-
-    assert(pNodeB);
-
-    for (pA = pNodeA; pA; pA = HtmlNodeParent(pA)) {
-        for (pB = pNodeB; pB; pB = HtmlNodeParent(pB)) {
-            if (pB == pA) return pA;
-        }
-    }
-
-    assert(!pNodeA);
-    return pNodeB;
+#if 0
+    HtmlCallbackLayout(pTree, pTree->pRoot);
+#endif
 }
 
 /*
@@ -1302,7 +1284,7 @@ node_attr_usage:
                 pNode->pReplacement = pReplace;
 
                 /* Run the layout engine. */
-                HtmlCallbackSchedule(pTree, HTML_CALLBACK_LAYOUT);
+                HtmlCallbackLayout(pTree, pNode);
             }
 
             /* The result of this command is the name of the current
@@ -1394,9 +1376,7 @@ node_attr_usage:
             }
             Tcl_SetObjResult(interp, pRet);
 
-            pTree->cb.pDynamic = commonParent(pTree->cb.pDynamic, pNode);
-            HtmlCallbackSchedule(pTree, HTML_CALLBACK_DYNAMIC);
-
+            HtmlCallbackDynamic(pTree, pNode);
             break;
         }
 

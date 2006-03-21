@@ -3,7 +3,7 @@
 #include "cssInt.h"
 
 /*
- * How CSS selectors are implemented:
+ * How dynamic CSS selectors are implemented:
  *
  *     The implementation of dynamic CSS selectors serves two purposes.
  *     Firstly, they are a feature in and of themselves. Secondly, they
@@ -31,16 +31,6 @@ HtmlCssAddDynamic(pNode, pSelector, isSet)
         if (pNew->pSelector == pSelector) return;
     }
     pNew = 0;
-    
-#if 0
-    {
-        Tcl_Obj *pObj = Tcl_NewObj();
-        Tcl_IncrRefCount(pObj);
-        HtmlCssSelectorToString(pSelector, pObj);
-        printf("Attach dynamic selector %s\n", Tcl_GetString(pObj));
-        Tcl_DecrRefCount(pObj);
-    }
-#endif
 
     pNew = (CssDynamic *)HtmlClearAlloc(sizeof(CssDynamic));
     pNew->isSet = (isSet ? 1 : 0);

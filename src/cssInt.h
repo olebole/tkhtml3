@@ -126,6 +126,7 @@ struct CssToken {
  * used.
  */
 struct CssSelector {
+    u8 isDynamic;     /* True if this selector is dynamic */
     u8 eSelector;     /* CSS_SELECTOR* or CSS_PSEUDO* value */
     char *zAttr;      /* The attribute queried, if any. */
     char *zValue;     /* The value tested for, if any. */

@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlimage.c,v 1.44 2006/03/17 15:47:10 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlimage.c,v 1.45 2006/03/21 08:02:44 danielk1977 Exp $";
 
 #include <assert.h>
 #include "html.h"
@@ -248,10 +248,7 @@ imageChangedCb(pTree, pNode, clientData)
         assert(!pV->imReplacementImage || !pV->imReplacementImage->pUnscaled);
         assert(!pV->imListStyleImage || !pV->imListStyleImage->pUnscaled);
         if (pV->imReplacementImage==pImage || pV->imListStyleImage==pImage) {
-            HtmlNode *p;
-            for (p = pNode; p ; p = HtmlNodeParent(p)) {
-                HtmlLayoutInvalidateCache(p);
-            }
+            HtmlCallbackLayout(pTree, pNode);
         }
     }
     return 0;
@@ -300,13 +297,11 @@ imageChanged(clientData, x, y, width, height, imgWidth, imgHeight)
              * efficient.
              */
             Tk_Window tkwin = pTree->tkwin;
-            HtmlCallbackSchedule(pTree, HTML_CALLBACK_DAMAGE);
-            HtmlCallbackExtents(pTree, 0, 0, Tk_Width(tkwin), Tk_Height(tkwin));
+            HtmlCallbackDamage(pTree, 0, 0, Tk_Width(tkwin), Tk_Height(tkwin));
         } else {
             pImage->width = imgWidth;
             pImage->height = imgHeight;
             HtmlWalkTree(pTree, 0, imageChangedCb, (ClientData)pImage);
-            HtmlCallbackSchedule(pTree, HTML_CALLBACK_LAYOUT);
         }
         pImage->eAlpha = ALPHA_CHANNEL_UNKNOWN;
     }

@@ -220,6 +220,7 @@ struct HtmlCanvas {
     int bottom;
     HtmlCanvasItem *pFirst;
     HtmlCanvasItem *pLast;
+
     int isWindowListOk;
     HtmlCanvasItem *pWindow;
 };
@@ -254,32 +255,49 @@ void HtmlTimer(HtmlTree *, CONST char *, CONST char *, ...);
 
 /*
  * Widget state information information is stored in an instance of this
- * structure, which is a part of the HtmlTree. The variables within control the
- * behaviour of the idle callback scheduled to update the display.
- *
- * eCallbackAction may take the following values:
- *
- *     HTML_CALLBACK_NONE
- *     HTML_CALLBACK_DYNAMIC
- *     HTML_CALLBACK_DAMAGE
- *     HTML_CALLBACK_LAYOUT
- *     HTML_CALLBACK_STYLE
+ * structure, which is a part of the HtmlTree. The variables within control 
+ * the behaviour of the idle callback scheduled to update the display.
  */
 struct HtmlCallback {
-    int eCallbackAction;            /* Action to take in next callback */
+    int flags;                  /* Comb. of HTML_XXX bitmasks defined below */
+    int inProgress;             /* Prevent recursive invocation */
 
-    int x1, y1;                     /* Top-left corner of damaged region */
-    int x2, y2;                     /* Bottom-right corner of damaged region */
+    /* HTML_DYNAMIC */
+    HtmlNode *pDynamic;         /* Recalculate dynamic CSS for this node */
 
-    HtmlNode *pDynamic;             /* Recalculate dynamic CSS for this node */
-    HtmlNode *pRestyle;             /* Restyle this node */
+    /* HTML_DAMAGE */
+    int x, y;                   /* Top-left corner of damaged region */
+    int w, h;                   /* Bottom-right corner of damaged region */
+
+    /* HTML_RESTYLE */
+    HtmlNode *pRestyle;         /* Restyle this node */
+
+    /* HTML_SCROLL */
+    int iScrollX;               /* New HtmlTree.iScrollX value */
+    int iScrollY;               /* New HtmlTree.iScrollY value */
 };
 
-#define HTML_CALLBACK_NONE    0
-#define HTML_CALLBACK_DYNAMIC 1
-#define HTML_CALLBACK_DAMAGE  2
-#define HTML_CALLBACK_LAYOUT  3
-#define HTML_CALLBACK_STYLE   4
+/* Values for HtmlCallback.flags */
+#define HTML_DYNAMIC    0x01
+#define HTML_DAMAGE     0x02
+#define HTML_RESTYLE    0x04
+#define HTML_LAYOUT     0x08
+#define HTML_SCROLL     0x10
+
+/* 
+ * Functions used to schedule callbacks and set the HtmlCallback state. 
+ */
+void HtmlCallbackSchedule(HtmlTree *, int);
+void HtmlCallbackExtents(HtmlTree *, int, int, int, int);
+
+void HtmlCallbackForce(HtmlTree *);
+void HtmlCallbackDynamic(HtmlTree *, HtmlNode *);
+void HtmlCallbackDamage(HtmlTree *, int, int, int, int);
+void HtmlCallbackLayout(HtmlTree *, HtmlNode *);
+void HtmlCallbackRestyle(HtmlTree *, HtmlNode *);
+
+void HtmlCallbackScrollX(HtmlTree *, int);
+void HtmlCallbackScrollY(HtmlTree *, int);
 
 struct HtmlTree {
 
@@ -402,10 +420,6 @@ Tcl_ObjCmdProc HtmlLayoutBbox;
 
 int HtmlStyleApply(HtmlTree *, HtmlNode *);
 
-int  HtmlWidgetMapControls(HtmlTree *);
-int HtmlWidgetScroll(HtmlTree *, int, int);
-int HtmlWidgetPaint(HtmlTree *, int, int, int, int, int, int);
-
 int HtmlLayout(HtmlTree *);
 
 int HtmlStyleParse(HtmlTree*, Tcl_Interp*, Tcl_Obj*,Tcl_Obj*,Tcl_Obj*,Tcl_Obj*);
@@ -447,7 +461,7 @@ void HtmlDrawText(HtmlCanvas*,Tcl_Obj*,int,int,int,int,HtmlNode*,int);
 void HtmlDrawBox(HtmlCanvas *, int, int, int, int, HtmlNode *, int, int);
 void HtmlDrawLine(HtmlCanvas *, int, int, int, int, int, HtmlNode *, int);
 
-void HtmlDrawWindow(HtmlCanvas *, Tcl_Obj *, int, int, int, int, int);
+void HtmlDrawWindow(HtmlCanvas *, HtmlNode *, int, int, int, int, int);
 void HtmlDrawBackground(HtmlCanvas *, XColor *, int);
 void HtmlDrawQuad(HtmlCanvas*,int,int,int,int,int,int,int,int,XColor*,int);
 int  HtmlDrawIsEmpty(HtmlCanvas *);
@@ -456,8 +470,8 @@ void HtmlDrawImage(HtmlCanvas*, HtmlImage2*, int, int, int, int, HtmlNode*, int)
 void HtmlDrawOrigin(HtmlCanvas*);
 void HtmlDrawCopyCanvas(HtmlCanvas*, HtmlCanvas*);
 
-void HtmlLayoutPaintText(HtmlTree *, int, int, int, int);
-int HtmlLayoutScrollToNode(HtmlTree *, int);
+void HtmlWidgetDamageText(HtmlTree *, int, int, int, int);
+int HtmlWidgetNodeTop(HtmlTree *, int);
 
 HtmlTokenMap *HtmlMarkup(int);
 CONST char * HtmlMarkupName(int);
@@ -485,11 +499,6 @@ Tcl_HashKeyType * HtmlComputedValuesHashType();
 CONST char *HtmlDefaultTcl();
 CONST char *HtmlDefaultCss();
 
-void HtmlCallbackForce(HtmlTree *);
-void HtmlCallbackSchedule(HtmlTree *, int);
-void HtmlCallbackExtents(HtmlTree *, int, int, int, int);
-void HtmlCallbackRestyle(HtmlTree *, HtmlNode *);
-
 /* Functions from htmlimage.c */
 void HtmlImageServerInit(HtmlTree *);
 void HtmlImageServerShutdown(HtmlTree *);
@@ -507,6 +516,11 @@ int HtmlImageAlphaChannel(HtmlTree *, HtmlImage2 *);
 
 void HtmlLayoutPaintNode(HtmlTree *, HtmlNode *);
 void HtmlLayoutInvalidateCache(HtmlNode *);
+void HtmlWidgetNodeBox(HtmlTree *, HtmlNode *, int *, int *, int *, int *);
+HtmlCanvas *HtmlLayoutGetCanvas(HtmlTree *, HtmlNode *);
+
+void HtmlWidgetSetViewport(HtmlTree *, int, int, int);
+void HtmlWidgetRepair(HtmlTree *, int, int, int, int);
 
 #endif
 

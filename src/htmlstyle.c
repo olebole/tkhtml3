@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlstyle.c,v 1.23 2006/03/18 18:29:03 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlstyle.c,v 1.24 2006/03/21 08:02:45 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -78,12 +78,11 @@ styleNode(pTree, pNode, clientData)
         HtmlComputedValues *pV = pNode->pPropertyValues;
         pNode->pPropertyValues = 0;
 
+        int redrawmode = 0;
+
         /* If the clientData was set to a non-zero value, then the 
          * stylesheet configuration has changed. In this case we need to
          * recalculate the nodes list of dynamic conditions.
-         *
-         * Also, don't bother to save any previous values structure. The 
-         * layout engine will need to run again regardless.
          */
         if (trashDynamics) {
             HtmlCssFreeDynamics(pNode);
@@ -109,8 +108,13 @@ styleNode(pTree, pNode, clientData)
         HtmlComputedValuesRelease(pTree, pNode->pPreviousValues);
         pNode->pPreviousValues = pV;
 
-        if (!pV || HtmlComputedValuesCompare(pNode->pPropertyValues, pV)) {
-            invalidateAncestors(pNode);
+        redrawmode = HtmlComputedValuesCompare(pNode->pPropertyValues, pV);
+        if (!pV || redrawmode == 2) {
+            HtmlCallbackLayout(pTree, pNode);
+        } else if (redrawmode == 1) {
+            int x, y, w, h;
+            HtmlWidgetNodeBox(pTree, pNode, &x, &y, &w, &h);
+            HtmlCallbackDamage(pTree, x-pTree->iScrollX, y-pTree->iScrollY,w,h);
         }
     }
 

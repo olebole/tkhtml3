@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.80 2006/03/18 18:29:03 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.81 2006/03/21 08:02:45 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -312,94 +312,85 @@ callbackHandler(clientData)
     ClientData clientData;
 {
     HtmlTree *pTree = (HtmlTree *)clientData;
-    int eCallbackAction;
+    HtmlCallback *p = &pTree->cb;
 
-    int x = 0;
-    int y = 0;
-    int w = 0;
-    int h = 0;
-
-    int canvas_x = 0;
-    int canvas_y = 0;
-
-    clock_t styleClock = 0;
+    clock_t styleClock = 0;              
     clock_t layoutClock = 0;
 
-    /* If the HtmlCallback.pDynamic variable is set, then see if we need to
-     * modify this callback operation due to dynamic CSS rules before
-     * proceeding.  If this is the case, HtmlCssCheckDynamic() will modify
-     * variables in the HtmlTree.cb structure.
+    assert(!pTree->pRoot||pTree->pRoot->pPropertyValues||pTree->cb.pRestyle);
+
+    HtmlLog(pTree, "CALLBACK", 
+        "flags=(%s%s%s%s%s) pDynamic=%s pRestyle=%s scroll=(+%d+%d) "
+        "damage=(%dx%d+%d+%d)",
+        (p->flags & HTML_DYNAMIC ? "Dynamic " : ""),
+        (p->flags & HTML_RESTYLE ? "Style " : ""),
+        (p->flags & HTML_LAYOUT ? "Layout " : ""),
+        (p->flags & HTML_DAMAGE ? "Damage " : ""),
+        (p->flags & HTML_SCROLL ? "Scroll " : ""),
+        (p->pDynamic?Tcl_GetString(HtmlNodeCommand(pTree,p->pDynamic)):"N/A"),
+        (p->pRestyle?Tcl_GetString(HtmlNodeCommand(pTree,p->pRestyle)):"N/A"),
+         p->iScrollX, p->iScrollY,
+         p->w, p->h, p->x, p->y
+    );
+
+    assert(!pTree->cb.inProgress);
+    pTree->cb.inProgress = 1;
+
+    /* If the HTML_DYNAMIC flag is set, then call HtmlCssCheckDynamic()
+     * to recalculate all the dynamic CSS rules that may apply to 
+     * the sub-tree rooted at HtmlCallback.pDynamic. CssCheckDynamic() may
+     * call either HtmlCallbackDamage() or HtmlCallbackRestyle() if any
+     * computed style values are modified.
      */
-    HtmlCssCheckDynamic(pTree);
-    eCallbackAction = pTree->cb.eCallbackAction;
-    pTree->cb.eCallbackAction = HTML_CALLBACK_NONE;
-
-    assert(
-        eCallbackAction == HTML_CALLBACK_LAYOUT ||
-        eCallbackAction == HTML_CALLBACK_STYLE ||
-        eCallbackAction == HTML_CALLBACK_DAMAGE ||
-        eCallbackAction == HTML_CALLBACK_DYNAMIC
-    );
-
-    switch (eCallbackAction) {
-        case HTML_CALLBACK_STYLE:
-            styleClock = clock();
-            HtmlStyleApply(pTree, pTree->cb.pRestyle);
-            styleClock = clock() - styleClock;
-            pTree->cb.pRestyle = 0;
-        case HTML_CALLBACK_LAYOUT:
-            layoutClock = clock();
-            HtmlLayout(pTree);
-            x = 0;
-            y = 0;
-            w = Tk_Width(pTree->tkwin);
-            h = Tk_Height(pTree->tkwin);
-            layoutClock = clock() - layoutClock;
-            break;
-        case HTML_CALLBACK_DAMAGE: {
-            x = pTree->cb.x1;
-            y = pTree->cb.y1;
-            w = pTree->cb.x2 - x;
-            h = pTree->cb.y2 - y;
-            break;
-        }
+    if (pTree->cb.flags & HTML_DYNAMIC) {
+        assert(pTree->cb.pDynamic);
+        HtmlCssCheckDynamic(pTree);
     }
 
-    canvas_y = pTree->iScrollY;
-    canvas_x = pTree->iScrollX;
-
-    assert(w >= 0 && h >=0 && x >= 0 && y >= 0);
-    HtmlWidgetPaint(pTree, x + canvas_x, y + canvas_y, x, y, w, h);
-
-    HtmlLog(pTree, "CALLBACK", "%s - %dx%d @ (%d, %d)",
-        eCallbackAction == HTML_CALLBACK_STYLE ?  "STYLE" :
-        eCallbackAction == HTML_CALLBACK_LAYOUT ? "LAYOUT" :
-        eCallbackAction == HTML_CALLBACK_DAMAGE ? "DAMAGE" :
-        "N/A",
-        w, h, x, y
-    );
-
-    if (eCallbackAction >= HTML_CALLBACK_STYLE) {
-        HtmlTimer(pTree, "STYLE",  "%f seconds", 
-            (double)styleClock / (double)CLOCKS_PER_SEC);
-    }
-    if (eCallbackAction >= HTML_CALLBACK_LAYOUT) {
-        HtmlTimer(pTree, "LAYOUT",  "%f seconds", 
-            (double)layoutClock / (double)CLOCKS_PER_SEC);
+    /* If the HtmlCallback.pRestyle variable is set, then recalculate 
+     * style information for the sub-tree rooted at HtmlCallback.pRestyle. 
+     * Note that restyling a node may invoke the -imagecmd callback.
+     *
+     * Todo: This seems dangerous.  What happens if the -imagecmd calls
+     * [.html parse] or something?
+     */
+    if (pTree->cb.flags & HTML_RESTYLE) {
+        HtmlNode *pRestyle = pTree->cb.pRestyle;
+        pTree->cb.pRestyle = 0;
+        assert(pRestyle);
+        styleClock = clock();
+        HtmlStyleApply(pTree, pRestyle);
+        styleClock = clock() - styleClock;
     }
 
-    pTree->cb.x1 = Tk_Width(pTree->tkwin) + 1;
-    pTree->cb.y1 = Tk_Height(pTree->tkwin) + 1;
-    pTree->cb.x2 = 0;
-    pTree->cb.y2 = 0;
-
-    if (
-        eCallbackAction == HTML_CALLBACK_LAYOUT || 
-        eCallbackAction == HTML_CALLBACK_STYLE
-    ) {
-        HtmlWidgetMapControls(pTree);
-        doScrollCallback(pTree);
+    /* If the HTML_LAYOUT flag is set, run the layout engine. If the layout
+     * engine is run, then also set the HTML_SCROLL bit in the
+     * HtmlCallback.flags bitmask. This ensures that the entire display is
+     * redrawn and that the Tk windows for any replaced nodes are correctly
+     * mapped, unmapped or moved.
+     */
+    if (pTree->cb.flags & HTML_LAYOUT) {
+        layoutClock = clock();
+        HtmlLayout(pTree);
+        layoutClock = clock() - layoutClock;
+        pTree->cb.flags |= HTML_SCROLL;
     }
+
+    /* If the HTML_DAMAGE flag is set, repaint a window region. */
+    if (pTree->cb.flags & HTML_DAMAGE) {
+        HtmlWidgetRepair(pTree, p->x, p->y, p->w, p->h);
+    }
+
+    /* If the HTML_SCROLL flag is set, scroll the viewport. */
+    if (pTree->cb.flags & HTML_SCROLL) {
+        int force_redraw = (pTree->cb.flags & HTML_LAYOUT);
+        HtmlWidgetSetViewport(pTree, p->iScrollX, p->iScrollY, force_redraw);
+    }
+
+    doScrollCallback(pTree);
+    pTree->cb.flags = 0;
+    assert(pTree->cb.inProgress);
+    pTree->cb.inProgress = 0;
 }
 
 /*
@@ -407,8 +398,8 @@ callbackHandler(clientData)
  *
  * HtmlCallbackForce --
  *
- *     If there is a callback scheduled, execute it now instead of waiting for
- *     the idle loop.
+ *     If there is a callback scheduled, execute it now instead of waiting 
+ *     for the idle loop.
  *
  * Results:
  *     None.
@@ -422,72 +413,141 @@ void
 HtmlCallbackForce(pTree)
     HtmlTree *pTree;
 {
-    int eAction = pTree->cb.eCallbackAction;
-    if (eAction != HTML_CALLBACK_NONE && eAction != HTML_CALLBACK_DAMAGE) {
+    if (pTree->cb.flags && !pTree->cb.inProgress) {
         ClientData clientData = (ClientData)pTree;
         Tcl_CancelIdleCall(callbackHandler, clientData);
         callbackHandler(clientData);
     }
 }
 
-
-/*
- *---------------------------------------------------------------------------
- *
- * HtmlScheduleCallback --
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-void 
-HtmlCallbackSchedule(pTree, eCallbackAction)
-    HtmlTree *pTree;
-    int eCallbackAction;
-{
-    assert(
-        eCallbackAction == HTML_CALLBACK_LAYOUT ||
-        eCallbackAction == HTML_CALLBACK_STYLE ||
-        eCallbackAction == HTML_CALLBACK_DAMAGE ||
-        eCallbackAction == HTML_CALLBACK_DYNAMIC
-    );
-
-    if (pTree->cb.eCallbackAction == HTML_CALLBACK_NONE) {
-        Tcl_DoWhenIdle(callbackHandler, (ClientData)pTree);
-    }
-
-    pTree->cb.eCallbackAction = MAX(eCallbackAction, pTree->cb.eCallbackAction);
-}
-
-void 
-HtmlCallbackRestyle(pTree, pNode)
-    HtmlTree *pTree;
+static void
+upgradeRestylePoint(ppRestyle, pNode)
+    HtmlNode **ppRestyle;
     HtmlNode *pNode;
 {
     HtmlNode *pA;
     HtmlNode *pB;
+    assert(pNode && ppRestyle);
 
-    for (pA = pTree->cb.pRestyle; pA; pA = HtmlNodeParent(pA)) {
+    for (pA = *ppRestyle; pA; pA = HtmlNodeParent(pA)) {
         for (pB = pNode; pB; pB = HtmlNodeParent(pB)) {
             if (pB == pA) {
-                pTree->cb.pRestyle = pB;
+                *ppRestyle = pB;
                 return;
             }  
         }
     }
 
-    pTree->cb.pRestyle = pNode;
-    HtmlCallbackSchedule(pTree, HTML_CALLBACK_STYLE);
+    assert(!*ppRestyle);
+    *ppRestyle = pNode;
 }
 
 /*
  *---------------------------------------------------------------------------
  *
- * HtmlCallbackExtents --
+ * HtmlCallbackRestyle --
+ *
+ *     Next widget idle-callback, recalculate style information for the
+ *     sub-tree rooted at pNode. This function is a no-op if (pNode==0).
+ *     If pNode is the root of the document, then the list of dynamic
+ *     conditions (HtmlNode.pDynamic) that apply to each node is also
+ *     recalculated.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     May modify HtmlTree.cb and/or register for an idle callback with
+ *     the Tcl event loop.
+ *
+ *---------------------------------------------------------------------------
+ */
+void 
+HtmlCallbackRestyle(pTree, pNode)
+    HtmlTree *pTree;
+    HtmlNode *pNode;
+{
+    if (pNode) {
+        if (!pTree->cb.flags) {
+            Tcl_DoWhenIdle(callbackHandler, (ClientData)pTree);
+        }
+        pTree->cb.flags |= HTML_RESTYLE;
+        upgradeRestylePoint(&pTree->cb.pRestyle, pNode);
+    }
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlCallbackDynamic --
+ *
+ *     Next widget idle-callback, check if any dynamic CSS conditions
+ *     attached to nodes that are part of the sub-tree rooted at pNode
+ *     have changed. If so, restyle the affected nodes.  This function
+ *     is a no-op if (pNode==0).
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     May modify HtmlTree.cb and/or register for an idle callback with
+ *     the Tcl event loop.
+ *
+ *---------------------------------------------------------------------------
+ */
+void 
+HtmlCallbackDynamic(pTree, pNode)
+    HtmlTree *pTree;
+    HtmlNode *pNode;
+{
+    if (pNode) {
+        if (!pTree->cb.flags) {
+            Tcl_DoWhenIdle(callbackHandler, (ClientData)pTree);
+        }
+        pTree->cb.flags |= HTML_DYNAMIC;
+        upgradeRestylePoint(&pTree->cb.pDynamic, pNode);
+    }
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlCallbackLayout --
+ *
+ *     Ensure the layout of node pNode is recalculated next idle
+ *     callback. This is a no-op if (pNode==0).
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     May modify HtmlTree.cb and/or register for an idle callback with
+ *     the Tcl event loop. May expire layout-caches belonging to pNode
+ *     and it's ancestor nodes.
+ *
+ *---------------------------------------------------------------------------
+ */
+void 
+HtmlCallbackLayout(pTree, pNode)
+    HtmlTree *pTree;
+    HtmlNode *pNode;
+{
+    if (pNode) {
+        HtmlNode *p;
+        if (!pTree->cb.flags) {
+            Tcl_DoWhenIdle(callbackHandler, (ClientData)pTree);
+        }
+        pTree->cb.flags |= HTML_LAYOUT;
+        for (p = pNode; p; p = HtmlNodeParent(p)) {
+            HtmlLayoutInvalidateCache(p);
+        }
+    }
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlCallbackDamage --
  *
  * Results:
  *     None.
@@ -498,24 +558,72 @@ HtmlCallbackRestyle(pTree, pNode)
  *---------------------------------------------------------------------------
  */
 void 
-HtmlCallbackExtents(pTree, x, y, width, height)
+HtmlCallbackDamage(pTree, x, y, w, h)
     HtmlTree *pTree;
-    int x, y;
-    int width, height;
+    int x; 
+    int y;
+    int w; 
+    int h;
 {
-    assert(width >= 0 && height >=0 && x >= 0 && y >= y);
+    /* Clip the values to the viewport */
+    if (x < 0) {w += x; x = 0;}
+    if (y < 0) {h += y; y = 0;}
+    w = MIN(w, Tk_Width(pTree->tkwin) - x);
+    h = MIN(h, Tk_Height(pTree->tkwin) - y);
+    
+    if (w <= 0 || h <= 0) {
+        return;
+    }
 
-    pTree->cb.x1 = MIN(MAX(0, x), pTree->cb.x1);
-    pTree->cb.y1 = MIN(MAX(0, y), pTree->cb.y1);
-    pTree->cb.x2 = MAX(x + width, pTree->cb.x2);
-    pTree->cb.y2 = MAX(y + height, pTree->cb.y2);
+    if (pTree->cb.flags & HTML_DAMAGE) {
+        int x2 = MAX(x + w, pTree->cb.x + pTree->cb.w);
+        int y2 = MAX(y + h, pTree->cb.y + pTree->cb.h);
+        pTree->cb.x = MIN(pTree->cb.x, x);
+        pTree->cb.y = MIN(pTree->cb.y, y);
+        pTree->cb.w = x2 - pTree->cb.x;
+        pTree->cb.h = y2 - pTree->cb.y;
+    } else {
+        pTree->cb.x = x;
+        pTree->cb.y = y;
+        pTree->cb.w = w;
+        pTree->cb.h = h;
+    }
 
-    assert(
-        pTree->cb.y1 >= 0 && 
-        pTree->cb.x1 >= 0 &&
-        pTree->cb.x2 >= pTree->cb.x1 && 
-        pTree->cb.y2 >= pTree->cb.y1
-    );
+    assert(pTree->cb.x >= 0);
+    assert(pTree->cb.y >= 0);
+    assert(pTree->cb.w > 0);
+    assert(pTree->cb.h > 0);
+    assert((pTree->cb.w + pTree->cb.x) <= Tk_Width(pTree->tkwin));
+    assert((pTree->cb.h + pTree->cb.y) <= Tk_Height(pTree->tkwin));
+
+    if (!pTree->cb.flags) {
+        Tcl_DoWhenIdle(callbackHandler, (ClientData)pTree);
+    }
+    pTree->cb.flags |= HTML_DAMAGE;
+}
+
+void 
+HtmlCallbackScrollY(pTree, y)
+    HtmlTree *pTree;
+    int y; 
+{
+    if (!pTree->cb.flags) {
+        Tcl_DoWhenIdle(callbackHandler, (ClientData)pTree);
+    }
+    pTree->cb.flags |= HTML_SCROLL;
+    pTree->cb.iScrollY = y;
+}
+
+void 
+HtmlCallbackScrollX(pTree, x)
+    HtmlTree *pTree;
+    int x; 
+{
+    if (!pTree->cb.flags) {
+        Tcl_DoWhenIdle(callbackHandler, (ClientData)pTree);
+    }
+    pTree->cb.flags |= HTML_SCROLL;
+    pTree->cb.iScrollX = x;
 }
 
 /*
@@ -609,11 +717,9 @@ eventHandler(clientData, pEvent)
     switch (pEvent->type) {
         case ConfigureNotify: {
             /* XConfigureEvent *p = (XConfigureEvent*)pEvent; */
-
             HtmlLog(pTree, "EVENT", "ConfigureNotify:");
-
             if (Tk_Width(pTree->tkwin) != pTree->iCanvasWidth) {
-                HtmlCallbackSchedule(pTree, HTML_CALLBACK_LAYOUT);
+                HtmlCallbackLayout(pTree, pTree->pRoot);
             }
             break;
         }
@@ -625,8 +731,7 @@ eventHandler(clientData, pEvent)
                 p->x, p->y, p->width, p->height
             );
 
-            HtmlCallbackSchedule(pTree, HTML_CALLBACK_DAMAGE);
-            HtmlCallbackExtents(pTree, p->x, p->y, p->width, p->height);
+            HtmlCallbackDamage(pTree, p->x, p->y, p->width, p->height);
             break;
         }
 
@@ -1128,7 +1233,7 @@ viewCommon(pTree, isXview, objc, objv)
             if (!pNode) {
                 return TCL_ERROR;
             }
-            iNewVal = HtmlLayoutScrollToNode(pTree, pNode->iNode);
+            iNewVal = HtmlWidgetNodeTop(pTree, pNode->iNode);
         } else {
             int eType;       /* One of the TK_SCROLL_ symbols */
             eType = Tk_GetScrollInfoObj(interp, objc, objv, &fraction, &count);
@@ -1148,65 +1253,19 @@ viewCommon(pTree, isXview, objc, objv)
                 default: assert(!"Not possible");
             }
         }
+
+        /* Clip the new scrolling value for the window size */
         iNewVal = MIN(iNewVal, iMovePixels - iPagePixels);
         iNewVal = MAX(iNewVal, 0);
 
-        if (iNewVal != iOffScreen) {
-            int eVisibility = pTree->eVisibility;
-            int canvas_x = pTree->iScrollX;
-            int canvas_y = pTree->iScrollY;
-            int w = Tk_Width(win);
-            int h = Tk_Height(win);
-            int iScrollV = 0;
-            int iScrollH = 0;
-
-            if( isXview ){
-                canvas_x = iNewVal;
-                iScrollH = iNewVal - iOffScreen;
-            } else {
-                iScrollV = iNewVal - iOffScreen;
-                canvas_y = iNewVal;
-            }
-
-            if (eVisibility == VisibilityFullyObscured) {
-                /* Do nothing, window is not visible */
-            } else if (
-                abs(iScrollV) >= iPagePixels || 
-                abs(iScrollH) >= iPagePixels || 
-                eVisibility == VisibilityPartiallyObscured 
-            ) {
-                /* Redraw the entire window. */
-                HtmlWidgetPaint(pTree, canvas_x, canvas_y, 0, 0, w, h);
-            } else {
-                HtmlWidgetScroll(pTree, iScrollH, iScrollV);
-                HtmlWidgetPaint(pTree, 
-                    canvas_x, canvas_y + iPagePixels - iScrollV, 
-                    0, iPagePixels - iScrollV, 
-                    w, iScrollV
-                );
-                HtmlWidgetPaint(pTree, 
-                    canvas_x, canvas_y, 
-                    0, 0,
-                    w, iScrollV * -1
-                );
-                HtmlWidgetPaint(pTree, 
-                    canvas_x + iPagePixels - iScrollH, canvas_y,
-                    iPagePixels - iScrollH, 0,
-                    iScrollH, h
-                );
-                HtmlWidgetPaint(pTree, 
-                    canvas_x, canvas_y, 
-                    0, 0,
-                    iScrollH * -1, h
-                );
-            }
-
-            pTree->iScrollY = canvas_y;
-            pTree->iScrollX = canvas_x;
-            iOffScreen = iNewVal;
+        if (isXview) { 
+            HtmlCallbackScrollX(pTree, iNewVal);
+        } else {
+            HtmlCallbackScrollY(pTree, iNewVal);
         }
     }
 
+    /* Construct the Tcl result for this command. */
     if (iMovePixels <= iPagePixels) {
         aRet[0] = 0.0;
         aRet[1] = 1.0;
@@ -1218,16 +1277,10 @@ viewCommon(pTree, isXview, objc, objv)
         aRet[1] = (double)(iOffScreen + iPagePixels) / (double)iMovePixels;
         aRet[1] = MIN(aRet[1], 1.0);
     }
-
     pRet = Tcl_NewObj();
     Tcl_ListObjAppendElement(interp, pRet, Tcl_NewDoubleObj(aRet[0]));
     Tcl_ListObjAppendElement(interp, pRet, Tcl_NewDoubleObj(aRet[1]));
     Tcl_SetObjResult(interp, pRet);
-
-    if (objc > 2) {
-        HtmlWidgetMapControls(pTree);
-        doScrollCallback(pTree);
-    }
 
     return TCL_OK;
 }
@@ -1443,7 +1496,7 @@ styleCmd(clientData, interp, objc, objv)
     SwprocCleanup(apObj, sizeof(apObj)/sizeof(Tcl_Obj *));
 
     if (rc == TCL_OK) {
-        HtmlCallbackSchedule(pTree, HTML_CALLBACK_STYLE);
+        HtmlCallbackRestyle(pTree, pTree->pRoot);
     }
     return rc;
 }
@@ -1454,7 +1507,6 @@ styleCmd(clientData, interp, objc, objv)
  * imageCmd --
  * nodeCmd --
  * primitivesCmd --
- * bboxCmd --
  *
  *     New versions of gcc don't allow pointers to non-local functions to
  *     be used as constant initializers (which we need to do in the
@@ -1470,15 +1522,6 @@ styleCmd(clientData, interp, objc, objv)
  *
  *---------------------------------------------------------------------------
  */
-static int 
-bboxCmd(clientData, interp, objc, objv)
-    ClientData clientData;             /* The HTML widget data structure */
-    Tcl_Interp *interp;                /* Current interpreter. */
-    int objc;                          /* Number of arguments. */
-    Tcl_Obj *CONST objv[];             /* Argument strings. */
-{
-    return HtmlLayoutBbox(clientData, interp, objc, objv);
-}
 static int 
 imageCmd(clientData, interp, objc, objv)
     ClientData clientData;             /* The HTML widget data structure */
@@ -1514,6 +1557,56 @@ searchCmd(clientData, interp, objc, objv)
     Tcl_Obj *CONST objv[];             /* Argument strings. */
 {
     return HtmlCssSearch(clientData, interp, objc, objv);
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * bboxCmd --
+ *
+ *     html bbox ?node-handle?
+ *
+ * Results:
+ *     Tcl result (i.e. TCL_OK, TCL_ERROR).
+ *
+ * Side effects:
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+bboxCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    HtmlNode *pNode;
+    int x, y, w, h;
+    HtmlTree *pTree = (HtmlTree *)clientData;
+    Tcl_Obj *pRet = Tcl_NewObj();
+
+    if (objc != 2 && objc != 3) {
+        Tcl_WrongNumArgs(interp, 2, objv, "?NODE-HANDLE?");
+        return TCL_ERROR;
+    }
+
+    if (objc == 3) {
+        pNode = HtmlNodeGetPointer(pTree, Tcl_GetString(objv[2]));
+        if (!pNode) return TCL_ERROR;
+    } else {
+        pNode = pTree->pRoot;
+    }
+
+    HtmlWidgetNodeBox(pTree, pNode, &x, &y, &w, &h);
+    if (w > 0 && h > 0) {
+        Tcl_ListObjAppendElement(0, pRet, Tcl_NewIntObj(x));
+        Tcl_ListObjAppendElement(0, pRet, Tcl_NewIntObj(y));
+        Tcl_ListObjAppendElement(0, pRet, Tcl_NewIntObj(x + w));
+        Tcl_ListObjAppendElement(0, pRet, Tcl_NewIntObj(y + h));
+    }
+
+    Tcl_SetObjResult(interp, pRet);
+    return TCL_OK;
 }
 
 /*
@@ -1602,18 +1695,18 @@ selectClearCmd(clientData, interp, objc, objv)
 
     if (pTree->pToNode) {
         /* If HtmlTree.pToNode is NULL, then the selection is already clear,
-         * do nothing. Otherwise, call HtmlLayoutPaintText to repaint the
+         * do nothing. Otherwise, call HtmlWidgetDamageText to repaint the
          * entire selected area, then clear the selection related HtmlTree 
          * variables. 
          *
-	 * It doesn't matter that we call HtmlLayoutPaintText() before
-	 * modifying the state of the widget, as HtmlLayoutPaintText() only
+	 * It doesn't matter that we call HtmlWidgetDamageText() before
+	 * modifying the state of the widget, as HtmlWidgetDamageText() only
 	 * schedules a drawing callback, it does not do any actual drawing. By
 	 * the time the scheduled callback is dispatched, the HtmlTree state
 	 * has been modified to reflect the cleared selection.
          */
         assert(pTree->pFromNode);
-        HtmlLayoutPaintText(pTree, 
+        HtmlWidgetDamageText(pTree, 
             pTree->pFromNode->iNode, pTree->iFromIndex,
             pTree->pToNode->iNode, pTree->iToIndex
         );
@@ -1687,7 +1780,7 @@ selectCmd(clientData, interp, objc, objv)
             pTree->iFromIndex = pTree->iToIndex;
         }
         if (pOldNode) {
-            HtmlLayoutPaintText(
+            HtmlWidgetDamageText(
                 pTree, pNewNode->iNode, iNewIndex, pOldNode->iNode, iOldIndex
             );
         }

@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.101 2006/03/17 15:47:10 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.102 2006/03/21 08:02:43 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -68,6 +68,58 @@ static const char rcsid[] = "$Id: htmldraw.c,v 1.101 2006/03/17 15:47:10 danielk
  *         4. Find node given window coordinates (a single point).
  *
  */
+
+/*
+ * EXPORTED FUNCTIONS:
+ *
+ * Functions for keeping the display up to date:
+ *
+ *     HtmlWidgetRepair
+ *     HtmlWidgetSetViewport
+ *
+ *         Repair() is used when a rectangular region of the viewport must
+ *         be repainted (i.e.  to repair window damage). SetViewport() is
+ *         used to scroll the window. It recalculates the positions of
+ *         mapped windows.
+ *
+ *
+ * Functions to query a canvas layout:
+ *     HtmlWidgetDamageText
+ *     HtmlWidgetNodeBox
+ *     HtmlWidgetNodeTop
+ *
+ *         The NodeBox() function returns the canvas coordinates of a
+ *         bounding-box for a supplied node. The NodeTop() function returns a
+ *         single coordinate - the offset from the top of the canvas for a
+ *         nominated node. 
+ *       
+ *         DamageText() is used to query for the bounding box of a region of
+ *         text. However instead of returning coordinates, it invokes
+ *         HtmlCallbackDamage() on the identified region.
+ *
+ * Tcl command functions:
+ *     HtmlLayoutNode
+ *     HtmlLayoutPrimitives
+ *     HtmlLayoutImage
+ *
+ *         Implementations of the [widget node] [widget image] and [widget
+ *         primiitives] commands. Note that the latter two are intended for
+ *         debugging only and so are not really part of the public interface.
+ *
+ * Canvas management:
+ *     HtmlDrawCanvas
+ *     HtmlDrawCleanup
+ *     HtmlDrawCopyCanvas
+ *     HtmlDrawIsEmpty
+ *
+ * Functions for drawing primitives to a canvas:
+ *     HtmlDrawOrigin
+ *     HtmlDrawImage
+ *     HtmlDrawWindow
+ *     HtmlDrawText
+ *     HtmlDrawBox
+ *     HtmlDrawLine
+ */
 #define CANVAS_TEXT    1
 #define CANVAS_WINDOW  2
 #define CANVAS_ORIGIN  3
@@ -78,7 +130,6 @@ static const char rcsid[] = "$Id: htmldraw.c,v 1.101 2006/03/17 15:47:10 danielk
 typedef struct CanvasText CanvasText;
 typedef struct CanvasImage CanvasImage;
 typedef struct CanvasBox CanvasBox;
-
 typedef struct CanvasWindow CanvasWindow;
 typedef struct CanvasOrigin CanvasOrigin;
 typedef struct CanvasLine   CanvasLine;
@@ -151,17 +202,17 @@ struct CanvasLine {
 struct CanvasWindow {
     int x;                   /* Relative x coordinate */
     int y;                   /* Relative y coordinate */
-    Tcl_Obj *pWindow;        /* Name of Tk window */
-    int absx;                /* Absolute canvas x coordinate */
-    int absy;                /* Absolute canvas y coordinate */
+    HtmlNode *pNode;         /* Node replaced by this window */
+    int iCanvasX;            /* Current canvas coordinate (if mapped) */
+    int iCanvasY;            /* Current canvas coordinate (if mapped) */
     HtmlCanvasItem *pNext;   /* Next mapped window on this canvas */
 };
 
 struct CanvasOrigin {
     int x;
     int y;
-    int left, right;
-    int top, bottom;
+    int right;
+    int bottom;
     int nRef;
     HtmlCanvasItem *pSkip;
 };
@@ -198,7 +249,8 @@ struct HtmlCanvasItem {
  *
  *---------------------------------------------------------------------------
  */
-int MAX5(a, b, c, d, e)
+static int 
+MAX5(a, b, c, d, e)
     int a, b, c, d, e;
 {
     int max = a;
@@ -224,7 +276,8 @@ int MAX5(a, b, c, d, e)
  *
  *---------------------------------------------------------------------------
  */
-int MIN5(a, b, c, d, e)
+static int 
+MIN5(a, b, c, d, e)
     int a, b, c, d, e;
 {
     int min = a;
@@ -267,9 +320,6 @@ HtmlDrawCleanup(pCanvas)
             case CANVAS_IMAGE:
                 HtmlImageFree(pItem->x.i2.pImage);
                 break;
-            case CANVAS_WINDOW:
-                pObj = pItem->x.w.pWindow;
-                break;
             case CANVAS_ORIGIN:
                 assert(pItem->x.o.nRef >= 1 || !pItem->x.o.pSkip);
                 if (pItem->x.o.pSkip) {
@@ -282,6 +332,7 @@ HtmlDrawCleanup(pCanvas)
                     }
                 }
                 break;
+            case CANVAS_WINDOW:
             case CANVAS_BOX:
             case CANVAS_LINE:
                 break;
@@ -308,42 +359,6 @@ HtmlDrawCleanup(pCanvas)
         HtmlFree((char *)pPrev);
     }
     memset(pCanvas, 0, sizeof(HtmlCanvas));
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * HtmlDrawDeleteControls --
- *
- *     Unmap and delete all the control widgets contained in this canvas.
- *     This must be called *before* HtmlDrawCleanup() (because it uses a
- *     data structure that DrawCleanup() deletes).
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-void 
-HtmlDrawDeleteControls(pTree, pCanvas)
-    HtmlTree *pTree;
-    HtmlCanvas *pCanvas;
-{
-    HtmlCanvasItem *pItem;
-    
-    for (pItem = pCanvas->pWindow; pItem; pItem = pItem->x.w.pNext) {
-        Tk_Window control = Tk_NameToWindow(
-                pTree->interp, Tcl_GetString(pItem->x.w.pWindow), pTree->tkwin);
-        if (control) {
-            if (Tk_IsMapped(control)) {
-                Tk_UnmapWindow(control);
-            }
-            /* Tk_DestroyWindow(control); */
-        }
-    }
 }
 
 /*
@@ -434,6 +449,12 @@ movePrimitives(pCanvas, x, y)
     int y;
 {
     HtmlCanvasItem *p;
+
+    /* Optimization. Do nothing for a +0+0 translation. */
+    if (x == 0 && y == 0) {
+        return;
+    }
+
     for (p = pCanvas->pFirst; p; p = p->pNext) {
         p->x.generic.x += x;
         p->x.generic.y += y;
@@ -453,10 +474,14 @@ void HtmlDrawOrigin(pCanvas)
     if (!pCanvas->pFirst) return;
     assert(pCanvas->pLast);
 
+    movePrimitives(pCanvas, -1 * pCanvas->left, -1 * pCanvas->top);
+    pCanvas->right -= pCanvas->left;
+    pCanvas->bottom -= pCanvas->top;
+    pCanvas->left = 0;
+    pCanvas->right = 0;
+
     pItem = (HtmlCanvasItem *)HtmlClearAlloc(sizeof(HtmlCanvasItem));
-    pItem->x.o.left = pCanvas->left;
     pItem->x.o.right = pCanvas->right;
-    pItem->x.o.top = pCanvas->top;
     pItem->x.o.bottom = pCanvas->bottom;
     pItem->x.o.nRef = 1;
 
@@ -517,27 +542,8 @@ void HtmlDrawCanvas(pCanvas, pCanvas2, x, y, pNode)
     int y;
     HtmlNode *pNode;
 {
-
-#define CANVAS_ORIGIN_FANOUT 0
-
     if (pCanvas2->pFirst) {
-        HtmlCanvasItem *pOrigin = 0;
-
-        if (x == 0 && y == 0) {
-            /* Do nothing ... */
-        } else if (1 || countPrimitives(pCanvas2) < CANVAS_ORIGIN_FANOUT) {
-            movePrimitives(pCanvas2, x, y);
-        } else {
-            pOrigin = (HtmlCanvasItem *)HtmlAlloc(sizeof(HtmlCanvasItem));
-            pOrigin->type = CANVAS_ORIGIN;
-            pOrigin->x.o.x = x;
-            pOrigin->x.o.y = y;
-            pOrigin->x.o.left = pCanvas2->left;
-            pOrigin->x.o.right = pCanvas2->right;
-            pOrigin->x.o.bottom = pCanvas2->bottom;
-            pOrigin->x.o.top = pCanvas2->top;
-            linkItem(pCanvas, pOrigin);
-        }
+        movePrimitives(pCanvas2, x, y);
 
         if (pCanvas->pLast) {
             HtmlCanvasItem *pT1 = pCanvas->pLast;
@@ -577,16 +583,6 @@ void HtmlDrawCanvas(pCanvas, pCanvas2, x, y, pNode)
             assert(!pCanvas->pFirst);
             pCanvas->pFirst = pCanvas2->pFirst;
             pCanvas->pLast = pCanvas2->pLast;
-        }
-
-        if (pOrigin) {
-            HtmlCanvasItem *pItem2;
-            pItem2 = (HtmlCanvasItem *)HtmlClearAlloc(sizeof(HtmlCanvasItem));
-            pItem2->type = CANVAS_ORIGIN;
-            pItem2->x.o.x = x*-1;
-            pItem2->x.o.y = y*-1;
-            pOrigin->x.o.pSkip = pItem2;
-            linkItem(pCanvas, pItem2);
         }
 
         assert(pCanvas->pWindow == 0 && pCanvas2->pWindow == 0);
@@ -798,9 +794,9 @@ HtmlDrawImage(
  *---------------------------------------------------------------------------
  */
 void 
-HtmlDrawWindow(pCanvas, pWindow, x, y, w, h, size_only)
+HtmlDrawWindow(pCanvas, pNode, x, y, w, h, size_only)
     HtmlCanvas *pCanvas;
-    Tcl_Obj *pWindow;
+    HtmlNode *pNode;
     int x; 
     int y;
     int w;       /* Width of window */
@@ -811,14 +807,9 @@ HtmlDrawWindow(pCanvas, pWindow, x, y, w, h, size_only)
         HtmlCanvasItem *pItem; 
         pItem = (HtmlCanvasItem *)HtmlClearAlloc(sizeof(HtmlCanvasItem));
         pItem->type = CANVAS_WINDOW;
-        pItem->x.w.pWindow = pWindow;
+        pItem->x.w.pNode = pNode;
         pItem->x.w.x = x;
         pItem->x.w.y = y;
-        pItem->x.w.absx = x;
-        pItem->x.w.absy = y;
-        if (pWindow) {
-            Tcl_IncrRefCount(pWindow);
-        }
         linkItem(pCanvas, pItem);
     }
 
@@ -864,12 +855,10 @@ int HtmlLayoutPrimitives(clientData, interp, objc, objv)
         switch (pItem->type) {
             case CANVAS_ORIGIN:
                 if (pItem->x.o.pSkip) {
-                    nObj = 7;
+                    nObj = 5;
                     aObj[0] = Tcl_NewStringObj("draw_origin", -1);
                     aObj[1] = Tcl_NewIntObj(pItem->x.o.x);
                     aObj[2] = Tcl_NewIntObj(pItem->x.o.y);
-                    aObj[3] = Tcl_NewIntObj(pItem->x.o.left);
-                    aObj[4] = Tcl_NewIntObj(pItem->x.o.top);
                     aObj[5] = Tcl_NewIntObj(pItem->x.o.right);
                     aObj[6] = Tcl_NewIntObj(pItem->x.o.bottom);
                 } else {
@@ -906,7 +895,7 @@ int HtmlLayoutPrimitives(clientData, interp, objc, objv)
                 aObj[0] = Tcl_NewStringObj("draw_window", -1);
                 aObj[1] = Tcl_NewIntObj(pItem->x.w.x);
                 aObj[2] = Tcl_NewIntObj(pItem->x.w.y);
-                aObj[3] = pItem->x.w.pWindow;
+                aObj[3] = pItem->x.w.pNode->pReplacement->pReplace;
                 break;
             case CANVAS_BOX:
                 nObj = 6;
@@ -1547,7 +1536,7 @@ searchCanvas(pTree, ymin, ymax, pNode, xFunc, clientData)
             origin_x += pOrigin->x;
             origin_y += pOrigin->y;
             if (pOrigin->pSkip && (
-                (ymax >= 0 && (origin_y + pOrigin->top) > ymax) ||
+                (ymax >= 0 && origin_y > ymax) ||
                 (ymin >= 0 && (origin_y + pOrigin->bottom) < ymin))
             ) {
                pSkip = pOrigin->pSkip;
@@ -1582,6 +1571,7 @@ struct GetPixmapQuery {
     int y;
     int w;
     int h;
+    int getwin;
     Pixmap pmap;
 };
 
@@ -1619,6 +1609,24 @@ pixmapQueryCb(pItem, origin_x, origin_y, clientData)
             drawLine(pQuery->pTree, &pItem->x.line, pQuery->pmap, x, y, w, h);
             break;
         }
+        case CANVAS_WINDOW: {
+            if (pQuery->getwin) {
+                HtmlTree *pTree = pQuery->pTree;
+                HtmlCanvasItem *p;
+                pItem->x.w.iCanvasX = origin_x + pItem->x.w.x;
+                pItem->x.w.iCanvasY = origin_y + pItem->x.w.y;
+                for (p = pTree->canvas.pWindow; p; p = p->x.w.pNext) {
+                    if (p == pItem || p->x.w.pNext == pItem) {
+                        break;
+                    }
+                }
+                if (!p) {
+                    pItem->x.w.pNext = pTree->canvas.pWindow;
+                    pTree->canvas.pWindow = pItem;
+                }
+            }
+            break;
+        }
     }
 
     return 0;
@@ -1641,12 +1649,13 @@ pixmapQueryCb(pItem, origin_x, origin_y, clientData)
  *---------------------------------------------------------------------------
  */
 static Pixmap 
-getPixmap(pTree, xcanvas, ycanvas, w, h)
+getPixmap(pTree, xcanvas, ycanvas, w, h, getwin)
     HtmlTree *pTree;
     int xcanvas;
     int ycanvas;
     int w;
     int h;
+    int getwin;
 {
     Pixmap pmap;
     Display *pDisplay;
@@ -1678,6 +1687,7 @@ getPixmap(pTree, xcanvas, ycanvas, w, h)
     sQuery.y = ycanvas * -1;
     sQuery.w = w;
     sQuery.h = h;
+    sQuery.getwin = getwin;
 
     searchCanvas(pTree, ycanvas, ycanvas+h, 0, pixmapQueryCb, (ClientData)&sQuery);
   
@@ -1796,7 +1806,7 @@ int HtmlLayoutImage(clientData, interp, objc, objv)
         Pixmap pixmap;
         Tcl_Obj *pImage;
         XImage *pXImage;
-        pixmap = getPixmap(pTree, 0, 0, w, h);
+        pixmap = getPixmap(pTree, 0, 0, w, h, 0);
         pXImage = XGetImage(pDisplay, pixmap, x, y, w, h, AllPlanes, ZPixmap);
         pImage = HtmlXImageToImage(pTree, pXImage, w, h);
         XDestroyImage(pXImage);
@@ -1835,55 +1845,6 @@ int HtmlDrawIsEmpty(pCanvas)
 {
     return (pCanvas->left==pCanvas->right && pCanvas->top==pCanvas->bottom);
 }
-
-/*
- *---------------------------------------------------------------------------
- *
- * HtmlLayoutSize --
- *
- *     <widget> layout size:
- * 
- *     Return the horizontal and vertical size of the layout as a
- *     two-element list.
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-int 
-HtmlLayoutSize(clientData, interp, objc, objv)
-    ClientData clientData;             /* The HTML widget data structure */
-    Tcl_Interp *interp;                /* Current interpreter. */
-    int objc;                          /* Number of arguments. */
-    Tcl_Obj *CONST objv[];             /* Argument strings. */
-{
-    Tcl_Obj *pRet;
-    int width;
-    int height;
-    HtmlTree *pTree = (HtmlTree *)clientData;
-
-    if (objc != 3) {
-        Tcl_WrongNumArgs(interp, 3, objv, "");
-        return TCL_ERROR;
-    }
-
-    pRet = Tcl_NewObj();
-    Tcl_IncrRefCount(pRet);
-
-    width = pTree->canvas.right;
-    height = pTree->canvas.bottom;
-
-    Tcl_ListObjAppendElement(interp, pRet, Tcl_NewIntObj(width));
-    Tcl_ListObjAppendElement(interp, pRet, Tcl_NewIntObj(height));
-    Tcl_SetObjResult(interp, pRet);
-    Tcl_DecrRefCount(pRet);
-    return TCL_OK;
-}
-
 
 typedef struct NodeIndexQuery NodeIndexQuery;
 struct NodeIndexQuery {
@@ -2035,7 +1996,7 @@ layoutNodeIndexCmd(pTree, x, y)
  *
  *---------------------------------------------------------------------------
  */
-HtmlNode *
+static HtmlNode *
 returnDescNode(pNode1, pNode2)
     HtmlNode *pNode1;
     HtmlNode *pNode2;
@@ -2210,61 +2171,8 @@ HtmlLayoutNode(clientData, interp, objc, objv)
 }
 
 /*
- *---------------------------------------------------------------------------
- *
- * HtmlWidgetPaint --
- *
- *     <widget> widget paint CANVAS-X CANVAS-Y X Y WIDTH HEIGHT
- *
- *     This command updates a rectangular portion of the window contents.
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-int 
-HtmlWidgetPaint(pTree, canvas_x, canvas_y, x, y, width, height)
-    HtmlTree *pTree;
-    int canvas_x;
-    int canvas_y;
-    int x;
-    int y;
-    int width;
-    int height;
-{
-    Pixmap pixmap;
-    GC gc;
-    XGCValues gc_values;
-    Display *pDisp; 
-    Tk_Window win;                      /* Window to draw to */
-
-    if (width <= 0 || height <= 0) {
-        return TCL_OK;
-    }
-
-    win = pTree->tkwin;
-    Tk_MakeWindowExist(win);
-    pDisp = Tk_Display(win);
-
-    pixmap = getPixmap(pTree, canvas_x, canvas_y, width, height);
-
-    memset(&gc_values, 0, sizeof(XGCValues));
-    gc = Tk_GetGC(pTree->win, 0, &gc_values);
-
-    XCopyArea(pDisp, pixmap, Tk_WindowId(win), gc, 0, 0, width, height, x, y);
-    Tk_FreePixmap(pDisp, pixmap);
-
-    Tk_FreeGC(pDisp, gc);
-    return TCL_OK;
-}
-
-/*
  * A pointer to an instance of the following structure is passed by 
- * HtmlLayoutPaintText() to paintNodesSearchCb() as the client-data
+ * HtmlWidgetDamageText() to paintNodesSearchCb() as the client-data
  * parameter. 
  */
 typedef struct PaintNodesQuery PaintNodesQuery;
@@ -2284,7 +2192,7 @@ struct PaintNodesQuery {
  *
  * paintNodesSearchCb --
  *
- *     The callback for the canvas search performed by HtmlLayoutPaintText().
+ *     The callback for the canvas search performed by HtmlWidgetDamageText().
  *
  * Results:
  *     None.
@@ -2353,7 +2261,7 @@ paintNodesSearchCb(pItem, origin_x, origin_y, clientData)
 /*
  *---------------------------------------------------------------------------
  *
- * HtmlLayoutPaintText --
+ * HtmlWidgetDamageText --
  *
  *     This function is used to repaint the area covered by the text
  *     associated with a series of sequential nodes. It is used to update 
@@ -2375,7 +2283,7 @@ paintNodesSearchCb(pItem, origin_x, origin_y, clientData)
  *---------------------------------------------------------------------------
  */
 void
-HtmlLayoutPaintText(pTree, iNodeStart, iIndexStart, iNodeFin, iIndexFin)
+HtmlWidgetDamageText(pTree, iNodeStart, iIndexStart, iNodeFin, iIndexFin)
     HtmlTree *pTree;         /* Widget tree */
     int iNodeStart;          /* First node to repaint */
     int iIndexStart;         /* First node to repaint */
@@ -2409,171 +2317,91 @@ HtmlLayoutPaintText(pTree, iNodeStart, iIndexStart, iNodeFin, iIndexFin)
     searchCanvas(pTree, ymin, ymax, 0, paintNodesSearchCb, (ClientData)&sQuery);
 
     x = sQuery.left - pTree->iScrollX;
-    x = MAX(x, 0);
-
     w = (sQuery.right - pTree->iScrollX) - x;
-    w = MIN(w, Tk_Width(pTree->tkwin) - x);
-
     y = sQuery.top - pTree->iScrollY;
-    y = MAX(y, 0);
-
     h = (sQuery.bottom - pTree->iScrollY) - y;
-    h = MIN(h, Tk_Height(pTree->tkwin) - y);
-
-    if (w > 0 && h > 0) {
-        HtmlCallbackSchedule(pTree, HTML_CALLBACK_DAMAGE);
-        HtmlCallbackExtents(pTree, x, y, w, h);
-    }
+    HtmlCallbackDamage(pTree, x, y, w, h);
 }
+
+/*
+ * The client-data for the search-callback used by HtmlWidgetNodeTop()
+ */
+typedef struct ScrollToQuery ScrollToQuery;
+struct ScrollToQuery {
+    HtmlTree *pTree;
+    int iNode;
+    int iReturn;
+};
 
 /*
  *---------------------------------------------------------------------------
  *
- * HtmlWidgetScroll --
- *
- *     <widget> widget scroll X Y
- *
- *     Scroll the widget X pixels in the X direction and Y pixels in the Y
- *     direction. Y is positive if the user is scrolling the document from
- *     top to bottom (i.e. presses PgDn). X is positive if the user scrolls
- *     the document from left to right.
+ * scrollToNodeCb --
+ *     
+ *     This function is the search-callback for HtmlWidgetNodeTop().
  *
  * Results:
- *     None.
  *
  * Side effects:
  *     None.
  *
  *---------------------------------------------------------------------------
  */
-int 
-HtmlWidgetScroll(pTree, x, y)
-    HtmlTree *pTree;
-    int x;
-    int y;
-{
-    Tk_Window win;
-    Display *display;
-    GC gc;
-    XGCValues gc_values;
-
-    int source_x, source_y;
-    int dest_x, dest_y;
-    int width, height;
-
-    win = pTree->tkwin; 
-    display = Tk_Display(win);
-    memset(&gc_values, 0, sizeof(XGCValues));
-    gc = Tk_GetGC(pTree->win, 0, &gc_values);
-
-    dest_x = MIN(x, 0) * -1;
-    source_x = MAX(x, 0);
-    width = Tk_Width(win) - MAX(source_x, dest_x);
-
-    dest_y = MIN(y, 0) * -1;
-    source_y = MAX(y, 0);
-    height = Tk_Height(win) - MAX(dest_y, source_y);
-
-    if (height > 0) {
-        XCopyArea(display, Tk_WindowId(win), Tk_WindowId(win), gc, 
-                source_x, source_y, width, height, dest_x, dest_y);
-    }
-
-    Tk_FreeGC(display, gc);
-    /* XFlush(display); */
-
-    return TCL_OK;
-}
-
 static int
-mapControlsCb(pItem, origin_x, origin_y, clientData)
-    HtmlCanvasItem *pItem; 
+scrollToNodeCb(pItem, origin_x, origin_y, clientData)
+    HtmlCanvasItem *pItem;
     int origin_x;
     int origin_y;
     ClientData clientData;
 {
-    if (pItem->type == CANVAS_WINDOW) {
-        HtmlCanvas *pCanvas = (HtmlCanvas *)clientData;
-        pItem->x.w.absx = pItem->x.w.x + origin_x;
-        pItem->x.w.absy = pItem->x.w.y + origin_y;
-        pItem->x.w.pNext = pCanvas->pWindow;
-        pCanvas->pWindow = pItem;
+    int x, y, w, h;
+    ScrollToQuery *pQuery = (ScrollToQuery *)clientData;
+    HtmlNode *pNode;
+
+    pNode = itemToBox(pItem, origin_x, origin_y, &x, &y, &w, &h);
+    if (pNode && pNode->iNode <= pQuery->iNode) {
+        pQuery->iReturn = y;
     }
+
     return 0;
 }
-
 
 /*
  *---------------------------------------------------------------------------
  *
- * HtmlWidgetMapControls --
+ * HtmlWidgetNodeTop --
  *
- *     <widget> widget mapcontrols X Y
+ *     The second argument, iNode, must be the node-number for some node 
+ *     in the document tree pTree. This function returns the canvas 
+ *     y-coordinate, in pixels of the top of the content generated by
+ *     the node.
  *
- *     This command updates the position and visibility of all Tk windows
- *     mapped by the widget (i.e. as <form> controls). The parameters X and
- *     Y are the coordinates of the point on the virtual canvas that
- *     corresponds to the top-left corner of the viewport. 
+ *     This is used in the implementation of the [widget yview nodeHandle]
+ *     command. 
  *
  * Results:
- *     None.
+ *     Pixels from the top of the canvas to the top of the content generated 
+ *     by node iNode. Or, if node iNode does not generate content, then
+ *     the content generated by node (iNode - 1). And so on. If no node
+ *     with a node number less than iNode generated content, 0 is returned.
  *
  * Side effects:
- *     May map or unmap widgets. May move widgets around the viewport.
+ *     None.
  *
  *---------------------------------------------------------------------------
  */
-int 
-HtmlWidgetMapControls(pTree)
+int
+HtmlWidgetNodeTop(pTree, iNode)
     HtmlTree *pTree;
+    int iNode;
 {
-    int x = pTree->iScrollX;
-    int y = pTree->iScrollY;
-    int w;
-    int h;
-    Tcl_Interp *interp = pTree->interp;
-    HtmlCanvas *pCanvas = &pTree->canvas;
-    HtmlCanvasItem *pItem;
-
-    Tk_Window win = pTree->tkwin;
-    w = Tk_Width(pTree->tkwin);
-    h = Tk_Height(pTree->tkwin);
-
-    if (!pCanvas->isWindowListOk) {
-        assert(!pCanvas->pWindow);
-        searchCanvas(pTree, -1, -1, 0, mapControlsCb, (ClientData)pCanvas);
-    }
-    pCanvas->isWindowListOk = 1;
-
-    for (pItem = pCanvas->pWindow; pItem; pItem = pItem->x.w.pNext) {
-        Tk_Window control;
-        CanvasWindow *pWin = &pItem->x.w;
-
-        control = Tk_NameToWindow(interp, Tcl_GetString(pWin->pWindow), win);
-        if (control) {
-            int winwidth = Tk_ReqWidth(control);
-            int winheight = Tk_ReqHeight(control);
-    
-            /* See if this window can be skipped because it is not visible */
-            if ((pWin->absx + winwidth) < x ||
-                 pWin->absx > (x + w) ||
-                (pWin->absy + winheight) < y ||
-                 pWin->absy > (y + h) 
-            ) {
-                if (Tk_IsMapped(control)) {
-                    Tk_UnmapWindow(control);
-                }
-            } else {
-                Tk_MoveResizeWindow(control, pWin->absx - x, pWin->absy - y, 
-                        winwidth, winheight);
-                if (!Tk_IsMapped(control)) {
-                    Tk_MapWindow(control);
-                }
-            }
-        }
-    }
-
-    return TCL_OK;
+    ScrollToQuery sQuery;
+    HtmlCallbackForce(pTree);
+    sQuery.iNode = iNode;
+    sQuery.iReturn = 0;
+    sQuery.pTree = pTree;
+    searchCanvas(pTree, -1, -1, 0, scrollToNodeCb, (ClientData)&sQuery);
+    return sQuery.iReturn;
 }
 
 typedef struct LayoutBboxQuery LayoutBboxQuery;
@@ -2608,32 +2436,19 @@ layoutBboxCb(pItem, origin_x, origin_y, clientData)
     return 0;
 }
 
-/*
- *---------------------------------------------------------------------------
- *
- * HtmlLayoutBbox --
- *
- *     <widget> bbox NODE
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-int 
-HtmlLayoutBbox(clientData, interp, objc, objv)
-    ClientData clientData;             /* The HTML widget data structure */
-    Tcl_Interp *interp;                /* Current interpreter. */
-    int objc;                          /* Number of arguments. */
-    Tcl_Obj *CONST objv[];             /* Argument strings. */
+void 
+HtmlWidgetNodeBox(pTree, pNode, pX, pY, pW, pH)
+    HtmlTree *pTree;
+    HtmlNode *pNode;
+    int *pX;
+    int *pY;
+    int *pW;
+    int *pH;
 {
-    Tcl_CmdInfo info;
-    HtmlTree *pTree = (HtmlTree *)clientData;
     HtmlCanvas *pCanvas = &pTree->canvas;
     LayoutBboxQuery sQuery;
+    int ymin;
+    int ymax;
 
     HtmlCallbackForce(pTree);
 
@@ -2641,90 +2456,57 @@ HtmlLayoutBbox(clientData, interp, objc, objv)
     sQuery.right = pCanvas->left;
     sQuery.top = pCanvas->bottom;
     sQuery.bottom = pCanvas->top;
-
-    if (objc != 3 && objc != 2) {
-        Tcl_WrongNumArgs(interp, 3, objv, "?NODE?");
-        return TCL_ERROR;
-    }
-
-    if (objc == 3) {
-        const char *zNode = Tcl_GetString(objv[2]);
-        if (0 == Tcl_GetCommandInfo(interp, zNode, &info)) {
-            Tcl_AppendResult(interp, "no such node: ", zNode, 0);
-            return TCL_ERROR;
-        }
-    
-        sQuery.pNode = (HtmlNode *)info.objClientData;
-        assert(sQuery.pNode);
-        searchCanvas(pTree, -1, -1, 0, layoutBboxCb, (ClientData)&sQuery);
-    } else {
-        sQuery.left   = pTree->canvas.left;
-        sQuery.right  = pTree->canvas.right;
-        sQuery.top    = pTree->canvas.top;
-        sQuery.bottom = pTree->canvas.bottom;
-    }
-
-    if (sQuery.left < sQuery.right && sQuery.top < sQuery.bottom) {
-        char zBuf[128];
-        sprintf(zBuf, "%d %d %d %d", sQuery.left, sQuery.top, 
-            sQuery.right, sQuery.bottom);
-        Tcl_SetResult(interp, zBuf, TCL_VOLATILE);
-    }
-
-    return TCL_OK;
-}
-
-
-void
-HtmlLayoutPaintNode(pTree, pNode)
-    HtmlTree *pTree;
-    HtmlNode *pNode;
-{
-    LayoutBboxQuery sQuery;
-    int ymin;
-    int ymax;
-
-    if (pTree->cb.eCallbackAction > HTML_CALLBACK_DAMAGE) {
-        return;
-    }
-
-    sQuery.left = pTree->canvas.right;
-    sQuery.right = pTree->canvas.left;
-    sQuery.top = pTree->canvas.bottom;
-    sQuery.bottom = pTree->canvas.top;
     sQuery.pNode = pNode;
 
     ymin = pTree->iScrollY;
     ymax = pTree->iScrollY + Tk_Height(pTree->tkwin);
     searchCanvas(pTree, ymin, ymax, 0, layoutBboxCb, (ClientData)&sQuery);
 
-    if (sQuery.right > sQuery.left) {
-        HtmlCallbackSchedule(pTree, HTML_CALLBACK_DAMAGE);
-        HtmlCallbackExtents(pTree, 
-            sQuery.left - pTree->iScrollX, 
-            sQuery.top - pTree->iScrollY, 
-            sQuery.right - sQuery.left,
-            sQuery.bottom - sQuery.top
-        );
+    if (sQuery.left < sQuery.right && sQuery.top < sQuery.bottom) {
+        *pX = sQuery.left;
+        *pY = sQuery.top;
+        *pW = sQuery.right - *pX;
+        *pH = sQuery.bottom - *pY;
+    } else {
+        *pX = 0;
+        *pY = 0;
+        *pW = 0;
+        *pH = 0;
     }
 }
 
-/*
- * The client-data for the search-callback used by HtmlLayoutScrollToNode()
- */
-typedef struct ScrollToQuery ScrollToQuery;
-struct ScrollToQuery {
+void 
+widgetRepair(pTree, x, y, w, h, g)
     HtmlTree *pTree;
-    int iNode;
-    int iReturn;
-};
+    int x;
+    int y;
+    int w;
+    int h;
+    int g;
+{
+    Pixmap pixmap;
+    GC gc;
+    XGCValues gc_values;
+    Tk_Window win = pTree->tkwin;
+    Display *pDisp = Tk_Display(win); 
+
+    if (w <= 0 || h <= 0) {
+        return;
+    }
+
+    pixmap = getPixmap(pTree, pTree->iScrollX+x, pTree->iScrollY+y, w, h, g);
+
+    memset(&gc_values, 0, sizeof(XGCValues));
+    gc = Tk_GetGC(pTree->win, 0, &gc_values);
+    XCopyArea(pDisp, pixmap, Tk_WindowId(win), gc, 0, 0, w, h, x, y);
+    Tk_FreePixmap(pDisp, pixmap);
+    Tk_FreeGC(pDisp, gc);
+}
 
 /*
  *---------------------------------------------------------------------------
  *
- * scrollToNodeCb --
- *     
- *     This function is the search-callback for HtmlLayoutScrollToNode().
+ * HtmlWidgetRepair --
  *
  * Results:
  *
@@ -2733,61 +2515,118 @@ struct ScrollToQuery {
  *
  *---------------------------------------------------------------------------
  */
-static int
-scrollToNodeCb(pItem, origin_x, origin_y, clientData)
+void 
+HtmlWidgetRepair(pTree, x, y, w, h)
+    HtmlTree *pTree;
+    int x;
+    int y;
+    int w;
+    int h;
+{
+    widgetRepair(pTree, x, y, w, h, 0);
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlWidgetSetViewport --
+ *
+ * Results:
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+void 
+HtmlWidgetSetViewport(pTree, scroll_x, scroll_y, force_redraw)
+    HtmlTree *pTree;            /* Tree structure */
+    int scroll_x;               /* New value for pTree->iScrollX */
+    int scroll_y;               /* New value for pTree->iScrollY */
+    int force_redraw;           /* Redraw the entire viewport regardless */
+{
+    int w;
+    int h;
     HtmlCanvasItem *pItem;
-    int origin_x;
-    int origin_y;
-    ClientData clientData;
-{
-    int x, y, w, h;
-    ScrollToQuery *pQuery = (ScrollToQuery *)clientData;
-    HtmlNode *pNode;
+    HtmlCanvasItem *pPrev;
+    HtmlCanvas *pCanvas = &pTree->canvas;
+    Tk_Window win = pTree->tkwin;
 
-    pNode = itemToBox(pItem, origin_x, origin_y, &x, &y, &w, &h);
-    if (pNode && pNode->iNode <= pQuery->iNode) {
-        pQuery->iReturn = y;
+    int delta_x = scroll_x - pTree->iScrollX;
+    int delta_y = scroll_y - pTree->iScrollY;
+
+    /* Make sure the widget main window exists before doing anything */
+    Tk_MakeWindowExist(win);
+    w = Tk_Width(win);
+    h = Tk_Height(win);
+
+    if (pTree->eVisibility != VisibilityUnobscured) {
+        force_redraw = 1;
     }
 
-    return 0;
-}
+    pTree->iScrollY = scroll_y;
+    pTree->iScrollX = scroll_x;
+    if (force_redraw || delta_x != 0 || abs(delta_y) >= h) {
+        widgetRepair(pTree, 0, 0, w, h, 1);
+    } else {
+        XGCValues gc_values;
+        GC gc;
+        Display *pDisp = Tk_Display(win);
+        Window xwin = Tk_WindowId(win);
 
-/*
- *---------------------------------------------------------------------------
- *
- * HtmlLayoutScrollToNode --
- *
- *     The second argument, iNode, must be the node-number for some node 
- *     in the document tree pTree. This function returns the canvas 
- *     y-coordinate, in pixels of the top of the content generated by
- *     the node.
- *
- *     This is used in the implementation of the [widget yview nodeHandle]
- *     command. 
- *
- * Results:
- *     Pixels from the top of the canvas to the top of the content generated 
- *     by node iNode. Or, if node iNode does not generate content, then
- *     the content generated by node (iNode - 1). And so on. If no node
- *     with a node number less than iNode generated content, 0 is returned.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-int
-HtmlLayoutScrollToNode(pTree, iNode)
-    HtmlTree *pTree;
-    int iNode;
-{
-    ScrollToQuery sQuery;
-    HtmlCallbackForce(pTree);
-    sQuery.iNode = iNode;
-    sQuery.iReturn = 0;
-    sQuery.pTree = pTree;
-    searchCanvas(pTree, -1, -1, 0, scrollToNodeCb, (ClientData)&sQuery);
-printf("returning %d\n", sQuery.iReturn);
-    return sQuery.iReturn;
+        memset(&gc_values, 0, sizeof(XGCValues));
+        gc = Tk_GetGC(pTree->win, 0, &gc_values);
+
+        if (delta_y > 0) {
+            XCopyArea(pDisp, xwin, xwin, gc, 0, delta_y, w, h-delta_y, 0, 0);
+            widgetRepair(pTree, 0, h-delta_y, w, delta_y, 1);
+        } else if (delta_y < 0) {
+            XCopyArea(pDisp, xwin, xwin, gc, 0, 0, w, h+delta_y, 0, 0-delta_y);
+            widgetRepair(pTree, 0, 0, w, 0 - delta_y, 1);
+        }
+
+        Tk_FreeGC(pDisp, gc);
+    }
+
+    /* Loop through the HtmlCanvas.pWindow list. For each mapped window
+     * that is clipped by the viewport, unmap the window (if mapped) and
+     * remove it from the list. For each mapped window that is not clipped
+     * by the viewport, reposition and map it (if unmapped).
+     */
+    pItem = pCanvas->pWindow;
+    pPrev = 0;
+    while (pItem) {
+        HtmlCanvasItem *pNext = pItem->x.w.pNext;
+        Tk_Window control = pItem->x.w.pNode->pReplacement->win;
+        int iViewX = pItem->x.w.iCanvasX - pTree->iScrollX;
+        int iViewY = pItem->x.w.iCanvasY - pTree->iScrollY;
+        int iWidth = Tk_ReqWidth(control);
+        int iHeight = Tk_ReqHeight(control);
+
+        if (
+            iViewX > w || iViewY > h || 
+            (iViewX + iWidth) <= 0 || (iViewY + iHeight) <= 0
+        ) {
+            if (Tk_IsMapped(control)) {
+                Tk_UnmapWindow(control);
+            }
+            if (pPrev) {
+                assert(pPrev->x.w.pNext == pItem);
+                pPrev->x.w.pNext = pNext;
+            } else {
+                assert(pCanvas->pWindow == pItem);
+                pCanvas->pWindow = pNext;
+            }
+            pItem->x.w.pNext = 0;
+        } else {
+            Tk_MoveResizeWindow(control, iViewX, iViewY, iWidth, iHeight);
+            if (!Tk_IsMapped(control)) {
+                Tk_MapWindow(control);
+            }
+            pPrev = pItem;
+        }
+
+        pItem = pNext;
+    }
 }
 
