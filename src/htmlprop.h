@@ -201,7 +201,7 @@ struct HtmlComputedValues {
     int iWidth;                       /* 'width'          (pixels, %, AUTO)   */
     int iMinWidth;                    /* 'min-width'      (pixels, %)         */
     int iMaxWidth;                    /* 'max-height'     (pixels, %, NONE)   */
-    int iHeight;                      /* 'height'         (pixels, %, AUTO)   */
+    int iHeight;                      /* 'height'         (pixels, AUTO)      */
     int iMinHeight;                   /* 'min-height'     (pixels, %)         */
     int iMaxHeight;                   /* 'max-height'     (pixels, %, NONE)   */
     HtmlFourSides padding;            /* 'padding'        (pixels, %)         */
@@ -215,6 +215,10 @@ struct HtmlComputedValues {
     HtmlColor *cBorderRightColor;     /* 'border-right-color' */
     HtmlColor *cBorderBottomColor;    /* 'border-bottom-color' */
     HtmlColor *cBorderLeftColor;      /* 'border-left-color' */
+
+    unsigned char eOutlineStyle;      /* 'outline-style' */
+    int iOutlineWidth;                /* 'outline-width' (pixels) */
+    HtmlColor *cOutlineColor;         /* 'outline-color' */
 
     HtmlImage2 *imBackgroundImage;    /* 'background-image' */
     unsigned char eBackgroundRepeat;  /* 'background-repeat' */
@@ -277,6 +281,7 @@ struct HtmlComputedValuesCreator {
 #define PROP_MASK_BACKGROUND_POSITION_X   0x00100000
 #define PROP_MASK_BACKGROUND_POSITION_Y   0x00200000
 #define PROP_MASK_BORDER_SPACING          0x00400000
+#define PROP_MASK_OUTLINE_WIDTH           0x00800000
 
 /*
  * Pixel values in the HtmlComputedValues struct may also take the following

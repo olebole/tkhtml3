@@ -31,7 +31,7 @@
  * 
  *     HtmlInlineContextIsEmpty
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.13 2006/03/14 09:10:16 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.14 2006/03/24 13:52:02 danielk1977 Exp $";
 
 typedef struct InlineBox InlineBox;
 
@@ -180,8 +180,7 @@ HtmlInlineContextPopBorder(p, pBorder)
         if (p->nInline > 0) {
             InlineBox *pBox = &p->aInline[p->nInline-1];
             pBox->nBorderEnd++;
-            pBox->nRightPixels += pBorder->box.padding_right;
-            pBox->nRightPixels += pBorder->box.border_right;
+            pBox->nRightPixels += pBorder->box.iRight;
             pBox->nRightPixels += pBorder->margin.margin_right;
         } else {
             pBorder = p->pBorders;
@@ -268,10 +267,8 @@ HtmlGetInlineBorder(pLayout, pNode, parentblock)
             break;
     }
 
-    if (border.box.padding_left   || border.box.padding_right     ||
-        border.box.padding_top    || border.box.padding_bottom    ||
-        border.box.border_left    || border.box.border_right      ||
-        border.box.border_top     || border.box.border_bottom     ||
+    if (border.box.iLeft      || border.box.iRight     ||
+        border.box.iBottom    || border.box.iTop       ||
         border.margin.margin_left || border.margin.margin_right   ||
         border.margin.margin_top  || border.margin.margin_bottom  ||
         pValues->cBackgroundColor->xcolor ||
@@ -332,8 +329,7 @@ inlineContextAddInlineCanvas(p, eReplaced, pNode)
     memset(pBox, 0, sizeof(InlineBox));
     pBox->pBorderStart = p->pBoxBorders;
     for (pBorder = pBox->pBorderStart; pBorder; pBorder = pBorder->pNext) {
-        pBox->nLeftPixels += pBorder->box.padding_left;
-        pBox->nLeftPixels += pBorder->box.border_left;
+        pBox->nLeftPixels += pBorder->box.iLeft;
         pBox->nLeftPixels += pBorder->margin.margin_left;
     }
     p->pBoxBorders = 0;
@@ -503,10 +499,16 @@ pLayout, pCanvas, pBorder, x1, y1, x2, y2, drb, aRepX, nRepX)
         int y_t;                  /* Y-coord for linethough */
         int y_u;                  /* Y-coord for underline */
 
+#if 0
         x1 += (dlb ? pBorder->box.padding_left : 0);
         x2 -= (drb ? pBorder->box.padding_right : 0);
         y1 += pBorder->box.padding_top;
         y2 -= pBorder->box.padding_bottom;
+#endif
+        x1 += (dlb ? pBorder->box.iLeft : 0);
+        x2 -= (drb ? pBorder->box.iRight : 0);
+        y1 += pBorder->box.iTop;
+        y2 -= pBorder->box.iBottom;
 
         y_o = y1;
         y_t = (y2+y1)/2;
@@ -743,7 +745,7 @@ HtmlInlineContextGetLineBox(pLayout, p, pWidth, flags, pCanvas, pVSpace,pAscent)
         x1 = x + extra_pixels + pBox->nLeftPixels;
         for (pBorder=pBox->pBorderStart; pBorder; pBorder=pBorder->pNext) {
             x1 -= pBorder->margin.margin_left;
-            x1 -= pBorder->box.padding_left + pBorder->box.border_left;
+            x1 -= pBorder->box.iLeft;
             pBorder->iStartBox = i;
             pBorder->iStartPixel = x1;
             p->iVAlign += pBorder->iVerticalAlign;
@@ -803,10 +805,9 @@ HtmlInlineContextGetLineBox(pLayout, p, pWidth, flags, pCanvas, pVSpace,pAscent)
 
             pBorder = p->pBorders;
             for (k=0; k<j+1; k++) {
-                nTopPixel += pBorder->box.padding_top + pBorder->box.border_top;
+                nTopPixel += pBorder->box.iTop;
                 nTopPixel += pBorder->margin.margin_top;
-                nBottomPixel += pBorder->box.padding_bottom;
-                nBottomPixel += pBorder->box.border_bottom;
+                nBottomPixel += pBorder->box.iBottom;
                 nBottomPixel += pBorder->margin.margin_bottom;
                 if (k < j) {
                     pBorder = pBorder->pNext;
@@ -833,7 +834,7 @@ HtmlInlineContextGetLineBox(pLayout, p, pWidth, flags, pCanvas, pVSpace,pAscent)
             rb = (j < pBox->nBorderEnd);
             if (rb) {
                 x2 += pBorder->margin.margin_right;
-                x2 += pBorder->box.padding_right + pBorder->box.border_right;
+                x2 += pBorder->box.iRight;
             }
 
             memset(&tmpcanvas, 0, sizeof(HtmlCanvas));
@@ -1063,7 +1064,7 @@ HtmlInlineContextNew(pNode, isSizeOnly)
  *
  *---------------------------------------------------------------------------
  */
-int 
+void 
 HtmlInlineContextAddText(pContext, pNode)
     InlineContext *pContext;
     HtmlNode *pNode;
@@ -1143,12 +1144,12 @@ HtmlInlineContextAddText(pContext, pNode)
                 break;
             }
             default:
-                return 0;
+                return;
         }
         isFirst = 0;
     }
 
-    return 0;
+    return;
 }
 
 /*
@@ -1186,3 +1187,4 @@ HtmlInlineContextAddBox(pContext, pNode, pCanvas, iWidth, iHeight, iOffset)
     DRAW_CANVAS(pInlineCanvas, pCanvas, 0, iOffset, pNode);
     inlineContextSetBoxDimensions(pContext, iWidth, ascent, descent, 0);
 }
+

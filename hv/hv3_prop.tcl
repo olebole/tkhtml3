@@ -54,6 +54,7 @@ itcl::class HtmlDebug {
     #     $myTopLevel.tree_frame.hsb        ;# scrollbar
     #   $myTopLevel.header                  ;# Hv3 mega-widget
     #     $myTopLevel.header.html.relayout  ;# button
+    #     $myTopLevel.header.html.outline   ;# button
     #     $myTopLevel.header.html.search    ;# entry
     #   $myTopLevel.report                  ;# Hv3 mega-widget
     variable myTopLevel          ;# Name of top-level window for debugger
@@ -160,6 +161,7 @@ itcl::body HtmlDebug::searchNode {{idx 0}} {
     </head><body><center>
       <h1>Tkhtml Document Tree Browser</h1>
       <input widget="relayout">
+      <input widget="outline">
       <p>
         Search for node: <input widget="search">
       </p>
@@ -248,6 +250,11 @@ itcl::body HtmlDebug::constructor {HTML} {
   set b [button $myTopLevel.header.html.relayout]
   $b configure -text "Re-Render Document With Logging" 
   $b configure -command [list $this rerender]
+  set b2 [button $myTopLevel.header.html.outline]
+  $b2 configure -text "Add \":focus {outline: solid ...}\""
+  $b2 configure -command [list .hv3.html style {
+    :focus {outline-style: solid; outline-color: blue ; outline-width: 1px}
+  }]
   set e [entry $myTopLevel.header.html.search]
   bind $e <Return> [list $this searchNode]
   $this searchNode
@@ -334,6 +341,7 @@ itcl::body HtmlDebug::report {{node ""}} {
     </html>
   }
 
+  catch {$mySelected dynamic clear focus}
   if {$node != "" && [info commands $node] != ""} {
     # The second argument to this proc is a valid node.
     set mySelected $node
@@ -348,6 +356,7 @@ itcl::body HtmlDebug::report {{node ""}} {
     set mySearchResults {}
   }
   set node $mySelected
+  catch {$mySelected dynamic set focus}
   if {$node eq ""} return ""
 
   set doc {}
@@ -398,6 +407,7 @@ itcl::body HtmlDebug::report {{node ""}} {
     if {[info exists myLayoutEngineLog($node)]} {
         append doc {<table class=layout_engine><tr><th>Layout Engine}
         foreach entry $myLayoutEngineLog($node) {
+            set entry [regsub {[A-Za-z]+\(\)} $entry <b>&</b>]
             append doc "    <tr><td>$entry\n"
         }
         append doc "</table>\n"

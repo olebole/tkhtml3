@@ -35,14 +35,10 @@ typedef struct BoxProperties BoxProperties;
 typedef struct MarginProperties MarginProperties;
 
 struct BoxProperties {
-    int padding_top;
-    int padding_left;
-    int padding_bottom;
-    int padding_right;
-    int border_top;
-    int border_left;
-    int border_bottom;
-    int border_right;
+    int iTop;         /* Pixels of border + pixels of padding at top */
+    int iRight;       /* Pixels of border + pixels of padding at right */
+    int iBottom;      /* Pixels of border + pixels of padding at bottom */
+    int iLeft;        /* Pixels of border + pixels of padding at left */
 };
 
 struct MarginProperties {
@@ -69,7 +65,7 @@ InlineContext *HtmlInlineContextNew(HtmlNode *, int);
 void HtmlInlineContextCleanup(InlineContext *);
 
 /* Add a text node to the inline context */
-int HtmlInlineContextAddText(InlineContext*, HtmlNode *);
+void HtmlInlineContextAddText(InlineContext*, HtmlNode *);
 
 /* Add box (i.e. replaced) inline elements to the inline context */
 void HtmlInlineContextAddBox(InlineContext*,HtmlNode*,HtmlCanvas*,int,int,int);
@@ -123,7 +119,6 @@ void nodeGetBoxProperties(LayoutContext *, HtmlNode *, int, BoxProperties *);
 void nodeGetMargins(LayoutContext *, HtmlNode *, int, MarginProperties *);
 
 int  blockMinMaxWidth(LayoutContext *, HtmlNode *, int *, int *);
-void borderLayout(LayoutContext*, HtmlNode*, BoxContext*, int, int, int, int);
 
 /*--------------------------------------------------------------------------*
  * htmltable.c --
@@ -135,6 +130,26 @@ int HtmlTableLayout(LayoutContext*, BoxContext*, HtmlNode*);
 /* End of htmlTableLayout.c interface
  *-------------------------------------------------------------------------*/
 
-int HtmlLayoutTableCell(LayoutContext *, BoxContext *, HtmlNode *, int);
+int HtmlLayoutNodeContent(LayoutContext *, BoxContext *, HtmlNode *);
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * unsigned char DISPLAY(HtmlComputedValues *); --
+ *
+ *     Return the value of the computed 'display' property from the
+ *     HtmlComputedValues structure passed as an argument. Or, if NULL is
+ *     passed, return CSS_CONST_INLINE. This is so that the 'display' property
+ *     of a text node can be requested, even though a text node does not have
+ *     computed properties.
+ *
+ * Results:
+ *     Value of 'display' property.
+ *
+ * Side effects:
+ *     None.
+ *---------------------------------------------------------------------------
+ */
+#define DISPLAY(pV) ((pV) ? (pV)->eDisplay : CSS_CONST_INLINE)
 
 #endif

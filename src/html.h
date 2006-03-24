@@ -517,7 +517,6 @@ int HtmlImageAlphaChannel(HtmlTree *, HtmlImage2 *);
 void HtmlLayoutPaintNode(HtmlTree *, HtmlNode *);
 void HtmlLayoutInvalidateCache(HtmlNode *);
 void HtmlWidgetNodeBox(HtmlTree *, HtmlNode *, int *, int *, int *, int *);
-HtmlCanvas *HtmlLayoutGetCanvas(HtmlTree *, HtmlNode *);
 
 void HtmlWidgetSetViewport(HtmlTree *, int, int, int);
 void HtmlWidgetRepair(HtmlTree *, int, int, int, int);

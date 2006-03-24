@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.57 2006/03/21 08:02:46 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.58 2006/03/24 13:52:03 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -982,10 +982,11 @@ geomRequestProc(clientData, widget)
     ClientData clientData;
     Tk_Window widget;
 {
-    HtmlTree *pTree = (HtmlTree *)clientData;
-#if 0
-    HtmlCallbackLayout(pTree, pTree->pRoot);
-#endif
+    HtmlNode *pNode = (HtmlNode *)clientData;
+    HtmlTree *pTree = pNode->pNodeCmd->pTree;
+    if (!pTree->cb.inProgress) {
+        HtmlCallbackLayout(pTree, pNode);
+    }
 }
 
 /*
@@ -1264,7 +1265,7 @@ node_attr_usage:
                         geomRequestProc,
                         0
                     };
-                    Tk_ManageGeometry(widget, &sManage, pTree);
+                    Tk_ManageGeometry(widget, &sManage, pNode);
                 }
 
                 nBytes = sizeof(HtmlNodeReplacement);

@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlimage.c,v 1.46 2006/03/21 16:47:16 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlimage.c,v 1.47 2006/03/24 13:52:02 danielk1977 Exp $";
 
 #include <assert.h>
 #include "html.h"
@@ -248,7 +248,7 @@ imageChangedCb(pTree, pNode, clientData)
         assert(!pV->imReplacementImage || !pV->imReplacementImage->pUnscaled);
         assert(!pV->imListStyleImage   || !pV->imListStyleImage->pUnscaled);
         if (pV->imReplacementImage==pImage || pV->imListStyleImage==pImage) {
-            // HtmlCallbackLayout(pTree, pNode);
+            HtmlCallbackLayout(pTree, pNode);
         }
     }
     return 0;

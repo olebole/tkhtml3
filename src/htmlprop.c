@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.55 2006/03/21 08:02:45 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.56 2006/03/24 13:52:03 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1112,6 +1112,10 @@ HtmlComputedValuesInit(pTree, pNode, p)
     p->values.cBorderBottomColor = 0;
     p->values.cBorderLeftColor = 0;
 
+    p->values.cOutlineColor = 0;
+    propertyValuesSetBorderWidth(p, &p->values.iOutlineWidth, 0, &Medium);
+    p->values.eOutlineStyle = CSS_CONST_NONE;
+
     p->values.imBackgroundImage = 0;
     p->values.eBackgroundRepeat = CSS_CONST_REPEAT;
     p->values.iBackgroundPositionX = 0;
@@ -1363,13 +1367,26 @@ HtmlComputedValuesSet(p, eProp, pProp)
             return propertyValuesSetEnum(p, pEVar, options, pProp);
         }
 
+        case CSS_PROPERTY_OUTLINE_STYLE: {
+            unsigned char *pEVar = &(p->values.eOutlineStyle);
+            return propertyValuesSetEnum(p, pEVar, border_style_options, pProp);
+        }
+        case CSS_PROPERTY_OUTLINE_COLOR: {
+            HtmlColor **pCVar = &(p->values.cOutlineColor);
+            return propertyValuesSetColor(p, pCVar, pProp);
+        }
+        case CSS_PROPERTY_OUTLINE_WIDTH: {
+            return propertyValuesSetBorderWidth(p, 
+                &(p->values.iOutlineWidth), PROP_MASK_OUTLINE_WIDTH, pProp
+            );
+        }
 
         /* 
          * Color properties: 
          *
 	 *     'background-color', 'color', 'border-top-color',
 	 *     'border-right-color', 'border-bottom-color',
-	 *     'border-left-color'
+	 *     'border-left-color',
          * 
          * Handled by propertyValuesSetColor().
          */
@@ -1413,7 +1430,7 @@ HtmlComputedValuesSet(p, eProp, pProp)
             );
         case CSS_PROPERTY_HEIGHT: 
             return propertyValuesSetSize(p, &(p->values.iHeight),
-                PROP_MASK_HEIGHT, pProp, SZ_INHERIT|SZ_PERCENT|SZ_AUTO
+                PROP_MASK_HEIGHT, pProp, SZ_INHERIT|SZ_AUTO
             );
         case CSS_PROPERTY_MIN_HEIGHT:
             return propertyValuesSetSize(p, &(p->values.iMinHeight),
@@ -1770,7 +1787,8 @@ HtmlComputedValuesFinish(p)
         {PROP_MASK_BORDER_RIGHT_WIDTH,  OFFSET(border.iRight)},
         {PROP_MASK_BORDER_BOTTOM_WIDTH, OFFSET(border.iBottom)},
         {PROP_MASK_BORDER_LEFT_WIDTH,   OFFSET(border.iLeft)},
-        {PROP_MASK_LINE_HEIGHT,         OFFSET(iLineHeight)}
+        {PROP_MASK_LINE_HEIGHT,         OFFSET(iLineHeight)},
+        {PROP_MASK_OUTLINE_WIDTH,       OFFSET(iOutlineWidth)}
     };
 #undef OFFSET
 
@@ -1823,6 +1841,10 @@ HtmlComputedValuesFinish(p)
     }
     if (!p->values.cBorderLeftColor) {
         p->values.cBorderLeftColor = pColor;
+        pColor->nRef++;
+    }
+    if (!p->values.cOutlineColor) {
+        p->values.cOutlineColor = pColor;
         pColor->nRef++;
     }
 
@@ -1882,6 +1904,7 @@ HtmlComputedValuesFinish(p)
         pValues->cBorderRightColor->nRef--;
         pValues->cBorderBottomColor->nRef--;
         pValues->cBorderLeftColor->nRef--;
+        pValues->cOutlineColor->nRef--;
         HtmlImageFree(pValues->imReplacementImage);
         HtmlImageFree(pValues->imBackgroundImage);
         HtmlImageFree(pValues->imListStyleImage);
@@ -1965,6 +1988,7 @@ HtmlComputedValuesRelease(pTree, pValues)
             decrementColorRef(pTree, pValues->cBorderRightColor);
             decrementColorRef(pTree, pValues->cBorderBottomColor);
             decrementColorRef(pTree, pValues->cBorderLeftColor);
+            decrementColorRef(pTree, pValues->cOutlineColor);
             HtmlImageFree(pValues->imReplacementImage);
             HtmlImageFree(pValues->imBackgroundImage);
             HtmlImageFree(pValues->imListStyleImage);
@@ -2186,6 +2210,10 @@ struct PVDef {
     COLORVAL (BORDER_TOP_COLOR, cBorderTopColor),
     ENUMVAL  (BORDER_TOP_STYLE, eBorderTopStyle),
     LENGTHVAL(BORDER_TOP_WIDTH, border.iTop),
+
+    ENUMVAL  (OUTLINE_STYLE, eOutlineStyle),
+    COLORVAL (OUTLINE_COLOR, cOutlineColor),
+    LENGTHVAL(OUTLINE_WIDTH, iOutlineWidth),
 
     ENUMVAL  (CLEAR, eClear),
     COLORVAL (COLOR, cColor),
