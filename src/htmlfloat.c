@@ -37,7 +37,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  * COPYRIGHT:
  */
-static const char rcsid[] = "$Id: htmlfloat.c,v 1.12 2006/03/21 16:47:16 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlfloat.c,v 1.13 2006/03/24 14:43:54 danielk1977 Exp $";
 
 #include <assert.h>
 #include "html.h"
@@ -710,10 +710,6 @@ HtmlFloatListLog(pTree, zNode, pList)
     int y = pList->yorigin;
     int x = pList->xorigin;
 
-#if 0
-    HtmlLog(pTree, "LAYOUTENGINE", "%s Float-list: %d %d %d %d",
-        zNode, pList->xorigin, pList->yorigin, pList->yend, pList->endValid);
-#endif
     if (pList->endValid) {
         int yend = pList->yend;
         HtmlLog(pTree, "LAYOUTENGINE", "%s Float-list: end=%d\n", zNode, yend);

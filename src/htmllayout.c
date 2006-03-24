@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.137 2006/03/24 13:52:03 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.138 2006/03/24 14:43:54 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -514,7 +514,11 @@ static int
 normalFlowMarginQuery(pNormal) 
     NormalFlow *pNormal;
 {
-    return pNormal->iMinMargin + pNormal->iMaxMargin;
+    int iMargin = pNormal->iMinMargin + pNormal->iMaxMargin;
+    if (pNormal->nonegative) {
+        iMargin = MAX(0, iMargin);
+    }
+    return iMargin;
 }
 static void 
 normalFlowMarginCollapse(pNormal, pY) 
@@ -524,7 +528,7 @@ normalFlowMarginCollapse(pNormal, pY)
     NormalFlowCallback *pCallback = pNormal->pCallbackList;
     int iMargin = pNormal->iMinMargin + pNormal->iMaxMargin;
     if (pNormal->nonegative) {
-        iMargin = MAX(iMargin, 0);
+        iMargin = MAX(0, iMargin);
     }
     while (pCallback) {
         pCallback->xCallback(pNormal, pCallback, iMargin);
@@ -543,7 +547,7 @@ normalFlowMarginAdd(pNormal, y)
     NormalFlow *pNormal;
     int y;
 {
-    if (pNormal->isValid) {
+    if (pNormal->isValid && (!pNormal->nonegative || y >= 0)) {
         assert(pNormal->iMaxMargin >= 0);
         assert(pNormal->iMinMargin <= 0);
         pNormal->iMaxMargin = MAX(pNormal->iMaxMargin, y);
@@ -653,7 +657,7 @@ normalFlowLayoutFloat(pLayout, pBox, pNode, pY, pContext, pNormal)
     memset(&sBox, 0, sizeof(BoxContext));
     sBox.iContaining = iContaining;
 
-    y = (*pY) + (pNormal->iMaxMargin + pNormal->iMinMargin);
+    y = (*pY) + normalFlowMarginQuery(pNormal);
 
     nodeGetMargins(pLayout, pNode, iContaining, &margin);
 
@@ -1756,8 +1760,9 @@ normalFlowClearFloat(pBox, pNode, pNormal, y)
         ynew = HtmlFloatListClear(pNormal->pFloat, eClear, ynew);
         int ydiff = ynew - y;
         assert(ydiff >= 0);
-        pNormal->iMaxMargin = MAX(pNormal->iMaxMargin, ydiff);
-        pNormal->iMinMargin = -1 * ydiff;
+        pNormal->iMaxMargin = MAX(pNormal->iMaxMargin - ydiff, 0);
+        if (!pNormal->nonegative) pNormal->iMinMargin = 0;
+        pNormal->iMinMargin -= ydiff;
         pNormal->nonegative = 1;
         pBox->height = MAX(ynew, pBox->height);
     }
