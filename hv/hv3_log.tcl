@@ -132,8 +132,8 @@ proc log_node {n indent} {
         }
         append out ">"
         puts $out
-        for {set ii 0} {$ii < [$n nChild]} {incr ii} {
-            log_node [$n child $ii] $indent
+        foreach child [$n children] {
+            log_node $child $indent
         }
     }
 }

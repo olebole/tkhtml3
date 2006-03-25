@@ -95,8 +95,8 @@ proc gui_build {} {
 proc gui_select_all {} {
   set n [.hv3.html node]
   .hv3.html select from $n
-  while {[$n nChildren] > 0} {
-    set n [$n child [expr [$n nChildren]-1]]
+  while {[llength [$n children]] > 0} {
+    set n [lindex [$n children] end-1]
   }
   .hv3.html select to $n
 }

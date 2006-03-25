@@ -458,8 +458,8 @@ itcl::body HtmlDebug::drawSubTree {node x y} {
     if {$label == ""} {return 0}
 
     set leaf 1
-    for {set i 0} {$i < [$node nChild]} {incr i} {
-        if {"" != [prop_nodeToLabel $node]} {
+    foreach child [$node children] {
+        if {"" != [prop_nodeToLabel $child]} {
             set leaf 0
             break
         }
@@ -487,9 +487,8 @@ itcl::body HtmlDebug::drawSubTree {node x y} {
     set ret 1
     if {[info exists myExpanded($node)]} {
         set xnew [expr $x+$XINCR]
-        for {set i 0} {$i < [$node nChild]} {incr i} {
+        foreach child [$node children] {
             set ynew [expr $y + $YINCR*$ret]
-            set child [$node child $i]
             set incrret [drawSubTree $child $xnew $ynew]
             incr ret $incrret
             if {$incrret > 0} {

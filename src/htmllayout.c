@@ -47,178 +47,23 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.138 2006/03/24 14:43:54 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.139 2006/03/25 16:25:04 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
 #include <string.h>
 #include <stdlib.h>
 
-/*
- * Notes on layout-engine logging:
- */
 #define LOG if (pLayout->pTree->options.logcmd && 0 == pLayout->minmaxTest)
 
 /*
  * The code to lay out a "normal-flow" is located in this file:
  *
  *     + A new normal flow is established by:
- *         - the viewport (in the initial containing block)
- *         - a float
- *         - a table cell
- *
- *     + A flow contains a single block box.
- *
- *     + A flow has an associated float list (type HtmlFloatList*).
- *
- * Block box:
- *
- *     + A block box may contain either:
- *         - zero or more block boxes.
- *         - inline context.
- *         - replaced content
- *
- *     + A replaced content box is one of:
- *         - replaced node - i.e. a widget or image
- *         - a table
- *
- *     + A replaced content box is different from other block boxes in
- *       that it is placed around floats (other block boxes are placed under
- *       floats, the box content wraps around them instead).
- *
- * Table:
- *     + A table contains zero or more flows, arranged in a grid.  
- *     + Generation of tables requires knowing the "minimum" and "maximum"
- *       widths of the flow within each cell - important consideration for
- *       design of other layout code. 
+ *         - the root node of the document,
+ *         - a floating box,
+ *         - a table cell.
  */
-
-
-/*
- * Inline Context Requirements Notes:
- * ---------------------
- *
- *     Laying out elements in an inline context is superficially simple.
- *     Inline boxes are added to a line box until the line box is full, and
- *     it is then drawn into the normal flow in the same way as a block
- *     box. But, as I have discovered, the following complications exist,
- *     which make things anything but simple :)
- *
- *     + Floating boxes.
- *     + Block boxes that occur in inline contexts.
- *     + 'text-align' (i.e. left, right, center or justified).
- *     + 'word-spacing' property.
- *     + 'letter-spacing' property.
- *     + 'text-decoration' (i.e. underlining, striking etc.)
- *     + Borders and backgrounds of inline boxes.
- *     + Padding and margins of inline boxes.
- *
- * FLOATS:
- *
- *     Floating boxes are tricky because if a floating box occurs midway
- *     through a line, the top of the floating box is supposed to be level
- *     with the top of the current line box. i.e. The following code:
- *
- *         <p>The quick brown fox 
- *             <img src="fox.jpg" align="left"> 
- *             jumped over...
- *         </p>
- *
- *     should render as follows:
- *
- *         |                                             |
- *         |+---------------+ The quick brown fox jumped |
- *         ||    fox.jpg    | over the...                |
- *         |+---------------+                            |
- *         |                                             |
- *
- *     Specifically, the "fox.jpg" image should never be floated against
- *     the line below the text "fox". Instead, it displaces the line
- *     containing "fox", even if this means "fox" moves onto the next line.
- *
- * BLOCK BOXES:
- *
- *     Sometimes a block box can occur inside an inline context:
- *
- *         <div>First part of text 
- *             <b>Second part<div>Another block box</div>of text</b>
- *         </div>
- *
- *     This should render as:
- *
- *         |                                             |
- *         |First part of text Second part               |
- *         |Another block box                            |
- *         |of text                                      |
- *         |                                             |
- *
- *     All text from "Second" onwards should be in bold font. Both KHTML
- *     and Gecko render this way, but the specification is ambiguous.
- *     Tkhtml handles this by considering the current inline context
- *     finished, drawing the block box into the normal flow, then starting
- *     a new inline context. 
- *
- * TEXT-ALIGN, WORD-SPACING and LETTER-SPACING:
- *
- *     The 'text-align' property may take the values "left", "right",
- *     "center" or "justify". The first three values just affect the
- *     alignment of each line-box within the parent context - easy.
- *
- *     A value of "justify" for 'text-align' is more complicated. In this
- *     case Tkhtml may adjust the spaces between inline-boxes to justify
- *     the line-box. Tkhtml considers a word of text to be an atomic inline
- *     box, it never adjusts letter-spacing to achieve justification. IMO
- *     this looks terrible anyway.
- *
- *     If the 'word-spacing' property takes a value other than "normal",
- *     then the space between words is not adjusted, even if this means the
- *     line-box cannot be justified.
- *
- *     Todo: Support the <string> option for 'text-align'. This only
- *     applies to table-cells and doesn't seem to be used much anyway.
- *
- * BORDERS, BACKGROUNDS, PADDING and MARGINS.
- *
- *     The tricky bit. Well, not quite true, backgrounds are easy enough
- *     anyway. The background color or image covers all the content area of
- *     the inline box. If the inline box spills over two lines, then the
- *     background ends with the last word on the line, it does not extend
- *     the whole width of the parent context.
- *
- *     When a border is drawn around an inline box that spills over two
- *     line boxes, then three sides of the border are draw in each line
- *     box. For example:
- *
- *          <p>There was 
- *          <span style="border:1px solid">
- *              movement at the station for the word had passed around,
- *          </span>
- *              , that the colt from Old Regret had got away.
- *          </p>
- * 
- *         |                                             |
- *         |                   +----------------------   |
- *         |There was movement |at the station for the   |
- *         |                   +----------------------   |
- *         |-----------------------+                     |
- *         |word had passed around,| that the colt from  |
- *         |-----------------------+                     |
- *         |Old Regret had got away.                     |
- *         |                                             |
- *
- *     The wierd part is that Gecko and KHTML never allocate space for
- *     vertical margins, padding or borders. They both draw borders
- *     correctly, and backgrounds are extended to allow for padding, but 
- *     no space is ever allocated. The border of an inline box may flow
- *     over the content of above line-box. For now, Tkhtml works this way
- *     too, not because I think they're right, but because it's easier and
- *     everyone else is getting away with it.
- *
- *     Both Gecko and KHTML allocate space for horizontal padding, margins
- *     and borders correctly.
- */
-
-
 
 typedef struct NormalFlowCallback NormalFlowCallback;
 typedef struct NormalFlow NormalFlow;
@@ -1640,6 +1485,7 @@ normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
 
     BoxProperties box;                /* Box properties of pNode */
     MarginProperties margin;          /* Margin properties of pNode */
+    int iMPB;                         /* Sum of margins, padding borders */
     int iWidth;                       /* Content width of pNode in pixels */
 
     int yBorderTop;    /* Y-coordinate for top of block border */
@@ -1654,22 +1500,25 @@ normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
     nodeGetBoxProperties(pLayout, pNode, pBox->iContaining, &box);
     nodeGetMargins(pLayout, pNode, pBox->iContaining, &margin);
 
-    /* Calculate iWidth, xBorderLeft, xBorderRight and yBorderTop. All are
-     * interpreted as pixel values. For a non-replaced block element, the width
-     * is always as calculated here, even if the content is not as wide.
+    /* Calculate iWidth, xBorderLeft, xBorderRight. All are interpreted as
+     * pixel values. For a non-replaced block element, the width is always as
+     * calculated here, even if the content is not as wide.
      */
     iWidth = PIXELVAL(
         pV, WIDTH, pLayout->minmaxTest ? PIXELVAL_AUTO : pBox->iContaining
     );
+    
+    iMPB = box.iLeft + box.iRight + margin.margin_left + margin.margin_right;
     if (iWidth == PIXELVAL_AUTO) {
+	/* If 'width' is set to "auto", then treat an "auto" value for
+	 * 'margin-left' or 'margin-right' as 0. Then calculate the width
+	 * available for the content by subtracting the margins, padding and
+	 * borders from the width of the containing block.
+         */
         xBorderLeft = margin.margin_left;
-        iWidth = pBox->iContaining -
-            margin.margin_left - box.iLeft -
-            margin.margin_right - box.iRight;
+        iWidth = pBox->iContaining - iMPB;
     } else {
-        int iSpareWidth = pBox->iContaining - iWidth - 
-            margin.margin_left - box.iLeft -
-            margin.margin_right - box.iRight;
+        int iSpareWidth = pBox->iContaining - iWidth - iMPB;
         if (margin.leftAuto & margin.rightAuto) {
             xBorderLeft = iSpareWidth / 2;
         }
@@ -1688,9 +1537,7 @@ normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
     /* If this box has either top-padding or a top border, then collapse the
      * vertical margin between this block and the one above now.
      */
-    if (box.iTop > 0) {
-        normalFlowMarginCollapse(pNormal, pY);
-    } 
+    if (box.iTop > 0) normalFlowMarginCollapse(pNormal, pY); 
 
     yBorderTop = *pY + normalFlowMarginQuery(pNormal);
 
@@ -1700,18 +1547,32 @@ normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
     x = xBorderLeft + box.iLeft;
 
     /* Set up the box-context used to draw the content. */
-    /* sBox.pFloat = pBox->pFloat; */
     HtmlFloatListNormalize(pNormal->pFloat, -1 * x, -1 * y);
     sBox.iContaining = iWidth;
 
-    /* Layout the box content and copy it into the parent box-context. */
+    /* Layout the content of this non-replaced block box. For this kind
+     * of box, we treat any computed 'height' value as a minimum height.
+     * Set the height of the box to this value before calling
+     * normalFlowLayout(). normalFlowLayout() should never decrease the
+     * sBox.height variable, only increase it.
+     */
+    assert(pV->iHeight >= 0 || pV->iHeight == PIXELVAL_AUTO);
+    sBox.height = MAX(0, pV->iHeight) + normalFlowMarginQuery(pNormal);
     normalFlowLayout(pLayout, &sBox, pNode, pNormal);
-    *pY += sBox.height;
+    assert(sBox.height >= pV->iHeight);
+
+    LOG {
+        HtmlTree *pTree = pLayout->pTree;
+        const char *zFmt = "%s normalFlowLayoutBlock() -> content size: %dx%d";
+        const char *zNode = Tcl_GetString(HtmlNodeCommand(pTree, pNode));
+        HtmlLog(pTree, "LAYOUTENGINE", zFmt, zNode, sBox.width, sBox.height);
+    }
 
     /* Re-normalize the float-list. */
     HtmlFloatListNormalize(pNormal->pFloat, x, y);
 
-    if (box.iBottom > 0) {
+    *pY += sBox.height;
+    if (box.iBottom > 0 && 0) {
         normalFlowMarginCollapse(pNormal, pY);
     } 
     *pY += box.iBottom;
@@ -1965,7 +1826,6 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
         FlowLayoutFunc *xLayout;  /* Layout function to invoke */
     };
 
-
     /* Look-up table used by this function. */
     #define F(z, d, c, l, x) static FlowType FT_ ## z = {#z, d, c, l, x}
     F( NONE,            0, 1, 0, 0);
@@ -2114,7 +1974,8 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
      *      5. The vertical margins that will collapse with the top margin of 
      *         the first block in this flow are the same as they were when the
      *         cache was generated.
-     *      6. The current floating margins are the same as they were when 
+     *      6. There are no list marker boxes waiting to be positioned based on      *         the layout of this node.
+     *      7. The current floating margins are the same as they were when 
      *         the cache was generated and there are no new floating margins
      *         in the float list that affect the area where the cached 
      *         layout is to be placed.
@@ -2128,14 +1989,16 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
         pNormal->isValid    == pCache->normalFlowIn.isValid &&         /* 5 */
         pNormal->iMinMargin == pCache->normalFlowIn.iMinMargin &&   
         pNormal->iMaxMargin == pCache->normalFlowIn.iMaxMargin &&
-        left == pCache->iFloatLeft && right == pCache->iFloatRight &&  /* 6 */
+        !hasNormalCb &&                                                /* 6 */
+        left == pCache->iFloatLeft && right == pCache->iFloatRight &&  /* 7 */
         HtmlFloatListIsConstant(pFloat, 0, pCache->iHeight)
     ) {
-        /* In this case we can use the cached layout. */
+        /* Hooray! A cached layout can be used. */
         assert(!pBox->vc.pFirst);
         assert(!pLayout->minmaxTest);
         HtmlDrawCopyCanvas(&pBox->vc, &pCache->canvas);
         pBox->width = pCache->iWidth;
+        assert(pCache->iHeight >= pBox->height);
         pBox->height = pCache->iHeight;
         pNormal->iMaxMargin = pCache->normalFlowOut.iMaxMargin;
         pNormal->iMinMargin = pCache->normalFlowOut.iMinMargin;
@@ -2160,9 +2023,6 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
         const char *zNode = Tcl_GetString(HtmlNodeCommand(pTree, pNode));
         HtmlFloatListLog(pTree, zNode, pFloat);
     }
-
-    /* Check for 'height' property. Percentage values are not allowed */
-    pBox->height = MAX(pBox->height, pNode->pPropertyValues->iHeight);
 
     /* Create the InlineContext object for this containing box */
     pContext = HtmlInlineContextNew(pNode, pLayout->minmaxTest);
@@ -2197,7 +2057,8 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
         !pLayout->minmaxTest && 
         pCache->iFloatLeft == left &&
         pCache->iFloatRight == right &&
-        HtmlFloatListIsConstant(pFloat, pBox->height, overhang)
+        HtmlFloatListIsConstant(pFloat, pBox->height, overhang) &&
+        !pNormal->pCallbackList && !hasNormalCb
     ) {
         HtmlDrawOrigin(&pBox->vc);
         HtmlDrawCopyCanvas(&pCache->canvas, &pBox->vc);

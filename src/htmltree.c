@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.58 2006/03/24 13:52:03 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.59 2006/03/25 16:25:04 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -933,6 +933,37 @@ HtmlNode *HtmlNodeRightSibling(pNode)
 /*
  *---------------------------------------------------------------------------
  *
+ * HtmlNodeLeftSibling --
+ * 
+ *     Get the left-hand sibling to a node, if it has one.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+HtmlNode *HtmlNodeLeftSibling(pNode)
+    HtmlNode *pNode;
+{
+    HtmlNode *pParent = pNode->pParent;
+    if( pParent ){
+        int i;
+        for (i = 1; i < pParent->nChild; i++) {
+            if (pNode == pParent->apChildren[i]) {
+                return pParent->apChildren[i-1];
+            }
+        }
+        assert(pNode==pParent->apChildren[0]);
+    }
+    return 0;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * HtmlNodeParent --
  *
  *     Get the parent of the current node.
@@ -1031,13 +1062,13 @@ nodeCommand(clientData, interp, objc, objv)
     int choice;
 
     static CONST char *NODE_strs[] = {
-        "attr", "tag", "nChildren", "child", "text", 
-        "parent", "prop", "replace", "right_sibling", 
+        "attr", "children", "tag", "text", 
+        "parent", "prop", "replace", 
         "dynamic", 0
     };
     enum NODE_enum {
-        NODE_ATTR, NODE_TAG, NODE_NCHILDREN, NODE_CHILD, NODE_TEXT,
-        NODE_PARENT, NODE_PROP, NODE_REPLACE, NODE_RIGHT_SIBLING,
+	NODE_ATTR, NODE_CHILDREN, NODE_TAG, 
+	NODE_TEXT, NODE_PARENT, NODE_PROP, NODE_REPLACE, 
         NODE_DYNAMIC
     };
 
@@ -1106,6 +1137,30 @@ node_attr_usage:
             return TCL_ERROR;
         }
 
+        /*
+         * nodeHandle children
+         *
+	 *     Return a list of node handles for all children of nodeHandle.
+	 *     The leftmost child node becomes element 0 of the list, the
+	 *     second leftmost element 1, and so on.
+         */
+        case NODE_CHILDREN: {
+            if (objc == 2) {
+                int i;
+                Tcl_Obj *pRes = Tcl_NewObj();
+                for (i = 0; i < HtmlNodeNumChildren(pNode); i++) {
+                    HtmlNode *pChild = HtmlNodeChild(pNode, i);
+                    Tcl_Obj *pCmd = HtmlNodeCommand(pTree, pChild);
+                    Tcl_ListObjAppendElement(0, pRes, pCmd);
+                }
+                Tcl_SetObjResult(interp, pRes);
+            } else {
+                Tcl_WrongNumArgs(interp, 2, objv, "");
+                return TCL_ERROR;
+            }
+            break;
+        }
+
         case NODE_TAG: {
             char CONST *zTag;
             if (objc!=2) {
@@ -1114,32 +1169,6 @@ node_attr_usage:
             }
             zTag = HtmlMarkupName(HtmlNodeTagType(pNode));
             Tcl_SetResult(interp, (char *)zTag, TCL_VOLATILE);
-            break;
-        }
-        case NODE_NCHILDREN: {
-            if (objc!=2) {
-                Tcl_WrongNumArgs(interp, 2, objv, "");
-                return TCL_ERROR;
-            }
-            Tcl_SetObjResult(interp, Tcl_NewIntObj(HtmlNodeNumChildren(pNode)));
-            break;
-        }
-        case NODE_CHILD: {
-            Tcl_Obj *pCmd;
-            int n;
-            if (objc!=3) {
-                Tcl_WrongNumArgs(interp, 2, objv, "");
-                return TCL_ERROR;
-            }
-            if (TCL_OK!=Tcl_GetIntFromObj(interp, objv[2], &n)) {
-                return TCL_ERROR;
-            }
-            if (n>=HtmlNodeNumChildren(pNode) || n<0) {
-                Tcl_SetResult(interp, "Parameter out of range", TCL_STATIC);
-                return TCL_ERROR;
-            }
-            pCmd = HtmlNodeCommand(pTree, HtmlNodeChild(pNode, n));
-            Tcl_SetObjResult(interp, pCmd);
             break;
         }
 
@@ -1299,23 +1328,11 @@ node_attr_usage:
         }
 
         /*
-         * nodeHandle right_sibling
-         *
-         *     Return the right-sibling of the node, or an empty string
-         *     if no such sibling exists.
-         */
-        case NODE_RIGHT_SIBLING: {
-            HtmlNode *pSibling;
-            pSibling = HtmlNodeRightSibling(pNode);
-            if (pSibling) {
-                Tcl_SetObjResult(interp, HtmlNodeCommand(pTree, pSibling));
-            } 
-            break;
-        }
-
-        /*
          * nodeHandle dynamic set|clear ?flag?
          * nodeHandle dynamic conditions
+         *
+	 *     Note that the [nodeHandle dynamic conditions] command is for
+	 *     debugging only. It is not documented in the man page.
          */
         case NODE_DYNAMIC: {
             struct DynamicFlag {

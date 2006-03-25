@@ -153,7 +153,7 @@ struct HtmlToken {
 
 /*
  * For a replaced node, the HtmlNode.pReplacement variable points to an
- * instance * of the following structure. The member objects are the name of
+ * instance of the following structure. The member objects are the name of
  * the replaced object (widget handle), the configure script if any, and the
  * delete script if any. i.e. in Tcl:
  *
@@ -434,6 +434,7 @@ int HtmlTreeClear(HtmlTree *);
 int         HtmlNodeNumChildren(HtmlNode *);
 HtmlNode *  HtmlNodeChild(HtmlNode *, int);
 HtmlNode *  HtmlNodeRightSibling(HtmlNode *);
+HtmlNode *  HtmlNodeLeftSibling(HtmlNode *);
 HtmlNode *  HtmlNodeParent(HtmlNode *);
 char CONST *HtmlNodeTagName(HtmlNode *);
 char CONST *HtmlNodeAttr(HtmlNode *, char CONST *);

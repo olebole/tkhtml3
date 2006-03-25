@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.65 2006/03/24 13:52:03 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.66 2006/03/25 16:25:04 danielk1977 Exp $";
 
 #include "htmllayout.h"
 
@@ -159,6 +159,7 @@ tableColWidthSingleSpan(pNode, col, colspan, row, rowspan, pContext)
             assert(pV->iWidth >= 0);
             aExplicitWidth[col] = MAX(aExplicitWidth[col], req);
         }
+        assert(aMinWidth[col] <= aMaxWidth[col]);
     }
     return TCL_OK;
 }
@@ -229,6 +230,7 @@ tableColWidthMultiSpan(pNode, col, colspan, row, rowspan, pContext)
         minincr = MAX((min - currentmin) / colspan, 0);
         maxincr = MAX((max - currentmax) / colspan, 0);
         for (i=col; i<(col+colspan); i++) {
+            assert(aMinWidth[i] <= aMaxWidth[i]);
             pData->aMaxWidth[i] += maxincr;
             pData->aMinWidth[i] += minincr;
 
@@ -237,6 +239,13 @@ tableColWidthMultiSpan(pNode, col, colspan, row, rowspan, pContext)
                 aMinWidth[i] += MAX(0, (min-currentmin) - (colspan*minincr));
                 aMaxWidth[i] += MAX(0, (max-currentmax) - (colspan*maxincr));
             }
+
+	    /* Todo: If the min-width of the column is now greater than the
+	     * max-width, increase the max-width so that it is equal to the
+	     * min-width. This means that we may have increased the maximum
+	     * widths by too much. Not such a big deal in practice...
+             */
+	    aMaxWidth[i] = MAX(aMinWidth[i], aMaxWidth[i]);
         }
     }
 
@@ -853,6 +862,7 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
                 if (aExplicitWidth[i] == PIXELVAL_AUTO) {
                     if (aPercentWidth[i] < 0.0) {
                         if (granted == total_requested || !total_requested) {
+                            assert(aWidth[i] == aMinWidth[i]);
                             assert(aMaxWidth[i] >= aWidth[i]);
                             aWidth[i] = aMaxWidth[i];
                         } else {

@@ -17,6 +17,8 @@
 		-yscrollincrement
 	}]
 
+	See the options manual entry for details on the standard options.
+
 [Section Widget-Specific Options]
 	[Option defaultstyle {
 		This option is used to set the default style-sheet for the
@@ -32,7 +34,12 @@
 		document. But it will not work at the moment because of
 		other assumptions the implementation makes about the set
 		of valid tags.
+
+		TODO: Document the the ::tkhtml::htmlstyle command.
 	}]
+	[Option fonttable {
+		TODO
+        }]
 	[Option imagecmd {
 		As well as for replacing entire document nodes (i.e. <img>),
 		images are used in several other contexts in CSS formatted
@@ -55,7 +62,22 @@
 		If the size or content of the image are modified while it is in
 		use the widget display is updated automatically.
 	}]
+	[Option layoutcache {
+		TODO
+	}]
 	[Option logcmd {
+		This option is used for internally debugging the widget.
+	}]
+	[Option selectbackground {
+		TODO
+	}]
+	[Option selectforeground {
+		TODO
+	}]
+	[Option shrink {
+		TODO
+	}]
+	[Option timercmd {
 		This option is used for internally debugging the widget.
 	}]
 
@@ -73,7 +95,7 @@
 	the widget as follows:
 
 [Subcommand {
-	pathName bbox nodeHandle
+	pathName bbox _nodeHandle_
 		If node nodeHandle generates content, this command returns a
 		list of four integers that define the bounding-box of the
 		generated content, relative to the top-left hand corner of the
@@ -85,7 +107,7 @@
 }]
 
 [Subcommand {
-	pathName cget option
+	pathName cget _option_
 		Returns the current value of the configuration option given
 		by option. Option may have any of the values accepted by
 		the [SQ html] command.
@@ -216,6 +238,11 @@
 		invocations of [SQ pathName style] had occured).
 }]
 
+[Subcommand {
+	pathName search _selector_
+		TODO
+}]
+
 [Subcommand -4 {
 	pathName select clear
 	pathName select from ?nodeHandle ?index? ?
@@ -315,7 +342,7 @@
 	manipulate the document node via the following subcommands:
 
 [Subcommand {
-	nodeHandle attr ?attribute?
+	nodeHandle attr ??-default _default-value_? ?attribute??
 		If the attribute argument is present, then return the value
 		of the named html attribute, or an empty string if the
 		attribute specified does not exist. If it is not present,
@@ -332,24 +359,26 @@
 		# Value returned by [nodeHandle attr class]
 		normal
 	}]
+
+		TODO: Explain -default and correct description of "attribute
+		not found" handling.  
 }]
 
 [Subcommand {
-	nodeHandle child index
-		Return the node handle for the index'th child of the node.
-		Children are numbered from zero upward.
+	nodeHandle children
+		TODO
 }]
 [Subcommand -2 {
-	nodeHandle dynamic set ?flag?
-	nodeHandle dynamic clear ?flag?
+	nodeHandle dynamic set ?_flag_?
+	nodeHandle dynamic clear ?_flag_?
 		Set or clear a dynamic flag on a node. 
 
-		The supported values for the  ?flag? argument are "active",
-		"hover" and "focus". The status of each dynamic flag 
-		determines whether or not the corresponding CSS dynamic
-		pseudo-classes are considered to match the node. For
-		example, when the mouse moves over node $N, a script
-		could invoke:
+		The supported values for the _flag_ argument are "active",
+		"hover", "focus", "link" and "visited". The status of each
+		dynamic flag determines whether or not the corresponding CSS
+		dynamic pseudo-classes are considered to match the node. For
+		example, when the mouse moves over node $N, a script could
+		invoke:
 	[Code {
 		$N dynamic set hover
 	}]
@@ -363,11 +392,6 @@
 			$n dynamic set hover
                 }
 	}]
-
-}]
-[Subcommand {
-	nodeHandle nChild
-		Return the number of children the node has.
 }]
 [Subcommand {
 	nodeHandle parent

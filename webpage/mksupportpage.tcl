@@ -429,6 +429,29 @@ vspace
 width
 }
 
+# List of CSS 2.1 properties within scope for Tkhtml.
+if 0 {
+
+# Position related:
+left right top bottom position
+
+# Tables:
+border-collapse border-spacing caption-side empty-cells table-layout
+
+# Outlines
+outline-color outline-style outline-width
+
+# Maximum and minimum heights.
+max-height max-width min-height min-width
+
+# Bi-directional text:
+unicode-bidi direction
+
+# Interesting but not currently in scope:
+clip overflow content counter-increment counter-reset 
+cursor z-index quotes visibility
+
+}
 
 
 FINISH

@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.103 2006/03/24 13:52:02 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.104 2006/03/25 16:25:04 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -208,6 +208,16 @@ struct CanvasWindow {
     HtmlCanvasItem *pNext;   /* Next mapped window on this canvas */
 };
 
+/*
+ * CanvasOrigin primitives are used for two purposes:
+ *
+ *     1. To facilitate layout caching, and
+ *     2. To speed up searches of the primitives list.
+ *
+ * CanvasOrigin primitives are added to the display list in pairs. One
+ * primitive is added to the start of the display list, the other to the end
+ * (ususually, primitives are only added to the end of the list).
+ */
 struct CanvasOrigin {
     int x;
     int y;
@@ -515,6 +525,63 @@ void HtmlDrawCopyCanvas(pTo, pFrom)
     }
 }
 
+static int
+combineText(pNodeA, pNodeB) 
+    HtmlNode *pNodeA;
+    HtmlNode *pNodeB;
+{
+    HtmlNode *pA = 0;
+    HtmlNode *pB = 0;
+    HtmlNode *pCommon = 0;
+
+    assert(HtmlNodeIsText(pNodeA));
+    assert(HtmlNodeIsText(pNodeB));
+    assert(pNodeA->iNode <= pNodeB->iNode);
+
+    for (pA = pNodeA; pA && !pCommon; pA = HtmlNodeParent(pA)) {
+        for (pB = pNodeB; pB && !pCommon; pB = HtmlNodeParent(pB)) {
+            if (pB == pA) {
+                pCommon = pB;
+            }
+        }
+    }
+
+    assert(pCommon);
+    for (pA = pNodeA; pA != pCommon; pA = HtmlNodeParent(pA)) {
+        if (
+            pA->pPropertyValues && (
+                pA->pPropertyValues->eDisplay != CSS_CONST_INLINE ||
+                pA->pPropertyValues->padding.iRight > 0 ||
+                pA->pPropertyValues->margin.iRight > 0 ||
+                (
+                    pA->pPropertyValues->eBorderRightStyle != CSS_CONST_NONE &&
+                    pA->pPropertyValues->border.iRight > 0
+                )
+            )
+        ) {
+            return 0;
+        }
+    }
+    for (pB = pNodeB; pB != pCommon; pB = HtmlNodeParent(pB)) {
+        if (
+            pB->pPropertyValues && (
+                pB->pPropertyValues->eDisplay != CSS_CONST_INLINE ||
+                pB->pPropertyValues->padding.iLeft > 0 ||
+                pB->pPropertyValues->margin.iLeft > 0 ||
+                (
+                    pB->pPropertyValues->eBorderLeftStyle != CSS_CONST_NONE &&
+                    pB->pPropertyValues->border.iLeft > 0
+                )
+            )
+        ) {
+            return 0;
+        }
+    }
+    
+    return 1;
+}
+
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -545,6 +612,7 @@ void HtmlDrawCanvas(pCanvas, pCanvas2, x, y, pNode)
         if (pCanvas->pLast) {
             HtmlCanvasItem *pT1 = pCanvas->pLast;
             HtmlCanvasItem *pT2 = pCanvas2->pFirst;
+            int combined = 0;
             assert(pCanvas->pFirst);
 
             /* Special case: combine two text primitives: */
@@ -568,6 +636,29 @@ void HtmlDrawCanvas(pCanvas, pCanvas2, x, y, pNode)
                         assert(pCanvas2->pLast);
                     }
                     HtmlFree(pT2);
+                    combined = 1;
+                }
+            }
+
+            if (pT2->type == CANVAS_TEXT && !combined) {
+                HtmlCanvasItem *p;
+                HtmlCanvasItem *pT = 0;
+                for (p = pCanvas->pFirst; p; p = p->pNext) {
+                    if (p->type == CANVAS_TEXT) {
+                        pT = p;
+		    } else if (p->type==CANVAS_IMAGE||p->type==CANVAS_WINDOW) {
+                        pT = 0;
+                    } else if (p->type == CANVAS_ORIGIN) {
+                        pT = 0; 
+                        break;
+                    }
+                }
+                if (
+                    pT && 
+                    (pT->x.t.x + pT->x.t.w) < pT2->x.t.x && 
+                    combineText(pT->x.t.pNode, pT2->x.t.pNode)
+                ) {
+                    pT->x.t.w = (pT2->x.t.x - pT->x.t.x);
                 }
             }
 
@@ -939,13 +1030,14 @@ int HtmlLayoutPrimitives(clientData, interp, objc, objv)
                 }
                 break;
             case CANVAS_TEXT: {
-                nObj = 6;
+                nObj = 7;
                 aObj[0] = Tcl_NewStringObj("draw_text", -1);
                 aObj[1] = Tcl_NewIntObj(pItem->x.t.x);
                 aObj[2] = Tcl_NewIntObj(pItem->x.t.y);
-                aObj[3] = HtmlNodeCommand(pTree, pItem->x.t.pNode);
-                aObj[4] = Tcl_NewIntObj(pItem->x.t.iIndex);
-                aObj[5] = pItem->x.t.pText;
+                aObj[3] = Tcl_NewIntObj(pItem->x.t.w);
+                aObj[4] = HtmlNodeCommand(pTree, pItem->x.t.pNode);
+                aObj[5] = Tcl_NewIntObj(pItem->x.t.iIndex);
+                aObj[6] = pItem->x.t.pText;
                 break;
             }
             case CANVAS_IMAGE:
@@ -1432,6 +1524,21 @@ drawLine(pTree, pLine, drawable, x, y, w, h)
 
 #define SWAPINT(x,y) {int tmp = x; x = y; y = tmp;}
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * drawLine --
+ *
+ *     This function draws a CANVAS_TEXT primitive on the supplied drawable.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
 static void
 drawText(pTree, pItem, drawable, x, y)
     HtmlTree *pTree;
@@ -1442,23 +1549,28 @@ drawText(pTree, pItem, drawable, x, y)
 {
     Display *disp = Tk_Display(pTree->win);
     CanvasText *pT = &pItem->x.t;
-    CONST char *z;
 
     GC gc = 0;
     XGCValues gc_values;
     int mask;
 
-    int n;
+    CONST char *z;          /* String to render */
+    int n;                  /* Length of string z in (Todo: bytes? chars?) */
+
     HtmlFont *pFont = fontFromNode(pT->pNode);
     HtmlColor *pColor = colorFromNode(pT->pNode);
     Tk_Font font = pFont->tkfont;
 
     int iSelFrom;      /* Index in this string where the selection starts */
     int iSelTo = 0;    /* Index in this string where the selection ends */
+    int eContinue = 0; /* True if this is not the last text selected */
 
     z = Tcl_GetStringFromObj(pT->pText, &n);
     iSelFrom = n;
 
+    /* This block sets the iSelTo and iSelFrom variables according to the
+     * portion (if any) of the text string that is "selected".
+     */
     if (pTree->pFromNode && pT->iIndex >= 0) {
         int iToNode    = pTree->pToNode->iNode;
         int iFromNode  = pTree->pFromNode->iNode;
@@ -1476,13 +1588,24 @@ drawText(pTree, pItem, drawable, x, y)
         }
 
         if (iToNode>=iThis && iFromNode<=iThis) {
-            iSelFrom = 0;
+	    /* If this condition is true, then part of the node that this  
+             * text belongs to is selected.
+             */
+	    iSelFrom = 0;
             iSelTo = n;
             if (iToNode == iThis && iToIndex >= 0) {
                 iSelTo = iToIndex - pT->iIndex;
             }
             if (iFromNode == iThis && iFromIndex >= 0) {
                 iSelFrom = iFromIndex - pT->iIndex;
+            }
+
+            if (iToNode > iThis || iSelTo > n) {
+                HtmlCanvasItem *p = pItem->pNext;
+                while (p && p->type != CANVAS_TEXT) p = p->pNext;
+                if (p && p->x.t.pNode && p->x.t.pNode->iNode <= iToNode) {
+                    eContinue = 1;
+                }
             }
             iSelFrom = MAX(0, iSelFrom);
             iSelTo = MIN(n, iSelTo);
@@ -1505,7 +1628,7 @@ drawText(pTree, pItem, drawable, x, y)
     }
 
     /* If any text at all is selected, draw that text */
-    if (iSelTo > 0 && iSelFrom < n) {
+    if (iSelTo > 0 && iSelFrom <= n && iSelTo >= iSelFrom) {
         CONST char *zSel = &z[iSelFrom];
         int nSel;
         int w;                               /* Pixels of selected text */
@@ -1513,11 +1636,16 @@ drawText(pTree, pItem, drawable, x, y)
         int h;                               /* Height of text line */
         int ybg;                             /* Y coord for bg rectangle */
 
-        nSel     = iSelTo - iSelFrom;
+        nSel = iSelTo - iSelFrom;
         if (iSelFrom > 0) {
             xs += Tk_TextWidth(font, z, iSelFrom);
         }
-        w = Tk_TextWidth(font, zSel, nSel);
+        if (eContinue) {
+            w = pT->w + x - xs;
+        } else {
+            w = Tk_TextWidth(font, zSel, nSel);
+        }
+
         h = pFont->metrics.ascent + pFont->metrics.descent;
         ybg = pT->y + y - pFont->metrics.ascent;
 
@@ -1716,6 +1844,7 @@ getPixmap(pTree, xcanvas, ycanvas, w, h, getwin)
     XColor *bg_color = 0;
     GetPixmapQuery sQuery;
     Outline *pOutline;
+    ClientData clientData;
 
     Tk_MakeWindowExist(win);
     pDisplay = Tk_Display(win);
@@ -1742,7 +1871,8 @@ getPixmap(pTree, xcanvas, ycanvas, w, h, getwin)
     sQuery.pOutline = 0;
     sQuery.getwin = getwin;
 
-    searchCanvas(pTree, ycanvas, ycanvas+h, 0, pixmapQueryCb, (ClientData)&sQuery);
+    clientData = (ClientData)&sQuery;
+    searchCanvas(pTree, ycanvas, ycanvas+h, 0, pixmapQueryCb, clientData);
 
     pOutline = sQuery.pOutline;
     while (pOutline) {
@@ -1761,74 +1891,6 @@ getPixmap(pTree, xcanvas, ycanvas, w, h, getwin)
         HtmlFree(pPrev);
     }
   
-    return pmap;
-    
-
-#if 0
-    for (pItem=pCanvas->pFirst; pItem; pItem=pItem->pNext) {
-        switch (pItem->type) {
-
-            case CANVAS_ORIGIN: {
-                int skip = 1;
-                while (skip) {
-                    CanvasOrigin *pOrigin = &pItem->x.o;
-                    x += pOrigin->x;
-                    y += pOrigin->y;
-    
-                    /* If the contents of this canvas is completely outside
-		     * of the clipping border, then we can skip to the
-		     * 'pSkip' member of pItem.
-                     */
-                    skip = 0;
-                    if (pOrigin->pSkip) {
-                        if (((x + pOrigin->right) < 0) ||
-                            ((x + pOrigin->left) > w) ||
-                            ((y + pOrigin->top) > h) ||
-                            ((y + pOrigin->bottom) < 0)
-                        ) {
-                            pItem = pOrigin->pSkip;
-                            assert(pItem->type == CANVAS_ORIGIN);
-                            assert(!pItem->x.o.pSkip);
-                            skip = 1;
-                        }
-                    }
-                }
-
-                break;
-            }
-
-            case CANVAS_TEXT: {
-                drawText(pTree, pItem, pmap, x, y);
-                break;
-            }
-
-            case CANVAS_IMAGE: {
-                drawImage(pTree, &pItem->x.i2, pmap, x, y, w, h);
-                break;
-            }
-
-            case CANVAS_BOX: {
-                drawBox(pTree, &pItem->x.box, pmap, x, y, w, h);
-                break;
-            }
-
-            case CANVAS_LINE: {
-                drawLine(pTree, &pItem->x.line, pmap, x, y, w, h);
-                break;
-            }
-
-            case CANVAS_WINDOW:
-                break;
-
-        }
-
-        if (gc) {
-            Tk_FreeGC(pDisplay, gc);
-            gc = 0;
-        }
-    }
-#endif
-
     return pmap;
 }
 
@@ -2307,8 +2369,10 @@ paintNodesSearchCb(pItem, origin_x, origin_y, clientData)
 
                     if (iNode == p->iNodeFin && p->iIndexFin >= 0) {
                         nFin = MIN(n, 1 + p->iIndexFin - pT->iIndex);
+                        right = Tk_TextWidth(pFont->tkfont, z, nFin) + left;
+                    } else {
+                        right = pT->w + left;
                     }
-                    right = Tk_TextWidth(pFont->tkfont, z, nFin) + left;
                     if (iNode == p->iNodeStart && p->iIndexStart > 0) {
                         int nStart = MAX(0, p->iIndexStart - pT->iIndex);
                         if (nStart > 0) {
@@ -2470,7 +2534,9 @@ HtmlWidgetNodeTop(pTree, iNode)
     sQuery.iNode = iNode;
     sQuery.iReturn = 0;
     sQuery.pTree = pTree;
+    HtmlCallbackForce(pTree);
     searchCanvas(pTree, -1, -1, 0, scrollToNodeCb, (ClientData)&sQuery);
+printf ("returning %d\n", sQuery.iReturn);
     return sQuery.iReturn;
 }
 

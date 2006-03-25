@@ -39,7 +39,6 @@
 #         $cmd -reset
 #     
 package require snit
-package require Itcl
 
 swproc hv3Init {PATH {gotocallback ""}} {
   ::hv3::initVars $PATH
@@ -443,13 +442,26 @@ catch {
 
       if {$N eq $n2} break 
 
-      if {[$N nChild] > 0} {
-        set N [$N child 0]
+      if {[llength [$N children]] > 0} {
+        set N [lindex [$N children] 0]
       } else {
-        while {[set next_node [$N right_sibling]] eq ""} {
-          set N [$N parent]
+
+        set right_sibling ""
+        while {$right_sibling == ""} {
+          set parent [$N parent]
+          if {$parent eq ""} {error "End of tree"}
+          set siblings [$parent children]
+          set idx [lsearch $siblings $N]
+          if {$idx >= 0} {
+            set right_sibling [lindex $siblings [expr $idx+1]]
+          }
+  
+          if {$right_sibling == ""} {
+            set N $parent
+          }
         }
-        set N $next_node
+        set N $right_sibling
+
       }
 
       if {$N eq ""} {error "End of tree!"}
@@ -465,6 +477,7 @@ catch {
     set selector [format {[name="%s"]} $fragment]
     set goto_node [lindex [$H search $selector] 0]
     if {$goto_node!=""} {
+puts "goto $goto_node"
       $H yview $goto_node
     }
   }

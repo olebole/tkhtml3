@@ -193,8 +193,10 @@ class HtmlEntry {
   method configure {props} {
     array set p $props
     $myWidget configure -font $p(font)
-    $myWidget configure -foreground $p(color)
-    $myWidget configure -background $p(background-color)
+    # $myWidget configure -foreground $p(color)
+    # $myWidget configure -background $p(background-color)
+    $myWidget configure -background white
+    $myWidget configure -borderwidth 1
 
     if {[info exists p(width)]} {
       set charwidth [expr $p(width) / [font measure $p(font) o]]
@@ -239,6 +241,7 @@ class HtmlButton {
     $myWidget configure -font $p(font)
     $myWidget configure -activeforeground $p(color)
     $myWidget configure -foreground $p(color)
+    $myWidget configure -borderwidth 1
     return [font_to_offset $myWidget $p(font)]
   }
 
@@ -303,8 +306,7 @@ class HtmlComboBox {
   constructor {HTML getcmd node} {
     # Figure out a list of options for the drop-down list.
     set options [list]
-    for {set ii 0} {$ii < [$node nChild]} {incr ii} {
-      set child [$node child $ii]
+    foreach child [$node children] {
       if {[$child tag] == "option"} {
         if {[catch {set label [$node attr label]}]} {
           set t [$child child 0]

@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.82 2006/03/21 16:47:16 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.83 2006/03/25 16:25:04 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -1100,6 +1100,8 @@ resetCmd(clientData, interp, objc, objv)
 {
     HtmlTree *pTree = (HtmlTree *)clientData;
     HtmlTreeClear(pTree);
+    HtmlCallbackScrollY(pTree, 0);
+    HtmlCallbackScrollX(pTree, 0);
     doLoadDefaultStyle(pTree);
     pTree->parseFinished = 0;
     return TCL_OK;
@@ -1302,6 +1304,7 @@ viewCommon(pTree, isXview, objc, objv)
                 return TCL_ERROR;
             }
             iNewVal = HtmlWidgetNodeTop(pTree, pNode->iNode);
+            iMovePixels = pTree->canvas.bottom;
         } else {
             int eType;       /* One of the TK_SCROLL_ symbols */
             eType = Tk_GetScrollInfoObj(interp, objc, objv, &fraction, &count);
@@ -1921,7 +1924,7 @@ int widgetCmd(clientData, interp, objc, objv)
         {"parse",      0,        parseCmd},
         {"primitives", 0,        primitivesCmd},     /* debugging command */
         {"reset",      0,        resetCmd},
-        {"relayout",   0,        relayoutCmd},
+        {"relayout",   0,        relayoutCmd},       /* debugging command */
         {"search",     0,        searchCmd},
         {"select",     "clear",  selectClearCmd},
         {"select",     "from",   selectCmd},
@@ -1931,14 +1934,9 @@ int widgetCmd(clientData, interp, objc, objv)
         {"xview",      0,        xviewCmd},
         {"yview",      0,        yviewCmd},
 
-        {"command",    0, commandCmd}, 
-        {"var",        0, varCmd},  
-
 #ifndef NDEBUG
         {"_hashstats", 0, hashstatsCmd},  
 #endif
-
-        /* Todo: [<widget> select ...] command */
     };
 
     int i;
@@ -2201,11 +2199,12 @@ DLL_EXPORT int Tkhtml_Init(interp)
 {
     int rc;
 
+    /* Require stubs libraries version 8.4 or greater. */
 #ifdef USE_TCL_STUBS
-    if (Tcl_InitStubs(interp, "8.3", 0) == 0) {
+    if (Tcl_InitStubs(interp, "8.4", 0) == 0) {
         return TCL_ERROR;
     }
-    if (Tk_InitStubs(interp, "8.3", 0) == 0) {
+    if (Tk_InitStubs(interp, "8.4", 0) == 0) {
         return TCL_ERROR;
     }
 #endif
@@ -2214,8 +2213,8 @@ DLL_EXPORT int Tkhtml_Init(interp)
         return TCL_ERROR;
     }
     Tcl_PkgProvide(interp, "Tkhtml", "3.0");
-    Tcl_CreateObjCommand(interp, "html", newWidget, 0, 0);
 
+    Tcl_CreateObjCommand(interp, "html", newWidget, 0, 0);
     Tcl_CreateObjCommand(interp, "::tkhtml::htmlstyle", htmlstyleCmd, 0, 0);
 
 #ifndef NDEBUG
