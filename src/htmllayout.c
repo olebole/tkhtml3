@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.139 2006/03/25 16:25:04 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.140 2006/03/26 12:24:58 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -2146,10 +2146,11 @@ blockMinMaxWidth(pLayout, pNode, pMin, pMax)
 
         pLayout->minmaxTest = minmaxTestOrig;
 
-        /* Log the fact that we just calculated a new minimum and maximum
-	 * width.
+	/* Log the fact that we just calculated a new minimum and maximum
+	 * width. Don't use the LOG macro, as this message should be logged
+	 * regardless of the value of pLayout->minmaxTest.
          */
-	LOG {
+	if (pLayout->pTree->options.logcmd) {
             HtmlTree *pTree = pLayout->pTree;
             HtmlLog(pTree, "LAYOUTENGINE", "%s blockMinMaxWidth() -> "
                 "min=%d max=%d",

@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.66 2006/03/25 16:25:04 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.67 2006/03/26 12:24:58 danielk1977 Exp $";
 
 #include "htmllayout.h"
 
@@ -1121,6 +1121,9 @@ int HtmlTableLayout(pLayout, pBox, pNode)
 
     /* Decide on some actual widths for the cells */
     isAuto = (pNode->pPropertyValues->iWidth == PIXELVAL_AUTO);
+    if (pLayout->minmaxTest && pNode->pPropertyValues->mask & PROP_MASK_WIDTH) {
+        isAuto = 1;
+    }
     availwidth = (pBox->iContaining - (nCol+1) * data.border_spacing);
     tableCalculateCellWidths(&data, availwidth, isAuto);
 
