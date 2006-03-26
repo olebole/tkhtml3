@@ -1,3 +1,4 @@
+# Tkhtml test file
 
 set ::script_handler_count 0
 proc scriptHandler {data} {
@@ -19,8 +20,8 @@ proc get_tree {{indent 0} {node ""}} {
     append output "<${tag}>\n"
   }
 
-  for {set ii 0} {$ii < [$node nChildren]} {incr ii} {
-    append output [get_tree [expr $indent + 2] [$node child $ii]]
+  foreach child [$node children] {
+    append output [get_tree [expr $indent + 2] $child]
   }
 
   if {$tag ne ""} {

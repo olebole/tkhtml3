@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.83 2006/03/25 16:25:04 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.84 2006/03/26 07:20:04 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -1079,7 +1079,7 @@ varCmd(clientData, interp, objc, objv)
  *
  * resetCmd --
  * 
- *     $html internal reset
+ *         widget reset
  *
  *     Reset the widget so that no document or stylesheet is loaded.
  *
