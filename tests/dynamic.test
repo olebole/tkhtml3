@@ -1,14 +1,8 @@
 
-package require tcltest
-package require Tkhtml
-tcltest::verbose {pass body error}
-
-if {[catch {.h cget -width}]} {
-  html .h
-  .h handler script style styleHandler 
-  proc styleHandler {data} {
-    .h style $data
-  }
+html .h
+.h handler script style styleHandler 
+proc styleHandler {data} {
+  .h style $data
 }
 
 proc property {node prop} {
@@ -126,4 +120,6 @@ tcltest::test dynamic-4.0 {} -body {
   set ::node [lindex [.h search a] 0]
   $::node dynamic conditions
 } -result {:link {body a:hover}}
+
+finish_test
 

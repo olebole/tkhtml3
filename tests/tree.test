@@ -131,4 +131,4 @@ tcltest::test tree-2.1 {} -body {
 </html>
 }]
 
-destroy .h
+finish_test

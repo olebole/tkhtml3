@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.84 2006/03/26 07:20:04 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.85 2006/03/26 07:50:01 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -869,6 +869,7 @@ configureCmd(clientData, interp, objc, objv)
     char *pOptions = (char *)&pTree->options;
     Tk_Window win = pTree->tkwin;
     Tk_OptionTable otab = pTree->optionTable;
+    Tk_SavedOptions saved;
 
     int mask = 0;
     int init = 0;                /* True if Tk_InitOptions() is called */
@@ -881,7 +882,9 @@ configureCmd(clientData, interp, objc, objv)
         otab = pTree->optionTable;
     }
 
-    rc = Tk_SetOptions(interp, pOptions, otab, objc-2, &objv[2], win, 0, &mask);
+    rc = Tk_SetOptions(
+        interp, pOptions, otab, objc-2, &objv[2], win, (init?0:&saved), &mask
+    );
     if (TCL_OK == rc) {
         /* Hard-coded minimum values for width and height */
         pTree->options.height = MAX(pTree->options.height, 0);
@@ -909,11 +912,23 @@ configureCmd(clientData, interp, objc, objv)
                 Tcl_GetIntFromObj(interp, apSize[5], &aFontSize[5]) ||
                 Tcl_GetIntFromObj(interp, apSize[6], &aFontSize[6])
             ) {
+                Tcl_ResetResult(interp);
+                Tcl_AppendResult(interp, 
+                    "expected list of 7 integers but got ", 
+                    "\"", Tcl_GetString(pFT), "\"", 0
+                );
                 rc = TCL_ERROR;
             } else {
                 memcpy(pTree->aFontSizeTable, aFontSize, sizeof(aFontSize));
                 HtmlCallbackRestyle(pTree, pTree->pRoot);
             }
+        }
+
+        if (rc != TCL_OK) {
+            assert(!init);
+            Tk_RestoreSavedOptions(&saved);
+        } else if (!init) {
+            Tk_FreeSavedOptions(&saved);
         }
     }
 

@@ -108,4 +108,4 @@ tcltest::test style-3.1 {} -body {
   property $node color
 } -result {red}
 
-
+finish_test
