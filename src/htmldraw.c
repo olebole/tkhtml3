@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.104 2006/03/25 16:25:04 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.105 2006/03/26 11:04:29 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -2463,7 +2463,8 @@ HtmlWidgetDamageText(pTree, iNodeStart, iIndexStart, iNodeFin, iIndexFin)
 typedef struct ScrollToQuery ScrollToQuery;
 struct ScrollToQuery {
     HtmlTree *pTree;
-    int iNode;
+    int iMinNode;
+    int iMaxNode;
     int iReturn;
 };
 
@@ -2493,8 +2494,13 @@ scrollToNodeCb(pItem, origin_x, origin_y, clientData)
     HtmlNode *pNode;
 
     pNode = itemToBox(pItem, origin_x, origin_y, &x, &y, &w, &h);
-    if (pNode && pNode->iNode <= pQuery->iNode) {
+    if (
+        pNode && 
+        pNode->iNode <= pQuery->iMaxNode && 
+        pNode->iNode >= pQuery->iMinNode
+    ) {
         pQuery->iReturn = y;
+        pQuery->iMinNode = pNode->iNode;
     }
 
     return 0;
@@ -2531,12 +2537,12 @@ HtmlWidgetNodeTop(pTree, iNode)
 {
     ScrollToQuery sQuery;
     HtmlCallbackForce(pTree);
-    sQuery.iNode = iNode;
+    sQuery.iMaxNode = iNode;
+    sQuery.iMinNode = 0;
     sQuery.iReturn = 0;
     sQuery.pTree = pTree;
     HtmlCallbackForce(pTree);
     searchCanvas(pTree, -1, -1, 0, scrollToNodeCb, (ClientData)&sQuery);
-printf ("returning %d\n", sQuery.iReturn);
     return sQuery.iReturn;
 }
 

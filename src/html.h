@@ -207,11 +207,12 @@ struct HtmlNode {
 /* Values for HtmlNode.flags. These may be set and cleared via the Tcl
  * interface on the node command: [$node dynamic set|clear ...]
  */
-#define HTML_DYNAMIC_HOVER   0x01
-#define HTML_DYNAMIC_FOCUS   0x02
-#define HTML_DYNAMIC_ACTIVE  0x04
-#define HTML_DYNAMIC_LINK    0x08
-#define HTML_DYNAMIC_VISITED 0x10
+#define HTML_DYNAMIC_HOVER    0x01
+#define HTML_DYNAMIC_FOCUS    0x02
+#define HTML_DYNAMIC_ACTIVE   0x04
+#define HTML_DYNAMIC_LINK     0x08
+#define HTML_DYNAMIC_VISITED  0x10
+#define HTML_DYNAMIC_USERFLAG 0x20
 
 struct HtmlCanvas {
     int left;
