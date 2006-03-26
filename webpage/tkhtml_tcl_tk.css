@@ -24,16 +24,27 @@ body {
 .sidebox {
     float: left;
     width: 20%;
+    text-align:center;
 }
 .sidebox ul {
-    margin: 1ex;
+    margin: 0;
     padding: 0;
 }
 .sidebox li {
     display: block;
-    margin: 1em 0;
-    padding: 0;
+    margin: 0;
+    padding: 0 2ex;
 }
+.sidebox li a {
+    text-decoration: none;
+}
+.sidebox li         {background-color: white;}
+.sidebox li:hover   {background-color: darkblue; color: white;}
+.sidebox li:hover a {color: inherit;}
+
+a[href]       { color: darkblue; }
+a[href]:hover { background-color: darkblue; color: white; }
+
 
 #text {
     padding: 3ex;
@@ -73,9 +84,5 @@ pre[class="code"] {
   padding: 0.5em;
   border: solid black 1px;
   background: #DDDDDD;       /* Same color as background of <body>, <html> */
-}
-
-a:hover {
-  text-decoration: none;
 }
 

@@ -10,6 +10,8 @@
 [Section Standard Options]
 	[Code {
 		-height
+		-selectbackground
+		-selectforeground   
 		-width
 		-xscrollcommand   
 		-xscrollincrement
@@ -17,28 +19,43 @@
 		-yscrollincrement
 	}]
 
-	See the options manual entry for details on the standard options.
+	See the options(n) manual entry for details on the standard options.
 
 [Section Widget-Specific Options]
 	[Option defaultstyle {
 		This option is used to set the default style-sheet for the
 		widget. The option value should be the entire text of the
-		default style-sheet, or an empty string, in which case a
-		built-in default stylesheet (for HTML) is used. 
+		default style-sheet.
 
-		At the moment, this option is not very useful. The default
-		stylesheet defines things that are "built-in" to the 
-		document - for example the behaviour of <p> or <img> tags
+		The default stylesheet defines things that are "built-in" to
+		the document - for example the behaviour of <p> or <img> tags
 		in html. The idea behind making it flexible is to allow
 		Tkhtml to display anything that looks roughly like an XML
-		document. But it will not work at the moment because of
+		document. But this will not work at the moment because of
 		other assumptions the implementation makes about the set
-		of valid tags.
+		of valid tags. Currently, only valid HTML tags are recognized.
 
-		TODO: Document the the ::tkhtml::htmlstyle command.
+		The Tkhtml adds the [SQ ::tkhtml::htmlstyle] command to the
+		interpreter it is loaded into. Invoking this command returns a 
+		CSS document suitable for use with Tkhml as a default
+		stylesheet for HTML documents. If the "-quirks" option is
+		passed to [SQ ::tkhtml::htmlstyle] then the returned document
+		includes some extra rules used when rendering legacy documents.
+
+		The default value of this option is the same as the string
+		returned by the [SQ ::tkhtml::htmlstyle -quirks] command.
 	}]
 	[Option fonttable {
-		TODO
+		This option must be set to a list of 7 integers. The first
+		integer must be greater than 0 and each subsequent integer 
+		must be greater than or equal to its predecessor.
+
+		The seven integers define the sizes of the Tk fonts (in points)
+		used when a CSS formatted document requests font-size
+		'xx-small', 'x-small', 'small', 'medium', 'large', 'x-large' or
+		'xx-large', respectively.
+
+		The default value is {7 8 9 10 12 14 16}.
         }]
 	[Option imagecmd {
 		As well as for replacing entire document nodes (i.e. <img>),
@@ -63,19 +80,29 @@
 		use the widget display is updated automatically.
 	}]
 	[Option layoutcache {
-		TODO
+		If this boolean option is set to true, then Tkhtml caches 
+		layout information to improve performance when the layout of a
+		document must be recomputed. This can happen in a variety of
+		situations, for example when extra text is appended to the
+		document, a new style is applied to the document, a dynamic CSS
+		selector (i.e. :hover) is activated, the widget window is
+		resized, or when the size of an embedded image or Tk window
+		changes.
+
+		Layout caching consumes no extra memory or significant
+		processing cycles, so in an ideal world there is no real reason
+		to turn it off. But it can be a source of layout bugs, hence
+		this option.
+
+		The default values is true.
 	}]
 	[Option logcmd {
 		This option is used for internally debugging the widget.
 	}]
-	[Option selectbackground {
-		TODO
-	}]
-	[Option selectforeground {
-		TODO
-	}]
 	[Option shrink {
-		TODO
+		If this boolean option is set to true, then the widgets
+		requested width and height are the width and height of the
+		currently displayed formatted document.
 	}]
 	[Option timercmd {
 		This option is used for internally debugging the widget.
@@ -114,7 +141,7 @@
 }]
 
 [Subcommand {
-	pathName configure ?option? ?value?
+	pathName configure ?_option_? ?_value_?
 		Query or modify the configuration options of the widget. If
 		no option is specified, returns a list describing all of
 		the available options for pathName (see Tk_ConfigureInfo
@@ -129,14 +156,14 @@
 		have any of the values accepted by the [SQ html] command.
 }]
 
-[Subcommand {
-	pathName handler type tag script
+[Subcommand -2 {
+	pathName handler node _tag_ _script_
+	pathName handler script _tag_ _script_
 		This command is used to define "handler" scripts - Tcl
 		callback scripts that are invoked by the widget when
 		document elements of specified types are encountered. The
 		widget supports two types of handler scripts: "node" and
-		"script". The type parameter to this command must
-		take one of these two values.
+		"script".
 
 		For a "node" handler script, whenever a document element
 		having the specified tag type (e.g. "p" or "link") is
@@ -188,7 +215,7 @@
 }]
 
 [Subcommand {
-	pathName node ? ?-index? x y?
+	pathName node ? ?-index? _x_ _y_?
 		This command is used to retrieve one or more document node
 		handles from the current document. If the x and y parameters
 		are omitted, then the handle returned is the root-node of the
@@ -218,14 +245,20 @@
 }]
 
 [Subcommand {
-	pathName parse ?-final? html-text
+	pathName parse ?-final? _html-text_
 		Append extra text to the end of the (possibly empty)
 		document currently stored by the widget. 
 
 		If the -final option is present, this indicates that the
 		supplied text is the last of the document. Any subsequent
-		call to [SQ pathName parse] before a call to [SQ pathName reset]
-		will raise an error.
+		call to [SQ pathName parse] before a call to 
+		[SQ pathName reset] will raise an error. 
+
+		If the -final option is not passed to [SQ pathName parse] along
+		with the final part of the document text, node handler scripts
+		for any elements closed implicitly by the end of the document
+		will not be executed. It is not an error to specify an empty
+		string for the _html-text_ argument.
 }]
 
 [Subcommand {
@@ -240,13 +273,16 @@
 
 [Subcommand {
 	pathName search _selector_
-		TODO
+		The _selector_ argument passed to this command must be a valid
+		CSS selector, for example "h1" or "a[SQ href]". This command
+		returns a list of node-handles corresponding to the set of
+		document nodes that match the supplied selector.
 }]
 
 [Subcommand -4 {
 	pathName select clear
-	pathName select from ?nodeHandle ?index? ?
-	pathName select to ?nodeHandle ?index? ?
+	pathName select from ?_nodeHandle_ ?_index_? ?
+	pathName select to ?_nodeHandle_ ?_index_? ?
 	pathName select span
 		The [SQ pathName select] commands are used to query and
 		manipulate the widget selection.
@@ -255,7 +291,7 @@
 }]
 
 [Subcommand {
-	pathName style ?options? stylesheet-text
+	pathName style ?_options_? _stylesheet-text_
 		Add a stylesheet to the widgets internal configuration. The
 		stylesheet-text argument should contain the text of a
 		complete stylesheet.  Incremental parsing of stylesheets is
@@ -343,11 +379,16 @@
 
 [Subcommand {
 	nodeHandle attr ??-default _default-value_? ?attribute??
-		If the attribute argument is present, then return the value
-		of the named html attribute, or an empty string if the
-		attribute specified does not exist. If it is not present,
-		return a key-value list of the defined attributes of the
-		form that can be passed to [SQ array set].
+		If the _attribute_ argument is present, then return the value
+		of the named html attribute. If the attribute is not defined
+		for the node, then a copy of the _default-value_ argument is
+		returned instead. If no -default option was specified (and
+		hence there is no _default-value_ argument) and the named
+		attribute does not exist, an error is raised.
+
+		If no _attribute_ argument is present, return a key-value list
+		of the defined attributes of the form that can be passed to 
+		[SQ array set].
 
 	[Code {
 		# Html code for node
@@ -359,14 +400,12 @@
 		# Value returned by [nodeHandle attr class]
 		normal
 	}]
-
-		TODO: Explain -default and correct description of "attribute
-		not found" handling.  
 }]
-
 [Subcommand {
 	nodeHandle children
-		TODO
+		Return a list of node handles for all children of nodeHandle.
+		The leftmost child node becomes element 0 of the list, the
+		second leftmost element 1, and so on.
 }]
 [Subcommand -2 {
 	nodeHandle dynamic set ?_flag_?
@@ -386,11 +425,11 @@
 		previously:
 	[Code {
 		for {set n $PN} {$n ne ""} {set n [$n parent]} {
-			$n dynamic clear hover
-                }
+		        $n dynamic clear hover
+		}
 		for {set n $N} {$n ne ""} {set n [$n parent]} {
-			$n dynamic set hover
-                }
+		        $n dynamic set hover
+		}
 	}]
 }]
 [Subcommand {
@@ -476,8 +515,8 @@
 		empty string.
 }]
 
-	TODO: Add the "write" part of the DOM compatible interface to this
-	section.
+	TODO: Add the (not yet implemented) "write" part of the node 
+	interface to this section. 
 
 [Section Stylesheet Loading]
 	Apart from the default stylesheet that is always loaded (see the
@@ -642,34 +681,5 @@
 	are involved in determining the precedence of individual stylesheet
 	rules. These are completely encapsulated by the widget, so are not
 	described here. For complete details of the CSS cascade algorithm,
-	refer to [SQ 1].
+	refer to the CSS and CSS 2 specifications (www.w3.org).
 
-[Section Incremental Document Loading]
-	This section discusses the widget API in the context of loading a
-	document incrementally, for example from a network server. We
-	assume both remote stylesheets and image files are retrieved as
-	well as the document.
-
-	Before a new document (html file) is loaded, any previous document
-	should be purged from memory using the [SQ pathName reset] command.
-	The portion of the new document that is read is passed to the
-	widget using the [SQ pathName parse] command. As new chunks of the
-	document are downloaded, they should also be passed to 
-	[SQ pathName parse]. When the final chunk of the document file is
-	passed to the [SQ pathName parse] command the -final option should
-	be specified. This ensures node-handler callbacks (see the 
-	description of the [SQ pathname handler] command above) are made
-	for tags that are closed implicitly by the end of the document.
-
-	The widget display is updated in an idle callback scheduled after
-	each invocation of the [SQ pathName parse] command.
-
-	TODO: Finish this section.
-
-[Section HTML Specific Processing]
-	TODO: Detail implicit opening and closing tag rules here. LATER: If 
-	only I could figure them out...
-
-[Section References]
-
-	[SQ 1] CSS2 specification.
