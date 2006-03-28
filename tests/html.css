@@ -3,18 +3,9 @@
   FRAME, FRAMESET, H1, H2, H3, H4, H5, H6, IFRAME, NOFRAMES, 
   OBJECT, OL, P, UL, APPLET, CENTER, DIR, HR, MENU, PRE
                 { display: block }
-HEAD, SCRIPT, TITLE
-                { display: none }
 
-BODY            { 
-    margin: 8px; 
-/*    line-height: 1.0;  */
-    background-color: white;
-}
-
-HTML {
-    background-color: white;
-}
+HEAD, SCRIPT, TITLE { display: none }
+BODY                { padding: 8px; }
 
 /* Rules for unordered-lists */
 LI                   { display: list-item }

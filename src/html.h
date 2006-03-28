@@ -346,6 +346,8 @@ struct HtmlTree {
     HtmlToken *pLast;               /* Last token parsed */
     HtmlNode *pCurrent;             /* The node currently being built. */
     HtmlNode *pRoot;                /* The root-node of the document. */
+    HtmlNode *pBgRoot;              /* The node for the canvas bg */
+    int nFixedBackground;           /* Number of nodes with fixed backgrounds */
 
     HtmlToken *pTextLast;           /* Currently parsing text node */
     HtmlToken *pTextFirst;          /* Currently parsing text node */

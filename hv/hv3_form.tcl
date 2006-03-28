@@ -350,21 +350,20 @@ class HtmlComboBox {
 }
 #--------------------------------------------------------------------------
 
-
 proc formHandleInput {HTML getcmd node} {
   switch [$node attr -default unused type] {
     image    {return}
     reset    {return}
     hidden   {return}
 
-    file    { HtmlButton #auto $HTML $getcmd $node }
-    button  { HtmlButton #auto $HTML $getcmd $node }
-    submit  { HtmlButton #auto $HTML $getcmd $node }
+    file     { HtmlButton #auto $HTML $getcmd $node }
+    button   { HtmlButton #auto $HTML $getcmd $node }
+    submit   { HtmlButton #auto $HTML $getcmd $node }
 
     radio    { HtmlRadioButton #auto radiobutton $HTML $getcmd $node }
     checkbox { HtmlRadioButton #auto checkbutton $HTML $getcmd $node }
 
-    default { HtmlEntry #auto $HTML $getcmd $node }
+    default  { HtmlEntry #auto $HTML $getcmd $node }
   }
 }
 
@@ -372,4 +371,34 @@ proc form_init {HTML getcmd} {
     $HTML handler node input  [list formHandleInput $HTML $getcmd]
     $HTML handler node select [list HtmlComboBox #auto $HTML $getcmd]
 }
+
+
+#
+#     The following HTML elements create document nodes that are replaced with
+#     form controls:
+#
+#         <!ELEMENT INPUT    - O EMPTY> 
+#         <!ELEMENT BUTTON   - - (%flow;)* -(A|%formctrl;|FORM|FIELDSET)>
+#         <!ELEMENT SELECT   - - (OPTGROUP|OPTION)+> 
+#         <!ELEMENT TEXTAREA - - (#PCDATA)> 
+#         <!ELEMENT ISINDEX  - O EMPTY> 
+#
+#     This module registers node handler scripts with client html widgets for
+#     these five element types.
+#
+#         <input>            -> button|radiobutton|menubutton|entry|image
+#         <button>           -> button|image
+#         <select>           -> combobox
+#         <textarea>         -> text
+#
+# type = text|password|checkbox|radio|submit|reset|file|hidden|image|button
+#
+# <button>
+# type = submit|button|reset
+#
+# <select>
+#
+# <textarea>
+#
+# <isindex>
 

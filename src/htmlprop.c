@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.56 2006/03/24 13:52:03 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.57 2006/03/28 14:53:54 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1118,6 +1118,7 @@ HtmlComputedValuesInit(pTree, pNode, p)
 
     p->values.imBackgroundImage = 0;
     p->values.eBackgroundRepeat = CSS_CONST_REPEAT;
+    p->values.eBackgroundAttachment = CSS_CONST_SCROLL;
     p->values.iBackgroundPositionX = 0;
     p->values.iBackgroundPositionY = 0;
 
@@ -1364,6 +1365,13 @@ HtmlComputedValuesSet(p, eProp, pProp)
                 CSS_CONST_NO_REPEAT, 0
             };
             unsigned char *pEVar = &(p->values.eBackgroundRepeat);
+            return propertyValuesSetEnum(p, pEVar, options, pProp);
+        }
+        case CSS_PROPERTY_BACKGROUND_ATTACHMENT: {
+            int options[] = {
+                CSS_CONST_SCROLL, CSS_CONST_FIXED, 0
+            };
+            unsigned char *pEVar = &(p->values.eBackgroundAttachment);
             return propertyValuesSetEnum(p, pEVar, options, pProp);
         }
 
@@ -1908,6 +1916,11 @@ HtmlComputedValuesFinish(p)
         HtmlImageFree(pValues->imReplacementImage);
         HtmlImageFree(pValues->imBackgroundImage);
         HtmlImageFree(pValues->imListStyleImage);
+    } else if (pValues->eBackgroundAttachment == CSS_CONST_FIXED) {
+        /* If this is a new entry and the 'background-attachment' property
+         * computes to "fixed", then increment HtmlTree.nFixedBackground.
+         */
+        p->pTree->nFixedBackground++;
     }
     HtmlImageCheck(pValues->imReplacementImage);
     HtmlImageCheck(pValues->imBackgroundImage);
@@ -1992,6 +2005,9 @@ HtmlComputedValuesRelease(pTree, pValues)
             HtmlImageFree(pValues->imReplacementImage);
             HtmlImageFree(pValues->imBackgroundImage);
             HtmlImageFree(pValues->imListStyleImage);
+            if (pValues->eBackgroundAttachment == CSS_CONST_FIXED) {
+                pTree->nFixedBackground++;
+            }
     
             Tcl_DeleteHashEntry(pEntry);
         }
@@ -2252,6 +2268,7 @@ struct PVDef {
     IMAGEVAL(BACKGROUND_IMAGE, imBackgroundImage),
     IMAGEVAL(LIST_STYLE_IMAGE, imListStyleImage),
     ENUMVAL (BACKGROUND_REPEAT, eBackgroundRepeat),
+    ENUMVAL (BACKGROUND_ATTACHMENT, eBackgroundAttachment),
     BACKGROUNDPOSITIONVAL()
 };
 
@@ -2380,8 +2397,8 @@ HtmlNodeProperties(interp, pValues)
     return TCL_OK;
 }
 
-#define HTML_LAYOUT 2
-#define HTML_PAINT  1
+#define HTML_REQUIRE_LAYOUT 2
+#define HTML_REQUIRE_PAINT  1
 #define HTML_OK     0
 int 
 HtmlComputedValuesCompare(pV1, pV2) 
@@ -2413,7 +2430,7 @@ HtmlComputedValuesCompare(pV1, pV2)
         pV1->eVerticalAlign != pV2->eVerticalAlign ||
         (!pV1->eVerticalAlign && pV1->iVerticalAlign != pV1->iVerticalAlign)
     ) {
-        return HTML_LAYOUT;
+        return HTML_REQUIRE_LAYOUT;
     }
 
     pDef = &pvdef[0];
@@ -2422,7 +2439,7 @@ HtmlComputedValuesCompare(pV1, pV2)
             case ENUM:
                 if (pDef->eCssProperty != CSS_PROPERTY_TEXT_DECORATION) {
                     if (*(v1 + pDef->iOffset) != *(v2 + pDef->iOffset)) {
-                        return HTML_LAYOUT;
+                        return HTML_REQUIRE_LAYOUT;
                     }
                 }
                 break;
@@ -2432,9 +2449,9 @@ HtmlComputedValuesCompare(pV1, pV2)
  
                 if (
                     *pL1 != *pL2 || 
-                    (pDef->mask & pV1->mask != pDef->mask & pV2->mask)
+                    ((pDef->mask & pV1->mask) != (pDef->mask & pV2->mask))
                 ) {
-                    return HTML_LAYOUT;
+                    return HTML_REQUIRE_LAYOUT;
                 }
  
                 break;
@@ -2442,6 +2459,6 @@ HtmlComputedValuesCompare(pV1, pV2)
         }
     }
 
-    return HTML_PAINT;
+    return HTML_REQUIRE_PAINT;
 }
 

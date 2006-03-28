@@ -43,7 +43,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  * COPYRIGHT:
  */
-static const char rcsid[] = "$Id: htmlhash.c,v 1.12 2006/03/24 13:52:02 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlhash.c,v 1.13 2006/03/28 14:53:54 danielk1977 Exp $";
 
 #include <tcl.h>
 #include <strings.h>
@@ -415,6 +415,7 @@ hashValuesKey(tablePtr, keyPtr)
     result += (result<<3) + (int)(p->cOutlineColor);
     result += (result<<3) + (int)(p->eOutlineStyle);
     result += (result<<3) + (int)(p->iOutlineWidth);
+    result += (result<<3) + (int)(p->eBackgroundAttachment);
 
     return result;
 }

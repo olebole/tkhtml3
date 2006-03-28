@@ -220,11 +220,13 @@ struct HtmlComputedValues {
     int iOutlineWidth;                /* 'outline-width' (pixels) */
     HtmlColor *cOutlineColor;         /* 'outline-color' */
 
-    HtmlImage2 *imBackgroundImage;    /* 'background-image' */
-    unsigned char eBackgroundRepeat;  /* 'background-repeat' */
+    HtmlImage2 *imBackgroundImage;        /* 'background-image' */
+    unsigned char eBackgroundRepeat;      /* 'background-repeat' */
+    unsigned char eBackgroundAttachment;  /* 'background-attachment' */
     int iBackgroundPositionX;
     int iBackgroundPositionY;
 
+    /* The Tkhtml specific properties */
     HtmlImage2 *imReplacementImage;   /* '-tkhtml-replacement-image' */
 };
 
