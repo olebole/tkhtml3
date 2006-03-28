@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.106 2006/03/28 14:53:54 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.107 2006/03/28 15:32:11 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1120,6 +1120,26 @@ fill_quad(win, d, xcolor, x1, y1, x2, y2, x3, y3, x4, y4)
     return rc;
 }
 
+static int
+fill_rectangle(win, d, xcolor, x, y, w, h)
+    Tk_Window win;
+    Drawable d;
+    XColor *xcolor;
+    int x; int y;
+    int w; int h;
+{
+    Display *display = Tk_Display(win);
+    GC gc;
+    XGCValues gc_values;
+
+    gc_values.foreground = xcolor->pixel;
+    gc = Tk_GetGC(win, GCForeground, &gc_values);
+    XFillRectangle(display, d, gc, x, y, w, h);
+    Tk_FreeGC(display, gc);
+
+    return 0;
+}
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -1314,11 +1334,10 @@ drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview)
 
     /* Solid background, if required */
     if (pV->cBackgroundColor->xcolor) {
-        fill_quad(pTree->win, drawable, pV->cBackgroundColor->xcolor,
-            bg_x, bg_y,
-            bg_w, 0,
-            0, bg_h,
-            -1 * bg_w, 0
+        fill_rectangle(pTree->win, 
+            drawable, pV->cBackgroundColor->xcolor,
+            MAX(0, bg_x), MAX(bg_y, 0), 
+            MIN(bg_w + MIN(0, bg_x), w), MIN(bg_h + MIN(0, bg_y), h)
         );
     }
 
