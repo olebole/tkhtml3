@@ -50,6 +50,7 @@ C table-header-group table-footer-group table-row
 C table-column-group table-column
 C left right none                                 ;# 'float'
 C left right none both                            ;# 'clear'
+C static relative absolute fixed                  ;# 'position'
 C left right center justify                       ;# 'text-align'
 C auto                                            ;# 'margin'
 C square disc circle none                         ;# 'list-style-type'

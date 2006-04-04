@@ -72,7 +72,7 @@ table {
     width:80%;
 }
 td           {padding: 0px .5em}
-.nosupport   {color: grey}
+.nosupport   {color: grey !important}
 .support     {color: darkblue}
 
 img {

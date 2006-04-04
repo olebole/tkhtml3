@@ -177,6 +177,12 @@ struct HtmlComputedValues {
     unsigned char eFloat;             /* 'float' */
     unsigned char eClear;             /* 'clear' */
 
+    /* ePosition stores the enumerated 'position' property. The position
+     * structure stores the computed values of the 'top', 'bottom', 'left' 
+     * and 'right' properties. */
+    unsigned char ePosition;          /* 'position' */
+    HtmlFourSides position;           /* (pixels, %, AUTO) */
+
     HtmlColor *cColor;                /* 'color' */
     HtmlColor *cBackgroundColor;      /* 'background-color' */
 
@@ -284,6 +290,10 @@ struct HtmlComputedValuesCreator {
 #define PROP_MASK_BACKGROUND_POSITION_Y   0x00200000
 #define PROP_MASK_BORDER_SPACING          0x00400000
 #define PROP_MASK_OUTLINE_WIDTH           0x00800000
+#define PROP_MASK_TOP                     0x01000000
+#define PROP_MASK_BOTTOM                  0x02000000
+#define PROP_MASK_RIGHT                   0x04000000
+#define PROP_MASK_LEFT                    0x08000000
 
 /*
  * Pixel values in the HtmlComputedValues struct may also take the following

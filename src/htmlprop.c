@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.57 2006/03/28 14:53:54 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.58 2006/04/04 11:34:19 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1126,20 +1126,22 @@ HtmlComputedValuesInit(pTree, pNode, p)
 
     p->values.eVerticalAlign = CSS_CONST_BASELINE;   /* 'vertical-align' */
     p->values.iVerticalAlign = 0;
+
+    p->values.ePosition = CSS_CONST_STATIC;
+    p->values.position.iTop = PIXELVAL_AUTO;
+    p->values.position.iBottom = PIXELVAL_AUTO;
+    p->values.position.iLeft = PIXELVAL_AUTO;
+    p->values.position.iRight = PIXELVAL_AUTO;
 }
 
 /*
  *---------------------------------------------------------------------------
  *
- * HtmlComputedValuesInit --
+ * propertyValuesTclScript --
  *   
- *     Initialise an HtmlComputedValuesCreator structure.
- *
  * Results:
- *     None.
  *
  * Side effects:
- *     Initialises *p.
  *
  *---------------------------------------------------------------------------
  */
@@ -1388,6 +1390,31 @@ HtmlComputedValuesSet(p, eProp, pProp)
                 &(p->values.iOutlineWidth), PROP_MASK_OUTLINE_WIDTH, pProp
             );
         }
+
+        case CSS_PROPERTY_POSITION: {
+            int options[] = {
+                CSS_CONST_STATIC, CSS_CONST_RELATIVE, 
+                CSS_CONST_FIXED, CSS_CONST_ABSOLUTE, 0
+            };
+            unsigned char *pEVar = &(p->values.ePosition);
+            return propertyValuesSetEnum(p, pEVar, options, pProp);
+        }
+        case CSS_PROPERTY_TOP: 
+            return propertyValuesSetSize(p, &(p->values.position.iTop),
+                PROP_MASK_TOP, pProp, SZ_INHERIT|SZ_PERCENT|SZ_AUTO
+            );
+        case CSS_PROPERTY_BOTTOM: 
+            return propertyValuesSetSize(p, &(p->values.position.iBottom),
+                PROP_MASK_BOTTOM, pProp, SZ_INHERIT|SZ_PERCENT|SZ_AUTO
+            );
+        case CSS_PROPERTY_RIGHT: 
+            return propertyValuesSetSize(p, &(p->values.position.iRight),
+                PROP_MASK_RIGHT, pProp, SZ_INHERIT|SZ_PERCENT|SZ_AUTO
+            );
+        case CSS_PROPERTY_LEFT: 
+            return propertyValuesSetSize(p, &(p->values.position.iLeft),
+                PROP_MASK_LEFT, pProp, SZ_INHERIT|SZ_PERCENT|SZ_AUTO
+            );
 
         /* 
          * Color properties: 
@@ -1747,6 +1774,44 @@ allocateNewFont(interp, tkwin, pFontKey)
     return pFont;
 }
     
+/*
+ *---------------------------------------------------------------------------
+ *
+ * setDisplay97 --
+ *
+ *     Modify the value of the 'display' property in the structure pointed 
+ *     to by argument p according to the table in section 9.7 of the CSS 
+ *     2.1 spec.
+ *
+ * Results: 
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void
+setDisplay97(p)
+    HtmlComputedValuesCreator *p;
+{
+    switch (p->values.eDisplay) {
+        case CSS_CONST_INLINE_TABLE:
+            p->values.eDisplay = CSS_CONST_TABLE;
+            break;
+        case CSS_CONST_INLINE:
+        case CSS_CONST_RUN_IN:
+        case CSS_CONST_TABLE_ROW_GROUP:
+        case CSS_CONST_TABLE_COLUMN:
+        case CSS_CONST_TABLE_COLUMN_GROUP:
+        case CSS_CONST_TABLE_HEADER_GROUP:
+        case CSS_CONST_TABLE_FOOTER_GROUP:
+        case CSS_CONST_TABLE_ROW:
+        case CSS_CONST_TABLE_CELL:
+        case CSS_CONST_TABLE_CAPTION:
+            p->values.eDisplay = CSS_CONST_BLOCK;
+            break;
+    }
+}
 
 /*
  *---------------------------------------------------------------------------
@@ -1776,10 +1841,10 @@ HtmlComputedValuesFinish(p)
         unsigned int mask;
         int offset;
     } emexmap[] = {
-        {PROP_MASK_WIDTH,             OFFSET(iWidth)},
+        {PROP_MASK_WIDTH,              OFFSET(iWidth)},
         {PROP_MASK_MIN_WIDTH,          OFFSET(iMinWidth)},
         {PROP_MASK_MAX_WIDTH,          OFFSET(iMaxWidth)},
-        {PROP_MASK_HEIGHT,            OFFSET(iHeight)},
+        {PROP_MASK_HEIGHT,             OFFSET(iHeight)},
         {PROP_MASK_MIN_HEIGHT,         OFFSET(iMinHeight)},
         {PROP_MASK_MAX_HEIGHT,         OFFSET(iMaxHeight)},
         {PROP_MASK_MARGIN_TOP,         OFFSET(margin.iTop)},
@@ -1796,7 +1861,11 @@ HtmlComputedValuesFinish(p)
         {PROP_MASK_BORDER_BOTTOM_WIDTH, OFFSET(border.iBottom)},
         {PROP_MASK_BORDER_LEFT_WIDTH,   OFFSET(border.iLeft)},
         {PROP_MASK_LINE_HEIGHT,         OFFSET(iLineHeight)},
-        {PROP_MASK_OUTLINE_WIDTH,       OFFSET(iOutlineWidth)}
+        {PROP_MASK_OUTLINE_WIDTH,       OFFSET(iOutlineWidth)},
+        {PROP_MASK_TOP,                 OFFSET(position.iTop)},
+        {PROP_MASK_BOTTOM,              OFFSET(position.iBottom)},
+        {PROP_MASK_LEFT,                OFFSET(position.iLeft)},
+        {PROP_MASK_RIGHT,               OFFSET(position.iRight)}
     };
 #undef OFFSET
 
@@ -1890,12 +1959,21 @@ HtmlComputedValuesFinish(p)
         p->values.eVerticalAlign = CSS_CONST_BASELINE;
     }
 
-    /* Force all floating boxes to have display type 'block' or 'table' */
+    /* The following block implements section 9.7 of the CSS 2.1 
+     * specification. Refer there for details.
+     */
     if (
-        p->values.eFloat != CSS_CONST_NONE &&  
-        p->values.eDisplay != CSS_CONST_TABLE
+        p->values.ePosition == CSS_CONST_ABSOLUTE || 
+        p->values.ePosition == CSS_CONST_FIXED
     ) {
-        p->values.eDisplay = CSS_CONST_BLOCK;
+        p->values.eFloat = CSS_CONST_NONE;
+        setDisplay97(p);
+    }
+    else if (p->values.eFloat != CSS_CONST_NONE) {
+        setDisplay97(p);
+    }
+    else if (p->pNode == p->pTree->pRoot) {
+        setDisplay97(p);
     }
 
     /* Look the values structure up in the hash-table. */
@@ -2245,6 +2323,12 @@ struct PVDef {
     LENGTHVAL(MARGIN_LEFT, margin.iLeft),
     LENGTHVAL(MARGIN_RIGHT, margin.iRight),
     LENGTHVAL(MARGIN_TOP, margin.iTop),
+
+    ENUMVAL  (POSITION, ePosition),
+    LENGTHVAL(BOTTOM, position.iBottom),
+    LENGTHVAL(LEFT, position.iLeft),
+    LENGTHVAL(RIGHT, position.iRight),
+    LENGTHVAL(TOP, position.iTop),
 
     LENGTHVAL(MAX_HEIGHT, iMaxHeight),
     LENGTHVAL(MAX_WIDTH, iMaxWidth),

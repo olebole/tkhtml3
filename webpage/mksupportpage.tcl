@@ -112,12 +112,7 @@ SUPPORTTABLE {Color and Background Properties} \
 	[CSSREF background-color] {} \
 	[CSSREF background-image] {Not supported on inline elements.} \
 	[CSSREF background-repeat] {} \
-	[CSSREF background-attachment nosupport] {
-		There is no way to position a background relative to the
-		viewport at the moment, all background images are relative to
-		the containing block. This will wait until there's time to
-		look at the CSS2 'position' property.
-	} \
+	[CSSREF background-attachment] {} \
 	[CSSREF background-position] {} \
 	[CSSREF background] {}
 
@@ -435,14 +430,14 @@ if 0 {
 # Position related:
 left right top bottom position
 
-# Tables:
-border-collapse border-spacing caption-side empty-cells table-layout
-
 # Outlines
 outline-color outline-style outline-width
 
 # Maximum and minimum heights.
 max-height max-width min-height min-width
+
+# Tables:
+border-collapse border-spacing caption-side empty-cells table-layout
 
 # Bi-directional text:
 unicode-bidi direction

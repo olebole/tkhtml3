@@ -16,11 +16,14 @@
 #include "html.h"
 
 typedef struct LayoutContext LayoutContext;
+typedef struct NodeList NodeList;
 
 /*
  * A single Layout context object is allocated for use throughout
  * the entire layout process. It contains global resources required
  * by the drawing routines.
+ *
+ * TODO: It's tempting to combine this with HtmlTree. They are always 1-to-1.
  */
 struct LayoutContext {
     HtmlTree *pTree;       /* The Html widget. */
@@ -29,6 +32,9 @@ struct LayoutContext {
     Tcl_Interp *interp;      /* The interpreter */
 
     int minmaxTest;          /* Currently figuring out min/max widths */
+
+    NodeList *pAbsolute;     /* List of nodes with "absolute" 'position' */
+    NodeList *pFixed;        /* List of nodes with "fixed" 'position' */
 };
 
 typedef struct BoxProperties BoxProperties;

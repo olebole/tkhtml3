@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.140 2006/03/26 12:24:58 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.141 2006/04/04 11:34:19 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -59,14 +59,25 @@ static const char rcsid[] = "$Id: htmllayout.c,v 1.140 2006/03/26 12:24:58 danie
 /*
  * The code to lay out a "normal-flow" is located in this file:
  *
- *     + A new normal flow is established by:
- *         - the root node of the document,
- *         - a floating box,
- *         - a table cell.
+ * A new normal flow is established by:
+ *     - the root node of the document,
+ *     - a floating box,
+ *     - a table cell.
+ *
  */
 
 typedef struct NormalFlowCallback NormalFlowCallback;
 typedef struct NormalFlow NormalFlow;
+
+/*
+ * This structure is (fairly obviously) used to link node structures into a
+ * linked list. This is used as part of the process to layout a node with the
+ * 'position' property set to "absolute".
+ */
+struct NodeList {
+    HtmlNode *pNode;
+    NodeList *pNext;
+};
 
 /*
  * The iMaxMargin, iMinMargin and isValid variables are used to manage
@@ -112,7 +123,6 @@ struct HtmlLayoutCache {
     HtmlCanvas canvas;
 };
 
-
 /*
  * Public functions:
  *
@@ -157,9 +167,11 @@ typedef int (FlowLayoutFunc) (
     NormalFlow *
 );
 
-static FlowLayoutFunc normalFlowLayoutNode;
+static void normalFlowLayout(LayoutContext*,BoxContext*,HtmlNode*,NormalFlow*);
 
+static FlowLayoutFunc normalFlowLayoutNode;
 static FlowLayoutFunc normalFlowLayoutFloat;
+
 static FlowLayoutFunc normalFlowLayoutBlock;
 static FlowLayoutFunc normalFlowLayoutReplaced;
 static FlowLayoutFunc normalFlowLayoutTable;
@@ -184,22 +196,10 @@ static void getRomanIndex(char *, int, int);
 /* Function to invoke the -configurecmd of a replaced object. */
 static void doConfigureCmd(HtmlTree *, HtmlNode *, int);
 
-static void normalFlowLayout(LayoutContext*,BoxContext*,HtmlNode*,NormalFlow*);
-
-static void drawBlock(LayoutContext*, BoxContext*, HtmlNode*, int, int);
 static void drawReplacement(LayoutContext*, BoxContext*, HtmlNode*);
 static void drawReplacementContent(LayoutContext*, BoxContext*, HtmlNode*);
 
-static void 
-borderLayout(LayoutContext*, HtmlNode*, BoxContext*, int, int, int, int);
-
-/* 
- * Flags that can be passed to drawBlock()
- */
-#define DRAWBLOCK_OMITBORDER    0x00000001
-#define DRAWBLOCK_CONTENTWIDTH  0x00000002
-#define DRAWBLOCK_ENFORCEWIDTH  0x00000004
-#define DRAWBLOCK_ENFORCEHEIGHT 0x00000008
+static void wrapContent(LayoutContext*, BoxContext*, BoxContext*, HtmlNode*);
 
 /*
  *---------------------------------------------------------------------------
@@ -482,12 +482,10 @@ normalFlowLayoutFloat(pLayout, pBox, pNode, pY, pContext, pNormal)
     NormalFlow *pNormal;
 {
     HtmlComputedValues *pV = pNode->pPropertyValues;
-    int isReplaced = nodeIsReplaced(pNode);
     int eFloat = pV->eFloat;
     int iContaining = pBox->iContaining;
     HtmlFloatList *pFloat = pNormal->pFloat;
 
-    int iWidth;              /* Content width of floating box in pixels */
     int iTotalHeight;        /* Height of floating box (incl. margins) */
     int iTotalWidth;         /* Width of floating box (incl. margins) */
 
@@ -496,8 +494,8 @@ normalFlowLayoutFloat(pLayout, pBox, pNode, pY, pContext, pNormal)
     int iRight;              /* Right floating margin where box is drawn */
     int iTop;                /* Top of top margin of box */
 
-    MarginProperties margin;          /* Margin properties of pNode */
-    BoxContext sBox;   /* Box context for content to be drawn into */
+    MarginProperties margin; /* Margin properties of pNode */
+    BoxContext sBox;         /* Box context for content to be drawn into */
 
     memset(&sBox, 0, sizeof(BoxContext));
     sBox.iContaining = iContaining;
@@ -506,31 +504,54 @@ normalFlowLayoutFloat(pLayout, pBox, pNode, pY, pContext, pNormal)
 
     nodeGetMargins(pLayout, pNode, iContaining, &margin);
 
+    /* The code that calculates computed values (htmlprop.c) should have
+     * ensured that all floating boxes have a 'display' value of "block" or
+     * "table".
+     */
     assert(DISPLAY(pV) == CSS_CONST_BLOCK || DISPLAY(pV) == CSS_CONST_TABLE);
-    assert(DISPLAY(pV) == CSS_CONST_BLOCK || !isReplaced);
+    assert(DISPLAY(pV) == CSS_CONST_BLOCK || !nodeIsReplaced(pNode));
     assert(eFloat == CSS_CONST_LEFT || eFloat == CSS_CONST_RIGHT);
 
-    /* Draw the floating element to sBox and set the value of iWidth to the
-     * width to use for the element.  The procedure for determining the width
-     * to use for the element is described in sections 10.3.5 (non-replaced)
-     * and 10.3.6 (replaced) of the CSS 2.1 spec.
+    /* Draw the floating element to sBox. The procedure for determining the
+     * width to use for the element is described in sections 10.3.5
+     * (non-replaced) and 10.3.6 (replaced) of the CSS 2.1 spec.
      */
-    if (isReplaced) {
+    if (nodeIsReplaced(pNode)) {
+	/* For a replaced element, the drawReplacement() function takes care of
+	 * calculating the actual width and height, and of drawing borders
+	 * etc. As usual horizontal margins are included, but vertical are not.
+         */
         drawReplacement(pLayout, &sBox, pNode);
     } else {
-        unsigned int flags = DRAWBLOCK_ENFORCEWIDTH | DRAWBLOCK_ENFORCEHEIGHT;
+        /* A non-replaced element. */
+        BoxProperties box;   /* Box properties of pNode */
+        BoxContext sContent;
         int c = pLayout->minmaxTest ? PIXELVAL_AUTO : iContaining;
-        iWidth = PIXELVAL(pV, WIDTH, c);
-        if (iWidth == PIXELVAL_AUTO) {
-            int iMin; 
-            int iMax;
+        int iWidth = PIXELVAL(pV, WIDTH, c);
 
-            blockMinMaxWidth(pLayout, pNode, &iMin, &iMax);
-            iWidth = MIN(MAX(iMin, iContaining), iMax);
-        } else {
-            flags |= DRAWBLOCK_CONTENTWIDTH;
+        nodeGetBoxProperties(pLayout, pNode, iContaining, &box);
+
+	/* If the computed value if iWidth is "auto", calculate the
+         * shrink-to-fit content width and use that instead.  */
+        if (iWidth == PIXELVAL_AUTO) {
+            int iMax;            /* Preferred maximum width */
+            int iMin;            /* Preferred minimum width */
+            int iAvailable;      /* Available width */
+    
+            iAvailable = sBox.iContaining;
+            iAvailable -= (margin.margin_left + margin.margin_right);
+            iAvailable -= (box.iLeft + box.iRight);
+	    blockMinMaxWidth(pLayout, pNode, &iMin, &iMax);
+            iWidth = MIN(MAX(iMin, iAvailable), iMax);
         }
-        drawBlock(pLayout, &sBox, pNode, iWidth, flags);
+
+        /* Layout the node content into sContent. Then add the border and
+         * transfer the result to sBox. 
+         */
+        memset(&sContent, 0, sizeof(BoxContext));
+        sContent.iContaining = iWidth;
+        HtmlLayoutNodeContent(pLayout, &sContent, pNode);
+        wrapContent(pLayout, &sBox, &sContent, pNode);
     }
 
     iTotalWidth = sBox.width;
@@ -908,164 +929,28 @@ inlineLayoutDrawLines(pLayout, pBox, pContext, forceflag, pY, pNormal)
 /*
  *---------------------------------------------------------------------------
  *
- * drawBlock --
- *
- *     pNode must be a non-replaced element with display 'block' or 'table'.
- *     This function is used to render such an element that will be laid out
- *     independant of a normal flow context (creating it's own context). For
- *     example if pNode:
- *
- *         + is a floating box
- *         + is the root node of a document
- *         + is a table cell
- *         + is a table
- *
- *     The node content, background and borders are drawn into argument pBox.
- *     The pBox coordinates (0, 0) correspond to the outside edge of the left
- *     margin and the upper edge of the top border. That is, horizontal margins
- *     are included but vertical are not.
- *
- *     When this function returns, pBox->width is set to the width between
- *     outer edges of the right and left margins. pBox->height is set to the
- *     distance between the outside edges of the top and bottom borders. Again,
- *     horizontal margins are included but vertical are not.
- *
- *     Box width:
- *
- *         * The "containing-width", used to calculate percentage lengths etc.,
- *           is passed in pBox->iContaining
- *         * iAvailable is the desired width between the outside and inside
- *           margins. The actual width of the returned rendering might be
- *           different from this.
- *
- *     Flags:
- *
- *         Argument flags may be any combination of the following bitmasks:
- *
- *             DRAWBLOCK_OMITBORDER    
- *                 Do not actually draw the border & background (but still
- *                 allocate space for them).
- *             DRAWBLOCK_CONTENTWIDTH 
- *                 Parameter iAvailable refers to the content-width of the
- *                 block, not the width between the inside and outside margins. 
- *             DRAWBLOCK_ENFORCEWIDTH
- *             DRAWBLOCK_ENFORCEHEIGHT
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-static void
-drawBlock(pLayout, pBox, pNode, iAvailable, flags)
-    LayoutContext *pLayout;
-    BoxContext *pBox;
-    HtmlNode *pNode;
-    int iAvailable;
-    int flags;                 /* Combination of DRAW_XXX flags */
-{
-    HtmlComputedValues *pV = pNode->pPropertyValues;
-    BoxContext sBox;
-    BoxProperties box;
-    MarginProperties margin;
-
-    NormalFlow sNormal;
-    memset(&sNormal, 0, sizeof(NormalFlow));
-
-    int yBorderBottom; /* Y-coordinate for bottom of block border */
-    int xBorderRight;  /* X-coordinate for right of block border */
-    int xContent;      /* X-coordinate for content */
-    int yContent;      /* Y-coordinate for content */
-
-    LOG {
-        HtmlTree *pTree = pLayout->pTree;
-        char const *zNode = Tcl_GetString(HtmlNodeCommand(pTree, pNode));
-        HtmlLog(pTree, "LAYOUTENGINE", "%s drawBlock()", zNode);
-    }
-
-    nodeGetBoxProperties(pLayout, pNode, pBox->iContaining, &box);
-    nodeGetMargins(pLayout, pNode, pBox->iContaining, &margin);
-
-    memset(&sBox, 0, sizeof(BoxContext));   
-
-    sBox.iContaining = iAvailable;
-    if (!(flags & DRAWBLOCK_CONTENTWIDTH)) {
-        sBox.iContaining -=
-            margin.margin_left + box.iLeft + 
-            margin.margin_right + box.iRight;
-    } 
-    if (flags & DRAWBLOCK_ENFORCEWIDTH) {
-        sBox.width = sBox.iContaining;
-    }
-    sNormal.pFloat = HtmlFloatListNew();
-
-    switch (DISPLAY(pV)) {
-        case CSS_CONST_INLINE:
-        case CSS_CONST_BLOCK:
-        case CSS_CONST_TABLE_CELL: {
-            if (pNode == pLayout->pTop) {
-                int tmp = 0;
-                normalFlowMarginCollapse(&sNormal, &tmp);
-            }
-            normalFlowLayout(pLayout, &sBox, pNode, &sNormal);
-            break;
-        }
-        case CSS_CONST_TABLE:
-            HtmlTableLayout(pLayout, &sBox, pNode);
-            break;
-        default:
-            assert(!"Bad display value in drawBlock()");
-    }
-
-    if (flags & DRAWBLOCK_ENFORCEHEIGHT) {
-        /* Percentage values are not allowed for 'height' */
-        sBox.height = MAX(sBox.height, pV->iHeight);
-    }
-
-    xContent = margin.margin_left + box.iLeft;
-    yContent = box.iTop;
-    yBorderBottom = yContent+sBox.height + box.iBottom;
-    xBorderRight = xContent + sBox.width + box.iRight;
-
-    if (!(flags & DRAWBLOCK_OMITBORDER)) {
-        int l = margin.margin_left;
-        borderLayout(pLayout, pNode, pBox, l, 0, xBorderRight, yBorderBottom);
-    }
-    DRAW_CANVAS(&pBox->vc, &sBox.vc, xContent, yContent, pNode);
-
-    pBox->height = MAX(pBox->height, yBorderBottom);
-    pBox->height = HtmlFloatListClear(sNormal.pFloat,CSS_CONST_BOTH,pBox->height);
-    pBox->width = MAX(pBox->width, xBorderRight + margin.margin_right);
-
-    if (pNode == pLayout->pTop) {
-        normalFlowMarginCollapse(&sNormal, &pBox->height);
-    }
-
-    HtmlFloatListDelete(sNormal.pFloat);
-}
-
-/*
- *---------------------------------------------------------------------------
- *
  * HtmlLayoutNodeContent --
  *
- *     This call is made from within the htmltable.c module to layout the
- *     content of a table-cell (each table-cell generates a new normal flow).
+ *     Draw the content area of node pNode into the box context pBox. If pNode
+ *     has the 'display' property set to "table", it generates a table context.
+ *     Otherwise, pNode is assumed to generate a normal flow context.
  *
- *     pBox->iContaining contains the pixel width available for the content.
- *     The top-left hand corner of the content is placed at the (0,0)
- *     coordinate of canvas pBox->vc. pBox->width and height are set to
- *     the intrinsic width and height of the content when rendered with
- *     containing block width pBox->iContaining.
+ *     In particular, it is illegal to pass a replaced element (according to
+ *     nodeIsReplaced()) to this
+ *     function.
+ *
+ *     When this function is called, pBox->iContaining should contain the pixel
+ *     width available for the content.  The top-left hand corner of the
+ *     content is placed at the (0,0) coordinate of canvas pBox->vc.
+ *     pBox->width and height are set to the intrinsic width and height of the
+ *     content when rendered with containing block width pBox->iContaining.
  *
  * Results:
  *     None.
  *
  * Side effects:
- *     None.
+ *     If pNode is a replaced element, a Tcl script may be invoked to
+ *     configured the element.
  *
  *---------------------------------------------------------------------------
  */
@@ -1075,6 +960,7 @@ HtmlLayoutNodeContent(pLayout, pBox, pNode)
     BoxContext *pBox;
     HtmlNode *pNode;
 {
+    assert(!nodeIsReplaced(pNode));
     if (DISPLAY(pNode->pPropertyValues) == CSS_CONST_TABLE) {
         /* All the work for tables is done in htmltable.c */
         HtmlTableLayout(pLayout, pBox, pNode);
@@ -1252,6 +1138,61 @@ drawReplacement(pLayout, pBox, pNode)
 /*
  *---------------------------------------------------------------------------
  *
+ * wrapContent --
+ *
+ *     The box context pointed to by pContent contains a content block with
+ *     it's top-left at coordinates (0, 0). This function adds the
+ *     background/borders box to the content and moves the result into
+ *     box context pBox.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void
+wrapContent(pLayout, pBox, pContent, pNode)
+    LayoutContext *pLayout;
+    BoxContext *pBox;
+    BoxContext *pContent;
+    HtmlNode *pNode;
+{
+    MarginProperties margin;      /* Margin properties of pNode */
+    BoxProperties box;            /* Box properties of pNode */
+    int x;
+    int y;
+    int w;
+    int h;
+
+    nodeGetMargins(pLayout, pNode, pBox->iContaining, &margin);
+    nodeGetBoxProperties(pLayout, pNode, pBox->iContaining, &box);
+
+    x = margin.margin_left;
+    y = 0;
+    w = box.iLeft + pContent->width + box.iRight;
+    h = box.iTop + pContent->height + box.iBottom;
+    HtmlDrawBox(&pBox->vc, x, y, w, h, pNode, 0, pLayout->minmaxTest);
+
+    x += box.iLeft;
+    y += box.iTop;
+    DRAW_CANVAS(&pBox->vc, &pContent->vc, x, y, pNode);
+
+    pBox->width = MAX(pBox->width, 
+        margin.margin_left + box.iLeft + 
+        pContent->width + 
+        box.iRight + margin.margin_right
+    );
+    pBox->height = MAX(pBox->height, 
+        box.iTop + pContent->height + box.iBottom
+    );
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * normalFlowLayoutTable --
  *
  * Results:
@@ -1271,21 +1212,24 @@ normalFlowLayoutTable(pLayout, pBox, pNode, pY, pContext, pNormal)
     InlineContext *pContext;
     NormalFlow *pNormal;
 {
-    int iMinWidth;                  /* Minimum from blockMinMaxWidth */
-    int iMaxWidth;
+    int iMinWidth;                     /* Minimum from blockMinMaxWidth */
+    int iContaining = pBox->iContaining;
+    HtmlFloatList *pFloat = pNormal->pFloat;
+
     int iLeftFloat = 0;
     int iRightFloat = pBox->iContaining;
-    int iAvailable;
 
-    int iWidth;
-    unsigned int flags;
+    int iWidth;                        /* Calculated content width */
     int eAlign = CSS_CONST_LEFT;
 
     int x, y;                     /* Coords for content to be drawn */
-    BoxContext sBox;              /* Box context for content to be drawn into */
+    BoxContext sContent;          /* Box context for content to be drawn into */
+    BoxContext sBox;              /* Box context for sContent + borders */
     MarginProperties margin;      /* Margin properties of pNode */
+    BoxProperties box;            /* Box properties of pNode */
 
-    nodeGetMargins(pLayout, pNode, pBox->iContaining, &margin);
+    nodeGetMargins(pLayout, pNode, iContaining, &margin);
+    nodeGetBoxProperties(pLayout, pNode, iContaining, &box);
 
     /* Account for the 'margin-top' property of this node. The margin always
      * collapses for a table element.
@@ -1294,33 +1238,34 @@ normalFlowLayoutTable(pLayout, pBox, pNode, pY, pContext, pNormal)
     normalFlowMarginCollapse(pNormal, pY);
 
     /* Note: Passing 10000 as the required height means in some (fairly
-     * unlikely circumstances the table will be placed lower in the flow than
-     * would have been necessary. But it's not that big of a deal.
+     * unlikely) circumstances the table will be placed lower in the flow
+     * than would have been necessary. But it's not that big of a deal.
      */
-    blockMinMaxWidth(pLayout, pNode, &iMinWidth, &iMaxWidth);
-    *pY = HtmlFloatListPlace(
-        pNormal->pFloat, pBox->iContaining, iMinWidth, 10000, *pY);
-    HtmlFloatListMargins(
-            pNormal->pFloat, *pY, *pY + 10000, &iLeftFloat, &iRightFloat);
-    iAvailable = iRightFloat - iLeftFloat;
+    blockMinMaxWidth(pLayout, pNode, &iMinWidth, 0);
+    iMinWidth += margin.margin_left + margin.margin_right;
+    iMinWidth += box.iLeft + box.iRight;
+    *pY = HtmlFloatListPlace(pFloat, iContaining, iMinWidth, 10000, *pY);
+    HtmlFloatListMargins(pFloat, *pY, *pY + 10000, &iLeftFloat, &iRightFloat);
 
     iWidth = PIXELVAL(
         pNode->pPropertyValues, WIDTH, 
-        pLayout->minmaxTest ? PIXELVAL_AUTO : iAvailable
+        pLayout->minmaxTest ? PIXELVAL_AUTO : pBox->iContaining
     );
     if (iWidth == PIXELVAL_AUTO) {
-        iWidth = iAvailable;
-        flags = 0;
-    } else {
-        flags = DRAWBLOCK_ENFORCEWIDTH;
-    }
+        iWidth = iRightFloat - iLeftFloat;
+        iMinWidth -= (margin.margin_left + margin.margin_right);
+        iMinWidth -= (box.iLeft + box.iRight);
+    } 
 
+    memset(&sContent, 0, sizeof(BoxContext));
     memset(&sBox, 0, sizeof(BoxContext));
-    sBox.iContaining = pBox->iContaining;
-    drawBlock(pLayout, &sBox, pNode, iWidth, flags);
+    sContent.iContaining = iWidth;
+    HtmlLayoutNodeContent(pLayout, &sContent, pNode);
+    sBox.iContaining = iContaining;
+    wrapContent(pLayout, &sBox, &sContent, pNode);
 
     y = HtmlFloatListPlace(
-            pNormal->pFloat, pBox->iContaining, sBox.width, sBox.height, *pY);
+            pFloat, pBox->iContaining, sBox.width, sBox.height, *pY);
     *pY = y + sBox.height;
  
     if (pLayout->minmaxTest) {
@@ -1578,8 +1523,11 @@ normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
     *pY += box.iBottom;
     yBorderBottom = *pY;
 
-    borderLayout(pLayout, pNode, pBox, 
-        xBorderLeft, yBorderTop, xBorderRight, yBorderBottom);
+    HtmlDrawBox(&pBox->vc, 
+        xBorderLeft, yBorderTop, 
+        xBorderRight - xBorderLeft, yBorderBottom - yBorderTop, 
+        pNode, 0, pLayout->minmaxTest
+    );
 
     DRAW_CANVAS(&pBox->vc, &sBox.vc, x, y, pNode);
     pBox->width = MAX(pBox->width, sBox.width + 
@@ -1908,8 +1856,7 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
  *
  *     This function is called in two circumstances:
  *
- *         1. When pNode creates a new normal flow context (from drawBlock()),
- *            and 
+ *         1. When pNode creates a new normal flow context and
  *         2. When pNode is a non-replaced, non-floating block box in a normal
  *            flow (recursively from normalFlowLayoutBlock()).
  *
@@ -2159,66 +2106,12 @@ blockMinMaxWidth(pLayout, pNode, pMin, pMax)
         }
     } 
 
-    *pMin = min;
-    *pMax = max;
+    if (pMin) *pMin = min;
+    if (pMax) *pMax = max;
 
     return TCL_OK;
 }
 
-
-/*
- *---------------------------------------------------------------------------
- *
- * borderLayout --
- *
- *     Draw a border into context pBox around the rectangle with top-left
- *     and bottom right coordinates (x1,y1) and (x2,y2). The line style,
- *     color and thickness of the border are dealt with by this function.
- *     The caller is responsible for making sure space has been allocated
- *     to draw the border area.
- * 
- *     Each coordinate refers to the 'outside' pixel that is included in
- *     the border. i.e if the coordinates are (3, 3) and (8,10) and the
- *     border width is 2, then points (3, 3), (4, 4), (7, 9) and
- *     (8, 10) are all part of the border area. The box left to draw in
- *     inside the border will be 4 pixels wide and 2 pixels high.
- *
- *         34567890
- *        3########
- *        4########
- *        5##    ##                '#' = border area.
- *        6##    ##                ' ' = interal area.
- *        7########
- *        8########
- *       
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-static void 
-borderLayout(pLayout, pNode, pBox, xA, yA, xB, yB)
-    LayoutContext *pLayout;
-    HtmlNode *pNode;
-    BoxContext *pBox;
-    int xA;
-    int yA;
-    int xB;
-    int yB;
-{
-    int x1, y1, x2, y2;
-
-    x1 = 0;
-    y1 = 0;
-    x2 = xB - xA;
-    y2 = yB - yA;
-
-    HtmlDrawBox(&pBox->vc, xA, yA, xB-xA, yB-yA, pNode, 0, pLayout->minmaxTest);
-}
 
 /*
  *---------------------------------------------------------------------------
@@ -2348,7 +2241,7 @@ HtmlLayout(pTree)
      * behaviour that Tk_Width() returns 1 if the window is not mapped.
      */
     nWidth = Tk_Width(pTree->tkwin);
-    if (nWidth<5) {
+    if (nWidth < 5) {
         nWidth = pTree->options.width;
     }
 
@@ -2375,15 +2268,36 @@ HtmlLayout(pTree)
      */
     pBody = pTree->pRoot;
     if (pBody) {
-        int xoffset;
+        int x;
+        int y;
+
         MarginProperties margin;
+        BoxProperties box;
+        BoxContext sContent;
+
         nodeGetMargins(&sLayout, pBody, nWidth, &margin);
+        nodeGetBoxProperties(&sLayout, pBody, nWidth, &box);
+        
+        memset(&sContent, 0, sizeof(BoxContext));
+        sContent.iContaining = sBox.iContaining - 
+            margin.margin_left - margin.margin_right - box.iLeft - box.iRight;
+
         sLayout.pTop = pBody;
-        drawBlock(&sLayout, &sBox, pBody, nWidth, 0);
-        xoffset = MAX(-1 * sBox.vc.left, 0);
-        HtmlDrawCanvas(&pTree->canvas, &sBox.vc, xoffset, 0, pBody);
-        pTree->canvas.right = sBox.width + xoffset;
-        pTree->canvas.bottom = sBox.height;
+        HtmlLayoutNodeContent(&sLayout, &sContent, pBody);
+
+        x = MAX(-1 * sBox.vc.left, 0) + margin.margin_left + box.iLeft;
+        y = MAX(-1 * sBox.vc.top, 0) + margin.margin_top + box.iTop;
+
+        HtmlDrawCanvas(&pTree->canvas, &sContent.vc, x, y, pBody);
+
+        pTree->canvas.right = 
+            margin.margin_left + box.iLeft + 
+            sContent.width + 
+            box.iRight + margin.margin_right;
+        pTree->canvas.bottom = 
+            margin.margin_top + box.iTop + 
+            sContent.height + 
+            box.iBottom + margin.margin_bottom;
     }
 
     if (rc == TCL_OK) {
@@ -2427,4 +2341,3 @@ HtmlLayoutInvalidateCache(pNode)
         pNode->pLayoutCache = 0;
     }
 }
-
