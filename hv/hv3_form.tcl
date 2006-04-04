@@ -309,11 +309,11 @@ class HtmlComboBox {
     foreach child [$node children] {
       if {[$child tag] == "option"} {
         if {[catch {set label [$node attr label]}]} {
-          set t [$child child 0]
+          set t [lindex [$child children] 0]
           set label [$t text]
         }
         if {[catch {set value [$node attr value]}]} {
-          set t [$child child 0]
+          set t [lindex [$child children] 0]
           set value [$t text]
         }
         lappend myLabels $label
