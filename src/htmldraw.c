@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.107 2006/03/28 15:32:11 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.108 2006/04/12 13:14:12 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -119,6 +119,10 @@ static const char rcsid[] = "$Id: htmldraw.c,v 1.107 2006/03/28 15:32:11 danielk
  *     HtmlDrawText
  *     HtmlDrawBox
  *     HtmlDrawLine
+ *
+ * Markers:
+ *     HtmlDrawAddMarker
+ *     HtmlDrawGetMarker
  */
 #define CANVAS_TEXT    1
 #define CANVAS_WINDOW  2
@@ -126,6 +130,7 @@ static const char rcsid[] = "$Id: htmldraw.c,v 1.107 2006/03/28 15:32:11 danielk
 #define CANVAS_IMAGE   4
 #define CANVAS_BOX     5
 #define CANVAS_LINE    6
+#define CANVAS_MARKER  7
 
 typedef struct CanvasText CanvasText;
 typedef struct CanvasImage CanvasImage;
@@ -133,6 +138,7 @@ typedef struct CanvasBox CanvasBox;
 typedef struct CanvasWindow CanvasWindow;
 typedef struct CanvasOrigin CanvasOrigin;
 typedef struct CanvasLine   CanvasLine;
+typedef struct CanvasMarker CanvasMarker;
 
 /* A single line of text. The relative coordinates (x, y) are as required
  * by Tk_DrawChars() - the far left-edge of the text baseline. The color
@@ -227,6 +233,11 @@ struct CanvasOrigin {
     HtmlCanvasItem *pSkip;
 };
 
+struct CanvasMarker {
+    int x;
+    int y;
+};
+
 struct HtmlCanvasItem {
     int type;
     union {
@@ -234,12 +245,13 @@ struct HtmlCanvasItem {
             int x;
             int y; 
         } generic;
-        CanvasText t;
+        CanvasText   t;
         CanvasWindow w;
         CanvasOrigin o;
-        CanvasImage i2;
-        CanvasBox   box;
-        CanvasLine  line;
+        CanvasImage  i2;
+        CanvasBox    box;
+        CanvasLine   line;
+        CanvasMarker marker;
     } x;
     HtmlCanvasItem *pNext;
 };
@@ -1128,14 +1140,16 @@ fill_rectangle(win, d, xcolor, x, y, w, h)
     int x; int y;
     int w; int h;
 {
-    Display *display = Tk_Display(win);
-    GC gc;
-    XGCValues gc_values;
-
-    gc_values.foreground = xcolor->pixel;
-    gc = Tk_GetGC(win, GCForeground, &gc_values);
-    XFillRectangle(display, d, gc, x, y, w, h);
-    Tk_FreeGC(display, gc);
+    if (w > 0 && h > 0){
+        Display *display = Tk_Display(win);
+        GC gc;
+        XGCValues gc_values;
+    
+        gc_values.foreground = xcolor->pixel;
+        gc = Tk_GetGC(win, GCForeground, &gc_values);
+        XFillRectangle(display, d, gc, x, y, w, h);
+        Tk_FreeGC(display, gc);
+    }
 
     return 0;
 }
@@ -2829,5 +2843,57 @@ HtmlWidgetSetViewport(pTree, scroll_x, scroll_y, force_redraw)
 
         pItem = pNext;
     }
+}
+
+HtmlCanvasItem *
+HtmlDrawAddMarker(pCanvas, x, y) 
+    HtmlCanvas *pCanvas;
+    int x;
+    int y;
+{
+    HtmlCanvasItem *pItem; 
+    pItem = (HtmlCanvasItem *)HtmlAlloc(sizeof(HtmlCanvasItem));
+    pItem->type = CANVAS_MARKER;
+    pItem->x.marker.x = x;
+    pItem->x.marker.y = y;
+    linkItem(pCanvas, pItem);
+    return pItem;
+}
+
+int
+HtmlDrawGetMarker(pCanvas, pMarker, pX, pY)
+    HtmlCanvas *pCanvas;
+    HtmlCanvasItem *pMarker;
+    int *pX;
+    int *pY;
+{
+    int origin_x = 0;
+    int origin_y = 0;
+    HtmlCanvasItem *pItem; 
+    HtmlCanvasItem *pPrev = 0; 
+    for (pItem = pCanvas->pFirst; pItem && pMarker; pItem = pItem->pNext) {
+        if (pItem->type == CANVAS_ORIGIN) {
+            CanvasOrigin *pOrigin = &pItem->x.o;
+            origin_x += pOrigin->x;
+            origin_y += pOrigin->y;
+        } else if (pItem == pMarker) {
+            *pX = origin_x + pItem->x.marker.x;
+            *pY = origin_y + pItem->x.marker.y;
+            if (pPrev) {
+                assert(pPrev->pNext == pMarker);
+                pPrev->pNext = pMarker->pNext;
+            } else {
+                assert(pCanvas->pFirst == pMarker);
+                pCanvas->pFirst = pMarker->pNext;
+            }
+            if (pCanvas->pLast == pMarker) {
+                pCanvas->pLast = pPrev;
+            }
+            HtmlFree(pMarker);
+            return 0;
+        }
+        pPrev = pItem;
+    }
+    return 1;
 }
 

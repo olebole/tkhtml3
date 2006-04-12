@@ -8,6 +8,8 @@ if {[info exists auto_path]} {
 package require Tk
 package require Tkhtml 3.0
 
+option add *borderWidth 1
+
 # If possible, load package "Img". Without it the script can still run,
 # but won't be able to load many image formats.
 if {[catch { package require Img }]} {

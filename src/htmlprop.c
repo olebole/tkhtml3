@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.58 2006/04/04 11:34:19 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.59 2006/04/12 13:14:12 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1974,6 +1974,48 @@ HtmlComputedValuesFinish(p)
     }
     else if (p->pNode == p->pTree->pRoot) {
         setDisplay97(p);
+    }
+
+    /* This is section 9.4.3 of the same document. Massaging 'left',
+     * 'right', 'top' and 'bottom' if the 'position' property is set to
+     * "relative".
+     */
+    if (p->values.ePosition == CSS_CONST_RELATIVE) {
+        /* First for 'left' and 'right' */
+        if (p->values.position.iLeft == PIXELVAL_AUTO) {
+            if (p->values.position.iRight == PIXELVAL_AUTO) {
+                p->values.position.iRight = 0;
+                p->values.position.iLeft = 0;
+            } else {
+                p->values.position.iLeft = -1 * p->values.position.iRight;
+                p->values.mask = 
+                    (p->values.mask & ~(PROP_MASK_LEFT)) |
+                    ((p->values.mask & PROP_MASK_RIGHT) ? PROP_MASK_LEFT : 0);
+            }
+        } else {
+            p->values.position.iRight = -1 * p->values.position.iLeft;
+            p->values.mask = 
+                (p->values.mask & ~(PROP_MASK_RIGHT)) |
+                ((p->values.mask & PROP_MASK_LEFT) ? PROP_MASK_RIGHT : 0);
+        }
+
+        /* Then for 'top' and 'bottom' */
+        if (p->values.position.iTop == PIXELVAL_AUTO) {
+            if (p->values.position.iBottom == PIXELVAL_AUTO) {
+                p->values.position.iBottom = 0;
+                p->values.position.iTop = 0;
+            } else {
+                p->values.position.iTop = -1 * p->values.position.iBottom;
+                p->values.mask = 
+                    (p->values.mask & ~(PROP_MASK_TOP)) |
+                    ((p->values.mask & PROP_MASK_BOTTOM) ? PROP_MASK_TOP : 0);
+            }
+        } else {
+            p->values.position.iBottom = -1 * p->values.position.iTop;
+            p->values.mask = 
+                (p->values.mask & ~(PROP_MASK_BOTTOM)) |
+                ((p->values.mask & PROP_MASK_TOP) ? PROP_MASK_BOTTOM : 0);
+        }
     }
 
     /* Look the values structure up in the hash-table. */

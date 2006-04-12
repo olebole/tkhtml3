@@ -393,6 +393,11 @@ int HtmlComputedValuesCompare(HtmlComputedValues *, HtmlComputedValues *);
 #define HTML_COMPUTED_PADDING_BOTTOM  padding.iBottom
 #define HTML_COMPUTED_PADDING_LEFT    padding.iLeft
 
+#define HTML_COMPUTED_TOP             position.iTop
+#define HTML_COMPUTED_RIGHT           position.iRight
+#define HTML_COMPUTED_BOTTOM          position.iBottom
+#define HTML_COMPUTED_LEFT            position.iLeft
+
 #define HTML_COMPUTED_HEIGHT          iHeight
 #define HTML_COMPUTED_WIDTH           iWidth
 #define HTML_COMPUTED_MIN_HEIGHT      iMinHeight

@@ -54,6 +54,8 @@ struct MarginProperties {
     int margin_right;
     int leftAuto;        /* True if ('margin-left' == "auto") */
     int rightAuto;       /* True if ('margin-right' == "auto") */
+    int topAuto;  
+    int bottomAuto;
 };
 
 

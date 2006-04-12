@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.142 2006/04/04 16:02:57 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.143 2006/04/12 13:14:12 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -77,6 +77,7 @@ typedef struct NormalFlow NormalFlow;
 struct NodeList {
     HtmlNode *pNode;
     NodeList *pNext;
+    HtmlCanvasItem *pMarker;       /* Static position marker */
 };
 
 /*
@@ -170,16 +171,15 @@ typedef int (FlowLayoutFunc) (
 static void normalFlowLayout(LayoutContext*,BoxContext*,HtmlNode*,NormalFlow*);
 
 static FlowLayoutFunc normalFlowLayoutNode;
-
 static FlowLayoutFunc normalFlowLayoutListItem;
 static FlowLayoutFunc normalFlowLayoutFloat;
 static FlowLayoutFunc normalFlowLayoutBlock;
 static FlowLayoutFunc normalFlowLayoutReplaced;
 static FlowLayoutFunc normalFlowLayoutTable;
-
 static FlowLayoutFunc normalFlowLayoutText;
 static FlowLayoutFunc normalFlowLayoutInline;
 static FlowLayoutFunc normalFlowLayoutReplacedInline;
+static FlowLayoutFunc normalFlowLayoutAbsolute;
 
 /* Manage collapsing vertical margins in a normal-flow */
 static void normalFlowMarginCollapse(NormalFlow *, int *);
@@ -336,6 +336,8 @@ nodeGetMargins(pLayout, pNode, iContaining, pMargins)
 
     pMargins->leftAuto = ((iMarginLeft == PIXELVAL_AUTO) ? 1 : 0);
     pMargins->rightAuto = ((iMarginRight == PIXELVAL_AUTO) ? 1 : 0);
+    pMargins->topAuto = ((iMarginTop == PIXELVAL_AUTO) ? 1 : 0);
+    pMargins->bottomAuto = ((iMarginBottom == PIXELVAL_AUTO) ? 1 : 0);
 }
 
 /*
@@ -506,11 +508,14 @@ normalFlowLayoutFloat(pLayout, pBox, pNode, pY, pContext, pNormal)
     nodeGetMargins(pLayout, pNode, iContaining, &margin);
 
     /* The code that calculates computed values (htmlprop.c) should have
-     * ensured that all floating boxes have a 'display' value of "block" or
-     * "table".
+     * ensured that all floating boxes have a 'display' value of "block",
+     * "table" or "list-item".
      */
-    assert(DISPLAY(pV) == CSS_CONST_BLOCK || DISPLAY(pV) == CSS_CONST_TABLE);
-    assert(DISPLAY(pV) == CSS_CONST_BLOCK || !nodeIsReplaced(pNode));
+    assert(
+      DISPLAY(pV) == CSS_CONST_BLOCK || 
+      DISPLAY(pV) == CSS_CONST_TABLE ||
+      DISPLAY(pV) == CSS_CONST_LIST_ITEM
+    );
     assert(eFloat == CSS_CONST_LEFT || eFloat == CSS_CONST_RIGHT);
 
     /* Draw the floating element to sBox. The procedure for determining the
@@ -1121,19 +1126,259 @@ drawReplacement(pLayout, pBox, pNode)
     wrapContent(pLayout, pBox, &sBox, pNode);
 }
 
+static void
+drawAbsolute(pLayout, pBox, pStaticCanvas, x, y)
+    LayoutContext *pLayout;       /* Layout context */
+    BoxContext *pBox;             /* Padding edge box to draw to */
+    HtmlCanvas *pStaticCanvas;    /* Canvas containing static positions */
+    int x;                        /* Offset of padding edge in pStaticCanvas */
+    int y;                        /* Offset of padding edge in pStaticCanvas */
+{
+    NodeList *pList;
+    NodeList *pNext;
+    for (pList = pLayout->pAbsolute; pList; pList = pNext) {
+        int s_x;               /* Static X offset */
+        int s_y;               /* Static Y offset */
+
+        MarginProperties margin;
+        BoxProperties box;
+
+        BoxContext sBox;
+        BoxContext sContent;
+
+        HtmlNode *pNode = pList->pNode;
+        HtmlComputedValues *pV = pNode->pPropertyValues;
+        int isReplaced = nodeIsReplaced(pList->pNode);
+
+        int iLeft   = PIXELVAL(pV, LEFT, pBox->iContaining);
+        int iRight  = PIXELVAL(pV, RIGHT, pBox->iContaining);
+        int iWidth  = PIXELVAL(pV, WIDTH, pBox->iContaining);
+        int iTop    = PIXELVAL(pV, TOP, pBox->iContaining);
+        int iBottom = PIXELVAL(pV, BOTTOM, pBox->iContaining);
+        int iHeight = PIXELVAL(pV, HEIGHT, pBox->iContaining);
+        int iSpace;
+
+        pNext = pList->pNext;
+
+        if (HtmlDrawGetMarker(pStaticCanvas, pList->pMarker, &s_x, &s_y)) {
+            /* If GetMarker() returns non-zero, then pList->pMarker is not
+             * a part of pStaticCanvas. In this case do not draw the box
+             * or remove the entry from the list either.
+             */
+            continue;
+        }
+        pList->pMarker = 0;
+
+        nodeGetMargins(pLayout, pNode, pBox->iContaining, &margin);
+        nodeGetBoxProperties(pLayout, pNode, pBox->iContaining, &box);
+
+	/* Correct the static position for the padding edge offset. After the
+         * correction the point (s_x, s_y) is the static position in pBox.
+         */
+        s_x -= x;
+        s_y -= y;
+
+        memset(&sContent, 0, sizeof(BoxContext));
+        if (isReplaced) {
+            sContent.iContaining = pBox->iContaining;
+            drawReplacementContent(pLayout, &sContent, pNode);
+            iWidth = sContent.width;
+        }
+
+        /* Determine a content-width for pNode, according to the following:
+         *
+	 * The sum of the following quantities is equal to the width of the
+         * containing block.
+         *
+         *     + 'left' (may be "auto")
+         *     + 'width' (may be "auto")
+         *     + 'right' (may be "auto")
+         *     + horizontal margins (one or both may be "auto")
+         *     + horizontal padding and borders.
+         */
+        iSpace = pBox->iContaining - box.iLeft - box.iRight;
+        if (
+            iLeft != PIXELVAL_AUTO && 
+            iRight != PIXELVAL_AUTO &&  
+            iWidth != PIXELVAL_AUTO
+        ) {
+            iSpace -= (iLeft + iRight + iWidth);
+            if (margin.leftAuto && margin.rightAuto) {
+                if (iSpace < 0) {
+                    margin.margin_right = iSpace;
+                } else {
+                    margin.margin_left = iSpace / 2;
+                    margin.margin_right = iSpace - margin.margin_left;
+                }
+            } else if (margin.leftAuto) {
+                margin.margin_left = iSpace;
+            } else if (margin.rightAuto) {
+                margin.margin_right = iSpace;
+	    } else {
+                iRight = PIXELVAL_AUTO;
+            }
+        }
+        if (iLeft == PIXELVAL_AUTO && iRight == PIXELVAL_AUTO) {
+            /* Box is underconstrained. Set 'left' to the static position */
+            iLeft = s_x;
+        }
+
+        iSpace -= (margin.margin_left + margin.margin_right);
+        iSpace -= (iLeft == PIXELVAL_AUTO ? 0: iLeft);
+        iSpace -= (iRight == PIXELVAL_AUTO ? 0: iRight);
+        iSpace -= (iWidth == PIXELVAL_AUTO ? 0: iWidth);
+
+        if (
+            iWidth == PIXELVAL_AUTO &&
+            (iLeft == PIXELVAL_AUTO || iRight == PIXELVAL_AUTO)
+        ) {
+            int min;
+            int max;
+            assert(iRight != PIXELVAL_AUTO || iLeft != PIXELVAL_AUTO);
+            blockMinMaxWidth(pLayout, pNode, &min, &max);
+            iWidth = MIN(MAX(min, iSpace), max);
+        }
+
+        /* At this point at most 1 of iWidth, iLeft and iRight can be "auto" */
+        if (iWidth == PIXELVAL_AUTO) {
+            assert(iLeft != PIXELVAL_AUTO && iRight != PIXELVAL_AUTO);
+            iWidth = iSpace - iLeft - iRight;
+        } else if (iLeft == PIXELVAL_AUTO) {
+            assert(iWidth != PIXELVAL_AUTO && iRight != PIXELVAL_AUTO);
+            iLeft = iSpace - iWidth - iRight;
+        } else if (iRight == PIXELVAL_AUTO) {
+            assert(iWidth != PIXELVAL_AUTO && iLeft != PIXELVAL_AUTO);
+            iRight = iSpace - iWidth - iLeft;
+        }
+
+        /* Layout the content into sContent */
+        if (!nodeIsReplaced(pNode)) {
+            sContent.iContaining = iWidth;
+            HtmlLayoutNodeContent(pLayout, &sContent, pNode);
+        }
+
+        /* Determine a content-height for pNode, according to the following:
+         *
+	 * The sum of the following quantities is equal to the width of the
+         * containing block.
+         *
+         *     + 'top' (may be "auto")
+         *     + 'height' (may be "auto")
+         *     + 'bottom' (may be "auto")
+         *     + vertical margins (one or both may be "auto")
+         *     + vertical padding and borders.
+         */
+        iSpace = pBox->height - box.iTop - box.iBottom;
+        if (
+            iTop != PIXELVAL_AUTO && 
+            iBottom != PIXELVAL_AUTO &&  
+            iHeight != PIXELVAL_AUTO
+        ) {
+            iSpace -= (iTop + iBottom + iHeight);
+            if (margin.topAuto && margin.bottomAuto) {
+                if (iSpace < 0) {
+                    margin.margin_bottom = iSpace;
+                } else {
+                    margin.margin_top = iSpace / 2;
+                    margin.margin_bottom = iSpace - margin.margin_top;
+                }
+            } else if (margin.topAuto) {
+                margin.margin_top = iSpace;
+            } else if (margin.bottomAuto) {
+                margin.margin_bottom = iSpace;
+	    } else {
+                iBottom = PIXELVAL_AUTO;
+            }
+        }
+        if (iTop == PIXELVAL_AUTO && iBottom == PIXELVAL_AUTO) {
+            /* Box is underconstrained. Set 'top' to the static position */
+            iTop = s_y;
+        }
+
+        iSpace -= (margin.margin_top + margin.margin_bottom);
+        iSpace -= (iTop == PIXELVAL_AUTO ? 0: iTop);
+        iSpace -= (iBottom == PIXELVAL_AUTO ? 0: iBottom);
+        iSpace -= (iHeight == PIXELVAL_AUTO ? 0: iHeight);
+
+        if (
+            iHeight == PIXELVAL_AUTO &&
+            (iTop == PIXELVAL_AUTO || iBottom == PIXELVAL_AUTO)
+        ) {
+            assert(iTop != PIXELVAL_AUTO || iBottom != PIXELVAL_AUTO);
+            iHeight = sContent.height;
+        }
+
+        /* At this point at most 1 of iWidth, iLeft and iRight can be "auto" */
+        if (iHeight == PIXELVAL_AUTO) {
+            assert(iTop != PIXELVAL_AUTO && iBottom != PIXELVAL_AUTO);
+            iHeight = iSpace - iTop - iBottom;
+        } else if (iTop == PIXELVAL_AUTO) {
+            assert(iHeight != PIXELVAL_AUTO && iBottom != PIXELVAL_AUTO);
+            iTop = iSpace - iHeight - iBottom;
+        } else if (iBottom == PIXELVAL_AUTO) {
+            assert(iHeight != PIXELVAL_AUTO && iTop != PIXELVAL_AUTO);
+            iBottom = iSpace - iHeight - iTop;
+        }
+
+        sContent.height = iHeight;
+        memset(&sBox, 0, sizeof(BoxContext));
+        sBox.iContaining = pBox->iContaining;
+        wrapContent(pLayout, &sBox, &sContent, pNode);
+
+        DRAW_CANVAS(&pBox->vc, &sBox.vc, iLeft, iTop+margin.margin_top, pNode);
+
+        if (pLayout->pAbsolute == pList) {
+            pLayout->pAbsolute = pList->pNext;
+        } else {
+            NodeList *pTmp = pLayout->pAbsolute;
+            for (; pTmp->pNext != pList; pTmp = pTmp->pNext);
+            pTmp->pNext = pList->pNext;
+        }
+        HtmlFree(pList);
+    }
+}
+
 /*
  *---------------------------------------------------------------------------
  *
  * wrapContent --
  *
- *     The box context pointed to by pContent contains a content block with
- *     it's top-left at coordinates (0, 0). This function adds the
- *     background/borders box to the content and moves the result into
- *     box context pBox.
+ *     BORDERS + BACKGROUND
  *
- *     Any percentage padding or margin values are calculated with respect to
- *     the value in pBox->iContaining. A value of "auto" for the left or right
- *     margin is treated as 0.
+ *         The box context pointed to by pContent contains a content block
+ *         with it's top-left at coordinates (0, 0). The width and height
+ *         of the conten are given by pContent->width and pContent->height,
+ *         respectively. This function adds the background/borders box to
+ *         the content and moves the result into box context pBox.
+ *
+ *         After this function returns, the point (0, 0) in pBox->vc
+ *         corresponds to the top-left of the box including padding,
+ *         borders and horizontal (but not vertical) margins. The values
+ *         stored in pBox->width and pBox->height apply to the same box
+ *         (including horizontal, but not vertical, margins).
+ *
+ *         Any percentage padding or margin values are calculated with
+ *         respect to the value in pBox->iContaining. A value of "auto" for
+ *         the left or right margin is treated as 0.
+ *
+ *     RELATIVE POSITIONING
+ *
+ *         If the value of the 'position' property for pNode is "relative",
+ *         then the required offset (if any) is taken into account when
+ *         drawing to pBox->vc. The static position of the element is still
+ *         described by the (0, 0) point, pBox->width and pBox->height.
+ *         Percentage values of properties 'left' and 'right', are
+ *         calculated with respect to pBox->iContaining. 
+ *
+ *         Percentage values for 'top' and 'bottom' are treated as zero.
+ *         TODO: This is a bug.
+ *
+ *     ABSOLUTE POSITIONING
+ *
+ *         If the value of the 'position' property is anything other than
+ *         "static", then any absolutely positioned nodes accumulated in
+ *         pLayout->pAbsolute are laid out into pBox with respect to the
+ *         padding edge of pNode.
  *
  * Results:
  *     None.
@@ -1150,6 +1395,7 @@ wrapContent(pLayout, pBox, pContent, pNode)
     BoxContext *pContent;
     HtmlNode *pNode;
 {
+    HtmlComputedValues *pV = pNode->pPropertyValues;
     MarginProperties margin;      /* Margin properties of pNode */
     BoxProperties box;            /* Box properties of pNode */
     int x;
@@ -1162,6 +1408,16 @@ wrapContent(pLayout, pBox, pContent, pNode)
 
     x = margin.margin_left;
     y = 0;
+
+    if (pV->ePosition == CSS_CONST_RELATIVE) {
+        assert(pV->position.iLeft != PIXELVAL_AUTO);
+        assert(pV->position.iTop != PIXELVAL_AUTO);
+        assert(pV->position.iLeft == -1 * pV->position.iRight);
+        assert(pV->position.iTop == -1 * pV->position.iBottom);
+        x += PIXELVAL(pV, LEFT, pBox->iContaining);
+        y += PIXELVAL(pV, TOP, 0);
+    }
+
     w = box.iLeft + pContent->width + box.iRight;
     h = box.iTop + pContent->height + box.iBottom;
     HtmlDrawBox(&pBox->vc, x, y, w, h, pNode, 0, pLayout->minmaxTest);
@@ -1178,6 +1434,41 @@ wrapContent(pLayout, pBox, pContent, pNode)
     pBox->height = MAX(pBox->height, 
         box.iTop + pContent->height + box.iBottom
     );
+
+    if (pV->ePosition != CSS_CONST_STATIC && pLayout->pAbsolute) {
+        BoxContext sAbsolute;
+        int iLeftBorder = 0;
+        int iTopBorder = 0;
+
+        memset(&sAbsolute, 0, sizeof(BoxContext));
+        sAbsolute.height = pContent->height;
+        sAbsolute.height += box.iTop;
+        sAbsolute.height += box.iBottom;
+        if (pV->eBorderTopStyle != CSS_CONST_NONE) {
+            iTopBorder = pV->border.iTop;
+            sAbsolute.height -= iTopBorder;
+        }
+        if (pV->eBorderBottomStyle != CSS_CONST_NONE) {
+            sAbsolute.height -= pV->border.iBottom;
+        }
+        sAbsolute.width = pContent->width;
+        sAbsolute.width += box.iLeft;
+        sAbsolute.width += box.iRight;
+        if (pV->eBorderLeftStyle != CSS_CONST_NONE) {
+            iLeftBorder = pV->border.iLeft;
+            sAbsolute.width -= iLeftBorder;
+        }
+        if (pV->eBorderRightStyle != CSS_CONST_NONE) {
+            sAbsolute.width -= pV->border.iRight;
+        }
+        sAbsolute.iContaining = sAbsolute.width;
+        drawAbsolute(pLayout, &sAbsolute, &pBox->vc,
+            PIXELVAL(pV, PADDING_LEFT, pBox->iContaining) + margin.margin_left,
+            PIXELVAL(pV, PADDING_TOP, pBox->iContaining)
+        );
+        DRAW_CANVAS(&pBox->vc, &sAbsolute.vc, 
+            margin.margin_left + iLeftBorder, iTopBorder, pNode);
+    }
 }
 
 /*
@@ -1726,6 +2017,23 @@ normalFlowLayoutInline(pLayout, pBox, pNode, pY, pContext, pNormal)
     return 0;
 }
 
+static int 
+normalFlowLayoutAbsolute(pLayout, pBox, pNode, pY, pContext, pNormal)
+    LayoutContext *pLayout;
+    BoxContext *pBox;
+    HtmlNode *pNode;
+    int *pY;
+    InlineContext *pContext;
+    NormalFlow *pNormal;
+{
+    NodeList *pNew = (NodeList *)HtmlClearAlloc(sizeof(NodeList));
+    pNew->pNode = pNode;
+    pNew->pNext = pLayout->pAbsolute;
+    pNew->pMarker = HtmlDrawAddMarker(&pBox->vc, 0, *pY);
+    pLayout->pAbsolute = pNew;
+    return 0;
+}
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -1769,6 +2077,7 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
     F( TEXT,            0, 0, 0, normalFlowLayoutText);
     F( INLINE,          0, 0, 0, normalFlowLayoutInline);
     F( INLINE_REPLACED, 0, 0, 0, normalFlowLayoutReplacedInline);
+    F( ABSOLUTE,        0, 0, 0, normalFlowLayoutAbsolute);
     #undef F
 
     /* 
@@ -1791,6 +2100,8 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
         if (nodeIsReplaced(pNode)) {
             pFlow = &FT_INLINE_REPLACED;
         } 
+    } else if (pNode->pPropertyValues->ePosition == CSS_CONST_ABSOLUTE) {
+        pFlow = &FT_ABSOLUTE;
     } else if (pNode->pPropertyValues->eFloat != CSS_CONST_NONE) {
         pFlow = &FT_FLOAT;
     } else if (nodeIsReplaced(pNode)) {
@@ -1873,6 +2184,8 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
     int ii;
     HtmlLayoutCache *pCache = pNode->pLayoutCache;
     HtmlFloatList *pFloat = pNormal->pFloat;
+    NodeList *pAbsolute = pLayout->pAbsolute;
+    NodeList *pFixed = pLayout->pFixed;
 
     int left = 0; 
     int right = pBox->iContaining;
@@ -1981,14 +2294,19 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
     assert(pNode->pLayoutCache == pCache);
     assert(pBox->iContaining == pCache->iContaining);
     HtmlFloatListMargins(pFloat, pBox->height-1, pBox->height, &left, &right);
+
+    /* TODO: Danger! elements with "position:relative" might break this? */
     overhang = MAX(0, pBox->vc.bottom - pBox->height);
+
     if (
         pLayout->pTree->options.layoutcache && 
         !pLayout->minmaxTest && 
         pCache->iFloatLeft == left &&
         pCache->iFloatRight == right &&
         HtmlFloatListIsConstant(pFloat, pBox->height, overhang) &&
-        !pNormal->pCallbackList && !hasNormalCb
+        !pNormal->pCallbackList && !hasNormalCb &&
+        pLayout->pAbsolute == pAbsolute &&
+        pLayout->pFixed == pFixed
     ) {
         HtmlDrawOrigin(&pBox->vc);
         HtmlDrawCopyCanvas(&pCache->canvas, &pBox->vc);
@@ -2271,6 +2589,7 @@ HtmlLayout(pTree)
         x = MAX(-1 * sBox.vc.left, 0) + margin.margin_left + box.iLeft;
         y = MAX(-1 * sBox.vc.top, 0) + margin.margin_top + box.iTop;
 
+        drawAbsolute(&sLayout, &sContent, &sContent.vc, -1 * x, -1 * y);
         HtmlDrawCanvas(&pTree->canvas, &sContent.vc, x, y, pBody);
 
         pTree->canvas.right = 

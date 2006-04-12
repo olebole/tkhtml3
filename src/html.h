@@ -474,6 +474,9 @@ void HtmlDrawImage(HtmlCanvas*, HtmlImage2*, int, int, int, int, HtmlNode*, int)
 void HtmlDrawOrigin(HtmlCanvas*);
 void HtmlDrawCopyCanvas(HtmlCanvas*, HtmlCanvas*);
 
+HtmlCanvasItem *HtmlDrawAddMarker(HtmlCanvas*, int, int);
+int HtmlDrawGetMarker(HtmlCanvas*, HtmlCanvasItem *, int*, int*);
+
 void HtmlWidgetDamageText(HtmlTree *, int, int, int, int);
 int HtmlWidgetNodeTop(HtmlTree *, int);
 
