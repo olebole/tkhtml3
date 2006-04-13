@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.143 2006/04/12 13:14:12 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.144 2006/04/13 06:53:42 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -534,6 +534,7 @@ normalFlowLayoutFloat(pLayout, pBox, pNode, pY, pContext, pNormal)
         BoxContext sContent;
         int c = pLayout->minmaxTest ? PIXELVAL_AUTO : iContaining;
         int iWidth = PIXELVAL(pV, WIDTH, c);
+        int iHeight = PIXELVAL(pV, HEIGHT, c);
 
         nodeGetBoxProperties(pLayout, pNode, iContaining, &box);
 
@@ -557,6 +558,8 @@ normalFlowLayoutFloat(pLayout, pBox, pNode, pY, pContext, pNormal)
         memset(&sContent, 0, sizeof(BoxContext));
         sContent.iContaining = iWidth;
         HtmlLayoutNodeContent(pLayout, &sContent, pNode);
+        sContent.width = MAX(iWidth, sContent.width);
+        sContent.height = MAX(iHeight, sContent.height);
         wrapContent(pLayout, &sBox, &sContent, pNode);
     }
 
@@ -1178,6 +1181,18 @@ drawAbsolute(pLayout, pBox, pStaticCanvas, x, y)
         s_x -= x;
         s_y -= y;
 
+        LOG {
+            HtmlTree *pTree = pLayout->pTree;
+            char const *zNode = Tcl_GetString(HtmlNodeCommand(pTree, pNode));
+            HtmlLog(pTree, "LAYOUTENGINE", "%s drawAbsolute() -> "
+                "containing block is %dx%d", zNode, pBox->width, pBox->height
+            );
+            HtmlLog(pTree, "LAYOUTENGINE", "%s "
+                "static position is (%d,%d) (includes correction of (%d,%d))", 
+                zNode, s_x, s_y, x, y
+            );
+        }
+
         memset(&sContent, 0, sizeof(BoxContext));
         if (isReplaced) {
             sContent.iContaining = pBox->iContaining;
@@ -1237,18 +1252,19 @@ drawAbsolute(pLayout, pBox, pStaticCanvas, x, y)
             assert(iRight != PIXELVAL_AUTO || iLeft != PIXELVAL_AUTO);
             blockMinMaxWidth(pLayout, pNode, &min, &max);
             iWidth = MIN(MAX(min, iSpace), max);
+            iSpace -= iWidth;
         }
 
         /* At this point at most 1 of iWidth, iLeft and iRight can be "auto" */
         if (iWidth == PIXELVAL_AUTO) {
             assert(iLeft != PIXELVAL_AUTO && iRight != PIXELVAL_AUTO);
-            iWidth = iSpace - iLeft - iRight;
+            iWidth = iSpace;
         } else if (iLeft == PIXELVAL_AUTO) {
             assert(iWidth != PIXELVAL_AUTO && iRight != PIXELVAL_AUTO);
-            iLeft = iSpace - iWidth - iRight;
+            iLeft = iSpace;
         } else if (iRight == PIXELVAL_AUTO) {
             assert(iWidth != PIXELVAL_AUTO && iLeft != PIXELVAL_AUTO);
-            iRight = iSpace - iWidth - iLeft;
+            iRight = iSpace;
         }
 
         /* Layout the content into sContent */
@@ -1306,24 +1322,34 @@ drawAbsolute(pLayout, pBox, pStaticCanvas, x, y)
         ) {
             assert(iTop != PIXELVAL_AUTO || iBottom != PIXELVAL_AUTO);
             iHeight = sContent.height;
+            iSpace -= iHeight;
         }
 
         /* At this point at most 1 of iWidth, iLeft and iRight can be "auto" */
         if (iHeight == PIXELVAL_AUTO) {
             assert(iTop != PIXELVAL_AUTO && iBottom != PIXELVAL_AUTO);
-            iHeight = iSpace - iTop - iBottom;
+            iHeight = iSpace;
         } else if (iTop == PIXELVAL_AUTO) {
             assert(iHeight != PIXELVAL_AUTO && iBottom != PIXELVAL_AUTO);
-            iTop = iSpace - iHeight - iBottom;
+            iTop = iSpace;
         } else if (iBottom == PIXELVAL_AUTO) {
             assert(iHeight != PIXELVAL_AUTO && iTop != PIXELVAL_AUTO);
-            iBottom = iSpace - iHeight - iTop;
+            iBottom = iSpace;
         }
 
         sContent.height = iHeight;
         memset(&sBox, 0, sizeof(BoxContext));
         sBox.iContaining = pBox->iContaining;
         wrapContent(pLayout, &sBox, &sContent, pNode);
+
+        LOG {
+            HtmlTree *pTree = pLayout->pTree;
+            char const *zNode = Tcl_GetString(HtmlNodeCommand(pTree, pNode));
+            HtmlLog(pTree, "LAYOUTENGINE", "%s Calculated values: "
+                "left=%d right=%d top=%d bottom=%d width=%d height=%d", 
+                zNode, iLeft, iRight, iTop, iBottom, iWidth, iHeight
+            );
+        }
 
         DRAW_CANVAS(&pBox->vc, &sBox.vc, iLeft, iTop+margin.margin_top, pNode);
 
@@ -1716,7 +1742,7 @@ normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
     int iWrappedX = 0;                /* X-offset of wrapped content */
 
     int yBorderOffset;     /* Y offset for top of block border */
-    int x, y;          /* Coords for content to be drawn in pBox */
+    int x, y;              /* Coords for content to be drawn in pBox */
     BoxContext sContent;   /* Box context for content to be drawn into */
     BoxContext sBox;       /* sContent + borders */
     BoxContext sTmp;       /* Used to offset content */
@@ -2026,10 +2052,11 @@ normalFlowLayoutAbsolute(pLayout, pBox, pNode, pY, pContext, pNormal)
     InlineContext *pContext;
     NormalFlow *pNormal;
 {
+    int y = *pY + normalFlowMarginQuery(pNormal);
     NodeList *pNew = (NodeList *)HtmlClearAlloc(sizeof(NodeList));
     pNew->pNode = pNode;
     pNew->pNext = pLayout->pAbsolute;
-    pNew->pMarker = HtmlDrawAddMarker(&pBox->vc, 0, *pY);
+    pNew->pMarker = HtmlDrawAddMarker(&pBox->vc, 0, y);
     pLayout->pAbsolute = pNew;
     return 0;
 }
