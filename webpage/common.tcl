@@ -16,12 +16,29 @@ set ::SiteMap {
     <div id="sitemap">
       <h3>Site Contents</h3><ul>
       <ul>
-        <li> <a href="index.html">Front page</a>
-        <li> <a href="support.html">Supported CSS/HTML</a>
-        <li> <a href="tkhtml.html">Widget man page</a>
-        <li> <a href="hv3.html">hv3 (demo &amp; screenshots)</a>
-        <li> <a href="requirements.html">Requirements Document</a>
-        <li> <a href="http://tkhtml.tcl.tk/cvstrac/timeline">Change log (Cvstrac)</a>
+        <li> <a href="index.html">Home</a>
+             <span class="caption">Front page of this site</span>
+        <li> <a href="support.html">Standards</a>
+             <span class="caption">
+                 Summary of support for CSS and HTML standards</span>
+        <li> <a href="tkhtml.html">Man page</a>
+             <span class="caption">
+                 Unix style manual page for the widget.
+             </span>
+        <li> <a href="hv3.html">Hv3</a>
+             <span class="caption">
+		 Page for the demo/test application hv3. Screenshots and
+                 starpacks for windows and linux are available here.
+             </span>
+        <li> <a href="requirements.html">Requirements</a>
+             <span class="caption">
+                 Requirements document for Tkhtml 3.
+             </span>
+        <li> <a href="http://tkhtml.tcl.tk/cvstrac/timeline">Cvstrac</a>
+             <span class="caption">
+		  Cvstrac is used for project change-log, wiki and bug
+                  tracking.
+             </span>
       </ul>
     </div>
 }

@@ -285,9 +285,37 @@
 	pathName select to ?_nodeHandle_ ?_index_? ?
 	pathName select span
 		The [SQ pathName select] commands are used to query and
-		manipulate the widget selection.
+		manipulate the widget selection. Any text within the selected
+		document region is displayed using the configured
+		-selectbackground and selectforeground colors. At present the
+		appearance of images and other document components within the
+		selected region is not modified, but this may changed.
 
-		TODO: Describe these commands.
+		The selected region may be set using the 
+		[SQ pathName select from] and [SQ pathName select to] commands.
+		Each defines a single point in the document, nominally the
+		"from point" and "to point". It doesn't matter whether the
+		"from point" occurs before or after the "to point" in the
+		document, the selected region is always the region between the
+		two. Each point is defined by a node-handle and an index
+		(defaults to 0 if unspecified). If the node-handle refers to a
+		text node, then the index is the index of the character (not
+		byte) that lies just after the specified document point.
+		Refer to the description of the [SQ nodeHandle text] command
+		below for a description of the character string _index_ applies
+		to. Otherwise, if the node-handle does not refer to a text
+		node, the index is ignored. 
+
+		The [SQ pathName select clear] command resets both the from
+		point and to point. Both must be set before any selected region
+		is defined.
+
+		The [SQ pathName select span] command returns the node-handles
+		and indices currently associated with the from and to points,
+		if any, as a list of 4 elements. The first two elements of the
+		list are the node-handle and index of the from or to point
+		occuring earliest in document order. The second two elements
+		are the node-hand and index of the other point.
 }]
 
 [Subcommand {

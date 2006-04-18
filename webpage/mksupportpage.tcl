@@ -158,7 +158,7 @@ SUPPORTTABLE {Box Properties} \
 		'border-left' are also supported. 
 	} \
 	[CSSREF width] {} \
-	[CSSREF height nosupport] {} \
+	[CSSREF height] {} \
 	[CSSREF float] {} \
 	[CSSREF clear] {} 
 
@@ -178,23 +178,15 @@ SECTION {CSS Selector Support}
 P {
 <p>
 	Essentially, all CSS1 selectors (and all CSS 2.1 for that matter) 
-	are supported except for pseudo-classes and elements. Any 	
+	are supported except for pseudo-elements. Any 	
 	declaration that includes any of the following is ignored:
 </p>
 <ul>
 	<li> :first-child
 	<li> :first-letter
 	<li> :first-line
-	<li> :active
-	<li> :hover
-	<li> :focus
-	<li> :visited
 	<li> :lang
 </ul>
-<p>
-	The pseudo-class ":link" is handled in the same way as "a[href]" 
-	(matches any &lt;a&gt; element that has an href element).
-</p>
 }
 
 

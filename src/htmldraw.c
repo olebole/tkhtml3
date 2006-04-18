@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.108 2006/04/12 13:14:12 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.109 2006/04/18 09:40:07 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -233,9 +233,23 @@ struct CanvasOrigin {
     HtmlCanvasItem *pSkip;
 };
 
+/*
+ * Markers are used for two unrelated purposes:
+ *
+ *     * They are inserted into the display list to record the static position
+ *       of fixed or absolutely positioned elements. This sort of marker is
+ *       always removed from the display list during the layout and has a
+ *       CanvasMarker.flags value of 0. 
+ *
+ *     * To show where the "position:fixed" section of the display list begins.
+ *       The x and y variables are ignored and the flags variable is set to
+ *       MARKER_FIXED.
+ */
+#define MARKER_FIXED 0x00000001
 struct CanvasMarker {
     int x;
     int y;
+    int flags;
 };
 
 struct HtmlCanvasItem {
@@ -354,6 +368,8 @@ HtmlDrawCleanup(pCanvas)
                     }
                 }
                 break;
+            case CANVAS_MARKER:
+                assert(pItem->x.marker.flags == MARKER_FIXED);
             case CANVAS_WINDOW:
             case CANVAS_BOX:
             case CANVAS_LINE:
@@ -766,7 +782,7 @@ itemToBox(pItem, origin_x, origin_y, pX, pY, pW, pH)
             *pH = 10;
             return 0;
         default:
-            assert(pItem->type == CANVAS_ORIGIN);
+            assert(pItem->type==CANVAS_ORIGIN || pItem->type==CANVAS_MARKER);
             return 0;
     }
 }
@@ -1757,6 +1773,12 @@ searchCanvas(pTree, ymin, ymax, pNode, xFunc, clientData)
             ) {
                pSkip = pOrigin1->pSkip;
             }
+        } else if (pItem->type == CANVAS_MARKER) {
+            assert(pItem->x.marker.flags == MARKER_FIXED);
+            assert(origin_x == 0);
+            assert(origin_y == 0);
+            origin_x = pTree->iScrollX;
+            origin_y = pTree->iScrollY;
         } else {
             int x, y, w, h;
             nTest++;
@@ -2846,16 +2868,18 @@ HtmlWidgetSetViewport(pTree, scroll_x, scroll_y, force_redraw)
 }
 
 HtmlCanvasItem *
-HtmlDrawAddMarker(pCanvas, x, y) 
+HtmlDrawAddMarker(pCanvas, x, y, fixed) 
     HtmlCanvas *pCanvas;
     int x;
     int y;
+    int fixed;
 {
     HtmlCanvasItem *pItem; 
     pItem = (HtmlCanvasItem *)HtmlAlloc(sizeof(HtmlCanvasItem));
     pItem->type = CANVAS_MARKER;
     pItem->x.marker.x = x;
     pItem->x.marker.y = y;
+    pItem->x.marker.flags = (fixed ? MARKER_FIXED : 0);
     linkItem(pCanvas, pItem);
     return pItem;
 }

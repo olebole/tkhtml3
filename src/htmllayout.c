@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.144 2006/04/13 06:53:42 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.145 2006/04/18 09:40:07 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -1156,9 +1156,9 @@ drawAbsolute(pLayout, pBox, pStaticCanvas, x, y)
         int iLeft   = PIXELVAL(pV, LEFT, pBox->iContaining);
         int iRight  = PIXELVAL(pV, RIGHT, pBox->iContaining);
         int iWidth  = PIXELVAL(pV, WIDTH, pBox->iContaining);
-        int iTop    = PIXELVAL(pV, TOP, pBox->iContaining);
-        int iBottom = PIXELVAL(pV, BOTTOM, pBox->iContaining);
-        int iHeight = PIXELVAL(pV, HEIGHT, pBox->iContaining);
+        int iTop    = PIXELVAL(pV, TOP, pBox->height);
+        int iBottom = PIXELVAL(pV, BOTTOM, pBox->height);
+        int iHeight = PIXELVAL(pV, HEIGHT, pBox->height);
         int iSpace;
 
         pNext = pList->pNext;
@@ -2056,8 +2056,26 @@ normalFlowLayoutAbsolute(pLayout, pBox, pNode, pY, pContext, pNormal)
     NodeList *pNew = (NodeList *)HtmlClearAlloc(sizeof(NodeList));
     pNew->pNode = pNode;
     pNew->pNext = pLayout->pAbsolute;
-    pNew->pMarker = HtmlDrawAddMarker(&pBox->vc, 0, y);
+    pNew->pMarker = HtmlDrawAddMarker(&pBox->vc, 0, y, 0);
     pLayout->pAbsolute = pNew;
+    return 0;
+}
+
+static int 
+normalFlowLayoutFixed(pLayout, pBox, pNode, pY, pContext, pNormal)
+    LayoutContext *pLayout;
+    BoxContext *pBox;
+    HtmlNode *pNode;
+    int *pY;
+    InlineContext *pContext;
+    NormalFlow *pNormal;
+{
+    int y = *pY + normalFlowMarginQuery(pNormal);
+    NodeList *pNew = (NodeList *)HtmlClearAlloc(sizeof(NodeList));
+    pNew->pNode = pNode;
+    pNew->pNext = pLayout->pFixed;
+    pNew->pMarker = HtmlDrawAddMarker(&pBox->vc, 0, y, 0);
+    pLayout->pFixed = pNew;
     return 0;
 }
 
@@ -2105,6 +2123,7 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
     F( INLINE,          0, 0, 0, normalFlowLayoutInline);
     F( INLINE_REPLACED, 0, 0, 0, normalFlowLayoutReplacedInline);
     F( ABSOLUTE,        0, 0, 0, normalFlowLayoutAbsolute);
+    F( FIXED,           0, 0, 0, normalFlowLayoutFixed);
     #undef F
 
     /* 
@@ -2129,6 +2148,8 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
         } 
     } else if (pNode->pPropertyValues->ePosition == CSS_CONST_ABSOLUTE) {
         pFlow = &FT_ABSOLUTE;
+    } else if (pNode->pPropertyValues->ePosition == CSS_CONST_FIXED) {
+        pFlow = &FT_FIXED;
     } else if (pNode->pPropertyValues->eFloat != CSS_CONST_NONE) {
         pFlow = &FT_FLOAT;
     } else if (nodeIsReplaced(pNode)) {
@@ -2602,6 +2623,7 @@ HtmlLayout(pTree)
         MarginProperties margin;
         BoxProperties box;
         BoxContext sContent;
+        BoxContext sFixed;
 
         nodeGetMargins(&sLayout, pBody, nWidth, &margin);
         nodeGetBoxProperties(&sLayout, pBody, nWidth, &box);
@@ -2617,16 +2639,33 @@ HtmlLayout(pTree)
         y = MAX(-1 * sBox.vc.top, 0) + margin.margin_top + box.iTop;
 
         drawAbsolute(&sLayout, &sContent, &sContent.vc, -1 * x, -1 * y);
-        HtmlDrawCanvas(&pTree->canvas, &sContent.vc, x, y, pBody);
 
-        pTree->canvas.right = 
+        memset(&sFixed, 0, sizeof(BoxContext));
+
+        assert(sLayout.pAbsolute == 0);
+        sLayout.pAbsolute = sLayout.pFixed;
+        sLayout.pFixed = 0;
+        sFixed.iContaining = sContent.iContaining;
+        sFixed.height = Tk_Height(pTree->tkwin);
+        if (sFixed.height < 5) sFixed.height = pTree->options.height;
+        HtmlDrawAddMarker(&sFixed.vc, 0, 0, 1);
+        drawAbsolute(&sLayout, &sFixed, &sContent.vc, -1 * x, -1 * y);
+
+        HtmlDrawCanvas(&pTree->canvas, &sContent.vc, x, y, pBody);
+        HtmlDrawCanvas(&pTree->canvas, &sFixed.vc, x, y, pBody);
+
+        pTree->canvas.right = MAX(
+            pTree->canvas.right,
             margin.margin_left + box.iLeft + 
             sContent.width + 
-            box.iRight + margin.margin_right;
-        pTree->canvas.bottom = 
+            box.iRight + margin.margin_right
+        );
+        pTree->canvas.bottom = MAX(
+            pTree->canvas.bottom,
             margin.margin_top + box.iTop + 
             sContent.height + 
-            box.iBottom + margin.margin_bottom;
+            box.iBottom + margin.margin_bottom
+        );
     }
 
     if (rc == TCL_OK) {

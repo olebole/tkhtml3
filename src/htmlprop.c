@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.59 2006/04/12 13:14:12 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.60 2006/04/18 09:40:07 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -2036,9 +2036,13 @@ HtmlComputedValuesFinish(p)
         HtmlImageFree(pValues->imReplacementImage);
         HtmlImageFree(pValues->imBackgroundImage);
         HtmlImageFree(pValues->imListStyleImage);
-    } else if (pValues->eBackgroundAttachment == CSS_CONST_FIXED) {
-        /* If this is a new entry and the 'background-attachment' property
-         * computes to "fixed", then increment HtmlTree.nFixedBackground.
+    } else if (
+        pValues->eBackgroundAttachment == CSS_CONST_FIXED ||
+        pValues->ePosition == CSS_CONST_FIXED
+    ) {
+	/* If this is a new entry and the 'background-attachment' or 
+         * 'position' property computes to "fixed", then increment
+	 * HtmlTree.nFixedBackground.
          */
         p->pTree->nFixedBackground++;
     }
@@ -2125,7 +2129,10 @@ HtmlComputedValuesRelease(pTree, pValues)
             HtmlImageFree(pValues->imReplacementImage);
             HtmlImageFree(pValues->imBackgroundImage);
             HtmlImageFree(pValues->imListStyleImage);
-            if (pValues->eBackgroundAttachment == CSS_CONST_FIXED) {
+            if (
+                pValues->eBackgroundAttachment == CSS_CONST_FIXED ||
+                pValues->ePosition == CSS_CONST_FIXED
+            ) {
                 pTree->nFixedBackground++;
             }
     

@@ -16,14 +16,15 @@ body {
 }
 
 #body {
-    float: left;
-    padding: 0 2% 0 2%;
-    width: 75%;
+    position: absolute;
+    left: 25ex;        /* Same as .sidebox width */
+    right: 1em;
 }
 
 .sidebox {
-    float: left;
-    width: 20%;
+    position: fixed;
+    width: 25ex;       /* Same as #body left */
+    left: 0px;
     text-align:center;
 }
 .sidebox ul {
@@ -45,6 +46,19 @@ body {
 a[href]       { color: darkblue; }
 a[href]:hover { background-color: darkblue; color: white; }
 
+.caption {
+  display:none;
+}
+li:hover .caption {
+  display:block;
+  position:absolute;
+  top: 100%;
+  margin-top: 1em;
+  color: black;
+  font-weight: bold;
+  text-align:left;
+  margin-right:1em;
+}
 
 #text {
     padding: 3ex;
@@ -53,6 +67,9 @@ a[href]:hover { background-color: darkblue; color: white; }
     border: solid 1px;
     background: white;
     margin-bottom:1em;
+}
+#sitemap,#toc {
+    margin: 1em;
 }
 
 h1,h2,h3 {
@@ -67,18 +84,23 @@ h2 {
     margin-top: 1em;
 }
 
+/* Table formatting for support page */
 table {
     margin: 1em auto;
     width:80%;
 }
 td           {padding: 0px .5em}
+
+/* Colors used for property names in support page */
 .nosupport   {color: grey !important}
 .support     {color: darkblue}
 
+/* Margin on images for the hv3 demo page */
 img {
   margin: 1em;
 }
 
+/* <pre class="code"> elements contain Tcl or Html code. */
 pre[class="code"] {
   margin: 0.5em 3em;
   padding: 0.5em;

@@ -182,7 +182,7 @@ namespace eval hv3 {
     if {$args == "0.0 1.0"} {
       $sb configure -width 0 -borderwidth 0
     } else {
-      $sb configure -width 15 -borderwidth 2 
+      $sb configure -width 15 -borderwidth 1 
     }
   }
 
