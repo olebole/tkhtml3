@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.60 2006/04/18 09:40:07 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.61 2006/04/19 16:22:27 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1401,19 +1401,22 @@ HtmlComputedValuesSet(p, eProp, pProp)
         }
         case CSS_PROPERTY_TOP: 
             return propertyValuesSetSize(p, &(p->values.position.iTop),
-                PROP_MASK_TOP, pProp, SZ_INHERIT|SZ_PERCENT|SZ_AUTO
+                PROP_MASK_TOP, pProp, SZ_INHERIT|SZ_PERCENT|SZ_AUTO|SZ_NEGATIVE
             );
         case CSS_PROPERTY_BOTTOM: 
             return propertyValuesSetSize(p, &(p->values.position.iBottom),
-                PROP_MASK_BOTTOM, pProp, SZ_INHERIT|SZ_PERCENT|SZ_AUTO
+                PROP_MASK_BOTTOM, pProp, 
+                SZ_INHERIT|SZ_PERCENT|SZ_AUTO|SZ_NEGATIVE
             );
         case CSS_PROPERTY_RIGHT: 
             return propertyValuesSetSize(p, &(p->values.position.iRight),
-                PROP_MASK_RIGHT, pProp, SZ_INHERIT|SZ_PERCENT|SZ_AUTO
+                PROP_MASK_RIGHT, pProp, 
+                SZ_INHERIT|SZ_PERCENT|SZ_AUTO|SZ_NEGATIVE
             );
         case CSS_PROPERTY_LEFT: 
             return propertyValuesSetSize(p, &(p->values.position.iLeft),
-                PROP_MASK_LEFT, pProp, SZ_INHERIT|SZ_PERCENT|SZ_AUTO
+                PROP_MASK_LEFT, pProp, 
+                SZ_INHERIT|SZ_PERCENT|SZ_AUTO|SZ_NEGATIVE
             );
 
         /* 
@@ -1514,11 +1517,13 @@ HtmlComputedValuesSet(p, eProp, pProp)
 
         case CSS_PROPERTY_BACKGROUND_POSITION_X:
             return propertyValuesSetSize(p, &(p->values.iBackgroundPositionX),
-                PROP_MASK_BACKGROUND_POSITION_X, pProp, SZ_INHERIT|SZ_PERCENT
+                PROP_MASK_BACKGROUND_POSITION_X, pProp, 
+                SZ_INHERIT|SZ_PERCENT|SZ_NEGATIVE
             );
         case CSS_PROPERTY_BACKGROUND_POSITION_Y:
             return propertyValuesSetSize(p, &(p->values.iBackgroundPositionY),
-                PROP_MASK_BACKGROUND_POSITION_Y, pProp, SZ_INHERIT|SZ_PERCENT
+                PROP_MASK_BACKGROUND_POSITION_Y, pProp, 
+                SZ_INHERIT|SZ_PERCENT|SZ_NEGATIVE
             );
 
         /* 'vertical-align', special case: */
