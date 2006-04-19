@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.145 2006/04/18 09:40:07 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.146 2006/04/19 16:10:51 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -982,6 +982,12 @@ HtmlLayoutNodeContent(pLayout, pBox, pNode)
         memset(&sNormal, 0, sizeof(NormalFlow));
         pFloat = HtmlFloatListNew();
         sNormal.pFloat = pFloat;
+
+	/* TODO: Not sure about this. sNormal.isValid used to be initialized to
+	 * zero. If this line stays in, then the isValid variable can be
+	 * eliminated entirely (a very good thing).
+         */
+        sNormal.isValid = 1;
     
         /* Layout the contents of the node */
         normalFlowLayout(pLayout, pBox, pNode, &sNormal);

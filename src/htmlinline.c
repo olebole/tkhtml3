@@ -31,7 +31,7 @@
  * 
  *     HtmlInlineContextIsEmpty
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.14 2006/03/24 13:52:02 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.15 2006/04/19 16:10:51 danielk1977 Exp $";
 
 typedef struct InlineBox InlineBox;
 
@@ -1031,7 +1031,12 @@ HtmlInlineContextNew(pNode, isSizeOnly)
      */
     pNew->whiteSpace = pValues->eWhitespace;
     pNew->textAlign = pValues->eTextAlign;
-    if (isSizeOnly || pValues->eWhitespace != CSS_CONST_NORMAL) {
+    if (isSizeOnly) { 
+        pNew->textAlign = CSS_CONST_LEFT;
+    } else if (
+        pValues->eWhitespace != CSS_CONST_NORMAL && 
+        pNew->textAlign == CSS_CONST_JUSTIFY
+    ) {
         pNew->textAlign = CSS_CONST_LEFT;
     }
 
