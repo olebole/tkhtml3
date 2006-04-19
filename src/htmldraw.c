@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.109 2006/04/18 09:40:07 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.110 2006/04/19 16:55:12 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1400,14 +1400,21 @@ drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview)
     
             iPosX = pV->iBackgroundPositionX;
             iPosY = pV->iBackgroundPositionY;
-            if ( pV->mask & PROP_MASK_BACKGROUND_POSITION_X ){
-                iPosX = (double)iPosX * (double)(bg_w - iWidth) / 10000.0;
-                iPosY = (double)iPosY * (double)(bg_h - iHeight) / 10000.0;
-            }
             if (pV->eBackgroundAttachment == CSS_CONST_SCROLL) {
+                if ( pV->mask & PROP_MASK_BACKGROUND_POSITION_X ){
+                    iPosX = (double)iPosX * (double)(bg_w - iWidth) / 10000.0;
+                    iPosY = (double)iPosY * (double)(bg_h - iHeight) / 10000.0;
+                }
                 iPosX += bg_x;
                 iPosY += bg_y;
             } else {
+                /* 'background-attachment' is "fixed" */
+                if ( pV->mask & PROP_MASK_BACKGROUND_POSITION_X ){
+                    int rw = Tk_Width(pTree->tkwin);
+                    int rh = Tk_Height(pTree->tkwin);
+                    iPosX = (double)iPosX * (double)(rw - iWidth) / 10000.0;
+                    iPosY = (double)iPosY * (double)(rh - iHeight) / 10000.0;
+                }
                 iPosX -= xview;
                 iPosY -= yview;
             }
