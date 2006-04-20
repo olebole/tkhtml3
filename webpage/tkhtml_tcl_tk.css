@@ -22,7 +22,7 @@ body {
 }
 
 .sidebox {
-    position: fixed;
+    position: absolute;
     width: 25ex;       /* Same as #body left */
     left: 0px;
     text-align:center;
@@ -70,6 +70,9 @@ li:hover .caption {
 }
 #sitemap,#toc {
     margin: 1em;
+}
+#toc {
+    margin-top: 0px;
 }
 
 h1,h2,h3 {

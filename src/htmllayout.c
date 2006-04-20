@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.147 2006/04/20 05:08:07 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.148 2006/04/20 10:44:05 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -1803,7 +1803,15 @@ normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
         } 
         sContent.iContaining = iWidth;
     }
-    sContent.width = sContent.iContaining;
+
+    if (!pLayout->minmaxTest) {
+	/* Unless this is part of a min-max width test, then the content is at
+	 * least as wide as it's containing block. The call to
+	 * normalFlowLayout() below may increase sContent.width, but not
+	 * decrease it.
+         */
+        sContent.width = sContent.iContaining;
+    }
 
     /* Account for the 'margin-top' property of this node. */
     normalFlowMarginAdd(pNormal, margin.margin_top);
