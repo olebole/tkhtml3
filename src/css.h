@@ -167,11 +167,6 @@ void HtmlCssFreeDynamics(HtmlNode *);
 CssProperties *HtmlCssPropertiesGetBefore(CssProperties *);
 CssProperties *HtmlCssPropertiesGetAfter(CssProperties *);
 
-#define CSS_VISITED   0x01
-#define CSS_HOVER     0x02
-#define CSS_ACTIVE    0x04
-#define CSS_FOCUS     0x08
-
 #endif
 
 #endif

@@ -420,6 +420,9 @@ Tcl_ObjCmdProc HtmlLayoutNode;
 Tcl_ObjCmdProc HtmlLayoutImage;
 Tcl_ObjCmdProc HtmlLayoutPrimitives;
 Tcl_ObjCmdProc HtmlLayoutBbox;
+Tcl_ObjCmdProc HtmlCssStyleConfigDump;
+
+char *HtmlPropertyToString(CssProperty *, char **);
 
 int HtmlStyleApply(HtmlTree *, HtmlNode *);
 

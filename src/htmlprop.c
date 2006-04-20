@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.61 2006/04/19 16:22:27 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.62 2006/04/20 13:50:45 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -78,8 +78,8 @@ static const char rcsid[] = "$Id: htmlprop.c,v 1.61 2006/04/19 16:22:27 danielk1
  *
  *---------------------------------------------------------------------------
  */
-static char *
-propertyToString(pProp, pzFree)
+char *
+HtmlPropertyToString(pProp, pzFree)
     CssProperty *pProp;
     char **pzFree;
 {
@@ -1252,7 +1252,7 @@ HtmlComputedValuesSet(p, eProp, pProp)
 
     LOG {
         char *zFree;
-        char *zPropVal = propertyToString(pProp, &zFree);
+        char *zPropVal = HtmlPropertyToString(pProp, &zFree);
         HtmlLog(p->pTree, "STYLEENGINE", "%s %s -> %s",
                 Tcl_GetString(HtmlNodeCommand(p->pTree, p->pNode)),
                 HtmlCssPropertyToString(eProp), zPropVal

@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.57 2006/03/21 08:02:43 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.58 2006/04/20 13:50:45 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -2422,7 +2422,7 @@ ruleCompare(CssRule *pLeft, CssRule *pRight) {
 
         if (res == 0) {
             CONST char *zLeft = Tcl_GetString(pLeft->pPriority->pIdTail);
-            CONST char *zRight = Tcl_GetString(pLeft->pPriority->pIdTail);
+            CONST char *zRight = Tcl_GetString(pRight->pPriority->pIdTail);
             res = strcmp(zLeft, zRight);
         }
     }
@@ -3309,5 +3309,64 @@ HtmlCssSelectorToString(pSelector, pObj)
     }
 
     if (z) Tcl_AppendToObj(pObj, z, -1);
+}
+
+int
+HtmlCssStyleConfigDump(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    HtmlTree *pTree = (HtmlTree *)clientData;
+    CssStyleSheet *pStyle = pTree->pStyle;
+
+    CssRule *pRule;
+    Tcl_Obj *pRet;
+
+    pRet = Tcl_NewObj();
+    for (pRule = pStyle->pUniversalRules; pRule; pRule = pRule->pNext) {
+        CssPriority *pPri = pRule->pPriority;
+        Tcl_Obj *pList = Tcl_NewObj();
+        Tcl_Obj *p;
+        char zBuf[256];
+        int ii;
+
+        p = Tcl_NewObj();
+        HtmlCssSelectorToString(pRule->pSelector, p);
+        Tcl_ListObjAppendElement(0, pList, p);
+
+        snprintf(zBuf, 255, "%s%s%s", 
+            (pPri->origin == CSS_ORIGIN_AUTHOR) ? "author" :
+            (pPri->origin == CSS_ORIGIN_AGENT) ? "agent" :
+            (pPri->origin == CSS_ORIGIN_USER) ? "user" : "N/A",
+            Tcl_GetString(pPri->pIdTail),
+            pPri->important ? " (!important)" : ""
+        );
+        zBuf[255] = '\0';
+        Tcl_ListObjAppendElement(0, pList, Tcl_NewStringObj(zBuf, -1));
+        
+        p = Tcl_NewObj();
+        for (ii = 0; ii < pRule->pPropertySet->n; ii++) {
+            CssProperty *pProp = pRule->pPropertySet->a[ii].pProp;
+            if (pProp) {
+            int eProp = pRule->pPropertySet->a[ii].eProp;
+            char *zPropVal;
+            char *zFree;
+            zPropVal = HtmlPropertyToString(pProp, &zFree);
+            Tcl_AppendToObj(p, HtmlCssPropertyToString(eProp), -1);
+            Tcl_AppendToObj(p, ":", 1);
+            Tcl_AppendToObj(p, zPropVal, -1);
+            Tcl_AppendToObj(p, "; ", 2);
+            if (zFree) HtmlFree(zFree);
+            }
+        }
+        Tcl_ListObjAppendElement(0, pList, p);
+
+        Tcl_ListObjAppendElement(0, pRet, pList);
+    }
+ 
+    Tcl_SetObjResult(interp, pRet);
+    return TCL_OK;
 }
 

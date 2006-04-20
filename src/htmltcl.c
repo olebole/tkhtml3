@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.85 2006/03/26 07:50:01 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.86 2006/04/20 13:50:45 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -1644,6 +1644,15 @@ searchCmd(clientData, interp, objc, objv)
 {
     return HtmlCssSearch(clientData, interp, objc, objv);
 }
+static int 
+styleconfigCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    return HtmlCssStyleConfigDump(clientData, interp, objc, objv);
+}
 
 /*
  *---------------------------------------------------------------------------
@@ -1937,9 +1946,7 @@ int widgetCmd(clientData, interp, objc, objv)
         {"image",      0,        imageCmd},
         {"node",       0,        nodeCmd},
         {"parse",      0,        parseCmd},
-        {"primitives", 0,        primitivesCmd},     /* debugging command */
         {"reset",      0,        resetCmd},
-        {"relayout",   0,        relayoutCmd},       /* debugging command */
         {"search",     0,        searchCmd},
         {"select",     "clear",  selectClearCmd},
         {"select",     "from",   selectCmd},
@@ -1949,6 +1956,10 @@ int widgetCmd(clientData, interp, objc, objv)
         {"xview",      0,        xviewCmd},
         {"yview",      0,        yviewCmd},
 
+        /* The following are for debugging only */
+        {"primitives", 0,        primitivesCmd},
+        {"relayout",   0,        relayoutCmd},
+        {"styleconfig",   0,     styleconfigCmd},
 #ifndef NDEBUG
         {"_hashstats", 0, hashstatsCmd},  
 #endif
