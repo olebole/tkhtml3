@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.58 2006/04/20 13:50:45 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.59 2006/04/20 14:37:59 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -2993,16 +2993,16 @@ HtmlCssStyleSheetApply(pTree, pNode)
         CssSelector *pSelector = pRule->pSelector;
         int isMatch = 0;
 
-        /* If this rule is not "!important", and is on either the user or
-         * agent stylesheet, or has a specificity of less than or equal to
-         * a single "id" selector, then the "style" attribute should be
-         * considered before it.
+        /* The contents of the "style" attribute, if one exists, are handled
+         * after the important rules but before anything else. This is because:
+         * 
+	 *     (a) CSS 2.1, in section 6.4.3 says that a style attribute has
+	 *         the maximum possible specificity, and
+	 *     (b) Tkhtml assumes the style attribute resides on the author
+	 *         stylesheet, with no !important flag - hence, according to
+	 *         section 6.4.1 it is handled just after the !important stuff.
          */
-        if (!style_done && 
-            !pPriority->important &&
-            (pPriority->origin != CSS_ORIGIN_AUTHOR ||
-             pRule->specificity <= 10000)
-        ) {
+        if (!style_done && !pPriority->important) {
             style_done = 1;
             if (pNode->pStyle) {
                 CssRule *pRule2 = pNode->pStyle->apRule[0];

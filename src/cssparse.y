@@ -264,10 +264,13 @@ operator ::= ws SLASH ws.
 operator ::= SPACE ws.
 
 term(A) ::= IDENT(X). { A = X; }
-term(A) ::= DOT(X) IDENT(Y). { A.z = X.z; A.n = (Y.z+Y.n - X.z); }
-term(A) ::= IDENT(X) DOT IDENT(Y). { A.z = X.z; A.n = (Y.z+Y.n - X.z); }
 term(A) ::= STRING(X). { A = X; }
 term(A) ::= FUNCTION(X). { A = X; }
 term(A) ::= HASH(X) IDENT(Y). { A.z = X.z; A.n = (Y.z+Y.n - X.z); }
+
+term(A) ::= DOT(X) IDENT(Y). { A.z = X.z; A.n = (Y.z+Y.n - X.z); }
+term(A) ::= IDENT(X) DOT IDENT(Y). { A.z = X.z; A.n = (Y.z+Y.n - X.z); }
 term(A) ::= PLUS(X) IDENT(Y). { A.z = X.z; A.n = (Y.z+Y.n - X.z); }
+term(A) ::= PLUS(X) DOT IDENT(Y). { A.z = X.z; A.n = (Y.z+Y.n - X.z); }
+term(A) ::= PLUS(X) IDENT DOT IDENT(Y). { A.z = X.z; A.n = (Y.z+Y.n - X.z); }
 
