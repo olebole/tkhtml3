@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.146 2006/04/19 16:10:51 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.147 2006/04/20 05:08:07 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -503,7 +503,24 @@ normalFlowLayoutFloat(pLayout, pBox, pNode, pY, pContext, pNormal)
     memset(&sBox, 0, sizeof(BoxContext));
     sBox.iContaining = iContaining;
 
+
+    /* The following two lines set variable 'y' to the y-coordinate for the top
+     * outer-edge of the floating box. This might be increased (but not
+     * decreased) if the existing floating-margins at y are too narrow for this
+     * floating box.
+     *
+     * If the 'clear' property is set to other than "none", this is handled
+     * by adding the following constraint (from CSS 2.1, section 9.5.2):
+     *
+     *     The top outer edge of the float must be below the bottom outer edge
+     *     of all earlier left-floating boxes (in the case of 'clear: left'),
+     *     or all earlier right-floating boxes (in the case of 'clear: right'),
+     *     or both ('clear: both').
+     *
+     * Note: "outer-edge" means including the the top and bottom margins.
+     */
     y = (*pY) + normalFlowMarginQuery(pNormal);
+    y = HtmlFloatListClear(pNormal->pFloat, pV->eClear, y);
 
     nodeGetMargins(pLayout, pNode, iContaining, &margin);
 
@@ -2120,7 +2137,7 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
     #define F(z, d, c, l, x) static FlowType FT_ ## z = {#z, d, c, l, x}
     F( NONE,            0, 1, 0, 0);
     F( BLOCK,           1, 1, 0, normalFlowLayoutBlock);
-    F( FLOAT,           0, 1, 0, normalFlowLayoutFloat);
+    F( FLOAT,           0, 0, 0, normalFlowLayoutFloat);
     F( TABLE,           1, 1, 0, normalFlowLayoutTable);
     F( BR,              1, 1, 1, normalFlowLayoutBlock);
     F( BLOCK_REPLACED,  1, 1, 0, normalFlowLayoutReplaced);
