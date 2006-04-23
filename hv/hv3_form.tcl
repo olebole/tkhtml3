@@ -21,6 +21,8 @@
 package require Itcl
 namespace import itcl::class
 
+source [file join [file dirname [info script]] combobox.tcl]
+
 #--------------------------------------------------------------------------
 # An instance of the following class is instantiated for each <form> 
 # element in the document that has at least one descendant element 

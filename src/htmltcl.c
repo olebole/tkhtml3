@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.86 2006/04/20 13:50:45 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.87 2006/04/23 11:25:04 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -319,6 +319,8 @@ callbackHandler(clientData)
     clock_t styleClock = 0;              
     clock_t layoutClock = 0;
 
+    int offscreen;
+
     assert(!pTree->pRoot||pTree->pRoot->pPropertyValues||pTree->cb.pRestyle);
 
     HtmlLog(pTree, "CALLBACK", 
@@ -393,6 +395,19 @@ callbackHandler(clientData)
     pTree->cb.flags = 0;
     assert(pTree->cb.inProgress);
     pTree->cb.inProgress = 0;
+
+    offscreen = MAX(0, 
+        MIN(pTree->canvas.bottom - Tk_Height(pTree->tkwin), pTree->iScrollY)
+    );
+    if (offscreen != pTree->iScrollY) {
+        HtmlCallbackScrollY(pTree, offscreen);
+    }
+    offscreen = MAX(0, 
+        MIN(pTree->canvas.right - Tk_Width(pTree->tkwin), pTree->iScrollX)
+    );
+    if (offscreen != pTree->iScrollX) {
+        HtmlCallbackScrollX(pTree, offscreen);
+    }
 }
 
 /*

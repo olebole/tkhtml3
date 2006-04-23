@@ -13,8 +13,7 @@ package require Tk
 #
 #     This class encapsulates code used for debugging the Html widget. 
 #     It manages a gui which can be used to investigate the structure and
-#     Tkhtml's handling of a currently loaded Html document.
-#
+#     Tkhtml's handling of the currently loaded Html document.
 #
 itcl::class HtmlDebug {
 
@@ -102,7 +101,7 @@ itcl::body HtmlDebug::browse {HTML {node ""}} {
 itcl::body HtmlDebug::browseNode {node} {
   wm state $myTopLevel normal
   wm deiconify $myTopLevel
-  hv3Goto $myTopLevel.report "tcl:///:$this report $node" -noresolve
+  $myTopLevel.report goto "tcl:///:$this report $node"
 }
 
 proc tclProtocol {downloadHandle} {
@@ -171,7 +170,7 @@ itcl::body HtmlDebug::searchNode {{idx 0}} {
 
   set search_results {}
   set nodelist [list]
-  set selector [$myTopLevel.header.html.search get]
+  set selector [[$myTopLevel.header html].search get]
   if {$selector != ""} {
     set search_results <table><tr>
     set nodelist [$myHtml search $selector]
@@ -189,19 +188,19 @@ itcl::body HtmlDebug::searchNode {{idx 0}} {
     append search_results </table>
   }
 
-  $myTopLevel.header.html reset
-  $myTopLevel.header.html parse -final [subst $Template]
-  foreach node [$myTopLevel.header.html search {input[widget]}] {
+  set ::subbed_template [subst $Template]
+  $myTopLevel.header goto "tcl:///set ::subbed_template"
+  foreach node [$myTopLevel.header search {input[widget]}] {
     set widget [$node attr widget]
-    $node replace $myTopLevel.header.html.$widget -deletecmd {}
+    $node replace [$myTopLevel.header html].$widget -deletecmd {}
   }
 
-  set h [lindex [$myTopLevel.header.html bbox] 3]
+  set h [lindex [[$myTopLevel.header html] bbox] 3]
   if {$selector != ""} {
     set mh [expr [winfo height $myTopLevel]/2]
     if {$h > $mh} {set h $mh}
   }
-  $myTopLevel.header.html configure -height $h
+  [$myTopLevel.header html] configure -height $h
 
   if {[llength $nodelist]>$idx} {
     HtmlDebug::browse $myHtml [lindex $nodelist $idx]
@@ -243,27 +242,26 @@ itcl::body HtmlDebug::constructor {HTML} {
   bind $myTopLevel <KeyPress-Q>  [list destroy $myTopLevel]
 
   # Header html widget
-  hv3Init  $myTopLevel.header
-  hv3RegisterProtocol $myTopLevel.header tcl tclProtocol
+  hv3 $myTopLevel.header
+  $myTopLevel.header protocol tcl tclProtocol
+
   # $myTopLevel.header.html configure -height 100
-  pack forget $myTopLevel.header.status 
-  set b [button $myTopLevel.header.html.relayout]
+  set b [button [$myTopLevel.header html].relayout]
   $b configure -text "Re-Render Document With Logging" 
   $b configure -command [list $this rerender]
-  set b2 [button $myTopLevel.header.html.outline]
+  set b2 [button [$myTopLevel.header html].outline]
   $b2 configure -text "Add \":focus {outline: solid ...}\""
   $b2 configure -command [list .hv3.html style {
     :focus {outline-style: solid; outline-color: blue ; outline-width: 1px}
   }]
-  set e [entry $myTopLevel.header.html.search]
+  set e [entry [$myTopLevel.header html].search]
   bind $e <Return> [list $this searchNode]
   $this searchNode
 
   # Report html widget
-  hv3Init  $myTopLevel.report
-  hv3RegisterProtocol $myTopLevel.report tcl tclProtocol
-  $myTopLevel.report.html configure -width 300 -height 500
-  pack forget $myTopLevel.report.status 
+  hv3 $myTopLevel.report
+  $myTopLevel.report protocol tcl tclProtocol
+  [$myTopLevel.report html] configure -width 300 -height 500
 
   # Tree canvas widget and scrollbars
   frame $myTopLevel.tree_frame
@@ -282,7 +280,7 @@ itcl::body HtmlDebug::constructor {HTML} {
   pack $myTopLevel.report     -side right -fill both -expand true
   pack $myTopLevel.tree_frame -side left -fill both -expand true
 
-  bind $myTopLevel.report <Destroy> [list itcl::delete object $this]
+  bind $myTopLevel.tree_frame <Destroy> [list itcl::delete object $this]
   set myCommonWidgets($HTML) $this
 }
 

@@ -1,636 +1,147 @@
 #
-# Public API to hv3 functionality.
+# The code in this file is partitioned into the following classes:
 #
-# hv3Init PATH ?option value...?
-#
-#     Initialise an instance of the Hv3 embedded app. The parameter PATH is a
-#     Tk window path-name for a frame widget that will be created. The 
-#     following widgets are created when this command is invoked:
-#
-#         $PATH                 Frame widget
-#         $PATH.html            Html widget
-#         $PATH.vsb             Vertical scrollbar widget
-#         $PATH.hsb             Horizontal scrollbar widget
-#         $PATH.status          Label widget (browser "status")
-#
-#     Options are:
-#
-#         -gotocallback         Goto callback.
+#     ::hv3::scrolledhtml
+#     ::hv3::selectionmanager
+#     ::hv3::downloadmanager
+#     ::hv3::dynamicmanager
+#     ::hv3::hyperlinkmanager
 #
 #
-# hv3Destroy PATH
-#
-#     Destroy the widgets created by hv3Init and deallocate all resources
-#     for application instance PATH.
-#
-#
-# hv3Goto PATH URI
-#
-#     Retrieve and display the document at URI $URI.
-#
-#
-# hv3RegisterProtocol PATH protocol cmd
-#
-#     Register a protocol handler command. The protocol is the first part of
-#     the fully-qualified URIs that the command can handle, i.e "file" or 
-#     "http". A protocol command must support the following invocations:
-#
-#         $cmd URI -callback SCRIPT ?-binary BOOLEAN?
-#         $cmd -reset
-#     
+package require Tkhtml 3.0
 package require snit
-
-swproc hv3Init {PATH {gotocallback ""}} {
-  ::hv3::initVars $PATH
-  ::hv3::importVars $PATH
-
-  set myUrl [Hv3Uri %AUTO% [pwd]/]
-  set myGotoCallback $gotocallback
-
-  # Create the widgets and pack them all into the frame. The caller 
-  # must pack the frame itself.
-  frame $PATH
-  html $PATH.html
-  scrollbar $PATH.vsb -orient vertical
-  scrollbar $PATH.hsb -orient horizontal
-  label $PATH.status -height 1 -anchor w
-  pack $PATH.vsb -fill y -side right
-  pack $PATH.status -fill x -side bottom 
-  pack $PATH.hsb -fill x -side bottom
-  pack $PATH.html -fill both -expand true
-
-  # Set up scrollbar callbacks.
-  $PATH.html configure -yscrollcommand "::hv3::scrollCallback $PATH.vsb"
-  $PATH.hsb configure -command "$PATH.html xview"
-  $PATH.html configure -xscrollcommand "::hv3::scrollCallback $PATH.hsb"
-  $PATH.vsb configure -command "$PATH.html yview"
-
-  # Image callback.
-  $PATH.html configure -imagecmd [list ::hv3::imageCmd $PATH]
-
-  # Set up Handler callbacks for <link>, <style>, <script> and <img> tags.
-  $PATH.html handler script script "::hv3::handleScriptScript"
-  $PATH.html handler node link     "::hv3::handleLinkNode     $PATH"
-  $PATH.html handler node a        "::hv3::handleANode"
-  $PATH.html handler script style  "::hv3::handleStyleScript  $PATH"
-
-  # Widget bindings
-  bind $PATH.html <Motion> "::hv3::guiMotion $PATH %x %y"
-  bind $PATH.html <1> "::hv3::guiLeftClick $PATH \[$PATH.html node %x %y\]"
-  bind $PATH.html <2> "::hv3::guiMiddleClick $PATH"
-  bind $PATH.html <3> "::hv3::guiRightClick $PATH \[$PATH.html node %x %y\]"
-
-  bind $PATH.html <ButtonPress-1>   "::hv3::guiLeftPress $PATH %x %y"
-  bind $PATH.html <ButtonRelease-1> "::hv3::guiLeftRelease $PATH %x %y"
-
-  # Set up a selection handler callback
-  selection handle $PATH.html [list ::hv3::guiGetSelection $PATH]
-
-  # Register the built-in URI protocol "file"
-  hv3RegisterProtocol $PATH file Hv3FileProtocol
-  hv3RegisterProtocol $PATH slow [list Hv3SlowDownload %AUTO%]
-
-  # Force the status bar variables to initialise by pretending someone 
-  # middle-clicked on the html widget.
-  ::hv3::guiMiddleClick $PATH
-
-  return $PATH
-}
-
-swproc hv3Goto {PATH url {noresolve 0 1} {nocallback 0 1}} {
-  ::hv3::importVars $PATH
-
-  set current     [$myUrl get -nofragment]
-  if {$noresolve} {
-    $myUrl configure -authority "" -path / -query "" -fragment ""
-  }
-  $myUrl load $url
-
-  if {$myGotoCallback != "" && !$nocallback} {
-    eval $myGotoCallback [$myUrl get]
-  }
-
-  set f [$myUrl cget -fragment]
-  set prefragment [$myUrl get -nofragment]
-
-  if {$current == $prefragment && $f != ""} {
-    ::hv3::goto_fragment $PATH $f
-  } else {
-    ::hv3::download $PATH $prefragment -type Document -reset
-  }
-}
-
-proc hv3Destroy {PATH} {
-}
-
-proc hv3RegisterProtocol {PATH protocol cmd} {
-  ::hv3::importVars $PATH
-  array set protocols $myProtocols
-  set protocols($protocol) $cmd
-  set myProtocols [array get protocols]
-}
-
-namespace eval hv3 {
-
-  proc VAR {n {d {}}} {uplevel [list lappend vars $n $d]}
-
-  VAR myProxyHost 
-  VAR myProxyPort
-  VAR myGotoCallback
-  VAR myStateVar 
-
-  VAR myResetPending 0     
-
-  VAR myStyleCount 0       ;# Used by [styleId] to assign style-ids
-  VAR myUrl                ;# Current URL being displayed (or loaded)
-  VAR myStatus1            ;# Cursor position status text
-  VAR myStatus2            ;# Download progress status text
-  VAR myStatusVar 1        ;# Either 1 or 2 - the current status text
-  VAR myStatusInfo         ;# Serialized array of download status info
-  VAR myProtocols          ;# Serialized array of protocol commands
-  VAR myDrag 0             ;# True when dragging the cursor
-
-  VAR myPointerNode ""     ;# The node under the cursor
-
-  proc initVars {PATH} {
-    foreach {var default} $::hv3::vars {
-      set ::hv3::objectvars(${PATH},$var) $default
-    }
-  }
-  proc importVars {PATH} {
-    foreach {var default} $::hv3::vars {
-      uplevel [subst {
-        upvar #0 ::hv3::objectvars(${PATH},$var) $var
-      }]
-    }
-  }
-
-  set ::hv3::image_name 0
-
-  # scrollCallback SB args
-  #
-  #     This proc is registered as the -xscrollcommand and -yscrollcommand 
-  #     options of the html widget. The first argument is the name of a 
-  #     scrollbar - either "$PATH.hsb" or "$PATH.vsb". The remaining args
-  #     are those appended by the widget.
-  #
-  #     The position of the scrollbar is adjusted. If it is not required,
-  #     the scrollbar is made to disappear by setting it's width and border
-  #     width to zero.
-  proc scrollCallback {sb args} {
-    eval [concat $sb set $args]
-    if {$args == "0.0 1.0"} {
-      $sb configure -width 0 -borderwidth 0
-    } else {
-      $sb configure -width 15 -borderwidth 1 
-    }
-  }
-
-  # handleStyleScript PATH STYLE
-  #
-  #     This is called as a [node handler script] to handle a <style> tag.
-  #     The second argument, $script, contains the text of the stylesheet.
-  proc handleStyleScript {PATH style} {
-    importVars $PATH
-    set id [styleId $PATH author]
-    ::hv3::styleCallback $PATH [$myUrl get] $id $style
-  }
-
-  # handleScriptScript SCRIPT
-  #
-  #     This is invoked as a [node handler script] callback to handle 
-  #     the contents of a <script> tag. It is a no-op.
-  proc handleScriptScript {script} {
-    return ""
-  }
-
-  # handleLinkNode PATH NODE
-  #
-  #     Handle a <link> node. The only <link> nodes we care about are those
-  #     that load stylesheets for media-types "all" or "visual". i.e.:
-  #
-  #         <link rel="stylesheet" media="all" href="style.css">
-  #
-  proc handleLinkNode {PATH node} {
-    importVars $PATH
-    set rel   [$node attr -default "" rel]
-    set media [$node attr -default all media]
-    if {$rel=="stylesheet" && [regexp all|screen $media]} {
-      set id [styleId $PATH author]
-
-      set url [resolve [$myUrl get] [$node attr href]]
-      set cmd [list ::hv3::styleCallback $PATH $url $id]
-
-      download $PATH $url -script $cmd -type Stylesheet
-    }
-  }
-
-  # handleANode NODE
-  #
-  proc handleANode {node} {
-      if {![catch {$node attr href}]} {
-          $node dynamic set link
-      }
-  }
-  
-  # imageCallback IMAGE-NAME DATA
-  #
-  #     This proc is called when an image requested by the -imagecmd callback
-  #     ([imageCmd]) has finished downloading. The first argument is the name of
-  #     a Tk image. The second argument is the downloaded data (presumably a
-  #     binary image format like gif). This proc sets the named Tk image to
-  #     contain the downloaded data.
-  #
-  proc imageCallback {name data} {
-    if {[info commands $name] == ""} return 
-    $name configure -data $data
-  }
-  
-  # imageCmd PATH URL
-  # 
-  #     This proc is registered as the -imagecmd script for the Html widget.
-  #     The first argument is the name of the Html widget. The second argument
-  #     is the URI of the image required.
-  #
-  #     This proc creates a Tk image immediately. It also kicks off a fetch 
-  #     request to obtain the image data. When the fetch request is complete,
-  #     the contents of the Tk image are set to the returned data in proc 
-  #     ::hv3::imageCallback.
-  #
-  proc imageCmd {PATH url} {
-    importVars $PATH
-    set name hv3_image[incr ::hv3::image_name]
-    image create photo $name
-    set fullurl [resolve [$myUrl get] $url]
-    set cmd [list ::hv3::imageCallback $name] 
-    download $PATH $fullurl -script $cmd -binary -type Image
-    return [list $name [list image delete $name]]
-  }
-
-  # styleCallback PATH url id style
-  #
-  #     This proc is invoked when a stylesheet has finished downloading 
-  #     (stylesheet downloads may be started by procs ::hv3::handleLinkNode 
-  #     or ::hv3::styleImportCmd).
-  proc styleCallback {PATH url id style} {
-    set importcmd [list ::hv3::styleImport $PATH $id] 
-    set urlcmd [namespace code [list resolve $url]]
-    $PATH.html style -id $id -importcmd $importcmd -urlcmd $urlcmd $style
-  }
-
-  # styleImport styleImport PATH PARENTID URL
-  #
-  #     This proc is passed as the -importcmd option to a [html style] 
-  #     command (see proc styleCallback).
-  proc styleImport {PATH parentid url} {
-    importVars $PATH
-    set id [styleId $PATH $parentid]
-    set script [list ::hv3::styleCallback $PATH $url $id] 
-    download $PATH $url -script $script -type Stylesheet
-  }
-
-  # styleId PATH parentid
-  #
-  #     Return the id string for a stylesheet with parent stylesheet 
-  #     $parentid.
-  proc styleId {PATH parentid} {
-    importVars $PATH
-    format %s.%.4d $parentid [incr myStyleCount]
-  }
-
-  # guiRightClick PATH x y
-  #
-  #     Called when the user right-clicks on the html window. 
-  proc guiRightClick {PATH node} {
-    if {$node!=""} {
-      HtmlDebug::browse $PATH.html [lindex $node 0]
-    }
-  }
-
-  # guiMiddleClick
-  #
-  #     Called when the user right-clicks on the html window. 
-  proc guiMiddleClick {PATH} {
-    importVars $PATH
-    set myStatusVar [expr ($myStatusVar % 2) + 1]
-    set v ::hv3::objectvars($PATH,myStatus$myStatusVar)
-    $PATH.status configure -textvariable $v
-  }
-
-  proc guiDrag {PATH x y} {
-    set to [$PATH.html node -index $x $y]
-    if {[llength $to]==2} {
-      foreach {node index} $to {}
-      $PATH.html select to $node $index
-    }
-    selection own $PATH.html
-  }
-  proc guiLeftPress {PATH x y} {
-    importVars $PATH
-    set from [$PATH.html node -index $x $y]
-    if {[llength $from]==2} {
-      foreach {node index} $from {}
-      $PATH.html select from $node $index
-      $PATH.html select to $node $index
-    }
-
-    foreach n [$PATH.html node $x $y] {
-      for {} {$n!=""} {set n [$n parent]} {
-        if {[$n tag]=="a" && [$n attr -default "" href]!=""} {
-          hv3Goto $PATH [$n attr href]
-          break
-        }
-      }
-    }
-
-    set myDrag 1
-  }
-  proc guiLeftRelease {PATH x y} {
-    importVars $PATH
-    set myDrag 0
-  }
-
-  # guiMotion PATH node
-  #
-  #     Called when the mouse moves over the html window. Parameter $node is
-  #     the node the mouse is currently floating over, or "" if the pointer is
-  #     not over any node.
-  proc guiMotion {PATH x y} {
-    importVars $PATH
-    set txt ""
-    $PATH configure -cursor ""
-
-    set node ""
-    foreach node [$PATH.html node $x $y] {
-      for {set n $node} {$n!=""} {set n [$n parent]} {
-        set tag [$n tag]
-        if {$tag=="a" && [$n attr -default "" href]!=""} {
-          $PATH configure -cursor hand2
-          set txt "hyper-link: [$n attr href]"
-          break
-        } 
-      }
-    }
-
-    if {$txt == "" && $node != ""} {
-      for {set n $node} {$n!=""} {set n [$n parent]} {
-        set tag [$n tag]
-        if {$tag==""} {
-          $PATH configure -cursor xterm
-          set txt [string range [$n text] 0 20]
-        } else {
-          set txt "<[$n tag]>$txt"
-        }
-      }
-    }
-
-    if {[info commands $myPointerNode] == ""} {set myPointerNode ""}
-    if {$myPointerNode ne $node} {
-        for {set n $node} {$n ne ""} {set n [$n parent]} {
-            if {[lsearch [$n dynamic set] hover] != -1} break
-            $n dynamic set hover
-        }
-        set N $n
-        for {set n $myPointerNode} {$n ne "" && $n ne $N} {set n [$n parent]} {
-            $n dynamic clear hover
-        }
-        set myPointerNode $node
-    }
-
-    set myStatus1 [string range $txt 0 80]
-
-    if {$myDrag} {
-      guiDrag $PATH $x $y
-    }
-  }
-
-  # guiGetSelection PATH offset maxChars
-  #
-  #     This command is invoked whenever the current selection is selected
-  #     while it is owned by the html widget. The text of the selected
-  #     region is returned.
-  #
-  proc guiGetSelection {PATH offset maxChars} {
-catch {
-    set span [$PATH.html select span]
-    if {[llength $span] != 4} {
-      return ""
-    }
-    foreach {n1 i1 n2 i2} $span {}
-
-    set not_empty 0
-    set T ""
-    set N $n1
-    while {1} {
-
-      if {[$N tag] eq ""} {
-        set index1 0
-        set index2 end
-        if {$N == $n1} {set index1 $i1}
-        if {$N == $n2} {set index2 $i2}
-
-        set text [string range [$N text] $index1 $index2]
-        append T $text
-        if {[string trim $text] ne ""} {set not_empty 1}
-      } else {
-        array set prop [$N prop]
-        if {$prop(display) ne "inline" && $not_empty} {
-          append T "\n"
-          set not_empty 0
-        }
-      }
-
-      if {$N eq $n2} break 
-
-      if {[llength [$N children]] > 0} {
-        set N [lindex [$N children] 0]
-      } else {
-
-        set right_sibling ""
-        while {$right_sibling == ""} {
-          set parent [$N parent]
-          if {$parent eq ""} {error "End of tree"}
-          set siblings [$parent children]
-          set idx [lsearch $siblings $N]
-          if {$idx >= 0} {
-            set right_sibling [lindex $siblings [expr $idx+1]]
-          }
-  
-          if {$right_sibling == ""} {
-            set N $parent
-          }
-        }
-        set N $right_sibling
-
-      }
-
-      if {$N eq ""} {error "End of tree!"}
-    }
-
-    set T [string range $T $offset [expr $offset + $maxChars]]
-} msg
-    return $msg
-  }
-
-  proc goto_fragment {PATH fragment} {
-    set H $PATH.html
-    set selector [format {[name="%s"]} $fragment]
-    set goto_node [lindex [$H search $selector] 0]
-    if {$goto_node!=""} {
-puts "goto $goto_node"
-      $H yview $goto_node
-    }
-  }
-
-  # parse PATH text 
-  #
-  #     Append the text TEXT to the current document.  If argument FRAGMENT is
-  #     not "", then it is the name of an anchor within the document to jump
-  #     to.
-  #
-  proc parse {PATH text} {
-    importVars $PATH
-    if {$text != ""} {
-      importVars $PATH
-
-      if {$myResetPending} {
-        $PATH.html reset
-        set myPointerNode ""
-        set myResetPending 0
-        set myStyleCount 0
-      }
-  
-      $PATH.html parse $text
-  
-      set fragment [$myUrl cget -fragment]
-      if {$fragment != ""} {
-        goto_fragment $PATH $fragment
-      }
-    }
-  }
-  proc parsefinished {PATH text} {
-    importVars $PATH
-    parse $PATH $text
-    $PATH.html parse -final ""
-  }
-  proc setResetPending {PATH args} {
-    importVars $PATH
-    set myResetPending 1
-  } 
-
-  # download PATH url ?-script script? ?-type type? ?-binary? ?-reset?
-  #
-  #     Retrieve the contents of the url $url, by invoking one of the 
-  #     protocol callbacks registered via proc hv3RegisterProtocol.
-  swproc download {PATH url \
-    {script ""} \
-    {type Document} \
-    {binary 0 1} \
-    {reset 0 1}} \
-  {
-    importVars $PATH
-
-    set obj [Hv3Uri %AUTO% $url]
-    set scheme [$obj cget -scheme]
-    $obj destroy
-
-    array set protocols $myProtocols
-    if {[catch {set cmd $protocols($scheme)}]} {
-      error "Unknown protocol: \"$scheme\""
-    }
-
-    if {$reset} {
-      # TODO
-      set myStatusInfo [list]
-    }
-
-    array set status $myStatusInfo
-    if {[info exists status($type)]} {
-      lset status($type) 1 [expr [lindex $status($type) 1] + 1]
-    } else {
-      set status($type) [list 0 1]
-    }
-    set myStatusInfo [array get status]
-
-puts "download: $url"
-    
-    if {[catch {
-      set dl [Hv3Download %AUTO%]
-      
-      if {$type == "Document"} {
-        set myResetPending 1
-        set script [list ::hv3::parsefinished $PATH]
-        set fin [list ::hv3::downloadCallback $dl $PATH $script $type]
-        set app [list ::hv3::parse $PATH]
-        set red [list ::hv3::setResetPending $PATH]
-        $dl configure -finscript $fin -incrscript $app -redirscript $red \
-            -binary $binary -uri $url
-      } else {
-        set fin [list ::hv3::downloadCallback $dl $PATH $script $type]
-        set app ""
-        $dl configure -finscript $fin -binary $binary -uri $url
-      }
-      eval [linsert $cmd end $dl]
-    } msg]} {
-      puts "Error: Cannot fetch $url: $msg"
-      return
-    }
-    downloadSetStatus $PATH
-  }
-
-  proc downloadCallback {downloadHandle PATH script type data} {
-    importVars $PATH
-
-    if {$type eq "Document"} {
-      $myUrl load [$downloadHandle cget -uri]
-    }
-
-    array set status $myStatusInfo
-    lset status($type) 0 [expr [lindex $status($type) 0] + 1]
-    set myStatusInfo [array get status]
-    lappend script $data
-    if {$script != ""} {
-      eval $script
-    }
-    downloadSetStatus $PATH
-  }
-
-  proc downloadSetStatus {PATH} {
-    importVars $PATH
-    set myStatus2 ""
-    foreach {k v} $myStatusInfo {
-      append myStatus2 "$k [lindex $v 0]/[lindex $v 1]  "
-    }
-  }
-
-  # resolve baseurl url
-  #
-  #     This command is used to transform a (possibly) relative URL into an
-  #     absolute URL. Example:
-  #
-  #         $ resolve http://host.com/dir1/dir2/doc.html ../dir3/doc2.html
-  #         http://host.com/dir1/dir3/doc2.html
-  #
-  #     This is purely a string manipulation procedure.
-  #
-  proc resolve {baseurl url} {
-    set obj [Hv3Uri %AUTO% $baseurl]
-    $obj load $url
-    set ret [$obj get]
-    $obj destroy
-    return $ret
-  }
-}
+source [file join [file dirname [info script]] hv3_form.tcl]
 
 #--------------------------------------------------------------------------
-# Class Hv3Download
+# Class ::hv3::scrolledhtml
+#
+#     This is a very thin wrapper around the Tkhtml widget. It adds 
+#     automatic horizontal and vertical scrollbars to the widget. The
+#     full public interface of the Tkhtml widget is exposed. 
+#
+#     At present this class exports no methods or options of it's own.
+#
+snit::widget ::hv3::scrolledhtml {
+  hulltype frame
+
+  # Three three component widgets (One html widget and two scrollbars)
+  component myHtml
+  component myVsb
+  component myHsb
+
+  constructor {args} {
+    set myHtml [html $win.html]
+    set myVsb  [scrollbar $win.vsb -orient vertical]
+    set myHsb  [scrollbar $win.hsb -orient horizontal]
+
+    $myHtml configure -yscrollcommand [mymethod scrollcallback $myVsb]
+    $myHtml configure -xscrollcommand [mymethod scrollcallback $myHsb]
+    $myVsb configure -command [mymethod yview]
+    $myHsb configure -command [mymethod xview]
+
+    grid configure $myHtml -column 0 -row 0 -sticky nsew
+    grid columnconfigure $win 0 -weight 1
+    grid rowconfigure    $win 0 -weight 1
+
+    bindtags $myHtml [concat [bindtags $myHtml] $win]
+  }
+
+  method scrollcallback {scrollbar first last} {
+    $scrollbar set $first $last
+    set ismapped   [expr [winfo ismapped $scrollbar] ? 1 : 0]
+    set isrequired [expr ($first == 0.0 && $last == 1.0) ? 0 : 1]
+    if {$isrequired && !$ismapped} {
+      switch [$scrollbar cget -orient] {
+        vertical   {grid configure $scrollbar  -column 1 -row 0 -sticky ns}
+        horizontal {grid configure $myHsb      -column 0 -row 1 -sticky ew}
+      }
+    } elseif {$ismapped && !$isrequired} {
+      grid forget $scrollbar
+    }
+  }
+
+  delegate method * to myHtml
+  delegate option * to myHtml
+}
+#
+# End of ::hv3::scrolledhtml
+#--------------------------------------------------------------------------
+
+#--------------------------------------------------------------------------
+# Class ::hv3::downloadmanager
+#
+snit::type ::hv3::downloadmanager {
+  variable myProtocol -array { file Hv3FileProtocol } 
+  variable myDownloads {} 
+  variable myBinary 0
+
+  # Register a new protocol handler script
+  method protocol {protocol script} {
+    if {$script eq ""} {
+      catch {unset myProtocol($protocol)}
+    } else {
+      set myProtocol($protocol) $script
+    }
+  }
+
+  # Abandon any pending downloads
+  method reset {} {
+    foreach handle $myDownloads {
+      catch {
+        $handle configure -redirscript {} -finscript {} -incrscript {}
+      }
+    }
+    set myDownloads {}
+  }
+
+  # Download a URI
+  method download {uri redirscript incrscript finscript} {
+    set uri_obj [Hv3Uri %AUTO% $uri]
+    set protocol [$uri_obj cget -scheme]
+    $uri_obj destroy
+
+    if {![info exists myProtocol($protocol)]} {
+      error "Unknown URI scheme: $protocol"
+    }
+    set dl_obj [::hv3::download %AUTO% -binary 0 -uri $uri]
+    $dl_obj configure -redirscript $redirscript
+    $dl_obj configure -incrscript $incrscript
+    $dl_obj configure -finscript $finscript
+    $dl_obj configure -binary $myBinary
+
+    eval [linsert $myProtocol($protocol) end $dl_obj]
+    lappend myDownloads $dl_obj
+    set myBinary 0
+  }
+
+  # Call this to make the next call to [download] look for binary data.
+  #
+  method binary {} {
+    set myBinary 1
+  }
+}
+#
+# End of ::hv3::downloadmanager
+#--------------------------------------------------------------------------
+
+#--------------------------------------------------------------------------
+# Class ::hv3::download
 #
 #     Instances of this class are used to interface between 
 #     protocol-implementations and the hv3 widget. Refer to the hv3
-#     man page for a description of the interface as used by protocol 
-#     implementations.
+#     man page for a more complete description of the interface as used by
+#     protocol implementations. Briefly, the protocol implementation uses only
+#     the following object methods:
 #
-snit::type Hv3Download {
+#         binary
+#         uri
+#         authority
+#
+#         append
+#         finish
+#         redirect
+#
+snit::type ::hv3::download {
   variable myData ""
   variable myChunksize 2048
 
@@ -709,50 +220,7 @@ proc Hv3FileProtocol {downloadHandle} {
   $downloadHandle finish
 
   if {$rc} {
-    error $msg $::errorInfo
-  }
-}
-#--------------------------------------------------------------------------
-
-#--------------------------------------------------------------------------
-# Protocol implementation for slow:// protocol.
-#
-snit::type Hv3SlowDownload {
-  variable myData ""
-  variable myDownloadHandle 
-
-  option -chunk 1024
-  option -tick 300
-
-  constructor {downloadHandle} {
-    set myDownloadHandle $downloadHandle
-
-    set uri [$myDownloadHandle uri]
-    set uri_obj [Hv3Uri %AUTO% $uri]
-    set fname [$uri_obj cget -path]
-    $uri_obj destroy
-
-    set f [open $fname]
-    if {[$myDownloadHandle binary]} {
-      fconfigure $f -encoding binary -translation binary
-    }
-    set myData [read $f]
-    close $f
-    after $options(-tick) [mymethod tick]
-  }
-
-  destructor { }
-
-  method tick {} {
-    set data [string range $myData 0 $options(-chunk)]
-    set myData [string range $myData [expr $options(-chunk) + 1] end]
-    $myDownloadHandle append $data
-    if {[string length $myData] == 0} {
-      $myDownloadHandle finish
-      $self destroy
-    } else {
-      after $options(-tick) [mymethod tick]
-    }
+    after idle [list error $msg]
   }
 }
 #--------------------------------------------------------------------------
@@ -779,8 +247,8 @@ snit::type Hv3Uri {
 
   # Public get/set variables for URI components
   option -scheme    file
-  option -path      "/"
   option -authority ""
+  option -path      "/"
   option -query     ""
   option -fragment  ""
 
@@ -788,89 +256,106 @@ snit::type Hv3Uri {
   constructor {{url {}}} {$self load $url}
   destructor  {}
 
+  # Remove any dot segments "." or ".." from the argument path and 
+  # return the result.
+  proc remove_dot_segments {path} {
+    set output [list]
+    foreach component [split $path /] {
+      switch -- $component {
+        .       { #Do nothing }
+        {}      { #Do nothing }
+        ..      { set output [lreplace $output end end] }
+        default { 
+          if {[string match ?: $component]} {
+            set component [string range $component 0 0]
+          }
+          lappend output $component 
+        }
+      }
+    }
+    return "/[join $output /]"
+  }
+
+  proc merge {path1 path2} {
+    return [regsub {[^/]*$} $path1 $path2]
+  }
+
   # Set the contents of the object to the specified URI.
   method load {uri} {
 
-    proc OPT     {args} { eval append res (?: $args )? }
-    proc CAPTURE {args} { eval append res ( $args ) }
-
-    set SCHEME    {[A-Za-z][A-Za-z0-9+-\.]+}
-    set AUTHORITY {[^/#?]*}
-    set PATH      {[^#?]+}
-    set QUERY     {[^#]+}
-    set FRAGMENT  {.*}
-
-    append re \
-        [CAPTURE [OPT $SCHEME :]]            \
-        [CAPTURE [OPT // $AUTHORITY]]        \
-        [CAPTURE [OPT $PATH]]                \
-        [CAPTURE [OPT $QUERY]]               \
-        [CAPTURE [OPT $FRAGMENT]]
-
-    regexp $re $uri X r(scheme) r(authority) r(path) r(query) r(fragment)
-    if {![info exists r]} {
+    # First, parse the argument URI into it's 5 main components. All five
+    # components are optional, as shown in the following syntax (each bracketed
+    # section is optional).
+    #
+    #     (SCHEME ":") ("//" AUTHORITY) (PATH) ("?" QUERY) ("#" FRAGMENT)
+    #
+    # Instead of using regular expressions, code a parser by hand. This is
+    # actually easier. Save each of the components, if they exist, in the
+    # variables $Scheme, $Authority, $Path, $Query and $Fragment.
+    set str $uri
+    foreach {re var} [list \
+        {([A-Za-z][A-Za-z0-9+-\.]+):(.*)} Scheme            \
+        {//([^/#?]*)(.*)}                 Authority         \
+        {([^#?]*)(.*)}                    Path              \
+        {\?([^#]*)(.*)}                   Query             \
+        {#(.*)(.*)}                       Fragment          \
+    ] {
+      if {[regexp $re $str dummy A B]} {
+        set $var $A
+        set str $B
+      }
+    }
+    if {$str ne ""} {
       error "Bad URL: $url"
     }
-    set ok 0
-    foreach var [list scheme authority path query fragment] {
-      if {$r($var) != "" } {
-        set ok 1
-      }
-      if {$ok} {
-        if {$var eq "path"} {
-          if {![string match /* $r(path)] && $r(authority) eq ""} {
-            if {[string match */ $options(-path)]} {
-              set r(path) "$options(-path)$r(path)"
-            } else {
-              set dir [file dirname $options(-path)]
-              if {[string match */ $dir]} {
-                set dir [string range $dir 0 end-1]
-              } 
-              set r(path) "${dir}/$r(path)"
-            }
-          }
-          set ret [list]
-          foreach c [split $r(path) /] {
-            if {$c == ".."} {
-              set ret [lrange $ret 0 end-1]
-            } elseif {$c == "."} {
-              # Do nothing...
-            } else {
-              lappend ret $c
-            }
-          }
-          set r(path) [join $ret /]
-          set r(path) [regsub {^(/.):} $r(path) {\1}]
-        }
 
-        set options(-$var) $r($var)
+    # Using the current contents of the option variables as a base URI,
+    # transform the relative argument URI to an absolute URI. The algorithm
+    # used is defined in section 5.2.2 of RFC 3986.
+    #
+    set hasScheme 1
+    set hasAuthority 1
+    set hasQuery 1
+    if {![info exists Path]}      {set Path ""}
+    if {![info exists Fragment]}  {set Fragment ""}
+    if {![info exists Scheme]}    {set Scheme ""    ; set hasScheme 0}
+    if {![info exists Authority]} {set Authority "" ; set hasAuthority 0}
+    if {![info exists Query]}     {set Query ""     ; set hasQuery 0}
 
-        switch -- $var {
-          scheme {
-            set options(-scheme) [string range $options(-scheme) 0 end-1]
+    if {$hasScheme} {
+      set options(-scheme)    $Scheme
+      set options(-authority) $Authority
+      set options(-path)      [remove_dot_segments $Path]
+      set options(-query)     $Query
+    } else {
+      if {$hasAuthority} {
+        set options(-authority) $Authority
+        set options(-path)      [remove_dot_segments $Path]
+        set options(-query)     $Query
+      } else {
+        if {$Path eq ""} {
+          if {$hasQuery} {
+            set options(-query) $Query
           }
-          authority {
-            set options(-authority) [string range $options(-authority) 2 end]
+        } else {
+          if {[string match {/*} $Path]} {
+            set options(-path) [remove_dot_segments $Path]
+          } else {
+            set merged_path [merge $options(-path) $Path]
+            set options(-path) [remove_dot_segments $merged_path]
           }
-          fragment {
-            set options(-fragment) [string range $options(-fragment) 1 end]
-          }
-          query {
-            set options(-query) [string range $options(-query) 1 end]
-          }
-          path {
-            if {$options(-path) eq ""} {set options(-path) "/"}
-          }
+          set options(-query) $Query
         }
       }
     }
+    set options(-fragment) $Fragment
   }
 
   # Return the contents of the object formatted as a URI.
   method get {{nofragment ""}} {
     set result "$options(-scheme)://$options(-authority)"
     ::append result "$options(-path)"
-    if {$options(-query) != ""}    {
+    if {$options(-query) ne ""}    {
       ::append result "?$options(-query)"
     }
     if {$nofragment eq "" && $options(-fragment) ne ""} {
@@ -879,9 +364,9 @@ snit::type Hv3Uri {
     return $result
   }
 }
+
 # End of class Hv3Uri
 #--------------------------------------------------------------------------
-
 
 #--------------------------------------------------------------------------
 # Automated tests for Hv3Uri:
@@ -948,3 +433,423 @@ if 1 {
 }
 # End of tests for Hv3Uri.
 #--------------------------------------------------------------------------
+
+#--------------------------------------------------------------------------
+# Class ::hv3::selectionmanager
+#
+snit::type ::hv3::selectionmanager {
+  variable myHtml
+  variable myState 0               ;# True when left-button is held down
+
+  constructor {htmlwidget args} {
+    set myHtml $htmlwidget
+  }
+
+  method press {nodelist x y} {
+    if {1 == $myState} {error "Logic error in ::hv3::selectionmanager"}
+    set myState 1
+
+    set from [$myHtml node -index $x $y]
+    if {[llength $from]==2} {
+      foreach {node index} $from {}
+      $myHtml select from $node $index
+      $myHtml select to $node $index
+    }
+  }
+
+  method release {nodelist x y} {
+    if {0 == $myState} {error "Logic error in ::hv3::selectionmanager"}
+    set myState 0
+  }
+
+  method motion {nodelist x y} {
+    if {0 == $myState} return
+    set to [$myHtml node -index $x $y]
+    if {[llength $to]==2} {
+      foreach {node index} $to {}
+      $myHtml select to $node $index
+    }
+  }
+}
+#
+# End of ::hv3::selectionmanager
+#--------------------------------------------------------------------------
+
+#--------------------------------------------------------------------------
+# Class ::hv3::dynamicmanager
+#
+snit::type ::hv3::dynamicmanager {
+  variable myHtml
+  variable myHoverNodes [list]
+
+  constructor {htmlwidget} {
+    set myHtml $htmlwidget
+  }
+
+  method reset {} {
+    set myHoverNodes [list]
+  }
+
+  method press {nodelist x y} {
+  }
+
+  method motion {nodelist x y} {
+    set hovernodes $myHoverNodes
+    set myHoverNodes [list]
+    foreach node $nodelist {
+      for {set n $node} {$n ne ""} {set n [$n parent]} {
+        set idx [lsearch $hovernodes $n]
+        lappend myHoverNodes $n
+        if {$idx < 0} {
+          $n dynamic set hover
+        } else {
+          set hovernodes [lreplace $hovernodes $idx $idx]
+        }
+      }
+    }
+    foreach node $hovernodes {
+      $node dynamic clear hover
+    }
+  }
+
+  method release {nodelist x y} {
+  }
+}
+#
+# End of ::hv3::dynamicmanager
+#--------------------------------------------------------------------------
+
+#--------------------------------------------------------------------------
+# Class ::hv3::hyperlinkmanager
+#
+snit::type ::hv3::hyperlinkmanager {
+  variable myHtml
+  variable myNodes [list]
+
+  option -hyperlinkcmd -default ""
+
+  constructor {htmlwidget} {
+    set myHtml $htmlwidget
+    $myHtml handler node a [mymethod a_node_handler]
+  }
+
+  method a_node_handler {node} {
+    if {[$node attr -default "" href] ne ""} {
+      $node dynamic set link
+    }
+  }
+
+  method press {nodelist x y} {
+    set myNodes [list]
+    foreach node $nodelist {
+      for {set n $node} {$n ne ""} {set n [$n parent]} {
+        if {[$n tag] eq "a" && [$n attr -default "" href] ne ""} {
+          lappend myNodes $n
+        }
+      }
+    }
+  
+  }
+
+  method motion {nodelist x y} {
+    set text 0
+    set framewidget [[winfo parent $myHtml] hull]
+    foreach node $nodelist {
+      if {[$node tag] eq ""} {set text 1}
+      for {set n $node} {$n ne ""} {set n [$n parent]} {
+        if {[$n tag] eq "a" && [$n attr -default "" href] ne ""} {
+          $framewidget configure -cursor hand2
+          return 
+        }
+      }
+    }
+    if {$text == 0} {
+      $framewidget configure -cursor ""
+    } else {
+      $framewidget configure -cursor xterm
+    }
+  }
+
+  method release {nodelist x y} {
+    set saved_nodes $myNodes
+    set myNodes [list]
+    if {$options(-hyperlinkcmd) ne ""} {
+      foreach node [$myHtml node $x $y] {
+        for {set n $node} {$n ne ""} {set n [$n parent]} {
+          if {[lsearch $saved_nodes $n] >= 0} {
+            eval [linsert $options(-hyperlinkcmd) end [$n attr href]]
+            return
+          }
+        }
+      }
+    }
+  }
+}
+#
+# End of ::hv3::dynamicmanager
+#--------------------------------------------------------------------------
+
+#--------------------------------------------------------------------------
+# Class hv3 - the public widget class
+#
+snit::widget hv3 {
+  hulltype frame
+
+  # Component objects
+  component myScrolledHtml           ;# The ::hv3::scrolledhtml
+  component myHyperlinkManager       ;# The ::hv3::hyperlinkmanager
+  variable  myDynamicManager         ;# The ::hv3::dynamicmanager
+  variable  mySelectionManager       ;# The ::hv3::selectionmanager
+  variable  myDownloadManager        ;# The ::hv3::downloadmanager
+  variable  myUri                    ;# The current document URI
+
+  variable  myStyleCount 0 
+
+  constructor {args} {
+    set myScrolledHtml     [::hv3::scrolledhtml $win.scrolledhtml]
+    set myDownloadManager  [::hv3::downloadmanager %AUTO%]
+
+    set mySelectionManager [::hv3::selectionmanager %AUTO% $myScrolledHtml]
+    set myDynamicManager   [::hv3::dynamicmanager %AUTO% $myScrolledHtml]
+    set myHyperlinkManager [::hv3::hyperlinkmanager %AUTO% $myScrolledHtml]
+    set myUri              [Hv3Uri %AUTO% file://[pwd]/index.html]
+
+    bind $myScrolledHtml <ButtonPress-1>   [mymethod event press %x %y]
+    bind $myScrolledHtml <ButtonRelease-1> [mymethod event release %x %y]
+    bind $myScrolledHtml <Motion>          [mymethod event motion %x %y]
+
+    $myScrolledHtml configure -imagecmd [mymethod imagecmd]
+
+    $myScrolledHtml handler node link     [mymethod link_node_handler]
+    $myScrolledHtml handler script style  [mymethod style_script_handler]
+    $myScrolledHtml handler script script [mymethod script_script_handler]
+    form_init $myScrolledHtml [mymethod goto]
+
+    pack $myScrolledHtml -expand true -fill both
+
+    set newtags [concat [bindtags ${myScrolledHtml}.html] $win]
+    bindtags [$self html] $newtags
+    $self set_location_var
+  }
+
+  destructor {
+    $mySelectionManager destroy
+    $myDownloadManager destroy
+    $myDynamicManager destroy
+    $myHyperlinkManager destroy
+    $myUri destroy
+  }
+
+  # Based on the current contents of instance variable $myUri, set the
+  # variable identified by the -locationvar option, if any.
+  method set_location_var {} {
+    if {$options(-locationvar) ne ""} {
+      uplevel #0 [subst {set $options(-locationvar) [$myUri get]}]
+    }
+  }
+
+  method resolve_uri {baseuri {uri {}}} {
+    if {$uri eq ""} {
+      set uri $baseuri
+      set baseuri [$myUri get -nofragment]
+    } 
+    set obj [Hv3Uri %AUTO% $baseuri]
+    $obj load $uri
+    set ret [$obj get -nofragment]
+    $obj destroy
+    return $ret
+  }
+
+  # This proc is registered as the -imagecmd script for the Html widget.
+  # The argument is the URI of the image required.
+  #
+  # This proc creates a Tk image immediately. It also kicks off a fetch 
+  # request to obtain the image data. When the fetch request is complete,
+  # the contents of the Tk image are set to the returned data in proc 
+  # ::hv3::imageCallback.
+  #
+  method imagecmd {uri} {
+    set name [image create photo]
+    set full_uri [$self resolve_uri $uri]
+    $myDownloadManager binary
+    $myDownloadManager download $full_uri {} {} [mymethod imagecallback $name]
+    return [list $name [list image delete $name]]
+  }
+
+  # This proc is called when an image requested by the -imagecmd callback
+  # ([imagecmd]) has finished downloading. The first argument is the name of
+  # a Tk image. The second argument is the downloaded data (presumably a
+  # binary image format like gif). This proc sets the named Tk image to
+  # contain the downloaded data.
+  #
+  method imagecallback {name data} {
+    if {[info commands $name] == ""} return 
+    $name configure -data $data
+  }
+
+  # Node handler script for <link> tags.
+  #
+  method link_node_handler {node} {
+    set rel  [$node attr -default "" rel]
+    set href [$node attr -default "" href]
+    set media [$node attr -default all media]
+    if {$rel eq "stylesheet" && $href ne "" && [regexp all|screen $media]} {
+      set full_uri [$self resolve_uri $href]
+      set id        author.[format %.4d [incr myStyleCount]]
+      set importcmd [mymethod import_handler $id]
+      set urlcmd    [mymethod resolve_uri $full_uri]
+      append id .9999
+      set finscript [list \
+        $myScrolledHtml style -id $id -importcmd $importcmd -urlcmd $urlcmd
+      ]
+      $myDownloadManager download $full_uri {} {} $finscript
+    }
+  }
+
+  # Handler for CSS @import directives.
+  #
+  method import_handler {parent_id uri} {
+    set id        ${parent_id}.[format %.4d [incr myStyleCount]]
+    set importcmd [mymethod import_handler $id]
+    set urlcmd    [mymethod resolve_uri $uri]
+    append id .9999
+    set finscript [list \
+      $myScrolledHtml style -id $id -importcmd $importcmd -urlcmd $urlcmd
+    ]
+    $myDownloadManager download $uri {} {} $finscript
+  }
+
+  # Script handler for <style> tags.
+  #
+  method style_script_handler {script} {
+    set id        author.[format %.4d [incr myStyleCount]]
+    set importcmd [mymethod import_handler $id]
+    set urlcmd    [mymethod resolve_uri]
+    append id .9999
+    $myScrolledHtml style -id $id -importcmd $importcmd -urlcmd $urlcmd $script
+    return ""
+  }
+
+  # Script handler for <script> tags.
+  #
+  method script_script_handler {script} {
+    return ""
+  }
+
+  # This proc is invoked when an event occurs in the html widget. Arguments $x
+  # and $y are the relative x and y coordinates of the pointer when the event
+  # occured. Argument $action indentifies the specific event that occured, as
+  # per the following table:
+  #
+  #     <ButtonPress-1>         press
+  #     <ButtonRelease-1>       release
+  #     <Motion>                motion
+  # 
+  method event {action x y} {
+    set nodelist [$myScrolledHtml node $x $y]
+    foreach component [list \
+        $mySelectionManager $myDynamicManager $myHyperlinkManager
+    ] {
+      $component $action $nodelist $x $y
+    }
+
+    switch -- $action {
+      "press"  {focus $win}
+      "motion" {
+        if {$options(-motioncmd) ne ""} {
+          eval [linsert $options(-motioncmd) end $nodelist $x $y]
+        }
+      }
+    }
+  }
+
+  # This method is called by the download-manager when a document is
+  # redirected. We need this callback to update the myUri variable, so
+  # that any relative URIs found in the document will be resolved with respect
+  # to the correct document URI. The argument $uri, may be a full URI, or may
+  # be relative to the current URI.
+  method redirect {uri} {
+    $myUri load $uri
+    $self set_location_var
+  }
+
+  method goto_fragment {} {
+    set fragment [$myUri cget -fragment]
+    if {$fragment ne ""} {
+      set selector [format {[name="%s"]} $fragment]
+      set goto_node [lindex [$myScrolledHtml search $selector] 0]
+      if {$goto_node ne ""} {
+        $myScrolledHtml yview $goto_node
+      }
+    }
+  }
+
+  method documentcallback {final text} {
+    $myScrolledHtml parse $text
+    if {$final} {
+      $myScrolledHtml parse -final {}
+      $self goto_fragment
+    }
+  }
+
+  #--------------------------------------------------------------------------
+  # PUBLIC INTERFACE TO HV3 WIDGET STARTS HERE:
+  #
+  #     Method              Delegate
+  # --------------------------------------------
+  #     goto                N/A
+  #     protocol            $myDownloadManager
+  #     xview               $myScrolledHtml
+  #     yview               $myScrolledHtml
+  #     html                N/A
+  #     hull                N/A
+  #   
+
+  method goto {uri} {
+    set current_uri [$myUri get -nofragment]
+    $myUri load $uri
+    $self set_location_var
+    set full_uri [$myUri get -nofragment]
+    if {$full_uri eq $current_uri} {
+      $self yview moveto 0.0
+      $self goto_fragment
+      return [$myUri get]
+    }
+
+    set myStyleCount 0
+    $myDownloadManager reset
+    $myScrolledHtml    reset
+    $myDynamicManager  reset
+
+    set redirscript [mymethod redirect]
+    set finscript   [mymethod documentcallback 1]
+    set incrscript  [mymethod documentcallback 0]
+    $myDownloadManager download $full_uri $redirscript $incrscript $finscript
+    return [$myUri get]
+  }
+
+  method html {} { return ${myScrolledHtml}.html }
+  method hull {} { return $hull }
+
+  option -motioncmd   -default ""
+  option -locationvar -default ""
+
+  # Delegated public methods
+  delegate method protocol      to myDownloadManager
+  delegate method xview         to myScrolledHtml
+  delegate method yview         to myScrolledHtml
+  delegate method node          to myScrolledHtml
+  delegate method search        to myScrolledHtml
+
+  # Delegated public options
+  delegate option -hyperlinkcmd to myHyperlinkManager
+  delegate option -fonttable    to myScrolledHtml
+}
+bind Hv3 <KeyPress-Up>     { %W yview scroll -1 units }
+bind Hv3 <KeyPress-Down>   { %W yview scroll  1 units }
+bind Hv3 <KeyPress-Return> { %W yview scroll  1 units }
+bind Hv3 <KeyPress-Right>  { %W xview scroll  1 units }
+bind Hv3 <KeyPress-Left>   { %W xview scroll -1 units }
+bind Hv3 <KeyPress-Next>   { %W yview scroll  1 pages }
+bind Hv3 <KeyPress-space>  { %W yview scroll  1 pages }
+bind Hv3 <KeyPress-Prior>  { %W yview scroll -1 pages }

@@ -110,6 +110,7 @@ website: hv3.kit hv3_img.kit
 	$(TCLSH) $(TOP)/webpage/mkhv3page.tcl > www/hv3.html
 	$(TCLSH) $(TOP)/doc/macros.tcl -html $(TOP)/doc/html.man > www/tkhtml.html
 	$(TCLSH) $(TOP)/doc/tkhtml_requirements.tcl > www/requirements.html
+	cp $(TOP)/doc/tree.gif www/tree.gif
 	cp $(TOP)/webpage/tkhtml_tcl_tk.css www/tkhtml_tcl_tk.css
 	cp hv3.kit www/
 	chmod 644 www/hv3.kit

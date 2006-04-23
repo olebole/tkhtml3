@@ -21,6 +21,7 @@
 
 	[Code {
 		-logcmd
+		-fonttable
 	}]
 
 [Section Widget-Specific Options]

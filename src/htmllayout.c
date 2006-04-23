@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.148 2006/04/20 10:44:05 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.149 2006/04/23 11:25:03 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -987,7 +987,12 @@ HtmlLayoutNodeContent(pLayout, pBox, pNode)
     HtmlNode *pNode;
 {
     assert(!nodeIsReplaced(pNode));
-    if (DISPLAY(pNode->pPropertyValues) == CSS_CONST_TABLE) {
+    int eDisplay = DISPLAY(pNode->pPropertyValues);
+   
+    
+    if (eDisplay == CSS_CONST_NONE) {
+        /* Do nothing */
+    } else if (eDisplay == CSS_CONST_TABLE) {
         /* All the work for tables is done in htmltable.c */
         HtmlTableLayout(pLayout, pBox, pNode);
     } else {
@@ -1017,6 +1022,8 @@ HtmlLayoutNodeContent(pLayout, pBox, pNode)
         /* Clean up the float list */
         HtmlFloatListDelete(pFloat);
     }
+
+    assert(!pLayout->minmaxTest || !pBox->vc.pFirst);
     return 0;
 }
 
@@ -2083,12 +2090,18 @@ normalFlowLayoutAbsolute(pLayout, pBox, pNode, pY, pContext, pNormal)
     InlineContext *pContext;
     NormalFlow *pNormal;
 {
-    int y = *pY + normalFlowMarginQuery(pNormal);
-    NodeList *pNew = (NodeList *)HtmlClearAlloc(sizeof(NodeList));
-    pNew->pNode = pNode;
-    pNew->pNext = pLayout->pAbsolute;
-    pNew->pMarker = HtmlDrawAddMarker(&pBox->vc, 0, y, 0);
-    pLayout->pAbsolute = pNew;
+    /* If this call is part of a min-max test, then ignore the absolutely
+     * positioned block completely. It does not contribute to the width or
+     * height of the parent anyway.
+     */
+    if (pLayout->minmaxTest == 0) {
+        int y = *pY + normalFlowMarginQuery(pNormal);
+        NodeList *pNew = (NodeList *)HtmlClearAlloc(sizeof(NodeList));
+        pNew->pNode = pNode;
+        pNew->pNext = pLayout->pAbsolute;
+        pNew->pMarker = HtmlDrawAddMarker(&pBox->vc, 0, y, 0);
+        pLayout->pAbsolute = pNew;
+    }
     return 0;
 }
 

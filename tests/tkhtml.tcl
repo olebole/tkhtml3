@@ -41,7 +41,7 @@
 
 # Default bindings
 #
-bind Html <ButtonPress>     { focus %W }
+# bind Html <ButtonPress>     { focus %W }
 bind Html <KeyPress-Up>     { %W yview scroll -1 units }
 bind Html <KeyPress-Down>   { %W yview scroll  1 units }
 bind Html <KeyPress-Return> { %W yview scroll  1 units }
