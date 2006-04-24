@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.59 2006/04/20 14:37:59 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.60 2006/04/24 11:20:39 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -467,6 +467,14 @@ tokenToProperty(pParse, pToken)
 
                     zArg = &z[l+1];
                     nArg = (n-l-2); /* len(token)-len(func)-len('(')-len(')') */
+
+                    while (*zArg == ' ' && nArg > 0) {
+                      zArg++;
+                      nArg--;
+                    }
+                    while (zArg[nArg-1] == ' ' && nArg > 0) {
+                      nArg--;
+                    }
 
                     if (
                         functions[i].type == CSS_TYPE_URL &&

@@ -9,6 +9,7 @@ package require Tk
 package require Tkhtml 3.0
 
 option add *borderWidth 1
+# option add *font {Arial 9 normal}
 
 # If possible, load package "Img". Without it the script can still run,
 # but won't be able to load many image formats.
@@ -130,7 +131,6 @@ snit::widget hv3_browser {
   component myHistory
 
   variable myHttpOutstanding 0
-  variable myStatusMode node              ;# "http" or "node"
   variable myNodeList ""                  ;# Current nodes under the pointer
 
   constructor {args} {
@@ -149,31 +149,20 @@ snit::widget hv3_browser {
 
     # Create the right-click behaviour - launch the property browser:
     bind $myHv3 <3> [
-      subst -nocommands {::HtmlDebug::browse $myHv3 [$myHv3 node %x %y]}
+      subst -nocommands {
+        ::HtmlDebug::browse [$myHv3 html] [lindex [$myHv3 node %x %y] 0]
+      }
     ]
-
-    bind $myHv3 <2> [mymethod toggle_status_mode]
 
     focus $myHv3
   }
 
   destructor {
-    $myHttp destroy
+    if {$myHttp ne ""} { $myHttp destroy }
   }
 
   method motion {nodelist x y} {
     set myNodeList $nodelist
-    if {$myStatusMode eq "node"} {
-      $self update_statusvar
-    }
-  }
-
-  method toggle_status_mode {} {
-    if {$myStatusMode eq "node"} {
-      set myStatusMode http
-    } else {
-      set myStatusMode node
-    }
     $self update_statusvar
   }
 
@@ -191,22 +180,21 @@ snit::widget hv3_browser {
 
   method update_statusvar {} {
     if {$options(-statusvar) ne ""} {
-      switch -- $myStatusMode {
-        http { set value "$myHttpOutstanding http requests outstanding" }
-        node { 
-          set value ""
-          for {set n [lindex $myNodeList 0]} {$n ne ""} {set n [$n parent]} {
-            if {[info commands $n] eq ""} break
-            set tag [$n tag]
-            if {$tag eq ""} {
-              set value [$n text]
-            } else {
-              set value "<$tag>$value"
-            }
-          }
+    set requests "$myHttpOutstanding http requests outstanding   "
+    set value ""
+      for {set n [lindex $myNodeList 0]} {$n ne ""} {set n [$n parent]} {
+        if {[info commands $n] eq ""} break
+        set tag [$n tag]
+        if {$tag eq ""} {
+          set value [$n text]
+        } elseif {$tag eq "a" && [$n attr -default "" href] ne ""} {
+          set value "hyper-link: [$n attr href]"
+          break
+        } else {
+          set value "<$tag>$value"
         }
       }
-      uplevel #0 [subst {set $options(-statusvar) {$value}}]
+      uplevel #0 [subst {set $options(-statusvar) {$requests    $value}}]
     }
   }
 

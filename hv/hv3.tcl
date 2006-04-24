@@ -11,6 +11,7 @@
 package require Tkhtml 3.0
 package require snit
 source [file join [file dirname [info script]] hv3_form.tcl]
+source [file join [file dirname [info script]] hv3_frames.tcl]
 
 #--------------------------------------------------------------------------
 # Class ::hv3::scrolledhtml
@@ -60,6 +61,8 @@ snit::widget ::hv3::scrolledhtml {
     }
   }
 
+  delegate option -width to hull
+  delegate option -height to hull
   delegate method * to myHtml
   delegate option * to myHtml
 }
@@ -263,13 +266,14 @@ snit::type Hv3Uri {
     foreach component [split $path /] {
       switch -- $component {
         .       { #Do nothing }
-        {}      { #Do nothing }
         ..      { set output [lreplace $output end end] }
         default { 
           if {[string match ?: $component]} {
             set component [string range $component 0 0]
           }
-          lappend output $component 
+          if {$output ne "" || $component ne ""} {
+            lappend output $component 
+          }
         }
       }
     }
@@ -606,7 +610,8 @@ snit::widget hv3 {
   variable  myStyleCount 0 
 
   constructor {args} {
-    set myScrolledHtml     [::hv3::scrolledhtml $win.scrolledhtml]
+    # set myScrolledHtml     [::hv3::scrolledhtml $win.scrolledhtml]
+    set myScrolledHtml     [::hv3::scrolled ${win}.scrolledhtml html]
     set myDownloadManager  [::hv3::downloadmanager %AUTO%]
 
     set mySelectionManager [::hv3::selectionmanager %AUTO% $myScrolledHtml]
@@ -627,17 +632,17 @@ snit::widget hv3 {
 
     pack $myScrolledHtml -expand true -fill both
 
-    set newtags [concat [bindtags ${myScrolledHtml}.html] $win]
+    set newtags [concat [bindtags [$self html]] $win]
     bindtags [$self html] $newtags
     $self set_location_var
   }
 
   destructor {
-    $mySelectionManager destroy
-    $myDownloadManager destroy
-    $myDynamicManager destroy
-    $myHyperlinkManager destroy
-    $myUri destroy
+    if {[info exists mySelectionManager]} { $mySelectionManager destroy }
+    if {[info exists myDownloadManager]}  { $myDownloadManager destroy }
+    if {[info exists myDynamicManager]}   { $myDynamicManager destroy }
+    if {[info exists myHyperlinkManager]} { $myHyperlinkManager destroy }
+    if {[info exists myUri]}              { $myUri destroy }
   }
 
   # Based on the current contents of instance variable $myUri, set the
@@ -828,7 +833,7 @@ snit::widget hv3 {
     return [$myUri get]
   }
 
-  method html {} { return ${myScrolledHtml}.html }
+  method html {} { return [$myScrolledHtml widget] }
   method hull {} { return $hull }
 
   option -motioncmd   -default ""

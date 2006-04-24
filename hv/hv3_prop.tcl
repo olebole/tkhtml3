@@ -8,6 +8,8 @@
 package require Itcl
 package require Tk
 
+source [file join [file dirname [info script]] hv3_frames.tcl]
+
 #--------------------------------------------------------------------------
 # class HtmlDebug --
 #
@@ -51,17 +53,20 @@ itcl::class HtmlDebug {
     #     $myTopLevel.tree_frame.canvas     ;# canvas
     #     $myTopLevel.tree_frame.vsb        ;# scrollbar
     #     $myTopLevel.tree_frame.hsb        ;# scrollbar
-    #   $myTopLevel.header                  ;# Hv3 mega-widget
-    #     $myTopLevel.header.html.relayout  ;# button
-    #     $myTopLevel.header.html.outline   ;# button
-    #     $myTopLevel.header.html.search    ;# entry
-    #   $myTopLevel.report                  ;# Hv3 mega-widget
+    #   $mySearchHtml                  ;# Hv3 mega-widget
+    #     $mySearchHtml.html.relayout  ;# button
+    #     $mySearchHtml.html.outline   ;# button
+    #     $mySearchHtml.html.search    ;# entry
+    #   $myReportHtml                  ;# Hv3 mega-widget
     variable myTopLevel          ;# Name of top-level window for debugger
 
     variable myStyleEngineLog
     variable myLayoutEngineLog
-
     variable mySearchResults ""
+
+    variable myTreeCanvas         ;# The canvas widget with the tree
+    variable myReportHtml         ;# The hv3 widget with the report
+    variable mySearchHtml         ;# The hv3 widget with the search field
 
     method drawSubTree    {node x y}
     method redrawCanvas {}
@@ -101,7 +106,7 @@ itcl::body HtmlDebug::browse {HTML {node ""}} {
 itcl::body HtmlDebug::browseNode {node} {
   wm state $myTopLevel normal
   wm deiconify $myTopLevel
-  $myTopLevel.report goto "tcl:///:$this report $node"
+  $myReportHtml goto "tcl:///:$this report $node"
 }
 
 proc tclProtocol {downloadHandle} {
@@ -170,7 +175,7 @@ itcl::body HtmlDebug::searchNode {{idx 0}} {
 
   set search_results {}
   set nodelist [list]
-  set selector [[$myTopLevel.header html].search get]
+  set selector [[$mySearchHtml html].search get]
   if {$selector != ""} {
     set search_results <table><tr>
     set nodelist [$myHtml search $selector]
@@ -189,18 +194,19 @@ itcl::body HtmlDebug::searchNode {{idx 0}} {
   }
 
   set ::subbed_template [subst $Template]
-  $myTopLevel.header goto "tcl:///set ::subbed_template"
-  foreach node [$myTopLevel.header search {input[widget]}] {
+  $mySearchHtml goto "tcl:///list"
+  $mySearchHtml goto "tcl:///set ::subbed_template"
+  foreach node [$mySearchHtml search {input[widget]}] {
     set widget [$node attr widget]
-    $node replace [$myTopLevel.header html].$widget -deletecmd {}
+    $node replace [$mySearchHtml html].$widget -deletecmd {}
   }
 
-  set h [lindex [[$myTopLevel.header html] bbox] 3]
+  set h [lindex [[$mySearchHtml html] bbox] 3]
   if {$selector != ""} {
     set mh [expr [winfo height $myTopLevel]/2]
     if {$h > $mh} {set h $mh}
   }
-  [$myTopLevel.header html] configure -height $h
+  [$mySearchHtml html] configure -height $h
 
   if {[llength $nodelist]>$idx} {
     HtmlDebug::browse $myHtml [lindex $nodelist $idx]
@@ -241,46 +247,36 @@ itcl::body HtmlDebug::constructor {HTML} {
   bind $myTopLevel <KeyPress-q>  [list destroy $myTopLevel]
   bind $myTopLevel <KeyPress-Q>  [list destroy $myTopLevel]
 
-  # Header html widget
-  hv3 $myTopLevel.header
-  $myTopLevel.header protocol tcl tclProtocol
+  set tree [list ::hv3::scrolled canvas]
+  frameset $myTopLevel.hpan                                   \
+      hv3   -variable mySearchHtml -side top  -fraction 0.25  \
+      $tree -variable myTreeCanvas -side left -fraction 0.4   \
+      hv3   -variable myReportHtml
 
-  # $myTopLevel.header.html configure -height 100
-  set b [button [$myTopLevel.header html].relayout]
+  $mySearchHtml protocol tcl tclProtocol
+
+  set b [button [$mySearchHtml html].relayout]
   $b configure -text "Re-Render Document With Logging" 
   $b configure -command [list $this rerender]
-  set b2 [button [$myTopLevel.header html].outline]
+  set b2 [button [$mySearchHtml html].outline]
   $b2 configure -text "Add \":focus {outline: solid ...}\""
   $b2 configure -command [list .hv3.html style {
     :focus {outline-style: solid; outline-color: blue ; outline-width: 1px}
   }]
-  set e [entry [$myTopLevel.header html].search]
+  set e [entry [$mySearchHtml html].search]
   bind $e <Return> [list $this searchNode]
   $this searchNode
 
-  # Report html widget
-  hv3 $myTopLevel.report
-  $myTopLevel.report protocol tcl tclProtocol
-  [$myTopLevel.report html] configure -width 300 -height 500
+  $myReportHtml protocol tcl tclProtocol
+  [$myReportHtml html] configure -width 5 -height 5
 
-  # Tree canvas widget and scrollbars
-  frame $myTopLevel.tree_frame
-  canvas $myTopLevel.tree_frame.canvas -background white -borderwidth 10
-  $myTopLevel.tree_frame.canvas configure -width 350
-  scrollbar $myTopLevel.tree_frame.hsb -orient horizontal
-  scrollbar $myTopLevel.tree_frame.vsb
-  pack $myTopLevel.tree_frame.hsb    -fill x -side bottom
-  pack $myTopLevel.tree_frame.canvas -fill both -expand true -side left
-  pack $myTopLevel.tree_frame.vsb    -fill y -side right
+  $myTreeCanvas configure -background white -borderwidth 10
+  $myTreeCanvas configure -width 5
 
-  wireup_scrollbar x $myTopLevel.tree_frame.canvas $myTopLevel.tree_frame.hsb
-  wireup_scrollbar y $myTopLevel.tree_frame.canvas $myTopLevel.tree_frame.vsb
+  pack ${myTopLevel}.hpan -expand true -fill both
+  ${myTopLevel}.hpan configure -width 800 -height 600
 
-  pack $myTopLevel.header     -side top -fill x
-  pack $myTopLevel.report     -side right -fill both -expand true
-  pack $myTopLevel.tree_frame -side left -fill both -expand true
-
-  bind $myTopLevel.tree_frame <Destroy> [list itcl::delete object $this]
+  # bind $tree_frame <Destroy> [list itcl::delete object $this]
   set myCommonWidgets($HTML) $this
 }
 
@@ -437,7 +433,7 @@ itcl::body HtmlDebug::toggleExpanded {node} {
 }
 
 itcl::body HtmlDebug::redrawCanvas {} {
-  set canvas $myTopLevel.tree_frame.canvas
+  set canvas $myTreeCanvas
   $canvas delete all
   drawSubTree [$myHtml node] 15 30
   $canvas configure -scrollregion [$canvas bbox all]
@@ -450,7 +446,7 @@ itcl::body HtmlDebug::drawSubTree {node x y} {
     set XINCR [expr $IWIDTH + 2]
     set YINCR [expr $IHEIGHT + 5]
 
-    set tree $myTopLevel.tree_frame.canvas
+    set tree $myTreeCanvas
 
     set label [prop_nodeToLabel $node]
     if {$label == ""} {return 0}

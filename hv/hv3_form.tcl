@@ -288,9 +288,9 @@ class HtmlRadioButton {
     $myWidget configure -padx 0
     $myWidget configure -pady 0
     $myWidget configure -foreground $p(color)
-    $myWidget configure -background $p(background-color)
+    # $myWidget configure -background $p(background-color)
     $myWidget configure -activeforeground $p(color)
-    $myWidget configure -activebackground $p(background-color)
+    # $myWidget configure -activebackground $p(background-color)
     return [font_to_offset $myWidget $p(font)]
   }
 
