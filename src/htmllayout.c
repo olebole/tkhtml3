@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.150 2006/04/27 15:07:16 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.151 2006/04/27 17:42:43 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -582,6 +582,7 @@ normalFlowLayoutFloat(pLayout, pBox, pNode, pY, pContext, pNormal)
 
     iTotalWidth = sBox.width;
     iTotalHeight = sBox.height + margin.margin_top + margin.margin_bottom;
+    iTotalHeight = MAX(iTotalHeight, 0);
 
     iLeft = 0;
     iRight = iContaining;
@@ -614,11 +615,18 @@ normalFlowLayoutFloat(pLayout, pBox, pNode, pY, pContext, pNormal)
     }
 
     /* Fix the float list in the parent block so that nothing overlaps
-     * this floating box.
+     * this floating box. Only add an entry if the height of the box including
+     * margins is greater than zero pixels. Partly because it's not required,
+     * and partly I'm worried the float list code will get confused. ;)
+     *
+     * A floating box may have a total height of less than zero if the
+     * top or bottom margins are negative.
      */
-    HtmlFloatListAdd(pNormal->pFloat, eFloat, 
-        ((eFloat == CSS_CONST_LEFT) ? x + iTotalWidth : x),
-        iTop, iTop + iTotalHeight);
+    if (iTotalHeight > 0) {
+        HtmlFloatListAdd(pNormal->pFloat, eFloat, 
+            ((eFloat == CSS_CONST_LEFT) ? x + iTotalWidth : x),
+            iTop, iTop + iTotalHeight);
+    }
 
     LOG {
         HtmlTree *pTree = pLayout->pTree;
@@ -2233,6 +2241,8 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
 
     if (HtmlNodeIsText(pNode)) {
         pFlow = &FT_TEXT;
+    } else if (eDisplay == CSS_CONST_NONE) {
+        /* Do nothing */
     } else if (eDisplay == CSS_CONST_INLINE) {
         pFlow = &FT_INLINE;
         if (nodeIsReplaced(pNode)) {

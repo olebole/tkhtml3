@@ -529,6 +529,7 @@ snit::type ::hv3::dynamicmanager {
     foreach node $hovernodes {
       $node dynamic clear hover
     }
+    set myHoverNodes [lsort -unique $myHoverNodes]
   }
 
   method release {nodelist x y} {

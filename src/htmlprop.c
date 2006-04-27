@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.62 2006/04/20 13:50:45 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.63 2006/04/27 17:42:43 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -49,7 +49,7 @@ static const char rcsid[] = "$Id: htmlprop.c,v 1.62 2006/04/20 13:50:45 danielk1
 /*
  * Convert a double value from a CssProperty to an integer.
  */
-#define INTEGER(x) ((int)((x) + 0.49))
+#define INTEGER(x) ((int)((x) + ((x > 0.0) ? 0.49 : -0.49)))
 
 /*
  *---------------------------------------------------------------------------

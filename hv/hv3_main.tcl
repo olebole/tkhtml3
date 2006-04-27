@@ -310,22 +310,29 @@ snit::widget hv3_browser {
     $self update_statusvar
   }
 
+  method node_to_string {node {hyperlink 1}} {
+    set value ""
+    for {set n $node} {$n ne ""} {set n [$n parent]} {
+      if {[info commands $n] eq ""} break
+      set tag [$n tag]
+      if {$tag eq ""} {
+        set value [$n text]
+      } elseif {$hyperlink && $tag eq "a" && [$n attr -default "" href] ne ""} {
+        set value "hyper-link: [$n attr href]"
+        break
+      } elseif {[set nid [$n attr -default "" id]] ne ""} {
+        set value "<$tag id=$nid>$value"
+      } else {
+        set value "<$tag>$value"
+      }
+    }
+    return $value
+  }
+
   method update_statusvar {} {
     if {$options(-statusvar) ne ""} {
-    set requests "$myHttpOutstanding http requests outstanding   "
-    set value ""
-      for {set n [lindex $myNodeList 0]} {$n ne ""} {set n [$n parent]} {
-        if {[info commands $n] eq ""} break
-        set tag [$n tag]
-        if {$tag eq ""} {
-          set value [$n text]
-        } elseif {$tag eq "a" && [$n attr -default "" href] ne ""} {
-          set value "hyper-link: [$n attr href]"
-          break
-        } else {
-          set value "<$tag>$value"
-        }
-      }
+      set requests "$myHttpOutstanding http requests outstanding   "
+      set value [$self node_to_string [lindex $myNodeList end]]
       uplevel #0 [subst {set $options(-statusvar) {$requests    $value}}]
     }
   }
