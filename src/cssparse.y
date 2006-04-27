@@ -166,9 +166,10 @@ comma ::= COMMA. {
 
 declaration_list ::= .
 declaration_list ::= declaration.
-declaration_list ::= declaration_list SEMICOLON ws declaration.
+declaration_list ::= declaration_list semicolon declaration.
 
-semicolon_opt ::= SEMICOLON ws.
+semicolon ::= SEMICOLON ws semicolon_opt.
+semicolon_opt ::= semicolon.
 semicolon_opt ::= .
 
 declaration ::= IDENT(X) ws COLON ws expr(E) prio(I). {

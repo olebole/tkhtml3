@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.60 2006/04/24 11:20:39 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.61 2006/04/27 16:32:31 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -1143,27 +1143,27 @@ shortcutBackground(pParse, p, v)
         goto error_out;
     }
 
-    if (pImage) {
-        propertySetAdd(p, CSS_PROPERTY_BACKGROUND_IMAGE, pImage);
+    propertySetAdd(p, CSS_PROPERTY_BACKGROUND_IMAGE, 
+        pImage ? pImage : HtmlCssStringToProperty("none", 4)
+    );
+    propertySetAdd(p, CSS_PROPERTY_BACKGROUND_ATTACHMENT, 
+        pAttachment ? pAttachment : HtmlCssStringToProperty("scroll", 5)
+    );
+    propertySetAdd(p, CSS_PROPERTY_BACKGROUND_COLOR, 
+        pColor ? pColor : HtmlCssStringToProperty("transparent", 11)
+    );
+    propertySetAdd(p, CSS_PROPERTY_BACKGROUND_REPEAT, 
+        pRepeat ? pRepeat : HtmlCssStringToProperty("repeat", 6)
+    );
+
+    if (!pPositionX) {
+        pPositionX = HtmlCssStringToProperty("0%", 2);
     }
-    if (pAttachment) {
-        propertySetAdd(p, CSS_PROPERTY_BACKGROUND_ATTACHMENT, pAttachment);
+    propertySetAdd(p, CSS_PROPERTY_BACKGROUND_POSITION_X, pPositionX);
+    if (!pPositionY) {
+        pPositionY = propertyDup(pPositionX);
     }
-    if (pColor) {
-        propertySetAdd(p, CSS_PROPERTY_BACKGROUND_COLOR, pColor);
-    }
-    if (pRepeat) {
-        propertySetAdd(p, CSS_PROPERTY_BACKGROUND_REPEAT, pRepeat);
-    }
-    if (pPositionX) {
-        propertySetAdd(p, CSS_PROPERTY_BACKGROUND_POSITION_X, pPositionX);
-        if (!pPositionY) {
-            pPositionY = propertyDup(pPositionX);
-        }
-    }
-    if (pPositionY) {
-        propertySetAdd(p, CSS_PROPERTY_BACKGROUND_POSITION_Y, pPositionY);
-    }
+    propertySetAdd(p, CSS_PROPERTY_BACKGROUND_POSITION_Y, pPositionY);
 
     return;
 

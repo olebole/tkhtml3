@@ -628,7 +628,7 @@ snit::widget hv3 {
 
   constructor {args} {
     # set myScrolledHtml     [::hv3::scrolled html ${win}.scrolledhtml]
-    set myScrolledHtml     [html ${win}.scrolledhtml]
+    set myScrolledHtml     [html ${win}.html]
     set myDownloadManager  [::hv3::downloadmanager %AUTO%]
 
     set mySelectionManager [::hv3::selectionmanager %AUTO% $myScrolledHtml]
