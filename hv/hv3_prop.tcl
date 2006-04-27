@@ -8,7 +8,7 @@
 package require Itcl
 package require Tk
 
-source [file join [file dirname [info script]] hv3_frames.tcl]
+source [file join [file dirname [info script]] hv3_widgets.tcl]
 
 #--------------------------------------------------------------------------
 # class HtmlDebug --
@@ -184,7 +184,7 @@ itcl::body HtmlDebug::searchNode {{idx 0}} {
       # set script "after idle {::HtmlDebug::browse $myHtml $node}"
       # set script "::HtmlDebug::browse $myHtml $node"
       set script "$this searchNode $ii"
-      append search_results "<td><a href=\"tcl:///:$script\">$node</a>"
+      append search_results "<td><a href=\"$script\">$node</a>"
       incr ii
       if {($ii % 5)==0} {
         append search_results "</tr><tr>"
@@ -247,13 +247,14 @@ itcl::body HtmlDebug::constructor {HTML} {
   bind $myTopLevel <KeyPress-q>  [list destroy $myTopLevel]
   bind $myTopLevel <KeyPress-Q>  [list destroy $myTopLevel]
 
-  set tree [list ::hv3::scrolled canvas]
+  set tree [list ::hv3::scrolledwidget canvas]
   frameset $myTopLevel.hpan                                   \
-      hv3   -variable mySearchHtml -side top  -fraction 0.25  \
-      $tree -variable myTreeCanvas -side left -fraction 0.4   \
+      hv3   -variable mySearchHtml -side top  \
+      $tree -variable myTreeCanvas -side left \
       hv3   -variable myReportHtml
 
   $mySearchHtml protocol tcl tclProtocol
+  $mySearchHtml configure -hyperlinkcmd eval
 
   set b [button [$mySearchHtml html].relayout]
   $b configure -text "Re-Render Document With Logging" 
@@ -276,7 +277,7 @@ itcl::body HtmlDebug::constructor {HTML} {
   pack ${myTopLevel}.hpan -expand true -fill both
   ${myTopLevel}.hpan configure -width 800 -height 600
 
-  # bind $tree_frame <Destroy> [list itcl::delete object $this]
+  bind ${myTopLevel}.hpan <Destroy> [list itcl::delete object $this]
   set myCommonWidgets($HTML) $this
 }
 

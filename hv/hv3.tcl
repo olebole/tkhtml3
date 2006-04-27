@@ -11,64 +11,7 @@
 package require Tkhtml 3.0
 package require snit
 source [file join [file dirname [info script]] hv3_form.tcl]
-source [file join [file dirname [info script]] hv3_frames.tcl]
-
-#--------------------------------------------------------------------------
-# Class ::hv3::scrolledhtml
-#
-#     This is a very thin wrapper around the Tkhtml widget. It adds 
-#     automatic horizontal and vertical scrollbars to the widget. The
-#     full public interface of the Tkhtml widget is exposed. 
-#
-#     At present this class exports no methods or options of it's own.
-#
-snit::widget ::hv3::scrolledhtml {
-  hulltype frame
-
-  # Three three component widgets (One html widget and two scrollbars)
-  component myHtml
-  component myVsb
-  component myHsb
-
-  constructor {args} {
-    set myHtml [html $win.html]
-    set myVsb  [scrollbar $win.vsb -orient vertical]
-    set myHsb  [scrollbar $win.hsb -orient horizontal]
-
-    $myHtml configure -yscrollcommand [mymethod scrollcallback $myVsb]
-    $myHtml configure -xscrollcommand [mymethod scrollcallback $myHsb]
-    $myVsb configure -command [mymethod yview]
-    $myHsb configure -command [mymethod xview]
-
-    grid configure $myHtml -column 0 -row 0 -sticky nsew
-    grid columnconfigure $win 0 -weight 1
-    grid rowconfigure    $win 0 -weight 1
-
-    bindtags $myHtml [concat [bindtags $myHtml] $win]
-  }
-
-  method scrollcallback {scrollbar first last} {
-    $scrollbar set $first $last
-    set ismapped   [expr [winfo ismapped $scrollbar] ? 1 : 0]
-    set isrequired [expr ($first == 0.0 && $last == 1.0) ? 0 : 1]
-    if {$isrequired && !$ismapped} {
-      switch [$scrollbar cget -orient] {
-        vertical   {grid configure $scrollbar  -column 1 -row 0 -sticky ns}
-        horizontal {grid configure $myHsb      -column 0 -row 1 -sticky ew}
-      }
-    } elseif {$ismapped && !$isrequired} {
-      grid forget $scrollbar
-    }
-  }
-
-  delegate option -width to hull
-  delegate option -height to hull
-  delegate method * to myHtml
-  delegate option * to myHtml
-}
-#
-# End of ::hv3::scrolledhtml
-#--------------------------------------------------------------------------
+source [file join [file dirname [info script]] hv3_widgets.tcl]
 
 #--------------------------------------------------------------------------
 # Class ::hv3::downloadmanager
@@ -98,7 +41,7 @@ snit::type ::hv3::downloadmanager {
   }
 
   # Download a URI
-  method download {uri redirscript incrscript finscript} {
+  method download {uri redirscript incrscript finscript {postdata ""}} {
     set uri_obj [Hv3Uri %AUTO% $uri]
     set protocol [$uri_obj cget -scheme]
     $uri_obj destroy
@@ -111,6 +54,7 @@ snit::type ::hv3::downloadmanager {
     $dl_obj configure -incrscript $incrscript
     $dl_obj configure -finscript $finscript
     $dl_obj configure -binary $myBinary
+    $dl_obj configure -postdata $postdata
 
     eval [linsert $myProtocol($protocol) end $dl_obj]
     lappend myDownloads $dl_obj
@@ -153,6 +97,7 @@ snit::type ::hv3::download {
   option -incrscript  -default ""
   option -finscript   -default ""
   option -redirscript -default ""
+  option -postdata    -default ""
 
   # Constructor and destructor
   constructor {args} {eval $self configure $args}
@@ -161,6 +106,7 @@ snit::type ::hv3::download {
   # Query interface used by protocol implementations
   method binary    {} {return $options(-binary)}
   method uri       {} {return $options(-uri)}
+  method postdata  {} {return $options(-postdata)}
   method authority {} {
     set obj [Hv3Uri %AUTO% $options(-uri)]
     set authority [$obj cget -authority]
@@ -450,7 +396,6 @@ snit::type ::hv3::selectionmanager {
   }
 
   method press {nodelist x y} {
-    if {1 == $myState} {error "Logic error in ::hv3::selectionmanager"}
     set myState 1
 
     set from [$myHtml node -index $x $y]
@@ -462,7 +407,6 @@ snit::type ::hv3::selectionmanager {
   }
 
   method release {nodelist x y} {
-    if {0 == $myState} {error "Logic error in ::hv3::selectionmanager"}
     set myState 0
   }
 
@@ -605,18 +549,21 @@ snit::widget hv3 {
   variable  myDynamicManager         ;# The ::hv3::dynamicmanager
   variable  mySelectionManager       ;# The ::hv3::selectionmanager
   variable  myDownloadManager        ;# The ::hv3::downloadmanager
+  component myFormManager            ;# The ::hv3::formmanager
   variable  myUri                    ;# The current document URI
 
   variable  myStyleCount 0 
+  variable  myPostData "" 
 
   constructor {args} {
-    # set myScrolledHtml     [::hv3::scrolledhtml $win.scrolledhtml]
-    set myScrolledHtml     [::hv3::scrolled ${win}.scrolledhtml html]
+    # set myScrolledHtml     [::hv3::scrolled html ${win}.scrolledhtml]
+    set myScrolledHtml     [html ${win}.scrolledhtml]
     set myDownloadManager  [::hv3::downloadmanager %AUTO%]
 
     set mySelectionManager [::hv3::selectionmanager %AUTO% $myScrolledHtml]
     set myDynamicManager   [::hv3::dynamicmanager %AUTO% $myScrolledHtml]
     set myHyperlinkManager [::hv3::hyperlinkmanager %AUTO% $myScrolledHtml]
+    set myFormManager      [::hv3::formmanager %AUTO% $myScrolledHtml]
     set myUri              [Hv3Uri %AUTO% file://[pwd]/index.html]
 
     bind $myScrolledHtml <ButtonPress-1>   [mymethod event press %x %y]
@@ -628,7 +575,6 @@ snit::widget hv3 {
     $myScrolledHtml handler node link     [mymethod link_node_handler]
     $myScrolledHtml handler script style  [mymethod style_script_handler]
     $myScrolledHtml handler script script [mymethod script_script_handler]
-    form_init $myScrolledHtml [mymethod goto]
 
     pack $myScrolledHtml -expand true -fill both
 
@@ -810,30 +756,38 @@ snit::widget hv3 {
   #     hull                N/A
   #   
 
+  method postdata {encdata} {
+    set myPostData $encdata
+  }
+
   method goto {uri} {
     set current_uri [$myUri get -nofragment]
     $myUri load $uri
     $self set_location_var
     set full_uri [$myUri get -nofragment]
-    if {$full_uri eq $current_uri} {
+    if {$full_uri eq $current_uri && "" eq $myPostData} {
       $self yview moveto 0.0
       $self goto_fragment
       return [$myUri get]
     }
+    set myForceReload 0
 
     set myStyleCount 0
     $myDownloadManager reset
     $myScrolledHtml    reset
     $myDynamicManager  reset
+    $myFormManager     reset
 
     set redirscript [mymethod redirect]
     set finscript   [mymethod documentcallback 1]
     set incrscript  [mymethod documentcallback 0]
-    $myDownloadManager download $full_uri $redirscript $incrscript $finscript
+    set p           $myPostData
+    $myDownloadManager download $full_uri $redirscript $incrscript $finscript $p
+    set myPostData ""
     return [$myUri get]
   }
 
-  method html {} { return [$myScrolledHtml widget] }
+  method html {} { return $myScrolledHtml }
   method hull {} { return $hull }
 
   option -motioncmd   -default ""
@@ -841,14 +795,23 @@ snit::widget hv3 {
 
   # Delegated public methods
   delegate method protocol      to myDownloadManager
-  delegate method xview         to myScrolledHtml
-  delegate method yview         to myScrolledHtml
   delegate method node          to myScrolledHtml
   delegate method search        to myScrolledHtml
+  delegate method dumpforms     to myFormManager
 
   # Delegated public options
   delegate option -hyperlinkcmd to myHyperlinkManager
+  delegate option -getcmd       to myFormManager
+  delegate option -postcmd      to myFormManager
   delegate option -fonttable    to myScrolledHtml
+
+  # Scrollbar and geometry related stuff is delegated to the html widget
+  delegate method xview           to myScrolledHtml
+  delegate method yview           to myScrolledHtml
+  delegate option -xscrollcommand to myScrolledHtml
+  delegate option -yscrollcommand to myScrolledHtml
+  delegate option -width          to myScrolledHtml
+  delegate option -height         to myScrolledHtml
 }
 bind Hv3 <KeyPress-Up>     { %W yview scroll -1 units }
 bind Hv3 <KeyPress-Down>   { %W yview scroll  1 units }

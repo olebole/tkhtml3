@@ -29,6 +29,108 @@ sourcefile hv3.tcl
 sourcefile hv3_log.tcl
 sourcefile hv3_prop.tcl
 
+# A cookie manager manages cookies. It supports the following 
+# operations:
+#
+#     * Add cookie to database,
+#     * Retrieve applicable cookies for an http request, and
+#     * Retrieve html formatted report on current state of cookie database.
+#
+snit::type ::hv3_browser::cookiemanager {
+
+  # The cookie data is stored in the following array variable. The
+  # array keys are authority names. The array values are the list of cookies
+  # associated with the authority. Each list element (a single cookie) is 
+  # stored as a list of two elements, the cookie name and value. For
+  # example, a two cookies from tkhtml.tcl.tk might be added to the database
+  # using code such as:
+  #
+  #     set myCookies(tkhtml.tcl.tk) [list {login qwertyuio} {prefs 1234567}
+  # 
+  variable myCookies -array [list]
+
+  method add_cookie {authority name value} {
+    if {0 == [info exists myCookies($authority)]} {
+      set myCookies($authority) [list]
+    }
+
+    array set cookies $myCookies($authority)
+    set cookies($name) $value
+    set myCookies($authority) [array get cookies]
+  }
+
+  # Retrieve the cookies that should be sent to the specified authority.
+  # The cookies are returned as a string of the following form:
+  #
+  #     "NAME1=OPAQUE_STRING1; NAME2=OPAQUE_STRING2 ..."
+  #
+  method get_cookies {authority} {
+    set ret ""
+    if {[info exists myCookies($authority)]} {
+      foreach {name value} $myCookies($authority) {
+        append ret [format "%s=%s; " $name $value]
+      }
+    }
+    return $ret
+  }
+
+  method get_report {} {
+    set Template {
+      <html><head><style>$Style</style></head>
+      <body>
+        <h1>Hv3 Cookies</h1>
+        <div id="refresh"/>
+        $Content
+      </body>
+      <html>
+    }
+
+    set Style {
+      .authority { margin-top: 2em; font-weight: bold; }
+      .name      { padding-right: 5ex; }
+    }
+
+    set Content ""
+    foreach authority [array names myCookies] { 
+      append Content "<div class=authority>$authority</div>"
+      append Content "<table>"
+      foreach {name value} $myCookies($authority) {
+        append Content [subst {
+          <tr>
+            <td><span class=name>$name</span>
+            <td><span class=value>$value</span>
+        }]
+      }
+    }
+
+    return [subst $Template]
+  }
+
+  method download_report {downloadHandle} {
+    $downloadHandle append [$self get_report]
+    $downloadHandle finish
+  }
+
+  method debug {{path .debug_cookies}} {
+    if {![winfo exists $path]} {
+      toplevel $path
+      ::hv3::scrolled hv3 ${path}.hv3
+      ${path}.hv3 configure -width 400 -height 400
+      pack ${path}.hv3 -expand true -fill both
+
+      set HTML [${path}.hv3 html]
+      button ${HTML}.refresh -text "Refresh Display" -command [mymethod debug]
+    }
+    ${path}.hv3 protocol report [mymethod download_report]
+    ${path}.hv3 postdata POSTME!
+    ${path}.hv3 goto report://
+
+    set HTML [${path}.hv3 html]
+    set node [lindex [${path}.hv3 search #refresh] 0]
+    $node replace ${HTML}.refresh
+  }
+}
+
 snit::type ::hv3_browser::history {
 
   variable myHistoryList [list]
@@ -134,14 +236,16 @@ snit::widget hv3_browser {
   variable myNodeList ""                  ;# Current nodes under the pointer
 
   constructor {args} {
-    set myHv3 [hv3 $win.hv3]
+    set myHv3 [::hv3::scrolled hv3 $win.hv3]
     set myHttp [Hv3HttpProtcol %AUTO%]
     set myHistory [::hv3_browser::history %AUTO% $myHv3 [mymethod gotohistory]]
     pack $myHv3 -expand true -fill both
 
     $myHv3 protocol http [mymethod http]
     $myHv3 configure -hyperlinkcmd [mymethod goto]
-    $myHv3 configure -motioncmd [mymethod motion]
+    $myHv3 configure -getcmd       [mymethod Getcmd]
+    $myHv3 configure -postcmd      [mymethod Postcmd]
+    $myHv3 configure -motioncmd    [mymethod motion]
 
     # Set up a binding to press "Q" to exit the application
     bind $myHv3 <KeyPress-q> exit
@@ -204,6 +308,16 @@ snit::widget hv3_browser {
     $self update_statusvar
   }
 
+  method Getcmd {action encdata} {
+    set uri "${action}?${encdata}"
+    $self goto $uri
+  }
+  method Postcmd {action encdata} {
+    set uri "${action}"
+    $myHv3  postdata $encdata
+    $self   goto $uri
+  }
+
   #--------------------------------------------------------------------------
   # PUBLIC INTERFACE
   #--------------------------------------------------------------------------
@@ -227,6 +341,47 @@ snit::widget hv3_browser {
   delegate option -forwardbutton to myHistory
 
   delegate option -fonttable     to myHv3
+  delegate method dumpforms      to myHv3
+  delegate method debug_cookies  to myHttp
+
+  delegate option -width         to myHv3
+  delegate option -height        to myHv3
+}
+
+# This procedure attempts to load the tkcon package. An error is raised
+# if the package cannot be loaded. On success, an empty string is returned.
+#
+proc load_tkcon {} {
+  foreach f [list \
+    [file join $::tcl_library .. .. bin tkcon] \
+    [file join $::tcl_library .. .. bin tkcon.tcl]
+  ] {
+    if {[file exists $f]} {
+      uplevel #0 "source $f"
+      package require tkcon
+      return 
+    }
+  }
+  error "Failed to load Tkcon"
+  return ""
+}
+
+proc create_fontsize_menu {menupath hv3path} {
+  menu $menupath
+  foreach {label table} [list \
+    Normal {7 8 9 10 12 14 16} \
+    Large  {9 10 11 12 14 16 18} \
+    {Very Large}  {11 12 13 14 16 18 20} \
+    {Extra Large}  {13 14 15 16 18 20 22} \
+    {Recklessly Large}  {15 16 17 18 20 22 24}
+  ] {
+    $menupath add radiobutton       \
+      -variable ::hv3_fonttable_var \
+      -value $table               \
+      -label $label               \
+      -command [list $hv3path configure -fonttable $table]
+  }
+  return $menupath
 }
 
 #--------------------------------------------------------------------------
@@ -272,45 +427,31 @@ proc gui_build {} {
   .entry.entry configure -textvar hv3_location_var
   .status configure -textvar hv3_status_var
 
-  # Build the main window menu.
+  # Attach a menu widget - .m - to the toplevel application window.
   . config -menu [menu .m]
 
+  # Add the 'File menu'
   .m add cascade -label {File} -menu [menu .m.file]
   .m.file add command -label "Open File..." -command guiOpenFile
   .m.file add separator
-  foreach f [list \
-    [file join $::tcl_library .. .. bin tkcon] \
-    [file join $::tcl_library .. .. bin tkcon.tcl]
-  ] {
-    if {[file exists $f]} {
-      catch {
-        uplevel #0 "source $f"
-        package require tkcon
-        .m.file add command -label Tkcon -command {tkcon show}
-      }
-      break
-    }
+
+  catch {
+    # If the [load_tkcon] proc cannot find the Tkcon package, it
+    # throws an exception. No menu item will be added in this case.
+    load_tkcon
+    .m.file add command -label Tkcon -command {tkcon show}
   }
+
   .m.file add command -label Browser -command [list .hv3 browse]
+  .m.file add command -label "Debug Forms" -command [list .hv3 dumpforms]
+  .m.file add command -label "Debug Cookies" -command [list .hv3 debug_cookies]
   .m.file add separator
   .m.file add command -label Exit -command exit
 
   # Add the 'Font Size Table' menu
-  .m add cascade -label {Font Size Table} -menu [menu .m.font]
-  foreach {label table} [list \
-    Normal {7 8 9 10 12 14 16} \
-    Large  {9 10 11 12 14 16 18} \
-    {Very Large}  {11 12 13 14 16 18 20} \
-    {Extra Large}  {13 14 15 16 18 20 22} \
-    {Recklessly Large}  {15 16 17 18 20 22 24}
-  ] {
-    .m.font add radiobutton       \
-      -variable ::hv3_fonttable_var \
-      -value $table               \
-      -label $label               \
-      -command [list .hv3 configure -fonttable $table]
-  }
-  .m.font invoke 1
+  set fontsize_menu [create_fontsize_menu .m.font .hv3]
+  .m add cascade -label {Font Size Table} -menu $fontsize_menu
+  $fontsize_menu invoke 1
 
   # Add the 'History' menu
   .m add cascade -label {History} -menu [menu .m.history]
@@ -339,29 +480,54 @@ snit::type Hv3HttpProtcol {
   option -proxyport -default 3128      -configuremethod _ConfigureProxy
   option -proxyhost -default localhost -configuremethod _ConfigureProxy
 
-  variable myCookies -array [list]
+  # variable myCookies -array [list]
+
+  variable myCookieManager ""
 
   constructor {} {
     package require http
     $self _ConfigureProxy
+    set myCookieManager [::hv3_browser::cookiemanager %AUTO%]
+  }
+
+  destructor {
+    if {$myCookieManager ne ""} {$myCookieManager destroy}
   }
 
   method download {downloadHandle} {
     set uri [$downloadHandle uri]
-puts "DOWNLOAD: $uri"
     set finish [mymethod _DownloadCallback $downloadHandle]
     set append [mymethod _AppendCallback $downloadHandle]
 
     set headers ""
     set authority [$downloadHandle authority]
-    if {[info exists myCookies($authority)]} {
-      set headers "Cookie "
-      foreach cookie $myCookies($authority) {
-        lappend headers $cookie
-      }
+#    if {[info exists myCookies($authority)]} {
+#      set headers "Cookie "
+#      foreach cookie $myCookies($authority) {
+#        lappend headers $cookie
+#      }
+#    }
+
+    set cookies [$myCookieManager get_cookies $authority]
+    if {$cookies ne ""} {
+      set headers [list Cookie $cookies]
     }
 
-    ::http::geturl $uri -command $finish -handler $append -headers $headers
+    set postdata [$downloadHandle postdata]
+puts ""
+puts "DOWNLOAD: $uri"
+puts "POSTDATA: [string range $postdata 0 512]"
+puts "HEADERS:  $headers"
+
+    if {$postdata ne ""} {
+      ::http::geturl $uri     \
+          -command $finish    \
+          -handler $append    \
+          -headers $headers   \
+          -query   $postdata
+    } else {
+      ::http::geturl $uri -command $finish -handler $append -headers $headers
+    }
   }
 
   # Configure the http package to use a proxy as specified by
@@ -392,8 +558,12 @@ puts "DOWNLOAD: $uri"
       foreach {name value} $state(meta) {
         if {$name eq "Set-Cookie"} {
           puts "COOKIE: $value"
-          regexp {^[^ ]*} $value nv_pair
-          lappend myCookies([$downloadHandle authority]) $nv_pair
+          regexp {^([^= ]*)=([^ ;]*)} $value dummy name value
+puts "authority=[$downloadHandle authority]"
+puts "name=$name"
+puts "value=$value"
+
+          $myCookieManager add_cookie [$downloadHandle authority] $name $value
         }
       }
       foreach {name value} $state(meta) {
@@ -408,6 +578,10 @@ puts "DOWNLOAD: $uri"
 
     $downloadHandle append $state(body)
     $downloadHandle finish
+  }
+
+  method debug_cookies {} {
+    $myCookieManager debug
   }
 }
 

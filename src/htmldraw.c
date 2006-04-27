@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.110 2006/04/19 16:55:12 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.111 2006/04/27 08:46:55 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -873,9 +873,6 @@ HtmlDrawLine(pCanvas, x, w, y_over, y_through, y_under, pNode, size_only)
         pItem->x.line.pNode = pNode;
         linkItem(pCanvas, pItem);
     }
-
-    assert(y_over <= y_through);
-    assert(y_through <= y_under);
 
     pCanvas->left = MIN(pCanvas->left, x);
     pCanvas->right = MAX(pCanvas->right, x + w);
@@ -2741,6 +2738,7 @@ widgetRepair(pTree, x, y, w, h, g)
 
     memset(&gc_values, 0, sizeof(XGCValues));
     gc = Tk_GetGC(pTree->win, 0, &gc_values);
+    assert(Tk_WindowId(win));
     XCopyArea(pDisp, pixmap, Tk_WindowId(win), gc, 0, 0, w, h, x, y);
     Tk_FreePixmap(pDisp, pixmap);
     Tk_FreeGC(pDisp, gc);
@@ -2766,6 +2764,8 @@ HtmlWidgetRepair(pTree, x, y, w, h)
     int w;
     int h;
 {
+    /* Make sure the widget main window exists before painting anything */
+    Tk_MakeWindowExist(pTree->tkwin);
     widgetRepair(pTree, x, y, w, h, 0);
 }
 

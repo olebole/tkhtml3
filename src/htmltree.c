@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.60 2006/03/26 07:20:04 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.61 2006/04/27 08:46:55 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -1173,23 +1173,29 @@ node_attr_usage:
         }
 
         /*
-         * nodeHandle text ?-tokens?
+         * nodeHandle text ?-tokens || -pre?
          *
          */
         case NODE_TEXT: {
             HtmlToken *pT;
             Tcl_Obj *pRet;
             int tokens;
+            int pre;
+            char *z3 = 0;
+            if (objc == 3) {
+                z3 = Tcl_GetString(objv[2]);
+            }
 
             if (
                 (objc != 2 && objc != 3) ||
-                (objc == 3 && strcmp(Tcl_GetString(objv[2]), "-tokens"))
+                (objc == 3 && strcmp(z3, "-tokens") && strcmp(z3, "-pre"))
             ) {
-                Tcl_WrongNumArgs(interp, 2, objv, "?-tokens?");
+                Tcl_WrongNumArgs(interp, 2, objv, "?-tokens || -pre?");
                 return TCL_ERROR;
             }
 
-            tokens = ((objc == 3) ? 1 : 0);
+            tokens = ((objc == 3 && z3[1]=='t') ? 1 : 0);
+            pre =    ((objc == 3 && z3[1]=='p') ? 1 : 0);
             pRet = Tcl_NewObj();
             Tcl_IncrRefCount(pRet);
             for (
@@ -1218,6 +1224,17 @@ node_attr_usage:
                             pObj = Tcl_NewStringObj(zBuf, -1);
                             Tcl_ListObjAppendElement(interp, pRet, pObj);
                         }
+                    } else if (pre) {
+                        char *zWhite = "\n";
+                        char nWhite = 1;
+                        if (0 == pT->x.newline) {
+                            zWhite = "                                        ";
+                            assert(strlen(zWhite) == 40);
+                            for (nWhite = pT->count; nWhite > 40; nWhite -= 40){
+                                Tcl_AppendToObj(pRet, zWhite, 40);
+                            }
+                        }
+                        Tcl_AppendToObj(pRet, zWhite, nWhite);
                     } else {
                         Tcl_AppendToObj(pRet, " ", 1);
                     }

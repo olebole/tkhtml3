@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.87 2006/04/23 11:25:04 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.88 2006/04/27 08:46:55 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -1129,9 +1129,12 @@ resetCmd(clientData, interp, objc, objv)
     Tcl_Obj *const *objv;              /* List of all arguments */
 {
     HtmlTree *pTree = (HtmlTree *)clientData;
+    Tk_Window win = pTree->tkwin;
+
     HtmlTreeClear(pTree);
     HtmlCallbackScrollY(pTree, 0);
     HtmlCallbackScrollX(pTree, 0);
+    HtmlCallbackDamage(pTree, 0, 0, Tk_Width(win), Tk_Height(win));
     doLoadDefaultStyle(pTree);
     pTree->parseFinished = 0;
     return TCL_OK;
