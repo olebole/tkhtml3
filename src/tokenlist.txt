@@ -1,5 +1,5 @@
 #
-# $Revision: 1.24 $
+# $Revision: 1.25 $
 #
 # tokenlist.tcl -- 
 #
@@ -161,7 +161,14 @@ TAG strong -flow inline
 TAG style -content HtmlEmptyContent
 TAG sub -flow inline
 TAG sup -flow inline
+
+# Note: In "quirks mode", according to both Opera and Gecko, you can nest a
+# <table> tag inside of a <p>. The results pages from google look a bit
+# better if this is the case too. For now though, operate in strict mode only.
+#
+# TODO: Check the IE behaviour.
 TAG table -flow block -content HtmlTableContent
+
 # TAG tbody
 TAG td -content HtmlTableCellContent
 TAG textarea -flow inline

@@ -7,6 +7,12 @@ snit::widget ::hv3::scrolledwidget {
   variable  myVsb
   variable  myHsb
 
+  option -propagate -default -0 -configuremethod set_propagate
+  method set_propagate {option value} {
+    grid propagate $win $value
+    set options(-propagate) $value
+  }
+
   constructor {widget args} {
     # Create the three widgets - one user widget and two scrollbars.
     set myWidget [eval [linsert $widget 1 ${win}.widget]]
@@ -16,12 +22,12 @@ snit::widget ::hv3::scrolledwidget {
     grid configure $myWidget -column 0 -row 0 -sticky nsew
     grid columnconfigure $win 0 -weight 1
     grid rowconfigure    $win 0 -weight 1
-    grid propagate       $win 0
+    grid propagate       $win $options(-propagate)
 
     # First, set the values of -width and -height to the defaults for 
     # the scrolled widget class. Then configure this widget with the
     # arguments provided.
-    $self configure -width [$myWidget cget -width] 
+    $self configure -width  [$myWidget cget -width] 
     $self configure -height [$myWidget cget -height]
     $self configurelist $args
 
@@ -33,6 +39,9 @@ snit::widget ::hv3::scrolledwidget {
 
     # Propagate events from the scrolled widget to this one.
     bindtags $myWidget [concat [bindtags $myWidget] $win]
+    catch {
+      bindtags [$myWidget html] [concat [bindtags [$myWidget html]] $win]
+    }
   }
 
   method scrollcallback {scrollbar first last} {

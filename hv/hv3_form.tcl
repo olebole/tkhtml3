@@ -435,6 +435,9 @@ snit::widget ::hv3::control {
 
   variable  myRadioVarname ""      ;# Used by radiobuttons only
 
+  # True if the calculated value of the 'width' property should be used.
+  variable  myUsePixelWidth 1
+
   option -submitcmd -default ""
 
   constructor {node args} {
@@ -494,6 +497,8 @@ snit::widget ::hv3::control {
       pack $myWidget -expand 1 -fill both
     }
 
+    $hull configure -borderwidth 0 -pady 0 -padx 0
+
     $self configurelist $args
   }
 
@@ -508,7 +513,8 @@ snit::widget ::hv3::control {
     set cols [$myControlNode attr -default 60 cols]
     set rows [$myControlNode attr -default 10 rows]
 
-    $myWidget configure -width $cols -height $rows
+    $myWidget configure -height $rows 
+    $myWidget configure -width $cols
     set contents ""
     foreach child [$myControlNode children] {
       append contents [$child text -pre]
@@ -523,6 +529,10 @@ snit::widget ::hv3::control {
   method CreateEntryWidget {isPassword} {
     set myWidget [entry ${win}.widget]
     $myWidget configure -textvar [myvar myValue]
+    $myWidget configure -background white
+
+    $myWidget configure -borderwidth 0
+    $myWidget configure -selectborderwidth 0
 
     # If this is a password entry field, obscure it's contents
     if {$isPassword} { $myWidget configure -show * }
@@ -645,6 +655,7 @@ snit::widget ::hv3::control {
     set myValue [$myControlNode attr -default "" value]
     $myWidget configure -value $myValue
     $myWidget configure -variable $myRadioVarname
+    $myWidget configure -tristatevalue aghqghorhdsf
 
     if {
       [expr [catch {$myControlNode attr checked}] ? 0 : 1] ||
@@ -715,6 +726,13 @@ snit::widget ::hv3::control {
   method configurecmd {values} {
     if {$myWidget eq ""} return
 
+#    puts $values
+#    array set v $values
+#    puts $v(width)
+#    if {$myUsePixelWidth && [$hull cget -width] ne $v(width) } {
+#      $hull configure -width $v(width)
+#    }
+
     set font [$myWidget cget -font]
     set descent [font metrics $font -descent]
     set ascent  [font metrics $font -ascent]
@@ -736,7 +754,7 @@ snit::type ::hv3::form {
 
   destructor {
     foreach control $myControls {
-      destroy $control
+      # destroy $control
     }
   }
 
@@ -824,11 +842,10 @@ snit::type ::hv3::formmanager {
         break
       }
     }
-    if {$n eq ""} {
-      # TODO: Floating control
-    }
 
-    $node replace $control -configurecmd [list $control configurecmd]
+    $node replace $control                         \
+        -configurecmd [list $control configurecmd] \
+        -deletecmd    [list destroy $control]
   }
 
   destructor {

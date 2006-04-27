@@ -3,7 +3,7 @@ catch { memory init on }
 
 # Load packages.
 if {[info exists auto_path]} {
-    set auto_path [concat . $auto_path]
+    # set auto_path [concat . $auto_path]
 }
 package require Tk
 package require Tkhtml 3.0
@@ -34,9 +34,14 @@ sourcefile hv3_prop.tcl
 #
 #     * Add cookie to database,
 #     * Retrieve applicable cookies for an http request, and
-#     * Retrieve html formatted report on current state of cookie database.
+#     * Delete the contents of the cookie database.
+#
+# Also, by invoking [pathName debug] a GUI to inspect and manipulate the
+# database is created in a new top-level window.
 #
 snit::type ::hv3_browser::cookiemanager {
+
+  variable myDebugWindow
 
   # The cookie data is stored in the following array variable. The
   # array keys are authority names. The array values are the list of cookies
@@ -49,6 +54,10 @@ snit::type ::hv3_browser::cookiemanager {
   # 
   variable myCookies -array [list]
 
+  constructor {} {
+    set myDebugWindow [string map {: _} ".${self}_toplevel"]
+  }
+
   method add_cookie {authority name value} {
     if {0 == [info exists myCookies($authority)]} {
       set myCookies($authority) [list]
@@ -57,6 +66,8 @@ snit::type ::hv3_browser::cookiemanager {
     array set cookies $myCookies($authority)
     set cookies($name) $value
     set myCookies($authority) [array get cookies]
+
+    if {[winfo exists $myDebugWindow]} {$self debug}
   }
 
   # Retrieve the cookies that should be sent to the specified authority.
@@ -79,7 +90,8 @@ snit::type ::hv3_browser::cookiemanager {
       <html><head><style>$Style</style></head>
       <body>
         <h1>Hv3 Cookies</h1>
-        <div id="refresh"/>
+        <div id="clear"/>
+        <br clear=all>
         $Content
       </body>
       <html>
@@ -88,18 +100,30 @@ snit::type ::hv3_browser::cookiemanager {
     set Style {
       .authority { margin-top: 2em; font-weight: bold; }
       .name      { padding-right: 5ex; }
+      #clear { 
+        float: left; 
+        margin: 1em; 
+        margin-top: 0px; 
+      }
     }
 
     set Content ""
-    foreach authority [array names myCookies] { 
-      append Content "<div class=authority>$authority</div>"
+    if {[llength [array names myCookies]] > 0} {
       append Content "<table>"
-      foreach {name value} $myCookies($authority) {
-        append Content [subst {
-          <tr>
-            <td><span class=name>$name</span>
-            <td><span class=value>$value</span>
-        }]
+      foreach authority [array names myCookies] { 
+        append Content "<tr><td><div class=authority>$authority</div>"
+        foreach {name value} $myCookies($authority) {
+          append Content [subst {
+            <tr>
+              <td><span class=name>$name</span>
+              <td><span class=value>$value</span>
+          }]
+        }
+      }
+      append Content "</table>"
+    } else {
+      set Content {
+        <p>The cookies database is currently empty.
       }
     }
 
@@ -111,23 +135,27 @@ snit::type ::hv3_browser::cookiemanager {
     $downloadHandle finish
   }
 
-  method debug {{path .debug_cookies}} {
+  method debug {} {
+    set path $myDebugWindow
     if {![winfo exists $path]} {
       toplevel $path
       ::hv3::scrolled hv3 ${path}.hv3
       ${path}.hv3 configure -width 400 -height 400
       pack ${path}.hv3 -expand true -fill both
-
       set HTML [${path}.hv3 html]
-      button ${HTML}.refresh -text "Refresh Display" -command [mymethod debug]
+
+      # The "clear database button"
+      button ${HTML}.clear   -text "Clear Database" -command [subst {
+        array unset [myvar myCookies]
+        [mymethod debug]
+      }]
     }
     ${path}.hv3 protocol report [mymethod download_report]
     ${path}.hv3 postdata POSTME!
     ${path}.hv3 goto report://
 
     set HTML [${path}.hv3 html]
-    set node [lindex [${path}.hv3 search #refresh] 0]
-    $node replace ${HTML}.refresh
+    [lindex [${path}.hv3 search #clear] 0] replace ${HTML}.clear
   }
 }
 
@@ -536,6 +564,7 @@ puts "HEADERS:  $headers"
   method _ConfigureProxy {} {
     ::http::config -proxyhost $options(-proxyhost)
     ::http::config -proxyport $options(-proxyport)
+    ::http::config -useragent {Mozilla/5.0 Gecko/20050513}
   }
 
   # Invoked when data is available from an http request. Pass the data
@@ -613,4 +642,3 @@ proc main {{doc index.html}} {
   goto $doc
 }
 eval [concat main $argv]
-

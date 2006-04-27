@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.149 2006/04/23 11:25:03 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.150 2006/04/27 15:07:16 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -858,7 +858,6 @@ markerLayout(pLayout, pBox, pNormal, pNode, y)
     DRAW_CANVAS(&pBox->vc, &sCanvas, 0, 0, pNode);
     return TCL_OK;
 }
-
 
 
 /*
@@ -1744,6 +1743,54 @@ normalFlowLayoutReplaced(pLayout, pBox, pNode, pY, pContext, pNormal)
 /*
  *---------------------------------------------------------------------------
  *
+ * getHeight --
+ *
+ *     The second parameter is the content-height in pixels of node pNode. 
+ *     This function returns the actual pixel height of the node content
+ *     area considering both the supplied value and the computed value
+ *     of the height property:
+ *
+ *         IF ('height' == "auto") 
+ *             return iHeight
+ *         ELSE
+ *             return 'height'
+ *
+ * Results:
+ *     See above.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int
+getHeight(pNode, iHeight) 
+    HtmlNode *pNode;
+    int iHeight;
+{
+    int height = pNode->pPropertyValues->iHeight;
+    assert(height == PIXELVAL_AUTO || height >=0);
+    if (height == PIXELVAL_AUTO) {
+        return iHeight;
+    } 
+    return height;
+}
+
+
+static int
+getWidth(iWidthCalculated, iWidthContent) 
+    int iWidthCalculated;
+    int iWidthContent;
+{
+    if (iWidthCalculated < 0) {
+        return iWidthContent;
+    }
+    return iWidthCalculated;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * normalFlowLayoutBlock --
  *
  * Results:
@@ -1842,9 +1889,9 @@ normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
      * minimum height.
      */
     normalFlowLayout(pLayout, &sContent, pNode, pNormal);
-    assert(pV->iHeight >= 0 || pV->iHeight == PIXELVAL_AUTO);
-    sContent.height = MAX(pV->iHeight, sContent.height); 
-    assert(sContent.height >= pV->iHeight);
+
+    sContent.height = getHeight(pNode, sContent.height);
+    sContent.width = getWidth(iWidth, sContent.width);
 
     LOG {
         HtmlTree *pTree = pLayout->pTree;
@@ -1866,7 +1913,8 @@ normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
     sBox.iContaining = pBox->iContaining;
     DRAW_CANVAS(&sTmp.vc, &sContent.vc, 0, -1 * yBorderOffset, pNode);
     sTmp.width = sContent.width;
-    sTmp.height = sContent.height - yBorderOffset;
+    /* sTmp.height = sContent.height - yBorderOffset; */
+    sTmp.height = sContent.height;
     wrapContent(pLayout, &sBox, &sTmp, pNode);
     DRAW_CANVAS(&pBox->vc, &sBox.vc,iWrappedX, y-box.iTop+yBorderOffset, pNode);
     pBox->width = MAX(pBox->width, sBox.width);
@@ -2679,13 +2727,14 @@ HtmlLayout(pTree)
         sLayout.pTop = pBody;
         HtmlLayoutNodeContent(&sLayout, &sContent, pBody);
 
-        x = MAX(-1 * sBox.vc.left, 0) + margin.margin_left + box.iLeft;
-        y = MAX(-1 * sBox.vc.top, 0) + margin.margin_top + box.iTop;
+        x = margin.margin_left + box.iLeft;
+        y = margin.margin_top + box.iTop;
+        x = MAX(-1 * sContent.vc.left, x);
 
         drawAbsolute(&sLayout, &sContent, &sContent.vc, -1 * x, -1 * y);
+        HtmlDrawCanvas(&pTree->canvas, &sContent.vc, x, y, pBody);
 
         memset(&sFixed, 0, sizeof(BoxContext));
-
         assert(sLayout.pAbsolute == 0);
         sLayout.pAbsolute = sLayout.pFixed;
         sLayout.pFixed = 0;
@@ -2693,10 +2742,8 @@ HtmlLayout(pTree)
         sFixed.height = Tk_Height(pTree->tkwin);
         if (sFixed.height < 5) sFixed.height = pTree->options.height;
         HtmlDrawAddMarker(&sFixed.vc, 0, 0, 1);
-        drawAbsolute(&sLayout, &sFixed, &sContent.vc, -1 * x, -1 * y);
-
-        HtmlDrawCanvas(&pTree->canvas, &sContent.vc, x, y, pBody);
-        HtmlDrawCanvas(&pTree->canvas, &sFixed.vc, x, y, pBody);
+        drawAbsolute(&sLayout, &sFixed, &sContent.vc, 0, 0);
+        HtmlDrawCanvas(&pTree->canvas, &sFixed.vc, 0, 0, pBody);
 
         pTree->canvas.right = MAX(
             pTree->canvas.right,

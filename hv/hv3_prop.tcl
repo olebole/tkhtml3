@@ -247,11 +247,12 @@ itcl::body HtmlDebug::constructor {HTML} {
   bind $myTopLevel <KeyPress-q>  [list destroy $myTopLevel]
   bind $myTopLevel <KeyPress-Q>  [list destroy $myTopLevel]
 
-  set tree [list ::hv3::scrolledwidget canvas]
+  set tree [list ::hv3::scrolledwidget canvas -propagate 1]
+  set shv3  [list ::hv3::scrolledwidget hv3 -propagate 1]
   frameset $myTopLevel.hpan                                   \
-      hv3   -variable mySearchHtml -side top  \
+      $shv3 -variable mySearchHtml -side top  \
       $tree -variable myTreeCanvas -side left \
-      hv3   -variable myReportHtml
+      $shv3 -variable myReportHtml
 
   $mySearchHtml protocol tcl tclProtocol
   $mySearchHtml configure -hyperlinkcmd eval
@@ -261,7 +262,7 @@ itcl::body HtmlDebug::constructor {HTML} {
   $b configure -command [list $this rerender]
   set b2 [button [$mySearchHtml html].outline]
   $b2 configure -text "Add \":focus {outline: solid ...}\""
-  $b2 configure -command [list .hv3.html style {
+  $b2 configure -command [list $myHtml style {
     :focus {outline-style: solid; outline-color: blue ; outline-width: 1px}
   }]
   set e [entry [$mySearchHtml html].search]
