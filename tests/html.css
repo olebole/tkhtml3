@@ -227,3 +227,17 @@ body {
     background-image: tcl(format "url(%s)" [::tkhtml::attr background])
 }
 
+/* The vspace and hspace attributes map to margins for elements of type
+ * <IMG>, <OBJECT> and <APPLET> only. Note that this attribute is
+ * deprecated in HTML 4.01.
+ */
+IMG[vspace], OBJECT[vspace], APPLET[vspace] {
+    margin-top: tcl(::tkhtml::attr vspace -len);
+    margin-bottom: tcl(::tkhtml::attr vspace -len);
+}
+IMG[hspace], OBJECT[hspace], APPLET[hspace] {
+    margin-left: tcl(::tkhtml::attr hspace -len);
+    margin-right: tcl(::tkhtml::attr hspace -len);
+}
+
+
