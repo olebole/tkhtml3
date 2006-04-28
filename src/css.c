@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.61 2006/04/27 16:32:31 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.62 2006/04/28 06:43:22 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -1049,6 +1049,8 @@ shortcutBackground(pParse, p, v)
     CONST char *zEnd = z + v->n;
     int nProp = 0;
     int ii;
+    int symbolicPosition = 0;
+    CONST char *zDefaultPosition = 0;
 
     CssProperty *pColor = 0;
     CssProperty *pImage = 0;
@@ -1108,6 +1110,7 @@ shortcutBackground(pParse, p, v)
                     if (pPositionY) goto error_out;
                     propertyTransformBgPosition(pProp);
                     pPositionY = pProp;
+                    symbolicPosition = 1;
                     break;
 
                 case CSS_CONST_RIGHT:
@@ -1115,6 +1118,7 @@ shortcutBackground(pParse, p, v)
                     if (pPositionX) goto error_out;
                     propertyTransformBgPosition(pProp);
                     pPositionX = pProp;
+                    symbolicPosition = 2;
                     break;
 
                 case CSS_CONST_CENTER:
@@ -1156,13 +1160,27 @@ shortcutBackground(pParse, p, v)
         pRepeat ? pRepeat : HtmlCssStringToProperty("repeat", 6)
     );
 
+    if (symbolicPosition || (!pPositionY && !pPositionX)) {
+        zDefaultPosition = (symbolicPosition ? "50%" : "00%");
+    }
+
     if (!pPositionX) {
-        pPositionX = HtmlCssStringToProperty("0%", 2);
+        if (zDefaultPosition) {
+            pPositionX = HtmlCssStringToProperty(zDefaultPosition, -3);
+        } else {
+            assert(pPositionY);
+            pPositionX = propertyDup(pPositionY);
+        }
+    }
+    if (!pPositionY) {
+        if (zDefaultPosition) {
+            pPositionY = HtmlCssStringToProperty(zDefaultPosition, -3);
+        } else {
+            assert(pPositionY);
+            pPositionY = propertyDup(pPositionX);
+        }
     }
     propertySetAdd(p, CSS_PROPERTY_BACKGROUND_POSITION_X, pPositionX);
-    if (!pPositionY) {
-        pPositionY = propertyDup(pPositionX);
-    }
     propertySetAdd(p, CSS_PROPERTY_BACKGROUND_POSITION_Y, pPositionY);
 
     return;
