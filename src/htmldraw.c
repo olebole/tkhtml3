@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.111 2006/04/27 08:46:55 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.112 2006/04/28 07:16:15 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -324,6 +324,66 @@ MIN5(a, b, c, d, e)
     return min;
 }
 
+static void 
+windowsRepair(pTree, pCanvas)
+    HtmlTree *pTree;
+    HtmlCanvas *pCanvas;
+{
+    Tk_Window win = (pTree ? pTree->tkwin : 0);
+    int w         = (win ? Tk_Width(win) : 0);
+    int h         = (win ? Tk_Height(win): 0);
+
+    HtmlCanvasItem *pItem = pCanvas->pWindow;
+    HtmlCanvasItem *pPrev = 0;
+
+    /* Loop through the HtmlCanvas.pWindow list. For each mapped window
+     * that is clipped by the viewport, unmap the window (if mapped) and
+     * remove it from the list. For each mapped window that is not clipped
+     * by the viewport, reposition and map it (if unmapped).
+     */
+    while (pItem) {
+        HtmlCanvasItem *pNext = pItem->x.w.pNext;
+        Tk_Window control = pItem->x.w.pNode->pReplacement->win;
+        int iViewY; 
+        int iWidth; 
+        int iHeight; 
+        int iViewX; 
+
+        if (pTree) {
+            iViewX = pItem->x.w.iCanvasX - pTree->iScrollX;
+            iViewY = pItem->x.w.iCanvasY - pTree->iScrollY;
+            iWidth = Tk_ReqWidth(control);
+            iHeight = Tk_ReqHeight(control);
+        }
+
+        if (
+            !pTree ||
+            iViewX > w || iViewY > h || 
+            (iViewX + iWidth) <= 0 || (iViewY + iHeight) <= 0
+        ) {
+            if (Tk_IsMapped(control)) {
+                Tk_UnmapWindow(control);
+            }
+            if (pPrev) {
+                assert(pPrev->x.w.pNext == pItem);
+                pPrev->x.w.pNext = pNext;
+            } else {
+                assert(pCanvas->pWindow == pItem);
+                pCanvas->pWindow = pNext;
+            }
+            pItem->x.w.pNext = 0;
+        } else {
+            Tk_MoveResizeWindow(control, iViewX, iViewY, iWidth, iHeight);
+            if (!Tk_IsMapped(control)) {
+                Tk_MapWindow(control);
+            }
+            pPrev = pItem;
+        }
+
+        pItem = pNext;
+    }
+}
+
 
 /*
  *---------------------------------------------------------------------------
@@ -344,6 +404,9 @@ HtmlDrawCleanup(pCanvas)
 {
     HtmlCanvasItem *pItem;
     HtmlCanvasItem *pPrev = 0;
+
+    /* Unmap any mapped replacement widgets. */
+    windowsRepair(0, pCanvas);
 
     pItem = pCanvas->pFirst;
     while (pItem) {
@@ -2715,7 +2778,7 @@ HtmlWidgetNodeBox(pTree, pNode, pX, pY, pW, pH)
     }
 }
 
-void 
+static void 
 widgetRepair(pTree, x, y, w, h, g)
     HtmlTree *pTree;
     int x;
@@ -2767,6 +2830,7 @@ HtmlWidgetRepair(pTree, x, y, w, h)
     /* Make sure the widget main window exists before painting anything */
     Tk_MakeWindowExist(pTree->tkwin);
     widgetRepair(pTree, x, y, w, h, 0);
+    windowsRepair(pTree, &pTree->canvas);
 }
 
 /*
@@ -2790,8 +2854,6 @@ HtmlWidgetSetViewport(pTree, scroll_x, scroll_y, force_redraw)
 {
     int w;
     int h;
-    HtmlCanvasItem *pItem;
-    HtmlCanvasItem *pPrev;
     HtmlCanvas *pCanvas = &pTree->canvas;
     Tk_Window win = pTree->tkwin;
 
@@ -2832,46 +2894,7 @@ HtmlWidgetSetViewport(pTree, scroll_x, scroll_y, force_redraw)
         Tk_FreeGC(pDisp, gc);
     }
 
-    /* Loop through the HtmlCanvas.pWindow list. For each mapped window
-     * that is clipped by the viewport, unmap the window (if mapped) and
-     * remove it from the list. For each mapped window that is not clipped
-     * by the viewport, reposition and map it (if unmapped).
-     */
-    pItem = pCanvas->pWindow;
-    pPrev = 0;
-    while (pItem) {
-        HtmlCanvasItem *pNext = pItem->x.w.pNext;
-        Tk_Window control = pItem->x.w.pNode->pReplacement->win;
-        int iViewX = pItem->x.w.iCanvasX - pTree->iScrollX;
-        int iViewY = pItem->x.w.iCanvasY - pTree->iScrollY;
-        int iWidth = Tk_ReqWidth(control);
-        int iHeight = Tk_ReqHeight(control);
-
-        if (
-            iViewX > w || iViewY > h || 
-            (iViewX + iWidth) <= 0 || (iViewY + iHeight) <= 0
-        ) {
-            if (Tk_IsMapped(control)) {
-                Tk_UnmapWindow(control);
-            }
-            if (pPrev) {
-                assert(pPrev->x.w.pNext == pItem);
-                pPrev->x.w.pNext = pNext;
-            } else {
-                assert(pCanvas->pWindow == pItem);
-                pCanvas->pWindow = pNext;
-            }
-            pItem->x.w.pNext = 0;
-        } else {
-            Tk_MoveResizeWindow(control, iViewX, iViewY, iWidth, iHeight);
-            if (!Tk_IsMapped(control)) {
-                Tk_MapWindow(control);
-            }
-            pPrev = pItem;
-        }
-
-        pItem = pNext;
-    }
+    windowsRepair(pTree, &pTree->canvas);
 }
 
 HtmlCanvasItem *
