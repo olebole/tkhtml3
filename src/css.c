@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.62 2006/04/28 06:43:22 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.63 2006/04/28 14:18:34 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -1176,7 +1176,7 @@ shortcutBackground(pParse, p, v)
         if (zDefaultPosition) {
             pPositionY = HtmlCssStringToProperty(zDefaultPosition, -3);
         } else {
-            assert(pPositionY);
+            assert(pPositionX);
             pPositionY = propertyDup(pPositionX);
         }
     }
@@ -3044,9 +3044,13 @@ HtmlCssStyleSheetApply(pTree, pNode)
                 Tcl_Obj *pS = Tcl_NewObj();
                 Tcl_IncrRefCount(pS);
                 HtmlCssSelectorToString(pSelector, pS);
-                HtmlLog(pTree, "STYLEENGINE", "%s matches \"%s\"",
+                HtmlLog(pTree, "STYLEENGINE", "%s matches \"%s\""
+                    " from \"%s%s\"",
                     Tcl_GetString(HtmlNodeCommand(pTree, pNode)),
-                    Tcl_GetString(pS)
+                    Tcl_GetString(pS),
+                    pPriority->origin == CSS_ORIGIN_AUTHOR ? "author" :
+                    pPriority->origin == CSS_ORIGIN_AGENT ? "agent" : "user",
+                    Tcl_GetString(pPriority->pIdTail)
                 );
                 Tcl_DecrRefCount(pS);
             }                   
