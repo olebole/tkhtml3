@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.68 2006/04/29 09:30:02 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.69 2006/04/29 14:35:37 danielk1977 Exp $";
 
 #include "htmllayout.h"
 
@@ -799,7 +799,13 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
     for (i = 0; i < nCol; i++) {
         assert(aWidth[i] == 0);
         assert(aExplicitWidth[i] >= 0 || aExplicitWidth[i] == PIXELVAL_AUTO);
-        aWidth[i] = MAX(aExplicitWidth[i], aMinWidth[i]);
+
+        /* aWidth[i] = MAX(aExplicitWidth[i], aMinWidth[i]); */
+        if (aExplicitWidth[i] == PIXELVAL_AUTO) {
+            aWidth[i] = aMinWidth[i];
+        } else {
+            aWidth[i] = aExplicitWidth[i];
+        }
         explicit += aWidth[i];
     }
 
@@ -974,7 +980,6 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
             }
         }
     }
-
 }
 
 /*
