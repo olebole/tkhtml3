@@ -260,7 +260,7 @@ snit::widget hv3_browser {
   component myHttp
   component myHistory
 
-  variable myHttpOutstanding 0
+  variable myHttpHandles [list]
   variable myNodeList ""                  ;# Current nodes under the pointer
 
   constructor {args} {
@@ -299,15 +299,18 @@ snit::widget hv3_browser {
   }
 
   method http {downloadHandle} {
-    incr myHttpOutstanding 1
+    lappend myHttpHandles $downloadHandle
     trace add command $downloadHandle delete [mymethod http_done]
     $myHttp download $downloadHandle
     $self update_statusvar
   }
 
-  method http_done {args} {
-    incr myHttpOutstanding -1
-    $self update_statusvar
+  method http_done {handle args} {
+    set i [lsearch -exact $myHttpHandles $handle]
+    if {$i >= 0} {
+      set myHttpHandles [lreplace $myHttpHandles $i $i]
+      $self update_statusvar
+    }
   }
 
   method node_to_string {node {hyperlink 1}} {
@@ -331,14 +334,15 @@ snit::widget hv3_browser {
 
   method update_statusvar {} {
     if {$options(-statusvar) ne ""} {
-      set requests "$myHttpOutstanding http requests outstanding   "
+      set N [llength $myHttpHandles]
+      set requests "$N http requests outstanding   "
       set value [$self node_to_string [lindex $myNodeList end]]
       uplevel #0 [subst {set $options(-statusvar) {$requests    $value}}]
     }
   }
 
   method gotohistory {uri} {
-    set myHttpOutstanding 0
+    set myHttpHandles [list]
     $myHv3 goto $uri
     $self update_statusvar
   }
@@ -358,7 +362,7 @@ snit::widget hv3_browser {
   #--------------------------------------------------------------------------
 
   method goto {uri} {
-    set myHttpOutstanding 0
+    set myHttpHandles [list]
     $myHistory add
     $myHv3 goto $uri
     $self update_statusvar
