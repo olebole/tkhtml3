@@ -433,9 +433,14 @@ void HtmlTokenizerAppend(HtmlTree *, const char *, int, int);
 int HtmlNameToType(void *, char *);
 Html_u8 HtmlMarkupFlags(int);
 
+
+#define HTML_WALK_ABANDON            4
+#define HTML_WALK_DESCEND            5
+#define HTML_WALK_DO_NOT_DESCEND     6
+typedef int (*html_walk_tree_cb)(HtmlTree*,HtmlNode*,ClientData);
+int HtmlWalkTree(HtmlTree*, HtmlNode *, html_walk_tree_cb, ClientData);
+
 void HtmlTreeFree(HtmlTree *p);
-int HtmlWalkTree(HtmlTree*, HtmlNode *, 
-        int (*)(HtmlTree*,HtmlNode*,ClientData),ClientData);
 int HtmlTreeClear(HtmlTree *);
 int         HtmlNodeNumChildren(HtmlNode *);
 HtmlNode *  HtmlNodeChild(HtmlNode *, int);

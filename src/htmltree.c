@@ -36,17 +36,110 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.62 2006/04/28 07:16:15 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.63 2006/04/29 09:30:02 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
 #include <assert.h>
 #include <string.h>
 
+#define NODE_EXT_IGNOREFORMS 0x00000001
+
+#define NODE_EXT_NUMCHILDREN 1
+#define NODE_EXT_CHILD       2
+
+struct ExtCbContext {
+    HtmlNode *pParent;
+    int flags;
+    int eType;
+    int n;
+    ClientData retval;
+};
+typedef struct ExtCbContext ExtCbContext;
+
+static int 
+extCb(pDummy, pNode, clientData)
+    HtmlTree *pDummy;
+    HtmlNode *pNode;
+    ClientData clientData;
+{
+    ExtCbContext *pContext = (ExtCbContext *)clientData;
+    if (
+        (pNode == pContext->pParent) || ( 
+            (pContext->flags & NODE_EXT_IGNOREFORMS) && 
+            (HtmlNodeTagType(pNode) == Html_FORM)
+        )
+    ) {
+        return HTML_WALK_DESCEND;
+    } else {
+        switch (pContext->eType) {
+            case NODE_EXT_NUMCHILDREN:
+                pContext->retval = (ClientData)((int)(pContext->retval) + 1);
+                break; 
+            case NODE_EXT_CHILD:
+                if (pContext->n == 0) {
+                    pContext->retval = (ClientData)pNode;
+                    return HTML_WALK_ABANDON;
+                }
+                pContext->n--;
+                break; 
+        }
+        return HTML_WALK_DO_NOT_DESCEND;
+    }
+}
+
+static int 
+nodeNumChildrenExt(pNode, flags)
+    HtmlNode *pNode;
+    int flags;
+{
+    ExtCbContext sContext;
+    sContext.pParent = pNode;
+    sContext.flags = flags;
+    sContext.eType = NODE_EXT_NUMCHILDREN;
+    sContext.retval = 0;
+    HtmlWalkTree(0, pNode, extCb, &sContext);
+    return (int)sContext.retval;
+}
+
+static HtmlNode * 
+nodeChildExt(pNode, n, flags)
+    HtmlNode *pNode;
+    int n;
+    int flags;
+{
+    ExtCbContext sContext;
+    sContext.pParent = pNode;
+    sContext.flags = flags;
+    sContext.eType = NODE_EXT_CHILD;
+    sContext.retval = 0;
+    sContext.n = n;
+    HtmlWalkTree(0, pNode, extCb, &sContext);
+    return (HtmlNode *)sContext.retval;
+}
+
 /*
  *---------------------------------------------------------------------------
  *
  * moveToLeftSibling --
+ *
+ *     This function moves pNewSibling from whereever it is in the document
+ *     tree and inserts it as the left sibling of node pNode. For example, if
+ *     this function is called when the document tree looks like this:
+ *
+ *         <div>
+ *           <table id=pNode>
+ *             <tr>
+ *               <td>...</td>
+ *               <p id=pNewSibling>...</p>
+ *
+ *     it would be modified to the following:
+ *
+ *         <div>
+ *           <p id=pNewSibling>...</p>
+ *           <table id=pNode>
+ *             <tr>
+ *               <td>...</td>
  *
  * Results:
  *     None.
@@ -67,6 +160,8 @@ moveToLeftSibling(pNode, pNewSibling)
     int found = 0;
 
     assert(pOldParent && pNewParent);
+
+    int flags = 0;
 
     /* Remove pNewSibling from it's old parent */
     for (i = 0; i < HtmlNodeNumChildren(pOldParent); i++) {
@@ -126,9 +221,10 @@ reworkTableNode(pNode)
 {
     assert(HtmlNodeTagType(pNode) == Html_TABLE);
     int i;
+    int flags = NODE_EXT_IGNOREFORMS;
 
-    for (i = HtmlNodeNumChildren(pNode) - 1; i >= 0; i--) {
-        HtmlNode *pChild = HtmlNodeChild(pNode, i);
+    for (i = nodeNumChildrenExt(pNode, flags) - 1; i >= 0; i--) {
+        HtmlNode *pChild = nodeChildExt(pNode, i, flags);
         int tag = HtmlNodeTagType(pChild);
 
         if (tag == Html_TR) {
@@ -136,8 +232,8 @@ reworkTableNode(pNode)
              * moved to become a left-hand sibling of the <table>.
              */
             int j;
-            for (j = HtmlNodeNumChildren(pChild) - 1; j >= 0; j--) {
-                HtmlNode *pGrandChild = HtmlNodeChild(pChild, j);
+            for (j = nodeNumChildrenExt(pChild, flags) - 1; j >= 0; j--) {
+                HtmlNode *pGrandChild = nodeChildExt(pChild, j, flags);
                 int tag = HtmlNodeTagType(pGrandChild);
                 if (tag != Html_TD && tag != Html_TH) {
                     moveToLeftSibling(pNode, pGrandChild);
@@ -151,8 +247,8 @@ reworkTableNode(pNode)
         }
     }
 
-    for (i = 0; i < HtmlNodeNumChildren(pNode); i++) {
-        HtmlNode *pChild = HtmlNodeChild(pNode, i);
+    for (i = 0; i < nodeNumChildrenExt(pNode, flags); i++) {
+        HtmlNode *pChild = nodeChildExt(pNode, i, flags);
         int tag = HtmlNodeTagType(pChild);
         assert(tag == Html_TR || tag == Html_TD || tag == Html_TH);
         if (tag != Html_TR) {
@@ -166,8 +262,8 @@ reworkTableNode(pNode)
 
             int nMove;
             int j;
-            for (j = i + 1; j < HtmlNodeNumChildren(pNode); j++) {
-                HtmlNode *pSibling = HtmlNodeChild(pNode, j);
+            for (j = i + 1; j < nodeNumChildrenExt(pNode, flags); j++) {
+                HtmlNode *pSibling = nodeChildExt(pNode, j, flags);
                 int tag2 = HtmlNodeTagType(pSibling);
                 assert(tag2 == Html_TR || tag2 == Html_TD || tag2 == Html_TH);
                 if (tag2 == Html_TR) break;
@@ -732,8 +828,19 @@ walkTree(pTree, xCallback, pNode, clientData)
 {
     int i;
     if( pNode ){
-        xCallback(pTree, pNode, clientData);
-        for (i = 0; i<pNode->nChild; i++) {
+        int rc = xCallback(pTree, pNode, clientData);
+        switch (rc) {
+            case HTML_WALK_ABANDON:
+                return 1;
+            case HTML_WALK_DESCEND:
+                break;
+            case HTML_WALK_DO_NOT_DESCEND:
+                return 0;
+            default:
+                    assert(!"Bad return value from HtmlWalkTree() callback");
+        }
+
+        for (i = 0; i < pNode->nChild; i++) {
             HtmlNode *pChild = pNode->apChildren[i];
             int rc = walkTree(pTree, xCallback, pChild, clientData);
             assert(HtmlNodeParent(pChild) == pNode);
@@ -747,6 +854,18 @@ walkTree(pTree, xCallback, pNode, clientData)
  *---------------------------------------------------------------------------
  *
  * HtmlWalkTree --
+ *
+ *     Traverse the subset of document tree pTree rooted at pNode. If pNode is
+ *     NULL the entire tree is traversed. This function does a pre-order or
+ *     prefix traversal (each node is visited before it's children).
+ *
+ *     When a node is visited the supplied callback function is invoked. The
+ *     callback function must return one of the following three hash
+ *     defined values:
+ *
+ *         HTML_WALK_DESCEND
+ *         HTML_WALK_DO_NOT_DESCEND
+ *         HTML_WALK_ABANDON
  *
  * Results:
  *     None.

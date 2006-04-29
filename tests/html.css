@@ -239,5 +239,3 @@ IMG[hspace], OBJECT[hspace], APPLET[hspace] {
     margin-left: tcl(::tkhtml::attr hspace -len);
     margin-right: tcl(::tkhtml::attr hspace -len);
 }
-
-

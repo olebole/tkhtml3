@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlimage.c,v 1.47 2006/03/24 13:52:02 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlimage.c,v 1.48 2006/04/29 09:30:01 danielk1977 Exp $";
 
 #include <assert.h>
 #include "html.h"
@@ -251,7 +251,7 @@ imageChangedCb(pTree, pNode, clientData)
             HtmlCallbackLayout(pTree, pNode);
         }
     }
-    return 0;
+    return HTML_WALK_DESCEND;
 }
 
 /*

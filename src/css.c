@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.63 2006/04/28 14:18:34 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.64 2006/04/29 09:30:01 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -3215,7 +3215,7 @@ cssSearchCallback(pTree, pNode, clientData)
         Tcl_Obj *pCmd = HtmlNodeCommand(pSearch->pTree, pNode);
         Tcl_ListObjAppendElement(0, pSearch->pResult, pCmd);
     }
-    return 0;
+    return HTML_WALK_DESCEND;
 }
 
 /*

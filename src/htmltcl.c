@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.90 2006/04/27 16:32:31 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.91 2006/04/29 09:30:02 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -1147,7 +1147,7 @@ relayoutCb(pTree, pNode, clientData)
     ClientData clientData;
 {
     HtmlCallbackLayout(pTree, pNode);
-    return 0;
+    return HTML_WALK_DESCEND;
 }
 
 /*

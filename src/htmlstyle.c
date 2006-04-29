@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlstyle.c,v 1.25 2006/03/21 16:47:16 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlstyle.c,v 1.26 2006/04/29 09:30:02 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -122,7 +122,7 @@ styleNode(pTree, pNode, clientData)
         }
     }
 
-    return TCL_OK;
+    return HTML_WALK_DESCEND;
 }
 
 /*

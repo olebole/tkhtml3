@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.112 2006/04/28 07:16:15 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.113 2006/04/29 09:30:01 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -616,6 +616,22 @@ void HtmlDrawCopyCanvas(pTo, pFrom)
     }
 }
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * combineText --
+ *
+ *     This function is used to determine if two document tree nodes should be
+ *     considered sequential for the purposes of drawing the selection
+ *     background.
+ *
+ * Results:
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
 static int
 combineText(pNodeA, pNodeB) 
     HtmlNode *pNodeA;
@@ -627,7 +643,9 @@ combineText(pNodeA, pNodeB)
 
     assert(HtmlNodeIsText(pNodeA));
     assert(HtmlNodeIsText(pNodeB));
-    assert(pNodeA->iNode <= pNodeB->iNode);
+    /* assert(pNodeA->iNode <= pNodeB->iNode); */
+    if (pNodeA->iNode > pNodeB->iNode) return 0;
+    
 
     for (pA = pNodeA; pA && !pCommon; pA = HtmlNodeParent(pA)) {
         for (pB = pNodeB; pB && !pCommon; pB = HtmlNodeParent(pB)) {

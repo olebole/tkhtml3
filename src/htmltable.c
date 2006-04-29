@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.67 2006/03/26 12:24:58 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.68 2006/04/29 09:30:02 danielk1977 Exp $";
 
 #include "htmllayout.h"
 
@@ -81,7 +81,7 @@ typedef int (CellCallback)(HtmlNode *, int, int, int, int, void *);
 typedef int (RowCallback)(HtmlNode *, int, void *);
 
 /* Iterate through each cell in each row of the table. */
-static int tableIterate(HtmlNode*, CellCallback, RowCallback, void*);
+static int tableIterate(HtmlTree *,HtmlNode*, CellCallback, RowCallback, void*);
 
 /* Count the number of rows/columns in the table */
 static CellCallback tableCountCells;
@@ -509,6 +509,133 @@ tableDrawCells(pNode, col, colspan, row, rowspan, pContext)
     return TCL_OK;
 }
 
+struct RowIterateContext {
+    /* The cell and row callbacks */
+    int (*xRowCallback)(HtmlNode *, int, void *);
+    int (*xCallback)(HtmlNode *, int, int, int, int, void *);
+    ClientData clientData;        /* Client data for the callbacks */
+
+    /* The following two variables are used to keep track of cells that
+     * span multiple rows. The array aRowSpan is dynamically allocated as
+     * needed and freed before tableIterate() returns. The allocated size
+     * of aRowSpan is stored in nRowSpan.
+     * 
+     * When iterating through the columns in a row (i.e. <th> or <td> tags
+     * that are children of a <tr>) if a table cell with a rowspan greater
+     * than 1 is encountered, then aRowSpan[<col-number>] is set to
+     * rowspan. */
+    int nRowSpan;
+    int *aRowSpan;
+
+    int iMaxRow;        /* Index of the final row of table */
+
+    int iRow;           /* The current row number (first row is 0) */
+    int iCol;           /* The current col number (first row is 0) */
+};
+typedef struct RowIterateContext RowIterateContext;
+
+static int 
+cellIterate(pTree, pNode, clientData)
+    HtmlTree *pTree;
+    HtmlNode *pNode;
+    ClientData clientData;
+{
+    RowIterateContext *p = (RowIterateContext *)clientData;
+
+    if (DISPLAY(pNode->pPropertyValues) == CSS_CONST_TABLE_CELL) {
+        int nSpan;
+        int nRSpan;
+        int col_ok = 0;
+        char const *zSpan = 0;
+
+        /* Set nSpan to the number of columns this cell spans */
+        zSpan = HtmlNodeAttr(pNode, "colspan");
+        nSpan = zSpan?atoi(zSpan):1;
+        if (nSpan<0) {
+            nSpan = 1;
+        }
+
+        /* Set nRowSpan to the number of rows this cell spans */
+        zSpan = HtmlNodeAttr(pNode, "rowspan");
+        nRSpan = zSpan?atoi(zSpan):1;
+        if (nRSpan<0) {
+            nRSpan = 1;
+        }
+        /* Now figure out what column this cell falls in. The
+         * value of the 'col' variable is where we would like
+         * to place this cell (i.e. just to the right of the
+         * previous cell), but that might change based on cells
+         * from a previous row with a rowspan greater than 1.
+         * If this is true, we shift the cell one column to the
+         * right until the above condition is false.
+         */
+        do {
+            int k;
+            for (k = p->iCol; k < (p->iCol + nSpan); k++) {
+                if (k < p->nRowSpan && p->aRowSpan[k]) break;
+            }
+            if (k == (p->iCol + nSpan)) {
+                col_ok = 1;
+            } else {
+                p->iCol++;
+            }
+        } while (!col_ok);
+
+        /* Update the p->aRowSpan array. It grows here if required. */
+        if (nRSpan!=1) {
+            int k;
+            if (p->nRowSpan<(p->iCol+nSpan)) {
+                int n = p->iCol+nSpan;
+                p->aRowSpan = (int *)HtmlRealloc((char *)p->aRowSpan, 
+                        sizeof(int)*n);
+                for (k=p->nRowSpan; k<n; k++) {
+                    p->aRowSpan[k] = 0;
+                }
+                p->nRowSpan = n;
+            }
+            for (k=p->iCol; k<p->iCol+nSpan; k++) {
+                assert(k < p->nRowSpan);
+                p->aRowSpan[k] = (nRSpan>1?nRSpan:-1);
+            }
+        }
+
+        if (p->xCallback) {
+            p->xCallback(pNode, p->iCol, nSpan, p->iRow, nRSpan, p->clientData);
+        }
+        p->iCol += nSpan;
+        p->iMaxRow = MAX(p->iMaxRow, p->iRow + nRSpan - 1);
+        return HTML_WALK_DO_NOT_DESCEND;
+    }
+
+    /* If the node is not a {display:table-cell} node, then descend. */
+    return HTML_WALK_DESCEND;
+}
+
+static int 
+rowIterate(pTree, pNode, clientData)
+    HtmlTree *pTree;
+    HtmlNode *pNode;
+    ClientData clientData;
+{
+    RowIterateContext *p = (RowIterateContext *)clientData;
+    if (DISPLAY(pNode->pPropertyValues) == CSS_CONST_TABLE_ROW) {
+        int k;
+        p->iCol = 0;
+        HtmlWalkTree(pTree, pNode, cellIterate, clientData);
+        if (p->xRowCallback) {
+            p->xRowCallback(pNode, p->iRow, p->clientData);
+        }
+        p->iRow++;
+        for (k=0; k < p->nRowSpan; k++) {
+            if (p->aRowSpan[k]) p->aRowSpan[k]--;
+        }
+        return HTML_WALK_DO_NOT_DESCEND;
+    }
+
+    /* If the node is not a {display:table-row} node, then descend. */
+    return HTML_WALK_DESCEND;
+}
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -539,120 +666,27 @@ tableDrawCells(pNode, col, colspan, row, rowspan, pContext)
  *---------------------------------------------------------------------------
  */
 static int 
-tableIterate(pNode, xCallback, xRowCallback, pContext)
+tableIterate(pTree, pNode, xCallback, xRowCallback, pContext)
+    HtmlTree *pTree;
     HtmlNode *pNode;                               /* The <table> node */
     int (*xCallback)(HtmlNode *, int, int, int, int, void *);  /* Callback */
     int (*xRowCallback)(HtmlNode *, int, void *);  /* Row Callback */
     void *pContext;                                /* pContext of callbacks */
 {
-    int row = 0;
-    int i;
-    int maxrow = 0;
+    RowIterateContext sRowContext;
+    memset(&sRowContext, 0, sizeof(RowIterateContext));
 
-    /* The following two variables are used to keep track of cells that
-     * span multiple rows. The array aRowSpan is dynamically allocated as
-     * needed and freed before this function returns. The allocated size
-     * of aRowSpan is stored in nRowSpan.
-     * 
-     * When iterating through the columns in a row (i.e. <th> or <td> tags
-     * that are children of a <tr>) if a table cell with a rowspan greater
-     * than 1 is encountered, then aRowSpan[<col-number>] is set to
-     * rowspan.
-     */
-    int nRowSpan = 0;        /* Current allocated size of aRowSpans */
-    int *aRowSpan = 0;       /* Space to hold row-span data */
+    sRowContext.xRowCallback = xRowCallback;
+    sRowContext.xCallback  = xCallback;
+    sRowContext.clientData = (ClientData)pContext;
 
-    for (i=0; i<HtmlNodeNumChildren(pNode); i++) {
-        HtmlNode *pRow = HtmlNodeChild(pNode, i);
-        HtmlComputedValues *pV = pRow->pPropertyValues;
-        if (DISPLAY(pV) == CSS_CONST_TABLE_ROW) {
-            int col = 0;
-            int j;
-            int k;
-            for (j=0; j<HtmlNodeNumChildren(pRow); j++) {
-                HtmlNode *pCell = HtmlNodeChild(pRow, j);
-                HtmlComputedValues *pV = pCell->pPropertyValues;
-                if (DISPLAY(pV) == CSS_CONST_TABLE_CELL) {
-                    CONST char *zSpan;
-                    int nSpan;
-                    int nRSpan;
-                    int rc; 
-                    int col_ok = 0;
+    HtmlWalkTree(pTree, pNode, rowIterate, (ClientData)&sRowContext);
 
-                    /* Set nSpan to the number of columns this cell spans */
-                    zSpan = HtmlNodeAttr(pCell, "colspan");
-                    nSpan = zSpan?atoi(zSpan):1;
-                    if (nSpan<0) {
-                        nSpan = 1;
-                    }
-
-                    /* Set nRowSpan to the number of rows this cell spans */
-                    zSpan = HtmlNodeAttr(pCell, "rowspan");
-                    nRSpan = zSpan?atoi(zSpan):1;
-                    if (nRSpan<0) {
-                        nRSpan = 1;
-                    }
-
-                    /* Now figure out what column this cell falls in. The
-                     * value of the 'col' variable is where we would like
-                     * to place this cell (i.e. just to the right of the
-                     * previous cell), but that might change based on cells
-                     * from a previous row with a rowspan greater than 1.
-                     * If this is true, we shift the cell one column to the
-                     * right until the above condition is false.
-                     */
-                    do {
-                        for (k=col; k<(col+nSpan); k++) {
-                            if (k<nRowSpan && aRowSpan[k]) break;
-                        }
-                        if (k==(col+nSpan)) {
-                            col_ok = 1;
-                        } else {
-                            col++;
-                        }
-                    } while (!col_ok);
-
-                    /* Update the aRowSpan array. It grows here if required. */
-                    if (nRSpan!=1) {
-                        if (nRowSpan<(col+nSpan)) {
-                            int n = col+nSpan;
-                            aRowSpan = (int *)HtmlRealloc((char *)aRowSpan, 
-                                    sizeof(int)*n);
-                            for (k=nRowSpan; k<n; k++) {
-                                aRowSpan[k] = 0;
-                            }
-                            nRowSpan = n;
-                        }
-                        for (k=col; k<col+nSpan; k++) {
-                            aRowSpan[k] = (nRSpan>1?nRSpan:-1);
-                        }
-                    }
-
-                    maxrow = MAX(maxrow, row+nRSpan-1);
-                    rc = xCallback(pCell, col, nSpan, row, nRSpan, pContext);
-                    if (rc!=TCL_OK) {
-                        HtmlFree((char *)aRowSpan);
-                        return rc;
-                    }
-                    col += nSpan;
-                }
-            }
-            if (xRowCallback) {
-                xRowCallback(pRow, row, pContext);
-            }
-            row++;
-            for (k=0; k<nRowSpan; k++) {
-                if (aRowSpan[k]) aRowSpan[k]--;
-            }
-        }
+    while (sRowContext.iRow <= sRowContext.iMaxRow && xRowCallback) {
+        xRowCallback(0, sRowContext.iRow, pContext);
+        sRowContext.iRow++;
     }
-
-    while (row<=maxrow && xRowCallback) {
-        xRowCallback(0, row, pContext);
-        row++;
-    }
-
-    HtmlFree((char *)aRowSpan);
+    HtmlFree((char *)sRowContext.aRowSpan);
     return TCL_OK;
 }
 
@@ -998,6 +1032,7 @@ int HtmlTableLayout(pLayout, pBox, pNode)
     BoxContext *pBox;
     HtmlNode *pNode;          /* The node to layout */
 {
+    HtmlTree *pTree = pLayout->pTree;
     HtmlComputedValues *pV = pNode->pPropertyValues;
     int nCol = 0;             /* Number of columns in this table */
     int i;
@@ -1036,7 +1071,7 @@ int HtmlTableLayout(pLayout, pBox, pNode)
      * COLGROUP elements exist. For now though, always use the second 
      * method.
      */
-    tableIterate(pNode, tableCountCells, 0, &data);
+    tableIterate(pTree, pNode, tableCountCells, 0, &data);
     nCol = data.nCol;
 
     LOG {
@@ -1086,8 +1121,8 @@ int HtmlTableLayout(pLayout, pBox, pNode)
      * the same amount (plus or minus a pixel to account for integer
      * rounding).
      */
-    tableIterate(pNode, tableColWidthSingleSpan, 0, &data);
-    tableIterate(pNode, tableColWidthMultiSpan, 0, &data);
+    tableIterate(pTree, pNode, tableColWidthSingleSpan, 0, &data);
+    tableIterate(pTree, pNode, tableColWidthMultiSpan, 0, &data);
 
     LOG {
         HtmlTree *pTree = pLayout->pTree;
@@ -1170,7 +1205,7 @@ int HtmlTableLayout(pLayout, pBox, pNode)
     data.aY = aY;
     data.aCell = aCell;
     data.pBox = pBox;
-    tableIterate(pNode, tableDrawCells, tableDrawRow, &data);
+    tableIterate(pTree, pNode, tableDrawCells, tableDrawRow, &data);
 
     pBox->height = MAX(pBox->height, data.aY[data.nRow]);
     pBox->width = MAX(pBox->width, width);

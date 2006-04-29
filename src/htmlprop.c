@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.63 2006/04/27 17:42:43 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.64 2006/04/29 09:30:02 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1496,7 +1496,7 @@ HtmlComputedValuesSet(p, eProp, pProp)
             );
         case CSS_PROPERTY_MARGIN_TOP:
             return propertyValuesSetSize(p, &(p->values.margin.iTop),
-                PROP_MASK_MARGIN_TOP, pProp, 
+                PROP_MASK_MARGIN_TOP, pProp,
                 SZ_INHERIT|SZ_PERCENT|SZ_AUTO|SZ_NEGATIVE
             );
         case CSS_PROPERTY_MARGIN_LEFT:
@@ -1506,12 +1506,12 @@ HtmlComputedValuesSet(p, eProp, pProp)
             );
         case CSS_PROPERTY_MARGIN_RIGHT:
             return propertyValuesSetSize(p, &(p->values.margin.iRight),
-                PROP_MASK_MARGIN_RIGHT, pProp, 
+                PROP_MASK_MARGIN_RIGHT, pProp,
                 SZ_INHERIT|SZ_PERCENT|SZ_AUTO|SZ_NEGATIVE
             );
         case CSS_PROPERTY_MARGIN_BOTTOM:
             return propertyValuesSetSize(p, &(p->values.margin.iBottom),
-                PROP_MASK_MARGIN_BOTTOM, pProp, 
+                PROP_MASK_MARGIN_BOTTOM, pProp,
                 SZ_INHERIT|SZ_PERCENT|SZ_AUTO|SZ_NEGATIVE
             );
 

@@ -53,7 +53,7 @@ HtmlCssFreeDynamics(pNode)
 }
 
 
-int 
+static int 
 checkDynamicCb(pTree, pNode, clientData)
     HtmlTree *pTree;
     HtmlNode *pNode;
@@ -67,7 +67,7 @@ checkDynamicCb(pTree, pNode, clientData)
         }
         p->isSet = res;
     }
-    return 0;
+    return HTML_WALK_DESCEND;
 }
 
 void

@@ -158,6 +158,7 @@ Tcl_ObjCmdProc HtmlCssSearch;
 
 void HtmlCssCheckDynamic(HtmlTree *);
 void HtmlCssFreeDynamics(HtmlNode *);
+int HtmlCssTclNodeDynamics(Tcl_Interp *, HtmlNode *);
 
 #if 0
 
