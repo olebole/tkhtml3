@@ -159,14 +159,23 @@ struct HtmlToken {
  *
  *     $nodeHandle replace $pReplace \
  *             -configurecmd $pConfigure -deletecmd $pDelete
- *    
+ *
+ * The iOffset variable holds the integer returned by any -configurecmd
+ * script (default value 0). This is assumed to be the number of pixels
+ * between the bottom of the replacement window and the point that should
+ * be aligned with the bottom of a line-box. i.e. equivalent to the 
+ * "descent" property of a font.
  */
 struct HtmlNodeReplacement {
     Tcl_Obj *pReplace;            /* Replacement window name */
     Tk_Window win;                /* Replacement window */
     Tcl_Obj *pConfigure;          /* Script passed to -configurecmd */
     Tcl_Obj *pDelete;             /* Script passed to -deletecmd */
-    int iOffset;
+    int iOffset;                  /* See above */
+
+    HtmlNodeReplacement *pNext;   /* Next element in HtmlTree.pMapped list */
+    int iCanvasX;                 /* Current X canvas coordinate of window */
+    int iCanvasY;                 /* Current Y canvas coordinate of window */
 };
 
 /*
@@ -373,7 +382,9 @@ struct HtmlTree {
      */
     HtmlCanvas canvas;              /* Canvas to render into */
     int iCanvasWidth;               /* Width of window for canvas */
-    HtmlCanvasItem *pWindow;        /* List of currently mapped windows */
+
+    /* Linked list of currently mapped replacement objects */
+    HtmlNodeReplacement *pMapped;
 
     /* 
      * Tables managed by code in htmlprop.c. Initialised in function

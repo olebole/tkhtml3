@@ -17,7 +17,10 @@ source [file join [file dirname [info script]] hv3_widgets.tcl]
 # Class ::hv3::downloadmanager
 #
 snit::type ::hv3::downloadmanager {
-  variable myProtocol -array { file Hv3FileProtocol } 
+  variable myProtocol -array [list      \
+      file Hv3FileProtocol              \
+      slow {Hv3SlowDownload %AUTO%}     \
+  ]
   variable myDownloads {} 
   variable myBinary 0
 
@@ -170,6 +173,49 @@ proc Hv3FileProtocol {downloadHandle} {
 
   if {$rc} {
     after idle [list error $msg]
+  }
+}
+#--------------------------------------------------------------------------
+
+#--------------------------------------------------------------------------
+# Protocol implementation for slow:// protocol.
+#
+snit::type Hv3SlowDownload {
+  variable myData ""
+  variable myDownloadHandle 
+
+  option -chunk 1024
+  option -tick 300
+
+  constructor {downloadHandle} {
+    set myDownloadHandle $downloadHandle
+
+    set uri [$myDownloadHandle uri]
+    set uri_obj [Hv3Uri %AUTO% $uri]
+    set fname [$uri_obj cget -path]
+    $uri_obj destroy
+
+    set f [open $fname]
+    if {[$myDownloadHandle binary]} {
+      fconfigure $f -encoding binary -translation binary
+    }
+    set myData [read $f]
+    close $f
+    after $options(-tick) [mymethod tick]
+  }
+
+  destructor { }
+
+  method tick {} {
+    set data [string range $myData 0 $options(-chunk)]
+    set myData [string range $myData [expr $options(-chunk) + 1] end]
+    $myDownloadHandle append $data
+    if {[string length $myData] == 0} {
+      $myDownloadHandle finish
+      $self destroy
+    } else {
+      after $options(-tick) [mymethod tick]
+    }
   }
 }
 #--------------------------------------------------------------------------

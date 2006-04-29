@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.114 2006/04/29 10:22:31 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.115 2006/04/29 12:31:17 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -209,9 +209,6 @@ struct CanvasWindow {
     int x;                   /* Relative x coordinate */
     int y;                   /* Relative y coordinate */
     HtmlNode *pNode;         /* Node replaced by this window */
-    int iCanvasX;            /* Current canvas coordinate (if mapped) */
-    int iCanvasY;            /* Current canvas coordinate (if mapped) */
-    HtmlCanvasItem *pNext;   /* Next mapped window on this canvas */
 };
 
 /*
@@ -333,25 +330,25 @@ windowsRepair(pTree, pCanvas)
     int w         = (win ? Tk_Width(win) : 0);
     int h         = (win ? Tk_Height(win): 0);
 
-    HtmlCanvasItem *pItem = pTree->pWindow;
-    HtmlCanvasItem *pPrev = 0;
+    HtmlNodeReplacement *p = pTree->pMapped;
+    HtmlNodeReplacement *pPrev = 0;
 
-    /* Loop through the HtmlCanvas.pWindow list. For each mapped window
+    /* Loop through the HtmlCanvas.pMapped list. For each mapped window
      * that is clipped by the viewport, unmap the window (if mapped) and
      * remove it from the list. For each mapped window that is not clipped
      * by the viewport, reposition and map it (if unmapped).
      */
-    while (pItem) {
-        HtmlCanvasItem *pNext = pItem->x.w.pNext;
-        Tk_Window control = pItem->x.w.pNode->pReplacement->win;
+    while (p) {
+        HtmlNodeReplacement *pNext = p->pNext;
+        Tk_Window control = p->win;
         int iViewY; 
         int iWidth; 
         int iHeight; 
         int iViewX; 
 
         if (pTree) {
-            iViewX = pItem->x.w.iCanvasX - pTree->iScrollX;
-            iViewY = pItem->x.w.iCanvasY - pTree->iScrollY;
+            iViewX = p->iCanvasX - pTree->iScrollX;
+            iViewY = p->iCanvasY - pTree->iScrollY;
             iWidth = Tk_ReqWidth(control);
             iHeight = Tk_ReqHeight(control);
         }
@@ -365,22 +362,22 @@ windowsRepair(pTree, pCanvas)
                 Tk_UnmapWindow(control);
             }
             if (pPrev) {
-                assert(pPrev->x.w.pNext == pItem);
-                pPrev->x.w.pNext = pNext;
+                assert(pPrev->pNext == p);
+                pPrev->pNext = pNext;
             } else {
-                assert(pTree->pWindow == pItem);
-                pTree->pWindow = pNext;
+                assert(pTree->pMapped == p);
+                pTree->pMapped = pNext;
             }
-            pItem->x.w.pNext = 0;
+            p->pNext = 0;
         } else {
             Tk_MoveResizeWindow(control, iViewX, iViewY, iWidth, iHeight);
             if (!Tk_IsMapped(control)) {
                 Tk_MapWindow(control);
             }
-            pPrev = pItem;
+            pPrev = p;
         }
 
-        pItem = pNext;
+        p = pNext;
     }
 }
 
@@ -408,6 +405,15 @@ HtmlDrawCleanup(pTree, pCanvas)
 
     assert(pTree || !pCanvas->pFirst);
 
+    if (&pTree->canvas == pCanvas) {
+        HtmlNodeReplacement *p;
+        for (p = pTree->pMapped; p; p = p->pNext) {
+            p->iCanvasX = -10000;
+            p->iCanvasY = -10000;
+            assert(p->iCanvasX < 0 && p->iCanvasY < 0);
+        }
+    }
+
     pItem = pCanvas->pFirst;
     while (pItem) {
         Tcl_Obj *pObj = 0;
@@ -433,20 +439,8 @@ HtmlDrawCleanup(pTree, pCanvas)
                 break;
             case CANVAS_MARKER:
                 assert(pItem->x.marker.flags == MARKER_FIXED);
-            case CANVAS_WINDOW: {
-                if (pItem == pTree->pWindow) {
-                    pTree->pWindow = pItem->x.w.pNext;
-                } else {
-                    HtmlCanvasItem *pWin = pTree->pWindow;
-                    while (pWin && pWin->x.w.pNext != pItem) {
-                        pWin = pWin->x.w.pNext;
-                    }
-                    if (pWin) {
-                        assert(pWin->x.w.pNext == pItem);
-                        pWin->x.w.pNext = pItem->x.w.pNext;
-                    }
-                }
-            }
+                break;
+            case CANVAS_WINDOW:
             case CANVAS_BOX:
             case CANVAS_LINE:
                 break;
@@ -1954,17 +1948,16 @@ pixmapQueryCb(pItem, origin_x, origin_y, clientData)
         case CANVAS_WINDOW: {
             if (pQuery->getwin) {
                 HtmlTree *pTree = pQuery->pTree;
-                HtmlCanvasItem *p;
-                pItem->x.w.iCanvasX = origin_x + pItem->x.w.x;
-                pItem->x.w.iCanvasY = origin_y + pItem->x.w.y;
-                for (p = pTree->pWindow; p; p = p->x.w.pNext) {
-                    if (p == pItem || p->x.w.pNext == pItem) {
-                        break;
-                    }
-                }
+                HtmlNodeReplacement *pRep = pItem->x.w.pNode->pReplacement;
+                HtmlNodeReplacement *p;
+
+                pRep->iCanvasX = origin_x + pItem->x.w.x;
+                pRep->iCanvasY = origin_y + pItem->x.w.y;
+
+                for (p = pTree->pMapped; p && p != pRep; p = p->pNext);
                 if (!p) {
-                    pItem->x.w.pNext = pTree->pWindow;
-                    pTree->pWindow = pItem;
+                    pRep->pNext = pTree->pMapped;
+                    pTree->pMapped = pRep;
                 }
             }
             break;
@@ -2858,7 +2851,7 @@ HtmlWidgetRepair(pTree, x, y, w, h)
 {
     /* Make sure the widget main window exists before painting anything */
     Tk_MakeWindowExist(pTree->tkwin);
-    widgetRepair(pTree, x, y, w, h, 0);
+    widgetRepair(pTree, x, y, w, h, 1);
     windowsRepair(pTree, &pTree->canvas);
 }
 

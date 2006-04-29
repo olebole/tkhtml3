@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.64 2006/04/29 10:22:32 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.65 2006/04/29 12:31:17 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -459,19 +459,35 @@ clearReplacement(pTree, pNode)
     HtmlNodeReplacement *p = pNode->pReplacement;
     pNode->pReplacement = 0;
     if (p) {
+
+        /* If there is a delete script, invoke it now. */
         if (p->pDelete) {
-            /* If there is a delete script, invoke it now. */
             int flags = TCL_EVAL_DIRECT|TCL_EVAL_GLOBAL;
             Tcl_EvalObjEx(pTree->interp, p->pDelete, flags);
-            Tcl_DecrRefCount(p->pDelete);
         }
-        if (p->pReplace) {
-            /* Cancel geometry management */
-            if (p->win) {
-                Tk_ManageGeometry(p->win, 0, 0);
+
+	/* Remove any entry from the HtmlTree.pMapped list. */
+        if (p == pTree->pMapped) {
+            pTree->pMapped = p->pNext;
+        } else {
+            HtmlNodeReplacement *pCur = pTree->pMapped; 
+            while( pCur && pCur->pNext != p ) pCur = pCur->pNext;
+            if (pCur) {
+                pCur->pNext = p->pNext;
             }
-            Tcl_DecrRefCount(p->pReplace);
         }
+
+        /* Cancel geometry management */
+        if (p->win) {
+            if (Tk_IsMapped(p->win)) {
+                Tk_UnmapWindow(p->win);
+            }
+            Tk_ManageGeometry(p->win, 0, 0);
+        }
+
+        /* Delete the Tcl_Obj's and the structure itself. */
+        if (p->pDelete) Tcl_DecrRefCount(p->pDelete);
+        if (p->pReplace) Tcl_DecrRefCount(p->pReplace);
         if (p->pConfigure) Tcl_DecrRefCount(p->pConfigure);
         HtmlFree((char *)p);
     }
@@ -502,12 +518,27 @@ freeNode(pTree, pNode)
 {
     if( pNode ){
         int i;
+
+        /* Invalidate the cache of the parent node before deleting any
+         * child nodes. This is because invalidating a cache may involve
+         * deleting primitives that correspond to descendant nodes. In
+         * general, primitives must be deleted before their owner nodes.
+         */
+        HtmlLayoutInvalidateCache(pTree, pNode);
+
+        /* Delete the descendant nodes. */
         for(i=0; i<pNode->nChild; i++){
             freeNode(pTree, pNode->apChildren[i]);
         }
+        HtmlFree((char *)pNode->apChildren);
+
+        /* Delete the computed values caches. */
         HtmlComputedValuesRelease(pTree, pNode->pPropertyValues);
         HtmlComputedValuesRelease(pTree, pNode->pPreviousValues);
+
+        /* And the compiled cache of the node's "style" attribute, if any. */
         HtmlCssPropertiesFree(pNode->pStyle);
+
         if (pNode->pNodeCmd) {
             Tcl_Obj *pCommand = pNode->pNodeCmd->pCommand;
             Tcl_DeleteCommand(pTree->interp, Tcl_GetString(pCommand));
@@ -515,9 +546,8 @@ freeNode(pTree, pNode)
             HtmlFree((char *)pNode->pNodeCmd);
             pNode->pNodeCmd = 0;
         }
+
         clearReplacement(pTree, pNode);
-        HtmlFree((char *)pNode->apChildren);
-        HtmlLayoutInvalidateCache(pTree, pNode);
         HtmlCssFreeDynamics(pNode);
         HtmlFree((char *)pNode);
     }
