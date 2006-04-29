@@ -105,7 +105,7 @@ itcl::body HtmlDebug::browse {HTML {node ""}} {
 
 itcl::body HtmlDebug::browseNode {node} {
   wm state $myTopLevel normal
-  wm deiconify $myTopLevel
+  raise $myTopLevel
   $myReportHtml goto "tcl:///:$this report $node"
 }
 

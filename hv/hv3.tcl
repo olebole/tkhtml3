@@ -759,9 +759,9 @@ snit::widget hv3 {
   # Node handler script for <link> tags.
   #
   method link_node_handler {node} {
-    set rel  [$node attr -default "" rel]
+    set rel  [string tolower [$node attr -default "" rel]]
     set href [$node attr -default "" href]
-    set media [$node attr -default all media]
+    set media [string tolower [$node attr -default all media]]
     if {$rel eq "stylesheet" && $href ne "" && [regexp all|screen $media]} {
       set full_uri [$self resolve_uri $href]
       set id        author.[format %.4d [incr myStyleCount]]

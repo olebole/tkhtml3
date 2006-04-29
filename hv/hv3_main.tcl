@@ -150,6 +150,7 @@ snit::type ::hv3_browser::cookiemanager {
         [mymethod debug]
       }]
     }
+    raise $path
     ${path}.hv3 protocol report [mymethod download_report]
     ${path}.hv3 postdata POSTME!
     ${path}.hv3 goto report://
@@ -341,7 +342,7 @@ snit::widget hv3_browser {
     }
 
     if {$options(-stopbutton) ne ""} {
-      set s active
+      set s normal
       if {[llength $myHttpHandles] == 0} {set s disabled}
       $options(-stopbutton) configure -command [mymethod stop] -state $s
     }
