@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.151 2006/04/27 17:42:43 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.152 2006/04/29 10:22:31 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -2402,7 +2402,7 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
         pCache = (HtmlLayoutCache *)HtmlClearAlloc(sizeof(HtmlLayoutCache));
         pNode->pLayoutCache = pCache;
     }
-    HtmlDrawCleanup(&pCache->canvas);
+    HtmlDrawCleanup(pLayout->pTree, &pCache->canvas);
     pCache->flags &= ~(CACHE_LAYOUT_VALID);
     pCache->normalFlowIn.iMaxMargin = pNormal->iMaxMargin;
     pCache->normalFlowIn.iMinMargin = pNormal->iMinMargin;
@@ -2523,7 +2523,7 @@ blockMinMaxWidth(pLayout, pNode, pMin, pMax)
          */
         memset(&sBox, 0, sizeof(BoxContext));
         HtmlLayoutNodeContent(pLayout, &sBox, pNode);
-        HtmlDrawCleanup(&sBox.vc);
+        HtmlDrawCleanup(0, &sBox.vc);
         min = sBox.width;
     
         /* Figure out the maximum width of the box by pretending to lay it
@@ -2534,7 +2534,7 @@ blockMinMaxWidth(pLayout, pNode, pMin, pMax)
         memset(&sBox, 0, sizeof(BoxContext));
         sBox.iContaining = 10000;
         HtmlLayoutNodeContent(pLayout, &sBox, pNode);
-        HtmlDrawCleanup(&sBox.vc);
+        HtmlDrawCleanup(0, &sBox.vc);
         max = sBox.width;
 
         assert(max>=min);
@@ -2698,7 +2698,7 @@ HtmlLayout(pTree)
 
     /* Delete any existing document layout. */
     /* HtmlDrawDeleteControls(pTree, &pTree->canvas); */
-    HtmlDrawCleanup(&pTree->canvas);
+    HtmlDrawCleanup(pTree, &pTree->canvas);
     memset(&pTree->canvas, 0, sizeof(HtmlCanvas));
 
     /* Set up the layout context object. */
@@ -2801,11 +2801,12 @@ HtmlLayout(pTree)
  *---------------------------------------------------------------------------
  */
 void 
-HtmlLayoutInvalidateCache(pNode)
+HtmlLayoutInvalidateCache(pTree, pNode)
+    HtmlTree *pTree;
     HtmlNode *pNode;
 {
     if (pNode->pLayoutCache) {
-        HtmlDrawCleanup(&pNode->pLayoutCache->canvas);
+        HtmlDrawCleanup(pTree, &pNode->pLayoutCache->canvas);
         HtmlFree(pNode->pLayoutCache);
         pNode->pLayoutCache = 0;
     }

@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.113 2006/04/29 09:30:01 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.114 2006/04/29 10:22:31 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -333,7 +333,7 @@ windowsRepair(pTree, pCanvas)
     int w         = (win ? Tk_Width(win) : 0);
     int h         = (win ? Tk_Height(win): 0);
 
-    HtmlCanvasItem *pItem = pCanvas->pWindow;
+    HtmlCanvasItem *pItem = pTree->pWindow;
     HtmlCanvasItem *pPrev = 0;
 
     /* Loop through the HtmlCanvas.pWindow list. For each mapped window
@@ -368,8 +368,8 @@ windowsRepair(pTree, pCanvas)
                 assert(pPrev->x.w.pNext == pItem);
                 pPrev->x.w.pNext = pNext;
             } else {
-                assert(pCanvas->pWindow == pItem);
-                pCanvas->pWindow = pNext;
+                assert(pTree->pWindow == pItem);
+                pTree->pWindow = pNext;
             }
             pItem->x.w.pNext = 0;
         } else {
@@ -399,14 +399,14 @@ windowsRepair(pTree, pCanvas)
  *---------------------------------------------------------------------------
  */
 void 
-HtmlDrawCleanup(pCanvas)
+HtmlDrawCleanup(pTree, pCanvas)
+    HtmlTree *pTree;
     HtmlCanvas *pCanvas;
 {
     HtmlCanvasItem *pItem;
     HtmlCanvasItem *pPrev = 0;
 
-    /* Unmap any mapped replacement widgets. */
-    windowsRepair(0, pCanvas);
+    assert(pTree || !pCanvas->pFirst);
 
     pItem = pCanvas->pFirst;
     while (pItem) {
@@ -433,7 +433,20 @@ HtmlDrawCleanup(pCanvas)
                 break;
             case CANVAS_MARKER:
                 assert(pItem->x.marker.flags == MARKER_FIXED);
-            case CANVAS_WINDOW:
+            case CANVAS_WINDOW: {
+                if (pItem == pTree->pWindow) {
+                    pTree->pWindow = pItem->x.w.pNext;
+                } else {
+                    HtmlCanvasItem *pWin = pTree->pWindow;
+                    while (pWin && pWin->x.w.pNext != pItem) {
+                        pWin = pWin->x.w.pNext;
+                    }
+                    if (pWin) {
+                        assert(pWin->x.w.pNext == pItem);
+                        pWin->x.w.pNext = pItem->x.w.pNext;
+                    }
+                }
+            }
             case CANVAS_BOX:
             case CANVAS_LINE:
                 break;
@@ -781,8 +794,6 @@ void HtmlDrawCanvas(pCanvas, pCanvas2, x, y, pNode)
             pCanvas->pFirst = pCanvas2->pFirst;
             pCanvas->pLast = pCanvas2->pLast;
         }
-
-        assert(pCanvas->pWindow == 0 && pCanvas2->pWindow == 0);
     }
 
     pCanvas->left = MIN(pCanvas->left, x+pCanvas2->left);
@@ -1946,14 +1957,14 @@ pixmapQueryCb(pItem, origin_x, origin_y, clientData)
                 HtmlCanvasItem *p;
                 pItem->x.w.iCanvasX = origin_x + pItem->x.w.x;
                 pItem->x.w.iCanvasY = origin_y + pItem->x.w.y;
-                for (p = pTree->canvas.pWindow; p; p = p->x.w.pNext) {
+                for (p = pTree->pWindow; p; p = p->x.w.pNext) {
                     if (p == pItem || p->x.w.pNext == pItem) {
                         break;
                     }
                 }
                 if (!p) {
-                    pItem->x.w.pNext = pTree->canvas.pWindow;
-                    pTree->canvas.pWindow = pItem;
+                    pItem->x.w.pNext = pTree->pWindow;
+                    pTree->pWindow = pItem;
                 }
             }
             break;

@@ -36,21 +36,11 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlstyle.c,v 1.26 2006/04/29 09:30:02 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlstyle.c,v 1.27 2006/04/29 10:22:32 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
 #include <string.h>
-
-static void 
-invalidateAncestors(pNode)
-    HtmlNode *pNode;
-{
-    HtmlNode *p;
-    for (p = pNode; p; p = HtmlNodeParent(p)) {
-        HtmlLayoutInvalidateCache(p);
-    }
-}
 
 /*
  *---------------------------------------------------------------------------

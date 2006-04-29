@@ -221,9 +221,6 @@ struct HtmlCanvas {
     int bottom;
     HtmlCanvasItem *pFirst;
     HtmlCanvasItem *pLast;
-
-    int isWindowListOk;
-    HtmlCanvasItem *pWindow;
 };
 
 struct HtmlOptions {
@@ -376,6 +373,7 @@ struct HtmlTree {
      */
     HtmlCanvas canvas;              /* Canvas to render into */
     int iCanvasWidth;               /* Width of window for canvas */
+    HtmlCanvasItem *pWindow;        /* List of currently mapped windows */
 
     /* 
      * Tables managed by code in htmlprop.c. Initialised in function
@@ -462,7 +460,7 @@ CssProperty *HtmlNodeGetProperty(Tcl_Interp *, HtmlNode *, int);
 void HtmlNodeGetDefault(HtmlNode *, int , CssProperty *);
 void HtmlDeletePropertyCache(HtmlPropertyCache *);
 
-void HtmlDrawCleanup(HtmlCanvas *);
+void HtmlDrawCleanup(HtmlTree *, HtmlCanvas *);
 void HtmlDrawDeleteControls(HtmlTree *, HtmlCanvas *);
 
 void HtmlDrawCanvas(HtmlCanvas*,HtmlCanvas*,int,int,HtmlNode*);
@@ -530,7 +528,7 @@ Tcl_Obj *HtmlXImageToImage(HtmlTree *, XImage *, int, int);
 int HtmlImageAlphaChannel(HtmlTree *, HtmlImage2 *);
 
 void HtmlLayoutPaintNode(HtmlTree *, HtmlNode *);
-void HtmlLayoutInvalidateCache(HtmlNode *);
+void HtmlLayoutInvalidateCache(HtmlTree *, HtmlNode *);
 void HtmlWidgetNodeBox(HtmlTree *, HtmlNode *, int *, int *, int *, int *);
 
 void HtmlWidgetSetViewport(HtmlTree *, int, int, int);

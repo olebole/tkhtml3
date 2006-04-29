@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.91 2006/04/29 09:30:02 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.92 2006/04/29 10:22:32 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -562,7 +562,7 @@ HtmlCallbackLayout(pTree, pNode)
         }
         pTree->cb.flags |= HTML_LAYOUT;
         for (p = pNode; p; p = HtmlNodeParent(p)) {
-            HtmlLayoutInvalidateCache(p);
+            HtmlLayoutInvalidateCache(pTree, p);
         }
     }
 }

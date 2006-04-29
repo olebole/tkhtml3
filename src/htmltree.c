@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.63 2006/04/29 09:30:02 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.64 2006/04/29 10:22:32 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -517,7 +517,7 @@ freeNode(pTree, pNode)
         }
         clearReplacement(pTree, pNode);
         HtmlFree((char *)pNode->apChildren);
-        HtmlLayoutInvalidateCache(pNode);
+        HtmlLayoutInvalidateCache(pTree, pNode);
         HtmlCssFreeDynamics(pNode);
         HtmlFree((char *)pNode);
     }
@@ -1685,7 +1685,7 @@ int HtmlTreeClear(pTree)
     HtmlToken *pToken;
 
     /* Free the canvas representation */
-    HtmlDrawCleanup(&pTree->canvas);
+    HtmlDrawCleanup(pTree, &pTree->canvas);
     memset(&pTree->canvas, 0, sizeof(HtmlCanvas));
 
     /* Free the tree representation - pTree->pRoot */
