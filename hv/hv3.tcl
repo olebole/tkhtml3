@@ -905,6 +905,10 @@ snit::widget hv3 {
     return [$myUri get]
   }
 
+  method stop {} {
+    $myDownloadManager reset
+  }
+
   method html {} { return $myScrolledHtml }
   method hull {} { return $hull }
 

@@ -339,6 +339,18 @@ snit::widget hv3_browser {
       set value [$self node_to_string [lindex $myNodeList end]]
       uplevel #0 [subst {set $options(-statusvar) {$requests    $value}}]
     }
+
+    if {$options(-stopbutton) ne ""} {
+      set s active
+      if {[llength $myHttpHandles] == 0} {set s disabled}
+      $options(-stopbutton) configure -command [mymethod stop] -state $s
+    }
+  }
+ 
+  method stop {} {
+    set myHttpHandles [list]
+    $myHv3 stop
+    $self update_statusvar
   }
 
   method gotohistory {uri} {
@@ -373,6 +385,7 @@ snit::widget hv3_browser {
   }
 
   option -statusvar -default ""
+  option -stopbutton -default ""
 
   delegate option -locationvar   to myHistory
   delegate option -historymenu   to myHistory
@@ -438,8 +451,10 @@ proc gui_build {} {
   entry .entry.entry
   button .entry.clear   -text {Clear ->} -command {.entry.entry delete 0 end}
   button .entry.back    -text {Back} 
+  button .entry.stop    -text {Stop} 
   button .entry.forward -text {Forward}
   pack .entry.back -side left
+  pack .entry.stop -side left
   pack .entry.forward -side left
   pack .entry.clear -side left
   pack .entry.entry -fill both -expand true
@@ -496,6 +511,7 @@ proc gui_build {} {
   .m add cascade -label {History} -menu [menu .m.history]
   .hv3 configure -historymenu .m.history
   .hv3 configure -backbutton .entry.back
+  .hv3 configure -stopbutton .entry.stop
   .hv3 configure -forwardbutton .entry.forward
 }
 
