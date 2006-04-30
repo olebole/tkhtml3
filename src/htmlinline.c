@@ -31,7 +31,7 @@
  * 
  *     HtmlInlineContextIsEmpty
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.15 2006/04/19 16:10:51 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.16 2006/04/30 16:40:33 danielk1977 Exp $";
 
 typedef struct InlineBox InlineBox;
 
@@ -658,6 +658,10 @@ HtmlInlineContextGetLineBox(pLayout, p, pWidth, flags, pCanvas, pVSpace,pAscent)
 	     * it to help close an inline-border.
              */
             if (p->nInline > 1 || forceline) {
+                InlineBox *pBox = &p->aInline[i];
+                assert(lineboxwidth == 0);
+                lineboxwidth = pBox->nContentPixels;
+                lineboxwidth += pBox->nRightPixels + pBox->nLeftPixels;
                 nBox = 1;
             } else {
                 *pWidth = 0;

@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.152 2006/04/29 10:22:31 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.153 2006/04/30 16:40:33 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -466,6 +466,12 @@ nodeIsReplaced(pNode)
  *
  *     This FlowLayoutFunc is called to add a floating box to a normal 
  *     flow. pNode is the node with the 'float' property set.
+ *
+ *     Parameter pY is a pointer to the current Y coordinate in pBox.
+ *     The top-edge of the floating box is drawn at or below *pY. Unlike
+ *     other normalFlowLayoutXXX() functions, *pY is never modified by
+ *     this function. Floating boxes do not increase the current Y 
+ *     coordinate.
  * 
  * Results:
  *     None.
@@ -476,12 +482,12 @@ nodeIsReplaced(pNode)
  *---------------------------------------------------------------------------
  */
 static int 
-normalFlowLayoutFloat(pLayout, pBox, pNode, pY, pContext, pNormal)
-    LayoutContext *pLayout;  /* Layout context */
-    BoxContext *pBox;        /* Containing box context */
-    HtmlNode *pNode;         /* Node that generates floating box */
-    int *pY;                 /* IN/OUT: y-coord to draw float at */
-    InlineContext *pContext;
+normalFlowLayoutFloat(pLayout, pBox, pNode, pY, pDoNotUse, pNormal)
+    LayoutContext *pLayout;   /* Layout context */
+    BoxContext *pBox;         /* Containing box context */
+    HtmlNode *pNode;          /* Node that generates floating box */
+    int *pY;                  /* IN/OUT: y-coord to draw float at */
+    InlineContext *pDoNotUse; /* Unused by this function */
     NormalFlow *pNormal;
 {
     HtmlComputedValues *pV = pNode->pPropertyValues;
@@ -502,7 +508,6 @@ normalFlowLayoutFloat(pLayout, pBox, pNode, pY, pContext, pNormal)
 
     memset(&sBox, 0, sizeof(BoxContext));
     sBox.iContaining = iContaining;
-
 
     /* The following two lines set variable 'y' to the y-coordinate for the top
      * outer-edge of the floating box. This might be increased (but not
@@ -552,6 +557,7 @@ normalFlowLayoutFloat(pLayout, pBox, pNode, pY, pContext, pNormal)
         int c = pLayout->minmaxTest ? PIXELVAL_AUTO : iContaining;
         int iWidth = PIXELVAL(pV, WIDTH, c);
         int iHeight = PIXELVAL(pV, HEIGHT, c);
+        int isAuto = 0;
 
         nodeGetBoxProperties(pLayout, pNode, iContaining, &box);
 
@@ -567,6 +573,7 @@ normalFlowLayoutFloat(pLayout, pBox, pNode, pY, pContext, pNormal)
             iAvailable -= (box.iLeft + box.iRight);
 	    blockMinMaxWidth(pLayout, pNode, &iMin, &iMax);
             iWidth = MIN(MAX(iMin, iAvailable), iMax);
+            isAuto = 1;
         }
 
         /* Layout the node content into sContent. Then add the border and
@@ -575,8 +582,14 @@ normalFlowLayoutFloat(pLayout, pBox, pNode, pY, pContext, pNormal)
         memset(&sContent, 0, sizeof(BoxContext));
         sContent.iContaining = iWidth;
         HtmlLayoutNodeContent(pLayout, &sContent, pNode);
-        sContent.width = MAX(iWidth, sContent.width);
         sContent.height = MAX(iHeight, sContent.height);
+
+        if (!isAuto) {
+            sContent.width = iWidth;
+        } else {
+            sContent.width = MAX(iWidth, sContent.width);
+        }
+
         wrapContent(pLayout, &sBox, &sContent, pNode);
     }
 
