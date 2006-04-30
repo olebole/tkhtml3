@@ -610,12 +610,7 @@ snit::type Hv3HttpProtcol {
     if {[info exists state(meta)]} {
       foreach {name value} $state(meta) {
         if {$name eq "Set-Cookie"} {
-          puts "COOKIE: $value"
           regexp {^([^= ]*)=([^ ;]*)} $value dummy name value
-puts "authority=[$downloadHandle authority]"
-puts "name=$name"
-puts "value=$value"
-
           $myCookieManager add_cookie [$downloadHandle authority] $name $value
         }
       }

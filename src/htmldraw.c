@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.115 2006/04/29 12:31:17 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.116 2006/04/30 11:33:50 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -2772,8 +2772,6 @@ HtmlWidgetNodeBox(pTree, pNode, pX, pY, pW, pH)
 {
     HtmlCanvas *pCanvas = &pTree->canvas;
     LayoutBboxQuery sQuery;
-    int ymin;
-    int ymax;
 
     HtmlCallbackForce(pTree);
 
@@ -2783,9 +2781,7 @@ HtmlWidgetNodeBox(pTree, pNode, pX, pY, pW, pH)
     sQuery.bottom = pCanvas->top;
     sQuery.pNode = pNode;
 
-    ymin = pTree->iScrollY;
-    ymax = pTree->iScrollY + Tk_Height(pTree->tkwin);
-    searchCanvas(pTree, ymin, ymax, 0, layoutBboxCb, (ClientData)&sQuery);
+    searchCanvas(pTree, -1, -1, 0, layoutBboxCb, (ClientData)&sQuery);
 
     if (sQuery.left < sQuery.right && sQuery.top < sQuery.bottom) {
         *pX = sQuery.left;

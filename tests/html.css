@@ -5,7 +5,7 @@
                 { display: block }
 
 HEAD, SCRIPT, TITLE { display: none }
-BODY                { padding: 8px; }
+BODY                { margin: 8px; }
 
 /* Rules for unordered-lists */
 LI                   { display: list-item }
