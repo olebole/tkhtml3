@@ -324,8 +324,6 @@ itcl::body HtmlDebug::report {{node ""}} {
           td          { padding:0px 15px; }
           table       { margin: 20px; }
 
-          td:hover    { background: grey80 }
-
           /* Elements of class "code" are rendered in fixed font */
           .code       { font-family: fixed; }
 

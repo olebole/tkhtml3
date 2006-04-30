@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.69 2006/04/29 14:35:37 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.70 2006/04/30 10:32:22 danielk1977 Exp $";
 
 #include "htmllayout.h"
 
@@ -690,6 +690,59 @@ tableIterate(pTree, pNode, xCallback, xRowCallback, pContext)
     return TCL_OK;
 }
 
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * allocatePixels --
+ *
+ * Results:
+ *     Returns the number of pixels allocated.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+allocatePixels(iAvailable, nCol, aRequested, aWidth)
+    int iAvailable;
+    int nCol;
+    int *aRequested;
+    int *aWidth;
+{
+    int iTotalRequest = 0;
+    int iRet = iAvailable;
+    int i;
+
+    assert(iAvailable >= 0);
+    assert(nCol >= 0);
+
+    for (i = 0; i < nCol; i++) {
+        assert(aWidth[i] >= 0);
+        assert(aRequested[i] >= 0);
+        iTotalRequest += aRequested[i];
+    }
+
+    if (iAvailable >= iTotalRequest) {
+        for (i = 0; i < nCol; i++) {
+            aWidth[i] += aRequested[i];
+        }
+        iRet = iTotalRequest;
+    } else {
+        int iRemaining = iAvailable;
+        assert(iTotalRequest > 0);
+        for (i = 0; i < nCol && iTotalRequest > 0; i++) {
+            int alloc = (aRequested[i] * iRemaining) / iTotalRequest;
+            aWidth[i] += alloc;
+            iRemaining -= alloc;
+            iTotalRequest -= aRequested[i];
+        }
+        assert(iRemaining == 0);
+    }
+    return iRet;
+}
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -698,7 +751,7 @@ tableIterate(pTree, pNode, xCallback, xRowCallback, pContext)
  *     Decide on some actual widths for the cells, based on the maximum and
  *     minimum widths, the total width of the table and the floating
  *     margins. As far as I can tell, neither CSS nor HTML specify exactly
- *     how to do this. 
+ *     how to do this.
  *
  *     The inputs to the algorithm are the following quantities for each
  *     column (in arrays TableData.aMinWidth, aMaxWidth, aWidth and
@@ -707,7 +760,7 @@ tableIterate(pTree, pNode, xCallback, xRowCallback, pContext)
  *         * An explicit pixel width (if 'width' is neither "auto" or a %).
  *         * The minimum content width.
  *         * The maximum content width.
- *         * A percentage pixel width (if 'width is a %).
+ *         * A percentage pixel width (if 'width' is a %).
  *
  *     And:
  *
@@ -754,7 +807,7 @@ tableIterate(pTree, pNode, xCallback, xRowCallback, pContext)
  *            This step never decreases a percentage width below min%.
  *
  *         5. Assign widths to all columns not assigned widths in step 1
- *            are calculated according to their assigned percentages with
+ *            or calculated according to their assigned percentages with
  *            respect to the available width.
  *
  *     Using this algorithm the actual sum of the assigned table widths may
@@ -762,6 +815,8 @@ tableIterate(pTree, pNode, xCallback, xRowCallback, pContext)
  *     parameter to this function. The actual column widths should be used
  *     to calculate an actual table width - irrespective of the 'width'
  *     attribute - after this function has run.
+ *
+ *     Note: "BasicTableLayoutStrategy.cpp" contains the analogous Gecko code.
  *
  * Results:
  *     None.
@@ -778,208 +833,354 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
     int isAuto;            /* True if the 'width' of the <table> was "auto" */
 {
     int i;                    /* Counter variable for small loops */
-    int explicit;             /* Pixels used by explicit + minimum widths. */
+    int iRem;                 /* Pixels remaining (from availablewidth) */
     int nCol = pData->nCol;
     LayoutContext *pLayout = pData->pLayout;
 
     /* Local handles for the input arrays */
-    int   *aWidth = pData->aWidth;
-    int   *aMinWidth = pData->aMinWidth;
-    int   *aMaxWidth = pData->aMaxWidth;
-    float *aPercentWidth = pData->aPercentWidth;
+    int   *aWidth         = pData->aWidth;
+    int   *aMinWidth      = pData->aMinWidth;
+    int   *aMaxWidth      = pData->aMaxWidth;
+    float *aPercentWidth  = pData->aPercentWidth;
     int   *aExplicitWidth = pData->aExplicitWidth;
 
-    static const int PIXELVAL_PERCENT = -1; 
-    assert(PIXELVAL_AUTO != PIXELVAL_PERCENT);
+#define COL_ISPERCENT(x)  (aPercentWidth[x] >= 0.01)
+#define COL_ISEXPLICIT(x) (aExplicitWidth[x] != PIXELVAL_AUTO)
+#define COL_ISAUTO(x)     (!COL_ISEXPLICIT(x) && !COL_ISPERCENT(x))
 
-    /* Allocate either the explicit or minimum width to each cell.  The
-     * total number of pixels allocated by this phase is stored in variable
-     * 'explicit'.  */
-    explicit = 0;
+    /* Summary of columns with percentage widths */
+    float min_ratio;      /* Minimum desired pixels per percentage point */
+    float exp_ratio;      /* Minimum desired pixels per percentage point */
+    float percent_sum;    /* Sum of percentage widths */
+    int isPercentOver;    /* True if (percent_sum >= 100.0) */
+
+    int nPercentWidth;    /* Number of columns with percentage widths */
+    int nAutoWidth;       /* Number of columns with "auto" widths */
+
+    int *aRequested;      /* Array used as arg to allocatePixels() */
+
+    /* The following two variables are used only within "LOG {...}" blocks.
+     * They are used to accumlate information that is logged before
+     * this function returns. 
+     */
+    static const int NUM_LOGVALUES = 5; 
+    int  *aLogValues;
+    LOG { 
+        aLogValues = (int *)HtmlAlloc(sizeof(int) * nCol * NUM_LOGVALUES); 
+    }
+
+    /* A rather lengthy block to log the inputs to this function. */
+    LOG {
+        HtmlTree *pTree = pLayout->pTree;
+        int ii;
+
+        char zPercent[24];
+        Tcl_Obj *pLog = Tcl_NewObj();
+        Tcl_IncrRefCount(pLog);
+
+        Tcl_AppendToObj(pLog, "Inputs to column width algorithm: ", -1);
+        Tcl_AppendToObj(pLog, "<p>Available width is ", -1);
+        Tcl_AppendObjToObj(pLog, Tcl_NewIntObj(availablewidth));
+        Tcl_AppendToObj(pLog, "  (width property was <b>", -1);
+        Tcl_AppendToObj(pLog, isAuto ? "auto</b>" : "not</b> auto", -1);
+        Tcl_AppendToObj(pLog, ")</p>", -1);
+
+        Tcl_AppendToObj(pLog, 
+            "<table><tr>"
+            "  <th>Col Number"
+            "  <th>Min Content Width"
+            "  <th>Max Content Width"
+            "  <th>Explicit Width"
+            "  <th>Percentage Width", -1);
+
+        for (ii = 0; ii < nCol; ii++) {
+            int jj;
+
+            Tcl_AppendToObj(pLog, "<tr><td>", -1);
+            Tcl_AppendObjToObj(pLog, Tcl_NewIntObj(ii));
+
+            for (jj = 0; jj < 3; jj++) {
+                int val;
+                switch (jj) {
+                    case 0: val = aMinWidth[ii]; break;
+                    case 1: val = aMaxWidth[ii]; break;
+                    case 2: val = aExplicitWidth[ii]; break;
+                }
+                Tcl_AppendToObj(pLog, "<td>", -1);
+                if (val != PIXELVAL_AUTO) {
+                    Tcl_AppendObjToObj(pLog, Tcl_NewIntObj(val));
+                    Tcl_AppendToObj(pLog, "px", -1);
+                } else {
+                    Tcl_AppendToObj(pLog, "N/A", -1);
+                }
+            }
+
+            Tcl_AppendToObj(pLog, "<td>", -1);
+            if (aPercentWidth[ii] >= 0.0) {
+                sprintf(zPercent, "%.2f%%", aPercentWidth[ii]);
+            } else {
+                sprintf(zPercent, "N/A");
+            }
+            Tcl_AppendToObj(pLog, zPercent, -1);
+        }
+        Tcl_AppendToObj(pLog, "</table>", -1);
+
+        HtmlLog(pTree, "LAYOUTENGINE", "%s tableCalculateCellWidths() %s",
+            Tcl_GetString(HtmlNodeCommand(pTree, pData->pNode)), 
+            Tcl_GetString(pLog)
+        );
+
+        Tcl_DecrRefCount(pLog);
+    }
+
+    /* Allocate the aRequested array. It will be freed before returning. */
+    aRequested = (int *)HtmlAlloc(sizeof(int) * nCol);
+
+    /* Step 1. Allocate each column it's minimum content width. */
+    iRem = availablewidth;
     for (i = 0; i < nCol; i++) {
         assert(aWidth[i] == 0);
         assert(aExplicitWidth[i] >= 0 || aExplicitWidth[i] == PIXELVAL_AUTO);
-
-        /* aWidth[i] = MAX(aExplicitWidth[i], aMinWidth[i]); */
-        if (aExplicitWidth[i] == PIXELVAL_AUTO) {
-            aWidth[i] = aMinWidth[i];
-        } else {
-            aWidth[i] = aExplicitWidth[i];
-        }
-        explicit += aWidth[i];
+        aWidth[i] = aMinWidth[i];
+        iRem -= aWidth[i];
     }
+    LOG { memcpy(&aLogValues[0 * nCol], aWidth, sizeof(int) * nCol); }
 
-    /* If the number of pixels already allocated is less than than the
-     * available width, then distribute remaining pixels between the
-     * columns with percentage or "auto" widths. Otherwise, do nothing,
-     * layout is complete.
+    /* Variable iRem contains the number of remaining pixels to split up
+     * between the columns. At this point, iRem may be negative, if the
+     * minimum-content-width of the cells is less than the available width.
+     * In this case, set iRem to zero so that subsequent code does not
+     * have to deal with a negative value. 
      *
-     * Exactly how those pixels are distributed is the tricky bit:
+     * If the subsequent operations allocate more than iRem pixels (making 
+     * iRem negative), this is a bug. They are not supposed to do that. Only
+     * the "allocate minimum widths" step above can force a table to be wider
+     * than availablewidth.
      */
-    if (explicit < availablewidth) {
-        float percent = 0.0;       /* Total percent requested by % cols */
-        float min_ratio = 0.0;     /* min pixels per percentage point */
-        int other_pix = 0;         /* Number of pixels allocate to non % cols */
-        int allocated;
+    iRem = MAX(0, iRem);
 
-	/* 1. Add pixels to columns with percentage widths to try to
-         *    meet percentage width constraints.
+    /* Analyse any columns with percentage widths. This block sets the
+     * min_ratio, exp_ratio, percent_sum and nPercentWidth variables.
+     */ 
+    min_ratio = 0.0;    /* Minimum desired pixels per percentage point */
+    exp_ratio = 0.0;    /* Explicitly desired pixels per percentage point */
+    percent_sum = 0.0;
+    nPercentWidth = 0;
+    nAutoWidth = 0;
+    for (i = 0; i < nCol; i++) {
+        /* Check the integrity of the COL_xxx macros. A column may be
+         * either "auto", or one or both of "percent" and "explicit". 
          */
-        for (i = 0; i < nCol; i++) {
-            if (aExplicitWidth[i] == PIXELVAL_AUTO && aPercentWidth[i] >= 0.0) {
-                if (aPercentWidth[i] > 0.01) {
-                    float ratio = (float)aMinWidth[i] / aPercentWidth[i];
-                    min_ratio = MAX(min_ratio, ratio);
-                }
-                percent += aPercentWidth[i];
-            } else {
-                other_pix += aWidth[i];
-            }
-        }
-        if (percent < 100.0) {
-            float other_percent = 100.0 - percent;
-            float ratio = (float)other_pix / other_percent;
-            min_ratio = MAX(min_ratio, ratio);
-        }
-        allocated = other_pix;
-        for (i = 0; i < nCol; i++) {
-            if (aExplicitWidth[i] == PIXELVAL_AUTO && aPercentWidth[i] >= 0.0) {
-                int w = (int)(min_ratio * aPercentWidth[i]);
-                assert(w >= (aMinWidth[i]-1));
-                aWidth[i] = MAX(aMinWidth[i], w);
-                allocated += aWidth[i];
-            }
-        }
+        assert(COL_ISAUTO(i) || COL_ISPERCENT(i) || COL_ISEXPLICIT(i));
+        assert(!(COL_ISAUTO(i) && COL_ISPERCENT(i)));
+        assert(!(COL_ISAUTO(i) && COL_ISEXPLICIT(i)));
 
-        LOG {
-            HtmlTree *pTree = pLayout->pTree;
-            Tcl_Obj *pObj = Tcl_NewObj();
-            Tcl_IncrRefCount(pObj);
-            for (i = 0; i < nCol; i++) {
-                Tcl_ListObjAppendElement(0, pObj, Tcl_NewIntObj(aWidth[i]));
-            }
-            HtmlLog(pTree, "LAYOUTENGINE", "%s tableCalculateCellWidths() %s",
-                Tcl_GetString(HtmlNodeCommand(pTree, pData->pNode)), 
-                Tcl_GetString(pObj)
-            );
-        }
+        if (COL_ISPERCENT(i)) {
+            float m;
+            percent_sum += aPercentWidth[i];
+            nPercentWidth++;
 
-        if (allocated < availablewidth && percent < 100.0 && other_pix > 0) {
-	    /* In this case we grow any columns that had the 'width'
-             * property set to "auto". All "auto" columns grow, in
-             * proportion to the different between their max and min 
-             * widths. Percentage width columns also grow here.
-             */
-            float other_percent = 100.0 - percent;
-            float xtra_percent = 0.0;
-            int requested = 0;   /* Total requested pixels by "auto" columns */
-            int granted;
-            int total_requested;
+            m = ((float)aWidth[i]) / aPercentWidth[i];
+            min_ratio = MAX(min_ratio, m);
 
-            for (i = 0; i < nCol; i++) {
-                if (
-                    aExplicitWidth[i] == PIXELVAL_AUTO && 
-                    aPercentWidth[i] < 0.0
-                ) {
-                    requested += aMaxWidth[i] - aMinWidth[i];
-                }
-            }
-
-            total_requested = (int)((float)(requested * 100) / other_percent);
-            if (isAuto) {
-                granted = MIN(availablewidth - allocated, total_requested);
-            } else {
-                granted = (availablewidth - allocated);
-                if (percent < 0.01 && requested == 0) {
-                    xtra_percent = (100.0 / (float)nCol);
-                }
-            }
-            assert(total_requested >= 0);
-            assert(granted >= 0);
-            assert(granted > 0 || total_requested == 0);
-
-            for (i = 0; i < nCol; i++) {
-                if (aExplicitWidth[i] == PIXELVAL_AUTO) {
-                    if (aPercentWidth[i] < 0.0) {
-                        if (granted == total_requested || !total_requested) {
-                            assert(aWidth[i] == aMinWidth[i]);
-                            assert(aMaxWidth[i] >= aWidth[i]);
-                            aWidth[i] = aMaxWidth[i];
-                        } else {
-                            int r = aMaxWidth[i] - aMinWidth[i];
-                            r = r * ((float)granted / (float)total_requested);
-                            assert(r >= 0);
-                            aWidth[i] += r;
-                        }
-                        aWidth[i] += ((xtra_percent * (float)granted)/100.0);
-                    } else {
-                        int r =  (int)((aPercentWidth[i]*(float)granted)/100.0);
-                        assert(r >= 0);
-                        aWidth[i] += r;
-                    }
-                }
+            if (aExplicitWidth >= 0) {
+                m = ((float)aExplicitWidth[i]) / aPercentWidth[i];
+                exp_ratio = MAX(exp_ratio, m);
             }
         } 
-
-        allocated = 0;
-        for (i = 0; i < nCol; i++) {
-            allocated += aWidth[i];
-        }
-
-        if (allocated < availablewidth && percent > 0.0) {
-            int granted = 0;
-            if (isAuto) {
-                for (i = 0; i < nCol; i++) {
-                    if (
-                        aExplicitWidth[i] == PIXELVAL_AUTO &&
-                        aPercentWidth[i] > 0.0 &&
-                        aWidth[i] < aMaxWidth[i]
-                    ) {
-                        float d = (float)(aMaxWidth[i] - aWidth[i]);
-                        int g = (int)(d * percent/ aPercentWidth[i]);
-                        granted = MAX(granted, g);
-                    }
-                }
-                granted = MIN(granted, availablewidth - allocated);
-            } else {
-                granted = availablewidth - allocated;
-            }
-
-            for (i = 0; i < nCol; i++) {
-                if (aExplicitWidth[i]==PIXELVAL_AUTO && aPercentWidth[i]>0.0) {
-                    int d = (int)((float)granted * (aPercentWidth[i]/percent));
-                    aWidth[i] += d;
-                    allocated += d;
-                }
-            }
-        }
-
-        if (availablewidth < allocated) {
-            int freeable = 0;
-            int nFree = 0;
-            for (i = 0; i < nCol; i++) {
-                if (
-                    aExplicitWidth[i] == PIXELVAL_AUTO &&
-                    aPercentWidth[i] > 0.0
-                ) {
-                    assert(aWidth[i] >= aMinWidth[i]);
-                    freeable += (aWidth[i] - aMinWidth[i]);
-                }
-            }
-
-            nFree = MIN(allocated - availablewidth, freeable);
-            for (i = 0; i < nCol; i++) {
-                if (
-                    aExplicitWidth[i] == PIXELVAL_AUTO &&
-                    aPercentWidth[i] > 0.0
-                ) {
-                    int t = (aWidth[i] - aMinWidth[i]);
-                    int f = (int)((float)t * ((float)nFree / (float)freeable));
-                    aWidth[i] -= f;
-                }
-            }
+        if (COL_ISAUTO(i)) {
+            nAutoWidth++;
         }
     }
+    isPercentOver = ((percent_sum > 99.9) ? 1 : 0);
+
+    if (!isPercentOver && nPercentWidth < nCol) {
+        int iTotalOtherMinWidth = 0;
+        int iTotalOtherExpWidth = 0;
+        for (i = 0; i < nCol; i++) {
+            if (COL_ISPERCENT(i)) {
+                iTotalOtherMinWidth += aWidth[i];
+                iTotalOtherExpWidth += MAX(0, aExplicitWidth[i]);
+            }
+        }
+        min_ratio = MAX(min_ratio,
+            (float)(iTotalOtherMinWidth) / (100.0 - percent_sum)
+        );
+        exp_ratio = MAX(exp_ratio,
+            (float)(iTotalOtherExpWidth) / (100.0 - percent_sum)
+        );
+    } else if (percent_sum >= 0.01) {
+        /* If the sum of the % widths is greater than 100.0, divide
+         * up all the remaining space amongst percentage columns.
+         *
+         * Note: The formula below could just as easily be:
+         *
+         *     min_ratio = (float)(availablewidth) / percent_sum;
+         *
+         * But we double all the requests to make sure all pixels are 
+         * allocated, even if a nasty rounding error occurs.
+         */
+        min_ratio = ((float)(2 * availablewidth)) / percent_sum;
+    }
+
+    /* Step 2. Add pixels to columns with percentage widths to try to
+     * satisfy percentage constraints. Do not exceed the available-width
+     * in pursuit of this goal. 
+     */
+    if (nPercentWidth > 0) {
+        /* Try to grow columns with % widths to meet the % constraints. */
+        for (i = 0; i < nCol; i++) {
+            aRequested[i] = 0;
+            if (aPercentWidth[i] >= 0.01) {
+                int diff = ((min_ratio * aPercentWidth[i]) - aWidth[i]);
+                aRequested[i] = MAX(diff, 0);
+            }
+        }
+        iRem -= allocatePixels(iRem, nCol, aRequested, aWidth);
+    }
+    LOG { memcpy(&aLogValues[1 * nCol], aWidth, sizeof(int) * nCol); }
+
+    /* Step 3. Allocate extra pixels to columns with explicit widths. */
+    for (i = 0; i < nCol; i++) {
+        int desired = 0;
+        if (COL_ISPERCENT(i)) {
+            desired = (exp_ratio * aPercentWidth[i]);
+        } else {
+            desired = MAX(0, aExplicitWidth[i]);
+        }
+        aRequested[i] = MAX(0, desired - aWidth[i]);
+    }
+    iRem -= allocatePixels(iRem, nCol, aRequested, aWidth);
+    LOG { memcpy(&aLogValues[2 * nCol], aWidth, sizeof(int) * nCol); }
+    
+    /* Step 4. Allocate extra pixels to columns with "auto" widths. Do
+     * not exceed the maximum content widths of any "auto" columns in this
+     * step.
+     */
+    if (percent_sum < 99.9) {
+        int iAutoRequest = 0;
+        float max_ratio;
+
+        for (i = 0; i < nCol; i++) {
+            aRequested[i] = 0;
+            if (aPercentWidth[i] < 0.01 && aExplicitWidth[i] == PIXELVAL_AUTO) {
+                int req = MAX(0, aMaxWidth[i] - aWidth[i]);
+                aRequested[i] = req;
+                iAutoRequest += req;
+            }
+        }
+        max_ratio = (float)iAutoRequest / (100.0 - percent_sum);
+        for (i = 0; i < nCol; i++) {
+            if (aPercentWidth[i] >= 0.01) {
+                aRequested[i] = (max_ratio * aPercentWidth[i]);
+            }
+        }
+
+        iRem -= allocatePixels(iRem, nCol, aRequested, aWidth);
+    }
+    LOG { memcpy(&aLogValues[3 * nCol], aWidth, sizeof(int) * nCol); }
+
+    /* If the width of the table was specified as "auto", then we are
+     * finished. Attempting to allocate any more space would force columns
+     * to be wider than their maximum content widths. We only do this
+     * if the width of the table was explicitly specified. In that case, 
+     * proceed with:
+     *
+     * Step 5. 
+     */
+    if (!isAuto && nAutoWidth > 0 && !isPercentOver) {
+        float ratio;
+        float auto_ratio;
+
+        int iTotalAutoWidth = 0;
+        for (i = 0; i < nCol; i++) {
+            if (COL_ISAUTO(i)) {
+                iTotalAutoWidth += aWidth[i];
+            }
+        }
+
+        if (iTotalAutoWidth == 0) {
+            for (i = 0; i < nCol; i++) {
+                if (COL_ISAUTO(i)) {
+                    aWidth[i] = 1;
+                }
+            }
+            iTotalAutoWidth = nAutoWidth;
+        }
+
+        auto_ratio = ((float)(availablewidth * 2)/ (float)iTotalAutoWidth);
+        ratio = ((float)(availablewidth * 2) / (100.0 - percent_sum));
+        
+        for (i = 0; i < nCol; i++) {
+            if (aPercentWidth[i] >= 0.01) {
+                aRequested[i] = MAX(0, ratio * aPercentWidth[i]);
+            } else if (aExplicitWidth[i] == PIXELVAL_AUTO) {
+                aRequested[i] = MAX(0, auto_ratio * aWidth[i]);
+            } else {
+                aRequested[i] = 0;
+            }
+        }
+        iRem -= allocatePixels(iRem, nCol, aRequested, aWidth);
+    }
+    LOG { memcpy(&aLogValues[4 * nCol], aWidth, sizeof(int) * nCol); }
+
+    /* Log the outputs of this function. */
+    LOG {
+        int ii;
+        int gg;
+        HtmlTree *pTree = pLayout->pTree;
+        Tcl_Obj *pLog = Tcl_NewObj();
+        Tcl_IncrRefCount(pLog);
+
+        Tcl_AppendToObj(pLog, "Results of column width algorithm.", -1);
+        Tcl_AppendToObj(pLog, "<ol>"
+            "<li>Allocate min content width to each column."
+            "<li>Grow columns with % widths to meet % constraint."
+            "<li>Allocate pixels to columns with explicit widths. Columns"
+            "    with % widths grow here to, to match the constraints."
+            "<li>Allocate pixels to columns with \"auto\" widths, not"
+            "    exceeding their maximum content widths. Columns"
+            "    with % widths grow also."
+        , -1);
+        Tcl_AppendToObj(pLog, "<table><tr><th>Col Number", -1);
+        for (gg = 0; gg < NUM_LOGVALUES; gg++) {
+            Tcl_AppendToObj(pLog, "<th>Step ", -1);
+            Tcl_AppendObjToObj(pLog, Tcl_NewIntObj(gg + 1));
+        }
+
+        for (ii = 0; ii < nCol; ii++) {
+            Tcl_AppendToObj(pLog, "<tr><td>", -1);
+            Tcl_AppendObjToObj(pLog, Tcl_NewIntObj(ii));
+
+            for (gg = 0; gg < NUM_LOGVALUES; gg++) {
+                Tcl_AppendToObj(pLog, "<td>", -1);
+                Tcl_AppendObjToObj(pLog, Tcl_NewIntObj(aLogValues[ii+nCol*gg]));
+                Tcl_AppendToObj(pLog, "px", -1);
+            }
+        }
+        Tcl_AppendToObj(pLog, "<tr><td>Total", -1);
+        for (gg = 0; gg < NUM_LOGVALUES; gg++) {
+            int iTotal = 0;
+            for (ii = 0; ii < nCol; ii++) {
+                iTotal += aLogValues[ii + nCol*gg];
+            }
+            Tcl_AppendToObj(pLog, "<td>", -1);
+            Tcl_AppendObjToObj(pLog, Tcl_NewIntObj(iTotal));
+            Tcl_AppendToObj(pLog, "px", -1);
+        }
+        Tcl_AppendToObj(pLog, "</table>", -1);
+
+        HtmlLog(pTree, "LAYOUTENGINE", "%s tableCalculateCellWidths() %s",
+            Tcl_GetString(HtmlNodeCommand(pTree, pData->pNode)), 
+            Tcl_GetString(pLog)
+        );
+        Tcl_DecrRefCount(pLog);
+    }
+
+    LOG {
+        HtmlFree(aLogValues);
+    }
+    HtmlFree(aRequested);
 }
 
 /*
@@ -1128,36 +1329,6 @@ int HtmlTableLayout(pLayout, pBox, pNode)
      */
     tableIterate(pTree, pNode, tableColWidthSingleSpan, 0, &data);
     tableIterate(pTree, pNode, tableColWidthMultiSpan, 0, &data);
-
-    LOG {
-        HtmlTree *pTree = pLayout->pTree;
-        Tcl_Interp *interp = pTree->interp;
-        Tcl_Obj *pWidths = Tcl_NewObj();
-        int ii;
-
-        char zExplicit[24];
-        char zPercent[24];
-
-        for (ii = 0; ii < data.nCol; ii++) {
-            if (aExplicitWidth[ii] != PIXELVAL_AUTO) {
-                sprintf(zExplicit, "%d", aExplicitWidth[ii]);
-            } else {
-                sprintf(zExplicit, "auto");
-            }
-
-            if (aPercentWidth[ii] >= 0.0) {
-                sprintf(zPercent, "%.2f%%", aPercentWidth[ii]);
-            } else {
-                sprintf(zPercent, "N/A");
-            }
-
-            HtmlLog(pTree, "LAYOUTENGINE", "%s HtmlTableLayout() "
-                "Column %d: min=%d max=%d explicit=%s percent=%s",
-                Tcl_GetString(HtmlNodeCommand(pTree, pNode)), 
-                ii, data.aMinWidth[ii], aMaxWidth[ii], zExplicit, zPercent
-            );
-        }
-    }
 
     /* Decide on some actual widths for the cells */
     isAuto = (pNode->pPropertyValues->iWidth == PIXELVAL_AUTO);

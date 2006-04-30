@@ -570,10 +570,6 @@ snit::type Hv3HttpProtcol {
     }
 
     set postdata [$downloadHandle postdata]
-puts ""
-puts "DOWNLOAD: $uri"
-puts "POSTDATA: [string range $postdata 0 512]"
-puts "HEADERS:  $headers"
 
     if {$postdata ne ""} {
       ::http::geturl $uri     \

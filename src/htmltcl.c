@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.92 2006/04/29 10:22:32 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.93 2006/04/30 10:32:22 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -137,11 +137,18 @@ logCommon(
 )
 {
     if (pLogCmd) {
-        char zBuf[200];
+        char *zDyn = 0;
+        char zStack[200];
+        char *zBuf = zStack;
         int nBuf;
         Tcl_Obj *pCmd;
 
         nBuf = vsnprintf(zBuf, 200, zFormat, ap);
+        if (nBuf >= 200) {
+            zDyn = HtmlAlloc(nBuf + 10);
+            zBuf = zDyn;
+            nBuf = vsnprintf(zBuf, nBuf + 1, zFormat, ap);
+        }
 
         pCmd = Tcl_DuplicateObj(pLogCmd);
         Tcl_IncrRefCount(pCmd);
@@ -153,6 +160,7 @@ logCommon(
         }
 
         Tcl_DecrRefCount(pCmd);
+        HtmlFree(zDyn);
     }
 }
 
