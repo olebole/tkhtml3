@@ -18,6 +18,10 @@ LI[type="disc"]      { list-style-type : disc   }
 
 OL, UL, DIR, MENU, DD  { padding-left: 40px ; margin-left: 1em }
 
+NOBR {
+  white-space: nowrap;
+  display: block;
+}
 
 /* Map the 'align' attribute to the 'float' property. Todo: This should
  * only be done for images, tables etc. "align" can mean different things
@@ -221,9 +225,14 @@ TR[valign]>TD, TR[valign]>TH {vertical-align: tcl(::tkhtml::aa tr valign)}
 TR>TD[valign], TR>TH[valign] {vertical-align: tcl(::tkhtml::attr  valign)}
 
 
-/* Support the "background" and "text" attributes on the <body> tag */
+/* Support the "text" attribute on the <body> tag */
 body[text]       {color: tcl(::tkhtml::attr text -color)}
-body {
+
+/* Allow background images to be specified using the "background" attribute.
+ * According to HTML 4.01 this is only allowed for <body> elements, but
+ * many websites use it arbitrarily.
+ */
+[background] {
     background-image: tcl(format "url(%s)" [::tkhtml::attr background])
 }
 
