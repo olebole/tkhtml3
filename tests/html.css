@@ -1,6 +1,6 @@
 /* Display types for non-table items. */
   ADDRESS, BLOCKQUOTE, BODY, DD, DIV, DL, DT, FIELDSET, FORM,
-  FRAME, FRAMESET, H1, H2, H3, H4, H5, H6, IFRAME, NOFRAMES, 
+  FRAME, FRAMESET, H1, H2, H3, H4, H5, H6, NOFRAMES, 
   OBJECT, OL, P, UL, APPLET, CENTER, DIR, HR, MENU, PRE
                 { display: block }
 
