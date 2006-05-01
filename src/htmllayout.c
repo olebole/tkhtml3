@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.156 2006/05/01 15:49:25 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.157 2006/05/01 16:53:44 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -1827,12 +1827,24 @@ getHeight(pNode, iHeight)
     HtmlNode *pNode;
     int iHeight;
 {
+    int ret = iHeight;
+
+    /* Presently, the code in htmlprop.h will not accept a percentage
+     * value for 'height' or 'min-height'. But this needs to change.
+     * At that point, this code will need updating.
+     */
     int height = pNode->pPropertyValues->iHeight;
-    assert(height == PIXELVAL_AUTO || height >=0);
-    if (height == PIXELVAL_AUTO) {
-        return iHeight;
+    int minheight = pNode->pPropertyValues->iMinHeight;
+
+    assert(height == PIXELVAL_AUTO || height >= 0);
+    assert(minheight >= 0);
+
+    if (height != PIXELVAL_AUTO) {
+        ret = height;
     } 
-    return height;
+    ret = MAX(minheight, ret);
+
+    return ret;
 }
 
 

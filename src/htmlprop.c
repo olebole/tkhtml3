@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.64 2006/04/29 09:30:02 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.65 2006/05/01 16:53:44 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1472,7 +1472,7 @@ HtmlComputedValuesSet(p, eProp, pProp)
             );
         case CSS_PROPERTY_MIN_HEIGHT:
             return propertyValuesSetSize(p, &(p->values.iMinHeight),
-                PROP_MASK_MIN_HEIGHT, pProp, SZ_INHERIT|SZ_PERCENT
+                PROP_MASK_MIN_HEIGHT, pProp, SZ_INHERIT
             );
         case CSS_PROPERTY_MAX_HEIGHT:
             return propertyValuesSetSize(p, &(p->values.iMaxHeight),

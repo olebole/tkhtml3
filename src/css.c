@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.64 2006/04/29 09:30:01 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.65 2006/05/01 16:53:44 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -1395,6 +1395,7 @@ propertySetAddShortcutFont(p, v)
         }
     }
 
+    pProp = 0;
     if (!pFamily) goto bad_parse;
 
     propertySetAdd(p, CSS_PROPERTY_FONT_STYLE, pStyle);
