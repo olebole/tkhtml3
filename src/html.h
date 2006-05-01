@@ -508,7 +508,7 @@ int HtmlFloatListPlace(HtmlFloatList*, int, int, int, int);
 int HtmlFloatListClear(HtmlFloatList*, int, int);
 void HtmlFloatListNormalize(HtmlFloatList*, int, int);
 void HtmlFloatListMargins(HtmlFloatList*, int, int, int *, int *);
-void HtmlFloatListLog(HtmlTree *, CONST char *, HtmlFloatList *);
+void HtmlFloatListLog(HtmlTree *, CONST char *, CONST char *, HtmlFloatList *);
 int HtmlFloatListIsConstant(HtmlFloatList*, int, int);
 
 HtmlPropertyCache * HtmlNewPropertyCache();

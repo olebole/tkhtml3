@@ -379,6 +379,12 @@ itcl::body HtmlDebug::report {{node ""}} {
             <h1>&lt;[$node tag]&gt;</h1>
             <p>Tcl command: <span class="code">\[$node\]</span>
             <p>Replacement: <span class="code">\[[$node replace]\]</span>
+            <p>Note: Fields 'margin', 'padding' and sometimes 'position' 
+               contain either one or four length values. If there is only
+	       one value, then this is the value for the associated top,
+               right, bottom and left lengths. If there are four values, they
+               are respectively the top, right, bottom, and left lengths.
+            </p>
             <table class=computed>
                 <tr><th colspan=2>Computed Properties
                 $property_rows
@@ -560,6 +566,35 @@ proc prop_compress {props} {
         unset p(border-left)
         unset p(border-right)
         unset p(border-bottom)
+    }
+
+    if {$p(position) ne "static"} {
+        lappend p(position) $p(top)
+        set v $p(top)
+        if {$v ne $p(right) || $v eq $p(bottom) || $v eq $p(left)} {
+            lappend p(position) $p(right)
+            lappend p(position) $p(bottom)
+            lappend p(position) $p(left)
+        }
+    }
+    unset p(top) p(right) p(bottom) p(left)
+
+    set ret [list               \
+        {<b>Handling} ""        \
+        display  $p(display)    \
+        float    $p(float)      \
+        clear    $p(clear)      \
+        position $p(position)   \
+        {<b>Dimensions} ""      \
+        width $p(width)         \
+        height $p(height)       \
+        margin $p(margin)       \
+        padding $p(padding)     \
+        {<b>Other} ""           \
+    ]
+
+    foreach {a b} $ret { 
+      unset -nocomplain p($a)
     }
 
     set keys [lsort [array names p]]

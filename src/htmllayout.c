@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.155 2006/05/01 13:02:56 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.156 2006/05/01 15:49:25 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -526,7 +526,9 @@ normalFlowLayoutFloat(pLayout, pBox, pNode, pY, pDoNotUse, pNormal)
      *
      * Note: "outer-edge" means including the the top and bottom margins.
      */
-    y = (*pY) + normalFlowMarginQuery(pNormal);
+    normalFlowMarginCollapse(pNormal, pY);
+    pBox->height = MAX(pBox->height, *pY);
+    y = (*pY);
     y = HtmlFloatListClear(pNormal->pFloat, pV->eClear, y);
 
     nodeGetMargins(pLayout, pNode, iContaining, &margin);
@@ -625,8 +627,8 @@ normalFlowLayoutFloat(pLayout, pBox, pNode, pY, pDoNotUse, pNormal)
     LOG {
         HtmlTree *pTree = pLayout->pTree;
         char const *zNode = Tcl_GetString(HtmlNodeCommand(pTree, pNode));
-        HtmlFloatListLog(pTree, zNode, pNormal->pFloat);
-        HtmlLog(pTree, "LAYOUTENGINE", "%s !!!!!!!!!!!!!!!", zNode);
+        char const *zCaption = "normalFlowLayoutFloat() Float list before:";
+        HtmlFloatListLog(pTree, zCaption, zNode, pNormal->pFloat);
     }
 
     /* Fix the float list in the parent block so that nothing overlaps
@@ -646,10 +648,10 @@ normalFlowLayoutFloat(pLayout, pBox, pNode, pY, pDoNotUse, pNormal)
     LOG {
         HtmlTree *pTree = pLayout->pTree;
         char const *zNode = Tcl_GetString(HtmlNodeCommand(pTree, pNode));
+        char const *zCaption = "normalFlowLayoutFloat() Float list after:";
         HtmlLog(pTree, "LAYOUTENGINE", "%s (Float) %dx%d (%d,%d)", 
             zNode, iTotalWidth, iTotalHeight, x, iTop);
-        HtmlLog(pTree, "LAYOUTENGINE", "%s !!!!!!!!!!!!!!!", zNode);
-        HtmlFloatListLog(pTree, zNode, pNormal->pFloat);
+        HtmlFloatListLog(pTree, zCaption, zNode, pNormal->pFloat);
     }
 
     return 0;
@@ -2261,6 +2263,38 @@ normalFlowLayoutFixed(pLayout, pBox, pNode, pY, pContext, pNormal)
 /*
  *---------------------------------------------------------------------------
  *
+ * appendVerticalMarginsToObj --
+ *
+ *     This function is used with LOG {...} blocks only. It appends
+ *     a description of the current vertical margins stored in pNormal
+ *     to Tcl object pObj.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     Appends to pObj.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void
+appendVerticalMarginsToObj(pObj, pNormal)
+    Tcl_Obj *pObj;
+    NormalFlow *pNormal;
+{
+    char zBuf[1024];
+    sprintf(zBuf, "min=%d max=%d isValid=%d nonegative=%d", 
+        pNormal->iMinMargin,
+        pNormal->iMaxMargin,
+        pNormal->isValid,
+        pNormal->nonegative
+    );
+    Tcl_AppendToObj(pObj, zBuf, -1);
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * normalFlowLayoutNode --
  *
  * Results:
@@ -2348,9 +2382,24 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
 
     LOG {
         HtmlTree *pTree = pLayout->pTree;
-        const char *zFmt = "%s normalFlowLayoutNode() -> layout as type \"%s\"";
-        const char *zNode = Tcl_GetString(HtmlNodeCommand(pTree, pNode));
-        HtmlLog(pTree, "LAYOUTENGINE", zFmt, zNode, pFlow->z);
+        Tcl_Obj *pLog = Tcl_NewObj();
+        Tcl_IncrRefCount(pLog);
+
+        Tcl_AppendToObj(pLog, "<ul style=\"list-item-style:none\">", -1);
+        Tcl_AppendToObj(pLog, "<li>Layout as type: ", -1);
+        Tcl_AppendToObj(pLog, pFlow->z, -1);
+        Tcl_AppendToObj(pLog, "<li>Current y-coordinate: ", -1);
+        Tcl_AppendObjToObj(pLog, Tcl_NewIntObj(*pY));
+        Tcl_AppendToObj(pLog, "<li>Vertical margins: ", -1);
+        appendVerticalMarginsToObj(pLog, pNormal);
+        Tcl_AppendToObj(pLog, "</ul>", -1);
+
+        HtmlLog(pTree, "LAYOUTENGINE", "%s normalFlowLayoutNode() Before: %s",
+            Tcl_GetString(HtmlNodeCommand(pTree, pNode)),
+            Tcl_GetString(pLog)
+        );
+
+        Tcl_DecrRefCount(pLog);
     }
 
     if (pFlow->doLineBreak && HtmlInlineContextIsEmpty(pContext)) {
@@ -2368,6 +2417,26 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
 
     /* See if there are any complete line-boxes to copy to the main canvas. */
     inlineLayoutDrawLines(pLayout, pBox, pContext, 0, pY, pNormal);
+
+    LOG {
+        HtmlTree *pTree = pLayout->pTree;
+        Tcl_Obj *pLog = Tcl_NewObj();
+        Tcl_IncrRefCount(pLog);
+
+        Tcl_AppendToObj(pLog, "<ul style=\"list-item-style:none\">", -1);
+        Tcl_AppendToObj(pLog, "<li>Current y-coordinate: ", -1);
+        Tcl_AppendObjToObj(pLog, Tcl_NewIntObj(*pY));
+        Tcl_AppendToObj(pLog, "<li>Vertical margins: ", -1);
+        appendVerticalMarginsToObj(pLog, pNormal);
+        Tcl_AppendToObj(pLog, "</ul>", -1);
+
+        HtmlLog(pTree, "LAYOUTENGINE", "%s normalFlowLayoutNode() After: %s",
+            Tcl_GetString(HtmlNodeCommand(pTree, pNode)),
+            Tcl_GetString(pLog)
+        );
+
+        Tcl_DecrRefCount(pLog);
+    }
 
     return 0;
 }
@@ -2489,12 +2558,6 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
     pCache->iContaining = pBox->iContaining;
     pCache->iFloatLeft = left;
     pCache->iFloatRight = right;
-
-    LOG {
-        HtmlTree *pTree = pLayout->pTree;
-        const char *zNode = Tcl_GetString(HtmlNodeCommand(pTree, pNode));
-        HtmlFloatListLog(pTree, zNode, pFloat);
-    }
 
     /* Create the InlineContext object for this containing box */
     pContext = HtmlInlineContextNew(pNode, pLayout->minmaxTest);

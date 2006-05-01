@@ -37,7 +37,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  * COPYRIGHT:
  */
-static const char rcsid[] = "$Id: htmlfloat.c,v 1.14 2006/05/01 12:02:15 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlfloat.c,v 1.15 2006/05/01 15:49:25 danielk1977 Exp $";
 
 #include <assert.h>
 #include "html.h"
@@ -701,11 +701,13 @@ place_out:
  *---------------------------------------------------------------------------
  */
 void 
-HtmlFloatListLog(pTree, zNode, pList)
+HtmlFloatListLog(pTree, zCaption, zNode, pList)
     HtmlTree *pTree;
+    CONST char *zCaption;
     CONST char *zNode;
     HtmlFloatList *pList;
 {
+    char zBuf[1024];
     FloatListEntry *pCsr;
     int y = pList->yorigin;
     int x = pList->xorigin;
@@ -713,23 +715,27 @@ HtmlFloatListLog(pTree, zNode, pList)
     Tcl_Obj *pLog = Tcl_NewObj();
     Tcl_IncrRefCount(pLog);
 
-    if (pList->endValid) {
-        int yend = pList->yend;
-        HtmlLog(pTree, "LAYOUTENGINE", "%s Float-list: end=%d\n", zNode, yend);
-    } else {
-        HtmlLog(pTree, "LAYOUTENGINE", "%s Float-list: end=N/A\n", zNode);
-    }
-
+    sprintf(zBuf, "<p>Origin point is (%d, %d).</p>", x, y);
+    Tcl_AppendToObj(pLog, zBuf, -1);
+    Tcl_AppendToObj(pLog, "<table><tr><th>Left<th>Top (y)<th>Right", -1);
     for (pCsr = pList->pEntry; pCsr; pCsr = pCsr->pNext) {
-        const char *zF = "%s Entry: y=%d left=%s right=%s";
         char zLeft[20];
         char zRight[20];
         strcpy(zLeft, "N/A");
         strcpy(zRight, "N/A");
+
         if (pCsr->leftValid)  { sprintf(zLeft, "%d", pCsr->left - x); }
         if (pCsr->rightValid) { sprintf(zRight, "%d", pCsr->right - x); }
-        HtmlLog(pTree, "LAYOUTENGINE", zF, zNode, pCsr->y - y, zLeft, zRight);
+
+        sprintf(zBuf, "<tr><td>%s<td>%d<td>%s", zLeft, pCsr->y - y, zRight);
+        Tcl_AppendToObj(pLog, zBuf, -1);
     }
+    sprintf(zBuf, "<tr><td>N/A<td>%d<td>N/A</table>", pList->yend - y);
+    Tcl_AppendToObj(pLog, zBuf, -1);
+    
+    HtmlLog(pTree, "LAYOUTENGINE", "%s %s %s", 
+        zNode, zCaption, Tcl_GetString(pLog)
+    );
 
     Tcl_DecrRefCount(pLog);
 }
