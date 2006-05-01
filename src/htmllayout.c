@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.153 2006/04/30 16:40:33 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.154 2006/05/01 12:02:15 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -55,6 +55,8 @@ static const char rcsid[] = "$Id: htmllayout.c,v 1.153 2006/04/30 16:40:33 danie
 #include <stdlib.h>
 
 #define LOG if (pLayout->pTree->options.logcmd && 0 == pLayout->minmaxTest)
+
+#define NODELOG(pNode, format_args);
 
 /*
  * The code to lay out a "normal-flow" is located in this file:
@@ -1584,9 +1586,12 @@ normalFlowLayoutTable(pLayout, pBox, pNode, pY, pContext, pNormal)
     BoxContext sBox;              /* Box context for sContent + borders */
     MarginProperties margin;      /* Margin properties of pNode */
     BoxProperties box;            /* Box properties of pNode */
+    int iMPB;                     /* Sum of margins, padding and borders */
 
     nodeGetMargins(pLayout, pNode, iContaining, &margin);
     nodeGetBoxProperties(pLayout, pNode, iContaining, &box);
+
+    iMPB = box.iLeft + box.iRight + margin.margin_left + margin.margin_right;
 
     /* Account for the 'margin-top' property of this node. The margin always
      * collapses for a table element.
@@ -1594,25 +1599,25 @@ normalFlowLayoutTable(pLayout, pBox, pNode, pY, pContext, pNormal)
     normalFlowMarginAdd(pNormal, margin.margin_top);
     normalFlowMarginCollapse(pNormal, pY);
 
-    /* Note: Passing 10000 as the required height means in some (fairly
-     * unlikely) circumstances the table will be placed lower in the flow
-     * than would have been necessary. But it's not that big of a deal.
-     */
     blockMinMaxWidth(pLayout, pNode, &iMinWidth, 0);
-    iMinWidth += margin.margin_left + margin.margin_right;
-    iMinWidth += box.iLeft + box.iRight;
-    *pY = HtmlFloatListPlace(pFloat, iContaining, iMinWidth, 10000, *pY);
-    HtmlFloatListMargins(pFloat, *pY, *pY + 10000, &iLeftFloat, &iRightFloat);
+    iMinWidth += iMPB;
 
     iWidth = PIXELVAL(
-        pNode->pPropertyValues, WIDTH, 
+        pNode->pPropertyValues, WIDTH,
         pLayout->minmaxTest ? PIXELVAL_AUTO : pBox->iContaining
     );
     if (iWidth == PIXELVAL_AUTO) {
         iWidth = iRightFloat - iLeftFloat;
-        iMinWidth -= (margin.margin_left + margin.margin_right);
-        iMinWidth -= (box.iLeft + box.iRight);
-    } 
+    } else {
+        iMinWidth = MAX(iMinWidth, iWidth);
+    }
+
+    /* Note: Passing 10000 as the required height means in some (fairly
+     * unlikely) circumstances the table will be placed lower in the flow
+     * than would have been necessary. But it's not that big of a deal.
+     */
+    *pY = HtmlFloatListPlace(pFloat, iContaining, iMinWidth, 10000, *pY);
+    HtmlFloatListMargins(pFloat, *pY, *pY + 10000, &iLeftFloat, &iRightFloat);
 
     memset(&sContent, 0, sizeof(BoxContext));
     memset(&sBox, 0, sizeof(BoxContext));
@@ -1622,7 +1627,8 @@ normalFlowLayoutTable(pLayout, pBox, pNode, pY, pContext, pNormal)
     wrapContent(pLayout, &sBox, &sContent, pNode);
 
     y = HtmlFloatListPlace(
-            pFloat, pBox->iContaining, sBox.width, sBox.height, *pY);
+            pFloat, pBox->iContaining, sBox.width, sBox.height, *pY
+    );
     *pY = y + sBox.height;
  
     if (pLayout->minmaxTest) {
@@ -1685,6 +1691,36 @@ normalFlowLayoutTable(pLayout, pBox, pNode, pY, pContext, pNormal)
     DRAW_CANVAS(&pBox->vc, &sBox.vc, x, y, pNode);
     pBox->height = MAX(pBox->height, *pY);
     pBox->width = MAX(pBox->width, x + sBox.width);
+
+    LOG {
+        HtmlTree *pTree = pLayout->pTree;
+        Tcl_Obj *pLog = Tcl_NewObj();
+        Tcl_IncrRefCount(pLog);
+
+        /* Log the alignment (left, right or center) of the table block */
+        Tcl_AppendToObj(pLog, "<p>Alignment: <b>", -1);
+        Tcl_AppendToObj(pLog, 
+            eAlign == CSS_CONST_LEFT ? "left" :
+            eAlign == CSS_CONST_RIGHT ? "right" :
+            eAlign == CSS_CONST_CENTER ? "center" : "N/A (internal error)",
+            -1
+        );
+        Tcl_AppendToObj(pLog, "</b> (options are left, right and center)", -1);
+
+        /* Log the table blocks final position in it's parent */
+        Tcl_AppendToObj(pLog, "<p> Wrapped box coords in parent: (", -1);
+        Tcl_AppendObjToObj(pLog, Tcl_NewIntObj(x));
+        Tcl_AppendToObj(pLog, ", ", -1);
+        Tcl_AppendObjToObj(pLog, Tcl_NewIntObj(y));
+        Tcl_AppendToObj(pLog, ")", -1);
+
+        HtmlLog(pTree, "LAYOUTENGINE", "%s normalFlowLayoutTable() %s",
+            Tcl_GetString(HtmlNodeCommand(pTree, pNode)),
+            Tcl_GetString(pLog),
+            x, y
+        );
+        Tcl_DecrRefCount(pLog);
+    }
 
     /* Account for the 'margin-bottom' property of this node. */
     normalFlowMarginAdd(pNormal, margin.margin_bottom);

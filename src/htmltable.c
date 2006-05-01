@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.71 2006/05/01 07:22:16 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.72 2006/05/01 12:02:15 danielk1977 Exp $";
 
 #include "htmllayout.h"
 
@@ -1150,6 +1150,7 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
             "<li>Allocate pixels to columns with \"auto\" widths, not"
             "    exceeding their maximum content widths. Columns"
             "    with % widths grow also."
+            "</ol>"
         , -1);
         Tcl_AppendToObj(pLog, "<table><tr><th>Col Number", -1);
         for (gg = 0; gg < NUM_LOGVALUES; gg++) {
