@@ -20,7 +20,6 @@ OL, UL, DIR, MENU, DD  { padding-left: 40px ; margin-left: 1em }
 
 NOBR {
   white-space: nowrap;
-  display: block;
 }
 
 /* Map the 'align' attribute to the 'float' property. Todo: This should

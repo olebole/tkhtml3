@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.70 2006/04/30 10:32:22 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.71 2006/05/01 07:22:16 danielk1977 Exp $";
 
 #include "htmllayout.h"
 
@@ -866,7 +866,8 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
     static const int NUM_LOGVALUES = 5; 
     int  *aLogValues;
     LOG { 
-        aLogValues = (int *)HtmlAlloc(sizeof(int) * nCol * NUM_LOGVALUES); 
+        int nBytes = sizeof(int) * nCol * (NUM_LOGVALUES * 2);
+        aLogValues = (int *)HtmlAlloc(nBytes);
     }
 
     /* A rather lengthy block to log the inputs to this function. */
@@ -944,7 +945,10 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
         aWidth[i] = aMinWidth[i];
         iRem -= aWidth[i];
     }
-    LOG { memcpy(&aLogValues[0 * nCol], aWidth, sizeof(int) * nCol); }
+    LOG { 
+         memcpy(&aLogValues[0 * nCol], aWidth, sizeof(int) * nCol); 
+         memcpy(&aLogValues[1 * nCol], aWidth, sizeof(int) * nCol); 
+    }
 
     /* Variable iRem contains the number of remaining pixels to split up
      * between the columns. At this point, iRem may be negative, if the
@@ -1012,25 +1016,18 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
     } else if (percent_sum >= 0.01) {
         /* If the sum of the % widths is greater than 100.0, divide
          * up all the remaining space amongst percentage columns.
-         *
-         * Note: The formula below could just as easily be:
-         *
-         *     min_ratio = (float)(availablewidth) / percent_sum;
-         *
-         * But we double all the requests to make sure all pixels are 
-         * allocated, even if a nasty rounding error occurs.
          */
-        min_ratio = ((float)(2 * availablewidth)) / percent_sum;
+        min_ratio = ((float)(availablewidth)) / percent_sum;
     }
 
     /* Step 2. Add pixels to columns with percentage widths to try to
      * satisfy percentage constraints. Do not exceed the available-width
      * in pursuit of this goal. 
      */
+    memset(aRequested, 0, nCol * sizeof(int));
     if (nPercentWidth > 0) {
         /* Try to grow columns with % widths to meet the % constraints. */
         for (i = 0; i < nCol; i++) {
-            aRequested[i] = 0;
             if (aPercentWidth[i] >= 0.01) {
                 int diff = ((min_ratio * aPercentWidth[i]) - aWidth[i]);
                 aRequested[i] = MAX(diff, 0);
@@ -1038,7 +1035,10 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
         }
         iRem -= allocatePixels(iRem, nCol, aRequested, aWidth);
     }
-    LOG { memcpy(&aLogValues[1 * nCol], aWidth, sizeof(int) * nCol); }
+    LOG { 
+         memcpy(&aLogValues[2 * nCol], aRequested, sizeof(int) * nCol); 
+         memcpy(&aLogValues[3 * nCol], aWidth, sizeof(int) * nCol); 
+    }
 
     /* Step 3. Allocate extra pixels to columns with explicit widths. */
     for (i = 0; i < nCol; i++) {
@@ -1051,18 +1051,21 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
         aRequested[i] = MAX(0, desired - aWidth[i]);
     }
     iRem -= allocatePixels(iRem, nCol, aRequested, aWidth);
-    LOG { memcpy(&aLogValues[2 * nCol], aWidth, sizeof(int) * nCol); }
+    LOG { 
+        memcpy(&aLogValues[4 * nCol], aRequested, sizeof(int) * nCol); 
+        memcpy(&aLogValues[5 * nCol], aWidth, sizeof(int) * nCol); 
+    }
     
     /* Step 4. Allocate extra pixels to columns with "auto" widths. Do
      * not exceed the maximum content widths of any "auto" columns in this
      * step.
      */
+    memset(aRequested, 0, nCol * sizeof(int));
     if (percent_sum < 99.9) {
         int iAutoRequest = 0;
         float max_ratio;
 
         for (i = 0; i < nCol; i++) {
-            aRequested[i] = 0;
             if (aPercentWidth[i] < 0.01 && aExplicitWidth[i] == PIXELVAL_AUTO) {
                 int req = MAX(0, aMaxWidth[i] - aWidth[i]);
                 aRequested[i] = req;
@@ -1078,7 +1081,10 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
 
         iRem -= allocatePixels(iRem, nCol, aRequested, aWidth);
     }
-    LOG { memcpy(&aLogValues[3 * nCol], aWidth, sizeof(int) * nCol); }
+    LOG { 
+        memcpy(&aLogValues[6 * nCol], aRequested, sizeof(int) * nCol); 
+        memcpy(&aLogValues[7 * nCol], aWidth, sizeof(int) * nCol); 
+    }
 
     /* If the width of the table was specified as "auto", then we are
      * finished. Attempting to allocate any more space would force columns
@@ -1122,7 +1128,10 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
         }
         iRem -= allocatePixels(iRem, nCol, aRequested, aWidth);
     }
-    LOG { memcpy(&aLogValues[4 * nCol], aWidth, sizeof(int) * nCol); }
+    LOG { 
+        memcpy(&aLogValues[8 * nCol], aRequested, sizeof(int) * nCol); 
+        memcpy(&aLogValues[9 * nCol], aWidth, sizeof(int) * nCol); 
+    }
 
     /* Log the outputs of this function. */
     LOG {
@@ -1144,6 +1153,8 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
         , -1);
         Tcl_AppendToObj(pLog, "<table><tr><th>Col Number", -1);
         for (gg = 0; gg < NUM_LOGVALUES; gg++) {
+            Tcl_AppendToObj(pLog, "<th>Req. ", -1);
+            Tcl_AppendObjToObj(pLog, Tcl_NewIntObj(gg + 1));
             Tcl_AppendToObj(pLog, "<th>Step ", -1);
             Tcl_AppendObjToObj(pLog, Tcl_NewIntObj(gg + 1));
         }
@@ -1152,14 +1163,14 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
             Tcl_AppendToObj(pLog, "<tr><td>", -1);
             Tcl_AppendObjToObj(pLog, Tcl_NewIntObj(ii));
 
-            for (gg = 0; gg < NUM_LOGVALUES; gg++) {
+            for (gg = 0; gg < NUM_LOGVALUES * 2; gg++) {
                 Tcl_AppendToObj(pLog, "<td>", -1);
                 Tcl_AppendObjToObj(pLog, Tcl_NewIntObj(aLogValues[ii+nCol*gg]));
                 Tcl_AppendToObj(pLog, "px", -1);
             }
         }
         Tcl_AppendToObj(pLog, "<tr><td>Total", -1);
-        for (gg = 0; gg < NUM_LOGVALUES; gg++) {
+        for (gg = 0; gg < NUM_LOGVALUES * 2; gg++) {
             int iTotal = 0;
             for (ii = 0; ii < nCol; ii++) {
                 iTotal += aLogValues[ii + nCol*gg];
@@ -1343,39 +1354,6 @@ int HtmlTableLayout(pLayout, pBox, pNode)
     for (i = 0; i < nCol; i++) {
         width += aWidth[i];
     }
-
-    LOG {
-        HtmlTree *pTree = pLayout->pTree;
-        Tcl_Interp *interp = pTree->interp;
-        Tcl_Obj *pWidths = Tcl_NewObj();
-        int ii;
-        HtmlLog(pTree, "LAYOUTENGINE", "%s HtmlTableLayout() "
-            "Available table width = %d (%s)",
-            Tcl_GetString(HtmlNodeCommand(pTree, pNode)), 
-            availwidth, (isAuto ? "auto": "not auto")
-        );
-
-        HtmlLog(pTree, "LAYOUTENGINE", "%s HtmlTableLayout() "
-            "Actual table width = %d",
-            Tcl_GetString(HtmlNodeCommand(pTree, pNode)), 
-            width
-        );
-
-        /* Log the actual cell widths */
-        pWidths = Tcl_NewObj();
-        Tcl_IncrRefCount(pWidths);
-        for (ii = 0; ii < data.nCol; ii++) {
-            Tcl_Obj *pInt = Tcl_NewIntObj(data.aWidth[ii]);
-            Tcl_ListObjAppendElement(interp, pWidths, pInt);
-        }
-        HtmlLog(pTree, "LAYOUTENGINE", "%s HtmlTableLayout() "
-            "Actual cell widths: %s",
-            Tcl_GetString(HtmlNodeCommand(pTree, pNode)), 
-            Tcl_GetString(pWidths)
-        );
-        Tcl_DecrRefCount(pWidths);
-    }
-
     
     /* Now actually draw the cells. */
     data.aY = aY;
