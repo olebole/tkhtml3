@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.154 2006/05/01 12:02:15 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.155 2006/05/01 13:02:56 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -1845,6 +1845,16 @@ getWidth(iWidthCalculated, iWidthContent)
     return iWidthCalculated;
 }
 
+static void
+setValueCallback(pNormal, pCallback, y)
+    NormalFlow *pNormal;
+    NormalFlowCallback *pCallback;
+    int y;
+{
+    *(int *)(pCallback->clientData) = y;
+    normalFlowCbDelete(pNormal, pCallback);
+}
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -1880,6 +1890,8 @@ normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
     BoxContext sContent;   /* Box context for content to be drawn into */
     BoxContext sBox;       /* sContent + borders */
     BoxContext sTmp;       /* Used to offset content */
+
+    NormalFlowCallback sNormalFlowCallback;
 
     memset(&sContent, 0, sizeof(BoxContext));
     memset(&sBox, 0, sizeof(BoxContext));
@@ -1928,10 +1940,23 @@ normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
     normalFlowMarginAdd(pNormal, margin.margin_top);
 
     /* If this box has either top-padding or a top border, then collapse the
-     * vertical margin between this block and the one above now. 
+     * vertical margin between this block and the one above now. In this
+     * case, the top-left of the wrapContent() box will be at coordinates
+     * (0, 0) of sContent.
+     *
+     * Otherwise, we have to wait for the vertical margins at the current
+     * point to collapse before we know where the top of the box is drawn.
+     * Do this by setting up a callback on the normal-flow object.
      */
-    if (box.iTop > 0) normalFlowMarginCollapse(pNormal, pY); 
-    yBorderOffset = normalFlowMarginQuery(pNormal);
+    yBorderOffset = 0;
+    if (box.iTop > 0) {
+        normalFlowMarginCollapse(pNormal, pY); 
+    } else {
+        sNormalFlowCallback.xCallback = setValueCallback;
+        sNormalFlowCallback.clientData = (ClientData)(&yBorderOffset);
+        sNormalFlowCallback.pNext = 0;
+        normalFlowCbAdd(pNormal, &sNormalFlowCallback);
+    }
 
     /* Calculate x and y as pixel values. */
     *pY += box.iTop;
@@ -1970,8 +1995,9 @@ normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
     sBox.iContaining = pBox->iContaining;
     DRAW_CANVAS(&sTmp.vc, &sContent.vc, 0, -1 * yBorderOffset, pNode);
     sTmp.width = sContent.width;
-    /* sTmp.height = sContent.height - yBorderOffset; */
-    sTmp.height = sContent.height;
+
+    sTmp.height = sContent.height - yBorderOffset;
+
     wrapContent(pLayout, &sBox, &sTmp, pNode);
     DRAW_CANVAS(&pBox->vc, &sBox.vc,iWrappedX, y-box.iTop+yBorderOffset, pNode);
     pBox->width = MAX(pBox->width, sBox.width);
@@ -1979,6 +2005,10 @@ normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
 
     /* Account for the 'margin-bottom' property of this node. */
     normalFlowMarginAdd(pNormal, margin.margin_bottom);
+
+    if (box.iTop <= 0) {
+        normalFlowCbDelete(pNormal, &sNormalFlowCallback);
+    }
 
     return 0;
 }
