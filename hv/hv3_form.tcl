@@ -533,6 +533,7 @@ snit::widget ::hv3::control {
 
     $myWidget configure -borderwidth 0
     $myWidget configure -selectborderwidth 0
+    $myWidget configure -highlightthickness 0
 
     # If this is a password entry field, obscure it's contents
     if {$isPassword} { $myWidget configure -show * }
@@ -657,6 +658,10 @@ snit::widget ::hv3::control {
     $myWidget configure -variable $myRadioVarname
     $myWidget configure -tristatevalue aghqghorhdsf
 
+    $myWidget configure -padx 0 -pady 0
+    $myWidget configure -borderwidth 0
+    $myWidget configure -highlightthickness 0
+
     if {
       [expr [catch {$myControlNode attr checked}] ? 0 : 1] ||
       ![info exists $myRadioVarname]
@@ -726,12 +731,15 @@ snit::widget ::hv3::control {
   method configurecmd {values} {
     if {$myWidget eq ""} return
 
-#    puts $values
-#    array set v $values
-#    puts $v(width)
-#    if {$myUsePixelWidth && [$hull cget -width] ne $v(width) } {
-#      $hull configure -width $v(width)
-#    }
+    set class [winfo class $myWidget]
+
+    array set v $values
+    if {$class eq "Checkbutton" || $class eq "Radiobutton"} {
+      catch { $myWidget configure -bg $v(background-color) }
+      catch { $myWidget configure -highlightbackground $v(background-color) }
+      catch { $myWidget configure -activebackground $v(background-color) }
+      catch { $myWidget configure -highlightcolor $v(background-color) }
+    }
 
     set font [$myWidget cget -font]
     set descent [font metrics $font -descent]

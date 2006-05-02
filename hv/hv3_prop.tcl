@@ -164,10 +164,10 @@ itcl::body HtmlDebug::searchNode {{idx 0}} {
       </style>
     </head><body><center>
       <h1>Tkhtml Document Tree Browser</h1>
-      <input widget="relayout">
-      <input widget="outline">
+      <span widget="relayout"/>
+      <span widget="outline"/>
       <p>
-        Search for node: <input widget="search">
+        Search for node: <span widget="search"/>
       </p>
       $search_results
     </center></body></html>
@@ -196,7 +196,7 @@ itcl::body HtmlDebug::searchNode {{idx 0}} {
   set ::subbed_template [subst $Template]
   $mySearchHtml goto "tcl:///list"
   $mySearchHtml goto "tcl:///set ::subbed_template"
-  foreach node [$mySearchHtml search {input[widget]}] {
+  foreach node [$mySearchHtml search {span[widget]}] {
     set widget [$node attr widget]
     $node replace [$mySearchHtml html].$widget -deletecmd {}
   }
