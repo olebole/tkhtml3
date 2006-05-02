@@ -169,6 +169,7 @@ proc Hv3FileProtocol {downloadHandle} {
     close $f
   } msg]
 
+
   $downloadHandle finish
 
   if {$rc} {
@@ -285,16 +286,15 @@ snit::type Hv3Uri {
     #
     #     (SCHEME ":") ("//" AUTHORITY) (PATH) ("?" QUERY) ("#" FRAGMENT)
     #
-    # Instead of using regular expressions, code a parser by hand. This is
-    # actually easier. Save each of the components, if they exist, in the
-    # variables $Scheme, $Authority, $Path, $Query and $Fragment.
+    # Save each of the components, if they exist, in the variables 
+    # $Scheme, $Authority, $Path, $Query and $Fragment.
     set str $uri
     foreach {re var} [list \
-        {([A-Za-z][A-Za-z0-9+-\.]+):(.*)} Scheme            \
-        {//([^/#?]*)(.*)}                 Authority         \
-        {([^#?]*)(.*)}                    Path              \
-        {\?([^#]*)(.*)}                   Query             \
-        {#(.*)(.*)}                       Fragment          \
+        {^([A-Za-z][A-Za-z0-9+-\.]+):(.*)} Scheme            \
+        {^//([^/#?]*)(.*)}                 Authority         \
+        {^([^#?]*)(.*)}                    Path              \
+        {^\?([^#]*)(.*)}                   Query             \
+        {^#(.*)(.*)}                       Fragment          \
     ] {
       if {[regexp $re $str dummy A B]} {
         set $var $A

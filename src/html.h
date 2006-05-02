@@ -141,7 +141,7 @@ struct HtmlTokenMap {
 
 struct HtmlToken {
     HtmlToken *pNext;           /* Next input token in a list of them all */
-    HtmlToken *pPrev;           /* Previous token in a list of them all */
+    HtmlToken *pPrev;           /* Previous token in a list of them all   */
     Html_u8 type;
     Html_16 count;
     union {
@@ -346,7 +346,7 @@ struct HtmlTree {
     Tcl_Obj *pDocument;             /* Text of the html document */
     int nParsed;                    /* Bytes of the html document tokenized */
     int iCol;                       /* Current column in document */
-    int parseFinished;              /* True if the html parse is finished */
+    int isParseFinished;            /* True if the html parse is finished */
 
     HtmlToken *pFirst;              /* First token parsed */
     HtmlToken *pLast;               /* Last token parsed */

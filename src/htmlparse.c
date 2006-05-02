@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.56 2006/04/29 14:17:39 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.57 2006/05/02 10:57:10 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -110,22 +110,6 @@ AppendToken(pTree, pToken)
         }
         pTree->pLast = pToken;
     }
-}
-
-static void
-AppendImplicitToken(pTree, pNode, tag)
-    HtmlTree *pTree;
-    HtmlNode *pNode;
-    int tag;
-{
-    HtmlNode *pCurrent = pTree->pCurrent;
-    HtmlToken *pImplicit = (HtmlToken *)HtmlAlloc(sizeof(HtmlToken));
-    memset(pImplicit, 0, sizeof(HtmlToken));
-    pImplicit->type = tag;
-
-    pTree->pCurrent = pNode;
-    AppendToken(pTree, pImplicit);
-    pTree->pCurrent = pCurrent;
 }
 
 /*
@@ -314,6 +298,7 @@ HtmlInlineContent(pTree, pNode, tag)
  *
  *---------------------------------------------------------------------------
  */
+#if 0
 static int 
 HtmlFlowContent(pTree, pNode, tag)
     HtmlTree *pTree;
@@ -327,6 +312,7 @@ HtmlFlowContent(pTree, pNode, tag)
     }
     return TAG_PARENT;
 }
+#endif
 
 /*
  *---------------------------------------------------------------------------
@@ -345,6 +331,7 @@ HtmlFlowContent(pTree, pNode, tag)
  *
  *---------------------------------------------------------------------------
  */
+#if 0
 static int 
 HtmlColgroupContent(pTree, pNode, tag)
     HtmlTree *pTree;
@@ -353,6 +340,7 @@ HtmlColgroupContent(pTree, pNode, tag)
 {
     assert(0);
 }
+#endif
 
 /*
  *---------------------------------------------------------------------------
@@ -405,6 +393,7 @@ HtmlTableContent(pTree, pNode, tag)
  *
  *---------------------------------------------------------------------------
  */
+#if 0
 static int 
 HtmlTableSectionContent(pTree, pNode, tag)
     HtmlTree *pTree;
@@ -414,6 +403,7 @@ HtmlTableSectionContent(pTree, pNode, tag)
     if (tag == Html_Text || tag == Html_Space) return TAG_OK;
     assert(0);
 }
+#endif
 
 /*
  *---------------------------------------------------------------------------
@@ -1431,7 +1421,7 @@ getScriptHandler(pTree, tag)
  *     HtmlElement structures and appended them to the list.
  *
  * Results:
- *     Return the number of characters actually processed.
+ *     Return the number of bytes actually processed.
  *
  * Side effects:
  *
@@ -1444,7 +1434,7 @@ Tokenize(pTree, isFinal)
 {
     char *z;                     /* The input HTML text */
     int c;                       /* The next character of input */
-    int n;                       /* Number of characters processed so far */
+    int n;                       /* Number of bytes processed so far */
     int iCol;                    /* Local copy of HtmlTree.iCol */
     int i, j;                    /* Loop counters */
     int nByte;                   /* Space allocated for a single HtmlElement */
@@ -1544,6 +1534,7 @@ Tokenize(pTree, isFinal)
                 Tcl_DecrRefCount(pTree->pDocument);
                 pTree->pDocument = pHead;
                 z = Tcl_GetString(pHead);
+                assert(!Tcl_IsShared(pTree->pDocument));
             } 
             Tcl_ResetResult(pTree->interp);
 
@@ -1597,12 +1588,13 @@ Tokenize(pTree, isFinal)
             HtmlToken *pText;
             int nBytes;
 
-            for (i = 1; (c = z[n + i]) != 0 && !isspace(c) && c != '<'; i++);
-            if (c == 0 && !isFinal) {
-                goto incomplete;
+            i = 0;
+            while (z[n + i] != 0 && z[n + i] != '<' && !isspace(z[n + i])) {
+                i++;
             }
 
             nBytes = 1 + i + sizeof(HtmlToken) + (i%sizeof(char *));
+
             pText = (HtmlToken *)HtmlAlloc(nBytes);
             pText->type = Html_Text;
             pText->x.zText = (char *)&pText[1];
@@ -1611,6 +1603,7 @@ Tokenize(pTree, isFinal)
             AppendTextToken(pTree, pText);
             HtmlTranslateEscapes(pText->x.zText);
             pText->count = strlen(pText->x.zText);
+/* printf("String \"%s\" is %d bytes\n", pText->x.zText, pText->count); */
             n += i;
             iCol += i;
         }
@@ -1907,8 +1900,10 @@ HtmlTokenizerAppend(pTree, zText, nText, isFinal)
     if (!pTree->pDocument) {
         pTree->pDocument = Tcl_NewObj();
         Tcl_IncrRefCount(pTree->pDocument);
+        assert(!Tcl_IsShared(pTree->pDocument));
     }
 
+#if 0
     if (pTree->options.encoding) {
         Tcl_Interp *interp = pTree->interp;
         const char *zEnc = Tcl_GetString(pTree->options.encoding);
@@ -1919,6 +1914,9 @@ HtmlTokenizerAppend(pTree, zText, nText, isFinal)
             n = Tcl_DStringLength(&utf8);
         }
     } 
+#endif
+
+    assert(!Tcl_IsShared(pTree->pDocument));
     Tcl_AppendToObj(pTree->pDocument, z, n);
 
     pTree->nParsed = Tokenize(pTree, isFinal);
@@ -1988,12 +1986,12 @@ HtmlNameToType(htmlPtr, zType)
 ** Convert a type into a symbolic name
 */
 const char *
-HtmlTypeToName(htmlPtr, type)
+HtmlTypeToName(htmlPtr, eTag)
     void *htmlPtr;
-    int type;
+    int eTag;
 {
-    if (type >= Html_A && type < Html_TypeCount) {
-        HtmlTokenMap *pMap = apMap[type - Html_A];
+    if (eTag >= Html_A && eTag < Html_TypeCount) {
+        HtmlTokenMap *pMap = apMap[eTag - Html_A];
         return pMap->zName;
     }
     else {

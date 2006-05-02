@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.157 2006/05/01 16:53:44 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.158 2006/05/02 10:57:09 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -2893,7 +2893,7 @@ HtmlLayout(pTree)
 
         x = margin.margin_left + box.iLeft;
         y = margin.margin_top + box.iTop;
-        x = MAX(-1 * sContent.vc.left, x);
+        // x = MAX(-1 * sContent.vc.left, x);
 
         drawAbsolute(&sLayout, &sContent, &sContent.vc, -1 * x, -1 * y);
         HtmlDrawCanvas(&pTree->canvas, &sContent.vc, x, y, pBody);

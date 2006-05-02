@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.93 2006/04/30 10:32:22 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.94 2006/05/02 10:57:10 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -1144,7 +1144,7 @@ resetCmd(clientData, interp, objc, objv)
     HtmlCallbackScrollX(pTree, 0);
     HtmlCallbackDamage(pTree, 0, 0, Tk_Width(win), Tk_Height(win));
     doLoadDefaultStyle(pTree);
-    pTree->parseFinished = 0;
+    pTree->isParseFinished = 0;
     return TCL_OK;
 }
 
@@ -1255,13 +1255,15 @@ parseCmd(clientData, interp, objc, objv)
     ) {
         return TCL_ERROR;
     }
-    zHtml = Tcl_GetByteArrayFromObj(aObj[1], &nHtml);
+
+    /* zHtml = Tcl_GetByteArrayFromObj(aObj[1], &nHtml); */
+    zHtml = Tcl_GetStringFromObj(aObj[1], &nHtml);
 
     assert(Tcl_IsShared(aObj[1]));
     Tcl_DecrRefCount(aObj[0]);
     Tcl_DecrRefCount(aObj[1]);
 
-    if (pTree->parseFinished) {
+    if (pTree->isParseFinished) {
         const char *zWidget = Tcl_GetString(objv[0]);
         Tcl_ResetResult(interp);
         Tcl_AppendResult(interp, 
@@ -1277,7 +1279,7 @@ parseCmd(clientData, interp, objc, objv)
      */
     HtmlTokenizerAppend(pTree, zHtml, nHtml, isFinal);
     if (isFinal) {
-        pTree->parseFinished = 1;
+        pTree->isParseFinished = 1;
         HtmlFinishNodeHandlers(pTree);
     }
 
