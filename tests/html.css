@@ -1,5 +1,5 @@
 /* Display types for non-table items. */
-  ADDRESS, BLOCKQUOTE, BODY, DD, DIV, DL, DT, FIELDSET, FORM,
+  ADDRESS, BLOCKQUOTE, BODY, DD, DIV, DL, DT, FIELDSET, 
   FRAME, FRAMESET, H1, H2, H3, H4, H5, H6, NOFRAMES, 
   OBJECT, OL, P, UL, APPLET, CENTER, DIR, HR, MENU, PRE
                 { display: block }
@@ -109,7 +109,7 @@ H2              { font-size: 1.5em; margin: .83em 0 }
 H3              { font-size: 1.17em; margin: 1em 0 }
 H4, P,
 BLOCKQUOTE, UL,
-FIELDSET, FORM,
+FIELDSET, 
 OL, DL, DIR,
 MENU            { margin-top: 1.0em; margin-bottom: 1.0em }
 H5              { font-size: .83em; line-height: 1.17em; margin: 1.67em 0 }
@@ -152,6 +152,8 @@ BR {
     display: block;
 }
 /* BR:before       { content: "\A" } */
+
+INPUT[type="hidden"] { display: none }
 
 /*
  *************************************************************************

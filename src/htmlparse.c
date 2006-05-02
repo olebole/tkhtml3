@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.57 2006/05/02 10:57:10 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.58 2006/05/02 12:45:58 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -1581,17 +1581,25 @@ Tokenize(pTree, isFinal)
         /*
          * Ordinary text 
          */
-        else if (c != '<' || 
+        else if (c != '<' && c != 0) {
+#if 0
+|| 
                  (!isalpha(z[n + 1]) && z[n + 1] != '/' && z[n + 1] != '!'
-                  && z[n + 1] != '?')) {
-
+                  && z[n + 1] != '?')
+        ) {
+#endif
             HtmlToken *pText;
             int nBytes;
+
+            assert(z[n] == c);
+            assert(!isspace(c));
 
             i = 0;
             while (z[n + i] != 0 && z[n + i] != '<' && !isspace(z[n + i])) {
                 i++;
             }
+
+            assert(i > 0);
 
             nBytes = 1 + i + sizeof(HtmlToken) + (i%sizeof(char *));
 

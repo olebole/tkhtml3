@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.158 2006/05/02 10:57:09 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.159 2006/05/02 12:45:58 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -1515,6 +1515,41 @@ wrapContent(pLayout, pBox, pContent, pNode)
         box.iTop + pContent->height + box.iBottom
     );
 
+    LOG {
+        char zNotes[] = "<ol>"
+            "<li>The content-block is the size of the content, as "
+            "    determined by the 'width' and 'height' properties, or by"
+            "    the intrinsic size of the block contents."
+            "<li>The wrapped-block includes all space for padding and"
+            "    borders, and horizontal (but not vertical) margins."
+        "</ol>";
+
+        char zDim[128];
+        HtmlTree *pTree = pLayout->pTree;
+        Tcl_Obj *pLog = Tcl_NewObj();
+        Tcl_IncrRefCount(pLog);
+
+        Tcl_AppendToObj(pLog, zNotes, -1);
+        sprintf(zDim, 
+            "<p>Size of content block: <b>%dx%d</b></p>", 
+            pContent->width, pContent->height
+        );
+        Tcl_AppendToObj(pLog, zDim, -1);
+
+        sprintf(zDim, 
+            "<p>Size of wrapped block: <b>%dx%d</b></p>", 
+            pBox->width, pBox->height
+        );
+        Tcl_AppendToObj(pLog, zDim, -1);
+
+        HtmlLog(pTree, "LAYOUTENGINE", "%s wrapContent() %s",
+            Tcl_GetString(HtmlNodeCommand(pTree, pNode)),
+            Tcl_GetString(pLog),
+            x, y
+        );
+        Tcl_DecrRefCount(pLog);
+    }
+
     if (pV->ePosition != CSS_CONST_STATIC && pLayout->pAbsolute) {
         BoxContext sAbsolute;
         int iLeftBorder = 0;
@@ -2191,8 +2226,7 @@ normalFlowLayoutReplacedInline(pLayout, pBox, pNode, pY, pContext, pNormal)
 
     memset(&sBox2, 0, sizeof(BoxContext));
     DRAW_CANVAS(&sBox2.vc, &sBox.vc, 0, margin.margin_top, pNode);
-	    HtmlInlineContextAddBox(pContext, pNode, &sBox2.vc,
-        sBox.width, iHeight, yoffset);
+    HtmlInlineContextAddBox(pContext, pNode, &sBox2.vc, sBox.width, iHeight, yoffset);
     return 0;
 }
 
