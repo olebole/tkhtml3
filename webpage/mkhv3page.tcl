@@ -34,40 +34,14 @@ puts [subst -novariables {
   </p>
   <ul>
     <li> Support for http:// and file:// URIs.
-    <li> Ability to load a new document, either by clicking on a hyper-link 
-         or by entering a URI.
+    <li> Support for hyperlinks, and manual entry of URIs.
     <li> Support for anchors in documents (i.e. URIs like: index.html#part1).
     <li> Support for images, both as replaced objects and in other roles.
-    <li> Support for widgets as replaced objects for form elements. No support
-         for submitting forms etc., this functionality is purely cosmetic.
+    <li> Support for html forms.
+    <li> Support for http cookies.
     <li> Support for selecting text from the rendered document and copying 
          that text to the clipboard.
   </ul>
-  <p>
-  </p>
-  <p>
-    Start the program and type a file:// or http:// URI into the address bar 
-    at the top of the GUI window. A single URI can also be specified as a 
-    command line argument.
-  </p>
-  <p>
-    Hv3 can be used to view online documents accessible via http. To do so, 
-    it is recommended that the user run a cacheing http proxy (i.e. squid) 
-    locally. This is because hv3 does not implement any kind of object or DNS 
-    cache, so connecting directly to the internet can be tediously slow.
-    Hv3 is hard-coded to use a web proxy running on localhost, port 
-    3128. Grep for "3128" in the Tcl source if you wish to change this.
-    Or remove the -proxyhost and -proxyport lines altogether if you really
-    do not wish to start a web proxy.
-  </p>
-  <p>
-    If it is not already running, squid can be started on most linux 
-    installations using a command like:
-  </p>
-  <pre>
-      squid -N -D -d 10
-  </pre>
-
 
 <h2><a name="screenshots">Screenshots</a></h2>
   <a href="screenshot1.gif"><img src="screenshot1_small.gif"></a>
