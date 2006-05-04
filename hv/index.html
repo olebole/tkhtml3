@@ -2,30 +2,207 @@
 <!-- Builtin startup document for hv3.  -->
 
 <html>
+  <head>
+    <style>
+
+      /* This bit of the stylesheet configures the layout: div.heading at
+       * the top, div.sidebar on the left and div.content takes up the rest
+       * of the page. */
+
+      body { margin: 10px; }
+      div.sidebar {
+          position: absolute;
+          left: 0px;
+          top: 10px;
+          width: 25ex;
+      }
+      div.content {
+          position: absolute;
+          left: 25ex;
+          right: 0px;
+          top: 10px;
+          margin-left: 10px;
+      }
+
+      body {
+        background-color: #444444;
+        background-attachment: fixed;
+      }
+      div.content {
+        padding: 0px 5px;
+        background-position: 165px 0px;
+        background-attachment: fixed;
+        background-repeat: no-repeat;
+        border: solid 2px black;
+        color: white;
+      }
+
+      div.content :link {
+        color: yellow;
+      }
+      div.config table {
+        margin: 10px auto;
+        border: 1px solid white;
+        border-bottom: none;
+        border-spacing: 0px;
+      }
+      div.config td {
+        border-bottom: 1px solid white;
+      }
+
+      div.sidebar {
+        border: solid 1px black;
+      }
+
+      div.sidebar ul {
+          margin: 0px;
+          padding: 0px;
+      }
+      div.sidebar li {
+          margin: 0px;
+          padding: 0px;
+          display: block;
+          width: 100%;
+      }
+      div.sidebar li a {
+          display: block;
+          width: 100%;
+          border: 1px black solid;
+          font-size: 130%;
+          font-weight: bold;
+          text-align: center;
+          color: white;
+          text-decoration: none;
+      }
+      div.sidebar li a:hover {
+          color: yellow;
+          background-color: black;
+      }
+      .heading {
+          font-size:300% ; 
+          color: white; 
+          text-align: center; 
+          border: 2px solid black ;
+      }
+    </style>
+  </head>
   <body>
-    <h1>Tkhtml Bookmarks</h1>
+
+<h1 class=heading>
+  Welcome to Html Viewer 3
+</h1>
+
+    <div style="position:relative;">
+
+    <div class=sidebar>
+      <ul>
+        <li> <a href="http://www.google.com.au">Google Search</a>
+        <li> <a href="http://www.tcl.tk">Tcl site</a>
+        <li> <a href="http://mini.net/tcl/">Tcl wiki</a>
+        <li> <a href="http://www.tclscripting.com/">tclscripting.com</a>
+        <li> <a href="http://tkhtml.tcl.tk">Tkhtml</a>
+        <li> <a href="http://slashdot.org">Slashdot</a>
+        <li> <a href="http://www.sqlite.org">Sqlite</a>
+        <li> <a href="http://www.w3.org">www Consortium</a>
+      </ul>
+    </div>
+
+    <div class=content>
+
+    <h1>Overview</h1>
+    <p> Congratulations on successfully running Hv3 - the minimalist browser
+        designed to test Tkhtml3. Please configure your web proxy:
+    </p>
+
+    <div class=config>
+      <table>
+          <tr><td><span widget="radio_noproxy"/>
+              <td>Do not use a proxy.
+          <tr><td><span widget="radio_configured_proxy"/>
+              <td>
+                  Host: <span widget="entry_host"/>
+                  Port: <span widget="entry_port"/>
+      </table>
+    </div>
+
+    <p>
+	Although it is not as polished as a "real" browser, Hv3 supports
+	file:// and http:// URIs, HTTP cookies, HTML forms and contains a
+	primitive back/forward history list. If convenient, please help by
+	using Hv3 for some of your web-browsing and report bugs using the
+        interface at:
+    </p>
+
+    <p> <a href="http://tkhtml.tcl.tk/cvstrac/">
+        http://tkhtml.tcl.tk/cvstrac/
+        </a>
+    </p>
+
+    <p> It goes without saying that under no circumstances should you use
+	Hv3 to e-mail the boss, transfer funds to Nigeria, order pizza, or
+        anything else important. Read on for further details.
+    </p>
+
+    <h1>Web Proxy Configuration Details</h1>
+    <p>
+        Hv3 includes simple support for the http protocol, using the 
+        built-in Tcl http package. However hv3 implements no caching of
+        any kind, not even DNS caching. This means that in some environments
+	using hv3 to view http URIs can seem much slower than one would 
+	expect. Also, all DNS queries are performed synchronously, so the 
+	GUI is sometimes unresponsive. The best fix for these problems is to
+	configure hv3 to use a nearby web proxy (ideally running on the local
+	host) using controls below:
+    </p>
+
+    <p>
+        An excellent caching web proxy for this purpose is polipo -
+        <a href="http://www.pps.jussieu.fr/~jch/software/polipo/">
+          http://www.pps.jussieu.fr/~jch/software/polipo/</a>. 
+        On Linux, it's as simple as: 
+    </p>
+<pre>
+$ wget http://www.pps.jussieu.fr/~jch/software/files/polipo/polipo-0.9.9.tar.gz
+...
+$ tar -xzf polipo-0.9.9.tar.gz
+$ cd polipo-0.9.9
+$ ./configure
+...
+$ make
+...
+$ ./polipo
+</pre>
+    <p>
+        And you have a caching web proxy listening for loopback connections
+        on Tcp port 8123.
+    </p>
+
+    <h1>Hv3 Usage</h1>
+    <p>
+      Hv3 provides more or less the same user interface as other hypertext
+      applications. The "history" pull-down menu and the "back", "stop" and
+      "forward" buttons should be familiar to all.
+    </p>
     <ul>
-      <li> <a href="http://www.sqlite.org">Sqlite</a>
-      <li> <a href="http://tkhtml.tcl.tk">Tkhtml</a>
-      <li> <a href="http://www.tcl.tk">Tcl site</a>
-      <li> <a href="http://mini.net/tcl/">Tcl wiki</a>
-      <li> <a href="http://slashdot.org">Slashdot</a>
-      <li> <a href="http://www.google.com.au">Google Search</a>
+      <li>The "font size table" menu is used to manipulate the table of
+          font sizes used to map from CSS2 absolute font sizes to values
+          expressed in points (for example, setting the CSS2 font-size
+          property to "x-small" might map to a font size of 8 points.
+          Refer to 
+          <a href="http://www.w3.org/TR/CSS21/fonts.html#font-size-props">
+         the appropriate section of CSS2
+         </a>for details.
+      <li>Right clicking on the document launches the tree browser, a GUI
+          for examining the structure of the current document. The tree
+	    browser can also be launched via the "browser" command on the
+          "file" pull-down menu.
+      <li>Middle clicking on the document causes Hv3 to interpret the 
+          current selection (from any application, not just Hv3) as a 
+          document URI to load.
+      <li>Pressing the "Q" key while the document window has the focus exits
+          the application.
     </ul>
 
-    <h1>Hv3 Usage Hints</h1>
-    <ul>
-      <li> Middle-clicking on the html window changes the status bar
-           from displaying download progress to displaying details of 
-           the document node under the cursor. A second click changes
-           things back.
-      <li> Right-clicking on the html window launches the layout 
-           debugging tool (a new window).
-      <li> No, there is no "back" button. There's a command entry in the 
-           "File" menu instead.
-      <li> To access network files via http, there must be an http proxy 
-           running on the localhost accepting connections on tcp port 3128.
-    </ul>
     <h1>Credits</h1>
     <ul>
       <li> Hv3 uses the pure-tcl combobox widget created by Bryan Oakley
@@ -36,5 +213,7 @@
            <a href="http://tkcon.sourceforge.net">
              http://tkcon.sourceforge.net</a>
 
+  </div>
+  </div>
   </body>
 </html>

@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.159 2006/05/02 12:45:58 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.160 2006/05/04 15:01:19 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -1392,6 +1392,8 @@ drawAbsolute(pLayout, pBox, pStaticCanvas, x, y)
         }
 
         sContent.height = iHeight;
+        sContent.width = iWidth;
+
         memset(&sBox, 0, sizeof(BoxContext));
         sBox.iContaining = pBox->iContaining;
         wrapContent(pLayout, &sBox, &sContent, pNode);

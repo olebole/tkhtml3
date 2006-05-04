@@ -154,11 +154,12 @@ BR {
 /* BR:before       { content: "\A" } */
 
 /*
- * Default decorations for form items.
+ * Default decorations for form items. 
  */
 INPUT[type="hidden"] { display: none }
+
 INPUT[type] { border: none }
-INPUT, INPUT[type="text"]   { 
+INPUT, INPUT[type="text"], INPUT[type="password"] { 
   border: 2px solid;
   border-color: #848280 #faf9f7 #faf9f7 #848280;
 }

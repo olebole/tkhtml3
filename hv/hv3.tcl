@@ -169,7 +169,6 @@ proc Hv3FileProtocol {downloadHandle} {
     close $f
   } msg]
 
-
   $downloadHandle finish
 
   if {$rc} {

@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.116 2006/04/30 11:33:50 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.117 2006/05/04 15:01:18 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -2161,16 +2161,6 @@ int HtmlDrawIsEmpty(pCanvas)
     return (pCanvas->left==pCanvas->right && pCanvas->top==pCanvas->bottom);
 }
 
-typedef struct NodeIndexQuery NodeIndexQuery;
-struct NodeIndexQuery {
-    int x;
-    int y;
-    CanvasText *pClosest;
-    HtmlNode *pFlow;
-    int mindist;
-    int closest_x;
-};
-
 static HtmlNode *
 findFlowNode(pNode)
     HtmlNode *pNode;
@@ -2178,9 +2168,11 @@ findFlowNode(pNode)
     HtmlNode *p;
     for (p = pNode; p; p = HtmlNodeParent(p)) {
         HtmlComputedValues *pV = p->pPropertyValues;
-        if (pV && 
-            (pV->eDisplay == CSS_CONST_TABLE_CELL ||
-             pV->eFloat != CSS_CONST_NONE)
+        if (pV && (
+                pV->eDisplay == CSS_CONST_TABLE_CELL ||
+                pV->eFloat != CSS_CONST_NONE ||
+                pV->ePosition != CSS_CONST_STATIC
+            )
         ) {
             break;
         }
@@ -2188,6 +2180,31 @@ findFlowNode(pNode)
     return p;
 }
 
+typedef struct NodeIndexQuery NodeIndexQuery;
+struct NodeIndexQuery {
+    int x;
+    int y;
+    CanvasText *pClosest;
+    int closest_x;
+    HtmlNode *pFlow;
+};
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * layoutNodeIndexCb --
+ *
+ *     The searchCanvas() callback used by the implementation of the 
+ *     [$html node -index X Y] command.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
 static int
 layoutNodeIndexCb(pItem, origin_x, origin_y, clientData)
     HtmlCanvasItem *pItem;
@@ -2195,36 +2212,46 @@ layoutNodeIndexCb(pItem, origin_x, origin_y, clientData)
     int origin_y;
     ClientData clientData;
 {
-    if (pItem->type == CANVAS_TEXT) {
+    CanvasText *pT = &pItem->x.t;
+    if (pItem->type == CANVAS_TEXT && pT->iIndex >= 0) {
         NodeIndexQuery *pQuery = (NodeIndexQuery *)clientData;
-        CanvasText *pT = &pItem->x.t;
-        HtmlFont *pFont = fontFromNode(pT->pNode);
-        int left   = pT->x + origin_x;
-        int top    = origin_y + pT->y - pFont->metrics.ascent;
-        int bottom = origin_y + pT->y + pFont->metrics.descent;
 
-        if (pT->iIndex >= 0 && left <= pQuery->x && top <= pQuery->y) {
-            int n;
-            const char *z;
-            int right;
-            int dist = 0;
+        /* Calculate the bounding-box of the item. Store the coordinates 
+         * of the top-left corner in variables x and y, and the size of
+         * the box in variables w and h.
+         */
+        int x, y, w, h;
+        itemToBox(pItem, origin_x, origin_y, &x, &y, &w, &h);
 
-            z = Tcl_GetStringFromObj(pT->pText, &n);
-            right = left + Tk_TextWidth(pFont->tkfont, z, n);
-
-            dist += MAX(pQuery->y - bottom, 0);
-            dist += MAX(top - pQuery->y, 0);
-            dist += MAX(pQuery->x - right, 0);
-            dist += MAX(left - pQuery->x, 0);
-
-            if (dist < pQuery->mindist || !pQuery->pClosest) {
-                pQuery->pClosest = pT;
-                pQuery->mindist = dist;
-                pQuery->closest_x = left;
+        /* If our point is actually inside the bounding box of this
+         * text item, then this item is returned as the "closest text".
+         */
+        if (
+            pQuery->x >= x && pQuery->x <= (x + w) &&
+            pQuery->y >= y && pQuery->y <= (y + h)
+        ) {
+            pQuery->pClosest = pT;
+            pQuery->closest_x = x;
+            return 1;
+        }
+        
+        /* If a text item for which the bounding box encapsulates the 
+         * search point cannot be found, then we are looking for the
+         * closest text item that is "above" the search point.
+         */
+        else {
+            if (
+                y <= pQuery->y && (
+                    (x <= pQuery->x && pQuery->x <= (x + w)) ||  
+                    (x <= pQuery->x && pQuery->y < (y + h) &&
+                         x > pQuery->closest_x
+                    ) ||
+                    (pQuery->pFlow == findFlowNode(pT->pNode))
+                )
+            ) {
                 pQuery->pFlow = findFlowNode(pT->pNode);
-            } else if (pQuery->pFlow == findFlowNode(pT->pNode)) {
                 pQuery->pClosest = pT;
-                pQuery->closest_x = left;
+                pQuery->closest_x = x;
             }
         }
     }
@@ -2258,31 +2285,35 @@ layoutNodeIndexCmd(pTree, x, y)
 {
     NodeIndexQuery sQuery;
     ClientData cd = (ClientData *)&sQuery;
+    int rc;
 
     memset(&sQuery, 0, sizeof(NodeIndexQuery));
     sQuery.x = x;
     sQuery.y = y;
 
-    searchCanvas(pTree, y-100, y, 0, layoutNodeIndexCb, (ClientData)&sQuery);
+    rc = searchCanvas(pTree, y-100, y, 0, layoutNodeIndexCb, cd);
     if (!sQuery.pClosest) {
         int ymin = y - pTree->iScrollY;
-        searchCanvas(pTree, ymin, y, 0, layoutNodeIndexCb, cd);
+        rc = searchCanvas(pTree, ymin, y, 0, layoutNodeIndexCb, cd);
     }
     if (!sQuery.pClosest) {
-        searchCanvas(pTree, -1, y, 0, layoutNodeIndexCb, cd);
+        rc = searchCanvas(pTree, -1, y, 0, layoutNodeIndexCb, cd);
     }
 
     if (sQuery.pClosest) {
         HtmlNode *pNode = sQuery.pClosest->pNode;     /* Node to return */
         int iIndex = 0;                               /* Index to return */
-
-        /* Calculate the index to return */
-        int dummy;
-        int n;
         const char *z;
-        Tk_Font font = fontFromNode(sQuery.pClosest->pNode)->tkfont;
+        int n;
         z = Tcl_GetStringFromObj(sQuery.pClosest->pText, &n);
-        iIndex = Tk_MeasureChars(font, z, n, x - sQuery.closest_x, 0, &dummy);
+
+        iIndex = n;
+        if (rc) {
+            /* Calculate the index to return */
+            int dum;
+            Tk_Font font = fontFromNode(sQuery.pClosest->pNode)->tkfont;
+            iIndex = Tk_MeasureChars(font, z, n, x - sQuery.closest_x, 0, &dum);
+        }
         iIndex += sQuery.pClosest->iIndex;
 
         /* Load the result into the Tcl interpreter */

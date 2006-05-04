@@ -90,6 +90,11 @@ snit::type ::hv3_browser::cookiemanager {
       <html><head><style>$Style</style></head>
       <body>
         <h1>Hv3 Cookies</h1>
+        <p>
+	  <b>Note:</b> This window is automatically updated when Hv3's 
+	  internal cookies database is modified in any way. There is no need to
+          close and reopen the window to refresh it's contents.
+        </p>
         <div id="clear"/>
         <br clear=all>
         $Content
@@ -271,6 +276,9 @@ snit::widget hv3_browser {
     pack $myHv3 -expand true -fill both
 
     $myHv3 protocol http [mymethod http]
+    $myHv3 protocol home [list Hv3HomeProtocol $myHttp $myHv3 \
+        [file normalize [file dirname [info script]]]
+    ]
     $myHv3 configure -hyperlinkcmd [mymethod goto]
     $myHv3 configure -getcmd       [mymethod Getcmd]
     $myHv3 configure -postcmd      [mymethod Postcmd]
@@ -287,7 +295,14 @@ snit::widget hv3_browser {
       }
     ]
 
+    # Create the middle-click behaviour - launch the property browser:
+    bind $myHv3 <2> [mymethod goto_selection]
+
     focus $myHv3
+  }
+
+  method goto_selection {} {
+    $self goto [selection get]
   }
 
   destructor {
@@ -450,14 +465,12 @@ proc gui_build {} {
   # Create the top bit of the GUI - the URI entry and buttons.
   frame .entry
   entry .entry.entry
-  button .entry.clear   -text {Clear ->} -command {.entry.entry delete 0 end}
   button .entry.back    -text {Back} 
   button .entry.stop    -text {Stop} 
   button .entry.forward -text {Forward}
   pack .entry.back -side left
   pack .entry.stop -side left
   pack .entry.forward -side left
-  pack .entry.clear -side left
   pack .entry.entry -fill both -expand true
   bind .entry.entry <KeyPress-Return> {.hv3 goto [.entry.entry get]}
 
@@ -533,16 +546,17 @@ proc guiOpenFile {} {
 
 snit::type Hv3HttpProtcol {
 
-  option -proxyport -default 3128      -configuremethod _ConfigureProxy
+  option -proxyport -default 8123      -configuremethod _ConfigureProxy
   option -proxyhost -default localhost -configuremethod _ConfigureProxy
 
   # variable myCookies -array [list]
 
   variable myCookieManager ""
 
-  constructor {} {
+  constructor {args} {
     package require http
-    $self _ConfigureProxy
+    $self configurelist $args
+    $self _ConfigureProxy proxyport $options(-proxyport)
     set myCookieManager [::hv3_browser::cookiemanager %AUTO%]
   }
 
@@ -585,7 +599,8 @@ snit::type Hv3HttpProtcol {
   # Configure the http package to use a proxy as specified by
   # the -proxyhost and -proxyport options on this object.
   #
-  method _ConfigureProxy {} {
+  method _ConfigureProxy {option value} {
+    set options($option) $value
     ::http::config -proxyhost $options(-proxyhost)
     ::http::config -proxyport $options(-proxyport)
     ::http::config -useragent {Mozilla/5.0 Gecko/20050513}
@@ -634,6 +649,110 @@ snit::type Hv3HttpProtcol {
   }
 }
 
+proc Hv3HomeProtocol {http hv3 dir downloadHandle} {
+  set fname [string range [$downloadHandle uri] 8 end]
+  if {$fname eq ""} {
+      set fname index.html
+      after idle [list Hv3HomeAfterIdle $http $hv3]
+  }
+  set fd [open [file join $dir $fname]]
+  if {[$downloadHandle binary]} {
+    fconfigure $fd -encoding binary -translation binary
+  } 
+  set data [read $fd]
+  close $fd
+  $downloadHandle append $data
+  $downloadHandle finish
+}
+
+proc Hv3HomeAfterIdle {http hv3} {
+  trace remove variable ::hv3_home_radio write [list Hv3HomeSetProxy $http $hv3]
+  trace remove variable ::hv3_home_port  write [list Hv3HomeSetProxy $http $hv3]
+  trace remove variable ::hv3_home_proxy write [list Hv3HomeSetProxy $http $hv3]
+
+  set html [$hv3 html]
+  set ::hv3_home_host [$http cget -proxyhost]
+  set ::hv3_home_port [$http cget -proxyport]
+
+  foreach node [$html search {span[widget]}] {
+    switch [$node attr widget] {
+      radio_noproxy {
+        set widget [radiobutton ${html}.radio_noproxy]
+        $widget configure -variable ::hv3_home_radio -value 1
+      }
+      radio_configured_proxy {
+        set widget [radiobutton ${html}.radio_configured_proxy]
+        $widget configure -variable ::hv3_home_radio -value 2
+      }
+      entry_host {
+        set widget [entry ${html}.entry_host -textvar ::hv3_home_host]
+      }
+      entry_port {
+        set widget [entry ${html}.entry_port -textvar ::hv3_home_port]
+      }
+    }
+    $node replace $widget                               \
+        -deletecmd [list destroy $widget]               \
+        -configurecmd [list Hv3HomeConfigure $widget]
+  }
+ 
+  set val 2
+  if {$::hv3_home_host eq "" && $::hv3_home_port eq ""} {
+    set val 1
+    set ::hv3_home_host localhost
+    set ::hv3_home_port 8123
+  }
+
+  trace add variable ::hv3_home_radio write [list Hv3HomeSetProxy $http $hv3]
+  trace add variable ::hv3_home_port  write [list Hv3HomeSetProxy $http $hv3]
+  trace add variable ::hv3_home_proxy write [list Hv3HomeSetProxy $http $hv3]
+
+  set ::hv3_home_radio $val
+}
+
+proc Hv3HomeConfigure {widget values} {
+  array set v $values
+  set class [winfo class $widget]
+
+  if {$class eq "Checkbutton" || $class eq "Radiobutton"} {
+    catch { $widget configure -background          $v(background-color) }
+    catch { $widget configure -highlightbackground $v(background-color) }
+    catch { $widget configure -activebackground    $v(background-color) }
+    catch { $widget configure -highlightcolor      $v(background-color) }
+    $widget configure -padx 0 -pady 0
+  }
+  catch { $widget configure -font $v(font) }
+
+  $widget configure -borderwidth 0
+  $widget configure -highlightthickness 0
+  catch { $widget configure -selectborderwidth 0 } 
+
+  set font [$widget cget -font]
+  set descent [font metrics $font -descent]
+  set ascent  [font metrics $font -ascent]
+  set drop [expr ([winfo reqheight $widget] + $descent - $ascent) / 2]
+  return $drop
+}
+
+proc Hv3HomeSetProxy {http hv3 args} {
+  switch $::hv3_home_radio {
+    1 {
+      $http configure -proxyhost "" -proxyport ""
+      set val disabled
+    }
+    2 {
+      $http configure -proxyhost $::hv3_home_host -proxyport $::hv3_home_port
+      set val normal
+    }
+  }
+
+  set html [$hv3 html]
+  foreach widget [list ${html}.entry_host ${html}.entry_port] {
+    $widget configure -state $val
+  }
+}
+
+
 # Override the [exit] command to check if the widget code leaked memory
 # or not before exiting.
 rename exit tcl_exit
@@ -654,7 +773,7 @@ proc goto {uri} {
 
 # main URL
 #
-proc main {{doc index.html}} {
+proc main {{doc home:}} {
   # Build the GUI
   gui_build
 
