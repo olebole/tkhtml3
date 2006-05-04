@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.94 2006/05/02 10:57:10 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.95 2006/05/04 17:27:15 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -1010,111 +1010,6 @@ static int cgetCmd(clientData, interp, objc, objv)
 /*
  *---------------------------------------------------------------------------
  *
- * commandCmd --
- *
- *     <widget> command SUB-COMMAND SCRIPT
- *
- *     This command is used to dynamically add commands to the widget.
- *     
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-static int 
-commandCmd(clientData, interp, objc, objv)
-    ClientData clientData;             /* The HTML widget */
-    Tcl_Interp *interp;                /* The interpreter */
-    int objc;                          /* Number of arguments */
-    Tcl_Obj *const *objv;              /* List of all arguments */
-{
-    Tcl_Obj *pCmd;
-    Tcl_Obj *pScript;
-    Tcl_HashEntry *pEntry;
-    int newentry;
-    HtmlTree *pTree = (HtmlTree *)clientData;
-
-    if (objc != 4) {
-        Tcl_WrongNumArgs(interp, 2, objv, "SUB-COMMAND SCRIPT");
-        return TCL_ERROR;
-    }
-
-    pCmd = objv[2];
-    pScript = objv[3];
-
-    pEntry = Tcl_CreateHashEntry(&pTree->aCmd, Tcl_GetString(pCmd), &newentry);
-    if (!newentry) {
-        Tcl_Obj *pOld = (Tcl_Obj *)Tcl_GetHashValue(pEntry);
-        Tcl_DecrRefCount(pOld);
-    }
-    Tcl_IncrRefCount(pScript);
-    Tcl_SetHashValue(pEntry, pScript);
-    return TCL_OK;
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * varCmd --
- *
- *     Set or get the value of a variable from the widgets built-in
- *     dictionary. This is used by the widget logic programmed in Tcl to
- *     store state data.
- *
- *     $html var VAR-NAME ?Value?
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-static int 
-varCmd(clientData, interp, objc, objv)
-    ClientData clientData;             /* The HTML widget */
-    Tcl_Interp *interp;                /* The interpreter */
-    int objc;                          /* Number of arguments */
-    Tcl_Obj *const *objv;              /* List of all arguments */
-{
-    Tcl_HashEntry *pEntry; 
-    HtmlTree *pTree = (HtmlTree *)clientData;
-    char *zVar;
-
-    if (objc != 3 && objc != 4) {
-        Tcl_WrongNumArgs(interp, 2,objv, "VAR-NAME ?VALUE?");
-        return TCL_ERROR;
-    }
-
-    zVar = Tcl_GetString(objv[2]);
-    if (objc == 4) {
-        int newentry;
-        pEntry = Tcl_CreateHashEntry(&pTree->aVar, zVar, &newentry);
-        if (!newentry) {
-            Tcl_Obj *pOld = (Tcl_Obj *)Tcl_GetHashValue(pEntry);
-            Tcl_DecrRefCount(pOld);
-        }
-        Tcl_IncrRefCount(objv[3]);
-        Tcl_SetHashValue(pEntry, objv[3]);
-    } else {
-        pEntry = Tcl_FindHashEntry(&pTree->aVar, zVar);
-        if (!pEntry) {
-            Tcl_AppendResult(interp, "No such variable: ", zVar, 0);
-            return TCL_ERROR;
-        }
-    }
-
-    Tcl_SetObjResult(interp, (Tcl_Obj *)Tcl_GetHashValue(pEntry));
-    return TCL_OK;
-}
-
-/*
- *---------------------------------------------------------------------------
- *
  * resetCmd --
  * 
  *         widget reset
@@ -1151,7 +1046,7 @@ resetCmd(clientData, interp, objc, objv)
 static int 
 relayoutCb(pTree, pNode, clientData)
     HtmlTree *pTree;
-    HtmlTree *pNode;
+    HtmlNode *pNode;
     ClientData clientData;
 {
     HtmlCallbackLayout(pTree, pNode);
@@ -1337,7 +1232,7 @@ viewCommon(pTree, isXview, objc, objv)
     if (objc > 2) {
         double fraction;
         int count;
-        int iNewVal;     /* New value of iScrollY or iScrollX */
+        int iNewVal = 0;     /* New value of iScrollY or iScrollX */
 
         /* The [widget yview] command also supports "scroll-to-node" */
         if (!isXview && objc == 3) {

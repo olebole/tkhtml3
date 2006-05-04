@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.72 2006/05/01 12:02:15 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.73 2006/05/04 17:27:15 danielk1977 Exp $";
 
 #include "htmllayout.h"
 
@@ -864,7 +864,7 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
      * this function returns. 
      */
     static const int NUM_LOGVALUES = 5; 
-    int  *aLogValues;
+    int  *aLogValues = 0;
     LOG { 
         int nBytes = sizeof(int) * nCol * (NUM_LOGVALUES * 2);
         aLogValues = (int *)HtmlAlloc(nBytes);

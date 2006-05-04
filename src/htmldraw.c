@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.117 2006/05/04 15:01:18 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.118 2006/05/04 17:27:14 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -267,60 +267,6 @@ struct HtmlCanvasItem {
     HtmlCanvasItem *pNext;
 };
 
-/*
- *---------------------------------------------------------------------------
- *
- * MAX5 --
- *
- *     Return the maxmimum value passed as one of the 5 integer arguments.
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-static int 
-MAX5(a, b, c, d, e)
-    int a, b, c, d, e;
-{
-    int max = a;
-    max = MAX(max, b);
-    max = MAX(max, c);
-    max = MAX(max, d);
-    max = MAX(max, e);
-    return max;
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * MIN5 --
- * 
- *     Return the minimum value passed as one of the 5 integer arguments.
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-static int 
-MIN5(a, b, c, d, e)
-    int a, b, c, d, e;
-{
-    int min = a;
-    min = MIN(min, b);
-    min = MIN(min, c);
-    min = MIN(min, d);
-    min = MIN(min, e);
-    return min;
-}
-
 static void 
 windowsRepair(pTree, pCanvas)
     HtmlTree *pTree;
@@ -535,6 +481,7 @@ colorFromNode(pNode)
  *
  *---------------------------------------------------------------------------
  */
+#if 0
 static int
 countPrimitives(pCanvas)
     HtmlCanvas *pCanvas;
@@ -549,6 +496,7 @@ countPrimitives(pCanvas)
     }
     return n;
 }
+#endif
 
 static void 
 movePrimitives(pCanvas, x, y)
@@ -2284,7 +2232,7 @@ layoutNodeIndexCmd(pTree, x, y)
     int y;                  /* Document (not viewport) Y coordinate */
 {
     NodeIndexQuery sQuery;
-    ClientData cd = (ClientData *)&sQuery;
+    ClientData cd = (ClientData)&sQuery;
     int rc;
 
     memset(&sQuery, 0, sizeof(NodeIndexQuery));
@@ -2903,7 +2851,6 @@ HtmlWidgetSetViewport(pTree, scroll_x, scroll_y, force_redraw)
 {
     int w;
     int h;
-    HtmlCanvas *pCanvas = &pTree->canvas;
     Tk_Window win = pTree->tkwin;
 
     int delta_x = scroll_x - pTree->iScrollX;

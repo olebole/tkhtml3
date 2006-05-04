@@ -397,7 +397,7 @@ snit::widget hv3_browser {
   }
 
   method browse {} {
-    ::HtmlDebug::browse $myHv3 [$myHv3 node]
+    ::HtmlDebug::browse [$myHv3 html] [$myHv3 node]
   }
 
   option -statusvar -default ""

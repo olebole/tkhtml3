@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.65 2006/05/01 16:53:44 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.66 2006/05/04 17:27:15 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -353,7 +353,10 @@ getInheritPointer(p, pVar)
     const int values_offset = Tk_Offset(HtmlComputedValuesCreator, values);
     const int fontkey_offset = Tk_Offset(HtmlComputedValuesCreator, fontKey);
     const int values_end = values_offset + sizeof(HtmlComputedValues);
+
+#ifndef NDEBUG
     const int fontkey_end = fontkey_offset + sizeof(HtmlFontKey);
+#endif
 
     int offset = pVar - (unsigned char *)p;
     HtmlNode *pParent = HtmlNodeParent(p->pNode);
@@ -2426,7 +2429,7 @@ HtmlNodeProperties(interp, pValues)
 
     pDef = &pvdef[0];
     for (ii = 0; ii < sizeof(pvdef) / sizeof(pvdef[0]); ii++, pDef++) {
-        Tcl_Obj *pValue;
+        Tcl_Obj *pValue = 0;
         CONST char *zName = HtmlCssPropertyToString(pDef->eCssProperty);
         Tcl_ListObjAppendElement(interp, pRet, Tcl_NewStringObj(zName, -1));
         switch (pDef->eType) {
@@ -2594,6 +2597,13 @@ HtmlComputedValuesCompare(pV1, pV2)
  
                 break;
             }
+
+            case COLOR:
+            case VERTICALALIGN:
+            case FONT:
+            case IMAGE:
+            case BACKGROUNDPOSITION:
+                break;
         }
     }
 

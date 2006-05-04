@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.65 2006/04/29 12:31:17 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.66 2006/05/04 17:27:15 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -160,8 +160,6 @@ moveToLeftSibling(pNode, pNewSibling)
     int found = 0;
 
     assert(pOldParent && pNewParent);
-
-    int flags = 0;
 
     /* Remove pNewSibling from it's old parent */
     for (i = 0; i < HtmlNodeNumChildren(pOldParent); i++) {
@@ -1157,6 +1155,15 @@ char CONST *HtmlNodeAttr(pNode, zAttr)
     return 0;
 }
 
+static void
+geomRequestProcCb(clientData) 
+    ClientData clientData;
+{
+    HtmlNode *pNode = (HtmlNode *)clientData;
+    HtmlTree *pTree = pNode->pNodeCmd->pTree;
+    HtmlCallbackLayout(pTree, pNode);
+}
+
 static void 
 geomRequestProc(clientData, widget)
     ClientData clientData;
@@ -1166,6 +1173,8 @@ geomRequestProc(clientData, widget)
     HtmlTree *pTree = pNode->pNodeCmd->pTree;
     if (!pTree->cb.inProgress) {
         HtmlCallbackLayout(pTree, pNode);
+    } else {
+        Tcl_DoWhenIdle(geomRequestProcCb, (ClientData)pNode);
     }
 }
 

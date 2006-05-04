@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.58 2006/05/02 12:45:58 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.59 2006/05/04 17:27:15 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -1446,7 +1446,7 @@ Tokenize(pTree, isFinal)
     char *argv[mxARG];           /* Pointers to each markup argument. */
     int arglen[mxARG];           /* Length of each markup argument */
 
-    int nStartScript;
+    int nStartScript = 0;
     Tcl_Obj *pScript = 0;
     HtmlToken *pScriptToken = 0;
     int rc;

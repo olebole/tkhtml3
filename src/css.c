@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.65 2006/05/01 16:53:44 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.66 2006/05/04 17:27:14 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -2952,6 +2952,7 @@ ruleToPropertyValues(p, aPropDone, pRule)
     }
 }
 
+#if 0
 static int 
 selectorIsDynamic(pSelector)
     CssSelector *pSelector;
@@ -2969,6 +2970,7 @@ selectorIsDynamic(pSelector)
     }
     return 0;
 }
+#endif
 
 /*--------------------------------------------------------------------------
  *
