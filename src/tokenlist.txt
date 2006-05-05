@@ -1,5 +1,5 @@
 #
-# $Revision: 1.28 $
+# $Revision: 1.29 $
 #
 # tokenlist.tcl -- 
 #
@@ -115,7 +115,7 @@ TAG dt -content HtmlLiContent
 TAG em -flow inline
 # TAG fieldset
 TAG font -flow inline
-TAG form -flow inline                  ;# -content HtmlFormContent
+TAG form -flow block                  ;# -content HtmlFormContent
 TAG frame
 TAG frameset
 TAG h1 -flow block
@@ -168,6 +168,7 @@ TAG sup -flow inline
 #
 # TODO: Check the IE behaviour.
 TAG table -flow block -content HtmlTableContent
+# TAG table -content HtmlTableContent
 
 # TAG tbody
 TAG td -content HtmlTableCellContent
