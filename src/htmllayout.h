@@ -90,6 +90,8 @@ InlineBorder *HtmlGetInlineBorder(LayoutContext *, HtmlNode *, int);
 int HtmlInlineContextPushBorder(InlineContext *, InlineBorder *);
 void HtmlInlineContextPopBorder(InlineContext *, InlineBorder *);
 
+void HtmlInlineContextSetTextIndent(InlineContext*, int);
+
 /* End of htmllayoutinline.c interface
  *-------------------------------------------------------------------------*/
 

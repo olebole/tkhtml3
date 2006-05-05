@@ -31,7 +31,7 @@
  * 
  *     HtmlInlineContextIsEmpty
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.17 2006/05/05 11:42:51 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.18 2006/05/05 12:15:55 danielk1977 Exp $";
 
 typedef struct InlineBox InlineBox;
 
@@ -78,6 +78,7 @@ struct InlineContext {
   int textAlign;          /* One of TEXTALIGN_LEFT, TEXTALIGN_RIGHT etc. */
   int whiteSpace;         /* One of WHITESPACE_PRE, WHITESPACE_NORMAL etc. */
   int lineHeight;         /* Value of 'line-height' on inline parent */
+  int iTextIndent;        /* Pixels of 'text-indent' for next line */
 
   int nInline;            /* Number of inline boxes in aInline */
   int nInlineAlloc;       /* Number of slots allocated in aInline */
@@ -599,6 +600,9 @@ HtmlInlineContextGetLineBox(pLayout, p, pWidth, flags, pCanvas, pVSpace,pAscent)
     memset(&content, 0, sizeof(HtmlCanvas));
     memset(&borders, 0, sizeof(HtmlCanvas));
 
+    /* Account for any 'text-indent' value */
+    width += p->iTextIndent;
+
     /* This block sets the local variables nBox and lineboxwidth.
      *
      * If 'white-space' is not "nowrap", count how many of the inline boxes
@@ -648,6 +652,7 @@ HtmlInlineContextGetLineBox(pLayout, p, pWidth, flags, pCanvas, pVSpace,pAscent)
         if (p->aInline[0].eNewLine) {
             /* The line-box consists of a single new-line only.  */
             *pVSpace = p->aInline[0].eNewLine;
+            p->iTextIndent = 0;
             return 1;
         }
         if (forcebox && !p->aInline[0].eNewLine) {
@@ -713,6 +718,7 @@ HtmlInlineContextGetLineBox(pLayout, p, pWidth, flags, pCanvas, pVSpace,pAscent)
             }
             break;
     }
+    iLeft += p->iTextIndent;
     x += iLeft;
 
     /* Draw nBox boxes side by side in pCanvas to create the line-box. */
@@ -912,6 +918,7 @@ HtmlInlineContextGetLineBox(pLayout, p, pWidth, flags, pCanvas, pVSpace,pAscent)
     if (aReplacedX) {
         HtmlFree(0, (char *)aReplacedX);
     }
+    p->iTextIndent = 0;
     return 1;
 }
 
@@ -1195,5 +1202,13 @@ HtmlInlineContextAddBox(pContext, pNode, pCanvas, iWidth, iHeight, iOffset)
     pInlineCanvas = inlineContextAddInlineCanvas(pContext, 1, pNode);
     DRAW_CANVAS(pInlineCanvas, pCanvas, 0, iOffset, pNode);
     inlineContextSetBoxDimensions(pContext, iWidth, ascent, descent, 0);
+}
+
+void 
+HtmlInlineContextSetTextIndent(pContext, iTextIndent)
+    InlineContext *pContext;
+    int iTextIndent;
+{
+    pContext->iTextIndent = iTextIndent;
 }
 

@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.161 2006/05/05 11:42:51 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.162 2006/05/05 12:15:55 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -2428,6 +2428,7 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
         pFlow = &FT_TABLE;
     }
 
+    /* Log the state of the normal-flow context before this node */
     LOG {
         HtmlTree *pTree = pLayout->pTree;
         Tcl_Obj *pLog = Tcl_NewObj();
@@ -2466,6 +2467,7 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
     /* See if there are any complete line-boxes to copy to the main canvas. */
     inlineLayoutDrawLines(pLayout, pBox, pContext, 0, pY, pNormal);
 
+    /* Log the state of the normal-flow context after this node */
     LOG {
         HtmlTree *pTree = pLayout->pTree;
         Tcl_Obj *pLog = Tcl_NewObj();
@@ -2609,6 +2611,9 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
 
     /* Create the InlineContext object for this containing box */
     pContext = HtmlInlineContextNew(pNode, pLayout->minmaxTest);
+    HtmlInlineContextSetTextIndent(pContext, 
+        PIXELVAL(pNode->pPropertyValues, TEXT_INDENT, pBox->iContaining)
+    );
 
     /* Add any inline-border created by the node that generated this
      * normal-flow to the InlineContext. Actual border attributes do not apply
