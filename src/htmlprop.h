@@ -196,6 +196,7 @@ struct HtmlComputedValues {
     unsigned char eTextDecoration;    /* 'text-decoration' */
     unsigned char eWhitespace;        /* 'white-space' */
     unsigned char eTextAlign;         /* 'text-align' */
+    int iTextIndent;                  /* 'text-indext' (pixels, %) */
 
     /* See above. iVerticalAlign is used only if (eVerticalAlign==0) */
     unsigned char eVerticalAlign;     /* 'vertical-align' */
@@ -294,6 +295,7 @@ struct HtmlComputedValuesCreator {
 #define PROP_MASK_BOTTOM                  0x02000000
 #define PROP_MASK_RIGHT                   0x04000000
 #define PROP_MASK_LEFT                    0x08000000
+#define PROP_MASK_TEXT_INDENT             0x10000000
 
 /*
  * Pixel values in the HtmlComputedValues struct may also take the following
@@ -404,6 +406,7 @@ int HtmlComputedValuesCompare(HtmlComputedValues *, HtmlComputedValues *);
 #define HTML_COMPUTED_MIN_WIDTH       iMinWidth
 #define HTML_COMPUTED_MAX_HEIGHT      iMaxHeight
 #define HTML_COMPUTED_MAX_WIDTH       iMaxWidth
+#define HTML_COMPUTED_TEXT_INDENT     iTextIndent
 
 #define PIXELVAL(pV, prop, percent_of) ( \
     ((pV)->mask & PROP_MASK_ ## prop) ? ( \

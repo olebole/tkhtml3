@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.74 2006/05/04 17:35:15 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.75 2006/05/05 11:42:53 danielk1977 Exp $";
 
 #include "htmllayout.h"
 
@@ -586,7 +586,7 @@ cellIterate(pTree, pNode, clientData)
             int k;
             if (p->nRowSpan<(p->iCol+nSpan)) {
                 int n = p->iCol+nSpan;
-                p->aRowSpan = (int *)HtmlRealloc((char *)p->aRowSpan, 
+                p->aRowSpan = (int *)HtmlRealloc(0, (char *)p->aRowSpan, 
                         sizeof(int)*n);
                 for (k=p->nRowSpan; k<n; k++) {
                     p->aRowSpan[k] = 0;
@@ -686,7 +686,7 @@ tableIterate(pTree, pNode, xCallback, xRowCallback, pContext)
         xRowCallback(0, sRowContext.iRow, pContext);
         sRowContext.iRow++;
     }
-    HtmlFree((char *)sRowContext.aRowSpan);
+    HtmlFree(0, (char *)sRowContext.aRowSpan);
     return TCL_OK;
 }
 
@@ -867,7 +867,7 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
     int  *aLogValues = 0;
     LOG { 
         int nBytes = sizeof(int) * nCol * (NUM_LOGVALUES * 2);
-        aLogValues = (int *)HtmlAlloc(nBytes);
+        aLogValues = (int *)HtmlAlloc(0, nBytes);
     }
 
     /* A rather lengthy block to log the inputs to this function. */
@@ -935,7 +935,7 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
     }
 
     /* Allocate the aRequested array. It will be freed before returning. */
-    aRequested = (int *)HtmlAlloc(sizeof(int) * nCol);
+    aRequested = (int *)HtmlAlloc(0, sizeof(int) * nCol);
 
     /* Step 1. Allocate each column it's minimum content width. */
     iRem = availablewidth;
@@ -1190,9 +1190,9 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
     }
 
     LOG {
-        HtmlFree(aLogValues);
+        HtmlFree(0, aLogValues);
     }
-    HtmlFree(aRequested);
+    HtmlFree(0, aRequested);
 }
 
 /*
@@ -1302,14 +1302,14 @@ int HtmlTableLayout(pLayout, pBox, pNode)
     }
 
     /* Allocate arrays for the minimum and maximum widths of each column */
-    aMinWidth      = (int *)HtmlClearAlloc(nCol*sizeof(int));
-    aMaxWidth      = (int *)HtmlClearAlloc(nCol*sizeof(int));
-    aPercentWidth  = (float *)HtmlClearAlloc(nCol*sizeof(float));
-    aExplicitWidth = (int *)HtmlClearAlloc(nCol*sizeof(int));
-    aWidth         = (int *)HtmlClearAlloc(nCol*sizeof(int));
+    aMinWidth      = (int *)HtmlClearAlloc(0, nCol*sizeof(int));
+    aMaxWidth      = (int *)HtmlClearAlloc(0, nCol*sizeof(int));
+    aPercentWidth  = (float *)HtmlClearAlloc(0, nCol*sizeof(float));
+    aExplicitWidth = (int *)HtmlClearAlloc(0, nCol*sizeof(int));
+    aWidth         = (int *)HtmlClearAlloc(0, nCol*sizeof(int));
 
-    aY = (int *)HtmlClearAlloc((data.nRow+1)*sizeof(int));
-    aCell = (TableCell *)HtmlClearAlloc(data.nCol*sizeof(TableCell));
+    aY = (int *)HtmlClearAlloc(0, (data.nRow+1)*sizeof(int));
+    aCell = (TableCell *)HtmlClearAlloc(0, data.nCol*sizeof(TableCell));
 
     data.aMaxWidth = aMaxWidth;
     data.aMinWidth = aMinWidth;
@@ -1368,13 +1368,13 @@ int HtmlTableLayout(pLayout, pBox, pNode)
     assert(pBox->height < 10000000);
     assert(pBox->width < 10000000);
 
-    HtmlFree((char *)aMinWidth);
-    HtmlFree((char *)aMaxWidth);
-    HtmlFree((char *)aWidth);
-    HtmlFree((char *)aY);
-    HtmlFree((char *)aCell);
-    HtmlFree((char *)aPercentWidth);
-    HtmlFree((char *)aExplicitWidth);
+    HtmlFree(0, (char *)aMinWidth);
+    HtmlFree(0, (char *)aMaxWidth);
+    HtmlFree(0, (char *)aWidth);
+    HtmlFree(0, (char *)aY);
+    HtmlFree(0, (char *)aCell);
+    HtmlFree(0, (char *)aPercentWidth);
+    HtmlFree(0, (char *)aExplicitWidth);
 
     return TCL_OK;
 }

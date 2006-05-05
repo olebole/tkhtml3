@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.95 2006/05/04 17:27:15 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.96 2006/05/05 11:42:53 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -63,6 +63,15 @@ allocCmd(clientData, interp, objc, objv)
     Tcl_Obj *CONST objv[];             /* Argument strings. */
 {
     return Rt_AllocCommand(0, interp, objc, objv);
+}
+static int 
+heapdebugCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    return HtmlHeapDebug(0, interp, objc, objv);
 }
 static int 
 hashstatsCmd(clientData, interp, objc, objv)
@@ -145,7 +154,7 @@ logCommon(
 
         nBuf = vsnprintf(zBuf, 200, zFormat, ap);
         if (nBuf >= 200) {
-            zDyn = HtmlAlloc(nBuf + 10);
+            zDyn = HtmlAlloc(0, nBuf + 10);
             zBuf = zDyn;
             nBuf = vsnprintf(zBuf, nBuf + 1, zFormat, ap);
         }
@@ -160,7 +169,7 @@ logCommon(
         }
 
         Tcl_DecrRefCount(pCmd);
-        HtmlFree(zDyn);
+        HtmlFree(0, zDyn);
     }
 }
 
@@ -689,7 +698,7 @@ deleteWidget(clientData)
     Tcl_CancelIdleCall(callbackHandler, (ClientData)pTree);
 
     /* Delete the structure itself */
-    HtmlFree((char *)pTree);
+    HtmlFree(0, (char *)pTree);
 }
 
 /*
@@ -2021,7 +2030,7 @@ newWidget(clientData, interp, objc, objv)
     }
     
     zCmd = Tcl_GetString(objv[1]);
-    pTree = (HtmlTree *)HtmlClearAlloc(sizeof(HtmlTree));
+    pTree = (HtmlTree *)HtmlClearAlloc(0, sizeof(HtmlTree));
 
     /* Create the Tk window.
      */
@@ -2073,7 +2082,7 @@ error_out:
         Tk_DestroyWindow(pTree->tkwin);
     }
     if (pTree) {
-        HtmlFree((char *)pTree);
+        HtmlFree(0, (char *)pTree);
     }
     return TCL_ERROR;
 }
@@ -2171,6 +2180,7 @@ DLL_EXPORT int Tkhtml_Init(interp)
 
 #ifndef NDEBUG
     Tcl_CreateObjCommand(interp, "::tkhtml::htmlalloc", allocCmd, 0, 0);
+    Tcl_CreateObjCommand(interp, "::tkhtml::heapdebug", heapdebugCmd, 0, 0);
 #endif
 
     SwprocInit(interp);

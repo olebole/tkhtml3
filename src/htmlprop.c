@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.66 2006/05/04 17:27:15 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.67 2006/05/05 11:42:52 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -60,7 +60,7 @@ static const char rcsid[] = "$Id: htmlprop.c,v 1.66 2006/05/04 17:27:15 danielk1
  * 
  *     Return a pointer to a string representation of the CSS specified
  *     value contained in argument pProp. *pzFree is set to the value
- *     of a pointer (possibly NULL) that should be passed to HtmlFree()
+ *     of a pointer (possibly NULL) that should be passed to HtmlFree(0, )
  *     when the returned string is no longer required. Example:
  *
  *         char *zFree;
@@ -68,7 +68,7 @@ static const char rcsid[] = "$Id: htmlprop.c,v 1.66 2006/05/04 17:27:15 danielk1
  * 
  *         zString = propertyToString(pProp, &zFree);
  *         // Use zString for something (i.e. print to stdout)
- *         HtmlFree(zFree);
+ *         HtmlFree(0, zFree);
  *
  * Results:
  *     Pointer to string representation of property pProp.
@@ -88,7 +88,7 @@ HtmlPropertyToString(pProp, pzFree)
 
     if (!zRet) {
         if (pProp->eType == CSS_TYPE_TCL || pProp->eType == CSS_TYPE_URL) {
-            zRet = HtmlAlloc(strlen(pProp->v.zVal) + 6);
+            zRet = HtmlAlloc(0, strlen(pProp->v.zVal) + 6);
             sprintf(zRet, "%s(%s)", 
                     (pProp->eType==CSS_TYPE_TCL)?"tcl":"url", pProp->v.zVal
             );
@@ -109,7 +109,7 @@ HtmlPropertyToString(pProp, pzFree)
                     assert(!"Unknown CssProperty.eType value");
             }
 
-            zRet = HtmlAlloc(128);
+            zRet = HtmlAlloc(0, 128);
             sprintf(zRet, "%.2f%s", pProp->v.rVal, zSym);
         }
         *pzFree = zRet;
@@ -510,7 +510,7 @@ propertyValuesSetColor(p, pCVar, pProp)
         }
 
         if (color) {
-            cVal = (HtmlColor *)HtmlAlloc(sizeof(HtmlColor)+strlen(zColor)+1);
+            cVal = (HtmlColor *)HtmlAlloc(0, sizeof(HtmlColor)+strlen(zColor)+1);
             cVal->nRef = 0;
             cVal->xcolor = color;
             cVal->zColor = (char *)(&cVal[1]);
@@ -1135,6 +1135,7 @@ HtmlComputedValuesInit(pTree, pNode, p)
     p->values.position.iBottom = PIXELVAL_AUTO;
     p->values.position.iLeft = PIXELVAL_AUTO;
     p->values.position.iRight = PIXELVAL_AUTO;
+    p->values.iTextIndent = 0;
 }
 
 /*
@@ -1193,13 +1194,13 @@ propertyValuesTclScript(p, eProp, zScript)
                 zRes, HtmlCssPropertyToString(eProp)
             );
         }
-        HtmlFree((char *)pVal);
+        HtmlFree(0, (char *)pVal);
         return 1;
     }
 
     /* Now that we've successfully called HtmlComputedValuesSet(), the
      * CssProperty structure (it's associated string data is what matters)
-     * cannot be HtmlFree()d until after HtmlComputedValuesFinish() is called.
+     * cannot be HtmlFree(0, )d until after HtmlComputedValuesFinish() is called.
      * So we make a linked list of such structures at p->pDeleteList using
      * CssProperty.v.p as the pNext pointer.
      * 
@@ -1260,7 +1261,7 @@ HtmlComputedValuesSet(p, eProp, pProp)
                 Tcl_GetString(HtmlNodeCommand(p->pTree, p->pNode)),
                 HtmlCssPropertyToString(eProp), zPropVal
         );
-        if (zFree) HtmlFree(zFree);
+        if (zFree) HtmlFree(0, zFree);
     }
 
     /* Silently ignore any attempt to set a root-node property to 'inherit'.
@@ -1517,6 +1518,10 @@ HtmlComputedValuesSet(p, eProp, pProp)
                 PROP_MASK_MARGIN_BOTTOM, pProp,
                 SZ_INHERIT|SZ_PERCENT|SZ_AUTO|SZ_NEGATIVE
             );
+        case CSS_PROPERTY_TEXT_INDENT:
+            return propertyValuesSetSize(p, &(p->values.iTextIndent),
+                PROP_MASK_TEXT_INDENT, pProp, SZ_INHERIT|SZ_PERCENT|SZ_NEGATIVE
+            );
 
         case CSS_PROPERTY_BACKGROUND_POSITION_X:
             return propertyValuesSetSize(p, &(p->values.iBackgroundPositionX),
@@ -1760,7 +1765,7 @@ allocateNewFont(interp, tkwin, pFontKey)
 
     } while (0 == tkfont);
 
-    pFont = (HtmlFont *)HtmlAlloc(sizeof(HtmlFont) + strlen(zTkFontName) + 1);
+    pFont = (HtmlFont *)HtmlAlloc(0, sizeof(HtmlFont) + strlen(zTkFontName) + 1);
     pFont->nRef = 0;
     pFont->tkfont = tkfont;
     pFont->zFont = (char *)&pFont[1];
@@ -1849,21 +1854,21 @@ HtmlComputedValuesFinish(p)
         unsigned int mask;
         int offset;
     } emexmap[] = {
-        {PROP_MASK_WIDTH,              OFFSET(iWidth)},
-        {PROP_MASK_MIN_WIDTH,          OFFSET(iMinWidth)},
-        {PROP_MASK_MAX_WIDTH,          OFFSET(iMaxWidth)},
-        {PROP_MASK_HEIGHT,             OFFSET(iHeight)},
-        {PROP_MASK_MIN_HEIGHT,         OFFSET(iMinHeight)},
-        {PROP_MASK_MAX_HEIGHT,         OFFSET(iMaxHeight)},
-        {PROP_MASK_MARGIN_TOP,         OFFSET(margin.iTop)},
-        {PROP_MASK_MARGIN_RIGHT,       OFFSET(margin.iRight)},
-        {PROP_MASK_MARGIN_BOTTOM ,     OFFSET(margin.iBottom)},
-        {PROP_MASK_MARGIN_LEFT,        OFFSET(margin.iLeft)},
-        {PROP_MASK_PADDING_TOP,        OFFSET(padding.iTop)},
-        {PROP_MASK_PADDING_RIGHT,      OFFSET(padding.iRight)},
-        {PROP_MASK_PADDING_BOTTOM,     OFFSET(padding.iBottom)},
-        {PROP_MASK_PADDING_LEFT,       OFFSET(padding.iLeft)},
-        {PROP_MASK_VERTICAL_ALIGN,     OFFSET(iVerticalAlign)},
+        {PROP_MASK_WIDTH,               OFFSET(iWidth)},
+        {PROP_MASK_MIN_WIDTH,           OFFSET(iMinWidth)},
+        {PROP_MASK_MAX_WIDTH,           OFFSET(iMaxWidth)},
+        {PROP_MASK_HEIGHT,              OFFSET(iHeight)},
+        {PROP_MASK_MIN_HEIGHT,          OFFSET(iMinHeight)},
+        {PROP_MASK_MAX_HEIGHT,          OFFSET(iMaxHeight)},
+        {PROP_MASK_MARGIN_TOP,          OFFSET(margin.iTop)},
+        {PROP_MASK_MARGIN_RIGHT,        OFFSET(margin.iRight)},
+        {PROP_MASK_MARGIN_BOTTOM,       OFFSET(margin.iBottom)},
+        {PROP_MASK_MARGIN_LEFT,         OFFSET(margin.iLeft)},
+        {PROP_MASK_PADDING_TOP,         OFFSET(padding.iTop)},
+        {PROP_MASK_PADDING_RIGHT,       OFFSET(padding.iRight)},
+        {PROP_MASK_PADDING_BOTTOM,      OFFSET(padding.iBottom)},
+        {PROP_MASK_PADDING_LEFT,        OFFSET(padding.iLeft)},
+        {PROP_MASK_VERTICAL_ALIGN,      OFFSET(iVerticalAlign)},
         {PROP_MASK_BORDER_TOP_WIDTH,    OFFSET(border.iTop)},
         {PROP_MASK_BORDER_RIGHT_WIDTH,  OFFSET(border.iRight)},
         {PROP_MASK_BORDER_BOTTOM_WIDTH, OFFSET(border.iBottom)},
@@ -1873,7 +1878,8 @@ HtmlComputedValuesFinish(p)
         {PROP_MASK_TOP,                 OFFSET(position.iTop)},
         {PROP_MASK_BOTTOM,              OFFSET(position.iBottom)},
         {PROP_MASK_LEFT,                OFFSET(position.iLeft)},
-        {PROP_MASK_RIGHT,               OFFSET(position.iRight)}
+        {PROP_MASK_RIGHT,               OFFSET(position.iRight)},
+        {PROP_MASK_TEXT_INDENT,         OFFSET(iTextIndent)}
     };
 #undef OFFSET
 
@@ -2063,7 +2069,7 @@ HtmlComputedValuesFinish(p)
         CssProperty *p1 = p->pDeleteList;
         while (p1) {
             CssProperty *p2 = (CssProperty *)p1->v.p;
-            HtmlFree((char *)p1);
+            HtmlFree(0, (char *)p1);
             p1 = p2;
         }
         p->pDeleteList = 0;
@@ -2085,7 +2091,7 @@ decrementFontRef(pTree, pFont)
         Tcl_HashEntry *pEntry = Tcl_FindHashEntry(&pTree->aFont, pKey);
         Tcl_DeleteHashEntry(pEntry);
         Tk_FreeFont(pFont->tkfont);
-        HtmlFree((char *)pFont);
+        HtmlFree(0, (char *)pFont);
     }
 }
 
@@ -2103,7 +2109,7 @@ decrementColorRef(pTree, pColor)
         if (pColor->xcolor) {
             Tk_FreeColor(pColor->xcolor);
         }
-        HtmlFree((char *)pColor);
+        HtmlFree(0, (char *)pColor);
     }
 }
 
@@ -2220,7 +2226,7 @@ HtmlComputedValuesSetupTables(pTree)
 
     /* Initialise the color table */
     for (ii = 0; ii < sizeof(color_map)/sizeof(struct CssColor); ii++) {
-        pColor = (HtmlColor *)HtmlAlloc(sizeof(HtmlColor));
+        pColor = (HtmlColor *)HtmlAlloc(0, sizeof(HtmlColor));
         pColor->zColor = color_map[ii].css;
         pColor->nRef = 1;
         pColor->xcolor = Tk_GetColor(interp, pTree->tkwin, color_map[ii].tk);
@@ -2233,7 +2239,7 @@ HtmlComputedValuesSetupTables(pTree)
     /* Add the "transparent" color */
     pEntry = Tcl_CreateHashEntry(&pTree->aColor, "transparent", &n);
     assert(pEntry && n);
-    pColor = (HtmlColor *)HtmlAlloc(sizeof(HtmlColor));
+    pColor = (HtmlColor *)HtmlAlloc(0, sizeof(HtmlColor));
     pColor->zColor = "transparent";
     pColor->nRef = 1;
     pColor->xcolor = 0;
@@ -2396,6 +2402,8 @@ struct PVDef {
     LENGTHVAL(PADDING_LEFT, padding.iLeft),
     LENGTHVAL(PADDING_RIGHT, padding.iRight),
     LENGTHVAL(PADDING_TOP, padding.iTop),
+
+    LENGTHVAL(TEXT_INDENT, iTextIndent),
 
     ENUMVAL  (TEXT_ALIGN, eTextAlign),
     ENUMVAL  (TEXT_DECORATION, eTextDecoration),

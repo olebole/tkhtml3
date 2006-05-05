@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.118 2006/05/04 17:27:14 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.119 2006/05/05 11:42:51 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -267,6 +267,20 @@ struct HtmlCanvasItem {
     HtmlCanvasItem *pNext;
 };
 
+static HtmlCanvasItem *
+allocateCanvasItem()
+{
+    return (HtmlCanvasItem *)HtmlAlloc(
+        "Screen-graph item", sizeof(HtmlCanvasItem)
+    );
+}
+static void
+freeCanvasItem(p)
+    HtmlCanvasItem *p;
+{
+    return HtmlFree("Screen-graph item", p);
+}
+
 static void 
 windowsRepair(pTree, pCanvas)
     HtmlTree *pTree;
@@ -397,7 +411,7 @@ HtmlDrawCleanup(pTree, pCanvas)
             Tcl_DecrRefCount(pObj);
         }
         if (pPrev) {
-            HtmlFree((char *)pPrev);
+            freeCanvasItem(pPrev);
         }
         pPrev = pItem;
         pItem = (pItem == pCanvas->pLast ? 0 : pItem->pNext);
@@ -410,7 +424,7 @@ HtmlDrawCleanup(pTree, pCanvas)
     }
 
     if (pPrev) {
-        HtmlFree((char *)pPrev);
+        freeCanvasItem(pPrev);
     }
     memset(pCanvas, 0, sizeof(HtmlCanvas));
 }
@@ -530,12 +544,14 @@ void HtmlDrawOrigin(pCanvas)
     if (!pCanvas->pFirst) return;
     assert(pCanvas->pLast);
 
-    pItem = (HtmlCanvasItem *)HtmlClearAlloc(sizeof(HtmlCanvasItem));
+    pItem = allocateCanvasItem();
+    memset(pItem, 0, sizeof(HtmlCanvasItem));
     pItem->x.o.horizontal = pCanvas->left;
     pItem->x.o.vertical = pCanvas->top;
     pItem->x.o.nRef = 1;
 
-    pItem2 = (HtmlCanvasItem *)HtmlClearAlloc(sizeof(HtmlCanvasItem));
+    pItem2 = allocateCanvasItem();
+    memset(pItem2, 0, sizeof(HtmlCanvasItem));
     pItem->x.o.pSkip = pItem2;
 
     pItem->type = CANVAS_ORIGIN;
@@ -699,7 +715,7 @@ void HtmlDrawCanvas(pCanvas, pCanvas2, x, y, pNode)
                     } else {
                         assert(pCanvas2->pLast);
                     }
-                    HtmlFree(pT2);
+                    freeCanvasItem(pT2);
                     combined = 1;
                 }
             }
@@ -861,7 +877,7 @@ HtmlDrawBox(pCanvas, x, y, w, h, pNode, flags, size_only)
     if (!size_only && requireBox(pNode)) {
         int x1, y1, w1, h1;
         HtmlCanvasItem *pItem; 
-        pItem = (HtmlCanvasItem *)HtmlAlloc(sizeof(HtmlCanvasItem));
+        pItem = allocateCanvasItem();
         pItem->type = CANVAS_BOX;
         pItem->x.box.x = x;
         pItem->x.box.y = y;
@@ -897,7 +913,7 @@ HtmlDrawLine(pCanvas, x, w, y_over, y_through, y_under, pNode, size_only)
 {
     if (!size_only) {
         HtmlCanvasItem *pItem; 
-        pItem = (HtmlCanvasItem *)HtmlAlloc(sizeof(HtmlCanvasItem));
+        pItem = allocateCanvasItem();
         pItem->type = CANVAS_LINE;
         pItem->x.line.x = x;
         pItem->x.line.w = w;
@@ -943,7 +959,7 @@ void HtmlDrawText(pCanvas, pText, x, y, w, size_only, pNode, iIndex)
 
     if (!size_only) {
         HtmlCanvasItem *pItem; 
-        pItem = (HtmlCanvasItem *)HtmlAlloc(sizeof(HtmlCanvasItem));
+        pItem = allocateCanvasItem();
         pItem->type = CANVAS_TEXT;
         pItem->x.t.pText = pText;
         pItem->x.t.x = x;
@@ -980,7 +996,7 @@ HtmlDrawImage(
     HtmlImageCheck(pImage);
     if (!size_only) {
         HtmlCanvasItem *pItem; 
-        pItem = (HtmlCanvasItem *)HtmlAlloc(sizeof(HtmlCanvasItem));
+        pItem = allocateCanvasItem();
         pItem->type = CANVAS_IMAGE;
         pItem->x.i2.pImage = pImage;
         HtmlImageRef(pImage);
@@ -1023,7 +1039,8 @@ HtmlDrawWindow(pCanvas, pNode, x, y, w, h, size_only)
 {
     if (!size_only) {
         HtmlCanvasItem *pItem; 
-        pItem = (HtmlCanvasItem *)HtmlClearAlloc(sizeof(HtmlCanvasItem));
+        pItem = allocateCanvasItem();
+        memset(pItem, 0, sizeof(HtmlCanvasItem));
         pItem->type = CANVAS_WINDOW;
         pItem->x.w.pNode = pNode;
         pItem->x.w.x = x;
@@ -1513,7 +1530,7 @@ drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview)
 
     /* Outline, if required */
     if (ow > 0 && oc) {
-        Outline *pOutline = (Outline *)HtmlClearAlloc(sizeof(Outline));
+        Outline *pOutline = (Outline *)HtmlClearAlloc(0, sizeof(Outline));
         pOutline->x = x + pBox->x;
         pOutline->y = y + pBox->y;
         pOutline->w = pBox->w;
@@ -2019,7 +2036,7 @@ getPixmap(pTree, xcanvas, ycanvas, w, h, getwin)
         fill_quad(pTree->win, pmap, oc, x1,y1, 0,h1, ow,0, 0,-h1);
         fill_quad(pTree->win, pmap, oc, x1+w1,y1, 0,h1, -ow,0, 0,-h1);
         pOutline = pOutline->pNext;
-        HtmlFree(pPrev);
+        HtmlFree(0, pPrev);
     }
   
     return pmap;
@@ -2351,7 +2368,7 @@ layoutNodeCb(pItem, origin_x, origin_y, clientData)
             int nByte;
             pQuery->nNodeAlloc += 16;
             nByte = pQuery->nNodeAlloc * sizeof(HtmlNode *);
-            pQuery->apNode = (HtmlNode**)HtmlRealloc(pQuery->apNode, nByte);
+            pQuery->apNode = (HtmlNode**)HtmlRealloc(0, pQuery->apNode, nByte);
         }
         assert(i == pQuery->nNode - 1);
         pQuery->apNode[i] = pNode;
@@ -2400,7 +2417,7 @@ layoutNodeCmd(pTree, x, y)
         }
         Tcl_SetObjResult(pTree->interp, pRet);
     }
-    HtmlFree(sQuery.apNode);
+    HtmlFree(0, sQuery.apNode);
 }
   
 
@@ -2901,7 +2918,7 @@ HtmlDrawAddMarker(pCanvas, x, y, fixed)
     int fixed;
 {
     HtmlCanvasItem *pItem; 
-    pItem = (HtmlCanvasItem *)HtmlAlloc(sizeof(HtmlCanvasItem));
+    pItem = allocateCanvasItem();
     pItem->type = CANVAS_MARKER;
     pItem->x.marker.x = x;
     pItem->x.marker.y = y;
@@ -2939,7 +2956,7 @@ HtmlDrawGetMarker(pCanvas, pMarker, pX, pY)
             if (pCanvas->pLast == pMarker) {
                 pCanvas->pLast = pPrev;
             }
-            HtmlFree(pMarker);
+            freeCanvasItem(pMarker);
             return 0;
         }
         pPrev = pItem;

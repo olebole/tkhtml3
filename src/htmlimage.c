@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlimage.c,v 1.48 2006/04/29 09:30:01 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlimage.c,v 1.49 2006/05/05 11:42:51 danielk1977 Exp $";
 
 #include <assert.h>
 #include "html.h"
@@ -143,7 +143,7 @@ HtmlImageServerInit(pTree)
 {
     HtmlImageServer *p;
     assert(!pTree->pImageServer);
-    p = (HtmlImageServer *)HtmlClearAlloc(sizeof(HtmlImageServer));
+    p = (HtmlImageServer *)HtmlClearAlloc(0, sizeof(HtmlImageServer));
     memset(p, 0, sizeof(HtmlImageServer));
     Tcl_InitHashTable(&p->aImage, TCL_STRING_KEYS);
     p->pTree = pTree;
@@ -176,7 +176,7 @@ HtmlImageServerShutdown(pTree)
     Tcl_HashEntry *pEntry = Tcl_FirstHashEntry(&p->aImage, &search);
     assert(!pEntry);
 #endif
-    HtmlFree(p);
+    HtmlFree(0, p);
     pTree->pImageServer = 0;
 }
 
@@ -377,7 +377,7 @@ HtmlImageServerGet(p, zUrl)
                 goto image_get_out;
             }
 
-            pImage = (HtmlImage2 *)HtmlClearAlloc(sizeof(HtmlImage2));
+            pImage = (HtmlImage2 *)HtmlClearAlloc(0, sizeof(HtmlImage2));
             if (nObj == 1 || nObj == 2) {
                 img = Tk_GetImage(
                     interp, p->pTree->tkwin, Tcl_GetString(apObj[0]),
@@ -387,7 +387,7 @@ HtmlImageServerGet(p, zUrl)
             if ((nObj != 1 && nObj != 2) || !img) {
                 Tcl_ResetResult(interp);
                 Tcl_AppendResult(interp,  "-imagecmd returned bad value", 0);
-                HtmlFree(pImage);
+                HtmlFree(0, pImage);
                 pImage = 0;
                 goto image_get_out;
             }
@@ -539,7 +539,7 @@ HtmlImageScale(pImage, pWidth, pHeight, doScale)
         }
     }
     if (!pRet) {
-        pRet = (HtmlImage2 *)HtmlClearAlloc(sizeof(HtmlImage2));
+        pRet = (HtmlImage2 *)HtmlClearAlloc(0, sizeof(HtmlImage2));
         pRet->pImageServer = pUnscaled->pImageServer;
         pRet->zUrl = pUnscaled->zUrl;
         pRet->pNext = pUnscaled->pNext;
@@ -613,7 +613,7 @@ HtmlImageImage(pImage)
             h = pUnscaled->height;
             s_photo = Tk_FindPhoto(interp, Tcl_GetString(pImage->pImageName));
 
-            s_block.pixelPtr = (unsigned char *)HtmlAlloc(sw * sh * 4);
+            s_block.pixelPtr = (unsigned char *)HtmlAlloc(0, sw * sh * 4);
             s_block.width = sw;
             s_block.height = sh;
             s_block.pitch = sw * 4;
@@ -642,7 +642,7 @@ HtmlImageImage(pImage)
                 }
             }
             photoputblock(interp, s_photo, &s_block, 0, 0, sw, sh, 0);
-            HtmlFree((char *)s_block.pixelPtr);
+            HtmlFree(0, (char *)s_block.pixelPtr);
         } else {
             return HtmlImageImage(pImage->pUnscaled);
         }
@@ -708,7 +708,7 @@ HtmlImageFree(pImage)
         }
 
         freeTile(pImage);
-        HtmlFree(pImage);
+        HtmlFree(0, pImage);
     }
 }
 
@@ -893,7 +893,7 @@ Tcl_Obj *HtmlXImageToImage(pTree, pXImage, w, h)
     pImage = Tcl_GetObjResult(interp);
     Tcl_IncrRefCount(pImage);
 
-    block.pixelPtr = (unsigned char *)HtmlAlloc(w * h * 4);
+    block.pixelPtr = (unsigned char *)HtmlAlloc(0, w * h * 4);
     block.width = w;
     block.height = h;
     block.pitch = w*4;
@@ -927,7 +927,7 @@ Tcl_Obj *HtmlXImageToImage(pTree, pXImage, w, h)
 
     photo = Tk_FindPhoto(interp, Tcl_GetString(pImage));
     photoputblock(interp, photo, &block, 0, 0, w, h, 0);
-    HtmlFree((char *)block.pixelPtr);
+    HtmlFree(0, (char *)block.pixelPtr);
 
     return pImage;
 }

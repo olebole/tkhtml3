@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.59 2006/05/04 17:27:15 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.60 2006/05/05 11:42:52 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -1539,7 +1539,7 @@ Tokenize(pTree, isFinal)
             Tcl_ResetResult(pTree->interp);
 
             pScript = 0;
-            HtmlFree((char *)pScriptToken);
+            HtmlFree(0, (char *)pScriptToken);
             pScriptToken = 0;
         }
 
@@ -1557,7 +1557,7 @@ Tokenize(pTree, isFinal)
                 i++;
             }
             
-            pSpace = (HtmlToken *)HtmlAlloc(sizeof(HtmlToken));
+            pSpace = (HtmlToken *)HtmlAlloc(0, sizeof(HtmlToken));
             pSpace->type = Html_Space;
 
             if (c == '\n' || c == '\r') {
@@ -1603,7 +1603,7 @@ Tokenize(pTree, isFinal)
 
             nBytes = 1 + i + sizeof(HtmlToken) + (i%sizeof(char *));
 
-            pText = (HtmlToken *)HtmlAlloc(nBytes);
+            pText = (HtmlToken *)HtmlAlloc(0, nBytes);
             pText->type = Html_Text;
             pText->x.zText = (char *)&pText[1];
             strncpy(pText->x.zText, &z[n], i);
@@ -1818,7 +1818,7 @@ Tokenize(pTree, isFinal)
                     nByte += arglen[j] + 1;
                 }
             }
-            pMarkup = (HtmlToken *)HtmlAlloc(nByte);
+            pMarkup = (HtmlToken *)HtmlAlloc(0, nByte);
             pMarkup->type = pMap->type;
             pMarkup->count = argc - 1;
             pMarkup->x.zArgs = 0;

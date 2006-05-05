@@ -32,7 +32,7 @@ HtmlCssAddDynamic(pNode, pSelector, isSet)
     }
     pNew = 0;
 
-    pNew = (CssDynamic *)HtmlClearAlloc(sizeof(CssDynamic));
+    pNew = (CssDynamic *)HtmlClearAlloc(0, sizeof(CssDynamic));
     pNew->isSet = (isSet ? 1 : 0);
     pNew->pSelector = pSelector;
     pNew->pNext = pNode->pDynamic;
@@ -47,7 +47,7 @@ HtmlCssFreeDynamics(pNode)
     while (p) {
         CssDynamic *pTmp = p;
         p = p->pNext;
-        HtmlFree(pTmp);
+        HtmlFree(0, pTmp);
     }
     pNode->pDynamic = 0;
 }

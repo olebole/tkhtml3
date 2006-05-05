@@ -1,5 +1,5 @@
 /*
- * cd3res.c --
+ * restrack.c --
  *
  *     This file contains wrappers for functions that dynamically allocate
  *     and deallocate resources (for example ckalloc() and ckfree()). The
@@ -12,8 +12,7 @@
  *         * Heap memory           - Rt_Alloc(), Rt_Realloc() and Rt_Free()
  *         * Tcl object references - Rt_IncrRefCount() and Rt_DecrRefCount()
  *
- * No canvas3d code outside of this file should call ckalloc() or
- * Tcl_IncrRefCount() directly. 
+ * No tkhtml code outside of this file should call ckalloc() directly.
  *
  *-------------------------------------------------------------------------
  */
@@ -265,6 +264,106 @@ ResDump()
 
 /*
  *---------------------------------------------------------------------------
+ * End of ResTrack code.
+ *---------------------------------------------------------------------------
+ */
+
+/*
+ * This hash table is used to maintain a summary of the currently 
+ * outstanding calls to HtmlAlloc(). To be used to measure approximate 
+ * heap usage.
+ */
+static Tcl_HashTable aMalloc;
+
+static void 
+initMallocHash() {
+    static int init = 0;
+    if (!init) {
+        Tcl_InitHashTable(&aMalloc, TCL_STRING_KEYS);
+        init = 1;
+    }
+}
+
+static void
+insertMallocHash(zTopic, nBytes) 
+    const char *zTopic;
+    int nBytes;
+{
+    int *aData;
+    int isNewEntry;
+    Tcl_HashEntry *pEntry;
+
+    initMallocHash();
+
+    pEntry = Tcl_CreateHashEntry(&aMalloc, zTopic, &isNewEntry);
+    if (isNewEntry) {
+        aData = ckalloc(sizeof(int) * 2);
+        aData[0] = 1; 
+        aData[1] = nBytes;
+        Tcl_SetHashValue(pEntry, aData);
+    } else {
+        aData = Tcl_GetHashValue(pEntry);
+        aData[0] += 1;
+        aData[1] += nBytes;
+    }
+}
+
+static void
+freeMallocHash(zTopic, nBytes) 
+    const char *zTopic;
+    int nBytes;
+{
+    int *aData;
+    int isNewEntry;
+    Tcl_HashEntry *pEntry;
+
+    initMallocHash();
+
+    pEntry = Tcl_FindHashEntry(&aMalloc, zTopic);
+    assert(pEntry);
+    aData = Tcl_GetHashValue(pEntry);
+    aData[0] -= 1;
+    aData[1] -= nBytes;
+
+    assert(aData[0] >= 0);
+    assert(aData[1] >= 0);
+
+    if (aData[0] == 0) {
+        assert(aData[1] == 0);
+        Tcl_DeleteHashEntry(pEntry);
+    }
+}
+
+int 
+HtmlHeapDebug(clientData, interp, objc, objv)
+    ClientData clientData;
+    Tcl_Interp *interp; 
+    int objc;
+    Tcl_Obj * const objv[];
+{
+    Tcl_Obj *pRet = Tcl_NewObj();
+    Tcl_HashEntry *pEntry;
+    Tcl_HashSearch search;
+    for (
+        pEntry = Tcl_FirstHashEntry(&aMalloc, &search);
+        pEntry;
+        pEntry = Tcl_NextHashEntry(&search)
+    ) {
+        const char *zTopic = (const char *)Tcl_GetHashKey(&aMalloc, pEntry);
+        int *aData = (int *)Tcl_GetHashValue(pEntry);
+
+        Tcl_Obj *pObj = Tcl_NewObj();
+        Tcl_ListObjAppendElement(interp, pObj, Tcl_NewStringObj(zTopic, -1));
+        Tcl_ListObjAppendElement(interp, pObj, Tcl_NewIntObj(aData[0]));
+        Tcl_ListObjAppendElement(interp, pObj, Tcl_NewIntObj(aData[1]));
+        Tcl_ListObjAppendElement(interp, pRet, pObj);
+    }
+
+    Tcl_SetObjResult(interp, pRet);
+}
+
+/*
+ *---------------------------------------------------------------------------
  *
  * Rt_AllocCommand --
  *
@@ -322,7 +421,8 @@ Rt_AllocCommand(clientData, interp, objc, objv)
  *---------------------------------------------------------------------------
  */
 char *
-Rt_Alloc(n)
+Rt_Alloc(zTopic, n)
+    const char *zTopic;
     int n;
 {
     int nAlloc = n + 4 * sizeof(int);
@@ -331,7 +431,10 @@ Rt_Alloc(n)
     z[0] = 0xFED00FED;
     z[1] = n;
     z[3 + n / sizeof(int)] = 0xBAD00BAD;
+
     ResAlloc(RES_ALLOC, z);
+    insertMallocHash(zTopic ? zTopic : "malloc", n);
+
     memset(zRet, 0x55, n);
     return zRet;
 }
@@ -352,7 +455,9 @@ Rt_Alloc(n)
  *---------------------------------------------------------------------------
  */
 void 
-Rt_Free(char *p)
+Rt_Free(zTopic, p)
+    const char *zTopic;
+    char *p;
 {
     if (p) {
         int *z = (int *)p;
@@ -362,6 +467,7 @@ Rt_Free(char *p)
         memset(z, 0x55, n);
         ckfree((char *)&z[-2]);
         ResFree(RES_ALLOC, &z[-2]);
+        freeMallocHash(zTopic ? zTopic : "malloc", n);
     }
 }
 
@@ -381,18 +487,21 @@ Rt_Free(char *p)
  *---------------------------------------------------------------------------
  */
 char * 
-Rt_Realloc(p, n)
+Rt_Realloc(zTopic, p, n)
+    const char *zTopic;
     char *p;
     int n;
 {
-    char *pRet = Rt_Alloc(n);
+    char *pRet = Rt_Alloc(zTopic, n);
     if (p) {
         int current_sz = ((int *)p)[-1];
         memcpy(pRet, p, MIN(current_sz, n));
-        Rt_Free((char *)p);
+        Rt_Free(zTopic, (char *)p);
     }
     return pRet;
 }
+
+#if 0
 
 /*
  *---------------------------------------------------------------------------
@@ -608,6 +717,8 @@ Rt_GetColorByValue(win, color)
     ResAlloc(RES_XCOLOR, color2);
     return color2;
 }
+
+#endif
 
 #endif
 

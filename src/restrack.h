@@ -5,9 +5,9 @@
 
 #include <tcl.h>
 
-char * Rt_Alloc(int);
-char * Rt_Realloc(char *, int);
-void Rt_Free(char *);
+char * Rt_Alloc(const char * ,int);
+char * Rt_Realloc(const char *, char *, int);
+void Rt_Free(const char *, char *);
 
 Tcl_ObjCmdProc Rt_AllocCommand;
 

@@ -31,7 +31,7 @@
  * 
  *     HtmlInlineContextIsEmpty
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.16 2006/04/30 16:40:33 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.17 2006/05/05 11:42:51 danielk1977 Exp $";
 
 typedef struct InlineBox InlineBox;
 
@@ -175,7 +175,7 @@ HtmlInlineContextPopBorder(p, pBorder)
          */
         InlineBorder *pBorder = p->pBoxBorders;
         p->pBoxBorders = pBorder->pNext;
-        HtmlFree((char *)pBorder);
+        HtmlFree(0, (char *)pBorder);
     } else {
         if (p->nInline > 0) {
             InlineBox *pBox = &p->aInline[p->nInline-1];
@@ -186,7 +186,7 @@ HtmlInlineContextPopBorder(p, pBorder)
             pBorder = p->pBorders;
             assert(pBorder);
             p->pBorders = pBorder->pNext;
-            HtmlFree((char *)pBorder);
+            HtmlFree(0, (char *)pBorder);
         }
     }
 }
@@ -199,7 +199,7 @@ HtmlInlineContextPopBorder(p, pBorder)
  *     This function retrieves the border, background, margin and padding
  *     properties for node pNode. If the properties still all have their
  *     default values, then NULL is returned. Otherwise an InlineBorder
- *     struct is allocated using HtmlAlloc(), populated with the various
+ *     struct is allocated using HtmlAlloc(0, ), populated with the various
  *     property values and returned.
  *
  *     The returned struct is considered private to the inlineContextXXX()
@@ -277,7 +277,7 @@ HtmlGetInlineBorder(pLayout, pNode, parentblock)
         pNode->pDynamic
     ) {
         border.color = pValues->cColor->xcolor;
-        pBorder = (InlineBorder *)HtmlAlloc(sizeof(InlineBorder));
+        pBorder = (InlineBorder *)HtmlAlloc(0, sizeof(InlineBorder));
         memcpy(pBorder, &border, sizeof(InlineBorder));
         pBorder->parentblock = parentblock;
         pBorder->pNode = pNode;
@@ -321,7 +321,7 @@ inlineContextAddInlineCanvas(p, eReplaced, pNode)
          */
         char *a = (char *)p->aInline;
         int nAlloc = p->nInlineAlloc + 25;
-        p->aInline = (InlineBox *)HtmlRealloc(a, nAlloc*sizeof(InlineBox));
+        p->aInline = (InlineBox *)HtmlRealloc(0, a, nAlloc*sizeof(InlineBox));
         p->nInlineAlloc = nAlloc;
     }
 
@@ -775,7 +775,7 @@ HtmlInlineContextGetLineBox(pLayout, p, pWidth, flags, pCanvas, pVSpace,pAscent)
             int nBytes;
             nReplacedX++;
             nBytes = nReplacedX * 2 * sizeof(int);
-            aReplacedX = (int *)HtmlRealloc((char *)aReplacedX, nBytes);
+            aReplacedX = (int *)HtmlRealloc(0, (char *)aReplacedX, nBytes);
             aReplacedX[(nReplacedX-1)*2] = x1;
             aReplacedX[(nReplacedX-1)*2+1] = x1 + boxwidth;
         }
@@ -859,7 +859,7 @@ HtmlInlineContextGetLineBox(pLayout, p, pWidth, flags, pCanvas, pVSpace,pAscent)
                 p->iVAlign -= pBorder->iVerticalAlign;
                 p->pBorders = pBorder->pNext;
             }
-            HtmlFree((char *)pBorder);
+            HtmlFree(0, (char *)pBorder);
         }
 
         x += pBox->nSpace;
@@ -910,7 +910,7 @@ HtmlInlineContextGetLineBox(pLayout, p, pWidth, flags, pCanvas, pVSpace,pAscent)
 #endif
 
     if (aReplacedX) {
-        HtmlFree((char *)aReplacedX);
+        HtmlFree(0, (char *)aReplacedX);
     }
     return 1;
 }
@@ -965,24 +965,24 @@ HtmlInlineContextCleanup(pContext)
     InlineBorder *pBorder;
 
     if (pContext->aInline) {
-        HtmlFree((char *)pContext->aInline);
+        HtmlFree(0, (char *)pContext->aInline);
     }
     
     pBorder = pContext->pBoxBorders;
     while (pBorder) {
         InlineBorder *pTmp = pBorder->pNext;
-        HtmlFree((char *)pBorder);
+        HtmlFree(0, (char *)pBorder);
         pBorder = pTmp;
     }
 
     pBorder = pContext->pBorders;
     while (pBorder) {
         InlineBorder *pTmp = pBorder->pNext;
-        HtmlFree((char *)pBorder);
+        HtmlFree(0, (char *)pBorder);
         pBorder = pTmp;
     }
 
-    HtmlFree((char *)pContext);
+    HtmlFree(0, (char *)pContext);
 }
 
 /*
@@ -1013,7 +1013,7 @@ HtmlInlineContextNew(pNode, isSizeOnly)
     HtmlComputedValues *pValues = pNode->pPropertyValues;
     InlineContext *pNew;
 
-    pNew = (InlineContext *)HtmlClearAlloc(sizeof(InlineContext));
+    pNew = (InlineContext *)HtmlClearAlloc(0, sizeof(InlineContext));
 
     /* Set the value of the 'text-align' property to use when formatting an
      * inline-context. An entire inline context always has the same value

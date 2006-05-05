@@ -37,7 +37,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  * COPYRIGHT:
  */
-static const char rcsid[] = "$Id: htmlfloat.c,v 1.15 2006/05/01 15:49:25 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlfloat.c,v 1.16 2006/05/05 11:42:51 danielk1977 Exp $";
 
 #include <assert.h>
 #include "html.h"
@@ -151,7 +151,7 @@ floatListPrint(pList)
  */
 HtmlFloatList *HtmlFloatListNew()
 {
-    HtmlFloatList *pList = (HtmlFloatList *)HtmlAlloc(sizeof(HtmlFloatList));
+    HtmlFloatList *pList = (HtmlFloatList *)HtmlAlloc(0, sizeof(HtmlFloatList));
     memset(pList, 0, sizeof(HtmlFloatList));
 #ifdef DEBUG_FLOAT_LIST
     printf("HtmlFloatListNew()  -> %p\n", pList);
@@ -183,11 +183,11 @@ HtmlFloatListDelete(pList)
         FloatListEntry *pEntry;
         FloatListEntry *pEntry2 = 0;
         for (pEntry = pList->pEntry; pEntry; pEntry = pEntry->pNext) {
-            if (pEntry2) HtmlFree((char *)pEntry2);
+            if (pEntry2) HtmlFree(0, (char *)pEntry2);
             pEntry2 = pEntry;
         }
-        if (pEntry2) HtmlFree((char *)pEntry2);
-        HtmlFree((char *)pList);
+        if (pEntry2) HtmlFree(0, (char *)pEntry2);
+        HtmlFree(0, (char *)pList);
     }
 }
 
@@ -226,7 +226,7 @@ void insertListEntry(pList, y)
 
     /* See if a new entry is required the start of the list. */
     if (pList->pEntry && pList->pEntry->y > y) {
-        pNew = (FloatListEntry *)HtmlAlloc(sizeof(FloatListEntry));
+        pNew = (FloatListEntry *)HtmlAlloc(0, sizeof(FloatListEntry));
         memset(pNew, 0, sizeof(FloatListEntry));
         pNew->pNext = pList->pEntry;
         goto insert_out;
@@ -244,7 +244,7 @@ void insertListEntry(pList, y)
              * split it into two parts. The margins are the same in each
              * part.
              */
-            pNew = (FloatListEntry *)HtmlAlloc(sizeof(FloatListEntry));
+            pNew = (FloatListEntry *)HtmlAlloc(0, sizeof(FloatListEntry));
             memcpy(pNew, pEntry, sizeof(FloatListEntry));
             pEntry->pNext = pNew;
             pNew->y = y;
@@ -260,7 +260,7 @@ void insertListEntry(pList, y)
     assert(!pEntry || !pEntry->pNext);
 
     if (pEntry || pList->endValid) {
-        pNew = (FloatListEntry *)HtmlAlloc(sizeof(FloatListEntry));
+        pNew = (FloatListEntry *)HtmlAlloc(0, sizeof(FloatListEntry));
         memset(pNew, 0, sizeof(FloatListEntry));
         pNew->y = pList->yend;
         if (pEntry) {

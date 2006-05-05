@@ -43,17 +43,17 @@
  */
 #ifdef HTML_DEBUG
     #include "restrack.h"
-    #define HtmlAlloc Rt_Alloc
-    #define HtmlFree(x) Rt_Free((char *)(x))
-    #define HtmlRealloc(x, n) Rt_Realloc((char *)(x), (n))
+    #define HtmlAlloc(zTopic, n) Rt_Alloc(zTopic, n)
+    #define HtmlFree(zTopic, x) Rt_Free(zTopic, (char *)(x))
+    #define HtmlRealloc(zTopic, x, n) Rt_Realloc(zTopic, (char *)(x), (n))
 #else
-    #define HtmlAlloc ckalloc
-    #define HtmlFree(x) ckfree((char *)(x))
-    #define HtmlRealloc(x, n) ckrealloc((char *)(x), n)
+    #define HtmlAlloc(zTopic, n) ckalloc(n)
+    #define HtmlFree(zTopic, x) ckfree((char *)(x))
+    #define HtmlRealloc(zTopic, x, n) ckrealloc((char *)(x), n)
 #endif
 
 /* HtmlClearAlloc() is a version of HtmlAlloc() that returns zeroed memory */
-#define HtmlClearAlloc(x) ((char *)memset(HtmlAlloc((x)), 0, (x)))
+#define HtmlClearAlloc(zTopic, x) ((char *)memset(HtmlAlloc(zTopic,(x)),0,(x)))
 
 #include <tk.h>
 #include <string.h>
@@ -430,6 +430,8 @@ Tcl_ObjCmdProc HtmlLayoutImage;
 Tcl_ObjCmdProc HtmlLayoutPrimitives;
 Tcl_ObjCmdProc HtmlLayoutBbox;
 Tcl_ObjCmdProc HtmlCssStyleConfigDump;
+
+Tcl_ObjCmdProc Rt_AllocCommand;
 
 char *HtmlPropertyToString(CssProperty *, char **);
 

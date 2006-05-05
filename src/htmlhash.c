@@ -43,7 +43,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  * COPYRIGHT:
  */
-static const char rcsid[] = "$Id: htmlhash.c,v 1.14 2006/04/04 11:34:19 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlhash.c,v 1.15 2006/05/05 11:42:51 danielk1977 Exp $";
 
 #include <tcl.h>
 #include <strings.h>
@@ -141,7 +141,7 @@ allocCaseInsensitiveEntry(tablePtr, keyPtr)
     if (size < sizeof(Tcl_HashEntry)) {
         size = sizeof(Tcl_HashEntry);
     }
-    hPtr = (Tcl_HashEntry *) HtmlAlloc(size);
+    hPtr = (Tcl_HashEntry *) HtmlAlloc(0, size);
     strcpy(hPtr->key.string, string);
 
     return hPtr;
@@ -151,7 +151,7 @@ static void
 freeCaseInsensitiveEntry(hPtr)
     Tcl_HashEntry *hPtr;
 {
-    HtmlFree((char *)hPtr);
+    HtmlFree(0, (char *)hPtr);
 }
 
 /*
@@ -293,7 +293,7 @@ allocFontEntry(tablePtr, keyPtr)
     );
     assert(size >= sizeof(Tcl_HashEntry));
 
-    hPtr = (Tcl_HashEntry *) HtmlAlloc(size);
+    hPtr = (Tcl_HashEntry *) HtmlAlloc(0, size);
     pStoredKey = (HtmlFontKey *)(hPtr->key.string);
     pStoredKey->iFontSize = pKey->iFontSize;
     pStoredKey->isItalic = pKey->isItalic;
@@ -421,6 +421,7 @@ hashValuesKey(tablePtr, keyPtr)
     result += (result<<3) + (int)(p->position.iBottom);
     result += (result<<3) + (int)(p->position.iLeft);
     result += (result<<3) + (int)(p->position.iRight);
+    result += (result<<3) + (int)(p->iTextIndent);
 
     return result;
 }
@@ -491,7 +492,7 @@ allocValuesEntry(tablePtr, keyPtr)
     );
     assert(size >= sizeof(Tcl_HashEntry));
 
-    hPtr = (Tcl_HashEntry *) HtmlAlloc(size);
+    hPtr = (Tcl_HashEntry *) HtmlAlloc(0, size);
     pStoredKey = (HtmlComputedValues *)(hPtr->key.string);
     memcpy(pStoredKey, pKey, sizeof(HtmlComputedValues));
 
