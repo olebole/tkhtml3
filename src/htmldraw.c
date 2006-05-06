@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.119 2006/05/05 11:42:51 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.120 2006/05/06 05:14:23 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1186,13 +1186,26 @@ fill_quad(win, d, xcolor, x1, y1, x2, y2, x3, y3, x4, y4)
 
     gc_values.foreground = xcolor->pixel;
     gc = Tk_GetGC(win, GCForeground, &gc_values);
-    points[0].x = x1; points[0].y = y1;
-    points[1].x = x2; points[1].y = y2;
-    points[2].x = x3; points[2].y = y3;
-    points[3].x = x4; points[3].y = y4;
-    XFillPolygon(display, d, gc, points, 4, Convex, CoordModePrevious);
-    Tk_FreeGC(display, gc);
 
+    /* The coordinates provided to this function are suitable for
+     * passing to XFillPolygon() with the "mode" argument set to 
+     * CoordModePrevious. However not all Tk platforms (notably MacOSX,
+     * but probably others too) support this mode. So manipulate the
+     * supplied coordinates here so that they can be passed with
+     * the mode set to CoordModeOrigin.
+     */
+    points[0].x = x1; 
+    points[0].y = y1;
+    points[1].x = points[0].x + x2; 
+    points[1].y = points[0].y + y2;
+    points[2].x = points[1].x + x3; 
+    points[2].y = points[1].y + y3;
+    points[3].x = points[2].x + x4; 
+    points[3].y = points[2].y + y4;
+
+    XFillPolygon(display, d, gc, points, 4, Convex, CoordModeOrigin);
+
+    Tk_FreeGC(display, gc);
     return rc;
 }
 

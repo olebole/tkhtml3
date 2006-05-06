@@ -353,7 +353,7 @@ snit::widget hv3_browser {
       set N [llength $myHttpHandles]
       set requests "$N http requests outstanding   "
       set value [$self node_to_string [lindex $myNodeList end]]
-      uplevel #0 [subst {set $options(-statusvar) {$requests    $value}}]
+      uplevel #0 [list set $options(-statusvar) "$requests    $value"]
     }
 
     if {$options(-stopbutton) ne ""} {
