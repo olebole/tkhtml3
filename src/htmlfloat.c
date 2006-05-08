@@ -37,7 +37,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  * COPYRIGHT:
  */
-static const char rcsid[] = "$Id: htmlfloat.c,v 1.18 2006/05/08 12:24:43 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlfloat.c,v 1.19 2006/05/08 15:28:50 danielk1977 Exp $";
 
 #include <assert.h>
 #include "html.h"
@@ -249,6 +249,7 @@ void insertListEntry(pList, y)
             memcpy(pNew, pEntry, sizeof(FloatListEntry));
             pEntry->pNext = pNew;
             pNew->y = y;
+            pNew->isTop = 0;
             goto insert_out;
         }
     }
