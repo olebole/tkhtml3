@@ -274,4 +274,3 @@ term(A) ::= IDENT(X) DOT IDENT(Y). { A.z = X.z; A.n = (Y.z+Y.n - X.z); }
 term(A) ::= PLUS(X) IDENT(Y). { A.z = X.z; A.n = (Y.z+Y.n - X.z); }
 term(A) ::= PLUS(X) DOT IDENT(Y). { A.z = X.z; A.n = (Y.z+Y.n - X.z); }
 term(A) ::= PLUS(X) IDENT DOT IDENT(Y). { A.z = X.z; A.n = (Y.z+Y.n - X.z); }
-

@@ -37,7 +37,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  * COPYRIGHT:
  */
-static const char rcsid[] = "$Id: htmlfloat.c,v 1.16 2006/05/05 11:42:51 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlfloat.c,v 1.17 2006/05/08 11:57:03 danielk1977 Exp $";
 
 #include <assert.h>
 #include "html.h"
@@ -380,6 +380,39 @@ HtmlFloatListAdd(pList, side, x, y1, y2)
 #ifdef DEBUG_FLOAT_LIST
     floatListPrint(pList);
 #endif
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlFloatListClearTop --
+ *
+ *     This function is similar to HtmlFloatListClear(), but is used to
+ *     make sure that no floating box is positioned above one that occurs
+ *     earlier in the document.
+ *
+ *         y = HtmlFloatListClearTop(pList, y);
+ *         y = HtmlFloatListPlace(pList, parentwidth, w, h, y);
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+int
+HtmlFloatListClearTop(pList, y)
+    HtmlFloatList *pList;
+    int y;
+{
+    FloatListEntry *pEntry;
+    int ret = y - pList->yorigin;
+    for (pEntry = pList->pEntry; pEntry; pEntry = pEntry->pNext) {
+        ret = MAX(ret, pEntry->y);
+    }
+    return ret + pList->yorigin;
 }
 
 /*

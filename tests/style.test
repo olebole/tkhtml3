@@ -108,4 +108,45 @@ tcltest::test style-3.1 {} -body {
   property $node color
 } -result {red}
 
+#--------------------------------------------------------------------------
+# Test handling parse errors in style-sheets.
+#
+
+
+#
+# Test 4.1 tests the bug reported by ticket #43. The embedded stylesheet
+# contains an error - a ":" character is missing from a declaration. The
+# correct behaviour is to ignore the broken declaration and resume
+# parsing after the following semi-colon. In other words, the style-sheet
+# should be parsed as:
+#
+#     div {
+#         color: red;
+#         backround-color: green;
+#     }
+#
+tcltest::test style-4.1 {} -body {
+  .h reset
+  .h parse -final {
+    <html>
+    <style>
+      div {
+        color: red;
+        garbage moregarbage;
+        background-color: green;
+      }
+    </style>
+    <body>
+    <div/>
+    </body>
+    </html>
+  }
+
+  set node [lindex [.h search div] 0]
+  property $node background-color
+} -result {green}
+tcltest::test style-4.1 {} -body {
+  property $node color
+} -result {red}
+
 finish_test
