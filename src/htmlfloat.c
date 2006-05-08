@@ -37,7 +37,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  * COPYRIGHT:
  */
-static const char rcsid[] = "$Id: htmlfloat.c,v 1.17 2006/05/08 11:57:03 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlfloat.c,v 1.18 2006/05/08 12:24:43 danielk1977 Exp $";
 
 #include <assert.h>
 #include "html.h"
@@ -92,6 +92,7 @@ struct FloatListEntry {
     int right;                /* Right floating margin */
     int leftValid;            /* True if the left margin is valid */
     int rightValid;           /* True if the right margin is valid */
+    int isTop;                /* True if this is the top of 1 or more f.b. */
     FloatListEntry *pNext;    /* Next entry in list */
 };
 struct HtmlFloatList {
@@ -217,7 +218,7 @@ void insertListEntry(pList, y)
     int y;
 {
     FloatListEntry *pEntry;
-    FloatListEntry *pNew;
+    FloatListEntry *pNew = 0;
     assert(pList);
 
 #if 1 && defined(DEBUG_FLOAT_LIST)
@@ -237,7 +238,7 @@ void insertListEntry(pList, y)
         if (pEntry->y == y || yend == y) {
             /* The list already has this entry. We need do nothing. */
             goto insert_out;
-        }
+        } 
 
         if (yend > y) {
             /* This entry must span the coordinate we're inserting. So we
@@ -358,6 +359,9 @@ HtmlFloatListAdd(pList, side, x, y1, y2)
      */
     for (pEntry = pList->pEntry; pEntry; pEntry = pEntry->pNext) {
         int yend = pEntry->pNext ? pEntry->pNext->y : pList->yend;
+        if (pEntry->y == y1) {
+            pEntry->isTop = 1;
+        }
         if (y2 > pEntry->y && y1 < yend) {
             if (side==FLOAT_LEFT) {
                 if (pEntry->leftValid) {
@@ -409,8 +413,11 @@ HtmlFloatListClearTop(pList, y)
 {
     FloatListEntry *pEntry;
     int ret = y - pList->yorigin;
+
     for (pEntry = pList->pEntry; pEntry; pEntry = pEntry->pNext) {
-        ret = MAX(ret, pEntry->y);
+        if (pEntry->isTop) {
+            ret = MAX(ret, pEntry->y);
+        }
     }
     return ret + pList->yorigin;
 }
@@ -750,7 +757,7 @@ HtmlFloatListLog(pTree, zCaption, zNode, pList)
 
     sprintf(zBuf, "<p>Origin point is (%d, %d).</p>", x, y);
     Tcl_AppendToObj(pLog, zBuf, -1);
-    Tcl_AppendToObj(pLog, "<table><tr><th>Left<th>Top (y)<th>Right", -1);
+    Tcl_AppendToObj(pLog,"<table><tr><th>Left<th>Top (y)<th>Right<th>isTop",-1);
     for (pCsr = pList->pEntry; pCsr; pCsr = pCsr->pNext) {
         char zLeft[20];
         char zRight[20];
@@ -760,7 +767,8 @@ HtmlFloatListLog(pTree, zCaption, zNode, pList)
         if (pCsr->leftValid)  { sprintf(zLeft, "%d", pCsr->left - x); }
         if (pCsr->rightValid) { sprintf(zRight, "%d", pCsr->right - x); }
 
-        sprintf(zBuf, "<tr><td>%s<td>%d<td>%s", zLeft, pCsr->y - y, zRight);
+        sprintf(zBuf, "<tr><td>%s<td>%d<td>%s<td>%d", 
+            zLeft, pCsr->y - y, zRight, pCsr->isTop);
         Tcl_AppendToObj(pLog, zBuf, -1);
     }
     sprintf(zBuf, "<tr><td>N/A<td>%d<td>N/A</table>", pList->yend - y);
