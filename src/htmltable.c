@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.77 2006/05/09 15:53:33 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.78 2006/05/09 17:05:23 danielk1977 Exp $";
 
 #include "htmllayout.h"
 
@@ -1149,6 +1149,8 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
         if (iTotalAutoWidth == 0) {
             for (i = 0; i < nCol; i++) {
                 if (COL_ISAUTO(i)) {
+                    assert(aWidth[i] == 0);
+                    iRem = MAX(0, iRem - 1);
                     aWidth[i] = 1;
                 }
             }

@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.165 2006/05/09 15:36:40 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.166 2006/05/09 17:05:23 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -2447,6 +2447,8 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
         Tcl_AppendToObj(pLog, pFlow->z, -1);
         Tcl_AppendToObj(pLog, "<li>Current y-coordinate: ", -1);
         Tcl_AppendObjToObj(pLog, Tcl_NewIntObj(*pY));
+        Tcl_AppendToObj(pLog, "<li>Containing width: ", -1);
+        Tcl_AppendObjToObj(pLog, Tcl_NewIntObj(pBox->iContaining));
         Tcl_AppendToObj(pLog, "<li>Vertical margins: ", -1);
         appendVerticalMarginsToObj(pLog, pNormal);
         Tcl_AppendToObj(pLog, "</ul>", -1);
