@@ -1,4 +1,9 @@
 # Test script for Tkhtml
+proc sourcefile {file} {
+  set fname [file join [file dirname [info script]] $file] 
+  uplevel #0 [list source $fname]
+}
+sourcefile common.tcl
 
 html .h
 

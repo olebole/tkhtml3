@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.68 2006/05/08 11:57:03 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.69 2006/05/09 09:45:34 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -3350,6 +3350,27 @@ HtmlCssSelectorToString(pSelector, pObj)
     if (z) Tcl_AppendToObj(pObj, z, -1);
 }
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlCssStyleConfigDump --
+ *
+ *         widget styleconfig
+ *
+ *     This function contains the implementation of the Tcl widget command
+ *     "styleconfig". This is intended to be used by Tkhtml regression tests 
+ *     to test that stylesheets are correctly parsed, and that rules are placed
+ *     in correct priority order.
+ *
+ *         {SELECTOR PROPERTIES ORIGIN}
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *
+ *---------------------------------------------------------------------------
+ */
 int
 HtmlCssStyleConfigDump(clientData, interp, objc, objv)
     ClientData clientData;             /* The HTML widget data structure */
@@ -3370,9 +3391,30 @@ HtmlCssStyleConfigDump(clientData, interp, objc, objv)
         Tcl_Obj *p;
         char zBuf[256];
         int ii;
+        int isRequireSemi = 0;
 
         p = Tcl_NewObj();
         HtmlCssSelectorToString(pRule->pSelector, p);
+        Tcl_ListObjAppendElement(0, pList, p);
+        
+        p = Tcl_NewObj();
+        for (ii = 0; ii < pRule->pPropertySet->n; ii++) {
+            CssProperty *pProp = pRule->pPropertySet->a[ii].pProp;
+            if (pProp) {
+                int eProp = pRule->pPropertySet->a[ii].eProp;
+                char *zPropVal;
+                char *zFree;
+                if (isRequireSemi) {
+                    Tcl_AppendToObj(p, "; ", 2);
+                }
+                zPropVal = HtmlPropertyToString(pProp, &zFree);
+                Tcl_AppendToObj(p, HtmlCssPropertyToString(eProp), -1);
+                Tcl_AppendToObj(p, ":", 1);
+                Tcl_AppendToObj(p, zPropVal, -1);
+                isRequireSemi = 1;
+                if (zFree) HtmlFree(0, zFree);
+            }
+        }
         Tcl_ListObjAppendElement(0, pList, p);
 
         snprintf(zBuf, 255, "%s%s%s", 
@@ -3384,23 +3426,6 @@ HtmlCssStyleConfigDump(clientData, interp, objc, objv)
         );
         zBuf[255] = '\0';
         Tcl_ListObjAppendElement(0, pList, Tcl_NewStringObj(zBuf, -1));
-        
-        p = Tcl_NewObj();
-        for (ii = 0; ii < pRule->pPropertySet->n; ii++) {
-            CssProperty *pProp = pRule->pPropertySet->a[ii].pProp;
-            if (pProp) {
-            int eProp = pRule->pPropertySet->a[ii].eProp;
-            char *zPropVal;
-            char *zFree;
-            zPropVal = HtmlPropertyToString(pProp, &zFree);
-            Tcl_AppendToObj(p, HtmlCssPropertyToString(eProp), -1);
-            Tcl_AppendToObj(p, ":", 1);
-            Tcl_AppendToObj(p, zPropVal, -1);
-            Tcl_AppendToObj(p, "; ", 2);
-            if (zFree) HtmlFree(0, zFree);
-            }
-        }
-        Tcl_ListObjAppendElement(0, pList, p);
 
         Tcl_ListObjAppendElement(0, pRet, pList);
     }
@@ -3408,4 +3433,3 @@ HtmlCssStyleConfigDump(clientData, interp, objc, objv)
     Tcl_SetObjResult(interp, pRet);
     return TCL_OK;
 }
-

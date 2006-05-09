@@ -130,7 +130,7 @@ medium_list(A) ::= medium_list_item(X) ws COMMA ws medium_list(Y). {
 /*********************************************************************
 ** @page {...} block. 
 */
-page ::= page_sym ws pseudo_opt LP ws declaration_list RP. {
+page ::= page_sym ws pseudo_opt LP declaration_list RP. {
   pParse->isIgnore = 0;
 }
 
@@ -152,27 +152,22 @@ font_face ::= FONT_SYM LP declaration_list RP.
 ruleset_list ::= ruleset ws.
 ruleset_list ::= ruleset ws ruleset_list.
 
-ruleset ::= selector_list LP ws declaration_list semicolon_opt RP. {
+ruleset ::= selector_list LP declaration_list RP. {
     HtmlCssRule(pParse, 1);
 }
 ruleset ::= page.
 
 selector_list ::= selector.
 selector_list ::= selector_list comma ws selector.
-
 comma ::= COMMA. {
     HtmlCssSelectorComma(pParse);
 }
 
-declaration_list ::= .
 declaration_list ::= declaration.
-declaration_list ::= declaration_list semicolon declaration.
+declaration_list ::= declaration_list SEMICOLON declaration.
 
-semicolon ::= SEMICOLON ws semicolon_opt.
-semicolon_opt ::= semicolon.
-semicolon_opt ::= .
-
-declaration ::= IDENT(X) ws COLON ws expr(E) prio(I). {
+declaration ::= error.
+declaration ::= ws IDENT(X) ws COLON ws expr(E) prio(I). {
     HtmlCssDeclaration(pParse, &X, &E, I);
 }
 

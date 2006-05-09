@@ -1,5 +1,10 @@
 
 # Test script for Tkhtml
+proc sourcefile {file} {
+  set fname [file join [file dirname [info script]] $file] 
+  uplevel #0 [list source $fname]
+}
+sourcefile common.tcl
 
 html .h
 .h handler script style styleHandler 
@@ -109,44 +114,75 @@ tcltest::test style-3.1 {} -body {
 } -result {red}
 
 #--------------------------------------------------------------------------
-# Test handling parse errors in style-sheets.
+# The following tests (style-4.*) test the parsing of stylesheets.
 #
-
+proc parse_stylesheet {stylesheet_text} {
+  html .newwidget -defaultstyle ""
+  .newwidget style $stylesheet_text
+  set ret [list]
+  foreach r [.newwidget styleconfig] {
+    lappend ret [lrange $r 0 1]
+  }
+  destroy .newwidget
+  return $ret
+}
 
 #
 # Test 4.1 tests the bug reported by ticket #43. The embedded stylesheet
 # contains an error - a ":" character is missing from a declaration. The
 # correct behaviour is to ignore the broken declaration and resume
 # parsing after the following semi-colon. In other words, the style-sheet
-# should be parsed as:
+# specified in the <STYLE> element should parse identically to:
 #
 #     div {
 #         color: red;
-#         backround-color: green;
+#         background-color: green;
 #     }
 #
-tcltest::test style-4.1 {} -body {
-  .h reset
-  .h parse -final {
-    <html>
-    <style>
+tcltest::test style-4.1.1 {} -body {
+  parse_stylesheet {
       div {
         color: red;
         garbage moregarbage;
         background-color: green;
       }
-    </style>
-    <body>
-    <div/>
-    </body>
-    </html>
   }
+} -result {{div {color:red; background-color:green}}}
 
-  set node [lindex [.h search div] 0]
-  property $node background-color
-} -result {green}
-tcltest::test style-4.1 {} -body {
-  property $node color
-} -result {red}
+# Test 4.2 tests that semi-colons are treated correctly. 
+tcltest::test style-4.2.1 {} -body {
+  parse_stylesheet {
+      div {
+        color: red;; ; background-color: green
+      }
+  }
+} -result {{div {color:red; background-color:green}}}
+tcltest::test style-4.2.2 {} -body {
+  parse_stylesheet {
+      div {
+        ;color: red;; ; background-color: green; ; ;
+      ;}
+  }
+} -result {{div {color:red; background-color:green}}}
+
+# Test 4.3 tests for parsing errors using the examples given in the CSS 2.1
+# specification, section 4.2. All of the following declarations should
+# be equivalent to "p {color:green}".
+set tn 1
+foreach ss [list \
+  {p { color:green }}                                    \
+  {p { color:green; color }}                             \
+  {p { color:red;   color; color:green }}                \
+  {p { color:green; color: }}                            \
+  {p { color:red;   color:; color:green }}               \
+  {p { color:green; color{;color:maroon} }}              \
+  {p { color:red;   color{;color:maroon}; color:green }} \
+] {
+  tcltest::test style-4.3.$tn {} -body {
+    parse_stylesheet $ss
+  } -result {{p color:green}}
+  incr tn
+}
 
 finish_test
+

@@ -1,4 +1,9 @@
 # Tkhtml test file
+proc sourcefile {file} {
+  set fname [file join [file dirname [info script]] $file] 
+  uplevel #0 [list source $fname]
+}
+sourcefile common.tcl
 
 set ::script_handler_count 0
 proc scriptHandler {data} {
