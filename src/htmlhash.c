@@ -43,7 +43,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  * COPYRIGHT:
  */
-static const char rcsid[] = "$Id: htmlhash.c,v 1.15 2006/05/05 11:42:51 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlhash.c,v 1.16 2006/05/09 11:05:09 danielk1977 Exp $";
 
 #include <tcl.h>
 #include <strings.h>
@@ -459,13 +459,20 @@ compareValuesKey(keyPtr, hPtr)
     return (0 == memcmp(p1, p2, nBytes));
 }
 
+static void
+freeValuesEntry(hPtr)
+    Tcl_HashEntry *hPtr;
+{
+    HtmlFree("Computed-values", (char *)hPtr);
+}
 
 /*
  *---------------------------------------------------------------------------
  *
  * allocValuesEntry --
  *
- *     Allocate enough space for a Tcl_HashEntry and an HtmlFontKey key.
+ *     Allocate enough space for a Tcl_HashEntry and an HtmlComputedValues 
+ *     key.
  *
  * Results:
  *     Pointer to allocated TclHashEntry structure.
@@ -492,7 +499,7 @@ allocValuesEntry(tablePtr, keyPtr)
     );
     assert(size >= sizeof(Tcl_HashEntry));
 
-    hPtr = (Tcl_HashEntry *) HtmlAlloc(0, size);
+    hPtr = (Tcl_HashEntry *) HtmlAlloc("Computed-values", size);
     pStoredKey = (HtmlComputedValues *)(hPtr->key.string);
     memcpy(pStoredKey, pKey, sizeof(HtmlComputedValues));
 
@@ -532,7 +539,7 @@ Tcl_HashKeyType * HtmlComputedValuesHashType()
         hashValuesKey,                      /* hashKeyProc */
         compareValuesKey,                   /* compareKeysProc */
         allocValuesEntry,                   /* allocEntryProc */
-        freeCaseInsensitiveEntry            /* freeEntryProc */
+        freeValuesEntry                     /* freeEntryProc */
     };
     return &hash_key_type;
 }

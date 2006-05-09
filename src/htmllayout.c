@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.163 2006/05/08 11:57:03 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.164 2006/05/09 11:05:09 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -589,7 +589,7 @@ normalFlowLayoutFloat(pLayout, pBox, pNode, pY, pDoNotUse, pNormal)
         HtmlLayoutNodeContent(pLayout, &sContent, pNode);
         sContent.height = MAX(iHeight, sContent.height);
 
-        if (!isAuto) {
+        if (!isAuto && DISPLAY(pV) != CSS_CONST_TABLE) {
             sContent.width = iWidth;
         } else {
             sContent.width = MAX(iWidth, sContent.width);

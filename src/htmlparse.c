@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.60 2006/05/05 11:42:52 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.61 2006/05/09 11:05:09 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -1689,7 +1689,10 @@ Tokenize(pTree, isFinal)
             while (
                 (c = z[n+i]) != 0 &&          /* End of document */
                 (c != '>') &&                 /* '>'             */
+                1
+#if 0
                 (c != '/' || z[n+i+1] != '>') /* "/>"            */
+#endif
             ){
                 if (argc > mxARG - 3) {
                     argc = mxARG - 3;
@@ -1703,7 +1706,12 @@ Tokenize(pTree, isFinal)
                 argv[argc] = &z[n+i];
                 j = 0;
                 while ((c = z[n + i + j]) != 0 && !isspace(c) && c != '>'
-                       && c != '=' && (c != '/' || z[n + i + j + 1] != '>')) {
+                       && c != '=' && 
+                       1
+#if 0
+(c != '/' || z[n + i + j + 1] != '>')
+#endif
+                ) {
                     j++;
                 }
                 arglen[argc] = j;

@@ -95,7 +95,7 @@ snit::type ::hv3_browser::cookiemanager {
 	  internal cookies database is modified in any way. There is no need to
           close and reopen the window to refresh it's contents.
         </p>
-        <div id="clear"/>
+        <div id="clear"></div>
         <br clear=all>
         $Content
       </body>
