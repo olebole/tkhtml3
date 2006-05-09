@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.67 2006/05/05 11:42:52 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.68 2006/05/09 17:52:27 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1034,7 +1034,7 @@ HtmlComputedValuesInit(pTree, pNode, p)
      *
      *     'list-style-type', 'white-space', 'text-align', 'color',
      *     'border-spacing', 'line-height', 'font-size', 'font-style',
-     *     'font-weight', 'font-family'.
+     *     'font-weight', 'font-family', 'text-indent'.
      * 
      * There are more of these, but we don't support them yet.
      */
@@ -1072,6 +1072,12 @@ HtmlComputedValuesInit(pTree, pNode, p)
         p->values.eListStylePosition = pV->eListStylePosition;
         rc = propertyValuesSetImage(p, &p->values.imListStyleImage, &Inherit); 
         assert(rc == 0);
+
+        /* The 'text-indent' property. Copy both the value and the flag
+         * from the parent (flag is set for a percentage value). 
+         */
+        p->values.iTextIndent = pV->iTextIndent;
+        p->values.mask &= (pV->mask & PROP_MASK_TEXT_INDENT);
 
         p->values.eWhitespace = pV->eWhitespace;        /* 'white-space' */
         p->values.eTextAlign = pV->eTextAlign;          /* 'text-align' */ 
@@ -1135,7 +1141,6 @@ HtmlComputedValuesInit(pTree, pNode, p)
     p->values.position.iBottom = PIXELVAL_AUTO;
     p->values.position.iLeft = PIXELVAL_AUTO;
     p->values.position.iRight = PIXELVAL_AUTO;
-    p->values.iTextIndent = 0;
 }
 
 /*
