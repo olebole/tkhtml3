@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.96 2006/05/05 11:42:53 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.97 2006/05/09 11:46:58 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -395,6 +395,7 @@ callbackHandler(clientData)
         HtmlLayout(pTree);
         layoutClock = clock() - layoutClock;
         pTree->cb.flags |= HTML_SCROLL;
+        pTree->cb.flags &= ~HTML_DAMAGE;
     }
 
     /* If the HTML_DAMAGE flag is set, repaint a window region. */
