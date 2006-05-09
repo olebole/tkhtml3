@@ -268,6 +268,8 @@ snit::widget hv3_browser {
 
   variable myHttpHandles [list]
   variable myNodeList ""                  ;# Current nodes under the pointer
+  variable myX 0                          ;# Current location of pointer
+  variable myY 0                          ;# Current location of pointer
 
   constructor {args} {
     set myHv3 [::hv3::scrolled hv3 $win.hv3]
@@ -310,6 +312,8 @@ snit::widget hv3_browser {
   }
 
   method motion {nodelist x y} {
+    set myX $x
+    set myY $y
     set myNodeList $nodelist
     $self update_statusvar
   }
@@ -353,7 +357,8 @@ snit::widget hv3_browser {
       set N [llength $myHttpHandles]
       set requests "$N http requests outstanding   "
       set value [$self node_to_string [lindex $myNodeList end]]
-      uplevel #0 [list set $options(-statusvar) "$requests    $value"]
+      set str "$requests    ($myX $myY) $value"
+      uplevel #0 [list set $options(-statusvar) $str]
     }
 
     if {$options(-stopbutton) ne ""} {

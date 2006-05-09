@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.164 2006/05/09 11:05:09 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.165 2006/05/09 15:36:40 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -1639,24 +1639,31 @@ normalFlowLayoutTable(pLayout, pBox, pNode, pY, pContext, pNormal)
     normalFlowMarginAdd(pNormal, margin.margin_top);
     normalFlowMarginCollapse(pNormal, pY);
 
+    /* Set iMinWidth to the minimum allowable width and iWidth to the 
+     * requested width (either the value of the 'width' property or based
+     * on the width of the containing block). Neither quantity includes
+     * the horizontal space for the <table> element's margins, padding and
+     * borders.
+     */
     blockMinMaxWidth(pLayout, pNode, &iMinWidth, 0);
-    iMinWidth += iMPB;
-
     iWidth = PIXELVAL(
         pNode->pPropertyValues, WIDTH,
         pLayout->minmaxTest ? PIXELVAL_AUTO : pBox->iContaining
     );
     if (iWidth == PIXELVAL_AUTO) {
-        iWidth = iRightFloat - iLeftFloat;
+        iWidth = iRightFloat - iLeftFloat - iMPB;
     } else {
         iMinWidth = MAX(iMinWidth, iWidth);
     }
 
-    /* Note: Passing 10000 as the required height means in some (fairly
+    /* Move down if the table cannot fit at the current Y coordinate due
+     * to floating boxes.
+     *
+     * Note: Passing 10000 as the required height means in some (fairly
      * unlikely) circumstances the table will be placed lower in the flow
      * than would have been necessary. But it's not that big of a deal.
      */
-    *pY = HtmlFloatListPlace(pFloat, iContaining, iMinWidth, 10000, *pY);
+    *pY = HtmlFloatListPlace(pFloat, iContaining, iMPB + iMinWidth, 10000, *pY);
     HtmlFloatListMargins(pFloat, *pY, *pY + 10000, &iLeftFloat, &iRightFloat);
 
     memset(&sContent, 0, sizeof(BoxContext));
