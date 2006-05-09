@@ -32,11 +32,14 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.75 2006/05/05 11:42:53 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.76 2006/05/09 08:23:43 danielk1977 Exp $";
 
 #include "htmllayout.h"
 
 #define LOG if (pLayout->pTree->options.logcmd && !pLayout->minmaxTest)
+
+/* Roughly convert a double value to an integer. */
+#define INTEGER(x) ((int)((x) + ((x > 0.0) ? 0.49 : -0.49)))
 
 struct TableCell {
     BoxContext box;
@@ -199,25 +202,44 @@ tableColWidthMultiSpan(pNode, col, colspan, row, rowspan, pContext)
         int max;
         int min;
         int i;
-        // int numstretchable = 0;
 
         int currentmin;
         int currentmax;
         int minincr;
         int maxincr;
 
-        int *aMinWidth     = pData->aMinWidth;
-        int *aMaxWidth     = pData->aMaxWidth;
-        // float *aPercentWidth = pData->aPercentWidth;
+        int nAutoPixels = 0;
+        int nAutoColumns = 0;
+
+        /* For now, only increase the minimum and maximum widths. Presumably
+         * the computed value of the 'width' property should be used to 
+         * modify TableData.aExplicitWidth and TableData.aPercentWidth, but
+         * it's not yet clear exactly how.
+         * 
+         * Also define a macro to test if a column has "width:auto". Note
+         * that this macro is only valid inside this scope. It is explicitly 
+         * undefined at the end of this {} block.
+         */
+        int *aMinWidth      = pData->aMinWidth;
+        int *aMaxWidth      = pData->aMaxWidth;
+        int *aExplicitWidth = pData->aExplicitWidth;
+        int *aPercentWidth  = pData->aPercentWidth;
+        #define COL_ISAUTO(i) \
+             (aExplicitWidth[i]==PIXELVAL_AUTO && aPercentWidth[i]<0.0)
 
 	/* Calculate the current collective minimum and maximum widths of the
-         * spanned columns.
+	 * spanned columns. Also accumulate the aggregate difference between
+	 * the maximum and minimum widths of any columns with "width:auto".
          */
 	currentmin = (pData->border_spacing * (colspan-1));
         currentmax = (pData->border_spacing * (colspan-1));
         for (i=col; i<(col+colspan); i++) {
             currentmin += aMinWidth[i];
             currentmax += aMaxWidth[i];
+            if (COL_ISAUTO(i)) {
+                nAutoPixels += aMaxWidth[i] - aMinWidth[i];
+                nAutoColumns++;
+            }
         }
 
         /* Calculate the maximum and minimum widths of this cell */
@@ -226,27 +248,41 @@ tableColWidthMultiSpan(pNode, col, colspan, row, rowspan, pContext)
         min += box.iLeft + box.iRight;
         max += box.iLeft + box.iRight;
 
-        /* Increment the aMaxWidth[] and aMinWidth[] entries accordingly */
-        minincr = MAX((min - currentmin) / colspan, 0);
-        maxincr = MAX((max - currentmax) / colspan, 0);
-        for (i=col; i<(col+colspan); i++) {
-            assert(aMinWidth[i] <= aMaxWidth[i]);
-            pData->aMaxWidth[i] += maxincr;
-            pData->aMinWidth[i] += minincr;
+        /* Set minincr and maxincr to the number of pixels that must be
+         * added to the minimum and maximum widths of the spanned columns.
+         * The "minincr" pixels are then assigned to columns as follows:
+         *
+	 *     1. If there are columns with no explicit or percentage width,
+         *        then distribute the pixels between them in proportion to
+         *        (max - min). If this means (min > max), then set max = min.
+         *
+         *     2. TODO.
+         */
+        minincr = MAX(0, min - currentmin);
+        maxincr = MAX(0, max - currentmax);
 
-            /* Account for pixel rounding */
-            if ((i+1) == (col+colspan)) {
-                aMinWidth[i] += MAX(0, (min-currentmin) - (colspan*minincr));
-                aMaxWidth[i] += MAX(0, (max-currentmax) - (colspan*maxincr));
+        /* Step 1: grow auto-width columns */
+        if (nAutoPixels > 0 && minincr > 0) {
+            int nAutoColumnsRemaining = nAutoColumns;
+            float ratio = (float)minincr / (float)nAutoPixels;
+            for (i=col; i<(col+colspan); i++) {
+                assert(nAutoColumnsRemaining >= 0);
+                if (COL_ISAUTO(i)) {
+                    if (nAutoColumnsRemaining > 1) {
+                        int add = INTEGER(ratio * (aMaxWidth[i]-aMinWidth[i]));
+                        minincr -= add;
+                        aMinWidth[i] += add;
+                    } else if (minincr > 0) {
+                        assert(nAutoColumnsRemaining == 1);
+                        aMinWidth[i] += minincr;
+                        minincr = 0;
+                    }
+                    nAutoColumnsRemaining--;
+                    aMaxWidth[i] = MAX(aMinWidth[i], aMaxWidth[i]);
+                }
             }
-
-	    /* Todo: If the min-width of the column is now greater than the
-	     * max-width, increase the max-width so that it is equal to the
-	     * min-width. This means that we may have increased the maximum
-	     * widths by too much. Not such a big deal in practice...
-             */
-	    aMaxWidth[i] = MAX(aMinWidth[i], aMaxWidth[i]);
         }
+        #undef COL_ISAUTO
     }
 
     return TCL_OK;

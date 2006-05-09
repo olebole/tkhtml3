@@ -655,45 +655,44 @@ snit::type ::hv3::hyperlinkmanager {
 #--------------------------------------------------------------------------
 
 #--------------------------------------------------------------------------
-# Class hv3 - the public widget class
+# Class hv3 - the public widget class.
 #
 snit::widget hv3 {
   hulltype frame
 
   # Component objects
-  component myScrolledHtml           ;# The ::hv3::scrolledhtml
+  component myHtml                   ;# The ::hv3::scrolledhtml
   component myHyperlinkManager       ;# The ::hv3::hyperlinkmanager
   variable  myDynamicManager         ;# The ::hv3::dynamicmanager
   variable  mySelectionManager       ;# The ::hv3::selectionmanager
   variable  myDownloadManager        ;# The ::hv3::downloadmanager
   component myFormManager            ;# The ::hv3::formmanager
-  variable  myUri                    ;# The current document URI
+  variable  myUri                    ;# The current URI (type ::hv3::hv3uri)
 
   variable  myStyleCount 0 
   variable  myPostData "" 
 
   constructor {args} {
-    # set myScrolledHtml     [::hv3::scrolled html ${win}.scrolledhtml]
-    set myScrolledHtml     [html ${win}.html]
+    set myHtml             [html ${win}.html]
     set myDownloadManager  [::hv3::downloadmanager %AUTO%]
 
-    set mySelectionManager [::hv3::selectionmanager %AUTO% $myScrolledHtml]
-    set myDynamicManager   [::hv3::dynamicmanager %AUTO% $myScrolledHtml]
-    set myHyperlinkManager [::hv3::hyperlinkmanager %AUTO% $myScrolledHtml]
-    set myFormManager      [::hv3::formmanager %AUTO% $myScrolledHtml]
+    set mySelectionManager [::hv3::selectionmanager %AUTO% $myHtml]
+    set myDynamicManager   [::hv3::dynamicmanager %AUTO% $myHtml]
+    set myHyperlinkManager [::hv3::hyperlinkmanager %AUTO% $myHtml]
+    set myFormManager      [::hv3::formmanager %AUTO% $myHtml]
     set myUri              [Hv3Uri %AUTO% file://[pwd]/index.html]
 
-    bind $myScrolledHtml <ButtonPress-1>   [mymethod event press %x %y]
-    bind $myScrolledHtml <ButtonRelease-1> [mymethod event release %x %y]
-    bind $myScrolledHtml <Motion>          [mymethod event motion %x %y]
+    bind $myHtml <ButtonPress-1>   [mymethod event press %x %y]
+    bind $myHtml <ButtonRelease-1> [mymethod event release %x %y]
+    bind $myHtml <Motion>          [mymethod event motion %x %y]
 
-    $myScrolledHtml configure -imagecmd [mymethod imagecmd]
+    $myHtml configure -imagecmd [mymethod imagecmd]
 
-    $myScrolledHtml handler node link     [mymethod link_node_handler]
-    $myScrolledHtml handler script style  [mymethod style_script_handler]
-    $myScrolledHtml handler script script [mymethod script_script_handler]
+    $myHtml handler node link     [mymethod link_node_handler]
+    $myHtml handler script style  [mymethod style_script_handler]
+    $myHtml handler script script [mymethod script_script_handler]
 
-    pack $myScrolledHtml -expand true -fill both
+    pack $myHtml -expand true -fill both
 
     set newtags [concat [bindtags [$self html]] $win]
     bindtags [$self html] $newtags
@@ -768,7 +767,7 @@ snit::widget hv3 {
       set urlcmd    [mymethod resolve_uri $full_uri]
       append id .9999
       set finscript [list \
-        $myScrolledHtml style -id $id -importcmd $importcmd -urlcmd $urlcmd
+        $myHtml style -id $id -importcmd $importcmd -urlcmd $urlcmd
       ]
       $myDownloadManager download $full_uri {} {} $finscript
     }
@@ -782,7 +781,7 @@ snit::widget hv3 {
     set urlcmd    [mymethod resolve_uri $uri]
     append id .9999
     set finscript [list \
-      $myScrolledHtml style -id $id -importcmd $importcmd -urlcmd $urlcmd
+      $myHtml style -id $id -importcmd $importcmd -urlcmd $urlcmd
     ]
     $myDownloadManager download $uri {} {} $finscript
   }
@@ -794,7 +793,7 @@ snit::widget hv3 {
     set importcmd [mymethod import_handler $id]
     set urlcmd    [mymethod resolve_uri]
     append id .9999
-    $myScrolledHtml style -id $id -importcmd $importcmd -urlcmd $urlcmd $script
+    $myHtml style -id $id -importcmd $importcmd -urlcmd $urlcmd $script
     return ""
   }
 
@@ -814,7 +813,7 @@ snit::widget hv3 {
   #     <Motion>                motion
   # 
   method event {action x y} {
-    set nodelist [$myScrolledHtml node $x $y]
+    set nodelist [$myHtml node $x $y]
     foreach component [list \
         $mySelectionManager $myDynamicManager $myHyperlinkManager
     ] {
@@ -845,17 +844,17 @@ snit::widget hv3 {
     set fragment [$myUri cget -fragment]
     if {$fragment ne ""} {
       set selector [format {[name="%s"]} $fragment]
-      set goto_node [lindex [$myScrolledHtml search $selector] 0]
+      set goto_node [lindex [$myHtml search $selector] 0]
       if {$goto_node ne ""} {
-        $myScrolledHtml yview $goto_node
+        $myHtml yview $goto_node
       }
     }
   }
 
   method documentcallback {final text} {
-    $myScrolledHtml parse $text
+    $myHtml parse $text
     if {$final} {
-      $myScrolledHtml parse -final {}
+      $myHtml parse -final {}
       $self goto_fragment
     }
   }
@@ -867,8 +866,8 @@ snit::widget hv3 {
   # --------------------------------------------
   #     goto                N/A
   #     protocol            $myDownloadManager
-  #     xview               $myScrolledHtml
-  #     yview               $myScrolledHtml
+  #     xview               $myHtml
+  #     yview               $myHtml
   #     html                N/A
   #     hull                N/A
   #   
@@ -891,7 +890,7 @@ snit::widget hv3 {
 
     set myStyleCount 0
     $myDownloadManager reset
-    $myScrolledHtml    reset
+    $myHtml    reset
     $myDynamicManager  reset
     $myFormManager     reset
 
@@ -908,7 +907,7 @@ snit::widget hv3 {
     $myDownloadManager reset
   }
 
-  method html {} { return $myScrolledHtml }
+  method html {} { return $myHtml }
   method hull {} { return $hull }
 
   option -motioncmd   -default ""
@@ -916,23 +915,23 @@ snit::widget hv3 {
 
   # Delegated public methods
   delegate method protocol      to myDownloadManager
-  delegate method node          to myScrolledHtml
-  delegate method search        to myScrolledHtml
+  delegate method node          to myHtml
+  delegate method search        to myHtml
   delegate method dumpforms     to myFormManager
 
   # Delegated public options
   delegate option -hyperlinkcmd to myHyperlinkManager
   delegate option -getcmd       to myFormManager
   delegate option -postcmd      to myFormManager
-  delegate option -fonttable    to myScrolledHtml
+  delegate option -fonttable    to myHtml
 
   # Scrollbar and geometry related stuff is delegated to the html widget
-  delegate method xview           to myScrolledHtml
-  delegate method yview           to myScrolledHtml
-  delegate option -xscrollcommand to myScrolledHtml
-  delegate option -yscrollcommand to myScrolledHtml
-  delegate option -width          to myScrolledHtml
-  delegate option -height         to myScrolledHtml
+  delegate method xview           to myHtml
+  delegate method yview           to myHtml
+  delegate option -xscrollcommand to myHtml
+  delegate option -yscrollcommand to myHtml
+  delegate option -width          to myHtml
+  delegate option -height         to myHtml
 }
 bind Hv3 <KeyPress-Up>     { %W yview scroll -1 units }
 bind Hv3 <KeyPress-Down>   { %W yview scroll  1 units }
