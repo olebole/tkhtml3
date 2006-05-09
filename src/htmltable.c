@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.76 2006/05/09 08:23:43 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.77 2006/05/09 15:53:33 danielk1977 Exp $";
 
 #include "htmllayout.h"
 
@@ -208,8 +208,8 @@ tableColWidthMultiSpan(pNode, col, colspan, row, rowspan, pContext)
         int minincr;
         int maxincr;
 
-        int nAutoPixels = 0;
-        int nAutoColumns = 0;
+        int nAutoPixels = 0;      /* Aggregate (max - min) for auto columns */
+        int nAutoColumns = 0;     /* Number of auto columns */
 
         /* For now, only increase the minimum and maximum widths. Presumably
          * the computed value of the 'width' property should be used to 
@@ -262,14 +262,19 @@ tableColWidthMultiSpan(pNode, col, colspan, row, rowspan, pContext)
         maxincr = MAX(0, max - currentmax);
 
         /* Step 1: grow auto-width columns */
-        if (nAutoPixels > 0 && minincr > 0) {
+        if (nAutoColumns > 0 && minincr > 0) {
             int nAutoColumnsRemaining = nAutoColumns;
             float ratio = (float)minincr / (float)nAutoPixels;
             for (i=col; i<(col+colspan); i++) {
                 assert(nAutoColumnsRemaining >= 0);
                 if (COL_ISAUTO(i)) {
                     if (nAutoColumnsRemaining > 1) {
-                        int add = INTEGER(ratio * (aMaxWidth[i]-aMinWidth[i]));
+                        int add; 
+                        if (nAutoPixels > 0) {
+                            add = INTEGER(ratio * (aMaxWidth[i]-aMinWidth[i]));
+                        } else {
+                            add = minincr / nAutoColumns;
+                        }
                         minincr -= add;
                         aMinWidth[i] += add;
                     } else if (minincr > 0) {
