@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.166 2006/05/09 17:05:23 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.167 2006/05/11 13:31:14 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -2550,6 +2550,10 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
     int overhang;
     int hasNormalCb = (pNormal->pCallbackList ? 1 : 0);
 
+    HtmlComputedValues *pV = pNode->pPropertyValues;   
+    int isSizeOnly = pLayout->minmaxTest;
+    int iTextIndent = PIXELVAL(pV, TEXT_INDENT, pBox->iContaining);
+
     assert( 
         DISPLAY(pNode->pPropertyValues) == CSS_CONST_BLOCK ||
         DISPLAY(pNode->pPropertyValues) == CSS_CONST_TABLE_CELL ||
@@ -2584,7 +2588,7 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
     HtmlFloatListMargins(pFloat, 0, 1, &left, &right);
     if (
         pLayout->pTree->options.layoutcache &&                         /* 1 */
-        !pLayout->minmaxTest &&                                        /* 2 */
+        !isSizeOnly &&
         pCache && (pCache->flags & CACHE_LAYOUT_VALID) &&              /* 3 */
         pBox->iContaining == pCache->iContaining &&                    /* 4 */
         pNormal->isValid    == pCache->normalFlowIn.isValid &&         /* 5 */
@@ -2596,7 +2600,7 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
     ) {
         /* Hooray! A cached layout can be used. */
         assert(!pBox->vc.pFirst);
-        assert(!pLayout->minmaxTest);
+        assert(!isSizeOnly);
         HtmlDrawCopyCanvas(&pBox->vc, &pCache->canvas);
         pBox->width = pCache->iWidth;
         assert(pCache->iHeight >= pBox->height);
@@ -2620,9 +2624,8 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
     pCache->iFloatRight = right;
 
     /* Create the InlineContext object for this containing box */
-    pContext = HtmlInlineContextNew(pNode, pLayout->minmaxTest);
-    HtmlInlineContextSetTextIndent(pContext, 
-        PIXELVAL(pNode->pPropertyValues, TEXT_INDENT, pBox->iContaining)
+    pContext = HtmlInlineContextNew(
+            pLayout->pTree, pNode, isSizeOnly, iTextIndent
     );
 
     /* Add any inline-border created by the node that generated this
@@ -2655,7 +2658,7 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
 
     if (
         pLayout->pTree->options.layoutcache && 
-        !pLayout->minmaxTest && 
+        !isSizeOnly &&
         pCache->iFloatLeft == left &&
         pCache->iFloatRight == right &&
         HtmlFloatListIsConstant(pFloat, pBox->height, overhang) &&

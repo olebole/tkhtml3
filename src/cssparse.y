@@ -64,8 +64,8 @@ ws ::= .
 ws ::= SPACE ws.
 
 /*********************************************************************
-** Style sheet header. Contains @charset and @import directives. Both
-** of these are ignored for now.
+** Style sheet header. Contains @charset and @import directives. @charset
+** directives are ignored for the time being.
 */
 ss_header ::= ws charset_opt imports_opt.
 
@@ -95,6 +95,7 @@ ss_body ::= ss_body ws ss_body_item.
 ss_body_item ::= media.
 ss_body_item ::= ruleset.
 ss_body_item ::= font_face. 
+ss_body_item ::= error.
 
 /*********************************************************************
 ** @media {...} block.
@@ -166,10 +167,17 @@ comma ::= COMMA. {
 declaration_list ::= declaration.
 declaration_list ::= declaration_list SEMICOLON declaration.
 
-declaration ::= error.
 declaration ::= ws IDENT(X) ws COLON ws expr(E) prio(I). {
     HtmlCssDeclaration(pParse, &X, &E, I);
 }
+
+declaration ::= garbage.
+
+garbage_token ::= error.
+garbage_token ::= LP garbage RP.
+garbage ::= garbage_token.
+garbage ::= garbage garbage_token.
+
 
 %type prio {int}
 prio(X) ::= IMPORTANT_SYM ws. {X = (pParse->pStyleId) ? 1 : 0;}

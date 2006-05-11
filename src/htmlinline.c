@@ -31,7 +31,7 @@
  * 
  *     HtmlInlineContextIsEmpty
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.18 2006/05/05 12:15:55 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.19 2006/05/11 13:31:14 danielk1977 Exp $";
 
 typedef struct InlineBox InlineBox;
 
@@ -73,6 +73,8 @@ struct InlineBox {
 };
 
 struct InlineContext {
+  HtmlTree *pTree;        /* Pointer to owner widget */
+  HtmlNode *pNode;        /* Pointer to the node that generated the context */
   int isSizeOnly;         /* Do not draw, just estimate sizes of things */
  
   int textAlign;          /* One of TEXTALIGN_LEFT, TEXTALIGN_RIGHT etc. */
@@ -89,6 +91,31 @@ struct InlineContext {
   InlineBorder *pBoxBorders; /* Borders list for next box to be added */
 };
 
+#define START_LOG(x) \
+if (pContext->pTree->options.logcmd && !pContext->isSizeOnly) {                \
+    const char *zFunction = x;                                                 \
+    Tcl_Obj *pLog = Tcl_NewObj();                                              \
+    Tcl_IncrRefCount(pLog);                                                    \
+    {
+
+#define END_LOG                                                                \
+    }                                                                          \
+    HtmlLog(pContext->pTree, "LAYOUTENGINE", "%s %s() -> %s",                  \
+            Tcl_GetString(HtmlNodeCommand(pContext->pTree, pContext->pNode)),  \
+            zFunction, Tcl_GetString(pLog)                                     \
+    );                                                                         \
+    Tcl_DecrRefCount(pLog);                                                    \
+}
+
+static void 
+oprintf(Tcl_Obj *pObj, CONST char *zFormat, ...) {
+    int nBuf = 0;
+    char zBuf[1024];
+    va_list ap;
+    va_start(ap, zFormat);
+    nBuf = vsnprintf(zBuf, 1023, zFormat, ap);
+    Tcl_AppendToObj(pObj, zBuf, nBuf);
+}
 
 /*
  *---------------------------------------------------------------------------
@@ -577,6 +604,9 @@ HtmlInlineContextGetLineBox(pLayout, p, pWidth, flags, pCanvas, pVSpace,pAscent)
     int *pVSpace;             /* OUT: Total height of generated linebox */
     int *pAscent;             /* OUT: Ascent of line box */
 {
+    InlineContext * const pContext = p;  /* For the benefit of the LOG macros */
+
+    int bRet = 0;             /* Boolean return value. */
     int i;                   /* Iterator variable for aInline */
     int j;
     int lineboxwidth = 0;    /* Width of line-box */
@@ -587,7 +617,6 @@ HtmlInlineContextGetLineBox(pLayout, p, pWidth, flags, pCanvas, pVSpace,pAscent)
     HtmlCanvas borders;      /* Canvas for borders */
     InlineBorder *pBorder;
     int iLeft = 0;           /* Leftmost pixel of line box */
-    int width = *pWidth;
     int descent = 0;
     int em_pixels = 0;
     int line_height = 0;
@@ -597,11 +626,13 @@ HtmlInlineContextGetLineBox(pLayout, p, pWidth, flags, pCanvas, pVSpace,pAscent)
     int forceline = (flags & LINEBOX_FORCELINE);
     int forcebox = (flags & LINEBOX_FORCEBOX);
 
+    char const *zLogComment = 0;
+
+    /* The amount of horizontal space available in which to stack boxes */
+    const int width = *pWidth - p->iTextIndent;
+
     memset(&content, 0, sizeof(HtmlCanvas));
     memset(&borders, 0, sizeof(HtmlCanvas));
-
-    /* Account for any 'text-indent' value */
-    width += p->iTextIndent;
 
     /* This block sets the local variables nBox and lineboxwidth.
      *
@@ -645,7 +676,7 @@ HtmlInlineContextGetLineBox(pLayout, p, pWidth, flags, pCanvas, pVSpace,pAscent)
          * flag is set.
          */
         *pWidth = 0;
-        return 0;
+        goto exit_getlinebox;
     }
 
     if (0 == nBox) {
@@ -653,7 +684,9 @@ HtmlInlineContextGetLineBox(pLayout, p, pWidth, flags, pCanvas, pVSpace,pAscent)
             /* The line-box consists of a single new-line only.  */
             *pVSpace = p->aInline[0].eNewLine;
             p->iTextIndent = 0;
-            return 1;
+            bRet = 1;
+            zLogComment = "a single newline box";
+            goto exit_getlinebox;
         }
         if (forcebox && !p->aInline[0].eNewLine) {
 	    /* The first inline-box is too wide for the supplied width, but
@@ -670,7 +703,7 @@ HtmlInlineContextGetLineBox(pLayout, p, pWidth, flags, pCanvas, pVSpace,pAscent)
                 nBox = 1;
             } else {
                 *pWidth = 0;
-                return 0;
+                goto exit_getlinebox;
             }
         }
     }
@@ -683,7 +716,7 @@ HtmlInlineContextGetLineBox(pLayout, p, pWidth, flags, pCanvas, pVSpace,pAscent)
         InlineBox *pBox = &p->aInline[i];
         *pWidth = pBox->nContentPixels;
         *pWidth += pBox->nRightPixels + pBox->nLeftPixels;
-        return 0;
+        goto exit_getlinebox;
     }
 
     if (p->whiteSpace == CSS_CONST_NOWRAP && 
@@ -697,7 +730,7 @@ HtmlInlineContextGetLineBox(pLayout, p, pWidth, flags, pCanvas, pVSpace,pAscent)
          * some floating margins.
          */
         *pWidth = lineboxwidth;
-        return 0;
+        goto exit_getlinebox;
     }
 
     /* Adjust the initial left-margin offset and the nExtra variable to 
@@ -905,21 +938,21 @@ HtmlInlineContextGetLineBox(pLayout, p, pWidth, flags, pCanvas, pVSpace,pAscent)
     p->nInline -= nBox;
     memmove(p->aInline, &p->aInline[nBox], p->nInline * sizeof(InlineBox));
 
-#if 0
-    if (p->nInline > 0 && p->aInline[0].eNewLine) {
-        int diff = p->aInline[0].eNewLine - (pCanvas->bottom - pCanvas->top);
-        if (diff > 0) {
-            pCanvas->bottom += diff;
-        }
-        p->aInline[0].eNewLine = 0;
-    }
-#endif
-
+    bRet = 1;
+exit_getlinebox:
     if (aReplacedX) {
         HtmlFree(0, (char *)aReplacedX);
     }
-    p->iTextIndent = 0;
-    return 1;
+    if (bRet) {
+        p->iTextIndent = 0;
+        START_LOG("HtmlInlineContextGetLineBox");
+            oprintf(pLog, "<ul>");
+            oprintf(pLog, "<li>Requested line box width: %d", width);
+            oprintf(pLog, "<li>Generated a line box containing %d boxes",nBox);
+            oprintf(pLog, "(%s)", zLogComment ? zLogComment : "unspecified");
+        END_LOG;
+    }
+    return bRet;
 }
 
 /*
@@ -1004,6 +1037,12 @@ HtmlInlineContextCleanup(pContext)
  *     "left" for the 'text-align' property, regardless of the value of
  *     pNode->eTextAlign.
  *
+ *     The third argument is the used value, in pixels, of the 'text-indent'
+ *     property. This value is passed in seperately (instead of being extracted
+ *     from pNode->pPropertyValues) because it may be specified as a percentage
+ *     of the containing block. This module does not have access to that data,
+ *     hence the used property value must be calculated by the caller.
+ *
  * Results:
  *     Pointer to new InlineContext structure.
  *
@@ -1013,14 +1052,18 @@ HtmlInlineContextCleanup(pContext)
  *---------------------------------------------------------------------------
  */
 InlineContext *
-HtmlInlineContextNew(pNode, isSizeOnly)
+HtmlInlineContextNew(pTree, pNode, isSizeOnly, iTextIndent)
+    HtmlTree *pTree;
     HtmlNode *pNode;
     int isSizeOnly;
+    int iTextIndent;    /* Pixel balue of 'text-indent' for parent block box */
 {
     HtmlComputedValues *pValues = pNode->pPropertyValues;
-    InlineContext *pNew;
+    InlineContext *pContext;
 
-    pNew = (InlineContext *)HtmlClearAlloc(0, sizeof(InlineContext));
+    pContext = (InlineContext *)HtmlClearAlloc(0, sizeof(InlineContext));
+    pContext->pTree = pTree;
+    pContext->pNode = pNode;
 
     /* Set the value of the 'text-align' property to use when formatting an
      * inline-context. An entire inline context always has the same value
@@ -1040,28 +1083,50 @@ HtmlInlineContextNew(pNode, isSizeOnly)
      * any specified value of 'text-align' is ignored and inline blocks
      * are aligned against the left margin.
      */
-    pNew->whiteSpace = pValues->eWhitespace;
-    pNew->textAlign = pValues->eTextAlign;
+    pContext->whiteSpace = pValues->eWhitespace;
+    pContext->textAlign = pValues->eTextAlign;
     if (isSizeOnly) { 
-        pNew->textAlign = CSS_CONST_LEFT;
+        pContext->textAlign = CSS_CONST_LEFT;
     } else if (
         pValues->eWhitespace != CSS_CONST_NORMAL && 
-        pNew->textAlign == CSS_CONST_JUSTIFY
+        pContext->textAlign == CSS_CONST_JUSTIFY
     ) {
-        pNew->textAlign = CSS_CONST_LEFT;
+        pContext->textAlign = CSS_CONST_LEFT;
     }
 
     /* The 'line-height' property for the block-box that generates this 
      * inline context is used as the minimum line height for all generated 
      * line-boxes.
      */
-    pNew->lineHeight = pValues->iLineHeight;
-    if (pNew->lineHeight == PIXELVAL_NORMAL) {
-        pNew->lineHeight = -100;
+    pContext->lineHeight = pValues->iLineHeight;
+    if (pContext->lineHeight == PIXELVAL_NORMAL) {
+        pContext->lineHeight = -100;
     }
 
-    pNew->isSizeOnly = isSizeOnly;
-    return pNew;
+    /* 'text-indent' property affects the geometry of the first line box
+     * generated by this inline context. The value of isSizeOnly is passed
+     * to all of the HtmlDrawXXX() calls (so that they don't allocate a screen
+     * graph if we are just testing for the min/max size of a block).
+     */
+    pContext->iTextIndent = iTextIndent;
+    pContext->isSizeOnly = isSizeOnly;
+
+    START_LOG("HtmlInlineContextNew");
+        const char *zWhiteSpace = HtmlCssConstantToString(pContext->whiteSpace);
+        const char *zTextAlign = HtmlCssConstantToString(pContext->textAlign);
+
+        oprintf(pLog, "<p>Created a new inline context initialised with:</p>");
+        oprintf(pLog, "<ul><li>'white-space': %s", zWhiteSpace);
+        oprintf(pLog, "    <li>'text-align': %s", zTextAlign);
+        if (pValues->iLineHeight != PIXELVAL_NORMAL) {
+            oprintf(pLog, "    <li>'line-height': %dpx", pContext->lineHeight);
+        } else {
+            oprintf(pLog, "    <li>'line-height': normal");
+        }
+        oprintf(pLog, "    <li>'text-indent': %dpx", pContext->iTextIndent);
+    END_LOG;
+
+    return pContext;
 }
 
 /*

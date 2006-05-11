@@ -174,16 +174,52 @@ foreach ss [list \
   {p { color:green; color }}                             \
   {p { color:red;   color; color:green }}                \
   {p { color:green; color: }}                            \
-  {p { color:red;   color:; color:green }}               
-# TODO: The following two cases are broken:
-# {p { color:green; color{;color:maroon} }}              
-# {p { color:red;   color{;color:maroon}; color:green }} 
+  {p { color:red;   color:; color:green }}               \
+  {p { color:green; {some more garbage}}}                \
+  {p { some more garbage; color: green}}                 \
+  {p { {some more garbage}; color: green}}               \
+  {p { color:green; color{;color:maroon} }}              \
+  {p { color:red;   color{;color:maroon}; color:green }}  
 ] {
   tcltest::test style-4.3.$tn {} -body {
     parse_stylesheet $ss
   } -result {{p color:green}}
   incr tn
 }
+
+#--------------------------------------------------------------------------
+# Test cases numbered 5.* test that the parser correctly negotiates 
+# @media blocks.
+
+# Given the stylesheet document $style, return the number of @import 
+# directives contained in the document that should be used by Tkhtml.
+proc count_import_directives {style} {
+}
+proc incrvar {varname args} {
+  uplevel #0 [list incr $varname]
+}
+
+# The following block comes from the page at www.theaustralian.com.au.
+# I have no idea what they are trying to achieve, but I do know the 
+# page renders incorrectly if the @import directives are recognised.
+# So the following test cases test that they are ignored.
+set ::style_block "
+/* IE legacy version fixes - leave at end */
+@media tty {
+   i{content:\"\";/*\" \"*/}}@m; @import '/css/ie55/0,20954,,00.css'; /*\";}
+   }/* */
+
+@media tty {
+   i{content:\"\";/*\" \"*/}}; @import '/css/ie50/0,20955,,00.css'; {;}/*\";}
+   }/* */
+"
+tcltest::test style-5.1 {} -body {
+  html .newwidget 
+  set ::import_cnt 0
+  .newwidget style -importcmd [list incrvar ::import_cnt] $::style_block
+  destroy .newwidget
+  set ::import_cnt
+} -result {0}
 
 finish_test
 

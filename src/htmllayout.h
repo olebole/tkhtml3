@@ -69,7 +69,7 @@ typedef struct InlineContext InlineContext;
 typedef struct InlineBorder InlineBorder;
 
 /* Allocate and deallocate InlineContext structures */
-InlineContext *HtmlInlineContextNew(HtmlNode *, int);
+InlineContext *HtmlInlineContextNew(HtmlTree *,HtmlNode *, int, int);
 void HtmlInlineContextCleanup(InlineContext *);
 
 /* Add a text node to the inline context */
