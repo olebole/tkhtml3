@@ -654,20 +654,19 @@ snit::widget ::hv3::control {
     set myWidget [radiobutton ${win}.widget]
     set myRadioVarname ::hv3::radiobutton_[$self name]
     set myValue [$myControlNode attr -default "" value]
-    $myWidget configure -value $myValue
-    $myWidget configure -variable $myRadioVarname
-    $myWidget configure -tristatevalue aghqghorhdsf
 
-    $myWidget configure -padx 0 -pady 0
-    $myWidget configure -borderwidth 0
-    $myWidget configure -highlightthickness 0
-
-    if {
-      [expr [catch {$myControlNode attr checked}] ? 0 : 1] ||
+    if { 
+      ([catch {$myControlNode attr checked}] ? 0 : 1) ||
       ![info exists $myRadioVarname]
     } {
       set $myRadioVarname $myValue
     }
+
+    $myWidget configure -value $myValue
+    $myWidget configure -variable $myRadioVarname
+    $myWidget configure -padx 0 -pady 0
+    $myWidget configure -borderwidth 0
+    $myWidget configure -highlightthickness 0
   }
 
   # Submit the form this control belongs to.
