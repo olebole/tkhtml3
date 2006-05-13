@@ -233,6 +233,8 @@ struct HtmlComputedValues {
     int iBackgroundPositionX;
     int iBackgroundPositionY;
 
+    unsigned char eOverflow;              /* 'overflow' */
+
     /* The Tkhtml specific properties */
     HtmlImage2 *imReplacementImage;   /* '-tkhtml-replacement-image' */
 };

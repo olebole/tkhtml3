@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.169 2006/05/13 10:52:32 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.170 2006/05/13 14:10:21 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -1016,7 +1016,6 @@ HtmlLayoutNodeContent(pLayout, pBox, pNode)
     assert(!nodeIsReplaced(pNode));
     int eDisplay = DISPLAY(pNode->pPropertyValues);
    
-    
     if (eDisplay == CSS_CONST_NONE) {
         /* Do nothing */
     } else if (eDisplay == CSS_CONST_TABLE) {
@@ -2309,12 +2308,14 @@ normalFlowLayoutFixed(pLayout, pBox, pNode, pY, pContext, pNormal)
     InlineContext *pContext;
     NormalFlow *pNormal;
 {
-    int y = *pY + normalFlowMarginQuery(pNormal);
-    NodeList *pNew = (NodeList *)HtmlClearAlloc(0, sizeof(NodeList));
-    pNew->pNode = pNode;
-    pNew->pNext = pLayout->pFixed;
-    pNew->pMarker = HtmlDrawAddMarker(&pBox->vc, 0, y, 0);
-    pLayout->pFixed = pNew;
+    if (pLayout->minmaxTest == 0) {
+        int y = *pY + normalFlowMarginQuery(pNormal);
+        NodeList *pNew = (NodeList *)HtmlClearAlloc(0, sizeof(NodeList));
+        pNew->pNode = pNode;
+        pNew->pNext = pLayout->pFixed;
+        pNew->pMarker = HtmlDrawAddMarker(&pBox->vc, 0, y, 0);
+        pLayout->pFixed = pNew;
+    }
     return 0;
 }
 
@@ -2677,6 +2678,17 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
 
     rc = inlineLayoutDrawLines(pLayout, pBox, pContext, 1, &y, pNormal);
     HtmlInlineContextCleanup(pContext);
+
+    /* If the overflow property is set to anything other than "visible",
+     * clear any floating boxes. This is because technically, this block
+     * establishes a new block-context. This is all pretty vague...
+     * See http://www.webstandards.org for an example.
+     *
+     * http://www.sitepoint.com/blogs/2005/02/26/simple-clearing-of-floats/
+     */
+    if (pV->eOverflow != CSS_CONST_VISIBLE) {
+        pBox->height = HtmlFloatListClear(pFloat, CSS_CONST_BOTH, pBox->height);
+    }
 
     left = 0;
     right = pBox->iContaining;

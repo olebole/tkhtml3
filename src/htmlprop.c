@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.68 2006/05/09 17:52:27 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.69 2006/05/13 14:10:21 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1141,6 +1141,8 @@ HtmlComputedValuesInit(pTree, pNode, p)
     p->values.position.iBottom = PIXELVAL_AUTO;
     p->values.position.iLeft = PIXELVAL_AUTO;
     p->values.position.iRight = PIXELVAL_AUTO;
+
+    p->values.eOverflow = CSS_CONST_VISIBLE;
 }
 
 /*
@@ -1383,6 +1385,14 @@ HtmlComputedValuesSet(p, eProp, pProp)
                 CSS_CONST_SCROLL, CSS_CONST_FIXED, 0
             };
             unsigned char *pEVar = &(p->values.eBackgroundAttachment);
+            return propertyValuesSetEnum(p, pEVar, options, pProp);
+        }
+        case CSS_PROPERTY_OVERFLOW: {
+            int options[] = {
+                CSS_CONST_VISIBLE, CSS_CONST_AUTO, 
+                CSS_CONST_HIDDEN, CSS_CONST_SCROLL, 0
+            };
+            unsigned char *pEVar = &(p->values.eOverflow);
             return propertyValuesSetEnum(p, pEVar, options, pProp);
         }
 
@@ -2423,7 +2433,9 @@ struct PVDef {
     IMAGEVAL(LIST_STYLE_IMAGE, imListStyleImage),
     ENUMVAL (BACKGROUND_REPEAT, eBackgroundRepeat),
     ENUMVAL (BACKGROUND_ATTACHMENT, eBackgroundAttachment),
-    BACKGROUNDPOSITIONVAL()
+    BACKGROUNDPOSITIONVAL(),
+
+    ENUMVAL (OVERFLOW, eOverflow)
 };
 
 int 
@@ -2520,18 +2532,20 @@ HtmlNodeProperties(interp, pValues)
 
             case BACKGROUNDPOSITION: {
                 char zBuf[128];
+                int n = 0;
                 if (pValues->mask & PROP_MASK_BACKGROUND_POSITION_X) {
-                    assert(pValues->mask & PROP_MASK_BACKGROUND_POSITION_Y);
-                    sprintf(zBuf, "%.2f%% %.2f%%", 
-                        (double)pValues->iBackgroundPositionX/100.0,
+                    n = sprintf(zBuf, "%.2f%% ", 
+                        (double)pValues->iBackgroundPositionX/100.0
+                    );
+                } else {
+                    n = sprintf(zBuf, "%dpx ", pValues->iBackgroundPositionX);
+                }
+                if (pValues->mask & PROP_MASK_BACKGROUND_POSITION_Y) {
+                    sprintf(&zBuf[n], "%.2f%% ", 
                         (double)pValues->iBackgroundPositionY/100.0
                     );
                 } else {
-                    assert(!(pValues->mask & PROP_MASK_BACKGROUND_POSITION_Y));
-                    sprintf(zBuf, "%dpx %dpx", 
-                        pValues->iBackgroundPositionX,
-                        pValues->iBackgroundPositionY
-                    );
+                    sprintf(&zBuf[n], "%dpx ", pValues->iBackgroundPositionY);
                 }
                 pValue = Tcl_NewStringObj(zBuf, -1);
                 break;

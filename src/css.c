@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.69 2006/05/09 09:45:34 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.70 2006/05/13 14:10:21 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -1139,6 +1139,7 @@ shortcutBackground(pParse, p, v)
         }
     }
 
+#if 0
     if (
         pPositionX && pPositionY && 
         ((pPositionX->eType == CSS_TYPE_PERCENT) ? 1 : 0) !=
@@ -1146,6 +1147,7 @@ shortcutBackground(pParse, p, v)
     ) {
         goto error_out;
     }
+#endif
 
     propertySetAdd(p, CSS_PROPERTY_BACKGROUND_IMAGE, 
         pImage ? pImage : HtmlCssStringToProperty("none", 4)

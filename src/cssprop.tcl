@@ -74,6 +74,7 @@ C black silver gray white maroon red purple aqua  ;# Standard web colors
 C fuchsia green lime olive yellow navy blue teal
 C transparent                                     ;# 'background-color'
 C underline overline line-through none            ;# 'text-decoration'
+C visible auto hidden scroll                      ;# 'overflow'
 C text-top text-bottom 
 
 P azimuth background-attachment background-color background-image 

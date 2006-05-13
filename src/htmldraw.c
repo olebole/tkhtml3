@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.122 2006/05/13 07:16:38 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.123 2006/05/13 14:10:21 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1591,16 +1591,20 @@ drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview)
             if (pV->eBackgroundAttachment == CSS_CONST_SCROLL) {
                 if ( pV->mask & PROP_MASK_BACKGROUND_POSITION_X ){
                     iPosX = (double)iPosX * (double)(bg_w - iWidth) / 10000.0;
+                }
+                if ( pV->mask & PROP_MASK_BACKGROUND_POSITION_Y ){
                     iPosY = (double)iPosY * (double)(bg_h - iHeight) / 10000.0;
                 }
                 iPosX += bg_x;
                 iPosY += bg_y;
             } else {
                 /* 'background-attachment' is "fixed" */
+                int rw = Tk_Width(pTree->tkwin);
+                int rh = Tk_Height(pTree->tkwin);
                 if ( pV->mask & PROP_MASK_BACKGROUND_POSITION_X ){
-                    int rw = Tk_Width(pTree->tkwin);
-                    int rh = Tk_Height(pTree->tkwin);
                     iPosX = (double)iPosX * (double)(rw - iWidth) / 10000.0;
+                }
+                if ( pV->mask & PROP_MASK_BACKGROUND_POSITION_Y ){
                     iPosY = (double)iPosY * (double)(rh - iHeight) / 10000.0;
                 }
                 iPosX -= xview;
@@ -2578,7 +2582,7 @@ layoutNodeCmd(pTree, x, y)
     sQuery.x = x;
     sQuery.y = y;
 
-    searchCanvas(pTree, y-1, y+1, 0, layoutNodeCb, (ClientData)&sQuery);
+    searchSortedCanvas(pTree, y-1, y+1, 0, layoutNodeCb, (ClientData)&sQuery);
 
     if (sQuery.nNode > 0) {
         int i;

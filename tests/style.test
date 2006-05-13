@@ -221,5 +221,15 @@ tcltest::test style-5.1 {} -body {
   set ::import_cnt
 } -result {0}
 
+
+tcltest::test style-6.1 {} -body {
+  parse_stylesheet {
+    #nav-main {background: #fc3 url(/files/theme/nav-main.png) repeat-x 0 100%;}
+  }
+} -result [list [list \
+  {[id="nav-main"]}  \
+  {background-image:url(/files/theme/nav-main.png); background-attachment:scrol; background-color:#fc3; background-repeat:repeat-x; background-position-x:0.00; background-position-y:100.00%}
+]]
+
 finish_test
 
