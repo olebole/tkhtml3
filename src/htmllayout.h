@@ -37,6 +37,10 @@ struct LayoutContext {
     NodeList *pFixed;        /* List of nodes with "fixed" 'position' */
 };
 
+/* Values for LayoutContext.minmaxTest */
+#define MINMAX_TEST_MIN 1
+#define MINMAX_TEST_MAX 2
+
 typedef struct BoxProperties BoxProperties;
 typedef struct MarginProperties MarginProperties;
 

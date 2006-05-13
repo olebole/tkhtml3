@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.168 2006/05/13 07:16:38 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.169 2006/05/13 10:52:32 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -70,6 +70,7 @@ static const char rcsid[] = "$Id: htmllayout.c,v 1.168 2006/05/13 07:16:38 danie
 
 typedef struct NormalFlowCallback NormalFlowCallback;
 typedef struct NormalFlow NormalFlow;
+typedef struct LayoutCache LayoutCache;
 
 /*
  * This structure is (fairly obviously) used to link node structures into a
@@ -104,15 +105,7 @@ struct NormalFlowCallback {
     NormalFlowCallback *pNext;
 };
 
-#define CACHE_MINMAX_VALID 0x01
-#define CACHE_LAYOUT_VALID 0x02
-struct HtmlLayoutCache {
-    unsigned char flags;     /* Combination of CACHE_XXX_VALID values */
-
-    /* Cached return values for blockMinMaxWidth() */
-    int iMinWidth;
-    int iMaxWidth;
-
+struct LayoutCache {
     /* Cached input values for normalFlowLayout() */
     NormalFlow normalFlowIn;
     int iContaining;
@@ -124,7 +117,16 @@ struct HtmlLayoutCache {
     int iWidth;
     int iHeight;
     HtmlCanvas canvas;
+  
+    /* If not PIXELVAL_AUTO, value for normal-flow callbacks */
+    int iMarginCollapse;
 };
+
+struct HtmlLayoutCache {
+    unsigned char flags;     /* Mask indicating validity of aCache[] entries */
+    LayoutCache aCache[3];
+};
+
 
 /*
  * Public functions:
@@ -2540,7 +2542,6 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
     int rc = 0;                       /* Return Code */
     InlineBorder *pBorder;
     int ii;
-    HtmlLayoutCache *pCache = pNode->pLayoutCache;
     HtmlFloatList *pFloat = pNormal->pFloat;
     NodeList *pAbsolute = pLayout->pAbsolute;
     NodeList *pFixed = pLayout->pFixed;
@@ -2554,15 +2555,38 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
     int isSizeOnly = pLayout->minmaxTest;
     int iTextIndent = PIXELVAL(pV, TEXT_INDENT, pBox->iContaining);
 
+    HtmlLayoutCache *pLayoutCache = 0;
+    LayoutCache *pCache = 0;
+    int isCacheValid = 0;
+    int cache_mask = (1 << pLayout->minmaxTest);
+
+    NormalFlowCallback sCallback;
+
+    /* TODO: Should the fourth case ("display:inline") really be here? */
     assert( 
         DISPLAY(pNode->pPropertyValues) == CSS_CONST_BLOCK ||
         DISPLAY(pNode->pPropertyValues) == CSS_CONST_TABLE_CELL ||
         DISPLAY(pNode->pPropertyValues) == CSS_CONST_LIST_ITEM ||
- 
-        /* TODO: Should this case really be here? */
         DISPLAY(pNode->pPropertyValues) == CSS_CONST_INLINE
     );
     assert(!nodeIsReplaced(pNode));
+
+    /* If the structure for cached layout has not yet been allocated,
+     * allocate it now. The corresponding call to HtmlFree() is in
+     * the HtmlLayoutInvalidateCache() function.
+     * 
+     * Set pCache to point at the LayoutCache object used to cache
+     * this call. Boolean variable isCacheValid indicates whether or
+     * not the contents of pCache are currently valid.
+     */
+    if (!pNode->pLayoutCache) {
+        const int nBytes = sizeof(HtmlLayoutCache);
+        pNode->pLayoutCache = 
+            (HtmlLayoutCache *)HtmlClearAlloc("HtmlLayoutCache", nBytes);
+    }
+    pLayoutCache = pNode->pLayoutCache;
+    pCache = &pLayoutCache->aCache[pLayout->minmaxTest];
+    isCacheValid = pLayoutCache->flags & cache_mask;
 
     pNormal->isValid = (pNormal->isValid ? 1 : 0);
 
@@ -2572,15 +2596,14 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
      * conditions are met:
      *
      *      1. The widget -layoutcache option is set to true.
-     *      2. Function is not being called as part of a min-max width test.
-     *      3. A valid layout cache exists.
-     *      4. The width of the containing block is the same as it was when 
+     *      2. A valid layout cache exists.
+     *      3. The width of the containing block is the same as it was when 
      *         the cache was generated.
-     *      5. The vertical margins that will collapse with the top margin of 
+     *      4. The vertical margins that will collapse with the top margin of 
      *         the first block in this flow are the same as they were when the
      *         cache was generated.
-     *      6. There are no list marker boxes waiting to be positioned based on      *         the layout of this node.
-     *      7. The current floating margins are the same as they were when 
+     *      5. There are no list marker boxes waiting to be positioned based on      *         the layout of this node.
+     *      6. The current floating margins are the same as they were when 
      *         the cache was generated and there are no new floating margins
      *         in the float list that affect the area where the cached 
      *         layout is to be placed.
@@ -2588,19 +2611,24 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
     HtmlFloatListMargins(pFloat, 0, 1, &left, &right);
     if (
         pLayout->pTree->options.layoutcache &&                         /* 1 */
-        !isSizeOnly &&
-        pCache && (pCache->flags & CACHE_LAYOUT_VALID) &&              /* 3 */
-        pBox->iContaining == pCache->iContaining &&                    /* 4 */
-        pNormal->isValid    == pCache->normalFlowIn.isValid &&         /* 5 */
+        isCacheValid &&                                                /* 2 */
+        pBox->iContaining == pCache->iContaining &&                    /* 3 */
+        pNormal->isValid    == pCache->normalFlowIn.isValid &&         /* 4 */
         pNormal->iMinMargin == pCache->normalFlowIn.iMinMargin &&   
         pNormal->iMaxMargin == pCache->normalFlowIn.iMaxMargin &&
-        !hasNormalCb &&                                                /* 6 */
-        left == pCache->iFloatLeft && right == pCache->iFloatRight &&  /* 7 */
+        left == pCache->iFloatLeft && right == pCache->iFloatRight &&  /* 6 */
         HtmlFloatListIsConstant(pFloat, 0, pCache->iHeight)
     ) {
         /* Hooray! A cached layout can be used. */
         assert(!pBox->vc.pFirst);
-        assert(!isSizeOnly);
+        if (pCache->iMarginCollapse != PIXELVAL_AUTO) {
+            NormalFlowCallback *pCallback = pNormal->pCallbackList;
+            int iMargin = pCache->iMarginCollapse;
+            while (pCallback) {
+                pCallback->xCallback(pNormal, pCallback, iMargin);
+                pCallback = pCallback->pNext;
+            }
+        }
         HtmlDrawCopyCanvas(&pBox->vc, &pCache->canvas);
         pBox->width = pCache->iWidth;
         assert(pCache->iHeight >= pBox->height);
@@ -2611,35 +2639,20 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
         return;
     }
 
-#if 0
-printf("%d ", 
-        !pLayout->pTree->options.layoutcache ? 1 :
-        isSizeOnly ? 2 :
-        !(pCache) ? 3 :
-        !(pCache->flags & CACHE_LAYOUT_VALID) ? 11 :
-        !(pBox->iContaining == pCache->iContaining) ? 4 :
-        !(pNormal->isValid    == pCache->normalFlowIn.isValid) ? 5 :
-        !(pNormal->iMinMargin == pCache->normalFlowIn.iMinMargin) ? 6 :
-        !(pNormal->iMaxMargin == pCache->normalFlowIn.iMaxMargin) ? 7 :
-        hasNormalCb ? 8 :
-        !(left == pCache->iFloatLeft && right == pCache->iFloatRight) ? 9 :
-        !(HtmlFloatListIsConstant(pFloat, 0, pCache->iHeight)) ? 10 : -1);
-#endif
-
-    if (!pCache) {
-        pCache = (HtmlLayoutCache *)HtmlClearAlloc(0, sizeof(HtmlLayoutCache));
-        pNode->pLayoutCache = pCache;
-    }
     HtmlDrawCleanup(pLayout->pTree, &pCache->canvas);
-    pCache->flags &= ~(CACHE_LAYOUT_VALID);
+    pLayoutCache->flags &= ~(cache_mask);
     pCache->normalFlowIn.iMaxMargin = pNormal->iMaxMargin;
     pCache->normalFlowIn.iMinMargin = pNormal->iMinMargin;
     pCache->normalFlowIn.isValid = pNormal->isValid;
     pCache->iContaining = pBox->iContaining;
     pCache->iFloatLeft = left;
     pCache->iFloatRight = right;
+    pCache->iMarginCollapse = PIXELVAL_AUTO;
 
-
+    sCallback.xCallback = setValueCallback;
+    sCallback.clientData = (ClientData) &pCache->iMarginCollapse;
+    sCallback.pNext = 0;
+    normalFlowCbAdd(pNormal, &sCallback);
 
     /* Create the InlineContext object for this containing box */
     pContext = HtmlInlineContextNew(
@@ -2667,32 +2680,18 @@ printf("%d ",
 
     left = 0;
     right = pBox->iContaining;
-    assert(pNode->pLayoutCache == pCache);
-    assert(pBox->iContaining == pCache->iContaining);
     HtmlFloatListMargins(pFloat, pBox->height-1, pBox->height, &left, &right);
 
     /* TODO: Danger! elements with "position:relative" might break this? */
     overhang = MAX(0, pBox->vc.bottom - pBox->height);
 
-#if 0
-    printf("%d ",
-        !(pLayout->pTree->options.layoutcache  ) ? 1 :
-        !(!isSizeOnly ) ? 2 :
-        !(pCache->iFloatLeft == left ) ? 3 :
-        !(pCache->iFloatRight == right ) ? 4 :
-        !(HtmlFloatListIsConstant(pFloat, pBox->height, overhang) ) ? 5 :
-        !(!pNormal->pCallbackList  && !hasNormalCb) ? 6 :
-        !(pLayout->pAbsolute == pAbsolute ) ? 7 :
-        !(pLayout->pFixed == pFixed) ? 8 : -1);
-#endif
+    normalFlowCbDelete(pNormal, &sCallback);
 
     if (
         pLayout->pTree->options.layoutcache && 
-        !isSizeOnly &&
         pCache->iFloatLeft == left &&
         pCache->iFloatRight == right &&
         HtmlFloatListIsConstant(pFloat, pBox->height, overhang) &&
-        !pNormal->pCallbackList && !hasNormalCb &&
         pLayout->pAbsolute == pAbsolute &&
         pLayout->pFixed == pFixed
     ) {
@@ -2703,9 +2702,8 @@ printf("%d ",
         pCache->normalFlowOut.iMaxMargin = pNormal->iMaxMargin;
         pCache->normalFlowOut.iMinMargin = pNormal->iMinMargin;
         pCache->normalFlowOut.isValid = pNormal->isValid;
-        pCache->flags |= CACHE_LAYOUT_VALID;
-// printf("storing cache\n");
-    }
+        pLayoutCache->flags |= cache_mask;
+    } 
 
     return;
 }
@@ -2739,62 +2737,40 @@ blockMinMaxWidth(pLayout, pNode, pMin, pMax)
     int min;        /* Minimum width of this block */
     int max;        /* Maximum width of this block */
 
-    HtmlLayoutCache *pCache = pNode->pLayoutCache;
+    BoxContext sBox;
+    int minmaxTestOrig = pLayout->minmaxTest;
+    pLayout->minmaxTest = MINMAX_TEST_MIN;
 
-    if (!pCache) {
-        pCache = (HtmlLayoutCache *)HtmlClearAlloc(0, sizeof(HtmlLayoutCache));
-        pNode->pLayoutCache = pCache;
+    /* Figure out the minimum width of the box by
+     * pretending to lay it out with a parent-width of 0.
+     */
+    memset(&sBox, 0, sizeof(BoxContext));
+    HtmlLayoutNodeContent(pLayout, &sBox, pNode);
+    HtmlDrawCleanup(0, &sBox.vc);
+    min = sBox.width;
+
+    /* Figure out the maximum width of the box by pretending to lay it
+     * out with a very large parent width. It is not expected to
+     * be a problem that tables may be layed out incorrectly on
+     * displays wider than 10000 pixels.
+     */
+    pLayout->minmaxTest = MINMAX_TEST_MAX;
+    memset(&sBox, 0, sizeof(BoxContext));
+    sBox.iContaining = 10000;
+    HtmlLayoutNodeContent(pLayout, &sBox, pNode);
+    HtmlDrawCleanup(0, &sBox.vc);
+    max = sBox.width;
+
+    assert(max>=min);
+    pLayout->minmaxTest = minmaxTestOrig;
+
+    LOG {
+        HtmlTree *pTree = pLayout->pTree;
+        HtmlLog(pTree, "LAYOUTENGINE", "%s blockMinMaxWidth() -> "
+            "min=%d max=%d",
+            Tcl_GetString(HtmlNodeCommand(pTree, pNode)), min, max
+        );
     }
-
-    if (
-        pLayout->pTree->options.layoutcache && 
-        (pCache->flags & CACHE_MINMAX_VALID)
-    ) {
-        min = pCache->iMinWidth;
-        max = pCache->iMaxWidth;
-    } else {
-        BoxContext sBox;
-        int minmaxTestOrig = pLayout->minmaxTest;
-        pLayout->minmaxTest = 1;
-
-        /* Figure out the minimum width of the box by
-         * pretending to lay it out with a parent-width of 0.
-         */
-        memset(&sBox, 0, sizeof(BoxContext));
-        HtmlLayoutNodeContent(pLayout, &sBox, pNode);
-        HtmlDrawCleanup(0, &sBox.vc);
-        min = sBox.width;
-    
-        /* Figure out the maximum width of the box by pretending to lay it
-         * out with a very large parent width. It is not expected to
-         * be a problem that tables may be layed out incorrectly on
-         * displays wider than 10000 pixels.
-         */
-        memset(&sBox, 0, sizeof(BoxContext));
-        sBox.iContaining = 10000;
-        HtmlLayoutNodeContent(pLayout, &sBox, pNode);
-        HtmlDrawCleanup(0, &sBox.vc);
-        max = sBox.width;
-
-        assert(max>=min);
-        pCache->iMinWidth = min;
-        pCache->iMaxWidth = max;
-        pCache->flags |= CACHE_MINMAX_VALID;
-
-        pLayout->minmaxTest = minmaxTestOrig;
-
-	/* Log the fact that we just calculated a new minimum and maximum
-	 * width. Don't use the LOG macro, as this message should be logged
-	 * regardless of the value of pLayout->minmaxTest.
-         */
-	if (pLayout->pTree->options.logcmd) {
-            HtmlTree *pTree = pLayout->pTree;
-            HtmlLog(pTree, "LAYOUTENGINE", "%s blockMinMaxWidth() -> "
-                "min=%d max=%d",
-                Tcl_GetString(HtmlNodeCommand(pTree, pNode)), min, max
-            );
-        }
-    } 
 
     if (pMin) *pMin = min;
     if (pMax) *pMax = max;
@@ -3018,7 +2994,6 @@ HtmlLayout(pTree)
             );
         }
     }
-printf("\n");
     return rc;
 }
 
@@ -3048,8 +3023,10 @@ HtmlLayoutInvalidateCache(pTree, pNode)
     HtmlNode *pNode;
 {
     if (pNode->pLayoutCache) {
-        HtmlDrawCleanup(pTree, &pNode->pLayoutCache->canvas);
-        HtmlFree(0, pNode->pLayoutCache);
+        HtmlDrawCleanup(pTree, &pNode->pLayoutCache->aCache[0].canvas);
+        HtmlDrawCleanup(pTree, &pNode->pLayoutCache->aCache[1].canvas);
+        HtmlDrawCleanup(pTree, &pNode->pLayoutCache->aCache[2].canvas);
+        HtmlFree("HtmlLayoutCache", pNode->pLayoutCache);
         pNode->pLayoutCache = 0;
     }
 }
