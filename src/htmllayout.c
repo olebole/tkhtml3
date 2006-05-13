@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.167 2006/05/11 13:31:14 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.168 2006/05/13 07:16:38 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -2610,6 +2610,22 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
         pNormal->isValid = pCache->normalFlowOut.isValid;
         return;
     }
+
+#if 0
+printf("%d ", 
+        !pLayout->pTree->options.layoutcache ? 1 :
+        isSizeOnly ? 2 :
+        !(pCache) ? 3 :
+        !(pCache->flags & CACHE_LAYOUT_VALID) ? 11 :
+        !(pBox->iContaining == pCache->iContaining) ? 4 :
+        !(pNormal->isValid    == pCache->normalFlowIn.isValid) ? 5 :
+        !(pNormal->iMinMargin == pCache->normalFlowIn.iMinMargin) ? 6 :
+        !(pNormal->iMaxMargin == pCache->normalFlowIn.iMaxMargin) ? 7 :
+        hasNormalCb ? 8 :
+        !(left == pCache->iFloatLeft && right == pCache->iFloatRight) ? 9 :
+        !(HtmlFloatListIsConstant(pFloat, 0, pCache->iHeight)) ? 10 : -1);
+#endif
+
     if (!pCache) {
         pCache = (HtmlLayoutCache *)HtmlClearAlloc(0, sizeof(HtmlLayoutCache));
         pNode->pLayoutCache = pCache;
@@ -2622,6 +2638,8 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
     pCache->iContaining = pBox->iContaining;
     pCache->iFloatLeft = left;
     pCache->iFloatRight = right;
+
+
 
     /* Create the InlineContext object for this containing box */
     pContext = HtmlInlineContextNew(
@@ -2656,6 +2674,18 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
     /* TODO: Danger! elements with "position:relative" might break this? */
     overhang = MAX(0, pBox->vc.bottom - pBox->height);
 
+#if 0
+    printf("%d ",
+        !(pLayout->pTree->options.layoutcache  ) ? 1 :
+        !(!isSizeOnly ) ? 2 :
+        !(pCache->iFloatLeft == left ) ? 3 :
+        !(pCache->iFloatRight == right ) ? 4 :
+        !(HtmlFloatListIsConstant(pFloat, pBox->height, overhang) ) ? 5 :
+        !(!pNormal->pCallbackList  && !hasNormalCb) ? 6 :
+        !(pLayout->pAbsolute == pAbsolute ) ? 7 :
+        !(pLayout->pFixed == pFixed) ? 8 : -1);
+#endif
+
     if (
         pLayout->pTree->options.layoutcache && 
         !isSizeOnly &&
@@ -2674,6 +2704,7 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
         pCache->normalFlowOut.iMinMargin = pNormal->iMinMargin;
         pCache->normalFlowOut.isValid = pNormal->isValid;
         pCache->flags |= CACHE_LAYOUT_VALID;
+// printf("storing cache\n");
     }
 
     return;
@@ -2987,6 +3018,7 @@ HtmlLayout(pTree)
             );
         }
     }
+printf("\n");
     return rc;
 }
 

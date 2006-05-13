@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlstyle.c,v 1.27 2006/04/29 10:22:32 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlstyle.c,v 1.28 2006/05/13 07:16:38 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -67,6 +67,7 @@ styleNode(pTree, pNode, clientData)
     if (!HtmlNodeIsText(pNode)) {
         HtmlComputedValues *pV = pNode->pPropertyValues;
         pNode->pPropertyValues = 0;
+        pNode->iZLevel = 0;
 
         int redrawmode = 0;
 
@@ -109,6 +110,17 @@ styleNode(pTree, pNode, clientData)
             int x, y, w, h;
             HtmlWidgetNodeBox(pTree, pNode, &x, &y, &w, &h);
             HtmlCallbackDamage(pTree, x-pTree->iScrollX, y-pTree->iScrollY,w,h);
+        }
+
+        /* Calculate the z coordinate */
+        if (pNode->pParent) {
+            pNode->iZLevel = pNode->pParent->iZLevel;
+        }
+        if (pNode->pPropertyValues->eFloat != CSS_CONST_NONE) {
+            pNode->iZLevel += 2;
+        }
+        if (pNode->pPropertyValues->ePosition != CSS_CONST_STATIC) {
+            pNode->iZLevel += 10;
         }
     }
 

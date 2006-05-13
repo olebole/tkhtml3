@@ -200,8 +200,8 @@ struct HtmlNode {
     HtmlNode **apChildren;         /* Array of pointers to children nodes */
 
     CssProperties *pStyle;     /* The CSS properties from style attribute */
-
     HtmlComputedValues *pPropertyValues;     /* CSS property values */
+    int iZLevel;                             /* Z coordinate of content */
     HtmlComputedValues *pPreviousValues;     /* Previous CSS property values */
     CssDynamic *pDynamic;                    /* CSS dynamic conditions */
     Html_u8 flags;                           /* HTML_DYNAMIC_XXX flags */

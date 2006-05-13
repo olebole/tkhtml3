@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.121 2006/05/09 11:46:58 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.122 2006/05/13 07:16:38 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -139,6 +139,10 @@ typedef struct CanvasWindow CanvasWindow;
 typedef struct CanvasOrigin CanvasOrigin;
 typedef struct CanvasLine   CanvasLine;
 typedef struct CanvasMarker CanvasMarker;
+
+typedef struct CanvasItemSorter CanvasItemSorter;
+typedef struct CanvasItemSorterLevel CanvasItemSorterLevel;
+typedef struct CanvasItemSorterSlot CanvasItemSorterSlot;
 
 /* A single line of text. The relative coordinates (x, y) are as required
  * by Tk_DrawChars() - the far left-edge of the text baseline. The color
@@ -266,6 +270,129 @@ struct HtmlCanvasItem {
     } x;
     HtmlCanvasItem *pNext;
 };
+
+
+/*
+ * Every item in the canvas has an associated z-level (not to be confused with
+ * the CSS property 'z-index'). A z-coord is an integer close to zero
+ * calculated for each item as follows:
+ *
+ *     1. The z-level is initially 0.
+ *     2. Add 10 for each ancestor that is positioned.
+ *     2. Add 2 for each ancestor that is a floating box.
+ *     3. Add 1 if the element is inline.
+ *
+ * This algorithm will have to change when the 'z-index' property is supported.
+ * Right now it is not.
+ */
+struct CanvasItemSorter {
+    int nLevel;                         /* Number of allocated levels */
+    CanvasItemSorterLevel *aLevel;      /* Array of levels */  
+};
+struct CanvasItemSorterLevel {
+    int iSlot;                       /* Index of next free entry in aSlot */
+    int nSlot;                       /* Allocated size of aSlot */
+    CanvasItemSorterSlot *aSlot;     /* Array of slots to store items */
+};
+struct CanvasItemSorterSlot {
+    int x;                           /* item x-coord is relative to this */
+    int y;                           /* item y-coord is relative to this */
+    HtmlCanvasItem *pItem;           /* The item itself */
+};
+
+static void
+sorterInsert(pSorter, pItem, x, y)
+    CanvasItemSorter *pSorter;
+    HtmlCanvasItem *pItem;
+    int x;
+    int y;
+{
+    int z = 0;
+    HtmlNode *pNode = 0;
+    CanvasItemSorterLevel *pLevel;
+    CanvasItemSorterSlot *pSlot;
+    switch( pItem->type) {
+        case CANVAS_TEXT:
+            pNode = pItem->x.t.pNode;
+            break;
+        case CANVAS_IMAGE:
+            pNode = pItem->x.i2.pNode;
+            break;
+        case CANVAS_BOX:
+            pNode = pItem->x.box.pNode;
+            break;
+        case CANVAS_LINE:
+            pNode = pItem->x.line.pNode;
+            break;
+        case CANVAS_WINDOW:
+            break;
+        default:
+            assert(!"bad type value");
+    }
+
+    if (pNode && !pNode->pPropertyValues) {
+        pNode = HtmlNodeParent(pNode);
+    }
+    if (pNode) z = pNode->iZLevel;
+
+    if (z >= pSorter->nLevel) {
+        int n = pSorter->nLevel + 128;
+        pSorter->aLevel = (CanvasItemSorterLevel *)HtmlRealloc(0, 
+            pSorter->aLevel, n * sizeof(CanvasItemSorterLevel)
+        );
+        memset(&pSorter->aLevel[pSorter->nLevel], 0, 
+            sizeof(CanvasItemSorterLevel) * 128
+        );
+        pSorter->nLevel = n;
+    }
+    pLevel = &pSorter->aLevel[z];
+
+    assert(pLevel->nSlot >= pLevel->iSlot);
+    if (pLevel->nSlot == pLevel->iSlot) {
+        int n = pLevel->nSlot + 128;
+        pLevel->aSlot = (CanvasItemSorterSlot *)HtmlRealloc(0,
+            pLevel->aSlot, n * sizeof(CanvasItemSorterSlot)
+        );
+        memset(&pLevel->aSlot[pLevel->nSlot], 0, 
+            sizeof(CanvasItemSorterSlot) * 128
+        );
+        pLevel->nSlot = n;
+    }
+    pSlot = &pLevel->aSlot[pLevel->iSlot];
+    pLevel->iSlot++;
+    
+    pSlot->x = x;
+    pSlot->y = y;
+    pSlot->pItem = pItem;
+}
+static void
+sorterIterate(pSorter, xCallback, clientData)
+    CanvasItemSorter *pSorter;
+    int (*xCallback)(HtmlCanvasItem *, int, int, ClientData);
+    ClientData clientData;
+{
+    int ii;
+    for (ii = 0; ii < pSorter->nLevel; ii++) {
+        CanvasItemSorterLevel *pLevel = &pSorter->aLevel[ii];
+        int jj;
+        for (jj = 0; jj < pLevel->iSlot; jj++) {
+            CanvasItemSorterSlot *pSlot = &pLevel->aSlot[jj];
+            xCallback(pSlot->pItem, pSlot->x, pSlot->y, clientData);
+        }
+    }
+}
+static void
+sorterReset(pSorter)
+    CanvasItemSorter *pSorter;
+{
+    int ii;
+    for (ii = 0; ii < pSorter->nLevel; ii++) {
+        HtmlFree(0, pSorter->aLevel[ii].aSlot);
+    }
+    HtmlFree(0, pSorter->aLevel);
+}
+
+
 
 static HtmlCanvasItem *
 allocateCanvasItem()
@@ -1869,6 +1996,34 @@ printf("Search(%d, %d) -> %d tests %d callbacks\n",ymin,ymax,nTest,nCallback);
     return 0;
 }
 
+static int
+sorterCb(pItem, x, y, clientData)
+    HtmlCanvasItem *pItem;
+    int x;
+    int y;
+    ClientData clientData;
+{
+    CanvasItemSorter *pSorter = (CanvasItemSorter *)clientData;
+    sorterInsert(pSorter, pItem, x, y);
+    return 0;
+}
+static void    
+searchSortedCanvas(pTree, ymin, ymax, pNode, xFunc, clientData)
+    HtmlTree *pTree;
+    int ymin;                    /* Minimum y coordinate, or INT_MIN */
+    int ymax;                    /* Maximum y coordinate, or INT_MAX */
+    HtmlNode *pNode;             /* Node to search subtree of, or NULL */
+    int (*xFunc)(HtmlCanvasItem *, int, int, ClientData);
+    ClientData clientData;
+{
+    CanvasItemSorter sSorter;
+    memset(&sSorter, 0, sizeof(CanvasItemSorter));
+
+    searchCanvas(pTree, ymin, ymax, pNode, sorterCb, (ClientData)&sSorter);
+    sorterIterate(&sSorter, xFunc, clientData);
+    sorterReset(&sSorter);
+}
+
 
 typedef struct GetPixmapQuery GetPixmapQuery;
 struct GetPixmapQuery {
@@ -2033,7 +2188,11 @@ getPixmap(pTree, xcanvas, ycanvas, w, h, getwin)
     sQuery.getwin = getwin;
 
     clientData = (ClientData)&sQuery;
+#if 0
     searchCanvas(pTree, ycanvas, ycanvas+h, 0, pixmapQueryCb, clientData);
+#else
+    searchSortedCanvas(pTree, ycanvas, ycanvas+h, 0, pixmapQueryCb, clientData);
+#endif
 
     pOutline = sQuery.pOutline;
     while (pOutline) {
