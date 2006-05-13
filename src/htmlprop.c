@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.69 2006/05/13 14:10:21 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.70 2006/05/13 14:59:50 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -2162,9 +2162,9 @@ HtmlComputedValuesRelease(pTree, pValues)
                 pValues->eBackgroundAttachment == CSS_CONST_FIXED ||
                 pValues->ePosition == CSS_CONST_FIXED
             ) {
-                pTree->nFixedBackground++;
+                pTree->nFixedBackground--;
+                assert(pTree->nFixedBackground >= 0);
             }
-    
             Tcl_DeleteHashEntry(pEntry);
         }
     }
