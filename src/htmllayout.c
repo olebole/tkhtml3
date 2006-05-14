@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.170 2006/05/13 14:10:21 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.171 2006/05/14 05:14:14 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -125,8 +125,11 @@ struct LayoutCache {
 struct HtmlLayoutCache {
     unsigned char flags;     /* Mask indicating validity of aCache[] entries */
     LayoutCache aCache[3];
+    int iMinWidth;
+    int iMaxWidth;
 };
-
+#define CACHED_MINWIDTH_OK ((int)1<<3)
+#define CACHED_MAXWIDTH_OK ((int)1<<4)
 
 /*
  * Public functions:
@@ -2550,7 +2553,6 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
     int left = 0; 
     int right = pBox->iContaining;
     int overhang;
-    int hasNormalCb = (pNormal->pCallbackList ? 1 : 0);
 
     HtmlComputedValues *pV = pNode->pPropertyValues;   
     int isSizeOnly = pLayout->minmaxTest;
@@ -2750,32 +2752,57 @@ blockMinMaxWidth(pLayout, pNode, pMin, pMax)
     int max;        /* Maximum width of this block */
 
     BoxContext sBox;
+    HtmlLayoutCache *pCache;
     int minmaxTestOrig = pLayout->minmaxTest;
-    pLayout->minmaxTest = MINMAX_TEST_MIN;
+
+    /* If there is no layout-cache allocated, allocate one now */
+    if (!pNode->pLayoutCache) {
+        pNode->pLayoutCache = (HtmlLayoutCache *)HtmlClearAlloc(
+            "HtmlLayoutCache", sizeof(HtmlLayoutCache)
+        );
+    }
+    pCache = pNode->pLayoutCache;
 
     /* Figure out the minimum width of the box by
      * pretending to lay it out with a parent-width of 0.
      */
-    memset(&sBox, 0, sizeof(BoxContext));
-    HtmlLayoutNodeContent(pLayout, &sBox, pNode);
-    HtmlDrawCleanup(0, &sBox.vc);
-    min = sBox.width;
+    if (pMin) {
+        if (!(pCache->flags & CACHED_MINWIDTH_OK)) {
+            pLayout->minmaxTest = MINMAX_TEST_MIN;
+            memset(&sBox, 0, sizeof(BoxContext));
+            HtmlLayoutNodeContent(pLayout, &sBox, pNode);
+            HtmlDrawCleanup(0, &sBox.vc);
+            pCache->iMinWidth = sBox.width;
+            pCache->flags |= CACHED_MINWIDTH_OK;
+        }
+        *pMin = pCache->iMinWidth;
+    }
 
     /* Figure out the maximum width of the box by pretending to lay it
      * out with a very large parent width. It is not expected to
      * be a problem that tables may be layed out incorrectly on
      * displays wider than 10000 pixels.
      */
-    pLayout->minmaxTest = MINMAX_TEST_MAX;
-    memset(&sBox, 0, sizeof(BoxContext));
-    sBox.iContaining = 10000;
-    HtmlLayoutNodeContent(pLayout, &sBox, pNode);
-    HtmlDrawCleanup(0, &sBox.vc);
-    max = sBox.width;
+    if (pMax) {
+        if (!(pCache->flags & CACHED_MAXWIDTH_OK)) {
+            pLayout->minmaxTest = MINMAX_TEST_MAX;
+            memset(&sBox, 0, sizeof(BoxContext));
+            sBox.iContaining = 10000;
+            HtmlLayoutNodeContent(pLayout, &sBox, pNode);
+            HtmlDrawCleanup(0, &sBox.vc);
+            pCache->iMaxWidth = sBox.width;
+            pCache->flags |= CACHED_MAXWIDTH_OK;
+        }
+        *pMax = pCache->iMaxWidth;
+    }
 
-    assert(max>=min);
     pLayout->minmaxTest = minmaxTestOrig;
 
+    assert( 
+        0 == (pCache->flags & CACHED_MINWIDTH_OK) ||
+        0 == (pCache->flags & CACHED_MAXWIDTH_OK) ||
+        pCache->iMaxWidth >= pCache->iMinWidth
+    );
     LOG {
         HtmlTree *pTree = pLayout->pTree;
         HtmlLog(pTree, "LAYOUTENGINE", "%s blockMinMaxWidth() -> "
@@ -2783,9 +2810,6 @@ blockMinMaxWidth(pLayout, pNode, pMin, pMax)
             Tcl_GetString(HtmlNodeCommand(pTree, pNode)), min, max
         );
     }
-
-    if (pMin) *pMin = min;
-    if (pMax) *pMax = max;
 
     return TCL_OK;
 }
@@ -2946,7 +2970,7 @@ HtmlLayout(pTree)
     if (pBody) {
         int x;
         int y;
-        int minwidth;
+        int minwidth = 0;
 
         MarginProperties margin;
         BoxProperties box;
