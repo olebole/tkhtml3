@@ -1,79 +1,19 @@
-#
-# Public API to hv3 functionality.
-#
-# hv3Init PATH ?option value...?
-#
-#     Initialise an instance of the Hv3 embedded app. The parameter PATH is a
-#     Tk window path-name for a frame widget that will be created. The 
-#     following widgets are created when this command is invoked:
-#
-#         $PATH                 Frame widget
-#         $PATH.html            Html widget
-#         $PATH.vsb             Vertical scrollbar widget
-#         $PATH.hsb             Horizontal scrollbar widget
-#         $PATH.status          Label widget (browser "status")
-#
-#     Options are:
-#
-#         -proxyhost            ""
-#         -proxyport            ""
-#         -gotocallback         ""
-#         -statevar             ""
-#
-#
-# hv3Destroy PATH
-#
-#     Destroy the widgets created by hv3Init and deallocate all resources
-#     for application instance PATH.
-#
-#
-# hv3Goto PATH URI
-#
-#     Retrieve and display the document at URI $URI.
-#
-#
-# hv3Image PATH
-#
-#     Return the name of a Tk image containing a copy of the current 
-#     canvas contents.
-#
 
-swproc hv3Init {PATH \
-  {proxyhost ""}     \
-  {proxyport ""}     \
-  {gotocallback ""}  \
-  {statevar ""}}     \
-{
-  ::hv3::importVars $PATH
+Standard Stuff:
+    xview, yview
+    -xscrollcommand, -yscrollcommand
+    -width, -height
 
-  set myProxyHost $proxyhost
-  set myProxyPort $proxyport
-  set myGotoCallback $gotocallback
-  set myStateVar $statevar
+Widget Specific Options:
+    -hyperlinkcmd
+    -getcmd
+    -postcmd
+    -motioncmd
+    -fonttable
+    -locationvar
 
-  frame $PATH
-  html ${PATH}.html
-  scrollbar ${PATH}.vsb -orient vertical
-  scrollbar ${PATH}.hsb -orient horizontal
-  label ${PATH}.status -height 1 -anchor w
-
-}
-
-
-namespace eval hv3 {
-  set vars [list myProxyHost myProxyPort myGotoCallback myStateVar] 
-
-  proc importVars {PATH} {
-    foreach var $::hv3::vars
-      uplevel [subst {
-        upvar #0 ::hv3::objectvars(${PATH},$var) $var
-      }]
-    }
-  }
-
-}
-
-
-
-
+Widget Sub-commands:
+    goto             (Goto a specified URI)
+    stop             (Cancel all pending downloads)
+    protocol         (Register protocol handlers (for http, https etc.))
 

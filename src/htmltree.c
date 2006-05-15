@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.67 2006/05/05 11:42:56 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.68 2006/05/15 15:24:25 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -1363,9 +1363,13 @@ node_attr_usage:
             ) {
                 if (pT->type==Html_Text) {
                     if (tokens) {
-                        Tcl_Obj *pObj = Tcl_NewStringObj("TEXT(", -1);
-                        Tcl_AppendToObj(pObj, pT->x.zText, pT->count);
-                        Tcl_AppendToObj(pObj, ")", -1);
+                        Tcl_Obj *pObj = Tcl_NewObj();
+                        Tcl_ListObjAppendElement(0, pObj, 
+                                Tcl_NewStringObj("text", -1)
+                        );
+                        Tcl_ListObjAppendElement(0, pObj, 
+                                Tcl_NewStringObj(pT->x.zText, pT->count)
+                        );
                         Tcl_ListObjAppendElement(interp, pRet, pObj);
                     } else {
                         Tcl_AppendToObj(pRet, pT->x.zText, pT->count);
@@ -1373,12 +1377,12 @@ node_attr_usage:
                 } else {
                     if (tokens) {
                         if (pT->x.newline) {
-                            Tcl_Obj *pObj = Tcl_NewStringObj("NEWLINE", -1);
+                            Tcl_Obj *pObj = Tcl_NewStringObj("newline", -1);
                             Tcl_ListObjAppendElement(interp, pRet, pObj);
                         } else {
                             Tcl_Obj *pObj;
                             char zBuf[128];
-                            sprintf(zBuf, "SPACE(%d)", pT->count);
+                            sprintf(zBuf, "space %d", pT->count);
                             pObj = Tcl_NewStringObj(zBuf, -1);
                             Tcl_ListObjAppendElement(interp, pRet, pObj);
                         }

@@ -167,3 +167,220 @@ proc frameset {win args} {
   return $win
 }
 
+#---------------------------------------------------------------------------
+# ::hv3::walkTree
+# 
+#     This proc is used for depth first traversal of the document tree 
+#     headed by the argument node. 
+#
+#     Example:
+#
+#         ::hv3::walkTree [.html node] N {
+#           puts "Type of node: [$N tag]"
+#         }
+#
+#     If the body of the loop executes a [break], then the current
+#     iteration of the loop is terminated and the next commenced (exactly
+#     the same behaviour as a [foreach] or [for] loop). However if 
+#     [continue] is executed, the current iteration is terminated and the
+#     body is not executed for any of the current nodes children. i.e.
+#     [continue] prevents descent of the tree.
+#
+proc ::hv3::walkTree {N varname body} {
+  set level "#[expr [info level] - 1]"
+  ::hv3::walkTree2 $N $body $varname $level
+}
+proc ::hv3::walkTree2 {N body varname level} {
+  uplevel $level [list set $varname $N]
+  set rc [catch {uplevel $level $body} msg] 
+  switch $rc {
+    0 {           ;# OK
+      foreach n [$N children] {
+        ::hv3::walkTree2 $n $body $varname $level
+      }
+    }
+    1 {           ;# ERROR
+      error $msg
+    }
+    2 {           ;# RETURN
+      error "return from within ::hv3::walkTree"
+    }
+    3 {           ;# BREAK
+      error "break from within ::hv3::walkTree"
+    }
+    4 {           ;# CONTINUE
+      # Do nothing. Do not descend the tree.
+    }
+  }
+}
+
+snit::type ::hv3::textdocument {
+
+  variable myText                      ;# Text rep of the document
+  variable myIndex                     ;# Mapping from node to text indices.
+
+  constructor {html} {
+    set space_pending 0
+    set myText ""
+    set myIndex [list]
+    ::hv3::walkTree [$html node] N {
+      set idx 0
+      foreach token [$N text -tokens] {
+        foreach {type arg} $token break
+        switch $type {
+          text    {
+            if {$space_pending} {append myText " "}
+            set space_pending 0
+            lappend myIndex [list [string length $myText] $N $idx]
+            append myText $arg
+            incr idx [string length $arg]
+          }
+          space   {
+            set space_pending 1
+            incr idx
+          }
+          newline {
+            set space_pending 1
+            incr idx
+          }
+        }
+      }
+    }
+  }
+
+  method text {} {return $myText}
+
+  method stringToNode {idx} {
+    set best 0
+    for {set ii 0} {$ii < [llength $myIndex]} {incr ii} {
+      foreach {stridx node nodeidx} [lindex $myIndex $ii] {}
+      if {$stridx <= $idx} {
+        set retnode $node
+        set retnodeidx [expr $nodeidx + ($idx - $stridx)]
+      }
+    }
+    return [list $retnode $retnodeidx]
+  }
+
+  method nodeToString {node node_idx} {
+  }
+}
+
+
+# This class implements a "find text" dialog box for hv3.
+#
+snit::widget ::hv3::finddialog {
+  hulltype toplevel
+
+  variable myHtml 
+  variable myIndex 0 
+
+  variable myNocase 0 
+  variable myWraparound 0 
+  variable myBackward 0 
+
+  constructor {htmlwidget args} {
+    set myHtml $htmlwidget
+
+    label $win.label -text "Search for text:"
+    entry $win.entry -width 60
+    checkbutton $win.check_backward -text "Search Backwards"
+    checkbutton $win.check_nocase   -text "Case Insensitive"
+    checkbutton $win.check_wrap     -text "Wrap Around"
+
+    $win.check_nocase configure   -variable [myvar myNocase]
+    $win.check_wrap configure     -variable [myvar myWraparound]
+    $win.check_backward configure -variable [myvar myBackward]
+
+    frame $win.buttons
+    button $win.buttons.findnext -text Find    -command [mymethod findnext]
+    button $win.buttons.cancel   -text Dismiss -command [mymethod cancel]
+
+    bind $win.entry <Return> [list $win.buttons.findnext invoke]
+    bind $win.entry <Escape> [list $win.buttons.cancel invoke]
+    focus $win.entry
+
+    grid configure $win.buttons.findnext -column 0 -row 0 -sticky ew
+    grid configure $win.buttons.cancel   -column 1 -row 0 -sticky ew
+    grid columnconfigure $win.buttons 0 -weight 1
+    grid columnconfigure $win.buttons 1 -weight 1
+
+    grid configure $win.label          -column 0 -row 0
+    grid configure $win.entry          -column 1 -row 0 -sticky ew
+    grid configure $win.check_backward -column 1 -row 1 -sticky w
+    grid configure $win.check_nocase   -column 1 -row 2 -sticky w
+    grid configure $win.check_wrap     -column 1 -row 3 -sticky w
+    grid configure $win.buttons        -column 0 -row 4 -columnspan 2 -sticky ew
+
+    grid columnconfigure $win 1 -weight 1
+    $hull configure -pady 2 -padx 2
+  }
+
+  method lazymoveto {node} {
+    set nodebbox [$myHtml bbox $node]
+    set docbbox  [$myHtml bbox]
+
+    set docheight "[lindex $docbbox 3].0"
+
+    set ntop    [expr [lindex $nodebbox 1].0 / $docheight]
+    set nbottom [expr [lindex $nodebbox 3].0 / $docheight]
+ 
+    set sheight [expr [winfo height $myHtml].0 / $docheight]
+    set stop    [lindex [$myHtml yview] 0]
+    set sbottom [expr $stop + $sheight]
+
+    if {$ntop < $stop} {
+      $myHtml yview moveto $ntop
+    } elseif {$nbottom > $sbottom} {
+      $myHtml yview moveto [expr $nbottom - $sheight]
+    }
+  }
+
+  method findnext {} {
+    # The text to search for
+    set searchtext [${win}.entry get]
+
+    # Prepare the textdocument representation
+    set td [::hv3::textdocument %AUTO% $myHtml]
+
+    # Retrieve the raw text from the textdocument object
+    set doctext [$td text]
+  
+    # If the search is to be case independent, fold everything to lower case
+    if {$myNocase} { 
+      set doctext [string tolower $doctext]
+      set searchtext [string tolower $searchtext]
+    }
+
+    # Search using [string first] or [string last].
+    set op first
+    if {$myBackward} { set op last }
+    set ii [string $op $searchtext $doctext $myIndex]
+
+    if {$ii >= 0} {
+      set ii2 [expr $ii + [string length $searchtext]]
+      set myIndex [expr $ii + 1]
+
+      set from [$td stringToNode $ii]
+      eval [concat [list $myHtml select from] $from]
+      eval [concat [list $myHtml select to] [$td stringToNode $ii2]]
+
+      $self lazymoveto [lindex $from 0]
+    } elseif {$myIndex > 0 && $myWraparound} {
+      set myIndex 0
+      $self findnext
+    } else {
+      set myIndex 0
+      $myHtml select clear
+      tk_messageBox -message "The text you entered was not found" -type ok
+    }
+
+    $td destroy
+    return
+  }
+
+  method cancel {} {
+    destroy $win
+  }
+}
+

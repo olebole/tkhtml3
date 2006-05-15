@@ -289,6 +289,7 @@ snit::widget hv3_browser {
     # Set up a binding to press "Q" to exit the application
     bind $myHv3 <KeyPress-q> exit
     bind $myHv3 <KeyPress-Q> exit
+    bind $myHv3 <Control-f> [mymethod find]
 
     # Create the right-click behaviour - launch the property browser:
     bind $myHv3 <3> [
@@ -405,6 +406,14 @@ snit::widget hv3_browser {
     ::HtmlDebug::browse [$myHv3 html] [$myHv3 node]
   }
 
+  # Launch the find dialog.
+  method find {} {
+    if {[llength [info commands ${win}_finddialog]] == 0} {
+      ::hv3::finddialog ${win}_finddialog [$myHv3 html]
+    }
+    raise ${win}_finddialog
+  }
+
   option -statusvar -default ""
   option -stopbutton -default ""
 
@@ -515,6 +524,7 @@ proc gui_build {} {
     .m.file add command -label Tkcon -command {tkcon show}
   }
 
+  .m.file add command -label "Find in page..." -command [list .hv3 find]
   .m.file add command -label Browser -command [list .hv3 browse]
   .m.file add command -label "Debug Forms" -command [list .hv3 dumpforms]
   .m.file add command -label "Debug Cookies" -command [list .hv3 debug_cookies]

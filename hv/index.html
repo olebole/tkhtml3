@@ -59,6 +59,7 @@
           padding: 0px;
       }
       div.sidebar li {
+          position: relative;
           margin: 0px;
           padding: 0px;
           display: block;
@@ -84,6 +85,18 @@
           text-align: center; 
           border: 2px solid black ;
       }
+
+      .popup        { display: none; }
+      :hover>.popup { display: block; }
+
+      .popup {
+        background-color: #444444 /* #666666 */ ;
+        position: absolute;
+        width: 100%;
+        left: 100%;
+        top: 0px;
+      }
+
     </style>
   </head>
   <body>
@@ -103,7 +116,12 @@
         <li> <a href="http://tkhtml.tcl.tk">Tkhtml</a>
         <li> <a href="http://slashdot.org">Slashdot</a>
         <li> <a href="http://www.sqlite.org">Sqlite</a>
-        <li> <a href="http://www.w3.org">www Consortium</a>
+        <li> <a href="http://www.w3.org">W3 Consortium</a> 
+           <ul class=popup>
+             <li><a href="http://www.w3.org/TR/CSS1">CSS 1.0</a>
+             <li><a href="http://www.w3.org/TR/CSS21/">CSS 2.1</a>
+             <li><a href="http://www.w3.org/TR/html4/">HTML 4.01</a>
+           </ul>
         <li> <a href="http://www.abc.net.au">Your ABC</a>
       </ul>
     </div>
