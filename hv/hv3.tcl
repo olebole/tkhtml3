@@ -473,67 +473,18 @@ snit::type ::hv3::selectionmanager {
   #     region is returned.
   #
   method get_selection {offset maxChars} {
-catch {
     set span [$myHtml select span]
-    if {[llength $span] != 4} {
-      return ""
-    }
+    if {[llength $span] != 4} { return "" }
     foreach {n1 i1 n2 i2} $span {}
 
-    set not_empty 0
-    set T ""
-    set N $n1
-    while {1} {
-
-      if {[$N tag] eq ""} {
-        set index1 0
-        set index2 end
-        if {$N == $n1} {set index1 $i1}
-        if {$N == $n2} {set index2 [expr $i2 -1]}
-
-        set text [string range [$N text] $index1 $index2]
-        append T $text
-        if {[string trim $text] ne ""} {set not_empty 1}
-      } else {
-        array set prop [$N prop]
-        if {$prop(display) ne "inline" && $not_empty} {
-          append T "\n"
-          set not_empty 0
-        }
-      }
-
-      if {$N eq $n2} break 
-
-      if {[llength [$N children]] > 0} {
-        set N [lindex [$N children] 0]
-      } else {
-
-        set right_sibling ""
-        while {$right_sibling == ""} {
-          set parent [$N parent]
-          if {$parent eq ""} {error "End of tree"}
-          set siblings [$parent children]
-          set idx [lsearch $siblings $N]
-          if {$idx >= 0} {
-            set right_sibling [lindex $siblings [expr $idx+1]]
-          }
-  
-          if {$right_sibling == ""} {
-            set N $parent
-          }
-        }
-        set N $right_sibling
-
-      }
-
-      if {$N eq ""} {error "End of tree!"}
-    }
-
+    set td [::hv3::textdocument %AUTO% $myHtml]
+    set stridx_a [$td nodeToString $n1 $i1]
+    set stridx_b [expr [$td nodeToString $n2 $i2] -1]
+    set T [string range [$td text] $stridx_a $stridx_b]
     set T [string range $T $offset [expr $offset + $maxChars]]
-} msg
-    return $msg
+    
+    return $T
   }
-
 }
 #
 # End of ::hv3::selectionmanager

@@ -203,7 +203,7 @@ proc ::hv3::walkTree2 {N body varname level} {
       error $msg
     }
     2 {           ;# RETURN
-      error "return from within ::hv3::walkTree"
+      return $msg
     }
     3 {           ;# BREAK
       error "break from within ::hv3::walkTree"
@@ -213,16 +213,19 @@ proc ::hv3::walkTree2 {N body varname level} {
     }
   }
 }
+#---------------------------------------------------------------------------
 
 snit::type ::hv3::textdocument {
 
   variable myText                      ;# Text rep of the document
   variable myIndex                     ;# Mapping from node to text indices.
+  variable myHtml                      ;# Html widget
 
   constructor {html} {
     set space_pending 0
     set myText ""
     set myIndex [list]
+    set myHtml $html
     ::hv3::walkTree [$html node] N {
       set idx 0
       foreach token [$N text -tokens] {
@@ -262,7 +265,31 @@ snit::type ::hv3::textdocument {
     return [list $retnode $retnodeidx]
   }
 
-  method nodeToString {node node_idx} {
+  method nodeToString {the_node the_node_idx} {
+    set ii 0
+    set ret -1
+    ::hv3::walkTree [$myHtml node] N {
+      foreach {stridx node nodeidx} [lindex $myIndex $ii] {}
+
+      if {$N eq $the_node} {
+        set ret $stridx
+        while {$node eq $N} {
+          if {$the_node_idx >= $nodeidx} {
+            set ret [expr $stridx + $the_node_idx - $nodeidx]
+          }
+          incr ii
+          set node ""
+          foreach {stridx node nodeidx} [lindex $myIndex $ii] {}
+        }
+      }
+
+      while {$node eq $N} {
+        incr ii
+        set node ""
+        foreach {stridx node nodeidx} [lindex $myIndex $ii] {}
+      }
+    }
+    return $ret
   }
 }
 
@@ -362,8 +389,10 @@ snit::widget ::hv3::finddialog {
       set myIndex [expr $ii + 1]
 
       set from [$td stringToNode $ii]
+      set to [$td stringToNode $ii2]
+
       eval [concat [list $myHtml select from] $from]
-      eval [concat [list $myHtml select to] [$td stringToNode $ii2]]
+      eval [concat [list $myHtml select to] $to]
 
       $self lazymoveto [lindex $from 0]
     } elseif {$myIndex > 0 && $myWraparound} {
