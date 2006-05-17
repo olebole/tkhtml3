@@ -12,16 +12,16 @@ proc P {args} {
 }
 
 proc SUPPORTTABLE {title args} {
-    P <table border=1> <tr> <th colspan=3> $title
+    P <table border=1> <tr> <th colspan=2> $title
     foreach {a b} $args {
-        P <tr> <td> $a <td> $b
+        P <tr> <td> $a <td width="100%"> $b
     }
     P </table>
 }
-proc CSSREF {property {class {support}}} { 
+proc CSSREF {section property {class {support}}} {
     # set cssdoc file:///home/dan/work/tkhtml/docs/css_1.0/css1_spec.html
-    set cssdoc http://www.w3.org/TR/CSS1
-    set ref ${cssdoc}#${property}
+    set cssdoc http://www.w3.org/TR/CSS21/
+    set ref ${cssdoc}${section}.html#propdef-${property}
     return "<a href=\"$ref\" class=\"$class\">$property</a>"
 }
 
@@ -74,7 +74,7 @@ P {
 	selectors, HTML attributes and HTML tags supported.
 </p><p>
 	This document currently tracks the CVS version against the CSS 
-	1.0 and HTML 4.01 (todo) specifications.
+	2.1 and HTML 4.01 (todo) specifications.
 </p>
 }
 
@@ -83,109 +83,182 @@ SECTION "CSS Property Support"
 P {
 <p>
 	The tables in this section compare CSS property support in Tkhtml with
-	the <a href="http://www.w3.org/TR/CSS1">CSS level 1</a> specification.
-	Property names in blue are supported, those in grey are unsupported. 
+	the <a href="http://www.w3.org/TR/CSS21/">CSS level 2.1</a>
+	specification. Property names in blue are supported, those in grey 
+	are unsupported.
 </p>
 }
 
 SUPPORTTABLE {Font Properties} \
-	[CSSREF font-family] {
+	[CSSREF fonts font-family] {
 		Standard families "cursive" and "fantasy" are only
 		available if the underlying font system used by Tk supports
 		them.  
         } \
-	[CSSREF font-style] {
+	[CSSREF fonts font-style] {
 		Values 'italic' and 'oblique' map to "-slant italic"
 		and 'normal' maps to "-slant roman".
 	} \
-	[CSSREF font-variant nosupport] {} \
-	[CSSREF font-weight] {
+	[CSSREF fonts font-variant nosupport] {No support.} \
+	[CSSREF fonts font-weight] {
 		Values 'bold', 'bolder' and numbers greater than 550
-		map to "-weight bold", everything else maps to "-weight
-		normal".
+		map to "-weight bold", everything else maps to 
+		"-weight normal".
 	} \
-	[CSSREF font-size] {} \
-	[CSSREF font] {Supported except for font-variant values ('small-caps').}
+	[CSSREF fonts font-size] {} \
+	[CSSREF fonts font] {
+		Supported except for font-variant values ('small-caps').
+	}
 
 SUPPORTTABLE {Color and Background Properties} \
-	[CSSREF color] {} \
-	[CSSREF background-color] {} \
-	[CSSREF background-image] {Not supported on inline elements.} \
-	[CSSREF background-repeat] {} \
-	[CSSREF background-attachment] {} \
-	[CSSREF background-position] {} \
-	[CSSREF background] {}
+	[CSSREF colors color] {} \
+	[CSSREF colors background-color] {} \
+	[CSSREF colors background-image] {Not supported on inline elements.} \
+	[CSSREF colors background-repeat] {} \
+	[CSSREF colors background-attachment] {} \
+	[CSSREF colors background-position] {} \
+	[CSSREF colors background] {}
 
 SUPPORTTABLE {Text Properties} \
-	[CSSREF word-spacing nosupport] {} \
-	[CSSREF letter-spacing nosupport] {} \
-	[CSSREF text-decoration] {
+	[CSSREF text word-spacing nosupport] {No support.} \
+	[CSSREF text letter-spacing nosupport] {No support.} \
+	[CSSREF text text-decoration] {
 		Value 'blink' is not supported. Also, multiple decorations
 		(e.g. an underline and an overline) are not supported.
 	} \
-	[CSSREF vertical-align] {
+	[CSSREF text vertical-align] {
 		No support for the following values: 'middle', 'top', 'bottom', 
 		'text-top'or 'text-bottom'. Values 'baseline', 'sub' and 
 		'super', or any percentage or length work.
         } \
-	[CSSREF text-transform nosupport] {} \
-	[CSSREF text-align] {} \
-	[CSSREF text-indent nosupport] {} \
-	[CSSREF line-height] {Supported on block level elements only}
+	[CSSREF text text-transform nosupport] {No support.} \
+	[CSSREF text text-align] {} \
+	[CSSREF text text-indent] {} \
+	[CSSREF text white-space] {
+		No support on inline elements (correct for CSS1, incorrect 
+		for later revisions).
+	}
 
 SUPPORTTABLE {Box Properties} \
-	[CSSREF margin] {
+	[CSSREF box margin] {
 		Properties 'margin-top', 'margin-right', 'margin-bottom' and 
 		'margin-left' are also supported. 
 	} \
-	[CSSREF padding] {
+	[CSSREF box padding] {
 		Properties 'padding-top', 'padding-right', 'padding-bottom' and 
 		'padding-left' are also supported. 
 	} \
-	[CSSREF border-width] { \
-		Properties 'border-top-width', 'border-right-width',
-		'border-bottom-width' and 'border-left-width' are also
-		supported. 
-	} \
-	[CSSREF border-style] {
+	[CSSREF box border-width] {} \
+	[CSSREF box border-style] {
 		All border styles apart from 'none' (i.e. 'dashed', 
 		'groove' etc.) are currently rendered as solid lines. This
 		is legal according to the spec, but it's sub-optimal.
         } \
-	[CSSREF border-color] {} \
-	[CSSREF border] {
+	[CSSREF box border-color] {} \
+	[CSSREF box border] {
 		Properties 'border-top', 'border-right', 'border-bottom' and
-		'border-left' are also supported. 
-	} \
-	[CSSREF width] {} \
-	[CSSREF height] {} \
-	[CSSREF float] {} \
-	[CSSREF clear] {} 
+		'border-left' are also supported. Also 'border-top-color',
+		'border-left-width' and other such variants.
+	} 
 
-SUPPORTTABLE {Classification Properties} \
-	[CSSREF display] {} \
-	[CSSREF white-space] {
-		No support on inline elements (correct for CSS1, incorrect 
-		for later revisions)
+SUPPORTTABLE {Visual Rendering Properties} \
+	[CSSREF visuren display] {
+		Not all values are supported. Currently supported values are
+		'inline', 'block', 'list-item', 'table', 'table-row',
+		'table-cell', 'none' and 'inherit'.
+        } \
+	[CSSREF visudet width] {} \
+	[CSSREF visudet height] {} \
+	[CSSREF visuren float] {} \
+	[CSSREF visuren clear] {} \
+	[CSSREF visudet line-height] {Supported on block level elements only} \
+	[CSSREF visudet min-width nosupport] {No support.} \
+	[CSSREF visudet max-width nosupport] {No support.} \
+	[CSSREF visudet min-height nosupport] {No support.} \
+	[CSSREF visudet max-height nosupport] {No support.} \
+	[CSSREF visuren position] {
+		Positioning modes 'static', 'relative', 'fixed' and 'absolute' 
+		are all supported.
+        } \
+	[CSSREF visuren left] {} \
+	[CSSREF visuren right] {} \
+	[CSSREF visuren top] {} \
+	[CSSREF visuren bottom] {} \
+	[CSSREF visuren z-index nosupport] {No support.} \
+	[CSSREF visuren unicode-bidi nosupport] {
+		Tkhtml does not yet support bi-directional text. So the
+		properties "unicode-bidi" and "direction" are both ignored.
 	} \
-	[CSSREF list-style-type] {} \
-	[CSSREF list-style-image] {} \
-	[CSSREF list-style-position] {} \
-	[CSSREF list-style] {} 
+	[CSSREF visuren direction nosupport] {No support.}
+
+SUPPORTTABLE {Visual Effects Properties} \
+	[CSSREF visufx overflow nosupport] {No support.} \
+	[CSSREF visufx clip nosupport] {No support.} \
+	[CSSREF visufx visibility nosupport] {No support.}
+
+SUPPORTTABLE {Table Properties} \
+	[CSSREF tables border-collapse nosupport] {No support.} \
+	[CSSREF tables border-spacing nosupport] {No support.}  \
+	[CSSREF tables caption-side nosupport] {No support.}    \
+	[CSSREF tables empty-cells nosupport] {No support.}     \
+	[CSSREF tables table-layout nosupport] {No support.}
+
+SUPPORTTABLE {User Interface Properties} \
+	[CSSREF ui cursor nosupport] {No support.} \
+	[CSSREF ui outline nosupport] {No support.} \
+	[CSSREF ui outline-width nosupport] {No support.} \
+	[CSSREF ui outline-color nosupport] {No support.} \
+	[CSSREF ui outline-style nosupport] {No support.}
+
+SUPPORTTABLE {Generated Content Properties}                         \
+	[CSSREF generate list-style-type] {}                        \
+	[CSSREF generate list-style-image] {}                       \
+	[CSSREF generate list-style-position] {}                    \
+	[CSSREF generate list-style] {}                             \
+	[CSSREF generate content nosupport] {No support.}           \
+	[CSSREF generate counter-increment nosupport] {No support.} \
+	[CSSREF generate counter-reset nosupport] {No support.}     \
+	[CSSREF generate quotes nosupport] {No support.}
+
+# List of CSS 2.1 properties considered out of scope for Tkhtml.
+set outofscopes {
+    azimuth cue-after cue-before cue elevation pause-after pause-before
+    pause pitch-range pitch play-during richness speak-header speak-numeral
+    speak-punctuation speak speech-rate stress voice-family volume
+
+    orphans page-break-after page-break-before page-break-inside widows
+}
+P {
+  <p>
+    The following CSS 2.1 properties are currently considered to be
+    outside of Tkhtml's scope, as they only apply to aural or paged 
+    document rendering:
+  </p>
+}
+P <table style="margin:0px"><tr><td valign=top><ul>
+set ii 1
+foreach property $outofscopes {
+    P <li>$property
+    incr ii
+    if {$ii % 10 == 0} {P </ul></td><td valign=top><ul>}
+}
+P </table>
 
 SECTION {CSS Selector Support}
 
 P {
 <p>
-	Essentially, all CSS1 selectors (and all CSS 2.1 for that matter) 
-	are supported except for pseudo-elements. Any 	
-	declaration that includes any of the following is ignored:
+	Essentially, all CSS 2.1 selectors are supported except for
+	pseudo-elements. Any declaration that includes any of the following is
+	ignored:
 </p>
 <ul>
 	<li> :first-child
 	<li> :first-letter
 	<li> :first-line
 	<li> :lang
+	<li> :after
+	<li> :before
 </ul>
 }
 
@@ -414,30 +487,6 @@ version
 vlink
 vspace
 width
-}
-
-# List of CSS 2.1 properties within scope for Tkhtml.
-if 0 {
-
-# Position related:
-left right top bottom position
-
-# Outlines
-outline-color outline-style outline-width
-
-# Maximum and minimum heights.
-max-height max-width min-height min-width
-
-# Tables:
-border-collapse border-spacing caption-side empty-cells table-layout
-
-# Bi-directional text:
-unicode-bidi direction
-
-# Interesting but not currently in scope:
-clip overflow content counter-increment counter-reset 
-cursor z-index quotes visibility
-
 }
 
 FINISH

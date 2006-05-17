@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.171 2006/05/14 05:14:14 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.172 2006/05/17 07:42:06 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -2688,7 +2688,7 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
      *
      * http://www.sitepoint.com/blogs/2005/02/26/simple-clearing-of-floats/
      */
-    if (pV->eOverflow != CSS_CONST_VISIBLE) {
+    if (pV->eOverflow != CSS_CONST_VISIBLE && 0) {
         pBox->height = HtmlFloatListClear(pFloat, CSS_CONST_BOTH, pBox->height);
     }
 

@@ -1,7 +1,7 @@
 
 ##### Top of the Tkhtml source tree - the directory with this file in it.
 #
-TOP = /c/share/htmlwidget
+TOP = /z/htmlwidget/
 
 ##### BUILD can be DEBUG or RELEASE.
 #

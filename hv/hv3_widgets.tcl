@@ -215,11 +215,25 @@ proc ::hv3::walkTree2 {N body varname level} {
 }
 #---------------------------------------------------------------------------
 
+#---------------------------------------------------------------------------
+# ::hv3::resolve_uri
+#
+proc ::hv3::resolve_uri {base relative} {
+  set obj [Hv3Uri %AUTO% $base]
+  $obj load $relative
+  set ret [$obj get]
+  $obj destroy
+  return $ret
+}
+#---------------------------------------------------------------------------
+
+
 snit::type ::hv3::textdocument {
 
-  variable myText                      ;# Text rep of the document
-  variable myIndex                     ;# Mapping from node to text indices.
   variable myHtml                      ;# Html widget
+  variable myText                      ;# Text rep of the document
+
+  variable myIndex                     ;# Mapping from node to text indices.
 
   constructor {html} {
     set space_pending 0
@@ -299,12 +313,18 @@ snit::type ::hv3::textdocument {
 snit::widget ::hv3::finddialog {
   hulltype toplevel
 
+  # The html widget.
   variable myHtml 
+
+  # Index to start searching the document text representation from.
   variable myIndex 0 
 
-  variable myNocase 0 
+  # These three variables are connected to the three checkbox widgets
+  # in the GUI via the -variable option. i.e. they will be set to 1
+  # when the corresponding checkbox is checked, and zero otherwise.
+  variable myNocase     0 
   variable myWraparound 0 
-  variable myBackward 0 
+  variable myBackward   0 
 
   constructor {htmlwidget args} {
     set myHtml $htmlwidget
@@ -343,6 +363,9 @@ snit::widget ::hv3::finddialog {
     $hull configure -pady 2 -padx 2
   }
 
+  # Vertically scroll the html widget the minimum distance (which may be 0)
+  # required so that document node $node is visible.
+  #
   method lazymoveto {node} {
     set nodebbox [$myHtml bbox $node]
     set docbbox  [$myHtml bbox]
@@ -368,7 +391,7 @@ snit::widget ::hv3::finddialog {
     set searchtext [${win}.entry get]
 
     # Prepare the textdocument representation
-    set td [::hv3::textdocument %AUTO% $myHtml]
+    set td [$myHtml textdocument]
 
     # Retrieve the raw text from the textdocument object
     set doctext [$td text]
@@ -379,12 +402,16 @@ snit::widget ::hv3::finddialog {
       set searchtext [string tolower $searchtext]
     }
 
-    # Search using [string first] or [string last].
+    # Search the text representation using [string first] or [string last].
+    # Variable $myIndex stores the string-index to start searching at (this
+    # applies regardless of whether the search direction is forward or
+    # backward).
     set op first
     if {$myBackward} { set op last }
     set ii [string $op $searchtext $doctext $myIndex]
 
     if {$ii >= 0} {
+      # A search-hit.
       set ii2 [expr $ii + [string length $searchtext]]
       set myIndex [expr $ii + 1]
 
@@ -396,15 +423,20 @@ snit::widget ::hv3::finddialog {
 
       $self lazymoveto [lindex $from 0]
     } elseif {$myIndex > 0 && $myWraparound} {
+      # Text not found. But the search began part way through the document
+      # and the "wrap around" checkbox is set. Repeat the search, starting
+      # at the beginning of the document.
       set myIndex 0
+      if {$myBackward} {set myIndex [string length $doctext]}
       $self findnext
     } else {
+      # Text not found. Pop up a dialog to inform the user.
       set myIndex 0
       $myHtml select clear
       tk_messageBox -message "The text you entered was not found" -type ok
     }
 
-    $td destroy
+  #  $td destroy
     return
   }
 

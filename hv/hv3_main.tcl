@@ -9,6 +9,7 @@ package require Tk
 package require Tkhtml 3.0
 
 option add *borderWidth 1
+option add *tearOff 0
 # option add *font {Arial 9 normal}
 
 # If possible, load package "Img". Without it the script can still run,
@@ -28,142 +29,7 @@ sourcefile snit.tcl
 sourcefile hv3.tcl
 sourcefile hv3_log.tcl
 sourcefile hv3_prop.tcl
-
-# A cookie manager manages cookies. It supports the following 
-# operations:
-#
-#     * Add cookie to database,
-#     * Retrieve applicable cookies for an http request, and
-#     * Delete the contents of the cookie database.
-#
-# Also, by invoking [pathName debug] a GUI to inspect and manipulate the
-# database is created in a new top-level window.
-#
-snit::type ::hv3_browser::cookiemanager {
-
-  variable myDebugWindow
-
-  # The cookie data is stored in the following array variable. The
-  # array keys are authority names. The array values are the list of cookies
-  # associated with the authority. Each list element (a single cookie) is 
-  # stored as a list of two elements, the cookie name and value. For
-  # example, a two cookies from tkhtml.tcl.tk might be added to the database
-  # using code such as:
-  #
-  #     set myCookies(tkhtml.tcl.tk) [list {login qwertyuio} {prefs 1234567}
-  # 
-  variable myCookies -array [list]
-
-  constructor {} {
-    set myDebugWindow [string map {: _} ".${self}_toplevel"]
-  }
-
-  method add_cookie {authority name value} {
-    if {0 == [info exists myCookies($authority)]} {
-      set myCookies($authority) [list]
-    }
-
-    array set cookies $myCookies($authority)
-    set cookies($name) $value
-    set myCookies($authority) [array get cookies]
-
-    if {[winfo exists $myDebugWindow]} {$self debug}
-  }
-
-  # Retrieve the cookies that should be sent to the specified authority.
-  # The cookies are returned as a string of the following form:
-  #
-  #     "NAME1=OPAQUE_STRING1; NAME2=OPAQUE_STRING2 ..."
-  #
-  method get_cookies {authority} {
-    set ret ""
-    if {[info exists myCookies($authority)]} {
-      foreach {name value} $myCookies($authority) {
-        append ret [format "%s=%s; " $name $value]
-      }
-    }
-    return $ret
-  }
-
-  method get_report {} {
-    set Template {
-      <html><head><style>$Style</style></head>
-      <body>
-        <h1>Hv3 Cookies</h1>
-        <p>
-	  <b>Note:</b> This window is automatically updated when Hv3's 
-	  internal cookies database is modified in any way. There is no need to
-          close and reopen the window to refresh it's contents.
-        </p>
-        <div id="clear"></div>
-        <br clear=all>
-        $Content
-      </body>
-      <html>
-    }
-
-    set Style {
-      .authority { margin-top: 2em; font-weight: bold; }
-      .name      { padding-right: 5ex; }
-      #clear { 
-        float: left; 
-        margin: 1em; 
-        margin-top: 0px; 
-      }
-    }
-
-    set Content ""
-    if {[llength [array names myCookies]] > 0} {
-      append Content "<table>"
-      foreach authority [array names myCookies] { 
-        append Content "<tr><td><div class=authority>$authority</div>"
-        foreach {name value} $myCookies($authority) {
-          append Content [subst {
-            <tr>
-              <td><span class=name>$name</span>
-              <td><span class=value>$value</span>
-          }]
-        }
-      }
-      append Content "</table>"
-    } else {
-      set Content {
-        <p>The cookies database is currently empty.
-      }
-    }
-
-    return [subst $Template]
-  }
-
-  method download_report {downloadHandle} {
-    $downloadHandle append [$self get_report]
-    $downloadHandle finish
-  }
-
-  method debug {} {
-    set path $myDebugWindow
-    if {![winfo exists $path]} {
-      toplevel $path
-      ::hv3::scrolled hv3 ${path}.hv3
-      ${path}.hv3 configure -width 400 -height 400
-      pack ${path}.hv3 -expand true -fill both
-      set HTML [${path}.hv3 html]
-
-      # The "clear database button"
-      button ${HTML}.clear   -text "Clear Database" -command [subst {
-        array unset [myvar myCookies]
-        [mymethod debug]
-      }]
-    }
-    raise $path
-    ${path}.hv3 protocol report [mymethod download_report]
-    ${path}.hv3 postdata POSTME!
-    ${path}.hv3 goto report://
-
-    set HTML [${path}.hv3 html]
-    [lindex [${path}.hv3 search #clear] 0] replace ${HTML}.clear
-  }
-}
+sourcefile hv3_http.tcl
 
 snit::type ::hv3_browser::history {
 
@@ -254,6 +120,8 @@ snit::type ::hv3_browser::history {
   }
 }
 
+proc ::hv3::returnX {val args} {return $val}
+
 #--------------------------------------------------------------------------
 # Class hv3_browser
 #
@@ -270,6 +138,7 @@ snit::widget hv3_browser {
   variable myNodeList ""                  ;# Current nodes under the pointer
   variable myX 0                          ;# Current location of pointer
   variable myY 0                          ;# Current location of pointer
+  variable myHyperlinkNode ""             ;# Current node for hyper-link menu
 
   constructor {args} {
     set myHv3 [::hv3::scrolled hv3 $win.hv3]
@@ -291,17 +160,57 @@ snit::widget hv3_browser {
     bind $myHv3 <KeyPress-Q> exit
     bind $myHv3 <Control-f> [mymethod find]
 
-    # Create the right-click behaviour - launch the property browser:
-    bind $myHv3 <3> [
-      subst -nocommands {
-        ::HtmlDebug::browse [$myHv3 html] [lindex [$myHv3 node %x %y] 0]
-      }
-    ]
+    # Create the right-click behaviour.
+    bind $myHv3 <3> [mymethod rightclick %x %y %X %Y]
 
-    # Create the middle-click behaviour - launch the property browser:
+    # Create the middle-click behaviour.
     bind $myHv3 <2> [mymethod goto_selection]
 
     focus $myHv3
+
+    # Create the hyper-link menu
+    set m [menu ${win}.hyperlinkmenu]
+    $m add command -label "Follow Link" -command [mymethod followlink]
+    $m add command -label "Download Link" -command [mymethod downloadlink]
+    $m add command -label "Copy Link Location" -command [mymethod copylink]
+    $m add command -label "Open Tree Browser" -command [mymethod browselink]
+  }
+
+  method rightclick {x y X Y} {
+    set nodelist [$myHv3 node $x $y]
+    foreach leaf $nodelist {
+      for {set N $leaf} {$N ne ""} {set N [$N parent]} {
+        if {[$N tag] eq "a" && 0 == [catch {$N attr href}]} {
+          # Right click on a hyper-link. Pop up the hyper-link menu.
+          $self hyperlinkmenu $N $X $Y
+          return
+        }
+      }
+    }
+    ::HtmlDebug::browse [$myHv3 html] [lindex $nodelist 0]
+  }
+
+  method hyperlinkmenu {node x y} {
+    set myHyperlinkNode $node
+    puts [::hv3::resolve_uri [$myHv3 location] [$node attr href]]
+    tk_popup ${win}.hyperlinkmenu $x $y
+  }
+  method followlink {} {
+    $self goto [$myHyperlinkNode attr href]
+  }
+  method downloadlink {} {
+    set uri [::hv3::resolve_uri [$myHv3 location] [$myHyperlinkNode attr href]]
+    $myHttp saveFile $uri
+  }
+  method copylink {} {
+    selection own ${win}.hyperlinkmenu
+    selection handle ${win}.hyperlinkmenu [list \
+        ::hv3::returnX \
+        [::hv3::resolve_uri [$myHv3 location] [$myHyperlinkNode attr href]] \
+    ]
+  }
+  method browselink {} {
+    ::HtmlDebug::browse [$myHv3 html] $myHyperlinkNode
   }
 
   method goto_selection {} {
@@ -319,6 +228,7 @@ snit::widget hv3_browser {
     $self update_statusvar
   }
 
+  # Handle an http: get or post request.
   method http {downloadHandle} {
     lappend myHttpHandles $downloadHandle
     trace add command $downloadHandle delete [mymethod http_done]
@@ -409,7 +319,7 @@ snit::widget hv3_browser {
   # Launch the find dialog.
   method find {} {
     if {[llength [info commands ${win}_finddialog]] == 0} {
-      ::hv3::finddialog ${win}_finddialog [$myHv3 html]
+      ::hv3::finddialog ${win}_finddialog $myHv3
     }
     raise ${win}_finddialog
   }
@@ -524,17 +434,18 @@ proc gui_build {} {
     .m.file add command -label Tkcon -command {tkcon show}
   }
 
-  .m.file add command -label "Find in page..." -command [list .hv3 find]
   .m.file add command -label Browser -command [list .hv3 browse]
-  .m.file add command -label "Debug Forms" -command [list .hv3 dumpforms]
   .m.file add command -label "Debug Cookies" -command [list .hv3 debug_cookies]
   .m.file add separator
   .m.file add command -label Exit -command exit
 
+  .m add cascade -label {Edit} -menu [menu .m.edit]
+  .m.edit add command -label {Find in page...} -command [list .hv3 find]
+
   # Add the 'Font Size Table' menu
-  set fontsize_menu [create_fontsize_menu .m.font .hv3]
-  .m add cascade -label {Font Size Table} -menu $fontsize_menu
-  $fontsize_menu invoke 1
+  set fontsize_menu [create_fontsize_menu .m.edit.font .hv3]
+  .m.edit add cascade -label {Font Size Table} -menu $fontsize_menu
+  $fontsize_menu invoke 0
 
   # Add the 'History' menu
   .m add cascade -label {History} -menu [menu .m.history]
@@ -556,111 +467,6 @@ proc guiOpenFile {} {
   ]]
   if {$f != ""} {
     .hv3 goto file://$f 
-  }
-}
-
-snit::type Hv3HttpProtcol {
-
-  option -proxyport -default 8123      -configuremethod _ConfigureProxy
-  option -proxyhost -default localhost -configuremethod _ConfigureProxy
-
-  # variable myCookies -array [list]
-
-  variable myCookieManager ""
-
-  constructor {args} {
-    package require http
-    $self configurelist $args
-    $self _ConfigureProxy proxyport $options(-proxyport)
-    set myCookieManager [::hv3_browser::cookiemanager %AUTO%]
-  }
-
-  destructor {
-    if {$myCookieManager ne ""} {$myCookieManager destroy}
-  }
-
-  method download {downloadHandle} {
-    set uri [$downloadHandle uri]
-    set finish [mymethod _DownloadCallback $downloadHandle]
-    set append [mymethod _AppendCallback $downloadHandle]
-
-    set headers ""
-    set authority [$downloadHandle authority]
-#    if {[info exists myCookies($authority)]} {
-#      set headers "Cookie "
-#      foreach cookie $myCookies($authority) {
-#        lappend headers $cookie
-#      }
-#    }
-
-    set cookies [$myCookieManager get_cookies $authority]
-    if {$cookies ne ""} {
-      set headers [list Cookie $cookies]
-    }
-
-    set postdata [$downloadHandle postdata]
-
-    if {$postdata ne ""} {
-      ::http::geturl $uri     \
-          -command $finish    \
-          -handler $append    \
-          -headers $headers   \
-          -query   $postdata
-    } else {
-      ::http::geturl $uri -command $finish -handler $append -headers $headers
-    }
-  }
-
-  # Configure the http package to use a proxy as specified by
-  # the -proxyhost and -proxyport options on this object.
-  #
-  method _ConfigureProxy {option value} {
-    set options($option) $value
-    ::http::config -proxyhost $options(-proxyhost)
-    ::http::config -proxyport $options(-proxyport)
-    ::http::config -useragent {Mozilla/5.0 Gecko/20050513}
-    set ::http::defaultCharset utf-8
-  }
-
-  # Invoked when data is available from an http request. Pass the data
-  # along to hv3 via the downloadHandle.
-  #
-  method _AppendCallback {downloadHandle socket token} {
-    upvar \#0 $token state 
-    set data [read $socket 2048]
-    $downloadHandle append $data
-    set nbytes [string length $data]
-    return $nbytes
-  }
-
-  # Invoked when an http request has concluded.
-  #
-  method _DownloadCallback {downloadHandle token} {
-    upvar \#0 $token state 
-
-    if {[info exists state(meta)]} {
-      foreach {name value} $state(meta) {
-        if {$name eq "Set-Cookie"} {
-          regexp {^([^= ]*)=([^ ;]*)} $value dummy name value
-          $myCookieManager add_cookie [$downloadHandle authority] $name $value
-        }
-      }
-      foreach {name value} $state(meta) {
-        if {$name eq "Location"} {
-          puts "REDIRECT: $value"
-          $downloadHandle redirect $value
-          $self download $downloadHandle
-          return
-        }
-      }
-    } 
-
-    $downloadHandle append $state(body)
-    $downloadHandle finish
-  }
-
-  method debug_cookies {} {
-    $myCookieManager debug
   }
 }
 

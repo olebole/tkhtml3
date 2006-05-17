@@ -477,7 +477,7 @@ snit::type ::hv3::selectionmanager {
     if {[llength $span] != 4} { return "" }
     foreach {n1 i1 n2 i2} $span {}
 
-    set td [::hv3::textdocument %AUTO% $myHtml]
+    set td [$myHtml textdocument]
     set stridx_a [$td nodeToString $n1 $i1]
     set stridx_b [expr [$td nodeToString $n2 $i2] -1]
     set T [string range [$td text] $stridx_a $stridx_b]
@@ -623,11 +623,13 @@ snit::widget hv3 {
   variable  myStyleCount 0 
   variable  myPostData "" 
 
+  variable  myTextDocument "" 
+
   constructor {args} {
     set myHtml             [html ${win}.html]
     set myDownloadManager  [::hv3::downloadmanager %AUTO%]
 
-    set mySelectionManager [::hv3::selectionmanager %AUTO% $myHtml]
+    set mySelectionManager [::hv3::selectionmanager %AUTO% $self]
     set myDynamicManager   [::hv3::dynamicmanager %AUTO% $myHtml]
     set myHyperlinkManager [::hv3::hyperlinkmanager %AUTO% $myHtml]
     set myFormManager      [::hv3::formmanager %AUTO% $myHtml]
@@ -808,6 +810,21 @@ snit::widget hv3 {
       $myHtml parse -final {}
       $self goto_fragment
     }
+    $self invalidate_textdocument
+  }
+
+  method textdocument {} {
+    if {$myTextDocument eq ""} {
+      set myTextDocument [::hv3::textdocument %AUTO% $myHtml]
+    }
+    return $myTextDocument
+  }
+
+  method invalidate_textdocument {} {
+    if {$myTextDocument ne ""} {
+      $myTextDocument destroy
+      set myTextDocument ""
+    }
   }
 
   #--------------------------------------------------------------------------
@@ -841,9 +858,11 @@ snit::widget hv3 {
 
     set myStyleCount 0
     $myDownloadManager reset
-    $myHtml    reset
+    $myHtml            reset
     $myDynamicManager  reset
     $myFormManager     reset
+
+    $self invalidate_textdocument
 
     set redirscript [mymethod redirect]
     set finscript   [mymethod documentcallback 1]
@@ -858,6 +877,8 @@ snit::widget hv3 {
     $myDownloadManager reset
   }
 
+  method location {} { return [$myUri get] }
+
   method html {} { return $myHtml }
   method hull {} { return $hull }
 
@@ -866,9 +887,8 @@ snit::widget hv3 {
 
   # Delegated public methods
   delegate method protocol      to myDownloadManager
-  delegate method node          to myHtml
-  delegate method search        to myHtml
   delegate method dumpforms     to myFormManager
+  delegate method *             to myHtml
 
   # Delegated public options
   delegate option -hyperlinkcmd to myHyperlinkManager
@@ -877,8 +897,6 @@ snit::widget hv3 {
   delegate option -fonttable    to myHtml
 
   # Scrollbar and geometry related stuff is delegated to the html widget
-  delegate method xview           to myHtml
-  delegate method yview           to myHtml
   delegate option -xscrollcommand to myHtml
   delegate option -yscrollcommand to myHtml
   delegate option -width          to myHtml

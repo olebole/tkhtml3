@@ -15,5 +15,6 @@ Widget Specific Options:
 Widget Sub-commands:
     goto             (Goto a specified URI)
     stop             (Cancel all pending downloads)
+    node             (Html widget [node] command)
     protocol         (Register protocol handlers (for http, https etc.))
 
