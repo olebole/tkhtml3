@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.173 2006/05/23 10:36:49 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.174 2006/05/23 16:29:20 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -1656,6 +1656,19 @@ normalFlowLayoutTable(pLayout, pBox, pNode, pY, pContext, pNormal)
     if (iWidth == PIXELVAL_AUTO) {
         iWidth = iRightFloat - iLeftFloat - iMPB;
     } else {
+        /* Astonishingly, the 'width' property when applied to an element
+	 * with "display:table" includes the horizontal borders (but not the
+	 * margins). So subtract the border widths from iWidth here.
+         * 
+	 * See section 17 of CSS 2.1. It's something to do with the table
+         * element generating an anonymous block box wrapped around itself and
+         * it's captions (we don't implement captions yet).
+         *
+         * Note that for a "display:table" element, all padding values are
+	 * automatically zero so we don't have to worry about that when using
+         * box.iLeft and box.iRight.
+         */
+        iWidth -= (box.iLeft + box.iRight);
         iMinWidth = MAX(iMinWidth, iWidth);
     }
 
