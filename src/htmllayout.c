@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.172 2006/05/17 07:42:06 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.173 2006/05/23 10:36:49 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -65,7 +65,6 @@ static const char rcsid[] = "$Id: htmllayout.c,v 1.172 2006/05/17 07:42:06 danie
  *     - the root node of the document,
  *     - a floating box,
  *     - a table cell.
- *
  */
 
 typedef struct NormalFlowCallback NormalFlowCallback;
@@ -2035,7 +2034,26 @@ normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
      */
     normalFlowLayout(pLayout, &sContent, pNode, pNormal);
 
-    sContent.height = getHeight(pNode, sContent.height);
+    /* Remove any margin-collapse callback added to the normal flow context. */
+    normalFlowCbDelete(pNormal, &sNormalFlowCallback);
+
+    /* Special case. If the intrinsic height of the box is 0 (i.e. 
+     * it is empty) but the 'height' or 'min-height' properties cause
+     * the height to be non-zero, then we need to collapse the vertical 
+     * margins above this box.
+     */
+    if (sContent.height == 0 && getHeight(pNode, 0) > 0) {
+        int iMargin = 0;
+        normalFlowMarginCollapse(pNormal, &iMargin); 
+        *pY += iMargin;
+        HtmlFloatListNormalize(pNormal->pFloat, 0, -1 * iMargin);
+        y += iMargin;
+    }
+
+    /* Adjust for 'height', 'min-height' and 'max-height' properties */
+    sContent.height  = getHeight(pNode, sContent.height - yBorderOffset);
+    sContent.height += yBorderOffset;
+
     sContent.width = getWidth(iWidth, sContent.width);
 
     LOG {
@@ -2068,10 +2086,6 @@ normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
 
     /* Account for the 'margin-bottom' property of this node. */
     normalFlowMarginAdd(pNormal, margin.margin_bottom);
-
-    if (box.iTop <= 0) {
-        normalFlowCbDelete(pNormal, &sNormalFlowCallback);
-    }
 
     return 0;
 }
