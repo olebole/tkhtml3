@@ -427,15 +427,17 @@ proc gui_build {} {
   .m.file add command -label "Open File..." -command guiOpenFile
   .m.file add separator
 
+  # Add the Tkcon, Browser and Cookies entries to the File menu.
   catch {
     # If the [load_tkcon] proc cannot find the Tkcon package, it
     # throws an exception. No menu item will be added in this case.
     load_tkcon
     .m.file add command -label Tkcon -command {tkcon show}
   }
-
   .m.file add command -label Browser -command [list .hv3 browse]
-  .m.file add command -label "Debug Cookies" -command [list .hv3 debug_cookies]
+  .m.file add command -label Cookies -command [list .hv3 debug_cookies]
+
+  # Add a separator and the inevitable Exit item to the File menu.
   .m.file add separator
   .m.file add command -label Exit -command exit
 

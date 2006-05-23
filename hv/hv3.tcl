@@ -160,13 +160,30 @@ proc Hv3FileProtocol {downloadHandle} {
   set fname [regsub {^/(.)/} $fname {\1:/}]
 
   set rc [catch {
-    set f [open $fname]
-    if {[$downloadHandle binary]} {
-      fconfigure $f -encoding binary -translation binary
-    } 
-    set data [read $f]
-    $downloadHandle append $data
-    close $f
+    if {[file isdirectory $fname]} {
+      # If the file is a directory, create a virtual index
+      $downloadHandle append [subst {
+        <html><body><h1>Directory listing for $fname</h1>
+        <ul>
+      }]
+      foreach file [lsort [glob ${fname}*]] {
+          set tail [file tail $file]
+          $downloadHandle append [subst {
+              <li><a href="$file">$tail</a>
+          }]
+      }
+      $downloadHandle append [subst {
+          </ul></body></html>
+      }]
+    } else {
+      set f [open $fname]
+      if {[$downloadHandle binary]} {
+        fconfigure $f -encoding binary -translation binary
+      } 
+      set data [read $f]
+      $downloadHandle append $data
+      close $f
+    }
   } msg]
 
   $downloadHandle finish

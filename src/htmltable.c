@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.78 2006/05/09 17:05:23 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.79 2006/05/23 06:34:10 danielk1977 Exp $";
 
 #include "htmllayout.h"
 
@@ -224,6 +224,8 @@ tableColWidthMultiSpan(pNode, col, colspan, row, rowspan, pContext)
         int *aMaxWidth      = pData->aMaxWidth;
         int *aExplicitWidth = pData->aExplicitWidth;
         int *aPercentWidth  = pData->aPercentWidth;
+ 
+        /* Macro evaluates to true for an "auto-width" column. */
         #define COL_ISAUTO(i) \
              (aExplicitWidth[i]==PIXELVAL_AUTO && aPercentWidth[i]<0.0)
 
@@ -232,36 +234,39 @@ tableColWidthMultiSpan(pNode, col, colspan, row, rowspan, pContext)
 	 * the maximum and minimum widths of any columns with "width:auto".
          */
 	currentmin = (pData->border_spacing * (colspan-1));
-        currentmax = (pData->border_spacing * (colspan-1));
         for (i=col; i<(col+colspan); i++) {
             currentmin += aMinWidth[i];
-            currentmax += aMaxWidth[i];
             if (COL_ISAUTO(i)) {
                 nAutoPixels += aMaxWidth[i] - aMinWidth[i];
                 nAutoColumns++;
             }
         }
 
-        /* Calculate the maximum and minimum widths of this cell */
+        /* Calculate the maximum and minimum widths of this cell, including
+         * border and padding (table-cells do not have margins). 
+         */
         blockMinMaxWidth(pData->pLayout, pNode, &min, &max);
         nodeGetBoxProperties(pData->pLayout, pNode, 0, &box);
         min += box.iLeft + box.iRight;
         max += box.iLeft + box.iRight;
 
-        /* Set minincr and maxincr to the number of pixels that must be
-         * added to the minimum and maximum widths of the spanned columns.
+	/* Set minincr to the number of pixels that must be added to the
+         * minimum widths of the spanned columns.
+         *
+	 * We need to somehow add these pixels to the minimum widths of the
+	 * spanned columns. How's this for an approach:
+         *
          * The "minincr" pixels are then assigned to columns as follows:
          *
 	 *     1. If there are columns with no explicit or percentage width,
-         *        then distribute the pixels between them in proportion to
-         *        (max - min). If this means (min > max), then set max = min.
+	 *        then distribute the minincr pixels between them in proportion
+	 *        to (max - min). If any column has (min > max), then set 
+         *        max = min. 
          *
          *     2. TODO.
          */
         minincr = MAX(0, min - currentmin);
-        maxincr = MAX(0, max - currentmax);
 
-        /* Step 1: grow auto-width columns */
         if (nAutoColumns > 0 && minincr > 0) {
             int nAutoColumnsRemaining = nAutoColumns;
             float ratio = (float)minincr / (float)nAutoPixels;
@@ -283,10 +288,34 @@ tableColWidthMultiSpan(pNode, col, colspan, row, rowspan, pContext)
                         minincr = 0;
                     }
                     nAutoColumnsRemaining--;
-                    aMaxWidth[i] = MAX(aMinWidth[i], aMaxWidth[i]);
                 }
             }
         }
+
+        /* If we failed to allocate all the min-width pixels to auto columns
+         * in the loop above, distribute them evenly between columns here.
+         */
+        for (i=col; i<(col+colspan); i++) {
+            int this_incr = (minincr / (col + colspan - i));
+            minincr -= this_incr;
+            aMinWidth[i] += this_incr;
+            aMaxWidth[i] = MAX(aMinWidth[i], aMaxWidth[i]);
+        }
+
+	/* Divide any max-width pixels between all spanned columns. */
+        currentmax = (pData->border_spacing * (colspan-1));
+        for (i=col; i<(col+colspan); i++) {
+            currentmax += aMaxWidth[i];
+        }
+        maxincr = MAX(0, max - currentmax);
+        if (maxincr > 0) {
+            for (i=col; i<(col+colspan); i++) {
+                int this_incr = (maxincr / (col + colspan - i));
+                maxincr -= this_incr;
+                aMaxWidth[i] += this_incr;
+            }
+        }
+
         #undef COL_ISAUTO
     }
 
@@ -737,8 +766,12 @@ tableIterate(pTree, pNode, xCallback, xRowCallback, pContext)
  *
  * allocatePixels --
  *
+ *     This function is used by tableCalculateCellWidths() to divide
+ *     a set number of pixels between columns.
+ *
  * Results:
- *     Returns the number of pixels allocated.
+ *     Returns the number of pixels allocated (less than or equal to
+ *     iAvailable).
  *
  * Side effects:
  *     None.
@@ -747,10 +780,10 @@ tableIterate(pTree, pNode, xCallback, xRowCallback, pContext)
  */
 static int 
 allocatePixels(iAvailable, nCol, aRequested, aWidth)
-    int iAvailable;
-    int nCol;
-    int *aRequested;
-    int *aWidth;
+    int iAvailable;        /* Number of pixels available */
+    int nCol;              /* Number of columns to distribute pixels between */
+    int *aRequested;       /* Array of requested pixels (per column) */
+    int *aWidth;           /* IN/OUT: Column widths */
 {
     int iTotalRequest = 0;
     int iRet = iAvailable;
