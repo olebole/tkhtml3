@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.79 2006/05/23 06:34:10 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.80 2006/05/23 14:06:23 danielk1977 Exp $";
 
 #include "htmllayout.h"
 
@@ -303,17 +303,8 @@ tableColWidthMultiSpan(pNode, col, colspan, row, rowspan, pContext)
         }
 
 	/* Divide any max-width pixels between all spanned columns. */
-        currentmax = (pData->border_spacing * (colspan-1));
         for (i=col; i<(col+colspan); i++) {
-            currentmax += aMaxWidth[i];
-        }
-        maxincr = MAX(0, max - currentmax);
-        if (maxincr > 0) {
-            for (i=col; i<(col+colspan); i++) {
-                int this_incr = (maxincr / (col + colspan - i));
-                maxincr -= this_incr;
-                aMaxWidth[i] += this_incr;
-            }
+            aMaxWidth[i] = MAX(max / colspan, aMaxWidth[i]);
         }
 
         #undef COL_ISAUTO
@@ -687,23 +678,35 @@ rowIterate(pTree, pNode, clientData)
     HtmlNode *pNode;
     ClientData clientData;
 {
+    int eDisplay = DISPLAY(pNode->pPropertyValues);
     RowIterateContext *p = (RowIterateContext *)clientData;
-    if (DISPLAY(pNode->pPropertyValues) == CSS_CONST_TABLE_ROW) {
-        int k;
-        p->iCol = 0;
-        HtmlWalkTree(pTree, pNode, cellIterate, clientData);
-        if (p->xRowCallback) {
-            p->xRowCallback(pNode, p->iRow, p->clientData);
+
+    switch (eDisplay) {
+        case CSS_CONST_TABLE_ROW: {
+            int k;
+            p->iCol = 0;
+            HtmlWalkTree(pTree, pNode, cellIterate, clientData);
+            if (p->xRowCallback) {
+                p->xRowCallback(pNode, p->iRow, p->clientData);
+            }
+            p->iRow++;
+            for (k=0; k < p->nRowSpan; k++) {
+                if (p->aRowSpan[k]) p->aRowSpan[k]--;
+            }
+            return HTML_WALK_DO_NOT_DESCEND;
         }
-        p->iRow++;
-        for (k=0; k < p->nRowSpan; k++) {
-            if (p->aRowSpan[k]) p->aRowSpan[k]--;
+        case CSS_CONST_NONE: {
+            return HTML_WALK_DO_NOT_DESCEND;
         }
-        return HTML_WALK_DO_NOT_DESCEND;
+        default: {
+            /* If the node has a display type other than 'table-row' or 
+             * 'none' then descend. We do this because people often put
+             * <form> tags in the middle of table structures.
+             */
+            return HTML_WALK_DESCEND;
+        }
     }
 
-    /* If the node is not a {display:table-row} node, then descend. */
-    return HTML_WALK_DESCEND;
 }
 
 /*
