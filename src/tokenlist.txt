@@ -1,5 +1,5 @@
 #
-# $Revision: 1.29 $
+# $Revision: 1.30 $
 #
 # tokenlist.tcl -- 
 #
@@ -124,7 +124,7 @@ TAG h3 -flow block
 TAG h4 -flow block
 TAG h5 -flow block
 TAG h6 -flow block
-TAG head
+TAG head -content HtmlHeadContent
 TAG hr -content HtmlEmptyContent -flow block
 TAG html                                
 TAG i -flow inline
@@ -147,7 +147,7 @@ TAG ol -flow block -content HtmlUlContent
 # TAG optgroup
 TAG option                              
 TAG p -flow block -content HtmlInlineContent
-TAG param
+TAG param -content HtmlEmptyContent
 TAG pre -flow block
 # TAG q
 TAG s -flow inline
@@ -191,7 +191,7 @@ TAG var -flow inline
 #     priority.
 #
 TAG comment
-TAG embed
+TAG embed -content HtmlEmptyContent
 TAG listing                             
 TAG marquee                             
 TAG nextid -content HtmlEmptyContent             

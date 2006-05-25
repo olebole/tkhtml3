@@ -10,8 +10,10 @@
 #
 package require Tkhtml 3.0
 package require snit
+
 source [file join [file dirname [info script]] hv3_form.tcl]
 source [file join [file dirname [info script]] hv3_widgets.tcl]
+source [file join [file dirname [info script]] hv3_object.tcl]
 
 #--------------------------------------------------------------------------
 # Class ::hv3::downloadmanager
@@ -45,23 +47,30 @@ snit::type ::hv3::downloadmanager {
 
   # Download a URI
   method download {uri redirscript incrscript finscript {postdata ""}} {
-    set uri_obj [Hv3Uri %AUTO% $uri]
-    set protocol [$uri_obj cget -scheme]
-    $uri_obj destroy
-
-    if {![info exists myProtocol($protocol)]} {
-      error "Unknown URI scheme: $protocol"
-    }
     set dl_obj [::hv3::download %AUTO% -binary 0 -uri $uri]
     $dl_obj configure -redirscript $redirscript
     $dl_obj configure -incrscript $incrscript
     $dl_obj configure -finscript $finscript
     $dl_obj configure -binary $myBinary
     $dl_obj configure -postdata $postdata
-
-    eval [linsert $myProtocol($protocol) end $dl_obj]
-    lappend myDownloads $dl_obj
+    catch {
+      $self download_handle $dl_obj
+    }
     set myBinary 0
+  }
+
+  method download_handle {handle} {
+    set uri_obj [Hv3Uri %AUTO% [$handle cget -uri]]
+    set protocol [$uri_obj cget -scheme]
+    $uri_obj destroy
+
+    if {![info exists myProtocol($protocol)]} {
+      $handle destroy
+      error "Unknown URI scheme: $protocol"
+    }
+
+    eval [linsert $myProtocol($protocol) end $handle]
+    lappend myDownloads $handle
   }
 
   # Call this to make the next call to [download] look for binary data.
@@ -101,6 +110,8 @@ snit::type ::hv3::download {
   option -finscript   -default ""
   option -redirscript -default ""
   option -postdata    -default ""
+
+  option -mimetype    -default ""
 
   # Constructor and destructor
   constructor {args} {eval $self configure $args}
@@ -662,6 +673,9 @@ snit::widget hv3 {
     $myHtml handler script style  [mymethod style_script_handler]
     $myHtml handler script script [mymethod script_script_handler]
 
+    $myHtml handler node object   [list hv3_object_handler $self]
+    $myHtml handler node embed    [list hv3_object_handler $self]
+
     pack $myHtml -expand true -fill both
 
     set newtags [concat [bindtags [$self html]] $win]
@@ -675,6 +689,10 @@ snit::widget hv3 {
     if {[info exists myDynamicManager]}   { $myDynamicManager destroy }
     if {[info exists myHyperlinkManager]} { $myHyperlinkManager destroy }
     if {[info exists myUri]}              { $myUri destroy }
+  }
+
+  method _download {handle} {
+    $myDownloadManager download_handle $handle
   }
 
   # Based on the current contents of instance variable $myUri, set the
@@ -927,3 +945,23 @@ bind Hv3 <KeyPress-Left>   { %W xview scroll -1 units }
 bind Hv3 <KeyPress-Next>   { %W yview scroll  1 pages }
 bind Hv3 <KeyPress-space>  { %W yview scroll  1 pages }
 bind Hv3 <KeyPress-Prior>  { %W yview scroll -1 pages }
+
+# Standard Stuff:
+#     xview, yview
+#     -xscrollcommand, -yscrollcommand
+#     -width, -height
+# 
+# Widget Specific Options:
+#     -hyperlinkcmd
+#     -getcmd
+#     -postcmd
+#     -motioncmd
+#     -fonttable
+#     -locationvar
+# 
+# Widget Sub-commands:
+#     goto        (Load the content at the specified URI)
+#     stop        (Cancel all pending downloads)
+#     node        (Html widget [node] command)
+#
+

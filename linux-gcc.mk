@@ -86,7 +86,6 @@ install: binaries
 	mkdir -p $(INSTALLDIR)
 	mkdir -p $(MANINSTALLDIR)
 	cp -f $(BINARIES) $(INSTALLDIR)
-	cp -f $(TOP)/doc/tkhtml.n $(MANINSTALLDIR)
 
 ###############################################################################
 include $(TOP)/main.mk

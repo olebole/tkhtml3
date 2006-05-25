@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.123 2006/05/13 14:10:21 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.124 2006/05/25 15:25:28 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -951,13 +951,20 @@ itemToBox(pItem, origin_x, origin_y, pX, pY, pW, pH)
             *pW = pItem->x.line.w;
             *pH = pItem->x.line.y_underline + 1;
             return pItem->x.line.pNode;
-        case CANVAS_WINDOW:
+        case CANVAS_WINDOW: {
+            HtmlNodeReplacement *pR = pItem->x.w.pNode->pReplacement;
+            if (pR && pR->win) {
+                Tk_Window control = pR->win;
+                *pW = Tk_ReqWidth(control);
+                *pH = Tk_ReqHeight(control);
+            } else {
+                *pW = 1;
+                *pH = 1;
+            }
             *pX = pItem->x.w.x + origin_x;
             *pY = pItem->x.w.y + origin_y;
-            /* TODO */
-            *pW = 10;
-            *pH = 10;
             return 0;
+        }
         default:
             assert(pItem->type==CANVAS_ORIGIN || pItem->type==CANVAS_MARKER);
             return 0;

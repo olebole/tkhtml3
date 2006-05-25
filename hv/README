@@ -1,20 +1,63 @@
 
-Standard Stuff:
-    xview, yview
-    -xscrollcommand, -yscrollcommand
-    -width, -height
+<h1>Introduction</h1>
 
-Widget Specific Options:
-    -hyperlinkcmd
-    -getcmd
-    -postcmd
-    -motioncmd
-    -fonttable
-    -locationvar
+<p>
+A modern web browser consists of a set of complimentary technologies, each one
+implemented according to a standard specified formally or informally. For
+example:
+</p>
 
-Widget Sub-commands:
-    goto             (Goto a specified URI)
-    stop             (Cancel all pending downloads)
-    node             (Html widget [node] command)
-    protocol         (Register protocol handlers (for http, https etc.))
+<ul>
+  <li>HTML and CSS
+  <li>HTTP (and it's cousin HTTPS)
+  <li>FTP
+  <li>Javascript platform
+  <li>MIME
+  <li>Netscape Plugin API (npapi)
+</ul>
+
+<p>
+As well as technologies aspiring to the same prominence, the web is crowded
+with pretenders to the positions occupied by each of these. Yet it remains a
+true statement that a competitive modern browser could be created by assembling
+a credible set of implementations of the above. A truly open web browser
+project would provide a set of reusable components to serve the above purposes
+allowing the creators of web browser applications to focus on the user
+interface.
+</p>
+
+<h1>Components</h1>
+
+<table border=1 style="margin: auto">
+<tr><th>Function<th>Solution
+
+<tr><td>HTML and CSS
+    <td>Tkhtml3
+
+<tr>  <td>HTTP
+  <td>Tcl level HTTP 1.0 + Polipo
+
+<tr>  <td>HTTPS
+  <td>??
+
+<tr>  <td>FTP
+  <td>??
+
+<tr>  <td>MIME
+  <td>Tcl implementation (this is pretty trivial)
+
+<tr>  <td>Netscape Plugin API
+  <td>New widget?
+
+</tf>
+</table>
+
+<h1>Other Functionality</h1>
+
+<h1>Conclusion</h1>
+
+
+
+
+
 

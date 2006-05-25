@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.174 2006/05/23 16:29:20 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.175 2006/05/25 15:25:28 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -2883,6 +2883,7 @@ doConfigureCmd(pTree, pNode, iContaining)
         Tcl_Obj *pRes;
         int rc;
         int iWidth;
+        int iHeight;
 
         pArray = Tcl_NewObj();
         Tcl_ListObjAppendElement(interp, pArray, Tcl_NewStringObj("color",-1));
@@ -2910,13 +2911,21 @@ doConfigureCmd(pTree, pNode, iContaining)
         );
 
         /* If the 'width' attribute is not PIXELVAL_AUTO, pass it to the
-         * replacement window.
-         */
+         * replacement window.  */
         if (PIXELVAL_AUTO != (iWidth = PIXELVAL(pV, WIDTH, iContaining))) {
             Tcl_Obj *pWidth = Tcl_NewStringObj("width",-1);
             iWidth = MAX(iWidth, 1);
             Tcl_ListObjAppendElement(interp, pArray, pWidth);
             Tcl_ListObjAppendElement(interp, pArray, Tcl_NewIntObj(iWidth));
+        }
+
+        /* If the 'height' attribute is not PIXELVAL_AUTO, pass it to the
+         * replacement window.  */
+        if (PIXELVAL_AUTO != (iHeight = PIXELVAL(pV, HEIGHT, PIXELVAL_AUTO))) {
+            Tcl_Obj *pHeight = Tcl_NewStringObj("height",-1);
+            iHeight = MAX(iHeight, 1);
+            Tcl_ListObjAppendElement(interp, pArray, pHeight);
+            Tcl_ListObjAppendElement(interp, pArray, Tcl_NewIntObj(iHeight));
         }
 
         pScript = Tcl_DuplicateObj(pConfigure);
