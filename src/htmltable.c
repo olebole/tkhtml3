@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.80 2006/05/23 14:06:23 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.81 2006/06/04 12:53:48 danielk1977 Exp $";
 
 #include "htmllayout.h"
 
@@ -942,6 +942,7 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
      */
     static const int NUM_LOGVALUES = 5; 
     int  *aLogValues = 0;
+    int STEP = 0;
     LOG { 
         int nBytes = sizeof(int) * nCol * (NUM_LOGVALUES * 2);
         aLogValues = (int *)HtmlAlloc(0, nBytes);
@@ -1023,8 +1024,8 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
         iRem -= aWidth[i];
     }
     LOG { 
-         memcpy(&aLogValues[0 * nCol], aWidth, sizeof(int) * nCol); 
-         memcpy(&aLogValues[1 * nCol], aWidth, sizeof(int) * nCol); 
+         memcpy(&aLogValues[STEP++ * nCol], aWidth, sizeof(int) * nCol); 
+         memcpy(&aLogValues[STEP++ * nCol], aWidth, sizeof(int) * nCol); 
     }
 
     /* Variable iRem contains the number of remaining pixels to split up
@@ -1113,8 +1114,8 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
         iRem -= allocatePixels(iRem, nCol, aRequested, aWidth);
     }
     LOG { 
-         memcpy(&aLogValues[2 * nCol], aRequested, sizeof(int) * nCol); 
-         memcpy(&aLogValues[3 * nCol], aWidth, sizeof(int) * nCol); 
+         memcpy(&aLogValues[STEP++ * nCol], aRequested, sizeof(int) * nCol); 
+         memcpy(&aLogValues[STEP++ * nCol], aWidth, sizeof(int) * nCol); 
     }
 
     /* Step 3. Allocate extra pixels to columns with explicit widths. */
@@ -1129,8 +1130,8 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
     }
     iRem -= allocatePixels(iRem, nCol, aRequested, aWidth);
     LOG { 
-        memcpy(&aLogValues[4 * nCol], aRequested, sizeof(int) * nCol); 
-        memcpy(&aLogValues[5 * nCol], aWidth, sizeof(int) * nCol); 
+        memcpy(&aLogValues[STEP++ * nCol], aRequested, sizeof(int) * nCol); 
+        memcpy(&aLogValues[STEP++ * nCol], aWidth, sizeof(int) * nCol); 
     }
     
     /* Step 4. Allocate extra pixels to columns with "auto" widths. Do
@@ -1159,8 +1160,8 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
         iRem -= allocatePixels(iRem, nCol, aRequested, aWidth);
     }
     LOG { 
-        memcpy(&aLogValues[6 * nCol], aRequested, sizeof(int) * nCol); 
-        memcpy(&aLogValues[7 * nCol], aWidth, sizeof(int) * nCol); 
+        memcpy(&aLogValues[STEP++ * nCol], aRequested, sizeof(int) * nCol); 
+        memcpy(&aLogValues[STEP++ * nCol], aWidth, sizeof(int) * nCol); 
     }
 
     /* If the width of the table was specified as "auto", then we are
@@ -1208,8 +1209,8 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
         iRem -= allocatePixels(iRem, nCol, aRequested, aWidth);
     }
     LOG { 
-        memcpy(&aLogValues[8 * nCol], aRequested, sizeof(int) * nCol); 
-        memcpy(&aLogValues[9 * nCol], aWidth, sizeof(int) * nCol); 
+        memcpy(&aLogValues[STEP++ * nCol], aRequested, sizeof(int) * nCol); 
+        memcpy(&aLogValues[STEP++ * nCol], aWidth, sizeof(int) * nCol); 
     }
 
     /* Log the outputs of this function. */
@@ -1219,6 +1220,8 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
         HtmlTree *pTree = pLayout->pTree;
         Tcl_Obj *pLog = Tcl_NewObj();
         Tcl_IncrRefCount(pLog);
+
+        assert(STEP == (NUM_LOGVALUES * 2));
 
         Tcl_AppendToObj(pLog, "Results of column width algorithm.", -1);
         Tcl_AppendToObj(pLog, "<ol>"

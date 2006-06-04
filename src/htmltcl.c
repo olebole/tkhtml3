@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.97 2006/05/09 11:46:58 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.98 2006/06/04 12:53:48 danielk1977 Exp $";
 
 #include <tk.h>
 #include <ctype.h>
@@ -1520,6 +1520,17 @@ styleCmd(clientData, interp, objc, objv)
     return rc;
 }
 
+static int 
+forceCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    HtmlCallbackForce((HtmlTree *)clientData);
+    return TCL_OK;
+}
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -1874,6 +1885,7 @@ int widgetCmd(clientData, interp, objc, objv)
         {"bbox",       0,        bboxCmd},
         {"cget",       0,        cgetCmd},
         {"configure",  0,        configureCmd},
+        {"force",      0,        forceCmd},
         {"handler",    "node",   handlerNodeCmd},
         {"handler",    "script", handlerScriptCmd},
         {"image",      0,        imageCmd},

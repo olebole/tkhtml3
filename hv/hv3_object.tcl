@@ -38,7 +38,11 @@ proc hv3_object_getparams {node} {
   return [list]
 }
 
-# A node-handler callback for <object> nodes.
+# A node-handler callback for the following elements:
+#
+#     <object> 
+#     <embed>
+#     <iframe> (todo)
 #
 proc hv3_object_handler {hv3 node} {
 
@@ -48,7 +52,11 @@ proc hv3_object_handler {hv3 node} {
   #     * data
   #     * type
   #     * standby
-
+  #
+  # If the element identified by $node is something other than an 
+  # <object>, values are mapped from the element specific attributes
+  # to their generic <object> equivalents.
+  #
   switch -- [$node tag] {
     object {
       set params [hv3_object_getparams $node]
@@ -102,11 +110,9 @@ proc hv3_object_handler {hv3 node} {
   $handle configure \
       -uri       $data                                                       \
       -finscript  [list hv3_object_data_handler $hv3 $node $params $handle]  \
+      -failscript [list hv3_object_data_failed $hv3 $node]                   \
       -mimetype  $type
-  $hv3 _download $handle
-
-      # -failscript [list hv3_object_data_failed $hv3 $node]                   \
-
+  $hv3 makerequest $handle
 }
 
 proc hv3_object_data_handler {hv3 node params handle data} {

@@ -1,9 +1,7 @@
 #
 # The code in this file is partitioned into the following classes:
 #
-#     ::hv3::scrolledhtml
 #     ::hv3::selectionmanager
-#     ::hv3::downloadmanager
 #     ::hv3::dynamicmanager
 #     ::hv3::hyperlinkmanager
 #
@@ -14,239 +12,13 @@ package require snit
 source [file join [file dirname [info script]] hv3_form.tcl]
 source [file join [file dirname [info script]] hv3_widgets.tcl]
 source [file join [file dirname [info script]] hv3_object.tcl]
+source [file join [file dirname [info script]] hv3_frameset.tcl]
 
-#--------------------------------------------------------------------------
-# Class ::hv3::downloadmanager
-#
-snit::type ::hv3::downloadmanager {
-  variable myProtocol -array [list      \
-      file Hv3FileProtocol              \
-      slow {Hv3SlowDownload %AUTO%}     \
-  ]
-  variable myDownloads {} 
-  variable myBinary 0
-
-  # Register a new protocol handler script
-  method protocol {protocol script} {
-    if {$script eq ""} {
-      catch {unset myProtocol($protocol)}
-    } else {
-      set myProtocol($protocol) $script
-    }
-  }
-
-  # Abandon any pending downloads
-  method reset {} {
-    foreach handle $myDownloads {
-      catch {
-        $handle configure -redirscript {} -finscript {} -incrscript {}
-      }
-    }
-    set myDownloads {}
-  }
-
-  # Download a URI
-  method download {uri redirscript incrscript finscript {postdata ""}} {
-    set dl_obj [::hv3::download %AUTO% -binary 0 -uri $uri]
-    $dl_obj configure -redirscript $redirscript
-    $dl_obj configure -incrscript $incrscript
-    $dl_obj configure -finscript $finscript
-    $dl_obj configure -binary $myBinary
-    $dl_obj configure -postdata $postdata
-    catch {
-      $self download_handle $dl_obj
-    }
-    set myBinary 0
-  }
-
-  method download_handle {handle} {
-    set uri_obj [Hv3Uri %AUTO% [$handle cget -uri]]
-    set protocol [$uri_obj cget -scheme]
-    $uri_obj destroy
-
-    if {![info exists myProtocol($protocol)]} {
-      $handle destroy
-      error "Unknown URI scheme: $protocol"
-    }
-
-    eval [linsert $myProtocol($protocol) end $handle]
-    lappend myDownloads $handle
-  }
-
-  # Call this to make the next call to [download] look for binary data.
-  #
-  method binary {} {
-    set myBinary 1
+proc assert {expr} {
+  if { 0 == [uplevel [list expr $expr]] } {
+    error "assert() failed - $expr"
   }
 }
-#
-# End of ::hv3::downloadmanager
-#--------------------------------------------------------------------------
-
-#--------------------------------------------------------------------------
-# Class ::hv3::download
-#
-#     Instances of this class are used to interface between 
-#     protocol-implementations and the hv3 widget. Refer to the hv3
-#     man page for a more complete description of the interface as used by
-#     protocol implementations. Briefly, the protocol implementation uses only
-#     the following object methods:
-#
-#         binary
-#         uri
-#         authority
-#
-#         append
-#         finish
-#         redirect
-#
-snit::type ::hv3::download {
-  variable myData ""
-  variable myChunksize 2048
-
-  option -binary      -default 0
-  option -uri         -default ""
-  option -incrscript  -default ""
-  option -finscript   -default ""
-  option -redirscript -default ""
-  option -postdata    -default ""
-
-  option -mimetype    -default ""
-
-  # Constructor and destructor
-  constructor {args} {eval $self configure $args}
-  destructor  {}
-
-  # Query interface used by protocol implementations
-  method binary    {} {return $options(-binary)}
-  method uri       {} {return $options(-uri)}
-  method postdata  {} {return $options(-postdata)}
-  method authority {} {
-    set obj [Hv3Uri %AUTO% $options(-uri)]
-    set authority [$obj cget -authority]
-    $obj destroy
-    return $authority
-  }
-
-  # Interface for returning data.
-  method append {data} {
-    ::append myData $data
-    set nData [string length $myData]
-    if {$options(-incrscript) != "" && $nData >= $myChunksize} {
-      eval [linsert $options(-incrscript) end $myData]
-      set myData {}
-      # set myChunksize [expr $myChunksize * 2]
-    } 
-  }
-
-  # Called after all data has been passed to [append].
-  method finish {} {
-    if {$options(-finscript) != ""} { 
-      eval [linsert $options(-finscript) end $myData] 
-    } 
-    $self destroy
-  }
-
-  # Interface for returning a redirect
-  method redirect {new_uri} {
-    if {$options(-redirscript) != ""} {
-      eval [linsert $options(-redirscript) end $new_uri]
-    } 
-    set options(-uri) $new_uri
-    set myData {}
-  }
-}
-#--------------------------------------------------------------------------
-
-#--------------------------------------------------------------------------
-# Protocol implementation for file:// protocol.
-#
-proc Hv3FileProtocol {downloadHandle} {
-  set uri [$downloadHandle uri]
-  set url_obj [Hv3Uri %AUTO% $uri]
-  set fname [$url_obj cget -path]
-  $url_obj destroy
-
-  # Account for wierd windows filenames
-  set fname [regsub {^/(.)/} $fname {\1:/}]
-
-  set rc [catch {
-    if {[file isdirectory $fname]} {
-      # If the file is a directory, create a virtual index
-      $downloadHandle append [subst {
-        <html><body><h1>Directory listing for $fname</h1>
-        <ul>
-      }]
-      foreach file [lsort [glob ${fname}*]] {
-          set tail [file tail $file]
-          $downloadHandle append [subst {
-              <li><a href="$file">$tail</a>
-          }]
-      }
-      $downloadHandle append [subst {
-          </ul></body></html>
-      }]
-    } else {
-      set f [open $fname]
-      if {[$downloadHandle binary]} {
-        fconfigure $f -encoding binary -translation binary
-      } 
-      set data [read $f]
-      $downloadHandle append $data
-      close $f
-    }
-  } msg]
-
-  $downloadHandle finish
-
-  if {$rc} {
-    after idle [list error $msg]
-  }
-}
-#--------------------------------------------------------------------------
-
-#--------------------------------------------------------------------------
-# Protocol implementation for slow:// protocol.
-#
-snit::type Hv3SlowDownload {
-  variable myData ""
-  variable myDownloadHandle 
-
-  option -chunk 1024
-  option -tick 300
-
-  constructor {downloadHandle} {
-    set myDownloadHandle $downloadHandle
-
-    set uri [$myDownloadHandle uri]
-    set uri_obj [Hv3Uri %AUTO% $uri]
-    set fname [$uri_obj cget -path]
-    $uri_obj destroy
-
-    set f [open $fname]
-    if {[$myDownloadHandle binary]} {
-      fconfigure $f -encoding binary -translation binary
-    }
-    set myData [read $f]
-    close $f
-    after $options(-tick) [mymethod tick]
-  }
-
-  destructor { }
-
-  method tick {} {
-    set data [string range $myData 0 $options(-chunk)]
-    set myData [string range $myData [expr $options(-chunk) + 1] end]
-    $myDownloadHandle append $data
-    if {[string length $myData] == 0} {
-      $myDownloadHandle finish
-      $self destroy
-    } else {
-      after $options(-tick) [mymethod tick]
-    }
-  }
-}
-#--------------------------------------------------------------------------
 
 #--------------------------------------------------------------------------
 # Class Hv3Uri:
@@ -266,6 +38,7 @@ snit::type Hv3SlowDownload {
 #
 #     $uri_obj destroy
 #
+proc ::hv3::uri {args} {uplevel #0 [concat Hv3Uri $args]}
 snit::type Hv3Uri {
 
   # Public get/set variables for URI components
@@ -461,51 +234,54 @@ if 1 {
 # Class ::hv3::selectionmanager
 #
 snit::type ::hv3::selectionmanager {
-  variable myHtml
+  variable myHv3
   variable myState 0               ;# True when left-button is held down
 
-  constructor {htmlwidget args} {
-    set myHtml $htmlwidget
-    selection handle $myHtml [mymethod get_selection]
+  constructor {hv3} {
+    set myHv3 $hv3
+    selection handle $myHv3 [mymethod get_selection]
+
+    bind $myHv3 <Motion>          "+[mymethod motion %x %y]"
+    bind $myHv3 <ButtonPress-1>   "+[mymethod press %x %y]"
+    bind $myHv3 <ButtonRelease-1> "+[mymethod release %x %y]"
   }
 
-  method press {nodelist x y} {
+  method press {x y} {
     set myState 1
-
-    set from [$myHtml node -index $x $y]
+    set from [$myHv3 node -index $x $y]
     if {[llength $from]==2} {
       foreach {node index} $from {}
-      $myHtml select from $node $index
-      $myHtml select to $node $index
+      $myHv3 select from $node $index
+      $myHv3 select to $node $index
     }
   }
 
-  method release {nodelist x y} {
+  method release {x y} {
     set myState 0
   }
 
-  method motion {nodelist x y} {
+  method motion {x y} {
     if {0 == $myState} return
-    set to [$myHtml node -index $x $y]
+    set to [$myHv3 node -index $x $y]
     if {[llength $to]==2} {
       foreach {node index} $to {}
-      $myHtml select to $node $index
+      $myHv3 select to $node $index
     }
-    selection own $myHtml
+    selection own $myHv3
   }
 
-  # get_selection offset maxChars
+  # get_selection OFFSET MAXCHARS
   #
   #     This command is invoked whenever the current selection is selected
   #     while it is owned by the html widget. The text of the selected
   #     region is returned.
   #
   method get_selection {offset maxChars} {
-    set span [$myHtml select span]
+    set span [$myHv3 select span]
     if {[llength $span] != 4} { return "" }
     foreach {n1 i1 n2 i2} $span {}
 
-    set td [$myHtml textdocument]
+    set td [$myHv3 textdocument]
     set stridx_a [$td nodeToString $n1 $i1]
     set stridx_b [expr [$td nodeToString $n2 $i2] -1]
     set T [string range [$td text] $stridx_a $stridx_b]
@@ -521,22 +297,26 @@ snit::type ::hv3::selectionmanager {
 #--------------------------------------------------------------------------
 # Class ::hv3::dynamicmanager
 #
+#     This class is responsible for setting the dynamic :hover flag on
+#     document nodes in response to cursor movements. It may one day
+#     be extended to handle :focus and :active, but it's not yet clear
+#     exactly how these should be dealt with.
+#
 snit::type ::hv3::dynamicmanager {
-  variable myHtml
+  variable myHv3
   variable myHoverNodes [list]
 
-  constructor {htmlwidget} {
-    set myHtml $htmlwidget
+  constructor {hv3} {
+    set myHv3 $hv3
+    bind $myHv3 <Motion> "+[mymethod motion %x %y]"
   }
 
   method reset {} {
     set myHoverNodes [list]
   }
 
-  method press {nodelist x y} {
-  }
-
-  method motion {nodelist x y} {
+  method motion {x y} {
+    set nodelist [$myHv3 node $x $y]
     set hovernodes $myHoverNodes
     set myHoverNodes [list]
     foreach node $nodelist {
@@ -555,9 +335,6 @@ snit::type ::hv3::dynamicmanager {
     }
     set myHoverNodes [lsort -unique $myHoverNodes]
   }
-
-  method release {nodelist x y} {
-  }
 }
 #
 # End of ::hv3::dynamicmanager
@@ -566,15 +343,31 @@ snit::type ::hv3::dynamicmanager {
 #--------------------------------------------------------------------------
 # Class ::hv3::hyperlinkmanager
 #
+# Each instance of the hv3 widget contains a single hyperlinkmanager as
+# a component. The hyperlinkmanager takes care of:
+#
+#     * -hyperlinkcmd option and associate callbacks
+#     * Modifying the cursor to the hand shape when over a hyperlink
+#     * Setting the :link dynamic condition on hyperlink elements
+#
+# This class installs a node handler for <a> elements. It also subscribes
+# to the <Motion>, <ButtonPress-1> and <ButtonRelease-1> events on the
+# associated hv3 widget.
+#
 snit::type ::hv3::hyperlinkmanager {
-  variable myHtml
+  variable myHv3
   variable myNodes [list]
 
   option -hyperlinkcmd -default ""
 
-  constructor {htmlwidget} {
-    set myHtml $htmlwidget
-    $myHtml handler node a [mymethod a_node_handler]
+  constructor {hv3} {
+    set myHv3 $hv3
+    set options(-hyperlinkcmd) [mymethod default_hyperlinkcmd]
+
+    $myHv3 handler node a [mymethod a_node_handler]
+    bind $myHv3 <Motion>          "+[mymethod motion %x %y]"
+    bind $myHv3 <ButtonPress-1>   "+[mymethod press %x %y]"
+    bind $myHv3 <ButtonRelease-1> "+[mymethod release %x %y]"
   }
 
   method a_node_handler {node} {
@@ -583,7 +376,8 @@ snit::type ::hv3::hyperlinkmanager {
     }
   }
 
-  method press {nodelist x y} {
+  method press {x y} {
+    set nodelist [$myHv3 node $x $y]
     set myNodes [list]
     foreach node $nodelist {
       for {set n $node} {$n ne ""} {set n [$n parent]} {
@@ -592,12 +386,12 @@ snit::type ::hv3::hyperlinkmanager {
         }
       }
     }
-  
   }
 
-  method motion {nodelist x y} {
+  method motion {x y} {
+    set nodelist [$myHv3 node $x $y]
     set text 0
-    set framewidget [[winfo parent $myHtml] hull]
+    set framewidget [$myHv3 hull]
     foreach node $nodelist {
       if {[$node tag] eq ""} {set text 1}
       for {set n $node} {$n ne ""} {set n [$n parent]} {
@@ -614,85 +408,201 @@ snit::type ::hv3::hyperlinkmanager {
     }
   }
 
-  method release {nodelist x y} {
+  method release {x y} {
+    set nodelist [$myHv3 node $x $y]
     set saved_nodes $myNodes
     set myNodes [list]
     if {$options(-hyperlinkcmd) ne ""} {
-      foreach node [$myHtml node $x $y] {
+      foreach node [$myHv3 node $x $y] {
         for {set n $node} {$n ne ""} {set n [$n parent]} {
           if {[lsearch $saved_nodes $n] >= 0} {
-            eval [linsert $options(-hyperlinkcmd) end [$n attr href]]
+            # Node $n is a hyper-link that has been clicked on.
+            # Invoke the -hyperlinkcmd.
+            eval [linsert $options(-hyperlinkcmd) end $n]
             return
           }
         }
       }
     }
   }
+
+  method default_hyperlinkcmd {node} {
+    set href [$node attr -default "" href]
+    if {$href ne ""} {
+      $myHv3 goto $href
+    }
+  }
 }
 #
-# End of ::hv3::dynamicmanager
+# End of ::hv3::hyperlinkmanager
 #--------------------------------------------------------------------------
 
 #--------------------------------------------------------------------------
 # Class hv3 - the public widget class.
 #
-snit::widget hv3 {
-  hulltype frame
+snit::widget ::hv3::hv3 {
 
-  # Component objects
-  component myHtml                   ;# The ::hv3::scrolledhtml
+  # The following two type-scoped arrays are used as a layer of
+  # indirection for the -incrscript and -finscript scripts of download
+  # handles. Download handles created by this class may change their 
+  # behaviour based on their -mimetype value, which is not known
+  # until after the download handle is locked (see the -lockscript option).
+  #
+  # The related type-scoped procs are [RedirectIncr], [RedirectFinish]
+  # ,[MakeRedirectable] and [FinishWithData].
+  #
+  typevariable theHandleIncr   -array ""
+  typevariable theHandleFinish -array ""
+
+  proc RedirectIncr {handle data} {
+    eval [linsert $theHandleIncr($handle) end $data]
+  }
+  proc RedirectFinish {handle data} {
+    eval [linsert $theHandleFinish($handle) end $data]
+    unset theHandleIncr($handle)
+    unset theHandleFinish($handle)
+  }
+
+  proc MakeRedirectable {handle} {
+    set incrscript [$handle cget -incrscript]
+    if {$incrscript ne ""} {
+      set theHandleIncr($handle) $incrscript
+      $handle configure -incrscript [namespace code [list RedirectIncr $handle]]
+    }
+    set theHandleFinish($handle) [$handle cget -finscript]
+    $handle configure -finscript [namespace code [list RedirectFinish $handle]]
+  }
+
+  proc FinishWithData {handle data} {
+    $handle append $data
+    $handle finish
+  }
+  # End of system for redirecting handles
+  #--------------------------------------
+
+  # Object components
+  component myHtml                   ;# The [::hv3::scrolled html] widget
   component myHyperlinkManager       ;# The ::hv3::hyperlinkmanager
-  variable  myDynamicManager         ;# The ::hv3::dynamicmanager
-  variable  mySelectionManager       ;# The ::hv3::selectionmanager
-  variable  myDownloadManager        ;# The ::hv3::downloadmanager
+  component myDynamicManager         ;# The ::hv3::dynamicmanager
+  component mySelectionManager       ;# The ::hv3::selectionmanager
   component myFormManager            ;# The ::hv3::formmanager
+
+  # The current location URI
   variable  myUri                    ;# The current URI (type ::hv3::hv3uri)
 
+  # Used to assign internal stylesheet ids.
   variable  myStyleCount 0 
-  variable  myPostData "" 
 
+  # Cached ::hv3::textdocument representation of the current document
   variable  myTextDocument "" 
 
-  constructor {args} {
-    set myHtml             [html ${win}.html]
-    set myDownloadManager  [::hv3::downloadmanager %AUTO%]
+  # TODO: Get rid of this...
+  variable  myPostData "" 
 
+  # List of currently outstanding download-handles. See methods makerequest,
+  # Finrequest and <TODO: related to stop?>.
+  variable myCurrentDownloads [list]
+
+  variable myInternalObject
+
+  constructor {} {
+    # Create the scrolled html widget and bind it's events to the
+    # mega-widget window.
+    set myHtml [::hv3::scrolled html ${win}.html]
+    bindtags [$self html] [concat [bindtags [$self html]] $self]
+    pack $myHtml -expand true -fill both
+
+    # Create the event-handling components.
+    set myHyperlinkManager [::hv3::hyperlinkmanager %AUTO% $self]
     set mySelectionManager [::hv3::selectionmanager %AUTO% $self]
-    set myDynamicManager   [::hv3::dynamicmanager %AUTO% $myHtml]
-    set myHyperlinkManager [::hv3::hyperlinkmanager %AUTO% $myHtml]
-    set myFormManager      [::hv3::formmanager %AUTO% $myHtml]
+    set myDynamicManager   [::hv3::dynamicmanager   %AUTO% $self]
+
+    # Location URI. The default URI is index.html in the applications
+    # current working directory.
     set myUri              [Hv3Uri %AUTO% file://[pwd]/index.html]
 
-    bind $myHtml <ButtonPress-1>   [mymethod event press %x %y]
-    bind $myHtml <ButtonRelease-1> [mymethod event release %x %y]
-    bind $myHtml <Motion>          [mymethod event motion %x %y]
+    set myFormManager [::hv3::formmanager %AUTO% $self]
+    $myFormManager configure -getcmd  [mymethod Formcmd get]
+    $myFormManager configure -postcmd [mymethod Formcmd post]
 
-    $myHtml configure -imagecmd [mymethod imagecmd]
+    # Attach an image callback to the html widget
+    $myHtml configure -imagecmd [mymethod Imagecmd]
 
+    # Register handler commands to integrate CSS with the HTML document
     $myHtml handler node link     [mymethod link_node_handler]
     $myHtml handler script style  [mymethod style_script_handler]
     $myHtml handler script script [mymethod script_script_handler]
 
+    # Register handler commands to handle <object> and kin.
     $myHtml handler node object   [list hv3_object_handler $self]
     $myHtml handler node embed    [list hv3_object_handler $self]
-
-    pack $myHtml -expand true -fill both
-
-    set newtags [concat [bindtags [$self html]] $win]
-    bindtags [$self html] $newtags
-    $self set_location_var
   }
 
   destructor {
+    # Destroy the components. We don't need to destroy the scrolled
+    # html component because it is a Tk widget - it is automatically
+    # destroyed when it's parent widget is.
     if {[info exists mySelectionManager]} { $mySelectionManager destroy }
-    if {[info exists myDownloadManager]}  { $myDownloadManager destroy }
-    if {[info exists myDynamicManager]}   { $myDynamicManager destroy }
+    if {[info exists myDynamicManager]}   { $myDynamicManager   destroy }
     if {[info exists myHyperlinkManager]} { $myHyperlinkManager destroy }
-    if {[info exists myUri]}              { $myUri destroy }
+    if {[info exists myUri]}              { $myUri              destroy }
   }
 
-  method _download {handle} {
-    $myDownloadManager download_handle $handle
+  # The argument download-handle contains a configured request. This 
+  # method initiates the request. It is used by hv3 and it's component
+  # objects (i.e. the form-manager).
+  #
+  method makerequest {downloadHandle} {
+
+    # Put the handle in the myCurrentDownloads list. Add a wrapper to the
+    # code in the -failscript and -finscript options to remove it when the
+    # download is finished.
+    lappend myCurrentDownloads $downloadHandle
+    $self set_pending_var
+    ::hv3::download_destructor $downloadHandle [
+      mymethod Finrequest $downloadHandle 
+    ]
+
+    # Check if the full-uri begins with the string "internal:". If so,
+    # link this handle to the handle currently stored in object variable
+    # $myInternalObject. Otherwise, invoke the -requestcmd script.
+    if {[string range [$downloadHandle uri] 0 8] eq "internal:"} {
+
+      # Redirect the -incrscript and -finscript commands of myInternalObject
+      # to this new downloadHandle. See the [lockcallback] method for
+      # an explanation of what's going on here.
+      assert {[info exists myInternalObject] && $myInternalObject ne ""}
+      assert {[info exists theHandleFinish($myInternalObject)]}
+      assert {[info exists theHandleIncr($myInternalObject)]}
+      set theHandleIncr($myInternalObject)   [list $downloadHandle append]
+      set theHandleFinish($myInternalObject) [
+           namespace code [list FinishWithData $downloadHandle]
+      ]
+      unset myInternalObject
+
+    } else {
+
+      # Execute the -requestcmd script. Fail the download and raise
+      # an exception if an error occurs during script evaluation.
+      set cmd [concat $options(-requestcmd) [list $downloadHandle]]
+      set rc [catch $cmd errmsg]
+      if {$rc} {
+        $downloadHandle fail
+        error $errmsg $::errorInfo
+      }
+    }
+  }
+
+  # This method is only called internally, via download-handle -failscript
+  # and -finscript scripts. It removes the argument handle from the
+  # myCurrentDownloads list and invokes [concat $script [list $data]].
+  # 
+  method Finrequest {downloadHandle} {
+    set idx [lsearch $myCurrentDownloads $downloadHandle]
+    if {$idx >= 0} {
+      set myCurrentDownloads [lreplace $myCurrentDownloads $idx $idx]
+      $self set_pending_var
+    }
   }
 
   # Based on the current contents of instance variable $myUri, set the
@@ -700,6 +610,13 @@ snit::widget hv3 {
   method set_location_var {} {
     if {$options(-locationvar) ne ""} {
       uplevel #0 [subst {set $options(-locationvar) [$myUri get]}]
+    }
+  }
+
+  method set_pending_var {} {
+    if {$options(-pendingvar) ne ""} {
+      set val [expr [llength $myCurrentDownloads] > 0]
+      uplevel #0 [list set $options(-pendingvar) $val]
     }
   }
 
@@ -723,11 +640,23 @@ snit::widget hv3 {
   # the contents of the Tk image are set to the returned data in proc 
   # ::hv3::imageCallback.
   #
-  method imagecmd {uri} {
+  method Imagecmd {uri} {
     set name [image create photo]
     set full_uri [$self resolve_uri $uri]
-    $myDownloadManager binary
-    $myDownloadManager download $full_uri {} {} [mymethod imagecallback $name]
+
+    # Create and execute a download request. For now, "expect" a mime-type
+    # of image/gif. This should be enough to tell the protocol handler to
+    # expect a binary file (of course, this is not correct, the real default
+    # mime-type might be some other kind of image).
+    set handle [::hv3::download %AUTO%              \
+        -uri         $full_uri                      \
+        -mimetype    image/gif                      \
+        -finscript   [mymethod Imagecallback $name] \
+    ]
+    $self makerequest $handle
+
+    # Return a list of two elements - the image name and the image
+    # destructor script. See tkhtml(n) for details.
     return [list $name [list image delete $name]]
   }
 
@@ -737,9 +666,37 @@ snit::widget hv3 {
   # binary image format like gif). This proc sets the named Tk image to
   # contain the downloaded data.
   #
-  method imagecallback {name data} {
+  method Imagecallback {name data} {
     if {[info commands $name] == ""} return 
     $name configure -data $data
+  }
+
+  # Request the resource located at URI $full_uri and treat it as
+  # a stylesheet. The parent stylesheet id is $parent_id. This
+  # method is used for stylesheets obtained by either HTML <link> 
+  # elements or CSS "@import {...}" directives.
+  #
+  method Requeststyle {parent_id full_uri} {
+    set id        ${parent_id}.[format %.4d [incr myStyleCount]]
+    set importcmd [mymethod import_handler $id]
+    set urlcmd    [mymethod resolve_uri $full_uri]
+    append id .9999
+
+    set finscript [list \
+      $myHtml style -id $id -importcmd $importcmd -urlcmd $urlcmd
+    ]
+    set handle [::hv3::download %AUTO%              \
+        -uri         $full_uri                      \
+        -mimetype    text/css                       \
+        -finscript   $finscript                     \
+    ]
+    $self makerequest $handle
+  }
+
+  # Handler for CSS @import directives.
+  #
+  method import_handler {parent_id uri} {
+    $self Requeststyle $parent_id $uri
   }
 
   # Node handler script for <link> tags.
@@ -750,28 +707,8 @@ snit::widget hv3 {
     set media [string tolower [$node attr -default all media]]
     if {$rel eq "stylesheet" && $href ne "" && [regexp all|screen $media]} {
       set full_uri [$self resolve_uri $href]
-      set id        author.[format %.4d [incr myStyleCount]]
-      set importcmd [mymethod import_handler $id]
-      set urlcmd    [mymethod resolve_uri $full_uri]
-      append id .9999
-      set finscript [list \
-        $myHtml style -id $id -importcmd $importcmd -urlcmd $urlcmd
-      ]
-      $myDownloadManager download $full_uri {} {} $finscript
+      $self Requeststyle author $full_uri
     }
-  }
-
-  # Handler for CSS @import directives.
-  #
-  method import_handler {parent_id uri} {
-    set id        ${parent_id}.[format %.4d [incr myStyleCount]]
-    set importcmd [mymethod import_handler $id]
-    set urlcmd    [mymethod resolve_uri $uri]
-    append id .9999
-    set finscript [list \
-      $myHtml style -id $id -importcmd $importcmd -urlcmd $urlcmd
-    ]
-    $myDownloadManager download $uri {} {} $finscript
   }
 
   # Script handler for <style> tags.
@@ -791,43 +728,6 @@ snit::widget hv3 {
     return ""
   }
 
-  # This proc is invoked when an event occurs in the html widget. Arguments $x
-  # and $y are the relative x and y coordinates of the pointer when the event
-  # occured. Argument $action indentifies the specific event that occured, as
-  # per the following table:
-  #
-  #     <ButtonPress-1>         press
-  #     <ButtonRelease-1>       release
-  #     <Motion>                motion
-  # 
-  method event {action x y} {
-    set nodelist [$myHtml node $x $y]
-    foreach component [list \
-        $mySelectionManager $myDynamicManager $myHyperlinkManager
-    ] {
-      $component $action $nodelist $x $y
-    }
-
-    switch -- $action {
-      "press"  {focus $win}
-      "motion" {
-        if {$options(-motioncmd) ne ""} {
-          eval [linsert $options(-motioncmd) end $nodelist $x $y]
-        }
-      }
-    }
-  }
-
-  # This method is called by the download-manager when a document is
-  # redirected. We need this callback to update the myUri variable, so
-  # that any relative URIs found in the document will be resolved with respect
-  # to the correct document URI. The argument $uri, may be a full URI, or may
-  # be relative to the current URI.
-  method redirect {uri} {
-    $myUri load $uri
-    $self set_location_var
-  }
-
   method goto_fragment {} {
     set fragment [$myUri cget -fragment]
     if {$fragment ne ""} {
@@ -839,8 +739,97 @@ snit::widget hv3 {
     }
   }
 
-  method documentcallback {final text} {
-    $myHtml parse $text
+  # This method is called as the -lockscript for a download-handle 
+  # retrieving content for display in the browser window (possibly, 
+  # actually depends on the mimetype).
+  #
+  method lockcallback {handle} {
+    set mimetype  [string trim [$handle mimetype]]
+
+    # TODO: Real mimetype parser...
+    foreach {major minor} [split $mimetype /] {}
+
+    switch -- $major {
+      text {
+        $self reset
+      }
+
+      image {
+        $self reset
+        set myInternalObject $handle
+        $self parse -final {
+          <html><head></head><body>
+            <img src="internal://">
+          </body></html>
+        }
+        $self force
+      }
+
+      default {
+        # Neither text nor an image. Give the user the option to
+        # save the file to disk. What else can you expect from a "demo"?
+        $self Savefile $handle
+        return
+      }
+    }
+
+    $myUri load [$handle cget -uri]
+    $self set_location_var
+    set myForceReload 0
+    set myStyleCount 0
+  }
+
+  method Savefile {handle} {
+
+    # Create a GUI to handle this download
+    set w .download%AUTO%
+    set dler [::hv3::filedownloader $w     \
+        -source    [$handle uri]           \
+        -size      [$handle expected_size] \
+        -cancelcmd [list catch [list $handle fail]]     \
+    ]
+
+    # Redirect the -incrscript and -finscript commands to the download GUI.
+    assert {[info exists theHandleFinish($handle)]}
+    set theHandleFinish($handle) [list $dler finish]
+    if {[info exists theHandleIncr($handle)]} {
+      set theHandleIncr($handle) [list $dler append]
+    }
+
+    # Remove the download handle from the list of handles to cancel
+    # if [$hv3 stop] is invoked (when the user clicks the "stop" button
+    # we don't want to cancel pending save-file operations).
+    set idx [lsearch $myCurrentDownloads $handle]
+    if {$idx >= 0} {
+      set myCurrentDownloads [lreplace $myCurrentDownloads $idx $idx]
+      $self set_pending_var
+    }
+
+    # Pop up a GUI to select a "Save as..." filename. Schedule this as 
+    # a background job to avoid any recursive entry to our event handles.
+    set suggested ""
+    regexp {/([^/]*)$} [$handle uri] dummy suggested
+    set cmd [subst -nocommands {
+      $dler set_destination [file normal [
+          tk_getSaveFile -initialfile $suggested
+      ]]
+    }]
+    after idle $cmd
+  }
+
+  method download {uri} {
+    set handle [::hv3::download %AUTO%              \
+        -uri         $uri                           \
+        -mimetype    application/gzip               \
+        -incrscript  blah -finscript blah           \
+    ]
+    MakeRedirectable $handle
+    $self makerequest $handle
+    $self Savefile $handle
+  }
+
+  method documentcallback {handle final data} {
+    $myHtml parse $data
     if {$final} {
       $myHtml parse -final {}
       $self goto_fragment
@@ -862,76 +851,148 @@ snit::widget hv3 {
     }
   }
 
+  method Formcmd {method uri encdata} {
+    puts "Formcmd $method $uri $encdata"
+    set full_uri [$self resolve_uri $uri]
+
+    set handle [::hv3::download %AUTO% -mimetype text/html]
+    $handle configure                                     \
+        -lockscript [mymethod lockcallback $handle]       \
+        -incrscript [mymethod documentcallback $handle 0] \
+        -finscript  [mymethod documentcallback $handle 1]
+    if {$method eq "post"} {
+      $handle configure -uri $full_uri -postdata $encdata
+    } else {
+      $handle configure -uri "${full_uri}?${encdata}"
+    }  
+    MakeRedirectable $handle
+    $self makerequest $handle
+  }
+
   #--------------------------------------------------------------------------
   # PUBLIC INTERFACE TO HV3 WIDGET STARTS HERE:
   #
   #     Method              Delegate
   # --------------------------------------------
   #     goto                N/A
-  #     protocol            $myDownloadManager
   #     xview               $myHtml
   #     yview               $myHtml
   #     html                N/A
   #     hull                N/A
   #   
 
+  # The caching version of the html widget [node] subcommand. The rational
+  # here is that several different application components need to be notified
+  # of the list of nodes under the cursor every time the cursor moves.
+  #
+  variable myNodeArgs 
+  variable myNodeRes
+  method node {args} {
+    if {![info exists myNodeArgs] || $myNodeArgs ne $args} {
+      set myNodeArgs $args
+      set myNodeRes [eval [linsert $args 0 $myHtml node]]
+    }
+    return $myNodeRes
+  }
+  method invalidate_nodecache {} {
+    unset -nocomplain myNodeArgs
+  }
+
   method postdata {encdata} {
     set myPostData $encdata
   }
 
   method goto {uri} {
+
     set current_uri [$myUri get -nofragment]
-    $myUri load $uri
-    $self set_location_var
-    set full_uri [$myUri get -nofragment]
-    if {$full_uri eq $current_uri && "" eq $myPostData} {
+    set uri_obj [::hv3::uri %AUTO% $current_uri]
+    $uri_obj load $uri
+    set full_uri [$uri_obj get -nofragment]
+    set fragment [$uri_obj cget -fragment]
+
+    if {$full_uri eq $current_uri && $fragment ne ""} {
+      $myUri load $uri
       $self yview moveto 0.0
       $self goto_fragment
+      $self set_location_var
       return [$myUri get]
     }
-    set myForceReload 0
 
-    set myStyleCount 0
-    $myDownloadManager reset
-    $myHtml            reset
-    $myDynamicManager  reset
-    $myFormManager     reset
+    # Abandon any pending requests
+    $self stop
 
-    $self invalidate_textdocument
+    # Base the expected type on the extension of the filename in the
+    # URI, if any. If we can't figure out an expected type, assume
+    # text/html. The protocol handler may override this anyway.
+    set mimetype text/html
+    set path [$uri_obj get -path]
+    if {[regexp {\.([A-Za-z0-9]+)$} $path dummy ext]} {
+      switch -- [string tolower $ext] {
+	jpg  { set mimetype image/jpeg }
+        jpeg { set mimetype image/jpeg }
+        gif  { set mimetype image/gif  }
+        png  { set mimetype image/png  }
+        gz   { set mimetype application/gzip  }
+        gzip { set mimetype application/gzip  }
+        zip  { set mimetype application/gzip  }
+        kit  { set mimetype application/binary }
+      }
+    }
 
-    set redirscript [mymethod redirect]
-    set finscript   [mymethod documentcallback 1]
-    set incrscript  [mymethod documentcallback 0]
-    set p           $myPostData
-    $myDownloadManager download $full_uri $redirscript $incrscript $finscript $p
-    set myPostData ""
-    return [$myUri get]
+    # Create a download request for this resource. We expect an html
+    # document, but at this juncture the URI may legitimately refer
+    # to kind of resource.
+    #
+    set handle [::hv3::download %AUTO%             \
+        -uri         $full_uri                     \
+        -mimetype    $mimetype                     \
+        -postdata    $myPostData                   \
+    ]
+    $handle configure                                     \
+        -lockscript [mymethod lockcallback $handle]       \
+        -incrscript [mymethod documentcallback $handle 0] \
+        -finscript  [mymethod documentcallback $handle 1]
+    MakeRedirectable $handle
+
+    $self makerequest $handle
   }
 
+  # Abandon all currently pending downloads. This method is part of the
+  # public interface.
   method stop {} {
-    $myDownloadManager reset
+    foreach dl $myCurrentDownloads {
+      $dl fail "Operation cancelled by user"
+    }
+  }
+
+  method reset {} {
+    $self invalidate_nodecache
+    $self invalidate_textdocument
+
+    $myDynamicManager  reset
+    $myFormManager     reset
+    $myHtml            reset
   }
 
   method location {} { return [$myUri get] }
 
-  method html {} { return $myHtml }
+  method html {} { return [$myHtml widget] }
   method hull {} { return $hull }
 
-  option -motioncmd   -default ""
-  option -locationvar -default ""
+  option          -locationvar      -default ""
+  option          -pendingvar       -default ""
+  option          -requestcmd       -default ""
+  option          -cancelrequestcmd -default ""
+  delegate option -hyperlinkcmd     to myHyperlinkManager
+  delegate option -scrollbarpolicy  to myHtml
+  delegate option -fonttable        to myHtml
 
   # Delegated public methods
-  delegate method protocol      to myDownloadManager
   delegate method dumpforms     to myFormManager
-  delegate method *             to myHtml
 
-  # Delegated public options
-  delegate option -hyperlinkcmd to myHyperlinkManager
-  delegate option -getcmd       to myFormManager
-  delegate option -postcmd      to myFormManager
-  delegate option -fonttable    to myHtml
+  delegate method *                to myHtml
 
-  # Scrollbar and geometry related stuff is delegated to the html widget
+  # Standard scrollbar and geometry stuff is delegated to the html widget
   delegate option -xscrollcommand to myHtml
   delegate option -yscrollcommand to myHtml
   delegate option -width          to myHtml
@@ -946,22 +1007,214 @@ bind Hv3 <KeyPress-Next>   { %W yview scroll  1 pages }
 bind Hv3 <KeyPress-space>  { %W yview scroll  1 pages }
 bind Hv3 <KeyPress-Prior>  { %W yview scroll -1 pages }
 
-# Standard Stuff:
-#     xview, yview
-#     -xscrollcommand, -yscrollcommand
-#     -width, -height
+#
+# This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
+# browser. An instance of this widget displays a single HTML frame.
+#
+# Standard Functionality:
+#
+#     xview
+#     yview
+#     -xscrollcommand
+#     -yscrollcommand
+#     -width
+#     -height
 # 
 # Widget Specific Options:
-#     -hyperlinkcmd
-#     -getcmd
-#     -postcmd
-#     -motioncmd
-#     -fonttable
-#     -locationvar
-# 
-# Widget Sub-commands:
-#     goto        (Load the content at the specified URI)
-#     stop        (Cancel all pending downloads)
-#     node        (Html widget [node] command)
 #
+#     -requestcmd
+#         If not an empty string, this option specifies a script to be
+#         invoked for a GET or POST request. The script is invoked with a
+#         download handle appended to it. See the description of class
+#         ::hv3::download for a description.
+#
+#     -cancelrequestcmd
+#         If not an empty string, this option specifies a script that
+#         is invoked by the widget to cancel an earlier invocation of
+#         the -requestcmd script. The download handle to be cancelled
+#         is appended to the script before it is invoked.
+#
+#     -hyperlinkcmd
+#         If not an empty string, this option specifies a script for
+#         the widget to invoke when a hyperlink is clicked on. The script
+#         is invoked with the node handle of the clicked hyper-link element
+#         appended.
+#
+#     -fonttable
+#         Delegated through to the html widget.
+#
+#     -locationvar
+#         Set to the URI of the currently displayed document.
+#
+#     -pendingvar
+#         Name of var to set to true while resource requests are
+#         pending for the currently displayed document.
+#
+#     -scrollbarpolicy
+#         This option may be set to either a boolean value or "auto". It
+#         determines the visibility of the widget scrollbars.
+#
+#
+# Widget Sub-commands:
+#
+#     goto URI
+#         Load the content at the specified URI into the widget. 
+#
+#     stop
+#         Cancel all pending downloads.
+#
+#     node        
+#         Caching wrapper around html widget [node] command.
+#
+#     reset        
+#         Wrapper around the html widget command of the same name. Also
+#         resets all document related state stored by the mega-widget.
+#
+#     html        
+#         Return the path of the underlying html widget. This should only
+#         be used to determine paths for child widgets. Bypassing hv3 and
+#         accessing the html widget interface directly may confuse hv3.
+#
+
+
+#--------------------------------------------------------------------------
+# Class ::hv3::download
+#
+#     Instances of this class are used to interface between the protocol
+#     implementation and the hv3 widget. Refer to the hv3 man page for a more
+#     complete description of the interface as used by protocol
+#     implementations. Briefly, the protocol implementation uses only the
+#     following object methods:
+#
+#     Queries:
+#         uri
+#         postdata
+#         mimetype
+#
+#     Actions:
+#         redirect URI
+#         mimetype MIMETYPE
+#         append DATA
+#         finish
+#         fail
+#
+snit::type ::hv3::download {
+  variable myData ""
+  variable myChunksize 2048
+
+  # A download object is "locked" once the first call to [$handle append]
+  # is made. After an object is locked it may not be redirected and nor
+  # may the mimetype be changed. It is an error if the application attempts
+  # to do either of these things.
+  #
+  variable myLocked 0
+
+  variable myExpectedSize ""
+
+  option -linkedhandle -default ""
+
+  option -incrscript  -default ""
+  option -finscript   -default ""
+  option -failscript  -default ""
+  option -redirscript -default ""
+  option -lockscript  -default ""
+
+  option -uri         -default ""
+  option -postdata    -default ""
+  option -mimetype    -default ""
+
+  # Constructor and destructor
+  constructor {args} {eval $self configure $args}
+  destructor  {}
+
+  # Query interface used by protocol implementations
+  method uri       {} {return $options(-uri)}
+  method postdata  {} {return $options(-postdata)}
+  method authority {} {
+    set obj [Hv3Uri %AUTO% $options(-uri)]
+    set authority [$obj cget -authority]
+    $obj destroy
+    return $authority
+  }
+  method locked {} {return $myLocked}
+  method mimetype {{newval ""}} {
+    if {$newval ne ""} {
+      if {$myLocked} {error "Download handle is locked"}
+      set options(-mimetype) $newval
+    }
+    return $options(-mimetype)
+  }
+  method expected_size {{newval ""}} {
+    if {$newval ne ""} {
+      if {$myLocked} {error "Download handle is locked"}
+      set myExpectedSize $newval
+    }
+    return $myExpectedSize
+  }
+
+  # Interface for returning data.
+  method append {data} {
+
+    # If this is the first call to [$handle append], the object becomes
+    # "locked". If there is a -lockscript option, evaluate it. "locked"
+    # means it is an error to change the mimetype or redirect the
+    # URI from this point on.
+    if {$myLocked == 0} {
+      if {$options(-lockscript) ne ""} { eval $options(-lockscript) }
+      set myLocked 1
+    }
+
+    ::append myData $data
+    set nData [string length $myData]
+    if {$options(-incrscript) != "" && $nData >= $myChunksize} {
+      eval [linsert $options(-incrscript) end $myData]
+      set myData {}
+      # set myChunksize [expr $myChunksize * 2]
+    }
+  }
+
+  # Called after all data has been passed to [append].
+  method finish {} {
+    if {$options(-finscript) != ""} { 
+      eval [linsert $options(-finscript) end $myData] 
+    } 
+    $self destroy
+  }
+
+  # Called if the download has failed.
+  method fail {{errmsg {Unspecified Error}}} {
+    if {$options(-failscript) != ""} { 
+      eval [concat $options(-failscript) [list $errmsg]]
+    } 
+    destroy $self
+  }
+
+  # Interface for returning a redirect
+  method redirect {new_uri} {
+    if {$myLocked} {error "Download handle is locked"}
+    if {$options(-redirscript) != ""} {
+      eval [linsert $options(-redirscript) end $new_uri]
+    } 
+    set options(-uri) $new_uri
+    set myData {}
+  }
+}
+#--------------------------------------------------------------------------
+
+# This proc is used to add destructors to a download-handle object.
+#
+proc ::hv3::download_destructor {downloadHandle script} {
+  $downloadHandle configure -failscript [
+    list ::hv3::eval2 $script [$downloadHandle cget -failscript]
+  ]
+  $downloadHandle configure -finscript [
+    list ::hv3::eval2 $script [$downloadHandle cget -finscript]
+  ]
+}
+proc ::hv3::eval2 {script finscript data} {
+  eval $script
+  if {$finscript ne ""} {
+    eval [concat $finscript [list $data]]
+  }
+}
 

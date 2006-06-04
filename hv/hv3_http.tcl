@@ -1,59 +1,166 @@
 
+#
+# This file contains implementations of the -requestcmd and -cancelrequestcmd
+# scripts used with the hv3 widget for the demo browser. Supported functions
+# are:
+#
+#     * http:// (including cookies)
+#     * file://
+#     * Saving files to disk.
+#
+# The same class (Hv3HttpProtocol) also provides support for downloading
+# and saving files to disk (it uses class ::hv3::filedownloader to help
+# with this).
+#
+
 package require snit
 package require Tk
+package require http
 
-snit::type Hv3HttpProtcol {
+#
+# ::hv3::protocol
+#
+#     Connect hv3 to the outside world via download-handle objects.
+#
+# Synopsis:
+#
+#     set protocol [::hv3::protocol %AUTO%]
+#
+#     $protocol requestcmd DOWNLOAD-HANDLE
+#     $protocol cancelrequestcmd DOWNLOAD-HANDLE
+#
+#     $protocol schemehandler scheme handler
+#
+#     $protocol destroy
+#
+snit::type ::hv3::protocol {
 
-  option -proxyport -default 8123      -configuremethod _ConfigureProxy
-  option -proxyhost -default localhost -configuremethod _ConfigureProxy
+  option -proxyport -default 8123      -configuremethod ConfigureProxy
+  option -proxyhost -default localhost -configuremethod ConfigureProxy
 
-  # variable myCookies -array [list]
+  # Lists of waiting and in-progress http URI download-handles.
+  variable myWaitingHandles    [list]
+  variable myInProgressHandles [list]
+ 
+  # If not set to an empty string, contains the name of a global
+  # variable to set to a short string describing the state of
+  # the object. The string is always of the form:
+  #
+  #     "X1 waiting, X2 in progress"
+  #
+  # where X1 and X2 are integers. An http request is said to be "waiting"
+  # until the header identifying the mimetype is received, and "in progress"
+  # from that point on until the resource has been completely retrieved.
+  #
+  option -statusvar -default "" -configuremethod ConfigureStatusvar
 
+  # Instance of ::hv3_browser::cookiemanager
   variable myCookieManager ""
 
+  # Both built-in ("http" and "file") and any configured scheme handlers 
+  # (i.e. "home:") are stored in this array.
+  variable mySchemeHandlers -array [list]
+
   constructor {args} {
-    package require http
     $self configurelist $args
-    $self _ConfigureProxy proxyport $options(-proxyport)
+    $self ConfigureProxy proxyport $options(-proxyport)
     set myCookieManager [::hv3_browser::cookiemanager %AUTO%]
+
+    $self schemehandler file [mymethod request_file]
+    $self schemehandler http [mymethod request_http]
   }
 
   destructor {
     if {$myCookieManager ne ""} {$myCookieManager destroy}
   }
 
-  method download {downloadHandle} {
-    set uri [$downloadHandle uri]
-    set finish [mymethod _DownloadCallback $downloadHandle]
-    set append [mymethod _AppendCallback $downloadHandle]
+  # Register a custom scheme handler command (like "home:").
+  method schemehandler {scheme handler} {
+    set mySchemeHandlers($scheme) $handler
+  }
 
-    set headers ""
-    set authority [$downloadHandle authority]
-#    if {[info exists myCookies($authority)]} {
-#      set headers "Cookie "
-#      foreach cookie $myCookies($authority) {
-#        lappend headers $cookie
-#      }
-#    }
+  # This method is invoked as the -cancelrequestcmd script of an hv3 widget
+  method cancelrequestcmd {downloadHandle} {
+    # TODO
+  }
 
-    set cookies [$myCookieManager get_cookies $authority]
-    if {$cookies ne ""} {
-      set headers [list Cookie $cookies]
-    }
+  # This method is invoked as the -requestcmd script of an hv3 widget
+  method requestcmd {downloadHandle} {
 
-    set postdata [$downloadHandle postdata]
+    # Extract the URI scheme to figure out what kind of URI we are
+    # dealing with. Currently supported are "file" and "http" (courtesy 
+    # Tcl built-in http package).
+    set uri_obj [::hv3::uri %AUTO% [$downloadHandle uri]]
+    set uri_scheme [$uri_obj cget -scheme]
+    $uri_obj destroy
 
-    if {$postdata ne ""} {
-      ::http::geturl $uri     \
-          -command $finish    \
-          -handler $append    \
-          -headers $headers   \
-          -query   $postdata
+    # Fold the scheme to lower-case. Should ::hv3::uri have already done this?
+    set uri_scheme [string tolower $uri_scheme]
+
+    # Execute the scheme-handler, or raise an error if no scheme-handler
+    # can be found.
+    if {[info exists mySchemeHandlers($uri_scheme)]} {
+      eval [concat $mySchemeHandlers($uri_scheme) $downloadHandle]
     } else {
-      ::http::geturl $uri -command $finish -handler $append -headers $headers
+      error "Unknown URI scheme: \"$uri_scheme\""
     }
   }
 
+  # Handle an http:// URI.
+  #
+  method request_http {downloadHandle} {
+    set uri       [$downloadHandle uri]
+    set authority [$downloadHandle authority]
+    set postdata  [$downloadHandle postdata]
+
+    # Store the HTTP header containing the cookies in variable $headers
+    set headers [$myCookieManager get_cookies $authority]
+    if {$headers ne ""} {
+      set headers [list Cookie $headers]
+    }
+
+    # Fire off a request via the http package.
+    set geturl [list ::http::geturl $uri                     \
+      -command [mymethod _DownloadCallback $downloadHandle]  \
+      -handler [mymethod _AppendCallback $downloadHandle]    \
+      -headers $headers                                      \
+    ]
+    if {$postdata ne ""} {
+      lappend geturl -query $postdata
+    }
+    set token [eval $geturl]
+
+    # Add this handle the the waiting-handles list. Also add a callback
+    # to the -failscript and -finscript of the object so that it 
+    # automatically removes itself from our lists (myWaitingHandles and
+    # myInProgressHandles) after the retrieval is complete.
+    lappend myWaitingHandles $downloadHandle
+    ::hv3::download_destructor $downloadHandle [
+      mymethod Finish_request $downloadHandle $token
+    ]
+    $self Updatestatusvar
+  }
+
+  # Handle a file:// URI.
+  #
+  method request_file {downloadHandle} {
+    # Extract the "path" component from the URI
+    set uri_obj [::hv3::uri %AUTO% [$downloadHandle uri]]
+    set path [$uri_obj cget -path]
+    $uri_obj destroy
+
+    # Read the file from the file system. The [open] or [read] command
+    # might throw an exception. No problem, the hv3 widget will catch
+    # it and automatically deem the request to have failed.
+    set fd [open $path]
+    set data [read $fd]
+    close $fd
+
+    $downloadHandle append $data
+    $downloadHandle finish
+  }
+
+  # Download a file and save it to disk
   method saveFile {uri} {
     set dler [::hv3::filedownloader .download%AUTO% $uri]
     set finish [list $dler finish]
@@ -72,12 +179,39 @@ snit::type Hv3HttpProtcol {
   # Configure the http package to use a proxy as specified by
   # the -proxyhost and -proxyport options on this object.
   #
-  method _ConfigureProxy {option value} {
+  method ConfigureProxy {option value} {
     set options($option) $value
     ::http::config -proxyhost $options(-proxyhost)
     ::http::config -proxyport $options(-proxyport)
     ::http::config -useragent {Mozilla/5.0 Gecko/20050513}
     set ::http::defaultCharset utf-8
+  }
+
+  method Finish_request {downloadHandle token} {
+    if {[set idx [lsearch $myInProgressHandles $downloadHandle]] >= 0} {
+      set myInProgressHandles [lreplace $myInProgressHandles $idx $idx]
+    }
+    if {[set idx [lsearch $myWaitingHandles $downloadHandle]] >= 0} {
+      set myWaitingHandles [lreplace $myWaitingHandles $idx $idx]
+    }
+    ::http::reset $token
+    $self Updatestatusvar
+  }
+
+  # Update the value of the -statusvar variable, if the -statusvar
+  # option is not set to an empty string.
+  method Updatestatusvar {} {
+    if {$options(-statusvar) ne ""} {
+      set    value "[llength $myWaitingHandles] waiting, "
+      append value "[llength $myInProgressHandles] in progress"
+      uplevel #0 [list set $options(-statusvar) $value]
+    }
+  }
+  
+  # Invoked to set the value of the -statusvar option
+  method ConfigureStatusvar {option value} {
+    set options($option) $value
+    $self Updatestatusvar
   }
 
   # Invoked when data is available from an http request. Pass the data
@@ -86,8 +220,49 @@ snit::type Hv3HttpProtcol {
   method _AppendCallback {downloadHandle socket token} {
     upvar \#0 $token state 
 
+    # If this download-handle is still in the myWaitingHandles list,
+    # process the http header and move it to the in-progress list.
+    if {0 <= [set idx [lsearch $myWaitingHandles $downloadHandle]]} {
+
+      # Remove the entry from myWaitingHandles.
+      set myWaitingHandles [lreplace $myWaitingHandles $idx $idx]
+
+      foreach {name value} $state(meta) {
+        switch -- $name {
+          Location {
+            set redirect $value
+          }
+          Set-Cookie {
+            regexp {^([^= ]*)=([^ ;]*)} $value dummy name value
+            $myCookieManager add_cookie [$downloadHandle authority] $name $value
+          }
+          Content-Type {
+            if {[set idx [string first ";" $value]] >= 0} {
+              set value [string range $value 0 [expr $idx-1]]
+            }
+            $downloadHandle mimetype $value
+          }
+          Content-Length {
+            $downloadHandle expected_size $value
+          }
+        }
+      }
+
+
+      if {[info exists redirect]} {
+        ::http::reset $token
+        $downloadHandle redirect $redirect
+        $self requestcmd $downloadHandle
+        return
+      }
+
+      lappend myInProgressHandles $downloadHandle 
+      $self Updatestatusvar
+    }
+
     set data [read $socket 2048]
-    $downloadHandle append $data
+    set rc [catch [list $downloadHandle append $data] msg]
+    if {$rc} { puts "Error: $msg $::errorInfo" }
     set nbytes [string length $data]
     return $nbytes
   }
@@ -95,27 +270,12 @@ snit::type Hv3HttpProtcol {
   # Invoked when an http request has concluded.
   #
   method _DownloadCallback {downloadHandle token} {
-    upvar \#0 $token state 
-
-    if {[info exists state(meta)]} {
-      foreach {name value} $state(meta) {
-        if {$name eq "Set-Cookie"} {
-          regexp {^([^= ]*)=([^ ;]*)} $value dummy name value
-          $myCookieManager add_cookie [$downloadHandle authority] $name $value
-        }
-      }
-      foreach {name value} $state(meta) {
-        if {$name eq "Location"} {
-          puts "REDIRECT: $value"
-          $downloadHandle redirect $value
-          $self download $downloadHandle
-          return
-        }
-      }
-    } 
-
-    $downloadHandle append $state(body)
-    $downloadHandle finish
+    if {
+      [lsearch $myInProgressHandles $downloadHandle] >= 0 ||
+      [lsearch $myWaitingHandles $downloadHandle] >= 0
+    } {
+      $downloadHandle finish
+    }
   }
 
   method debug_cookies {} {
@@ -130,8 +290,14 @@ snit::type Hv3HttpProtcol {
 #     * Retrieve applicable cookies for an http request, and
 #     * Delete the contents of the cookie database.
 #
-# Also, by invoking [pathName debug] a GUI to inspect and manipulate the
-# database is created in a new top-level window.
+# Also, a GUI to inspect and manipulate the database in a new top-level 
+# window is provided.
+#
+# Interface:
+#
+#     $pathName add_cookie AUTHORITY NAME VALUE
+#     $pathName get_cookies AUTHORITY
+#     $pathName debug
 #
 snit::type ::hv3_browser::cookiemanager {
 
@@ -227,8 +393,7 @@ snit::type ::hv3_browser::cookiemanager {
     }
 
     return [subst $Template]
-  }
-
+  } 
   method download_report {downloadHandle} {
     $downloadHandle append [$self get_report]
     $downloadHandle finish
@@ -238,7 +403,7 @@ snit::type ::hv3_browser::cookiemanager {
     set path $myDebugWindow
     if {![winfo exists $path]} {
       toplevel $path
-      ::hv3::scrolled hv3 ${path}.hv3
+      ::hv3::hv3 ${path}.hv3
       ${path}.hv3 configure -width 400 -height 400
       pack ${path}.hv3 -expand true -fill both
       set HTML [${path}.hv3 html]
@@ -248,10 +413,10 @@ snit::type ::hv3_browser::cookiemanager {
         array unset [myvar myCookies]
         [mymethod debug]
       }]
+
+      ${path}.hv3 configure -requestcmd [mymethod download_report]
     }
     raise $path
-    ${path}.hv3 protocol report [mymethod download_report]
-    ${path}.hv3 postdata POSTME!
     ${path}.hv3 goto report://
 
     set HTML [${path}.hv3 html]
@@ -259,40 +424,85 @@ snit::type ::hv3_browser::cookiemanager {
   }
 }
 
+#
+# This mega-widget creates a new top-level window to control 
+# downloading a URI to the file-system. This isn't the most elegant
+# way to handle downloads, but it is familiar to users and quick
+# to implement. This is just a demo after all (sigh)...
+#
+# This widget is designed to interface with an hv3 download handle (an 
+# instance of class ::hv3::download).
+#
+# SYNOPSIS:
+#
+#     set obj [::hv3::filedownload %AUTO% ?OPTIONS?]
+#
+#     $obj set_destination $PATH
+#     $obj append $DATA
+#     $obj finish
+#
+# Options are:
+#
+#     Option        Default   Summary
+#     -------------------------------------
+#     -source       ""        Source of download (for display only)
+#     -size         ""        Expected size in bytes
+#     -cancelcmd    ""        Script to invoke to cancel the download
+#
 snit::widget ::hv3::filedownloader {
   hulltype toplevel
 
-  # The channel to write to.
+  # The destination path (in the local filesystem) and the corresponding
+  # tcl channel (if it is open). These two variables also define the 
+  # three states that this object can be in:
+  #
+  # INITIAL:
+  #     No destination path has been provided yet. Both myDestination and
+  #     myChannel are set to an empty string.
+  #
+  # STREAMING:
+  #     A destination path has been provided and the destination file is
+  #     open. But the download is still in progress. Neither myDestination
+  #     nor myChannel are set to an empty string.
+  #
+  # FINISHED:
+  #     A destination path is provided and the entire download has been
+  #     saved into the file. We're just waiting for the user to dismiss
+  #     the GUI. In this state, myChannel is set to an empty string but
+  #     myDestination is not.
+  #
+  variable myDestination ""
   variable myChannel ""
 
-  # Buffer for data while waiting for a file-name.
+  # Buffer for data while waiting for a file-name. This is used only in the
+  # state named INITIAL in the above description. The $myIsFinished flag
+  # is set to true if the download is finished (i.e. [finish] has been 
+  # called).
   variable myBuffer ""
   variable myIsFinished 0
 
+  option -source    -default ""
+  option -size      -default ""
+  option -cancelcmd -default ""
+
   # Variables used to update the dynamic label widgets.
-  variable mySource ""
-  variable myDestination ""
   variable myStatus ""
   variable myElapsed ""
 
-  # Total expected bytes and bytes downloaded so far.
-  variable mySize ""
+  # Total bytes downloaded so far.
   variable myDownloaded 0
 
   # Time the download started, according to [clock seconds]
   variable myStartTime 
 
-  constructor {source} {
-    set mySource $source
-
-    label ${win}.source1 -text "Source:"
-    label ${win}.source2 -textvariable [myvar mySource]
+  constructor {args} {
+    $self configurelist $args
 
     foreach e [list \
-        [list 0 "Source:" mySource] \
+        [list 0 "Source:"      options(-source)]      \
         [list 1 "Destination:" myDestination] \
-        [list 2 "Status:" myStatus] \
-        [list 3 "Elapsed:" myElapsed] \
+        [list 2 "Status:"      myStatus]      \
+        [list 3 "Elapsed:"     myElapsed]     \
     ] {
       foreach {n text var} $e {}
       set strlabel [label ${win}.row${n}_0 -text $text]
@@ -304,64 +514,96 @@ snit::widget ::hv3::filedownloader {
 
     label ${win}.progress_label -text "Progress:"
     canvas ${win}.progress -height 12 -borderwidth 2 -relief sunken
-    ${win}.progress create rectangle 0 0 0 12 -fill blue -tags rect
+    ${win}.progress create rectangle 0 0 0 12 -fill darkblue -tags rect
 
+    # The "Progress:" label and canvas pretending to be a progress bar.
     grid configure ${win}.progress_label -column 0 -row 4 -sticky w
-    grid configure ${win}.progress -column 1 -row 4 -sticky ew
+    grid configure ${win}.progress       -column 1 -row 4 -sticky ew
 
-    button ${win}.button -text Cancel -command [list destroy $self]
+    button ${win}.button -text Cancel -command [mymethod Cancel]
     grid configure ${win}.button -column 1 -row 5 -sticky e
 
     set myStartTime [clock seconds]
-    $self timed_callback
+    $self Timedcallback
   }
 
-  method set_dest {dest} {
-    set myDestination $dest
-    set myChannel [open $myDestination w]
-    fconfigure $myChannel -encoding binary
-    fconfigure $myChannel -translation binary
-    puts -nonewline $myChannel $myBuffer
-    set myBuffer ""
-    $self update_labels
-    if {$myIsFinished} {
-      $self finish
+  method set_destination {dest} {
+
+    # It is an error if this method has been called before.
+    if {$myDestination ne ""} {
+      error "This ::hv3::filedownloader already has a destination!"
+    }
+
+    if {$dest eq ""} {
+      # Passing an empty string to this method cancels the download.
+      # This is for conveniance, because [tk_getSaveFile] returns an 
+      # empty string when the user selects "Cancel".
+      $self Cancel
+    } else {
+      # Set the myDestination variable and open the channel to the
+      # file to write. Todo: An error could occur opening the file.
+      set myDestination $dest
+      set myChannel [open $myDestination w]
+      fconfigure $myChannel -encoding binary -translation binary
+
+      # If a buffer has accumulated, write it to the new channel.
+      puts -nonewline $myChannel $myBuffer
+      set myBuffer ""
+
+      # Update the GUI
+      $self Updategui
+
+      # If the myIsFinished flag is set, then the entire download
+      # was already in the buffer. We're finished.
+      if {$myIsFinished} {
+        $self finish {}
+      }
     }
   }
 
-  method timed_callback {} {
-    $self update_labels
-    after 500 [mymethod timed_callback]
+  # This internal method is called to cancel the download. When this
+  # returns the object will have been destroyed.
+  #
+  method Cancel {} {
+    # Evaluate the -cancelcmd script and destroy the object.
+    eval $options(-cancelcmd)
+    if {$myDestination ne ""} {
+      catch {close $myChannel}
+      catch {file delete $myDestination}
+    }
+    destroy $self
   }
 
-  method update_labels {} {
-    set tm [expr [clock seconds] - $myStartTime]
+  # Update the GUI to match the internal state of this object.
+  #
+  method Updategui {} {
+    if {0 == $myIsFinished} {
+      set tm [expr [clock seconds] - $myStartTime]
+      set myElapsed "$tm seconds"
+    }
 
     if {$myIsFinished} {
       set myStatus "$myDownloaded / $myDownloaded (finished)"
-      set tm $myStartTime
       set percentage 100.0
-    } elseif {$mySize eq ""} {
+    } elseif {$options(-size) eq ""} {
       set myStatus "$myDownloaded / ??"
       set percentage 50.0
     } else {
-      set percentage [expr ${myDownloaded}.0 * 100.0 / ${mySize}.0]
+      set percentage [expr ${myDownloaded}.0 * 100.0 / ${options(-size)}.0]
       set percentage [format "%.1f" $percentage]
-      set myStatus "$myDownloaded / $mySize ($percentage%)"
+      set myStatus "$myDownloaded / $options(-size) ($percentage%)"
     }
 
     set w [expr [winfo width ${win}.progress].0 * $percentage / 100.0]
     ${win}.progress coords rect 0 0 $w 12
-
-    set myElapsed "$tm seconds"
   }
 
-  method append {socket token args} {
-    upvar \#0 $token state 
-    if {[info exists state(totalsize)] && $state(totalsize) != 0} {
-      set mySize $state(totalsize)
-    }
-    set data [read $socket 4096]
+  method Timedcallback {} {
+    $self Updategui
+    after 500 [mymethod Timedcallback]
+  }
+
+  method append {data} {
     if {$myChannel ne ""} {
       puts -nonewline $myChannel $data
       set myDownloaded [file size $myDestination]
@@ -369,27 +611,36 @@ snit::widget ::hv3::filedownloader {
       append myBuffer $data
       set myDownloaded [string length $myBuffer]
     }
-    $self update_labels
-    return [string length $data]
+    $self Updategui
   }
 
-  method finish {args} {
+  # Called by the driver download-handle when the download is 
+  # complete. All the data will have been already passed to [append].
+  #
+  method finish {data} {
+    $self append $data
+
+    # If the channel is open, close it. Also set the button to say "Ok".
     if {$myChannel ne ""} {
       close $myChannel
       set myChannel ""
-      after cancel [mymethod timed_callback]
-      ${win}.button configure -text Ok
+      ${win}.button configure -text Ok -command [list destroy $self]
     }
+
+    # If myIsFinished flag is not set, set it and then set myElapsed to
+    # indicate the time taken by the download.
     if {!$myIsFinished} {
       set myIsFinished 1
-      set myStartTime [expr [clock seconds] - $myStartTime]
+      set myElapsed "[expr [clock seconds] - $myStartTime] seconds"
     }
-    $self update_labels
+
+    # Update the GUI.
+    $self Updategui
   }
 
   destructor {
     catch { close $myChannel }
-    after cancel [mymethod timed_callback]
+    after cancel [mymethod Timedcallback]
   }
 }
 

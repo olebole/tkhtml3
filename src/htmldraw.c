@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.124 2006/05/25 15:25:28 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.125 2006/06/04 12:53:47 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -271,6 +271,23 @@ struct HtmlCanvasItem {
     HtmlCanvasItem *pNext;
 };
 
+#if 1
+static void
+CHECK_CANVAS(pCanvas) 
+    HtmlCanvas *pCanvas;
+{
+    HtmlCanvasItem *pItem; 
+    HtmlCanvasItem *pPrev = 0; 
+    for (pItem = pCanvas->pFirst; pItem; pItem = pItem->pNext) {
+        assert(!pPrev       || pPrev->pNext == pItem);
+        assert(pPrev        || pCanvas->pFirst == pItem);
+        assert(pItem->pNext || pItem == pCanvas->pLast);
+        pPrev = pItem;
+    }
+}
+#else
+  #define CHECK_CANVAS(x)
+#endif
 
 /*
  * Every item in the canvas has an associated z-level (not to be confused with
@@ -494,6 +511,7 @@ HtmlDrawCleanup(pTree, pCanvas)
 
     if (&pTree->canvas == pCanvas) {
         HtmlNodeReplacement *p;
+CHECK_CANVAS(pCanvas);
         for (p = pTree->pMapped; p; p = p->pNext) {
             p->iCanvasX = -10000;
             p->iCanvasY = -10000;
@@ -813,6 +831,8 @@ void HtmlDrawCanvas(pCanvas, pCanvas2, x, y, pNode)
     int y;
     HtmlNode *pNode;
 {
+CHECK_CANVAS(pCanvas);
+CHECK_CANVAS(pCanvas2);
     if (pCanvas2->pFirst) {
         movePrimitives(pCanvas2, x, y);
 
@@ -885,6 +905,7 @@ void HtmlDrawCanvas(pCanvas, pCanvas2, x, y, pNode)
     pCanvas->top = MIN(pCanvas->top, y+pCanvas2->top);
     pCanvas->bottom = MAX(pCanvas->bottom, y+pCanvas2->bottom);
     pCanvas->right = MAX(pCanvas->right, x+pCanvas2->right);
+CHECK_CANVAS(pCanvas);
 }
 
 static int 
@@ -3100,12 +3121,14 @@ HtmlDrawAddMarker(pCanvas, x, y, fixed)
     int fixed;
 {
     HtmlCanvasItem *pItem; 
+CHECK_CANVAS(pCanvas);
     pItem = allocateCanvasItem();
     pItem->type = CANVAS_MARKER;
     pItem->x.marker.x = x;
     pItem->x.marker.y = y;
     pItem->x.marker.flags = (fixed ? MARKER_FIXED : 0);
     linkItem(pCanvas, pItem);
+CHECK_CANVAS(pCanvas);
     return pItem;
 }
 
@@ -3120,6 +3143,7 @@ HtmlDrawGetMarker(pCanvas, pMarker, pX, pY)
     int origin_y = 0;
     HtmlCanvasItem *pItem; 
     HtmlCanvasItem *pPrev = 0; 
+    CHECK_CANVAS(pCanvas);
     for (pItem = pCanvas->pFirst; pItem && pMarker; pItem = pItem->pNext) {
         if (pItem->type == CANVAS_ORIGIN) {
             CanvasOrigin *pOrigin = &pItem->x.o;
@@ -3136,9 +3160,10 @@ HtmlDrawGetMarker(pCanvas, pMarker, pX, pY)
                 pCanvas->pFirst = pMarker->pNext;
             }
             if (pCanvas->pLast == pMarker) {
-                pCanvas->pLast = pPrev;
+                pCanvas->pLast = pPrev ? pPrev : pCanvas->pFirst;
             }
             freeCanvasItem(pMarker);
+            CHECK_CANVAS(pCanvas);
             return 0;
         }
         pPrev = pItem;

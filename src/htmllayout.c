@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.175 2006/05/25 15:25:28 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.176 2006/06/04 12:53:47 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -3037,11 +3037,12 @@ HtmlLayout(pTree)
         assert(sLayout.pAbsolute == 0);
         sLayout.pAbsolute = sLayout.pFixed;
         sLayout.pFixed = 0;
-        sFixed.iContaining = sContent.iContaining;
         sFixed.height = Tk_Height(pTree->tkwin);
+        sFixed.width = Tk_Width(pTree->tkwin);
+        sFixed.iContaining = sFixed.width;
         if (sFixed.height < 5) sFixed.height = pTree->options.height;
         HtmlDrawAddMarker(&sFixed.vc, 0, 0, 1);
-        drawAbsolute(&sLayout, &sFixed, &sContent.vc, 0, 0);
+        drawAbsolute(&sLayout, &sFixed, &pTree->canvas, 0, 0);
         HtmlDrawCanvas(&pTree->canvas, &sFixed.vc, 0, 0, pBody);
 
         pTree->canvas.right = MAX(

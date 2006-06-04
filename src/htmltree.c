@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.68 2006/05/15 15:24:25 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.69 2006/06/04 12:53:48 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -1445,10 +1445,12 @@ node_attr_usage:
         case NODE_REPLACE: {
             if (objc > 2) {
                 Tcl_Obj *aArgs[3];
-                HtmlNodeReplacement *pReplace; /* New pNode->pReplacement */
-                int nBytes;                    /* bytes allocated at pReplace */
-                Tk_Window widget;              /* Replacement widget */
-                Tk_Window win = pTree->win;    /* Application main window */
+                HtmlNodeReplacement *pReplace = 0; /* New pNode->pReplacement */
+                int nBytes;                  /* bytes allocated at pReplace */
+                Tk_Window widget;            /* Replacement widget */
+                Tk_Window win = pTree->win;  /* Application main window */
+
+                const char *zWin = 0;        /* Replacement window name */
 
                 SwprocConf aArgConf[4] = {
                     {SWPROC_ARG, "new-value", 0, 0},
@@ -1456,38 +1458,38 @@ node_attr_usage:
                     {SWPROC_OPT, "deletecmd", 0, 0},
                     {SWPROC_END, 0, 0, 0}
                 };
-
                 if (SwprocRt(interp, objc - 2, &objv[2], aArgConf, aArgs)) {
                     return TCL_ERROR;
                 }
 
-                /* Make sure the replacement object is a Tk window. Register
-                 * Tkhtml as the geometry manager.
-                 */
-                widget = Tk_NameToWindow(interp, Tcl_GetString(aArgs[0]), win);
-                if (!widget) {
-                    return TCL_ERROR;
-                } else {
-                    static Tk_GeomMgr sManage = {
-                        "Tkhtml",
-                        geomRequestProc,
-                        0
-                    };
-                    Tk_ManageGeometry(widget, &sManage, pNode);
-                }
+                zWin = Tcl_GetString(aArgs[0]);
 
-                nBytes = sizeof(HtmlNodeReplacement);
-                pReplace = (HtmlNodeReplacement *) HtmlClearAlloc(0, nBytes);
-                pReplace->pReplace = aArgs[0];
-                pReplace->pConfigure = aArgs[1];
-                pReplace->pDelete = aArgs[2];
-                pReplace->win = widget;
+                if (zWin[0]) {
+		    /* Make sure the replacement object is a Tk window. 
+                     * Register Tkhtml as the geometry manager.
+                     */
+                    widget = Tk_NameToWindow(interp, zWin, win);
+                    if (!widget) {
+                        return TCL_ERROR;
+                    } else {
+                        static Tk_GeomMgr sManage = {
+                            "Tkhtml",
+                            geomRequestProc,
+                            0
+                        };
+                        Tk_ManageGeometry(widget, &sManage, pNode);
+                    }
+
+                    nBytes = sizeof(HtmlNodeReplacement);
+                    pReplace = (HtmlNodeReplacement *)HtmlClearAlloc(0, nBytes);
+                    pReplace->pReplace = aArgs[0];
+                    pReplace->pConfigure = aArgs[1];
+                    pReplace->pDelete = aArgs[2];
+                    pReplace->win = widget;
+                }
 
 		/* Free any existing replacement object and set
 		 * pNode->pReplacement to point at the new structure. 
-                 *
-		 * Todo: We could just overwrite the existing values to deal
-		 * with this case.
                  */
                 clearReplacement(pTree, pNode);
                 pNode->pReplacement = pReplace;

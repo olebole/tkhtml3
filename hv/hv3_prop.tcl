@@ -3,6 +3,7 @@
 # hv3_prop.tcl --
 #
 #     This file contains code to implement the Tkhtml debugging interface.
+#     Sometimes I call it the "tree browser".
 #
 
 package require Itcl
@@ -221,10 +222,12 @@ itcl::body HtmlDebug::searchNode {{idx 0}} {
 #     style and layout engines.
 #
 itcl::body HtmlDebug::rerender {} {
-  $myHtml configure -logcmd [list $this logcmd]
-  $myHtml relayout
+  set html [$myHtml html]
+
+  $html configure -logcmd [list $this logcmd]
+  $html relayout
   after idle [list ::HtmlDebug::browse $myHtml $mySelected]
-  after idle [list $myHtml configure -logcmd {}]
+  after idle [list $html configure -logcmd {}]
 }
 
 proc wireup_scrollbar {x_or_y widget scrollbar} {
@@ -232,6 +235,21 @@ proc wireup_scrollbar {x_or_y widget scrollbar} {
   set view "${x_or_y}view"
   $widget configure $scrollcommand [list $scrollbar set]
   $scrollbar configure -command [list $widget $view]
+}
+
+# ::hv3::use_tclprotocol
+#
+# Configure the -requestcmd option of the hv3 widget to interpret
+# URI's as tcl scripts.
+#
+proc ::hv3::use_tclprotocol {hv3} {
+  $hv3 configure -requestcmd ::hv3::tclprotocol -cancelrequestcmd ""
+}
+proc ::hv3::tclprotocol {handle} {
+  set uri [$handle uri]
+  set cmd [string range [$handle uri] 7 end]
+  $handle append [eval $cmd]
+  $handle finish
 }
 
 # HtmlDebug constructor
@@ -248,14 +266,14 @@ itcl::body HtmlDebug::constructor {HTML} {
   bind $myTopLevel <KeyPress-Q>  [list destroy $myTopLevel]
 
   set tree [list ::hv3::scrolledwidget canvas -propagate 1]
-  set shv3  [list ::hv3::scrolledwidget hv3 -propagate 1]
-  frameset $myTopLevel.hpan                                   \
-      $shv3 -variable mySearchHtml -side top  \
+  set hv3  [list ::hv3::hv3]
+  frameset $myTopLevel.hpan                   \
+      $hv3  -variable mySearchHtml -side top  \
       $tree -variable myTreeCanvas -side left \
-      $shv3 -variable myReportHtml
+      $hv3  -variable myReportHtml
 
-  $mySearchHtml protocol tcl tclProtocol
-  $mySearchHtml configure -hyperlinkcmd eval
+  ::hv3::use_tclprotocol $mySearchHtml 
+  $mySearchHtml configure -height 200
 
   set b [button [$mySearchHtml html].relayout]
   $b configure -text "Re-Render Document With Logging" 
@@ -269,7 +287,7 @@ itcl::body HtmlDebug::constructor {HTML} {
   bind $e <Return> [list $this searchNode]
   $this searchNode
 
-  $myReportHtml protocol tcl tclProtocol
+  ::hv3::use_tclprotocol $myReportHtml 
   [$myReportHtml html] configure -width 5 -height 5
 
   $myTreeCanvas configure -background white -borderwidth 10

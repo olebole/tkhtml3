@@ -7,7 +7,9 @@ snit::widget ::hv3::scrolledwidget {
   variable  myVsb
   variable  myHsb
 
-  option -propagate -default -0 -configuremethod set_propagate
+  option -propagate -default 0 -configuremethod set_propagate
+  option -scrollbarpolicy -default auto
+
   method set_propagate {option value} {
     grid propagate $win $value
     set options(-propagate) $value
@@ -16,8 +18,8 @@ snit::widget ::hv3::scrolledwidget {
   constructor {widget args} {
     # Create the three widgets - one user widget and two scrollbars.
     set myWidget [eval [linsert $widget 1 ${win}.widget]]
-    set myVsb  [scrollbar ${win}.vsb -orient vertical]
-    set myHsb  [scrollbar ${win}.hsb -orient horizontal]
+    set myVsb  [scrollbar ${win}.vsb -orient vertical -highlightthickness 0]
+    set myHsb  [scrollbar ${win}.hsb -orient horizontal -highlightthickness 0]
 
     grid configure $myWidget -column 0 -row 0 -sticky nsew
     grid columnconfigure $win 0 -weight 1
@@ -40,14 +42,20 @@ snit::widget ::hv3::scrolledwidget {
     # Propagate events from the scrolled widget to this one.
     bindtags $myWidget [concat [bindtags $myWidget] $win]
     catch {
-      bindtags [$myWidget html] [concat [bindtags [$myWidget html]] $win]
+      # bindtags [$myWidget html] [concat [bindtags [$myWidget html]] $win]
     }
   }
 
   method scrollcallback {scrollbar first last} {
     $scrollbar set $first $last
     set ismapped   [expr [winfo ismapped $scrollbar] ? 1 : 0]
-    set isrequired [expr ($first == 0.0 && $last == 1.0) ? 0 : 1]
+
+    if {$options(-scrollbarpolicy) eq "auto"} {
+      set isrequired [expr ($first == 0.0 && $last == 1.0) ? 0 : 1]
+    } else {
+      set isrequired $options(-scrollbarpolicy)
+    }
+
     if {$isrequired && !$ismapped} {
       switch [$scrollbar cget -orient] {
         vertical   {grid configure $scrollbar  -column 1 -row 0 -sticky ns}
@@ -179,12 +187,9 @@ proc frameset {win args} {
 #           puts "Type of node: [$N tag]"
 #         }
 #
-#     If the body of the loop executes a [break], then the current
-#     iteration of the loop is terminated and the next commenced (exactly
-#     the same behaviour as a [foreach] or [for] loop). However if 
-#     [continue] is executed, the current iteration is terminated and the
-#     body is not executed for any of the current nodes children. i.e.
-#     [continue] prevents descent of the tree.
+#     If the body of the loop executes a [continue], then the current iteration
+#     is terminated and the body is not executed for any of the current nodes
+#     children. i.e. [continue] prevents descent of the tree.
 #
 proc ::hv3::walkTree {N varname body} {
   set level "#[expr [info level] - 1]"

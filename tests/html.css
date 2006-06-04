@@ -164,6 +164,10 @@ INPUT, INPUT[type="text"], INPUT[type="password"] {
   border-color: #848280 #faf9f7 #faf9f7 #848280;
 }
 
+FRAMESET {
+  display: none;
+}
+
 /*
  *************************************************************************
  * Below this point are stylesheet rules for mapping presentational 
@@ -171,7 +175,6 @@ INPUT, INPUT[type="text"], INPUT[type="password"] {
  * shouldn't be specified here (in the UA stylesheet), but it doesn't matter
  * in practice. See CSS 2.1 spec for more details.
  */
-
 
 /* 'color' */
 [color]              { color: tcl(::tkhtml::attr color -color) }
@@ -258,3 +261,4 @@ IMG[hspace], OBJECT[hspace], APPLET[hspace] {
     margin-left: tcl(::tkhtml::attr hspace -len);
     margin-right: tcl(::tkhtml::attr hspace -len);
 }
+
