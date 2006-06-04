@@ -625,7 +625,7 @@ snit::widget ::hv3::hv3 {
     } 
     set obj [::hv3::uri %AUTO% $baseuri]
     $obj load $uri
-    set ret [$obj get -nofragment]
+    set ret [$obj get]
     $obj destroy
     return $ret
   }
@@ -680,8 +680,8 @@ snit::widget ::hv3::hv3 {
     set urlcmd    [mymethod resolve_uri $full_uri]
     append id .9999
 
-    set finscript [list \
-      $myHtml style -id $id -importcmd $importcmd -urlcmd $urlcmd
+    set finscript [mymethod \
+      Finishstyle $id $importcmd $urlcmd
     ]
     set handle [::hv3::download %AUTO%              \
         -uri         $full_uri                      \
@@ -689,6 +689,14 @@ snit::widget ::hv3::hv3 {
         -finscript   $finscript                     \
     ]
     $self makerequest $handle
+  }
+
+  # Callback invoked when a stylesheet request has finished. Made
+  # from method Requeststyle above.
+  #
+  method Finishstyle {id importcmd urlcmd data} {
+    $myHtml style -id $id -importcmd $importcmd -urlcmd $urlcmd $data
+    $self goto_fragment
   }
 
   # Handler for CSS @import directives.
@@ -909,6 +917,7 @@ snit::widget ::hv3::hv3 {
     set current_uri [$myUri get -nofragment]
     set uri_obj [::hv3::uri %AUTO% $current_uri]
     $uri_obj load $uri
+    # set full_uri [$uri_obj get -nofragment]
     set full_uri [$uri_obj get -nofragment]
     set fragment [$uri_obj cget -fragment]
 
@@ -927,7 +936,7 @@ snit::widget ::hv3::hv3 {
     # URI, if any. If we can't figure out an expected type, assume
     # text/html. The protocol handler may override this anyway.
     set mimetype text/html
-    set path [$uri_obj get -path]
+    set path [$uri_obj cget -path]
     if {[regexp {\.([A-Za-z0-9]+)$} $path dummy ext]} {
       switch -- [string tolower $ext] {
 	jpg  { set mimetype image/jpeg }
@@ -946,7 +955,7 @@ snit::widget ::hv3::hv3 {
     # to kind of resource.
     #
     set handle [::hv3::download %AUTO%             \
-        -uri         $full_uri                     \
+        -uri         [$uri_obj get]                \
         -mimetype    $mimetype                     \
         -postdata    $myPostData                   \
     ]
@@ -957,6 +966,7 @@ snit::widget ::hv3::hv3 {
     MakeRedirectable $handle
 
     $self makerequest $handle
+    $uri_obj destroy
   }
 
   # Abandon all currently pending downloads. This method is part of the

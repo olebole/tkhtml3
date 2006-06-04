@@ -24,7 +24,7 @@ sourcefile hv3_http.tcl
 sourcefile hv3_home.tcl
 sourcefile hv3_frameset.tcl
 
-snit::type ::hv3_browser::history {
+snit::type ::hv3::history {
 
   # The following two variables store the history list
   variable myHistoryList [list]
@@ -485,7 +485,7 @@ snit::widget ::hv3::browser {
     ::hv3::home_scheme_init [$myMainFrame hv3] $myProtocol
 
     # Create the history sub-system
-    set myHistory [::hv3_browser::history %AUTO% [$myMainFrame hv3]]
+    set myHistory [::hv3::history %AUTO% [$myMainFrame hv3]]
     $myHistory configure -gotocmd [mymethod goto]
 
     $self configurelist $args

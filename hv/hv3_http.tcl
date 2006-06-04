@@ -6,11 +6,6 @@
 #
 #     * http:// (including cookies)
 #     * file://
-#     * Saving files to disk.
-#
-# The same class (Hv3HttpProtocol) also provides support for downloading
-# and saving files to disk (it uses class ::hv3::filedownloader to help
-# with this).
 #
 
 package require snit
@@ -54,7 +49,7 @@ snit::type ::hv3::protocol {
   #
   option -statusvar -default "" -configuremethod ConfigureStatusvar
 
-  # Instance of ::hv3_browser::cookiemanager
+  # Instance of ::hv3::cookiemanager
   variable myCookieManager ""
 
   # Both built-in ("http" and "file") and any configured scheme handlers 
@@ -64,7 +59,7 @@ snit::type ::hv3::protocol {
   constructor {args} {
     $self configurelist $args
     $self ConfigureProxy proxyport $options(-proxyport)
-    set myCookieManager [::hv3_browser::cookiemanager %AUTO%]
+    set myCookieManager [::hv3::cookiemanager %AUTO%]
 
     $self schemehandler file [mymethod request_file]
     $self schemehandler http [mymethod request_http]
@@ -152,28 +147,18 @@ snit::type ::hv3::protocol {
     # Read the file from the file system. The [open] or [read] command
     # might throw an exception. No problem, the hv3 widget will catch
     # it and automatically deem the request to have failed.
+    #
+    # Unless the expected mime-type begins with the string "text", 
+    # configure the file-handle for binary mode.
     set fd [open $path]
+    if {![string match text* [$downloadHandle cget -mimetype]]} {
+      fconfigure $fd -encoding binary -translation binary
+    }
     set data [read $fd]
     close $fd
 
     $downloadHandle append $data
     $downloadHandle finish
-  }
-
-  # Download a file and save it to disk
-  method saveFile {uri} {
-    set dler [::hv3::filedownloader .download%AUTO% $uri]
-    set finish [list $dler finish]
-    set append [list $dler append]
-    ::http::geturl $uri     \
-        -command $finish    \
-        -handler $append
-    set dest [file normal [tk_getSaveFile]]
-    if {$dest eq ""} {
-      destroy $dler
-    } else {
-      $dler set_dest $dest
-    }
   }
 
   # Configure the http package to use a proxy as specified by
@@ -299,7 +284,7 @@ snit::type ::hv3::protocol {
 #     $pathName get_cookies AUTHORITY
 #     $pathName debug
 #
-snit::type ::hv3_browser::cookiemanager {
+snit::type ::hv3::cookiemanager {
 
   variable myDebugWindow
 
