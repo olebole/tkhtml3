@@ -1,19 +1,13 @@
 
-catch { memory init on }
+catch {memory init on}
 
-# Load packages.
-if {[info exists auto_path]} {
-    # set auto_path [concat . $auto_path]
-}
 package require Tk
 package require Tkhtml 3.0
 
-# option add *font {Arial 9 normal}
-
 # If possible, load package "Img". Without it the script can still run,
 # but won't be able to load many image formats.
-if {[catch { package require Img }]} {
-  puts "WARNING: Failed to load package Img"
+if {[catch { package require Img } errmsg]} {
+  puts stderr "WARNING: $errmsg"
 }
 
 # Source the other script files that are part of this application.
@@ -22,13 +16,13 @@ proc sourcefile {file} {
   set fname [file join [file dirname [info script]] $file] 
   uplevel #0 [list source $fname]
 }
-
 sourcefile snit.tcl
 sourcefile hv3.tcl
 sourcefile hv3_log.tcl
 sourcefile hv3_prop.tcl
 sourcefile hv3_http.tcl
 sourcefile hv3_home.tcl
+sourcefile hv3_frameset.tcl
 
 snit::type ::hv3_browser::history {
 
@@ -727,6 +721,7 @@ proc guiOpenFile {browser} {
 
 # Override the [exit] command to check if the widget code leaked memory
 # or not before exiting.
+#
 rename exit tcl_exit
 proc exit {args} {
   destroy $::hv3::G(browser)
@@ -735,7 +730,7 @@ proc exit {args} {
   eval [concat tcl_exit $args]
 }
 
-# main URL
+# main URI
 #
 proc main {{doc home:}} {
   

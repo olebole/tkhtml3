@@ -265,12 +265,21 @@ itcl::body HtmlDebug::constructor {HTML} {
   bind $myTopLevel <KeyPress-q>  [list destroy $myTopLevel]
   bind $myTopLevel <KeyPress-Q>  [list destroy $myTopLevel]
 
-  set tree [list ::hv3::scrolledwidget canvas -propagate 1]
-  set hv3  [list ::hv3::hv3]
-  frameset $myTopLevel.hpan                   \
-      $hv3  -variable mySearchHtml -side top  \
-      $tree -variable myTreeCanvas -side left \
-      $hv3  -variable myReportHtml
+  set mySearchHtml $myTopLevel.hpan.search
+  set myTreeCanvas $myTopLevel.hpan.vpan.tree
+  set myReportHtml $myTopLevel.hpan.vpan.report
+
+  panedwindow $myTopLevel.hpan -orient vertical
+  ::hv3::hv3 $mySearchHtml
+  panedwindow $myTopLevel.hpan.vpan -orient horizontal
+  ::hv3::scrolled canvas $myTreeCanvas -propagate 1
+  ::hv3::hv3 $myReportHtml
+
+  $myTopLevel.hpan add $mySearchHtml
+  $myTopLevel.hpan add $myTopLevel.hpan.vpan
+  $myTopLevel.hpan.vpan add $myTreeCanvas -stretch always
+  $myTopLevel.hpan.vpan add $myReportHtml -stretch always
+  $myTopLevel.hpan sash place 0 200 200
 
   ::hv3::use_tclprotocol $mySearchHtml 
   $mySearchHtml configure -height 200

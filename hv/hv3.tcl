@@ -1,8 +1,8 @@
 #
 # The code in this file is partitioned into the following classes:
 #
-#     ::hv3::selectionmanager
-#     ::hv3::dynamicmanager
+#     ::hv3::hv3::hv3::selectionmanager
+#     ::hv3::hv3::dynamicmanager
 #     ::hv3::hyperlinkmanager
 #
 #
@@ -12,7 +12,6 @@ package require snit
 source [file join [file dirname [info script]] hv3_form.tcl]
 source [file join [file dirname [info script]] hv3_widgets.tcl]
 source [file join [file dirname [info script]] hv3_object.tcl]
-source [file join [file dirname [info script]] hv3_frameset.tcl]
 
 proc assert {expr} {
   if { 0 == [uplevel [list expr $expr]] } {
@@ -21,7 +20,7 @@ proc assert {expr} {
 }
 
 #--------------------------------------------------------------------------
-# Class Hv3Uri:
+# Class ::hv3::uri:
 #
 #     A very simple class for handling URI references. A partial 
 #     implementation of the syntax specification found at: 
@@ -30,7 +29,7 @@ proc assert {expr} {
 # 
 # Usage:
 #
-#     set uri_obj [Hv3Uri %AUTO% $URI]
+#     set uri_obj [::hv3::uri %AUTO% $URI]
 #
 #     $uri_obj load $URI
 #     $uri_obj get
@@ -38,8 +37,7 @@ proc assert {expr} {
 #
 #     $uri_obj destroy
 #
-proc ::hv3::uri {args} {uplevel #0 [concat Hv3Uri $args]}
-snit::type Hv3Uri {
+snit::type ::hv3::uri {
 
   # Public get/set variables for URI components
   option -scheme    file
@@ -161,13 +159,13 @@ snit::type Hv3Uri {
   }
 }
 
-# End of class Hv3Uri
+# End of class ::hv3::uri
 #--------------------------------------------------------------------------
 
 #--------------------------------------------------------------------------
-# Automated tests for Hv3Uri:
+# Automated tests for ::hv3::uri:
 #
-#     The following block runs some quick regression tests on the Hv3Uri 
+#     The following block runs some quick regression tests on the ::hv3::uri 
 #     implementation. These take next to no time to run, so there's little
 #     harm in leaving them in.
 #
@@ -208,7 +206,7 @@ if 1 {
         -path "/c/dir1/dir2/relative.html"  -query "" -fragment ""   \
     ]
 
-  set obj [Hv3Uri %AUTO%]
+  set obj [::hv3::uri %AUTO%]
   for {set ii 0} {$ii < [llength $test_data]} {incr ii} {
     set uri [lindex $test_data $ii]
     $obj load $uri 
@@ -227,13 +225,13 @@ if 1 {
   }
   $obj destroy
 }
-# End of tests for Hv3Uri.
+# End of tests for ::hv3::uri.
 #--------------------------------------------------------------------------
 
 #--------------------------------------------------------------------------
-# Class ::hv3::selectionmanager
+# Class ::hv3::hv3::selectionmanager
 #
-snit::type ::hv3::selectionmanager {
+snit::type ::hv3::hv3::selectionmanager {
   variable myHv3
   variable myState 0               ;# True when left-button is held down
 
@@ -291,18 +289,18 @@ snit::type ::hv3::selectionmanager {
   }
 }
 #
-# End of ::hv3::selectionmanager
+# End of ::hv3::hv3::selectionmanager
 #--------------------------------------------------------------------------
 
 #--------------------------------------------------------------------------
-# Class ::hv3::dynamicmanager
+# Class ::hv3::hv3::dynamicmanager
 #
 #     This class is responsible for setting the dynamic :hover flag on
 #     document nodes in response to cursor movements. It may one day
 #     be extended to handle :focus and :active, but it's not yet clear
 #     exactly how these should be dealt with.
 #
-snit::type ::hv3::dynamicmanager {
+snit::type ::hv3::hv3::dynamicmanager {
   variable myHv3
   variable myHoverNodes [list]
 
@@ -337,11 +335,11 @@ snit::type ::hv3::dynamicmanager {
   }
 }
 #
-# End of ::hv3::dynamicmanager
+# End of ::hv3::hv3::dynamicmanager
 #--------------------------------------------------------------------------
 
 #--------------------------------------------------------------------------
-# Class ::hv3::hyperlinkmanager
+# Class ::hv3::hv3::hyperlinkmanager
 #
 # Each instance of the hv3 widget contains a single hyperlinkmanager as
 # a component. The hyperlinkmanager takes care of:
@@ -354,7 +352,7 @@ snit::type ::hv3::dynamicmanager {
 # to the <Motion>, <ButtonPress-1> and <ButtonRelease-1> events on the
 # associated hv3 widget.
 #
-snit::type ::hv3::hyperlinkmanager {
+snit::type ::hv3::hv3::hyperlinkmanager {
   variable myHv3
   variable myNodes [list]
 
@@ -434,7 +432,7 @@ snit::type ::hv3::hyperlinkmanager {
   }
 }
 #
-# End of ::hv3::hyperlinkmanager
+# End of ::hv3::hv3::hyperlinkmanager
 #--------------------------------------------------------------------------
 
 #--------------------------------------------------------------------------
@@ -482,9 +480,9 @@ snit::widget ::hv3::hv3 {
 
   # Object components
   component myHtml                   ;# The [::hv3::scrolled html] widget
-  component myHyperlinkManager       ;# The ::hv3::hyperlinkmanager
-  component myDynamicManager         ;# The ::hv3::dynamicmanager
-  component mySelectionManager       ;# The ::hv3::selectionmanager
+  component myHyperlinkManager       ;# The ::hv3::hv3::hyperlinkmanager
+  component myDynamicManager         ;# The ::hv3::hv3::dynamicmanager
+  component mySelectionManager       ;# The ::hv3::hv3::selectionmanager
   component myFormManager            ;# The ::hv3::formmanager
 
   # The current location URI
@@ -513,13 +511,13 @@ snit::widget ::hv3::hv3 {
     pack $myHtml -expand true -fill both
 
     # Create the event-handling components.
-    set myHyperlinkManager [::hv3::hyperlinkmanager %AUTO% $self]
-    set mySelectionManager [::hv3::selectionmanager %AUTO% $self]
-    set myDynamicManager   [::hv3::dynamicmanager   %AUTO% $self]
+    set myHyperlinkManager [::hv3::hv3::hyperlinkmanager %AUTO% $self]
+    set mySelectionManager [::hv3::hv3::selectionmanager %AUTO% $self]
+    set myDynamicManager   [::hv3::hv3::dynamicmanager   %AUTO% $self]
 
     # Location URI. The default URI is index.html in the applications
     # current working directory.
-    set myUri              [Hv3Uri %AUTO% file://[pwd]/index.html]
+    set myUri              [::hv3::uri %AUTO% file://[pwd]/index.html]
 
     set myFormManager [::hv3::formmanager %AUTO% $self]
     $myFormManager configure -getcmd  [mymethod Formcmd get]
@@ -625,7 +623,7 @@ snit::widget ::hv3::hv3 {
       set uri $baseuri
       set baseuri [$myUri get -nofragment]
     } 
-    set obj [Hv3Uri %AUTO% $baseuri]
+    set obj [::hv3::uri %AUTO% $baseuri]
     $obj load $uri
     set ret [$obj get -nofragment]
     $obj destroy
@@ -867,6 +865,10 @@ snit::widget ::hv3::hv3 {
     }  
     MakeRedirectable $handle
     $self makerequest $handle
+  }
+
+  method seturi {uri} {
+    $myUri load $uri
   }
 
   #--------------------------------------------------------------------------
@@ -1131,7 +1133,7 @@ snit::type ::hv3::download {
   method uri       {} {return $options(-uri)}
   method postdata  {} {return $options(-postdata)}
   method authority {} {
-    set obj [Hv3Uri %AUTO% $options(-uri)]
+    set obj [::hv3::uri %AUTO% $options(-uri)]
     set authority [$obj cget -authority]
     $obj destroy
     return $authority

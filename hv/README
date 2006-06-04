@@ -1,0 +1,48 @@
+
+Snit widgets:
+
+    ::hv3::scrolledwidget 
+        Generic widget class that wraps scrollbars around a canvas or html
+        widget. Probably works with text widgets too, although hv3 doesn't
+        use that (yet).
+    
+    ::hv3::hv3
+        Reusable mega-widget built on top of Tkhtml. There is no man-page
+        yet, but the widget interface is described at the top of the
+        file hv3.tcl.
+    
+    ::hv3::frameset
+    ::hv3::browser_frame
+    ::hv3::browser
+    
+    ::hv3::control 
+
+    ::hv3::tclet
+ 
+    ::hv3::filedownloader
+
+    ::hv3::framepair
+
+    ::hv3::finddialog 
+
+Snit types:
+
+    ::hv3::uri
+        Type to extract components from and perform other operations on URIs.
+    
+    ::hv3::formmanager
+    ::hv3::form 
+
+    ::hv3::protocol
+
+    ::hv3::hv3::selectionmanager
+    ::hv3::hv3::dynamicmanager
+    ::hv3::hv3::hyperlinkmanager
+        The above are all internal components of the ::hv3::hv3 mega-widget.
+    
+    ::hv3_browser::cookiemanager
+    ::hv3_browser::history
+    
+    ::hv3::download
+    ::hv3::textdocument
+

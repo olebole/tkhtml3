@@ -1,29 +1,18 @@
-#
 # This file contains code for implementing HTML frameset documents in Hv3. 
 #
-# Each <frameset> element is implemented by a single ::hv3::hv3 widget 
-# managing a single ::hv3::frameset widget. Ideally, the ::hv3::frameset
-# should be packed according to a CSS rule like:
-#
-# frameset {
-#   display:block;
-#   position: absolute;
-#   left: 0px; top: 0px; 
-#   right: 0px; bottom: 0px;   /* This line currently doesn't work */
-# }
-#
-# but problems within Tkhtml's layout engine prevent that right now. Instead
-# we have Tcl level code in this file to set the width and height of the
-# frameset widget, instead of the 'right' and 'bottom' properties in the
-# above CSS.
+# Each <frameset> element is implemented by a single ::hv3::frameset
+# widget. 
 #
 
 namespace eval hv3 {
 
-  # Set this global variable to true to enable debugging output on stderr.
+  # Set this global variable to true to enable frameset-related
+  # debugging output on stderr.
   set FRAMESET_DEBUG 0
 
   # Create a window name to use for a replaced object for node $node.
+  # The first argument is the name of an ::hv3::browser_frame widget.
+  #
   proc create_widget_name {browser_frame node} {
     return [[$browser_frame hv3] html].[string map {: _} $node]
   }
@@ -60,6 +49,8 @@ namespace eval hv3 {
     grid $win -column 0 -row 0 -sticky nsew
   }
 
+  # Given a document node, return the corresponding fragment of html markup.
+  #
   proc get_markup {node} {
     set tag [$node tag]
     set ret [$node text]
@@ -187,7 +178,7 @@ snit::widget ::hv3::frameset {
         frameset {
 	  # For a frameset, we need to create the equivalent HTML document. 
           set doc "<html>[::hv3::get_markup $pnode]</html>"
-          $phv3 redirect [$myHv3 resolve_uri "internal"]
+          $phv3 seturi [$myHv3 resolve_uri "internal"]
           $phv3 parse -final $doc
         }
       }

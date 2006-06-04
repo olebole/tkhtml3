@@ -87,94 +87,6 @@ proc ::hv3::scrolled {widget name args} {
   ]]
 }
 
-snit::widget ::hv3::framepair {
-
-  component pannedwindow 
-
-  constructor {left right args} {
-    set pannedwindow [panedwindow ${win}.pannedwindow -opaque 1]
-    set w1           [eval [linsert $left 1 ${win}.pannedwindow.left]] 
-    set w2           [eval [linsert $right 1 ${win}.pannedwindow.right]]
-    $self configurelist $args
-    $pannedwindow add $w1 
-    $pannedwindow add $w2
-    pack $pannedwindow -expand true -fill both
-  }
-
-  delegate option * to pannedwindow
-
-  method left   {} {return [lindex [$pannedwindow panes] 0]}
-  method right  {} {return [lindex [$pannedwindow panes] 1]}
-  method top    {} {return [$self left]}
-  method bottom {} {return [$self right]}
-}
-
-# Example:
-#
-#     frameset .frames \
-#         hv3    -variable myTopWidget    -side top  \
-#         canvas -variable myTreeWidget   -side left \
-#         hv3    -variable myReportWidget
-# 
-proc frameset {win args} {
-  set idx 0
-  set frames [list]
-  while {$idx < [llength $args]} {
-    set cmd [lindex $args $idx]
-    incr idx
-
-    unset -nocomplain variable
-    set side left
-
-    set options [list -variable -side]
-    while {                                                        \
-      $idx < ([llength $args]-1) &&                                \
-      [set opt [lsearch $options [lindex $args $idx]]] >= 0        \
-    } {
-      incr idx 
-      set [string range [lindex $options $opt] 1 end] [lindex $args $idx]
-      incr idx
-    }
-
-    if {![info exists variable]} {
-      error "No -variable option supplied for widget $cmd"
-    }
-    if {$side ne "top" && $side ne "left"} {
-      error "Bad value for -side option: should be \"left\" or \"top\""
-    }
-
-    lappend frames [list $cmd $variable $side]
-  }
-
-  unset -nocomplain cmd
-  for {set ii [expr [llength $frames] - 1]} {$ii >= 0} {incr ii -1} {
-    foreach {wid variable side} [lindex $frames $ii] {}
-    if {[info exists cmd]} { 
-      switch -- $side {
-        top  {set o vertical}
-        left {set o horizontal}
-      }
-      set cmd [list ::hv3::framepair $wid $cmd -orient $o]
-    } else {
-      set cmd $wid
-    }
-  }
-  eval [linsert $cmd 1 $win]
-
-  set framepair $win
-  for {set ii 0} {$ii < [llength $frames]} {incr ii} {
-    foreach {wid variable side} [lindex $frames $ii] {}
-    if {$ii == ([llength $frames]-1)} {
-      uplevel [list set $variable $framepair]
-    } else {
-      uplevel [list set $variable [$framepair left]]
-      set framepair [$framepair right]
-    }
-  }
-
-  return $win
-}
-
 #---------------------------------------------------------------------------
 # ::hv3::walkTree
 # 
@@ -224,7 +136,7 @@ proc ::hv3::walkTree2 {N body varname level} {
 # ::hv3::resolve_uri
 #
 proc ::hv3::resolve_uri {base relative} {
-  set obj [Hv3Uri %AUTO% $base]
+  set obj [::hv3::uri %AUTO% $base]
   $obj load $relative
   set ret [$obj get]
   $obj destroy
