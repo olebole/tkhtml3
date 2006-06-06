@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.69 2006/06/04 12:53:48 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.70 2006/06/06 16:59:56 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -450,6 +450,29 @@ tokenAction(pTree, pToken, pNClose)
 }
 
 static void
+geomRequestProcCb(clientData) 
+    ClientData clientData;
+{
+    HtmlNode *pNode = (HtmlNode *)clientData;
+    HtmlTree *pTree = pNode->pNodeCmd->pTree;
+    HtmlCallbackLayout(pTree, pNode);
+}
+
+static void 
+geomRequestProc(clientData, widget)
+    ClientData clientData;
+    Tk_Window widget;
+{
+    HtmlNode *pNode = (HtmlNode *)clientData;
+    HtmlTree *pTree = pNode->pNodeCmd->pTree;
+    if (!pTree->cb.inProgress) {
+        HtmlCallbackLayout(pTree, pNode);
+    } else {
+        Tcl_DoWhenIdle(geomRequestProcCb, (ClientData)pNode);
+    }
+}
+
+static void
 clearReplacement(pTree, pNode)
     HtmlTree *pTree;
     HtmlNode *pNode;
@@ -457,6 +480,9 @@ clearReplacement(pTree, pNode)
     HtmlNodeReplacement *p = pNode->pReplacement;
     pNode->pReplacement = 0;
     if (p) {
+
+        /* Cancel any idle callback scheduled by geomRequestProc() */
+        Tcl_CancelIdleCall(geomRequestProcCb, (ClientData)pNode);
 
         /* If there is a delete script, invoke it now. */
         if (p->pDelete) {
@@ -1153,29 +1179,6 @@ char CONST *HtmlNodeAttr(pNode, zAttr)
         return HtmlMarkupArg(pNode->pToken, zAttr, 0);
     }
     return 0;
-}
-
-static void
-geomRequestProcCb(clientData) 
-    ClientData clientData;
-{
-    HtmlNode *pNode = (HtmlNode *)clientData;
-    HtmlTree *pTree = pNode->pNodeCmd->pTree;
-    HtmlCallbackLayout(pTree, pNode);
-}
-
-static void 
-geomRequestProc(clientData, widget)
-    ClientData clientData;
-    Tk_Window widget;
-{
-    HtmlNode *pNode = (HtmlNode *)clientData;
-    HtmlTree *pTree = pNode->pNodeCmd->pTree;
-    if (!pTree->cb.inProgress) {
-        HtmlCallbackLayout(pTree, pNode);
-    } else {
-        Tcl_DoWhenIdle(geomRequestProcCb, (ClientData)pNode);
-    }
 }
 
 /*

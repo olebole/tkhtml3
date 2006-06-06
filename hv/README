@@ -1,4 +1,6 @@
 
+OBJECTS
+-------
 
 Hv3 Mega-Widget Object Types:
 
@@ -69,4 +71,14 @@ Hv3 Application Object Types:
   Other Types:
 
     ::hv3::history               (hv3_main.tcl)
+
+NOTES ON FRAMES AND TABS
+------------------------
+
+  Both frames and tabs are implemented as part of the demo application, not
+  Tkhtml or the hv3 mega-widget.
+
+
+
+
 

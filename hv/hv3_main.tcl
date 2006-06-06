@@ -121,14 +121,15 @@ snit::type ::hv3::history {
     set forward $options(-forwardbutton)
     if {$menu ne ""} {
       $menu delete 0 end
-      set idx 0
-      foreach item $myHistoryList {
+      set idx [expr [llength $myHistoryList] - 15]
+      if {$idx < 0} {set idx 0}
+      for {} {$idx < [llength $myHistoryList]} {incr idx} {
+        set item [lindex $myHistoryList $idx]
         $menu add radiobutton                       \
           -label $item                              \
           -variable [myvar myCurrentPosition]       \
           -value    $idx                            \
           -command [mymethod gotohistory $idx]
-        incr idx
       }
     }
     if {$back ne ""} {
@@ -175,7 +176,10 @@ snit::widget ::hv3::browser_frame {
   variable myY 0                          ;# Current location of pointer
   variable myHyperlinkNode ""             ;# Current node for hyper-link menu
 
-  constructor {args} {
+  variable myBrowser ""                   ;# ::hv3::browser_toplevel widget
+
+  constructor {browser args} {
+    set myBrowser $browser
     $self configurelist $args
  
     set myHv3      [::hv3::hv3 $win.hv3]
@@ -210,22 +214,34 @@ snit::widget ::hv3::browser_frame {
     set html [$myHv3 html]
     $html handler node frameset [list ::hv3::frameset_handler $self]
 
-    # Add this object to the $theFrames list. It will be removed by
+    # Register a handler command for <title> elements.
+    $html handler node title [mymethod TitleNodeHandler]
+
+    # Add this object to the browsers frames list. It will be removed by
     # the destructor proc. Also override the default -hyperlinkcmd
     # option of the ::hv3::hv3 widget with our own version.
-    lappend theFrames $self
-    if {$theTopFrame eq ""} {
-      set theTopFrame $self
-    }
+    $myBrowser add_frame $self
+
     $myHv3 configure -hyperlinkcmd [mymethod Hyperlinkcmd]
   }
 
-  # The following type-variable contains a list of currently instantiated
-  # ::hv3::browser_frame objects. This is used to find the correct
-  # frame to load linked documents into. See the Hyperlinkcmd method
-  # of this widget class for details.
-  typevariable theFrames   [list]
-  typevariable theTopFrame ""
+  method browser {} {return $myBrowser}
+
+  # System for handling <title> elements. This object exports
+  # a method [titlevar] that returns a globally valid variable name
+  # to a variable used to store the string that should be displayed as the
+  # "title" of this document. The idea is that the caller add a trace
+  # to that variable.
+  #
+  variable myTitleVar ""
+  method titlevar {}    {return [myvar myTitleVar]}
+  method TitleNodeHandler {node} {
+    set val ""
+    foreach child [$node children] {
+      append val [$child text]
+    }
+    set myTitleVar $val
+  }
 
   # The name of this frame (as specified by the "name" attribute of 
   # the <frame> element).
@@ -242,6 +258,8 @@ snit::widget ::hv3::browser_frame {
       if {$n ne ""} { set target [$n attr -default "" target] }
     }
  
+    set theTopFrame [lindex [$myBrowser get_frames] 0]
+
     if {$href ne ""} {
       set href [$myHv3 resolve_uri $href]
 
@@ -253,7 +271,7 @@ snit::widget ::hv3::browser_frame {
 
         "_parent" { 
           set w [winfo parent $self]
-          while {$w ne "" && [lsearch $theFrames $w] < 0} {
+          while {$w ne "" && [lsearch [$myBrowser get_frames] $w] < 0} {
             set w [winfo parent $w]
           }
           if {$w ne ""} {
@@ -275,7 +293,7 @@ snit::widget ::hv3::browser_frame {
           # same bug as described for "_blank" above.
           set widget $theTopFrame
 
-          foreach f $theFrames {
+          foreach f [$myBrowser get_frames] {
             set n [$f cget -name]
             if {$n eq $target} {
               set widget $f
@@ -291,18 +309,16 @@ snit::widget ::hv3::browser_frame {
   }
 
   proc SetFontTable {args} {
-    foreach f $theFrames {
+if 0 {
+    foreach f [$myBrowser get_frames] {
       [$f hv3] configure -fonttable $::hv3::fontsize_table
     }
+}
   }
 
   destructor {
     # Remove this object from the $theFrames list.
-    set idx [lsearch $theFrames $self]
-    set theFrames [lreplace $theFrames $idx $idx]
-    if {$self eq $theTopFrame} {
-      set theTopFrame ""
-    }
+    $myBrowser del_frame $self
   }
 
   # This callback is invoked when the user right-clicks on this 
@@ -349,6 +365,7 @@ snit::widget ::hv3::browser_frame {
    #
   method hyperlinkmenu_select {option} {
     set uri [$myHv3 resolve_uri [$myHyperlinkNode attr href]]
+    set theTopFrame [lindex [$myBrowser get_frames] 0]
     switch -- $option {
       openlink {
         $theTopFrame goto $uri
@@ -371,6 +388,7 @@ snit::widget ::hv3::browser_frame {
 
   # Called when the user middle-clicks on the widget
   method goto_selection {} {
+    set theTopFrame [lindex [$myBrowser get_frames] 0]
     $theTopFrame goto [selection get]
   }
 
@@ -434,7 +452,7 @@ snit::widget ::hv3::browser_frame {
     return $myHv3
   }
 
-  option -statusvar  -default ""
+  option -statusvar        -default ""
 
   delegate option -fonttable     to myHv3
   delegate method dumpforms      to myHv3
@@ -449,23 +467,39 @@ snit::widget ::hv3::browser_frame {
   delegate method stop to myHv3
 }
 
-snit::widget ::hv3::browser {
+# An instance of this widget represents a top-level browser frame (not
+# a toplevel window - an html frame not contained in any frameset 
+# document).
+#
+snit::widget ::hv3::browser_toplevel {
 
-  component myHistory
-  component myProtocol
-  component myMainFrame 
+  component myHistory                ;# The undo/redo system
+  component myProtocol               ;# The ::hv3::protocol
+  component myMainFrame              ;# The browser_frame widget
 
-  # Variable passed to [$myProtocol configure -statusvar]. Used to
-  # create the value for the -statusvar variable of this object
-  # (see method update_statusvar).
+  # Variables passed to [$myProtocol configure -statusvar] and
+  # the same option of $myMainFrame. Used to create the value for 
+  # $myStatusVar.
   variable myProtocolStatus ""
   variable myFrameStatus ""
 
+  variable myStatusVar ""
+  variable myLocationVar ""
+
+  method statusvar {}   {return [myvar myStatusVar]}
+  method locationvar {} {return [myvar myLocationVar]}
+  delegate method titlevar to myMainFrame
+
+  # Variable passed to the -pendingvar option of the ::hv3::hv3 widget
+  # associated with the $myMainFrame frame. Set to true when the 
+  # "Stop" button should be enabled, else false.
+  #
+  # TODO: Frames bug.
   variable myPendingVar 0
 
   constructor {args} {
     # Create the main browser frame (always present)
-    set myMainFrame [::hv3::browser_frame $win.browser_frame]
+    set myMainFrame [::hv3::browser_frame $win.browser_frame $self]
     pack $myMainFrame -expand true -fill both
 
     # Create the protocol
@@ -487,6 +521,7 @@ snit::widget ::hv3::browser {
     # Create the history sub-system
     set myHistory [::hv3::history %AUTO% [$myMainFrame hv3]]
     $myHistory configure -gotocmd [mymethod goto]
+    $myHistory configure -locationvar [myvar myLocationVar]
 
     $self configurelist $args
   }
@@ -496,14 +531,21 @@ snit::widget ::hv3::browser {
     if {$myHistory ne ""}  { $myHistory destroy }
   }
 
-  # This method is called by a [trace variable ... write] hook attached
-  # to the myProtocolStatus variable. We need to regenerate the
-  # -statusvar value for this object whenever this is called.
-  method Writestatus {args} {
-    if {$options(-statusvar) ne ""} {
-      set value "$myProtocolStatus    $myFrameStatus"
-      uplevel #0 [list set $options(-statusvar) $value]
+  # Interface used by code in class ::hv3::browser_frame for frame management.
+  variable myFrames [list]
+  method add_frame {frame} {lappend myFrames $frame}
+  method del_frame {frame} {
+    set idx [lsearch $myFrames $frame]
+    if {$idx >= 0} {
+      set myFrames [lreplace $myFrames $idx $idx]
     }
+  }
+  method get_frames {} {return $myFrames}
+
+  # This method is called by a [trace variable ... write] hook attached
+  # to the myProtocolStatus variable. Set myStatusVar.
+  method Writestatus {args} {
+    set myStatusVar "$myProtocolStatus    $myFrameStatus"
   }
 
   method Setstopbutton {args} {
@@ -513,18 +555,16 @@ snit::widget ::hv3::browser {
       } else {
         $options(-stopbutton) configure -state disabled
       }
+      $options(-stopbutton) configure -command [list $myMainFrame stop]
     }
   }
   method Configurestopbutton {option value} {
     set options(-stopbutton) $value
-    $options(-stopbutton) configure -command [list $myMainFrame stop]
     $self Setstopbutton
   }
 
   option -stopbutton -default "" -configuremethod Configurestopbutton
-  option -statusvar  -default ""
 
-  delegate option -locationvar   to myHistory
   delegate option -historymenu   to myHistory
   delegate option -backbutton    to myHistory
   delegate option -forwardbutton to myHistory
@@ -568,7 +608,10 @@ proc gui_build {widget_array} {
   button .entry.forward -text {Forward}
 
   # Create the middle bit - the browser window
-  ::hv3::browser .browser
+  # ::hv3::browser_toplevel .browser
+  ::hv3::notebook .notebook              \
+      -newcmd    gui_new                 \
+      -switchcmd gui_switch
 
   # And the bottom bit - the status bar
   label .status -anchor w -width 1
@@ -578,8 +621,8 @@ proc gui_build {widget_array} {
   set G(back_button)    .entry.back
   set G(forward_button) .entry.forward
   set G(location_entry) .entry.entry
-  set G(browser)        .browser
   set G(status_label)   .status
+  set G(notebook)       .notebook
 
   # Pack the elements of the "top bit" into the .entry frame
   pack .entry.back -side left
@@ -592,8 +635,12 @@ proc gui_build {widget_array} {
   # main window is reduced.
   pack .entry -fill x -side top 
   pack .status -fill x -side bottom
-  pack .browser -fill both -expand true
-  focus .browser
+  pack .notebook -fill both -expand true
+}
+
+proc goto_gui_location {browser entry} {
+  set location [$entry get]
+  $browser goto $location
 }
 
 # A helper function for gui_menu.
@@ -636,13 +683,20 @@ proc create_fontsize_menu {menupath varname} {
     $menupath add radiobutton       \
       -variable $varname            \
       -value $table                 \
+      -command [list gui_setfontsize $varname] \
       -label $label
   }
-  trace add variable $varname write ::hv3::browser_frame::SetFontTable
+  # trace add variable $varname write ::hv3::browser_frame::SetFontTable
   set $varname [list 7 8 9 10 12 14 16]
   return $menupath
 }
 
+# Invoked when an entry in the font-size menu is selected.
+#
+proc gui_setfontsize {varname} {
+  puts "gui_setfontsize [set $varname]"
+  gui_current configure -fonttable [set $varname]
+}
 
 proc gui_menu {widget_array} {
   upvar $widget_array G
@@ -652,7 +706,7 @@ proc gui_menu {widget_array} {
 
   # Add the 'File menu'
   .m add cascade -label {File} -menu [menu .m.file]
-  set openfilecmd [list guiOpenFile $G(browser)]
+  set openfilecmd [list guiOpenFile $G(notebook)]
   .m.file add command -label "Open File..." -command $openfilecmd
   .m.file add separator
 
@@ -663,8 +717,8 @@ proc gui_menu {widget_array} {
     load_tkcon
     .m.file add command -label Tkcon -command {tkcon show}
   }
-  .m.file add command -label Browser -command [list $G(browser) browse]
-  .m.file add command -label Cookies -command [list $G(browser) debug_cookies]
+  .m.file add command -label Browser -command [list gui_current browse]
+  .m.file add command -label Cookies -command [list gui_current debug_cookies]
 
   # Add a separator and the inevitable Exit item to the File menu.
   .m.file add separator
@@ -672,7 +726,7 @@ proc gui_menu {widget_array} {
 
   # Add the "Edit" menu and "Find..." function
   .m add cascade -label {Edit} -menu [menu .m.edit]
-  .m.edit add command -label {Find in page...} -command [list $G(browser) find]
+  .m.edit add command -label {Find in page...} -command [list gui_current find]
 
   # Add the 'Font Size Table' menu
   set fontsize_menu [create_fontsize_menu .m.edit.font ::hv3::fontsize_table]
@@ -683,32 +737,68 @@ proc gui_menu {widget_array} {
   set G(history_menu) .m.history
 }
 
-proc gui_configure {widget_array} {
-  upvar $widget_array G
+proc gui_current {args} {
+  eval [linsert $args 0 [.notebook current]]
+}
 
-  # Binding for hitting enter in the location entry field.
-  set gotocmd "$G(browser) goto \[$G(location_entry) get\]"
-  bind $G(location_entry) <KeyPress-Return> $gotocmd
+proc gui_switch {new} {
+  upvar #0 ::hv3::G G
 
-  # Connect the -statusvar and -locationvar values provided by the browser
-  # widget to the status-bar and URI entry widgets respectively.
-  $G(browser) configure -statusvar hv3_status_var
-  $G(browser) configure -locationvar hv3_location_var
-  $G(location_entry) configure -textvar hv3_location_var
-  $G(status_label) configure -textvar hv3_status_var
+  set old [.notebook current]
+  # Detach the GUI elements from ::hv3::browser_toplevel $old 
+  if {$old ne ""} {
+    $new configure -historymenu   ""
+    $new configure -backbutton    ""
+    $new configure -stopbutton    ""
+    $new configure -forwardbutton ""
+  }
 
-  # Configure the browser controls
-  $G(browser) configure -historymenu   $G(history_menu)
-  $G(browser) configure -backbutton    $G(back_button)
-  $G(browser) configure -stopbutton    $G(stop_button)
-  $G(browser) configure -forwardbutton $G(forward_button)
+  # Attach the GUI elements to ::hv3::browser_toplevel $new
+  if {$new ne ""} {
+    $new configure -historymenu   $G(history_menu)
+    $new configure -backbutton    $G(back_button)
+    $new configure -stopbutton    $G(stop_button)
+    $new configure -forwardbutton $G(forward_button)
+
+    # Binding for hitting enter in the location entry field.
+    set gotocmd [list goto_gui_location $new $G(location_entry)]
+    bind $G(location_entry) <KeyPress-Return> $gotocmd
+
+    $G(status_label) configure -textvar [$new statusvar]
+    $G(location_entry) configure -textvar [$new locationvar]
+
+    set ::hv3::fontsize_table [$new cget -fonttable]
+  }
+}
+
+proc gui_new {path args} {
+  set new [::hv3::browser_toplevel $path]
+
+  set var [$new titlevar]
+  trace add variable $var write [list gui_settitle $new $var]
+
+  set var [$new locationvar]
+  trace add variable $var write [list gui_settitle $new $var]
+
+  if {[llength $args] == 0} {
+    $new goto home:
+  } else {
+    $new goto [lindex $args 0]
+  }
+
+  return $new
+}
+
+proc gui_settitle {browser var args} {
+  .notebook set_title $browser [set $var]
 }
 
 # This procedure is invoked when the user selects the File->Open menu
 # option. It launches the standard Tcl file-selector GUI. If the user
 # selects a file, then the corresponding URI is passed to [.hv3 goto]
 #
-proc guiOpenFile {browser} {
+proc guiOpenFile {notebook} {
+  set browser [$notebook current]
   set f [tk_getOpenFile -filetypes [list \
       {{Html Files} {.html}} \
       {{Html Files} {.htm}}  \
@@ -724,7 +814,7 @@ proc guiOpenFile {browser} {
 #
 rename exit tcl_exit
 proc exit {args} {
-  destroy $::hv3::G(browser)
+  destroy .notebook
   catch {destroy .prop.hv3}
   catch {::tkhtml::htmlalloc}
   eval [concat tcl_exit $args]
@@ -737,12 +827,15 @@ proc main {{doc home:}} {
   # Build the GUI
   gui_build     ::hv3::G
   gui_menu      ::hv3::G
-  gui_configure ::hv3::G
- 
-  # Goto the first document
-  after idle [list $::hv3::G(browser) goto $doc]
+
+  after idle [list main2 $doc]
+}
+proc main2 {doc} {
+  set tab [.notebook add $doc]
+  focus $tab
 }
 
 # Kick off main()
+set ::hv3::maindir [file dirname [info script]] 
 eval [concat main $argv]
 

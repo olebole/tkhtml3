@@ -2,6 +2,10 @@
 package require snit
 package require Tk
 
+# Widget to add automatic scrollbars to a widget supporting the
+# [xview], [yview], -xscrollcommand and -yscrollcommand interface (e.g.
+# html, canvas or text).
+#
 snit::widget ::hv3::scrolledwidget {
   component myWidget
   variable  myVsb
@@ -72,6 +76,156 @@ snit::widget ::hv3::scrolledwidget {
   delegate option -height to hull
   delegate option *       to myWidget
   delegate method *       to myWidget
+}
+
+# Tabbed notebook widget for hv3.
+#
+snit::widget ::hv3::notebook {
+
+  option -newcmd    -default ""
+  option -switchcmd -default ""
+  option -delcmd    -default ""
+
+  variable myWidgets [list]
+  variable myCurrentWidget ""
+
+  variable myFrame ""
+  variable myButtonFrame ""
+  variable myDelButton ""
+
+  variable myNextId 0
+
+  variable myPendingTitle ""
+
+  constructor {args} {
+    $self configurelist $args
+
+    set myFrame       [frame ${win}.frame]
+    set wrapper_frame [frame ${win}.wrapper_frame -bd 2 -relief raised]
+    set myButtonFrame [frame ${wrapper_frame}.button_frame]
+    set myDelButton $wrapper_frame.del
+
+    pack $wrapper_frame -side top -fill x    -expand true
+    pack $myFrame       -side top -fill both -expand true
+
+    button $wrapper_frame.new -text "New Tab" -command [mymethod AddAndSwitchTo]
+    button $myDelButton -text "Close Tab" -command [mymethod CloseCurrent]
+    $myDelButton configure -state disabled
+
+    pack $wrapper_frame.new -side left
+    pack $myDelButton -side right
+    pack $myButtonFrame -expand true -fill both
+  }
+
+  method CloseCurrent {} {
+    if {$myCurrentWidget ne "" && [llength $myWidgets] > 1} {
+
+      set widget $myCurrentWidget
+      set button [$self WidgetToButton $widget]
+
+      for {set idx 0} {$idx < [llength $myWidgets]} {incr idx} {
+        if {[lindex $myWidgets $idx 0] eq $widget} break
+      }
+
+      if {$idx == 0} {
+        set new_widget [lindex $myWidgets 1 0]
+      } else {
+        set new_widget [lindex $myWidgets [expr $idx - 1] 0]
+      }
+      $self switchto $new_widget
+
+      set myWidgets [lreplace $myWidgets $idx $idx]
+      destroy $widget
+      destroy $button
+
+      $self WorldChanged
+    }
+  }
+
+  method WorldChanged {} {
+    # If there is now only one tab, disable the "Close Tab" button.
+    if {[llength $myWidgets] == 1} {
+      $myDelButton configure -state disabled
+    } else {
+      $myDelButton configure -state normal
+    }
+
+    set fraction [expr 1.0 / double([llength $myWidgets])]
+    for {set ii 0} {$ii < [llength $myWidgets]} {incr ii} {
+      place configure [lindex $myWidgets $ii 1] \
+          -relwidth $fraction          \
+          -relx [expr $ii * $fraction] \
+          -rely 0
+    }
+  }
+
+  method AddAndSwitchTo {} {
+    $self switchto [$self add]
+  }
+
+  method WidgetToButton {widget} {
+    foreach e $myWidgets {
+      if {[lindex $e 0] eq $widget} {return [lindex 1 $e]}
+    }
+    return ""
+  }
+
+  method set_title {widget title} {
+    set button [$self WidgetToButton $widget] 
+    if {$button eq ""} {
+      set myPendingTitle $title
+    } else {
+      $button configure -text $title
+    }
+  }
+
+  # Add a new tab to this object.
+  method add {args} {
+    set widget ${myFrame}.widget_${myNextId}
+    set button ${myButtonFrame}.button_${myNextId}
+    incr myNextId
+
+    set myPendingTitle "Blank"
+    eval [concat [linsert $options(-newcmd) 1 $widget] $args]
+
+    button $button -text $myPendingTitle -command [mymethod switchto $widget]
+    $button configure -relief ridge -anchor w
+    # pack $button -side left
+    place $button -x 0 -y 0 -anchor nw
+
+    lappend myWidgets [list $widget $button]
+    if {[llength $myWidgets] == 1} {
+      $self switchto $widget
+    }
+
+    $self WorldChanged
+    return $widget
+  }
+
+  # Switch to the tab containing $widget.
+  method switchto {widget} {
+
+    set button [$self WidgetToButton $widget] 
+    if {$button eq ""} {error "No such tab: $widget"}
+
+    if {$options(-switchcmd) ne ""} { 
+      eval [linsert $options(-switchcmd) 1 $widget]
+    }
+
+    set old_button [$self WidgetToButton $myCurrentWidget] 
+    if {$old_button ne ""} {
+      pack forget $myCurrentWidget
+      $old_button configure -relief ridge -anchor w
+    }
+
+    set myCurrentWidget $widget
+    pack $widget -fill both -expand true
+    $button configure -relief solid -anchor w
+  }
+
+  method current {} {
+    return $myCurrentWidget
+  }
 }
 
 # Wrapper around the ::hv3::scrolledwidget constructor. 

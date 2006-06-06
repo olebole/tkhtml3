@@ -149,10 +149,11 @@ snit::widget ::hv3::frameset {
       for {set iRow 0} {$iRow < [llength $myRows]} {incr iRow} {
         set panel ${pan}.hv3_${iRow}
 
-        ::hv3::browser_frame $panel
+        ::hv3::browser_frame $panel [$myBrowserFrame browser]
         $panel configure -requestcmd       [$myHv3 cget -requestcmd]
         $panel configure -cancelrequestcmd [$myHv3 cget -cancelrequestcmd]
         $panel configure -statusvar        [$myBrowserFrame cget -statusvar]
+
         $pan add $panel
         lappend myPanelFrameList $panel
       }

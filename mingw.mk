@@ -10,7 +10,7 @@ BUILD = RELEASE
 
 ##### Version of and path to the Tcl installation to use.
 #
-TCLVERSION = 8.4
+TCLVERSION = 84
 TCL = /c/tcl
 
 ##### Flags passed to the C-compiler to link to Tcl.
