@@ -105,7 +105,7 @@ snit::widget ::hv3::notebook {
     set myButtonFrame [frame ${wrapper_frame}.button_frame]
     set myDelButton $wrapper_frame.del
 
-    pack $wrapper_frame -side top -fill x    -expand true
+    pack $wrapper_frame -side top -fill both
     pack $myFrame       -side top -fill both -expand true
 
     button $wrapper_frame.new -text "New Tab" -command [mymethod AddAndSwitchTo]
@@ -165,7 +165,7 @@ snit::widget ::hv3::notebook {
 
   method WidgetToButton {widget} {
     foreach e $myWidgets {
-      if {[lindex $e 0] eq $widget} {return [lindex 1 $e]}
+      if {[lindex $e 0] eq $widget} {return [lindex $e 1]}
     }
     return ""
   }

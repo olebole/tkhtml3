@@ -16,10 +16,11 @@ BUILD = DEBUG
 # TCL_DEBUG   = $(HOME)/tcl
 
 TCLVERSION = 8.5
+TCL_RELEASE = /home/dan/tcl
+
 TCL_DEBUG    = /home/dan/tcl
 TCL_PROFILE  = /home/dan/tcl
 TCL_MEMDEBUG = $(TCL_DEBUG)
-TCL_RELEASE = /home/dan/tcl
 TCL = $(TCL_$(BUILD))
 
 MKSTARKIT = ~/tcl/bin/tclkit-linux-x86-xft ~/bin/sdx.kit wrap
