@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.81 2006/06/04 12:53:48 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.82 2006/06/07 15:18:34 danielk1977 Exp $";
 
 #include "htmllayout.h"
 
@@ -1080,7 +1080,7 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
         int iTotalOtherMinWidth = 0;
         int iTotalOtherExpWidth = 0;
         for (i = 0; i < nCol; i++) {
-            if (COL_ISPERCENT(i)) {
+            if (!COL_ISPERCENT(i)) {
                 iTotalOtherMinWidth += aWidth[i];
                 iTotalOtherExpWidth += MAX(0, aExplicitWidth[i]);
             }
@@ -1091,9 +1091,10 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
         exp_ratio = MAX(exp_ratio,
             (float)(iTotalOtherExpWidth) / (100.0 - percent_sum)
         );
-    } else if (percent_sum >= 0.01) {
-        /* If the sum of the % widths is greater than 100.0, divide
-         * up all the remaining space amongst percentage columns.
+    } else if (isPercentOver || nPercentWidth) {
+        /* If the sum of the % widths is greater than 100.0 or all
+	 * columns have percentage widths, divide up all the remaining 
+         * space amongst percentage columns.
          */
         min_ratio = ((float)(availablewidth)) / percent_sum;
     }
@@ -1106,8 +1107,13 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
     if (nPercentWidth > 0) {
         /* Try to grow columns with % widths to meet the % constraints. */
         for (i = 0; i < nCol; i++) {
-            if (aPercentWidth[i] >= 0.01) {
+            if (COL_ISPERCENT(i)) {
                 int diff = ((min_ratio * aPercentWidth[i]) - aWidth[i]);
+                aRequested[i] = MAX(diff, 0);
+            } else if (!isPercentOver && nPercentWidth < nCol) {
+                int nOther = nCol - nPercentWidth;
+                float percent = (100.0 - percent_sum) / (double)nOther;
+                int diff = ((min_ratio * percent) - aWidth[i]);
                 aRequested[i] = MAX(diff, 0);
             }
         }
@@ -1129,7 +1135,7 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
         aRequested[i] = MAX(0, desired - aWidth[i]);
     }
     iRem -= allocatePixels(iRem, nCol, aRequested, aWidth);
-    LOG { 
+    LOG {
         memcpy(&aLogValues[STEP++ * nCol], aRequested, sizeof(int) * nCol); 
         memcpy(&aLogValues[STEP++ * nCol], aWidth, sizeof(int) * nCol); 
     }
