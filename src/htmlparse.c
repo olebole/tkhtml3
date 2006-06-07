@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.63 2006/06/04 12:53:48 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.64 2006/06/07 13:08:50 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -275,6 +275,35 @@ HtmlInlineContent(pTree, pNode, tag)
     Html_u8 flags = HtmlMarkupFlags(tag);
     if (tag == Html_Text || tag == Html_Space) return TAG_OK;
     if (!(flags&HTMLTAG_INLINE)) {
+        return TAG_CLOSE;
+    }
+    return TAG_PARENT;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlAnchorContent --
+ *
+ *     "Node content" callback for anchor nodes (<a>).
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+HtmlAnchorContent(pTree, pNode, tag)
+    HtmlTree *pTree;
+    HtmlNode *pNode;
+    int tag;
+{
+    Html_u8 flags = HtmlMarkupFlags(tag);
+    if (tag == Html_Text || tag == Html_Space) return TAG_OK;
+    if (!(flags&HTMLTAG_INLINE) || tag == Html_A) {
         return TAG_CLOSE;
     }
     return TAG_PARENT;
