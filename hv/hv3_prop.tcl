@@ -277,8 +277,12 @@ itcl::body HtmlDebug::constructor {HTML} {
 
   $myTopLevel.hpan add $mySearchHtml
   $myTopLevel.hpan add $myTopLevel.hpan.vpan
-  $myTopLevel.hpan.vpan add $myTreeCanvas -stretch always
-  $myTopLevel.hpan.vpan add $myReportHtml -stretch always
+  $myTopLevel.hpan.vpan add $myTreeCanvas
+  $myTopLevel.hpan.vpan add $myReportHtml 
+  catch {
+    $myTopLevel.hpan.vpan paneconfigure $myTreeCanvas -stretch always
+    $myTopLevel.hpan.vpan paneconfigure $myReportHtml -stretch always
+  }
   $myTopLevel.hpan sash place 0 200 200
 
   ::hv3::use_tclprotocol $mySearchHtml 

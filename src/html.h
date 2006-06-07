@@ -55,7 +55,9 @@
 /* HtmlClearAlloc() is a version of HtmlAlloc() that returns zeroed memory */
 #define HtmlClearAlloc(zTopic, x) ((char *)memset(HtmlAlloc(zTopic,(x)),0,(x)))
 
+#define USE_COMPOSITELESS_PHOTO_PUT_BLOCK
 #include <tk.h>
+
 #include <string.h>
 #include <assert.h>
 #include <stdlib.h>

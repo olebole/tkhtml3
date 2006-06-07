@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlimage.c,v 1.49 2006/05/05 11:42:51 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlimage.c,v 1.50 2006/06/07 16:13:39 danielk1977 Exp $";
 
 #include <assert.h>
 #include "html.h"
@@ -189,6 +189,9 @@ HtmlImageServerShutdown(pTree)
  *     argument was added to the Tk_PhotoPutBlock() signature. This
  *     function deals with this API change.
  *
+ *     Later: The trick is to define USE_COMPOSITELESS_PHOTO_PUT_BLOCK,
+ *     which is now done in html.h.
+ *
  * Results:
  *     None.
  *
@@ -208,11 +211,7 @@ photoputblock(interp, handle, blockPtr, x, y, width, height, compRule)
     int height;
     int compRule;
 {
-#if TCL_MINOR_VERSION < 5
-    Tk_PhotoPutBlock(handle, blockPtr, x, y, width, height, compRule);
-#else
-    Tk_PhotoPutBlock(interp, handle, blockPtr, x, y, width, height, compRule);
-#endif
+    Tk_PhotoPutBlock(handle, blockPtr, x, y, width, height);
 }
 
 static void

@@ -30,9 +30,8 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.98 2006/06/04 12:53:48 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.99 2006/06/07 16:13:39 danielk1977 Exp $";
 
-#include <tk.h>
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
@@ -634,8 +633,6 @@ HtmlCallbackDamage(pTree, x, y, w, h)
     assert(pTree->cb.y >= 0);
     assert(pTree->cb.w > 0);
     assert(pTree->cb.h > 0);
-    assert((pTree->cb.w + pTree->cb.x) <= Tk_Width(pTree->tkwin));
-    assert((pTree->cb.h + pTree->cb.y) <= Tk_Height(pTree->tkwin));
 
     if (!pTree->cb.flags) {
         Tcl_DoWhenIdle(callbackHandler, (ClientData)pTree);
