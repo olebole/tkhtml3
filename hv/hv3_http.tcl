@@ -139,10 +139,17 @@ snit::type ::hv3::protocol {
   # Handle a file:// URI.
   #
   method request_file {downloadHandle} {
-    # Extract the "path" component from the URI
+
+    # Extract the "path" and "authority" components from the URI
     set uri_obj [::hv3::uri %AUTO% [$downloadHandle uri]]
-    set path [$uri_obj cget -path]
+    set path      [$uri_obj cget -path]
+    set authority [$uri_obj cget -authority]
     $uri_obj destroy
+
+    set filename $path
+    if {$::tcl_platform(platform) eq "windows" && $authority ne ""} {
+      set filename "$authority:$path"
+    }
 
     # Read the file from the file system. The [open] or [read] command
     # might throw an exception. No problem, the hv3 widget will catch
@@ -150,7 +157,7 @@ snit::type ::hv3::protocol {
     #
     # Unless the expected mime-type begins with the string "text", 
     # configure the file-handle for binary mode.
-    set fd [open $path]
+    set fd [open $filename]
     if {![string match text* [$downloadHandle cget -mimetype]]} {
       fconfigure $fd -encoding binary -translation binary
     }

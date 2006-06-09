@@ -804,6 +804,9 @@ proc guiOpenFile {notebook} {
       {{All Files} *}
   ]]
   if {$f != ""} {
+    if {$::tcl_platform(platform) eq "windows"} {
+      set f [string map {: {}} $f]
+    }
     $browser goto file://$f 
   }
 }
