@@ -12,17 +12,15 @@ if {[catch { package require Img } errmsg]} {
 
 # Source the other script files that are part of this application.
 #
-proc sourcefile {file} {
-  set fname [file join [file dirname [info script]] $file] 
-  uplevel #0 [list source $fname]
-}
-sourcefile snit.tcl
-sourcefile hv3.tcl
-sourcefile hv3_log.tcl
-sourcefile hv3_prop.tcl
-sourcefile hv3_http.tcl
-sourcefile hv3_home.tcl
-sourcefile hv3_frameset.tcl
+proc sourcefile {file} { return [file join [file dirname [info script]] $file] }
+source [sourcefile snit.tcl]
+source [sourcefile hv3.tcl]
+source [sourcefile hv3_log.tcl]
+source [sourcefile hv3_prop.tcl]
+source [sourcefile hv3_http.tcl]
+source [sourcefile hv3_home.tcl]
+source [sourcefile hv3_frameset.tcl]
+source [sourcefile hv3_polipo.tcl]
 
 snit::type ::hv3::history {
 
@@ -710,7 +708,8 @@ proc gui_menu {widget_array} {
   .m.file add command -label "Open File..." -command $openfilecmd
   .m.file add separator
 
-  # Add the Tkcon, Browser and Cookies entries to the File menu.
+  # Add the Polipo, Tkcon, Browser and Cookies entries to the File menu.
+  .m.file add command -label Polipo -command ::hv3::polipo::popup
   catch {
     # If the [load_tkcon] proc cannot find the Tkcon package, it
     # throws an exception. No menu item will be added in this case.

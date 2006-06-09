@@ -166,8 +166,8 @@ snit::type ::hv3::protocol {
   #
   method ConfigureProxy {option value} {
     set options($option) $value
-    ::http::config -proxyhost $options(-proxyhost)
-    ::http::config -proxyport $options(-proxyport)
+    # ::http::config -proxyhost $options(-proxyhost)
+    # ::http::config -proxyport $options(-proxyport)
     ::http::config -useragent {Mozilla/5.0 Gecko/20050513}
     set ::http::defaultCharset utf-8
   }

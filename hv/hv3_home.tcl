@@ -24,6 +24,7 @@ proc ::hv3::home_request {http hv3 dir downloadHandle} {
 }
 
 proc ::hv3::home_after_idle {http hv3} {
+  return
   set html [$hv3 html]
 
   foreach node [$html search {span[widget]}] {
@@ -80,7 +81,6 @@ proc ::hv3::home_configure {widget values} {
 }
 
 proc ::hv3::home_set_proxy {args} {
-puts [list $::hv3_home_radio $::hv3_home_host $::hv3_home_port]
   switch $::hv3_home_radio {
     proxy {
       set val normal

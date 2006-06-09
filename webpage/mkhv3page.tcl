@@ -21,14 +21,12 @@ puts [subst -novariables {
 <div id="text">
 
 <p>
-  Html Viewer 3 (hv3) is a minimalist browser script that uses
-  Tkhtml. The idea is to have just enough functionality to test Tkhtml,
-  but it's not supposed to be usable as a real browser. It may be
-  useful as an offline html viewer. 
+  Html Viewer 3 (hv3) is a minimalist web browser that uses Tkhtml. 
 </p>
 
+<h2><a name="overview">Overview/Features</a></h2>
 
-<h2><a name="overview">Overview</a></h2>
+
   <p>
     The target feature set for hv3 is:
   </p>
