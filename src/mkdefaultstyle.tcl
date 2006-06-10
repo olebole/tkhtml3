@@ -17,7 +17,9 @@ proc VersionsToDefine {glob define} {
     set fd [open $file]
     set contents [read $fd]
     close $fd
-    if {[regexp {\$Id: mkdefaultstyle.tcl,v 1.3 2006/06/10 12:38:38 danielk1977 Exp $]*)\$} $contents dummy match]} {
+    set DOLLAR $
+    set expression \\${DOLLAR}Id:(\[^${DOLLAR}\]*)\\${DOLLAR}
+    if {[regexp $expression $contents dummy match]} {
       append ret "    \"[string trim $match]\\n\" \\\n"
     }
   }
