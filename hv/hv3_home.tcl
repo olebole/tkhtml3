@@ -1,6 +1,4 @@
-
-
-set {::hv3::version($Id: hv3_home.tcl,v 1.4 2006/06/10 10:34:23 danielk1977 Exp $)} 1
+namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.5 2006/06/10 12:32:27 danielk1977 Exp $)} 1 }
 
 # Register the about: scheme handler with ::hv3::protocol $protocol.
 #
@@ -12,8 +10,9 @@ proc ::hv3::about_scheme_init {protocol} {
 proc ::hv3::about_request {downloadHandle} {
   set tkhtml_version [::tkhtml::version]
   set hv3_version ""
-  foreach version [array names $::hv3::version] {
-    append hv3_version "$version\n"
+  foreach version [array names ::hv3::version] {
+    set t [string trim [string range $version 4 end-1]]
+    append hv3_version "$t\n"
   }
 
   set html [subst {

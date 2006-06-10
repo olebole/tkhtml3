@@ -1,3 +1,4 @@
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.42 2006/06/10 12:32:27 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -513,8 +514,9 @@ snit::widget ::hv3::browser_toplevel {
     trace add variable [myvar myProtocolStatus] write [mymethod Writestatus]
     trace add variable [myvar myFrameStatus] write    [mymethod Writestatus]
 
-    # Link in the "home:" scheme handler (from hv3_home.tcl)
+    # Link in the "home:" and "about:" scheme handlers (from hv3_home.tcl)
     ::hv3::home_scheme_init [$myMainFrame hv3] $myProtocol
+    ::hv3::about_scheme_init $myProtocol
 
     # Create the history sub-system
     set myHistory [::hv3::history %AUTO% [$myMainFrame hv3]]

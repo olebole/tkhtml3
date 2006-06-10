@@ -1,3 +1,5 @@
+namespace eval hv3 { set {version($Id: hv3_frameset.tcl,v 1.4 2006/06/10 12:32:27 danielk1977 Exp $)} 1 }
+
 # This file contains code for implementing HTML frameset documents in Hv3. 
 #
 # Each <frameset> element is implemented by a single ::hv3::frameset

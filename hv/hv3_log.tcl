@@ -1,3 +1,4 @@
+namespace eval hv3 { set {version($Id: hv3_log.tcl,v 1.10 2006/06/10 12:32:27 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Global variables section

@@ -1,3 +1,4 @@
+namespace eval hv3 { set {version($Id: hv3_polipo.tcl,v 1.2 2006/06/10 12:32:27 danielk1977 Exp $)} 1 }
 
 # This file contains code to control a single instance of the 
 # external program "hv3_polipo" that may be optionally used by
@@ -144,5 +145,5 @@ namespace eval ::hv3::polipo {
 
 ::hv3::polipo::init
 ::hv3::polipo::restart
-::hv3::polipo::popup
+#::hv3::polipo::popup
 
