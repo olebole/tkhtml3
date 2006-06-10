@@ -16,6 +16,7 @@
  *
  *-------------------------------------------------------------------------
  */
+static const char rcsid[] = "$Id: restrack.c,v 1.6 2006/06/10 12:38:38 danielk1977 Exp $";
 
 #ifdef HTML_RES_DEBUG
 #define RES_DEBUG

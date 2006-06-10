@@ -2,7 +2,7 @@
 #
 # Construct the web page for tkhtml
 #
-# @(#) $Id: mkwebpage.tcl,v 1.22 2006/05/04 17:52:25 danielk1977 Exp $
+# @(#) $Id: mkwebpage.tcl,v 1.23 2006/06/10 12:38:38 danielk1977 Exp $
 #
 
 source [file join [file dirname [info script]] common.tcl]
@@ -131,23 +131,19 @@ p {
 h 2 {Current Status (Version 3)}
 
 p {
-  <b>Alpha release 3</b>
+  There is now an alpha release available for download in 
+  <a href="#part4">source code form</a>. Nightly binary builds are 
+  available as part of the starkit builds of the demo application, 
+  <a href="hv3.html">hv3</a>.
 }
 p {
-  There is now an alpha release available for download. Both as 
-  <a href="tkhtml3-alpha-4.tar.gz">source code</a> and in binary form.
-  Binaries are available as part of the starkit builds of the demo 
-  application, <a href="hv3.html">hv3</a>.
-}
-p {
-  The alpha release is undoubtably still full of bugs. But it compiles and
-  runs on both windows and linux, and the code and <a href="tkhtml.html">the
-  widget documentation</a> have converged.  The rendering engine is not yet
-  feature complete by any means, but the majority of common HTML and CSS 1.0
-  constructs are supported. See <a href="support.html">this page</a> for a
-  comparison of current capabilities against the CSS 1.0 specification.
-  Nothing dynamic is supported yet (i.e.  changing the color of something when
-  the mouse floats over it etc.).  
+  At this stage both the alpha release and nightly builds are undoubtably still
+  full of bugs. But it compiles and runs on both windows and linux, and the
+  code and <a href="tkhtml.html">the widget documentation</a> have converged.
+  The rendering engine is not yet feature complete by any means, but the
+  majority of common HTML and CSS 1.0 constructs are supported. See 
+  <a href="support.html">this page</a> for a comparison of current capabilities
+  against the CSS 1.0 specification.  
 }
 p {
   Please help by testing the alpha release and filing bug tickets 
@@ -221,7 +217,12 @@ p {
 h 2 {Source Code}
 
 p {
-  Source code is available via anonymous CVS (See 
+  The current release of Tkhtml 3.0 is "alpha release 5", available for
+  download <a href="tkhtml-alpha-5.tar.gz">here</a>.
+}
+
+p {
+  Alternatively, source code is always available via anonymous CVS (See 
   <a href="http://www.cyclic.com/">http://www.cyclic.com/</a> 
   for additional information on CVS.).  The following procedure creates a
   directory named "<tt>htmlwidget</tt>" and fills it with the latest 

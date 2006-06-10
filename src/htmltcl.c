@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.99 2006/06/07 16:13:39 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.100 2006/06/10 12:38:38 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -2134,6 +2134,37 @@ htmlstyleCmd(clientData, interp, objc, objv)
 }
 
 /*
+ *---------------------------------------------------------------------------
+ *
+ * htmlVersionCmd --
+ *
+ *     ::tkhtml::version
+ *
+ * Results:
+ *     Returns a string containing the versions of the *.c files used
+ *     to build the library
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+htmlVersionCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    if (objc > 1) {
+        Tcl_WrongNumArgs(interp, 1, objv, "");
+        return TCL_ERROR;
+    }
+    Tcl_SetResult(interp, HTML_SOURCE_FILES, TCL_STATIC);
+    return TCL_OK;
+}
+
+/*
  * Define the DLL_EXPORT macro, which must be set to something or other in
  * order to export the Tkhtml_Init and Tkhtml_SafeInit symbols from a win32
  * DLL file. I don't entirely understand the ins and outs of this, the
@@ -2187,6 +2218,7 @@ DLL_EXPORT int Tkhtml_Init(interp)
 
     Tcl_CreateObjCommand(interp, "html", newWidget, 0, 0);
     Tcl_CreateObjCommand(interp, "::tkhtml::htmlstyle", htmlstyleCmd, 0, 0);
+    Tcl_CreateObjCommand(interp, "::tkhtml::version", htmlVersionCmd, 0, 0);
 
 #ifndef NDEBUG
     Tcl_CreateObjCommand(interp, "::tkhtml::htmlalloc", allocCmd, 0, 0);
