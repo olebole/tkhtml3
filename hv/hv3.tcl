@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.75 2006/06/10 12:32:27 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.76 2006/06/10 15:57:13 danielk1977 Exp $)} 1 }
 
 #
 # The code in this file is partitioned into the following classes:
@@ -499,6 +499,9 @@ snit::widget ::hv3::hv3 {
   # TODO: Get rid of this...
   variable  myPostData "" 
 
+  # This variable may be set to "unknown", "quirks" or "standards".
+  variable myQuirksmode unknown
+
   # List of currently outstanding download-handles. See methods makerequest,
   # Finrequest and <TODO: related to stop?>.
   variable myCurrentDownloads [list]
@@ -721,7 +724,12 @@ snit::widget ::hv3::hv3 {
 
   # Script handler for <style> tags.
   #
-  method style_script_handler {script} {
+  method style_script_handler {attr script} {
+    array set attributes $attr
+    if {[info exists attributes(media)]} {
+      if {[lsearch [list all screen] $attributes(media)] < 0} return ""
+    }
+
     set id        author.[format %.4d [incr myStyleCount]]
     set importcmd [mymethod import_handler $id]
     set urlcmd    [mymethod resolve_uri]
@@ -732,7 +740,7 @@ snit::widget ::hv3::hv3 {
 
   # Script handler for <script> tags.
   #
-  method script_script_handler {script} {
+  method script_script_handler {attr script} {
     return ""
   }
 
@@ -837,6 +845,20 @@ snit::widget ::hv3::hv3 {
   }
 
   method documentcallback {handle final data} {
+
+    if {$myQuirksmode eq "unknown"} {
+      set folded [string tolower [string range $data 0 200]]
+      set A [string first doctype $folded]
+      set B [string first html $folded]
+      if {$A >= 0 && ($B <= 0 || $B > $A)} {
+        $myHtml configure -defaultstyle [::tkhtml::htmlstyle]
+        set myQuirksmode standards
+      } else {
+        $myHtml configure -defaultstyle [::tkhtml::htmlstyle]
+        set myQuirksmode quirks
+      }
+    }
+
     $myHtml parse $data
     if {$final} {
       $myHtml parse -final {}

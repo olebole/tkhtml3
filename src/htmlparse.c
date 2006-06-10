@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.64 2006/06/07 13:08:50 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.65 2006/06/10 15:57:14 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -1514,7 +1514,10 @@ Tokenize(pTree, isFinal)
             char zEnd[64];
             char *zScript;
             int nScript;
+
             Tcl_Obj *pEval;
+            Tcl_Obj *pAttr;   /* List containing attributes of pScriptToken */
+            int jj;
 
             /* Figure out the string we are looking for as a end tag */
             sprintf(zEnd, "</%s>", HtmlMarkupName(pScriptToken->type));
@@ -1542,9 +1545,19 @@ Tokenize(pTree, isFinal)
                 goto incomplete;
             }
 
+            /* Create the attributes list */
+            pAttr = Tcl_NewObj();
+            Tcl_IncrRefCount(pAttr);
+            for (jj = 2; jj < pScriptToken->count; jj++) {
+                Tcl_Obj *pArg = Tcl_NewStringObj(pScriptToken->x.zArgs[jj], -1);
+                Tcl_ListObjAppendElement(0, pAttr, pArg);
+            }
+
             /* Execute the script */
             pEval = Tcl_DuplicateObj(pScript);
             Tcl_IncrRefCount(pEval);
+            Tcl_ListObjAppendElement(0, pEval, pAttr);
+            Tcl_DecrRefCount(pAttr);
             Tcl_ListObjAppendElement(0,pEval,Tcl_NewStringObj(zScript,nScript));
             rc = Tcl_EvalObjEx(pTree->interp, pEval, TCL_EVAL_GLOBAL);
             Tcl_DecrRefCount(pEval);
