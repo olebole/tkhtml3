@@ -1,5 +1,33 @@
 
 
+set {::hv3::version($Id: hv3_home.tcl,v 1.4 2006/06/10 10:34:23 danielk1977 Exp $)} 1
+
+# Register the about: scheme handler with ::hv3::protocol $protocol.
+#
+proc ::hv3::about_scheme_init {protocol} {
+  set dir $::hv3::maindir
+  $protocol schemehandler about [list ::hv3::about_request]
+}
+
+proc ::hv3::about_request {downloadHandle} {
+  set tkhtml_version [::tkhtml::version]
+  set hv3_version ""
+  foreach version [array names $::hv3::version] {
+    append hv3_version "$version\n"
+  }
+
+  set html [subst {
+    <html> <head> </head> <body>
+    <h1>Tkhtml Source Code Versions</h1>
+    <pre>$tkhtml_version</pre>
+    <h1>Hv3 Source Code Versions</h1>
+    <pre>$hv3_version</pre>
+    </body> </html>
+  }]
+
+  $downloadHandle append $html
+  $downloadHandle finish
+}
 
 # Register the home: scheme handler with ::hv3::protocol $protocol.
 #
