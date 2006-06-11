@@ -24,15 +24,15 @@ puts [subst -novariables {
 
 <p>
   Html Viewer 3 (hv3) is a minimalist web browser that uses Tkhtml. Currently
-  it is at early alpha stage. Please try it out, then report bugs and make
-  suggestions via the Tkhtml cvstrac system:
-</p>
-<p>
-  <a href="http://tkhtml.tcl.tk/cvstrac/">http://tkhtml.tcl.tk/cvstrac/</a>
+  it is at early alpha stage. Please try it out, then report bugs or make
+  suggestions. Hv3 shares Tkhtml's 
+<a href="index.html#part3">mailing list, bug-tracking database
+  and contact details
+</a>.
 </p>
 <p>
   Using hv3 and reporting bugs with it and the underlying Tkhtml widget
-  assists Tkhtml development greatly.
+  assists Tkhtml development greatly. Suggestions also gratefully received.
 </p>
 
 <h2><a name="overview">Overview</a></h2>

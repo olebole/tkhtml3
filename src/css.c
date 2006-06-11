@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.70 2006/05/13 14:10:21 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.71 2006/06/11 13:03:53 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -513,6 +513,18 @@ tokenToProperty(pParse, pToken)
                 }
             }
         }
+    }
+
+    /* Security: Do not allow a stylesheet other than the default to
+     * contain tcl() scripts. Otherwise remote stylesheets could execute
+     * arbitrary scripts in the web browser.
+     */
+    if (
+        (pProp && pProp->eType == CSS_TYPE_TCL) && 
+        (!pParse->pPriority1 || pParse->pPriority1->iPriority != 1)
+    ) {
+        HtmlFree(0, pProp);
+        return 0;
     }
 
     /* Finally, treat the property as a generic string. v.zVal will point at

@@ -272,7 +272,7 @@ tcltest::test style-6.4 {} -body {
   }
 } -result [list]
 
-tcltest::test style-6.4 {} -body {
+tcltest::test style-6.5 {} -body {
   parse_stylesheet {
 SUP {
     vertical-align: super;
@@ -295,6 +295,12 @@ P { margin-top: 0; }
 }
   }
 } -result [list [list sup {vertical-align:super; font-size:80.00%}]]
+
+tcltest::test style-7.1 {} -body {
+  parse_stylesheet {
+    p {color:tcl(script)}
+  }
+} -result [list list [p {}]]
 
 finish_test
 

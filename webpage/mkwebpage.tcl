@@ -2,7 +2,7 @@
 #
 # Construct the web page for tkhtml
 #
-# @(#) $Id: mkwebpage.tcl,v 1.23 2006/06/10 12:38:38 danielk1977 Exp $
+# @(#) $Id: mkwebpage.tcl,v 1.24 2006/06/11 13:03:53 danielk1977 Exp $
 #
 
 source [file join [file dirname [info script]] common.tcl]
@@ -73,6 +73,12 @@ p {
   "Tkhtml" is a Tcl/Tk widget that displays HTML. Tkhtml is implemented in C.
   It is a true widget, not a metawidget implemented using the Text or Canvas
   widgets of the Tcl/Tk core. 
+
+  <p style="font-weight:bold; font-style:italic; text-align:center">
+  <a href="hv3.html">
+  Download a binary build of Tkhtml's web browser application, Hv3.
+  </a>
+  </p>
 }
 p {
   There are two versions of Tkhtml, version 2.0, which has not changed
