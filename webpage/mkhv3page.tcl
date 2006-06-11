@@ -113,7 +113,7 @@ puts [subst -novariables {
            </ol>
   </table>
 
-  <p style="text-align:center"><b>Linux Specific Instructions</p>
+  <p style="text-align:center"><b>Linux Specific Instructions</b></p>
   <p>
     After downloading the starkit and tclkit runtime (files 1 and 2), Linux
     users must decompress the tclkit runtime, change it's permissions to
@@ -147,10 +147,11 @@ puts [subst -novariables {
     wget http://www.equi4.com/pub/tk/8.5a4/tclkit-linux-x86-xft.gz
     gunzip ./tclkit-linux-x86-xft.gz
     chmod 755 ./tclkit-linux-x86-xft
+    chmod 755 ./hv3_polipo
     ./tclkit-linux-x86-xft ./hv3_img.kit
   </pre>
 
-  <p style="text-align:center"><b>Windows Specific Instructions</p>
+  <p style="text-align:center"><b>Windows Specific Instructions</b></p>
   <p>
     After downloading the starkit and tclkit runtime (files 1 and 2), 
     right-click on the starkit file (hv3_img_w32.kit) and select 

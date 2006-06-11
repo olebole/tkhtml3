@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.77 2006/06/11 11:06:25 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.78 2006/06/11 15:48:32 danielk1977 Exp $)} 1 }
 
 #
 # The code in this file is partitioned into the following classes:
@@ -729,7 +729,7 @@ snit::widget ::hv3::hv3 {
   method style_script_handler {attr script} {
     array set attributes $attr
     if {[info exists attributes(media)]} {
-      if {[lsearch [list all screen] $attributes(media)] < 0} return ""
+      if {0 == [regexp all|screen $attributes(media)]} return ""
     }
 
     set id        author.[format %.4d [incr myStyleCount]]
