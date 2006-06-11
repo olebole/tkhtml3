@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.5 2006/06/10 12:32:27 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.6 2006/06/11 13:08:16 danielk1977 Exp $)} 1 }
 
 # Register the about: scheme handler with ::hv3::protocol $protocol.
 #
@@ -154,6 +154,6 @@ set ::hv3_home_radio proxy
 set ::hv3_home_host localhost
 set ::hv3_home_port 8123
 
-::hv3::home_set_proxy
-trace add variable ::hv3_home_radio write ::hv3::home_set_proxy
+# ::hv3::home_set_proxy
+# trace add variable ::hv3_home_radio write ::hv3::home_set_proxy
 
