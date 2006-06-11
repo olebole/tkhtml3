@@ -51,8 +51,9 @@ struct HtmlFourSides {
  * HtmlFont structures are stored in the HtmlTree.aFonts hash table. The hash
  * table uses a custom key type (struct HtmlFontKey) implemented in htmlhash.c. 
  */
+#define HTML_IFONTSIZE_SCALE 1000
 struct HtmlFontKey {
-    int iFontSize;           /* Font size in points */
+    int iFontSize;           /* Font size in thousandths of points */
     const char *zFontFamily; /* Name of font family (i.e. "Serif") */
     unsigned char isItalic;  /* True if the font is italic */
     unsigned char isBold;    /* True if the font is bold */

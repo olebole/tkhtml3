@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.176 2006/06/04 12:53:47 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.177 2006/06/11 11:06:25 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -56,7 +56,8 @@ static const char rcsid[] = "$Id: htmllayout.c,v 1.176 2006/06/04 12:53:47 danie
 
 #define LOG if (pLayout->pTree->options.logcmd && 0 == pLayout->minmaxTest)
 
-#define NODELOG(pNode, format_args);
+/* Used for debugging the layout cache. Some output appears on stdout. */
+/* #define LAYOUT_CACHE_DEBUG */
 
 /*
  * The code to lay out a "normal-flow" is located in this file:
@@ -2534,6 +2535,114 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
     return 0;
 }
 
+
+#define LAYOUT_CACHE_N_USE_COND 6
+#ifdef LAYOUT_CACHE_DEBUG
+#define LAYOUT_CACHE_N_STORE_COND 3
+static int aDebugUseCacheCond[LAYOUT_CACHE_N_USE_COND + 1];
+static int aDebugStoreCacheCond[LAYOUT_CACHE_N_STORE_COND + 1];
+#endif
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * normalFlowLayoutFromCache --
+ *
+ *     This routine is strictly a helper function for normalFlowLayout().
+ *     It is never called from anywhere else. The arguments are the
+ *     same as those passed to normalFlowLayout().
+ *
+ *     This function tries to do the job of normalFlowLayout() (see comments
+ *     above that function) using data stored in the layout-cache associated
+ *     with pNode (the structure *pNode->pLayoutCache). If successful, it
+ *     returns non-zero. In this case normalFlowLayout() will return
+ *     immediately, it's job having been performed using cached data.
+ *     If the cache is not present or cannot be used, this function returns
+ *     zero. In this case normalFlowLayout() should proceed.
+ * 
+ *     See also normalFlowLayoutToCache(), the function that creates
+ *     the layout-cache used by this routine.
+ *
+ *         1. The widget -layoutcache option is set to true.
+ *         2. A valid layout cache exists for pNode.
+ *         3. The width allocated for node content is the same as when the
+ *            the cache was generated.
+ *         4. The vertical margins that will collapse with the top margin of 
+ *            the first block in this flow are the same as they were when the
+ *            cache was generated.
+ *         5. The current floating margins are the same as they were when 
+ *            the cache was generated and there are no new floating margins
+ *            in the float list that affect the area where the cached 
+ *            layout is to be placed.
+ *
+ * Results:
+ *     Non-zero if the cache associated with pNode contained a usable
+ *     layout, else zero.
+ *
+ * Side effects:
+ *     May render content of pNode into pBox. See above.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+normalFlowLayoutFromCache(pLayout, pBox, pNode, pNormal, iLeft, iRight)
+    LayoutContext *pLayout;       /* Layout context */
+    BoxContext *pBox;             /* Box context to draw to */
+    HtmlNode *pNode;              /* Node to start drawing at */
+    NormalFlow *pNormal;
+    int iLeft;
+    int iRight;
+{
+    int cache_mask = (1 << pLayout->minmaxTest);
+
+    HtmlFloatList   *pFloat = pNormal->pFloat;
+    HtmlLayoutCache *pLayoutCache = pNode->pLayoutCache;
+    LayoutCache     *pCache = &pLayoutCache->aCache[pLayout->minmaxTest];
+
+    assert(pNormal->isValid == 0 || pNormal->isValid == 1);
+
+#ifdef LAYOUT_CACHE_DEBUG
+  #define COND(x, y) ( (y) || ((aDebugUseCacheCond[x]++) < 0) )
+#else
+  #define COND(x, y) (y)
+#endif
+
+    if ( 0 == (
+        COND(1, pLayout->pTree->options.layoutcache) &&
+        COND(2, pLayoutCache && (pLayoutCache->flags & cache_mask)) &&
+        COND(3, pBox->iContaining == pCache->iContaining) &&
+        COND(4,
+            pNormal->isValid    == pCache->normalFlowIn.isValid &&
+            pNormal->iMinMargin == pCache->normalFlowIn.iMinMargin &&   
+            pNormal->iMaxMargin == pCache->normalFlowIn.iMaxMargin
+        ) &&
+        COND(5, iLeft == pCache->iFloatLeft && iRight == pCache->iFloatRight) &&
+        COND(6, HtmlFloatListIsConstant(pFloat, 0, pCache->iHeight))
+    )) {
+        return 0;
+    }
+
+    /* Hooray! A cached layout can be used. */
+    assert(!pBox->vc.pFirst);
+    if (pCache->iMarginCollapse != PIXELVAL_AUTO) {
+        NormalFlowCallback *pCallback = pNormal->pCallbackList;
+        int iMargin = pCache->iMarginCollapse;
+        while (pCallback) {
+            pCallback->xCallback(pNormal, pCallback, iMargin);
+            pCallback = pCallback->pNext;
+        }
+    }
+    HtmlDrawCopyCanvas(&pBox->vc, &pCache->canvas);
+    pBox->width = pCache->iWidth;
+    assert(pCache->iHeight >= pBox->height);
+    pBox->height = pCache->iHeight;
+    pNormal->iMaxMargin = pCache->normalFlowOut.iMaxMargin;
+    pNormal->iMinMargin = pCache->normalFlowOut.iMinMargin;
+    pNormal->isValid = pCache->normalFlowOut.isValid;
+
+    return 1;
+}
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -2587,7 +2696,6 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
 
     HtmlLayoutCache *pLayoutCache = 0;
     LayoutCache *pCache = 0;
-    int isCacheValid = 0;
     int cache_mask = (1 << pLayout->minmaxTest);
 
     NormalFlowCallback sCallback;
@@ -2600,6 +2708,12 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
         DISPLAY(pNode->pPropertyValues) == CSS_CONST_INLINE
     );
     assert(!nodeIsReplaced(pNode));
+
+    /* Attempt to use a layout cache */
+    HtmlFloatListMargins(pFloat, 0, 1, &left, &right);
+    if (normalFlowLayoutFromCache(pLayout, pBox, pNode, pNormal, left, right)) {
+        return;
+    }
 
     /* If the structure for cached layout has not yet been allocated,
      * allocate it now. The corresponding call to HtmlFree() is in
@@ -2616,58 +2730,7 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
     }
     pLayoutCache = pNode->pLayoutCache;
     pCache = &pLayoutCache->aCache[pLayout->minmaxTest];
-    isCacheValid = pLayoutCache->flags & cache_mask;
 
-    pNormal->isValid = (pNormal->isValid ? 1 : 0);
-
-    /* Figure out if a cached layout can be used. The more often a cached 
-     * layout can be used, the more efficient reflow (and incremental layout
-     * will be). A cached layout is used only if all of the following
-     * conditions are met:
-     *
-     *      1. The widget -layoutcache option is set to true.
-     *      2. A valid layout cache exists.
-     *      3. The width of the containing block is the same as it was when 
-     *         the cache was generated.
-     *      4. The vertical margins that will collapse with the top margin of 
-     *         the first block in this flow are the same as they were when the
-     *         cache was generated.
-     *      5. There are no list marker boxes waiting to be positioned based on      *         the layout of this node.
-     *      6. The current floating margins are the same as they were when 
-     *         the cache was generated and there are no new floating margins
-     *         in the float list that affect the area where the cached 
-     *         layout is to be placed.
-     */
-    HtmlFloatListMargins(pFloat, 0, 1, &left, &right);
-    if (
-        pLayout->pTree->options.layoutcache &&                         /* 1 */
-        isCacheValid &&                                                /* 2 */
-        pBox->iContaining == pCache->iContaining &&                    /* 3 */
-        pNormal->isValid    == pCache->normalFlowIn.isValid &&         /* 4 */
-        pNormal->iMinMargin == pCache->normalFlowIn.iMinMargin &&   
-        pNormal->iMaxMargin == pCache->normalFlowIn.iMaxMargin &&
-        left == pCache->iFloatLeft && right == pCache->iFloatRight &&  /* 6 */
-        HtmlFloatListIsConstant(pFloat, 0, pCache->iHeight)
-    ) {
-        /* Hooray! A cached layout can be used. */
-        assert(!pBox->vc.pFirst);
-        if (pCache->iMarginCollapse != PIXELVAL_AUTO) {
-            NormalFlowCallback *pCallback = pNormal->pCallbackList;
-            int iMargin = pCache->iMarginCollapse;
-            while (pCallback) {
-                pCallback->xCallback(pNormal, pCallback, iMargin);
-                pCallback = pCallback->pNext;
-            }
-        }
-        HtmlDrawCopyCanvas(&pBox->vc, &pCache->canvas);
-        pBox->width = pCache->iWidth;
-        assert(pCache->iHeight >= pBox->height);
-        pBox->height = pCache->iHeight;
-        pNormal->iMaxMargin = pCache->normalFlowOut.iMaxMargin;
-        pNormal->iMinMargin = pCache->normalFlowOut.iMinMargin;
-        pNormal->isValid = pCache->normalFlowOut.isValid;
-        return;
-    }
 
     HtmlDrawCleanup(pLayout->pTree, &pCache->canvas);
     pLayoutCache->flags &= ~(cache_mask);
@@ -2744,7 +2807,22 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
         pCache->normalFlowOut.iMinMargin = pNormal->iMinMargin;
         pCache->normalFlowOut.isValid = pNormal->isValid;
         pLayoutCache->flags |= cache_mask;
-    } 
+#ifdef LAYOUT_CACHE_DEBUG
+        aDebugStoreCacheCond[0]++;
+    } else {
+        if (0 == pLayout->pTree->options.layoutcache) {
+            aDebugStoreCacheCond[1]++;
+        } else if (!(
+            pCache->iFloatLeft == left &&
+            pCache->iFloatRight == right &&
+            HtmlFloatListIsConstant(pFloat, pBox->height, overhang)
+        )) {
+            aDebugStoreCacheCond[2]++;
+        } else {
+            aDebugStoreCacheCond[3]++;
+        }
+#endif
+    }
 
     return;
 }
@@ -2754,11 +2832,11 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
  *
  * blockMinMaxWidth --
  *
- *     Figure out the minimum and maximum widths that the content generated by
- *     pNode may use. This is used during table floating box layout.
+ *     Figure out the minimum and maximum widths that the content generated 
+ *     by pNode may use. This is used during table and floating box layout.
  *
  *     The returned widths do not include the borders, padding or margins of
- *     the node.
+ *     the node. Just the content.
  *
  * Results:
  *     None.
@@ -2997,6 +3075,11 @@ HtmlLayout(pTree)
     memset(&sBox, 0, sizeof(BoxContext));
     sBox.iContaining = nWidth;
 
+#ifdef LAYOUT_CACHE_DEBUG
+    memset(aDebugUseCacheCond, 0, sizeof(int) * (LAYOUT_CACHE_N_USE_COND + 1));
+    memset(aDebugStoreCacheCond, 0, sizeof(int)*(LAYOUT_CACHE_N_STORE_COND+1));
+#endif
+
     HtmlLog(pTree, "LAYOUTENGINE", "START");
 
     /* Call HtmlLayoutNodeContent() to layout the top level box, generated 
@@ -3058,6 +3141,22 @@ HtmlLayout(pTree)
             box.iBottom + margin.margin_bottom
         );
     }
+
+#ifdef LAYOUT_CACHE_DEBUG
+    {
+        int ii;
+        printf("LayoutCacheDebug: USE: ");
+        for (ii = 0; ii <= LAYOUT_CACHE_N_USE_COND; ii++) {
+            printf("%d ", aDebugUseCacheCond[ii]);
+        }
+        printf("\n");
+        printf("LayoutCacheDebug: STORE: ");
+        for (ii = 0; ii <= LAYOUT_CACHE_N_STORE_COND; ii++) {
+            printf("%d ", aDebugStoreCacheCond[ii]);
+        }
+        printf("\n");
+    }
+#endif
 
     if (rc == TCL_OK) {
         pTree->iCanvasWidth = Tk_Width(pTree->tkwin);

@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.70 2006/05/13 14:59:50 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.71 2006/06/11 11:06:25 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -257,9 +257,9 @@ propertyValuesSetFontSize(p, pProp)
                 int *aSize = p->pTree->aFontSizeTable;
                 int ps = pParent->pPropertyValues->fFont->pKey->iFontSize;
                 for (ii = 1; ii < 7 && aSize[ii] < ps; ii++);
-                iPoints = ps + (aSize[ii-1] - aSize[ii]);
+                iPoints = ps + (aSize[ii-1] - aSize[ii]) * HTML_IFONTSIZE_SCALE;
             } else {
-                iPoints = p->pTree->aFontSizeTable[2];
+                iPoints = p->pTree->aFontSizeTable[2] * HTML_IFONTSIZE_SCALE;
             }
             break;
         }
@@ -270,9 +270,9 @@ propertyValuesSetFontSize(p, pProp)
                 int *aSize = p->pTree->aFontSizeTable;
                 int ps = pParent->pPropertyValues->fFont->pKey->iFontSize;
                 for (ii = 0; ii < 6 && aSize[ii] < ps; ii++);
-                iPoints = ps + (aSize[ii+1] - aSize[ii]);
+                iPoints = ps + (aSize[ii+1] - aSize[ii]) * HTML_IFONTSIZE_SCALE;
             } else {
-                iPoints = p->pTree->aFontSizeTable[2];
+                iPoints = p->pTree->aFontSizeTable[2] * HTML_IFONTSIZE_SCALE;
             }
             break;
         }
@@ -280,24 +280,31 @@ propertyValuesSetFontSize(p, pProp)
         /* Font-size is in terms of the font-size table */
         case CSS_CONST_XX_SMALL:
             iPoints = p->pTree->aFontSizeTable[0];
+            iPoints = iPoints * HTML_IFONTSIZE_SCALE;
             break;
         case CSS_CONST_X_SMALL:
             iPoints = p->pTree->aFontSizeTable[1];
+            iPoints = iPoints * HTML_IFONTSIZE_SCALE;
             break;
         case CSS_CONST_SMALL:
             iPoints = p->pTree->aFontSizeTable[2];
+            iPoints = iPoints * HTML_IFONTSIZE_SCALE;
             break;
         case CSS_CONST_MEDIUM:
             iPoints = p->pTree->aFontSizeTable[3];
+            iPoints = iPoints * HTML_IFONTSIZE_SCALE;
             break;
         case CSS_CONST_LARGE:
             iPoints = p->pTree->aFontSizeTable[4];
+            iPoints = iPoints * HTML_IFONTSIZE_SCALE;
             break;
         case CSS_CONST_X_LARGE:
             iPoints = p->pTree->aFontSizeTable[5];
+            iPoints = iPoints * HTML_IFONTSIZE_SCALE;
             break;
         case CSS_CONST_XX_LARGE:
             iPoints = p->pTree->aFontSizeTable[6];
+            iPoints = iPoints * HTML_IFONTSIZE_SCALE;
             break;
 
         /* Font-size is in physical units (except points or picas) */
@@ -318,10 +325,10 @@ propertyValuesSetFontSize(p, pProp)
 
         /* Font-size is already in points or picas*/
         case CSS_TYPE_PC:
-            iPoints = (int)(pProp->v.rVal / 12.0);
+            iPoints = (int)(pProp->v.rVal * HTML_IFONTSIZE_SCALE / 12.0);
             break;
         case CSS_TYPE_PT:
-            iPoints = INTEGER(pProp->v.rVal);
+            iPoints = INTEGER(HTML_IFONTSIZE_SCALE * pProp->v.rVal);
             break;
 
         default:   /* Type-mismatch error */
@@ -329,7 +336,7 @@ propertyValuesSetFontSize(p, pProp)
     }
 
     if (iPixels > 0) {
-        p->fontKey.iFontSize = pixelsToPoints(p, iPixels);
+        p->fontKey.iFontSize = HTML_IFONTSIZE_SCALE * pixelsToPoints(p,iPixels);
     } else if (iPoints > 0) {
         p->fontKey.iFontSize = iPoints;
     } else if (iScale > 0.0) {
@@ -1703,13 +1710,16 @@ allocateNewFont(interp, tkwin, pFontKey)
     Tk_Font tkfont = 0;
     const char *DEFAULT_FONT_FAMILY = "Helvetica";
 
-    int iFontSize = pFontKey->iFontSize;
     const char *zFamily = pFontKey->zFontFamily;
     int isItalic = pFontKey->isItalic;
     int isBold = pFontKey->isBold;
 
     char zTkFontName[256];      /* Tk font name */
     HtmlFont *pFont;
+
+    /* Local variable iFontSize is in points - not thousandths */
+    int iF = pFontKey->iFontSize;
+    int iFontSize = ((HTML_IFONTSIZE_SCALE / 2) + iF) / HTML_IFONTSIZE_SCALE;
 
     struct FamilyMap {
         CONST char *cssFont;
@@ -2517,7 +2527,11 @@ HtmlNodeProperties(interp, pValues)
                 break;
             }
             case FONT: {
+                const char zBuf[256];
+                int iFontSize = pValues->fFont->pKey->iFontSize;
                 pValue = Tcl_NewStringObj(pValues->fFont->zFont, -1);
+                sprintf(zBuf, " (%d thousandths)", iFontSize);
+                Tcl_AppendToObj(pValue, zBuf, -1);
                 break;
             }
             case IMAGE: {

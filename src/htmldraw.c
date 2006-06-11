@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.125 2006/06/04 12:53:47 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.126 2006/06/11 11:06:25 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -271,7 +271,7 @@ struct HtmlCanvasItem {
     HtmlCanvasItem *pNext;
 };
 
-#if 1
+#if 0
 static void
 CHECK_CANVAS(pCanvas) 
     HtmlCanvas *pCanvas;

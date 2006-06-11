@@ -166,11 +166,11 @@ comma ::= COMMA. {
 
 declaration_list ::= declaration.
 declaration_list ::= declaration_list SEMICOLON declaration.
+declaration_list ::= declaration_list SEMICOLON ws.
 
 declaration ::= ws IDENT(X) ws COLON ws expr(E) prio(I). {
     HtmlCssDeclaration(pParse, &X, &E, I);
 }
-
 declaration ::= garbage.
 
 garbage_token ::= error.

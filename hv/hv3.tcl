@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.76 2006/06/10 15:57:13 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.77 2006/06/11 11:06:25 danielk1977 Exp $)} 1 }
 
 #
 # The code in this file is partitioned into the following classes:
@@ -515,6 +515,8 @@ snit::widget ::hv3::hv3 {
     bindtags [$self html] [concat [bindtags [$self html]] $self]
     pack $myHtml -expand true -fill both
 
+    # $myHtml configure -layoutcache 0
+
     # Create the event-handling components.
     set myHyperlinkManager [::hv3::hv3::hyperlinkmanager %AUTO% $self]
     set mySelectionManager [::hv3::hv3::selectionmanager %AUTO% $self]
@@ -857,6 +859,7 @@ snit::widget ::hv3::hv3 {
         $myHtml configure -defaultstyle [::tkhtml::htmlstyle]
         set myQuirksmode quirks
       }
+      $myHtml reset
     }
 
     $myHtml parse $data
@@ -1008,6 +1011,8 @@ snit::widget ::hv3::hv3 {
     $myDynamicManager  reset
     $myFormManager     reset
     $myHtml            reset
+
+    set myQuirksmode unknown
   }
 
   method location {} { return [$myUri get] }

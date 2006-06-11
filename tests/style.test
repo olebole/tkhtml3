@@ -231,5 +231,70 @@ tcltest::test style-6.1 {} -body {
   {background-image:url(/files/theme/nav-main.png); background-attachment:scrol; background-color:#fc3; background-repeat:repeat-x; background-position-x:0.00; background-position-y:100.00%}
 ]]
 
+tcltest::test style-6.2 {} -body {
+  parse_stylesheet {
+    @media print {
+      P {color: green}
+    }
+  }
+} -result [list]
+
+tcltest::test style-6.3 {} -body {
+  parse_stylesheet {
+    @media print {
+      P {
+        color: green
+      }
+      P {
+        color: red
+      }
+    }
+  }
+} -result [list]
+
+tcltest::test style-6.4 {} -body {
+  parse_stylesheet {
+    @page {
+      @bottom-right {
+        font-family: helvetica, sans-serif;
+        content: counter(page);
+        text-align: right;
+        vertical-align: top;
+        padding-top: 2em;
+      }
+    }
+
+    @media print {
+      P {
+        color: red
+      }
+    }
+  }
+} -result [list]
+
+tcltest::test style-6.4 {} -body {
+  parse_stylesheet {
+SUP {
+    vertical-align: super;
+    font-size: 80%
+}
+
+@page {
+  @bottom-right {
+    font-family: helvetica, sans-serif;
+    content: counter(page);
+    text-align: right;
+    vertical-align: top;
+    padding-top: 2em;
+  }
+}
+
+@media print {
+P { margin-top: 0; }
+.dlink { display: none; }
+}
+  }
+} -result [list [list sup {vertical-align:super; font-size:80.00%}]]
+
 finish_test
 
