@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.79 2006/06/27 14:19:07 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.80 2006/06/27 18:14:24 danielk1977 Exp $)} 1 }
 
 #
 # The code in this file is partitioned into the following classes:
@@ -614,7 +614,7 @@ snit::widget ::hv3::hv3 {
   # variable identified by the -locationvar option, if any.
   method set_location_var {} {
     if {$options(-locationvar) ne ""} {
-      uplevel #0 [subst {set $options(-locationvar) [$myUri get]}]
+      uplevel #0 [list set $options(-locationvar) [$myUri get]]
     }
   }
 

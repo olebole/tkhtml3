@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.177 2006/06/11 11:06:25 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.178 2006/06/27 18:14:24 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -465,6 +465,91 @@ nodeIsReplaced(pNode)
     ) ? 1 : 0;
 }
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * normalFlowLayoutOverflow --
+ *
+ *     This FlowLayoutFunc is called to handle an in-flow block with the
+ *     'overflow' property set to something other than "visible" - i.e.
+ *     "scroll", "hidden" or "auto".
+ * 
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+normalFlowLayoutOverflow(pLayout, pBox, pNode, pY, pContext, pNormal)
+    LayoutContext *pLayout;
+    BoxContext *pBox;
+    HtmlNode *pNode;
+    int *pY;
+    InlineContext *pContext;
+    NormalFlow *pNormal;
+{
+    HtmlComputedValues *pV = pNode->pPropertyValues;
+
+    MarginProperties margin;
+    BoxProperties box;
+    BoxContext sBox;
+    BoxContext sContent;
+    HtmlFloatList *pFloat = pNormal->pFloat;
+    int y;
+    int min;               /* Minimum content width of pNode */
+    int iMPB;              /* Horizontal margins, padding, borders */
+    int iLeft;             /* Left floating margin where box is drawn */
+    int iRight;            /* Right floating margin where box is drawn */
+    int iWidth;            /* Width of box */
+
+    blockMinMaxWidth(pLayout, pNode, &min, 0);
+
+    nodeGetMargins(pLayout, pNode, pBox->iContaining, &margin);
+    nodeGetBoxProperties(pLayout, pNode, pBox->iContaining, &box);
+
+    iMPB = margin.margin_left + margin.margin_right + box.iLeft + box.iRight;
+
+    /* Vertical margins always collapse above these blocks */
+    normalFlowMarginAdd(pNormal, margin.margin_top);
+    normalFlowMarginCollapse(pNormal, pY);
+
+    iLeft = 0;
+    iRight = pBox->iContaining;
+    y = HtmlFloatListPlace(pFloat, pBox->iContaining, min + iMPB, 1000, *pY);
+    HtmlFloatListMargins(pFloat, y, y+1000, &iLeft, &iRight);
+
+    iWidth = PIXELVAL(pV, WIDTH, iRight - iLeft - iMPB);
+    if (iWidth == PIXELVAL_AUTO) {
+        iWidth = iRight - iLeft - iMPB;
+    }
+
+    memset(&sBox, 0, sizeof(BoxContext));
+    memset(&sContent, 0, sizeof(BoxContext));
+    sContent.iContaining = iWidth;
+    HtmlLayoutNodeContent(pLayout, &sContent, pNode);
+
+    LOG {
+        HtmlTree *pTree = pLayout->pTree;
+        char const *zNode = Tcl_GetString(HtmlNodeCommand(pTree, pNode));
+        HtmlLog(pTree, "LAYOUTENGINE", "%s "
+            "containing width for content = %dpx",
+            zNode, sContent.iContaining
+        );
+    }
+
+    sContent.width = MAX(sContent.width, iWidth);
+    wrapContent(pLayout, &sBox, &sContent, pNode);
+    DRAW_CANVAS(&pBox->vc, &sBox.vc, margin.margin_left, y, pNode);
+
+    *pY = y + sBox.height;
+    pBox->width = MAX(pBox->width, sBox.width);
+    pBox->height = MAX(pBox->height, *pY);
+
+    return 0;
+}
 
 /*
  *---------------------------------------------------------------------------
@@ -989,11 +1074,18 @@ inlineLayoutDrawLines(pLayout, pBox, pContext, forceflag, pY, pNormal)
  *
  *     Draw the content area of node pNode into the box context pBox. If pNode
  *     has the 'display' property set to "table", it generates a table context.
- *     Otherwise, pNode is assumed to generate a normal flow context.
+ *     Otherwise, pNode is assumed to generate a normal flow context. According
+ *     to CSS2.1 section 9.4.1, the following elements should use this
+ *     function (as well as the root element):
  *
- *     In particular, it is illegal to pass a replaced element (according to
- *     nodeIsReplaced()) to this
- *     function.
+ *         Floats
+ *         Absolutely positioned elements
+ *         Table cells
+ *         Elements with 'display' set to "inline-block" (not supported yet)
+ *         Elements with 'overflow' other than "visible".
+ *
+ *     It is illegal to pass a replaced element (according to nodeIsReplaced())
+ *     to this function.
  *
  *     When this function is called, pBox->iContaining should contain the pixel
  *     width available for the content.  The top-left hand corner of the
@@ -2427,6 +2519,8 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
     F( INLINE_REPLACED, 0, 0, 0, normalFlowLayoutReplacedInline);
     F( ABSOLUTE,        0, 0, 0, normalFlowLayoutAbsolute);
     F( FIXED,           0, 0, 0, normalFlowLayoutFixed);
+
+    F( OVERFLOW,        1, 1, 0, normalFlowLayoutOverflow);
     #undef F
 
     /* 
@@ -2463,7 +2557,9 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
         pFlow = &FT_BLOCK;
         if (HtmlNodeTagType(pNode) == Html_BR) {
             pFlow = &FT_BR;
-        } 
+        } else if (pNode->pPropertyValues->eOverflow != CSS_CONST_VISIBLE) {
+            pFlow = &FT_OVERFLOW;
+        }
     } else if (eDisplay == CSS_CONST_LIST_ITEM) {
         pFlow = &FT_LIST_ITEM;
     } else if (eDisplay == CSS_CONST_TABLE) {
