@@ -41,41 +41,69 @@ proc C {args} {foreach a $args {lappend ::constants $a}}
 proc P {args} {foreach a $args {lappend ::properties $a}}
 proc S {args} {foreach a $args {lappend ::shortcut_properties $a}}
 
+# Declare an enumerated property. The first argument is the property
+# name. Each subsequent argument is a valid enumerated value for the 
+# property.
+proc E {args} {
+  set prop [lindex $args 0]
+  set values [lrange $args 1 end]
+  foreach v $values {lappend ::enums($prop) $v}
+  P $prop
+  foreach v $values { C $v }
+}
+
 C inherit
-C table-header-group table-footer-group table-row 
-C block inline list-item none                     ;# 'display'
-C run-in compact marker table inline-table 
-C table-caption table-row-group table-cell
-C table-header-group table-footer-group table-row 
-C table-column-group table-column
-C left right none                                 ;# 'float'
-C left right none both                            ;# 'clear'
-C static relative absolute fixed                  ;# 'position'
-C left right center justify                       ;# 'text-align'
-C auto                                            ;# 'margin'
-C square disc circle none                         ;# 'list-style-type'
-C decimal lower-alpha upper-alpha lower-roman     ;# 'list-style-type'
-C upper-roman                                     ;# 'list-style-type'
-C outside inside                                  ;# 'list-style-position'
-C italic oblique                                  ;# 'font-style'
-C bold bolder lighter                             ;# 'font-weight'
-C small-caps                                      ;# 'font-variant'
-C top middle bottom baseline sub super            ;# 'vertical-align'
-C pre nowrap normal                               ;# 'white-space'
-C xx-small x-small small medium large x-large     ;# 'font-size'
-C xx-large larger smaller
-C thin medium thick                               ;# 'border-width'
-C none hidden dotted dashed solid double groove   ;# 'border-style'
-C ridge outset inset
-C scroll fixed                                    ;# 'background-attachment'
-C repeat no-repeat repeat-x repeat-y              ;# 'background-repeat'
-C top left right bottom center                    ;# 'background-position'
-C black silver gray white maroon red purple aqua  ;# Standard web colors
-C fuchsia green lime olive yellow navy blue teal
-C transparent                                     ;# 'background-color'
-C underline overline line-through none            ;# 'text-decoration'
-C visible auto hidden scroll                      ;# 'overflow'
+C auto
+
+# Enumerated type mappings.
+E background-attachment scroll fixed
+E background-repeat     repeat no-repeat repeat-x repeat-y
+E border-collapse       separate collapse 
+foreach dir [list top left bottom right] {
+  E border-$dir-style none hidden dotted dashed solid 
+  E border-$dir-style double groove ridge outset inset
+}
+E caption-side          top bottom
+E clear                 none left right both
+E direction             ltr rtl
+E display               inline table-header-group table-footer-group 
+E display               table-row block list-item none
+E display               run-in compact marker table inline-table 
+E display               table-caption table-row-group table-cell
+E display               table-header-group table-footer-group table-row 
+E display               table-column-group table-column
+E empty-cells           show hide
+E float                 none left right
+E font-variant          normal small-caps
+E list-style-position   outside inside
+E list-style-type       disc square circle none
+E list-style-type       decimal lower-alpha upper-alpha lower-roman
+E list-style-type       upper-roman
+E overflow              visible auto hidden scroll
+E outline-style         none hidden dotted dashed solid 
+E outline-style         double groove ridge outset inset
+E position              static relative absolute fixed
+E table-layout          auto fixed
+E text-align            left right center justify
+E text-decoration       none underline overline line-through
+E text-transform        none capitalize uppercase lowercase
+E unicode-bidi          normal embed bidi-override
+E visibility            visible hidden collapse
+E white-space           normal pre nowrap
+
 C text-top text-bottom 
+C thin medium thick
+C top left right bottom center
+C xx-small x-small small medium large x-large
+C xx-large larger smaller
+C normal bold bolder lighter
+C top middle bottom baseline sub super
+C normal italic oblique
+
+# Standard web colors
+C black silver gray white maroon red purple aqua
+C fuchsia green lime olive yellow navy blue teal
+C transparent
 
 P azimuth background-attachment background-color background-image 
 P background-repeat border-collapse border-spacing 
@@ -299,6 +327,59 @@ proc CodeLookup {prefix entries firstconstant} {
     append ::cssprop_c "\}\n"
 }
 
+proc CodeEnumVals {} {
+  foreach e $::constant_map {set constants([lindex $e 0]) [lindex $e 1]}
+  foreach e $::property_map {set properties([lindex $e 0]) [lindex $e 1]}
+  append ::cssprop_c "static unsigned char enumdata\[] = {"
+  
+  foreach key [array names ::enums] {
+    append ::cssprop_c "$properties($key), "
+
+    # The list $::enums($key) contains all valid values for the
+    # property. Eliminate duplicates while keeping the element at
+    # the head of the list constant.
+    set default [lindex $::enums($key) 0]
+    set vals [lsort -unique [lrange $::enums($key) 1 end]]
+    if {[set idx [lsearch $vals $default]] >= 0} {
+      set vals [lreplace $vals $idx $idx]
+    }
+    set vals [linsert $vals 0 $default]
+
+    foreach v $vals {
+      append ::cssprop_c "$constants($v), "
+    }
+    append ::cssprop_c "0, "
+  }
+  append ::cssprop_c "CSS_PROPERTY_MAX_PROPERTY+1};"
+  append ::cssprop_c {
+unsigned char *HtmlCssEnumeratedValues(int eProp){
+    static int isInit = 0;
+    static int aProps[CSS_PROPERTY_MAX_PROPERTY+1];
+    if (0 == isInit) {
+        int novalue = sizeof(enumdata) - 2;
+        int i;
+        for (i = 0; i < CSS_PROPERTY_MAX_PROPERTY+1; i++){
+            aProps[i] = novalue;
+        }
+        i = 0;
+        while (enumdata[i] != CSS_PROPERTY_MAX_PROPERTY+1){
+            assert(enumdata[i] <= CSS_PROPERTY_MAX_PROPERTY);
+            assert(enumdata[i] >= 0);
+            aProps[enumdata[i]] = i + 1;
+            while( enumdata[i] ) i++;
+            i++;
+        }
+        isInit = 1;
+    }
+
+    return &enumdata[aProps[eProp]];
+}
+}
+  append ::cssprop_h {
+unsigned char *HtmlCssEnumeratedValues(int);
+  }
+}
+
 proc writefile {filename text} {
     set fd [open $filename w]
     puts $fd $text
@@ -321,6 +402,7 @@ foreach a [lsort -unique $shortcut_properties] {
 append ::cssprop_c "#include \"cssprop.h\"\n"
 append ::cssprop_c "#include <string.h>        /* strlen() */\n"
 append ::cssprop_c "#include <ctype.h>         /* tolower() */\n"
+append ::cssprop_c "#include <assert.h>        /* assert() */\n"
 CodeInfrastructure
 CodeLookup HtmlCssConstant $constant_map  100
 CodeLookup HtmlCssProperty $property_map  0
@@ -332,6 +414,8 @@ append ::cssprop_h "#define CSS_CONST_MIN_CONSTANT 100\n"
 append ::cssprop_h "#define CSS_PROPERTY_MIN_PROPERTY 0\n"
 append ::cssprop_h "#define CSS_CONST_MAX_CONSTANT $max_constant\n"
 append ::cssprop_h "#define CSS_PROPERTY_MAX_PROPERTY $max_property\n"
+
+CodeEnumVals
 
 writefile cssprop.h $::cssprop_h
 writefile cssprop.c $::cssprop_c

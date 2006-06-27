@@ -118,8 +118,8 @@ struct HtmlColor {
  * Pixel type values:
  *
  *     Most variables that match the pattern 'iXXX' contain pixel values - a
- *     length or size expressed in pixels. The only exception at the moment is
- *     HtmlFontKey.iFontSize. 
+ *     length or size expressed in pixels. The only exceptions at the moment 
+ *     are HtmlFontKey.iFontSize and iZIndex. 
  *
  *     Percentage values
  *
@@ -145,10 +145,11 @@ struct HtmlColor {
  *
  *     The 'auto', 'none' and 'normal' values:
  *
- *         If a pixel type value is set to 'auto' or 'none', the integer
- *         variable is set to the constant PIXELVAL_AUTO, PIXELVAL_NONE or
- *         PIXELVAL_NORMAL respectively. These are both very large negative
- *         numbers, unlikely to be confused with real pixel values.
+ *         If a pixel type value is set to 'auto', 'none' or 'normal', the
+ *         integer variable is set to the constant PIXELVAL_AUTO, 
+ *         PIXELVAL_NONE or PIXELVAL_NORMAL respectively. These are both very
+ *         large negative numbers, unlikely to be confused with real pixel
+ *         values.
  *
  *     iVerticalAlign:
  *
@@ -169,6 +170,16 @@ struct HtmlColor {
  *         Todo: Note that inheritance is not done correctly for this property
  *         if it is set to <number>.
  *
+ *
+ * Properties not represented:
+ *
+ *     The following properties should be supported by this structure, as
+ *     Tkhtml aims to one day support them. They are not currently supported
+ *     because (a) layout engine support is a long way off, and (b) it would 
+ *     be tricky in some way to do so:
+ *
+ *         'clip' 'cursor' 'content' 'counter-increment' 
+ *         'counter-reset' 'quotes'
  */
 struct HtmlComputedValues {
     int nRef;                         /* MUST BE FIRST (see htmlhash.c) */
@@ -234,10 +245,25 @@ struct HtmlComputedValues {
     int iBackgroundPositionX;
     int iBackgroundPositionY;
 
-    unsigned char eOverflow;              /* 'overflow' */
 
     /* The Tkhtml specific properties */
     HtmlImage2 *imReplacementImage;   /* '-tkhtml-replacement-image' */
+
+    /* Properties not yet in use - TODO! */
+    int iWordSpacing;                 /* 'word-spacing'   (pixels, NORMAL) */
+    int iLetterSpacing;               /* 'letter-spacing' (pixels, NORMAL) */
+    int iZIndex;                      /* 'z-index'        (integer, AUTO) */
+
+    unsigned char eFontVariant;       /* 'font-variant' */
+    unsigned char eTextTransform;     /* 'text-transform' */
+    unsigned char eUnicodeBidi;       /* 'unicode-bidi' */
+    unsigned char eDirection;         /* 'direction' */
+    unsigned char eOverflow;          /* 'overflow' */
+    unsigned char eVisibility;        /* 'visibility' */
+    unsigned char eBorderCollapse;    /* 'border-collapse' */
+    unsigned char eCaptionSide;       /* 'caption-side' */
+    unsigned char eEmptyCells;        /* 'empty-cells' */
+    unsigned char eTableLayout;       /* 'table-layout' */
 };
 
 struct HtmlComputedValuesCreator {
@@ -299,6 +325,8 @@ struct HtmlComputedValuesCreator {
 #define PROP_MASK_RIGHT                   0x04000000
 #define PROP_MASK_LEFT                    0x08000000
 #define PROP_MASK_TEXT_INDENT             0x10000000
+#define PROP_MASK_WORD_SPACING            0x20000000
+#define PROP_MASK_LETTER_SPACING          0x40000000
 
 /*
  * Pixel values in the HtmlComputedValues struct may also take the following

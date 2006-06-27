@@ -198,7 +198,7 @@ SUPPORTTABLE {Visual Effects Properties} \
 
 SUPPORTTABLE {Table Properties} \
 	[CSSREF tables border-collapse nosupport] {No support.} \
-	[CSSREF tables border-spacing nosupport] {No support.}  \
+	[CSSREF tables border-spacing] {}  \
 	[CSSREF tables caption-side nosupport] {No support.}    \
 	[CSSREF tables empty-cells nosupport] {No support.}     \
 	[CSSREF tables table-layout nosupport] {No support.}

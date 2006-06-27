@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.71 2006/06/11 11:06:25 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.72 2006/06/27 14:19:07 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -50,6 +50,248 @@ static const char rcsid[] = "$Id: htmlprop.c,v 1.71 2006/06/11 11:06:25 danielk1
  * Convert a double value from a CssProperty to an integer.
  */
 #define INTEGER(x) ((int)((x) + ((x > 0.0) ? 0.49 : -0.49)))
+
+/*
+ * The properties table. This data structure describes the way in
+ * which each individual property should be handled in the following
+ * use cases:
+ *
+ *     HtmlNodeProperties()        - Format property value as string
+ *     HtmlComputedValuesCompare() - Compare property values and determine if
+ *                                   relayout or repainting is required by the
+ *                                   changes.
+ *     HtmlComputedValuesInit()    - Initialise property value.
+ *
+ *     HtmlComputedValuesRelease() - Delete ref to property value.
+ *     HtmlComputedValuesSet()     - Set property value.
+ */
+
+enum PropertyValueType {
+    ENUM, COLOR, LENGTH, IMAGE, BORDERWIDTH, CUSTOM
+};
+
+typedef struct PropertyDef PropertyDef;
+struct PropertyDef {
+    enum PropertyValueType eType;
+    int eProp;
+    int iOffset;
+    int mask;
+    int iDefault;              /* For LENGTH and BORDERWIDTH */
+
+    int setsizemask;           /* If eType==LENGTH, mask for SetSize() */
+    int (*xSet)(HtmlComputedValuesCreator *, CssProperty *);
+    int isInherit;             /* True to inherit by default */
+};
+
+#define PROPDEF(w, x, y) {                                   \
+  w, CSS_PROPERTY_ ## x, Tk_Offset(HtmlComputedValues, y), 0 \
+}
+#define PROPDEFM(w, x, y, z) {                              \
+  w, CSS_PROPERTY_ ## x, Tk_Offset(HtmlComputedValues, y),  \
+  PROP_MASK_ ## x, z                                        \
+}
+
+static PropertyDef propdef[] = {
+  PROPDEF(ENUM, BACKGROUND_ATTACHMENT, eBackgroundAttachment),
+  PROPDEF(ENUM, BACKGROUND_REPEAT,     eBackgroundRepeat),
+  PROPDEF(ENUM, BORDER_BOTTOM_STYLE,   eBorderBottomStyle),
+  PROPDEF(ENUM, BORDER_LEFT_STYLE,     eBorderLeftStyle),
+  PROPDEF(ENUM, BORDER_RIGHT_STYLE,    eBorderRightStyle),
+  PROPDEF(ENUM, BORDER_TOP_STYLE,      eBorderTopStyle),
+  PROPDEF(ENUM, CLEAR,                 eClear), 
+  PROPDEF(ENUM, DISPLAY,               eDisplay), 
+  PROPDEF(ENUM, FLOAT,                 eFloat), 
+  PROPDEF(ENUM, LIST_STYLE_POSITION,   eListStylePosition),
+  PROPDEF(ENUM, LIST_STYLE_TYPE,       eListStyleType),
+  PROPDEF(ENUM, OUTLINE_STYLE,         eOutlineStyle),
+  PROPDEF(ENUM, OVERFLOW,              eOverflow),
+  PROPDEF(ENUM, POSITION,              ePosition),
+  PROPDEF(ENUM, TEXT_ALIGN,            eTextAlign), 
+  PROPDEF(ENUM, TEXT_DECORATION,       eTextDecoration), 
+  PROPDEF(ENUM, WHITE_SPACE,           eWhitespace), 
+  PROPDEF(ENUM, BORDER_COLLAPSE,       eBorderCollapse),
+  PROPDEF(ENUM, DIRECTION,             eDirection),
+  PROPDEF(ENUM, CAPTION_SIDE,          eCaptionSide),
+  PROPDEF(ENUM, EMPTY_CELLS,           eEmptyCells),
+  PROPDEF(ENUM, FONT_VARIANT,          eFontVariant),
+  PROPDEF(ENUM, TABLE_LAYOUT,          eTableLayout),
+  PROPDEF(ENUM, TEXT_TRANSFORM,        eTextTransform),
+  PROPDEF(ENUM, UNICODE_BIDI,          eUnicodeBidi),
+  PROPDEF(ENUM, VISIBILITY,            eVisibility),
+
+  /* Note: The CSS2 property 'border-spacing' can be set to
+   * either a single or pair of length values. Only a single
+   * value is supported at the moment, which is enough to support
+   * the html 4.01 cellspacing attribute.
+   */
+  PROPDEFM(LENGTH, BORDER_SPACING,        iBorderSpacing,    0),
+  PROPDEFM(LENGTH, BACKGROUND_POSITION_X, iBackgroundPositionX, 0),
+  PROPDEFM(LENGTH, BACKGROUND_POSITION_Y, iBackgroundPositionY, 0),
+  PROPDEFM(LENGTH, BOTTOM,                position.iBottom,  PIXELVAL_AUTO),
+  PROPDEFM(LENGTH, HEIGHT,                iHeight,           PIXELVAL_AUTO),
+  PROPDEFM(LENGTH, LEFT,                  position.iLeft,    PIXELVAL_AUTO),
+  PROPDEFM(LENGTH, MARGIN_BOTTOM,         margin.iBottom,    0),
+  PROPDEFM(LENGTH, MARGIN_LEFT,           margin.iLeft,      0),
+  PROPDEFM(LENGTH, MARGIN_RIGHT,          margin.iRight,     0),
+  PROPDEFM(LENGTH, MARGIN_TOP,            margin.iTop,       0),
+  PROPDEFM(LENGTH, MAX_HEIGHT,            iMaxHeight,        PIXELVAL_NONE),
+  PROPDEFM(LENGTH, MAX_WIDTH,             iMaxWidth,         PIXELVAL_NONE),
+  PROPDEFM(LENGTH, MIN_HEIGHT,            iMinHeight,        0),
+  PROPDEFM(LENGTH, MIN_WIDTH,             iMinWidth,         0),
+  PROPDEFM(LENGTH, PADDING_BOTTOM,        padding.iBottom,   0),
+  PROPDEFM(LENGTH, PADDING_LEFT,          padding.iLeft,     0),
+  PROPDEFM(LENGTH, PADDING_RIGHT,         padding.iRight,    0),
+  PROPDEFM(LENGTH, PADDING_TOP,           padding.iTop,      0),
+  PROPDEFM(LENGTH, RIGHT,                 position.iRight,   PIXELVAL_AUTO),
+  PROPDEFM(LENGTH, TEXT_INDENT,           iTextIndent,       0),
+  PROPDEFM(LENGTH, TOP,                   position.iTop,     PIXELVAL_AUTO),
+  PROPDEFM(LENGTH, WIDTH,                 iWidth,            PIXELVAL_AUTO),
+  PROPDEFM(LENGTH, WORD_SPACING,          iWordSpacing,      PIXELVAL_NORMAL),
+  PROPDEFM(LENGTH, LETTER_SPACING,        iLetterSpacing,    PIXELVAL_NORMAL),
+
+  PROPDEF(COLOR, BACKGROUND_COLOR,        cBackgroundColor),
+  PROPDEF(COLOR, COLOR,                   cColor),
+  PROPDEF(COLOR, BORDER_TOP_COLOR,        cBorderTopColor),
+  PROPDEF(COLOR, BORDER_RIGHT_COLOR,      cBorderRightColor),
+  PROPDEF(COLOR, BORDER_LEFT_COLOR,       cBorderLeftColor),
+  PROPDEF(COLOR, BORDER_BOTTOM_COLOR,     cBorderBottomColor),
+  PROPDEF(COLOR, OUTLINE_COLOR,           cOutlineColor),
+
+  PROPDEF(IMAGE, _TKHTML_REPLACEMENT_IMAGE, imReplacementImage),
+  PROPDEF(IMAGE, BACKGROUND_IMAGE,          imBackgroundImage),
+  PROPDEF(IMAGE, LIST_STYLE_IMAGE,          imListStyleImage),
+
+  PROPDEFM(BORDERWIDTH, BORDER_TOP_WIDTH,    border.iTop,    2),
+  PROPDEFM(BORDERWIDTH, BORDER_LEFT_WIDTH,   border.iLeft,   2),
+  PROPDEFM(BORDERWIDTH, BORDER_RIGHT_WIDTH,  border.iRight,  2),
+  PROPDEFM(BORDERWIDTH, BORDER_BOTTOM_WIDTH, border.iBottom, 2),
+  PROPDEFM(BORDERWIDTH, OUTLINE_WIDTH,       iOutlineWidth,  2),
+
+  PROPDEF(CUSTOM, VERTICAL_ALIGN,            iVerticalAlign),
+  PROPDEF(CUSTOM, LINE_HEIGHT,               iLineHeight),
+
+  PROPDEF(CUSTOM, FONT_SIZE,                 fFont),
+  PROPDEF(CUSTOM, FONT_WEIGHT,               fFont),
+  PROPDEF(CUSTOM, FONT_FAMILY,               fFont),
+  PROPDEF(CUSTOM, FONT_STYLE,                fFont),
+};
+
+#define SZ_AUTO     0x00000001
+#define SZ_INHERIT  0x00000002
+#define SZ_NONE     0x00000004
+#define SZ_PERCENT  0x00000008
+#define SZ_NEGATIVE 0x00000010
+#define SZ_NORMAL   0x00000020
+
+#define SZMASKDEF(x, y) { CSS_PROPERTY_ ## x, y }
+struct SizemaskDef {
+  int eProp;
+  int mask;
+} sizemskdef[] = {
+  SZMASKDEF(BORDER_SPACING,        0),
+  SZMASKDEF(BACKGROUND_POSITION_X, SZ_INHERIT|SZ_PERCENT|SZ_NEGATIVE),
+  SZMASKDEF(BACKGROUND_POSITION_Y, SZ_INHERIT|SZ_PERCENT|SZ_NEGATIVE),
+  SZMASKDEF(BOTTOM,                SZ_INHERIT|SZ_PERCENT|SZ_AUTO|SZ_NEGATIVE),
+  SZMASKDEF(HEIGHT,                SZ_INHERIT|SZ_PERCENT|SZ_AUTO),
+  SZMASKDEF(LEFT,                  SZ_INHERIT|SZ_PERCENT|SZ_AUTO|SZ_NEGATIVE),
+  SZMASKDEF(MARGIN_BOTTOM,         SZ_INHERIT|SZ_PERCENT|SZ_AUTO|SZ_NEGATIVE),
+  SZMASKDEF(MARGIN_LEFT,           SZ_INHERIT|SZ_PERCENT|SZ_AUTO|SZ_NEGATIVE),
+  SZMASKDEF(MARGIN_RIGHT,          SZ_INHERIT|SZ_PERCENT|SZ_AUTO|SZ_NEGATIVE),
+  SZMASKDEF(MARGIN_TOP,            SZ_INHERIT|SZ_PERCENT|SZ_AUTO|SZ_NEGATIVE),
+  SZMASKDEF(MAX_HEIGHT,            SZ_INHERIT|SZ_PERCENT|SZ_NONE),
+  SZMASKDEF(MAX_WIDTH,             SZ_INHERIT|SZ_PERCENT|SZ_NONE),
+  SZMASKDEF(MIN_HEIGHT,            SZ_INHERIT|SZ_PERCENT),
+  SZMASKDEF(MIN_WIDTH,             SZ_INHERIT|SZ_PERCENT),
+  SZMASKDEF(PADDING_BOTTOM,        SZ_INHERIT|SZ_PERCENT),
+  SZMASKDEF(PADDING_LEFT,          SZ_INHERIT|SZ_PERCENT),
+  SZMASKDEF(PADDING_RIGHT,         SZ_INHERIT|SZ_PERCENT),
+  SZMASKDEF(PADDING_TOP,           SZ_INHERIT|SZ_PERCENT),
+  SZMASKDEF(RIGHT,                 SZ_INHERIT|SZ_PERCENT|SZ_AUTO|SZ_NEGATIVE),
+  SZMASKDEF(TEXT_INDENT,           SZ_INHERIT|SZ_PERCENT|SZ_NEGATIVE),
+  SZMASKDEF(TOP,                   SZ_INHERIT|SZ_PERCENT|SZ_AUTO|SZ_NEGATIVE),
+  SZMASKDEF(WIDTH,                 SZ_INHERIT|SZ_PERCENT|SZ_AUTO),
+  SZMASKDEF(LETTER_SPACING,        SZ_INHERIT|SZ_NORMAL|SZ_NEGATIVE),
+  SZMASKDEF(WORD_SPACING,          SZ_INHERIT|SZ_NORMAL|SZ_NEGATIVE),
+};
+
+static int propertyValuesSetFontSize(HtmlComputedValuesCreator*,CssProperty*);
+static int propertyValuesSetLineHeight(HtmlComputedValuesCreator*,CssProperty*);
+static int propertyValuesSetVerticalAlign(HtmlComputedValuesCreator*,CssProperty*);
+static int propertyValuesSetFontStyle(HtmlComputedValuesCreator*,CssProperty*);
+static int propertyValuesSetFontFamily(HtmlComputedValuesCreator*,CssProperty*);
+static int propertyValuesSetFontWeight(HtmlComputedValuesCreator*,CssProperty*);
+
+static struct CustomDef {
+  int eProp;
+  int (*xSet)(HtmlComputedValuesCreator *, CssProperty *);
+} customdef[] = {
+  {CSS_PROPERTY_VERTICAL_ALIGN, propertyValuesSetVerticalAlign},
+  {CSS_PROPERTY_LINE_HEIGHT,    propertyValuesSetLineHeight},
+  {CSS_PROPERTY_FONT_SIZE,      propertyValuesSetFontSize},
+  {CSS_PROPERTY_FONT_WEIGHT,    propertyValuesSetFontWeight},
+  {CSS_PROPERTY_FONT_STYLE,     propertyValuesSetFontStyle},
+  {CSS_PROPERTY_FONT_FAMILY,    propertyValuesSetFontFamily},
+};
+
+static int inheritlist[] = {
+    CSS_PROPERTY_LIST_STYLE_TYPE, CSS_PROPERTY_WHITE_SPACE,
+    CSS_PROPERTY_TEXT_ALIGN,      CSS_PROPERTY_COLOR,
+    CSS_PROPERTY_BORDER_SPACING,  CSS_PROPERTY_LINE_HEIGHT,
+    CSS_PROPERTY_FONT_SIZE,       CSS_PROPERTY_FONT_STYLE,
+    CSS_PROPERTY_FONT_WEIGHT,     CSS_PROPERTY_FONT_FAMILY,
+    CSS_PROPERTY_TEXT_INDENT,     CSS_PROPERTY_BORDER_COLLAPSE,
+    CSS_PROPERTY_CAPTION_SIDE,    CSS_PROPERTY_DIRECTION,
+    CSS_PROPERTY_EMPTY_CELLS,     CSS_PROPERTY_FONT_VARIANT,
+    CSS_PROPERTY_LETTER_SPACING,  CSS_PROPERTY_LIST_STYLE_IMAGE,
+    CSS_PROPERTY_LIST_STYLE_TYPE, CSS_PROPERTY_LIST_STYLE_POSITION,
+    CSS_PROPERTY_TEXT_TRANSFORM,  CSS_PROPERTY_VISIBILITY,
+    CSS_PROPERTY_WORD_SPACING,    CSS_PROPERTY_CURSOR,
+    CSS_PROPERTY_QUOTES
+};
+
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * getPropertyDef --
+ *
+ * Results:
+ *
+ * Side effects:
+ *     This function is not threadsafe.
+ *
+ *---------------------------------------------------------------------------
+ */
+static PropertyDef *getPropertyDef(int eProp){
+    static int isInit = 0;
+    static PropertyDef *a[CSS_PROPERTY_MAX_PROPERTY+1];
+ 
+    assert(eProp >= 0);
+    assert(eProp <= CSS_PROPERTY_MAX_PROPERTY);
+
+    if (0 == isInit) {
+        int i;
+        memset(a, 0, (CSS_PROPERTY_MAX_PROPERTY+1) * sizeof(PropertyDef *));
+        for (i = 0; i < sizeof(propdef)/sizeof(PropertyDef); i++){
+            int eCss = propdef[i].eProp;
+            assert(eCss >= 0 && eCss <= CSS_PROPERTY_MAX_PROPERTY);
+            a[eCss] = &propdef[i];
+        } 
+        for (i = 0; i < sizeof(sizemskdef)/sizeof(struct SizemaskDef); i++){
+          a[sizemskdef[i].eProp]->setsizemask = sizemskdef[i].mask;
+        }
+        for (i = 0; i < sizeof(customdef)/sizeof(struct CustomDef); i++){
+          a[customdef[i].eProp]->xSet = customdef[i].xSet;
+        }
+        for (i = 0; i < sizeof(inheritlist)/sizeof(int); i++){
+            if (a[inheritlist[i]]) {
+                a[inheritlist[i]]->isInherit = 1;
+            }
+        }
+    }
+    return a[eProp];
+}
+
 
 /*
  *---------------------------------------------------------------------------
@@ -191,6 +433,128 @@ physicalToPixels(p, rVal, type)
     return pixels;
 }
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * propertyValuesSetFontStyle --
+ *
+ * Keywords 'italic' and 'oblique' map to a Tk italic font. Keyword
+ * 'normal' maps to a non-italic font. Any other property value is
+ * rejected as a type-mismatch.
+ *
+ * Results: 
+ *     0 if value is successfully set. 1 if the value of *pProp is not a valid
+ *     a value for the 'font-style' property.
+ *
+ * Side effects:
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+propertyValuesSetFontStyle(p, pProp)
+    HtmlComputedValuesCreator *p;
+    CssProperty *pProp;
+{
+    int eType = pProp->eType;
+    if (eType == CSS_CONST_ITALIC || eType == CSS_CONST_OBLIQUE) {
+        p->fontKey.isItalic = 1;
+    } else if (eType == CSS_CONST_NORMAL) {
+        p->fontKey.isItalic = 0;
+    } else {
+        return 1;
+    }
+    return 0;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * propertyValuesSetFontWeight --
+ *
+ *     Keywords 'bold' and 'bolder', and numeric values greater than 550 map to
+ *     a Tk bold font. Keywords 'normal' and 'lighter', along with numeric
+ *     values less than 550 map to a non-bold font. Any other property value is
+ *     rejected as a type-mismatch.
+ *
+ * Results: 
+ *     0 if value is successfully set. 1 if the value of *pProp is not a valid
+ *     a value for the 'font-weight' property.
+ *
+ * Side effects:
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+propertyValuesSetFontWeight(p, pProp)
+    HtmlComputedValuesCreator *p;
+    CssProperty *pProp;
+{
+    int eType = pProp->eType;
+    if (eType == CSS_CONST_INHERIT) {
+        HtmlNode *pParent = HtmlNodeParent(p->pNode);
+        if (pParent) {
+            int i = pParent->pPropertyValues->fFont->pKey->isBold;
+            p->fontKey.isBold = i;
+        }
+    }
+    else if (
+        eType == CSS_CONST_BOLD || 
+        eType == CSS_CONST_BOLDER ||
+        (eType == CSS_TYPE_FLOAT && pProp->v.rVal > 550.0)
+    ) {
+        p->fontKey.isBold = 1;
+    }
+    else if (
+        eType == CSS_CONST_NORMAL || 
+        eType == CSS_CONST_LIGHTER ||
+        (eType == CSS_TYPE_FLOAT && pProp->v.rVal < 550.0)
+    ) {
+        p->fontKey.isBold = 0;
+    } else {
+        return 1;
+    }
+    return 0;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * propertyValuesSetFontFamily --
+ *
+ *     Just copy the pointer, not the string.
+ *
+ * Results: 
+ *     0 if value is successfully set. 1 if the value of *pProp is not a valid
+ *     a value for the 'font-family' property.
+ *
+ * Side effects:
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+propertyValuesSetFontFamily(p, pProp)
+    HtmlComputedValuesCreator *p;
+    CssProperty *pProp;
+{
+    const char *z;
+
+    /* Handle 'inherit' */
+    if (pProp->eType == CSS_CONST_INHERIT) {
+        HtmlNode *pParent = HtmlNodeParent(p->pNode);
+        if (pParent) {
+            z = pParent->pPropertyValues->fFont->pKey->zFontFamily;
+            p->fontKey.zFontFamily = z;
+        }
+        return 0;
+    }
+
+    z = HtmlCssPropertyGetString(pProp);
+    if (!z) {
+        return 1;
+    }
+    p->fontKey.zFontFamily = z;
+    return 0;
+}
  
 
 /*
@@ -403,7 +767,7 @@ getInheritPointer(p, pVar)
  *
  * propertyValuesSetEnum --
  *
- *     aOptions is a 0-terminated list of integers (all CSS_CONST_XXX values).
+ *     aOptions is a 0-terminated list of uchars (all CSS_CONST_XXX values).
  *     If pProp contains a constant string that matches an entry in aOptions,
  *     copy the constant value to *pEVar and return 0. Otherwise return 1 and
  *     leave *pEVar untouched.
@@ -420,11 +784,11 @@ static int
 propertyValuesSetEnum(p, pEVar, aOptions, pProp)
     HtmlComputedValuesCreator *p;
     unsigned char *pEVar;
-    int *aOptions;
+    unsigned char *aOptions;
     CssProperty *pProp;
 {
     int val = pProp->eType;
-    int *pOpt;
+    unsigned char *pOpt;
 
     if (val == CSS_CONST_INHERIT) {
         unsigned char *pInherit = getInheritPointer(p, pEVar);
@@ -837,12 +1201,6 @@ propertyValuesSetVerticalAlign(p, pProp)
     return rc;
 }
 
-#define SZ_AUTO     0x00000001
-#define SZ_INHERIT  0x00000002
-#define SZ_NONE     0x00000004
-#define SZ_PERCENT  0x00000008
-#define SZ_NEGATIVE 0x00000010
-
 /*
  *---------------------------------------------------------------------------
  *
@@ -910,6 +1268,13 @@ propertyValuesSetSize(p, pIVal, p_mask, pProp, allow_mask)
 
         case CSS_CONST_NONE:
             if (allow_mask & SZ_NONE) {
+                *pIVal = PIXELVAL_NONE;
+                return 0;
+            }
+            return 1;
+
+        case CSS_CONST_NORMAL:
+            if (allow_mask & SZ_NORMAL) {
                 *pIVal = PIXELVAL_NONE;
                 return 0;
             }
@@ -1023,11 +1388,15 @@ HtmlComputedValuesInit(pTree, pNode, p)
     HtmlNode *pNode;
     HtmlComputedValuesCreator *p;
 {
-    static CssProperty Medium = {CSS_CONST_MEDIUM, {"medium"}};
-    static CssProperty Transparent = {
-        CSS_CONST_TRANSPARENT, {"transparent"}
-    };
-    int rc;
+    static CssProperty Black       = {CSS_CONST_BLACK, {"black"}};
+    static CssProperty Medium      = {CSS_CONST_MEDIUM, {"medium"}};
+    static CssProperty Transparent = {CSS_CONST_TRANSPARENT, {"transparent"}};
+    static CssProperty Inherit     = {CSS_CONST_INHERIT, {"inherit"}};
+
+    int i;
+
+    HtmlComputedValues *pValues = &p->values;
+    char *values = (char *)pValues;
 
     HtmlNode *pParent = HtmlNodeParent(pNode);
     assert(p && pTree && pNode);
@@ -1036,120 +1405,43 @@ HtmlComputedValuesInit(pTree, pNode, p)
     p->pTree = pTree;
     p->pNode = pNode;
 
-    /* The following properties are inherited by default. So the initial values
-     * depend on whether or not there is a parent node:
-     *
-     *     'list-style-type', 'white-space', 'text-align', 'color',
-     *     'border-spacing', 'line-height', 'font-size', 'font-style',
-     *     'font-weight', 'font-family', 'text-indent'.
-     * 
-     * There are more of these, but we don't support them yet.
-     */
-    if (!pParent) {
-        static CssProperty Black   = {CSS_CONST_BLACK, {"black"}};
+    /* Initialise the CUSTOM properties */
+    pValues->eVerticalAlign = CSS_CONST_BASELINE;
+    pValues->iLineHeight    = PIXELVAL_NORMAL;
+    propertyValuesSetFontSize(p, &Medium);
+    p->fontKey.zFontFamily = "Helvetica";
 
-        /* Regular HtmlComputedValues properties */
-        p->values.eWhitespace     = CSS_CONST_NORMAL;   /* 'white-space' */
-        p->values.eTextAlign      = CSS_CONST_LEFT;     /* 'text-align' */ 
-        p->values.iBorderSpacing = 0;                   /* 'border-spacing' */
-        p->values.iLineHeight = PIXELVAL_NORMAL;        /* 'line-height' */
-        rc = propertyValuesSetColor(p, &p->values.cColor, &Black); /* 'color' */
-        assert(rc == 0);
+    /* Initialise the 'color' and 'background-color' properties */
+    propertyValuesSetColor(p, &p->values.cColor, &Black);
+    propertyValuesSetColor(p, &p->values.cBackgroundColor, &Transparent);
 
-        /* List properties */
-        p->values.eListStyleType  = CSS_CONST_DISC;     
-        p->values.eListStylePosition = CSS_CONST_OUTSIDE;
-        p->values.imListStyleImage = 0;
-
-        /* The font properties */
-        propertyValuesSetFontSize(p, &Medium);          /* 'font-size'  */
-        p->fontKey.zFontFamily = "Helvetica";           /* 'font-family'      */
-        p->fontKey.isItalic = 0;                        /* 'font-style'       */
-        p->fontKey.isBold = 0;                          /* 'font-weight'      */
-    } else {
-        static CssProperty Inherit = {CSS_CONST_INHERIT, {"inherit"}};
-        HtmlComputedValues *pV = pParent->pPropertyValues;
-        HtmlFontKey *pFK = pV->fFont->pKey;
-
-        /* The font properties */
-        memcpy(&p->fontKey, pFK, sizeof(HtmlFontKey));
-
-        /* List properties */
-        p->values.eListStyleType = pV->eListStyleType;  /* 'list-style-type' */
-        p->values.eListStylePosition = pV->eListStylePosition;
-        rc = propertyValuesSetImage(p, &p->values.imListStyleImage, &Inherit); 
-        assert(rc == 0);
-
-        /* The 'text-indent' property. Copy both the value and the flag
-         * from the parent (flag is set for a percentage value). 
-         */
-        p->values.iTextIndent = pV->iTextIndent;
-        p->values.mask &= (pV->mask & PROP_MASK_TEXT_INDENT);
-
-        p->values.eWhitespace = pV->eWhitespace;        /* 'white-space' */
-        p->values.eTextAlign = pV->eTextAlign;          /* 'text-align' */ 
-        p->values.iBorderSpacing = pV->iBorderSpacing;  /* 'border-spacing' */
-        p->values.iLineHeight = pV->iLineHeight;        /* 'line-height' */
-        rc = propertyValuesSetColor(p, &p->values.cColor, &Inherit); 
-        assert(rc == 0);
+    for (i = 0; i < sizeof(propdef) / sizeof(PropertyDef); i++) {
+        PropertyDef *pDef = &propdef[i];
+        if (pParent && pDef->isInherit) {
+            HtmlComputedValuesSet(p, pDef->eProp, &Inherit);
+        } else {
+            switch (pDef->eType) {
+                case LENGTH:
+                case BORDERWIDTH: {
+                    int *pVal = (int *)(values + pDef->iOffset);
+                    *pVal = pDef->iDefault;
+                    break;
+                }
+    
+                case ENUM: {
+                    /* Default for enum values is the first value in
+                     * the list returned by HtmlCssEnumeratedValues().
+                     */
+                    unsigned char *opt = HtmlCssEnumeratedValues(pDef->eProp);
+                    *(unsigned char *)(values + pDef->iOffset) = *opt;
+                    assert(*opt);
+                    break;
+                }
+                default: /* do nothing */
+                    break;
+            }
+        }
     }
-
-    /* Assign the initial values to other properties. */
-    p->values.eDisplay        = CSS_CONST_INLINE;     /* 'display' */
-    p->values.eFloat          = CSS_CONST_NONE;       /* 'float' */
-    p->values.eClear          = CSS_CONST_NONE;       /* 'clear' */
-    p->values.eTextDecoration = CSS_CONST_NONE;       /* 'text-decoration' */
-    rc = propertyValuesSetColor(p, &p->values.cBackgroundColor, &Transparent);
-    assert(rc == 0);
-    p->values.iWidth = PIXELVAL_AUTO;
-    p->values.iHeight = PIXELVAL_AUTO;
-    p->values.iMinWidth = 0;
-    p->values.iMaxWidth = PIXELVAL_NONE;
-    p->values.iMinHeight = 0;
-    p->values.iMaxHeight = PIXELVAL_NONE;
-    p->values.padding.iTop = 0;
-    p->values.padding.iRight = 0;
-    p->values.padding.iBottom = 0;
-    p->values.padding.iLeft = 0;
-    p->values.margin.iTop = 0;
-    p->values.margin.iRight = 0;
-    p->values.margin.iBottom = 0;
-    p->values.margin.iLeft = 0;
-    p->values.eBorderTopStyle = CSS_CONST_NONE;
-    p->values.eBorderRightStyle = CSS_CONST_NONE;
-    p->values.eBorderBottomStyle = CSS_CONST_NONE;
-    p->values.eBorderLeftStyle = CSS_CONST_NONE;
-    propertyValuesSetBorderWidth(p, &p->values.border.iTop, 0, &Medium);
-    propertyValuesSetBorderWidth(p, &p->values.border.iRight, 0, &Medium);
-    propertyValuesSetBorderWidth(p, &p->values.border.iBottom, 0, &Medium);
-    propertyValuesSetBorderWidth(p, &p->values.border.iLeft, 0, &Medium);
-    p->values.cBorderTopColor = 0;
-    p->values.cBorderRightColor = 0;
-    p->values.cBorderBottomColor = 0;
-    p->values.cBorderLeftColor = 0;
-
-    p->values.cOutlineColor = 0;
-    propertyValuesSetBorderWidth(p, &p->values.iOutlineWidth, 0, &Medium);
-    p->values.eOutlineStyle = CSS_CONST_NONE;
-
-    p->values.imBackgroundImage = 0;
-    p->values.eBackgroundRepeat = CSS_CONST_REPEAT;
-    p->values.eBackgroundAttachment = CSS_CONST_SCROLL;
-    p->values.iBackgroundPositionX = 0;
-    p->values.iBackgroundPositionY = 0;
-
-    p->values.imReplacementImage = 0;
-
-    p->values.eVerticalAlign = CSS_CONST_BASELINE;   /* 'vertical-align' */
-    p->values.iVerticalAlign = 0;
-
-    p->values.ePosition = CSS_CONST_STATIC;
-    p->values.position.iTop = PIXELVAL_AUTO;
-    p->values.position.iBottom = PIXELVAL_AUTO;
-    p->values.position.iLeft = PIXELVAL_AUTO;
-    p->values.position.iRight = PIXELVAL_AUTO;
-
-    p->values.eOverflow = CSS_CONST_VISIBLE;
 }
 
 /*
@@ -1257,12 +1549,7 @@ HtmlComputedValuesSet(p, eProp, pProp)
     int eProp;
     CssProperty *pProp;
 {
-    static int border_style_options[] = { 
-	CSS_CONST_NONE,    CSS_CONST_HIDDEN,    CSS_CONST_DOTTED,  
-        CSS_CONST_DASHED,  CSS_CONST_SOLID,     CSS_CONST_DOUBLE,
-        CSS_CONST_GROOVE,  CSS_CONST_RIDGE,     CSS_CONST_INSET,
-        CSS_CONST_OUTSET,  0
-    };
+    PropertyDef *pDef = getPropertyDef(eProp);
 
     if (!pProp) {
         return 0;
@@ -1290,399 +1577,45 @@ HtmlComputedValuesSet(p, eProp, pProp)
         return propertyValuesTclScript(p, eProp, pProp->v.zVal);
     }
 
-    switch (eProp) {
-
-        /* Simple enumerated type values:
-         * 
-	 *     'display', 'float', 'clear', 'text-decoration', 'white-space',
-	 *     'text-align', 'list-style-type'.
-         *
-         * These are all handled by function propertyValuesSetEnum().
-         */
-        case CSS_PROPERTY_DISPLAY: {
-            int options[] = {
-                CSS_CONST_BLOCK,      CSS_CONST_INLINE,  CSS_CONST_TABLE,
-                CSS_CONST_LIST_ITEM,  CSS_CONST_NONE,    CSS_CONST_TABLE_CELL,
-                CSS_CONST_TABLE_ROW,  0
-            };
-            unsigned char *pEVar = &(p->values.eDisplay);
-            return propertyValuesSetEnum(p, pEVar, options, pProp);
-        }
-        case CSS_PROPERTY_FLOAT: {
-            int options[] = {
-                CSS_CONST_LEFT, CSS_CONST_RIGHT, CSS_CONST_NONE, 0
-            };
-            unsigned char *pEVar = &(p->values.eFloat);
-            return propertyValuesSetEnum(p, pEVar, options, pProp);
-        }
-        case CSS_PROPERTY_CLEAR: {
-	    int options[] = { 
-                CSS_CONST_LEFT,    CSS_CONST_RIGHT,    CSS_CONST_NONE,    
-                CSS_CONST_BOTH,    0
-            };
-            unsigned char *pEVar = &(p->values.eClear);
-            return propertyValuesSetEnum(p, pEVar, options, pProp);
-        }
-        case CSS_PROPERTY_TEXT_DECORATION: {
-            int options[] = {
-                CSS_CONST_UNDERLINE,     CSS_CONST_OVERLINE, 
-                CSS_CONST_LINE_THROUGH,  CSS_CONST_NONE,      0 
-            };
-            unsigned char *pEVar = &(p->values.eTextDecoration);
-            return propertyValuesSetEnum(p, pEVar, options, pProp);
-        }
-        case CSS_PROPERTY_WHITE_SPACE: {
-            int options[] = {
-                CSS_CONST_PRE,  CSS_CONST_NORMAL,  CSS_CONST_NOWRAP,  0
-            };
-            unsigned char *pEVar = &(p->values.eWhitespace);
-            return propertyValuesSetEnum(p, pEVar, options, pProp);
-        }
-        case CSS_PROPERTY_TEXT_ALIGN: {
-            int options[] = {
-                CSS_CONST_LEFT,      CSS_CONST_RIGHT,  CSS_CONST_CENTER,
-                CSS_CONST_JUSTIFY,   0
-            };
-            unsigned char *pEVar = &(p->values.eTextAlign);
-            return propertyValuesSetEnum(p, pEVar, options, pProp);
-        }
-        case CSS_PROPERTY_LIST_STYLE_TYPE: {
-            int options[] = {
-                CSS_CONST_DISC,      CSS_CONST_CIRCLE,  CSS_CONST_SQUARE,
-		CSS_CONST_NONE,      CSS_CONST_DECIMAL, CSS_CONST_LOWER_ALPHA,
-		CSS_CONST_UPPER_ALPHA, CSS_CONST_LOWER_ROMAN,
-                CSS_CONST_UPPER_ROMAN, 0 
-            };
-            unsigned char *pEVar = &(p->values.eListStyleType);
-            return propertyValuesSetEnum(p, pEVar, options, pProp);
-        }
-        case CSS_PROPERTY_LIST_STYLE_POSITION: {
-            int options[] = {
-                CSS_CONST_OUTSIDE, CSS_CONST_INSIDE, 0
-            };
-            unsigned char *pEVar = &(p->values.eListStylePosition);
-            return propertyValuesSetEnum(p, pEVar, options, pProp);
-        }
-        case CSS_PROPERTY_BORDER_TOP_STYLE: {
-            unsigned char *pEVar = &(p->values.eBorderTopStyle);
-            return propertyValuesSetEnum(p, pEVar, border_style_options, pProp);
-        }
-        case CSS_PROPERTY_BORDER_BOTTOM_STYLE: {
-            unsigned char *pEVar = &(p->values.eBorderBottomStyle);
-            return propertyValuesSetEnum(p, pEVar, border_style_options, pProp);
-        }
-        case CSS_PROPERTY_BORDER_LEFT_STYLE: {
-            unsigned char *pEVar = &(p->values.eBorderLeftStyle);
-            return propertyValuesSetEnum(p, pEVar, border_style_options, pProp);
-        }
-        case CSS_PROPERTY_BORDER_RIGHT_STYLE: {
-            unsigned char *pEVar = &(p->values.eBorderRightStyle);
-            return propertyValuesSetEnum(p, pEVar, border_style_options, pProp);
-        }
-        case CSS_PROPERTY_BACKGROUND_REPEAT: {
-            int options[] = {
-                CSS_CONST_REPEAT,    CSS_CONST_REPEAT_X,  CSS_CONST_REPEAT_Y,
-                CSS_CONST_NO_REPEAT, 0
-            };
-            unsigned char *pEVar = &(p->values.eBackgroundRepeat);
-            return propertyValuesSetEnum(p, pEVar, options, pProp);
-        }
-        case CSS_PROPERTY_BACKGROUND_ATTACHMENT: {
-            int options[] = {
-                CSS_CONST_SCROLL, CSS_CONST_FIXED, 0
-            };
-            unsigned char *pEVar = &(p->values.eBackgroundAttachment);
-            return propertyValuesSetEnum(p, pEVar, options, pProp);
-        }
-        case CSS_PROPERTY_OVERFLOW: {
-            int options[] = {
-                CSS_CONST_VISIBLE, CSS_CONST_AUTO, 
-                CSS_CONST_HIDDEN, CSS_CONST_SCROLL, 0
-            };
-            unsigned char *pEVar = &(p->values.eOverflow);
-            return propertyValuesSetEnum(p, pEVar, options, pProp);
-        }
-
-        case CSS_PROPERTY_OUTLINE_STYLE: {
-            unsigned char *pEVar = &(p->values.eOutlineStyle);
-            return propertyValuesSetEnum(p, pEVar, border_style_options, pProp);
-        }
-        case CSS_PROPERTY_OUTLINE_COLOR: {
-            HtmlColor **pCVar = &(p->values.cOutlineColor);
-            return propertyValuesSetColor(p, pCVar, pProp);
-        }
-        case CSS_PROPERTY_OUTLINE_WIDTH: {
-            return propertyValuesSetBorderWidth(p, 
-                &(p->values.iOutlineWidth), PROP_MASK_OUTLINE_WIDTH, pProp
-            );
-        }
-
-        case CSS_PROPERTY_POSITION: {
-            int options[] = {
-                CSS_CONST_STATIC, CSS_CONST_RELATIVE, 
-                CSS_CONST_FIXED, CSS_CONST_ABSOLUTE, 0
-            };
-            unsigned char *pEVar = &(p->values.ePosition);
-            return propertyValuesSetEnum(p, pEVar, options, pProp);
-        }
-        case CSS_PROPERTY_TOP: 
-            return propertyValuesSetSize(p, &(p->values.position.iTop),
-                PROP_MASK_TOP, pProp, SZ_INHERIT|SZ_PERCENT|SZ_AUTO|SZ_NEGATIVE
-            );
-        case CSS_PROPERTY_BOTTOM: 
-            return propertyValuesSetSize(p, &(p->values.position.iBottom),
-                PROP_MASK_BOTTOM, pProp, 
-                SZ_INHERIT|SZ_PERCENT|SZ_AUTO|SZ_NEGATIVE
-            );
-        case CSS_PROPERTY_RIGHT: 
-            return propertyValuesSetSize(p, &(p->values.position.iRight),
-                PROP_MASK_RIGHT, pProp, 
-                SZ_INHERIT|SZ_PERCENT|SZ_AUTO|SZ_NEGATIVE
-            );
-        case CSS_PROPERTY_LEFT: 
-            return propertyValuesSetSize(p, &(p->values.position.iLeft),
-                PROP_MASK_LEFT, pProp, 
-                SZ_INHERIT|SZ_PERCENT|SZ_AUTO|SZ_NEGATIVE
-            );
-
-        /* 
-         * Color properties: 
-         *
-	 *     'background-color', 'color', 'border-top-color',
-	 *     'border-right-color', 'border-bottom-color',
-	 *     'border-left-color',
-         * 
-         * Handled by propertyValuesSetColor().
-         */
-        case CSS_PROPERTY_BACKGROUND_COLOR: {
-            HtmlColor **pCVar = &(p->values.cBackgroundColor);
-            return propertyValuesSetColor(p, pCVar, pProp);
-        }
-        case CSS_PROPERTY_COLOR: {
-            HtmlColor **pCVar = &(p->values.cColor);
-            return propertyValuesSetColor(p, pCVar, pProp);
-        }
-        case CSS_PROPERTY_BORDER_TOP_COLOR: {
-            HtmlColor **pCVar = &(p->values.cBorderTopColor);
-            return propertyValuesSetColor(p, pCVar, pProp);
-        }
-        case CSS_PROPERTY_BORDER_BOTTOM_COLOR: {
-            HtmlColor **pCVar = &(p->values.cBorderBottomColor);
-            return propertyValuesSetColor(p, pCVar, pProp);
-        }
-        case CSS_PROPERTY_BORDER_LEFT_COLOR: {
-            HtmlColor **pCVar = &(p->values.cBorderLeftColor);
-            return propertyValuesSetColor(p, pCVar, pProp);
-        }
-        case CSS_PROPERTY_BORDER_RIGHT_COLOR: {
-            HtmlColor **pCVar = &(p->values.cBorderRightColor);
-            return propertyValuesSetColor(p, pCVar, pProp);
-        }
-
-        /* Pixel values that may be percentages or inherit from percentages */
-        case CSS_PROPERTY_WIDTH: 
-            return propertyValuesSetSize(p, &(p->values.iWidth),
-                PROP_MASK_WIDTH, pProp, SZ_INHERIT|SZ_PERCENT|SZ_AUTO
-            );
-        case CSS_PROPERTY_MIN_WIDTH:
-            return propertyValuesSetSize(p, &(p->values.iMinWidth),
-                PROP_MASK_MIN_WIDTH, pProp, SZ_INHERIT|SZ_PERCENT
-            );
-        case CSS_PROPERTY_MAX_WIDTH:
-            return propertyValuesSetSize(p, &(p->values.iMaxWidth),
-                PROP_MASK_MAX_WIDTH, pProp, SZ_INHERIT|SZ_PERCENT|SZ_NONE
-            );
-        case CSS_PROPERTY_HEIGHT: 
-            return propertyValuesSetSize(p, &(p->values.iHeight),
-                PROP_MASK_HEIGHT, pProp, SZ_INHERIT|SZ_AUTO
-            );
-        case CSS_PROPERTY_MIN_HEIGHT:
-            return propertyValuesSetSize(p, &(p->values.iMinHeight),
-                PROP_MASK_MIN_HEIGHT, pProp, SZ_INHERIT
-            );
-        case CSS_PROPERTY_MAX_HEIGHT:
-            return propertyValuesSetSize(p, &(p->values.iMaxHeight),
-                PROP_MASK_MAX_HEIGHT, pProp, SZ_INHERIT|SZ_PERCENT|SZ_NONE
-            );
-        case CSS_PROPERTY_PADDING_TOP:
-            return propertyValuesSetSize(p, &(p->values.padding.iTop),
-                PROP_MASK_PADDING_TOP, pProp, SZ_INHERIT|SZ_PERCENT
-            );
-        case CSS_PROPERTY_PADDING_LEFT:
-            return propertyValuesSetSize(p, &(p->values.padding.iLeft),
-                PROP_MASK_PADDING_LEFT, pProp, SZ_INHERIT|SZ_PERCENT
-            );
-        case CSS_PROPERTY_PADDING_RIGHT:
-            return propertyValuesSetSize(p, &(p->values.padding.iRight),
-                PROP_MASK_PADDING_RIGHT, pProp, SZ_INHERIT|SZ_PERCENT
-            );
-        case CSS_PROPERTY_PADDING_BOTTOM:
-            return propertyValuesSetSize(p, &(p->values.padding.iBottom),
-                PROP_MASK_PADDING_BOTTOM, pProp, SZ_INHERIT|SZ_PERCENT
-            );
-        case CSS_PROPERTY_MARGIN_TOP:
-            return propertyValuesSetSize(p, &(p->values.margin.iTop),
-                PROP_MASK_MARGIN_TOP, pProp,
-                SZ_INHERIT|SZ_PERCENT|SZ_AUTO|SZ_NEGATIVE
-            );
-        case CSS_PROPERTY_MARGIN_LEFT:
-            return propertyValuesSetSize(p, &(p->values.margin.iLeft),
-                PROP_MASK_MARGIN_LEFT, pProp, 
-                SZ_INHERIT|SZ_PERCENT|SZ_AUTO|SZ_NEGATIVE
-            );
-        case CSS_PROPERTY_MARGIN_RIGHT:
-            return propertyValuesSetSize(p, &(p->values.margin.iRight),
-                PROP_MASK_MARGIN_RIGHT, pProp,
-                SZ_INHERIT|SZ_PERCENT|SZ_AUTO|SZ_NEGATIVE
-            );
-        case CSS_PROPERTY_MARGIN_BOTTOM:
-            return propertyValuesSetSize(p, &(p->values.margin.iBottom),
-                PROP_MASK_MARGIN_BOTTOM, pProp,
-                SZ_INHERIT|SZ_PERCENT|SZ_AUTO|SZ_NEGATIVE
-            );
-        case CSS_PROPERTY_TEXT_INDENT:
-            return propertyValuesSetSize(p, &(p->values.iTextIndent),
-                PROP_MASK_TEXT_INDENT, pProp, SZ_INHERIT|SZ_PERCENT|SZ_NEGATIVE
-            );
-
-        case CSS_PROPERTY_BACKGROUND_POSITION_X:
-            return propertyValuesSetSize(p, &(p->values.iBackgroundPositionX),
-                PROP_MASK_BACKGROUND_POSITION_X, pProp, 
-                SZ_INHERIT|SZ_PERCENT|SZ_NEGATIVE
-            );
-        case CSS_PROPERTY_BACKGROUND_POSITION_Y:
-            return propertyValuesSetSize(p, &(p->values.iBackgroundPositionY),
-                PROP_MASK_BACKGROUND_POSITION_Y, pProp, 
-                SZ_INHERIT|SZ_PERCENT|SZ_NEGATIVE
-            );
-
-        /* 'vertical-align', special case: */
-        case CSS_PROPERTY_VERTICAL_ALIGN:
-            return propertyValuesSetVerticalAlign(p, pProp);
-
-        /* 'line-height', special case: */
-        case CSS_PROPERTY_LINE_HEIGHT: 
-            return propertyValuesSetLineHeight(p, pProp);
-
-        case CSS_PROPERTY_BORDER_SPACING: {
-            /* Note: The CSS2 property 'border-spacing' can be set to
-             * either a single or pair of length values. Only a single
-             * value is supported at the moment, which is enough to support
-             * the html 4.01 cellspacing attribute.
-             */
-            return propertyValuesSetSize(p, &(p->values.iBorderSpacing),
-                PROP_MASK_BORDER_SPACING, pProp, 0
-            );
-            return 0;
-        }
-
-        /* Property 'font-size' */
-        case CSS_PROPERTY_FONT_SIZE: 
-            return propertyValuesSetFontSize(p, pProp);
-
-        /*
-         * Property 'font-family'
-         * 
-         * Just copy the pointer, not the string.
-         */
-        case CSS_PROPERTY_FONT_FAMILY: {
-            const char *z = HtmlCssPropertyGetString(pProp);
-            if (!z) {
-                return 1;
+    if (pDef) {
+        switch (pDef->eType) {
+            case ENUM: {
+                unsigned char *options = HtmlCssEnumeratedValues(eProp);
+                unsigned char *pEVar;
+                pEVar = (unsigned char *)&p->values + pDef->iOffset;
+                return propertyValuesSetEnum(p, pEVar, options, pProp);
             }
-            p->fontKey.zFontFamily = z;
-            return 0;
+            case LENGTH: {
+                int *pIVar = (int*)((unsigned char*)&p->values + pDef->iOffset);
+                int setsizemask = pDef->setsizemask;
+                return propertyValuesSetSize(
+                    p, pIVar, pDef->mask, pProp, setsizemask
+                );
+            }
+            case BORDERWIDTH: {
+                int *pBVar = (int*)((unsigned char*)&p->values + pDef->iOffset);
+                return propertyValuesSetBorderWidth(
+                    p, pBVar, pDef->mask, pProp
+                );
+            }
+            case CUSTOM: {
+                return pDef->xSet(p, pProp);
+            }
+            case COLOR: {
+                HtmlColor **pCVar; 
+                pCVar = (HtmlColor **)
+                    ((unsigned char *)&p->values + pDef->iOffset);
+                return propertyValuesSetColor(p, pCVar, pProp);
+            }
+            case IMAGE: {
+                HtmlImage2 **pI2Var; 
+                pI2Var = (HtmlImage2 **)
+                    ((unsigned char *)&p->values + pDef->iOffset);
+                return propertyValuesSetImage(p, pI2Var, pProp);
+            }
         }
-
-        /*
-	 * Property 'font-style': 
-         *
-	 * Keywords 'italic' and 'oblique' map to a Tk italic font. Keyword
-	 * 'normal' maps to a non-italic font. Any other property value is
-	 * rejected as a type-mismatch.
-         */
-        case CSS_PROPERTY_FONT_STYLE: {
-            int eType = pProp->eType;
-            if (eType == CSS_CONST_ITALIC || eType == CSS_CONST_OBLIQUE) {
-                p->fontKey.isItalic = 1;
-            } else if (eType == CSS_CONST_NORMAL) {
-                p->fontKey.isItalic = 0;
-            } else {
-                return 1;
-            }
-            return 0;
-        }
-
-        /*
-	 * Property 'font-weight': 
-         *
-	 * Keywords 'bold' and 'bolder', and numeric values greater than 550
-	 * map to a Tk bold font. Keywords 'normal' and 'lighter', along with
-	 * numeric values less than 550 map to a non-bold font. Any other
-	 * property value is rejected as a type-mismatch.
-         */
-	case CSS_PROPERTY_FONT_WEIGHT: {
-            int eType = pProp->eType;
-            if (eType == CSS_CONST_INHERIT) {
-                HtmlNode *pParent = HtmlNodeParent(p->pNode);
-                if (pParent) {
-                    int i = pParent->pPropertyValues->fFont->pKey->isBold;
-                    p->fontKey.isBold = i;
-                }
-            }
-            else if (
-                eType == CSS_CONST_BOLD || 
-                eType == CSS_CONST_BOLDER ||
-                (eType == CSS_TYPE_FLOAT && pProp->v.rVal > 550.0)
-            ) {
-                p->fontKey.isBold = 1;
-            }
-            else if (
-                eType == CSS_CONST_NORMAL || 
-                eType == CSS_CONST_LIGHTER ||
-                (eType == CSS_TYPE_FLOAT && pProp->v.rVal < 550.0)
-            ) {
-                p->fontKey.isBold = 0;
-            } else {
-                return 1;
-            }
-            return 0;
-        }
-
-        case CSS_PROPERTY_BORDER_TOP_WIDTH:
-            return propertyValuesSetBorderWidth(p, 
-                &(p->values.border.iTop), PROP_MASK_BORDER_TOP_WIDTH, pProp
-            );
-        case CSS_PROPERTY_BORDER_BOTTOM_WIDTH:
-            return propertyValuesSetBorderWidth(p, 
-                &(p->values.border.iBottom),PROP_MASK_BORDER_BOTTOM_WIDTH, pProp
-            );
-        case CSS_PROPERTY_BORDER_LEFT_WIDTH:
-            return propertyValuesSetBorderWidth(p, 
-                &(p->values.border.iLeft), PROP_MASK_BORDER_LEFT_WIDTH, pProp
-            );
-        case CSS_PROPERTY_BORDER_RIGHT_WIDTH:
-            return propertyValuesSetBorderWidth(p, 
-                &(p->values.border.iRight), PROP_MASK_BORDER_RIGHT_WIDTH, pProp
-            );
-
-        case CSS_PROPERTY__TKHTML_REPLACEMENT_IMAGE:
-            return propertyValuesSetImage(p, 
-                &p->values.imReplacementImage, pProp
-            );
-        case CSS_PROPERTY_BACKGROUND_IMAGE:
-            return propertyValuesSetImage(p, 
-                &p->values.imBackgroundImage, pProp
-            );
-        case CSS_PROPERTY_LIST_STYLE_IMAGE:
-            return propertyValuesSetImage(p, 
-                &p->values.imListStyleImage, pProp
-            );
-
-        default:
-            /* Unknown property */
-            return 0;
     }
+    return 1;
 }
 
 /*
@@ -2328,144 +2261,27 @@ HtmlComputedValuesCleanupTables(pTree)
     }
 }
 
-enum PropertyValueType {
-    ENUM, COLOR, LENGTH, VERTICALALIGN, FONT, IMAGE, BACKGROUNDPOSITION
-};
-
-#define ENUMVAL(eProp, var) \
-{ENUM, CSS_PROPERTY_ ## eProp, Tk_Offset(HtmlComputedValues, var), 0}
-
-/* 
- * A Color value. Since a red pixel is on most displays the same size as a
- * green one, color values never change the layout of a document. 
- */
-#define COLORVAL(eProp, var) \
-{COLOR, CSS_PROPERTY_ ## eProp, Tk_Offset(HtmlComputedValues, var), 0}
-
-/*
- * A length. Changing a length requires a re-layout.
- */
-#define LENGTHVAL(eProp, var) \
-{LENGTH, CSS_PROPERTY_ ## eProp, Tk_Offset(HtmlComputedValues, var), \
-PROP_MASK_ ## eProp}
-
-/*
- * An image. Changing a background image does not require a relayout, but
- * modifying a replacement or list-marker image does.
- */
-#define IMAGEVAL(eProp, var) \
-{IMAGE, CSS_PROPERTY_ ## eProp, Tk_Offset(HtmlComputedValues, var), 0}
-
-/*
- * Property 'vertical-align' is in a catetory of it's own. It causes relayout.
- */
-#define VERTICALALIGNVAL() {VERTICALALIGN, CSS_PROPERTY_VERTICAL_ALIGN, 0, 0}
-
-/*
- * The font - HtmlComputedValues.fFont. Changing it causes relayout.
- */
-#define FONTVAL() {FONT, CSS_SHORTCUTPROPERTY_FONT, 0, 0}
-
-/*
- * The 'background-position' property. Changing it does not cause relayout.
- */
-#define BACKGROUNDPOSITIONVAL() \
-{BACKGROUNDPOSITION, CSS_SHORTCUTPROPERTY_BACKGROUND_POSITION, 0, 0}
-
-struct PVDef {
-    enum PropertyValueType eType;
-    int eCssProperty;
-    int iOffset;
-    unsigned int mask;
-} pvdef[] = {
-    COLORVAL (BACKGROUND_COLOR, cBackgroundColor),
-    COLORVAL (BORDER_BOTTOM_COLOR, cBorderBottomColor),
-    ENUMVAL  (BORDER_BOTTOM_STYLE, eBorderBottomStyle),
-    LENGTHVAL(BORDER_BOTTOM_WIDTH, border.iBottom),
-    COLORVAL (BORDER_LEFT_COLOR, cBorderLeftColor),
-    ENUMVAL  (BORDER_LEFT_STYLE, eBorderLeftStyle),
-    LENGTHVAL(BORDER_LEFT_WIDTH, border.iLeft),
-    COLORVAL (BORDER_RIGHT_COLOR, cBorderRightColor),
-    ENUMVAL  (BORDER_RIGHT_STYLE, eBorderRightStyle),
-    LENGTHVAL(BORDER_RIGHT_WIDTH, border.iRight),
-    LENGTHVAL(BORDER_SPACING, iBorderSpacing),
-    COLORVAL (BORDER_TOP_COLOR, cBorderTopColor),
-    ENUMVAL  (BORDER_TOP_STYLE, eBorderTopStyle),
-    LENGTHVAL(BORDER_TOP_WIDTH, border.iTop),
-
-    ENUMVAL  (OUTLINE_STYLE, eOutlineStyle),
-    COLORVAL (OUTLINE_COLOR, cOutlineColor),
-    LENGTHVAL(OUTLINE_WIDTH, iOutlineWidth),
-
-    ENUMVAL  (CLEAR, eClear),
-    COLORVAL (COLOR, cColor),
-    ENUMVAL  (DISPLAY, eDisplay),
-    ENUMVAL  (FLOAT, eFloat),
-    FONTVAL(),
-    LENGTHVAL(HEIGHT, iHeight),
-    LENGTHVAL(LINE_HEIGHT, iLineHeight),
-    ENUMVAL  (LIST_STYLE_TYPE, eListStyleType),
-    ENUMVAL  (LIST_STYLE_POSITION, eListStylePosition),
-
-    LENGTHVAL(MARGIN_BOTTOM, margin.iBottom),
-    LENGTHVAL(MARGIN_LEFT, margin.iLeft),
-    LENGTHVAL(MARGIN_RIGHT, margin.iRight),
-    LENGTHVAL(MARGIN_TOP, margin.iTop),
-
-    ENUMVAL  (POSITION, ePosition),
-    LENGTHVAL(BOTTOM, position.iBottom),
-    LENGTHVAL(LEFT, position.iLeft),
-    LENGTHVAL(RIGHT, position.iRight),
-    LENGTHVAL(TOP, position.iTop),
-
-    LENGTHVAL(MAX_HEIGHT, iMaxHeight),
-    LENGTHVAL(MAX_WIDTH, iMaxWidth),
-    LENGTHVAL(MIN_HEIGHT, iMinHeight),
-    LENGTHVAL(MIN_WIDTH, iMinWidth),
-
-    LENGTHVAL(PADDING_BOTTOM, padding.iBottom),
-    LENGTHVAL(PADDING_LEFT, padding.iLeft),
-    LENGTHVAL(PADDING_RIGHT, padding.iRight),
-    LENGTHVAL(PADDING_TOP, padding.iTop),
-
-    LENGTHVAL(TEXT_INDENT, iTextIndent),
-
-    ENUMVAL  (TEXT_ALIGN, eTextAlign),
-    ENUMVAL  (TEXT_DECORATION, eTextDecoration),
-
-    VERTICALALIGNVAL(),
-
-    ENUMVAL  (WHITE_SPACE, eWhitespace),
-    LENGTHVAL(WIDTH, iWidth),
-
-    IMAGEVAL(_TKHTML_REPLACEMENT_IMAGE, imReplacementImage),
-    IMAGEVAL(BACKGROUND_IMAGE, imBackgroundImage),
-    IMAGEVAL(LIST_STYLE_IMAGE, imListStyleImage),
-    ENUMVAL (BACKGROUND_REPEAT, eBackgroundRepeat),
-    ENUMVAL (BACKGROUND_ATTACHMENT, eBackgroundAttachment),
-    BACKGROUNDPOSITIONVAL(),
-
-    ENUMVAL (OVERFLOW, eOverflow)
-};
-
 int 
 HtmlNodeProperties(interp, pValues)
     Tcl_Interp *interp;
     HtmlComputedValues *pValues;
 {
     Tcl_Obj *pRet;
-
     int ii;
-    struct PVDef *pDef;
     char *v = (char *)pValues;
+
+    int eValue = pValues->eVerticalAlign;
+    char zBuf[256];
+    int iFontSize;
+    int n;
+    Tcl_Obj *pValue = 0;
 
     pRet = Tcl_NewObj();
     Tcl_IncrRefCount(pRet);
 
-    pDef = &pvdef[0];
-    for (ii = 0; ii < sizeof(pvdef) / sizeof(pvdef[0]); ii++, pDef++) {
-        Tcl_Obj *pValue = 0;
-        CONST char *zName = HtmlCssPropertyToString(pDef->eCssProperty);
+    for (ii = 0; ii < sizeof(propdef) / sizeof(propdef[0]); ii++) {
+        PropertyDef *pDef = &propdef[ii];
+        CONST char *zName = HtmlCssPropertyToString(pDef->eProp);
         Tcl_ListObjAppendElement(interp, pRet, Tcl_NewStringObj(zName, -1));
         switch (pDef->eType) {
             case ENUM: {
@@ -2481,6 +2297,9 @@ HtmlNodeProperties(interp, pValues)
                 break;
             }
 
+            case CUSTOM:
+                if (pDef->eProp != CSS_PROPERTY_LINE_HEIGHT) break;
+            case BORDERWIDTH:
             case LENGTH: {
                 int iValue = *(int *)(v + pDef->iOffset);
                 switch (iValue) {
@@ -2500,7 +2319,7 @@ HtmlNodeProperties(interp, pValues)
                         } else 
 
                         if (
-                            pDef->eCssProperty == CSS_PROPERTY_LINE_HEIGHT && 
+                            pDef->eProp == CSS_PROPERTY_LINE_HEIGHT && 
                             iValue < 0
                         ) {
                             sprintf(zBuf, "%.2fem", (double)iValue / -100.0);
@@ -2513,27 +2332,7 @@ HtmlNodeProperties(interp, pValues)
                 }
                 break;
             }
-            case VERTICALALIGN: {
-                int eValue = pValues->eVerticalAlign;
-                if (0 == eValue) {
-                    char zBuf[64];
-                    int iValue = pValues->iVerticalAlign;
-                    sprintf(zBuf, "%dpx", iValue);
-                    pValue = Tcl_NewStringObj(zBuf, -1);
-                } else {
-                    CONST char *zValue = HtmlCssConstantToString(eValue);
-                    pValue = Tcl_NewStringObj(zValue, -1);
-                }
-                break;
-            }
-            case FONT: {
-                const char zBuf[256];
-                int iFontSize = pValues->fFont->pKey->iFontSize;
-                pValue = Tcl_NewStringObj(pValues->fFont->zFont, -1);
-                sprintf(zBuf, " (%d thousandths)", iFontSize);
-                Tcl_AppendToObj(pValue, zBuf, -1);
-                break;
-            }
+
             case IMAGE: {
                 HtmlImage2 *imValue = *(HtmlImage2 **)(v + pDef->iOffset);
                 if (imValue) {
@@ -2543,33 +2342,32 @@ HtmlNodeProperties(interp, pValues)
                 }
                 break;
             }
-
-            case BACKGROUNDPOSITION: {
-                char zBuf[128];
-                int n = 0;
-                if (pValues->mask & PROP_MASK_BACKGROUND_POSITION_X) {
-                    n = sprintf(zBuf, "%.2f%% ", 
-                        (double)pValues->iBackgroundPositionX/100.0
-                    );
-                } else {
-                    n = sprintf(zBuf, "%dpx ", pValues->iBackgroundPositionX);
-                }
-                if (pValues->mask & PROP_MASK_BACKGROUND_POSITION_Y) {
-                    sprintf(&zBuf[n], "%.2f%% ", 
-                        (double)pValues->iBackgroundPositionY/100.0
-                    );
-                } else {
-                    sprintf(&zBuf[n], "%dpx ", pValues->iBackgroundPositionY);
-                }
-                pValue = Tcl_NewStringObj(zBuf, -1);
-                break;
-            }
-
-            default:
-                assert(!"Not possible");
         }
         Tcl_ListObjAppendElement(interp, pRet, pValue);
     }
+
+    /* vertical-align */
+    eValue = pValues->eVerticalAlign;
+    pValue = 0;
+    if (0 == eValue) {
+        char zBuf[64];
+        int iValue = pValues->iVerticalAlign;
+        sprintf(zBuf, "%dpx", iValue);
+        pValue = Tcl_NewStringObj(zBuf, -1);
+    } else {
+        CONST char *zValue = HtmlCssConstantToString(eValue);
+        pValue = Tcl_NewStringObj(zValue, -1);
+    }
+    Tcl_ListObjAppendElement(0, pRet, Tcl_NewStringObj("vertical-align", -1));
+    Tcl_ListObjAppendElement(0, pRet, pValue);
+    
+    /* font */
+    iFontSize = pValues->fFont->pKey->iFontSize;
+    pValue = Tcl_NewStringObj(pValues->fFont->zFont, -1);
+    sprintf(zBuf, " (%d thousandths)", iFontSize);
+    Tcl_AppendToObj(pValue, zBuf, -1);
+    Tcl_ListObjAppendElement(0, pRet, Tcl_NewStringObj("font", -1));
+    Tcl_ListObjAppendElement(0, pRet, pValue);
 
     Tcl_ListObjAppendElement(interp, pRet, Tcl_NewStringObj("nRef", -1));
     Tcl_ListObjAppendElement(interp, pRet, Tcl_NewIntObj(pValues->nRef));
@@ -2587,7 +2385,6 @@ HtmlComputedValuesCompare(pV1, pV2)
     HtmlComputedValues *pV1;
     HtmlComputedValues *pV2;
 {
-    struct PVDef *pDef;
     unsigned char *v1 = (unsigned char *)pV1;
     unsigned char *v2 = (unsigned char *)pV2;
     int ii;
@@ -2615,16 +2412,19 @@ HtmlComputedValuesCompare(pV1, pV2)
         return HTML_REQUIRE_LAYOUT;
     }
 
-    pDef = &pvdef[0];
-    for (ii = 0; ii < sizeof(pvdef) / sizeof(pvdef[0]); ii++, pDef++) {
+    for (ii = 0; ii < sizeof(propdef) / sizeof(propdef[0]); ii++){
+        PropertyDef *pDef = &propdef[ii];
         switch (pDef->eType) {
+
             case ENUM:
-                if (pDef->eCssProperty != CSS_PROPERTY_TEXT_DECORATION) {
+                if (pDef->eProp != CSS_PROPERTY_TEXT_DECORATION) {
                     if (*(v1 + pDef->iOffset) != *(v2 + pDef->iOffset)) {
                         return HTML_REQUIRE_LAYOUT;
                     }
                 }
                 break;
+
+            case BORDERWIDTH:
             case LENGTH: {
                 int *pL1 = (int *)(v1 + pDef->iOffset);
                 int *pL2 = (int *)(v2 + pDef->iOffset);
@@ -2640,10 +2440,8 @@ HtmlComputedValuesCompare(pV1, pV2)
             }
 
             case COLOR:
-            case VERTICALALIGN:
-            case FONT:
             case IMAGE:
-            case BACKGROUNDPOSITION:
+            case CUSTOM:
                 break;
         }
     }

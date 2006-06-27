@@ -43,7 +43,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  * COPYRIGHT:
  */
-static const char rcsid[] = "$Id: htmlhash.c,v 1.17 2006/05/13 14:10:21 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlhash.c,v 1.18 2006/06/27 14:19:07 danielk1977 Exp $";
 
 #include <tcl.h>
 #include <strings.h>
@@ -367,62 +367,18 @@ hashValuesKey(tablePtr, keyPtr)
 {
     HtmlComputedValues *p= (HtmlComputedValues *)keyPtr;
     unsigned int result = 0;
+    static const int nBytes = sizeof(HtmlComputedValues)-sizeof(int);
 
-    result += (result<<3) + (int)(p->mask);
-    result += (result<<3) + (int)(p->eDisplay);
-    result += (result<<3) + (int)(p->eFloat);
-    result += (result<<3) + (int)(p->eClear);
-    result += (result<<3) + (int)(p->cColor);
-    result += (result<<3) + (int)(p->cBackgroundColor);
-    result += (result<<3) + (int)(p->eListStyleType);
-    result += (result<<3) + (int)(p->eVerticalAlign);
-    result += (result<<3) + (int)(p->iVerticalAlign);
-    result += (result<<3) + (int)(p->iBorderSpacing);
-    result += (result<<3) + (int)(p->iLineHeight);
-    result += (result<<3) + (int)(p->fFont);
-    result += (result<<3) + (int)(p->eTextDecoration);
-    result += (result<<3) + (int)(p->eWhitespace);
-    result += (result<<3) + (int)(p->eTextAlign);
-    result += (result<<3) + (int)(p->iWidth);
-    result += (result<<3) + (int)(p->iMinWidth);
-    result += (result<<3) + (int)(p->iMaxWidth);
-    result += (result<<3) + (int)(p->iHeight);
-    result += (result<<3) + (int)(p->iMinHeight);
-    result += (result<<3) + (int)(p->iMaxHeight);
-    result += (result<<3) + (int)(p->padding.iTop);
-    result += (result<<3) + (int)(p->padding.iRight);
-    result += (result<<3) + (int)(p->padding.iBottom);
-    result += (result<<3) + (int)(p->padding.iLeft);
-    result += (result<<3) + (int)(p->margin.iTop);
-    result += (result<<3) + (int)(p->margin.iRight);
-    result += (result<<3) + (int)(p->margin.iBottom);
-    result += (result<<3) + (int)(p->margin.iLeft);
-    result += (result<<3) + (int)(p->eBorderTopStyle);
-    result += (result<<3) + (int)(p->eBorderRightStyle);
-    result += (result<<3) + (int)(p->eBorderBottomStyle);
-    result += (result<<3) + (int)(p->eBorderLeftStyle);
-    result += (result<<3) + (int)(p->border.iTop);
-    result += (result<<3) + (int)(p->border.iRight);
-    result += (result<<3) + (int)(p->border.iBottom);
-    result += (result<<3) + (int)(p->border.iLeft);
-    result += (result<<3) + (int)(p->cBorderTopColor);
-    result += (result<<3) + (int)(p->cBorderRightColor);
-    result += (result<<3) + (int)(p->cBorderBottomColor);
-    result += (result<<3) + (int)(p->cBorderLeftColor);
-    result += (result<<3) + (int)(p->imBackgroundImage);
-    result += (result<<3) + (int)(p->eListStylePosition);
-    result += (result<<3) + (int)(p->imListStyleImage);
-    result += (result<<3) + (int)(p->cOutlineColor);
-    result += (result<<3) + (int)(p->eOutlineStyle);
-    result += (result<<3) + (int)(p->iOutlineWidth);
-    result += (result<<3) + (int)(p->eBackgroundAttachment);
-    result += (result<<3) + (int)(p->ePosition);
-    result += (result<<3) + (int)(p->position.iTop);
-    result += (result<<3) + (int)(p->position.iBottom);
-    result += (result<<3) + (int)(p->position.iLeft);
-    result += (result<<3) + (int)(p->position.iRight);
-    result += (result<<3) + (int)(p->iTextIndent);
-    result += (result<<3) + (int)(p->eOverflow);
+    unsigned char *pInt = (unsigned char *)p;
+
+    /* Do not include the first field - nRef */
+    pInt += sizeof(int);
+
+    /* Hash the remaining bytes of the structure */
+    while (pInt < (unsigned char *)&p[1]) {
+      result += (result << 3) + *pInt;
+      pInt++;
+    }
 
     return result;
 }

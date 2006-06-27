@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.78 2006/06/11 15:48:32 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.79 2006/06/27 14:19:07 danielk1977 Exp $)} 1 }
 
 #
 # The code in this file is partitioned into the following classes:
@@ -316,7 +316,7 @@ snit::type ::hv3::hv3::dynamicmanager {
   }
 
   method motion {x y} {
-    set nodelist [$myHv3 node $x $y]
+    set nodelist [lindex [$myHv3 node $x $y] end]
     set hovernodes $myHoverNodes
     set myHoverNodes [list]
     foreach node $nodelist {
@@ -856,7 +856,7 @@ snit::widget ::hv3::hv3 {
         $myHtml configure -defaultstyle [::tkhtml::htmlstyle]
         set myQuirksmode standards
       } else {
-        $myHtml configure -defaultstyle [::tkhtml::htmlstyle]
+        $myHtml configure -defaultstyle [::tkhtml::htmlstyle -quirks]
         set myQuirksmode quirks
       }
       $myHtml reset
