@@ -136,6 +136,10 @@ struct HtmlTokenMap {
 #define HTMLTAG_BLOCK       0x04  /* Set for an HTML block tag */
 #define HTMLTAG_EMPTY       0x08  /* Set for an empty tag (i.e. <img>) */
 
+#define HTMLTAG_HEAD        0x10  /* Element must go in <head> */
+#define HTMLTAG_BODY        0x20  /* Element must go in <body> */
+#define HTMLTAG_FRAMESET    0x40  /* Element is from a frameset document */
+
 #define TAG_CLOSE    1
 #define TAG_PARENT   2
 #define TAG_OK       3
@@ -349,6 +353,7 @@ struct HtmlTree {
     int nParsed;                    /* Bytes of the html document tokenized */
     int iCol;                       /* Current column in document */
     int isParseFinished;            /* True if the html parse is finished */
+    int isCdataInHead;              /* True if previous token was <title> */
 
     HtmlToken *pFirst;              /* First token parsed */
     HtmlToken *pLast;               /* Last token parsed */

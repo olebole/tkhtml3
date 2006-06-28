@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.66 2006/06/28 06:53:29 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.67 2006/06/28 15:50:55 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -40,6 +40,21 @@ static char const rcsid[] =
 #include <assert.h>
 #include "html.h"
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * AppendTextToken --
+ *
+ *      This is called by the Tokenize() function each time a text or
+ *      whitespace token is parsed.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *
+ *---------------------------------------------------------------------------
+ */
 static void
 AppendTextToken(pTree, pToken)
     HtmlTree *pTree;
@@ -1482,8 +1497,11 @@ getScriptHandler(pTree, tag)
  *
  * Tokenize --
  *
- *     Process as much of the input HTML as possible.  Construct new
- *     HtmlElement structures and appended them to the list.
+ *     Process as much of the input HTML as possible. This results in 
+ *     zero or more calls to the following functions:
+ *
+ *         AppendTextToken()
+ *         AppendToken()
  *
  * Results:
  *     Return the number of bytes actually processed.
@@ -2018,9 +2036,11 @@ HtmlTokenizerAppend(pTree, zText, nText, isFinal)
         AppendToken(pTree, 0);
     }
 
+#if 0
     if (z != zText) {
         Tcl_DStringFree(&utf8);
     }
+#endif
 }
 
 /*

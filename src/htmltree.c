@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.70 2006/06/06 16:59:56 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.71 2006/06/28 15:50:55 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -736,6 +736,65 @@ nodeAddChild(pNode, pToken)
     return r;
 }
 
+static void
+mergeAttributes(pNode, pToken)
+    HtmlNode *pNode;
+    HtmlToken *pToken;
+{
+    int nBytes = 0;
+    int nArgs = 0;
+    int i;
+    HtmlToken *p = pNode->pToken;
+    HtmlToken *pNew;
+    char *zSpace;
+
+    for (i = 0; i < pToken->count; i += 2) {
+        if (!HtmlNodeAttr(pNode, pToken->x.zArgs[i])) {
+            nBytes += strlen(pToken->x.zArgs[i]) + 1;
+            nBytes += strlen(pToken->x.zArgs[i + 1]) + 1;
+            nArgs += 2;
+        }else{
+            pToken->x.zArgs[i] = 0;
+        }
+    }
+   
+    nArgs += p->count;
+    for (i = 0; i < p->count; i += 2) {
+        nBytes += strlen(p->x.zArgs[i]) + 1;
+        nBytes += strlen(p->x.zArgs[i + 1]) + 1;
+    }
+
+    nBytes += sizeof(HtmlToken) + nArgs * sizeof(char *);
+    pNew = (HtmlToken *)HtmlClearAlloc(0, nBytes);
+    pNew->type = p->type;
+    pNew->count = nArgs;
+    pNew->x.zArgs = (char **)&pNew[1];
+    zSpace = (char *)&pNew->x.zArgs[nArgs];
+
+    for (i = 0; i < p->count; i += 2) {
+        pNew->x.zArgs[i] = zSpace;
+        strcpy(zSpace, p->x.zArgs[i]);
+        while (*zSpace != '\0') zSpace++; zSpace++;
+        pNew->x.zArgs[i + 1] = zSpace;
+        strcpy(zSpace, p->x.zArgs[i + 1]);
+        while (*zSpace != '\0') zSpace++; zSpace++;
+    }
+
+    for (i = 0; i < pToken->count; i += 2) {
+        if (pToken->x.zArgs[i]) {
+            pNew->x.zArgs[p->count + i] = zSpace;
+            strcpy(zSpace, pToken->x.zArgs[i]);
+            while (*zSpace != '\0') zSpace++; zSpace++;
+            pNew->x.zArgs[p->count + i + 1] = zSpace;
+            strcpy(zSpace, pToken->x.zArgs[i + 1]);
+            while (*zSpace != '\0') zSpace++; zSpace++;
+        }
+    }
+
+    HtmlFree(0, p);
+    pNode->pToken = pNew;
+}
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -758,6 +817,8 @@ HtmlAddToken(pTree, pToken)
     HtmlToken *pToken;
 {
     HtmlNode *pCurrent = pTree->pCurrent;
+    HtmlNode *pHeadNode;
+
     int type = pToken->type;
 
     assert((pCurrent && pTree->pRoot) || !pCurrent);
@@ -798,66 +859,138 @@ HtmlAddToken(pTree, pToken)
          * documents may have a DOCTYPE and other useless garbage in them,
          * but the tokenizer should ignore all that).
          *
-         * If the first thing we strike is not an <html> tag, then add one
-         * artificially.
+         * But in these uncertain times you really can't trust anyone, so
+         * Tkhtml automatically inserts the following structure at the root
+         * of every document:
+         *
+         *    <html>
+         *      <head>
+         *      </head>
+         *      <body>
          */
-        HtmlToken *pHtml = pToken;
-        if (type != Html_HTML) {
-            pHtml = (HtmlToken *)HtmlAlloc(0, sizeof(HtmlToken));
-            memset(pHtml, 0, sizeof(HtmlToken));
-            pHtml->type = Html_HTML;
-            pHtml->pNext = pTree->pFirst;
-            pTree->pFirst = pHtml;
-            pTree->pLast = pHtml;
-            if (pHtml->pNext) {
-                pHtml->pNext->pPrev = pHtml;
-            }
-        }
-        
-        pCurrent = (HtmlNode *)HtmlAlloc(0, sizeof(HtmlNode));
-        memset(pCurrent, 0, sizeof(HtmlNode));
+        HtmlToken *pHtml = (HtmlToken *)HtmlClearAlloc(0, sizeof(HtmlToken));
+        HtmlToken *pHead = (HtmlToken *)HtmlClearAlloc(0, sizeof(HtmlToken));
+        HtmlToken *pBody = (HtmlToken *)HtmlClearAlloc(0, sizeof(HtmlToken));
+
+        pHtml->type = Html_HTML;
+        pHead->type = Html_HEAD;
+        pBody->type = Html_BODY;
+
+        pCurrent = (HtmlNode *)HtmlClearAlloc(0, sizeof(HtmlNode));
         pCurrent->pToken = pHtml;
         pTree->pRoot = pCurrent;
         pTree->pCurrent = pCurrent;
 
-        if (pHtml != pToken) {
-            HtmlAddToken(pTree, pToken);
+        nodeAddChild(pCurrent, pHead);
+        nodeAddChild(pCurrent, pBody);
+        pCurrent = pTree->pRoot->apChildren[1];
+
+    } 
+    pHeadNode = pTree->pRoot->apChildren[0];
+
+    if (pTree->isCdataInHead && type != Html_Text && type != Html_Space) {
+        int nChild = HtmlNodeNumChildren(pHeadNode) - 1;
+        HtmlNode *pTitle = HtmlNodeChild(pHeadNode, nChild);
+        pTree->isCdataInHead = 0;
+        nodeHandlerCallbacks(pTree, pTitle);
+    }
+
+    switch (type) {
+        case Html_HTML:
+            mergeAttributes(pTree->pRoot, pToken);
+            break;
+        case Html_HEAD:
+            mergeAttributes(pHeadNode, pToken);
+            break;
+        case Html_BODY:
+            mergeAttributes(pTree->pRoot->apChildren[1], pToken);
+            break;
+
+            /* Elements with content #CDATA for the document head. 
+             *
+	     * Todo: Technically, we should be worried about <script> and
+	     * <style> elements in the document head too, but in practice it
+	     * makes little difference where these wind up. <script> is
+	     * a bit tricky as this can appear in either the <head> or <body>
+	     * section.
+             */
+        case Html_TITLE: {
+            int n = nodeAddChild(pHeadNode, pToken);
+            HtmlNode *p = HtmlNodeChild(pHeadNode, n);
+            pTree->isCdataInHead = 1;
+            p->iNode = pTree->iNextNode++;
         }
 
-    } else if (type != Html_HTML) {
-        int nClose = 0;
-        int i;
-        int r = tokenAction(pTree, pToken, &nClose);
-
-        for (i = 0; i < nClose; i++) {
-            nodeHandlerCallbacks(pTree, pCurrent);
-            pCurrent = HtmlNodeParent(pCurrent);
+            /* Self-closing elements to add to the document head */
+        case Html_META:
+        case Html_LINK:
+        case Html_BASE: {
+            int n = nodeAddChild(pHeadNode, pToken);
+            HtmlNode *p = HtmlNodeChild(pHeadNode, n);
+            p->iNode = pTree->iNextNode++;
+            nodeHandlerCallbacks(pTree, p);
+            break;
         }
+
+
+        case Html_Text:
+        case Html_Space:
+            if (pTree->isCdataInHead) {
+                int nChild = HtmlNodeNumChildren(pHeadNode) - 1;
+                HtmlNode *pTitle = HtmlNodeChild(pHeadNode, nChild);
+                HtmlNode *p = HtmlNodeChild(pTitle,nodeAddChild(pTitle,pToken));
+                p->iNode = pTree->iNextNode++;
+                pTree->isCdataInHead = 0;
+                nodeHandlerCallbacks(pTree, pTitle);
+            }else{
+                int n = nodeAddChild(pCurrent,pToken);
+                HtmlNode *p = HtmlNodeChild(pCurrent, n);
+                p->iNode = pTree->iNextNode++;
+            }
+            break;
+
+        case Html_EndHTML:
+        case Html_EndBODY:
+        case Html_EndHEAD:
+            break;
+
+        default: {
+            int nClose = 0;
+            int i;
+            int r = tokenAction(pTree, pToken, &nClose);
+
+            for (i = 0; i < nClose; i++) {
+                nodeHandlerCallbacks(pTree, pCurrent);
+                pCurrent = HtmlNodeParent(pCurrent);
+            }
 
 #ifndef NDEBUG
-        {
-            HtmlNode *pTmp = pCurrent;
-            assert(r || pTmp == pTree->pCurrent);
-            while (pTmp != pCurrent) {
-                assert(HtmlNodeNumChildren(pTmp) > 0);
-                pTmp = HtmlNodeChild(pTmp, HtmlNodeNumChildren(pTmp) - 1);
+            {
+                HtmlNode *pTmp = pCurrent;
+                assert(r || pTmp == pTree->pCurrent);
+                while (pTmp != pCurrent) {
+                    assert(HtmlNodeNumChildren(pTmp) > 0);
+                    pTmp = HtmlNodeChild(pTmp, HtmlNodeNumChildren(pTmp) - 1);
+                }
             }
-        }
 #endif
 
-        pCurrent = pTree->pCurrent;
-        if (r) {
-            assert(!HtmlNodeIsText(pTree->pCurrent));
-            pCurrent = HtmlNodeChild(pCurrent, nodeAddChild(pCurrent, pToken));
-            pCurrent->iNode = pTree->iNextNode++;
-        }
+            pCurrent = pTree->pCurrent;
+            if (r) {
+                assert(!HtmlNodeIsText(pTree->pCurrent));
+                pCurrent = HtmlNodeChild(pCurrent, 
+                    nodeAddChild(pCurrent, pToken));
+                pCurrent->iNode = pTree->iNextNode++;
+            }
 
-        if (HtmlMarkupFlags(type) & HTMLTAG_EMPTY) {
-            nodeHandlerCallbacks(pTree, pCurrent);
-            pCurrent = HtmlNodeParent(pCurrent);
+            if (HtmlMarkupFlags(type) & HTMLTAG_EMPTY) {
+                nodeHandlerCallbacks(pTree, pCurrent);
+                pCurrent = HtmlNodeParent(pCurrent);
+            }
         }
-        pTree->pCurrent = pCurrent;
     }
+
+    pTree->pCurrent = pCurrent;
 }
 
 /*

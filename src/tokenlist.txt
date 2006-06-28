@@ -1,5 +1,5 @@
 #
-# $Revision: 1.33 $
+# $Revision: 1.34 $
 #
 # tokenlist.tcl -- 
 #
@@ -83,6 +83,10 @@ proc TAG {args} {
 #     TAG tag-name 
 #         ?-content (content function)?
 #         ?-flow (inline|block)?
+#
+#         ?-head?
+#         ?-body?
+#         ?-frameset?
 #
 TAG a -flow inline -content HtmlAnchorContent
 # TAG abbr

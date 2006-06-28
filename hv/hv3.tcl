@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.80 2006/06/27 18:14:24 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.81 2006/06/28 15:50:54 danielk1977 Exp $)} 1 }
 
 #
 # The code in this file is partitioned into the following classes:
@@ -852,7 +852,7 @@ snit::widget ::hv3::hv3 {
       set folded [string tolower [string range $data 0 200]]
       set A [string first doctype $folded]
       set B [string first html $folded]
-      if {$A >= 0 && ($B <= 0 || $B > $A)} {
+      if {0 && $A >= 0 && ($B <= 0 || $B > $A)} {
         $myHtml configure -defaultstyle [::tkhtml::htmlstyle]
         set myQuirksmode standards
       } else {
