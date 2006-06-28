@@ -1,5 +1,5 @@
 #
-# $Revision: 1.32 $
+# $Revision: 1.33 $
 #
 # tokenlist.tcl -- 
 #
@@ -145,7 +145,7 @@ TAG noscript
 TAG object
 TAG ol -flow block -content HtmlUlContent
 # TAG optgroup
-TAG option                              
+TAG option -content HtmlPcdataContent
 TAG p -flow block -content HtmlInlineContent
 TAG param -content HtmlEmptyContent
 TAG pre -flow block

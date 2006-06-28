@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.65 2006/06/10 15:57:14 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.66 2006/06/28 06:53:29 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -145,6 +145,7 @@ AppendToken(pTree, pToken)
  *     * HtmlTableRowContent
  *     * HtmlDlContent
  *     * HtmlUlContent
+ *     * HtmlPcdataContent
  *
  * Are used to detect implicit close tags in HTML documents.  When a markup
  * tag encountered, one of the above functions is called with the parent
@@ -188,6 +189,31 @@ HtmlFormContent(pTree, pNode, tag)
     return TAG_PARENT;
 }
 #endif
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlPcdataContent --
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+HtmlPcdataContent(pTree, pNode, tag)
+    HtmlTree *pTree;
+    HtmlNode *pNode;
+    int tag;
+{
+    if (tag == Html_Space || tag == Html_Text) {
+        return TAG_PARENT;
+    }
+    return TAG_CLOSE;
+}
 
 /*
  *---------------------------------------------------------------------------
