@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.82 2006/06/07 15:18:34 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.83 2006/06/28 06:31:11 danielk1977 Exp $";
 
 #include "htmllayout.h"
 
@@ -204,9 +204,9 @@ tableColWidthMultiSpan(pNode, col, colspan, row, rowspan, pContext)
         int i;
 
         int currentmin;
-        int currentmax;
         int minincr;
-        int maxincr;
+        /* int currentmax; */
+        /* int maxincr; */
 
         int nAutoPixels = 0;      /* Aggregate (max - min) for auto columns */
         int nAutoColumns = 0;     /* Number of auto columns */
@@ -223,7 +223,7 @@ tableColWidthMultiSpan(pNode, col, colspan, row, rowspan, pContext)
         int *aMinWidth      = pData->aMinWidth;
         int *aMaxWidth      = pData->aMaxWidth;
         int *aExplicitWidth = pData->aExplicitWidth;
-        int *aPercentWidth  = pData->aPercentWidth;
+        float *aPercentWidth  = pData->aPercentWidth;
  
         /* Macro evaluates to true for an "auto-width" column. */
         #define COL_ISAUTO(i) \

@@ -123,10 +123,11 @@ HtmlDrawQuad(a, b, c, d, e, f, g, h, i, j, pLayout->minmaxTest)
  */
 typedef struct BoxContext BoxContext;
 struct BoxContext {
-    int iContaining;        /* DOWN:    Width of containing block. */
-    int height;             /* UP: Generated box height. */
-    int width;              /* UP: Generated box width. */
-    HtmlCanvas vc;          /* UP: Canvas to draw the block on. */
+    int iContaining;       /* DOWN: Width of containing block. */
+    int iContainingHeight; /* DOWN: Height of containing block (may be AUTO). */
+    int height;            /* UP: Generated box height. */
+    int width;             /* UP: Generated box width. */
+    HtmlCanvas vc;         /* UP: Canvas to draw the block on. */
 };
 
 void nodeGetBoxProperties(LayoutContext *, HtmlNode *, int, BoxProperties *);

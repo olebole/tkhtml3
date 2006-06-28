@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.72 2006/06/27 14:19:07 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.73 2006/06/28 06:31:11 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -2273,7 +2273,6 @@ HtmlNodeProperties(interp, pValues)
     int eValue = pValues->eVerticalAlign;
     char zBuf[256];
     int iFontSize;
-    int n;
     Tcl_Obj *pValue = 0;
 
     pRet = Tcl_NewObj();

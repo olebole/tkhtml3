@@ -16,7 +16,7 @@
  *
  *-------------------------------------------------------------------------
  */
-static const char rcsid[] = "$Id: restrack.c,v 1.6 2006/06/10 12:38:38 danielk1977 Exp $";
+static const char rcsid[] = "$Id: restrack.c,v 1.7 2006/06/28 06:31:11 danielk1977 Exp $";
 
 #ifdef HTML_RES_DEBUG
 #define RES_DEBUG
@@ -298,7 +298,7 @@ insertMallocHash(zTopic, nBytes)
 
     pEntry = Tcl_CreateHashEntry(&aMalloc, zTopic, &isNewEntry);
     if (isNewEntry) {
-        aData = ckalloc(sizeof(int) * 2);
+        aData = (int *)ckalloc(sizeof(int) * 2);
         aData[0] = 1; 
         aData[1] = nBytes;
         Tcl_SetHashValue(pEntry, aData);
@@ -315,7 +315,6 @@ freeMallocHash(zTopic, nBytes)
     int nBytes;
 {
     int *aData;
-    int isNewEntry;
     Tcl_HashEntry *pEntry;
 
     initMallocHash();
@@ -361,6 +360,7 @@ HtmlHeapDebug(clientData, interp, objc, objv)
     }
 
     Tcl_SetObjResult(interp, pRet);
+    return TCL_OK;
 }
 
 /*

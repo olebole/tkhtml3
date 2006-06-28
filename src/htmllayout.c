@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.178 2006/06/27 18:14:24 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.179 2006/06/28 06:31:10 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -1977,26 +1977,28 @@ normalFlowLayoutReplaced(pLayout, pBox, pNode, pY, pContext, pNormal)
  *---------------------------------------------------------------------------
  */
 static int
-getHeight(pNode, iHeight) 
-    HtmlNode *pNode;
-    int iHeight;
+getHeight(pNode, iHeight, iContainingHeight)
+    HtmlNode *pNode;             /* Node to determine height of */
+    int iHeight;                 /* Natural Content height */
+    int iContainingHeight;       /* Containing height, or PIXELVAL_AUTO */
 {
     int ret = iHeight;
+    HtmlComputedValues *pV = pNode->pPropertyValues;
 
-    /* Presently, the code in htmlprop.h will not accept a percentage
-     * value for 'height' or 'min-height'. But this needs to change.
-     * At that point, this code will need updating.
-     */
-    int height = pNode->pPropertyValues->iHeight;
-    int minheight = pNode->pPropertyValues->iMinHeight;
+    int height    = PIXELVAL(pV, HEIGHT, iContainingHeight);
+    int minheight = PIXELVAL(pV, MIN_HEIGHT, iContainingHeight);
+    int maxheight = PIXELVAL(pV, MAX_HEIGHT, iContainingHeight);
+
+    if( minheight==PIXELVAL_AUTO ) minheight = 0;
+    if( maxheight==PIXELVAL_AUTO ) maxheight = PIXELVAL_NONE;
 
     assert(height == PIXELVAL_AUTO || height >= 0);
     assert(minheight >= 0);
+    assert(maxheight == PIXELVAL_NONE || maxheight >= 0);
 
-    if (height != PIXELVAL_AUTO) {
-        ret = height;
-    } 
+    if (height != PIXELVAL_AUTO) ret = height;
     ret = MAX(minheight, ret);
+    if (maxheight != PIXELVAL_NONE) ret = MIN(ret, maxheight);
 
     return ret;
 }
@@ -2052,6 +2054,7 @@ normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
     int iMPB;                         /* Sum of margins, padding borders */
     int iWidth;                       /* Content width of pNode in pixels */
     int iWrappedX = 0;                /* X-offset of wrapped content */
+    int iContHeight;                  /* Containing height for % 'height' val */
 
     int yBorderOffset;     /* Y offset for top of block border */
     int x, y;              /* Coords for content to be drawn in pBox */
@@ -2067,6 +2070,8 @@ normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
 
     nodeGetBoxProperties(pLayout, pNode, pBox->iContaining, &box);
     nodeGetMargins(pLayout, pNode, pBox->iContaining, &margin);
+
+    iContHeight = pBox->iContainingHeight;
 
     /* Calculate iWidth and xBorderLeft. Both are interpreted as pixel values.
      * For a non-replaced block element, the width is always as calculated
@@ -2138,6 +2143,7 @@ normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
      * of box, we treat any computed 'height' value apart from "auto" as a
      * minimum height.
      */
+    sContent.iContainingHeight = PIXELVAL(pV, HEIGHT, iContHeight);
     normalFlowLayout(pLayout, &sContent, pNode, pNormal);
 
     /* Remove any margin-collapse callback added to the normal flow context. */
@@ -2148,7 +2154,7 @@ normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
      * the height to be non-zero, then we need to collapse the vertical 
      * margins above this box.
      */
-    if (sContent.height == 0 && getHeight(pNode, 0) > 0) {
+    if (sContent.height == 0 && getHeight(pNode, 0, iContHeight) > 0) {
         int iMargin = 0;
         normalFlowMarginCollapse(pNormal, &iMargin); 
         *pY += iMargin;
@@ -2157,9 +2163,8 @@ normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
     }
 
     /* Adjust for 'height', 'min-height' and 'max-height' properties */
-    sContent.height  = getHeight(pNode, sContent.height - yBorderOffset);
-    sContent.height += yBorderOffset;
-
+    sContent.height = yBorderOffset + 
+            getHeight(pNode, sContent.height - yBorderOffset, iContHeight);
     sContent.width = getWidth(iWidth, sContent.width);
 
     LOG {

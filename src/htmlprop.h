@@ -220,7 +220,7 @@ struct HtmlComputedValues {
     int iWidth;                       /* 'width'          (pixels, %, AUTO)   */
     int iMinWidth;                    /* 'min-width'      (pixels, %)         */
     int iMaxWidth;                    /* 'max-height'     (pixels, %, NONE)   */
-    int iHeight;                      /* 'height'         (pixels, AUTO)      */
+    int iHeight;                      /* 'height'         (pixels, % AUTO)    */
     int iMinHeight;                   /* 'min-height'     (pixels, %)         */
     int iMaxHeight;                   /* 'max-height'     (pixels, %, NONE)   */
     HtmlFourSides padding;            /* 'padding'        (pixels, %)         */

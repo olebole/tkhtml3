@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_polipo.tcl,v 1.3 2006/06/27 14:19:07 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_polipo.tcl,v 1.4 2006/06/28 06:31:10 danielk1977 Exp $)} 1 }
 
 # This file contains code to control a single instance of the 
 # external program "hv3_polipo" that may be optionally used by
@@ -123,7 +123,7 @@ namespace eval ::hv3::polipo {
     # Kick off polipo.
     set cmd "|{$g(binary)}"
     if {$::tcl_platform(platform) eq "unix"} {
-      set cmd "|{$g(binary)} 2>@stdout"
+      set cmd "|{$g(binary)} |& cat"
     }
     set fd [open "|{$g(binary)}" r]
     fconfigure $fd -blocking 0

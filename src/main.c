@@ -37,7 +37,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: main.c,v 1.4 2005/11/29 12:19:59 danielk1977 Exp $";
+static const char rcsid[] = "$Id: main.c,v 1.5 2006/06/28 06:31:11 danielk1977 Exp $";
 
 #include "tk.h"
 #include "locale.h"
@@ -120,10 +120,13 @@ main(argc, argv)
  *----------------------------------------------------------------------
  */
 
+
 int
 Tcl_AppInit(interp)
     Tcl_Interp *interp;		/* Interpreter for application. */
 {
+    int Tkhtml_Init(Tcl_Interp *);
+
     if (Tcl_Init(interp) == TCL_ERROR) {
 	return TCL_ERROR;
     }

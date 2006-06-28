@@ -31,43 +31,57 @@ OBJS = $(SRC:.c=.o)
 LEMON = lemon
 BINARIES = $(SHARED_LIB) pkgIndex.tcl
 
+# How to run the C compiler:
+COMPILE = $(CC) $(CFLAGS) $(STUBSFLAGS)
+
 binaries: $(BINARIES)
 
 pkgIndex.tcl: $(SHARED_LIB)
-	(echo pkg_mkIndex -load Tk . \; exit;) | $(WISH)
+	echo 'pkg_mkIndex -load Tk . ; exit;' | $(WISH)
+
+
+# (echo pkg_mkIndex -load Tk . \; exit;) | $(WISH)
 
 $(SHARED_LIB): $(OBJS)
 	$(MKSHLIB) $(OBJS) $(TCLSTUBSLIB) -o $@
 
 %.o: $(TOP)/src/%.c $(HDR)
-	$(CC) -c $(CFLAGS) $(STUBSFLAGS) $< -o $@
+	@echo '$$(COMPILE) -c $< -o $@'
+	@$(COMPILE) -c $< -o $@
 
 htmltcl.o: $(TOP)/src/htmltcl.c $(HDR) htmldefaultstyle.c
-	$(CC) -c $(CFLAGS) $(STUBSFLAGS) $(TOP)/src/htmltcl.c -o $@
+	@echo '$$(COMPILE) -c $< htmldefaultstyle.c -o $@'
+	@$(COMPILE) -c $(TOP)/src/htmltcl.c -o $@
 
 %.o: %.c $(HDR)
-	$(CC) -c $(CFLAGS) $(STUBSFLAGS) $< -o $@
+	@echo '$$(COMPILE) -c $< -o $@'
+	@$(COMPILE) -c $< -o $@
 
 cssprop.h: $(TOP)/src/cssprop.tcl
-	$(TCLSH) $<
+	@echo '$$(TCLSH) $<'
+	@$(TCLSH) $<
 
 htmldefaultstyle.c: $(TOP)/tests/tkhtml.tcl  $(TOP)/tests/html.css $(TOP)/src/mkdefaultstyle.tcl 
-	$(TCLSH) $(TOP)/src/mkdefaultstyle.tcl > htmldefaultstyle.c
+	@echo '$$(TCLSH) $(TOP)/src/mkdefaultstyle.tcl > htmldefaultstyle.c'
+	@$(TCLSH) $(TOP)/src/mkdefaultstyle.tcl > htmldefaultstyle.c
 
 htmltokens.h:	$(TOP)/src/tokenlist.txt
-	$(TCLSH) $<
+	@echo '$$(TCLSH) $<'
+	@$(TCLSH) $<
 
 cssprop.c: cssprop.h
 
 htmltokens.c: htmltokens.h
 
 $(LEMON): $(TOP)/tools/lemon.c
-	$(CC) $(CFLAGS) `echo $(TOP)/tools/lemon.c` -o $(LEMON)
+	@echo '$$(COMPILE) $< htmldefaultstyle.c -o $@'
+	@$(COMPILE) $(TOP)/tools/lemon.c -o $(LEMON)
 
 cssparse.c: $(TOP)/src/cssparse.y $(LEMON)
 	cp $(TOP)/src/cssparse.y .
 	cp $(TOP)/tools/lempar.c .
-	./$(LEMON) cssparse.y
+	@echo '$$(LEMON) cssparse.y'
+	@./$(LEMON) cssparse.y
 
 cssparse.h: cssparse.c
 

@@ -43,7 +43,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  * COPYRIGHT:
  */
-static const char rcsid[] = "$Id: htmlhash.c,v 1.18 2006/06/27 14:19:07 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlhash.c,v 1.19 2006/06/28 06:31:10 danielk1977 Exp $";
 
 #include <tcl.h>
 #include <strings.h>
@@ -367,7 +367,6 @@ hashValuesKey(tablePtr, keyPtr)
 {
     HtmlComputedValues *p= (HtmlComputedValues *)keyPtr;
     unsigned int result = 0;
-    static const int nBytes = sizeof(HtmlComputedValues)-sizeof(int);
 
     unsigned char *pInt = (unsigned char *)p;
 
