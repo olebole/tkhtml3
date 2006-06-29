@@ -17,6 +17,12 @@ proc property {node prop} {
   return $properties($prop)
 }
 
+proc background-position {node} {
+  list                                       \
+      [property $node background-position-x] \
+      [property $node background-position-y]
+}
+
 #--------------------------------------------------------------------------
 # Test cases style-1.* test the parsing of the 'background-position' property.
 #
@@ -38,17 +44,17 @@ tcltest::test style-1.0 {} -body {
   }
 
   set node [lindex [.h search .one] 0]
-  property $node background-position
+  background-position $node
 } -result {50.00% 50.00%}
 
 tcltest::test style-1.1 {} -body {
   set node [lindex [.h search .two] 0]
-  property $node background-position
+  background-position $node
 } -result {50.00% 50.00%}
 
 tcltest::test style-1.2 {} -body {
   set node [lindex [.h search .three] 0]
-  property $node background-position
+  background-position $node
 } -result {111px 222px}
 
 
@@ -71,7 +77,7 @@ tcltest::test style-2.0 {} -body {
   }
 
   set node [lindex [.h search .one] 0]
-  property $node background-position
+  background-position $node
 } -result {0px 0px}
 
 tcltest::test style-2.1 {} -body {
@@ -80,7 +86,7 @@ tcltest::test style-2.1 {} -body {
 
 tcltest::test style-2.2 {} -body {
   set node2 [lindex [.h search .two] 0]
-  property $node2 background-position
+  background-position $node2
 } -result {50px 100px}
 
 tcltest::test style-2.3 {} -body {
@@ -296,11 +302,39 @@ P { margin-top: 0; }
   }
 } -result [list [list sup {vertical-align:super; font-size:80.00%}]]
 
+# Ensure only the default stylesheet can register Tcl scripts.
 tcltest::test style-7.1 {} -body {
   parse_stylesheet {
     p {color:tcl(script)}
   }
 } -result [list [list p {}]]
+
+# The following tests - style-8.* - come from the selectors in the acid2 page.
+tcltest::test style-8.1 {} -body {
+  .h reset
+  .h parse -final {
+    <style>
+      [class~=one].first.one {color: red}
+    </style>
+    <div class="first one">
+  }
+  set node [lindex [.h search div] 0]
+  property $node color
+} -result red
+tcltest::test style-8.2 {} -body {
+  .h reset
+  .h configure -defaultstyle ""
+  .h parse -final {
+    <style>
+      [class~=one][class~=first] [class=second\ two][class="second two"] 
+      {color : red}
+    </style>
+    <div class="first one">
+      <div id="1" class="second two">
+  }
+  set node [lindex [.h search {#1}] 0]
+  property $node color
+} -result red
 
 finish_test
 

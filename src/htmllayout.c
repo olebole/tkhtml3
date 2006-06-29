@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.179 2006/06/28 06:31:10 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.180 2006/06/29 07:22:58 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -600,6 +600,10 @@ normalFlowLayoutFloat(pLayout, pBox, pNode, pY, pDoNotUse, pNormal)
 
     memset(&sBox, 0, sizeof(BoxContext));
     sBox.iContaining = iContaining;
+
+    if (pLayout->minmaxTest) {
+        eFloat = CSS_CONST_LEFT;
+    }
 
     /* The following two lines set variable 'y' to the y-coordinate for the top
      * outer-edge of the floating box. This might be increased (but not
@@ -1281,6 +1285,111 @@ drawReplacement(pLayout, pBox, pNode)
 }
 
 static void
+considerMinMaxWidth(pNode, iContaining, piWidth)
+    HtmlNode *pNode;
+    int iContaining;
+    int *piWidth;
+{
+    int iWidth = *piWidth;
+    if (iWidth != PIXELVAL_AUTO) {
+        HtmlComputedValues *pV = pNode->pPropertyValues;
+        int iMinWidth;
+        int iMaxWidth;
+ 
+        iMinWidth = PIXELVAL(pV, MIN_WIDTH, iContaining);
+        iMaxWidth = PIXELVAL(pV, MAX_WIDTH, iContaining);
+
+        assert(iMaxWidth == PIXELVAL_NONE || iMaxWidth >= MAX_PIXELVAL);
+        assert(iMinWidth >= MAX_PIXELVAL);
+ 
+        if (iMaxWidth != PIXELVAL_NONE) {
+            iWidth = MIN(iWidth, iMaxWidth);
+        }
+        iWidth = MAX(iWidth, iMinWidth);
+
+        *piWidth = iWidth;
+    }
+}
+
+static void
+considerMinMaxHeight(pNode, iContaining, piHeight)
+    HtmlNode *pNode;
+    int iContaining;
+    int *piHeight;
+{
+    int iHeight = *piHeight;
+    if (iHeight != PIXELVAL_AUTO) {
+        HtmlComputedValues *pV = pNode->pPropertyValues;
+        int iMinHeight;
+        int iMaxHeight;
+ 
+        iMinHeight = PIXELVAL(pV, MIN_HEIGHT, iContaining);
+        iMaxHeight = PIXELVAL(pV, MAX_HEIGHT, iContaining);
+
+        assert(iMaxHeight == PIXELVAL_NONE || iMaxHeight >= MAX_PIXELVAL);
+        assert(iMinHeight >= MAX_PIXELVAL);
+ 
+        if (iMaxHeight != PIXELVAL_NONE) {
+            iHeight = MIN(iHeight, iMaxHeight);
+        }
+        iHeight = MAX(iHeight, iMinHeight);
+
+        *piHeight = iHeight;
+    }
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * getHeight --
+ *
+ *     The second parameter is the content-height in pixels of node pNode. 
+ *     This function returns the actual pixel height of the node content
+ *     area considering both the supplied value and the computed value
+ *     of the height property:
+ *
+ *         IF ('height' == "auto") 
+ *             return iHeight
+ *         ELSE
+ *             return 'height'
+ *
+ * Results:
+ *     See above.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int
+getHeight(pNode, iHeight, iContainingHeight)
+    HtmlNode *pNode;             /* Node to determine height of */
+    int iHeight;                 /* Natural Content height */
+    int iContainingHeight;       /* Containing height, or PIXELVAL_AUTO */
+{
+    int ret = iHeight;
+    HtmlComputedValues *pV = pNode->pPropertyValues;
+
+    int height    = PIXELVAL(pV, HEIGHT, iContainingHeight);
+    int minheight = PIXELVAL(pV, MIN_HEIGHT, iContainingHeight);
+    int maxheight = PIXELVAL(pV, MAX_HEIGHT, iContainingHeight);
+
+    if( minheight==PIXELVAL_AUTO ) minheight = 0;
+    if( maxheight==PIXELVAL_AUTO ) maxheight = PIXELVAL_NONE;
+
+    assert(height == PIXELVAL_AUTO || height >= 0);
+    assert(maxheight == PIXELVAL_NONE || maxheight >= 0);
+    assert(minheight >= 0);
+
+    if (height != PIXELVAL_AUTO) ret = height;
+    if (maxheight != PIXELVAL_NONE) ret = MIN(ret, maxheight);
+    ret = MAX(minheight, ret);
+
+    return ret;
+}
+
+
+static void
 drawAbsolute(pLayout, pBox, pStaticCanvas, x, y)
     LayoutContext *pLayout;       /* Layout context */
     BoxContext *pBox;             /* Padding edge box to draw to */
@@ -1313,6 +1422,9 @@ drawAbsolute(pLayout, pBox, pStaticCanvas, x, y)
         int iSpace;
 
         pNext = pList->pNext;
+
+        considerMinMaxWidth(pNode, pBox->iContaining, &iWidth);
+        considerMinMaxHeight(pNode, pBox->height, &iHeight);
 
         if (HtmlDrawGetMarker(pStaticCanvas, pList->pMarker, &s_x, &s_y)) {
             /* If GetMarker() returns non-zero, then pList->pMarker is not
@@ -1381,6 +1493,7 @@ drawAbsolute(pLayout, pBox, pStaticCanvas, x, y)
             } else if (margin.rightAuto) {
                 margin.margin_right = iSpace;
 	    } else {
+                /* Box is overconstrained. Set 'right' to auto */
                 iRight = PIXELVAL_AUTO;
             }
         }
@@ -1403,6 +1516,16 @@ drawAbsolute(pLayout, pBox, pStaticCanvas, x, y)
             assert(iRight != PIXELVAL_AUTO || iLeft != PIXELVAL_AUTO);
             blockMinMaxWidth(pLayout, pNode, &min, &max);
             iWidth = MIN(MAX(min, iSpace), max);
+            LOG {
+                HtmlTree *pTree = pLayout->pTree;
+                char const *zNode = Tcl_GetString(HtmlNodeCommand(pTree,pNode));
+                HtmlLog(pTree, "LAYOUTENGINE", "%s drawAbsolute() -> "
+                    "Box is under-constrained and width is auto. "
+                    "Using shrink-to-fit width: %dpx "
+                    "(min=%dpx max=%dpx available=%dpx)", zNode, 
+                    iWidth, min, max, iSpace
+                );
+            }
             iSpace -= iWidth;
         }
 
@@ -1419,7 +1542,8 @@ drawAbsolute(pLayout, pBox, pStaticCanvas, x, y)
         }
 
         /* Layout the content into sContent */
-        if (!nodeIsReplaced(pNode)) {
+        if (!isReplaced) {
+            considerMinMaxWidth(pNode, pBox->iContaining, &iWidth);
             sContent.iContaining = iWidth;
             HtmlLayoutNodeContent(pLayout, &sContent, pNode);
         }
@@ -1488,6 +1612,7 @@ drawAbsolute(pLayout, pBox, pStaticCanvas, x, y)
             iBottom = iSpace;
         }
 
+        considerMinMaxHeight(pNode, pBox->height, &iHeight);
         sContent.height = iHeight;
         sContent.width = iWidth;
 
@@ -1952,57 +2077,6 @@ normalFlowLayoutReplaced(pLayout, pBox, pNode, pY, pContext, pNormal)
 
     return 0;
 }
-
-/*
- *---------------------------------------------------------------------------
- *
- * getHeight --
- *
- *     The second parameter is the content-height in pixels of node pNode. 
- *     This function returns the actual pixel height of the node content
- *     area considering both the supplied value and the computed value
- *     of the height property:
- *
- *         IF ('height' == "auto") 
- *             return iHeight
- *         ELSE
- *             return 'height'
- *
- * Results:
- *     See above.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-static int
-getHeight(pNode, iHeight, iContainingHeight)
-    HtmlNode *pNode;             /* Node to determine height of */
-    int iHeight;                 /* Natural Content height */
-    int iContainingHeight;       /* Containing height, or PIXELVAL_AUTO */
-{
-    int ret = iHeight;
-    HtmlComputedValues *pV = pNode->pPropertyValues;
-
-    int height    = PIXELVAL(pV, HEIGHT, iContainingHeight);
-    int minheight = PIXELVAL(pV, MIN_HEIGHT, iContainingHeight);
-    int maxheight = PIXELVAL(pV, MAX_HEIGHT, iContainingHeight);
-
-    if( minheight==PIXELVAL_AUTO ) minheight = 0;
-    if( maxheight==PIXELVAL_AUTO ) maxheight = PIXELVAL_NONE;
-
-    assert(height == PIXELVAL_AUTO || height >= 0);
-    assert(minheight >= 0);
-    assert(maxheight == PIXELVAL_NONE || maxheight >= 0);
-
-    if (height != PIXELVAL_AUTO) ret = height;
-    ret = MAX(minheight, ret);
-    if (maxheight != PIXELVAL_NONE) ret = MIN(ret, maxheight);
-
-    return ret;
-}
-
 
 static int
 getWidth(iWidthCalculated, iWidthContent) 

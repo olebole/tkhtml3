@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.73 2006/06/28 06:31:11 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.74 2006/06/29 07:22:59 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -379,7 +379,7 @@ HtmlPropertyToString(pProp, pzFree)
  *
  *---------------------------------------------------------------------------
  */
-static int 
+static float 
 pixelsToPoints(p, pixels)
     HtmlComputedValuesCreator *p;
     int pixels;
@@ -389,7 +389,7 @@ pixelsToPoints(p, pixels)
     Tcl_IncrRefCount(pObj);
     Tk_GetMMFromObj(p->pTree->interp, p->pTree->tkwin, pObj, &mm);
     Tcl_DecrRefCount(pObj);
-    return (int) ((mm * 72.0 / 25.4) + 0.5);
+    return (mm * 72.0 / 25.4);
 }
 
 /*
@@ -1723,7 +1723,7 @@ allocateNewFont(interp, tkwin, pFontKey)
 
     } while (0 == tkfont);
 
-    pFont = (HtmlFont *)HtmlAlloc(0, sizeof(HtmlFont) + strlen(zTkFontName) + 1);
+    pFont = (HtmlFont *)HtmlAlloc(0, sizeof(HtmlFont) + strlen(zTkFontName)+1);
     pFont->nRef = 0;
     pFont->tkfont = tkfont;
     pFont->zFont = (char *)&pFont[1];
@@ -1740,7 +1740,14 @@ allocateNewFont(interp, tkwin, pFontKey)
      * em-pixels value. I'm not entirely satisfied with this.
      */
     /* pFont->em_pixels = pFont->metrics.ascent + pFont->metrics.descent; */
-    pFont->em_pixels = pFont->metrics.ascent;
+
+    /* pFont->em_pixels = pFont->metrics.ascent; */
+    if (pFont) {
+        char zBuf[24];
+        sprintf(zBuf, "%.3fp", (float)pFontKey->iFontSize / 1000.0);
+        Tk_GetPixels(interp, tkwin, zBuf, &pFont->em_pixels);
+    }
+   
 
     return pFont;
 }
@@ -2281,6 +2288,15 @@ HtmlNodeProperties(interp, pValues)
     for (ii = 0; ii < sizeof(propdef) / sizeof(propdef[0]); ii++) {
         PropertyDef *pDef = &propdef[ii];
         CONST char *zName = HtmlCssPropertyToString(pDef->eProp);
+
+        if (
+            pDef->eProp == CSS_PROPERTY_FONT_FAMILY ||
+            pDef->eProp == CSS_PROPERTY_FONT_SIZE ||
+            pDef->eProp == CSS_PROPERTY_FONT_STYLE ||
+            pDef->eProp == CSS_PROPERTY_FONT_VARIANT ||
+            pDef->eProp == CSS_PROPERTY_FONT_WEIGHT 
+        ) continue;
+
         Tcl_ListObjAppendElement(interp, pRet, Tcl_NewStringObj(zName, -1));
         switch (pDef->eType) {
             case ENUM: {
@@ -2361,12 +2377,20 @@ HtmlNodeProperties(interp, pValues)
     Tcl_ListObjAppendElement(0, pRet, pValue);
     
     /* font */
-    iFontSize = pValues->fFont->pKey->iFontSize;
     pValue = Tcl_NewStringObj(pValues->fFont->zFont, -1);
-    sprintf(zBuf, " (%d thousandths)", iFontSize);
-    Tcl_AppendToObj(pValue, zBuf, -1);
     Tcl_ListObjAppendElement(0, pRet, Tcl_NewStringObj("font", -1));
     Tcl_ListObjAppendElement(0, pRet, pValue);
+
+    /* font-size */
+    iFontSize = pValues->fFont->pKey->iFontSize;
+    sprintf(zBuf, "%.3fpts", (float)iFontSize / 1000);
+    Tcl_ListObjAppendElement(0, pRet, Tcl_NewStringObj("font-size", -1));
+    Tcl_ListObjAppendElement(0, pRet, Tcl_NewStringObj(zBuf, -1));
+
+    /* em-pixels */
+    sprintf(zBuf, "%dpx", pValues->fFont->em_pixels);
+    Tcl_ListObjAppendElement(0, pRet, Tcl_NewStringObj("em-pixels", -1));
+    Tcl_ListObjAppendElement(0, pRet, Tcl_NewStringObj(zBuf, -1));
 
     Tcl_ListObjAppendElement(interp, pRet, Tcl_NewStringObj("nRef", -1));
     Tcl_ListObjAppendElement(interp, pRet, Tcl_NewIntObj(pValues->nRef));

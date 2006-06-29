@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.6 2006/06/10 12:32:27 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.7 2006/06/29 07:22:58 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd and -cancelrequestcmd
@@ -64,6 +64,7 @@ snit::type ::hv3::protocol {
 
     $self schemehandler file [mymethod request_file]
     $self schemehandler http [mymethod request_http]
+    $self schemehandler data [mymethod request_data]
   }
 
   destructor {
@@ -166,6 +167,24 @@ snit::type ::hv3::protocol {
     close $fd
 
     $downloadHandle append $data
+    $downloadHandle finish
+  }
+
+  # Handle a data: URI.
+  #
+  # RFC2397: # http://tools.ietf.org/html/2397
+  #
+  #    dataurl    := "data:" [ mediatype ] [ ";base64" ] "," data
+  #    mediatype  := [ type "/" subtype ] *( ";" parameter )
+  #    data       := *urlchar
+  #    parameter  := attribute "=" value
+  #
+  method request_data {downloadHandle} {
+    set uri [$downloadHandle uri]
+    set iData [expr [string first , $uri] + 1]
+    set data [string range $uri $iData end]
+    set bin [::tkhtml::decode -base64 $data]
+    $downloadHandle append $bin
     $downloadHandle finish
   }
 

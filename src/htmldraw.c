@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.126 2006/06/11 11:06:25 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.127 2006/06/29 07:22:58 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -2875,8 +2875,19 @@ scrollToNodeCb(pItem, origin_x, origin_y, clientData)
     int x, y, w, h;
     ScrollToQuery *pQuery = (ScrollToQuery *)clientData;
     HtmlNode *pNode;
+    int iMaxNode = pQuery->iMaxNode;
 
     pNode = itemToBox(pItem, origin_x, origin_y, &x, &y, &w, &h);
+
+    /* If we have found a CANVAS_BOX for the node sought, then 
+     * unconditionally return the pixel offset of the top-border edge
+     * of the box. This is defined in CSS2.1.
+     */
+    if (pNode && pItem->type == CANVAS_BOX && pNode->iNode == iMaxNode){
+        pQuery->iReturn = y;
+        return 1;
+    }
+ 
     if (
         pNode && 
         pNode->iNode <= pQuery->iMaxNode && 

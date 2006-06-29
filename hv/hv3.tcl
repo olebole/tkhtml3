@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.81 2006/06/28 15:50:54 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.82 2006/06/29 07:22:58 danielk1977 Exp $)} 1 }
 
 #
 # The code in this file is partitioned into the following classes:
@@ -751,6 +751,14 @@ snit::widget ::hv3::hv3 {
     if {$fragment ne ""} {
       set selector [format {[name="%s"]} $fragment]
       set goto_node [lindex [$myHtml search $selector] 0]
+
+      # If there was no node with the name attribute set to the fragment,
+      # search for a node with the id attribute set to the fragment.
+      if {$goto_node eq ""} {
+        set selector [format {[id="%s"]} $fragment]
+        set goto_node [lindex [$myHtml search $selector] 0]
+      }
+
       if {$goto_node ne ""} {
         $myHtml yview $goto_node
       }

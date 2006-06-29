@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.71 2006/06/11 13:03:53 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.72 2006/06/29 07:22:58 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -217,20 +217,25 @@ dequote(z)
     char *z;
 {
     if (z) {
-        int n = strlen(z);;
+        int i = 0;
+        char *zOut = z;
+        int n = strlen(z);
+        
+	/* Figure out if the is a quote character (" or ').  If there is one,
+         * strip it from the start of the string before proceeding. 
+         */
         char q = z[0];
-        if (n > 1 && (q == '"' || q == '\'') && z[n-1] == q && z[n-2] != '\\') {
-            int i;
-            char *zOut = z;
-            for (i = 1; i < (n - 1); i++) {
-                char o = z[i];
-                if (o == '\\' && (z[i+1] == '\\' || z[i+1] == q)) {
-                    o = z[++i];
-                } 
-                *zOut++ = o;
+        if (q != '\'' && q != '"') q = '\0';
+
+        for (; i < n; i++) {
+            char o = z[i];
+            if (o == '\\') continue;
+            if (o == q) {
+                if (i == 0 || (z[i - 1] != '\\' && i == n - 1)) continue;
             }
-            *zOut++ = 0;
+            *zOut++ = o;
         }
+        *zOut++ = 0;
     }
 }
 
@@ -1765,7 +1770,11 @@ cssGetToken(z, n, pLen)
                 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0  /* 0x70-0x7F */
             };
             int i;
-            for(i=0; i<n && (z[i]<0 || charmap[(int)z[i]]); i++) /* empty */ ;
+
+            for(i=0; i<n && (z[i]<0 || charmap[(int)z[i]]); i++){
+                if (z[i] == '\\' && z[i + 1]) i++;
+            }
+
             if( i==0 ) goto bad_token;
             if( i<n && z[i]=='(' ){
                 int t = -1;

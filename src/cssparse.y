@@ -241,18 +241,22 @@ simple_selector_tail_component ::= DOT IDENT(X). {
 simple_selector_tail_component ::= LSP IDENT(X) RSP. {
     HtmlCssSelector(pParse, CSS_SELECTOR_ATTR, &X, 0);
 }
-simple_selector_tail_component ::= LSP IDENT(X) EQUALS STRING(Y) RSP. {
+simple_selector_tail_component ::= LSP IDENT(X) EQUALS string(Y) RSP. {
     HtmlCssSelector(pParse, CSS_SELECTOR_ATTRVALUE, &X, &Y);
 }
-simple_selector_tail_component ::= LSP IDENT(X) TILDE EQUALS STRING(Y) RSP. {
+simple_selector_tail_component ::= LSP IDENT(X) TILDE EQUALS string(Y) RSP. {
     HtmlCssSelector(pParse, CSS_SELECTOR_ATTRLISTVALUE, &X, &Y);
 }
-simple_selector_tail_component ::= LSP IDENT(X) PIPE EQUALS STRING(Y) RSP. {
+simple_selector_tail_component ::= LSP IDENT(X) PIPE EQUALS string(Y) RSP. {
     HtmlCssSelector(pParse, CSS_SELECTOR_ATTRHYPHEN, &X, &Y);
 }
+
 simple_selector_tail_component ::= COLON IDENT(X). {
     HtmlCssSelector(pParse, HtmlCssPseudo(&X), 0, 0);
 }
+
+string(A) ::= STRING(X). {A = X;}
+string(A) ::= IDENT(X).  {A = X;}
 
 
 /*********************************************************************

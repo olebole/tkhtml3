@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.100 2006/06/10 12:38:38 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.101 2006/06/29 07:22:59 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -2164,6 +2164,105 @@ htmlVersionCmd(clientData, interp, objc, objv)
     return TCL_OK;
 }
 
+int read6bits(unsigned char **pzIn){
+    int i;
+    unsigned char c;
+    unsigned char *zIn = *pzIn;
+    char const z64[] = 
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+   
+
+    c = *(zIn++);
+    while (c == ' ' || c == '\n' || c == '\t') c = *(zIn++);
+
+    if (c == '%') {
+        char c1 = *(zIn++);
+        char c2 = *(zIn++);
+
+        if (c1 >= '0' && c1 <= '9')      c = (c1 - '0');
+        else if (c1 >= 'A' && c1 <= 'F') c = (c1 - 'A');
+        else if (c1 >= 'a' && c1 <= 'f') c = (c1 - 'a');
+        c = c << 4;
+        if (c2 >= '0' && c2 <= '9')      c += (c2 - '0');
+        else if (c2 >= 'A' && c2 <= 'F') c += (c2 - 'A' + 10);
+        else if (c2 >= 'a' && c2 <= 'f') c += (c2 - 'a' + 10);
+    }
+
+    for (i = 0; i < 64; i++) {
+        if ((char)c == z64[i]) {
+            *pzIn = zIn;
+            return i;
+        }
+    }
+    return -1;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * htmlDecodeCmd --
+ *
+ *         ::tkhtml::decode ?-base64? DATA
+ *
+ *     This command is designed to help scripts process "data:" URIs. It
+ *     is completely separate from the html widget. 
+ *
+ * Results:
+ *     Returns the decoded data.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+htmlDecodeCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    unsigned char *zOut;
+    int jj;
+
+    Tcl_Obj *pData;
+    int nData;
+    unsigned char *zData;
+
+    if (objc != 3) {
+        Tcl_WrongNumArgs(interp, 1, objv, "-base64 DATA");
+        return TCL_ERROR;
+    }
+    pData = objv[2];
+
+    zData = (unsigned char *)Tcl_GetStringFromObj(pData, &nData);
+    zOut = (unsigned char *)HtmlAlloc(0, nData);
+    jj = 0;
+
+    while (1) {
+        int a = read6bits(&zData);
+        int b = read6bits(&zData);
+        int c = read6bits(&zData);
+        int d = read6bits(&zData);
+        int e = 0;
+
+        if (a >= 0) e += a << 18;
+        if (b >= 0) e += b << 12;
+        if (c >= 0) e += c << 6;
+        if (d >= 0) e += d;
+
+        if (b >= 0) zOut[jj++] = (e & 0x00FF0000) >> 16;
+        if (c >= 0) zOut[jj++] = (e & 0x0000FF00) >> 8;
+        if (d >= 0) zOut[jj++] = (e & 0x000000FF);
+
+        if (d < 0) break;
+    }
+
+    Tcl_SetObjResult(interp, Tcl_NewByteArrayObj(zOut, jj));
+    HtmlFree(0, zOut);
+    return TCL_OK;
+}
+
 /*
  * Define the DLL_EXPORT macro, which must be set to something or other in
  * order to export the Tkhtml_Init and Tkhtml_SafeInit symbols from a win32
@@ -2219,6 +2318,7 @@ DLL_EXPORT int Tkhtml_Init(interp)
     Tcl_CreateObjCommand(interp, "html", newWidget, 0, 0);
     Tcl_CreateObjCommand(interp, "::tkhtml::htmlstyle", htmlstyleCmd, 0, 0);
     Tcl_CreateObjCommand(interp, "::tkhtml::version", htmlVersionCmd, 0, 0);
+    Tcl_CreateObjCommand(interp, "::tkhtml::decode", htmlDecodeCmd, 0, 0);
 
 #ifndef NDEBUG
     Tcl_CreateObjCommand(interp, "::tkhtml::htmlalloc", allocCmd, 0, 0);

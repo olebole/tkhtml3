@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_object.tcl,v 1.3 2006/06/10 12:32:27 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_object.tcl,v 1.4 2006/06/29 07:22:58 danielk1977 Exp $)} 1 }
 
 #
 # The code in this file handles <object> elements for the hv3 mini-browser.
@@ -131,7 +131,7 @@ proc hv3_object_data_handler {hv3 node params handle data} {
   }
 }
 
-proc hv3_object_data_failed {hv3 node} {
+proc hv3_object_data_failed {hv3 node args} {
   $node replace ""
 }
 
