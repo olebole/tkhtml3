@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.180 2006/06/29 07:22:58 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.181 2006/06/29 07:41:54 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -1802,8 +1802,7 @@ wrapContent(pLayout, pBox, pContent, pNode)
         }
         sAbsolute.iContaining = sAbsolute.width;
         drawAbsolute(pLayout, &sAbsolute, &pBox->vc,
-            PIXELVAL(pV, PADDING_LEFT, pBox->iContaining) + margin.margin_left,
-            PIXELVAL(pV, PADDING_TOP, pBox->iContaining)
+            iLeftBorder + margin.margin_left, iTopBorder
         );
         DRAW_CANVAS(&pBox->vc, &sAbsolute.vc, 
             margin.margin_left + iLeftBorder, iTopBorder, pNode);
