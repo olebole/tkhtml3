@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.72 2006/06/29 07:22:58 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.73 2006/07/01 07:33:22 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -844,22 +844,22 @@ getNextListItem(zList, nList, pN)
     CONST char *z = zList;
     CONST char *zEnd = zList+nList;
 
-    while (z<zEnd && t==CT_SPACE) {
+    while (z<zEnd && (t==CT_SPACE || t <= 0)) {
         t = cssGetToken(z, zEnd-z, &n);
         assert(n>0);
-        if (t==CT_SPACE) {
+        if (t==CT_SPACE || t <= 0) {
             z += n;
         }
     }
     zRet = z;
     z += n;
 
-    while (z<zEnd && t!=CT_SPACE) {
+    while (z<zEnd && t!=CT_SPACE && t > 0) {
         int n2 = 0;
         t = cssGetToken(z, zEnd-z, &n2);
         assert(n2>0);
         z += n2;
-        if (t!=CT_SPACE) {
+        if (t!=CT_SPACE && t > 0) {
             n += n2;
         }
     }
@@ -1995,7 +1995,7 @@ cssParse(n, z, isStyle, origin, pStyleId, pImportCmd, interp, pUrlCmd, ppStyle)
     }
     p = tkhtmlCssParserAlloc(xCkalloc);
 
- /* tkhtmlCssParserTrace(stdout, "Parser: "); */
+    /* tkhtmlCssParserTrace(stdout, "Parser: "); */
 
     /* If *ppStyle is NULL, then create a new CssStyleSheet object. If it
      * is not zero, then append the rules from the new stylesheet document
@@ -2981,6 +2981,51 @@ ruleToPropertyValues(p, aPropDone, pRule)
     }
 }
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * ruleToPropertyValues --
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void 
+overrideToPropertyValues(p, aPropDone, pOverride)
+    HtmlComputedValuesCreator *p;
+    int *aPropDone;
+    Tcl_Obj *pOverride;
+{
+    Tcl_Obj **apObj = 0;
+    int nObj = 0;
+    int ii;
+
+    if (!pOverride) return;
+    Tcl_ListObjGetElements(0, pOverride, &nObj, &apObj);
+
+    for (ii = 0; ii < (nObj - 1); ii += 2) { 
+        int eProp;
+        const char *zProp;
+        int nProp;
+
+        zProp = Tcl_GetStringFromObj(apObj[ii], &nProp);
+        eProp = HtmlCssPropertyLookup(nProp, zProp);
+
+	if (eProp <= CSS_PROPERTY_MAX_PROPERTY && 0 == aPropDone[eProp]) {
+            const char *zVal = Tcl_GetString(apObj[ii + 1]);
+            CssProperty *pProp = HtmlCssStringToProperty(zVal, -1);
+            if (0 == HtmlComputedValuesSet(p, eProp, pProp)) {
+                aPropDone[eProp] = 1;
+            }
+            HtmlComputedValuesFreeProperty(p, pProp);
+        }
+    }
+}
+
 #if 0
 static int 
 selectorIsDynamic(pSelector)
@@ -3042,6 +3087,14 @@ HtmlCssStyleSheetApply(pTree, pNode)
     HtmlComputedValuesInit(pTree, pNode, &sCreator);
     memset(aPropDone, 0, sizeof(aPropDone));
     assert(sizeof(aPropDone) == sizeof(int) * (CSS_PROPERTY_MAX_PROPERTY+1));
+
+    /* Before considering the stylesheet configure or any style attribute,
+     * parse the properties from the override list in HtmlNode.pOverride.
+     * These properties were set directly by the script and have a higher
+     * priority than anything else.
+     */
+    overrideToPropertyValues(&sCreator, aPropDone, pNode->pOverride);
+
 
     /* Loop through the list of CSS rules in the stylesheet. Rules that occur
      * earlier in the list have a higher priority than those that occur later.

@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.181 2006/06/29 07:41:54 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.182 2006/07/01 07:33:22 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -189,8 +189,8 @@ static FlowLayoutFunc normalFlowLayoutReplacedInline;
 static FlowLayoutFunc normalFlowLayoutAbsolute;
 
 /* Manage collapsing vertical margins in a normal-flow */
-static void normalFlowMarginCollapse(NormalFlow *, int *);
-static void normalFlowMarginAdd(NormalFlow *, int);
+static void normalFlowMarginCollapse(LayoutContext*,HtmlNode*,NormalFlow*,int*);
+static void normalFlowMarginAdd(LayoutContext *, HtmlNode *, NormalFlow *, int);
 static int  normalFlowMarginQuery(NormalFlow *);
 
 /* Hooks to attach the list-marker drawing callback to a NormalFlow */
@@ -376,7 +376,9 @@ normalFlowMarginQuery(pNormal)
     return iMargin;
 }
 static void 
-normalFlowMarginCollapse(pNormal, pY) 
+normalFlowMarginCollapse(pLayout, pNode, pNormal, pY) 
+    LayoutContext *pLayout;
+    HtmlNode *pNode;
     NormalFlow *pNormal;
     int *pY;
 {
@@ -396,9 +398,19 @@ normalFlowMarginCollapse(pNormal, pY)
     pNormal->iMaxMargin = 0;
     pNormal->iMinMargin = 0;
     pNormal->nonegative = 0;
+
+    LOG {
+        HtmlTree *pTree = pLayout->pTree;
+        char const *zNode = Tcl_GetString(HtmlNodeCommand(pTree, pNode));
+        HtmlLog(pTree, "LAYOUTENGINE", "%s normalFlowMarginCollapse()"
+            "<p>Margins collapse to: %dpx", zNode, iMargin
+        );
+    }
 }
 static void 
-normalFlowMarginAdd(pNormal, y) 
+normalFlowMarginAdd(pLayout, pNode, pNormal, y) 
+    LayoutContext *pLayout;
+    HtmlNode *pNode;
     NormalFlow *pNormal;
     int y;
 {
@@ -407,6 +419,20 @@ normalFlowMarginAdd(pNormal, y)
         assert(pNormal->iMinMargin <= 0);
         pNormal->iMaxMargin = MAX(pNormal->iMaxMargin, y);
         pNormal->iMinMargin = MIN(pNormal->iMinMargin, y);
+    }
+    LOG {
+        HtmlTree *pTree = pLayout->pTree;
+        char const *zNode = Tcl_GetString(HtmlNodeCommand(pTree, pNode));
+        HtmlLog(pTree, "LAYOUTENGINE", "%s normalFlowMarginAdd()"
+            "<p>Add margin of %dpx" 
+            "<ul><li>positive-margin = %dpx"
+            "    <li>negative-margin = %dpx"
+            "    <li>is-valid = %s"
+            "    <li>no-negative = %s",
+            zNode, y, pNormal->iMaxMargin, pNormal->iMinMargin,
+            pNormal->isValid ? "true" : "false",
+            pNormal->nonegative ? "true" : "false"
+        );
     }
 }
 
@@ -459,10 +485,78 @@ nodeIsReplaced(pNode)
     HtmlNode *pNode;
 {
     HtmlComputedValues *pComputed = pNode->pPropertyValues;
+    HtmlNodeReplacement *pReplacement = pNode->pReplacement;
     return (
-        pNode->pReplacement || 
+        (pReplacement && pReplacement->win) ||
         (pComputed && pComputed->imReplacementImage)
     ) ? 1 : 0;
+}
+
+static void
+considerMinMaxHeight(pNode, iContaining, piHeight)
+    HtmlNode *pNode;
+    int iContaining;
+    int *piHeight;
+{
+    int iHeight = *piHeight;
+    if (iHeight != PIXELVAL_AUTO) {
+        HtmlComputedValues *pV = pNode->pPropertyValues;
+        int iMinHeight;
+        int iMaxHeight;
+ 
+        iMinHeight = PIXELVAL(pV, MIN_HEIGHT, iContaining);
+        iMaxHeight = PIXELVAL(pV, MAX_HEIGHT, iContaining);
+
+        if (iMinHeight < MAX_PIXELVAL) iMinHeight = 0;
+        if (iMaxHeight < MAX_PIXELVAL) iMaxHeight = PIXELVAL_NONE;
+ 
+        if (iMaxHeight != PIXELVAL_NONE) {
+            iHeight = MIN(iHeight, iMaxHeight);
+        }
+        iHeight = MAX(iHeight, iMinHeight);
+
+        *piHeight = iHeight;
+    }
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * getHeight --
+ *
+ *     The second parameter is the content-height in pixels of node pNode. 
+ *     This function returns the actual pixel height of the node content
+ *     area considering both the supplied value and the computed value
+ *     of the height property:
+ *
+ *         IF ('height' == "auto") 
+ *             return iHeight
+ *         ELSE
+ *             return 'height'
+ *
+ * Results:
+ *     See above.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+int
+getHeight(pNode, iHeight, iContainingHeight)
+    HtmlNode *pNode;             /* Node to determine height of */
+    int iHeight;                 /* Natural Content height */
+    int iContainingHeight;       /* Containing height, or PIXELVAL_AUTO */
+{
+    HtmlComputedValues *pV = pNode->pPropertyValues;
+
+    int height    = PIXELVAL(pV, HEIGHT, iContainingHeight);
+    if (height == PIXELVAL_AUTO) {
+        height = iHeight;
+    }
+
+    considerMinMaxHeight(pNode, iContainingHeight, &height);
+    return height;
 }
 
 /*
@@ -513,8 +607,8 @@ normalFlowLayoutOverflow(pLayout, pBox, pNode, pY, pContext, pNormal)
     iMPB = margin.margin_left + margin.margin_right + box.iLeft + box.iRight;
 
     /* Vertical margins always collapse above these blocks */
-    normalFlowMarginAdd(pNormal, margin.margin_top);
-    normalFlowMarginCollapse(pNormal, pY);
+    normalFlowMarginAdd(pLayout, pNode, pNormal, margin.margin_top);
+    normalFlowMarginCollapse(pLayout, pNode, pNormal, pY);
 
     iLeft = 0;
     iRight = pBox->iContaining;
@@ -620,7 +714,7 @@ normalFlowLayoutFloat(pLayout, pBox, pNode, pY, pDoNotUse, pNormal)
      *
      * Note: "outer-edge" means including the the top and bottom margins.
      */
-    normalFlowMarginCollapse(pNormal, pY);
+    normalFlowMarginCollapse(pLayout, pNode, pNormal, pY);
     pBox->height = MAX(pBox->height, *pY);
     y = (*pY);
     y = HtmlFloatListClear(pNormal->pFloat, pV->eClear, y);
@@ -655,7 +749,7 @@ normalFlowLayoutFloat(pLayout, pBox, pNode, pY, pDoNotUse, pNormal)
         BoxContext sContent;
         int c = pLayout->minmaxTest ? PIXELVAL_AUTO : iContaining;
         int iWidth = PIXELVAL(pV, WIDTH, c);
-        int iHeight = PIXELVAL(pV, HEIGHT, c);
+        int iHeight = PIXELVAL(pV, HEIGHT, pBox->iContainingHeight);
         int isAuto = 0;
 
         nodeGetBoxProperties(pLayout, pNode, iContaining, &box);
@@ -680,8 +774,12 @@ normalFlowLayoutFloat(pLayout, pBox, pNode, pY, pDoNotUse, pNormal)
          */
         memset(&sContent, 0, sizeof(BoxContext));
         sContent.iContaining = iWidth;
+        sContent.iContainingHeight = iHeight;
         HtmlLayoutNodeContent(pLayout, &sContent, pNode);
-        sContent.height = MAX(iHeight, sContent.height);
+
+        sContent.height = getHeight(
+            pNode, sContent.height, pBox->iContainingHeight
+        );
 
         if (!isAuto && DISPLAY(pV) != CSS_CONST_TABLE) {
             sContent.width = iWidth;
@@ -1031,7 +1129,8 @@ inlineLayoutDrawLines(pLayout, pBox, pContext, forceflag, pY, pNormal)
 	 * eventually. Therefore it is safe to collapse the vertical margin.
          */
         if (!HtmlInlineContextIsEmpty(pContext)) {
-            normalFlowMarginCollapse(pNormal, &y);
+            HtmlNode *pNode = HtmlInlineContextCreator(pContext);
+            normalFlowMarginCollapse(pLayout, pNode, pNormal, &y);
         }
 
         /* Todo: We need a real line-height here, not a hard-coded '10' */
@@ -1114,7 +1213,7 @@ HtmlLayoutNodeContent(pLayout, pBox, pNode)
 {
     assert(!nodeIsReplaced(pNode));
     int eDisplay = DISPLAY(pNode->pPropertyValues);
-   
+
     if (eDisplay == CSS_CONST_NONE) {
         /* Do nothing */
     } else if (eDisplay == CSS_CONST_TABLE) {
@@ -1138,6 +1237,8 @@ HtmlLayoutNodeContent(pLayout, pBox, pNode)
     
         /* Layout the contents of the node */
         normalFlowLayout(pLayout, pBox, pNode, &sNormal);
+
+        normalFlowMarginCollapse(pLayout, pNode, &sNormal, &pBox->height);
     
 	/* Increase the height of the box to cover any floating boxes that
          * extend down past the end of the content. 
@@ -1205,7 +1306,7 @@ drawReplacementContent(pLayout, pBox, pNode)
     if (height != PIXELVAL_AUTO) height = MAX(height, 1);
     if (width != PIXELVAL_AUTO) width = MAX(width, 1);
 
-    if (pNode->pReplacement) {
+    if (pNode->pReplacement && pNode->pReplacement->win) {
         CONST char *zReplace = Tcl_GetString(pNode->pReplacement->pReplace);
         Tk_Window win = pNode->pReplacement->win;
         if (win) {
@@ -1309,83 +1410,6 @@ considerMinMaxWidth(pNode, iContaining, piWidth)
 
         *piWidth = iWidth;
     }
-}
-
-static void
-considerMinMaxHeight(pNode, iContaining, piHeight)
-    HtmlNode *pNode;
-    int iContaining;
-    int *piHeight;
-{
-    int iHeight = *piHeight;
-    if (iHeight != PIXELVAL_AUTO) {
-        HtmlComputedValues *pV = pNode->pPropertyValues;
-        int iMinHeight;
-        int iMaxHeight;
- 
-        iMinHeight = PIXELVAL(pV, MIN_HEIGHT, iContaining);
-        iMaxHeight = PIXELVAL(pV, MAX_HEIGHT, iContaining);
-
-        assert(iMaxHeight == PIXELVAL_NONE || iMaxHeight >= MAX_PIXELVAL);
-        assert(iMinHeight >= MAX_PIXELVAL);
- 
-        if (iMaxHeight != PIXELVAL_NONE) {
-            iHeight = MIN(iHeight, iMaxHeight);
-        }
-        iHeight = MAX(iHeight, iMinHeight);
-
-        *piHeight = iHeight;
-    }
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * getHeight --
- *
- *     The second parameter is the content-height in pixels of node pNode. 
- *     This function returns the actual pixel height of the node content
- *     area considering both the supplied value and the computed value
- *     of the height property:
- *
- *         IF ('height' == "auto") 
- *             return iHeight
- *         ELSE
- *             return 'height'
- *
- * Results:
- *     See above.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-static int
-getHeight(pNode, iHeight, iContainingHeight)
-    HtmlNode *pNode;             /* Node to determine height of */
-    int iHeight;                 /* Natural Content height */
-    int iContainingHeight;       /* Containing height, or PIXELVAL_AUTO */
-{
-    int ret = iHeight;
-    HtmlComputedValues *pV = pNode->pPropertyValues;
-
-    int height    = PIXELVAL(pV, HEIGHT, iContainingHeight);
-    int minheight = PIXELVAL(pV, MIN_HEIGHT, iContainingHeight);
-    int maxheight = PIXELVAL(pV, MAX_HEIGHT, iContainingHeight);
-
-    if( minheight==PIXELVAL_AUTO ) minheight = 0;
-    if( maxheight==PIXELVAL_AUTO ) maxheight = PIXELVAL_NONE;
-
-    assert(height == PIXELVAL_AUTO || height >= 0);
-    assert(maxheight == PIXELVAL_NONE || maxheight >= 0);
-    assert(minheight >= 0);
-
-    if (height != PIXELVAL_AUTO) ret = height;
-    if (maxheight != PIXELVAL_NONE) ret = MIN(ret, maxheight);
-    ret = MAX(minheight, ret);
-
-    return ret;
 }
 
 
@@ -1702,6 +1726,8 @@ wrapContent(pLayout, pBox, pContent, pNode)
     HtmlComputedValues *pV = pNode->pPropertyValues;
     MarginProperties margin;      /* Margin properties of pNode */
     BoxProperties box;            /* Box properties of pNode */
+    int iRelLeft = 0;
+    int iRelTop = 0;
     int x;
     int y;
     int w;
@@ -1718,8 +1744,10 @@ wrapContent(pLayout, pBox, pContent, pNode)
         assert(pV->position.iTop != PIXELVAL_AUTO);
         assert(pV->position.iLeft == -1 * pV->position.iRight);
         assert(pV->position.iTop == -1 * pV->position.iBottom);
-        x += PIXELVAL(pV, LEFT, pBox->iContaining);
-        y += PIXELVAL(pV, TOP, 0);
+        iRelLeft = PIXELVAL(pV, LEFT, pBox->iContaining);
+        iRelTop = PIXELVAL(pV, TOP, 0);
+        x += iRelLeft;
+        y += iRelTop;
     }
 
     w = box.iLeft + pContent->width + box.iRight;
@@ -1805,7 +1833,9 @@ wrapContent(pLayout, pBox, pContent, pNode)
             iLeftBorder + margin.margin_left, iTopBorder
         );
         DRAW_CANVAS(&pBox->vc, &sAbsolute.vc, 
-            margin.margin_left + iLeftBorder, iTopBorder, pNode);
+            iRelLeft + margin.margin_left + iLeftBorder, 
+            iRelTop + iTopBorder, pNode
+        );
     }
 }
 
@@ -1856,8 +1886,8 @@ normalFlowLayoutTable(pLayout, pBox, pNode, pY, pContext, pNormal)
     /* Account for the 'margin-top' property of this node. The margin always
      * collapses for a table element.
      */
-    normalFlowMarginAdd(pNormal, margin.margin_top);
-    normalFlowMarginCollapse(pNormal, pY);
+    normalFlowMarginAdd(pLayout, pNode, pNormal, margin.margin_top);
+    normalFlowMarginCollapse(pLayout, pNode, pNormal, pY);
 
     /* Set iMinWidth to the minimum allowable width and iWidth to the 
      * requested width (either the value of the 'width' property or based
@@ -2003,7 +2033,7 @@ normalFlowLayoutTable(pLayout, pBox, pNode, pY, pContext, pNormal)
     }
 
     /* Account for the 'margin-bottom' property of this node. */
-    normalFlowMarginAdd(pNormal, margin.margin_bottom);
+    normalFlowMarginAdd(pLayout, pNode, pNormal, margin.margin_bottom);
 
     return 0;
 }
@@ -2050,8 +2080,8 @@ normalFlowLayoutReplaced(pLayout, pBox, pNode, pY, pContext, pNormal)
     /* Account for the 'margin-top' property of this node. The margin always
      * collapses for a replaced block node.
      */
-    normalFlowMarginAdd(pNormal, margin.margin_top);
-    normalFlowMarginCollapse(pNormal, pY);
+    normalFlowMarginAdd(pLayout, pNode, pNormal, margin.margin_top);
+    normalFlowMarginCollapse(pLayout, pNode, pNormal, pY);
 
     *pY = HtmlFloatListPlace(
 	pNormal->pFloat, pBox->iContaining, sBox.width, sBox.height, *pY);
@@ -2072,7 +2102,7 @@ normalFlowLayoutReplaced(pLayout, pBox, pNode, pY, pContext, pNormal)
     pBox->width = MAX(pBox->width, sBox.width);
 
     /* Account for the 'margin-bottom' property of this node. */
-    normalFlowMarginAdd(pNormal, margin.margin_bottom);
+    normalFlowMarginAdd(pLayout, pNode, pNormal, margin.margin_bottom);
 
     return 0;
 }
@@ -2183,7 +2213,7 @@ normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
     }
 
     /* Account for the 'margin-top' property of this node. */
-    normalFlowMarginAdd(pNormal, margin.margin_top);
+    normalFlowMarginAdd(pLayout, pNode, pNormal, margin.margin_top);
 
     /* If this box has either top-padding or a top border, then collapse the
      * vertical margin between this block and the one above now. In this
@@ -2196,7 +2226,7 @@ normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
      */
     yBorderOffset = 0;
     if (box.iTop > 0) {
-        normalFlowMarginCollapse(pNormal, pY); 
+        normalFlowMarginCollapse(pLayout, pNode, pNormal, pY); 
     } else {
         sNormalFlowCallback.xCallback = setValueCallback;
         sNormalFlowCallback.clientData = (ClientData)(&yBorderOffset);
@@ -2229,7 +2259,7 @@ normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
      */
     if (sContent.height == 0 && getHeight(pNode, 0, iContHeight) > 0) {
         int iMargin = 0;
-        normalFlowMarginCollapse(pNormal, &iMargin); 
+        normalFlowMarginCollapse(pLayout, pNode, pNormal, &iMargin); 
         *pY += iMargin;
         HtmlFloatListNormalize(pNormal->pFloat, 0, -1 * iMargin);
         y += iMargin;
@@ -2252,7 +2282,7 @@ normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
     HtmlFloatListNormalize(pNormal->pFloat, x, y);
 
     if (box.iBottom > 0 && 0) {
-        normalFlowMarginCollapse(pNormal, &sContent.height);
+        normalFlowMarginCollapse(pLayout, pNode, pNormal, &sContent.height);
     } 
     *pY += sContent.height;
     *pY += box.iBottom;
@@ -2269,7 +2299,7 @@ normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
     pBox->height = MAX(pBox->height, *pY);
 
     /* Account for the 'margin-bottom' property of this node. */
-    normalFlowMarginAdd(pNormal, margin.margin_bottom);
+    normalFlowMarginAdd(pLayout, pNode, pNormal, margin.margin_bottom);
 
     return 0;
 }
@@ -2304,7 +2334,7 @@ normalFlowClearFloat(pBox, pNode, pNormal, y)
         int ydiff = ynew - y;
         assert(ydiff >= 0);
         pNormal->iMaxMargin = MAX(pNormal->iMaxMargin - ydiff, 0);
-        if (!pNormal->nonegative) pNormal->iMinMargin = 0;
+        // if (!pNormal->nonegative) pNormal->iMinMargin = 0;
         pNormal->iMinMargin -= ydiff;
         pNormal->nonegative = 1;
         pBox->height = MAX(ynew, pBox->height);
@@ -2944,17 +2974,6 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
 
     rc = inlineLayoutDrawLines(pLayout, pBox, pContext, 1, &y, pNormal);
     HtmlInlineContextCleanup(pContext);
-
-    /* If the overflow property is set to anything other than "visible",
-     * clear any floating boxes. This is because technically, this block
-     * establishes a new block-context. This is all pretty vague...
-     * See http://www.webstandards.org for an example.
-     *
-     * http://www.sitepoint.com/blogs/2005/02/26/simple-clearing-of-floats/
-     */
-    if (pV->eOverflow != CSS_CONST_VISIBLE && 0) {
-        pBox->height = HtmlFloatListClear(pFloat, CSS_CONST_BOTH, pBox->height);
-    }
 
     left = 0;
     right = pBox->iContaining;

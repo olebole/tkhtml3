@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.7 2006/06/29 07:22:58 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.8 2006/07/01 07:33:22 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd and -cancelrequestcmd
@@ -182,8 +182,20 @@ snit::type ::hv3::protocol {
   method request_data {downloadHandle} {
     set uri [$downloadHandle uri]
     set iData [expr [string first , $uri] + 1]
+
     set data [string range $uri $iData end]
-    set bin [::tkhtml::decode -base64 $data]
+    set header [string range $uri 0 [expr $iData - 1]]
+
+    if {[string match {*;base64} $header]} {
+      set bin [::tkhtml::decode -base64 $data]
+    } else {
+      set bin [::tkhtml::decode $data]
+    }
+
+    if {[regexp {^data:///([^,;]*)} $uri dummy mimetype]} {
+        $downloadHandle mimetype $mimetype
+    }
+
     $downloadHandle append $bin
     $downloadHandle finish
   }

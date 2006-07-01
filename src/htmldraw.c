@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.127 2006/06/29 07:22:58 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.128 2006/07/01 07:33:22 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1538,6 +1538,15 @@ drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview)
         rw = 0;
     }
 
+    /* Solid background, if required */
+    if (pV->cBackgroundColor->xcolor) {
+        fill_rectangle(pTree->win, 
+            drawable, pV->cBackgroundColor->xcolor,
+            x + pBox->x, y + pBox->y,
+            pBox->w, pBox->h
+        );
+    }
+
     /* Top border */
     if (tw > 0 && tc) {
         fill_quad(pTree->win, drawable, tc,
@@ -1578,20 +1587,11 @@ drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview)
         );
     }
 
-    /* Solid background, if required */
-    if (pV->cBackgroundColor->xcolor) {
-        fill_rectangle(pTree->win, 
-            drawable, pV->cBackgroundColor->xcolor,
-            MAX(0, bg_x), MAX(bg_y, 0), 
-            MIN(bg_w + MIN(0, bg_x), w), MIN(bg_h + MIN(0, bg_y), h)
-        );
-    }
-
     /* Image background, if required and the generating node is not inline. 
      * Tkhtml does not draw background images for inline nodes. That's Ok
      * for now, because they're not terribly common.
      */
-    if (!isInline && pV->imBackgroundImage) {
+    if (/* !isInline && */ pV->imBackgroundImage) {
         Tk_Image img;
         Pixmap ipix;
         GC gc;

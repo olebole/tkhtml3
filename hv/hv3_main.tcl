@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.42 2006/06/10 12:32:27 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.43 2006/07/01 07:33:22 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -453,8 +453,10 @@ if 0 {
 
   option -statusvar        -default ""
 
-  delegate option -fonttable     to myHv3
-  delegate method dumpforms      to myHv3
+  delegate option -forcefontmetrics to myHv3
+  delegate option -fonttable        to myHv3
+
+  delegate method dumpforms         to myHv3
 
   delegate option -width         to myHv3
   delegate option -height        to myHv3
@@ -687,15 +689,20 @@ proc create_fontsize_menu {menupath varname} {
       -label $label
   }
   # trace add variable $varname write ::hv3::browser_frame::SetFontTable
-  set $varname [list 7 8 9 10 12 14 16]
+  set $varname [list 9 10 11 12 14 16 18]
   return $menupath
 }
 
 # Invoked when an entry in the font-size menu is selected.
 #
 proc gui_setfontsize {varname} {
-  puts "gui_setfontsize [set $varname]"
   gui_current configure -fonttable [set $varname]
+}
+
+# Invoked when an entry in the font-size menu is selected.
+#
+proc gui_setforcefontmetrics {varname} {
+  gui_current configure -forcefontmetrics [set $varname]
 }
 
 proc gui_menu {widget_array} {
@@ -733,6 +740,10 @@ proc gui_menu {widget_array} {
   set fontsize_menu [create_fontsize_menu .m.edit.font ::hv3::fontsize_table]
   .m.edit add cascade -label {Font Size Table} -menu $fontsize_menu
 
+  .m.edit add checkbutton -label {Force CSS Font Metrics}               \
+       -variable ::hv3::forcefontmetrics_flag                           \
+       -command [list gui_setforcefontmetrics ::hv3::forcefontmetrics_flag] 
+
   # Add the 'History' menu
   .m add cascade -label {History} -menu [menu .m.history]
   set G(history_menu) .m.history
@@ -768,7 +779,8 @@ proc gui_switch {new} {
     $G(status_label) configure -textvar [$new statusvar]
     $G(location_entry) configure -textvar [$new locationvar]
 
-    set ::hv3::fontsize_table [$new cget -fonttable]
+    set ::hv3::fontsize_table        [$new cget -fonttable]
+    set ::hv3::forcefontmetrics_flag [$new cget -forcefontmetrics]
   }
 }
 

@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.67 2006/06/28 15:50:55 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.68 2006/07/01 07:33:22 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -2007,7 +2007,7 @@ HtmlTokenizerAppend(pTree, zText, nText, isFinal)
     /* TODO: Add a flag to prevent recursive calls to this routine. */
     const char *z = zText;
     int n = nText;
-    Tcl_DString utf8;
+    /* Tcl_DString utf8; */
 
     if (!pTree->pDocument) {
         pTree->pDocument = Tcl_NewObj();

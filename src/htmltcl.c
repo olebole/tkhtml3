@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.101 2006/06/29 07:22:59 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.102 2006/07/01 07:33:22 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -800,6 +800,28 @@ eventHandler(clientData, pEvent)
     }
 }
 
+static int 
+relayoutCb(pTree, pNode, clientData)
+    HtmlTree *pTree;
+    HtmlNode *pNode;
+    ClientData clientData;
+{
+    HtmlCallbackLayout(pTree, pNode);
+    return HTML_WALK_DESCEND;
+}
+
+static int 
+worldChangedCb(pTree, pNode, clientData)
+    HtmlTree *pTree;
+    HtmlNode *pNode;
+    ClientData clientData;
+{
+    HtmlLayoutInvalidateCache(pTree, pNode);
+    HtmlNodeClearStyle(pTree, pNode);
+
+    return HTML_WALK_DESCEND;
+}
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -835,6 +857,7 @@ configureCmd(clientData, interp, objc, objv)
     #define GEOMETRY_MASK  0x00000001
     #define FT_MASK        0x00000002    
     #define DS_MASK        0x00000004    
+    #define S_MASK         0x00000008    
 
     /*
      * Macros to generate static Tk_OptionSpec structures for the
@@ -852,9 +875,9 @@ configureCmd(clientData, interp, objc, objv)
     #define XCOLOR(v, s1, s2, s3) \
         {TK_OPTION_COLOR, "-" #v, s1, s2, s3, -1, \
          Tk_Offset(HtmlOptions, v), 0, 0, 0}
-    #define BOOLEAN(v, s1, s2, s3) \
+    #define BOOLEAN(v, s1, s2, s3, flags) \
         {TK_OPTION_BOOLEAN, "-" #v, s1, s2, s3, -1, \
-         Tk_Offset(HtmlOptions, v), 0, 0, 0}
+         Tk_Offset(HtmlOptions, v), 0, 0, flags}
     #define OBJ(v, s1, s2, s3, f) \
         {TK_OPTION_STRING, "-" #v, s1, s2, s3, \
          Tk_Offset(HtmlOptions, v), -1, 0, 0, f}
@@ -865,8 +888,10 @@ configureCmd(clientData, interp, objc, objv)
         /* Standard geometry interface */
         GEOMETRY(height, "height", "Height", "600"),
         GEOMETRY(width, "width", "Width", "800"),
-        BOOLEAN(shrink, "shrink", "Shrink", "0"),
-        BOOLEAN(layoutcache, "layoutCache", "LayoutCache", "1"),
+
+BOOLEAN(shrink, "shrink", "Shrink", "0", S_MASK),
+BOOLEAN(layoutcache, "layoutCache", "LayoutCache", "1", S_MASK),
+BOOLEAN(forcefontmetrics, "forceFontMetrics", "ForceFontMetrics", "1", S_MASK),
 
         /* Standard scroll interface - same as canvas, text */
         PIXELS(yscrollincrement, "yScrollIncrement", "ScrollIncrement", "20"),
@@ -886,7 +911,7 @@ configureCmd(clientData, interp, objc, objv)
         STRING(logcmd, "logCmd", "LogCmd", ""),
         STRING(timercmd, "timerCmd", "TimerCmd", ""),
 
-        OBJ(fonttable, "fontTable", "FontTable", "7 8 9 10 12 14 16", FT_MASK),
+        OBJ(fonttable, "fontTable", "FontTable", "8 9 10 11 13 15 17", FT_MASK),
     
         {TK_OPTION_END, 0, 0, 0, 0, 0, 0, 0, 0}
     };
@@ -952,6 +977,12 @@ configureCmd(clientData, interp, objc, objv)
                 memcpy(pTree->aFontSizeTable, aFontSize, sizeof(aFontSize));
                 HtmlCallbackRestyle(pTree, pTree->pRoot);
             }
+        }
+
+        if (mask & S_MASK) {
+            HtmlWalkTree(pTree, pTree->pRoot, worldChangedCb, 0);
+            HtmlCallbackRestyle(pTree, pTree->pRoot);
+            HtmlCallbackLayout(pTree, pTree->pRoot);
         }
 
         if (rc != TCL_OK) {
@@ -1048,16 +1079,6 @@ resetCmd(clientData, interp, objc, objv)
     doLoadDefaultStyle(pTree);
     pTree->isParseFinished = 0;
     return TCL_OK;
-}
-
-static int 
-relayoutCb(pTree, pNode, clientData)
-    HtmlTree *pTree;
-    HtmlNode *pNode;
-    ClientData clientData;
-{
-    HtmlCallbackLayout(pTree, pNode);
-    return HTML_WALK_DESCEND;
 }
 
 /*
@@ -2164,57 +2185,7 @@ htmlVersionCmd(clientData, interp, objc, objv)
     return TCL_OK;
 }
 
-int read6bits(unsigned char **pzIn){
-    int i;
-    unsigned char c;
-    unsigned char *zIn = *pzIn;
-    char const z64[] = 
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-   
 
-    c = *(zIn++);
-    while (c == ' ' || c == '\n' || c == '\t') c = *(zIn++);
-
-    if (c == '%') {
-        char c1 = *(zIn++);
-        char c2 = *(zIn++);
-
-        if (c1 >= '0' && c1 <= '9')      c = (c1 - '0');
-        else if (c1 >= 'A' && c1 <= 'F') c = (c1 - 'A');
-        else if (c1 >= 'a' && c1 <= 'f') c = (c1 - 'a');
-        c = c << 4;
-        if (c2 >= '0' && c2 <= '9')      c += (c2 - '0');
-        else if (c2 >= 'A' && c2 <= 'F') c += (c2 - 'A' + 10);
-        else if (c2 >= 'a' && c2 <= 'f') c += (c2 - 'a' + 10);
-    }
-
-    for (i = 0; i < 64; i++) {
-        if ((char)c == z64[i]) {
-            *pzIn = zIn;
-            return i;
-        }
-    }
-    return -1;
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * htmlDecodeCmd --
- *
- *         ::tkhtml::decode ?-base64? DATA
- *
- *     This command is designed to help scripts process "data:" URIs. It
- *     is completely separate from the html widget. 
- *
- * Results:
- *     Returns the decoded data.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
 static int 
 htmlDecodeCmd(clientData, interp, objc, objv)
     ClientData clientData;             /* The HTML widget data structure */
@@ -2222,46 +2193,9 @@ htmlDecodeCmd(clientData, interp, objc, objv)
     int objc;                          /* Number of arguments. */
     Tcl_Obj *CONST objv[];             /* Argument strings. */
 {
-    unsigned char *zOut;
-    int jj;
-
-    Tcl_Obj *pData;
-    int nData;
-    unsigned char *zData;
-
-    if (objc != 3) {
-        Tcl_WrongNumArgs(interp, 1, objv, "-base64 DATA");
-        return TCL_ERROR;
-    }
-    pData = objv[2];
-
-    zData = (unsigned char *)Tcl_GetStringFromObj(pData, &nData);
-    zOut = (unsigned char *)HtmlAlloc(0, nData);
-    jj = 0;
-
-    while (1) {
-        int a = read6bits(&zData);
-        int b = read6bits(&zData);
-        int c = read6bits(&zData);
-        int d = read6bits(&zData);
-        int e = 0;
-
-        if (a >= 0) e += a << 18;
-        if (b >= 0) e += b << 12;
-        if (c >= 0) e += c << 6;
-        if (d >= 0) e += d;
-
-        if (b >= 0) zOut[jj++] = (e & 0x00FF0000) >> 16;
-        if (c >= 0) zOut[jj++] = (e & 0x0000FF00) >> 8;
-        if (d >= 0) zOut[jj++] = (e & 0x000000FF);
-
-        if (d < 0) break;
-    }
-
-    Tcl_SetObjResult(interp, Tcl_NewByteArrayObj(zOut, jj));
-    HtmlFree(0, zOut);
-    return TCL_OK;
+    return HtmlDecode(clientData, interp, objc, objv);
 }
+
 
 /*
  * Define the DLL_EXPORT macro, which must be set to something or other in

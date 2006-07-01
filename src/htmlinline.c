@@ -31,7 +31,7 @@
  * 
  *     HtmlInlineContextIsEmpty
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.19 2006/05/11 13:31:14 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.20 2006/07/01 07:33:22 danielk1977 Exp $";
 
 typedef struct InlineBox InlineBox;
 
@@ -1277,3 +1277,8 @@ HtmlInlineContextSetTextIndent(pContext, iTextIndent)
     pContext->iTextIndent = iTextIndent;
 }
 
+HtmlNode *HtmlInlineContextCreator(pContext)
+    InlineContext *pContext;
+{
+    return pContext->pNode;
+}

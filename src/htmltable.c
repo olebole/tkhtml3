@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.83 2006/06/28 06:31:11 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.84 2006/07/01 07:33:22 danielk1977 Exp $";
 
 #include "htmllayout.h"
 
@@ -507,6 +507,7 @@ tableDrawCells(pNode, col, colspan, row, rowspan, pContext)
     TableData *pData = (TableData *)pContext;
     BoxContext *pBox;
     BoxProperties box;
+    int iHeight;               /* Value of 'height' property */
     int i;
     int x = 0;
     int y = 0;
@@ -549,7 +550,10 @@ tableDrawCells(pNode, col, colspan, row, rowspan, pContext)
         pBox->iContaining += (pData->aWidth[i] + pData->border_spacing);
     }
 
+
     HtmlLayoutNodeContent(pData->pLayout, pBox, pNode);
+    pBox->height = getHeight(pNode, pBox->height, PIXELVAL_AUTO);
+
     belowY = y + pBox->height + pData->border_spacing + box.iTop + box.iBottom;
     
     LOG {
@@ -602,6 +606,8 @@ cellIterate(pTree, pNode, clientData)
     ClientData clientData;
 {
     RowIterateContext *p = (RowIterateContext *)clientData;
+
+    if (HtmlNodeIsText(pNode)) return HTML_WALK_DO_NOT_DESCEND;
 
     if (DISPLAY(pNode->pPropertyValues) == CSS_CONST_TABLE_CELL) {
         int nSpan;
@@ -681,6 +687,8 @@ rowIterate(pTree, pNode, clientData)
     int eDisplay = DISPLAY(pNode->pPropertyValues);
     RowIterateContext *p = (RowIterateContext *)clientData;
 
+    if (HtmlNodeIsText(pNode)) return HTML_WALK_DO_NOT_DESCEND;
+
     switch (eDisplay) {
         case CSS_CONST_TABLE_ROW: {
             int k;
@@ -695,18 +703,25 @@ rowIterate(pTree, pNode, clientData)
             }
             return HTML_WALK_DO_NOT_DESCEND;
         }
-        case CSS_CONST_NONE: {
-            return HTML_WALK_DO_NOT_DESCEND;
-        }
-        default: {
-            /* If the node has a display type other than 'table-row' or 
-             * 'none' then descend. We do this because people often put
-             * <form> tags in the middle of table structures.
-             */
+
+        case CSS_CONST_TABLE: {
             return HTML_WALK_DESCEND;
         }
-    }
 
+        default: {
+            cellIterate(pTree, pNode, clientData);
+            return HTML_WALK_DO_NOT_DESCEND;
+        }
+
+#if 0
+        default: {
+            if (r == HTML_WALK_DESCEND) {
+                HtmlWalkTree(pTree, pNode, cellIterate, clientData);
+            }
+            return HTML_WALK_DESCEND;
+        }
+#endif
+    }
 }
 
 /*

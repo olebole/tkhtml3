@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.82 2006/06/29 07:22:58 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.83 2006/07/01 07:33:22 danielk1977 Exp $)} 1 }
 
 #
 # The code in this file is partitioned into the following classes:
@@ -646,6 +646,10 @@ snit::widget ::hv3::hv3 {
   # ::hv3::imageCallback.
   #
   method Imagecmd {uri} {
+    if {[string match replace:* $uri]} {
+        set img [string range $uri 8 end]
+        return $img
+    }
     set name [image create photo]
     set full_uri [$self resolve_uri $uri]
 
@@ -718,7 +722,12 @@ snit::widget ::hv3::hv3 {
     set rel  [string tolower [$node attr -default "" rel]]
     set href [$node attr -default "" href]
     set media [string tolower [$node attr -default all media]]
-    if {$rel eq "stylesheet" && $href ne "" && [regexp all|screen $media]} {
+    if {
+        [string match *stylesheet* $rel] &&
+        ![string match *alternate* $rel] &&
+        $href ne "" && 
+        [regexp all|screen $media]
+    } {
       set full_uri [$self resolve_uri $href]
       $self Requeststyle author $full_uri
     }
@@ -1035,6 +1044,7 @@ snit::widget ::hv3::hv3 {
   delegate option -hyperlinkcmd     to myHyperlinkManager
   delegate option -scrollbarpolicy  to myHtml
   delegate option -fonttable        to myHtml
+  delegate option -forcefontmetrics to myHtml
 
   # Delegated public methods
   delegate method dumpforms     to myFormManager

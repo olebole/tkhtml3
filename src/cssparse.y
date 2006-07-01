@@ -95,7 +95,22 @@ ss_body ::= ss_body ws ss_body_item.
 ss_body_item ::= media.
 ss_body_item ::= ruleset.
 ss_body_item ::= font_face. 
-ss_body_item ::= error.
+ss_body_item ::= garbage_token. {
+    /* If a parse error is encountered at this level, call HtmlCssRule()
+     * to discard any half-parsed selector. For example, the following 
+     * two fragments are equivalent (although the first contains a parse
+     * error and will not validate): 
+     *
+     *     "div ] span {color:red}"
+     *     "span {color:red}"
+     *
+     * Specifically, the first fragment is not equivalent to:
+     *
+     *     "div span {color:red}"
+     */
+    HtmlCssRule(pParse, 0);
+}
+
 
 /*********************************************************************
 ** @media {...} block.
@@ -171,7 +186,7 @@ declaration_list ::= declaration_list SEMICOLON ws.
 declaration ::= ws IDENT(X) ws COLON ws expr(E) prio(I). {
     HtmlCssDeclaration(pParse, &X, &E, I);
 }
-declaration ::= garbage.
+declaration ::= garbage. 
 
 garbage_token ::= error.
 garbage_token ::= LP garbage RP.
@@ -215,8 +230,9 @@ simple_selector ::= tag simple_selector_tail.
 simple_selector ::= simple_selector_tail.
 simple_selector ::= tag.
 
-tag ::= IDENT(X). { HtmlCssSelector(pParse, CSS_SELECTOR_TYPE, 0, &X); }
-tag ::= STAR.     { HtmlCssSelector(pParse, CSS_SELECTOR_UNIVERSAL, 0, 0); }
+tag ::= IDENT(X).     { HtmlCssSelector(pParse, CSS_SELECTOR_TYPE, 0, &X); }
+tag ::= STAR.         { HtmlCssSelector(pParse, CSS_SELECTOR_UNIVERSAL, 0, 0); }
+tag ::= SEMICOLON(X). { HtmlCssSelector(pParse, CSS_SELECTOR_TYPE, 0, &X); }
 
 simple_selector_tail ::= simple_selector_tail_component.
 simple_selector_tail ::= simple_selector_tail_component simple_selector_tail.
@@ -276,8 +292,8 @@ term(A) ::= STRING(X). { A = X; }
 term(A) ::= FUNCTION(X). { A = X; }
 term(A) ::= HASH(X) IDENT(Y). { A.z = X.z; A.n = (Y.z+Y.n - X.z); }
 
-term(A) ::= DOT(X) IDENT(Y). { A.z = X.z; A.n = (Y.z+Y.n - X.z); }
-term(A) ::= IDENT(X) DOT IDENT(Y). { A.z = X.z; A.n = (Y.z+Y.n - X.z); }
-term(A) ::= PLUS(X) IDENT(Y). { A.z = X.z; A.n = (Y.z+Y.n - X.z); }
-term(A) ::= PLUS(X) DOT IDENT(Y). { A.z = X.z; A.n = (Y.z+Y.n - X.z); }
+term(A) ::= DOT(X) IDENT(Y).            { A.z = X.z; A.n = (Y.z+Y.n - X.z); }
+term(A) ::= IDENT(X) DOT IDENT(Y).      { A.z = X.z; A.n = (Y.z+Y.n - X.z); }
+term(A) ::= PLUS(X) IDENT(Y).           { A.z = X.z; A.n = (Y.z+Y.n - X.z); }
+term(A) ::= PLUS(X) DOT IDENT(Y).       { A.z = X.z; A.n = (Y.z+Y.n - X.z); }
 term(A) ::= PLUS(X) IDENT DOT IDENT(Y). { A.z = X.z; A.n = (Y.z+Y.n - X.z); }

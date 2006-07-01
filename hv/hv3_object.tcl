@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_object.tcl,v 1.4 2006/06/29 07:22:58 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_object.tcl,v 1.5 2006/07/01 07:33:22 danielk1977 Exp $)} 1 }
 
 #
 # The code in this file handles <object> elements for the hv3 mini-browser.
@@ -118,15 +118,25 @@ proc hv3_object_handler {hv3 node} {
 
 proc hv3_object_data_handler {hv3 node params handle data} {
   set mimetype [$handle cget -mimetype]
-  switch -- $mimetype {
+
+  switch -glob -- $mimetype {
+
     application/x-tcl {
       set html [$hv3 html]
       set tclet "${html}.[string map {: _} $node]_tclet"
       ::hv3::tclet $tclet $params $data
       $node replace $tclet -configurecmd [list $tclet configurecmd]
     }
+
     text/html {
     }
+
+    image/* {
+      set img [image create photo -data $data]
+      $node replace $img -deletecmd [list image delete $img]
+      $node override [list -tkhtml-replacement-image url(replace:$img)]
+    }
+
     default { hv3_object_data_failed $hv3 $node }
   }
 }

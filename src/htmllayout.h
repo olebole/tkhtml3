@@ -96,6 +96,8 @@ void HtmlInlineContextPopBorder(InlineContext *, InlineBorder *);
 
 void HtmlInlineContextSetTextIndent(InlineContext*, int);
 
+HtmlNode *HtmlInlineContextCreator(InlineContext *);
+
 /* End of htmllayoutinline.c interface
  *-------------------------------------------------------------------------*/
 
@@ -134,6 +136,8 @@ void nodeGetBoxProperties(LayoutContext *, HtmlNode *, int, BoxProperties *);
 void nodeGetMargins(LayoutContext *, HtmlNode *, int, MarginProperties *);
 
 int  blockMinMaxWidth(LayoutContext *, HtmlNode *, int *, int *);
+
+int getHeight(HtmlNode *, int, int);
 
 /*--------------------------------------------------------------------------*
  * htmltable.c --

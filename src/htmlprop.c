@@ -36,13 +36,15 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.74 2006/06/29 07:22:59 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.75 2006/07/01 07:33:22 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
+
+/* #define ACCEPT_UNITLESS_LENGTHS */
 
 #define LOG if (p->pTree->options.logcmd)
 
@@ -982,6 +984,14 @@ propertyValuesSetLength(p, pIVal, em_mask, pProp, allowNegative)
             iVal = physicalToPixels(p, pProp->v.rVal, 'm');
             break;
 
+        case CSS_TYPE_FLOAT: {
+	    /* From section 4.3.2 of CSS 2.1: "After a zero length, the unit
+             * identifier is optional.".  */
+            iVal = INTEGER(pProp->v.rVal);
+            if (iVal != 0) return 1;
+            break;
+        }
+
         default:
             return 1;
     }
@@ -1281,12 +1291,13 @@ propertyValuesSetSize(p, pIVal, p_mask, pProp, allow_mask)
             return 1;
 
         case CSS_TYPE_FLOAT: {
-            int iVal = INTEGER(pProp->v.rVal);
+#if 0
             if (iVal >= 0 || allow_mask & SZ_NEGATIVE) {
                 *pIVal = iVal;
                 return 0;
             }
             return 1;
+#endif
         }
 
         default:
@@ -1512,10 +1523,17 @@ propertyValuesTclScript(p, eProp, zScript)
      * 
      * HtmlComputedValuesFinish() deletes the list when it is called.
      */
-    pVal->v.p = (void *)p->pDeleteList;
-    p->pDeleteList = pVal;
+    HtmlComputedValuesFreeProperty(p, pVal);
 
     return 0;
+}
+
+void HtmlComputedValuesFreeProperty(p, pProp)
+    HtmlComputedValuesCreator *p;
+    CssProperty *pProp;
+{
+    pProp->v.p = (void *)p->pDeleteList;
+    p->pDeleteList = pProp;
 }
 
 /*
@@ -1635,11 +1653,13 @@ HtmlComputedValuesSet(p, eProp, pProp)
  *---------------------------------------------------------------------------
  */
 static HtmlFont * 
-allocateNewFont(interp, tkwin, pFontKey)
-    Tcl_Interp *interp;
+allocateNewFont(pTree, tkwin, pFontKey)
+    HtmlTree *pTree;
     Tk_Window tkwin;
     HtmlFontKey *pFontKey;
 {
+    Tcl_Interp *interp = pTree->interp;
+    int isForceFontMetrics = pTree->options.forcefontmetrics;
     Tk_Font tkfont = 0;
     const char *DEFAULT_FONT_FAMILY = "Helvetica";
 
@@ -1651,8 +1671,13 @@ allocateNewFont(interp, tkwin, pFontKey)
     HtmlFont *pFont;
 
     /* Local variable iFontSize is in points - not thousandths */
-    int iF = pFontKey->iFontSize;
-    int iFontSize = ((HTML_IFONTSIZE_SCALE / 2) + iF) / HTML_IFONTSIZE_SCALE;
+    float f = pFontKey->iFontSize;
+    int iFontSize;
+    if (isForceFontMetrics) {
+        iFontSize = INTEGER((f * 0.9 / (float)HTML_IFONTSIZE_SCALE));
+    } else {
+        iFontSize = INTEGER((f / (float)HTML_IFONTSIZE_SCALE));
+    }
 
     struct FamilyMap {
         CONST char *cssFont;
@@ -1741,13 +1766,24 @@ allocateNewFont(interp, tkwin, pFontKey)
      */
     /* pFont->em_pixels = pFont->metrics.ascent + pFont->metrics.descent; */
 
-    /* pFont->em_pixels = pFont->metrics.ascent; */
-    if (pFont) {
+    if (isForceFontMetrics) {
+        float ratio;
+        Tk_FontMetrics *pMet = &pFont->metrics;
+
         char zBuf[24];
         sprintf(zBuf, "%.3fp", (float)pFontKey->iFontSize / 1000.0);
         Tk_GetPixels(interp, tkwin, zBuf, &pFont->em_pixels);
+
+        pMet->linespace = pMet->ascent + pMet->descent;
+        if (pFont->em_pixels < pMet->linespace) {
+            ratio = (float)pFont->em_pixels / (float)pMet->linespace;
+            pMet->ascent = INTEGER((float)pMet->ascent * ratio);
+            pMet->descent = pFont->em_pixels - pMet->ascent;
+            pMet->linespace = pFont->em_pixels;
+        }
+    } else {
+        pFont->em_pixels = pFont->metrics.ascent;
     }
-   
 
     return pFont;
 }
@@ -1853,7 +1889,7 @@ HtmlComputedValuesFinish(p)
      */
     pEntry = Tcl_CreateHashEntry(&p->pTree->aFont, (char *)&p->fontKey, &ne);
     if (ne) {
-        pFont = allocateNewFont(p->pTree->interp, p->pTree->tkwin, &p->fontKey);
+        pFont = allocateNewFont(p->pTree, p->pTree->tkwin, &p->fontKey);
         assert(pFont);
         Tcl_SetHashValue(pEntry, pFont);
         pFont->pKey = (HtmlFontKey *)Tcl_GetHashKey(&p->pTree->aFont, pEntry);

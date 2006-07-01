@@ -211,6 +211,7 @@ struct HtmlNode {
     HtmlComputedValues *pPreviousValues;     /* Previous CSS property values */
     CssDynamic *pDynamic;                    /* CSS dynamic conditions */
     Html_u8 flags;                           /* HTML_DYNAMIC_XXX flags */
+    Tcl_Obj *pOverride;                      /* List of property overrides */
 
     HtmlLayoutCache *pLayoutCache;           /* Cached layout, if any */
 
@@ -244,8 +245,10 @@ struct HtmlOptions {
     int xscrollincrement;
     int yscrollincrement;
 
+    /* Boolean options */
     int shrink;
     int layoutcache;
+    int forcefontmetrics;
 
     XColor *selectforeground;
     XColor *selectbackground;
@@ -429,6 +432,7 @@ struct HtmlTree {
 void HtmlFinishNodeHandlers(HtmlTree *);
 void HtmlAddToken(HtmlTree *, HtmlToken *);
 int HtmlTreeBuild(ClientData, Tcl_Interp *, int, Tcl_Obj *CONST []);
+
 Tcl_ObjCmdProc HtmlTreeCollapseWhitespace;
 Tcl_ObjCmdProc HtmlStyleSyntaxErrs;
 Tcl_ObjCmdProc HtmlLayoutSize;
@@ -437,8 +441,9 @@ Tcl_ObjCmdProc HtmlLayoutImage;
 Tcl_ObjCmdProc HtmlLayoutPrimitives;
 Tcl_ObjCmdProc HtmlLayoutBbox;
 Tcl_ObjCmdProc HtmlCssStyleConfigDump;
-
 Tcl_ObjCmdProc Rt_AllocCommand;
+
+Tcl_ObjCmdProc HtmlDebug;
 
 char *HtmlPropertyToString(CssProperty *, char **);
 
@@ -554,6 +559,8 @@ void HtmlWidgetNodeBox(HtmlTree *, HtmlNode *, int *, int *, int *, int *);
 
 void HtmlWidgetSetViewport(HtmlTree *, int, int, int);
 void HtmlWidgetRepair(HtmlTree *, int, int, int, int);
+
+int HtmlNodeClearStyle(HtmlTree *, HtmlNode *);
 
 #endif
 

@@ -309,7 +309,9 @@ tcltest::test style-7.1 {} -body {
   }
 } -result [list [list p {}]]
 
+#----------------------------------------------------------------------------
 # The following tests - style-8.* - come from the selectors in the acid2 page.
+#
 tcltest::test style-8.1 {} -body {
   .h reset
   .h parse -final {
@@ -335,6 +337,50 @@ tcltest::test style-8.2 {} -body {
   set node [lindex [.h search {#1}] 0]
   property $node color
 } -result red
+
+tcltest::test style-8.3 {} -body {
+  .h configure -defaultstyle ""
+  .h reset
+  .h parse -final {
+    <style>
+      div ] .eyes{position:absolute}
+    </style>
+    <div class="eyes">
+  }
+  set node [lindex [.h search .eyes] 0]
+  property $node position
+} -result absolute
+
+tcltest::test style-8.4 {} -body {
+  .h reset
+  .h configure -defaultstyle ""
+  .h parse -final {
+    <style>
+      /* Note the syntax error in the next line! */
+      [class=second two] { background: red; }
+      .eyes { position: absolute }
+    </style>
+    <div class="eyes">
+  }
+  set node [lindex [.h search .eyes] 0]
+  property $node position
+} -result absolute
+
+tcltest::test style-8.5 {} -body {
+  .h reset
+  .h configure -defaultstyle ""
+  .h parse -final {
+    <style>
+    div {
+background: yellow /* comment */ no-repeat /* comment */ ;
+    }
+    </style>
+    <div>
+  }
+  set node [lindex [.h search div] 0]
+  property $node background-color
+} -result yellow
+
 
 finish_test
 

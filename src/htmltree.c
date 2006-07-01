@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.71 2006/06/28 15:50:55 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.72 2006/07/01 07:33:22 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -517,6 +517,23 @@ clearReplacement(pTree, pNode)
     }
 }
 
+int 
+HtmlNodeClearStyle(pTree, pNode)
+    HtmlTree *pTree;
+    HtmlNode *pNode;
+{
+    HtmlComputedValuesRelease(pTree, pNode->pPropertyValues);
+    HtmlComputedValuesRelease(pTree, pNode->pPreviousValues);
+    HtmlCssPropertiesFree(pNode->pStyle);
+    HtmlCssFreeDynamics(pNode);
+    pNode->pStyle = 0;
+    pNode->pPropertyValues = 0;
+    pNode->pPreviousValues = 0;
+    pNode->pDynamic = 0;
+    pNode->iZLevel = 0;
+    return 0;
+}
+
 
 /*
  *---------------------------------------------------------------------------
@@ -562,6 +579,11 @@ freeNode(pTree, pNode)
 
         /* And the compiled cache of the node's "style" attribute, if any. */
         HtmlCssPropertiesFree(pNode->pStyle);
+
+        if (pNode->pOverride) {
+            Tcl_DecrRefCount(pNode->pOverride);
+            pNode->pOverride = 0;
+        }
 
         if (pNode->pNodeCmd) {
             Tcl_Obj *pCommand = pNode->pNodeCmd->pCommand;
@@ -1329,6 +1351,8 @@ char CONST *HtmlNodeAttr(pNode, zAttr)
  *         <node> tag
  *         <node> text
  *
+ *         <node> override
+ *
  *     This function is the implementation of the Tcl node handle command. The
  *     clientData passed to the command is a pointer to the HtmlNode structure
  *     for the document node. 
@@ -1358,12 +1382,12 @@ nodeCommand(clientData, interp, objc, objv)
     static CONST char *NODE_strs[] = {
         "attr", "children", "tag", "text", 
         "parent", "prop", "replace", 
-        "dynamic", 0
+        "dynamic", "override", 0
     };
     enum NODE_enum {
 	NODE_ATTR, NODE_CHILDREN, NODE_TAG, 
 	NODE_TEXT, NODE_PARENT, NODE_PROP, NODE_REPLACE, 
-        NODE_DYNAMIC
+        NODE_DYNAMIC, NODE_OVERRIDE
     };
 
     if (objc<2) {
@@ -1605,9 +1629,7 @@ node_attr_usage:
                      * Register Tkhtml as the geometry manager.
                      */
                     widget = Tk_NameToWindow(interp, zWin, win);
-                    if (!widget) {
-                        return TCL_ERROR;
-                    } else {
+                    if (widget) {
                         static Tk_GeomMgr sManage = {
                             "Tkhtml",
                             geomRequestProc,
@@ -1713,6 +1735,33 @@ node_attr_usage:
 
             HtmlCallbackDynamic(pTree, pNode);
             break;
+        }
+
+        /*
+         * nodeHandle override ?new-value?
+         *
+         *     Get/set the override list.
+         */
+        case NODE_OVERRIDE: {
+            if (objc != 2 && objc != 3) {
+                Tcl_WrongNumArgs(interp, 2, objv, "?new-value?");
+                return TCL_ERROR;
+            }
+
+            if (objc == 3) {
+                if (pNode->pOverride) {
+                    Tcl_DecrRefCount(pNode->pOverride);
+                }
+                pNode->pOverride = objv[2];
+                Tcl_IncrRefCount(pNode->pOverride);
+            }
+
+            Tcl_ResetResult(interp);
+            if (pNode->pOverride) {
+                Tcl_SetObjResult(interp, pNode->pOverride);
+            }
+            HtmlCallbackRestyle(pTree, pNode);
+            return TCL_OK;
         }
 
         default:

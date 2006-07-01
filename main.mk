@@ -19,7 +19,7 @@ STUBSFLAGS = -DUSE_TCL_STUBS -DUSE_TK_STUBS
 SRC = htmlparse.c htmldraw.c htmltcl.c htmlimage.c htmltree.c htmltagdb.c \
       cssparse.c css.c cssprop.c htmlstyle.c htmllayout.c htmlprop.c \
       htmlfloat.c htmlhash.c swproc.c htmlinline.c htmltable.c restrack.c \
-      cssdynamic.c
+      cssdynamic.c htmldecode.c
 
 SRCHDR = $(TOP)/src/html.h $(TOP)/src/cssInt.h $(TOP)/src/css.h
 GENHDR = cssprop.h htmltokens.h cssparse.h
