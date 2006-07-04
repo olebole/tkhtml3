@@ -39,6 +39,8 @@ proc ::hv3::sniff_doctype {text} {
   # <!DOCTYPE TopElement Availability "IDENTIFIER" "URL">
 
   set QuirksmodeIdentifiers [list \
+    "-//w3c//dtd html 4.01 transitional//en" \
+    "-//w3c//dtd html 4.01 frameset//en"     \
     "-//w3c//dtd html 4.0 transitional//en" \
     "-//w3c//dtd html 4.0 frameset//en" \
     "-//softquad software//dtd hotmetal pro 6.0::19990601::extensions to html 4.0//en" \
@@ -124,6 +126,10 @@ proc ::hv3::sniff_doctype {text} {
   set Identifier   [string tolower [next_word $text $idx idx]]
   set Url          [next_word $text $idx idx]
 
+#  foreach ii [list TopElement Availability Identifier Url] {
+#    puts "$ii -> [set $ii]"
+#  }
+
   if {$Availability eq "public"} {
     set s [expr [string length $Url] > 0]
     if {
@@ -157,7 +163,7 @@ proc ::hv3::configure_doctype_mode {html text} {
     }
   }
   $html configure -mode $mode
-  # puts "Using mode $mode"
+#  puts "Using mode $mode"
   return $mode
 }
 
