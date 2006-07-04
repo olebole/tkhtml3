@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.76 2006/07/04 08:47:41 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.77 2006/07/04 14:10:40 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -458,7 +458,10 @@ propertyValuesSetFontStyle(p, pProp)
     CssProperty *pProp;
 {
     int eType = pProp->eType;
-    if (eType == CSS_CONST_ITALIC || eType == CSS_CONST_OBLIQUE) {
+    if (eType == CSS_CONST_INHERIT) {
+        int i = p->pNode->pParent->pPropertyValues->fFont->pKey->isItalic;;
+        p->fontKey.isItalic = i;
+    }else if (eType == CSS_CONST_ITALIC || eType == CSS_CONST_OBLIQUE) {
         p->fontKey.isItalic = 1;
     } else if (eType == CSS_CONST_NORMAL) {
         p->fontKey.isItalic = 0;

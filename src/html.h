@@ -249,6 +249,8 @@ struct HtmlOptions {
     int shrink;
     int layoutcache;
 
+    int mode;        /* 0 -> quirks, 1 -> almost standards, 2 -> standards */
+
     /* Font related options */
     Tcl_Obj *fonttable;
     int      forcefontmetrics;
@@ -268,9 +270,12 @@ struct HtmlOptions {
     Tcl_Obj *timercmd;
 };
 
+#define HTML_MODE_QUIRKS    0
+#define HTML_MODE_ALMOST    1
+#define HTML_MODE_STANDARDS 2
+
 void HtmlLog(HtmlTree *, CONST char *, CONST char *, ...);
 void HtmlTimer(HtmlTree *, CONST char *, CONST char *, ...);
-
 
 /*
  * Widget state information information is stored in an instance of this

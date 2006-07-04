@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.103 2006/07/04 08:47:41 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.104 2006/07/04 14:10:40 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -851,6 +851,7 @@ configureCmd(clientData, interp, objc, objv)
     int objc;                          /* Number of arguments */
     Tcl_Obj *const *objv;              /* List of all arguments */
 {
+    static const char *azModes[] = {"quirks","almost standards","standards",0};
     /*
      * Mask bits for options declared in htmlOptionSpec.
      */
@@ -906,7 +907,7 @@ BOOLEAN(forcefontmetrics, "forceFontMetrics", "ForceFontMetrics", "1", S_MASK),
 
         /* Non-debugging widget specific options */
         OBJ(defaultstyle, "defaultStyle", "DefaultStyle", 
-            HTML_DEFAULT_CSS HTML_DEFAULT_QUIRKS, FT_MASK),
+            HTML_DEFAULT_CSS, FT_MASK),
         STRING(imagecmd, "imageCmd", "ImageCmd", ""),
         STRING(encoding, "encoding", "Encoding", ""),
         XCOLOR(selectbackground, "selectBackground", "Background", "darkgrey"),
@@ -917,6 +918,10 @@ BOOLEAN(forcefontmetrics, "forceFontMetrics", "ForceFontMetrics", "1", S_MASK),
         STRING(timercmd, "timerCmd", "TimerCmd", ""),
 
         OBJ(fonttable, "fontTable", "FontTable", "8 9 10 11 13 15 17", FT_MASK),
+
+        {TK_OPTION_STRING_TABLE, "-mode", "mode", "Mode", "standards", 
+             -1, Tk_Offset(HtmlOptions, mode), 0, (ClientData)azModes, S_MASK
+        },
     
         {TK_OPTION_END, 0, 0, 0, 0, 0, 0, 0, 0}
     };

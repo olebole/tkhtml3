@@ -31,7 +31,7 @@
  * 
  *     HtmlInlineContextIsEmpty
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.21 2006/07/04 08:47:41 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.22 2006/07/04 14:10:40 danielk1977 Exp $";
 
 typedef struct InlineBox InlineBox;
 
@@ -81,6 +81,7 @@ struct InlineContext {
   int whiteSpace;         /* One of WHITESPACE_PRE, WHITESPACE_NORMAL etc. */
   int lineHeight;         /* Value of 'line-height' on inline parent */
   int iTextIndent;        /* Pixels of 'text-indent' for next line */
+  int ignoreLineHeight;   /* Boolean - true to ignore lineHeight */
 
   int nInline;            /* Number of inline boxes in aInline */
   int nInlineAlloc;       /* Number of slots allocated in aInline */
@@ -924,7 +925,7 @@ HtmlInlineContextGetLineBox(pLayout, p, pWidth, flags, pCanvas, pVSpace,pAscent)
     if (line_height < 0) {
         line_height = (line_height * em_pixels) / -100;
     }
-    if (*pVSpace < line_height) {
+    if (*pVSpace < line_height && !p->ignoreLineHeight) {
         *pAscent += (line_height - *pVSpace) / 2;
         *pVSpace = line_height;
     }
@@ -1100,12 +1101,23 @@ HtmlInlineContextNew(pTree, pNode, isSizeOnly, iTextIndent)
 
     /* The 'line-height' property for the block-box that generates this 
      * inline context is used as the minimum line height for all generated 
-     * line-boxes.
+     * line-boxes. At least, that's the story in "standards" mode.
      */
-    pContext->lineHeight = pValues->iLineHeight;
-    if (pContext->lineHeight == PIXELVAL_NORMAL) {
-        /* pContext->lineHeight = -100; */
-        pContext->lineHeight = pValues->fFont->em_pixels;
+    if (pValues->iLineHeight >= 0) {
+        pContext->lineHeight = pValues->iLineHeight;
+    } else {
+        int il = -110;
+        if (pValues->iLineHeight != PIXELVAL_NORMAL) {
+            il = pValues->iLineHeight;
+        } 
+        pContext->lineHeight = (pValues->fFont->em_pixels * il) / -100;
+    }
+
+    if (
+        pTree->options.mode != HTML_MODE_STANDARDS && 
+        pValues->eDisplay == CSS_CONST_TABLE_CELL
+    ) {
+        pContext->ignoreLineHeight = 1;
     }
 
     /* 'text-indent' property affects the geometry of the first line box
@@ -1203,6 +1215,7 @@ HtmlInlineContextAddText(pContext, pNode)
                 HtmlDrawText(p,pText,0,0,tw,szonly,pNode,iIndex);
                 Tcl_DecrRefCount(pText);
                 iIndex += pToken->count;
+                pContext->ignoreLineHeight = 0;
                 break;
             }
             case Html_Space: {
