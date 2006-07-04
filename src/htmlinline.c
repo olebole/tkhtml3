@@ -31,7 +31,7 @@
  * 
  *     HtmlInlineContextIsEmpty
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.20 2006/07/01 07:33:22 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.21 2006/07/04 08:47:41 danielk1977 Exp $";
 
 typedef struct InlineBox InlineBox;
 
@@ -925,8 +925,8 @@ HtmlInlineContextGetLineBox(pLayout, p, pWidth, flags, pCanvas, pVSpace,pAscent)
         line_height = (line_height * em_pixels) / -100;
     }
     if (*pVSpace < line_height) {
-        *pVSpace = line_height;
         *pAscent += (line_height - *pVSpace) / 2;
+        *pVSpace = line_height;
     }
 
     /* Draw the borders and content canvas into the target canvas. Draw the
@@ -945,12 +945,16 @@ exit_getlinebox:
     }
     if (bRet) {
         p->iTextIndent = 0;
+
         START_LOG("HtmlInlineContextGetLineBox");
             oprintf(pLog, "<ul>");
             oprintf(pLog, "<li>Requested line box width: %d", width);
-            oprintf(pLog, "<li>Generated a line box containing %d boxes",nBox);
-            oprintf(pLog, "(%s)", zLogComment ? zLogComment : "unspecified");
+            oprintf(pLog, "<li>Generated a line box containing %d boxes", nBox);
+            oprintf(pLog, " (%s)", zLogComment ? zLogComment : "unspecified");
+            oprintf(pLog, "<li>line box height: %dpx", *pVSpace);
+            oprintf(pLog, "<li>line box ascent: %dpx", *pAscent);
         END_LOG;
+
     }
     return bRet;
 }
@@ -1100,7 +1104,8 @@ HtmlInlineContextNew(pTree, pNode, isSizeOnly, iTextIndent)
      */
     pContext->lineHeight = pValues->iLineHeight;
     if (pContext->lineHeight == PIXELVAL_NORMAL) {
-        pContext->lineHeight = -100;
+        /* pContext->lineHeight = -100; */
+        pContext->lineHeight = pValues->fFont->em_pixels;
     }
 
     /* 'text-indent' property affects the geometry of the first line box

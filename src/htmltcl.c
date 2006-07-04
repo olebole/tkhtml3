@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.102 2006/07/01 07:33:22 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.103 2006/07/04 08:47:41 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -881,6 +881,9 @@ configureCmd(clientData, interp, objc, objv)
     #define OBJ(v, s1, s2, s3, f) \
         {TK_OPTION_STRING, "-" #v, s1, s2, s3, \
          Tk_Offset(HtmlOptions, v), -1, 0, 0, f}
+    #define DOUBLE(v, s1, s2, s3, f) \
+        {TK_OPTION_DOUBLE, "-" #v, s1, s2, s3, -1, \
+         Tk_Offset(HtmlOptions, v), 0, 0, f}
     
     /* Option table definition for the html widget. */
     static Tk_OptionSpec htmlOptionSpec[] = {
@@ -892,6 +895,8 @@ configureCmd(clientData, interp, objc, objv)
 BOOLEAN(shrink, "shrink", "Shrink", "0", S_MASK),
 BOOLEAN(layoutcache, "layoutCache", "LayoutCache", "1", S_MASK),
 BOOLEAN(forcefontmetrics, "forceFontMetrics", "ForceFontMetrics", "1", S_MASK),
+
+        DOUBLE(fontscale, "fontScale", "FontScale", "1.0", S_MASK),
 
         /* Standard scroll interface - same as canvas, text */
         PIXELS(yscrollincrement, "yScrollIncrement", "ScrollIncrement", "20"),

@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.182 2006/07/01 07:33:22 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.183 2006/07/04 08:47:41 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -256,6 +256,7 @@ nodeGetBoxProperties(pLayout, pNode, iContaining, pBoxProperties)
         c = 0;
     }
 
+    assert(pV);
     pBoxProperties->iTop    = PIXELVAL(pV, PADDING_TOP, c);
     pBoxProperties->iRight  = PIXELVAL(pV, PADDING_RIGHT, c);
     pBoxProperties->iBottom = PIXELVAL(pV, PADDING_BOTTOM, c);
@@ -550,7 +551,7 @@ getHeight(pNode, iHeight, iContainingHeight)
 {
     HtmlComputedValues *pV = pNode->pPropertyValues;
 
-    int height    = PIXELVAL(pV, HEIGHT, iContainingHeight);
+    int height = PIXELVAL(pV, HEIGHT, iContainingHeight);
     if (height == PIXELVAL_AUTO) {
         height = iHeight;
     }
@@ -623,7 +624,9 @@ normalFlowLayoutOverflow(pLayout, pBox, pNode, pY, pContext, pNormal)
     memset(&sBox, 0, sizeof(BoxContext));
     memset(&sContent, 0, sizeof(BoxContext));
     sContent.iContaining = iWidth;
+    sContent.iContainingHeight = PIXELVAL(pV, HEIGHT, pBox->iContainingHeight);
     HtmlLayoutNodeContent(pLayout, &sContent, pNode);
+    sContent.height = getHeight(pNode,sContent.height,pBox->iContainingHeight);
 
     LOG {
         HtmlTree *pTree = pLayout->pTree;
@@ -1250,6 +1253,7 @@ HtmlLayoutNodeContent(pLayout, pBox, pNode)
     }
 
     assert(!pLayout->minmaxTest || !pBox->vc.pFirst);
+    assert(pBox->width < 100000);
     return 0;
 }
 
@@ -1934,6 +1938,11 @@ normalFlowLayoutTable(pLayout, pBox, pNode, pY, pContext, pNormal)
     sContent.iContaining = iWidth;
     HtmlLayoutNodeContent(pLayout, &sContent, pNode);
     sBox.iContaining = iContaining;
+
+    sContent.width = MAX(sContent.width, iMinWidth);
+    sContent.height = MAX(sContent.height, 
+        getHeight(pNode, sContent.height, PIXELVAL_AUTO)
+    );
     wrapContent(pLayout, &sBox, &sContent, pNode);
 
     y = HtmlFloatListPlace(
@@ -2036,6 +2045,89 @@ normalFlowLayoutTable(pLayout, pBox, pNode, pY, pContext, pNormal)
     normalFlowMarginAdd(pLayout, pNode, pNormal, margin.margin_bottom);
 
     return 0;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * normalFlowLayoutTableComponent --
+ *
+ *     This function is called when a table-row or table-cell is encountered
+ *     in the normal-flow (i.e not inside a table block the way they should
+ *     be.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+normalFlowLayoutTableComponent(pLayout, pBox, pNode, pY, pContext, pNormal)
+    LayoutContext *pLayout;
+    BoxContext *pBox;
+    HtmlNode *pNode;
+    int *pY;
+    InlineContext *pContext;
+    NormalFlow *pNormal;
+{
+    int nChild;
+    int ii;
+    int idx;
+    HtmlNode *pParent = HtmlNodeParent(pNode);
+    HtmlNode sTable;                    /* The fabricated "display:table" */
+
+    for (ii = 0; ii < pParent->nChild; ii++) {
+        if (pNode == pParent->apChildren[ii]) break;
+    }
+    idx = ii;
+
+    for (; ii < pParent->nChild; ii++) {
+        HtmlNode *pChild = pParent->apChildren[ii];
+        int eDisp = DISPLAY(pChild->pPropertyValues);
+        if (
+            0 == HtmlNodeIsWhitespace(pChild) &&
+            eDisp != CSS_CONST_TABLE_CELL && eDisp != CSS_CONST_TABLE_ROW
+        ) {
+            break;
+        }
+        LOG {
+            HtmlTree *pTree = pLayout->pTree;
+            const char *zFmt = 
+                    "%s normalFlowLayoutTableComponent() -> "
+                    "Child %d of implicit display:table";
+            const char *zNode = Tcl_GetString(HtmlNodeCommand(pTree, pChild));
+            HtmlLog(pTree, "LAYOUTENGINE", zFmt, zNode, ii - idx);
+        }
+    }
+    nChild = ii - idx;
+    assert(nChild > 0);
+
+    memset(&sTable, 0, sizeof(HtmlNode));
+    sTable.apChildren = &pParent->apChildren[idx];
+    sTable.nChild = nChild;
+
+    if (!pLayout->pImplicitTableProperties) {
+        CssProperty sProp;
+        sProp.eType = CSS_CONST_TABLE;
+        sProp.v.zVal = "table";
+        HtmlComputedValuesCreator sCreator;
+        HtmlComputedValuesInit(pLayout->pTree, &sTable, &sCreator);
+        HtmlComputedValuesSet(&sCreator, CSS_PROPERTY_DISPLAY, &sProp);
+        pLayout->pImplicitTableProperties = HtmlComputedValuesFinish(&sCreator);
+    }
+    sTable.pPropertyValues = pLayout->pImplicitTableProperties;
+
+    normalFlowLayoutTable(pLayout, pBox, &sTable, pY, pContext, pNormal);
+
+    /* Make sure the pretend node has not accumulated a layout-cache or
+     * node-command (which can happen in a LOG block).  */
+    HtmlLayoutInvalidateCache(pLayout->pTree, &sTable);
+    HtmlNodeDeleteCommand(pLayout->pTree, &sTable);
+
+    return nChild - 1;
 }
 
 /*
@@ -2272,10 +2364,11 @@ normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
 
     LOG {
         HtmlTree *pTree = pLayout->pTree;
-        const char *zFmt = "%s normalFlowLayoutBlock() -> content size: %dx%d";
+        const char *zFmt = "%s normalFlowLayoutBlock() -> "
+                "content size: %dx%d (y-border-offset: %d)";
         const char *zNode = Tcl_GetString(HtmlNodeCommand(pTree, pNode));
         HtmlLog(pTree, "LAYOUTENGINE", zFmt, zNode, sContent.width, 
-            sContent.height);
+            sContent.height - yBorderOffset, yBorderOffset);
     }
 
     /* Re-normalize the float-list. */
@@ -2500,7 +2593,10 @@ normalFlowLayoutInline(pLayout, pBox, pNode, pY, pContext, pNormal)
     HtmlInlineContextPushBorder(pContext, pBorder);
     for(i=0; i < HtmlNodeNumChildren(pNode); i++) {
         HtmlNode *pChild = HtmlNodeChild(pNode, i);
-        normalFlowLayoutNode(pLayout, pBox, pChild, pY, pContext, pNormal);
+        int r;
+        r = normalFlowLayoutNode(pLayout, pBox, pChild, pY, pContext, pNormal);
+        assert(r >= 0);
+        i += r;
     }
     HtmlInlineContextPopBorder(pContext, pBorder);
     return 0;
@@ -2588,7 +2684,10 @@ appendVerticalMarginsToObj(pObj, pNormal)
  * normalFlowLayoutNode --
  *
  * Results:
- *     None.
+ *     If pNode only is layed out, 0 is returned. If right-siblings of
+ *     pNode are also layed out (this can happen when an implicit <table>
+ *     is inserted)
+ * 
  *
  * Side effects:
  *     None.
@@ -2627,8 +2726,8 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
     F( INLINE_REPLACED, 0, 0, 0, normalFlowLayoutReplacedInline);
     F( ABSOLUTE,        0, 0, 0, normalFlowLayoutAbsolute);
     F( FIXED,           0, 0, 0, normalFlowLayoutFixed);
-
     F( OVERFLOW,        1, 1, 0, normalFlowLayoutOverflow);
+    F( TABLE_COMPONENT, 0, 0, 0, normalFlowLayoutTableComponent);
     #undef F
 
     /* 
@@ -2638,11 +2737,14 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
      * 'clear' property on an element with display 'none'. And Mozilla,
      * KHTML and Opera do so.  Find out about this and if there are any
      * other properties that need handling here.
+     *
+     * Another question: Is this a quirks mode thing?
      */
 
     HtmlComputedValues *pV = pNode->pPropertyValues;
     int eDisplay   = DISPLAY(pV);
     FlowType *pFlow = &FT_NONE;
+    int ret = 0;                          /* Return value */
 
     if (HtmlNodeIsText(pNode)) {
         pFlow = &FT_TEXT;
@@ -2672,6 +2774,17 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
         pFlow = &FT_LIST_ITEM;
     } else if (eDisplay == CSS_CONST_TABLE) {
         pFlow = &FT_TABLE;
+    } else if (
+        eDisplay == CSS_CONST_TABLE_CELL || 
+        eDisplay == CSS_CONST_TABLE_ROW
+    ) {
+        /* Special case - we need to wrap an implicit table block 
+         * around this and any other table-cell or table-row components
+         * that are right-siblings of pNode. This is not dealt with
+         * using a FlowType instruction because it may consume more than
+         * single node.
+         */
+        pFlow = &FT_TABLE_COMPONENT;
     }
 
     /* Log the state of the normal-flow context before this node */
@@ -2709,7 +2822,7 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
         *pY = normalFlowClearFloat(pBox, pNode, pNormal, *pY);
     }
     if (pFlow->xLayout) {
-        pFlow->xLayout(pLayout, pBox, pNode, pY, pContext, pNormal);
+        ret = pFlow->xLayout(pLayout, pBox, pNode, pY, pContext, pNormal);
     }
 
     /* See if there are any complete line-boxes to copy to the main canvas. */
@@ -2736,7 +2849,7 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
         Tcl_DecrRefCount(pLog);
     }
 
-    return 0;
+    return ret;
 }
 
 
@@ -2966,7 +3079,10 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
     /* Layout each of the child nodes into BoxContext. */
     for(ii = 0; ii < HtmlNodeNumChildren(pNode) ; ii++) {
         HtmlNode *p = HtmlNodeChild(pNode, ii);
-        normalFlowLayoutNode(pLayout, pBox, p, &y, pContext, pNormal);
+        int r;
+        r = normalFlowLayoutNode(pLayout, pBox, p, &y, pContext, pNormal);
+        assert(r >= 0);
+        ii += r;
     }
 
     /* Finish the inline-border started by the parent, if any. */
@@ -3046,9 +3162,6 @@ blockMinMaxWidth(pLayout, pNode, pMin, pMax)
     int *pMin;
     int *pMax;
 {
-    int min;        /* Minimum width of this block */
-    int max;        /* Maximum width of this block */
-
     BoxContext sBox;
     HtmlLayoutCache *pCache;
     int minmaxTestOrig = pLayout->minmaxTest;
@@ -3102,10 +3215,19 @@ blockMinMaxWidth(pLayout, pNode, pMin, pMax)
         pCache->iMaxWidth >= pCache->iMinWidth
     );
     LOG {
+        char zMin[24];
+        char zMax[24];
         HtmlTree *pTree = pLayout->pTree;
+
+        if (pMax) sprintf(zMax, "%d", *pMax);
+        else      sprintf(zMax, "N/A");
+        if (pMin) sprintf(zMin, "%d", *pMin);
+        else      sprintf(zMin, "N/A");
+
         HtmlLog(pTree, "LAYOUTENGINE", "%s blockMinMaxWidth() -> "
-            "min=%d max=%d",
-            Tcl_GetString(HtmlNodeCommand(pTree, pNode)), min, max
+            "min=%s max=%s",
+            Tcl_GetString(HtmlNodeCommand(pTree, pNode)), 
+            zMin, zMax
         );
     }
 
@@ -3350,6 +3472,8 @@ HtmlLayout(pTree)
         printf("\n");
     }
 #endif
+
+    HtmlComputedValuesRelease(pTree, sLayout.pImplicitTableProperties);
 
     if (rc == TCL_OK) {
         pTree->iCanvasWidth = Tk_Width(pTree->tkwin);

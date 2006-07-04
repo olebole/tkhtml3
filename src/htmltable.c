@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.84 2006/07/01 07:33:22 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.85 2006/07/04 08:47:41 danielk1977 Exp $";
 
 #include "htmllayout.h"
 
@@ -76,6 +76,7 @@ struct TableData {
     int y;                   /* y-coord to draw at */
     int x;                   /* x-coord to draw at */
     BoxContext *pBox;        /* Box to draw into */
+    HtmlComputedValues *pDefaultProperties;
 };
 typedef struct TableData TableData;
 
@@ -106,6 +107,54 @@ static CellCallback tableDrawCells;
 static RowCallback tableDrawRow;
 
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * walkChildren() --
+ *
+ *     This function is a wrapper around HtmlWalkTree(). It is identical
+ *     in all respects but one - the callback function is not invoked for
+ *     pNode (the root of the tree).
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     Whatever xCallback() does.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void
+walkChildren(pTree, pNode, xCallback, pContext)
+    HtmlTree *pTree;
+    HtmlNode *pNode;
+    int (*xCallback)(HtmlTree *, HtmlNode *, ClientData clientData);
+    ClientData pContext;
+{
+    int i;
+    int nChild = HtmlNodeNumChildren(pNode);
+    for (i = 0; i < nChild; i++) {
+        HtmlNode *pChild = HtmlNodeChild(pNode, i);
+        xCallback(pTree, pChild, pContext);
+    }
+}
+
+static void
+fixNodeProperties(pData, pNode)
+    TableData *pData;
+    HtmlNode *pNode;
+{
+    if (!pNode->pPropertyValues) {
+        if (!pData->pDefaultProperties) {
+            HtmlTree *pTree = pData->pLayout->pTree;
+            HtmlComputedValuesCreator sCreator;
+            HtmlComputedValuesInit(pTree, pNode, &sCreator);
+            pData->pDefaultProperties = HtmlComputedValuesFinish(&sCreator);
+        }
+        pNode->pPropertyValues = pData->pDefaultProperties;
+    }
+}
+
 
 /*
  *---------------------------------------------------------------------------
@@ -135,7 +184,7 @@ tableColWidthSingleSpan(pNode, col, colspan, row, rowspan, pContext)
     TableData *pData = (TableData *)pContext;
 
     if (colspan == 1) {
-        HtmlComputedValues *pV = pNode->pPropertyValues;
+        HtmlComputedValues *pV;
         BoxProperties box;
         int max;
         int min;
@@ -147,6 +196,8 @@ tableColWidthSingleSpan(pNode, col, colspan, row, rowspan, pContext)
         float *aPercentWidth = pData->aPercentWidth;
 
         /* Figure out the minimum and maximum widths of the content */
+        fixNodeProperties(pData, pNode);
+        pV = pNode->pPropertyValues;
         blockMinMaxWidth(pData->pLayout, pNode, &min, &max);
         nodeGetBoxProperties(pData->pLayout, pNode, 0, &box);
         req = pV->iWidth + box.iLeft + box.iRight;
@@ -198,6 +249,7 @@ tableColWidthMultiSpan(pNode, col, colspan, row, rowspan, pContext)
 {
     TableData *pData = (TableData *)pContext;
     if (colspan>1) {
+        HtmlComputedValues *pV;
         BoxProperties box;
         int max;
         int min;
@@ -245,10 +297,12 @@ tableColWidthMultiSpan(pNode, col, colspan, row, rowspan, pContext)
         /* Calculate the maximum and minimum widths of this cell, including
          * border and padding (table-cells do not have margins). 
          */
+        fixNodeProperties(pData, pNode);
         blockMinMaxWidth(pData->pLayout, pNode, &min, &max);
         nodeGetBoxProperties(pData->pLayout, pNode, 0, &box);
         min += box.iLeft + box.iRight;
         max += box.iLeft + box.iRight;
+        pV = pNode->pPropertyValues;
 
 	/* Set minincr to the number of pixels that must be added to the
          * minimum widths of the spanned columns.
@@ -305,6 +359,45 @@ tableColWidthMultiSpan(pNode, col, colspan, row, rowspan, pContext)
 	/* Divide any max-width pixels between all spanned columns. */
         for (i=col; i<(col+colspan); i++) {
             aMaxWidth[i] = MAX(max / colspan, aMaxWidth[i]);
+        }
+
+        if (pV->mask & PROP_MASK_WIDTH) {
+            /* The computed value of the 'width' property is a percentage,
+	     * some values in the aPercentWidth[] API may need to be 
+             * increased.
+             */
+            float percent_value = ((float)pV->iWidth) / 100.0; 
+            float current_percent = 0.0;
+            float extra_percent;
+
+            int max_width = 0;
+            int max_width_nopercent = 0;
+
+            int nPercent = 0;
+            for (i=col; i<(col+colspan); i++) {
+                if (aPercentWidth[i] > 0.0) {
+                    current_percent += aPercentWidth[i];
+                    nPercent++;
+                } else {
+                    max_width_nopercent += aMaxWidth[i];
+                }
+                max_width += aMaxWidth[i];
+            }
+
+            if (percent_value > current_percent) {
+                extra_percent = percent_value - current_percent;
+                for (i=col; i<(col+colspan); i++) {
+                    if (aPercentWidth[i] > 0.0) {
+                        float rat = (float)aMaxWidth[i] / (float)max_width;
+                        aPercentWidth[i] += extra_percent * rat;
+                    } else {
+                        float rat;
+                        rat = (float)aMaxWidth[i] / (float)max_width_nopercent;
+                        assert(nPercent < colspan);
+                        aPercentWidth[i] = extra_percent * rat;
+                    }
+                }
+            }
         }
 
         #undef COL_ISAUTO
@@ -396,7 +489,7 @@ tableDrawRow(pNode, row, pContext)
      *
      *     <table><tr><td rowspan=2></table>
      */
-    if (pNode) {
+    if (pNode && pNode->pPropertyValues) {
         int x1, y1, w1, h1;           /* Border coordinates */
         x1 = pData->border_spacing;
         y1 = pData->aY[row];
@@ -514,6 +607,8 @@ tableDrawCells(pNode, col, colspan, row, rowspan, pContext)
     int belowY;
     LayoutContext *pLayout = pData->pLayout;
 
+    fixNodeProperties(pData, pNode);
+
     /* A rowspan of 0 means the cell spans the remainder of the table
      * vertically.  Similarly, a colspan of 0 means the cell spans the
      * remainder of the table horizontally. 
@@ -599,6 +694,79 @@ struct RowIterateContext {
 };
 typedef struct RowIterateContext RowIterateContext;
 
+static void
+doCellIterate(pTree, pNode, p)
+    HtmlTree *pTree;
+    HtmlNode *pNode;
+    RowIterateContext *p;
+{
+
+    int nSpan = 1;
+    int nRSpan = 1;
+    int col_ok = 0;
+    char const *zSpan = 0;
+    
+    if (pNode->pPropertyValues) {
+        /* Set nSpan to the number of columns this cell spans */
+        zSpan = HtmlNodeAttr(pNode, "colspan");
+        nSpan = zSpan?atoi(zSpan):1;
+        if (nSpan<0) {
+            nSpan = 1;
+        }
+        
+        /* Set nRowSpan to the number of rows this cell spans */
+        zSpan = HtmlNodeAttr(pNode, "rowspan");
+        nRSpan = zSpan?atoi(zSpan):1;
+        if (nRSpan<0) {
+            nRSpan = 1;
+        }
+    }
+
+    /* Now figure out what column this cell falls in. The
+     * value of the 'col' variable is where we would like
+     * to place this cell (i.e. just to the right of the
+     * previous cell), but that might change based on cells
+     * from a previous row with a rowspan greater than 1.
+     * If this is true, we shift the cell one column to the
+     * right until the above condition is false.
+     */
+    do {
+        int k;
+        for (k = p->iCol; k < (p->iCol + nSpan); k++) {
+            if (k < p->nRowSpan && p->aRowSpan[k]) break;
+        }
+        if (k == (p->iCol + nSpan)) {
+            col_ok = 1;
+        } else {
+            p->iCol++;
+        }
+    } while (!col_ok);
+    
+    /* Update the p->aRowSpan array. It grows here if required. */
+    if (nRSpan!=1) {
+        int k;
+        if (p->nRowSpan<(p->iCol+nSpan)) {
+            int n = p->iCol+nSpan;
+            p->aRowSpan = (int *)HtmlRealloc(0, (char *)p->aRowSpan, 
+                    sizeof(int)*n);
+            for (k=p->nRowSpan; k<n; k++) {
+                p->aRowSpan[k] = 0;
+            }
+            p->nRowSpan = n;
+        }
+        for (k=p->iCol; k<p->iCol+nSpan; k++) {
+            assert(k < p->nRowSpan);
+            p->aRowSpan[k] = (nRSpan>1?nRSpan:-1);
+        }
+    }
+    
+    if (p->xCallback) {
+        p->xCallback(pNode, p->iCol, nSpan, p->iRow, nRSpan, p->clientData);
+    }
+    p->iCol += nSpan;
+    p->iMaxRow = MAX(p->iMaxRow, p->iRow + nRSpan - 1);
+}
+
 static int 
 cellIterate(pTree, pNode, clientData)
     HtmlTree *pTree;
@@ -609,72 +777,13 @@ cellIterate(pTree, pNode, clientData)
 
     if (HtmlNodeIsText(pNode)) return HTML_WALK_DO_NOT_DESCEND;
 
-    if (DISPLAY(pNode->pPropertyValues) == CSS_CONST_TABLE_CELL) {
-        int nSpan;
-        int nRSpan;
-        int col_ok = 0;
-        char const *zSpan = 0;
-
-        /* Set nSpan to the number of columns this cell spans */
-        zSpan = HtmlNodeAttr(pNode, "colspan");
-        nSpan = zSpan?atoi(zSpan):1;
-        if (nSpan<0) {
-            nSpan = 1;
+    switch (DISPLAY(pNode->pPropertyValues)) {
+        case CSS_CONST_TABLE_CELL: {
+            doCellIterate(pTree, pNode, p);
+            return HTML_WALK_DO_NOT_DESCEND;
         }
-
-        /* Set nRowSpan to the number of rows this cell spans */
-        zSpan = HtmlNodeAttr(pNode, "rowspan");
-        nRSpan = zSpan?atoi(zSpan):1;
-        if (nRSpan<0) {
-            nRSpan = 1;
-        }
-        /* Now figure out what column this cell falls in. The
-         * value of the 'col' variable is where we would like
-         * to place this cell (i.e. just to the right of the
-         * previous cell), but that might change based on cells
-         * from a previous row with a rowspan greater than 1.
-         * If this is true, we shift the cell one column to the
-         * right until the above condition is false.
-         */
-        do {
-            int k;
-            for (k = p->iCol; k < (p->iCol + nSpan); k++) {
-                if (k < p->nRowSpan && p->aRowSpan[k]) break;
-            }
-            if (k == (p->iCol + nSpan)) {
-                col_ok = 1;
-            } else {
-                p->iCol++;
-            }
-        } while (!col_ok);
-
-        /* Update the p->aRowSpan array. It grows here if required. */
-        if (nRSpan!=1) {
-            int k;
-            if (p->nRowSpan<(p->iCol+nSpan)) {
-                int n = p->iCol+nSpan;
-                p->aRowSpan = (int *)HtmlRealloc(0, (char *)p->aRowSpan, 
-                        sizeof(int)*n);
-                for (k=p->nRowSpan; k<n; k++) {
-                    p->aRowSpan[k] = 0;
-                }
-                p->nRowSpan = n;
-            }
-            for (k=p->iCol; k<p->iCol+nSpan; k++) {
-                assert(k < p->nRowSpan);
-                p->aRowSpan[k] = (nRSpan>1?nRSpan:-1);
-            }
-        }
-
-        if (p->xCallback) {
-            p->xCallback(pNode, p->iCol, nSpan, p->iRow, nRSpan, p->clientData);
-        }
-        p->iCol += nSpan;
-        p->iMaxRow = MAX(p->iMaxRow, p->iRow + nRSpan - 1);
-        return HTML_WALK_DO_NOT_DESCEND;
     }
 
-    /* If the node is not a {display:table-cell} node, then descend. */
     return HTML_WALK_DESCEND;
 }
 
@@ -686,42 +795,52 @@ rowIterate(pTree, pNode, clientData)
 {
     int eDisplay = DISPLAY(pNode->pPropertyValues);
     RowIterateContext *p = (RowIterateContext *)clientData;
+    int k;
+    int ii;
 
-    if (HtmlNodeIsText(pNode)) return HTML_WALK_DO_NOT_DESCEND;
+    if (HtmlNodeIsText(pNode)) return 0;
+    p->iCol = 0;
 
-    switch (eDisplay) {
-        case CSS_CONST_TABLE_ROW: {
-            int k;
-            p->iCol = 0;
-            HtmlWalkTree(pTree, pNode, cellIterate, clientData);
-            if (p->xRowCallback) {
-                p->xRowCallback(pNode, p->iRow, p->clientData);
+    for (ii = 0; ii < HtmlNodeNumChildren(pNode); ii++) {
+        HtmlNode *pCell = HtmlNodeChild(pNode, ii);
+        HtmlComputedValues *pV = pCell->pPropertyValues;
+
+        /* Throw away text node children of the row node. Todo: Only
+         * white-space should be thrown away, Html_Text nodes should have
+         * implicit table-cell boxes created around them.
+         */
+        if (HtmlNodeIsText(pCell)) continue;
+
+        if (DISPLAY(pV) == CSS_CONST_TABLE_CELL) {
+            /* Child has "display:table-cell". Good. */
+            doCellIterate(pTree, pCell, clientData);
+        } else {
+            /* Have to create a fake <td> node. Bad. */
+            int jj;
+            HtmlNode sCell;
+            memset(&sCell, 0, sizeof(HtmlNode));
+            for (jj = ii + 1; jj < HtmlNodeNumChildren(pNode); jj++) {
+                HtmlNode *pNextRow = HtmlNodeChild(pNode, jj);
+                HtmlComputedValues *pV2 = pNextRow->pPropertyValues;
+                if (DISPLAY(pV2) == CSS_CONST_TABLE_CELL) break;
             }
-            p->iRow++;
-            for (k=0; k < p->nRowSpan; k++) {
-                if (p->aRowSpan[k]) p->aRowSpan[k]--;
-            }
-            return HTML_WALK_DO_NOT_DESCEND;
+            sCell.nChild = jj - ii;
+            sCell.apChildren = &pNode->apChildren[ii];
+            doCellIterate(pTree, &sCell, clientData);
+            HtmlLayoutInvalidateCache(pTree, &sCell);
+            ii = jj - 1;
         }
-
-        case CSS_CONST_TABLE: {
-            return HTML_WALK_DESCEND;
-        }
-
-        default: {
-            cellIterate(pTree, pNode, clientData);
-            return HTML_WALK_DO_NOT_DESCEND;
-        }
-
-#if 0
-        default: {
-            if (r == HTML_WALK_DESCEND) {
-                HtmlWalkTree(pTree, pNode, cellIterate, clientData);
-            }
-            return HTML_WALK_DESCEND;
-        }
-#endif
     }
+
+    if (p->xRowCallback) {
+        p->xRowCallback(pNode, p->iRow, p->clientData);
+    }
+    p->iRow++;
+    for (k=0; k < p->nRowSpan; k++) {
+        if (p->aRowSpan[k]) p->aRowSpan[k]--;
+    }
+
+    return 0;
 }
 
 /*
@@ -745,6 +864,11 @@ rowIterate(pTree, pNode, clientData)
  *     number, the rowspan, and a copy of the pContext argument passed to
  *     iterateTable().
  *
+ *     After xCallback has been invoked for each cell in a row, the
+ *     row-callback (xRowCallback) is invoked for the row. The arguments
+ *     to xRowCallback are the <tr> node object, the row number and a
+ *     copy of the pContext argument passed to tableIterate().
+ *
  * Results:
  *     TCL_OK or TCL_ERROR.
  *
@@ -761,6 +885,7 @@ tableIterate(pTree, pNode, xCallback, xRowCallback, pContext)
     int (*xRowCallback)(HtmlNode *, int, void *);  /* Row Callback */
     void *pContext;                                /* pContext of callbacks */
 {
+    int ii;
     RowIterateContext sRowContext;
     memset(&sRowContext, 0, sizeof(RowIterateContext));
 
@@ -768,7 +893,36 @@ tableIterate(pTree, pNode, xCallback, xRowCallback, pContext)
     sRowContext.xCallback  = xCallback;
     sRowContext.clientData = (ClientData)pContext;
 
-    HtmlWalkTree(pTree, pNode, rowIterate, (ClientData)&sRowContext);
+    for (ii = 0; ii < HtmlNodeNumChildren(pNode); ii++) {
+        HtmlNode *pRow = HtmlNodeChild(pNode, ii);
+        HtmlComputedValues *pV = pRow->pPropertyValues;
+
+        /* Throw away text node children of the table node. Todo: Only
+         * white-space should be thrown away, Html_Text nodes should have
+         * implicit table-row and table-cell boxes created around them.
+         */
+        if (HtmlNodeIsText(pRow)) continue;
+
+        if (DISPLAY(pV) == CSS_CONST_TABLE_ROW) {
+            /* Child has "display:table-row". Good. */
+            rowIterate(pTree, pRow, &sRowContext);
+        } else {
+            /* Have to create a fake <tr> node. Bad. */
+            int jj;
+            HtmlNode sRow;
+            memset(&sRow, 0, sizeof(HtmlNode));
+            for (jj = ii + 1; jj < HtmlNodeNumChildren(pNode); jj++) {
+                HtmlNode *pNextRow = HtmlNodeChild(pNode, jj);
+                HtmlComputedValues *pV2 = pNextRow->pPropertyValues;
+                if (DISPLAY(pV2) == CSS_CONST_TABLE_ROW) break;
+            }
+            sRow.nChild = jj - ii;
+            sRow.apChildren = &pNode->apChildren[ii];
+            rowIterate(pTree, &sRow, &sRowContext);
+            assert(!sRow.pLayoutCache);
+            ii = jj - 1;
+        }
+    }
 
     while (sRowContext.iRow <= sRowContext.iMaxRow && xRowCallback) {
         xRowCallback(0, sRowContext.iRow, pContext);
@@ -1058,6 +1212,25 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
 
     /* Analyse any columns with percentage widths. This block sets the
      * min_ratio, exp_ratio, percent_sum and nPercentWidth variables.
+     *
+     * min_ratio:
+     *
+     *     Variable min_ratio is set to contain the minimum number of pixels
+     *     that must be allocated for each percentage point of width according
+     *     to the min-content-width values of columns with percentage widths
+     *     It is the maximum value of the following:
+     *
+     *         (min-content-width / percent-width)
+     *
+     *     After calculating this, if all percentage width columns were sized
+     *     to (min_ratio * percent-width), then we can state that:
+     *
+     *         * Each percentage-width column has at least it's
+     *           min-content-width, and that
+     *         * The ratio of the widths of the percentage width columns is
+     *           correct (i.e. a column with 50% is twice as wide as one with
+     *           25%).
+     *
      */ 
     min_ratio = 0.0;    /* Minimum desired pixels per percentage point */
     exp_ratio = 0.0;    /* Explicitly desired pixels per percentage point */
@@ -1125,6 +1298,14 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
             if (COL_ISPERCENT(i)) {
                 int diff = ((min_ratio * aPercentWidth[i]) - aWidth[i]);
                 aRequested[i] = MAX(diff, 0);
+/*
+            } else if (!isPercentOver && nAutoWidth > 0){
+                if (COL_ISAUTO(i)) {
+                    float percent = (100.0 - percent_sum) / (double)nAutoWidth;
+                    int diff = ((min_ratio * percent) - aWidth[i]);
+                    aRequested[i] = MAX(diff, 0);
+                }
+*/
             } else if (!isPercentOver && nPercentWidth < nCol) {
                 int nOther = nCol - nPercentWidth;
                 float percent = (100.0 - percent_sum) / (double)nOther;
@@ -1246,13 +1427,17 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
 
         Tcl_AppendToObj(pLog, "Results of column width algorithm.", -1);
         Tcl_AppendToObj(pLog, "<ol>"
-            "<li>Allocate min content width to each column."
+            "<li>Unconditionally allocate min content width to each column."
             "<li>Grow columns with % widths to meet % constraint."
             "<li>Allocate pixels to columns with explicit widths. Columns"
             "    with % widths grow here to, to match the constraints."
             "<li>Allocate pixels to columns with \"auto\" widths, not"
             "    exceeding their maximum content widths. Columns"
             "    with % widths grow also."
+            "<li>If the table width was specified explicitly and one or"
+            "    more columns have width:auto, then grow these columns to"
+            "    reach the desired table width, even if that means exceeding"
+            "    the max content width. Again, Columns with % widths grow also."
             "</ol>"
         , -1);
         Tcl_AppendToObj(pLog, "<table><tr><th>Col Number", -1);
@@ -1284,6 +1469,10 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
             Tcl_AppendToObj(pLog, "px", -1);
         }
         Tcl_AppendToObj(pLog, "</table>", -1);
+
+        Tcl_AppendToObj(pLog, "<ul><li>min_ratio = ", -1);
+        Tcl_AppendObjToObj(pLog, Tcl_NewDoubleObj(min_ratio));
+        Tcl_AppendToObj(pLog, "</ul>", -1);
 
         HtmlLog(pTree, "LAYOUTENGINE", "%s tableCalculateCellWidths() %s",
             Tcl_GetString(HtmlNodeCommand(pTree, pData->pNode)), 
@@ -1468,8 +1657,8 @@ int HtmlTableLayout(pLayout, pBox, pNode)
     pBox->height = MAX(pBox->height, data.aY[data.nRow]);
     pBox->width = MAX(pBox->width, width);
 
-    assert(pBox->height < 10000000);
-    assert(pBox->width < 10000000);
+    assert(pBox->height < 1000000);
+    assert(pBox->width < 1000000);
 
     HtmlFree(0, (char *)aMinWidth);
     HtmlFree(0, (char *)aMaxWidth);
@@ -1479,6 +1668,7 @@ int HtmlTableLayout(pLayout, pBox, pNode)
     HtmlFree(0, (char *)aPercentWidth);
     HtmlFree(0, (char *)aExplicitWidth);
 
+    HtmlComputedValuesRelease(pTree, data.pDefaultProperties);
     return TCL_OK;
 }
 

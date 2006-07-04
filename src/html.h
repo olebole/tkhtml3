@@ -248,7 +248,11 @@ struct HtmlOptions {
     /* Boolean options */
     int shrink;
     int layoutcache;
-    int forcefontmetrics;
+
+    /* Font related options */
+    Tcl_Obj *fonttable;
+    int      forcefontmetrics;
+    double   fontscale;
 
     XColor *selectforeground;
     XColor *selectbackground;
@@ -259,7 +263,6 @@ struct HtmlOptions {
     Tcl_Obj *imagecmd;
     Tcl_Obj *encoding;
 
-    Tcl_Obj *fonttable;
 
     Tcl_Obj *logcmd;
     Tcl_Obj *timercmd;
@@ -480,6 +483,7 @@ Html_u8     HtmlNodeTagType(HtmlNode *);
 int         HtmlNodeIsWhitespace(HtmlNode *);
 
 Tcl_Obj *HtmlNodeCommand(HtmlTree *, HtmlNode *pNode);
+int HtmlNodeDeleteCommand(HtmlTree *, HtmlNode *pNode);
 
 CssProperty *HtmlNodeGetProperty(Tcl_Interp *, HtmlNode *, int);
 void HtmlNodeGetDefault(HtmlNode *, int , CssProperty *);
@@ -504,6 +508,8 @@ int  HtmlDrawIsEmpty(HtmlCanvas *);
 void HtmlDrawImage(HtmlCanvas*, HtmlImage2*, int, int, int, int, HtmlNode*, int);
 void HtmlDrawOrigin(HtmlCanvas*);
 void HtmlDrawCopyCanvas(HtmlCanvas*, HtmlCanvas*);
+
+void HtmlDrawOverflow(HtmlCanvas*, HtmlNode*, int, int);
 
 HtmlCanvasItem *HtmlDrawAddMarker(HtmlCanvas*, int, int, int);
 int HtmlDrawGetMarker(HtmlCanvas*, HtmlCanvasItem *, int*, int*);

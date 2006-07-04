@@ -440,12 +440,31 @@ int HtmlComputedValuesCompare(HtmlComputedValues *, HtmlComputedValues *);
 #define HTML_COMPUTED_MAX_WIDTH       iMaxWidth
 #define HTML_COMPUTED_TEXT_INDENT     iTextIndent
 
+/* The PIXELVAL macro takes three arguments:
+ * 
+ *    pV         - Pointer to HtmlComputedValues structure.
+ *
+ *    prop       - Property identifier (i.e. MARGIN_LEFT). The
+ *                 HTML_COMPUTED_XXX macros define the set of acceptable 
+ *                 identifiers.
+ *
+ *    percent_of - The pixel value used to calculate percentage values against.
+ *
+ * Notes:
+ *
+ *    * If percent_of is less than 0 (i.e. PIXELVAL_AUTO) and the property
+ *      specified by prop computed to a percentage, a copy of percent_of is
+ *      returned.
+ *
+ *    * If pV==NULL, 0 is returned.
+ */
 #define PIXELVAL(pV, prop, percent_of) ( \
+    (!pV ? 0 :                            \
     ((pV)->mask & PROP_MASK_ ## prop) ? ( \
         ((percent_of) <= 0) ? (percent_of) : \
         (((pV)-> HTML_COMPUTED_ ## prop * (percent_of)) / 10000) \
     ) : ((pV)-> HTML_COMPUTED_ ## prop) \
-)
+))
 
 #endif
 

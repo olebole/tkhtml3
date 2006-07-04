@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.75 2006/07/01 07:33:22 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.76 2006/07/04 08:47:41 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1671,12 +1671,14 @@ allocateNewFont(pTree, tkwin, pFontKey)
     HtmlFont *pFont;
 
     /* Local variable iFontSize is in points - not thousandths */
-    float f = pFontKey->iFontSize;
+    float fontsize = ((float)pFontKey->iFontSize / (float)HTML_IFONTSIZE_SCALE);
+    fontsize = fontsize * pTree->options.fontscale;
+
     int iFontSize;
     if (isForceFontMetrics) {
-        iFontSize = INTEGER((f * 0.9 / (float)HTML_IFONTSIZE_SCALE));
+        iFontSize = INTEGER(fontsize * 0.9);
     } else {
-        iFontSize = INTEGER((f / (float)HTML_IFONTSIZE_SCALE));
+        iFontSize = INTEGER(fontsize);
     }
 
     struct FamilyMap {
@@ -1771,7 +1773,7 @@ allocateNewFont(pTree, tkwin, pFontKey)
         Tk_FontMetrics *pMet = &pFont->metrics;
 
         char zBuf[24];
-        sprintf(zBuf, "%.3fp", (float)pFontKey->iFontSize / 1000.0);
+        sprintf(zBuf, "%.3fp", fontsize);
         Tk_GetPixels(interp, tkwin, zBuf, &pFont->em_pixels);
 
         pMet->linespace = pMet->ascent + pMet->descent;

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.83 2006/07/01 07:33:22 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.84 2006/07/04 08:47:40 danielk1977 Exp $)} 1 }
 
 #
 # The code in this file is partitioned into the following classes:
@@ -869,7 +869,7 @@ snit::widget ::hv3::hv3 {
       set folded [string tolower [string range $data 0 200]]
       set A [string first doctype $folded]
       set B [string first html $folded]
-      if {0 && $A >= 0 && ($B <= 0 || $B > $A)} {
+      if {$A >= 0 && ($B <= 0 || $B > $A)} {
         $myHtml configure -defaultstyle [::tkhtml::htmlstyle]
         set myQuirksmode standards
       } else {
@@ -1044,6 +1044,7 @@ snit::widget ::hv3::hv3 {
   delegate option -hyperlinkcmd     to myHyperlinkManager
   delegate option -scrollbarpolicy  to myHtml
   delegate option -fonttable        to myHtml
+  delegate option -fontscale        to myHtml
   delegate option -forcefontmetrics to myHtml
 
   # Delegated public methods

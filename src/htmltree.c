@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.72 2006/07/01 07:33:22 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.73 2006/07/04 08:47:41 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -534,6 +534,20 @@ HtmlNodeClearStyle(pTree, pNode)
     return 0;
 }
 
+int 
+HtmlNodeDeleteCommand(pTree, pNode)
+    HtmlTree *pTree;
+    HtmlNode *pNode;
+{
+    if (pNode->pNodeCmd) {
+        Tcl_Obj *pCommand = pNode->pNodeCmd->pCommand;
+        Tcl_DeleteCommand(pTree->interp, Tcl_GetString(pCommand));
+        Tcl_DecrRefCount(pCommand);
+        HtmlFree(0, (char *)pNode->pNodeCmd);
+        pNode->pNodeCmd = 0;
+    }
+}
+
 
 /*
  *---------------------------------------------------------------------------
@@ -585,13 +599,7 @@ freeNode(pTree, pNode)
             pNode->pOverride = 0;
         }
 
-        if (pNode->pNodeCmd) {
-            Tcl_Obj *pCommand = pNode->pNodeCmd->pCommand;
-            Tcl_DeleteCommand(pTree->interp, Tcl_GetString(pCommand));
-            Tcl_DecrRefCount(pCommand);
-            HtmlFree(0, (char *)pNode->pNodeCmd);
-            pNode->pNodeCmd = 0;
-        }
+        HtmlNodeDeleteCommand(pTree, pNode);
 
         clearReplacement(pTree, pNode);
         HtmlCssFreeDynamics(pNode);

@@ -31,6 +31,8 @@ struct LayoutContext {
     Tk_Window tkwin;
     Tcl_Interp *interp;      /* The interpreter */
 
+    HtmlComputedValues *pImplicitTableProperties;
+
     int minmaxTest;          /* Currently figuring out min/max widths */
 
     NodeList *pAbsolute;     /* List of nodes with "absolute" 'position' */

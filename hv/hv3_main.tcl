@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.43 2006/07/01 07:33:22 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.44 2006/07/04 08:47:41 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -455,6 +455,7 @@ if 0 {
 
   delegate option -forcefontmetrics to myHv3
   delegate option -fonttable        to myHv3
+  delegate option -fontscale        to myHv3
 
   delegate method dumpforms         to myHv3
 
@@ -693,10 +694,28 @@ proc create_fontsize_menu {menupath varname} {
   return $menupath
 }
 
+proc create_fontscale_menu {menupath varname} {
+  menu $menupath
+  foreach val [list 0.8 0.9 1.0 1.2 1.4 2.0] {
+    $menupath add radiobutton                  \
+      -variable $varname                       \
+      -value $val                              \
+      -command [list gui_setfontscale $varname] \
+      -label [format "%d%%" [expr int($val * 100)]]
+  }
+  # trace add variable $varname write ::hv3::browser_frame::SetFontTable
+  set $varname 1.0
+  return $menupath
+}
+
 # Invoked when an entry in the font-size menu is selected.
 #
 proc gui_setfontsize {varname} {
   gui_current configure -fonttable [set $varname]
+}
+
+proc gui_setfontscale {varname} {
+  gui_current configure -fontscale [set $varname]
 }
 
 # Invoked when an entry in the font-size menu is selected.
@@ -739,6 +758,10 @@ proc gui_menu {widget_array} {
   # Add the 'Font Size Table' menu
   set fontsize_menu [create_fontsize_menu .m.edit.font ::hv3::fontsize_table]
   .m.edit add cascade -label {Font Size Table} -menu $fontsize_menu
+
+  # Add the 'Font Scale' menu
+  set fontscale_menu [create_fontscale_menu .m.edit.font2 ::hv3::fontscale]
+  .m.edit add cascade -label {Font Scale} -menu $fontscale_menu
 
   .m.edit add checkbutton -label {Force CSS Font Metrics}               \
        -variable ::hv3::forcefontmetrics_flag                           \

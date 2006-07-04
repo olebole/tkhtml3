@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.128 2006/07/01 07:33:22 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.129 2006/07/04 08:47:41 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -66,6 +66,8 @@ static const char rcsid[] = "$Id: htmldraw.c,v 1.128 2006/07/01 07:33:22 danielk
  *         2. Selection modification
  *         3. Find window coordinates (bbox) given node.
  *         4. Find node given window coordinates (a single point).
+ *
+ *     There are a few different variations on case (3).
  *
  */
 
@@ -119,18 +121,20 @@ static const char rcsid[] = "$Id: htmldraw.c,v 1.128 2006/07/01 07:33:22 danielk
  *     HtmlDrawText
  *     HtmlDrawBox
  *     HtmlDrawLine
+ *     HtmlDrawOverflow
  *
  * Markers:
  *     HtmlDrawAddMarker
  *     HtmlDrawGetMarker
  */
-#define CANVAS_TEXT    1
-#define CANVAS_WINDOW  2
-#define CANVAS_ORIGIN  3
-#define CANVAS_IMAGE   4
-#define CANVAS_BOX     5
-#define CANVAS_LINE    6
-#define CANVAS_MARKER  7
+#define CANVAS_TEXT     1
+#define CANVAS_WINDOW   2
+#define CANVAS_ORIGIN   3
+#define CANVAS_IMAGE    4
+#define CANVAS_BOX      5
+#define CANVAS_LINE     6
+#define CANVAS_MARKER   7
+#define CANVAS_OVERFLOW 8
 
 typedef struct CanvasText CanvasText;
 typedef struct CanvasImage CanvasImage;
@@ -139,6 +143,7 @@ typedef struct CanvasWindow CanvasWindow;
 typedef struct CanvasOrigin CanvasOrigin;
 typedef struct CanvasLine   CanvasLine;
 typedef struct CanvasMarker CanvasMarker;
+typedef struct CanvasOverflow CanvasOverflow;
 
 typedef struct CanvasItemSorter CanvasItemSorter;
 typedef struct CanvasItemSorterLevel CanvasItemSorterLevel;
@@ -235,6 +240,21 @@ struct CanvasOrigin {
 };
 
 /*
+ * A CanvasOverflow primitive is used to deal with blocks that have the
+ * 'overflow' property set to something other than "visible".
+ *
+ * Currently, only "hidden" is handled (not "scroll" or "auto").
+ */
+struct CanvasOverflow {
+    int x;
+    int y;
+    int w;
+    int h;
+    HtmlNode *pNode;
+    HtmlCanvasItem *pEnd;          /* Region ends *after* this item */
+};
+
+/*
  * Markers are used for two unrelated purposes:
  *
  *     * They are inserted into the display list to record the static position
@@ -267,6 +287,7 @@ struct HtmlCanvasItem {
         CanvasBox    box;
         CanvasLine   line;
         CanvasMarker marker;
+        CanvasOverflow overflow;
     } x;
     HtmlCanvasItem *pNext;
 };
@@ -414,7 +435,7 @@ sorterReset(pSorter)
 static HtmlCanvasItem *
 allocateCanvasItem()
 {
-    return (HtmlCanvasItem *)HtmlAlloc(
+    return (HtmlCanvasItem *)HtmlClearAlloc(
         "Screen-graph item", sizeof(HtmlCanvasItem)
     );
 }
@@ -548,6 +569,7 @@ CHECK_CANVAS(pCanvas);
             case CANVAS_WINDOW:
             case CANVAS_BOX:
             case CANVAS_LINE:
+            case CANVAS_OVERFLOW:
                 break;
             default:
                 assert(!"Canvas corruption");
@@ -689,27 +711,51 @@ void HtmlDrawOrigin(pCanvas)
     if (!pCanvas->pFirst) return;
     assert(pCanvas->pLast);
 
+    /* Allocate the first CANVAS_ORIGIN item */
     pItem = allocateCanvasItem();
     memset(pItem, 0, sizeof(HtmlCanvasItem));
     pItem->x.o.horizontal = pCanvas->left;
     pItem->x.o.vertical = pCanvas->top;
     pItem->x.o.nRef = 1;
+    pItem->type = CANVAS_ORIGIN;
 
+    /* Add the first CANVAS_ORIGIN item to the start of the list */
+    pItem->pNext = pCanvas->pFirst;
+    pCanvas->pFirst = pItem;
+
+    /* Allocate the second CANVAS_ORIGIN item */
     pItem2 = allocateCanvasItem();
     memset(pItem2, 0, sizeof(HtmlCanvasItem));
     pItem->x.o.pSkip = pItem2;
-
-    pItem->type = CANVAS_ORIGIN;
-
     pItem2->type = CANVAS_ORIGIN;
     pItem2->x.o.horizontal = pCanvas->right;
     pItem2->x.o.vertical = pCanvas->bottom;
 
-    pItem->pNext = pCanvas->pFirst;
-    pCanvas->pFirst = pItem;
-
+    /* Add the first CANVAS_ORIGIN item to the end of the list */
     pCanvas->pLast->pNext = pItem2;
     pCanvas->pLast = pItem2;
+}
+
+void HtmlDrawOverflow(pCanvas, pNode, w, h)
+    HtmlCanvas *pCanvas;
+    HtmlNode *pNode;
+    int w;
+    int h;
+{
+    HtmlCanvasItem *pLast = pCanvas->pLast;
+    HtmlCanvasItem *pItem;
+
+    if (!pLast) return;
+
+    pItem = allocateCanvasItem();
+    pItem->type = CANVAS_OVERFLOW;
+    pItem->x.overflow.pNode = pNode;
+    pItem->x.overflow.w = w;
+    pItem->x.overflow.h = h;
+    pItem->x.overflow.pEnd = pLast;
+
+    pItem->pNext = pCanvas->pFirst;
+    pCanvas->pFirst = pItem;
 }
 
 void HtmlDrawCopyCanvas(pTo, pFrom)
@@ -987,7 +1033,11 @@ itemToBox(pItem, origin_x, origin_y, pX, pY, pW, pH)
             return 0;
         }
         default:
-            assert(pItem->type==CANVAS_ORIGIN || pItem->type==CANVAS_MARKER);
+            assert(
+                pItem->type==CANVAS_ORIGIN || 
+                pItem->type==CANVAS_MARKER ||
+                pItem->type==CANVAS_OVERFLOW 
+            );
             return 0;
     }
 }
