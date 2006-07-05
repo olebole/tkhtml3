@@ -47,14 +47,15 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.184 2006/07/05 17:54:43 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.185 2006/07/05 18:52:26 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
 #include <string.h>
 #include <stdlib.h>
 
-#define LOG if (pLayout->pTree->options.logcmd && 0 == pLayout->minmaxTest)
+#define LOG(X) if ( \
+(X)->iNode >= 0 && pLayout->pTree->options.logcmd && 0 == pLayout->minmaxTest)
 
 /* Used for debugging the layout cache. Some output appears on stdout. */
 /* #define LAYOUT_CACHE_DEBUG */
@@ -400,7 +401,7 @@ normalFlowMarginCollapse(pLayout, pNode, pNormal, pY)
     pNormal->iMinMargin = 0;
     pNormal->nonegative = 0;
 
-    LOG {
+    LOG(pNode) {
         HtmlTree *pTree = pLayout->pTree;
         char const *zNode = Tcl_GetString(HtmlNodeCommand(pTree, pNode));
         HtmlLog(pTree, "LAYOUTENGINE", "%s normalFlowMarginCollapse()"
@@ -421,7 +422,7 @@ normalFlowMarginAdd(pLayout, pNode, pNormal, y)
         pNormal->iMaxMargin = MAX(pNormal->iMaxMargin, y);
         pNormal->iMinMargin = MIN(pNormal->iMinMargin, y);
     }
-    LOG {
+    LOG(pNode) {
         HtmlTree *pTree = pLayout->pTree;
         char const *zNode = Tcl_GetString(HtmlNodeCommand(pTree, pNode));
         HtmlLog(pTree, "LAYOUTENGINE", "%s normalFlowMarginAdd()"
@@ -628,7 +629,7 @@ normalFlowLayoutOverflow(pLayout, pBox, pNode, pY, pContext, pNormal)
     HtmlLayoutNodeContent(pLayout, &sContent, pNode);
     sContent.height = getHeight(pNode,sContent.height,pBox->iContainingHeight);
 
-    LOG {
+    LOG(pNode) {
         HtmlTree *pTree = pLayout->pTree;
         char const *zNode = Tcl_GetString(HtmlNodeCommand(pTree, pNode));
         HtmlLog(pTree, "LAYOUTENGINE", "%s "
@@ -820,7 +821,7 @@ normalFlowLayoutFloat(pLayout, pBox, pNode, pY, pDoNotUse, pNormal)
      */
     pBox->width = MAX(x + iTotalWidth, pBox->width);
 
-    LOG {
+    LOG(pNode) {
         HtmlTree *pTree = pLayout->pTree;
         char const *zNode = Tcl_GetString(HtmlNodeCommand(pTree, pNode));
         char const *zCaption = "normalFlowLayoutFloat() Float list before:";
@@ -841,7 +842,7 @@ normalFlowLayoutFloat(pLayout, pBox, pNode, pY, pDoNotUse, pNormal)
             iTop, iTop + iTotalHeight);
     }
 
-    LOG {
+    LOG(pNode) {
         HtmlTree *pTree = pLayout->pTree;
         char const *zNode = Tcl_GetString(HtmlNodeCommand(pTree, pNode));
         char const *zCaption = "normalFlowLayoutFloat() Float list after:";
@@ -1472,7 +1473,7 @@ drawAbsolute(pLayout, pBox, pStaticCanvas, x, y)
         s_x -= x;
         s_y -= y;
 
-        LOG {
+        LOG(pNode) {
             HtmlTree *pTree = pLayout->pTree;
             char const *zNode = Tcl_GetString(HtmlNodeCommand(pTree, pNode));
             HtmlLog(pTree, "LAYOUTENGINE", "%s drawAbsolute() -> "
@@ -1544,7 +1545,7 @@ drawAbsolute(pLayout, pBox, pStaticCanvas, x, y)
             assert(iRight != PIXELVAL_AUTO || iLeft != PIXELVAL_AUTO);
             blockMinMaxWidth(pLayout, pNode, &min, &max);
             iWidth = MIN(MAX(min, iSpace), max);
-            LOG {
+            LOG(pNode) {
                 HtmlTree *pTree = pLayout->pTree;
                 char const *zNode = Tcl_GetString(HtmlNodeCommand(pTree,pNode));
                 HtmlLog(pTree, "LAYOUTENGINE", "%s drawAbsolute() -> "
@@ -1648,7 +1649,7 @@ drawAbsolute(pLayout, pBox, pStaticCanvas, x, y)
         sBox.iContaining = pBox->iContaining;
         wrapContent(pLayout, &sBox, &sContent, pNode);
 
-        LOG {
+        LOG(pNode) {
             HtmlTree *pTree = pLayout->pTree;
             char const *zNode = Tcl_GetString(HtmlNodeCommand(pTree, pNode));
             HtmlLog(pTree, "LAYOUTENGINE", "%s Calculated values: "
@@ -1771,7 +1772,7 @@ wrapContent(pLayout, pBox, pContent, pNode)
         box.iTop + pContent->height + box.iBottom
     );
 
-    LOG {
+    LOG(pNode) {
         char zNotes[] = "<ol>"
             "<li>The content-block is the size of the content, as "
             "    determined by the 'width' and 'height' properties, or by"
@@ -2012,7 +2013,7 @@ normalFlowLayoutTable(pLayout, pBox, pNode, pY, pContext, pNormal)
     pBox->height = MAX(pBox->height, *pY);
     pBox->width = MAX(pBox->width, x + sBox.width);
 
-    LOG {
+    LOG(pNode) {
         HtmlTree *pTree = pLayout->pTree;
         Tcl_Obj *pLog = Tcl_NewObj();
         Tcl_IncrRefCount(pLog);
@@ -2094,7 +2095,7 @@ normalFlowLayoutTableComponent(pLayout, pBox, pNode, pY, pContext, pNormal)
         ) {
             break;
         }
-        LOG {
+        LOG(pNode) {
             HtmlTree *pTree = pLayout->pTree;
             const char *zFmt = 
                     "%s normalFlowLayoutTableComponent() -> "
@@ -2363,7 +2364,7 @@ normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
             getHeight(pNode, sContent.height - yBorderOffset, iContHeight);
     sContent.width = getWidth(iWidth, sContent.width);
 
-    LOG {
+    LOG(pNode) {
         HtmlTree *pTree = pLayout->pTree;
         const char *zFmt = "%s normalFlowLayoutBlock() -> "
                 "content size: %dx%d (y-border-offset: %d)";
@@ -2828,7 +2829,7 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
     }
 
     /* Log the state of the normal-flow context before this node */
-    LOG {
+    LOG(pNode) {
         HtmlTree *pTree = pLayout->pTree;
         Tcl_Obj *pLog = Tcl_NewObj();
         Tcl_IncrRefCount(pLog);
@@ -2869,7 +2870,7 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
     inlineLayoutDrawLines(pLayout, pBox, pContext, 0, pY, pNormal);
 
     /* Log the state of the normal-flow context after this node */
-    LOG {
+    LOG(pNode) {
         HtmlTree *pTree = pLayout->pTree;
         Tcl_Obj *pLog = Tcl_NewObj();
         Tcl_IncrRefCount(pLog);
@@ -3154,7 +3155,7 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
         pCache->normalFlowOut.nonegative = pNormal->nonegative;
         pLayoutCache->flags |= cache_mask;
 
-        LOG {
+        LOG(pNode) {
             HtmlTree *pTree = pLayout->pTree;
             HtmlLog(pTree, "LAYOUTENGINE", "%s normalFlowLayout() "
                 "Cached layout for node:"
@@ -3264,7 +3265,7 @@ blockMinMaxWidth(pLayout, pNode, pMin, pMax)
         0 == (pCache->flags & CACHED_MAXWIDTH_OK) ||
         pCache->iMaxWidth >= pCache->iMinWidth
     );
-    LOG {
+    LOG(pNode) {
         char zMin[24];
         char zMax[24];
         HtmlTree *pTree = pLayout->pTree;

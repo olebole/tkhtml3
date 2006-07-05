@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.130 2006/07/05 17:54:43 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.131 2006/07/05 18:52:26 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -2433,7 +2433,7 @@ layoutNodeIndexCb(pItem, origin_x, origin_y, clientData)
     ClientData clientData;
 {
     CanvasText *pT = &pItem->x.t;
-    if (pItem->type == CANVAS_TEXT && pT->iIndex >= 0) {
+    if (pItem->type == CANVAS_TEXT && pT->iIndex >= 0 && pT->pNode->iNode >= 0){
         NodeIndexQuery *pQuery = (NodeIndexQuery *)clientData;
 
         /* Calculate the bounding-box of the item. Store the coordinates 
@@ -2605,7 +2605,7 @@ layoutNodeCb(pItem, origin_x, origin_y, clientData)
     pNode = itemToBox(pItem, origin_x, origin_y, &x, &y, &w, &h);
 
     if (
-        pNode &&
+        pNode && pNode->iNode >= 0 && 
         x <= pQuery->x && (x + w) >= pQuery->x &&
         y <= pQuery->y && (y + h) >= pQuery->y
     ) {

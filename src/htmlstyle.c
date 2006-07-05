@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlstyle.c,v 1.30 2006/07/05 17:54:44 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlstyle.c,v 1.31 2006/07/05 18:52:26 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -137,6 +137,17 @@ styleNode(pTree, pNode, clientData)
             )
         ) {
             pNode->iZLevel += 5;
+        }
+
+        if (pNode->pBefore) {
+            pNode->pBefore->iZLevel = pNode->iZLevel;
+            pNode->pBefore->pParent = pNode;
+            pNode->pBefore->iNode = -1;
+        }
+        if (pNode->pAfter) {
+            pNode->pAfter->iZLevel = pNode->iZLevel;
+            pNode->pAfter->pParent = pNode;
+            pNode->pAfter->iNode = -1;
         }
     }
 

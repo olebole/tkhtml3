@@ -31,7 +31,7 @@
  * 
  *     HtmlInlineContextIsEmpty
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.22 2006/07/04 14:10:40 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.23 2006/07/05 18:52:26 danielk1977 Exp $";
 
 typedef struct InlineBox InlineBox;
 
@@ -93,7 +93,8 @@ struct InlineContext {
 };
 
 #define START_LOG(x) \
-if (pContext->pTree->options.logcmd && !pContext->isSizeOnly) {                \
+if (pContext->pTree->options.logcmd && !pContext->isSizeOnly &&                \
+    pContext->pNode->iNode >= 0) {                                             \
     const char *zFunction = x;                                                 \
     Tcl_Obj *pLog = Tcl_NewObj();                                              \
     Tcl_IncrRefCount(pLog);                                                    \

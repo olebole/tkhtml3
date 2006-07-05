@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.74 2006/07/05 17:54:44 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.75 2006/07/05 18:52:26 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -1838,6 +1838,10 @@ HtmlNodeCommand(pTree, pNode)
 {
     static int nodeNumber = 0;
     HtmlNodeCmd *pNodeCmd = pNode->pNodeCmd;
+
+    if (pNode->iNode < 0) {
+        return 0;
+    }
 
     if (!pNodeCmd) {
         char zBuf[100];

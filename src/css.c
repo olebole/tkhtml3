@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.74 2006/07/05 17:54:43 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.75 2006/07/05 18:52:26 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -3249,13 +3249,15 @@ generatedContent(pTree, pNode, pCssRule, ppNode)
          * a text node also.
          */
         int nBytes = sizeof(HtmlToken) + strlen(zContent) + 1;
+        int idx;
         HtmlToken *pToken = (HtmlToken *)HtmlClearAlloc(0, nBytes);
         pToken->type = Html_Text;
         pToken->count = 0;
         pToken->x.zText = (char *)&pToken[1];
         strcpy(pToken->x.zText, zContent);
         HtmlFree(0, zContent);
-        HtmlNodeAddChild(*ppNode, pToken);
+        idx = HtmlNodeAddChild(*ppNode, pToken);
+        HtmlNodeChild(*ppNode, idx)->iNode = -1;
     }
 }
 
