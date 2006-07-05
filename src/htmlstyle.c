@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlstyle.c,v 1.29 2006/07/01 07:33:22 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlstyle.c,v 1.30 2006/07/05 17:54:44 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -94,19 +94,27 @@ styleNode(pTree, pNode, clientData)
             }
         }
     
+        /* Recalculate the properties for this node */
         HtmlCssStyleSheetApply(pTree, pNode);
-
-        if (pV == pNode->pPropertyValues) {
-            HtmlComputedValuesRelease(pTree, pV);
-        } else {
-            HtmlComputedValuesRelease(pTree, pNode->pPreviousValues);
-            pNode->pPreviousValues = pV;
-        }
+        HtmlComputedValuesRelease(pTree, pNode->pPreviousValues);
+        pNode->pPreviousValues = pV;
 
         redrawmode = HtmlComputedValuesCompare(pNode->pPropertyValues, pV);
+
+        /* Regenerate any :before and :after content */
+        if (pNode->pBefore || pNode->pAfter) {
+            HtmlCallbackLayout(pTree, pNode);
+            HtmlNodeClearGenerated(pTree, pNode);
+            redrawmode = 2;
+        }
+        HtmlCssStyleSheetGenerated(pTree, pNode);
+        if (pNode->pBefore || pNode->pAfter) {
+            redrawmode = 2;
+        }
+
         if (!pV || redrawmode == 2) {
             HtmlCallbackLayout(pTree, pNode);
-        } else if (redrawmode == 1) {
+        } else if (redrawmode == 1 && !(pTree->cb.flags & HTML_LAYOUT)) {
             int x, y, w, h;
             HtmlWidgetNodeBox(pTree, pNode, &x, &y, &w, &h);
             HtmlCallbackDamage(pTree, x-pTree->iScrollX, y-pTree->iScrollY,w,h);
@@ -158,29 +166,6 @@ HtmlStyleApply(pTree, pNode)
     HtmlWalkTree(pTree, pNode, styleNode, (ClientData)isRoot);
     return TCL_OK;
 }
-
-/*
- *---------------------------------------------------------------------------
- *
- * HtmlRestyleNode --
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-int 
-HtmlRestyleNode(pTree, pNode)
-    HtmlTree *pTree;
-    HtmlNode *pNode;
-{
-    HtmlWalkTree(pTree, pNode, styleNode, 0);
-    return TCL_OK;
-}
-
 
 /*
  *---------------------------------------------------------------------------

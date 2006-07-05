@@ -266,14 +266,21 @@ struct HtmlComputedValues {
     unsigned char eTableLayout;       /* 'table-layout' */
 };
 
+/*
+ * If pzContent is not NULL, then the pointer it points to may be set
+ * to point at allocated memory in which to store the computed value
+ * of the 'content' property.
+ */
 struct HtmlComputedValuesCreator {
     HtmlComputedValues values;
     HtmlFontKey fontKey;
     HtmlTree *pTree;
-    HtmlNode *pNode;
+    HtmlNode *pNode;                 /* Node to associate LOG with */
+    HtmlNode *pParent;               /* Node to inherit from */
     unsigned int em_mask;
     unsigned int ex_mask;
     int eVerticalAlignPercent;       /* True if 'vertical-align' is a % */
+    char **pzContent;
     CssProperty *pDeleteList;
 };
 
@@ -378,7 +385,8 @@ struct HtmlComputedValuesCreator {
  *
  *         HtmlComputedValuesRelease(pNode->pPropertyValues);
  */
-void HtmlComputedValuesInit(HtmlTree*, HtmlNode*, HtmlComputedValuesCreator*);
+void HtmlComputedValuesInit(
+HtmlTree*, HtmlNode*, HtmlNode*, HtmlComputedValuesCreator*);
 int HtmlComputedValuesSet(HtmlComputedValuesCreator *, int, CssProperty*);
 HtmlComputedValues *HtmlComputedValuesFinish(HtmlComputedValuesCreator *);
 void HtmlComputedValuesRelease(HtmlTree *, HtmlComputedValues*);

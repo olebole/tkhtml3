@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.77 2006/07/04 14:10:40 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.78 2006/07/05 17:54:44 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -46,7 +46,7 @@ static const char rcsid[] = "$Id: htmlprop.c,v 1.77 2006/07/04 14:10:40 danielk1
 
 /* #define ACCEPT_UNITLESS_LENGTHS */
 
-#define LOG if (p->pTree->options.logcmd)
+#define LOG if (p->pTree->options.logcmd && p->pNode)
 
 /*
  * Convert a double value from a CssProperty to an integer.
@@ -176,6 +176,8 @@ static PropertyDef propdef[] = {
   PROPDEF(CUSTOM, FONT_WEIGHT,               fFont),
   PROPDEF(CUSTOM, FONT_FAMILY,               fFont),
   PROPDEF(CUSTOM, FONT_STYLE,                fFont),
+
+  PROPDEF(CUSTOM, CONTENT,                   fFont),
 };
 
 #define SZ_AUTO     0x00000001
@@ -223,6 +225,8 @@ static int propertyValuesSetFontStyle(HtmlComputedValuesCreator*,CssProperty*);
 static int propertyValuesSetFontFamily(HtmlComputedValuesCreator*,CssProperty*);
 static int propertyValuesSetFontWeight(HtmlComputedValuesCreator*,CssProperty*);
 
+static int propertyValuesSetContent(HtmlComputedValuesCreator*,CssProperty*);
+
 static struct CustomDef {
   int eProp;
   int (*xSet)(HtmlComputedValuesCreator *, CssProperty *);
@@ -233,6 +237,7 @@ static struct CustomDef {
   {CSS_PROPERTY_FONT_WEIGHT,    propertyValuesSetFontWeight},
   {CSS_PROPERTY_FONT_STYLE,     propertyValuesSetFontStyle},
   {CSS_PROPERTY_FONT_FAMILY,    propertyValuesSetFontFamily},
+  {CSS_PROPERTY_CONTENT,        propertyValuesSetContent},
 };
 
 static int inheritlist[] = {
@@ -459,7 +464,7 @@ propertyValuesSetFontStyle(p, pProp)
 {
     int eType = pProp->eType;
     if (eType == CSS_CONST_INHERIT) {
-        int i = p->pNode->pParent->pPropertyValues->fFont->pKey->isItalic;;
+        int i = p->pParent->pPropertyValues->fFont->pKey->isItalic;;
         p->fontKey.isItalic = i;
     }else if (eType == CSS_CONST_ITALIC || eType == CSS_CONST_OBLIQUE) {
         p->fontKey.isItalic = 1;
@@ -469,6 +474,20 @@ propertyValuesSetFontStyle(p, pProp)
         return 1;
     }
     return 0;
+}
+
+static int 
+propertyValuesSetContent(p, pProp)
+    HtmlComputedValuesCreator *p;
+    CssProperty *pProp;
+{
+    if (pProp->eType == CSS_TYPE_STRING && p->pzContent) {
+        int nBytes = strlen(pProp->v.zVal) + 1;
+        *(p->pzContent) = HtmlAlloc(0, nBytes);
+        strcpy(*(p->pzContent), pProp->v.zVal);
+        return 0;
+    }
+    return 1;
 }
 
 /*
@@ -496,7 +515,7 @@ propertyValuesSetFontWeight(p, pProp)
 {
     int eType = pProp->eType;
     if (eType == CSS_CONST_INHERIT) {
-        HtmlNode *pParent = HtmlNodeParent(p->pNode);
+        HtmlNode *pParent = p->pParent;
         if (pParent) {
             int i = pParent->pPropertyValues->fFont->pKey->isBold;
             p->fontKey.isBold = i;
@@ -545,7 +564,7 @@ propertyValuesSetFontFamily(p, pProp)
 
     /* Handle 'inherit' */
     if (pProp->eType == CSS_CONST_INHERIT) {
-        HtmlNode *pParent = HtmlNodeParent(p->pNode);
+        HtmlNode *pParent = p->pParent;
         if (pParent) {
             z = pParent->pPropertyValues->fFont->pKey->zFontFamily;
             p->fontKey.zFontFamily = z;
@@ -591,7 +610,7 @@ propertyValuesSetFontSize(p, pProp)
 
     /* Handle 'inherit' separately. */
     if (pProp->eType == CSS_CONST_INHERIT) {
-        HtmlNode *pParent = HtmlNodeParent(p->pNode);
+        HtmlNode *pParent = p->pParent;
         if (pParent) {
             int i = pParent->pPropertyValues->fFont->pKey->iFontSize;
             p->fontKey.iFontSize = i;
@@ -605,7 +624,7 @@ propertyValuesSetFontSize(p, pProp)
             iScale = (double)pProp->v.rVal;
             break;
         case CSS_TYPE_EX: {
-            HtmlNode *pParent = HtmlNodeParent(p->pNode);
+            HtmlNode *pParent = p->pParent;
             if (pParent) {
                 HtmlFont *pFont = pParent->pPropertyValues->fFont;
                 iScale = (double)pProp->v.rVal * 
@@ -620,12 +639,13 @@ propertyValuesSetFontSize(p, pProp)
             break;
 
         case CSS_CONST_SMALLER: {
-            HtmlNode *pParent = HtmlNodeParent(p->pNode);
+            HtmlNode *pParent = p->pParent;
             if (pParent) {
                 int ii;
                 int *aSize = p->pTree->aFontSizeTable;
                 int ps = pParent->pPropertyValues->fFont->pKey->iFontSize;
-                for (ii = 1; ii < 7 && aSize[ii] < ps; ii++);
+                int points = ps / HTML_IFONTSIZE_SCALE;
+                for (ii = 1; ii < 7 && aSize[ii] < points; ii++);
                 iPoints = ps + (aSize[ii-1] - aSize[ii]) * HTML_IFONTSIZE_SCALE;
             } else {
                 iPoints = p->pTree->aFontSizeTable[2] * HTML_IFONTSIZE_SCALE;
@@ -633,12 +653,13 @@ propertyValuesSetFontSize(p, pProp)
             break;
         }
         case CSS_CONST_LARGER: {
-            HtmlNode *pParent = HtmlNodeParent(p->pNode);
+            HtmlNode *pParent = p->pParent;
             if (pParent) {
                 int ii;
                 int *aSize = p->pTree->aFontSizeTable;
                 int ps = pParent->pPropertyValues->fFont->pKey->iFontSize;
-                for (ii = 0; ii < 6 && aSize[ii] < ps; ii++);
+                int points = ps / HTML_IFONTSIZE_SCALE;
+                for (ii = 0; ii < 6 && aSize[ii] < points; ii++);
                 iPoints = ps + (aSize[ii+1] - aSize[ii]) * HTML_IFONTSIZE_SCALE;
             } else {
                 iPoints = p->pTree->aFontSizeTable[2] * HTML_IFONTSIZE_SCALE;
@@ -709,7 +730,7 @@ propertyValuesSetFontSize(p, pProp)
     } else if (iPoints > 0) {
         p->fontKey.iFontSize = iPoints;
     } else if (iScale > 0.0) {
-       HtmlNode *pParent = HtmlNodeParent(p->pNode);
+       HtmlNode *pParent = p->pParent;
        if (pParent) {
            HtmlFont *pFont = pParent->pPropertyValues->fFont;
            p->fontKey.iFontSize = pFont->pKey->iFontSize * iScale;
@@ -735,7 +756,7 @@ getInheritPointer(p, pVar)
 #endif
 
     int offset = pVar - (unsigned char *)p;
-    HtmlNode *pParent = HtmlNodeParent(p->pNode);
+    HtmlNode *pParent = p->pParent;
 
     assert(
         values_offset >= 0 &&
@@ -1035,8 +1056,7 @@ propertyValuesSetLineHeight(p, pProp)
 
     switch (pProp->eType) {
         case CSS_CONST_INHERIT: {
-            p->values.iLineHeight = 
-                HtmlNodeParent(p->pNode)->pPropertyValues->iLineHeight;
+            p->values.iLineHeight = p->pParent->pPropertyValues->iLineHeight;
             rc = 0;
             break;
         }
@@ -1154,7 +1174,7 @@ propertyValuesSetVerticalAlign(p, pProp)
 
     switch (pProp->eType) {
         case CSS_CONST_INHERIT: {
-            HtmlNode *pParent = HtmlNodeParent(p->pNode);
+            HtmlNode *pParent = p->pParent;
             HtmlComputedValues *pPV;
 
             assert(pParent && pParent->pPropertyValues);
@@ -1261,7 +1281,7 @@ propertyValuesSetSize(p, pIVal, p_mask, pProp, allow_mask)
 
         case CSS_CONST_INHERIT:
             if (allow_mask & SZ_INHERIT) {
-                HtmlNode *pParent = HtmlNodeParent(p->pNode);
+                HtmlNode *pParent = p->pParent;
                 int *pInherit = (int *)getInheritPointer(p, pIVal);
                 assert(pInherit);
                 assert(pParent);
@@ -1397,9 +1417,10 @@ propertyValuesSetBorderWidth(p, pIVal, em_mask, pProp)
  *---------------------------------------------------------------------------
  */
 void
-HtmlComputedValuesInit(pTree, pNode, p)
+HtmlComputedValuesInit(pTree, pNode, pParent, p)
     HtmlTree *pTree;
-    HtmlNode *pNode;
+    HtmlNode *pNode;                 /* Node to use for LOG blocks */
+    HtmlNode *pParent;               /* Node to inherit properties from */
     HtmlComputedValuesCreator *p;
 {
     static CssProperty Black       = {CSS_CONST_BLACK, {"black"}};
@@ -1412,12 +1433,13 @@ HtmlComputedValuesInit(pTree, pNode, p)
     HtmlComputedValues *pValues = &p->values;
     char *values = (char *)pValues;
 
-    HtmlNode *pParent = HtmlNodeParent(pNode);
-    assert(p && pTree && pNode);
+    if (0 == pParent) {
+        pParent = HtmlNodeParent(pNode);
+    }
 
     memset(p, 0, sizeof(HtmlComputedValuesCreator));
     p->pTree = pTree;
-    p->pNode = pNode;
+    p->pParent = pParent;
 
     /* Initialise the CUSTOM properties */
     pValues->eVerticalAlign = CSS_CONST_BASELINE;
@@ -1456,6 +1478,8 @@ HtmlComputedValuesInit(pTree, pNode, p)
             }
         }
     }
+
+    p->pNode = pNode;
 }
 
 /*
@@ -1508,10 +1532,9 @@ propertyValuesTclScript(p, eProp, zScript)
          */
         LOG {
             HtmlLog(p->pTree, "STYLEENGINE", "%s "
-                "tcl() script returned \"%s\" - "
-                "type mismatch for property '%s'",
+                "tcl() script result is type mismatch for property '%s'",
                 Tcl_GetString(HtmlNodeCommand(p->pTree, p->pNode)),
-                zRes, HtmlCssPropertyToString(eProp)
+                HtmlCssPropertyToString(eProp)
             );
         }
         HtmlFree(0, (char *)pVal);
@@ -1589,7 +1612,7 @@ HtmlComputedValuesSet(p, eProp, pProp)
     /* Silently ignore any attempt to set a root-node property to 'inherit'.
      * It's not a type-mismatch, we just want to leave the value unchanged.
      */
-    if (pProp->eType == CSS_CONST_INHERIT && !HtmlNodeParent(p->pNode)) {
+    if (pProp->eType == CSS_CONST_INHERIT && !p->pParent) {
         return 0;
     }
 
@@ -2335,7 +2358,8 @@ HtmlNodeProperties(interp, pValues)
             pDef->eProp == CSS_PROPERTY_FONT_SIZE ||
             pDef->eProp == CSS_PROPERTY_FONT_STYLE ||
             pDef->eProp == CSS_PROPERTY_FONT_VARIANT ||
-            pDef->eProp == CSS_PROPERTY_FONT_WEIGHT 
+            pDef->eProp == CSS_PROPERTY_FONT_WEIGHT  ||
+            pDef->eProp == CSS_PROPERTY_CONTENT 
         ) continue;
 
         Tcl_ListObjAppendElement(interp, pRet, Tcl_NewStringObj(zName, -1));

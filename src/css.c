@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.73 2006/07/01 07:33:22 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.74 2006/07/05 17:54:43 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -2238,6 +2238,19 @@ ruleFree(pRule)
     }
 }
 
+static void
+freeRulesList(ppList)
+    CssRule **ppList;
+{
+    CssRule *pRule = *ppList;
+    while (pRule) { 
+        CssRule *pNext = pRule->pNext;
+        ruleFree(pRule);
+        pRule = pNext;
+    }
+    *ppList = 0;
+}
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -2259,15 +2272,13 @@ HtmlCssStyleSheetFree(pStyle)
 {
     if (pStyle) {
         CssPriority *pPriority;
-        CssRule *pRule;
 
-        pRule = pStyle->pUniversalRules; 
-        while (pRule) { 
-            CssRule *pNext = pRule->pNext;
-            ruleFree(pRule);
-            pRule = pNext;
-        }
+        /* Free the universal rules list */
+        freeRulesList(&pStyle->pUniversalRules); 
+        freeRulesList(&pStyle->pAfterRules); 
+        freeRulesList(&pStyle->pBeforeRules); 
 
+        /* Free the priorities list */
         pPriority = pStyle->pPriority;
         while (pPriority) {
             CssPriority *pNext = pPriority->pNext;
@@ -2485,6 +2496,34 @@ ruleCompare(CssRule *pLeft, CssRule *pRight) {
     return res;
 }
 
+static void
+insertRule(ppList, pRule) 
+    CssRule **ppList;
+    CssRule *pRule;
+{
+    if (!*ppList || ruleCompare(*ppList, pRule) <= 0) {
+        /* If the default list is currently empty, or the rule being
+         * added has higher priority than the first rule in the list,
+         * our rule becomes the new head of the list.
+         */
+        pRule->pNext = *ppList;
+        *ppList = pRule;
+    } else {
+        /* Otherwise insert the new rule into the list, ordered by
+         * priority. If there exists another rule with the same
+         * priority, then this rule is inserted into the list *before*
+         * it. This is because when rules are of equal priority, the
+         * latter specified wins.
+         */
+        CssRule *pR = *ppList;
+        while (pR->pNext && ruleCompare(pR->pNext, pRule)>0 ) {
+            pR = pR->pNext;
+        }
+        pRule->pNext = pR->pNext;
+        pR->pNext = pRule;
+    }
+}
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -2520,6 +2559,8 @@ cssSelectorPropertySetPair(pParse, pSelector, pPropertySet, freeWhat)
     CssSelector *pS = 0;
     CssStyleSheet *pStyle = pParse->pStyle;
     CssRule *pRule = (CssRule *)HtmlAlloc(0, sizeof(CssRule));
+    CssRule **ppList = &pStyle->pUniversalRules;
+
     memset(pRule, 0, sizeof(CssRule));
 
     assert(pPropertySet && pPropertySet->n > 0);
@@ -2572,6 +2613,13 @@ cssSelectorPropertySetPair(pParse, pSelector, pPropertySet, freeWhat)
              case CSS_PSEUDOCLASS_FOCUS:
                  spec += 100;
                  break;
+ 
+             case CSS_PSEUDOELEMENT_AFTER:
+                 ppList = &pStyle->pAfterRules;
+                 break;
+             case CSS_PSEUDOELEMENT_BEFORE:
+                 ppList = &pStyle->pBeforeRules;
+                 break;
          }
     }
     pRule->specificity = spec;
@@ -2585,43 +2633,8 @@ cssSelectorPropertySetPair(pParse, pSelector, pPropertySet, freeWhat)
         pRule->pPriority = pParse->pPriority2;
     }
 
-    if( 0 && pSelector->eSelector==CSS_SELECTOR_TYPE ){
-#if 0
-        Tcl_HashEntry *pEntry; 
-        int n;         /* True if we add a a new hash table entry */
-        assert( pSelector->zValue );
-        pEntry = Tcl_CreateHashEntry(&pStyle->rules, pSelector->zValue, &n);
-        pRule->pNext = Tcl_GetHashValue(pEntry);
-        assert( (n && !pRule->pNext) || (!n && pRule->pNext) );
-        Tcl_SetHashValue(pEntry, pRule);
-#endif
-    }else{
-        /* The rule doesn't belong in any hash table, so put it in the
-         * default list.
-         */
-        CssRule *pR = pStyle->pUniversalRules;
-
-        if (!pR || ruleCompare(pR, pRule)<=0) {
-            /* If the default list is currently empty, or the rule being
-	     * added has higher priority than the first rule in the list,
-             * our rule becomes the new head of the list.
-             */
-	    pRule->pNext = pStyle->pUniversalRules;
-            pStyle->pUniversalRules = pRule;
-        } else {
-            /* Otherwise insert the new rule into the list, ordered by
-             * priority. If there exists another rule with the same
-             * priority, then this rule is inserted into the list *before*
-             * it. This is because when rules are of equal priority, the
-             * latter specified wins.
-             */
-            while (pR->pNext && ruleCompare(pR->pNext, pRule)>0 ) {
-                pR = pR->pNext;
-            }
-            pRule->pNext = pR->pNext;
-            pR->pNext = pRule;
-        }
-    }
+    /* Insert the rule into it's list. */
+    insertRule(ppList, pRule);
 
     pRule->pSelector = pSelector;
     pRule->pPropertySet = pPropertySet;
@@ -2631,12 +2644,13 @@ int HtmlCssPseudo(pToken)
     CssToken *pToken;
 {
     char *zOptions[] = {
-        "link", "visited", "active", "hover", "focus"
+        "link", "visited", "active", "hover", "focus", "after", "before"
     };
     int eOptions[] = {
         CSS_PSEUDOCLASS_LINK, CSS_PSEUDOCLASS_VISITED, 
         CSS_PSEUDOCLASS_ACTIVE, CSS_PSEUDOCLASS_HOVER, 
-        CSS_PSEUDOCLASS_FOCUS
+        CSS_PSEUDOCLASS_FOCUS, CSS_PSEUDOELEMENT_AFTER, 
+        CSS_PSEUDOELEMENT_BEFORE
     };
     int i;
 
@@ -2872,19 +2886,16 @@ HtmlCssSelectorTest(pSelector, pNode, dynamic_true)
                 break;
             }
                 
-            /* TODO: Support pseudo elements and classes properly. The
-             * really important ones are ":visited" and ":link". ":active",
-             * ":hover" and ":focus" are also pretty crucial to rendering
-             * the web correctly.
-             */
             case CSS_PSEUDOCLASS_LANG:
             case CSS_PSEUDOCLASS_FIRSTCHILD:
                 return 0;
             case CSS_PSEUDOELEMENT_FIRSTLINE:
             case CSS_PSEUDOELEMENT_FIRSTLETTER:
+                return 0;
+
             case CSS_PSEUDOELEMENT_BEFORE:
             case CSS_PSEUDOELEMENT_AFTER:
-                return 0;
+                break;
 
             case CSS_PSEUDOCLASS_ACTIVE:
                 if (dynamic_true || (x->flags & HTML_DYNAMIC_ACTIVE)) break;
@@ -3048,6 +3059,62 @@ selectorIsDynamic(pSelector)
 
 /*--------------------------------------------------------------------------
  *
+ * applyRule --
+ *
+ *     Test the selector of pRule against node pNode. If there is a match,
+ *     add the rules properties to the computed values being accumulated in
+ *     pCreator.
+ *
+ * Results:
+ *
+ *     The value returned is true if the selector matched, or false otherwise.
+ *
+ * Side effects:
+ *
+ *--------------------------------------------------------------------------
+ */
+static int 
+applyRule(pTree, pNode, pRule, aPropDone, pCreator)
+    HtmlTree *pTree;
+    HtmlNode *pNode;
+    CssRule *pRule;
+    int *aPropDone;
+    HtmlComputedValuesCreator *pCreator;
+{
+    /* Test if the selector matches the node. Variable isMatch is set to
+     * true if the selector matches, or false otherwise. 
+     */
+    CssSelector *pSelector = pRule->pSelector;
+    int isMatch = HtmlCssSelectorTest(pSelector, pNode, 0);
+
+    if (isMatch) {
+        /* There is a match. Log some output for debugging. */
+        LOG {
+            CssPriority *pPriority = pRule->pPriority;
+            Tcl_Obj *pS = Tcl_NewObj();
+            Tcl_IncrRefCount(pS);
+            HtmlCssSelectorToString(pSelector, pS);
+            HtmlLog(pTree, "STYLEENGINE", "%s matches \"%s\""
+                " from \"%s%s\"",
+                Tcl_GetString(HtmlNodeCommand(pTree, pNode)),
+                Tcl_GetString(pS),
+                pPriority->origin == CSS_ORIGIN_AUTHOR ? "author" :
+                pPriority->origin == CSS_ORIGIN_AGENT ? "agent" : "user",
+                Tcl_GetString(pPriority->pIdTail)
+            );
+            Tcl_DecrRefCount(pS);
+        }                   
+  
+        /* Copy the properties from the rule into the computed values set. */
+        ruleToPropertyValues(pCreator, aPropDone, pRule);
+    }
+
+    return isMatch;
+}
+
+
+/*--------------------------------------------------------------------------
+ *
  * HtmlCssStyleSheetApply --
  *
  *     Argument pStyle contains the current stylesheet configuration for the
@@ -3084,7 +3151,7 @@ HtmlCssStyleSheetApply(pTree, pNode)
     int aPropDone[CSS_PROPERTY_MAX_PROPERTY + 1];
 
     /* Initialise aPropDone and sCreator */
-    HtmlComputedValuesInit(pTree, pNode, &sCreator);
+    HtmlComputedValuesInit(pTree, pNode, 0, &sCreator);
     memset(aPropDone, 0, sizeof(aPropDone));
     assert(sizeof(aPropDone) == sizeof(int) * (CSS_PROPERTY_MAX_PROPERTY+1));
 
@@ -3094,7 +3161,6 @@ HtmlCssStyleSheetApply(pTree, pNode)
      * priority than anything else.
      */
     overrideToPropertyValues(&sCreator, aPropDone, pNode->pOverride);
-
 
     /* Loop through the list of CSS rules in the stylesheet. Rules that occur
      * earlier in the list have a higher priority than those that occur later.
@@ -3123,24 +3189,7 @@ HtmlCssStyleSheetApply(pTree, pNode)
         }
 
         /* If the selector is a match for our node, apply the rule properties */
-        isMatch = HtmlCssSelectorTest(pSelector, pNode, 0);
-        if (isMatch) {
-            LOG {
-                Tcl_Obj *pS = Tcl_NewObj();
-                Tcl_IncrRefCount(pS);
-                HtmlCssSelectorToString(pSelector, pS);
-                HtmlLog(pTree, "STYLEENGINE", "%s matches \"%s\""
-                    " from \"%s%s\"",
-                    Tcl_GetString(HtmlNodeCommand(pTree, pNode)),
-                    Tcl_GetString(pS),
-                    pPriority->origin == CSS_ORIGIN_AUTHOR ? "author" :
-                    pPriority->origin == CSS_ORIGIN_AGENT ? "agent" : "user",
-                    Tcl_GetString(pPriority->pIdTail)
-                );
-                Tcl_DecrRefCount(pS);
-            }                   
-            ruleToPropertyValues(&sCreator, aPropDone, pRule);
-        }
+        applyRule(pTree, pNode, pRule, aPropDone, &sCreator);
 
         if (
             /* selectorIsDynamic(pSelector) && */
@@ -3156,10 +3205,67 @@ HtmlCssStyleSheetApply(pTree, pNode)
         ruleToPropertyValues(&sCreator, aPropDone, pNode->pStyle->apRule[0]);
     }
 
-    /* Call HtmlComputedValuesFinish() to finish creating teh
+    /* Call HtmlComputedValuesFinish() to finish creating the
      * HtmlComputedValues structure.
      */
     pNode->pPropertyValues = HtmlComputedValuesFinish(&sCreator);
+}
+
+static void 
+generatedContent(pTree, pNode, pCssRule, ppNode)
+    HtmlTree *pTree;
+    HtmlNode *pNode;
+    CssRule *pCssRule;
+    HtmlNode **ppNode;
+{
+    CssRule *pRule;                                 /* Iterator variable */
+    int have = 0;
+
+    int aPropDone[CSS_PROPERTY_MAX_PROPERTY + 1];
+    HtmlComputedValuesCreator sCreator;
+
+    HtmlComputedValues *pValues = 0;
+    char *zContent = 0;
+
+    memset(aPropDone, 0, sizeof(aPropDone));
+    HtmlComputedValuesInit(pTree, pNode, pNode, &sCreator);
+    sCreator.pzContent = &zContent;
+    for (pRule = pCssRule; pRule; pRule = pRule->pNext) {
+        int isMatch = applyRule(pTree, pNode, pRule, aPropDone, &sCreator);
+        if (isMatch) have = 1;
+    }
+    pValues = HtmlComputedValuesFinish(&sCreator);
+    if (!have) {
+        HtmlComputedValuesRelease(pTree, pValues);
+        assert(zContent == 0);
+        return;
+    } 
+
+    *ppNode = (HtmlNode *)HtmlClearAlloc(0, sizeof(HtmlNode));
+    (*ppNode)->pPropertyValues = pValues;
+
+    if (zContent) {
+        /* If a value was specified for the 'content' property, create
+         * a text node also.
+         */
+        int nBytes = sizeof(HtmlToken) + strlen(zContent) + 1;
+        HtmlToken *pToken = (HtmlToken *)HtmlClearAlloc(0, nBytes);
+        pToken->type = Html_Text;
+        pToken->count = 0;
+        pToken->x.zText = (char *)&pToken[1];
+        strcpy(pToken->x.zText, zContent);
+        HtmlFree(0, zContent);
+        HtmlNodeAddChild(*ppNode, pToken);
+    }
+}
+
+void HtmlCssStyleSheetGenerated(pTree, pNode)
+    HtmlTree *pTree;
+    HtmlNode *pNode;
+{
+    CssStyleSheet *pStyle = pTree->pStyle;    /* Stylesheet config */
+    generatedContent(pTree, pNode, pStyle->pAfterRules, &pNode->pAfter);
+    generatedContent(pTree, pNode, pStyle->pBeforeRules, &pNode->pBefore);
 }
 
 /*--------------------------------------------------------------------------

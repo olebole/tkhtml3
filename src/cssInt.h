@@ -202,6 +202,10 @@ struct CssStyleSheet {
     int nSyntaxErr;            /* Number of syntax errors during parsing */
     CssRule *pUniversalRules;
     CssPriority *pPriority;
+
+    CssRule *pAfterRules;       /* Rules that end in :after */
+    CssRule *pBeforeRules;      /* Rules that end in :before */
+
 #if 0
     Tcl_HashTable aByType;
     Tcl_HashTable aById;

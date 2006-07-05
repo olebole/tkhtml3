@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.86 2006/07/04 14:10:40 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.87 2006/07/05 17:54:44 danielk1977 Exp $";
 
 #include "htmllayout.h"
 
@@ -148,7 +148,7 @@ fixNodeProperties(pData, pNode)
         if (!pData->pDefaultProperties) {
             HtmlTree *pTree = pData->pLayout->pTree;
             HtmlComputedValuesCreator sCreator;
-            HtmlComputedValuesInit(pTree, pNode, &sCreator);
+            HtmlComputedValuesInit(pTree, pNode, 0, &sCreator);
             pData->pDefaultProperties = HtmlComputedValuesFinish(&sCreator);
         }
         pNode->pPropertyValues = pData->pDefaultProperties;

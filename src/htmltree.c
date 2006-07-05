@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.73 2006/07/04 08:47:41 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.74 2006/07/05 17:54:44 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -522,15 +522,18 @@ HtmlNodeClearStyle(pTree, pNode)
     HtmlTree *pTree;
     HtmlNode *pNode;
 {
-    HtmlComputedValuesRelease(pTree, pNode->pPropertyValues);
-    HtmlComputedValuesRelease(pTree, pNode->pPreviousValues);
-    HtmlCssPropertiesFree(pNode->pStyle);
-    HtmlCssFreeDynamics(pNode);
-    pNode->pStyle = 0;
-    pNode->pPropertyValues = 0;
-    pNode->pPreviousValues = 0;
-    pNode->pDynamic = 0;
-    pNode->iZLevel = 0;
+    if (pNode) {
+        HtmlNodeClearGenerated(pTree, pNode);
+        HtmlComputedValuesRelease(pTree, pNode->pPropertyValues);
+        HtmlComputedValuesRelease(pTree, pNode->pPreviousValues);
+        HtmlCssPropertiesFree(pNode->pStyle);
+        HtmlCssFreeDynamics(pNode);
+        pNode->pStyle = 0;
+        pNode->pPropertyValues = 0;
+        pNode->pPreviousValues = 0;
+        pNode->pDynamic = 0;
+        pNode->iZLevel = 0;
+    }
     return 0;
 }
 
@@ -588,8 +591,7 @@ freeNode(pTree, pNode)
         HtmlFree(0, (char *)pNode->apChildren);
 
         /* Delete the computed values caches. */
-        HtmlComputedValuesRelease(pTree, pNode->pPropertyValues);
-        HtmlComputedValuesRelease(pTree, pNode->pPreviousValues);
+        HtmlNodeClearStyle(pTree, pNode);
 
         /* And the compiled cache of the node's "style" attribute, if any. */
         HtmlCssPropertiesFree(pNode->pStyle);
@@ -605,6 +607,18 @@ freeNode(pTree, pNode)
         HtmlCssFreeDynamics(pNode);
         HtmlFree(0, (char *)pNode);
     }
+}
+
+int
+HtmlNodeClearGenerated(pTree, pNode)
+    HtmlTree *pTree;
+    HtmlNode *pNode;
+{
+    freeNode(pTree, pNode->pBefore);
+    freeNode(pTree, pNode->pAfter);
+    pNode->pBefore = 0;
+    pNode->pAfter = 0;
+    return 0;
 }
 
 /*
@@ -722,13 +736,13 @@ HtmlFinishNodeHandlers(pTree)
 /*
  *---------------------------------------------------------------------------
  *
- * nodeAddChild --
+ * HtmlNodeAddChild --
  *
  *     Add a new child node to node pNode. pToken becomes the starting
  *     token for the new node. The value returned is the index of the new
  *     child. So the call:
  *
- *          HtmlNodeChild(pNode, nodeAddChild(pNode, pToken))
+ *          HtmlNodeChild(pNode, HtmlNodeAddChild(pNode, pToken))
  *
  *     returns the new child node.
  *
@@ -740,8 +754,8 @@ HtmlFinishNodeHandlers(pTree)
  *
  *---------------------------------------------------------------------------
  */
-static int 
-nodeAddChild(pNode, pToken)
+int 
+HtmlNodeAddChild(pNode, pToken)
     HtmlNode *pNode;
     HtmlToken *pToken;
 {
@@ -911,8 +925,8 @@ HtmlAddToken(pTree, pToken)
         pTree->pRoot = pCurrent;
         pTree->pCurrent = pCurrent;
 
-        nodeAddChild(pCurrent, pHead);
-        nodeAddChild(pCurrent, pBody);
+        HtmlNodeAddChild(pCurrent, pHead);
+        HtmlNodeAddChild(pCurrent, pBody);
         pCurrent = pTree->pRoot->apChildren[1];
 
     } 
@@ -945,7 +959,7 @@ HtmlAddToken(pTree, pToken)
 	     * section.
              */
         case Html_TITLE: {
-            int n = nodeAddChild(pHeadNode, pToken);
+            int n = HtmlNodeAddChild(pHeadNode, pToken);
             HtmlNode *p = HtmlNodeChild(pHeadNode, n);
             pTree->isCdataInHead = 1;
             p->iNode = pTree->iNextNode++;
@@ -955,7 +969,7 @@ HtmlAddToken(pTree, pToken)
         case Html_META:
         case Html_LINK:
         case Html_BASE: {
-            int n = nodeAddChild(pHeadNode, pToken);
+            int n = HtmlNodeAddChild(pHeadNode, pToken);
             HtmlNode *p = HtmlNodeChild(pHeadNode, n);
             p->iNode = pTree->iNextNode++;
             nodeHandlerCallbacks(pTree, p);
@@ -968,12 +982,13 @@ HtmlAddToken(pTree, pToken)
             if (pTree->isCdataInHead) {
                 int nChild = HtmlNodeNumChildren(pHeadNode) - 1;
                 HtmlNode *pTitle = HtmlNodeChild(pHeadNode, nChild);
-                HtmlNode *p = HtmlNodeChild(pTitle,nodeAddChild(pTitle,pToken));
+                HtmlNode *p = HtmlNodeChild(pTitle,
+                    HtmlNodeAddChild(pTitle,pToken));
                 p->iNode = pTree->iNextNode++;
                 pTree->isCdataInHead = 0;
                 nodeHandlerCallbacks(pTree, pTitle);
             }else{
-                int n = nodeAddChild(pCurrent,pToken);
+                int n = HtmlNodeAddChild(pCurrent,pToken);
                 HtmlNode *p = HtmlNodeChild(pCurrent, n);
                 p->iNode = pTree->iNextNode++;
             }
@@ -1009,7 +1024,7 @@ HtmlAddToken(pTree, pToken)
             if (r) {
                 assert(!HtmlNodeIsText(pTree->pCurrent));
                 pCurrent = HtmlNodeChild(pCurrent, 
-                    nodeAddChild(pCurrent, pToken));
+                    HtmlNodeAddChild(pCurrent, pToken));
                 pCurrent->iNode = pTree->iNextNode++;
             }
 
@@ -1585,6 +1600,11 @@ node_attr_usage:
             break;
         }
 
+        /*
+         * nodeHandle prop ?PSEUDO-ELEMENT?
+         *
+         *     Argument may be "after" or "before".
+         */
         case NODE_PROP: {
             HtmlNode *pN = pNode;
             if (HtmlNodeIsText(pN)) {
@@ -1596,9 +1616,23 @@ node_attr_usage:
                 Tcl_AppendResult(interp,"Computed values cannot be obtained",0);
                 return TCL_ERROR;
             }
-            if (HtmlNodeProperties(interp, pN->pPropertyValues)) {
-                return TCL_ERROR;
+
+            if (objc == 3) {
+                const char *zPseudo = Tcl_GetString(objv[2]);
+                if (strcmp(zPseudo, "after") == 0 && pN->pAfter) {
+                    HtmlNodeProperties(interp, pN->pAfter->pPropertyValues);
+                } else if (strcmp(zPseudo, "before") == 0 && pN->pBefore) {
+                    HtmlNodeProperties(interp, pN->pBefore->pPropertyValues);
+                } else {
+                    Tcl_ResetResult(interp);
+                    Tcl_AppendResult(interp, "No such pseudo-element: ", 0);
+                    Tcl_AppendResult(interp, zPseudo, 0);
+                    return TCL_ERROR;
+                }
+            } else {
+                HtmlNodeProperties(interp, pN->pPropertyValues);
             }
+
             break;
         }
 

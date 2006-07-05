@@ -105,6 +105,7 @@ typedef struct HtmlNodeReplacement HtmlNodeReplacement;
 typedef struct HtmlCallback HtmlCallback;
 typedef struct HtmlNodeCmd HtmlNodeCmd;
 typedef struct HtmlLayoutCache HtmlLayoutCache;
+typedef struct HtmlNodeContent HtmlNodeContent;
 
 typedef struct HtmlImageServer HtmlImageServer;
 typedef struct HtmlImage2 HtmlImage2;
@@ -174,7 +175,7 @@ struct HtmlToken {
  */
 struct HtmlNodeReplacement {
     Tcl_Obj *pReplace;            /* Replacement window name */
-    Tk_Window win;                /* Replacement window */
+    Tk_Window win;                /* Replacement window (if any) */
     Tcl_Obj *pConfigure;          /* Script passed to -configurecmd */
     Tcl_Obj *pDelete;             /* Script passed to -deletecmd */
     int iOffset;                  /* See above */
@@ -193,6 +194,16 @@ struct HtmlNodeCmd {
     HtmlTree *pTree;
 };
 
+/*
+ * An instance of this structure is allocated for each node that has
+ * generated content (content may be generated via CSS :before and :after
+ * selector pseudo-elements).
+ */
+struct HtmlNodeContent {
+    HtmlToken *pContent;
+    HtmlComputedValues *pValues;
+};
+
 /* 
  * Each node of the document tree is represented as an HtmlNode structure.
  * This structure carries no information to do with the node itself, it is
@@ -204,20 +215,23 @@ struct HtmlNode {
     HtmlToken *pToken;             /* Html element associated with node */
     int nChild;                    /* Number of child nodes */
     HtmlNode **apChildren;         /* Array of pointers to children nodes */
+    int iNode;                     /* Node index */
 
-    CssProperties *pStyle;     /* The CSS properties from style attribute */
-    HtmlComputedValues *pPropertyValues;     /* CSS property values */
-    int iZLevel;                             /* Z coordinate of content */
+    CssProperties *pStyle;                   /* Parsed "style" attribute */
+    Tcl_Obj *pOverride;                      /* List of property overrides */
+    HtmlComputedValues *pPropertyValues;     /* Current CSS property values */
     HtmlComputedValues *pPreviousValues;     /* Previous CSS property values */
+    int iZLevel;                             /* Z coordinate of content */
     CssDynamic *pDynamic;                    /* CSS dynamic conditions */
     Html_u8 flags;                           /* HTML_DYNAMIC_XXX flags */
-    Tcl_Obj *pOverride;                      /* List of property overrides */
+
+    HtmlNode *pBefore;                       /* Generated :before content */
+    HtmlNode *pAfter;                        /* Generated :after content */
 
     HtmlLayoutCache *pLayoutCache;           /* Cached layout, if any */
 
     HtmlNodeReplacement *pReplacement;       /* Replaced object, if any */
     HtmlNodeCmd *pNodeCmd;                   /* Tcl command for this node */
-    int iNode;                               /* Node index */
 };
 
 /* Values for HtmlNode.flags. These may be set and cleared via the Tcl
@@ -483,6 +497,8 @@ char CONST *HtmlNodeAttr(HtmlNode *, char CONST *);
 char *      HtmlNodeToString(HtmlNode *);
 HtmlNode *  HtmlNodeGetPointer(HtmlTree *, char CONST *);
 
+int HtmlNodeAddChild(HtmlNode *, HtmlToken *);
+
 int         HtmlNodeIsText(HtmlNode *);
 Html_u8     HtmlNodeTagType(HtmlNode *);
 int         HtmlNodeIsWhitespace(HtmlNode *);
@@ -572,6 +588,7 @@ void HtmlWidgetSetViewport(HtmlTree *, int, int, int);
 void HtmlWidgetRepair(HtmlTree *, int, int, int, int);
 
 int HtmlNodeClearStyle(HtmlTree *, HtmlNode *);
+int HtmlNodeClearGenerated(HtmlTree *, HtmlNode *);
 
 #endif
 

@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.129 2006/07/04 08:47:41 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.130 2006/07/05 17:54:43 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -807,7 +807,6 @@ combineText(pNodeA, pNodeB)
     assert(HtmlNodeIsText(pNodeB));
     /* assert(pNodeA->iNode <= pNodeB->iNode); */
     if (pNodeA->iNode > pNodeB->iNode) return 0;
-    
 
     for (pA = pNodeA; pA && !pCommon; pA = HtmlNodeParent(pA)) {
         for (pB = pNodeB; pB && !pCommon; pB = HtmlNodeParent(pB)) {
@@ -816,6 +815,8 @@ combineText(pNodeA, pNodeB)
             }
         }
     }
+
+    if (!pCommon) return 0;
 
     assert(pCommon);
     for (pA = pNodeA; pA != pCommon; pA = HtmlNodeParent(pA)) {

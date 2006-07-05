@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.183 2006/07/04 08:47:41 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.184 2006/07/05 17:54:43 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -1905,6 +1905,7 @@ normalFlowLayoutTable(pLayout, pBox, pNode, pY, pContext, pNormal)
         pLayout->minmaxTest ? PIXELVAL_AUTO : pBox->iContaining
     );
     if (iWidth == PIXELVAL_AUTO) {
+        HtmlFloatListMargins(pFloat, *pY, *pY+10000, &iLeftFloat, &iRightFloat);
         iWidth = iRightFloat - iLeftFloat - iMPB;
     } else {
         /* Astonishingly, the 'width' property when applied to an element
@@ -2114,7 +2115,7 @@ normalFlowLayoutTableComponent(pLayout, pBox, pNode, pY, pContext, pNormal)
         sProp.eType = CSS_CONST_TABLE;
         sProp.v.zVal = "table";
         HtmlComputedValuesCreator sCreator;
-        HtmlComputedValuesInit(pLayout->pTree, &sTable, &sCreator);
+        HtmlComputedValuesInit(pLayout->pTree, &sTable, 0, &sCreator);
         HtmlComputedValuesSet(&sCreator, CSS_PROPERTY_DISPLAY, &sProp);
         pLayout->pImplicitTableProperties = HtmlComputedValuesFinish(&sCreator);
     }
@@ -2568,6 +2569,46 @@ normalFlowLayoutReplacedInline(pLayout, pBox, pNode, pY, pContext, pNormal)
 /*
  *---------------------------------------------------------------------------
  *
+ * layoutChildren --
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void
+layoutChildren(pLayout, pBox, pNode, pY, pContext, pNormal)
+    LayoutContext *pLayout;
+    BoxContext *pBox;
+    HtmlNode *pNode;
+    int *pY;
+    InlineContext *pContext;
+    NormalFlow *pNormal;
+{
+    int ii;
+
+    /* Layout the :before pseudo-element */
+    normalFlowLayoutNode(pLayout, pBox, pNode->pBefore, pY, pContext, pNormal);
+
+    /* Layout each of the child nodes. */
+    for(ii = 0; ii < HtmlNodeNumChildren(pNode) ; ii++) {
+        HtmlNode *p = HtmlNodeChild(pNode, ii);
+        int r;
+        r = normalFlowLayoutNode(pLayout, pBox, p, pY, pContext, pNormal);
+        assert(r >= 0);
+        ii += r;
+    }
+
+    /* Layout the :after pseudo-element */
+    normalFlowLayoutNode(pLayout, pBox, pNode->pAfter, pY, pContext, pNormal);
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * normalFlowLayoutInline --
  *
  * Results:
@@ -2591,13 +2632,7 @@ normalFlowLayoutInline(pLayout, pBox, pNode, pY, pContext, pNormal)
     InlineBorder *pBorder;
     pBorder = HtmlGetInlineBorder(pLayout, pNode, 0);
     HtmlInlineContextPushBorder(pContext, pBorder);
-    for(i=0; i < HtmlNodeNumChildren(pNode); i++) {
-        HtmlNode *pChild = HtmlNodeChild(pNode, i);
-        int r;
-        r = normalFlowLayoutNode(pLayout, pBox, pChild, pY, pContext, pNormal);
-        assert(r >= 0);
-        i += r;
-    }
+    layoutChildren(pLayout, pBox, pNode, pY, pContext, pNormal);
     HtmlInlineContextPopBorder(pContext, pBorder);
     return 0;
 }
@@ -2741,10 +2776,15 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
      * Another question: Is this a quirks mode thing?
      */
 
-    HtmlComputedValues *pV = pNode->pPropertyValues;
-    int eDisplay   = DISPLAY(pV);
+    HtmlComputedValues *pV;               /* Property values of pNode */
+    int eDisplay;                         /* Value of 'display' property */
     FlowType *pFlow = &FT_NONE;
     int ret = 0;                          /* Return value */
+
+    /* If there is no node, do nothing */
+    if (!pNode) return 0;
+    pV = pNode->pPropertyValues;
+    eDisplay = DISPLAY(pV);
 
     if (HtmlNodeIsText(pNode)) {
         pFlow = &FT_TEXT;
@@ -2931,7 +2971,8 @@ normalFlowLayoutFromCache(pLayout, pBox, pNode, pNormal, iLeft, iRight)
         COND(4,
             pNormal->isValid    == pCache->normalFlowIn.isValid &&
             pNormal->iMinMargin == pCache->normalFlowIn.iMinMargin &&   
-            pNormal->iMaxMargin == pCache->normalFlowIn.iMaxMargin
+            pNormal->iMaxMargin == pCache->normalFlowIn.iMaxMargin &&
+            pNormal->nonegative == pCache->normalFlowIn.nonegative
         ) &&
         COND(5, iLeft == pCache->iFloatLeft && iRight == pCache->iFloatRight) &&
         COND(6, HtmlFloatListIsConstant(pFloat, 0, pCache->iHeight))
@@ -2956,6 +2997,7 @@ normalFlowLayoutFromCache(pLayout, pBox, pNode, pNormal, iLeft, iRight)
     pNormal->iMaxMargin = pCache->normalFlowOut.iMaxMargin;
     pNormal->iMinMargin = pCache->normalFlowOut.iMinMargin;
     pNormal->isValid = pCache->normalFlowOut.isValid;
+    pNormal->nonegative = pCache->normalFlowOut.nonegative;
 
     return 1;
 }
@@ -3048,12 +3090,12 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
     pLayoutCache = pNode->pLayoutCache;
     pCache = &pLayoutCache->aCache[pLayout->minmaxTest];
 
-
     HtmlDrawCleanup(pLayout->pTree, &pCache->canvas);
     pLayoutCache->flags &= ~(cache_mask);
     pCache->normalFlowIn.iMaxMargin = pNormal->iMaxMargin;
     pCache->normalFlowIn.iMinMargin = pNormal->iMinMargin;
     pCache->normalFlowIn.isValid = pNormal->isValid;
+    pCache->normalFlowIn.nonegative = pNormal->nonegative;
     pCache->iContaining = pBox->iContaining;
     pCache->iFloatLeft = left;
     pCache->iFloatRight = right;
@@ -3076,15 +3118,8 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
     pBorder = HtmlGetInlineBorder(pLayout, pNode, 1);
     HtmlInlineContextPushBorder(pContext, pBorder);
 
-    /* Layout each of the child nodes into BoxContext. */
-    for(ii = 0; ii < HtmlNodeNumChildren(pNode) ; ii++) {
-        HtmlNode *p = HtmlNodeChild(pNode, ii);
-        int r;
-        r = normalFlowLayoutNode(pLayout, pBox, p, &y, pContext, pNormal);
-        assert(r >= 0);
-        ii += r;
-    }
-
+    layoutChildren(pLayout, pBox, pNode, &y, pContext, pNormal);
+    
     /* Finish the inline-border started by the parent, if any. */
     HtmlInlineContextPopBorder(pContext, pBorder);
 
@@ -3106,7 +3141,8 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
         pCache->iFloatRight == right &&
         HtmlFloatListIsConstant(pFloat, pBox->height, overhang) &&
         pLayout->pAbsolute == pAbsolute &&
-        pLayout->pFixed == pFixed
+        pLayout->pFixed == pFixed &&
+        !pNode->pBefore && !pNode->pAfter && pNode->pParent
     ) {
         HtmlDrawOrigin(&pBox->vc);
         HtmlDrawCopyCanvas(&pCache->canvas, &pBox->vc);
@@ -3115,7 +3151,21 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
         pCache->normalFlowOut.iMaxMargin = pNormal->iMaxMargin;
         pCache->normalFlowOut.iMinMargin = pNormal->iMinMargin;
         pCache->normalFlowOut.isValid = pNormal->isValid;
+        pCache->normalFlowOut.nonegative = pNormal->nonegative;
         pLayoutCache->flags |= cache_mask;
+
+        LOG {
+            HtmlTree *pTree = pLayout->pTree;
+            HtmlLog(pTree, "LAYOUTENGINE", "%s normalFlowLayout() "
+                "Cached layout for node:"
+                "<ul><li>width = %d"
+                "    <li>height = %d"
+                "</ul>",
+                Tcl_GetString(HtmlNodeCommand(pTree, pNode)),
+                pCache->iWidth, pCache->iHeight
+            );
+        }
+
 #ifdef LAYOUT_CACHE_DEBUG
         aDebugStoreCacheCond[0]++;
     } else {

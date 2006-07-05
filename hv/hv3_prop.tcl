@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.33 2006/06/10 12:32:27 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.34 2006/07/05 17:54:43 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_prop.tcl --
@@ -402,6 +402,21 @@ itcl::body HtmlDebug::report {{node ""}} {
         foreach {p v} [prop_compress [$node prop]] {
             append property_rows "<tr><td>$p<td>$v"
         }
+
+        set after_tbl ""
+        catch {
+            set rows ""
+            foreach {p v} [prop_compress [$node prop after]] {
+                append rows "<tr><td>$p<td>$v"
+            }
+            set after_tbl "
+              <table class=computed>
+                <tr><th colspan=2>:after Element Properties
+                $rows
+              </table>
+            "
+        }
+
         set attribute_rows ""
         foreach {p v} [$node attr] {
             append attribute_rows "<tr><td>$p<td>$v"
@@ -417,10 +432,14 @@ itcl::body HtmlDebug::report {{node ""}} {
                right, bottom and left lengths. If there are four values, they
                are respectively the top, right, bottom, and left lengths.
             </p>
+
             <table class=computed>
                 <tr><th colspan=2>Computed Properties
                 $property_rows
             </table>
+
+            $after_tbl
+
             <table class=attributes>
                 <tr><th colspan=2>Attributes
                 $attribute_rows
