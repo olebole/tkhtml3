@@ -1,7 +1,49 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.10 2006/06/10 12:32:27 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.11 2006/07/06 12:16:33 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
+
+set ::hv3::toolkit Tk
+#catch {
+#  package require tile
+#  set ::hv3::toolkit Tile
+#}
+
+proc ::hv3::scrollbar {args} {
+  if {$::hv3::toolkit eq "Tile"} {
+    set w [eval [linsert $args 0 ::ttk::scrollbar]]
+  } else {
+    set w [eval [linsert $args 0 ::scrollbar]]
+    $w configure -highlightthickness 0
+  }
+  return $w
+}
+
+proc ::hv3::button {args} {
+  if {$::hv3::toolkit eq "Tile"} {
+    set w [eval [linsert $args 0 ::ttk::button]]
+  } else {
+    set w [eval [linsert $args 0 ::button]]
+    $w configure -highlightthickness 0
+  }
+  return $w
+}
+
+proc ::hv3::entry {args} {
+  if {$::hv3::toolkit eq "Tile"} {
+    set w [eval [linsert $args 0 ::ttk::entry]]
+  } else {
+    set w [eval [linsert $args 0 ::entry]]
+    $w configure -highlightthickness 0
+  }
+  return $w
+}
+
+proc ::hv3::text {args} {
+  set w [eval [linsert $args 0 ::text]]
+  $w configure -highlightthickness 0
+  return $w
+}
 
 # Widget to add automatic scrollbars to a widget supporting the
 # [xview], [yview], -xscrollcommand and -yscrollcommand interface (e.g.
@@ -23,8 +65,9 @@ snit::widget ::hv3::scrolledwidget {
   constructor {widget args} {
     # Create the three widgets - one user widget and two scrollbars.
     set myWidget [eval [linsert $widget 1 ${win}.widget]]
-    set myVsb  [scrollbar ${win}.vsb -orient vertical -highlightthickness 0]
-    set myHsb  [scrollbar ${win}.hsb -orient horizontal -highlightthickness 0]
+
+    set myVsb [::hv3::scrollbar ${win}.vsb -orient vertical] 
+    set myHsb [::hv3::scrollbar ${win}.hsb -orient horizontal] 
 
     grid configure $myWidget -column 0 -row 0 -sticky nsew
     grid columnconfigure $win 0 -weight 1
@@ -109,8 +152,8 @@ snit::widget ::hv3::notebook {
     pack $wrapper_frame -side top -fill both
     pack $myFrame       -side top -fill both -expand true
 
-    button $wrapper_frame.new -text "New Tab" -command [mymethod AddAndSwitchTo]
-    button $myDelButton -text "Close Tab" -command [mymethod CloseCurrent]
+    ::hv3::button $wrapper_frame.new -text "New Tab" -command [mymethod AddAndSwitchTo]
+    ::hv3::button $myDelButton -text "Close Tab" -command [mymethod CloseCurrent]
     $myDelButton configure -state disabled
 
     pack $wrapper_frame.new -side left

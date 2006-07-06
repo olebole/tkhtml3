@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.34 2006/07/05 17:54:43 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.35 2006/07/06 12:16:33 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_prop.tcl --
@@ -225,17 +225,11 @@ itcl::body HtmlDebug::searchNode {{idx 0}} {
 itcl::body HtmlDebug::rerender {} {
   set html [$myHtml html]
 
+  set logcmd [$html cget -logcmd]
   $html configure -logcmd [list $this logcmd]
   $html relayout
   after idle [list ::HtmlDebug::browse $myHtml $mySelected]
-  after idle [list $html configure -logcmd {}]
-}
-
-proc wireup_scrollbar {x_or_y widget scrollbar} {
-  set scrollcommand "-${x_or_y}scrollcommand"
-  set view "${x_or_y}view"
-  $widget configure $scrollcommand [list $scrollbar set]
-  $scrollbar configure -command [list $widget $view]
+  after idle [list $html configure -logcmd $logcmd]
 }
 
 # ::hv3::use_tclprotocol

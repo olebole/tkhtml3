@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.44 2006/07/04 08:47:41 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.45 2006/07/06 12:16:33 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -16,8 +16,8 @@ if {[catch { package require Img } errmsg]} {
 proc sourcefile {file} { return [file join [file dirname [info script]] $file] }
 source [sourcefile snit.tcl]
 source [sourcefile hv3.tcl]
-source [sourcefile hv3_log.tcl]
 source [sourcefile hv3_prop.tcl]
+source [sourcefile hv3_log.tcl]
 source [sourcefile hv3_http.tcl]
 source [sourcefile hv3_home.tcl]
 source [sourcefile hv3_frameset.tcl]
@@ -605,10 +605,10 @@ proc gui_build {widget_array} {
 
   # Create the top bit of the GUI - the URI entry and buttons.
   frame .entry
-  entry .entry.entry
-  button .entry.back    -text {Back} 
-  button .entry.stop    -text {Stop} 
-  button .entry.forward -text {Forward}
+  ::hv3::entry .entry.entry
+  ::hv3::button .entry.back    -text {Back} 
+  ::hv3::button .entry.stop    -text {Stop} 
+  ::hv3::button .entry.forward -text {Forward}
 
   # Create the middle bit - the browser window
   # ::hv3::browser_toplevel .browser
@@ -744,6 +744,8 @@ proc gui_menu {widget_array} {
     load_tkcon
     .m.file add command -label Tkcon -command {tkcon show}
   }
+  .m.file add command -label Events -command [list gui_log_window $G(notebook)]
+
   .m.file add command -label Browser -command [list gui_current browse]
   .m.file add command -label Cookies -command [list gui_current debug_cookies]
 
@@ -846,6 +848,11 @@ proc guiOpenFile {notebook} {
     }
     $browser goto file://$f 
   }
+}
+
+proc gui_log_window {notebook} {
+  set browser [$notebook current]
+  ::hv3::log_window [[$browser hv3] html]
 }
 
 # Override the [exit] command to check if the widget code leaked memory

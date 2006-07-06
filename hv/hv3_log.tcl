@@ -1,146 +1,34 @@
-namespace eval hv3 { set {version($Id: hv3_log.tcl,v 1.10 2006/06/10 12:32:27 danielk1977 Exp $)} 1 }
 
-#--------------------------------------------------------------------------
-# Global variables section
- 
-array unset ::hv3_log_styleengine
-array unset ::hv3_log_layoutengine
-array set ::hv3_log_layoutengine [list]
-array set ::hv3_log_styleengine [list]
-#--------------------------------------------------------------------------
+namespace eval hv3 { set {version($Id: hv3_log.tcl,v 1.11 2006/07/06 12:16:33 danielk1977 Exp $)} 1 }
 
-rename puts real_puts
-proc puts {args} {
-  eval [concat real_puts $args]
+source [file join [file dirname [info script]] hv3_widgets.tcl]
+
+proc ::hv3::log_window {html} {
+  toplevel .event_log
+
+  ::hv3::scrolled ::hv3::text .event_log.text -width 400 -height 300 -wrap none
+
+  frame .event_log.button
+  ::hv3::button .event_log.button.dismiss -text Dismiss 
+  ::hv3::button .event_log.button.clear -text Clear 
+  .event_log.button.clear configure -command {.event_log.text delete 0.0 end}
+  .event_log.button.dismiss configure -command {destroy .event_log}
+
+  pack .event_log.button.dismiss -side left -fill x -expand true
+  pack .event_log.button.clear -side left -fill x -expand true
+  pack .event_log.button -fill x -side bottom
+  pack .event_log.text   -fill both -expand true
+
+  bind .event_log <Destroy> [list ::hv3::destroy_log_window $html]
+
+  $html configure -logcmd ::hv3::log_window_log
 }
 
-proc log_init {HTML} {
-    $HTML configure -logcmd ""
-    .m add cascade -label {Log} -menu [menu .m.log]
-   
-    set modes [list CALLBACK EVENT ENGINES]
-    set timermodes [list LAYOUT STYLE]
-
-    # Command to run to make sure -logcmd and -timercmd are set as per the
-    # configuration in array variables ::html_log_log and ::html_log_timer
-    #
-    set setlogcmd [list log_setlogcmd $HTML $modes]
- 
-    foreach mode $modes {
-        .m.log add checkbutton -label $mode -variable ::html_log_log($mode)
-        set ::html_log_log($mode) 0
-        trace add variable ::html_log_log($mode) write $setlogcmd
-    }
-    .m.log add separator
-    foreach mode $timermodes {
-        .m.log add checkbutton -label $mode -variable ::html_log_timer($mode)
-        set ::html_log_timer($mode) 0
-        trace add variable ::html_log_timer($mode) write $setlogcmd
-    }
-    .m.log add separator
-    .m.log add command -label "Layout Primitives" \
-        -command [list log_primitives $HTML]
-    .m.log add command -label "Tree" -command [list log_tree $HTML]
-
-    eval $setlogcmd
+proc ::hv3::destroy_log_window {html} {
+  $html configure -logcmd ""
 }
 
-proc log_setlogcmd {HTML modes args} {
-    $HTML configure -logcmd ""
-    $HTML configure -timercmd ""
-
-    foreach key [array names ::html_log_log] {
-        if {$::html_log_log($key)} {
-            $HTML configure -logcmd log_puts
-            break 
-        }
-    }
-    foreach key [array names ::html_log_timer] {
-        if {$::html_log_timer($key)} {
-            $HTML configure -timercmd timer_puts
-            break 
-        }
-    }
-
-}
-
-proc log_puts {topic body} {
-    if {$topic == "LAYOUTENGINE"} {
-        if {$body == "START"} {
-            array unset ::hv3_log_layoutengine
-        } else {
-            set idx [string first " " $body]
-            set node [string range $body 0 [expr $idx - 1]]
-            set msg [string range $body [expr $idx + 1] end]
-            lappend ::hv3_log_layoutengine($node) $msg
-        }
-        return
-    }
-
-    if {$topic == "STYLEENGINE"} {
-        if {$body == "START"} {
-            array unset ::hv3_log_styleengine
-        } else {
-            set idx [string first " " $body]
-            set node [string range $body 0 [expr $idx - 1]]
-            set msg [string range $body [expr $idx + 1] end]
-            lappend ::hv3_log_styleengine($node) $msg
-        }
-        return
-    }
-
-    if {[info exists ::html_log_log($topic)] && $::html_log_log($topic)} {
-        real_puts stdout "$topic: $body"
-    }
-}
-proc timer_puts {topic body} {
-    if {[info exists ::html_log_timer($topic)] && $::html_log_timer($topic)} {
-        real_puts stdout "TIMER: $topic: $body"
-    }
-}
-
-proc log_primitives {HTML} {
-    set indent 0
-    foreach p [$HTML primitives] {
-        set type [lindex $p 0]
-        if {$type eq "draw_origin" && [llength $p] == 3} {
-          incr indent -2
-        }
-        if {[catch {incr hist($type)}]} {set hist($type) 1}
-        real_puts stdout "[string repeat { } $indent]$p"
-        if {$type eq "draw_origin" && [llength $p] > 3} {
-          incr indent 2
-        }
-    }
-    puts ""
-    foreach t [array names hist] {
-      puts "$t -> $hist($t)"
-    }
-}
-
-proc log_node {n indent} {
-    if {[$n tag] == ""} {
-        if {[string trim [$n text]] != ""} {  
-            puts -nonewline [string repeat " " $indent]
-            puts "\"[$n text]\""
-        }
-    } else {
-        puts -nonewline [string repeat " " $indent]
-        incr indent 4
-        set out "<[$n tag]"
-        foreach {a v} [$n attr] {
-            append out " $a=\"$v\""
-        }
-        append out ">"
-        puts $out
-        foreach child [$n children] {
-            log_node $child $indent
-        }
-    }
-}
-
-proc log_tree {HTML} {
-    set n [$HTML node]
-    log_node $n 0
+proc ::hv3::log_window_log {args} {
+  .event_log.text insert end "$args\n"
 }
 

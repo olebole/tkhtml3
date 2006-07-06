@@ -1,4 +1,5 @@
-namespace eval hv3 { set {version($Id: hv3_polipo.tcl,v 1.4 2006/06/28 06:31:10 danielk1977 Exp $)} 1 }
+
+namespace eval hv3 { set {version($Id: hv3_polipo.tcl,v 1.5 2006/07/06 12:16:33 danielk1977 Exp $)} 1 }
 
 # This file contains code to control a single instance of the 
 # external program "hv3_polipo" that may be optionally used by
@@ -65,10 +66,10 @@ namespace eval ::hv3::polipo {
     variable g
     if {![winfo exists .polipo]} {
       toplevel .polipo
-      if {[catch {::hv3::scrolled text .polipo.text -width 400 -height 250}]} {
-          text .polipo.text -width 60 -height 25
-      }
-      button .polipo.button -text "Restart Polipo" 
+
+      ::hv3::scrolled ::hv3::text .polipo.text -width 400 -height 250
+      ::hv3::button .polipo.button -text "Restart Polipo" 
+
       pack .polipo.button -side bottom -fill x
       pack .polipo.text -fill both -expand true
       .polipo.button configure -command [namespace code restart]
@@ -125,7 +126,7 @@ namespace eval ::hv3::polipo {
     if {$::tcl_platform(platform) eq "unix"} {
       set cmd "|{$g(binary)} |& cat"
     }
-    set fd [open "|{$g(binary)}" r]
+    set fd [open $cmd r]
     fconfigure $fd -blocking 0
     fconfigure $fd -buffering none
     fileevent $fd readable [namespace code polipo_stdout]
