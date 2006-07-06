@@ -15,7 +15,7 @@ TCL = /c/tcl
 
 ##### Flags passed to the C-compiler to link to Tcl.
 #
-TCLLIB = -L$(TCL)/lib -ltcl$(TCLVERSION) -ltk$(TCLVERSION)
+TCLLIB = -L$(TCL)/lib -ltclstub$(TCLVERSION) -ltkstub$(TCLVERSION)
 
 ##### Extra libraries used by Tcl on Linux. These flags are only required to
 #     staticly link Tcl into an executable
@@ -42,7 +42,7 @@ SHARED_LIB = $(SHARED_LIB_$(BUILD))
 #
 MKSHLIB = $(CC) -shared 
 TCLSTUBSLIB =  "/c/tcl/lib/tclstub84.lib" "/c/tcl/lib/tkstub84.lib" 
-TCLSTUBSLIB += -LC:/Tcl/lib
+TCLSTUBSLIB += -LC:/Tcl/lib -lgdi32
 
 ##### Commands to run tclsh and wish.
 #

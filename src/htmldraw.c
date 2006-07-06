@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.131 2006/07/05 18:52:26 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.132 2006/07/06 14:36:54 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -3112,6 +3112,45 @@ HtmlWidgetRepair(pTree, x, y, w, h)
     widgetRepair(pTree, x, y, w, h, 0);
 }
 
+#if 0
+#ifdef WIN32
+#include <windows.h>
+static void
+queryVisibility(pTree)
+    HtmlTree *pTree;
+{
+    HWND hWindow = (HWND)Tk_WindowId(pTree->tkwin);
+    HDC hDc = GetDC(hWindow);
+    RECT clip;                 /* Clipped rectangle */
+    RECT client;               /* Client window rectangle */
+    int rc;
+
+    GetClientRect(hWindow,  &client);
+    rc = GetClipBox(hDc, &clip);
+    ReleaseDC(hWindow, hDc);
+
+    if (rc == SIMPLEREGION && EqualRect(&clip, &client)) {
+        pTree->eVisibility = VisibilityUnobscured; 
+    } else {
+        pTree->eVisibility = VisibilityPartiallyObscured; 
+    }
+
+    HtmlLog(pTree, "EVENT", "queryVisibility: state=%s", 
+                pTree->eVisibility == VisibilityFullyObscured ?
+                        "VisibilityFullyObscured":
+                pTree->eVisibility == VisibilityPartiallyObscured ?
+                        "VisibilityPartiallyObscured":
+                pTree->eVisibility == VisibilityUnobscured ?
+                        "VisibilityUnobscured":
+                "N/A"
+    );
+}
+#else
+  #define queryVisibility(x)
+#endif
+#endif
+
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -3142,6 +3181,10 @@ HtmlWidgetSetViewport(pTree, scroll_x, scroll_y, force_redraw)
     Tk_MakeWindowExist(win);
     w = Tk_Width(win);
     h = Tk_Height(win);
+
+#if 0
+    queryVisibility(pTree);
+#endif
 
     assert(pTree->nFixedBackground >= 0);
     if (pTree->nFixedBackground || pTree->eVisibility != VisibilityUnobscured) {

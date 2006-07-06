@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.104 2006/07/04 14:10:40 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.105 2006/07/06 14:36:54 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -786,7 +786,10 @@ eventHandler(clientData, pEvent)
                 "N/A"
             );
 
+
+#ifndef WIN32
             pTree->eVisibility = p->state;
+#endif
             break;
         }
 
@@ -2072,6 +2075,7 @@ newWidget(clientData, interp, objc, objv)
     
     zCmd = Tcl_GetString(objv[1]);
     pTree = (HtmlTree *)HtmlClearAlloc(0, sizeof(HtmlTree));
+    pTree->eVisibility = VisibilityPartiallyObscured;
 
     /* Create the Tk window.
      */
