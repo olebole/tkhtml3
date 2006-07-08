@@ -1,13 +1,22 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.11 2006/07/06 12:16:33 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.12 2006/07/08 09:54:54 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
 
 set ::hv3::toolkit Tk
-#catch {
-#  package require tile
-#  set ::hv3::toolkit Tile
-#}
+catch {
+  package require tile
+  set ::hv3::toolkit Tile
+}
+
+# Basic wrapper widget-names used to abstract Tk and Tile:
+#
+#    ::hv3::scrollbar
+#    ::hv3::button
+#    ::hv3::entry
+#    ::hv3::text
+#    ::hv3::label
+#    ::hv3::toolbutton
 
 proc ::hv3::scrollbar {args} {
   if {$::hv3::toolkit eq "Tile"} {
@@ -43,6 +52,149 @@ proc ::hv3::text {args} {
   set w [eval [linsert $args 0 ::text]]
   $w configure -highlightthickness 0
   return $w
+}
+
+proc ::hv3::label {args} {
+  if {$::hv3::toolkit eq "Tile"} {
+    set w [eval [linsert $args 0 ::ttk::label]]
+  } else {
+    set w [eval [linsert $args 0 ::label]]
+    $w configure -highlightthickness 0
+  }
+  return $w
+}
+
+::snit::widget ::hv3::toolbutton {
+
+  component myButton
+  component myPopupLabel
+  variable  myPopup
+
+  variable myCallback ""
+
+  constructor {args} {
+
+    if {$::hv3::toolkit eq "Tile"} {
+      set myButton [::ttk::button ${win}.button -style Toolbutton]
+    } else {
+      set myButton [::button ${win}.button -highlightthickness 0]
+    }
+    set top [winfo toplevel $myButton]
+    set myPopup ${top}[string map {. _} $myButton]
+    set myPopupLabel ${myPopup}.label
+    frame $myPopup -bg black
+    ::label $myPopupLabel -fg black -bg white -font TkDefaultFont
+
+    pack $myButton -expand true -fill both
+    pack  $myPopup.label -padx 1 -pady 1 -fill both -expand true
+
+    $self configurelist $args
+
+    bind $myButton <Enter> [mymethod Enter]
+    bind $myButton <Leave> [mymethod Leave]
+    bind $myButton <ButtonPress-1> +[mymethod Leave]
+  }
+
+  method Enter {} {
+    after 600 [mymethod Popup]
+  }
+
+  method Leave {} {
+    after cancel [mymethod Popup]
+    place forget $myPopup
+  }
+
+  method Popup {} {
+    set top [winfo toplevel $myButton]
+    set x [expr [winfo rootx $myButton] - [winfo rootx $top]]
+    set y [expr [winfo rooty $myButton] - [winfo rooty $top]]
+    incr y [expr [winfo height $myButton]  / 2]
+    if {$x < ([winfo width $top] / 2)} {
+      incr x [expr [winfo width $myButton]]
+      place $myPopup -anchor w -x $x -y $y
+    } else {
+      place $myPopup -anchor e -x $x -y $y
+    }
+  }
+
+  delegate method * to myButton
+  delegate option * to myButton
+
+  delegate option -tooltip to myPopupLabel as -text
+}
+
+# List of menu widgets used by ::hv3::menu and ::hv3::menu_color
+#
+set ::hv3::menu_list  [list]
+set ::hv3::menu_style [list]
+
+proc ::hv3::menu {args} {
+  set w [eval [linsert $args 0 ::menu]]
+  if {$::hv3::toolkit eq "Tile"} {
+    $w configure -borderwidth 1 -tearoff 0 -font TkDefaultFont
+    lappend ::hv3::menu_list $w
+  }
+  return $w
+}
+
+proc ::hv3::menu_color {} {
+  set fg  [style lookup Toolbutton -foreground]
+  set afg [style lookup Toolbutton -foreground active]
+  set bg  [style lookup Toolbutton -background]
+  set abg [style lookup Toolbutton -background active]
+
+  foreach w $::hv3::menu_list {
+    catch {
+      $w configure -fg $fg -bg $bg -activebackground $abg -activeforeground $afg
+    }
+  }
+}
+
+
+
+snit::widget ::hv3::buttontab {
+
+  component myButton
+
+  constructor {args} {
+    # set myButton [::hv3::button ${win}.button]
+    set myButton [::hv3::label ${win}.button]
+    catch { $myButton configure -padding 2 }
+
+    bind $myButton <1>     [mymethod invoke]
+    # bind $myButton <Enter> [list $myButton state active]
+    # bind $myButton <Leave> [list $myButton state !active]
+
+    $self configurelist $args
+    pack $myButton -fill both -expand true
+
+    if {$::hv3::toolkit eq "Tile"} {
+        $myButton configure -style TNotebook.Tab
+    } else {
+    }
+  }
+
+  method tabstate {state} {
+    if {$::hv3::toolkit eq "Tile"} {
+      $myButton configure -style TNotebook.Tab
+      if {$state} { $myButton state {selected} } \
+      else        { $myButton state {!selected} }
+    } else {
+      if {$state} { $myButton configure -relief solid } \
+      else        { $myButton configure -relief ridge }
+    }
+  }
+
+  method invoke {} {
+    if {$options(-command) ne ""} {
+      eval $options(-command)
+    }
+  }
+
+  option -command -default ""
+
+  delegate option * to myButton
+  delegate method * to myButton
 }
 
 # Widget to add automatic scrollbars to a widget supporting the
@@ -122,155 +274,257 @@ snit::widget ::hv3::scrolledwidget {
   delegate method *       to myWidget
 }
 
+#
 # Tabbed notebook widget for hv3.
 #
-snit::widget ::hv3::notebook {
+# OPTIONS
+#
+#     -newcmd
+#     -switchcmd
+#     -delcmd
+#     -delbutton
+#
+# WIDGET COMMAND
+#
+#     $widget add
+#     $widget close
+#     $widget current
+#     $widget set_title
+#
+proc ::hv3::notebook {args} {
+  if {$::hv3::toolkit eq "Tile"} {
+    return [eval [linsert $args 0 ::hv3::tile_notebook]]
+  }  
+  return [eval [linsert $args 0 ::hv3::tk_notebook]]
+}
+
+snit::widget ::hv3::tile_notebook {
 
   option -newcmd    -default ""
   option -switchcmd -default ""
   option -delcmd    -default ""
-
-  variable myWidgets [list]
-  variable myCurrentWidget ""
-
-  variable myFrame ""
-  variable myButtonFrame ""
-  variable myDelButton ""
+  option -delbutton -default ""
 
   variable myNextId 0
-
   variable myPendingTitle ""
 
-  constructor {args} {
-    $self configurelist $args
+  variable myOnlyTab ""
+  variable myOnlyTitle ""
 
-    set myFrame       [frame ${win}.frame]
-    set wrapper_frame [frame ${win}.wrapper_frame -bd 2 -relief raised]
-    set myButtonFrame [frame ${wrapper_frame}.button_frame]
-    set myDelButton $wrapper_frame.del
-
-    pack $wrapper_frame -side top -fill both
-    pack $myFrame       -side top -fill both -expand true
-
-    ::hv3::button $wrapper_frame.new -text "New Tab" -command [mymethod AddAndSwitchTo]
-    ::hv3::button $myDelButton -text "Close Tab" -command [mymethod CloseCurrent]
-    $myDelButton configure -state disabled
-
-    pack $wrapper_frame.new -side left
-    pack $myDelButton -side right
-    pack $myButtonFrame -expand true -fill both
-  }
-
-  method CloseCurrent {} {
-    if {$myCurrentWidget ne "" && [llength $myWidgets] > 1} {
-
-      set widget $myCurrentWidget
-      set button [$self WidgetToButton $widget]
-
-      for {set idx 0} {$idx < [llength $myWidgets]} {incr idx} {
-        if {[lindex $myWidgets $idx 0] eq $widget} break
-      }
-
-      if {$idx == 0} {
-        set new_widget [lindex $myWidgets 1 0]
-      } else {
-        set new_widget [lindex $myWidgets [expr $idx - 1] 0]
-      }
-      $self switchto $new_widget
-
-      set myWidgets [lreplace $myWidgets $idx $idx]
-      destroy $widget
-      destroy $button
-
+  method Switchcmd {} {
+    if {$options(-switchcmd) ne ""} {
+      eval [linsert $options(-switchcmd) 1 [$self current]]
       $self WorldChanged
     }
   }
 
   method WorldChanged {} {
-    # If there is now only one tab, disable the "Close Tab" button.
-    if {[llength $myWidgets] == 1} {
-      $myDelButton configure -state disabled
+    set dummy ${win}.notebook.dummy
+
+    set nTab [llength [${win}.notebook tabs]]
+    if {$myOnlyTab ne ""} { incr nTab }
+
+    if {[lsearch [${win}.notebook tabs] $dummy] >= 0} {
+      incr nTab -1
+    }
+
+    if {$nTab > 1} {
+      if {$myOnlyTab ne ""} {
+        place forget $myOnlyTab
+        ${win}.notebook add $myOnlyTab -sticky ewns -text $myOnlyTitle
+        catch { ${win}.notebook forget $dummy }
+        set myOnlyTab ""
+        set myOnlyTitle ""
+
+        set tab1 [lindex [${win}.notebook tabs] 0]
+        set text1 [${win}.notebook tab $tab1 -text]
+        ${win}.notebook forget $tab1
+        ${win}.notebook add $tab1
+        ${win}.notebook tab $tab1 -text $text1
+        ${win}.notebook select $tab1
+      }
+      $options(-delbutton) configure -state normal
     } else {
-      $myDelButton configure -state normal
-    }
+      if {1 && $myOnlyTab eq ""} {
+        set myOnlyTab [${win} current]
+       
+        catch { canvas $dummy -width 0 -height 0 -bg blue }
+        catch { ${win}.notebook add ${win}.notebook.dummy -state hidden }
 
-    set fraction [expr 1.0 / double([llength $myWidgets])]
-    for {set ii 0} {$ii < [llength $myWidgets]} {incr ii} {
-      place configure [lindex $myWidgets $ii 1] \
-          -relwidth $fraction          \
-          -relx [expr $ii * $fraction] \
-          -rely 0
+        set myOnlyTitle [${win}.notebook tab $myOnlyTab -text]
+        ${win}.notebook forget $myOnlyTab
+        raise $myOnlyTab
+        place $myOnlyTab -relheight 1.0 -relwidth 1.0
+      }
+      $options(-delbutton) configure -state disabled
     }
   }
 
-  method AddAndSwitchTo {} {
-    $self switchto [$self add]
+  method close {} {
+    destroy [$self current]
   }
 
-  method WidgetToButton {widget} {
-    foreach e $myWidgets {
-      if {[lindex $e 0] eq $widget} {return [lindex $e 1]}
-    }
-    return ""
+  constructor {args} {
+    $self configurelist $args
+    ::ttk::notebook ${win}.notebook  -width 700 -height 500 
+    bind ${win}.notebook <<NotebookTabChanged>> [list $self Switchcmd]
+    # place ${win}.notebook -relheight 1.0 -relwidth 1.0
+    pack ${win}.notebook -fill both -expand true
+
+  }
+
+  method add {args} {
+
+    set widget ${win}.notebook.tab_[incr myNextId]
+
+    set myPendingTitle ""
+    eval [concat [linsert $options(-newcmd) 1 $widget] $args]
+    ${win}.notebook add $widget -sticky ewns -text Blank
+    ${win}.notebook select $widget
+
+    if {$myPendingTitle ne ""} {$self set_title $widget $myPendingTitle}
+
+    $self Switchcmd
+    return $widget
   }
 
   method set_title {widget title} {
-    set button [$self WidgetToButton $widget] 
-    if {$button eq ""} {
+    if {$widget eq $myOnlyTab} {
+      set myOnlyTitle $title
+    } elseif {[catch {${win}.notebook tab $widget -text $title}]} {
       set myPendingTitle $title
-    } else {
-      $button configure -text $title
     }
   }
 
-  # Add a new tab to this object.
+  method current {} {
+    if {$myOnlyTab ne ""} {return $myOnlyTab}
+
+    # In new versions of Tile you can do [${win}.notebook select] to
+    # get the currently visible widget. But the following works in old
+    # versions too.
+    return [lindex [${win}.notebook tabs] [${win}.notebook index current]]
+  }
+}
+
+snit::widget ::hv3::tk_notebook {
+
+  option -newcmd    -default ""
+  option -switchcmd -default ""
+  option -delcmd    -default ""
+  option -delbutton -default ""
+
+  variable myNextId       0
+  variable myPendingTitle ""
+
+  variable myCurrent      ""
+  variable myWidgets      ""
+
+  method close {} {
+    destroy [$self current]
+  }
+
+  constructor {args} {
+    $self configurelist $args
+
+    frame ${win}.frame
+    frame ${win}.tabs 
+
+    pack ${win}.tabs  -side top -fill x
+    pack ${win}.frame -side top -fill both -expand true
+  }
+
   method add {args} {
-    set widget ${myFrame}.widget_${myNextId}
-    set button ${myButtonFrame}.button_${myNextId}
+    set widget ${win}.frame.widget_${myNextId}
+    set button [$self WidgetToButton $widget]
     incr myNextId
 
     set myPendingTitle "Blank"
     eval [concat [linsert $options(-newcmd) 1 $widget] $args]
+    ::button $button -text $myPendingTitle -command [mymethod Switchto $widget]
 
-    button $button -text $myPendingTitle -command [mymethod switchto $widget]
-    $button configure -relief ridge -anchor w
-    # pack $button -side left
-    place $button -x 0 -y 0 -anchor nw
+    lappend myWidgets $widget
+    bind $widget <Destroy> [mymethod Destroy $widget]
 
-    lappend myWidgets [list $widget $button]
-    if {[llength $myWidgets] == 1} {
-      $self switchto $widget
-    }
+    $self Switchto $widget
 
-    $self WorldChanged
     return $widget
   }
 
-  # Switch to the tab containing $widget.
-  method switchto {widget} {
-
-    set button [$self WidgetToButton $widget] 
-    if {$button eq ""} {error "No such tab: $widget"}
-
-    if {$options(-switchcmd) ne ""} { 
-      eval [linsert $options(-switchcmd) 1 $widget]
+  method Destroy {widget} {
+    destroy [$self WidgetToButton $widget]
+    set idx [lsearch $myWidgets $widget]
+    set myWidgets [lreplace $myWidgets $idx $idx]
+    if {$widget eq $myCurrent} {
+      set new [lindex $myWidgets $idx]
+      if {$new eq ""} {set new [lindex $myWidgets end]}
+      $self Switchto $new
+    } else {
+      $self Switchto $myCurrent
     }
-
-    set old_button [$self WidgetToButton $myCurrentWidget] 
-    if {$old_button ne ""} {
-      pack forget $myCurrentWidget
-      $old_button configure -relief ridge -anchor w
-    }
-
-    set myCurrentWidget $widget
-    pack $widget -fill both -expand true
-    $button configure -relief solid -anchor w
   }
 
   method current {} {
-    return $myCurrentWidget
+    return $myCurrent
+  }
+
+  method set_title {widget title} {
+    if {0 > [lsearch $myWidgets $widget]} {
+      set myPendingTitle $title
+    } else {
+      [$self WidgetToButton $widget] configure -text $title
+    }
+  }
+
+  method Switchto {widget} {
+
+    if {$widget ne $myCurrent} {
+      pack forget $myCurrent
+      set myCurrent $widget
+      pack $myCurrent -fill both -expand true
+      if {$options(-switchcmd) ne ""} { 
+        eval [linsert $options(-switchcmd) 1 [$self current]]
+      }
+    }
+
+    set height 0
+    set i 0
+    set fraction [expr 1.0 / double([llength $myWidgets])]
+    foreach w $myWidgets {
+      set button [$self WidgetToButton $w]
+      place configure $button                   \
+          -relwidth $fraction                   \
+          -relx [expr $i * $fraction]           \
+          -anchor nw
+
+      set h [winfo reqheight $button]
+      if {$h > $height} {set height $h}
+      incr i
+
+      if {$w eq $myCurrent} {
+        $button configure -relief solid
+      } else {
+        $button configure -relief ridge
+      }
+    }
+
+    if {[llength $myWidgets] == 1} {
+      $options(-delbutton) configure -state disabled
+      # place forget [$self WidgetToButton $myCurrent]
+      # set height 0
+    } else {
+      $options(-delbutton) configure -state normal
+    }
+
+    ${win}.tabs configure -height $height
+  }
+
+  method WidgetToButton {widget} {
+    set id [regexp {_[0-9]+} $widget match]
+    set button ${win}.tabs.widget${match}
+    return $button
   }
 }
+
 
 # Wrapper around the ::hv3::scrolledwidget constructor. 
 #

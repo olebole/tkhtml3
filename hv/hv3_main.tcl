@@ -1,9 +1,11 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.45 2006/07/06 12:16:33 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.46 2006/07/08 09:54:54 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
 package require Tk
 package require Tkhtml 3.0
+
+# option add *TButton.compound left
 
 # If possible, load package "Img". Without it the script can still run,
 # but won't be able to load many image formats.
@@ -22,6 +24,7 @@ source [sourcefile hv3_http.tcl]
 source [sourcefile hv3_home.tcl]
 source [sourcefile hv3_frameset.tcl]
 source [sourcefile hv3_polipo.tcl]
+source [sourcefile hv3_icons.tcl]
 
 snit::type ::hv3::history {
 
@@ -199,7 +202,7 @@ snit::widget ::hv3::browser_frame {
     bind $myHv3 <2>       [mymethod goto_selection]
 
     # Create the hyper-link menu (right-click on hyper-link to access)
-    set m [menu ${win}.hyperlinkmenu]
+    set m [::hv3::menu ${win}.hyperlinkmenu]
     foreach {l c} [list                     \
       "Open Link"          openlink         \
       "Download Link"      downloadlink     \
@@ -606,20 +609,43 @@ proc gui_build {widget_array} {
   # Create the top bit of the GUI - the URI entry and buttons.
   frame .entry
   ::hv3::entry .entry.entry
-  ::hv3::button .entry.back    -text {Back} 
-  ::hv3::button .entry.stop    -text {Stop} 
-  ::hv3::button .entry.forward -text {Forward}
+
+  ::hv3::toolbutton .entry.back    -text {Back} -tooltip    "Go Back"
+  ::hv3::toolbutton .entry.stop    -text {Stop} -tooltip    "Stop"
+  ::hv3::toolbutton .entry.forward -text {Forward} -tooltip "Go Forward"
+
+  ::hv3::toolbutton .entry.new -text {New Tab} -command {.notebook add}
+  ::hv3::toolbutton .entry.del -text {Close Tab} -command {.notebook close}
+
+  .entry.new configure -tooltip "Open New Tab"
+  .entry.del configure -tooltip "Close Current Tab"
+
+  catch {
+    set backimg [image create photo -data $::hv3::back_icon]
+    .entry.back configure -image $backimg
+    set forwardimg [image create photo -data $::hv3::forward_icon]
+    .entry.forward configure -image $forwardimg
+    set stopimg [image create photo -data $::hv3::stop_icon]
+    .entry.stop configure -image $stopimg
+    set newimg [image create photo -data $::hv3::new_icon]
+    .entry.new configure -image $newimg
+    set delimg [image create photo -data $::hv3::del_icon]
+    .entry.del configure -image $delimg
+  } 
 
   # Create the middle bit - the browser window
   # ::hv3::browser_toplevel .browser
   ::hv3::notebook .notebook              \
       -newcmd    gui_new                 \
-      -switchcmd gui_switch
+      -switchcmd gui_switch              \
+      -delbutton .entry.del       
 
   # And the bottom bit - the status bar
-  label .status -anchor w -width 1
+  ::hv3::label .status -anchor w -width 1
 
   # Set the widget-array variables
+  set G(new_button)     .entry.new
+  set G(close_button)   .entry.del
   set G(stop_button)    .entry.stop
   set G(back_button)    .entry.back
   set G(forward_button) .entry.forward
@@ -628,10 +654,12 @@ proc gui_build {widget_array} {
   set G(notebook)       .notebook
 
   # Pack the elements of the "top bit" into the .entry frame
+  pack .entry.new -side left
   pack .entry.back -side left
   pack .entry.stop -side left
   pack .entry.forward -side left
-  pack .entry.entry -fill both -expand true
+  pack .entry.del -side right
+  pack .entry.entry -fill x -expand true
 
   # Pack the top, bottom and middle, in that order. The middle must be 
   # packed last, as it is the bit we want to shrink if the size of the 
@@ -675,7 +703,7 @@ proc load_tkcon {} {
 # Return the name of the new menu widget.
 #
 proc create_fontsize_menu {menupath varname} {
-  menu $menupath
+  ::hv3::menu $menupath
   foreach {label table} [list \
     Normal {7 8 9 10 12 14 16} \
     Large  {9 10 11 12 14 16 18} \
@@ -695,7 +723,7 @@ proc create_fontsize_menu {menupath varname} {
 }
 
 proc create_fontscale_menu {menupath varname} {
-  menu $menupath
+  ::hv3::menu $menupath
   foreach val [list 0.8 0.9 1.0 1.2 1.4 2.0] {
     $menupath add radiobutton                  \
       -variable $varname                       \
@@ -728,10 +756,10 @@ proc gui_menu {widget_array} {
   upvar $widget_array G
 
   # Attach a menu widget - .m - to the toplevel application window.
-  . config -menu [menu .m]
+  . config -menu [::hv3::menu .m]
 
   # Add the 'File menu'
-  .m add cascade -label {File} -menu [menu .m.file]
+  .m add cascade -label {File} -menu [::hv3::menu .m.file]
   set openfilecmd [list guiOpenFile $G(notebook)]
   .m.file add command -label "Open File..." -command $openfilecmd
   .m.file add separator
@@ -754,7 +782,7 @@ proc gui_menu {widget_array} {
   .m.file add command -label Exit -command exit
 
   # Add the "Edit" menu and "Find..." function
-  .m add cascade -label {Edit} -menu [menu .m.edit]
+  .m add cascade -label {Edit} -menu [::hv3::menu .m.edit]
   .m.edit add command -label {Find in page...} -command [list gui_current find]
 
   # Add the 'Font Size Table' menu
@@ -770,7 +798,7 @@ proc gui_menu {widget_array} {
        -command [list gui_setforcefontmetrics ::hv3::forcefontmetrics_flag] 
 
   # Add the 'History' menu
-  .m add cascade -label {History} -menu [menu .m.history]
+  .m add cascade -label {History} -menu [::hv3::menu .m.history]
   set G(history_menu) .m.history
 }
 

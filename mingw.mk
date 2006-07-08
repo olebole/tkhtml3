@@ -42,7 +42,7 @@ SHARED_LIB = $(SHARED_LIB_$(BUILD))
 #
 MKSHLIB = $(CC) -shared 
 TCLSTUBSLIB =  "/c/tcl/lib/tclstub84.lib" "/c/tcl/lib/tkstub84.lib" 
-TCLSTUBSLIB += -LC:/Tcl/lib -lgdi32
+TCLSTUBSLIB += -LC:/Tcl/lib
 
 ##### Commands to run tclsh and wish.
 #

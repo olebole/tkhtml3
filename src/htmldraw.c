@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.132 2006/07/06 14:36:54 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.133 2006/07/08 09:54:54 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1591,10 +1591,12 @@ drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview)
 
     /* Solid background, if required */
     if (pV->cBackgroundColor->xcolor) {
+        int boxw = pBox->w + MIN((x + pBox->x), 0);
+        int boxh = pBox->h + MIN((y + pBox->y), 0);
         fill_rectangle(pTree->win, 
             drawable, pV->cBackgroundColor->xcolor,
-            x + pBox->x, y + pBox->y,
-            pBox->w, pBox->h
+            MAX(0, x + pBox->x), MAX(0, y + pBox->y),
+            MIN(boxw, w), MIN(boxh, h)
         );
     }
 
