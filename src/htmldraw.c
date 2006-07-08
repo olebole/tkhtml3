@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.133 2006/07/08 09:54:54 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.134 2006/07/08 12:41:15 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1665,7 +1665,17 @@ drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview)
             int iPosY;
             HtmlNode *pBgNode = pBox->pNode;
 
+#ifdef WIN32
+            /*
+	     * Todo: On windows, using XFillRectangle() to draw the image
+	     * doesn't seem to work. This is probably a shortcoming of the Tk
+	     * porting layer, but this hasn't been checked properly yet. For
+             * now, disable the XFillRectangle() optimization. 
+             */
+            int isAlpha = 1;
+#else
             int isAlpha = HtmlImageAlphaChannel(pTree, pV->imBackgroundImage);
+#endif
     
             iPosX = pV->iBackgroundPositionX;
             iPosY = pV->iBackgroundPositionY;
