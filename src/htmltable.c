@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.87 2006/07/05 17:54:44 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.88 2006/07/08 11:42:38 danielk1977 Exp $";
 
 #include "htmllayout.h"
 
@@ -43,10 +43,10 @@ static const char rcsid[] = "$Id: htmltable.c,v 1.87 2006/07/05 17:54:44 danielk
 
 struct TableCell {
     BoxContext box;
-    int startrow;
-    int finrow;
-    int colspan;
-    HtmlNode *pNode;
+    int startrow;             /* Index of row cell starts at */
+    int finrow;               /* Index of row cell ends at */
+    int colspan;              /* Number of columns spanned by cell (often 1) */
+    HtmlNode *pNode;          /* Node with "display:table-cell" */
 };
 typedef struct TableCell TableCell;
 
@@ -710,14 +710,14 @@ doCellIterate(pTree, pNode, p)
         /* Set nSpan to the number of columns this cell spans */
         zSpan = HtmlNodeAttr(pNode, "colspan");
         nSpan = zSpan?atoi(zSpan):1;
-        if (nSpan<0) {
+        if (nSpan <= 0) {
             nSpan = 1;
         }
         
         /* Set nRowSpan to the number of rows this cell spans */
         zSpan = HtmlNodeAttr(pNode, "rowspan");
         nRSpan = zSpan?atoi(zSpan):1;
-        if (nRSpan<0) {
+        if (nRSpan <= 0) {
             nRSpan = 1;
         }
     }
