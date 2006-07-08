@@ -9,76 +9,19 @@
        * the top, div.sidebar on the left and div.content takes up the rest
        * of the page. */
 
-      body { margin: 10px; }
-      div.sidebar {
-          position: absolute;
-          left: 0px;
-          top: 10px;
-          width: 25ex;
-      }
-      div.content {
-          position: absolute;
-          left: 25ex;
-          right: 0px;
-          top: 10px;
-          margin-left: 10px;
-      }
-
-      body {
+      body { 
+        margin: 10px;
         background-color: #444444;
         background-attachment: fixed;
       }
-      div.content {
-        padding: 0px 5px;
-        background-position: 165px 0px;
-        background-attachment: fixed;
-        background-repeat: no-repeat;
-        border: solid 2px black;
-        color: white;
+
+      .heading,.links,.content {
+        margin: 10px 0;
+      }
+      .heading,.content {
+        padding: 10px;
       }
 
-      div.content :link {
-        color: yellow;
-      }
-      div.config table {
-        margin: 10px auto;
-        border: 1px solid white;
-        border-bottom: none;
-        border-spacing: 0px;
-      }
-      div.config td {
-        border-bottom: 1px solid white;
-      }
-
-      div.sidebar {
-        border: solid 1px black;
-      }
-
-      div.sidebar ul {
-          margin: 0px;
-          padding: 0px;
-      }
-      div.sidebar li {
-          position: relative;
-          margin: 0px;
-          padding: 0px;
-          display: block;
-          width: 100%;
-      }
-      div.sidebar li a {
-          display: block;
-          width: 100%;
-          border: 1px black solid;
-          font-size: 130%;
-          font-weight: bold;
-          text-align: center;
-          color: white;
-          text-decoration: none;
-      }
-      div.sidebar li a:hover {
-          color: yellow;
-          background-color: black;
-      }
       .heading {
           font-size:300% ; 
           color: white; 
@@ -86,71 +29,105 @@
           border: 2px solid black ;
       }
 
-      .popup        { display: none; }
-      :hover>.popup { display: block; }
+      .content {
+          border: solid 2px black;
+          color: white;
+      }
+      .content :link { color: yellow; }
 
-      .popup {
-        background-color: #444444 /* #666666 */ ;
-        position: absolute;
-        width: 100%;
-        left: 100%;
-        top: 0px;
+
+      .links li a {
+        display: block;
+        width: 20ex;
+        line-height: 1.5;
+        color: white;
+        text-align: center;
+        text-decoration: none;
+        font-weight: bold;
+        float: left;
+        margin-left: -2px;
+        margin-top: -2px;
+        border: 2px solid black;
+      }
+      .links li a:hover {
+        background:black;
+        color: yellow;
+      }
+
+      .links               {display: table; width:100%; border-spacing: 12px}
+      .linkset             {display: table-row}
+      .links h3, .links ul {display: table-cell;}
+      .links li            {display: block}
+
+      .links {
+        border: solid 2px black;
+        color: white;
       }
 
     </style>
   </head>
   <body>
 
-<h1 class=heading>
-  Welcome to Html Viewer 3
-</h1>
+    <h1 class="heading">
+      Welcome to Html Viewer 3
+    </h1>
 
-    <div style="position:relative;">
+    <div class="links">
 
-    <div class=sidebar>
-      <ul>
-        <li> <a href="http://www.google.com.au">Google Search</a>
-        <li> <a href="http://www.tcl.tk">Tcl site</a>
-        <li> <a href="http://mini.net/tcl/">Tcl wiki</a>
-        <li> <a href="http://www.tclscripting.com/">tclscripting.com</a>
-        <li> <a href="http://tkhtml.tcl.tk">Tkhtml</a>
-        <li> <a href="http://slashdot.org">Slashdot</a>
-        <li> <a href="http://www.sqlite.org">Sqlite</a>
-        <li> <a href="http://www.w3.org">W3 Consortium</a> 
-<!--
-           <ul class=popup>
-             <li><a href="http://www.w3.org/TR/CSS1">CSS 1.0</a>
-             <li><a href="http://www.w3.org/TR/CSS21/">CSS 2.1</a>
-             <li><a href="http://www.w3.org/TR/html4/">HTML 4.01</a>
-           </ul>
--->
-        <li> <a href="http://www.abc.net.au">Your ABC</a>
-      </ul>
+      <div class="linkset">
+        <h3>Search</h3>
+        <ul>
+          <li> <a href="http://www.google.com">Google</a>
+          <li> <a href="http://www.yahoo.com">Yahoo</a>
+          <li> <a href="http://www.ask.com">Ask.com</a>
+        </ul>
+      </div>
+
+      <div class="linkset">
+      <h3>Tcl</h3>
+        <ul>
+          <li> <a href="http://www.tcl.tk">Tcl site</a>
+          <li> <a href="http://mini.net/tcl/">Tcl wiki</a>
+          <li> <a href="http://www.tclscripting.com/">tclscripting.com</a>
+        </ul>
+      </div>
+
+      <div class="linkset">
+        <h3>WWW</h3>
+        <ul>
+          <li><a href="http://www.w3.org">W3 Consortium</a> 
+          <li><a href="http://www.w3.org/TR/CSS1">CSS 1.0</a>
+          <li><a href="http://www.w3.org/TR/CSS21/">CSS 2.1</a>
+          <li><a href="http://www.w3.org/TR/html4/">HTML 4.01</a>
+          <li><a href="http://www.whatwg.org/specs/web-apps/current-work/">Web Applications 1.0</a>
+        </ul>
+      </div>
+
+      <div class="linkset">
+        <h3>Tkhtml</h3>
+        <ul>
+          <li> <a href="http://tkhtml.tcl.tk">Tkhtml</a>
+          <li> <a href="http://freshmeat.net/hv3">freshmeat.net/hv3</a>
+        </ul>
+      </div>
+
+      <div class="linkset">
+        <h3>Other</h3>
+        <ul>
+          <li> <a href="http://slashdot.org">Slashdot</a>
+          <li> <a href="http://www.sqlite.org">Sqlite</a>
+        </ul>
+      </div>
+
     </div>
 
     <div class=content>
 
-    <h1>Overview</h1>
+    <h1>Release Notes</h1>
+    <h2>Overview</h2>
     <p> Congratulations on successfully running Hv3 - the minimalist browser
         designed to test Tkhtml3. 
     </p>
-
-<!--
-
-This is the old proxy configuration form. It might be reinstated
-later if external proxy support is added.
-
-    <div class=config>
-      <table>
-          <tr><td><span widget="radio_noproxy">
-              <td>Do not use a proxy.
-          <tr><td><span widget="radio_configured_proxy">
-              <td>
-                  Host: <span widget="entry_host"></span>
-                  Port: <span widget="entry_port"></span>
-      </table>
-    </div>
--->
 
     <p>
 	Although it is not as polished as a "real" browser, Hv3 supports
@@ -170,7 +147,7 @@ later if external proxy support is added.
         anything else important.
     </p>
 
-    <h1>Hv3 Usage</h1>
+    <h2>Hv3 Usage</h2>
     <p>
       Hv3 provides more or less the same user interface as other hypertext
       applications. The "history" pull-down menu and the "back", "stop" and
@@ -197,7 +174,7 @@ later if external proxy support is added.
           the application.
     </ul>
 
-    <h1>Credits</h1>
+    <h2>Credits</h2>
     <ul>
       <li> Hv3 uses the pure-tcl combobox widget created by Bryan Oakley
            <a href="http://www.purl.org/net/oakley/tcl/combobox/index.html">
@@ -212,7 +189,6 @@ later if external proxy support is added.
            Chroboczek, available at 
            <a href="http://www.pps.jussieu.fr/~jch/software/polipo/">
            http://www.pps.jussieu.fr/~jch/software/polipo/</a>.
-  </div>
   </div>
   </body>
 </html>
