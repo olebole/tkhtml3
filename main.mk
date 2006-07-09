@@ -34,7 +34,15 @@ BINARIES = $(SHARED_LIB) pkgIndex.tcl
 # How to run the C compiler:
 COMPILE = $(CC) $(CFLAGS) $(STUBSFLAGS)
 
-binaries: $(BINARIES)
+compile_announce:
+	@echo ""
+	@echo "Building Tkhtml 3"
+	@echo ""
+	@echo "COMPILE = $(COMPILE)"
+	@echo ""
+	@echo ""
+
+binaries: compile_announce $(BINARIES)
 
 pkgIndex.tcl: $(SHARED_LIB)
 	echo 'pkg_mkIndex -load Tk . ; exit;' | $(WISH)
@@ -85,8 +93,11 @@ cssparse.c: $(TOP)/src/cssparse.y $(LEMON)
 
 cssparse.h: cssparse.c
 
+# hwish: $(OBJS) $(TOP)/src/main.c
+# $(CC) $(CFLAGS) $^ $(TCLLIB) -o $@
+
 hwish: $(OBJS) $(TOP)/src/main.c
-	$(CC) $(CFLAGS) $^ $(TCLLIB) -o $@
+	$(COMPILE) $^ $(TCLLIB) -o $@
 
 hv3_img.vfs: binaries
 	mkdir -p ./hv3_img.vfs

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.21 2006/06/10 12:32:27 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.22 2006/07/09 17:06:56 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -207,7 +207,8 @@ snit::widget ::hv3::control {
   #
   method CreateButtonWidget {variant} {
     set myWidget [button ${win}.widget]
-    $myWidget configure -pady 0
+
+    $myWidget configure -pady 0 
 
     # Determine the text to use for the button label. If this is a
     # file-select button, then the text is always "Select File...".
@@ -385,6 +386,8 @@ snit::widget ::hv3::control {
       catch { $myWidget configure -activebackground $v(background-color) }
       catch { $myWidget configure -highlightcolor $v(background-color) }
     }
+
+    # catch { $myWidget configure -font $v(font) }
 
     set font [$myWidget cget -font]
     set descent [font metrics $font -descent]

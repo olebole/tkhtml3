@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.134 2006/07/08 12:41:15 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.135 2006/07/09 17:06:56 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1477,6 +1477,8 @@ drawable, d_w, d_h, pImage, bg_x, bg_y, bg_w, bg_h, iPosX, iPosY)
         img = HtmlImageTile(pImage);
         Tk_SizeOfImage(img, &i_w, &i_h);
     }
+    assert(i_w > 0);
+    assert(i_h > 0);
 
     x1 = iPosX;
     if (iPosX != bg_x) {
