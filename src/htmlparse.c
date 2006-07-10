@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.68 2006/07/01 07:33:22 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.69 2006/07/10 18:53:32 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -288,7 +288,6 @@ HtmlHeadContent(pTree, pNode, tag)
     if (tag==Html_BODY || tag==Html_FRAMESET) return TAG_CLOSE;
     return TAG_PARENT;
 }
-
 
 /*
  *---------------------------------------------------------------------------

@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlstyle.c,v 1.31 2006/07/05 18:52:26 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlstyle.c,v 1.32 2006/07/10 18:53:33 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -120,7 +120,16 @@ styleNode(pTree, pNode, clientData)
             HtmlCallbackDamage(pTree, x-pTree->iScrollX, y-pTree->iScrollY,w,h);
         }
 
-        /* Calculate the z coordinate */
+        /* Calculate the z coordinate as follows. 
+         *
+         *     1. The z-level is initially 0.
+         *     2. Add 1 for each ancestor that is a floating box.
+         *     3. Add 50 for each ancestor that is positioned.
+         *     4. Add 5 if the element is inline and the parent is not.
+         *
+	 * This algorithm will have to change when the 'z-index' property is
+	 * supported.  Right now it is not.
+         */
         if (pNode->pParent) {
             pNode->iZLevel = pNode->pParent->iZLevel;
         }

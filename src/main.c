@@ -37,10 +37,10 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: main.c,v 1.6 2006/07/09 17:06:56 danielk1977 Exp $";
+static const char rcsid[] = "$Id: main.c,v 1.7 2006/07/10 18:53:33 danielk1977 Exp $";
 
-// #undef USE_TCL_STUBS
-// #undef USE_TK_STUBS
+#undef USE_TCL_STUBS
+#undef USE_TK_STUBS
 
 #include "tk.h"
 #include "locale.h"

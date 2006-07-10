@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.185 2006/07/05 18:52:26 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.186 2006/07/10 18:53:32 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -639,6 +639,16 @@ normalFlowLayoutOverflow(pLayout, pBox, pNode, pY, pContext, pNormal)
     }
 
     sContent.width = MAX(sContent.width, iWidth);
+
+    /* Wrap an overflow primitive around the content of this box. At
+     * the moment this just clips the displayed content. But eventually
+     * the HtmlCanvas module will automatically insert scrollbars if 
+     * required.
+     */
+    if (pV->eOverflow == CSS_CONST_HIDDEN) {
+        HtmlDrawOverflow(&sContent.vc, pNode, sContent.width, sContent.height);
+    }
+
     wrapContent(pLayout, &sBox, &sContent, pNode);
     DRAW_CANVAS(&pBox->vc, &sBox.vc, margin.margin_left, y, pNode);
 

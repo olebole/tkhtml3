@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.135 2006/07/09 17:06:56 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.136 2006/07/10 18:53:32 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -148,6 +148,7 @@ typedef struct CanvasOverflow CanvasOverflow;
 typedef struct CanvasItemSorter CanvasItemSorter;
 typedef struct CanvasItemSorterLevel CanvasItemSorterLevel;
 typedef struct CanvasItemSorterSlot CanvasItemSorterSlot;
+typedef struct Overflow Overflow;
 
 /* A single line of text. The relative coordinates (x, y) are as required
  * by Tk_DrawChars() - the far left-edge of the text baseline. The color
@@ -246,12 +247,12 @@ struct CanvasOrigin {
  * Currently, only "hidden" is handled (not "scroll" or "auto").
  */
 struct CanvasOverflow {
-    int x;
-    int y;
-    int w;
-    int h;
-    HtmlNode *pNode;
-    HtmlCanvasItem *pEnd;          /* Region ends *after* this item */
+    int x;                    /* x-coord of top-left of region */
+    int y;                    /* y-coord of top-left of region */
+    int w;                    /* Width of region */
+    int h;                    /* Height of region */
+    HtmlNode *pNode;          /* Node associated with the 'overflow' property */
+    HtmlCanvasItem *pEnd;     /* Region ends *after* this item */
 };
 
 /*
@@ -292,6 +293,26 @@ struct HtmlCanvasItem {
     HtmlCanvasItem *pNext;
 };
 
+struct Overflow {
+    CanvasOverflow *pItem;
+    int x;                   /* Top left of region relative to origin */
+    int y;                   /* Top left of region relative to origin */
+    int w;                   /* Top left of region relative to origin */
+    int h;                   /* Top left of region relative to origin */
+
+    /* Used by pixmapQueryCb() */
+    Overflow *pNext;
+    Pixmap pixmap;
+};
+
+static int pixmapQueryCb(HtmlCanvasItem *, int, int, Overflow *, ClientData);
+static int sorterCb(HtmlCanvasItem *, int, int, Overflow *, ClientData);
+static int layoutNodeIndexCb(HtmlCanvasItem *, int, int, Overflow *, ClientData);
+static int paintNodesSearchCb(HtmlCanvasItem *, int, int, Overflow *, ClientData);
+static int scrollToNodeCb(HtmlCanvasItem *, int, int, Overflow *, ClientData);
+static int layoutBboxCb(HtmlCanvasItem *, int, int, Overflow *, ClientData);
+static int layoutNodeCb(HtmlCanvasItem *, int, int, Overflow *, ClientData);
+
 #if 0
 static void
 CHECK_CANVAS(pCanvas) 
@@ -312,20 +333,18 @@ CHECK_CANVAS(pCanvas)
 
 /*
  * Every item in the canvas has an associated z-level (not to be confused with
- * the CSS property 'z-index'). A z-coord is an integer close to zero
- * calculated for each item as follows:
- *
- *     1. The z-level is initially 0.
- *     2. Add 10 for each ancestor that is positioned.
- *     2. Add 2 for each ancestor that is a floating box.
- *     3. Add 1 if the element is inline.
- *
- * This algorithm will have to change when the 'z-index' property is supported.
- * Right now it is not.
+ * the CSS property 'z-index'). A z-coord is an integer close to zero.
+ * See code in htmlstyle.c for how this is calculated.
  */
 struct CanvasItemSorter {
     int nLevel;                         /* Number of allocated levels */
     CanvasItemSorterLevel *aLevel;      /* Array of levels */  
+
+    struct OverflowAndPixmap {
+        Overflow overflow;
+        Pixmap pixmap;
+    } *aOverflowAndPixmap;
+    int nOverflowAndPixmap;             /* Allocated size of aOver... */
 };
 struct CanvasItemSorterLevel {
     int iSlot;                       /* Index of next free entry in aSlot */
@@ -336,14 +355,18 @@ struct CanvasItemSorterSlot {
     int x;                           /* item x-coord is relative to this */
     int y;                           /* item y-coord is relative to this */
     HtmlCanvasItem *pItem;           /* The item itself */
+
+    /* Clipping region stuff */
+    Overflow *pOverflow;
 };
 
 static void
-sorterInsert(pSorter, pItem, x, y)
+sorterInsert(pSorter, pItem, x, y, pOverflow)
     CanvasItemSorter *pSorter;
     HtmlCanvasItem *pItem;
     int x;
     int y;
+    Overflow *pOverflow;
 {
     int z = 0;
     HtmlNode *pNode = 0;
@@ -362,7 +385,9 @@ sorterInsert(pSorter, pItem, x, y)
         case CANVAS_LINE:
             pNode = pItem->x.line.pNode;
             break;
+
         case CANVAS_WINDOW:
+        case CANVAS_OVERFLOW:
             break;
         default:
             assert(!"bad type value");
@@ -402,11 +427,12 @@ sorterInsert(pSorter, pItem, x, y)
     pSlot->x = x;
     pSlot->y = y;
     pSlot->pItem = pItem;
+    pSlot->pOverflow = pOverflow;
 }
 static void
-sorterIterate(pSorter, xCallback, clientData)
+sorterIterate(pSorter, xFunc, clientData)
     CanvasItemSorter *pSorter;
-    int (*xCallback)(HtmlCanvasItem *, int, int, ClientData);
+    int (*xFunc)(HtmlCanvasItem *, int, int, Overflow *, ClientData);
     ClientData clientData;
 {
     int ii;
@@ -414,8 +440,8 @@ sorterIterate(pSorter, xCallback, clientData)
         CanvasItemSorterLevel *pLevel = &pSorter->aLevel[ii];
         int jj;
         for (jj = 0; jj < pLevel->iSlot; jj++) {
-            CanvasItemSorterSlot *pSlot = &pLevel->aSlot[jj];
-            xCallback(pSlot->pItem, pSlot->x, pSlot->y, clientData);
+            CanvasItemSorterSlot *p = &pLevel->aSlot[jj];
+            xFunc(p->pItem, p->x, p->y, p->pOverflow, clientData);
         }
     }
 }
@@ -748,6 +774,9 @@ void HtmlDrawOverflow(pCanvas, pNode, w, h)
     if (!pLast) return;
 
     pItem = allocateCanvasItem();
+    pItem = (HtmlCanvasItem *)HtmlClearAlloc("Screen-graph item",
+        sizeof(HtmlCanvasItem) + sizeof(Overflow)
+    );
     pItem->type = CANVAS_OVERFLOW;
     pItem->x.overflow.pNode = pNode;
     pItem->x.overflow.w = w;
@@ -1477,8 +1506,7 @@ drawable, d_w, d_h, pImage, bg_x, bg_y, bg_w, bg_h, iPosX, iPosY)
         img = HtmlImageTile(pImage);
         Tk_SizeOfImage(img, &i_w, &i_h);
     }
-    assert(i_w > 0);
-    assert(i_h > 0);
+    if (i_w <= 0 || i_h <= 0) return;
 
     x1 = iPosX;
     if (iPosX != bg_x) {
@@ -1580,7 +1608,7 @@ drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview)
     XColor *lc = pV->cBorderLeftColor->xcolor;
     XColor *oc = pV->cOutlineColor->xcolor;
 
-    int isInline = (pV->eDisplay == CSS_CONST_INLINE);
+    /* int isInline = (pV->eDisplay == CSS_CONST_INLINE); */
 
     if (pBox->pNode == pTree->pBgRoot) return 0;
 
@@ -1976,7 +2004,10 @@ drawText(pTree, pItem, drawable, x, y)
         Tk_FreeGC(disp, gc);
     }
 
-    /* If any text at all is selected, draw that text */
+    /* If any text at all is selected, draw that text. If the previous
+     * block drew the text in the "regular way", then we are overwriting
+     * part of that text's region here.
+     */
     if (iSelTo > 0 && iSelFrom <= n && iSelTo >= iSelFrom) {
         CONST char *zSel = &z[iSelFrom];
         int nSel;
@@ -2037,7 +2068,7 @@ searchCanvas(pTree, ymin, ymax, pNode, xFunc, clientData)
     int ymin;                    /* Minimum y coordinate, or INT_MIN */
     int ymax;                    /* Maximum y coordinate, or INT_MAX */
     HtmlNode *pNode;             /* Node to search subtree of, or NULL */
-    int (*xFunc)(HtmlCanvasItem *, int, int, ClientData);
+    int (*xFunc)(HtmlCanvasItem *, int, int, Overflow *, ClientData);
     ClientData clientData;
 {
     HtmlCanvasItem *pItem;
@@ -2046,43 +2077,84 @@ searchCanvas(pTree, ymin, ymax, pNode, xFunc, clientData)
     int origin_x = 0;
     int origin_y = 0;
     int rc = 0;
-
     int nTest = 0;
     int nCallback = 0;
+
+    /* The overflow stack. Grown using HtmlRealloc(). */
+    Overflow **apOverflow = 0;
+    int nOverflow = 0;
+    int iOverflow = -1;
      
     for (pItem = pCanvas->pFirst; pItem; pItem = (pSkip?pSkip:pItem->pNext)) {
+
         pSkip = 0;
-        if (pItem->type == CANVAS_ORIGIN) {
-            CanvasOrigin *pOrigin1 = &pItem->x.o;
-            CanvasOrigin *pOrigin2 = 0;
-            if (pOrigin1->pSkip) pOrigin2 = &pItem->x.o.pSkip->x.o;
-
-            origin_x += pOrigin1->x;
-            origin_y += pOrigin1->y;
-            if (pOrigin2 && (
-                (ymax >= 0 && (origin_y + pOrigin1->vertical) > ymax) ||
-                (ymin >= 0 && (origin_y + pOrigin2->vertical) < ymin))
-            ) {
-               pSkip = pOrigin1->pSkip;
-            }
-        } else if (pItem->type == CANVAS_MARKER) {
-            assert(pItem->x.marker.flags == MARKER_FIXED);
-            assert(origin_x == 0);
-            assert(origin_y == 0);
-            origin_x = pTree->iScrollX;
-            origin_y = pTree->iScrollY;
-        } else {
-            int x, y, w, h;
-            nTest++;
-
-            itemToBox(pItem, origin_x, origin_y, &x, &y, &w, &h);
-
-            if ((ymax < 0 || y <= ymax) && (ymin < 0 || (y + h) >= ymin)) {
-                if (0 != (rc = xFunc(pItem, origin_x, origin_y, clientData))) {
-                    return rc;
+        switch (pItem->type) {
+            case CANVAS_ORIGIN: {
+                CanvasOrigin *pOrigin1 = &pItem->x.o;
+                CanvasOrigin *pOrigin2 = 0;
+                if (pOrigin1->pSkip) pOrigin2 = &pItem->x.o.pSkip->x.o;
+    
+                origin_x += pOrigin1->x;
+                origin_y += pOrigin1->y;
+                if (pOrigin2 && (
+                    (ymax >= 0 && (origin_y + pOrigin1->vertical) > ymax) ||
+                    (ymin >= 0 && (origin_y + pOrigin2->vertical) < ymin))
+                ) {
+                   pSkip = pOrigin1->pSkip;
                 }
-                nCallback++;
+                break;
             }
+
+            case CANVAS_MARKER: {
+                assert(pItem->x.marker.flags == MARKER_FIXED);
+                assert(origin_x == 0);
+                assert(origin_y == 0);
+                origin_x = pTree->iScrollX;
+                origin_y = pTree->iScrollY;
+                break;
+            }
+
+            case CANVAS_OVERFLOW: {
+                iOverflow++;
+                assert(iOverflow <= nOverflow);
+                if (iOverflow == nOverflow) {
+                    int nBytes = sizeof(Overflow *) * (nOverflow + 1);
+                    apOverflow = (Overflow**)HtmlRealloc(0, apOverflow, nBytes);
+                    nOverflow++;
+                }
+                apOverflow[iOverflow] = (Overflow *)&pItem[1];
+                apOverflow[iOverflow]->pItem = &pItem->x.overflow;
+                apOverflow[iOverflow]->x = pItem->x.overflow.x + origin_x;
+                apOverflow[iOverflow]->y = pItem->x.overflow.y + origin_y;
+                apOverflow[iOverflow]->w = pItem->x.overflow.w;
+                apOverflow[iOverflow]->h = pItem->x.overflow.h;
+                apOverflow[iOverflow]->pixmap = 0;
+                apOverflow[iOverflow]->pNext = 0;
+                break;
+            }
+           
+            default: {
+                int x, y, w, h;
+                nTest++;
+                itemToBox(pItem, origin_x, origin_y, &x, &y, &w, &h);
+                if ((ymax < 0 || y <= ymax) && (ymin < 0 || (y + h) >= ymin)) {
+                    Overflow *pOver = 0;
+                    if (iOverflow >= 0) {
+                        pOver = apOverflow[iOverflow];
+                    }
+                    rc = xFunc(pItem, origin_x, origin_y, pOver, clientData);
+                    if (0 != rc) {
+                        goto search_out;
+                    }
+                    nCallback++;
+                }
+                break;
+            }
+        }
+
+        /* Check if we are supposed to pop the overflow stack */
+        while (iOverflow >= 0 && pItem == apOverflow[iOverflow]->pItem->pEnd) {
+            iOverflow--;
         }
     }
 
@@ -2090,18 +2162,21 @@ searchCanvas(pTree, ymin, ymax, pNode, xFunc, clientData)
 printf("Search(%d, %d) -> %d tests %d callbacks\n",ymin,ymax,nTest,nCallback);
 #endif
  
-    return 0;
+search_out:
+    HtmlFree(0, apOverflow);
+    return rc;
 }
 
 static int
-sorterCb(pItem, x, y, clientData)
+sorterCb(pItem, x, y, pOverflow, clientData)
     HtmlCanvasItem *pItem;
     int x;
     int y;
+    Overflow *pOverflow;
     ClientData clientData;
 {
     CanvasItemSorter *pSorter = (CanvasItemSorter *)clientData;
-    sorterInsert(pSorter, pItem, x, y);
+    sorterInsert(pSorter, pItem, x, y, pOverflow);
     return 0;
 }
 static void    
@@ -2110,7 +2185,7 @@ searchSortedCanvas(pTree, ymin, ymax, pNode, xFunc, clientData)
     int ymin;                    /* Minimum y coordinate, or INT_MIN */
     int ymax;                    /* Maximum y coordinate, or INT_MAX */
     HtmlNode *pNode;             /* Node to search subtree of, or NULL */
-    int (*xFunc)(HtmlCanvasItem *, int, int, ClientData);
+    int (*xFunc)(HtmlCanvasItem *, int, int, Overflow *, ClientData);
     ClientData clientData;
 {
     CanvasItemSorter sSorter;
@@ -2132,30 +2207,121 @@ struct GetPixmapQuery {
     int getwin;
     Outline *pOutline;
     Pixmap pmap;
+
+    Overflow *pCurrentOverflow;
+    Overflow *pOverflowList;
 };
 
+static void
+pixmapQuerySwitchOverflow(pQuery, pOverflow)
+    GetPixmapQuery *pQuery;
+    Overflow *pOverflow;
+{
+    if (pOverflow != pQuery->pCurrentOverflow) {
+        Overflow *pCurrentOverflow = pQuery->pCurrentOverflow;
+
+#if 0
+        if (pQuery->pCurrentOverflow) {
+            printf("Clipping region was: %dx%d +%d+%d\n", 
+                pQuery->pCurrentOverflow->pItem->w, 
+                pQuery->pCurrentOverflow->pItem->h, 
+                pQuery->pCurrentOverflow->x, 
+                pQuery->pCurrentOverflow->y
+            );
+        }else{
+            printf("Clipping region was: (null)\n");
+        }
+        if (pOverflow) {
+            printf("Clipping region is: %dx%d +%d+%d\n", 
+                pOverflow->pItem->w, pOverflow->pItem->h, 
+                pOverflow->x, pOverflow->y
+            );
+        }else{
+            printf("Clipping region is: (null)\n");
+        }
+#endif
+
+        if (pCurrentOverflow && pCurrentOverflow->pixmap) {
+            Tk_Window win = pQuery->pTree->win;
+            Pixmap o = pCurrentOverflow->pixmap;
+            GC gc;
+            XGCValues gc_values;
+
+            memset(&gc_values, 0, sizeof(XGCValues));
+            gc = Tk_GetGC(pQuery->pTree->win, 0, &gc_values);
+            XCopyArea(Tk_Display(win), o, pQuery->pmap, gc, 
+                0, 0,
+                pCurrentOverflow->w, pCurrentOverflow->h,
+                pCurrentOverflow->x + pQuery->x, pCurrentOverflow->y + pQuery->y
+            );
+            Tk_FreeGC(Tk_Display(win), gc);
+        }
+
+        pQuery->pCurrentOverflow = 0;
+
+        if (pOverflow && pOverflow->w > 0 && pOverflow->h > 0) {
+            Tk_Window win = pQuery->pTree->win;
+            CanvasOverflow *pItem = pOverflow->pItem;
+            GC gc;
+            XGCValues gc_values;
+
+            if (!pOverflow->pixmap) {
+                pOverflow->pixmap = Tk_GetPixmap(
+		    Tk_Display(win), Tk_WindowId(win), 
+                    pOverflow->w, pOverflow->h,
+                    Tk_Depth(win)
+                );
+                pOverflow->pNext = pQuery->pOverflowList;
+                pQuery->pOverflowList = pOverflow;
+            }
+            memset(&gc_values, 0, sizeof(XGCValues));
+            gc = Tk_GetGC(pQuery->pTree->win, 0, &gc_values);
+            XCopyArea(Tk_Display(win), pQuery->pmap, pOverflow->pixmap, gc, 
+                pOverflow->x + pQuery->x, pOverflow->y + pQuery->y,
+                pOverflow->w, pOverflow->h, 0, 0
+            );
+            Tk_FreeGC(Tk_Display(win), gc);
+        }
+
+        pQuery->pCurrentOverflow = pOverflow;
+    }
+}
+
 static int
-pixmapQueryCb(pItem, origin_x, origin_y, clientData)
+pixmapQueryCb(pItem, origin_x, origin_y, pOverflow, clientData)
     HtmlCanvasItem *pItem;
     int origin_x;
     int origin_y;
+    Overflow *pOverflow;
     ClientData clientData;
 {
     GetPixmapQuery *pQuery = (GetPixmapQuery *)clientData;
+
     int x = origin_x + pQuery->x;
     int y = origin_y + pQuery->y;
-
     int w = pQuery->w;
     int h = pQuery->h;
+    Drawable drawable = pQuery->pmap;
+
+    pixmapQuerySwitchOverflow(pQuery, pOverflow);
+    assert(pOverflow == pQuery->pCurrentOverflow);
+    if (pQuery->pCurrentOverflow) {
+        Overflow *p = pQuery->pCurrentOverflow;
+        if (p->w <= 0 || p->h <= 0) return 0;
+
+        drawable = p->pixmap;
+        x = origin_x - p->x;
+        y = origin_y - p->y;
+    }
 
     switch (pItem->type) {
         case CANVAS_TEXT: {
-            drawText(pQuery->pTree, pItem, pQuery->pmap, x, y);
+            drawText(pQuery->pTree, pItem, drawable, x, y);
             break;
         }
 
         case CANVAS_IMAGE: {
-            drawImage(pQuery->pTree, &pItem->x.i2, pQuery->pmap, x, y, w, h);
+            drawImage(pQuery->pTree, &pItem->x.i2, drawable, x, y, w, h);
             break;
         }
 
@@ -2163,7 +2329,7 @@ pixmapQueryCb(pItem, origin_x, origin_y, clientData)
             Outline *p;
             int xv = -1 * (pQuery->x + pQuery->pTree->iScrollX);
             int yv = -1 * (pQuery->y + pQuery->pTree->iScrollY);
-            p = drawBox(pQuery->pTree,&pItem->x.box,pQuery->pmap,x,y,w,h,xv,yv);
+            p = drawBox(pQuery->pTree,&pItem->x.box,drawable,x,y,w,h,xv,yv);
             if (p) {
                 p->pNext = pQuery->pOutline;
                 pQuery->pOutline = p;
@@ -2172,7 +2338,7 @@ pixmapQueryCb(pItem, origin_x, origin_y, clientData)
         }
 
         case CANVAS_LINE: {
-            drawLine(pQuery->pTree, &pItem->x.line, pQuery->pmap, x, y, w, h);
+            drawLine(pQuery->pTree, &pItem->x.line, drawable, x, y, w, h);
             break;
         }
         case CANVAS_WINDOW: {
@@ -2215,12 +2381,12 @@ pixmapQueryCb(pItem, origin_x, origin_y, clientData)
  */
 static Pixmap 
 getPixmap(pTree, xcanvas, ycanvas, w, h, getwin)
-    HtmlTree *pTree;
-    int xcanvas;
-    int ycanvas;
-    int w;
-    int h;
-    int getwin;
+    HtmlTree *pTree;        /* Pointer to html widget */
+    int xcanvas;            /* top-left canvas x-coord of requested pixmap */
+    int ycanvas;            /* top-left canvas y-coord of requested pixmap */
+    int w;                  /* Required width of pixmap */
+    int h;                  /* Required height of pixmap */
+    int getwin;             /* Boolean. True to add windows to pTree->pMapped */
 {
     Pixmap pmap;
     Display *pDisplay;
@@ -2228,6 +2394,7 @@ getPixmap(pTree, xcanvas, ycanvas, w, h, getwin)
     XColor *bg_color = 0;
     GetPixmapQuery sQuery;
     Outline *pOutline;
+    Overflow *pOverflow;
     ClientData clientData;
 
     HtmlNode *pBgRoot = 0;
@@ -2283,6 +2450,8 @@ getPixmap(pTree, xcanvas, ycanvas, w, h, getwin)
     sQuery.h = h;
     sQuery.pOutline = 0;
     sQuery.getwin = getwin;
+    sQuery.pCurrentOverflow = 0;
+    sQuery.pOverflowList = 0;
 
     clientData = (ClientData)&sQuery;
 #if 0
@@ -2290,6 +2459,15 @@ getPixmap(pTree, xcanvas, ycanvas, w, h, getwin)
 #else
     searchSortedCanvas(pTree, ycanvas, ycanvas+h, 0, pixmapQueryCb, clientData);
 #endif
+    pixmapQuerySwitchOverflow(&sQuery, 0);
+    for (
+        pOverflow = sQuery.pOverflowList;  
+        pOverflow; 
+        pOverflow = pOverflow->pNext
+    ) {
+        Tk_FreePixmap(Tk_Display(win), pOverflow->pixmap);
+        pOverflow->pixmap = 0;
+    }
 
     pOutline = sQuery.pOutline;
     while (pOutline) {
@@ -2440,10 +2618,11 @@ struct NodeIndexQuery {
  *---------------------------------------------------------------------------
  */
 static int
-layoutNodeIndexCb(pItem, origin_x, origin_y, clientData)
+layoutNodeIndexCb(pItem, origin_x, origin_y, pOverflow, clientData)
     HtmlCanvasItem *pItem;
     int origin_x;
     int origin_y;
+    Overflow *pOverflow;
     ClientData clientData;
 {
     CanvasText *pT = &pItem->x.t;
@@ -2606,10 +2785,11 @@ struct NodeQuery {
 };
 
 static int
-layoutNodeCb(pItem, origin_x, origin_y, clientData)
+layoutNodeCb(pItem, origin_x, origin_y, pOverflow, clientData)
     HtmlCanvasItem *pItem;
     int origin_x;
     int origin_y;
+    Overflow *pOverflow;
     ClientData clientData;
 {
     int x, y, w, h;
@@ -2783,10 +2963,11 @@ struct PaintNodesQuery {
  *---------------------------------------------------------------------------
  */
 static int
-paintNodesSearchCb(pItem, origin_x, origin_y, clientData)
+paintNodesSearchCb(pItem, origin_x, origin_y, pOverflow, clientData)
     HtmlCanvasItem *pItem;
     int origin_x;
     int origin_y;
+    Overflow *pOverflow;
     ClientData clientData;
 {
     PaintNodesQuery *p = (PaintNodesQuery *)clientData;
@@ -2931,10 +3112,11 @@ struct ScrollToQuery {
  *---------------------------------------------------------------------------
  */
 static int
-scrollToNodeCb(pItem, origin_x, origin_y, clientData)
+scrollToNodeCb(pItem, origin_x, origin_y, pOverflow, clientData)
     HtmlCanvasItem *pItem;
     int origin_x;
     int origin_y;
+    Overflow *pOverflow;
     ClientData clientData;
 {
     int x, y, w, h;
@@ -3015,10 +3197,11 @@ struct LayoutBboxQuery {
 };
 
 static int
-layoutBboxCb(pItem, origin_x, origin_y, clientData)
+layoutBboxCb(pItem, origin_x, origin_y, pOverflow, clientData)
     HtmlCanvasItem *pItem;
     int origin_x;
     int origin_y;
+    Overflow *pOverflow;
     ClientData clientData;
 {
     int x, y, w, h;
