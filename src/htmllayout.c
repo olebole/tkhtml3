@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.188 2006/07/12 06:47:38 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.189 2006/07/12 15:35:57 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -561,6 +561,45 @@ getHeight(pNode, iHeight, iContainingHeight)
     return height;
 }
 
+static int
+getWidth(iWidthCalculated, iWidthContent) 
+    int iWidthCalculated;
+    int iWidthContent;
+{
+    if (iWidthCalculated < 0) {
+        return iWidthContent;
+    }
+    return iWidthCalculated;
+}
+
+static void
+considerMinMaxWidth(pNode, iContaining, piWidth)
+    HtmlNode *pNode;
+    int iContaining;
+    int *piWidth;
+{
+    int iWidth = *piWidth;
+    if (iWidth != PIXELVAL_AUTO) {
+        HtmlComputedValues *pV = pNode->pPropertyValues;
+        int iMinWidth;
+        int iMaxWidth;
+ 
+        iMinWidth = PIXELVAL(pV, MIN_WIDTH, iContaining);
+        iMaxWidth = PIXELVAL(pV, MAX_WIDTH, iContaining);
+
+        assert(iMaxWidth == PIXELVAL_NONE || iMaxWidth >= MAX_PIXELVAL);
+        assert(iMinWidth >= MAX_PIXELVAL);
+ 
+        if (iMaxWidth != PIXELVAL_NONE) {
+            iWidth = MIN(iWidth, iMaxWidth);
+        }
+        iWidth = MAX(iWidth, iMinWidth);
+
+        *piWidth = iWidth;
+    }
+}
+
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -638,7 +677,8 @@ normalFlowLayoutOverflow(pLayout, pBox, pNode, pY, pContext, pNormal)
         );
     }
 
-    sContent.width = MAX(sContent.width, iWidth);
+    sContent.width = getWidth(iWidth, sContent.width);
+    considerMinMaxWidth(pNode, iRight - iLeft - iMPB, &sContent.width);
 
     /* Wrap an overflow primitive around the content of this box. At
      * the moment this just clips the displayed content. But eventually
@@ -1398,33 +1438,6 @@ drawReplacement(pLayout, pBox, pNode)
     sBox.iContaining = pBox->iContaining;
     drawReplacementContent(pLayout, &sBox, pNode);
     wrapContent(pLayout, pBox, &sBox, pNode);
-}
-
-static void
-considerMinMaxWidth(pNode, iContaining, piWidth)
-    HtmlNode *pNode;
-    int iContaining;
-    int *piWidth;
-{
-    int iWidth = *piWidth;
-    if (iWidth != PIXELVAL_AUTO) {
-        HtmlComputedValues *pV = pNode->pPropertyValues;
-        int iMinWidth;
-        int iMaxWidth;
- 
-        iMinWidth = PIXELVAL(pV, MIN_WIDTH, iContaining);
-        iMaxWidth = PIXELVAL(pV, MAX_WIDTH, iContaining);
-
-        assert(iMaxWidth == PIXELVAL_NONE || iMaxWidth >= MAX_PIXELVAL);
-        assert(iMinWidth >= MAX_PIXELVAL);
- 
-        if (iMaxWidth != PIXELVAL_NONE) {
-            iWidth = MIN(iWidth, iMaxWidth);
-        }
-        iWidth = MAX(iWidth, iMinWidth);
-
-        *piWidth = iWidth;
-    }
 }
 
 
@@ -2209,17 +2222,6 @@ normalFlowLayoutReplaced(pLayout, pBox, pNode, pY, pContext, pNormal)
     normalFlowMarginAdd(pLayout, pNode, pNormal, margin.margin_bottom);
 
     return 0;
-}
-
-static int
-getWidth(iWidthCalculated, iWidthContent) 
-    int iWidthCalculated;
-    int iWidthContent;
-{
-    if (iWidthCalculated < 0) {
-        return iWidthContent;
-    }
-    return iWidthCalculated;
 }
 
 static void
