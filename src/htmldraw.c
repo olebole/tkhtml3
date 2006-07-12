@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.139 2006/07/12 06:47:38 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.140 2006/07/12 14:32:10 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1003,6 +1003,31 @@ requireBox(pNode)
         return 1;
     }
     return 0;
+}
+
+static HtmlNode *
+itemToNode(pItem)
+    HtmlCanvasItem *pItem;
+{
+    HtmlNode *pNode = 0;
+    switch (pItem->type) {
+        case CANVAS_BOX:
+            pNode = pItem->x.box.pNode;
+            break;
+        case CANVAS_TEXT:
+            pNode = pItem->x.t.pNode;
+            break;
+        case CANVAS_IMAGE:
+            pNode = pItem->x.i2.pNode;
+            break;
+        case CANVAS_LINE:
+            pNode = pItem->x.line.pNode;
+            break;
+        case CANVAS_WINDOW:
+            pNode = pItem->x.w.pNode;
+            break;
+    }
+    return pNode;
 }
 
 static HtmlNode *
@@ -2304,6 +2329,17 @@ pixmapQueryCb(pItem, origin_x, origin_y, pOverflow, clientData)
     int w = pQuery->w;
     int h = pQuery->h;
     Drawable drawable = pQuery->pmap;
+
+    /* If the node's item has the 'visibility' property set to "hidden" or
+     * "collapse", do not draw content 
+     */
+    HtmlNode *pNode = itemToNode(pItem);
+    if (!pNode->pPropertyValues) {
+        pNode = HtmlNodeParent(pNode);
+    }
+    if (pNode && pNode->pPropertyValues->eVisibility != CSS_CONST_VISIBLE) {
+        return 0;
+    }
 
     pixmapQuerySwitchOverflow(pQuery, pOverflow);
     assert(pOverflow == pQuery->pCurrentOverflow);

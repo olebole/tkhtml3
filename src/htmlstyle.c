@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlstyle.c,v 1.33 2006/07/12 06:47:38 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlstyle.c,v 1.34 2006/07/12 14:32:10 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -67,6 +67,7 @@ styleNode(pTree, pNode, clientData)
     if (!HtmlNodeIsText(pNode)) {
         int redrawmode = 0;
         HtmlComputedValues *pV = pNode->pPropertyValues;
+        HtmlNode *pParent = HtmlNodeParent(pNode);
         pNode->pPropertyValues = 0;
         pNode->iZLevel = 0;
 
@@ -130,8 +131,8 @@ styleNode(pTree, pNode, clientData)
 	 * This algorithm will have to change when the 'z-index' property is
 	 * supported.  Right now it is not.
          */
-        if (pNode->pParent) {
-            pNode->iZLevel = pNode->pParent->iZLevel;
+        if (pParent) {
+            pNode->iZLevel = pParent->iZLevel;
         }
         if (pNode->pPropertyValues->eFloat != CSS_CONST_NONE) {
             pNode->iZLevel += 1;
@@ -141,8 +142,8 @@ styleNode(pTree, pNode, clientData)
         }
         if (
             pNode->pPropertyValues->eDisplay == CSS_CONST_INLINE && (
-                !pNode->pParent || 
-                pNode->pParent->pPropertyValues->eDisplay != CSS_CONST_INLINE
+                !pParent || 
+                pParent->pPropertyValues->eDisplay != CSS_CONST_INLINE
             )
         ) {
             pNode->iZLevel += 5;
