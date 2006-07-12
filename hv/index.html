@@ -11,7 +11,7 @@
 
       body { 
         margin: 10px;
-        background-color: #444444;
+        background-color: #d9d9d9;
         background-attachment: fixed;
       }
 
@@ -24,34 +24,37 @@
 
       .heading {
           font-size:300% ; 
-          color: white; 
           text-align: center; 
           border: 2px solid black ;
       }
 
       .content {
           border: solid 2px black;
-          color: white;
       }
-      .content :link { color: yellow; }
+
+      .content :link { color: blue; }
+      .content :link:hover { text-decoration: underline }
+      .content :link { text-decoration: none }
 
 
       .links li a {
         display: block;
         width: 20ex;
         line-height: 1.5;
-        color: white;
         text-align: center;
         text-decoration: none;
         font-weight: bold;
         float: left;
-        margin-left: -2px;
-        margin-top: -2px;
-        border: 2px solid black;
+        margin: 1px;
+
+        border: 2px solid;
+        border-color: #ffffff #828282 #828282 #ffffff;
+        background: #d9d9d9;
+        font-weight: bold;
+        color: black;
       }
       .links li a:hover {
-        background:black;
-        color: yellow;
+        background: #ececec;
       }
 
       .links               {display: table; width:100%; border-spacing: 12px}
@@ -61,7 +64,6 @@
 
       .links {
         border: solid 2px black;
-        color: white;
       }
 
     </style>
