@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlstyle.c,v 1.32 2006/07/10 18:53:33 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlstyle.c,v 1.33 2006/07/12 06:47:38 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -65,11 +65,11 @@ styleNode(pTree, pNode, clientData)
     int trashDynamics = (int)clientData;
 
     if (!HtmlNodeIsText(pNode)) {
+        int redrawmode = 0;
         HtmlComputedValues *pV = pNode->pPropertyValues;
         pNode->pPropertyValues = 0;
         pNode->iZLevel = 0;
 
-        int redrawmode = 0;
 
         /* If the clientData was set to a non-zero value, then the 
          * stylesheet configuration has changed. In this case we need to

@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.138 2006/07/12 06:22:26 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.139 2006/07/12 06:47:38 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -2720,6 +2720,8 @@ layoutNodeIndexCmd(pTree, x, y)
         int iIndex = 0;                               /* Index to return */
         const char *z;
         int n;
+        Tcl_Obj *pCmd;
+
         z = Tcl_GetStringFromObj(sQuery.pClosest->pText, &n);
 
         iIndex = n;
@@ -2732,7 +2734,7 @@ layoutNodeIndexCmd(pTree, x, y)
         iIndex += sQuery.pClosest->iIndex;
 
         /* Load the result into the Tcl interpreter */
-        Tcl_Obj *pCmd = Tcl_DuplicateObj(HtmlNodeCommand(pTree, pNode));
+        pCmd = Tcl_DuplicateObj(HtmlNodeCommand(pTree, pNode));
         Tcl_ListObjAppendElement(0, pCmd, Tcl_NewIntObj(iIndex));
         Tcl_SetObjResult(pTree->interp, pCmd);
     }

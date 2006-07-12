@@ -37,7 +37,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: main.c,v 1.7 2006/07/10 18:53:33 danielk1977 Exp $";
+static const char rcsid[] = "$Id: main.c,v 1.8 2006/07/12 06:47:38 danielk1977 Exp $";
 
 #undef USE_TCL_STUBS
 #undef USE_TK_STUBS
@@ -94,8 +94,8 @@ main(argc, argv)
     TK_LOCAL_MAIN_HOOK(&argc, &argv);
 #endif
 
- //   Tcl_InitStubs(0, "8.4", 0);
- //   Tk_InitStubs(0, "8.4", 0);
+/* Tcl_InitStubs(0, "8.4", 0); */
+/* Tk_InitStubs(0, "8.4", 0);  */
 
     Tk_Main(argc, argv, TK_LOCAL_APPINIT);
     return 0;			/* Needed only to prevent compiler warning. */

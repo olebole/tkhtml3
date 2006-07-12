@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.187 2006/07/12 05:51:07 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.188 2006/07/12 06:47:38 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -1225,8 +1225,8 @@ HtmlLayoutNodeContent(pLayout, pBox, pNode)
     BoxContext *pBox;
     HtmlNode *pNode;
 {
-    assert(!nodeIsReplaced(pNode));
     int eDisplay = DISPLAY(pNode->pPropertyValues);
+    assert(!nodeIsReplaced(pNode));
 
     if (eDisplay == CSS_CONST_NONE) {
         /* Do nothing */
@@ -2122,10 +2122,10 @@ normalFlowLayoutTableComponent(pLayout, pBox, pNode, pY, pContext, pNormal)
     sTable.nChild = nChild;
 
     if (!pLayout->pImplicitTableProperties) {
+        HtmlComputedValuesCreator sCreator;
         CssProperty sProp;
         sProp.eType = CSS_CONST_TABLE;
         sProp.v.zVal = "table";
-        HtmlComputedValuesCreator sCreator;
         HtmlComputedValuesInit(pLayout->pTree, &sTable, 0, &sCreator);
         HtmlComputedValuesSet(&sCreator, CSS_PROPERTY_DISPLAY, &sProp);
         pLayout->pImplicitTableProperties = HtmlComputedValuesFinish(&sCreator);
@@ -2435,11 +2435,12 @@ normalFlowClearFloat(pBox, pNode, pNormal, y)
     int eClear = pNode->pPropertyValues->eClear;
     int ynew = y;
     if (eClear != CSS_CONST_NONE) {
+        int ydiff;
         ynew = HtmlFloatListClear(pNormal->pFloat, eClear, ynew);
-        int ydiff = ynew - y;
+        ydiff = ynew - y;
         assert(ydiff >= 0);
         pNormal->iMaxMargin = MAX(pNormal->iMaxMargin - ydiff, 0);
-        // if (!pNormal->nonegative) pNormal->iMinMargin = 0;
+        /* if (!pNormal->nonegative) pNormal->iMinMargin = 0; */
         pNormal->iMinMargin -= ydiff;
         pNormal->nonegative = 1;
         pBox->height = MAX(ynew, pBox->height);

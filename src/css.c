@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.75 2006/07/05 18:52:26 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.76 2006/07/12 06:47:38 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -1742,15 +1742,6 @@ cssGetToken(z, n, pLen)
         }
 
         default: {
-            /* Weed out HTML comment symbols: <!-- and --> */
-            if (n >= 4 && 0 == strncmp("<!--", z, 4)) {
-                *pLen = 4;
-                return -1;
-            }
-            if (n >= 3 && 0 == strncmp("-->", z, 3)) {
-                *pLen = 3;
-                return -1;
-            }
                 
             /* This must be either an identifier or a function. For the
             ** ASCII character range 0-127, the 'charmap' array is 1 for
@@ -1770,6 +1761,16 @@ cssGetToken(z, n, pLen)
                 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0  /* 0x70-0x7F */
             };
             int i;
+
+            /* Weed out HTML comment symbols: <!-- and --> */
+            if (n >= 4 && 0 == strncmp("<!--", z, 4)) {
+                *pLen = 4;
+                return -1;
+            }
+            if (n >= 3 && 0 == strncmp("-->", z, 3)) {
+                *pLen = 3;
+                return -1;
+            }
 
             for(i=0; i<n && (z[i]<0 || charmap[(int)z[i]]); i++){
                 if (z[i] == '\\' && z[i + 1]) i++;

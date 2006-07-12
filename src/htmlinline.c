@@ -31,7 +31,7 @@
  * 
  *     HtmlInlineContextIsEmpty
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.24 2006/07/12 05:51:07 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.25 2006/07/12 06:47:38 danielk1977 Exp $";
 
 typedef struct InlineBox InlineBox;
 
@@ -1129,7 +1129,7 @@ HtmlInlineContextNew(pTree, pNode, isSizeOnly, iTextIndent)
     pContext->iTextIndent = iTextIndent;
     pContext->isSizeOnly = isSizeOnly;
 
-    START_LOG("HtmlInlineContextNew");
+    START_LOG("HtmlInlineContextNew")
         const char *zWhiteSpace = HtmlCssConstantToString(pContext->whiteSpace);
         const char *zTextAlign = HtmlCssConstantToString(pContext->textAlign);
 

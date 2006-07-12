@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.78 2006/07/05 17:54:44 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.79 2006/07/12 06:47:38 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1696,17 +1696,6 @@ allocateNewFont(pTree, tkwin, pFontKey)
     char zTkFontName[256];      /* Tk font name */
     HtmlFont *pFont;
 
-    /* Local variable iFontSize is in points - not thousandths */
-    float fontsize = ((float)pFontKey->iFontSize / (float)HTML_IFONTSIZE_SCALE);
-    fontsize = fontsize * pTree->options.fontscale;
-
-    int iFontSize;
-    if (isForceFontMetrics) {
-        iFontSize = INTEGER(fontsize * 0.9);
-    } else {
-        iFontSize = INTEGER(fontsize);
-    }
-
     struct FamilyMap {
         CONST char *cssFont;
         CONST char *tkFont;
@@ -1715,6 +1704,17 @@ allocateNewFont(pTree, tkwin, pFontKey)
         {"sans-serif", "Helvetica"},
         {"monospace",  "Courier"}
     };
+
+    /* Local variable iFontSize is in points - not thousandths */
+    int iFontSize;
+    float fontsize = ((float)pFontKey->iFontSize / (float)HTML_IFONTSIZE_SCALE);
+    fontsize = fontsize * pTree->options.fontscale;
+
+    if (isForceFontMetrics) {
+        iFontSize = INTEGER(fontsize * 0.9);
+    } else {
+        iFontSize = INTEGER(fontsize);
+    }
 
     do {
         const char *zF;      /* Pointer to tk font family name */
@@ -2325,9 +2325,10 @@ HtmlComputedValuesCleanupTables(pTree)
     };
 
     for (pzCursor = azColor; *pzCursor; pzCursor++) {
+        HtmlColor *pColor;
         Tcl_HashEntry *pEntry = Tcl_FindHashEntry(&pTree->aColor, *pzCursor);
         assert(pEntry);
-        HtmlColor *pColor = (HtmlColor *)Tcl_GetHashValue(pEntry);
+        pColor = (HtmlColor *)Tcl_GetHashValue(pEntry);
         decrementColorRef(pTree, pColor);
     }
 }
