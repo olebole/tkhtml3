@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.88 2006/07/08 11:42:38 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.89 2006/07/12 12:09:57 danielk1977 Exp $";
 
 #include "htmllayout.h"
 
@@ -647,7 +647,10 @@ tableDrawCells(pNode, col, colspan, row, rowspan, pContext)
 
 
     HtmlLayoutNodeContent(pData->pLayout, pBox, pNode);
-    pBox->height = getHeight(pNode, pBox->height, PIXELVAL_AUTO);
+    pBox->height = MAX(
+        getHeight(pNode, pBox->height, PIXELVAL_AUTO), 
+        pBox->height
+    );
 
     belowY = y + pBox->height + pData->border_spacing + box.iTop + box.iBottom;
     
