@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.137 2006/07/12 05:51:07 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.138 2006/07/12 06:22:26 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -770,11 +770,11 @@ void HtmlDrawOverflow(pCanvas, pNode, w, h)
 {
     HtmlCanvasItem *pLast = pCanvas->pLast;
     HtmlCanvasItem *pItem;
+CHECK_CANVAS(pCanvas);
 
     if (!pLast) return;
     assert(pCanvas->pFirst);
 
-    pItem = allocateCanvasItem();
     pItem = (HtmlCanvasItem *)HtmlClearAlloc("Screen-graph item",
         sizeof(HtmlCanvasItem) + sizeof(Overflow)
     );
@@ -786,6 +786,7 @@ void HtmlDrawOverflow(pCanvas, pNode, w, h)
 
     pItem->pNext = pCanvas->pFirst;
     pCanvas->pFirst = pItem;
+CHECK_CANVAS(pCanvas);
 }
 
 void HtmlDrawCopyCanvas(pTo, pFrom)
