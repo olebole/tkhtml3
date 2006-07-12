@@ -31,7 +31,7 @@
  * 
  *     HtmlInlineContextIsEmpty
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.23 2006/07/05 18:52:26 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.24 2006/07/12 05:51:07 danielk1977 Exp $";
 
 typedef struct InlineBox InlineBox;
 
@@ -1195,7 +1195,7 @@ HtmlInlineContextAddText(pContext, pNode)
     sw = pFont->space_pixels;
     nh = pFont->metrics.ascent + pFont->metrics.descent;
 
-    for (pToken=pNode->pToken; pToken; pToken=pToken->pNext) {
+    for (pToken=pNode->pToken; pToken; pToken=pToken->pNextToken) {
         switch(pToken->type) {
             case Html_Text: {
                 Tcl_Obj *pText;

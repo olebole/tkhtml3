@@ -147,8 +147,7 @@ struct HtmlTokenMap {
 #define TAG_IMPLICIT 4
 
 struct HtmlToken {
-    HtmlToken *pNext;           /* Next input token in a list of them all */
-    HtmlToken *pPrev;           /* Previous token in a list of them all   */
+    HtmlToken *pNextToken;      /* Next input token (text nodes only) */
     Html_u8 type;
     Html_16 count;
     union {
@@ -380,8 +379,6 @@ struct HtmlTree {
     int isParseFinished;            /* True if the html parse is finished */
     int isCdataInHead;              /* True if previous token was <title> */
 
-    HtmlToken *pFirst;              /* First token parsed */
-    HtmlToken *pLast;               /* Last token parsed */
     HtmlNode *pCurrent;             /* The node currently being built. */
     HtmlNode *pRoot;                /* The root-node of the document. */
     HtmlNode *pBgRoot;              /* The node for the canvas bg */

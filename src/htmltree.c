@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.75 2006/07/05 18:52:26 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.76 2006/07/12 05:51:07 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -274,10 +274,7 @@ reworkTableNode(pNode)
              */
             pRowToken = (HtmlToken *)HtmlClearAlloc(0, sizeof(HtmlToken));
             pRowToken->type = Html_TR;
-            pRowToken->pNext = pChild->pToken;
-            pRowToken->pPrev = pChild->pToken->pPrev;
-            pChild->pToken->pPrev->pNext = pRowToken;
-            pChild->pToken->pPrev = pRowToken;
+            pRowToken->pNextToken = pChild->pToken;
 
             /* Create an HtmlNode for the new <tr> */
             pRowNode = (HtmlNode *)HtmlClearAlloc(0, sizeof(HtmlNode));
@@ -360,7 +357,7 @@ tokenAction(pTree, pToken, pNClose)
 
     if (tag == Html_Space) {
         HtmlToken *pT;
-        for (pT = pToken; pT && pT->type == Html_Space; pT = pT->pNext);
+        for (pT = pToken; pT && pT->type == Html_Space; pT = pT->pNextToken);
         if (pT && pT->type == Html_Text) {
             tag = Html_Text;
         }
@@ -549,6 +546,7 @@ HtmlNodeDeleteCommand(pTree, pNode)
         HtmlFree(0, (char *)pNode->pNodeCmd);
         pNode->pNodeCmd = 0;
     }
+    return 0;
 }
 
 
@@ -576,6 +574,7 @@ freeNode(pTree, pNode)
 {
     if( pNode ){
         int i;
+        HtmlToken *pToken;
 
         /* Invalidate the cache of the parent node before deleting any
          * child nodes. This is because invalidating a cache may involve
@@ -583,6 +582,28 @@ freeNode(pTree, pNode)
          * general, primitives must be deleted before their owner nodes.
          */
         HtmlLayoutInvalidateCache(pTree, pNode);
+
+        /* Free the token representation */
+        pToken = pNode->pToken;
+        if (HtmlNodeIsText(pNode)) {
+            while (pToken) {
+                char *t = (char *)pToken;
+                pToken = pToken->pNextToken;
+                HtmlFree(0, t);
+                if (
+                    pToken && 
+                    pToken->type != Html_Text && 
+                    pToken->type != Html_Space
+                ) {
+                    break;
+                }
+            }
+        } else {
+            HtmlFree(0, (char *)pToken);
+        }
+
+
+        /* Delete the parsed tokens for this element */
 
         /* Delete the descendant nodes. */
         for(i=0; i<pNode->nChild; i++){
@@ -836,6 +857,7 @@ mergeAttributes(pNode, pToken)
     }
 
     HtmlFree(0, p);
+    HtmlFree(0, pToken);
     pNode->pToken = pNew;
 }
 
@@ -928,7 +950,7 @@ HtmlAddToken(pTree, pToken)
         HtmlNodeAddChild(pCurrent, pHead);
         HtmlNodeAddChild(pCurrent, pBody);
         pCurrent = pTree->pRoot->apChildren[1];
-
+        assert(HtmlNodeTagType(pCurrent) == Html_BODY);
     } 
     pHeadNode = pTree->pRoot->apChildren[0];
 
@@ -937,6 +959,7 @@ HtmlAddToken(pTree, pToken)
         HtmlNode *pTitle = HtmlNodeChild(pHeadNode, nChild);
         pTree->isCdataInHead = 0;
         nodeHandlerCallbacks(pTree, pTitle);
+        return;
     }
 
     switch (type) {
@@ -963,6 +986,7 @@ HtmlAddToken(pTree, pToken)
             HtmlNode *p = HtmlNodeChild(pHeadNode, n);
             pTree->isCdataInHead = 1;
             p->iNode = pTree->iNextNode++;
+            break;
         }
 
             /* Self-closing elements to add to the document head */
@@ -997,6 +1021,7 @@ HtmlAddToken(pTree, pToken)
         case Html_EndHTML:
         case Html_EndBODY:
         case Html_EndHEAD:
+            HtmlFree(0, pToken);
             break;
 
         default: {
@@ -1026,11 +1051,13 @@ HtmlAddToken(pTree, pToken)
                 pCurrent = HtmlNodeChild(pCurrent, 
                     HtmlNodeAddChild(pCurrent, pToken));
                 pCurrent->iNode = pTree->iNextNode++;
-            }
 
-            if (HtmlMarkupFlags(type) & HTMLTAG_EMPTY) {
-                nodeHandlerCallbacks(pTree, pCurrent);
-                pCurrent = HtmlNodeParent(pCurrent);
+                if (HtmlMarkupFlags(type) & HTMLTAG_EMPTY) {
+                    nodeHandlerCallbacks(pTree, pCurrent);
+                    pCurrent = HtmlNodeParent(pCurrent);
+                }
+            } else {
+                HtmlFree(0, pToken);
             }
         }
     }
@@ -1192,7 +1219,7 @@ HtmlNodeIsWhitespace(pNode)
         return 0;
     }
 
-    for (p = pNode->pToken; p && p->type == Html_Space; p = p->pNext);
+    for (p = pNode->pToken; p && p->type == Html_Space; p = p->pNextToken);
     if (p && p->type == Html_Text) {
         return 0;
     }
@@ -1542,7 +1569,7 @@ node_attr_usage:
             for (
                 pT = pNode->pToken;
                 pT && (pT->type==Html_Space || pT->type==Html_Text);
-                pT = pT->pNext
+                pT = pT->pNextToken
             ) {
                 if (pT->type==Html_Text) {
                     if (tokens) {
@@ -1909,7 +1936,7 @@ HtmlNodeToString(pNode)
             } else {
                 Tcl_AppendToObj(pStr, pToken->x.zText, pToken->count);
             }
-            pToken = pToken->pNext;
+            pToken = pToken->pNextToken;
         }
         Tcl_AppendToObj(pStr, "\"", -1);
 
@@ -1959,6 +1986,7 @@ int HtmlTreeClear(pTree)
     HtmlTree *pTree;
 {
     HtmlToken *pToken;
+    HtmlToken *pPrev = 0;
 
     /* Free the canvas representation */
     HtmlDrawCleanup(pTree, &pTree->canvas);
@@ -1967,16 +1995,12 @@ int HtmlTreeClear(pTree)
     /* Free the tree representation - pTree->pRoot */
     HtmlTreeFree(pTree);
 
-    /* Free the token representation */
-    for (pToken=pTree->pFirst; pToken; pToken = pToken->pNext) {
-        HtmlFree(0, (char *)pToken->pPrev);
-    }
-    HtmlFree(0, (char *)pTree->pLast);
-    pTree->pFirst = 0;
-    pTree->pLast = 0;
-
-    for (pToken=pTree->pTextFirst; pToken; pToken = pToken->pNext) {
-        HtmlFree(0, (char *)pToken->pPrev);
+    /* Free any parsed text tokens that have not been added to the 
+     * tree structure.  */
+    pPrev = 0;
+    for (pToken=pTree->pTextFirst; pToken; pToken = pToken->pNextToken) {
+        HtmlFree(0, (char *)pPrev);
+        pPrev = pToken;
     }
     HtmlFree(0, (char *)pTree->pTextLast);
     pTree->pTextFirst = 0;

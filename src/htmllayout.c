@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.186 2006/07/10 18:53:32 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.187 2006/07/12 05:51:07 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -2639,7 +2639,6 @@ normalFlowLayoutInline(pLayout, pBox, pNode, pY, pContext, pNormal)
     InlineContext *pContext;
     NormalFlow *pNormal;
 {
-    int i;
     InlineBorder *pBorder;
     pBorder = HtmlGetInlineBorder(pLayout, pNode, 0);
     HtmlInlineContextPushBorder(pContext, pBorder);
@@ -3051,7 +3050,6 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
     int y = 0;
     int rc = 0;                       /* Return Code */
     InlineBorder *pBorder;
-    int ii;
     HtmlFloatList *pFloat = pNormal->pFloat;
     NodeList *pAbsolute = pLayout->pAbsolute;
     NodeList *pFixed = pLayout->pFixed;

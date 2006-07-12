@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.69 2006/07/10 18:53:32 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.70 2006/07/12 05:51:07 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -64,14 +64,12 @@ AppendTextToken(pTree, pToken)
         assert(!pTree->pTextLast);
         pTree->pTextFirst = pToken;
         pTree->pTextLast = pToken;
-        pToken->pPrev = 0;
     } else {
         assert(pTree->pTextLast);
-        pTree->pTextLast->pNext = pToken;
-        pToken->pPrev = pTree->pTextLast;
+        pTree->pTextLast->pNextToken = pToken;
         pTree->pTextLast = pToken;
     }
-    pToken->pNext = 0;
+    pToken->pNextToken = 0;
 }
 
 /*
@@ -97,33 +95,12 @@ AppendToken(pTree, pToken)
         HtmlToken *pTextLast = pTree->pTextLast;
         pTree->pTextLast = 0;
         pTree->pTextFirst = 0;
-
         HtmlAddToken(pTree, pTextFirst);
-        if (pTree->pFirst) {
-            assert(pTree->pLast);
-            pTree->pLast->pNext = pTextFirst;
-            pTextFirst->pPrev = pTree->pLast;
-        } else {
-            assert(!pTree->pLast);
-            pTree->pFirst = pTextFirst;
-        }
-        pTree->pLast = pTextLast;
     }
 
     if (pToken) {
-        pToken->pNext = 0;
-        pToken->pPrev = 0;
+        pToken->pNextToken = 0;
         HtmlAddToken(pTree, pToken);
-        if (pTree->pFirst) {
-            assert(pTree->pLast);
-            pTree->pLast->pNext = pToken;
-            pToken->pPrev = pTree->pLast;
-        } else {
-            assert(!pTree->pLast);
-            pTree->pFirst = pToken;
-            pToken->pPrev = 0;
-        }
-        pTree->pLast = pToken;
     }
 }
 
