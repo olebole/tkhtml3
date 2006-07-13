@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.76 2006/07/12 05:51:07 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.77 2006/07/13 08:49:34 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -217,9 +217,10 @@ static void
 reworkTableNode(pNode)
     HtmlNode *pNode;
 {
-    assert(HtmlNodeTagType(pNode) == Html_TABLE);
     int i;
     int flags = NODE_EXT_IGNOREFORMS;
+
+    assert(HtmlNodeTagType(pNode) == Html_TABLE);
 
     for (i = nodeNumChildrenExt(pNode, flags) - 1; i >= 0; i--) {
         HtmlNode *pChild = nodeChildExt(pNode, i, flags);

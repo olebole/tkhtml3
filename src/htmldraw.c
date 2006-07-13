@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.140 2006/07/12 14:32:10 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.141 2006/07/13 08:49:34 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -398,7 +398,7 @@ sorterInsert(pSorter, pItem, x, y, pOverflow)
     }
     if (pNode) z = pNode->iZLevel;
 
-    if (z >= pSorter->nLevel) {
+    while (z >= pSorter->nLevel) {
         int n = pSorter->nLevel + 128;
         pSorter->aLevel = (CanvasItemSorterLevel *)HtmlRealloc(0, 
             pSorter->aLevel, n * sizeof(CanvasItemSorterLevel)
@@ -411,7 +411,7 @@ sorterInsert(pSorter, pItem, x, y, pOverflow)
     pLevel = &pSorter->aLevel[z];
 
     assert(pLevel->nSlot >= pLevel->iSlot);
-    if (pLevel->nSlot == pLevel->iSlot) {
+    while (pLevel->nSlot == pLevel->iSlot) {
         int n = pLevel->nSlot + 128;
         pLevel->aSlot = (CanvasItemSorterSlot *)HtmlRealloc(0,
             pLevel->aSlot, n * sizeof(CanvasItemSorterSlot)
