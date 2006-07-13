@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.141 2006/07/13 08:49:34 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.142 2006/07/13 13:35:43 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -2269,48 +2269,91 @@ pixmapQuerySwitchOverflow(pQuery, pOverflow)
 #endif
 
         if (pCurrentOverflow && pCurrentOverflow->pixmap) {
-            Tk_Window win = pQuery->pTree->win;
-            Pixmap o = pCurrentOverflow->pixmap;
-            GC gc;
-            XGCValues gc_values;
 
-            memset(&gc_values, 0, sizeof(XGCValues));
-            gc = Tk_GetGC(pQuery->pTree->win, 0, &gc_values);
-            XCopyArea(Tk_Display(win), o, pQuery->pmap, gc, 
-                0, 0,
-                pCurrentOverflow->w, pCurrentOverflow->h,
-                pCurrentOverflow->x + pQuery->x, pCurrentOverflow->y + pQuery->y
-            );
-            Tk_FreeGC(Tk_Display(win), gc);
+            int src_x = 0;
+            int src_y = 0;
+            int dest_x = pCurrentOverflow->x + pQuery->x;
+            int dest_y = pCurrentOverflow->y + pQuery->y;
+            int copy_w = pCurrentOverflow->w;
+            int copy_h = pCurrentOverflow->h;
+
+            if (dest_x < 0) {
+                src_x = -1 * dest_x;
+                copy_w = copy_w + dest_x;
+                dest_x = 0;
+            }
+            if (dest_y < 0) {
+                src_y = -1 * dest_y;
+                copy_h = copy_h + dest_y;
+                dest_y = 0;
+            }
+
+            if (copy_w > 0 && copy_h > 0) {
+                Tk_Window win = pQuery->pTree->win;
+                Pixmap o = pCurrentOverflow->pixmap;
+                GC gc;
+                XGCValues gc_values;
+                memset(&gc_values, 0, sizeof(XGCValues));
+                gc = Tk_GetGC(pQuery->pTree->win, 0, &gc_values);
+                assert(src_x >= 0 && src_y >= 0);
+                assert(dest_x >= 0 && dest_y >= 0);
+                XCopyArea(Tk_Display(win), o, pQuery->pmap, gc, 
+                    src_x, src_y, copy_w, copy_h, dest_x, dest_y
+                );
+                Tk_FreeGC(Tk_Display(win), gc);
+            }
         }
 
         pQuery->pCurrentOverflow = 0;
 
         if (pOverflow && pOverflow->w > 0 && pOverflow->h > 0) {
-            Tk_Window win = pQuery->pTree->win;
-            CanvasOverflow *pItem = pOverflow->pItem;
-            GC gc;
-            XGCValues gc_values;
 
-            if (!pOverflow->pixmap) {
-                pOverflow->pixmap = Tk_GetPixmap(
-		    Tk_Display(win), Tk_WindowId(win), 
-                    pOverflow->w, pOverflow->h,
-                    Tk_Depth(win)
-                );
-                pOverflow->pNext = pQuery->pOverflowList;
-                pQuery->pOverflowList = pOverflow;
+            int src_x = pOverflow->x + pQuery->x;
+            int src_y = pOverflow->y + pQuery->y;
+            int dest_x = 0;
+            int dest_y = 0;
+            int copy_w = pOverflow->w;
+            int copy_h = pOverflow->h;
+
+            if (src_x < 0) {
+                dest_x = -1 * src_x;
+                copy_w = copy_w + src_x;
+                src_x = 0;
             }
-            memset(&gc_values, 0, sizeof(XGCValues));
-            gc = Tk_GetGC(pQuery->pTree->win, 0, &gc_values);
-            XCopyArea(Tk_Display(win), pQuery->pmap, pOverflow->pixmap, gc, 
-                pOverflow->x + pQuery->x, pOverflow->y + pQuery->y,
-                pOverflow->w, pOverflow->h, 0, 0
-            );
-            Tk_FreeGC(Tk_Display(win), gc);
+            if (src_y < 0) {
+                dest_y = -1 * src_y;
+                copy_h = copy_h + src_y;
+                src_y = 0;
+            }
+
+            if (copy_w > 0 && copy_h > 0) {
+                Tk_Window win = pQuery->pTree->win;
+                CanvasOverflow *pItem = pOverflow->pItem;
+                GC gc;
+                XGCValues gc_values;
+    
+                if (!pOverflow->pixmap) {
+                    pOverflow->pixmap = Tk_GetPixmap(
+    		    Tk_Display(win), Tk_WindowId(win), 
+                        pOverflow->w, pOverflow->h,
+                        Tk_Depth(win)
+                    );
+                    pOverflow->pNext = pQuery->pOverflowList;
+                    pQuery->pOverflowList = pOverflow;
+                }
+                memset(&gc_values, 0, sizeof(XGCValues));
+                gc = Tk_GetGC(pQuery->pTree->win, 0, &gc_values);
+
+                assert(src_x >= 0 && src_y >= 0);
+                assert(dest_x >= 0 && dest_y >= 0);
+                XCopyArea(Tk_Display(win), pQuery->pmap, pOverflow->pixmap, gc, 
+                    src_x, src_y, copy_w, copy_h, dest_x, dest_y
+                );
+                Tk_FreeGC(Tk_Display(win), gc);
+                pQuery->pCurrentOverflow = pOverflow;
+            }
         }
 
-        pQuery->pCurrentOverflow = pOverflow;
     }
 }
 
@@ -2342,7 +2385,7 @@ pixmapQueryCb(pItem, origin_x, origin_y, pOverflow, clientData)
     }
 
     pixmapQuerySwitchOverflow(pQuery, pOverflow);
-    assert(pOverflow == pQuery->pCurrentOverflow);
+    assert(!pQuery->pCurrentOverflow || pOverflow == pQuery->pCurrentOverflow);
     if (pQuery->pCurrentOverflow) {
         Overflow *p = pQuery->pCurrentOverflow;
         if (p->w <= 0 || p->h <= 0) return 0;
@@ -2350,6 +2393,8 @@ pixmapQueryCb(pItem, origin_x, origin_y, pOverflow, clientData)
         drawable = p->pixmap;
         x = origin_x - p->x;
         y = origin_y - p->y;
+        w = p->w;
+        h = p->h;
     }
 
     switch (pItem->type) {
