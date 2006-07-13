@@ -33,6 +33,7 @@ tcltest::test style-1.0 {} -body {
       .one {background-position: 50% 50%}
       .two {background-position: center center}
       .three {background-position: 111 222}
+      .four {background-position: right}
     </style>
     <body>
     <div class="one"/>
@@ -56,6 +57,11 @@ tcltest::test style-1.2 {} -body {
   set node [lindex [.h search .three] 0]
   background-position $node
 } -result {111px 222px}
+
+tcltest::test style-1.3 {} -body {
+  set node [lindex [.h search .four] 0]
+  background-position $node
+} -result {100% 50%}
 
 
 #--------------------------------------------------------------------------

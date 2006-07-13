@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.77 2006/07/13 14:05:23 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.78 2006/07/13 16:05:24 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -1478,7 +1478,7 @@ propertySetAddShortcutBackgroundPosition(p, v)
     if (i > 0) {
         assert(i == 1 || i == 2);
         if (i == 1) {
-            apProp[1] = propertyDup(apProp[0]);
+            apProp[1] = HtmlCssStringToProperty("50%", 3);
         }   
 
         if (
