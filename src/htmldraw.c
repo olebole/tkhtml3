@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.142 2006/07/13 13:35:43 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.143 2006/07/13 14:05:23 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -2350,10 +2350,10 @@ pixmapQuerySwitchOverflow(pQuery, pOverflow)
                     src_x, src_y, copy_w, copy_h, dest_x, dest_y
                 );
                 Tk_FreeGC(Tk_Display(win), gc);
-                pQuery->pCurrentOverflow = pOverflow;
             }
         }
 
+        pQuery->pCurrentOverflow = pOverflow;
     }
 }
 
@@ -2388,7 +2388,7 @@ pixmapQueryCb(pItem, origin_x, origin_y, pOverflow, clientData)
     assert(!pQuery->pCurrentOverflow || pOverflow == pQuery->pCurrentOverflow);
     if (pQuery->pCurrentOverflow) {
         Overflow *p = pQuery->pCurrentOverflow;
-        if (p->w <= 0 || p->h <= 0) return 0;
+        if (!p->pixmap) return 0;
 
         drawable = p->pixmap;
         x = origin_x - p->x;
