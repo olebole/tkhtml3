@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.46 2006/07/08 09:54:54 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.47 2006/07/14 13:58:18 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -706,6 +706,7 @@ proc create_fontsize_menu {menupath varname} {
   ::hv3::menu $menupath
   foreach {label table} [list \
     Normal {7 8 9 10 12 14 16} \
+    Medium {8 9 10 11 13 15 17} \
     Large  {9 10 11 12 14 16 18} \
     {Very Large}  {11 12 13 14 16 18 20} \
     {Extra Large}  {13 14 15 16 18 20 22} \
@@ -718,7 +719,7 @@ proc create_fontsize_menu {menupath varname} {
       -label $label
   }
   # trace add variable $varname write ::hv3::browser_frame::SetFontTable
-  set $varname [list 9 10 11 12 14 16 18]
+  set $varname [list 8 9 10 11 13 15 17]
   return $menupath
 }
 

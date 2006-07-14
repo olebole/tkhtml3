@@ -31,7 +31,7 @@
  * 
  *     HtmlInlineContextIsEmpty
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.25 2006/07/12 06:47:38 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.26 2006/07/14 13:58:18 danielk1977 Exp $";
 
 typedef struct InlineBox InlineBox;
 
@@ -1107,7 +1107,7 @@ HtmlInlineContextNew(pTree, pNode, isSizeOnly, iTextIndent)
     if (pValues->iLineHeight >= 0) {
         pContext->lineHeight = pValues->iLineHeight;
     } else {
-        int il = -110;
+        int il = -120;
         if (pValues->iLineHeight != PIXELVAL_NORMAL) {
             il = pValues->iLineHeight;
         } 
