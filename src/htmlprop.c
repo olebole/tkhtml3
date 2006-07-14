@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.80 2006/07/14 13:37:56 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.81 2006/07/14 14:44:29 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -295,6 +295,7 @@ static PropertyDef *getPropertyDef(int eProp){
                 a[inheritlist[i]]->isInherit = 1;
             }
         }
+        isInit = 1;
     }
     return a[eProp];
 }

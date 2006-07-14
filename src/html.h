@@ -463,6 +463,7 @@ Tcl_ObjCmdProc HtmlCssStyleConfigDump;
 Tcl_ObjCmdProc Rt_AllocCommand;
 
 Tcl_ObjCmdProc HtmlDebug;
+Tcl_ObjCmdProc HtmlDecode;
 
 char *HtmlPropertyToString(CssProperty *, char **);
 

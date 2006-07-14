@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.105 2006/07/06 14:36:54 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.106 2006/07/14 14:44:31 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -340,7 +340,7 @@ callbackHandler(clientData)
     assert(!pTree->pRoot||pTree->pRoot->pPropertyValues||pTree->cb.pRestyle);
 
     HtmlLog(pTree, "CALLBACK", 
-        "flags=(%s%s%s%s%s) pDynamic=%s pRestyle=%s scroll=(+%d+%d) "
+        "flags=( %s%s%s%s%s) pDynamic=%s pRestyle=%s scroll=(+%d+%d) "
         "damage=(%dx%d+%d+%d)",
         (p->flags & HTML_DYNAMIC ? "Dynamic " : ""),
         (p->flags & HTML_RESTYLE ? "Style " : ""),
@@ -568,12 +568,6 @@ HtmlCallbackLayout(pTree, pNode)
 {
     if (pNode) {
         HtmlNode *p;
-
-        LOG {
-            char *zNode = Tcl_GetString(HtmlNodeCommand(pTree, pNode));
-            HtmlLog(pTree, "CALLBACK", "Schedule LAYOUT. Node=%s", zNode);
-        }
-
         if (!pTree->cb.flags) {
             Tcl_DoWhenIdle(callbackHandler, (ClientData)pTree);
         }

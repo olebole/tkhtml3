@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.89 2006/07/12 12:09:57 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.90 2006/07/14 14:44:30 danielk1977 Exp $";
 
 #include "htmllayout.h"
 
@@ -124,6 +124,7 @@ static RowCallback tableDrawRow;
  *
  *---------------------------------------------------------------------------
  */
+#if 0
 static void
 walkChildren(pTree, pNode, xCallback, pContext)
     HtmlTree *pTree;
@@ -138,6 +139,7 @@ walkChildren(pTree, pNode, xCallback, pContext)
         xCallback(pTree, pChild, pContext);
     }
 }
+#endif
 
 static void
 fixNodeProperties(pData, pNode)
@@ -600,7 +602,6 @@ tableDrawCells(pNode, col, colspan, row, rowspan, pContext)
     TableData *pData = (TableData *)pContext;
     BoxContext *pBox;
     BoxProperties box;
-    int iHeight;               /* Value of 'height' property */
     int i;
     int x = 0;
     int y = 0;
@@ -770,6 +771,7 @@ doCellIterate(pTree, pNode, p)
     p->iMaxRow = MAX(p->iMaxRow, p->iRow + nRSpan - 1);
 }
 
+#if 0
 static int 
 cellIterate(pTree, pNode, clientData)
     HtmlTree *pTree;
@@ -789,6 +791,7 @@ cellIterate(pTree, pNode, clientData)
 
     return HTML_WALK_DESCEND;
 }
+#endif
 
 static int 
 rowIterate(pTree, pNode, clientData)
@@ -796,7 +799,6 @@ rowIterate(pTree, pNode, clientData)
     HtmlNode *pNode;
     ClientData clientData;
 {
-    int eDisplay = DISPLAY(pNode->pPropertyValues);
     RowIterateContext *p = (RowIterateContext *)clientData;
     int k;
     int ii;

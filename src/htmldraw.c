@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.143 2006/07/13 14:05:23 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.144 2006/07/14 14:44:29 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -2328,7 +2328,6 @@ pixmapQuerySwitchOverflow(pQuery, pOverflow)
 
             if (copy_w > 0 && copy_h > 0) {
                 Tk_Window win = pQuery->pTree->win;
-                CanvasOverflow *pItem = pOverflow->pItem;
                 GC gc;
                 XGCValues gc_values;
     
