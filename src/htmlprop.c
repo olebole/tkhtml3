@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.79 2006/07/12 06:47:38 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.80 2006/07/14 13:37:56 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1710,11 +1710,15 @@ allocateNewFont(pTree, tkwin, pFontKey)
     float fontsize = ((float)pFontKey->iFontSize / (float)HTML_IFONTSIZE_SCALE);
     fontsize = fontsize * pTree->options.fontscale;
 
+#if 0
     if (isForceFontMetrics) {
         iFontSize = INTEGER(fontsize * 0.9);
     } else {
         iFontSize = INTEGER(fontsize);
     }
+#else
+    iFontSize = INTEGER(fontsize);
+#endif
 
     do {
         const char *zF;      /* Pointer to tk font family name */

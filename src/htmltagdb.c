@@ -37,14 +37,21 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltagdb.c,v 1.9 2005/11/28 12:48:08 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltagdb.c,v 1.10 2006/07/14 13:37:56 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
 #include <string.h>
 
-extern HtmlTokenMap HtmlMarkupMap[];
+/*
+ * Public interface to code in this file:
+ *
+ *     HtmlMarkupName()
+ *     HtmlMarkupFlags()
+ *     HtmlMarkup()
+ */
 
+extern HtmlTokenMap HtmlMarkupMap[];
 
 static int 
 textContent(pTree, pNode, tag)

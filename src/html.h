@@ -587,5 +587,7 @@ void HtmlWidgetRepair(HtmlTree *, int, int, int, int);
 int HtmlNodeClearStyle(HtmlTree *, HtmlNode *);
 int HtmlNodeClearGenerated(HtmlTree *, HtmlNode *);
 
+void HtmlTranslateEscapes(char *);
+
 #endif
 
