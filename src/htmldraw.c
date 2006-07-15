@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.144 2006/07/14 14:44:29 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.145 2006/07/15 13:30:51 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -772,6 +772,16 @@ void HtmlDrawOverflow(pCanvas, pNode, w, h)
     HtmlCanvasItem *pItem;
 CHECK_CANVAS(pCanvas);
 
+    while (pLast && pLast->type==CANVAS_MARKER) {
+        HtmlCanvasItem *pEnd = pLast;
+        pLast = pCanvas->pFirst;
+        if (pLast == pEnd) {
+            pLast = 0;
+        } else {
+            while (pLast->pNext != pEnd) pLast = pLast->pNext;
+        }
+    }
+
     if (!pLast) return;
     assert(pCanvas->pFirst);
 
@@ -1350,6 +1360,12 @@ int HtmlLayoutPrimitives(clientData, interp, objc, objv)
         Tcl_Obj *pList = 0;
         nObj = 0;
         switch (pItem->type) {
+            case CANVAS_OVERFLOW:
+                nObj = 3;
+                aObj[0] = Tcl_NewStringObj("draw_overflow", -1);
+                aObj[1] = Tcl_NewIntObj(pItem->x.overflow.w);
+                aObj[2] = Tcl_NewIntObj(pItem->x.overflow.h);
+                break;
             case CANVAS_ORIGIN:
                 if (pItem->x.o.pSkip) {
                     nObj = 5;
@@ -2337,6 +2353,7 @@ pixmapQuerySwitchOverflow(pQuery, pOverflow)
                         pOverflow->w, pOverflow->h,
                         Tk_Depth(win)
                     );
+                    assert(pOverflow->pixmap);
                     pOverflow->pNext = pQuery->pOverflowList;
                     pQuery->pOverflowList = pOverflow;
                 }
@@ -2387,7 +2404,12 @@ pixmapQueryCb(pItem, origin_x, origin_y, pOverflow, clientData)
     assert(!pQuery->pCurrentOverflow || pOverflow == pQuery->pCurrentOverflow);
     if (pQuery->pCurrentOverflow) {
         Overflow *p = pQuery->pCurrentOverflow;
-        if (!p->pixmap) return 0;
+        if (!p->pixmap) {
+            if (pItem->type == CANVAS_TEXT) {
+                printf("Clipped text: %s\n", Tcl_GetString(pItem->x.t.pText));
+            }
+            return 0;
+        }
 
         drawable = p->pixmap;
         x = origin_x - p->x;

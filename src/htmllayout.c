@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.189 2006/07/12 15:35:57 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.190 2006/07/15 13:30:51 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -2816,7 +2816,9 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
         pFlow = &FT_FLOAT;
     } else if (nodeIsReplaced(pNode)) {
         pFlow = &FT_BLOCK_REPLACED;
-    } else if (eDisplay == CSS_CONST_BLOCK) {
+    } else if (
+        eDisplay == CSS_CONST_BLOCK
+    ) {
         pFlow = &FT_BLOCK;
         if (HtmlNodeTagType(pNode) == Html_BR) {
             pFlow = &FT_BR;

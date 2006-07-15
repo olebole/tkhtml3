@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.12 2006/07/08 09:54:54 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.13 2006/07/15 13:30:51 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
@@ -813,4 +813,31 @@ snit::widget ::hv3::finddialog {
     destroy $win
   }
 }
+
+snit::widget ::hv3::stylereport {
+  hulltype toplevel
+
+  variable myHtml ""
+
+  constructor {html} {
+    set hv3 ${win}.hv3
+    set myHtml $html
+    set hv3 ${win}.hv3
+    hv3::hv3 $hv3
+    $hv3 configure -requestcmd [mymethod Requestcmd] -width 300 -height 200
+    pack $hv3 -fill both -expand true
+  }
+  
+  method update {} {
+    set hv3 ${win}.hv3
+    $hv3 reset
+    $hv3 goto report:
+  }
+
+  method Requestcmd {downloadHandle} {
+    $downloadHandle append "<html><body>[$myHtml stylereport]"
+    $downloadHandle finish
+  }
+}
+
 

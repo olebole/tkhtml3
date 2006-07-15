@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.81 2006/07/14 14:44:29 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.82 2006/07/15 13:30:51 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -2066,6 +2066,14 @@ HtmlComputedValuesFinish(p)
         }
     }
 
+    if (
+        p->values.eDisplay == CSS_CONST_TABLE_CAPTION ||
+        p->values.eDisplay == CSS_CONST_RUN_IN ||
+        p->values.eDisplay == CSS_CONST_INLINE_BLOCK
+    ) {
+        p->values.eDisplay == CSS_CONST_BLOCK;
+    }
+
     /* Look the values structure up in the hash-table. */
     pEntry = Tcl_CreateHashEntry(&p->pTree->aValues, (char *)&p->values, &ne);
     pValues = (HtmlComputedValues *)Tcl_GetHashKey(&p->pTree->aValues, pEntry);
@@ -2510,13 +2518,20 @@ HtmlComputedValuesCompare(pV1, pV2)
         PropertyDef *pDef = &propdef[ii];
         switch (pDef->eType) {
 
-            case ENUM:
-                if (pDef->eProp != CSS_PROPERTY_TEXT_DECORATION) {
+            case ENUM: {
+                int eProp = pDef->eProp;
+                if (
+                    eProp != CSS_PROPERTY_TEXT_DECORATION &&
+                    eProp != CSS_PROPERTY_BACKGROUND_ATTACHMENT &&
+                    eProp != CSS_PROPERTY_BACKGROUND_REPEAT &&
+                    eProp != CSS_PROPERTY_VISIBILITY
+                ) {
                     if (*(v1 + pDef->iOffset) != *(v2 + pDef->iOffset)) {
                         return HTML_REQUIRE_LAYOUT;
                     }
                 }
                 break;
+            }
 
             case BORDERWIDTH:
             case LENGTH: {

@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.106 2006/07/14 14:44:31 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.107 2006/07/15 13:30:52 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -1622,6 +1622,15 @@ styleconfigCmd(clientData, interp, objc, objv)
 {
     return HtmlCssStyleConfigDump(clientData, interp, objc, objv);
 }
+static int 
+stylereportCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    return HtmlCssStyleReport(clientData, interp, objc, objv);
+}
 
 /*
  *---------------------------------------------------------------------------
@@ -1927,9 +1936,10 @@ int widgetCmd(clientData, interp, objc, objv)
         {"yview",      0,        yviewCmd},
 
         /* The following are for debugging only */
-        {"primitives", 0,        primitivesCmd},
-        {"relayout",   0,        relayoutCmd},
-        {"styleconfig",   0,     styleconfigCmd},
+        {"primitives",  0,        primitivesCmd},
+        {"relayout",    0,        relayoutCmd},
+        {"styleconfig", 0,        styleconfigCmd},
+        {"stylereport", 0,        stylereportCmd},
 #ifndef NDEBUG
         {"_hashstats", 0, hashstatsCmd},  
 #endif

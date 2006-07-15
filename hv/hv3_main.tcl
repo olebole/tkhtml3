@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.47 2006/07/14 13:58:18 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.48 2006/07/15 13:30:50 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -538,6 +538,7 @@ snit::widget ::hv3::browser_toplevel {
   }
 
   # Interface used by code in class ::hv3::browser_frame for frame management.
+  #
   variable myFrames [list]
   method add_frame {frame} {lappend myFrames $frame}
   method del_frame {frame} {
@@ -547,6 +548,14 @@ snit::widget ::hv3::browser_toplevel {
     }
   }
   method get_frames {} {return $myFrames}
+
+  method debug_style {} {
+    set path ${win}.stylereport
+    if {![winfo exists $path]} {
+        ::hv3::stylereport $path [[$myMainFrame hv3] html]
+    }
+    $path update
+  }
 
   # This method is called by a [trace variable ... write] hook attached
   # to the myProtocolStatus variable. Set myStatusVar.
@@ -777,6 +786,7 @@ proc gui_menu {widget_array} {
 
   .m.file add command -label Browser -command [list gui_current browse]
   .m.file add command -label Cookies -command [list gui_current debug_cookies]
+  .m.file add command -label Style -command   [list gui_current debug_style]
 
   # Add a separator and the inevitable Exit item to the File menu.
   .m.file add separator

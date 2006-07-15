@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.78 2006/07/13 16:05:24 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.79 2006/07/15 13:30:51 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -143,6 +143,8 @@ static const char *constantToString(int c){
             return "CSS_SELECTOR_ATTRVALUE";
         case CSS_SELECTOR_ATTRLISTVALUE: 
             return "CSS_SELECTOR_ATTRLISTVALUE";
+        case CSS_SELECTOR_CLASS: 
+            return "CSS_SELECTOR_CLASS";
         case CSS_SELECTOR_ATTRHYPHEN: 
             return "CSS_SELECTOR_ATTRHYPHEN";
         case CSS_PSEUDOCLASS_LANG: 
@@ -2005,6 +2007,10 @@ cssParse(n, z, isStyle, origin, pStyleId, pImportCmd, interp, pUrlCmd, ppStyle)
     if (0==*ppStyle) {
         sParse.pStyle = (CssStyleSheet *)HtmlAlloc(0, sizeof(CssStyleSheet));
         memset(sParse.pStyle, 0, sizeof(CssStyleSheet));
+        
+        /* If pStyleId is not NULL, then initialise the hash-tables */
+        Tcl_InitHashTable(&sParse.pStyle->aByTag, TCL_STRING_KEYS);
+        Tcl_InitHashTable(&sParse.pStyle->aByClass, TCL_STRING_KEYS);
     } else {
         sParse.pStyle = *ppStyle;
     }
@@ -2252,6 +2258,23 @@ freeRulesList(ppList)
     *ppList = 0;
 }
 
+static void
+freeRulesHash(pHash)
+    Tcl_HashTable *pHash;
+{
+    Tcl_HashSearch search;
+    Tcl_HashEntry *pEntry;
+  
+    for (
+        pEntry = Tcl_FirstHashEntry(pHash, &search); 
+        pEntry; 
+        pEntry = Tcl_NextHashEntry(&search)
+    ) {
+        CssRule *pRule = (CssRule *)Tcl_GetHashValue(pEntry);
+        freeRulesList(&pRule);
+    }
+}
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -2278,6 +2301,8 @@ HtmlCssStyleSheetFree(pStyle)
         freeRulesList(&pStyle->pUniversalRules); 
         freeRulesList(&pStyle->pAfterRules); 
         freeRulesList(&pStyle->pBeforeRules); 
+        freeRulesHash(&pStyle->aByTag); 
+        freeRulesHash(&pStyle->aByClass); 
 
         /* Free the priorities list */
         pPriority = pStyle->pPriority;
@@ -2560,7 +2585,6 @@ cssSelectorPropertySetPair(pParse, pSelector, pPropertySet, freeWhat)
     CssSelector *pS = 0;
     CssStyleSheet *pStyle = pParse->pStyle;
     CssRule *pRule = (CssRule *)HtmlAlloc(0, sizeof(CssRule));
-    CssRule **ppList = &pStyle->pUniversalRules;
 
     memset(pRule, 0, sizeof(CssRule));
 
@@ -2603,8 +2627,11 @@ cssSelectorPropertySetPair(pParse, pSelector, pPropertySet, freeWhat)
              case CSS_SELECTOR_ATTRHYPHEN:
                  if (0==strcmp(pS->zAttr, "id")) {
                      spec += 10000;
-                     break;
+                 } else {
+                     spec += 100;
                  }
+                 break;
+             case CSS_SELECTOR_CLASS:
              case CSS_PSEUDOCLASS_LANG:
              case CSS_PSEUDOCLASS_FIRSTCHILD:
              case CSS_PSEUDOCLASS_LINK:
@@ -2613,13 +2640,6 @@ cssSelectorPropertySetPair(pParse, pSelector, pPropertySet, freeWhat)
              case CSS_PSEUDOCLASS_HOVER:
              case CSS_PSEUDOCLASS_FOCUS:
                  spec += 100;
-                 break;
- 
-             case CSS_PSEUDOELEMENT_AFTER:
-                 ppList = &pStyle->pAfterRules;
-                 break;
-             case CSS_PSEUDOELEMENT_BEFORE:
-                 ppList = &pStyle->pBeforeRules;
                  break;
          }
     }
@@ -2635,7 +2655,61 @@ cssSelectorPropertySetPair(pParse, pSelector, pPropertySet, freeWhat)
     }
 
     /* Insert the rule into it's list. */
-    insertRule(ppList, pRule);
+    if (pParse->pStyleId) {
+        pS = pSelector;
+        while (pS->pNext && (
+                pS->eSelector == CSS_SELECTOR_ATTR ||
+                pS->eSelector == CSS_SELECTOR_ATTRVALUE ||
+                pS->eSelector == CSS_SELECTOR_ATTRLISTVALUE ||
+                pS->eSelector == CSS_SELECTOR_ATTRHYPHEN ||
+                pS->eSelector == CSS_PSEUDOCLASS_ACTIVE ||
+                pS->eSelector == CSS_PSEUDOCLASS_HOVER ||
+                pS->eSelector == CSS_PSEUDOCLASS_FOCUS ||
+                pS->eSelector == CSS_PSEUDOCLASS_LINK ||
+                pS->eSelector == CSS_PSEUDOCLASS_VISITED
+            )
+        ) {
+            pS = pS->pNext;
+        }
+
+        switch (pS->eSelector) {
+
+            case CSS_PSEUDOELEMENT_AFTER:
+                insertRule(&pStyle->pAfterRules, pRule);
+                break;
+
+            case CSS_PSEUDOELEMENT_BEFORE:
+                insertRule(&pStyle->pBeforeRules, pRule);
+                break;
+    
+            case CSS_SELECTOR_CLASS:
+            case CSS_SELECTOR_TYPE: {
+                int n;
+                Tcl_HashTable *pTab;
+                Tcl_HashEntry *p;
+                CssRule *pList = 0;
+
+                pTab = &pStyle->aByTag;
+                if (pS->eSelector == CSS_SELECTOR_CLASS) {
+                    pTab = &pStyle->aByClass;
+                }
+
+                p = Tcl_CreateHashEntry(pTab, pS->zValue, &n);
+                if (!n) {
+                    pList = (CssRule *)Tcl_GetHashValue(p);
+                }
+                insertRule(&pList, pRule);
+                Tcl_SetHashValue(p, pList);
+                break;
+            }
+    
+            default:
+                insertRule(&pStyle->pUniversalRules, pRule);
+                break;
+        }
+    } else {
+        insertRule(&pStyle->pUniversalRules, pRule);
+    }
 
     pRule->pSelector = pSelector;
     pRule->pPropertySet = pPropertySet;
@@ -2852,6 +2926,15 @@ HtmlCssSelectorTest(pSelector, pNode, dynamic_true)
             case CSS_SELECTOR_TYPE:
                 if( strcmp(N_TYPE(x), p->zValue) ) return 0;
                 break;
+
+            case CSS_SELECTOR_CLASS: {
+                const char *zClass = p->zValue;
+                const char *zAttr = N_ATTR(x, "class");
+                if( !attrTest(CSS_SELECTOR_ATTRLISTVALUE, zClass, zAttr) ){
+                    return 0;
+                }
+                break;
+            }
 
             case CSS_SELECTOR_ATTR:
             case CSS_SELECTOR_ATTRVALUE:
@@ -3113,9 +3196,32 @@ applyRule(pTree, pNode, pRule, aPropDone, pCreator)
         ruleToPropertyValues(pCreator, aPropDone, pRule);
     }
 
+    assert(isMatch == 0 || isMatch == 1);
     return isMatch;
 }
 
+static CssRule *
+nextRule(apRule, n)
+    CssRule **apRule;
+    int n;
+{
+    CssRule **ppRule = 0;
+    CssRule *pRet = 0;
+    int i;
+
+    for (i = 0; i < n; i++) {
+        if (apRule[i] && (ppRule == 0 || ruleCompare(apRule[i], *ppRule) > 0)) {
+            ppRule = &apRule[i];
+        }
+    }
+
+    if (ppRule) {
+        pRet = *ppRule;
+        *ppRule = (*ppRule)->pNext;
+    }
+
+    return pRet;
+}
 
 /*--------------------------------------------------------------------------
  *
@@ -3127,6 +3233,10 @@ applyRule(pTree, pNode, pRule, aPropDone, pCreator)
  *     nodes property cache has been allocated but not yet populated. Once this
  *     function returns, the property-cache of pNode is filled in with the
  *     styler output for the node.
+ *
+ *     NOTE: There are two hard-coded limits in this function:
+ *          1) No element may be a member of more than 126 classes.
+ *          2) No class name may be longer than 128 bytes (includes null term).
  *
  * Results:
  *
@@ -3141,6 +3251,11 @@ HtmlCssStyleSheetApply(pTree, pNode)
     HtmlTree *pTree; 
     HtmlNode *pNode; 
 {
+
+    /* The two hard coded constants mentioned above */
+    #define MAX_CLASSES    126
+    #define MAX_CLASS_NAME 128
+
     CssStyleSheet *pStyle = pTree->pStyle;    /* Stylesheet config */
     CssRule *pRule;                           /* Iterator variable */
     int style_done = 0;      /* Set after considering the html "style" attr */
@@ -3153,6 +3268,49 @@ HtmlCssStyleSheetApply(pTree, pNode)
      * into sCreator, the matching aPropDone entry is set to true.
      */
     int aPropDone[CSS_PROPERTY_MAX_PROPERTY + 1];
+
+    const char *zTag;
+    Tcl_HashEntry *pEntry;
+    char const *zClassAttr;
+
+    CssRule *apRule[MAX_CLASSES + 2];  /* Array of applicable rules lists. */
+    int npRule;
+
+    int nSelectorMatch = 0;
+    int nSelectorTest = 0;
+
+    /* The universal rules list applies to all nodes */
+    apRule[0] = pStyle->pUniversalRules;
+    npRule = 1;
+
+    /* Find the applicable "by-tag" rules list, if any. */
+    zTag = HtmlNodeTagName(pNode);
+    pEntry = Tcl_FindHashEntry(&pStyle->aByTag, zTag);
+    if (pEntry) {
+        apRule[npRule++] = Tcl_GetHashValue(pEntry);
+    }
+
+    /* Find a rules list for each class the element belongs to */
+    zClassAttr = HtmlNodeAttr(pNode, "class");
+    if (zClassAttr) {
+        int nClass;
+        char const *zClass = zClassAttr;
+        char zTerm[MAX_CLASS_NAME];
+
+        while (
+            npRule < (MAX_CLASSES + 2) &&
+            (zClass = getNextListItem(zClass, strlen(zClass), &nClass))
+        ) {
+            strncpy(zTerm, zClass, MIN(MAX_CLASS_NAME, nClass));
+            zTerm[MIN(MAX_CLASS_NAME - 1, nClass)] = '\0';
+            zClass += nClass;
+
+            pEntry = Tcl_FindHashEntry(&pStyle->aByClass, zTerm);
+            if (pEntry) {
+                apRule[npRule++] = (CssRule *)Tcl_GetHashValue(pEntry);
+            }
+        }
+    }
 
     /* Initialise aPropDone and sCreator */
     HtmlComputedValuesInit(pTree, pNode, 0, &sCreator);
@@ -3169,10 +3327,15 @@ HtmlCssStyleSheetApply(pTree, pNode)
     /* Loop through the list of CSS rules in the stylesheet. Rules that occur
      * earlier in the list have a higher priority than those that occur later.
      */
-    for (pRule = pStyle->pUniversalRules; pRule; pRule = pRule->pNext) {
+    for (
+        pRule = nextRule(apRule, npRule); 
+        pRule; 
+        pRule = nextRule(apRule, npRule)
+    ) {
         CssPriority *pPriority = pRule->pPriority;
         CssSelector *pSelector = pRule->pSelector;
-        int isMatch = 0;
+
+        nSelectorTest++;
 
         /* The contents of the "style" attribute, if one exists, are handled
          * after the important rules but before anything else. This is because:
@@ -3193,20 +3356,26 @@ HtmlCssStyleSheetApply(pTree, pNode)
         }
 
         /* If the selector is a match for our node, apply the rule properties */
-        applyRule(pTree, pNode, pRule, aPropDone, &sCreator);
+        nSelectorMatch += applyRule(pTree, pNode, pRule, aPropDone, &sCreator);
 
         if (
-            /* selectorIsDynamic(pSelector) && */
             pSelector->isDynamic &&
             HtmlCssSelectorTest(pSelector, pNode, 1)
         ) {
-            HtmlCssAddDynamic(pNode, pSelector, isMatch);
+            HtmlCssAddDynamic(pNode, pSelector, 0);
         }
     }
 
     if (!style_done && pNode->pStyle) {
         assert(pNode->pStyle->nRule == 1);
         ruleToPropertyValues(&sCreator, aPropDone, pNode->pStyle->apRule[0]);
+    }
+
+    LOG {
+       HtmlLog(pTree, "STYLEENGINE", "%s matched %d/%d selectors",
+           Tcl_GetString(HtmlNodeCommand(pTree, pNode)),
+           nSelectorMatch, nSelectorTest
+       );
     }
 
     /* Call HtmlComputedValuesFinish() to finish creating the
@@ -3494,7 +3663,7 @@ HtmlCssSelectorToString(pSelector, pObj)
  
     switch (pSelector->eSelector) {
         case CSS_SELECTORCHAIN_DESCENDANT:         z = " ";       break;
-        case CSS_SELECTORCHAIN_CHILD:              z = " > ";     break;
+        case CSS_SELECTORCHAIN_CHILD:              z = " &gt; ";  break;
         case CSS_SELECTORCHAIN_ADJACENT:           z = " + ";     break;
         case CSS_SELECTOR_UNIVERSAL:               z = "*";       break;
         case CSS_PSEUDOCLASS_LANG:                 z = ":lang";         break;
@@ -3511,6 +3680,10 @@ HtmlCssSelectorToString(pSelector, pObj)
 
         case CSS_SELECTOR_TYPE:
             z = pSelector->zValue;
+            break;
+
+        case CSS_SELECTOR_CLASS: 
+            Tcl_AppendStringsToObj(pObj, ".", pSelector->zValue, 0);
             break;
 
         case CSS_SELECTOR_ATTR: 
@@ -3536,6 +3709,111 @@ HtmlCssSelectorToString(pSelector, pObj)
     }
 
     if (z) Tcl_AppendToObj(pObj, z, -1);
+}
+
+static void
+rulelistReport(pRule, pObj, pN)
+    CssRule *pRule;
+    Tcl_Obj *pObj;
+    int *pN;
+{
+    CssRule *p;
+    for (p = pRule; p; p = p->pNext) {
+        (*pN)++;
+        Tcl_AppendStringsToObj(pObj, "<tr><td>", 0);
+        HtmlCssSelectorToString(p->pSelector, pObj);
+        Tcl_AppendStringsToObj(pObj, "</td></tr>", 0);
+    }
+}
+
+int
+HtmlCssStyleReport(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    HtmlTree *pTree = (HtmlTree *)clientData;
+    CssStyleSheet *pStyle = pTree->pStyle;
+
+    int nUniversal = 0;
+    int nByTag = 0;
+    int nByClass = 0;
+
+    CssRule *pRule;
+    Tcl_HashEntry *pEntry;
+    Tcl_HashSearch search;
+
+    Tcl_Obj *pReport;
+    Tcl_Obj *pUniversal;
+    Tcl_Obj *pByTag;
+    Tcl_Obj *pByClass;
+
+    pUniversal = Tcl_NewObj();
+    Tcl_IncrRefCount(pUniversal);
+    Tcl_AppendStringsToObj(pUniversal, 
+        "<table border=1><tr><th>Universal Rules</th></tr>", 0
+    );
+    rulelistReport(pStyle->pUniversalRules, pUniversal, &nUniversal);
+    Tcl_AppendStringsToObj(pUniversal, "</table>", 0);
+
+    pByTag = Tcl_NewObj();
+    Tcl_IncrRefCount(pByTag);
+    Tcl_AppendStringsToObj(pByTag, 
+        "<table border=1><tr><th>By Tag Rules</th></tr>", 0
+    );
+    for (
+        pEntry = Tcl_FirstHashEntry(&pStyle->aByTag, &search);
+        pEntry;
+        pEntry = Tcl_NextHashEntry(&search)
+    ) {
+        pRule = (CssRule *)Tcl_GetHashValue(pEntry);
+        rulelistReport(pRule, pByTag, &nByTag);
+    }
+    Tcl_AppendStringsToObj(pByTag, "</table>", 0);
+
+    pByClass = Tcl_NewObj();
+    Tcl_IncrRefCount(pByClass);
+    Tcl_AppendStringsToObj(pByClass, 
+        "<table border=1><tr><th>By Class Rules</th></tr>", 0
+    );
+    for (
+        pEntry = Tcl_FirstHashEntry(&pStyle->aByClass, &search);
+        pEntry;
+        pEntry = Tcl_NextHashEntry(&search)
+    ) {
+        pRule = (CssRule *)Tcl_GetHashValue(pEntry);
+        rulelistReport(pRule, pByClass, &nByClass);
+    }
+    Tcl_AppendStringsToObj(pByClass, "</table>", 0);
+
+    pReport = Tcl_NewObj();
+    Tcl_IncrRefCount(pReport);
+
+    Tcl_AppendStringsToObj(pReport, 
+        "<div><ul>", 
+        "<li>Universal rules list: ", 0
+    );
+    Tcl_AppendObjToObj(pReport, Tcl_NewIntObj(nUniversal));
+
+    Tcl_AppendStringsToObj(pReport, "<li>By tag rules lists: ", 0);
+    Tcl_AppendObjToObj(pReport, Tcl_NewIntObj(nByTag));
+
+    Tcl_AppendStringsToObj(pReport, "<li>By class rules lists: ", 0);
+    Tcl_AppendObjToObj(pReport, Tcl_NewIntObj(nByClass));
+    Tcl_AppendStringsToObj(pReport, "</ul></div>", 0);
+
+    Tcl_AppendObjToObj(pReport, pUniversal);
+    Tcl_AppendObjToObj(pReport, pByTag);
+    Tcl_AppendObjToObj(pReport, pByClass);
+
+    Tcl_SetObjResult(interp, pReport);
+    Tcl_DecrRefCount(pReport);
+    Tcl_DecrRefCount(pUniversal);
+    Tcl_DecrRefCount(pByTag);
+    Tcl_DecrRefCount(pByClass);
+      
+    return TCL_OK;
 }
 
 /*

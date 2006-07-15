@@ -106,6 +106,8 @@ typedef unsigned int u32;
 
 #define CSS_SELECTOR_NEVERMATCH 32
 
+#define CSS_SELECTOR_CLASS          33
+
 /*
  * Before they are passed to the lemon-generated parser, the tokenizer
  * splits the output into tokens of the following type.
@@ -199,18 +201,18 @@ struct CssPriority {
  * list accessible by looking up "h1" in the rules hash table.
  */
 struct CssStyleSheet {
-    int nSyntaxErr;            /* Number of syntax errors during parsing */
-    CssRule *pUniversalRules;
+    int nSyntaxErr;           /* Number of syntax errors during parsing */
     CssPriority *pPriority;
 
-    CssRule *pAfterRules;       /* Rules that end in :after */
-    CssRule *pBeforeRules;      /* Rules that end in :before */
+    CssRule *pUniversalRules;  /* Rules that do not belong to any other list */
 
-#if 0
-    Tcl_HashTable aByType;
-    Tcl_HashTable aById;
-    Tcl_HashTable aByClass;
-#endif
+    CssRule *pAfterRules;      /* Rules that end in :after */
+    CssRule *pBeforeRules;     /* Rules that end in :before */
+
+    Tcl_HashTable aByTag;      /* Rule lists by tag (string representation) */
+    Tcl_HashTable aByClass;    /* Rule lists by class (string representation) */
+
+    /* Tcl_HashTable aById; */
 };
 
 /*

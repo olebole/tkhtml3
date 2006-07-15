@@ -158,6 +158,7 @@ void HtmlCssPropertiesFree(CssProperties *);
 */
 
 Tcl_ObjCmdProc HtmlCssSearch;
+Tcl_ObjCmdProc HtmlCssStyleReport;
 
 void HtmlCssCheckDynamic(HtmlTree *);
 void HtmlCssFreeDynamics(HtmlNode *);

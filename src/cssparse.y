@@ -245,11 +245,10 @@ simple_selector_tail_component ::= DOT IDENT(X). {
     /* A CSS class selector may not begin with a digit. Presumably this is
      * because they expect to use this syntax for something else in a
      * future version. For now, just insert a "never-match" condition into
-     * the rule to prevent it from having any affect.
+     * the rule to prevent it from having any affect. A bit lazy, this.
      */
     if (X.n > 0 && !isdigit((int)(*X.z))) {
-        CssToken cls = {"class", 5};
-        HtmlCssSelector(pParse, CSS_SELECTOR_ATTRLISTVALUE, &cls, &X);
+        HtmlCssSelector(pParse, CSS_SELECTOR_CLASS, 0, &X);
     } else {
         HtmlCssSelector(pParse, CSS_SELECTOR_NEVERMATCH, 0, 0);
     }

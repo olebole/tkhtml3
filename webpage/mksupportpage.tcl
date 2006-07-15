@@ -165,7 +165,8 @@ SUPPORTTABLE {Visual Rendering Properties} \
 	[CSSREF visuren display] {
 		Not all values are supported. Currently supported values are
 		'inline', 'block', 'list-item', 'table', 'table-row',
-		'table-cell', 'none' and 'inherit'.
+		'table-cell', 'none' and 'inherit'. The following are 
+		handled as 'block': 'run-in', 'inline-block', 'table-caption'.
         } \
 	[CSSREF visudet width] {} \
 	[CSSREF visudet height] {} \
