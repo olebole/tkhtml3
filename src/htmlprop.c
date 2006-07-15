@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.82 2006/07/15 13:30:51 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.83 2006/07/15 15:06:46 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -83,6 +83,7 @@ struct PropertyDef {
     int setsizemask;           /* If eType==LENGTH, mask for SetSize() */
     int (*xSet)(HtmlComputedValuesCreator *, CssProperty *);
     int isInherit;             /* True to inherit by default */
+    int isNolayout;            /* Can be changed without relayout */
 };
 
 #define PROPDEF(w, x, y) {                                   \
@@ -256,6 +257,15 @@ static int inheritlist[] = {
     CSS_PROPERTY_QUOTES
 };
 
+static int nolayoutlist[] = {
+    CSS_PROPERTY_TEXT_DECORATION,
+    CSS_PROPERTY_BACKGROUND_ATTACHMENT,
+    CSS_PROPERTY_BACKGROUND_REPEAT,
+    CSS_PROPERTY_VISIBILITY,
+    CSS_PROPERTY_BACKGROUND_POSITION_X,
+    CSS_PROPERTY_BACKGROUND_POSITION_Y
+};
+
 
 /*
  *---------------------------------------------------------------------------
@@ -293,6 +303,11 @@ static PropertyDef *getPropertyDef(int eProp){
         for (i = 0; i < sizeof(inheritlist)/sizeof(int); i++){
             if (a[inheritlist[i]]) {
                 a[inheritlist[i]]->isInherit = 1;
+            }
+        }
+        for (i = 0; i < sizeof(nolayoutlist)/sizeof(int); i++){
+            if (a[nolayoutlist[i]]) {
+                a[nolayoutlist[i]]->isNolayout = 1;
             }
         }
         isInit = 1;
@@ -2516,19 +2531,12 @@ HtmlComputedValuesCompare(pV1, pV2)
 
     for (ii = 0; ii < sizeof(propdef) / sizeof(propdef[0]); ii++){
         PropertyDef *pDef = &propdef[ii];
+        if (pDef->isNolayout) continue;
         switch (pDef->eType) {
 
             case ENUM: {
-                int eProp = pDef->eProp;
-                if (
-                    eProp != CSS_PROPERTY_TEXT_DECORATION &&
-                    eProp != CSS_PROPERTY_BACKGROUND_ATTACHMENT &&
-                    eProp != CSS_PROPERTY_BACKGROUND_REPEAT &&
-                    eProp != CSS_PROPERTY_VISIBILITY
-                ) {
-                    if (*(v1 + pDef->iOffset) != *(v2 + pDef->iOffset)) {
-                        return HTML_REQUIRE_LAYOUT;
-                    }
+                if (*(v1 + pDef->iOffset) != *(v2 + pDef->iOffset)) {
+                    return HTML_REQUIRE_LAYOUT;
                 }
                 break;
             }

@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.79 2006/07/15 13:30:51 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.80 2006/07/15 15:06:46 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -3719,10 +3719,35 @@ rulelistReport(pRule, pObj, pN)
 {
     CssRule *p;
     for (p = pRule; p; p = p->pNext) {
+        int i;
+
         (*pN)++;
-        Tcl_AppendStringsToObj(pObj, "<tr><td>", 0);
+
+        if (pRule->pSelector->isDynamic) {
+            Tcl_AppendStringsToObj(pObj, 
+                "<tr><td style=\"background:lightgrey\">", 0
+            );
+        } else {
+            Tcl_AppendStringsToObj(pObj, "<tr><td>", 0);
+        }
+
         HtmlCssSelectorToString(p->pSelector, pObj);
-        Tcl_AppendStringsToObj(pObj, "</td></tr>", 0);
+        Tcl_AppendStringsToObj(pObj, "</td><td><ul>", 0);
+
+        for (i = 0; i < p->pPropertySet->n; i++) {
+            CssProperty *pProp = p->pPropertySet->a[i].pProp;
+            if (pProp) {
+                char *zFree = 0;
+                int eProp = p->pPropertySet->a[i].eProp;
+                Tcl_AppendStringsToObj(pObj, 
+                    "<li>", HtmlCssPropertyToString(eProp), ": ", 
+                    HtmlPropertyToString(pProp, &zFree), 0
+                );
+                HtmlFree(0, zFree);
+            }
+        }
+
+        Tcl_AppendStringsToObj(pObj, "</ul></td></tr>", 0);
     }
 }
 
@@ -3752,7 +3777,8 @@ HtmlCssStyleReport(clientData, interp, objc, objv)
     pUniversal = Tcl_NewObj();
     Tcl_IncrRefCount(pUniversal);
     Tcl_AppendStringsToObj(pUniversal, 
-        "<table border=1><tr><th>Universal Rules</th></tr>", 0
+        "<h1>Universal Rules</h1>",
+        "<table border=1>", 0
     );
     rulelistReport(pStyle->pUniversalRules, pUniversal, &nUniversal);
     Tcl_AppendStringsToObj(pUniversal, "</table>", 0);
@@ -3760,7 +3786,8 @@ HtmlCssStyleReport(clientData, interp, objc, objv)
     pByTag = Tcl_NewObj();
     Tcl_IncrRefCount(pByTag);
     Tcl_AppendStringsToObj(pByTag, 
-        "<table border=1><tr><th>By Tag Rules</th></tr>", 0
+        "<h1>By Tag Rules</h1>",
+        "<table border=1>", 0
     );
     for (
         pEntry = Tcl_FirstHashEntry(&pStyle->aByTag, &search);
@@ -3775,7 +3802,8 @@ HtmlCssStyleReport(clientData, interp, objc, objv)
     pByClass = Tcl_NewObj();
     Tcl_IncrRefCount(pByClass);
     Tcl_AppendStringsToObj(pByClass, 
-        "<table border=1><tr><th>By Class Rules</th></tr>", 0
+        "<h1>By Class Rules</h1>",
+        "<table border=1>", 0
     );
     for (
         pEntry = Tcl_FirstHashEntry(&pStyle->aByClass, &search);

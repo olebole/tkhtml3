@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.145 2006/07/15 13:30:51 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.146 2006/07/15 15:06:46 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -2390,7 +2390,7 @@ pixmapQueryCb(pItem, origin_x, origin_y, pOverflow, clientData)
     Drawable drawable = pQuery->pmap;
 
     /* If the node's item has the 'visibility' property set to "hidden" or
-     * "collapse", do not draw content 
+     * "collapse", do not draw any content.
      */
     HtmlNode *pNode = itemToNode(pItem);
     if (!pNode->pPropertyValues) {
@@ -2405,9 +2405,6 @@ pixmapQueryCb(pItem, origin_x, origin_y, pOverflow, clientData)
     if (pQuery->pCurrentOverflow) {
         Overflow *p = pQuery->pCurrentOverflow;
         if (!p->pixmap) {
-            if (pItem->type == CANVAS_TEXT) {
-                printf("Clipped text: %s\n", Tcl_GetString(pItem->x.t.pText));
-            }
             return 0;
         }
 
