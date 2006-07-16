@@ -39,6 +39,7 @@ compile_announce:
 	@echo "Building Tkhtml 3"
 	@echo ""
 	@echo "COMPILE = $(COMPILE)"
+	@echo "TCLSH   = $(TCLSH)"
 	@echo ""
 	@echo ""
 
@@ -69,7 +70,7 @@ cssprop.h: $(TOP)/src/cssprop.tcl
 	@echo '$$(TCLSH) $<'
 	@$(TCLSH) $<
 
-htmldefaultstyle.c: $(TOP)/tests/tkhtml.tcl  $(TOP)/tests/html.css $(TOP)/src/mkdefaultstyle.tcl 
+htmldefaultstyle.c: $(TOP)/src/tkhtml.tcl  $(TOP)/src/html.css $(TOP)/src/mkdefaultstyle.tcl 
 	@echo '$$(TCLSH) $(TOP)/src/mkdefaultstyle.tcl > htmldefaultstyle.c'
 	@$(TCLSH) $(TOP)/src/mkdefaultstyle.tcl > htmldefaultstyle.c
 

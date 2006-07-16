@@ -12,7 +12,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile.in,v 1.27 2006/03/08 12:03:54 danielk1977 Exp $
+# RCS: @(#) $Id: Makefile.in,v 1.28 2006/07/16 11:20:38 danielk1977 Exp $
 
 #========================================================================
 # Add additional lines to handle any additional AC_SUBST cases that
@@ -292,7 +292,7 @@ HEADERS = htmlprop.h html.h cssparse.h css.h cssInt.h \
 htmltokens.c:	$(srcdir)/src/tokenlist.txt
 	$(TCLSH) $?
 
-htmldefaultstyle.c: $(srcdir)/tests/tkhtml.tcl  $(srcdir)/tests/html.css \
+htmldefaultstyle.c: $(srcdir)/src/tkhtml.tcl  $(srcdir)/src/html.css \
                     $(srcdir)/src/mkdefaultstyle.tcl 
 	$(TCLSH) $(srcdir)/src/mkdefaultstyle.tcl > htmldefaultstyle.c
 
@@ -317,10 +317,6 @@ cssparse.c: cssparse.h
 
 tkhtml.tcl: $(srcdir)/tests/tkhtml.tcl
 	cp $(srcdir)/tests/tkhtml.tcl .
-
-html.css: $(srcdir)/tests/html.css
-	cp $(srcdir)/tests/html.css .
-
 
 #========================================================================
 # Create the pkgIndex.tcl file.

@@ -26,8 +26,8 @@ proc VersionsToDefine {glob define} {
   return $ret
 }
 
-set css_file    [file join [file dirname [info script]] .. tests html.css]
-set tcl_file    [file join [file dirname [info script]] .. tests tkhtml.tcl]
+set css_file    [file join [file dirname [info script]] .. src html.css]
+set tcl_file    [file join [file dirname [info script]] .. src tkhtml.tcl]
 set quirks_file [file join [file dirname [info script]] quirks.css]
 set src_files   [file join [file dirname [info script]] {*.c}]
 
