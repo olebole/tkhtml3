@@ -2,7 +2,7 @@
 #include "html.h"
 #include "cssInt.h"
 
-static const char rcsid[] = "$Id: cssdynamic.c,v 1.7 2006/06/10 12:38:38 danielk1977 Exp $";
+static const char rcsid[] = "$Id: cssdynamic.c,v 1.8 2006/07/16 10:53:14 danielk1977 Exp $";
 
 /*
  * How dynamic CSS selectors are implemented:
@@ -77,9 +77,18 @@ HtmlCssCheckDynamic(pTree)
     HtmlTree *pTree;
 {
     if (pTree->cb.pDynamic) {
-        HtmlWalkTree(pTree, pTree->cb.pDynamic, checkDynamicCb, 0);
+        HtmlNode *pParent = HtmlNodeParent(pTree->cb.pDynamic);
+        if (pParent) {
+            int i;
+            for (i = 0; HtmlNodeChild(pParent, i) != pTree->cb.pDynamic; i++);
+            for ( ; HtmlNodeChild(pParent, i); i++) {
+                HtmlWalkTree(pTree,HtmlNodeChild(pParent,i),checkDynamicCb,0);
+            }
+        } else {
+            HtmlWalkTree(pTree, pTree->cb.pDynamic, checkDynamicCb, 0);
+        }
+        pTree->cb.pDynamic = 0;
     }
-    pTree->cb.pDynamic = 0;
 }
 
 int

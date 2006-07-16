@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.81 2006/07/16 06:49:22 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.82 2006/07/16 10:53:14 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -3181,11 +3181,12 @@ selectorIsDynamic(pSelector)
  *--------------------------------------------------------------------------
  */
 static int 
-applyRule(pTree, pNode, pRule, aPropDone, pCreator)
+applyRule(pTree, pNode, pRule, aPropDone, pzIfMatch, pCreator)
     HtmlTree *pTree;
     HtmlNode *pNode;
     CssRule *pRule;
     int *aPropDone;
+    char **pzIfMatch;
     HtmlComputedValuesCreator *pCreator;
 {
     /* Test if the selector matches the node. Variable isMatch is set to
@@ -3210,7 +3211,12 @@ applyRule(pTree, pNode, pRule, aPropDone, pCreator)
                 Tcl_GetString(pPriority->pIdTail)
             );
             Tcl_DecrRefCount(pS);
-        }                   
+        }
+
+        if (pzIfMatch) {
+            HtmlComputedValuesInit(pTree, pNode, pNode, pCreator);
+            pCreator->pzContent = pzIfMatch;
+        }
   
         /* Copy the properties from the rule into the computed values set. */
         ruleToPropertyValues(pCreator, aPropDone, pRule);
@@ -3387,7 +3393,8 @@ HtmlCssStyleSheetApply(pTree, pNode)
         }
 
         /* If the selector is a match for our node, apply the rule properties */
-        nSelectorMatch += applyRule(pTree, pNode, pRule, aPropDone, &sCreator);
+        nSelectorMatch += 
+                applyRule(pTree, pNode, pRule, aPropDone, 0, &sCreator);
 
         if (
             pSelector->isDynamic &&
@@ -3432,18 +3439,18 @@ generatedContent(pTree, pNode, pCssRule, ppNode)
     char *zContent = 0;
 
     memset(aPropDone, 0, sizeof(aPropDone));
-    HtmlComputedValuesInit(pTree, pNode, pNode, &sCreator);
     sCreator.pzContent = &zContent;
     for (pRule = pCssRule; pRule; pRule = pRule->pNext) {
-        int isMatch = applyRule(pTree, pNode, pRule, aPropDone, &sCreator);
+        char **pz = (have ? 0 : (&zContent));
+        int isMatch = applyRule(pTree, pNode, pRule, aPropDone, pz, &sCreator);
         if (isMatch) have = 1;
     }
-    pValues = HtmlComputedValuesFinish(&sCreator);
-    if (!have) {
-        HtmlComputedValuesRelease(pTree, pValues);
+    if (have) {
+        pValues = HtmlComputedValuesFinish(&sCreator);
+    } else {
         assert(zContent == 0);
         return;
-    } 
+    }
 
     *ppNode = (HtmlNode *)HtmlClearAlloc(0, sizeof(HtmlNode));
     (*ppNode)->pPropertyValues = pValues;
@@ -3456,7 +3463,7 @@ generatedContent(pTree, pNode, pCssRule, ppNode)
         int idx;
         HtmlToken *pToken = (HtmlToken *)HtmlClearAlloc(0, nBytes);
         pToken->type = Html_Text;
-        pToken->count = 0;
+        pToken->count = strlen(zContent);
         pToken->x.zText = (char *)&pToken[1];
         strcpy(pToken->x.zText, zContent);
         HtmlFree(0, zContent);

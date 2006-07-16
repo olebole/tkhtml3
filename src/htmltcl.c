@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.107 2006/07/15 13:30:52 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.108 2006/07/16 10:53:14 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -375,11 +375,23 @@ callbackHandler(clientData)
      * [.html parse] or something?
      */
     if (pTree->cb.flags & HTML_RESTYLE) {
+        int i;
+        HtmlNode *pParent = HtmlNodeParent(pTree->cb.pRestyle);
         HtmlNode *pRestyle = pTree->cb.pRestyle;
+
         pTree->cb.pRestyle = 0;
         assert(pRestyle);
         styleClock = clock();
-        HtmlStyleApply(pTree, pRestyle);
+
+        if (pParent) {
+            for (i = 0; HtmlNodeChild(pParent, i) != pRestyle; i++);
+            for ( ; HtmlNodeChild(pParent, i); i++) {
+                 HtmlStyleApply(pTree, HtmlNodeChild(pParent, i));
+            }
+        } else {
+            HtmlStyleApply(pTree, HtmlNodeChild(pParent, i));
+        }
+
         styleClock = clock() - styleClock;
     }
 
@@ -464,11 +476,26 @@ upgradeRestylePoint(ppRestyle, pNode)
     assert(pNode && ppRestyle);
 
     for (pA = *ppRestyle; pA; pA = HtmlNodeParent(pA)) {
+        HtmlNode *pParentA = HtmlNodeParent(pA);
         for (pB = pNode; pB; pB = HtmlNodeParent(pB)) {
             if (pB == pA) {
                 *ppRestyle = pB;
                 return;
             }  
+            if (HtmlNodeParent(pB) == pParentA) {
+                int i;
+                for (i = 0; i < pParentA->nChild; i++) {
+                    HtmlNode *pChild = pParentA->apChildren[i];
+                    if (pChild == pB) {
+                        *ppRestyle = pB;
+                        return;
+                    }
+                    if (pChild == pA) {
+                        *ppRestyle = pA;
+                        return;
+                    }
+                }
+            }
         }
     }
 
