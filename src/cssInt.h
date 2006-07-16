@@ -5,7 +5,7 @@
  *     used internally by the tkhtml CSS module. 
  *
  *----------------------------------------------------------------------------
- * Copyright (c) 2005 Eolas Technologies Inc.
+ * Copyright (c) 2005 Dan Kennedy.
  * All rights reserved.
  *
  * This Open Source project was made possible through the financial support
@@ -19,7 +19,7 @@
  *     * Redistributions in binary form must reproduce the above copyright
  *       notice, this list of conditions and the following disclaimer in the
  *       documentation and/or other materials provided with the distribution.
- *     * Neither the name of the <ORGANIZATION> nor the names of its
+ *     * Neither the name of the Eolas Technologies Inc. nor the names of its
  *       contributors may be used to endorse or promote products derived from
  *       this software without specific prior written permission.
  * 
@@ -70,6 +70,8 @@ typedef unsigned int u32;
 #define CSS_SELECTOR_ATTRVALUE           8
 #define CSS_SELECTOR_ATTRLISTVALUE       9
 #define CSS_SELECTOR_ATTRHYPHEN          10
+#define CSS_SELECTOR_CLASS               33   /* eg. ".classname"   */
+#define CSS_SELECTOR_ID                  34   /* eg. "#idname"      */
 
 /*
 ** Psuedo-classes
@@ -106,11 +108,11 @@ typedef unsigned int u32;
 
 #define CSS_SELECTOR_NEVERMATCH 32
 
-#define CSS_SELECTOR_CLASS          33
 
 /*
  * Before they are passed to the lemon-generated parser, the tokenizer
- * splits the output into tokens of the following type.
+ * splits the output into tokens of the following type. Refer to function
+ * cssGetToken() in css.c for details.
  */
 struct CssToken {
     const char *z;
@@ -209,10 +211,9 @@ struct CssStyleSheet {
     CssRule *pAfterRules;      /* Rules that end in :after */
     CssRule *pBeforeRules;     /* Rules that end in :before */
 
-    Tcl_HashTable aByTag;      /* Rule lists by tag (string representation) */
-    Tcl_HashTable aByClass;    /* Rule lists by class (string representation) */
-
-    /* Tcl_HashTable aById; */
+    Tcl_HashTable aByTag;      /* Rule lists by tag (string keys) */
+    Tcl_HashTable aByClass;    /* Rule lists by class (string keys) */
+    Tcl_HashTable aById;       /* Rule lists by id (string keys) */
 };
 
 /*

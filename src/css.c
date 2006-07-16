@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.80 2006/07/15 15:06:46 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.81 2006/07/16 06:49:22 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -145,6 +145,8 @@ static const char *constantToString(int c){
             return "CSS_SELECTOR_ATTRLISTVALUE";
         case CSS_SELECTOR_CLASS: 
             return "CSS_SELECTOR_CLASS";
+        case CSS_SELECTOR_ID: 
+            return "CSS_SELECTOR_ID";
         case CSS_SELECTOR_ATTRHYPHEN: 
             return "CSS_SELECTOR_ATTRHYPHEN";
         case CSS_PSEUDOCLASS_LANG: 
@@ -2011,6 +2013,7 @@ cssParse(n, z, isStyle, origin, pStyleId, pImportCmd, interp, pUrlCmd, ppStyle)
         /* If pStyleId is not NULL, then initialise the hash-tables */
         Tcl_InitHashTable(&sParse.pStyle->aByTag, TCL_STRING_KEYS);
         Tcl_InitHashTable(&sParse.pStyle->aByClass, TCL_STRING_KEYS);
+        Tcl_InitHashTable(&sParse.pStyle->aById, TCL_STRING_KEYS);
     } else {
         sParse.pStyle = *ppStyle;
     }
@@ -2273,6 +2276,7 @@ freeRulesHash(pHash)
         CssRule *pRule = (CssRule *)Tcl_GetHashValue(pEntry);
         freeRulesList(&pRule);
     }
+    Tcl_DeleteHashTable(pHash);
 }
 
 /*
@@ -2303,6 +2307,7 @@ HtmlCssStyleSheetFree(pStyle)
         freeRulesList(&pStyle->pBeforeRules); 
         freeRulesHash(&pStyle->aByTag); 
         freeRulesHash(&pStyle->aByClass); 
+        freeRulesHash(&pStyle->aById); 
 
         /* Free the priorities list */
         pPriority = pStyle->pPriority;
@@ -2621,16 +2626,18 @@ cssSelectorPropertySetPair(pParse, pSelector, pPropertySet, freeWhat)
              case CSS_SELECTOR_TYPE:
                  spec += 1;
                  break;
+
+             case CSS_SELECTOR_ID:
+                 spec += 10000;
+                 break;
+
              case CSS_SELECTOR_ATTR:
              case CSS_SELECTOR_ATTRVALUE:
              case CSS_SELECTOR_ATTRLISTVALUE:
              case CSS_SELECTOR_ATTRHYPHEN:
-                 if (0==strcmp(pS->zAttr, "id")) {
-                     spec += 10000;
-                 } else {
-                     spec += 100;
-                 }
+                 spec += 100;
                  break;
+
              case CSS_SELECTOR_CLASS:
              case CSS_PSEUDOCLASS_LANG:
              case CSS_PSEUDOCLASS_FIRSTCHILD:
@@ -2657,6 +2664,7 @@ cssSelectorPropertySetPair(pParse, pSelector, pPropertySet, freeWhat)
     /* Insert the rule into it's list. */
     if (pParse->pStyleId) {
         pS = pSelector;
+
         while (pS->pNext && (
                 pS->eSelector == CSS_SELECTOR_ATTR ||
                 pS->eSelector == CSS_SELECTOR_ATTRVALUE ||
@@ -2682,21 +2690,24 @@ cssSelectorPropertySetPair(pParse, pSelector, pPropertySet, freeWhat)
                 insertRule(&pStyle->pBeforeRules, pRule);
                 break;
     
+            case CSS_SELECTOR_ID:
             case CSS_SELECTOR_CLASS:
             case CSS_SELECTOR_TYPE: {
-                int n;
+                int newentry;
                 Tcl_HashTable *pTab;
                 Tcl_HashEntry *p;
                 CssRule *pList = 0;
 
                 pTab = &pStyle->aByTag;
-                if (pS->eSelector == CSS_SELECTOR_CLASS) {
-                    pTab = &pStyle->aByClass;
+                switch (pS->eSelector) {
+                    case CSS_SELECTOR_ID:    pTab = &pStyle->aById; break;
+                    case CSS_SELECTOR_CLASS: pTab = &pStyle->aByClass; break;
+                    case CSS_SELECTOR_TYPE:  pTab = &pStyle->aByTag; break;
                 }
 
-                p = Tcl_CreateHashEntry(pTab, pS->zValue, &n);
-                if (!n) {
-                    pList = (CssRule *)Tcl_GetHashValue(p);
+                p = Tcl_CreateHashEntry(pTab, pS->zValue, &newentry);
+                if (!newentry) { 
+                    pList = (CssRule *)Tcl_GetHashValue(p); 
                 }
                 insertRule(&pList, pRule);
                 Tcl_SetHashValue(p, pList);
@@ -2931,6 +2942,15 @@ HtmlCssSelectorTest(pSelector, pNode, dynamic_true)
                 const char *zClass = p->zValue;
                 const char *zAttr = N_ATTR(x, "class");
                 if( !attrTest(CSS_SELECTOR_ATTRLISTVALUE, zClass, zAttr) ){
+                    return 0;
+                }
+                break;
+            }
+
+            case CSS_SELECTOR_ID: {
+                const char *zId = p->zValue;
+                const char *zAttr = N_ATTR(x, "id");
+                if( !attrTest(CSS_SELECTOR_ATTRVALUE, zId, zAttr) ){
                     return 0;
                 }
                 break;
@@ -3271,7 +3291,8 @@ HtmlCssStyleSheetApply(pTree, pNode)
 
     const char *zTag;
     Tcl_HashEntry *pEntry;
-    char const *zClassAttr;
+    char const *zClassAttr;            /* Value of node "class" attribute */
+    char const *zIdAttr;               /* Value of node "id" attribute */
 
     CssRule *apRule[MAX_CLASSES + 2];  /* Array of applicable rules lists. */
     int npRule;
@@ -3288,6 +3309,15 @@ HtmlCssStyleSheetApply(pTree, pNode)
     pEntry = Tcl_FindHashEntry(&pStyle->aByTag, zTag);
     if (pEntry) {
         apRule[npRule++] = Tcl_GetHashValue(pEntry);
+    }
+
+    /* Find a rules list for the element id, if any */
+    zIdAttr = HtmlNodeAttr(pNode, "id");
+    if (zIdAttr) {
+        pEntry = Tcl_FindHashEntry(&pStyle->aById, zIdAttr);
+        if (pEntry) {
+            apRule[npRule++] = (CssRule *)Tcl_GetHashValue(pEntry);
+        }
     }
 
     /* Find a rules list for each class the element belongs to */
@@ -3311,6 +3341,7 @@ HtmlCssStyleSheetApply(pTree, pNode)
             }
         }
     }
+    
 
     /* Initialise aPropDone and sCreator */
     HtmlComputedValuesInit(pTree, pNode, 0, &sCreator);
@@ -3686,6 +3717,10 @@ HtmlCssSelectorToString(pSelector, pObj)
             Tcl_AppendStringsToObj(pObj, ".", pSelector->zValue, 0);
             break;
 
+        case CSS_SELECTOR_ID: 
+            Tcl_AppendStringsToObj(pObj, "#", pSelector->zValue, 0);
+            break;
+
         case CSS_SELECTOR_ATTR: 
             Tcl_AppendStringsToObj(pObj, "[", pSelector->zAttr, "]", 0);
             break;
@@ -3764,6 +3799,7 @@ HtmlCssStyleReport(clientData, interp, objc, objv)
     int nUniversal = 0;
     int nByTag = 0;
     int nByClass = 0;
+    int nById = 0;
 
     CssRule *pRule;
     Tcl_HashEntry *pEntry;
@@ -3773,6 +3809,7 @@ HtmlCssStyleReport(clientData, interp, objc, objv)
     Tcl_Obj *pUniversal;
     Tcl_Obj *pByTag;
     Tcl_Obj *pByClass;
+    Tcl_Obj *pById;
 
     pUniversal = Tcl_NewObj();
     Tcl_IncrRefCount(pUniversal);
@@ -3815,6 +3852,22 @@ HtmlCssStyleReport(clientData, interp, objc, objv)
     }
     Tcl_AppendStringsToObj(pByClass, "</table>", 0);
 
+    pById = Tcl_NewObj();
+    Tcl_IncrRefCount(pById);
+    Tcl_AppendStringsToObj(pById, 
+        "<h1>By Id Rules</h1>",
+        "<table border=1>", 0
+    );
+    for (
+        pEntry = Tcl_FirstHashEntry(&pStyle->aById, &search);
+        pEntry;
+        pEntry = Tcl_NextHashEntry(&search)
+    ) {
+        pRule = (CssRule *)Tcl_GetHashValue(pEntry);
+        rulelistReport(pRule, pById, &nById);
+    }
+    Tcl_AppendStringsToObj(pById, "</table>", 0);
+
     pReport = Tcl_NewObj();
     Tcl_IncrRefCount(pReport);
 
@@ -3829,17 +3882,22 @@ HtmlCssStyleReport(clientData, interp, objc, objv)
 
     Tcl_AppendStringsToObj(pReport, "<li>By class rules lists: ", 0);
     Tcl_AppendObjToObj(pReport, Tcl_NewIntObj(nByClass));
+
+    Tcl_AppendStringsToObj(pReport, "<li>By id rules lists: ", 0);
+    Tcl_AppendObjToObj(pReport, Tcl_NewIntObj(nById));
     Tcl_AppendStringsToObj(pReport, "</ul></div>", 0);
 
     Tcl_AppendObjToObj(pReport, pUniversal);
     Tcl_AppendObjToObj(pReport, pByTag);
     Tcl_AppendObjToObj(pReport, pByClass);
+    Tcl_AppendObjToObj(pReport, pById);
 
     Tcl_SetObjResult(interp, pReport);
     Tcl_DecrRefCount(pReport);
     Tcl_DecrRefCount(pUniversal);
     Tcl_DecrRefCount(pByTag);
     Tcl_DecrRefCount(pByClass);
+    Tcl_DecrRefCount(pById);
       
     return TCL_OK;
 }

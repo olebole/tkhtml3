@@ -238,8 +238,7 @@ simple_selector_tail ::= simple_selector_tail_component.
 simple_selector_tail ::= simple_selector_tail_component simple_selector_tail.
 
 simple_selector_tail_component ::= HASH IDENT(X). {
-    CssToken id = {"id", 2};
-    HtmlCssSelector(pParse, CSS_SELECTOR_ATTRVALUE, &id, &X);
+    HtmlCssSelector(pParse, CSS_SELECTOR_ID, 0, &X);
 }
 simple_selector_tail_component ::= DOT IDENT(X). {
     /* A CSS class selector may not begin with a digit. Presumably this is
