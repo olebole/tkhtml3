@@ -173,4 +173,15 @@ int HtmlLayoutNodeContent(LayoutContext *, BoxContext *, HtmlNode *);
  */
 #define DISPLAY(pV) ((pV) ? (pV)->eDisplay : CSS_CONST_INLINE)
 
+#if 1
+  static void CHECK_INTEGER_PLAUSIBILITY(x) 
+      int x; 
+  {
+       assert(x < 1000000);
+       assert(x > -1000000);
+  }
+#else
+  define CHECK_INTEGER_PLAUSIBILITY(x)
+#endif
+
 #endif

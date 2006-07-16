@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.190 2006/07/15 13:30:51 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.191 2006/07/16 15:22:05 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -131,6 +131,7 @@ struct HtmlLayoutCache {
 };
 #define CACHED_MINWIDTH_OK ((int)1<<3)
 #define CACHED_MAXWIDTH_OK ((int)1<<4)
+
 
 /*
  * Public functions:
@@ -2794,6 +2795,9 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
     FlowType *pFlow = &FT_NONE;
     int ret = 0;                          /* Return value */
 
+    CHECK_INTEGER_PLAUSIBILITY(pBox->vc.bottom);
+    CHECK_INTEGER_PLAUSIBILITY(pBox->vc.right);
+
     /* If there is no node, do nothing */
     if (!pNode) return 0;
     pV = pNode->pPropertyValues;
@@ -2903,6 +2907,9 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
 
         Tcl_DecrRefCount(pLog);
     }
+
+    CHECK_INTEGER_PLAUSIBILITY(pBox->vc.bottom);
+    CHECK_INTEGER_PLAUSIBILITY(pBox->vc.right);
 
     return ret;
 }
@@ -3073,6 +3080,9 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
 
     NormalFlowCallback sCallback;
 
+    CHECK_INTEGER_PLAUSIBILITY(pBox->vc.bottom);
+    CHECK_INTEGER_PLAUSIBILITY(pBox->vc.right);
+
     /* TODO: Should the fourth case ("display:inline") really be here? */
     assert( 
         DISPLAY(pNode->pPropertyValues) == CSS_CONST_BLOCK ||
@@ -3197,6 +3207,8 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
 #endif
     }
 
+    CHECK_INTEGER_PLAUSIBILITY(pBox->vc.bottom);
+    CHECK_INTEGER_PLAUSIBILITY(pBox->vc.right);
     return;
 }
 

@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.90 2006/07/14 14:44:30 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.91 2006/07/16 15:22:06 danielk1977 Exp $";
 
 #include "htmllayout.h"
 
@@ -551,11 +551,16 @@ tableDrawRow(pNode, row, pContext)
                     y += box.iTop;
                     break;
             }
+CHECK_INTEGER_PLAUSIBILITY(pCanvas->bottom);
             DRAW_CANVAS(pCanvas, &pCell->box.vc, x+box.iLeft, y, pCell->pNode);
+CHECK_INTEGER_PLAUSIBILITY(pCanvas->bottom);
             memset(pCell, 0, sizeof(TableCell));
         }
         x += pData->aWidth[i];
     }
+
+    CHECK_INTEGER_PLAUSIBILITY(pData->pBox->vc.bottom);
+    CHECK_INTEGER_PLAUSIBILITY(pData->pBox->vc.right);
 
     return TCL_OK;
 }
@@ -669,6 +674,9 @@ tableDrawCells(pNode, col, colspan, row, rowspan, pContext)
     for (i=row+rowspan+1; i<=pData->nRow; i++) {
         pData->aY[i] = MAX(pData->aY[row+rowspan], pData->aY[i]);
     }
+
+    CHECK_INTEGER_PLAUSIBILITY(pBox->vc.bottom);
+    CHECK_INTEGER_PLAUSIBILITY(pBox->vc.right);
 
     return TCL_OK;
 }
@@ -1596,6 +1604,11 @@ int HtmlTableLayout(pLayout, pBox, pNode)
         );
     }
 
+    if (nCol == 0) {
+        goto table_layout_done;
+    }
+    assert(data.nRow > 0);
+
     /* Allocate arrays for the minimum and maximum widths of each column */
     aMinWidth      = (int *)HtmlClearAlloc(0, nCol*sizeof(int));
     aMaxWidth      = (int *)HtmlClearAlloc(0, nCol*sizeof(int));
@@ -1663,6 +1676,8 @@ int HtmlTableLayout(pLayout, pBox, pNode)
     assert(pBox->height < 1000000);
     assert(pBox->width < 1000000);
 
+table_layout_done:
+
     HtmlFree(0, (char *)aMinWidth);
     HtmlFree(0, (char *)aMaxWidth);
     HtmlFree(0, (char *)aWidth);
@@ -1672,6 +1687,9 @@ int HtmlTableLayout(pLayout, pBox, pNode)
     HtmlFree(0, (char *)aExplicitWidth);
 
     HtmlComputedValuesRelease(pTree, data.pDefaultProperties);
+
+    CHECK_INTEGER_PLAUSIBILITY(pBox->vc.bottom);
+    CHECK_INTEGER_PLAUSIBILITY(pBox->vc.right);
     return TCL_OK;
 }
 
