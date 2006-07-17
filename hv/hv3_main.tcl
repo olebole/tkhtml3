@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.48 2006/07/15 13:30:50 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.49 2006/07/17 10:13:12 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -203,11 +203,12 @@ snit::widget ::hv3::browser_frame {
 
     # Create the hyper-link menu (right-click on hyper-link to access)
     set m [::hv3::menu ${win}.hyperlinkmenu]
-    foreach {l c} [list                     \
-      "Open Link"          openlink         \
-      "Download Link"      downloadlink     \
-      "Copy Link Location" copylink         \
-      "Open Tree Browser"  browselink       \
+    foreach {l c} [list                       \
+      "Open Link"            openlink         \
+      "Open Link in Bg Tab"  opentablink      \
+      "Download Link"        downloadlink     \
+      "Copy Link Location"   copylink         \
+      "Open Tree Browser"    browselink       \
     ] {
       $m add command -label $l -command [mymethod hyperlinkmenu_select $c]
     }
@@ -371,6 +372,10 @@ if 0 {
     switch -- $option {
       openlink {
         $theTopFrame goto $uri
+      }
+      opentablink {
+        set new [.notebook addbg]
+        $new goto $uri
       }
       downloadlink {
         $myHv3 download $uri

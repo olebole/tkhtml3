@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.13 2006/07/15 13:30:51 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.14 2006/07/17 10:13:12 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
@@ -341,7 +341,7 @@ snit::widget ::hv3::tile_notebook {
         ${win}.notebook forget $tab1
         ${win}.notebook add $tab1
         ${win}.notebook tab $tab1 -text $text1
-        ${win}.notebook select $tab1
+        # ${win}.notebook select $tab1
       }
       $options(-delbutton) configure -state normal
     } else {
@@ -373,18 +373,23 @@ snit::widget ::hv3::tile_notebook {
 
   }
 
-  method add {args} {
+  method addbg {args} {
 
     set widget ${win}.notebook.tab_[incr myNextId]
 
     set myPendingTitle ""
     eval [concat [linsert $options(-newcmd) 1 $widget] $args]
     ${win}.notebook add $widget -sticky ewns -text Blank
-    ${win}.notebook select $widget
-
     if {$myPendingTitle ne ""} {$self set_title $widget $myPendingTitle}
 
+    return $widget
+  }
+
+  method add {args} {
+    set widget [eval [concat $self addbg $args]]
+    ${win}.notebook select $widget
     $self Switchcmd
+    catch {${win}.notebook select $widget}
     return $widget
   }
 
@@ -446,6 +451,23 @@ snit::widget ::hv3::tk_notebook {
     bind $widget <Destroy> [mymethod Destroy $widget]
 
     $self Switchto $widget
+
+    return $widget
+  }
+
+  method addbg {args} {
+    set widget ${win}.frame.widget_${myNextId}
+    set button [$self WidgetToButton $widget]
+    incr myNextId
+
+    set myPendingTitle "Blank"
+    eval [concat [linsert $options(-newcmd) 1 $widget] $args]
+    ::button $button -text $myPendingTitle -command [mymethod Switchto $widget]
+
+    lappend myWidgets $widget
+    bind $widget <Destroy> [mymethod Destroy $widget]
+
+    $self Switchto $myCurrent
 
     return $widget
   }
