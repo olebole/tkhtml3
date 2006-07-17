@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.77 2006/07/13 08:49:34 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.78 2006/07/17 10:52:31 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -1431,14 +1431,20 @@ nodeCommand(clientData, interp, objc, objv)
     int choice;
 
     static CONST char *NODE_strs[] = {
-        "attr", "children", "tag", "text", 
-        "parent", "prop", "replace", 
-        "dynamic", "override", 0
+        "attr", 
+        "children", 
+        "dynamic", 
+        "override", 
+        "parent", 
+        "prop", 
+        "replace", 
+        "tag", 
+        "text", 
+        0
     };
     enum NODE_enum {
-	NODE_ATTR, NODE_CHILDREN, NODE_TAG, 
-	NODE_TEXT, NODE_PARENT, NODE_PROP, NODE_REPLACE, 
-        NODE_DYNAMIC, NODE_OVERRIDE
+        NODE_ATTR, NODE_CHILDREN, NODE_DYNAMIC, NODE_OVERRIDE,
+        NODE_PARENT, NODE_PROP, NODE_REPLACE, NODE_TAG, NODE_TEXT,
     };
 
     if (objc<2) {

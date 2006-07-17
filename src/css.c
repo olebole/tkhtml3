@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005 Eolas Technologies Inc.
+ * Copyright (c) 2005 Dan Kennedy.
  * All rights reserved.
  *
  * This Open Source project was made possible through the financial support
@@ -13,7 +13,7 @@
  *     * Redistributions in binary form must reproduce the above copyright
  *       notice, this list of conditions and the following disclaimer in the
  *       documentation and/or other materials provided with the distribution.
- *     * Neither the name of the <ORGANIZATION> nor the names of its
+ *     * Neither the name of Eolas Technologies Inc. nor the names of its
  *       contributors may be used to endorse or promote products derived from
  *       this software without specific prior written permission.
  * 
@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.82 2006/07/16 10:53:14 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.83 2006/07/17 10:52:31 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -470,7 +470,8 @@ tokenToProperty(pParse, pToken)
             int l = i;
             int nFunc = sizeof(functions)/sizeof(struct FunctionFormat);
             for (i=0; pProp==0 && i<nFunc; i++) {
-                if (l==functions[i].len && 0==strncmp(functions[i].zFunc,z,l)) {
+                const char *zFunc = functions[i].zFunc;
+                if (l==functions[i].len && 0==strncasecmp(zFunc, z, l)) {
                     char CONST *zArg;
                     int nArg;
 

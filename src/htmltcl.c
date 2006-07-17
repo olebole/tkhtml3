@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.108 2006/07/16 10:53:14 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.109 2006/07/17 10:52:31 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -1946,7 +1946,6 @@ int widgetCmd(clientData, interp, objc, objv)
         {"bbox",       0,        bboxCmd},
         {"cget",       0,        cgetCmd},
         {"configure",  0,        configureCmd},
-        {"force",      0,        forceCmd},
         {"handler",    "node",   handlerNodeCmd},
         {"handler",    "script", handlerScriptCmd},
         {"image",      0,        imageCmd},
@@ -1963,6 +1962,7 @@ int widgetCmd(clientData, interp, objc, objv)
         {"yview",      0,        yviewCmd},
 
         /* The following are for debugging only */
+        {"force",       0,        forceCmd},
         {"primitives",  0,        primitivesCmd},
         {"relayout",    0,        relayoutCmd},
         {"styleconfig", 0,        styleconfigCmd},

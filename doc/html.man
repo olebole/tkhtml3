@@ -35,15 +35,18 @@
 		other assumptions the implementation makes about the set
 		of valid tags. Currently, only valid HTML tags are recognized.
 
-		The Tkhtml adds the [SQ ::tkhtml::htmlstyle] command to the
-		interpreter it is loaded into. Invoking this command returns a 
-		CSS document suitable for use with Tkhml as a default
+		The Tkhtml package adds the [SQ ::tkhtml::htmlstyle] command to
+		the interpreter it is loaded into. Invoking this command
+		returns a CSS document suitable for use with Tkhml as a default
 		stylesheet for HTML documents. If the "-quirks" option is
 		passed to [SQ ::tkhtml::htmlstyle] then the returned document
 		includes some extra rules used when rendering legacy documents.
 
 		The default value of this option is the same as the string
-		returned by the [SQ ::tkhtml::htmlstyle -quirks] command.
+		returned by the [SQ ::tkhtml::htmlstyle] command.
+	}]
+	[Option fontscale {
+		TODO
 	}]
 	[Option fonttable {
 		This option must be set to a list of 7 integers. The first
@@ -57,6 +60,9 @@
 
 		The default value is {7 8 9 10 12 14 16}.
         }]
+	[Option forcefontmetrics {
+		TODO
+	}]
 	[Option imagecmd {
 		As well as for replacing entire document nodes (i.e. <img>),
 		images are used in several other contexts in CSS formatted
@@ -96,13 +102,20 @@
 
 		The default values is true.
 	}]
-	[Option logcmd {
-		This option is used for internally debugging the widget.
+	[Option mode {
+		This option may be set to "quirks", "standards" or 
+		"almost standards", to set the rendering engine mode. The
+		default value is "standards".
+
+		TODO: List the differences between the three modes in Tkhtml.
 	}]
 	[Option shrink {
 		If this boolean option is set to true, then the widgets
 		requested width and height are the width and height of the
 		currently displayed formatted document.
+	}]
+	[Option logcmd {
+		This option is used for internally debugging the widget.
 	}]
 	[Option timercmd {
 		This option is used for internally debugging the widget.
