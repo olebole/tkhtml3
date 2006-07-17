@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.85 2006/07/04 14:10:40 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.86 2006/07/17 14:26:13 danielk1977 Exp $)} 1 }
 
 #
 # The code in this file is partitioned into the following classes:
@@ -725,7 +725,7 @@ snit::widget ::hv3::hv3 {
     set media [string tolower [$node attr -default all media]]
     if {
         [string match *stylesheet* $rel] &&
-        ![string match *alternate* $rel] &&
+        ![string match *alternat* $rel] &&
         $href ne "" && 
         [regexp all|screen $media]
     } {

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.49 2006/07/17 10:13:12 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.50 2006/07/17 14:26:13 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -354,7 +354,7 @@ if 0 {
   # of the mouse cursor relative to the root window.
   method hyperlinkmenu {node x y} {
     set myHyperlinkNode $node
-    puts [::hv3::resolve_uri [$myHv3 location] [$node attr href]]
+    # puts [::hv3::resolve_uri [$myHv3 location] [$node attr href]]
     tk_popup ${win}.hyperlinkmenu $x $y
   }
 

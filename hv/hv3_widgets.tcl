@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.14 2006/07/17 10:13:12 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.15 2006/07/17 14:26:13 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
@@ -373,8 +373,7 @@ snit::widget ::hv3::tile_notebook {
 
   }
 
-  method addbg {args} {
-
+  method Addcommon {switchto args} {
     set widget ${win}.notebook.tab_[incr myNextId]
 
     set myPendingTitle ""
@@ -382,15 +381,23 @@ snit::widget ::hv3::tile_notebook {
     ${win}.notebook add $widget -sticky ewns -text Blank
     if {$myPendingTitle ne ""} {$self set_title $widget $myPendingTitle}
 
+    if {$switchto} {
+      ${win}.notebook select $widget
+      $self Switchcmd
+      catch {${win}.notebook select $widget}
+    } else {
+      $self WorldChanged
+    }
+
     return $widget
   }
 
+  method addbg {args} {
+      eval [concat $self Addcommon 0 $args]
+  }
+
   method add {args} {
-    set widget [eval [concat $self addbg $args]]
-    ${win}.notebook select $widget
-    $self Switchcmd
-    catch {${win}.notebook select $widget}
-    return $widget
+      eval [concat $self Addcommon 1 $args]
   }
 
   method set_title {widget title} {
