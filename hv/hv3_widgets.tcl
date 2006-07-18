@@ -1,12 +1,12 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.16 2006/07/18 18:27:53 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.17 2006/07/18 18:30:54 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
 
 set ::hv3::toolkit Tk
 catch {
-  #package require tile
-  #set ::hv3::toolkit Tile
+  package require tile
+  set ::hv3::toolkit Tile
 }
 
 # Basic wrapper widget-names used to abstract Tk and Tile:
