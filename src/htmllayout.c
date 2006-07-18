@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.192 2006/07/18 12:19:12 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.193 2006/07/18 18:27:53 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -154,8 +154,6 @@ struct HtmlLayoutCache {
  * wouldn't happen because of the old-style function declarations. Also
  * they function as a table of contents for this file.
  */
-
-static int markerLayout(LayoutContext*, BoxContext*, NormalFlow *, HtmlNode*, int);
 
 static int inlineLayoutDrawLines
     (LayoutContext*,BoxContext*,InlineContext*,int,int*, NormalFlow*);

@@ -1,12 +1,12 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.15 2006/07/17 14:26:13 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.16 2006/07/18 18:27:53 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
 
 set ::hv3::toolkit Tk
 catch {
-  package require tile
-  set ::hv3::toolkit Tile
+  #package require tile
+  #set ::hv3::toolkit Tile
 }
 
 # Basic wrapper widget-names used to abstract Tk and Tile:
@@ -77,7 +77,8 @@ proc ::hv3::label {args} {
     if {$::hv3::toolkit eq "Tile"} {
       set myButton [::ttk::button ${win}.button -style Toolbutton]
     } else {
-      set myButton [::button ${win}.button -highlightthickness 0]
+      set myButton [::button ${win}.button]
+      $myButton configure -highlightthickness 0
     }
     set top [winfo toplevel $myButton]
     set myPopup ${top}[string map {. _} $myButton]
@@ -274,8 +275,11 @@ snit::widget ::hv3::scrolledwidget {
   delegate method *       to myWidget
 }
 
+#---------------------------------------------------------------------------
+# ::hv3::notebook
 #
-# Tabbed notebook widget for hv3.
+#     Tabbed notebook widget for hv3 based on the Tile notebook widget. If
+#     Tile is not available, ::hv3::pretend_tile_notebook is used instead.
 #
 # OPTIONS
 #
@@ -286,19 +290,160 @@ snit::widget ::hv3::scrolledwidget {
 #
 # WIDGET COMMAND
 #
-#     $widget add
-#     $widget close
-#     $widget current
-#     $widget set_title
+#     $notebook add ARGS
+#     $notebook addbg ARGS
+#     $notebook close
+#     $notebook current
+#     $notebook set_title WIDGET TITLE
 #
-proc ::hv3::notebook {args} {
-  if {$::hv3::toolkit eq "Tile"} {
-    return [eval [linsert $args 0 ::hv3::tile_notebook]]
-  }  
-  return [eval [linsert $args 0 ::hv3::tk_notebook]]
+
+
+#
+# This class uses vanilla Tk widgets to implement the following subset of
+# the Tile ttk::notebook API.
+#
+#     $notebook select
+#     $notebook select WIDGET
+#     $notebook forget WIDGET
+#     $notebook tabs
+#     $notebook add WIDGET -sticky nsew -text TEXT
+#     $notebook tab WIDGET -text 
+#     $notebook tab WIDGET -text TEXT
+#     <<NotebookTabChanged>>
+#
+snit::widget ::hv3::pretend_tile_notebook {
+
+  variable myWidgets
+  variable myTitles
+  variable myCurrent 0
+  variable myTabHeight 22
+
+  delegate option * to hull
+  
+  constructor {args} {
+    canvas ${win}.tabs -height $myTabHeight -width 100 \
+        -borderwidth 0 -highlightthickness 0 -selectborderwidth 0
+    place ${win}.tabs -anchor nw -x 0 -y 0 -relwidth 1.0 -height $myTabHeight
+    $self configurelist $args
+  }
+
+  method add {widget args} {
+    array set A $args
+    lappend myWidgets $widget
+    lappend myTitles ""
+    if {[info exists A(-text)]} {
+      lset myTitles end $A(-text)
+    }
+    $self Redraw
+
+    bind $widget <Destroy> [mymethod forget $widget]
+  }
+
+  method forget {widget} {
+    set idx [lsearch $myWidgets $widget]
+    if {$idx < 0} { error "$widget is not managed by $self" }
+
+    place forget $widget
+    bind $widget <Destroy> ""
+
+    set myWidgets [lreplace $myWidgets $idx $idx]
+    set myTitles  [lreplace $myTitles $idx $idx]
+
+    if {$myCurrent == [llength $myWidgets]} {
+      incr myCurrent -1
+      after idle [list event generate $self <<NotebookTabChanged>>]
+    }
+    $self Redraw
+  }
+
+  method select {{widget ""}} {
+    if {$widget ne ""} {
+      set idx [lsearch $myWidgets $widget]
+      if {$idx < 0} { error "$widget is not managed by $self" }
+      if {$myCurrent != $idx} {
+        set myCurrent $idx
+        $self Redraw
+        after idle [list event generate $self <<NotebookTabChanged>>]
+      }
+    }
+    return [lindex $myWidgets $myCurrent]
+  }
+
+  method tab {widget -text args} {
+    set idx [lsearch $myWidgets $widget]
+    if {$idx < 0} { error "$widget is not managed by $self" }
+
+    if {[llength $args] ne 0} {
+      lset myTitles $idx [lindex $args 0]
+      $self Redraw
+    }
+    return [lindex $myTitles $idx]
+  }
+
+  method tabs {} {
+    return $myWidgets
+  }
+
+  method Redraw {} {
+    if {$myCurrent < 0} return
+    set c [lindex $myWidgets $myCurrent]
+    place $c                              \
+        -x 0 -y [expr $myTabHeight - 0]   \
+        -relwidth 1.0 -relheight 1.0      \
+        -height [expr -1 * $myTabHeight]  \
+        -anchor nw
+
+    foreach w $myWidgets {
+      if {$w ne $c} {place forget $w}
+    }
+
+    ${win}.tabs delete all
+    set x 1
+
+    set idx 0
+    foreach title $myTitles {
+
+      set font {Helvetica 10}
+
+      set width    [font measure $font $title]
+      set padding  2
+      set diagonal 2
+
+      set x2 [expr $x + $diagonal]
+      set x3 [expr $x2 + $width + ($padding * 2)]
+      set x4 [expr $x3 + $diagonal]
+
+      set y1 [expr $myTabHeight - 0]
+      set y2 [expr $diagonal + 1]
+      set y3 1
+
+      set id [${win}.tabs create polygon \
+          $x $y1 $x $y2 $x2 $y3 $x3 $y3 $x4 $y2 $x4 $y1]
+      set id2 [${win}.tabs create text [expr $x2 + $padding] $myTabHeight   \
+          -anchor sw -text $title -font $font]
+
+      if {$idx == $myCurrent} {
+        ${win}.tabs itemconfigure $id -fill #d9d9d9
+      } else {
+        ${win}.tabs itemconfigure $id -fill #c3c3c3
+        set cmd [list ${win}.tabs itemconfigure $id -fill]
+        foreach i [list $id $id2] {
+            ${win}.tabs bind $i <Enter> [concat $cmd #ececec]
+            ${win}.tabs bind $i <Leave> [concat $cmd #c3c3c3]
+            ${win}.tabs bind $i <1> [mymethod select [lindex $myWidgets $idx]]
+        }
+      }
+
+      ${win}.tabs create line $x $y1 $x $y2 $x2 $y3 $x3 $y3 -fill white
+      ${win}.tabs create line $x3 $y3 $x4 $y2 $x4 $y1 -fill black
+
+      incr x [expr $padding * 2 + $diagonal * 2 + $width + 1]
+      incr idx
+    }
+  }
 }
 
-snit::widget ::hv3::tile_notebook {
+snit::widget ::hv3::notebook {
 
   option -newcmd    -default ""
   option -switchcmd -default ""
@@ -313,7 +458,7 @@ snit::widget ::hv3::tile_notebook {
 
   method Switchcmd {} {
     if {$options(-switchcmd) ne ""} {
-      eval [linsert $options(-switchcmd) 1 [$self current]]
+      eval [linsert $options(-switchcmd) end [$self current]]
       $self WorldChanged
     }
   }
@@ -341,11 +486,10 @@ snit::widget ::hv3::tile_notebook {
         ${win}.notebook forget $tab1
         ${win}.notebook add $tab1
         ${win}.notebook tab $tab1 -text $text1
-        # ${win}.notebook select $tab1
       }
       $options(-delbutton) configure -state normal
     } else {
-      if {1 && $myOnlyTab eq ""} {
+      if {$myOnlyTab eq ""} {
         set myOnlyTab [${win} current]
        
         catch { canvas $dummy -width 0 -height 0 -bg blue }
@@ -366,11 +510,13 @@ snit::widget ::hv3::tile_notebook {
 
   constructor {args} {
     $self configurelist $args
-    ::ttk::notebook ${win}.notebook  -width 700 -height 500 
+    if {$::hv3::toolkit eq "Tile"} {
+      ::ttk::notebook ${win}.notebook -width 700 -height 500 
+    } else {
+      ::hv3::pretend_tile_notebook ${win}.notebook -width 700 -height 500
+    }
     bind ${win}.notebook <<NotebookTabChanged>> [list $self Switchcmd]
-    # place ${win}.notebook -relheight 1.0 -relwidth 1.0
     pack ${win}.notebook -fill both -expand true
-
   }
 
   method Addcommon {switchto args} {
@@ -411,149 +557,14 @@ snit::widget ::hv3::tile_notebook {
   method current {} {
     if {$myOnlyTab ne ""} {return $myOnlyTab}
 
-    # In new versions of Tile you can do [${win}.notebook select] to
-    # get the currently visible widget. But the following works in old
-    # versions too.
+    if {0 == [catch {${win}.notebook select} current]} {
+      return $current
+    }
     return [lindex [${win}.notebook tabs] [${win}.notebook index current]]
   }
 }
-
-snit::widget ::hv3::tk_notebook {
-
-  option -newcmd    -default ""
-  option -switchcmd -default ""
-  option -delcmd    -default ""
-  option -delbutton -default ""
-
-  variable myNextId       0
-  variable myPendingTitle ""
-
-  variable myCurrent      ""
-  variable myWidgets      ""
-
-  method close {} {
-    destroy [$self current]
-  }
-
-  constructor {args} {
-    $self configurelist $args
-
-    frame ${win}.frame
-    frame ${win}.tabs 
-
-    pack ${win}.tabs  -side top -fill x
-    pack ${win}.frame -side top -fill both -expand true
-  }
-
-  method add {args} {
-    set widget ${win}.frame.widget_${myNextId}
-    set button [$self WidgetToButton $widget]
-    incr myNextId
-
-    set myPendingTitle "Blank"
-    eval [concat [linsert $options(-newcmd) 1 $widget] $args]
-    ::button $button -text $myPendingTitle -command [mymethod Switchto $widget]
-
-    lappend myWidgets $widget
-    bind $widget <Destroy> [mymethod Destroy $widget]
-
-    $self Switchto $widget
-
-    return $widget
-  }
-
-  method addbg {args} {
-    set widget ${win}.frame.widget_${myNextId}
-    set button [$self WidgetToButton $widget]
-    incr myNextId
-
-    set myPendingTitle "Blank"
-    eval [concat [linsert $options(-newcmd) 1 $widget] $args]
-    ::button $button -text $myPendingTitle -command [mymethod Switchto $widget]
-
-    lappend myWidgets $widget
-    bind $widget <Destroy> [mymethod Destroy $widget]
-
-    $self Switchto $myCurrent
-
-    return $widget
-  }
-
-  method Destroy {widget} {
-    destroy [$self WidgetToButton $widget]
-    set idx [lsearch $myWidgets $widget]
-    set myWidgets [lreplace $myWidgets $idx $idx]
-    if {$widget eq $myCurrent} {
-      set new [lindex $myWidgets $idx]
-      if {$new eq ""} {set new [lindex $myWidgets end]}
-      $self Switchto $new
-    } else {
-      $self Switchto $myCurrent
-    }
-  }
-
-  method current {} {
-    return $myCurrent
-  }
-
-  method set_title {widget title} {
-    if {0 > [lsearch $myWidgets $widget]} {
-      set myPendingTitle $title
-    } else {
-      [$self WidgetToButton $widget] configure -text $title
-    }
-  }
-
-  method Switchto {widget} {
-
-    if {$widget ne $myCurrent} {
-      pack forget $myCurrent
-      set myCurrent $widget
-      pack $myCurrent -fill both -expand true
-      if {$options(-switchcmd) ne ""} { 
-        eval [linsert $options(-switchcmd) 1 [$self current]]
-      }
-    }
-
-    set height 0
-    set i 0
-    set fraction [expr 1.0 / double([llength $myWidgets])]
-    foreach w $myWidgets {
-      set button [$self WidgetToButton $w]
-      place configure $button                   \
-          -relwidth $fraction                   \
-          -relx [expr $i * $fraction]           \
-          -anchor nw
-
-      set h [winfo reqheight $button]
-      if {$h > $height} {set height $h}
-      incr i
-
-      if {$w eq $myCurrent} {
-        $button configure -relief solid
-      } else {
-        $button configure -relief ridge
-      }
-    }
-
-    if {[llength $myWidgets] == 1} {
-      $options(-delbutton) configure -state disabled
-      # place forget [$self WidgetToButton $myCurrent]
-      # set height 0
-    } else {
-      $options(-delbutton) configure -state normal
-    }
-
-    ${win}.tabs configure -height $height
-  }
-
-  method WidgetToButton {widget} {
-    set id [regexp {_[0-9]+} $widget match]
-    set button ${win}.tabs.widget${match}
-    return $button
-  }
-}
-
+# End of notebook implementation.
+#---------------------------------------------------------------------------
 
 # Wrapper around the ::hv3::scrolledwidget constructor. 
 #
