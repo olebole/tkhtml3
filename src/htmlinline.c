@@ -31,7 +31,7 @@
  * 
  *     HtmlInlineContextIsEmpty
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.26 2006/07/14 13:58:18 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.27 2006/07/18 12:19:12 danielk1977 Exp $";
 
 typedef struct InlineBox InlineBox;
 
@@ -434,7 +434,7 @@ inlineContextAddSpace(p, nPixels)
     InlineContext *p; 
     int nPixels;
 {
-    if( p->nInline>0 ){
+    if (p->nInline>0 && (p->nInline != 1 || p->aInline[0].nContentPixels > 0)) {
         InlineBox *pBox = &p->aInline[p->nInline - 1];
         if (p->whiteSpace == CSS_CONST_PRE) {
             pBox->nSpace += nPixels;
@@ -1280,8 +1280,8 @@ HtmlInlineContextAddBox(pContext, pNode, pCanvas, iWidth, iHeight, iOffset)
     int ascent = -1 * iOffset;           /* Ascent of added box */
     int descent = iHeight + iOffset;     /* Descent of added box */
 
-    assert(ascent < 10000000);
-    assert(descent < 10000000);
+    CHECK_INTEGER_PLAUSIBILITY(ascent);
+    CHECK_INTEGER_PLAUSIBILITY(descent);
 
     pInlineCanvas = inlineContextAddInlineCanvas(pContext, 1, pNode);
     DRAW_CANVAS(pInlineCanvas, pCanvas, 0, iOffset, pNode);

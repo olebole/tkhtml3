@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.191 2006/07/16 15:22:05 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.192 2006/07/18 12:19:12 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -977,75 +977,65 @@ getRomanIndex(zBuf, index, isUpper)
 }
 
 
-
 /*
  *---------------------------------------------------------------------------
  *
- * markerLayout --
+ * markerBoxLayout --
  *
- *     This is called just before the block part of a list item is 
- *     drawn into *pBox at coordinates (0, 0). This function draws the
- *     list marker. 
- *     
- *     If the 'list-style-position' property is 'inside', then the marker
- *     is drawn with a zero x-coordinate value and a floating
- *     margin added so that the content is wrapped around it. If the
- *     'list-style-position' property is 'outside', then the marker is
- *     drawn with a negative x-coordinate value and no margins are added.
+ *     This is called to generate the marker-box for an element with
+ *     "display:list-item". The contents of the marker box are drawn
+ *     to pBox.
  *
  * Results:
  *     None.
  *
  * Side effects:
- *     None.
+ *     Draws to pBox. Sets *pVerticalOffset.
  *
  *---------------------------------------------------------------------------
  */
-static int 
-markerLayout(pLayout, pBox, pNormal, pNode, y)
-    LayoutContext *pLayout;
-    BoxContext *pBox;
-    NormalFlow *pNormal;
-    HtmlNode *pNode;
-    int y;
+static int
+markerBoxLayout(pLayout, pBox, pNode, pVerticalOffset)
+    LayoutContext *pLayout;       /* IN: Layout context */
+    HtmlNode *pNode;              /* IN: Node with "display:list-item" */
+    BoxContext *pBox;             /* OUT: Generated box */
+    int *pVerticalOffset;         /* OUT: Ascent of generated box */
 {
-    CONST char *zMarker = 0; /* Text to draw in the marker box. */
-    Tcl_Obj *pMarker;        /* Tcl_Obj copy of zMarker */
     HtmlComputedValues *pComputed = pNode->pPropertyValues;
-    int yoffset = pComputed->fFont->metrics.ascent;
-    int offset;
-    HtmlCanvas sCanvas;
-    int width;               /* Width of string zMarker in current font */
+    int mmt = pLayout->minmaxTest;
+    int voffset;
 
-    memset(&sCanvas, 0, sizeof(HtmlCanvas));
+    if (
+        0 == pComputed->imListStyleImage && 
+        pComputed->eListStyleType == CSS_CONST_NONE
+    ) {
+        return 0;
+    }
 
     if (pComputed->imListStyleImage) {
+        HtmlImage2 *pImg = pComputed->imListStyleImage;
         int iWidth = PIXELVAL_AUTO;
         int iHeight = PIXELVAL_AUTO;
-
         HtmlImageScale(pComputed->imListStyleImage, &iWidth, &iHeight, 0);
-        offset = MAX(0, PIXELVAL(pComputed, MARGIN_LEFT, 0));
-        offset -= (pComputed->fFont->ex_pixels + iWidth);
-
-        if (pComputed->eListStylePosition == CSS_CONST_OUTSIDE) {
-            HtmlDrawImage(&sCanvas, pComputed->imListStyleImage,
-                offset, y,
-                iWidth, iHeight, pNode, pLayout->minmaxTest
-            );
-        } else {
-            HtmlDrawImage(&sCanvas, pComputed->imListStyleImage,
-                0, y, 
-                iWidth, iHeight, pNode, pLayout->minmaxTest
-            );
-            HtmlFloatListAdd(pNormal->pFloat, FLOAT_LEFT, iWidth, y, y+iHeight);
-        }
+        voffset = iHeight;
+        HtmlDrawImage(&pBox->vc, pImg, 0, 0, iWidth, iHeight, pNode, mmt);
+        pBox->width = iWidth;
+        pBox->height = iHeight;
     } else {
-        Tk_Font font;
-        int style;
-        char zBuf[128];
+        HtmlCanvas *pCanvas = &pBox->vc;
+        int eStyle;             /* Copy of pComputed->eListStyleType */
+        Tk_Font font;           /* Font to draw list marker in */
+        char zBuf[128];         /* Buffer for string to use as list marker */
+        Tcl_Obj *pMarker;
         int iList = 1;
 
         HtmlNode *pParent = HtmlNodeParent(pNode);
+        eStyle = pComputed->eListStyleType;
+
+        /* Figure out the numeric index of this list element in it's parent.
+	 * i.e. the number to draw in the marker box if the list-style-type is
+	 * "decimal". Store the value in local variable iList.
+         */
         if (pParent) {
             int ii;
             for (ii = 0; ii < HtmlNodeNumChildren(pParent); ii++) {
@@ -1059,79 +1049,59 @@ markerLayout(pLayout, pBox, pNormal, pNode, y)
             }
         }
 
-        style = pComputed->eListStyleType;
-        if (style == CSS_CONST_LOWER_ALPHA || style == CSS_CONST_UPPER_ALPHA) {
+        /* If the document has requested an alpha marker, switch to decimal
+         * after item 26. (i.e. item markers will be "x", "y", "z", "27".
+         */
+        if (eStyle == CSS_CONST_LOWER_ALPHA || eStyle == CSS_CONST_UPPER_ALPHA)
             if (iList > 26) {
-                style = CSS_CONST_DECIMAL;
+                eStyle = CSS_CONST_DECIMAL;
             }
-        }
-        switch (style) {
+
+        switch (eStyle) {
             case CSS_CONST_SQUARE:
-                 zMarker = "\xe2\x96\xa1";      /* Unicode 0x25A1 */ 
+                 strcpy(zBuf, "\xe2\x96\xa1");      /* Unicode 0x25A1 */ 
                  break;
             case CSS_CONST_CIRCLE:
-                 zMarker = "\xe2\x97\x8b";      /* Unicode 0x25CB */ 
+                 strcpy(zBuf, "\xe2\x97\x8b");      /* Unicode 0x25CB */ 
                  break;
             case CSS_CONST_DISC:
-                 zMarker = "\xe2\x80\xa2";      /* Unicode 0x25CF */ 
+                 strcpy(zBuf ,"\xe2\x80\xa2");      /* Unicode 0x25CF */ 
                  break;
     
             case CSS_CONST_LOWER_ALPHA:
                  sprintf(zBuf, "%c.", iList + 96);
-                 zMarker = zBuf;
                  break;
             case CSS_CONST_UPPER_ALPHA:
                  sprintf(zBuf, "%c.", iList + 64);
-                 zMarker = zBuf;
                  break;
     
             case CSS_CONST_LOWER_ROMAN:
                  getRomanIndex(zBuf, iList, 0);
-                 zMarker = zBuf;
                  break;
             case CSS_CONST_UPPER_ROMAN:
                  getRomanIndex(zBuf, iList, 1);
-                 zMarker = zBuf;
                  break;
             case CSS_CONST_DECIMAL:
                  sprintf(zBuf, "%d.", iList);
-                 zMarker = zBuf;
                  break;
-            case CSS_CONST_NONE:
-                 zMarker = "";                  /* Nothin' */
-                 break;
-        }
-        font = pComputed->fFont->tkfont;
-        pMarker = Tcl_NewStringObj(zMarker, -1);
-        Tcl_IncrRefCount(pMarker);
-        width = Tk_TextWidth(font, zMarker, strlen(zMarker));
-    
-        if (pComputed->eListStylePosition == CSS_CONST_OUTSIDE) {
-	    /* It's not specified in CSS 2.1 exactly where the list marker
-	     * should be drawn when the 'list-style-position' property is
-	     * 'outside'.  The algorithm used is to draw it the width of 1 'x'
-	     * character in the current font to the left of the content box.
-             */
-            /* offset = pComputed->fFont->ex_pixels + width; */
-            offset = MAX(0, PIXELVAL(pComputed, MARGIN_LEFT, 0));
-            offset -= (pComputed->fFont->ex_pixels + width);
-        } else {
-            assert(pComputed->eListStylePosition == CSS_CONST_INSIDE);
-            offset = MAX(0, PIXELVAL(pComputed, MARGIN_LEFT, 0));
-            HtmlFloatListAdd(pNormal->pFloat, FLOAT_LEFT, 
-                  pComputed->fFont->ex_pixels + width, y, y + yoffset);
         }
 
-        HtmlDrawText(&sCanvas, pMarker, offset, y + yoffset, width,
-                pLayout->minmaxTest, pNode, -1);
-    
+        font = pComputed->fFont->tkfont;
+        pMarker = Tcl_NewStringObj(zBuf, -1);
+        Tcl_IncrRefCount(pMarker);
+
+        voffset = pComputed->fFont->metrics.ascent;
+        pBox->height = voffset + pComputed->fFont->metrics.descent;
+        pBox->width = Tk_TextWidth(font, zBuf, strlen(zBuf));
+
+        HtmlDrawText(pCanvas, pMarker, 0, voffset, pBox->width, mmt, pNode, -1);
         Tcl_DecrRefCount(pMarker);
     }
 
-    DRAW_CANVAS(&pBox->vc, &sCanvas, 0, 0, pNode);
-    return TCL_OK;
+    pBox->width += pComputed->fFont->ex_pixels;
+    *pVerticalOffset = voffset;
+    return 1;
 }
-
 
 /*
  *---------------------------------------------------------------------------
@@ -2451,24 +2421,6 @@ normalFlowClearFloat(pBox, pNode, pNormal, y)
     return ynew;
 }
 
-typedef struct MarkerLayoutArgs MarkerLayoutArgs;
-struct MarkerLayoutArgs {
-    LayoutContext *pLayout;
-    BoxContext *pBox;
-    HtmlNode *pNode;
-    int y;
-};
-static void
-markerLayoutCallback(pNormal, pCallback, iMargin)
-    NormalFlow *pNormal;
-    NormalFlowCallback *pCallback;
-    int iMargin;
-{
-    MarkerLayoutArgs *pArgs = (MarkerLayoutArgs *)pCallback->clientData;
-    markerLayout(pArgs->pLayout, pArgs->pBox, pNormal, pArgs->pNode, pArgs->y + iMargin);
-    normalFlowCbDelete(pNormal, pCallback);
-}
-
 /*
  *---------------------------------------------------------------------------
  *
@@ -2491,22 +2443,7 @@ normalFlowLayoutListItem(pLayout, pBox, pNode, pY, pContext, pNormal)
     InlineContext *pContext;
     NormalFlow *pNormal;
 {
-    MarkerLayoutArgs sArgs;
-    NormalFlowCallback sCallback;
-
-    sCallback.xCallback = markerLayoutCallback;
-    sCallback.clientData = (ClientData) &sArgs;
-    sCallback.pNext = 0;
-    sArgs.pLayout = pLayout;
-    sArgs.pBox = pBox;
-    sArgs.pNode = pNode;
-    sArgs.y = *pY;
-           
-    normalFlowCbAdd(pNormal, &sCallback);
-    normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal);
-    normalFlowCbDelete(pNormal, &sCallback);
-
-    return 0;
+    return normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal);
 }
 
 /*
@@ -3134,6 +3071,32 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
     pContext = HtmlInlineContextNew(
             pLayout->pTree, pNode, isSizeOnly, iTextIndent
     );
+
+    /* If this element is a list-item with "list-style-position:inside", 
+     * then add the list-marker as the first box in the new inline-context.
+     */
+    if (DISPLAY(pNode->pPropertyValues) == CSS_CONST_LIST_ITEM) {
+        int eListStylePosition = pNode->pPropertyValues->eListStylePosition;
+        BoxContext sMarker;
+        int iAscent;
+        memset(&sMarker, 0, sizeof(BoxContext));
+        if (markerBoxLayout(pLayout, &sMarker, pNode, &iAscent)) {
+            if (eListStylePosition == CSS_CONST_OUTSIDE) {
+                HtmlCanvas sTmp;
+    
+                memset(&sTmp, 0, sizeof(HtmlCanvas));
+                DRAW_CANVAS(&sTmp, &sMarker.vc, -1 * sMarker.width, 0, pNode);
+    
+                HtmlInlineContextAddBox(
+                    pContext, pNode, &sTmp, 0, sMarker.height, iAscent * -1
+                );
+            } else {
+                HtmlInlineContextAddBox(pContext, pNode, 
+                    &sMarker.vc, sMarker.width, sMarker.height, iAscent * -1
+                );
+            }
+        }
+    }
 
     /* Add any inline-border created by the node that generated this
      * normal-flow to the InlineContext. Actual border attributes do not apply
