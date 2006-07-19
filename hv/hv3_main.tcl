@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.50 2006/07/17 14:26:13 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.51 2006/07/19 05:24:23 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -251,7 +251,7 @@ snit::widget ::hv3::browser_frame {
   option -name -default ""
 
   method Hyperlinkcmd {node} {
-    set href   [$node attr -default "" href]
+    set href   [string trim [$node attr -default "" href]]
     set target [$node attr -default "" target]
 
     if {$target eq ""} {
@@ -367,7 +367,7 @@ if 0 {
    #     browselink
    #
   method hyperlinkmenu_select {option} {
-    set uri [$myHv3 resolve_uri [$myHyperlinkNode attr href]]
+    set uri [$myHv3 resolve_uri [string trim [$myHyperlinkNode attr href]]]
     set theTopFrame [lindex [$myBrowser get_frames] 0]
     switch -- $option {
       openlink {
@@ -414,7 +414,7 @@ if 0 {
       if {$tag eq ""} {
         set value [$n text]
       } elseif {$hyperlink && $tag eq "a" && [$n attr -default "" href] ne ""} {
-        set value "hyper-link: [$n attr href]"
+        set value "hyper-link: [string trim [$n attr href]]"
         break
       } elseif {[set nid [$n attr -default "" id]] ne ""} {
         set value "<$tag id=$nid>$value"

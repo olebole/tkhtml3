@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.86 2006/07/17 14:26:13 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.87 2006/07/19 05:24:22 danielk1977 Exp $)} 1 }
 
 #
 # The code in this file is partitioned into the following classes:
@@ -428,7 +428,7 @@ snit::type ::hv3::hv3::hyperlinkmanager {
   }
 
   method default_hyperlinkcmd {node} {
-    set href [$node attr -default "" href]
+    set href [string trim [$node attr -default "" href]]
     if {$href ne ""} {
       $myHv3 goto $href
     }
@@ -721,7 +721,7 @@ snit::widget ::hv3::hv3 {
   #
   method link_node_handler {node} {
     set rel  [string tolower [$node attr -default "" rel]]
-    set href [$node attr -default "" href]
+    set href [string trim [$node attr -default "" href]]
     set media [string tolower [$node attr -default all media]]
     if {
         [string match *stylesheet* $rel] &&
