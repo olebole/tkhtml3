@@ -655,5 +655,3 @@ HtmlTranslateEscapes(z)
     z[to] = 0;
 }
 
-
-

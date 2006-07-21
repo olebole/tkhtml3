@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.71 2006/07/14 13:37:55 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.72 2006/07/21 06:24:13 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -39,6 +39,8 @@ static char const rcsid[] =
 #include <ctype.h>
 #include <assert.h>
 #include "html.h"
+
+#define ISSPACE(x) isspace((unsigned char)(x))
 
 /*
  *---------------------------------------------------------------------------
@@ -905,7 +907,7 @@ Tokenize(pTree, isFinal)
                 while (z2[j]) {
                     char c = z2[j];
 
-                    if (isspace(c)) {
+                    if (ISSPACE(c)) {
                         HtmlToken *pSpace;
                         int nBytes = sizeof(HtmlToken);
                         pSpace = (HtmlToken *)HtmlClearAlloc(0, nBytes);
@@ -917,9 +919,9 @@ Tokenize(pTree, isFinal)
                             iCol = 0;
                         } else {
                             int iColStart = iCol;
-                            while (c && isspace(c) && c != '\n' && c != '\r') {
+                            while (c && ISSPACE(c) && c != '\n' && c != '\r') {
                                 iCol = NextColumn(iCol, c);
-                                c = z2[++j];
+                                c = (unsigned char)z2[++j];
                             }
                             pSpace->count = iCol - iColStart;
                         }
@@ -928,8 +930,8 @@ Tokenize(pTree, isFinal)
                         int nBytes;
                         int iStart = j;
                         HtmlToken *pText;
-                        while (c && !isspace(c)) {
-                            c = z2[++j];
+                        while (c && !ISSPACE(c)) {
+                            c = (unsigned char)z2[++j];
                         }
                         nBytes = 1 + j + sizeof(HtmlToken);
 
@@ -998,7 +1000,7 @@ Tokenize(pTree, isFinal)
             do {
                 i++;
                 c = z[n + i];
-            } while( c!=0 && !isspace(c) && c!='>' && (i<2 || c!='/') );
+            } while( c!=0 && !ISSPACE(c) && c!='>' && (i<2 || c!='/') );
             arglen[0] = i - 1;
             i--;
 
@@ -1009,7 +1011,7 @@ Tokenize(pTree, isFinal)
 	     * the document is reached, bail out via the 'incomplete' 
 	     * exception handler.
              */
-            while (isspace(z[n + i])) {
+            while (ISSPACE(z[n + i])) {
                 i++;
             }
             if (z[n + i] == 0) {
@@ -1039,7 +1041,7 @@ Tokenize(pTree, isFinal)
                  */
                 argv[argc] = &z[n+i];
                 j = 0;
-                while ((c = z[n + i + j]) != 0 && !isspace(c) && c != '>'
+                while ((c = z[n + i + j]) != 0 && !ISSPACE(c) && c != '>'
                        && c != '=' && 
                        1
 #if 0
@@ -1055,7 +1057,7 @@ Tokenize(pTree, isFinal)
                 }
                 i += j;
 
-                while (isspace(c)) {
+                while (ISSPACE(c)) {
                     i++;
                     c = z[n + i];
                 }
@@ -1071,7 +1073,7 @@ Tokenize(pTree, isFinal)
                 }
                 i++;
                 c = z[n + i];
-                while (isspace(c)) {
+                while (ISSPACE(c)) {
                     i++;
                     c = z[n + i];
                 }
@@ -1093,7 +1095,7 @@ Tokenize(pTree, isFinal)
                 else {
                     argv[argc] = &z[n + i];
                     for (j = 0;
-                         (c = z[n + i + j]) != 0 && !isspace(c) && c != '>';
+                         (c = z[n + i + j]) != 0 && !ISSPACE(c) && c != '>';
                          j++) {
                     }
                     if (c == 0) {
@@ -1103,7 +1105,7 @@ Tokenize(pTree, isFinal)
                     i += j;
                 }
                 argc++;
-                while (isspace(z[n + i])) {
+                while (ISSPACE(z[n + i])) {
                     i++;
                 }
             }
