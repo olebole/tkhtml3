@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.91 2006/07/16 15:22:06 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.92 2006/07/21 07:35:07 danielk1977 Exp $";
 
 #include "htmllayout.h"
 
@@ -435,12 +435,7 @@ tableCountCells(pNode, col, colspan, row, rowspan, pContext)
 {
     TableData *pData = (TableData *)pContext;
  
-    /* For the purporses of figuring out the dimensions of the table, cells
-     * with rowspan or colspan of 0 count as 1.
-     */
-    if (rowspan==0) {
-        rowspan = 1;
-    }
+    /* A colspan of 0 is legal (apparently), but Tkhtml just handles it as 1 */
     if (colspan==0) {
         colspan = 1;
     }
@@ -448,9 +443,17 @@ tableCountCells(pNode, col, colspan, row, rowspan, pContext)
     if (pData->nCol<(col+colspan)) {
         pData->nCol = col+colspan;
     }
-    if (pData->nRow<(row+rowspan)) {
-        pData->nRow = row+rowspan;
-    }
+    return TCL_OK;
+}
+
+static int 
+tableCountRows(pNode, row, pContext)
+    HtmlNode *pNode;
+    int row;
+    void *pContext;
+{
+    TableData *pData = (TableData *)pContext;
+    pData->nRow = row + 1;
     return TCL_OK;
 }
 
@@ -484,6 +487,8 @@ tableDrawRow(pNode, row, pContext)
     int i;                                 /* Column iterator */
     const int mmt = pLayout->minmaxTest;
 
+    assert(row < pData->nRow);
+
     /* Add the background and border for the table-row, if a node exists. A
      * node may not exist if the row is entirely populated by overflow from
      * above. For example in the following document, there is no node for the
@@ -491,6 +496,8 @@ tableDrawRow(pNode, row, pContext)
      *
      *     <table><tr><td rowspan=2></table>
      */
+
+    CHECK_INTEGER_PLAUSIBILITY(pData->pBox->vc.bottom);
     if (pNode && pNode->pPropertyValues) {
         int x1, y1, w1, h1;           /* Border coordinates */
         x1 = pData->border_spacing;
@@ -503,6 +510,8 @@ tableDrawRow(pNode, row, pContext)
         w1 += ((pData->nCol - 1) * pData->border_spacing);
         HtmlDrawBox(&pData->pBox->vc, x1, y1, w1, h1, pNode, 0, mmt);
     }
+    CHECK_INTEGER_PLAUSIBILITY(pData->pBox->vc.bottom);
+    CHECK_INTEGER_PLAUSIBILITY(pData->pBox->vc.right);
 
     for (i=0; i<pData->nCol; i++) {
         TableCell *pCell = &pData->aCell[i];
@@ -675,6 +684,7 @@ tableDrawCells(pNode, col, colspan, row, rowspan, pContext)
         pData->aY[i] = MAX(pData->aY[row+rowspan], pData->aY[i]);
     }
 
+    CHECK_INTEGER_PLAUSIBILITY(pData->aY[row+rowspan]);
     CHECK_INTEGER_PLAUSIBILITY(pBox->vc.bottom);
     CHECK_INTEGER_PLAUSIBILITY(pBox->vc.right);
 
@@ -1592,7 +1602,7 @@ int HtmlTableLayout(pLayout, pBox, pNode)
      * COLGROUP elements exist. For now though, always use the second 
      * method.
      */
-    tableIterate(pTree, pNode, tableCountCells, 0, &data);
+    tableIterate(pTree, pNode, tableCountCells, tableCountRows, &data);
     nCol = data.nCol;
 
     LOG {
