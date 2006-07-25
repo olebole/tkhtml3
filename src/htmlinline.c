@@ -1,5 +1,7 @@
 
 #include "htmllayout.h"
+#include <stdio.h>
+#include <stdarg.h>
 
 /*
  *
@@ -31,7 +33,7 @@
  * 
  *     HtmlInlineContextIsEmpty
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.27 2006/07/18 12:19:12 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.28 2006/07/25 18:34:43 danielk1977 Exp $";
 
 typedef struct InlineBox InlineBox;
 

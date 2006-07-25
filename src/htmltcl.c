@@ -1,6 +1,6 @@
 /*
  *--------------------------------------------------------------------------
- * Copyright (c) 2005 Eolas Technologies Inc.
+ * Copyright (c) 2005 Dan Kennedy.
  * All rights reserved.
  *
  * This Open Source project was made possible through the financial support
@@ -14,7 +14,7 @@
  *     * Redistributions in binary form must reproduce the above copyright
  *       notice, this list of conditions and the following disclaimer in the
  *       documentation and/or other materials provided with the distribution.
- *     * Neither the name of the <ORGANIZATION> nor the names of its
+ *     * Neither the name of Eolas Technologies Inc. nor the names of its
  *       contributors may be used to endorse or promote products derived from
  *       this software without specific prior written permission.
  * 
@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.109 2006/07/17 10:52:31 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.110 2006/07/25 18:34:43 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -375,7 +375,6 @@ callbackHandler(clientData)
      * [.html parse] or something?
      */
     if (pTree->cb.flags & HTML_RESTYLE) {
-        int i;
         HtmlNode *pParent = HtmlNodeParent(pTree->cb.pRestyle);
         HtmlNode *pRestyle = pTree->cb.pRestyle;
 
@@ -384,12 +383,13 @@ callbackHandler(clientData)
         styleClock = clock();
 
         if (pParent) {
+            int i;
             for (i = 0; HtmlNodeChild(pParent, i) != pRestyle; i++);
             for ( ; HtmlNodeChild(pParent, i); i++) {
                  HtmlStyleApply(pTree, HtmlNodeChild(pParent, i));
             }
         } else {
-            HtmlStyleApply(pTree, HtmlNodeChild(pParent, i));
+            HtmlStyleApply(pTree, pRestyle);
         }
 
         styleClock = clock() - styleClock;
