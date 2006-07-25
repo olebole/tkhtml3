@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.147 2006/07/18 12:19:12 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.148 2006/07/25 17:53:42 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -263,11 +263,14 @@ struct CanvasOverflow {
  *       always removed from the display list during the layout and has a
  *       CanvasMarker.flags value of 0. 
  *
+ *     * To mark the baseline of lineboxes.
+ *
  *     * To show where the "position:fixed" section of the display list begins.
  *       The x and y variables are ignored and the flags variable is set to
  *       MARKER_FIXED.
  */
 #define MARKER_FIXED 0x00000001
+#define MARKER_LINEBOX 0x00000002
 struct CanvasMarker {
     int x;
     int y;
@@ -590,7 +593,7 @@ CHECK_CANVAS(pCanvas);
                 }
                 break;
             case CANVAS_MARKER:
-                assert(pItem->x.marker.flags == MARKER_FIXED);
+                assert(pItem->x.marker.flags);
                 break;
             case CANVAS_WINDOW:
             case CANVAS_BOX:
@@ -2151,11 +2154,12 @@ searchCanvas(pTree, ymin, ymax, pNode, xFunc, clientData)
             }
 
             case CANVAS_MARKER: {
-                assert(pItem->x.marker.flags == MARKER_FIXED);
-                assert(origin_x == 0);
-                assert(origin_y == 0);
-                origin_x = pTree->iScrollX;
-                origin_y = pTree->iScrollY;
+                if(pItem->x.marker.flags == MARKER_FIXED){
+                    assert(origin_x == 0);
+                    assert(origin_y == 0);
+                    origin_x = pTree->iScrollX;
+                    origin_y = pTree->iScrollY;
+                }
                 break;
             }
 
@@ -3537,6 +3541,51 @@ CHECK_CANVAS(pCanvas);
     linkItem(pCanvas, pItem);
 CHECK_CANVAS(pCanvas);
     return pItem;
+}
+
+void
+HtmlDrawAddLinebox(pCanvas, x, y) 
+    HtmlCanvas *pCanvas;
+    int x;
+    int y;
+{
+    HtmlCanvasItem *pItem; 
+CHECK_CANVAS(pCanvas);
+    pItem = allocateCanvasItem();
+    pItem->type = CANVAS_MARKER;
+    pItem->x.marker.x = x;
+    pItem->x.marker.y = y;
+    pItem->x.marker.flags = MARKER_LINEBOX;
+    linkItem(pCanvas, pItem);
+CHECK_CANVAS(pCanvas);
+    return;
+}
+
+int
+HtmlDrawFindLinebox(pCanvas, pX, pY)
+    HtmlCanvas *pCanvas;
+    int *pX;
+    int *pY;
+{
+    int origin_x = 0;
+    int origin_y = 0;
+    HtmlCanvasItem *pItem; 
+    CHECK_CANVAS(pCanvas);
+    for (pItem = pCanvas->pFirst; pItem; pItem = pItem->pNext) {
+        if (pItem->type == CANVAS_ORIGIN) {
+            CanvasOrigin *pOrigin = &pItem->x.o;
+            origin_x += pOrigin->x;
+            origin_y += pOrigin->y;
+        } else if (
+            pItem->type == CANVAS_MARKER && 
+            pItem->x.marker.flags == MARKER_LINEBOX
+        ){
+            *pX = origin_x + pItem->x.marker.x;
+            *pY = origin_y + pItem->x.marker.y;
+            return 1;
+        }
+    }
+    return 0;
 }
 
 int

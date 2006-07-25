@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.193 2006/07/18 18:27:53 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.194 2006/07/25 17:53:42 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -1169,6 +1169,9 @@ inlineLayoutDrawLines(pLayout, pBox, pContext, forceflag, pY, pNormal)
 
 	if (have) {
             DRAW_CANVAS(&pBox->vc, &lc, leftFloat, y+nA, 0);
+            if (pLayout->minmaxTest == 0) {
+                HtmlDrawAddLinebox(&pBox->vc, leftFloat, y+nA);
+            }
             y += nV;
             pBox->width = MAX(pBox->width, lc.right + leftFloat);
             pBox->height = MAX(pBox->height, y);
@@ -3073,26 +3076,17 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
     /* If this element is a list-item with "list-style-position:inside", 
      * then add the list-marker as the first box in the new inline-context.
      */
-    if (DISPLAY(pNode->pPropertyValues) == CSS_CONST_LIST_ITEM) {
-        int eListStylePosition = pNode->pPropertyValues->eListStylePosition;
+    if (
+        DISPLAY(pNode->pPropertyValues) == CSS_CONST_LIST_ITEM &&
+        pNode->pPropertyValues->eListStylePosition == CSS_CONST_INSIDE
+    ) {
         BoxContext sMarker;
         int iAscent;
         memset(&sMarker, 0, sizeof(BoxContext));
         if (markerBoxLayout(pLayout, &sMarker, pNode, &iAscent)) {
-            if (eListStylePosition == CSS_CONST_OUTSIDE) {
-                HtmlCanvas sTmp;
-    
-                memset(&sTmp, 0, sizeof(HtmlCanvas));
-                DRAW_CANVAS(&sTmp, &sMarker.vc, -1 * sMarker.width, 0, pNode);
-    
-                HtmlInlineContextAddBox(
-                    pContext, pNode, &sTmp, 0, sMarker.height, iAscent * -1
-                );
-            } else {
-                HtmlInlineContextAddBox(pContext, pNode, 
-                    &sMarker.vc, sMarker.width, sMarker.height, iAscent * -1
-                );
-            }
+            HtmlInlineContextAddBox(pContext, pNode, 
+                &sMarker.vc, sMarker.width, sMarker.height, iAscent * -1
+            );
         }
     }
 
@@ -3110,6 +3104,28 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
 
     rc = inlineLayoutDrawLines(pLayout, pBox, pContext, 1, &y, pNormal);
     HtmlInlineContextCleanup(pContext);
+
+    /* If this element is a list-item with "list-style-position:outside", 
+     * and at least one line box was drawn, line up the list marker
+     * with the baseline of the first line box.
+     */
+    if (
+        DISPLAY(pNode->pPropertyValues) == CSS_CONST_LIST_ITEM &&
+        pNode->pPropertyValues->eListStylePosition == CSS_CONST_OUTSIDE
+    ) {
+        BoxContext sMarker;
+        int iAscent;
+        int xline, yline;
+        memset(&sMarker, 0, sizeof(BoxContext));
+        if( 
+            HtmlDrawFindLinebox(&pBox->vc, &xline, &yline) &&
+            markerBoxLayout(pLayout, &sMarker, pNode, &iAscent)
+        ) {
+            int xlist = xline - sMarker.width;
+            int ylist = yline - iAscent;
+            DRAW_CANVAS(&pBox->vc, &sMarker.vc, xlist, ylist, pNode);
+        }
+    }
 
     left = 0;
     right = pBox->iContaining;

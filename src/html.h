@@ -533,6 +533,9 @@ void HtmlDrawOverflow(HtmlCanvas*, HtmlNode*, int, int);
 HtmlCanvasItem *HtmlDrawAddMarker(HtmlCanvas*, int, int, int);
 int HtmlDrawGetMarker(HtmlCanvas*, HtmlCanvasItem *, int*, int*);
 
+void HtmlDrawAddLinebox(HtmlCanvas*, int, int);
+int HtmlDrawFindLinebox(HtmlCanvas*, int*, int*);
+
 void HtmlWidgetDamageText(HtmlTree *, int, int, int, int);
 int HtmlWidgetNodeTop(HtmlTree *, int);
 
