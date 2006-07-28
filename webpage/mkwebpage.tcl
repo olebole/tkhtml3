@@ -2,7 +2,7 @@
 #
 # Construct the web page for tkhtml
 #
-# @(#) $Id: mkwebpage.tcl,v 1.25 2006/06/11 15:48:32 danielk1977 Exp $
+# @(#) $Id: mkwebpage.tcl,v 1.26 2006/07/28 14:26:27 danielk1977 Exp $
 #
 
 source [file join [file dirname [info script]] common.tcl]
@@ -54,7 +54,7 @@ proc h {level text} {
 proc output_page {} {
   header
 
-  puts [getSideBoxes]
+  puts [getTabs 0]
 
   puts {<div id="body">}
   puts $::TITLE

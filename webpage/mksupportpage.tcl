@@ -51,7 +51,7 @@ proc START {title} {
 
 proc FINISH {} {
     puts $::html_head
-    puts [getSideBoxes]
+    puts [getTabs 1]
     puts $::html
     puts {
         </div>

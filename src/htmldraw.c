@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.148 2006/07/25 17:53:42 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.149 2006/07/28 14:26:27 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1380,7 +1380,7 @@ int HtmlLayoutPrimitives(clientData, interp, objc, objv)
                     aObj[3] = Tcl_NewIntObj(pItem->x.o.horizontal);
                     aObj[4] = Tcl_NewIntObj(pItem->x.o.vertical);
                 } else {
-                    nObj = 3;
+                    nObj = 5;
                     aObj[0] = Tcl_NewStringObj("draw_origin_end", -1);
                     aObj[1] = Tcl_NewIntObj(pItem->x.o.x);
                     aObj[2] = Tcl_NewIntObj(pItem->x.o.y);
@@ -1395,6 +1395,9 @@ int HtmlLayoutPrimitives(clientData, interp, objc, objv)
                 aObj[2] = Tcl_NewIntObj(pItem->x.t.y);
                 aObj[3] = Tcl_NewIntObj(pItem->x.t.w);
                 aObj[4] = HtmlNodeCommand(pTree, pItem->x.t.pNode);
+                if( !aObj[4] ){
+                    aObj[4] = Tcl_NewStringObj("(null)", 0);
+                }
                 aObj[5] = Tcl_NewIntObj(pItem->x.t.iIndex);
                 aObj[6] = pItem->x.t.pText;
                 break;

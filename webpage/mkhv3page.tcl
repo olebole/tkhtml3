@@ -16,7 +16,7 @@ puts [subst -novariables {
 </head>
 <body>
 
-[getSideBoxes]
+[getTabs 3]
 
 <div id="body">
 <h1>Html Viewer 3 - Tkhtml Test Application</h1>

@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.194 2006/07/25 17:53:42 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.195 2006/07/28 14:26:27 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -2234,8 +2234,10 @@ normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
     MarginProperties margin;          /* Margin properties of pNode */
     int iMPB;                         /* Sum of margins, padding borders */
     int iWidth;                       /* Content width of pNode in pixels */
+    int iUsedWidth;
     int iWrappedX = 0;                /* X-offset of wrapped content */
     int iContHeight;                  /* Containing height for % 'height' val */
+    int iSpareWidth;
 
     int yBorderOffset;     /* Y offset for top of block border */
     int x, y;              /* Coords for content to be drawn in pBox */
@@ -2261,7 +2263,7 @@ normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
     iWidth = PIXELVAL(
         pV, WIDTH, pLayout->minmaxTest ? PIXELVAL_AUTO : pBox->iContaining
     );
-    
+
     iMPB = box.iLeft + box.iRight + margin.margin_left + margin.margin_right;
     if (iWidth == PIXELVAL_AUTO) {
 	/* If 'width' is set to "auto", then treat an "auto" value for
@@ -2269,17 +2271,20 @@ normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
 	 * available for the content by subtracting the margins, padding and
 	 * borders from the width of the containing block.
          */
-        sContent.iContaining = pBox->iContaining - iMPB;
+        iUsedWidth = pBox->iContaining - iMPB;
     } else {
-        int iSpareWidth = pBox->iContaining - iWidth - iMPB;
-        if (margin.leftAuto && margin.rightAuto) {
-            iWrappedX = iSpareWidth / 2;
-        }
-        else if (margin.leftAuto) {
-            iWrappedX = iSpareWidth;
-        } 
-        sContent.iContaining = iWidth;
+        iUsedWidth = iWidth;
     }
+
+    considerMinMaxWidth(pNode, pBox->iContaining, &iUsedWidth);
+    iSpareWidth = pBox->iContaining - iUsedWidth - iMPB;
+    if (margin.leftAuto && margin.rightAuto) {
+        iWrappedX = iSpareWidth / 2;
+    }
+    else if (margin.leftAuto) {
+        iWrappedX = iSpareWidth;
+    } 
+    sContent.iContaining = iUsedWidth;
 
     if (!pLayout->minmaxTest) {
 	/* Unless this is part of a min-max width test, then the content is at
@@ -2347,6 +2352,7 @@ normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
     sContent.height = yBorderOffset + 
             getHeight(pNode, sContent.height - yBorderOffset, iContHeight);
     sContent.width = getWidth(iWidth, sContent.width);
+    considerMinMaxWidth(pNode, pBox->iContaining, &sContent.width);
 
     LOG(pNode) {
         HtmlTree *pTree = pLayout->pTree;

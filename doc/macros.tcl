@@ -348,6 +348,13 @@ set fd [open $file]
 set input [strip_leading_tabs [read $fd]]
 close $fd
 
+set ::TABS ""
+catch {
+  source [file join [file dirname $file] .. webpage common.tcl]
+  set ::TABS [getTabs 2]
+} msg
+puts stderr "ERROR $msg"
+
 switch -- $mode {
   -nroff {
     namespace import NroffMacros::*
@@ -366,6 +373,7 @@ switch -- $mode {
        <link rel="stylesheet" href="tkhtml_tcl_tk.css"</link>
        </head>
        <body>
+       $::TABS
        <div class="sidebox"><div id="toc">
          <a name="TOC"><h3>Table Of Contents</h3></a>
          [process_index]

@@ -14,7 +14,7 @@ set ::SiteMap {
   	edit it, change it in webpage/common.tcl and regenerate the site.
     -->
     <div id="sitemap">
-      <h3>Site Contents</h3><ul>
+      <h3>Site Contents</h3>
       <ul>
         <li> <a href="index.html">Home</a>
              <span class="caption">Front page of this site</span>
@@ -41,6 +41,36 @@ set ::SiteMap {
              </span>
       </ul>
     </div>
+}
+
+proc getTabs {idx} {
+  set ret ""
+  append ret {<div id="sitemap">}
+  append ret <ul>
+  set ii 0
+  foreach {label href caption} [list                                        \
+    Home       index.html   "Front page of this site"                       \
+    Standards  support.html "Summary of support for CSS and HTML standards" \
+    "Man page" tkhtml.html  "Unix style manual page for the widget."        \
+    Hv3        hv3.html     {
+		 Page for the web browser application hv3. Screenshots and
+                 starpacks for windows and linux are available here. }     \
+    Requirements requirements.html {Requirements document for Tkhtml 3}     \
+    Cvstrac      http://tkhtml.tcl.tk/cvstrac/timeline {
+		  Cvstrac is used for project change-log, wiki and bug
+                  tracking. }
+  ] {
+    if {$ii==$idx} {
+      append ret "<li id=\"active\"> <a href=\"$href\">$label</a>"
+    } else {
+      append ret "<li> <a href=\"$href\">$label</a>"
+    }
+    append ret "<span class=\"caption\">$caption</span>"
+    incr ii
+  }
+  append ret </ul>
+  append ret </div>
+  return $ret
 }
 
 set ::PageSectionList [list]

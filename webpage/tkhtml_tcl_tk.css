@@ -1,113 +1,80 @@
 
-/*
-** Stylesheet for pages on the Tkhtml website. All pages must adhere to the 
-** following guidelines:
-**
-**     + TODO
-*/
-
-
-html,body {
-    background: #DDDDDD;
-}
-body {
-    padding-top: 1em;
-    padding-bottom: 1em;
-}
-
-#body {
-    position: absolute;
-    left: 25ex;        /* Same as .sidebox width */
-    right: 1em;
-}
-
-.sidebox {
-    position: absolute;
-    width: 25ex;       /* Same as #body left */
-    left: 0px;
-    text-align:center;
-}
-.sidebox ul {
-    margin: 0;
-    padding: 0;
-}
-.sidebox li {
-    display: block;
-    margin: 0;
-    padding: 0 2ex;
-}
-.sidebox li a {
-    text-decoration: none;
-}
-.sidebox li         {background-color: white;}
-.sidebox li:hover   {background-color: darkblue; color: white;}
-.sidebox li:hover a {color: inherit;}
-
-a[href]       { color: darkblue; }
-a[href]:hover { background-color: darkblue; color: white; }
-
-.caption {
-  display:none;
-}
-li:hover .caption {
-  display:block;
-  position:absolute;
-  top: 100%;
-  margin-top: 1em;
-  color: black;
-  font-weight: bold;
-  text-align:left;
-  margin-right:1em;
-}
-
-#text {
-    padding: 3ex;
-}
-#sitemap,#toc,#text {
-    border: solid 1px;
-    background: white;
-    margin-bottom:1em;
-}
-#sitemap,#toc {
-    margin: 1em;
-}
 #toc {
-    margin-top: 0px;
+  display: none;
 }
 
-h1,h2,h3 {
-    background: #000088;
-    color: white;
-    padding-left: 2ex;
+body {
+  background-color: #d9d9d9;
 }
-h1,h3 {
-    margin: 0;
-}
-h2 {
-    margin-top: 1em;
-}
-
-/* Table formatting for support page */
-table {
-    margin: 1em auto;
-    width:80%;
-}
-td           {padding: 0px .5em}
-
-/* Colors used for property names in support page */
-.nosupport   {color: grey !important}
-.support     {color: darkblue}
-
-/* Margin on images for the hv3 demo page */
-img {
+h1 {
+  text-align: center;
   margin: 1em;
 }
 
-/* <pre class="code"> elements contain Tcl or Html code. */
-pre[class="code"] {
-  margin: 0.5em 3em;
-  padding: 0.5em;
-  border: solid black 1px;
-  background: #DDDDDD;       /* Same color as background of <body>, <html> */
+table {
+  margin: auto;
+}
+
+#sitemap {
+  max-width:800px;
+  margin:auto;
+  position: relative;
+  bottom: -11px;
+}
+
+#sitemap h3 {
+  display: none;
+}
+#sitemap ul {
+  display:table;
+  overflow: auto;
+  margin:auto;
+  line-height: 1.5em;
+  padding: 0px;
+  border-spacing: 10px;
+}
+#sitemap li {
+  display: table-cell;
+  border: black 1px solid;
+}
+#sitemap a {
+  display: block;
+  padding: 0.5em 1em 0px 1em;
+  text-decoration: none;
+  color: black
+}
+#sitemap .caption {
+  display: none;
+}
+
+#sitemap li:hover .caption {
+  display: block;
+  position: absolute;
+  top: 110%;
+  left: 25%;
+  right: 25%;
+  display: block;
+  border: 1px solid black;
+  background-color: #ececec;
+  padding: 0px 0.5em;
+}
+#sitemap #active .caption {
+  display: none;
+  position: static;
+}
+
+#sitemap li:hover {
+  background-color: #ececec;
+}
+#sitemap #active {
+  border-bottom-color: #d9d9d9;
+  background-color: transparent;
+}
+
+#body {
+  border: black 1px solid;
+  padding: 0px 0.5em;
+  max-width: 800px;
+  margin: auto;
 }
 
