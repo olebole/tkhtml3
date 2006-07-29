@@ -165,9 +165,10 @@ BR {
 INPUT[type="hidden"] { display: none }
 
 INPUT[type] { border: none }
-INPUT, INPUT[type="text"], INPUT[type="password"] { 
+INPUT, INPUT[type="text"], INPUT[type="password"], TEXTAREA { 
   border: 2px solid;
-  border-color: #848280 #faf9f7 #faf9f7 #848280;
+  /* border-color: #848280 #faf9f7 #faf9f7 #848280; */
+  border-color: #848280 #ececec #ececec #848280;
 }
 
 FRAMESET {
@@ -199,6 +200,7 @@ BR[clear="all"]    { clear: both; }
 
 /* Standard html <img> tags - replace the node with the image at url $src */
 IMG[src]              { -tkhtml-replacement-image: tcl(::tkhtml::attr src) }
+IMG                   { -tkhtml-replacement-image: "" }
 
 /*
  * Properties of table cells (th, td):

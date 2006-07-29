@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.87 2006/07/19 05:24:22 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.88 2006/07/29 11:52:21 danielk1977 Exp $)} 1 }
 
 #
 # The code in this file is partitioned into the following classes:
@@ -652,18 +652,21 @@ snit::widget ::hv3::hv3 {
         return $img
     }
     set name [image create photo]
-    set full_uri [$self resolve_uri $uri]
 
-    # Create and execute a download request. For now, "expect" a mime-type
-    # of image/gif. This should be enough to tell the protocol handler to
-    # expect a binary file (of course, this is not correct, the real default
-    # mime-type might be some other kind of image).
-    set handle [::hv3::download %AUTO%              \
-        -uri         $full_uri                      \
-        -mimetype    image/gif                      \
-        -finscript   [mymethod Imagecallback $name] \
-    ]
-    $self makerequest $handle
+    if {$uri ne ""} {
+      set full_uri [$self resolve_uri $uri]
+    
+      # Create and execute a download request. For now, "expect" a mime-type
+      # of image/gif. This should be enough to tell the protocol handler to
+      # expect a binary file (of course, this is not correct, the real
+      # default mime-type might be some other kind of image).
+      set handle [::hv3::download %AUTO%              \
+          -uri         $full_uri                      \
+          -mimetype    image/gif                      \
+          -finscript   [mymethod Imagecallback $name] \
+      ]
+      $self makerequest $handle
+    }
 
     # Return a list of two elements - the image name and the image
     # destructor script. See tkhtml(n) for details.

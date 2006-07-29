@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.22 2006/07/09 17:06:56 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.23 2006/07/29 11:52:21 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -166,6 +166,11 @@ snit::widget ::hv3::control {
       append contents [$child text -pre]
     }
     $myWidget insert 0.0 $contents
+
+    $myWidget configure -borderwidth 0
+    $myWidget configure -selectborderwidth 0
+    $myWidget configure -highlightthickness 0
+    $myWidget configure -background white
   }
 
   # Create a standard Tk entry widget for this control. The argument is
