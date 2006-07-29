@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.85 2006/07/29 10:34:11 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.86 2006/07/29 12:00:57 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1040,7 +1040,7 @@ propertyValuesSetLength(p, pIVal, em_mask, pProp, allowNegative)
              * 2. In quirks mode, no unit means pixels.
              */
             iVal = INTEGER(pProp->v.rVal);
-            if (iVal != 0 && p->pTree->options.mode != 0) return 1;
+            if (iVal && p->pTree->options.mode != HTML_MODE_QUIRKS) return 1;
             break;
         }
 

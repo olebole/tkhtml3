@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.72 2006/07/21 06:24:13 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.73 2006/07/29 12:00:57 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -292,6 +292,16 @@ HtmlInlineContent(pTree, pNode, tag)
 {
     Html_u8 flags = HtmlMarkupFlags(tag);
     if (tag == Html_Text || tag == Html_Space) return TAG_OK;
+
+    /* Quirks mode exception: <p> tags can contain <table> */
+    if( 
+        pTree->options.mode == HTML_MODE_QUIRKS && 
+        HtmlNodeTagType(pNode) == Html_P && 
+        tag == Html_TABLE 
+    ){
+        return TAG_OK;
+    }
+
     if (!(flags&HTMLTAG_INLINE)) {
         return TAG_CLOSE;
     }
