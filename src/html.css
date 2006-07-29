@@ -27,11 +27,14 @@ NOBR {
  * for different elements.
  */
 TABLE[align="left"]       { float:left } 
-TABLE[align="right"]      { float:right }
+TABLE[align="right"]      { 
+    float:right; 
+    text-align: inherit;
+}
 TABLE[align="center"]     { 
     margin-left:auto; 
     margin-right:auto; 
-    text-align:left;
+    text-align:inherit;
 }
 IMG[align="left"]         { float:left }
 IMG[align="right"]        { float:right }
