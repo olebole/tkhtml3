@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.92 2006/07/21 07:35:07 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.93 2006/07/29 09:41:26 danielk1977 Exp $";
 
 #include "htmllayout.h"
 
@@ -1135,6 +1135,7 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
     static const int NUM_LOGVALUES = 5; 
     int  *aLogValues = 0;
     int STEP = 0;
+
     LOG { 
         int nBytes = sizeof(int) * nCol * (NUM_LOGVALUES * 2);
         aLogValues = (int *)HtmlAlloc(0, nBytes);
@@ -1506,6 +1507,15 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
         HtmlFree(0, aLogValues);
     }
     HtmlFree(0, aRequested);
+
+    /* If this is a min-max content width test and minmaxTest==MAX, then
+     * make sure no cell exceeds it's maximum content width.
+     */
+    if( pData->pLayout->minmaxTest==MINMAX_TEST_MAX ){
+        for (i = 0; i < nCol; i++) {
+            aWidth[i] = MIN(aWidth[i], aMaxWidth[i]);
+        }
+    }
 }
 
 /*
