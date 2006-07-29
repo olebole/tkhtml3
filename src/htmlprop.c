@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.84 2006/07/18 18:27:54 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.85 2006/07/29 10:34:11 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -964,6 +964,11 @@ setcolor_out:
  *         pt: points
  *         pc: picas
  *
+ *     If the widget mode is "quirks", then an integer without units is 
+ *     considered to be in pixels. If the mode is "standards" or "almost
+ *     standards", then a number without any units is a type mismatch for a
+ *     length.
+ *
  *     If *pProp is not a numeric quantity with one of the above units, 1 is
  *     returned and *pIVar is not written.  
  *
@@ -974,6 +979,7 @@ setcolor_out:
  *
  *     Note that unlike most of the other propertyValuesSetXXX() functions,
  *     this function does *not* handle the value 'inherit'. 
+ *
  *
  * Results:  
  *     If successful, 0 is returned. If pProp cannot be parsed as a <length> 1
@@ -1025,10 +1031,16 @@ propertyValuesSetLength(p, pIVal, em_mask, pProp, allowNegative)
             break;
 
         case CSS_TYPE_FLOAT: {
-	    /* From section 4.3.2 of CSS 2.1: "After a zero length, the unit
-             * identifier is optional.".  */
+	    /* There are two cases where a unitless number is a legal
+             * value for a CSS %length%. Other than the following, it 
+             * is a type mismatch:
+             *
+             * 1. From section 4.3.2 of CSS 2.1: "After a zero length, 
+             *    the unit identifier is optional.". 
+             * 2. In quirks mode, no unit means pixels.
+             */
             iVal = INTEGER(pProp->v.rVal);
-            if (iVal != 0) return 1;
+            if (iVal != 0 && p->pTree->options.mode != 0) return 1;
             break;
         }
 
