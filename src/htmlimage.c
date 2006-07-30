@@ -36,10 +36,11 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlimage.c,v 1.50 2006/06/07 16:13:39 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlimage.c,v 1.51 2006/07/30 15:10:02 danielk1977 Exp $";
 
 #include <assert.h>
 #include "html.h"
+#include <htmllayout.h>
 
 /*----------------------------------------------------------------------------
  * OVERVIEW 
@@ -571,7 +572,6 @@ HtmlImageImage(pImage)
         HtmlImage2 *pUnscaled = pImage->pUnscaled;
 
         assert(pUnscaled);
-
         if (!pImage->pImageName) {
             /* If pImageName is still NULL, then create a new photo
              * image to write the scaled data to. Todo: Is it possible
@@ -593,8 +593,12 @@ HtmlImageImage(pImage)
         }
         assert(pImage->image);
 
-        /* Write the scaled data into image pImage->image */
+        CHECK_INTEGER_PLAUSIBILITY(pImage->width);
+        CHECK_INTEGER_PLAUSIBILITY(pImage->height);
+        CHECK_INTEGER_PLAUSIBILITY(pUnscaled->width);
+        CHECK_INTEGER_PLAUSIBILITY(pUnscaled->height);
 
+        /* Write the scaled data into image pImage->image */
         photo = Tk_FindPhoto(interp, Tcl_GetString(pUnscaled->pImageName));
         if (photo) {
             Tk_PhotoGetImage(photo, &block);

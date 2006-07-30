@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.195 2006/07/28 14:26:27 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.196 2006/07/30 15:10:02 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -1329,7 +1329,7 @@ drawReplacementContent(pLayout, pBox, pNode)
     width = PIXELVAL(
         pV, WIDTH, pLayout->minmaxTest ? PIXELVAL_AUTO : pBox->iContaining
     );
-    height = pV->iHeight;
+    height = PIXELVAL(pV, HEIGHT, PIXELVAL_AUTO);
     if (height != PIXELVAL_AUTO) height = MAX(height, 1);
     if (width != PIXELVAL_AUTO) width = MAX(width, 1);
 
