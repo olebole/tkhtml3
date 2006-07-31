@@ -1,5 +1,5 @@
 #
-# $Revision: 1.34 $
+# $Revision: 1.35 $
 #
 # tokenlist.tcl -- 
 #
@@ -135,7 +135,7 @@ TAG i -flow inline
 TAG iframe ;# -content HtmlEmptyContent
 TAG img -content HtmlEmptyContent -flow inline
 TAG input -content HtmlEmptyContent -flow inline
-TAG isindex -flow block
+TAG isindex -flow block -content HtmlEmptyContent
 TAG kbd -flow inline
 TAG label
 # TAG legend

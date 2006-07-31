@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.78 2006/07/17 10:52:31 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.79 2006/07/31 15:25:11 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -1398,7 +1398,6 @@ char CONST *HtmlNodeAttr(pNode, zAttr)
  *         <node> parent
  *         <node> prop
  *         <node> replace ?options? ?NEW-VALUE?
- *         <node> right_sibling
  *         <node> tag
  *         <node> text
  *
@@ -1431,15 +1430,15 @@ nodeCommand(clientData, interp, objc, objv)
     int choice;
 
     static CONST char *NODE_strs[] = {
-        "attr", 
-        "children", 
-        "dynamic", 
-        "override", 
-        "parent", 
-        "prop", 
-        "replace", 
-        "tag", 
-        "text", 
+        "attr",                  /* Read/write node attributes */
+        "children",              /* Return a list of the nodes child nodes */
+        "dynamic",               /* Set/clear dynamic flags (i.e. :hover) */
+        "override",              /* Read/write CSS property overrides */
+        "parent",                /* Return the parent node */
+        "prop",                  /* Query CSS property values */
+        "replace",               /* Set/clear the node replacement object */
+        "tag",                   /* Read/write the node's tag */
+        "text",                  /* Read/write the node's text content */
         0
     };
     enum NODE_enum {

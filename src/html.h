@@ -376,6 +376,7 @@ struct HtmlTree {
     Tcl_Obj *pDocument;             /* Text of the html document */
     int nParsed;                    /* Bytes of the html document tokenized */
     int iCol;                       /* Current column in document */
+    int isIgnoreNewline;            /* True after an opening tag */
     int isParseFinished;            /* True if the html parse is finished */
     int isCdataInHead;              /* True if previous token was <title> */
 

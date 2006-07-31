@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.73 2006/07/29 12:00:57 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.74 2006/07/31 15:25:11 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -62,6 +62,13 @@ AppendTextToken(pTree, pToken)
     HtmlTree *pTree;
     HtmlToken *pToken;
 {
+    if( pTree->isIgnoreNewline ){
+        assert(!pTree->pTextFirst);
+        pTree->isIgnoreNewline = 0;
+        if (pToken->type == Html_Space && pToken->x.newline) {
+            return;
+        }
+    }
     if (!pTree->pTextFirst) {
         assert(!pTree->pTextLast);
         pTree->pTextFirst = pToken;
@@ -92,14 +99,44 @@ AppendToken(pTree, pToken)
     HtmlTree *pTree;
     HtmlToken *pToken;
 {
+    int isEndToken = 0;
+
+    if (pToken) {
+        isEndToken = ((HtmlMarkupFlags(pToken->type)&HTMLTAG_END)?1:0);
+    }
+
     if (pTree->pTextFirst) {
         HtmlToken *pTextFirst = pTree->pTextFirst;
+        HtmlToken *pTextLast = pTree->pTextLast;
+
+        /* Ignore any newline character that appears immediately before
+         * an end tag.
+         */
+        if (
+            isEndToken && 
+            pTextLast->type == Html_Space && 
+            pTextLast->x.newline
+        ) {
+            if( pTextFirst==pTextLast ){
+                pTextFirst = 0;
+            } else {
+                HtmlToken *p = pTextFirst;
+                while (p->pNextToken != pTextLast) p = p->pNextToken;
+                p->pNextToken = 0;
+            }
+            HtmlFree(0, pTextLast);
+        }
+
         pTree->pTextLast = 0;
         pTree->pTextFirst = 0;
-        HtmlAddToken(pTree, pTextFirst);
+        if( pTextFirst ){
+            HtmlAddToken(pTree, pTextFirst);
+        }
+        pTree->isIgnoreNewline = 0;
     }
 
     if (pToken) {
+        pTree->isIgnoreNewline = isEndToken?0:1;
         pToken->pNextToken = 0;
         HtmlAddToken(pTree, pToken);
     }
@@ -908,11 +945,14 @@ Tokenize(pTree, isFinal)
                 int j;
                 char *z2;
 
-                /* Make a temporary copy of the text */
+                /* Make a temporary copy of the text and translate any
+                 * embedded html escape characters (i.e. "&nbsp;")
+                 */
                 z2 = (char *)HtmlAlloc("temp", i + 1);
                 memcpy(z2, &z[n], i);
                 z2[i] = '\0';
                 HtmlTranslateEscapes(z2);
+
                 j = 0;
                 while (z2[j]) {
                     char c = z2[j];

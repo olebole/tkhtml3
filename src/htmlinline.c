@@ -33,7 +33,7 @@
  * 
  *     HtmlInlineContextIsEmpty
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.28 2006/07/25 18:34:43 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.29 2006/07/31 15:25:11 danielk1977 Exp $";
 
 typedef struct InlineBox InlineBox;
 
@@ -436,7 +436,7 @@ inlineContextAddSpace(p, nPixels)
     InlineContext *p; 
     int nPixels;
 {
-    if (p->nInline>0 && (p->nInline != 1 || p->aInline[0].nContentPixels > 0)) {
+    if (p->nInline>0) {
         InlineBox *pBox = &p->aInline[p->nInline - 1];
         if (p->whiteSpace == CSS_CONST_PRE) {
             pBox->nSpace += nPixels;
@@ -1225,8 +1225,7 @@ HtmlInlineContextAddText(pContext, pNode)
                 int i;
                 if (
                     pContext->whiteSpace == CSS_CONST_PRE && 
-                    pToken->x.newline && 
-                    !isFirst
+                    pToken->x.newline /* && !isFirst */
                 ) {
                     inlineContextAddNewLine(pContext, nh);
                 } else {
