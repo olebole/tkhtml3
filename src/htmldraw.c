@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.149 2006/07/28 14:26:27 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.150 2006/07/31 12:22:55 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -157,9 +157,9 @@ typedef struct Overflow Overflow;
 struct CanvasText {
     int x;                   /* Relative x coordinate to render at */
     int y;                   /* Relative y coordinate to render at */
+    HtmlNode *pNode;         /* Text node */
     int w;                   /* Width of the text */
     Tcl_Obj *pText;          /* Text to render */
-    HtmlNode *pNode;         /* Text node */
     int iIndex;              /* Index in pNode text of this item (or -1) */
 };
 
@@ -171,20 +171,20 @@ struct CanvasText {
 struct CanvasBox {
     int x;                   /* Relative x coordinate to render at */
     int y;                   /* Relative y coordinate to render at */
+    HtmlNode *pNode;         /* Use computed properties from this node */
     int w;                   /* Width of box area */
     int h;                   /* Height of box area */
     int flags;               /* Combination of CANVAS_BOX flags */
-    HtmlNode *pNode;         /* Use computed properties from this node */
 };
 
 /* An image. Nothing to see here. */
 struct CanvasImage {
     int x;                   /* Relative x coordinate to render at */
     int y;                   /* Relative y coordinate to render at */
+    HtmlNode *pNode;         /* Associate document node */
     int w;                   /* Width of image region */
     int h;                   /* Height of image region */
     HtmlImage2 *pImage;      /* Image pointer */
-    HtmlNode *pNode;         /* Associate document node */
 };
 
 /* This primitive is used to implement the 'text-decoration' property.
@@ -209,10 +209,10 @@ struct CanvasImage {
 struct CanvasLine {
     int x;                   /* Relative x coordinate to render at */
     int y;                   /* Relative y coordinate for overline */
+    HtmlNode *pNode;         /* Node pointer */
     int w;                   /* Width of line */
     int y_underline;         /* y coordinate for underline relative to "y" */
     int y_linethrough;       /* y coordinate for linethrough relative to "y" */
-    HtmlNode *pNode;         /* Node pointer */
 };
 
 struct CanvasWindow {
@@ -249,9 +249,9 @@ struct CanvasOrigin {
 struct CanvasOverflow {
     int x;                    /* x-coord of top-left of region */
     int y;                    /* y-coord of top-left of region */
+    HtmlNode *pNode;          /* Node associated with the 'overflow' property */
     int w;                    /* Width of region */
     int h;                    /* Height of region */
-    HtmlNode *pNode;          /* Node associated with the 'overflow' property */
     HtmlCanvasItem *pEnd;     /* Region ends *after* this item */
 };
 
@@ -283,6 +283,7 @@ struct HtmlCanvasItem {
         struct GenericItem {
             int x;
             int y; 
+            HtmlNode *pNode;
         } generic;
         CanvasText   t;
         CanvasWindow w;
@@ -849,7 +850,7 @@ combineText(pNodeA, pNodeB)
 
     if (
         !HtmlNodeIsText(pNodeA) || !HtmlNodeIsText(pNodeB) ||
-        pNodeB->iNode > pNodeB->iNode
+        pNodeA->iNode > pNodeB->iNode
     ) {
         return 0;
     }
@@ -1020,6 +1021,7 @@ requireBox(pNode)
     return 0;
 }
 
+#if 0
 static HtmlNode *
 itemToNode(pItem)
     HtmlCanvasItem *pItem;
@@ -1044,6 +1046,8 @@ itemToNode(pItem)
     }
     return pNode;
 }
+#endif
+#define itemToNode(pItem) (pItem->x.generic.pNode)
 
 static HtmlNode *
 itemToBox(pItem, origin_x, origin_y, pX, pY, pW, pH)
@@ -2402,6 +2406,7 @@ pixmapQueryCb(pItem, origin_x, origin_y, pOverflow, clientData)
      * "collapse", do not draw any content.
      */
     HtmlNode *pNode = itemToNode(pItem);
+    assert(pItem->type != CANVAS_ORIGIN && pItem->type != CANVAS_MARKER);
     if (!pNode->pPropertyValues) {
         pNode = HtmlNodeParent(pNode);
     }
