@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.51 2006/07/19 05:24:23 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.52 2006/08/01 09:56:54 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -923,6 +923,23 @@ proc main {{doc home:}} {
 proc main2 {doc} {
   set tab [.notebook add $doc]
   focus $tab
+}
+
+proc ::hv3::scroll {r} {
+  set html [[gui_current hv3] html]
+  set region [$html yview]
+
+  set max [expr 1.0 - ([lindex $region 1] - [lindex $region 0])]
+  ::hv3::scrollcb idle $max 0 30 $r
+}
+proc ::hv3::scrollcb {delay max ii maxii r} {
+  set html [[gui_current hv3] html]
+  $html yview moveto [expr {double($ii) * (double($max) / double($maxii))}]
+  if {$ii < $maxii} {
+    after $delay [list ::hv3::scrollcb $delay $max [expr $ii + 1] $maxii $r] 
+  } elseif {$r > 0} {
+    after $delay [list ::hv3::scrollcb $delay $max 0 $maxii [expr $r - 1]] 
+  }
 }
 
 # Kick off main()

@@ -1,12 +1,106 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.88 2006/07/29 11:52:21 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.89 2006/08/01 09:56:54 danielk1977 Exp $)} 1 }
+
+#
+# This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
+# browser. An instance of this widget displays a single HTML frame.
+#
+# Standard Functionality:
+#
+#     xview
+#     yview
+#     -xscrollcommand
+#     -yscrollcommand
+#     -width
+#     -height
+# 
+# Widget Specific Options:
+#
+#     -requestcmd
+#         If not an empty string, this option specifies a script to be
+#         invoked for a GET or POST request. The script is invoked with a
+#         download handle appended to it. See the description of class
+#         ::hv3::download for a description.
+#
+#     -cancelrequestcmd
+#         If not an empty string, this option specifies a script that
+#         is invoked by the widget to cancel an earlier invocation of
+#         the -requestcmd script. The download handle to be cancelled
+#         is appended to the script before it is invoked.
+#
+#     -hyperlinkcmd
+#         If not an empty string, this option specifies a script for
+#         the widget to invoke when a hyperlink is clicked on. The script
+#         is invoked with the node handle of the clicked hyper-link element
+#         appended.
+#
+#     -fonttable
+#         Delegated through to the html widget.
+#
+#     -locationvar
+#         Set to the URI of the currently displayed document.
+#
+#     -pendingvar
+#         Name of var to set to true while resource requests are
+#         pending for the currently displayed document. This is
+#         useful for a web browser GUI that needs to disable the 
+#         "stop" button after all resource requests are completed.
+#
+#     -scrollbarpolicy
+#         This option may be set to either a boolean value or "auto". It
+#         determines the visibility of the widget scrollbars.
+#
+#
+# Widget Sub-commands:
+#
+#     goto URI
+#         Load the content at the specified URI into the widget. 
+#
+#     stop
+#         Cancel all pending downloads.
+#
+#     node        
+#         Caching wrapper around html widget [node] command.
+#
+#     reset        
+#         Wrapper around the html widget command of the same name. Also
+#         resets all document related state stored by the mega-widget.
+#
+#     html        
+#         Return the path of the underlying html widget. This should only
+#         be used to determine paths for child widgets. Bypassing hv3 and
+#         accessing the html widget interface directly may confuse hv3.
+#
+
 
 #
 # The code in this file is partitioned into the following classes:
 #
-#     ::hv3::hv3::hv3::selectionmanager
-#     ::hv3::hv3::dynamicmanager
+#     ::hv3::uri
+#     ::hv3::hv3
+#     ::hv3::download
+#     ::hv3::selectionmanager
+#     ::hv3::dynamicmanager
 #     ::hv3::hyperlinkmanager
 #
+# ::hv3::hv3 is, of course, the main mega-widget class. Class ::hv3::uri
+# is a class that encapsulates code to manipulate URI strings. Class
+# ::hv3::download is part of the public interface to ::hv3::hv3. A
+# single instance of ::hv3::download represents a resource request made
+# by the mega-widget package - for document, stylesheet, image or 
+# object data.
+#
+# The three "manager" classes all implement the following interface. Each
+# ::hv3::hv3 widget has exactly one of each manager class as a component.
+# Further manager objects may be added in the future. Interface:
+#
+#     set manager [::hv3::XXXmanager $hv3]
+#
+#     $manager motion  X Y
+#     $manager release X Y
+#     $manager press   X Y
+#
+# The -hyperlinkcmd option of ::hv3::hv3 is delegated to an
+# ::hv3::hyperlinkmanager component.
 #
 package require Tkhtml 3.0
 package require snit
@@ -443,9 +537,10 @@ snit::type ::hv3::hv3::hyperlinkmanager {
 #
 snit::widget ::hv3::hv3 {
 
+  #------------------------------------------------------------------------
   # The following two type-scoped arrays are used as a layer of
   # indirection for the -incrscript and -finscript scripts of download
-  # handles. Download handles created by this class may change their 
+  # handles. Download handles created by this class may change their
   # behaviour based on their -mimetype value, which is not known
   # until after the download handle is locked (see the -lockscript option).
   #
@@ -488,8 +583,11 @@ snit::widget ::hv3::hv3 {
   component mySelectionManager       ;# The ::hv3::hv3::selectionmanager
   component myFormManager            ;# The ::hv3::formmanager
 
-  # The current location URI
+  # The current location URI and the current base URI. If myBase is "",
+  # use the URI stored in myUri as the base.
+  #
   variable  myUri                    ;# The current URI (type ::hv3::hv3uri)
+  variable  myBase ""                ;# The current URI (type ::hv3::hv3uri)
 
   # Used to assign internal stylesheet ids.
   variable  myStyleCount 0 
@@ -536,6 +634,7 @@ snit::widget ::hv3::hv3 {
 
     # Register handler commands to integrate CSS with the HTML document
     $myHtml handler node link     [mymethod link_node_handler]
+    $myHtml handler node base     [mymethod base_node_handler]
     $myHtml handler script style  [mymethod style_script_handler]
     $myHtml handler script script [mymethod script_script_handler]
 
@@ -552,6 +651,7 @@ snit::widget ::hv3::hv3 {
     if {[info exists myDynamicManager]}   { $myDynamicManager   destroy }
     if {[info exists myHyperlinkManager]} { $myHyperlinkManager destroy }
     if {[info exists myUri]}              { $myUri              destroy }
+    if {$myBase ne ""}                    { $myBase             destroy }
   }
 
   # The argument download-handle contains a configured request. This 
@@ -613,6 +713,7 @@ snit::widget ::hv3::hv3 {
 
   # Based on the current contents of instance variable $myUri, set the
   # variable identified by the -locationvar option, if any.
+  #
   method set_location_var {} {
     if {$options(-locationvar) ne ""} {
       uplevel #0 [list set $options(-locationvar) [$myUri get]]
@@ -629,7 +730,11 @@ snit::widget ::hv3::hv3 {
   method resolve_uri {baseuri {uri {}}} {
     if {$uri eq ""} {
       set uri $baseuri
-      set baseuri [$myUri get -nofragment]
+      if {$myBase ne ""} {
+        set baseuri [$myBase get -nofragment]
+      } else {
+        set baseuri [$myUri get -nofragment]
+      }
     } 
     set obj [::hv3::uri %AUTO% $baseuri]
     $obj load $uri
@@ -734,6 +839,21 @@ snit::widget ::hv3::hv3 {
     } {
       set full_uri [$self resolve_uri $href]
       $self Requeststyle author $full_uri
+    }
+  }
+
+  # Node handler script for <base> tags.
+  #
+  method base_node_handler {node} {
+    set baseuri [$node attr -default "" href]
+    if {$baseuri ne ""} {
+      # Technically, a <base> tag is required to specify an absolute URI.
+      # If a relative URI is specified, hv3 resolves it relative to the
+      # current location URI. This is not standards compliant, but seems
+      # like a reasonable idea.
+      if {$myBase ne ""} {$myBase destroy}
+      set myBase [::hv3::uri %AUTO% [$myUri get -nofragment]]
+      $myBase load $baseuri
     }
   }
 
@@ -871,18 +991,6 @@ snit::widget ::hv3::hv3 {
 
     if {$myQuirksmode eq "unknown"} {
       set myQuirksmode [::hv3::configure_doctype_mode $myHtml $data]
-
-#      set folded [string tolower [string range $data 0 200]]
-#      set A [string first doctype $folded]
-#      set B [string first html $folded]
-#      if {$A >= 0 && ($B <= 0 || $B > $A)} {
-#        $myHtml configure -defaultstyle [::tkhtml::htmlstyle]
-#        set myQuirksmode standards
-#      } else {
-#        $myHtml configure -defaultstyle [::tkhtml::htmlstyle -quirks]
-#        set myQuirksmode quirks
-#      }
-
       $myHtml reset
     }
 
@@ -1036,6 +1144,11 @@ snit::widget ::hv3::hv3 {
     $myFormManager     reset
     $myHtml            reset
 
+    if {$myBase ne ""} {
+      $myBase destroy
+      set myBase ""
+    }
+
     set myQuirksmode unknown
   }
 
@@ -1055,9 +1168,8 @@ snit::widget ::hv3::hv3 {
   delegate option -forcefontmetrics to myHtml
 
   # Delegated public methods
-  delegate method dumpforms     to myFormManager
-
-  delegate method *                to myHtml
+  delegate method dumpforms         to myFormManager
+  delegate method *                 to myHtml
 
   # Standard scrollbar and geometry stuff is delegated to the html widget
   delegate option -xscrollcommand to myHtml
@@ -1073,75 +1185,6 @@ bind Hv3 <KeyPress-Left>   { %W xview scroll -1 units }
 bind Hv3 <KeyPress-Next>   { %W yview scroll  1 pages }
 bind Hv3 <KeyPress-space>  { %W yview scroll  1 pages }
 bind Hv3 <KeyPress-Prior>  { %W yview scroll -1 pages }
-
-#
-# This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
-# browser. An instance of this widget displays a single HTML frame.
-#
-# Standard Functionality:
-#
-#     xview
-#     yview
-#     -xscrollcommand
-#     -yscrollcommand
-#     -width
-#     -height
-# 
-# Widget Specific Options:
-#
-#     -requestcmd
-#         If not an empty string, this option specifies a script to be
-#         invoked for a GET or POST request. The script is invoked with a
-#         download handle appended to it. See the description of class
-#         ::hv3::download for a description.
-#
-#     -cancelrequestcmd
-#         If not an empty string, this option specifies a script that
-#         is invoked by the widget to cancel an earlier invocation of
-#         the -requestcmd script. The download handle to be cancelled
-#         is appended to the script before it is invoked.
-#
-#     -hyperlinkcmd
-#         If not an empty string, this option specifies a script for
-#         the widget to invoke when a hyperlink is clicked on. The script
-#         is invoked with the node handle of the clicked hyper-link element
-#         appended.
-#
-#     -fonttable
-#         Delegated through to the html widget.
-#
-#     -locationvar
-#         Set to the URI of the currently displayed document.
-#
-#     -pendingvar
-#         Name of var to set to true while resource requests are
-#         pending for the currently displayed document.
-#
-#     -scrollbarpolicy
-#         This option may be set to either a boolean value or "auto". It
-#         determines the visibility of the widget scrollbars.
-#
-#
-# Widget Sub-commands:
-#
-#     goto URI
-#         Load the content at the specified URI into the widget. 
-#
-#     stop
-#         Cancel all pending downloads.
-#
-#     node        
-#         Caching wrapper around html widget [node] command.
-#
-#     reset        
-#         Wrapper around the html widget command of the same name. Also
-#         resets all document related state stored by the mega-widget.
-#
-#     html        
-#         Return the path of the underlying html widget. This should only
-#         be used to determine paths for child widgets. Bypassing hv3 and
-#         accessing the html widget interface directly may confuse hv3.
-#
 
 
 #--------------------------------------------------------------------------

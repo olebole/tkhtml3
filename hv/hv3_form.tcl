@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.23 2006/07/29 11:52:21 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.24 2006/08/01 09:56:54 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -119,10 +119,6 @@ snit::widget ::hv3::control {
       select {
         # A <SELECT> element is replaced by a Tk combobox widget.
         $self CreateComboboxWidget
-      }
-
-      isindex {
-        # TODO
       }
 
       button {
@@ -481,9 +477,11 @@ snit::type ::hv3::formmanager {
     $self configurelist $args
     set myHv3  $hv3
     set myHtml [$myHv3 html]
-    $myHtml handler node input    [mymethod control_handler]
-    $myHtml handler node textarea [mymethod control_handler]
-    $myHtml handler node select   [mymethod control_handler]
+    $myHtml handler node input     [mymethod control_handler]
+    $myHtml handler node textarea  [mymethod control_handler]
+    $myHtml handler node select    [mymethod control_handler]
+
+    $myHtml handler node isindex [list ::hv3::isindex_handler $hv3]
   }
 
   method form_handler {node} {
@@ -527,5 +525,20 @@ snit::type ::hv3::formmanager {
       puts [$myForms($form) dump]
     }
   }
+}
+
+# ::hv3::isindex_handler
+#
+#     This proc is registered as a Tkhtml script-handler for <isindex> 
+#     elements. It replaces <isindex> elements with the equivalent <form>
+#     and <input> combination. 
+#
+#     I don't like doing this, because it means the internal tree structure is
+#     not as the document author intended it. However this will not cause
+#     problems for a long time (i.e. when I finally get javascript going), if
+#     at all. Also, <isindex> was deprecated as part of HTML4, so it's probably
+#     not going to be cohabitating with javascript too much.
+#
+proc ::hv3::isindex_handler {hv3 node} {
 }
 

@@ -12,9 +12,8 @@ Hv3 Mega-Widget Object Types:
         file hv3.tcl.
 
     ::hv3::scrolledwidget        (hv3_widgets.tcl)
-        Generic widget class that wraps scrollbars around a canvas or html
-        widget. Probably works with text widgets too, although hv3 doesn't
-        use that (yet).
+        Generic widget class that wraps scrollbars around a canvas, html
+        or text widget. Nothing very special here.
     
     ::hv3::tclet                 (hv3_object.tcl)
         A widget containing a Tcl applet running in a safe interpreter.
