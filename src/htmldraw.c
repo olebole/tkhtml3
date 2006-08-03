@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.150 2006/07/31 12:22:55 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.151 2006/08/03 16:24:13 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -400,8 +400,21 @@ sorterInsert(pSorter, pItem, x, y, pOverflow)
     if (pNode && !pNode->pPropertyValues) {
         pNode = HtmlNodeParent(pNode);
     }
-    if (pNode) z = pNode->iZLevel;
 
+    if (pNode) {
+        assert(pNode->pStack);
+        assert(pNode->pPropertyValues);
+        if( 
+            pItem->type==CANVAS_TEXT || 
+            pNode->pPropertyValues->eDisplay == CSS_CONST_INLINE
+        ) {
+            z = pNode->pStack->iInlineZ;
+        } else {
+            z = pNode->pStack->iBlockZ;
+        }
+    }
+
+    assert(z >= 0 && z <= 1000000);
     while (z >= pSorter->nLevel) {
         int n = pSorter->nLevel + 128;
         pSorter->aLevel = (CanvasItemSorterLevel *)HtmlRealloc(0, 

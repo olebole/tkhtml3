@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.110 2006/07/25 18:34:43 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.111 2006/08/03 16:24:13 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -391,6 +391,7 @@ callbackHandler(clientData)
         } else {
             HtmlStyleApply(pTree, pRestyle);
         }
+        HtmlRestackNodes(pTree);
 
         styleClock = clock() - styleClock;
     }

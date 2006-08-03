@@ -36,11 +36,103 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlstyle.c,v 1.34 2006/07/12 14:32:10 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlstyle.c,v 1.35 2006/08/03 16:24:13 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
 #include <string.h>
+
+void
+HtmlDelStackingInfo(pTree, pNode)
+    HtmlTree *pTree;
+    HtmlNode *pNode;
+{
+    HtmlNodeStack *pStack = pNode->pStack;
+    if (pStack && pStack->pNode == pNode){
+        if (pStack->pPrev) {
+            pStack->pPrev->pNext = pStack->pNext;
+        } 
+        if (pStack->pNext) {
+            pStack->pNext->pPrev = pStack->pPrev;
+        } 
+        if (pStack==pTree->pStack) {
+          pTree->pStack = pStack->pNext;
+        }
+        assert(!pTree->pStack || !pTree->pStack->pPrev);
+
+        HtmlFree("HtmlNodeStack", pStack);
+    }
+    pNode->pStack = 0;
+}
+
+static void
+addStackingInfo(pTree, pNode)
+    HtmlTree *pTree;
+    HtmlNode *pNode;
+{
+    HtmlComputedValues *pV = pNode->pPropertyValues;
+    if (
+        !HtmlNodeParent(pNode) || 
+        pV->eFloat != CSS_CONST_NONE || 
+        pV->ePosition != CSS_CONST_STATIC
+    ) {
+        HtmlNodeStack *pStack;
+        int nByte = sizeof(HtmlNodeStack);
+
+        pStack = (HtmlNodeStack *)HtmlClearAlloc("HtmlNodeStack", nByte);
+        pStack->pNode = pNode;
+        pStack->pNext = pTree->pStack;
+        if( pStack->pNext ){
+            pStack->pNext->pPrev = pStack;
+        }
+        pTree->pStack = pStack;
+        pNode->pStack = pStack;
+        pTree->cb.flags |= HTML_STACK;
+    } else {
+      pNode->pStack = HtmlNodeParent(pNode)->pStack;
+    }
+    assert(pNode->pStack);
+}
+
+void
+HtmlRestackNodes(pTree)
+    HtmlTree *pTree;
+{
+    HtmlNodeStack *pStack;
+    int zoffset = 0;
+
+    if (0 == (pTree->cb.flags & HTML_STACK)) return;
+
+    for (pStack = pTree->pStack; pStack; pStack = pStack->pNext) {
+      HtmlComputedValues *pV = pStack->pNode->pPropertyValues;
+      if (pV->ePosition != CSS_CONST_STATIC) {
+        zoffset = MIN(zoffset, pV->iZIndex * 25);
+      }
+    }
+
+    for (pStack = pTree->pStack; pStack; pStack = pStack->pNext) {
+        int z = zoffset;
+        HtmlNode *pNode = pStack->pNode;
+        for ( ; pNode; pNode = HtmlNodeParent(pNode)) {
+            if (pNode->pPropertyValues->eFloat != CSS_CONST_NONE) {
+                z += 1;
+            }
+            if (pNode->pPropertyValues->ePosition != CSS_CONST_STATIC) {
+                int iZIndex = pNode->pPropertyValues->iZIndex;
+                if ( iZIndex>=0 ) {
+                    z += (25 * (iZIndex + 1));
+                } else {
+                    z += (25 * iZIndex);
+                }
+            }
+        }
+        assert(z >= 0);
+        pStack->iBlockZ = z;
+        pStack->iInlineZ = z + 5;
+    }
+
+    pTree->cb.flags &= (~HTML_STACK);
+}
 
 /*
  *---------------------------------------------------------------------------
@@ -67,10 +159,8 @@ styleNode(pTree, pNode, clientData)
     if (!HtmlNodeIsText(pNode)) {
         int redrawmode = 0;
         HtmlComputedValues *pV = pNode->pPropertyValues;
-        HtmlNode *pParent = HtmlNodeParent(pNode);
         pNode->pPropertyValues = 0;
-        pNode->iZLevel = 0;
-
+        HtmlDelStackingInfo(pTree, pNode);
 
         /* If the clientData was set to a non-zero value, then the 
          * stylesheet configuration has changed. In this case we need to
@@ -121,41 +211,15 @@ styleNode(pTree, pNode, clientData)
             HtmlCallbackDamage(pTree, x-pTree->iScrollX, y-pTree->iScrollY,w,h);
         }
 
-        /* Calculate the z coordinate as follows. 
-         *
-         *     1. The z-level is initially 0.
-         *     2. Add 1 for each ancestor that is a floating box.
-         *     3. Add 50 for each ancestor that is positioned.
-         *     4. Add 5 if the element is inline and the parent is not.
-         *
-	 * This algorithm will have to change when the 'z-index' property is
-	 * supported.  Right now it is not.
-         */
-        if (pParent) {
-            pNode->iZLevel = pParent->iZLevel;
-        }
-        if (pNode->pPropertyValues->eFloat != CSS_CONST_NONE) {
-            pNode->iZLevel += 1;
-        }
-        if (pNode->pPropertyValues->ePosition != CSS_CONST_STATIC) {
-            pNode->iZLevel += 50;
-        }
-        if (
-            pNode->pPropertyValues->eDisplay == CSS_CONST_INLINE && (
-                !pParent || 
-                pParent->pPropertyValues->eDisplay != CSS_CONST_INLINE
-            )
-        ) {
-            pNode->iZLevel += 5;
-        }
+        addStackingInfo(pTree, pNode);
 
         if (pNode->pBefore) {
-            pNode->pBefore->iZLevel = pNode->iZLevel;
+            pNode->pBefore->pStack = pNode->pStack;
             pNode->pBefore->pParent = pNode;
             pNode->pBefore->iNode = -1;
         }
         if (pNode->pAfter) {
-            pNode->pAfter->iZLevel = pNode->iZLevel;
+            pNode->pAfter->pStack = pNode->pStack;
             pNode->pAfter->pParent = pNode;
             pNode->pAfter->iNode = -1;
         }

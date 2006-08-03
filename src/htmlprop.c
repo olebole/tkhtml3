@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.86 2006/07/29 12:00:57 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.87 2006/08/03 16:24:13 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -172,6 +172,7 @@ static PropertyDef propdef[] = {
 
   PROPDEF(CUSTOM, VERTICAL_ALIGN,            iVerticalAlign),
   PROPDEF(CUSTOM, LINE_HEIGHT,               iLineHeight),
+  PROPDEF(CUSTOM, Z_INDEX,                   iZIndex),
 
   PROPDEF(CUSTOM, FONT_SIZE,                 fFont),
   PROPDEF(CUSTOM, FONT_WEIGHT,               fFont),
@@ -227,6 +228,7 @@ static int propertyValuesSetFontFamily(HtmlComputedValuesCreator*,CssProperty*);
 static int propertyValuesSetFontWeight(HtmlComputedValuesCreator*,CssProperty*);
 
 static int propertyValuesSetContent(HtmlComputedValuesCreator*,CssProperty*);
+static int propertyValuesSetZIndex(HtmlComputedValuesCreator*,CssProperty*);
 
 static struct CustomDef {
   int eProp;
@@ -239,6 +241,7 @@ static struct CustomDef {
   {CSS_PROPERTY_FONT_STYLE,     propertyValuesSetFontStyle},
   {CSS_PROPERTY_FONT_FAMILY,    propertyValuesSetFontFamily},
   {CSS_PROPERTY_CONTENT,        propertyValuesSetContent},
+  {CSS_PROPERTY_Z_INDEX,        propertyValuesSetZIndex},
 };
 
 static int inheritlist[] = {
@@ -504,6 +507,22 @@ propertyValuesSetContent(p, pProp)
         return 0;
     }
     return 1;
+}
+
+static int
+propertyValuesSetZIndex(p, pProp)
+    HtmlComputedValuesCreator *p;
+    CssProperty *pProp;
+{
+    if (pProp->eType == CSS_TYPE_FLOAT) {
+        p->values.iZIndex = (int)pProp->v.rVal;
+    }else if (pProp->eType == CSS_CONST_AUTO) {
+        p->values.iZIndex = 0;
+    }else{
+        /* Type mismatch */
+        return 1;
+    }
+    return 0;
 }
 
 /*
@@ -2498,8 +2517,13 @@ HtmlNodeProperties(interp, pValues)
     Tcl_ListObjAppendElement(0, pRet, Tcl_NewStringObj("em-pixels", -1));
     Tcl_ListObjAppendElement(0, pRet, Tcl_NewStringObj(zBuf, -1));
 
+    /* nRef */
     Tcl_ListObjAppendElement(interp, pRet, Tcl_NewStringObj("nRef", -1));
     Tcl_ListObjAppendElement(interp, pRet, Tcl_NewIntObj(pValues->nRef));
+
+    /* z-index */
+    Tcl_ListObjAppendElement(interp, pRet, Tcl_NewStringObj("z-index", -1));
+    Tcl_ListObjAppendElement(interp, pRet, Tcl_NewIntObj(pValues->iZIndex));
 
     Tcl_SetObjResult(interp, pRet);
     Tcl_DecrRefCount(pRet);

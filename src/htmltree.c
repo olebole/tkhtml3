@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.79 2006/07/31 15:25:11 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.80 2006/08/03 16:24:13 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -530,7 +530,7 @@ HtmlNodeClearStyle(pTree, pNode)
         pNode->pPropertyValues = 0;
         pNode->pPreviousValues = 0;
         pNode->pDynamic = 0;
-        pNode->iZLevel = 0;
+        HtmlDelStackingInfo(pTree, pNode);
     }
     return 0;
 }

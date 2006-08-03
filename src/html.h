@@ -92,6 +92,7 @@ typedef int            Html_32;      /* 32-bit signed integer */
 # define strnicmp strncasecmp
 #endif
 
+typedef struct HtmlNodeStack HtmlNodeStack;
 typedef struct HtmlOptions HtmlOptions;
 typedef struct HtmlTree HtmlTree;
 typedef struct HtmlNode HtmlNode;
@@ -203,6 +204,14 @@ struct HtmlNodeContent {
     HtmlComputedValues *pValues;
 };
 
+struct HtmlNodeStack {
+  HtmlNode *pNode;
+  int iInlineZ;
+  int iBlockZ;
+  HtmlNodeStack *pNext;
+  HtmlNodeStack *pPrev;
+};
+
 /* 
  * Each node of the document tree is represented as an HtmlNode structure.
  * This structure carries no information to do with the node itself, it is
@@ -216,21 +225,22 @@ struct HtmlNode {
     HtmlNode **apChildren;         /* Array of pointers to children nodes */
     int iNode;                     /* Node index */
 
-    CssProperties *pStyle;                   /* Parsed "style" attribute */
-    Tcl_Obj *pOverride;                      /* List of property overrides */
-    HtmlComputedValues *pPropertyValues;     /* Current CSS property values */
-    HtmlComputedValues *pPreviousValues;     /* Previous CSS property values */
-    int iZLevel;                             /* Z coordinate of content */
-    CssDynamic *pDynamic;                    /* CSS dynamic conditions */
-    Html_u8 flags;                           /* HTML_DYNAMIC_XXX flags */
+    CssProperties *pStyle;                 /* Parsed "style" attribute */
+    Tcl_Obj *pOverride;                    /* List of property overrides */
+    HtmlComputedValues *pPropertyValues;   /* Current CSS property values */
+    HtmlComputedValues *pPreviousValues;   /* Previous CSS property values */
+    CssDynamic *pDynamic;                  /* CSS dynamic conditions */
+    Html_u8 flags;                         /* HTML_DYNAMIC_XXX flags */
 
-    HtmlNode *pBefore;                       /* Generated :before content */
-    HtmlNode *pAfter;                        /* Generated :after content */
+    HtmlNodeStack *pStack;                 /* Stacking context */
 
-    HtmlLayoutCache *pLayoutCache;           /* Cached layout, if any */
+    HtmlNode *pBefore;                     /* Generated :before content */
+    HtmlNode *pAfter;                      /* Generated :after content */
 
-    HtmlNodeReplacement *pReplacement;       /* Replaced object, if any */
-    HtmlNodeCmd *pNodeCmd;                   /* Tcl command for this node */
+    HtmlLayoutCache *pLayoutCache;         /* Cached layout, if any */
+
+    HtmlNodeReplacement *pReplacement;     /* Replaced object, if any */
+    HtmlNodeCmd *pNodeCmd;                 /* Tcl command for this node */
 };
 
 /* Values for HtmlNode.flags. These may be set and cleared via the Tcl
@@ -320,6 +330,7 @@ struct HtmlCallback {
 #define HTML_RESTYLE    0x04
 #define HTML_LAYOUT     0x08
 #define HTML_SCROLL     0x10
+#define HTML_STACK      0x20
 
 /* 
  * Functions used to schedule callbacks and set the HtmlCallback state. 
@@ -406,6 +417,9 @@ struct HtmlTree {
     Tcl_HashTable aScaledImage;     /* All images used by document (by name) */ 
     HtmlOptions options;            /* Configurable options */
     Tk_OptionTable optionTable;     /* Option table */
+
+    /* Linked list of stacking contexts */
+    HtmlNodeStack *pStack;
 
     /*
      * Internal representation of a completely layed-out document.
@@ -593,6 +607,8 @@ int HtmlNodeClearStyle(HtmlTree *, HtmlNode *);
 int HtmlNodeClearGenerated(HtmlTree *, HtmlNode *);
 
 void HtmlTranslateEscapes(char *);
+void HtmlRestackNodes(HtmlTree *pTree);
+void HtmlDelStackingInfo(HtmlTree *, HtmlNode *);
 
 #endif
 
