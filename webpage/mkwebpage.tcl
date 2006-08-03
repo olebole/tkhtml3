@@ -2,7 +2,7 @@
 #
 # Construct the web page for tkhtml
 #
-# @(#) $Id: mkwebpage.tcl,v 1.26 2006/07/28 14:26:27 danielk1977 Exp $
+# @(#) $Id: mkwebpage.tcl,v 1.27 2006/08/03 18:11:40 danielk1977 Exp $
 #
 
 source [file join [file dirname [info script]] common.tcl]
@@ -58,6 +58,7 @@ proc output_page {} {
 
   puts {<div id="body">}
   puts $::TITLE
+  puts [getToc]
   puts {<div id="text">}
   puts $::BODY
   puts {</div>}
@@ -223,8 +224,8 @@ p {
 h 2 {Source Code}
 
 p {
-  The current release of Tkhtml 3.0 is "alpha release 5", available for
-  download <a href="tkhtml3-alpha-5.tar.gz">here</a>.
+  The current release of Tkhtml 3.0 is "alpha release 8", available for
+  download <a href="tkhtml3-alpha-8.tar.gz">here</a>.
 }
 
 p {

@@ -20,6 +20,7 @@ puts [subst -novariables {
 
 <div id="body">
 <h1>Html Viewer 3 - Tkhtml Test Application</h1>
+[getToc]
 <div id="text">
 
 <p>

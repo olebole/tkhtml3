@@ -1,6 +1,23 @@
 
 #toc {
-  display: none;
+  float: right;
+  margin: 0 1em 1em 1em;
+  padding: 1em;
+  border: 1px solid black;
+}
+
+#toc ul, #toc li {
+  display: block;
+  margin: 0;
+  padding: 0;
+}
+#toc li {
+  margin-left: 3ex;
+  display: list-item;
+  list-style-type: decimal;
+}
+#toc h3 {
+  margin-top: 0;
 }
 
 body {
@@ -12,11 +29,11 @@ h1 {
 }
 
 table {
-  margin: auto;
+  margin: 1em auto;
 }
 
 #sitemap {
-  max-width:800px;
+  max-width:720px;
   margin:auto;
   position: relative;
   bottom: -11px;
@@ -37,7 +54,7 @@ table {
   display: table-cell;
   border: black 1px solid;
 }
-#sitemap a {
+#sitemap a[href] {
   display: block;
   padding: 0.5em 1em 0px 1em;
   text-decoration: none;
@@ -63,18 +80,30 @@ table {
   position: static;
 }
 
+a[href]:hover {
+  background-color: #ececec;
+  color: black;
+  border-bottom: solid black 1px;
+  text-decoration: none;
+}
+
+#sitemap a[href] {
+  border-bottom: none;
+  background-color: transparent;
+}
 #sitemap li:hover {
   background-color: #ececec;
 }
 #sitemap #active {
-  border-bottom-color: #d9d9d9;
-  background-color: transparent;
+  border-bottom-color: transparent;
+  background-color: white;
 }
 
 #body {
   border: black 1px solid;
   padding: 0px 0.5em;
-  max-width: 800px;
+  max-width: 720px;
   margin: auto;
+  background-color: white;
 }
 

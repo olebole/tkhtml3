@@ -33,6 +33,7 @@ proc SECTION {title} {
     incr ::section_counter
 }
 
+set ::title ""
 proc START {title} {
     set ::html_head [subst {
         <html>
@@ -42,16 +43,18 @@ proc START {title} {
         </head>
         <body>
     }]
-    P [subst {
-        <div id="body">
-        <h1>$title</h1>
-        <div id="text">
-    }]
+    set ::title $title
 }
 
 proc FINISH {} {
     puts $::html_head
     puts [getTabs 1]
+    puts [subst {
+        <div id="body">
+        <h1>$::title</h1>
+    }]
+    puts [getToc]
+    puts {<div id="text">}
     puts $::html
     puts {
         </div>
