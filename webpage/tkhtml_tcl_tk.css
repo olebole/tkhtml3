@@ -107,3 +107,8 @@ a[href]:hover {
   background-color: white;
 }
 
+.screenshot {
+  border: solid 1px black;
+  margin: 1em;
+}
+

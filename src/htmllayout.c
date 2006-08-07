@@ -17,7 +17,7 @@
  *       created.
  *
  *--------------------------------------------------------------------------
- * Copyright (c) 2005 Eolas Technologies Inc.
+ * Copyright (c) 2005 Dan Kennedy.
  * All rights reserved.
  *
  * This Open Source project was made possible through the financial support
@@ -31,7 +31,7 @@
  *     * Redistributions in binary form must reproduce the above copyright
  *       notice, this list of conditions and the following disclaimer in the
  *       documentation and/or other materials provided with the distribution.
- *     * Neither the name of the <ORGANIZATION> nor the names of its
+ *     * Neither the name of Eolas Technologies Inc. nor the names of its
  *       contributors may be used to endorse or promote products derived from
  *       this software without specific prior written permission.
  * 
@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.196 2006/07/30 15:10:02 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.197 2006/08/07 12:49:07 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>

@@ -37,7 +37,9 @@ Hv3 Mega-Widget Object Types:
     ::hv3::hv3::hyperlinkmanager (hv3.tcl)
         Internal components to manage the selection, dynamic (i.e. :hover)
         effects and hyperlinks, respectively. These are really just used
-        to break up the hv3::hv3 a bit.
+        to break up the hv3::hv3 a bit. Eventually, each of these (and the
+        formmanager) will be optional functions that may be enabled or 
+        disabled by hv3 users. TODO: Images too?
 
     ::hv3::formmanager           (hv3_form.tcl)
     ::hv3::form                  (hv3_form.tcl)

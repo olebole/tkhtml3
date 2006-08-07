@@ -2,7 +2,7 @@
 #
 # Construct the web page for tkhtml
 #
-# @(#) $Id: mkwebpage.tcl,v 1.27 2006/08/03 18:11:40 danielk1977 Exp $
+# @(#) $Id: mkwebpage.tcl,v 1.28 2006/08/07 12:49:07 danielk1977 Exp $
 #
 
 source [file join [file dirname [info script]] common.tcl]
@@ -122,7 +122,7 @@ p {
 p {
   Being an open-source project, if you have some time to spare you can help!
   For example, if you wanted to you could volunteer to:
-<ul>
+<ul style="list-style-position: inside">
 <li>Assist with programming the C code for the widget.</li>
 <li>Write a TCL application to help test the code as it evolves.</li>
 <li>Help with designing and reviewing the new interface.</li>
@@ -138,6 +138,13 @@ p {
 h 2 {Current Status (Version 3)}
 
 p {
+  <a href="screenshot_acid2b.gif">
+    <img align=right class=screenshot src="screenshot_acid2b_small.gif">
+  </a>
+  <a href="screenshot_acid2a.gif">
+    <img align=right class=screenshot src=screenshot_acid2a_small.gif>
+  </a>
+
   There is now an alpha release available for download in 
   <a href="#part4">source code form</a>. Nightly binary builds are 
   available as part of the starkit builds of the demo application, 
@@ -148,9 +155,11 @@ p {
   full of bugs. But it compiles and runs on both windows and linux, and the
   code and <a href="tkhtml.html">the widget documentation</a> have converged.
   The rendering engine is not yet feature complete by any means, but the
-  majority of common HTML and CSS 1.0 constructs are supported. See 
-  <a href="support.html">this page</a> for a comparison of current capabilities
-  against the CSS 1.0 specification.  
+  majority of common HTML and CSS 2.1 constructs are supported. We hold
+  our own against the 
+  <a href="http://www.webstandards.org/files/acid2/test.html">
+  acid2 test</a>. See <a href="support.html">this page</a> for a
+  comparison of current capabilities against the CSS 2.1 specification.  
 }
 p {
   Please help by testing the alpha release and filing bug tickets 

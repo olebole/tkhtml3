@@ -2,7 +2,6 @@
 source [file join [file dirname [info script]] common.tcl]
 
 addPageSection "Overview"     overview
-addPageSection "Screenshots"  screenshots
 addPageSection "Binaries"     binaries
 addPageSection "Source Code"  source
 addPageSection "Future Plans" future
@@ -46,6 +45,10 @@ puts [subst -novariables {
     tabs, HTML forms and HTTP cookies.
   </p>
   <p>
+    <a href="screenshot1.gif">
+      <img class=screenshot align=left src="screenshot1_small.gif">
+    </a>
+
     By itself, hv3 can connect to remote servers to retrieve documents
     specified by http URIs using the built-in Tcl http package. However
     much better performance can be obtained by installing the custom
@@ -64,13 +67,11 @@ puts [subst -novariables {
     <a href="hv3_polipo.patch">here</a>.
   </p>
 
-<h2><a name="screenshots">Screenshots</a></h2>
-  <a href="screenshot1.gif"><img src="screenshot1_small.gif"></a>
-  <a href="screenshot2.gif"><img src="screenshot2_small.gif"></a>
-  <a href="screenshot3.gif"><img src="screenshot3_small.gif"></a>
-
 <h2><a name="binaries">Binary Installation</a></h2>
   <p>
+    <a href="screenshot2.gif">
+      <img class=screenshot align=right src="screenshot2_small.gif">
+    </a>
     Binary packages are provided for Windows and Linux on x86 only. To
     install a binary package, download the following:
     <ol>
@@ -103,12 +104,14 @@ puts [subst -novariables {
   <table border=1>
     <tr><th>Windows<th>Linux
     <tr><td>
-           <ol><li><a href="hv3_img_w32.kit">hv3_img_w32.kit</a>
+           <ol style="list-style-position: inside; margin: 0; padding: 1em">
+               <li><a href="hv3_img_w32.kit">hv3_img_w32.kit</a>
                <li><a href="http://www.equi4.com/pub/tk/8.4.13/tclkit-win32.upx.exe">tclkit-w32.upx.exe</a>
                <li><a href="hv3_polipo.exe">hv3_polipo.exe</a>
            </ol>
         <td>
-           <ol><li><a href="hv3_img.kit">hv3_img.kit</a>
+           <ol style="list-style-position: inside; margin: 0; padding: 1em">
+               <li><a href="hv3_img.kit">hv3_img.kit</a>
                <li><a href="http://www.equi4.com/pub/tk/8.5a4/tclkit-linux-x86-xft.gz">tclkit-linux-x86-xft.gz</a>
                <li><a href="hv3_polipo">hv3_polipo</a>
            </ol>
@@ -169,6 +172,9 @@ puts [subst -novariables {
 <h2><a name="source">Source Code Installation</a></h2>
     
   <p>
+    <a href="screenshot3.gif">
+      <img class=screenshot align=left src="screenshot3_small.gif">
+    </a>
     All source code for hv3 is included in the Tkhtml source distribution.
     To use hv3, first download, build and install Tkhtml from 
     <a href="index.html#part4">source code</a>. Then, run the file
