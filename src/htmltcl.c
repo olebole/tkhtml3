@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.111 2006/08/03 16:24:13 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.112 2006/08/08 17:50:34 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -707,6 +707,9 @@ deleteWidget(clientData)
 {
     HtmlTree *pTree = (HtmlTree *)clientData;
     HtmlTreeClear(pTree);
+
+    /* Clear any widget tags */
+    HtmlTagCleanupTree(pTree);
 
     /* Clear the remaining colors etc. from the styler code hash tables */
     HtmlComputedValuesCleanupTables(pTree);
@@ -1573,6 +1576,44 @@ styleCmd(clientData, interp, objc, objv)
     return rc;
 }
 
+static int
+tagAddCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    return HtmlTagAddRemoveCmd(clientData, interp, objc, objv, HTML_TAG_ADD);
+}
+static int
+tagRemoveCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    return HtmlTagAddRemoveCmd(clientData, interp, objc, objv, HTML_TAG_REMOVE);
+}
+static int
+tagCfgCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    return HtmlTagConfigureCmd(clientData, interp, objc, objv);
+}
+
+static int
+tagDeleteCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    return HtmlTagDeleteCmd(clientData, interp, objc, objv);
+}
+
 static int 
 forceCmd(clientData, interp, objc, objv)
     ClientData clientData;             /* The HTML widget data structure */
@@ -1944,30 +1985,34 @@ int widgetCmd(clientData, interp, objc, objv)
         char *zCmd2;                /* Second-level subcommand.  May be NULL */
         Tcl_ObjCmdProc *xFuncObj;   /* Object cmd */
     } aSubcommand[] = {
-        {"bbox",       0,        bboxCmd},
-        {"cget",       0,        cgetCmd},
-        {"configure",  0,        configureCmd},
-        {"handler",    "node",   handlerNodeCmd},
-        {"handler",    "script", handlerScriptCmd},
-        {"image",      0,        imageCmd},
-        {"node",       0,        nodeCmd},
-        {"parse",      0,        parseCmd},
-        {"reset",      0,        resetCmd},
-        {"search",     0,        searchCmd},
-        {"select",     "clear",  selectClearCmd},
-        {"select",     "from",   selectCmd},
-        {"select",     "to",     selectCmd},
-        {"select",     "span",   selectSpanCmd},
-        {"style",      0,        styleCmd},
-        {"xview",      0,        xviewCmd},
-        {"yview",      0,        yviewCmd},
+        {"bbox",       0,           bboxCmd},
+        {"cget",       0,           cgetCmd},
+        {"configure",  0,           configureCmd},
+        {"handler",    "node",      handlerNodeCmd},
+        {"handler",    "script",    handlerScriptCmd},
+        {"image",      0,           imageCmd},
+        {"node",       0,           nodeCmd},
+        {"parse",      0,           parseCmd},
+        {"reset",      0,           resetCmd},
+        {"search",     0,           searchCmd},
+        {"select",     "clear",     selectClearCmd},
+        {"select",     "from",      selectCmd},
+        {"select",     "to",        selectCmd},
+        {"select",     "span",      selectSpanCmd},
+        {"style",      0,           styleCmd},
+        {"tag",        "add",       tagAddCmd},
+        {"tag",        "remove",    tagRemoveCmd},
+        {"tag",        "configure", tagCfgCmd},
+        {"tag",        "delete",    tagDeleteCmd},
+        {"xview",      0,           xviewCmd},
+        {"yview",      0,           yviewCmd},
 
         /* The following are for debugging only */
-        {"force",       0,        forceCmd},
-        {"primitives",  0,        primitivesCmd},
-        {"relayout",    0,        relayoutCmd},
-        {"styleconfig", 0,        styleconfigCmd},
-        {"stylereport", 0,        stylereportCmd},
+        {"force",       0,          forceCmd},
+        {"primitives",  0,          primitivesCmd},
+        {"relayout",    0,          relayoutCmd},
+        {"styleconfig", 0,          styleconfigCmd},
+        {"stylereport", 0,          stylereportCmd},
 #ifndef NDEBUG
         {"_hashstats", 0, hashstatsCmd},  
 #endif
@@ -2124,6 +2169,7 @@ newWidget(clientData, interp, objc, objv)
     Tcl_InitHashTable(&pTree->aScaledImage, TCL_STRING_KEYS);
     Tcl_InitHashTable(&pTree->aCmd, TCL_STRING_KEYS);
     Tcl_InitHashTable(&pTree->aVar, TCL_STRING_KEYS);
+    Tcl_InitHashTable(&pTree->aTag, TCL_STRING_KEYS);
     pTree->cmd = Tcl_CreateObjCommand(interp,zCmd,widgetCmd,pTree,widgetCmdDel);
 
     /* TODO: Handle the case where configureCmd() returns an error. */

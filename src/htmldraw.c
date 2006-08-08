@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.151 2006/08/03 16:24:13 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.152 2006/08/08 17:50:34 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1972,7 +1972,7 @@ drawLine(pTree, pLine, drawable, x, y, w, h)
 /*
  *---------------------------------------------------------------------------
  *
- * drawLine --
+ * drawText --
  *
  *     This function draws a CANVAS_TEXT primitive on the supplied drawable.
  *
@@ -2006,109 +2006,69 @@ drawText(pTree, pItem, drawable, x, y)
     HtmlColor *pColor = colorFromNode(pT->pNode);
     Tk_Font font = pFont->tkfont;
 
-    int iSelFrom;      /* Index in this string where the selection starts */
-    int iSelTo = 0;    /* Index in this string where the selection ends */
-    int eContinue = 0; /* True if this is not the last text selected */
+    HtmlTaggedRegion *pTagged;
 
     z = Tcl_GetStringFromObj(pT->pText, &n);
-    iSelFrom = n;
 
-    /* This block sets the iSelTo and iSelFrom variables according to the
-     * portion (if any) of the text string that is "selected".
+
+    /* Draw the text in the regular way (according to the stylesheet config). 
+     *
+     * Todo: There seems to be a bug in Tk_DrawChars triggered by
+     * attempting to draw a string that lies wholly outside the drawable
+     * region. So avoid this...
+     */ 
+    mask = GCForeground | GCFont;
+    gc_values.foreground = pColor->xcolor->pixel;
+    gc_values.font = Tk_FontId(font);
+    gc = Tk_GetGC(pTree->win, mask, &gc_values);
+    Tk_DrawChars(disp, drawable, gc, font, z, n, pT->x + x, pT->y + y);
+    Tk_FreeGC(disp, gc);
+
+    /* Now draw any tagged regions of text over the top of the stylesheet
+     * text.
      */
-    if (pTree->pFromNode && pT->iIndex >= 0) {
-        int iToNode    = pTree->pToNode->iNode;
-        int iFromNode  = pTree->pFromNode->iNode;
-        int iToIndex   = pTree->iToIndex;
-        int iFromIndex = pTree->iFromIndex;
+    for (pTagged = pT->pNode->pTagged; pTagged; pTagged = pTagged->pNext) {
 
-        int iThis = pT->pNode->iNode;
-
-        if (
-            iFromNode > iToNode || 
-            (iFromNode==iToNode && iFromIndex > iToIndex)
-        ) {
-            SWAPINT(iFromNode, iToNode);
-            SWAPINT(iFromIndex, iToIndex);
-        }
-
-        if (iToNode>=iThis && iFromNode<=iThis) {
-	    /* If this condition is true, then part of the node that this  
-             * text belongs to is selected.
-             */
-	    iSelFrom = 0;
-            iSelTo = n;
-            if (iToNode == iThis && iToIndex >= 0) {
-                iSelTo = iToIndex - pT->iIndex;
+        /* The tagged region of this primitive */
+        int iSelFrom = MAX(0, pTagged->iFrom - pT->iIndex);
+        int iSelTo = MIN(n, pTagged->iTo - pT->iIndex);
+        int eContinue = (iSelTo < (pTagged->iTo - pT->iIndex));
+    
+        if (iSelTo > 0 && iSelFrom <= n && iSelTo >= iSelFrom) {
+            CONST char *zSel = &z[iSelFrom];
+            int nSel;
+            int w;                  /* Pixels of tagged text */
+            int xs = x;             /* Pixel offset of tagged text */
+            int h;                  /* Height of text line */
+            int ybg;                /* Y coord for bg rectangle */
+            HtmlWidgetTag *pTag = pTagged->pTag;
+    
+            nSel = iSelTo - iSelFrom;
+            if (iSelFrom > 0) {
+                xs += Tk_TextWidth(font, z, iSelFrom);
             }
-            if (iFromNode == iThis && iFromIndex >= 0) {
-                iSelFrom = iFromIndex - pT->iIndex;
+            if (eContinue) {
+                w = pT->w + x - xs;
+            } else {
+                w = Tk_TextWidth(font, zSel, nSel);
             }
-
-            if (iToNode > iThis || iSelTo > n) {
-                HtmlCanvasItem *p = pItem->pNext;
-                while (p && p->type != CANVAS_TEXT) p = p->pNext;
-                if (p && p->x.t.pNode && p->x.t.pNode->iNode <= iToNode) {
-                    eContinue = 1;
-                }
-            }
-            iSelFrom = MAX(0, iSelFrom);
-            iSelTo = MIN(n, iSelTo);
+    
+            h = pFont->metrics.ascent + pFont->metrics.descent;
+            ybg = pT->y + y - pFont->metrics.ascent;
+    
+            mask = GCForeground;
+            gc_values.foreground = pTag->background->pixel;
+            gc = Tk_GetGC(pTree->win, mask, &gc_values);
+            XFillRectangle(disp, drawable, gc, pT->x + xs, ybg, w, h);
+            Tk_FreeGC(disp, gc);
+    
+            mask = GCForeground | GCFont;
+            gc_values.foreground = pTag->foreground->pixel;
+            gc_values.font = Tk_FontId(font);
+            gc = Tk_GetGC(pTree->win, mask, &gc_values);
+            Tk_DrawChars(disp, drawable, gc, font, zSel, nSel,pT->x+xs,pT->y+y);
+            Tk_FreeGC(disp, gc);
         }
-    }
-
-    /* Unless the entire line is selected, draw the text in the regular way */
-    if (iSelTo < n || iSelFrom > 0) {
-        mask = GCForeground | GCFont;
-        gc_values.foreground = pColor->xcolor->pixel;
-        gc_values.font = Tk_FontId(font);
-        gc = Tk_GetGC(pTree->win, mask, &gc_values);
-
-	/* Todo: There seems to be a bug in Tk_DrawChars triggered by
-         * attempting to draw a string that lies wholly outside the drawable
-         * region. So avoid this...
-         */ 
-        Tk_DrawChars(disp, drawable, gc, font, z, n, pT->x + x, pT->y + y);
-        Tk_FreeGC(disp, gc);
-    }
-
-    /* If any text at all is selected, draw that text. If the previous
-     * block drew the text in the "regular way", then we are overwriting
-     * part of that text's region here.
-     */
-    if (iSelTo > 0 && iSelFrom <= n && iSelTo >= iSelFrom) {
-        CONST char *zSel = &z[iSelFrom];
-        int nSel;
-        int w;                               /* Pixels of selected text */
-        int xs = x;                          /* Pixel offset of selected text */
-        int h;                               /* Height of text line */
-        int ybg;                             /* Y coord for bg rectangle */
-
-        nSel = iSelTo - iSelFrom;
-        if (iSelFrom > 0) {
-            xs += Tk_TextWidth(font, z, iSelFrom);
-        }
-        if (eContinue) {
-            w = pT->w + x - xs;
-        } else {
-            w = Tk_TextWidth(font, zSel, nSel);
-        }
-
-        h = pFont->metrics.ascent + pFont->metrics.descent;
-        ybg = pT->y + y - pFont->metrics.ascent;
-
-        mask = GCForeground;
-        gc_values.foreground = pTree->options.selectbackground->pixel;
-        gc = Tk_GetGC(pTree->win, mask, &gc_values);
-        XFillRectangle(disp, drawable, gc, pT->x + xs, ybg, w, h);
-        Tk_FreeGC(disp, gc);
-
-        mask = GCForeground | GCFont;
-        gc_values.foreground = pTree->options.selectforeground->pixel;
-        gc_values.font = Tk_FontId(font);
-        gc = Tk_GetGC(pTree->win, mask, &gc_values);
-        Tk_DrawChars(disp, drawable, gc, font, zSel, nSel, pT->x+xs, pT->y+y);
-        Tk_FreeGC(disp, gc);
     }
 }
 

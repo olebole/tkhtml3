@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.36 2006/07/15 17:24:14 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.37 2006/08/08 17:50:34 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_prop.tcl --
@@ -346,6 +346,7 @@ snit::widget HtmlDebug {
 
     if {[$node tag] == ""} {
         append doc "<h1>Text</h1>"
+        append doc "<p>Tcl command: <span class=\"code\">\[$node\]</span>"
         set text [string map {< &lt; > &gt;} [$node text]]
         set tokens [string map {< &lt; > &gt;} [$node text -tokens]]
         append doc [subst {

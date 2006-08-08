@@ -111,6 +111,9 @@ typedef struct HtmlNodeContent HtmlNodeContent;
 typedef struct HtmlImageServer HtmlImageServer;
 typedef struct HtmlImage2 HtmlImage2;
 
+typedef struct HtmlWidgetTag HtmlWidgetTag;
+typedef struct HtmlTaggedRegion HtmlTaggedRegion;
+
 #include "css.h"
 #include "htmlprop.h"
 
@@ -205,11 +208,31 @@ struct HtmlNodeContent {
 };
 
 struct HtmlNodeStack {
-  HtmlNode *pNode;
-  int iInlineZ;
-  int iBlockZ;
-  HtmlNodeStack *pNext;
-  HtmlNodeStack *pPrev;
+    HtmlNode *pNode;
+    int iInlineZ;
+    int iBlockZ;
+    HtmlNodeStack *pNext;
+    HtmlNodeStack *pPrev;
+};
+
+/*
+ * Widget tag properties. Each widget tag is stored in the 
+ * HtmlTree.aTag hash table.
+ */
+struct HtmlWidgetTag {
+    XColor *foreground;        /* Foreground color to use for tagged regions */
+    XColor *background;        /* Background color to use for tagged regions */
+};
+
+/*
+ * Each text node has a list of "tagged regions" attached to it (the 
+ * list may be empty).
+ */
+struct HtmlTaggedRegion {
+    int iFrom;                 /* Index the region starts at */
+    int iTo;                   /* Index the region ends at */
+    HtmlWidgetTag *pTag;       /* Tag properties */
+    HtmlTaggedRegion *pNext;   /* Next tagged region of this text node */
 };
 
 /* 
@@ -233,6 +256,8 @@ struct HtmlNode {
     Html_u8 flags;                         /* HTML_DYNAMIC_XXX flags */
 
     HtmlNodeStack *pStack;                 /* Stacking context */
+
+    HtmlTaggedRegion *pTagged;             /* List of applied Widget tags */
 
     HtmlNode *pBefore;                     /* Generated :before content */
     HtmlNode *pAfter;                      /* Generated :after content */
@@ -442,6 +467,13 @@ struct HtmlTree {
     int aFontSizeTable[7];
 
     /*
+     * Hash table for all html widget tags (similar to text widget tags -
+     * nothing to do with markup tags).
+     */
+    Tcl_HashTable aTag;
+    Tk_OptionTable tagOptionTable;     /* Option table for tags*/
+
+    /*
      * These variables store the persistent data for the [widget select]
      * command.
      */
@@ -609,6 +641,15 @@ int HtmlNodeClearGenerated(HtmlTree *, HtmlNode *);
 void HtmlTranslateEscapes(char *);
 void HtmlRestackNodes(HtmlTree *pTree);
 void HtmlDelStackingInfo(HtmlTree *, HtmlNode *);
+
+#define HTML_TAG_ADD 10
+#define HTML_TAG_REMOVE 11
+#define HTML_TAG_SET 12
+int HtmlTagAddRemoveCmd(ClientData, Tcl_Interp *, int, Tcl_Obj *CONST[], int);
+Tcl_ObjCmdProc HtmlTagDeleteCmd;
+Tcl_ObjCmdProc HtmlTagConfigureCmd;
+void HtmlTagCleanupNode(HtmlNode *);
+void HtmlTagCleanupTree(HtmlTree *);
 
 #endif
 

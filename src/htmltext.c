@@ -35,6 +35,37 @@
 #include <assert.h>
 #include "html.h"
 
+/*
+ * This file exports the following functions:
+ *
+ *     HtmlTranslateEscapes()
+ *         Translates Html escapes (i.e. "&nbsp;").
+ *
+ *     HtmlTagAddRemoveCmd()
+ *         Implementation of [pathName tag add] and [pathName tag remove]
+ *
+ *     HtmlTagDeleteCmd()
+ *         Implementation of [pathName tag delete]
+ *
+ *     HtmlTagConfigureCmd()
+ *         Implementation of [pathName tag configured]
+ *
+ *     HtmlTagCleanupNode()
+ *     HtmlTagCleanupTree()
+ *         Respectively called when an HtmlNode or HtmlTree structure is being
+ *         deallocated to free outstanding tag related stuff.
+ *
+ *
+ * This file implements the experimental [tag] widget method. The
+ * following summarizes the interface supported:
+ *
+ *         html tag add TAGNAME FROM-NODE FROM-INDEX TO-NODE TO-INDEX
+ *         html tag remove TAGNAME FROM-NODE FROM-INDEX TO-NODE TO-INDEX
+ *         html tag delete TAGNAME
+ *         html tag configure TAGNAME ?-fg COLOR? ?-bg COLOR?
+ *
+ */
+
 /****************** Begin Escape Sequence Translator *************/
 
 /*
@@ -654,4 +685,464 @@ HtmlTranslateEscapes(z)
     }
     z[to] = 0;
 }
+
+static HtmlWidgetTag *
+getWidgetTag(pTree, zTag)
+    HtmlTree *pTree;
+    const char *zTag;
+{
+    Tcl_HashEntry *pEntry;
+    int isNew;
+    HtmlWidgetTag *pTag;
+
+    pEntry = Tcl_CreateHashEntry(&pTree->aTag, zTag, &isNew);
+    if (isNew) {
+        Tk_OptionTable otab = pTree->tagOptionTable;
+        static Tk_OptionSpec ospec[] = {
+            {TK_OPTION_COLOR, "-foreground", "", "", "white", -1, \
+             Tk_Offset(HtmlWidgetTag, foreground), 0, 0, 0},
+            {TK_OPTION_COLOR, "-background", "", "", "black", -1, \
+             Tk_Offset(HtmlWidgetTag, background), 0, 0, 0},
+
+            {TK_OPTION_SYNONYM, "-bg", 0, 0, 0, 0, -1, 0, "-background", 0},
+            {TK_OPTION_SYNONYM, "-fg", 0, 0, 0, 0, -1, 0, "-foreground", 0},
+
+            {TK_OPTION_END, 0, 0, 0, 0, 0, 0, 0, 0}
+        };
+        pTag = (HtmlWidgetTag *)HtmlClearAlloc("", sizeof(HtmlWidgetTag));
+        Tcl_SetHashValue(pEntry, pTag);
+        if (0 == otab) {
+            pTree->tagOptionTable = Tk_CreateOptionTable(pTree->interp, ospec);
+            otab = pTree->tagOptionTable;
+            assert(otab);
+        }
+        Tk_InitOptions(pTree->interp, (char *)pTag, otab, pTree->tkwin);
+        assert(pTag->foreground && pTag->background);
+    } else {
+        pTag = (HtmlWidgetTag *)Tcl_GetHashValue(pEntry);
+    }
+
+    return pTag;
+}
+
+static HtmlNode * 
+orderIndexPair(ppA, piA, ppB, piB)
+    HtmlNode **ppA;
+    int *piA;
+    HtmlNode **ppB;
+    int *piB;
+{
+    HtmlNode *pA;
+    HtmlNode *pB;
+    HtmlNode *pParent;
+    int nDepthA = 0;
+    int nDepthB = 0;
+    int ii;
+
+    int swap = 0;
+
+    for(pA = HtmlNodeParent(*ppA); pA; pA = HtmlNodeParent(pA)) nDepthA++;
+    for(pB = HtmlNodeParent(*ppB); pB; pB = HtmlNodeParent(pB)) nDepthB++;
+
+    pA = *ppA;
+    pB = *ppB;
+    for(ii = 0; ii < (nDepthA - nDepthB); ii++) pA = HtmlNodeParent(pA);
+    for(ii = 0; ii < (nDepthB - nDepthA); ii++) pB = HtmlNodeParent(pB);
+
+    if (pA == pB) {
+        if (nDepthA == nDepthB) {
+            /* In this case *ppA and *ppB are the same node */
+            swap = (*piA > *piB);
+        } else {
+            /* One of (*ppA, *ppB) is a descendant of the other */
+            swap = (nDepthA > nDepthB);
+        }
+        pParent = pA;
+    } else {
+        while (HtmlNodeParent(pA) != HtmlNodeParent(pB)) {
+            pA = HtmlNodeParent(pA);
+            pB = HtmlNodeParent(pB);
+            assert(pA && pB && pA != pB);
+        }
+        pParent = HtmlNodeParent(pA);
+        for (ii = 0; ; ii++) {
+            HtmlNode *pChild = HtmlNodeChild(pParent, ii);
+            assert(ii < HtmlNodeNumChildren(pParent) && pChild);
+            if (pChild == pA) break;
+            if (pChild == pB) {
+                swap = 1;
+                break;
+            }
+        }
+    }
+
+    if (swap) {
+        HtmlNode *p;
+        int i;
+        p = *ppB;
+        *ppB = *ppA;
+        *ppA = p;
+        i = *piB;
+        *piB = *piA;
+        *piA = i;
+    }
+
+    return pParent;
+}
+
+static HtmlTaggedRegion *
+addTagToNode(pNode, pTag)
+    HtmlNode *pNode;
+    HtmlWidgetTag *pTag;
+{
+    HtmlTaggedRegion *pTagged;
+
+    for (pTagged = pNode->pTagged; pTagged; pTagged = pTagged->pNext) {
+        if (pTagged->pTag == pTag) return pTagged;
+    }
+
+    pTagged = (HtmlTaggedRegion *)HtmlClearAlloc("", sizeof(HtmlTaggedRegion));
+    pTagged->pTag = pTag;
+    pTagged->pNext = pNode->pTagged;
+    pTagged->iFrom = 1000000;
+    pTagged->iTo = -1;
+
+    pNode->pTagged = pTagged;
+    return pTagged;
+}
+
+static void
+removeTagFromNode(pNode, pTag)
+    HtmlNode *pNode;
+    HtmlWidgetTag *pTag;
+{
+    HtmlTaggedRegion *pTagged = pNode->pTagged;
+    if (pTagged) { 
+        if (pTagged->pTag == pTag) {
+            pNode->pTagged = pTagged->pNext;
+            HtmlFree("", pTagged);
+        } else {
+            for ( ; pTagged->pNext ; pTagged = pTagged->pNext) {
+                if (pTagged->pNext->pTag == pTag) {
+                    HtmlTaggedRegion *pNext = pTagged->pNext;
+                    pTagged->pNext = pNext->pNext;
+                    HtmlFree("", pNext);
+                    break;
+                }
+            }
+        }
+    }
+}
+
+static HtmlTaggedRegion *
+findTagInNode(pNode, pTag, ppPtr)
+    HtmlNode *pNode;
+    HtmlWidgetTag *pTag;
+    HtmlTaggedRegion ***ppPtr;
+{
+    HtmlTaggedRegion *pTagged;
+    HtmlTaggedRegion **pPtr = &pNode->pTagged;
+    for (pTagged = pNode->pTagged; pTagged; pTagged = pTagged->pNext) {
+        if (pTagged->pTag == pTag) {
+            *ppPtr = pPtr;
+            return pTagged;
+        }
+        pPtr = &pTagged->pNext;
+    }
+    *ppPtr = pPtr;
+    return 0;
+}
+
+typedef struct TagOpData TagOpData;
+struct TagOpData {
+    HtmlNode *pFrom;
+    int iFrom;
+    HtmlNode *pTo;
+    int iTo;
+    int eSeenFrom;          /* True after pFrom has been traversed */
+    HtmlWidgetTag *pTag;
+
+    int isAdd;              /* True for [add] false for [remove] */
+};
+
+#define OVERLAP_NONE     1
+#define OVERLAP_SUPER    2
+#define OVERLAP_SUB      3
+#define OVERLAP_FROM     4
+#define OVERLAP_TO       5
+static int
+getOverlap(pTagged, iFrom, iTo)
+    HtmlTaggedRegion *pTagged;
+    int iFrom;
+    int iTo;
+{
+    assert(iFrom <= iTo);
+    assert(pTagged->iFrom <= pTagged->iTo);
+
+    if (iFrom <= pTagged->iFrom && iTo >= pTagged->iTo) {
+        return OVERLAP_SUPER;
+    }
+    if (iFrom >= pTagged->iFrom && iTo <= pTagged->iTo) {
+        return OVERLAP_SUB;
+    }
+    if (iFrom > pTagged->iTo || iTo < pTagged->iTo) {
+        return OVERLAP_NONE;
+    }
+    if (iFrom > pTagged->iFrom) {
+        assert(iFrom <= pTagged->iTo);
+        assert(iTo > pTagged->iTo);
+        return OVERLAP_TO;
+    }
+    assert(iTo >= pTagged->iFrom);
+    assert(iTo < pTagged->iTo);
+    assert(iFrom < pTagged->iFrom);
+    return OVERLAP_FROM;
+}
+
+
+static int
+tagAddRemoveCallback(pTree, pNode, clientData)
+    HtmlTree *pTree;
+    HtmlNode *pNode;
+    ClientData clientData;
+{
+    TagOpData *pData = (TagOpData *)clientData;
+
+    if (pNode == pData->pFrom) {
+        assert(0 == pData->eSeenFrom);
+        pData->eSeenFrom = 1;
+    }
+
+    if (HtmlNodeIsText(pNode) && pData->eSeenFrom) {
+        HtmlTaggedRegion *pTagged;
+        HtmlTaggedRegion **pPtr;
+        int iFrom = 0;
+        int iTo = 1000000;
+        if (pNode == pData->pFrom) iFrom = pData->iFrom;
+        if (pNode == pData->pTo) iTo = pData->iTo;
+
+        assert(iFrom <= iTo);
+
+        pTagged = findTagInNode(pNode, pData->pTag, &pPtr);
+        assert(*pPtr == pTagged);
+
+        switch (pData->isAdd) {
+            case HTML_TAG_ADD:
+                while (pTagged && pTagged->pTag == pData->pTag) {
+                    pPtr = &pTagged->pNext;
+                    if (OVERLAP_NONE != getOverlap(pTagged, iFrom, iTo)) {
+                        pTagged->iFrom = MIN(pTagged->iFrom, iFrom);
+                        pTagged->iTo = MAX(pTagged->iTo, iTo);
+                        break;
+                    }
+                    pTagged = *pPtr;
+                }
+                if (!pTagged || pTagged->pTag != pData->pTag) {
+                    HtmlTaggedRegion *pNew = (HtmlTaggedRegion *)
+                        HtmlClearAlloc("", sizeof(HtmlTaggedRegion));
+                    pNew->iFrom = iFrom;
+                    pNew->iTo = iTo;
+                    pNew->pNext = pTagged;
+                    pNew->pTag = pData->pTag;
+                    *pPtr = pNew;
+                }
+
+                break;
+
+            case HTML_TAG_REMOVE:
+                while (pTagged && pTagged->pTag == pData->pTag) {
+                    int eOverlap = getOverlap(pTagged, iFrom, iTo);
+
+                    switch (eOverlap) {
+                        case OVERLAP_SUPER: {
+                            /* Delete the whole list entry */
+                            *pPtr = pTagged->pNext;
+                            HtmlFree("", pTagged);
+                            break;
+                        };
+                            
+                        case OVERLAP_TO:
+                            pTagged->iTo = iFrom;
+                            pPtr = &pTagged->pNext;
+                            break;
+                        case OVERLAP_FROM:
+                            pTagged->iFrom = iTo;
+                            pPtr = &pTagged->pNext;
+                            break;
+
+                        case OVERLAP_NONE:
+                            /* Do nothing */
+                            pPtr = &pTagged->pNext;
+                            break;
+
+                        case OVERLAP_SUB: {
+                            HtmlTaggedRegion *pNew = (HtmlTaggedRegion *)
+                                HtmlClearAlloc("", sizeof(HtmlTaggedRegion));
+                            pNew->iFrom = iTo;
+                            pNew->iTo = pTagged->iTo;
+                            pNew->pTag = pData->pTag;
+                            pNew->pNext = pTagged->pNext;
+                            pTagged->pNext = pNew;
+                            pTagged->iTo = iFrom;
+                            pPtr = &pNew->pNext;
+                            break;
+                        }
+                    }
+                    pTagged = *pPtr;
+                }
+                break;
+        }
+    }
+
+    if (pNode == pData->pTo) {
+        return HTML_WALK_ABANDON;
+    }
+    return HTML_WALK_DESCEND;
+}
+
+int 
+HtmlTagAddRemoveCmd(clientData, interp, objc, objv, isAdd)
+    ClientData clientData;             /* The HTML widget */
+    Tcl_Interp *interp;                /* The interpreter */
+    int objc;                          /* Number of arguments */
+    Tcl_Obj *CONST objv[];             /* List of all arguments */
+    int isAdd;
+{
+    HtmlTree *pTree = (HtmlTree *)clientData;
+    HtmlNode *pParent;
+
+    HtmlWidgetTag *pTag;
+
+    TagOpData sData;
+    memset(&sData, 0, sizeof(TagOpData));
+
+    assert(isAdd == HTML_TAG_REMOVE || isAdd == HTML_TAG_ADD);
+
+    if (objc != 8) {
+        Tcl_WrongNumArgs(interp, 3, objv, 
+            "TAGNAME FROM-NODE FROM-INDEX TO-NODE TO-INDEX"
+        );
+        return TCL_ERROR;
+    }
+    if (
+        0 == (sData.pFrom=HtmlNodeGetPointer(pTree, Tcl_GetString(objv[4]))) ||
+        TCL_OK != Tcl_GetIntFromObj(interp, objv[5], &sData.iFrom) ||
+        0 == (sData.pTo=HtmlNodeGetPointer(pTree, Tcl_GetString(objv[6]))) ||
+        TCL_OK != Tcl_GetIntFromObj(interp, objv[7], &sData.iTo)
+    ) {
+        return TCL_ERROR;
+    }
+
+    pTag = getWidgetTag(pTree, Tcl_GetString(objv[3]));
+    sData.pTag = pTag;
+    sData.isAdd = isAdd;
+
+    pParent = orderIndexPair(&sData.pFrom,&sData.iFrom,&sData.pTo,&sData.iTo);
+    HtmlWalkTree(pTree, pParent, tagAddRemoveCallback, &sData);
+
+    HtmlWidgetDamageText(pTree, 
+        sData.pFrom->iNode, sData.iFrom,
+        sData.pTo->iNode, sData.iTo
+    );
+
+    return TCL_OK;
+}
+
+int 
+HtmlTagConfigureCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget */
+    Tcl_Interp *interp;                /* The interpreter */
+    int objc;                          /* Number of arguments */
+    Tcl_Obj *CONST objv[];             /* List of all arguments */
+{
+    HtmlTree *pTree = (HtmlTree *)clientData;
+    Tk_OptionTable otab;
+    HtmlWidgetTag *pTag;
+    Tk_Window win = pTree->tkwin;
+
+    if (objc < 4) {
+        Tcl_WrongNumArgs(interp, 3, objv, "TAGNAME ?options?");
+        return TCL_ERROR;
+    }
+
+    pTag = getWidgetTag(pTree, Tcl_GetString(objv[3]));
+    otab = pTree->tagOptionTable;
+    assert(otab);
+    Tk_SetOptions(interp, (char *)pTag, otab, objc - 4, &objv[4], win, 0, 0);
+
+    /* Redraw the whole viewport. Todo: Update only the required regions */
+    HtmlCallbackDamage(pTree, 0, 0, 1000000, 1000000);
+
+    return TCL_OK;
+}
+
+static int
+tagDeleteCallback(pTree, pNode, clientData)
+    HtmlTree *pTree;
+    HtmlNode *pNode;
+    ClientData clientData;
+{
+    HtmlWidgetTag *pTag = clientData;
+    removeTagFromNode(pNode, pTag);
+    return HTML_WALK_DESCEND;
+}
+
+int 
+HtmlTagDeleteCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget */
+    Tcl_Interp *interp;                /* The interpreter */
+    int objc;                          /* Number of arguments */
+    Tcl_Obj *CONST objv[];             /* List of all arguments */
+{
+    const char *zTag;
+    Tcl_HashEntry *pEntry;
+    HtmlTree *pTree = (HtmlTree *)clientData;
+
+    if (objc != 4) {
+        Tcl_WrongNumArgs(interp, 3, objv, "TAGNAME");
+        return TCL_ERROR;
+    }
+
+    zTag = Tcl_GetString(objv[3]);
+    pEntry = Tcl_FindHashEntry(&pTree->aTag, zTag);
+    if (pEntry) {
+        HtmlWidgetTag *pTag = (HtmlWidgetTag *)Tcl_GetHashValue(pEntry);
+        HtmlWalkTree(pTree, 0, tagDeleteCallback, (ClientData)pTag);
+        HtmlFree("", pTag);
+        Tcl_DeleteHashEntry(pEntry);
+    }
+
+    /* Redraw the whole viewport. Todo: Update only the required regions */
+    HtmlCallbackDamage(pTree, 0, 0, 1000000, 1000000);
+
+    return TCL_OK;
+}
+
+void
+HtmlTagCleanupNode(pNode)
+    HtmlNode *pNode;
+{
+    HtmlTaggedRegion *pTagged = pNode->pTagged;
+    while (pTagged) {
+        HtmlTaggedRegion *pNext = pTagged->pNext;
+        HtmlFree("", pTagged);
+        pTagged = pNext;
+    }
+}
+
+void
+HtmlTagCleanupTree(pTree)
+    HtmlTree *pTree;
+{
+    Tcl_HashEntry *pEntry;
+    Tcl_HashSearch search;
+    pEntry = Tcl_FirstHashEntry(&pTree->aTag, &search);
+    for ( ; pEntry; pEntry = Tcl_NextHashEntry(&search)) {
+        HtmlWidgetTag *pTag = (HtmlWidgetTag *)Tcl_GetHashValue(pEntry);
+        Tk_FreeConfigOptions((char *)pTag, pTree->tagOptionTable, pTree->tkwin);
+        HtmlFree("", pTag);
+    }
+    Tcl_DeleteHashTable(&pTree->aTag);
+}
+
 

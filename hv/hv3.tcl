@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.89 2006/08/01 09:56:54 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.90 2006/08/08 17:50:34 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -332,6 +332,12 @@ snit::type ::hv3::hv3::selectionmanager {
   variable myHv3
   variable myState 0               ;# True when left-button is held down
 
+  variable myFromNode
+  variable myFromIdx
+
+  variable myToNode
+  variable myToIdx
+
   constructor {hv3} {
     set myHv3 $hv3
     selection handle $myHv3 [mymethod get_selection]
@@ -346,8 +352,12 @@ snit::type ::hv3::hv3::selectionmanager {
     set from [$myHv3 node -index $x $y]
     if {[llength $from]==2} {
       foreach {node index} $from {}
-      $myHv3 select from $node $index
-      $myHv3 select to $node $index
+      $myHv3 tag delete selection
+      $myHv3 tag configure selection -foreground white -background darkgrey
+      set myFromNode $node
+      set myFromIdx $index
+      set myToNode $node
+      set myToIdx $index
     }
   }
 
@@ -360,7 +370,11 @@ snit::type ::hv3::hv3::selectionmanager {
     set to [$myHv3 node -index $x $y]
     if {[llength $to]==2} {
       foreach {node index} $to {}
-      $myHv3 select to $node $index
+      # $myHv3 select to $node $index
+      $myHv3 tag remove selection $myFromNode $myFromIdx $myToNode $myToIdx
+      set myToNode $node
+      set myToIdx $index
+      $myHv3 tag add selection $myFromNode $myFromIdx $myToNode $myToIdx
     }
     selection own $myHv3
   }
@@ -372,13 +386,19 @@ snit::type ::hv3::hv3::selectionmanager {
   #     region is returned.
   #
   method get_selection {offset maxChars} {
-    set span [$myHv3 select span]
-    if {[llength $span] != 4} { return "" }
-    foreach {n1 i1 n2 i2} $span {}
+    set n1 $myFromNode
+    set i1 $myFromIdx
+    set n2 $myToNode
+    set i2 $myToIdx
 
     set td [$myHv3 textdocument]
     set stridx_a [$td nodeToString $n1 $i1]
     set stridx_b [expr [$td nodeToString $n2 $i2] -1]
+
+    if {$stridx_a > $stridx_b} {
+      foreach {stridx_a stridx_b} [list $stridx_b $stridx_a] {}
+    }
+
     set T [string range [$td text] $stridx_a $stridx_b]
     set T [string range $T $offset [expr $offset + $maxChars]]
     
