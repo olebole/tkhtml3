@@ -862,6 +862,11 @@ struct TagOpData {
     HtmlWidgetTag *pTag;
 
     int isAdd;              /* True for [add] false for [remove] */
+
+    HtmlNode *pFirst;
+    HtmlNode *pLast;
+    int iFirst;
+    int iLast;
 };
 
 #define OVERLAP_NONE     1
@@ -869,6 +874,7 @@ struct TagOpData {
 #define OVERLAP_SUB      3
 #define OVERLAP_FROM     4
 #define OVERLAP_TO       5
+#define OVERLAP_EXACT    6
 static int
 getOverlap(pTagged, iFrom, iTo)
     HtmlTaggedRegion *pTagged;
@@ -878,6 +884,9 @@ getOverlap(pTagged, iFrom, iTo)
     assert(iFrom <= iTo);
     assert(pTagged->iFrom <= pTagged->iTo);
 
+    if (iFrom == pTagged->iFrom && iTo == pTagged->iTo) {
+        return OVERLAP_EXACT;
+    }
     if (iFrom <= pTagged->iFrom && iTo >= pTagged->iTo) {
         return OVERLAP_SUPER;
     }
@@ -928,8 +937,25 @@ tagAddRemoveCallback(pTree, pNode, clientData)
         switch (pData->isAdd) {
             case HTML_TAG_ADD:
                 while (pTagged && pTagged->pTag == pData->pTag) {
+                    int e = getOverlap(pTagged, iFrom, iTo);
                     pPtr = &pTagged->pNext;
-                    if (OVERLAP_NONE != getOverlap(pTagged, iFrom, iTo)) {
+                    if (e != OVERLAP_NONE) {
+                        if (0 == pData->pFirst) {
+                            if (e == OVERLAP_SUPER || e == OVERLAP_FROM) {
+                                pData->pFirst = pNode;
+                                pData->iFirst = iFrom;
+                            } else if (e == OVERLAP_TO) {
+                                pData->pFirst = pNode;
+                                pData->iFirst = pTagged->iTo;
+                            }
+                        }
+                        if (e == OVERLAP_TO || e == OVERLAP_SUPER) {
+                            pData->pLast = pNode;
+                            pData->iLast = iTo;
+                        } if (e == OVERLAP_FROM) {
+                            pData->pLast = pNode;
+                            pData->iLast = pTagged->iFrom;
+                        }
                         pTagged->iFrom = MIN(pTagged->iFrom, iFrom);
                         pTagged->iTo = MAX(pTagged->iTo, iTo);
                         break;
@@ -953,6 +979,7 @@ tagAddRemoveCallback(pTree, pNode, clientData)
                     int eOverlap = getOverlap(pTagged, iFrom, iTo);
 
                     switch (eOverlap) {
+                        case OVERLAP_EXACT:
                         case OVERLAP_SUPER: {
                             /* Delete the whole list entry */
                             *pPtr = pTagged->pNext;
@@ -1039,10 +1066,18 @@ HtmlTagAddRemoveCmd(clientData, interp, objc, objv, isAdd)
     pParent = orderIndexPair(&sData.pFrom,&sData.iFrom,&sData.pTo,&sData.iTo);
     HtmlWalkTree(pTree, pParent, tagAddRemoveCallback, &sData);
 
-    HtmlWidgetDamageText(pTree, 
-        sData.pFrom->iNode, sData.iFrom,
-        sData.pTo->iNode, sData.iTo
-    );
+    if (isAdd == HTML_TAG_REMOVE) {
+        HtmlWidgetDamageText(pTree, 
+            sData.pFrom->iNode, sData.iFrom,
+            sData.pTo->iNode, sData.iTo
+        );
+    } else if (sData.pFirst) {
+        assert(sData.pLast);
+        HtmlWidgetDamageText(pTree, 
+            sData.pFirst->iNode, sData.iFirst,
+            sData.pLast->iNode, sData.iLast
+        );
+    }
 
     return TCL_OK;
 }
@@ -1144,5 +1179,4 @@ HtmlTagCleanupTree(pTree)
     }
     Tcl_DeleteHashTable(&pTree->aTag);
 }
-
 
