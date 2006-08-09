@@ -6,6 +6,25 @@ proc sourcefile {file} {
 }
 sourcefile common.tcl
 
+# Test organization for tests in this file.
+#
+#     style-1.*:   Tests the parsing of 'background-position' property values.
+#     style-2.*:   Tests the parsing of 'background' property values.
+                 
+#     style-5.*:   Tests some intentional stylesheet syntax errors observed 
+#                  in the wild used to mask an @import directive. Apparently
+#                  one of the "IE-hacks".
+#
+#     style-7.*:   Security test. Tests that only a default stylesheet can
+#                  specify "tcl()" property values. If this were not the
+#                  case web pages could cause arbitrary scripts to be 
+#                  executed in the applications interpreter.
+#
+#     style-8.*:   Tests that Tkhtml handles certain types of syntax errors 
+#                  in stylesheets. Specifically, these test cases come
+#                  from the malformed selectors in the "acid2" test.
+#
+
 html .h
 .h handler script style styleHandler 
 proc styleHandler {attr data} {
@@ -53,15 +72,16 @@ tcltest::test style-1.1 {} -body {
   background-position $node
 } -result {50.00% 50.00%}
 
+# Note: in quirks mode the result would be {111px 222px}
 tcltest::test style-1.2 {} -body {
   set node [lindex [.h search .three] 0]
   background-position $node
-} -result {111px 222px}
+} -result {0px 0px}
 
 tcltest::test style-1.3 {} -body {
   set node [lindex [.h search .four] 0]
   background-position $node
-} -result {100% 50%}
+} -result {100.00% 50.00%}
 
 
 #--------------------------------------------------------------------------
@@ -90,10 +110,11 @@ tcltest::test style-2.1 {} -body {
   property $node background-color
 } -result {black}
 
+# Note: in quirks mode the result would be {50px 100px}
 tcltest::test style-2.2 {} -body {
   set node2 [lindex [.h search .two] 0]
   background-position $node2
-} -result {50px 100px}
+} -result {0px 0px}
 
 tcltest::test style-2.3 {} -body {
   property $node2 background-repeat
