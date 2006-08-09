@@ -818,17 +818,16 @@ removeTagFromNode(pNode, pTag)
 {
     HtmlTaggedRegion *pTagged = pNode->pTagged;
     if (pTagged) { 
-        if (pTagged->pTag == pTag) {
+        while (pTagged && pTagged->pTag == pTag) {
             pNode->pTagged = pTagged->pNext;
             HtmlFree("", pTagged);
-        } else {
-            for ( ; pTagged->pNext ; pTagged = pTagged->pNext) {
-                if (pTagged->pNext->pTag == pTag) {
-                    HtmlTaggedRegion *pNext = pTagged->pNext;
-                    pTagged->pNext = pNext->pNext;
-                    HtmlFree("", pNext);
-                    break;
-                }
+            pTagged = pNode->pTagged;
+        }
+        for ( ; pTagged && pTagged->pNext ; pTagged = pTagged->pNext) {
+            if (pTagged->pNext->pTag == pTag) {
+                HtmlTaggedRegion *pNext = pTagged->pNext;
+                pTagged->pNext = pNext->pNext;
+                HtmlFree("", pNext);
             }
         }
     }
@@ -1128,6 +1127,7 @@ HtmlTagCleanupNode(pNode)
         HtmlFree("", pTagged);
         pTagged = pNext;
     }
+    pNode->pTagged = 0;
 }
 
 void
