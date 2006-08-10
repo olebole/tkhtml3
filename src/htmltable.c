@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.93 2006/07/29 09:41:26 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.94 2006/08/10 10:30:33 danielk1977 Exp $";
 
 #include "htmllayout.h"
 
@@ -230,7 +230,7 @@ tableColWidthSingleSpan(pNode, col, colspan, row, rowspan, pContext)
  *     column widths if required.
  *
  *     Todo: Account for the 'width' property on cells that span multiple
- *           columns.
+ *           columns. For now, only the content width is considered.
  *
  * Results:
  *     None.
@@ -281,7 +281,7 @@ tableColWidthMultiSpan(pNode, col, colspan, row, rowspan, pContext)
  
         /* Macro evaluates to true for an "auto-width" column. */
         #define COL_ISAUTO(i) \
-             (aExplicitWidth[i]==PIXELVAL_AUTO && aPercentWidth[i]<0.0)
+             (aExplicitWidth[i] == PIXELVAL_AUTO && aPercentWidth[i] < 0.0)
 
 	/* Calculate the current collective minimum and maximum widths of the
 	 * spanned columns. Also accumulate the aggregate difference between
