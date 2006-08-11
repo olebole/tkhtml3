@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.94 2006/08/10 10:30:33 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.95 2006/08/11 06:26:20 danielk1977 Exp $";
 
 #include "htmllayout.h"
 
@@ -223,6 +223,82 @@ tableColWidthSingleSpan(pNode, col, colspan, row, rowspan, pContext)
 /*
  *---------------------------------------------------------------------------
  *
+ * logWidthsToTable --
+ *
+ *     This function is only used by LOG{...} blocks (i.e. to debug the
+ *     widget internals). It appends a formatted HTML table to the 
+ *     current value of pObj summarizing the values in the followiny arrays:
+ *
+ *         pData->aExplicitWidth
+ *         pData->aMinWidth
+ *         pData->aMaxWidth
+ *         pData->aPercentWidth
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     Appends to pObj.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void
+logWidthsToTable(pData, pObj)
+    TableData *pData;
+    Tcl_Obj *pObj;
+{
+    int   *aMinWidth      = pData->aMinWidth;
+    int   *aMaxWidth      = pData->aMaxWidth;
+    float *aPercentWidth  = pData->aPercentWidth;
+    int   *aExplicitWidth = pData->aExplicitWidth;
+    int ii;
+
+    Tcl_AppendToObj(pObj, 
+        "<table><tr>"
+        "  <th>Col Number"
+        "  <th>Min Content Width"
+        "  <th>Max Content Width"
+        "  <th>Explicit Width"
+        "  <th>Percentage Width", -1);
+
+    for (ii = 0; ii < pData->nCol; ii++) {
+        int jj;
+        char zPercent[32];
+
+        Tcl_AppendToObj(pObj, "<tr><td>", -1);
+        Tcl_AppendObjToObj(pObj, Tcl_NewIntObj(ii));
+
+        for (jj = 0; jj < 3; jj++) {
+            int val;
+            switch (jj) {
+                case 0: val = aMinWidth[ii]; break;
+                case 1: val = aMaxWidth[ii]; break;
+                case 2: val = aExplicitWidth[ii]; break;
+            }
+            Tcl_AppendToObj(pObj, "<td>", -1);
+            if (val != PIXELVAL_AUTO) {
+                Tcl_AppendObjToObj(pObj, Tcl_NewIntObj(val));
+                Tcl_AppendToObj(pObj, "px", -1);
+            } else {
+                Tcl_AppendToObj(pObj, "N/A", -1);
+            }
+        }
+
+        Tcl_AppendToObj(pObj, "<td>", -1);
+        if (aPercentWidth[ii] >= 0.0) {
+            sprintf(zPercent, "%.2f%%", aPercentWidth[ii]);
+        } else {
+            sprintf(zPercent, "N/A");
+        }
+        Tcl_AppendToObj(pObj, zPercent, -1);
+    }
+    Tcl_AppendToObj(pObj, "</table>", -1);
+}
+
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * tableColWidthMultiSpan --
  *
  *     A tableIterate() callback to calculate the minimum and maximum
@@ -259,8 +335,8 @@ tableColWidthMultiSpan(pNode, col, colspan, row, rowspan, pContext)
 
         int currentmin;
         int minincr;
-        /* int currentmax; */
-        /* int maxincr; */
+        int currentmax;
+        int maxincr;
 
         int nAutoPixels = 0;      /* Aggregate (max - min) for auto columns */
         int nAutoColumns = 0;     /* Number of auto columns */
@@ -278,6 +354,8 @@ tableColWidthMultiSpan(pNode, col, colspan, row, rowspan, pContext)
         int *aMaxWidth      = pData->aMaxWidth;
         int *aExplicitWidth = pData->aExplicitWidth;
         float *aPercentWidth  = pData->aPercentWidth;
+
+        LayoutContext *pLayout = pData->pLayout;
  
         /* Macro evaluates to true for an "auto-width" column. */
         #define COL_ISAUTO(i) \
@@ -300,11 +378,39 @@ tableColWidthMultiSpan(pNode, col, colspan, row, rowspan, pContext)
          * border and padding (table-cells do not have margins). 
          */
         fixNodeProperties(pData, pNode);
-        blockMinMaxWidth(pData->pLayout, pNode, &min, &max);
-        nodeGetBoxProperties(pData->pLayout, pNode, 0, &box);
+        blockMinMaxWidth(pLayout, pNode, &min, &max);
+        nodeGetBoxProperties(pLayout, pNode, 0, &box);
         min += box.iLeft + box.iRight;
         max += box.iLeft + box.iRight;
         pV = pNode->pPropertyValues;
+
+        /* Log the inputs to this function. */
+        LOG {
+            HtmlTree *pTree = pLayout->pTree;
+            Tcl_Obj *pLog = Tcl_NewObj();
+            Tcl_IncrRefCount(pLog);
+
+            Tcl_AppendToObj(pLog, "<ul><li>", -1);
+            Tcl_AppendToObj(pLog, "Cell spans ", -1);
+            Tcl_AppendObjToObj(pLog, Tcl_NewIntObj(colspan));
+            Tcl_AppendToObj(pLog, " columns from col ", -1);
+            Tcl_AppendObjToObj(pLog, Tcl_NewIntObj(col));
+
+            Tcl_AppendToObj(pLog, "<li> min = ", -1);
+            Tcl_AppendObjToObj(pLog, Tcl_NewIntObj(min));
+            Tcl_AppendToObj(pLog, "<li> max = ", -1);
+            Tcl_AppendObjToObj(pLog, Tcl_NewIntObj(max));
+            Tcl_AppendToObj(pLog, "</ul>", -1);
+
+            logWidthsToTable(pData, pLog);
+
+            HtmlLog(pTree, "LAYOUTENGINE", "%s tableColWidthMultiSpan() %s",
+                Tcl_GetString(HtmlNodeCommand(pTree, pNode)), 
+                Tcl_GetString(pLog)
+            );
+
+            Tcl_DecrRefCount(pLog);
+        }
 
 	/* Set minincr to the number of pixels that must be added to the
          * minimum widths of the spanned columns.
@@ -351,16 +457,32 @@ tableColWidthMultiSpan(pNode, col, colspan, row, rowspan, pContext)
         /* If we failed to allocate all the min-width pixels to auto columns
          * in the loop above, distribute them evenly between columns here.
          */
+	currentmax = (pData->border_spacing * (colspan-1));
         for (i=col; i<(col+colspan); i++) {
             int this_incr = (minincr / (col + colspan - i));
             minincr -= this_incr;
             aMinWidth[i] += this_incr;
             aMaxWidth[i] = MAX(aMinWidth[i], aMaxWidth[i]);
+            currentmax += aMaxWidth[i];
         }
+	maxincr = MAX(0, max - currentmax);
 
 	/* Divide any max-width pixels between all spanned columns. */
-        for (i=col; i<(col+colspan); i++) {
-            aMaxWidth[i] = MAX(max / colspan, aMaxWidth[i]);
+        if (max > currentmax) {
+            int alloced = 0;
+            for (i=col; i<(col+colspan); i++) {
+                int diff;
+                if (i < (col+colspan-1)) {
+                    diff = INTEGER((double)(maxincr * aMaxWidth[i])/currentmax);
+                } else {
+                    diff = maxincr - alloced;
+                }
+                diff = MIN(diff, maxincr - alloced);
+                assert(diff >= 0);
+                aMaxWidth[i] += diff;
+                alloced += diff;
+            }
+            assert(alloced == maxincr);
         }
 
         if (pV->mask & PROP_MASK_WIDTH) {
@@ -400,6 +522,20 @@ tableColWidthMultiSpan(pNode, col, colspan, row, rowspan, pContext)
                     }
                 }
             }
+        }
+
+        /* Log the inputs to this function. */
+        LOG {
+            HtmlTree *pTree = pLayout->pTree;
+            Tcl_Obj *pLog = Tcl_NewObj();
+            Tcl_IncrRefCount(pLog);
+            logWidthsToTable(pData, pLog);
+            HtmlLog(pTree, "LAYOUTENGINE", "%s tableColWidthMultiSpan() %s",
+                Tcl_GetString(HtmlNodeCommand(pTree, pNode)), 
+                Tcl_GetString(pLog)
+            );
+
+            Tcl_DecrRefCount(pLog);
         }
 
         #undef COL_ISAUTO
@@ -1125,6 +1261,7 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
 
     int nPercentWidth;    /* Number of columns with percentage widths */
     int nAutoWidth;       /* Number of columns with "auto" widths */
+    int iAutoMaxLessMin;  /* Aggregate of (max-min) for all "auto" cols */
 
     int *aRequested;      /* Array used as arg to allocatePixels() */
 
@@ -1141,12 +1278,9 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
         aLogValues = (int *)HtmlAlloc(0, nBytes);
     }
 
-    /* A rather lengthy block to log the inputs to this function. */
+    /* Log the inputs to this function. */
     LOG {
         HtmlTree *pTree = pLayout->pTree;
-        int ii;
-
-        char zPercent[24];
         Tcl_Obj *pLog = Tcl_NewObj();
         Tcl_IncrRefCount(pLog);
 
@@ -1157,45 +1291,7 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
         Tcl_AppendToObj(pLog, isAuto ? "auto</b>" : "not</b> auto", -1);
         Tcl_AppendToObj(pLog, ")</p>", -1);
 
-        Tcl_AppendToObj(pLog, 
-            "<table><tr>"
-            "  <th>Col Number"
-            "  <th>Min Content Width"
-            "  <th>Max Content Width"
-            "  <th>Explicit Width"
-            "  <th>Percentage Width", -1);
-
-        for (ii = 0; ii < nCol; ii++) {
-            int jj;
-
-            Tcl_AppendToObj(pLog, "<tr><td>", -1);
-            Tcl_AppendObjToObj(pLog, Tcl_NewIntObj(ii));
-
-            for (jj = 0; jj < 3; jj++) {
-                int val;
-                switch (jj) {
-                    case 0: val = aMinWidth[ii]; break;
-                    case 1: val = aMaxWidth[ii]; break;
-                    case 2: val = aExplicitWidth[ii]; break;
-                }
-                Tcl_AppendToObj(pLog, "<td>", -1);
-                if (val != PIXELVAL_AUTO) {
-                    Tcl_AppendObjToObj(pLog, Tcl_NewIntObj(val));
-                    Tcl_AppendToObj(pLog, "px", -1);
-                } else {
-                    Tcl_AppendToObj(pLog, "N/A", -1);
-                }
-            }
-
-            Tcl_AppendToObj(pLog, "<td>", -1);
-            if (aPercentWidth[ii] >= 0.0) {
-                sprintf(zPercent, "%.2f%%", aPercentWidth[ii]);
-            } else {
-                sprintf(zPercent, "N/A");
-            }
-            Tcl_AppendToObj(pLog, zPercent, -1);
-        }
-        Tcl_AppendToObj(pLog, "</table>", -1);
+        logWidthsToTable(pData, pLog);
 
         HtmlLog(pTree, "LAYOUTENGINE", "%s tableCalculateCellWidths() %s",
             Tcl_GetString(HtmlNodeCommand(pTree, pData->pNode)), 
@@ -1256,11 +1352,14 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
      *           25%).
      *
      */ 
-    min_ratio = 0.0;    /* Minimum desired pixels per percentage point */
-    exp_ratio = 0.0;    /* Explicitly desired pixels per percentage point */
+    min_ratio = 0.0;      /* Minimum desired pixels per percentage point */
+    exp_ratio = 0.0;      /* Explicitly desired pixels per percentage point */
     percent_sum = 0.0;
     nPercentWidth = 0;
-    nAutoWidth = 0;
+    nAutoWidth = 0;       /* Number of columns with "width:auto" */
+
+    iAutoMaxLessMin = 0;  /* Sum of (maxwidth-minwidth) for "width:auto" cols */
+
     for (i = 0; i < nCol; i++) {
         /* Check the integrity of the COL_xxx macros. A column may be
          * either "auto", or one or both of "percent" and "explicit". 
@@ -1284,6 +1383,7 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
         } 
         if (COL_ISAUTO(i)) {
             nAutoWidth++;
+            iAutoMaxLessMin += (aMaxWidth[i] - aMinWidth[i]);
         }
     }
     isPercentOver = ((percent_sum > 99.9) ? 1 : 0);
@@ -1303,7 +1403,7 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
         exp_ratio = MAX(exp_ratio,
             (float)(iTotalOtherExpWidth) / (100.0 - percent_sum)
         );
-    } else if (isPercentOver || nPercentWidth) {
+    } else if (isPercentOver || nPercentWidth == nCol) {
         /* If the sum of the % widths is greater than 100.0 or all
 	 * columns have percentage widths, divide up all the remaining 
          * space amongst percentage columns.
@@ -1324,8 +1424,17 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
                 aRequested[i] = MAX(diff, 0);
             } else if (!isPercentOver && nAutoWidth > 0){
                 if (COL_ISAUTO(i)) {
-                    float percent = (100.0 - percent_sum) / (double)nAutoWidth;
-                    int diff = ((min_ratio * percent) - aWidth[i]);
+                    double percent = 0.0;
+                    int diff = 0;
+                    if (iAutoMaxLessMin == 0) {
+                        percent = (100.0 - percent_sum) / (double)nAutoWidth;
+                    } else {
+                        assert(iAutoMaxLessMin > 0);
+                        percent = (aMaxWidth[i] - aMinWidth[i]);
+                        percent = percent * (100.0 - percent_sum);
+                        percent = percent / (double)iAutoMaxLessMin;
+                    }
+                    diff = ((min_ratio * percent) - aWidth[i]);
                     aRequested[i] = MAX(diff, 0);
                 }
             } else if (!isPercentOver && nPercentWidth < nCol) {

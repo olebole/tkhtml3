@@ -5,9 +5,9 @@ TOP = $(HOME)/work/tkhtml/htmlwidget
 
 ##### BUILD can be DEBUG, RELEASE or MEMDEBUG.
 #
-BUILD = DEBUG
+# BUILD = DEBUG
 # BUILD = RELEASE
-# BUILD = MEMDEBUG
+BUILD = MEMDEBUG
 # BUILD = PROFILE
 
 ##### Version of and path to the Tcl installation to use.
