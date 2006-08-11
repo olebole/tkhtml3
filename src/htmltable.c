@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.95 2006/08/11 06:26:20 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.96 2006/08/11 07:12:55 danielk1977 Exp $";
 
 #include "htmllayout.h"
 
@@ -757,6 +757,7 @@ tableDrawCells(pNode, col, colspan, row, rowspan, pContext)
     int y = 0;
     int belowY;
     LayoutContext *pLayout = pData->pLayout;
+    int iHeight;
 
     fixNodeProperties(pData, pNode);
 
@@ -798,12 +799,16 @@ tableDrawCells(pNode, col, colspan, row, rowspan, pContext)
 
 
     HtmlLayoutNodeContent(pData->pLayout, pBox, pNode);
-    pBox->height = MAX(
+
+    /* Handle the 'height' property on the table-cell node. The 'height'
+     * really specifies a minimum height for the row, not the height of the
+     * table-cell box.
+     */
+    iHeight = MAX(
         getHeight(pNode, pBox->height, PIXELVAL_AUTO), 
         pBox->height
     );
-
-    belowY = y + pBox->height + pData->border_spacing + box.iTop + box.iBottom;
+    belowY = y + iHeight + pData->border_spacing + box.iTop + box.iBottom;
     
     LOG {
         HtmlTree *pTree = pLayout->pTree;

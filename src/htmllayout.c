@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.197 2006/08/07 12:49:07 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.198 2006/08/11 07:12:54 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -141,11 +141,11 @@ struct HtmlLayoutCache {
  *
  * Functions declared in htmllayout.h:
  *
- *     HtmlLayoutNodeContent         * htmltable.c only
+ *     HtmlLayoutNodeContent
  *
- *     blockMinMaxWidth            * This file and htmltable.c
- *     nodeGetMargins              * This file and htmlinline.c
- *     nodeGetBoxProperties        * This file and htmlinline.c
+ *     blockMinMaxWidth
+ *     nodeGetMargins
+ *     nodeGetBoxProperties
  */
 
 /*
