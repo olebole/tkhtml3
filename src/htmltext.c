@@ -969,6 +969,14 @@ tagAddRemoveCallback(pTree, pNode, clientData)
                     pNew->iTo = iTo;
                     pNew->pNext = pTagged;
                     pNew->pTag = pData->pTag;
+
+                    if (!pData->pFirst) {
+                        pData->pFirst = pNode;
+                        pData->iFirst = iFrom;
+                    }
+                    pData->pLast = pNode;
+                    pData->iLast = iTo;
+
                     *pPtr = pNew;
                 }
 
