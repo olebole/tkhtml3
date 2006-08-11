@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.87 2006/08/03 16:24:13 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.88 2006/08/11 09:07:17 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -2118,6 +2118,9 @@ HtmlComputedValuesFinish(p)
         p->values.eDisplay == CSS_CONST_INLINE_BLOCK
     ) {
         p->values.eDisplay = CSS_CONST_BLOCK;
+    }
+    if (p->values.eDisplay == CSS_CONST_INLINE_TABLE) {
+        p->values.eDisplay = CSS_CONST_TABLE;
     }
 
     /* Look the values structure up in the hash-table. */

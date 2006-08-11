@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.198 2006/08/11 07:12:54 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.199 2006/08/11 09:07:17 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -2776,6 +2776,7 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
     } else if (eDisplay == CSS_CONST_LIST_ITEM) {
         pFlow = &FT_LIST_ITEM;
     } else if (eDisplay == CSS_CONST_TABLE) {
+        /* Todo: 'inline-table' is currently handled as 'table' */
         pFlow = &FT_TABLE;
     } else if (
         eDisplay == CSS_CONST_TABLE_CELL || 
