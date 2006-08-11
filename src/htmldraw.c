@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.152 2006/08/08 17:50:34 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.153 2006/08/11 12:24:05 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -953,7 +953,10 @@ CHECK_CANVAS(pCanvas2);
             if (
                 pT1 && pT1->type == CANVAS_TEXT && 
                 pT2 && pT2->type == CANVAS_TEXT &&
-                pT1->x.t.pNode == pT2->x.t.pNode
+                pT1->x.t.pNode == pT2->x.t.pNode &&
+                pT1->x.t.iIndex >= 0 && pT2->x.t.iIndex >= 0 &&
+                pT1->x.t.iIndex + Tcl_GetCharLength(pT1->x.t.pText) + 1 ==
+                pT2->x.t.iIndex
             ) {
                 int sw = fontFromNode(pT1->x.t.pNode)->space_pixels;
                 if ((pT1->x.t.x + pT1->x.t.w + sw) == pT2->x.t.x) {

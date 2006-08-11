@@ -818,19 +818,24 @@ removeTagFromNode(pNode, pTag)
 {
     HtmlTaggedRegion *pTagged = pNode->pTagged;
     if (pTagged) { 
-        while (pTagged && pTagged->pTag == pTag) {
-            pNode->pTagged = pTagged->pNext;
-            HtmlFree("", pTagged);
-            pTagged = pNode->pTagged;
-        }
-        for ( ; pTagged && pTagged->pNext ; pTagged = pTagged->pNext) {
-            if (pTagged->pNext->pTag == pTag) {
-                HtmlTaggedRegion *pNext = pTagged->pNext;
-                pTagged->pNext = pNext->pNext;
-                HtmlFree("", pNext);
+        HtmlTaggedRegion **pPtr = &pNode->pTagged;
+        
+        while (pTagged) {
+            if (pTagged->pTag == pTag) {
+                *pPtr = pTagged->pNext;
+                HtmlFree("", pTagged);
+            } else {
+                pPtr = &pTagged->pNext;
             }
+            pTagged = *pPtr;
         }
     }
+
+#ifndef NDEBUG
+    for ( pTagged = pNode->pTagged; pTagged ; pTagged = pTagged->pNext) {
+        assert(pTagged->pTag != pTag);
+    }
+#endif
 }
 
 static HtmlTaggedRegion *

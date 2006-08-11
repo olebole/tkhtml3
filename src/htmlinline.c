@@ -33,7 +33,7 @@
  * 
  *     HtmlInlineContextIsEmpty
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.29 2006/07/31 15:25:11 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.30 2006/08/11 12:24:05 danielk1977 Exp $";
 
 typedef struct InlineBox InlineBox;
 
@@ -1215,7 +1215,7 @@ HtmlInlineContextAddText(pContext, pNode)
                 td = pFont->metrics.descent;
                 tem = pFont->em_pixels;
                 inlineContextSetBoxDimensions(pContext, tw, ta, td, tem);
-                HtmlDrawText(p,pText,0,0,tw,szonly,pNode,iIndex);
+                HtmlDrawText(p, pText, 0, 0, tw, szonly, pNode, iIndex);
                 Tcl_DecrRefCount(pText);
                 iIndex += pToken->count;
                 pContext->ignoreLineHeight = 0;
