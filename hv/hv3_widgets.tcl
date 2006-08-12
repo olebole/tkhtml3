@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.17 2006/07/18 18:30:54 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.18 2006/08/12 14:10:12 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
@@ -637,6 +637,8 @@ proc ::hv3::resolve_uri {base relative} {
 #---------------------------------------------------------------------------
 
 
+# Class ::hv3::textdocument
+#
 snit::type ::hv3::textdocument {
 
   variable myHtml                      ;# Html widget
@@ -716,10 +718,156 @@ snit::type ::hv3::textdocument {
   }
 }
 
+snit::widget ::hv3::findwidget {
+  variable myHv3              ;# The HTML widget
+
+  variable myNocaseVar 1      ;# Variable for the "Case insensitive" checkbox 
+  variable myEntryVar  ""     ;# Variable for the entry widget
+  variable myCaptionVar ""    ;# Variable for the label widget
+  
+  variable myCurrentHit -1
+  variable myCurrentList ""
+
+  constructor {hv3 args} {
+    set myHv3 $hv3
+
+    label $win.label -text "Search for text:"
+    entry $win.entry -width 30
+    label $win.num_results -textvar [myvar myCaptionVar]
+
+    checkbutton $win.check_nocase   -text "Case Insensitive"
+    $win.check_nocase configure   -variable [myvar myNocaseVar]
+ 
+    $win.entry configure -textvar [myvar myEntryVar]
+    trace add variable [myvar myEntryVar] write [mymethod DynamicUpdate]
+    trace add variable [myvar myNocaseVar] write [mymethod DynamicUpdate]
+
+    bind $win.entry <Escape>       [mymethod Escape]
+    bind $win.entry <Return>       [mymethod Return 1]
+    bind $win.entry <Shift-Return> [mymethod Return -1]
+
+    focus $win.entry
+
+    pack $win.label -side left
+    pack $win.entry -side left
+    pack $win.check_nocase -side left
+    pack $win.num_results -side right -fill x
+  }
+
+  method lazymoveto {n1 i1 n2 i2} {
+    set nodebbox [$myHv3 text bbox $n1 $i1 $n2 $i2]
+    set docbbox  [$myHv3 bbox]
+
+    set docheight "[lindex $docbbox 3].0"
+
+    set ntop    [expr ([lindex $nodebbox 1].0 - 30.0) / $docheight]
+    set nbottom [expr ([lindex $nodebbox 3].0 + 30.0) / $docheight]
+ 
+    set sheight [expr [winfo height $myHv3].0 / $docheight]
+    set stop    [lindex [$myHv3 yview] 0]
+    set sbottom [expr $stop + $sheight]
+
+
+    if {$ntop < $stop} {
+      $myHv3 yview moveto $ntop
+    } elseif {$nbottom > $sbottom} {
+      $myHv3 yview moveto [expr $nbottom - $sheight]
+    }
+  }
+
+  # Dynamic update proc.
+  method UpdateDisplay {nMaxHighlight} {
+    $myHv3 tag delete findwidget
+    $myHv3 tag delete findwidgetcurrent
+    set myCaptionVar ""
+
+    set searchtext $myEntryVar
+    if {[string length $searchtext] == 0} return
+    set doctext [$myHv3 text text]
+
+    if {$myNocaseVar} {
+      set doctext [string tolower $doctext]
+      set searchtext [string tolower $searchtext]
+    }
+
+    set iFin 0
+    set lMatch [list]
+
+    while {[set iStart [string first $searchtext $doctext $iFin]] >= 0} {
+      set iFin [expr $iStart + [string length $searchtext]]
+      lappend lMatch $iStart $iFin
+    }
+    set nMatch [expr [llength $lMatch] / 2]
+    set lMatch [lrange $lMatch 0 [expr $nMaxHighlight * 2 - 1]]
+    set nHighlight [expr [llength $lMatch] / 2]
+    set myCaptionVar "(highlighted $nHighlight of $nMatch hits)"
+
+    if {[llength $lMatch] > 0} {
+      set matches [eval [concat $myHv3 text index $lMatch]]
+      foreach {n1 i1 n2 i2} $matches {
+        $myHv3 tag add findwidget $n1 $i1 $n2 $i2
+      }
+  
+      $myHv3 tag configure findwidget -bg purple -fg white
+        $self lazymoveto                            \
+            [lindex $matches 0] [lindex $matches 1] \
+            [lindex $matches 2] [lindex $matches 3]
+    }
+
+    set myCurrentList $matches
+  }
+
+  method DynamicUpdate {args} {
+    set myCurrentHit -1
+    $self UpdateDisplay 42
+  }
+  
+  method Escape {} {
+    destroy $win
+  }
+  method Return {dir} {
+    if {$myCurrentHit < 0} {
+      $self UpdateDisplay 100000
+    }
+    incr myCurrentHit $dir
+
+    set nHit [expr [llength $myCurrentList] / 4]
+    if {$myCurrentHit < 0 || $nHit <= $myCurrentHit} {
+      tk_messageBox -message "The text you entered was not found" -type ok
+      incr myCurrentHit [expr -1 * $dir]
+      return
+    }
+    set myCaptionVar "Hit [expr $myCurrentHit + 1] / $nHit"
+
+    set n1 [lindex $myCurrentList [expr $myCurrentHit * 4]]
+    set i1 [lindex $myCurrentList [expr $myCurrentHit * 4 + 1]]
+    set n2 [lindex $myCurrentList [expr $myCurrentHit * 4 + 2]]
+    set i2 [lindex $myCurrentList [expr $myCurrentHit * 4 + 3]]
+
+    $self lazymoveto $n1 $i1 $n2 $i2
+    $myHv3 tag delete findwidgetcurrent
+    $myHv3 tag add findwidgetcurrent $n1 $i1 $n2 $i2
+    $myHv3 tag configure findwidgetcurrent -bg black -fg yellow
+  }
+
+  destructor {
+    $myHv3 tag delete findwidget
+    trace remove variable [myvar myEntryVar] write [mymethod UpdateDisplay]
+    trace remove variable [myvar myNocaseVar] write [mymethod UpdateDisplay]
+  }
+}
+
+snit::widget ::hv3::finddialog {
+  hulltype toplevel
+  constructor {htmlwidget args} {
+    set w [::hv3::findwidget $win.widget $htmlwidget]
+    pack $w -expand true -fill both
+  }
+}
 
 # This class implements a "find text" dialog box for hv3.
 #
-snit::widget ::hv3::finddialog {
+snit::widget ::hv3::finddialog2 {
   hulltype toplevel
 
   # The html widget.
@@ -827,8 +975,7 @@ snit::widget ::hv3::finddialog {
       set from [$td stringToNode $ii]
       set to [$td stringToNode $ii2]
 
-      eval [concat [list $myHtml select from] $from]
-      eval [concat [list $myHtml select to] $to]
+      eval [concat [list $myHtml tag add searchtext] $from $to]
 
       $self lazymoveto [lindex $from 0]
     } elseif {$myIndex > 0 && $myWraparound} {
@@ -841,7 +988,8 @@ snit::widget ::hv3::finddialog {
     } else {
       # Text not found. Pop up a dialog to inform the user.
       set myIndex 0
-      $myHtml select clear
+      $myHtml tag delete searchtext
+
       tk_messageBox -message "The text you entered was not found" -type ok
     }
 

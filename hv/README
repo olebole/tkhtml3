@@ -65,6 +65,7 @@ Hv3 Application Object Types:
     ::hv3::frameset              (hv3_frameset.tcl)
     ::hv3::browser_frame         (hv3_main.tcl)
     ::hv3::browser               (hv3_main.tcl)
+    ::hv3::browser_toplevel      (hv3_main.tcl)
 
     ::hv3::finddialog            (hv3_widgets.tcl)
         This widget implements the find-text dialog.

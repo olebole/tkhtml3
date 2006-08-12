@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.153 2006/08/11 12:24:05 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.154 2006/08/12 14:10:12 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -3177,6 +3177,45 @@ HtmlWidgetDamageText(pTree, iNodeStart, iIndexStart, iNodeFin, iIndexFin)
     y = sQuery.top - pTree->iScrollY;
     h = (sQuery.bottom - pTree->iScrollY) - y;
     HtmlCallbackDamage(pTree, x, y, w, h);
+}
+
+void
+HtmlWidgetBboxText(
+pTree, pNodeStart, iIndexStart, pNodeFin, iIndexFin, piT, piL, piB, piR
+)
+    HtmlTree *pTree;         /* Widget tree */
+    HtmlNode *pNodeStart;    /* First node to repaint */
+    int iIndexStart;         /* First node to repaint */
+    HtmlNode *pNodeFin;      /* First node to repaint */
+    int iIndexFin;           /* Last node to repaint */
+    int *piT;
+    int *piL;
+    int *piB;
+    int *piR;
+{
+    PaintNodesQuery sQuery;
+
+    int iNodeStart = pNodeStart->iNode;
+    int iNodeFin = pNodeFin->iNode;
+  
+    assert(iNodeStart <= iNodeFin);
+    assert(iNodeFin > iNodeStart || iIndexFin >= iIndexStart);
+
+    sQuery.iNodeStart = iNodeStart;
+    sQuery.iNodeFin = iNodeFin;
+    sQuery.iIndexStart = iIndexStart;
+    sQuery.iIndexFin = iIndexFin;
+    sQuery.left = pTree->canvas.right;
+    sQuery.right = pTree->canvas.left;
+    sQuery.top = pTree->canvas.bottom;
+    sQuery.bottom = pTree->canvas.top;
+
+    searchCanvas(pTree, -1, -1, 0, paintNodesSearchCb, (ClientData)&sQuery);
+
+    *piL = sQuery.left;
+    *piR = sQuery.right;
+    *piT = sQuery.top;
+    *piB = sQuery.bottom;
 }
 
 /*

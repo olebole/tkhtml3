@@ -790,27 +790,6 @@ orderIndexPair(ppA, piA, ppB, piB)
     return pParent;
 }
 
-static HtmlTaggedRegion *
-addTagToNode(pNode, pTag)
-    HtmlNode *pNode;
-    HtmlWidgetTag *pTag;
-{
-    HtmlTaggedRegion *pTagged;
-
-    for (pTagged = pNode->pTagged; pTagged; pTagged = pTagged->pNext) {
-        if (pTagged->pTag == pTag) return pTagged;
-    }
-
-    pTagged = (HtmlTaggedRegion *)HtmlClearAlloc("", sizeof(HtmlTaggedRegion));
-    pTagged->pTag = pTag;
-    pTagged->pNext = pNode->pTagged;
-    pTagged->iFrom = 1000000;
-    pTagged->iTo = -1;
-
-    pNode->pTagged = pTagged;
-    return pTagged;
-}
-
 static void
 removeTagFromNode(pNode, pTag)
     HtmlNode *pNode;
@@ -832,7 +811,7 @@ removeTagFromNode(pNode, pTag)
     }
 
 #ifndef NDEBUG
-    for ( pTagged = pNode->pTagged; pTagged ; pTagged = pTagged->pNext) {
+    for (pTagged = pNode->pTagged; pTagged ; pTagged = pTagged->pNext) {
         assert(pTagged->pTag != pTag);
     }
 #endif
@@ -1191,5 +1170,295 @@ HtmlTagCleanupTree(pTree)
         HtmlFree("", pTag);
     }
     Tcl_DeleteHashTable(&pTree->aTag);
+}
+
+typedef struct HtmlTextMapping HtmlTextMapping;
+struct HtmlTextMapping {
+    HtmlNode *pNode;
+    int iStrIndex;
+    int iNodeIndex;
+    HtmlTextMapping *pNext;
+};
+
+struct HtmlText {
+    Tcl_Obj *pObj;
+    HtmlTextMapping *pMapping;
+};
+
+typedef struct HtmlTextInit HtmlTextInit;
+struct HtmlTextInit {
+    HtmlText *pText;
+    int eState;
+    int iIdx;
+};
+
+#define SEEN_TEXT  0
+#define SEEN_SPACE 1
+#define SEEN_BLOCK 2
+
+static void
+addTextMapping(pText, pNode, iNodeIndex, iStrIndex)
+    HtmlText *pText;
+    HtmlNode *pNode;
+    int iNodeIndex;
+    int iStrIndex;
+{
+    HtmlTextMapping *p;
+    p = (HtmlTextMapping *)HtmlAlloc("HtmlTextMapping",sizeof(HtmlTextMapping));
+    p->iStrIndex = iStrIndex;
+    p->iNodeIndex = iNodeIndex;
+    p->pNode = pNode;
+    p->pNext = pText->pMapping;
+    pText->pMapping = p;
+}
+
+static int
+initHtmlTextCallback(pTree, pNode, clientData)
+    HtmlTree *pTree;
+    HtmlNode *pNode;
+    ClientData clientData;
+{
+    HtmlTextInit *pInit = (HtmlTextInit *)clientData;
+    if (HtmlNodeIsText(pNode)) {
+        HtmlToken *pT;
+        int iNodeIndex = 0;
+        for (
+            pT = pNode->pToken;
+            pT && (pT->type==Html_Space || pT->type==Html_Text);
+            pT = pT->pNextToken
+        ) {
+            if (pT->type == Html_Space) {
+                pInit->eState = MAX(pInit->eState, SEEN_SPACE);
+                iNodeIndex++;
+            } else {
+                if (pInit->iIdx > 0) {
+                    switch (pInit->eState) {
+                        case SEEN_BLOCK:
+                            Tcl_AppendToObj(pInit->pText->pObj, "\n", 1);
+                            pInit->iIdx++;
+                            break;
+                        case SEEN_SPACE:
+                            Tcl_AppendToObj(pInit->pText->pObj, " ", 1);
+                            pInit->iIdx++;
+                            break;
+                    }
+                }
+                addTextMapping(pTree->pText, pNode, iNodeIndex, pInit->iIdx);
+                Tcl_AppendToObj(pInit->pText->pObj, pT->x.zText, pT->count);
+                pInit->eState = SEEN_TEXT;
+                iNodeIndex += pT->count;
+                assert(pT->count >= 0);
+                pInit->iIdx += Tcl_NumUtfChars(pT->x.zText, pT->count);
+            }
+        }
+    } else {
+      int eDisplay = pNode->pPropertyValues->eDisplay; 
+      if (eDisplay == CSS_CONST_NONE) {
+        return HTML_WALK_DO_NOT_DESCEND;
+      }
+      if (eDisplay != CSS_CONST_INLINE) {
+        pInit->eState = SEEN_BLOCK;
+      }
+    }
+    return HTML_WALK_DESCEND;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * initHtmlText --
+ * 
+ *     This function is called to initialise the HtmlText data structure 
+ *     at HtmlTree.pText. If the data structure is already initialised
+ *     this function is a no-op.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void
+initHtmlText(pTree)
+    HtmlTree *pTree;
+{
+    if (!pTree->pText) {
+        HtmlTextInit sInit;
+        HtmlCallbackForce(pTree);
+        pTree->pText = (HtmlText *)HtmlClearAlloc(0, sizeof(HtmlText));
+        memset(&sInit, 0, sizeof(HtmlTextInit));
+        sInit.pText = pTree->pText;
+        sInit.pText->pObj = Tcl_NewObj();
+        Tcl_IncrRefCount(sInit.pText->pObj);
+        HtmlWalkTree(pTree, 0, initHtmlTextCallback, (ClientData)&sInit);
+        Tcl_AppendToObj(sInit.pText->pObj, "\n", 1);
+    }
+}
+
+void 
+HtmlTextInvalidate(pTree)
+    HtmlTree *pTree;
+{
+    if (pTree->pText) {
+        HtmlText *pText = pTree->pText;
+        HtmlTextMapping *pMapping = pText->pMapping;
+
+        Tcl_DecrRefCount(pTree->pText->pObj);
+        while (pMapping) {
+            HtmlTextMapping *pNext = pMapping->pNext;
+            HtmlFree("HtmlTextMapping", pMapping);
+            pMapping = pNext;
+        }
+        HtmlFree(0, pTree->pText);
+        pTree->pText = 0;
+    }
+}
+
+int
+HtmlTextTextCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget */
+    Tcl_Interp *interp;                /* The interpreter */
+    int objc;                          /* Number of arguments */
+    Tcl_Obj *CONST objv[];             /* List of all arguments */
+{
+    HtmlTree *pTree = (HtmlTree *)clientData;
+    if (objc != 3) {
+        Tcl_WrongNumArgs(interp, 3, objv, "");
+        return TCL_ERROR;
+    }
+    initHtmlText(pTree);
+    Tcl_SetObjResult(interp, pTree->pText->pObj);
+    return TCL_OK;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlTextIndexCmd --
+ * 
+ *         $html text index OFFSET ?OFFSET? ?OFFSET?
+ *
+ *     The argument $OFFSET is an offset into the string returned
+ *     by [$html text text]. This Tcl command returns a list of two
+ *     elements - the node and node index corresponding to the 
+ *     equivalent point in the document tree.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+int
+HtmlTextIndexCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget */
+    Tcl_Interp *interp;                /* The interpreter */
+    int objc;                          /* Number of arguments */
+    Tcl_Obj *CONST objv[];             /* List of all arguments */
+{
+    HtmlTree *pTree = (HtmlTree *)clientData;
+    int ii;
+    Tcl_Obj *p = Tcl_NewObj();
+
+    HtmlTextMapping *pMap = 0;
+    int iPrev;
+ 
+    if (objc < 4) {
+        Tcl_WrongNumArgs(interp, 3, objv, "OFFSET ?OFFSET? ...");
+        return TCL_ERROR;
+    }
+
+    initHtmlText(pTree);
+    for (ii = objc-1; ii >= 3; ii--) {
+        int iIndex;
+        if (Tcl_GetIntFromObj(interp, objv[ii], &iIndex)) {
+            return TCL_ERROR;
+        }
+        if (pMap == 0 || iIndex > iPrev) {
+            pMap = pTree->pText->pMapping;
+        }
+        for ( ; pMap; pMap = pMap->pNext) {
+            assert(!pMap->pNext || pMap->iStrIndex >= pMap->pNext->iStrIndex);
+            if (pMap->iStrIndex < iIndex || !pMap->pNext) {
+                int iNodeIdx = pMap->iNodeIndex + iIndex - pMap->iStrIndex;
+                Tcl_Obj *apObj[2];
+                apObj[0] = HtmlNodeCommand(pTree, pMap->pNode);
+                apObj[1] = Tcl_NewIntObj(iNodeIdx);
+                // Tcl_ListObjAppendElement(0, p, pCmd);
+                // Tcl_ListObjAppendElement(0, p, 
+                Tcl_ListObjReplace(0, p, 0, 0, 2, &apObj);
+                break;
+            }
+        }
+        iPrev = iIndex;
+    }
+
+    Tcl_SetObjResult(interp, p);
+    return TCL_OK;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlTextBboxCmd --
+ * 
+ *         $html text bbox NODE1 INDEX1 NODE2 INDEX2
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+int
+HtmlTextBboxCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget */
+    Tcl_Interp *interp;                /* The interpreter */
+    int objc;                          /* Number of arguments */
+    Tcl_Obj *CONST objv[];             /* List of all arguments */
+{
+    HtmlTree *pTree = (HtmlTree *)clientData;
+    HtmlNode *pFrom;
+    HtmlNode *pTo;
+    int iFrom;
+    int iTo;
+
+    int iTop, iLeft, iBottom, iRight;
+
+    if (objc != 7) {
+        Tcl_WrongNumArgs(interp, 3, objv, 
+            "FROM-NODE FROM-INDEX TO-NODE TO-INDEX"
+        );
+        return TCL_ERROR;
+    }
+    if (
+        0 == (pFrom=HtmlNodeGetPointer(pTree, Tcl_GetString(objv[3]))) ||
+        TCL_OK != Tcl_GetIntFromObj(interp, objv[4], &iFrom) ||
+        0 == (pTo=HtmlNodeGetPointer(pTree, Tcl_GetString(objv[5]))) ||
+        TCL_OK != Tcl_GetIntFromObj(interp, objv[6], &iTo)
+    ) {
+        return TCL_ERROR;
+    }
+    orderIndexPair(&pFrom, &iFrom, &pTo, &iTo);
+
+    HtmlWidgetBboxText(pTree, pFrom, iFrom, pTo, iTo, 
+        &iTop, &iLeft, &iBottom, &iRight
+    );
+    if (iTop < iBottom && iLeft < iRight) {
+        Tcl_Obj *pRes = Tcl_NewObj();
+        Tcl_ListObjAppendElement(0, pRes, Tcl_NewIntObj(iLeft));
+        Tcl_ListObjAppendElement(0, pRes, Tcl_NewIntObj(iTop));
+        Tcl_ListObjAppendElement(0, pRes, Tcl_NewIntObj(iRight));
+        Tcl_ListObjAppendElement(0, pRes, Tcl_NewIntObj(iBottom));
+        Tcl_SetObjResult(interp, pRes);
+    }
+
+    return TCL_OK;
 }
 

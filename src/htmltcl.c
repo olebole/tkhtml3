@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.112 2006/08/08 17:50:34 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.113 2006/08/12 14:10:13 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -536,6 +536,13 @@ HtmlCallbackRestyle(pTree, pNode)
         pTree->cb.flags |= HTML_RESTYLE;
         upgradeRestylePoint(&pTree->cb.pRestyle, pNode);
     }
+
+    /* This is also where the text-representation of the document is
+     * invalidated. If the style of a node is to change, or a new node
+     * that has no style is added, then the current text-representation
+     * is clearly suspect.
+     */
+    HtmlTextInvalidate(pTree);
 }
 
 /*
@@ -1614,6 +1621,35 @@ tagDeleteCmd(clientData, interp, objc, objv)
     return HtmlTagDeleteCmd(clientData, interp, objc, objv);
 }
 
+static int
+textTextCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    return HtmlTextTextCmd(clientData, interp, objc, objv);
+}
+static int
+textIndexCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    return HtmlTextIndexCmd(clientData, interp, objc, objv);
+}
+static int
+textBboxCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    return HtmlTextBboxCmd(clientData, interp, objc, objv);
+}
+
+
 static int 
 forceCmd(clientData, interp, objc, objv)
     ClientData clientData;             /* The HTML widget data structure */
@@ -2004,6 +2040,11 @@ int widgetCmd(clientData, interp, objc, objv)
         {"tag",        "remove",    tagRemoveCmd},
         {"tag",        "configure", tagCfgCmd},
         {"tag",        "delete",    tagDeleteCmd},
+
+        {"text",       "text",      textTextCmd},
+        {"text",       "index",     textIndexCmd},
+        {"text",       "bbox",      textBboxCmd},
+
         {"xview",      0,           xviewCmd},
         {"yview",      0,           yviewCmd},
 

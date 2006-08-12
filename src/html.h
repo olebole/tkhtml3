@@ -113,6 +113,7 @@ typedef struct HtmlImage2 HtmlImage2;
 
 typedef struct HtmlWidgetTag HtmlWidgetTag;
 typedef struct HtmlTaggedRegion HtmlTaggedRegion;
+typedef struct HtmlText HtmlText;
 
 #include "css.h"
 #include "htmlprop.h"
@@ -490,6 +491,12 @@ struct HtmlTree {
     Tcl_HashTable aCmd;             /* Map of sub-commands implemented in Tcl */
 
     HtmlCallback cb;                /* See structure definition comments */
+
+    /* 
+     * Data structure used by the [widget text] commands. See the
+     * HtmlTextXXX() API below. 
+     */
+    HtmlText *pText;
 };
 
 #define MAX(x,y)  ((x)>(y)?(x):(y))
@@ -650,6 +657,14 @@ Tcl_ObjCmdProc HtmlTagDeleteCmd;
 Tcl_ObjCmdProc HtmlTagConfigureCmd;
 void HtmlTagCleanupNode(HtmlNode *);
 void HtmlTagCleanupTree(HtmlTree *);
+
+Tcl_ObjCmdProc HtmlTextTextCmd;
+Tcl_ObjCmdProc HtmlTextIndexCmd;
+Tcl_ObjCmdProc HtmlTextBboxCmd;
+void HtmlTextInvalidate(HtmlTree *);
+
+void HtmlWidgetBboxText(
+HtmlTree *, HtmlNode *, int, HtmlNode *, int, int *, int *, int *, int*);
 
 #endif
 

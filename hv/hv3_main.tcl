@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.52 2006/08/01 09:56:54 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.53 2006/08/12 14:10:12 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -191,7 +191,6 @@ snit::widget ::hv3::browser_frame {
     # Set up a binding to press "Q" to exit the application.
     bind $myHv3 <KeyPress-q> exit
     bind $myHv3 <KeyPress-Q> exit
-    bind $myHv3 <Control-f>  [mymethod find]
 
     # Click to focus (so that this frame accepts keyboard input).
     bind $myHv3 <1>          +[list focus %W]
@@ -449,10 +448,14 @@ if 0 {
 
   # Launch the find dialog.
   method find {} {
-    if {[llength [info commands ${win}_finddialog]] == 0} {
-      ::hv3::finddialog ${win}_finddialog $myHv3
+    set fdname ${win}_finddialog
+    if {[llength [info commands $fdname]] == 0} {
+      # ::hv3::finddialog $fdname $myHv3
+      ::hv3::findwidget $fdname $myHv3
+      place $fdname -anchor sw -relx 1.0 -width 500 -height 50
+      raise $fdname
     }
-    raise ${win}_finddialog
+    focus ${win}_finddialog.entry
   }
 
   method hv3 {} {
@@ -510,7 +513,7 @@ snit::widget ::hv3::browser_toplevel {
   constructor {args} {
     # Create the main browser frame (always present)
     set myMainFrame [::hv3::browser_frame $win.browser_frame $self]
-    pack $myMainFrame -expand true -fill both
+    pack $myMainFrame -expand true -fill both -side top
 
     # Create the protocol
     set myProtocol [::hv3::protocol %AUTO%]
@@ -533,6 +536,9 @@ snit::widget ::hv3::browser_toplevel {
     set myHistory [::hv3::history %AUTO% [$myMainFrame hv3]]
     $myHistory configure -gotocmd [mymethod goto]
     $myHistory configure -locationvar [myvar myLocationVar]
+
+    bind [$myMainFrame hv3] <KeyPress-slash>  [mymethod Find]
+    bind [$myMainFrame hv3] <Control-f>       [mymethod Find]
 
     $self configurelist $args
   }
@@ -581,6 +587,16 @@ snit::widget ::hv3::browser_toplevel {
   method Configurestopbutton {option value} {
     set options(-stopbutton) $value
     $self Setstopbutton
+  }
+
+  method Find {} {
+    set fdname ${win}.findwidget
+    if {[llength [info commands $fdname]] == 0} {
+      ::hv3::findwidget $fdname [$myMainFrame hv3]
+      pack $fdname -before $myMainFrame -side bottom -fill x -expand false
+      bind $fdname <Destroy> [list focus [$myMainFrame hv3]]
+    }
+    focus ${fdname}.entry
   }
 
   option -stopbutton -default "" -configuremethod Configurestopbutton
@@ -799,7 +815,7 @@ proc gui_menu {widget_array} {
 
   # Add the "Edit" menu and "Find..." function
   .m add cascade -label {Edit} -menu [::hv3::menu .m.edit]
-  .m.edit add command -label {Find in page...} -command [list gui_current find]
+  .m.edit add command -label {Find in page...} -command [list gui_current Find]
 
   # Add the 'Font Size Table' menu
   set fontsize_menu [create_fontsize_menu .m.edit.font ::hv3::fontsize_table]
