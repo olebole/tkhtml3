@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.18 2006/08/12 14:10:12 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.19 2006/08/12 16:37:08 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
@@ -728,15 +728,18 @@ snit::widget ::hv3::findwidget {
   variable myCurrentHit -1
   variable myCurrentList ""
 
+  delegate option -borderwidth to hull
+  delegate option -relief      to hull
+
   constructor {hv3 args} {
     set myHv3 $hv3
 
-    label $win.label -text "Search for text:"
-    entry $win.entry -width 30
-    label $win.num_results -textvar [myvar myCaptionVar]
+    ::hv3::label $win.label -text "Search for text:"
+    ::hv3::entry $win.entry -width 30
+    ::hv3::label $win.num_results -textvar [myvar myCaptionVar]
 
-    checkbutton $win.check_nocase   -text "Case Insensitive"
-    $win.check_nocase configure   -variable [myvar myNocaseVar]
+    checkbutton $win.check_nocase -variable [myvar myNocaseVar]
+    ::hv3::label $win.check_nocase_label -text "Case Insensitive"
  
     $win.entry configure -textvar [myvar myEntryVar]
     trace add variable [myvar myEntryVar] write [mymethod DynamicUpdate]
@@ -751,6 +754,7 @@ snit::widget ::hv3::findwidget {
     pack $win.label -side left
     pack $win.entry -side left
     pack $win.check_nocase -side left
+    pack $win.check_nocase_label -side left
     pack $win.num_results -side right -fill x
   }
 
@@ -852,6 +856,7 @@ snit::widget ::hv3::findwidget {
 
   destructor {
     $myHv3 tag delete findwidget
+    $myHv3 tag delete findwidgetcurrent
     trace remove variable [myvar myEntryVar] write [mymethod UpdateDisplay]
     trace remove variable [myvar myNocaseVar] write [mymethod UpdateDisplay]
   }

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.53 2006/08/12 14:10:12 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.54 2006/08/12 16:37:08 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -446,18 +446,6 @@ if 0 {
     ::HtmlDebug::browse $myHv3 [$myHv3 node]
   }
 
-  # Launch the find dialog.
-  method find {} {
-    set fdname ${win}_finddialog
-    if {[llength [info commands $fdname]] == 0} {
-      # ::hv3::finddialog $fdname $myHv3
-      ::hv3::findwidget $fdname $myHv3
-      place $fdname -anchor sw -relx 1.0 -width 500 -height 50
-      raise $fdname
-    }
-    focus ${win}_finddialog.entry
-  }
-
   method hv3 {} {
     return $myHv3
   }
@@ -595,6 +583,7 @@ snit::widget ::hv3::browser_toplevel {
       ::hv3::findwidget $fdname [$myMainFrame hv3]
       pack $fdname -before $myMainFrame -side bottom -fill x -expand false
       bind $fdname <Destroy> [list focus [$myMainFrame hv3]]
+      $fdname configure -borderwidth 1 -relief raised
     }
     focus ${fdname}.entry
   }
@@ -612,6 +601,16 @@ snit::widget ::hv3::browser_toplevel {
 }
 
 #--------------------------------------------------------------------------
+# The following functions are all called during startup to construct the
+# static components of the web browser gui:
+#
+#     gui_build
+#     gui_menu
+#       gui_load_tkcon
+#       create_fontsize_menu
+#       create_fontscale_menu
+#
+
 # gui_build --
 #
 #     This procedure is called once at the start of the script to build
@@ -628,7 +627,7 @@ snit::widget ::hv3::browser_toplevel {
 #         back_button          The "back" button
 #         forward_button       The "forward" button
 #         location_entry       The location bar
-#         browser              The ::hv3::browser instance
+#         notebook             The ::hv3::notebook instance
 #         status_label         The label used for a status bar
 #         history_menu         The pulldown menu used for history
 #
@@ -709,7 +708,7 @@ proc goto_gui_location {browser entry} {
 # This procedure attempts to load the tkcon package. An error is raised
 # if the package cannot be loaded. On success, an empty string is returned.
 #
-proc load_tkcon {} {
+proc gui_load_tkcon {} {
   foreach f [list \
     [file join $::tcl_library .. .. bin tkcon] \
     [file join $::tcl_library .. .. bin tkcon.tcl]
@@ -783,6 +782,8 @@ proc gui_setforcefontmetrics {varname} {
   gui_current configure -forcefontmetrics [set $varname]
 }
 
+# gui_menu
+#
 proc gui_menu {widget_array} {
   upvar $widget_array G
 
@@ -798,16 +799,16 @@ proc gui_menu {widget_array} {
   # Add the Polipo, Tkcon, Browser and Cookies entries to the File menu.
   .m.file add command -label Polipo -command ::hv3::polipo::popup
   catch {
-    # If the [load_tkcon] proc cannot find the Tkcon package, it
+    # If the [gui_load_tkcon] proc cannot find the Tkcon package, it
     # throws an exception. No menu item will be added in this case.
-    load_tkcon
+    gui_load_tkcon
     .m.file add command -label Tkcon -command {tkcon show}
   }
   .m.file add command -label Events -command [list gui_log_window $G(notebook)]
 
   .m.file add command -label Browser -command [list gui_current browse]
   .m.file add command -label Cookies -command [list gui_current debug_cookies]
-  .m.file add command -label Style -command   [list gui_current debug_style]
+  .m.file add command -label Style   -command [list gui_current debug_style]
 
   # Add a separator and the inevitable Exit item to the File menu.
   .m.file add separator
@@ -833,6 +834,7 @@ proc gui_menu {widget_array} {
   .m add cascade -label {History} -menu [::hv3::menu .m.history]
   set G(history_menu) .m.history
 }
+#--------------------------------------------------------------------------
 
 proc gui_current {args} {
   eval [linsert $args 0 [.notebook current]]
@@ -926,25 +928,9 @@ proc exit {args} {
   eval [concat tcl_exit $args]
 }
 
-# main URI
-#
-proc main {{doc home:}} {
-  
-  # Build the GUI
-  gui_build     ::hv3::G
-  gui_menu      ::hv3::G
-
-  after idle [list main2 $doc]
-}
-proc main2 {doc} {
-  set tab [.notebook add $doc]
-  focus $tab
-}
-
 proc ::hv3::scroll {r} {
   set html [[gui_current hv3] html]
   set region [$html yview]
-
   set max [expr 1.0 - ([lindex $region 1] - [lindex $region 0])]
   ::hv3::scrollcb idle $max 0 30 $r
 }
@@ -958,7 +944,30 @@ proc ::hv3::scrollcb {delay max ii maxii r} {
   }
 }
 
-# Kick off main()
+#--------------------------------------------------------------------------
+# main URI
+#
+#     The main() program for the application.
+#
+proc main {{doc home:}} {
+  # Build the GUI
+  gui_build     ::hv3::G
+  gui_menu      ::hv3::G
+
+  # After the event loop has run to create the GUI, run [main2]
+  # to load the startup document. It's better if the GUI is created first,
+  # because otherwise if an error occurs Tcl deems it to be fatal.
+  after idle [list main2 $doc]
+}
+proc main2 {doc} {
+  set tab [$::hv3::G(notebook) add $doc]
+  focus $tab
+}
+
+# Set variable $::hv3::maindir to the directory containing the 
+# application files. Then run the [main] command with the command line
+# arguments passed to the application.
 set ::hv3::maindir [file dirname [info script]] 
 eval [concat main $argv]
+#--------------------------------------------------------------------------
 

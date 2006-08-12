@@ -30,6 +30,11 @@ Hv3 Mega-Widget Object Types:
         This widget implements the file-downloading dialog (i.e. the thing
         with the progress bar and Ok/Cancel button).
 
+    ::hv3::findwidget            (hv3_widgets.tcl)
+        This widget implements logic and gui for the "find text" function. It
+        currently uses Tkhtml3 interfaces only (no hv3 interfaces).  
+        NOTE: This will have to change to support frameset documents.
+
   Other Types:
 
     ::hv3::hv3::selectionmanager (hv3.tcl)
@@ -49,8 +54,6 @@ Hv3 Mega-Widget Object Types:
     ::hv3::uri                   (hv3.tcl)
         Type to extract components from and perform other operations on URIs.
 
-    ::hv3::textdocument          (hv3_widgets.tcl)
-
 Hv3 Protocol Object Types:
 
   Other Types:
@@ -65,7 +68,12 @@ Hv3 Application Object Types:
     ::hv3::frameset              (hv3_frameset.tcl)
     ::hv3::browser_frame         (hv3_main.tcl)
     ::hv3::browser               (hv3_main.tcl)
+
     ::hv3::browser_toplevel      (hv3_main.tcl)
+         Instances of this widget are managed directly by the notebook.
+         Each instance of this widget creates it's own ::hv3::protocol
+         and ::hv3::history objects. It also creates and destroys
+         ::hv3::findwidget widgets as requested by the user.
 
     ::hv3::finddialog            (hv3_widgets.tcl)
         This widget implements the find-text dialog.
