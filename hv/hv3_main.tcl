@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.54 2006/08/12 16:37:08 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.55 2006/08/12 18:15:01 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -188,12 +188,8 @@ snit::widget ::hv3::browser_frame {
     pack $myHv3 -expand true -fill both
     catch {$myHv3 configure -fonttable $::hv3::fontsize_table}
 
-    # Set up a binding to press "Q" to exit the application.
-    bind $myHv3 <KeyPress-q> exit
-    bind $myHv3 <KeyPress-Q> exit
 
     # Click to focus (so that this frame accepts keyboard input).
-    bind $myHv3 <1>          +[list focus %W]
 
     # Create bindings for motion, right-click and middle-click.
     bind $myHv3 <Motion> +[mymethod motion %x %y]
@@ -524,9 +520,21 @@ snit::widget ::hv3::browser_toplevel {
     set myHistory [::hv3::history %AUTO% [$myMainFrame hv3]]
     $myHistory configure -gotocmd [mymethod goto]
     $myHistory configure -locationvar [myvar myLocationVar]
+    
+    # Configure application hotkeys and so forth. To make these
+    # work in frameset documents, the [bindtags] command must be
+    # used to add the tag "$self" to the html widget for every 
+    # frame in the frameset.
+    bind $self <Control-f>       [mymethod Find]
+    bind $self <KeyPress-slash>  [mymethod Find]
+    bind $self <KeyPress-q>      exit
+    bind $self <KeyPress-Q>      exit
+    bind $self <1>               +[list focus %W]
 
-    bind [$myMainFrame hv3] <KeyPress-slash>  [mymethod Find]
-    bind [$myMainFrame hv3] <Control-f>       [mymethod Find]
+    # Todo: The following [bindtags] trick for all html widgets in a 
+    # frameset document.
+    set HTML [[$myMainFrame hv3] html]
+    bindtags $HTML [concat $self [bindtags $HTML]]
 
     $self configurelist $args
   }

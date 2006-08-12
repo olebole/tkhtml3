@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.19 2006/08/12 16:37:08 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.20 2006/08/12 18:15:01 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
@@ -806,6 +806,7 @@ snit::widget ::hv3::findwidget {
     set nHighlight [expr [llength $lMatch] / 2]
     set myCaptionVar "(highlighted $nHighlight of $nMatch hits)"
 
+    set matches [list]
     if {[llength $lMatch] > 0} {
       set matches [eval [concat $myHv3 text index $lMatch]]
       foreach {n1 i1 n2 i2} $matches {

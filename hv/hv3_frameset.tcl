@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_frameset.tcl,v 1.4 2006/06/10 12:32:27 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_frameset.tcl,v 1.5 2006/08/12 18:15:01 danielk1977 Exp $)} 1 }
 
 # This file contains code for implementing HTML frameset documents in Hv3. 
 #
@@ -27,7 +27,11 @@ namespace eval hv3 {
     return $ret
   }
 
-  # Tkhtml node-handler script for <frameset> elements.
+  # frameset_handler
+  #
+  #     Tkhtml node-handler script for <frameset> elements. The first
+  #     argument is the name of an ::hv3::browser_frame widget. The
+  #     second argument is the <frameset> node.
   #
   proc frameset_handler {browser_frame node} {
 
@@ -51,7 +55,10 @@ namespace eval hv3 {
     grid $win -column 0 -row 0 -sticky nsew
   }
 
-  # Given a document node, return the corresponding fragment of html markup.
+  # get_markup --
+  #
+  #     Utility procedure. Given a document node, return an equivalent
+  #     fragment of html markup text.
   #
   proc get_markup {node} {
     set tag [$node tag]
@@ -79,10 +86,10 @@ snit::widget ::hv3::frameset {
 
   # A ::hv3::frameset widget is always stored internally as a 2 dimensional
   # grid of "panels" (represented in the document by either <frame> or
-  # <frameset> elements). Each panel is an ::hv3::hv3 widget. If the panel is
-  # a <frameset>, it manages a single ::hv3::frameset object. Otherwise, if
-  # the panel is a <frame>, the ::hv3::hv3 is used to render the linked html
-  # document.
+  # <frameset> elements). Each panel is an ::hv3::browser_frame widget. If 
+  # the panel is a <frameset>, it manages a single ::hv3::frameset object.
+  # Otherwise, if the panel is a <frame>, the ::hv3::hv3 is used to render 
+  # the linked html document.
   #
   # The following two variables store Tcl lists containing the values
   # (implicit or explicit) from the "cols" and "rows" attributes of 
@@ -145,7 +152,7 @@ snit::widget ::hv3::frameset {
     set myRowPanList [list]
     for {set iCol 0} {$iCol < [llength $myCols]} {incr iCol} {
 
-      # Create the row-pan, and populate it with ::hv3::hv3 widgets.
+      # Create the row-pan, and populate it with ::hv3::browser_frame widgets.
       set pan ${myColPan}.pan_${iCol} 
       panedwindow $pan -orient vertical -bd 0
       for {set iRow 0} {$iRow < [llength $myRows]} {incr iRow} {
