@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.25 2006/08/13 10:27:12 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.26 2006/08/13 11:41:39 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -443,6 +443,10 @@ snit::type ::hv3::form {
     switch -- $method {
       GET     { set script $options(-getcmd) }
       POST    { set script $options(-postcmd) }
+      ISINDEX { 
+        set script $options(-getcmd) 
+        set encdata [::http::formatQuery [[lindex $myControls 0] value]]
+      }
       default { set script "" }
     }
 
@@ -481,7 +485,7 @@ snit::type ::hv3::formmanager {
     $myHtml handler node textarea  [mymethod control_handler]
     $myHtml handler node select    [mymethod control_handler]
 
-    $myHtml handler node isindex [list ::hv3::isindex_handler $hv3]
+    $myHtml handler script isindex [list ::hv3::isindex_handler $hv3]
   }
 
   method form_handler {node} {
@@ -540,10 +544,29 @@ snit::type ::hv3::formmanager {
 #
 #         could be rewritten with INPUT as follows: 
 #
-#              <FORM action="..." method="post"> 
+#              <FORM action="..." method="post">
 #                  <P> Enter your search phrase:<INPUT type="text"> </P>
-#              </FORM> 
+#              </FORM>
 #
-proc ::hv3::isindex_handler {hv3 node} {
+proc ::hv3::isindex_handler {hv3 attr script} {
+  set a(prompt) ""
+  array set a $attr
+
+
+  set loc [::hv3::uri %AUTO% [$hv3 location]]
+  set LOCATION "[$loc cget -scheme]://[$loc cget -authority]/[$loc cget -path]"
+  set PROMPT   $a(prompt)
+  $loc destroy
+
+  return [subst {
+    <hr>
+    <form action="$LOCATION" method="ISINDEX">
+      <p>
+        $PROMPT
+        <input type="text">
+      </p>
+    </form>
+    <hr>
+  }]
 }
 
