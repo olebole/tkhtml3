@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.55 2006/08/12 18:15:01 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.56 2006/08/13 10:27:12 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -525,6 +525,7 @@ snit::widget ::hv3::browser_toplevel {
     # work in frameset documents, the [bindtags] command must be
     # used to add the tag "$self" to the html widget for every 
     # frame in the frameset.
+    bind $self <Escape>          [mymethod Escape]
     bind $self <Control-f>       [mymethod Find]
     bind $self <KeyPress-slash>  [mymethod Find]
     bind $self <KeyPress-q>      exit
@@ -585,13 +586,36 @@ snit::widget ::hv3::browser_toplevel {
     $self Setstopbutton
   }
 
+  # Escape --
+  #
+  #     This method is called when the <Escape> key sequence is seen.
+  #     Get rid of the "find-text" widget, if it is currently visible.
+  #
+  method Escape {} {
+    catch {
+      destroy ${win}.findwidget
+    }
+  }
+
+  # Find --
+  #
+  #     This method is called when the "find-text" widget is summoned.
+  #     Currently this can happen when the users:
+  #
+  #         * Presses "control-f",
+  #         * Presses "/", or
+  #         * Selects the "Edit->Find Text" pull-down menu command.
+  #
   method Find {} {
     set fdname ${win}.findwidget
     if {[llength [info commands $fdname]] == 0} {
       ::hv3::findwidget $fdname [$myMainFrame hv3]
       pack $fdname -before $myMainFrame -side bottom -fill x -expand false
-      bind $fdname <Destroy> [list focus [$myMainFrame hv3]]
       $fdname configure -borderwidth 1 -relief raised
+
+      # When the findwidget is destroyed, return focus to the html widget. 
+      bind $fdname <Escape>  [list destroy $fdname]
+      bind $fdname <Destroy> [list focus [[$myMainFrame hv3] html]]
     }
     focus ${fdname}.entry
   }

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.20 2006/08/12 18:15:01 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.21 2006/08/13 10:27:12 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
@@ -78,7 +78,10 @@ proc ::hv3::label {args} {
       set myButton [::ttk::button ${win}.button -style Toolbutton]
     } else {
       set myButton [::button ${win}.button]
+
+      # Configure Tk presentation options not required for Tile here.
       $myButton configure -highlightthickness 0
+      $myButton configure -borderwidth 0
     }
     set top [winfo toplevel $myButton]
     set myPopup ${top}[string map {. _} $myButton]
@@ -151,56 +154,12 @@ proc ::hv3::menu_color {} {
   }
 }
 
-
-
-snit::widget ::hv3::buttontab {
-
-  component myButton
-
-  constructor {args} {
-    # set myButton [::hv3::button ${win}.button]
-    set myButton [::hv3::label ${win}.button]
-    catch { $myButton configure -padding 2 }
-
-    bind $myButton <1>     [mymethod invoke]
-    # bind $myButton <Enter> [list $myButton state active]
-    # bind $myButton <Leave> [list $myButton state !active]
-
-    $self configurelist $args
-    pack $myButton -fill both -expand true
-
-    if {$::hv3::toolkit eq "Tile"} {
-        $myButton configure -style TNotebook.Tab
-    } else {
-    }
-  }
-
-  method tabstate {state} {
-    if {$::hv3::toolkit eq "Tile"} {
-      $myButton configure -style TNotebook.Tab
-      if {$state} { $myButton state {selected} } \
-      else        { $myButton state {!selected} }
-    } else {
-      if {$state} { $myButton configure -relief solid } \
-      else        { $myButton configure -relief ridge }
-    }
-  }
-
-  method invoke {} {
-    if {$options(-command) ne ""} {
-      eval $options(-command)
-    }
-  }
-
-  option -command -default ""
-
-  delegate option * to myButton
-  delegate method * to myButton
-}
-
-# Widget to add automatic scrollbars to a widget supporting the
-# [xview], [yview], -xscrollcommand and -yscrollcommand interface (e.g.
-# html, canvas or text).
+#---------------------------------------------------------------------------
+# ::hv3::scrolledwidget
+#
+#     Widget to add automatic scrollbars to a widget supporting the
+#     [xview], [yview], -xscrollcommand and -yscrollcommand interface (e.g.
+#     html, canvas or text).
 #
 snit::widget ::hv3::scrolledwidget {
   component myWidget
@@ -242,9 +201,6 @@ snit::widget ::hv3::scrolledwidget {
 
     # Propagate events from the scrolled widget to this one.
     bindtags $myWidget [concat [bindtags $myWidget] $win]
-    catch {
-      # bindtags [$myWidget html] [concat [bindtags [$myWidget html]] $win]
-    }
   }
 
   method scrollcallback {scrollbar first last} {
@@ -274,6 +230,20 @@ snit::widget ::hv3::scrolledwidget {
   delegate option *       to myWidget
   delegate method *       to myWidget
 }
+
+# Wrapper around the ::hv3::scrolledwidget constructor. 
+#
+# Example usage to create a 400x400 canvas widget named ".c" with 
+# automatic scrollbars:
+#
+#     ::hv3::scrolled canvas .c -width 400 -height 400
+#
+proc ::hv3::scrolled {widget name args} {
+  return [eval [concat ::hv3::scrolledwidget $name $widget $args]]
+}
+#
+# End of "scrolled" implementation
+#---------------------------------------------------------------------------
 
 #---------------------------------------------------------------------------
 # ::hv3::notebook
@@ -566,19 +536,6 @@ snit::widget ::hv3::notebook {
 # End of notebook implementation.
 #---------------------------------------------------------------------------
 
-# Wrapper around the ::hv3::scrolledwidget constructor. 
-#
-# Example usage to create a 400x400 canvas widget named ".c" with 
-# automatic scrollbars:
-#
-#     ::hv3::scrolled canvas .c -width 400 -height 400
-#
-proc ::hv3::scrolled {widget name args} {
-  return [eval [concat \
-    [list ::hv3::scrolledwidget $name $widget] $args
-  ]]
-}
-
 #---------------------------------------------------------------------------
 # ::hv3::walkTree
 # 
@@ -745,11 +702,17 @@ snit::widget ::hv3::findwidget {
     trace add variable [myvar myEntryVar] write [mymethod DynamicUpdate]
     trace add variable [myvar myNocaseVar] write [mymethod DynamicUpdate]
 
-    bind $win.entry <Escape>       [mymethod Escape]
     bind $win.entry <Return>       [mymethod Return 1]
     bind $win.entry <Shift-Return> [mymethod Return -1]
-
     focus $win.entry
+
+    # Propagate events that occur in the entry widget to the 
+    # ::hv3::findwidget widget itself. This allows the calling script
+    # to bind events without knowing the internal mega-widget structure.
+    # For example, the hv3 app binds the <Escape> key to delete the
+    # findwidget widget.
+    #
+    bindtags $win.entry [concat [bindtags $win.entry] $win]
 
     pack $win.label -side left
     pack $win.entry -side left
@@ -828,7 +791,7 @@ snit::widget ::hv3::findwidget {
   }
   
   method Escape {} {
-    destroy $win
+    # destroy $win
   }
   method Return {dir} {
     if {$myCurrentHit < 0} {
@@ -856,155 +819,15 @@ snit::widget ::hv3::findwidget {
   }
 
   destructor {
-    $myHv3 tag delete findwidget
-    $myHv3 tag delete findwidgetcurrent
+    # Delete any tags added to the hv3 widget. Do this inside a [catch]
+    # block, as it may be that the hv3 widget has itself already been
+    # destroyed.
+    catch {
+      $myHv3 tag delete findwidget
+      $myHv3 tag delete findwidgetcurrent
+    }
     trace remove variable [myvar myEntryVar] write [mymethod UpdateDisplay]
     trace remove variable [myvar myNocaseVar] write [mymethod UpdateDisplay]
-  }
-}
-
-snit::widget ::hv3::finddialog {
-  hulltype toplevel
-  constructor {htmlwidget args} {
-    set w [::hv3::findwidget $win.widget $htmlwidget]
-    pack $w -expand true -fill both
-  }
-}
-
-# This class implements a "find text" dialog box for hv3.
-#
-snit::widget ::hv3::finddialog2 {
-  hulltype toplevel
-
-  # The html widget.
-  variable myHtml 
-
-  # Index to start searching the document text representation from.
-  variable myIndex 0 
-
-  # These three variables are connected to the three checkbox widgets
-  # in the GUI via the -variable option. i.e. they will be set to 1
-  # when the corresponding checkbox is checked, and zero otherwise.
-  variable myNocase     0 
-  variable myWraparound 0 
-  variable myBackward   0 
-
-  constructor {htmlwidget args} {
-    set myHtml $htmlwidget
-
-    label $win.label -text "Search for text:"
-    entry $win.entry -width 60
-    checkbutton $win.check_backward -text "Search Backwards"
-    checkbutton $win.check_nocase   -text "Case Insensitive"
-    checkbutton $win.check_wrap     -text "Wrap Around"
-
-    $win.check_nocase configure   -variable [myvar myNocase]
-    $win.check_wrap configure     -variable [myvar myWraparound]
-    $win.check_backward configure -variable [myvar myBackward]
-
-    frame $win.buttons
-    button $win.buttons.findnext -text Find    -command [mymethod findnext]
-    button $win.buttons.cancel   -text Dismiss -command [mymethod cancel]
-
-    bind $win.entry <Return> [list $win.buttons.findnext invoke]
-    bind $win.entry <Escape> [list $win.buttons.cancel invoke]
-    focus $win.entry
-
-    grid configure $win.buttons.findnext -column 0 -row 0 -sticky ew
-    grid configure $win.buttons.cancel   -column 1 -row 0 -sticky ew
-    grid columnconfigure $win.buttons 0 -weight 1
-    grid columnconfigure $win.buttons 1 -weight 1
-
-    grid configure $win.label          -column 0 -row 0
-    grid configure $win.entry          -column 1 -row 0 -sticky ew
-    grid configure $win.check_backward -column 1 -row 1 -sticky w
-    grid configure $win.check_nocase   -column 1 -row 2 -sticky w
-    grid configure $win.check_wrap     -column 1 -row 3 -sticky w
-    grid configure $win.buttons        -column 0 -row 4 -columnspan 2 -sticky ew
-
-    grid columnconfigure $win 1 -weight 1
-    $hull configure -pady 2 -padx 2
-  }
-
-  # Vertically scroll the html widget the minimum distance (which may be 0)
-  # required so that document node $node is visible.
-  #
-  method lazymoveto {node} {
-    set nodebbox [$myHtml bbox $node]
-    set docbbox  [$myHtml bbox]
-
-    set docheight "[lindex $docbbox 3].0"
-
-    set ntop    [expr [lindex $nodebbox 1].0 / $docheight]
-    set nbottom [expr [lindex $nodebbox 3].0 / $docheight]
- 
-    set sheight [expr [winfo height $myHtml].0 / $docheight]
-    set stop    [lindex [$myHtml yview] 0]
-    set sbottom [expr $stop + $sheight]
-
-    if {$ntop < $stop} {
-      $myHtml yview moveto $ntop
-    } elseif {$nbottom > $sbottom} {
-      $myHtml yview moveto [expr $nbottom - $sheight]
-    }
-  }
-
-  method findnext {} {
-    # The text to search for
-    set searchtext [${win}.entry get]
-
-    # Prepare the textdocument representation
-    set td [$myHtml textdocument]
-
-    # Retrieve the raw text from the textdocument object
-    set doctext [$td text]
-  
-    # If the search is to be case independent, fold everything to lower case
-    if {$myNocase} { 
-      set doctext [string tolower $doctext]
-      set searchtext [string tolower $searchtext]
-    }
-
-    # Search the text representation using [string first] or [string last].
-    # Variable $myIndex stores the string-index to start searching at (this
-    # applies regardless of whether the search direction is forward or
-    # backward).
-    set op first
-    if {$myBackward} { set op last }
-    set ii [string $op $searchtext $doctext $myIndex]
-
-    if {$ii >= 0} {
-      # A search-hit.
-      set ii2 [expr $ii + [string length $searchtext]]
-      set myIndex [expr $ii + 1]
-
-      set from [$td stringToNode $ii]
-      set to [$td stringToNode $ii2]
-
-      eval [concat [list $myHtml tag add searchtext] $from $to]
-
-      $self lazymoveto [lindex $from 0]
-    } elseif {$myIndex > 0 && $myWraparound} {
-      # Text not found. But the search began part way through the document
-      # and the "wrap around" checkbox is set. Repeat the search, starting
-      # at the beginning of the document.
-      set myIndex 0
-      if {$myBackward} {set myIndex [string length $doctext]}
-      $self findnext
-    } else {
-      # Text not found. Pop up a dialog to inform the user.
-      set myIndex 0
-      $myHtml tag delete searchtext
-
-      tk_messageBox -message "The text you entered was not found" -type ok
-    }
-
-  #  $td destroy
-    return
-  }
-
-  method cancel {} {
-    destroy $win
   }
 }
 
@@ -1017,8 +840,17 @@ snit::widget ::hv3::stylereport {
     set hv3 ${win}.hv3
     set myHtml $html
     set hv3 ${win}.hv3
-    hv3::hv3 $hv3
-    $hv3 configure -requestcmd [mymethod Requestcmd] -width 300 -height 200
+
+    ::hv3::hv3 $hv3
+    $hv3 configure -requestcmd [mymethod Requestcmd] -width 600 -height 400
+
+    # Create an ::hv3::findwidget so that the report is searchable.
+    # In this case the findwidget should always be visible, so remove
+    # the <Escape> binding that normally destroys the widget.
+    ::hv3::findwidget ${win}.find $hv3
+    bind ${win} <Escape> [list destroy $win]
+    
+    pack ${win}.find -side bottom -fill x
     pack $hv3 -fill both -expand true
   }
   
@@ -1033,5 +865,4 @@ snit::widget ::hv3::stylereport {
     $downloadHandle finish
   }
 }
-
 

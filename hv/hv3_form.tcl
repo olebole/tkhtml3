@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.24 2006/08/01 09:56:54 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.25 2006/08/13 10:27:12 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -530,14 +530,19 @@ snit::type ::hv3::formmanager {
 # ::hv3::isindex_handler
 #
 #     This proc is registered as a Tkhtml script-handler for <isindex> 
-#     elements. It replaces <isindex> elements with the equivalent <form>
-#     and <input> combination. 
+#     elements. An <isindex> element is essentially an entire form
+#     in and of itself.
 #
-#     I don't like doing this, because it means the internal tree structure is
-#     not as the document author intended it. However this will not cause
-#     problems for a long time (i.e. when I finally get javascript going), if
-#     at all. Also, <isindex> was deprecated as part of HTML4, so it's probably
-#     not going to be cohabitating with javascript too much.
+#     Example from HTML 4.01:
+#         The following ISINDEX declaration: 
+#
+#              <ISINDEX prompt="Enter your search phrase: "> 
+#
+#         could be rewritten with INPUT as follows: 
+#
+#              <FORM action="..." method="post"> 
+#                  <P> Enter your search phrase:<INPUT type="text"> </P>
+#              </FORM> 
 #
 proc ::hv3::isindex_handler {hv3 node} {
 }
