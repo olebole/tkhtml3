@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.8 2006/07/01 07:33:22 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.9 2006/08/13 15:33:43 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd and -cancelrequestcmd
@@ -7,11 +7,14 @@ namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.8 2006/07/01 07:33:22 da
 #
 #     * http:// (including cookies)
 #     * file://
+#     * data://
+#     * https:// (if the "tls" package is available)
 #
 
 package require snit
 package require Tk
 package require http
+catch { package require tls }
 
 #
 # ::hv3::protocol
@@ -30,9 +33,6 @@ package require http
 #     $protocol destroy
 #
 snit::type ::hv3::protocol {
-
-  option -proxyport -default 8123      -configuremethod ConfigureProxy
-  option -proxyhost -default localhost -configuremethod ConfigureProxy
 
   # Lists of waiting and in-progress http URI download-handles.
   variable myWaitingHandles    [list]
@@ -59,12 +59,16 @@ snit::type ::hv3::protocol {
 
   constructor {args} {
     $self configurelist $args
-    $self ConfigureProxy proxyport $options(-proxyport)
     set myCookieManager [::hv3::cookiemanager %AUTO%]
 
-    $self schemehandler file [mymethod request_file]
-    $self schemehandler http [mymethod request_http]
-    $self schemehandler data [mymethod request_data]
+    $self schemehandler file  [mymethod request_file]
+    $self schemehandler http  [mymethod request_http]
+    $self schemehandler https [mymethod request_https]
+    $self schemehandler data  [mymethod request_data]
+
+    ::http::register https 443 [mymethod SSocket]
+    ::http::config -useragent {Mozilla/5.0 Gecko/20050513}
+    set ::http::defaultCharset utf-8
   }
 
   destructor {
@@ -138,6 +142,63 @@ snit::type ::hv3::protocol {
     $self Updatestatusvar
   }
 
+  # The following methods:
+  #
+  #     [request_https], 
+  #     [SSocketReady], 
+  #     [SSocketProxyReady], and
+  #     [SSocket], 
+  #
+  # along with the object variable $myWaitingSocket, are part of the
+  # https:// support implementation.
+  # 
+  variable myWaitingSocket ""
+  method request_https {downloadHandle} {
+    set obj [::hv3::uri %AUTO% [$downloadHandle uri]]
+
+    set host [$obj cget -authority]
+    set port 443
+    regexp {^(.*):([0123456789]+)$} $host dummy host port
+
+    set proxyhost [::http::config -proxyhost]
+    set proxyport [::http::config -proxyport]
+
+    if {$proxyhost eq ""} {
+      set fd [socket -async $host $port]
+      fileevent $fd writable [mymethod SSocketReady $fd $downloadHandle]
+    } else {
+      set fd [socket $proxyhost $proxyport]
+      fconfigure $fd -blocking 0 -buffering full
+      puts $fd "CONNECT $host:$port HTTP/1.1"
+      puts $fd ""
+      flush $fd
+      fileevent $fd readable [mymethod SSocketProxyReady $fd $downloadHandle]
+    }
+  }
+  method SSocketReady {fd downloadHandle} {
+    fileevent $fd writable ""
+    fileevent $fd readable ""
+    set myWaitingSocket [::tls::import $fd]
+    $self request_http $downloadHandle
+  }
+  method SSocketProxyReady {fd downloadHandle} {
+    set str [gets $fd line]
+    if {$line ne ""} {
+      if {! [regexp {^HTTP/.* 200} $line]} { 
+        puts "ERRRORR!: $line"
+        close $fd
+        return
+      } 
+      while {[gets $fd r] > 0} {}
+      $self SSocketReady $fd $downloadHandle
+    }
+  }
+  method SSocket {host port} {
+    set ss $myWaitingSocket
+    set myWaitingSocket ""
+    return $ss
+  }
+
   # Handle a file:// URI.
   #
   method request_file {downloadHandle} {
@@ -200,16 +261,6 @@ snit::type ::hv3::protocol {
     $downloadHandle finish
   }
 
-  # Configure the http package to use a proxy as specified by
-  # the -proxyhost and -proxyport options on this object.
-  #
-  method ConfigureProxy {option value} {
-    set options($option) $value
-    # ::http::config -proxyhost $options(-proxyhost)
-    # ::http::config -proxyport $options(-proxyport)
-    ::http::config -useragent {Mozilla/5.0 Gecko/20050513}
-    set ::http::defaultCharset utf-8
-  }
 
   method Finish_request {downloadHandle token} {
     if {[set idx [lsearch $myInProgressHandles $downloadHandle]] >= 0} {

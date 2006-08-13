@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.26 2006/08/13 11:41:39 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.27 2006/08/13 15:33:43 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -47,6 +47,8 @@ source [file join [file dirname [info script]] combobox.tcl]
 #
 
 #--------------------------------------------------------------------------
+# ::hv3::control
+#
 # WIDGETS
 #
 #     The following Tk widgets are used for form elements:
@@ -57,20 +59,40 @@ source [file join [file dirname [info script]] combobox.tcl]
 #         <textarea>         -> text
 #
 #     An attempt to baseline align the button, entry, radiobutton and 
-#     combobox widgets is made.
+#     combobox widgets is made. (Note that <isindex> is not mentioned
+#     here because it is transformed to an <input> element by the 
+#     [::hv3::isindex_handler] script handler proc below.
 #
-# METHOD
+# INTERFACE
 #
-#     Each replaced element is replaced by a snit widget wrapper around
-#     the displayed Tk widget. Each widget wrapper supports the following
-#     methods:
+#     Each replaced element is replaced by an instance of the 
+#     ::hv3::control widget. ::hv3::control supports the following
+#     public interface:
 #
-#         name         - Return the value of the Html "name" attribute.
-#         success      - Return true if the control is successful.
-#         value        - Return the value of the control.
-#         configure    - Called by Tkhtml as the -configurecmd callback.
+#         -submitcmd
+#             If not set to an empty string, the value of this option
+#             is evaluated as a Tcl command when the control determines
+#             that the form it belongs to should be submitted (i.e. when
+#             a submit button is clicked on, <enter> is pressed in
+#             a text field etc.)
 #
-
+#         [name] 
+#             Return the value of the Html "name" attribute associated
+#             with the control.
+#
+#         [success] 
+#             Return true if the control is currently "successful".
+#
+#         [value] 
+#             Return current the value of the control.
+#
+#         [configurecmd] 
+#             Called by Tkhtml as the -configurecmd callback.
+#
+#         [dump]
+#             Debugging only. Return a string rep. of the object.
+#
+#
 snit::widget ::hv3::control {
 
   variable  myControlNode
@@ -524,6 +546,7 @@ snit::type ::hv3::formmanager {
     array unset myForms
   }
 
+
   method dumpforms {} {
     foreach form [array names myForms] {
       puts [$myForms($form) dump]
@@ -551,7 +574,6 @@ snit::type ::hv3::formmanager {
 proc ::hv3::isindex_handler {hv3 attr script} {
   set a(prompt) ""
   array set a $attr
-
 
   set loc [::hv3::uri %AUTO% [$hv3 location]]
   set LOCATION "[$loc cget -scheme]://[$loc cget -authority]/[$loc cget -path]"
