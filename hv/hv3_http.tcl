@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.9 2006/08/13 15:33:43 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.10 2006/08/14 13:08:33 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd and -cancelrequestcmd
@@ -115,7 +115,7 @@ snit::type ::hv3::protocol {
     set postdata  [$downloadHandle postdata]
 
     # Store the HTTP header containing the cookies in variable $headers
-    set headers [$myCookieManager get_cookies $authority]
+    set headers [$myCookieManager Cookie $uri]
     if {$headers ne ""} {
       set headers [list Cookie $headers]
     }
@@ -198,6 +198,7 @@ snit::type ::hv3::protocol {
     set myWaitingSocket ""
     return $ss
   }
+  # End of code for https://
 
   # Handle a file:// URI.
   #
@@ -308,8 +309,8 @@ snit::type ::hv3::protocol {
             set redirect $value
           }
           Set-Cookie {
-            regexp {^([^= ]*)=([^ ;]*)} $value dummy name value
-            $myCookieManager add_cookie [$downloadHandle authority] $name $value
+            regexp {^([^= ]*)=([^ ;]*)(.*)$} $value dummy name val cookie_av
+            $myCookieManager SetCookie [$downloadHandle uri] $value
           }
           Content-Type {
             if {[set idx [string first ";" $value]] >= 0} {
@@ -324,6 +325,7 @@ snit::type ::hv3::protocol {
       }
 
 
+      set current [$downloadHandle uri]
       if {[info exists redirect]} {
         ::http::reset $token
         $downloadHandle redirect $redirect
@@ -358,65 +360,113 @@ snit::type ::hv3::protocol {
   }
 }
 
-# A cookie manager is a database of http cookies. It supports the 
-# following operations:
+#--------------------------------------------------------------------------
+# ::hv3::cookiemanager
 #
-#     * Add cookie to database,
-#     * Retrieve applicable cookies for an http request, and
-#     * Delete the contents of the cookie database.
+#     A cookie manager is a database of http cookies. It supports the 
+#     following operations:
+#    
+#         * Add cookie to database,
+#         * Retrieve applicable cookies for an http request, and
+#         * Delete the contents of the cookie database.
+#    
+#     Also, a GUI to inspect and manipulate the database in a new top-level 
+#     window is provided.
+#    
+#     Interface:
+#    
+#         $pathName SetCookie URI DATA
+#         $pathName Cookie URI
+#         $pathName debug
 #
-# Also, a GUI to inspect and manipulate the database in a new top-level 
-# window is provided.
+#     Reference:
 #
-# Interface:
-#
-#     $pathName add_cookie AUTHORITY NAME VALUE
-#     $pathName get_cookies AUTHORITY
-#     $pathName debug
+#         http://wp.netscape.com/newsref/std/cookie_spec.html
 #
 snit::type ::hv3::cookiemanager {
 
   variable myDebugWindow
+  variable myData -array [list]
 
-  # The cookie data is stored in the following array variable. The
-  # array keys are authority names. The array values are the list of cookies
-  # associated with the authority. Each list element (a single cookie) is 
-  # stored as a list of two elements, the cookie name and value. For
-  # example, a two cookies from tkhtml.tcl.tk might be added to the database
-  # using code such as:
+  # Each cookie is stored as a list of 7 elements, as follows:
   #
-  #     set myCookies(tkhtml.tcl.tk) [list {login qwertyuio} {prefs 1234567}]
-  # 
-  variable myCookies -array [list]
+  #     + domain
+  #     + flag (TRUE/FALSE)
+  #     + path
+  #     + secure (TRUE/FALSE)
+  #     + expires (time_t)
+  #     + name
+  #     + value
+  #
+  method SetCookie {uri data} {
 
-  constructor {} {
-    set myDebugWindow [string map {: _} ".${self}_toplevel"]
-  }
+    # Default values for "domain" and "path"
+    set obj [::hv3::uri %AUTO% $uri]
+    regexp {[^:]*} [$obj cget -authority] v(domain)
+    set  v(path) [$obj cget -path]
+    $obj destroy
 
-  method add_cookie {authority name value} {
-    if {0 == [info exists myCookies($authority)]} {
-      set myCookies($authority) [list]
+    set  v(flag) TRUE
+    set  v(expires) 0
+    
+    set d [string trim $data]
+    while {$d ne ""} {
+      regexp {^([^;]*)(.*)} $d dummy pair d
+      set d [string range $d 1 end]
+      set K [string trim [lindex [split $pair =] 0]]
+      set V [string trim [lindex [split $pair =] 1]]
+      if {![info exists name]} {
+        set name $K
+        set value $V
+      } else {
+        set v([string tolower $K]) $V
+      }
     }
 
-    array set cookies $myCookies($authority)
-    set cookies($name) $value
-    set myCookies($authority) [array get cookies]
+    if {[info exists v(secure)]} {
+      set v(secure) TRUE
+    } else {
+      set v(secure) FALSE
+    }
 
-    if {[winfo exists $myDebugWindow]} {$self debug}
+    set v(expires) [clock scan $v(expires)]
+    if {[info exists name]} {
+      set cookie [list \
+          $v(domain) $v(flag) $v(path) $v(secure) $v(expires) $name $value
+      ]
+      set key "$v(domain) $v(path) $name"
+      set myData($key) $cookie
+    } else {
+      puts "::hv3::cookiemanager SetCookie - parse failed"
+    }
+
+    $self UpdateGui
   }
 
-  # Retrieve the cookies that should be sent to the specified authority.
-  # The cookies are returned as a string of the following form:
+  # Retrieve the cookies that should be sent with the request to the specified
+  # URI.  The cookies are returned as a string of the following form:
   #
   #     "NAME1=OPAQUE_STRING1; NAME2=OPAQUE_STRING2 ..."
   #
-  method get_cookies {authority} {
+  method Cookie {uri} {
+    set obj [::hv3::uri %AUTO% $uri]
+    set uri_domain [$obj cget -authority]
+    set uri_path [$obj cget -path]
+    $obj destroy
+
     set ret ""
-    if {[info exists myCookies($authority)]} {
-      foreach {name value} $myCookies($authority) {
+
+    foreach k [array names myData] {
+      set cookie $myData($k)
+      foreach {domain flag path secure expires name value} $cookie {}
+      if {
+        [string match *$domain $uri_domain] && 
+        [string match ${path}* $uri_path]
+      } {
         append ret [format "%s=%s; " $name $value]
       }
     }
+
     return $ret
   }
 
@@ -448,17 +498,18 @@ snit::type ::hv3::cookiemanager {
     }
 
     set Content ""
-    if {[llength [array names myCookies]] > 0} {
-      append Content "<table>"
-      foreach authority [array names myCookies] { 
-        append Content "<tr><td><div class=authority>$authority</div>"
-        foreach {name value} $myCookies($authority) {
-          append Content [subst {
-            <tr>
-              <td><span class=name>$name</span>
-              <td><span class=value>$value</span>
-          }]
-        }
+    if {[llength [array names myData]] > 0} {
+      append Content "<table border=1 cellpadding=5>"
+      append Content "<tr>"
+      foreach h {Domain Flag Path Secure Expires Name Value} {
+        append Content "<th>$h"
+      }
+      append Content "</tr>"
+      foreach key [array names myData] { 
+        set cookie $myData($key)
+        append Content "<tr>"
+        foreach e $cookie {append Content "<td>$e"}
+        append Content "</tr>"
       }
       append Content "</table>"
     } else {
@@ -485,17 +536,27 @@ snit::type ::hv3::cookiemanager {
 
       # The "clear database button"
       button ${HTML}.clear   -text "Clear Database" -command [subst {
-        array unset [myvar myCookies]
-        [mymethod debug]
+        array unset [myvar myData]
+        [mymethod UpdateGui]
       }]
 
       ${path}.hv3 configure -requestcmd [mymethod download_report]
     }
     raise $path
-    ${path}.hv3 goto report://
+    $self UpdateGui
+  }
 
-    set HTML [${path}.hv3 html]
-    [lindex [${path}.hv3 search #clear] 0] replace ${HTML}.clear
+  method UpdateGui {} {
+    catch {
+      set path $myDebugWindow
+      ${path}.hv3 goto report://
+      set HTML [${path}.hv3 html]
+      [lindex [${path}.hv3 search #clear] 0] replace ${HTML}.clear
+    }
+  }
+
+  constructor {} {
+    set myDebugWindow .cookies_debug[string map {: _} $self]
   }
 }
 

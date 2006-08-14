@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.92 2006/08/12 16:37:08 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.93 2006/08/14 13:08:33 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -658,11 +658,21 @@ snit::widget ::hv3::hv3 {
     # Attach an image callback to the html widget
     $myHtml configure -imagecmd [mymethod Imagecmd]
 
-    # Register handler commands to integrate CSS with the HTML document
-    $myHtml handler node link     [mymethod link_node_handler]
-    $myHtml handler node base     [mymethod base_node_handler]
-    $myHtml handler script style  [mymethod style_script_handler]
-    $myHtml handler script script [mymethod script_script_handler]
+    # Register node handlers to deal with the various elements
+    # that may appear in the document <head>. In html, the <head> section
+    # may contain the following elements:
+    #
+    #     <script>, <style>, <meta>, <link>, <object>, <base>, <title>
+    #
+    # All except <title> are handled by code in ::hv3::hv3. Note that the
+    # handler for <object> is the same whether the element is located in
+    # the head or body of the html document.
+    #
+    $myHtml handler node   link     [mymethod link_node_handler]
+    $myHtml handler node   base     [mymethod base_node_handler]
+    $myHtml handler node   meta     [mymethod meta_node_handler]
+    $myHtml handler script style    [mymethod style_script_handler]
+    $myHtml handler script script   [mymethod script_script_handler]
 
     # Register handler commands to handle <object> and kin.
     $myHtml handler node object   [list hv3_object_handler $self]
@@ -849,6 +859,32 @@ snit::widget ::hv3::hv3 {
   #
   method import_handler {parent_id uri} {
     $self Requeststyle $parent_id $uri
+  }
+
+  # Node handler script for <meta> tags.
+  #
+  method meta_node_handler {node} {
+    set httpequiv [string tolower [$node attr -default "" http-equiv]]
+    set content   [$node attr -default "" content]
+
+    switch -- $httpequiv {
+      refresh {
+        # Regular expression to parse content attribute:
+        set re {([[:digit:]]+) *; *[Uu][Rr][Ll] *= *([^ ]+)}
+        set match [regexp $re $content dummy seconds uri]
+        if {$match} {
+          regexp {[^\"\']+} $uri uri
+          if {$uri ne ""} {
+            after [expr $seconds * 1000] [list $self goto $uri]
+            puts "Parse of content for http-equiv refresh successful!"
+            puts $uri
+          }
+        } else {
+          puts "Parse of content for http-equiv refresh failed..."
+        }
+      }
+    }
+
   }
 
   # Node handler script for <link> tags.
@@ -1326,14 +1362,23 @@ snit::type ::hv3::download {
     destroy $self
   }
 
-  # Interface for returning a redirect
+  # Interface for returning a redirect. True is returned if the
+  # redirect results in a different URI.
+  #
   method redirect {new_uri} {
     if {$myLocked} {error "Download handle is locked"}
+
+    set obj [::hv3::uri %AUTO $options(-uri)]
+    $obj load $new_uri
+    set new_uri [$obj get]
+    $obj destroy
+
     if {$options(-redirscript) != ""} {
       eval [linsert $options(-redirscript) end $new_uri]
     } 
     set options(-uri) $new_uri
     set myData {}
+    set options(-postdata) ""
   }
 }
 #--------------------------------------------------------------------------
