@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.199 2006/08/11 09:07:17 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.200 2006/08/15 16:37:53 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -1980,9 +1980,9 @@ normalFlowLayoutTable(pLayout, pBox, pNode, pY, pContext, pNormal)
                 eAlign = CSS_CONST_RIGHT;
                 break;
             case CSS_CONST_CENTER:
-            case CSS_CONST_JUSTIFY:
                 eAlign = CSS_CONST_CENTER;
                 break;
+            case CSS_CONST_JUSTIFY:
             case CSS_CONST_LEFT:
             default:
                 eAlign = CSS_CONST_LEFT;
@@ -2003,6 +2003,8 @@ normalFlowLayoutTable(pLayout, pBox, pNode, pY, pContext, pNormal)
             break;
         default: assert(!"Impossible");
     }
+
+    x = MAX(0, x);
 
     DRAW_CANVAS(&pBox->vc, &sBox.vc, x, y, pNode);
     pBox->height = MAX(pBox->height, *pY);
@@ -2285,6 +2287,8 @@ normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
         iWrappedX = iSpareWidth;
     } 
     sContent.iContaining = iUsedWidth;
+
+    iWrappedX = MAX(iWrappedX, 0);
 
     if (!pLayout->minmaxTest) {
 	/* Unless this is part of a min-max width test, then the content is at
@@ -3471,6 +3475,8 @@ HtmlLayout(pTree)
         BoxContext sContent;
         BoxContext sFixed;
 
+        HtmlCanvas sTmpCanvas;
+
         nodeGetMargins(&sLayout, pBody, nWidth, &margin);
         nodeGetBoxProperties(&sLayout, pBody, nWidth, &box);
         
@@ -3480,7 +3486,7 @@ HtmlLayout(pTree)
 
         /* Figure out the minimum width */
         blockMinMaxWidth(&sLayout, pBody, &minwidth, 0);
-        sContent.iContaining = MAX(sContent.iContaining, minwidth);
+        /* sContent.iContaining = MAX(sContent.iContaining, minwidth); */
 
         sLayout.pTop = pBody;
         HtmlLayoutNodeContent(&sLayout, &sContent, pBody);

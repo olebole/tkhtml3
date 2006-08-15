@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.57 2006/08/15 11:48:04 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.58 2006/08/15 16:37:53 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -986,8 +986,8 @@ proc main {{doc home:}} {
   gui_build     ::hv3::G
   gui_menu      ::hv3::G
 
-  ::hv3::cookiemanager ::hv3::the_cookie_manager
-  ::hv3::the_cookie_manager Import cookies.txt
+#  ::hv3::cookiemanager ::hv3::the_cookie_manager
+#  ::hv3::the_cookie_manager Import cookies.txt
 
   # After the event loop has run to create the GUI, run [main2]
   # to load the startup document. It's better if the GUI is created first,

@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.85 2006/08/15 15:15:41 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.86 2006/08/15 16:37:53 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -2671,6 +2671,7 @@ cssSelectorPropertySetPair(pParse, pSelector, pPropertySet, freeWhat)
     } else {
         pRule->pPriority = pParse->pPriority2;
     }
+    pRule->iRule = pParse->iNextRule++;
 
     /* Insert the rule into it's list. */
     if (pParse->pStyleId) {
@@ -2735,7 +2736,6 @@ cssSelectorPropertySetPair(pParse, pSelector, pPropertySet, freeWhat)
 
     pRule->pSelector = pSelector;
     pRule->pPropertySet = pPropertySet;
-    pRule->iRule = pParse->iNextRule++;
 }
 
 int HtmlCssPseudo(pToken)
