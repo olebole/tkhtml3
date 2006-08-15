@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.28 2006/08/15 11:48:04 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.29 2006/08/15 12:47:42 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -493,7 +493,9 @@ snit::widget ::hv3::control {
     set class [winfo class $myWidget]
 
     # If the widget has a -highlightthickness option, set it to 0.
-    catch { $myWidget configure -highlightthickness 0 }
+    if {$class ne "Combobox"} {
+      catch { $myWidget configure -highlightthickness 0 }
+    }
 
     array set v $values
     if {$class eq "Checkbutton" || $class eq "Radiobutton"} {
