@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.200 2006/08/15 16:37:53 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.201 2006/08/15 18:26:57 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -3468,7 +3468,6 @@ HtmlLayout(pTree)
     if (pBody) {
         int x;
         int y;
-        int minwidth = 0;
 
         MarginProperties margin;
         BoxProperties box;
@@ -3485,7 +3484,7 @@ HtmlLayout(pTree)
             margin.margin_left - margin.margin_right - box.iLeft - box.iRight;
 
         /* Figure out the minimum width */
-        blockMinMaxWidth(&sLayout, pBody, &minwidth, 0);
+        /* blockMinMaxWidth(&sLayout, pBody, &minwidth, 0); */
         /* sContent.iContaining = MAX(sContent.iContaining, minwidth); */
 
         sLayout.pTop = pBody;
