@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.29 2006/08/15 12:47:42 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.30 2006/08/15 13:57:17 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -515,6 +515,70 @@ snit::widget ::hv3::control {
   }
 }
 
+#-----------------------------------------------------------------------
+# ::hv3::format_query
+#
+#     This command is intended as a replacement for [::http::formatQuery].
+#     It does the same thing, except it allows the following characters
+#     to slip through unescaped:
+#
+#         - _ . ! ~ * ' ( )
+#
+#     as well as the alphanumeric characters (::http::formatQuery only
+#     allows the alphanumeric characters through).
+#
+#     QUOTE FROM RFC2396:
+#
+#     2.3. Unreserved Characters
+#     
+#        Data characters that are allowed in a URI but do not have a reserved
+#        purpose are called unreserved.  These include upper and lower case
+#        letters, decimal digits, and a limited set of punctuation marks and
+#        symbols.
+#     
+#           unreserved  = alphanum | mark
+#     
+#           mark        = "-" | "_" | "." | "!" | "~" | "*" | "'" | "(" | ")"
+#     
+#        Unreserved characters can be escaped without changing the semantics
+#        of the URI, but this should not be done unless the URI is being used
+#        in a context that does not allow the unescaped character to appear.
+#
+#     END QUOTE
+#
+#     So in a way both versions are correct. But some websites (yahoo.com)
+#     do not work unless we allow the extra characters through unescaped.
+#
+proc ::hv3::format_query {args} {
+  set result ""
+  set sep ""
+  foreach i $args {
+    append result $sep [::hv3::escape_string $i]
+    if {$sep eq "="} {
+      set sep &
+    } else {
+      set sep =
+    }
+  }
+  return $result
+}
+set ::hv3::escape_map ""
+proc ::hv3::escape_string {string} {
+  if {$::hv3::escape_map eq ""} {
+    for {set i 0} {$i < 256} {incr i} {
+      set c [format %c $i]
+      if {$c ne "-" && ![string match {[a-zA-Z0-9_.!~*'()]} $c]} {
+        set map($c) %[format %.2x $i]
+      }
+    }
+    set ::hv3::escape_map [array get map]
+  }
+
+  set converted [string map $::hv3::escape_map $string]
+  return $converted
+}
+#-----------------------------------------------------------------------
+
 snit::type ::hv3::form {
   variable myFormNode 
   variable myControls [list] 
@@ -583,7 +647,7 @@ snit::type ::hv3::form {
       append querydata "--${bound}--$CR"
     } else {
       set querytype "application/x-www-form-urlencoded"
-      set querydata [eval [linsert $data 0 ::http::formatQuery]]
+      set querydata [eval [linsert $data 0 ::hv3::format_query]]
     }
 
     set action [$myFormNode attr -default "" action]
@@ -593,7 +657,7 @@ snit::type ::hv3::form {
       POST    { set script $options(-postcmd) }
       ISINDEX { 
         set script $options(-getcmd) 
-        set querydata [::http::formatQuery [[lindex $myControls 0] value]]
+        set querydata [::hv3::format_query [[lindex $myControls 0] value]]
       }
       default { set script "" }
     }

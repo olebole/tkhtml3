@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.11 2006/08/15 11:48:04 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.12 2006/08/15 13:57:17 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd and -cancelrequestcmd
@@ -437,8 +437,11 @@ snit::type ::hv3::cookiemanager {
     while {$d ne ""} {
       regexp {^([^;]*)(.*)} $d dummy pair d
       set d [string range $d 1 end]
-      set K [string trim [lindex [split $pair =] 0]]
-      set V [string trim [lindex [split $pair =] 1]]
+
+      set idx [string first = $pair]
+      set K [string trim [string range $pair 0 [expr $idx-1]]]
+      set V [string trim [string range $pair [expr $idx+1] end]]
+
       if {![info exists name]} {
         set name $K
         set value $V
