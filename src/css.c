@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.84 2006/08/15 15:01:39 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.85 2006/08/15 15:15:41 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -2998,10 +2998,14 @@ HtmlCssSelectorTest(pSelector, pNode, dynamic_true)
                     return 0;
                 }
                 for (i = 0; N_CHILD(pParent,i) != x; i++);
-                if (i==0)  {
-                    return 0;
+
+                x = 0;
+                i--;
+                while (i >= 0 && HtmlNodeIsWhitespace(x = N_CHILD(pParent,i))) {
+                    i--;
                 }
-                x = N_CHILD(N_PARENT(x), i-1);
+                if (i < 0) return 0;
+
                 break;
             }
                 
