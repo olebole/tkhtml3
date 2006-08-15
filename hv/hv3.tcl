@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.94 2006/08/15 11:48:03 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.95 2006/08/15 14:27:32 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -876,11 +876,11 @@ snit::widget ::hv3::hv3 {
           regexp {[^\"\']+} $uri uri
           if {$uri ne ""} {
             after [expr $seconds * 1000] [list $self goto $uri]
-            puts "Parse of content for http-equiv refresh successful!"
-            puts $uri
+            # puts "Parse of content for http-equiv refresh successful!"
+            # puts $uri
           }
         } else {
-          puts "Parse of content for http-equiv refresh failed..."
+          # puts "Parse of content for http-equiv refresh failed..."
         }
       }
     }
@@ -1345,7 +1345,9 @@ snit::type ::hv3::download {
     if {$options(-incrscript) != "" && $nData >= $myChunksize} {
       eval [linsert $options(-incrscript) end $myData]
       set myData {}
-      # set myChunksize [expr $myChunksize * 2]
+      if {$myChunksize < 30000} {
+        set myChunksize [expr $myChunksize * 2]
+      }
     }
   }
 
