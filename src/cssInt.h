@@ -156,6 +156,7 @@ struct CssProperties {
 struct CssRule {
     CssPriority *pPriority;  /* Pointer to the priority of source stylesheet */
     int specificity;         /* Specificity of the selector */
+    int iRule;               /* Rule-number within source style sheet */
     CssSelector *pSelector;  /* The selector-chain for this rule */
     int freePropertySets;          /* True to delete pPropertySet */
     int freeSelector;              /* True to delete pSelector */
@@ -233,6 +234,8 @@ struct CssParse {
 
     CssPriority *pPriority1;
     CssPriority *pPriority2;
+
+    int iNextRule;                  /* iRule value for next rule */
 
     /* The parser sets the isIgnore flag to true when it enters an @media {}
      * block that does *not* apply, and sets it back to false when it exits the

@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.83 2006/07/17 10:52:31 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.84 2006/08/15 15:01:39 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -2523,6 +2523,16 @@ ruleCompare(CssRule *pLeft, CssRule *pRight) {
             CONST char *zLeft = Tcl_GetString(pLeft->pPriority->pIdTail);
             CONST char *zRight = Tcl_GetString(pRight->pPriority->pIdTail);
             res = strcmp(zLeft, zRight);
+
+            if (res == 0) {
+                /* If we get here, the rules have the same specificity,
+                 * come from the same stylesheet and both either have the
+                 * !IMPORTANT flag set or cleared. In this case the higher
+                 * priority rule is the one that appeared later in the 
+                 * source stylesheet.
+                 */
+		res = pLeft->iRule - pRight->iRule;
+            }
         }
     }
     return res;
@@ -2725,6 +2735,7 @@ cssSelectorPropertySetPair(pParse, pSelector, pPropertySet, freeWhat)
 
     pRule->pSelector = pSelector;
     pRule->pPropertySet = pPropertySet;
+    pRule->iRule = pParse->iNextRule++;
 }
 
 int HtmlCssPseudo(pToken)

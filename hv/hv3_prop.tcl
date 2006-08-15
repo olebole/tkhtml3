@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.37 2006/08/08 17:50:34 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.38 2006/08/15 15:01:39 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_prop.tcl --
@@ -205,19 +205,20 @@ snit::widget HtmlDebug {
   # be declared public because they are invoked by widget callback scripts
   # and so on. They are really private methods.
 
-# HtmlDebug::rerender
-#
-#     This method is called to force the attached html widget to rerun the
-#     style and layout engines.
-#
+  # HtmlDebug::rerender
+  #
+  #     This method is called to force the attached html widget to rerun the
+  #     style and layout engines.
+  #
   method rerender {} {
-  set html [$myHtml html]
-
-  set logcmd [$html cget -logcmd]
-  $html configure -logcmd [mymethod logcmd]
-  $html relayout
-  after idle [list ::HtmlDebug::browse $myHtml $mySelected]
-  after idle [list $html configure -logcmd $logcmd]
+    set html [$myHtml html]
+    set logcmd [$html cget -logcmd]
+    $html configure -logcmd [mymethod Logcmd]
+    unset -nocomplain myLayoutEngineLog
+    unset -nocomplain myStyleEngineLog
+    $html relayout
+    after idle [list ::HtmlDebug::browse $myHtml $mySelected]
+    after idle [list $html configure -logcmd $logcmd]
   }
 
   method searchNode {{idx 0}} {
@@ -438,7 +439,12 @@ snit::widget HtmlDebug {
     return $doc
   }
 
-  method logcmd {subject message} {
+  # Logcmd
+  #
+  #     This method is registered as the -logcmd callback with the widget
+  #     when it is running the "Rerender with logging" function.
+  #
+  method Logcmd {subject message} {
     set arrayvar ""
     switch -- $subject {
       STYLEENGINE {
@@ -448,10 +454,9 @@ snit::widget HtmlDebug {
         set arrayvar myLayoutEngineLog
       }
     }
-  
     if {$arrayvar != ""} {
       if {$message == "START"} {
-        unset -nocomplain $arrayvar
+        # unset -nocomplain $arrayvar
       } else {
         set idx [string first " " $message]
         set node [string range $message 0 [expr $idx-1]]
@@ -460,6 +465,7 @@ snit::widget HtmlDebug {
       }
     }
   }
+
 }
 #--------------------------------------------------------------------------
 
