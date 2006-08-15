@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.27 2006/08/13 15:33:43 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.28 2006/08/15 11:48:04 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -45,6 +45,66 @@ source [file join [file dirname [info script]] combobox.tcl]
 #
 # <isindex>
 #
+
+# ::hv3::fileselect
+#
+snit::widget ::hv3::fileselect {
+
+  component myButton
+  component myEntry
+
+  option -font {Helvetica 14}
+  delegate option -text to myButton
+
+  delegate option -highlightthickness to hull
+
+  constructor {args} {
+    set myEntry [entry ${win}.entry -width 30]
+    set myButton [button ${win}.button -command [mymethod Browse]]
+
+    $myEntry configure -highlightthickness 0
+    $myEntry configure -borderwidth 0
+    $myEntry configure -bg white
+
+    $myButton configure -highlightthickness 0
+    $myButton configure -pady 0
+
+    pack $myButton -side right
+    pack $myEntry -fill both -expand true
+    $self configurelist $args
+  }
+
+  method Browse {} {
+    set file [tk_getOpenFile]
+    if {$file ne ""} {
+      $myEntry delete 0 end
+      $myEntry insert 0 $file
+    }
+  }
+
+  method success {} {
+    set fname [${win}.entry get]
+    if {$fname ne ""} {
+      return 1
+    }
+    return 0
+  }
+  method value {} {
+    set fname [${win}.entry get]
+    if {$fname ne ""} {
+      set fd [open $fname]
+      fconfigure $fd -encoding binary -translation binary
+      set data [read $fd]
+      close $fd
+      return $data
+    }
+    return ""
+  }
+  method filename {} {
+    set fname [${win}.entry get]
+    return [file tail $fname]
+  }
+}
 
 #--------------------------------------------------------------------------
 # ::hv3::control
@@ -95,16 +155,28 @@ source [file join [file dirname [info script]] combobox.tcl]
 #
 snit::widget ::hv3::control {
 
+  # The document node corresponding to the element that created this 
+  # control (i.e. the <input>).
   variable  myControlNode
+
+  # The widget for this control. One of the following types:
+  #
+  #     button
+  #     entry
+  #     ::combobox::combobox
+  #     text
+  #     checkbox
+  #     radiobutton
+  #     ::hv3::fileselect
+  #
   variable  myWidget ""
+  variable  myWidgetIsSmart 0
 
   variable  mySuccess 1            ;# Value returned by [success]
   variable  myValue   ""           ;# Value returned by [value]
 
+  # If this is a radiobutton widget, the name of the -variable var.
   variable  myRadioVarname ""      ;# Used by radiobuttons only
-
-  # True if the calculated value of the 'width' property should be used.
-  variable  myUsePixelWidth 1
 
   option -submitcmd -default ""
 
@@ -128,7 +200,7 @@ snit::widget ::hv3::control {
           reset    { #TODO }
           button   { #TODO }
           hidden   { set myValue [$myControlNode attr -default "" value] }
-          file     { #TODO }
+          file     { $self CreateFileselectWidget }
           default  { #TODO }
         }
       }
@@ -219,6 +291,12 @@ snit::widget ::hv3::control {
 
     # Pressing enter in an entry widget submits the form.
     bind $myWidget <KeyPress-Return> [mymethod Submit]
+  }
+
+  method CreateFileselectWidget {} {
+    set myWidget [::hv3::fileselect ${win}.widget]
+    set myWidgetIsSmart 1
+    $myWidget configure -text Browse...
   }
 
   # Create a standard Tk button widget for this control. The argument may
@@ -369,6 +447,10 @@ snit::widget ::hv3::control {
   # Return the current value of the control.
   #
   method value {} {
+
+    # If the $myWidget object has a [value] method, use it.
+    if {$myWidgetIsSmart} { return [$myWidget value] }
+
     if {[$myControlNode tag] eq "textarea"} {
       return [$myWidget get 0.0 end]
     }
@@ -383,6 +465,9 @@ snit::widget ::hv3::control {
       return 0
     }
 
+    # If the $myWidget object has a [success] method, use it.
+    if {$myWidgetIsSmart} { return [$myWidget success] }
+
     if {$myRadioVarname ne ""} {
       set res [expr \
         {[set $myRadioVarname] eq [$myControlNode attr -default "" value]}
@@ -393,6 +478,11 @@ snit::widget ::hv3::control {
     return $mySuccess
   }
 
+  method filename {} {
+    if {$myWidgetIsSmart} { return [$myWidget filename] }
+    return ""
+  }
+
   # This method is invoked by Tkhtml as the -configurecmd callback for this
   # control. The argument is a serialized array of property-value pairs, as
   # described in the Tkhtml man page along with the [node replace] command.
@@ -401,6 +491,9 @@ snit::widget ::hv3::control {
     if {$myWidget eq ""} return
 
     set class [winfo class $myWidget]
+
+    # If the widget has a -highlightthickness option, set it to 0.
+    catch { $myWidget configure -highlightthickness 0 }
 
     array set v $values
     if {$class eq "Checkbutton" || $class eq "Radiobutton"} {
@@ -443,22 +536,53 @@ snit::type ::hv3::form {
   }
 
   method submit {} {
-    puts "FORM SUBMIT:"
+    # puts "FORM SUBMIT:"
     set data [list]
     foreach control $myControls {
       set success [$control success]
       set name    [$control name]
       if {$success} {
         set value [$control value]
-        puts "    Control \"$name\" is successful: \"$value\""
+        # puts "    Control \"$name\" is successful: \"$value\""
         lappend data $name $value
       } else {
-        puts "    Control \"$name\" is unsuccessful"
+        # puts "    Control \"$name\" is unsuccessful"
       }
     }
 
-    set encdata [eval [linsert $data 0 ::http::formatQuery]]
-    puts "Submitting: $encdata"
+    # Now encode the data, depending on the enctype attribute of the
+    set enctype [$myFormNode attr -default "" enctype]
+    if {[string match -nocase *multipart* $enctype]} {
+      # Generate a pseudo-random boundary string. The key here is that
+      # if this exact string actually appears in any form control values,
+      # the form submission will fail. So generate something nice and
+      # long to minimize the odds of this happening.
+      set bound "-----Submitted_by_Hv3_[clock seconds].[pid].[expr rand()]"
+
+      set querytype "multipart/form-data ; boundary=$bound"
+      set querydata ""
+      set CR "\r\n"
+      foreach control $myControls {
+        if {[$control success]} {
+
+          set name  [$control name]
+          set value [$control value]
+          set filename [$control filename]
+
+          append querydata "--${bound}$CR"
+          append querydata "Content-Disposition: form-data; name=\"${name}\""
+          if { $filename ne "" } {
+            append querydata "; filename=\"$filename\""
+          }
+          append querydata "$CR$CR"
+          append querydata "${value}$CR"
+        }
+      }
+      append querydata "--${bound}--$CR"
+    } else {
+      set querytype "application/x-www-form-urlencoded"
+      set querydata [eval [linsert $data 0 ::http::formatQuery]]
+    }
 
     set action [$myFormNode attr -default "" action]
     set method [string toupper [$myFormNode attr -default get method]]
@@ -467,14 +591,13 @@ snit::type ::hv3::form {
       POST    { set script $options(-postcmd) }
       ISINDEX { 
         set script $options(-getcmd) 
-        set encdata [::http::formatQuery [[lindex $myControls 0] value]]
+        set querydata [::http::formatQuery [[lindex $myControls 0] value]]
       }
       default { set script "" }
     }
 
     if {$script ne ""} {
-      set exec [concat $script [list $action $encdata]]
-      puts $exec
+      set exec [concat $script [list $action $querytype $querydata]]
       eval $exec
     }
   }

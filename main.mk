@@ -115,6 +115,7 @@ hv3_img.vfs: binaries
 	if test -d $(TCL)/lib/tile*/ ; then \
 		cp -R $(TCL)/lib/tile*/ ./hv3_img.vfs/lib ; \
 	fi
+	cp -R $(TCL)/lib/*tls* ./hv3_img.vfs/lib ; \
 	touch hv3_img.vfs
 
 hv3.vfs: binaries

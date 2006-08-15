@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.93 2006/08/14 13:08:33 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.94 2006/08/15 11:48:03 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -1078,8 +1078,8 @@ snit::widget ::hv3::hv3 {
     }
   }
 
-  method Formcmd {method uri encdata} {
-    puts "Formcmd $method $uri $encdata"
+  method Formcmd {method uri querytype encdata} {
+    # puts "Formcmd $method $uri $querytype $encdata"
     set full_uri [$self resolve_uri $uri]
 
     set handle [::hv3::download %AUTO% -mimetype text/html]
@@ -1089,6 +1089,7 @@ snit::widget ::hv3::hv3 {
         -finscript  [mymethod documentcallback $handle 1]
     if {$method eq "post"} {
       $handle configure -uri $full_uri -postdata $encdata
+      $handle configure -enctype $querytype
     } else {
       $handle configure -uri "${full_uri}?${encdata}"
     }  
@@ -1295,6 +1296,7 @@ snit::type ::hv3::download {
   option -uri         -default ""
   option -postdata    -default ""
   option -mimetype    -default ""
+  option -enctype     -default ""
 
   # Constructor and destructor
   constructor {args} {eval $self configure $args}
@@ -1303,6 +1305,7 @@ snit::type ::hv3::download {
   # Query interface used by protocol implementations
   method uri       {} {return $options(-uri)}
   method postdata  {} {return $options(-postdata)}
+  method enctype   {} {return $options(-enctype)}
   method authority {} {
     set obj [::hv3::uri %AUTO% $options(-uri)]
     set authority [$obj cget -authority]

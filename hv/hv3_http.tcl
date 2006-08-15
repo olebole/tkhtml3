@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.10 2006/08/14 13:08:33 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.11 2006/08/15 11:48:04 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd and -cancelrequestcmd
@@ -59,20 +59,39 @@ snit::type ::hv3::protocol {
 
   constructor {args} {
     $self configurelist $args
-    set myCookieManager [::hv3::cookiemanager %AUTO%]
 
+    # It used to be that each ::hv3::protocol object would create it's
+    # own cookie-manager database. This has now changed so that the
+    # whole application (all browser tabs) use a single cookies 
+    # database. The net effect is that you can log in to a web site
+    # in one tab and then continue in another.
+    #
+    # The global cookie-manager object is named "::hv3::the_cookie_manager".
+    #
+    set myCookieManager ::hv3::the_cookie_manager
+    if {[info commands $myCookieManager] eq ""} {
+      ::hv3::cookiemanager $myCookieManager
+    }
+
+    # Register the 4 types of URIs the ::hv3::protocol code knows about.
+    # Note that https:// URIs require the "tls" package.
     $self schemehandler file  [mymethod request_file]
     $self schemehandler http  [mymethod request_http]
-    $self schemehandler https [mymethod request_https]
     $self schemehandler data  [mymethod request_data]
+    if {[info commands ::tls::socket] ne ""} {
+      $self schemehandler https [mymethod request_https]
+      ::http::register https 443 [mymethod SSocket]
+    }
 
-    ::http::register https 443 [mymethod SSocket]
+    # Configure the Tcl http package to pretend to be Gecko.
     ::http::config -useragent {Mozilla/5.0 Gecko/20050513}
     set ::http::defaultCharset utf-8
   }
 
-  destructor {
-    if {$myCookieManager ne ""} {$myCookieManager destroy}
+  destructor { 
+    # Nothing to do. We used to destroy the $myCookieManager object here,
+    # but that object is now global and exists for the lifetime of the
+    # application.
   }
 
   # Register a custom scheme handler command (like "home:").
@@ -113,6 +132,7 @@ snit::type ::hv3::protocol {
     set uri       [$downloadHandle uri]
     set authority [$downloadHandle authority]
     set postdata  [$downloadHandle postdata]
+    set enctype   [$downloadHandle enctype]
 
     # Store the HTTP header containing the cookies in variable $headers
     set headers [$myCookieManager Cookie $uri]
@@ -128,6 +148,9 @@ snit::type ::hv3::protocol {
     ]
     if {$postdata ne ""} {
       lappend geturl -query $postdata
+      if {$enctype ne ""} {
+        lappend geturl -type $enctype
+      }
     }
     set token [eval $geturl]
 
@@ -307,6 +330,7 @@ snit::type ::hv3::protocol {
         switch -- $name {
           Location {
             set redirect $value
+            # puts "REDIRECT $value"
           }
           Set-Cookie {
             regexp {^([^= ]*)=([^ ;]*)(.*)$} $value dummy name val cookie_av
@@ -520,7 +544,7 @@ snit::type ::hv3::cookiemanager {
 
     return [subst $Template]
   } 
-  method download_report {downloadHandle} {
+  method Downloadreport {downloadHandle} {
     $downloadHandle append [$self get_report]
     $downloadHandle finish
   }
@@ -528,31 +552,88 @@ snit::type ::hv3::cookiemanager {
   method debug {} {
     set path $myDebugWindow
     if {![winfo exists $path]} {
-      toplevel $path
-      ::hv3::hv3 ${path}.hv3
-      ${path}.hv3 configure -width 400 -height 400
-      pack ${path}.hv3 -expand true -fill both
-      set HTML [${path}.hv3 html]
-
-      # The "clear database button"
-      button ${HTML}.clear   -text "Clear Database" -command [subst {
-        array unset [myvar myData]
-        [mymethod UpdateGui]
-      }]
-
-      ${path}.hv3 configure -requestcmd [mymethod download_report]
+      $self CreateGui
     }
     raise $path
     $self UpdateGui
   }
 
+  # CreateGui
+  #
+  #     Create the GUI (new toplevel window) used to manipulate the cookies
+  #     database directly. This gui is mainly for testing, it's not really
+  #     useful to end users.
+  #
+  method CreateGui {} {
+    set path $myDebugWindow
+    toplevel $path
+    ::hv3::hv3 ${path}.hv3
+    ${path}.hv3 configure -width 400 -height 400
+
+    # The "clear", "import" and "export" database.
+    set b [frame ${path}.b]
+    ::hv3::button $b.clear  -text "Clear Cookies"     -command [mymethod Clear]
+    ::hv3::button $b.import -text "Import Cookies..." -command [mymethod Import]
+    ::hv3::button $b.export -text "Export Cookies..." -command [mymethod Export]
+
+    pack ${b}.clear ${b}.import ${b}.export -side left -fill x -expand true
+    pack ${b} -side bottom -fill x
+    pack ${path}.hv3 -expand true -fill both
+
+    ${path}.hv3 configure -requestcmd [mymethod Downloadreport]
+  }
+
+  # UpdateGui
+  #
+  #     Update the contents of the GUI (if it currently exists) to reflect
+  #     changes in the database (aka. the myData array).
+  #
   method UpdateGui {} {
     catch {
       set path $myDebugWindow
       ${path}.hv3 goto report://
-      set HTML [${path}.hv3 html]
-      [lindex [${path}.hv3 search #clear] 0] replace ${HTML}.clear
     }
+  }
+
+  # Clear
+  # Import
+  # Export
+  #
+  #     The following three methods are called when the "clear", "import"
+  #     or "export" buttons of the Cookies gui are pressed.
+  #
+  method Clear {} {
+    array unset [myvar myData]
+    $self UpdateGui
+  }
+  method Import {{fname ""}} {
+    if {$fname eq ""} {
+      set fname [tk_getOpenFile]
+      if {$fname eq ""} return
+    }
+    set fd [open $fname]
+    while {![eof $fd]} {
+      set line [gets $fd]
+      set cookie [split $line "\t"]
+      if {[llength $cookie] == 7} {
+        foreach {domain flag path secure expires name value} $cookie {}
+        set key "$domain $path $name"
+        set myData($key) $cookie
+      }
+    }
+    $self UpdateGui
+  }
+  method Export {} {
+    set fname [tk_getSaveFile]
+    if {$fname eq ""} return
+    set fd [open $fname w]
+    puts $fd "# cookies.txt file generated by Hv3."
+    puts $fd ""
+    foreach key [array names myData] {
+      set cookie $myData($key)
+      puts $fd [join $cookie "\t"]
+    }
+    close $fd
   }
 
   constructor {} {
