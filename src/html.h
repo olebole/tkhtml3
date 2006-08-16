@@ -326,6 +326,15 @@ struct HtmlOptions {
 void HtmlLog(HtmlTree *, CONST char *, CONST char *, ...);
 void HtmlTimer(HtmlTree *, CONST char *, CONST char *, ...);
 
+typedef struct HtmlDamage HtmlDamage;
+struct HtmlDamage {
+  int x;
+  int y;
+  int w;
+  int h;
+  HtmlDamage *pNext;
+};
+
 /*
  * Widget state information information is stored in an instance of this
  * structure, which is a part of the HtmlTree. The variables within control 
@@ -339,8 +348,7 @@ struct HtmlCallback {
     HtmlNode *pDynamic;         /* Recalculate dynamic CSS for this node */
 
     /* HTML_DAMAGE */
-    int x, y;                   /* Top-left corner of damaged region */
-    int w, h;                   /* Bottom-right corner of damaged region */
+    HtmlDamage *pDamage;
 
     /* HTML_RESTYLE */
     HtmlNode *pRestyle;         /* Restyle this node */

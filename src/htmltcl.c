@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.113 2006/08/12 14:10:13 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.114 2006/08/16 15:21:10 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -339,6 +339,7 @@ callbackHandler(clientData)
 
     assert(!pTree->pRoot||pTree->pRoot->pPropertyValues||pTree->cb.pRestyle);
 
+#if 0
     HtmlLog(pTree, "CALLBACK", 
         "flags=( %s%s%s%s%s) pDynamic=%s pRestyle=%s scroll=(+%d+%d) "
         "damage=(%dx%d+%d+%d)",
@@ -352,6 +353,7 @@ callbackHandler(clientData)
          p->iScrollX, p->iScrollY,
          p->w, p->h, p->x, p->y
     );
+#endif
 
     assert(!pTree->cb.inProgress);
     pTree->cb.inProgress = 1;
@@ -402,29 +404,63 @@ callbackHandler(clientData)
      * redrawn and that the Tk windows for any replaced nodes are correctly
      * mapped, unmapped or moved.
      */
+    assert(pTree->cb.pDamage == 0 || pTree->cb.flags & HTML_DAMAGE);
     if (pTree->cb.flags & HTML_LAYOUT) {
+        HtmlDamage *pD = pTree->cb.pDamage;
+
         layoutClock = clock();
         HtmlLayout(pTree);
         layoutClock = clock() - layoutClock;
         pTree->cb.flags |= HTML_SCROLL;
+
+        /* Discard any damage info, as the whole viewport will be redrawn */
         pTree->cb.flags &= ~HTML_DAMAGE;
+        while (pD) {
+            HtmlDamage *pNext = pD->pNext;
+            HtmlFree("HtmlDamage", pD);
+            pD = pNext;
+        }
+        pTree->cb.pDamage = 0;
     }
 
     /* If the HTML_DAMAGE flag is set, repaint a window region. */
+    assert(pTree->cb.pDamage == 0 || pTree->cb.flags & HTML_DAMAGE);
     if (pTree->cb.flags & HTML_DAMAGE) {
-        HtmlWidgetRepair(pTree, p->x, p->y, p->w, p->h);
+        HtmlDamage *pD = pTree->cb.pDamage;
+        pTree->cb.pDamage = 0;
+        while (pD) {
+            HtmlDamage *pNext = pD->pNext;
+            HtmlLog(pTree, 
+                "ACTION", "Repair: %dx%d +%d+%d", pD->w, pD->h, pD->x, pD->y
+            );
+            HtmlWidgetRepair(pTree, pD->x, pD->y, pD->w, pD->h);
+            HtmlFree("HtmlDamage", pD);
+            pD = pNext;
+        }
     }
+    assert(pTree->cb.pDamage == 0);
 
     /* If the HTML_SCROLL flag is set, scroll the viewport. */
     if (pTree->cb.flags & HTML_SCROLL) {
         int force_redraw = (pTree->cb.flags & HTML_LAYOUT);
+        HtmlLog(pTree, "ACTION", "SetViewport: x=%d y=%d force=%d", 
+            p->iScrollX, p->iScrollY, force_redraw
+        );
         HtmlWidgetSetViewport(pTree, p->iScrollX, p->iScrollY, force_redraw);
     }
 
-    doScrollCallback(pTree);
+    if (pTree->cb.flags & (HTML_SCROLL|HTML_LAYOUT)) {
+      doScrollCallback(pTree);
+    }
+
     pTree->cb.flags = 0;
     assert(pTree->cb.inProgress);
     pTree->cb.inProgress = 0;
+
+    if (pTree->cb.pDamage) {
+        pTree->cb.flags = HTML_DAMAGE;
+        Tcl_DoWhenIdle(callbackHandler, (ClientData)pTree);
+    }
 
     offscreen = MAX(0, 
         MIN(pTree->canvas.bottom - Tk_Height(pTree->tkwin), pTree->iScrollY)
@@ -634,16 +670,38 @@ HtmlCallbackDamage(pTree, x, y, w, h)
     int w; 
     int h;
 {
+    HtmlDamage *pNew;
+    HtmlDamage *p;
+
     /* Clip the values to the viewport */
     if (x < 0) {w += x; x = 0;}
     if (y < 0) {h += y; y = 0;}
     w = MIN(w, Tk_Width(pTree->tkwin) - x);
     h = MIN(h, Tk_Height(pTree->tkwin) - y);
     
+    /* If the damaged region is not currently visible, do nothing */
     if (w <= 0 || h <= 0) {
         return;
     }
 
+    /* Loop through the current list of damaged rectangles. If possible
+     * clip the new damaged region so that the same part of the display
+     * is not painted more than once.
+     */
+    for (p = pTree->cb.pDamage; p; p = p->pNext) {
+        /* Check if region p completely encapsulates the new region. If so,
+         * we need do nothing. 
+         */
+        assert(pTree->cb.flags & HTML_DAMAGE);
+        if (
+            p->x <= x && p->y <= y && 
+            (p->x + p->w) >= (x + w) && (p->y + p->h) >= (y + h)
+        ) {
+            return;
+        }
+    }
+
+#if 0
     if (pTree->cb.flags & HTML_DAMAGE) {
         int x2 = MAX(x + w, pTree->cb.x + pTree->cb.w);
         int y2 = MAX(y + h, pTree->cb.y + pTree->cb.h);
@@ -662,6 +720,15 @@ HtmlCallbackDamage(pTree, x, y, w, h)
     assert(pTree->cb.y >= 0);
     assert(pTree->cb.w > 0);
     assert(pTree->cb.h > 0);
+#endif
+ 
+    pNew = (HtmlDamage *)HtmlAlloc("HtmlDamage", sizeof(HtmlDamage));
+    pNew->x = x;
+    pNew->y = y;
+    pNew->w = w;
+    pNew->h = h;
+    pNew->pNext = pTree->cb.pDamage;
+    pTree->cb.pDamage = pNew;
 
     if (!pTree->cb.flags) {
         Tcl_DoWhenIdle(callbackHandler, (ClientData)pTree);

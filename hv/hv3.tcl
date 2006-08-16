@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.95 2006/08/15 14:27:32 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.96 2006/08/16 15:21:10 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -1203,10 +1203,10 @@ snit::widget ::hv3::hv3 {
     $self invalidate_nodecache
     $self invalidate_textdocument
 
-    $myDynamicManager   reset
-    $myFormManager      reset
-    $mySelectionManager reset
-    $myHtml             reset
+    foreach m [list $myDynamicManager $myFormManager $mySelectionManager] {
+      if {$m ne ""} {$m reset}
+    }
+    $myHtml reset
 
     if {$myBase ne ""} {
       $myBase destroy

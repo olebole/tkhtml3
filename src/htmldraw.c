@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.154 2006/08/12 14:10:12 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.155 2006/08/16 15:21:10 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -538,6 +538,12 @@ windowsRepair(pTree, pCanvas)
             }
             p->pNext = 0;
         } else {
+            if (Tk_IsMapped(control)) {
+                HtmlCallbackDamage(pTree, 
+                    Tk_X(control), Tk_Y(control), 
+                    Tk_Width(control), Tk_Height(control) 
+                );
+            }
             Tk_MoveResizeWindow(control, iViewX, iViewY, iWidth, iHeight);
             if (!Tk_IsMapped(control)) {
                 Tk_MapWindow(control);
@@ -3506,14 +3512,18 @@ HtmlWidgetSetViewport(pTree, scroll_x, scroll_y, force_redraw)
     int delta_x = scroll_x - pTree->iScrollX;
     int delta_y = scroll_y - pTree->iScrollY;
 
+    if (
+        !force_redraw && 
+        pTree->iScrollY == scroll_y && 
+        pTree->iScrollX == scroll_x
+    ) {
+        return;
+    }
+
     /* Make sure the widget main window exists before doing anything */
     Tk_MakeWindowExist(win);
     w = Tk_Width(win);
     h = Tk_Height(win);
-
-#if 0
-    queryVisibility(pTree);
-#endif
 
     assert(pTree->nFixedBackground >= 0);
     if (pTree->nFixedBackground || pTree->eVisibility != VisibilityUnobscured) {
@@ -3548,7 +3558,7 @@ HtmlWidgetSetViewport(pTree, scroll_x, scroll_y, force_redraw)
 }
 
 HtmlCanvasItem *
-HtmlDrawAddMarker(pCanvas, x, y, fixed) 
+HtmlDrawAddMarker(pCanvas, x, y, fixed)
     HtmlCanvas *pCanvas;
     int x;
     int y;
