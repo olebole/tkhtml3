@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.12 2006/08/15 13:57:17 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.13 2006/08/16 17:33:44 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd and -cancelrequestcmd
@@ -456,7 +456,17 @@ snit::type ::hv3::cookiemanager {
       set v(secure) FALSE
     }
 
-    set v(expires) [clock scan $v(expires)]
+    # Try to convert the "expires" header to a time_t time. This
+    # may fail, if the header specifies a date too far in the future 
+    # or if it get's the format wrong. In any case it's not particularly
+    # important, just set the cookie to never expire and move on.
+    set rc [catch {
+      set v(expires) [clock scan $v(expires)]
+    }]
+    if {$rc} {
+      set v(expires) 0
+    }
+
     if {[info exists name]} {
       set cookie [list \
           $v(domain) $v(flag) $v(path) $v(secure) $v(expires) $name $value
