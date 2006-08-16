@@ -152,7 +152,14 @@ namespace eval tkhtml {
         if {$tw == 0} {set tw $w}
         if {$th == 0} {set th $h}
 
-        set newimg2 [image create photo]
+        set cw $w
+        set ch $h
+        while {$cw * $ch < 20000} {
+            incr cw $cw
+            incr ch $ch
+        }
+
+        set newimg2 [image create photo -height $ch -width $cw]
         $newimg2 copy $img -from 0 0 -to 0 0 $w $h
         set cw $w
         set ch $h
@@ -161,8 +168,8 @@ namespace eval tkhtml {
             $newimg2 copy $newimg2 -from 0 0 -to 0 $ch    $cw $ch
             $newimg2 copy $newimg2 -from 0 0 -to $cw $ch  $cw $ch
             $newimg2 copy $newimg2 -from 0 0 -to $cw 0    $cw $ch
-            set cw [expr 2 * $cw]
-            set ch [expr 2 * $ch]
+            incr cw $cw
+            incr ch $ch
         }
 
         return $newimg2

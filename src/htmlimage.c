@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlimage.c,v 1.51 2006/07/30 15:10:02 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlimage.c,v 1.52 2006/08/16 17:06:38 danielk1977 Exp $";
 
 #include <assert.h>
 #include "html.h"
@@ -773,7 +773,7 @@ HtmlImageAlphaChannel(pTree, pImage)
         /* If the image consists of more than 40,000 pixels, assume
          * it contains a semi-translucent pixel.
          */ 
-        if ((w * h) > 40000) {
+        if ((w * h) > 100) {
             p->eAlpha = ALPHA_CHANNEL_TRUE;
             return 1;
         }

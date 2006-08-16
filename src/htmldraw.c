@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.155 2006/08/16 15:21:10 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.156 2006/08/16 17:06:38 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1781,7 +1781,13 @@ drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview)
              */
             int isAlpha = 1;
 #else
+	    /* Update: Maybe the XFillRectangle() optimization is less helpful
+             * than it seems.
+             */
+#if 0
             int isAlpha = HtmlImageAlphaChannel(pTree, pV->imBackgroundImage);
+#endif
+            int isAlpha = 1;
 #endif
     
             iPosX = pV->iBackgroundPositionX;
@@ -1833,7 +1839,7 @@ drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview)
 
                 /* Create a pixmap of the image */
                 ipix = Tk_GetPixmap(
-                    display, Tk_WindowId(win),iWidth, iHeight, dep
+                    display, Tk_WindowId(win), iWidth, iHeight, dep
                 );
                 for ( ; pBgNode; pBgNode = HtmlNodeParent(pBgNode)) {
                     HtmlComputedValues *pV2 = pBgNode->pPropertyValues;
