@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.86 2006/08/15 16:37:53 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.87 2006/08/17 17:30:52 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -3823,16 +3823,22 @@ HtmlCssStyleReport(clientData, interp, objc, objv)
     int nByTag = 0;
     int nByClass = 0;
     int nById = 0;
+    int nAfter = 0;
+    int nBefore = 0;
 
     CssRule *pRule;
     Tcl_HashEntry *pEntry;
     Tcl_HashSearch search;
 
-    Tcl_Obj *pReport;
+    Tcl_Obj *pAfter;
+    Tcl_Obj *pBefore;
     Tcl_Obj *pUniversal;
+
     Tcl_Obj *pByTag;
     Tcl_Obj *pByClass;
     Tcl_Obj *pById;
+
+    Tcl_Obj *pReport;
 
     pUniversal = Tcl_NewObj();
     Tcl_IncrRefCount(pUniversal);
@@ -3842,6 +3848,24 @@ HtmlCssStyleReport(clientData, interp, objc, objv)
     );
     rulelistReport(pStyle->pUniversalRules, pUniversal, &nUniversal);
     Tcl_AppendStringsToObj(pUniversal, "</table>", 0);
+
+    pAfter = Tcl_NewObj();
+    Tcl_IncrRefCount(pAfter);
+    Tcl_AppendStringsToObj(pAfter, 
+        "<h1>After Rules</h1>",
+        "<table border=1>", 0
+    );
+    rulelistReport(pStyle->pAfterRules, pAfter, &nAfter);
+    Tcl_AppendStringsToObj(pAfter, "</table>", 0);
+
+    pBefore = Tcl_NewObj();
+    Tcl_IncrRefCount(pBefore);
+    Tcl_AppendStringsToObj(pBefore, 
+        "<h1>Before Rules</h1>",
+        "<table border=1>", 0
+    );
+    rulelistReport(pStyle->pBeforeRules, pBefore, &nBefore);
+    Tcl_AppendStringsToObj(pBefore, "</table>", 0);
 
     pByTag = Tcl_NewObj();
     Tcl_IncrRefCount(pByTag);
@@ -3908,12 +3932,20 @@ HtmlCssStyleReport(clientData, interp, objc, objv)
 
     Tcl_AppendStringsToObj(pReport, "<li>By id rules lists: ", 0);
     Tcl_AppendObjToObj(pReport, Tcl_NewIntObj(nById));
+
+    Tcl_AppendStringsToObj(pReport, "<li>:before rules lists: ", 0);
+    Tcl_AppendObjToObj(pReport, Tcl_NewIntObj(nBefore));
+
+    Tcl_AppendStringsToObj(pReport, "<li>:after rules lists: ", 0);
+    Tcl_AppendObjToObj(pReport, Tcl_NewIntObj(nAfter));
     Tcl_AppendStringsToObj(pReport, "</ul></div>", 0);
 
     Tcl_AppendObjToObj(pReport, pUniversal);
     Tcl_AppendObjToObj(pReport, pByTag);
     Tcl_AppendObjToObj(pReport, pByClass);
     Tcl_AppendObjToObj(pReport, pById);
+    Tcl_AppendObjToObj(pReport, pBefore);
+    Tcl_AppendObjToObj(pReport, pAfter);
 
     Tcl_SetObjResult(interp, pReport);
     Tcl_DecrRefCount(pReport);

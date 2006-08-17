@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.156 2006/08/16 17:06:38 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.157 2006/08/17 17:30:52 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1468,7 +1468,11 @@ int HtmlLayoutPrimitives(clientData, interp, objc, objv)
                 break;
         }
         if (nObj>0) {
+            int ii;
             pList = Tcl_NewObj();
+            for (ii = 0; ii < nObj; ii++) {
+                if (!aObj[ii]) aObj[ii] = Tcl_NewStringObj("", -1);
+            }
             Tcl_SetListObj(pList, nObj, aObj);
         }
         if (pList) {
