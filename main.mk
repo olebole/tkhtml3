@@ -112,9 +112,9 @@ hv3_img.vfs: binaries
 	if test -d $(TCL)/lib/Img*/ ; then \
 		cp -R $(TCL)/lib/Img*/ ./hv3_img.vfs/lib ; \
 	fi
-	if test -d $(TCL)/lib/tile*/ ; then \
-		cp -R $(TCL)/lib/tile*/ ./hv3_img.vfs/lib ; \
-	fi
+	# if test -d $(TCL)/lib/tile*/ ; then \
+	# 	cp -R $(TCL)/lib/tile*/ ./hv3_img.vfs/lib ; \
+	# fi
 	cp -R $(TCL)/lib/*tls* ./hv3_img.vfs/lib ; \
 	touch hv3_img.vfs
 
@@ -127,6 +127,7 @@ hv3.vfs: binaries
 	cp $(TOP)/hv/main.tcl ./hv3.vfs/
 	cp $(TOP)/hv/snit.tcl ./hv3.vfs/
 	cp $(TOP)/hv/index.html ./hv3.vfs/
+	cp -R $(TCL)/lib/*tls* ./hv3.vfs/lib ;
 	touch hv3.vfs
 
 hv3_img.kit: hv3_img.vfs

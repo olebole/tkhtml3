@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.21 2006/08/13 10:27:12 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.22 2006/08/17 14:50:43 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
@@ -8,6 +8,8 @@ catch {
   package require tile
   set ::hv3::toolkit Tile
 }
+
+catch { font create Hv3DefaultFont -size 9 -weight normal }
 
 # Basic wrapper widget-names used to abstract Tk and Tile:
 #
@@ -24,6 +26,7 @@ proc ::hv3::scrollbar {args} {
   } else {
     set w [eval [linsert $args 0 ::scrollbar]]
     $w configure -highlightthickness 0
+    $w configure -borderwidth 1
   }
   return $w
 }
@@ -44,6 +47,9 @@ proc ::hv3::entry {args} {
   } else {
     set w [eval [linsert $args 0 ::entry]]
     $w configure -highlightthickness 0
+    $w configure -borderwidth 1
+    $w configure -background white
+    $w configure -font Hv3DefaultFont
   }
   return $w
 }
@@ -60,6 +66,7 @@ proc ::hv3::label {args} {
   } else {
     set w [eval [linsert $args 0 ::label]]
     $w configure -highlightthickness 0
+    $w configure -font Hv3DefaultFont
   }
   return $w
 }
@@ -81,7 +88,8 @@ proc ::hv3::label {args} {
 
       # Configure Tk presentation options not required for Tile here.
       $myButton configure -highlightthickness 0
-      $myButton configure -borderwidth 0
+      $myButton configure -borderwidth 1
+      $myButton configure -relief flat -overrelief raised
     }
     set top [winfo toplevel $myButton]
     set myPopup ${top}[string map {. _} $myButton]
@@ -135,8 +143,10 @@ set ::hv3::menu_style [list]
 proc ::hv3::menu {args} {
   set w [eval [linsert $args 0 ::menu]]
   if {$::hv3::toolkit eq "Tile"} {
-    $w configure -borderwidth 1 -tearoff 0 -font TkDefaultFont
     lappend ::hv3::menu_list $w
+    $w configure -borderwidth 1 -tearoff 0 -font TkDefaultFont
+  } else {
+    $w configure -borderwidth 1 -tearoff 0 -font Hv3DefaultFont
   }
   return $w
 }
@@ -286,17 +296,40 @@ snit::widget ::hv3::pretend_tile_notebook {
   variable myWidgets
   variable myTitles
   variable myCurrent 0
-  variable myTabHeight 22
+
+  # Height of the tabs part of the window (when visible), in pixels.
+  variable myTabHeight
+
+  # Font used for tabs.
+  variable myFont Hv3DefaultFont
+
+  # True if an [after idle] callback on the RedrawCallback method is
+  # pending. This variable is set by [$self Redraw] and cleared
+  # by RedrawCallback.
+  variable myRedrawScheduled 0
 
   delegate option * to hull
   
   constructor {args} {
-    canvas ${win}.tabs -height $myTabHeight -width 100 \
-        -borderwidth 0 -highlightthickness 0 -selectborderwidth 0
+    set myTabHeight [expr [font metrics $myFont -linespace] * 1.5]
+  
+    # Create a canvas widget to paint the tabs in
+    canvas ${win}.tabs -height $myTabHeight -width 100
+    ${win}.tabs configure -borderwidth 0 
+    ${win}.tabs configure -highlightthickness 0 
+    ${win}.tabs configure -selectborderwidth 0
+
+    # "place" the tabs canvas widget at the top of the parent frame
     place ${win}.tabs -anchor nw -x 0 -y 0 -relwidth 1.0 -height $myTabHeight
+
+    bind ${win}.tabs <Configure> [mymethod Redraw]
+
     $self configurelist $args
   }
 
+  # add WIDGET
+  # 
+  #     Add a new widget to the set of tabbed windows.
   method add {widget args} {
     array set A $args
     lappend myWidgets $widget
@@ -305,10 +338,14 @@ snit::widget ::hv3::pretend_tile_notebook {
       lset myTitles end $A(-text)
     }
     $self Redraw
-
     bind $widget <Destroy> [mymethod forget $widget]
   }
 
+  # forget WIDGET
+  # 
+  #     Remove $widget from the set of tabbed windows. Regardless of
+  #     whether or not $widget is the current tab, a <<NotebookTabChanged>>
+  #     event is generated.
   method forget {widget} {
     set idx [lsearch $myWidgets $widget]
     if {$idx < 0} { error "$widget is not managed by $self" }
@@ -321,11 +358,16 @@ snit::widget ::hv3::pretend_tile_notebook {
 
     if {$myCurrent == [llength $myWidgets]} {
       incr myCurrent -1
-      after idle [list event generate $self <<NotebookTabChanged>>]
     }
+    after idle [list event generate $self <<NotebookTabChanged>>]
     $self Redraw
   }
 
+  # select ?WIDGET?
+  # 
+  #     If an argument is provided, make that widget the current tab.
+  #     Return the current tab widget (a copy of the argument if one
+  #     was provided).
   method select {{widget ""}} {
     if {$widget ne ""} {
       set idx [lsearch $myWidgets $widget]
@@ -339,6 +381,11 @@ snit::widget ::hv3::pretend_tile_notebook {
     return [lindex $myWidgets $myCurrent]
   }
 
+  # tab WIDGET ?options?
+  #
+  #     The only option recognized is the -text option. It sets the
+  #     title for the specified tabbed widget.
+  # 
   method tab {widget -text args} {
     set idx [lsearch $myWidgets $widget]
     if {$idx < 0} { error "$widget is not managed by $self" }
@@ -355,7 +402,28 @@ snit::widget ::hv3::pretend_tile_notebook {
   }
 
   method Redraw {} {
+    if {$myRedrawScheduled == 0} {
+      set myRedrawScheduled 1
+      after idle [mymethod RedrawCallback]
+    }
+  }
+
+  method RedrawCallback {} {
+
+    set iPadding  2
+    set iDiagonal 2
+
+    set iCanvasWidth [winfo width ${win}.tabs]
+
+    # Delete the existing canvas items. This proc draws everything 
+    # from scratch.
+    ${win}.tabs delete all
+
+    # If the myCurrent variable is less than 0, the notebook widget is
+    # empty. There are no tabs to draw in this case.
     if {$myCurrent < 0} return
+
+    # Make sure the $myCurrent widget is the displayed tab.
     set c [lindex $myWidgets $myCurrent]
     place $c                              \
         -x 0 -y [expr $myTabHeight - 0]   \
@@ -363,54 +431,91 @@ snit::widget ::hv3::pretend_tile_notebook {
         -height [expr -1 * $myTabHeight]  \
         -anchor nw
 
+    # And unmap all other tab windows.
     foreach w $myWidgets {
       if {$w ne $c} {place forget $w}
     }
 
-    ${win}.tabs delete all
-    set x 1
+    # Variable $iAggWidth stores the aggregate width of all the tabs.
+    set iAggWidth 0
+    foreach t $myTitles {
+      incr iAggWidth [
+          expr [font measure $myFont $t] + ($iPadding + $iDiagonal) * 2
+      ]
+    }
+
+    if {$iCanvasWidth < $iAggWidth} {
+        set fBudget [expr double($iCanvasWidth) / double($iAggWidth)]
+    } else {
+        set fBudget 1.0
+    }
 
     set idx 0
+    set yt [expr 0.5 * ($myTabHeight + [font metrics $myFont -linespace])]
+    set x 1
     foreach title $myTitles {
 
-      set font {Helvetica 10}
+      set zTitle $title
 
-      set width    [font measure $font $title]
-      set padding  2
-      set diagonal 2
+      set width    [font measure $myFont $title]
+      set iTabWidth [expr $iPadding * 2 + $iDiagonal * 2 + $width + 1]
+      if {$fBudget < 1.0} {
+        set iTabWidth [expr int(double($iTabWidth) * $fBudget)]
+        set width [expr $iTabWidth - ($iPadding + $iDiagonal) * 2 - 1]
+        if {$width < 0} {
+          set zTitle ""
+        } else {
+          set w [expr $width + $iPadding]
+          for {set n 1} {$n < [string length $zTitle]} {incr n} {
+            if {[font measure $myFont [string range $zTitle 0 $n]] > $w} {
+              break;
+            }
+          }
+          set zTitle [string range $zTitle 0 [expr $n - 1]]
+        }
+      }
 
-      set x2 [expr $x + $diagonal]
-      set x3 [expr $x2 + $width + ($padding * 2)]
-      set x4 [expr $x3 + $diagonal]
+      set x2 [expr $x + $iDiagonal]
+      set x3 [expr $x2 + $width + ($iPadding * 2)]
+      set x4 [expr $x3 + $iDiagonal]
 
       set y1 [expr $myTabHeight - 0]
-      set y2 [expr $diagonal + 1]
+      set y2 [expr $iDiagonal + 1]
       set y3 1
 
       set id [${win}.tabs create polygon \
           $x $y1 $x $y2 $x2 $y3 $x3 $y3 $x4 $y2 $x4 $y1]
-      set id2 [${win}.tabs create text [expr $x2 + $padding] $myTabHeight   \
-          -anchor sw -text $title -font $font]
+
+      set id2 [${win}.tabs create text [expr $x2 + $iPadding] $yt]
+      ${win}.tabs itemconfigure $id2 -anchor sw -text $zTitle -font $myFont
 
       if {$idx == $myCurrent} {
+        set yb [expr $y1 - 1]
         ${win}.tabs itemconfigure $id -fill #d9d9d9
+        ${win}.tabs create line 0 $yb $x $yb -fill white -tags whiteline
+        ${win}.tabs create line $x4 $yb $iCanvasWidth $yb -tags whiteline
+        ${win}.tabs itemconfigure whiteline -fill white
       } else {
         ${win}.tabs itemconfigure $id -fill #c3c3c3
         set cmd [list ${win}.tabs itemconfigure $id -fill]
         foreach i [list $id $id2] {
-            ${win}.tabs bind $i <Enter> [concat $cmd #ececec]
-            ${win}.tabs bind $i <Leave> [concat $cmd #c3c3c3]
-            ${win}.tabs bind $i <1> [mymethod select [lindex $myWidgets $idx]]
+          ${win}.tabs bind $i <Enter> [concat $cmd #ececec]
+          ${win}.tabs bind $i <Leave> [concat $cmd #c3c3c3]
+          ${win}.tabs bind $i <1> [mymethod select [lindex $myWidgets $idx]]
         }
       }
 
       ${win}.tabs create line $x $y1 $x $y2 $x2 $y3 $x3 $y3 -fill white
       ${win}.tabs create line $x3 $y3 $x4 $y2 $x4 $y1 -fill black
 
-      incr x [expr $padding * 2 + $diagonal * 2 + $width + 1]
+      incr x $iTabWidth
       incr idx
     }
+
+    ${win}.tabs raise whiteline
+    set myRedrawScheduled 0
   }
+
 }
 
 snit::widget ::hv3::notebook {
