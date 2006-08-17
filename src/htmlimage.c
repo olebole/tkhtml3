@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlimage.c,v 1.52 2006/08/16 17:06:38 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlimage.c,v 1.53 2006/08/17 07:34:38 danielk1977 Exp $";
 
 #include <assert.h>
 #include "html.h"
@@ -814,6 +814,7 @@ HtmlImageAlphaChannel(pTree, pImage)
  *
  *---------------------------------------------------------------------------
  */
+#define N_TILE_PIXELS 4000
 Tk_Image 
 HtmlImageTile(pImage)
     HtmlImage2 *pImage;    /* Image object */
@@ -821,31 +822,91 @@ HtmlImageTile(pImage)
     HtmlTree *pTree = pImage->pImageServer->pTree;
     Tcl_Interp *interp = pTree->interp;
 
-    Tcl_Obj *pScript;
-    int flags = TCL_GLOBAL_ONLY;
-    int rc;
+    Tcl_Obj *pTileName;             /* Name of tile image at the script level */
+    Tk_PhotoHandle tilephoto;       /* Photo of tile */
+    Tk_PhotoImageBlock tileblock;   /* Block of tile image */
+    int iTileWidth;
+    int iTileHeight;
 
+    Tk_PhotoHandle origphoto;
+    Tk_PhotoImageBlock origblock;
+
+    int xmul;
+    int ymul;
+
+    int x;
+    int y;
+
+    /* The tile has already been generated. Return it. */
     if (pImage->pTileName) {
         return pImage->tile;
     }
 
-    if ((pImage->width * pImage->height) >= 20000) {
+    /* The image is too big to bother with a tile. Return the original. */
+    if ((pImage->width * pImage->height) >= N_TILE_PIXELS) {
         return HtmlImageImage(pImage);
     }
 
-    pScript = Tcl_NewStringObj("::tkhtml::create_image_tile", -1);
-    Tcl_IncrRefCount(pScript);
-    Tcl_ListObjAppendElement(0, pScript, pImage->pImageName);
-    rc = Tcl_EvalObjEx(interp, pScript, flags);
-    Tcl_DecrRefCount(pScript);
+    /* Retrieve the block for the original image */
+    origphoto = Tk_FindPhoto(interp, Tcl_GetString(pImage->pImageName));
+    if (!origphoto) return HtmlImageImage(pImage);
+    Tk_PhotoGetImage(origphoto, &origblock);
+    if (!origblock.pixelPtr) return HtmlImageImage(pImage);
 
-    if (rc == TCL_OK) {
-        const char *zImg;
-        pImage->pTileName = Tcl_GetObjResult(interp);
-        Tcl_IncrRefCount(pImage->pTileName);
-        zImg = Tcl_GetString(pImage->pTileName);
-        pImage->tile = Tk_GetImage(interp, pTree->tkwin, zImg, imageChanged, 0);
+    /* Create the tile image. Surely there is a way to do this without
+     * invoking a script, but I haven't found it yet.
+     */
+    Tcl_Eval(interp, "image create photo");
+    pTileName = Tcl_GetObjResult(interp);
+    Tcl_IncrRefCount(pTileName);
+    tilephoto = Tk_FindPhoto(interp, Tcl_GetString(pTileName));
+    Tk_PhotoGetImage(tilephoto, &tileblock);
+    pImage->pTileName = pTileName;
+    pImage->tile = Tk_GetImage(
+            interp, pTree->tkwin, Tcl_GetString(pTileName), imageChanged, 0
+    );
+
+    /* Figure out the eventual width and height of the tile. */
+    xmul = 1;
+    ymul = 1;
+    while ((pImage->width * pImage->height * xmul * ymul) < N_TILE_PIXELS) {
+        xmul = xmul + xmul;
+        ymul = ymul + ymul;
     }
+    iTileWidth = pImage->width * xmul;
+    iTileHeight = pImage->height * ymul;
+
+    /* Allocate a block to write the tile data into. */
+    tileblock.pixelPtr = (unsigned char *)HtmlAlloc(
+        0, iTileWidth * iTileHeight * 4
+    );
+    tileblock.width = iTileWidth;
+    tileblock.height = iTileHeight;
+    tileblock.pitch = iTileWidth * 4;
+    tileblock.pixelSize = 4;
+    tileblock.offset[0] = 0;
+    tileblock.offset[1] = 1;
+    tileblock.offset[2] = 2;
+    tileblock.offset[3] = 3;
+
+    for (x = 0; x < iTileWidth; x++) {
+        for (y = 0; y < iTileHeight; y++) {
+            unsigned char *zOrig;
+            unsigned char *zScale;
+            zOrig = &origblock.pixelPtr[
+                 (x % pImage->width) *origblock.pixelSize + 
+                 (y % pImage->height) * origblock.pitch
+            ];
+            zScale = &tileblock.pixelPtr[x * 4 + y * tileblock.pitch];
+            zScale[0] = zOrig[origblock.offset[0]];
+            zScale[1] = zOrig[origblock.offset[1]];
+            zScale[2] = zOrig[origblock.offset[2]];
+            zScale[3] = zOrig[origblock.offset[3]];
+        }
+    }
+
+    photoputblock(interp,tilephoto,&tileblock,0,0,iTileWidth,iTileHeight,0);
+    HtmlFree(0, (char *)tileblock.pixelPtr);
 
     return pImage->tile;
 }
