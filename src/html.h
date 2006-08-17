@@ -432,6 +432,7 @@ struct HtmlTree {
 
     HtmlToken *pTextLast;           /* Currently parsing text node */
     HtmlToken *pTextFirst;          /* Currently parsing text node */
+    int iTextOffset;                /* Offset of pTextFirst in pDocument */
 
     /*
      * Handler callbacks configured by the [$widget handler] command.
@@ -442,9 +443,12 @@ struct HtmlTree {
      * encountered. A single argument is appended to the script - all the text
      * between the start and end tag. The ref-count of the Tcl_Obj* should be
      * decremented if it is removed from the hash table.
+     *
+     * The node-handler and parse-handler tables are similar.
      */
     Tcl_HashTable aScriptHandler;   /* Script handler callbacks. */
-    Tcl_HashTable aNodeHandler;     /* Script handler callbacks. */
+    Tcl_HashTable aNodeHandler;     /* Node handler callbacks. */
+    Tcl_HashTable aParseHandler;    /* Parse handler callbacks. */
 
     CssStyleSheet *pStyle;          /* Style sheet configuration */
 
@@ -511,7 +515,7 @@ struct HtmlTree {
 #define MIN(x,y)  ((x)<(y)?(x):(y))
 
 void HtmlFinishNodeHandlers(HtmlTree *);
-void HtmlAddToken(HtmlTree *, HtmlToken *);
+void HtmlAddToken(HtmlTree *, HtmlToken *, int);
 int HtmlTreeBuild(ClientData, Tcl_Interp *, int, Tcl_Obj *CONST []);
 
 Tcl_ObjCmdProc HtmlTreeCollapseWhitespace;

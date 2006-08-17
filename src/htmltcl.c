@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.114 2006/08/16 15:21:10 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.115 2006/08/17 10:37:36 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -763,6 +763,40 @@ HtmlCallbackScrollX(pTree, x)
 /*
  *---------------------------------------------------------------------------
  *
+ * cleanupHandlerTable --
+ *
+ *      This function is called to delete the contents of one of the
+ *      HtmlTree.aScriptHandler, aNodeHandler or aParseHandler tables.
+ *      It is called as the tree is being deleted.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void 
+cleanupHandlerTable(pHash)
+    Tcl_HashTable *pHash;
+{
+    Tcl_HashEntry *pEntry;
+    Tcl_HashSearch search;
+
+    for (
+        pEntry = Tcl_FirstHashEntry(pHash, &search); 
+        pEntry; 
+        pEntry = Tcl_NextHashEntry(&search)
+    ) {
+        Tcl_DecrRefCount((Tcl_Obj *)Tcl_GetHashValue(pEntry));
+    }
+    Tcl_DeleteHashTable(pHash);
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * deleteWidget --
  *
  *     destroy $html
@@ -781,6 +815,11 @@ deleteWidget(clientData)
 {
     HtmlTree *pTree = (HtmlTree *)clientData;
     HtmlTreeClear(pTree);
+
+    /* Delete the contents of the three "handler" hash tables */
+    cleanupHandlerTable(&pTree->aNodeHandler);
+    cleanupHandlerTable(&pTree->aParseHandler);
+    cleanupHandlerTable(&pTree->aScriptHandler);
 
     /* Clear any widget tags */
     HtmlTagCleanupTree(pTree);
@@ -1469,64 +1508,9 @@ yviewCmd(clientData, interp, objc, objv)
 /*
  *---------------------------------------------------------------------------
  *
- * HtmlHandlerScriptCmd --
+ * handlerCmd --
  *
- *     $widget handler script TAG SCRIPT
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-static int 
-handlerScriptCmd(clientData, interp, objc, objv)
-    ClientData clientData;             /* The HTML widget data structure */
-    Tcl_Interp *interp;                /* Current interpreter. */
-    int objc;                          /* Number of arguments. */
-    Tcl_Obj *CONST objv[];             /* Argument strings. */
-{
-    Tcl_Obj *pTag;
-    int tag;
-    Tcl_Obj *pScript;
-    Tcl_HashEntry *pEntry;
-    int newentry;
-    HtmlTree *pTree = (HtmlTree *)clientData;
-
-    if (objc!=5) {
-        Tcl_WrongNumArgs(interp, 3, objv, "TAG SCRIPT");
-        return TCL_ERROR;
-    }
-
-    pTag = objv[3];
-    pScript = objv[4];
-    tag = HtmlNameToType(0, Tcl_GetString(pTag));
-
-    if (tag==Html_Unknown) {
-        Tcl_AppendResult(interp, "Unknown tag type: ", Tcl_GetString(pTag), 0);
-        return TCL_ERROR;
-    }
-
-    pEntry = Tcl_CreateHashEntry(&pTree->aScriptHandler,(char *)tag,&newentry);
-    if (!newentry) {
-        Tcl_Obj *pOld = (Tcl_Obj *)Tcl_GetHashValue(pEntry);
-        Tcl_DecrRefCount(pOld);
-    }
-
-    Tcl_IncrRefCount(pScript);
-    Tcl_SetHashValue(pEntry, (ClientData)pScript);
-
-    return TCL_OK;
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * handlerNodeCmd --
- *
- *     $widget handler node TAG SCRIPT
+ *     $widget handler [node|script|parse] TAG SCRIPT
  *
  * Results:
  *     None.
@@ -1537,7 +1521,7 @@ handlerScriptCmd(clientData, interp, objc, objv)
  *---------------------------------------------------------------------------
  */
 static int 
-handlerNodeCmd(clientData, interp, objc, objv)
+handlerCmd(clientData, interp, objc, objv)
     ClientData clientData;             /* The HTML widget data structure */
     Tcl_Interp *interp;                /* Current interpreter. */
     int objc;                          /* Number of arguments. */
@@ -1547,12 +1531,27 @@ handlerNodeCmd(clientData, interp, objc, objv)
     int tag;
     Tcl_Obj *pScript;
     Tcl_HashEntry *pEntry;
+    Tcl_HashTable *pHash;
     int newentry;
     HtmlTree *pTree = (HtmlTree *)clientData;
 
     if (objc!=5) {
         Tcl_WrongNumArgs(interp, 3, objv, "TAG SCRIPT");
         return TCL_ERROR;
+    }
+
+    switch (Tcl_GetString(objv[2])[0]) {
+        case 'n':
+            pHash = &pTree->aNodeHandler;
+            break;
+        case 's':
+            pHash = &pTree->aScriptHandler;
+            break;
+        case 'p':
+            pHash = &pTree->aParseHandler;
+            break;
+        default:
+            assert(!"Illegal objv[2] value in handlerCmd()");
     }
 
     pTag = objv[3];
@@ -1565,12 +1564,12 @@ handlerNodeCmd(clientData, interp, objc, objv)
     }
 
     if (Tcl_GetCharLength(pScript) == 0) {
-        pEntry = Tcl_FindHashEntry(&pTree->aNodeHandler, (char *)tag);
+        pEntry = Tcl_FindHashEntry(pHash, (char *)tag);
         if (pEntry) {
             Tcl_DeleteHashEntry(pEntry);
         }
     } else {
-        pEntry = Tcl_CreateHashEntry(&pTree->aNodeHandler,(char*)tag,&newentry);
+        pEntry = Tcl_CreateHashEntry(pHash,(char*)tag,&newentry);
         if (!newentry) {
             Tcl_Obj *pOld = (Tcl_Obj *)Tcl_GetHashValue(pEntry);
             Tcl_DecrRefCount(pOld);
@@ -2091,8 +2090,9 @@ int widgetCmd(clientData, interp, objc, objv)
         {"bbox",       0,           bboxCmd},
         {"cget",       0,           cgetCmd},
         {"configure",  0,           configureCmd},
-        {"handler",    "node",      handlerNodeCmd},
-        {"handler",    "script",    handlerScriptCmd},
+        {"handler",    "node",      handlerCmd},
+        {"handler",    "script",    handlerCmd},
+        {"handler",    "parse",     handlerCmd},
         {"image",      0,           imageCmd},
         {"node",       0,           nodeCmd},
         {"parse",      0,           parseCmd},
@@ -2272,6 +2272,7 @@ newWidget(clientData, interp, objc, objv)
     Tk_SetClass(pTree->tkwin, "Html");
 
     pTree->interp = interp;
+    Tcl_InitHashTable(&pTree->aParseHandler, TCL_ONE_WORD_KEYS);
     Tcl_InitHashTable(&pTree->aScriptHandler, TCL_ONE_WORD_KEYS);
     Tcl_InitHashTable(&pTree->aNodeHandler, TCL_ONE_WORD_KEYS);
     Tcl_InitHashTable(&pTree->aScaledImage, TCL_STRING_KEYS);

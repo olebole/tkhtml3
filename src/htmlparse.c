@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.76 2006/08/11 09:12:17 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.77 2006/08/17 10:37:36 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -58,9 +58,10 @@ static char const rcsid[] =
  *---------------------------------------------------------------------------
  */
 static void
-AppendTextToken(pTree, pToken)
+AppendTextToken(pTree, pToken, iOffset)
     HtmlTree *pTree;
     HtmlToken *pToken;
+    int iOffset;
 {
     if( pTree->isIgnoreNewline ){
         assert(!pTree->pTextFirst);
@@ -74,6 +75,7 @@ AppendTextToken(pTree, pToken)
         assert(!pTree->pTextLast);
         pTree->pTextFirst = pToken;
         pTree->pTextLast = pToken;
+        pTree->iTextOffset = iOffset;
     } else {
         assert(pTree->pTextLast);
         pTree->pTextLast->pNextToken = pToken;
@@ -96,9 +98,10 @@ AppendTextToken(pTree, pToken)
  *---------------------------------------------------------------------------
  */
 static void 
-AppendToken(pTree, pToken)
+AppendToken(pTree, pToken, iOffset)
     HtmlTree *pTree;
     HtmlToken *pToken;
+    int iOffset;
 {
     int isEndToken = 0;
 
@@ -131,7 +134,7 @@ AppendToken(pTree, pToken)
         pTree->pTextLast = 0;
         pTree->pTextFirst = 0;
         if( pTextFirst ){
-            HtmlAddToken(pTree, pTextFirst);
+            HtmlAddToken(pTree, pTextFirst, pTree->iTextOffset);
         }
         pTree->isIgnoreNewline = 0;
     }
@@ -139,7 +142,7 @@ AppendToken(pTree, pToken)
     if (pToken) {
         pTree->isIgnoreNewline = isEndToken?0:1;
         pToken->pNextToken = 0;
-        HtmlAddToken(pTree, pToken);
+        HtmlAddToken(pTree, pToken, iOffset);
     }
 }
 
@@ -977,7 +980,7 @@ Tokenize(pTree, isFinal)
                             }
                             pSpace->count = iCol - iColStart;
                         }
-                        AppendTextToken(pTree, pSpace);
+                        AppendTextToken(pTree, pSpace, n);
                     } else {
                         int nBytes;
                         int iStart = j;
@@ -993,7 +996,7 @@ Tokenize(pTree, isFinal)
                         memcpy(pText->x.zText, &z2[iStart], j - iStart);
                         pText->x.zText[j - iStart] = '\0';
                         pText->count = j - iStart;
-                        AppendTextToken(pTree, pText);
+                        AppendTextToken(pTree, pText, n);
                         iCol += j - iStart;
                     }
                 }
@@ -1246,7 +1249,8 @@ Tokenize(pTree, isFinal)
                 /* No special handler for this markup. Just append it to the 
                  * list of all tokens. 
                  */
-                AppendToken(pTree, pMarkup);
+                assert(nStartScript >= 0);
+                AppendToken(pTree, pMarkup, nStartScript);
             } else {
                 pScriptToken = pMarkup;
             }
@@ -1312,7 +1316,7 @@ HtmlTokenizerAppend(pTree, zText, nText, isFinal)
 
     pTree->nParsed = Tokenize(pTree, isFinal);
     if (isFinal) {
-        AppendToken(pTree, 0);
+        AppendToken(pTree, 0, -1);
     }
 }
 

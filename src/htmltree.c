@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.82 2006/08/12 14:10:13 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.83 2006/08/17 10:37:37 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -863,6 +863,42 @@ mergeAttributes(pNode, pToken)
     pNode->pToken = pNew;
 }
 
+static int
+doParseHandler(pTree, eType, pNode, iOffset)
+    HtmlTree *pTree;
+    int eType;
+    HtmlNode *pNode;
+    int iOffset;
+{
+    int rc = TCL_OK;
+    Tcl_HashEntry *pEntry;
+    if (iOffset < 0) return TCL_OK;
+
+    if (eType == Html_Space) {
+        eType = Html_Text;
+    }
+
+    pEntry = Tcl_FindHashEntry(&pTree->aParseHandler, (char *)eType);
+    if (pEntry) {
+        Tcl_Obj *pScript;
+        pScript = (Tcl_Obj *)Tcl_GetHashValue(pEntry);
+
+        pScript = Tcl_DuplicateObj(pScript);
+        Tcl_IncrRefCount(pScript);
+        if (pNode) {
+            Tcl_ListObjAppendElement(0, pScript, HtmlNodeCommand(pTree, pNode));
+        } else {
+            Tcl_ListObjAppendElement(0, pScript, Tcl_NewStringObj("", -1));
+        }
+        Tcl_ListObjAppendElement(0, pScript, Tcl_NewIntObj(iOffset));
+
+        rc = Tcl_EvalObjEx(pTree->interp, pScript, TCL_EVAL_GLOBAL);
+        Tcl_DecrRefCount(pScript);
+    }
+
+    return rc;
+}
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -880,14 +916,22 @@ mergeAttributes(pNode, pToken)
  *---------------------------------------------------------------------------
  */
 void 
-HtmlAddToken(pTree, pToken)
+HtmlAddToken(pTree, pToken, iOffset)
     HtmlTree *pTree;
     HtmlToken *pToken;
+    int iOffset;
 {
     HtmlNode *pCurrent = pTree->pCurrent;
     HtmlNode *pHeadNode;
+    int eType = pToken->type;
 
-    int type = pToken->type;
+    /* If token pToken causes a node to be added to the tree, or the
+     * attributes of an <html>, <body> or <head> element to be updated,
+     * this variable is set to point to the node. At the end of this
+     * function, it is used as an argument to any registered 
+     * [$widget handler parse] callback script.
+     */
+    HtmlNode *pParsed = 0; 
 
     assert((pCurrent && pTree->pRoot) || !pCurrent);
     if (!pCurrent && pTree->pRoot) {
@@ -956,23 +1000,26 @@ HtmlAddToken(pTree, pToken)
     } 
     pHeadNode = pTree->pRoot->apChildren[0];
 
-    if (pTree->isCdataInHead && type != Html_Text && type != Html_Space) {
+    if (pTree->isCdataInHead && eType != Html_Text && eType != Html_Space) {
         int nChild = HtmlNodeNumChildren(pHeadNode) - 1;
         HtmlNode *pTitle = HtmlNodeChild(pHeadNode, nChild);
         pTree->isCdataInHead = 0;
         nodeHandlerCallbacks(pTree, pTitle);
-        return;
+        return;   /* TODO: Should this be removed? */
     }
 
-    switch (type) {
+    switch (eType) {
         case Html_HTML:
-            mergeAttributes(pTree->pRoot, pToken);
+            pParsed = pTree->pRoot;
+            mergeAttributes(pParsed, pToken);
             break;
         case Html_HEAD:
-            mergeAttributes(pHeadNode, pToken);
+            pParsed = pHeadNode;
+            mergeAttributes(pParsed, pToken);
             break;
         case Html_BODY:
-            mergeAttributes(pTree->pRoot->apChildren[1], pToken);
+            pParsed = pTree->pRoot->apChildren[1];
+            mergeAttributes(pParsed, pToken);
             break;
 
             /* Elements with content #CDATA for the document head. 
@@ -988,6 +1035,7 @@ HtmlAddToken(pTree, pToken)
             HtmlNode *p = HtmlNodeChild(pHeadNode, n);
             pTree->isCdataInHead = 1;
             p->iNode = pTree->iNextNode++;
+            pParsed = p;
             break;
         }
 
@@ -999,6 +1047,7 @@ HtmlAddToken(pTree, pToken)
             HtmlNode *p = HtmlNodeChild(pHeadNode, n);
             p->iNode = pTree->iNextNode++;
             nodeHandlerCallbacks(pTree, p);
+            pParsed = p;
             break;
         }
 
@@ -1013,10 +1062,12 @@ HtmlAddToken(pTree, pToken)
                 p->iNode = pTree->iNextNode++;
                 pTree->isCdataInHead = 0;
                 nodeHandlerCallbacks(pTree, pTitle);
+                pParsed = p;
             }else{
                 int n = HtmlNodeAddChild(pCurrent,pToken);
                 HtmlNode *p = HtmlNodeChild(pCurrent, n);
                 p->iNode = pTree->iNextNode++;
+                pParsed = p;
             }
             break;
 
@@ -1053,8 +1104,9 @@ HtmlAddToken(pTree, pToken)
                 pCurrent = HtmlNodeChild(pCurrent, 
                     HtmlNodeAddChild(pCurrent, pToken));
                 pCurrent->iNode = pTree->iNextNode++;
+                pParsed = pCurrent;
 
-                if (HtmlMarkupFlags(type) & HTMLTAG_EMPTY) {
+                if (HtmlMarkupFlags(eType) & HTMLTAG_EMPTY) {
                     nodeHandlerCallbacks(pTree, pCurrent);
                     pCurrent = HtmlNodeParent(pCurrent);
                 }
@@ -1063,6 +1115,8 @@ HtmlAddToken(pTree, pToken)
             }
         }
     }
+
+    doParseHandler(pTree, eType, pParsed, iOffset);
 
     pTree->pCurrent = pCurrent;
 }

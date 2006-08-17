@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.30 2006/08/15 13:57:17 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.31 2006/08/17 10:37:36 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -684,6 +684,11 @@ snit::type ::hv3::formmanager {
   option -getcmd  -default ""
   option -postcmd -default ""
 
+  # Each time the parser sees a <form> tag, the created node-handle
+  # is added to the end of the following list variable. Each time
+  # a </form> is encountered, the end element (if any) is removed.
+  variable myFormStack ""
+
   variable myHv3
   variable myHtml
   variable myForms -array [list]
@@ -697,26 +702,37 @@ snit::type ::hv3::formmanager {
     $myHtml handler node select    [mymethod control_handler]
 
     $myHtml handler script isindex [list ::hv3::isindex_handler $hv3]
+
+    $myHtml handler parse form [mymethod FormHandler start]
+    $myHtml handler parse /form [mymethod FormHandler end]
   }
 
-  method form_handler {node} {
-    set myForms($node) [::hv3::form %AUTO% $node]
-    $myForms($node) configure -getcmd $options(-getcmd)
-    $myForms($node) configure -postcmd $options(-postcmd)
+  # FormHandler
+  #
+  #     A Tkhtml parse-handler for <form> and </form> tags.
+  method FormHandler {i node offset} {
+    switch -- $i {
+      start {
+        lappend myFormStack $node
+      }
+      end {
+        set myFormStack [lrange $myFormStack 0 end-1]
+      }
+    }
   }
 
   method control_handler {node} {
     set name [string map {: _} $node]
     set control [::hv3::control ${myHtml}.control_${name} $node]
 
-    for {set n $node} {$n ne ""} {set n [$n parent]} {
-      if {[$n tag] eq "form"} {
-        if {![info exists myForms($n)]} {
-          $self form_handler $n
-        }
-        $myForms($n) add_control $control
-        break
+    set N [lindex $myFormStack end]
+    if {$N ne ""} {
+      if {![info exists myForms($N)]} {
+        set myForms($N) [::hv3::form %AUTO% $N]
+        $myForms($N) configure -getcmd $options(-getcmd)
+        $myForms($N) configure -postcmd $options(-postcmd)
       }
+      $myForms($N) add_control $control
     }
 
     $node replace $control                         \
@@ -733,6 +749,7 @@ snit::type ::hv3::formmanager {
       $myForms($form) destroy
     }
     array unset myForms
+    set myFormStack [list]
   }
 
 
