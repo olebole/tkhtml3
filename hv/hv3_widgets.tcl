@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.22 2006/08/17 14:50:43 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.23 2006/08/18 07:27:49 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
@@ -697,88 +697,6 @@ proc ::hv3::resolve_uri {base relative} {
   return $ret
 }
 #---------------------------------------------------------------------------
-
-
-# Class ::hv3::textdocument
-#
-snit::type ::hv3::textdocument {
-
-  variable myHtml                      ;# Html widget
-  variable myText                      ;# Text rep of the document
-
-  variable myIndex                     ;# Mapping from node to text indices.
-
-  constructor {html} {
-    set space_pending 0
-    set myText ""
-    set myIndex [list]
-    set myHtml $html
-    ::hv3::walkTree [$html node] N {
-      set idx 0
-      foreach token [$N text -tokens] {
-        foreach {type arg} $token break
-        switch $type {
-          text    {
-            if {$space_pending} {append myText " "}
-            set space_pending 0
-            lappend myIndex [list [string length $myText] $N $idx]
-            append myText $arg
-            incr idx [string length $arg]
-          }
-          space   {
-            set space_pending 1
-            incr idx
-          }
-          newline {
-            set space_pending 1
-            incr idx
-          }
-        }
-      }
-    }
-  }
-
-  method text {} {return $myText}
-
-  method stringToNode {idx} {
-    set best 0
-    for {set ii 0} {$ii < [llength $myIndex]} {incr ii} {
-      foreach {stridx node nodeidx} [lindex $myIndex $ii] {}
-      if {$stridx <= $idx} {
-        set retnode $node
-        set retnodeidx [expr $nodeidx + ($idx - $stridx)]
-      }
-    }
-    return [list $retnode $retnodeidx]
-  }
-
-  method nodeToString {the_node the_node_idx} {
-    set ii 0
-    set ret -1
-    ::hv3::walkTree [$myHtml node] N {
-      foreach {stridx node nodeidx} [lindex $myIndex $ii] {}
-
-      if {$N eq $the_node} {
-        set ret $stridx
-        while {$node eq $N} {
-          if {$the_node_idx >= $nodeidx} {
-            set ret [expr $stridx + $the_node_idx - $nodeidx]
-          }
-          incr ii
-          set node ""
-          foreach {stridx node nodeidx} [lindex $myIndex $ii] {}
-        }
-      }
-
-      while {$node eq $N} {
-        incr ii
-        set node ""
-        foreach {stridx node nodeidx} [lindex $myIndex $ii] {}
-      }
-    }
-    return $ret
-  }
-}
 
 snit::widget ::hv3::findwidget {
   variable myHv3              ;# The HTML widget

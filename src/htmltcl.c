@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.115 2006/08/17 10:37:36 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.116 2006/08/18 07:27:50 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -1714,6 +1714,15 @@ textBboxCmd(clientData, interp, objc, objv)
 {
     return HtmlTextBboxCmd(clientData, interp, objc, objv);
 }
+static int
+textOffsetCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    return HtmlTextOffsetCmd(clientData, interp, objc, objv);
+}
 
 
 static int 
@@ -2111,6 +2120,7 @@ int widgetCmd(clientData, interp, objc, objv)
         {"text",       "text",      textTextCmd},
         {"text",       "index",     textIndexCmd},
         {"text",       "bbox",      textBboxCmd},
+        {"text",       "offset",    textOffsetCmd},
 
         {"xview",      0,           xviewCmd},
         {"yview",      0,           yviewCmd},

@@ -25,6 +25,10 @@ Hv3 Mega-Widget Object Types:
         A widget class for form controls. This is used as the replacement
         object for <input>, <select>, <textarea>, <isindex> and <button>
         element nodes.
+
+    ::hv3::fileselect            (hv3_form.tcl)
+        Used (and encapsulated) by ::hv3::control to implement
+        <input type=file> controls.
  
     ::hv3::filedownloader        (hv3_http.tcl)
         This widget implements the file-downloading dialog (i.e. the thing
@@ -44,7 +48,8 @@ Hv3 Mega-Widget Object Types:
         effects and hyperlinks, respectively. These are really just used
         to break up the hv3::hv3 a bit. Eventually, each of these (and the
         formmanager) will be optional functions that may be enabled or 
-        disabled by hv3 users. TODO: Images too?
+        disabled by hv3 users. TODO: Images too? Should there be an 
+        ::hv3::hv3::imagemanager?
 
     ::hv3::formmanager           (hv3_form.tcl)
     ::hv3::form                  (hv3_form.tcl)
@@ -82,13 +87,13 @@ Hv3 Application Object Types:
 
     ::hv3::history               (hv3_main.tcl)
 
+Tree browser:
+
+    HtmlDebug
+
 NOTES ON FRAMES AND TABS
 ------------------------
 
   Both frames and tabs are implemented as part of the demo application, not
   Tkhtml or the hv3 mega-widget.
-
-
-
-
 

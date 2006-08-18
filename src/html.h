@@ -673,6 +673,7 @@ void HtmlTagCleanupTree(HtmlTree *);
 Tcl_ObjCmdProc HtmlTextTextCmd;
 Tcl_ObjCmdProc HtmlTextIndexCmd;
 Tcl_ObjCmdProc HtmlTextBboxCmd;
+Tcl_ObjCmdProc HtmlTextOffsetCmd;
 void HtmlTextInvalidate(HtmlTree *);
 
 void HtmlWidgetBboxText(

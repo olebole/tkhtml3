@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.97 2006/08/17 17:30:52 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.98 2006/08/18 07:27:49 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -340,7 +340,7 @@ snit::type ::hv3::hv3::selectionmanager {
 
   constructor {hv3} {
     set myHv3 $hv3
-    selection handle $myHv3 [mymethod get_selection]
+    selection handle $myHv3 [list ::hv3::bg [mymethod get_selection]]
 
     bind $myHv3 <Motion>          "+[mymethod motion %x %y]"
     bind $myHv3 <ButtonPress-1>   "+[mymethod press %x %y]"
@@ -401,17 +401,15 @@ snit::type ::hv3::hv3::selectionmanager {
     set n2 $myToNode
     set i2 $myToIdx
 
-    set td [$myHv3 textdocument]
-    set stridx_a [$td nodeToString $n1 $i1]
-    set stridx_b [expr [$td nodeToString $n2 $i2] -1]
-
+    set stridx_a [$myHv3 text offset $myFromNode $myFromIdx]
+    set stridx_b [$myHv3 text offset $myToNode $myToIdx]
     if {$stridx_a > $stridx_b} {
       foreach {stridx_a stridx_b} [list $stridx_b $stridx_a] {}
     }
-
-    set T [string range [$td text] $stridx_a $stridx_b]
+  
+    set T [string range [$myHv3 text text] $stridx_a [expr $stridx_b - 1]]
     set T [string range $T $offset [expr $offset + $maxChars]]
-    
+
     return $T
   }
 }
@@ -621,9 +619,6 @@ snit::widget ::hv3::hv3 {
 
   # Used to assign internal stylesheet ids.
   variable  myStyleCount 0 
-
-  # Cached ::hv3::textdocument representation of the current document
-  variable  myTextDocument "" 
 
   # TODO: Get rid of this...
   variable  myPostData "" 
@@ -1065,21 +1060,6 @@ snit::widget ::hv3::hv3 {
       $myHtml parse -final {}
       $self goto_fragment
     }
-    $self invalidate_textdocument
-  }
-
-  method textdocument {} {
-    if {$myTextDocument eq ""} {
-      set myTextDocument [::hv3::textdocument %AUTO% $myHtml]
-    }
-    return $myTextDocument
-  }
-
-  method invalidate_textdocument {} {
-    if {$myTextDocument ne ""} {
-      $myTextDocument destroy
-      set myTextDocument ""
-    }
   }
 
   method Formcmd {method uri querytype encdata} {
@@ -1205,7 +1185,6 @@ snit::widget ::hv3::hv3 {
 
   method reset {} {
     $self invalidate_nodecache
-    $self invalidate_textdocument
 
     foreach m [list $myDynamicManager $myFormManager $mySelectionManager] {
       if {$m ne ""} {$m reset}
@@ -1408,4 +1387,21 @@ proc ::hv3::eval2 {script finscript data} {
     eval [concat $finscript [list $data]]
   }
 }
+
+proc ::hv3::bg {script args} {
+  set eval [concat $script $args]
+  set rc [catch [list uplevel $eval] result]
+  if {$rc} {
+    after idle [list                     \
+      set ::errorInfo $::errorInfo ;     \
+      set ::errorCode $::errorCode ;     \
+      bgerror $result ;
+    ]
+    set ::errorInfo ""
+    return ""
+  }
+  return $result
+}
+
+
 

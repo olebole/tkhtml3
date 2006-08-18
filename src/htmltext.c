@@ -1388,8 +1388,6 @@ HtmlTextIndexCmd(clientData, interp, objc, objv)
                 Tcl_Obj *apObj[2];
                 apObj[0] = HtmlNodeCommand(pTree, pMap->pNode);
                 apObj[1] = Tcl_NewIntObj(iNodeIdx);
-                // Tcl_ListObjAppendElement(0, p, pCmd);
-                // Tcl_ListObjAppendElement(0, p, 
                 Tcl_ListObjReplace(0, p, 0, 0, 2, &apObj);
                 break;
             }
@@ -1398,6 +1396,67 @@ HtmlTextIndexCmd(clientData, interp, objc, objv)
     }
 
     Tcl_SetObjResult(interp, p);
+    return TCL_OK;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlTextOffsetCmd --
+ * 
+ *         $html text index NODE INDEX
+ *
+ *     Given the supplied node/index pair, return the corresponding offset
+ *     in the text representation of the document.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+int
+HtmlTextOffsetCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget */
+    Tcl_Interp *interp;                /* The interpreter */
+    int objc;                          /* Number of arguments */
+    Tcl_Obj *CONST objv[];             /* List of all arguments */
+{
+    HtmlTree *pTree = (HtmlTree *)clientData;
+    HtmlTextMapping *pMap;
+
+    /* C interpretations of arguments passed to the Tcl command */
+    HtmlNode *pNode;
+    int iIndex;
+
+    /* Return value for the Tcl command. Anything less than 0 results
+     * in an empty string being returned.
+     */
+    int iRet = -1;
+
+    if (objc != 5) {
+        Tcl_WrongNumArgs(interp, 3, objv, "NODE INDEX");
+        return TCL_ERROR;
+    }
+    if (
+        0 == (pNode = HtmlNodeGetPointer(pTree, Tcl_GetString(objv[3]))) ||
+        TCL_OK != Tcl_GetIntFromObj(interp, objv[4], &iIndex)
+    ) {
+        return TCL_ERROR;
+    }
+
+    initHtmlText(pTree);
+    for (pMap = pTree->pText->pMapping; pMap; pMap = pMap->pNext) {
+        if (pMap->pNode == pNode && pMap->iNodeIndex <= iIndex) {
+            iRet = pMap->iStrIndex + (iIndex - pMap->iNodeIndex);
+        }
+    }
+
+    if (iRet >= 0) {
+        Tcl_SetObjResult(interp, Tcl_NewIntObj(iRet));
+    }
     return TCL_OK;
 }
 
