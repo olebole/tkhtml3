@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.158 2006/08/19 06:07:34 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.159 2006/08/19 09:37:35 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -541,7 +541,7 @@ windowsRepair(pTree, pCanvas)
             if (Tk_IsMapped(control)) {
                 HtmlCallbackDamage(pTree, 
                     Tk_X(control), Tk_Y(control), 
-                    Tk_Width(control), Tk_Height(control) 
+                    Tk_Width(control), Tk_Height(control), 1
                 );
             }
             Tk_MoveResizeWindow(control, iViewX, iViewY, iWidth, iHeight);
@@ -3192,7 +3192,7 @@ HtmlWidgetDamageText(pTree, iNodeStart, iIndexStart, iNodeFin, iIndexFin)
     w = (sQuery.right - pTree->iScrollX) - x;
     y = sQuery.top - pTree->iScrollY;
     h = (sQuery.bottom - pTree->iScrollY) - y;
-    HtmlCallbackDamage(pTree, x, y, w, h);
+    HtmlCallbackDamage(pTree, x, y, w, h, 0);
 }
 
 void
@@ -3422,12 +3422,47 @@ widgetRepair(pTree, x, y, w, h, g)
         return;
     }
 
-    pixmap = getPixmap(pTree, pTree->iScrollX+x, pTree->iScrollY+y, w, h, g);
+    /* If the widget is in "-doublebuffer 1" mode and the pixmap is not
+     * allocated, allocate it now. If this happens, we need to redraw the
+     * whole viewport.
+     */
+    if (
+        pTree->options.doublebuffer && (
+            !pTree->pixmap ||
+            pTree->iPixmapWidth != Tk_Width(win) ||
+            pTree->iPixmapHeight != Tk_Height(win)
+       )
+    ) {
+       if (pTree->pixmap) {
+           Tk_FreePixmap(pDisp, pTree->pixmap);
+       }
+       w = Tk_Width(win);
+       h = Tk_Height(win);
+       x = 0;
+       y = 0;
+       pTree->pixmap = Tk_GetPixmap(pDisp,Tk_WindowId(win),w,h,Tk_Depth(win));
+       pTree->iPixmapWidth = w;
+       pTree->iPixmapHeight = h;
+    }
 
+    else if (!pTree->options.doublebuffer && pTree->pixmap) {
+        Tk_FreePixmap(pDisp, pTree->pixmap);
+        pTree->pixmap = 0;
+    }
+
+    pixmap = getPixmap(pTree, pTree->iScrollX+x, pTree->iScrollY+y, w, h, g);
     memset(&gc_values, 0, sizeof(XGCValues));
     gc = Tk_GetGC(pTree->tkwin, 0, &gc_values);
     assert(Tk_WindowId(win));
+
+    /* If the doublebuffer mode pixmap exists, update it as well as the
+     * application window. Otherwise, just the application window.
+     */
+    if (pTree->pixmap) {
+        XCopyArea(pDisp, pixmap, pTree->pixmap, gc, 0, 0, w, h, x, y);
+    }
     XCopyArea(pDisp, pixmap, Tk_WindowId(win), gc, 0, 0, w, h, x, y);
+
     Tk_FreePixmap(pDisp, pixmap);
     Tk_FreeGC(pDisp, gc);
 }
@@ -3445,15 +3480,32 @@ widgetRepair(pTree, x, y, w, h, g)
  *---------------------------------------------------------------------------
  */
 void 
-HtmlWidgetRepair(pTree, x, y, w, h)
+HtmlWidgetRepair(pTree, x, y, w, h, pixmapok)
     HtmlTree *pTree;
     int x;
     int y;
     int w;
     int h;
+    int pixmapok;
 {
     /* Make sure the widget main window exists before painting anything */
     Tk_MakeWindowExist(pTree->tkwin);
+   
+    if (pixmapok && pTree->pixmap) {
+        Display *pDisp = Tk_Display(pTree->tkwin);
+        Window xwin = Tk_WindowId(pTree->tkwin);
+        XGCValues gc_values;
+
+        GC gc;
+        memset(&gc_values, 0, sizeof(XGCValues));
+        gc = Tk_GetGC(pTree->tkwin, 0, &gc_values);
+
+        XCopyArea(pDisp, pTree->pixmap, xwin, gc, x, y, w, h, x, y);
+ 
+        Tk_FreeGC(pDisp, gc);
+        return;
+    }
+
     widgetRepair(pTree, x, y, w, h, 0);
 }
 
@@ -3536,7 +3588,10 @@ HtmlWidgetSetViewport(pTree, scroll_x, scroll_y, force_redraw)
     h = Tk_Height(win);
 
     assert(pTree->nFixedBackground >= 0);
-    if (pTree->nFixedBackground || pTree->eVisibility != VisibilityUnobscured) {
+    if (
+        (pTree->nFixedBackground > 0) || 
+        (!pTree->pixmap && pTree->eVisibility != VisibilityUnobscured)
+    ) {
         force_redraw = 1;
     }
 
@@ -3549,15 +3604,26 @@ HtmlWidgetSetViewport(pTree, scroll_x, scroll_y, force_redraw)
         GC gc;
         Display *pDisp = Tk_Display(win);
         Window xwin = Tk_WindowId(win);
+        Pixmap pm = pTree->pixmap;
 
         memset(&gc_values, 0, sizeof(XGCValues));
         gc = Tk_GetGC(pTree->tkwin, 0, &gc_values);
 
         if (delta_y > 0) {
-            XCopyArea(pDisp, xwin, xwin, gc, 0, delta_y, w, h-delta_y, 0, 0);
+            if (pm) {
+                XCopyArea(pDisp, pm, xwin, gc, 0, delta_y, w, h-delta_y, 0, 0);
+                XCopyArea(pDisp, pm, pm, gc, 0, delta_y, w, h-delta_y, 0, 0);
+            } else {
+                XCopyArea(pDisp, xwin, xwin, gc, 0, delta_y, w, h-delta_y ,0,0);
+            }
             widgetRepair(pTree, 0, h-delta_y, w, delta_y, 1);
         } else if (delta_y < 0) {
-            XCopyArea(pDisp, xwin, xwin, gc, 0, 0, w, h+delta_y, 0, 0-delta_y);
+            if (pm) {
+                XCopyArea(pDisp,pm,xwin,gc,0,0,w,h+delta_y,0,0-delta_y);
+                XCopyArea(pDisp,pm,pm,gc,0,0,w,h+delta_y,0,0-delta_y);
+            } else {
+                XCopyArea(pDisp,xwin,xwin,gc,0,0,w,h+delta_y,0,0-delta_y);
+            }
             widgetRepair(pTree, 0, 0, w, 0 - delta_y, 1);
         }
 

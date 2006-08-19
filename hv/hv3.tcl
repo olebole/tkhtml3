@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.98 2006/08/18 07:27:49 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.99 2006/08/19 09:37:35 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -374,13 +374,15 @@ snit::type ::hv3::hv3::selectionmanager {
 
   method motion {x y} {
     if {0 == $myState} return
+    if {$myToNode eq ""} {
+      $self press $x $y
+      return
+    }
     set to [$myHv3 node -index $x $y]
     if {[llength $to]==2} {
       foreach {node index} $to {}
       if {$myToNode ne $node || $index != $myToIdx} {
-        if {$myToNode ne ""} {
-          $myHv3 tag remove selection $myToNode $myToIdx $node $index
-        }
+        $myHv3 tag remove selection $myToNode $myToIdx $node $index
         set myToNode $node
         set myToIdx $index
         $myHv3 tag add selection $myFromNode $myFromIdx $myToNode $myToIdx

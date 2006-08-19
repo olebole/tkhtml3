@@ -297,6 +297,7 @@ struct HtmlOptions {
     /* Boolean options */
     int shrink;
     int layoutcache;
+    int doublebuffer;
 
     int mode;        /* 0 -> quirks, 1 -> almost standards, 2 -> standards */
 
@@ -332,6 +333,7 @@ struct HtmlDamage {
   int y;
   int w;
   int h;
+  int pixmapok;
   HtmlDamage *pNext;
 };
 
@@ -374,7 +376,7 @@ void HtmlCallbackExtents(HtmlTree *, int, int, int, int);
 
 void HtmlCallbackForce(HtmlTree *);
 void HtmlCallbackDynamic(HtmlTree *, HtmlNode *);
-void HtmlCallbackDamage(HtmlTree *, int, int, int, int);
+void HtmlCallbackDamage(HtmlTree *, int, int, int, int, int);
 void HtmlCallbackLayout(HtmlTree *, HtmlNode *);
 void HtmlCallbackRestyle(HtmlTree *, HtmlNode *);
 
@@ -395,6 +397,13 @@ struct HtmlTree {
     int iScrollX;              /* Number of pixels offscreen to the left */
     int iScrollY;              /* Number of pixels offscreen to the top */
     int eVisibility;           /* Most recent XVisibilityEvent.state */
+
+    /*
+     * Optional backing store. Only used in double-buffer mode.
+     */
+    Pixmap pixmap;
+    int iPixmapWidth;
+    int iPixmapHeight;
 
     /*
      * The widget command.
@@ -651,7 +660,7 @@ void HtmlLayoutInvalidateCache(HtmlTree *, HtmlNode *);
 void HtmlWidgetNodeBox(HtmlTree *, HtmlNode *, int *, int *, int *, int *);
 
 void HtmlWidgetSetViewport(HtmlTree *, int, int, int);
-void HtmlWidgetRepair(HtmlTree *, int, int, int, int);
+void HtmlWidgetRepair(HtmlTree *, int, int, int, int, int);
 
 int HtmlNodeClearStyle(HtmlTree *, HtmlNode *);
 int HtmlNodeClearGenerated(HtmlTree *, HtmlNode *);

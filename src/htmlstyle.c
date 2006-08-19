@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlstyle.c,v 1.35 2006/08/03 16:24:13 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlstyle.c,v 1.36 2006/08/19 09:37:35 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -208,7 +208,7 @@ styleNode(pTree, pNode, clientData)
         } else if (redrawmode == 1 && !(pTree->cb.flags & HTML_LAYOUT)) {
             int x, y, w, h;
             HtmlWidgetNodeBox(pTree, pNode, &x, &y, &w, &h);
-            HtmlCallbackDamage(pTree, x-pTree->iScrollX, y-pTree->iScrollY,w,h);
+            HtmlCallbackDamage(pTree,x-pTree->iScrollX,y-pTree->iScrollY,w,h,0);
         }
 
         addStackingInfo(pTree, pNode);

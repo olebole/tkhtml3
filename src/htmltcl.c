@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.117 2006/08/19 06:07:35 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.118 2006/08/19 09:37:35 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -433,7 +433,7 @@ callbackHandler(clientData)
             HtmlLog(pTree, 
                 "ACTION", "Repair: %dx%d +%d+%d", pD->w, pD->h, pD->x, pD->y
             );
-            HtmlWidgetRepair(pTree, pD->x, pD->y, pD->w, pD->h);
+            HtmlWidgetRepair(pTree, pD->x, pD->y, pD->w, pD->h, pD->pixmapok);
             HtmlFree("HtmlDamage", pD);
             pD = pNext;
         }
@@ -663,12 +663,13 @@ HtmlCallbackLayout(pTree, pNode)
  *---------------------------------------------------------------------------
  */
 void 
-HtmlCallbackDamage(pTree, x, y, w, h)
+HtmlCallbackDamage(pTree, x, y, w, h, pixmapok)
     HtmlTree *pTree;
     int x; 
     int y;
     int w; 
     int h;
+    int pixmapok;
 {
     HtmlDamage *pNew;
     HtmlDamage *p;
@@ -727,6 +728,7 @@ HtmlCallbackDamage(pTree, x, y, w, h)
     pNew->y = y;
     pNew->w = w;
     pNew->h = h;
+    pNew->pixmapok = 0;
     pNew->pNext = pTree->cb.pDamage;
     pTree->cb.pDamage = pNew;
 
@@ -907,7 +909,7 @@ eventHandler(clientData, pEvent)
                 p->x, p->y, p->width, p->height
             );
 
-            HtmlCallbackDamage(pTree, p->x, p->y, p->width, p->height);
+            HtmlCallbackDamage(pTree, p->x, p->y, p->width, p->height, 1);
             break;
         }
 
@@ -1037,6 +1039,11 @@ configureCmd(clientData, interp, objc, objv)
 BOOLEAN(shrink, "shrink", "Shrink", "0", S_MASK),
 BOOLEAN(layoutcache, "layoutCache", "LayoutCache", "1", S_MASK),
 BOOLEAN(forcefontmetrics, "forceFontMetrics", "ForceFontMetrics", "1", S_MASK),
+#ifdef WIN32
+BOOLEAN(doublebuffer, "doubleBuffer", "DoubleBuffer", "1", 0),
+#else
+BOOLEAN(doublebuffer, "doubleBuffer", "DoubleBuffer", "0", 0),
+#endif
 
         DOUBLE(fontscale, "fontScale", "FontScale", "1.0", S_MASK),
 
@@ -1057,6 +1064,7 @@ BOOLEAN(forcefontmetrics, "forceFontMetrics", "ForceFontMetrics", "1", S_MASK),
         /* Options for logging info to debugging scripts */
         STRING(logcmd, "logCmd", "LogCmd", ""),
         STRING(timercmd, "timerCmd", "TimerCmd", ""),
+
 
         OBJ(fonttable, "fontTable", "FontTable", "8 9 10 11 13 15 17", FT_MASK),
 
@@ -1226,7 +1234,7 @@ resetCmd(clientData, interp, objc, objv)
     HtmlTreeClear(pTree);
     HtmlCallbackScrollY(pTree, 0);
     HtmlCallbackScrollX(pTree, 0);
-    HtmlCallbackDamage(pTree, 0, 0, Tk_Width(win), Tk_Height(win));
+    HtmlCallbackDamage(pTree, 0, 0, Tk_Width(win), Tk_Height(win), 0);
     doLoadDefaultStyle(pTree);
     pTree->isParseFinished = 0;
     return TCL_OK;

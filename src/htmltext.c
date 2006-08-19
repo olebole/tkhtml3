@@ -1097,7 +1097,7 @@ HtmlTagConfigureCmd(clientData, interp, objc, objv)
     Tk_SetOptions(interp, (char *)pTag, otab, objc - 4, &objv[4], win, 0, 0);
 
     /* Redraw the whole viewport. Todo: Update only the required regions */
-    HtmlCallbackDamage(pTree, 0, 0, 1000000, 1000000);
+    HtmlCallbackDamage(pTree, 0, 0, 1000000, 1000000, 0);
 
     return TCL_OK;
 }
@@ -1139,7 +1139,7 @@ HtmlTagDeleteCmd(clientData, interp, objc, objv)
     }
 
     /* Redraw the whole viewport. Todo: Update only the required regions */
-    HtmlCallbackDamage(pTree, 0, 0, 1000000, 1000000);
+    HtmlCallbackDamage(pTree, 0, 0, 1000000, 1000000, 0);
 
     return TCL_OK;
 }
