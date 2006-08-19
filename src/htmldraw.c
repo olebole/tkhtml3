@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.157 2006/08/17 17:30:52 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.158 2006/08/19 06:07:34 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1704,7 +1704,7 @@ drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview)
     if (pV->cBackgroundColor->xcolor) {
         int boxw = pBox->w + MIN((x + pBox->x), 0);
         int boxh = pBox->h + MIN((y + pBox->y), 0);
-        fill_rectangle(pTree->win, 
+        fill_rectangle(pTree->tkwin, 
             drawable, pV->cBackgroundColor->xcolor,
             MAX(0, x + pBox->x), MAX(0, y + pBox->y),
             MIN(boxw, w), MIN(boxh, h)
@@ -1713,7 +1713,7 @@ drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview)
 
     /* Top border */
     if (tw > 0 && tc) {
-        fill_quad(pTree->win, drawable, tc,
+        fill_quad(pTree->tkwin, drawable, tc,
             x + pBox->x, y + pBox->y,
             lw, tw,
             pBox->w - lw - rw, 0,
@@ -1723,7 +1723,7 @@ drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview)
 
     /* Left border, if required */
     if (lw > 0 && lc) {
-        fill_quad(pTree->win, drawable, lc,
+        fill_quad(pTree->tkwin, drawable, lc,
             x + pBox->x, y + pBox->y,
             lw, tw,
             0, pBox->h - tw - bw,
@@ -1733,7 +1733,7 @@ drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview)
 
     /* Bottom border, if required */
     if (bw > 0 && bc) {
-        fill_quad(pTree->win, drawable, bc,
+        fill_quad(pTree->tkwin, drawable, bc,
             x + pBox->x, y + pBox->y + pBox->h,
             lw, - 1 * bw,
             pBox->w - lw - rw, 0,
@@ -1743,7 +1743,7 @@ drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview)
 
     /* Right border, if required */
     if (rw > 0 && rc) {
-        fill_quad(pTree->win, drawable, rc,
+        fill_quad(pTree->tkwin, drawable, rc,
             x + pBox->x + pBox->w, y + pBox->y,
             -1 * rw, tw,
             0, pBox->h - tw - bw,
@@ -1762,7 +1762,7 @@ drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview)
         XGCValues gc_values;
         int iWidth;
         int iHeight;
-        Tk_Window win = pTree->win;
+        Tk_Window win = pTree->tkwin;
         Display *display = Tk_Display(win);
         int dep = Tk_Depth(win);
         int eR = pV->eBackgroundRepeat;
@@ -1848,7 +1848,7 @@ drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview)
                 for ( ; pBgNode; pBgNode = HtmlNodeParent(pBgNode)) {
                     HtmlComputedValues *pV2 = pBgNode->pPropertyValues;
                     if (pV2->cBackgroundColor->xcolor) {
-                        fill_quad(pTree->win, ipix, 
+                        fill_quad(pTree->tkwin, ipix, 
                             pV2->cBackgroundColor->xcolor,
                             0, 0, iWidth, 0, 0, iHeight, -1 * iWidth, 0
                         );
@@ -1867,7 +1867,7 @@ drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview)
                 gc_values.ts_y_origin = iPosY;
                 gc_values.tile = ipix;
                 gc_values.fill_style = FillTiled;
-                gc = Tk_GetGC(pTree->win, 
+                gc = Tk_GetGC(pTree->tkwin, 
                     GCTile|GCTileStipXOrigin|GCTileStipYOrigin|GCFillStyle, 
                     &gc_values
                 );
@@ -2011,7 +2011,7 @@ drawText(pTree, pItem, drawable, x, y)
     int x;
     int y;
 {
-    Display *disp = Tk_Display(pTree->win);
+    Display *disp = Tk_Display(pTree->tkwin);
     CanvasText *pT = &pItem->x.t;
 
     GC gc = 0;
@@ -2039,7 +2039,7 @@ drawText(pTree, pItem, drawable, x, y)
     mask = GCForeground | GCFont;
     gc_values.foreground = pColor->xcolor->pixel;
     gc_values.font = Tk_FontId(font);
-    gc = Tk_GetGC(pTree->win, mask, &gc_values);
+    gc = Tk_GetGC(pTree->tkwin, mask, &gc_values);
     Tk_DrawChars(disp, drawable, gc, font, z, n, pT->x + x, pT->y + y);
     Tk_FreeGC(disp, gc);
 
@@ -2077,14 +2077,14 @@ drawText(pTree, pItem, drawable, x, y)
     
             mask = GCForeground;
             gc_values.foreground = pTag->background->pixel;
-            gc = Tk_GetGC(pTree->win, mask, &gc_values);
+            gc = Tk_GetGC(pTree->tkwin, mask, &gc_values);
             XFillRectangle(disp, drawable, gc, pT->x + xs, ybg, w, h);
             Tk_FreeGC(disp, gc);
     
             mask = GCForeground | GCFont;
             gc_values.foreground = pTag->foreground->pixel;
             gc_values.font = Tk_FontId(font);
-            gc = Tk_GetGC(pTree->win, mask, &gc_values);
+            gc = Tk_GetGC(pTree->tkwin, mask, &gc_values);
             Tk_DrawChars(disp, drawable, gc, font, zSel, nSel,pT->x+xs,pT->y+y);
             Tk_FreeGC(disp, gc);
         }
@@ -2310,12 +2310,12 @@ pixmapQuerySwitchOverflow(pQuery, pOverflow)
             }
 
             if (copy_w > 0 && copy_h > 0) {
-                Tk_Window win = pQuery->pTree->win;
+                Tk_Window win = pQuery->pTree->tkwin;
                 Pixmap o = pCurrentOverflow->pixmap;
                 GC gc;
                 XGCValues gc_values;
                 memset(&gc_values, 0, sizeof(XGCValues));
-                gc = Tk_GetGC(pQuery->pTree->win, 0, &gc_values);
+                gc = Tk_GetGC(pQuery->pTree->tkwin, 0, &gc_values);
                 assert(src_x >= 0 && src_y >= 0);
                 assert(dest_x >= 0 && dest_y >= 0);
                 XCopyArea(Tk_Display(win), o, pQuery->pmap, gc, 
@@ -2348,7 +2348,7 @@ pixmapQuerySwitchOverflow(pQuery, pOverflow)
             }
 
             if (copy_w > 0 && copy_h > 0) {
-                Tk_Window win = pQuery->pTree->win;
+                Tk_Window win = pQuery->pTree->tkwin;
                 GC gc;
                 XGCValues gc_values;
     
@@ -2363,7 +2363,7 @@ pixmapQuerySwitchOverflow(pQuery, pOverflow)
                     pQuery->pOverflowList = pOverflow;
                 }
                 memset(&gc_values, 0, sizeof(XGCValues));
-                gc = Tk_GetGC(pQuery->pTree->win, 0, &gc_values);
+                gc = Tk_GetGC(pQuery->pTree->tkwin, 0, &gc_values);
 
                 assert(src_x >= 0 && src_y >= 0);
                 assert(dest_x >= 0 && dest_y >= 0);
@@ -2497,7 +2497,7 @@ getPixmap(pTree, xcanvas, ycanvas, w, h, getwin)
 {
     Pixmap pmap;
     Display *pDisplay;
-    Tk_Window win = pTree->win;
+    Tk_Window win = pTree->tkwin;
     XColor *bg_color = 0;
     GetPixmapQuery sQuery;
     Outline *pOutline;
@@ -2585,10 +2585,10 @@ getPixmap(pTree, xcanvas, ycanvas, w, h, getwin)
         int w1 = pOutline->w;
         int h1 = pOutline->h;
         Outline *pPrev = pOutline;
-        fill_quad(pTree->win, pmap, oc, x1,y1, w1,0, 0,ow, -w1,0);
-        fill_quad(pTree->win, pmap, oc, x1,y1+h1, w1,0, 0,-ow, -w1,0);
-        fill_quad(pTree->win, pmap, oc, x1,y1, 0,h1, ow,0, 0,-h1);
-        fill_quad(pTree->win, pmap, oc, x1+w1,y1, 0,h1, -ow,0, 0,-h1);
+        fill_quad(pTree->tkwin, pmap, oc, x1,y1, w1,0, 0,ow, -w1,0);
+        fill_quad(pTree->tkwin, pmap, oc, x1,y1+h1, w1,0, 0,-ow, -w1,0);
+        fill_quad(pTree->tkwin, pmap, oc, x1,y1, 0,h1, ow,0, 0,-h1);
+        fill_quad(pTree->tkwin, pmap, oc, x1+w1,y1, 0,h1, -ow,0, 0,-h1);
         pOutline = pOutline->pNext;
         HtmlFree(0, pPrev);
     }
@@ -2623,7 +2623,7 @@ int HtmlLayoutImage(clientData, interp, objc, objv)
     Tcl_Obj *CONST objv[];             /* Argument strings. */
 {
     HtmlTree *pTree = (HtmlTree *)clientData;
-    Display *pDisplay = Tk_Display(pTree->win);
+    Display *pDisplay = Tk_Display(pTree->tkwin);
 
     int x = 0;
     int y = 0;
@@ -2646,7 +2646,7 @@ int HtmlLayoutImage(clientData, interp, objc, objv)
         XDestroyImage(pXImage);
         Tcl_SetObjResult(interp, pImage);
         Tcl_DecrRefCount(pImage);
-        Tk_FreePixmap(Tk_Display(pTree->win), pixmap);
+        Tk_FreePixmap(Tk_Display(pTree->tkwin), pixmap);
     } else {
         /* If the width or height is zero, then the image is empty. So just
 	 * run the following simple script to set the interpreter result to
@@ -3425,7 +3425,7 @@ widgetRepair(pTree, x, y, w, h, g)
     pixmap = getPixmap(pTree, pTree->iScrollX+x, pTree->iScrollY+y, w, h, g);
 
     memset(&gc_values, 0, sizeof(XGCValues));
-    gc = Tk_GetGC(pTree->win, 0, &gc_values);
+    gc = Tk_GetGC(pTree->tkwin, 0, &gc_values);
     assert(Tk_WindowId(win));
     XCopyArea(pDisp, pixmap, Tk_WindowId(win), gc, 0, 0, w, h, x, y);
     Tk_FreePixmap(pDisp, pixmap);
@@ -3551,7 +3551,7 @@ HtmlWidgetSetViewport(pTree, scroll_x, scroll_y, force_redraw)
         Window xwin = Tk_WindowId(win);
 
         memset(&gc_values, 0, sizeof(XGCValues));
-        gc = Tk_GetGC(pTree->win, 0, &gc_values);
+        gc = Tk_GetGC(pTree->tkwin, 0, &gc_values);
 
         if (delta_y > 0) {
             XCopyArea(pDisp, xwin, xwin, gc, 0, delta_y, w, h-delta_y, 0, 0);

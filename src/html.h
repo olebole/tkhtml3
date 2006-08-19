@@ -387,7 +387,6 @@ struct HtmlTree {
      * The interpreter and main window hosting this widget instance.
      */
     Tcl_Interp *interp;             /* Tcl interpreter */
-    Tk_Window win;                  /* Main window of interp */
 
     /*
      * The widget window.

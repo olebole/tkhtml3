@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.201 2006/08/15 18:26:57 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.202 2006/08/19 06:07:34 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -3448,7 +3448,6 @@ HtmlLayout(pTree)
     memset(&sLayout, 0, sizeof(LayoutContext));
     sLayout.pTree = pTree;
     sLayout.interp = pTree->interp;
-    sLayout.tkwin = pTree->win;
 
     /* Set up the box context object. */
     memset(&sBox, 0, sizeof(BoxContext));
@@ -3473,8 +3472,6 @@ HtmlLayout(pTree)
         BoxProperties box;
         BoxContext sContent;
         BoxContext sFixed;
-
-        HtmlCanvas sTmpCanvas;
 
         nodeGetMargins(&sLayout, pBody, nWidth, &margin);
         nodeGetBoxProperties(&sLayout, pBody, nWidth, &box);

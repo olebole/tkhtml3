@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.83 2006/08/17 10:37:37 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.84 2006/08/19 06:07:35 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -1738,7 +1738,7 @@ node_attr_usage:
                 HtmlNodeReplacement *pReplace = 0; /* New pNode->pReplacement */
                 int nBytes;                  /* bytes allocated at pReplace */
                 Tk_Window widget;            /* Replacement widget */
-                Tk_Window win = pTree->win;  /* Application main window */
+                Tk_Window mainwin = Tk_MainWindow(pTree->interp);
 
                 const char *zWin = 0;        /* Replacement window name */
 
@@ -1758,7 +1758,7 @@ node_attr_usage:
 		    /* Make sure the replacement object is a Tk window. 
                      * Register Tkhtml as the geometry manager.
                      */
-                    widget = Tk_NameToWindow(interp, zWin, win);
+                    widget = Tk_NameToWindow(interp, zWin, mainwin);
                     if (widget) {
                         static Tk_GeomMgr sManage = {
                             "Tkhtml",

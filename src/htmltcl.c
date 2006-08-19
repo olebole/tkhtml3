@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.116 2006/08/18 07:27:50 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.117 2006/08/19 06:07:35 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -2262,6 +2262,7 @@ newWidget(clientData, interp, objc, objv)
     HtmlTree *pTree;
     CONST char *zCmd;
     int rc;
+    Tk_Window mainwin;           /* Main window of application */
 
     if (objc<2) {
         Tcl_WrongNumArgs(interp, 1, objv, "WINDOW-PATH ?OPTIONS?");
@@ -2274,8 +2275,8 @@ newWidget(clientData, interp, objc, objv)
 
     /* Create the Tk window.
      */
-    pTree->win = Tk_MainWindow(interp);
-    pTree->tkwin = Tk_CreateWindowFromPath(interp, pTree->win, zCmd, NULL); 
+    mainwin = Tk_MainWindow(interp);
+    pTree->tkwin = Tk_CreateWindowFromPath(interp, mainwin, zCmd, NULL); 
     if (!pTree->tkwin) {
         goto error_out;
     }

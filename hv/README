@@ -1,4 +1,21 @@
 
+
+Widget Wrappers
+---------------
+
+    ::hv3::scrolledwidget
+    ::hv3::toolbutton
+    ::hv3::pretend_tile_notebook
+
+    ::hv3::scrollbar
+    ::hv3::button
+    ::hv3::entry
+    ::hv3::text
+    ::hv3::label
+    ::hv3::toolbutton
+  
+
+
 OBJECTS
 -------
 
@@ -11,9 +28,6 @@ Hv3 Mega-Widget Object Types:
         yet, but the widget interface is described at the top of the
         file hv3.tcl.
 
-    ::hv3::scrolledwidget        (hv3_widgets.tcl)
-        Generic widget class that wraps scrollbars around a canvas, html
-        or text widget. Nothing very special here.
     
     ::hv3::tclet                 (hv3_object.tcl)
         A widget containing a Tcl applet running in a safe interpreter.
@@ -90,6 +104,8 @@ Hv3 Application Object Types:
 Tree browser:
 
     HtmlDebug
+
+
 
 NOTES ON FRAMES AND TABS
 ------------------------

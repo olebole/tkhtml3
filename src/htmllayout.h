@@ -28,7 +28,6 @@ typedef struct NodeList NodeList;
 struct LayoutContext {
     HtmlTree *pTree;       /* The Html widget. */
     HtmlNode *pTop;          /* Top level node rendered (<body>). */
-    Tk_Window tkwin;
     Tcl_Interp *interp;      /* The interpreter */
 
     HtmlComputedValues *pImplicitTableProperties;

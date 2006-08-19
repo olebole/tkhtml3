@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlimage.c,v 1.53 2006/08/17 07:34:38 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlimage.c,v 1.54 2006/08/19 06:07:34 danielk1977 Exp $";
 
 #include <assert.h>
 #include "html.h"
@@ -967,7 +967,7 @@ Tcl_Obj *HtmlXImageToImage(pTree, pXImage, w, h)
     block.offset[2] = 2;
     block.offset[3] = 3;
 
-    pVisual = Tk_Visual(pTree->win);
+    pVisual = Tk_Visual(pTree->tkwin);
 
     redmask = pVisual->red_mask;
     bluemask = pVisual->blue_mask;
