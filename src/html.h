@@ -504,12 +504,6 @@ struct HtmlTree {
     int iToIndex;
     int iNextNode;       /* Next node index to allocate */
 
-    /*
-     * Todo: Have to think seriously about these before any API freeze.
-     */
-    Tcl_HashTable aVar;             /* Tcl state data dictionary. */
-    Tcl_HashTable aCmd;             /* Map of sub-commands implemented in Tcl */
-
     HtmlCallback cb;                /* See structure definition comments */
 
     /* 

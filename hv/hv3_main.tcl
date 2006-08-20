@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.59 2006/08/20 07:52:00 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.60 2006/08/20 10:43:26 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -528,8 +528,10 @@ snit::widget ::hv3::browser_toplevel {
     # used to add the tag "$self" to the html widget for every 
     # frame in the frameset.
     bind $self <Escape>          [mymethod Escape]
-    bind $self <Control-f>       [mymethod Find]
-    bind $self <KeyPress-slash>  [mymethod Find]
+    bind $self <Control-f>       [mymethod Find find]
+    bind $self <KeyPress-slash>  [mymethod Find find]
+    bind $self <KeyPress-g>      [mymethod Find google]
+    bind $self <KeyPress-G>      [mymethod Find google]
     bind $self <KeyPress-q>      exit
     bind $self <KeyPress-Q>      exit
     bind $self <1>               +[list focus %W]
@@ -608,10 +610,21 @@ snit::widget ::hv3::browser_toplevel {
   #         * Presses "/", or
   #         * Selects the "Edit->Find Text" pull-down menu command.
   #
-  method Find {} {
+  method Find {t} {
+
     set fdname ${win}.findwidget
+
     if {[llength [info commands $fdname]] == 0} {
-      ::hv3::findwidget $fdname [$myMainFrame hv3]
+  
+      switch $t {
+        find { 
+          ::hv3::findwidget $fdname [$myMainFrame hv3] 
+        }
+        google { 
+          ::hv3::googlewidget $fdname -getcmd [mymethod goto]
+        }
+      }
+
       pack $fdname -before $myMainFrame -side bottom -fill x -expand false
       $fdname configure -borderwidth 1 -relief raised
 

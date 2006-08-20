@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.119 2006/08/20 07:52:00 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.120 2006/08/20 10:43:26 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -1067,8 +1067,6 @@ BOOLEAN(doublebuffer, "doubleBuffer", "DoubleBuffer", "0", 0),
             HTML_DEFAULT_CSS, FT_MASK),
         STRING(imagecmd, "imageCmd", "ImageCmd", ""),
         STRING(encoding, "encoding", "Encoding", ""),
-        XCOLOR(selectbackground, "selectBackground", "Background", "darkgrey"),
-        XCOLOR(selectforeground, "selectForeground", "Foreground", "white"),
     
         /* Options for logging info to debugging scripts */
         STRING(logcmd, "logCmd", "LogCmd", ""),
@@ -1882,195 +1880,6 @@ bboxCmd(clientData, interp, objc, objv)
 /*
  *---------------------------------------------------------------------------
  *
- * selectSpanCmd --
- *
- *     html select span 
- *
- * Results:
- *     Tcl result (i.e. TCL_OK, TCL_ERROR).
- *
- * Side effects:
- *
- *---------------------------------------------------------------------------
- */
-static int 
-selectSpanCmd(clientData, interp, objc, objv)
-    ClientData clientData;             /* The HTML widget data structure */
-    Tcl_Interp *interp;                /* Current interpreter. */
-    int objc;                          /* Number of arguments. */
-    Tcl_Obj *CONST objv[];             /* Argument strings. */
-{
-    HtmlTree *pTree = (HtmlTree *)clientData;
-    Tcl_Obj *pRet = Tcl_NewObj();
-
-    /* Check no arguments were passed to this command. */
-    if (objc != 3) {
-        Tcl_WrongNumArgs(interp, 3, objv, "");
-        return TCL_ERROR;
-    }
-
-    if (pTree->pToNode) {
-        HtmlNode *pTo = pTree->pToNode; 
-        HtmlNode *pFrom = pTree->pFromNode;
-        int iTo = pTree->iToIndex;
-        int iFrom = pTree->iFromIndex;
-
-        if (pFrom->iNode > pTo->iNode ||
-           (pFrom->iNode == pTo->iNode && iFrom > iTo)
-        ) {
-            pTo = pFrom;
-            pFrom = pTree->pToNode;
-            iTo = iFrom;
-            iFrom = pTree->iToIndex;
-        }
-
-        Tcl_ListObjAppendElement(0, pRet, HtmlNodeCommand(pTree, pFrom));
-        Tcl_ListObjAppendElement(0, pRet, Tcl_NewIntObj(iFrom));
-        Tcl_ListObjAppendElement(0, pRet, HtmlNodeCommand(pTree, pTo));
-        Tcl_ListObjAppendElement(0, pRet, Tcl_NewIntObj(iTo));
-    }
-
-    Tcl_SetObjResult(interp, pRet);
-    return TCL_OK;
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * selectClearCmd --
- *
- *     html select clear 
- *
- * Results:
- *     Tcl result (i.e. TCL_OK, TCL_ERROR).
- *
- * Side effects:
- *
- *---------------------------------------------------------------------------
- */
-static int 
-selectClearCmd(clientData, interp, objc, objv)
-    ClientData clientData;             /* The HTML widget data structure */
-    Tcl_Interp *interp;                /* Current interpreter. */
-    int objc;                          /* Number of arguments. */
-    Tcl_Obj *CONST objv[];             /* Argument strings. */
-{
-    HtmlTree *pTree = (HtmlTree *)clientData;
-
-    /* Check no arguments were passed to this command. */
-    if (objc != 3) {
-        Tcl_WrongNumArgs(interp, 3, objv, "");
-        return TCL_ERROR;
-    }
-
-    if (pTree->pToNode) {
-        /* If HtmlTree.pToNode is NULL, then the selection is already clear,
-         * do nothing. Otherwise, call HtmlWidgetDamageText to repaint the
-         * entire selected area, then clear the selection related HtmlTree 
-         * variables. 
-         *
-	 * It doesn't matter that we call HtmlWidgetDamageText() before
-	 * modifying the state of the widget, as HtmlWidgetDamageText() only
-	 * schedules a drawing callback, it does not do any actual drawing. By
-	 * the time the scheduled callback is dispatched, the HtmlTree state
-	 * has been modified to reflect the cleared selection.
-         */
-        assert(pTree->pFromNode);
-        HtmlWidgetDamageText(pTree, 
-            pTree->pFromNode->iNode, pTree->iFromIndex,
-            pTree->pToNode->iNode, pTree->iToIndex
-        );
-        pTree->pFromNode = 0;
-        pTree->pToNode = 0;
-    }
-
-    return TCL_OK;
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * selectCmd --
- *
- *     html select from ?NODE ?INDEX??
- *     html select to ?NODE ?INDEX??
- *
- *     The [html select clear] command is handled by the C function 
- *     selectClearCmd() (see above).
- *
- * Results:
- *     Tcl result (i.e. TCL_OK, TCL_ERROR).
- *
- * Side effects:
- *
- *---------------------------------------------------------------------------
- */
-static int 
-selectCmd(clientData, interp, objc, objv)
-    ClientData clientData;             /* The HTML widget data structure */
-    Tcl_Interp *interp;                /* Current interpreter. */
-    int objc;                          /* Number of arguments. */
-    Tcl_Obj *CONST objv[];             /* Argument strings. */
-{
-    HtmlTree *pTree = (HtmlTree *)clientData;
-    const char *zArg = Tcl_GetString(objv[2]);
-    int *piIndex = &pTree->iFromIndex;
-    HtmlNode **ppNode = &pTree->pFromNode;
-    Tcl_Obj *pRes;
-
-    assert(0 == strcmp(zArg, "to") || 0 == strcmp(zArg, "from"));
-    if (*zArg=='t') {
-        piIndex = &pTree->iToIndex;
-        ppNode = &pTree->pToNode;
-    }
-
-    if (objc > 3) {
-        HtmlNode *pNewNode;
-        HtmlNode *pOldNode = *ppNode;
-        int iOldIndex = *piIndex;
-        int iNewIndex = -1;
-
-        pNewNode = HtmlNodeGetPointer(pTree, Tcl_GetString(objv[3]));
-        if (0 == pNewNode) {
-            return TCL_ERROR;
-        }
-        if (objc == 5 && Tcl_GetIntFromObj(interp, objv[4], &iNewIndex)) {
-            return TCL_ERROR;
-        }
-
-        *piIndex = iNewIndex;
-        *ppNode = pNewNode;
-
-        if (pTree->pFromNode && !pTree->pToNode) {
-            pTree->pToNode = pTree->pFromNode;
-            pTree->iToIndex = pTree->iFromIndex;
-        }
-        if (!pTree->pFromNode && pTree->pToNode) {
-            pTree->pFromNode = pTree->pToNode;
-            pTree->iFromIndex = pTree->iToIndex;
-        }
-        if (pOldNode) {
-            HtmlWidgetDamageText(
-                pTree, pNewNode->iNode, iNewIndex, pOldNode->iNode, iOldIndex
-            );
-        }
-    }
-
-    Tcl_ResetResult(interp);
-    if (*ppNode) {
-        assert((*ppNode)->pNodeCmd);
-        pRes = Tcl_DuplicateObj((*ppNode)->pNodeCmd->pCommand);
-        if (*piIndex>=0) {
-            Tcl_ListObjAppendElement(interp, pRes, Tcl_NewIntObj(*piIndex));
-        }
-        Tcl_SetObjResult(interp, pRes);
-    }
-    return TCL_OK;
-}
-
-/*
- *---------------------------------------------------------------------------
- *
  * widgetCmd --
  *
  *     This is the C function invoked for a widget command.
@@ -2082,13 +1891,11 @@ selectCmd(clientData, interp, objc, objv)
  *         node
  *         parse
  *         reset
- *         select (not implemented yet)
  *         style
+ *         tag
+ *         text
  *         xview
  *         yview
- *
- *         var
- *         command
  *
  * Results:
  *     Tcl result.
@@ -2124,11 +1931,8 @@ int widgetCmd(clientData, interp, objc, objv)
         {"parse",      0,           parseCmd},
         {"reset",      0,           resetCmd},
         {"search",     0,           searchCmd},
-        {"select",     "clear",     selectClearCmd},
-        {"select",     "from",      selectCmd},
-        {"select",     "to",        selectCmd},
-        {"select",     "span",      selectSpanCmd},
         {"style",      0,           styleCmd},
+
         {"tag",        "add",       tagAddCmd},
         {"tag",        "remove",    tagRemoveCmd},
         {"tag",        "configure", tagCfgCmd},
@@ -2142,7 +1946,7 @@ int widgetCmd(clientData, interp, objc, objv)
         {"xview",      0,           xviewCmd},
         {"yview",      0,           yviewCmd},
 
-        /* The following are for debugging only */
+        /* The following are for debugging only. May change at any time. */
         {"force",       0,          forceCmd},
         {"primitives",  0,          primitivesCmd},
         {"relayout",    0,          relayoutCmd},
@@ -2158,7 +1962,6 @@ int widgetCmd(clientData, interp, objc, objv)
     CONST char *zArg2 = 0;
     Tcl_Obj *pError;
     Tcl_HashEntry *pEntry;
-    HtmlTree *pTree = (HtmlTree *)clientData;
 
     int matchone = 0; /* True if the first argument matched something */
     int multiopt = 0; /* True if their were multiple options for second match */
@@ -2186,27 +1989,6 @@ int widgetCmd(clientData, interp, objc, objv)
              }
          }
     }
-
-    /* See if this is a Tcl implemented command */
-    pEntry = Tcl_FindHashEntry(&pTree->aCmd, zArg1);
-    if (pEntry) {
-        int rc;
-        Tcl_Obj *pScript = (Tcl_Obj *)Tcl_GetHashValue(pEntry);
-        Tcl_Obj *pList = Tcl_NewListObj(objc - 2, &objv[2]);
-
-        pScript = Tcl_DuplicateObj(pScript);
-        Tcl_IncrRefCount(pScript);
-        Tcl_IncrRefCount(pList);
-
-        Tcl_ListObjAppendList(interp, pScript, pList);
-        rc = Tcl_EvalObjEx(interp, pScript, TCL_EVAL_DIRECT|TCL_EVAL_GLOBAL);
-
-        Tcl_DecrRefCount(pList);
-        Tcl_DecrRefCount(pScript);
-
-        return rc;
-    }
-
 
     /* Failed to find a matching sub-command. The remainder of this routine
      * is generating an error message. 
@@ -2304,8 +2086,6 @@ newWidget(clientData, interp, objc, objv)
     Tcl_InitHashTable(&pTree->aScriptHandler, TCL_ONE_WORD_KEYS);
     Tcl_InitHashTable(&pTree->aNodeHandler, TCL_ONE_WORD_KEYS);
     Tcl_InitHashTable(&pTree->aScaledImage, TCL_STRING_KEYS);
-    Tcl_InitHashTable(&pTree->aCmd, TCL_STRING_KEYS);
-    Tcl_InitHashTable(&pTree->aVar, TCL_STRING_KEYS);
     Tcl_InitHashTable(&pTree->aTag, TCL_STRING_KEYS);
     pTree->cmd = Tcl_CreateObjCommand(interp,zCmd,widgetCmd,pTree,widgetCmdDel);
 

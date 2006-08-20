@@ -10,8 +10,6 @@
 [Section Standard Options]
 	[Code {
 		-height
-		-selectbackground
-		-selectforeground   
 		-width
 		-xscrollcommand   
 		-xscrollincrement
@@ -45,8 +43,16 @@
 		The default value of this option is the same as the string
 		returned by the [SQ ::tkhtml::htmlstyle] command.
 	}]
+	[Option doublebuffer {
+		This is a boolean option. If true, use a double buffered
+		window to improve performance. The default is true for
+		windows systems, and false for others.
+	}]
 	[Option fontscale {
-		TODO
+		This option is set to a floating point number, default 1.0.
+		After CSS algorithms are used to determine a font size,
+		it is multiplied by the value of this option. Setting this
+		to a value other than 1.0 breaks standards compliance.
 	}]
 	[Option fonttable {
 		This option must be set to a list of 7 integers. The first
@@ -61,7 +67,10 @@
 		The default value is {7 8 9 10 12 14 16}.
         }]
 	[Option forcefontmetrics {
-		TODO
+		This is a boolean option. If true, the font-metrics returned
+		by Tk are overridden with calculated values based on the
+		font requested. This improves CSS compatibility, but on some
+		systems may cause problems. The default is true.
 	}]
 	[Option imagecmd {
 		As well as for replacing entire document nodes (i.e. <img>),
@@ -115,10 +124,10 @@
 		currently displayed formatted document.
 	}]
 	[Option logcmd {
-		This option is used for internally debugging the widget.
+		This option is used for debugging the widget.
 	}]
 	[Option timercmd {
-		This option is used for internally debugging the widget.
+		This option is used for debugging the widget.
 	}]
 
 [Section Description]
@@ -172,6 +181,7 @@
 [Subcommand -2 {
 	pathName handler node _tag_ _script_
 	pathName handler script _tag_ _script_
+	pathName handler parse _tag_ _script_
 		This command is used to define "handler" scripts - Tcl
 		callback scripts that are invoked by the widget when
 		document elements of specified types are encountered. The
@@ -202,6 +212,8 @@
 
 		TODO: Return values of handler scripts? If an exception
 		occurs in a handler script?
+
+		TODO: Document "parse handlers"
 }]
 
 [Subcommand {
@@ -382,6 +394,22 @@
 		return value is stored as the URL in the parsed stylesheet.
 }]
 
+[Subcommand -4 {
+	pathName tag add _tag-name_ _node1_ _index1_ _node2_ _index2_
+	pathName tag remove _tag-name_ _node1_ _index1_ _node2_ _index2_
+	pathName tag configure _tag-name_ _option_ _value_ ?_option_ _value_...?
+	pathName tag delete _tag-name_
+		TODO: This.
+}]
+
+[Subcommand -4 {
+	pathName text text
+	pathName text index _offset_ ?_offset_...?
+	pathName text bbox _node1_ _index1_ _node2_ _index2_
+	pathName text offset _node_ _index_
+		TODO: This.
+}]
+
 [Subcommand -3 {
 	pathName xview
 	pathName xview moveto _fraction_
@@ -474,10 +502,16 @@
 	}]
 }]
 [Subcommand {
+	nodeHandle override ?_value_?
+}]
+[Subcommand {
 	nodeHandle parent
 		Return the node handle for the node's parent. If the node
 		does not have a parent (i.e. it is the document root), then
 		return an empty string.
+}]
+[Subcommand {
+	nodeHandle prop ?_pseudo-element_?
 }]
 [Subcommand {
 	nodeHandle replace ? ?options? newValue?

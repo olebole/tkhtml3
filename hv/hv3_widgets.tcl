@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.23 2006/08/18 07:27:49 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.24 2006/08/20 10:43:26 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
@@ -697,6 +697,79 @@ proc ::hv3::resolve_uri {base relative} {
   return $ret
 }
 #---------------------------------------------------------------------------
+
+snit::widget ::hv3::googlewidget {
+
+  option -getcmd -default ""
+
+  delegate option -borderwidth to hull
+  delegate option -relief      to hull
+
+  variable myEngineList [list Google {Tcl Wiki} Yahoo Ask.com Wikipedia]
+  variable myEngine "Google"
+
+  constructor {args} {
+    ::hv3::label $win.label -text "Search:"
+    ::hv3::entry $win.entry -width 30
+
+    set w ${win}.menubutton
+    menubutton $w -textvar [myvar myEngine] -indicatoron 1 -menu $w.menu
+    ::hv3::menu $w.menu
+    $w configure -borderwidth 1 -font Hv3DefaultFont -relief raised -pady 2
+    foreach val $myEngineList {
+      $w.menu add radiobutton -label $val -variable [myvar myEngine]
+    }
+
+    checkbutton $win.newtab
+    ::hv3::label $win.newtab_label -text "Open in new tab   "
+
+    pack $win.label -side left
+    pack $win.entry -side left
+    pack $w -side left
+
+    pack $win.newtab_label -side right
+    pack $win.newtab -side right
+
+    bind $win.entry <Return>       [mymethod Search 0]
+    bind $win.entry <Shift-Return> [mymethod Search 1]
+
+    # Propagate events that occur in the entry widget to the 
+    # ::hv3::findwidget widget itself. This allows the calling script
+    # to bind events without knowing the internal mega-widget structure.
+    # For example, the hv3 app binds the <Escape> key to delete the
+    # findwidget widget.
+    #
+    bindtags $win.entry [concat [bindtags $win.entry] $win]
+
+    $self configurelist $args
+  }
+
+
+  method Search {bg} {
+    set search [::hv3::escape_string [${win}.entry get]]
+    switch -- $myEngine {
+      Google {
+        set query "http://www.google.com/search?q=${search}"
+      }
+      {Tcl Wiki} {
+        set query "http://wiki.tcl.tk/2?Q=${search}"
+      }
+      {Yahoo} {
+        set query "http://search.yahoo.com/search?p=${search}"
+      }
+      {Ask.com} {
+        set query "http://www.ask.com/web?q=${search}"
+      }
+      {Wikipedia} {
+        set query "http://en.wikipedia.org/wiki/Special:Search?search=${search}"
+      }
+    }
+    if {$options(-getcmd) ne ""} {
+      set script [linsert $options(-getcmd) end $query]
+      eval $script
+    }
+  }
+}
 
 snit::widget ::hv3::findwidget {
   variable myHv3              ;# The HTML widget
