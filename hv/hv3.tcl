@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.99 2006/08/19 09:37:35 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.100 2006/08/20 07:51:59 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -1201,10 +1201,27 @@ snit::widget ::hv3::hv3 {
     set myQuirksmode unknown
   }
 
-  method location {} { return [$myUri get] }
+  method SetOption {option value} {
+    set options($option) $value
+    switch -- $option {
+      -enableimages {
+        if {$value} {
+          $myHtml configure -imagecmd [mymethod Imagecmd]
+        } else {
+          $myHtml configure -imagecmd ""
+        }
+        set uri [$myUri get]
+        $self reset
+        $self goto $uri
+      }
+    }
+  }
 
-  method html {} { return [$myHtml widget] }
-  method hull {} { return $hull }
+  method location {} { return [$myUri get] }
+  method html {}     { return [$myHtml widget] }
+  method hull {}     { return $hull }
+
+  option -enableimages -configuremethod SetOption
 
   option          -locationvar      -default ""
   option          -pendingvar       -default ""
@@ -1215,6 +1232,7 @@ snit::widget ::hv3::hv3 {
   delegate option -fonttable        to myHtml
   delegate option -fontscale        to myHtml
   delegate option -forcefontmetrics to myHtml
+  delegate option -doublebuffer     to myHtml
 
   # Delegated public methods
   delegate method dumpforms         to myFormManager

@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.118 2006/08/19 09:37:35 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.119 2006/08/20 07:52:00 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -930,6 +930,15 @@ eventHandler(clientData, pEvent)
 #ifndef WIN32
             pTree->eVisibility = p->state;
 #endif
+            break;
+        }
+
+        case UnmapNotify: {
+            if (pTree->pixmap) {
+                /* If the window has a double-buffer pixmap, free it now. */
+                Tk_FreePixmap(Tk_Display(pTree->tkwin), pTree->pixmap);
+                pTree->pixmap = 0;
+            }
             break;
         }
 

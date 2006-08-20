@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.58 2006/08/15 16:37:53 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.59 2006/08/20 07:52:00 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -448,9 +448,11 @@ if 0 {
 
   option -statusvar        -default ""
 
+  delegate option -doublebuffer     to myHv3
   delegate option -forcefontmetrics to myHv3
   delegate option -fonttable        to myHv3
   delegate option -fontscale        to myHv3
+  delegate option -enableimages     to myHv3
 
   delegate method dumpforms         to myHv3
 
@@ -632,6 +634,79 @@ snit::widget ::hv3::browser_toplevel {
   delegate method * to myMainFrame
 }
 
+# ::hv3::config
+#
+#     An instance of this class manages the application "Config" menu, which
+#     contains all the runtime configuration options (font size, image loading
+#     etc.).
+#
+snit::type ::hv3::config {
+
+  variable myFontTable [list 8 9 10 11 13 15 17]
+  variable myFontScale 100%
+  variable myForceFontMetrics 1
+  variable myEnableImages 1
+  variable myDoubleBuffer 0
+
+  variable myMenu ""
+  
+  constructor {menu_path} {
+    set myMenu $menu_path
+    ::hv3::menu $myMenu
+
+    # Add the 'Font Size Table' menu
+    create_fontsize_menu ${myMenu}.font [myvar myFontTable]
+    $myMenu add cascade -label {Font Size Table} -menu ${myMenu}.font
+
+    # Add the 'Font Scale' menu
+    create_fontscale_menu ${myMenu}.font2 [myvar myFontScale]
+    $myMenu add cascade -label {Font Scale} -menu ${myMenu}.font2
+
+    $myMenu add checkbutton \
+        -label {Force CSS Font Metrics}                 \
+        -variable [myvar myForceFontMetrics]            
+
+    $myMenu add checkbutton \
+        -label {Enable Images} \
+        -variable [myvar myEnableImages]
+
+    if {$::tcl_platform(platform) == "windows"} {
+      set myDoubleBuffer 1
+    }
+    $myMenu add checkbutton \
+        -label {Double-buffer} \
+        -variable [myvar myDoubleBuffer]
+
+    trace add variable myFontTable        write [mymethod ConfigureCurrent]
+    trace add variable myFontScale        write [mymethod ConfigureCurrent]
+    trace add variable myForceFontMetrics write [mymethod ConfigureCurrent]
+    trace add variable myEnableImages     write [mymethod ConfigureCurrent]
+    trace add variable myDoubleBuffer     write [mymethod ConfigureCurrent]
+  }
+
+  method ConfigureCurrent {name1 name2 op} {
+    $self configurebrowser [.notebook current]
+  }
+
+  method configurebrowser {b} {
+    foreach {option var} [list                      \
+        -fonttable myFontTable                      \
+        -fontscale myFontScale                      \
+        -forcefontmetrics myForceFontMetrics        \
+        -enableimages myEnableImages                \
+        -doublebuffer myDoubleBuffer                \
+    ] {
+      if {[$b cget $option] ne [set $var]} {
+        $b configure $option [set $var]
+      }
+    }
+  }
+
+  method menu {} {
+    return $myMenu
+  }
+}
+
 #--------------------------------------------------------------------------
 # The following functions are all called during startup to construct the
 # static components of the web browser gui:
@@ -790,7 +865,6 @@ proc create_fontscale_menu {menupath varname} {
     $menupath add radiobutton                  \
       -variable $varname                       \
       -value $val                              \
-      -command [list gui_setfontscale $varname] \
       -label [format "%d%%" [expr int($val * 100)]]
   }
   # trace add variable $varname write ::hv3::browser_frame::SetFontTable
@@ -850,21 +924,14 @@ proc gui_menu {widget_array} {
   .m add cascade -label {Edit} -menu [::hv3::menu .m.edit]
   .m.edit add command -label {Find in page...} -command [list gui_current Find]
 
-  # Add the 'Font Size Table' menu
-  set fontsize_menu [create_fontsize_menu .m.edit.font ::hv3::fontsize_table]
-  .m.edit add cascade -label {Font Size Table} -menu $fontsize_menu
-
-  # Add the 'Font Scale' menu
-  set fontscale_menu [create_fontscale_menu .m.edit.font2 ::hv3::fontscale]
-  .m.edit add cascade -label {Font Scale} -menu $fontscale_menu
-
-  .m.edit add checkbutton -label {Force CSS Font Metrics}               \
-       -variable ::hv3::forcefontmetrics_flag                           \
-       -command [list gui_setforcefontmetrics ::hv3::forcefontmetrics_flag] 
+  # Add the 'Config' menu
+  set G(config) [::hv3::config %AUTO% .m.config]
+  .m add cascade -label {Config} -menu [$G(config) menu]
 
   # Add the 'History' menu
   .m add cascade -label {History} -menu [::hv3::menu .m.history]
   set G(history_menu) .m.history
+
 }
 #--------------------------------------------------------------------------
 
@@ -897,10 +964,10 @@ proc gui_switch {new} {
 
     $G(status_label) configure -textvar [$new statusvar]
     $G(location_entry) configure -textvar [$new locationvar]
-
-    set ::hv3::fontsize_table        [$new cget -fonttable]
-    set ::hv3::forcefontmetrics_flag [$new cget -forcefontmetrics]
   }
+
+  # Configure the new widget
+  $G(config) configurebrowser $new
 }
 
 proc gui_new {path args} {
