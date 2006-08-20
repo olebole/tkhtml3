@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.24 2006/08/20 10:43:26 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.25 2006/08/20 14:50:09 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
@@ -700,15 +700,20 @@ proc ::hv3::resolve_uri {base relative} {
 
 snit::widget ::hv3::googlewidget {
 
-  option -getcmd -default ""
+  option -getcmd  -default ""
+  option -config  -default ""
+  option -initial -default Google
 
   delegate option -borderwidth to hull
   delegate option -relief      to hull
 
-  variable myEngineList [list Google {Tcl Wiki} Yahoo Ask.com Wikipedia]
-  variable myEngine "Google"
+  variable myEngine 
 
   constructor {args} {
+    $self configurelist $args
+
+    set myEngine $options(-initial)
+
     ::hv3::label $win.label -text "Search:"
     ::hv3::entry $win.entry -width 30
 
@@ -716,22 +721,15 @@ snit::widget ::hv3::googlewidget {
     menubutton $w -textvar [myvar myEngine] -indicatoron 1 -menu $w.menu
     ::hv3::menu $w.menu
     $w configure -borderwidth 1 -font Hv3DefaultFont -relief raised -pady 2
-    foreach val $myEngineList {
-      $w.menu add radiobutton -label $val -variable [myvar myEngine]
+    foreach {label uri} $options(-config) {
+      $w.menu add radiobutton -label $label -variable [myvar myEngine]
     }
-
-    checkbutton $win.newtab
-    ::hv3::label $win.newtab_label -text "Open in new tab   "
 
     pack $win.label -side left
     pack $win.entry -side left
     pack $w -side left
 
-    pack $win.newtab_label -side right
-    pack $win.newtab -side right
-
-    bind $win.entry <Return>       [mymethod Search 0]
-    bind $win.entry <Shift-Return> [mymethod Search 1]
+    bind $win.entry <Return>       [mymethod Search]
 
     # Propagate events that occur in the entry widget to the 
     # ::hv3::findwidget widget itself. This allows the calling script
@@ -740,30 +738,14 @@ snit::widget ::hv3::googlewidget {
     # findwidget widget.
     #
     bindtags $win.entry [concat [bindtags $win.entry] $win]
-
-    $self configurelist $args
   }
 
+  method Search {} {
+    array set a $options(-config)
 
-  method Search {bg} {
     set search [::hv3::escape_string [${win}.entry get]]
-    switch -- $myEngine {
-      Google {
-        set query "http://www.google.com/search?q=${search}"
-      }
-      {Tcl Wiki} {
-        set query "http://wiki.tcl.tk/2?Q=${search}"
-      }
-      {Yahoo} {
-        set query "http://search.yahoo.com/search?p=${search}"
-      }
-      {Ask.com} {
-        set query "http://www.ask.com/web?q=${search}"
-      }
-      {Wikipedia} {
-        set query "http://en.wikipedia.org/wiki/Special:Search?search=${search}"
-      }
-    }
+    set query [format $a($myEngine) $search]
+
     if {$options(-getcmd) ne ""} {
       set script [linsert $options(-getcmd) end $query]
       eval $script
@@ -791,7 +773,7 @@ snit::widget ::hv3::findwidget {
     ::hv3::entry $win.entry -width 30
     ::hv3::label $win.num_results -textvar [myvar myCaptionVar]
 
-    checkbutton $win.check_nocase -variable [myvar myNocaseVar]
+    checkbutton $win.check_nocase -variable [myvar myNocaseVar] -pady 0
     ::hv3::label $win.check_nocase_label -text "Case Insensitive"
  
     $win.entry configure -textvar [myvar myEntryVar]
