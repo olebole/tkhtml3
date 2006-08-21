@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.84 2006/08/19 06:07:35 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.85 2006/08/21 16:27:07 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -811,6 +811,7 @@ mergeAttributes(pNode, pToken)
     int nBytes = 0;
     int nArgs = 0;
     int i;
+    int n;
     HtmlToken *p = pNode->pToken;
     HtmlToken *pNew;
     char *zSpace;
@@ -847,14 +848,16 @@ mergeAttributes(pNode, pToken)
         while (*zSpace != '\0') zSpace++; zSpace++;
     }
 
+    n = p->count;
     for (i = 0; i < pToken->count; i += 2) {
         if (pToken->x.zArgs[i]) {
-            pNew->x.zArgs[p->count + i] = zSpace;
+            pNew->x.zArgs[n] = zSpace;
             strcpy(zSpace, pToken->x.zArgs[i]);
             while (*zSpace != '\0') zSpace++; zSpace++;
-            pNew->x.zArgs[p->count + i + 1] = zSpace;
+            pNew->x.zArgs[n + 1] = zSpace;
             strcpy(zSpace, pToken->x.zArgs[i + 1]);
             while (*zSpace != '\0') zSpace++; zSpace++;
+            n += 2;
         }
     }
 
