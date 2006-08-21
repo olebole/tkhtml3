@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlstyle.c,v 1.36 2006/08/19 09:37:35 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlstyle.c,v 1.37 2006/08/21 15:44:38 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -104,13 +104,6 @@ HtmlRestackNodes(pTree)
     if (0 == (pTree->cb.flags & HTML_STACK)) return;
 
     for (pStack = pTree->pStack; pStack; pStack = pStack->pNext) {
-      HtmlComputedValues *pV = pStack->pNode->pPropertyValues;
-      if (pV->ePosition != CSS_CONST_STATIC) {
-        zoffset = MIN(zoffset, pV->iZIndex * 25);
-      }
-    }
-
-    for (pStack = pTree->pStack; pStack; pStack = pStack->pNext) {
         int z = zoffset;
         HtmlNode *pNode = pStack->pNode;
         for ( ; pNode; pNode = HtmlNodeParent(pNode)) {
@@ -126,9 +119,14 @@ HtmlRestackNodes(pTree)
                 }
             }
         }
-        assert(z >= 0);
+        zoffset = MIN(zoffset, z);
         pStack->iBlockZ = z;
-        pStack->iInlineZ = z + 5;
+    }
+    for (pStack = pTree->pStack; pStack; pStack = pStack->pNext) {
+        pStack->iBlockZ -= zoffset;
+        pStack->iInlineZ = pStack->iBlockZ + 5;
+        assert(pStack->iBlockZ >= 0);
+        assert(pStack->iInlineZ >= 0);
     }
 
     pTree->cb.flags &= (~HTML_STACK);
