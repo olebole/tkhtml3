@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.120 2006/08/20 10:43:26 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.121 2006/08/21 11:40:45 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -1555,6 +1555,8 @@ handlerCmd(clientData, interp, objc, objv)
         return TCL_ERROR;
     }
 
+    pTag = objv[3];
+    tag = HtmlNameToType(0, Tcl_GetString(pTag));
     switch (Tcl_GetString(objv[2])[0]) {
         case 'n':
             pHash = &pTree->aNodeHandler;
@@ -1564,14 +1566,14 @@ handlerCmd(clientData, interp, objc, objv)
             break;
         case 'p':
             pHash = &pTree->aParseHandler;
+            if (0 == Tcl_GetString(pTag)[0]) {
+                tag = Html_Text;
+            }
             break;
         default:
             assert(!"Illegal objv[2] value in handlerCmd()");
     }
-
-    pTag = objv[3];
     pScript = objv[4];
-    tag = HtmlNameToType(0, Tcl_GetString(pTag));
 
     if (tag==Html_Unknown) {
         Tcl_AppendResult(interp, "Unknown tag type: ", Tcl_GetString(pTag), 0);

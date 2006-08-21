@@ -178,7 +178,7 @@
 		have any of the values accepted by the [SQ html] command.
 }]
 
-[Subcommand -2 {
+[Subcommand -3 {
 	pathName handler node _tag_ _script_
 	pathName handler script _tag_ _script_
 	pathName handler parse _tag_ _script_
@@ -194,13 +194,24 @@
 		node is appended to script and the resulting list
 		evaluated as a Tcl command. See the section "NODE COMMAND"
 		for details of how a node handle may be used to query and
-		manipulate a document node.
+		manipulate a document node. A node handler is called only
+		after the subtree rooted at the node has been completely 
+		parsed.
 
 		If the handler script is a "script" handler, whenever a
 		document node of type tag is parsed, then the text
 		that appears between the start and end tags of the node is
 		appended to script and the resulting list evaluated
 		as a Tcl command.
+
+		Unlike node or script handlers, a "parse" handler may be
+		associated with a specific opening tag, a closing tag or 
+		with text tags (by specifying an empty string as the tag
+		type). Whenever such a tag is encountered the parse handler
+		script is invoked with two arguments, the node handle for
+		the created node and the byte offset of the in the parsed 
+		document. For a closing tag (i.e. "/form") an empty string
+		is passed instead of a node handle.
 
 		Handler callbacks are always made from within 
 		[SQ pathName parse] commands. The callback for a given node
@@ -212,8 +223,6 @@
 
 		TODO: Return values of handler scripts? If an exception
 		occurs in a handler script?
-
-		TODO: Document "parse handlers"
 }]
 
 [Subcommand {
@@ -399,7 +408,51 @@
 	pathName tag remove _tag-name_ _node1_ _index1_ _node2_ _index2_
 	pathName tag configure _tag-name_ _option_ _value_ ?_option_ _value_...?
 	pathName tag delete _tag-name_
-		TODO: This.
+		The [SQ pathName tag] command is used to highlight regions
+		of text displayed by the widget. For example, a region
+		of text selected using the pointer.
+
+		Each displayed document character is identified by a 
+		text node-handle (see below) and an index into the text
+		returned by the [SQ node text] command. See also the
+		documentation for the [SQ pathName node -index] command.
+		Both the [SQ pathName tag add] and [SQ pathName tag remove]
+		Use this convention.
+
+		Evaluating the [SQ pathName tag add] command adds the specified
+		tag to all displayed characters between the point in the 
+		document described by (_node1_, _index1_) and the point
+		described by (_node2_, _index2_). If the specified tag does
+		not exist, it is created with default option values. The
+		order in which the two specified points occur in the
+		document is not important.
+
+		The [SQ pathName tag add] command removes the specified tag
+		from all displayed characters between the point in the document
+		described by (_node1_, _index1_) and the point described by
+		(_node2_, _index2_). 
+
+		The [SQ pathName tag configure] command is used to configure
+		a tags options, which determine how tagged characters are
+		displayed. If the specified tag does not exist, it is
+		created. The following options are supported:
+[Code {
+			Option                   Default Value
+			--------------------------------------
+			-background              black
+			-foreground              white
+}]
+
+		A tag can be completely deleted (removed from all characters
+		and have it's option values set to the defaults) using the 
+		[SQ pathName tag delete] command.
+
+		The [SQ pathName tag] command replaces the 
+		[SQ pathName select] command that was present in early
+		alpha versions of Tkhtml3. Users should note that the
+		options supported by [SQ pathName tag configure] are likely
+		to change before beta release. See 
+                http://tkhtml.tcl.tk/cvstrac/tktview?tn=73 (ticket #73).
 }]
 
 [Subcommand -4 {
@@ -407,7 +460,7 @@
 	pathName text index _offset_ ?_offset_...?
 	pathName text bbox _node1_ _index1_ _node2_ _index2_
 	pathName text offset _node_ _index_
-		TODO: This.
+		TODO: Explain this.
 }]
 
 [Subcommand -3 {

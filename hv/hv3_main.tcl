@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.61 2006/08/20 14:50:09 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.62 2006/08/21 11:40:45 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -186,6 +186,7 @@ snit::widget ::hv3::browser_frame {
  
     set myHv3      [::hv3::hv3 $win.hv3]
     pack $myHv3 -expand true -fill both
+
     catch {$myHv3 configure -fonttable $::hv3::fontsize_table}
 
 
@@ -537,7 +538,7 @@ snit::widget ::hv3::browser_toplevel {
     # Todo: The following [bindtags] trick for all html widgets in a 
     # frameset document.
     set HTML [[$myMainFrame hv3] html]
-    bindtags $HTML [concat $self [bindtags $HTML]]
+    bindtags $HTML [concat Hv3HotKeys $self [bindtags $HTML]]
 
     $self configurelist $args
   }
@@ -725,7 +726,10 @@ snit::type ::hv3::config {
 
 snit::type ::hv3::search {
 
-  variable myMenu
+  variable myHotKeys [list  \
+      {Google}    g         \
+      {Tcl Wiki}  t         \
+  ]
   
   variable mySearchEngines [list \
       {Google} "http://www.google.com/search?q=%s"                           \
@@ -736,15 +740,33 @@ snit::type ::hv3::search {
   ]
   variable myDefaultEngine Google
 
+  variable myMenu
   constructor {menu_path} {
     set myMenu $menu_path
     ::hv3::menu $myMenu
 
     set findcmd [list gui_current Find find]
-    $myMenu add command -label {Find in page...} -command $findcmd
+    $myMenu add command \
+        -label {Find in page...} -command $findcmd -accelerator (Ctrl-F)
+
+    array set hotkeys $myHotKeys
 
     foreach {label uri} $mySearchEngines {
+
       $myMenu add command -label $label -command [mymethod search $label]
+
+      if {[info exists hotkeys($label)]} {
+        set lc $hotkeys($label)
+        set uc [string toupper $hotkeys($label)]
+        $myMenu entryconfigure end -accelerator "(Ctrl-$uc)"
+        bind Hv3HotKeys <Control-$lc> [mymethod search $label]
+        bind Hv3HotKeys <Control-$uc> [mymethod search $label]
+      }
+
+      foreach {label2 event} $myHotKeys {
+        if {$label2 eq $label} {
+        }
+      }
     }
   }
 
@@ -1055,9 +1077,6 @@ proc gui_new {path args} {
   } else {
     $new goto [lindex $args 0]
   }
-
-  bind $new <KeyPress-g> [list $::hv3::G(search) search]
-  bind $new <KeyPress-G> [list $::hv3::G(search) search]
 
   return $new
 }
