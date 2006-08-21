@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.159 2006/08/19 09:37:35 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.160 2006/08/21 12:12:33 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -3460,11 +3460,35 @@ widgetRepair(pTree, x, y, w, h, g)
      */
     if (pTree->pixmap) {
         XCopyArea(pDisp, pixmap, pTree->pixmap, gc, 0, 0, w, h, x, y);
+    } else {
+        XCopyArea(pDisp, pixmap, Tk_WindowId(win), gc, 0, 0, w, h, x, y);
     }
-    XCopyArea(pDisp, pixmap, Tk_WindowId(win), gc, 0, 0, w, h, x, y);
 
     Tk_FreePixmap(pDisp, pixmap);
     Tk_FreeGC(pDisp, gc);
+}
+
+static void 
+flushPixmap(pTree)
+    HtmlTree *pTree;
+{
+    Pixmap pm = pTree->pixmap;
+    if (pm) {
+        XGCValues gc_values;
+        GC gc;
+        Display *pDisp = Tk_Display(pTree->tkwin);
+        Window xwin = Tk_WindowId(pTree->tkwin);
+        int w = pTree->iPixmapWidth;
+        int h = pTree->iPixmapHeight;
+
+        assert(w == Tk_Width(pTree->tkwin));
+        assert(h == Tk_Height(pTree->tkwin));
+
+        memset(&gc_values, 0, sizeof(XGCValues));
+        gc = Tk_GetGC(pTree->tkwin, 0, &gc_values);
+        XCopyArea(pDisp, pm, xwin, gc, 0, 0, w, h, 0, 0); 
+        Tk_FreeGC(pDisp, gc);
+    }
 }
 
 /*
@@ -3490,8 +3514,12 @@ HtmlWidgetRepair(pTree, x, y, w, h, pixmapok)
 {
     /* Make sure the widget main window exists before painting anything */
     Tk_MakeWindowExist(pTree->tkwin);
+
+    if (!pTree->pixmap || !pixmapok) {
+        widgetRepair(pTree, x, y, w, h, 0);
+    }
    
-    if (pixmapok && pTree->pixmap) {
+    if (pTree->pixmap) {
         Display *pDisp = Tk_Display(pTree->tkwin);
         Window xwin = Tk_WindowId(pTree->tkwin);
         XGCValues gc_values;
@@ -3503,10 +3531,7 @@ HtmlWidgetRepair(pTree, x, y, w, h, pixmapok)
         XCopyArea(pDisp, pTree->pixmap, xwin, gc, x, y, w, h, x, y);
  
         Tk_FreeGC(pDisp, gc);
-        return;
     }
-
-    widgetRepair(pTree, x, y, w, h, 0);
 }
 
 #if 0
@@ -3599,6 +3624,7 @@ HtmlWidgetSetViewport(pTree, scroll_x, scroll_y, force_redraw)
     pTree->iScrollX = scroll_x;
     if (force_redraw || delta_x != 0 || abs(delta_y) >= h) {
         widgetRepair(pTree, 0, 0, w, h, 1);
+        flushPixmap(pTree);
     } else {
         XGCValues gc_values;
         GC gc;
@@ -3610,21 +3636,23 @@ HtmlWidgetSetViewport(pTree, scroll_x, scroll_y, force_redraw)
         gc = Tk_GetGC(pTree->tkwin, 0, &gc_values);
 
         if (delta_y > 0) {
+
             if (pm) {
-                XCopyArea(pDisp, pm, xwin, gc, 0, delta_y, w, h-delta_y, 0, 0);
                 XCopyArea(pDisp, pm, pm, gc, 0, delta_y, w, h-delta_y, 0, 0);
             } else {
                 XCopyArea(pDisp, xwin, xwin, gc, 0, delta_y, w, h-delta_y ,0,0);
             }
             widgetRepair(pTree, 0, h-delta_y, w, delta_y, 1);
+            flushPixmap(pTree);
+
         } else if (delta_y < 0) {
             if (pm) {
-                XCopyArea(pDisp,pm,xwin,gc,0,0,w,h+delta_y,0,0-delta_y);
                 XCopyArea(pDisp,pm,pm,gc,0,0,w,h+delta_y,0,0-delta_y);
             } else {
                 XCopyArea(pDisp,xwin,xwin,gc,0,0,w,h+delta_y,0,0-delta_y);
             }
             widgetRepair(pTree, 0, 0, w, 0 - delta_y, 1);
+            flushPixmap(pTree);
         }
 
         Tk_FreeGC(pDisp, gc);
