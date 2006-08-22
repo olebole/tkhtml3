@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.100 2006/08/20 07:51:59 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.101 2006/08/22 06:34:31 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -1221,7 +1221,7 @@ snit::widget ::hv3::hv3 {
   method html {}     { return [$myHtml widget] }
   method hull {}     { return $hull }
 
-  option -enableimages -configuremethod SetOption
+  option -enableimages -default 1 -configuremethod SetOption
 
   option          -locationvar      -default ""
   option          -pendingvar       -default ""

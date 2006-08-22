@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.160 2006/08/21 12:12:33 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.161 2006/08/22 06:34:31 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -127,12 +127,14 @@ static const char rcsid[] = "$Id: htmldraw.c,v 1.160 2006/08/21 12:12:33 danielk
  *     HtmlDrawAddMarker
  *     HtmlDrawGetMarker
  */
+
 #define CANVAS_TEXT     1
-#define CANVAS_WINDOW   2
-#define CANVAS_ORIGIN   3
+#define CANVAS_LINE     2
+#define CANVAS_BOX      3
 #define CANVAS_IMAGE    4
-#define CANVAS_BOX      5
-#define CANVAS_LINE     6
+#define CANVAS_WINDOW   5
+
+#define CANVAS_ORIGIN   6
 #define CANVAS_MARKER   7
 #define CANVAS_OVERFLOW 8
 
