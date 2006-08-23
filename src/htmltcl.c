@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.121 2006/08/21 11:40:45 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.122 2006/08/23 11:57:12 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -1963,7 +1963,6 @@ int widgetCmd(clientData, interp, objc, objv)
     CONST char *zArg1 = 0;
     CONST char *zArg2 = 0;
     Tcl_Obj *pError;
-    Tcl_HashEntry *pEntry;
 
     int matchone = 0; /* True if the first argument matched something */
     int multiopt = 0; /* True if their were multiple options for second match */

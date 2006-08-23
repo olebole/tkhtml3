@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.202 2006/08/19 06:07:34 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.203 2006/08/23 11:57:12 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -1862,13 +1862,15 @@ normalFlowLayoutTable(pLayout, pBox, pNode, pY, pContext, pNormal)
     NormalFlow *pNormal;
 {
     int iMinWidth;                     /* Minimum from blockMinMaxWidth */
+    int iMaxWidth;                     /* Maximum from blockMinMaxWidth */
     int iContaining = pBox->iContaining;
     HtmlFloatList *pFloat = pNormal->pFloat;
 
     int iLeftFloat = 0;
     int iRightFloat = pBox->iContaining;
 
-    int iWidth;                        /* Calculated content width */
+    int iWidth;                        /* Specified content width */
+    int iCalcWidth;                    /* Calculated content width */
     int eAlign = CSS_CONST_LEFT;
 
     int x, y;                     /* Coords for content to be drawn */
@@ -1889,20 +1891,23 @@ normalFlowLayoutTable(pLayout, pBox, pNode, pY, pContext, pNormal)
     normalFlowMarginAdd(pLayout, pNode, pNormal, margin.margin_top);
     normalFlowMarginCollapse(pLayout, pNode, pNormal, pY);
 
-    /* Set iMinWidth to the minimum allowable width and iWidth to the 
-     * requested width (either the value of the 'width' property or based
-     * on the width of the containing block). Neither quantity includes
-     * the horizontal space for the <table> element's margins, padding and
-     * borders.
+    /* Move down if the table cannot fit at the current Y coordinate due
+     * to floating boxes.
+     *
+     * Note: Passing 10000 as the required height means in some (fairly
+     * unlikely) circumstances the table will be placed lower in the flow
+     * than would have been necessary. But it's not that big of a deal.
      */
-    blockMinMaxWidth(pLayout, pNode, &iMinWidth, 0);
+    blockMinMaxWidth(pLayout, pNode, &iMinWidth, &iMaxWidth);
+    *pY = HtmlFloatListPlace(pFloat, iContaining, iMPB + iMinWidth, 10000, *pY);
+    HtmlFloatListMargins(pFloat, *pY, *pY + 10000, &iLeftFloat, &iRightFloat);
+
     iWidth = PIXELVAL(
         pNode->pPropertyValues, WIDTH,
         pLayout->minmaxTest ? PIXELVAL_AUTO : pBox->iContaining
     );
     if (iWidth == PIXELVAL_AUTO) {
-        HtmlFloatListMargins(pFloat, *pY, *pY+10000, &iLeftFloat, &iRightFloat);
-        iWidth = iRightFloat - iLeftFloat - iMPB;
+        iCalcWidth = MIN(iMaxWidth, iRightFloat - iLeftFloat - iMPB);
     } else {
         /* Astonishingly, the 'width' property when applied to an element
 	 * with "display:table" includes the horizontal borders (but not the
@@ -1916,30 +1921,22 @@ normalFlowLayoutTable(pLayout, pBox, pNode, pY, pContext, pNormal)
 	 * automatically zero so we don't have to worry about that when using
          * box.iLeft and box.iRight.
          */
-        iWidth -= (box.iLeft + box.iRight);
-        iMinWidth = MAX(iMinWidth, iWidth);
+        iCalcWidth = iWidth - box.iLeft - box.iRight;
     }
-
-    /* Move down if the table cannot fit at the current Y coordinate due
-     * to floating boxes.
-     *
-     * Note: Passing 10000 as the required height means in some (fairly
-     * unlikely) circumstances the table will be placed lower in the flow
-     * than would have been necessary. But it's not that big of a deal.
-     */
-    *pY = HtmlFloatListPlace(pFloat, iContaining, iMPB + iMinWidth, 10000, *pY);
-    HtmlFloatListMargins(pFloat, *pY, *pY + 10000, &iLeftFloat, &iRightFloat);
 
     memset(&sContent, 0, sizeof(BoxContext));
     memset(&sBox, 0, sizeof(BoxContext));
-    sContent.iContaining = iWidth;
+    sContent.iContaining = iCalcWidth;
     HtmlLayoutNodeContent(pLayout, &sContent, pNode);
-    sBox.iContaining = iContaining;
 
-    sContent.width = MAX(sContent.width, iMinWidth);
     sContent.height = MAX(sContent.height, 
         getHeight(pNode, sContent.height, PIXELVAL_AUTO)
     );
+    if (iWidth != PIXELVAL_AUTO) {
+        sContent.width = MAX(sContent.width, iWidth - box.iLeft - box.iRight);
+    }
+
+    sBox.iContaining = iContaining;
     wrapContent(pLayout, &sBox, &sContent, pNode);
 
     y = HtmlFloatListPlace(
