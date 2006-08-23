@@ -1,5 +1,5 @@
 #
-# $Revision: 1.35 $
+# $Revision: 1.36 $
 #
 # tokenlist.tcl -- 
 #
@@ -202,7 +202,7 @@ TAG nextid -content HtmlEmptyContent
 TAG nobr                                
 TAG noembed                              
 TAG plaintext -content HtmlInlineContent             
-TAG wbr -content HtmlEmptyContent 
+TAG wbr -content HtmlEmptyContent -flow inline
 TAG xmp 
 TAG bgsound -content HtmlEmptyContent 
 
