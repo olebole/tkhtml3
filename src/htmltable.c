@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.98 2006/08/23 11:57:12 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.99 2006/08/23 12:49:46 danielk1977 Exp $";
 
 
 #include "htmllayout.h"
@@ -1453,8 +1453,8 @@ tableCalculateMaxWidth(pData)
         }
     }
 
-    while ((p = HtmlNodeParent(pData->pNode))) {
-        HtmlComputedValues *pComputed = pData->pNode->pPropertyValues;
+    for (p = HtmlNodeParent(pData->pNode); p; p = HtmlNodeParent(p)) {
+        HtmlComputedValues *pComputed = p->pPropertyValues;
         if (
             PIXELVAL(pComputed, WIDTH, PIXELVAL_AUTO) != PIXELVAL_AUTO ||
             pComputed->ePosition != CSS_CONST_STATIC
@@ -1475,9 +1475,11 @@ tableCalculateMaxWidth(pData)
 
     if (bConsiderPercent) {
         if (fTotalPercent <= 99.0) {
-            iMaxNonPercent = iMaxNonPercent * 100.0 / (100 - fTotalPercent);
-            ret = MAX(iMaxNonPercent, ret);
+            iMaxNonPercent = iMaxNonPercent * 100.0 / (100.0 - fTotalPercent);
+        } else {
+            iMaxNonPercent = iMaxNonPercent * 100.0 / 1.0;
         }
+        ret = MAX(iMaxNonPercent, ret);
         ret = MAX(iPercent, ret);
     }
 
