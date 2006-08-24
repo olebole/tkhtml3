@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.101 2006/08/24 06:03:43 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.102 2006/08/24 12:00:43 danielk1977 Exp $";
 
 
 #include "htmllayout.h"
@@ -1553,8 +1553,6 @@ int HtmlTableLayout(pLayout, pBox, pNode)
     int i;
     int availwidth;           /* Total width available for cells */
 
-    int isAuto;               /* If the width property of <table> is "auto" */
-
     int *aMinWidth = 0;       /* Minimum width for each column */
     int *aMaxWidth = 0;       /* Minimum width for each column */
     int *aWidth = 0;          /* Actual width for each column */
@@ -1636,7 +1634,7 @@ int HtmlTableLayout(pLayout, pBox, pNode)
     availwidth = (pBox->iContaining - (nCol+1) * data.border_spacing);
     switch (pLayout->minmaxTest) {
         case 0:
-            tableCalculateCellWidths(&data, availwidth, isAuto);
+            tableCalculateCellWidths(&data, availwidth, 0);
             for (i = 0; i < nCol; i++) {
                 pBox->width += aWidth[i];
             }

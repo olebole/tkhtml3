@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.205 2006/08/24 11:07:37 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.206 2006/08/24 12:00:43 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -1931,7 +1931,7 @@ normalFlowLayoutTable(pLayout, pBox, pNode, pY, pContext, pNormal)
 	 * automatically zero so we don't have to worry about that when using
          * box.iLeft and box.iRight.
          */
-        iCalcWidth = iWidth - box.iLeft - box.iRight;
+        iCalcWidth = iWidth - iMPB;
     }
 
     memset(&sContent, 0, sizeof(BoxContext));
@@ -1943,7 +1943,7 @@ normalFlowLayoutTable(pLayout, pBox, pNode, pY, pContext, pNormal)
         getHeight(pNode, sContent.height, PIXELVAL_AUTO)
     );
     if (iWidth != PIXELVAL_AUTO) {
-        sContent.width = MAX(sContent.width, iWidth - box.iLeft - box.iRight);
+        sContent.width = MAX(sContent.width, iWidth - iMPB);
     }
 
     sBox.iContaining = iContaining;
