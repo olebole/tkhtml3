@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.87 2006/08/17 17:30:52 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.88 2006/08/24 08:03:10 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -2742,13 +2742,15 @@ int HtmlCssPseudo(pToken)
     CssToken *pToken;
 {
     char *zOptions[] = {
-        "link", "visited", "active", "hover", "focus", "after", "before"
+        "link", "visited", "active", "hover", "focus", "after", "before",
+        "first-child", "last-child"
     };
     int eOptions[] = {
         CSS_PSEUDOCLASS_LINK, CSS_PSEUDOCLASS_VISITED, 
         CSS_PSEUDOCLASS_ACTIVE, CSS_PSEUDOCLASS_HOVER, 
         CSS_PSEUDOCLASS_FOCUS, CSS_PSEUDOELEMENT_AFTER, 
-        CSS_PSEUDOELEMENT_BEFORE
+        CSS_PSEUDOELEMENT_BEFORE,
+        CSS_PSEUDOCLASS_FIRSTCHILD, CSS_PSEUDOCLASS_LASTCHILD
     };
     int i;
 
@@ -3008,10 +3010,40 @@ HtmlCssSelectorTest(pSelector, pNode, dynamic_true)
 
                 break;
             }
+
+            case CSS_PSEUDOCLASS_FIRSTCHILD: {
+                /* :first-child selector matches if x is the left-most child
+                 * of it's parent, not including white-space nodes. */
+                HtmlNode *pParent = N_PARENT(x);
+                int i;
+                if (!pParent) return 0;
+                for (i = 0; i < N_NUMCHILDREN(pParent); i++) {
+                    HtmlNode *pChild = N_CHILD(pParent, i);
+                    if (pChild == x) break;
+                    if (!HtmlNodeIsWhitespace(pChild)) return 0;
+                }
+                assert(i < N_NUMCHILDREN(pParent));
+                break;
+            }
+            case CSS_PSEUDOCLASS_LASTCHILD: {
+                /* :last-child selector matches if x is the right-most child
+                 * of it's parent, not including white-space nodes. */
+                HtmlNode *pParent = N_PARENT(x);
+                int i;
+                if (!pParent) return 0;
+                for (i = N_NUMCHILDREN(pParent) - 1; i >= 0; i--) {
+                    HtmlNode *pChild = N_CHILD(pParent, i);
+                    if (pChild == x) break;
+                    if (!HtmlNodeIsWhitespace(pChild)) return 0;
+                }
+                assert(i >= 0);
+                break;
+            }
                 
             case CSS_PSEUDOCLASS_LANG:
-            case CSS_PSEUDOCLASS_FIRSTCHILD:
                 return 0;
+
+
             case CSS_PSEUDOELEMENT_FIRSTLINE:
             case CSS_PSEUDOELEMENT_FIRSTLETTER:
                 return 0;
@@ -3631,7 +3663,10 @@ cssSearchCallback(pTree, pNode, clientData)
     CssSearch *pSearch = (CssSearch *)clientData;
     assert(pSearch->pSelector);
     assert(pSearch->pResult);
-    if (HtmlCssSelectorTest(pSearch->pSelector, pNode, 0)) {
+    if (
+        0 == HtmlNodeIsText(pNode) &&
+        HtmlCssSelectorTest(pSearch->pSelector, pNode, 0)
+    ) {
         Tcl_Obj *pCmd = HtmlNodeCommand(pSearch->pTree, pNode);
         Tcl_ListObjAppendElement(0, pSearch->pResult, pCmd);
     }
@@ -3722,6 +3757,7 @@ HtmlCssSelectorToString(pSelector, pObj)
         case CSS_SELECTOR_UNIVERSAL:               z = "*";       break;
         case CSS_PSEUDOCLASS_LANG:                 z = ":lang";         break;
         case CSS_PSEUDOCLASS_FIRSTCHILD:           z = ":first-child";  break;
+        case CSS_PSEUDOCLASS_LASTCHILD:            z = ":last-child";   break;
         case CSS_PSEUDOCLASS_LINK:                 z = ":link";         break;
         case CSS_PSEUDOCLASS_VISITED:              z = ":visited";      break;
         case CSS_PSEUDOCLASS_ACTIVE:               z = ":active";       break;

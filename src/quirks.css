@@ -15,4 +15,13 @@ TABLE {
   font-variant: normal;
 }
 
+/* Vertical margins of <p> elements do not collapse against the top or
+ * bottom of containing table cells.
+ */
+TH > P:first-child, TD > P:first-child {
+  margin-top: 0px;
+}
+TH > P:last-child, TD > P:last-child {
+  margin-bottom: 0px;
+}
 
