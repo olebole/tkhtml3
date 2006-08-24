@@ -275,3 +275,13 @@ IMG[hspace], OBJECT[hspace], APPLET[hspace] {
     margin-right: tcl(::tkhtml::attr hspace -len);
 }
 
+/* marginheight and marginwidth attributes on <BODY> (netscape compatibility) */
+BODY[marginheight] {
+  margin-top: tcl(::tkhtml::attr marginheight -len);
+  margin-bottom: tcl(::tkhtml::attr marginheight -len);
+}
+BODY[marginwidth] {
+  margin-left: tcl(::tkhtml::attr marginwidth -len);
+  margin-right: tcl(::tkhtml::attr marginwidth -len);
+}
+
