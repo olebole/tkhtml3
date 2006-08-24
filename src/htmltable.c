@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.102 2006/08/24 12:00:43 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.103 2006/08/24 14:53:02 danielk1977 Exp $";
 
 
 #include "htmllayout.h"
@@ -545,7 +545,7 @@ tableColWidthMultiSpan(pNode, col, colspan, row, rowspan, pContext)
                 }
                 assert(iTPW == 0);
             } else {
-                int iMaxLessMin = 0;
+                int iMaxTotal = 0;
                 for (ii = col; ii < (col + colspan); ii++) {
                     if (aReq[ii].eType == CELL_WIDTH_PIXELS) {
                         int w = MIN(iRem, MAX(aMinWidth[ii], aReq[ii].x.iVal));
@@ -555,18 +555,17 @@ tableColWidthMultiSpan(pNode, col, colspan, row, rowspan, pContext)
                 }
 
                 for (ii = col; ii < (col + colspan); ii++) {
-                    iMaxLessMin += (aMaxWidth[ii] - aMinWidth[ii]);
+                    iMaxTotal += aMaxWidth[ii];
                 }
                 for (ii = col; iRem > 0 && ii < (col + colspan); ii++){
-                    int t = (aMaxWidth[ii] - aMinWidth[ii]);
                     int w = iRem;
-                    if (ii == (col+colspan-1) || iMaxLessMin == 0) {
+                    if (ii == (col+colspan-1) || iMaxTotal == 0) {
                         w = iRem / (col+colspan-ii);
                     } else {
-                        w = MAX(aMinWidth[ii], iRem * t / iMaxLessMin);
+                        w = MAX(aMinWidth[ii], iRem*aMaxWidth[ii]/iMaxTotal);
                         w = MIN(iRem, w);
                     }
-                    iMaxLessMin -= t;
+                    iMaxTotal -= aMaxWidth[ii];
                     iRem -= w;
                     aMinWidth[ii] = w;
                 }

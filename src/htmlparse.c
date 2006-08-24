@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.77 2006/08/17 10:37:36 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.78 2006/08/24 14:53:02 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -210,7 +210,6 @@ AppendToken(pTree, pToken, iOffset)
  *
  *---------------------------------------------------------------------------
  */
-#if 0
 static int 
 HtmlFormContent(pTree, pNode, tag)
     HtmlTree *pTree;
@@ -222,7 +221,6 @@ HtmlFormContent(pTree, pNode, tag)
     }
     return TAG_PARENT;
 }
-#endif
 
 /*
  *---------------------------------------------------------------------------

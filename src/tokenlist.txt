@@ -1,5 +1,5 @@
 #
-# $Revision: 1.37 $
+# $Revision: 1.38 $
 #
 # tokenlist.tcl -- 
 #
@@ -119,7 +119,7 @@ TAG dt -content HtmlLiContent
 TAG em -flow inline
 TAG fieldset -flow inline
 TAG font -flow inline
-TAG form -flow block                  ;# -content HtmlFormContent
+TAG form -flow block -content HtmlFormContent
 TAG frame -content HtmlEmptyContent
 TAG frameset
 TAG h1 -flow block
@@ -149,7 +149,7 @@ TAG noscript
 TAG object
 TAG ol -flow block -content HtmlUlContent
 # TAG optgroup
-TAG option -content HtmlPcdataContent
+TAG option -content HtmlPcdataContent -flow inline
 TAG p -flow block -content HtmlInlineContent
 TAG param -content HtmlEmptyContent
 TAG pre -flow block
