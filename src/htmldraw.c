@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.161 2006/08/22 06:34:31 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.162 2006/08/24 11:07:37 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -2907,7 +2907,18 @@ layoutNodeCb(pItem, origin_x, origin_y, pOverflow, clientData)
     NodeQuery *pQuery = (NodeQuery *)clientData;
     HtmlNode *pNode;
 
+
     pNode = itemToBox(pItem, origin_x, origin_y, &x, &y, &w, &h);
+
+    /* If the query point is clipped by the overflow region, do
+     * not include this node in the set returned by [pathName node].
+     */
+    if (pOverflow && (
+        pQuery->x < pOverflow->x || pQuery->x > (pOverflow->x + pOverflow->w) ||
+        pQuery->y < pOverflow->y || pQuery->y > (pOverflow->y + pOverflow->h)
+    )) {
+        return 0;
+    }
 
     if (
         pNode && pNode->iNode >= 0 && 
@@ -2915,6 +2926,19 @@ layoutNodeCb(pItem, origin_x, origin_y, pOverflow, clientData)
         y <= pQuery->y && (y + h) >= pQuery->y
     ) {
         int i;
+
+        /* If the applicable visibility property is set to "hidden", do
+         * not include this node in the set returned by [pathName node].
+         */
+        HtmlComputedValues *pComputed = pNode->pPropertyValues;
+        if (!pComputed) {
+            HtmlNode *pParent = HtmlNodeParent(pNode);
+            if (pParent) pComputed = pParent->pPropertyValues;
+        }
+        if (pComputed && pComputed->eVisibility != CSS_CONST_VISIBLE) {
+            return 0;
+        }
+
         for (i = 0; i < pQuery->nNode; i++) {
             HtmlNode *pDesc = returnDescNode(pNode, pQuery->apNode[i]);
             if (pDesc) {
@@ -2934,6 +2958,25 @@ layoutNodeCb(pItem, origin_x, origin_y, pOverflow, clientData)
         pQuery->apNode[i] = pNode;
     }
     return 0;
+}
+
+static int
+layoutNodeCompare(pVoidLeft, pVoidRight)
+    const void *pVoidLeft;
+    const void *pVoidRight;
+{
+    HtmlNode *pLeft = *(HtmlNode **)pVoidLeft;
+    HtmlNode *pRight = *(HtmlNode **)pVoidRight;
+    int iLeft = 0;
+    int iRight = 0;
+
+    if (!pLeft->pStack) pLeft = HtmlNodeParent(pLeft);
+    if (!pRight->pStack) pRight = HtmlNodeParent(pRight);
+
+    if (pLeft->pStack) iLeft = pLeft->pStack->iBlockZ;
+    if (pRight->pStack) iRight = pRight->pStack->iBlockZ;
+
+    return iLeft - iRight;
 }
 
 /*
@@ -2966,11 +3009,12 @@ layoutNodeCmd(pTree, x, y)
     sQuery.x = x;
     sQuery.y = y;
 
-    searchSortedCanvas(pTree, y-1, y+1, 0, layoutNodeCb, (ClientData)&sQuery);
+    searchCanvas(pTree, y-1, y+1, 0, layoutNodeCb, (ClientData)&sQuery);
 
     if (sQuery.nNode > 0) {
         int i;
         Tcl_Obj *pRet = Tcl_NewObj();
+        qsort(sQuery.apNode, sQuery.nNode, sizeof(HtmlNode*),layoutNodeCompare);
         for (i = 0; i < sQuery.nNode; i++) {
             Tcl_Obj *pCmd = HtmlNodeCommand(pTree, sQuery.apNode[i]);
             Tcl_ListObjAppendElement(0, pRet, pCmd);

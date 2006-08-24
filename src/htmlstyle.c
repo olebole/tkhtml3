@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlstyle.c,v 1.37 2006/08/21 15:44:38 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlstyle.c,v 1.38 2006/08/24 11:07:37 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -61,6 +61,7 @@ HtmlDelStackingInfo(pTree, pNode)
         assert(!pTree->pStack || !pTree->pStack->pPrev);
 
         HtmlFree("HtmlNodeStack", pStack);
+        pTree->nStack--;
     }
     pNode->pStack = 0;
 }
@@ -71,9 +72,13 @@ addStackingInfo(pTree, pNode)
     HtmlNode *pNode;
 {
     HtmlComputedValues *pV = pNode->pPropertyValues;
+    
+    /* A node forms a new stacking context if it is positioned or floating.
+     * We only need create an HtmlNodeStack if this is the case.
+      */
     if (
-        !HtmlNodeParent(pNode) || 
-        pV->eFloat != CSS_CONST_NONE || 
+        !HtmlNodeParent(pNode) ||
+        pV->eFloat != CSS_CONST_NONE ||
         pV->ePosition != CSS_CONST_STATIC
     ) {
         HtmlNodeStack *pStack;
@@ -88,10 +93,59 @@ addStackingInfo(pTree, pNode)
         pTree->pStack = pStack;
         pNode->pStack = pStack;
         pTree->cb.flags |= HTML_STACK;
+        pTree->nStack++;
     } else {
       pNode->pStack = HtmlNodeParent(pNode)->pStack;
     }
     assert(pNode->pStack);
+}
+
+typedef struct StackCompare StackCompare;
+struct StackCompare {
+    HtmlNodeStack *pStack;
+    int isInline;
+};
+
+static int
+scoreNode(p)
+    HtmlNode *p;
+{
+    HtmlNode *pNode;
+    int z = 0;
+    for (pNode = p; pNode; pNode = HtmlNodeParent(pNode)) {
+        if (pNode->pPropertyValues->eFloat != CSS_CONST_NONE) {
+            z += 1;
+        }
+        if (pNode->pPropertyValues->ePosition != CSS_CONST_STATIC) {
+            int iZIndex = pNode->pPropertyValues->iZIndex;
+            if ( iZIndex>=0 ) {
+                z += (25 * (iZIndex + 1));
+            } else {
+                z += (25 * iZIndex);
+            }
+        }
+    }
+    return z;
+}
+
+static int
+stackCompare(pVoidLeft, pVoidRight)
+    const void *pVoidLeft;
+    const void *pVoidRight;
+{
+    StackCompare *pLeft = (StackCompare *)pVoidLeft;
+    StackCompare *pRight = (StackCompare *)pVoidRight;
+    int iLeft = scoreNode(pLeft->pStack->pNode);
+    int iRight = scoreNode(pRight->pStack->pNode);
+
+    if (pLeft->isInline) {
+        iLeft += 5;
+    }
+    if (pRight->isInline) {
+        iRight += 5;
+    }
+
+    return (iLeft - iRight);
 }
 
 void
@@ -99,34 +153,29 @@ HtmlRestackNodes(pTree)
     HtmlTree *pTree;
 {
     HtmlNodeStack *pStack;
-    int zoffset = 0;
-
+    StackCompare *apTmp;
+    int iTmp = 0;
     if (0 == (pTree->cb.flags & HTML_STACK)) return;
 
+    apTmp = (StackCompare *)HtmlAlloc(0, sizeof(StackCompare)*pTree->nStack*2);
+
     for (pStack = pTree->pStack; pStack; pStack = pStack->pNext) {
-        int z = zoffset;
-        HtmlNode *pNode = pStack->pNode;
-        for ( ; pNode; pNode = HtmlNodeParent(pNode)) {
-            if (pNode->pPropertyValues->eFloat != CSS_CONST_NONE) {
-                z += 1;
-            }
-            if (pNode->pPropertyValues->ePosition != CSS_CONST_STATIC) {
-                int iZIndex = pNode->pPropertyValues->iZIndex;
-                if ( iZIndex>=0 ) {
-                    z += (25 * (iZIndex + 1));
-                } else {
-                    z += (25 * iZIndex);
-                }
-            }
-        }
-        zoffset = MIN(zoffset, z);
-        pStack->iBlockZ = z;
+        apTmp[iTmp].pStack = pStack;
+        apTmp[iTmp].isInline = 1;
+        apTmp[iTmp+1].pStack = pStack;
+        apTmp[iTmp+1].isInline = 0;
+        iTmp += 2;
     }
-    for (pStack = pTree->pStack; pStack; pStack = pStack->pNext) {
-        pStack->iBlockZ -= zoffset;
-        pStack->iInlineZ = pStack->iBlockZ + 5;
-        assert(pStack->iBlockZ >= 0);
-        assert(pStack->iInlineZ >= 0);
+    assert(iTmp == pTree->nStack * 2);
+
+    qsort(apTmp, pTree->nStack * 2, sizeof(StackCompare), stackCompare);
+
+    for (iTmp = 0; iTmp < pTree->nStack * 2; iTmp++) {
+        if (apTmp[iTmp].isInline) {
+            apTmp[iTmp].pStack->iInlineZ = iTmp;
+        } else {
+            apTmp[iTmp].pStack->iBlockZ = iTmp;
+        }
     }
 
     pTree->cb.flags &= (~HTML_STACK);

@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.204 2006/08/24 08:26:00 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.205 2006/08/24 11:07:37 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -821,6 +821,7 @@ normalFlowLayoutFloat(pLayout, pBox, pNode, pY, pDoNotUse, pNormal)
             iWidth = MIN(MAX(iMin, iAvailable), iMax);
             isAuto = 1;
         }
+        considerMinMaxWidth(pNode, iContaining, &iWidth);
 
         /* Layout the node content into sContent. Then add the border and
          * transfer the result to sBox. 
@@ -839,6 +840,7 @@ normalFlowLayoutFloat(pLayout, pBox, pNode, pY, pDoNotUse, pNormal)
         } else {
             sContent.width = MAX(iWidth, sContent.width);
         }
+        considerMinMaxWidth(pNode, iContaining, &sContent.width);
 
         wrapContent(pLayout, &sBox, &sContent, pNode);
     }
@@ -1642,6 +1644,14 @@ drawAbsolute(pLayout, pBox, pStaticCanvas, x, y)
 
         memset(&sBox, 0, sizeof(BoxContext));
         sBox.iContaining = pBox->iContaining;
+        /* Wrap an overflow primitive around the content of this box. At
+         * the moment this just clips the displayed content. But eventually
+         * the HtmlCanvas module will automatically insert scrollbars if 
+         * required.
+         */
+        if (pV->eOverflow == CSS_CONST_HIDDEN) {
+            HtmlDrawOverflow(&sContent.vc,pNode,sContent.width,sContent.height);
+        }
         wrapContent(pLayout, &sBox, &sContent, pNode);
 
         LOG(pNode) {

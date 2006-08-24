@@ -466,6 +466,7 @@ struct HtmlTree {
 
     /* Linked list of stacking contexts */
     HtmlNodeStack *pStack;
+    int nStack;                   /* Number of elements in linked list */
 
     /*
      * Internal representation of a completely layed-out document.
