@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.99 2006/08/23 12:49:46 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.100 2006/08/24 05:27:00 danielk1977 Exp $";
 
 
 #include "htmllayout.h"
@@ -1431,7 +1431,7 @@ tableCalculateMaxWidth(pData)
     int iMaxNonPercent = 0;
     int iPercent = 0;
 
-    int bConsiderPercent = 1;
+    int bConsiderPercent = 0;
     HtmlNode *p;
 
     HtmlComputedValues *pV = pData->pNode->pPropertyValues;
@@ -1448,6 +1448,7 @@ tableCalculateMaxWidth(pData)
             int w = (aMaxWidth[ii] * 100.0) / MAX(percent, 1.0);
             iPercent = MAX(iPercent, w);
             fTotalPercent += percent;
+            bConsiderPercent = 1;
         } else {
             iMaxNonPercent += aMaxWidth[ii];
         }
@@ -1456,7 +1457,7 @@ tableCalculateMaxWidth(pData)
     for (p = HtmlNodeParent(pData->pNode); p; p = HtmlNodeParent(p)) {
         HtmlComputedValues *pComputed = p->pPropertyValues;
         if (
-            PIXELVAL(pComputed, WIDTH, PIXELVAL_AUTO) != PIXELVAL_AUTO ||
+            PIXELVAL(pComputed, WIDTH, 0) != PIXELVAL_AUTO ||
             pComputed->ePosition != CSS_CONST_STATIC
         ) {
             break;
@@ -1476,8 +1477,18 @@ tableCalculateMaxWidth(pData)
     if (bConsiderPercent) {
         if (fTotalPercent <= 99.0) {
             iMaxNonPercent = iMaxNonPercent * 100.0 / (100.0 - fTotalPercent);
-        } else {
-            iMaxNonPercent = iMaxNonPercent * 100.0 / 1.0;
+        } else if (iMaxNonPercent > 0) {
+            /* If control flows to here, there exists the following:
+             *
+             *     + There are one or columns with percentage widths, and
+             *       the percentage widths sum to more than 100%.
+             *     + There is at least one other column.
+             *
+             * Return something really large for the maximum width in this
+             * case, as the correct rendering is to make the table consume
+             * the full width of the containing block.
+             */
+            iMaxNonPercent = 10000;
         }
         ret = MAX(iMaxNonPercent, ret);
         ret = MAX(iPercent, ret);
