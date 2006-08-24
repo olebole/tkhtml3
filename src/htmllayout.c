@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.203 2006/08/23 11:57:12 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.204 2006/08/24 08:26:00 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -689,7 +689,7 @@ normalFlowLayoutOverflow(pLayout, pBox, pNode, pY, pContext, pNormal)
     }
 
     wrapContent(pLayout, &sBox, &sContent, pNode);
-    DRAW_CANVAS(&pBox->vc, &sBox.vc, margin.margin_left, y, pNode);
+    DRAW_CANVAS(&pBox->vc, &sBox.vc, iLeft, y, pNode);
 
     *pY = y + sBox.height;
     pBox->width = MAX(pBox->width, sBox.width);
