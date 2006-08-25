@@ -411,6 +411,7 @@ void HtmlComputedValuesCleanupTables(HtmlTree *);
  * a nodes computed values from a Tcl script.
  */
 int HtmlNodeProperties(Tcl_Interp *, HtmlComputedValues *);
+int HtmlNodeGetProperty(Tcl_Interp *, Tcl_Obj *, HtmlComputedValues *);
 
 /*
  * Determine if changing the computed properties of a node from one

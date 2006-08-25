@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.88 2006/08/11 09:07:17 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.89 2006/08/25 11:55:32 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -58,7 +58,9 @@ static const char rcsid[] = "$Id: htmlprop.c,v 1.88 2006/08/11 09:07:17 danielk1
  * which each individual property should be handled in the following
  * use cases:
  *
+ *     HtmlNodeGetProperty()       - Format property value as string
  *     HtmlNodeProperties()        - Format property value as string
+ *
  *     HtmlComputedValuesCompare() - Compare property values and determine if
  *                                   relayout or repainting is required by the
  *                                   changes.
@@ -2393,6 +2395,58 @@ HtmlComputedValuesCleanupTables(pTree)
         pColor = (HtmlColor *)Tcl_GetHashValue(pEntry);
         decrementColorRef(pTree, pColor);
     }
+}
+
+int 
+HtmlNodeGetProperty(interp, pProp, pValues)
+    Tcl_Interp *interp;
+    Tcl_Obj *pProp;
+    HtmlComputedValues *pValues;
+{
+    PropertyDef *pDef;
+
+    int nProp;
+    const char *zProp = Tcl_GetStringFromObj(pProp, &nProp);
+    int eProp = HtmlCssPropertyLookup(nProp, zProp);
+
+    assert(eProp <= CSS_PROPERTY_MAX_PROPERTY);
+    if (eProp < 0) {
+        Tcl_AppendResult(interp, "no such property: ", zProp, 0);
+        return TCL_ERROR;
+    }
+
+    /* If the following returns NULL, then the specified property name
+     * is a legal one, but not one that Tkhtml3 handles. Return an
+     * empty string in this case.
+     */
+    pDef = getPropertyDef(eProp);
+    Tcl_ResetResult(interp);
+    if (pDef) {
+        Tcl_Obj *pValue = 0;
+        unsigned char *v = (unsigned char *)pValues;
+        switch (pDef->eType) {
+            case ENUM: {
+                int eValue = (int)*(unsigned char *)(v + pDef->iOffset);
+                CONST char *zValue = HtmlCssConstantToString(eValue);
+                pValue = Tcl_NewStringObj(zValue, -1);
+                break;
+            }
+
+            case COLOR: {
+                HtmlColor *pColor = *(HtmlColor **)(v + pDef->iOffset);
+                pValue = Tcl_NewStringObj(pColor->zColor, -1);
+                break;
+            }
+        }
+
+        if (!pValue) {
+            Tcl_AppendResult(interp, "TODO!", 0);
+        } else {
+            Tcl_SetObjResult(interp, pValue);
+        }
+    }
+
+    return TCL_OK;
 }
 
 int 

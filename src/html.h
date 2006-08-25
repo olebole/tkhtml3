@@ -573,10 +573,6 @@ int         HtmlNodeIsWhitespace(HtmlNode *);
 Tcl_Obj *HtmlNodeCommand(HtmlTree *, HtmlNode *pNode);
 int HtmlNodeDeleteCommand(HtmlTree *, HtmlNode *pNode);
 
-CssProperty *HtmlNodeGetProperty(Tcl_Interp *, HtmlNode *, int);
-void HtmlNodeGetDefault(HtmlNode *, int , CssProperty *);
-void HtmlDeletePropertyCache(HtmlPropertyCache *);
-
 void HtmlDrawCleanup(HtmlTree *, HtmlCanvas *);
 void HtmlDrawDeleteControls(HtmlTree *, HtmlCanvas *);
 
@@ -624,7 +620,6 @@ void HtmlFloatListLog(HtmlTree *, CONST char *, CONST char *, HtmlFloatList *);
 int HtmlFloatListIsConstant(HtmlFloatList*, int, int);
 
 HtmlPropertyCache * HtmlNewPropertyCache();
-void HtmlDeletePropertyCache(HtmlPropertyCache *pCache);
 void HtmlSetPropertyCache(HtmlPropertyCache *, int, CssProperty *);
 void HtmlAttributesToPropertyCache(HtmlNode *pNode);
 

@@ -54,6 +54,7 @@
 %syntax_error {
     pParse->pStyle->nSyntaxErr++;
     pParse->isIgnore = 0;
+    HtmlCssRule(pParse, 0);
 }
 
 /* Style sheet consists of a header followed by a body. */
@@ -77,9 +78,23 @@ imports_opt ::= imports_opt IMPORT_SYM ws term(X) medium_list_opt SEMICOLON ws.
     HtmlCssImport(pParse, &X);
 }
 imports_opt ::= .
+imports_opt ::= unknown_at_rule.
 
 medium_list_opt ::= medium_list.
 medium_list_opt ::= .
+
+/*
+ * Code to handle an unknown "at-rule". If the tokenizer sees an "@" 
+ * character that is not followed by any known at-keyword, it calls
+ * the "@" an UNKNOWN_SYM token. The correct behaviour is to discard
+ * everything up until the next semicolon or the end of the next
+ * block.
+ */
+unknown_at_rule ::= UNKNOWN_SYM trash SEMICOLON ws.
+unknown_at_rule ::= UNKNOWN_SYM trash LP trash RP ws.
+trash ::= .
+trash ::= error.
+trash ::= trash error.
 
 /*********************************************************************
 ** Style sheet body. A list of style sheet body items.
@@ -95,22 +110,6 @@ ss_body ::= ss_body ws ss_body_item.
 ss_body_item ::= media.
 ss_body_item ::= ruleset.
 ss_body_item ::= font_face. 
-ss_body_item ::= garbage_token. {
-    /* If a parse error is encountered at this level, call HtmlCssRule()
-     * to discard any half-parsed selector. For example, the following 
-     * two fragments are equivalent (although the first contains a parse
-     * error and will not validate): 
-     *
-     *     "div ] span {color:red}"
-     *     "span {color:red}"
-     *
-     * Specifically, the first fragment is not equivalent to:
-     *
-     *     "div span {color:red}"
-     */
-    HtmlCssRule(pParse, 0);
-}
-
 
 /*********************************************************************
 ** @media {...} block.
@@ -193,7 +192,6 @@ garbage_token ::= LP garbage RP.
 garbage ::= garbage_token.
 garbage ::= garbage garbage_token.
 
-
 %type prio {int}
 prio(X) ::= IMPORTANT_SYM ws. {X = (pParse->pStyleId) ? 1 : 0;}
 prio(X) ::= .                 {X = 0;}
@@ -236,6 +234,10 @@ tag ::= SEMICOLON(X). { HtmlCssSelector(pParse, CSS_SELECTOR_TYPE, 0, &X); }
 
 simple_selector_tail ::= simple_selector_tail_component.
 simple_selector_tail ::= simple_selector_tail_component simple_selector_tail.
+
+simple_selector_tail ::= error. {
+    HtmlCssSelector(pParse, CSS_SELECTOR_NEVERMATCH, 0, 0);
+}
 
 simple_selector_tail_component ::= HASH IDENT(X). {
     HtmlCssSelector(pParse, CSS_SELECTOR_ID, 0, &X);

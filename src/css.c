@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.89 2006/08/25 06:26:26 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.90 2006/08/25 11:55:32 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -220,8 +220,21 @@ static void
 dequote(z)
     char *z;
 {
+    static u8 hexvalue[128] = {
+        -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1, /* 0x00-0x0F */
+        -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1, /* 0x10-0x1F */
+        -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1, /* 0x20-0x2F */
+         0, 1, 2, 3, 4, 5, 6, 7, 8, 9,-1,-1,-1,-1,-1,-1, /* 0x30-0x3F */
+        -1,10,11,12,13,14,15,-1,-1,-1,-1,-1,-1,-1,-1,-1, /* 0x40-0x4F */
+        -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1, /* 0x50-0x5F */
+        -1,10,11,12,13,14,15,-1,-1,-1,-1,-1,-1,-1,-1,-1, /* 0x60-0x6F */
+        -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1  /* 0x70-0x7F */
+    };
+
+    /* printf("IN: %s\n", z); */
+
     if (z) {
-        int i = 0;
+        int i;
         char *zOut = z;
         int n = strlen(z);
         
@@ -229,18 +242,36 @@ dequote(z)
          * strip it from the start of the string before proceeding. 
          */
         char q = z[0];
-        if (q != '\'' && q != '"') q = '\0';
-
-        for (; i < n; i++) {
-            char o = z[i];
-            if (o == '\\') continue;
-            if (o == q) {
-                if (i == 0 || (z[i - 1] != '\\' && i == n - 1)) continue;
-            }
-            *zOut++ = o;
+        if (q != '\'' && q != '"') {
+            q = '\0';
         }
-        *zOut++ = 0;
+        if (n > 1 && z[n - 1] == q && z[n - 2] != '\\') {
+            n--;
+        }
+
+        for (i = (q ? 1 : 0); i < n; i++) {
+            unsigned char o = z[i];
+            if (o == '\\') {
+                unsigned int ch = 0;
+                int ii;
+                o = z[i+1];
+                for (ii = 0; isxdigit(o) && ii <= 6; ii++) {
+                    assert(hexvalue[o] >=0 && hexvalue[o] <= 15);
+                    ch = (ch << 4) + hexvalue[o];
+                    o = z[(i++) + 1];
+                }
+                if (ch > 0) {
+                    int inc = Tcl_UniCharToUtf(ch, zOut);
+                    zOut += inc;
+                }
+            } else {
+                *zOut++ = o;
+            }
+        }
+        *zOut = 0;
     }
+
+    /* printf("OUT: %s\n", z); */
 }
 
 
@@ -1734,7 +1765,8 @@ cssGetToken(z, n, pLen)
                     return atkeywords[i].t;
                 }
             }
-            goto bad_token;
+            *pLen = 1;
+            return CT_UNKNOWN_SYM;
         }
         case '!': {
             int a = 1;
@@ -1797,7 +1829,6 @@ cssGetToken(z, n, pLen)
             *pLen = i;
             return CT_IDENT;
         }
-             
     }
 
 bad_token:
@@ -2000,8 +2031,6 @@ cssParse(n, z, isStyle, origin, pStyleId, pImportCmd, interp, pUrlCmd, ppStyle)
         n = strlen(z);
     }
     p = tkhtmlCssParserAlloc(xCkalloc);
-
-    /* tkhtmlCssParserTrace(stdout, "Parser: "); */
 
     /* If *ppStyle is NULL, then create a new CssStyleSheet object. If it
      * is not zero, then append the rules from the new stylesheet document
@@ -3833,6 +3862,10 @@ HtmlCssSelectorToString(pSelector, pObj)
         case CSS_SELECTOR_ATTRHYPHEN: 
             Tcl_AppendStringsToObj(pObj, 
                 "[", pSelector->zAttr, "|=\"", pSelector->zValue, "\"]", 0);
+            break;
+
+        case CSS_SELECTOR_NEVERMATCH: 
+            Tcl_AppendStringsToObj(pObj, "NEVERMATCH", 0);
             break;
 
         default:

@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.85 2006/08/21 16:27:07 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.86 2006/08/25 11:55:32 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -1494,6 +1494,7 @@ nodeCommand(clientData, interp, objc, objv)
         "override",              /* Read/write CSS property overrides */
         "parent",                /* Return the parent node */
         "prop",                  /* Query CSS property values */
+        "property",              /* Query a single CSS property value */
         "replace",               /* Set/clear the node replacement object */
         "tag",                   /* Read/write the node's tag */
         "text",                  /* Read/write the node's text content */
@@ -1501,7 +1502,8 @@ nodeCommand(clientData, interp, objc, objv)
     };
     enum NODE_enum {
         NODE_ATTR, NODE_CHILDREN, NODE_DYNAMIC, NODE_OVERRIDE,
-        NODE_PARENT, NODE_PROP, NODE_REPLACE, NODE_TAG, NODE_TEXT,
+        NODE_PARENT, NODE_PROP, NODE_PROPERTY, NODE_REPLACE, 
+        NODE_TAG, NODE_TEXT,
     };
 
     if (objc<2) {
@@ -1725,6 +1727,26 @@ node_attr_usage:
             }
 
             break;
+        }
+
+        /*
+         * nodeHandle property PROPERTY-NAME
+         *
+         *     Return the calculated value of a node's CSS property. If the
+         *     node is a text node, return the value of the property as
+         *     assigned to the parent node.
+         */
+        case NODE_PROPERTY: {
+            HtmlNode *pN = pNode;
+            if (HtmlNodeIsText(pN)) {
+                pN = HtmlNodeParent(pNode);
+            }
+            if (objc != 3) {
+                Tcl_WrongNumArgs(interp, 2, objv, "PROPERTY-NAME");
+                return TCL_ERROR;
+            }
+            HtmlCallbackForce(pTree);
+            return HtmlNodeGetProperty(interp, objv[2], pN->pPropertyValues);
         }
 
         /*
