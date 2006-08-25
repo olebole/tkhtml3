@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.162 2006/08/24 11:07:37 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.163 2006/08/25 14:23:08 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -411,6 +411,8 @@ sorterInsert(pSorter, pItem, x, y, pOverflow)
             pNode->pPropertyValues->eDisplay == CSS_CONST_INLINE
         ) {
             z = pNode->pStack->iInlineZ;
+        } else if (pNode->pStack->pNode == pNode) {
+            z = pNode->pStack->iStackingZ;
         } else {
             z = pNode->pStack->iBlockZ;
         }

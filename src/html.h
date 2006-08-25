@@ -212,6 +212,7 @@ struct HtmlNodeStack {
     HtmlNode *pNode;
     int iInlineZ;
     int iBlockZ;
+    int iStackingZ;
     HtmlNodeStack *pNext;
     HtmlNodeStack *pPrev;
 };

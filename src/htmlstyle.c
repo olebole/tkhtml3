@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlstyle.c,v 1.38 2006/08/24 11:07:37 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlstyle.c,v 1.39 2006/08/25 14:23:08 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -100,32 +100,34 @@ addStackingInfo(pTree, pNode)
     assert(pNode->pStack);
 }
 
+#define STACK_STACKING  1
+#define STACK_BLOCK     3
+#define STACK_INLINE    5
 typedef struct StackCompare StackCompare;
 struct StackCompare {
     HtmlNodeStack *pStack;
-    int isInline;
+    int eStack;
 };
 
+#define IS_STACKING_CONTEXT(x) \
+        (x == x->pStack->pNode && x->pPropertyValues->eFloat == CSS_CONST_NONE)
+
 static int
-scoreNode(p)
-    HtmlNode *p;
+scoreStack(pParentStack, pStack, eStack)
+    HtmlNodeStack *pParentStack;
+    HtmlNodeStack *pStack;
+    int eStack;
 {
-    HtmlNode *pNode;
-    int z = 0;
-    for (pNode = p; pNode; pNode = HtmlNodeParent(pNode)) {
-        if (pNode->pPropertyValues->eFloat != CSS_CONST_NONE) {
-            z += 1;
-        }
-        if (pNode->pPropertyValues->ePosition != CSS_CONST_STATIC) {
-            int iZIndex = pNode->pPropertyValues->iZIndex;
-            if ( iZIndex>=0 ) {
-                z += (25 * (iZIndex + 1));
-            } else {
-                z += (25 * iZIndex);
-            }
-        }
+    int z;
+    if (pStack == pParentStack) {
+        return eStack;
     }
-    return z;
+
+    if (!IS_STACKING_CONTEXT(pStack->pNode)) return 4;
+    z = pStack->pNode->pPropertyValues->iZIndex;
+    if (z == PIXELVAL_AUTO || z == 0) return 6;
+    if (z < 0) return 2;
+    return 7;
 }
 
 static int
@@ -135,18 +137,97 @@ stackCompare(pVoidLeft, pVoidRight)
 {
     StackCompare *pLeft = (StackCompare *)pVoidLeft;
     StackCompare *pRight = (StackCompare *)pVoidRight;
-    int iLeft = scoreNode(pLeft->pStack->pNode);
-    int iRight = scoreNode(pRight->pStack->pNode);
 
-    if (pLeft->isInline) {
-        iLeft += 5;
-    }
-    if (pRight->isInline) {
-        iRight += 5;
-    }
+    HtmlNodeStack *pLeftStack = pLeft->pStack;
+    HtmlNodeStack *pRightStack = pRight->pStack;
+    HtmlNodeStack *pParentStack = 0;
 
-    return (iLeft - iRight);
+    int nLeftDepth = -1;        /* Tree depth of node pLeftStack->pNode */
+    int nRightDepth = -1;       /* Tree depth of node pRightStack->pNode */
+
+    int iLeft;
+    int iRight;
+    int iRes;
+    int iTreeOrder = 0;
+
+    int ii;
+    HtmlNode *pL;
+    HtmlNode *pR;
+
+    /* There are three scenarios:
+     *
+     *     1) pLeft and pRight are associated with the same HtmlNodeStack
+     *        structure. In this case "inline" beats "block" and "block"
+     *        beats "stacking".
+     *
+     *     2) pLeft is descended from pRight, or vice versa.
+     *
+     *     3) Both are descended from a common stacking context.
+     */
+
+    /* Calculate pLeftStack, pRightStack and pParentStack */
+    for (pL = pLeftStack->pNode; pL; pL = HtmlNodeParent(pL)) nLeftDepth++;
+    for (pR = pRightStack->pNode; pR; pR = HtmlNodeParent(pR)) nRightDepth++;
+    pL = pLeftStack->pNode;
+    pR = pRightStack->pNode;
+    for (ii = 0; ii < MAX(0, nLeftDepth - nRightDepth); ii++) {
+        if (IS_STACKING_CONTEXT(pL)) pLeftStack = pL->pStack;
+        pL = HtmlNodeParent(pL);
+        iTreeOrder = +1;
+    }
+    for (ii = 0; ii < MAX(0, nRightDepth - nLeftDepth); ii++) {
+        if (IS_STACKING_CONTEXT(pR)) pRightStack = pR->pStack;
+        pR = HtmlNodeParent(pR);
+        iTreeOrder = -1;
+    }
+    while (pR != pL) {
+        HtmlNode *pParentL = HtmlNodeParent(pL);
+        HtmlNode *pParentR = HtmlNodeParent(pR);
+        if (IS_STACKING_CONTEXT(pL)) pLeftStack = pL->pStack;
+        if (IS_STACKING_CONTEXT(pR)) pRightStack = pR->pStack;
+        if (pParentL == pParentR) {
+            int nChildren = HtmlNodeNumChildren(pParentL);
+            iTreeOrder = 0;
+            for (ii = 0; 0 == iTreeOrder && ii < nChildren; ii++) {
+                HtmlNode *pChild = HtmlNodeChild(pParentL, ii);
+                if (pChild == pL) {
+                    iTreeOrder = -1;
+                }
+                if (pChild == pR) {
+                    iTreeOrder = +1;
+                }
+            }
+        }
+        pL = pParentL;
+        pR = pParentR;
+        assert(pL && pR);
+    }
+    while (!IS_STACKING_CONTEXT(pR)) {
+        pR = HtmlNodeParent(pR);
+        assert(pR);
+    }
+    pParentStack = pR->pStack;
+
+    iLeft = scoreStack(pParentStack, pLeftStack, pLeft->eStack);
+    iRight = scoreStack(pParentStack, pRightStack, pRight->eStack);
+
+    iRes = iLeft - iRight;
+    if (iRes == 0 && (iRight == 2 || iRight == 6 || iRight == 7)) {
+        iRes = (
+            pLeftStack->pNode->pPropertyValues->iZIndex -
+            pRightStack->pNode->pPropertyValues->iZIndex
+        );
+    }
+    if (iRes == 0 && iRight == 4) {
+        iRes = (pLeft->eStack - pRight->eStack);
+    }
+    if (iRes == 0) {
+        assert(iTreeOrder != 0);
+        iRes = iTreeOrder;
+    }
+    return iRes;
 }
+#undef IS_STACKING_CONTEXT
 
 void
 HtmlRestackNodes(pTree)
@@ -157,24 +238,39 @@ HtmlRestackNodes(pTree)
     int iTmp = 0;
     if (0 == (pTree->cb.flags & HTML_STACK)) return;
 
-    apTmp = (StackCompare *)HtmlAlloc(0, sizeof(StackCompare)*pTree->nStack*2);
+    apTmp = (StackCompare *)HtmlAlloc(0, sizeof(StackCompare)*pTree->nStack*3);
 
     for (pStack = pTree->pStack; pStack; pStack = pStack->pNext) {
         apTmp[iTmp].pStack = pStack;
-        apTmp[iTmp].isInline = 1;
+        apTmp[iTmp].eStack = STACK_BLOCK;
         apTmp[iTmp+1].pStack = pStack;
-        apTmp[iTmp+1].isInline = 0;
-        iTmp += 2;
+        apTmp[iTmp+1].eStack = STACK_INLINE;
+        apTmp[iTmp+2].pStack = pStack;
+        apTmp[iTmp+2].eStack = STACK_STACKING;
+        iTmp += 3;
     }
-    assert(iTmp == pTree->nStack * 2);
+    assert(iTmp == pTree->nStack * 3);
 
-    qsort(apTmp, pTree->nStack * 2, sizeof(StackCompare), stackCompare);
+    qsort(apTmp, pTree->nStack * 3, sizeof(StackCompare), stackCompare);
 
-    for (iTmp = 0; iTmp < pTree->nStack * 2; iTmp++) {
-        if (apTmp[iTmp].isInline) {
-            apTmp[iTmp].pStack->iInlineZ = iTmp;
-        } else {
-            apTmp[iTmp].pStack->iBlockZ = iTmp;
+    for (iTmp = 0; iTmp < pTree->nStack * 3; iTmp++) {
+#if 0
+printf("Stack %d: %s %s\n", iTmp, 
+    Tcl_GetString(HtmlNodeCommand(pTree, apTmp[iTmp].pStack->pNode)),
+    (apTmp[iTmp].eStack == STACK_INLINE ? "inline" : 
+     apTmp[iTmp].eStack == STACK_BLOCK ? "block" : "stacking")
+);
+#endif
+        switch (apTmp[iTmp].eStack) {
+            case STACK_INLINE:
+                apTmp[iTmp].pStack->iInlineZ = iTmp;
+                break;
+            case STACK_BLOCK:
+                apTmp[iTmp].pStack->iBlockZ = iTmp;
+                break;
+            case STACK_STACKING:
+                apTmp[iTmp].pStack->iStackingZ = iTmp;
+                break;
         }
     }
 
