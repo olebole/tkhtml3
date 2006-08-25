@@ -266,7 +266,7 @@ void HtmlCssImport(CssParse *pParse, CssToken *);
  * psuedo-selector to a CSS_PSEUDO... value that can be passed to
  * HtmlCssSelector().
  */
-int HtmlCssPseudo(CssToken *);
+int HtmlCssPseudo(CssToken *, int);
 
 /* Test if a selector matches a node */
 int HtmlCssSelectorTest(CssSelector *, HtmlNode *, int);

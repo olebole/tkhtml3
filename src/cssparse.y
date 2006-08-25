@@ -266,7 +266,10 @@ simple_selector_tail_component ::= LSP IDENT(X) PIPE EQUALS string(Y) RSP. {
 }
 
 simple_selector_tail_component ::= COLON IDENT(X). {
-    HtmlCssSelector(pParse, HtmlCssPseudo(&X), 0, 0);
+    HtmlCssSelector(pParse, HtmlCssPseudo(&X, 1), 0, 0);
+}
+simple_selector_tail_component ::= COLON COLON IDENT(X). {
+    HtmlCssSelector(pParse, HtmlCssPseudo(&X, 2), 0, 0);
 }
 
 string(A) ::= STRING(X). {A = X;}

@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.88 2006/08/24 08:03:10 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.89 2006/08/25 06:26:26 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -2738,29 +2738,66 @@ cssSelectorPropertySetPair(pParse, pSelector, pPropertySet, freeWhat)
     pRule->pPropertySet = pPropertySet;
 }
 
-int HtmlCssPseudo(pToken)
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlCssPseudo --
+ *
+ *     This function is called by the parser to interpret the name of
+ *     a CSS pseudo-class or pseudo-element. (i.e. "hover"  or "after" 
+ *     etc.).
+ *
+ *     Argument pToken contains the name to be interpreted. The second
+ *     argument, nColon, is the number of ':' characters that preceeded
+ *     the name.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+int HtmlCssPseudo(pToken, nColon)
     CssToken *pToken;
+    int nColon;
 {
-    char *zOptions[] = {
-        "link", "visited", "active", "hover", "focus", "after", "before",
-        "first-child", "last-child"
-    };
-    int eOptions[] = {
-        CSS_PSEUDOCLASS_LINK, CSS_PSEUDOCLASS_VISITED, 
-        CSS_PSEUDOCLASS_ACTIVE, CSS_PSEUDOCLASS_HOVER, 
-        CSS_PSEUDOCLASS_FOCUS, CSS_PSEUDOELEMENT_AFTER, 
-        CSS_PSEUDOELEMENT_BEFORE,
-        CSS_PSEUDOCLASS_FIRSTCHILD, CSS_PSEUDOCLASS_LASTCHILD
-    };
-    int i;
+    struct PseudoString {
+        const char *zOption;
+        int eOption;
+        int nMinColons;
+        int nMaxColons;
+    } a[] = {
+        /* Pseudo-classes. One colon only. */
+        {"link",        CSS_PSEUDOCLASS_LINK,       1, 1},
+        {"visited",     CSS_PSEUDOCLASS_VISITED,    1, 1},
+        {"active",      CSS_PSEUDOCLASS_ACTIVE,     1, 1},
+        {"hover",       CSS_PSEUDOCLASS_HOVER,      1, 1},
+        {"focus",       CSS_PSEUDOCLASS_FOCUS,      1, 1},
+        {"last-child",  CSS_PSEUDOCLASS_LASTCHILD,  1, 1},
+        {"first-child", CSS_PSEUDOCLASS_FIRSTCHILD, 1, 1},
 
-    for (i=0; i<sizeof(zOptions)/sizeof(char *); i++) {
-        if (pToken->n==strlen(zOptions[i]) && 
-                0==strncmp(pToken->z, zOptions[i], pToken->n)) {
-            return eOptions[i];
+        /* CSS 2.1 (or earlier) pseudo-elements. One or two colons */
+        {"after",       CSS_PSEUDOELEMENT_AFTER,    1, 2},
+        {"before",      CSS_PSEUDOELEMENT_BEFORE,   1, 2}
+    };
+    int ii;
+
+    for (ii = 0; ii < (sizeof(a)/sizeof(a[0])); ii++) {
+        if (
+            nColon >= a[ii].nMinColons && 
+            nColon <= a[ii].nMaxColons &&
+            pToken->n == strlen(a[ii].zOption) && 
+            0 == strncmp(pToken->z, a[ii].zOption, pToken->n)
+        ) {
+            return a[ii].eOption;
         }
     }
-    return CSS_PSEUDOCLASS_LANG;
+
+    /* Tkhtml doesn't understand this pseudo-element or class. The rule will
+     * never match anything.  */
+    return CSS_SELECTOR_NEVERMATCH;
 }
 
 /*--------------------------------------------------------------------------
