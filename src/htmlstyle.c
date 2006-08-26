@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlstyle.c,v 1.40 2006/08/26 06:08:54 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlstyle.c,v 1.41 2006/08/26 09:29:34 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -131,10 +131,8 @@ struct StackCompare {
     int eStack;
 };
 
-#define IS_STACKING_CONTEXT(x) (                          \
-         x == x->pStack->pNode &&                         \
-         x->pPropertyValues->eFloat == CSS_CONST_NONE &&  \
-         x->pPropertyValues->iZIndex != PIXELVAL_AUTO     \
+#define IS_STACKING_CONTEXT(x) (                                    \
+         x == x->pStack->pNode && x->pStack->eType == STACK_CONTEXT \
 )
 
 static int
@@ -281,11 +279,13 @@ HtmlRestackNodes(pTree)
     qsort(apTmp, pTree->nStack * 3, sizeof(StackCompare), stackCompare);
 
     for (iTmp = 0; iTmp < pTree->nStack * 3; iTmp++) {
+#if 0
 printf("Stack %d: %s %s\n", iTmp, 
     Tcl_GetString(HtmlNodeCommand(pTree, apTmp[iTmp].pStack->pNode)),
     (apTmp[iTmp].eStack == STACK_INLINE ? "inline" : 
      apTmp[iTmp].eStack == STACK_BLOCK ? "block" : "stacking")
 );
+#endif
         switch (apTmp[iTmp].eStack) {
             case STACK_INLINE:
                 apTmp[iTmp].pStack->iInlineZ = iTmp;
