@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlstyle.c,v 1.39 2006/08/25 14:23:08 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlstyle.c,v 1.40 2006/08/26 06:08:54 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -66,6 +66,27 @@ HtmlDelStackingInfo(pTree, pNode)
     pNode->pStack = 0;
 }
 
+
+#define STACK_NONE      0
+#define STACK_FLOAT     1
+#define STACK_AUTO      2
+#define STACK_CONTEXT   3
+static int 
+stackType(p) 
+    HtmlNode *p;
+{
+    HtmlComputedValues *pV = p->pPropertyValues;
+    if (!p->pParent) {
+        return STACK_CONTEXT;
+    }
+    if (pV->ePosition != CSS_CONST_STATIC) {
+        if (pV->iZIndex == PIXELVAL_AUTO) return STACK_AUTO;
+        return STACK_CONTEXT;
+    }
+    assert(pV->eFloat != CSS_CONST_NONE);
+    return STACK_FLOAT;
+}
+
 static void
 addStackingInfo(pTree, pNode)
     HtmlTree *pTree;
@@ -86,6 +107,7 @@ addStackingInfo(pTree, pNode)
 
         pStack = (HtmlNodeStack *)HtmlClearAlloc("HtmlNodeStack", nByte);
         pStack->pNode = pNode;
+        pStack->eType = stackType(pNode);
         pStack->pNext = pTree->pStack;
         if( pStack->pNext ){
             pStack->pNext->pPrev = pStack;
@@ -109,8 +131,11 @@ struct StackCompare {
     int eStack;
 };
 
-#define IS_STACKING_CONTEXT(x) \
-        (x == x->pStack->pNode && x->pPropertyValues->eFloat == CSS_CONST_NONE)
+#define IS_STACKING_CONTEXT(x) (                          \
+         x == x->pStack->pNode &&                         \
+         x->pPropertyValues->eFloat == CSS_CONST_NONE &&  \
+         x->pPropertyValues->iZIndex != PIXELVAL_AUTO     \
+)
 
 static int
 scoreStack(pParentStack, pStack, eStack)
@@ -122,10 +147,11 @@ scoreStack(pParentStack, pStack, eStack)
     if (pStack == pParentStack) {
         return eStack;
     }
-
-    if (!IS_STACKING_CONTEXT(pStack->pNode)) return 4;
+    if (pStack->eType == STACK_FLOAT) return 4;
+    if (pStack->eType == STACK_AUTO) return 6;
     z = pStack->pNode->pPropertyValues->iZIndex;
-    if (z == PIXELVAL_AUTO || z == 0) return 6;
+    assert(z != PIXELVAL_AUTO);
+    if (z == 0) return 6;
     if (z < 0) return 2;
     return 7;
 }
@@ -186,9 +212,8 @@ stackCompare(pVoidLeft, pVoidRight)
         if (IS_STACKING_CONTEXT(pL)) pLeftStack = pL->pStack;
         if (IS_STACKING_CONTEXT(pR)) pRightStack = pR->pStack;
         if (pParentL == pParentR) {
-            int nChildren = HtmlNodeNumChildren(pParentL);
             iTreeOrder = 0;
-            for (ii = 0; 0 == iTreeOrder && ii < nChildren; ii++) {
+            for (ii = 0; 0 == iTreeOrder; ii++) {
                 HtmlNode *pChild = HtmlNodeChild(pParentL, ii);
                 if (pChild == pL) {
                     iTreeOrder = -1;
@@ -197,6 +222,7 @@ stackCompare(pVoidLeft, pVoidRight)
                     iTreeOrder = +1;
                 }
             }
+            assert(iTreeOrder != 0);
         }
         pL = pParentL;
         pR = pParentR;
@@ -213,12 +239,13 @@ stackCompare(pVoidLeft, pVoidRight)
 
     iRes = iLeft - iRight;
     if (iRes == 0 && (iRight == 2 || iRight == 6 || iRight == 7)) {
-        iRes = (
-            pLeftStack->pNode->pPropertyValues->iZIndex -
-            pRightStack->pNode->pPropertyValues->iZIndex
-        );
+        int z1 = pLeftStack->pNode->pPropertyValues->iZIndex;
+        int z2 = pRightStack->pNode->pPropertyValues->iZIndex;
+        if (z1 == PIXELVAL_AUTO) z1 = 0;
+        if (z2 == PIXELVAL_AUTO) z2 = 0;
+        iRes = z1 - z2;
     }
-    if (iRes == 0 && iRight == 4) {
+    if (iRes == 0 && (iRight == 4 || iRight == 6)) {
         iRes = (pLeft->eStack - pRight->eStack);
     }
     if (iRes == 0) {
@@ -254,13 +281,11 @@ HtmlRestackNodes(pTree)
     qsort(apTmp, pTree->nStack * 3, sizeof(StackCompare), stackCompare);
 
     for (iTmp = 0; iTmp < pTree->nStack * 3; iTmp++) {
-#if 0
 printf("Stack %d: %s %s\n", iTmp, 
     Tcl_GetString(HtmlNodeCommand(pTree, apTmp[iTmp].pStack->pNode)),
     (apTmp[iTmp].eStack == STACK_INLINE ? "inline" : 
      apTmp[iTmp].eStack == STACK_BLOCK ? "block" : "stacking")
 );
-#endif
         switch (apTmp[iTmp].eStack) {
             case STACK_INLINE:
                 apTmp[iTmp].pStack->iInlineZ = iTmp;

@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.206 2006/08/24 12:00:43 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.207 2006/08/26 06:08:53 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -3478,7 +3478,6 @@ HtmlLayout(pTree)
         MarginProperties margin;
         BoxProperties box;
         BoxContext sContent;
-        BoxContext sFixed;
 
         nodeGetMargins(&sLayout, pBody, nWidth, &margin);
         nodeGetBoxProperties(&sLayout, pBody, nWidth, &box);
@@ -3500,17 +3499,23 @@ HtmlLayout(pTree)
         drawAbsolute(&sLayout, &sContent, &sContent.vc, -1 * x, -1 * y);
         HtmlDrawCanvas(&pTree->canvas, &sContent.vc, x, y, pBody);
 
-        memset(&sFixed, 0, sizeof(BoxContext));
-        assert(sLayout.pAbsolute == 0);
-        sLayout.pAbsolute = sLayout.pFixed;
-        sLayout.pFixed = 0;
-        sFixed.height = Tk_Height(pTree->tkwin);
-        sFixed.width = Tk_Width(pTree->tkwin);
-        sFixed.iContaining = sFixed.width;
-        if (sFixed.height < 5) sFixed.height = pTree->options.height;
-        HtmlDrawAddMarker(&sFixed.vc, 0, 0, 1);
-        drawAbsolute(&sLayout, &sFixed, &pTree->canvas, 0, 0);
-        HtmlDrawCanvas(&pTree->canvas, &sFixed.vc, 0, 0, pBody);
+        /* This loop takes care of nested "position:fixed" elements. */
+        HtmlDrawAddMarker(&pTree->canvas, 0, 0, 1);
+        while (sLayout.pFixed) {
+            BoxContext sFixed;
+            memset(&sFixed, 0, sizeof(BoxContext));
+            sFixed.height = Tk_Height(pTree->tkwin);
+            if (sFixed.height < 5) sFixed.height = pTree->options.height;
+            sFixed.width = Tk_Width(pTree->tkwin);
+            sFixed.iContaining = sFixed.width;
+
+            assert(sLayout.pAbsolute == 0);
+            sLayout.pAbsolute = sLayout.pFixed;
+            sLayout.pFixed = 0;
+
+            drawAbsolute(&sLayout, &sFixed, &pTree->canvas, 0, 0);
+            HtmlDrawCanvas(&pTree->canvas, &sFixed.vc, 0, 0, pBody);
+        }
 
         pTree->canvas.right = MAX(
             pTree->canvas.right,

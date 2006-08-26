@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.89 2006/08/25 11:55:32 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.90 2006/08/26 06:08:53 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -519,7 +519,7 @@ propertyValuesSetZIndex(p, pProp)
     if (pProp->eType == CSS_TYPE_FLOAT) {
         p->values.iZIndex = (int)pProp->v.rVal;
     }else if (pProp->eType == CSS_CONST_AUTO) {
-        p->values.iZIndex = 0;
+        p->values.iZIndex = PIXELVAL_AUTO;
     }else{
         /* Type mismatch */
         return 1;
@@ -2580,7 +2580,11 @@ HtmlNodeProperties(interp, pValues)
 
     /* z-index */
     Tcl_ListObjAppendElement(interp, pRet, Tcl_NewStringObj("z-index", -1));
-    Tcl_ListObjAppendElement(interp, pRet, Tcl_NewIntObj(pValues->iZIndex));
+    if (pValues->iZIndex > MAX_PIXELVAL) {
+        Tcl_ListObjAppendElement(interp, pRet, Tcl_NewIntObj(pValues->iZIndex));
+    } else {
+        Tcl_ListObjAppendElement(interp, pRet, Tcl_NewStringObj("auto", 4));
+    }
 
     Tcl_SetObjResult(interp, pRet);
     Tcl_DecrRefCount(pRet);

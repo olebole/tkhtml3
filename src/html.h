@@ -210,6 +210,7 @@ struct HtmlNodeContent {
 
 struct HtmlNodeStack {
     HtmlNode *pNode;
+    int eType;              /* Usage defined in htmlstyle.c */
     int iInlineZ;
     int iBlockZ;
     int iStackingZ;
