@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlstyle.c,v 1.41 2006/08/26 09:29:34 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlstyle.c,v 1.42 2006/08/26 13:00:17 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -243,7 +243,7 @@ stackCompare(pVoidLeft, pVoidRight)
         if (z2 == PIXELVAL_AUTO) z2 = 0;
         iRes = z1 - z2;
     }
-    if (iRes == 0 && (iRight == 4 || iRight == 6)) {
+    if (iRes == 0 && (iRight == 4 || pLeftStack == pRightStack)) {
         iRes = (pLeft->eStack - pRight->eStack);
     }
     if (iRes == 0) {
@@ -253,6 +253,53 @@ stackCompare(pVoidLeft, pVoidRight)
     return iRes;
 }
 #undef IS_STACKING_CONTEXT
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * checkStackSort --
+ *
+ *     This function is equivalent to an assert() statement. It is not
+ *     part of the functionality of Tkhtml3, but is used to check the
+ *     integrity of internal data structures.
+ *
+ *     The first argument, aStack, should be an array of nStack (the
+ *     second arg) StackCompare structure. An assert fails inside
+ *     this function if the array is not sorted in ascending order.
+ *
+ *     The primary purpose of this test is to ensure that the stackCompare()
+ *     comparision function is stable. It is quite an expensive check,
+ *     so is normally disabled at compile time. Change the "#if 0"
+ *     below to reenable the checking.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void 
+checkStackSort(pTree, aStack, nStack)
+    HtmlTree *pTree;
+    StackCompare *aStack;
+    int nStack;
+{
+#if 0
+    int ii;
+    int jj;
+    for (ii = 0; ii < nStack; ii++) {
+      for (jj = ii + 1; jj < nStack; jj++) {
+        int r1 = stackCompare(&aStack[ii], &aStack[jj]);
+        int r2 = stackCompare(&aStack[jj], &aStack[ii]);
+        assert(r1 && r2);
+        assert((r1 * r2) < 0);
+        assert(r1 < 0);
+      }
+    }
+#endif
+}
 
 void
 HtmlRestackNodes(pTree)
@@ -298,6 +345,7 @@ printf("Stack %d: %s %s\n", iTmp,
                 break;
         }
     }
+    checkStackSort(pTree, apTmp, pTree->nStack * 3);
 
     pTree->cb.flags &= (~HTML_STACK);
 }

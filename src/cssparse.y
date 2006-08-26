@@ -54,7 +54,7 @@
 %syntax_error {
     pParse->pStyle->nSyntaxErr++;
     pParse->isIgnore = 0;
-    HtmlCssRule(pParse, 0);
+    /* HtmlCssRule(pParse, 0); */
 }
 
 /* Style sheet consists of a header followed by a body. */
@@ -185,12 +185,14 @@ declaration_list ::= declaration_list SEMICOLON ws.
 declaration ::= ws IDENT(X) ws COLON ws expr(E) prio(I). {
     HtmlCssDeclaration(pParse, &X, &E, I);
 }
-declaration ::= garbage. 
+declaration ::= error trash.
 
+/*
 garbage_token ::= error.
 garbage_token ::= LP garbage RP.
 garbage ::= garbage_token.
 garbage ::= garbage garbage_token.
+*/
 
 %type prio {int}
 prio(X) ::= IMPORTANT_SYM ws. {X = (pParse->pStyleId) ? 1 : 0;}

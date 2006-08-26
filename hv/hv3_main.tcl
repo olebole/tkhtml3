@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.62 2006/08/21 11:40:45 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.63 2006/08/26 13:00:17 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -1124,7 +1124,7 @@ proc ::hv3::scroll {r} {
   set html [[gui_current hv3] html]
   set region [$html yview]
   set max [expr 1.0 - ([lindex $region 1] - [lindex $region 0])]
-  ::hv3::scrollcb idle $max 0 30 $r
+  ::hv3::scrollcb idle $max 0 60 $r
 }
 proc ::hv3::scrollcb {delay max ii maxii r} {
   set html [[gui_current hv3] html]

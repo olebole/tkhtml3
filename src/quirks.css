@@ -25,3 +25,6 @@ TH > P:last-child, TD > P:last-child {
   margin-bottom: 0px;
 }
 
+FORM {
+  margin-bottom: 1em;
+}

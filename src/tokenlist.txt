@@ -1,5 +1,5 @@
 #
-# $Revision: 1.38 $
+# $Revision: 1.39 $
 #
 # tokenlist.tcl -- 
 #
@@ -199,7 +199,7 @@ TAG embed -content HtmlEmptyContent
 TAG listing                             
 TAG marquee                             
 TAG nextid -content HtmlEmptyContent             
-TAG nobr                                
+TAG nobr -flow inline
 TAG noembed                              
 TAG plaintext -content HtmlInlineContent             
 TAG wbr -content HtmlEmptyContent -flow inline

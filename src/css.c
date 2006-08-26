@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.90 2006/08/25 11:55:32 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.91 2006/08/26 13:00:17 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -2032,6 +2032,8 @@ cssParse(n, z, isStyle, origin, pStyleId, pImportCmd, interp, pUrlCmd, ppStyle)
     }
     p = tkhtmlCssParserAlloc(xCkalloc);
 
+/* tkhtmlCssParserTrace(stdout, "CSS: "); */
+
     /* If *ppStyle is NULL, then create a new CssStyleSheet object. If it
      * is not zero, then append the rules from the new stylesheet document
      * to the existing object.
@@ -3776,7 +3778,7 @@ HtmlCssSearch(clientData, interp, objc, objv)
     assert(n == strlen(zOrig));
     n += 14;
     z = (char *)HtmlAlloc(0, n);
-    sprintf(z, "%s {color:blue}", zOrig);
+    sprintf(z, "%s {width:0}", zOrig);
 
     cssParse(n, z, 0, 0, 0, 0, 0, 0,&pStyle);
     if (
