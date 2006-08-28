@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.91 2006/08/26 13:00:17 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.92 2006/08/28 08:42:34 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -220,7 +220,7 @@ static void
 dequote(z)
     char *z;
 {
-    static u8 hexvalue[128] = {
+    static char hexvalue[128] = {
         -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1, /* 0x00-0x0F */
         -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1, /* 0x10-0x1F */
         -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1, /* 0x20-0x2F */
@@ -502,7 +502,7 @@ tokenToProperty(pParse, pToken)
             int nFunc = sizeof(functions)/sizeof(struct FunctionFormat);
             for (i=0; pProp==0 && i<nFunc; i++) {
                 const char *zFunc = functions[i].zFunc;
-                if (l==functions[i].len && 0==strncasecmp(zFunc, z, l)) {
+                if (l==functions[i].len && 0==strnicmp(zFunc, z, l)) {
                     char CONST *zArg;
                     int nArg;
 
@@ -2959,7 +2959,7 @@ static int attrTest(eType, zString, zAttr)
             int nAttr;
             int nString = strlen(zString);
             while ((pAttr=getNextListItem(pAttr, strlen(pAttr), &nAttr))) {
-                if (nString==nAttr && 0==strncasecmp(pAttr, zString, nAttr)) {
+                if (nString==nAttr && 0==strnicmp(pAttr, zString, nAttr)) {
                     return 1;
                 }
                 pAttr += nAttr;
@@ -2972,7 +2972,7 @@ static int attrTest(eType, zString, zAttr)
          */
         case CSS_SELECTOR_ATTRHYPHEN: {
             char *pHyphen = strchr(zAttr, '-');
-            if( pHyphen && 0==strncasecmp(zAttr, zString, pHyphen-zAttr) ){
+            if( pHyphen && 0==strnicmp(zAttr, zString, pHyphen-zAttr) ){
                 return 1;
             }
             return 0;

@@ -194,7 +194,7 @@ proc CodeInfrastructure {} {
                  t = aTable[Hash(nString, zString)]; 
                  t >= 0 && (
                      strlen(aHashTable[t].zString) != nString || 
-                     strncasecmp(zString, aHashTable[t].zString, nString)
+                     strnicmp(zString, aHashTable[t].zString, nString)
                  );
                  t = aHashTable[t].iNext
             );
@@ -400,6 +400,7 @@ foreach a [lsort -unique $shortcut_properties] {
 }
 
 append ::cssprop_c "#include \"cssprop.h\"\n"
+append ::cssprop_c "#include \"html.h\"\n"
 append ::cssprop_c "#include <string.h>        /* strlen() */\n"
 append ::cssprop_c "#include <ctype.h>         /* tolower() */\n"
 append ::cssprop_c "#include <assert.h>        /* assert() */\n"

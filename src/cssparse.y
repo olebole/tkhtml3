@@ -123,8 +123,8 @@ media ::= MEDIA_SYM ws medium_list LP ws ruleset_list RP. {
 
 medium_list_item(A) ::= IDENT(X). {
     if (
-        (X.n == 3 && 0 == strncasecmp(X.z, "all", 3)) ||
-        (X.n == 6 && 0 == strncasecmp(X.z, "screen", 6))
+        (X.n == 3 && 0 == strnicmp(X.z, "all", 3)) ||
+        (X.n == 6 && 0 == strnicmp(X.z, "screen", 6))
     ) {
         A = 0;
     } else {

@@ -85,11 +85,22 @@ typedef unsigned short Html_u16;     /* 16-bit unsigned integer */
 typedef int            Html_32;      /* 32-bit signed integer */
 
 /*
- * Linux doesn't have a stricmp() function.
+ * Linux doesn't have a stricmp() function and windows doesn't have
+ * strcasecmp(). Tkhtml3 code uses stricmp (and strnicmp) because
+ * it is faster to type.
  */
 #ifndef HAVE_STRICMP
 # define stricmp strcasecmp
 # define strnicmp strncasecmp
+#endif
+
+/*
+ * Some versions of windows do not have the vsnprintf() and snprintf()
+ * macros. According to msdn, these are for "backwards compatibility" only.
+ */
+#ifdef __WIN32__
+# define vsnprintf _vsnprintf
+# define snprintf _snprintf
 #endif
 
 typedef struct HtmlNodeStack HtmlNodeStack;
