@@ -176,6 +176,10 @@ INPUT, INPUT[type="file"], INPUT[type="text"], INPUT[type="password"], TEXTAREA 
   border-color: #848280 #ececec #ececec #848280;
 }
 
+INPUT[size] {
+  width: tcl(::tkhtml::inputsize_to_css)
+}
+
 FRAMESET {
   display: none;
 }

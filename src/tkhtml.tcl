@@ -93,6 +93,26 @@ namespace eval tkhtml {
         return $val
     }
 
+    # This is called for <input type=text> tags that have a size
+    # attribute. The size attribute in this case is supposed to be
+    # the width in characters.
+    proc inputsize_to_css {} {
+        upvar N node
+        set size [$node attr size]
+        catch {
+          if {$size < 0} {error "Bad value for size attribute"}
+        }
+
+        # Figure out if we are talking characters or pixels:
+        switch -- [$node attr -default text type] {
+          text     { set units ex }
+          password { set units ex }
+          default  { set units px }
+        }
+
+        return "${size}${units}"
+    }
+
     proc size_to_fontsize {} {
         upvar N node
         set size [$node attr size]

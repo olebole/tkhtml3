@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.38 2006/08/15 15:01:39 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.39 2006/08/28 08:10:02 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_prop.tcl --
@@ -52,12 +52,10 @@ snit::widget HtmlDebug {
   variable myExpanded -array ""  ;# Array. Entries are present for exp. nodes
   variable myHtml                ;# Name of html widget being debugged
 
-    # Debugging window widgets:
+    # Debugging window widgets. The top 3 are managed by panedwindow
+    # widgets.
     #
-    #   $win.tree_frame              ;# frame
-    #     $win.tree_frame.canvas     ;# canvas
-    #     $win.tree_frame.vsb        ;# scrollbar
-    #     $win.tree_frame.hsb        ;# scrollbar
+    #   $myTreeCanvas                  ;# [::hv3::scrolled canvas] mega-widget
     #   $mySearchHtml                  ;# Hv3 mega-widget
     #     $mySearchHtml.html.relayout  ;# button
     #     $mySearchHtml.html.outline   ;# button
@@ -221,63 +219,70 @@ snit::widget HtmlDebug {
     after idle [list $html configure -logcmd $logcmd]
   }
 
+  method searchNodeBg {idx} {
+    after idle [mymethod searchNode $idx]
+  }
+
   method searchNode {{idx 0}} {
-  set Template {
-    <html><head>
-      <style>
-        td { padding-left: 10px ; padding-right: 10px }
-      </style>
-    </head><body><center>
-      <h1>Tkhtml Document Tree Browser</h1>
-      <span widget="relayout"></span>
-      <span widget="outline"></span>
-      <p>
-        Search for node: <span widget="search"></span>
-      </p>
-      $search_results
-    </center></body></html>
-  }
 
-  set search_results {}
-  set nodelist [list]
-  set selector [[$mySearchHtml html].search get]
-  if {$selector != ""} {
-    set search_results <table><tr>
-    set nodelist [$myHtml search $selector]
-    set ii 0
-    foreach node $nodelist {
-      # set script "after idle {::HtmlDebug::browse $myHtml $node}"
-      # set script "::HtmlDebug::browse $myHtml $node"
-      set script [mymethod searchNode $ii]
-      append search_results "<td><a href=\"$script\">$node</a>"
-      incr ii
-      if {($ii % 5)==0} {
-        append search_results "</tr><tr>"
-      }
+    # The template document for the $myReportHtml widget.
+    #
+    set Template {
+      <html><head>
+        <style>
+          td { padding-left: 10px ; padding-right: 10px }
+        </style>
+      </head><body><center>
+        <h1>Tkhtml Document Tree Browser</h1>
+        <span widget="relayout"></span>
+        <span widget="outline"></span>
+        <p>
+          Search for node: <span widget="search"></span>
+        </p>
+        $search_results
+      </center></body></html>
     }
-    append search_results </table>
-  }
-
-  set ::subbed_template [subst $Template]
-  $mySearchHtml goto "tcl:///list"
-  $mySearchHtml goto "tcl:///set ::subbed_template"
-  foreach node [$mySearchHtml search {span[widget]}] {
-    set widget [$node attr widget]
-    $node replace [$mySearchHtml html].$widget -deletecmd {}
-  }
-
-  set h [lindex [[$mySearchHtml html] bbox] 3]
-  if {$selector != ""} {
-    set mh [expr [winfo height $win]/2]
-    if {$h > $mh} {set h $mh}
-  }
-  [$mySearchHtml html] configure -height $h
-
-  if {[llength $nodelist]>$idx} {
-    HtmlDebug::browse $myHtml [lindex $nodelist $idx]
-  }
-
-  return ""
+  
+    set search_results {}
+    set nodelist [list]
+    set selector [[$mySearchHtml html].search get]
+    if {$selector != ""} {
+      set search_results <table><tr>
+      set nodelist [$myHtml search $selector]
+      set ii 0
+      foreach node $nodelist {
+        # set script "after idle {::HtmlDebug::browse $myHtml $node}"
+        # set script "::HtmlDebug::browse $myHtml $node"
+        set script [mymethod searchNodeBg $ii]
+        append search_results "<td><a href=\"$script\">$node</a>"
+        incr ii
+        if {($ii % 5)==0} {
+          append search_results "</tr><tr>"
+        }
+      }
+      append search_results </table>
+    }
+  
+    set ::subbed_template [subst $Template]
+    $mySearchHtml goto "tcl:///list"
+    $mySearchHtml goto "tcl:///set ::subbed_template"
+    foreach node [$mySearchHtml search {span[widget]}] {
+      set widget [$node attr widget]
+      $node replace [$mySearchHtml html].$widget -deletecmd {}
+    }
+  
+    set h [lindex [[$mySearchHtml html] bbox] 3]
+    if {$selector != ""} {
+      set mh [expr [winfo height $win]/2]
+      if {$h > $mh} {set h $mh}
+    }
+    # [$mySearchHtml html] configure -height $h
+  
+    if {[llength $nodelist]>$idx} {
+      HtmlDebug::browse $myHtml [lindex $nodelist $idx]
+    }
+  
+    return ""
   }
 
   method toggleExpanded {node} {
@@ -473,12 +478,6 @@ snit::widget HtmlDebug {
 # Document template for the debugging window report.
 #
 #--------------------------------------------------------------------------
-
-proc tclProtocol {downloadHandle} {
-  set cmd [string range [$downloadHandle uri] 7 end]
-  $downloadHandle append [eval $cmd]
-  $downloadHandle finish
-}
 
 proc tclInputHandler {node} {
   set widget [$node attr -default "" widget]

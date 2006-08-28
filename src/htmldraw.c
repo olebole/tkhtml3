@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.163 2006/08/25 14:23:08 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.164 2006/08/28 08:10:02 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -521,11 +521,15 @@ windowsRepair(pTree, pCanvas)
         if (pTree) {
             iViewX = p->iCanvasX - pTree->iScrollX;
             iViewY = p->iCanvasY - pTree->iScrollY;
-            iWidth = Tk_ReqWidth(control);
-            iHeight = Tk_ReqHeight(control);
+            iHeight = p->iHeight;
+            iWidth = p->iWidth;
         }
 
-        if (
+        /* If the sub-window is not part of the viewable region, or the 
+         * widget is being destroyed (pTree==0) unmap the window and remove it
+         * from the HtmlTree.pMapped linked-list. 
+         */
+	if (
             !pTree ||
             iViewX > w || iViewY > h || 
             (iViewX + iWidth) <= 0 || (iViewY + iHeight) <= 0
@@ -1359,7 +1363,6 @@ HtmlDrawWindow(pCanvas, pNode, x, y, w, h, size_only)
     pCanvas->right = MAX(pCanvas->right, x+w);
     pCanvas->bottom = MAX(pCanvas->bottom, y+h);
     pCanvas->top = MIN(pCanvas->top, y);
-
 }
 
 /*

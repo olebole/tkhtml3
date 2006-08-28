@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.207 2006/08/26 06:08:53 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.208 2006/08/28 08:10:02 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -1334,6 +1334,7 @@ drawReplacementContent(pLayout, pBox, pNode)
     height = PIXELVAL(pV, HEIGHT, PIXELVAL_AUTO);
     if (height != PIXELVAL_AUTO) height = MAX(height, 1);
     if (width != PIXELVAL_AUTO) width = MAX(width, 1);
+    assert(width != 0);
 
     if (pNode->pReplacement && pNode->pReplacement->win) {
         CONST char *zReplace = Tcl_GetString(pNode->pReplacement->pReplace);
@@ -1341,12 +1342,32 @@ drawReplacementContent(pLayout, pBox, pNode)
         if (win) {
             Tcl_Obj *pWin = 0;
             int iOffset;
+            int mmt = pLayout->minmaxTest;
+
+            assert(width != 0);
+            if (width == PIXELVAL_AUTO) {
+                switch (mmt) {
+                    case MINMAX_TEST_MIN: width = Tk_MinReqWidth(win); break;
+                    default: 
+                        width = MIN(pBox->iContaining, Tk_ReqWidth(win));
+                }
+            }
+            if (height == PIXELVAL_AUTO) {
+                switch (mmt) {
+                    case MINMAX_TEST_MIN: height = Tk_MinReqHeight(win); break;
+                    default: height = Tk_ReqHeight(win);
+                }
+            }
+            width = MAX(width, Tk_MinReqWidth(win));
+            height = MAX(height, Tk_MinReqHeight(win));
+
             if (!pLayout->minmaxTest) {
                 doConfigureCmd(pLayout->pTree, pNode, pBox->iContaining);
                 pWin = Tcl_NewStringObj(zReplace, -1);
+                pNode->pReplacement->iWidth = width;
+                pNode->pReplacement->iHeight = height;
             }
-            width = Tk_ReqWidth(win);
-            height = Tk_ReqHeight(win);
+
             iOffset = pNode->pReplacement->iOffset;
             DRAW_WINDOW(&pBox->vc, pNode, 0, 0, width, height);
         }
@@ -1356,6 +1377,16 @@ drawReplacementContent(pLayout, pBox, pNode)
         pImg = HtmlImageScale(pImg, &width, &height, (t ? 0 : 1));
         HtmlDrawImage(&pBox->vc, pImg, 0, 0, width, height, pNode, t);
         HtmlImageFree(pImg);
+    }
+
+    if ( pNode->iNode >= 0 && pLayout->pTree->options.logcmd ){
+        HtmlTree *pTree = pLayout->pTree;
+        HtmlLog(pTree, "LAYOUTENGINE", "%s drawReplacementContent() (%s) %dx%d",
+            Tcl_GetString(HtmlNodeCommand(pTree, pNode)),
+            (pLayout->minmaxTest == MINMAX_TEST_MIN ? "mintest" : 
+             pLayout->minmaxTest == MINMAX_TEST_MAX ? "maxtest" : "regular"),
+             width, height
+        );
     }
 
     /* Note that width and height may still be PIXELVAL_AUTO here (if we failed

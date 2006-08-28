@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.31 2006/08/17 10:37:36 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.32 2006/08/28 08:10:02 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -26,12 +26,13 @@ source [file join [file dirname [info script]] combobox.tcl]
 #         <!ELEMENT ISINDEX  - O EMPTY> 
 #
 #     This module registers node handler scripts with client html widgets for
-#     these five element types.
+#     these five element types. The <isindex> element (from ancient times) is
+#     handled specially, by transforming it to an equivalent HTML4 form.
 #
-#         <input>            -> button|radiobutton|combobox|entry|image
-#         <button>           -> button|image
-#         <select>           -> combobox
-#         <textarea>         -> text
+#         <input>       -> button|radiobutton|checkbutton|combobox|entry|image
+#         <button>      -> button|image
+#         <select>      -> combobox
+#         <textarea>    -> text
 #
 # <input>
 # type = text|password|checkbox|radio|submit|reset|file|hidden|image|button
@@ -722,8 +723,17 @@ snit::type ::hv3::formmanager {
   }
 
   method control_handler {node} {
+
+
     set name [string map {: _} $node]
-    set control [::hv3::control ${myHtml}.control_${name} $node]
+
+    if {[$node tag] eq "input" && [$node attr -default "" type] eq "image"} {
+      $node override [list -tkhtml-replacement-image [$node attr src]]
+      # set control [::hv3::imagecontrol %AUTO% $node]
+      return
+    } else {
+      set control [::hv3::control ${myHtml}.control_${name} $node]
+    }
 
     set N [lindex $myFormStack end]
     if {$N ne ""} {

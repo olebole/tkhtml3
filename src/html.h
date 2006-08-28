@@ -187,6 +187,8 @@ struct HtmlNodeReplacement {
     HtmlNodeReplacement *pNext;   /* Next element in HtmlTree.pMapped list */
     int iCanvasX;                 /* Current X canvas coordinate of window */
     int iCanvasY;                 /* Current Y canvas coordinate of window */
+    int iWidth;                   /* Current calculated pixel width of window*/
+    int iHeight;                  /* Current calculated pixel height of window*/
 };
 
 /*

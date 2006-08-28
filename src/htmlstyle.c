@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlstyle.c,v 1.42 2006/08/26 13:00:17 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlstyle.c,v 1.43 2006/08/28 08:10:02 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -271,6 +271,9 @@ stackCompare(pVoidLeft, pVoidRight)
  *     comparision function is stable. It is quite an expensive check,
  *     so is normally disabled at compile time. Change the "#if 0"
  *     below to reenable the checking.
+ *
+ *     NOTE: If you got this file from tkhtml.tcl.tk and there is an 
+ #           "#if 1" in the code below, I have checked it in by mistake.
  *
  * Results:
  *     None.
