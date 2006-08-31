@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.32 2006/08/28 08:10:02 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.33 2006/08/31 07:46:28 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -273,6 +273,8 @@ snit::widget ::hv3::control {
     $myWidget configure -textvar [myvar myValue]
     $myWidget configure -background white
 
+    # Borders are specified by CSS and drawn by the html widget. So
+    # disable the entry widget's built-in border.
     $myWidget configure -borderwidth 0
     $myWidget configure -selectborderwidth 0
     $myWidget configure -highlightthickness 0
@@ -280,15 +282,14 @@ snit::widget ::hv3::control {
     # If this is a password entry field, obscure it's contents
     if {$isPassword} { $myWidget configure -show * }
 
-    # Html Attributes:
-    #
-    #     Attribute     Default      Usage
-    #     --------------------------------
-    #     size          20           width of field in characters
-    #     value         ""           initial contents of field
-    #
-    $myWidget configure -width [$myControlNode attr -default 20 size]
-    set myValue                [$myControlNode attr -default "" value]
+    # Set the default width of the widget to 20 characters. Unless there
+    # is no size attribute and the CSS 'width' property is set to "auto",
+    # this will be overidden.
+    $myWidget configure -width 20
+
+    # The "value" attribute, if any, is used as the initial contents
+    # of the entry widget.
+    set myValue [$myControlNode attr -default "" value]
 
     # Pressing enter in an entry widget submits the form.
     bind $myWidget <KeyPress-Return> [mymethod Submit]
@@ -516,6 +517,36 @@ snit::widget ::hv3::control {
   }
 }
 
+::snit::type ::hv3::clickcontrol {
+  variable myNode ""
+  variable mySuccess 0
+
+  option -submitcmd -default ""
+
+  constructor {node} {
+    set myNode $node
+  }
+ 
+  method value {}   { return [$myNode attr -default "" value] }
+  method name {}    { return [$myNode attr -default "" name] }
+  method success {} { return $mySuccess }
+
+  method submit {} {
+    # The control that submits the form is successful
+    set mySuccess 1
+    set cmd $options(-submitcmd)
+    if {$cmd ne ""} {
+      eval $cmd
+    }
+  }
+
+  method configurecmd {values} {}
+
+  method dump {values} {
+    return "TODO"
+  }
+}
+
 #-----------------------------------------------------------------------
 # ::hv3::format_query
 #
@@ -680,6 +711,17 @@ snit::type ::hv3::form {
   }
 }
 
+# ::hv3::formmanager
+#
+#     Each hv3 mega-widget has a single instance of the following type
+#     It contains the logic and state required to manager any HTML forms
+#     contained in the local document. This type implements the "manager"
+#     events interface:
+#
+#         $formmanager press X Y
+#         $formmanager release X Y
+#         $formmanager motion X Y
+#    
 snit::type ::hv3::formmanager {
 
   option -getcmd  -default ""
@@ -690,9 +732,15 @@ snit::type ::hv3::formmanager {
   # a </form> is encountered, the end element (if any) is removed.
   variable myFormStack ""
 
+  # Map from node-handle to ::hv3::clickcontrol object for all clickable
+  # form controls currently managed by this form-manager.
+  variable myClickControls -array [list]
+  variable myClicked ""
+
   variable myHv3
   variable myHtml
   variable myForms -array [list]
+
 
   constructor {hv3 args} {
     $self configurelist $args
@@ -706,6 +754,9 @@ snit::type ::hv3::formmanager {
 
     $myHtml handler parse form [mymethod FormHandler start]
     $myHtml handler parse /form [mymethod FormHandler end]
+
+    bind $myHv3 <ButtonPress-1>   "+[mymethod press %x %y]"
+    bind $myHv3 <ButtonRelease-1> "+[mymethod release %x %y]"
   }
 
   # FormHandler
@@ -724,13 +775,17 @@ snit::type ::hv3::formmanager {
 
   method control_handler {node} {
 
-
     set name [string map {: _} $node]
-
-    if {[$node tag] eq "input" && [$node attr -default "" type] eq "image"} {
+  
+    set tag  [$node tag]
+    set type [$node attr -default "" type]
+    if {$tag eq "input" && $type eq "image"} {
       $node override [list -tkhtml-replacement-image [$node attr src]]
-      # set control [::hv3::imagecontrol %AUTO% $node]
-      return
+      set control [::hv3::clickcontrol %AUTO% $node]
+      set myClickControls($node) $control
+    } elseif {$tag eq "input" && $type eq "submit"} {
+      set control [::hv3::clickcontrol %AUTO% $node]
+      set myClickControls($node) $control
     } else {
       set control [::hv3::control ${myHtml}.control_${name} $node]
     }
@@ -759,14 +814,40 @@ snit::type ::hv3::formmanager {
       $myForms($form) destroy
     }
     array unset myForms
+    array unset myClickControls
     set myFormStack [list]
   }
-
 
   method dumpforms {} {
     foreach form [array names myForms] {
       puts [$myForms($form) dump]
     }
+  }
+
+  # The "manager" events interface - [press], [release] and [motion].
+  #
+  method press {x y} {
+    set N [lindex [$myHv3 node $x $y] end]
+    while {$N ne ""} {
+      if {[info exists myClickControls($N)]} {
+        set myClicked $N
+        return
+      }
+      set N [$N parent]
+    }
+  }
+  method release {x y} {
+    set N [lindex [$myHv3 node $x $y] end]
+    while {$N ne ""} {
+      if {$N eq $myClicked} {
+        $myClickControls($N) submit
+        break
+      }
+      set N [$N parent]
+    }
+    set myClicked ""
+  }
+  method motion {X Y} {
   }
 }
 

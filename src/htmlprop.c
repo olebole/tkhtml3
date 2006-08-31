@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.90 2006/08/26 06:08:53 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.91 2006/08/31 07:46:28 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -2115,9 +2115,9 @@ HtmlComputedValuesFinish(p)
     }
 
     if (
-        p->values.eDisplay == CSS_CONST_TABLE_CAPTION ||
-        p->values.eDisplay == CSS_CONST_RUN_IN ||
-        p->values.eDisplay == CSS_CONST_INLINE_BLOCK
+        p->values.eDisplay == CSS_CONST_TABLE_CAPTION
+        || p->values.eDisplay == CSS_CONST_RUN_IN
+        /* || p->values.eDisplay == CSS_CONST_INLINE_BLOCK */
     ) {
         p->values.eDisplay = CSS_CONST_BLOCK;
     }

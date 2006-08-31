@@ -168,12 +168,31 @@ BR {
  * Default decorations for form items. 
  */
 INPUT[type="hidden"] { display: none }
-
 INPUT[type] { border: none }
+
 INPUT, INPUT[type="file"], INPUT[type="text"], INPUT[type="password"], TEXTAREA { 
   border: 2px solid;
-  /* border-color: #848280 #faf9f7 #faf9f7 #848280; */
   border-color: #848280 #ececec #ececec #848280;
+}
+
+/*
+ * Default style for buttons created using <input> elements.
+ */
+INPUT[type="submit"] {
+  display: inline-block;
+  border: 2px solid;
+  border-color: #ffffff #828282 #828282 #ffffff;
+  background-color: #d9d9d9;
+  color: #000000;
+  padding: 3px 10px 1px 10px;
+  white-space: nowrap;
+}
+INPUT[type="submit"]:after {
+  content: tcl(::tkhtml::attr value);
+  position: relative;
+}
+INPUT[type="submit"]:hover:active {
+  border-color: #828282 #ffffff #ffffff #828282;
 }
 
 INPUT[size] {

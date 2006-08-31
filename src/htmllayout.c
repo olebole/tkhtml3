@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.208 2006/08/28 08:10:02 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.209 2006/08/31 07:46:28 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -2637,6 +2637,73 @@ normalFlowLayoutInline(pLayout, pBox, pNode, pY, pContext, pNormal)
     return 0;
 }
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * normalFlowLayoutInlineBlock --
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+normalFlowLayoutInlineBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
+    LayoutContext *pLayout;
+    BoxContext *pBox;
+    HtmlNode *pNode;
+    int *pY;
+    InlineContext *pContext;
+    NormalFlow *pNormal;
+{
+    BoxContext sBox;           /* Content */
+    BoxContext sBox2;          /* After wrapContent() */
+    BoxContext sBox3;          /* Adjusted for vertical margins */
+
+    int yoffset;
+    int iHeight;
+    int iWidth;                /* Calculated value of 'width' */
+    int w;                     /* Width of wrapped inline-block */
+    int iContaining;
+
+    MarginProperties margin;
+    BoxProperties box;
+
+    memset(&sBox, 0, sizeof(BoxContext));
+    memset(&sBox2, 0, sizeof(BoxContext));
+    memset(&sBox3, 0, sizeof(BoxContext));
+
+    iWidth = PIXELVAL(pNode->pPropertyValues, WIDTH, pBox->iContaining);
+    iContaining = iWidth;
+    if (iContaining == PIXELVAL_AUTO) {
+        blockMinMaxWidth(pLayout, pNode, &iContaining, 0);
+    }
+
+    sBox.iContaining = iContaining;
+    HtmlLayoutNodeContent(pLayout, &sBox, pNode);
+    if (iWidth != PIXELVAL_AUTO) {
+        sBox.width = iWidth;
+    }
+    wrapContent(pLayout, &sBox2, &sBox, pNode);
+    w = sBox2.width;
+
+    nodeGetMargins(pLayout, pNode, pBox->iContaining, &margin);
+    nodeGetBoxProperties(pLayout, pNode, pBox->iContaining, &box);
+    iHeight = sBox2.height + margin.margin_top + margin.margin_bottom;
+    yoffset = -1 * (
+        iHeight - margin.margin_bottom - box.iBottom - 
+        pNode->pPropertyValues->fFont->em_pixels + 
+        pNode->pPropertyValues->fFont->metrics.ascent
+    );
+
+    DRAW_CANVAS(&sBox3.vc, &sBox2.vc, 0, margin.margin_top, pNode);
+    HtmlInlineContextAddBox(pContext, pNode, &sBox3.vc, w, iHeight, yoffset);
+    return 0;
+}
+
 static int 
 normalFlowLayoutAbsolute(pLayout, pBox, pNode, pY, pContext, pNormal)
     LayoutContext *pLayout;
@@ -2758,6 +2825,7 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
     F( LIST_ITEM,       1, 1, 0, normalFlowLayoutListItem);
     F( TEXT,            0, 0, 0, normalFlowLayoutText);
     F( INLINE,          0, 0, 0, normalFlowLayoutInline);
+    F( INLINE_BLOCK,    0, 0, 0, normalFlowLayoutInlineBlock);
     F( INLINE_REPLACED, 0, 0, 0, normalFlowLayoutReplacedInline);
     F( ABSOLUTE,        0, 0, 0, normalFlowLayoutAbsolute);
     F( FIXED,           0, 0, 0, normalFlowLayoutFixed);
@@ -2795,6 +2863,11 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
         /* Do nothing */
     } else if (eDisplay == CSS_CONST_INLINE) {
         pFlow = &FT_INLINE;
+        if (nodeIsReplaced(pNode)) {
+            pFlow = &FT_INLINE_REPLACED;
+        } 
+    } else if (eDisplay == CSS_CONST_INLINE_BLOCK) {
+        pFlow = &FT_INLINE_BLOCK;
         if (nodeIsReplaced(pNode)) {
             pFlow = &FT_INLINE_REPLACED;
         } 
@@ -3073,6 +3146,7 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
     /* TODO: Should the fourth case ("display:inline") really be here? */
     assert( 
         DISPLAY(pNode->pPropertyValues) == CSS_CONST_BLOCK ||
+        DISPLAY(pNode->pPropertyValues) == CSS_CONST_INLINE_BLOCK ||
         DISPLAY(pNode->pPropertyValues) == CSS_CONST_TABLE_CELL ||
         DISPLAY(pNode->pPropertyValues) == CSS_CONST_LIST_ITEM ||
         DISPLAY(pNode->pPropertyValues) == CSS_CONST_INLINE

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.101 2006/08/22 06:34:31 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.102 2006/08/31 07:46:28 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -430,14 +430,33 @@ snit::type ::hv3::hv3::selectionmanager {
 snit::type ::hv3::hv3::dynamicmanager {
   variable myHv3
   variable myHoverNodes [list]
+  variable myActiveNodes [list]
 
   constructor {hv3} {
     set myHv3 $hv3
     bind $myHv3 <Motion> "+[mymethod motion %x %y]"
+    bind $myHv3 <ButtonPress-1>   "+[mymethod press %x %y]"
+    bind $myHv3 <ButtonRelease-1> "+[mymethod release %x %y]"
   }
 
   method reset {} {
     set myHoverNodes [list]
+  }
+
+  method press {x y} {
+    set N [lindex [$myHv3 node $x $y] end]
+    while {$N ne ""} {
+      lappend myActiveNodes $N
+      $N dynamic set active
+      set N [$N parent]
+    }
+  }
+
+  method release {x y} {
+    foreach N $myActiveNodes {
+      $N dynamic clear active
+    }
+    set myActiveNodes [list]
   }
 
   method motion {x y} {
