@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.209 2006/08/31 07:46:28 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.210 2006/08/31 09:35:48 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -607,6 +607,10 @@ considerMinMaxWidth(pNode, iContaining, piWidth)
  *     This FlowLayoutFunc is called to handle an in-flow block with the
  *     'overflow' property set to something other than "visible" - i.e.
  *     "scroll", "hidden" or "auto".
+ *
+ *     At least some of the code in this function should be combined with
+ *     that in normalFlowLayoutBlock() (and possibly normalFlowLayoutTable()
+ *     for that matter).
  * 
  * Results:
  *     None.
@@ -638,6 +642,7 @@ normalFlowLayoutOverflow(pLayout, pBox, pNode, pY, pContext, pNormal)
     int iLeft;             /* Left floating margin where box is drawn */
     int iRight;            /* Right floating margin where box is drawn */
     int iWidth;            /* Width of box */
+    int iSpareWidth;
 
     blockMinMaxWidth(pLayout, pNode, &min, 0);
 
@@ -687,8 +692,35 @@ normalFlowLayoutOverflow(pLayout, pBox, pNode, pY, pContext, pNormal)
     if (pV->eOverflow == CSS_CONST_HIDDEN) {
         HtmlDrawOverflow(&sContent.vc, pNode, sContent.width, sContent.height);
     }
-
     wrapContent(pLayout, &sBox, &sContent, pNode);
+
+    iSpareWidth = MAX(0, (iRight - iLeft - sBox.width));
+    if (margin.leftAuto && margin.rightAuto) {
+        iLeft += iSpareWidth / 2;
+    } else if (margin.leftAuto) {
+        iLeft += iSpareWidth;
+    } else if (!margin.rightAuto && PIXELVAL(pV, WIDTH, 0) != PIXELVAL_AUTO) {
+        /* In this case the box is over-constrained. Do the same thing as
+         * we do for tables in this case. TODO: Should combine with tables
+         * code, and probably replaced block-level elements too.
+         *
+         * See also: normalFlowLayoutTable().
+         */
+        int eTextAlign = CSS_CONST_LEFT;
+        HtmlNode *pParent = HtmlNodeParent(pNode);
+        if (pParent) {
+            eTextAlign = pParent->pPropertyValues->eTextAlign;
+        }
+        switch (eTextAlign) {
+            case CSS_CONST_RIGHT:
+                iLeft += iSpareWidth;
+                break;
+            case CSS_CONST_CENTER:
+                iLeft += (iSpareWidth / 2);
+                break;
+        }
+    }
+
     DRAW_CANVAS(&pBox->vc, &sBox.vc, iLeft, y, pNode);
 
     *pY = y + sBox.height;
@@ -1994,7 +2026,7 @@ normalFlowLayoutTable(pLayout, pBox, pNode, pY, pContext, pNormal)
         eAlign = CSS_CONST_RIGHT;
     } else {
 	/* In this case the box is over-constrained. So we'll respect the
-	 * text-align option of the parent node to select an alignment. 
+	 * text-align option of the parent node to select an alignment.
          *
 	 * I can't find anything to justify this in the specification, but
 	 * http://www.google.com has code like this:
