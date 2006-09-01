@@ -104,7 +104,7 @@ namespace eval tkhtml {
         }
 
         # Figure out if we are talking characters or pixels:
-        switch -- [$node attr -default text type] {
+        switch -- [string tolower [$node attr -default text type]] {
           text     { set units ex }
           password { set units ex }
           default  { set units px }

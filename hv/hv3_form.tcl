@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.34 2006/09/01 04:44:44 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.35 2006/09/01 16:31:45 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -254,6 +254,7 @@ snit::widget ::hv3::control {
     $myWidget insert 0.0 $contents
 
     $myWidget configure -borderwidth 0
+    $myWidget configure -pady 0
     $myWidget configure -selectborderwidth 0
     $myWidget configure -highlightthickness 0
     $myWidget configure -background white
@@ -505,9 +506,13 @@ snit::widget ::hv3::control {
     catch { $myWidget configure -font $v(font) }
 
     set font [$myWidget cget -font]
-    set descent [font metrics $font -descent]
-    set ascent  [font metrics $font -ascent]
-    set drop [expr ([winfo reqheight $myWidget] + $descent - $ascent) / 2]
+    if {$class eq "Text" || $class eq "Entry"} {
+        set drop [font metrics $font -descent]
+    } else {
+        set descent [font metrics $font -descent]
+        set ascent  [font metrics $font -ascent]
+        set drop [expr ([winfo reqheight $myWidget] + $descent - $ascent) / 2]
+    }
     return $drop
   }
 }

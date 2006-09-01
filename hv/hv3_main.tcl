@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.64 2006/09/01 04:44:44 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.65 2006/09/01 16:31:45 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -783,8 +783,8 @@ snit::type ::hv3::search {
     return $myMenu
   }
 
-  method search {{label ""}} {
-    if {$label eq ""} {set label $myDefaultEngine}
+  method search {{default ""}} {
+    if {$default eq ""} {set default $myDefaultEngine}
 
     # The currently visible ::hv3::browser_toplevel widget.
     set btl [.notebook current]
@@ -802,7 +802,7 @@ snit::type ::hv3::search {
     ::hv3::googlewidget $fdname  \
         -getcmd [list $btl goto] \
         -config $conf            \
-        -initial $label
+        -initial $default
 
     $btl packwidget $fdname
     $fdname configure -borderwidth 1 -relief raised

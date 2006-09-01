@@ -13,6 +13,7 @@ TABLE {
   font-weight:  normal;
   font-style:   normal;
   font-variant: normal;
+  text-align: left;
 }
 
 /* Vertical margins of <p> elements do not collapse against the top or
