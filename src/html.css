@@ -204,7 +204,7 @@ INPUT[size] { width: tcl(::tkhtml::inputsize_to_css) }
 TEXTAREA[cols] { width: tcl(::tkhtml::textarea_width) }
 TEXTAREA[rows] { height: tcl(::tkhtml::textarea_height) }
 TEXTAREA {
-  font: fixed;
+  font-family: fixed;
 }
 
 FRAMESET {

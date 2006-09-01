@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.211 2006/09/01 04:44:45 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.212 2006/09/01 06:13:34 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -2700,7 +2700,7 @@ normalFlowLayoutInlineBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
     BoxContext sBox3;          /* Adjusted for vertical margins */
 
     int ylinebox = 0;
-    int iAscent;
+    int iAscent = 0;
     int xlinebox = 0;
     int iHeight;
     int iWidth;                /* Calculated value of 'width' */
