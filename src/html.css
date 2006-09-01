@@ -186,6 +186,7 @@ INPUT[type="submit"] {
   color: #000000;
   padding: 3px 10px 1px 10px;
   white-space: nowrap;
+  text-align: center;
 }
 INPUT[type="submit"]:after {
   content: tcl(::tkhtml::attr value);
@@ -195,8 +196,15 @@ INPUT[type="submit"]:hover:active {
   border-color: #828282 #ffffff #ffffff #828282;
 }
 
-INPUT[size] {
-  width: tcl(::tkhtml::inputsize_to_css)
+INPUT[size] { width: tcl(::tkhtml::inputsize_to_css) }
+
+/* Handle "cols" and "rows" on a <textarea> element. By default, use
+ * a fixed width font in <textarea> elements.
+ */
+TEXTAREA[cols] { width: tcl(::tkhtml::textarea_width) }
+TEXTAREA[rows] { height: tcl(::tkhtml::textarea_height) }
+TEXTAREA {
+  font: fixed;
 }
 
 FRAMESET {

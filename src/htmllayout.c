@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.210 2006/08/31 09:35:48 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.211 2006/09/01 04:44:45 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -1413,11 +1413,13 @@ drawReplacementContent(pLayout, pBox, pNode)
 
     if ( pNode->iNode >= 0 && pLayout->pTree->options.logcmd ){
         HtmlTree *pTree = pLayout->pTree;
-        HtmlLog(pTree, "LAYOUTENGINE", "%s drawReplacementContent() (%s) %dx%d",
+        HtmlLog(pTree, "LAYOUTENGINE", 
+            "%s drawReplacementContent() (%s) %dx%d descent=%d",
             Tcl_GetString(HtmlNodeCommand(pTree, pNode)),
             (pLayout->minmaxTest == MINMAX_TEST_MIN ? "mintest" : 
              pLayout->minmaxTest == MINMAX_TEST_MAX ? "maxtest" : "regular"),
-             width, height
+             width, height, 
+             (pNode->pReplacement ? pNode->pReplacement->iOffset : 0)
         );
     }
 
@@ -2580,17 +2582,19 @@ normalFlowLayoutReplacedInline(pLayout, pBox, pNode, pY, pContext, pNormal)
     int yoffset;
     int iHeight;
     MarginProperties margin;
+    BoxProperties box;
 
     memset(&sBox, 0, sizeof(BoxContext));
     sBox.iContaining = pBox->iContaining;
     drawReplacement(pLayout, &sBox, pNode);
 
     nodeGetMargins(pLayout, pNode, pBox->iContaining, &margin);
+    nodeGetBoxProperties(pLayout, pNode, pBox->iContaining, &box);
     iHeight = sBox.height + margin.margin_top + margin.margin_bottom;
 
-    yoffset = -1 * (iHeight - margin.margin_bottom);
+    yoffset = -1 * (iHeight - margin.margin_bottom - box.iBottom);
     if (pNode->pReplacement) {
-      yoffset += pNode->pReplacement->iOffset;
+        yoffset += pNode->pReplacement->iOffset;
     }
 
     memset(&sBox2, 0, sizeof(BoxContext));
@@ -2695,7 +2699,9 @@ normalFlowLayoutInlineBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
     BoxContext sBox2;          /* After wrapContent() */
     BoxContext sBox3;          /* Adjusted for vertical margins */
 
-    int yoffset;
+    int ylinebox = 0;
+    int iAscent;
+    int xlinebox = 0;
     int iHeight;
     int iWidth;                /* Calculated value of 'width' */
     int w;                     /* Width of wrapped inline-block */
@@ -2722,17 +2728,14 @@ normalFlowLayoutInlineBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
     wrapContent(pLayout, &sBox2, &sBox, pNode);
     w = sBox2.width;
 
+
     nodeGetMargins(pLayout, pNode, pBox->iContaining, &margin);
     nodeGetBoxProperties(pLayout, pNode, pBox->iContaining, &box);
     iHeight = sBox2.height + margin.margin_top + margin.margin_bottom;
-    yoffset = -1 * (
-        iHeight - margin.margin_bottom - box.iBottom - 
-        pNode->pPropertyValues->fFont->em_pixels + 
-        pNode->pPropertyValues->fFont->metrics.ascent
-    );
+    HtmlDrawFindLinebox(&sBox2.vc, &xlinebox, &iAscent);
 
     DRAW_CANVAS(&sBox3.vc, &sBox2.vc, 0, margin.margin_top, pNode);
-    HtmlInlineContextAddBox(pContext, pNode, &sBox3.vc, w, iHeight, yoffset);
+    HtmlInlineContextAddBox(pContext, pNode, &sBox3.vc, w, iHeight, -1*iAscent);
     return 0;
 }
 

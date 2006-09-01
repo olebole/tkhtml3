@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.63 2006/08/26 13:00:17 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.64 2006/09/01 04:44:44 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -732,11 +732,14 @@ snit::type ::hv3::search {
   ]
   
   variable mySearchEngines [list \
-      {Google} "http://www.google.com/search?q=%s"                           \
-      {Tcl Wiki} "http://wiki.tcl.tk/2?Q=%s"                                 \
-      {Yahoo} "http://search.yahoo.com/search?p=%s"                          \
-      {Ask.com} "http://www.ask.com/web?q=%s"                                \
-      {Wikipedia} "http://en.wikipedia.org/wiki/Special:Search?search=%s"    \
+      ----------- -                                                        \
+      {Google}    "http://www.google.com/search?q=%s"                      \
+      {Tcl Wiki}  "http://wiki.tcl.tk/2?Q=%s"                              \
+      ----------- -                                                        \
+      {Ask.com}   "http://www.ask.com/web?q=%s"                            \
+      {MSN}       "http://search.msn.com/results.aspx?q=%s"                \
+      {Wikipedia} "http://en.wikipedia.org/wiki/Special:Search?search=%s"  \
+      {Yahoo}     "http://search.yahoo.com/search?p=%s"                    \
   ]
   variable myDefaultEngine Google
 
@@ -752,6 +755,11 @@ snit::type ::hv3::search {
     array set hotkeys $myHotKeys
 
     foreach {label uri} $mySearchEngines {
+
+      if {[string match ---* $label]} {
+        $myMenu add separator
+        continue
+      }
 
       $myMenu add command -label $label -command [mymethod search $label]
 
@@ -783,10 +791,17 @@ snit::type ::hv3::search {
 
     set fdname ${btl}.findwidget
     if {[llength [info commands $fdname]] > 0} return
+
+    set conf [list]
+    foreach {label uri} $mySearchEngines {
+      if {![string match ---* $label]} {
+        lappend conf $label $uri
+      }
+    }
   
     ::hv3::googlewidget $fdname  \
         -getcmd [list $btl goto] \
-        -config $mySearchEngines \
+        -config $conf            \
         -initial $label
 
     $btl packwidget $fdname

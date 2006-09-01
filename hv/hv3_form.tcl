@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.33 2006/08/31 07:46:28 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.34 2006/09/01 04:44:44 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -247,11 +247,6 @@ snit::widget ::hv3::control {
 
   method CreateTextWidget {} {
     set myWidget [text ${win}.widget]
-    set cols [$myControlNode attr -default 60 cols]
-    set rows [$myControlNode attr -default 10 rows]
-
-    $myWidget configure -height $rows 
-    $myWidget configure -width $cols
     set contents ""
     foreach child [$myControlNode children] {
       append contents [$child text -pre]
@@ -401,7 +396,7 @@ snit::widget ::hv3::control {
   }
 
   method CreateRadioWidget {} {
-    set myWidget [radiobutton ${win}.widget]
+    set myWidget [radiobutton ${win}.widget -tristatevalue EWLhwEUGHWZAZWWZE]
     set myRadioVarname ::hv3::radiobutton_[$self name]
     set myValue [$myControlNode attr -default "" value]
 
@@ -507,7 +502,7 @@ snit::widget ::hv3::control {
       catch { $myWidget configure -highlightcolor $v(background-color) }
     }
 
-    # catch { $myWidget configure -font $v(font) }
+    catch { $myWidget configure -font $v(font) }
 
     set font [$myWidget cget -font]
     set descent [font metrics $font -descent]

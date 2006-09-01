@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.91 2006/08/31 07:46:28 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.92 2006/09/01 04:44:45 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1894,6 +1894,7 @@ setDisplay97(p)
             p->values.eDisplay = CSS_CONST_TABLE;
             break;
         case CSS_CONST_INLINE:
+        case CSS_CONST_INLINE_BLOCK:
         case CSS_CONST_RUN_IN:
         case CSS_CONST_TABLE_ROW_GROUP:
         case CSS_CONST_TABLE_COLUMN:

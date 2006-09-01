@@ -112,6 +112,22 @@ namespace eval tkhtml {
 
         return "${size}${units}"
     }
+    
+    # The following two procs are used to determine the width and height of
+    # <textarea> markups. Technically speaking, the "cols" and "rows"
+    # attributes are compulsory for <textarea> elements.
+    proc textarea_width {} {
+        upvar N node
+        set cols [$node attr -default "" cols]
+        if {[regexp {[[:digit:]]+}] $cols} { return "${cols}ex" }
+        return $cols
+    }
+    proc textarea_height {} {
+        upvar N node
+        set rows [$node attr -default "" rows]
+        if {[regexp {[[:digit:]]+} $rows]} { return "[expr ${rows} * 1.2]em" }
+        return $rows
+    }
 
     proc size_to_fontsize {} {
         upvar N node
