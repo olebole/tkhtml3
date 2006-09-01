@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlstyle.c,v 1.43 2006/08/28 08:10:02 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlstyle.c,v 1.44 2006/09/01 13:46:43 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -135,6 +135,25 @@ struct StackCompare {
          x == x->pStack->pNode && x->pStack->eType == STACK_CONTEXT \
 )
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * scoreStack --
+ *
+ * Results:
+ *     1 -> Border and background of stacking context box.
+ *     2 -> Descendants with negative z-index values.
+ *     3 -> In-flow, non-inline descendants.
+ *     4 -> Floats and their contents.
+ *     5 -> In-flow, inline descendants.
+ *     6 -> Positioned descendants with z-index values of "auto" or "0".
+ *     7 -> Descendants with positive z-index values.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
 static int
 scoreStack(pParentStack, pStack, eStack)
     HtmlNodeStack *pParentStack;
@@ -145,6 +164,7 @@ scoreStack(pParentStack, pStack, eStack)
     if (pStack == pParentStack) {
         return eStack;
     }
+    assert(pStack->pNode->pParent);
     if (pStack->eType == STACK_FLOAT) return 4;
     if (pStack->eType == STACK_AUTO) return 6;
     z = pStack->pNode->pPropertyValues->iZIndex;
@@ -243,7 +263,8 @@ stackCompare(pVoidLeft, pVoidRight)
         if (z2 == PIXELVAL_AUTO) z2 = 0;
         iRes = z1 - z2;
     }
-    if (iRes == 0 && (iRight == 4 || pLeftStack == pRightStack)) {
+    /* if (iRes == 0 && (iRight == 4 || pLeftStack == pRightStack)) { */
+    if (iRes == 0 && pLeftStack == pRightStack) {
         iRes = (pLeft->eStack - pRight->eStack);
     }
     if (iRes == 0) {
