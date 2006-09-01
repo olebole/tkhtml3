@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.13 2006/08/16 17:33:44 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.14 2006/09/01 05:30:35 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd and -cancelrequestcmd
@@ -6,7 +6,7 @@ namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.13 2006/08/16 17:33:44 d
 # are:
 #
 #     * http:// (including cookies)
-#     * file://
+#     * file:// (code for this is now in hv3_file.tcl)
 #     * data://
 #     * https:// (if the "tls" package is available)
 #
@@ -15,6 +15,8 @@ package require snit
 package require Tk
 package require http
 catch { package require tls }
+
+source [sourcefile hv3_file.tcl]
 
 #
 # ::hv3::protocol
@@ -75,7 +77,7 @@ snit::type ::hv3::protocol {
 
     # Register the 4 types of URIs the ::hv3::protocol code knows about.
     # Note that https:// URIs require the "tls" package.
-    $self schemehandler file  [mymethod request_file]
+    $self schemehandler file  ::hv3::request_file
     $self schemehandler http  [mymethod request_http]
     $self schemehandler data  [mymethod request_data]
     if {[info commands ::tls::socket] ne ""} {
@@ -222,38 +224,6 @@ snit::type ::hv3::protocol {
     return $ss
   }
   # End of code for https://
-
-  # Handle a file:// URI.
-  #
-  method request_file {downloadHandle} {
-
-    # Extract the "path" and "authority" components from the URI
-    set uri_obj [::hv3::uri %AUTO% [$downloadHandle uri]]
-    set path      [$uri_obj cget -path]
-    set authority [$uri_obj cget -authority]
-    $uri_obj destroy
-
-    set filename $path
-    if {$::tcl_platform(platform) eq "windows" && $authority ne ""} {
-      set filename "$authority:$path"
-    }
-
-    # Read the file from the file system. The [open] or [read] command
-    # might throw an exception. No problem, the hv3 widget will catch
-    # it and automatically deem the request to have failed.
-    #
-    # Unless the expected mime-type begins with the string "text", 
-    # configure the file-handle for binary mode.
-    set fd [open $filename]
-    if {![string match text* [$downloadHandle cget -mimetype]]} {
-      fconfigure $fd -encoding binary -translation binary
-    }
-    set data [read $fd]
-    close $fd
-
-    $downloadHandle append $data
-    $downloadHandle finish
-  }
 
   # Handle a data: URI.
   #
