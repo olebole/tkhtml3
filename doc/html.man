@@ -388,7 +388,7 @@
 		order in which the two specified points occur in the
 		document is not important.
 
-		The [SQ pathName tag add] command removes the specified tag
+		The [SQ pathName tag remove] command removes the specified tag
 		from all displayed characters between the point in the document
 		described by (_node1_, _index1_) and the point described by
 		(_node2_, _index2_). 

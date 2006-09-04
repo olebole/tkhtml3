@@ -177,5 +177,16 @@ namespace eval tkhtml {
         }
         error "No such ancestor attribute: $tag $attr"
     }
+
+    proc vscrollbar {base node} {
+      set sb [scrollbar ${base}.vsb_[string map {: _} $node]]
+      $sb configure -borderwidth 1 -highlightthickness 0 -command "$node yview"
+      return $sb
+    }
+    proc hscrollbar {base node} {
+      set sb [scrollbar ${base}.hsb_[string map {: _} $node] -orient horiz]
+      $sb configure -borderwidth 1 -highlightthickness 0 -command "$node xview"
+      return $sb
+    }
 }
 

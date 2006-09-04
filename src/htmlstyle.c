@@ -36,11 +36,55 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlstyle.c,v 1.44 2006/09/01 13:46:43 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlstyle.c,v 1.45 2006/09/04 16:18:03 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
 #include <string.h>
+
+void
+HtmlDelScrollbars(pTree, pNode)
+    HtmlTree *pTree;
+    HtmlNode *pNode;
+{
+    HtmlNodeScrollbars *p = pNode->pScrollbar;
+    if (p) {
+        if (p->vertical.win) {
+	    /* Remove any entry from the HtmlTree.pMapped list. */
+            if (&p->vertical == pTree->pMapped) {
+                pTree->pMapped = p->vertical.pNext;
+            } else {
+                HtmlNodeReplacement *pCur = pTree->pMapped; 
+                while( pCur && pCur->pNext != &p->vertical ) pCur = pCur->pNext;
+                if (pCur) {
+                    pCur->pNext = p->vertical.pNext;
+                }
+            }
+
+            Tk_DestroyWindow(p->vertical.win);
+            Tcl_DecrRefCount(p->vertical.pReplace);
+        }
+        if (p->horizontal.win) {
+	    /* Remove any entry from the HtmlTree.pMapped list. */
+            if (&p->horizontal == pTree->pMapped) {
+                pTree->pMapped = p->horizontal.pNext;
+            } else {
+                HtmlNodeReplacement *pCur = pTree->pMapped; 
+                while( pCur && pCur->pNext != &p->horizontal ) {
+                    pCur = pCur->pNext;
+                }
+                if (pCur) {
+                    pCur->pNext = p->horizontal.pNext;
+                }
+            }
+
+            Tk_DestroyWindow(p->horizontal.win);
+            Tcl_DecrRefCount(p->horizontal.pReplace);
+        }
+        HtmlDelete(HtmlNodeScrollbars, p);
+        pNode->pScrollbar = 0;
+    }
+}
 
 void
 HtmlDelStackingInfo(pTree, pNode)
@@ -372,6 +416,7 @@ printf("Stack %d: %s %s\n", iTmp,
     checkStackSort(pTree, apTmp, pTree->nStack * 3);
 
     pTree->cb.flags &= (~HTML_STACK);
+    HtmlFree(0, apTmp);
 }
 
 /*

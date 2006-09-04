@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.122 2006/08/23 11:57:12 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.123 2006/09/04 16:18:03 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -417,7 +417,7 @@ callbackHandler(clientData)
         pTree->cb.flags &= ~HTML_DAMAGE;
         while (pD) {
             HtmlDamage *pNext = pD->pNext;
-            HtmlFree("HtmlDamage", pD);
+            HtmlDelete(HtmlDamage, pD);
             pD = pNext;
         }
         pTree->cb.pDamage = 0;
@@ -433,12 +433,13 @@ callbackHandler(clientData)
             HtmlLog(pTree, 
                 "ACTION", "Repair: %dx%d +%d+%d", pD->w, pD->h, pD->x, pD->y
             );
-            HtmlWidgetRepair(pTree, pD->x, pD->y, pD->w, pD->h, pD->pixmapok);
+            HtmlWidgetRepair(pTree, pD->x, pD->y, pD->w, pD->h, 
+                pD->pixmapok, (pTree->cb.flags & HTML_NODESCROLL)?1:0
+            );
             HtmlFree("HtmlDamage", pD);
             pD = pNext;
         }
     }
-    assert(pTree->cb.pDamage == 0);
 
     /* If the HTML_SCROLL flag is set, scroll the viewport. */
     if (pTree->cb.flags & HTML_SCROLL) {
@@ -723,12 +724,11 @@ HtmlCallbackDamage(pTree, x, y, w, h, pixmapok)
     assert(pTree->cb.h > 0);
 #endif
  
-    pNew = (HtmlDamage *)HtmlAlloc("HtmlDamage", sizeof(HtmlDamage));
+    pNew = HtmlNew(HtmlDamage);
     pNew->x = x;
     pNew->y = y;
     pNew->w = w;
     pNew->h = h;
-    pNew->pixmapok = 0;
     pNew->pNext = pTree->cb.pDamage;
     pTree->cb.pDamage = pNew;
 
@@ -1955,7 +1955,7 @@ int widgetCmd(clientData, interp, objc, objv)
         {"styleconfig", 0,          styleconfigCmd},
         {"stylereport", 0,          stylereportCmd},
 #ifndef NDEBUG
-        {"_hashstats", 0, hashstatsCmd},  
+        {"_hashstats", 0, hashstatsCmd},
 #endif
     };
 

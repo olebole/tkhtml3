@@ -55,6 +55,9 @@
 /* HtmlClearAlloc() is a version of HtmlAlloc() that returns zeroed memory */
 #define HtmlClearAlloc(zTopic, x) ((char *)memset(HtmlAlloc(zTopic,(x)),0,(x)))
 
+#define HtmlNew(x) ((x *)HtmlClearAlloc(#x, sizeof(x)))
+#define HtmlDelete(x, p) (HtmlFree(#x, p))
+
 #define USE_COMPOSITELESS_PHOTO_PUT_BLOCK
 #include <tk.h>
 
@@ -118,6 +121,7 @@ typedef struct HtmlCallback HtmlCallback;
 typedef struct HtmlNodeCmd HtmlNodeCmd;
 typedef struct HtmlLayoutCache HtmlLayoutCache;
 typedef struct HtmlNodeContent HtmlNodeContent;
+typedef struct HtmlNodeScrollbars HtmlNodeScrollbars;
 
 typedef struct HtmlImageServer HtmlImageServer;
 typedef struct HtmlImage2 HtmlImage2;
@@ -195,11 +199,13 @@ struct HtmlNodeReplacement {
     Tcl_Obj *pDelete;             /* Script passed to -deletecmd */
     int iOffset;                  /* See above */
 
-    HtmlNodeReplacement *pNext;   /* Next element in HtmlTree.pMapped list */
+    /* Display related variables */
+    int clipped;                  /* Boolean. If true, do not display */
     int iCanvasX;                 /* Current X canvas coordinate of window */
     int iCanvasY;                 /* Current Y canvas coordinate of window */
     int iWidth;                   /* Current calculated pixel width of window*/
     int iHeight;                  /* Current calculated pixel height of window*/
+    HtmlNodeReplacement *pNext;   /* Next element in HtmlTree.pMapped list */
 };
 
 /*
@@ -229,6 +235,29 @@ struct HtmlNodeStack {
     int iStackingZ;
     HtmlNodeStack *pNext;
     HtmlNodeStack *pPrev;
+};
+
+/*
+ * Scrollbar information for nodes with "overflow:auto" or "overflow:scroll".
+ * Nodes for which the overflow property takes one of the other values 
+ * ("hidden" or "visible") do not have an associated instance of this
+ * structure. 
+ *
+ * The structure itself is allocated and released seperately for
+ * each node by style-engine code. The layout-engine takes care of
+ * creating the scrollbars (if required).
+ */
+struct HtmlNodeScrollbars {
+    HtmlNodeReplacement vertical;
+    HtmlNodeReplacement horizontal;
+
+    int iVertical;
+    int iHorizontal;
+
+    int iHeight;               /* Height of viewport */
+    int iWidth;                /* Width of viewport */
+    int iVerticalMax;          /* Height of scrollable area */
+    int iHorizontalMax;        /* Width of scrollable area */
 };
 
 /*
@@ -279,6 +308,7 @@ struct HtmlNode {
     HtmlNode *pAfter;                      /* Generated :after content */
 
     HtmlLayoutCache *pLayoutCache;         /* Cached layout, if any */
+    HtmlNodeScrollbars *pScrollbar;        /* Cached layout, if any */
 
     HtmlNodeReplacement *pReplacement;     /* Replaced object, if any */
     HtmlNodeCmd *pNodeCmd;                 /* Tcl command for this node */
@@ -349,6 +379,7 @@ struct HtmlDamage {
   int w;
   int h;
   int pixmapok;
+  int windowsrepair;
   HtmlDamage *pNext;
 };
 
@@ -382,6 +413,7 @@ struct HtmlCallback {
 #define HTML_LAYOUT     0x08
 #define HTML_SCROLL     0x10
 #define HTML_STACK      0x20
+#define HTML_NODESCROLL 0x40
 
 /* 
  * Functions used to schedule callbacks and set the HtmlCallback state. 
@@ -665,7 +697,7 @@ void HtmlLayoutInvalidateCache(HtmlTree *, HtmlNode *);
 void HtmlWidgetNodeBox(HtmlTree *, HtmlNode *, int *, int *, int *, int *);
 
 void HtmlWidgetSetViewport(HtmlTree *, int, int, int);
-void HtmlWidgetRepair(HtmlTree *, int, int, int, int, int);
+void HtmlWidgetRepair(HtmlTree *, int, int, int, int, int, int);
 
 int HtmlNodeClearStyle(HtmlTree *, HtmlNode *);
 int HtmlNodeClearGenerated(HtmlTree *, HtmlNode *);
@@ -691,6 +723,9 @@ void HtmlTextInvalidate(HtmlTree *);
 
 void HtmlWidgetBboxText(
 HtmlTree *, HtmlNode *, int, HtmlNode *, int, int *, int *, int *, int*);
+int HtmlNodeScrollbarDoCallback(HtmlTree *, HtmlNode *);
+
+void HtmlDelScrollbars(HtmlTree *, HtmlNode *);
 
 #endif
 

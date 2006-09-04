@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.39 2006/08/28 08:10:02 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.40 2006/09/04 16:18:03 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_prop.tcl --
@@ -216,7 +216,8 @@ snit::widget HtmlDebug {
     unset -nocomplain myStyleEngineLog
     $html relayout
     after idle [list ::HtmlDebug::browse $myHtml $mySelected]
-    after idle [list $html configure -logcmd $logcmd]
+    # after idle [list $html configure -logcmd $logcmd]
+    $html configure -logcmd $logcmd
   }
 
   method searchNodeBg {idx} {
@@ -461,7 +462,8 @@ snit::widget HtmlDebug {
     }
     if {$arrayvar != ""} {
       if {$message == "START"} {
-        # unset -nocomplain $arrayvar
+        #unset -nocomplain $arrayvar
+        unset -nocomplain $arrayvar
       } else {
         set idx [string first " " $message]
         set node [string range $message 0 [expr $idx-1]]

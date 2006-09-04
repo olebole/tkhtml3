@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.104 2006/08/24 16:11:45 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.105 2006/09/04 16:18:03 danielk1977 Exp $";
 
 
 #include "htmllayout.h"
@@ -1672,6 +1672,7 @@ int HtmlTableLayout(pLayout, pBox, pNode)
     HtmlFree(0, (char *)aY);
     HtmlFree(0, (char *)aCell);
     HtmlFree(0, (char *)aReqWidth);
+    HtmlFree(0, (char *)aSingleReqWidth);
 
     HtmlComputedValuesRelease(pTree, data.pDefaultProperties);
 

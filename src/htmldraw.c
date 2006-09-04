@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.164 2006/08/28 08:10:02 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.165 2006/09/04 16:18:03 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -221,6 +221,8 @@ struct CanvasWindow {
     int x;                   /* Relative x coordinate */
     int y;                   /* Relative y coordinate */
     HtmlNode *pNode;         /* Node replaced by this window */
+    int iWidth;              /* CSS determined width of widget */
+    int iHeight;             /* CSS determined height of widget */
 };
 
 /*
@@ -303,8 +305,11 @@ struct Overflow {
     CanvasOverflow *pItem;
     int x;                   /* Top left of region relative to origin */
     int y;                   /* Top left of region relative to origin */
-    int w;                   /* Top left of region relative to origin */
-    int h;                   /* Top left of region relative to origin */
+    int w;                   /* Width of region */
+    int h;                   /* Height of region */
+
+    int xscroll;
+    int yscroll;
 
     /* Used by pixmapQueryCb() */
     Overflow *pNext;
@@ -513,10 +518,10 @@ windowsRepair(pTree, pCanvas)
     while (p) {
         HtmlNodeReplacement *pNext = p->pNext;
         Tk_Window control = p->win;
-        int iViewY; 
-        int iWidth; 
-        int iHeight; 
-        int iViewX; 
+        int iViewY;
+        int iWidth;
+        int iHeight;
+        int iViewX;
 
         if (pTree) {
             iViewX = p->iCanvasX - pTree->iScrollX;
@@ -531,8 +536,9 @@ windowsRepair(pTree, pCanvas)
          */
 	if (
             !pTree ||
-            iViewX > w || iViewY > h || 
-            (iViewX + iWidth) <= 0 || (iViewY + iHeight) <= 0
+            iViewX > w || iViewY > h ||
+            (iViewX + iWidth) <= 0 || (iViewY + iHeight) <= 0 ||
+            p->clipped || iWidth <= 0 || iHeight <= 0
         ) {
             if (Tk_IsMapped(control)) {
                 Tk_UnmapWindow(control);
@@ -1356,6 +1362,8 @@ HtmlDrawWindow(pCanvas, pNode, x, y, w, h, size_only)
         pItem->x.w.pNode = pNode;
         pItem->x.w.x = x;
         pItem->x.w.y = y;
+        pItem->x.w.iWidth = w;
+        pItem->x.w.iHeight = h;
         linkItem(pCanvas, pItem);
     }
 
@@ -1650,6 +1658,57 @@ struct Outline {
     Outline *pNext;
 };
 
+static void
+drawScrollbars(pTree, pItem, origin_x, origin_y)
+    HtmlTree *pTree;
+    HtmlCanvasItem *pItem;
+    int origin_x;
+    int origin_y;
+{
+    if (pItem->x.w.pNode->pScrollbar) {
+        HtmlNodeReplacement *pRep = &pItem->x.box.pNode->pScrollbar->vertical;
+        HtmlNodeReplacement *p;
+        HtmlComputedValues *pV = pItem->x.box.pNode->pPropertyValues;
+
+        /* Vertical */
+        if (pRep->win) {
+            pRep->iCanvasX  = origin_x + pItem->x.box.x + pItem->x.box.w;
+            pRep->iCanvasX -= pRep->iWidth;
+            if (pV->eBorderRightStyle != CSS_CONST_NONE) {
+                pRep->iCanvasX -= pV->border.iRight;
+            }
+            pRep->iCanvasY = origin_y + pItem->x.box.y;
+            if (pV->eBorderTopStyle != CSS_CONST_NONE) {
+                pRep->iCanvasY += pV->border.iTop;
+            }
+            for (p = pTree->pMapped; p && p != pRep; p = p->pNext);
+            if (!p) {
+                pRep->pNext = pTree->pMapped;
+                pTree->pMapped = pRep;
+            }
+        }
+
+        /* Horizontal */
+        pRep = &pItem->x.box.pNode->pScrollbar->horizontal;
+        if (pRep->win) {
+            pRep->iCanvasY  = origin_y + pItem->x.box.y + pItem->x.box.h;
+            pRep->iCanvasY -= pRep->iHeight;
+            if (pV->eBorderBottomStyle != CSS_CONST_NONE) {
+                pRep->iCanvasY -= pV->border.iBottom;
+            }
+            pRep->iCanvasX = origin_x + pItem->x.box.x;
+            if (pV->eBorderLeftStyle != CSS_CONST_NONE) {
+                pRep->iCanvasX += pV->border.iLeft;
+            }
+            for (p = pTree->pMapped; p && p != pRep; p = p->pNext);
+            if (!p) {
+                pRep->pNext = pTree->pMapped;
+                pTree->pMapped = pRep;
+            }
+        }
+    }
+}
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -1897,6 +1956,7 @@ drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview)
         pOutline->pNode = pBox->pNode;
         return pOutline;
     }
+
     return 0;
 }
 
@@ -2146,13 +2206,20 @@ searchCanvas(pTree, ymin, ymax, pNode, xFunc, clientData)
             case CANVAS_ORIGIN: {
                 CanvasOrigin *pOrigin1 = &pItem->x.o;
                 CanvasOrigin *pOrigin2 = 0;
+                int ymin2 = ymin;
+                int ymax2 = ymax;
                 if (pOrigin1->pSkip) pOrigin2 = &pItem->x.o.pSkip->x.o;
+
+                if (iOverflow >= 0) {
+                    ymin2 += apOverflow[iOverflow]->yscroll;
+                    ymax2 += apOverflow[iOverflow]->yscroll;
+                }
     
                 origin_x += pOrigin1->x;
                 origin_y += pOrigin1->y;
                 if (pOrigin2 && (
-                    (ymax >= 0 && (origin_y + pOrigin1->vertical) > ymax) ||
-                    (ymin >= 0 && (origin_y + pOrigin2->vertical) < ymin))
+                    (ymax >= 0 && (origin_y + pOrigin1->vertical) > ymax2) ||
+                    (ymin >= 0 && (origin_y + pOrigin2->vertical) < ymin2))
                 ) {
                    pSkip = pOrigin1->pSkip;
                 }
@@ -2170,6 +2237,7 @@ searchCanvas(pTree, ymin, ymax, pNode, xFunc, clientData)
             }
 
             case CANVAS_OVERFLOW: {
+                HtmlNode *pNode = pItem->x.overflow.pNode;
                 iOverflow++;
                 assert(iOverflow <= nOverflow);
                 if (iOverflow == nOverflow) {
@@ -2185,14 +2253,31 @@ searchCanvas(pTree, ymin, ymax, pNode, xFunc, clientData)
                 apOverflow[iOverflow]->h = pItem->x.overflow.h;
                 apOverflow[iOverflow]->pixmap = 0;
                 apOverflow[iOverflow]->pNext = 0;
+
+                /* Adjust the x and y coords for scrollable blocks: */
+                apOverflow[iOverflow]->xscroll = 0;
+                apOverflow[iOverflow]->yscroll = 0;
+                if (pNode->pScrollbar) {
+                    apOverflow[iOverflow]->xscroll = 
+                       pNode->pScrollbar->iHorizontal;
+                    apOverflow[iOverflow]->yscroll = 
+                       pNode->pScrollbar->iVertical;
+                }
+           
                 break;
             }
            
             default: {
                 int x, y, w, h;
+                int ymin2 = ymin;
+                int ymax2 = ymax;
                 nTest++;
                 itemToBox(pItem, origin_x, origin_y, &x, &y, &w, &h);
-                if ((ymax < 0 || y <= ymax) && (ymin < 0 || (y + h) >= ymin)) {
+                if (iOverflow >= 0) {
+                    ymin2 += apOverflow[iOverflow]->yscroll;
+                    ymax2 += apOverflow[iOverflow]->yscroll;
+                }
+                if ((ymax < 0 || y <= ymax2) && (ymin < 0 || (y+h) >= ymin2)) {
                     Overflow *pOver = 0;
                     if (iOverflow >= 0) {
                         pOver = apOverflow[iOverflow];
@@ -2422,8 +2507,8 @@ pixmapQueryCb(pItem, origin_x, origin_y, pOverflow, clientData)
         }
 
         drawable = p->pixmap;
-        x = origin_x - p->x;
-        y = origin_y - p->y;
+        x = origin_x - p->x - p->xscroll;
+        y = origin_y - p->y - p->yscroll;
         w = p->w;
         h = p->h;
     }
@@ -2448,6 +2533,9 @@ pixmapQueryCb(pItem, origin_x, origin_y, pOverflow, clientData)
                 p->pNext = pQuery->pOutline;
                 pQuery->pOutline = p;
             }
+            if (pQuery->getwin) {
+                drawScrollbars(pQuery->pTree, pItem, origin_x, origin_y);
+            }
             break;
         }
 
@@ -2463,6 +2551,35 @@ pixmapQueryCb(pItem, origin_x, origin_y, pOverflow, clientData)
 
                 pRep->iCanvasX = origin_x + pItem->x.w.x;
                 pRep->iCanvasY = origin_y + pItem->x.w.y;
+                pRep->iWidth   = pItem->x.w.iWidth;
+                pRep->iHeight  = pItem->x.w.iHeight;
+                pRep->clipped = 0;
+
+                if (pQuery->pCurrentOverflow) {
+                    Overflow *pOver = pQuery->pCurrentOverflow;
+
+                    /* Adjust for the current scroll position */
+                    pRep->iCanvasX -= pOver->xscroll;
+                    pRep->iCanvasY -= pOver->yscroll;
+
+                    /* Vertical clipping */
+                    if (pRep->iCanvasY < pOver->y) {
+                        pRep->iHeight -= (pOver->y - pRep->iCanvasY);
+                        pRep->iCanvasY = pOver->y;
+                    }
+                    if (pRep->iCanvasY + pRep->iHeight > pOver->y + pOver->h) {
+                        pRep->iHeight = pOver->y + pOver->h - pRep->iCanvasY;
+                    }
+
+                    /* Horizontal clipping */
+                    if (pRep->iCanvasX < pOver->x) {
+                        pRep->iWidth -= (pOver->x - pRep->iCanvasX);
+                        pRep->iCanvasX = pOver->x;
+                    }
+                    if (pRep->iCanvasX + pRep->iWidth > pOver->x + pOver->w) {
+                        pRep->iWidth = pOver->x + pOver->w - pRep->iCanvasX;
+                    }
+                }
 
                 for (p = pTree->pMapped; p && p != pRep; p = p->pNext);
                 if (!p) {
@@ -2750,6 +2867,12 @@ layoutNodeIndexCb(pItem, origin_x, origin_y, pOverflow, clientData)
         int x, y, w, h;
         itemToBox(pItem, origin_x, origin_y, &x, &y, &w, &h);
 
+        if (pOverflow) {
+            x -= pOverflow->xscroll;
+            y -= pOverflow->yscroll;
+            /* TODO: Clipping */
+        }
+
         /* If our point is actually inside the bounding box of this
          * text item, then this item is returned as the "closest text".
          */
@@ -2912,8 +3035,11 @@ layoutNodeCb(pItem, origin_x, origin_y, pOverflow, clientData)
     NodeQuery *pQuery = (NodeQuery *)clientData;
     HtmlNode *pNode;
 
-
     pNode = itemToBox(pItem, origin_x, origin_y, &x, &y, &w, &h);
+    if (pOverflow) {
+        x -= pOverflow->xscroll;
+        y -= pOverflow->yscroll;
+    }
 
     /* If the query point is clipped by the overflow region, do
      * not include this node in the set returned by [pathName node].
@@ -3169,6 +3295,14 @@ paintNodesSearchCb(pItem, origin_x, origin_y, pOverflow, clientData)
                             left += Tk_TextWidth(pFont->tkfont, z, nStart);
                         }
                     }
+
+                    if (pOverflow) {
+                        top -= pOverflow->yscroll;
+                        bottom -= pOverflow->yscroll;
+                        left -= pOverflow->xscroll;
+                        right -= pOverflow->xscroll;
+                        /* TODO: Clip to overflow region (optimization only) */
+                    }
     
                     p->left   = MIN(left, p->left);
                     p->right  = MAX(right, p->right);
@@ -3408,6 +3542,10 @@ layoutBboxCb(pItem, origin_x, origin_y, pOverflow, clientData)
     HtmlNode *pNode;
 
     pNode = itemToBox(pItem, origin_x, origin_y, &x, &y, &w, &h);
+    if (pOverflow) {
+        x -= pOverflow->xscroll;
+        y -= pOverflow->yscroll;
+    }
     for (; pNode; pNode = HtmlNodeParent(pNode)) {
         if (pNode == pQuery->pNode) {
             pQuery->left = MIN(pQuery->left, x);
@@ -3555,19 +3693,20 @@ flushPixmap(pTree)
  *---------------------------------------------------------------------------
  */
 void 
-HtmlWidgetRepair(pTree, x, y, w, h, pixmapok)
+HtmlWidgetRepair(pTree, x, y, w, h, pixmapok, windowsrepair)
     HtmlTree *pTree;
     int x;
     int y;
     int w;
     int h;
     int pixmapok;
+    int windowsrepair;
 {
     /* Make sure the widget main window exists before painting anything */
     Tk_MakeWindowExist(pTree->tkwin);
 
     if (!pTree->pixmap || !pixmapok) {
-        widgetRepair(pTree, x, y, w, h, 0);
+        widgetRepair(pTree, x, y, w, h, windowsrepair);
     }
    
     if (pTree->pixmap) {
@@ -3582,6 +3721,10 @@ HtmlWidgetRepair(pTree, x, y, w, h, pixmapok)
         XCopyArea(pDisp, pTree->pixmap, xwin, gc, x, y, w, h, x, y);
  
         Tk_FreeGC(pDisp, gc);
+    }
+
+    if (windowsrepair) {
+        windowsRepair(pTree, &pTree->canvas);
     }
 }
 
