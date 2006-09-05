@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.213 2006/09/04 16:18:03 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.214 2006/09/05 16:06:02 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -598,6 +598,8 @@ considerMinMaxWidth(pNode, iContaining, piWidth)
     }
 }
 
+#define SCROLLBAR_WIDTH 15
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -633,48 +635,52 @@ createScrollbars(pTree, pNode, iWidth, iHeight, iHorizontal, iVertical)
     p->iVerticalMax = iVertical;
     p->iHorizontalMax = iHorizontal;
 
-    if (iVertical > 0 && !p->vertical.win) {
-        char zTmp[256];
-        Tcl_Obj *pName;
-        Tk_Window win;
-        snprintf(zTmp, 255, "::tkhtml::vscrollbar %s %s",
-            Tk_PathName(pTree->tkwin), 
-            Tcl_GetString(HtmlNodeCommand(pTree, pNode))
-        );
-        zTmp[255] = '\0';
-        Tcl_Eval(pTree->interp, zTmp);
-        pName = Tcl_GetObjResult(pTree->interp);
-        win = Tk_NameToWindow(
-            pTree->interp, Tcl_GetString(pName), pTree->tkwin
-        );
-        assert(win);
-        Tcl_IncrRefCount(pName);
-        p->vertical.pReplace = pName;
-        p->vertical.win = win;
-        p->vertical.iWidth = Tk_ReqWidth(win);
+    if (iVertical > 0) {
+        if (!p->vertical.win) {
+            char zTmp[256];
+            Tcl_Obj *pName;
+            Tk_Window win;
+            snprintf(zTmp, 255, "::tkhtml::vscrollbar %s %s",
+                Tk_PathName(pTree->tkwin), 
+                Tcl_GetString(HtmlNodeCommand(pTree, pNode))
+            );
+            zTmp[255] = '\0';
+            Tcl_Eval(pTree->interp, zTmp);
+            pName = Tcl_GetObjResult(pTree->interp);
+            win = Tk_NameToWindow(
+                pTree->interp, Tcl_GetString(pName), pTree->tkwin
+            );
+            assert(win);
+            Tcl_IncrRefCount(pName);
+            p->vertical.pReplace = pName;
+            p->vertical.win = win;
+        }
+        p->vertical.iWidth = SCROLLBAR_WIDTH;
         p->vertical.iHeight = iHeight;
     }
-    if (iHorizontal > 0 && !p->horizontal.win) {
-        char zTmp[256];
-        Tcl_Obj *pName;
-        Tk_Window win;
-        snprintf(zTmp, 255, "::tkhtml::hscrollbar %s %s",
-            Tk_PathName(pTree->tkwin), 
-            Tcl_GetString(HtmlNodeCommand(pTree, pNode))
-        );
-        zTmp[255] = '\0';
-        Tcl_Eval(pTree->interp, zTmp);
-        pName = Tcl_GetObjResult(pTree->interp);
-        win = Tk_NameToWindow(
-            pTree->interp, Tcl_GetString(pName), pTree->tkwin
-        );
-        assert(win);
-        Tcl_IncrRefCount(pName);
-        p->horizontal.pReplace = pName;
-        p->horizontal.win = win;
+    if (iHorizontal > 0) {
+        if (!p->horizontal.win) {
+            char zTmp[256];
+            Tcl_Obj *pName;
+            Tk_Window win;
+            snprintf(zTmp, 255, "::tkhtml::hscrollbar %s %s",
+                Tk_PathName(pTree->tkwin), 
+                Tcl_GetString(HtmlNodeCommand(pTree, pNode))
+            );
+            zTmp[255] = '\0';
+            Tcl_Eval(pTree->interp, zTmp);
+            pName = Tcl_GetObjResult(pTree->interp);
+            win = Tk_NameToWindow(
+                pTree->interp, Tcl_GetString(pName), pTree->tkwin
+            );
+            assert(win);
+            Tcl_IncrRefCount(pName);
+            p->horizontal.pReplace = pName;
+            p->horizontal.win = win;
+        }
         p->horizontal.iWidth = iWidth;
         p->horizontal.iWidth -= p->vertical.iWidth;
-        p->horizontal.iHeight = Tk_ReqHeight(win);
+        p->horizontal.iHeight = SCROLLBAR_WIDTH;
     }
     p->iHorizontalMax += p->vertical.iWidth;
     p->iVerticalMax += p->horizontal.iHeight;
@@ -713,6 +719,7 @@ normalFlowLayoutOverflow(pLayout, pBox, pNode, pY, pContext, pNormal)
     NormalFlow *pNormal;
 {
     HtmlComputedValues *pV = pNode->pPropertyValues;
+    int eOverflow = pV->eOverflow;
 
     MarginProperties margin;
     BoxProperties box;
@@ -724,36 +731,86 @@ normalFlowLayoutOverflow(pLayout, pBox, pNode, pY, pContext, pNormal)
     int iMPB;              /* Horizontal margins, padding, borders */
     int iLeft;             /* Left floating margin where box is drawn */
     int iRight;            /* Right floating margin where box is drawn */
-    int iWidth;            /* Width of box */
+    int iMinContentWidth;  /* Minimum content width */
+    int iMin;              /* Minimum width as used for vertical positioning */
     int iSpareWidth;
 
-    blockMinMaxWidth(pLayout, pNode, &min, 0);
+    int iWidth;            /* Content width of box */
+    int iHeight;           /* Content height of box */
+
+    int useVertical = 0;   /* True to use a vertical scrollbar */
+    int useHorizontal = 0; /* True to use a horizontal scrollbar */
 
     nodeGetMargins(pLayout, pNode, pBox->iContaining, &margin);
     nodeGetBoxProperties(pLayout, pNode, pBox->iContaining, &box);
-
+    iWidth = PIXELVAL(pV, WIDTH, pBox->iContaining);
     iMPB = margin.margin_left + margin.margin_right + box.iLeft + box.iRight;
 
-    /* Vertical margins always collapse above these blocks */
+    /* Collapse the vertical margins above this box. */
     normalFlowMarginAdd(pLayout, pNode, pNormal, margin.margin_top);
     normalFlowMarginCollapse(pLayout, pNode, pNormal, pY);
 
+    /* Do vertical positioning. (i.e. move the block downwards to accomadate
+     * the minimum or specified width if there are floating margins). 
+     * After this block has executed, variable iWidth contains the number
+     * of pixels between the horizontal padding edges of the box. If a 
+     * vertical scrollbar is used, it has to fit into this space along with
+     * the content.
+     */
+    iMin = iWidth;
+    blockMinMaxWidth(pLayout, pNode, &iMinContentWidth, 0);
+    if (iWidth == PIXELVAL_AUTO) {
+        iMin = iMinContentWidth;
+    }
+    iMin += iMPB;
+    y = HtmlFloatListPlace(pFloat, pBox->iContaining, iMin, 1000, *pY);
     iLeft = 0;
     iRight = pBox->iContaining;
-    y = HtmlFloatListPlace(pFloat, pBox->iContaining, min + iMPB, 1000, *pY);
     HtmlFloatListMargins(pFloat, y, y+1000, &iLeft, &iRight);
-
-    iWidth = PIXELVAL(pV, WIDTH, iRight - iLeft - iMPB);
     if (iWidth == PIXELVAL_AUTO) {
         iWidth = iRight - iLeft - iMPB;
     }
+    considerMinMaxWidth(pNode, pBox->iContaining, &iWidth);
 
+    /* Set variable iHeight to the specified height of the block. If
+     * there is no specified height "height:auto", set iHeight to 
+     * PIXELVAL_AUTO.
+     */
+    iHeight = PIXELVAL(pV, HEIGHT, pBox->iContainingHeight);
+   
+    /* Figure out whether or not this block uses a vertical scrollbar. */
+    if (eOverflow == CSS_CONST_SCROLL) {
+        useVertical = 1;
+    } else if (eOverflow == CSS_CONST_AUTO && iHeight != CSS_CONST_AUTO) {
+        memset(&sContent, 0, sizeof(BoxContext));
+        sContent.iContaining = iWidth;
+        sContent.iContainingHeight = iHeight;
+        HtmlLayoutNodeContent(pLayout, &sContent, pNode);
+        if ((sContent.height + SCROLLBAR_WIDTH) > iHeight) {
+            useVertical = 1;
+        }
+        HtmlDrawCleanup(pLayout->pTree, &sContent.vc);
+    }
+
+    /* Figure out whether or not this block uses a horizontal scrollbar. */
+    if (eOverflow == CSS_CONST_SCROLL || (
+            eOverflow == CSS_CONST_AUTO && 
+            iMinContentWidth > iWidth - (useVertical ? SCROLLBAR_WIDTH : 0)
+        )
+    ) {
+        useHorizontal = 1;
+    }
+   
     memset(&sBox, 0, sizeof(BoxContext));
     memset(&sContent, 0, sizeof(BoxContext));
-    sContent.iContaining = iWidth;
-    sContent.iContainingHeight = PIXELVAL(pV, HEIGHT, pBox->iContainingHeight);
+    sContent.iContaining = iWidth - (useVertical?SCROLLBAR_WIDTH:0);
+    sContent.iContainingHeight = iHeight;
+    if (iHeight != PIXELVAL_AUTO) {
+        sContent.iContainingHeight -= (useHorizontal ? SCROLLBAR_WIDTH : 0);
+    }
     HtmlLayoutNodeContent(pLayout, &sContent, pNode);
-    sContent.height = getHeight(pNode,sContent.height,pBox->iContainingHeight);
+    sContent.height = getHeight(pNode, sContent.height, iHeight);
+    sContent.width = iWidth;
 
     LOG(pNode) {
         HtmlTree *pTree = pLayout->pTree;
@@ -764,8 +821,6 @@ normalFlowLayoutOverflow(pLayout, pBox, pNode, pY, pContext, pNormal)
         );
     }
 
-    sContent.width = getWidth(iWidth, sContent.width);
-    considerMinMaxWidth(pNode, iRight - iLeft - iMPB, &sContent.width);
 
     /* Wrap an overflow primitive around the content of this box. At
      * the moment this just clips the displayed content. But eventually
@@ -773,13 +828,17 @@ normalFlowLayoutOverflow(pLayout, pBox, pNode, pY, pContext, pNormal)
      * required.
      */
     HtmlDrawOverflow(&sContent.vc, pNode, sContent.width, sContent.height);
-    if (pV->eOverflow == CSS_CONST_SCROLL || pV->eOverflow == CSS_CONST_AUTO) {
+    if (
+        pV->eOverflow == CSS_CONST_SCROLL || 
+        (pV->eOverflow == CSS_CONST_AUTO && (useHorizontal || useVertical))
+    ) {
         if (pNode->pScrollbar == 0) {
             pNode->pScrollbar = HtmlNew(HtmlNodeScrollbars);
         }
         createScrollbars(pLayout->pTree, pNode, 
             sContent.width, sContent.height,
-            sContent.vc.right, sContent.vc.bottom
+            useHorizontal ? sContent.vc.right : -1, 
+            useVertical ? sContent.vc.bottom : -1
         );
     }
     wrapContent(pLayout, &sBox, &sContent, pNode);
