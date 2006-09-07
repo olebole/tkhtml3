@@ -417,11 +417,33 @@
 }]
 
 [Subcommand -4 {
-	pathName text text
-	pathName text index _offset_ ?_offset_...?
 	pathName text bbox _node1_ _index1_ _node2_ _index2_
+	pathName text index _offset_ ?_offset_...?
 	pathName text offset _node_ _index_
-		TODO: Explain this.
+	pathName text text
+		The [SQ pathName text] commands allow an application to
+		query and interact with the text of the displayed document.
+		This can be used, for example, to search for a string
+		within an Html document, or to copy a region of text
+		to the system clipboard.
+
+		The [SQ pathName text text] command returns a string 
+		containing the raw, unformatted text of the displayed document.
+		Each block box is seperated from the next by a newline
+		character.
+
+		The [SQ pathName text index] command is used to transform
+		from an offset in the string returned by 
+		[SQ pathName text text] to a node/index pair that can be
+		used with the [SQ pathName tag] commands. The return value
+		is a list of two elements, the node-handle followed by the
+		index.
+
+		Command [SQ pathName text offset] is the reverse of 
+		[SQ pathName text index]. Given a node-handle and index of the
+		type similar to that used by the [SQ pathName tag] commands,
+		this command returns the corresponding offset in the 
+		string returned by [SQ pathName text text] command.
 }]
 
 [Subcommand -3 {

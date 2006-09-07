@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.214 2006/09/05 16:06:02 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.215 2006/09/07 08:30:49 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -781,7 +781,7 @@ normalFlowLayoutOverflow(pLayout, pBox, pNode, pY, pContext, pNormal)
     /* Figure out whether or not this block uses a vertical scrollbar. */
     if (eOverflow == CSS_CONST_SCROLL) {
         useVertical = 1;
-    } else if (eOverflow == CSS_CONST_AUTO && iHeight != CSS_CONST_AUTO) {
+    } else if (eOverflow == CSS_CONST_AUTO && iHeight != PIXELVAL_AUTO) {
         memset(&sContent, 0, sizeof(BoxContext));
         sContent.iContaining = iWidth;
         sContent.iContainingHeight = iHeight;
@@ -794,7 +794,7 @@ normalFlowLayoutOverflow(pLayout, pBox, pNode, pY, pContext, pNormal)
 
     /* Figure out whether or not this block uses a horizontal scrollbar. */
     if (eOverflow == CSS_CONST_SCROLL || (
-            eOverflow == CSS_CONST_AUTO && 
+            eOverflow == PIXELVAL_AUTO && 
             iMinContentWidth > iWidth - (useVertical ? SCROLLBAR_WIDTH : 0)
         )
     ) {

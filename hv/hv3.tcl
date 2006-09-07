@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.103 2006/09/01 04:44:44 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.104 2006/09/07 08:30:49 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -698,6 +698,9 @@ snit::widget ::hv3::hv3 {
     # Register handler commands to handle <object> and kin.
     $myHtml handler node object   [list hv3_object_handler $self]
     $myHtml handler node embed    [list hv3_object_handler $self]
+
+    # Register handler commands to handle <body>.
+    $myHtml handler node body   [mymethod body_node_handler]
   }
 
   destructor {
@@ -905,7 +908,39 @@ snit::widget ::hv3::hv3 {
         }
       }
     }
+  }
 
+  # Node handler script for <body> tags. The purpose of this handler
+  # and the [body_style_handler] method immediately below it is
+  # to handle the 'overflow' property on the document root element.
+  #
+  method body_node_handler {node} {
+    $node replace "" -stylecmd [mymethod body_style_handler $node]
+    $self body_style_handler $node
+  }
+  method body_style_handler {bodynode} {
+    set htmlnode [$bodynode parent]
+    set overflow [$htmlnode property overflow]
+
+    # Variable $overflow now holds the value of the 'overflow' property
+    # on the root element (the <html> tag). If this value is not "visible",
+    # then the value is used to govern the viewport scrollbars. If it is
+    # visible, then use the value of 'overflow' on the <body> element.
+    # See section 11.1.1 of CSS2.1 for details.
+    #
+    if {$overflow eq "visible"} {
+      set overflow [$bodynode property overflow]
+    }
+    switch -- $overflow {
+      visible { $self configure -scrollbarpolicy auto }
+      auto    { $self configure -scrollbarpolicy auto }
+      hidden  { $self configure -scrollbarpolicy 0 }
+      scroll  { $self configure -scrollbarpolicy 1 }
+      default {
+        puts stderr "Hv3 is confused: <body> has \"overflow:$overflow\"."
+        $self configure -scrollbarpolicy auto
+      }
+    }
   }
 
   # Node handler script for <link> tags.

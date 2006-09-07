@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.87 2006/09/04 16:18:03 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.88 2006/09/07 08:30:50 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -1871,7 +1871,7 @@ node_attr_usage:
          */
         case NODE_REPLACE: {
             if (objc > 2) {
-                Tcl_Obj *aArgs[3];
+                Tcl_Obj *aArgs[4];
                 HtmlNodeReplacement *pReplace = 0; /* New pNode->pReplacement */
                 int nBytes;                  /* bytes allocated at pReplace */
                 Tk_Window widget;            /* Replacement widget */
@@ -1879,10 +1879,11 @@ node_attr_usage:
 
                 const char *zWin = 0;        /* Replacement window name */
 
-                SwprocConf aArgConf[4] = {
-                    {SWPROC_ARG, "new-value", 0, 0},
-                    {SWPROC_OPT, "configurecmd", 0, 0},
-                    {SWPROC_OPT, "deletecmd", 0, 0},
+                SwprocConf aArgConf[] = {
+                    {SWPROC_ARG, "new-value", 0, 0},      /* aArgs[0] */
+                    {SWPROC_OPT, "configurecmd", 0, 0},   /* aArgs[1] */
+                    {SWPROC_OPT, "deletecmd", 0, 0},      /* aArgs[2] */
+                    {SWPROC_OPT, "stylecmd", 0, 0},       /* aArgs[3] */
                     {SWPROC_END, 0, 0, 0}
                 };
                 if (SwprocRt(interp, objc - 2, &objv[2], aArgConf, aArgs)) {
@@ -1892,8 +1893,8 @@ node_attr_usage:
                 zWin = Tcl_GetString(aArgs[0]);
 
                 if (zWin[0]) {
-		    /* Make sure the replacement object is a Tk window. 
-                     * Register Tkhtml as the geometry manager.
+		    /* If the replacement object is a Tk window,
+                     * register Tkhtml as the geometry manager.
                      */
                     widget = Tk_NameToWindow(interp, zWin, mainwin);
                     if (widget) {
@@ -1910,6 +1911,7 @@ node_attr_usage:
                     pReplace->pReplace = aArgs[0];
                     pReplace->pConfigure = aArgs[1];
                     pReplace->pDelete = aArgs[2];
+                    pReplace->pStyle = aArgs[3];
                     pReplace->win = widget;
                 }
 

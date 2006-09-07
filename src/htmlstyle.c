@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlstyle.c,v 1.45 2006/09/04 16:18:03 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlstyle.c,v 1.46 2006/09/07 08:30:49 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -338,7 +338,7 @@ stackCompare(pVoidLeft, pVoidRight)
  *     below to reenable the checking.
  *
  *     NOTE: If you got this file from tkhtml.tcl.tk and there is an 
- #           "#if 1" in the code below, I have checked it in by mistake.
+ *           "#if 1" in the code below, I have checked it in by mistake.
  *
  * Results:
  *     None.
@@ -507,6 +507,18 @@ styleNode(pTree, pNode, clientData)
             pNode->pAfter->pStack = pNode->pStack;
             pNode->pAfter->pParent = pNode;
             pNode->pAfter->iNode = -1;
+        }
+
+        /* If there has been a style-callback configured (-stylecmd option to
+         * the [nodeHandle replace] command) for this node, invoke it now.
+         */
+        if (pNode->pReplacement && pNode->pReplacement->pStyle) {
+            int rc = Tcl_EvalObjEx(
+                pTree->interp, pNode->pReplacement->pStyle, TCL_EVAL_GLOBAL
+            );
+            if (rc != TCL_OK) {
+                Tcl_BackgroundError(pTree->interp);
+            }
         }
     }
 
