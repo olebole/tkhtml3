@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.35 2006/09/01 16:31:45 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.36 2006/09/07 14:53:39 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -397,7 +397,8 @@ snit::widget ::hv3::control {
   }
 
   method CreateRadioWidget {} {
-    set myWidget [radiobutton ${win}.widget -tristatevalue EWLhwEUGHWZAZWWZE]
+    set myWidget [radiobutton ${win}.widget]
+    catch { $myWidget configure -tristatevalue EWLhwEUGHWZAZWWZE }
     set myRadioVarname ::hv3::radiobutton_[$self name]
     set myValue [$myControlNode attr -default "" value]
 
