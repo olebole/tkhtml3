@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.215 2006/09/07 08:30:49 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.216 2006/09/07 14:41:52 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -827,7 +827,12 @@ normalFlowLayoutOverflow(pLayout, pBox, pNode, pY, pContext, pNormal)
      * the HtmlCanvas module will automatically insert scrollbars if 
      * required.
      */
-    HtmlDrawOverflow(&sContent.vc, pNode, sContent.width, sContent.height);
+    if (
+        sContent.width < sContent.vc.right ||
+        sContent.height < sContent.vc.bottom
+    ) {
+        HtmlDrawOverflow(&sContent.vc, pNode, sContent.width, sContent.height);
+    }
     if (
         pV->eOverflow == CSS_CONST_SCROLL || 
         (pV->eOverflow == CSS_CONST_AUTO && (useHorizontal || useVertical))

@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.92 2006/09/01 04:44:45 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.93 2006/09/07 14:41:52 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -2398,11 +2398,26 @@ HtmlComputedValuesCleanupTables(pTree)
     }
 }
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlNodeGetProperty --
+ *
+ *     Obtain a Tcl (string) representation of the computed value of
+ *     a specified property.
+ *
+ * Results: 
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
 int 
 HtmlNodeGetProperty(interp, pProp, pValues)
-    Tcl_Interp *interp;
-    Tcl_Obj *pProp;
-    HtmlComputedValues *pValues;
+    Tcl_Interp *interp;                 /* Interpreter to set result in */
+    Tcl_Obj *pProp;                     /* Property name */
+    HtmlComputedValues *pValues;        /* Read value from here */
 {
     PropertyDef *pDef;
 
