@@ -185,14 +185,12 @@ declaration_list ::= declaration_list SEMICOLON ws.
 declaration ::= ws IDENT(X) ws COLON ws expr(E) prio(I). {
     HtmlCssDeclaration(pParse, &X, &E, I);
 }
-declaration ::= error trash.
+declaration ::= garbage.
 
-/*
-garbage_token ::= error.
-garbage_token ::= LP garbage RP.
 garbage ::= garbage_token.
 garbage ::= garbage garbage_token.
-*/
+garbage_token ::= error.
+garbage_token ::= LP garbage RP.
 
 %type prio {int}
 prio(X) ::= IMPORTANT_SYM ws. {X = (pParse->pStyleId) ? 1 : 0;}

@@ -1,0 +1,166 @@
+
+# Test script for Tkhtml
+#
+# This file contains test cases that ensure the handling of syntax
+# errors in stylesheets is consistent with other interpretations of
+# the various CSS specs.
+#
+# Interfaces:
+#
+#     pathName style TEXT
+#     pathName parse -final TEXT
+#     pathName search SELECTOR
+#     nodeHandle property PROPERTY-NAME
+#
+
+# Standard test file code.
+proc sourcefile {file} {
+  set fname [file join [file dirname [info script]] $file] 
+  uplevel #0 [list source $fname]
+}
+sourcefile common.tcl
+html .h -defaultstyle ""
+
+proc syntaxtest {name args} {
+  array set a $args
+  .h reset
+  .h parse -final $a(-document)
+  .h style $a(-style)
+  tcltest::test $name {} -body $a(-body) -result $a(-result)
+}
+
+#---------------------------------------------------------------------
+# The following tests - syntax-1.* - come from the selectors 
+# in the acid2 page.
+#
+syntaxtest syntax-1.0 -style {
+  div { 
+    background: yellow /* comment */ no-repeat /* comment */ ; 
+  }
+} -document {
+  <div></div>
+} -body {
+  set node [lindex [.h search div] 0]
+  $node property background-color
+} -result yellow
+
+syntaxtest syntax-1.1 -style {
+  [class~=one].first.one {color: red}
+} -document {
+  <div class="first one">
+} -body {
+  set node [lindex [.h search div] 0]
+  $node property color
+} -result red
+
+syntaxtest syntax-1.2 -style {
+  [class~=one][class~=first] [class=second\ two][class="second two"] 
+  {color : red}
+} -document {
+    <div class="first one">
+      <div id="1" class="second two">
+} -body {
+  set node [lindex [.h search {#1}] 0]
+  $node property color
+} -result red
+
+syntaxtest syntax-1.4 -style {
+  /* Note the syntax error in the next line! */
+  [class=second two] { background: red; }
+  .eyes { position: absolute }
+} -document {
+  <div class="eyes">
+} -body {
+  set node [lindex [.h search .eyes] 0]
+  $node property position
+} -result absolute
+
+#---------------------------------------------------------------------
+# The selector in this test case - syntax-2.0 - comes from 
+# "http://www.freenigma.com". This should just be handled as a 
+# syntax error (ignore the whole declaration):
+#
+#   a:* {
+#     text-decoration: none;
+#     color: #436976;
+#   }
+#
+syntaxtest syntax-2.0 -style {
+  * {color: black;}
+  a:* {
+    text-decoration: none;
+    color: #436976;
+  }
+} -document {
+  <a>Hello</a>
+} -body {
+  set node [lindex [.h search a] 0]
+  $node property color
+} -result black
+#
+# Also from www.freenigma.com:
+#
+#   @CHARSET "UTF-8";
+#
+#   div.content h1 { color: red }
+#
+
+#---------------------------------------------------------------------
+# The selector in this test case - syntax-3.0 - tests a problem found at
+# "http://www.yahoo.com". The lines prefixed with "*" should be skipped,
+# the others respected.
+#
+# Apparently people have figured out that the following are all legal
+# ways of commenting out a property/value pair in CSS:
+#
+#     selector {
+#       *prop: value;
+#       # prop: value;
+#       // prop: value;
+#     }
+#
+syntaxtest syntax-3.0 -style {
+  div {
+    text-decoration:underline;
+    *color:red;
+    color:green;
+    *text-decoration:strikethrough;
+  }
+} -document {
+  <div>Hello</div>
+} -body {
+  set node [lindex [.h search div] 0]
+  list [$node property color] [$node property text-decoration]
+} -result {green underline}
+syntaxtest syntax-3.1 -style {
+  div {
+    text-decoration:underline;
+    // color:red;
+    color:green;
+    # text-decoration:strikethrough;
+  }
+} -document {
+  <div>Hello</div>
+} -body {
+  set node [lindex [.h search div] 0]
+  list [$node property color] [$node property text-decoration]
+} -result {green underline}
+#---------------------------------------------------------------------
+
+syntaxtest syntax-4.0 -style {
+  @media all and (min-width: 0px) {
+      #primary {
+        margin-left: 0px;
+        padding-left: 0;
+      }
+  }
+  div {color:green}
+} -document {
+  <div>Hello</div>
+} -body {
+  set node [lindex [.h search div] 0]
+  $node property color
+} -result {green}
+
+finish_test
+
