@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.123 2006/09/04 16:18:03 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.124 2006/09/07 11:03:02 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -339,10 +339,8 @@ callbackHandler(clientData)
 
     assert(!pTree->pRoot||pTree->pRoot->pPropertyValues||pTree->cb.pRestyle);
 
-#if 0
     HtmlLog(pTree, "CALLBACK", 
-        "flags=( %s%s%s%s%s) pDynamic=%s pRestyle=%s scroll=(+%d+%d) "
-        "damage=(%dx%d+%d+%d)",
+        "flags=( %s%s%s%s%s) pDynamic=%s pRestyle=%s scroll=(+%d+%d) ",
         (p->flags & HTML_DYNAMIC ? "Dynamic " : ""),
         (p->flags & HTML_RESTYLE ? "Style " : ""),
         (p->flags & HTML_LAYOUT ? "Layout " : ""),
@@ -350,10 +348,8 @@ callbackHandler(clientData)
         (p->flags & HTML_SCROLL ? "Scroll " : ""),
         (p->pDynamic?Tcl_GetString(HtmlNodeCommand(pTree,p->pDynamic)):"N/A"),
         (p->pRestyle?Tcl_GetString(HtmlNodeCommand(pTree,p->pRestyle)):"N/A"),
-         p->iScrollX, p->iScrollY,
-         p->w, p->h, p->x, p->y
+         p->iScrollX, p->iScrollY
     );
-#endif
 
     assert(!pTree->cb.inProgress);
     pTree->cb.inProgress = 1;
@@ -443,11 +439,15 @@ callbackHandler(clientData)
 
     /* If the HTML_SCROLL flag is set, scroll the viewport. */
     if (pTree->cb.flags & HTML_SCROLL) {
+        clock_t scrollClock = 0;              
         int force_redraw = (pTree->cb.flags & HTML_LAYOUT);
-        HtmlLog(pTree, "ACTION", "SetViewport: x=%d y=%d force=%d", 
-            p->iScrollX, p->iScrollY, force_redraw
+        HtmlLog(pTree, "ACTION", "SetViewport: x=%d y=%d force=%d nFixed=%d", 
+            p->iScrollX, p->iScrollY, force_redraw, pTree->nFixedBackground
         );
+        scrollClock = clock();
         HtmlWidgetSetViewport(pTree, p->iScrollX, p->iScrollY, force_redraw);
+        scrollClock = clock() - scrollClock;
+        HtmlLog(pTree, "TIMING", "SetViewport: clicks=%d", scrollClock);
     }
 
     if (pTree->cb.flags & (HTML_SCROLL|HTML_LAYOUT)) {

@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.165 2006/09/04 16:18:03 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.166 2006/09/07 11:03:02 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -314,6 +314,10 @@ struct Overflow {
     /* Used by pixmapQueryCb() */
     Overflow *pNext;
     Pixmap pixmap;
+    int pmx;                 /* Top left of pixmap relative to origin */
+    int pmy;
+    int pmw;
+    int pmh;
 };
 
 static int pixmapQueryCb(HtmlCanvasItem *, int, int, Overflow *, ClientData);
@@ -2237,6 +2241,7 @@ searchCanvas(pTree, ymin, ymax, pNode, xFunc, clientData)
             }
 
             case CANVAS_OVERFLOW: {
+                Overflow *pOverflow = (Overflow *)&pItem[1];
                 HtmlNode *pNode = pItem->x.overflow.pNode;
                 iOverflow++;
                 assert(iOverflow <= nOverflow);
@@ -2245,23 +2250,21 @@ searchCanvas(pTree, ymin, ymax, pNode, xFunc, clientData)
                     apOverflow = (Overflow**)HtmlRealloc(0, apOverflow, nBytes);
                     nOverflow++;
                 }
-                apOverflow[iOverflow] = (Overflow *)&pItem[1];
-                apOverflow[iOverflow]->pItem = &pItem->x.overflow;
-                apOverflow[iOverflow]->x = pItem->x.overflow.x + origin_x;
-                apOverflow[iOverflow]->y = pItem->x.overflow.y + origin_y;
-                apOverflow[iOverflow]->w = pItem->x.overflow.w;
-                apOverflow[iOverflow]->h = pItem->x.overflow.h;
-                apOverflow[iOverflow]->pixmap = 0;
-                apOverflow[iOverflow]->pNext = 0;
+                apOverflow[iOverflow] = pOverflow;
+                pOverflow->pItem = &pItem->x.overflow;
+                pOverflow->x = pItem->x.overflow.x + origin_x;
+                pOverflow->y = pItem->x.overflow.y + origin_y;
+                pOverflow->w = pItem->x.overflow.w;
+                pOverflow->h = pItem->x.overflow.h;
+                pOverflow->pixmap = 0;
+                pOverflow->pNext = 0;
 
                 /* Adjust the x and y coords for scrollable blocks: */
-                apOverflow[iOverflow]->xscroll = 0;
-                apOverflow[iOverflow]->yscroll = 0;
+                pOverflow->xscroll = 0;
+                pOverflow->yscroll = 0;
                 if (pNode->pScrollbar) {
-                    apOverflow[iOverflow]->xscroll = 
-                       pNode->pScrollbar->iHorizontal;
-                    apOverflow[iOverflow]->yscroll = 
-                       pNode->pScrollbar->iVertical;
+                    pOverflow->xscroll = pNode->pScrollbar->iHorizontal; 
+                    pOverflow->yscroll = pNode->pScrollbar->iVertical;
                 }
            
                 break;
@@ -2353,6 +2356,28 @@ struct GetPixmapQuery {
 };
 
 static void
+clipRectangle(pX, pY, pW, pH, x2, y2, w2, h2)
+    int *pX;
+    int *pY;
+    int *pW;
+    int *pH;
+    int x2;
+    int y2;
+    int w2;
+    int h2;
+{
+    int x1 = *pX;
+    int y1 = *pY;
+    int w1 = *pW;
+    int h1 = *pH;
+
+    *pX = MAX(x1, x2);
+    *pY = MAX(y1, y2);
+    *pW = MIN((x1+w1) - *pX, (x2+w2) - *pX);
+    *pH = MIN((y1+h1) - *pY, (y2+h2) - *pY);
+}
+
+static void
 pixmapQuerySwitchOverflow(pQuery, pOverflow)
     GetPixmapQuery *pQuery;
     Overflow *pOverflow;
@@ -2385,21 +2410,10 @@ pixmapQuerySwitchOverflow(pQuery, pOverflow)
 
             int src_x = 0;
             int src_y = 0;
-            int dest_x = pCurrentOverflow->x + pQuery->x;
-            int dest_y = pCurrentOverflow->y + pQuery->y;
-            int copy_w = pCurrentOverflow->w;
-            int copy_h = pCurrentOverflow->h;
-
-            if (dest_x < 0) {
-                src_x = -1 * dest_x;
-                copy_w = copy_w + dest_x;
-                dest_x = 0;
-            }
-            if (dest_y < 0) {
-                src_y = -1 * dest_y;
-                copy_h = copy_h + dest_y;
-                dest_y = 0;
-            }
+            int dest_x = pCurrentOverflow->pmx - pQuery->x;
+            int dest_y = pCurrentOverflow->pmy - pQuery->y;
+            int copy_w = pCurrentOverflow->pmw;
+            int copy_h = pCurrentOverflow->pmh;
 
             if (copy_w > 0 && copy_h > 0) {
                 Tk_Window win = pQuery->pTree->tkwin;
@@ -2421,12 +2435,23 @@ pixmapQuerySwitchOverflow(pQuery, pOverflow)
 
         if (pOverflow && pOverflow->w > 0 && pOverflow->h > 0) {
 
-            int src_x = pOverflow->x + pQuery->x;
-            int src_y = pOverflow->y + pQuery->y;
+            pOverflow->pmx = pOverflow->x;
+            pOverflow->pmy = pOverflow->y;
+            pOverflow->pmw = pOverflow->w;
+            pOverflow->pmh = pOverflow->h;
+            clipRectangle(
+                &pOverflow->pmx, &pOverflow->pmy, 
+                &pOverflow->pmw, &pOverflow->pmh, 
+                pQuery->x, pQuery->y, pQuery->w, pQuery->h
+            );
+
+#if 0
+            int src_x = pOverflow->pmx - pQuery->x;
+            int src_y = pOverflow->pmy - pQuery->y;
             int dest_x = 0;
             int dest_y = 0;
-            int copy_w = pOverflow->w;
-            int copy_h = pOverflow->h;
+            int copy_w = pOverflow->pmw;
+            int copy_h = pOverflow->pmh;
 
             if (src_x < 0) {
                 dest_x = -1 * src_x;
@@ -2438,16 +2463,18 @@ pixmapQuerySwitchOverflow(pQuery, pOverflow)
                 copy_h = copy_h + src_y;
                 src_y = 0;
             }
+#endif
 
-            if (copy_w > 0 && copy_h > 0) {
+            if (pOverflow->pmw > 0 && pOverflow->pmh > 0) {
+
                 Tk_Window win = pQuery->pTree->tkwin;
                 GC gc;
                 XGCValues gc_values;
     
                 if (!pOverflow->pixmap) {
                     pOverflow->pixmap = Tk_GetPixmap(
-    		    Tk_Display(win), Tk_WindowId(win), 
-                        pOverflow->w, pOverflow->h,
+    		        Tk_Display(win), Tk_WindowId(win), 
+                        pOverflow->pmw, pOverflow->pmh,
                         Tk_Depth(win)
                     );
                     assert(pOverflow->pixmap);
@@ -2457,10 +2484,12 @@ pixmapQuerySwitchOverflow(pQuery, pOverflow)
                 memset(&gc_values, 0, sizeof(XGCValues));
                 gc = Tk_GetGC(pQuery->pTree->tkwin, 0, &gc_values);
 
-                assert(src_x >= 0 && src_y >= 0);
-                assert(dest_x >= 0 && dest_y >= 0);
+                assert(pOverflow->pmx >= pQuery->x);
+                assert(pOverflow->pmy >= pQuery->y);
                 XCopyArea(Tk_Display(win), pQuery->pmap, pOverflow->pixmap, gc, 
-                    src_x, src_y, copy_w, copy_h, dest_x, dest_y
+                    pOverflow->pmx - pQuery->x, pOverflow->pmy - pQuery->y, 
+                    pOverflow->pmw, pOverflow->pmh, 
+                    0, 0
                 );
                 Tk_FreeGC(Tk_Display(win), gc);
             }
@@ -2480,8 +2509,16 @@ pixmapQueryCb(pItem, origin_x, origin_y, pOverflow, clientData)
 {
     GetPixmapQuery *pQuery = (GetPixmapQuery *)clientData;
 
-    int x = origin_x + pQuery->x;
-    int y = origin_y + pQuery->y;
+    /* Set (x, y) to the coordinates of the top-left of the queried
+     * canvas region, in the coordinate system used by the primitive 
+     * pItem. Variables w and h describe the width and height of the
+     * queried region.
+     *
+     * These values are modified below if required to account for clipping 
+     * or scrolling by the overflow primitive pOverflow.
+     */
+    int x = origin_x - pQuery->x;
+    int y = origin_y - pQuery->y;
     int w = pQuery->w;
     int h = pQuery->h;
     Drawable drawable = pQuery->pmap;
@@ -2505,12 +2542,15 @@ pixmapQueryCb(pItem, origin_x, origin_y, pOverflow, clientData)
         if (!p->pixmap) {
             return 0;
         }
-
         drawable = p->pixmap;
-        x = origin_x - p->x - p->xscroll;
-        y = origin_y - p->y - p->yscroll;
-        w = p->w;
-        h = p->h;
+
+        x = origin_x - p->pmx;
+        y = origin_y - p->pmy;
+        w = p->pmw;
+        h = p->pmh;
+
+        x -= p->xscroll;
+        y -= p->yscroll;
     }
 
     switch (pItem->type) {
@@ -2526,8 +2566,8 @@ pixmapQueryCb(pItem, origin_x, origin_y, pOverflow, clientData)
 
         case CANVAS_BOX: {
             Outline *p;
-            int xv = -1 * (pQuery->x + pQuery->pTree->iScrollX);
-            int yv = -1 * (pQuery->y + pQuery->pTree->iScrollY);
+            int xv = pQuery->x - pQuery->pTree->iScrollX;
+            int yv = pQuery->y - pQuery->pTree->iScrollY;
             p = drawBox(pQuery->pTree,&pItem->x.box,drawable,x,y,w,h,xv,yv);
             if (p) {
                 p->pNext = pQuery->pOutline;
@@ -2675,8 +2715,8 @@ getPixmap(pTree, xcanvas, ycanvas, w, h, getwin)
 
     sQuery.pTree = pTree;
     sQuery.pmap = pmap;
-    sQuery.x = xcanvas * -1;
-    sQuery.y = ycanvas * -1;
+    sQuery.x = xcanvas;
+    sQuery.y = ycanvas;
     sQuery.w = w;
     sQuery.h = h;
     sQuery.pOutline = 0;

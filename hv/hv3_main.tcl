@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.65 2006/09/01 16:31:45 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.66 2006/09/07 11:03:02 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -1148,6 +1148,17 @@ proc ::hv3::scrollcb {delay max ii maxii r} {
     after $delay [list ::hv3::scrollcb $delay $max [expr $ii + 1] $maxii $r] 
   } elseif {$r > 0} {
     after $delay [list ::hv3::scrollcb $delay $max 0 $maxii [expr $r - 1]] 
+  }
+}
+
+proc ::hv3::nOverflow {} {
+  ::hv3::walkTree [[gui_current hv3] node] N {
+    if {[$N tag] ne ""} {
+      set overflow [$N property overflow]
+      if {$overflow ne "visible"} {
+        puts "$N: $overflow"
+      }
+    }
   }
 }
 
