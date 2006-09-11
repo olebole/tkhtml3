@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.124 2006/09/07 11:03:02 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.125 2006/09/11 10:45:26 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -360,7 +360,7 @@ callbackHandler(clientData)
      * call either HtmlCallbackDamage() or HtmlCallbackRestyle() if any
      * computed style values are modified.
      */
-    if (pTree->cb.flags & HTML_DYNAMIC) {
+    if (!pTree->delayToken && (pTree->cb.flags & HTML_DYNAMIC)) {
         assert(pTree->cb.pDynamic);
         HtmlCssCheckDynamic(pTree);
     }
@@ -392,6 +392,12 @@ callbackHandler(clientData)
         HtmlRestackNodes(pTree);
 
         styleClock = clock() - styleClock;
+    }
+    pTree->cb.flags &= ~HTML_RESTYLE;
+
+    if (pTree->delayToken) {
+        pTree->cb.inProgress = 0;
+        return;
     }
 
     /* If the HTML_LAYOUT flag is set, run the layout engine. If the layout
@@ -474,6 +480,17 @@ callbackHandler(clientData)
     );
     if (offscreen != pTree->iScrollX) {
         HtmlCallbackScrollX(pTree, offscreen);
+    }
+}
+
+static void
+delayCallbackHandler(clientData)
+    ClientData clientData;
+{
+    HtmlTree *pTree = (HtmlTree *)clientData;
+    pTree->delayToken = 0;
+    if (pTree->cb.flags) {
+        callbackHandler(clientData);
     }
 }
 
@@ -1753,6 +1770,40 @@ forceCmd(clientData, interp, objc, objv)
     return TCL_OK;
 }
 
+static int 
+delayCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    HtmlTree *pTree = (HtmlTree *)clientData;
+    int iMilli;
+    Tcl_TimerToken t;
+
+    if (objc != 3) {
+        Tcl_WrongNumArgs(interp, 2, objv, "MILLI-SECONDS");
+        return TCL_ERROR;
+    }
+    if (TCL_OK != Tcl_GetIntFromObj(interp, objv[2], &iMilli)) {
+        return TCL_ERROR;
+    }
+
+    if (pTree->delayToken) {
+        Tcl_DeleteTimerHandler(pTree->delayToken);
+    }
+    pTree->delayToken = 0;
+
+    if (iMilli > 0) {
+        t = Tcl_CreateTimerHandler(iMilli, delayCallbackHandler, clientData);
+        pTree->delayToken = t;
+    } else if (pTree->cb.flags) {
+        Tcl_DoWhenIdle(callbackHandler, clientData);
+    }
+  
+    return TCL_OK;
+}
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -1949,6 +2000,7 @@ int widgetCmd(clientData, interp, objc, objv)
         {"yview",      0,           yviewCmd},
 
         /* The following are for debugging only. May change at any time. */
+        {"delay",       0,          delayCmd},
         {"force",       0,          forceCmd},
         {"primitives",  0,          primitivesCmd},
         {"relayout",    0,          relayoutCmd},

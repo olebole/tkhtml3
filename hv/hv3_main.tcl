@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.66 2006/09/07 11:03:02 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.67 2006/09/11 10:45:26 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -25,133 +25,7 @@ source [sourcefile hv3_home.tcl]
 source [sourcefile hv3_frameset.tcl]
 source [sourcefile hv3_polipo.tcl]
 source [sourcefile hv3_icons.tcl]
-
-snit::type ::hv3::history {
-
-  # The following two variables store the history list
-  variable myHistoryList [list]
-  variable myCurrentPosition -1
-
-  # The variable passed to [$hv3 configure -locationvar] and the
-  # corresponding option exported by this class.
-  #
-  variable myLocationVar ""
-  option -locationvar -default ""
-
-  # Configuration options to attach this history object to a set of
-  # widgets - back and forward buttons and a menu widget.
-  #
-  option -historymenu   -default "" -configuremethod setoption
-  option -backbutton    -default "" -configuremethod setoption
-  option -forwardbutton -default "" -configuremethod setoption
-
-  # An option to set the script to invoke to goto a URI. The script is
-  # evaluated with a single value appended - the URI to load.
-  #
-  option -gotocmd -default ""
-
-  constructor {hv3widget args} {
-    $hv3widget configure -locationvar [myvar myLocationVar]
-    $self configurelist $args
-
-    set cmd [mymethod locationvarcmd]
-    trace add variable [myvar myLocationVar] write [mymethod locationvarcmd]
-  }
-
-  # Invoked whenever the [::hv3::hv3 configure -locationvar] variable
-  # is modified. This is the point where entries may be added to the 
-  # history list.
-  # 
-  method locationvarcmd {args} {
-    # If one exists, modify the -locationvar option variable
-    if {$options(-locationvar) ne ""} {
-      uplevel #0 [list set $options(-locationvar) $myLocationVar]
-    }
-
-    # Do nothing if the new URI is the same as the current history
-    # list entry.
-    set newuri $myLocationVar
-    if {[lindex $myHistoryList $myCurrentPosition] eq $newuri} return
-
-    # Otherwise, if the new URI is not the same as the next entry
-    # in the history list (which may not even exist, if $myCurrentPosition
-    # points to the last entry in the history list) truncat the history
-    # list at the current point and append the new URI.
-    #
-    # Whether we do this or not, increment myCurrentPosition, so that
-    # myCurrentPosition points at the history list entry that contains
-    # the same as $myLocationVar.
-    if {[lindex $myHistoryList [expr $myCurrentPosition+1]] ne $newuri} {
-      set myHistoryList [lrange $myHistoryList 0 $myCurrentPosition]
-      lappend myHistoryList $myLocationVar
-    }
-    incr myCurrentPosition
-
-    $self populatehistorymenu
-  }
-
-  method setoption {option value} {
-    set options($option) $value
-    switch -- $option {
-      -locationvar   { uplevel #0 [list set $value $myLocationVar] }
-      -historymenu   { $self populatehistorymenu }
-      -forwardbutton { $self populatehistorymenu }
-      -backbutton    { $self populatehistorymenu }
-    }
-  }
-
-  method gotohistory {idx} {
-    set myCurrentPosition $idx
-    eval [linsert $options(-gotocmd) end [lindex $myHistoryList $idx]]
-    $self populatehistorymenu
-  }
-
-  # This method reconfigures the state of the -historymenu, -backbutton
-  # and -forwardbutton to match the internal state of this object. To
-  # summarize, it:
-  #
-  #     * Enables or disabled the -backbutton button
-  #     * Enables or disabled the -forward button
-  #     * Clears and repopulates the -historymenu menu
-  #
-  # This should be called whenever some element of internal state changes.
-  # Possibly as an [after idle] background job though...
-  #
-  method populatehistorymenu {} {
-    set menu $options(-historymenu)
-    set back $options(-backbutton)
-    set forward $options(-forwardbutton)
-    if {$menu ne ""} {
-      $menu delete 0 end
-      set idx [expr [llength $myHistoryList] - 15]
-      if {$idx < 0} {set idx 0}
-      for {} {$idx < [llength $myHistoryList]} {incr idx} {
-        set item [lindex $myHistoryList $idx]
-        $menu add radiobutton                       \
-          -label $item                              \
-          -variable [myvar myCurrentPosition]       \
-          -value    $idx                            \
-          -command [mymethod gotohistory $idx]
-      }
-    }
-    if {$back ne ""} {
-      if {$myCurrentPosition > 0} {
-        set idx [expr $myCurrentPosition - 1]
-        $back configure -state normal -command [mymethod gotohistory $idx]
-      } else {
-        $back configure -state disabled 
-      }
-    } 
-    if {$forward ne ""} {
-      if {$myCurrentPosition < ([llength $myHistoryList] - 1)} {
-        set idx [expr $myCurrentPosition + 1]
-        $forward configure -state normal -command [mymethod gotohistory $idx]
-      } else {
-        $forward configure -state disabled 
-      }
-    } 
-  }
-}
+source [sourcefile hv3_history.tcl]
 
 proc ::hv3::returnX {val args} {return $val}
 
@@ -187,6 +61,8 @@ snit::widget ::hv3::browser_frame {
     set myHv3      [::hv3::hv3 $win.hv3]
     pack $myHv3 -expand true -fill both
 
+    ::hv3::the_visited_db init $myHv3
+
     catch {$myHv3 configure -fonttable $::hv3::fontsize_table}
 
 
@@ -213,9 +89,6 @@ snit::widget ::hv3::browser_frame {
     set html [$myHv3 html]
     $html handler node frameset [list ::hv3::frameset_handler $self]
 
-    # Register a handler command for <title> elements.
-    $html handler node title [mymethod TitleNodeHandler]
-
     # Add this object to the browsers frames list. It will be removed by
     # the destructor proc. Also override the default -hyperlinkcmd
     # option of the ::hv3::hv3 widget with our own version.
@@ -225,22 +98,6 @@ snit::widget ::hv3::browser_frame {
   }
 
   method browser {} {return $myBrowser}
-
-  # System for handling <title> elements. This object exports
-  # a method [titlevar] that returns a globally valid variable name
-  # to a variable used to store the string that should be displayed as the
-  # "title" of this document. The idea is that the caller add a trace
-  # to that variable.
-  #
-  variable myTitleVar ""
-  method titlevar {}    {return [myvar myTitleVar]}
-  method TitleNodeHandler {node} {
-    set val ""
-    foreach child [$node children] {
-      append val [$child text]
-    }
-    set myTitleVar $val
-  }
 
   # The name of this frame (as specified by the "name" attribute of 
   # the <frame> element).
@@ -461,10 +318,12 @@ if 0 {
   delegate option -height        to myHv3
 
   delegate option -requestcmd         to myHv3
+  delegate option -resetcmd           to myHv3
   delegate option -cancelrequestcmd   to myHv3
   delegate option -pendingvar         to myHv3
 
   delegate method stop to myHv3
+  delegate method titlevar to myHv3
 }
 
 # An instance of this widget represents a top-level browser frame (not
@@ -487,7 +346,6 @@ snit::widget ::hv3::browser_toplevel {
   variable myLocationVar ""
 
   method statusvar {}   {return [myvar myStatusVar]}
-  method locationvar {} {return [myvar myLocationVar]}
   delegate method titlevar to myMainFrame
 
   # Variable passed to the -pendingvar option of the ::hv3::hv3 widget
@@ -520,10 +378,9 @@ snit::widget ::hv3::browser_toplevel {
     ::hv3::about_scheme_init $myProtocol
 
     # Create the history sub-system
-    set myHistory [::hv3::history %AUTO% [$myMainFrame hv3]]
+    set myHistory [::hv3::history %AUTO% [$myMainFrame hv3] $myProtocol]
     $myHistory configure -gotocmd [mymethod goto]
-    $myHistory configure -locationvar [myvar myLocationVar]
-    
+
     # Configure application hotkeys and so forth. To make these
     # work in frameset documents, the [bindtags] command must be
     # used to add the tag "$self" to the html widget for every 
@@ -643,6 +500,8 @@ snit::widget ::hv3::browser_toplevel {
   delegate option -historymenu   to myHistory
   delegate option -backbutton    to myHistory
   delegate option -forwardbutton to myHistory
+
+  delegate method locationvar to myHistory
 
   delegate method debug_cookies  to myProtocol
 

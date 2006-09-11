@@ -554,6 +554,7 @@ struct HtmlTree {
     int iNextNode;       /* Next node index to allocate */
 
     HtmlCallback cb;                /* See structure definition comments */
+    Tcl_TimerToken delayToken;
 
     /* 
      * Data structure used by the [widget text] commands. See the

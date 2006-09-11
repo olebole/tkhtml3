@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.104 2006/09/07 08:30:49 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.105 2006/09/11 10:45:26 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -33,6 +33,13 @@ namespace eval hv3 { set {version($Id: hv3.tcl,v 1.104 2006/09/07 08:30:49 danie
 #         is invoked with the node handle of the clicked hyper-link element
 #         appended.
 #
+#     -isvisitedcmd
+#         If not an empty string, this option specifies a script for
+#         the widget to invoke to determine if a hyperlink node should
+#         be styled with the :link or :visited pseudo-class. The
+#         script is invoked with the node handle appended to it. If
+#         true is returned, :visited is used, otherwise :link.
+#
 #     -fonttable
 #         Delegated through to the html widget.
 #
@@ -47,7 +54,9 @@ namespace eval hv3 { set {version($Id: hv3.tcl,v 1.104 2006/09/07 08:30:49 danie
 #
 #     -scrollbarpolicy
 #         This option may be set to either a boolean value or "auto". It
-#         determines the visibility of the widget scrollbars.
+#         determines the visibility of the widget scrollbars. TODO: This
+#         is now set internally by the value of the "overflow" property
+#         on the root element. Maybe the option should be removed?
 #
 #
 # Widget Sub-commands:
@@ -69,6 +78,33 @@ namespace eval hv3 { set {version($Id: hv3.tcl,v 1.104 2006/09/07 08:30:49 danie
 #         Return the path of the underlying html widget. This should only
 #         be used to determine paths for child widgets. Bypassing hv3 and
 #         accessing the html widget interface directly may confuse hv3.
+#
+#     title        
+#         Return the path of the underlying html widget. This should only
+#         be used to determine paths for child widgets. Bypassing hv3 and
+#         accessing the html widget interface directly may confuse hv3.
+#
+#
+# Widget Custom Events:
+#
+#     <<Goto>>
+#         This event is generated whenever the goto method is called.
+#
+#     <<Complete>>
+#         This event is generated once all of the resources required
+#         to display a document have been loaded.
+#
+#     <<Reset>>
+#         This event is generated just before [$html reset] is called
+#         and mega-widget state data discarded (because a new document
+#         is about to be loaded). This gives the application a final 
+#         chance to query the current state of the browser before it 
+#         is discarded.
+#
+#     <<Location>>
+#         This event is generated whenever the "location" is set. The
+#         field %location contains the new URI.
+#
 #
 
 
@@ -492,8 +528,10 @@ snit::type ::hv3::hv3::dynamicmanager {
 # a component. The hyperlinkmanager takes care of:
 #
 #     * -hyperlinkcmd option and associate callbacks
+#     * -isvisitedcmd option and associate callbacks
 #     * Modifying the cursor to the hand shape when over a hyperlink
-#     * Setting the :link dynamic condition on hyperlink elements
+#     * Setting the :link or :visited dynamic condition on hyperlink 
+#       elements (depending on the return value of -isvisitedcmd).
 #
 # This class installs a node handler for <a> elements. It also subscribes
 # to the <Motion>, <ButtonPress-1> and <ButtonRelease-1> events on the
@@ -504,6 +542,7 @@ snit::type ::hv3::hv3::hyperlinkmanager {
   variable myNodes [list]
 
   option -hyperlinkcmd -default ""
+  option -isvisitedcmd -default ""
 
   constructor {hv3} {
     set myHv3 $hv3
@@ -517,7 +556,14 @@ snit::type ::hv3::hv3::hyperlinkmanager {
 
   method a_node_handler {node} {
     if {[$node attr -default "" href] ne ""} {
-      $node dynamic set link
+      if {
+        $options(-isvisitedcmd) ne "" && 
+        [eval [linsert $options(-isvisitedcmd) end $node]]
+      } {
+        $node dynamic set visited
+      } else {
+        $node dynamic set link
+      }
     }
   }
 
@@ -654,6 +700,8 @@ snit::widget ::hv3::hv3 {
 
   variable myInternalObject
 
+  variable myDeps [list]
+
   constructor {} {
     # Create the scrolled html widget and bind it's events to the
     # mega-widget window.
@@ -692,6 +740,7 @@ snit::widget ::hv3::hv3 {
     $myHtml handler node   link     [mymethod link_node_handler]
     $myHtml handler node   base     [mymethod base_node_handler]
     $myHtml handler node   meta     [mymethod meta_node_handler]
+    $myHtml handler node   title    [mymethod title_node_handler]
     $myHtml handler script style    [mymethod style_script_handler]
     $myHtml handler script script   [mymethod script_script_handler]
 
@@ -775,6 +824,7 @@ snit::widget ::hv3::hv3 {
   # variable identified by the -locationvar option, if any.
   #
   method set_location_var {} {
+    event generate $win <<Location>>
     if {$options(-locationvar) ne ""} {
       uplevel #0 [list set $options(-locationvar) [$myUri get]]
     }
@@ -784,6 +834,15 @@ snit::widget ::hv3::hv3 {
     if {$options(-pendingvar) ne ""} {
       set val [expr [llength $myCurrentDownloads] > 0]
       uplevel #0 [list set $options(-pendingvar) $val]
+    }
+    after cancel [mymethod MightBeComplete]
+    after idle [mymethod MightBeComplete]
+  }
+
+  method MightBeComplete {} {
+    if {[llength $myCurrentDownloads] == 0} {
+      $myHtml delay 0
+      event generate $win <<Complete>>
     }
   }
 
@@ -828,8 +887,8 @@ snit::widget ::hv3::hv3 {
       set handle [::hv3::download %AUTO%              \
           -uri         $full_uri                      \
           -mimetype    image/gif                      \
-          -finscript   [mymethod Imagecallback $name] \
       ]
+      $handle configure -finscript [mymethod Imagecallback $handle $name]
       $self makerequest $handle
     }
 
@@ -844,9 +903,13 @@ snit::widget ::hv3::hv3 {
   # binary image format like gif). This proc sets the named Tk image to
   # contain the downloaded data.
   #
-  method Imagecallback {name data} {
+  method Imagecallback {handle name data} {
     if {[info commands $name] == ""} return 
-    $name configure -data $data
+    lappend myDeps [$handle uri]
+
+    # If the image data is invalid, it is not an error. Possibly hv3
+    # should log a warning - if it had a warning system....
+    catch { $name configure -data $data }
   }
 
   # Request the resource located at URI $full_uri and treat it as
@@ -860,13 +923,12 @@ snit::widget ::hv3::hv3 {
     set urlcmd    [mymethod resolve_uri $full_uri]
     append id .9999
 
-    set finscript [mymethod \
-      Finishstyle $id $importcmd $urlcmd
-    ]
     set handle [::hv3::download %AUTO%              \
         -uri         $full_uri                      \
         -mimetype    text/css                       \
-        -finscript   $finscript                     \
+    ]
+    $handle configure -finscript [
+        mymethod Finishstyle $handle $id $importcmd $urlcmd
     ]
     $self makerequest $handle
   }
@@ -874,8 +936,9 @@ snit::widget ::hv3::hv3 {
   # Callback invoked when a stylesheet request has finished. Made
   # from method Requeststyle above.
   #
-  method Finishstyle {id importcmd urlcmd data} {
+  method Finishstyle {handle id importcmd urlcmd data} {
     $myHtml style -id $id -importcmd $importcmd -urlcmd $urlcmd $data
+    lappend myDeps [$handle uri]
     $self goto_fragment
   }
 
@@ -910,13 +973,31 @@ snit::widget ::hv3::hv3 {
     }
   }
 
+  # System for handling <title> elements. This object exports
+  # a method [titlevar] that returns a globally valid variable name
+  # to a variable used to store the string that should be displayed as the
+  # "title" of this document. The idea is that the caller add a trace
+  # to that variable.
+  #
+  method title_node_handler {node} {
+    set val ""
+    foreach child [$node children] {
+      append val [$child text]
+    }
+    set myTitleVar $val
+  }
+  variable myTitleVar ""
+  method titlevar {}    {return [myvar myTitleVar]}
+
+  method dependencies {} {return $myDeps}
+
+
   # Node handler script for <body> tags. The purpose of this handler
   # and the [body_style_handler] method immediately below it is
   # to handle the 'overflow' property on the document root element.
   #
   method body_node_handler {node} {
-    $node replace "" -stylecmd [mymethod body_style_handler $node]
-    $self body_style_handler $node
+    $node replace dummy -stylecmd [mymethod body_style_handler $node]
   }
   method body_style_handler {bodynode} {
     set htmlnode [$bodynode parent]
@@ -1088,7 +1169,7 @@ snit::widget ::hv3::hv3 {
     regexp {/([^/]*)$} [$handle uri] dummy suggested
     set cmd [subst -nocommands {
       $dler set_destination [file normal [
-          tk_getSaveFile -initialfile $suggested
+          tk_getSaveFile -initialfile {$suggested}
       ]]
     }]
     after idle $cmd
@@ -1110,6 +1191,7 @@ snit::widget ::hv3::hv3 {
     if {$myQuirksmode eq "unknown"} {
       set myQuirksmode [::hv3::configure_doctype_mode $myHtml $data]
       $myHtml reset
+      $myHtml delay 500
     }
 
     $myHtml parse $data
@@ -1177,6 +1259,9 @@ snit::widget ::hv3::hv3 {
 
   method goto {uri} {
 
+    # Generate the <<Goto>> event.
+    event generate $win <<Goto>>
+
     set current_uri [$myUri get -nofragment]
     set uri_obj [::hv3::uri %AUTO% $current_uri]
     $uri_obj load $uri
@@ -1226,6 +1311,7 @@ snit::widget ::hv3::hv3 {
         -lockscript [mymethod lockcallback $handle]       \
         -incrscript [mymethod documentcallback $handle 0] \
         -finscript  [mymethod documentcallback $handle 1]
+
     MakeRedirectable $handle
 
     $self makerequest $handle
@@ -1241,7 +1327,13 @@ snit::widget ::hv3::hv3 {
   }
 
   method reset {} {
+
+    # Generate the <<Reset>> event.
+    event generate $win <<Reset>>
+
     $self invalidate_nodecache
+    set myDeps [list]
+    set myTitleVar ""
 
     foreach m [list $myDynamicManager $myFormManager $mySelectionManager] {
       if {$m ne ""} {$m reset}
@@ -1260,6 +1352,11 @@ snit::widget ::hv3::hv3 {
     set options($option) $value
     switch -- $option {
       -enableimages {
+        # The -enableimages switch. If false, configure an empty string
+        # as the html widget's -imagecmd option. If true, configure the
+        # same option to call the [Imagecmd] method of this mega-widget.
+        # In either case reload the frame.
+        #
         if {$value} {
           $myHtml configure -imagecmd [mymethod Imagecmd]
         } else {
@@ -1283,6 +1380,7 @@ snit::widget ::hv3::hv3 {
   option          -requestcmd       -default ""
   option          -cancelrequestcmd -default ""
   delegate option -hyperlinkcmd     to myHyperlinkManager
+  delegate option -isvisitedcmd     to myHyperlinkManager
   delegate option -scrollbarpolicy  to myHtml
   delegate option -fonttable        to myHtml
   delegate option -fontscale        to myHtml
@@ -1457,10 +1555,10 @@ proc ::hv3::download_destructor {downloadHandle script} {
   ]
 }
 proc ::hv3::eval2 {script finscript data} {
-  eval $script
   if {$finscript ne ""} {
     eval [concat $finscript [list $data]]
   }
+  eval $script
 }
 
 proc ::hv3::bg {script args} {

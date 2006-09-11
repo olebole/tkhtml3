@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.14 2006/09/01 05:30:35 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.15 2006/09/11 10:45:26 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd and -cancelrequestcmd
@@ -51,6 +51,7 @@ snit::type ::hv3::protocol {
   # from that point on until the resource has been completely retrieved.
   #
   option -statusvar -default "" -configuremethod ConfigureStatusvar
+  option -relaxtransparency -default 0
 
   # Instance of ::hv3::cookiemanager
   variable myCookieManager ""
@@ -140,6 +141,13 @@ snit::type ::hv3::protocol {
     set headers [$myCookieManager Cookie $uri]
     if {$headers ne ""} {
       set headers [list Cookie $headers]
+    }
+
+    # If the -relaxtransparency option is true, then set the custom
+    # Cache-Control header to tell hv3_polipo not to bother validating 
+    # this request.
+    if {$options(-relaxtransparency)} {
+      lappend headers Cache-Control relax-transparency=1
     }
 
     # Fire off a request via the http package.
@@ -296,7 +304,9 @@ snit::type ::hv3::protocol {
       # Remove the entry from myWaitingHandles.
       set myWaitingHandles [lreplace $myWaitingHandles $idx $idx]
 
+#puts "URI: [$downloadHandle uri]"
       foreach {name value} $state(meta) {
+#puts "HEADER: $name -> $value"
         switch -- $name {
           Location {
             set redirect $value
