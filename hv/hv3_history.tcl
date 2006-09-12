@@ -56,6 +56,7 @@ snit::type ::hv3::history_state {
 #
 # Methods:
 #     locationvar
+#
 # 
 snit::type ::hv3::history {
   # corresponding option exported by this class.
@@ -68,7 +69,7 @@ snit::type ::hv3::history {
 
   # The following two variables store the history list
   variable myStateList [list]
-  variable myStateIdx -1
+  variable myStateIdx 0 
 
   # Variables used when loading a history-state.
   variable myHistorySeek -1
@@ -86,12 +87,23 @@ snit::type ::hv3::history {
   #
   option -gotocmd -default ""
 
+  # Events:
+  #     <<Goto>>
+  #     <<Complete>>
+  #     <<Reset>>
+  #     <<Location>>
+  #     Trace on "titlevar" (set whenever a <title> node is parsed)
+  #
+
   constructor {hv3 protocol args} {
     $hv3 configure -locationvar [myvar myLocationVar]
     $self configurelist $args
 
     trace add variable [$hv3 titlevar] write [mymethod Titlevarcmd $hv3]
-    trace add variable [myvar myLocationVar] write [mymethod Locvarcmd $hv3]
+#    trace add variable [myvar myLocationVar] write [mymethod Locvarcmd $hv3]
+
+    bind $hv3 <<Location>> +[mymethod Locvarcmd $hv3]
+
     set myTitleVarName [$hv3 titlevar]
     set myHv3 $hv3
     set myProtocol $protocol
@@ -99,6 +111,10 @@ snit::type ::hv3::history {
     bind $hv3 <<Goto>>     +[mymethod GotoHandler]
     bind $hv3 <<Complete>> +[mymethod CompleteHandler]
     bind $hv3 <<Reset>>    +[mymethod ResetHandler]
+
+    # Initialise the state-list to contain a single, unconfigured state.
+    set myStateList [::hv3::history_state %AUTO%]
+    set myStateIdx 0
   }
 
   destructor {
@@ -120,13 +136,15 @@ snit::type ::hv3::history {
   # widget associated with this history-list.
   #
   method GotoHandler {} {
-    if {$myStateIdx >= 0} {
-      set state [lindex $myStateList $myStateIdx]
-      $state xscroll [lindex [$myHv3 xview] 0]
-      $state yscroll [lindex [$myHv3 yview] 0]
-      $state deps [$myHv3 dependencies]
-    }
+
+    # Set the xscroll and yscroll of the current state object.
+    set state [lindex $myStateList $myStateIdx]
+    $state xscroll [lindex [$myHv3 xview] 0]
+    $state yscroll [lindex [$myHv3 yview] 0]
+    $state deps [$myHv3 dependencies]
+
     if {!$myIgnoreGotoHandler} {
+      # We are not in "history" mode.
       set myHistorySeek -1
       $myProtocol configure -relaxtransparency 0
     }
@@ -150,12 +168,16 @@ snit::type ::hv3::history {
 
     # Update the current history-state record with the current scrollbar
     # and dependency settings.
-    if {$myStateIdx >= 0} {
-      set state [lindex $myStateList $myStateIdx]
-      $state xscroll [lindex [$myHv3 xview] 0]
-      $state yscroll [lindex [$myHv3 yview] 0]
-      $state deps [$myHv3 dependencies]
-    }
+    set state [lindex $myStateList $myStateIdx]
+    $state xscroll [lindex [$myHv3 xview] 0]
+    $state yscroll [lindex [$myHv3 yview] 0]
+    $state deps [$myHv3 dependencies]
+
+    if {$myHistorySeek >= 0} return
+
+    set myStateList [lrange $myStateList 0 $myStateIdx]
+    incr myStateIdx
+    lappend myStateList [::hv3::history_state %AUTO%]
 
     if 0 {
       puts "RESET $myHv3"
@@ -173,29 +195,21 @@ snit::type ::hv3::history {
   # are modified. Update the current history-state record according
   # to the new values.
   method Titlevarcmd {hv3 args} {
-    if {$myStateIdx >= 0} {
-      set state [lindex $myStateList $myStateIdx]
-      set t [set [$myHv3 titlevar]]
-      if {$t ne ""} { $state title $t }
-    }
+    set state [lindex $myStateList $myStateIdx]
+    set t [set [$myHv3 titlevar]]
+    if {$myHistorySeek < 0} {$state title $t}
 
     $self populatehistorymenu
   }
 
-  method Locvarcmd {hv3 args} {
+  method Locvarcmd {hv3} {
     if {$myHistorySeek >= 0} {
       set myStateIdx $myHistorySeek
-    } else {
-      set myStateList [lrange $myStateList 0 $myStateIdx]
-      incr myStateIdx
-      lappend myStateList [::hv3::history_state %AUTO%]
     }
 
-    if {$myStateIdx >= 0} {
-      set state [lindex $myStateList $myStateIdx]
-      $state uri $myLocationVar
-      $self populatehistorymenu
-    }
+    set state [lindex $myStateList $myStateIdx]
+    $state uri $myLocationVar
+    $self populatehistorymenu
   }
 
   method setoption {option value} {
@@ -294,13 +308,21 @@ snit::type ::hv3::history {
 #
 # TODO2: This, like cookies, needs to be put in an SQLite database.
 #
+# Object sub-commands:
+#
+#     init HV3-WIDGET
+#
+#         Configure the specified hv3 mega-widget to use the object
+#         as a database of visited URIs (i.e. set the value of
+#         the -isvisitedcmd option).
+#
 snit::type ::hv3::visiteddb {
 
   # This method is called whenever the application constructs a new 
   # ::hv3::hv3 mega-widget. Argument $hv3 is the new mega-widget.
   #
   method init {hv3} {
-    bind $hv3 <<Location>> [mymethod LocationHandler %W]
+    bind $hv3 <<Location>> +[mymethod LocationHandler %W]
     $hv3 configure -isvisitedcmd [mymethod LocationQuery $hv3]
   }
 
@@ -321,10 +343,213 @@ snit::type ::hv3::visiteddb {
     return $rc
   }
 
+  method keys {} {return [array names myDatabase]}
+
   variable myDatabase -array [list]
 }
 
 # Create the single, application-wide instance of ::hv3::visiteddb.
 #
 ::hv3::visiteddb ::hv3::the_visited_db
+
+snit::widget ::hv3::scrolledlistbox {
+  component myVsb
+  component myListbox
+
+  delegate method * to myListbox
+  delegate option * to myListbox
+
+  constructor {args} {
+
+    set myVsb [::hv3::scrollbar ${win}.scrollbar]
+    set myListbox [listbox ${win}.listbox]
+    $myVsb configure -command [list $myListbox yview]
+    $myListbox configure -yscrollcommand [list $myVsb set]
+
+    pack $myVsb -side right -fill y
+    pack $myListbox -fill both -expand yes
+
+    $self configurelist $args
+  }
+}
+
+snit::widget ::hv3::locationentry {
+
+  component myEntry
+  component myButton
+
+  delegate option * to myEntry
+  delegate method * to myEntry
+
+  variable myListbox
+  variable myListboxVar [list]
+
+  option -command -default ""
+
+  constructor {args} {
+    set myEntry [entry ${win}.entry]
+    $myEntry configure -background white
+ 
+    set myButtonImage [image create bitmap -data {
+      #define v_width 8
+      #define v_height 4
+      static unsigned char v_bits[] = { 0xff, 0x7e, 0x3c, 0x18 };
+    }]
+
+    set myButton [button ${win}.button -image $myButtonImage]
+    $myButton configure -command [mymethod ButtonPress]
+
+    pack $myButton -side right -fill y
+    pack $myEntry -fill both -expand true
+
+    $myEntry configure -borderwidth 0 -highlightthickness 0
+    $myButton configure -borderwidth 1 -highlightthickness 0
+    $hull configure -borderwidth 1 -relief sunken -background white
+
+    # Create the listbox for the drop-down list. This is a child of
+    # the same top-level as the ::hv3::locationentry widget...
+    #
+    set myListbox [winfo toplevel $win][string map {. _} ${win}]
+    ::hv3::scrolledlistbox $myListbox
+
+    # Any button-press anywhere in the GUI folds up the drop-down menu.
+    bind [winfo toplevel $win] <ButtonPress> +[mymethod AnyButtonPress %W]
+
+    bind $myEntry <KeyPress> +[mymethod KeyPress]
+    bind $myEntry <KeyPress-Return> +[mymethod KeyPressReturn]
+    bind $myEntry <KeyPress-Down> +[mymethod KeyPressDown]
+
+    $myListbox configure -listvariable [myvar myListboxVar]
+    $myListbox configure -background white
+    $myListbox configure -font [$myEntry cget -font]
+    $myListbox configure -highlightthickness 0
+    $myListbox configure -borderwidth 1
+
+    # bind $myListbox.listbox <<ListboxSelect>> [mymethod ListboxSelect]
+    bind $myListbox.listbox <KeyPress-Return> [mymethod ListboxReturn]
+    bind $myListbox.listbox <1>   [mymethod ListboxPress %y]
+
+    $self configurelist $args
+  }
+
+  method AnyButtonPress {w} {
+    if {
+      [winfo ismapped $myListbox] &&
+      $w ne $myButton && 
+      $w ne $myEntry && 
+      0 == [string match ${myListbox}* $w]
+    } {
+      place forget $myListbox
+    }
+  }
+
+  # Configured -command callback for the button widget.
+  #
+  method ButtonPress {} {
+    if {[winfo ismapped $myListbox]} {
+      $self CloseDropdown
+    } else {
+      $self OpenDropdown *
+    }
+  }
+
+  # Bindings for KeyPress events that occur in the entry widget:
+  #
+  method KeyPressReturn {} {
+
+    set current [$myEntry get]
+    if {![string match *:/* $current]} {
+      if {[string range $current 0 0] eq "/"} {
+        set final "file://${current}"
+      } else {
+        set final "http://${current}"
+      }
+      $myEntry delete 0 end
+      $myEntry insert 0 $final
+    }
+
+    if {$options(-command) ne ""} {
+      eval $options(-command)
+    }
+    $self CloseDropdown
+  }
+  method KeyPressDown {} {
+    if {[winfo ismapped $myListbox]} {
+      focus $myListbox.listbox
+      $myListbox activate 0
+      $myListbox selection set 0 0
+    }
+  }
+  method KeyPress {} {
+    after idle [mymethod AfterKeyPress]
+  }
+  method AfterKeyPress {} {
+    $self OpenDropdown [$myEntry get]
+  }
+
+  method TransformSearch {str} {
+    if {[regexp "Search the web for \"(.*)\"" $str -> newval]} {
+      set newval [::hv3::escape_string $newval]
+      set str "http://www.google.com/search?q=$newval"
+    }
+    return $str
+  }
+
+  method ListboxReturn {} {
+    set str [$myListbox get active]
+    $myEntry delete 0 end
+    $myEntry insert 0 [$self TransformSearch $str]
+    $self KeyPressReturn
+  }
+  method ListboxPress {y} {
+    set str [$myListbox get [$myListbox nearest $y]]
+    $myEntry delete 0 end
+    $myEntry insert 0 [$self TransformSearch $str]
+    $self KeyPressReturn
+  }
+
+  method CloseDropdown {} {
+    place forget $myListbox
+  }
+
+  method OpenDropdown {pattern} {
+
+    set matchpattern *
+    if {$pattern ne "*"} {
+      set matchpattern *${pattern}*
+    }
+
+    set myListboxVar ""
+    foreach entry [::hv3::the_visited_db keys] {
+      if {[string match $matchpattern $entry]} {
+        lappend myListboxVar $entry
+      }
+    }
+
+    set myListboxVar [lsort $myListboxVar] 
+    if {$pattern ne "*" && ![string match *.* $pattern] } {
+      set search "Search the web for \"$pattern\""
+      set myListboxVar [linsert $myListboxVar 0 $search]
+    }
+
+    if {[llength $myListboxVar] == 0 && $pattern ne "*"} {
+      $self CloseDropdown
+      return
+    }
+
+    if {[llength $myListboxVar] > 4} {
+      $myListbox configure -height 5
+    } else {
+      $myListbox configure -height -1
+    }
+
+    set t [winfo toplevel $win]
+    set x [expr [winfo rootx $win] - [winfo rootx $t]]
+    set y [expr [winfo rooty $win] + [winfo height $win] - [winfo rooty $t]]
+    set w [winfo width $win]
+
+    place $myListbox -x $x -y $y -width $w
+    raise $myListbox
+  }
+}
 

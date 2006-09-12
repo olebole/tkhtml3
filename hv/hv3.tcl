@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.105 2006/09/11 10:45:26 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.106 2006/09/12 15:45:01 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -824,10 +824,10 @@ snit::widget ::hv3::hv3 {
   # variable identified by the -locationvar option, if any.
   #
   method set_location_var {} {
-    event generate $win <<Location>>
     if {$options(-locationvar) ne ""} {
       uplevel #0 [list set $options(-locationvar) [$myUri get]]
     }
+    event generate $win <<Location>>
   }
 
   method set_pending_var {} {

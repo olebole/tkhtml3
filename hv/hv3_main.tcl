@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.67 2006/09/11 10:45:26 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.68 2006/09/12 15:45:02 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -711,7 +711,8 @@ proc gui_build {widget_array} {
 
   # Create the top bit of the GUI - the URI entry and buttons.
   frame .entry
-  ::hv3::entry .entry.entry
+  # ::hv3::entry .entry.entry
+  ::hv3::locationentry .entry.entry
 
   ::hv3::toolbutton .entry.back    -text {Back} -tooltip    "Go Back"
   ::hv3::toolbutton .entry.stop    -text {Stop} -tooltip    "Stop"
@@ -772,7 +773,7 @@ proc gui_build {widget_array} {
   pack .notebook -fill both -expand true
 }
 
-proc goto_gui_location {browser entry} {
+proc goto_gui_location {browser entry args} {
   set location [$entry get]
   $browser goto $location
 }
@@ -877,10 +878,13 @@ proc gui_menu {widget_array} {
     gui_load_tkcon
     .m.file add command -label Tkcon -command {tkcon show}
   }
-  .m.file add command -label Events -command [list gui_log_window $G(notebook)]
-
-  .m.file add command -label Browser -command [list gui_current browse]
   .m.file add command -label Cookies -command [list gui_current debug_cookies]
+  .m.file add command -label Downloads -state disabled
+
+  .m.file add separator
+
+  .m.file add command -label Events -command [list gui_log_window $G(notebook)]
+  .m.file add command -label Browser -command [list gui_current browse]
   .m.file add command -label Style   -command [list gui_current debug_style]
 
   # Add a separator and the inevitable Exit item to the File menu.
@@ -927,7 +931,8 @@ proc gui_switch {new} {
 
     # Binding for hitting enter in the location entry field.
     set gotocmd [list goto_gui_location $new $G(location_entry)]
-    bind $G(location_entry) <KeyPress-Return> $gotocmd
+    # bind $G(location_entry) <KeyPress-Return> $gotocmd
+    $G(location_entry) configure -command $gotocmd
 
     $G(status_label) configure -textvar [$new statusvar]
     $G(location_entry) configure -textvar [$new locationvar]
@@ -951,6 +956,7 @@ proc gui_new {path args} {
   } else {
     $new goto [lindex $args 0]
   }
+  after 100 [list event generate [$new hv3] <<Location>>]
 
   return $new
 }
