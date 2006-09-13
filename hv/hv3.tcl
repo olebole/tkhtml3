@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.106 2006/09/12 15:45:01 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.107 2006/09/13 16:53:16 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -930,6 +930,7 @@ snit::widget ::hv3::hv3 {
     $handle configure -finscript [
         mymethod Finishstyle $handle $id $importcmd $urlcmd
     ]
+# puts "Stylesheet at: $full_uri"
     $self makerequest $handle
   }
 
@@ -937,6 +938,7 @@ snit::widget ::hv3::hv3 {
   # from method Requeststyle above.
   #
   method Finishstyle {handle id importcmd urlcmd data} {
+# puts "Stylesheet finish: [$handle uri]"
     $myHtml style -id $id -importcmd $importcmd -urlcmd $urlcmd $data
     lappend myDeps [$handle uri]
     $self goto_fragment
@@ -1369,6 +1371,7 @@ snit::widget ::hv3::hv3 {
     }
   }
 
+  method pending {}  { return [llength $myCurrentDownloads] }
   method location {} { return [$myUri get] }
   method html {}     { return [$myHtml widget] }
   method hull {}     { return $hull }

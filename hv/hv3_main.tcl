@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.68 2006/09/12 15:45:02 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.69 2006/09/13 16:53:16 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -376,6 +376,7 @@ snit::widget ::hv3::browser_toplevel {
     # Link in the "home:" and "about:" scheme handlers (from hv3_home.tcl)
     ::hv3::home_scheme_init [$myMainFrame hv3] $myProtocol
     ::hv3::about_scheme_init $myProtocol
+    ::hv3::cookies_scheme_init [$myMainFrame hv3] $myProtocol
 
     # Create the history sub-system
     set myHistory [::hv3::history %AUTO% [$myMainFrame hv3] $myProtocol]
@@ -587,7 +588,7 @@ snit::type ::hv3::search {
 
   variable myHotKeys [list  \
       {Google}    g         \
-      {Tcl Wiki}  t         \
+      {Tcl Wiki}  w         \
   ]
   
   variable mySearchEngines [list \
@@ -744,6 +745,8 @@ proc gui_build {widget_array} {
       -switchcmd gui_switch              \
       -delbutton .entry.del       
 
+  bind .notebook <Destroy> +hv3::exit_handler
+
   # And the bottom bit - the status bar
   ::hv3::label .status -anchor w -width 1
 
@@ -856,6 +859,12 @@ proc gui_setforcefontmetrics {varname} {
   gui_current configure -forcefontmetrics [set $varname]
 }
 
+proc gui_openlocation {location_entry} {
+  $location_entry delete 0 end
+  $location_entry OpenDropdown *
+  focus ${location_entry}.entry
+}
+
 # gui_menu
 #
 proc gui_menu {widget_array} {
@@ -866,26 +875,16 @@ proc gui_menu {widget_array} {
 
   # Add the 'File menu'
   .m add cascade -label {File} -menu [::hv3::menu .m.file]
-  set openfilecmd [list guiOpenFile $G(notebook)]
-  .m.file add command -label "Open File..." -command $openfilecmd
-  .m.file add separator
-
-  # Add the Polipo, Tkcon, Browser and Cookies entries to the File menu.
-  .m.file add command -label Polipo -command ::hv3::polipo::popup
-  catch {
-    # If the [gui_load_tkcon] proc cannot find the Tkcon package, it
-    # throws an exception. No menu item will be added in this case.
-    gui_load_tkcon
-    .m.file add command -label Tkcon -command {tkcon show}
+  foreach {label command key} [list \
+      "Open File..."  [list guiOpenFile $G(notebook)]            o \
+      "Open Tab"      [list $G(notebook) add]                    t \
+      "Open Location" [list gui_openlocation $G(location_entry)] l \
+  ] {
+    set uc [string toupper $key]
+    .m.file add command -label $label -command $command -accelerator (Ctrl-$uc)
+    bind Hv3HotKeys <Control-$key> $command
+    bind Hv3HotKeys <Control-$uc> $command
   }
-  .m.file add command -label Cookies -command [list gui_current debug_cookies]
-  .m.file add command -label Downloads -state disabled
-
-  .m.file add separator
-
-  .m.file add command -label Events -command [list gui_log_window $G(notebook)]
-  .m.file add command -label Browser -command [list gui_current browse]
-  .m.file add command -label Style   -command [list gui_current debug_style]
 
   # Add a separator and the inevitable Exit item to the File menu.
   .m.file add separator
@@ -898,6 +897,24 @@ proc gui_menu {widget_array} {
   # Add the 'Config' menu
   set G(config) [::hv3::config %AUTO% .m.config]
   .m add cascade -label {View} -menu [$G(config) menu]
+
+  
+  .m add cascade -label Tools -menu [::hv3::menu .m.tools]
+
+  .m.tools add command -label Cookies -command [list $G(notebook) add cookies:]
+  .m.tools add command -label Version -command [list $G(notebook) add about:]
+  .m.tools add command -label Downloads -state disabled
+  .m.tools add command -label Polipo -command ::hv3::polipo::popup
+  catch {
+    # If the [gui_load_tkcon] proc cannot find the Tkcon package, it
+    # throws an exception. No menu item will be added in this case.
+    gui_load_tkcon
+    .m.tools add command -label Tkcon -command {tkcon show}
+  }
+  .m.tools add separator
+  .m.tools add command -label Events -command [list gui_log_window $G(notebook)]
+  .m.tools add command -label Browser -command [list gui_current browse]
+  .m.tools add command -label Style   -command [list gui_current debug_style]
 
   # Add the 'History' menu
   .m add cascade -label {History} -menu [::hv3::menu .m.history]
@@ -1000,6 +1017,17 @@ proc exit {args} {
   eval [concat tcl_exit $args]
 }
 
+proc ::hv3::exit_handler {} {
+  set fd [open $::hv3::statefile w]
+  puts $fd [list \
+      ::hv3::the_visited_db loaddata [::hv3::the_cookie_manager getdata]
+  ]
+  puts $fd [list \
+      ::hv3::the_cookie_manager loaddata [::hv3::the_cookie_manager getdata]
+  ]
+  close $fd
+}
+
 proc ::hv3::scroll {r} {
   set html [[gui_current hv3] html]
   set region [$html yview]
@@ -1030,15 +1058,40 @@ proc ::hv3::nOverflow {} {
 #--------------------------------------------------------------------------
 # main URI
 #
-#     The main() program for the application.
+#     The main() program for the application. This proc handles
+#     parsing of command line arguments.
 #
-proc main {{doc home:}} {
+proc main {args} {
   # Build the GUI
   gui_build     ::hv3::G
   gui_menu      ::hv3::G
 
-#  ::hv3::cookiemanager ::hv3::the_cookie_manager
-#  ::hv3::the_cookie_manager Import cookies.txt
+  # Default startup page is "home:///"
+  set doc ""
+
+  for {set ii 0} {$ii < [llength $args]} {incr ii} {
+    set val [lindex $args $ii]
+    switch -glob -- $val {
+      -s* {                  # -statefile <file-name>
+        if {$ii == [llength $args] - 1} ::hv3::usage
+        incr ii
+        set ::hv3::statefile [lindex $args $ii]
+      }
+      default {
+        if {$doc ne ""} ::hv3::usage
+        set doc $val
+      }
+    }
+  }
+
+  if {$doc eq ""} {set doc home:///}
+
+  ::hv3::cookiemanager ::hv3::the_cookie_manager
+  ::hv3::visiteddb     ::hv3::the_visited_db
+
+  if {$::hv3::statefile ne "" && [file exists $::hv3::statefile]} {
+    source $::hv3::statefile
+  }
 
   # After the event loop has run to create the GUI, run [main2]
   # to load the startup document. It's better if the GUI is created first,
@@ -1049,11 +1102,20 @@ proc main2 {doc} {
   set tab [$::hv3::G(notebook) add $doc]
   focus $tab
 }
+proc ::hv3::usage {} {
+  puts stderr "Usage:"
+  puts stderr "    $::argv0 ?-statefile <file-name>? ?<uri>?"
+  puts stderr ""
+  tcl_exit
+}
+
+set ::hv3::statefile ""
 
 # Set variable $::hv3::maindir to the directory containing the 
 # application files. Then run the [main] command with the command line
 # arguments passed to the application.
 set ::hv3::maindir [file dirname [info script]] 
 eval [concat main $argv]
+
 #--------------------------------------------------------------------------
 

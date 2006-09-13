@@ -328,7 +328,7 @@ snit::type ::hv3::visiteddb {
 
   method LocationHandler {hv3} {
     set location [$hv3 location]
-    set myDatabase($location) 1
+    $self addkey $location
   }
 
   method LocationQuery {hv3 node} {
@@ -344,13 +344,34 @@ snit::type ::hv3::visiteddb {
   }
 
   method keys {} {return [array names myDatabase]}
+  method addkey {key} {
+    if {[info exists myDatabase($key)]} {
+      incr myDatabase($key)
+    } else {
 
+      if {[llength [array names myDatabase]] > ($myMaxEntries - 1)} {
+        set pairs [list]
+        foreach key [array names myDatabase] {
+          lappend pairs [list $key $myDatabase($key)]
+        }
+        set new [
+           lrange [lsort -decreasing -index 1 $pairs] 0 [expr $myMaxEntries - 2]
+        ]
+        array unset myDatabase
+        foreach pair $new {
+          set myDatabase([lindex $pair 0]) [lindex $pair 1]
+        }
+      }
+      set myDatabase($key) 1
+    }
+  }
+
+  method getdata {} {return [array get myDatabase]}
+  method loaddata {data} {array set myDatabase $data}
+
+  variable myMaxEntries 200
   variable myDatabase -array [list]
 }
-
-# Create the single, application-wide instance of ::hv3::visiteddb.
-#
-::hv3::visiteddb ::hv3::the_visited_db
 
 snit::widget ::hv3::scrolledlistbox {
   component myVsb
@@ -458,7 +479,7 @@ snit::widget ::hv3::locationentry {
   method KeyPressReturn {} {
 
     set current [$myEntry get]
-    if {![string match *:/* $current]} {
+    if {![string match *:/* $current] && ![string match *: $current]} {
       if {[string range $current 0 0] eq "/"} {
         set final "file://${current}"
       } else {
