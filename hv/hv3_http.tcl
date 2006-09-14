@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.17 2006/09/14 12:22:26 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.18 2006/09/14 15:50:57 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd and -cancelrequestcmd
@@ -137,6 +137,11 @@ snit::type ::hv3::protocol {
     set postdata  [$downloadHandle postdata]
     set enctype   [$downloadHandle enctype]
 
+    # Knock any #fragment off the end of the URI.
+    set obj [::hv3::uri %AUTO% $uri]
+    set uri [$obj get -nofragment]
+    $obj destroy
+
     # Store the HTTP header containing the cookies in variable $headers
     set headers [$myCookieManager Cookie $uri]
     if {$headers ne ""} {
@@ -162,7 +167,14 @@ snit::type ::hv3::protocol {
         lappend geturl -type $enctype
       }
     }
+
+    set mimetype [$downloadHandle mimetype]
+    if {$mimetype ne "" && ![string match text* $mimetype]} {
+      lappend geturl -binary 1
+    }
+    
     set token [eval $geturl]
+#puts "REQUEST $geturl -> $token"
 
     # Add this handle the the waiting-handles list. Also add a callback
     # to the -failscript and -finscript of the object so that it 
@@ -297,6 +309,7 @@ snit::type ::hv3::protocol {
   method _AppendCallback {downloadHandle socket token} {
     upvar \#0 $token state 
 
+#puts "APPEND [$downloadHandle uri]"
     # If this download-handle is still in the myWaitingHandles list,
     # process the http header and move it to the in-progress list.
     if {0 <= [set idx [lsearch $myWaitingHandles $downloadHandle]]} {
@@ -350,6 +363,7 @@ snit::type ::hv3::protocol {
   # Invoked when an http request has concluded.
   #
   method _DownloadCallback {downloadHandle token} {
+#puts "FINISH [$downloadHandle uri]"
     if {
       [lsearch $myInProgressHandles $downloadHandle] >= 0 ||
       [lsearch $myWaitingHandles $downloadHandle] >= 0
@@ -828,7 +842,7 @@ snit::type ::hv3::downloadmanager {
   }
 
   method UpdateGui {{fdownload ""}} {
-    puts "UPDATE $fdownload"
+# puts "UPDATE $fdownload"
 
     $self CheckGuiList
 

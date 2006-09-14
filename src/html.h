@@ -295,11 +295,12 @@ struct HtmlNode {
     int iNode;                     /* Node index */
 
     CssProperties *pStyle;                 /* Parsed "style" attribute */
-    Tcl_Obj *pOverride;                    /* List of property overrides */
     HtmlComputedValues *pPropertyValues;   /* Current CSS property values */
     HtmlComputedValues *pPreviousValues;   /* Previous CSS property values */
     CssDynamic *pDynamic;                  /* CSS dynamic conditions */
     Html_u8 flags;                         /* HTML_DYNAMIC_XXX flags */
+
+    Tcl_Obj *pOverride;                    /* List of property overrides */
 
     HtmlNodeStack *pStack;                 /* Stacking context */
 

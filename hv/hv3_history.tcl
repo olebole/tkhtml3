@@ -92,7 +92,9 @@ snit::type ::hv3::history {
   #     <<Complete>>
   #     <<Reset>>
   #     <<Location>>
-  #     Trace on "titlevar" (set whenever a <title> node is parsed)
+  #
+  #     Also there is a trace on "titlevar" (set whenever a <title> node is
+  #     parsed)
   #
 
   constructor {hv3 protocol args} {
@@ -175,6 +177,13 @@ snit::type ::hv3::history {
 
     if {$myHistorySeek >= 0} return
 
+    # Exception - if the state-list contains a single state with no
+    # "location" or "title" attribute set, then re-use it. This
+    # occurs when starting the application with a remote document
+    # as the first URI.
+    if { [llength $myStateList] == 1 && [[lindex $myStateList 0] uri] eq "" } {
+      return
+    }
     set myStateList [lrange $myStateList 0 $myStateIdx]
     incr myStateIdx
     lappend myStateList [::hv3::history_state %AUTO%]
@@ -202,12 +211,32 @@ snit::type ::hv3::history {
     $self populatehistorymenu
   }
 
+  proc StripFragment {uri} {
+    set obj [::hv3::uri %AUTO% $uri]
+    set ret [$obj get -nofragment]
+    $obj destroy
+    return $ret
+  }
+
   method Locvarcmd {hv3} {
     if {$myHistorySeek >= 0} {
       set myStateIdx $myHistorySeek
     }
 
     set state [lindex $myStateList $myStateIdx]
+    if {$myHistorySeek < 0} {
+      set new [StripFragment $myLocationVar]
+      set old [StripFragment [$state uri]]
+      if {$old eq $new && $myLocationVar != [$state uri]} {
+        set myStateList [lrange $myStateList 0 $myStateIdx]
+        incr myStateIdx
+        set newstate [::hv3::history_state %AUTO%]
+        lappend myStateList $newstate
+        $newstate title [$state title]
+        set state $newstate
+      }
+    }
+
     $state uri $myLocationVar
     $self populatehistorymenu
   }
