@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.69 2006/09/13 16:53:16 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.70 2006/09/14 12:22:26 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -377,6 +377,7 @@ snit::widget ::hv3::browser_toplevel {
     ::hv3::home_scheme_init [$myMainFrame hv3] $myProtocol
     ::hv3::about_scheme_init $myProtocol
     ::hv3::cookies_scheme_init [$myMainFrame hv3] $myProtocol
+    ::hv3::download_scheme_init [$myMainFrame hv3] $myProtocol
 
     # Create the history sub-system
     set myHistory [::hv3::history %AUTO% [$myMainFrame hv3] $myProtocol]
@@ -886,6 +887,11 @@ proc gui_menu {widget_array} {
     bind Hv3HotKeys <Control-$uc> $command
   }
 
+  .m.file add separator
+  .m.file add command -label Downloads -command [
+    list ::hv3::the_download_manager show
+  ]
+
   # Add a separator and the inevitable Exit item to the File menu.
   .m.file add separator
   .m.file add command -label Exit -command exit
@@ -899,11 +905,10 @@ proc gui_menu {widget_array} {
   .m add cascade -label {View} -menu [$G(config) menu]
 
   
-  .m add cascade -label Tools -menu [::hv3::menu .m.tools]
+  .m add cascade -label Debug -menu [::hv3::menu .m.tools]
 
   .m.tools add command -label Cookies -command [list $G(notebook) add cookies:]
   .m.tools add command -label Version -command [list $G(notebook) add about:]
-  .m.tools add command -label Downloads -state disabled
   .m.tools add command -label Polipo -command ::hv3::polipo::popup
   catch {
     # If the [gui_load_tkcon] proc cannot find the Tkcon package, it
@@ -1017,15 +1022,25 @@ proc exit {args} {
   eval [concat tcl_exit $args]
 }
 
+# This is called just before the hv3 application exits. If a "statefile" is
+# in use, then serialize the contents of the cookie and visited-uri 
+# databases and store them in the named file.
+#
+# Note: This is a temporary solution. Eventually this data will be stored
+# in an SQLite database at a well known file-system location that may be
+# accessed simultaeneously by multiple instances of hv3.
+#
 proc ::hv3::exit_handler {} {
-  set fd [open $::hv3::statefile w]
-  puts $fd [list \
-      ::hv3::the_visited_db loaddata [::hv3::the_cookie_manager getdata]
-  ]
-  puts $fd [list \
-      ::hv3::the_cookie_manager loaddata [::hv3::the_cookie_manager getdata]
-  ]
-  close $fd
+  if {$::hv3::statefile ne ""} {
+    set fd [open $::hv3::statefile w]
+    puts $fd [list \
+        ::hv3::the_visited_db loaddata [::hv3::the_visited_db getdata]
+    ]
+    puts $fd [list \
+        ::hv3::the_cookie_manager loaddata [::hv3::the_cookie_manager getdata]
+    ]
+    close $fd
+  }
 }
 
 proc ::hv3::scroll {r} {
@@ -1086,8 +1101,9 @@ proc main {args} {
 
   if {$doc eq ""} {set doc home:///}
 
-  ::hv3::cookiemanager ::hv3::the_cookie_manager
-  ::hv3::visiteddb     ::hv3::the_visited_db
+  ::hv3::downloadmanager ::hv3::the_download_manager
+  ::hv3::cookiemanager   ::hv3::the_cookie_manager
+  ::hv3::visiteddb       ::hv3::the_visited_db
 
   if {$::hv3::statefile ne "" && [file exists $::hv3::statefile]} {
     source $::hv3::statefile

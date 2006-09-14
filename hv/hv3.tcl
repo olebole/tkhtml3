@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.107 2006/09/13 16:53:16 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.108 2006/09/14 12:22:26 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -1142,12 +1142,12 @@ snit::widget ::hv3::hv3 {
   method Savefile {handle} {
 
     # Create a GUI to handle this download
-    set w .download%AUTO%
-    set dler [::hv3::filedownloader $w     \
+    set dler [::hv3::filedownload %AUTO%     \
         -source    [$handle uri]           \
         -size      [$handle expected_size] \
         -cancelcmd [list catch [list $handle fail]]     \
     ]
+    ::hv3::the_download_manager show
 
     # Redirect the -incrscript and -finscript commands to the download GUI.
     assert {[info exists theHandleFinish($handle)]}

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.16 2006/09/13 16:53:16 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.17 2006/09/14 12:22:26 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd and -cancelrequestcmd
@@ -603,6 +603,8 @@ snit::type ::hv3::cookiemanager {
   method UpdateGui {} {
     set newlist [list]
     foreach hv3 $myHv3List {
+      if {[info commands $hv3] eq ""} continue
+
       if {[string match cookies* [$hv3 location]] && [$hv3 pending] == 0} {
         $hv3 goto cookies:
         lappend newlist $hv3
@@ -618,14 +620,12 @@ proc ::hv3::cookies_scheme_init {hv3 protocol} {
   ]
 }
 
+# ::hv3::filedownload
 #
-# This mega-widget creates a new top-level window to control 
-# downloading a URI to the file-system. This isn't the most elegant
-# way to handle downloads, but it is familiar to users and quick
-# to implement. This is just a demo after all (sigh)...
-#
-# This widget is designed to interface with an hv3 download handle (an 
-# instance of class ::hv3::download).
+# Each currently downloading file is managed by an instance of the
+# following object type. All instances in the application are managed
+# by the [::hv3::the_download_manager] object, an instance of
+# class ::hv3::downloadmanager (see below).
 #
 # SYNOPSIS:
 #
@@ -643,8 +643,7 @@ proc ::hv3::cookies_scheme_init {hv3 protocol} {
 #     -size         ""        Expected size in bytes
 #     -cancelcmd    ""        Script to invoke to cancel the download
 #
-snit::widget ::hv3::filedownloader {
-  hulltype toplevel
+snit::type ::hv3::filedownload {
 
   # The destination path (in the local filesystem) and the corresponding
   # tcl channel (if it is open). These two variables also define the 
@@ -678,47 +677,13 @@ snit::widget ::hv3::filedownloader {
   option -source    -default ""
   option -size      -default ""
   option -cancelcmd -default ""
-
-  # Variables used to update the dynamic label widgets.
-  variable myStatus ""
-  variable myElapsed ""
+  option -updateguicmd -default ""
 
   # Total bytes downloaded so far.
   variable myDownloaded 0
 
-  # Time the download started, according to [clock seconds]
-  variable myStartTime 
-
   constructor {args} {
     $self configurelist $args
-
-    foreach e [list \
-        [list 0 "Source:"      options(-source)]      \
-        [list 1 "Destination:" myDestination] \
-        [list 2 "Status:"      myStatus]      \
-        [list 3 "Elapsed:"     myElapsed]     \
-    ] {
-      foreach {n text var} $e {}
-      set strlabel [label ${win}.row${n}_0 -text $text]
-      set varlabel [label ${win}.row${n}_1 -textvariable [myvar $var]]
-      grid configure $strlabel -column 0 -row $n -sticky w
-      grid configure $varlabel -column 1 -row $n -sticky w
-    }
-    grid columnconfigure ${win} 1 -minsize 400
-
-    label ${win}.progress_label -text "Progress:"
-    canvas ${win}.progress -height 12 -borderwidth 2 -relief sunken
-    ${win}.progress create rectangle 0 0 0 12 -fill darkblue -tags rect
-
-    # The "Progress:" label and canvas pretending to be a progress bar.
-    grid configure ${win}.progress_label -column 0 -row 4 -sticky w
-    grid configure ${win}.progress       -column 1 -row 4 -sticky ew
-
-    button ${win}.button -text Cancel -command [mymethod Cancel]
-    grid configure ${win}.button -column 1 -row 5 -sticky e
-
-    set myStartTime [clock seconds]
-    $self Timedcallback
   }
 
   method set_destination {dest} {
@@ -733,6 +698,7 @@ snit::widget ::hv3::filedownloader {
       # This is for conveniance, because [tk_getSaveFile] returns an 
       # empty string when the user selects "Cancel".
       $self Cancel
+      destroy $self
     } else {
       # Set the myDestination variable and open the channel to the
       # file to write. Todo: An error could occur opening the file.
@@ -744,14 +710,13 @@ snit::widget ::hv3::filedownloader {
       puts -nonewline $myChannel $myBuffer
       set myBuffer ""
 
-      # Update the GUI
-      $self Updategui
-
       # If the myIsFinished flag is set, then the entire download
       # was already in the buffer. We're finished.
       if {$myIsFinished} {
         $self finish {}
       }
+
+      ::hv3::the_download_manager manage $self
     }
   }
 
@@ -765,36 +730,14 @@ snit::widget ::hv3::filedownloader {
       catch {close $myChannel}
       catch {file delete $myDestination}
     }
-    destroy $self
   }
 
   # Update the GUI to match the internal state of this object.
   #
   method Updategui {} {
-    if {0 == $myIsFinished} {
-      set tm [expr [clock seconds] - $myStartTime]
-      set myElapsed "$tm seconds"
+    if {$options(-updateguicmd) ne ""} {
+      eval $options(-updateguicmd)
     }
-
-    if {$myIsFinished} {
-      set myStatus "$myDownloaded / $myDownloaded (finished)"
-      set percentage 100.0
-    } elseif {$options(-size) eq ""} {
-      set myStatus "$myDownloaded / ??"
-      set percentage 50.0
-    } else {
-      set percentage [expr ${myDownloaded}.0 * 100.0 / ${options(-size)}.0]
-      set percentage [format "%.1f" $percentage]
-      set myStatus "$myDownloaded / $options(-size) ($percentage%)"
-    }
-
-    set w [expr [winfo width ${win}.progress].0 * $percentage / 100.0]
-    ${win}.progress coords rect 0 0 $w 12
-  }
-
-  method Timedcallback {} {
-    $self Updategui
-    after 500 [mymethod Timedcallback]
   }
 
   method append {data} {
@@ -818,14 +761,12 @@ snit::widget ::hv3::filedownloader {
     if {$myChannel ne ""} {
       close $myChannel
       set myChannel ""
-      ${win}.button configure -text Ok -command [list destroy $self]
     }
 
     # If myIsFinished flag is not set, set it and then set myElapsed to
     # indicate the time taken by the download.
     if {!$myIsFinished} {
       set myIsFinished 1
-      set myElapsed "[expr [clock seconds] - $myStartTime] seconds"
     }
 
     # Update the GUI.
@@ -834,7 +775,196 @@ snit::widget ::hv3::filedownloader {
 
   destructor {
     catch { close $myChannel }
-    after cancel [mymethod Timedcallback]
   }
+
+  # Query interface used by ::hv3::downloadmanager GUI. It cares about
+  # four things: 
+  #
+  #     * the percentage of the download has been completed, and
+  #     * the state of the download (either "Downloading" or "Finished").
+  #     * the source URI
+  #     * the destination file
+  #
+  method state {} {
+    if {$myIsFinished} {return "Finished"}
+    return "Downloading"
+  }
+  method percentage {} {
+    if {$myIsFinished} {return 100}
+    if {$options(-size) eq ""} {return 50}
+    return [expr double($myDownloaded) / double($options(-size)) * 100]
+  }
+  method source {} {
+    return $options(-source)
+  }
+  method destination {} {
+    return $myDestination
+  }
+}
+
+snit::type ::hv3::downloadmanager {
+  variable myDownloads [list]
+  variable myHv3List [list]
+
+  method manage {filedownload} {
+    $filedownload configure -updateguicmd [mymethod UpdateGui $filedownload]
+    lappend myDownloads $filedownload
+    $self CheckGuiList
+    foreach hv3 $myHv3List {
+      $hv3 goto download:
+    }
+  }
+
+  method CheckGuiList {} {
+    # Make sure the list of GUI's is up to date.
+    set newlist [list]
+    foreach hv3 $myHv3List {
+      if {[info commands $hv3] eq ""} continue
+      if {[string match download* [$hv3 location]] && [$hv3 pending] == 0} {
+        lappend newlist $hv3
+      } 
+    }
+    set myHv3List $newlist
+  }
+
+  method UpdateGui {{fdownload ""}} {
+    puts "UPDATE $fdownload"
+
+    $self CheckGuiList
+
+    set dl_list $fdownload
+    if {[llength $dl_list] == 0} {
+      set dl_list $myDownloads
+    } 
+    foreach filedownload $dl_list {
+      set id [string map {: _} $filedownload]
+      foreach hv3 $myHv3List {
+
+        set search "#$id .progressbar"
+        foreach N [$hv3 search $search] {
+          $N override [list width [$filedownload percentage]%]
+        }
+
+        set search "#$id .downloading"
+        set val visible
+        if {[$filedownload state] eq "Finished"} {
+          set val hidden
+        }
+        foreach N [$hv3 search $search] { 
+          $N override [list visibility $val] 
+        }
+
+        set val hidden
+        if {[$filedownload state] eq "Finished"} {
+          set val visible
+        }
+        set search "#$id .finished"
+        foreach N [$hv3 search $search] { 
+          $N override [list visibility $val] 
+        }
+      }
+    }
+  }
+
+  method request {hv3 handle} {
+
+    set uri [$handle uri]
+    if {[regexp {.*delete=([^=&]*)} $uri -> delete]} {
+      set dl [string map {_ :} $delete]
+      set newlist [list]
+      foreach download $myDownloads {
+        if {$download ne $dl} {lappend newlist $download}
+      }
+      set myDownloads $newlist
+      catch {
+        if {[$dl state] ne "Finished"} {
+          $dl Cancel
+        }
+        $dl destroy
+      }
+      $handle append ""
+      $handle finish
+      $self CheckGuiList
+      foreach hv3 $myHv3List {
+        after idle [list $hv3 goto download:]
+      }
+      return
+    }
+
+    set document {
+      <html><head>
+        <style>
+          .download { border:solid black 1px; width:90%; margin: 1em auto; }
+          .download td { padding: 0px 5px; } 
+          .source { width:99%; }
+          .progress .progressbarwrapper { border:solid black 1px; width:100%; }
+          .progress .progressbar { background-color: navy; height: 1em; }
+          .status span { display:block; float:left; width:0px; }
+          .buttons { position:relative; width:12ex; }
+          .buttons input { position:absolute; bottom:0px; right:0px; left:0px; }
+          input { float:right; }
+        </style>
+        <title>Downloads</title>
+        </head>
+        <body>
+          <h1 align=center>Downloads</h1>
+    }
+ 
+    append document "<p>There are [llength $myDownloads] downloads.</p>"
+
+    foreach download $myDownloads {
+      set id [string map {: _} $download]
+      append document [subst {
+        <table class="download" id="$id">
+          <tr><td>Source:      
+              <td class="source">[$download source]
+              <td rowspan=4 valign=bottom>
+                 <div class="buttons">
+                      <form method=get action=download:///>
+                      <input class="downloading" type=submit value=Cancel>
+                      <input class="finished" type=submit value=Dismiss>
+                      <input name="delete" type=hidden value=$id>
+                      </form>
+          <tr><td>Destination: 
+              <td class="destination">[$download destination]
+          <tr><td>Status:      
+              <td class="status">
+                <span class="downloading">Downloading</span>
+                <span class="finished">Finished</span>
+              </td>
+          <tr><td>Progress:    
+              <td class="progress">
+                 <div class="progressbarwrapper">
+                 <div class="progressbar">
+        </table>
+      }]
+    }
+
+    if {[lsearch $myHv3List $hv3] < 0} {
+      lappend myHv3List $hv3
+    }
+
+    $handle append $document
+    $handle finish
+
+    after idle [list $self UpdateGui]
+  }
+
+  method show {} {
+    $self CheckGuiList
+    if {[llength $myHv3List] > 0} {
+      set hv3 [lindex $myHv3List 0]
+      set win [winfo parent [winfo parent $hv3]]
+      .notebook.notebook select $win
+    } else {
+      .notebook add download:
+    }
+  }
+}
+
+proc ::hv3::download_scheme_init {hv3 protocol} {
+  $protocol schemehandler download [
+    list ::hv3::the_download_manager request $hv3
+  ]
 }
 
