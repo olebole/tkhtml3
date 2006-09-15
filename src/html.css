@@ -316,3 +316,7 @@ BODY[marginwidth] {
   margin-right: tcl(::tkhtml::attr marginwidth -len);
 }
 
+SPAN[spancontent]:after {
+  content: tcl(::tkhtml::attr spancontent);
+}
+

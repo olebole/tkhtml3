@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.88 2006/09/07 08:30:50 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.89 2006/09/15 07:29:53 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -804,6 +804,77 @@ HtmlNodeAddChild(pNode, pToken)
 
     assert(r < pNode->nChild);
     return r;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * setNodeAttribute --
+ *
+ *     Set the value of an attribute on a node. This function is currently
+ *     a bit inefficient, due to the way the HtmlToken structure is 
+ *     allocated.
+ *
+ * Results:
+ *     None
+ *
+ * Side effects:
+ *     Modifies the HtmlToken structure associated with the specified node.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void
+setNodeAttribute(pNode, zAttrName, zAttrVal)
+    HtmlNode *pNode;
+    const char *zAttrName;
+    const char *zAttrVal;
+{
+    HtmlToken *p = pNode->pToken;
+    HtmlToken *pNew;
+    int nArgs = 2;
+    int nBytes = strlen(zAttrName) + 1 + strlen(zAttrVal) + 1;
+    int i;
+    int n = 0;
+    char *zSpace;
+
+    for (i = 0; i < p->count; i += 2) {
+        if (0 != strcmp(p->x.zArgs[i], zAttrName)) {
+            nArgs += 2;
+            nBytes += strlen(p->x.zArgs[i]) + 1;
+            nBytes += strlen(p->x.zArgs[i + 1]) + 1;
+        }
+    }
+
+    nBytes += sizeof(HtmlToken) + nArgs * sizeof(char *);
+    pNew = (HtmlToken *)HtmlClearAlloc(0, nBytes);
+    pNew->type = p->type;
+    pNew->count = nArgs;
+    pNew->x.zArgs = (char **)&pNew[1];
+    zSpace = (char *)&pNew->x.zArgs[nArgs];
+
+    for (i = 0; i < p->count; i += 2) {
+        if (0 != strcmp(p->x.zArgs[i], zAttrName)) {
+            pNew->x.zArgs[n] = zSpace;
+            strcpy(zSpace, p->x.zArgs[i]);
+            while (*zSpace != '\0') zSpace++; zSpace++;
+            pNew->x.zArgs[n + 1] = zSpace;
+            strcpy(zSpace, p->x.zArgs[i + 1]);
+            while (*zSpace != '\0') zSpace++; zSpace++;
+            n += 2;
+        }
+    }
+    pNew->x.zArgs[n] = zSpace;
+    strcpy(zSpace, zAttrName);
+    while (*zSpace != '\0') zSpace++; zSpace++;
+    pNew->x.zArgs[n + 1] = zSpace;
+    strcpy(zSpace, zAttrVal);
+    while (*zSpace != '\0') zSpace++; zSpace++;
+    n += 2;
+
+    HtmlFree(0, p);
+    pNode->pToken = pNew;
+   
+    assert(n == nArgs);
 }
 
 static void
@@ -1628,11 +1699,12 @@ nodeCommand(clientData, interp, objc, objv)
 
     switch ((enum NODE_enum)choice) {
         /*
-         * nodeHandle attr ??-default DEFAULT-VALUE? ATTR-NAME?
+         * nodeHandle attr ??-default DEFAULT-VALUE? ATTR-NAME? ?NEW-VALUE?
          */
         case NODE_ATTR: {
             char CONST *zAttr = 0;
             char *zAttrName = 0;
+            char *zAttrVal = 0;
             char *zDefault = 0;
 
             switch (objc) {
@@ -1640,6 +1712,10 @@ nodeCommand(clientData, interp, objc, objv)
                     break;
                 case 3:
                     zAttrName = Tcl_GetString(objv[2]);
+                    break;
+                case 4:
+                    zAttrName = Tcl_GetString(objv[2]);
+                    zAttrVal = Tcl_GetString(objv[3]);
                     break;
                 case 5:
                     if (strcmp(Tcl_GetString(objv[2]), "-default")) {
@@ -1650,6 +1726,17 @@ nodeCommand(clientData, interp, objc, objv)
                     break;
                 default:
                     goto node_attr_usage;
+            }
+
+            /* If there are values for both zAttrName and zAttrVal, then
+             * set the value of the attribute to the string pointed to by 
+             * zAttrVal. After doing this, run the code for an attribute
+             * query, so that the new attribute value is returned.
+             */
+            if (zAttrName && zAttrVal) {
+                assert(!zDefault);
+                setNodeAttribute(pNode, zAttrName, zAttrVal);
+                HtmlCallbackRestyle(pTree, pNode);
             }
 
             if (zAttrName) {
@@ -1679,7 +1766,7 @@ node_attr_usage:
             Tcl_AppendResult(interp, "Usage: ",
                 Tcl_GetString(objv[0]), " ",
                 Tcl_GetString(objv[1]), " ",
-                "? ?-default DEFAULT-VALUE? ATTR-NAME?", 0);
+                "? ?-default DEFAULT-VALUE? ATTR-NAME ?NEW-VAL??", 0);
             return TCL_ERROR;
         }
 

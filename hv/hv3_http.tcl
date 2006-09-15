@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.18 2006/09/14 15:50:57 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.19 2006/09/15 07:29:53 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd and -cancelrequestcmd
@@ -876,6 +876,19 @@ snit::type ::hv3::downloadmanager {
         foreach N [$hv3 search $search] { 
           $N override [list visibility $val] 
         }
+
+        set search "#$id .button"
+        foreach N [$hv3 search $search] { 
+          set a(Finished)    Dismiss
+          set a(Downloading) Cancel
+          $N attr value $a([$filedownload state])
+        }
+
+        set search "#$id .status span"
+        foreach N [$hv3 search $search] { 
+          set percent [format %.2f%s [$filedownload percentage] %]
+          $N attr spancontent "[$filedownload state] ($percent)"
+        }
       }
     }
   }
@@ -913,9 +926,7 @@ snit::type ::hv3::downloadmanager {
           .source { width:99%; }
           .progress .progressbarwrapper { border:solid black 1px; width:100%; }
           .progress .progressbar { background-color: navy; height: 1em; }
-          .status span { display:block; float:left; width:0px; }
-          .buttons { position:relative; width:12ex; }
-          .buttons input { position:absolute; bottom:0px; right:0px; left:0px; }
+          .buttons { display:block;width:12ex }
           input { float:right; }
         </style>
         <title>Downloads</title>
@@ -935,16 +946,14 @@ snit::type ::hv3::downloadmanager {
               <td rowspan=4 valign=bottom>
                  <div class="buttons">
                       <form method=get action=download:///>
-                      <input class="downloading" type=submit value=Cancel>
-                      <input class="finished" type=submit value=Dismiss>
-                      <input name="delete" type=hidden value=$id>
+                      <input class="button"      type=submit value=Cancel>
+                      <input name="delete"       type=hidden value=$id>
                       </form>
           <tr><td>Destination: 
               <td class="destination">[$download destination]
           <tr><td>Status:      
               <td class="status">
-                <span class="downloading">Downloading</span>
-                <span class="finished">Finished</span>
+                <span spancontent="Waiting (0%)">
               </td>
           <tr><td>Progress:    
               <td class="progress">
