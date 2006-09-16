@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.19 2006/09/15 07:29:53 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.20 2006/09/16 10:27:40 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd and -cancelrequestcmd
@@ -364,6 +364,7 @@ snit::type ::hv3::protocol {
   #
   method _DownloadCallback {downloadHandle token} {
 #puts "FINISH [$downloadHandle uri]"
+
     if {
       [lsearch $myInProgressHandles $downloadHandle] >= 0 ||
       [lsearch $myWaitingHandles $downloadHandle] >= 0
@@ -989,5 +990,17 @@ proc ::hv3::download_scheme_init {hv3 protocol} {
   $protocol schemehandler download [
     list ::hv3::the_download_manager request $hv3
   ]
+}
+
+
+# Work around a bug in http::Finish
+rename http::Finish http::FinishReal
+proc http::Finish {token args} {
+  upvar 0 $token state
+  catch {
+    close $state(sock)
+    unset state(sock)
+  }
+  eval [linsert $args 0 ::http::FinishReal $token]
 }
 
