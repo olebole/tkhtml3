@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.20 2006/09/16 10:27:40 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.21 2006/09/16 10:57:17 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd and -cancelrequestcmd
@@ -992,15 +992,18 @@ proc ::hv3::download_scheme_init {hv3 protocol} {
   ]
 }
 
-
 # Work around a bug in http::Finish
-rename http::Finish http::FinishReal
-proc http::Finish {token args} {
+proc ::hv3::HttpFinish {token args} {
   upvar 0 $token state
   catch {
     close $state(sock)
     unset state(sock)
   }
   eval [linsert $args 0 ::http::FinishReal $token]
+}
+after idle {
+  catch {::http::Finish}
+  rename ::http::Finish ::http::FinishReal
+  rename ::hv3::HttpFinish ::http::Finish
 }
 
