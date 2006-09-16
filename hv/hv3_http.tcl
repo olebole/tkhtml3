@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.23 2006/09/16 15:16:57 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.24 2006/09/16 16:39:28 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd and -cancelrequestcmd
@@ -411,7 +411,51 @@ snit::type ::hv3::cookiemanager {
   variable myDebugWindow
   variable myData -array [list]
 
-  # Each cookie is stored as a list of 7 elements, as follows:
+  #--------------------------------------------------------------------
+  # Cookie expiration policy. All text taken from the reference above.
+  #
+  # * The "expires" attribute specifies a date string that defines the 
+  #   valid life time of that cookie. Once the expiration date has 
+  #   been reached, the cookie will no longer be stored or given out.
+  #
+  # * "expires" is an optional attribute. If not specified, the cookie 
+  #   will expire when the user's session ends.
+  #
+  # * This is a specification of the minimum number of cookies that a client
+  #   should be prepared to receive and store:
+  #      * 300 total cookies
+  #      * 20 cookies per server or domain
+  #
+  # * When the 300 cookie limit or the 20 cookie per server limit is exceeded,
+  #   clients should delete the least recently used cookie.
+  #--------------------------------------------------------------------
+
+  # This method is called whenever a new cookie is added to the database.
+  # It should discard cookies from the database as required to satisfy
+  # the 300 cookie or 20 cookie per server limit.
+  #
+  # TODO: The 20 cookie per server limit. Right now, only the 300 cookie limit
+  # is considered.
+  #
+  method ExpireCookies {} {
+    set MAX_COOKIES 300
+    if {[array names myData] < [expr $MAX_COOKIES + 20]} return
+
+    set cookies [list]
+    foreach key [array names myData] {
+      lappend cookies $myData($key)
+    }
+    unset myData
+
+    set cookies [lsort -decreasing -integer -index 7 $cookies]
+    foreach cookie [lrange $cookies 0 [expr $MAX_COOKIES - 1]] {
+      foreach {domain flag path secure expires name value lasttime} $cookie {}
+      set key "$domain $path $name"
+      set myData($key) $cookie
+    }
+  }
+
+  # Each cookie is stored as a list of 8 elements, as follows:
   #
   #     + domain
   #     + flag (TRUE/FALSE)
@@ -420,6 +464,7 @@ snit::type ::hv3::cookiemanager {
   #     + expires (time_t)
   #     + name
   #     + value
+  #     + <time last updated or sent>
   #
   method SetCookie {uri data} {
 
@@ -468,7 +513,8 @@ snit::type ::hv3::cookiemanager {
 
     if {[info exists name]} {
       set cookie [list \
-          $v(domain) $v(flag) $v(path) $v(secure) $v(expires) $name $value
+          $v(domain) $v(flag) $v(path) $v(secure) $v(expires) $name $value \
+          [clock seconds]
       ]
       set key "$v(domain) $v(path) $name"
       set myData($key) $cookie
@@ -476,6 +522,7 @@ snit::type ::hv3::cookiemanager {
       puts "::hv3::cookiemanager SetCookie - parse failed"
     }
 
+    $self ExpireCookies
     $self UpdateGui
   }
 
@@ -494,12 +541,20 @@ snit::type ::hv3::cookiemanager {
 
     foreach k [array names myData] {
       set cookie $myData($k)
-      foreach {domain flag path secure expires name value} $cookie {}
-      if {
-        [string match *$domain $uri_domain] && 
-        [string match ${path}* $uri_path]
+      foreach {domain flag path secure expires name value DUMMY} $cookie {}
+
+      # Check if the cookie has already expired. If so, remove it from
+      # the database (and do not send it).
+      if {$expires != 0 && [clock seconds] > $expires} {
+        unset myData($k)
+      } elseif {
+          [string match *$domain $uri_domain] && 
+          [string match ${path}* $uri_path]
       } {
         append ret [format "%s=%s; " $name $value]
+
+        # Update the "last-used" field.
+        lset myData($k) 7 [clock seconds]
       }
     }
 
