@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.22 2006/09/16 11:43:04 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.23 2006/09/16 15:16:57 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd and -cancelrequestcmd
@@ -83,7 +83,7 @@ snit::type ::hv3::protocol {
     $self schemehandler data  [mymethod request_data]
     if {[info commands ::tls::socket] ne ""} {
       $self schemehandler https [mymethod request_https]
-      ::http::register https 443 [mymethod SSocket]
+      ::http::register https 443 [list ::hv3::protocol SSocket]
     }
 
     # Configure the Tcl http package to pretend to be Gecko.
@@ -194,16 +194,15 @@ snit::type ::hv3::protocol {
   #     [SSocketProxyReady], and
   #     [SSocket], 
   #
-  # along with the object variable $myWaitingSocket, are part of the
+  # along with the type variable $theWaitingSocket, are part of the
   # https:// support implementation.
   # 
-  variable myWaitingSocket ""
   method request_https {downloadHandle} {
     set obj [::hv3::uri %AUTO% [$downloadHandle uri]]
 
     set host [$obj cget -authority]
     set port 443
-    regexp {^(.*):([0123456789]+)$} $host dummy host port
+    regexp {^(.*):([0123456789]+)$} $host -> host port
 
     set proxyhost [::http::config -proxyhost]
     set proxyport [::http::config -proxyport]
@@ -221,9 +220,13 @@ snit::type ::hv3::protocol {
     }
   }
   method SSocketReady {fd downloadHandle} {
+    # There is now a tcp/ip socket connection to the https server ready 
+    # to use. Invoke ::tls::import to add an SSL layer to the channel
+    # stack. Then call [$self request_http] to format the HTTP request
+    # as for a normal http server.
     fileevent $fd writable ""
     fileevent $fd readable ""
-    set myWaitingSocket [::tls::import $fd]
+    set theWaitingSocket [::tls::import $fd]
     $self request_http $downloadHandle
   }
   method SSocketProxyReady {fd downloadHandle} {
@@ -238,9 +241,11 @@ snit::type ::hv3::protocol {
       $self SSocketReady $fd $downloadHandle
     }
   }
-  method SSocket {host port} {
-    set ss $myWaitingSocket
-    set myWaitingSocket ""
+
+  typevariable theWaitingSocket ""
+  typemethod SSocket {host port} {
+    set ss $theWaitingSocket
+    set theWaitingSocket ""
     return $ss
   }
   # End of code for https://
