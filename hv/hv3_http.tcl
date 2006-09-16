@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.21 2006/09/16 10:57:17 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.22 2006/09/16 11:43:04 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd and -cancelrequestcmd
@@ -992,7 +992,16 @@ proc ::hv3::download_scheme_init {hv3 protocol} {
   ]
 }
 
+#-----------------------------------------------------------------------
 # Work around a bug in http::Finish
+#
+
+# First, make sure the http package is actually loaded. Do this by 
+# invoking ::http::geturl. The call will fail, since the arguments (none)
+# passed to ::http::geturl are invalid.
+catch {::http::geturl}
+
+# Declare a wrapper around ::http::Finish
 proc ::hv3::HttpFinish {token args} {
   upvar 0 $token state
   catch {
@@ -1001,9 +1010,9 @@ proc ::hv3::HttpFinish {token args} {
   }
   eval [linsert $args 0 ::http::FinishReal $token]
 }
-after idle {
-  catch {::http::Finish}
-  rename ::http::Finish ::http::FinishReal
-  rename ::hv3::HttpFinish ::http::Finish
-}
+
+# Install the wrapper.
+rename ::http::Finish ::http::FinishReal
+rename ::hv3::HttpFinish ::http::Finish
+#-----------------------------------------------------------------------
 
