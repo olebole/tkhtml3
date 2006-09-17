@@ -71,6 +71,8 @@ snit::type ::hv3::history {
   variable myStateList [list]
   variable myStateIdx 0 
 
+  variable myRadioVar 0 
+
   # Variables used when loading a history-state.
   variable myHistorySeek -1
   variable myIgnoreGotoHandler 0
@@ -186,6 +188,7 @@ snit::type ::hv3::history {
     }
     set myStateList [lrange $myStateList 0 $myStateIdx]
     incr myStateIdx
+    set myRadioVar $myStateIdx
     lappend myStateList [::hv3::history_state %AUTO%]
 
     if 0 {
@@ -230,6 +233,7 @@ snit::type ::hv3::history {
       if {$old eq $new && $myLocationVar != [$state uri]} {
         set myStateList [lrange $myStateList 0 $myStateIdx]
         incr myStateIdx
+        set myRadioVar $myStateIdx
         set newstate [::hv3::history_state %AUTO%]
         lappend myStateList $newstate
         $newstate title [$state title]
@@ -278,6 +282,7 @@ snit::type ::hv3::history {
     set back $options(-backbutton)
     set forward $options(-forwardbutton)
 
+    set myRadioVar $myStateIdx
     if {$menu ne ""} {
       $menu delete 0 end
       $menu add command -label Back
@@ -296,7 +301,7 @@ snit::type ::hv3::history {
 
         $menu add radiobutton                       \
           -label $caption                           \
-          -variable [myvar myStateIdx]              \
+          -variable [myvar myRadioVar]              \
           -value    $idx                            \
           -command [mymethod gotohistory $idx]
       }
