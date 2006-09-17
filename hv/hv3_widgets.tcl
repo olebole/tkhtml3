@@ -1,12 +1,12 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.25 2006/08/20 14:50:09 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.26 2006/09/17 08:35:21 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
 
 set ::hv3::toolkit Tk
 catch {
-  package require tile
-  set ::hv3::toolkit Tile
+#  package require tile
+#  set ::hv3::toolkit Tile
 }
 
 catch { font create Hv3DefaultFont -size 9 -weight normal }
@@ -37,6 +37,7 @@ proc ::hv3::button {args} {
   } else {
     set w [eval [linsert $args 0 ::button]]
     $w configure -highlightthickness 0
+    $w configure -font Hv3DefaultFont -pady 0 -borderwidth 1
   }
   return $w
 }
@@ -95,16 +96,20 @@ proc ::hv3::label {args} {
     set myPopup ${top}[string map {. _} $myButton]
     set myPopupLabel ${myPopup}.label
     frame $myPopup -bg black
-    ::label $myPopupLabel -fg black -bg white -font TkDefaultFont
+    ::label $myPopupLabel -fg black -bg white -font Hv3DefaultFont
 
     pack $myButton -expand true -fill both
-    pack  $myPopup.label -padx 1 -pady 1 -fill both -expand true
+    pack $myPopup.label -padx 1 -pady 1 -fill both -expand true
 
     $self configurelist $args
 
     bind $myButton <Enter> [mymethod Enter]
     bind $myButton <Leave> [mymethod Leave]
     bind $myButton <ButtonPress-1> +[mymethod Leave]
+  }
+
+  destructor {
+    destroy $myPopup
   }
 
   method Enter {} {
@@ -716,6 +721,7 @@ snit::widget ::hv3::googlewidget {
 
     ::hv3::label $win.label -text "Search:"
     ::hv3::entry $win.entry -width 30
+    ::hv3::button $win.close -text dismiss -command [list destroy $win]
 
     set w ${win}.menubutton
     menubutton $w -textvar [myvar myEngine] -indicatoron 1 -menu $w.menu
@@ -728,6 +734,7 @@ snit::widget ::hv3::googlewidget {
     pack $win.label -side left
     pack $win.entry -side left
     pack $w -side left
+    pack $win.close -side right
 
     bind $win.entry <Return>       [mymethod Search]
 
@@ -775,6 +782,8 @@ snit::widget ::hv3::findwidget {
 
     checkbutton $win.check_nocase -variable [myvar myNocaseVar] -pady 0
     ::hv3::label $win.check_nocase_label -text "Case Insensitive"
+
+    ::hv3::button $win.close -text dismiss -command [list destroy $win]
  
     $win.entry configure -textvar [myvar myEntryVar]
     trace add variable [myvar myEntryVar] write [mymethod DynamicUpdate]
@@ -796,6 +805,7 @@ snit::widget ::hv3::findwidget {
     pack $win.entry -side left
     pack $win.check_nocase -side left
     pack $win.check_nocase_label -side left
+    pack $win.close -side right
     pack $win.num_results -side right -fill x
   }
 

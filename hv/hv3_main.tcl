@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.70 2006/09/14 12:22:26 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.71 2006/09/17 08:35:21 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -630,11 +630,6 @@ snit::type ::hv3::search {
         $myMenu entryconfigure end -accelerator "(Ctrl-$uc)"
         bind Hv3HotKeys <Control-$lc> [mymethod search $label]
         bind Hv3HotKeys <Control-$uc> [mymethod search $label]
-      }
-
-      foreach {label2 event} $myHotKeys {
-        if {$label2 eq $label} {
-        }
       }
     }
   }
