@@ -10,7 +10,7 @@
        * of the page. */
 
       body { 
-        margin: 10px;
+        margin: 10px 2ex;
         background-color: #d9d9d9;
       }
 
@@ -18,7 +18,7 @@
         margin: 10px 0;
       }
       .heading,.content {
-        padding: 10px;
+        padding: 10px 2ex;
       }
 
       .heading {
@@ -28,42 +28,66 @@
       }
 
       .content {
+          background: white;
           border: solid 2px black;
+          position: absolute;
+          left: 27ex;
+          right: 2ex;
       }
 
       .content :link { color: blue; }
-      .content :link:hover { text-decoration: underline }
-      .content :link { text-decoration: none }
+      .content :link:hover,:visited:hover { text-decoration: underline }
+      .content :link,:visited { text-decoration: none }
 
+      .links {
+        background: white;
+        position: absolute;
+        width: 24ex;
+        left: 2ex;
+        padding: 0;
+      }
+      .linksborder {
+        border: solid 2px black;
+        padding-bottom: 1px;
+        margin: 0;
+      }
 
+      .links h3 {
+        margin: 0;
+        padding-left: 1ex;
+        padding-top: 1ex;
+      }
+      .links h3:after {
+        content: ":";
+      }
+      .links ul {
+        padding: 0;
+        margin: 0;
+      }
+      .links li {
+        display: block;
+        padding: 0;
+        margin: 0;
+      }
       .links li a {
         display: block;
-        width: 20ex;
         line-height: 1.5;
-        text-align: center;
         text-decoration: none;
-        float: left;
         margin: 1px;
+        padding-left: 3ex;
 
-        border: 2px solid;
-        border-color: #ffffff #828282 #828282 #ffffff;
-        background: #d9d9d9;
         font-weight: bold;
+        border: 1px solid black;
+        border-left: none;
+        border-right: none;
+
         font-size: 90%;
         color: black;
       }
       .links li a:hover {
-        background: #ececec;
+        background-color: #d9d9d9;
       }
 
-      .links               {display: table; width:100%; border-spacing: 12px}
-      .linkset             {display: table-row}
-      .links h3, .links ul {display: table-cell; vertical-align: middle}
-      .links li            {display: block}
-
-      .links {
-        border: solid 2px black;
-      }
 
     </style>
   </head>
@@ -74,6 +98,7 @@
     </h1>
 
     <div class="links">
+      <div class="linksborder">
 
       <div class="linkset">
       <h3>Tcl</h3>
@@ -93,7 +118,7 @@
           <li><a href="http://www.w3.org/TR/CSS1">CSS 1.0</a>
           <li><a href="http://www.w3.org/TR/CSS21/">CSS 2.1</a>
           <li><a href="http://www.w3.org/TR/html4/">HTML 4.01</a>
-          <li><a href="http://www.whatwg.org/specs/web-apps/current-work/">Web Applications 1.0</a>
+          <li><a href="http://www.whatwg.org/specs/web-apps/current-work/">Web Apps 1.0</a>
           <li><a href="http://www.webstandards.org/files/acid2/test.html">Acid 2 Test</a>
         </ul>
       </div>
@@ -116,62 +141,75 @@
         </ul>
       </div>
 
+      </div>
     </div>
 
     <div class=content>
 
-    <h1>Release Notes</h1>
-    <h2>Overview</h2>
+    <h1>Release Notes - Alpha 11</h1>
     <p> Congratulations on successfully running Hv3 - the minimalist browser
-        designed to test Tkhtml3. 
+	designed to test Tkhtml3. The following release notes apply to the 11th
+        alpha release of both Hv3 and Tkhtml3. Please report bugs in Hv3 or
+        Tkhtml3 here:
     </p>
+    <a href="http://tkhtml.tcl.tk/cvstrac/timeline">
+        http://tkhtml.tcl.tk/cvstrac/timeline
+    </a>
 
-    <p>
-	Although it is not as polished as a "real" browser, Hv3 supports
-	file:// and http:// URIs, HTTP cookies, HTML forms and contains a
-	primitive back/forward history list. If convenient, please help by
-	using Hv3 for some of your web-browsing and report bugs using the
-        interface at:
-    </p>
+    <h3>1. The -statefile option</h3>
+      <p>It is possible to configure Hv3 to use persistent storage for the
+         following application state data:
+         <ul><li>Http cookies.
+             <li>The list of visited URIs (used for auto-completion in the
+                 location bar and for coloring visited URIs).
+         </ul>
+      <p>However the mechanism used is currently very simple. Hv3 loads
+         the contents of the named file when it is started and saves it's 
+         current state to the same file just before exiting. This means that
+         concurrently running more than one version of Hv3 configured to
+         access the same "state-file" produces confusing results. A future
+         version of Hv3 will use an embedded SQLite database instead of
+         a text file to fix this problem.
+      <p>To configure hv3 to use a "state-file", add a -statefile option
+         to the command line used to start Hv3. For example, if using a
+         starkit from http://tkhtml.tcl.tk, something like:
+      <pre>
+  hv3_img.kit -statefile /home/user/hv3state.txt</pre>
 
-    <p> <a href="http://tkhtml.tcl.tk/cvstrac/">
-        http://tkhtml.tcl.tk/cvstrac/
-        </a>
-    </p>
+      <p>By default, Hv3 stores everything in memory. So all cookie and
+         visited URI data is discarded on exit.
 
-    <p> It goes without saying that under no circumstances should you use
-	Hv3 to e-mail the boss, transfer funds to Nigeria, order pizza, or
-        anything else important.
-    </p>
+    <h3>2. hv3_polipo</h3>
+      <p>It is best to use Hv3 in concert with hv3_polipo, a lightweight
+         web proxy. Using hv3_polipo has the following advantages:
+         <ul><li>DNS lookups are performed asynchronously in an external
+                 process. This means the Hv3 GUI doesn't freeze while waiting
+                 for a response from the DNS server.
+	     <li>The generated network traffic uses HTTP 1.1 features
+		 (i.e. pipelining) to significantly improve performance.
+                 Without hv3_polipo Hv3 generates HTTP 1.0 network traffic.
+         </ul>
+      <p>Instructions for obtaining hv3_polipo may be found at <a href="http://tkhtml.tcl.tk/hv3.html">http://tkhtml.tcl.tk/hv3.html</a>
+      <p>To test if hv3_polipo is in use, select the Debug-&gt;Polipo menu
+	 option. If the log window that pops up contains (amongst other things)
+	 a line like "ERROR: No hv3_polipo binary found.", then hv3_polipo is
+	 not in use. If it contains a line similar to "INFO:  Polipo
+         (re)started successfully.", then it is.
 
-    <h2>Hv3 Usage</h2>
-    <p>
-      Hv3 provides more or less the same user interface as other hypertext
-      applications. The "history" pull-down menu and the "back", "stop" and
-      "forward" buttons should be familiar to all.
-    </p>
-    <ul>
-      <li>The "font size table" menu is used to manipulate the table of
-          font sizes used to map from CSS2 absolute font sizes to values
-          expressed in points (for example, setting the CSS2 font-size
-          property to "x-small" might map to a font size of 8 points.
-          Refer to 
-          <a href="http://www.w3.org/TR/CSS21/fonts.html#font-size-props">
-         the appropriate section of CSS2
-         </a>for details.
-      <li>Right clicking on a hyper-link displays a popup menu.
-      <li>Right clicking anywhere else on the document window launches the tree
-	  browser, a GUI for examining the structure of the current document.
-	  The tree browser can also be launched via the "browser" command on
-          the "file" pull-down menu.
-      <li>Middle clicking on the document causes Hv3 to interpret the 
-          current selection (from any application, not just Hv3) as a 
-          document URI to load.
-      <li>Pressing the "Q" key while the document window has the focus exits
-          the application.
-    </ul>
+    <h3>3. Frameset documents</h3>
+      <p>Although frameset documents are supported, they do not work 
+         properly with the "Find in page..." or history features. Some
+         attributes of the HTML &lt;frame&gt; element are not yet supported
+         ("scrolling" and "noresize").
 
-    <h2>Credits</h2>
+    <h3>4. Cookies Policy</h3>
+      <p>You should be aware that Hv3 unconditionally accepts all cookies.
+         Eventually there will be an interface to configure this.
+
+    <h3>5. HTTPS URIs</h3>
+      <p>Hv3 can load https:// URIs if the Tcl "tls" package is installed.
+
+    <h1>Credits</h1>
     <ul>
       <li> Hv3 uses the pure-tcl combobox widget created by Bryan Oakley
            <a href="http://www.purl.org/net/oakley/tcl/combobox/index.html">

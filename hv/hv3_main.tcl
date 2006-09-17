@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.71 2006/09/17 08:35:21 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.72 2006/09/17 13:07:18 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -388,10 +388,10 @@ snit::widget ::hv3::browser_toplevel {
     # used to add the tag "$self" to the html widget for every 
     # frame in the frameset.
     bind $self <Escape>          [mymethod Escape]
-    bind $self <Control-f>       [mymethod Find find]
-    bind $self <KeyPress-slash>  [mymethod Find find]
-    bind $self <KeyPress-q>      exit
-    bind $self <KeyPress-Q>      exit
+    bind $self <Control-f>       [mymethod Find]
+    bind $self <KeyPress-slash>  [mymethod Find]
+    bind $self <Control-q>       exit
+    bind $self <Control-Q>       exit
     bind $self <1>               +[list focus %W]
 
     # Todo: The following [bindtags] trick for all html widgets in a 
@@ -473,27 +473,24 @@ snit::widget ::hv3::browser_toplevel {
   #         * Presses "/", or
   #         * Selects the "Edit->Find Text" pull-down menu command.
   #
-  method Find {t} {
+  method Find {} {
 
     set fdname ${win}.findwidget
-
-    if {[llength [info commands $fdname]] == 0} {
-  
-      switch $t {
-        find { 
-          ::hv3::findwidget $fdname [$myMainFrame hv3] 
-        }
-        google { 
-          ::hv3::googlewidget $fdname -getcmd [mymethod goto]
-        }
-      }
-
-      $self packwidget $fdname
-      $fdname configure -borderwidth 1 -relief raised
-
-      # When the findwidget is destroyed, return focus to the html widget. 
-      bind $fdname <Escape>  [list destroy $fdname]
+    set initval ""
+    if {[llength [info commands $fdname]] > 0} {
+      set initval [${fdname}.entry get]
+      destroy $fdname
     }
+  
+    ::hv3::findwidget $fdname [$myMainFrame hv3] 
+
+    $self packwidget $fdname
+    $fdname configure -borderwidth 1 -relief raised
+
+    # When the findwidget is destroyed, return focus to the html widget. 
+    bind $fdname <Escape>  [list destroy $fdname]
+
+    ${fdname}.entry insert 0 $initval
     focus ${fdname}.entry
   }
 
@@ -609,7 +606,7 @@ snit::type ::hv3::search {
     set myMenu $menu_path
     ::hv3::menu $myMenu
 
-    set findcmd [list gui_current Find find]
+    set findcmd [list gui_current Find] 
     $myMenu add command \
         -label {Find in page...} -command $findcmd -accelerator (Ctrl-F)
 
@@ -646,7 +643,11 @@ snit::type ::hv3::search {
     set btl [.notebook current]
 
     set fdname ${btl}.findwidget
-    if {[llength [info commands $fdname]] > 0} return
+    set initval ""
+    if {[llength [info commands $fdname]] > 0} {
+      set initval [${fdname}.entry get]
+      destroy $fdname
+    }
 
     set conf [list]
     foreach {label uri} $mySearchEngines {
@@ -666,6 +667,7 @@ snit::type ::hv3::search {
     # Pressing <Escape> dismisses the search widget.
     bind $fdname <Escape>  [list destroy $fdname]
 
+    ${fdname}.entry insert 0 $initval
     focus ${fdname}.entry
   }
 }
@@ -889,7 +891,7 @@ proc gui_menu {widget_array} {
 
   # Add a separator and the inevitable Exit item to the File menu.
   .m.file add separator
-  .m.file add command -label Exit -command exit
+  .m.file add command -label Exit -accelerator (Ctrl-Q) -command exit
 
   # Add the 'Search' menu
   set G(search) [::hv3::search %AUTO% .m.search]
