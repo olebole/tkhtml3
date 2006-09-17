@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.108 2006/09/14 12:22:26 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.109 2006/09/17 07:36:43 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -688,9 +688,6 @@ snit::widget ::hv3::hv3 {
   # Used to assign internal stylesheet ids.
   variable  myStyleCount 0 
 
-  # TODO: Get rid of this...
-  variable  myPostData "" 
-
   # This variable may be set to "unknown", "quirks" or "standards".
   variable myQuirksmode unknown
 
@@ -1207,6 +1204,8 @@ snit::widget ::hv3::hv3 {
     # puts "Formcmd $method $uri $querytype $encdata"
     set full_uri [$self resolve_uri $uri]
 
+    event generate $win <<Goto>>
+
     set handle [::hv3::download %AUTO% -mimetype text/html]
     $handle configure                                     \
         -lockscript [mymethod lockcallback $handle]       \
@@ -1253,10 +1252,6 @@ snit::widget ::hv3::hv3 {
   }
   method invalidate_nodecache {} {
     unset -nocomplain myNodeArgs
-  }
-
-  method postdata {encdata} {
-    set myPostData $encdata
   }
 
   method goto {uri} {
@@ -1307,7 +1302,6 @@ snit::widget ::hv3::hv3 {
     set handle [::hv3::download %AUTO%             \
         -uri         [$uri_obj get]                \
         -mimetype    $mimetype                     \
-        -postdata    $myPostData                   \
     ]
     $handle configure                                     \
         -lockscript [mymethod lockcallback $handle]       \
