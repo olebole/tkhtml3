@@ -12,7 +12,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile.in,v 1.28 2006/07/16 11:20:38 danielk1977 Exp $
+# RCS: @(#) $Id: Makefile.in,v 1.29 2006/09/21 14:30:07 danielk1977 Exp $
 
 #========================================================================
 # Add additional lines to handle any additional AC_SUBST cases that
@@ -63,7 +63,7 @@ PKG_LIB_FILE	= @PKG_LIB_FILE@
 PKG_STUB_LIB_FILE = @PKG_STUB_LIB_FILE@
 
 lib_BINARIES	= $(PKG_LIB_FILE)
-BINARIES	= $(lib_BINARIES) tkhtml.tcl html.css
+BINARIES	= $(lib_BINARIES) html.css
 
 SHELL		= @SHELL@
 
@@ -314,9 +314,6 @@ cssparse.h: $(srcdir)/src/cssparse.y $(LEMON)
 	./$(LEMON) cssparse.y
 
 cssparse.c: cssparse.h
-
-tkhtml.tcl: $(srcdir)/tests/tkhtml.tcl
-	cp $(srcdir)/tests/tkhtml.tcl .
 
 #========================================================================
 # Create the pkgIndex.tcl file.

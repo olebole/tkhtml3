@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.26 2006/09/17 08:35:21 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.27 2006/09/21 14:30:07 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
@@ -298,8 +298,8 @@ proc ::hv3::scrolled {widget name args} {
 #
 snit::widget ::hv3::pretend_tile_notebook {
 
-  variable myWidgets
-  variable myTitles
+  variable myWidgets [list]
+  variable myTitles  [list]
   variable myCurrent 0
 
   # Height of the tabs part of the window (when visible), in pixels.
@@ -632,6 +632,15 @@ snit::widget ::hv3::notebook {
     } elseif {[catch {${win}.notebook tab $widget -text $title}]} {
       set myPendingTitle $title
     }
+  }
+
+  method get_title {widget} {
+    if {$widget eq $myOnlyTab} {
+      set title $myOnlyTitle
+    } elseif {[catch {set title [${win}.notebook tab $widget -text]}]} {
+      set title $myPendingTitle
+    }
+    return $title
   }
 
   method current {} {

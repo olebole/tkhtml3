@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.72 2006/09/17 13:07:18 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.73 2006/09/21 14:30:07 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -959,6 +959,8 @@ proc gui_switch {new} {
 
   # Configure the new widget
   $G(config) configurebrowser $new
+
+  wm title . [.notebook get_title $new]
 }
 
 proc gui_new {path args} {
@@ -981,6 +983,9 @@ proc gui_new {path args} {
 }
 
 proc gui_settitle {browser var args} {
+  if {[.notebook current] eq $browser} {
+    wm title . [set $var]
+  }
   .notebook set_title $browser [set $var]
 }
 
