@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.28 2006/09/26 14:13:32 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.29 2006/09/26 17:08:01 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
@@ -335,7 +335,11 @@ snit::widget ::hv3::pretend_tile_notebook {
     bind ${win}.tabs <Configure> [mymethod Redraw]
     $self configurelist $args
 
-    set myCloseTabImage [image create bitmap -data {
+    # Set up the two images used for the "close tab" buttons positioned
+    # on the tabs themselves. The image data was created by me using an 
+    # archaic tool called "bitmap" that was installed with fedora.
+    #
+    set BitmapData {
       #define closetab_width 14
       #define closetab_height 14
       static unsigned char closetab_bits[] = {
@@ -343,11 +347,14 @@ snit::widget ::hv3::pretend_tile_notebook {
         0xe1, 0x21, 0xe1, 0x21, 0xf1, 0x23, 0x39, 0x27, 0x1d, 0x2e, 0x0d, 0x2c,
         0x01, 0x20, 0xff, 0x3f
       };
-    }]
+    }
+    set myCloseTabImage  [image create bitmap -data $BitmapData -background ""]
+    set myCloseTabImage2 [image create bitmap -data $BitmapData -background red]
   }
 
   destructor {
     image delete $myCloseTabImage
+    image delete $myCloseTabImage2
   }
 
   # add WIDGET
@@ -431,29 +438,19 @@ snit::widget ::hv3::pretend_tile_notebook {
     }
   }
 
-  method ButtonRelease {idx x y} {
-    foreach {x1 y1 x2 y2} [${win}.tabs bbox "button_tag_$idx"] {}
+  method ButtonRelease {tag idx x y} {
+    foreach {x1 y1 x2 y2} [${win}.tabs bbox $tag] {}
     if {$x1 <= $x && $x2 >= $x && $y1 <= $y && $y2 >= $y} {
       destroy [lindex $myWidgets $idx]
     }
   }
- 
   method CreateButton {idx x y size} {
-    set tag "button_tag_$idx"
-    set o 2
-
     set c ${win}.tabs              ;# Canvas widget to draw on
-
-    set size [expr [image width $myCloseTabImage] - 1]
-    set rid [
-        $c create rectangle \
-            $x $y [expr $x + $size] [expr $y + $size] -width 0 -tags $tag
-    ]
-
-    $c create image $x $y -image $myCloseTabImage -tags $tag -anchor nw
-    $c bind $tag <Enter> [list $c itemconfigure $rid -fill red]
-    $c bind $tag <Leave> [list $c itemconfigure $rid -fill ""]
-    $c bind $tag <ButtonRelease-1> [mymethod ButtonRelease $idx %x %y]
+    set tag [$c create image $x $y -anchor nw]
+    $c itemconfigure $tag -image $myCloseTabImage
+    $c bind $tag <Enter> [list $c itemconfigure $tag -image $myCloseTabImage2]
+    $c bind $tag <Leave> [list $c itemconfigure $tag -image $myCloseTabImage]
+    $c bind $tag <ButtonRelease-1> [mymethod ButtonRelease $tag $idx %x %y]
   }
 
   method RedrawCallback {} {
@@ -463,6 +460,8 @@ snit::widget ::hv3::pretend_tile_notebook {
     set iButton   14
 
     set iCanvasWidth [expr [winfo width ${win}.tabs] - 2]
+
+    set iThreeDots [font measure $myFont "..."]
 
     # Delete the existing canvas items. This proc draws everything 
     # from scratch.
@@ -508,8 +507,9 @@ snit::widget ::hv3::pretend_tile_notebook {
       incr iRemainingTabs -1
       incr iRemainingPixels [expr $iTabWidth * -1]
 
-      set iTextWidth [expr \
-          $iTabWidth - $iButton - $iDiagonal * 2 - $iPadding * 2 - 1
+      set iTextWidth [expr                                            \
+          $iTabWidth - $iButton - $iDiagonal * 2 - $iPadding * 2 - 1  \
+          - $iThreeDots
       ]
       set zTitle $title
       for {set n 0} {$n <= [string length $zTitle]} {incr n} {
@@ -517,7 +517,9 @@ snit::widget ::hv3::pretend_tile_notebook {
           break;
         }
       }
-      set zTitle [string range $zTitle 0 [expr $n - 1]]
+      if {$n <= [string length $zTitle]} {
+        set zTitle "[string range $zTitle 0 [expr $n - 1]]..."
+      }
 
       set x2 [expr $x + $iDiagonal]
       set x3 [expr $x + $iTabWidth - $iDiagonal - 1]
