@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.27 2006/09/21 14:30:07 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.28 2006/09/26 14:13:32 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
@@ -271,7 +271,7 @@ proc ::hv3::scrolled {widget name args} {
 #     -newcmd
 #     -switchcmd
 #     -delcmd
-#     -delbutton
+#     -delstatecmd
 #
 # WIDGET COMMAND
 #
@@ -313,6 +313,11 @@ snit::widget ::hv3::pretend_tile_notebook {
   # by RedrawCallback.
   variable myRedrawScheduled 0
 
+  # The two images to use for the small "close-tab" buttons 
+  # placed on the tabs themselves.
+  variable myCloseTabImage ""
+  variable myCloseTabImage2 ""
+
   delegate option * to hull
   
   constructor {args} {
@@ -328,8 +333,21 @@ snit::widget ::hv3::pretend_tile_notebook {
     place ${win}.tabs -anchor nw -x 0 -y 0 -relwidth 1.0 -height $myTabHeight
 
     bind ${win}.tabs <Configure> [mymethod Redraw]
-
     $self configurelist $args
+
+    set myCloseTabImage [image create bitmap -data {
+      #define closetab_width 14
+      #define closetab_height 14
+      static unsigned char closetab_bits[] = {
+        0xff, 0x3f, 0x01, 0x20, 0x0d, 0x2c, 0x1d, 0x2e, 0x39, 0x27, 0xf1, 0x23,
+        0xe1, 0x21, 0xe1, 0x21, 0xf1, 0x23, 0x39, 0x27, 0x1d, 0x2e, 0x0d, 0x2c,
+        0x01, 0x20, 0xff, 0x3f
+      };
+    }]
+  }
+
+  destructor {
+    image delete $myCloseTabImage
   }
 
   # add WIDGET
@@ -413,12 +431,38 @@ snit::widget ::hv3::pretend_tile_notebook {
     }
   }
 
+  method ButtonRelease {idx x y} {
+    foreach {x1 y1 x2 y2} [${win}.tabs bbox "button_tag_$idx"] {}
+    if {$x1 <= $x && $x2 >= $x && $y1 <= $y && $y2 >= $y} {
+      destroy [lindex $myWidgets $idx]
+    }
+  }
+ 
+  method CreateButton {idx x y size} {
+    set tag "button_tag_$idx"
+    set o 2
+
+    set c ${win}.tabs              ;# Canvas widget to draw on
+
+    set size [expr [image width $myCloseTabImage] - 1]
+    set rid [
+        $c create rectangle \
+            $x $y [expr $x + $size] [expr $y + $size] -width 0 -tags $tag
+    ]
+
+    $c create image $x $y -image $myCloseTabImage -tags $tag -anchor nw
+    $c bind $tag <Enter> [list $c itemconfigure $rid -fill red]
+    $c bind $tag <Leave> [list $c itemconfigure $rid -fill ""]
+    $c bind $tag <ButtonRelease-1> [mymethod ButtonRelease $idx %x %y]
+  }
+
   method RedrawCallback {} {
 
     set iPadding  2
     set iDiagonal 2
+    set iButton   14
 
-    set iCanvasWidth [winfo width ${win}.tabs]
+    set iCanvasWidth [expr [winfo width ${win}.tabs] - 2]
 
     # Delete the existing canvas items. This proc draws everything 
     # from scratch.
@@ -441,58 +485,58 @@ snit::widget ::hv3::pretend_tile_notebook {
       if {$w ne $c} {place forget $w}
     }
 
-    # Variable $iAggWidth stores the aggregate width of all the tabs.
+    # Variable $iAggWidth stores the aggregate requested width of all the 
+    # tabs. This loop loops through all the tabs to determine $iAggWidth
+    #
     set iAggWidth 0
     foreach t $myTitles {
-      incr iAggWidth [
-          expr [font measure $myFont $t] + ($iPadding + $iDiagonal) * 2
-      ]
+      incr iAggWidth [expr {
+          [font measure $myFont $t] + 
+          $iPadding * 2 + $iDiagonal * 2 + $iButton + 1
+      }]
     }
 
-    if {$iCanvasWidth < $iAggWidth} {
-        set fBudget [expr double($iCanvasWidth) / double($iAggWidth)]
-    } else {
-        set fBudget 1.0
-    }
+    set iRemainingTabs [llength $myTitles]
+    set iRemainingPixels $iCanvasWidth
 
     set idx 0
     set yt [expr 0.5 * ($myTabHeight + [font metrics $myFont -linespace])]
     set x 1
     foreach title $myTitles {
 
-      set zTitle $title
+      set  iTabWidth [expr $iRemainingPixels / $iRemainingTabs]
+      incr iRemainingTabs -1
+      incr iRemainingPixels [expr $iTabWidth * -1]
 
-      set width    [font measure $myFont $title]
-      set iTabWidth [expr $iPadding * 2 + $iDiagonal * 2 + $width + 1]
-      if {$fBudget < 1.0} {
-        set iTabWidth [expr int(double($iTabWidth) * $fBudget)]
-        set width [expr $iTabWidth - ($iPadding + $iDiagonal) * 2 - 1]
-        if {$width < 0} {
-          set zTitle ""
-        } else {
-          set w [expr $width + $iPadding]
-          for {set n 1} {$n < [string length $zTitle]} {incr n} {
-            if {[font measure $myFont [string range $zTitle 0 $n]] > $w} {
-              break;
-            }
-          }
-          set zTitle [string range $zTitle 0 [expr $n - 1]]
+      set iTextWidth [expr \
+          $iTabWidth - $iButton - $iDiagonal * 2 - $iPadding * 2 - 1
+      ]
+      set zTitle $title
+      for {set n 0} {$n <= [string length $zTitle]} {incr n} {
+        if {[font measure $myFont [string range $zTitle 0 $n]] > $iTextWidth} {
+          break;
         }
       }
+      set zTitle [string range $zTitle 0 [expr $n - 1]]
 
       set x2 [expr $x + $iDiagonal]
-      set x3 [expr $x2 + $width + ($iPadding * 2)]
-      set x4 [expr $x3 + $iDiagonal]
+      set x3 [expr $x + $iTabWidth - $iDiagonal - 1]
+      set x4 [expr $x + $iTabWidth - 1]
 
       set y1 [expr $myTabHeight - 0]
       set y2 [expr $iDiagonal + 1]
       set y3 1
+
+      set ximg [expr $x + $iTabWidth - $iDiagonal - $iButton - 1]
+      set yimg [expr 1 + ($myTabHeight - $iButton) / 2]
 
       set id [${win}.tabs create polygon \
           $x $y1 $x $y2 $x2 $y3 $x3 $y3 $x4 $y2 $x4 $y1]
 
       set id2 [${win}.tabs create text [expr $x2 + $iPadding] $yt]
       ${win}.tabs itemconfigure $id2 -anchor sw -text $zTitle -font $myFont
+
+      $self CreateButton $idx $ximg $yimg $iButton
 
       if {$idx == $myCurrent} {
         set yb [expr $y1 - 1]
@@ -520,15 +564,14 @@ snit::widget ::hv3::pretend_tile_notebook {
     ${win}.tabs raise whiteline
     set myRedrawScheduled 0
   }
-
 }
 
 snit::widget ::hv3::notebook {
 
-  option -newcmd    -default ""
-  option -switchcmd -default ""
-  option -delcmd    -default ""
-  option -delbutton -default ""
+  option -newcmd      -default ""
+  option -switchcmd   -default ""
+  option -delcmd      -default ""
+  option -delstatecmd -default ""
 
   variable myNextId 0
   variable myPendingTitle ""
@@ -567,7 +610,7 @@ snit::widget ::hv3::notebook {
         ${win}.notebook add $tab1
         ${win}.notebook tab $tab1 -text $text1
       }
-      $options(-delbutton) configure -state normal
+      eval [linsert $options(-delstatecmd) end normal]
     } else {
       if {$myOnlyTab eq ""} {
         set myOnlyTab [${win} current]
@@ -580,12 +623,14 @@ snit::widget ::hv3::notebook {
         raise $myOnlyTab
         place $myOnlyTab -relheight 1.0 -relwidth 1.0
       }
-      $options(-delbutton) configure -state disabled
+      eval [linsert $options(-delstatecmd) end disabled]
     }
   }
 
   method close {} {
-    destroy [$self current]
+    if {$myOnlyTab eq ""} {
+      destroy [$self current]
+    }
   }
 
   constructor {args} {

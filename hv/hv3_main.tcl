@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.73 2006/09/21 14:30:07 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.74 2006/09/26 14:13:32 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -718,10 +718,8 @@ proc gui_build {widget_array} {
   ::hv3::toolbutton .entry.forward -text {Forward} -tooltip "Go Forward"
 
   ::hv3::toolbutton .entry.new -text {New Tab} -command {.notebook add}
-  ::hv3::toolbutton .entry.del -text {Close Tab} -command {.notebook close}
 
   .entry.new configure -tooltip "Open New Tab"
-  .entry.del configure -tooltip "Close Current Tab"
 
   catch {
     set backimg [image create photo -data $::hv3::back_icon]
@@ -732,16 +730,13 @@ proc gui_build {widget_array} {
     .entry.stop configure -image $stopimg
     set newimg [image create photo -data $::hv3::new_icon]
     .entry.new configure -image $newimg
-    set delimg [image create photo -data $::hv3::del_icon]
-    .entry.del configure -image $delimg
-  } 
+  }
 
   # Create the middle bit - the browser window
   # ::hv3::browser_toplevel .browser
   ::hv3::notebook .notebook              \
       -newcmd    gui_new                 \
-      -switchcmd gui_switch              \
-      -delbutton .entry.del       
+      -switchcmd gui_switch
 
   bind .notebook <Destroy> +hv3::exit_handler
 
@@ -750,7 +745,6 @@ proc gui_build {widget_array} {
 
   # Set the widget-array variables
   set G(new_button)     .entry.new
-  set G(close_button)   .entry.del
   set G(stop_button)    .entry.stop
   set G(back_button)    .entry.back
   set G(forward_button) .entry.forward
@@ -763,7 +757,6 @@ proc gui_build {widget_array} {
   pack .entry.back -side left
   pack .entry.stop -side left
   pack .entry.forward -side left
-  pack .entry.del -side right
   pack .entry.entry -fill x -expand true
 
   # Pack the top, bottom and middle, in that order. The middle must be 
@@ -889,8 +882,14 @@ proc gui_menu {widget_array} {
     list ::hv3::the_download_manager show
   ]
 
-  # Add a separator and the inevitable Exit item to the File menu.
+  # Add a separator the "Close Tab" command and the inevitable 
+  # Exit item to the File menu.
   .m.file add separator
+  .m.file add command                      \
+      -label "Close Tab"                   \
+      -command [list $G(notebook) close]
+  set cmd [list .m.file entryconfigure [.m.file index end] -state]
+  $G(notebook) configure -delstatecmd $cmd
   .m.file add command -label Exit -accelerator (Ctrl-Q) -command exit
 
   # Add the 'Search' menu
