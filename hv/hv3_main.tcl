@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.74 2006/09/26 14:13:32 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.75 2006/09/28 17:34:50 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -851,7 +851,7 @@ proc gui_setforcefontmetrics {varname} {
 }
 
 proc gui_openlocation {location_entry} {
-  $location_entry delete 0 end
+  $location_entry selection range 0 end
   $location_entry OpenDropdown *
   focus ${location_entry}.entry
 }

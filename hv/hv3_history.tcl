@@ -430,16 +430,19 @@ snit::widget ::hv3::scrolledlistbox {
 
 snit::widget ::hv3::locationentry {
 
-  component myEntry
-  component myButton
+  component myEntry             ;# The entry widget
+  component myButton            ;# The button that activates the drop-down list
+
+  variable myListbox    ""      ;# listbox widget (::hv3::scrolledlistbox)
+  variable myListboxVar [list]  ;# -listvariable for listbox widget
+
+  # Command to invoke when the location-entry widget is "activated" (i.e.
+  # when the browser is supposed to load the contents as a URI). At
+  # present this happens when the user presses enter.
+  option -command -default ""
 
   delegate option * to myEntry
   delegate method * to myEntry
-
-  variable myListbox
-  variable myListboxVar [list]
-
-  option -command -default ""
 
   constructor {args} {
     set myEntry [entry ${win}.entry]
@@ -470,9 +473,9 @@ snit::widget ::hv3::locationentry {
     # Any button-press anywhere in the GUI folds up the drop-down menu.
     bind [winfo toplevel $win] <ButtonPress> +[mymethod AnyButtonPress %W]
 
-    bind $myEntry <KeyPress> +[mymethod KeyPress]
+    bind $myEntry <KeyPress>        +[mymethod KeyPress]
     bind $myEntry <KeyPress-Return> +[mymethod KeyPressReturn]
-    bind $myEntry <KeyPress-Down> +[mymethod KeyPressDown]
+    bind $myEntry <KeyPress-Down>   +[mymethod KeyPressDown]
 
     $myListbox configure -listvariable [myvar myListboxVar]
     $myListbox configure -background white
@@ -508,17 +511,40 @@ snit::widget ::hv3::locationentry {
     }
   }
 
-  # Bindings for KeyPress events that occur in the entry widget:
+  # Binding for <KeyPress-Return> events that occur in the entry widget.
   #
   method KeyPressReturn {} {
 
     set current [$myEntry get]
-    if {![string match *:/* $current] && ![string match *: $current]} {
-      if {[string range $current 0 0] eq "/"} {
-        set final "file://${current}"
-      } else {
-        set final "http://${current}"
-      }
+    set final ""
+
+    # The string $current now holds whatever the user typed into the
+    # location entry toolbar. This can be one of four things:
+    #
+    # 1. A fully qualified URI,
+    # 2. An http URI missing the initial "http://" string, 
+    # 3. A file URI missing the initial "file://" string, or
+    # 4. A term or phrase to search the web for.
+    #
+    if {[regexp "Search the web for \"(.*)\"" $current -> newval]} {
+      # Case 4 (special version), search the web with google.
+      set newval [::hv3::escape_string $newval]
+      set final "http://www.google.com/search?q=$newval"
+    } elseif {[string match *:/* $current] || [string match *: $current]} {
+      # Case 1, a fully qualified URI. Do nothing.
+    } elseif {[string range $current 0 0] eq "/"} {
+      # Case 3, an implicit file URI
+      set final "file://${current}"
+    } elseif {[string match {*[/.]*} $current]} {
+      # Case 2, an implicit http URI
+      set final "http://${current}"
+    } else {
+      # Case 4, search the web with google.
+      set newval [::hv3::escape_string $current]
+      set final "http://www.google.com/search?q=$newval"
+    }
+
+    if {$final ne ""} {
       $myEntry delete 0 end
       $myEntry insert 0 $final
     }
@@ -528,6 +554,7 @@ snit::widget ::hv3::locationentry {
     }
     $self CloseDropdown
   }
+
   method KeyPressDown {} {
     if {[winfo ismapped $myListbox]} {
       focus $myListbox.listbox
@@ -542,24 +569,16 @@ snit::widget ::hv3::locationentry {
     $self OpenDropdown [$myEntry get]
   }
 
-  method TransformSearch {str} {
-    if {[regexp "Search the web for \"(.*)\"" $str -> newval]} {
-      set newval [::hv3::escape_string $newval]
-      set str "http://www.google.com/search?q=$newval"
-    }
-    return $str
-  }
-
   method ListboxReturn {} {
     set str [$myListbox get active]
     $myEntry delete 0 end
-    $myEntry insert 0 [$self TransformSearch $str]
+    $myEntry insert 0 $str
     $self KeyPressReturn
   }
   method ListboxPress {y} {
     set str [$myListbox get [$myListbox nearest $y]]
     $myEntry delete 0 end
-    $myEntry insert 0 [$self TransformSearch $str]
+    $myEntry insert 0 $str
     $self KeyPressReturn
   }
 
