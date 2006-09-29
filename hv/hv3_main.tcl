@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.75 2006/09/28 17:34:50 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.76 2006/09/29 11:23:22 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -516,6 +516,8 @@ snit::widget ::hv3::browser_toplevel {
 #
 snit::type ::hv3::config {
 
+  variable myGuiFontSize 10
+
   variable myFontTable [list 8 9 10 11 13 15 17]
   variable myFontScale 100%
   variable myForceFontMetrics 1
@@ -528,13 +530,17 @@ snit::type ::hv3::config {
     set myMenu $menu_path
     ::hv3::menu $myMenu
 
+    # Add the 'Gui Font' menu
+    create_guifont_menu ${myMenu}.font3 [myvar myGuiFontSize]
+    $myMenu add cascade -label {GUI Font} -menu ${myMenu}.font3
+
     # Add the 'Font Size Table' menu
     create_fontsize_menu ${myMenu}.font [myvar myFontTable]
-    $myMenu add cascade -label {Font Size Table} -menu ${myMenu}.font
+    $myMenu add cascade -label {Browser Font Size Table} -menu ${myMenu}.font
 
     # Add the 'Font Scale' menu
     create_fontscale_menu ${myMenu}.font2 [myvar myFontScale]
-    $myMenu add cascade -label {Font Scale} -menu ${myMenu}.font2
+    $myMenu add cascade -label {Browser Font Scale} -menu ${myMenu}.font2
 
     $myMenu add checkbutton \
         -label {Force CSS Font Metrics}                 \
@@ -551,11 +557,16 @@ snit::type ::hv3::config {
         -label {Double-buffer} \
         -variable [myvar myDoubleBuffer]
 
+    trace add variable myGuiFontSize      write [mymethod ConfigureGui]
     trace add variable myFontTable        write [mymethod ConfigureCurrent]
     trace add variable myFontScale        write [mymethod ConfigureCurrent]
     trace add variable myForceFontMetrics write [mymethod ConfigureCurrent]
     trace add variable myEnableImages     write [mymethod ConfigureCurrent]
     trace add variable myDoubleBuffer     write [mymethod ConfigureCurrent]
+  }
+
+  method ConfigureGui {name1 name2 op} {
+    ::hv3::SetFont [list -size $myGuiFontSize]
   }
 
   method ConfigureCurrent {name1 name2 op} {
@@ -821,6 +832,18 @@ proc create_fontsize_menu {menupath varname} {
   return $menupath
 }
 
+proc create_guifont_menu {menupath varname} {
+  ::hv3::menu $menupath
+  foreach val [list 8 9 10 11 12 14 16] {
+    $menupath add radiobutton                  \
+      -variable $varname                       \
+      -value $val                              \
+      -label "$val pts"
+  }
+  set $varname 10
+  return $menupath
+}
+
 proc create_fontscale_menu {menupath varname} {
   ::hv3::menu $menupath
   foreach val [list 0.8 0.9 1.0 1.2 1.4 2.0] {
@@ -899,8 +922,8 @@ proc gui_menu {widget_array} {
   # Add the 'Config' menu
   set G(config) [::hv3::config %AUTO% .m.config]
   .m add cascade -label {View} -menu [$G(config) menu]
-
   
+
   .m add cascade -label Debug -menu [::hv3::menu .m.tools]
 
   .m.tools add command -label Cookies -command [list $G(notebook) add cookies:]

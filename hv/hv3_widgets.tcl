@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.29 2006/09/26 17:08:01 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.30 2006/09/29 11:23:22 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
@@ -9,7 +9,25 @@ catch {
 #  set ::hv3::toolkit Tile
 }
 
-catch { font create Hv3DefaultFont -size 9 -weight normal }
+#-------------------------------------------------------------------
+# Font control:
+#
+#     Most of the ::hv3::** widgets use the named font 
+#     "Hv3DefaultFont". The following two procs, [::hv3::UseHv3Font]
+#     and [::hv3::SetFont] deal with configuring the widgets and
+#     dynamically modifying the font when required.
+#
+proc ::hv3::UseHv3Font {widget} {
+  $widget configure -font Hv3DefaultFont
+}
+proc ::hv3::SetFont {font} {
+  catch {font delete Hv3DefaultFont}
+  eval [linsert $font 0 font create Hv3DefaultFont]
+
+  # WARNING: Horrible, horrible action at a distance...
+  catch {.notebook.notebook Redraw}
+}
+::hv3::SetFont {-size 10}
 
 # Basic wrapper widget-names used to abstract Tk and Tile:
 #
@@ -37,7 +55,8 @@ proc ::hv3::button {args} {
   } else {
     set w [eval [linsert $args 0 ::button]]
     $w configure -highlightthickness 0
-    $w configure -font Hv3DefaultFont -pady 0 -borderwidth 1
+    $w configure -pady 0 -borderwidth 1
+    ::hv3::UseHv3Font $w
   }
   return $w
 }
@@ -50,7 +69,7 @@ proc ::hv3::entry {args} {
     $w configure -highlightthickness 0
     $w configure -borderwidth 1
     $w configure -background white
-    $w configure -font Hv3DefaultFont
+    ::hv3::UseHv3Font $w
   }
   return $w
 }
@@ -67,7 +86,7 @@ proc ::hv3::label {args} {
   } else {
     set w [eval [linsert $args 0 ::label]]
     $w configure -highlightthickness 0
-    $w configure -font Hv3DefaultFont
+    ::hv3::UseHv3Font $w
   }
   return $w
 }
@@ -96,7 +115,8 @@ proc ::hv3::label {args} {
     set myPopup ${top}[string map {. _} $myButton]
     set myPopupLabel ${myPopup}.label
     frame $myPopup -bg black
-    ::label $myPopupLabel -fg black -bg white -font Hv3DefaultFont
+    ::label $myPopupLabel -fg black -bg white
+    ::hv3::UseHv3Font $myPopupLabel
 
     pack $myButton -expand true -fill both
     pack $myPopup.label -padx 1 -pady 1 -fill both -expand true
@@ -151,7 +171,8 @@ proc ::hv3::menu {args} {
     lappend ::hv3::menu_list $w
     $w configure -borderwidth 1 -tearoff 0 -font TkDefaultFont
   } else {
-    $w configure -borderwidth 1 -tearoff 0 -font Hv3DefaultFont
+    $w configure -borderwidth 1 -tearoff 0
+    ::hv3::UseHv3Font $w
   }
   return $w
 }
@@ -321,16 +342,12 @@ snit::widget ::hv3::pretend_tile_notebook {
   delegate option * to hull
   
   constructor {args} {
-    set myTabHeight [expr [font metrics $myFont -linespace] * 1.5]
   
     # Create a canvas widget to paint the tabs in
-    canvas ${win}.tabs -height $myTabHeight -width 100
+    canvas ${win}.tabs
     ${win}.tabs configure -borderwidth 0 
     ${win}.tabs configure -highlightthickness 0 
     ${win}.tabs configure -selectborderwidth 0
-
-    # "place" the tabs canvas widget at the top of the parent frame
-    place ${win}.tabs -anchor nw -x 0 -y 0 -relwidth 1.0 -height $myTabHeight
 
     bind ${win}.tabs <Configure> [mymethod Redraw]
     $self configurelist $args
@@ -458,10 +475,14 @@ snit::widget ::hv3::pretend_tile_notebook {
     set iPadding  2
     set iDiagonal 2
     set iButton   14
-
     set iCanvasWidth [expr [winfo width ${win}.tabs] - 2]
-
     set iThreeDots [font measure $myFont "..."]
+
+    set myTabHeight [expr [font metrics $myFont -linespace] * 1.5]
+    ${win}.tabs configure -height $myTabHeight -width 100
+
+    # "place" the tabs canvas widget at the top of the parent frame
+    place ${win}.tabs -anchor nw -x 0 -y 0 -relwidth 1.0 -height $myTabHeight
 
     # Delete the existing canvas items. This proc draws everything 
     # from scratch.
@@ -782,7 +803,8 @@ snit::widget ::hv3::googlewidget {
     set w ${win}.menubutton
     menubutton $w -textvar [myvar myEngine] -indicatoron 1 -menu $w.menu
     ::hv3::menu $w.menu
-    $w configure -borderwidth 1 -font Hv3DefaultFont -relief raised -pady 2
+    $w configure -borderwidth 1 -relief raised -pady 2
+    ::hv3::UseHv3Font $w
     foreach {label uri} $options(-config) {
       $w.menu add radiobutton -label $label -variable [myvar myEngine]
     }

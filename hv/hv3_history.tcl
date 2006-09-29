@@ -445,7 +445,7 @@ snit::widget ::hv3::locationentry {
   delegate method * to myEntry
 
   constructor {args} {
-    set myEntry [entry ${win}.entry]
+    set myEntry [::hv3::entry ${win}.entry]
     $myEntry configure -background white
  
     set myButtonImage [image create bitmap -data {
