@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.77 2006/10/03 12:22:21 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.78 2006/10/03 15:42:16 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -8,8 +8,14 @@ package require Tkhtml 3.0
 # option add *TButton.compound left
 
 # If possible, load package "Img". Without it the script can still run,
-# but won't be able to load many image formats.
+# but won't be able to load many image formats. Similarly, try to load
+# sqlite3. If sqlite3 is present cookies, auto-completion and 
+# coloring of visited URIs work.
+#
 if {[catch { package require Img } errmsg]} {
+  puts stderr "WARNING: $errmsg"
+}
+if {[catch { package require sqlite3 } errmsg]} {
   puts stderr "WARNING: $errmsg"
 }
 
@@ -26,6 +32,7 @@ source [sourcefile hv3_frameset.tcl]
 source [sourcefile hv3_polipo.tcl]
 source [sourcefile hv3_icons.tcl]
 source [sourcefile hv3_history.tcl]
+source [sourcefile hv3_db.tcl]
 
 proc ::hv3::returnX {val args} {return $val}
 
@@ -404,7 +411,7 @@ snit::widget ::hv3::browser_toplevel {
     # Link in the "home:" and "about:" scheme handlers (from hv3_home.tcl)
     ::hv3::home_scheme_init [$myMainFrame hv3] $myProtocol
     ::hv3::about_scheme_init $myProtocol
-    ::hv3::cookies_scheme_init [$myMainFrame hv3] $myProtocol
+    ::hv3::cookies_scheme_init $myProtocol
     ::hv3::download_scheme_init [$myMainFrame hv3] $myProtocol
 
     # Create the history sub-system
@@ -775,8 +782,6 @@ proc gui_build {widget_array} {
       -newcmd    gui_new                 \
       -switchcmd gui_switch
 
-  bind .notebook <Destroy> +hv3::exit_handler
-
   # And the bottom bit - the status bar
   ::hv3::label .status -anchor w -width 1
 
@@ -1072,27 +1077,6 @@ proc exit {args} {
   eval [concat tcl_exit $args]
 }
 
-# This is called just before the hv3 application exits. If a "statefile" is
-# in use, then serialize the contents of the cookie and visited-uri 
-# databases and store them in the named file.
-#
-# Note: This is a temporary solution. Eventually this data will be stored
-# in an SQLite database at a well known file-system location that may be
-# accessed simultaeneously by multiple instances of hv3.
-#
-proc ::hv3::exit_handler {} {
-  if {$::hv3::statefile ne ""} {
-    set fd [open $::hv3::statefile w]
-    puts $fd [list \
-        ::hv3::the_visited_db loaddata [::hv3::the_visited_db getdata]
-    ]
-    puts $fd [list \
-        ::hv3::the_cookie_manager loaddata [::hv3::the_cookie_manager getdata]
-    ]
-    close $fd
-  }
-}
-
 proc ::hv3::scroll {r} {
   set html [[gui_current hv3] html]
   set region [$html yview]
@@ -1152,12 +1136,7 @@ proc main {args} {
   if {$doc eq ""} {set doc home:///}
 
   ::hv3::downloadmanager ::hv3::the_download_manager
-  ::hv3::cookiemanager   ::hv3::the_cookie_manager
-  ::hv3::visiteddb       ::hv3::the_visited_db
-
-  if {$::hv3::statefile ne "" && [file exists $::hv3::statefile]} {
-    source $::hv3::statefile
-  }
+  ::hv3::dbinit
 
   # After the event loop has run to create the GUI, run [main2]
   # to load the startup document. It's better if the GUI is created first,
@@ -1175,7 +1154,7 @@ proc ::hv3::usage {} {
   tcl_exit
 }
 
-set ::hv3::statefile ""
+set ::hv3::statefile ":memory:"
 
 # Set variable $::hv3::maindir to the directory containing the 
 # application files. Then run the [main] command with the command line

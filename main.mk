@@ -118,6 +118,9 @@ hv3_img.vfs: binaries
 	if test -d $(TCL)/lib/*tls*/ ; then \
 	  cp -R $(TCL)/lib/*tls* ./hv3_img.vfs/lib ; \
 	fi
+	if test -d $(TCL)/lib/*sqlite3*/ ; then \
+	  cp -R $(TCL)/lib/*sqlite3* ./hv3_img.vfs/lib ; \
+	fi
 	touch hv3_img.vfs
 
 hv3.vfs: binaries
@@ -131,6 +134,9 @@ hv3.vfs: binaries
 	cp $(TOP)/hv/index.html ./hv3.vfs/
 	if test -d $(TCL)/lib/*tls*/ ; then \
 	  cp -R $(TCL)/lib/*tls* ./hv3.vfs/lib ; \
+	fi
+	if test -d $(TCL)/lib/*sqlite3*/ ; then \
+	  cp -R $(TCL)/lib/*sqlite3* ./hv3.vfs/lib ; \
 	fi
 	touch hv3.vfs
 

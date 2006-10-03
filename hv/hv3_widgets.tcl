@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.31 2006/10/03 12:22:21 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.32 2006/10/03 15:42:16 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
@@ -718,6 +718,11 @@ snit::widget ::hv3::notebook {
       return $current
     }
     return [lindex [${win}.notebook tabs] [${win}.notebook index current]]
+  }
+
+  method tabs {} {
+    if {$myOnlyTab ne ""} {return $myOnlyTab}
+    return [${win}.notebook tabs]
   }
 }
 # End of notebook implementation.

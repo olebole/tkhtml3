@@ -345,83 +345,6 @@ snit::type ::hv3::history {
   }
 }
 
-# Class ::hv3::visiteddb
-#
-# There is a single instance of the following type used by all browser
-# frames created in the lifetime of the application. It's job is to
-# store a list of URI's that are considered "visited". Links to these
-# URI's should be styled using the ":visited" pseudo-class, not ":link".
-#
-# TODO: At present the database of visited URIs can grow without bound.
-# This is probably not a huge problem in the short-term.
-#
-# TODO2: This, like cookies, needs to be put in an SQLite database.
-#
-# Object sub-commands:
-#
-#     init HV3-WIDGET
-#
-#         Configure the specified hv3 mega-widget to use the object
-#         as a database of visited URIs (i.e. set the value of
-#         the -isvisitedcmd option).
-#
-snit::type ::hv3::visiteddb {
-
-  # This method is called whenever the application constructs a new 
-  # ::hv3::hv3 mega-widget. Argument $hv3 is the new mega-widget.
-  #
-  method init {hv3} {
-    bind $hv3 <<Location>> +[mymethod LocationHandler %W]
-    $hv3 configure -isvisitedcmd [mymethod LocationQuery $hv3]
-  }
-
-  method LocationHandler {hv3} {
-    set location [$hv3 location]
-    $self addkey $location
-  }
-
-  method LocationQuery {hv3 node} {
-
-    set rel [$node attr href]
-    set obj [::hv3::uri %AUTO% [$hv3 location]]
-    $obj load $rel
-    set full [$obj get]
-    $obj destroy
-
-    set rc [info exists myDatabase($full)] 
-    return $rc
-  }
-
-  method keys {} {return [array names myDatabase]}
-  method addkey {key} {
-    if {[info exists myDatabase($key)]} {
-      incr myDatabase($key)
-    } else {
-
-      if {[llength [array names myDatabase]] > ($myMaxEntries - 1)} {
-        set pairs [list]
-        foreach key [array names myDatabase] {
-          lappend pairs [list $key $myDatabase($key)]
-        }
-        set new [
-           lrange [lsort -decreasing -index 1 $pairs] 0 [expr $myMaxEntries - 2]
-        ]
-        array unset myDatabase
-        foreach pair $new {
-          set myDatabase([lindex $pair 0]) [lindex $pair 1]
-        }
-      }
-      set myDatabase($key) 1
-    }
-  }
-
-  method getdata {} {return [array get myDatabase]}
-  method loaddata {data} {array set myDatabase $data}
-
-  variable myMaxEntries 200
-  variable myDatabase -array [list]
-}
-
 snit::widget ::hv3::scrolledlistbox {
   component myVsb
   component myListbox
@@ -607,15 +530,8 @@ snit::widget ::hv3::locationentry {
     if {$pattern ne "*"} {
       set matchpattern *${pattern}*
     }
+    set myListboxVar [::hv3::the_visited_db keys $matchpattern]
 
-    set myListboxVar ""
-    foreach entry [::hv3::the_visited_db keys] {
-      if {[string match $matchpattern $entry]} {
-        lappend myListboxVar $entry
-      }
-    }
-
-    set myListboxVar [lsort $myListboxVar] 
     if {$pattern ne "*" && ![string match *.* $pattern] } {
       set search "Search the web for \"$pattern\""
       set myListboxVar [linsert $myListboxVar 0 $search]

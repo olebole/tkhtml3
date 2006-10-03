@@ -166,23 +166,21 @@
          following application state data:
          <ul><li>Http cookies.
              <li>The list of visited URIs (used for auto-completion in the
-                 location bar and for coloring visited URIs).
+                 location bar and for coloring visited hyperlinks).
          </ul>
-      <p>However the mechanism used is currently very simple. Hv3 loads
-         the contents of the named file when it is started and saves it's 
-         current state to the same file just before exiting. This means that
-         concurrently running more than one version of Hv3 configured to
-         access the same "state-file" produces confusing results. A future
-         version of Hv3 will use an embedded SQLite database instead of
-         a text file to fix this problem.
       <p>To configure hv3 to use a "state-file", add a -statefile option
          to the command line used to start Hv3. For example, if using a
          starkit from http://tkhtml.tcl.tk, something like:
       <pre>
   hv3_img.kit -statefile /home/user/hv3state.txt</pre>
 
-      <p>By default, Hv3 stores everything in memory. So all cookie and
-         visited URI data is discarded on exit.
+      <p>The state-file is actually an SQLite database. This means that 
+         multiple instances of hv3 running concurrently share cookies
+         and the list of visited URIs (if they are configured to use the
+         same state-file).
+
+      <p>By default, Hv3 stores everything in memory. In this case all cookie
+         and visited URI data is discarded on exit.
 
     <h3>2. hv3_polipo</h3>
       <p>It is best to use Hv3 in concert with hv3_polipo, a lightweight
