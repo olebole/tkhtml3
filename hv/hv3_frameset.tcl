@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_frameset.tcl,v 1.5 2006/08/12 18:15:01 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_frameset.tcl,v 1.6 2006/10/03 12:22:21 danielk1977 Exp $)} 1 }
 
 # This file contains code for implementing HTML frameset documents in Hv3. 
 #
@@ -45,12 +45,14 @@ namespace eval hv3 {
     ::hv3::frameset $win $browser_frame $node
 
     # The 'display' property of <frameset> elements is set to "none" by
-    # the default stylesheet. So replacing the html node with the new
+    # the default stylesheet. So replacing the <frameset> node with the new
     # ::hv3::frameset widget does not cause the html widget to map the
-    # frameset widget. Instead we use standard Tk [grid].
+    # frameset widget. Instead we use standard Tk [grid] to put our
+    # widget on top of the html widget.
     #
     # But we call [$node replace] anyway so that Tkhtml will call
     # our destructor when it loads a new resource into $browser_frame.
+    #
     $node replace $win -deletecmd [list destroy $win]
     grid $win -column 0 -row 0 -sticky nsew
   }
@@ -121,9 +123,9 @@ snit::widget ::hv3::frameset {
   delegate option -width to hull
   delegate option -height to hull
 
-  # Create a new ::hv3::frameset widget. $hv3 is the parent ::hv3::hv3
-  # widget. $node is the document node representing the <frameset>
-  # element to be replaced.
+  # Create a new ::hv3::frameset widget. $browser_frame is the parent
+  # ::hv3::browser_frame widget. $node is the document node representing
+  # the <frameset> element to be replaced.
   constructor {browser_frame node} {
 
     set myNode $node
@@ -149,6 +151,8 @@ snit::widget ::hv3::frameset {
     # Create the required panedwindow widgets. One to manage columns
     # and N to manage rows (where N is the number of columns).
     set myColPan [panedwindow ${win}.colpan -orient horizontal -bd 0] 
+    $self ApplyFrameAttrs $myColPan $myNode
+
     set myRowPanList [list]
     for {set iCol 0} {$iCol < [llength $myCols]} {incr iCol} {
 
@@ -172,24 +176,91 @@ snit::widget ::hv3::frameset {
       $myColPan add $pan
     }
 
+    # Make sure the list of nodes and list of panels are the same
+    # length. If either has any "extra" elements, discard them.
+    #
+    set len [llength $myPanelNodeList]
+    if {[llength $myPanelFrameList] < $len} {
+      set len [llength $myPanelFrameList]
+    }
+    incr len -1
+    set myPanelNodeList [lrange $myPanelNodeList 0 $len]
+    set myPanelFrameList [lrange $myPanelFrameList 0 $len]
+
     # Populate the hv3 widgets used for each "panel".
     foreach pnode $myPanelNodeList pframe $myPanelFrameList {
       set phv3 [$pframe hv3]
+      set pan [winfo parent $pframe]
+      if {![info exists divwidth($pan)]} {set divwidth($pan) 2}
+
       if {$pnode eq "" || $phv3 eq ""} break
       switch -- [$pnode tag] {
         frame {
-          set uri [$pnode attr -default "" src]
-          if {$uri ne ""} {
-            set uri [$myHv3 resolve_uri $uri]
-            $phv3 goto $uri
+
+          # Handle the "scrolling" option on the <frame> element. If
+          # this option is present and set to "yes" or "no", then this
+          # sets the scrollbar-policy of the hv3 widget regardless of
+          # the value of 'overflow' computed for the <body> node. If
+          # the option is not present or is set to "auto", the
+          # scrollbar-policy of the hv3 widget is set dynamically by 
+          # the 'overflow' property on the <body> and <html> nodes.
+          #
+          switch -- [string tolower [$pnode attr -default auto scrolling]] {
+            yes     { $phv3 configure -scrollbarpolicy 1 }
+            no      { $phv3 configure -scrollbarpolicy 0 }
+            default { $phv3 configure -scrollbarpolicy auto }
+          }
+
+          # Handle the "noresize" and "frameborder" options. This is 
+          # obviously buggy, but handles a surprising number of cases well.
+          #
+          if {0 == [catch {$pnode attr frameborder} frameborder]} {
+            switch -- [string tolower $frameborder] {
+              0       { set divwidth($pan) 0 }
+              1       { set divwidth($pan) 2 }
+              no      { set divwidth($pan) 0 }
+              yes     { set divwidth($pan) 2 }
+              default { set divwidth($pan) 2 }
+            }
+          }
+          if {0 == [catch {$pnode attr noresize}] && $divwidth($pan) > 1} {
+            set divwidth($pan) 1
+          }
+
+          # First, see if the history system wants to set the URI for
+          # the new frame. This happens during history-seek only.
+          set history [[$myBrowserFrame browser] history]
+          if {0 == [$history loadframe $pframe]} {
+            set uri [$pnode attr -default "" src]
+            if {$uri ne ""} {
+              set uri [$myHv3 resolve_uri $uri]
+              $phv3 goto $uri
+            }
           }
           $pframe configure -name [$pnode attr -default "" name]
         }
         frameset {
-	  # For a frameset, we need to create the equivalent HTML document. 
+	  # For a frameset, we need to create the equivalent HTML document.
           set doc "<html>[::hv3::get_markup $pnode]</html>"
           $phv3 seturi [$myHv3 resolve_uri "internal"]
           $phv3 parse -final $doc
+        }
+      }
+    }
+
+    foreach pan [array names divwidth] {
+      switch $divwidth($pan) {
+        0 {
+          $pan configure -handlesize 0
+          $pan configure -showhandle 0
+          $pan configure -sashwidth 0
+          $pan configure -sashpad 0
+        }
+        1 {
+          $pan configure -handlesize 0
+          $pan configure -showhandle 0
+          $pan configure -sashwidth 2
+          $pan configure -sashpad 0
         }
       }
     }
@@ -204,6 +275,17 @@ snit::widget ::hv3::frameset {
   destructor {
     $myHv3 configure -scrollbarpolicy auto
     bind [$myHv3 html] <Configure> ""
+  }
+
+  method ApplyFrameAttrs {pan node} {
+    if {0 == [catch {$node attr frameborder} frameborder]} {
+      if {$frameborder eq "0"} {
+        $pan configure -handlesize 0
+        $pan configure -showhandle 0
+        $pan configure -sashwidth 0
+        $pan configure -sashpad 0
+      }
+    }
   }
 
   method framename {n} {

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.76 2006/09/29 11:23:22 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.77 2006/10/03 12:22:21 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -40,8 +40,24 @@ proc ::hv3::returnX {val args} {return $val}
 #
 #         * The -statusvar option
 #         * The right-click menu
-#         * Overrides the default -hyperlinkcmd supplied by ::hv3::hv3
-#           to respect the "target" attribute of <a> elements.
+#         * Overrides the default -targetcmd supplied by ::hv3::hv3
+#           to respect the "target" attribute of <a> and <form> elements.
+#
+#     For more detail on handling the "target" attribute, see HTML 4.01. 
+#     In particular the following from appendix B.8:
+# 
+#         1. If the target name is a reserved word as described in the
+#            normative text, apply it as described.
+#         2. Otherwise, perform a depth-first search of the frame hierarchy 
+#            in the window that contained the link. Use the first frame whose 
+#            name is an exact match.
+#         3. If no such frame was found in (2), apply step 2 to each window,
+#            in a front-to-back ordering. Stop as soon as you encounter a frame
+#            with exactly the same name.
+#         4. If no such frame was found in (3), create a new window and 
+#            assign it the target name.
+#
+#     Hv3 currently only implements steps 1 and 2.
 #
 snit::widget ::hv3::browser_frame {
 
@@ -53,6 +69,7 @@ snit::widget ::hv3::browser_frame {
   variable myHyperlinkNode ""             ;# Current node for hyper-link menu
 
   variable myBrowser ""                   ;# ::hv3::browser_toplevel widget
+  variable myPositionId ""                ;# See sub-command [positionid]
 
   constructor {browser args} {
     set myBrowser $browser
@@ -90,11 +107,10 @@ snit::widget ::hv3::browser_frame {
     $html handler node frameset [list ::hv3::frameset_handler $self]
 
     # Add this object to the browsers frames list. It will be removed by
-    # the destructor proc. Also override the default -hyperlinkcmd
+    # the destructor proc. Also override the default -targetcmd
     # option of the ::hv3::hv3 widget with our own version.
     $myBrowser add_frame $self
-
-    $myHv3 configure -hyperlinkcmd [mymethod Hyperlinkcmd]
+    $myHv3 configure -targetcmd [mymethod Targetcmd]
   }
 
   method browser {} {return $myBrowser}
@@ -103,73 +119,81 @@ snit::widget ::hv3::browser_frame {
   # the <frame> element).
   option -name -default ""
 
-  method Hyperlinkcmd {node} {
-    set href   [string trim [$node attr -default "" href]]
+  method Targetcmd {node} {
     set target [$node attr -default "" target]
-
     if {$target eq ""} {
       # If there is no target frame specified, see if a default
       # target was specified in a <base> tag i.e. <base target="_top">.
       set n [lindex [[$myHv3 html] search base] 0]
       if {$n ne ""} { set target [$n attr -default "" target] }
     }
- 
-    set theTopFrame [lindex [$myBrowser get_frames] 0]
 
-    if {$href ne ""} {
-      set href [$myHv3 resolve_uri $href]
+    set theTopFrame [[lindex [$myBrowser get_frames] 0] hv3]
 
-      # Find the target frame widget.
-      switch -- $target {
-        ""        { set widget $self }
-        "_self"   { set widget $self }
-        "_top"    { set widget $theTopFrame }
+    # Find the target frame widget.
+    set widget $myHv3
+    switch -- $target {
+      ""        { set widget $myHv3 }
+      "_self"   { set widget $myHv3 }
+      "_top"    { set widget $theTopFrame }
 
-        "_parent" { 
-          set w [winfo parent $self]
-          while {$w ne "" && [lsearch [$myBrowser get_frames] $w] < 0} {
-            set w [winfo parent $w]
-          }
-          if {$w ne ""} {
-            set widget $w
-          } else {
-            set widget $theTopFrame
-          }
+      "_parent" { 
+        set w [winfo parent $myHv3]
+        while {$w ne "" && [lsearch [$myBrowser get_frames] $w] < 0} {
+          set w [winfo parent $w]
         }
-
-        # This is incorrect. The correct behaviour is to open a new
-        # top-level window. But hv3 doesn't support this (and because 
-        # reasonable people don't like new top-level windows) we load
-        # the resource into the "_top" frame instead.
-        "_blank"  { set widget $theTopFrame }
-
-        default {
-          # In html 4.01, an unknown frame should be handled the same
-          # way as "_blank". So this next line of code implements the
-          # same bug as described for "_blank" above.
+        if {$w ne ""} {
+          set widget [$w hv3]
+        } else {
           set widget $theTopFrame
-
-          foreach f [$myBrowser get_frames] {
-            set n [$f cget -name]
-            if {$n eq $target} {
-              set widget $f
-              break
-            }
-          }
         }
       }
 
-      # Load the specified resource.
-      $widget goto $href
+      # This is incorrect. The correct behaviour is to open a new
+      # top-level window. But hv3 doesn't support this (and because 
+      # reasonable people don't like new top-level windows) we load
+      # the resource into the "_top" frame instead.
+      "_blank"  { set widget $theTopFrame }
+
+      default {
+        # In html 4.01, an unknown frame should be handled the same
+        # way as "_blank". So this next line of code implements the
+        # same bug as described for "_blank" above.
+        set widget $theTopFrame
+
+        # TODO: The following should be a depth first search through the
+        # frames in the list returned by [get_frames].
+        #
+        foreach f [$myBrowser get_frames] {
+          set n [$f cget -name]
+          if {$n eq $target} {
+            set widget [$f hv3]
+            break
+          }
+        }
+      }
     }
+
+    return $widget
   }
 
-  proc SetFontTable {args} {
-if 0 {
-    foreach f [$myBrowser get_frames] {
-      [$f hv3] configure -fonttable $::hv3::fontsize_table
+  # This method returns the "position-id" of a frame, an id that is
+  # used by the history sub-system when loading a historical state of
+  # a frameset document.
+  #
+  method positionid {} {
+    if {$myPositionId eq ""} {
+      set w $win
+      while {[set p [winfo parent $w]] ne ""} {
+        set class [winfo class $p]
+        if {$class eq "Panedwindow"} {
+          set myPositionId [linsert $myPositionId 0 [lsearch [$p panes] $w]]
+        }
+        set w $p
+      }
+      set myPositionId [linsert $myPositionId 0 0 0]
     }
-}
+    return $myPositionId
   }
 
   destructor {
@@ -345,6 +369,10 @@ snit::widget ::hv3::browser_toplevel {
   variable myStatusVar ""
   variable myLocationVar ""
 
+  # List of all ::hv3::browser_frame objects using this object as
+  # their toplevel browser. 
+  variable myFrames [list]
+
   method statusvar {}   {return [myvar myStatusVar]}
   delegate method titlevar to myMainFrame
 
@@ -380,24 +408,8 @@ snit::widget ::hv3::browser_toplevel {
     ::hv3::download_scheme_init [$myMainFrame hv3] $myProtocol
 
     # Create the history sub-system
-    set myHistory [::hv3::history %AUTO% [$myMainFrame hv3] $myProtocol]
+    set myHistory [::hv3::history %AUTO% [$myMainFrame hv3] $myProtocol $self]
     $myHistory configure -gotocmd [mymethod goto]
-
-    # Configure application hotkeys and so forth. To make these
-    # work in frameset documents, the [bindtags] command must be
-    # used to add the tag "$self" to the html widget for every 
-    # frame in the frameset.
-    bind $self <Escape>          [mymethod Escape]
-    bind $self <Control-f>       [mymethod Find]
-    bind $self <KeyPress-slash>  [mymethod Find]
-    bind $self <Control-q>       exit
-    bind $self <Control-Q>       exit
-    bind $self <1>               +[list focus %W]
-
-    # Todo: The following [bindtags] trick for all html widgets in a 
-    # frameset document.
-    set HTML [[$myMainFrame hv3] html]
-    bindtags $HTML [concat Hv3HotKeys $self [bindtags $HTML]]
 
     $self configurelist $args
   }
@@ -409,8 +421,18 @@ snit::widget ::hv3::browser_toplevel {
 
   # Interface used by code in class ::hv3::browser_frame for frame management.
   #
-  variable myFrames [list]
-  method add_frame {frame} {lappend myFrames $frame}
+  method add_frame {frame} {
+    lappend myFrames $frame
+    if {$myHistory ne ""} {
+      $myHistory add_hv3 [$frame hv3]
+    }
+
+    set HTML [[$frame hv3] html]
+    bind $HTML <1>               [list focus %W]
+    bind $HTML <Escape>          [mymethod Escape]
+    bind $HTML <KeyPress-slash>  [mymethod Find]
+    bindtags $HTML [concat Hv3HotKeys $self [bindtags $HTML]]
+  }
   method del_frame {frame} {
     set idx [lsearch $myFrames $frame]
     if {$idx >= 0} {
@@ -482,7 +504,7 @@ snit::widget ::hv3::browser_toplevel {
       destroy $fdname
     }
   
-    ::hv3::findwidget $fdname [$myMainFrame hv3] 
+    ::hv3::findwidget $fdname $self
 
     $self packwidget $fdname
     $fdname configure -borderwidth 1 -relief raised
@@ -492,6 +514,10 @@ snit::widget ::hv3::browser_toplevel {
 
     ${fdname}.entry insert 0 $initval
     focus ${fdname}.entry
+  }
+
+  method history {} {
+    return $myHistory
   }
 
   option -stopbutton -default "" -configuremethod Configurestopbutton
@@ -620,6 +646,8 @@ snit::type ::hv3::search {
     set findcmd [list gui_current Find] 
     $myMenu add command \
         -label {Find in page...} -command $findcmd -accelerator (Ctrl-F)
+    bind Hv3HotKeys <Control-f>  [list gui_current Find]
+    bind Hv3HotKeys <Control-F>  [list gui_current Find]
 
     array set hotkeys $myHotKeys
 
@@ -721,14 +749,12 @@ proc gui_build {widget_array} {
 
   # Create the top bit of the GUI - the URI entry and buttons.
   frame .entry
-  # ::hv3::entry .entry.entry
   ::hv3::locationentry .entry.entry
-
   ::hv3::toolbutton .entry.back    -text {Back} -tooltip    "Go Back"
   ::hv3::toolbutton .entry.stop    -text {Stop} -tooltip    "Stop"
   ::hv3::toolbutton .entry.forward -text {Forward} -tooltip "Go Forward"
 
-  ::hv3::toolbutton .entry.new -text {New Tab} -command {.notebook add}
+  ::hv3::toolbutton .entry.new -text {New Tab} -command [list .notebook add]
 
   .entry.new configure -tooltip "Open New Tab"
 
@@ -744,7 +770,7 @@ proc gui_build {widget_array} {
   }
 
   # Create the middle bit - the browser window
-  # ::hv3::browser_toplevel .browser
+  #
   ::hv3::notebook .notebook              \
       -newcmd    gui_new                 \
       -switchcmd gui_switch
@@ -827,7 +853,6 @@ proc create_fontsize_menu {menupath varname} {
       -command [list gui_setfontsize $varname] \
       -label $label
   }
-  # trace add variable $varname write ::hv3::browser_frame::SetFontTable
   set $varname [list 8 9 10 11 13 15 17]
   return $menupath
 }
@@ -852,7 +877,6 @@ proc create_fontscale_menu {menupath varname} {
       -value $val                              \
       -label [format "%d%%" [expr int($val * 100)]]
   }
-  # trace add variable $varname write ::hv3::browser_frame::SetFontTable
   set $varname 1.0
   return $menupath
 }
@@ -914,6 +938,8 @@ proc gui_menu {widget_array} {
   set cmd [list .m.file entryconfigure [.m.file index end] -state]
   $G(notebook) configure -delstatecmd $cmd
   .m.file add command -label Exit -accelerator (Ctrl-Q) -command exit
+  bind Hv3HotKeys <Control-q>  exit
+  bind Hv3HotKeys <Control-Q>  exit
 
   # Add the 'Search' menu
   set G(search) [::hv3::search %AUTO% .m.search]
@@ -922,8 +948,8 @@ proc gui_menu {widget_array} {
   # Add the 'Config' menu
   set G(config) [::hv3::config %AUTO% .m.config]
   .m add cascade -label {View} -menu [$G(config) menu]
-  
 
+  # The 'Debug' menu (contains the little tools used to debug hv3/tkhtml3).
   .m add cascade -label Debug -menu [::hv3::menu .m.tools]
 
   .m.tools add command -label Cookies -command [list $G(notebook) add cookies:]

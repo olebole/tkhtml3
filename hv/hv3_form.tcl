@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.36 2006/09/07 14:53:39 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.37 2006/10/03 12:22:21 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -696,7 +696,7 @@ snit::type ::hv3::form {
     }
 
     if {$script ne ""} {
-      set exec [concat $script [list $action $querytype $querydata]]
+      set exec [concat $script [list $myFormNode $action $querytype $querydata]]
       eval $exec
     }
   }

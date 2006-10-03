@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.30 2006/09/29 11:23:22 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.31 2006/10/03 12:22:21 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
@@ -838,8 +838,13 @@ snit::widget ::hv3::googlewidget {
   }
 }
 
+proc ::hv3::ComparePositionId {frame1 frame2} {
+  return [string compare [$frame1 positionid] [$frame2 positionid]]
+}
+
 snit::widget ::hv3::findwidget {
   variable myHv3              ;# The HTML widget
+  variable myBrowser          ;# The ::hv3::browser_toplevel widget
 
   variable myNocaseVar 1      ;# Variable for the "Case insensitive" checkbox 
   variable myEntryVar  ""     ;# Variable for the entry widget
@@ -851,8 +856,9 @@ snit::widget ::hv3::findwidget {
   delegate option -borderwidth to hull
   delegate option -relief      to hull
 
-  constructor {hv3 args} {
-    set myHv3 $hv3
+  constructor {browser args} {
+    set myBrowser $browser
+    set myHv3 [[lindex [$browser get_frames] 0] hv3]
 
     ::hv3::label $win.label -text "Search for text:"
     ::hv3::entry $win.entry -width 30
@@ -887,65 +893,113 @@ snit::widget ::hv3::findwidget {
     pack $win.num_results -side right -fill x
   }
 
-  method lazymoveto {n1 i1 n2 i2} {
-    set nodebbox [$myHv3 text bbox $n1 $i1 $n2 $i2]
-    set docbbox  [$myHv3 bbox]
+  method Hv3List {} {
+    set frames [$myBrowser get_frames]
+
+    # Filter the $frames list so that it contains only leaf windows.
+    set frames [lsort $frames]
+    set frames2 [list] 
+    for {set ii 0} {$ii < [llength $frames]} {incr ii} {
+      set thisframe [lindex $frames $ii]
+      set nextframe [lindex $frames [expr $ii + 1]]
+      if {![string match "${thisframe}*" $nextframe]} {
+        lappend frames2 $thisframe
+      }
+    }
+
+    # Sort the frames list in [positionid] order
+    set frames3 [lsort -command ::hv3::ComparePositionId $frames2]
+
+    set ret [list]
+    foreach f $frames3 {
+      lappend ret [$f hv3]
+    }
+    return $ret
+  }
+
+  method lazymoveto {hv3 n1 i1 n2 i2} {
+    set nodebbox [$hv3 text bbox $n1 $i1 $n2 $i2]
+    set docbbox  [$hv3 bbox]
 
     set docheight "[lindex $docbbox 3].0"
 
     set ntop    [expr ([lindex $nodebbox 1].0 - 30.0) / $docheight]
     set nbottom [expr ([lindex $nodebbox 3].0 + 30.0) / $docheight]
  
-    set sheight [expr [winfo height $myHv3].0 / $docheight]
-    set stop    [lindex [$myHv3 yview] 0]
+    set sheight [expr [winfo height $hv3].0 / $docheight]
+    set stop    [lindex [$hv3 yview] 0]
     set sbottom [expr $stop + $sheight]
 
 
     if {$ntop < $stop} {
-      $myHv3 yview moveto $ntop
+      $hv3 yview moveto $ntop
     } elseif {$nbottom > $sbottom} {
-      $myHv3 yview moveto [expr $nbottom - $sheight]
+      $hv3 yview moveto [expr $nbottom - $sheight]
     }
   }
 
   # Dynamic update proc.
   method UpdateDisplay {nMaxHighlight} {
-    $myHv3 tag delete findwidget
-    $myHv3 tag delete findwidgetcurrent
+
+    set nMatch 0      ;# Total number of matches
+    set nHighlight 0  ;# Total number of highlighted matches
+    set matches [list]
+
+    # Get the list of hv3 widgets that (currently) make up this browser
+    # display. There is usually only 1, but may be more in the case of
+    # frameset documents.
+    #
+    set hv3list [$self Hv3List]
+
+    # Delete any instances of our two tags - "findwidget" and
+    # "findwidgetcurrent". Clear the caption.
+    #
+    foreach hv3 $hv3list {
+      $hv3 tag delete findwidget
+      $hv3 tag delete findwidgetcurrent
+    }
     set myCaptionVar ""
 
+    # Figure out what we're looking for. If there is nothing entered 
+    # in the entry field, return early.
     set searchtext $myEntryVar
-    if {[string length $searchtext] == 0} return
-    set doctext [$myHv3 text text]
-
     if {$myNocaseVar} {
-      set doctext [string tolower $doctext]
       set searchtext [string tolower $searchtext]
     }
+    if {[string length $searchtext] == 0} return
 
-    set iFin 0
-    set lMatch [list]
+    foreach hv3 $hv3list {
+      set doctext [$hv3 text text]
+      if {$myNocaseVar} {
+        set doctext [string tolower $doctext]
+      }
 
-    while {[set iStart [string first $searchtext $doctext $iFin]] >= 0} {
-      set iFin [expr $iStart + [string length $searchtext]]
-      lappend lMatch $iStart $iFin
+      set iFin 0
+      set lMatch [list]
+
+      while {[set iStart [string first $searchtext $doctext $iFin]] >= 0} {
+        set iFin [expr $iStart + [string length $searchtext]]
+        lappend lMatch $iStart $iFin
+      }
+
+      incr nMatch [expr [llength $lMatch] / 2]
+      set lMatch [lrange $lMatch 0 [expr ($nMaxHighlight - $nHighlight)*2 - 1]]
+      incr nHighlight [expr [llength $lMatch] / 2]
+      if {[llength $lMatch] > 0} {
+        lappend matches $hv3 [eval [concat $hv3 text index $lMatch]]
+      }
     }
-    set nMatch [expr [llength $lMatch] / 2]
-    set lMatch [lrange $lMatch 0 [expr $nMaxHighlight * 2 - 1]]
-    set nHighlight [expr [llength $lMatch] / 2]
+
     set myCaptionVar "(highlighted $nHighlight of $nMatch hits)"
 
-    set matches [list]
-    if {[llength $lMatch] > 0} {
-      set matches [eval [concat $myHv3 text index $lMatch]]
-      foreach {n1 i1 n2 i2} $matches {
-        $myHv3 tag add findwidget $n1 $i1 $n2 $i2
+    foreach {hv3 matchlist} $matches {
+      foreach {n1 i1 n2 i2} $matchlist {
+        $hv3 tag add findwidget $n1 $i1 $n2 $i2
       }
-  
-      $myHv3 tag configure findwidget -bg purple -fg white
-        $self lazymoveto                            \
-            [lindex $matches 0] [lindex $matches 1] \
-            [lindex $matches 2] [lindex $matches 3]
+      $hv3 tag configure findwidget -bg purple -fg white
+      $self lazymoveto $hv3                         \
+            [lindex $matchlist 0] [lindex $matchlist 1] \
+            [lindex $matchlist 2] [lindex $matchlist 3]
     }
 
     set myCurrentList $matches
@@ -960,28 +1014,48 @@ snit::widget ::hv3::findwidget {
     # destroy $win
   }
   method Return {dir} {
+
+    set previousHit $myCurrentHit
     if {$myCurrentHit < 0} {
       $self UpdateDisplay 100000
-    }
+    } 
     incr myCurrentHit $dir
 
-    set nHit [expr [llength $myCurrentList] / 4]
-    if {$myCurrentHit < 0 || $nHit <= $myCurrentHit} {
+    set nTotalHit 0
+    foreach {hv3 matchlist} $myCurrentList {
+      incr nTotalHit [expr [llength $matchlist] / 4]
+    }
+
+    if {$myCurrentHit < 0 || $nTotalHit <= $myCurrentHit} {
       tk_messageBox -message "The text you entered was not found" -type ok
       incr myCurrentHit [expr -1 * $dir]
       return
     }
-    set myCaptionVar "Hit [expr $myCurrentHit + 1] / $nHit"
+    set myCaptionVar "Hit [expr $myCurrentHit + 1] / $nTotalHit"
 
-    set n1 [lindex $myCurrentList [expr $myCurrentHit * 4]]
-    set i1 [lindex $myCurrentList [expr $myCurrentHit * 4 + 1]]
-    set n2 [lindex $myCurrentList [expr $myCurrentHit * 4 + 2]]
-    set i2 [lindex $myCurrentList [expr $myCurrentHit * 4 + 3]]
+    set hv3 ""
+    foreach {hv3 n1 i1 n2 i2} [$self GetHit $previousHit] { }
+    catch {$hv3 tag delete findwidgetcurrent}
 
-    $self lazymoveto $n1 $i1 $n2 $i2
-    $myHv3 tag delete findwidgetcurrent
-    $myHv3 tag add findwidgetcurrent $n1 $i1 $n2 $i2
-    $myHv3 tag configure findwidgetcurrent -bg black -fg yellow
+    set hv3 ""
+    foreach {hv3 n1 i1 n2 i2} [$self GetHit $myCurrentHit] { }
+    $self lazymoveto $hv3 $n1 $i1 $n2 $i2
+    $hv3 tag add findwidgetcurrent $n1 $i1 $n2 $i2
+    $hv3 tag configure findwidgetcurrent -bg black -fg yellow
+  }
+
+  method GetHit {iIdx} {
+    set nSofar 0
+    foreach {hv3 matchlist} $myCurrentList {
+      set nThis [expr [llength $matchlist] / 4]
+      if {($nThis + $nSofar) > $iIdx} {
+        return [concat $hv3 [lrange $matchlist \
+                [expr ($iIdx-$nSofar)*4] [expr ($iIdx-$nSofar)*4+3]
+        ]]
+      }
+      incr nSofar $nThis
+    }
+    return ""
   }
 
   destructor {

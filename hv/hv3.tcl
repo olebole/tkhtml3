@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.109 2006/09/17 07:36:43 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.110 2006/10/03 12:22:20 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -27,11 +27,13 @@ namespace eval hv3 { set {version($Id: hv3.tcl,v 1.109 2006/09/17 07:36:43 danie
 #         the -requestcmd script. The download handle to be cancelled
 #         is appended to the script before it is invoked.
 #
-#     -hyperlinkcmd
+#     -targetcmd
 #         If not an empty string, this option specifies a script for
-#         the widget to invoke when a hyperlink is clicked on. The script
-#         is invoked with the node handle of the clicked hyper-link element
-#         appended.
+#         the widget to invoke when a hyperlink is clicked on or a form
+#         submitted. The script is invoked with the node handle of the 
+#         clicked hyper-link element appended. The script must return
+#         the name of an hv3 widget to load the new document into. This
+#         is intended to be used to implement frameset handling.
 #
 #     -isvisitedcmd
 #         If not an empty string, this option specifies a script for
@@ -105,8 +107,8 @@ namespace eval hv3 { set {version($Id: hv3.tcl,v 1.109 2006/09/17 07:36:43 danie
 #         This event is generated whenever the "location" is set. The
 #         field %location contains the new URI.
 #
-#
-
+#     <<SaveState>>
+#         Generated whenever the widget state should be saved.
 
 #
 # The code in this file is partitioned into the following classes:
@@ -135,7 +137,7 @@ namespace eval hv3 { set {version($Id: hv3.tcl,v 1.109 2006/09/17 07:36:43 danie
 #     $manager release X Y
 #     $manager press   X Y
 #
-# The -hyperlinkcmd option of ::hv3::hv3 is delegated to an
+# The -targetcmd option of ::hv3::hv3 is delegated to the
 # ::hv3::hyperlinkmanager component.
 #
 package require Tkhtml 3.0
@@ -527,7 +529,7 @@ snit::type ::hv3::hv3::dynamicmanager {
 # Each instance of the hv3 widget contains a single hyperlinkmanager as
 # a component. The hyperlinkmanager takes care of:
 #
-#     * -hyperlinkcmd option and associate callbacks
+#     * -targetcmd option and associate callbacks
 #     * -isvisitedcmd option and associate callbacks
 #     * Modifying the cursor to the hand shape when over a hyperlink
 #     * Setting the :link or :visited dynamic condition on hyperlink 
@@ -541,12 +543,13 @@ snit::type ::hv3::hv3::hyperlinkmanager {
   variable myHv3
   variable myNodes [list]
 
-  option -hyperlinkcmd -default ""
   option -isvisitedcmd -default ""
+
+  option -targetcmd -default ""
 
   constructor {hv3} {
     set myHv3 $hv3
-    set options(-hyperlinkcmd) [mymethod default_hyperlinkcmd]
+    set options(-targetcmd) [list set [myvar myHv3]]
 
     $myHv3 handler node a [mymethod a_node_handler]
     bind $myHv3 <Motion>          "+[mymethod motion %x %y]"
@@ -603,24 +606,19 @@ snit::type ::hv3::hv3::hyperlinkmanager {
     set nodelist [$myHv3 node $x $y]
     set saved_nodes $myNodes
     set myNodes [list]
-    if {$options(-hyperlinkcmd) ne ""} {
-      foreach node [$myHv3 node $x $y] {
-        for {set n $node} {$n ne ""} {set n [$n parent]} {
-          if {[lsearch $saved_nodes $n] >= 0} {
-            # Node $n is a hyper-link that has been clicked on.
-            # Invoke the -hyperlinkcmd.
-            eval [linsert $options(-hyperlinkcmd) end $n]
-            return
+    foreach node [$myHv3 node $x $y] {
+      for {set n $node} {$n ne ""} {set n [$n parent]} {
+        if {[lsearch $saved_nodes $n] >= 0} {
+          # Node $n is a hyper-link that has been clicked on.
+          # Invoke the -targetcmd.
+          set href [string trim [$n attr -default "" href]]
+          if {$href ne ""} {
+            set hv3 [eval [linsert $options(-targetcmd) end $n]]
+            $hv3 goto $href
           }
+          return
         }
       }
-    }
-  }
-
-  method default_hyperlinkcmd {node} {
-    set href [string trim [$node attr -default "" href]]
-    if {$href ne ""} {
-      $myHv3 goto $href
     }
   }
 }
@@ -698,6 +696,8 @@ snit::widget ::hv3::hv3 {
   variable myInternalObject
 
   variable myDeps [list]
+
+  variable myFirstReset 1
 
   constructor {} {
     # Create the scrolled html widget and bind it's events to the
@@ -999,6 +999,12 @@ snit::widget ::hv3::hv3 {
     $node replace dummy -stylecmd [mymethod body_style_handler $node]
   }
   method body_style_handler {bodynode} {
+
+    if {$options(-scrollbarpolicy) ne "auto"} {
+      $myHtml configure -scrollbarpolicy $options(-scrollbarpolicy)
+      return
+    }
+
     set htmlnode [$bodynode parent]
     set overflow [$htmlnode property overflow]
 
@@ -1012,13 +1018,13 @@ snit::widget ::hv3::hv3 {
       set overflow [$bodynode property overflow]
     }
     switch -- $overflow {
-      visible { $self configure -scrollbarpolicy auto }
-      auto    { $self configure -scrollbarpolicy auto }
-      hidden  { $self configure -scrollbarpolicy 0 }
-      scroll  { $self configure -scrollbarpolicy 1 }
+      visible { $myHtml configure -scrollbarpolicy auto }
+      auto    { $myHtml configure -scrollbarpolicy auto }
+      hidden  { $myHtml configure -scrollbarpolicy 0 }
+      scroll  { $myHtml configure -scrollbarpolicy 1 }
       default {
         puts stderr "Hv3 is confused: <body> has \"overflow:$overflow\"."
-        $self configure -scrollbarpolicy auto
+        $myHtml configure -scrollbarpolicy auto
       }
     }
   }
@@ -1200,7 +1206,12 @@ snit::widget ::hv3::hv3 {
     }
   }
 
-  method Formcmd {method uri querytype encdata} {
+  method Formcmd {method node uri querytype encdata} {
+    set cmd [linsert [$self cget -targetcmd] end $node]
+    [eval $cmd] Formcmd2 $method $uri $querytype $encdata
+  }
+
+  method Formcmd2 {method uri querytype encdata} {
     # puts "Formcmd $method $uri $querytype $encdata"
     set full_uri [$self resolve_uri $uri]
 
@@ -1267,10 +1278,15 @@ snit::widget ::hv3::hv3 {
     set fragment [$uri_obj cget -fragment]
 
     if {$full_uri eq $current_uri && $fragment ne ""} {
+      # Save the current state in the history system. This ensures
+      # that back/forward controls work when navigating between
+      # different sections of the same document.
+      event generate $win <<SaveState>>
+
       $myUri load $uri
-      $self yview moveto 0.0
       $self goto_fragment
       $self set_location_var
+
       return [$myUri get]
     }
 
@@ -1324,7 +1340,11 @@ snit::widget ::hv3::hv3 {
 
   method reset {} {
 
-    # Generate the <<Reset>> event.
+    # Generate the <<Reset>> and <<SaveState> events.
+    if {!$myFirstReset} {
+      event generate $win <<SaveState>>
+    }
+    set myFirstReset 0
     event generate $win <<Reset>>
 
     $self invalidate_nodecache
@@ -1371,18 +1391,19 @@ snit::widget ::hv3::hv3 {
   method hull {}     { return $hull }
 
   option -enableimages -default 1 -configuremethod SetOption
+  option -scrollbarpolicy -default auto
 
   option          -locationvar      -default ""
   option          -pendingvar       -default ""
   option          -requestcmd       -default ""
   option          -cancelrequestcmd -default ""
-  delegate option -hyperlinkcmd     to myHyperlinkManager
   delegate option -isvisitedcmd     to myHyperlinkManager
-  delegate option -scrollbarpolicy  to myHtml
   delegate option -fonttable        to myHtml
   delegate option -fontscale        to myHtml
   delegate option -forcefontmetrics to myHtml
   delegate option -doublebuffer     to myHtml
+
+  delegate option -targetcmd        to myHyperlinkManager
 
   # Delegated public methods
   delegate method dumpforms         to myFormManager

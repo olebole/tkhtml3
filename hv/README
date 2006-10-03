@@ -84,8 +84,8 @@ Hv3 Application Object Types:
   Widgets:
 
     ::hv3::frameset              (hv3_frameset.tcl)
+
     ::hv3::browser_frame         (hv3_main.tcl)
-    ::hv3::browser               (hv3_main.tcl)
 
     ::hv3::browser_toplevel      (hv3_main.tcl)
          Instances of this widget are managed directly by the notebook.

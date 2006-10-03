@@ -10,27 +10,34 @@ snit::type ::hv3::history_state {
   # that will be displayed in the "location" entry field when the 
   # history state is loaded.
   #
-  # List variable $myDeps stores a list of URI's corresponding to 
-  # resources (i.e. stylesheets and images) that were required last time 
-  # the resource at $myUri was loaded. 
-  #
-  # The idea is that when the user "visits" a history-state, all dependencies
-  # can be requested before the actual document. If, as is likely, responses
-  # are returned in the order requested, there will be no "flicker" as the
-  # document is displayed first without stylesheets and images, and then 
-  # with.
+  # Variable $myTitle stores the title of the page last seen at location
+  # $myUri. These two variables are used in concert to determine the
+  # displayed title of the history list entry (on the history menu).
   #
   variable myUri     ""
-  variable myDeps [list]
-
-  # Title of the page last seen at location $myUri.
   variable myTitle   ""
 
   # Values to use with [pathName xscroll|yscroll moveto] to restore
-  # the previous scrollbar positions.
+  # the previous scrollbar positions. Currently only the main browser
+  # window scrollbar positions are restored, not the scrollbars used
+  # by any <frame> or "overflow:scroll" elements.
   #
   variable myXscroll ""
   variable myYscroll ""
+
+  # Object member $myUri stores the URI of the top-level document loaded
+  # into the applicable browser window. However if that document is a 
+  # frameset document a URI is required for each frame in the (possibly
+  # large) tree of frames. This array stores those URIs, indexed by
+  # the frames "positionid" (see the [positionid] sub-command of class
+  # ::hv3::browser_frame).
+  #
+  # Note that the top-level frame is included in this array (the index
+  # of the top-level frame is always "0 0"). The code in this file uses
+  # $myUri for display purposes (i.e. in the history menu) and 
+  # $myFrameUri
+  #
+  variable myFrameUri -array [list]
 
   method Getset {var arglist} {
     if {[llength $arglist] > 0} {
@@ -39,11 +46,31 @@ snit::type ::hv3::history_state {
     return [set $var]
   }
 
-  method uri {args} { return [$self Getset myUri $args] }
-  method title {args} { return [$self Getset myTitle $args] }
+  method uri     {args} { return [$self Getset myUri $args] }
+  method title   {args} { return [$self Getset myTitle $args] }
   method xscroll {args} { return [$self Getset myXscroll $args] }
   method yscroll {args} { return [$self Getset myYscroll $args] }
-  method deps {args} { return [$self Getset myDeps $args] }
+
+  # Retrieve the URI associated with the frame $positionid.
+  #
+  method get_frameuri {positionid} {
+    if {[info exists myFrameUri($positionid)]} {
+      return $myFrameUri($positionid)
+    }
+    return ""
+  }
+
+  # Set an entry in the $myFrameUri array.
+  #
+  method set_frameuri {positionid uri} {
+    set myFrameUri($positionid) $uri
+  }
+
+  # Clear the $myFrameUri array.
+  #
+  method clear_frameurilist {} {
+    array unset myFrameUri
+  }
 }
 
 # class ::hv3::history
@@ -56,7 +83,6 @@ snit::type ::hv3::history_state {
 #
 # Methods:
 #     locationvar
-#
 # 
 snit::type ::hv3::history {
   # corresponding option exported by this class.
@@ -66,6 +92,7 @@ snit::type ::hv3::history {
 
   variable myHv3 ""
   variable myProtocol ""
+  variable myBrowser ""
 
   # The following two variables store the history list
   variable myStateList [list]
@@ -92,29 +119,28 @@ snit::type ::hv3::history {
   # Events:
   #     <<Goto>>
   #     <<Complete>>
-  #     <<Reset>>
+  #     <<SaveState>>
   #     <<Location>>
   #
   #     Also there is a trace on "titlevar" (set whenever a <title> node is
   #     parsed)
   #
 
-  constructor {hv3 protocol args} {
+  constructor {hv3 protocol browser args} {
     $hv3 configure -locationvar [myvar myLocationVar]
     $self configurelist $args
 
-    trace add variable [$hv3 titlevar] write [mymethod Titlevarcmd $hv3]
-#    trace add variable [myvar myLocationVar] write [mymethod Locvarcmd $hv3]
-
-    bind $hv3 <<Location>> +[mymethod Locvarcmd $hv3]
+    trace add variable [$hv3 titlevar] write [mymethod Locvarcmd]
 
     set myTitleVarName [$hv3 titlevar]
     set myHv3 $hv3
     set myProtocol $protocol
+    set myBrowser $browser
 
-    bind $hv3 <<Goto>>     +[mymethod GotoHandler]
-    bind $hv3 <<Complete>> +[mymethod CompleteHandler]
-    bind $hv3 <<Reset>>    +[mymethod ResetHandler]
+    # bind $hv3 <<Reset>>    +[mymethod ResetHandler]
+    bind $hv3 <<Complete>>  +[mymethod CompleteHandler]
+    bind $hv3 <<Location>>  +[mymethod Locvarcmd]
+    $self add_hv3 $hv3
 
     # Initialise the state-list to contain a single, unconfigured state.
     set myStateList [::hv3::history_state %AUTO%]
@@ -122,13 +148,29 @@ snit::type ::hv3::history {
   }
 
   destructor {
-    trace remove variable $myTitleVarName write [mymethod Titlevarcmd $myHv3]
-    trace remove variable [myvar myLocationVar] write \
-        [mymethod Locvarcmd $myHv3]
-
+    trace remove variable $myTitleVarName write [mymethod Locvarcmd]
     foreach state $myStateList {
       $state destroy
     }
+  }
+
+  method add_hv3 {hv3} {
+    bind $hv3 <<Goto>>      +[mymethod GotoHandler]
+    bind $hv3 <<SaveState>> +[mymethod SaveStateHandler $hv3]
+  }
+
+  method loadframe {frame} {
+    if {$myHistorySeek >= 0} {
+      set state [lindex $myStateList $myHistorySeek]
+      set uri [$state get_frameuri [$frame positionid]]
+      if {$uri ne ""} {
+        incr myIgnoreGotoHandler
+        $frame goto $uri
+        incr myIgnoreGotoHandler -1
+        return 1
+      }
+    }
+    return 0
   }
 
   # Return the name of the variable configured as the -locationvar option
@@ -140,22 +182,17 @@ snit::type ::hv3::history {
   # widget associated with this history-list.
   #
   method GotoHandler {} {
-
-    # Set the xscroll and yscroll of the current state object.
-    set state [lindex $myStateList $myStateIdx]
-    $state xscroll [lindex [$myHv3 xview] 0]
-    $state yscroll [lindex [$myHv3 yview] 0]
-    $state deps [$myHv3 dependencies]
-
     if {!$myIgnoreGotoHandler} {
-      # We are not in "history" mode.
+      # We are not in "history" mode any more.
       set myHistorySeek -1
       $myProtocol configure -relaxtransparency 0
     }
   }
 
   # This method is bound to the <<Complete>> event of the ::hv3::hv3 
-  # widget associated with this history-list.
+  # widget associated with this history-list. If the <<Complete>> is
+  # issued because a history-seek is complete, then scroll the widget
+  # to the stored horizontal and vertical offsets.
   #
   method CompleteHandler {} {
     if {$myHistorySeek >= 0} {
@@ -166,82 +203,58 @@ snit::type ::hv3::history {
   }
 
   # Invoked whenever our hv3 widget is reset (i.e. just before a new
-  # document is loaded). The current state of the widget should be
-  # copied into the history list.
-  method ResetHandler {} {
-
-    # Update the current history-state record with the current scrollbar
-    # and dependency settings.
+  # document is loaded) or when moving to a different #fragment within
+  # the same document. The current state of the widget should be copied 
+  # into the history list.
+  #
+  method SaveStateHandler {hv3} {
     set state [lindex $myStateList $myStateIdx]
+
+    # Update the current history-state record:
     $state xscroll [lindex [$myHv3 xview] 0]
     $state yscroll [lindex [$myHv3 yview] 0]
-    $state deps [$myHv3 dependencies]
 
-    if {$myHistorySeek >= 0} return
-
-    # Exception - if the state-list contains a single state with no
-    # "location" or "title" attribute set, then re-use it. This
-    # occurs when starting the application with a remote document
-    # as the first URI.
-    if { [llength $myStateList] == 1 && [[lindex $myStateList 0] uri] eq "" } {
-      return
+    $state clear_frameurilist
+    foreach frame [$myBrowser get_frames] {
+      set positionid [$frame positionid]
+      set uri [[$frame hv3] location]
+      $state set_frameuri $positionid $uri
     }
-    set myStateList [lrange $myStateList 0 $myStateIdx]
-    incr myStateIdx
-    set myRadioVar $myStateIdx
-    lappend myStateList [::hv3::history_state %AUTO%]
 
-    if 0 {
-      puts "RESET $myHv3"
-      puts "History list is:"
-      foreach state $myStateList {
-        puts "uri=[$state uri] title=[$state title]"
-        puts "xscroll=[$state xscroll] yscroll=[$state yscroll]"
-        puts "deps=[$state deps]"
+    if {$myHistorySeek >= 0} {
+      set myStateIdx $myHistorySeek
+      set myRadioVar $myStateIdx
+    } else {
+      # Add an empty state to the end of the history list. Set myStateIdx
+      # and myRadioVar to the index of the new state in $myStateList.
+      set myStateList [lrange $myStateList 0 $myStateIdx]
+      incr myStateIdx
+      set myRadioVar $myStateIdx
+      lappend myStateList [::hv3::history_state %AUTO%]
+
+      # If the widget that generated this event is not the main widget,
+      # copy the URI and title from the previous state.
+      if {$hv3 ne $myHv3 && $myStateIdx >= 1} {
+        set prev [lindex $myStateList [expr $myStateIdx - 1]]
+        set new [lindex $myStateList $myStateIdx]
+        $new uri [$prev uri]
+        $new title [$prev title]
       }
-      puts ""
     }
-  }
-
-  # Invoked when the [$hv3 titlevar] or [$hv3 locationvar] variables
-  # are modified. Update the current history-state record according
-  # to the new values.
-  method Titlevarcmd {hv3 args} {
-    set state [lindex $myStateList $myStateIdx]
-    set t [set [$myHv3 titlevar]]
-    if {$myHistorySeek < 0} {$state title $t}
 
     $self populatehistorymenu
   }
 
-  proc StripFragment {uri} {
-    set obj [::hv3::uri %AUTO% $uri]
-    set ret [$obj get -nofragment]
-    $obj destroy
-    return $ret
-  }
-
-  method Locvarcmd {hv3} {
-    if {$myHistorySeek >= 0} {
-      set myStateIdx $myHistorySeek
-    }
-
+  # Invoked when the [$myHv3 titlevar] variable is modified.  are modified.
+  # Update the current history-state record according to the new value.
+  #
+  method Locvarcmd {args} {
     set state [lindex $myStateList $myStateIdx]
-    if {$myHistorySeek < 0} {
-      set new [StripFragment $myLocationVar]
-      set old [StripFragment [$state uri]]
-      if {$old eq $new && $myLocationVar != [$state uri]} {
-        set myStateList [lrange $myStateList 0 $myStateIdx]
-        incr myStateIdx
-        set myRadioVar $myStateIdx
-        set newstate [::hv3::history_state %AUTO%]
-        lappend myStateList $newstate
-        $newstate title [$state title]
-        set state $newstate
-      }
-    }
-
     $state uri $myLocationVar
+    set t [set [$myHv3 titlevar]]
+    if {$t ne ""} {
+      $state title $t
+    }
     $self populatehistorymenu
   }
 
@@ -254,14 +267,16 @@ snit::type ::hv3::history {
     }
   }
 
+  # Load history state $idx into the browser window.
+  #
   method gotohistory {idx} {
     set myHistorySeek $idx
     set state [lindex $myStateList $idx]
 
-    set myIgnoreGotoHandler 1
+    incr myIgnoreGotoHandler 
     $myProtocol configure -relaxtransparency 1
     eval [linsert $options(-gotocmd) end [$state uri]]
-    set myIgnoreGotoHandler 0
+    incr myIgnoreGotoHandler -1
   }
 
   # This method reconfigures the state of the -historymenu, -backbutton
