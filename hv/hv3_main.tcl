@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.78 2006/10/03 15:42:16 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.79 2006/10/04 12:23:43 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -527,6 +527,10 @@ snit::widget ::hv3::browser_toplevel {
     return $myHistory
   }
 
+  method reload {} {
+    $myHistory reload
+  }
+
   option -stopbutton -default "" -configuremethod Configurestopbutton
 
   delegate option -historymenu   to myHistory
@@ -762,6 +766,8 @@ proc gui_build {widget_array} {
   ::hv3::toolbutton .entry.forward -text {Forward} -tooltip "Go Forward"
 
   ::hv3::toolbutton .entry.new -text {New Tab} -command [list .notebook add]
+  ::hv3::toolbutton .entry.home -text Home -command {gui_current goto home:}
+  ::hv3::toolbutton .entry.reload -text Reload -command {gui_current reload}
 
   .entry.new configure -tooltip "Open New Tab"
 
@@ -774,6 +780,10 @@ proc gui_build {widget_array} {
     .entry.stop configure -image $stopimg
     set newimg [image create photo -data $::hv3::new_icon]
     .entry.new configure -image $newimg
+    set homeimg [image create photo -data $::hv3::home_icon]
+    .entry.home configure -image $homeimg
+    set reloadimg [image create photo -data $::hv3::reload_icon]
+    .entry.reload configure -image $reloadimg
   }
 
   # Create the middle bit - the browser window
@@ -790,6 +800,8 @@ proc gui_build {widget_array} {
   set G(stop_button)    .entry.stop
   set G(back_button)    .entry.back
   set G(forward_button) .entry.forward
+  set G(home_button)    .entry.home
+  set G(reload_button)  .entry.reload
   set G(location_entry) .entry.entry
   set G(status_label)   .status
   set G(notebook)       .notebook
@@ -797,8 +809,10 @@ proc gui_build {widget_array} {
   # Pack the elements of the "top bit" into the .entry frame
   pack .entry.new -side left
   pack .entry.back -side left
-  pack .entry.stop -side left
   pack .entry.forward -side left
+  pack .entry.reload -side left
+  pack .entry.stop -side left
+  pack .entry.home -side left
   pack .entry.entry -fill x -expand true
 
   # Pack the top, bottom and middle, in that order. The middle must be 

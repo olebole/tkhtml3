@@ -279,6 +279,14 @@ snit::type ::hv3::history {
     incr myIgnoreGotoHandler -1
   }
 
+  method reload {} {
+    set myHistorySeek $myStateIdx
+    set state [lindex $myStateList $myHistorySeek]
+    incr myIgnoreGotoHandler 
+    eval [linsert $options(-gotocmd) end [$state uri]]
+    incr myIgnoreGotoHandler -1
+  }
+
   # This method reconfigures the state of the -historymenu, -backbutton
   # and -forwardbutton to match the internal state of this object. To
   # summarize, it:

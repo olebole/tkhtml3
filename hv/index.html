@@ -172,15 +172,16 @@
          to the command line used to start Hv3. For example, if using a
          starkit from http://tkhtml.tcl.tk, something like:
       <pre>
-  hv3_img.kit -statefile /home/user/hv3state.txt</pre>
+  hv3_img.kit -statefile /home/user/hv3state.db</pre>
 
       <p>The state-file is actually an SQLite database. This means that 
          multiple instances of hv3 running concurrently share cookies
          and the list of visited URIs (if they are configured to use the
          same state-file).
 
-      <p>By default, Hv3 stores everything in memory. In this case all cookie
-         and visited URI data is discarded on exit.
+      <p>By default, if no -statefile option is specified, Hv3 stores
+	 everything in memory. In this case all cookie and visited URI data is
+         discarded on exit.
 
     <h3>2. hv3_polipo</h3>
       <p>It is best to use Hv3 in concert with hv3_polipo, a lightweight
@@ -199,17 +200,11 @@
 	 not in use. If it contains a line similar to "INFO:  Polipo
          (re)started successfully.", then it is.
 
-    <h3>3. Frameset documents</h3>
-      <p>Although frameset documents are supported, they do not work 
-         properly with the "Find in page..." or history features. Some
-         attributes of the HTML &lt;frame&gt; element are not yet supported
-         ("scrolling" and "noresize").
-
-    <h3>4. Cookies Policy</h3>
+    <h3>3. Cookies Policy</h3>
       <p>You should be aware that Hv3 unconditionally accepts all cookies.
          Eventually there will be an interface to configure this.
 
-    <h3>5. HTTPS URIs</h3>
+    <h3>4. HTTPS URIs</h3>
       <p>Hv3 can load https:// URIs if the Tcl "tls" package is installed.
 
     <h1>Credits</h1>
@@ -227,6 +222,12 @@
            Chroboczek, available at 
            <a href="http://www.pps.jussieu.fr/~jch/software/polipo/">
            http://www.pps.jussieu.fr/~jch/software/polipo/</a>.
+      <li> The six toolbar icons were created by Ian Main 
+           (<a href="http://e-lusion.com">http://e-lusion.com</a>) and
+           are used by Hv3 under the terms of "Creative Commons Attribution
+           2.0 Australia" license.
+           <a href="http://e-lusion.com/design/greyscale">
+           http://e-lusion.com/design/greyscale</a>
   </div>
   </body>
 </html>
