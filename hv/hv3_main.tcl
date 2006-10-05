@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.79 2006/10/04 12:23:43 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.80 2006/10/05 15:23:40 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -770,6 +770,8 @@ proc gui_build {widget_array} {
   ::hv3::toolbutton .entry.reload -text Reload -command {gui_current reload}
 
   .entry.new configure -tooltip "Open New Tab"
+  .entry.home configure -tooltip "Go Home"
+  .entry.reload configure -tooltip "Reload Current Document"
 
   catch {
     set backimg [image create photo -data $::hv3::back_icon]
@@ -813,6 +815,7 @@ proc gui_build {widget_array} {
   pack .entry.reload -side left
   pack .entry.stop -side left
   pack .entry.home -side left
+  pack [frame .entry.spacer -width 2 -height 1] -side left
   pack .entry.entry -fill x -expand true
 
   # Pack the top, bottom and middle, in that order. The middle must be 

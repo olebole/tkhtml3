@@ -8,6 +8,8 @@ TOP = /z/htmlwidget/
 # BUILD = DEBUG
 BUILD = RELEASE
 
+HV3_POLIPO = /z/hv3_polipo.exe
+
 ##### Version of and path to the Tcl installation to use.
 #
 TCLVERSION = 84

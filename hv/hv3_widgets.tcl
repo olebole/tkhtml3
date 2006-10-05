@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.32 2006/10/03 15:42:16 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.33 2006/10/05 15:23:40 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
@@ -171,7 +171,7 @@ proc ::hv3::menu {args} {
     lappend ::hv3::menu_list $w
     $w configure -borderwidth 1 -tearoff 0 -font TkDefaultFont
   } else {
-    $w configure -borderwidth 1 -tearoff 0
+    $w configure -borderwidth 1 -tearoff 0 -activeborderwidth 1
     ::hv3::UseHv3Font $w
   }
   return $w

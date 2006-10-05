@@ -1,5 +1,5 @@
 
-namespace eval hv3 { set {version($Id: hv3_polipo.tcl,v 1.7 2006/09/14 15:50:57 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_polipo.tcl,v 1.8 2006/10/05 15:23:40 danielk1977 Exp $)} 1 }
 
 # This file contains code to control a single instance of the 
 # external program "hv3_polipo" that may be optionally used by
@@ -47,9 +47,12 @@ namespace eval ::hv3::polipo {
       set prog hv3_polipo.exe
     }
 
-    set locations [list $dir [file dirname $dir] [pwd]]
+    set locations [list [file dirname $dir] [pwd]]
     catch {
       set locations [concat $locations [split $::env(PATH) :]]
+    }
+    if {![info exists ::HV3_STARKIT]} {
+      set locations [linsert $locations 0 $dir]
     }
     foreach loc $locations {
       set g(binary) [file join $loc $prog]
@@ -58,6 +61,17 @@ namespace eval ::hv3::polipo {
         break
       }
       set g(binary) ""
+    }
+    if {$g(binary) eq "" && [info exists ::HV3_STARKIT]} {
+      catch {
+        set binary [file join $dir $prog]
+        if {[file exists $binary]} {
+          file copy -force $binary [file dirname $dir]
+        }
+        set binary2 [file join [file dirname $dir] $prog]
+        set g(binary) $binary2
+        file attributes $binary2 -permissions a+x
+      }
     }
   }
 

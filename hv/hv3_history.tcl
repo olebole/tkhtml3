@@ -399,8 +399,7 @@ snit::widget ::hv3::locationentry {
       #define v_height 4
       static unsigned char v_bits[] = { 0xff, 0x7e, 0x3c, 0x18 };
     }]
-
-    set myButton [button ${win}.button -image $myButtonImage]
+    set myButton [button ${win}.button -image $myButtonImage -width 12]
     $myButton configure -command [mymethod ButtonPress]
 
     pack $myButton -side right -fill y

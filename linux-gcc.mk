@@ -10,6 +10,8 @@ BUILD = DEBUG
 # BUILD = MEMDEBUG
 # BUILD = PROFILE
 
+HV3_POLIPO = /home/dan/bin/hv3_polipo
+
 ##### Version of and path to the Tcl installation to use.
 #
 # TCL_DEBUG   = $(HOME)/profiletcl
