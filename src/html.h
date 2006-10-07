@@ -92,7 +92,7 @@ typedef int            Html_32;      /* 32-bit signed integer */
  * strcasecmp(). Tkhtml3 code uses stricmp (and strnicmp) because
  * it is faster to type.
  */
-#ifndef HAVE_STRICMP
+#ifndef __WIN32__
 # define stricmp strcasecmp
 # define strnicmp strncasecmp
 #endif
