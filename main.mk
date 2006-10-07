@@ -86,11 +86,11 @@ $(LEMON): $(TOP)/tools/lemon.c
 	@echo '$$(COMPILE) $< htmldefaultstyle.c -o $@'
 	@$(COMPILE) $(TOP)/tools/lemon.c -o $(LEMON)
 
-cssparse.c: $(TOP)/src/cssparse.y $(LEMON)
-	cp $(TOP)/src/cssparse.y .
+cssparse.c: $(TOP)/src/cssparse.lem $(LEMON)
+	cp $(TOP)/src/cssparse.lem .
 	cp $(TOP)/tools/lempar.c .
-	@echo '$$(LEMON) cssparse.y'
-	@./$(LEMON) cssparse.y
+	@echo '$$(LEMON) cssparse.lem'
+	@./$(LEMON) cssparse.lem
 
 cssparse.h: cssparse.c
 

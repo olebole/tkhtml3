@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.80 2006/10/05 15:23:40 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.81 2006/10/07 13:07:33 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -553,7 +553,7 @@ snit::widget ::hv3::browser_toplevel {
 #
 snit::type ::hv3::config {
 
-  variable myGuiFontSize 10
+  variable myGuiFontSize 11
 
   variable myFontTable [list 8 9 10 11 13 15 17]
   variable myFontScale 100%
@@ -887,7 +887,6 @@ proc create_guifont_menu {menupath varname} {
       -value $val                              \
       -label "$val pts"
   }
-  set $varname 10
   return $menupath
 }
 

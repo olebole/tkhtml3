@@ -12,7 +12,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile.in,v 1.29 2006/09/21 14:30:07 danielk1977 Exp $
+# RCS: @(#) $Id: Makefile.in,v 1.30 2006/10/07 13:07:33 danielk1977 Exp $
 
 #========================================================================
 # Add additional lines to handle any additional AC_SUBST cases that
@@ -308,10 +308,10 @@ LEMON = lemon$(EXEEXT)
 $(LEMON): $(srcdir)/tools/lemon.c
 	$(COMPILE) `@CYGPATH@ $(srcdir)/tools/lemon.c` -o $(LEMON)
 
-cssparse.h: $(srcdir)/src/cssparse.y $(LEMON)
-	cp $(srcdir)/src/cssparse.y .
+cssparse.h: $(srcdir)/src/cssparse.lem $(LEMON)
+	cp $(srcdir)/src/cssparse.lem .
 	cp $(srcdir)/tools/lempar.c .
-	./$(LEMON) cssparse.y
+	./$(LEMON) cssparse.lem
 
 cssparse.c: cssparse.h
 
