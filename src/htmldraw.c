@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.166 2006/09/07 11:03:02 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.167 2006/10/07 12:56:25 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -499,7 +499,7 @@ static void
 freeCanvasItem(p)
     HtmlCanvasItem *p;
 {
-    return HtmlFree("Screen-graph item", p);
+    HtmlFree("Screen-graph item", p);
 }
 
 static void 
