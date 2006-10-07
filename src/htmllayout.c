@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.216 2006/09/07 14:41:52 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.217 2006/10/07 14:42:13 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -3571,11 +3571,31 @@ blockMinMaxWidth(pLayout, pNode, pMin, pMax)
 
     pLayout->minmaxTest = minmaxTestOrig;
 
-    assert( 
-        0 == (pCache->flags & CACHED_MINWIDTH_OK) ||
-        0 == (pCache->flags & CACHED_MAXWIDTH_OK) ||
-        pCache->iMaxWidth >= pCache->iMinWidth
-    );
+    /* It is, surprisingly, possible for the minimum width to be greater
+     * than the maximum width at this point. For example, consider the
+     * following:
+     *
+     *   div { font: fixed ; text-indent: -2.5ex }
+     *   <div>x x</div>
+     *
+     * The "max-width" layout puts the two 'x' characters on the same line,
+     * for a width of (0.5ex). The "min-width" puts the second 'x' on a
+     * second line-box, for a width of (1.0ex).
+     *
+     * First encountered in october 2006 at:
+     *     http://root.cern.ch/root/htmldoc/TF1.html
+     */
+    if (
+        pCache->flags & CACHED_MAXWIDTH_OK &&
+        pCache->flags & CACHED_MINWIDTH_OK &&
+        pCache->iMaxWidth < pCache->iMinWidth
+    ) {
+        pCache->iMaxWidth = MAX(pCache->iMaxWidth, pCache->iMinWidth);
+        if (pMax) {
+            *pMax = pCache->iMaxWidth;
+        }
+    }
+
     LOG(pNode) {
         char zMin[24];
         char zMax[24];
