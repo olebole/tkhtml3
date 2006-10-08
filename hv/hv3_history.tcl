@@ -334,20 +334,20 @@ snit::type ::hv3::history {
     set backcmd [mymethod gotohistory $backidx]
     if {$backidx >= 0} {
         if {$back ne ""} { $back configure -state normal -command $backcmd }
-        if {$menu ne ""} { $menu entryconfigure 0 -command $backcmd }
+        if {$menu ne ""} { $menu entryconfigure Back -command $backcmd }
     } else {
         if {$back ne ""} { $back configure -state disabled }
-        if {$menu ne ""} { $menu entryconfigure 0 -state disabled }
+        if {$menu ne ""} { $menu entryconfigure Back -state disabled }
     }
 
     set fwdidx [expr $myStateIdx + 1]
     set fwdcmd [mymethod gotohistory $fwdidx]
     if {$fwdidx < [llength $myStateList]} {
         if {$forward ne ""} { $forward configure -state normal -command $fwdcmd}
-        if {$menu ne ""} { $menu entryconfigure 1 -command $fwdcmd }
+        if {$menu ne ""} { $menu entryconfigure Forward -command $fwdcmd }
     } else {
         if {$forward ne ""} { $forward configure -state disabled }
-        if {$menu ne ""} { $menu entryconfigure 1 -state disabled }
+        if {$menu ne ""} { $menu entryconfigure Forward -state disabled }
     }
 
   }

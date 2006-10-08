@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.81 2006/10/07 13:07:33 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.82 2006/10/08 09:25:52 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -78,6 +78,10 @@ snit::widget ::hv3::browser_frame {
   variable myBrowser ""                   ;# ::hv3::browser_toplevel widget
   variable myPositionId ""                ;# See sub-command [positionid]
 
+  # If "Copy Link Location" has been selected, store the selected text
+  # (a URI) in variable $myCopiedLinkLocation.
+  variable myCopiedLinkLocation ""
+
   constructor {browser args} {
     set myBrowser $browser
     $self configurelist $args
@@ -108,6 +112,11 @@ snit::widget ::hv3::browser_frame {
     ] {
       $m add command -label $l -command [mymethod hyperlinkmenu_select $c]
     }
+
+    # When the hyperlink menu "owns" the selection (happens after 
+    # "Copy Link Location" is selected), invoke method 
+    # [GetCopiedLinkLocation] with no arguments to retrieve it.
+    selection handle ${win}.hyperlinkmenu [mymethod GetCopiedLinkLocation]
 
     # Register a handler command to handle <frameset>.
     set html [$myHv3 html]
@@ -258,15 +267,14 @@ snit::widget ::hv3::browser_frame {
         $theTopFrame goto $uri
       }
       opentablink {
-        set new [.notebook addbg]
-        $new goto $uri
+        set new [.notebook addbg $uri]
       }
       downloadlink {
         $myHv3 download $uri
       }
       copylink {
+        set myCopiedLinkLocation $uri
         selection own ${win}.hyperlinkmenu
-        selection handle ${win}.hyperlinkmenu [list ::hv3::returnX $uri]
       }
       browselink {
         ::HtmlDebug::browse $myHv3 $myHyperlinkNode
@@ -275,6 +283,10 @@ snit::widget ::hv3::browser_frame {
         error "Internal error"
       }
     }
+  }
+
+  method GetCopiedLinkLocation {args} {
+    return $myCopiedLinkLocation
   }
 
   # Called when the user middle-clicks on the widget
