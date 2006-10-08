@@ -33,7 +33,7 @@
  * 
  *     HtmlInlineContextIsEmpty
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.30 2006/08/11 12:24:05 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.31 2006/10/08 10:22:08 danielk1977 Exp $";
 
 typedef struct InlineBox InlineBox;
 
@@ -531,12 +531,6 @@ pLayout, pCanvas, pBorder, x1, y1, x2, y2, drb, aRepX, nRepX)
         int y_t;                  /* Y-coord for linethough */
         int y_u;                  /* Y-coord for underline */
 
-#if 0
-        x1 += (dlb ? pBorder->box.padding_left : 0);
-        x2 -= (drb ? pBorder->box.padding_right : 0);
-        y1 += pBorder->box.padding_top;
-        y2 -= pBorder->box.padding_bottom;
-#endif
         x1 += (dlb ? pBorder->box.iLeft : 0);
         x2 -= (drb ? pBorder->box.iRight : 0);
         y1 += pBorder->box.iTop;
@@ -557,15 +551,17 @@ pLayout, pCanvas, pBorder, x1, y1, x2, y2, drb, aRepX, nRepX)
             int xa = x1;
             int i;
             for (i = 0; i < nRepX; i++) {
-                int xs = aRepX[i*2]; 
-                int xe = aRepX[i*2+1]; 
+                int xs = aRepX[i*2];         /* Start of replaced box $i */
+                int xe = aRepX[i*2+1];       /* End of replaced box $i */
                 if (xe <= xs) continue;
 
                 if (xs > xa) {
                     int xb = MIN(xs, x2);
                     HtmlDrawLine(pCanvas, xa, xb-xa, y_o, y_t, y_u, pNode, mmt);
                 }
-                xa = xe;
+                if (xe > xa) {
+                    xa = xe;
+                }
             }
             if (xa < x2) {
                 HtmlDrawLine(pCanvas, xa, x2-xa, y_o, y_t, y_u, pNode, mmt);

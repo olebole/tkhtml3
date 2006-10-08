@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.82 2006/10/08 09:25:52 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.83 2006/10/08 10:22:08 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -227,6 +227,7 @@ snit::widget ::hv3::browser_frame {
   #
   method rightclick {x y X Y} {
     set nodelist [$myHv3 node $x $y]
+puts "NODES($x, $y): $nodelist"
 
     foreach leaf $nodelist {
       for {set N $leaf} {$N ne ""} {set N [$N parent]} {
