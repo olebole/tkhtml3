@@ -147,12 +147,10 @@ snit::type ::hv3::cookiemanager {
         PRIMARY KEY(domain, path, name)
       );
     "}
-    after $GUI_UPDATE_DELAY [mymethod UpdateGui]
     after $EXPIRE_COOKIES_DELAY [mymethod ExpireCookies]
   }
 
   destructor {
-    after cancel [mymethod UpdateGui]
     after cancel [mymethod ExpireCookies]
   }
 
@@ -339,7 +337,10 @@ snit::type ::hv3::cookiemanager {
     if {![::hv3::have_sqlite3]} return
 
     set Template {
-      <html><head><style>$Style</style></head>
+      <html><head>
+        <style>$Style</style>
+        <meta http-equiv="refresh" content="3 ; url=cookies:///">
+      </head>
       <body>
         <h1>Hv3 Cookies</h1>
         <p>
@@ -387,19 +388,6 @@ snit::type ::hv3::cookiemanager {
   method cookies_request {downloadHandle} {
     $downloadHandle append [$self Report]
     $downloadHandle finish
-  }
-
-  method UpdateGui {} {
-    # TODO: ActionAtADistance too much.
-    set browsers [.notebook tabs]
-
-    foreach browser $browsers {
-      set hv3 [$browser hv3]
-      if {[string match cookies* [$hv3 location]] && [$hv3 pending] == 0} {
-        $hv3 goto cookies:
-      } 
-    }
-    after $GUI_UPDATE_DELAY [mymethod UpdateGui]
   }
 }
 

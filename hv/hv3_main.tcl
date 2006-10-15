@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.83 2006/10/08 10:22:08 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.84 2006/10/15 15:38:07 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -1014,34 +1014,42 @@ proc gui_current {args} {
 proc gui_switch {new} {
   upvar #0 ::hv3::G G
 
-  set old [.notebook current]
-  # Detach the GUI elements from ::hv3::browser_toplevel $old 
-  if {$old ne ""} {
-    $new configure -historymenu   ""
-    $new configure -backbutton    ""
-    $new configure -stopbutton    ""
-    $new configure -forwardbutton ""
+puts "SWITCH {[.notebook current]} {$new}"
+
+  # Loop through *all* tabs and detach them from the history
+  # related controls. This is so that when the state of a background
+  # tab is updated, the history menu is not updated (only the data
+  # structures in the corresponding ::hv3::history object).
+  #
+  foreach browser [.notebook tabs] {
+    $browser configure -historymenu   ""
+    $browser configure -backbutton    ""
+    $browser configure -stopbutton    ""
+    $browser configure -forwardbutton ""
   }
 
-  # Attach the GUI elements to ::hv3::browser_toplevel $new
-  if {$new ne ""} {
-    $new configure -historymenu   $G(history_menu)
-    $new configure -backbutton    $G(back_button)
-    $new configure -stopbutton    $G(stop_button)
-    $new configure -forwardbutton $G(forward_button)
+  # Configure the new current tab to control the history controls.
+  #
+  set new [.notebook current]
+  $new configure -historymenu   $G(history_menu)
+  $new configure -backbutton    $G(back_button)
+  $new configure -stopbutton    $G(stop_button)
+  $new configure -forwardbutton $G(forward_button)
 
-    # Binding for hitting enter in the location entry field.
-    set gotocmd [list goto_gui_location $new $G(location_entry)]
-    # bind $G(location_entry) <KeyPress-Return> $gotocmd
-    $G(location_entry) configure -command $gotocmd
+  # Attach some other GUI elements to the new current tab.
+  #
+  set gotocmd [list goto_gui_location $new $G(location_entry)]
+  $G(location_entry) configure -command $gotocmd
+  $G(status_label) configure -textvar [$new statusvar]
+  $G(location_entry) configure -textvar [$new locationvar]
 
-    $G(status_label) configure -textvar [$new statusvar]
-    $G(location_entry) configure -textvar [$new locationvar]
-  }
-
-  # Configure the new widget
+  # Configure the new current tab with the contents of the drop-down
+  # config menu (i.e. font-size, are images enabled etc.).
+  #
   $G(config) configurebrowser $new
 
+  # Set the top-level window title to the title of the new current tab.
+  #
   wm title . [.notebook get_title $new]
 }
 

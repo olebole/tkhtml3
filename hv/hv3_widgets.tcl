@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.33 2006/10/05 15:23:40 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.34 2006/10/15 15:38:07 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
@@ -280,28 +280,6 @@ proc ::hv3::scrolled {widget name args} {
 #
 # End of "scrolled" implementation
 #---------------------------------------------------------------------------
-
-#---------------------------------------------------------------------------
-# ::hv3::notebook
-#
-#     Tabbed notebook widget for hv3 based on the Tile notebook widget. If
-#     Tile is not available, ::hv3::pretend_tile_notebook is used instead.
-#
-# OPTIONS
-#
-#     -newcmd
-#     -switchcmd
-#     -delcmd
-#     -delstatecmd
-#
-# WIDGET COMMAND
-#
-#     $notebook add ARGS
-#     $notebook addbg ARGS
-#     $notebook close
-#     $notebook current
-#     $notebook set_title WIDGET TITLE
-#
 
 
 #
@@ -589,6 +567,28 @@ snit::widget ::hv3::pretend_tile_notebook {
   }
 }
 
+#---------------------------------------------------------------------------
+# ::hv3::notebook
+#
+#     Tabbed notebook widget for hv3 based on the Tile notebook widget. If
+#     Tile is not available, ::hv3::pretend_tile_notebook is used instead.
+#
+# OPTIONS
+#
+#     -newcmd
+#     -switchcmd
+#     -delcmd
+#     -delstatecmd
+#
+# WIDGET COMMAND
+#
+#     $notebook add ARGS
+#     $notebook addbg ARGS
+#     $notebook close
+#     $notebook current
+#     $notebook set_title WIDGET TITLE
+#     $notebook tabs
+#
 snit::widget ::hv3::notebook {
 
   option -newcmd      -default ""
