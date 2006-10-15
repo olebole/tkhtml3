@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.84 2006/10/15 15:38:07 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.85 2006/10/15 16:35:32 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -1013,8 +1013,6 @@ proc gui_current {args} {
 
 proc gui_switch {new} {
   upvar #0 ::hv3::G G
-
-puts "SWITCH {[.notebook current]} {$new}"
 
   # Loop through *all* tabs and detach them from the history
   # related controls. This is so that when the state of a background
