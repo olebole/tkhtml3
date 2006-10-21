@@ -25,7 +25,8 @@ TCL_PROFILE  = /home/dan/tcl
 TCL_MEMDEBUG = $(TCL_DEBUG)
 TCL = $(TCL_$(BUILD))
 
-MKSTARKIT = ~/tcl/bin/tclkit-linux-x86-xft ~/bin/sdx.kit wrap
+# MKSTARKIT = ~/tcl/bin/tclkit-linux-x86-xft ~/bin/sdx.kit wrap
+MKSTARKIT = ~/bin/tclkit ~/bin/sdx.kit wrap
 
 ##### Flags passed to the C-compiler to link to Tcl.
 #

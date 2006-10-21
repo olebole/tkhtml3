@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.105 2006/09/04 16:18:03 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.106 2006/10/21 23:44:39 danielk1977 Exp $";
 
 
 #include "htmllayout.h"
@@ -244,7 +244,10 @@ tableColWidthSingleSpan(pNode, col, colspan, row, rowspan, pContext)
         int max;
         int min;
 
-        /* Note: aReq is an alias for aSingleReqWidth, NOT aReqWidth */
+        /* Note: aReq is an alias for aSingleReqWidth, NOT aReqWidth.
+         * aReqWidth is populated by the second analysis parse of
+         * the table - the one that uses tableColWidthMultiSpan(). 
+         */
         CellReqWidth *aReq = pData->aSingleReqWidth;
 
         /* Figure out the minimum and maximum widths of the content */
@@ -442,7 +445,7 @@ tableColWidthMultiSpan(pNode, col, colspan, row, rowspan, pContext)
 
         double fTotalPercent = 0.0;  /* Total of spanned percentage widths */
         int iTotalMin = 0;           /* Total min-width of all spanned cols */
-        int iTotalMax = 0;           /* Total min-width of all spanned cols */
+        int iTotalMax = 0;           /* Total max-width of all spanned cols */
         int iTotalPixel = 0;         /* Total pixel width of all spanned cols */
 
         int nPixelWidth = 0;    /* Number of spanned pixel width cols */
@@ -468,7 +471,7 @@ tableColWidthMultiSpan(pNode, col, colspan, row, rowspan, pContext)
         max = max - pData->border_spacing * (colspan - 1);
         nodeGetBoxProperties(pData->pLayout, pNode, 0, &box);
         min = min + box.iLeft + box.iRight;
-        max = min + box.iLeft + box.iRight;
+        max = max + box.iLeft + box.iRight;
 
         for (ii = col; ii < (col + colspan); ii++) {
             switch (aReq[ii].eType) {
@@ -575,11 +578,11 @@ tableColWidthMultiSpan(pNode, col, colspan, row, rowspan, pContext)
         }
 
         if (iTotalMax < max) {
-            int iM = iTotalMax;
-            int iRem = max;
+            int iM = iTotalMax;        /* Current sum of aMaxWidth[] */
+            int iRem = max;            /* Required sum of aMaxWidth[] */
             for (ii = col; iM > 0 && iRem > 0 && ii < (col + colspan); ii++){
                 int w = MAX(aMaxWidth[ii], iRem * aMaxWidth[ii] / iM);
-                iM -= w;
+                iM -= aMaxWidth[ii];
                 iRem -= w;
                 aMaxWidth[ii] = w;
             }
@@ -1349,7 +1352,7 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
      * followed by "pixel width" columns and finally "percent width"
      * columns.
      *
-     * In pseudo-tcl the first loop would read:
+     * In pseudo-tcl the outer loop would read:
      *
      *     foreach jj {auto pixels percent} { 
      *         reduce_pixels_in_cols_of_type $jj
@@ -1663,6 +1666,8 @@ int HtmlTableLayout(pLayout, pBox, pNode)
             pBox->width = MAX(pBox->width, minwidth);
             break;
         }
+        default:
+            assert(!"Bad value for LayoutContext.minmaxTest");
     }
     pBox->width += (data.border_spacing * (nCol+1));
 
@@ -1682,4 +1687,3 @@ int HtmlTableLayout(pLayout, pBox, pNode)
     CHECK_INTEGER_PLAUSIBILITY(pBox->vc.right);
     return TCL_OK;
 }
-
