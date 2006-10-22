@@ -1,8 +1,7 @@
 
 package require snit
 
-# History state for a single browser frame. TODO: This should eventually
-# be extended to support history for frameset documents.
+# History state for a single browser window.
 #
 snit::type ::hv3::history_state {
 
@@ -308,8 +307,8 @@ snit::type ::hv3::history {
     set myRadioVar $myStateIdx
     if {$menu ne ""} {
       $menu delete 0 end
-      $menu add command -label Back
-      $menu add command -label Forward
+      $menu add command -label Back -accelerator (Alt-Left)
+      $menu add command -label Forward -accelerator (Alt-Right)
       $menu add separator
 
       set idx [expr [llength $myStateList] - 15]
@@ -333,9 +332,11 @@ snit::type ::hv3::history {
     set backidx [expr $myStateIdx - 1]
     set backcmd [mymethod gotohistory $backidx]
     if {$backidx >= 0} {
+        bind Hv3HotKeys <Alt-Left> $backcmd
         if {$back ne ""} { $back configure -state normal -command $backcmd }
         if {$menu ne ""} { $menu entryconfigure Back -command $backcmd }
     } else {
+        bind Hv3HotKeys <Alt-Left> ""
         if {$back ne ""} { $back configure -state disabled }
         if {$menu ne ""} { $menu entryconfigure Back -state disabled }
     }
@@ -343,9 +344,11 @@ snit::type ::hv3::history {
     set fwdidx [expr $myStateIdx + 1]
     set fwdcmd [mymethod gotohistory $fwdidx]
     if {$fwdidx < [llength $myStateList]} {
+        bind Hv3HotKeys <Alt-Right> $fwdcmd
         if {$forward ne ""} { $forward configure -state normal -command $fwdcmd}
         if {$menu ne ""} { $menu entryconfigure Forward -command $fwdcmd }
     } else {
+        bind Hv3HotKeys <Alt-Right> ""
         if {$forward ne ""} { $forward configure -state disabled }
         if {$menu ne ""} { $menu entryconfigure Forward -state disabled }
     }

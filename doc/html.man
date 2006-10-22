@@ -124,10 +124,12 @@
 		currently displayed formatted document.
 	}]
 	[Option logcmd {
-		This option is used for debugging the widget.
+		This option is used for debugging the widget. Don't worry
+		about it.
 	}]
 	[Option timercmd {
-		This option is used for debugging the widget.
+		This option is used for debugging the widget. Don't worry
+		about it.
 	}]
 
 [Section Description]

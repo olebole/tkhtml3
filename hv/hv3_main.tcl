@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.86 2006/10/21 23:44:39 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.87 2006/10/22 10:41:49 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -1064,7 +1064,15 @@ proc gui_new {path args} {
   } else {
     $new goto [lindex $args 0]
   }
-  after 100 [list event generate [$new hv3] <<Location>>]
+  
+  # This black magic is required to initialise the history system.
+  # A <<Location>> event will be generated from within the [$new goto]
+  # command above, but the history system won't see it, because 
+  # events are not generated until the window is mapped. So generate
+  # an extra <<Location>> when the window is mapped.
+  #
+  bind [$new hv3] <Map>  [list event generate [$new hv3] <<Location>>]
+  bind [$new hv3] <Map> +[list bind <Map> [$new hv3] ""]
 
   return $new
 }
