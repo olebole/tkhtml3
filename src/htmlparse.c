@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.78 2006/08/24 14:53:02 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.79 2006/10/23 04:10:16 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -370,7 +370,12 @@ HtmlAnchorContent(pTree, pNode, tag)
 {
     Html_u8 flags = HtmlMarkupFlags(tag);
     if (tag == Html_Text || tag == Html_Space) return TAG_OK;
-    if (!(flags&HTMLTAG_INLINE) || tag == Html_A) {
+
+    /* The DTD says that the content of an A element is
+     * restricted to "(%inline;)* -(A)". But in practice only
+     * the second restriction ("-(A)") seems to apply.
+     */
+    if (/* !(flags&HTMLTAG_INLINE) || */ tag == Html_A) {
         return TAG_CLOSE;
     }
     return TAG_PARENT;
