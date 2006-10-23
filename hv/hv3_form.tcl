@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.37 2006/10/03 12:22:21 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.38 2006/10/23 12:12:34 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -666,7 +666,9 @@ snit::type ::hv3::form {
 
           set name  [$control name]
           set value [$control value]
-          set filename [$control filename]
+
+          set filename ""
+          catch {set filename [$control filename]}
 
           append querydata "--${bound}$CR"
           append querydata "Content-Disposition: form-data; name=\"${name}\""
