@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.106 2006/10/21 23:44:39 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.107 2006/10/23 12:02:51 danielk1977 Exp $";
 
 
 #include "htmllayout.h"
@@ -548,33 +548,40 @@ tableColWidthMultiSpan(pNode, col, colspan, row, rowspan, pContext)
                 }
                 assert(iTPW == 0);
             } else {
-                int iMaxTotal = 0;
-                for (ii = col; ii < (col + colspan); ii++) {
-                    if (aReq[ii].eType == CELL_WIDTH_PIXELS) {
-                        int w = MIN(iRem, MAX(aMinWidth[ii], aReq[ii].x.iVal));
+
+                int iMin = iTotalMin;
+                int iMax = iTotalMax;
+
+                for (ii = col; iMax >= 0 && ii < (col + colspan); ii++) {
+                    int isFixed = (aReq[ii].eType == CELL_WIDTH_PIXELS);
+                    if (isFixed && nAutoWidth > 0 && iTPW <= iRem) {
+                        int w = MAX(aMinWidth[ii], aReq[ii].x.iVal);
                         iRem -= w;
+                        iTPW -= aReq[ii].x.iVal;
+                        iMax -= aMaxWidth[ii];
+                        iMin -= aMinWidth[ii];
                         aMinWidth[ii] = w;
                     }
                 }
 
-                for (ii = col; ii < (col + colspan); ii++) {
-                    iMaxTotal += aMaxWidth[ii];
-                }
-                for (ii = col; iRem > 0 && ii < (col + colspan); ii++){
-                    int w = iRem;
-                    if (ii == (col+colspan-1) || iMaxTotal == 0) {
-                        w = iRem / (col+colspan-ii);
-                    } else {
-                        w = MAX(aMinWidth[ii], iRem*aMaxWidth[ii]/iMaxTotal);
-                        w = MIN(iRem, w);
+                ii = col;
+                for (; iMax >= 0 && iMin < iRem && ii < (col + colspan); ii++){
+                    int isFixed = (aReq[ii].eType == CELL_WIDTH_PIXELS);
+                    if (!isFixed || nAutoWidth == 0 || iTPW <= iRem) {
+                        int w = aMinWidth[ii];
+                        if (iMax) {
+                            w = MAX(w, iRem * aMaxWidth[ii] / iMax);
+                        } else {
+                            w = MAX(w, iRem);
+                        }
+
+                        iMax -= w;
+                        iMin -= w;
+                        iRem -= w;
+                        aMinWidth[ii] = w;
                     }
-                    iMaxTotal -= aMaxWidth[ii];
-                    iRem -= w;
-                    aMinWidth[ii] = w;
                 }
-
             }
-
         }
 
         if (iTotalMax < max) {
