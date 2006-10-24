@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.89 2006/09/15 07:29:53 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.90 2006/10/24 05:21:48 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -116,6 +116,19 @@ nodeChildExt(pNode, n, flags)
     sContext.n = n;
     HtmlWalkTree(0, pNode, extCb, &sContext);
     return (HtmlNode *)sContext.retval;
+}
+
+static HtmlNode *
+nodeParentExt(pNode, flags)
+{
+    HtmlNode *p = 0;
+    p = HtmlNodeParent(pNode);
+    if (flags & NODE_EXT_IGNOREFORMS) {
+        while (p && HtmlNodeTagType(p) == Html_FORM) {
+            p = HtmlNodeParent(p);
+        }
+    }
+    return p;
 }
 
 /*
@@ -238,65 +251,78 @@ reworkTableNode(pNode)
                     moveToLeftSibling(pNode, pGrandChild);
                 }
             }
-        } else if (tag != Html_TD && tag != Html_TH) {
+        } else {
             /* Any child of the <table> element apart from <tr>, <td>, <th>
              * is moved to become a left-hand sibling of the <table>.
              */
+            assert(tag != Html_TD && tag != Html_TH);
             moveToLeftSibling(pNode, pChild);
         }
     }
+}
 
-    for (i = 0; i < nodeNumChildrenExt(pNode, flags); i++) {
-        HtmlNode *pChild = nodeChildExt(pNode, i, flags);
-        int tag = HtmlNodeTagType(pChild);
-        assert(tag == Html_TR || tag == Html_TD || tag == Html_TH);
-        if (tag != Html_TR) {
-            /* A <td> or <th> element as a child of a <table>. Insert a
-             * <tr> element between them. The <tr> element becomes the
-             * parent of this table-cell and any others in the tree directly 
-             * to the right.
-             */
-            HtmlToken *pRowToken;
-            HtmlNode *pRowNode;
+/*
+ *---------------------------------------------------------------------------
+ *
+ * insertImplicitTR --
+ *
+ *     Node *pNode is a <td> or <th> element. If the parent of this node
+ *     is not a <tr>, then insert an implicit <tr> between pNode and it's
+ *     parent.
+ *
+ *     Also permitted are structures with <form> elements between the
+ *     cell and row elements. i.e.:
+ *
+ *         <tr>
+ *           <form>
+ *             <td or th>
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     Modifies tree structure.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void
+insertImplicitTR(pNode)
+    HtmlNode *pNode;
+{
+    HtmlNode *pParent = nodeParentExt(pNode, NODE_EXT_IGNOREFORMS);
+    int eParentType;
+  
+    assert(HtmlNodeTagType(pNode)==Html_TD || HtmlNodeTagType(pNode)==Html_TH);
+    assert(pParent);
 
-            int nMove;
-            int j;
-            for (j = i + 1; j < nodeNumChildrenExt(pNode, flags); j++) {
-                HtmlNode *pSibling = nodeChildExt(pNode, j, flags);
-                int tag2 = HtmlNodeTagType(pSibling);
-                assert(tag2 == Html_TR || tag2 == Html_TD || tag2 == Html_TH);
-                if (tag2 == Html_TR) break;
-            }
-            nMove = j - i;
-            assert(nMove > 0);
+    if (HtmlNodeTagType(pParent) != Html_TR) {
+        HtmlToken *pRowToken;
+        HtmlNode *pRowNode;
+        HtmlNode *pParent;
+        int iSlot;
 
-            /* Create a token and link it into the token list just 
-             * before it's first adopted child.
-             */
-            pRowToken = (HtmlToken *)HtmlClearAlloc(0, sizeof(HtmlToken));
-            pRowToken->type = Html_TR;
-            pRowToken->pNextToken = pChild->pToken;
+        pParent = HtmlNodeParent(pNode);
 
-            /* Create an HtmlNode for the new <tr> */
-            pRowNode = (HtmlNode *)HtmlClearAlloc(0, sizeof(HtmlNode));
-            pRowNode->pParent = pNode;
-            pRowNode->pToken = pRowToken;
-            pRowNode->nChild = nMove;
-            pRowNode->apChildren = 
-                (HtmlNode **)HtmlClearAlloc(0, sizeof(HtmlNode*) * nMove);
-            for (j = 0; j < nMove; j++) {
-                pRowNode->apChildren[j] = pNode->apChildren[i + j];
-                pRowNode->apChildren[j]->pParent = pRowNode;
-            }
+        /* Create a new token for the <tr> node */
+        pRowToken = (HtmlToken *)HtmlClearAlloc(0, sizeof(HtmlToken));
+        pRowToken->type = Html_TR;
 
-            pNode->apChildren[i] = pRowNode;
-            for (j = i + nMove; j < pNode->nChild; j++) {
-                pNode->apChildren[j - (nMove - 1)] = pNode->apChildren[j];
-            }
-            pNode->nChild -= (nMove - 1);
+        /* Create an HtmlNode for the new <tr> */
+        pRowNode = (HtmlNode *)HtmlClearAlloc(0, sizeof(HtmlNode));
+        pRowNode->pToken = pRowToken;
 
-            i += (nMove - 1);
+        /* Add pNode as the only child of the artificial node element */
+        pRowNode->nChild = 1;
+        pRowNode->apChildren = (HtmlNode**)HtmlClearAlloc(0, sizeof(HtmlNode*));
+        pRowNode->apChildren[0] = pNode;
+        pNode->pParent = pRowNode;
+
+        /* Link the new node into the parent node of pNode */
+        for (iSlot = 0; HtmlNodeChild(pParent, iSlot) != pNode; iSlot++) {
+            assert(iSlot < HtmlNodeNumChildren(pParent));
         }
+        pParent->apChildren[iSlot] = pRowNode;
+        pRowNode->pParent = pParent;
     }
 }
 
@@ -315,7 +341,8 @@ reworkTableNode(pNode)
  *
  *---------------------------------------------------------------------------
  */
-static int isExplicitClose(pNode, tag)
+static int 
+isExplicitClose(pNode, tag)
     HtmlNode *pNode;
     int tag;
 {
@@ -1182,6 +1209,11 @@ HtmlAddToken(pTree, pToken, iOffset)
                     HtmlNodeAddChild(pCurrent, pToken));
                 pCurrent->iNode = pTree->iNextNode++;
                 pParsed = pCurrent;
+
+                if (eType == Html_TD || eType == Html_TH) {
+                    /* Possibly insert an implicit <tr> above this node */
+                    insertImplicitTR(pCurrent);
+                }
 
                 if (HtmlMarkupFlags(eType) & HTMLTAG_EMPTY) {
                     nodeHandlerCallbacks(pTree, pCurrent);
