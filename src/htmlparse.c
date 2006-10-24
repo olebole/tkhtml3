@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.81 2006/10/24 14:36:33 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.82 2006/10/24 14:38:32 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -142,7 +142,9 @@ AppendToken(pTree, pToken, iOffset)
     }
 
     if (pToken) {
-        pTree->isIgnoreNewline = isEndToken?0:1;
+        if (pTree->options.mode > HTML_MODE_QUIRKS) {
+            pTree->isIgnoreNewline = isEndToken?0:1;
+        }
         pToken->pNextToken = 0;
         HtmlAddToken(pTree, pToken, iOffset);
     }
