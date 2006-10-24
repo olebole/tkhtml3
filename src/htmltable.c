@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.107 2006/10/23 12:02:51 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.108 2006/10/24 08:10:14 danielk1977 Exp $";
 
 
 #include "htmllayout.h"
@@ -548,9 +548,31 @@ tableColWidthMultiSpan(pNode, col, colspan, row, rowspan, pContext)
                 }
                 assert(iTPW == 0);
             } else {
+                LayoutContext *pLayout = pData->pLayout;
 
                 int iMin = iTotalMin;
                 int iMax = iTotalMax;
+
+                LOG {
+                    HtmlTree *pTree = pLayout->pTree;
+                    Tcl_Obj *pMinWidths = Tcl_NewObj();
+                    Tcl_IncrRefCount(pMinWidths);
+                    for (ii = col; ii < (col + colspan); ii++) {
+                        Tcl_AppendToObj(pMinWidths, "<td>", 4);
+                        Tcl_AppendObjToObj(pMinWidths, Tcl_NewIntObj(ii));
+                        Tcl_AppendToObj(pMinWidths, ":", 1);
+                        Tcl_AppendObjToObj(
+                            pMinWidths, Tcl_NewIntObj(aMinWidth[ii])
+                        );
+                    }
+                    HtmlLog(pTree, "LAYOUTENGINE", 
+                        "%s tableColWidthMultiSpan() aMinWidth before:"
+                        "<table><tr> %s </table>",
+                        Tcl_GetString(HtmlNodeCommand(pTree, pNode)),
+                        Tcl_GetString(pMinWidths)
+                    );
+                    Tcl_DecrRefCount(pMinWidths);
+                }
 
                 for (ii = col; iMax >= 0 && ii < (col + colspan); ii++) {
                     int isFixed = (aReq[ii].eType == CELL_WIDTH_PIXELS);
@@ -575,11 +597,32 @@ tableColWidthMultiSpan(pNode, col, colspan, row, rowspan, pContext)
                             w = MAX(w, iRem);
                         }
 
-                        iMax -= w;
-                        iMin -= w;
+                        iMax -= aMaxWidth[ii];
+                        iMin -= aMinWidth[ii];
                         iRem -= w;
                         aMinWidth[ii] = w;
                     }
+                }
+
+                LOG {
+                    HtmlTree *pTree = pLayout->pTree;
+                    Tcl_Obj *pMinWidths = Tcl_NewObj();
+                    Tcl_IncrRefCount(pMinWidths);
+                    for (ii = col; ii < (col + colspan); ii++) {
+                        Tcl_AppendToObj(pMinWidths, "<td>", 4);
+                        Tcl_AppendObjToObj(pMinWidths, Tcl_NewIntObj(ii));
+                        Tcl_AppendToObj(pMinWidths, ":", 1);
+                        Tcl_AppendObjToObj(
+                            pMinWidths, Tcl_NewIntObj(aMinWidth[ii])
+                        );
+                    }
+                    HtmlLog(pTree, "LAYOUTENGINE", 
+                        "%s tableColWidthMultiSpan() aMinWidth after:"
+                        "<table><tr> %s </table>",
+                        Tcl_GetString(HtmlNodeCommand(pTree, pNode)),
+                        Tcl_GetString(pMinWidths)
+                    );
+                    Tcl_DecrRefCount(pMinWidths);
                 }
             }
         }
