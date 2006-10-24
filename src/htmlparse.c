@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.80 2006/10/23 12:02:51 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.81 2006/10/24 14:36:33 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -114,9 +114,11 @@ AppendToken(pTree, pToken, iOffset)
         HtmlToken *pTextLast = pTree->pTextLast;
 
         /* Ignore any newline character that appears immediately before
-         * an end tag.
+         * an end tag. Update: Only do this in standards and 
+         * "almost standards" mode.
          */
         if (
+            pTree->options.mode > HTML_MODE_QUIRKS &&
             isEndToken && 
             pTextLast->type == Html_Space && 
             pTextLast->x.newline

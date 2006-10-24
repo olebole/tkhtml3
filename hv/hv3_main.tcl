@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.88 2006/10/24 13:08:51 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.89 2006/10/24 14:36:33 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -999,6 +999,9 @@ proc gui_menu {widget_array} {
   .m.tools add command -label Browser -command [list gui_current browse]
   .m.tools add command -label Style   -command [list gui_current debug_style]
 
+  .m.tools add separator
+  .m.tools add command -label "firefox -remote" -command gui_firefox_remote
+
   # Add the 'History' menu
   .m add cascade -label {History} -menu [::hv3::menu .m.history]
   set G(history_menu) .m.history
@@ -1008,6 +1011,11 @@ proc gui_menu {widget_array} {
 
 proc gui_current {args} {
   eval [linsert $args 0 [.notebook current]]
+}
+
+proc gui_firefox_remote {} {
+  set url [.entry.entry get]
+  exec firefox -remote "openurl($url,new-tab)"
 }
 
 proc gui_switch {new} {
