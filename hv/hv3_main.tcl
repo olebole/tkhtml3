@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.87 2006/10/22 10:41:49 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.88 2006/10/24 13:08:51 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -333,8 +333,8 @@ snit::widget ::hv3::browser_frame {
   # PUBLIC INTERFACE
   #--------------------------------------------------------------------------
 
-  method goto {uri} {
-    $myHv3 goto $uri
+  method goto {args} {
+    eval [concat $myHv3 goto $args]
     $self update_statusvar
   }
 

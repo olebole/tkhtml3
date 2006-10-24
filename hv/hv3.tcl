@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.111 2006/10/15 15:38:07 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.112 2006/10/24 13:08:51 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -699,6 +699,9 @@ snit::widget ::hv3::hv3 {
 
   variable myFirstReset 1
 
+  # Current value to set the -cachecontrol option of download handles to.
+  variable myCacheControl normal
+
   constructor {} {
     # Create the scrolled html widget and bind it's events to the
     # mega-widget window.
@@ -882,8 +885,9 @@ snit::widget ::hv3::hv3 {
       # expect a binary file (of course, this is not correct, the real
       # default mime-type might be some other kind of image).
       set handle [::hv3::download %AUTO%              \
-          -uri         $full_uri                      \
-          -mimetype    image/gif                      \
+          -uri          $full_uri                      \
+          -mimetype     image/gif                      \
+          -cachecontrol $myCacheControl                \
       ]
       $handle configure -finscript [mymethod Imagecallback $handle $name]
       $self makerequest $handle
@@ -923,6 +927,7 @@ snit::widget ::hv3::hv3 {
     set handle [::hv3::download %AUTO%              \
         -uri         $full_uri                      \
         -mimetype    text/css                       \
+        -cachecontrol $myCacheControl               \
     ]
     $handle configure -finscript [
         mymethod Finishstyle $handle $id $importcmd $urlcmd
@@ -1180,6 +1185,7 @@ snit::widget ::hv3::hv3 {
   }
 
   method download {uri} {
+    # Always use "normal" cache-control for a download.
     set handle [::hv3::download %AUTO%              \
         -uri         $uri                           \
         -mimetype    application/gzip               \
@@ -1224,8 +1230,10 @@ snit::widget ::hv3::hv3 {
     if {$method eq "post"} {
       $handle configure -uri $full_uri -postdata $encdata
       $handle configure -enctype $querytype
+      $handle configure -cachecontrol normal
     } else {
       $handle configure -uri "${full_uri}?${encdata}"
+      $handle configure -cachecontrol $myCacheControl
     }  
     MakeRedirectable $handle
     $self makerequest $handle
@@ -1264,7 +1272,9 @@ snit::widget ::hv3::hv3 {
     unset -nocomplain myNodeArgs
   }
 
-  method goto {uri} {
+  method goto {uri {cachecontrol normal}} {
+
+    set myCacheControl $cachecontrol
 
     # Generate the <<Goto>> event.
     event generate $win <<Goto>>
@@ -1317,6 +1327,7 @@ snit::widget ::hv3::hv3 {
     set handle [::hv3::download %AUTO%             \
         -uri         [$uri_obj get]                \
         -mimetype    $mimetype                     \
+        -cachecontrol $myCacheControl              \
     ]
     $handle configure                                     \
         -lockscript [mymethod lockcallback $handle]       \
@@ -1460,11 +1471,12 @@ snit::type ::hv3::download {
 
   option -linkedhandle -default ""
 
-  option -incrscript  -default ""
-  option -finscript   -default ""
-  option -failscript  -default ""
-  option -redirscript -default ""
-  option -lockscript  -default ""
+  option -incrscript   -default ""
+  option -finscript    -default ""
+  option -failscript   -default ""
+  option -redirscript  -default ""
+  option -lockscript   -default ""
+  option -cachecontrol -default normal
 
   option -uri         -default ""
   option -postdata    -default ""
@@ -1499,6 +1511,10 @@ snit::type ::hv3::download {
       set myExpectedSize $newval
     }
     return $myExpectedSize
+  }
+
+  method cachecontrol {} {
+    return $options(-cachecontrol)
   }
 
   # Interface for returning data.

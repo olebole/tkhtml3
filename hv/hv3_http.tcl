@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.26 2006/10/03 15:42:16 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.27 2006/10/24 13:08:51 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd and -cancelrequestcmd
@@ -148,9 +148,16 @@ snit::type ::hv3::protocol {
       set headers [list Cookie $headers]
     }
 
-    # If the -relaxtransparency option is true, then set the custom
-    # Cache-Control header to tell hv3_polipo not to bother validating 
-    # this request.
+    switch -- [$downloadHandle cachecontrol] {
+      relax-transparency {
+        lappend headers Cache-Control relax-transparency=1
+      }
+      no-cache {
+        lappend headers Cache-Control no-cache
+      }
+      default {
+      }
+    }
     if {$options(-relaxtransparency)} {
       lappend headers Cache-Control relax-transparency=1
     }

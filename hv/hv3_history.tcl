@@ -102,6 +102,7 @@ snit::type ::hv3::history {
   # Variables used when loading a history-state.
   variable myHistorySeek -1
   variable myIgnoreGotoHandler 0
+  variable myCacheControl ""
 
   # Configuration options to attach this history object to a set of
   # widgets - back and forward buttons and a menu widget.
@@ -164,7 +165,7 @@ snit::type ::hv3::history {
       set uri [$state get_frameuri [$frame positionid]]
       if {$uri ne ""} {
         incr myIgnoreGotoHandler
-        $frame goto $uri
+        $frame goto $uri $myCacheControl
         incr myIgnoreGotoHandler -1
         return 1
       }
@@ -184,7 +185,6 @@ snit::type ::hv3::history {
     if {!$myIgnoreGotoHandler} {
       # We are not in "history" mode any more.
       set myHistorySeek -1
-      $myProtocol configure -relaxtransparency 0
     }
   }
 
@@ -273,8 +273,8 @@ snit::type ::hv3::history {
     set state [lindex $myStateList $idx]
 
     incr myIgnoreGotoHandler 
-    $myProtocol configure -relaxtransparency 1
-    eval [linsert $options(-gotocmd) end [$state uri]]
+    set myCacheControl relax-transparency
+    eval [linsert $options(-gotocmd) end [$state uri] $myCacheControl]
     incr myIgnoreGotoHandler -1
   }
 
@@ -282,7 +282,8 @@ snit::type ::hv3::history {
     set myHistorySeek $myStateIdx
     set state [lindex $myStateList $myHistorySeek]
     incr myIgnoreGotoHandler 
-    eval [linsert $options(-gotocmd) end [$state uri]]
+    set myCacheControl no-cache
+    eval [linsert $options(-gotocmd) end [$state uri] $myCacheControl]
     incr myIgnoreGotoHandler -1
   }
 
