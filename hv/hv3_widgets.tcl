@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.34 2006/10/15 15:38:07 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.35 2006/10/25 13:06:28 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
@@ -216,6 +216,9 @@ snit::widget ::hv3::scrolledwidget {
 
     set myVsb [::hv3::scrollbar ${win}.vsb -orient vertical] 
     set myHsb [::hv3::scrollbar ${win}.hsb -orient horizontal] 
+
+    $myVsb configure -cursor "top_left_arrow"
+    $myHsb configure -cursor "top_left_arrow"
 
     grid configure $myWidget -column 0 -row 0 -sticky nsew
     grid columnconfigure $win 0 -weight 1

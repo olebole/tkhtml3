@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.27 2006/10/24 13:08:51 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.28 2006/10/25 13:06:28 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd and -cancelrequestcmd
@@ -309,6 +309,10 @@ snit::type ::hv3::protocol {
     }
   }
   
+  method busy {} {
+    return [expr [llength $myWaitingHandles] + [llength $myInProgressHandles]]
+  }
+
   # Invoked to set the value of the -statusvar option
   method ConfigureStatusvar {option value} {
     set options($option) $value
