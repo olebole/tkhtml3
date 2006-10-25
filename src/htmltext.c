@@ -1388,7 +1388,7 @@ HtmlTextIndexCmd(clientData, interp, objc, objv)
                 Tcl_Obj *apObj[2];
                 apObj[0] = HtmlNodeCommand(pTree, pMap->pNode);
                 apObj[1] = Tcl_NewIntObj(iNodeIdx);
-                Tcl_ListObjReplace(0, p, 0, 0, 2, &apObj);
+                Tcl_ListObjReplace(0, p, 0, 0, 2, apObj);
                 break;
             }
         }

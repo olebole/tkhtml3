@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.217 2006/10/07 14:42:13 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.218 2006/10/25 12:30:23 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -727,7 +727,6 @@ normalFlowLayoutOverflow(pLayout, pBox, pNode, pY, pContext, pNormal)
     BoxContext sContent;
     HtmlFloatList *pFloat = pNormal->pFloat;
     int y;
-    int min;               /* Minimum content width of pNode */
     int iMPB;              /* Horizontal margins, padding, borders */
     int iLeft;             /* Left floating margin where box is drawn */
     int iRight;            /* Right floating margin where box is drawn */
@@ -815,7 +814,7 @@ normalFlowLayoutOverflow(pLayout, pBox, pNode, pY, pContext, pNormal)
     LOG(pNode) {
         HtmlTree *pTree = pLayout->pTree;
         char const *zNode = Tcl_GetString(HtmlNodeCommand(pTree, pNode));
-        HtmlLog(pTree, "LAYOUTENGINE", "%s "
+        HtmlLog(pTree, "LAYOUTENGINE", "%s normalFlowLayoutOverflow()"
             "containing width for content = %dpx",
             zNode, sContent.iContaining
         );
@@ -846,6 +845,8 @@ normalFlowLayoutOverflow(pLayout, pBox, pNode, pY, pContext, pNormal)
             useVertical ? sContent.vc.bottom : -1
         );
     }
+
+    sBox.iContaining = pBox->iContaining;
     wrapContent(pLayout, &sBox, &sContent, pNode);
 
     iSpareWidth = MAX(0, (iRight - iLeft - sBox.width));
@@ -1902,7 +1903,7 @@ drawAbsolute(pLayout, pBox, pStaticCanvas, x, y)
  *
  *         The box context pointed to by pContent contains a content block
  *         with it's top-left at coordinates (0, 0). The width and height
- *         of the conten are given by pContent->width and pContent->height,
+ *         of the content are given by pContent->width and pContent->height,
  *         respectively. This function adds the background/borders box to
  *         the content and moves the result into box context pBox.
  *

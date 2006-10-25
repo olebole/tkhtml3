@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.90 2006/10/24 05:21:48 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.91 2006/10/25 12:30:23 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -120,6 +120,8 @@ nodeChildExt(pNode, n, flags)
 
 static HtmlNode *
 nodeParentExt(pNode, flags)
+    HtmlNode *pNode;
+    int flags;
 {
     HtmlNode *p = 0;
     p = HtmlNodeParent(pNode);
@@ -290,7 +292,6 @@ insertImplicitTR(pNode)
     HtmlNode *pNode;
 {
     HtmlNode *pParent = nodeParentExt(pNode, NODE_EXT_IGNOREFORMS);
-    int eParentType;
   
     assert(HtmlNodeTagType(pNode)==Html_TD || HtmlNodeTagType(pNode)==Html_TH);
     assert(pParent);
