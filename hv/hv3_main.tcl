@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.90 2006/10/25 13:06:28 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.91 2006/10/25 13:11:27 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -417,8 +417,8 @@ snit::widget ::hv3::browser_toplevel {
 
     $myProtocol configure -statusvar [myvar myProtocolStatus]
     $myMainFrame configure -statusvar [myvar myFrameStatus]
-    trace add variable [myvar myProtocolStatus] write [mymethod Writestatus 1]
-    trace add variable [myvar myFrameStatus] write    [mymethod Writestatus 0]
+    trace add variable [myvar myProtocolStatus] write [mymethod Writestatus]
+    trace add variable [myvar myFrameStatus] write    [mymethod Writestatus]
 
     # Link in the "home:" and "about:" scheme handlers (from hv3_home.tcl)
     ::hv3::home_scheme_init [$myMainFrame hv3] $myProtocol
@@ -470,23 +470,18 @@ snit::widget ::hv3::browser_toplevel {
 
   # This method is called by a [trace variable ... write] hook attached
   # to the myProtocolStatus variable. Set myStatusVar.
-  method Writestatus {isProtocol args} {
+  method Writestatus {args} {
     set myStatusVar "$myProtocolStatus    $myFrameStatus"
-    if {$isProtocol} {
-      if {[$myProtocol busy]} { 
-        $hull configure -cursor watch
-      } else {
-        $hull configure -cursor ""
-      }
-    }
   }
 
   method Setstopbutton {args} {
     if {$options(-stopbutton) ne ""} {
       if {$myPendingVar} { 
         $options(-stopbutton) configure -state normal
+        $hull configure -cursor watch
       } else {
         $options(-stopbutton) configure -state disabled
+        $hull configure -cursor ""
       }
       $options(-stopbutton) configure -command [list $myMainFrame stop]
     }
