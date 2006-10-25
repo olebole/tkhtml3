@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.91 2006/10/25 13:11:27 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.92 2006/10/25 13:25:27 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -780,7 +780,9 @@ proc gui_build {widget_array} {
   ::hv3::toolbutton .entry.forward -text {Forward} -tooltip "Go Forward"
 
   ::hv3::toolbutton .entry.new -text {New Tab} -command [list .notebook add]
-  ::hv3::toolbutton .entry.home -text Home -command {gui_current goto home:}
+  ::hv3::toolbutton .entry.home -text Home -command [list \
+      gui_current goto $::hv3::homeuri
+  ]
   ::hv3::toolbutton .entry.reload -text Reload -command {gui_current reload}
 
   .entry.new configure -tooltip "Open New Tab"
@@ -1070,7 +1072,7 @@ proc gui_new {path args} {
   trace add variable $var write [list gui_settitle $new $var]
 
   if {[llength $args] == 0} {
-    $new goto home:
+    $new goto $::hv3::homeuri
   } else {
     $new goto [lindex $args 0]
   }
@@ -1163,9 +1165,6 @@ proc ::hv3::nOverflow {} {
 #     parsing of command line arguments.
 #
 proc main {args} {
-  # Build the GUI
-  gui_build     ::hv3::G
-  gui_menu      ::hv3::G
 
   # Default startup page is "home:///"
   set doc ""
@@ -1186,6 +1185,11 @@ proc main {args} {
   }
 
   if {$doc eq ""} {set doc home:///}
+  set ::hv3::homeuri $doc
+
+  # Build the GUI
+  gui_build     ::hv3::G
+  gui_menu      ::hv3::G
 
   ::hv3::downloadmanager ::hv3::the_download_manager
   ::hv3::dbinit
