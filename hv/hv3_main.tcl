@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.92 2006/10/25 13:25:27 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.93 2006/10/26 12:53:29 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -353,6 +353,7 @@ snit::widget ::hv3::browser_frame {
   delegate option -forcefontmetrics to myHv3
   delegate option -fonttable        to myHv3
   delegate option -fontscale        to myHv3
+  delegate option -zoom             to myHv3
   delegate option -enableimages     to myHv3
 
   delegate method dumpforms         to myHv3
@@ -570,7 +571,8 @@ snit::type ::hv3::config {
   variable myGuiFontSize 11
 
   variable myFontTable [list 8 9 10 11 13 15 17]
-  variable myFontScale 100%
+  variable myFontScale 1.0
+  variable myZoom 1.0
   variable myForceFontMetrics 1
   variable myEnableImages 1
   variable myDoubleBuffer 0
@@ -580,6 +582,10 @@ snit::type ::hv3::config {
   constructor {menu_path} {
     set myMenu $menu_path
     ::hv3::menu $myMenu
+
+    # Add the 'Zoom' menu
+    create_zoom_menu ${myMenu}.zoom [myvar myZoom]
+    $myMenu add cascade -label {Zoom} -menu ${myMenu}.zoom
 
     # Add the 'Gui Font' menu
     create_guifont_menu ${myMenu}.font3 [myvar myGuiFontSize]
@@ -614,6 +620,7 @@ snit::type ::hv3::config {
     trace add variable myForceFontMetrics write [mymethod ConfigureCurrent]
     trace add variable myEnableImages     write [mymethod ConfigureCurrent]
     trace add variable myDoubleBuffer     write [mymethod ConfigureCurrent]
+    trace add variable myZoom             write [mymethod ConfigureCurrent]
   }
 
   method ConfigureGui {name1 name2 op} {
@@ -625,9 +632,11 @@ snit::type ::hv3::config {
   }
 
   method configurebrowser {b} {
+
     foreach {option var} [list                      \
         -fonttable myFontTable                      \
         -fontscale myFontScale                      \
+        -zoom      myZoom                           \
         -forcefontmetrics myForceFontMetrics        \
         -enableimages myEnableImages                \
         -doublebuffer myDoubleBuffer                \
@@ -895,6 +904,18 @@ proc create_fontsize_menu {menupath varname} {
   return $menupath
 }
 
+proc create_zoom_menu {menupath varname} {
+  ::hv3::menu $menupath
+  foreach val [list 0.25 0.5 0.75 0.87 1.0 1.131 1.25 1.5 2.0] {
+    $menupath add radiobutton                  \
+      -variable $varname                       \
+      -value $val                              \
+      -label [format "%d%%" [expr int($val * 100)]]
+  }
+  set $varname 1.0
+  return $menupath
+}
+
 proc create_guifont_menu {menupath varname} {
   ::hv3::menu $menupath
   foreach val [list 8 9 10 11 12 14 16] {
@@ -949,7 +970,7 @@ proc gui_menu {widget_array} {
   . config -menu [::hv3::menu .m]
 
   # Add the 'File menu'
-  .m add cascade -label {File} -menu [::hv3::menu .m.file]
+  .m add cascade -label {File} -menu [::hv3::menu .m.file] -underline 0
   foreach {label command key} [list \
       "Open File..."  [list guiOpenFile $G(notebook)]            o \
       "Open Tab"      [list $G(notebook) add]                    t \
@@ -980,14 +1001,14 @@ proc gui_menu {widget_array} {
 
   # Add the 'Search' menu
   set G(search) [::hv3::search %AUTO% .m.search]
-  .m add cascade -label {Search} -menu [$G(search) menu]
+  .m add cascade -label {Search} -menu [$G(search) menu] -underline 0
 
   # Add the 'Config' menu
   set G(config) [::hv3::config %AUTO% .m.config]
-  .m add cascade -label {View} -menu [$G(config) menu]
+  .m add cascade -label {View} -menu [$G(config) menu] -underline 0
 
   # The 'Debug' menu (contains the little tools used to debug hv3/tkhtml3).
-  .m add cascade -label Debug -menu [::hv3::menu .m.tools]
+  .m add cascade -label Debug -menu [::hv3::menu .m.tools] -underline 0
 
   .m.tools add command -label Cookies -command [list $G(notebook) add cookies:]
   .m.tools add command -label Version -command [list $G(notebook) add about:]
@@ -1001,13 +1022,13 @@ proc gui_menu {widget_array} {
   .m.tools add separator
   .m.tools add command -label Events -command [list gui_log_window $G(notebook)]
   .m.tools add command -label Browser -command [list gui_current browse]
-  .m.tools add command -label Style   -command [list gui_current debug_style]
+  # .m.tools add command -label Style   -command [list gui_current debug_style]
 
   .m.tools add separator
   .m.tools add command -label "firefox -remote" -command gui_firefox_remote
 
   # Add the 'History' menu
-  .m add cascade -label {History} -menu [::hv3::menu .m.history]
+  .m add cascade -label {History} -menu [::hv3::menu .m.history] -underline 0
   set G(history_menu) .m.history
 
 }

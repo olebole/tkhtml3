@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.167 2006/10/07 12:56:25 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.168 2006/10/26 12:53:30 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1050,7 +1050,7 @@ requireBox(pNode)
     if (
         pNode->pDynamic ||
         pV->cBackgroundColor->xcolor ||
-        pV->imBackgroundImage ||
+        pV->imZoomedBackgroundImage ||
         pV->eBorderTopStyle != CSS_CONST_NONE ||
         pV->eBorderBottomStyle != CSS_CONST_NONE ||
         pV->eBorderRightStyle != CSS_CONST_NONE ||
@@ -1825,7 +1825,7 @@ drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview)
      * Tkhtml does not draw background images for inline nodes. That's Ok
      * for now, because they're not terribly common.
      */
-    if (/* !isInline && */ pV->imBackgroundImage) {
+    if (/* !isInline && */ pV->imZoomedBackgroundImage) {
         Tk_Image img;
         Pixmap ipix;
         GC gc;
@@ -1838,7 +1838,7 @@ drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview)
         int eR = pV->eBackgroundRepeat;
 
  
-        img = HtmlImageImage(pV->imBackgroundImage);
+        img = HtmlImageImage(pV->imZoomedBackgroundImage);
         Tk_SizeOfImage(img, &iWidth, &iHeight);
 
         if (iWidth > 0 && iHeight > 0) {
@@ -1859,7 +1859,8 @@ drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview)
              * than it seems.
              */
 #if 0
-            int isAlpha = HtmlImageAlphaChannel(pTree, pV->imBackgroundImage);
+            int isAlpha = 
+                HtmlImageAlphaChannel(pTree, pV->imZoomedBackgroundImage);
 #endif
             int isAlpha = 1;
 #endif
@@ -1905,7 +1906,7 @@ drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview)
             if (isAlpha) {
                 tileimage(
                     drawable, w, h, 
-                    pV->imBackgroundImage,
+                    pV->imZoomedBackgroundImage,
                     bg_x, bg_y, bg_w, bg_h, 
                     iPosX, iPosY
                 );
@@ -2678,14 +2679,17 @@ getPixmap(pTree, xcanvas, ycanvas, w, h, getwin)
     pBgRoot = pTree->pRoot;
     if (pBgRoot) {
         HtmlComputedValues *pV = pBgRoot->pPropertyValues;
-        if (!pV->cBackgroundColor->xcolor && !pV->imBackgroundImage) {
+        if (!pV->cBackgroundColor->xcolor && !pV->imZoomedBackgroundImage) {
             int i;
             pBgRoot = 0;
             for (i = 0; i < HtmlNodeNumChildren(pTree->pRoot); i++) {
                 HtmlNode *pChild = HtmlNodeChild(pTree->pRoot, i);
                 if (HtmlNodeTagType(pChild) == Html_BODY) {
                     HtmlComputedValues *pV = pChild->pPropertyValues;
-                    if (pV->cBackgroundColor->xcolor || pV->imBackgroundImage) {
+                    if (
+                        pV->cBackgroundColor->xcolor || 
+                        pV->imZoomedBackgroundImage
+                    ) {
                         pBgRoot = pChild;
                     }
                     break;

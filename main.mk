@@ -46,10 +46,7 @@ compile_announce:
 binaries: compile_announce $(BINARIES)
 
 pkgIndex.tcl: $(SHARED_LIB)
-	echo 'pkg_mkIndex -load Tk . ; exit;' | $(WISH)
-
-
-# (echo pkg_mkIndex -load Tk . \; exit;) | $(WISH)
+	echo 'package ifneeded Tkhtml 3.0 [list load [file join $$dir $(SHARED_LIB)]]' > pkgIndex.tcl
 
 $(SHARED_LIB): $(OBJS)
 	$(MKSHLIB) $(OBJS) $(TCLSTUBSLIB) -o $@
@@ -83,8 +80,8 @@ cssprop.c: cssprop.h
 htmltokens.c: htmltokens.h
 
 $(LEMON): $(TOP)/tools/lemon.c
-	@echo '$$(COMPILE) $< htmldefaultstyle.c -o $@'
-	@$(COMPILE) $(TOP)/tools/lemon.c -o $(LEMON)
+	@echo '$$(BCC) $< -o $@'
+	@$(BCC) $(TOP)/tools/lemon.c -o $(LEMON)
 
 cssparse.c: $(TOP)/src/cssparse.lem $(LEMON)
 	cp $(TOP)/src/cssparse.lem .

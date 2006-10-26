@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.112 2006/10/24 13:08:51 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.113 2006/10/26 12:53:29 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -1410,6 +1410,7 @@ snit::widget ::hv3::hv3 {
   delegate option -isvisitedcmd     to myHyperlinkManager
   delegate option -fonttable        to myHtml
   delegate option -fontscale        to myHtml
+  delegate option -zoom             to myHtml
   delegate option -forcefontmetrics to myHtml
   delegate option -doublebuffer     to myHtml
 

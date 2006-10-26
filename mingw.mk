@@ -1,7 +1,7 @@
 
 ##### Top of the Tkhtml source tree - the directory with this file in it.
 #
-TOP = /z/htmlwidget/
+TOP = /home/dan/work/tkhtml/htmlwidget/
 
 ##### BUILD can be DEBUG or RELEASE.
 #
@@ -12,20 +12,21 @@ HV3_POLIPO = /z/hv3_polipo.exe
 
 ##### Version of and path to the Tcl installation to use.
 #
-TCLVERSION = 84
-TCL = /c/tcl
+TCLVERSION = 85
+TCL = /home/dan/work/tkhtml/mingwtcl/install
 
 ##### Flags passed to the C-compiler to link to Tcl.
 #
-TCLLIB = -L$(TCL)/lib -ltclstub$(TCLVERSION) -ltkstub$(TCLVERSION)
-# TCLLIB = -L$(TCL)/lib -ltcl$(TCLVERSION) -ltk$(TCLVERSION) -ltclstub$(TCLVERSION) -ltkstub$(TCLVERSION)
+# TCLLIB = -L$(TCL)/lib -ltclstub$(TCLVERSION) -ltkstub$(TCLVERSION)
+TCLLIB = -L$(TCL)/lib -ltcl$(TCLVERSION) -ltk$(TCLVERSION) -ltclstub$(TCLVERSION) -ltkstub$(TCLVERSION)
 
 ##### Extra libraries used by Tcl on Linux. These flags are only required to
 #     staticly link Tcl into an executable
 #
 # TCLLIB_DEBUG += -L/usr/X11R6/lib/ -lX11 -ldl -lm
 
-CC = gcc
+BCC = gcc
+CC = i386-mingw32-gcc
 
 CFLAGS_RELEASE = -O2 -DNDEBUG 
 CFLAGS_DEBUG   = -g
@@ -44,21 +45,22 @@ SHARED_LIB = $(SHARED_LIB_$(BUILD))
 #         $(MKSHLIB) $(OBJS) $(TCLSTUBSLIB) -o $(SHARED_LIB)
 #
 MKSHLIB = $(CC) -shared 
-TCLSTUBSLIB =  "/c/tcl/lib/tclstub84.lib" "/c/tcl/lib/tkstub84.lib" 
+TCLSTUBSLIB =  "/home/dan/work/tkhtml/mingwtcl/install/lib/libtclstub85.a" 
+TCLSTUBSLIB += "/home/dan/work/tkhtml/mingwtcl/install/lib/libtkstub85.a" 
 TCLSTUBSLIB += -LC:/Tcl/lib
 
 ##### Commands to run tclsh and wish.
 #
-TCLSH = $(TCL)/bin/tclsh
-WISH = $(TCL)/bin/wish
+TCLSH = tclsh
+WISH = wish
 
-MKSTARKIT = $(TCL)/bin/tclkit $(TCL)/bin/sdx.kit wrap
+MKSTARKIT = tclkit /home/dan/bin/sdx.kit wrap
 
 #
 # End of configuration section.
 ###########################################################################
 
-default: binaries hwish
+default: binaries
 
 ###############################################################################
 include $(TOP)/main.mk

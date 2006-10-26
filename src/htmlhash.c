@@ -43,7 +43,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  * COPYRIGHT:
  */
-static const char rcsid[] = "$Id: htmlhash.c,v 1.20 2006/08/28 08:42:35 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlhash.c,v 1.21 2006/10/26 12:53:30 danielk1977 Exp $";
 
 #include <tcl.h>
 /* #include <strings.h> */
@@ -368,10 +368,9 @@ hashValuesKey(tablePtr, keyPtr)
     HtmlComputedValues *p= (HtmlComputedValues *)keyPtr;
     unsigned int result = 0;
 
-    unsigned char *pInt = (unsigned char *)p;
+    /* Do not include the first two fields - nRef and imZoomedBackgroundImage */
+    unsigned char *pInt = (unsigned char *)(&p->mask);
 
-    /* Do not include the first field - nRef */
-    pInt += sizeof(int);
 
     /* Hash the remaining bytes of the structure */
     while (pInt < (unsigned char *)&p[1]) {

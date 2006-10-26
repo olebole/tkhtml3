@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlimage.c,v 1.56 2006/08/28 08:42:35 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlimage.c,v 1.57 2006/10/26 12:53:30 danielk1977 Exp $";
 
 #include <assert.h>
 #include "html.h"
@@ -235,6 +235,10 @@ freeTile(pImage)
     pImage->pTileName = 0;
 }
 
+#define UNSCALED(pImage) (                                       \
+   ((pImage) && (pImage)->pUnscaled)?(pImage)->pUnscaled:pImage  \
+)
+
 static int
 imageChangedCb(pTree, pNode, clientData)
     HtmlTree *pTree;
@@ -245,8 +249,14 @@ imageChangedCb(pTree, pNode, clientData)
     HtmlImage2 *pImage = (HtmlImage2 *)clientData;
     assert(!pImage->pUnscaled);
     if (pV) {
-        assert(!pV->imReplacementImage || !pV->imReplacementImage->pUnscaled);
-        assert(!pV->imListStyleImage   || !pV->imListStyleImage->pUnscaled);
+        HtmlImage2 *imBackgroundImage = pV->imBackgroundImage;
+        if (imBackgroundImage == pImage) {
+            int w = PIXELVAL_AUTO;
+            int h = PIXELVAL_AUTO;
+            HtmlImage2 *pNew = HtmlImageScale(imBackgroundImage, &w, &h, 1);
+            HtmlImageFree(pV->imZoomedBackgroundImage);
+            pV->imZoomedBackgroundImage = pNew;
+        }
         if (pV->imReplacementImage==pImage || pV->imListStyleImage==pImage) {
             HtmlCallbackLayout(pTree, pNode);
         }
@@ -289,19 +299,21 @@ imageChanged(clientData, x, y, width, height, imgWidth, imgHeight)
             assert(!p->pTileName);
         }
         freeTile(pImage);
-        if (imgWidth==pImage->width && imgHeight==pImage->height) {
-            /* If the image contents have been modified but the size is
-             * constant, then just redraw the display. This is lazy. If
-             * there were an efficient way to determine the minimum region
-             * to draw, then stuff like animated gifs would be much more
-             * efficient.
-             */
-            HtmlCallbackDamage(pTree, 0, 0, 1000000, 1000000, 0);
-        } else {
+
+        if (imgWidth!=pImage->width && imgHeight!=pImage->height) {
             pImage->width = imgWidth;
             pImage->height = imgHeight;
             HtmlWalkTree(pTree, 0, imageChangedCb, (ClientData)pImage);
         }
+
+        /* If the image contents have been modified but the size is
+         * constant, then just redraw the display. This is lazy. If
+         * there were an efficient way to determine the minimum region
+         * to draw, then stuff like animated gifs would be much more
+         * efficient.
+         */
+        HtmlCallbackDamage(pTree, 0, 0, 1000000, 1000000, 0);
+
         pImage->eAlpha = ALPHA_CHANNEL_UNKNOWN;
     }
 }
@@ -506,8 +518,9 @@ HtmlImageScale(pImage, pWidth, pHeight, doScale)
     assert(*pWidth  == PIXELVAL_AUTO || *pWidth >= 0);
     assert(*pHeight == PIXELVAL_AUTO || *pHeight >= 0);
     if (*pWidth == PIXELVAL_AUTO && *pHeight == PIXELVAL_AUTO) {
-        *pWidth = pUnscaled->width;
-        *pHeight = pUnscaled->height;
+        double rZoom = pImage->pImageServer->pTree->options.zoom;
+        *pWidth = (pUnscaled->width * rZoom);
+        *pHeight = (pUnscaled->height * rZoom);
     } else if (PIXELVAL_AUTO == *pWidth) {
         *pWidth = 0;
         if (pUnscaled->height) {

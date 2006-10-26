@@ -182,7 +182,9 @@ struct HtmlColor {
  *         'counter-reset' 'quotes'
  */
 struct HtmlComputedValues {
-    int nRef;                         /* MUST BE FIRST (see htmlhash.c) */
+    HtmlImage2 *imZoomedBackgroundImage;   /* MUST BE FIRST (see htmlhash.c) */
+    int nRef;                              /* MUST BE FIRST (see htmlhash.c) */
+
     unsigned int mask;
 
     unsigned char eDisplay;           /* 'display' */

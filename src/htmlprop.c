@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.93 2006/09/07 14:41:52 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.94 2006/10/26 12:53:30 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1020,6 +1020,7 @@ propertyValuesSetLength(p, pIVal, em_mask, pProp, allowNegative)
     int allowNegative;
 {
     int iVal;
+    double rZoomedVal = pProp->v.rVal * p->pTree->options.zoom;
     switch (pProp->eType) {
 
         case CSS_TYPE_EM:
@@ -1032,23 +1033,23 @@ propertyValuesSetLength(p, pIVal, em_mask, pProp, allowNegative)
             break;
 
         case CSS_TYPE_PX:
-            iVal = INTEGER(pProp->v.rVal);
+            iVal = INTEGER(rZoomedVal);
             break;
 
         case CSS_TYPE_PT:
-            iVal = physicalToPixels(p, pProp->v.rVal, 'p');
+            iVal = physicalToPixels(p, rZoomedVal, 'p');
             break;
         case CSS_TYPE_PC:
-            iVal = physicalToPixels(p, pProp->v.rVal * 12.0, 'p');
+            iVal = physicalToPixels(p, rZoomedVal * 12.0, 'p');
             break;
         case CSS_TYPE_CENTIMETER:
-            iVal = physicalToPixels(p, pProp->v.rVal, 'c');
+            iVal = physicalToPixels(p, rZoomedVal, 'c');
             break;
         case CSS_TYPE_INCH:
-            iVal = physicalToPixels(p, pProp->v.rVal, 'i');
+            iVal = physicalToPixels(p, rZoomedVal, 'i');
             break;
         case CSS_TYPE_MILLIMETER:
-            iVal = physicalToPixels(p, pProp->v.rVal, 'm');
+            iVal = physicalToPixels(p, rZoomedVal, 'm');
             break;
 
         case CSS_TYPE_FLOAT: {
@@ -1060,7 +1061,7 @@ propertyValuesSetLength(p, pIVal, em_mask, pProp, allowNegative)
              *    the unit identifier is optional.". 
              * 2. In quirks mode, no unit means pixels.
              */
-            iVal = INTEGER(pProp->v.rVal);
+            iVal = INTEGER(rZoomedVal);
             if (iVal && p->pTree->options.mode != HTML_MODE_QUIRKS) return 1;
             break;
         }
@@ -1426,16 +1427,16 @@ propertyValuesSetBorderWidth(p, pIVal, em_mask, pProp)
             return 0;
         }
         case CSS_CONST_THIN:
-            *pIVal = 1;
+            *pIVal = INTEGER(1.0 * p->pTree->options.zoom);
             return 0;
         case CSS_CONST_MEDIUM:
-            *pIVal = 2;
+            *pIVal = INTEGER(2.0 * p->pTree->options.zoom);
             return 0;
         case CSS_CONST_THICK:
-            *pIVal = 4;
+            *pIVal = INTEGER(4.0 * p->pTree->options.zoom);
             return 0;
         case CSS_TYPE_FLOAT:
-            *pIVal = pProp->v.rVal;
+            *pIVal = INTEGER(pProp->v.rVal * p->pTree->options.zoom);
             return 0;
     }
 
@@ -1509,6 +1510,8 @@ HtmlComputedValuesInit(pTree, pNode, pParent, p)
                 case LENGTH:
                 case BORDERWIDTH: {
                     int *pVal = (int *)(values + pDef->iOffset);
+
+                    /* Todo: -zoom */
                     *pVal = pDef->iDefault;
                     break;
                 }
@@ -1757,7 +1760,7 @@ allocateNewFont(pTree, tkwin, pFontKey)
     /* Local variable iFontSize is in points - not thousandths */
     int iFontSize;
     float fontsize = ((float)pFontKey->iFontSize / (float)HTML_IFONTSIZE_SCALE);
-    fontsize = fontsize * pTree->options.fontscale;
+    fontsize = fontsize * pTree->options.fontscale * pTree->options.zoom;
 
 #if 0
     if (isForceFontMetrics) {
@@ -2144,6 +2147,7 @@ HtmlComputedValuesFinish(p)
         HtmlImageFree(pValues->imReplacementImage);
         HtmlImageFree(pValues->imBackgroundImage);
         HtmlImageFree(pValues->imListStyleImage);
+        assert(!pValues->imZoomedBackgroundImage);
     } else if (
         pValues->eBackgroundAttachment == CSS_CONST_FIXED ||
         pValues->ePosition == CSS_CONST_FIXED
@@ -2157,6 +2161,13 @@ HtmlComputedValuesFinish(p)
     HtmlImageCheck(pValues->imReplacementImage);
     HtmlImageCheck(pValues->imBackgroundImage);
     HtmlImageCheck(pValues->imListStyleImage);
+
+    if (pValues->imBackgroundImage && !pValues->imZoomedBackgroundImage) {
+        int w = PIXELVAL_AUTO;
+        int h = PIXELVAL_AUTO;
+        HtmlImage2 *pZ = HtmlImageScale(pValues->imBackgroundImage, &w, &h, 1);
+        pValues->imZoomedBackgroundImage = pZ;
+    }
 
     /* Delete any CssProperty structures allocated for Tcl properties */
     if (p->pDeleteList) {
@@ -2236,6 +2247,7 @@ HtmlComputedValuesRelease(pTree, pValues)
             decrementColorRef(pTree, pValues->cOutlineColor);
             HtmlImageFree(pValues->imReplacementImage);
             HtmlImageFree(pValues->imBackgroundImage);
+            HtmlImageFree(pValues->imZoomedBackgroundImage);
             HtmlImageFree(pValues->imListStyleImage);
             if (
                 pValues->eBackgroundAttachment == CSS_CONST_FIXED ||

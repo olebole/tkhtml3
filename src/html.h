@@ -353,6 +353,9 @@ struct HtmlOptions {
     int      forcefontmetrics;
     double   fontscale;
 
+    /* Universal scaling factor. */
+    double   zoom;
+
     XColor *selectforeground;
     XColor *selectbackground;
 
