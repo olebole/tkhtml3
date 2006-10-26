@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlimage.c,v 1.57 2006/10/26 12:53:30 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlimage.c,v 1.58 2006/10/26 14:14:32 danielk1977 Exp $";
 
 #include <assert.h>
 #include "html.h"
@@ -87,6 +87,7 @@ static const char rcsid[] = "$Id: htmlimage.c,v 1.57 2006/10/26 12:53:30 danielk
 struct HtmlImageServer {
     HtmlTree *pTree;                 /* Pointer to owner HtmlTree object */
     Tcl_HashTable aImage;            /* Hash table of images by URL */
+    int isSuspendGC;
 };
 
 /*
@@ -678,7 +679,10 @@ HtmlImageFree(pImage)
 
     assert(pImage->nRef > 0);
     pImage->nRef--;
-    if (pImage->nRef == 0) {
+    if (
+        pImage->nRef == 0 && 
+        (pImage->pUnscaled || !pImage->pImageServer->isSuspendGC)
+    ) {
         /* The reference count for this structure has reached zero.
          * Really delete it. The assert() says that an original image
          * cannot be deleted before all of it's scaled copies.
@@ -921,6 +925,61 @@ HtmlImageTile(pImage)
     HtmlFree(0, (char *)tileblock.pixelPtr);
 
     return pImage->tile;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlImageServerSuspendGC --
+ *
+ *     Put the image-server into a mode where it will not unload an
+ *     unscaled (i.e. original) image, even if it's reference count
+ *     drops to zero. The caller must ensure that HtmlImageServerDoGC()
+ *     is called at some later point to garbage collect images 
+ *     with zero ref-counts.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+void HtmlImageServerSuspendGC(pTree)
+    HtmlTree *pTree;
+{
+    pTree->pImageServer->isSuspendGC = 1;
+}
+
+void HtmlImageServerDoGC(pTree)
+    HtmlTree *pTree;
+{
+    if (pTree->pImageServer->isSuspendGC) {
+        int nDelete;
+        pTree->pImageServer->isSuspendGC = 0;
+        do {
+            int ii;
+            HtmlImage2 *apDelete[32];
+            Tcl_HashSearch srch;
+            Tcl_HashEntry *pEntry;
+
+            nDelete = 0;
+            pEntry = Tcl_FirstHashEntry(&pTree->pImageServer->aImage, &srch);
+            for ( ; nDelete < 32 && pEntry; pEntry = Tcl_NextHashEntry(&srch)) {
+                HtmlImage2 *p = Tcl_GetHashValue(pEntry);
+                if (p->nRef == 0) {
+                    apDelete[nDelete++] = p;
+                }
+            }
+
+            for (ii = 0; ii < nDelete; ii++) {
+                HtmlImage2 *p = apDelete[ii];
+                p->nRef = 1;
+                HtmlImageFree(p);
+            }
+        } while (nDelete == 32);
+    }
 }
 
 /*

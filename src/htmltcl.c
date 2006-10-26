@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.126 2006/10/26 12:53:30 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.127 2006/10/26 14:14:32 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -390,6 +390,8 @@ callbackHandler(clientData)
             HtmlStyleApply(pTree, pRestyle);
         }
         HtmlRestackNodes(pTree);
+
+        HtmlImageServerDoGC(pTree);
 
         styleClock = clock() - styleClock;
     }
@@ -987,7 +989,6 @@ worldChangedCb(pTree, pNode, clientData)
 {
     HtmlLayoutInvalidateCache(pTree, pNode);
     HtmlNodeClearStyle(pTree, pNode);
-
     return HTML_WALK_DESCEND;
 }
 
@@ -1164,6 +1165,7 @@ BOOLEAN(doublebuffer, "doubleBuffer", "DoubleBuffer", "0", 0),
         }
 
         if (mask & S_MASK) {
+            HtmlImageServerSuspendGC(pTree);
             HtmlWalkTree(pTree, pTree->pRoot, worldChangedCb, 0);
             HtmlCallbackRestyle(pTree, pTree->pRoot);
             HtmlCallbackLayout(pTree, pTree->pRoot);

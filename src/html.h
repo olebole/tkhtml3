@@ -698,6 +698,9 @@ void HtmlImageCheck(HtmlImage2 *);
 Tcl_Obj *HtmlXImageToImage(HtmlTree *, XImage *, int, int);
 int HtmlImageAlphaChannel(HtmlTree *, HtmlImage2 *);
 
+void HtmlImageServerSuspendGC(HtmlTree *);
+void HtmlImageServerDoGC(HtmlTree *);
+
 void HtmlLayoutPaintNode(HtmlTree *, HtmlNode *);
 void HtmlLayoutInvalidateCache(HtmlTree *, HtmlNode *);
 void HtmlWidgetNodeBox(HtmlTree *, HtmlNode *, int *, int *, int *, int *);
