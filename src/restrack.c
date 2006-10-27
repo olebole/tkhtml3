@@ -16,7 +16,7 @@
  *
  *-------------------------------------------------------------------------
  */
-static const char rcsid[] = "$Id: restrack.c,v 1.7 2006/06/28 06:31:11 danielk1977 Exp $";
+static const char rcsid[] = "$Id: restrack.c,v 1.8 2006/10/27 06:40:34 danielk1977 Exp $";
 
 #ifdef HTML_RES_DEBUG
 #define RES_DEBUG
@@ -270,29 +270,38 @@ ResDump()
  */
 
 /*
- * This hash table is used to maintain a summary of the currently 
- * outstanding calls to HtmlAlloc(). To be used to measure approximate 
- * heap usage.
+ * Two hash tables to maintain a summary of the currently outstanding
+ * calls to HtmlAlloc() (used to measure approximate heap usage). They
+ * are manipulated exclusively by the following functions:
+ *
+ *     * initMallocHash()
+ *     * insertMallocHash()
+ *     * freeMallocHash()
+ *
  */
 static Tcl_HashTable aMalloc;
+static Tcl_HashTable aAllocationType;
 
 static void 
 initMallocHash() {
     static int init = 0;
     if (!init) {
         Tcl_InitHashTable(&aMalloc, TCL_STRING_KEYS);
+        Tcl_InitHashTable(&aAllocationType, TCL_ONE_WORD_KEYS);
         init = 1;
     }
 }
 
 static void
-insertMallocHash(zTopic, nBytes) 
+insertMallocHash(zTopic, p, nBytes) 
     const char *zTopic;
+    char *p;
     int nBytes;
 {
     int *aData;
     int isNewEntry;
     Tcl_HashEntry *pEntry;
+    Tcl_HashEntry *pEntry2;
 
     initMallocHash();
 
@@ -307,31 +316,37 @@ insertMallocHash(zTopic, nBytes)
         aData[0] += 1;
         aData[1] += nBytes;
     }
+
+    pEntry2 = Tcl_CreateHashEntry(&aAllocationType, p, &isNewEntry);
+    Tcl_SetHashValue(pEntry2, pEntry);
 }
 
 static void
-freeMallocHash(zTopic, nBytes) 
-    const char *zTopic;
+freeMallocHash(p, nBytes) 
+    char *p;
     int nBytes;
 {
     int *aData;
-    Tcl_HashEntry *pEntry;
+    Tcl_HashEntry *pEntryAllocationType;
+    Tcl_HashEntry *pEntryMalloc;
 
     initMallocHash();
 
-    pEntry = Tcl_FindHashEntry(&aMalloc, zTopic);
-    assert(pEntry);
-    aData = Tcl_GetHashValue(pEntry);
+    pEntryAllocationType = Tcl_FindHashEntry(&aAllocationType, p);
+    assert(pEntryAllocationType);
+    pEntryMalloc = (Tcl_HashEntry *)Tcl_GetHashValue(pEntryAllocationType);
+
+    assert(pEntryMalloc);
+    aData = Tcl_GetHashValue(pEntryMalloc);
     aData[0] -= 1;
     aData[1] -= nBytes;
-
-    assert(aData[0] >= 0);
-    assert(aData[1] >= 0);
+    assert((aData[0] == 0 && aData[1] == 0) || (aData[0] > 0 && aData[1] > 0));
 
     if (aData[0] == 0) {
-        assert(aData[1] == 0);
-        Tcl_DeleteHashEntry(pEntry);
+        Tcl_DeleteHashEntry(pEntryMalloc);
+        ckfree(aData);
     }
+    Tcl_DeleteHashEntry(pEntryAllocationType);
 }
 
 int 
@@ -434,7 +449,7 @@ Rt_Alloc(zTopic, n)
     z[3 + n / sizeof(int)] = 0xBAD00BAD;
 
     ResAlloc(RES_ALLOC, z);
-    insertMallocHash(zTopic ? zTopic : "malloc", n);
+    insertMallocHash(zTopic ? zTopic : "UNSPECIFIED", zRet, n);
 
     memset(zRet, 0x55, n);
     return zRet;
@@ -456,8 +471,7 @@ Rt_Alloc(zTopic, n)
  *---------------------------------------------------------------------------
  */
 void 
-Rt_Free(zTopic, p)
-    const char *zTopic;
+Rt_Free(p)
     char *p;
 {
     if (p) {
@@ -468,7 +482,7 @@ Rt_Free(zTopic, p)
         memset(z, 0x55, n);
         ckfree((char *)&z[-2]);
         ResFree(RES_ALLOC, &z[-2]);
-        freeMallocHash(zTopic ? zTopic : "malloc", n);
+        freeMallocHash(z, n);
     }
 }
 
@@ -497,7 +511,7 @@ Rt_Realloc(zTopic, p, n)
     if (p) {
         int current_sz = ((int *)p)[-1];
         memcpy(pRet, p, MIN(current_sz, n));
-        Rt_Free(zTopic, (char *)p);
+        Rt_Free((char *)p);
     }
     return pRet;
 }

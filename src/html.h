@@ -43,12 +43,15 @@
  */
 #ifdef HTML_DEBUG
     #include "restrack.h"
-    #define HtmlAlloc(zTopic, n) Rt_Alloc(zTopic, n)
-    #define HtmlFree(zTopic, x) Rt_Free(zTopic, (char *)(x))
-    #define HtmlRealloc(zTopic, x, n) Rt_Realloc(zTopic, (char *)(x), (n))
+
+    #define HtmlAlloc(zTopic, n) Rt_Alloc(((zTopic) ? (zTopic) : __FILE__ ), n)
+
+    #define HtmlFree(x) Rt_Free((char *)(x))
+    #define HtmlRealloc(zTopic, x, n) Rt_Realloc( \
+        ((zTopic) ? (zTopic) : __FILE__) , (char *)(x), (n) )
 #else
     #define HtmlAlloc(zTopic, n) ckalloc(n)
-    #define HtmlFree(zTopic, x) ckfree((char *)(x))
+    #define HtmlFree(x) ckfree((char *)(x))
     #define HtmlRealloc(zTopic, x, n) ckrealloc((char *)(x), n)
 #endif
 
@@ -56,7 +59,6 @@
 #define HtmlClearAlloc(zTopic, x) ((char *)memset(HtmlAlloc(zTopic,(x)),0,(x)))
 
 #define HtmlNew(x) ((x *)HtmlClearAlloc(#x, sizeof(x)))
-#define HtmlDelete(x, p) (HtmlFree(#x, p))
 
 #define USE_COMPOSITELESS_PHOTO_PUT_BLOCK
 #include <tk.h>

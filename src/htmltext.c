@@ -802,7 +802,7 @@ removeTagFromNode(pNode, pTag)
         while (pTagged) {
             if (pTagged->pTag == pTag) {
                 *pPtr = pTagged->pNext;
-                HtmlFree("", pTagged);
+                HtmlFree(pTagged);
             } else {
                 pPtr = &pTagged->pNext;
             }
@@ -975,7 +975,7 @@ tagAddRemoveCallback(pTree, pNode, clientData)
                         case OVERLAP_SUPER: {
                             /* Delete the whole list entry */
                             *pPtr = pTagged->pNext;
-                            HtmlFree("", pTagged);
+                            HtmlFree(pTagged);
                             break;
                         };
                             
@@ -1134,7 +1134,7 @@ HtmlTagDeleteCmd(clientData, interp, objc, objv)
     if (pEntry) {
         HtmlWidgetTag *pTag = (HtmlWidgetTag *)Tcl_GetHashValue(pEntry);
         HtmlWalkTree(pTree, 0, tagDeleteCallback, (ClientData)pTag);
-        HtmlFree("", pTag);
+        HtmlFree(pTag);
         Tcl_DeleteHashEntry(pEntry);
     }
 
@@ -1151,7 +1151,7 @@ HtmlTagCleanupNode(pNode)
     HtmlTaggedRegion *pTagged = pNode->pTagged;
     while (pTagged) {
         HtmlTaggedRegion *pNext = pTagged->pNext;
-        HtmlFree("", pTagged);
+        HtmlFree(pTagged);
         pTagged = pNext;
     }
     pNode->pTagged = 0;
@@ -1167,7 +1167,7 @@ HtmlTagCleanupTree(pTree)
     for ( ; pEntry; pEntry = Tcl_NextHashEntry(&search)) {
         HtmlWidgetTag *pTag = (HtmlWidgetTag *)Tcl_GetHashValue(pEntry);
         Tk_FreeConfigOptions((char *)pTag, pTree->tagOptionTable, pTree->tkwin);
-        HtmlFree("", pTag);
+        HtmlFree(pTag);
     }
     Tcl_DeleteHashTable(&pTree->aTag);
 }
@@ -1308,10 +1308,10 @@ HtmlTextInvalidate(pTree)
         Tcl_DecrRefCount(pTree->pText->pObj);
         while (pMapping) {
             HtmlTextMapping *pNext = pMapping->pNext;
-            HtmlFree("HtmlTextMapping", pMapping);
+            HtmlFree(pMapping);
             pMapping = pNext;
         }
-        HtmlFree(0, pTree->pText);
+        HtmlFree(pTree->pText);
         pTree->pText = 0;
     }
 }

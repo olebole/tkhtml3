@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.91 2006/10/25 12:30:23 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.92 2006/10/27 06:40:33 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -188,7 +188,7 @@ moveToLeftSibling(pNode, pNewSibling)
     pOldParent->nChild--;
 
     /* Insert it into the new parent */
-    pNewParent->apChildren = (HtmlNode **)HtmlRealloc(0, 
+    pNewParent->apChildren = (HtmlNode **)HtmlRealloc("HtmlNode.apChildren", 
             pNewParent->apChildren, 
             sizeof(HtmlNode *) * (pNewParent->nChild + 1)
     );
@@ -305,16 +305,18 @@ insertImplicitTR(pNode)
         pParent = HtmlNodeParent(pNode);
 
         /* Create a new token for the <tr> node */
-        pRowToken = (HtmlToken *)HtmlClearAlloc(0, sizeof(HtmlToken));
+        pRowToken = HtmlNew(HtmlToken);
         pRowToken->type = Html_TR;
 
         /* Create an HtmlNode for the new <tr> */
-        pRowNode = (HtmlNode *)HtmlClearAlloc(0, sizeof(HtmlNode));
+        pRowNode = HtmlNew(HtmlNode);
         pRowNode->pToken = pRowToken;
 
         /* Add pNode as the only child of the artificial node element */
         pRowNode->nChild = 1;
-        pRowNode->apChildren = (HtmlNode**)HtmlClearAlloc(0, sizeof(HtmlNode*));
+        pRowNode->apChildren = (HtmlNode**)HtmlClearAlloc(
+            "HtmlNode.apChildren", sizeof(HtmlNode*)
+        );
         pRowNode->apChildren[0] = pNode;
         pNode->pParent = pRowNode;
 
@@ -539,7 +541,7 @@ clearReplacement(pTree, pNode)
         if (p->pDelete) Tcl_DecrRefCount(p->pDelete);
         if (p->pReplace) Tcl_DecrRefCount(p->pReplace);
         if (p->pConfigure) Tcl_DecrRefCount(p->pConfigure);
-        HtmlFree(0, (char *)p);
+        HtmlFree(p);
     }
 }
 
@@ -572,7 +574,7 @@ HtmlNodeDeleteCommand(pTree, pNode)
         Tcl_Obj *pCommand = pNode->pNodeCmd->pCommand;
         Tcl_DeleteCommand(pTree->interp, Tcl_GetString(pCommand));
         Tcl_DecrRefCount(pCommand);
-        HtmlFree(0, (char *)pNode->pNodeCmd);
+        HtmlFree(pNode->pNodeCmd);
         pNode->pNodeCmd = 0;
     }
     return 0;
@@ -618,7 +620,7 @@ freeNode(pTree, pNode)
             while (pToken) {
                 char *t = (char *)pToken;
                 pToken = pToken->pNextToken;
-                HtmlFree(0, t);
+                HtmlFree(t);
                 if (
                     pToken && 
                     pToken->type != Html_Text && 
@@ -628,7 +630,7 @@ freeNode(pTree, pNode)
                 }
             }
         } else {
-            HtmlFree(0, (char *)pToken);
+            HtmlFree(pToken);
         }
 
 
@@ -638,7 +640,7 @@ freeNode(pTree, pNode)
         for(i=0; i<pNode->nChild; i++){
             freeNode(pTree, pNode->apChildren[i]);
         }
-        HtmlFree(0, (char *)pNode->apChildren);
+        HtmlFree(pNode->apChildren);
 
         /* Delete the computed values caches. */
         HtmlNodeClearStyle(pTree, pNode);
@@ -659,7 +661,7 @@ freeNode(pTree, pNode)
         clearReplacement(pTree, pNode);
         HtmlCssFreeDynamics(pNode);
         HtmlTagCleanupNode(pNode);
-        HtmlFree(0, (char *)pNode);
+        HtmlFree(pNode);
     }
 }
 
@@ -822,9 +824,11 @@ HtmlNodeAddChild(pNode, pToken)
     
     r = pNode->nChild++;
     n = (r+1) * sizeof(HtmlNode*);
-    pNode->apChildren = (HtmlNode **)HtmlRealloc(0, (char *)pNode->apChildren, n);
+    pNode->apChildren = (HtmlNode **)HtmlRealloc(
+        "HtmlNode.apChildren", (char *)pNode->apChildren, n
+    );
 
-    pNew = (HtmlNode *)HtmlAlloc(0, sizeof(HtmlNode));
+    pNew = HtmlNew(HtmlNode);
     memset(pNew, 0, sizeof(HtmlNode));
     pNew->pToken = pToken;
     pNew->pParent = pNode;
@@ -874,7 +878,7 @@ setNodeAttribute(pNode, zAttrName, zAttrVal)
     }
 
     nBytes += sizeof(HtmlToken) + nArgs * sizeof(char *);
-    pNew = (HtmlToken *)HtmlClearAlloc(0, nBytes);
+    pNew = (HtmlToken *)HtmlClearAlloc("HtmlToken", nBytes);
     pNew->type = p->type;
     pNew->count = nArgs;
     pNew->x.zArgs = (char **)&pNew[1];
@@ -899,7 +903,7 @@ setNodeAttribute(pNode, zAttrName, zAttrVal)
     while (*zSpace != '\0') zSpace++; zSpace++;
     n += 2;
 
-    HtmlFree(0, p);
+    HtmlFree(p);
     pNode->pToken = pNew;
    
     assert(n == nArgs);
@@ -935,7 +939,7 @@ mergeAttributes(pNode, pToken)
     }
 
     nBytes += sizeof(HtmlToken) + nArgs * sizeof(char *);
-    pNew = (HtmlToken *)HtmlClearAlloc(0, nBytes);
+    pNew = (HtmlToken *)HtmlClearAlloc("HtmlToken", nBytes);
     pNew->type = p->type;
     pNew->count = nArgs;
     pNew->x.zArgs = (char **)&pNew[1];
@@ -963,8 +967,8 @@ mergeAttributes(pNode, pToken)
         }
     }
 
-    HtmlFree(0, p);
-    HtmlFree(0, pToken);
+    HtmlFree(p);
+    HtmlFree(pToken);
     pNode->pToken = pNew;
 }
 
@@ -1085,15 +1089,15 @@ HtmlAddToken(pTree, pToken, iOffset)
          *      </head>
          *      <body>
          */
-        HtmlToken *pHtml = (HtmlToken *)HtmlClearAlloc(0, sizeof(HtmlToken));
-        HtmlToken *pHead = (HtmlToken *)HtmlClearAlloc(0, sizeof(HtmlToken));
-        HtmlToken *pBody = (HtmlToken *)HtmlClearAlloc(0, sizeof(HtmlToken));
+        HtmlToken *pHtml = HtmlNew(HtmlToken);
+        HtmlToken *pHead = HtmlNew(HtmlToken);
+        HtmlToken *pBody = HtmlNew(HtmlToken);
 
         pHtml->type = Html_HTML;
         pHead->type = Html_HEAD;
         pBody->type = Html_BODY;
 
-        pCurrent = (HtmlNode *)HtmlClearAlloc(0, sizeof(HtmlNode));
+        pCurrent = HtmlNew(HtmlNode);
         pCurrent->pToken = pHtml;
         pTree->pRoot = pCurrent;
         pTree->pCurrent = pCurrent;
@@ -1179,7 +1183,7 @@ HtmlAddToken(pTree, pToken, iOffset)
         case Html_EndHTML:
         case Html_EndBODY:
         case Html_EndHEAD:
-            HtmlFree(0, pToken);
+            HtmlFree(pToken);
             break;
 
         default: {
@@ -1221,7 +1225,7 @@ HtmlAddToken(pTree, pToken, iOffset)
                     pCurrent = HtmlNodeParent(pCurrent);
                 }
             } else {
-                HtmlFree(0, pToken);
+                HtmlFree(pToken);
             }
         }
     }
@@ -1993,7 +1997,6 @@ node_attr_usage:
             if (objc > 2) {
                 Tcl_Obj *aArgs[4];
                 HtmlNodeReplacement *pReplace = 0; /* New pNode->pReplacement */
-                int nBytes;                  /* bytes allocated at pReplace */
                 Tk_Window widget;            /* Replacement widget */
                 Tk_Window mainwin = Tk_MainWindow(pTree->interp);
 
@@ -2026,8 +2029,7 @@ node_attr_usage:
                         Tk_ManageGeometry(widget, &sManage, pNode);
                     }
 
-                    nBytes = sizeof(HtmlNodeReplacement);
-                    pReplace = (HtmlNodeReplacement *)HtmlClearAlloc(0, nBytes);
+                    pReplace = HtmlNew(HtmlNodeReplacement);
                     pReplace->pReplace = aArgs[0];
                     pReplace->pConfigure = aArgs[1];
                     pReplace->pDelete = aArgs[2];
@@ -2205,7 +2207,7 @@ HtmlNodeCommand(pTree, pNode)
         pCmd = Tcl_NewStringObj(zBuf, -1);
         Tcl_IncrRefCount(pCmd);
         Tcl_CreateObjCommand(pTree->interp, zBuf, nodeCommand, pNode, 0);
-        pNodeCmd = (HtmlNodeCmd *)HtmlAlloc(0, sizeof(HtmlNodeCmd));
+        pNodeCmd = HtmlNew(HtmlNodeCmd);
         pNodeCmd->pCommand = pCmd;
         pNodeCmd->pTree = pTree;
         pNode->pNodeCmd = pNodeCmd;
@@ -2375,10 +2377,10 @@ int HtmlTreeClear(pTree)
      * tree structure.  */
     pPrev = 0;
     for (pToken=pTree->pTextFirst; pToken; pToken = pToken->pNextToken) {
-        HtmlFree(0, (char *)pPrev);
+        HtmlFree(pPrev);
         pPrev = pToken;
     }
-    HtmlFree(0, (char *)pTree->pTextLast);
+    HtmlFree(pTree->pTextLast);
     pTree->pTextFirst = 0;
     pTree->pTextLast = 0;
 

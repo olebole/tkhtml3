@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.219 2006/10/26 12:53:30 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.220 2006/10/27 06:40:33 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -1890,7 +1890,7 @@ drawAbsolute(pLayout, pBox, pStaticCanvas, x, y)
             for (; pTmp->pNext != pList; pTmp = pTmp->pNext);
             pTmp->pNext = pList->pNext;
         }
-        HtmlFree(0, pList);
+        HtmlFree(pList);
     }
 }
 
@@ -3901,7 +3901,7 @@ HtmlLayoutInvalidateCache(pTree, pNode)
         HtmlDrawCleanup(pTree, &pNode->pLayoutCache->aCache[0].canvas);
         HtmlDrawCleanup(pTree, &pNode->pLayoutCache->aCache[1].canvas);
         HtmlDrawCleanup(pTree, &pNode->pLayoutCache->aCache[2].canvas);
-        HtmlFree("HtmlLayoutCache", pNode->pLayoutCache);
+        HtmlFree(pNode->pLayoutCache);
         pNode->pLayoutCache = 0;
     }
 }

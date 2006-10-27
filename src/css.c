@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.92 2006/08/28 08:42:34 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.93 2006/10/27 06:40:32 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -283,7 +283,7 @@ dequote(z)
  *     populated with the contents of the supplied token.
  *
  * Results:
- *     Null-terminated string. Caller is responsible for calling HtmlFree(0, )
+ *     Null-terminated string. Caller is responsible for calling HtmlFree()
  *     on it.
  *
  * Side effects:
@@ -296,7 +296,7 @@ static char *tokenToString(CssToken *pToken){
     if( !pToken || pToken->n<=0 ){
          return 0;
     }
-    zRet = (char *)HtmlAlloc(0, pToken->n+1);
+    zRet = (char *)HtmlAlloc("tokenToString()", pToken->n+1);
     memcpy(zRet, pToken->z, pToken->n);
     zRet[pToken->n] = '\0';
     return zRet;
@@ -402,7 +402,7 @@ doUrlCmd(pParse, zArg, nArg)
     int nArg;
 {
     const int eval_flags = TCL_EVAL_DIRECT|TCL_EVAL_GLOBAL;
-    char *zCopy = HtmlAlloc(0, nArg + 1);
+    char *zCopy = HtmlAlloc("temp", nArg + 1);
     Tcl_Obj *pCopy;
     Tcl_Obj *pScript = Tcl_DuplicateObj(pParse->pUrlCmd);
 
@@ -416,7 +416,7 @@ doUrlCmd(pParse, zArg, nArg)
     Tcl_EvalObjEx(pParse->interp, pScript, eval_flags);
     Tcl_DecrRefCount(pScript);
 
-    HtmlFree(0, zCopy);
+    HtmlFree(zCopy);
 
     return TCL_OK;
 }
@@ -483,7 +483,7 @@ tokenToProperty(pParse, pToken)
             CONST char *zTokenUnit = &z[reallen];
             if ((n-reallen)==lengths[i].len &&
                     0==strncmp(zTokenUnit, lengths[i].zUnit, lengths[i].len)) {
-                pProp = (CssProperty *)HtmlAlloc(0, sizeof(CssProperty));
+                pProp = HtmlNew(CssProperty);
                 pProp->eType = lengths[i].type;
                 pProp->v.rVal = realval;
                 break;
@@ -534,13 +534,13 @@ tokenToProperty(pParse, pToken)
 			 * string will be 7 characters long exactly.
                          */
                         int nAlloc = sizeof(CssProperty) + 7 + 1;
-                        pProp = (CssProperty *)HtmlAlloc(0, nAlloc);
+                        pProp = (CssProperty *)HtmlAlloc("CssProperty", nAlloc);
                         pProp->eType = CSS_TYPE_STRING;
                         pProp->v.zVal = (char *)&pProp[1];
                         rgbToColor(pProp->v.zVal, zArg, nArg);
                     } else {
                         int nAlloc = sizeof(CssProperty) + nArg + 1;
-                        pProp = (CssProperty *)HtmlAlloc(0, nAlloc);
+                        pProp = (CssProperty *)HtmlAlloc("CssProperty", nAlloc);
                         pProp->eType = functions[i].type;
                         pProp->v.zVal = (char *)&pProp[1];
                         strncpy(pProp->v.zVal, zArg, nArg);
@@ -564,7 +564,7 @@ tokenToProperty(pParse, pToken)
         (pProp && pProp->eType == CSS_TYPE_TCL) && 
         (!pParse->pPriority1 || pParse->pPriority1->iPriority != 1)
     ) {
-        HtmlFree(0, pProp);
+        HtmlFree(pProp);
         return 0;
     }
 
@@ -575,7 +575,8 @@ tokenToProperty(pParse, pToken)
      */
     if (!pProp) {
         int eType;
-        pProp = (CssProperty *)HtmlAlloc(0, sizeof(CssProperty)+(n+1));
+        int nAlloc = sizeof(CssProperty) + n + 1;
+        pProp = (CssProperty *)HtmlAlloc("CssProperty", nAlloc);
         pProp->v.zVal = (char *)&pProp[1];
         memcpy(pProp->v.zVal, z, n);
         pProp->v.zVal[n] = '\0';
@@ -622,7 +623,7 @@ textToProperty(pParse, z, n)
  *
  *     This is an externally available interface to convert the property
  *     value string pointed to by z, length n, to a property object. The
- *     caller should call HtmlFree(0, ) on the return value when it has finished
+ *     caller should call HtmlFree() on the return value when it has finished
  *     with it.
  *
  * Results:
@@ -690,11 +691,9 @@ HtmlCssPropertyGetString(pProp)
  *--------------------------------------------------------------------------
  */
 static CssPropertySet *
-propertySetNew(){
-    CssPropertySet *p = (CssPropertySet *)HtmlAlloc(0, sizeof(CssPropertySet));
-    if( p ){
-        memset(p, 0, sizeof(CssPropertySet));
-    }
+propertySetNew()
+{
+    CssPropertySet *p = HtmlNew(CssPropertySet);
     return p;
 }
 
@@ -760,14 +759,16 @@ propertySetAdd(p, i, v)
 
     for (j = 0; j < p->n; j++) {
         if (i == p->a[j].eProp) {
-            HtmlFree(0, (char *)p->a[j].pProp);
+            HtmlFree(p->a[j].pProp);
             p->a[j].pProp = v;
             return;
         }
     }
 
     nBytes = (p->n + 1) * sizeof(struct CssPropertySetItem);
-    p->a = (struct CssPropertySetItem *)HtmlRealloc(0, (char *)p->a, nBytes);
+    p->a = (struct CssPropertySetItem *)HtmlRealloc(
+        "CssPropertySet.a", (char *)p->a, nBytes
+    );
     p->a[p->n].pProp = v;
     p->a[p->n].eProp = i;
     p->n++;
@@ -792,10 +793,10 @@ propertySetFree(CssPropertySet *p){
     int i;
     if( !p ) return;
     for (i = 0; i < p->n; i++) {
-        HtmlFree(0, (char *)p->a[i].pProp);
+        HtmlFree(p->a[i].pProp);
     }
-    HtmlFree(0, (char *)p->a);
-    HtmlFree(0, (char *)p);
+    HtmlFree(p->a);
+    HtmlFree(p);
 }
 
 /*
@@ -814,7 +815,7 @@ propertySetFree(CssPropertySet *p){
 static CssProperty *propertyDup(pProp)
     CssProperty *pProp;
 {
-    CssProperty *pRet = (CssProperty *)HtmlAlloc(0, sizeof(CssProperty));
+    CssProperty *pRet = HtmlNew(CssProperty);
     memcpy(pRet, pProp, sizeof(CssProperty));
     return pRet;
 }
@@ -1242,7 +1243,7 @@ shortcutBackground(pParse, p, v)
 
 error_out:
     for (ii = 0; ii < nProp; ii++) {
-        HtmlFree(0, (char *)apProp[ii]);
+        HtmlFree(apProp[ii]);
     }
 }
 /*
@@ -1331,10 +1332,10 @@ shortcutListStyle(pParse, p, v)
     return;
 
 bad_parse:
-    if (pProp) HtmlFree(0, (char *)pProp);
-    if (pImage) HtmlFree(0, (char *)pImage);
-    if (pPosition) HtmlFree(0, (char *)pPosition);
-    if (pType) HtmlFree(0, (char *)pType);
+    if (pProp) HtmlFree(pProp);
+    if (pImage) HtmlFree(pImage);
+    if (pPosition) HtmlFree(pPosition);
+    if (pType) HtmlFree(pType);
 }
 
 /*
@@ -1392,7 +1393,7 @@ propertySetAddShortcutFont(p, v)
                     break;
 
                 case CSS_CONST_NORMAL:
-                    HtmlFree(0, (char *)pProp);
+                    HtmlFree(pProp);
                     break;
     
                 case CSS_CONST_ITALIC:
@@ -1420,7 +1421,7 @@ propertySetAddShortcutFont(p, v)
                         int j;
                         for (j = 0; j < n && z[j] != '/'; j++);
                         if (j == n) goto bad_parse;
-                        HtmlFree(0, (char *)pProp);
+                        HtmlFree(pProp);
                         n = j;
                         pProp = textToProperty(0, z, j);
                     } 
@@ -1463,13 +1464,13 @@ propertySetAddShortcutFont(p, v)
     return;
 
 bad_parse:
-    if (pProp) HtmlFree(0, (char *)pProp);
-    if (pStyle) HtmlFree(0, (char *)pStyle);
-    if (pVariant) HtmlFree(0, (char *)pVariant);
-    if (pWeight) HtmlFree(0, (char *)pWeight);
-    if (pSize) HtmlFree(0, (char *)pSize);
-    if (pFamily) HtmlFree(0, (char *)pFamily);
-    if (pLineHeight) HtmlFree(0, (char *)pLineHeight);
+    if (pProp) HtmlFree(pProp);
+    if (pStyle) HtmlFree(pStyle);
+    if (pVariant) HtmlFree(pVariant);
+    if (pWeight) HtmlFree(pWeight);
+    if (pSize) HtmlFree(pSize);
+    if (pFamily) HtmlFree(pFamily);
+    if (pLineHeight) HtmlFree(pLineHeight);
 }
 
 
@@ -1533,8 +1534,8 @@ propertySetAddShortcutBackgroundPosition(p, v)
             apProp[1]->eType == CSS_CONST_LEFT    || 
             apProp[1]->eType == CSS_CONST_RIGHT
         ) {
-            HtmlFree(0, apProp[0]);
-            HtmlFree(0, apProp[1]);
+            HtmlFree(apProp[0]);
+            HtmlFree(apProp[1]);
             return;
         }
 
@@ -1657,9 +1658,9 @@ static void selectorFree(pSelector)
 {
     if( !pSelector ) return;
     selectorFree(pSelector->pNext);
-    HtmlFree(0, pSelector->zValue);
-    HtmlFree(0, pSelector->zAttr);
-    HtmlFree(0, (char *)pSelector);
+    HtmlFree(pSelector->zValue);
+    HtmlFree(pSelector->zAttr);
+    HtmlFree(pSelector);
 }
 
 /*
@@ -1839,10 +1840,10 @@ bad_token:
 /* Versions of HtmlAlloc(0, ) and HtmlFree(0, ) that are always functions (not macros). 
 */
 static void * xCkalloc(size_t n){
-    return HtmlAlloc(0, n);
+    return HtmlAlloc("xCkalloc (css.c)", n);
 }
 static void xCkfree(void *p){
-    HtmlFree(0, p);
+    HtmlFree(p);
 }
 
 
@@ -1941,8 +1942,7 @@ newCssPriority(pStyle, origin, pIdTail, important)
 {
     CssPriority *pNew;      /* New list entry */
 
-    pNew = (CssPriority *)HtmlAlloc(0, sizeof(CssPriority));
-    memset(pNew, 0, sizeof(CssProperty));
+    pNew = HtmlNew(CssPriority);
     pNew->origin = origin;
     pNew->important = important;
     pNew->pIdTail = pIdTail;
@@ -2039,8 +2039,7 @@ cssParse(n, z, isStyle, origin, pStyleId, pImportCmd, interp, pUrlCmd, ppStyle)
      * to the existing object.
      */
     if (0==*ppStyle) {
-        sParse.pStyle = (CssStyleSheet *)HtmlAlloc(0, sizeof(CssStyleSheet));
-        memset(sParse.pStyle, 0, sizeof(CssStyleSheet));
+        sParse.pStyle = HtmlNew(CssStyleSheet);
         
         /* If pStyleId is not NULL, then initialise the hash-tables */
         Tcl_InitHashTable(&sParse.pStyle->aByTag, TCL_STRING_KEYS);
@@ -2276,7 +2275,7 @@ ruleFree(pRule)
         if (pRule->freePropertySets) {
             propertySetFree(pRule->pPropertySet);
         }
-        HtmlFree(0, (char *)pRule);
+        HtmlFree(pRule);
     }
 }
 
@@ -2346,11 +2345,11 @@ HtmlCssStyleSheetFree(pStyle)
         while (pPriority) {
             CssPriority *pNext = pPriority->pNext;
             Tcl_DecrRefCount(pPriority->pIdTail);
-            HtmlFree(0, (char *)pPriority);
+            HtmlFree(pPriority);
             pPriority = pNext;
         }
 
-        HtmlFree(0, (char *)pStyle);
+        HtmlFree(pStyle);
     }
 }
 
@@ -2488,8 +2487,7 @@ void HtmlCssSelector(pParse, stype, pAttr, pValue)
     );
 #endif
 
-    pSelector = (CssSelector *)HtmlAlloc(0, sizeof(CssSelector));
-    memset(pSelector, 0, sizeof(CssSelector));
+    pSelector = HtmlNew(CssSelector);
     pSelector->eSelector = stype;
     pSelector->zValue = tokenToString(pValue);
     pSelector->zAttr = tokenToString(pAttr);
@@ -2631,9 +2629,7 @@ cssSelectorPropertySetPair(pParse, pSelector, pPropertySet, freeWhat)
     int spec = 0;
     CssSelector *pS = 0;
     CssStyleSheet *pStyle = pParse->pStyle;
-    CssRule *pRule = (CssRule *)HtmlAlloc(0, sizeof(CssRule));
-
-    memset(pRule, 0, sizeof(CssRule));
+    CssRule *pRule = HtmlNew(CssRule);
 
     assert(pPropertySet && pPropertySet->n > 0);
 
@@ -2912,7 +2908,7 @@ void HtmlCssRule(pParse, success)
     pParse->nXtra = 0;
 
     if( apXtraSelector ){
-        HtmlFree(0, (char *)apXtraSelector);
+        HtmlFree(apXtraSelector);
     }
 }
 
@@ -3158,7 +3154,9 @@ static void propertiesAdd(ppProperties, pRule)
 
     assert( pRule );
 
-    pProperties = (CssProperties *)HtmlRealloc(0, (char *)pProperties, nAlloc);
+    pProperties = (CssProperties *)HtmlRealloc(
+        "CssProperties", (char *)pProperties, nAlloc
+    );
     pProperties->nRule = n;
     pProperties->apRule = (CssRule **)&pProperties[1];
     pProperties->apRule[n-1] = pRule;
@@ -3174,7 +3172,7 @@ void HtmlCssPropertiesFree(pPropertySet)
         for (i = 0; i < pPropertySet->nRule; i++) {
             ruleFree(pPropertySet->apRule[i]);
         }
-        HtmlFree(0, (char *)pPropertySet);
+        HtmlFree(pPropertySet);
     }
 }
 
@@ -3568,7 +3566,7 @@ generatedContent(pTree, pNode, pCssRule, ppNode)
         return;
     }
 
-    *ppNode = (HtmlNode *)HtmlClearAlloc(0, sizeof(HtmlNode));
+    *ppNode = HtmlNew(HtmlNode);
     (*ppNode)->pPropertyValues = pValues;
 
     if (zContent) {
@@ -3577,12 +3575,12 @@ generatedContent(pTree, pNode, pCssRule, ppNode)
          */
         int nBytes = sizeof(HtmlToken) + strlen(zContent) + 1;
         int idx;
-        HtmlToken *pToken = (HtmlToken *)HtmlClearAlloc(0, nBytes);
+        HtmlToken *pToken = (HtmlToken *)HtmlClearAlloc("HtmlToken", nBytes);
         pToken->type = Html_Text;
         pToken->count = strlen(zContent);
         pToken->x.zText = (char *)&pToken[1];
         strcpy(pToken->x.zText, zContent);
-        HtmlFree(0, zContent);
+        HtmlFree(zContent);
         idx = HtmlNodeAddChild(*ppNode, pToken);
         HtmlNodeChild(*ppNode, idx)->iNode = -1;
     }
@@ -3656,8 +3654,9 @@ void HtmlCssSelectorComma(pParse)
     /* Do nothing if the isIgnore flag is set */
     if (pParse->isIgnore) return;
 
-    pParse->apXtraSelector = 
-       (CssSelector **)HtmlRealloc(0, (char *)pParse->apXtraSelector, n);
+    pParse->apXtraSelector = (CssSelector **)HtmlRealloc(
+           "CssParse.apXtraSelector", (char *)pParse->apXtraSelector, n
+    );
     pParse->apXtraSelector[pParse->nXtra] = pParse->pSelector;
     pParse->pSelector = 0;
     pParse->nXtra++;
@@ -3711,7 +3710,7 @@ void HtmlCssImport(pParse, pToken)
         Tcl_ListObjAppendElement(interp, pEval, Tcl_NewStringObj(zUrl, -1));
         Tcl_EvalObjEx(interp, pEval, TCL_EVAL_GLOBAL|TCL_EVAL_DIRECT);
         Tcl_DecrRefCount(pEval);
-        HtmlFree(0, (char *)p);
+        HtmlFree(p);
     }
 }
 
@@ -3777,7 +3776,7 @@ HtmlCssSearch(clientData, interp, objc, objv)
     zOrig = Tcl_GetStringFromObj(objv[2], &n);
     assert(n == strlen(zOrig));
     n += 14;
-    z = (char *)HtmlAlloc(0, n);
+    z = (char *)HtmlAlloc("temp", n);
     sprintf(z, "%s {width:0}", zOrig);
 
     cssParse(n, z, 0, 0, 0, 0, 0, 0,&pStyle);
@@ -3801,7 +3800,7 @@ HtmlCssSearch(clientData, interp, objc, objv)
     }
 
     HtmlCssStyleSheetFree(pStyle);
-    HtmlFree(0, z);
+    HtmlFree(z);
     return rc;
 }
 
@@ -3909,7 +3908,7 @@ rulelistReport(pRule, pObj, pN)
                     "<li>", HtmlCssPropertyToString(eProp), ": ", 
                     HtmlPropertyToString(pProp, &zFree), 0
                 );
-                HtmlFree(0, zFree);
+                HtmlFree(zFree);
             }
         }
 
@@ -4127,7 +4126,7 @@ HtmlCssStyleConfigDump(clientData, interp, objc, objv)
                 Tcl_AppendToObj(p, ":", 1);
                 Tcl_AppendToObj(p, zPropVal, -1);
                 isRequireSemi = 1;
-                if (zFree) HtmlFree(0, zFree);
+                if (zFree) HtmlFree(zFree);
             }
         }
         Tcl_ListObjAppendElement(0, pList, p);

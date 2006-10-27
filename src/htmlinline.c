@@ -33,7 +33,7 @@
  * 
  *     HtmlInlineContextIsEmpty
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.31 2006/10/08 10:22:08 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.32 2006/10/27 06:40:33 danielk1977 Exp $";
 
 typedef struct InlineBox InlineBox;
 
@@ -207,7 +207,7 @@ HtmlInlineContextPopBorder(p, pBorder)
          */
         InlineBorder *pBorder = p->pBoxBorders;
         p->pBoxBorders = pBorder->pNext;
-        HtmlFree(0, (char *)pBorder);
+        HtmlFree(pBorder);
     } else {
         if (p->nInline > 0) {
             InlineBox *pBox = &p->aInline[p->nInline-1];
@@ -218,7 +218,7 @@ HtmlInlineContextPopBorder(p, pBorder)
             pBorder = p->pBorders;
             assert(pBorder);
             p->pBorders = pBorder->pNext;
-            HtmlFree(0, (char *)pBorder);
+            HtmlFree(pBorder);
         }
     }
 }
@@ -309,7 +309,7 @@ HtmlGetInlineBorder(pLayout, pNode, parentblock)
         pNode->pDynamic
     ) {
         border.color = pValues->cColor->xcolor;
-        pBorder = (InlineBorder *)HtmlAlloc(0, sizeof(InlineBorder));
+        pBorder = (InlineBorder*)HtmlAlloc("InlineBorder",sizeof(InlineBorder));
         memcpy(pBorder, &border, sizeof(InlineBorder));
         pBorder->parentblock = parentblock;
         pBorder->pNode = pNode;
@@ -353,7 +353,9 @@ inlineContextAddInlineCanvas(p, eReplaced, pNode)
          */
         char *a = (char *)p->aInline;
         int nAlloc = p->nInlineAlloc + 25;
-        p->aInline = (InlineBox *)HtmlRealloc(0, a, nAlloc*sizeof(InlineBox));
+        p->aInline = (InlineBox *)HtmlRealloc(
+            "InlineContext.aInline", a, nAlloc*sizeof(InlineBox)
+        );
         p->nInlineAlloc = nAlloc;
     }
 
@@ -814,7 +816,7 @@ HtmlInlineContextGetLineBox(pLayout, p, pWidth, flags, pCanvas, pVSpace,pAscent)
             int nBytes;
             nReplacedX++;
             nBytes = nReplacedX * 2 * sizeof(int);
-            aReplacedX = (int *)HtmlRealloc(0, (char *)aReplacedX, nBytes);
+            aReplacedX = (int *)HtmlRealloc("temp", (char *)aReplacedX, nBytes);
             aReplacedX[(nReplacedX-1)*2] = x1;
             aReplacedX[(nReplacedX-1)*2+1] = x1 + boxwidth;
         }
@@ -898,7 +900,7 @@ HtmlInlineContextGetLineBox(pLayout, p, pWidth, flags, pCanvas, pVSpace,pAscent)
                 p->iVAlign -= pBorder->iVerticalAlign;
                 p->pBorders = pBorder->pNext;
             }
-            HtmlFree(0, (char *)pBorder);
+            HtmlFree(pBorder);
         }
 
         x += pBox->nSpace;
@@ -941,7 +943,7 @@ HtmlInlineContextGetLineBox(pLayout, p, pWidth, flags, pCanvas, pVSpace,pAscent)
     bRet = 1;
 exit_getlinebox:
     if (aReplacedX) {
-        HtmlFree(0, (char *)aReplacedX);
+        HtmlFree(aReplacedX);
     }
     if (bRet) {
         p->iTextIndent = 0;
@@ -1009,24 +1011,24 @@ HtmlInlineContextCleanup(pContext)
     InlineBorder *pBorder;
 
     if (pContext->aInline) {
-        HtmlFree(0, (char *)pContext->aInline);
+        HtmlFree(pContext->aInline);
     }
     
     pBorder = pContext->pBoxBorders;
     while (pBorder) {
         InlineBorder *pTmp = pBorder->pNext;
-        HtmlFree(0, (char *)pBorder);
+        HtmlFree(pBorder);
         pBorder = pTmp;
     }
 
     pBorder = pContext->pBorders;
     while (pBorder) {
         InlineBorder *pTmp = pBorder->pNext;
-        HtmlFree(0, (char *)pBorder);
+        HtmlFree(pBorder);
         pBorder = pTmp;
     }
 
-    HtmlFree(0, (char *)pContext);
+    HtmlFree(pContext);
 }
 
 /*
@@ -1065,7 +1067,7 @@ HtmlInlineContextNew(pTree, pNode, isSizeOnly, iTextIndent)
     HtmlComputedValues *pValues = pNode->pPropertyValues;
     InlineContext *pContext;
 
-    pContext = (InlineContext *)HtmlClearAlloc(0, sizeof(InlineContext));
+    pContext = HtmlNew(InlineContext);
     pContext->pTree = pTree;
     pContext->pNode = pNode;
 

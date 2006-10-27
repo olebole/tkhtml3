@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.108 2006/10/24 08:10:14 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.109 2006/10/27 06:40:33 danielk1977 Exp $";
 
 
 #include "htmllayout.h"
@@ -1197,7 +1197,7 @@ tableIterate(pTree, pNode, xCallback, xRowCallback, pContext)
         xRowCallback(0, sRowContext.iRow, pContext);
         sRowContext.iRow++;
     }
-    HtmlFree(0, (char *)sRowContext.aRowSpan);
+    HtmlFree(sRowContext.aRowSpan);
     return TCL_OK;
 }
 
@@ -1721,13 +1721,13 @@ int HtmlTableLayout(pLayout, pBox, pNode)
     }
     pBox->width += (data.border_spacing * (nCol+1));
 
-    HtmlFree(0, (char *)aMinWidth);
-    HtmlFree(0, (char *)aMaxWidth);
-    HtmlFree(0, (char *)aWidth);
-    HtmlFree(0, (char *)aY);
-    HtmlFree(0, (char *)aCell);
-    HtmlFree(0, (char *)aReqWidth);
-    HtmlFree(0, (char *)aSingleReqWidth);
+    HtmlFree(aMinWidth);
+    HtmlFree(aMaxWidth);
+    HtmlFree(aWidth);
+    HtmlFree(aY);
+    HtmlFree(aCell);
+    HtmlFree(aReqWidth);
+    HtmlFree(aSingleReqWidth);
 
     HtmlComputedValuesRelease(pTree, data.pDefaultProperties);
 

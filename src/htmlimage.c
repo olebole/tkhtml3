@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlimage.c,v 1.58 2006/10/26 14:14:32 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlimage.c,v 1.59 2006/10/27 06:40:33 danielk1977 Exp $";
 
 #include <assert.h>
 #include "html.h"
@@ -145,8 +145,7 @@ HtmlImageServerInit(pTree)
 {
     HtmlImageServer *p;
     assert(!pTree->pImageServer);
-    p = (HtmlImageServer *)HtmlClearAlloc(0, sizeof(HtmlImageServer));
-    memset(p, 0, sizeof(HtmlImageServer));
+    p = HtmlNew(HtmlImageServer);
     Tcl_InitHashTable(&p->aImage, TCL_STRING_KEYS);
     p->pTree = pTree;
     pTree->pImageServer = p;
@@ -178,7 +177,7 @@ HtmlImageServerShutdown(pTree)
     Tcl_HashEntry *pEntry = Tcl_FirstHashEntry(&p->aImage, &search);
     assert(!pEntry);
 #endif
-    HtmlFree(0, p);
+    HtmlFree(p);
     pTree->pImageServer = 0;
 }
 
@@ -389,7 +388,7 @@ HtmlImageServerGet(p, zUrl)
                 goto image_get_out;
             }
 
-            pImage = (HtmlImage2 *)HtmlClearAlloc(0, sizeof(HtmlImage2));
+            pImage = HtmlNew(HtmlImage2);
             if (nObj == 1 || nObj == 2) {
                 img = Tk_GetImage(
                     interp, p->pTree->tkwin, Tcl_GetString(apObj[0]),
@@ -399,7 +398,7 @@ HtmlImageServerGet(p, zUrl)
             if ((nObj != 1 && nObj != 2) || !img) {
                 Tcl_ResetResult(interp);
                 Tcl_AppendResult(interp,  "-imagecmd returned bad value", 0);
-                HtmlFree(0, pImage);
+                HtmlFree(pImage);
                 pImage = 0;
                 goto image_get_out;
             }
@@ -552,7 +551,7 @@ HtmlImageScale(pImage, pWidth, pHeight, doScale)
         }
     }
     if (!pRet) {
-        pRet = (HtmlImage2 *)HtmlClearAlloc(0, sizeof(HtmlImage2));
+        pRet = HtmlNew(HtmlImage2);
         pRet->pImageServer = pUnscaled->pImageServer;
         pRet->zUrl = pUnscaled->zUrl;
         pRet->pNext = pUnscaled->pNext;
@@ -629,7 +628,7 @@ HtmlImageImage(pImage)
             h = pUnscaled->height;
             s_photo = Tk_FindPhoto(interp, Tcl_GetString(pImage->pImageName));
 
-            s_block.pixelPtr = (unsigned char *)HtmlAlloc(0, sw * sh * 4);
+            s_block.pixelPtr = (unsigned char *)HtmlAlloc("temp", sw * sh * 4);
             s_block.width = sw;
             s_block.height = sh;
             s_block.pitch = sw * 4;
@@ -658,7 +657,7 @@ HtmlImageImage(pImage)
                 }
             }
             photoputblock(interp, s_photo, &s_block, 0, 0, sw, sh, 0);
-            HtmlFree(0, (char *)s_block.pixelPtr);
+            HtmlFree(s_block.pixelPtr);
         } else {
             return HtmlImageImage(pImage->pUnscaled);
         }
@@ -727,7 +726,7 @@ HtmlImageFree(pImage)
         }
 
         freeTile(pImage);
-        HtmlFree(0, pImage);
+        HtmlFree(pImage);
     }
 }
 
@@ -894,7 +893,7 @@ HtmlImageTile(pImage)
 
     /* Allocate a block to write the tile data into. */
     tileblock.pixelPtr = (unsigned char *)HtmlAlloc(
-        0, iTileWidth * iTileHeight * 4
+        "temp", iTileWidth * iTileHeight * 4
     );
     tileblock.width = iTileWidth;
     tileblock.height = iTileHeight;
@@ -922,7 +921,7 @@ HtmlImageTile(pImage)
     }
 
     photoputblock(interp,tilephoto,&tileblock,0,0,iTileWidth,iTileHeight,0);
-    HtmlFree(0, (char *)tileblock.pixelPtr);
+    HtmlFree(tileblock.pixelPtr);
 
     return pImage->tile;
 }
@@ -1028,7 +1027,7 @@ Tcl_Obj *HtmlXImageToImage(pTree, pXImage, w, h)
     pImage = Tcl_GetObjResult(interp);
     Tcl_IncrRefCount(pImage);
 
-    block.pixelPtr = (unsigned char *)HtmlAlloc(0, w * h * 4);
+    block.pixelPtr = (unsigned char *)HtmlAlloc("temp", w * h * 4);
     block.width = w;
     block.height = h;
     block.pitch = w*4;
@@ -1062,7 +1061,7 @@ Tcl_Obj *HtmlXImageToImage(pTree, pXImage, w, h)
 
     photo = Tk_FindPhoto(interp, Tcl_GetString(pImage));
     photoputblock(interp, photo, &block, 0, 0, w, h, 0);
-    HtmlFree(0, (char *)block.pixelPtr);
+    HtmlFree(block.pixelPtr);
 
     return pImage;
 }

@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlstyle.c,v 1.46 2006/09/07 08:30:49 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlstyle.c,v 1.47 2006/10/27 06:40:33 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -81,7 +81,7 @@ HtmlDelScrollbars(pTree, pNode)
             Tk_DestroyWindow(p->horizontal.win);
             Tcl_DecrRefCount(p->horizontal.pReplace);
         }
-        HtmlDelete(HtmlNodeScrollbars, p);
+        HtmlFree(p);
         pNode->pScrollbar = 0;
     }
 }
@@ -104,7 +104,7 @@ HtmlDelStackingInfo(pTree, pNode)
         }
         assert(!pTree->pStack || !pTree->pStack->pPrev);
 
-        HtmlFree("HtmlNodeStack", pStack);
+        HtmlFree(pStack);
         pTree->nStack--;
     }
     pNode->pStack = 0;
@@ -416,7 +416,7 @@ printf("Stack %d: %s %s\n", iTmp,
     checkStackSort(pTree, apTmp, pTree->nStack * 3);
 
     pTree->cb.flags &= (~HTML_STACK);
-    HtmlFree(0, apTmp);
+    HtmlFree(apTmp);
 }
 
 /*

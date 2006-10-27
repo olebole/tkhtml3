@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.82 2006/10/24 14:38:32 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.83 2006/10/27 06:40:33 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -67,7 +67,7 @@ AppendTextToken(pTree, pToken, iOffset)
         assert(!pTree->pTextFirst);
         pTree->isIgnoreNewline = 0;
         if (pToken->type == Html_Space && pToken->x.newline) {
-            HtmlFree(0, pToken);
+            HtmlFree(pToken);
             return;
         }
     }
@@ -130,7 +130,7 @@ AppendToken(pTree, pToken, iOffset)
                 while (p->pNextToken != pTextLast) p = p->pNextToken;
                 p->pNextToken = 0;
             }
-            HtmlFree(0, pTextLast);
+            HtmlFree(pTextLast);
         }
 
         pTree->pTextLast = 0;
@@ -896,7 +896,7 @@ Tokenize(pTree, isFinal)
 
             if (z[i] == 0) {
                 n = nStartScript;
-                HtmlFree(0, pScriptToken);
+                HtmlFree(pScriptToken);
                 goto incomplete;
             }
 
@@ -946,7 +946,7 @@ Tokenize(pTree, isFinal)
             Tcl_ResetResult(pTree->interp);
 
             pScript = 0;
-            HtmlFree(0, (char *)pScriptToken);
+            HtmlFree(pScriptToken);
             pScriptToken = 0;
         }
 
@@ -972,7 +972,7 @@ Tokenize(pTree, isFinal)
                     if (ISSPACE(c)) {
                         HtmlToken *pSpace;
                         int nBytes = sizeof(HtmlToken);
-                        pSpace = (HtmlToken *)HtmlClearAlloc(0, nBytes);
+                        pSpace = (HtmlToken *)HtmlAlloc("HtmlToken", nBytes);
                         pSpace->type = Html_Space;
                         if (c == '\n' || c == '\r') {
                             pSpace->x.newline = 1;
@@ -997,7 +997,7 @@ Tokenize(pTree, isFinal)
                         }
                         nBytes = 1 + j + sizeof(HtmlToken);
 
-                        pText = (HtmlToken *)HtmlAlloc(0, nBytes);
+                        pText = (HtmlToken *)HtmlAlloc("HtmlToken", nBytes);
                         pText->type = Html_Text;
                         pText->x.zText = (char *)&pText[1];
                         memcpy(pText->x.zText, &z2[iStart], j - iStart);
@@ -1007,7 +1007,7 @@ Tokenize(pTree, isFinal)
                         iCol += j - iStart;
                     }
                 }
-                HtmlFree("temp", z2);
+                HtmlFree(z2);
                 n += i;
             } else {
                 goto incomplete;
@@ -1224,7 +1224,7 @@ Tokenize(pTree, isFinal)
                     nByte += arglen[j] + 1;
                 }
             }
-            pMarkup = (HtmlToken *)HtmlAlloc(0, nByte);
+            pMarkup = (HtmlToken *)HtmlAlloc("HtmlToken", nByte);
             pMarkup->type = pMap->type;
             pMarkup->count = argc - 1;
             pMarkup->x.zArgs = 0;

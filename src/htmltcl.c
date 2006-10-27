@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.127 2006/10/26 14:14:32 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.128 2006/10/27 06:40:33 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -168,7 +168,7 @@ logCommon(
         }
 
         Tcl_DecrRefCount(pCmd);
-        HtmlFree(0, zDyn);
+        HtmlFree(zDyn);
     }
 }
 
@@ -421,7 +421,7 @@ callbackHandler(clientData)
         pTree->cb.flags &= ~HTML_DAMAGE;
         while (pD) {
             HtmlDamage *pNext = pD->pNext;
-            HtmlDelete(HtmlDamage, pD);
+            HtmlFree(pD);
             pD = pNext;
         }
         pTree->cb.pDamage = 0;
@@ -440,7 +440,7 @@ callbackHandler(clientData)
             HtmlWidgetRepair(pTree, pD->x, pD->y, pD->w, pD->h, 
                 pD->pixmapok, (pTree->cb.flags & HTML_NODESCROLL)?1:0
             );
-            HtmlFree("HtmlDamage", pD);
+            HtmlFree(pD);
             pD = pNext;
         }
     }
@@ -855,7 +855,7 @@ deleteWidget(clientData)
     Tcl_CancelIdleCall(callbackHandler, (ClientData)pTree);
 
     /* Delete the structure itself */
-    HtmlFree(0, (char *)pTree);
+    HtmlFree(pTree);
 }
 
 /*
@@ -2125,7 +2125,7 @@ newWidget(clientData, interp, objc, objv)
     }
     
     zCmd = Tcl_GetString(objv[1]);
-    pTree = (HtmlTree *)HtmlClearAlloc(0, sizeof(HtmlTree));
+    pTree = HtmlNew(HtmlTree);
     pTree->eVisibility = VisibilityPartiallyObscured;
 
     /* Create the Tk window.
@@ -2178,7 +2178,7 @@ error_out:
         Tk_DestroyWindow(pTree->tkwin);
     }
     if (pTree) {
-        HtmlFree(0, (char *)pTree);
+        HtmlFree(pTree);
     }
     return TCL_ERROR;
 }

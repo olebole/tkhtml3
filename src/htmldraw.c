@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.168 2006/10/26 12:53:30 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.169 2006/10/27 06:40:32 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -481,9 +481,9 @@ sorterReset(pSorter)
 {
     int ii;
     for (ii = 0; ii < pSorter->nLevel; ii++) {
-        HtmlFree(0, pSorter->aLevel[ii].aSlot);
+        HtmlFree(pSorter->aLevel[ii].aSlot);
     }
-    HtmlFree(0, pSorter->aLevel);
+    HtmlFree(pSorter->aLevel);
 }
 
 
@@ -491,15 +491,13 @@ sorterReset(pSorter)
 static HtmlCanvasItem *
 allocateCanvasItem()
 {
-    return (HtmlCanvasItem *)HtmlClearAlloc(
-        "Screen-graph item", sizeof(HtmlCanvasItem)
-    );
+    return HtmlNew(HtmlCanvasItem);
 }
 static void
 freeCanvasItem(p)
     HtmlCanvasItem *p;
 {
-    HtmlFree("Screen-graph item", p);
+    HtmlFree(p);
 }
 
 static void 
@@ -826,7 +824,7 @@ CHECK_CANVAS(pCanvas);
     if (!pLast) return;
     assert(pCanvas->pFirst);
 
-    pItem = (HtmlCanvasItem *)HtmlClearAlloc("Screen-graph item",
+    pItem = (HtmlCanvasItem *)HtmlClearAlloc("HtmlCanvasItem",
         sizeof(HtmlCanvasItem) + sizeof(Overflow)
     );
     pItem->type = CANVAS_OVERFLOW;
@@ -1953,7 +1951,7 @@ drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview)
 
     /* Outline, if required */
     if (ow > 0 && oc) {
-        Outline *pOutline = (Outline *)HtmlClearAlloc(0, sizeof(Outline));
+        Outline *pOutline = HtmlNew(Outline);
         pOutline->x = x + pBox->x;
         pOutline->y = y + pBox->y;
         pOutline->w = pBox->w;
@@ -2307,7 +2305,7 @@ printf("Search(%d, %d) -> %d tests %d callbacks\n",ymin,ymax,nTest,nCallback);
 #endif
  
 search_out:
-    HtmlFree(0, apOverflow);
+    HtmlFree(apOverflow);
     return rc;
 }
 
@@ -2758,7 +2756,7 @@ getPixmap(pTree, xcanvas, ycanvas, w, h, getwin)
         fill_quad(pTree->tkwin, pmap, oc, x1,y1, 0,h1, ow,0, 0,-h1);
         fill_quad(pTree->tkwin, pmap, oc, x1+w1,y1, 0,h1, -ow,0, 0,-h1);
         pOutline = pOutline->pNext;
-        HtmlFree(0, pPrev);
+        HtmlFree(pPrev);
     }
   
     return pmap;
@@ -3196,7 +3194,7 @@ layoutNodeCmd(pTree, x, y)
         }
         Tcl_SetObjResult(pTree->interp, pRet);
     }
-    HtmlFree(0, sQuery.apNode);
+    HtmlFree(sQuery.apNode);
 }
   
 

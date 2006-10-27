@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmldecode.c,v 1.1 2006/07/01 07:33:22 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmldecode.c,v 1.2 2006/10/27 06:40:32 danielk1977 Exp $";
 
 
 #include "html.h"
@@ -152,7 +152,7 @@ HtmlDecode(clientData, interp, objc, objv)
     is64 = (objc == 3);
 
     zData = (unsigned char *)Tcl_GetStringFromObj(pData, &nData);
-    zOut = (unsigned char *)HtmlAlloc(0, nData);
+    zOut = (unsigned char *)HtmlAlloc("temp", nData);
     jj = 0;
 
     if (is64) {
@@ -184,7 +184,7 @@ HtmlDecode(clientData, interp, objc, objv)
     }
 
     Tcl_SetObjResult(interp, Tcl_NewByteArrayObj(zOut, jj));
-    HtmlFree(0, zOut);
+    HtmlFree(zOut);
     return TCL_OK;
 }
 

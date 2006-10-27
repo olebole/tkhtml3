@@ -43,7 +43,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  * COPYRIGHT:
  */
-static const char rcsid[] = "$Id: htmlhash.c,v 1.21 2006/10/26 12:53:30 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlhash.c,v 1.22 2006/10/27 06:40:33 danielk1977 Exp $";
 
 #include <tcl.h>
 /* #include <strings.h> */
@@ -141,7 +141,7 @@ allocCaseInsensitiveEntry(tablePtr, keyPtr)
     if (size < sizeof(Tcl_HashEntry)) {
         size = sizeof(Tcl_HashEntry);
     }
-    hPtr = (Tcl_HashEntry *) HtmlAlloc(0, size);
+    hPtr = (Tcl_HashEntry *) HtmlAlloc("allocCaseInsensitiveEntry()", size);
     strcpy(hPtr->key.string, string);
 
     return hPtr;
@@ -151,7 +151,7 @@ static void
 freeCaseInsensitiveEntry(hPtr)
     Tcl_HashEntry *hPtr;
 {
-    HtmlFree(0, (char *)hPtr);
+    HtmlFree(hPtr);
 }
 
 /*
@@ -293,7 +293,7 @@ allocFontEntry(tablePtr, keyPtr)
     );
     assert(size >= sizeof(Tcl_HashEntry));
 
-    hPtr = (Tcl_HashEntry *) HtmlAlloc(0, size);
+    hPtr = (Tcl_HashEntry *) HtmlAlloc("allocFontEntry()", size);
     pStoredKey = (HtmlFontKey *)(hPtr->key.string);
     pStoredKey->iFontSize = pKey->iFontSize;
     pStoredKey->isItalic = pKey->isItalic;
@@ -371,7 +371,6 @@ hashValuesKey(tablePtr, keyPtr)
     /* Do not include the first two fields - nRef and imZoomedBackgroundImage */
     unsigned char *pInt = (unsigned char *)(&p->mask);
 
-
     /* Hash the remaining bytes of the structure */
     while (pInt < (unsigned char *)&p[1]) {
       result += (result << 3) + *pInt;
@@ -405,11 +404,14 @@ compareValuesKey(keyPtr, hPtr)
     unsigned char *p1 = (unsigned char *) keyPtr;
     unsigned char *p2 = (unsigned char *) hPtr->key.string;
 
-    static const int nBytes = sizeof(HtmlComputedValues)-sizeof(int);
+    static const int N = Tk_Offset(HtmlComputedValues, mask); 
+    static const int nBytes = 
+        sizeof(HtmlComputedValues) - Tk_Offset(HtmlComputedValues, mask);
+
 
     /* Do not compare the first field - nRef */
-    p1 += sizeof(int);
-    p2 += sizeof(int);
+    p1 += N;
+    p2 += N;
 
     return (0 == memcmp(p1, p2, nBytes));
 }
@@ -418,7 +420,7 @@ static void
 freeValuesEntry(hPtr)
     Tcl_HashEntry *hPtr;
 {
-    HtmlFree("Computed-values", (char *)hPtr);
+    HtmlFree(hPtr);
 }
 
 /*
@@ -454,7 +456,7 @@ allocValuesEntry(tablePtr, keyPtr)
     );
     assert(size >= sizeof(Tcl_HashEntry));
 
-    hPtr = (Tcl_HashEntry *) HtmlAlloc("Computed-values", size);
+    hPtr = (Tcl_HashEntry *) HtmlAlloc("allocValuesEntry()", size);
     pStoredKey = (HtmlComputedValues *)(hPtr->key.string);
     memcpy(pStoredKey, pKey, sizeof(HtmlComputedValues));
 

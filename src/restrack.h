@@ -7,7 +7,7 @@
 
 char * Rt_Alloc(const char * ,int);
 char * Rt_Realloc(const char *, char *, int);
-void Rt_Free(const char *, char *);
+void Rt_Free(char *);
 
 Tcl_ObjCmdProc Rt_AllocCommand;
 Tcl_ObjCmdProc HtmlHeapDebug;

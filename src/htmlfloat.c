@@ -37,7 +37,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  * COPYRIGHT:
  */
-static const char rcsid[] = "$Id: htmlfloat.c,v 1.19 2006/05/08 15:28:50 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlfloat.c,v 1.20 2006/10/27 06:40:33 danielk1977 Exp $";
 
 #include <assert.h>
 #include "html.h"
@@ -152,8 +152,7 @@ floatListPrint(pList)
  */
 HtmlFloatList *HtmlFloatListNew()
 {
-    HtmlFloatList *pList = (HtmlFloatList *)HtmlAlloc(0, sizeof(HtmlFloatList));
-    memset(pList, 0, sizeof(HtmlFloatList));
+    HtmlFloatList *pList = HtmlNew(HtmlFloatList);
 #ifdef DEBUG_FLOAT_LIST
     printf("HtmlFloatListNew()  -> %p\n", pList);
 #endif
@@ -184,11 +183,11 @@ HtmlFloatListDelete(pList)
         FloatListEntry *pEntry;
         FloatListEntry *pEntry2 = 0;
         for (pEntry = pList->pEntry; pEntry; pEntry = pEntry->pNext) {
-            if (pEntry2) HtmlFree(0, (char *)pEntry2);
+            if (pEntry2) HtmlFree(pEntry2);
             pEntry2 = pEntry;
         }
-        if (pEntry2) HtmlFree(0, (char *)pEntry2);
-        HtmlFree(0, (char *)pList);
+        if (pEntry2) HtmlFree(pEntry2);
+        HtmlFree(pList);
     }
 }
 
@@ -227,8 +226,7 @@ void insertListEntry(pList, y)
 
     /* See if a new entry is required the start of the list. */
     if (pList->pEntry && pList->pEntry->y > y) {
-        pNew = (FloatListEntry *)HtmlAlloc(0, sizeof(FloatListEntry));
-        memset(pNew, 0, sizeof(FloatListEntry));
+        pNew = HtmlNew(FloatListEntry);
         pNew->pNext = pList->pEntry;
         goto insert_out;
     }
@@ -245,8 +243,7 @@ void insertListEntry(pList, y)
              * split it into two parts. The margins are the same in each
              * part.
              */
-            pNew = (FloatListEntry *)HtmlAlloc(0, sizeof(FloatListEntry));
-            memcpy(pNew, pEntry, sizeof(FloatListEntry));
+            pNew = HtmlNew(FloatListEntry);
             pEntry->pNext = pNew;
             pNew->y = y;
             pNew->isTop = 0;
@@ -262,8 +259,7 @@ void insertListEntry(pList, y)
     assert(!pEntry || !pEntry->pNext);
 
     if (pEntry || pList->endValid) {
-        pNew = (FloatListEntry *)HtmlAlloc(0, sizeof(FloatListEntry));
-        memset(pNew, 0, sizeof(FloatListEntry));
+        pNew = HtmlNew(FloatListEntry);
         pNew->y = pList->yend;
         if (pEntry) {
             pEntry->pNext = pNew;

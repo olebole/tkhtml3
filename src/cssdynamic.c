@@ -2,7 +2,7 @@
 #include "html.h"
 #include "cssInt.h"
 
-static const char rcsid[] = "$Id: cssdynamic.c,v 1.8 2006/07/16 10:53:14 danielk1977 Exp $";
+static const char rcsid[] = "$Id: cssdynamic.c,v 1.9 2006/10/27 06:40:32 danielk1977 Exp $";
 
 /*
  * How dynamic CSS selectors are implemented:
@@ -34,7 +34,7 @@ HtmlCssAddDynamic(pNode, pSelector, isSet)
     }
     pNew = 0;
 
-    pNew = (CssDynamic *)HtmlClearAlloc(0, sizeof(CssDynamic));
+    pNew = HtmlNew(CssDynamic);
     pNew->isSet = (isSet ? 1 : 0);
     pNew->pSelector = pSelector;
     pNew->pNext = pNode->pDynamic;
@@ -49,7 +49,7 @@ HtmlCssFreeDynamics(pNode)
     while (p) {
         CssDynamic *pTmp = p;
         p = p->pNext;
-        HtmlFree(0, pTmp);
+        HtmlFree(pTmp);
     }
     pNode->pDynamic = 0;
 }

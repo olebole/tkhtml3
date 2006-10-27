@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.94 2006/10/26 12:53:30 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.95 2006/10/27 06:40:33 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -358,7 +358,8 @@ HtmlPropertyToString(pProp, pzFree)
 
     if (!zRet) {
         if (pProp->eType == CSS_TYPE_TCL || pProp->eType == CSS_TYPE_URL) {
-            zRet = HtmlAlloc(0, strlen(pProp->v.zVal) + 6);
+            int nBytes = strlen(pProp->v.zVal) + 6;
+            zRet = HtmlAlloc("HtmlPropertyToString()", nBytes);
             sprintf(zRet, "%s(%s)", 
                     (pProp->eType==CSS_TYPE_TCL)?"tcl":"url", pProp->v.zVal
             );
@@ -379,7 +380,7 @@ HtmlPropertyToString(pProp, pzFree)
                     assert(!"Unknown CssProperty.eType value");
             }
 
-            zRet = HtmlAlloc(0, 128);
+            zRet = HtmlAlloc("HtmlPropertyToString()", 128);
             sprintf(zRet, "%.2f%s", pProp->v.rVal, zSym);
         }
         *pzFree = zRet;
@@ -504,7 +505,9 @@ propertyValuesSetContent(p, pProp)
 {
     if (pProp->eType == CSS_TYPE_STRING && p->pzContent) {
         int nBytes = strlen(pProp->v.zVal) + 1;
-        *(p->pzContent) = HtmlAlloc(0, nBytes);
+        *(p->pzContent) = HtmlAlloc(
+            "*HtmlComputedValuesCreator.pzContent", nBytes
+        );
         strcpy(*(p->pzContent), pProp->v.zVal);
         return 0;
     }
@@ -944,7 +947,9 @@ propertyValuesSetColor(p, pCVar, pProp)
         }
 
         if (color) {
-            cVal = (HtmlColor *)HtmlAlloc(0, sizeof(HtmlColor)+strlen(zColor)+1);
+            cVal = (HtmlColor *)HtmlAlloc(
+                "HtmlColor", sizeof(HtmlColor)+strlen(zColor)+1
+            );
             cVal->nRef = 0;
             cVal->xcolor = color;
             cVal->zColor = (char *)(&cVal[1]);
@@ -1589,7 +1594,7 @@ propertyValuesTclScript(p, eProp, zScript)
                 HtmlCssPropertyToString(eProp)
             );
         }
-        HtmlFree(0, (char *)pVal);
+        HtmlFree(pVal);
         return 1;
     }
 
@@ -1658,7 +1663,7 @@ HtmlComputedValuesSet(p, eProp, pProp)
                 Tcl_GetString(HtmlNodeCommand(p->pTree, p->pNode)),
                 HtmlCssPropertyToString(eProp), zPropVal
         );
-        if (zFree) HtmlFree(0, zFree);
+        if (zFree) HtmlFree(zFree);
     }
 
     /* Silently ignore any attempt to set a root-node property to 'inherit'.
@@ -1832,7 +1837,9 @@ allocateNewFont(pTree, tkwin, pFontKey)
 
     } while (0 == tkfont);
 
-    pFont = (HtmlFont *)HtmlAlloc(0, sizeof(HtmlFont) + strlen(zTkFontName)+1);
+    pFont = (HtmlFont *)HtmlAlloc(
+        "HtmlFont", sizeof(HtmlFont) + strlen(zTkFontName)+1
+    );
     pFont->nRef = 0;
     pFont->tkfont = tkfont;
     pFont->zFont = (char *)&pFont[1];
@@ -2174,7 +2181,7 @@ HtmlComputedValuesFinish(p)
         CssProperty *p1 = p->pDeleteList;
         while (p1) {
             CssProperty *p2 = (CssProperty *)p1->v.p;
-            HtmlFree(0, (char *)p1);
+            HtmlFree(p1);
             p1 = p2;
         }
         p->pDeleteList = 0;
@@ -2196,7 +2203,7 @@ decrementFontRef(pTree, pFont)
         Tcl_HashEntry *pEntry = Tcl_FindHashEntry(&pTree->aFont, pKey);
         Tcl_DeleteHashEntry(pEntry);
         Tk_FreeFont(pFont->tkfont);
-        HtmlFree(0, (char *)pFont);
+        HtmlFree(pFont);
     }
 }
 
@@ -2214,7 +2221,7 @@ decrementColorRef(pTree, pColor)
         if (pColor->xcolor) {
             Tk_FreeColor(pColor->xcolor);
         }
-        HtmlFree(0, (char *)pColor);
+        HtmlFree(pColor);
     }
 }
 
@@ -2332,7 +2339,7 @@ HtmlComputedValuesSetupTables(pTree)
 
     /* Initialise the color table */
     for (ii = 0; ii < sizeof(color_map)/sizeof(struct CssColor); ii++) {
-        pColor = (HtmlColor *)HtmlAlloc(0, sizeof(HtmlColor));
+        pColor = (HtmlColor *)HtmlAlloc("HtmlColor", sizeof(HtmlColor));
         pColor->zColor = color_map[ii].css;
         pColor->nRef = 1;
         pColor->xcolor = Tk_GetColor(interp, pTree->tkwin, color_map[ii].tk);
@@ -2345,7 +2352,7 @@ HtmlComputedValuesSetupTables(pTree)
     /* Add the "transparent" color */
     pEntry = Tcl_CreateHashEntry(&pTree->aColor, "transparent", &n);
     assert(pEntry && n);
-    pColor = (HtmlColor *)HtmlAlloc(0, sizeof(HtmlColor));
+    pColor = (HtmlColor *)HtmlAlloc("HtmlColor", sizeof(HtmlColor));
     pColor->zColor = "transparent";
     pColor->nRef = 1;
     pColor->xcolor = 0;
