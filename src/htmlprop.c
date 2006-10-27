@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.95 2006/10/27 06:40:33 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.96 2006/10/27 15:19:18 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -2139,6 +2139,7 @@ HtmlComputedValuesFinish(p)
     /* Look the values structure up in the hash-table. */
     pEntry = Tcl_CreateHashEntry(&p->pTree->aValues, (char *)&p->values, &ne);
     pValues = (HtmlComputedValues *)Tcl_GetHashKey(&p->pTree->aValues, pEntry);
+    assert(!ne || !pValues->imZoomedBackgroundImage);
     if (!ne) {
 	/* If this is not a new entry, we need to decrement the reference count
          * on the font, image and color values.
@@ -2154,7 +2155,6 @@ HtmlComputedValuesFinish(p)
         HtmlImageFree(pValues->imReplacementImage);
         HtmlImageFree(pValues->imBackgroundImage);
         HtmlImageFree(pValues->imListStyleImage);
-        assert(!pValues->imZoomedBackgroundImage);
     } else if (
         pValues->eBackgroundAttachment == CSS_CONST_FIXED ||
         pValues->ePosition == CSS_CONST_FIXED

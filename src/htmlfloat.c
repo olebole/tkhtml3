@@ -37,7 +37,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  * COPYRIGHT:
  */
-static const char rcsid[] = "$Id: htmlfloat.c,v 1.20 2006/10/27 06:40:33 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlfloat.c,v 1.21 2006/10/27 15:19:18 danielk1977 Exp $";
 
 #include <assert.h>
 #include "html.h"
@@ -224,7 +224,7 @@ void insertListEntry(pList, y)
     printf("insertListEntry(%p, y=%d)\n", pList, y);
 #endif
 
-    /* See if a new entry is required the start of the list. */
+    /* See if a new entry is required at the start of the list. */
     if (pList->pEntry && pList->pEntry->y > y) {
         pNew = HtmlNew(FloatListEntry);
         pNew->pNext = pList->pEntry;
@@ -243,7 +243,9 @@ void insertListEntry(pList, y)
              * split it into two parts. The margins are the same in each
              * part.
              */
-            pNew = HtmlNew(FloatListEntry);
+            int nBytes = sizeof(FloatListEntry);
+            pNew = (FloatListEntry *)HtmlAlloc("FloatListEntry", nBytes);
+            memcpy(pNew, pEntry, nBytes);
             pEntry->pNext = pNew;
             pNew->y = y;
             pNew->isTop = 0;
@@ -346,7 +348,6 @@ HtmlFloatListAdd(pList, side, x, y1, y2)
      * y-coordinates y1 and y2. Or, if y2 is greater than all existing
      * entries, that y1 exists and pList->yend is set to y2.
      */
- 
     insertListEntry(pList, y1);
     insertListEntry(pList, y2);
 
