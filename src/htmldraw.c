@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.169 2006/10/27 06:40:32 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.170 2006/10/28 10:03:38 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -152,6 +152,52 @@ typedef struct CanvasItemSorterLevel CanvasItemSorterLevel;
 typedef struct CanvasItemSorterSlot CanvasItemSorterSlot;
 typedef struct Overflow Overflow;
 
+/* Temporary. */
+typedef struct CanvasString CanvasString;
+struct CanvasString {
+  int nText;
+  const char *zText;
+};
+
+static void
+CanvasStringAppend(ppString, nText, zText)
+    CanvasString **ppString;
+    int nText;
+    char const *zText;
+{
+    CanvasString *p = *ppString;
+    CanvasString *pRet;
+    char *zCsr;
+    int nTotal = nText;
+    if (p) {
+        nTotal += p->nText;
+    }
+
+    pRet = (CanvasString *)HtmlAlloc("CanvasString", nTotal + sizeof(CanvasString));
+    pRet->nText = nTotal;
+    pRet->zText = &pRet[1];
+
+    zCsr = pRet->zText;
+    if (p) {
+        memcpy(zCsr, p->zText, p->nText);
+        zCsr += p->nText;
+    }
+    memcpy(zCsr, zText, nText);
+
+    HtmlFree(p);
+    *ppString = pRet;
+}
+
+static CanvasString *
+CanvasStringNew(nText, zText)
+    int nText;
+    const char *zText;
+{
+    CanvasString *pStr = 0;
+    CanvasStringAppend(&pStr, nText, zText);
+    return pStr;
+}
+
 /* A single line of text. The relative coordinates (x, y) are as required
  * by Tk_DrawChars() - the far left-edge of the text baseline. The color
  * and font of the text are determined by the properties of CanvasText.pNode.
@@ -161,7 +207,8 @@ struct CanvasText {
     int y;                   /* Relative y coordinate to render at */
     HtmlNode *pNode;         /* Text node */
     int w;                   /* Width of the text */
-    Tcl_Obj *pText;          /* Text to render */
+    // Tcl_Obj *pText;          /* Text to render */
+    CanvasString *pString;     /* Text to render */
     int iIndex;              /* Index in pNode text of this item (or -1) */
 };
 
@@ -611,7 +658,7 @@ CHECK_CANVAS(pCanvas);
         int save = 0;
         switch (pItem->type) {
             case CANVAS_TEXT:
-                pObj = pItem->x.t.pText;
+                HtmlFree(pItem->x.t.pString);
                 break;
             case CANVAS_IMAGE:
                 HtmlImageFree(pItem->x.i2.pImage);
@@ -977,23 +1024,27 @@ CHECK_CANVAS(pCanvas2);
                 pT2 && pT2->type == CANVAS_TEXT &&
                 pT1->x.t.pNode == pT2->x.t.pNode &&
                 pT1->x.t.iIndex >= 0 && pT2->x.t.iIndex >= 0 &&
-                pT1->x.t.iIndex + Tcl_GetCharLength(pT1->x.t.pText) + 1 ==
+                pT1->x.t.iIndex + pT1->x.t.pString->nText + 1 ==
                 pT2->x.t.iIndex
             ) {
                 int sw = fontFromNode(pT1->x.t.pNode)->space_pixels;
                 if ((pT1->x.t.x + pT1->x.t.w + sw) == pT2->x.t.x) {
-                    Tcl_AppendToObj(pT1->x.t.pText, " ", 1);
-                    Tcl_AppendObjToObj(pT1->x.t.pText, pT2->x.t.pText);
+
+                    CanvasStringAppend(&pT1->x.t.pString, 1, " ");
+                    CanvasStringAppend(&pT1->x.t.pString, 
+                        pT2->x.t.pString->nText, pT2->x.t.pString->zText
+                    );
                     pT1->x.t.w += (pT2->x.t.w + sw);
 
                     pCanvas2->pFirst = pT2->pNext;
-                    Tcl_DecrRefCount(pT2->x.t.pText);
                     if (pCanvas2->pFirst == 0) {
                         assert(pCanvas2->pLast == pT2);
                         pCanvas2->pLast = 0;
                     } else {
                         assert(pCanvas2->pLast);
                     }
+
+                    HtmlFree(pT2->x.t.pString);
                     freeCanvasItem(pT2);
                     combined = 1;
                 }
@@ -1278,15 +1329,19 @@ void HtmlDrawText(pCanvas, pText, x, y, w, size_only, pNode, iIndex)
 
     if (!size_only) {
         HtmlCanvasItem *pItem; 
+
+        char *zText;
+        int nText;
+        zText = Tcl_GetStringFromObj(pText, &nText);
+
         pItem = allocateCanvasItem();
         pItem->type = CANVAS_TEXT;
-        pItem->x.t.pText = pText;
+        pItem->x.t.pString = CanvasStringNew(nText, zText);
         pItem->x.t.x = x;
         pItem->x.t.y = y;
         pItem->x.t.w = w;
         pItem->x.t.pNode = pNode;
         pItem->x.t.iIndex = iIndex;
-        Tcl_IncrRefCount(pText);
         linkItem(pCanvas, pItem);
     }
 
@@ -1442,7 +1497,9 @@ int HtmlLayoutPrimitives(clientData, interp, objc, objv)
                     aObj[4] = Tcl_NewStringObj("(null)", 0);
                 }
                 aObj[5] = Tcl_NewIntObj(pItem->x.t.iIndex);
-                aObj[6] = pItem->x.t.pText;
+                aObj[6] = Tcl_NewStringObj(
+                    pItem->x.t.pString->zText, pItem->x.t.pString->nText 
+                );
                 break;
             }
             case CANVAS_IMAGE:
@@ -2097,8 +2154,8 @@ drawText(pTree, pItem, drawable, x, y)
 
     HtmlTaggedRegion *pTagged;
 
-    z = Tcl_GetStringFromObj(pT->pText, &n);
-
+    z = pT->pString->zText;
+    n = pT->pString->nText;
 
     /* Draw the text in the regular way (according to the stylesheet config). 
      *
@@ -2999,7 +3056,8 @@ layoutNodeIndexCmd(pTree, x, y)
         int n;
         Tcl_Obj *pCmd;
 
-        z = Tcl_GetStringFromObj(sQuery.pClosest->pText, &n);
+        z = sQuery.pClosest->pString->zText;
+        n = sQuery.pClosest->pString->nText;
 
         iIndex = n;
         if (rc) {
@@ -3311,7 +3369,8 @@ paintNodesSearchCb(pItem, origin_x, origin_y, pOverflow, clientData)
                 int iIndex = pT->iIndex;
                 int iIndex2;
 
-                z = Tcl_GetStringFromObj(pT->pText, &n);
+                z = pT->pString->zText;
+                n = pT->pString->nText;
                 iIndex2 = iIndex + n;
 
                 if ( 

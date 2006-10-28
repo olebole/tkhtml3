@@ -44,11 +44,9 @@
 #ifdef HTML_DEBUG
     #include "restrack.h"
 
-    #define HtmlAlloc(zTopic, n) Rt_Alloc(((zTopic) ? (zTopic) : __FILE__ ), n)
-
+    #define HtmlAlloc(zTopic, n) Rt_Alloc((zTopic), n)
     #define HtmlFree(x) Rt_Free((char *)(x))
-    #define HtmlRealloc(zTopic, x, n) Rt_Realloc( \
-        ((zTopic) ? (zTopic) : __FILE__) , (char *)(x), (n) )
+    #define HtmlRealloc(zTopic, x, n) Rt_Realloc(zTopic , (char *)(x), (n))
 #else
     #define HtmlAlloc(zTopic, n) ckalloc(n)
     #define HtmlFree(x) ckfree((char *)(x))
@@ -312,7 +310,7 @@ struct HtmlNode {
     HtmlNode *pAfter;                      /* Generated :after content */
 
     HtmlLayoutCache *pLayoutCache;         /* Cached layout, if any */
-    HtmlNodeScrollbars *pScrollbar;        /* Cached layout, if any */
+    HtmlNodeScrollbars *pScrollbar;        /* Internal scrollbars, if any */
 
     HtmlNodeReplacement *pReplacement;     /* Replaced object, if any */
     HtmlNodeCmd *pNodeCmd;                 /* Tcl command for this node */

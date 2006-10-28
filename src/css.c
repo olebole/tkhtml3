@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.93 2006/10/27 06:40:32 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.94 2006/10/28 10:03:38 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -2494,8 +2494,10 @@ void HtmlCssSelector(pParse, stype, pAttr, pValue)
     pSelector->pNext = pParse->pSelector;
     pSelector->isDynamic = (
         (pSelector->pNext && pSelector->pNext->isDynamic) ||
+#if 0
         (stype == CSS_PSEUDOCLASS_LINK)                   ||
         (stype == CSS_PSEUDOCLASS_VISITED)                ||
+#endif
         (stype == CSS_PSEUDOCLASS_HOVER)                  ||
         (stype == CSS_PSEUDOCLASS_FOCUS)                  ||
         (stype == CSS_PSEUDOCLASS_ACTIVE)
@@ -3126,10 +3128,10 @@ HtmlCssSelectorTest(pSelector, pNode, dynamic_true)
                 if (dynamic_true || (x->flags & HTML_DYNAMIC_FOCUS)) break;
                 return 0;
             case CSS_PSEUDOCLASS_LINK:
-                if (dynamic_true || (x->flags & HTML_DYNAMIC_LINK)) break;
+                if (x->flags & HTML_DYNAMIC_LINK) break;
                 return 0;
             case CSS_PSEUDOCLASS_VISITED:
-                if (dynamic_true || (x->flags & HTML_DYNAMIC_VISITED)) break;
+                if (x->flags & HTML_DYNAMIC_VISITED) break;
                 return 0;
 
             case CSS_SELECTOR_NEVERMATCH:

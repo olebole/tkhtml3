@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.92 2006/10/27 06:40:33 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.93 2006/10/28 10:03:38 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -2091,6 +2091,7 @@ node_attr_usage:
                 for (i = 0; flags[i].zName; i++) {
                     if (0 == strcmp(zArg2, flags[i].zName)) {
                         mask = flags[i].flag;
+                        break;
                     }
                 }
                 if (!mask) {
@@ -2115,6 +2116,17 @@ node_attr_usage:
                 pNode->flags &= ~(mask?mask:0xFF);
             }
 
+            if (zArg2) {
+                if (
+                    mask == HTML_DYNAMIC_LINK || 
+                    mask == HTML_DYNAMIC_VISITED
+                ) {
+                    HtmlCallbackRestyle(pTree, pNode);
+                } else {
+                    HtmlCallbackDynamic(pTree, pNode);
+                }
+            }
+
             pRet = Tcl_NewObj();
             for (i = 0; flags[i].zName; i++) {
                 if (pNode->flags & flags[i].flag) {
@@ -2123,8 +2135,6 @@ node_attr_usage:
                 }
             }
             Tcl_SetObjResult(interp, pRet);
-
-            HtmlCallbackDynamic(pTree, pNode);
             break;
         }
 
