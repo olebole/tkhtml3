@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.222 2006/10/31 07:56:45 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.223 2006/10/31 14:00:42 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -1650,6 +1650,7 @@ drawAbsolute(pLayout, pBox, pStaticCanvas, x, y)
 {
     NodeList *pList;
     NodeList *pNext;
+    int iBoxHeight = pBox->height;
     for (pList = pLayout->pAbsolute; pList; pList = pNext) {
         int s_x;               /* Static X offset */
         int s_y;               /* Static Y offset */
@@ -1667,15 +1668,15 @@ drawAbsolute(pLayout, pBox, pStaticCanvas, x, y)
         int iLeft   = PIXELVAL(pV, LEFT, pBox->iContaining);
         int iRight  = PIXELVAL(pV, RIGHT, pBox->iContaining);
         int iWidth  = PIXELVAL(pV, WIDTH, pBox->iContaining);
-        int iTop    = PIXELVAL(pV, TOP, pBox->height);
-        int iBottom = PIXELVAL(pV, BOTTOM, pBox->height);
-        int iHeight = PIXELVAL(pV, HEIGHT, pBox->height);
+        int iTop    = PIXELVAL(pV, TOP, iBoxHeight);
+        int iBottom = PIXELVAL(pV, BOTTOM, iBoxHeight);
+        int iHeight = PIXELVAL(pV, HEIGHT, iBoxHeight);
         int iSpace;
 
         pNext = pList->pNext;
 
         considerMinMaxWidth(pNode, pBox->iContaining, &iWidth);
-        considerMinMaxHeight(pNode, pBox->height, &iHeight);
+        considerMinMaxHeight(pNode, iBoxHeight, &iHeight);
 
         if (HtmlDrawGetMarker(pStaticCanvas, pList->pMarker, &s_x, &s_y)) {
             /* If GetMarker() returns non-zero, then pList->pMarker is not
@@ -1699,7 +1700,7 @@ drawAbsolute(pLayout, pBox, pStaticCanvas, x, y)
             HtmlTree *pTree = pLayout->pTree;
             char const *zNode = Tcl_GetString(HtmlNodeCommand(pTree, pNode));
             HtmlLog(pTree, "LAYOUTENGINE", "%s drawAbsolute() -> "
-                "containing block is %dx%d", zNode, pBox->width, pBox->height
+                "containing block is %dx%d", zNode, pBox->width, iBoxHeight
             );
             HtmlLog(pTree, "LAYOUTENGINE", "%s "
                 "static position is (%d,%d) (includes correction of (%d,%d))", 
@@ -1810,7 +1811,7 @@ drawAbsolute(pLayout, pBox, pStaticCanvas, x, y)
          *     + vertical margins (one or both may be "auto")
          *     + vertical padding and borders.
          */
-        iSpace = pBox->height - box.iTop - box.iBottom;
+        iSpace = iBoxHeight - box.iTop - box.iBottom;
         if (
             iTop != PIXELVAL_AUTO && 
             iBottom != PIXELVAL_AUTO &&  
@@ -1863,7 +1864,7 @@ drawAbsolute(pLayout, pBox, pStaticCanvas, x, y)
             iBottom = iSpace;
         }
 
-        considerMinMaxHeight(pNode, pBox->height, &iHeight);
+        considerMinMaxHeight(pNode, iBoxHeight, &iHeight);
         sContent.height = iHeight;
         sContent.width = iWidth;
 
@@ -1889,6 +1890,9 @@ drawAbsolute(pLayout, pBox, pStaticCanvas, x, y)
         }
 
         DRAW_CANVAS(&pBox->vc, &sBox.vc, iLeft, iTop+margin.margin_top, pNode);
+        pBox->height = MAX(pBox->height, 
+            iTop + margin.margin_top + margin.margin_bottom + sBox.height
+        );
 
         if (pLayout->pAbsolute == pList) {
             pLayout->pAbsolute = pList->pNext;
@@ -1947,8 +1951,7 @@ drawAbsolute(pLayout, pBox, pStaticCanvas, x, y)
  *     None.
  *
  * Side effects:
- *     None.
- *
+ *     Many and varied.
  *---------------------------------------------------------------------------
  */
 static void
@@ -3865,25 +3868,25 @@ HtmlLayout(pTree)
          *
          * Example (november 2006): http://www.readwriteweb.com/
          */
-#if 0
         pTree->canvas.right = MAX(
             pTree->canvas.right,
             margin.margin_left + box.iLeft + 
             sContent.width + 
             box.iRight + margin.margin_right
         );
+#if 0
         pTree->canvas.bottom = MAX(
             pTree->canvas.bottom,
             margin.margin_top + box.iTop + 
             sContent.height + 
             box.iBottom + margin.margin_bottom
         );
-#endif
         pTree->canvas.right = MAX(0, 
             margin.margin_left + box.iLeft + 
             sContent.width + 
             box.iRight + margin.margin_right
         );
+#endif
         pTree->canvas.bottom = MAX(0,
             margin.margin_top + box.iTop + 
             sContent.height + 
