@@ -176,8 +176,9 @@ int HtmlLayoutNodeContent(LayoutContext *, BoxContext *, HtmlNode *);
   static void CHECK_INTEGER_PLAUSIBILITY(x) 
       int x; 
   {
-      assert(x < 10000000);
-      assert(x > -10000000);
+      const static int limit = 10000000;
+      assert(x < limit);
+      assert(x > (limit * -1));
   }
 #else
   #define CHECK_INTEGER_PLAUSIBILITY(x)

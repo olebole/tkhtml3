@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.221 2006/10/31 07:13:32 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.222 2006/10/31 07:56:45 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -3857,6 +3857,15 @@ HtmlLayout(pTree)
             HtmlDrawCanvas(&pTree->canvas, &sFixed.vc, 0, 0, pBody);
         }
 
+        /* Note: Changed to using the actual size of the <body> element 
+         * (including margins) for scrolling purposes to avoid a problem
+         * with code like:
+         *
+         *   .class { padding-bottom: 30000px; margin-bottom: -30000px }
+         *
+         * Example (november 2006): http://www.readwriteweb.com/
+         */
+#if 0
         pTree->canvas.right = MAX(
             pTree->canvas.right,
             margin.margin_left + box.iLeft + 
@@ -3865,6 +3874,17 @@ HtmlLayout(pTree)
         );
         pTree->canvas.bottom = MAX(
             pTree->canvas.bottom,
+            margin.margin_top + box.iTop + 
+            sContent.height + 
+            box.iBottom + margin.margin_bottom
+        );
+#endif
+        pTree->canvas.right = MAX(0, 
+            margin.margin_left + box.iLeft + 
+            sContent.width + 
+            box.iRight + margin.margin_right
+        );
+        pTree->canvas.bottom = MAX(0,
             margin.margin_top + box.iTop + 
             sContent.height + 
             box.iBottom + margin.margin_bottom
