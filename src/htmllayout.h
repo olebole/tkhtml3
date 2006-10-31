@@ -172,7 +172,7 @@ int HtmlLayoutNodeContent(LayoutContext *, BoxContext *, HtmlNode *);
  */
 #define DISPLAY(pV) ((pV) ? (pV)->eDisplay : CSS_CONST_INLINE)
 
-#if 1
+#ifndef NDEBUG
   static void CHECK_INTEGER_PLAUSIBILITY(x) 
       int x; 
   {

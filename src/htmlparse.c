@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.85 2006/10/31 07:13:32 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.86 2006/10/31 10:17:35 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -746,13 +746,115 @@ HtmlAttributesNew(argc, argv, arglen, doEscape)
 /*
  *---------------------------------------------------------------------------
  *
+ * findEndOfScript --
+ *
+ *     Search the input string for the end of a script block (i.e. a node
+ *     for which a tkhtml script-handler callback is defined).
+ *
+ * Results:
+ *
+ * Side effects:
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+findEndOfScript(eTag, z, pN)
+    int eTag;                 /* Tag type for this block (i.e. Html_Script) */
+    char const *z;            /* Input string */
+    int *pN;                  /* IN/OUT: Current index in z */
+{
+    char zEnd[64];
+    int nEnd;
+    int ii;
+    int nQuote = 0;
+
+    /* Figure out the string we are looking for as an end tag */
+    sprintf(zEnd, "</%s", HtmlMarkupName(eTag));
+    nEnd = strlen(zEnd);
+
+    for (ii = *pN; z[ii]; ii++) {
+        if (z[ii] == '\'' || z[ii] == '"') {
+            nQuote++;
+        } if ((nQuote % 2) == 0 && strnicmp(&z[ii], zEnd, nEnd) == 0) {
+            int nScript = ii - (*pN);
+            ii += nEnd;
+            while (z[ii] && ISSPACE(z[ii])) ii++;
+            if (!z[ii]) {
+                return -1;
+            }
+            if (z[ii] == '>') {
+                ii++;
+            }
+            *pN = ii;
+            return nScript;
+        }
+    }
+
+    return -1;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * executeScript --
+ *
+ *     Execute a tkhtml script-handler callback.
+ *
+ * Results:
+ *
+ * Side effects:
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+executeScript(pTree, pCallback, pAttributes, zScript, nScript)
+    HtmlTree *pTree;
+    Tcl_Obj *pCallback;
+    HtmlAttributes *pAttributes;
+    const char *zScript;
+    int nScript;
+{
+    Tcl_Obj *pAttr;
+    Tcl_Obj *pEval;
+    int jj;
+    int rc;
+
+    /* Create the attributes list */
+    pAttr = Tcl_NewObj();
+    Tcl_IncrRefCount(pAttr);
+    for (jj = 0; pAttributes && jj < pAttributes->nAttr; jj++) {
+        Tcl_Obj *pArg;
+        pArg = Tcl_NewStringObj(pAttributes->a[jj].zName, -1);
+        Tcl_ListObjAppendElement(0, pAttr, pArg);
+        pArg = Tcl_NewStringObj(pAttributes->a[jj].zValue, -1);
+        Tcl_ListObjAppendElement(0, pAttr, pArg);
+    }
+
+    /* Execute the script */
+    pEval = Tcl_DuplicateObj(pCallback);
+    Tcl_IncrRefCount(pEval);
+    Tcl_ListObjAppendElement(0, pEval, pAttr);
+    Tcl_ListObjAppendElement(0,pEval,Tcl_NewStringObj(zScript,nScript));
+    rc = Tcl_EvalObjEx(pTree->interp, pEval, TCL_EVAL_GLOBAL);
+    Tcl_DecrRefCount(pEval);
+
+    /* Free the attributes list */
+    Tcl_DecrRefCount(pAttr);
+
+    return rc;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * Tokenize --
  *
  *     Process as much of the input HTML as possible. This results in 
  *     zero or more calls to the following functions:
  *
- *         AppendToken()
-           HtmlTreeAddElement()
+ *         HtmlTreeAddElement()
+ *         HtmlTreeAddText()
+ *         HtmlTreeAddClosingTag()
  *
  * Results:
  *     Return the number of bytes actually processed.
@@ -780,12 +882,6 @@ Tokenize(pTree, isFinal)
     char *argv[mxARG];           /* Pointers to each markup argument. */
     int arglen[mxARG];           /* Length of each markup argument */
 
-    int nStartScript = 0;
-    Tcl_Obj *pScript = 0;
-    HtmlAttributes *pScriptToken = 0;
-    int eScriptTag = 0;
-    int rc;
-
     iCol = pTree->iCol;
     n = pTree->nParsed;
     z = Tcl_GetString(pTree->pDocument);
@@ -796,103 +892,6 @@ Tokenize(pTree, isFinal)
         if ((signed char) c == -64 && (signed char) (z[n + 1]) == -128) {
             n += 2;
             continue;
-        }
-
-	/* If pScript is not NULL, then we are parsing a node that tkhtml
-	 * treats as a "script". Essentially this means we will pass the
-	 * entire text of the node to some user callback for processing and
-	 * take no further action. So we just search through the text until
-	 * we encounter </script>, </noscript> or whatever closing tag
-	 * matches the tag that opened the script node.
-         */
-        if (pScript) {
-            int nEnd, sqcnt;
-            char zEnd[64];
-            char *zScript;
-            int nScript;
-
-            Tcl_Obj *pEval;
-            Tcl_Obj *pAttr;   /* List containing attributes of pScriptToken */
-            int jj;
-
-            /* Figure out the string we are looking for as a end tag */
-            sprintf(zEnd, "</%s>", HtmlMarkupName(eScriptTag));
-            nEnd = strlen(zEnd);
-          
-            /* Skip through the input until we find such a string. We
-             * respect strings quoted with " and ', so long as they do not
-             * include new-lines.
-             */
-            zScript = &z[n];
-            sqcnt = 0;
-            for (i = n; z[i]; i++) {
-                if (z[i] == '\'' || z[i] == '"')
-                    sqcnt++;    /* Skip if odd # quotes */
-                else if (z[i] == '\n')
-                    sqcnt = 0;
-                if (strnicmp(&z[i], zEnd, nEnd)==0 && (sqcnt%2)==0) {
-                    nScript = i - n;
-                    break;
-                }
-            }
-
-            if (z[i] == 0) {
-                n = nStartScript;
-                HtmlFree(pScriptToken);
-                goto incomplete;
-            }
-
-            /* Create the attributes list */
-            pAttr = Tcl_NewObj();
-            Tcl_IncrRefCount(pAttr);
-            for (jj = 0; pScriptToken && jj < pScriptToken->nAttr; jj++) {
-                Tcl_Obj *pArg;
-                pArg = Tcl_NewStringObj(pScriptToken->a[jj].zName, -1);
-                Tcl_ListObjAppendElement(0, pAttr, pArg);
-                pArg = Tcl_NewStringObj(pScriptToken->a[jj].zValue, -1);
-                Tcl_ListObjAppendElement(0, pAttr, pArg);
-            }
-
-            /* Execute the script */
-            pEval = Tcl_DuplicateObj(pScript);
-            Tcl_IncrRefCount(pEval);
-            Tcl_ListObjAppendElement(0, pEval, pAttr);
-            Tcl_DecrRefCount(pAttr);
-            Tcl_ListObjAppendElement(0,pEval,Tcl_NewStringObj(zScript,nScript));
-            rc = Tcl_EvalObjEx(pTree->interp, pEval, TCL_EVAL_GLOBAL);
-            Tcl_DecrRefCount(pEval);
-            n += (nScript+nEnd);
- 
-            /* If the script executed successfully, append the output to
-             * the document text (it will be the next thing tokenized).
-             */
-            if (rc==TCL_OK) {
-                Tcl_Obj *pResult;
-                Tcl_Obj *pTail;
-                Tcl_Obj *pHead;
-
-                pTail = Tcl_NewStringObj(&z[n], -1);
-                pResult = Tcl_GetObjResult(pTree->interp);
-                pHead = Tcl_NewStringObj(z, n);
-                Tcl_IncrRefCount(pTail);
-                Tcl_IncrRefCount(pResult);
-                Tcl_IncrRefCount(pHead);
-
-                Tcl_AppendObjToObj(pHead, pResult);
-                Tcl_AppendObjToObj(pHead, pTail);
-                
-                Tcl_DecrRefCount(pTail);
-                Tcl_DecrRefCount(pResult);
-                Tcl_DecrRefCount(pTree->pDocument);
-                pTree->pDocument = pHead;
-                z = Tcl_GetString(pHead);
-                assert(!Tcl_IsShared(pTree->pDocument));
-            } 
-            Tcl_ResetResult(pTree->interp);
-
-            pScript = 0;
-            HtmlFree(pScriptToken);
-            pScriptToken = 0;
         }
 
         /* A text (or whitespace) node */
@@ -945,7 +944,7 @@ Tokenize(pTree, isFinal)
              * and attributes. The pointer to the tag name, argv[0], is 
              * therefore &z[n+1].
              */
-            nStartScript = n;
+            int nStartScript = n;
             argc = 1;
             argv[0] = &z[n + 1];
             assert( c=='<' );
@@ -1113,6 +1112,7 @@ Tokenize(pTree, isFinal)
             } else {
 
                 HtmlAttributes *pAttr;
+                Tcl_Obj *pScript;
                 pAttr = HtmlAttributesNew(argc - 1, &argv[1], &arglen[1], 1);
                 pScript = getScriptHandler(pTree, pMap->type);
                 if (!pScript) {
@@ -1122,8 +1122,45 @@ Tokenize(pTree, isFinal)
                     assert(nStartScript >= 0);
                     HtmlTreeAddElement(pTree, pMap->type, pAttr, nStartScript);
                 } else {
-                    pScriptToken = pAttr;
-                    eScriptTag = pMap->type;
+                    /* If pScript is not NULL, then we are parsing a node that
+                     * tkhtml treats as a "script". Essentially this means we
+                     * will pass the entire text of the node to some user
+                     * callback for processing and take no further action. So
+                     * we just search through the text until we encounter
+                     * </script>, </noscript> or whatever closing tag matches
+                     * the tag that opened the script node.
+                     */
+                    char *zScript;
+                    int nScript;
+                    int rc;
+
+                    zScript = &z[n];
+                    nScript = findEndOfScript(pMap->type, z, &n);
+                    if (nScript < 0) {
+                        n = nStartScript;
+                        HtmlFree(pAttr);
+                        goto incomplete;
+                    }
+                    rc = executeScript(pTree, pScript, pAttr, zScript, nScript);
+
+		    /* If the script executed successfully, append the output
+		     * to the document text (it will be the next thing
+                     * tokenized).
+                     */
+                    if (rc==TCL_OK) {
+                        Tcl_Interp *interp = pTree->interp;
+                        Tcl_Obj *pHead = Tcl_NewStringObj(z, n);
+                        Tcl_IncrRefCount(pHead);
+                        Tcl_AppendObjToObj(pHead, Tcl_GetObjResult(interp));
+                        Tcl_AppendToObj(pHead, &z[n], -1);
+                        Tcl_DecrRefCount(pTree->pDocument);
+                        pTree->pDocument = pHead;
+                        z = Tcl_GetString(pHead);
+                        assert(!Tcl_IsShared(pTree->pDocument));
+                        Tcl_ResetResult(pTree->interp);
+                    }
+
+                    HtmlFree(pAttr);
                 }
             }
 
