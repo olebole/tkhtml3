@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.84 2006/10/27 10:37:49 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.85 2006/10/31 07:13:32 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -41,114 +41,6 @@ static char const rcsid[] =
 #include "html.h"
 
 #define ISSPACE(x) isspace((unsigned char)(x))
-
-/*
- *---------------------------------------------------------------------------
- *
- * AppendTextToken --
- *
- *      This is called by the Tokenize() function each time a text or
- *      whitespace token is parsed.
- *
- * Results:
- *     None.
- *
- * Side effects:
- *
- *---------------------------------------------------------------------------
- */
-static void
-AppendTextToken(pTree, pToken, iOffset)
-    HtmlTree *pTree;
-    HtmlToken *pToken;
-    int iOffset;
-{
-    if( pTree->isIgnoreNewline ){
-        assert(!pTree->pTextFirst);
-        pTree->isIgnoreNewline = 0;
-        if (pToken->type == Html_Space && pToken->x.newline) {
-            HtmlFree(pToken);
-            return;
-        }
-    }
-    if (!pTree->pTextFirst) {
-        assert(!pTree->pTextLast);
-        pTree->pTextFirst = pToken;
-        pTree->pTextLast = pToken;
-        pTree->iTextOffset = iOffset;
-    } else {
-        assert(pTree->pTextLast);
-        pTree->pTextLast->pNextToken = pToken;
-        pTree->pTextLast = pToken;
-    }
-    pToken->pNextToken = 0;
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * AppendToken --
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-static void 
-AppendToken(pTree, pToken, iOffset)
-    HtmlTree *pTree;
-    HtmlToken *pToken;
-    int iOffset;
-{
-    int isEndToken = 0;
-
-    if (pToken) {
-        isEndToken = ((HtmlMarkupFlags(pToken->type)&HTMLTAG_END)?1:0);
-    }
-
-    if (pTree->pTextFirst) {
-        HtmlToken *pTextFirst = pTree->pTextFirst;
-        HtmlToken *pTextLast = pTree->pTextLast;
-
-        /* Ignore any newline character that appears immediately before
-         * an end tag. Update: Only do this in standards and 
-         * "almost standards" mode.
-         */
-        if (
-            pTree->options.mode > HTML_MODE_QUIRKS &&
-            isEndToken && 
-            pTextLast->type == Html_Space && 
-            pTextLast->x.newline
-        ) {
-            if( pTextFirst==pTextLast ){
-                pTextFirst = 0;
-            } else {
-                HtmlToken *p = pTextFirst;
-                while (p->pNextToken != pTextLast) p = p->pNextToken;
-                p->pNextToken = 0;
-            }
-            HtmlFree(pTextLast);
-        }
-
-        pTree->pTextLast = 0;
-        pTree->pTextFirst = 0;
-        if( pTextFirst ){
-            HtmlAddToken(pTree, pTextFirst, pTree->iTextOffset);
-        }
-        pTree->isIgnoreNewline = 0;
-    }
-
-    if (pToken) {
-        if (pTree->options.mode > HTML_MODE_QUIRKS) {
-            pTree->isIgnoreNewline = isEndToken?0:1;
-        }
-        pToken->pNextToken = 0;
-        HtmlAddToken(pTree, pToken, iOffset);
-    }
-}
 
 /*
  * The following elements have optional opening and closing tags:
@@ -802,6 +694,55 @@ getScriptHandler(pTree, tag)
     return 0;
 }
 
+HtmlAttributes *
+HtmlAttributesNew(argc, argv, arglen, doEscape)
+    int argc;
+    char **argv;
+    int *arglen;
+    int doEscape;
+{
+    HtmlAttributes *pMarkup = 0;
+
+    if (argc > 1) {
+        int nByte;
+        int j;
+        char *zBuf;
+
+        int nAttr = argc / 2;
+
+        nByte = sizeof(HtmlAttributes);
+        for (j = 0; j < argc; j++) {
+            nByte += arglen[j] + 1;
+        }
+        nByte += sizeof(struct HtmlAttribute) * (argc - 1);
+
+        pMarkup = (HtmlAttributes *)HtmlAlloc("HtmlAttributes", nByte);
+        pMarkup->nAttr = nAttr;
+        zBuf = (char *)(&pMarkup->a[nAttr]);
+
+        for (j=0; j < nAttr; j++) {
+            int idx = (j * 2);
+
+            pMarkup->a[j].zName = zBuf;
+            memcpy(zBuf, argv[idx], arglen[idx]);
+            zBuf[arglen[idx]] = '\0';
+            if (doEscape) {
+                HtmlTranslateEscapes(zBuf);
+                ToLower(zBuf);
+            }
+            zBuf += (arglen[idx] + 1);
+
+            pMarkup->a[j].zValue = zBuf;
+            memcpy(zBuf, argv[idx+1], arglen[idx+1]);
+            zBuf[arglen[idx+1]] = '\0';
+            if (doEscape) HtmlTranslateEscapes(zBuf);
+            zBuf += (arglen[idx+1] + 1);
+        }
+    }
+
+    return pMarkup;
+}
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -810,8 +751,8 @@ getScriptHandler(pTree, tag)
  *     Process as much of the input HTML as possible. This results in 
  *     zero or more calls to the following functions:
  *
- *         AppendTextToken()
  *         AppendToken()
+           HtmlTreeAddElement()
  *
  * Results:
  *     Return the number of bytes actually processed.
@@ -841,7 +782,8 @@ Tokenize(pTree, isFinal)
 
     int nStartScript = 0;
     Tcl_Obj *pScript = 0;
-    HtmlToken *pScriptToken = 0;
+    HtmlAttributes *pScriptToken = 0;
+    int eScriptTag = 0;
     int rc;
 
     iCol = pTree->iCol;
@@ -874,7 +816,7 @@ Tokenize(pTree, isFinal)
             int jj;
 
             /* Figure out the string we are looking for as a end tag */
-            sprintf(zEnd, "</%s>", HtmlMarkupName(pScriptToken->type));
+            sprintf(zEnd, "</%s>", HtmlMarkupName(eScriptTag));
             nEnd = strlen(zEnd);
           
             /* Skip through the input until we find such a string. We
@@ -903,8 +845,11 @@ Tokenize(pTree, isFinal)
             /* Create the attributes list */
             pAttr = Tcl_NewObj();
             Tcl_IncrRefCount(pAttr);
-            for (jj = 2; jj < pScriptToken->count; jj++) {
-                Tcl_Obj *pArg = Tcl_NewStringObj(pScriptToken->x.zArgs[jj], -1);
+            for (jj = 0; pScriptToken && jj < pScriptToken->nAttr; jj++) {
+                Tcl_Obj *pArg;
+                pArg = Tcl_NewStringObj(pScriptToken->a[jj].zName, -1);
+                Tcl_ListObjAppendElement(0, pAttr, pArg);
+                pArg = Tcl_NewStringObj(pScriptToken->a[jj].zValue, -1);
                 Tcl_ListObjAppendElement(0, pAttr, pArg);
             }
 
@@ -954,67 +899,20 @@ Tokenize(pTree, isFinal)
         else if (c != '<' && c != 0) {
             for (i = 0; (c = z[n + i]) != 0 && c != '<'; i++);
             if (c || isFinal) {
-                int j;
-                char *z2;
-
-                /* Make a temporary copy of the text and translate any
-                 * embedded html escape characters (i.e. "&nbsp;")
+                /* Todo: Figure out if we need to trim any newline characters
+                 * from the string passed to HtmlTextNew(). 
                  */
-                z2 = (char *)HtmlAlloc("temp", i + 1);
-                memcpy(z2, &z[n], i);
-                z2[i] = '\0';
-                HtmlTranslateEscapes(z2);
-
-                j = 0;
-                while (z2[j]) {
-                    char c = z2[j];
-
-                    if (ISSPACE(c)) {
-                        HtmlToken *pSpace = HtmlNew(HtmlToken);
-                        pSpace->type = Html_Space;
-                        if (c == '\n' || c == '\r') {
-                            pSpace->x.newline = 1;
-                            pSpace->count = 1;
-                            j++;
-                            iCol = 0;
-                        } else {
-                            int iColStart = iCol;
-                            while (c && ISSPACE(c) && c != '\n' && c != '\r') {
-                                iCol = NextColumn(iCol, c);
-                                c = (unsigned char)z2[++j];
-                            }
-                            pSpace->count = iCol - iColStart;
-                        }
-                        AppendTextToken(pTree, pSpace, n);
-                    } else {
-                        int nBytes;
-                        int iStart = j;
-                        HtmlToken *pText;
-                        while (c && !ISSPACE(c)) {
-                            c = (unsigned char)z2[++j];
-                        }
-                        nBytes = 1 + j + sizeof(HtmlToken);
-
-                        pText = (HtmlToken *)HtmlAlloc("HtmlToken", nBytes);
-                        pText->type = Html_Text;
-                        pText->x.zText = (char *)&pText[1];
-                        memcpy(pText->x.zText, &z2[iStart], j - iStart);
-                        pText->x.zText[j - iStart] = '\0';
-                        pText->count = j - iStart;
-                        AppendTextToken(pTree, pText, n);
-                        iCol += j - iStart;
-                    }
-                }
-                HtmlFree(z2);
+                HtmlTextNode *pTextNode = HtmlTextNew(i, &z[n]);
+                HtmlTreeAddText(pTree, pTextNode, n);
                 n += i;
             } else {
                 goto incomplete;
             }
         }
 
-        /*
-         * An HTML comment. Just skip it. DK: This should be combined
-         * with the script case above to reduce the amount of code.
+        /* An HTML comment. Just skip it. Tkhtml uses the non-SGML (i.e.
+         * defacto standard) version of HTML comments - they begin with
+         * "<!--" and end with "-->".
          */
         else if (strncmp(&z[n], "<!--", 4) == 0) {
             for (i = 4; z[n + i]; i++) {
@@ -1062,7 +960,6 @@ Tokenize(pTree, isFinal)
                 c = z[n + i];
             } while( c!=0 && !ISSPACE(c) && c!='>' && (i<2 || c!='/') );
             arglen[0] = i - 1;
-            i--;
 
             /* Now prepare to parse the markup attributes. Advance i until
              * &z[n+i] points to the first character of the first attribute,
@@ -1210,57 +1107,27 @@ Tokenize(pTree, isFinal)
                 continue;
             }
 
-          makeMarkupEntry: {
-            /* If we get here, we need to allocate a structure to store
-             * the markup element. 
-             */
-            HtmlToken *pMarkup;
-            nByte = sizeof(HtmlToken);
-            if (argc > 1) {
-                nByte += sizeof(char *) * (argc + 1);
-                for (j = 1; j < argc; j++) {
-                    nByte += arglen[j] + 1;
-                }
-            }
-            pMarkup = (HtmlToken *)HtmlAlloc("HtmlToken", nByte);
-            pMarkup->type = pMap->type;
-            pMarkup->count = argc - 1;
-            pMarkup->x.zArgs = 0;
-
-            /* If the tag had attributes, then copy all the attribute names
-             * and values into the space just allocated. Translate escapes
-	     * on the way. The idea is that calling HtmlFree() on pToken frees
-	     * the space used by the attributes as well as the HtmlToken.
-             */
-            if (argc > 1) {
-                pMarkup->x.zArgs = (char **)&pMarkup[1];
-                zBuf = (char *)&pMarkup->x.zArgs[argc + 1];
-                for (j=1; j < argc; j++) {
-                    pMarkup->x.zArgs[j-1] = zBuf;
-                    zBuf += arglen[j]+1;
-
-                    strncpy(pMarkup->x.zArgs[j-1], argv[j], arglen[j]);
-                    pMarkup->x.zArgs[j - 1][arglen[j]] = 0;
-                    HtmlTranslateEscapes(pMarkup->x.zArgs[j - 1]);
-                    if ((j&1) == 1) {
-                        ToLower(pMarkup->x.zArgs[j-1]);
-                    }
-                }
-                pMarkup->x.zArgs[argc - 1] = 0;
-            }
-
-            pScript = getScriptHandler(pTree, pMarkup->type);
-            if (!pScript) {
-                /* No special handler for this markup. Just append it to the 
-                 * list of all tokens. 
-                 */
-                assert(nStartScript >= 0);
-                AppendToken(pTree, pMarkup, nStartScript);
+            if (pMap->flags & HTMLTAG_END) {
+                /* Closing tag (i.e. "</p>"). */
+                HtmlTreeAddClosingTag(pTree, pMap->type, nStartScript);
             } else {
-                pScriptToken = pMarkup;
-            }
-          }
 
+                HtmlAttributes *pAttr;
+                pAttr = HtmlAttributesNew(argc - 1, &argv[1], &arglen[1], 1);
+                pScript = getScriptHandler(pTree, pMap->type);
+                if (!pScript) {
+                    /* No special handler for this markup. Just append 
+                     * it to the list of all tokens. 
+                     */
+                    assert(nStartScript >= 0);
+                    HtmlTreeAddElement(pTree, pMap->type, pAttr, nStartScript);
+                } else {
+                    pScriptToken = pAttr;
+                    eScriptTag = pMap->type;
+                }
+            }
+
+#if 0
             /* If this is self-closing markup (ex: <br/> or <img/>) then
              * synthesize a closing token. 
              */
@@ -1271,6 +1138,7 @@ Tokenize(pTree, isFinal)
                 argc = 1;
                 goto makeMarkupEntry;
             }
+#endif
         }
     }
 
@@ -1320,9 +1188,6 @@ HtmlTokenizerAppend(pTree, zText, nText, isFinal)
     Tcl_AppendToObj(pTree->pDocument, z, n);
 
     pTree->nParsed = Tokenize(pTree, isFinal);
-    if (isFinal) {
-        AppendToken(pTree, 0, -1);
-    }
 }
 
 /*
@@ -1412,19 +1277,20 @@ HtmlTypeToName(htmlPtr, eTag)
  *
  *---------------------------------------------------------------------------
  */
-char * HtmlMarkupArg(pToken, zTag, zDefault)
-    HtmlToken *pToken;
+char * HtmlMarkupArg(pAttr, zTag, zDefault)
+    HtmlAttributes *pAttr;
     const char *zTag;
     char *zDefault;
 {
     int i;
-    if (pToken->type==Html_Space || pToken->type==Html_Text) {
-        return 0;
-    }
-    for (i = 0; i < pToken->count; i += 2) {
-        if (strcmp(pToken->x.zArgs[i], zTag) == 0) {
-            return pToken->x.zArgs[i + 1];
+    if (pAttr) {
+        for (i = 0; i < pAttr->nAttr; i++) {
+            if (strcmp(pAttr->a[i].zName, zTag) == 0) {
+                return pAttr->a[i].zValue;
+            }
         }
     }
     return zDefault;
 }
+
+

@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlstyle.c,v 1.47 2006/10/27 06:40:33 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlstyle.c,v 1.48 2006/10/31 07:13:32 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -47,8 +47,10 @@ HtmlDelScrollbars(pTree, pNode)
     HtmlTree *pTree;
     HtmlNode *pNode;
 {
-    HtmlNodeScrollbars *p = pNode->pScrollbar;
-    if (p) {
+    HtmlElementNode *pElem = (HtmlElementNode *)pNode;
+
+    if (!HtmlNodeIsText(pNode) && pElem->pScrollbar) {
+        HtmlNodeScrollbars *p = pElem->pScrollbar;
         if (p->vertical.win) {
 	    /* Remove any entry from the HtmlTree.pMapped list. */
             if (&p->vertical == pTree->pMapped) {
@@ -82,17 +84,17 @@ HtmlDelScrollbars(pTree, pNode)
             Tcl_DecrRefCount(p->horizontal.pReplace);
         }
         HtmlFree(p);
-        pNode->pScrollbar = 0;
+        pElem->pScrollbar = 0;
     }
 }
 
 void
-HtmlDelStackingInfo(pTree, pNode)
+HtmlDelStackingInfo(pTree, pElem)
     HtmlTree *pTree;
-    HtmlNode *pNode;
+    HtmlElementNode *pElem;
 {
-    HtmlNodeStack *pStack = pNode->pStack;
-    if (pStack && pStack->pNode == pNode){
+    HtmlNodeStack *pStack = pElem->pStack;
+    if (pStack && pStack->pElem == pElem){
         if (pStack->pPrev) {
             pStack->pPrev->pNext = pStack->pNext;
         } 
@@ -107,7 +109,7 @@ HtmlDelStackingInfo(pTree, pNode)
         HtmlFree(pStack);
         pTree->nStack--;
     }
-    pNode->pStack = 0;
+    pElem->pStack = 0;
 }
 
 
@@ -119,8 +121,8 @@ static int
 stackType(p) 
     HtmlNode *p;
 {
-    HtmlComputedValues *pV = p->pPropertyValues;
-    if (!p->pParent) {
+    HtmlComputedValues *pV = HtmlNodeComputedValues(p);
+    if (!HtmlNodeParent(p)) {
         return STACK_CONTEXT;
     }
     if (pV->ePosition != CSS_CONST_STATIC) {
@@ -132,11 +134,12 @@ stackType(p)
 }
 
 static void
-addStackingInfo(pTree, pNode)
+addStackingInfo(pTree, pElem)
     HtmlTree *pTree;
-    HtmlNode *pNode;
+    HtmlElementNode *pElem;
 {
-    HtmlComputedValues *pV = pNode->pPropertyValues;
+    HtmlComputedValues *pV = pElem->pPropertyValues;
+    HtmlNode *pNode = (HtmlNode *)pElem;
     
     /* A node forms a new stacking context if it is positioned or floating.
      * We only need create an HtmlNodeStack if this is the case.
@@ -150,20 +153,20 @@ addStackingInfo(pTree, pNode)
         int nByte = sizeof(HtmlNodeStack);
 
         pStack = (HtmlNodeStack *)HtmlClearAlloc("HtmlNodeStack", nByte);
-        pStack->pNode = pNode;
+        pStack->pElem = pElem;
         pStack->eType = stackType(pNode);
         pStack->pNext = pTree->pStack;
         if( pStack->pNext ){
             pStack->pNext->pPrev = pStack;
         }
         pTree->pStack = pStack;
-        pNode->pStack = pStack;
+        pElem->pStack = pStack;
         pTree->cb.flags |= HTML_STACK;
         pTree->nStack++;
     } else {
-      pNode->pStack = HtmlNodeParent(pNode)->pStack;
+      pElem->pStack = ((HtmlElementNode *)HtmlNodeParent(pNode))->pStack;
     }
-    assert(pNode->pStack);
+    assert(pElem->pStack);
 }
 
 #define STACK_STACKING  1
@@ -176,7 +179,7 @@ struct StackCompare {
 };
 
 #define IS_STACKING_CONTEXT(x) (                                    \
-         x == x->pStack->pNode && x->pStack->eType == STACK_CONTEXT \
+         x == x->pStack->pElem && x->pStack->eType == STACK_CONTEXT \
 )
 
 /*
@@ -208,10 +211,10 @@ scoreStack(pParentStack, pStack, eStack)
     if (pStack == pParentStack) {
         return eStack;
     }
-    assert(pStack->pNode->pParent);
+    assert(pStack->pElem->node.pParent);
     if (pStack->eType == STACK_FLOAT) return 4;
     if (pStack->eType == STACK_AUTO) return 6;
-    z = pStack->pNode->pPropertyValues->iZIndex;
+    z = pStack->pElem->pPropertyValues->iZIndex;
     assert(z != PIXELVAL_AUTO);
     if (z == 0) return 6;
     if (z < 0) return 2;
@@ -239,8 +242,8 @@ stackCompare(pVoidLeft, pVoidRight)
     int iTreeOrder = 0;
 
     int ii;
-    HtmlNode *pL;
-    HtmlNode *pR;
+    HtmlElementNode *pL;
+    HtmlElementNode *pR;
 
     /* There are three scenarios:
      *
@@ -254,10 +257,10 @@ stackCompare(pVoidLeft, pVoidRight)
      */
 
     /* Calculate pLeftStack, pRightStack and pParentStack */
-    for (pL = pLeftStack->pNode; pL; pL = HtmlNodeParent(pL)) nLeftDepth++;
-    for (pR = pRightStack->pNode; pR; pR = HtmlNodeParent(pR)) nRightDepth++;
-    pL = pLeftStack->pNode;
-    pR = pRightStack->pNode;
+    for (pL = pLeftStack->pElem; pL; pL = HtmlNodeParent(pL)) nLeftDepth++;
+    for (pR = pRightStack->pElem; pR; pR = HtmlNodeParent(pR)) nRightDepth++;
+    pL = pLeftStack->pElem;
+    pR = pRightStack->pElem;
     for (ii = 0; ii < MAX(0, nLeftDepth - nRightDepth); ii++) {
         if (IS_STACKING_CONTEXT(pL)) pLeftStack = pL->pStack;
         pL = HtmlNodeParent(pL);
@@ -301,8 +304,8 @@ stackCompare(pVoidLeft, pVoidRight)
 
     iRes = iLeft - iRight;
     if (iRes == 0 && (iRight == 2 || iRight == 6 || iRight == 7)) {
-        int z1 = pLeftStack->pNode->pPropertyValues->iZIndex;
-        int z2 = pRightStack->pNode->pPropertyValues->iZIndex;
+        int z1 = pLeftStack->pElem->pPropertyValues->iZIndex;
+        int z2 = pRightStack->pElem->pPropertyValues->iZIndex;
         if (z1 == PIXELVAL_AUTO) z1 = 0;
         if (z2 == PIXELVAL_AUTO) z2 = 0;
         iRes = z1 - z2;
@@ -442,17 +445,18 @@ styleNode(pTree, pNode, clientData)
     int trashDynamics = (int)clientData;
 
     if (!HtmlNodeIsText(pNode)) {
+        HtmlElementNode *pElem = (HtmlElementNode *)pNode;
         int redrawmode = 0;
-        HtmlComputedValues *pV = pNode->pPropertyValues;
-        pNode->pPropertyValues = 0;
-        HtmlDelStackingInfo(pTree, pNode);
+        HtmlComputedValues *pV = pElem->pPropertyValues;
+        pElem->pPropertyValues = 0;
+        HtmlDelStackingInfo(pTree, pElem);
 
         /* If the clientData was set to a non-zero value, then the 
          * stylesheet configuration has changed. In this case we need to
          * recalculate the nodes list of dynamic conditions.
          */
         if (trashDynamics) {
-            HtmlCssFreeDynamics(pNode);
+            HtmlCssFreeDynamics(pElem);
         }
     
         /* If there is a "style" attribute on this node, parse the attribute
@@ -463,28 +467,28 @@ styleNode(pTree, pNode, clientData)
          * changed since then, so we have to recalculate pNode->pProperties,
          * but the "style" attribute is constant so pStyle is never invalid.
          */
-        if (!pNode->pStyle) {
-            zStyle = HtmlNodeAttr(pNode, "style");
+        if (!pElem->pStyle) {
+            zStyle = HtmlNodeAttr(pElem, "style");
             if (zStyle) {
-                HtmlCssParseStyle(-1, zStyle, &pNode->pStyle);
+                HtmlCssParseStyle(-1, zStyle, &pElem->pStyle);
             }
         }
     
         /* Recalculate the properties for this node */
         HtmlCssStyleSheetApply(pTree, pNode);
-        HtmlComputedValuesRelease(pTree, pNode->pPreviousValues);
-        pNode->pPreviousValues = pV;
+        HtmlComputedValuesRelease(pTree, pElem->pPreviousValues);
+        pElem->pPreviousValues = pV;
 
-        redrawmode = HtmlComputedValuesCompare(pNode->pPropertyValues, pV);
+        redrawmode = HtmlComputedValuesCompare(pElem->pPropertyValues, pV);
 
         /* Regenerate any :before and :after content */
-        if (pNode->pBefore || pNode->pAfter) {
-            HtmlCallbackLayout(pTree, pNode);
-            HtmlNodeClearGenerated(pTree, pNode);
+        if (pElem->pBefore || pElem->pAfter) {
+            HtmlCallbackLayout(pTree, pElem);
+            HtmlNodeClearGenerated(pTree, pElem);
             redrawmode = 2;
         }
-        HtmlCssStyleSheetGenerated(pTree, pNode);
-        if (pNode->pBefore || pNode->pAfter) {
+        HtmlCssStyleSheetGenerated(pTree, pElem);
+        if (pElem->pBefore || pElem->pAfter) {
             redrawmode = 2;
         }
 
@@ -496,25 +500,25 @@ styleNode(pTree, pNode, clientData)
             HtmlCallbackDamage(pTree,x-pTree->iScrollX,y-pTree->iScrollY,w,h,0);
         }
 
-        addStackingInfo(pTree, pNode);
+        addStackingInfo(pTree, pElem);
 
-        if (pNode->pBefore) {
-            pNode->pBefore->pStack = pNode->pStack;
-            pNode->pBefore->pParent = pNode;
-            pNode->pBefore->iNode = -1;
+        if (pElem->pBefore) {
+            ((HtmlElementNode *)(pElem->pBefore))->pStack = pElem->pStack;
+            pElem->pBefore->pParent = pNode;
+            pElem->pBefore->iNode = -1;
         }
-        if (pNode->pAfter) {
-            pNode->pAfter->pStack = pNode->pStack;
-            pNode->pAfter->pParent = pNode;
-            pNode->pAfter->iNode = -1;
+        if (pElem->pAfter) {
+            ((HtmlElementNode *)(pElem->pAfter))->pStack = pElem->pStack;
+            pElem->pAfter->pParent = pNode;
+            pElem->pAfter->iNode = -1;
         }
 
         /* If there has been a style-callback configured (-stylecmd option to
          * the [nodeHandle replace] command) for this node, invoke it now.
          */
-        if (pNode->pReplacement && pNode->pReplacement->pStyle) {
+        if (pElem->pReplacement && pElem->pReplacement->pStyle) {
             int rc = Tcl_EvalObjEx(
-                pTree->interp, pNode->pReplacement->pStyle, TCL_EVAL_GLOBAL
+                pTree->interp, pElem->pReplacement->pStyle, TCL_EVAL_GLOBAL
             );
             if (rc != TCL_OK) {
                 Tcl_BackgroundError(pTree->interp);

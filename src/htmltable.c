@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.109 2006/10/27 06:40:33 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.110 2006/10/31 07:13:32 danielk1977 Exp $";
 
 
 #include "htmllayout.h"
@@ -176,14 +176,15 @@ fixNodeProperties(pData, pNode)
     TableData *pData;
     HtmlNode *pNode;
 {
-    if (!pNode->pPropertyValues) {
+    HtmlElementNode *pElem = (HtmlElementNode *)pNode;
+    if (!pElem->pPropertyValues) {
         if (!pData->pDefaultProperties) {
             HtmlTree *pTree = pData->pLayout->pTree;
             HtmlComputedValuesCreator sCreator;
             HtmlComputedValuesInit(pTree, pNode, 0, &sCreator);
             pData->pDefaultProperties = HtmlComputedValuesFinish(&sCreator);
         }
-        pNode->pPropertyValues = pData->pDefaultProperties;
+        pElem->pPropertyValues = pData->pDefaultProperties;
     }
 }
 
@@ -252,7 +253,7 @@ tableColWidthSingleSpan(pNode, col, colspan, row, rowspan, pContext)
 
         /* Figure out the minimum and maximum widths of the content */
         fixNodeProperties(pData, pNode);
-        pV = pNode->pPropertyValues;
+        pV = HtmlNodeComputedValues(pNode);
         blockMinMaxWidth(pData->pLayout, pNode, &min, &max);
         nodeGetBoxProperties(pData->pLayout, pNode, 0, &box);
 
@@ -378,7 +379,7 @@ getReqWidth(pNode, pReq)
     HtmlNode *pNode;
     CellReqWidth *pReq;
 {
-    HtmlComputedValues *pV = pNode->pPropertyValues;
+    HtmlComputedValues *pV = HtmlNodeComputedValues(pNode);
     if (pV->mask & PROP_MASK_WIDTH) {
         /* The computed value of the 'width' property is a percentage */
         pReq->eType = CELL_WIDTH_PERCENT;
@@ -725,6 +726,9 @@ tableDrawRow(pNode, row, pContext)
     int i;                                 /* Column iterator */
     const int mmt = pLayout->minmaxTest;
 
+    HtmlElementNode *pElem = (HtmlElementNode *)pNode;
+    assert(!pElem || !HtmlNodeIsText(pNode));
+
     assert(row < pData->nRow);
 
     /* Add the background and border for the table-row, if a node exists. A
@@ -736,7 +740,7 @@ tableDrawRow(pNode, row, pContext)
      */
 
     CHECK_INTEGER_PLAUSIBILITY(pData->pBox->vc.bottom);
-    if (pNode && pNode->pPropertyValues) {
+    if (pElem && pElem->node.iNode >= 0 && pElem->pPropertyValues) {
         int x1, y1, w1, h1;           /* Border coordinates */
         x1 = pData->border_spacing;
         y1 = pData->aY[row];
@@ -774,14 +778,16 @@ tableDrawRow(pNode, row, pContext)
             }
             w1 += ((pCell->colspan-1) * pData->border_spacing);
             h1 = pData->aY[pCell->finrow] - pData->border_spacing - y1;
-            HtmlDrawBox(pCanvas, x1, y1, w1, h1, pCell->pNode, 0, mmt);
+            if (pCell->pNode->iNode >= 0) {
+                HtmlDrawBox(pCanvas, x1, y1, w1, h1, pCell->pNode, 0, mmt);
+            }
             nodeGetBoxProperties(pLayout, pCell->pNode, 0, &box);
 
             /* Todo: The formulas for the various vertical alignments below
              *       only work if the top and bottom borders of the cell
              *       are of the same thickness. Same goes for the padding.
              */
-            switch (pCell->pNode->pPropertyValues->eVerticalAlign) {
+            switch (HtmlNodeComputedValues(pCell->pNode)->eVerticalAlign) {
                 case CSS_CONST_TOP:
                 case CSS_CONST_BASELINE:
                     y = pData->aY[pCell->startrow] + box.iTop;
@@ -860,8 +866,10 @@ tableDrawCells(pNode, col, colspan, row, rowspan, pContext)
     int belowY;
     LayoutContext *pLayout = pData->pLayout;
     int iHeight;
+    HtmlComputedValues *pV;
 
     fixNodeProperties(pData, pNode);
+    pV = HtmlNodeComputedValues(pNode);
 
     /* A rowspan of 0 means the cell spans the remainder of the table
      * vertically.  Similarly, a colspan of 0 means the cell spans the
@@ -912,7 +920,7 @@ tableDrawCells(pNode, col, colspan, row, rowspan, pContext)
      * sections 17.5 and 17.5.3.
      */
     iHeight = pBox->height + box.iTop + box.iBottom;
-    iHeight = MAX(PIXELVAL(pNode->pPropertyValues, HEIGHT, 0), iHeight);
+    iHeight = MAX(PIXELVAL(pV, HEIGHT, 0), iHeight);
     belowY = y + iHeight + pData->border_spacing;
     
     LOG {
@@ -968,13 +976,15 @@ doCellIterate(pTree, pNode, p)
     HtmlNode *pNode;
     RowIterateContext *p;
 {
-
     int nSpan = 1;
     int nRSpan = 1;
     int col_ok = 0;
     char const *zSpan = 0;
+
+    HtmlElementNode *pElem = (HtmlElementNode *)pNode;
+    assert(!HtmlNodeIsText(pNode));
     
-    if (pNode->pPropertyValues) {
+    if (pElem->pPropertyValues) {
         /* Set nSpan to the number of columns this cell spans */
         zSpan = HtmlNodeAttr(pNode, "colspan");
         nSpan = zSpan?atoi(zSpan):1;
@@ -1072,7 +1082,7 @@ rowIterate(pTree, pNode, clientData)
 
     for (ii = 0; ii < HtmlNodeNumChildren(pNode); ii++) {
         HtmlNode *pCell = HtmlNodeChild(pNode, ii);
-        HtmlComputedValues *pV = pCell->pPropertyValues;
+        HtmlComputedValues *pV = HtmlNodeComputedValues(pCell);
 
         /* Throw away text node children of the row node. Todo: Only
          * white-space should be thrown away, Html_Text nodes should have
@@ -1086,17 +1096,18 @@ rowIterate(pTree, pNode, clientData)
         } else {
             /* Have to create a fake <td> node. Bad. */
             int jj;
-            HtmlNode sCell;
-            memset(&sCell, 0, sizeof(HtmlNode));
+            HtmlElementNode sCell;
+            memset(&sCell, 0, sizeof(HtmlElementNode));
             for (jj = ii + 1; jj < HtmlNodeNumChildren(pNode); jj++) {
                 HtmlNode *pNextRow = HtmlNodeChild(pNode, jj);
-                HtmlComputedValues *pV2 = pNextRow->pPropertyValues;
+                HtmlComputedValues *pV2 = HtmlNodeComputedValues(pNextRow);
                 if (DISPLAY(pV2) == CSS_CONST_TABLE_CELL) break;
             }
+            sCell.node.iNode = -1;
             sCell.nChild = jj - ii;
-            sCell.apChildren = &pNode->apChildren[ii];
-            doCellIterate(pTree, &sCell, clientData);
-            HtmlLayoutInvalidateCache(pTree, &sCell);
+            sCell.apChildren = &((HtmlElementNode *)pNode)->apChildren[ii];
+            doCellIterate(pTree, (HtmlNode *)&sCell, clientData);
+            HtmlLayoutInvalidateCache(pTree, (HtmlNode *)&sCell);
             ii = jj - 1;
         }
     }
@@ -1164,7 +1175,7 @@ tableIterate(pTree, pNode, xCallback, xRowCallback, pContext)
 
     for (ii = 0; ii < HtmlNodeNumChildren(pNode); ii++) {
         HtmlNode *pRow = HtmlNodeChild(pNode, ii);
-        HtmlComputedValues *pV = pRow->pPropertyValues;
+        HtmlComputedValues *pV = HtmlNodeComputedValues(pRow);
 
         /* Throw away text node children of the table node. Todo: Only
          * white-space should be thrown away, Html_Text nodes should have
@@ -1178,15 +1189,16 @@ tableIterate(pTree, pNode, xCallback, xRowCallback, pContext)
         } else {
             /* Have to create a fake <tr> node. Bad. */
             int jj;
-            HtmlNode sRow;
-            memset(&sRow, 0, sizeof(HtmlNode));
+            HtmlElementNode sRow;
+            memset(&sRow, 0, sizeof(HtmlElementNode));
             for (jj = ii + 1; jj < HtmlNodeNumChildren(pNode); jj++) {
                 HtmlNode *pNextRow = HtmlNodeChild(pNode, jj);
-                HtmlComputedValues *pV2 = pNextRow->pPropertyValues;
+                HtmlComputedValues *pV2 = HtmlNodeComputedValues(pNextRow);
                 if (DISPLAY(pV2) == CSS_CONST_TABLE_ROW) break;
             }
+            sRow.node.iNode = -1;
             sRow.nChild = jj - ii;
-            sRow.apChildren = &pNode->apChildren[ii];
+            sRow.apChildren = &((HtmlElementNode *)pNode)->apChildren[ii];
             rowIterate(pTree, &sRow, &sRowContext);
             assert(!sRow.pLayoutCache);
             ii = jj - 1;
@@ -1489,7 +1501,7 @@ tableCalculateMaxWidth(pData)
     int bConsiderPercent = 0;
     HtmlNode *p;
 
-    HtmlComputedValues *pV = pData->pNode->pPropertyValues;
+    HtmlComputedValues *pV = HtmlNodeComputedValues(pData->pNode);
 
     for (ii = 0; ii < pData->nCol; ii++) {
         if (aReqWidth[ii].eType == CELL_WIDTH_PIXELS) {
@@ -1510,7 +1522,7 @@ tableCalculateMaxWidth(pData)
     }
 
     for (p = HtmlNodeParent(pData->pNode); p; p = HtmlNodeParent(p)) {
-        HtmlComputedValues *pComputed = p->pPropertyValues;
+        HtmlComputedValues *pComputed = HtmlNodeComputedValues(p);
         if (
             PIXELVAL(pComputed, WIDTH, 0) != PIXELVAL_AUTO ||
             pComputed->ePosition != CSS_CONST_STATIC
@@ -1603,7 +1615,7 @@ int HtmlTableLayout(pLayout, pBox, pNode)
     HtmlNode *pNode;          /* The node to layout */
 {
     HtmlTree *pTree = pLayout->pTree;
-    HtmlComputedValues *pV = pNode->pPropertyValues;
+    HtmlComputedValues *pV = HtmlNodeComputedValues(pNode);
     int nCol = 0;             /* Number of columns in this table */
     int i;
     int availwidth;           /* Total width available for cells */

@@ -791,13 +791,13 @@ orderIndexPair(ppA, piA, ppB, piB)
 }
 
 static void
-removeTagFromNode(pNode, pTag)
-    HtmlNode *pNode;
+removeTagFromNode(pTextNode, pTag)
+    HtmlTextNode *pTextNode;
     HtmlWidgetTag *pTag;
 {
-    HtmlTaggedRegion *pTagged = pNode->pTagged;
+    HtmlTaggedRegion *pTagged = pTextNode->pTagged;
     if (pTagged) { 
-        HtmlTaggedRegion **pPtr = &pNode->pTagged;
+        HtmlTaggedRegion **pPtr = &pTextNode->pTagged;
         
         while (pTagged) {
             if (pTagged->pTag == pTag) {
@@ -811,21 +811,21 @@ removeTagFromNode(pNode, pTag)
     }
 
 #ifndef NDEBUG
-    for (pTagged = pNode->pTagged; pTagged ; pTagged = pTagged->pNext) {
+    for (pTagged = pTextNode->pTagged; pTagged ; pTagged = pTagged->pNext) {
         assert(pTagged->pTag != pTag);
     }
 #endif
 }
 
 static HtmlTaggedRegion *
-findTagInNode(pNode, pTag, ppPtr)
-    HtmlNode *pNode;
+findTagInNode(pTextNode, pTag, ppPtr)
+    HtmlTextNode *pTextNode;
     HtmlWidgetTag *pTag;
     HtmlTaggedRegion ***ppPtr;
 {
     HtmlTaggedRegion *pTagged;
-    HtmlTaggedRegion **pPtr = &pNode->pTagged;
-    for (pTagged = pNode->pTagged; pTagged; pTagged = pTagged->pNext) {
+    HtmlTaggedRegion **pPtr = &pTextNode->pTagged;
+    for (pTagged = pTextNode->pTagged; pTagged; pTagged = pTagged->pNext) {
         if (pTagged->pTag == pTag) {
             *ppPtr = pPtr;
             return pTagged;
@@ -899,13 +899,14 @@ tagAddRemoveCallback(pTree, pNode, clientData)
     ClientData clientData;
 {
     TagOpData *pData = (TagOpData *)clientData;
+    HtmlTextNode *pTextNode = HtmlNodeAsText(pNode);
 
     if (pNode == pData->pFrom) {
         assert(0 == pData->eSeenFrom);
         pData->eSeenFrom = 1;
     }
 
-    if (HtmlNodeIsText(pNode) && pData->eSeenFrom) {
+    if (pTextNode && pData->eSeenFrom) {
         HtmlTaggedRegion *pTagged;
         HtmlTaggedRegion **pPtr;
         int iFrom = 0;
@@ -915,7 +916,7 @@ tagAddRemoveCallback(pTree, pNode, clientData)
 
         assert(iFrom <= iTo);
 
-        pTagged = findTagInNode(pNode, pData->pTag, &pPtr);
+        pTagged = findTagInNode(pTextNode, pData->pTag, &pPtr);
         assert(*pPtr == pTagged);
 
         switch (pData->isAdd) {
@@ -1108,8 +1109,10 @@ tagDeleteCallback(pTree, pNode, clientData)
     HtmlNode *pNode;
     ClientData clientData;
 {
-    HtmlWidgetTag *pTag = clientData;
-    removeTagFromNode(pNode, pTag);
+    HtmlTextNode *pTextNode = HtmlNodeAsText(pNode);
+    if (pTextNode) {
+        removeTagFromNode(pTextNode, (HtmlWidgetTag *)clientData);
+    }
     return HTML_WALK_DESCEND;
 }
 
@@ -1145,16 +1148,16 @@ HtmlTagDeleteCmd(clientData, interp, objc, objv)
 }
 
 void
-HtmlTagCleanupNode(pNode)
-    HtmlNode *pNode;
+HtmlTagCleanupNode(pTextNode)
+    HtmlTextNode *pTextNode;
 {
-    HtmlTaggedRegion *pTagged = pNode->pTagged;
+    HtmlTaggedRegion *pTagged = pTextNode->pTagged;
     while (pTagged) {
         HtmlTaggedRegion *pNext = pTagged->pNext;
         HtmlFree(pTagged);
         pTagged = pNext;
     }
-    pNode->pTagged = 0;
+    pTextNode->pTagged = 0;
 }
 
 void
@@ -1220,39 +1223,52 @@ initHtmlTextCallback(pTree, pNode, clientData)
 {
     HtmlTextInit *pInit = (HtmlTextInit *)clientData;
     if (HtmlNodeIsText(pNode)) {
-        HtmlToken *pT;
+        HtmlTextIter sIter;
         int iNodeIndex = 0;
+
         for (
-            pT = pNode->pToken;
-            pT && (pT->type==Html_Space || pT->type==Html_Text);
-            pT = pT->pNextToken
+            HtmlTextIterFirst((HtmlTextNode *)pNode, &sIter);
+            HtmlTextIterIsValid(&sIter);
+            HtmlTextIterNext(&sIter)
         ) {
-            if (pT->type == Html_Space) {
-                pInit->eState = MAX(pInit->eState, SEEN_SPACE);
-                iNodeIndex++;
-            } else {
-                if (pInit->iIdx > 0) {
-                    switch (pInit->eState) {
-                        case SEEN_BLOCK:
-                            Tcl_AppendToObj(pInit->pText->pObj, "\n", 1);
-                            pInit->iIdx++;
-                            break;
-                        case SEEN_SPACE:
-                            Tcl_AppendToObj(pInit->pText->pObj, " ", 1);
-                            pInit->iIdx++;
-                            break;
+            int eType = HtmlTextIterType(&sIter);
+            int nData = HtmlTextIterLength(&sIter);
+            char const * zData = HtmlTextIterData(&sIter);
+
+            switch (eType) {
+                case HTML_TEXT_TOKEN_NEWLINE:
+                case HTML_TEXT_TOKEN_SPACE:
+                    pInit->eState = MAX(pInit->eState, SEEN_SPACE);
+                    iNodeIndex++;
+                    break;
+
+                case HTML_TEXT_TOKEN_TEXT:
+                    if (pInit->iIdx > 0) {
+                        switch (pInit->eState) {
+                            case SEEN_BLOCK:
+                                Tcl_AppendToObj(pInit->pText->pObj, "\n", 1);
+                                pInit->iIdx++;
+                                break;
+                            case SEEN_SPACE:
+                                Tcl_AppendToObj(pInit->pText->pObj, " ", 1);
+                                pInit->iIdx++;
+                                break;
+                        }
                     }
-                }
-                addTextMapping(pTree->pText, pNode, iNodeIndex, pInit->iIdx);
-                Tcl_AppendToObj(pInit->pText->pObj, pT->x.zText, pT->count);
-                pInit->eState = SEEN_TEXT;
-                iNodeIndex += pT->count;
-                assert(pT->count >= 0);
-                pInit->iIdx += Tcl_NumUtfChars(pT->x.zText, pT->count);
+                    addTextMapping(pTree->pText,pNode,iNodeIndex,pInit->iIdx);
+                    Tcl_AppendToObj(pInit->pText->pObj, zData, nData);
+                    pInit->eState = SEEN_TEXT;
+                    iNodeIndex += nData;
+                    assert(nData >= 0);
+                    pInit->iIdx += Tcl_NumUtfChars(zData, nData);
+                    break;
+
+                default:
+                    assert(!"Bad return value from HtmlTextIterType()");
             }
         }
     } else {
-      int eDisplay = pNode->pPropertyValues->eDisplay; 
+      int eDisplay = HtmlNodeComputedValues(pNode)->eDisplay; 
       if (eDisplay == CSS_CONST_NONE) {
         return HTML_WALK_DO_NOT_DESCEND;
       }
@@ -1519,5 +1535,243 @@ HtmlTextBboxCmd(clientData, interp, objc, objv)
     }
 
     return TCL_OK;
+}
+
+/* Extra values used internally for HtmlTextToken.eType */
+#define HTML_TEXT_TOKEN_LONGTEXT  4
+#define HTML_TEXT_TOKEN_END       0
+
+struct HtmlTextToken {
+    unsigned char n;
+    unsigned char eType;
+};
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * populateTextNode --
+ * 
+ *     This function is called to parse a block of text into an 
+ *     HtmlTextNode structure. It is a helper function for HtmlTextNew().
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *
+ *---------------------------------------------------------------------------
+ */
+static void
+populateTextNode(n, z, pText, pnToken, pnText)
+    int n;
+    char const *z;
+    HtmlTextNode *pText;
+    int *pnToken;
+    int *pnText;
+{
+    char const *zCsr = z;
+    char const *zStop = &z[n];
+
+    int nToken = 0;
+    int nText = 0;
+
+    int spaceok = 0;
+
+    while (zCsr < zStop) {
+        unsigned char c = (unsigned char)(*zCsr);
+        char const *zStart = zCsr;
+
+        if (isspace(c)) {
+            char *zSpaceStop = MIN(&zCsr[255], zStop);
+            do { 
+                zCsr++; 
+            } while ((unsigned char)*zCsr == c && zCsr < zSpaceStop);
+            assert((zCsr - zStart) <= 255);
+
+            if (pText) {
+                pText->aToken[nToken].n = (zCsr - zStart);
+                if (c == '\n' || c == '\r') {
+                    pText->aToken[nToken].eType = HTML_TEXT_TOKEN_NEWLINE;
+                } else {
+                    pText->aToken[nToken].eType = HTML_TEXT_TOKEN_SPACE;
+                }
+            }
+            nToken++;
+
+            if (spaceok) {
+                if (pText) {
+                    pText->zText[nText] = ' ';
+                }
+                nText++;
+            }
+
+            spaceok = 0;
+        } else {
+
+            int nThisText;
+            do { 
+                zCsr++; 
+                c = (unsigned char)(*zCsr);
+            } while (*zCsr && !isspace(c) && zCsr < zStop);
+            nThisText = MIN(0x00FFFFFF, (zCsr - zStart));
+
+            if (nThisText > 255) {
+                if (pText) {
+                    pText->aToken[nToken].eType = HTML_TEXT_TOKEN_LONGTEXT;
+                    pText->aToken[nToken+1].eType = HTML_TEXT_TOKEN_LONGTEXT;
+                    pText->aToken[nToken+2].eType = HTML_TEXT_TOKEN_LONGTEXT;
+                    pText->aToken[nToken].n = ((nThisText >> 16) & 0x000000FF);
+                    pText->aToken[nToken+1].n = ((nThisText >> 8) & 0x000000FF);
+                    pText->aToken[nToken+2].n = (nThisText & 0x000000FF);
+                    memcpy(&pText->zText[nText], zStart, nThisText);
+                }
+                nToken += 3;
+            } else {
+                if (pText) {
+                    pText->aToken[nToken].eType = HTML_TEXT_TOKEN_TEXT;
+                    pText->aToken[nToken].n = nThisText;
+                    memcpy(&pText->zText[nText], zStart, nThisText);
+                }
+                nToken++;
+            }
+
+            nText += nThisText;
+            spaceok = 1;
+        }
+    }
+
+    /* Add the terminator token */
+    if (pText) {
+        pText->aToken[nToken].eType = HTML_TEXT_TOKEN_END;
+    }
+    nToken++;
+
+    if (pnToken) *pnToken = nToken;
+    if (pnText) *pnText = nText;
+}
+
+HtmlTextNode *
+HtmlTextNew(n, z)
+    int n;
+    const char *z;
+{
+    char *z2;
+    HtmlTextNode *pText;
+
+    int nText = 0;
+    int nToken = 0;
+    int nAlloc;                /* Number of bytes allocated */
+
+    /* Make a temporary copy of the text and translate any embedded html 
+     * escape characters (i.e. "&nbsp;"). Todo: Avoid this copy by changing
+     * populateTextNode() so that it deals with escapes.
+     */
+    z2 = (char *)HtmlAlloc("temp", n + 1);
+    memcpy(z2, z, n);
+    z2[n] = '\0';
+    HtmlTranslateEscapes(z2);
+
+    /* Figure out how much space is required for this HtmlTextNode. */
+    populateTextNode(strlen(z2), z2, 0, &nToken, &nText);
+
+    /* Allocate space for the HtmlTextNode and it's two array members */
+    nAlloc = sizeof(HtmlTextNode) + nText + (nToken * sizeof(HtmlTextToken));
+    pText = (HtmlTextNode *)HtmlClearAlloc("HtmlTextNode", nAlloc);
+    pText->aToken = (HtmlTextToken *)&pText[1];
+    pText->zText = (char *)&pText->aToken[nToken];
+
+    /* Populate the HtmlTextNode.aToken and zText arrays. */
+    populateTextNode(strlen(z2), z2, pText, 0, 0);
+
+    HtmlFree(z2);
+    return pText;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlTextFree --
+ * 
+ *     Free a text-node structure allocated by HtmlTextNew().
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     Text-node p is deleted.
+ *
+ *---------------------------------------------------------------------------
+ */
+void 
+HtmlTextFree(p)
+    HtmlTextNode *p;
+{
+    HtmlFree(p);
+}
+
+void
+HtmlTextIterFirst(pTextNode, pTextIter)
+    HtmlTextNode *pTextNode;
+    HtmlTextIter *pTextIter;
+{
+    pTextIter->pTextNode = pTextNode;
+    pTextIter->iText = 0;
+    pTextIter->iToken = 0;
+}
+
+
+int
+HtmlTextIterIsValid(pTextIter)
+    HtmlTextIter *pTextIter;
+{
+    HtmlTextToken *p = &pTextIter->pTextNode->aToken[pTextIter->iToken];
+    return (p->eType != HTML_TEXT_TOKEN_END) ? 1 : 0;
+}
+
+void
+HtmlTextIterNext(pTextIter)
+    HtmlTextIter *pTextIter;
+{
+    HtmlTextToken *p = &pTextIter->pTextNode->aToken[pTextIter->iToken];
+
+    assert(p->eType != HTML_TEXT_TOKEN_END);
+    if (p->eType == HTML_TEXT_TOKEN_TEXT) {
+        pTextIter->iText += (p->n + 1);
+    }
+    if (p->eType == HTML_TEXT_TOKEN_LONGTEXT) {
+        int n = (p[0].n << 16) + (p[1].n << 8) + p[2].n;
+        pTextIter->iText += (n + 1);
+        pTextIter->iToken += 2;
+    }
+
+    pTextIter->iToken++;
+}
+
+int 
+HtmlTextIterType(pTextIter)
+    HtmlTextIter *pTextIter;
+{
+    HtmlTextToken *p = &pTextIter->pTextNode->aToken[pTextIter->iToken];
+    if (p->eType == HTML_TEXT_TOKEN_LONGTEXT) return HTML_TEXT_TOKEN_TEXT;
+    return (int)(p->eType);
+}
+
+int 
+HtmlTextIterLength(pTextIter)
+    HtmlTextIter *pTextIter;
+{
+    HtmlTextToken *p = &pTextIter->pTextNode->aToken[pTextIter->iToken];
+    if (p->eType == HTML_TEXT_TOKEN_LONGTEXT) {
+        int n = (p[0].n << 16) + (p[1].n << 8) + p[2].n;
+        return n;
+    }
+    return (int)(p->n);
+}
+
+const char *
+HtmlTextIterData(pTextIter)
+    HtmlTextIter *pTextIter;
+{
+    return (const char *)(&pTextIter->pTextNode->zText[pTextIter->iText]);
 }
 

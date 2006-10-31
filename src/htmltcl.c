@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.128 2006/10/27 06:40:33 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.129 2006/10/31 07:13:32 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -337,7 +337,11 @@ callbackHandler(clientData)
 
     int offscreen;
 
-    assert(!pTree->pRoot||pTree->pRoot->pPropertyValues||pTree->cb.pRestyle);
+    assert(
+        !pTree->pRoot ||
+        HtmlNodeComputedValues(pTree->pRoot) ||
+        pTree->cb.pRestyle
+    );
 
     HtmlLog(pTree, "CALLBACK", 
         "flags=( %s%s%s%s%s) pDynamic=%s pRestyle=%s scroll=(+%d+%d) ",
@@ -541,8 +545,8 @@ upgradeRestylePoint(ppRestyle, pNode)
             }  
             if (HtmlNodeParent(pB) == pParentA) {
                 int i;
-                for (i = 0; i < pParentA->nChild; i++) {
-                    HtmlNode *pChild = pParentA->apChildren[i];
+                for (i = 0; i < HtmlNodeNumChildren(pParentA); i++) {
+                    HtmlNode *pChild = HtmlNodeChild(pParentA, i);
                     if (pChild == pB) {
                         *ppRestyle = pB;
                         return;
@@ -987,8 +991,11 @@ worldChangedCb(pTree, pNode, clientData)
     HtmlNode *pNode;
     ClientData clientData;
 {
-    HtmlLayoutInvalidateCache(pTree, pNode);
-    HtmlNodeClearStyle(pTree, pNode);
+    if (!HtmlNodeIsText(pNode)) {
+        HtmlElementNode *pElem = (HtmlElementNode *)pNode;
+        HtmlLayoutInvalidateCache(pTree, pNode);
+        HtmlNodeClearStyle(pTree, pElem);
+    }
     return HTML_WALK_DESCEND;
 }
 

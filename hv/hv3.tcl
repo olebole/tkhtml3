@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.113 2006/10/26 12:53:29 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.114 2006/10/31 07:13:32 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -485,8 +485,10 @@ snit::type ::hv3::hv3::dynamicmanager {
   method press {x y} {
     set N [lindex [$myHv3 node $x $y] end]
     while {$N ne ""} {
-      lappend myActiveNodes $N
-      $N dynamic set active
+      if {[$N tag] ne ""} {
+        lappend myActiveNodes $N
+        $N dynamic set active
+      }
       set N [$N parent]
     }
   }
@@ -504,12 +506,14 @@ snit::type ::hv3::hv3::dynamicmanager {
     set myHoverNodes [list]
     foreach node $nodelist {
       for {set n $node} {$n ne ""} {set n [$n parent]} {
-        set idx [lsearch $hovernodes $n]
-        lappend myHoverNodes $n
-        if {$idx < 0} {
-          $n dynamic set hover
-        } else {
-          set hovernodes [lreplace $hovernodes $idx $idx]
+        if {[$n tag] ne ""} {
+          set idx [lsearch $hovernodes $n]
+          lappend myHoverNodes $n
+          if {$idx < 0} {
+            $n dynamic set hover
+          } else {
+            set hovernodes [lreplace $hovernodes $idx $idx]
+          }
         }
       }
     }

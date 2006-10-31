@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.41 2006/09/05 16:06:02 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.42 2006/10/31 07:13:32 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_prop.tcl --
@@ -414,12 +414,14 @@ snit::widget HtmlDebug {
         }]
     }
 
-    append doc {<table><tr><th>CSS Dynamic Conditions}
-    foreach condition [$node dynamic conditions] {
-        set c [string map {< &lt; > &gt;} $condition]
-        append doc "<tr><td>$c"
+    if {[$node tag] ne ""} {
+        append doc {<table><tr><th>CSS Dynamic Conditions}
+        foreach condition [$node dynamic conditions] {
+            set c [string map {< &lt; > &gt;} $condition]
+            append doc "<tr><td>$c"
+        }
+        append doc {</table>}
     }
-    append doc {</table>}
 
     if {[info exists myLayoutEngineLog($node)]} {
         append doc {<table class=layout_engine><tr><th>Layout Engine}

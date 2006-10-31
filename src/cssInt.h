@@ -271,7 +271,7 @@ int HtmlCssPseudo(CssToken *, int);
 /* Test if a selector matches a node */
 int HtmlCssSelectorTest(CssSelector *, HtmlNode *, int);
 
-void HtmlCssAddDynamic(HtmlNode *, CssSelector *, int);
+void HtmlCssAddDynamic(HtmlElementNode *, CssSelector *, int);
 
 /* Append the string representation of the supplied selector to the object. */
 void HtmlCssSelectorToString(CssSelector *, Tcl_Obj *);

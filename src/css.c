@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.94 2006/10/28 10:03:38 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.95 2006/10/31 07:13:32 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -3008,6 +3008,10 @@ HtmlCssSelectorTest(pSelector, pNode, dynamic_true)
 {
     CssSelector *p = pSelector;
     HtmlNode *x = pNode;
+
+    HtmlElementNode *pElem = (HtmlElementNode *)pNode;
+    assert(!HtmlNodeIsText(pElem));
+
     while( p && x ){
 
         switch( p->eSelector ){
@@ -3062,7 +3066,11 @@ HtmlCssSelectorTest(pSelector, pNode, dynamic_true)
             case CSS_SELECTORCHAIN_ADJACENT: {
                 HtmlNode *pParent = N_PARENT(x);
                 int i;
-                if (!pParent || pParent->pBefore == x || pParent->pAfter == x) {
+                if (
+                    !pParent || 
+                    ((HtmlElementNode *)pParent)->pBefore == x ||
+                    ((HtmlElementNode *)pParent)->pAfter == x 
+                ) {
                     return 0;
                 }
                 for (i = 0; N_CHILD(pParent,i) != x; i++);
@@ -3119,19 +3127,19 @@ HtmlCssSelectorTest(pSelector, pNode, dynamic_true)
                 break;
 
             case CSS_PSEUDOCLASS_ACTIVE:
-                if (dynamic_true || (x->flags & HTML_DYNAMIC_ACTIVE)) break;
+                if (dynamic_true || (pElem->flags & HTML_DYNAMIC_ACTIVE)) break;
                 return 0;
             case CSS_PSEUDOCLASS_HOVER:
-                if (dynamic_true || (x->flags & HTML_DYNAMIC_HOVER)) break;
+                if (dynamic_true || (pElem->flags & HTML_DYNAMIC_HOVER)) break;
                 return 0;
             case CSS_PSEUDOCLASS_FOCUS:
-                if (dynamic_true || (x->flags & HTML_DYNAMIC_FOCUS)) break;
+                if (dynamic_true || (pElem->flags & HTML_DYNAMIC_FOCUS)) break;
                 return 0;
             case CSS_PSEUDOCLASS_LINK:
-                if (x->flags & HTML_DYNAMIC_LINK) break;
+                if (pElem->flags & HTML_DYNAMIC_LINK) break;
                 return 0;
             case CSS_PSEUDOCLASS_VISITED:
-                if (x->flags & HTML_DYNAMIC_VISITED) break;
+                if (pElem->flags & HTML_DYNAMIC_VISITED) break;
                 return 0;
 
             case CSS_SELECTOR_NEVERMATCH:
@@ -3422,6 +3430,9 @@ HtmlCssStyleSheetApply(pTree, pNode)
     int nSelectorMatch = 0;
     int nSelectorTest = 0;
 
+    HtmlElementNode *pElem = (HtmlElementNode *)pNode;
+    assert(!HtmlNodeIsText(pElem));
+
     /* The universal rules list applies to all nodes */
     apRule[0] = pStyle->pUniversalRules;
     npRule = 1;
@@ -3475,7 +3486,7 @@ HtmlCssStyleSheetApply(pTree, pNode)
      * These properties were set directly by the script and have a higher
      * priority than anything else.
      */
-    overrideToPropertyValues(&sCreator, aPropDone, pNode->pOverride);
+    overrideToPropertyValues(&sCreator, aPropDone, pElem->pOverride);
 
     /* Loop through the list of CSS rules in the stylesheet. Rules that occur
      * earlier in the list have a higher priority than those that occur later.
@@ -3501,9 +3512,9 @@ HtmlCssStyleSheetApply(pTree, pNode)
          */
         if (!style_done && !pPriority->important) {
             style_done = 1;
-            if (pNode->pStyle) {
-                CssRule *pRule2 = pNode->pStyle->apRule[0];
-                assert(pNode->pStyle->nRule == 1);
+            if (pElem->pStyle) {
+                CssRule *pRule2 = pElem->pStyle->apRule[0];
+                assert(pElem->pStyle->nRule == 1);
                 ruleToPropertyValues(&sCreator, aPropDone, pRule2);
             }
         }
@@ -3516,13 +3527,13 @@ HtmlCssStyleSheetApply(pTree, pNode)
             pSelector->isDynamic &&
             HtmlCssSelectorTest(pSelector, pNode, 1)
         ) {
-            HtmlCssAddDynamic(pNode, pSelector, 0);
+            HtmlCssAddDynamic(pElem, pSelector, 0);
         }
     }
 
-    if (!style_done && pNode->pStyle) {
-        assert(pNode->pStyle->nRule == 1);
-        ruleToPropertyValues(&sCreator, aPropDone, pNode->pStyle->apRule[0]);
+    if (!style_done && pElem->pStyle) {
+        assert(pElem->pStyle->nRule == 1);
+        ruleToPropertyValues(&sCreator, aPropDone, pElem->pStyle->apRule[0]);
     }
 
     LOG {
@@ -3535,7 +3546,7 @@ HtmlCssStyleSheetApply(pTree, pNode)
     /* Call HtmlComputedValuesFinish() to finish creating the
      * HtmlComputedValues structure.
      */
-    pNode->pPropertyValues = HtmlComputedValuesFinish(&sCreator);
+    pElem->pPropertyValues = HtmlComputedValuesFinish(&sCreator);
 }
 
 static void 
@@ -3568,33 +3579,28 @@ generatedContent(pTree, pNode, pCssRule, ppNode)
         return;
     }
 
-    *ppNode = HtmlNew(HtmlNode);
-    (*ppNode)->pPropertyValues = pValues;
+    *ppNode = (HtmlNode *)HtmlNew(HtmlElementNode);
+    ((HtmlElementNode *)(*ppNode))->pPropertyValues = pValues;
 
     if (zContent) {
         /* If a value was specified for the 'content' property, create
          * a text node also.
          */
-        int nBytes = sizeof(HtmlToken) + strlen(zContent) + 1;
-        int idx;
-        HtmlToken *pToken = (HtmlToken *)HtmlClearAlloc("HtmlToken", nBytes);
-        pToken->type = Html_Text;
-        pToken->count = strlen(zContent);
-        pToken->x.zText = (char *)&pToken[1];
-        strcpy(pToken->x.zText, zContent);
-        HtmlFree(zContent);
-        idx = HtmlNodeAddChild(*ppNode, pToken);
+        HtmlTextNode *pTextNode = HtmlTextNew(strlen(zContent), zContent);
+        int idx = HtmlNodeAddTextChild(*ppNode, pTextNode);
         HtmlNodeChild(*ppNode, idx)->iNode = -1;
+        HtmlFree(zContent);
     }
 }
 
-void HtmlCssStyleSheetGenerated(pTree, pNode)
+void HtmlCssStyleSheetGenerated(pTree, pElem)
     HtmlTree *pTree;
-    HtmlNode *pNode;
+    HtmlElementNode *pElem;
 {
     CssStyleSheet *pStyle = pTree->pStyle;    /* Stylesheet config */
-    generatedContent(pTree, pNode, pStyle->pAfterRules, &pNode->pAfter);
-    generatedContent(pTree, pNode, pStyle->pBeforeRules, &pNode->pBefore);
+    HtmlNode *pNode = (HtmlNode *)pElem;
+    generatedContent(pTree, pNode, pStyle->pAfterRules, &pElem->pAfter);
+    generatedContent(pTree, pNode, pStyle->pBeforeRules, &pElem->pBefore);
 }
 
 /*--------------------------------------------------------------------------

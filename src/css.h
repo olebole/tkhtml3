@@ -147,7 +147,7 @@ void HtmlCssStyleSheetFree(CssStyleSheet *);
  * Function to apply a stylesheet to a document node.
  */
 void HtmlCssStyleSheetApply(HtmlTree *, HtmlNode *);
-void HtmlCssStyleSheetGenerated(HtmlTree *, HtmlNode *);
+void HtmlCssStyleSheetGenerated(HtmlTree *, HtmlElementNode *);
 
 /*
  * Functions to interface with the results of a style application.
@@ -161,7 +161,7 @@ Tcl_ObjCmdProc HtmlCssSearch;
 Tcl_ObjCmdProc HtmlCssStyleReport;
 
 void HtmlCssCheckDynamic(HtmlTree *);
-void HtmlCssFreeDynamics(HtmlNode *);
+void HtmlCssFreeDynamics(HtmlElementNode *);
 int  HtmlCssTclNodeDynamics(Tcl_Interp *, HtmlNode *);
 
 #if 0

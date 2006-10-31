@@ -2,7 +2,7 @@
 #include "html.h"
 #include "cssInt.h"
 
-static const char rcsid[] = "$Id: cssdynamic.c,v 1.9 2006/10/27 06:40:32 danielk1977 Exp $";
+static const char rcsid[] = "$Id: cssdynamic.c,v 1.10 2006/10/31 07:13:32 danielk1977 Exp $";
 
 /*
  * How dynamic CSS selectors are implemented:
@@ -23,13 +23,13 @@ struct CssDynamic {
 };
 
 void
-HtmlCssAddDynamic(pNode, pSelector, isSet)
-    HtmlNode *pNode;
+HtmlCssAddDynamic(pElem, pSelector, isSet)
+    HtmlElementNode *pElem;
     CssSelector *pSelector;
     int isSet;
 {
     CssDynamic *pNew;
-    for (pNew = pNode->pDynamic; pNew ; pNew = pNew->pNext) {
+    for (pNew = pElem->pDynamic; pNew ; pNew = pNew->pNext) {
         if (pNew->pSelector == pSelector) return;
     }
     pNew = 0;
@@ -37,21 +37,21 @@ HtmlCssAddDynamic(pNode, pSelector, isSet)
     pNew = HtmlNew(CssDynamic);
     pNew->isSet = (isSet ? 1 : 0);
     pNew->pSelector = pSelector;
-    pNew->pNext = pNode->pDynamic;
-    pNode->pDynamic = pNew;
+    pNew->pNext = pElem->pDynamic;
+    pElem->pDynamic = pNew;
 }
 
 void
-HtmlCssFreeDynamics(pNode)
-    HtmlNode *pNode;
+HtmlCssFreeDynamics(pElem)
+    HtmlElementNode *pElem;
 {
-    CssDynamic *p = pNode->pDynamic;
+    CssDynamic *p = pElem->pDynamic;
     while (p) {
         CssDynamic *pTmp = p;
         p = p->pNext;
         HtmlFree(pTmp);
     }
-    pNode->pDynamic = 0;
+    pElem->pDynamic = 0;
 }
 
 
@@ -61,13 +61,16 @@ checkDynamicCb(pTree, pNode, clientData)
     HtmlNode *pNode;
     ClientData clientData;
 {
-    CssDynamic *p;
-    for (p = pNode->pDynamic; p; p = p->pNext) {
-        int res = HtmlCssSelectorTest(p->pSelector, pNode, 0) ? 1 : 0; 
-        if (res != p->isSet) {
-            HtmlCallbackRestyle(pTree, pNode);
+    if (!HtmlNodeIsText(pNode)) {
+        HtmlElementNode *pElem = (HtmlElementNode *)pNode;
+        CssDynamic *p;
+        for (p = pElem->pDynamic; p; p = p->pNext) {
+            int res = HtmlCssSelectorTest(p->pSelector, pNode, 0) ? 1 : 0; 
+            if (res != p->isSet) {
+                HtmlCallbackRestyle(pTree, pNode);
+            }
+            p->isSet = res;
         }
-        p->isSet = res;
     }
     return HTML_WALK_DESCEND;
 }
@@ -96,12 +99,15 @@ HtmlCssTclNodeDynamics(interp, pNode)
     Tcl_Interp *interp;
     HtmlNode *pNode;
 {
-    CssDynamic *p;
     Tcl_Obj *pRet = Tcl_NewObj();
-    for (p = pNode->pDynamic; p ; p = p->pNext) {
-        Tcl_Obj *pOther = Tcl_NewObj();
-        HtmlCssSelectorToString(p->pSelector, pOther);
-        Tcl_ListObjAppendElement(0, pRet, pOther);
+    if (!HtmlNodeIsText(pNode)) {
+        CssDynamic *p;
+        HtmlElementNode *pElem = (HtmlElementNode *)pNode;
+        for (p = pElem->pDynamic; p ; p = p->pNext) {
+            Tcl_Obj *pOther = Tcl_NewObj();
+            HtmlCssSelectorToString(p->pSelector, pOther);
+            Tcl_ListObjAppendElement(0, pRet, pOther);
+        }
     }
     Tcl_SetObjResult(interp, pRet);
     return TCL_OK;

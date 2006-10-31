@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.93 2006/10/28 10:03:38 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.94 2006/10/31 07:13:33 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -169,18 +169,18 @@ moveToLeftSibling(pNode, pNewSibling)
     HtmlNode *pNode;
     HtmlNode *pNewSibling;
 {
-    HtmlNode *pOldParent = HtmlNodeParent(pNewSibling);
-    HtmlNode *pNewParent = HtmlNodeParent(pNode);
+    HtmlElementNode *pOldParent = (HtmlElementNode*)HtmlNodeParent(pNewSibling);
+    HtmlElementNode *pNewParent = (HtmlElementNode*)HtmlNodeParent(pNode);
     int i;
     int found = 0;
 
     assert(pOldParent && pNewParent);
 
     /* Remove pNewSibling from it's old parent */
-    for (i = 0; i < HtmlNodeNumChildren(pOldParent); i++) {
+    for (i = 0; i < pOldParent->nChild; i++) {
         if (found) {
             pOldParent->apChildren[i - 1] = pOldParent->apChildren[i];
-        } else if (HtmlNodeChild(pOldParent, i) == pNewSibling) {
+        } else if (pOldParent->apChildren[i] == pNewSibling) {
             found = 1;
         }
     }
@@ -192,15 +192,15 @@ moveToLeftSibling(pNode, pNewSibling)
             pNewParent->apChildren, 
             sizeof(HtmlNode *) * (pNewParent->nChild + 1)
     );
-    for (found = 0, i = HtmlNodeNumChildren(pNewParent) - 1; i >= 0; i--) {
-        HtmlNode *pChild = HtmlNodeChild(pNewParent, i);
+    for (found = 0, i = pNewParent->nChild - 1; i >= 0; i--) {
+        HtmlNode *pChild = pNewParent->apChildren[i];
         if (!found) {
             pNewParent->apChildren[i + 1] = pChild;
         }
         if (pChild == pNode) {
             found = 1;
             pNewParent->apChildren[i] = pNewSibling;
-            pNewSibling->pParent = pNewParent;
+            pNewSibling->pParent = (HtmlNode *)pNewParent;
         }
     }
     assert(found);
@@ -297,65 +297,32 @@ insertImplicitTR(pNode)
     assert(pParent);
 
     if (HtmlNodeTagType(pParent) != Html_TR) {
-        HtmlToken *pRowToken;
-        HtmlNode *pRowNode;
+        HtmlElementNode *pRowNode;
         HtmlNode *pParent;
         int iSlot;
 
         pParent = HtmlNodeParent(pNode);
 
-        /* Create a new token for the <tr> node */
-        pRowToken = HtmlNew(HtmlToken);
-        pRowToken->type = Html_TR;
-
         /* Create an HtmlNode for the new <tr> */
-        pRowNode = HtmlNew(HtmlNode);
-        pRowNode->pToken = pRowToken;
+        pRowNode = HtmlNew(HtmlElementNode);
 
         /* Add pNode as the only child of the artificial node element */
+        pRowNode->node.eTag = Html_TR;
         pRowNode->nChild = 1;
         pRowNode->apChildren = (HtmlNode**)HtmlClearAlloc(
             "HtmlNode.apChildren", sizeof(HtmlNode*)
         );
         pRowNode->apChildren[0] = pNode;
-        pNode->pParent = pRowNode;
+        pNode->pParent = (HtmlNode *)pRowNode;
 
         /* Link the new node into the parent node of pNode */
         for (iSlot = 0; HtmlNodeChild(pParent, iSlot) != pNode; iSlot++) {
             assert(iSlot < HtmlNodeNumChildren(pParent));
         }
-        pParent->apChildren[iSlot] = pRowNode;
-        pRowNode->pParent = pParent;
+        ((HtmlElementNode *)pParent)->apChildren[iSlot] = (HtmlNode *)pRowNode;
+        pRowNode->node.pParent = pParent;
     }
 }
-
-/*
- *---------------------------------------------------------------------------
- *
- * isExplicitClose --
- *
- *     Return true if tag is the explicit closing tag for pNode.
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-static int 
-isExplicitClose(pNode, tag)
-    HtmlNode *pNode;
-    int tag;
-{
-    if (tag != Html_Text && tag != Html_Space) {
-        int opentag = pNode->pToken->type;
-        return (tag==(opentag+1));
-    }
-    return 0;
-}
-
 
 /*
  *---------------------------------------------------------------------------
@@ -374,107 +341,72 @@ isExplicitClose(pNode, tag)
  *---------------------------------------------------------------------------
  */
 static int 
-tokenAction(pTree, pToken, pNClose)
+tokenAction(pTree, eTag, pNClose)
     HtmlTree *pTree;
-    HtmlToken *pToken;
+    int eTag;
     int *pNClose;
 {
     HtmlNode *pCurrent = pTree->pCurrent;
     int nClose = 0;
     int nLevel = 0;
     int rc = 0;
-    int tag = pToken->type;
+    int tag = eTag;
     int seenImplicit = 0;
+    HtmlNode *p = pCurrent;
 
-    if (tag == Html_Space) {
-        HtmlToken *pT;
-        for (pT = pToken; pT && pT->type == Html_Space; pT = pT->pNextToken);
-        if (pT && pT->type == Html_Text) {
-            tag = Html_Text;
+    assert(tag != Html_Space && tag != Html_Text);
+    assert(0 == (HTMLTAG_END & HtmlMarkupFlags(tag)));
+
+    while (p) {
+        HtmlTokenMap *pMap = HtmlMarkup(HtmlNodeTagType(p));
+        int a;
+
+        if (pMap && pMap->xClose) {
+            a = pMap->xClose(pTree, p, tag);
+        } else {
+            a = TAG_PARENT;
         }
-    }
 
-    /* If pToken is NULL, this means the end of the token list has been
-     * reached. Close all nodes and set pTree->pCurrent to NULL.
-     */ 
-    if (!pToken) {
-        HtmlNode *p;
-        for (p = pCurrent; p; p = HtmlNodeParent(p)) {
-            nClose++;
+        if (seenImplicit && a == TAG_PARENT) {
+            a = TAG_OK;
         }
-        pCurrent = 0;
-    }
+        assert(!seenImplicit || a != TAG_CLOSE);
 
-    else {
-        HtmlNode *p = pCurrent;
-        while (p) {
-            HtmlTokenMap *pMap = HtmlMarkup(HtmlNodeTagType(p));
-            int a;
-            int isExplicit = 0;
-            if (isExplicitClose(p, tag)) {
-                a = TAG_CLOSE;
-                isExplicit = 1;
-            } else if (pMap && pMap->xClose) {
-                a = pMap->xClose(pTree, p, tag);
-            } else {
-                a = TAG_PARENT;
-            }
-
-            if (seenImplicit && a == TAG_PARENT) {
-                a = TAG_OK;
-            }
-            assert(!seenImplicit || a != TAG_CLOSE);
-
-            switch (a) {
-                case TAG_CLOSE:
-                    assert(!seenImplicit);
-                    p = HtmlNodeParent(p);
-                    if (p) {
-                        pCurrent = p;
-                        nLevel++;
-                    } else {
-                        pCurrent = pTree->pRoot;
-                    }
-                    nClose = nLevel;
-                    break;
-                case TAG_OK:
-                    p = 0;
-                    break;
-                case TAG_IMPLICIT:
-                    seenImplicit = 1;
-                    assert(HtmlNodeNumChildren(p) > 0);
-                    p = HtmlNodeChild(p, HtmlNodeNumChildren(p) - 1);
-                    assert(p);
+        switch (a) {
+            case TAG_CLOSE:
+                assert(!seenImplicit);
+                p = HtmlNodeParent(p);
+                if (p) {
                     pCurrent = p;
-                    break;
-                case TAG_PARENT:
                     nLevel++;
-                    p = HtmlNodeParent(p);
-                    break;
-
-                default: assert(!"Impossible");
-            }
-            if (isExplicit) {
+                } else {
+                    pCurrent = pTree->pRoot;
+                }
+                nClose = nLevel;
+                break;
+            case TAG_OK:
                 p = 0;
-            }
-        }
+                break;
+            case TAG_IMPLICIT:
+                seenImplicit = 1;
+                assert(HtmlNodeNumChildren(p) > 0);
+                p = HtmlNodeChild(p, HtmlNodeNumChildren(p) - 1);
+                assert(p);
+                pCurrent = p;
+                break;
+            case TAG_PARENT:
+                nLevel++;
+                p = HtmlNodeParent(p);
+                break;
 
-        assert(!HtmlNodeIsText(pCurrent) || tag==Html_Space || tag==Html_Text);
-
-        if (
-            !(HTMLTAG_END & HtmlMarkupFlags(tag)) && 
-            !HtmlNodeIsText(pCurrent)
-        ) {
-            assert(pCurrent);
-            rc = 1;
+            default: assert(!"Impossible");
         }
     }
-
-    assert(!seenImplicit || rc);
+    assert(!HtmlNodeIsText(pCurrent));
     
     pTree->pCurrent = pCurrent;
     *pNClose = nClose;
-    return rc;
+    return 1;
 }
 
 static void
@@ -501,16 +433,16 @@ geomRequestProc(clientData, widget)
 }
 
 static void
-clearReplacement(pTree, pNode)
+clearReplacement(pTree, pElem)
     HtmlTree *pTree;
-    HtmlNode *pNode;
+    HtmlElementNode *pElem;
 {
-    HtmlNodeReplacement *p = pNode->pReplacement;
-    pNode->pReplacement = 0;
+    HtmlNodeReplacement *p = pElem->pReplacement;
+    pElem->pReplacement = 0;
     if (p) {
 
         /* Cancel any idle callback scheduled by geomRequestProc() */
-        Tcl_CancelIdleCall(geomRequestProcCb, (ClientData)pNode);
+        Tcl_CancelIdleCall(geomRequestProcCb, (ClientData)pElem);
 
         /* If there is a delete script, invoke it now. */
         if (p->pDelete) {
@@ -546,21 +478,21 @@ clearReplacement(pTree, pNode)
 }
 
 int 
-HtmlNodeClearStyle(pTree, pNode)
+HtmlNodeClearStyle(pTree, pElem)
     HtmlTree *pTree;
-    HtmlNode *pNode;
+    HtmlElementNode *pElem;
 {
-    if (pNode) {
-        HtmlNodeClearGenerated(pTree, pNode);
-        HtmlComputedValuesRelease(pTree, pNode->pPropertyValues);
-        HtmlComputedValuesRelease(pTree, pNode->pPreviousValues);
-        HtmlCssPropertiesFree(pNode->pStyle);
-        HtmlCssFreeDynamics(pNode);
-        pNode->pStyle = 0;
-        pNode->pPropertyValues = 0;
-        pNode->pPreviousValues = 0;
-        pNode->pDynamic = 0;
-        HtmlDelStackingInfo(pTree, pNode);
+    if (pElem) {
+        HtmlNodeClearGenerated(pTree, pElem);
+        HtmlComputedValuesRelease(pTree, pElem->pPropertyValues);
+        HtmlComputedValuesRelease(pTree, pElem->pPreviousValues);
+        HtmlCssPropertiesFree(pElem->pStyle);
+        HtmlCssFreeDynamics(pElem);
+        pElem->pStyle = 0;
+        pElem->pPropertyValues = 0;
+        pElem->pPreviousValues = 0;
+        pElem->pDynamic = 0;
+        HtmlDelStackingInfo(pTree, pElem);
     }
     return 0;
 }
@@ -605,7 +537,6 @@ freeNode(pTree, pNode)
 {
     if( pNode ){
         int i;
-        HtmlToken *pToken;
 
         /* Invalidate the cache of the parent node before deleting any
          * child nodes. This is because invalidating a cache may involve
@@ -614,66 +545,53 @@ freeNode(pTree, pNode)
          */
         HtmlLayoutInvalidateCache(pTree, pNode);
 
-        /* Free the token representation */
-        pToken = pNode->pToken;
-        if (HtmlNodeIsText(pNode)) {
-            while (pToken) {
-                char *t = (char *)pToken;
-                pToken = pToken->pNextToken;
-                HtmlFree(t);
-                if (
-                    pToken && 
-                    pToken->type != Html_Text && 
-                    pToken->type != Html_Space
-                ) {
-                    break;
-                }
+        if (!HtmlNodeIsText(pNode)) {
+            /* Do HtmlElementNode specific destruction */
+            HtmlElementNode *pElem = (HtmlElementNode *)pNode;
+            HtmlFree(pElem->pAttributes);
+
+            /* Delete the computed values caches. */
+            HtmlNodeClearStyle(pTree, pElem);
+            HtmlCssFreeDynamics(pElem);
+
+            if (pElem->pOverride) {
+                Tcl_DecrRefCount(pElem->pOverride);
+                pElem->pOverride = 0;
             }
+
+            /* Delete the descendant nodes. */
+            for(i=0; i < pElem->nChild; i++){
+                freeNode(pTree, pElem->apChildren[i]);
+            }
+            HtmlFree(pElem->apChildren);
+
+            clearReplacement(pTree, pElem);
+
         } else {
-            HtmlFree(pToken);
+            HtmlTextNode *pTextNode = HtmlNodeAsText(pNode);
+            assert(pTextNode);
+            HtmlTagCleanupNode(pTextNode);
         }
-
-
-        /* Delete the parsed tokens for this element */
-
-        /* Delete the descendant nodes. */
-        for(i=0; i<pNode->nChild; i++){
-            freeNode(pTree, pNode->apChildren[i]);
-        }
-        HtmlFree(pNode->apChildren);
-
-        /* Delete the computed values caches. */
-        HtmlNodeClearStyle(pTree, pNode);
 
         /* Delete the computed values caches. */
         HtmlDelScrollbars(pTree, pNode);
 
-        /* And the compiled cache of the node's "style" attribute, if any. */
-        HtmlCssPropertiesFree(pNode->pStyle);
-
-        if (pNode->pOverride) {
-            Tcl_DecrRefCount(pNode->pOverride);
-            pNode->pOverride = 0;
-        }
 
         HtmlNodeDeleteCommand(pTree, pNode);
 
-        clearReplacement(pTree, pNode);
-        HtmlCssFreeDynamics(pNode);
-        HtmlTagCleanupNode(pNode);
         HtmlFree(pNode);
     }
 }
 
 int
-HtmlNodeClearGenerated(pTree, pNode)
+HtmlNodeClearGenerated(pTree, pElem)
     HtmlTree *pTree;
-    HtmlNode *pNode;
+    HtmlElementNode *pElem;
 {
-    freeNode(pTree, pNode->pBefore);
-    freeNode(pTree, pNode->pAfter);
-    pNode->pBefore = 0;
-    pNode->pAfter = 0;
+    freeNode(pTree, pElem->pBefore);
+    freeNode(pTree, pElem->pAfter);
+    pElem->pBefore = 0;
+    pElem->pAfter = 0;
     return 0;
 }
 
@@ -811,30 +729,61 @@ HtmlFinishNodeHandlers(pTree)
  *---------------------------------------------------------------------------
  */
 int 
-HtmlNodeAddChild(pNode, pToken)
+HtmlNodeAddChild(pElem, eTag, pAttributes)
+    HtmlElementNode *pElem;
+    int eTag;
+    HtmlAttributes *pAttributes;
+{
+    int n;                  /* Number of bytes to alloc for pNode->apChildren */
+    int r;                  /* Return value */
+    HtmlElementNode *pNew;  /* New child node */
+
+    assert(pElem);
+    
+    r = pElem->nChild++;
+    n = (r+1) * sizeof(HtmlNode*);
+    pElem->apChildren = (HtmlNode **)HtmlRealloc(
+        "HtmlNode.apChildren", (char *)pElem->apChildren, n
+    );
+
+    pNew = HtmlNew(HtmlElementNode);
+    pNew->pAttributes = pAttributes;
+    pNew->node.pParent = (HtmlNode *)pElem;
+    pNew->node.eTag = eTag;
+    pElem->apChildren[r] = (HtmlNode *)pNew;
+
+    assert(r < pElem->nChild);
+    return r;
+}
+
+int 
+HtmlNodeAddTextChild(pNode, pTextNode)
     HtmlNode *pNode;
-    HtmlToken *pToken;
+    HtmlTextNode *pTextNode;
 {
     int n;             /* Number of bytes to alloc for pNode->apChildren */
     int r;             /* Return value */
     HtmlNode *pNew;    /* New child node */
 
+    HtmlElementNode *pElem = (HtmlElementNode *)pNode;
+
     assert(pNode);
-    assert(pToken);
+    assert(!HtmlNodeIsText(pNode));
+    assert(pTextNode);
     
-    r = pNode->nChild++;
+    r = pElem->nChild++;
     n = (r+1) * sizeof(HtmlNode*);
-    pNode->apChildren = (HtmlNode **)HtmlRealloc(
-        "HtmlNode.apChildren", (char *)pNode->apChildren, n
+    pElem->apChildren = (HtmlNode **)HtmlRealloc(
+        "HtmlNode.apChildren", (char *)pElem->apChildren, n
     );
 
-    pNew = HtmlNew(HtmlNode);
+    pNew = (HtmlNode *)pTextNode;
     memset(pNew, 0, sizeof(HtmlNode));
-    pNew->pToken = pToken;
     pNew->pParent = pNode;
-    pNode->apChildren[r] = pNew;
+    pNew->eTag = Html_Text;
+    pElem->apChildren[r] = pNew;
 
-    assert(r < pNode->nChild);
+    assert(r < pElem->nChild);
     return r;
 }
 
@@ -861,115 +810,55 @@ setNodeAttribute(pNode, zAttrName, zAttrVal)
     const char *zAttrName;
     const char *zAttrVal;
 {
-    HtmlToken *p = pNode->pToken;
-    HtmlToken *pNew;
-    int nArgs = 2;
-    int nBytes = strlen(zAttrName) + 1 + strlen(zAttrVal) + 1;
+    #define MAX_NUM_ATTRIBUTES 100
+    char *azPtr[MAX_NUM_ATTRIBUTES * 2];
+    int aLen[MAX_NUM_ATTRIBUTES * 2];
+
     int i;
-    int n = 0;
-    char *zSpace;
+    int isDone = 0;
+    int nArgs;
+    HtmlElementNode *pElem;
+    HtmlAttributes *pAttr;
 
-    for (i = 0; i < p->count; i += 2) {
-        if (0 != strcmp(p->x.zArgs[i], zAttrName)) {
-            nArgs += 2;
-            nBytes += strlen(p->x.zArgs[i]) + 1;
-            nBytes += strlen(p->x.zArgs[i + 1]) + 1;
+    pElem = HtmlNodeAsElement(pNode);
+    if (!pElem) return;
+    pAttr = pElem->pAttributes;
+
+    for (i = 0; pAttr && i < pAttr->nAttr && i < MAX_NUM_ATTRIBUTES; i++) {
+        azPtr[i*2] = pAttr->a[i].zName;
+        if (0 != strcmp(pAttr->a[i].zName, zAttrName)) {
+            azPtr[i*2+1] = pAttr->a[i].zValue;
+        } else {
+            azPtr[i*2+1] = zAttrVal;
+            isDone = 1;
         }
     }
 
-    nBytes += sizeof(HtmlToken) + nArgs * sizeof(char *);
-    pNew = (HtmlToken *)HtmlClearAlloc("HtmlToken", nBytes);
-    pNew->type = p->type;
-    pNew->count = nArgs;
-    pNew->x.zArgs = (char **)&pNew[1];
-    zSpace = (char *)&pNew->x.zArgs[nArgs];
-
-    for (i = 0; i < p->count; i += 2) {
-        if (0 != strcmp(p->x.zArgs[i], zAttrName)) {
-            pNew->x.zArgs[n] = zSpace;
-            strcpy(zSpace, p->x.zArgs[i]);
-            while (*zSpace != '\0') zSpace++; zSpace++;
-            pNew->x.zArgs[n + 1] = zSpace;
-            strcpy(zSpace, p->x.zArgs[i + 1]);
-            while (*zSpace != '\0') zSpace++; zSpace++;
-            n += 2;
-        }
+    if (!isDone && i < MAX_NUM_ATTRIBUTES) {
+        azPtr[i*2] = zAttrName;
+        azPtr[i*2+1] = zAttrVal;
+        i++;
     }
-    pNew->x.zArgs[n] = zSpace;
-    strcpy(zSpace, zAttrName);
-    while (*zSpace != '\0') zSpace++; zSpace++;
-    pNew->x.zArgs[n + 1] = zSpace;
-    strcpy(zSpace, zAttrVal);
-    while (*zSpace != '\0') zSpace++; zSpace++;
-    n += 2;
 
-    HtmlFree(p);
-    pNode->pToken = pNew;
-   
-    assert(n == nArgs);
+    nArgs = i * 2;
+    for (i = 0; i < nArgs; i++) {
+        aLen[i] = strlen(azPtr[i]);
+    }
+
+    pElem->pAttributes = HtmlAttributesNew(nArgs, azPtr, aLen, 0);
+    HtmlFree(pAttr);
 }
 
 static void
-mergeAttributes(pNode, pToken)
+mergeAttributes(pNode, pAttr)
     HtmlNode *pNode;
-    HtmlToken *pToken;
+    HtmlAttributes *pAttr;
 {
-    int nBytes = 0;
-    int nArgs = 0;
-    int i;
-    int n;
-    HtmlToken *p = pNode->pToken;
-    HtmlToken *pNew;
-    char *zSpace;
-
-    for (i = 0; i < pToken->count; i += 2) {
-        if (!HtmlNodeAttr(pNode, pToken->x.zArgs[i])) {
-            nBytes += strlen(pToken->x.zArgs[i]) + 1;
-            nBytes += strlen(pToken->x.zArgs[i + 1]) + 1;
-            nArgs += 2;
-        }else{
-            pToken->x.zArgs[i] = 0;
-        }
+    int ii;
+    for (ii = 0; pAttr && ii < pAttr->nAttr; ii++) {
+        setNodeAttribute(pNode, pAttr->a[ii].zName, pAttr->a[ii].zValue);
     }
-   
-    nArgs += p->count;
-    for (i = 0; i < p->count; i += 2) {
-        nBytes += strlen(p->x.zArgs[i]) + 1;
-        nBytes += strlen(p->x.zArgs[i + 1]) + 1;
-    }
-
-    nBytes += sizeof(HtmlToken) + nArgs * sizeof(char *);
-    pNew = (HtmlToken *)HtmlClearAlloc("HtmlToken", nBytes);
-    pNew->type = p->type;
-    pNew->count = nArgs;
-    pNew->x.zArgs = (char **)&pNew[1];
-    zSpace = (char *)&pNew->x.zArgs[nArgs];
-
-    for (i = 0; i < p->count; i += 2) {
-        pNew->x.zArgs[i] = zSpace;
-        strcpy(zSpace, p->x.zArgs[i]);
-        while (*zSpace != '\0') zSpace++; zSpace++;
-        pNew->x.zArgs[i + 1] = zSpace;
-        strcpy(zSpace, p->x.zArgs[i + 1]);
-        while (*zSpace != '\0') zSpace++; zSpace++;
-    }
-
-    n = p->count;
-    for (i = 0; i < pToken->count; i += 2) {
-        if (pToken->x.zArgs[i]) {
-            pNew->x.zArgs[n] = zSpace;
-            strcpy(zSpace, pToken->x.zArgs[i]);
-            while (*zSpace != '\0') zSpace++; zSpace++;
-            pNew->x.zArgs[n + 1] = zSpace;
-            strcpy(zSpace, pToken->x.zArgs[i + 1]);
-            while (*zSpace != '\0') zSpace++; zSpace++;
-            n += 2;
-        }
-    }
-
-    HtmlFree(p);
-    HtmlFree(pToken);
-    pNode->pToken = pNew;
+    HtmlFree(pAttr);
 }
 
 static int
@@ -1011,9 +900,68 @@ doParseHandler(pTree, eType, pNode, iOffset)
 /*
  *---------------------------------------------------------------------------
  *
- * HtmlAddToken --
+ * initTree --
  *
- *     Update the tree structure with token pToken.
+ *     Create the parts of the tree that are always present. i.e.:
+ *
+ *       <html>
+ *         <head>
+ *         <body>
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     May modify the tree structure at HtmlTree.pRoot and
+ *     HtmlTree.pCurrent.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void
+initTree(pTree)
+    HtmlTree *pTree;
+{
+    if (!pTree->pRoot) {
+        /* If pTree->pRoot is NULL, then the first token of the document
+         * has just been parsed. If the document is well-formed, it should
+         * be an <html> tag (Html documents may have a DOCTYPE and other such
+         * garbage in them, but the tokenizer should ignore all that).
+         *
+         * But in these uncertain times you really can't trust anyone, so
+         * Tkhtml automatically inserts the following structure at the root
+         * of every document:
+         *
+         *    <html>
+         *      <head>
+         *      </head>
+         *      <body>
+         */
+        HtmlElementNode *pRoot;
+
+        pRoot = HtmlNew(HtmlElementNode);
+        pRoot->node.eTag = Html_HTML;
+        pTree->pRoot = (HtmlNode *)pRoot;
+
+        HtmlNodeAddChild(pRoot, Html_HEAD, 0);
+        HtmlNodeAddChild(pRoot, Html_BODY, 0);
+    }
+
+    if (!pTree->pCurrent) {
+	/* If there is no current node, then the <body> node of the 
+         * document is the current node.  
+         */
+        pTree->pCurrent = HtmlNodeChild(pTree->pRoot, 1);
+        assert(HtmlNodeTagType(pTree->pCurrent) == Html_BODY);
+    }
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlTreeAddElement --
+ *
+ *     Update the tree structure with an element of type eType, attributes
+ *     as specified in *pAttr.
  *
  * Results:
  *     None.
@@ -1025,14 +973,14 @@ doParseHandler(pTree, eType, pNode, iOffset)
  *---------------------------------------------------------------------------
  */
 void 
-HtmlAddToken(pTree, pToken, iOffset)
+HtmlTreeAddElement(pTree, eType, pAttr, iOffset)
     HtmlTree *pTree;
-    HtmlToken *pToken;
+    int eType;
+    HtmlAttributes *pAttr;
     int iOffset;
 {
-    HtmlNode *pCurrent = pTree->pCurrent;
+    HtmlNode *pCurrent;
     HtmlNode *pHeadNode;
-    int eType = pToken->type;
 
     /* If token pToken causes a node to be added to the tree, or the
      * attributes of an <html>, <body> or <head> element to be updated,
@@ -1041,11 +989,14 @@ HtmlAddToken(pTree, pToken, iOffset)
      * [$widget handler parse] callback script.
      */
     HtmlNode *pParsed = 0; 
+    initTree(pTree);
 
-    assert((pCurrent && pTree->pRoot) || !pCurrent);
-    if (!pCurrent && pTree->pRoot) {
-        pCurrent = pTree->pRoot;
-    }
+    pCurrent = pTree->pCurrent;
+    pHeadNode = HtmlNodeChild(pTree->pRoot, 0);
+
+    assert(pCurrent);
+    assert(pHeadNode);
+    assert(eType != Html_Text && eType != Html_Space);
 
     /* Variable HtmlTree.pCurrent is only manipulated by this function (not
      * entirely true - it is also set to zero when the tree is deleted). It
@@ -1074,61 +1025,26 @@ HtmlAddToken(pTree, pToken, iOffset)
      * handled seperately.
      */
 
-    if (!pCurrent) {
-        /* If pCurrent is NULL, then this is the first token in the
-         * document. If the document is well-formed, an <html> tag (Html
-         * documents may have a DOCTYPE and other useless garbage in them,
-         * but the tokenizer should ignore all that).
-         *
-         * But in these uncertain times you really can't trust anyone, so
-         * Tkhtml automatically inserts the following structure at the root
-         * of every document:
-         *
-         *    <html>
-         *      <head>
-         *      </head>
-         *      <body>
-         */
-        HtmlToken *pHtml = HtmlNew(HtmlToken);
-        HtmlToken *pHead = HtmlNew(HtmlToken);
-        HtmlToken *pBody = HtmlNew(HtmlToken);
 
-        pHtml->type = Html_HTML;
-        pHead->type = Html_HEAD;
-        pBody->type = Html_BODY;
-
-        pCurrent = HtmlNew(HtmlNode);
-        pCurrent->pToken = pHtml;
-        pTree->pRoot = pCurrent;
-        pTree->pCurrent = pCurrent;
-
-        HtmlNodeAddChild(pCurrent, pHead);
-        HtmlNodeAddChild(pCurrent, pBody);
-        pCurrent = pTree->pRoot->apChildren[1];
-        assert(HtmlNodeTagType(pCurrent) == Html_BODY);
-    } 
-    pHeadNode = pTree->pRoot->apChildren[0];
-
-    if (pTree->isCdataInHead && eType != Html_Text && eType != Html_Space) {
+    if (pTree->isCdataInHead) {
         int nChild = HtmlNodeNumChildren(pHeadNode) - 1;
         HtmlNode *pTitle = HtmlNodeChild(pHeadNode, nChild);
         pTree->isCdataInHead = 0;
         nodeHandlerCallbacks(pTree, pTitle);
-        return;   /* TODO: Should this be removed? */
     }
 
     switch (eType) {
         case Html_HTML:
             pParsed = pTree->pRoot;
-            mergeAttributes(pParsed, pToken);
+            mergeAttributes(pParsed, pAttr);
             break;
         case Html_HEAD:
             pParsed = pHeadNode;
-            mergeAttributes(pParsed, pToken);
+            mergeAttributes(pParsed, pAttr);
             break;
         case Html_BODY:
-            pParsed = pTree->pRoot->apChildren[1];
-            mergeAttributes(pParsed, pToken);
+            pParsed = HtmlNodeChild(pTree->pRoot, 1);
+            mergeAttributes(pParsed, pAttr);
             break;
 
             /* Elements with content #CDATA for the document head. 
@@ -1140,7 +1056,7 @@ HtmlAddToken(pTree, pToken, iOffset)
 	     * section.
              */
         case Html_TITLE: {
-            int n = HtmlNodeAddChild(pHeadNode, pToken);
+            int n = HtmlNodeAddChild(pHeadNode, eType, pAttr);
             HtmlNode *p = HtmlNodeChild(pHeadNode, n);
             pTree->isCdataInHead = 1;
             p->iNode = pTree->iNextNode++;
@@ -1152,7 +1068,7 @@ HtmlAddToken(pTree, pToken, iOffset)
         case Html_META:
         case Html_LINK:
         case Html_BASE: {
-            int n = HtmlNodeAddChild(pHeadNode, pToken);
+            int n = HtmlNodeAddChild(pHeadNode, eType, pAttr);
             HtmlNode *p = HtmlNodeChild(pHeadNode, n);
             p->iNode = pTree->iNextNode++;
             nodeHandlerCallbacks(pTree, p);
@@ -1160,36 +1076,10 @@ HtmlAddToken(pTree, pToken, iOffset)
             break;
         }
 
-
-        case Html_Text:
-        case Html_Space:
-            if (pTree->isCdataInHead) {
-                int nChild = HtmlNodeNumChildren(pHeadNode) - 1;
-                HtmlNode *pTitle = HtmlNodeChild(pHeadNode, nChild);
-                HtmlNode *p = HtmlNodeChild(pTitle,
-                    HtmlNodeAddChild(pTitle,pToken));
-                p->iNode = pTree->iNextNode++;
-                pTree->isCdataInHead = 0;
-                nodeHandlerCallbacks(pTree, pTitle);
-                pParsed = p;
-            }else{
-                int n = HtmlNodeAddChild(pCurrent,pToken);
-                HtmlNode *p = HtmlNodeChild(pCurrent, n);
-                p->iNode = pTree->iNextNode++;
-                pParsed = p;
-            }
-            break;
-
-        case Html_EndHTML:
-        case Html_EndBODY:
-        case Html_EndHEAD:
-            HtmlFree(pToken);
-            break;
-
         default: {
             int nClose = 0;
             int i;
-            int r = tokenAction(pTree, pToken, &nClose);
+            int r = tokenAction(pTree, eType, &nClose);
 
             for (i = 0; i < nClose; i++) {
                 nodeHandlerCallbacks(pTree, pCurrent);
@@ -1211,7 +1101,7 @@ HtmlAddToken(pTree, pToken, iOffset)
             if (r) {
                 assert(!HtmlNodeIsText(pTree->pCurrent));
                 pCurrent = HtmlNodeChild(pCurrent, 
-                    HtmlNodeAddChild(pCurrent, pToken));
+                    HtmlNodeAddChild(pCurrent, eType, pAttr));
                 pCurrent->iNode = pTree->iNextNode++;
                 pParsed = pCurrent;
 
@@ -1225,7 +1115,7 @@ HtmlAddToken(pTree, pToken, iOffset)
                     pCurrent = HtmlNodeParent(pCurrent);
                 }
             } else {
-                HtmlFree(pToken);
+                HtmlFree(pAttr);
             }
         }
     }
@@ -1233,6 +1123,108 @@ HtmlAddToken(pTree, pToken, iOffset)
     doParseHandler(pTree, eType, pParsed, iOffset);
 
     pTree->pCurrent = pCurrent;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlTreeAddText --
+ *
+ *     Add the text-node pTextNode to the tree.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+void
+HtmlTreeAddText(pTree, pTextNode, iOffset)
+    HtmlTree *pTree;
+    HtmlTextNode *pTextNode;
+    int iOffset;
+{
+    HtmlNode *pCurrent;
+
+    initTree(pTree);
+    pCurrent = pTree->pCurrent;
+
+
+    if (pTree->isCdataInHead) {
+        HtmlNode *pHeadNode = HtmlNodeChild(pTree->pRoot, 0);
+        int nChild = HtmlNodeNumChildren(pHeadNode) - 1;
+        HtmlNode *pTitle = HtmlNodeChild(pHeadNode, nChild);
+
+        HtmlNodeAddTextChild(pTitle, pTextNode);
+        pTextNode->node.iNode = pTree->iNextNode++;
+        pTree->isCdataInHead = 0;
+        nodeHandlerCallbacks(pTree, pTitle);
+    } else {
+        HtmlNodeAddTextChild(pCurrent, pTextNode);
+        pTextNode->node.iNode = pTree->iNextNode++;
+    }
+
+    assert(pTextNode->node.eTag == Html_Text);
+    doParseHandler(pTree, Html_Text, (HtmlNode *)pTextNode, iOffset);
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlTreeAddClosingTag --
+ *
+ *     Process the closing tag eTag. 
+ *
+ *     This method is prefixed "HtmlTreeAdd" to match HtmlTreeAddText() 
+ *     and HtmlTreeAddElement(), the other two functions used by the 
+ *     document parser to build the tree.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+void
+HtmlTreeAddClosingTag(pTree, eTag, iOffset)
+    HtmlTree *pTree;
+    int eTag;
+    int iOffset;
+{
+    initTree(pTree);
+
+    switch (eTag) {
+        case Html_EndHTML:
+        case Html_EndBODY:
+        case Html_EndHEAD:
+            /* Do nothing */
+            break;
+
+        default: {
+            HtmlNode *pBody = HtmlNodeChild(pTree->pRoot, 1);
+            HtmlNode *p;
+            for (p = pTree->pCurrent; p && p != pBody;  p = HtmlNodeParent(p)) {
+                assert(p != pTree->pRoot);
+                assert(HtmlNodeParent(p) != pTree->pRoot);
+                if (eTag == (p->eTag + 1)) {
+                    HtmlNode *p2 = pTree->pCurrent;
+                    pTree->pCurrent = HtmlNodeParent(p);
+                    for ( ; p2 != pTree->pCurrent;  p2 = HtmlNodeParent(p2)) {
+                        nodeHandlerCallbacks(pTree, p2);
+                    }
+                    break;
+                }
+            }
+            break;
+        }
+ 
+    }
+
+    doParseHandler(pTree, eTag, 0, iOffset);
 }
 
 /*
@@ -1269,8 +1261,8 @@ walkTree(pTree, xCallback, pNode, clientData)
                     assert(!"Bad return value from HtmlWalkTree() callback");
         }
 
-        for (i = 0; i < pNode->nChild; i++) {
-            HtmlNode *pChild = pNode->apChildren[i];
+        for (i = 0; i < HtmlNodeNumChildren(pNode); i++) {
+            HtmlNode *pChild = HtmlNodeChild(pNode, i);
             int rc = walkTree(pTree, xCallback, pChild, clientData);
             assert(HtmlNodeParent(pChild) == pNode);
             if (rc) return rc;
@@ -1331,7 +1323,8 @@ HtmlWalkTree(pTree, pNode, xCallback, clientData)
 int HtmlNodeNumChildren(pNode)
     HtmlNode *pNode;
 {
-    return pNode->nChild;
+    if (HtmlNodeIsText(pNode)) return 0;
+    return ((HtmlElementNode *)(pNode))->nChild;
 }
 
 /*
@@ -1352,8 +1345,68 @@ HtmlNodeChild(pNode, n)
     HtmlNode *pNode;
     int n;
 {
-    if (!pNode || pNode->nChild<=n) return 0;
-    return pNode->apChildren[n];
+    HtmlElementNode *pElem = (HtmlElementNode *)pNode;
+    if (!pNode || HtmlNodeIsText(pNode) || pElem->nChild <= n) return 0;
+    return pElem->apChildren[n];
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlNodeBefore --
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+HtmlNode * 
+HtmlNodeBefore(pNode)
+    HtmlNode *pNode;
+{
+    if (!HtmlNodeIsText(pNode)) {
+        return ((HtmlElementNode *)pNode)->pBefore;
+    }
+    return 0;
+}
+
+HtmlComputedValues * 
+HtmlNodeComputedValues(pNode)
+    HtmlNode *pNode;
+{
+    if (HtmlNodeIsText(pNode)) {
+        pNode = HtmlNodeParent(pNode);
+    }
+    if (pNode) {
+        return ((HtmlElementNode *)pNode)->pPropertyValues;
+    }
+    return 0;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlNodeAfter --
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+HtmlNode * 
+HtmlNodeAfter(pNode)
+    HtmlNode *pNode;
+{
+    if (!HtmlNodeIsText(pNode)) {
+        return ((HtmlElementNode *)pNode)->pAfter;
+    }
+    return 0;
 }
 
 /*
@@ -1376,25 +1429,38 @@ int
 HtmlNodeIsText(pNode)
     HtmlNode *pNode;
 {
-    int type = HtmlNodeTagType(pNode);
-    return (type==Html_Text || type==Html_Space);
+    return (pNode->eTag == Html_Text);
+}
+
+HtmlElementNode * 
+HtmlNodeAsElement(pNode)
+    HtmlNode *pNode;
+{
+    return ((pNode->eTag == Html_Text) ? 0 : (HtmlElementNode *)pNode);
+}
+HtmlTextNode * 
+HtmlNodeAsText(pNode)
+    HtmlNode *pNode;
+{
+    return ((pNode->eTag == Html_Text) ? (HtmlTextNode *)pNode : 0);
 }
 
 int 
 HtmlNodeIsWhitespace(pNode)
     HtmlNode *pNode;
 {
-    HtmlToken *p;
-    if (!HtmlNodeIsText(pNode)) {
-        return 0;
+    
+    if (pNode->eTag == Html_Text) {
+        HtmlTextIter sIter;
+        HtmlTextIterFirst((HtmlTextNode *)pNode, &sIter);
+        for ( ; HtmlTextIterIsValid(&sIter); HtmlTextIterNext(&sIter)) {
+            if (HtmlTextIterType(&sIter) == HTML_TEXT_TOKEN_TEXT) {
+                return 0;
+            }
+        }
+        return 1;
     }
-
-    for (p = pNode->pToken; p && p->type == Html_Space; p = p->pNextToken);
-    if (p && p->type == Html_Text) {
-        return 0;
-    }
-
-    return 1;
+    return 0;
 }
 
 /*
@@ -1416,10 +1482,8 @@ HtmlNodeIsWhitespace(pNode)
 Html_u8 HtmlNodeTagType(pNode)
     HtmlNode *pNode;
 {
-    if (pNode && pNode->pToken) {
-        return pNode->pToken->type;
-    } 
-    return 0;
+    assert(pNode);
+    return pNode->eTag;
 }
 
 /*
@@ -1441,10 +1505,7 @@ Html_u8 HtmlNodeTagType(pNode)
 CONST char * HtmlNodeTagName(pNode)
     HtmlNode *pNode;
 {
-    if (pNode && pNode->pToken) {
-        return HtmlMarkupName(pNode->pToken->type);
-    } 
-    return 0;
+    return HtmlMarkupName(pNode->eTag);
 }
 
 /*
@@ -1465,15 +1526,15 @@ CONST char * HtmlNodeTagName(pNode)
 HtmlNode *HtmlNodeRightSibling(pNode)
     HtmlNode *pNode;
 {
-    HtmlNode *pParent = pNode->pParent;
+    HtmlElementNode *pParent = (HtmlElementNode *)pNode->pParent;
     if( pParent ){
         int i;
-        for (i=0; i<pParent->nChild-1; i++) {
-            if (pNode==pParent->apChildren[i]) {
+        for (i=0; i < pParent->nChild - 1; i++) {
+            if (pNode == pParent->apChildren[i]) {
                 return pParent->apChildren[i+1];
             }
         }
-        assert(pNode==pParent->apChildren[pParent->nChild-1]);
+        assert(pNode == pParent->apChildren[pParent->nChild - 1]);
     }
     return 0;
 }
@@ -1496,7 +1557,7 @@ HtmlNode *HtmlNodeRightSibling(pNode)
 HtmlNode *HtmlNodeLeftSibling(pNode)
     HtmlNode *pNode;
 {
-    HtmlNode *pParent = pNode->pParent;
+    HtmlElementNode *pParent = (HtmlElementNode *)pNode->pParent;
     if( pParent ){
         int i;
         for (i = 1; i < pParent->nChild; i++) {
@@ -1504,7 +1565,7 @@ HtmlNode *HtmlNodeLeftSibling(pNode)
                 return pParent->apChildren[i-1];
             }
         }
-        assert(pNode==pParent->apChildren[0]);
+        assert(pNode == pParent->apChildren[0]);
     }
     return 0;
 }
@@ -1550,8 +1611,9 @@ char CONST *HtmlNodeAttr(pNode, zAttr)
     HtmlNode *pNode; 
     char CONST *zAttr;
 {
-    if (pNode) {
-        return HtmlMarkupArg(pNode->pToken, zAttr, 0);
+    HtmlElementNode *pElem = HtmlNodeAsElement(pNode);
+    if (pElem) {
+        return HtmlMarkupArg(pElem->pAttributes, zAttr, 0);
     }
     return 0;
 }
@@ -1562,9 +1624,11 @@ markWindowAsClipped(pTree, pNode, clientData)
     HtmlNode *pNode;
     ClientData clientData;
 {
-    HtmlNodeReplacement *p = pNode->pReplacement;
-    if (p) {
-        p->clipped = 1;
+    if (!HtmlNodeIsText(pNode)) {
+        HtmlNodeReplacement *p = ((HtmlElementNode *)pNode)->pReplacement;
+        if (p) {
+            p->clipped = 1;
+        }
     }
 
     return HTML_WALK_DESCEND;
@@ -1611,20 +1675,22 @@ nodeViewCmd(pNode, isVertical, objv, objc)
 
     int x, y, w, h;
 
-    if (!pNode->pScrollbar) {
+    HtmlElementNode *pElem = (HtmlElementNode *)pNode;
+
+    if (HtmlNodeIsText(pNode) || !pElem->pScrollbar) {
         return TCL_ERROR;
     }
 
     pTree = pNode->pNodeCmd->pTree;
     if (isVertical) {
-        iNew = pNode->pScrollbar->iVertical;
-        iMax = pNode->pScrollbar->iVerticalMax;
-        iSize = pNode->pScrollbar->iHeight;
+        iNew = pElem->pScrollbar->iVertical;
+        iMax = pElem->pScrollbar->iVerticalMax;
+        iSize = pElem->pScrollbar->iHeight;
         iIncr = pTree->options.yscrollincrement;
     } else {
-        iNew = pNode->pScrollbar->iHorizontal;
-        iMax = pNode->pScrollbar->iHorizontalMax;
-        iSize = pNode->pScrollbar->iWidth;
+        iNew = pElem->pScrollbar->iHorizontal;
+        iMax = pElem->pScrollbar->iHorizontalMax;
+        iSize = pElem->pScrollbar->iWidth;
         iIncr = pTree->options.xscrollincrement;
     }
 
@@ -1649,9 +1715,9 @@ nodeViewCmd(pNode, isVertical, objv, objc)
     iNew = MAX(0, iNew);
     iNew = MIN(iNew, iMax - iSize);
     if (isVertical) {
-        pNode->pScrollbar->iVertical = iNew;
+        pElem->pScrollbar->iVertical = iNew;
     } else {
-        pNode->pScrollbar->iHorizontal = iNew;
+        pElem->pScrollbar->iHorizontal = iNew;
     }
 
     HtmlNodeScrollbarDoCallback(pNode->pNodeCmd->pTree, pNode);
@@ -1668,16 +1734,18 @@ nodeViewCmd(pNode, isVertical, objv, objc)
  *
  * nodeCommand --
  *
- *         <node> attr ?options? HTML-ATTRIBUTE-NAME
- *         <node> child CHILD-NUMBER 
- *         <node> nChildren 
- *         <node> parent
- *         <node> prop
- *         <node> replace ?options? ?NEW-VALUE?
- *         <node> tag
- *         <node> text
- *
- *         <node> override
+ *         attr                    Read/write node attributes 
+ *         children                Return a list of the nodes child nodes 
+ *         dynamic                 Set/clear dynamic flags (i.e. :hover) 
+ *         override                Read/write CSS property overrides 
+ *         parent                  Return the parent node 
+ *         prop                    Query CSS property values 
+ *         property                Query a single CSS property value 
+ *         replace                 Set/clear the node replacement object 
+ *         tag                     Read/write the node's tag 
+ *         text                    Read/write the node's text content 
+ *         xview                   Scroll a scrollable node horizontally 
+ *         yview                   Scroll a scrollable node vertically 
  *
  *     This function is the implementation of the Tcl node handle command. The
  *     clientData passed to the command is a pointer to the HtmlNode structure
@@ -1703,42 +1771,49 @@ nodeCommand(clientData, interp, objc, objv)
 {
     HtmlNode *pNode = (HtmlNode *)clientData;
     HtmlTree *pTree = pNode->pNodeCmd->pTree;
-    int choice;
+    int iChoice;
 
-    static CONST char *NODE_strs[] = {
-        "attr",                  /* Read/write node attributes */
-        "children",              /* Return a list of the nodes child nodes */
-        "dynamic",               /* Set/clear dynamic flags (i.e. :hover) */
-        "override",              /* Read/write CSS property overrides */
-        "parent",                /* Return the parent node */
-        "prop",                  /* Query CSS property values */
-        "property",              /* Query a single CSS property value */
-        "replace",               /* Set/clear the node replacement object */
-        "tag",                   /* Read/write the node's tag */
-        "text",                  /* Read/write the node's text content */
-        "xview",                 /* Scroll a scrollable node horizontally */
-        "yview",                 /* Scroll a scrollable node vertically */
-        0
-    };
     enum NODE_enum {
-        NODE_ATTR, NODE_CHILDREN, NODE_DYNAMIC, NODE_OVERRIDE,
+        NODE_ATTRIBUTE, NODE_CHILDREN, NODE_DYNAMIC, NODE_OVERRIDE,
         NODE_PARENT, NODE_PROP, NODE_PROPERTY, NODE_REPLACE, 
         NODE_TAG, NODE_TEXT, NODE_XVIEW, NODE_YVIEW
+    };
+
+    static const struct NodeSubCommand {
+        const char *zCommand;
+        enum NODE_enum eSymbol;
+        int TODO;
+    } aSubCommand[] = {
+        {"attribute", NODE_ATTRIBUTE, 0},  
+        {"children",  NODE_CHILDREN,  0},
+        {"dynamic",   NODE_DYNAMIC,   0},      
+        {"override",  NODE_OVERRIDE,  0},    
+        {"parent",    NODE_PARENT,    0},     
+        {"prop",      NODE_PROP,      0},      
+        {"property",  NODE_PROPERTY,  0}, 
+        {"replace",   NODE_REPLACE,   0}, 
+        {"tag",       NODE_TAG,       0},    
+        {"text",      NODE_TEXT,      0},  
+        {"xview",     NODE_XVIEW,     0},
+        {"yview",     NODE_YVIEW,     0},
+        {0, 0, 0}
     };
 
     if (objc<2) {
         Tcl_WrongNumArgs(interp, 1, objv, "SUBCOMMAND ...");
         return TCL_ERROR;
     }
-    if (Tcl_GetIndexFromObj(interp, objv[1], NODE_strs, "option", 0, &choice) ){
+    if (Tcl_GetIndexFromObjStruct(interp, objv[1], aSubCommand, 
+            sizeof(struct NodeSubCommand), "option", 0, &iChoice) 
+    ){
         return TCL_ERROR;
     }
 
-    switch ((enum NODE_enum)choice) {
+    switch (aSubCommand[iChoice].eSymbol) {
         /*
          * nodeHandle attr ??-default DEFAULT-VALUE? ATTR-NAME? ?NEW-VALUE?
          */
-        case NODE_ATTR: {
+        case NODE_ATTRIBUTE: {
             char CONST *zAttr = 0;
             char *zAttrName = 0;
             char *zAttrVal = 0;
@@ -1788,10 +1863,13 @@ nodeCommand(clientData, interp, objc, objv)
 
             if (!HtmlNodeIsText(pNode)) {
                 int i;
-                HtmlToken *pToken = pNode->pToken;
+                HtmlAttributes *pAttr = ((HtmlElementNode *)pNode)->pAttributes;
                 Tcl_Obj *p = Tcl_NewObj();
-                for (i = 2; i < pToken->count; i++) {
-                    Tcl_Obj *pArg = Tcl_NewStringObj(pToken->x.zArgs[i], -1);
+                for (i = 0; pAttr && i < pAttr->nAttr; i++) {
+                    Tcl_Obj *pArg;
+                    pArg = Tcl_NewStringObj(pAttr->a[i].zName, -1);
+                    Tcl_ListObjAppendElement(interp, p, pArg);
+                    pArg = Tcl_NewStringObj(pAttr->a[i].zValue, -1);
                     Tcl_ListObjAppendElement(interp, p, pArg);
                 }
                 Tcl_SetObjResult(interp, p);
@@ -1847,11 +1925,13 @@ node_attr_usage:
          *
          */
         case NODE_TEXT: {
-            HtmlToken *pT;
             Tcl_Obj *pRet;
             int tokens;
             int pre;
             char *z3 = 0;
+
+            HtmlTextIter sIter;
+
             if (objc == 3) {
                 z3 = Tcl_GetString(objv[2]);
             }
@@ -1868,49 +1948,63 @@ node_attr_usage:
             pre =    ((objc == 3 && z3[1]=='p') ? 1 : 0);
             pRet = Tcl_NewObj();
             Tcl_IncrRefCount(pRet);
-            for (
-                pT = pNode->pToken;
-                pT && (pT->type==Html_Space || pT->type==Html_Text);
-                pT = pT->pNextToken
-            ) {
-                if (pT->type==Html_Text) {
+
+            if (HtmlNodeIsText(pNode)) {
+                for (
+                    HtmlTextIterFirst((HtmlTextNode *)pNode, &sIter);
+                    HtmlTextIterIsValid(&sIter);
+                    HtmlTextIterNext(&sIter)
+                ) {
+                    int eType = HtmlTextIterType(&sIter);
+                    int nData = HtmlTextIterLength(&sIter);
+                    char const * zData = HtmlTextIterData(&sIter);
+    
                     if (tokens) {
-                        Tcl_Obj *pObj = Tcl_NewObj();
-                        Tcl_ListObjAppendElement(0, pObj, 
-                                Tcl_NewStringObj("text", -1)
-                        );
-                        Tcl_ListObjAppendElement(0, pObj, 
-                                Tcl_NewStringObj(pT->x.zText, pT->count)
-                        );
-                        Tcl_ListObjAppendElement(interp, pRet, pObj);
-                    } else {
-                        Tcl_AppendToObj(pRet, pT->x.zText, pT->count);
-                    }
-                } else {
-                    if (tokens) {
-                        if (pT->x.newline) {
-                            Tcl_Obj *pObj = Tcl_NewStringObj("newline", -1);
-                            Tcl_ListObjAppendElement(interp, pRet, pObj);
-                        } else {
-                            Tcl_Obj *pObj;
-                            char zBuf[128];
-                            sprintf(zBuf, "space %d", pT->count);
-                            pObj = Tcl_NewStringObj(zBuf, -1);
-                            Tcl_ListObjAppendElement(interp, pRet, pObj);
+                        char *zType;
+                        Tcl_Obj *p = Tcl_NewObj();
+                        Tcl_Obj *pObj = 0;
+    
+                        switch (eType) {
+                            case HTML_TEXT_TOKEN_TEXT:
+                                zType = "text";
+                                pObj = Tcl_NewStringObj(zData, nData);
+                                break;
+                            case HTML_TEXT_TOKEN_SPACE:
+                                zType = "space";
+                                pObj = Tcl_NewIntObj(nData);
+                                break;
+                            case HTML_TEXT_TOKEN_NEWLINE:
+                                zType = "newline";
+                                pObj = Tcl_NewIntObj(nData);
+                                break;
                         }
-                    } else if (pre) {
-                        char *zWhite = "\n";
-                        char nWhite = 1;
-                        if (0 == pT->x.newline) {
-                            zWhite = "                                        ";
-                            assert(strlen(zWhite) == 40);
-                            for (nWhite = pT->count; nWhite > 40; nWhite -= 40){
-                                Tcl_AppendToObj(pRet, zWhite, 40);
+                        Tcl_ListObjAppendElement(
+                            0, p, Tcl_NewStringObj(zType, -1)
+                        );
+                        Tcl_ListObjAppendElement(0, p, pObj);
+                        Tcl_ListObjAppendElement(0, pRet, p);
+                    } else {
+                        switch (eType) {
+                            case HTML_TEXT_TOKEN_TEXT:
+                                Tcl_AppendToObj(pRet, zData, nData);
+                                break;
+                            case HTML_TEXT_TOKEN_SPACE: 
+                            case HTML_TEXT_TOKEN_NEWLINE: {
+                                char *zWhite = " ";
+                                int nWhite = 1;
+                                int ii;
+                                if (pre) {
+                                    nWhite = nData;
+                                    if (HTML_TEXT_TOKEN_NEWLINE == eType) {
+                                        zWhite = "\n";
+                                    }
+                                }
+                                for (ii = 0; ii < nWhite; ii++) {
+                                    Tcl_AppendToObj(pRet, zWhite, nWhite);
+                                }
+                                break;
                             }
                         }
-                        Tcl_AppendToObj(pRet, zWhite, nWhite);
-                    } else {
-                        Tcl_AppendToObj(pRet, " ", 1);
                     }
                 }
             }
@@ -1935,12 +2029,17 @@ node_attr_usage:
          *     Argument may be "after" or "before".
          */
         case NODE_PROP: {
-            HtmlNode *pN = pNode;
-            if (HtmlNodeIsText(pN)) {
-                pN = HtmlNodeParent(pNode);
-            }
+
+            HtmlNode *pBefore;
+            HtmlNode *pAfter;
+            HtmlComputedValues *pComputed;
+
             HtmlCallbackForce(pTree);
-            if (0 == pN->pPropertyValues) {
+            pBefore = HtmlNodeBefore(pNode);
+            pAfter = HtmlNodeAfter(pNode);
+            pComputed = HtmlNodeComputedValues(pNode);
+
+            if (0 == pComputed) {
                 Tcl_ResetResult(interp);
                 Tcl_AppendResult(interp,"Computed values cannot be obtained",0);
                 return TCL_ERROR;
@@ -1948,10 +2047,10 @@ node_attr_usage:
 
             if (objc == 3) {
                 const char *zPseudo = Tcl_GetString(objv[2]);
-                if (strcmp(zPseudo, "after") == 0 && pN->pAfter) {
-                    HtmlNodeProperties(interp, pN->pAfter->pPropertyValues);
-                } else if (strcmp(zPseudo, "before") == 0 && pN->pBefore) {
-                    HtmlNodeProperties(interp, pN->pBefore->pPropertyValues);
+                if (strcmp(zPseudo, "after") == 0 && pAfter) {
+                    HtmlNodeProperties(interp, HtmlNodeComputedValues(pAfter));
+                } else if (strcmp(zPseudo, "before") == 0 && pBefore) {
+                    HtmlNodeProperties(interp, HtmlNodeComputedValues(pBefore));
                 } else {
                     Tcl_ResetResult(interp);
                     Tcl_AppendResult(interp, "No such pseudo-element: ", 0);
@@ -1959,7 +2058,7 @@ node_attr_usage:
                     return TCL_ERROR;
                 }
             } else {
-                HtmlNodeProperties(interp, pN->pPropertyValues);
+                HtmlNodeProperties(interp, pComputed);
             }
 
             break;
@@ -1973,16 +2072,14 @@ node_attr_usage:
          *     assigned to the parent node.
          */
         case NODE_PROPERTY: {
-            HtmlNode *pN = pNode;
-            if (HtmlNodeIsText(pN)) {
-                pN = HtmlNodeParent(pNode);
-            }
+            HtmlComputedValues *pComputed; 
             if (objc != 3) {
                 Tcl_WrongNumArgs(interp, 2, objv, "PROPERTY-NAME");
                 return TCL_ERROR;
             }
             HtmlCallbackForce(pTree);
-            return HtmlNodeGetProperty(interp, objv[2], pN->pPropertyValues);
+            pComputed = HtmlNodeComputedValues(pNode);
+            return HtmlNodeGetProperty(interp, objv[2], pComputed);
         }
 
         /*
@@ -1994,6 +2091,14 @@ node_attr_usage:
          *         -deletecmd          <script>
          */
         case NODE_REPLACE: {
+
+            HtmlElementNode *pElem = HtmlNodeAsElement(pNode);
+            if (!pElem) {
+                const char *zErr = "Text node does not support [replace]";
+                Tcl_SetResult(interp, zErr, 0);
+                return TCL_ERROR;
+            }
+
             if (objc > 2) {
                 Tcl_Obj *aArgs[4];
                 HtmlNodeReplacement *pReplace = 0; /* New pNode->pReplacement */
@@ -2040,8 +2145,8 @@ node_attr_usage:
 		/* Free any existing replacement object and set
 		 * pNode->pReplacement to point at the new structure. 
                  */
-                clearReplacement(pTree, pNode);
-                pNode->pReplacement = pReplace;
+                clearReplacement(pTree, pElem);
+                pElem->pReplacement = pReplace;
 
                 /* Run the layout engine. */
                 HtmlCallbackLayout(pTree, pNode);
@@ -2050,9 +2155,9 @@ node_attr_usage:
             /* The result of this command is the name of the current
              * replacement object (or an empty string).
              */
-            if (pNode->pReplacement) {
-                assert(pNode->pReplacement->pReplace);
-                Tcl_SetObjResult(interp, pNode->pReplacement->pReplace);
+            if (pElem->pReplacement) {
+                assert(pElem->pReplacement->pReplace);
+                Tcl_SetObjResult(interp, pElem->pReplacement->pReplace);
             }
             break;
         }
@@ -2081,6 +2186,14 @@ node_attr_usage:
             Tcl_Obj *pRet;
             int i;
             Html_u8 mask = 0;
+
+            HtmlElementNode *pElem = (HtmlElementNode *)pNode;
+            if (HtmlNodeIsText(pNode)) {
+                Tcl_SetResult(interp, 
+                    "Cannot call method [dynamic] on a text node", 0
+                );
+                return TCL_ERROR;
+            }
 
             if (zArg1 && 0 == strcmp(zArg1, "conditions")) {
                 HtmlCallbackForce(pTree);
@@ -2111,9 +2224,9 @@ node_attr_usage:
             }
 
             if (*zArg1 == 's') {
-                pNode->flags |= mask;
+                pElem->flags |= mask;
             } else {
-                pNode->flags &= ~(mask?mask:0xFF);
+                pElem->flags &= ~(mask?mask:0xFF);
             }
 
             if (zArg2) {
@@ -2129,7 +2242,7 @@ node_attr_usage:
 
             pRet = Tcl_NewObj();
             for (i = 0; flags[i].zName; i++) {
-                if (pNode->flags & flags[i].flag) {
+                if (pElem->flags & flags[i].flag) {
                     Tcl_Obj *pNew = Tcl_NewStringObj(flags[i].zName, -1);
                     Tcl_ListObjAppendElement(0, pRet, pNew);
                 }
@@ -2144,22 +2257,31 @@ node_attr_usage:
          *     Get/set the override list.
          */
         case NODE_OVERRIDE: {
+
+            HtmlElementNode *pElem = (HtmlElementNode *)pNode;
+            if (HtmlNodeIsText(pNode)) {
+                Tcl_SetResult(interp, 
+                    "Cannot call method [override] on a text node", 0
+                );
+                return TCL_ERROR;
+            }
+
             if (objc != 2 && objc != 3) {
                 Tcl_WrongNumArgs(interp, 2, objv, "?new-value?");
                 return TCL_ERROR;
             }
 
             if (objc == 3) {
-                if (pNode->pOverride) {
-                    Tcl_DecrRefCount(pNode->pOverride);
+                if (pElem->pOverride) {
+                    Tcl_DecrRefCount(pElem->pOverride);
                 }
-                pNode->pOverride = objv[2];
-                Tcl_IncrRefCount(pNode->pOverride);
+                pElem->pOverride = objv[2];
+                Tcl_IncrRefCount(pElem->pOverride);
             }
 
             Tcl_ResetResult(interp);
-            if (pNode->pOverride) {
-                Tcl_SetObjResult(interp, pNode->pOverride);
+            if (pElem->pOverride) {
+                Tcl_SetObjResult(interp, pElem->pOverride);
             }
             HtmlCallbackRestyle(pTree, pNode);
             return TCL_OK;
@@ -2257,41 +2379,25 @@ HtmlNodeToString(pNode)
     Tcl_IncrRefCount(pStr);
 
     tag = HtmlNodeTagType(pNode);
+    assert(tag != Html_Space);
 
-    if (tag==Html_Text || tag==Html_Space) {
-        HtmlToken *pToken;
-        pToken = pNode->pToken;
-
-        Tcl_AppendToObj(pStr, "\"", -1);
-        while (pToken && (pToken->type==Html_Text||pToken->type==Html_Space)) {
-            if (pToken->type==Html_Space) {
-                int i;
-                for (i=0; i<(pToken->count - (pToken->x.newline?1:0)); i++) {
-                    Tcl_AppendToObj(pStr, " ", 1);
-                }
-                if (pToken->x.newline) {
-                    Tcl_AppendToObj(pStr, "<nl>", 4);
-                }
-            } else {
-                Tcl_AppendToObj(pStr, pToken->x.zText, pToken->count);
-            }
-            pToken = pToken->pNextToken;
-        }
-        Tcl_AppendToObj(pStr, "\"", -1);
-
+    if (tag == Html_Text) {
+        Tcl_AppendToObj(pStr, "text node", -1);
     } else {
         int i;
-        HtmlToken *pToken = pNode->pToken;
+#if 0
+        HtmlToken *pToken = ((HtmlElementNode *)pNode)->pToken;
         Tcl_AppendToObj(pStr, "<", -1);
         Tcl_AppendToObj(pStr, HtmlMarkupName(tag), -1);
         for (i = 2; i < pToken->count; i += 2) {
             Tcl_AppendToObj(pStr, " ", -1);
-            Tcl_AppendToObj(pStr, pToken->x.zArgs[i], -1);
+            Tcl_AppendToObj(pStr, pToken->zArgs[i], -1);
             Tcl_AppendToObj(pStr, "=\"", -1);
-            Tcl_AppendToObj(pStr, pToken->x.zArgs[i+1], -1);
+            Tcl_AppendToObj(pStr, pToken->zArgs[i+1], -1);
             Tcl_AppendToObj(pStr, "\"", -1);
         }
         Tcl_AppendToObj(pStr, ">", -1);
+#endif
     }
 
     /* Copy the string from the Tcl_Obj* to memory obtained via HtmlAlloc(0, ).
@@ -2325,10 +2431,10 @@ int HtmlNodeScrollbarDoCallback(pTree, pNode)
     HtmlTree *pTree;
     HtmlNode *pNode;
 {
-    HtmlNodeScrollbars *p;
-    p = pNode->pScrollbar;
+    HtmlElementNode *pElem = (HtmlElementNode *)pNode;
 
-    if (p) {
+    if (!HtmlNodeIsText(pNode) && pElem->pScrollbar) {
+        HtmlNodeScrollbars *p = pElem->pScrollbar;
         char zTmp[256];
         if (p->vertical.win) {
             snprintf(zTmp, 255, "%s set %f %f", 
@@ -2373,26 +2479,12 @@ int HtmlNodeScrollbarDoCallback(pTree, pNode)
 int HtmlTreeClear(pTree)
     HtmlTree *pTree;
 {
-    HtmlToken *pToken;
-    HtmlToken *pPrev = 0;
-
     /* Free the canvas representation */
     HtmlDrawCleanup(pTree, &pTree->canvas);
     memset(&pTree->canvas, 0, sizeof(HtmlCanvas));
 
     /* Free the tree representation - pTree->pRoot */
     HtmlTreeFree(pTree);
-
-    /* Free any parsed text tokens that have not been added to the 
-     * tree structure.  */
-    pPrev = 0;
-    for (pToken=pTree->pTextFirst; pToken; pToken = pToken->pNextToken) {
-        HtmlFree(pPrev);
-        pPrev = pToken;
-    }
-    HtmlFree(pTree->pTextLast);
-    pTree->pTextFirst = 0;
-    pTree->pTextLast = 0;
 
     /* Free the formatted text, if any (HtmlTree.pText) */
     HtmlTextInvalidate(pTree);

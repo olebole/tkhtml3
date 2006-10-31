@@ -16,7 +16,7 @@
  *
  *-------------------------------------------------------------------------
  */
-static const char rcsid[] = "$Id: restrack.c,v 1.8 2006/10/27 06:40:34 danielk1977 Exp $";
+static const char rcsid[] = "$Id: restrack.c,v 1.9 2006/10/31 07:13:33 danielk1977 Exp $";
 
 #ifdef HTML_RES_DEBUG
 #define RES_DEBUG
@@ -344,7 +344,7 @@ freeMallocHash(p, nBytes)
 
     if (aData[0] == 0) {
         Tcl_DeleteHashEntry(pEntryMalloc);
-        ckfree(aData);
+        ckfree((char *)aData);
     }
     Tcl_DeleteHashEntry(pEntryAllocationType);
 }
