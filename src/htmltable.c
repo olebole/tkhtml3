@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.110 2006/10/31 07:13:32 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.111 2006/11/01 07:31:05 danielk1977 Exp $";
 
 
 #include "htmllayout.h"
@@ -343,7 +343,7 @@ logWidthsToTable(pData, pObj)
         Tcl_AppendObjToObj(pObj, Tcl_NewIntObj(ii));
 
         for (jj = 0; jj < 3; jj++) {
-            int val;
+            int val = PIXELVAL_AUTO;
             switch (jj) {
                 case 0: val = aMinWidth[ii]; break;
                 case 1: val = aMaxWidth[ii]; break;
@@ -353,6 +353,8 @@ logWidthsToTable(pData, pObj)
                     } else {
                         val = PIXELVAL_AUTO;
                     }
+                default:
+                    assert(0);
             }
             Tcl_AppendToObj(pObj, "<td>", -1);
             if (val != PIXELVAL_AUTO) {

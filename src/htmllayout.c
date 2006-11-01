@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.224 2006/11/01 06:34:32 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.225 2006/11/01 07:31:05 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -1218,7 +1218,6 @@ markerBoxLayout(pLayout, pBox, pNode, pVerticalOffset)
         int eStyle;             /* Copy of pComputed->eListStyleType */
         Tk_Font font;           /* Font to draw list marker in */
         char zBuf[128];         /* Buffer for string to use as list marker */
-        Tcl_Obj *pMarker;
         int iList = 1;
 
         HtmlNode *pParent = HtmlNodeParent(pNode);
@@ -2351,13 +2350,13 @@ normalFlowLayoutTableComponent(pLayout, pBox, pNode, pY, pContext, pNormal)
         CssProperty sProp;
         sProp.eType = CSS_CONST_TABLE;
         sProp.v.zVal = "table";
-        HtmlComputedValuesInit(pLayout->pTree, &sTable, 0, &sCreator);
+        HtmlComputedValuesInit(pLayout->pTree, &sTable.node, 0, &sCreator);
         HtmlComputedValuesSet(&sCreator, CSS_PROPERTY_DISPLAY, &sProp);
         pLayout->pImplicitTableProperties = HtmlComputedValuesFinish(&sCreator);
     }
     sTable.pPropertyValues = pLayout->pImplicitTableProperties;
 
-    normalFlowLayoutTable(pLayout, pBox, &sTable, pY, pContext, pNormal);
+    normalFlowLayoutTable(pLayout, pBox, &sTable.node, pY, pContext, pNormal);
 
     /* Make sure the pretend node has not accumulated a layout-cache or
      * node-command (which can happen in a LOG block).  */

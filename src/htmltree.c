@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.94 2006/10/31 07:13:33 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.95 2006/11/01 07:31:07 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -349,7 +349,6 @@ tokenAction(pTree, eTag, pNClose)
     HtmlNode *pCurrent = pTree->pCurrent;
     int nClose = 0;
     int nLevel = 0;
-    int rc = 0;
     int tag = eTag;
     int seenImplicit = 0;
     HtmlNode *p = pCurrent;
@@ -811,7 +810,7 @@ setNodeAttribute(pNode, zAttrName, zAttrVal)
     const char *zAttrVal;
 {
     #define MAX_NUM_ATTRIBUTES 100
-    char *azPtr[MAX_NUM_ATTRIBUTES * 2];
+    char const *azPtr[MAX_NUM_ATTRIBUTES * 2];
     int aLen[MAX_NUM_ATTRIBUTES * 2];
 
     int i;
@@ -981,6 +980,7 @@ HtmlTreeAddElement(pTree, eType, pAttr, iOffset)
 {
     HtmlNode *pCurrent;
     HtmlNode *pHeadNode;
+    HtmlElementNode *pHeadElem;
 
     /* If token pToken causes a node to be added to the tree, or the
      * attributes of an <html>, <body> or <head> element to be updated,
@@ -993,6 +993,7 @@ HtmlTreeAddElement(pTree, eType, pAttr, iOffset)
 
     pCurrent = pTree->pCurrent;
     pHeadNode = HtmlNodeChild(pTree->pRoot, 0);
+    pHeadElem = HtmlNodeAsElement(pHeadNode);
 
     assert(pCurrent);
     assert(pHeadNode);
@@ -1056,7 +1057,7 @@ HtmlTreeAddElement(pTree, eType, pAttr, iOffset)
 	     * section.
              */
         case Html_TITLE: {
-            int n = HtmlNodeAddChild(pHeadNode, eType, pAttr);
+            int n = HtmlNodeAddChild(pHeadElem, eType, pAttr);
             HtmlNode *p = HtmlNodeChild(pHeadNode, n);
             pTree->isCdataInHead = 1;
             p->iNode = pTree->iNextNode++;
@@ -1068,7 +1069,7 @@ HtmlTreeAddElement(pTree, eType, pAttr, iOffset)
         case Html_META:
         case Html_LINK:
         case Html_BASE: {
-            int n = HtmlNodeAddChild(pHeadNode, eType, pAttr);
+            int n = HtmlNodeAddChild(pHeadElem, eType, pAttr);
             HtmlNode *p = HtmlNodeChild(pHeadNode, n);
             p->iNode = pTree->iNextNode++;
             nodeHandlerCallbacks(pTree, p);
@@ -1099,9 +1100,11 @@ HtmlTreeAddElement(pTree, eType, pAttr, iOffset)
 
             pCurrent = pTree->pCurrent;
             if (r) {
+                HtmlElementNode *pC = HtmlNodeAsElement(pCurrent);
                 assert(!HtmlNodeIsText(pTree->pCurrent));
                 pCurrent = HtmlNodeChild(pCurrent, 
-                    HtmlNodeAddChild(pCurrent, eType, pAttr));
+                    HtmlNodeAddChild(pC, eType, pAttr)
+                );
                 pCurrent->iNode = pTree->iNextNode++;
                 pParsed = pCurrent;
 
@@ -1960,7 +1963,7 @@ node_attr_usage:
                     char const * zData = HtmlTextIterData(&sIter);
     
                     if (tokens) {
-                        char *zType;
+                        char *zType = 0;
                         Tcl_Obj *p = Tcl_NewObj();
                         Tcl_Obj *pObj = 0;
     
@@ -1978,6 +1981,7 @@ node_attr_usage:
                                 pObj = Tcl_NewIntObj(nData);
                                 break;
                         }
+                        assert(zType);
                         Tcl_ListObjAppendElement(
                             0, p, Tcl_NewStringObj(zType, -1)
                         );
@@ -2094,7 +2098,7 @@ node_attr_usage:
 
             HtmlElementNode *pElem = HtmlNodeAsElement(pNode);
             if (!pElem) {
-                const char *zErr = "Text node does not support [replace]";
+                char *zErr = "Text node does not support [replace]";
                 Tcl_SetResult(interp, zErr, 0);
                 return TCL_ERROR;
             }
@@ -2346,69 +2350,6 @@ HtmlNodeCommand(pTree, pNode)
     }
 
     return pNodeCmd->pCommand;
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * HtmlNodeToString --
- *
- *     Return a human-readable string representation of pNode in memory
- *     allocated by HtmlFree(0, ). This function is only used for debugging.
- *     Code to build string representations of nodes for other purposes
- *     should be done in Tcl using the node-command interface.
- *
- * Results:
- *     Pointer to string allocated by HtmlAlloc(0, ).
- *
- * Side effects:
- *     Allocates memory. Since this function is usually called from a 
- *     debugger, this memory is unlikely to get freed.
- *
- *---------------------------------------------------------------------------
- */
-char * 
-HtmlNodeToString(pNode)
-    HtmlNode *pNode;
-{
-    int len;
-    char *zStr;
-    int tag;
-
-    Tcl_Obj *pStr = Tcl_NewObj();
-    Tcl_IncrRefCount(pStr);
-
-    tag = HtmlNodeTagType(pNode);
-    assert(tag != Html_Space);
-
-    if (tag == Html_Text) {
-        Tcl_AppendToObj(pStr, "text node", -1);
-    } else {
-        int i;
-#if 0
-        HtmlToken *pToken = ((HtmlElementNode *)pNode)->pToken;
-        Tcl_AppendToObj(pStr, "<", -1);
-        Tcl_AppendToObj(pStr, HtmlMarkupName(tag), -1);
-        for (i = 2; i < pToken->count; i += 2) {
-            Tcl_AppendToObj(pStr, " ", -1);
-            Tcl_AppendToObj(pStr, pToken->zArgs[i], -1);
-            Tcl_AppendToObj(pStr, "=\"", -1);
-            Tcl_AppendToObj(pStr, pToken->zArgs[i+1], -1);
-            Tcl_AppendToObj(pStr, "\"", -1);
-        }
-        Tcl_AppendToObj(pStr, ">", -1);
-#endif
-    }
-
-    /* Copy the string from the Tcl_Obj* to memory obtained via HtmlAlloc(0, ).
-     * Then release the reference to the Tcl_Obj*.
-     */
-    Tcl_GetStringFromObj(pStr, &len);
-    zStr = HtmlAlloc(0, len+1);
-    strcpy(zStr, Tcl_GetString(pStr));
-    Tcl_DecrRefCount(pStr);
-
-    return zStr;
 }
 
 /*

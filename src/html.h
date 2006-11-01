@@ -334,6 +334,9 @@ struct HtmlElementNode {
     HtmlNodeScrollbars *pScrollbar;        /* Internal scrollbars, if any */
 };
 
+/* Alias for HtmlNodeXXX() methods */
+#define HtmlElemParent(p) ((HtmlElementNode *)HtmlNodeParent(&(p)->node))
+
 /* Values for HtmlNode.flags. These may be set and cleared via the Tcl
  * interface on the node command: [$node dynamic set|clear ...]
  */
@@ -653,6 +656,7 @@ void HtmlDrawDeleteControls(HtmlTree *, HtmlCanvas *);
 void HtmlDrawCanvas(HtmlCanvas*,HtmlCanvas*,int,int,HtmlNode*);
 void HtmlDrawText(HtmlCanvas*,const char*,int,int,int,int,int,HtmlNode*,int);
 void HtmlDrawTextExtend(HtmlCanvas*, int, int);
+int HtmlDrawTextLength(HtmlCanvas*);
 
 #define CANVAS_BOX_OPEN_LEFT    0x01      /* Open left-border */
 #define CANVAS_BOX_OPEN_RIGHT   0x02      /* Open right-border */
@@ -758,7 +762,7 @@ int HtmlNodeScrollbarDoCallback(HtmlTree *, HtmlNode *);
 
 void HtmlDelScrollbars(HtmlTree *, HtmlNode *);
 
-HtmlAttributes * HtmlAttributesNew(int, char **, int *, int);
+HtmlAttributes * HtmlAttributesNew(int, char const **, int *, int);
 
 /*******************************************************************
  * Interface to code in htmltext.c

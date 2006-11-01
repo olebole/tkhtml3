@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.86 2006/10/31 10:17:35 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.87 2006/11/01 07:31:05 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -697,7 +697,7 @@ getScriptHandler(pTree, tag)
 HtmlAttributes *
 HtmlAttributesNew(argc, argv, arglen, doEscape)
     int argc;
-    char **argv;
+    char const **argv;
     int *arglen;
     int doEscape;
 {
@@ -873,11 +873,9 @@ Tokenize(pTree, isFinal)
     int n;                       /* Number of bytes processed so far */
     int iCol;                    /* Local copy of HtmlTree.iCol */
     int i, j;                    /* Loop counters */
-    int nByte;                   /* Space allocated for a single HtmlElement */
     int selfClose;               /* True for content free elements. Ex: <br/> */
     int argc;                    /* The number of arguments on a markup */
     HtmlTokenMap *pMap;          /* For searching the markup name hash table */
-    char *zBuf;                  /* For handing out buffer space */
 # define mxARG 200               /* Max parameters in a single markup */
     char *argv[mxARG];           /* Pointers to each markup argument. */
     int arglen[mxARG];           /* Length of each markup argument */
@@ -1113,7 +1111,8 @@ Tokenize(pTree, isFinal)
 
                 HtmlAttributes *pAttr;
                 Tcl_Obj *pScript;
-                pAttr = HtmlAttributesNew(argc - 1, &argv[1], &arglen[1], 1);
+                const char **zArgs = (const char **)(&argv[1]);
+                pAttr = HtmlAttributesNew(argc - 1, zArgs, &arglen[1], 1);
                 pScript = getScriptHandler(pTree, pMap->type);
                 if (!pScript) {
                     /* No special handler for this markup. Just append 

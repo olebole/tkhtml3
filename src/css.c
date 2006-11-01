@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.95 2006/10/31 07:13:32 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.96 2006/11/01 07:31:05 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -3009,8 +3009,8 @@ HtmlCssSelectorTest(pSelector, pNode, dynamic_true)
     CssSelector *p = pSelector;
     HtmlNode *x = pNode;
 
-    HtmlElementNode *pElem = (HtmlElementNode *)pNode;
-    assert(!HtmlNodeIsText(pElem));
+    HtmlElementNode *pElem = HtmlNodeAsElement(pNode);
+    assert(pElem);
 
     while( p && x ){
 
@@ -3430,8 +3430,8 @@ HtmlCssStyleSheetApply(pTree, pNode)
     int nSelectorMatch = 0;
     int nSelectorTest = 0;
 
-    HtmlElementNode *pElem = (HtmlElementNode *)pNode;
-    assert(!HtmlNodeIsText(pElem));
+    HtmlElementNode *pElem = HtmlNodeAsElement(pNode);
+    assert(pElem);
 
     /* The universal rules list applies to all nodes */
     apRule[0] = pStyle->pUniversalRules;

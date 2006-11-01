@@ -35,7 +35,7 @@
 #include <assert.h>
 #include "html.h"
 
-#define ISNEWLINE(x) ((x) == '\n')
+#define ISNEWLINE(x) ((x) == '\n' || (x) == '\r')
 #define ISTAB(x) ((x) == '\t')
 #define ISSPACE(x) isspace((unsigned char)(x))
 
@@ -1385,7 +1385,7 @@ HtmlTextIndexCmd(clientData, interp, objc, objv)
     Tcl_Obj *p = Tcl_NewObj();
 
     HtmlTextMapping *pMap = 0;
-    int iPrev;
+    int iPrev = 0;
  
     if (objc < 4) {
         Tcl_WrongNumArgs(interp, 3, objv, "OFFSET ?OFFSET? ...");
@@ -1593,7 +1593,7 @@ HtmlTextBboxCmd(clientData, interp, objc, objv)
  *         HtmlTextNode.zText  = "abcde <> hello"
  *
  *     Storing the text in this format means that we are well-placed
- *     to rationalise a fair percentage calls to Tk_DrawChars() etc. in 
+ *     to rationalise a good percentage calls to Tk_DrawChars() etc. in 
  *     other parts of the widget code.
  *
  *     Blocks of contiguous space or newline characters longer than 255
@@ -1604,15 +1604,16 @@ HtmlTextBboxCmd(clientData, interp, objc, objv)
  *         {SPACE, 255}, {SPACE, 255}, {SPACE, 140}
  *
  *     Blocks of non-whitespace longer than 255 characters are trickier.
- *     They always require exactly four tokens to be added to the array.
- *     For a 650 byte block of text the following four tokens:
+ *     They always require exactly three tokens to be added to the array.
+ *     For a 650 byte block of text the following three tokens:
  *
- *         {LONGTEXT, {650 >> 24) & 0xFF}, 
  *         {LONGTEXT, {650 >> 16} & 0xFF}, 
  *         {LONGTEXT, {650 >>  8} & 0xFF}, 
  *         {LONGTEXT, {650 >>  0} & 0xFF}
  *
- *
+ *     Todo: It's tempting to use single byte tokens, instead of two. Three
+ *     bits for the type and five for the length. On the other hand,
+ *     premature optimization.....
  */
 struct HtmlTextToken {
     unsigned char n;
@@ -1660,7 +1661,7 @@ populateTextNode(n, z, pText, pnToken, pnText)
     /* This variable is used to expand tabs. */
     int iCol = 0;
 
-    int spaceok = 0;
+    int isPrevTokenText = 0;
 
     while (zCsr < zStop) {
         unsigned char c = (unsigned char)(*zCsr);
@@ -1668,46 +1669,61 @@ populateTextNode(n, z, pText, pnToken, pnText)
 
         if (ISSPACE(c)) {
 
-            char *zSpaceStop = MIN(&zCsr[255], zStop);
-            int nSpace = 0;
-            int eType = HTML_TEXT_TOKEN_SPACE;
+            int nSpace = 0;                    /* Eventual token length */
+            int eType = HTML_TEXT_TOKEN_SPACE; /* Eventual token type */
 
             if (ISNEWLINE(c)) {
                 eType = HTML_TEXT_TOKEN_NEWLINE;
-                iCol = 0;
             }
 
             do {
+                /* If a tab character, this is equivalent to adding between
+                 * one and eight spaces, depending on the current value of
+                 * variable iCol (see comments above variable declaration). 
+                 */
                 if (ISTAB(*zCsr)) nSpace += (7 - (iCol%8));
+
+                /* The sequence CR (carraige return) followed by LF (line 
+                 * feed) counts as a single newline. If either is encountered
+                 * alone, this is also a single newline. LF followed by CR
+                 * is two newlines.
+                 */
+                if (zCsr[0] == '\r' && &zCsr[1] < zStop && zCsr[1] == '\n') {
+                    zCsr++;
+                }
+
                 nSpace++;
                 zCsr++;
+                iCol += nSpace;
             } while (
-                nSpace < (255 - 8) && ISSPACE(*zCsr) && (
+                zCsr < zStop && nSpace < (255 - 8) && ISSPACE(*zCsr) && (
                     (eType == HTML_TEXT_TOKEN_NEWLINE && ISNEWLINE(*zCsr)) ||
                     (eType == HTML_TEXT_TOKEN_SPACE && !ISNEWLINE(*zCsr))
                 )
             );
 
-            if (eType == HTML_TEXT_TOKEN_SPACE) {
-                iCol += nSpace;
+            if (eType == HTML_TEXT_TOKEN_NEWLINE) {
+                iCol = 0;
             }
 
-            assert((zCsr - zStart) <= 255);
-
+            assert(nSpace <= 255);
             if (pText) {
                 pText->aToken[nToken].n = nSpace;
                 pText->aToken[nToken].eType = eType;
             }
             nToken++;
 
-            if (spaceok) {
+            /* If the previous token was text, add a single space character
+             * to the HtmlTextNode.zText buffer. Otherwise, add nothing
+             * to the text buffer.
+             */
+            if (isPrevTokenText) {
                 if (pText) {
                     pText->zText[nText] = ' ';
                 }
                 nText++;
+                isPrevTokenText = 0;
             }
-
-            spaceok = 0;
         } else {
 
             int nThisText;
@@ -1738,7 +1754,7 @@ populateTextNode(n, z, pText, pnToken, pnText)
             }
 
             nText += nThisText;
-            spaceok = 1;
+            isPrevTokenText = 1;
             iCol += nThisText;
         }
     }

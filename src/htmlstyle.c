@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlstyle.c,v 1.48 2006/10/31 07:13:32 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlstyle.c,v 1.49 2006/11/01 07:31:05 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -257,33 +257,33 @@ stackCompare(pVoidLeft, pVoidRight)
      */
 
     /* Calculate pLeftStack, pRightStack and pParentStack */
-    for (pL = pLeftStack->pElem; pL; pL = HtmlNodeParent(pL)) nLeftDepth++;
-    for (pR = pRightStack->pElem; pR; pR = HtmlNodeParent(pR)) nRightDepth++;
+    for (pL = pLeftStack->pElem; pL; pL = HtmlElemParent(pL)) nLeftDepth++;
+    for (pR = pRightStack->pElem; pR; pR = HtmlElemParent(pR)) nRightDepth++;
     pL = pLeftStack->pElem;
     pR = pRightStack->pElem;
     for (ii = 0; ii < MAX(0, nLeftDepth - nRightDepth); ii++) {
         if (IS_STACKING_CONTEXT(pL)) pLeftStack = pL->pStack;
-        pL = HtmlNodeParent(pL);
+        pL = HtmlElemParent(pL);
         iTreeOrder = +1;
     }
     for (ii = 0; ii < MAX(0, nRightDepth - nLeftDepth); ii++) {
         if (IS_STACKING_CONTEXT(pR)) pRightStack = pR->pStack;
-        pR = HtmlNodeParent(pR);
+        pR = HtmlElemParent(pR);
         iTreeOrder = -1;
     }
     while (pR != pL) {
-        HtmlNode *pParentL = HtmlNodeParent(pL);
-        HtmlNode *pParentR = HtmlNodeParent(pR);
+        HtmlElementNode *pParentL = HtmlElemParent(pL);
+        HtmlElementNode *pParentR = HtmlElemParent(pR);
         if (IS_STACKING_CONTEXT(pL)) pLeftStack = pL->pStack;
         if (IS_STACKING_CONTEXT(pR)) pRightStack = pR->pStack;
         if (pParentL == pParentR) {
             iTreeOrder = 0;
             for (ii = 0; 0 == iTreeOrder; ii++) {
-                HtmlNode *pChild = HtmlNodeChild(pParentL, ii);
-                if (pChild == pL) {
+                HtmlNode *pChild = HtmlNodeChild(&pParentL->node, ii);
+                if (pChild == (HtmlNode *)pL) {
                     iTreeOrder = -1;
                 }
-                if (pChild == pR) {
+                if (pChild == (HtmlNode *)pR) {
                     iTreeOrder = +1;
                 }
             }
@@ -294,7 +294,7 @@ stackCompare(pVoidLeft, pVoidRight)
         assert(pL && pR);
     }
     while (!IS_STACKING_CONTEXT(pR)) {
-        pR = HtmlNodeParent(pR);
+        pR = HtmlElemParent(pR);
         assert(pR);
     }
     pParentStack = pR->pStack;
@@ -468,7 +468,7 @@ styleNode(pTree, pNode, clientData)
          * but the "style" attribute is constant so pStyle is never invalid.
          */
         if (!pElem->pStyle) {
-            zStyle = HtmlNodeAttr(pElem, "style");
+            zStyle = HtmlNodeAttr(pNode, "style");
             if (zStyle) {
                 HtmlCssParseStyle(-1, zStyle, &pElem->pStyle);
             }
@@ -483,7 +483,7 @@ styleNode(pTree, pNode, clientData)
 
         /* Regenerate any :before and :after content */
         if (pElem->pBefore || pElem->pAfter) {
-            HtmlCallbackLayout(pTree, pElem);
+            HtmlCallbackLayout(pTree, pNode);
             HtmlNodeClearGenerated(pTree, pElem);
             redrawmode = 2;
         }

@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.130 2006/11/01 06:34:32 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.131 2006/11/01 07:31:05 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -1574,7 +1574,7 @@ handlerCmd(clientData, interp, objc, objv)
     int tag;
     Tcl_Obj *pScript;
     Tcl_HashEntry *pEntry;
-    Tcl_HashTable *pHash;
+    Tcl_HashTable *pHash = 0;
     int newentry;
     HtmlTree *pTree = (HtmlTree *)clientData;
 
@@ -1601,6 +1601,7 @@ handlerCmd(clientData, interp, objc, objv)
         default:
             assert(!"Illegal objv[2] value in handlerCmd()");
     }
+    assert(pHash);
     pScript = objv[4];
 
     if (tag==Html_Unknown) {
