@@ -35,6 +35,10 @@
 #include <assert.h>
 #include "html.h"
 
+#define ISNEWLINE(x) ((x) == '\n')
+#define ISTAB(x) ((x) == '\t')
+#define ISSPACE(x) isspace((unsigned char)(x))
+
 /*
  * This file exports the following functions:
  *
@@ -1541,6 +1545,75 @@ HtmlTextBboxCmd(clientData, interp, objc, objv)
 #define HTML_TEXT_TOKEN_LONGTEXT  4
 #define HTML_TEXT_TOKEN_END       0
 
+/*
+ * NOTES ON INTERNALS OF HtmlTextNode:
+ * 
+ *     The internals of the HtmlTextNode structure should be accessed 
+ *     via the following API:
+ *
+ *         HtmlTextNew()
+ *         HtmlTextFree()
+ *
+ *         HtmlTextIterFirst
+ *         HtmlTextIterIsValid
+ *         HtmlTextIterNext
+ *
+ *         HtmlTextIterType
+ *         HtmlTextIterLength
+ *         HtmlTextIterData
+ *     
+ *     An HtmlTextNode object stores it's text in two parts:
+ *
+ *         * A character string with SGML escape sequences replaced their
+ *           UTF-8 equivalents and each block of whitespace replaced by
+ *           a single space character.
+ *
+ *         * An ordered list of tokens. Each token one of the following:
+ *           + An unwrappable block of text (i.e. a word),
+ *           + One or more newline characters, or
+ *           + One or more space characters.
+ *
+ *           Each token is represented by an instance of struct 
+ *           HtmlTextToken. It has 1 byte type and a 1 byte unsigned 
+ *           length indicating the number of bytes, spaces or 
+ *           newlines represented by the token.
+ *
+ *     The following block of text:
+ *
+ *         "abcde   <NEWLINE>&gt;&lt;<NEWLINE><NEWLINE>hello"
+ *
+ *     Is represented by the data structures:
+ *
+ *         HtmlTextNode.aToken = {
+ *              {TEXT, 5}, {SPACE, 3}, {NEWLINE, 1}, 
+ *              {TEXT, 2}, {NEWLINE 2},
+ *              {TEXT, 5},
+ *              {END, <unused>},
+ *         }
+ *         HtmlTextNode.zText  = "abcde <> hello"
+ *
+ *     Storing the text in this format means that we are well-placed
+ *     to rationalise a fair percentage calls to Tk_DrawChars() etc. in 
+ *     other parts of the widget code.
+ *
+ *     Blocks of contiguous space or newline characters longer than 255
+ *     characters (the maximum value of HtmlTextToken.n) are stored
+ *     as two or more contiguous SPACE tokens. i.e. 650 contiguous spaces
+ *     require the following three tokens in the aToken array:
+ *
+ *         {SPACE, 255}, {SPACE, 255}, {SPACE, 140}
+ *
+ *     Blocks of non-whitespace longer than 255 characters are trickier.
+ *     They always require exactly four tokens to be added to the array.
+ *     For a 650 byte block of text the following four tokens:
+ *
+ *         {LONGTEXT, {650 >> 24) & 0xFF}, 
+ *         {LONGTEXT, {650 >> 16} & 0xFF}, 
+ *         {LONGTEXT, {650 >>  8} & 0xFF}, 
+ *         {LONGTEXT, {650 >>  0} & 0xFF}
+ *
+ *
+ */
 struct HtmlTextToken {
     unsigned char n;
     unsigned char eType;
@@ -1551,8 +1624,14 @@ struct HtmlTextToken {
  *
  * populateTextNode --
  * 
- *     This function is called to parse a block of text into an 
- *     HtmlTextNode structure. It is a helper function for HtmlTextNew().
+ *     This function is called to tokenizes a block of document text into 
+ *     an HtmlTextNode structure. It is a helper function for HtmlTextNew().
+ *
+ *     This function is designed to be called twice for each block of text
+ *     parsed to an HtmlTextNode. The first time, it determines the space
+ *     (number of tokens and number of bytes of text) required for the
+ *     the new HtmlTextNode. The caller then allocates this space and
+ *     calls the function a second time to populate the new structure.
  *
  * Results:
  *     None.
@@ -1563,17 +1642,23 @@ struct HtmlTextToken {
  */
 static void
 populateTextNode(n, z, pText, pnToken, pnText)
-    int n;
-    char const *z;
-    HtmlTextNode *pText;
-    int *pnToken;
-    int *pnText;
+    int n;                     /* Length of input text */
+    char const *z;             /* Input text */
+    HtmlTextNode *pText;       /* OUT: The structure to populate (or NULL) */
+    int *pnToken;              /* OUT: Number of tokens required (or used) */
+    int *pnText;               /* OUT: Bytes of text required (or used) */
 {
     char const *zCsr = z;
     char const *zStop = &z[n];
 
+    /* A running count of the number of tokens and bytes of text storage
+     * required to store the parsed form of the input text.
+     */
     int nToken = 0;
     int nText = 0;
+
+    /* This variable is used to expand tabs. */
+    int iCol = 0;
 
     int spaceok = 0;
 
@@ -1581,20 +1666,37 @@ populateTextNode(n, z, pText, pnToken, pnText)
         unsigned char c = (unsigned char)(*zCsr);
         char const *zStart = zCsr;
 
-        if (isspace(c)) {
+        if (ISSPACE(c)) {
+
             char *zSpaceStop = MIN(&zCsr[255], zStop);
-            do { 
-                zCsr++; 
-            } while ((unsigned char)*zCsr == c && zCsr < zSpaceStop);
+            int nSpace = 0;
+            int eType = HTML_TEXT_TOKEN_SPACE;
+
+            if (ISNEWLINE(c)) {
+                eType = HTML_TEXT_TOKEN_NEWLINE;
+                iCol = 0;
+            }
+
+            do {
+                if (ISTAB(*zCsr)) nSpace += (7 - (iCol%8));
+                nSpace++;
+                zCsr++;
+            } while (
+                nSpace < (255 - 8) && ISSPACE(*zCsr) && (
+                    (eType == HTML_TEXT_TOKEN_NEWLINE && ISNEWLINE(*zCsr)) ||
+                    (eType == HTML_TEXT_TOKEN_SPACE && !ISNEWLINE(*zCsr))
+                )
+            );
+
+            if (eType == HTML_TEXT_TOKEN_SPACE) {
+                iCol += nSpace;
+            }
+
             assert((zCsr - zStart) <= 255);
 
             if (pText) {
-                pText->aToken[nToken].n = (zCsr - zStart);
-                if (c == '\n' || c == '\r') {
-                    pText->aToken[nToken].eType = HTML_TEXT_TOKEN_NEWLINE;
-                } else {
-                    pText->aToken[nToken].eType = HTML_TEXT_TOKEN_SPACE;
-                }
+                pText->aToken[nToken].n = nSpace;
+                pText->aToken[nToken].eType = eType;
             }
             nToken++;
 
@@ -1612,7 +1714,7 @@ populateTextNode(n, z, pText, pnToken, pnText)
             do { 
                 zCsr++; 
                 c = (unsigned char)(*zCsr);
-            } while (*zCsr && !isspace(c) && zCsr < zStop);
+            } while (*zCsr && !ISSPACE(c) && zCsr < zStop);
             nThisText = MIN(0x00FFFFFF, (zCsr - zStart));
 
             if (nThisText > 255) {
@@ -1637,6 +1739,7 @@ populateTextNode(n, z, pText, pnToken, pnText)
 
             nText += nThisText;
             spaceok = 1;
+            iCol += nThisText;
         }
     }
 

@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.223 2006/10/31 14:00:42 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.224 2006/11/01 06:34:32 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -3786,7 +3786,7 @@ HtmlLayout(pTree)
      * behaviour that Tk_Width() returns 1 if the window is not mapped.
      */
     nWidth = Tk_Width(pTree->tkwin);
-    if (nWidth < 5) {
+    if (nWidth < 5 || pTree->options.forcewidth) {
         nWidth = pTree->options.width;
     }
 

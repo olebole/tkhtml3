@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.93 2006/10/26 12:53:29 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.94 2006/11/01 06:34:31 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -571,13 +571,17 @@ snit::type ::hv3::config {
   variable myGuiFontSize 11
 
   variable myFontTable [list 8 9 10 11 13 15 17]
-  variable myFontScale 1.0
-  variable myZoom 1.0
   variable myForceFontMetrics 1
   variable myEnableImages 1
   variable myDoubleBuffer 0
-
   variable myMenu ""
+
+  variable myFontScale 1.0
+  variable myZoom 1.0
+
+  method set_zoom {newval}      { set myZoom $newval }
+  method set_fontscale {newval} { set myFontScale $newval }
+  method set_guifont {newval}   { set myGuiFontSize $newval }
   
   constructor {menu_path} {
     set myMenu $menu_path
@@ -782,35 +786,36 @@ proc gui_build {widget_array} {
   global HTML
 
   # Create the top bit of the GUI - the URI entry and buttons.
-  frame .entry
-  ::hv3::locationentry .entry.entry
-  ::hv3::toolbutton .entry.back    -text {Back} -tooltip    "Go Back"
-  ::hv3::toolbutton .entry.stop    -text {Stop} -tooltip    "Stop"
-  ::hv3::toolbutton .entry.forward -text {Forward} -tooltip "Go Forward"
+  frame .toolbar
+  frame .toolbar.b
+  ::hv3::locationentry .toolbar.entry
+  ::hv3::toolbutton .toolbar.b.back    -text {Back} -tooltip    "Go Back"
+  ::hv3::toolbutton .toolbar.b.stop    -text {Stop} -tooltip    "Stop"
+  ::hv3::toolbutton .toolbar.b.forward -text {Forward} -tooltip "Go Forward"
 
-  ::hv3::toolbutton .entry.new -text {New Tab} -command [list .notebook add]
-  ::hv3::toolbutton .entry.home -text Home -command [list \
+  ::hv3::toolbutton .toolbar.b.new -text {New Tab} -command [list .notebook add]
+  ::hv3::toolbutton .toolbar.b.home -text Home -command [list \
       gui_current goto $::hv3::homeuri
   ]
-  ::hv3::toolbutton .entry.reload -text Reload -command {gui_current reload}
+  ::hv3::toolbutton .toolbar.b.reload -text Reload -command {gui_current reload}
 
-  .entry.new configure -tooltip "Open New Tab"
-  .entry.home configure -tooltip "Go Home"
-  .entry.reload configure -tooltip "Reload Current Document"
+  .toolbar.b.new configure -tooltip "Open New Tab"
+  .toolbar.b.home configure -tooltip "Go Home"
+  .toolbar.b.reload configure -tooltip "Reload Current Document"
 
   catch {
     set backimg [image create photo -data $::hv3::back_icon]
-    .entry.back configure -image $backimg
+    .toolbar.b.back configure -image $backimg
     set forwardimg [image create photo -data $::hv3::forward_icon]
-    .entry.forward configure -image $forwardimg
+    .toolbar.b.forward configure -image $forwardimg
     set stopimg [image create photo -data $::hv3::stop_icon]
-    .entry.stop configure -image $stopimg
+    .toolbar.b.stop configure -image $stopimg
     set newimg [image create photo -data $::hv3::new_icon]
-    .entry.new configure -image $newimg
+    .toolbar.b.new configure -image $newimg
     set homeimg [image create photo -data $::hv3::home_icon]
-    .entry.home configure -image $homeimg
+    .toolbar.b.home configure -image $homeimg
     set reloadimg [image create photo -data $::hv3::reload_icon]
-    .entry.reload configure -image $reloadimg
+    .toolbar.b.reload configure -image $reloadimg
   }
 
   # Create the middle bit - the browser window
@@ -823,30 +828,32 @@ proc gui_build {widget_array} {
   ::hv3::label .status -anchor w -width 1
 
   # Set the widget-array variables
-  set G(new_button)     .entry.new
-  set G(stop_button)    .entry.stop
-  set G(back_button)    .entry.back
-  set G(forward_button) .entry.forward
-  set G(home_button)    .entry.home
-  set G(reload_button)  .entry.reload
-  set G(location_entry) .entry.entry
+  set G(new_button)     .toolbar.b.new
+  set G(stop_button)    .toolbar.b.stop
+  set G(back_button)    .toolbar.b.back
+  set G(forward_button) .toolbar.b.forward
+  set G(home_button)    .toolbar.b.home
+  set G(reload_button)  .toolbar.b.reload
+  set G(location_entry) .toolbar.entry
   set G(status_label)   .status
   set G(notebook)       .notebook
 
   # Pack the elements of the "top bit" into the .entry frame
-  pack .entry.new -side left
-  pack .entry.back -side left
-  pack .entry.forward -side left
-  pack .entry.reload -side left
-  pack .entry.stop -side left
-  pack .entry.home -side left
-  pack [frame .entry.spacer -width 2 -height 1] -side left
-  pack .entry.entry -fill x -expand true
+  pack .toolbar.b.new -side left
+  pack .toolbar.b.back -side left
+  pack .toolbar.b.forward -side left
+  pack .toolbar.b.reload -side left
+  pack .toolbar.b.stop -side left
+  pack .toolbar.b.home -side left
+  pack [frame .toolbar.b.spacer -width 2 -height 1] -side left
+
+  pack .toolbar.b -side left
+  pack .toolbar.entry -fill x -expand true
 
   # Pack the top, bottom and middle, in that order. The middle must be 
   # packed last, as it is the bit we want to shrink if the size of the 
   # main window is reduced.
-  pack .entry -fill x -side top 
+  pack .toolbar -fill x -side top 
   pack .status -fill x -side bottom
   pack .notebook -fill both -expand true
 }
@@ -1039,7 +1046,7 @@ proc gui_current {args} {
 }
 
 proc gui_firefox_remote {} {
-  set url [.entry.entry get]
+  set url [.toolbar.entry get]
   exec firefox -remote "openurl($url,new-tab)"
 }
 
@@ -1232,6 +1239,15 @@ proc ::hv3::usage {} {
 }
 
 set ::hv3::statefile ":memory:"
+
+# Remote scaling interface:
+proc hv3_zoom      {newval} { $::hv3::G(config) set_zoom $newval }
+proc hv3_fontscale {newval} { $::hv3::G(config) set_fontscale $newval }
+proc hv3_forcewidth {forcewidth width} { 
+  [[gui_current hv3] html] configure -forcewidth $forcewidth -width $width
+}
+
+proc hv3_guifont {newval} { $::hv3::G(config) set_guifont $newval }
 
 # Set variable $::hv3::maindir to the directory containing the 
 # application files. Then run the [main] command with the command line

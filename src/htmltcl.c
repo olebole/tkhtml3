@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.129 2006/10/31 07:13:32 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.130 2006/11/01 06:34:32 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -1077,6 +1077,7 @@ BOOLEAN(forcefontmetrics, "forceFontMetrics", "ForceFontMetrics", "1", S_MASK),
 BOOLEAN(doublebuffer, "doubleBuffer", "DoubleBuffer", "1", 0),
 #else
 BOOLEAN(doublebuffer, "doubleBuffer", "DoubleBuffer", "0", 0),
+BOOLEAN(forcewidth, "forceWidth", "ForceWidth", "0", S_MASK),
 #endif
 
         DOUBLE(fontscale, "fontScale", "FontScale", "1.0", S_MASK),

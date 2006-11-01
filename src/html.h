@@ -297,7 +297,8 @@ struct HtmlTextNode {
 
     /* These variables are manipulated by code in htmltext.c. They are
      * populated when this structure is allocated (function HtmlTextNew()),
-     * and accessed using the HtmlTextIterXXX() API.
+     * and accessed using the HtmlTextIterXXX() API. See comments in 
+     * htmltext.c for a description.
      */
     HtmlTextToken *aToken;
     char *zText;
@@ -362,6 +363,7 @@ struct HtmlOptions {
     int shrink;
     int layoutcache;
     int doublebuffer;
+    int forcewidth;
 
     int mode;        /* 0 -> quirks, 1 -> almost standards, 2 -> standards */
 
@@ -381,7 +383,6 @@ struct HtmlOptions {
     Tcl_Obj *defaultstyle;
     Tcl_Obj *imagecmd;
     Tcl_Obj *encoding;
-
 
     Tcl_Obj *logcmd;
     Tcl_Obj *timercmd;
