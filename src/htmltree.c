@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.95 2006/11/01 07:31:07 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.96 2006/11/01 10:41:45 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -1778,7 +1778,7 @@ nodeCommand(clientData, interp, objc, objv)
 
     enum NODE_enum {
         NODE_ATTRIBUTE, NODE_CHILDREN, NODE_DYNAMIC, NODE_OVERRIDE,
-        NODE_PARENT, NODE_PROP, NODE_PROPERTY, NODE_REPLACE, 
+        NODE_PARENT, NODE_PROPERTY, NODE_REPLACE, 
         NODE_TAG, NODE_TEXT, NODE_XVIEW, NODE_YVIEW
     };
 
@@ -1792,7 +1792,6 @@ nodeCommand(clientData, interp, objc, objv)
         {"dynamic",   NODE_DYNAMIC,   0},      
         {"override",  NODE_OVERRIDE,  0},    
         {"parent",    NODE_PARENT,    0},     
-        {"prop",      NODE_PROP,      0},      
         {"property",  NODE_PROPERTY,  0}, 
         {"replace",   NODE_REPLACE,   0}, 
         {"tag",       NODE_TAG,       0},    
@@ -2028,62 +2027,51 @@ node_attr_usage:
         }
 
         /*
-         * nodeHandle prop ?PSEUDO-ELEMENT?
-         *
-         *     Argument may be "after" or "before".
-         */
-        case NODE_PROP: {
-
-            HtmlNode *pBefore;
-            HtmlNode *pAfter;
-            HtmlComputedValues *pComputed;
-
-            HtmlCallbackForce(pTree);
-            pBefore = HtmlNodeBefore(pNode);
-            pAfter = HtmlNodeAfter(pNode);
-            pComputed = HtmlNodeComputedValues(pNode);
-
-            if (0 == pComputed) {
-                Tcl_ResetResult(interp);
-                Tcl_AppendResult(interp,"Computed values cannot be obtained",0);
-                return TCL_ERROR;
-            }
-
-            if (objc == 3) {
-                const char *zPseudo = Tcl_GetString(objv[2]);
-                if (strcmp(zPseudo, "after") == 0 && pAfter) {
-                    HtmlNodeProperties(interp, HtmlNodeComputedValues(pAfter));
-                } else if (strcmp(zPseudo, "before") == 0 && pBefore) {
-                    HtmlNodeProperties(interp, HtmlNodeComputedValues(pBefore));
-                } else {
-                    Tcl_ResetResult(interp);
-                    Tcl_AppendResult(interp, "No such pseudo-element: ", 0);
-                    Tcl_AppendResult(interp, zPseudo, 0);
-                    return TCL_ERROR;
-                }
-            } else {
-                HtmlNodeProperties(interp, pComputed);
-            }
-
-            break;
-        }
-
-        /*
-         * nodeHandle property PROPERTY-NAME
+         * nodeHandle property ?-before? ?-after? ?PROPERTY-NAME?
          *
          *     Return the calculated value of a node's CSS property. If the
          *     node is a text node, return the value of the property as
          *     assigned to the parent node.
          */
         case NODE_PROPERTY: {
+            int nArg = objc - 2;
+            Tcl_Obj **aArg = &objv[2];
             HtmlComputedValues *pComputed; 
-            if (objc != 3) {
-                Tcl_WrongNumArgs(interp, 2, objv, "PROPERTY-NAME");
-                return TCL_ERROR;
-            }
+            HtmlNode *p = pNode;
+
             HtmlCallbackForce(pTree);
-            pComputed = HtmlNodeComputedValues(pNode);
-            return HtmlNodeGetProperty(interp, objv[2], pComputed);
+
+            if (nArg > 0) {
+                HtmlElementNode *pElem = HtmlNodeAsElement(pNode);
+                char *zArg0 = Tcl_GetString(aArg[0]);
+                if (0 == strcmp(zArg0, "-before")) {
+                    p = pElem ? pElem->pBefore : 0;
+                    aArg = &aArg[1];
+                    nArg--;
+                }
+                if (0 == strcmp(zArg0, "-after")) {
+                    p = pElem ? pElem->pAfter : 0;
+                    aArg = &aArg[1];
+                    nArg--;
+                }
+            }
+            if (!p) {
+                return TCL_OK;
+            }
+            pComputed = HtmlNodeComputedValues(p);
+
+            switch (nArg) {
+                case 0:
+                    return HtmlNodeProperties(interp, pComputed);
+                case 1:
+                    return HtmlNodeGetProperty(interp, objv[2], pComputed);
+                default:
+                    Tcl_WrongNumArgs(
+                        interp, 2, objv, "?-before|-after? PROPERTY-NAME"
+                    );
+                    return TCL_ERROR;
+            }
+            break;
         }
 
         /*

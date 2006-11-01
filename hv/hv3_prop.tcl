@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.42 2006/10/31 07:13:32 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.43 2006/11/01 10:41:45 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_prop.tcl --
@@ -372,7 +372,7 @@ snit::widget HtmlDebug {
         set after_tbl ""
         catch {
             set rows ""
-            foreach {p v} [prop_compress [$node prop after]] {
+            foreach {p v} [prop_compress [$node prop -after]] {
                 append rows "<tr><td>$p<td>$v"
             }
             set after_tbl "

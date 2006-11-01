@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.97 2006/10/31 07:13:32 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.98 2006/11/01 10:41:45 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -84,6 +84,7 @@ struct PropertyDef {
 
     int setsizemask;           /* If eType==LENGTH, mask for SetSize() */
     int (*xSet)(HtmlComputedValuesCreator *, CssProperty *);
+    Tcl_Obj *(*xObj)(HtmlComputedValues *);
     int isInherit;             /* True to inherit by default */
     int isNolayout;            /* Can be changed without relayout */
 };
@@ -232,18 +233,30 @@ static int propertyValuesSetFontWeight(HtmlComputedValuesCreator*,CssProperty*);
 static int propertyValuesSetContent(HtmlComputedValuesCreator*,CssProperty*);
 static int propertyValuesSetZIndex(HtmlComputedValuesCreator*,CssProperty*);
 
+static Tcl_Obj *propertyValuesObjFontSize(HtmlComputedValues*);
+static Tcl_Obj *propertyValuesObjLineHeight(HtmlComputedValues*);
+static Tcl_Obj *propertyValuesObjVerticalAlign(HtmlComputedValues*);
+static Tcl_Obj *propertyValuesObjFontStyle(HtmlComputedValues*);
+static Tcl_Obj *propertyValuesObjFontFamily(HtmlComputedValues*);
+static Tcl_Obj *propertyValuesObjFontWeight(HtmlComputedValues*);
+
+static Tcl_Obj *propertyValuesObjContent(HtmlComputedValues*);
+static Tcl_Obj *propertyValuesObjZIndex(HtmlComputedValues*);
+
+#define CUSTOMDEF(x, y) {x, propertyValuesSet ## y, propertyValuesObj ## y}
 static struct CustomDef {
   int eProp;
   int (*xSet)(HtmlComputedValuesCreator *, CssProperty *);
+  Tcl_Obj *(*xObj)(HtmlComputedValues *);
 } customdef[] = {
-  {CSS_PROPERTY_VERTICAL_ALIGN, propertyValuesSetVerticalAlign},
-  {CSS_PROPERTY_LINE_HEIGHT,    propertyValuesSetLineHeight},
-  {CSS_PROPERTY_FONT_SIZE,      propertyValuesSetFontSize},
-  {CSS_PROPERTY_FONT_WEIGHT,    propertyValuesSetFontWeight},
-  {CSS_PROPERTY_FONT_STYLE,     propertyValuesSetFontStyle},
-  {CSS_PROPERTY_FONT_FAMILY,    propertyValuesSetFontFamily},
-  {CSS_PROPERTY_CONTENT,        propertyValuesSetContent},
-  {CSS_PROPERTY_Z_INDEX,        propertyValuesSetZIndex},
+  CUSTOMDEF(CSS_PROPERTY_VERTICAL_ALIGN, VerticalAlign),
+  CUSTOMDEF(CSS_PROPERTY_LINE_HEIGHT,    LineHeight),
+  CUSTOMDEF(CSS_PROPERTY_FONT_SIZE,      FontSize),
+  CUSTOMDEF(CSS_PROPERTY_FONT_WEIGHT,    FontWeight),
+  CUSTOMDEF(CSS_PROPERTY_FONT_STYLE,     FontStyle),
+  CUSTOMDEF(CSS_PROPERTY_FONT_FAMILY,    FontFamily),
+  CUSTOMDEF(CSS_PROPERTY_CONTENT,        Content),
+  CUSTOMDEF(CSS_PROPERTY_Z_INDEX,        ZIndex),
 };
 
 static int inheritlist[] = {
@@ -304,6 +317,7 @@ static PropertyDef *getPropertyDef(int eProp){
         }
         for (i = 0; i < sizeof(customdef)/sizeof(struct CustomDef); i++){
           a[customdef[i].eProp]->xSet = customdef[i].xSet;
+          a[customdef[i].eProp]->xObj = customdef[i].xObj;
         }
         for (i = 0; i < sizeof(inheritlist)/sizeof(int); i++){
             if (a[inheritlist[i]]) {
@@ -618,6 +632,82 @@ propertyValuesSetFontFamily(p, pProp)
     }
     p->fontKey.zFontFamily = z;
     return 0;
+}
+
+static Tcl_Obj*
+propertyValuesObjFontSize(p)
+    HtmlComputedValues *p;
+{
+    char zBuf[64];
+    int iFontSize = p->fFont->pKey->iFontSize;
+    sprintf(zBuf, "%.3fpts", (float)iFontSize / 1000);
+    return Tcl_NewStringObj(zBuf, -1);
+}
+static Tcl_Obj*
+propertyValuesObjFontStyle(p)
+    HtmlComputedValues *p;
+{
+    if (p->fFont->pKey->isItalic) {
+        return Tcl_NewStringObj("italic", -1);
+    }
+    return Tcl_NewStringObj("normal", -1);
+}
+static Tcl_Obj*
+propertyValuesObjFontFamily(p)
+    HtmlComputedValues *p;
+{
+    return Tcl_NewStringObj(p->fFont->pKey->zFontFamily, -1);
+}
+static Tcl_Obj*
+propertyValuesObjFontWeight(p)
+    HtmlComputedValues *p;
+{
+    if (p->fFont->pKey->isBold) {
+        return Tcl_NewStringObj("bold", -1);
+    }
+    return Tcl_NewStringObj("normal", -1);
+}
+static Tcl_Obj*
+propertyValuesObjContent(p)
+    HtmlComputedValues *p;
+{
+    return Tcl_NewStringObj("", -1);
+}
+static Tcl_Obj*
+propertyValuesObjZIndex(p)
+    HtmlComputedValues *p;
+{
+    if (p->iZIndex == PIXELVAL_AUTO) {
+        return Tcl_NewStringObj("auto", -1);
+    }
+    return Tcl_NewIntObj(p->iZIndex);
+}
+static Tcl_Obj*
+propertyValuesObjLineHeight(p)
+    HtmlComputedValues *p;
+{
+    char zBuf[64];
+    int iVal = p->iLineHeight;
+    if (p->mask & PROP_MASK_LINE_HEIGHT) {
+        sprintf(zBuf, "%.2f%%", ((double)iVal) / 100.0);
+    } else if (iVal == PIXELVAL_NORMAL) {
+        sprintf(zBuf, "normal");
+    } else {
+        sprintf(zBuf, "%dpx", iVal);
+    }
+    return Tcl_NewStringObj(zBuf, -1);
+}
+static Tcl_Obj*
+propertyValuesObjVerticalAlign(p)
+    HtmlComputedValues *p;
+{
+    char zBuf[64];
+    if (p->eVerticalAlign) {
+        CONST char *zValue = HtmlCssConstantToString(p->eVerticalAlign);
+        return Tcl_NewStringObj(zValue, -1);
+    }
+    sprintf(zBuf, "%dpx", p->iVerticalAlign);
+    return Tcl_NewStringObj(zBuf, -1);
 }
  
 
@@ -2419,6 +2509,93 @@ HtmlComputedValuesCleanupTables(pTree)
     }
 }
 
+static Tcl_Obj *
+getPropertyObj(pValues, eProp)
+    HtmlComputedValues *pValues;
+    int eProp;
+{
+    Tcl_Obj *pValue = 0;
+    PropertyDef *pDef;
+
+    /* If the following returns NULL, then the specified property name
+     * is a legal one, but not one that Tkhtml3 handles. Return an
+     * empty string in this case.
+     */
+    pDef = getPropertyDef(eProp);
+    if (pDef) {
+        unsigned char *v = (unsigned char *)pValues;
+        switch (pDef->eType) {
+            case ENUM: {
+                int eValue = (int)*(unsigned char *)(v + pDef->iOffset);
+                CONST char *zValue = HtmlCssConstantToString(eValue);
+                pValue = Tcl_NewStringObj(zValue, -1);
+                break;
+            }
+
+            case COLOR: {
+                HtmlColor *pColor = *(HtmlColor **)(v + pDef->iOffset);
+                pValue = Tcl_NewStringObj(pColor->zColor, -1);
+                break;
+            }
+
+            case IMAGE: {
+                HtmlImage2 *pImage = *(HtmlImage2 **)(v + pDef->iOffset);
+                if (pImage) {
+                    /* Todo: Might be some character escapin' to do here */
+                    pValue = Tcl_NewStringObj("uri('", -1);
+                    Tcl_AppendToObj(pValue, HtmlImageUrl(pImage), -1);
+                    Tcl_AppendToObj(pValue, "')", -1);
+                } else {
+                    pValue = Tcl_NewStringObj("none", -1);
+                }
+                break;
+            }
+
+            case LENGTH: {
+                int iVal = *(int *)(v + pDef->iOffset);
+                if (
+                    (pDef->setsizemask & SZ_PERCENT) && 
+                    (pValues->mask & pDef->mask)
+                ) {
+                    pValue = Tcl_NewDoubleObj(((double)iVal) / 100.0);
+                    Tcl_AppendToObj(pValue, "%", -1);
+                    break;
+                } else if (iVal < MAX_PIXELVAL) {
+                    switch (iVal) {
+                        case PIXELVAL_AUTO:
+                            pValue = Tcl_NewStringObj("auto", -1); break;
+                        case PIXELVAL_NONE:
+                            pValue = Tcl_NewStringObj("none", -1); break;
+                        case PIXELVAL_NORMAL:
+                            pValue = Tcl_NewStringObj("normal", -1); break;
+                    }
+                    break;
+                }
+
+                /* Fall through for pixel value */
+            }
+
+            case BORDERWIDTH: {
+                int iWidth = *(int *)(v + pDef->iOffset);
+                pValue = Tcl_NewIntObj(iWidth);
+                Tcl_AppendToObj(pValue, "px", -1);
+                break;
+            }
+
+            case CUSTOM: {
+                pValue = pDef->xObj(pValues);
+                break;
+            }
+        }
+        assert(pValue);
+
+    } else {
+        pValue = Tcl_NewStringObj("", -1);
+    }
+
+    return pValue;
+}
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -2434,14 +2611,12 @@ HtmlComputedValuesCleanupTables(pTree)
  *
  *---------------------------------------------------------------------------
  */
-int 
+int
 HtmlNodeGetProperty(interp, pProp, pValues)
     Tcl_Interp *interp;                 /* Interpreter to set result in */
     Tcl_Obj *pProp;                     /* Property name */
     HtmlComputedValues *pValues;        /* Read value from here */
 {
-    PropertyDef *pDef;
-
     int nProp;
     const char *zProp = Tcl_GetStringFromObj(pProp, &nProp);
     int eProp = HtmlCssPropertyLookup(nProp, zProp);
@@ -2452,37 +2627,7 @@ HtmlNodeGetProperty(interp, pProp, pValues)
         return TCL_ERROR;
     }
 
-    /* If the following returns NULL, then the specified property name
-     * is a legal one, but not one that Tkhtml3 handles. Return an
-     * empty string in this case.
-     */
-    pDef = getPropertyDef(eProp);
-    Tcl_ResetResult(interp);
-    if (pDef) {
-        Tcl_Obj *pValue = 0;
-        unsigned char *v = (unsigned char *)pValues;
-        switch (pDef->eType) {
-            case ENUM: {
-                int eValue = (int)*(unsigned char *)(v + pDef->iOffset);
-                CONST char *zValue = HtmlCssConstantToString(eValue);
-                pValue = Tcl_NewStringObj(zValue, -1);
-                break;
-            }
-
-            case COLOR: {
-                HtmlColor *pColor = *(HtmlColor **)(v + pDef->iOffset);
-                pValue = Tcl_NewStringObj(pColor->zColor, -1);
-                break;
-            }
-        }
-
-        if (!pValue) {
-            Tcl_AppendResult(interp, "TODO!", 0);
-        } else {
-            Tcl_SetObjResult(interp, pValue);
-        }
-    }
-
+    Tcl_SetObjResult(interp, getPropertyObj(pValues, eProp));
     return TCL_OK;
 }
 
@@ -2505,123 +2650,18 @@ HtmlNodeProperties(interp, pValues)
 
     for (ii = 0; ii < sizeof(propdef) / sizeof(propdef[0]); ii++) {
         PropertyDef *pDef = &propdef[ii];
-        CONST char *zName = HtmlCssPropertyToString(pDef->eProp);
-
-        if (
-            pDef->eProp == CSS_PROPERTY_FONT_FAMILY ||
-            pDef->eProp == CSS_PROPERTY_FONT_SIZE ||
-            pDef->eProp == CSS_PROPERTY_FONT_STYLE ||
-            pDef->eProp == CSS_PROPERTY_FONT_VARIANT ||
-            pDef->eProp == CSS_PROPERTY_FONT_WEIGHT  ||
-            pDef->eProp == CSS_PROPERTY_CONTENT 
-        ) continue;
-
-        Tcl_ListObjAppendElement(interp, pRet, Tcl_NewStringObj(zName, -1));
-        switch (pDef->eType) {
-            case ENUM: {
-                int eValue = (int)*(unsigned char *)(v + pDef->iOffset);
-                CONST char *zValue = HtmlCssConstantToString(eValue);
-                pValue = Tcl_NewStringObj(zValue, -1);
-                break;
-            }
-
-            case COLOR: {
-                HtmlColor *pColor = *(HtmlColor **)(v + pDef->iOffset);
-                pValue = Tcl_NewStringObj(pColor->zColor, -1);
-                break;
-            }
-
-            case CUSTOM:
-                if (pDef->eProp != CSS_PROPERTY_LINE_HEIGHT) break;
-            case BORDERWIDTH:
-            case LENGTH: {
-                int iValue = *(int *)(v + pDef->iOffset);
-                switch (iValue) {
-                    case PIXELVAL_NONE:
-                        pValue = Tcl_NewStringObj("none", -1);
-                        break;
-                    case PIXELVAL_AUTO:
-                        pValue = Tcl_NewStringObj("auto", -1);
-                        break;
-                    case PIXELVAL_NORMAL:
-                        pValue = Tcl_NewStringObj("normal", -1);
-                        break;
-                    default: {
-                        char zBuf[64];
-                        if (pDef->mask & pValues->mask) {
-                            sprintf(zBuf, "%.2f%%", (double)iValue/100.0);
-                        } else 
-
-                        if (
-                            pDef->eProp == CSS_PROPERTY_LINE_HEIGHT && 
-                            iValue < 0
-                        ) {
-                            sprintf(zBuf, "%.2fem", (double)iValue / -100.0);
-                        } else {
-                            sprintf(zBuf, "%dpx", iValue);
-                        }
-                        pValue = Tcl_NewStringObj(zBuf, -1);
-                        break;
-                    }
-                }
-                break;
-            }
-
-            case IMAGE: {
-                HtmlImage2 *imValue = *(HtmlImage2 **)(v + pDef->iOffset);
-                if (imValue) {
-                    pValue = Tcl_NewStringObj(HtmlImageUrl(imValue), -1);
-                } else {
-                    pValue = Tcl_NewStringObj("none", 4);
-                }
-                break;
-            }
-        }
-        Tcl_ListObjAppendElement(interp, pRet, pValue);
+        Tcl_ListObjAppendElement(interp, pRet, 
+            Tcl_NewStringObj(HtmlCssPropertyToString(pDef->eProp), -1)
+        );
+        Tcl_ListObjAppendElement(interp, pRet, 
+            getPropertyObj(pValues, pDef->eProp)
+        );
     }
 
-    /* vertical-align */
-    eValue = pValues->eVerticalAlign;
-    pValue = 0;
-    if (0 == eValue) {
-        char zBuf[64];
-        int iValue = pValues->iVerticalAlign;
-        sprintf(zBuf, "%dpx", iValue);
-        pValue = Tcl_NewStringObj(zBuf, -1);
-    } else {
-        CONST char *zValue = HtmlCssConstantToString(eValue);
-        pValue = Tcl_NewStringObj(zValue, -1);
-    }
-    Tcl_ListObjAppendElement(0, pRet, Tcl_NewStringObj("vertical-align", -1));
-    Tcl_ListObjAppendElement(0, pRet, pValue);
-    
-    /* font */
+    /* Special attribute: font. */
     pValue = Tcl_NewStringObj(pValues->fFont->zFont, -1);
     Tcl_ListObjAppendElement(0, pRet, Tcl_NewStringObj("font", -1));
     Tcl_ListObjAppendElement(0, pRet, pValue);
-
-    /* font-size */
-    iFontSize = pValues->fFont->pKey->iFontSize;
-    sprintf(zBuf, "%.3fpts", (float)iFontSize / 1000);
-    Tcl_ListObjAppendElement(0, pRet, Tcl_NewStringObj("font-size", -1));
-    Tcl_ListObjAppendElement(0, pRet, Tcl_NewStringObj(zBuf, -1));
-
-    /* em-pixels */
-    sprintf(zBuf, "%dpx", pValues->fFont->em_pixels);
-    Tcl_ListObjAppendElement(0, pRet, Tcl_NewStringObj("em-pixels", -1));
-    Tcl_ListObjAppendElement(0, pRet, Tcl_NewStringObj(zBuf, -1));
-
-    /* nRef */
-    Tcl_ListObjAppendElement(interp, pRet, Tcl_NewStringObj("nRef", -1));
-    Tcl_ListObjAppendElement(interp, pRet, Tcl_NewIntObj(pValues->nRef));
-
-    /* z-index */
-    Tcl_ListObjAppendElement(interp, pRet, Tcl_NewStringObj("z-index", -1));
-    if (pValues->iZIndex > MAX_PIXELVAL) {
-        Tcl_ListObjAppendElement(interp, pRet, Tcl_NewIntObj(pValues->iZIndex));
-    } else {
-        Tcl_ListObjAppendElement(interp, pRet, Tcl_NewStringObj("auto", 4));
-    }
 
     Tcl_SetObjResult(interp, pRet);
     Tcl_DecrRefCount(pRet);
