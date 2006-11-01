@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.98 2006/11/01 10:41:45 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.99 2006/11/01 10:53:46 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -2636,16 +2636,8 @@ HtmlNodeProperties(interp, pValues)
     Tcl_Interp *interp;
     HtmlComputedValues *pValues;
 {
-    Tcl_Obj *pRet;
     int ii;
-    char *v = (char *)pValues;
-
-    int eValue = pValues->eVerticalAlign;
-    char zBuf[256];
-    int iFontSize;
-    Tcl_Obj *pValue = 0;
-
-    pRet = Tcl_NewObj();
+    Tcl_Obj *pRet = Tcl_NewObj();
     Tcl_IncrRefCount(pRet);
 
     for (ii = 0; ii < sizeof(propdef) / sizeof(propdef[0]); ii++) {
@@ -2659,9 +2651,8 @@ HtmlNodeProperties(interp, pValues)
     }
 
     /* Special attribute: font. */
-    pValue = Tcl_NewStringObj(pValues->fFont->zFont, -1);
     Tcl_ListObjAppendElement(0, pRet, Tcl_NewStringObj("font", -1));
-    Tcl_ListObjAppendElement(0, pRet, pValue);
+    Tcl_ListObjAppendElement(0,pRet,Tcl_NewStringObj(pValues->fFont->zFont,-1));
 
     Tcl_SetObjResult(interp, pRet);
     Tcl_DecrRefCount(pRet);

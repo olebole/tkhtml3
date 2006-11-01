@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.96 2006/11/01 10:41:45 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.97 2006/11/01 10:53:46 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -2035,7 +2035,7 @@ node_attr_usage:
          */
         case NODE_PROPERTY: {
             int nArg = objc - 2;
-            Tcl_Obj **aArg = &objv[2];
+            Tcl_Obj * CONST *aArg = &objv[2];
             HtmlComputedValues *pComputed; 
             HtmlNode *p = pNode;
 
