@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.87 2006/11/01 07:31:05 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.88 2006/11/01 08:28:46 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -749,7 +749,17 @@ HtmlAttributesNew(argc, argv, arglen, doEscape)
  * findEndOfScript --
  *
  *     Search the input string for the end of a script block (i.e. a node
- *     for which a tkhtml script-handler callback is defined).
+ *     for which a tkhtml script-handler callback is defined). The 
+ *     script is said to end at the next occurence of the string:
+ *
+ *         "</NAME"
+ *
+ *     followed by either whitespace or a '>' character, where NAME is 
+ *     replaced with the name of the opening tag (i.e.  "script" or "style").
+ *     Case does not matter.
+ *
+ *     No account is given to quotation marks within the body of the
+ *     script block.
  *
  * Results:
  *
@@ -766,25 +776,19 @@ findEndOfScript(eTag, z, pN)
     char zEnd[64];
     int nEnd;
     int ii;
-    int nQuote = 0;
+    int nLen = (strlen(&z[*pN]) + *pN);
 
     /* Figure out the string we are looking for as an end tag */
     sprintf(zEnd, "</%s", HtmlMarkupName(eTag));
     nEnd = strlen(zEnd);
 
-    for (ii = *pN; z[ii]; ii++) {
-        if (z[ii] == '\'' || z[ii] == '"') {
-            nQuote++;
-        } if ((nQuote % 2) == 0 && strnicmp(&z[ii], zEnd, nEnd) == 0) {
+    for (ii = *pN; ii < (nLen - nEnd - 1); ii++) {
+        if (
+            strnicmp(&z[ii], zEnd, nEnd) == 0 && 
+            (z[ii+nEnd] == '>' || ISSPACE(z[ii+nEnd]))
+        ) {
             int nScript = ii - (*pN);
-            ii += nEnd;
-            while (z[ii] && ISSPACE(z[ii])) ii++;
-            if (!z[ii]) {
-                return -1;
-            }
-            if (z[ii] == '>') {
-                ii++;
-            }
+            ii += (nEnd + 1);
             *pN = ii;
             return nScript;
         }
