@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.99 2006/11/01 10:53:46 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.100 2006/11/02 04:53:07 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1796,8 +1796,7 @@ HtmlComputedValuesSet(p, eProp, pProp)
             }
             case COLOR: {
                 HtmlColor **pCVar; 
-                pCVar = (HtmlColor **)
-                    ((unsigned char *)&p->values + pDef->iOffset);
+                pCVar = (HtmlColor **)((char *)&p->values + pDef->iOffset);
                 return propertyValuesSetColor(p, pCVar, pProp);
             }
             case IMAGE: {

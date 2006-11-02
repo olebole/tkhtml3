@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.96 2006/11/01 07:31:05 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.97 2006/11/02 04:53:06 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -4072,6 +4072,15 @@ HtmlCssStyleReport(clientData, interp, objc, objv)
     return TCL_OK;
 }
 
+static int
+ruleQsortCompare(const void *pLeft, const void *pRight)
+{
+    CssRule *pL = *(CssRule **)pLeft;
+    CssRule *pR = *(CssRule **)pRight;
+
+    return ruleCompare(pL, pR);
+}
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -4100,20 +4109,53 @@ HtmlCssStyleConfigDump(clientData, interp, objc, objv)
     int objc;                          /* Number of arguments. */
     Tcl_Obj *CONST objv[];             /* Argument strings. */
 {
+#define MAX_RULES 1024
     HtmlTree *pTree = (HtmlTree *)clientData;
     CssStyleSheet *pStyle = pTree->pStyle;
+    Tcl_HashTable *apTable[3];
 
     CssRule *pRule;
+    CssRule *apRule[MAX_RULES];
     Tcl_Obj *pRet;
+    int nRule = 0;
+    int jj = 0;
+
+    for (pRule = pStyle->pUniversalRules; pRule; pRule = pRule->pNext) {
+        if (nRule < MAX_RULES) {
+            apRule[nRule++] = pRule;
+        }
+    }
+
+    apTable[0] = &pStyle->aByTag;
+    apTable[1] = &pStyle->aById;
+    apTable[2] = &pStyle->aByClass;
+    for (jj = 0; jj < 3; jj++) {
+        Tcl_HashEntry *pEntry;
+        Tcl_HashSearch search;
+        for (pEntry = Tcl_FirstHashEntry(apTable[jj], &search);
+             pEntry;
+             pEntry = Tcl_NextHashEntry(&search)
+        ) {
+            pRule = (CssRule *)Tcl_GetHashValue(pEntry);
+            for ( ; pRule; pRule = pRule->pNext) {
+                if (nRule < MAX_RULES) {
+                    apRule[nRule++] = pRule;
+                }
+            }
+        }
+    }
+
+    qsort(apRule, nRule, sizeof(CssRule *), ruleQsortCompare);
 
     pRet = Tcl_NewObj();
-    for (pRule = pStyle->pUniversalRules; pRule; pRule = pRule->pNext) {
-        CssPriority *pPri = pRule->pPriority;
+    for (jj = 0; jj < nRule; jj++) {
+        CssPriority *pPri = apRule[jj]->pPriority;
         Tcl_Obj *pList = Tcl_NewObj();
         Tcl_Obj *p;
         char zBuf[256];
         int ii;
         int isRequireSemi = 0;
+        pRule = apRule[jj];
 
         p = Tcl_NewObj();
         HtmlCssSelectorToString(pRule->pSelector, p);

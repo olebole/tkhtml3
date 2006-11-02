@@ -64,13 +64,15 @@ tcltest::test style-1.0 {} -body {
   }
 
   set node [lindex [.h search .one] 0]
-  background-position $node
-} -result {50.00% 50.00%}
+  list \
+      [$node property background-position-x] \
+      [$node property background-position-y]
+} -result {50.0% 50.0%}
 
 tcltest::test style-1.1 {} -body {
   set node [lindex [.h search .two] 0]
   background-position $node
-} -result {50.00% 50.00%}
+} -result {50.0% 50.0%}
 
 # Note: in quirks mode the result would be {111px 222px}
 tcltest::test style-1.2 {} -body {
@@ -81,7 +83,7 @@ tcltest::test style-1.2 {} -body {
 tcltest::test style-1.3 {} -body {
   set node [lindex [.h search .four] 0]
   background-position $node
-} -result {100.00% 50.00%}
+} -result {100.0% 50.0%}
 
 
 #--------------------------------------------------------------------------
@@ -173,14 +175,21 @@ proc parse_stylesheet {stylesheet_text} {
 #     }
 #
 tcltest::test style-4.1.1 {} -body {
-  parse_stylesheet {
+  .h reset
+  .h style {
       div {
         color: red;
         garbage moregarbage;
         background-color: green;
       }
   }
-} -result {{div {color:red; background-color:green}}}
+  .h parse -final {
+    <div>Hello</div>
+    <span>World</span>
+  }
+  set node [lindex [.h search div] 0]
+  list [$node property color] [$node property background-color]
+} -result {red green}
 
 # Test 4.2 tests that semi-colons are treated correctly. 
 tcltest::test style-4.2.1 {} -body {
@@ -260,7 +269,7 @@ tcltest::test style-6.1 {} -body {
     #nav-main {background: #fc3 url(/files/theme/nav-main.png) repeat-x 0 100%;}
   }
 } -result [list [list \
-  {[id="nav-main"]}  \
+  {#nav-main}  \
   {background-image:url(/files/theme/nav-main.png); background-attachment:scrol; background-color:#fc3; background-repeat:repeat-x; background-position-x:0.00; background-position-y:100.00%}
 ]]
 
@@ -377,6 +386,8 @@ tcltest::test style-8.3 {} -body {
   set node [lindex [.h search .eyes] 0]
   property $node position
 } -result absolute
+puts [parse_stylesheet { div ] .eyes{position:absolute} } ]
+
 
 tcltest::test style-8.4 {} -body {
   .h reset
