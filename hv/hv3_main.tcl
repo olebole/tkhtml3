@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.94 2006/11/01 06:34:31 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.95 2006/11/02 13:57:04 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -1248,6 +1248,11 @@ proc hv3_forcewidth {forcewidth width} {
 }
 
 proc hv3_guifont {newval} { $::hv3::G(config) set_guifont $newval }
+
+proc hv3_html {args} { 
+  set html [[gui_current hv3] html]
+  eval [concat $html $args]
+}
 
 # Set variable $::hv3::maindir to the directory containing the 
 # application files. Then run the [main] command with the command line

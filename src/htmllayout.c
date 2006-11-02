@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.225 2006/11/01 07:31:05 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.226 2006/11/02 13:57:05 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -2924,11 +2924,29 @@ normalFlowLayoutAbsolute(pLayout, pBox, pNode, pY, pContext, pNormal)
      * height of the parent anyway.
      */
     if (pLayout->minmaxTest == 0) {
+        int iLeft = 0;
+        int iDummy = 0;
+
         int y = *pY + normalFlowMarginQuery(pNormal);
+
         NodeList *pNew = (NodeList *)HtmlClearAlloc(0, sizeof(NodeList));
         pNew->pNode = pNode;
         pNew->pNext = pLayout->pAbsolute;
-        pNew->pMarker = HtmlDrawAddMarker(&pBox->vc, 0, y, 0);
+
+        /* Place a marker in the canvas that will be used to determine
+	 * the "static position" of the element. Two values are currently
+	 * stored:
+         *
+         *     * The static 'left' position
+         *     * The static 'top' position
+         *
+         * See sections 10.3.7 and 10.6.4 of CSS2.1 for further details.
+         * Technically the static 'right' position should be stored also
+         * (this would only matter if right-to-left text was supported).
+         */
+        HtmlFloatListMargins(pNormal->pFloat, y, y, &iLeft, &iDummy);
+        pNew->pMarker = HtmlDrawAddMarker(&pBox->vc, iLeft, y, 0);
+
         pLayout->pAbsolute = pNew;
     }
     return 0;
@@ -3874,23 +3892,27 @@ HtmlLayout(pTree)
             box.iRight + margin.margin_right
         );
 #if 0
+printf("c.b = %d ", pTree->canvas.bottom);
+        pTree->canvas.bottom = MAX(0,
+            margin.margin_top + box.iTop + 
+            sContent.height + 
+            box.iBottom + margin.margin_bottom
+        );
+printf("final = %d\n", pTree->canvas.bottom);
+#endif
         pTree->canvas.bottom = MAX(
             pTree->canvas.bottom,
             margin.margin_top + box.iTop + 
             sContent.height + 
             box.iBottom + margin.margin_bottom
         );
+#if 0
         pTree->canvas.right = MAX(0, 
             margin.margin_left + box.iLeft + 
             sContent.width + 
             box.iRight + margin.margin_right
         );
 #endif
-        pTree->canvas.bottom = MAX(0,
-            margin.margin_top + box.iTop + 
-            sContent.height + 
-            box.iBottom + margin.margin_bottom
-        );
     }
 
 #ifdef LAYOUT_CACHE_DEBUG

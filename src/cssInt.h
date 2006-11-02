@@ -249,6 +249,7 @@ struct CssParse {
     Tcl_Obj *pImportCmd;            /* Script to invoke for @import */
     Tcl_Obj *pUrlCmd;               /* Script to invoke for url() */
     Tcl_Interp *interp;             /* Interpreter to invoke pImportCmd */
+    HtmlTree *pTree;                /* Tree used to determine if quirks mode */
 };
 
 /*

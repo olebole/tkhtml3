@@ -583,8 +583,9 @@ struct HtmlTree {
     HtmlText *pText;
 };
 
-#define MAX(x,y)  ((x)>(y)?(x):(y))
-#define MIN(x,y)  ((x)<(y)?(x):(y))
+#define MAX(x,y)   ((x)>(y)?(x):(y))
+#define MIN(x,y)   ((x)<(y)?(x):(y))
+#define INTEGER(x) ((int)((x) + (((x) > 0.0) ? 0.49 : -0.49)))
 
 void HtmlFinishNodeHandlers(HtmlTree *);
 void HtmlTreeAddElement(HtmlTree *, int, HtmlAttributes *, int);

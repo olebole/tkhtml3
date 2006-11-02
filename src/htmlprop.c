@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.100 2006/11/02 04:53:07 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.101 2006/11/02 13:57:05 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -47,11 +47,6 @@ static const char rcsid[] = "$Id: htmlprop.c,v 1.100 2006/11/02 04:53:07 danielk
 /* #define ACCEPT_UNITLESS_LENGTHS */
 
 #define LOG if (p->pTree->options.logcmd && p->pNode)
-
-/*
- * Convert a double value from a CssProperty to an integer.
- */
-#define INTEGER(x) ((int)((x) + ((x > 0.0) ? 0.49 : -0.49)))
 
 /*
  * The properties table. This data structure describes the way in

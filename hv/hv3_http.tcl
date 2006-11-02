@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.28 2006/10/25 13:06:28 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.29 2006/11/02 13:57:04 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd and -cancelrequestcmd
@@ -87,7 +87,8 @@ snit::type ::hv3::protocol {
     }
 
     # Configure the Tcl http package to pretend to be Gecko.
-    ::http::config -useragent {Mozilla/5.0 Gecko/20050513}
+    # ::http::config -useragent {Mozilla/5.0 Gecko/20050513}
+    ::http::config -useragent {Mozilla/5.1 (X11; U; Linux i686; en-US; rv:1.8.0.3) Gecko/20060425 SUSE/1.5.0.3-7 Firefox/1.5.0.3}
     set ::http::defaultCharset utf-8
   }
 

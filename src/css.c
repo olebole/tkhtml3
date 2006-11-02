@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.97 2006/11/02 04:53:06 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.98 2006/11/02 13:57:04 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -105,7 +105,7 @@ void tkhtmlCssParserFree(void *, void (*)(void *));
 
 static void propertiesAdd(CssProperties **, CssRule *);
 static int cssGetToken(CONST char *, int , int *);
-static int cssParse(int,CONST char*,int,int,Tcl_Obj*,Tcl_Obj*,Tcl_Interp*,Tcl_Obj*,CssStyleSheet**);
+static int cssParse(HtmlTree*,int,CONST char*,int,int,Tcl_Obj*,Tcl_Obj*,Tcl_Obj*,CssStyleSheet**);
 
 /*
  *---------------------------------------------------------------------------
@@ -341,6 +341,32 @@ static int tokenToReal(pToken, pLen, pVal)
         *pLen = (zEnd-zBuf);
         return 1;
     }
+    return 0;
+}
+
+static int
+propertyIsLength2(pParse, pProp)
+    CssParse *pParse;
+    CssProperty *pProp;
+{
+    switch (pProp->eType) {
+        case CSS_TYPE_EM:
+        case CSS_TYPE_PX:
+        case CSS_TYPE_PT:
+        case CSS_TYPE_PC:
+        case CSS_TYPE_EX:
+        case CSS_TYPE_CENTIMETER:
+        case CSS_TYPE_INCH:
+        case CSS_TYPE_MILLIMETER:
+            return 1;
+
+        case CSS_TYPE_FLOAT:
+            return ((
+                INTEGER(pProp->v.rVal) == 0 || 
+                pParse->pTree->options.mode == HTML_MODE_QUIRKS
+            ) ? 1 : 0);
+    }
+
     return 0;
 }
 
@@ -1473,11 +1499,47 @@ bad_parse:
     if (pLineHeight) HtmlFree(pLineHeight);
 }
 
+static int
+tokenToPropertyList(pToken, apProp, nMax) 
+    CssToken *pToken;
+    CssProperty **apProp;
+    int nMax;
+{
+    CONST char *z= pToken->z;
+    CONST char *zEnd = z + pToken->n;
+    int nProp = 0;
+    int ii;
+
+    while (z) {
+        int nBytes;
+        z = getNextListItem(z, zEnd-z, &nBytes);
+        if (z) {
+            CssToken token;
+            if (nProp == nMax) {
+                /* Fail: To many items in list. */
+                goto parse_failed;
+            }
+            token.z = z;
+            token.n = nBytes;
+            apProp[nProp++] = tokenToProperty(0, &token);
+            z += nBytes;
+        }
+    }
+
+    return nProp;
+
+  parse_failed:
+    for (ii = 0; ii < nProp; ii++) {
+        HtmlFree(apProp[ii]);
+    }
+    
+    return 0;
+}
 
 /*
  *---------------------------------------------------------------------------
  *
- * propertySetAddShortcutBackgroundPosition --
+ * shortcutBackgroundPosition --
  *
  * Results:
  *     None.
@@ -1488,62 +1550,86 @@ bad_parse:
  *---------------------------------------------------------------------------
  */
 static void 
-propertySetAddShortcutBackgroundPosition(p, v)
+shortcutBackgroundPosition(pParse, p, v)
+    CssParse *pParse;          /* Parse context */
     CssPropertySet *p;         /* Property set */
     CssToken *v;               /* Value for 'background' property */
 {
     CONST char *z= v->z;
     CONST char *zEnd = z + v->n;
-    int i = 0;
-    CssProperty *apProp[4];
 
-    while (z && i<2) {
-        int n;
-        z = getNextListItem(z, zEnd-z, &n);
-        if (z) {
-            CssToken token;
-            token.z = z;
-            token.n = n;
-            apProp[i] = tokenToProperty(0, &token);
-            i++;
-            assert(n>0);
-            z += n;
+    int nProp;
+    CssProperty *apProp[2];
+    nProp = tokenToPropertyList(v, apProp, 2);
+
+    if (nProp == 0) {
+        /* Parse error. Ignore this. */
+        return;
+    }
+    assert(nProp == 1 || nProp == 2);
+
+    if (nProp == 1) {
+        if (
+            apProp[0]->eType == CSS_TYPE_PERCENT || 
+            apProp[0]->eType == CSS_CONST_LEFT || 
+            apProp[0]->eType == CSS_CONST_RIGHT || 
+            apProp[0]->eType == CSS_CONST_CENTER || 
+            propertyIsLength2(pParse, apProp[0])
+        ) {
+            apProp[1] = HtmlCssStringToProperty("50%", 3);
+        } else if (
+            apProp[0]->eType == CSS_CONST_TOP || 
+            apProp[0]->eType == CSS_CONST_BOTTOM
+        ) {
+            apProp[1] = apProp[0];
+            apProp[0] = HtmlCssStringToProperty("50%", 3);
+        } else {
+            /* Parse error. Ignore this. */
+            HtmlFree(apProp[0]);
+            return;
         }
     }
 
+    else {
+        int eType0 = apProp[0]->eType;
+        int eType1 = apProp[1]->eType;
 
-    if (i > 0) {
-        assert(i == 1 || i == 2);
-        if (i == 1) {
-            apProp[1] = HtmlCssStringToProperty("50%", 3);
-        }   
-
-        if (
-            apProp[0]->eType == CSS_CONST_TOP     || 
-            apProp[0]->eType == CSS_CONST_BOTTOM  ||
-            apProp[1]->eType == CSS_CONST_LEFT    || 
-            apProp[1]->eType == CSS_CONST_RIGHT
+        if ((
+                (eType0 == CSS_CONST_TOP || eType0 == CSS_CONST_BOTTOM) && (
+                    eType1 == CSS_CONST_LEFT || 
+                    eType1 == CSS_CONST_RIGHT || 
+                    eType1 == CSS_CONST_CENTER
+                )
+            ) || (
+                (eType1 == CSS_CONST_LEFT || eType1 == CSS_CONST_RIGHT) && (
+                    eType0 == CSS_CONST_TOP || 
+                    eType0 == CSS_CONST_BOTTOM || 
+                    eType0 == CSS_CONST_CENTER
+                )
+            )
         ) {
             CssProperty *pProp = apProp[0];
             apProp[0] = apProp[1];
             apProp[1] = pProp;
         }
+
         if (
             apProp[0]->eType == CSS_CONST_TOP     || 
             apProp[0]->eType == CSS_CONST_BOTTOM  ||
             apProp[1]->eType == CSS_CONST_LEFT    || 
             apProp[1]->eType == CSS_CONST_RIGHT
         ) {
+            /* Parse error. Ignore this. */
             HtmlFree(apProp[0]);
             HtmlFree(apProp[1]);
             return;
         }
-
-        propertyTransformBgPosition(apProp[0]);
-        propertyTransformBgPosition(apProp[1]);
-        propertySetAdd(p, CSS_PROPERTY_BACKGROUND_POSITION_X, apProp[0]);
-        propertySetAdd(p, CSS_PROPERTY_BACKGROUND_POSITION_Y, apProp[1]);
     }
+
+    propertyTransformBgPosition(apProp[0]);
+    propertyTransformBgPosition(apProp[1]);
+    propertySetAdd(p, CSS_PROPERTY_BACKGROUND_POSITION_X, apProp[0]);
+    propertySetAdd(p, CSS_PROPERTY_BACKGROUND_POSITION_Y, apProp[1]);
 }
 
 /*
@@ -2002,14 +2088,14 @@ newCssPriority(pStyle, origin, pIdTail, important)
  *---------------------------------------------------------------------------
  */
 static int 
-cssParse(n, z, isStyle, origin, pStyleId, pImportCmd, interp, pUrlCmd, ppStyle)
+cssParse(pTree, n, z, isStyle, origin, pStyleId, pImportCmd, pUrlCmd, ppStyle)
+    HtmlTree *pTree;
     int n;                       /* Size of z in bytes */
     CONST char *z;               /* Text of attribute/document */
     int isStyle;                 /* True if this is a style attribute */
     int origin;                  /* CSS_ORIGIN_* value */
     Tcl_Obj *pStyleId;           /* Second and later parts of stylesheet id */
     Tcl_Obj *pImportCmd;         /* Command to invoke to process @import */
-    Tcl_Interp *interp;          /* Interpreter for pImportCmd (if any) */
     Tcl_Obj *pUrlCmd;            /* Command to invoke to translate url() */
     CssStyleSheet **ppStyle;     /* IN/OUT: Stylesheet to append to   */
 {
@@ -2025,7 +2111,8 @@ cssParse(n, z, isStyle, origin, pStyleId, pImportCmd, interp, pUrlCmd, ppStyle)
     sParse.pStyleId = pStyleId;
     sParse.pImportCmd = pImportCmd;
     sParse.pUrlCmd = pUrlCmd;
-    sParse.interp = interp;
+    sParse.interp = (pTree ? pTree->interp : 0);
+    sParse.pTree = pTree;
 
     if( n<0 ){
         n = strlen(z);
@@ -2201,11 +2288,12 @@ HtmlStyleParse(pTree, interp, pStyleText, pId, pImportCmd, pUrlCmd)
      */
     zStyleText = Tcl_GetStringFromObj(pStyleText, &nStyleText);
     cssParse(
+        pTree,
         nStyleText, zStyleText,            /* Stylesheet text */
         0,                                 /* This is not a style attribute */
         origin,                            /* Origin - CSS_ORIGIN_XXX */
         pStyleId,                          /* Rest of -id option */
-        pImportCmd, pTree->interp,         /* How to handle @import */
+        pImportCmd,                        /* How to handle @import */
         pUrlCmd,                           /* How to handle url() */
         &pTree->pStyle                     /* CssStylesheet to update/create */
     );
@@ -2236,7 +2324,7 @@ int HtmlCssParseStyle(
 ){
     CssStyleSheet *pStyle = 0;
     assert(ppProperties && !(*ppProperties));
-    cssParse(n, z, 1, 0, 0, 0, 0, 0,&pStyle);
+    cssParse(0, n, z, 1, 0, 0, 0, 0,&pStyle);
     if (pStyle) {
         if (pStyle->pUniversalRules) {
             assert(!pStyle->pUniversalRules->pNext);
@@ -2431,7 +2519,7 @@ HtmlCssDeclaration(pParse, pProp, pExpr, isImportant)
             shortcutBackground(pParse, *ppPropertySet, pExpr);
             break;
         case CSS_SHORTCUTPROPERTY_BACKGROUND_POSITION:
-            propertySetAddShortcutBackgroundPosition(*ppPropertySet, pExpr);
+            shortcutBackgroundPosition(pParse, *ppPropertySet, pExpr);
             break;
         case CSS_SHORTCUTPROPERTY_FONT:
             propertySetAddShortcutFont(*ppPropertySet, pExpr);
@@ -3787,7 +3875,7 @@ HtmlCssSearch(clientData, interp, objc, objv)
     z = (char *)HtmlAlloc("temp", n);
     sprintf(z, "%s {width:0}", zOrig);
 
-    cssParse(n, z, 0, 0, 0, 0, 0, 0,&pStyle);
+    cssParse(pTree, n, z, 0, 0, 0, 0, 0,&pStyle);
     if (
         !pStyle || 
         !pStyle->pUniversalRules || 

@@ -32,15 +32,12 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.111 2006/11/01 07:31:05 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.112 2006/11/02 13:57:05 danielk1977 Exp $";
 
 
 #include "htmllayout.h"
 
 #define LOG if (pLayout->pTree->options.logcmd && !pLayout->minmaxTest)
-
-/* Roughly convert a double value to an integer. */
-#define INTEGER(x) ((int)((x) + ((x > 0.0) ? 0.49 : -0.49)))
 
 struct TableCell {
     BoxContext box;
@@ -353,6 +350,7 @@ logWidthsToTable(pData, pObj)
                     } else {
                         val = PIXELVAL_AUTO;
                     }
+                    break;
                 default:
                     assert(0);
             }
