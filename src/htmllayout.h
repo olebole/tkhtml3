@@ -88,10 +88,10 @@ int HtmlInlineContextIsEmpty(InlineContext *);
 
 /* Retrieve the next line-box from an inline context */
 int HtmlInlineContextGetLineBox(
-LayoutContext *, InlineContext*,int*,int,HtmlCanvas*,int*, int*);
+LayoutContext *, InlineContext*,int,int*,HtmlCanvas*,int*, int*);
 
 /* Manage inline borders and text-decoration */
-InlineBorder *HtmlGetInlineBorder(LayoutContext *, HtmlNode *, int);
+InlineBorder *HtmlGetInlineBorder(LayoutContext*,InlineContext*,HtmlNode*);
 int HtmlInlineContextPushBorder(InlineContext *, InlineBorder *);
 void HtmlInlineContextPopBorder(InlineContext *, InlineBorder *);
 

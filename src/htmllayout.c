@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.226 2006/11/02 13:57:05 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.227 2006/11/08 08:18:21 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -1195,7 +1195,7 @@ markerBoxLayout(pLayout, pBox, pNode, pVerticalOffset)
 {
     HtmlComputedValues *pComputed = HtmlNodeComputedValues(pNode);
     int mmt = pLayout->minmaxTest;
-    int voffset;
+    int voffset = 0;
 
     if (
         0 == pComputed->imListStyleImage && 
@@ -1209,7 +1209,7 @@ markerBoxLayout(pLayout, pBox, pNode, pVerticalOffset)
         int iWidth = PIXELVAL_AUTO;
         int iHeight = PIXELVAL_AUTO;
         pImg = HtmlImageScale(pComputed->imListStyleImage, &iWidth, &iHeight,1);
-        voffset = iHeight;
+        // voffset = iHeight;
         HtmlDrawImage(&pBox->vc, pImg, 0, 0, iWidth, iHeight, pNode, mmt);
         pBox->width = iWidth;
         pBox->height = iHeight;
@@ -1279,7 +1279,7 @@ markerBoxLayout(pLayout, pBox, pNode, pVerticalOffset)
         }
 
         font = pComputed->fFont->tkfont;
-        voffset = pComputed->fFont->metrics.ascent;
+        // voffset = pComputed->fFont->metrics.ascent;
         pBox->height = voffset + pComputed->fFont->metrics.descent;
         pBox->width = Tk_TextWidth(font, zBuf, strlen(zBuf));
 
@@ -1357,12 +1357,12 @@ inlineLayoutDrawLines(pLayout, pBox, pContext, forceflag, pY, pNormal)
         f = (forcebox ? LINEBOX_FORCEBOX : 0) | 
             (forceflag ? LINEBOX_FORCELINE : 0) |
             (closeborders ? LINEBOX_CLOSEBORDERS : 0);
-        have = HtmlInlineContextGetLineBox(pLayout, pContext, &w, f, &lc, &nV, &nA);
+        have = HtmlInlineContextGetLineBox(pLayout,pContext,f,&w,&lc,&nV,&nA);
 
 	if (have) {
-            DRAW_CANVAS(&pBox->vc, &lc, leftFloat, y+nA, 0);
+            DRAW_CANVAS(&pBox->vc, &lc, leftFloat, y, 0);
             if (pLayout->minmaxTest == 0) {
-                HtmlDrawAddLinebox(&pBox->vc, leftFloat, y+nA);
+                HtmlDrawAddLinebox(&pBox->vc, leftFloat, y + nA);
             }
             y += nV;
             pBox->width = MAX(pBox->width, lc.right + leftFloat);
@@ -2744,30 +2744,25 @@ normalFlowLayoutReplacedInline(pLayout, pBox, pNode, pY, pContext, pNormal)
     NormalFlow *pNormal;
 {
     BoxContext sBox;
-    BoxContext sBox2;
-    int yoffset;
-    int iHeight;
+    HtmlCanvas canvas;
+    int w, h;
+
     MarginProperties margin;
-    BoxProperties box;
 
     memset(&sBox, 0, sizeof(BoxContext));
     sBox.iContaining = pBox->iContaining;
     drawReplacement(pLayout, &sBox, pNode);
 
+    /* Include the top and bottom margins in the box passed to the 
+     * inline context code. 
+     */
     nodeGetMargins(pLayout, pNode, pBox->iContaining, &margin);
-    nodeGetBoxProperties(pLayout, pNode, pBox->iContaining, &box);
-    iHeight = sBox.height + margin.margin_top + margin.margin_bottom;
+    h = sBox.height + margin.margin_top + margin.margin_bottom;
+    w = sBox.width;
+    memset(&canvas, 0, sizeof(HtmlCanvas));
+    DRAW_CANVAS(&canvas, &sBox.vc, 0, margin.margin_top, pNode);
+    HtmlInlineContextAddBox(pContext, pNode, &canvas, w, h, 0);
 
-    yoffset = -1 * (iHeight - margin.margin_bottom - box.iBottom);
-    if (nodeIsReplaced(pNode)) {
-        HtmlElementNode *pElem = HtmlNodeAsElement(pNode);
-        assert(pElem);
-        yoffset += (pElem->pReplacement ? pElem->pReplacement->iOffset : 0);
-    }
-
-    memset(&sBox2, 0, sizeof(BoxContext));
-    DRAW_CANVAS(&sBox2.vc, &sBox.vc, 0, margin.margin_top, pNode);
-    HtmlInlineContextAddBox(pContext, pNode, &sBox2.vc, sBox.width, iHeight, yoffset);
     return 0;
 }
 
@@ -2837,7 +2832,7 @@ normalFlowLayoutInline(pLayout, pBox, pNode, pY, pContext, pNormal)
     NormalFlow *pNormal;
 {
     InlineBorder *pBorder;
-    pBorder = HtmlGetInlineBorder(pLayout, pNode, 0);
+    pBorder = HtmlGetInlineBorder(pLayout, pContext, pNode);
     HtmlInlineContextPushBorder(pContext, pBorder);
     layoutChildren(pLayout, pBox, pNode, pY, pContext, pNormal);
     HtmlInlineContextPopBorder(pContext, pBorder);
@@ -2870,16 +2865,17 @@ normalFlowLayoutInlineBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
     BoxContext sBox2;          /* After wrapContent() */
     BoxContext sBox3;          /* Adjusted for vertical margins */
 
-    int iAscent = 0;
-    int xlinebox = 0;
-    int iHeight;
     int iWidth;                /* Calculated value of 'width' */
-    int w;                     /* Width of wrapped inline-block */
     int iContaining;
     HtmlComputedValues *pV = HtmlNodeComputedValues(pNode);
 
+    int w;                     /* Width of wrapped inline-block */
+    int h;                     /* Height of wrapped inline-block */
+
+    HtmlCanvas canvas;
+
     MarginProperties margin;
-    BoxProperties box;
+    nodeGetMargins(pLayout, pNode, pBox->iContaining, &margin);
 
     memset(&sBox, 0, sizeof(BoxContext));
     memset(&sBox2, 0, sizeof(BoxContext));
@@ -2897,16 +2893,14 @@ normalFlowLayoutInlineBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
         sBox.width = iWidth;
     }
     wrapContent(pLayout, &sBox2, &sBox, pNode);
+
+    /* Include the vertical margins in the box. */
+    memset(&canvas, 0, sizeof(HtmlCanvas));
+    DRAW_CANVAS(&canvas, &sBox2.vc, 0, margin.margin_top, pNode);
     w = sBox2.width;
+    h = sBox2.height + margin.margin_top + margin.margin_bottom;
 
-
-    nodeGetMargins(pLayout, pNode, pBox->iContaining, &margin);
-    nodeGetBoxProperties(pLayout, pNode, pBox->iContaining, &box);
-    iHeight = sBox2.height + margin.margin_top + margin.margin_bottom;
-    HtmlDrawFindLinebox(&sBox2.vc, &xlinebox, &iAscent);
-
-    DRAW_CANVAS(&sBox3.vc, &sBox2.vc, 0, margin.margin_top, pNode);
-    HtmlInlineContextAddBox(pContext, pNode, &sBox3.vc, w, iHeight, -1*iAscent);
+    HtmlInlineContextAddBox(pContext, pNode, &canvas, w, h, 0);
     return 0;
 }
 
@@ -3444,7 +3438,7 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
      * normal-flow to the InlineContext. Actual border attributes do not apply
      * in this case, but the 'text-decoration' attribute may.
      */
-    pBorder = HtmlGetInlineBorder(pLayout, pNode, 1);
+    pBorder = HtmlGetInlineBorder(pLayout, pContext, pNode);
     HtmlInlineContextPushBorder(pContext, pBorder);
 
     layoutChildren(pLayout, pBox, pNode, &y, pContext, pNormal);
@@ -3473,6 +3467,7 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
         ) {
             int xlist = xline - sMarker.width;
             int ylist = yline - iAscent;
+            assert(iAscent == 0);
             DRAW_CANVAS(&pBox->vc, &sMarker.vc, xlist, ylist, pNode);
         }
     }

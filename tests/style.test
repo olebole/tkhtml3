@@ -41,6 +41,13 @@ proc property {node prop} {
 # Test cases style-1.* test the parsing of the 'background-position' property.
 #
 
+proc background-position {node} {
+    return [list                               \
+        [$node property background-position-x] \
+        [$node property background-position-y] \
+    ]
+}
+
 proc test_background_position {name style value} {
   .h configure -defaultstyle ""
   .h reset
@@ -49,9 +56,7 @@ proc test_background_position {name style value} {
   tcltest::test $name {} -body {
     .h parse -final {<html><div></div></html>}
     set node [lindex [.h search div] 0]
-    list                                       \
-        [$node property background-position-x] \
-        [$node property background-position-y]
+    background-position $node
   } -result $value
 
 #  puts [.h styleconfig]
@@ -62,8 +67,6 @@ test_background_position style-1.1 "center center"    {50.0% 50.0%}
 test_background_position style-1.2 "111 222"          {0px 0px}
 test_background_position style-1.3 "right"            {100.0% 50.0%}
 test_background_position style-1.4 "blah"             {0px 0px}
-
-
 
 #--------------------------------------------------------------------------
 # Test cases style-2.* test the parsing of the 'background' property.
@@ -364,9 +367,7 @@ tcltest::test style-8.3 {} -body {
   }
   set node [lindex [.h search .eyes] 0]
   property $node position
-} -result absolute
-puts [parse_stylesheet { div ] .eyes{position:absolute} } ]
-
+} -result static
 
 tcltest::test style-8.4 {} -body {
   .h reset
@@ -398,6 +399,28 @@ background: yellow /* comment */ no-repeat /* comment */ ;
   property $node background-color
 } -result yellow
 
+tcltest::test style-9.1 {} -body {
+  .h reset
+  .h configure -defaultstyle ""
+  .h parse -final {
+    <style>
+.four {color: purple;}
+@import url(imptest2.css);
+P.six {color: green;}
+    </style>
+    <p class=six>
+  }
+  set node [lindex [.h search p] 0]
+  property $node color
+} -result {green}
+
+puts [
+parse_stylesheet {
+.four {color: purple;}
+@import url(imptest2.css);
+P.six {color: green;}
+}
+]
 
 finish_test
 

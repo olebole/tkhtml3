@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.98 2006/11/02 13:57:04 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.99 2006/11/08 08:18:21 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -1555,13 +1555,10 @@ shortcutBackgroundPosition(pParse, p, v)
     CssPropertySet *p;         /* Property set */
     CssToken *v;               /* Value for 'background' property */
 {
-    CONST char *z= v->z;
-    CONST char *zEnd = z + v->n;
-
     int nProp;
     CssProperty *apProp[2];
-    nProp = tokenToPropertyList(v, apProp, 2);
 
+    nProp = tokenToPropertyList(v, apProp, 2);
     if (nProp == 0) {
         /* Parse error. Ignore this. */
         return;
@@ -1809,6 +1806,7 @@ cssGetToken(z, n, pLen)
             if( z[1]!='*' || z[2]==0 ){
                 return CT_SLASH;
             }
+            /* C style comment. */
             for(i=3, c=z[2]; (c!='*' || z[i]!='/') && (c=z[i])!=0; i++){}
             if( c ) i++;
             *pLen = i;
@@ -1865,6 +1863,22 @@ cssGetToken(z, n, pLen)
             goto bad_token;
         }
 
+        case '<': {
+            if (z[1] != '!' || z[2] != '-' || z[3] != '-') {
+                goto parse_as_token;
+            }
+            *pLen = 4;
+            return -1;
+        }
+        case '-': {
+            if (z[1] != '-' || z[2] != '>') {
+                goto parse_as_token;
+            }
+            *pLen = 3;
+            return -1;
+        }
+
+parse_as_token:
         default: {
                 
             /* This must be either an identifier or a function. For the
