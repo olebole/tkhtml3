@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.99 2006/11/08 08:18:21 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.100 2006/11/08 10:28:35 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -3688,7 +3688,7 @@ generatedContent(pTree, pNode, pCssRule, ppNode)
         /* If a value was specified for the 'content' property, create
          * a text node also.
          */
-        HtmlTextNode *pTextNode = HtmlTextNew(strlen(zContent), zContent);
+        HtmlTextNode *pTextNode = HtmlTextNew(strlen(zContent), zContent, 0, 0);
         int idx = HtmlNodeAddTextChild(*ppNode, pTextNode);
         HtmlNodeChild(*ppNode, idx)->iNode = -1;
         HtmlFree(zContent);

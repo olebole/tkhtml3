@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.88 2006/11/01 08:28:46 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.89 2006/11/08 10:28:35 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -884,31 +884,47 @@ Tokenize(pTree, isFinal)
     char *argv[mxARG];           /* Pointers to each markup argument. */
     int arglen[mxARG];           /* Length of each markup argument */
 
+    /* True if a leading line-break should be trimmed if the next node
+     * is a text node.
+     */
+    int isTrimStart = 0;
+
     iCol = pTree->iCol;
     n = pTree->nParsed;
     z = Tcl_GetString(pTree->pDocument);
 
     while ((c = z[n]) != 0) {
 
+#if 0
         /* TODO: What is the significance of -64 and -128? BOM or something? */
         if ((signed char) c == -64 && (signed char) (z[n + 1]) == -128) {
             n += 2;
             continue;
-        }
+        } else
+#endif
 
         /* A text (or whitespace) node */
-        else if (c != '<' && c != 0) {
+        if (c != '<' && c != 0) {
+            int isTrimEnd = 0;
             for (i = 0; (c = z[n + i]) != 0 && c != '<'; i++);
+            if (c == '<') {
+                c = z[n + i + 1];
+                if (c == '/') {
+                    isTrimEnd = 1;
+                }
+            }
             if (c || isFinal) {
                 /* Todo: Figure out if we need to trim any newline characters
                  * from the string passed to HtmlTextNew(). 
                  */
-                HtmlTextNode *pTextNode = HtmlTextNew(i, &z[n]);
+                int ts = isTrimStart;
+                HtmlTextNode *pTextNode = HtmlTextNew(i, &z[n], isTrimEnd, ts);
                 HtmlTreeAddText(pTree, pTextNode, n);
                 n += i;
             } else {
                 goto incomplete;
             }
+            isTrimStart = 0;
         }
 
         /* An HTML comment. Just skip it. Tkhtml uses the non-SGML (i.e.
@@ -928,6 +944,7 @@ Tokenize(pTree, isFinal)
                 iCol = NextColumn(iCol, z[n + j]);
             }
             n += i + 3;
+            isTrimStart = 0;
         }
 
         /* A markup tag (i.e "<p>" or <p color="red"> or </p>). We parse 
@@ -1124,6 +1141,7 @@ Tokenize(pTree, isFinal)
                      */
                     assert(nStartScript >= 0);
                     HtmlTreeAddElement(pTree, pMap->type, pAttr, nStartScript);
+                    isTrimStart = 1;
                 } else {
                     /* If pScript is not NULL, then we are parsing a node that
                      * tkhtml treats as a "script". Essentially this means we
@@ -1164,6 +1182,7 @@ Tokenize(pTree, isFinal)
                     }
 
                     HtmlFree(pAttr);
+                    isTrimStart = 0;
                 }
             }
 

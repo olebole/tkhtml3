@@ -772,7 +772,7 @@ HtmlAttributes * HtmlAttributesNew(int, char const **, int *, int);
 /*
  * Creation and deletion of HtmlTextNode objects.
  */
-HtmlTextNode * HtmlTextNew(int, const char *);
+HtmlTextNode * HtmlTextNew(int, const char *, int, int);
 void           HtmlTextFree(HtmlTextNode *);
 
 /* The details of this structure should be considered private to

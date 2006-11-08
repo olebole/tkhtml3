@@ -1770,9 +1770,11 @@ populateTextNode(n, z, pText, pnToken, pnText)
 }
 
 HtmlTextNode *
-HtmlTextNew(n, z)
+HtmlTextNew(n, z, isTrimEnd, isTrimStart)
     int n;
     const char *z;
+    int isTrimEnd;
+    int isTrimStart;
 {
     char *z2;
     HtmlTextNode *pText;
@@ -1801,6 +1803,15 @@ HtmlTextNew(n, z)
 
     /* Populate the HtmlTextNode.aToken and zText arrays. */
     populateTextNode(strlen(z2), z2, pText, 0, 0);
+
+    assert(pText->aToken[nToken-1].eType == HTML_TEXT_TOKEN_END);
+    if (isTrimEnd && pText->aToken[nToken-2].eType == HTML_TEXT_TOKEN_NEWLINE) {
+        pText->aToken[nToken-2].eType = HTML_TEXT_TOKEN_END;
+        nToken--;
+    }
+    if (isTrimStart && pText->aToken[0].eType == HTML_TEXT_TOKEN_NEWLINE) {
+        memmove(pText->aToken, &pText->aToken[1], sizeof(HtmlTextToken)*nToken);
+    }
 
     HtmlFree(z2);
     return pText;
