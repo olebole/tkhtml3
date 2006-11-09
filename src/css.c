@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.100 2006/11/08 10:28:35 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.101 2006/11/09 13:11:53 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -1850,8 +1850,7 @@ cssGetToken(z, n, pLen)
                     return atkeywords[i].t;
                 }
             }
-            *pLen = 1;
-            return CT_UNKNOWN_SYM;
+            goto bad_token;
         }
         case '!': {
             int a = 1;
@@ -1934,7 +1933,7 @@ parse_as_token:
 
 bad_token:
     *pLen = 1;
-    return -1;
+    return CT_UNKNOWN_SYM;
 }
 
 /* Versions of HtmlAlloc(0, ) and HtmlFree(0, ) that are always functions (not macros). 
@@ -2959,9 +2958,6 @@ void HtmlCssRule(pParse, success)
     int nXtra = pParse->nXtra;
     int i;
 
-    /* Do nothing if the isIgnore flag is set */
-    if (pParse->isIgnore) return;
-
     if (pPropertySet && pPropertySet->n == 0) {
         propertySetFree(pPropertySet);
         pPropertySet = 0;
@@ -2971,7 +2967,12 @@ void HtmlCssRule(pParse, success)
         pImportant = 0;
     }
 
-    if (success && pSelector && (pPropertySet || pImportant)) {
+    if (
+        success && 
+        !pParse->isIgnore && 
+        pSelector && 
+        (pPropertySet || pImportant)
+    ) {
 
         if (pPropertySet) {
             unsigned int flags = FREE_BOTH;
@@ -2993,7 +2994,7 @@ void HtmlCssRule(pParse, success)
             }
         }
 
-    }else{
+    } else {
         /* Some sort of a parse error has occured. We won't be including
          * this rule, so just free these structs so we don't leak memory.
          */ 
@@ -3794,8 +3795,8 @@ void HtmlCssImport(pParse, pToken)
 {
     Tcl_Obj *pEval = pParse->pImportCmd;
 
-    /* Do nothing if the isIgnore flag is set */
-    if (pParse->isIgnore) return;
+    /* Do nothing if the isIgnore or isBody flags are set */
+    if (pParse->isIgnore || pParse->isBody) return;
 
     if (pEval) {
         Tcl_Interp *interp = pParse->interp;

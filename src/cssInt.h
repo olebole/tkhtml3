@@ -244,6 +244,9 @@ struct CssParse {
      */
     int isIgnore;                   /* True to ignore new elements */
 
+    /* In the body of a stylesheet @import directives must be ignored. */
+    int isBody;                     /* True once we are in the body */
+
     int origin;
     Tcl_Obj *pStyleId;
     Tcl_Obj *pImportCmd;            /* Script to invoke for @import */

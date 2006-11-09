@@ -414,13 +414,27 @@ P.six {color: green;}
   property $node color
 } -result {green}
 
-puts [
-parse_stylesheet {
-.four {color: purple;}
-@import url(imptest2.css);
-P.six {color: green;}
-}
-]
+tcltest::test style-9.2 {} -body {
+  parse_stylesheet {
+    p ! p {color: purple;}
+  }
+} -result {}
+tcltest::test style-9.3 {} -body {
+  parse_stylesheet {
+    p {COLOR: PURPLE;}
+  }
+} -result [list {p color:PURPLE}]
+tcltest::test style-9.4 {} -body {
+  parse_stylesheet {
+    @three-dee {
+      @background-lighting { 
+        azimuth: 30deg; elevation: 190deg; 
+      }
+      P.seven { color: red }
+    }
+    P.eight {COLOR: GREEN;}
+  }
+} -result [list {p.eight color:GREEN}]
 
 finish_test
 

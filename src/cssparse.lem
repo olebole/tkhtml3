@@ -49,7 +49,12 @@
 %token_type {CssToken}
 
 /* Need this value for a trick in the tokenizer used to parse CT_FUNCTION. */
-%nonassoc RRP. 
+%nonassoc RRP.
+
+/* This does not appear in the grammar, but the tokenizer generates it. It
+ * will (hopefully) match "error" somewhere in the grammar.
+ */
+%nonassoc UNKNOWN_SYM.
 
 %syntax_error {
     pParse->pStyle->nSyntaxErr++;
@@ -68,7 +73,9 @@ ws ::= SPACE ws.
 ** Style sheet header. Contains @charset and @import directives. @charset
 ** directives are ignored for the time being.
 */
-ss_header ::= ws charset_opt imports_opt.
+ss_header ::= ws charset_opt imports_opt. {
+  pParse->isBody = 1;
+}
 
 charset_opt ::= CHARSET_SYM ws STRING ws SEMICOLON ws.
 charset_opt ::= .
@@ -78,32 +85,30 @@ imports_opt ::= imports_opt IMPORT_SYM ws term(X) medium_list_opt SEMICOLON ws.
     HtmlCssImport(pParse, &X);
 }
 imports_opt ::= .
-imports_opt ::= unknown_at_rule.
 
 medium_list_opt ::= medium_list.
 medium_list_opt ::= .
 
-/*
- * Code to handle an unknown "at-rule". If the tokenizer sees an "@" 
- * character that is not followed by any known at-keyword, it calls
- * the "@" an UNKNOWN_SYM token. The correct behaviour is to discard
- * everything up until the next semicolon or the end of the next
- * block.
+/*********************************************************************
+ * Constructions for handling syntax errors in the stylesheet. When a 
+ * syntax error is encountered, the parser should ignore everything until
+ * the end of the next block, or the next semi-colon.
  */
-unknown_at_rule ::= UNKNOWN_SYM trash SEMICOLON ws.
-unknown_at_rule ::= UNKNOWN_SYM trash LP trash RP ws.
-trash ::= .
-trash ::= error.
-trash ::= trash error.
+toplevel_syntaxerror ::= toplevel_trash SEMICOLON.
+toplevel_syntaxerror ::= toplevel_trash LP declaration_trash RP.
+toplevel_syntaxerror ::= LP declaration_trash RP.
+
+toplevel_trash ::= toplevel_trash error.
+toplevel_trash ::= error.
+
+declaration_syntaxerror ::= declaration_trash.
+declaration_syntaxerror ::= declaration_trash declaration_trash.
+declaration_trash ::= LP declaration_syntaxerror RP.
+declaration_trash ::= error.
 
 /*********************************************************************
 ** Style sheet body. A list of style sheet body items.
 */
-/*
-ss_body ::= .
-ss_body ::= ss_body_item ws ss_body.
-*/
-
 ss_body ::= ss_body_item.
 ss_body ::= ss_body ws ss_body_item.
 
@@ -171,6 +176,9 @@ ruleset ::= selector_list LP declaration_list RP. {
     HtmlCssRule(pParse, 1);
 }
 ruleset ::= page.
+ruleset ::= toplevel_syntaxerror. {
+    HtmlCssRule(pParse, 0);
+}
 
 selector_list ::= selector.
 selector_list ::= selector_list comma ws selector.
@@ -185,12 +193,7 @@ declaration_list ::= declaration_list SEMICOLON ws.
 declaration ::= ws IDENT(X) ws COLON ws expr(E) prio(I). {
     HtmlCssDeclaration(pParse, &X, &E, I);
 }
-declaration ::= garbage.
-
-garbage ::= garbage_token.
-garbage ::= garbage garbage_token.
-garbage_token ::= error.
-garbage_token ::= LP garbage RP.
+declaration ::= declaration_syntaxerror.
 
 %type prio {int}
 prio(X) ::= IMPORTANT_SYM ws. {X = (pParse->pStyleId) ? 1 : 0;}
@@ -234,10 +237,6 @@ tag ::= SEMICOLON(X). { HtmlCssSelector(pParse, CSS_SELECTOR_TYPE, 0, &X); }
 
 simple_selector_tail ::= simple_selector_tail_component.
 simple_selector_tail ::= simple_selector_tail_component simple_selector_tail.
-
-simple_selector_tail ::= error. {
-    HtmlCssSelector(pParse, CSS_SELECTOR_NEVERMATCH, 0, 0);
-}
 
 simple_selector_tail_component ::= HASH IDENT(X). {
     HtmlCssSelector(pParse, CSS_SELECTOR_ID, 0, &X);

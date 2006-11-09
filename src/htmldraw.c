@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.171 2006/10/31 07:13:32 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.172 2006/11/09 13:11:53 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -330,18 +330,27 @@ static int scrollToNodeCb(HtmlCanvasItem *, int, int, Overflow *, ClientData);
 static int layoutBboxCb(HtmlCanvasItem *, int, int, Overflow *, ClientData);
 static int layoutNodeCb(HtmlCanvasItem *, int, int, Overflow *, ClientData);
 
-#if 0
+#if 1
 static void
 CHECK_CANVAS(pCanvas) 
     HtmlCanvas *pCanvas;
 {
-    HtmlCanvasItem *pItem; 
+    HtmlCanvasItem *p; 
     HtmlCanvasItem *pPrev = 0; 
-    for (pItem = pCanvas->pFirst; pItem; pItem = pItem->pNext) {
-        assert(!pPrev       || pPrev->pNext == pItem);
-        assert(pPrev        || pCanvas->pFirst == pItem);
-        assert(pItem->pNext || pItem == pCanvas->pLast);
-        pPrev = pItem;
+    for (p = pCanvas->pFirst; p != pCanvas->pLast; p = p->pNext) {
+        assert(!pPrev       || pPrev->pNext == p);
+        assert(pPrev        || pCanvas->pFirst == p);
+        assert(p->pNext || p == pCanvas->pLast);
+        pPrev = p;
+        switch (p->type) {
+            case CANVAS_ORIGIN:
+                assert(
+                    (p->x.o.nRef >= 1 && p->x.o.pSkip) ||
+                    p->x.o.pSkip == 0
+                );
+                assert(p->x.o.nRef <= 2);
+                break;
+        }
     }
 }
 #else
@@ -600,12 +609,12 @@ HtmlDrawCleanup(pTree, pCanvas)
 {
     HtmlCanvasItem *pItem;
     HtmlCanvasItem *pPrev = 0;
+CHECK_CANVAS(pCanvas);
 
     assert(pTree || !pCanvas->pFirst);
 
     if (&pTree->canvas == pCanvas) {
         HtmlNodeReplacement *p;
-CHECK_CANVAS(pCanvas);
         for (p = pTree->pMapped; p; p = p->pNext) {
             p->iCanvasX = -10000;
             p->iCanvasY = -10000;
@@ -846,8 +855,16 @@ void HtmlDrawCopyCanvas(pTo, pFrom)
     HtmlCanvas *pFrom;
 {
     assert(!pFrom->pFirst || pFrom->pFirst->type == CANVAS_ORIGIN);
+    assert(!pFrom->pFirst || pFrom->pFirst->x.o.nRef == 1);
     assert(!pFrom->pLast || 
        (pFrom->pLast->type == CANVAS_ORIGIN && pFrom->pLast->pNext == 0));
+
+CHECK_CANVAS(pTo);
+CHECK_CANVAS(pFrom);
+
+    /* The pTo canvas must be empty for this to work */
+    assert(pTo->pFirst == 0);
+    assert(pTo->pLast == 0);
 
     memcpy(pTo, pFrom, sizeof(HtmlCanvas));
 
@@ -859,6 +876,10 @@ void HtmlDrawCopyCanvas(pTo, pFrom)
         pTo->pLast->x.o.x = 0;
         pTo->pLast->x.o.y = 0;
     }
+
+    assert(pTo->pLast == 0 || pTo->pLast->pNext == 0);
+CHECK_CANVAS(pTo);
+CHECK_CANVAS(pFrom);
 }
 
 /*

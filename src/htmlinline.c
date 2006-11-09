@@ -33,7 +33,7 @@
  * 
  *     HtmlInlineContextIsEmpty()
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.34 2006/11/08 08:18:21 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.35 2006/11/09 13:11:53 danielk1977 Exp $";
 
 typedef struct InlineBox InlineBox;
 typedef struct InlineMetrics InlineMetrics;
@@ -312,7 +312,7 @@ int HtmlInlineContextPushBorder(pContext, pBorder)
             HtmlComputedValues *pComputed = HtmlNodeComputedValues(pNode);
             InlineMetrics *pPM = &pParent->metrics;
             InlineMetrics *pM = &pBorder->metrics;
-            int iVert;
+            int iVert = 0;
 
             switch (pComputed->eVerticalAlign) {
 

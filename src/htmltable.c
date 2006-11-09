@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.112 2006/11/02 13:57:05 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.113 2006/11/09 13:11:54 danielk1977 Exp $";
 
 
 #include "htmllayout.h"
@@ -1267,26 +1267,28 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
     Tcl_Obj *pStageLog = 0;
     LOG {
         HtmlTree *pTree = pLayout->pTree;
-        Tcl_Obj *pLog = Tcl_NewObj();
-        Tcl_IncrRefCount(pLog);
-
-        Tcl_AppendToObj(pLog, "Inputs to column width algorithm: ", -1);
-        Tcl_AppendToObj(pLog, "<p>Available width is ", -1);
-        Tcl_AppendObjToObj(pLog, Tcl_NewIntObj(availablewidth));
-        Tcl_AppendToObj(pLog, "  (width property was <b>", -1);
-        Tcl_AppendToObj(pLog, isAuto ? "auto</b>" : "not</b> auto", -1);
-        Tcl_AppendToObj(pLog, ")</p>", -1);
-
-        logWidthsToTable(pData, pLog);
-
-        HtmlLog(pTree, "LAYOUTENGINE", "%s tableCalculateCellWidths() %s",
-            Tcl_GetString(HtmlNodeCommand(pTree, pData->pNode)), 
-            Tcl_GetString(pLog)
-        );
-
-        Tcl_DecrRefCount(pLog);
-        pStageLog = Tcl_NewObj();
-        Tcl_IncrRefCount(pStageLog);
+        Tcl_Obj *pCmd = HtmlNodeCommand(pTree, pData->pNode);
+        if (pCmd) {
+            Tcl_Obj *pLog = Tcl_NewObj();
+            Tcl_IncrRefCount(pLog);
+    
+            Tcl_AppendToObj(pLog, "Inputs to column width algorithm: ", -1);
+            Tcl_AppendToObj(pLog, "<p>Available width is ", -1);
+            Tcl_AppendObjToObj(pLog, Tcl_NewIntObj(availablewidth));
+            Tcl_AppendToObj(pLog, "  (width property was <b>", -1);
+            Tcl_AppendToObj(pLog, isAuto ? "auto</b>" : "not</b> auto", -1);
+            Tcl_AppendToObj(pLog, ")</p>", -1);
+    
+            logWidthsToTable(pData, pLog);
+    
+            HtmlLog(pTree, "LAYOUTENGINE", "%s tableCalculateCellWidths() %s",
+                Tcl_GetString(pCmd), Tcl_GetString(pLog)
+            );
+    
+            Tcl_DecrRefCount(pLog);
+            pStageLog = Tcl_NewObj();
+            Tcl_IncrRefCount(pStageLog);
+        }
     }
 
     /* This loop serves two purposes:
@@ -1447,41 +1449,43 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
     
     LOG {
         HtmlTree *pTree = pLayout->pTree;
-        Tcl_Obj *pLog = Tcl_NewObj();
-        Tcl_IncrRefCount(pLog);
-
-        Tcl_AppendToObj(pLog, "<p>Summary of algorithm:</p>", -1);
-        Tcl_AppendToObj(pLog, 
-            "<ol>"
-            "  <li>Minimum content width allocation."
-            "  <li>Percent width allocation."
-            "  <li>Explicit pixel width allocation."
-            "  <li>Auto width allocation."
-            "  <li>Force pixels into explicit pixel width cols."
-            "  <li>Force pixels into percent width cols."
-            "  <li>Force pixels into auto width cols."
-            "  <li>Reduce auto width cols. (optional)"
-            "  <li>Reduce explicit pixel width cols. (optional)"
-            "  <li>Reduce percent width cols. (optional)"
-            "</ol>", -1
-        );
-
-        Tcl_AppendToObj(pLog, "<p>Results of column width algorithm:</p>", -1);
-        Tcl_AppendToObj(pLog, "<table><tr><th></th>", -1);
-        for (ii = 0; ii < pData->nCol; ii++) {
-            Tcl_AppendToObj(pLog, "<th>Col ", -1);
-            Tcl_AppendObjToObj(pLog, Tcl_NewIntObj(ii));
+        Tcl_Obj *pCmd = HtmlNodeCommand(pTree, pData->pNode);
+        if (pCmd) {
+            Tcl_Obj *pLog = Tcl_NewObj();
+            Tcl_IncrRefCount(pLog);
+    
+            Tcl_AppendToObj(pLog, "<p>Summary of algorithm:</p>", -1);
+            Tcl_AppendToObj(pLog, 
+                "<ol>"
+                "  <li>Minimum content width allocation."
+                "  <li>Percent width allocation."
+                "  <li>Explicit pixel width allocation."
+                "  <li>Auto width allocation."
+                "  <li>Force pixels into explicit pixel width cols."
+                "  <li>Force pixels into percent width cols."
+                "  <li>Force pixels into auto width cols."
+                "  <li>Reduce auto width cols. (optional)"
+                "  <li>Reduce explicit pixel width cols. (optional)"
+                "  <li>Reduce percent width cols. (optional)"
+                "</ol>", -1
+            );
+    
+            Tcl_AppendToObj(pLog, "<p>Results of column width algorithm:</p>", -1);
+            Tcl_AppendToObj(pLog, "<table><tr><th></th>", -1);
+            for (ii = 0; ii < pData->nCol; ii++) {
+                Tcl_AppendToObj(pLog, "<th>Col ", -1);
+                Tcl_AppendObjToObj(pLog, Tcl_NewIntObj(ii));
+            }
+            Tcl_AppendToObj(pLog, "</tr>", -1);
+            Tcl_AppendObjToObj(pLog, pStageLog);
+            Tcl_AppendToObj(pLog, "</table>", -1);
+    
+            HtmlLog(pTree, "LAYOUTENGINE", "%s tableCalculateCellWidths() %s",
+                Tcl_GetString(pCmd), Tcl_GetString(pLog)
+            );
+    
+            Tcl_DecrRefCount(pLog);
         }
-        Tcl_AppendToObj(pLog, "</tr>", -1);
-        Tcl_AppendObjToObj(pLog, pStageLog);
-        Tcl_AppendToObj(pLog, "</table>", -1);
-
-        HtmlLog(pTree, "LAYOUTENGINE", "%s tableCalculateCellWidths() %s",
-            Tcl_GetString(HtmlNodeCommand(pTree, pData->pNode)), 
-            Tcl_GetString(pLog)
-        );
-
-        Tcl_DecrRefCount(pLog);
     }
 }
 
@@ -1655,12 +1659,14 @@ int HtmlTableLayout(pLayout, pBox, pNode)
     nCol = data.nCol;
 
     LOG {
-        HtmlTree *pTree = pLayout->pTree;
-        HtmlLog(pTree, "LAYOUTENGINE", "%s HtmlTableLayout() "
-            "Dimensions are %dx%d",
-            Tcl_GetString(HtmlNodeCommand(pTree, pNode)), 
-            data.nCol, data.nRow
-        );
+        Tcl_Obj *pCmd = HtmlNodeCommand(pTree, pNode);
+        if (pCmd) {
+            HtmlTree *pTree = pLayout->pTree;
+            HtmlLog(pTree, "LAYOUTENGINE", "%s HtmlTableLayout() "
+                "Dimensions are %dx%d", Tcl_GetString(pCmd), 
+                data.nCol, data.nRow
+            );
+        }
     }
 
     /* Allocate arrays for the minimum and maximum widths of each column */

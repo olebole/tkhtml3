@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.102 2006/11/08 08:18:21 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.103 2006/11/09 13:11:54 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1744,13 +1744,16 @@ HtmlComputedValuesSet(p, eProp, pProp)
     }
 
     LOG {
-        char *zFree;
-        char *zPropVal = HtmlPropertyToString(pProp, &zFree);
-        HtmlLog(p->pTree, "STYLEENGINE", "%s %s -> %s",
-                Tcl_GetString(HtmlNodeCommand(p->pTree, p->pNode)),
-                HtmlCssPropertyToString(eProp), zPropVal
-        );
-        if (zFree) HtmlFree(zFree);
+        Tcl_Obj *pCmd = HtmlNodeCommand(p->pTree, p->pNode);
+        if (pCmd) {
+            char *zFree;
+            char *zPropVal = HtmlPropertyToString(pProp, &zFree);
+            HtmlLog(p->pTree, "STYLEENGINE", "%s %s -> %s",
+                    Tcl_GetString(pCmd),
+                    HtmlCssPropertyToString(eProp), zPropVal
+            );
+            if (zFree) HtmlFree(zFree);
+        }
     }
 
     /* Silently ignore any attempt to set a root-node property to 'inherit'.

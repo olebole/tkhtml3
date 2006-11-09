@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.227 2006/11/08 08:18:21 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.228 2006/11/09 13:11:54 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -1970,6 +1970,14 @@ wrapContent(pLayout, pBox, pContent, pNode)
     int w;
     int h;
 
+    if (pNode->iNode < 0) {
+        int iContaining = pBox->iContaining;
+        memcpy(pBox, pContent, sizeof(BoxContext));
+        pBox->iContaining = iContaining;
+        memset(pContent, 0x55, sizeof(BoxContext));
+        return;
+    }
+
     nodeGetMargins(pLayout, pNode, pBox->iContaining, &margin);
     nodeGetBoxProperties(pLayout, pNode, pBox->iContaining, &box);
 
@@ -2174,9 +2182,7 @@ normalFlowLayoutTable(pLayout, pBox, pNode, pY, pContext, pNormal)
     }
 
     sBox.iContaining = iContaining;
-    if (pNode->iNode >= 0) {
-        wrapContent(pLayout, &sBox, &sContent, pNode);
-    }
+    wrapContent(pLayout, &sBox, &sContent, pNode);
 
     y = HtmlFloatListPlace(
             pFloat, pBox->iContaining, sBox.width, sBox.height, *pY
@@ -3488,7 +3494,8 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
         HtmlFloatListIsConstant(pFloat, pBox->height, overhang) &&
         pLayout->pAbsolute == pAbsolute &&
         pLayout->pFixed == pFixed &&
-        !HtmlNodeBefore(pNode) && !HtmlNodeAfter(pNode) && pNode->pParent
+        !HtmlNodeBefore(pNode) && !HtmlNodeAfter(pNode) && pNode->pParent &&
+        pNode->iNode >= 0 && 0
     ) {
         HtmlDrawOrigin(&pBox->vc);
         HtmlDrawCopyCanvas(&pCache->canvas, &pBox->vc);
