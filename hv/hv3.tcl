@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.114 2006/10/31 07:13:32 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.115 2006/11/09 15:11:54 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -806,8 +806,9 @@ snit::widget ::hv3::hv3 {
       set cmd [concat $options(-requestcmd) [list $downloadHandle]]
       set rc [catch $cmd errmsg]
       if {$rc} {
-        $downloadHandle fail
-        error $errmsg $::errorInfo
+        set einfo $::errorInfo
+        catch {$downloadHandle fail}
+        error $errmsg $einfo
       }
     }
   }
@@ -875,6 +876,7 @@ snit::widget ::hv3::hv3 {
   # ::hv3::imageCallback.
   #
   method Imagecmd {uri} {
+    set uri [string trim $uri]
     if {[string match replace:* $uri]} {
         set img [string range $uri 8 end]
         return $img

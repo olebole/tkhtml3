@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.172 2006/11/09 13:11:53 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.173 2006/11/09 15:11:54 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -330,7 +330,7 @@ static int scrollToNodeCb(HtmlCanvasItem *, int, int, Overflow *, ClientData);
 static int layoutBboxCb(HtmlCanvasItem *, int, int, Overflow *, ClientData);
 static int layoutNodeCb(HtmlCanvasItem *, int, int, Overflow *, ClientData);
 
-#if 1
+#if 0
 static void
 CHECK_CANVAS(pCanvas) 
     HtmlCanvas *pCanvas;

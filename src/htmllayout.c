@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.228 2006/11/09 13:11:54 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.229 2006/11/09 15:11:54 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -3423,6 +3423,13 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
             pLayout->pTree, pNode, isSizeOnly, iTextIndent
     );
 
+    /* Add any inline-border created by the node that generated this
+     * normal-flow to the InlineContext. Actual border attributes do not apply
+     * in this case, but the 'text-decoration' attribute may.
+     */
+    pBorder = HtmlGetInlineBorder(pLayout, pContext, pNode);
+    HtmlInlineContextPushBorder(pContext, pBorder);
+
     /* If this element is a list-item with "list-style-position:inside", 
      * then add the list-marker as the first box in the new inline-context.
      */
@@ -3439,13 +3446,6 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
             );
         }
     }
-
-    /* Add any inline-border created by the node that generated this
-     * normal-flow to the InlineContext. Actual border attributes do not apply
-     * in this case, but the 'text-decoration' attribute may.
-     */
-    pBorder = HtmlGetInlineBorder(pLayout, pContext, pNode);
-    HtmlInlineContextPushBorder(pContext, pBorder);
 
     layoutChildren(pLayout, pBox, pNode, &y, pContext, pNormal);
     

@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.131 2006/11/01 07:31:05 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.132 2006/11/09 15:11:54 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -2154,11 +2154,6 @@ newWidget(clientData, interp, objc, objv)
     Tcl_InitHashTable(&pTree->aTag, TCL_STRING_KEYS);
     pTree->cmd = Tcl_CreateObjCommand(interp,zCmd,widgetCmd,pTree,widgetCmdDel);
 
-    /* TODO: Handle the case where configureCmd() returns an error. */
-    rc = configureCmd(pTree, interp, objc, objv);
-    assert(!pTree->options.logcmd);
-    assert(!pTree->options.timercmd);
-
     /* Initialise the hash tables used by styler code */
     HtmlComputedValuesSetupTables(pTree);
 
@@ -2170,6 +2165,11 @@ newWidget(clientData, interp, objc, objv)
 
     /* Create the image-server */
     HtmlImageServerInit(pTree);
+
+    /* TODO: Handle the case where configureCmd() returns an error. */
+    rc = configureCmd(pTree, interp, objc, objv);
+    assert(!pTree->options.logcmd);
+    assert(!pTree->options.timercmd);
 
     /* Load the default style-sheet, ready for the first document. */
     doLoadDefaultStyle(pTree);
