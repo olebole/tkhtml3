@@ -365,6 +365,7 @@ struct HtmlOptions {
     /* Boolean options */
     int shrink;
     int layoutcache;
+    int imagecache;
     int doublebuffer;
     int forcewidth;
 

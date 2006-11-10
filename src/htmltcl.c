@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.132 2006/11/09 15:11:54 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.133 2006/11/10 13:07:26 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -395,7 +395,9 @@ callbackHandler(clientData)
         }
         HtmlRestackNodes(pTree);
 
-        HtmlImageServerDoGC(pTree);
+        if (!pTree->options.imagecache) {
+            HtmlImageServerDoGC(pTree);
+        }
 
         styleClock = clock() - styleClock;
     }
@@ -1093,6 +1095,7 @@ BOOLEAN(forcewidth, "forceWidth", "ForceWidth", "0", S_MASK),
         OBJ(defaultstyle, "defaultStyle", "DefaultStyle", 
             HTML_DEFAULT_CSS, FT_MASK),
         STRING(imagecmd, "imageCmd", "ImageCmd", ""),
+        BOOLEAN(imagecache, "imageCache", "ImageCache", "1", S_MASK),
         STRING(encoding, "encoding", "Encoding", ""),
     
         /* Options for logging info to debugging scripts */
@@ -1267,6 +1270,10 @@ resetCmd(clientData, interp, objc, objv)
     Tk_Window win = pTree->tkwin;
 
     HtmlTreeClear(pTree);
+    HtmlImageServerDoGC(pTree);
+    if (pTree->options.imagecache) {
+        HtmlImageServerSuspendGC(pTree);
+    }
     HtmlCallbackScrollY(pTree, 0);
     HtmlCallbackScrollX(pTree, 0);
     HtmlCallbackDamage(pTree, 0, 0, Tk_Width(win), Tk_Height(win), 0);

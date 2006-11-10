@@ -94,6 +94,20 @@
 		If the size or content of the image are modified while it is in
 		use the widget display is updated automatically.
 	}]
+	[Option imagecache {
+		This boolean option (default true) determines whether or not
+		Tkhtml3 caches the images returned to it by the -imagecmd
+		callback script. If true, all images are cached until the
+		next time the [SQ reset] sub-command is invoked. If false,
+		images are discarded as soon as they are not in use.
+
+		For simple applications, or applications that retrieve 
+		images from local sources, false is usually a better value
+		for this option (since it may save memory). However for
+		web-browser applications where the background images of
+		elements may be modified by mouseover events and so on, 
+		true is a better choice.
+	}]
 	[Option layoutcache {
 		If this boolean option is set to true, then Tkhtml caches 
 		layout information to improve performance when the layout of a

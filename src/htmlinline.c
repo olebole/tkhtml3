@@ -33,7 +33,7 @@
  * 
  *     HtmlInlineContextIsEmpty()
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.35 2006/11/09 13:11:53 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.36 2006/11/10 13:07:26 danielk1977 Exp $";
 
 typedef struct InlineBox InlineBox;
 typedef struct InlineMetrics InlineMetrics;
@@ -428,6 +428,7 @@ HtmlInlineContextPopBorder(p, pBorder)
             pBorder = p->pBorders;
             assert(pBorder);
             p->pBorders = pBorder->pNext;
+            p->iVAlign -= pBorder->iVerticalAlign;
             HtmlFree(pBorder);
         }
     }
