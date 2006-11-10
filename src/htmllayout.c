@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.229 2006/11/09 15:11:54 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.230 2006/11/10 01:36:34 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -1970,7 +1970,12 @@ wrapContent(pLayout, pBox, pContent, pNode)
     int w;
     int h;
 
-    if (pNode->iNode < 0) {
+    /* We do not want to generate a box for an implicit table-node
+     * created to wrap around a stray "display:table-cell" or
+     * "display:table-row" box. In this case, just copy the content
+     * directly into the output box (without a border).
+     */
+    if (!pNode->pParent && pNode != pLayout->pTree->pRoot) {
         int iContaining = pBox->iContaining;
         memcpy(pBox, pContent, sizeof(BoxContext));
         pBox->iContaining = iContaining;

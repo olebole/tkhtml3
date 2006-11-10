@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.43 2006/11/01 10:41:45 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.44 2006/11/10 01:36:34 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_prop.tcl --
@@ -369,6 +369,19 @@ snit::widget HtmlDebug {
             append property_rows "<tr><td>$p<td>$v"
         }
 
+        set before_tbl ""
+        catch {
+            set rows ""
+            foreach {p v} [prop_compress [$node prop -before]] {
+                append rows "<tr><td>$p<td>$v"
+            }
+            set before_tbl "
+              <table class=computed>
+                <tr><th colspan=2>:before Element Properties
+                $rows
+              </table>
+            "
+        }
         set after_tbl ""
         catch {
             set rows ""
@@ -405,6 +418,7 @@ snit::widget HtmlDebug {
             </table>
 
             $after_tbl
+            $before_tbl
 
             <table class=attributes>
                 <tr><th colspan=2>Attributes

@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.113 2006/11/09 13:11:54 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.114 2006/11/10 01:36:35 danielk1977 Exp $";
 
 
 #include "htmllayout.h"
@@ -925,11 +925,14 @@ tableDrawCells(pNode, col, colspan, row, rowspan, pContext)
     
     LOG {
         HtmlTree *pTree = pLayout->pTree;
-        HtmlLog(pTree, "LAYOUTENGINE", "%s tableDrawCells() "
-            "containing=%d actual=%d",
-            Tcl_GetString(HtmlNodeCommand(pTree, pNode)), 
-            pBox->iContaining, pBox->width
-        );
+        Tcl_Obj *pCmd = HtmlNodeCommand(pTree, pNode);
+        if (pCmd) {
+            HtmlLog(pTree, "LAYOUTENGINE", "%s tableDrawCells() "
+                "containing=%d actual=%d",
+                Tcl_GetString(pCmd),
+                pBox->iContaining, pBox->width
+            );
+        }
     }
 
     assert(row+rowspan < pData->nRow+1);
