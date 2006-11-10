@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.133 2006/11/10 13:07:26 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.134 2006/11/10 13:26:20 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -855,6 +855,7 @@ deleteWidget(clientData)
     HtmlComputedValuesCleanupTables(pTree);
 
     /* Delete the image-server */
+    HtmlImageServerDoGC(pTree);
     HtmlImageServerShutdown(pTree);
 
     /* Cancel any pending idle callback */
