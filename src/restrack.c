@@ -16,7 +16,7 @@
  *
  *-------------------------------------------------------------------------
  */
-static const char rcsid[] = "$Id: restrack.c,v 1.9 2006/10/31 07:13:33 danielk1977 Exp $";
+static const char rcsid[] = "$Id: restrack.c,v 1.10 2006/11/11 11:58:14 danielk1977 Exp $";
 
 #ifdef HTML_RES_DEBUG
 #define RES_DEBUG
@@ -340,7 +340,7 @@ freeMallocHash(p, nBytes)
     aData = Tcl_GetHashValue(pEntryMalloc);
     aData[0] -= 1;
     aData[1] -= nBytes;
-    assert((aData[0] == 0 && aData[1] == 0) || (aData[0] > 0 && aData[1] > 0));
+    assert((aData[0] == 0 && aData[1] == 0) || (aData[0] > 0 && aData[1] >= 0));
 
     if (aData[0] == 0) {
         Tcl_DeleteHashEntry(pEntryMalloc);

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.96 2006/11/11 10:26:36 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.97 2006/11/11 11:58:14 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -531,7 +531,7 @@ snit::widget ::hv3::browser_toplevel {
     $fdname configure -borderwidth 1 -relief raised
 
     # When the findwidget is destroyed, return focus to the html widget. 
-    bind $fdname <Escape> gui_escape
+    bind ${fdname}.entry <KeyPress-Escape> gui_escape
 
     ${fdname}.entry insert 0 $initval
     focus ${fdname}.entry
@@ -741,7 +741,7 @@ snit::type ::hv3::search {
     $fdname configure -borderwidth 1 -relief raised
 
     # Pressing <Escape> dismisses the search widget.
-    # bind $fdname <Escape>  [list destroy $fdname]
+    bind ${fdname}.entry <KeyPress-Escape> gui_escape
 
     ${fdname}.entry insert 0 $initval
     focus ${fdname}.entry
