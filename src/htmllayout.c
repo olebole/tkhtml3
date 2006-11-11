@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.232 2006/11/11 11:58:14 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.233 2006/11/11 12:14:49 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -1209,8 +1209,10 @@ markerBoxLayout(pLayout, pBox, pNode, pVerticalOffset)
         int iWidth = PIXELVAL_AUTO;
         int iHeight = PIXELVAL_AUTO;
         pImg = HtmlImageScale(pComputed->imListStyleImage, &iWidth, &iHeight,1);
-        /* voffset = iHeight; */
-        HtmlDrawImage(&pBox->vc, pImg, 0, 0, iWidth, iHeight, pNode, mmt);
+        /* voffset = iHeight * -1; */
+        HtmlDrawImage(
+            &pBox->vc, pImg, 0, -1 * iHeight, iWidth, iHeight, pNode, mmt
+        );
         HtmlImageFree(pImg);      /* Canvas has it's own reference */
         pBox->width = iWidth;
         pBox->height = iHeight;

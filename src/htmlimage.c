@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlimage.c,v 1.62 2006/11/11 11:58:14 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlimage.c,v 1.63 2006/11/11 12:14:49 danielk1977 Exp $";
 
 #include <assert.h>
 #include "html.h"
@@ -1007,9 +1007,6 @@ int HtmlImageServerCount(pTree)
 
     pEntry = Tcl_FirstHashEntry(&pTree->pImageServer->aImage, &srch);
     for ( ; pEntry; pEntry = Tcl_NextHashEntry(&srch)) {
-        HtmlImage2 *pImage = (HtmlImage2 *)Tcl_GetHashValue(pEntry);
-printf("%s\n", Tcl_GetHashKey(&pTree->pImageServer->aImage, pEntry));
-assert(0);
         nImage++;
     }
    
