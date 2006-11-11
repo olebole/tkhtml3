@@ -26,8 +26,7 @@ typedef struct NodeList NodeList;
  * TODO: It's tempting to combine this with HtmlTree. They are always 1-to-1.
  */
 struct LayoutContext {
-    HtmlTree *pTree;       /* The Html widget. */
-    HtmlNode *pTop;          /* Top level node rendered (<body>). */
+    HtmlTree *pTree;         /* The Html widget. */
     Tcl_Interp *interp;      /* The interpreter */
 
     HtmlComputedValues *pImplicitTableProperties;

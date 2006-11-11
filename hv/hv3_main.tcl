@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.95 2006/11/02 13:57:04 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.96 2006/11/11 10:26:36 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -449,7 +449,6 @@ snit::widget ::hv3::browser_toplevel {
 
     set HTML [[$frame hv3] html]
     bind $HTML <1>               [list focus %W]
-    bind $HTML <Escape>          [mymethod Escape]
     bind $HTML <KeyPress-slash>  [mymethod Find]
     bindtags $HTML [concat Hv3HotKeys $self [bindtags $HTML]]
   }
@@ -497,7 +496,7 @@ snit::widget ::hv3::browser_toplevel {
   #     This method is called when the <Escape> key sequence is seen.
   #     Get rid of the "find-text" widget, if it is currently visible.
   #
-  method Escape {} {
+  method escape {} {
     catch {
       destroy ${win}.findwidget
     }
@@ -532,7 +531,7 @@ snit::widget ::hv3::browser_toplevel {
     $fdname configure -borderwidth 1 -relief raised
 
     # When the findwidget is destroyed, return focus to the html widget. 
-    bind $fdname <Escape>  [list destroy $fdname]
+    bind $fdname <Escape> gui_escape
 
     ${fdname}.entry insert 0 $initval
     focus ${fdname}.entry
@@ -742,7 +741,7 @@ snit::type ::hv3::search {
     $fdname configure -borderwidth 1 -relief raised
 
     # Pressing <Escape> dismisses the search widget.
-    bind $fdname <Escape>  [list destroy $fdname]
+    # bind $fdname <Escape>  [list destroy $fdname]
 
     ${fdname}.entry insert 0 $initval
     focus ${fdname}.entry
@@ -979,7 +978,7 @@ proc gui_menu {widget_array} {
   # Add the 'File menu'
   .m add cascade -label {File} -menu [::hv3::menu .m.file] -underline 0
   foreach {label command key} [list \
-      "Open File..."  [list guiOpenFile $G(notebook)]            o \
+      "Open File..."  [list gui_openfile $G(notebook)]           o \
       "Open Tab"      [list $G(notebook) add]                    t \
       "Open Location" [list gui_openlocation $G(location_entry)] l \
   ] {
@@ -1088,6 +1087,10 @@ proc gui_switch {new} {
   # Set the top-level window title to the title of the new current tab.
   #
   wm title . [.notebook get_title $new]
+
+  # Focus on the root HTML widget of the new tab.
+  #
+  focus [[$new hv3] html]
 }
 
 proc gui_new {path args} {
@@ -1128,7 +1131,7 @@ proc gui_settitle {browser var args} {
 # option. It launches the standard Tcl file-selector GUI. If the user
 # selects a file, then the corresponding URI is passed to [.hv3 goto]
 #
-proc guiOpenFile {notebook} {
+proc gui_openfile {notebook} {
   set browser [$notebook current]
   set f [tk_getOpenFile -filetypes [list \
       {{Html Files} {.html}} \
@@ -1147,6 +1150,14 @@ proc gui_log_window {notebook} {
   set browser [$notebook current]
   ::hv3::log_window [[$browser hv3] html]
 }
+
+proc gui_escape {} {
+  upvar ::hv3::G G
+  gui_current escape
+  $G(location_entry) escape
+  focus [[gui_current hv3] html]
+}
+bind Hv3HotKeys <KeyPress-Escape> gui_escape
 
 # Override the [exit] command to check if the widget code leaked memory
 # or not before exiting.
@@ -1261,4 +1272,3 @@ set ::hv3::maindir [file dirname [info script]]
 eval [concat main $argv]
 
 #--------------------------------------------------------------------------
-

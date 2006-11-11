@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.175 2006/11/11 05:02:45 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.176 2006/11/11 10:26:36 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1657,7 +1657,7 @@ drawScrollbars(pTree, pItem, origin_x, origin_y)
  *---------------------------------------------------------------------------
  */
 static Outline* 
-drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview)
+drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview, noBorder)
     HtmlTree *pTree;
     CanvasBox *pBox;
     Drawable drawable;
@@ -1667,6 +1667,7 @@ drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview)
     int h;                 /* Total height of *pDrawable */
     int xview;             /* X-coord of drawable in viewport */
     int yview;             /* Y-coord of drawable in viewport */
+    int noBorder;          /* Do not draw any borders, just backgrounds */
 {
     HtmlComputedValues *pV = HtmlNodeComputedValues(pBox->pNode);
 
@@ -1691,8 +1692,6 @@ drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview)
 
     /* int isInline = (pV->eDisplay == CSS_CONST_INLINE); */
 
-    if (pBox->pNode == pTree->pBgRoot) return 0;
-
     if (pBox->flags & CANVAS_BOX_OPEN_LEFT) {
         lw = 0;
     }
@@ -1711,44 +1710,46 @@ drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview)
         );
     }
 
-    /* Top border */
-    if (tw > 0 && tc) {
-        fill_quad(pTree->tkwin, drawable, tc,
-            x + pBox->x, y + pBox->y,
-            lw, tw,
-            pBox->w - lw - rw, 0,
-            rw, -1 * tw
-        );
-    }
-
-    /* Left border, if required */
-    if (lw > 0 && lc) {
-        fill_quad(pTree->tkwin, drawable, lc,
-            x + pBox->x, y + pBox->y,
-            lw, tw,
-            0, pBox->h - tw - bw,
-            -1 * lw, bw
-        );
-    }
-
-    /* Bottom border, if required */
-    if (bw > 0 && bc) {
-        fill_quad(pTree->tkwin, drawable, bc,
-            x + pBox->x, y + pBox->y + pBox->h,
-            lw, - 1 * bw,
-            pBox->w - lw - rw, 0,
-            rw, bw
-        );
-    }
-
-    /* Right border, if required */
-    if (rw > 0 && rc) {
-        fill_quad(pTree->tkwin, drawable, rc,
-            x + pBox->x + pBox->w, y + pBox->y,
-            -1 * rw, tw,
-            0, pBox->h - tw - bw,
-            rw, bw
-        );
+    if (!noBorder) {
+        /* Top border */
+        if (tw > 0 && tc) {
+            fill_quad(pTree->tkwin, drawable, tc,
+                x + pBox->x, y + pBox->y,
+                lw, tw,
+                pBox->w - lw - rw, 0,
+                rw, -1 * tw
+            );
+        }
+    
+        /* Left border, if required */
+        if (lw > 0 && lc) {
+            fill_quad(pTree->tkwin, drawable, lc,
+                x + pBox->x, y + pBox->y,
+                lw, tw,
+                0, pBox->h - tw - bw,
+                -1 * lw, bw
+            );
+        }
+    
+        /* Bottom border, if required */
+        if (bw > 0 && bc) {
+            fill_quad(pTree->tkwin, drawable, bc,
+                x + pBox->x, y + pBox->y + pBox->h,
+                lw, - 1 * bw,
+                pBox->w - lw - rw, 0,
+                rw, bw
+            );
+        }
+    
+        /* Right border, if required */
+        if (rw > 0 && rc) {
+            fill_quad(pTree->tkwin, drawable, rc,
+                x + pBox->x + pBox->w, y + pBox->y,
+                -1 * rw, tw,
+                0, pBox->h - tw - bw,
+                rw, bw
+            );
+        }
     }
 
     /* Image background, if required and the generating node is not inline. 
@@ -2513,7 +2514,7 @@ pixmapQueryCb(pItem, origin_x, origin_y, pOverflow, clientData)
             Outline *p;
             int xv = pQuery->x - pQuery->pTree->iScrollX;
             int yv = pQuery->y - pQuery->pTree->iScrollY;
-            p = drawBox(pQuery->pTree,&pItem->x.box,drawable,x,y,w,h,xv,yv);
+            p = drawBox(pQuery->pTree,&pItem->x.box,drawable,x,y,w,h,xv,yv,0);
             if (p) {
                 p->pNext = pQuery->pOutline;
                 pQuery->pOutline = p;
@@ -2612,43 +2613,38 @@ getPixmap(pTree, xcanvas, ycanvas, w, h, getwin)
     Outline *pOutline;
     Overflow *pOverflow;
     ClientData clientData;
-
-    HtmlNode *pBgRoot = 0;
+    HtmlNode *pBgRoot;
 
     Tk_MakeWindowExist(win);
     pDisplay = Tk_Display(win);
     pmap = Tk_GetPixmap(pDisplay, Tk_WindowId(win), w, h, Tk_Depth(win));
 
-    /* Paint the canvas background on this pixmap. */
+    /* Determine which tree node (if any) determines the background
+     * color and image of the entire canvas.
+     */
     pBgRoot = pTree->pRoot;
     if (pBgRoot) {
         HtmlComputedValues *pV = HtmlNodeComputedValues(pBgRoot);
         if (!pV->cBackgroundColor->xcolor && !pV->imZoomedBackgroundImage) {
-            int i;
+            pBgRoot = HtmlNodeChild(pBgRoot, 1);
+        }
+        pV = HtmlNodeComputedValues(pBgRoot);
+        if (!pV->cBackgroundColor->xcolor && !pV->imZoomedBackgroundImage) {
             pBgRoot = 0;
-            for (i = 0; i < HtmlNodeNumChildren(pTree->pRoot); i++) {
-                HtmlNode *pChild = HtmlNodeChild(pTree->pRoot, i);
-                if (HtmlNodeTagType(pChild) == Html_BODY) {
-                    HtmlComputedValues *pV = HtmlNodeComputedValues(pChild);
-                    if (
-                        pV->cBackgroundColor->xcolor || 
-                        pV->imZoomedBackgroundImage
-                    ) {
-                        pBgRoot = pChild;
-                    }
-                    break;
-                }
-            }
-        } 
+        }
     }
-    pTree->pBgRoot = 0;
-    if (!pBgRoot||!HtmlNodeComputedValues(pBgRoot)->cBackgroundColor->xcolor) {
+
+    if (
+        !pBgRoot || 
+        !HtmlNodeComputedValues(pBgRoot)->cBackgroundColor->xcolor
+    ) {
         Tcl_HashEntry *pEntry;
         pEntry = Tcl_FindHashEntry(&pTree->aColor, "white");
         assert(pEntry);
         bg_color = ((HtmlColor *)Tcl_GetHashValue(pEntry))->xcolor;
         fill_quad(win, pmap, bg_color, 0, 0, w, 0, 0, h, -1 * w, 0);
     }
+
     if (pBgRoot) {
         CanvasBox sBox;
         int xv = xcanvas - pTree->iScrollX;
@@ -2657,9 +2653,8 @@ getPixmap(pTree, xcanvas, ycanvas, w, h, getwin)
         sBox.pNode = pBgRoot;
         sBox.w = MAX(Tk_Width(pTree->tkwin), pTree->canvas.right);
         sBox.h = MAX(Tk_Height(pTree->tkwin), pTree->canvas.bottom);
-        drawBox(pTree, &sBox, pmap, -1 * xcanvas, -1 * ycanvas, w, h, xv, yv);
+        drawBox(pTree, &sBox, pmap, -1*xcanvas, -1*ycanvas, w, h, xv, yv, 1);
     } 
-    pTree->pBgRoot = pBgRoot;
 
     sQuery.pTree = pTree;
     sQuery.pmap = pmap;

@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.230 2006/11/10 01:36:34 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.231 2006/11/11 10:26:36 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -2052,7 +2052,10 @@ wrapContent(pLayout, pBox, pContent, pNode)
         Tcl_DecrRefCount(pLog);
     }
 
-    if (pV->ePosition != CSS_CONST_STATIC && pLayout->pAbsolute) {
+    if (
+        (pV->ePosition != CSS_CONST_STATIC || pNode == pLayout->pTree->pRoot) &&
+        pLayout->pAbsolute
+    ) {
         BoxContext sAbsolute;
         int iLeftBorder = 0;
         int iTopBorder = 0;
@@ -3797,7 +3800,6 @@ HtmlLayout(pTree)
     HtmlNode *pBody = 0;
     int rc = TCL_OK;
     int nWidth;
-    BoxContext sBox;               /* The imaginary box <body> is inside */
     LayoutContext sLayout;
 
     /* Set variable nWidth to the pixel width of the viewport to render 
@@ -3823,10 +3825,6 @@ HtmlLayout(pTree)
     sLayout.pTree = pTree;
     sLayout.interp = pTree->interp;
 
-    /* Set up the box context object. */
-    memset(&sBox, 0, sizeof(BoxContext));
-    sBox.iContaining = nWidth;
-
 #ifdef LAYOUT_CACHE_DEBUG
     memset(aDebugUseCacheCond, 0, sizeof(int) * (LAYOUT_CACHE_N_USE_COND + 1));
     memset(aDebugStoreCacheCond, 0, sizeof(int)*(LAYOUT_CACHE_N_STORE_COND+1));
@@ -3839,32 +3837,26 @@ HtmlLayout(pTree)
      */
     pBody = pTree->pRoot;
     if (pBody) {
-        int x;
-        int y;
-
+        int y = 0;
         MarginProperties margin;
         BoxProperties box;
-        BoxContext sContent;
+
+        BoxContext sBox;
+        NormalFlow sNormal;
 
         nodeGetMargins(&sLayout, pBody, nWidth, &margin);
         nodeGetBoxProperties(&sLayout, pBody, nWidth, &box);
-        
-        memset(&sContent, 0, sizeof(BoxContext));
-        sContent.iContaining = sBox.iContaining - 
-            margin.margin_left - margin.margin_right - box.iLeft - box.iRight;
 
-        /* Figure out the minimum width */
-        /* blockMinMaxWidth(&sLayout, pBody, &minwidth, 0); */
-        /* sContent.iContaining = MAX(sContent.iContaining, minwidth); */
+        memset(&sBox, 0, sizeof(BoxContext));
+        memset(&sNormal, 0, sizeof(NormalFlow));
+        sNormal.pFloat = HtmlFloatListNew();
 
-        sLayout.pTop = pBody;
-        HtmlLayoutNodeContent(&sLayout, &sContent, pBody);
+        /* Layout content */
+        sBox.iContaining =  nWidth;
+        normalFlowLayoutBlock(&sLayout, &sBox, pBody, &y, 0, &sNormal);
 
-        x = margin.margin_left + box.iLeft;
-        y = margin.margin_top + box.iTop;
-
-        drawAbsolute(&sLayout, &sContent, &sContent.vc, -1 * x, -1 * y);
-        HtmlDrawCanvas(&pTree->canvas, &sContent.vc, x, y, pBody);
+        /* Borders for root element */
+        HtmlDrawCanvas(&pTree->canvas, &sBox.vc, 0, margin.margin_top, pBody);
 
         /* This loop takes care of nested "position:fixed" elements. */
         HtmlDrawAddMarker(&pTree->canvas, 0, 0, 1);
@@ -3892,12 +3884,8 @@ HtmlLayout(pTree)
          *
          * Example (november 2006): http://www.readwriteweb.com/
          */
-        pTree->canvas.right = MAX(
-            pTree->canvas.right,
-            margin.margin_left + box.iLeft + 
-            sContent.width + 
-            box.iRight + margin.margin_right
-        );
+        pTree->canvas.right = MAX(pTree->canvas.right, sBox.width);
+
 #if 0
 printf("c.b = %d ", pTree->canvas.bottom);
         pTree->canvas.bottom = MAX(0,
@@ -3909,9 +3897,7 @@ printf("final = %d\n", pTree->canvas.bottom);
 #endif
         pTree->canvas.bottom = MAX(
             pTree->canvas.bottom,
-            margin.margin_top + box.iTop + 
-            sContent.height + 
-            box.iBottom + margin.margin_bottom
+            margin.margin_top + sBox.height + margin.margin_bottom
         );
 #if 0
         pTree->canvas.right = MAX(0, 
@@ -3920,6 +3906,7 @@ printf("final = %d\n", pTree->canvas.bottom);
             box.iRight + margin.margin_right
         );
 #endif
+        HtmlFloatListDelete(sNormal.pFloat);
     }
 
 #ifdef LAYOUT_CACHE_DEBUG

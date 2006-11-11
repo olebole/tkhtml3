@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.134 2006/11/10 13:26:20 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.135 2006/11/11 10:26:37 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -1271,10 +1271,13 @@ resetCmd(clientData, interp, objc, objv)
     Tk_Window win = pTree->tkwin;
 
     HtmlTreeClear(pTree);
+
     HtmlImageServerDoGC(pTree);
     if (pTree->options.imagecache) {
         HtmlImageServerSuspendGC(pTree);
     }
+    assert(HtmlImageServerCount(pTree) == 0);
+
     HtmlCallbackScrollY(pTree, 0);
     HtmlCallbackScrollX(pTree, 0);
     HtmlCallbackDamage(pTree, 0, 0, Tk_Width(win), Tk_Height(win), 0);

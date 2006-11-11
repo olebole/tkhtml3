@@ -425,6 +425,7 @@ snit::widget ::hv3::locationentry {
     bind $myEntry <KeyPress>        +[mymethod KeyPress]
     bind $myEntry <KeyPress-Return> +[mymethod KeyPressReturn]
     bind $myEntry <KeyPress-Down>   +[mymethod KeyPressDown]
+    bind $myEntry <KeyPress-Escape> gui_escape
 
     $myListbox configure -listvariable [myvar myListboxVar]
     $myListbox configure -background white
@@ -566,6 +567,11 @@ snit::widget ::hv3::locationentry {
 
     place $myListbox -x $x -y $y -width $w
     raise $myListbox
+  }
+
+  method escape {} {
+    $self CloseDropdown
+    $self selection range 0 0
   }
 }
 

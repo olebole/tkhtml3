@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlimage.c,v 1.60 2006/10/31 07:13:32 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlimage.c,v 1.61 2006/11/11 10:26:36 danielk1977 Exp $";
 
 #include <assert.h>
 #include "html.h"
@@ -979,6 +979,38 @@ void HtmlImageServerDoGC(pTree)
             }
         } while (nDelete == 32);
     }
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlImageServerCount --
+ *
+ *     Return the number of images currently stored in the image-server.
+ *     Only images returned by the -imagecmd script are counted, not 
+ *     scaled or tiled copies thereof.
+ *
+ * Results:
+ *     Number of images.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+int HtmlImageServerCount(pTree)
+    HtmlTree *pTree;
+{
+    int nImage = 0;
+    Tcl_HashSearch srch;
+    Tcl_HashEntry *pEntry;
+
+    pEntry = Tcl_FirstHashEntry(&pTree->pImageServer->aImage, &srch);
+    for ( ; pEntry; pEntry = Tcl_NextHashEntry(&srch)) {
+        nImage++;
+    }
+   
+    return nImage;
 }
 
 /*

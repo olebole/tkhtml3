@@ -508,7 +508,6 @@ struct HtmlTree {
 
     HtmlNode *pCurrent;             /* The node currently being built. */
     HtmlNode *pRoot;                /* The root-node of the document. */
-    HtmlNode *pBgRoot;              /* The node for the canvas bg */
     int nFixedBackground;           /* Number of nodes with fixed backgrounds */
 
     /*
@@ -728,6 +727,7 @@ int HtmlImageAlphaChannel(HtmlTree *, HtmlImage2 *);
 
 void HtmlImageServerSuspendGC(HtmlTree *);
 void HtmlImageServerDoGC(HtmlTree *);
+int HtmlImageServerCount(HtmlTree *);
 
 void HtmlLayoutPaintNode(HtmlTree *, HtmlNode *);
 void HtmlLayoutInvalidateCache(HtmlTree *, HtmlNode *);

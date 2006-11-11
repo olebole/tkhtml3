@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.115 2006/11/09 15:11:54 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.116 2006/11/11 10:26:36 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -1243,6 +1243,12 @@ snit::widget ::hv3::hv3 {
     }  
     MakeRedirectable $handle
     $self makerequest $handle
+
+    # Grab the keyboard focus for this widget. This is so that after
+    # the form is submitted the arrow keys and PgUp/PgDown can be used
+    # to scroll the main display.
+    #
+    focus [$self html]
   }
 
   method seturi {uri} {
