@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.174 2006/11/10 01:36:34 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.175 2006/11/11 05:02:45 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -2038,13 +2038,19 @@ drawText(pTree, pItem, drawable, x, y)
      * Todo: There seems to be a bug in Tk_DrawChars triggered by
      * attempting to draw a string that lies wholly outside the drawable
      * region. So avoid this...
+     *
+     * Note: Have to test that pColor->xcolor is not NULL here in case
+     * the 'color' property has been explicitly set to "transparant" 
+     * (no kidding - http://www.economist.com).
      */ 
-    mask = GCForeground | GCFont;
-    gc_values.foreground = pColor->xcolor->pixel;
-    gc_values.font = Tk_FontId(font);
-    gc = Tk_GetGC(pTree->tkwin, mask, &gc_values);
-    Tk_DrawChars(disp, drawable, gc, font, z, n, pT->x + x, pT->y + y);
-    Tk_FreeGC(disp, gc);
+    if (pColor->xcolor) {
+        mask = GCForeground | GCFont;
+        gc_values.foreground = pColor->xcolor->pixel;
+        gc_values.font = Tk_FontId(font);
+        gc = Tk_GetGC(pTree->tkwin, mask, &gc_values);
+        Tk_DrawChars(disp, drawable, gc, font, z, n, pT->x + x, pT->y + y);
+        Tk_FreeGC(disp, gc);
+    }
 
     /* Now, if the associated node is a text node with one or more tags
      * applied to it, draw any tagged regions of text over the top of the

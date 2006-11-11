@@ -2,7 +2,7 @@
 #
 # Construct the web page for tkhtml
 #
-# @(#) $Id: mkwebpage.tcl,v 1.28 2006/08/07 12:49:07 danielk1977 Exp $
+# @(#) $Id: mkwebpage.tcl,v 1.29 2006/11/11 05:02:45 danielk1977 Exp $
 #
 
 source [file join [file dirname [info script]] common.tcl]
@@ -233,7 +233,7 @@ p {
 h 2 {Source Code}
 
 p {
-  The current release of Tkhtml 3.0 is "alpha release 8", available for
+  The current release of Tkhtml 3.0 is "alpha release 12", available for
   download <a href="tkhtml3-alpha-8.tar.gz">here</a>.
 }
 

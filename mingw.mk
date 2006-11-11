@@ -54,6 +54,10 @@ TCLSTUBSLIB += -LC:/Tcl/lib
 TCLSH = tclsh
 WISH = wish
 
+##### Strip the shared library
+#
+STRIP = i386-mingw32-strip
+
 MKSTARKIT = tclkit /home/dan/bin/sdx.kit wrap
 
 #

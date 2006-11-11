@@ -50,6 +50,7 @@ pkgIndex.tcl: $(SHARED_LIB)
 
 $(SHARED_LIB): $(OBJS)
 	$(MKSHLIB) $(OBJS) $(TCLSTUBSLIB) -o $@
+	$(STRIP) $(SHARED_LIB)
 
 %.o: $(TOP)/src/%.c $(HDR)
 	@echo '$$(COMPILE) -c $< -o $@'

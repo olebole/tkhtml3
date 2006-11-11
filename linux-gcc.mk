@@ -70,6 +70,11 @@ SHARED_LIB = $(SHARED_LIB_$(BUILD))
 #
 MKSHLIB = $(CC) -shared
 
+STRIP_RELEASE = strip
+STRIP_DEBUG = true
+STRIP_MEMDEBUG = $(STRIP_DEBUG)
+STRIP = $(STRIP_$(BUILD))
+
 ##### Commands to run tclsh and wish.
 #
 TCLSH = $(TCL)/bin/tclsh$(TCLVERSION)

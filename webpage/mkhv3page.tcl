@@ -92,7 +92,7 @@ puts [subst -novariables {
     The binaries currently offered were last updated at:
   </p>
 
-  <p> <b>TODO: FILL THIS IN BY HAND</b> </p>
+  <p> <b>[clock format [clock seconds]]</b>
 
   <p>
     Detailed version information for any hv3 build may be found by
