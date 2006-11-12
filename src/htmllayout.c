@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.233 2006/11/11 12:14:49 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.234 2006/11/12 08:11:59 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -2147,34 +2147,37 @@ normalFlowLayoutTable(pLayout, pBox, pNode, pY, pContext, pNormal)
     normalFlowMarginAdd(pLayout, pNode, pNormal, margin.margin_top);
     normalFlowMarginCollapse(pLayout, pNode, pNormal, pY);
 
-    /* Move down if the table cannot fit at the current Y coordinate due
-     * to floating boxes.
-     *
-     * Note: Passing 10000 as the required height means in some (fairly
-     * unlikely) circumstances the table will be placed lower in the flow
-     * than would have been necessary. But it's not that big of a deal.
-     */
-    blockMinMaxWidth(pLayout, pNode, &iMinWidth, &iMaxWidth);
-    *pY = HtmlFloatListPlace(pFloat, iContaining, iMPB + iMinWidth, 10000, *pY);
-    HtmlFloatListMargins(pFloat, *pY, *pY + 10000, &iLeftFloat, &iRightFloat);
-
     iWidth = PIXELVAL(
         HtmlNodeComputedValues(pNode), WIDTH,
         pLayout->minmaxTest ? PIXELVAL_AUTO : pBox->iContaining
     );
     if (iWidth == PIXELVAL_AUTO) {
+        /* Move down if the minimum rendered width of this  table cannot fit at
+         * the current Y coordinate due to floating boxes. Then we can
+         * figure out exactly how much room is available where the table
+         * will actually be drawn. Of course, this only matters if the table
+         * has 'width:auto'. Otherwise we'll go with the specified width
+         * regardless.
+         *
+         * Note: Passing 10000 as the required height means in some (fairly
+         * unlikely) circumstances the table will be placed lower in the flow
+         * than would have been necessary. But it's not that big of a deal.
+         */
+        blockMinMaxWidth(pLayout, pNode, &iMinWidth, &iMaxWidth);
+        *pY = HtmlFloatListPlace(pFloat,iContaining,iMPB+iMinWidth,10000,*pY);
+        HtmlFloatListMargins(pFloat, *pY, *pY+10000, &iLeftFloat, &iRightFloat);
         iCalcWidth = MIN(iMaxWidth, iRightFloat - iLeftFloat - iMPB);
     } else {
         /* Astonishingly, the 'width' property when applied to an element
 	 * with "display:table" includes the horizontal borders (but not the
 	 * margins). So subtract the border widths from iWidth here.
          * 
-	 * See section 17 of CSS 2.1. It's something to do with the table
+         * See section 17 of CSS 2.1. It's something to do with the table
          * element generating an anonymous block box wrapped around itself and
          * it's captions (we don't implement captions yet).
          *
          * Note that for a "display:table" element, all padding values are
-	 * automatically zero so we don't have to worry about that when using
+         * automatically zero so we don't have to worry about that when using
          * box.iLeft and box.iRight.
          */
         iCalcWidth = iWidth - iMPB;
@@ -2196,9 +2199,10 @@ normalFlowLayoutTable(pLayout, pBox, pNode, pY, pContext, pNormal)
     wrapContent(pLayout, &sBox, &sContent, pNode);
 
     y = HtmlFloatListPlace(
-            pFloat, pBox->iContaining, sBox.width, sBox.height, *pY
+        pFloat, pBox->iContaining, sBox.width, sBox.height, *pY
     );
     *pY = y + sBox.height;
+    HtmlFloatListMargins(pFloat, y, *pY, &iLeftFloat, &iRightFloat);
  
     if (pLayout->minmaxTest) {
         /* If this is a min-max size test, leave the table left-aligned. */
@@ -3163,6 +3167,11 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
             Tcl_GetString(pLog)
         );
 
+        HtmlFloatListLog(pTree, "Float list Before:", 
+            Tcl_GetString(HtmlNodeCommand(pTree, pNode)),
+            pNormal->pFloat
+        );
+
         Tcl_DecrRefCount(pLog);
     }
 
@@ -3853,6 +3862,7 @@ HtmlLayout(pTree)
         memset(&sBox, 0, sizeof(BoxContext));
         memset(&sNormal, 0, sizeof(NormalFlow));
         sNormal.pFloat = HtmlFloatListNew();
+        sNormal.isValid = 1;
 
         /* Layout content */
         sBox.iContaining =  nWidth;
