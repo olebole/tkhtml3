@@ -33,6 +33,7 @@
 
 #include <ctype.h>
 #include <assert.h>
+#include <stdlib.h>
 #include "html.h"
 
 #define ISNEWLINE(x) ((x) == '\n' || (x) == '\r')
@@ -555,6 +556,32 @@ static char acMsChar[] = {
 };
 #endif
 
+static int 
+translateNumericEscape(z, pI)
+    char *z;
+    int *pI;          /* IN/OUT: Index into string z */
+{
+    char *zLocal = &z[*pI];
+    int base = 10;
+    int iRet = 10;
+
+    if (*zLocal == 'x' || *zLocal == 'X') {
+        /* Hexadecimal number */
+        base = 16;
+        zLocal++;
+    }
+
+    iRet = strtol(zLocal, &zLocal, base);
+
+    /* Gobble up a trailing semi-colon */
+    if (*zLocal == ';') {
+        zLocal++;
+    }
+
+    *pI = (zLocal - z);
+    return iRet;
+}
+
 /* Translate escape sequences in the string "z".  "z" is overwritten
 ** with the translated sequence.
 **
@@ -587,14 +614,7 @@ HtmlTranslateEscapes(z)
         if (z[from] == '&') {
             if (z[from + 1] == '#') {
                 int i = from + 2;
-                int v = 0;
-                while (isdigit(z[i])) {
-                    v = v * 10 + z[i] - '0';
-                    i++;
-                }
-                if (z[i] == ';') {
-                    i++;
-                }
+                int v = translateNumericEscape(z, &i);
 
                 /*
                  * On Unix systems, translate the non-standard microsoft **

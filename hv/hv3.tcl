@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.117 2006/11/12 09:34:29 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.118 2006/11/13 05:01:44 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -881,7 +881,7 @@ snit::widget ::hv3::hv3 {
     # spaces translate to "%20". It's hard to know exactly what is the
     # right thing to do here...
     set uri [string trim $uri]
-    set uri [string map {" " %20} $uri]
+    set uri [string map {" " %20 | %7C} $uri]
 
     if {[string match replace:* $uri]} {
         set img [string range $uri 8 end]
