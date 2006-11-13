@@ -16,6 +16,10 @@ TABLE {
   text-align: left;
 }
 
+TABLE[align] {
+  text-align: left;
+}
+
 /* Vertical margins of <p> elements do not collapse against the top or
  * bottom of containing table cells.
  */
