@@ -436,5 +436,36 @@ tcltest::test style-9.4 {} -body {
   }
 } -result [list {p.eight color:GREEN}]
 
+
+#----------------------------------------------------------------------------
+# The following tests - style-10.* - test that the 'line-height' property
+# is parsed and applied to elements correctly.
+#
+tcltest::test style-10.1 {} -body {
+  .h reset
+  .h parse -final {
+    <html><head><style>
+
+      .one   { line-height: normal; }
+      .two   { line-height: 50%; font-size:20px; }
+      .three { line-height: 130px;  }
+      .four  { line-height: 2;  }
+      .five  { line-height: -10px; }    /* Negative values are illegal */
+
+    </style></head><body>
+    <div class=one></div>
+    <div class=two></div>
+    <div class=three></div>
+    <div class=four></div>
+    <div class=five></div>
+  }
+
+  set res [list]
+  foreach class [list .one .two .three .four .five] {
+    lappend res [[lindex [.h search $class] 0] property line-height]
+  }
+  set res
+} -result [list normal 10px 130px 2.00 normal]
+
 finish_test
 

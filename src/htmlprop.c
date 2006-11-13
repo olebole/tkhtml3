@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.103 2006/11/09 13:11:54 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.104 2006/11/13 06:25:53 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -683,10 +683,11 @@ propertyValuesObjLineHeight(p)
 {
     char zBuf[64];
     int iVal = p->iLineHeight;
-    if (p->mask & PROP_MASK_LINE_HEIGHT) {
-        sprintf(zBuf, "%.2f%%", ((double)iVal) / 100.0);
-    } else if (iVal == PIXELVAL_NORMAL) {
+    assert(0 == (p->mask & PROP_MASK_LINE_HEIGHT));
+    if (iVal == PIXELVAL_NORMAL) {
         sprintf(zBuf, "normal");
+    } else if (iVal < 0) {
+        sprintf(zBuf, "%.2f", (float)iVal * -0.01);
     } else {
         sprintf(zBuf, "%dpx", iVal);
     }
@@ -1585,7 +1586,7 @@ HtmlComputedValuesInit(pTree, pNode, pParent, p)
 
     /* Initialise the CUSTOM properties */
     pValues->eVerticalAlign = CSS_CONST_BASELINE;
-    pValues->iLineHeight    = PIXELVAL_NORMAL;
+    pValues->iLineHeight = PIXELVAL_NORMAL;
     propertyValuesSetFontSize(p, &Medium);
     p->fontKey.zFontFamily = "Helvetica";
 
