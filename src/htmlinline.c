@@ -33,7 +33,7 @@
  * 
  *     HtmlInlineContextIsEmpty()
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.36 2006/11/10 13:07:26 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.37 2006/11/13 12:44:48 danielk1977 Exp $";
 
 typedef struct InlineBox InlineBox;
 typedef struct InlineMetrics InlineMetrics;
@@ -1232,7 +1232,7 @@ HtmlInlineContextGetLineBox(pLayout, p, flags, pWidth, pCanvas, pVSpace,pAscent)
             InlineBorder *pTmp;
 
             pBorder = p->pBorders;
-            for (k=0; k<j-1; k++) {
+            for (k=0; k<j; k++) {
                 pBorder = pBorder->pNext;
             }
             assert(pBorder);
