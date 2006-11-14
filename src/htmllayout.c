@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.234 2006/11/12 08:11:59 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.235 2006/11/14 11:23:27 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -3867,9 +3867,13 @@ HtmlLayout(pTree)
         /* Layout content */
         sBox.iContaining =  nWidth;
         normalFlowLayoutBlock(&sLayout, &sBox, pBody, &y, 0, &sNormal);
+        normalFlowMarginCollapse(&sLayout, pBody, &sNormal, &sBox.height);
 
-        /* Borders for root element */
-        HtmlDrawCanvas(&pTree->canvas, &sBox.vc, 0, margin.margin_top, pBody);
+        /* Copy the content into the tree-canvas (the thing htmldraw.c 
+         * actually uses to draw the pretty pictures that were the point
+         * of all the shenanigans in this file).
+         */
+        HtmlDrawCanvas(&pTree->canvas, &sBox.vc, 0, 0, pBody);
 
         /* This loop takes care of nested "position:fixed" elements. */
         HtmlDrawAddMarker(&pTree->canvas, 0, 0, 1);
@@ -3898,6 +3902,7 @@ HtmlLayout(pTree)
          * Example (november 2006): http://www.readwriteweb.com/
          */
         pTree->canvas.right = MAX(pTree->canvas.right, sBox.width);
+        pTree->canvas.bottom = MAX(pTree->canvas.bottom, sBox.height);
 
 #if 0
 printf("c.b = %d ", pTree->canvas.bottom);
@@ -3908,10 +3913,6 @@ printf("c.b = %d ", pTree->canvas.bottom);
         );
 printf("final = %d\n", pTree->canvas.bottom);
 #endif
-        pTree->canvas.bottom = MAX(
-            pTree->canvas.bottom,
-            margin.margin_top + sBox.height + margin.margin_bottom
-        );
 #if 0
         pTree->canvas.right = MAX(0, 
             margin.margin_left + box.iLeft + 
