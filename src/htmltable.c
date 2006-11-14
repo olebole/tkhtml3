@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.114 2006/11/10 01:36:35 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.115 2006/11/14 12:52:39 danielk1977 Exp $";
 
 
 #include "htmllayout.h"
@@ -741,10 +741,23 @@ tableDrawRow(pNode, row, pContext)
 
     CHECK_INTEGER_PLAUSIBILITY(pData->pBox->vc.bottom);
     if (pElem && pElem->node.iNode >= 0 && pElem->pPropertyValues) {
+        int iHeight;
+
         int x1, y1, w1, h1;           /* Border coordinates */
         x1 = pData->border_spacing;
         y1 = pData->aY[row];
         h1 = pData->aY[nextrow] - pData->aY[row] - pData->border_spacing;
+
+	/* If we have a non-auto 'height' property on the table-row, then 
+         * use it as a minimum height. Such a 'height' does not include
+         * the border-spacing.
+         */
+        iHeight = PIXELVAL(pElem->pPropertyValues, HEIGHT, 0);
+        if (iHeight > h1) {
+            pData->aY[nextrow] += (iHeight - h1);
+            h1 = iHeight;
+        }
+
         w1 = 0;
         for (i=0; i<pData->nCol; i++) {
             w1 += pData->aWidth[i];
