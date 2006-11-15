@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.97 2006/11/01 10:53:46 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.98 2006/11/15 05:31:02 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -2003,7 +2003,7 @@ node_attr_usage:
                                     }
                                 }
                                 for (ii = 0; ii < nWhite; ii++) {
-                                    Tcl_AppendToObj(pRet, zWhite, nWhite);
+                                    Tcl_AppendToObj(pRet, zWhite, 1);
                                 }
                                 break;
                             }
