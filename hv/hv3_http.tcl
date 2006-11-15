@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.29 2006/11/02 13:57:04 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.30 2006/11/15 06:52:18 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd and -cancelrequestcmd
@@ -334,16 +334,25 @@ snit::type ::hv3::protocol {
       # Remove the entry from myWaitingHandles.
       set myWaitingHandles [lreplace $myWaitingHandles $idx $idx]
 
+      # If this header includes a Location field, then any cookies set
+      # by the header use the Location as the default path and host, not
+      # the actual URI. In either case, set local variable 
+      # $DefaultCookieUri to the URI that should be used to determine
+      # default path and host.
+      set DefaultCookieUri [$downloadHandle uri]
+      if {[set locidx [lsearch $state(meta) Location]] >= 0} {
+        set redirect [lindex $state(meta) [expr {$locidx+1}]]
+        set uri_obj [::hv3::uri %AUTO% [$downloadHandle uri]]
+        $uri_obj load $redirect
+        set DefaultCookieUri [$uri_obj get]
+        $uri_obj destroy
+      }
+
       foreach {name value} $state(meta) {
-#puts "HEADER: $name -> $value"
         switch -- $name {
-          Location {
-            set redirect $value
-            # puts "REDIRECT $value"
-          }
           Set-Cookie {
             regexp {^([^= ]*)=([^ ;]*)(.*)$} $value dummy name val cookie_av
-            $myCookieManager SetCookie [$downloadHandle uri] $value
+            $myCookieManager SetCookie $DefaultCookieUri $value
           }
           Content-Type {
             if {[set idx [string first ";" $value]] >= 0} {
