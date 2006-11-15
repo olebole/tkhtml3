@@ -244,7 +244,7 @@ snit::type ::hv3::cookiemanager {
     # Default values for "domain" and "path"
     set obj [::hv3::uri %AUTO% $uri]
     regexp {[^:]*} [$obj cget -authority] v(domain)
-    set  v(path) [$obj cget -path]
+    regexp {^.*/} [$obj cget -path] v(path)
     $obj destroy
 
     set  v(flag) TRUE

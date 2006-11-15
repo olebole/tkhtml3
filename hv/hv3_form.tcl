@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.38 2006/10/23 12:12:34 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.39 2006/11/15 10:09:54 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -616,6 +616,9 @@ snit::type ::hv3::form {
   variable myFormNode 
   variable myControls [list] 
 
+  # Subset of myControls storing all <input type=submit> controls
+  variable mySubmitControls [list]
+
   option -getcmd  -default ""
   option -postcmd -default ""
 
@@ -629,14 +632,31 @@ snit::type ::hv3::form {
     }
   }
 
-  method add_control {control} {
-    $control configure -submitcmd [mymethod submit]
+  method add_control {control isSubmit} {
+    $control configure -submitcmd [mymethod submit $control]
     lappend myControls $control
+    if {$isSubmit} {
+      lappend mySubmitControls $control
+    }
   }
 
-  method submit {} {
+  method submit {submitcontrol} {
     # puts "FORM SUBMIT:"
     set data [list]
+
+    if {
+        [lsearch $mySubmitControls $submitcontrol] < 0 &&
+        [llength $mySubmitControls] > 0
+    } {
+      foreach s $mySubmitControls {
+        if {[$s name] ne ""} {
+          lappend data [$s name]
+          lappend data 1
+          break;
+        }
+      }
+    }
+
     foreach control $myControls {
       set success [$control success]
       set name    [$control name]
@@ -779,6 +799,7 @@ snit::type ::hv3::formmanager {
   method control_handler {node} {
 
     set name [string map {: _} $node]
+    set isSubmit 0
   
     set tag  [$node tag]
     set type [$node attr -default "" type]
@@ -789,6 +810,7 @@ snit::type ::hv3::formmanager {
     } elseif {$tag eq "input" && $type eq "submit"} {
       set control [::hv3::clickcontrol %AUTO% $node]
       set myClickControls($node) $control
+      set isSubmit 1
     } else {
       set control [::hv3::control ${myHtml}.control_${name} $node]
     }
@@ -800,7 +822,7 @@ snit::type ::hv3::formmanager {
         $myForms($N) configure -getcmd $options(-getcmd)
         $myForms($N) configure -postcmd $options(-postcmd)
       }
-      $myForms($N) add_control $control
+      $myForms($N) add_control $control $isSubmit
     }
 
     $node replace $control                         \
