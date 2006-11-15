@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.104 2006/11/13 06:25:53 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.105 2006/11/15 14:24:47 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -959,6 +959,48 @@ propertyValuesSetEnum(p, pEVar, aOptions, pProp)
     return 1;
 }
 
+static void 
+decrementColorRef(pTree, pColor)
+    HtmlTree *pTree;
+    HtmlColor *pColor;
+{
+    pColor->nRef--;
+    assert(pColor->nRef >= 0);
+    if (pColor->nRef == 0) {
+        Tcl_HashEntry *pEntry;
+        pEntry = Tcl_FindHashEntry(&pTree->aColor, pColor->zColor);
+        Tcl_DeleteHashEntry(pEntry);
+        if (pColor->xcolor) {
+            Tk_FreeColor(pColor->xcolor);
+        }
+        HtmlFree(pColor);
+    }
+}
+
+#ifndef NDEBUG
+static int 
+dumpColorTable(pTree)
+    HtmlTree *pTree;
+{
+    Tcl_HashSearch search;
+    Tcl_HashEntry *pEntry;
+    int iRet = 0;
+    for (
+        pEntry = Tcl_FirstHashEntry(&pTree->aColor, &search);
+        pEntry;
+        pEntry = Tcl_NextHashEntry(&search)
+    ) {
+        HtmlColor *pColor = Tcl_GetHashValue(pEntry);
+        printf("%s -> {%s (%d) %p}\n", 
+            Tcl_GetHashKey(&pTree->aColor, pEntry), 
+            pColor->zColor, pColor->nRef, pColor->xcolor
+        );
+        iRet++;
+    }
+    return iRet;
+}
+#endif
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -1051,10 +1093,10 @@ propertyValuesSetColor(p, pCVar, pProp)
 
 setcolor_out:
     assert(cVal);
-    if (*pCVar) {
-        (*pCVar)->nRef--;
-    }
     cVal->nRef++;
+    if (*pCVar) {
+        decrementColorRef(pTree, *pCVar);
+    }
     *pCVar = cVal;
     return 0;
 }
@@ -2239,6 +2281,14 @@ HtmlComputedValuesFinish(p)
         pValues->cBorderBottomColor->nRef--;
         pValues->cBorderLeftColor->nRef--;
         pValues->cOutlineColor->nRef--;
+        assert(pValues->fFont->nRef > 0);
+        assert(pValues->cColor->nRef > 0);
+        assert(pValues->cBackgroundColor->nRef > 0);
+        assert(pValues->cBorderTopColor->nRef > 0);
+        assert(pValues->cBorderRightColor->nRef > 0);
+        assert(pValues->cBorderBottomColor->nRef > 0);
+        assert(pValues->cBorderLeftColor->nRef > 0);
+        assert(pValues->cOutlineColor->nRef > 0);
         HtmlImageFree(pValues->imReplacementImage);
         HtmlImageFree(pValues->imBackgroundImage);
         HtmlImageFree(pValues->imListStyleImage);
@@ -2291,24 +2341,6 @@ decrementFontRef(pTree, pFont)
         Tcl_DeleteHashEntry(pEntry);
         Tk_FreeFont(pFont->tkfont);
         HtmlFree(pFont);
-    }
-}
-
-static void 
-decrementColorRef(pTree, pColor)
-    HtmlTree *pTree;
-    HtmlColor *pColor;
-{
-    pColor->nRef--;
-    assert(pColor->nRef >= 0);
-    if (pColor->nRef == 0) {
-        Tcl_HashEntry *pEntry;
-        pEntry = Tcl_FindHashEntry(&pTree->aColor, pColor->zColor);
-        Tcl_DeleteHashEntry(pEntry);
-        if (pColor->xcolor) {
-            Tk_FreeColor(pColor->xcolor);
-        }
-        HtmlFree(pColor);
     }
 }
 
@@ -2502,6 +2534,15 @@ HtmlComputedValuesCleanupTables(pTree)
         pColor = (HtmlColor *)Tcl_GetHashValue(pEntry);
         decrementColorRef(pTree, pColor);
     }
+
+#ifndef NDEBUG
+    /* This code is to assert() that there are no stray entries left in
+     * the colors table. If there is, the restrack.c code would catch it
+     * eventually, but it's better to dump core here. Memory leaks make
+     * me look like a clown!
+     */
+    assert(dumpColorTable(pTree) == 0);
+#endif
 }
 
 static Tcl_Obj *

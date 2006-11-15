@@ -73,6 +73,7 @@ MKSHLIB = $(CC) -shared
 STRIP_RELEASE = strip
 STRIP_DEBUG = true
 STRIP_MEMDEBUG = $(STRIP_DEBUG)
+STRIP_PROFILE = $(STRIP_DEBUG)
 STRIP = $(STRIP_$(BUILD))
 
 ##### Commands to run tclsh and wish.
