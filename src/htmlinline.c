@@ -33,7 +33,7 @@
  * 
  *     HtmlInlineContextIsEmpty()
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.37 2006/11/13 12:44:48 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.38 2006/11/16 01:57:11 danielk1977 Exp $";
 
 typedef struct InlineBox InlineBox;
 typedef struct InlineMetrics InlineMetrics;
@@ -950,6 +950,7 @@ calculateLineBoxWidth(p, flags, iReqWidth, piWidth, pnBox, pHasText)
     *piWidth = iWidth;
     *pnBox = nBox;
     *pHasText = hasText;
+
     return ((nBox == 0) ? 0 : 1);
 }
 
@@ -1279,8 +1280,8 @@ HtmlInlineContextGetLineBox(pLayout, p, flags, pWidth, pCanvas, pVSpace,pAscent)
             } else {
                 p->iVAlign -= pBorder->iVerticalAlign;
                 p->pBorders = pBorder->pNext;
+                HtmlFree(pBorder);
             }
-            HtmlFree(pBorder);
         }
 
         x += pBox->nSpace;
@@ -1368,9 +1369,11 @@ HtmlInlineContextCleanup(pContext)
 {
     InlineBorder *pBorder;
 
-    if (pContext->aInline) {
-        HtmlFree(pContext->aInline);
-    }
+    /* There are no scenarios where an inline-context is discarded
+     * before all inline-boxes have been laid out into line-boxes. If
+     * there are, there will be memory leaks (of InlineBorder structs).
+     */
+    assert(pContext->nInline == 0);
     
     pBorder = pContext->pBoxBorders;
     while (pBorder) {
@@ -1384,6 +1387,10 @@ HtmlInlineContextCleanup(pContext)
         InlineBorder *pTmp = pBorder->pNext;
         HtmlFree(pBorder);
         pBorder = pTmp;
+    }
+
+    if (pContext->aInline) {
+        HtmlFree(pContext->aInline);
     }
 
     HtmlFree(pContext);
@@ -1642,6 +1649,11 @@ HtmlInlineContextAddBox(pContext, pNode, pCanvas, iWidth, iHeight, iOffset)
 
     CHECK_INTEGER_PLAUSIBILITY(ascent);
     CHECK_INTEGER_PLAUSIBILITY(descent);
+
+    if (iWidth == 0) {
+        HtmlDrawCleanup(pContext->pTree, pCanvas);
+        return;
+    }
 
     pBorder = HtmlNew(InlineBorder);
     pBorder->isReplaced = 1;
