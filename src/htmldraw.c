@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.176 2006/11/11 10:26:36 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.177 2006/11/17 15:55:37 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1643,6 +1643,9 @@ drawScrollbars(pTree, pItem, origin_x, origin_y)
     }
 }
 
+#define DRAWBOX_NOBORDER     0x00000001
+#define DRAWBOX_NOBACKGROUND 0x00000002
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -1657,7 +1660,7 @@ drawScrollbars(pTree, pItem, origin_x, origin_y)
  *---------------------------------------------------------------------------
  */
 static Outline* 
-drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview, noBorder)
+drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview, flags)
     HtmlTree *pTree;
     CanvasBox *pBox;
     Drawable drawable;
@@ -1667,7 +1670,7 @@ drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview, noBorder)
     int h;                 /* Total height of *pDrawable */
     int xview;             /* X-coord of drawable in viewport */
     int yview;             /* Y-coord of drawable in viewport */
-    int noBorder;          /* Do not draw any borders, just backgrounds */
+    int flags;             /* Combination of DRAWBOX_XXX flags */
 {
     HtmlComputedValues *pV = HtmlNodeComputedValues(pBox->pNode);
 
@@ -1700,7 +1703,7 @@ drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview, noBorder)
     }
 
     /* Solid background, if required */
-    if (pV->cBackgroundColor->xcolor) {
+    if (0 == (flags & DRAWBOX_NOBACKGROUND) && pV->cBackgroundColor->xcolor) {
         int boxw = pBox->w + MIN((x + pBox->x), 0);
         int boxh = pBox->h + MIN((y + pBox->y), 0);
         fill_rectangle(pTree->tkwin, 
@@ -1710,7 +1713,7 @@ drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview, noBorder)
         );
     }
 
-    if (!noBorder) {
+    if (0 == (flags & DRAWBOX_NOBORDER)) {
         /* Top border */
         if (tw > 0 && tc) {
             fill_quad(pTree->tkwin, drawable, tc,
@@ -1752,11 +1755,8 @@ drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview, noBorder)
         }
     }
 
-    /* Image background, if required and the generating node is not inline. 
-     * Tkhtml does not draw background images for inline nodes. That's Ok
-     * for now, because they're not terribly common.
-     */
-    if (/* !isInline && */ pV->imZoomedBackgroundImage) {
+    /* Image background, if required. */
+    if (0 == (flags & DRAWBOX_NOBACKGROUND) && pV->imZoomedBackgroundImage) {
         Tk_Image img;
         Pixmap ipix;
         GC gc;
@@ -2292,6 +2292,7 @@ searchSortedCanvas(pTree, ymin, ymax, pNode, xFunc, clientData)
 typedef struct GetPixmapQuery GetPixmapQuery;
 struct GetPixmapQuery {
     HtmlTree *pTree;
+    HtmlNode *pBgRoot;
     int x;
     int y;
     int w;
@@ -2514,7 +2515,9 @@ pixmapQueryCb(pItem, origin_x, origin_y, pOverflow, clientData)
             Outline *p;
             int xv = pQuery->x - pQuery->pTree->iScrollX;
             int yv = pQuery->y - pQuery->pTree->iScrollY;
-            p = drawBox(pQuery->pTree,&pItem->x.box,drawable,x,y,w,h,xv,yv,0);
+            int f = 0;
+            if (pQuery->pBgRoot == pItem->x.box.pNode) f = DRAWBOX_NOBACKGROUND;
+            p = drawBox(pQuery->pTree,&pItem->x.box,drawable,x,y,w,h,xv,yv,f);
             if (p) {
                 p->pNext = pQuery->pOutline;
                 pQuery->pOutline = p;
@@ -2653,10 +2656,14 @@ getPixmap(pTree, xcanvas, ycanvas, w, h, getwin)
         sBox.pNode = pBgRoot;
         sBox.w = MAX(Tk_Width(pTree->tkwin), pTree->canvas.right);
         sBox.h = MAX(Tk_Height(pTree->tkwin), pTree->canvas.bottom);
-        drawBox(pTree, &sBox, pmap, -1*xcanvas, -1*ycanvas, w, h, xv, yv, 1);
+        drawBox(
+            pTree, &sBox, pmap, -1*xcanvas, -1*ycanvas, 
+            w, h, xv, yv, DRAWBOX_NOBORDER
+        );
     } 
 
     sQuery.pTree = pTree;
+    sQuery.pBgRoot = pBgRoot;
     sQuery.pmap = pmap;
     sQuery.x = xcanvas;
     sQuery.y = ycanvas;
