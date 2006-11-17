@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.44 2006/11/10 01:36:34 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.45 2006/11/17 05:36:23 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_prop.tcl --
@@ -103,11 +103,6 @@ snit::widget HtmlDebug {
     set b [button [$mySearchHtml html].relayout]
     $b configure -text "Re-Render Document With Logging" 
     $b configure -command [mymethod rerender]
-    set b2 [button [$mySearchHtml html].outline]
-    $b2 configure -text "Add \":focus {outline: solid ...}\""
-    $b2 configure -command [list $myHtml style {
-      :focus {outline-style: solid; outline-color: blue ; outline-width: 1px}
-    }]
     set e [entry [$mySearchHtml html].search]
     bind $e <Return> [mymethod searchNode]
     $self searchNode
@@ -236,9 +231,8 @@ snit::widget HtmlDebug {
         </style>
       </head><body><center>
         <h1>Tkhtml Document Tree Browser</h1>
-        <span widget="relayout"></span>
-        <span widget="outline"></span>
         <p>
+          <span style="margin-right:20px" widget="relayout"></span>
           Search for node: <span widget="search"></span>
         </p>
         $search_results
@@ -332,7 +326,10 @@ snit::widget HtmlDebug {
     </html>
   }
 
-  catch {$mySelected dynamic clear focus}
+  catch {
+    $mySelected override {}
+  }
+
   if {$node != "" && [info commands $node] != ""} {
     # The second argument to this proc is a valid node.
     set mySelected $node
@@ -347,7 +344,9 @@ snit::widget HtmlDebug {
     set mySearchResults {}
   }
   set node $mySelected
-  catch {$mySelected dynamic set focus}
+  catch {
+    $mySelected override {outline-style solid outline-color blue outline-width 1px}
+  }
   if {$node eq ""} return ""
 
   set doc {}
