@@ -33,7 +33,7 @@
  * 
  *     HtmlInlineContextIsEmpty()
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.38 2006/11/16 01:57:11 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.39 2006/11/17 06:05:58 danielk1977 Exp $";
 
 typedef struct InlineBox InlineBox;
 typedef struct InlineMetrics InlineMetrics;
@@ -699,6 +699,8 @@ pLayout, pCanvas, pBorder, x1, x2, iVerticalOffset, drb, aRepX, nRepX)
 
     assert(pNode && pElem);
     assert(!pBorder->isReplaced);
+
+    if (pNode->iNode < 0) return;
 
     x1 += (dlb ? pBorder->margin.margin_left : 0);
     x2 -= (drb ? pBorder->margin.margin_right : 0);
