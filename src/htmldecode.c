@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmldecode.c,v 1.3 2006/11/17 14:13:30 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmldecode.c,v 1.4 2006/11/17 15:09:05 danielk1977 Exp $";
 
 
 #include "html.h"
@@ -241,7 +241,7 @@ HtmlEscapeUriComponent(clientData, interp, objc, objv)
 
     zCsr = (unsigned char *)Tcl_GetStringFromObj(pData, &nIn);
     zEnd = &zCsr[nIn];
-    zRes = (unsigned char *)HtmlAlloc("temp", nIn*3);
+    zRes = (unsigned char *)HtmlAlloc("temp", 1+(nIn*3));
     zOut = zRes;
     for ( ; zCsr < zEnd; zCsr++) {
         if (*zCsr == '%' && (zEnd - zCsr) >= 3) {
@@ -270,6 +270,7 @@ HtmlEscapeUriComponent(clientData, interp, objc, objv)
         }
     }
     *zOut = '\0';
+    assert((zOut - zRes) <= (1+(nIn*3)));
 
     Tcl_SetResult(interp, (char *)zRes, TCL_VOLATILE);
     HtmlFree(zRes);

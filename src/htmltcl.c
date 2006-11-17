@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.137 2006/11/17 14:13:30 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.138 2006/11/17 15:09:05 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -860,6 +860,10 @@ deleteWidget(clientData)
 
     /* Cancel any pending idle callback */
     Tcl_CancelIdleCall(callbackHandler, (ClientData)pTree);
+    if (pTree->delayToken) {
+        Tcl_DeleteTimerHandler(pTree->delayToken);
+    }
+    pTree->delayToken = 0;
 
     /* Delete the structure itself */
     HtmlFree(pTree);

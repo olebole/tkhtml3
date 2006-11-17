@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.119 2006/11/17 14:13:30 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.120 2006/11/17 15:09:05 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -282,8 +282,10 @@ snit::type ::hv3::uri {
   }
 
   method Escape {} {
-    set options(-path) [::tkhtml::escape_uri $options(-path)]
-    set options(-query) [::tkhtml::escape_uri -query $options(-query)]
+    if {[string match -nocase http* $options(-scheme)]} {
+      set options(-path) [::tkhtml::escape_uri $options(-path)]
+      set options(-query) [::tkhtml::escape_uri -query $options(-query)]
+    }
   }
 
   # Return the contents of the object formatted as a URI.
