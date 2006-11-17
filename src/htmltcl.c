@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.136 2006/11/17 05:36:23 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.137 2006/11/17 14:13:30 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -2281,6 +2281,16 @@ htmlDecodeCmd(clientData, interp, objc, objv)
     return HtmlDecode(clientData, interp, objc, objv);
 }
 
+static int 
+htmlEscapeCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    return HtmlEscapeUriComponent(clientData, interp, objc, objv);
+}
+
 
 /*
  * Define the DLL_EXPORT macro, which must be set to something or other in
@@ -2338,6 +2348,7 @@ DLL_EXPORT int Tkhtml_Init(interp)
     Tcl_CreateObjCommand(interp, "::tkhtml::htmlstyle", htmlstyleCmd, 0, 0);
     Tcl_CreateObjCommand(interp, "::tkhtml::version", htmlVersionCmd, 0, 0);
     Tcl_CreateObjCommand(interp, "::tkhtml::decode", htmlDecodeCmd, 0, 0);
+    Tcl_CreateObjCommand(interp, "::tkhtml::escape_uri", htmlEscapeCmd, 0, 0);
 
 #ifndef NDEBUG
     Tcl_CreateObjCommand(interp, "::tkhtml::htmlalloc", allocCmd, 0, 0);

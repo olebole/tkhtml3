@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmldecode.c,v 1.2 2006/10/27 06:40:32 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmldecode.c,v 1.3 2006/11/17 14:13:30 danielk1977 Exp $";
 
 
 #include "html.h"
@@ -188,6 +188,93 @@ HtmlDecode(clientData, interp, objc, objv)
     return TCL_OK;
 }
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlEscapeUriComponent --
+ *
+ *         ::tkhtml::escape_uri ?-query? STRING
+ *
+ * Results:
+ *     Returns the decoded data.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+int 
+HtmlEscapeUriComponent(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    unsigned char *zOut;
+    unsigned char *zRes;
 
+    unsigned char *zCsr;
+    unsigned char *zEnd;
+    int nIn;
+
+    Tcl_Obj *pData;
+    int isQuery;
+
+    int map[128] = { 
+        0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0, 0, 0,    /* 0   */
+        0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0, 0, 0,    /* 16  */
+        0, 1, 0, 0, 1, 0, 1, 1,   1, 1, 1, 1, 1, 1, 1, 1,    /* 32  */
+        1, 1, 1, 1, 1, 1, 1, 1,   1, 1, 1, 1, 0, 1, 0, 0,    /* 48  */
+
+        1, 1, 1, 1, 1, 1, 1, 1,   1, 1, 1, 1, 1, 1, 1, 1,    /* 64  */
+        1, 1, 1, 1, 1, 1, 1, 1,   1, 1, 1, 0, 0, 0, 0, 1,    /* 80  */
+        0, 1, 1, 1, 1, 1, 1, 1,   1, 1, 1, 1, 1, 1, 1, 1,    /* 96  */
+        1, 1, 1, 1, 1, 1, 1, 1,   1, 1, 1, 0, 0, 0, 1, 0     /* 112 */
+    };
+
+    if (objc != 3 && objc != 2) {
+        Tcl_WrongNumArgs(interp, 1, objv, "?-query? URI-COMPONENT");
+        return TCL_ERROR;
+    }
+    pData = objv[objc - 1];
+    isQuery = (objc == 3);
+
+    zCsr = (unsigned char *)Tcl_GetStringFromObj(pData, &nIn);
+    zEnd = &zCsr[nIn];
+    zRes = (unsigned char *)HtmlAlloc("temp", nIn*3);
+    zOut = zRes;
+    for ( ; zCsr < zEnd; zCsr++) {
+        if (*zCsr == '%' && (zEnd - zCsr) >= 3) {
+            *(zOut++) = zCsr[0];
+            *(zOut++) = zCsr[1];
+            *(zOut++) = zCsr[2];
+            zCsr += 2;
+        } else if (isQuery && *zCsr == '?') {
+            *(zOut++) = '?';
+        } else if (*zCsr < 128 && map[*zCsr]) {
+            *(zOut++) = zCsr[0];
+        } else {
+            int a = ((zCsr[0] & 0xF0) >> 4);
+            int b = (zCsr[0] & 0x0F);
+            *(zOut++) = '%';
+            if (a < 10) {
+                *(zOut++) = (unsigned char)a + '0';
+            } else {
+                *(zOut++) = (unsigned char)(a - 10) + 'A';
+            }
+            if (b < 10) {
+                *(zOut++) = (unsigned char)b + '0';
+            } else {
+                *(zOut++) = (unsigned char)(b - 10) + 'A';
+            }
+        }
+    }
+    *zOut = '\0';
+
+    Tcl_SetResult(interp, (char *)zRes, TCL_VOLATILE);
+    HtmlFree(zRes);
+
+    return TCL_OK;
+}
 
 

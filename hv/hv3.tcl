@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.118 2006/11/13 05:01:44 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.119 2006/11/17 14:13:30 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -278,6 +278,12 @@ snit::type ::hv3::uri {
       }
     }
     set options(-fragment) $Fragment
+    $self Escape
+  }
+
+  method Escape {} {
+    set options(-path) [::tkhtml::escape_uri $options(-path)]
+    set options(-query) [::tkhtml::escape_uri -query $options(-query)]
   }
 
   # Return the contents of the object formatted as a URI.
@@ -877,11 +883,8 @@ snit::widget ::hv3::hv3 {
   #
   method Imagecmd {uri} {
 
-    # Massage the URI a bit. Trim whitespace from either end, any internal
-    # spaces translate to "%20". It's hard to know exactly what is the
-    # right thing to do here...
+    # Massage the URI a bit. Trim whitespace from either end.
     set uri [string trim $uri]
-    set uri [string map {" " %20 | %7C} $uri]
 
     if {[string match replace:* $uri]} {
         set img [string range $uri 8 end]

@@ -604,6 +604,7 @@ Tcl_ObjCmdProc Rt_AllocCommand;
 
 Tcl_ObjCmdProc HtmlDebug;
 Tcl_ObjCmdProc HtmlDecode;
+Tcl_ObjCmdProc HtmlEscapeUriComponent;
 
 char *HtmlPropertyToString(CssProperty *, char **);
 
