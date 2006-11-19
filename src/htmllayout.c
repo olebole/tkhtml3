@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.235 2006/11/14 11:23:27 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.236 2006/11/19 07:07:52 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -2767,8 +2767,11 @@ normalFlowLayoutReplacedInline(pLayout, pBox, pNode, pY, pContext, pNormal)
     BoxContext sBox;
     HtmlCanvas canvas;
     int w, h;
+    int iOffset;
 
     MarginProperties margin;
+    BoxProperties box;
+    HtmlNodeReplacement *pReplace = HtmlNodeAsElement(pNode)->pReplacement;
 
     memset(&sBox, 0, sizeof(BoxContext));
     sBox.iContaining = pBox->iContaining;
@@ -2778,11 +2781,13 @@ normalFlowLayoutReplacedInline(pLayout, pBox, pNode, pY, pContext, pNormal)
      * inline context code. 
      */
     nodeGetMargins(pLayout, pNode, pBox->iContaining, &margin);
+    nodeGetBoxProperties(pLayout, pNode, pBox->iContaining, &box);
     h = sBox.height + margin.margin_top + margin.margin_bottom;
     w = sBox.width;
+    iOffset = box.iBottom + (pReplace ? pReplace->iOffset : 0);
     memset(&canvas, 0, sizeof(HtmlCanvas));
     DRAW_CANVAS(&canvas, &sBox.vc, 0, margin.margin_top, pNode);
-    HtmlInlineContextAddBox(pContext, pNode, &canvas, w, h, 0);
+    HtmlInlineContextAddBox(pContext, pNode, &canvas, w, h, iOffset);
 
     return 0;
 }
@@ -2892,6 +2897,8 @@ normalFlowLayoutInlineBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
 
     int w;                     /* Width of wrapped inline-block */
     int h;                     /* Height of wrapped inline-block */
+    int dummy;
+    int iLineBox;
 
     HtmlCanvas canvas;
 
@@ -2920,8 +2927,10 @@ normalFlowLayoutInlineBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
     DRAW_CANVAS(&canvas, &sBox2.vc, 0, margin.margin_top, pNode);
     w = sBox2.width;
     h = sBox2.height + margin.margin_top + margin.margin_bottom;
+    iLineBox = h;
+    HtmlDrawFindLinebox(&canvas, &dummy, &iLineBox);
 
-    HtmlInlineContextAddBox(pContext, pNode, &canvas, w, h, 0);
+    HtmlInlineContextAddBox(pContext, pNode, &canvas, w, h, h - iLineBox);
     return 0;
 }
 

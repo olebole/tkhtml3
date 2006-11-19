@@ -66,7 +66,7 @@
  * 
  *     HtmlInlineContextIsEmpty()
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.41 2006/11/19 04:24:18 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.42 2006/11/19 07:07:52 danielk1977 Exp $";
 
 /* The InlineBox and InlineMetrics types are only used within this file.
  * The InlineContext type is only used within this file, but opaque handles
@@ -1595,7 +1595,7 @@ HtmlInlineContextAddBox(pContext, pNode, pCanvas, iWidth, iHeight, iOffset)
     pBorder->isReplaced = 1;
     pBorder->pNode = pNode;
     pBorder->metrics.iLogical = iHeight;
-    pBorder->metrics.iBaseline = iHeight;
+    pBorder->metrics.iBaseline = iHeight - iOffset;
     pBorder->metrics.iFontBottom = iHeight;
     pBorder->metrics.iFontTop = 0;
 
