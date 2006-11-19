@@ -1,4 +1,37 @@
-
+/*
+ * htmlinline.c --
+ *
+ *--------------------------------------------------------------------------
+ * Copyright (c) 2005 Dan Kennedy.
+ * All rights reserved.
+ *
+ * This Open Source project was made possible through the financial support
+ * of Eolas Technologies Inc.
+ * 
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer in the
+ *       documentation and/or other materials provided with the distribution.
+ *     * Neither the name of Eolas Technologies Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived from
+ *       this software without specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ */
 #include "htmllayout.h"
 #include <stdio.h>
 #include <stdarg.h>
@@ -33,8 +66,12 @@
  * 
  *     HtmlInlineContextIsEmpty()
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.40 2006/11/17 06:08:13 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.41 2006/11/19 04:24:18 danielk1977 Exp $";
 
+/* The InlineBox and InlineMetrics types are only used within this file.
+ * The InlineContext type is only used within this file, but opaque handles
+ * are passed around by other layout code (htmllayout.c).
+ */
 typedef struct InlineBox InlineBox;
 typedef struct InlineMetrics InlineMetrics;
 
@@ -48,9 +85,6 @@ struct InlineMetrics {
   int iBaseline;          /* Distance to base-line */
   int iFontBottom;        /* Distance to bottom of font box */
   int iLogical;           /* Distance to bottom of logical box */
-};
-
-struct InlineContent {
 };
 
 /* Values for InlineBorder.eLineboxAlign */
@@ -79,9 +113,6 @@ struct InlineBorder {
   int iStartBox;              /* Leftmost inline-box */
   int iStartPixel;            /* Leftmost pixel of left margin */
   HtmlNode *pNode;            /* Document node that generated this border */
-
-  /* Todo: isParentBlock can be replaced by (InlineBorder.pParent==0) */
-  int isParentBlock;
 
   /* The following boolean is true if this InlineBorder structure is
    * only being used to align an inline replaced object. In this case,
@@ -112,9 +143,8 @@ struct InlineBox {
   int nRightPixels;           /* Total right width of borders that start here */
   int nContentPixels;         /* Width of content. */
 
-  int nAscentPixels;          /* Distance between baseline and content top */
-  int nDescentPixels;         /* Distance between baseline and content bottom */
-  int nEmPixels;              /* em pixels of the font, if any */
+  /* Applicable value of the 'white-space' property */
+  int eWhitespace;
 };
 
 /* Values for InlineBox.eType */
@@ -127,13 +157,8 @@ struct InlineContext {
     HtmlNode *pNode;        /* Pointer to the node that generated the context */
     int isSizeOnly;         /* Do not draw, just estimate sizes of things */
 
-    /* The effective values of 'text-align' and 'white-space' used for this
-     * inline context. The eWhite variable is a short-term solution, because
-     * as of CSS2, the 'white-space' property applies to inline elements as
-     * well as block.
-     */
+    /* The effective values of 'text-align' used for this inline context. */
     int eTextAlign;         /* One of TEXTALIGN_LEFT, TEXTALIGN_RIGHT etc. */
-    int eWhite;             /* One of WHITESPACE_PRE, WHITESPACE_NORMAL etc. */
 
     int iTextIndent;        /* Pixels of 'text-indent' for next line */
     int ignoreLineHeight;   /* Boolean - true to ignore lineHeight */
@@ -195,7 +220,6 @@ oprintf(Tcl_Obj *pObj, CONST char *zFormat, ...) {
  *     This function populates an InlineMetrics structure with the 
  *     vertical box-size metrics for the non-replaced inline element
  *     identified by pNode.
- *     
  *
  * Results:
  *     None.
@@ -545,51 +569,6 @@ inlineContextAddInlineCanvas(p, eType, pNode)
 /*
  *---------------------------------------------------------------------------
  *
- * inlineContextSetBoxDimensions --
- *
- *     This is used to set the effective size of the inline-box most
- *     recently added to this inline-context via AddInlineCanvas().
- *
- *     Inline-box dimensions are specified as three quantities, all in
- *     pixel units:
- *
- *         width:   Width of content.
- *         ascent:  Distance between top of content and the baseline.
- *         descent: Distance between bottom of content and the baseline.
- *
- *     The total height of the content is calculated as (ascent+descent).
- * 
- *     The point (0, 0) on the canvas is assumed to correspond to the
- *     far left edge of the content, right on the baseline vertically.
- *     
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-static void 
-inlineContextSetBoxDimensions(p, width, ascent, descent, em_pixels)
-    InlineContext *p;
-    int width;
-    int ascent;
-    int descent;
-    int em_pixels;
-{
-    InlineBox *pBox;
-    assert(p->nInline>0);
-    pBox = &p->aInline[p->nInline-1];
-    pBox->nContentPixels = width;
-    pBox->nAscentPixels = ascent;
-    pBox->nDescentPixels = descent;
-    pBox->nEmPixels = em_pixels;
-}
-
-/*
- *---------------------------------------------------------------------------
- *
  * inlineContextAddSpace --
  * 
  *     This function is used to add space generated by white-space
@@ -604,13 +583,14 @@ inlineContextSetBoxDimensions(p, width, ascent, descent, em_pixels)
  *---------------------------------------------------------------------------
  */
 static void 
-inlineContextAddSpace(p, nPixels)
+inlineContextAddSpace(p, nPixels, eWhitespace)
     InlineContext *p; 
     int nPixels;
+    int eWhitespace;
 {
-    if (p->nInline>0) {
+    if (p->nInline > 0) {
         InlineBox *pBox = &p->aInline[p->nInline - 1];
-        if (p->eWhite == CSS_CONST_PRE) {
+        if (eWhitespace == CSS_CONST_PRE) {
             pBox->nSpace += nPixels;
         } else {
             pBox->nSpace = MAX(nPixels, pBox->nSpace);
@@ -639,7 +619,6 @@ inlineContextAddNewLine(p, nHeight)
     InlineBox *pBox;
     inlineContextAddInlineCanvas(p, INLINE_NEWLINE, 0);
     pBox = &p->aInline[p->nInline - 1];
-    pBox->nEmPixels = nHeight;
 
     /* This inline-box is added only to account for space that may come
      * after the new line box.
@@ -847,101 +826,64 @@ calculateLineBoxWidth(p, flags, iReqWidth, piWidth, pnBox, pHasText)
      */
     for(ii = 0; ii < p->nInline; ii++) {
         InlineBox *pBox = &p->aInline[ii];
+        InlineBox *pPrevBox = ((ii == 0)?0:&p->aInline[ii - 1]);
+        InlineBox *pNextBox = ((ii == (p->nInline - 1))?0:&p->aInline[ii + 1]);
+
         int eType = pBox->eType;
-        int iBoxWidth = pBox->nContentPixels;
+        int iBoxW;                            /* Box width */
+
+        /* Determine the extra width required to add pBox to the line box. */
+        iBoxW = pBox->nContentPixels + pBox->nRightPixels + pBox->nLeftPixels;
+        if (pPrevBox) {
+            iBoxW += pPrevBox->nSpace;
+        }
+
+        if ((iWidth + iBoxW > iReqWidth) && (!isForceBox || nBox > 0)) { 
+            /* pBox will not fit on the line box. Break out of this loop. */
+            break;
+        }
+        iWidth += iBoxW;
 
         if (eType == INLINE_TEXT || eType == INLINE_NEWLINE) {
             hasText = 1;
         }
 
-        iBoxWidth += pBox->nRightPixels + pBox->nLeftPixels;
-        if(ii > 0) {
-            iBoxWidth += p->aInline[ii - 1].nSpace;
-        }
-        if (iWidth + iBoxWidth > iReqWidth && p->eWhite != CSS_CONST_NOWRAP) {
-            if ( 
-                ii < (p->nInline + 1) && 
-                p->aInline[ii + 1].eType == INLINE_NEWLINE
-            ) {
-                ii++;
-                hasText = 1;
-            }
-            break;
-        }
-        iWidth += iBoxWidth;
         if (pBox->eType == INLINE_NEWLINE) {
-            ii++;
-            hasText = 1;
+            nBox = ii + 1;
             break;
+        }
+
+        if (
+            pBox->eWhitespace == CSS_CONST_NORMAL || 
+            !pNextBox || 
+            pNextBox->eWhitespace == CSS_CONST_NORMAL
+        ) {
+            nBox = ii + 1;
         }
     }
-    nBox = ii;
 
-    if ((p->nInline == 0) || (!isForceLine && (nBox == p->nInline))) {
-        /* Either the inline context contains no inline-boxes or there are
-         * not enough to fill the line-box and the 'force-line' flag is not
-         * set. In this case return 0 and set *pWidth to 0 too.
-         *
-         * This also catches the case where 'white-space' is "nowrap". In
-         * that case, we only want to draw the line-box if the 'force-line'
-         * flag is set.
+    if (!isForceLine && (nBox == p->nInline)) {
+	/* There are not enough inline-boxes to fill the line-box and the
+         * 'force-line' flag is not set. In this case return 0 and set
+         * *pWidth to 0 too.
          */
         iWidth = 0;
         nBox = 0;
         goto exit_calculatewidth;
     }
 
-    if (nBox == 0) {
-        assert(p->nInline > 0 && p->aInline[0].eType != INLINE_NEWLINE);
-
-        if (isForceBox) {
-	    /* The first inline-box is too wide for the supplied width, but
-	     * the 'forcebox' flag is set so we have to lay out at least
-	     * one box. A gotcha is that we don't want to lay out our last
-	     * inline box unless the 'forceline' flag is set. We might need
-	     * it to help close an inline-border.
-             */
-            if (p->nInline > 1 || isForceLine) {
-                InlineBox *pBox = &p->aInline[0];
-                int iBoxWidth = pBox->nContentPixels;
-                iBoxWidth += pBox->nRightPixels + pBox->nLeftPixels;
-                assert(iBoxWidth > iReqWidth);
-
-                iWidth = iBoxWidth;
-                nBox = 1;
-                if (p->aInline[1].eType == INLINE_NEWLINE) {
-                    nBox++;
-                }
-
-            } else {
-                iWidth = 0;
-                nBox = 0;
-                goto exit_calculatewidth;
-            }
-        }
-    }
-
-    if (nBox == 0) {
+    assert(nBox > 0 || !isForceBox || p->nInline == 0);
+    if (nBox == 0 && p->nInline > 0) {
 	/* If we get here, then their are inline-boxes, but the first
          * of them is too wide for the width we've been offered and the
          * 'forcebox' flag is not true. Return zero, but set *pWidth to the
          * minimum width required before doing so.
          */
-        InlineBox *pBox = &p->aInline[0];
-        assert(p->nInline > 0 && pBox->eType != INLINE_NEWLINE);
-        iWidth = pBox->nContentPixels;
-        iWidth += pBox->nRightPixels + pBox->nLeftPixels;
-        goto exit_calculatewidth;
-    }
-
-    if (p->eWhite == CSS_CONST_NOWRAP && iWidth > iReqWidth && !isForceBox) {
-        /* If the 'white-space' property is set to "nowrap" and the linebox
-         * is wider than the allocated width, then only draw it if the
-         * 'forcebox' flag is true. Otherwise, give the caller the
-         * opportunity to shift the line-box vertically downwards to clear
-         * some floating margins.
-         */
-        nBox = 0;
+        assert(isForceBox == 0);
+        int dummy1;
+        int dummy2;
+        int flags = LINEBOX_FORCEBOX | LINEBOX_FORCELINE;
+        calculateLineBoxWidth(p, flags, 0, &iWidth, &dummy1, &dummy2);
         goto exit_calculatewidth;
     }
 
@@ -953,6 +895,7 @@ calculateLineBoxWidth(p, flags, iReqWidth, piWidth, pnBox, pHasText)
     *pnBox = nBox;
     *pHasText = hasText;
 
+    assert(nBox > 0 || iWidth > 0 || p->nInline == 0 || !isForceLine);
     return ((nBox == 0) ? 0 : 1);
 }
 
@@ -1451,12 +1394,7 @@ HtmlInlineContextNew(pTree, pNode, isSizeOnly, iTextIndent)
      *
      * all lines are centered. The style attribute of the <span> tag has no
      * effect on the layout.
-     *
-     * If the 'white-space' property is set to other than 'normal', then
-     * any specified value of 'text-align' is ignored and inline blocks
-     * are aligned against the left margin.
      */
-    pContext->eWhite = pValues->eWhitespace;
     pContext->eTextAlign = pValues->eTextAlign;
     if (isSizeOnly) { 
         pContext->eTextAlign = CSS_CONST_LEFT;
@@ -1483,12 +1421,10 @@ HtmlInlineContextNew(pTree, pNode, isSizeOnly, iTextIndent)
     pContext->isSizeOnly = isSizeOnly;
 
     START_LOG(pNode);
-        const char *zWhiteSpace = HtmlCssConstantToString(pContext->eWhite);
         const char *zTextAlign = HtmlCssConstantToString(pContext->eTextAlign);
 
         oprintf(pLog, "<p>Created a new inline context initialised with:</p>");
-        oprintf(pLog, "<ul><li>'white-space': %s", zWhiteSpace);
-        oprintf(pLog, "    <li>'text-align': %s", zTextAlign);
+        oprintf(pLog, "<ul><li>'text-align': %s", zTextAlign);
         oprintf(pLog, "    <li>'text-indent': %dpx", pContext->iTextIndent);
     END_LOG("HtmlInlineContextNew");
 
@@ -1521,6 +1457,7 @@ HtmlInlineContextAddText(pContext, pNode)
     XColor *color;                 /* Color to render in */
     HtmlFont *pFont;               /* Font to render in */
     Tk_Font tkfont;                /* Copy of pFont->tkfont */
+    int eWhitespace;               /* Value of 'white-space' property */
 
     int sw;                        /* Space-Width in pFont. */
     int nh;                        /* Newline-height in pFont */
@@ -1533,6 +1470,7 @@ HtmlInlineContextAddText(pContext, pNode)
     pValues = HtmlNodeComputedValues(pNode);
     assert(pValues);
     pFont = pValues->fFont;
+    eWhitespace = pValues->eWhitespace;
 
     tkfont = pFont->tkfont;
     color = pValues->cColor->xcolor;
@@ -1555,19 +1493,16 @@ HtmlInlineContextAddText(pContext, pNode)
             case HTML_TEXT_TOKEN_TEXT: {
                 Tcl_Obj *pText;
                 HtmlCanvas *p; 
+                InlineBox *pBox;
                 int tw;            /* Text width */
-                int ta;            /* Text ascent */
-                int td;            /* Text descent */
-                int tem;           /* Text em pixels */
-
                 int y;             /* Y-offset */
 
                 p = inlineContextAddInlineCanvas(pContext, INLINE_TEXT, pNode);
+
                 tw = Tk_TextWidth(tkfont, zData, nData);
-                ta = pFont->metrics.ascent;
-                td = pFont->metrics.descent;
-                tem = pFont->em_pixels;
-                inlineContextSetBoxDimensions(pContext, tw, ta, td, tem);
+                pBox = &pContext->aInline[pContext->nInline-1];
+                pBox->nContentPixels = tw;
+                pBox->eWhitespace = eWhitespace;
 
                 y = pContext->pCurrent->metrics.iBaseline;
 
@@ -1581,26 +1516,24 @@ HtmlInlineContextAddText(pContext, pNode)
                 break;
             }
 
-            case HTML_TEXT_TOKEN_SPACE: 
-            case HTML_TEXT_TOKEN_NEWLINE: {
+            case HTML_TEXT_TOKEN_NEWLINE:
+                if (eWhitespace == CSS_CONST_PRE) {
+                    inlineContextAddNewLine(pContext, nh);
+                    iIndex++;
+                    break;
+                }
+                /* Otherwise fall through */
+
+            case HTML_TEXT_TOKEN_SPACE: {
                 int i;
                 if (
-                    pContext->eWhite == CSS_CONST_PRE && 
-                    eType == HTML_TEXT_TOKEN_NEWLINE
+                    eWhitespace == CSS_CONST_PRE &&
+                    HtmlInlineContextIsEmpty(pContext)
                 ) {
-                    inlineContextAddNewLine(pContext, nh);
-                } else {
-                    if (
-                        pContext->eWhite == CSS_CONST_PRE &&
-                        HtmlInlineContextIsEmpty(pContext) &&
-                        eType != HTML_TEXT_TOKEN_NEWLINE
-                    ) {
-                        inlineContextAddInlineCanvas(pContext, INLINE_TEXT, 0);
-                        inlineContextSetBoxDimensions(pContext, 0, 0, 0, 0);
-                    }
-                    for (i = 0; i < nData; i++) {
-                        inlineContextAddSpace(pContext, sw);
-                    }
+                    inlineContextAddInlineCanvas(pContext, INLINE_TEXT, 0);
+                }
+                for (i = 0; i < nData; i++) {
+                    inlineContextAddSpace(pContext, sw, eWhitespace);
                 }
                 iIndex++;
                 break;
@@ -1645,12 +1578,13 @@ HtmlInlineContextAddBox(pContext, pNode, pCanvas, iWidth, iHeight, iOffset)
     int iOffset;
 {
     HtmlCanvas *pInline;
-    int ascent = -1 * iOffset;           /* Ascent of added box */
-    int descent = iHeight + iOffset;     /* Descent of added box */
     InlineBorder *pBorder;
+    InlineBox *pBox;
+    HtmlComputedValues *pComputed = HtmlNodeComputedValues(pNode);
 
-    CHECK_INTEGER_PLAUSIBILITY(ascent);
-    CHECK_INTEGER_PLAUSIBILITY(descent);
+    CHECK_INTEGER_PLAUSIBILITY(iOffset);
+    CHECK_INTEGER_PLAUSIBILITY(iHeight);
+    CHECK_INTEGER_PLAUSIBILITY(iWidth);
 
     if (iWidth == 0) {
         HtmlDrawCleanup(pContext->pTree, pCanvas);
@@ -1667,10 +1601,11 @@ HtmlInlineContextAddBox(pContext, pNode, pCanvas, iWidth, iHeight, iOffset)
 
     HtmlInlineContextPushBorder(pContext, pBorder);
     pInline = inlineContextAddInlineCanvas(pContext, INLINE_REPLACED, pNode);
+    pBox = &pContext->aInline[pContext->nInline-1];
+    pBox->nContentPixels = iWidth;
+    pBox->eWhitespace = pComputed->eWhitespace;
     DRAW_CANVAS(pInline, pCanvas, 0, 0, pNode);
     HtmlInlineContextPopBorder(pContext, pBorder);
-
-    inlineContextSetBoxDimensions(pContext, iWidth, ascent, descent, 0);
 }
 
 void 
@@ -1681,7 +1616,8 @@ HtmlInlineContextSetTextIndent(pContext, iTextIndent)
     pContext->iTextIndent = iTextIndent;
 }
 
-HtmlNode *HtmlInlineContextCreator(pContext)
+HtmlNode *
+HtmlInlineContextCreator(pContext)
     InlineContext *pContext;
 {
     return pContext->pNode;
