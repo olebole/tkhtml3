@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.105 2006/11/15 14:24:47 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.106 2006/11/20 13:58:03 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -964,16 +964,18 @@ decrementColorRef(pTree, pColor)
     HtmlTree *pTree;
     HtmlColor *pColor;
 {
-    pColor->nRef--;
-    assert(pColor->nRef >= 0);
-    if (pColor->nRef == 0) {
-        Tcl_HashEntry *pEntry;
-        pEntry = Tcl_FindHashEntry(&pTree->aColor, pColor->zColor);
-        Tcl_DeleteHashEntry(pEntry);
-        if (pColor->xcolor) {
-            Tk_FreeColor(pColor->xcolor);
+    if (pColor) {
+        pColor->nRef--;
+        assert(pColor->nRef >= 0);
+        if (pColor->nRef == 0) {
+            Tcl_HashEntry *pEntry;
+            pEntry = Tcl_FindHashEntry(&pTree->aColor, pColor->zColor);
+            Tcl_DeleteHashEntry(pEntry);
+            if (pColor->xcolor) {
+                Tk_FreeColor(pColor->xcolor);
+            }
+            HtmlFree(pColor);
         }
-        HtmlFree(pColor);
     }
 }
 
@@ -1589,58 +1591,74 @@ propertyValuesSetBorderWidth(p, pIVal, em_mask, pProp)
 /*
  *---------------------------------------------------------------------------
  *
- * HtmlComputedValuesInit --
+ * getPrototypeCreator --
  *   
- *     Initialise an HtmlComputedValuesCreator structure.
+ *     This function returns a pointer to an HtmlComputedValuesCreator
+ *     structure filled in with default values for each property. If there
+ *     is no parent node, then this structure contains the property
+ *     values for a node before considering any style rules.
+ *
+ *     If there is a parent node, then only the first *piCopyBytes bytes
+ *     of this structure should be copied to a new node. The other values
+ *     are inherited by default and should be copied from the parent node.
+ *     The bits in *pMask should be the only ones copied from the mask
+ *     of the returned Creator structure in this case.
  *
  * Results:
  *     None.
  *
  * Side effects:
- *     Initialises *p.
  *
  *---------------------------------------------------------------------------
  */
-void
-HtmlComputedValuesInit(pTree, pNode, pParent, p)
+static HtmlComputedValuesCreator *
+getPrototypeCreator(pTree, pMask, piCopyBytes)
     HtmlTree *pTree;
-    HtmlNode *pNode;                 /* Node to use for LOG blocks */
-    HtmlNode *pParent;               /* Node to inherit properties from */
-    HtmlComputedValuesCreator *p;
+    unsigned int *pMask;
+    int *piCopyBytes;
 {
-    static CssProperty Black       = {CSS_CONST_BLACK, {"black"}};
-    static CssProperty Medium      = {CSS_CONST_MEDIUM, {"medium"}};
-    static CssProperty Transparent = {CSS_CONST_TRANSPARENT, {"transparent"}};
-    static CssProperty Inherit     = {CSS_CONST_INHERIT, {"inherit"}};
+    static int sMask = 0;
+    static int sCopyBytes = sizeof(HtmlComputedValues);
 
-    int i;
+    if (0 == pTree->pPrototypeCreator) {
+        HtmlComputedValuesCreator *p;
+        static CssProperty Black   = {CSS_CONST_BLACK, {"black"}};
+        static CssProperty Medium  = {CSS_CONST_MEDIUM, {"medium"}};
+        static CssProperty Trans   = {CSS_CONST_TRANSPARENT, {"transparent"}};
+        HtmlComputedValues *pValues;
+        char *values;
+    
+        int i;
 
-    HtmlComputedValues *pValues = &p->values;
-    char *values = (char *)pValues;
+        getPropertyDef(CSS_PROPERTY_VERTICAL_ALIGN);
 
-    if (0 == pParent) {
-        pParent = HtmlNodeParent(pNode);
-    }
+        p = HtmlNew(HtmlComputedValuesCreator);
+        p->pTree = pTree;
+        pTree->pPrototypeCreator = p;
+        pValues = &p->values;
+        values = (char *)pValues;
 
-    memset(p, 0, sizeof(HtmlComputedValuesCreator));
-    p->pTree = pTree;
-    p->pParent = pParent;
+	/* Initialise the CUSTOM properties. Note that these are all 
+         * inherited.
+         */
+	pValues->eVerticalAlign = CSS_CONST_BASELINE;
+        pValues->iLineHeight = PIXELVAL_NORMAL;
+        propertyValuesSetFontSize(p, &Medium);
+        p->fontKey.zFontFamily = "Helvetica";
 
-    /* Initialise the CUSTOM properties */
-    pValues->eVerticalAlign = CSS_CONST_BASELINE;
-    pValues->iLineHeight = PIXELVAL_NORMAL;
-    propertyValuesSetFontSize(p, &Medium);
-    p->fontKey.zFontFamily = "Helvetica";
+        /* Initialise the 'color' and 'background-color' properties */
+        propertyValuesSetColor(p, &p->values.cColor, &Black);
+        propertyValuesSetColor(p, &p->values.cBackgroundColor, &Trans);
 
-    /* Initialise the 'color' and 'background-color' properties */
-    propertyValuesSetColor(p, &p->values.cColor, &Black);
-    propertyValuesSetColor(p, &p->values.cBackgroundColor, &Transparent);
+        for (i = 0; i < sizeof(propdef) / sizeof(PropertyDef); i++) {
+            PropertyDef *pDef = &propdef[i];
 
-    for (i = 0; i < sizeof(propdef) / sizeof(PropertyDef); i++) {
-        PropertyDef *pDef = &propdef[i];
-        if (pParent && pDef->isInherit) {
-            HtmlComputedValuesSet(p, pDef->eProp, &Inherit);
-        } else {
+            if (pDef->isInherit) {
+                sCopyBytes = MIN(sCopyBytes, pDef->iOffset);
+            } else {
+                sMask = (sMask & pDef->mask);
+            }
+
             switch (pDef->eType) {
                 case LENGTH:
                 case BORDERWIDTH: {
@@ -1664,9 +1682,87 @@ HtmlComputedValuesInit(pTree, pNode, pParent, p)
                     break;
             }
         }
+
+        assert(p->em_mask == 0);
+        assert(p->ex_mask == 0);
+        for (i = 0; i < sizeof(propdef) / sizeof(PropertyDef); i++) {
+            PropertyDef *pDef = &propdef[i];
+            assert(
+                (!pDef->isInherit && pDef->iOffset < sCopyBytes) ||
+                (pDef->isInherit && pDef->iOffset >= sCopyBytes) ||
+                pDef->eType == CUSTOM
+            );
+        }
     }
 
+
+    *piCopyBytes = sCopyBytes;
+    *pMask = sMask;
+    return pTree->pPrototypeCreator;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlComputedValuesInit --
+ *   
+ *     Initialise an HtmlComputedValuesCreator structure.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     Initialises *p.
+ *
+ *---------------------------------------------------------------------------
+ */
+void
+HtmlComputedValuesInit(pTree, pNode, pParent, p)
+    HtmlTree *pTree;
+    HtmlNode *pNode;                 /* Node to use for LOG blocks */
+    HtmlNode *pParent;               /* Node to inherit properties from */
+    HtmlComputedValuesCreator *p;
+{
+    HtmlComputedValues *pValues = &p->values;
+    char *values = (char *)pValues;
+
+    unsigned int iCopyMask = 0;
+    int iCopyBytes = 0;
+    HtmlComputedValuesCreator *pPrototype;
+
+    if (0 == pParent) {
+        pParent = HtmlNodeParent(pNode);
+    }
+
+    /* Copy non-inherited values from the prototype creator object. If
+     * there is no parent node, then this is all there is to do.
+     */
+    pPrototype = getPrototypeCreator(pTree, &iCopyMask, &iCopyBytes);
+    memcpy(p, pPrototype, sizeof(HtmlComputedValuesCreator));
+    p->pTree = pTree;
+    p->pParent = pParent;
     p->pNode = pNode;
+
+    /* Copy property values that are inherited by default from the 
+     * properties of the parent node, if there is one.
+     */
+    if (pParent) {
+        int nBytes = sizeof(HtmlComputedValues) - iCopyBytes;
+        char *pvalues = (char *)((HtmlElementNode *)pParent)->pPropertyValues;
+        HtmlComputedValues *pParentValues = (HtmlComputedValues *)pValues;
+        memcpy(&values[iCopyBytes], &pvalues[iCopyBytes], nBytes);
+        memcpy(&p->fontKey, pValues->fFont->pKey, sizeof(HtmlFontKey));
+        pValues->mask = 
+            (pValues->mask & iCopyMask) | (pParentValues->mask & !iCopyMask);
+    }
+
+    p->values.cColor->nRef++;
+    p->values.cBackgroundColor->nRef++;
+    assert(!p->values.cBorderTopColor);
+    assert(!p->values.cBorderRightColor);
+    assert(!p->values.cBorderBottomColor);
+    assert(!p->values.cBorderLeftColor);
+    assert(!p->values.cOutlineColor);
 }
 
 /*
@@ -2333,14 +2429,16 @@ decrementFontRef(pTree, pFont)
     HtmlTree *pTree;
     HtmlFont *pFont;
 {
-    pFont->nRef--;
-    assert(pFont->nRef >= 0);
-    if (pFont->nRef == 0) {
-        CONST char *pKey = (CONST char *)pFont->pKey;
-        Tcl_HashEntry *pEntry = Tcl_FindHashEntry(&pTree->aFont, pKey);
-        Tcl_DeleteHashEntry(pEntry);
-        Tk_FreeFont(pFont->tkfont);
-        HtmlFree(pFont);
+    if (pFont) {
+        pFont->nRef--;
+        assert(pFont->nRef >= 0);
+        if (pFont->nRef == 0) {
+            CONST char *pKey = (CONST char *)pFont->pKey;
+            Tcl_HashEntry *pEntry = Tcl_FindHashEntry(&pTree->aFont, pKey);
+            Tcl_DeleteHashEntry(pEntry);
+            Tk_FreeFont(pFont->tkfont);
+            HtmlFree(pFont);
+        }
     }
 }
 
@@ -2361,7 +2459,7 @@ HtmlComputedValuesRelease(pTree, pValues)
             Tcl_HashEntry *pEntry;
     
             pEntry = Tcl_FindHashEntry(&pTree->aValues, (CONST char *)pValues);
-            assert(pEntry);
+            assert(pValues == &pTree->pPrototypeCreator->values || pEntry);
     
             decrementFontRef(pTree, pValues->fFont);
             decrementColorRef(pTree, pValues->cColor);
@@ -2382,7 +2480,10 @@ HtmlComputedValuesRelease(pTree, pValues)
                 pTree->nFixedBackground--;
                 assert(pTree->nFixedBackground >= 0);
             }
-            Tcl_DeleteHashEntry(pEntry);
+
+            if (pEntry) {
+                Tcl_DeleteHashEntry(pEntry);
+            } 
         }
     }
 }
@@ -2526,6 +2627,13 @@ HtmlComputedValuesCleanupTables(pTree)
         "transparent",
         0
     };
+
+    if (pTree->pPrototypeCreator) {
+        pTree->pPrototypeCreator->values.nRef = 1;
+        HtmlComputedValuesRelease(pTree, &pTree->pPrototypeCreator->values);
+        HtmlFree(pTree->pPrototypeCreator);
+        pTree->pPrototypeCreator = 0;
+    }
 
     for (pzCursor = azColor; *pzCursor; pzCursor++) {
         HtmlColor *pColor;

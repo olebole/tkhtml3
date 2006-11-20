@@ -554,6 +554,8 @@ struct HtmlTree {
     Tcl_HashTable aFont;
     Tcl_HashTable aValues;
     Tcl_HashTable aImage;
+    HtmlComputedValuesCreator *pPrototypeCreator;
+
     int aFontSizeTable[7];
 
     /*

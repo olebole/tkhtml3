@@ -197,28 +197,14 @@ struct HtmlComputedValues {
     unsigned char ePosition;          /* 'position' */
     HtmlFourSides position;           /* (pixels, %, AUTO) */
 
-    HtmlColor *cColor;                /* 'color' */
     HtmlColor *cBackgroundColor;      /* 'background-color' */
 
-    unsigned char eListStyleType;     /* 'list-style-type' */
-    unsigned char eListStylePosition; /* 'list-style-position' */
-    HtmlImage2 *imListStyleImage;     /* 'list-style-image' */
-
-    /* 'font-size', 'font-family', 'font-style', 'font-weight' */
-    HtmlFont *fFont;
-
     unsigned char eTextDecoration;    /* 'text-decoration' */
-    unsigned char eWhitespace;        /* 'white-space' */
-    unsigned char eTextAlign;         /* 'text-align' */
-    int iTextIndent;                  /* 'text-indext' (pixels, %) */
 
     /* See above. iVerticalAlign is used only if (eVerticalAlign==0) */
     unsigned char eVerticalAlign;     /* 'vertical-align' */
     int iVerticalAlign;               /* 'vertical-align' (pixels) */
 
-    int iBorderSpacing;               /* 'border-spacing' (pixels)            */
-    HtmlFourSides border;             /* 'border-width'   (pixels)            */
-    int iLineHeight;                  /* 'line-height'    (pixels, %, NORMAL) */
     int iWidth;                       /* 'width'          (pixels, %, AUTO)   */
     int iMinWidth;                    /* 'min-width'      (pixels, %)         */
     int iMaxWidth;                    /* 'max-height'     (pixels, %, NONE)   */
@@ -228,6 +214,7 @@ struct HtmlComputedValues {
     HtmlFourSides padding;            /* 'padding'        (pixels, %)         */
     HtmlFourSides margin;             /* 'margin'         (pixels, %, AUTO)   */
 
+    HtmlFourSides border;             /* 'border-width'   (pixels)            */
     unsigned char eBorderTopStyle;    /* 'border-top-style' */
     unsigned char eBorderRightStyle;  /* 'border-right-style' */
     unsigned char eBorderBottomStyle; /* 'border-bottom-style' */
@@ -247,25 +234,40 @@ struct HtmlComputedValues {
     int iBackgroundPositionX;
     int iBackgroundPositionY;
 
+    unsigned char eOverflow;          /* 'overflow' */
 
     /* The Tkhtml specific properties */
     HtmlImage2 *imReplacementImage;   /* '-tkhtml-replacement-image' */
 
     /* Properties not yet in use - TODO! */
+    int iZIndex;                      /* 'z-index'        (integer, AUTO) */
+    unsigned char eUnicodeBidi;       /* 'unicode-bidi' */
+    unsigned char eTableLayout;       /* 'table-layout' */
+
+    /* 'font-size', 'font-family', 'font-style', 'font-weight' */
+    HtmlFont *fFont;
+
+    /* INHERITED PROPERTIES START HERE */
+    unsigned char eListStyleType;     /* 'list-style-type' */
+    unsigned char eListStylePosition; /* 'list-style-position' */
+    unsigned char eWhitespace;        /* 'white-space' */
+    unsigned char eTextAlign;         /* 'text-align' */
+    unsigned char eVisibility;        /* 'visibility' */
+    HtmlColor *cColor;                /* 'color' */
+    HtmlImage2 *imListStyleImage;     /* 'list-style-image' */
+    int iTextIndent;                  /* 'text-indext' (pixels, %) */
+    int iBorderSpacing;               /* 'border-spacing' (pixels)            */
+    int iLineHeight;                  /* 'line-height'    (pixels, %, NORMAL) */
+    unsigned char eFontVariant;       /* 'font-variant' */
+
+    /* Properties not yet in use - TODO! */
     int iWordSpacing;                 /* 'word-spacing'   (pixels, NORMAL) */
     int iLetterSpacing;               /* 'letter-spacing' (pixels, NORMAL) */
-    int iZIndex;                      /* 'z-index'        (integer, AUTO) */
-
-    unsigned char eFontVariant;       /* 'font-variant' */
     unsigned char eTextTransform;     /* 'text-transform' */
-    unsigned char eUnicodeBidi;       /* 'unicode-bidi' */
     unsigned char eDirection;         /* 'direction' */
-    unsigned char eOverflow;          /* 'overflow' */
-    unsigned char eVisibility;        /* 'visibility' */
     unsigned char eBorderCollapse;    /* 'border-collapse' */
     unsigned char eCaptionSide;       /* 'caption-side' */
     unsigned char eEmptyCells;        /* 'empty-cells' */
-    unsigned char eTableLayout;       /* 'table-layout' */
 };
 
 /*
@@ -276,6 +278,7 @@ struct HtmlComputedValues {
 struct HtmlComputedValuesCreator {
     HtmlComputedValues values;
     HtmlFontKey fontKey;
+
     HtmlTree *pTree;
     HtmlNode *pNode;                 /* Node to associate LOG with */
     HtmlNode *pParent;               /* Node to inherit from */

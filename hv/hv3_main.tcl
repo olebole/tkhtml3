@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.97 2006/11/11 11:58:14 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.98 2006/11/20 13:58:02 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -1206,7 +1206,7 @@ proc ::hv3::nOverflow {} {
 proc main {args} {
 
   # Default startup page is "home:///"
-  set doc ""
+  set docs [list]
 
   for {set ii 0} {$ii < [llength $args]} {incr ii} {
     set val [lindex $args $ii]
@@ -1217,14 +1217,13 @@ proc main {args} {
         set ::hv3::statefile [lindex $args $ii]
       }
       default {
-        if {$doc ne ""} ::hv3::usage
-        set doc $val
+        lappend docs $val
       }
     }
   }
 
-  if {$doc eq ""} {set doc home:///}
-  set ::hv3::homeuri $doc
+  if {[llength $docs] == 0} {set docs [list home:///]}
+  set ::hv3::homeuri [lindex $docs 0]
 
   # Build the GUI
   gui_build     ::hv3::G
@@ -1236,10 +1235,12 @@ proc main {args} {
   # After the event loop has run to create the GUI, run [main2]
   # to load the startup document. It's better if the GUI is created first,
   # because otherwise if an error occurs Tcl deems it to be fatal.
-  after idle [list main2 $doc]
+  after idle [list main2 $docs]
 }
-proc main2 {doc} {
-  set tab [$::hv3::G(notebook) add $doc]
+proc main2 {docs} {
+  foreach doc $docs {
+    set tab [$::hv3::G(notebook) add $doc]
+  }
   focus $tab
 }
 proc ::hv3::usage {} {
