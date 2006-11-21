@@ -292,6 +292,8 @@ snit::type ::hv3::cookiemanager {
       ::hv3::sqlitedb eval $sql
     } else {
       puts "::hv3::cookiemanager SetCookie - parse failed"
+      # puts $uri 
+      # puts $data
     }
   }
 

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.120 2006/11/17 15:09:05 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.121 2006/11/21 13:55:45 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -977,19 +977,23 @@ snit::widget ::hv3::hv3 {
 
     switch -- $httpequiv {
       refresh {
-        # Regular expression to parse content attribute:
-        set re {([[:digit:]]+) *; *[Uu][Rr][Ll] *= *([^ ]+)}
-        set match [regexp $re $content dummy seconds uri]
-        if {$match} {
-          regexp {[^\"\']+} $uri uri
-          if {$uri ne ""} {
-            after [expr $seconds * 1000] [list $self goto $uri]
-            #puts "Parse of content for http-equiv refresh successful! ($uri)"
-          }
-        } else {
-          #puts "Parse of content for http-equiv refresh failed..."
-        }
+        $self Refresh $content
       }
+    }
+  }
+
+  method Refresh {content} {
+    # Regular expression to parse content attribute:
+    set re {([[:digit:]]+) *; *[Uu][Rr][Ll] *= *([^ ]+)}
+    set match [regexp $re $content dummy seconds uri]
+    if {$match} {
+      regexp {[^\"\']+} $uri uri
+      if {$uri ne ""} {
+        after [expr $seconds * 1000] [list $self goto $uri]
+        puts "Parse of content for http-equiv refresh successful! ($uri)"
+      }
+    } else {
+      puts "Parse of content for http-equiv refresh failed..."
     }
   }
 
@@ -1225,6 +1229,10 @@ snit::widget ::hv3::hv3 {
     if {$final} {
       $myHtml parse -final {}
       $self goto_fragment
+      set refreshheader [$handle refresh]
+      if {$refreshheader ne ""} {
+        $self Refresh $refreshheader
+      }
     }
   }
 
@@ -1493,6 +1501,9 @@ snit::type ::hv3::download {
 
   variable myExpectedSize ""
 
+  # Contents of any "Refresh" header that came with this download.
+  variable myRefreshHeader ""
+
   option -linkedhandle -default ""
 
   option -incrscript   -default ""
@@ -1597,6 +1608,13 @@ snit::type ::hv3::download {
     set options(-uri) $new_uri
     set myData {}
     set options(-postdata) ""
+  }
+
+  method refresh {{content {}}} {
+    if {$content ne ""} {
+      set myRefreshHeader $content
+    }
+    return $myRefreshHeader
   }
 }
 #--------------------------------------------------------------------------

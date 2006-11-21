@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.31 2006/11/15 10:09:54 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.32 2006/11/21 13:55:45 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd and -cancelrequestcmd
@@ -338,6 +338,9 @@ snit::type ::hv3::protocol {
         switch -- $name {
           Location {
             set redirect $value
+          }
+          Refresh {
+            $downloadHandle refresh $value
           }
           Set-Cookie {
             regexp {^([^= ]*)=([^ ;]*)(.*)$} $value dummy name val cookie_av
