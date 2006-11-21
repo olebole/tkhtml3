@@ -88,7 +88,8 @@ P {
 	The tables in this section compare CSS property support in Tkhtml with
 	the <a href="http://www.w3.org/TR/CSS21/">CSS level 2.1</a>
 	specification. Property names in blue are supported, those in grey 
-	are unsupported.
+	are unsupported. Of course, there may be bugs in the support of
+	any or all of these. If you find a bug, <i>please report it</i>!
 </p>
 }
 
@@ -116,7 +117,7 @@ SUPPORTTABLE {Font Properties} \
 SUPPORTTABLE {Color and Background Properties} \
 	[CSSREF colors color] {} \
 	[CSSREF colors background-color] {} \
-	[CSSREF colors background-image] {Not supported on inline elements.} \
+	[CSSREF colors background-image] {} \
 	[CSSREF colors background-repeat] {} \
 	[CSSREF colors background-attachment] {} \
 	[CSSREF colors background-position] {} \
@@ -130,17 +131,13 @@ SUPPORTTABLE {Text Properties} \
 		(e.g. an underline and an overline) are not supported.
 	} \
 	[CSSREF text vertical-align] {
-		No support for the following values: 'middle', 'top', 'bottom', 
-		'text-top'or 'text-bottom'. Values 'baseline', 'sub' and 
-		'super', or any percentage or length work.
+		No support for the following values: 'top', 'bottom'.
+		All other symbolic values, percentages and lengths work.
         } \
 	[CSSREF text text-transform nosupport] {No support.} \
 	[CSSREF text text-align] {} \
 	[CSSREF text text-indent] {} \
-	[CSSREF text white-space] {
-		No support on inline elements (correct for CSS1, incorrect 
-		for later revisions).
-	}
+	[CSSREF text white-space] {}
 
 SUPPORTTABLE {Box Properties} \
 	[CSSREF box margin] {
@@ -175,20 +172,20 @@ SUPPORTTABLE {Visual Rendering Properties} \
 	[CSSREF visudet height] {} \
 	[CSSREF visuren float] {} \
 	[CSSREF visuren clear] {} \
-	[CSSREF visudet line-height] {Supported on block level elements only} \
-	[CSSREF visudet min-width nosupport] {No support.} \
-	[CSSREF visudet max-width nosupport] {No support.} \
-	[CSSREF visudet min-height nosupport] {No support.} \
-	[CSSREF visudet max-height nosupport] {No support.} \
+	[CSSREF visudet line-height] {Supported on block level elements only}  \
+	[CSSREF visudet min-width] {Support is a bit patchy. Most cases work.} \
+	[CSSREF visudet max-width] {Support is a bit patchy. Most cases work.} \
+	[CSSREF visudet min-height] {Support is a bit patchy. Most cases work.}\
+	[CSSREF visudet max-height] {Support is a bit patchy. Most cases work.}\
 	[CSSREF visuren position] {
 		Positioning modes 'static', 'relative', 'fixed' and 'absolute' 
 		are all supported.
         } \
-	[CSSREF visuren left] {} \
-	[CSSREF visuren right] {} \
-	[CSSREF visuren top] {} \
-	[CSSREF visuren bottom] {} \
-	[CSSREF visuren z-index nosupport] {No support.} \
+	[CSSREF visuren left] {}    \
+	[CSSREF visuren right] {}   \
+	[CSSREF visuren top] {}     \
+	[CSSREF visuren bottom] {}  \
+	[CSSREF visuren z-index] {} \
 	[CSSREF visuren unicode-bidi nosupport] {
 		Tkhtml does not yet support bi-directional text. So the
 		properties "unicode-bidi" and "direction" are both ignored.
@@ -196,9 +193,9 @@ SUPPORTTABLE {Visual Rendering Properties} \
 	[CSSREF visuren direction nosupport] {No support.}
 
 SUPPORTTABLE {Visual Effects Properties} \
-	[CSSREF visufx overflow nosupport] {No support.} \
+	[CSSREF visufx overflow] {} \
 	[CSSREF visufx clip nosupport] {No support.} \
-	[CSSREF visufx visibility nosupport] {No support.}
+	[CSSREF visufx visibility] {}
 
 SUPPORTTABLE {Table Properties} \
 	[CSSREF tables border-collapse nosupport] {No support.} \
@@ -209,17 +206,17 @@ SUPPORTTABLE {Table Properties} \
 
 SUPPORTTABLE {User Interface Properties} \
 	[CSSREF ui cursor nosupport] {No support.} \
-	[CSSREF ui outline nosupport] {No support.} \
-	[CSSREF ui outline-width nosupport] {No support.} \
-	[CSSREF ui outline-color nosupport] {No support.} \
-	[CSSREF ui outline-style nosupport] {No support.}
+	[CSSREF ui outline]        {} \
+	[CSSREF ui outline-width ] {} \
+	[CSSREF ui outline-color ] {} \
+	[CSSREF ui outline-style ] {}
 
 SUPPORTTABLE {Generated Content Properties}                         \
 	[CSSREF generate list-style-type] {}                        \
 	[CSSREF generate list-style-image] {}                       \
 	[CSSREF generate list-style-position] {}                    \
 	[CSSREF generate list-style] {}                             \
-	[CSSREF generate content nosupport] {No support.}           \
+	[CSSREF generate content] {String values only. }  \
 	[CSSREF generate counter-increment nosupport] {No support.} \
 	[CSSREF generate counter-reset nosupport] {No support.}     \
 	[CSSREF generate quotes nosupport] {No support.}
@@ -253,16 +250,13 @@ SECTION {CSS Selector Support}
 P {
 <p>
 	Essentially, all CSS 2.1 selectors are supported except for
-	pseudo-elements. Any declaration that includes any of the following is
-	ignored:
+	the following pseudo-elements:
 </p>
 <ul>
 	<li> :first-child
 	<li> :first-letter
 	<li> :first-line
 	<li> :lang
-	<li> :after
-	<li> :before
 </ul>
 }
 

@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.106 2006/11/20 13:58:03 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.107 2006/11/21 08:31:32 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1686,11 +1686,10 @@ getPrototypeCreator(pTree, pMask, piCopyBytes)
         assert(p->em_mask == 0);
         assert(p->ex_mask == 0);
         for (i = 0; i < sizeof(propdef) / sizeof(PropertyDef); i++) {
-            PropertyDef *pDef = &propdef[i];
             assert(
-                (!pDef->isInherit && pDef->iOffset < sCopyBytes) ||
-                (pDef->isInherit && pDef->iOffset >= sCopyBytes) ||
-                pDef->eType == CUSTOM
+                (!propdef[i].isInherit && propdef[i].iOffset < sCopyBytes) ||
+                (propdef[i].isInherit && propdef[i].iOffset >= sCopyBytes) ||
+                propdef[i].eType == CUSTOM
             );
         }
     }

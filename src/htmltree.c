@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.99 2006/11/17 05:36:23 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.100 2006/11/21 08:31:32 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -45,6 +45,7 @@ static const char rcsid[] = "$Id: htmltree.c,v 1.99 2006/11/17 05:36:23 danielk1
 
 #define NODE_EXT_IGNOREFORMS 0x00000001
 
+#if 0
 #define NODE_EXT_NUMCHILDREN 1
 #define NODE_EXT_CHILD       2
 
@@ -117,6 +118,7 @@ nodeChildExt(pNode, n, flags)
     HtmlWalkTree(0, pNode, extCb, &sContext);
     return (HtmlNode *)sContext.retval;
 }
+#endif
 
 static HtmlNode *
 nodeParentExt(pNode, flags)
@@ -205,62 +207,6 @@ moveToLeftSibling(pNode, pNewSibling)
     }
     assert(found);
     pNewParent->nChild++;
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * reworkTableNode --
- *
- *     Node *pNode is a <table> element. This function modifies the tree
- *     rooted at pNode so that the layout engine can handle the table 
- *     correctly.
- *
- *     The precise way in which this function manipulates the tree structure
- *     is documented as part of the "support.html" page of the website 
- *     (auto-generated from the webpage/mksupportpage.html file.
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     Modifies tree structure.
- *
- *---------------------------------------------------------------------------
- */
-static void
-reworkTableNode(pNode)
-    HtmlNode *pNode;
-{
-    int i;
-    int flags = NODE_EXT_IGNOREFORMS;
-
-    assert(HtmlNodeTagType(pNode) == Html_TABLE);
-
-    for (i = nodeNumChildrenExt(pNode, flags) - 1; i >= 0; i--) {
-        HtmlNode *pChild = nodeChildExt(pNode, i, flags);
-        int tag = HtmlNodeTagType(pChild);
-
-        if (tag == Html_TR) {
-            /* Any child of a <tr> that is not a <td> or <th> is 
-             * moved to become a left-hand sibling of the <table>.
-             */
-            int j;
-            for (j = nodeNumChildrenExt(pChild, flags) - 1; j >= 0; j--) {
-                HtmlNode *pGrandChild = nodeChildExt(pChild, j, flags);
-                int tag = HtmlNodeTagType(pGrandChild);
-                if (tag != Html_TD && tag != Html_TH) {
-                    moveToLeftSibling(pNode, pGrandChild);
-                }
-            }
-        } else {
-            /* Any child of the <table> element apart from <tr>, <td>, <th>
-             * is moved to become a left-hand sibling of the <table>.
-             */
-            assert(tag != Html_TD && tag != Html_TH);
-            moveToLeftSibling(pNode, pChild);
-        }
-    }
 }
 
 /*
@@ -642,19 +588,63 @@ nodeHandlerCallbacks(pTree, pNode)
     HtmlNode *pNode;
 {
     Tcl_HashEntry *pEntry;
-    int tag;
     Tcl_Interp *interp = pTree->interp;
+    int eTag = HtmlNodeTagType(pNode);
 
-    /* If the node is a <table> element, do the special processing before
-     * invoking any node-handler callback. Precisely why anyone would use
-     * a node-handler callback on a <table> element I'm not clear on.
+    assert(
+        (eTag != Html_TD && eTag != Html_TH) || (
+             HtmlNodeParent(pNode) && 
+             HtmlNodeTagType(HtmlNodeParent(pNode)) == Html_TR
+        )
+    );
+
+    /* Most immediate ancestor of pNode that is not a <form> element. */
+    HtmlNode *pNonFormParent;
+
+    /* Special processing for children and ancestors of <table> nodes. 
+     * See details in the support.html webpage. Briefly:
+     *
+     *     1. Children of <table> elements that are not <tr> nodes are
+     *        moved to become left-hand siblings of the <table> node.
+     *
+     *     2. Children of <tr> elements that are themselves children
+     *        of <table> elements that are not <th> or <td> nodes are
+     *        also moved to become left-hand siblings of the <table> 
+     *        node.
+     *
+     * The definition of "children" in the above two rules has a twist:
+     * <form> elements do not count. So the in the markup:
+     *
+     *     <table>
+     *         <form>
+     *             <form>
+     *                 <span>
+     *     </table>
+     *
+     * the <span> element is considered to be a child of the <table>.
      */
-    tag = HtmlNodeTagType(pNode);
-    if (tag == Html_TABLE) {
-      reworkTableNode(pNode);
+    for (
+        pNonFormParent = HtmlNodeParent(pNode);
+        pNonFormParent && HtmlNodeTagType(pNonFormParent) != Html_FORM;
+        pNonFormParent = HtmlNodeParent(pNonFormParent)
+    );
+    if (pNonFormParent) {
+        int ePTag = HtmlNodeTagType(pNonFormParent); 
+        if (ePTag == Html_TABLE && eTag != Html_TR) {
+            moveToLeftSibling(pNode, pNonFormParent);
+        } else if (ePTag == Html_TR && eTag != Html_TD && eTag != Html_TH) {
+            for (
+                pNonFormParent = HtmlNodeParent(pNonFormParent);
+                pNonFormParent && HtmlNodeTagType(pNonFormParent) != Html_FORM;
+                pNonFormParent = HtmlNodeParent(pNonFormParent)
+            );
+            if (pNonFormParent && HtmlNodeTagType(pNonFormParent)==Html_TABLE) {
+                moveToLeftSibling(pNode, pNonFormParent);
+            }
+        }
     }
 
-    pEntry = Tcl_FindHashEntry(&pTree->aNodeHandler, (char *)tag);
+    pEntry = Tcl_FindHashEntry(&pTree->aNodeHandler, (char *)eTag);
     if (pEntry) {
         Tcl_Obj *pEval;
         Tcl_Obj *pScript;
