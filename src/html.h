@@ -66,6 +66,7 @@
 #include <stdlib.h>
 
 #include "htmltokens.h"
+#include "htmlmacros.h"
 
 /*
  * Version information for the package mechanism.
@@ -630,7 +631,6 @@ void HtmlTreeFree(HtmlTree *p);
 int HtmlTreeClear(HtmlTree *);
 int         HtmlNodeNumChildren(HtmlNode *);
 HtmlNode *  HtmlNodeChild(HtmlNode *, int);
-HtmlComputedValues *HtmlNodeComputedValues(HtmlNode *);
 HtmlNode *  HtmlNodeBefore(HtmlNode *);
 HtmlNode *  HtmlNodeAfter(HtmlNode *);
 HtmlNode *  HtmlNodeRightSibling(HtmlNode *);
@@ -641,13 +641,9 @@ char CONST *HtmlNodeAttr(HtmlNode *, char CONST *);
 char *      HtmlNodeToString(HtmlNode *);
 HtmlNode *  HtmlNodeGetPointer(HtmlTree *, char CONST *);
 
-HtmlElementNode * HtmlNodeAsElement(HtmlNode *);
-HtmlTextNode * HtmlNodeAsText(HtmlNode *);
-
 int HtmlNodeAddChild(HtmlElementNode *, int, HtmlAttributes *);
 int HtmlNodeAddTextChild(HtmlNode *, HtmlTextNode *);
 
-int         HtmlNodeIsText(HtmlNode *);
 Html_u8     HtmlNodeTagType(HtmlNode *);
 int         HtmlNodeIsWhitespace(HtmlNode *);
 

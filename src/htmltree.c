@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.100 2006/11/21 08:31:32 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.101 2006/11/21 09:57:08 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -1373,6 +1373,7 @@ HtmlNodeBefore(pNode)
     return 0;
 }
 
+#if 0
 HtmlComputedValues * 
 HtmlNodeComputedValues(pNode)
     HtmlNode *pNode;
@@ -1385,6 +1386,7 @@ HtmlNodeComputedValues(pNode)
     }
     return 0;
 }
+#endif
 
 /*
  *---------------------------------------------------------------------------
@@ -1409,47 +1411,10 @@ HtmlNodeAfter(pNode)
     return 0;
 }
 
-/*
- *---------------------------------------------------------------------------
- *
- * HtmlNodeIsText --
- *
- *     Return non-zero if the node is a (possibly empty) text node, or zero
- *     otherwise.
- *
- * Results:
- *     Non-zero if the node is text, else zero.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-int 
-HtmlNodeIsText(pNode)
-    HtmlNode *pNode;
-{
-    return (pNode->eTag == Html_Text);
-}
-
-HtmlElementNode * 
-HtmlNodeAsElement(pNode)
-    HtmlNode *pNode;
-{
-    return ((pNode->eTag == Html_Text) ? 0 : (HtmlElementNode *)pNode);
-}
-HtmlTextNode * 
-HtmlNodeAsText(pNode)
-    HtmlNode *pNode;
-{
-    return ((pNode->eTag == Html_Text) ? (HtmlTextNode *)pNode : 0);
-}
-
 int 
 HtmlNodeIsWhitespace(pNode)
     HtmlNode *pNode;
 {
-    
     if (pNode->eTag == Html_Text) {
         HtmlTextIter sIter;
         HtmlTextIterFirst((HtmlTextNode *)pNode, &sIter);
