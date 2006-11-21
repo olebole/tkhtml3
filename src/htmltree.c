@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.101 2006/11/21 09:57:08 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.102 2006/11/21 12:03:29 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -1533,27 +1533,6 @@ HtmlNode *HtmlNodeLeftSibling(pNode)
         assert(pNode == pParent->apChildren[0]);
     }
     return 0;
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * HtmlNodeParent --
- *
- *     Get the parent of the current node.
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-HtmlNode *HtmlNodeParent(pNode)
-    HtmlNode *pNode;
-{
-    return pNode?pNode->pParent:0;
 }
 
 /*

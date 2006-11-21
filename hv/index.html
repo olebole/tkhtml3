@@ -35,9 +35,12 @@
           right: 2ex;
       }
 
-      .content :link { color: blue; }
-      .content :link:hover,:visited:hover { text-decoration: underline }
-      .content :link,:visited { text-decoration: none }
+      .content :link    { color: blue; }
+      .content :visited { color: purple; }
+      .content :link, .content :visited { text-decoration: none }
+      .content :link:hover, .content :visited:hover { 
+           text-decoration: underline 
+      }
 
       .links {
         background: white;

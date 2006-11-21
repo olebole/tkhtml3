@@ -125,4 +125,22 @@
         ((HtmlElementNode *)(pNode))->pPropertyValues                   \
     )
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlNodeParent --
+ *
+ *     Get the parent of the current node.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+#define HtmlNodeParent(pNode) \
+    ((pNode)->pParent)
+
 #endif

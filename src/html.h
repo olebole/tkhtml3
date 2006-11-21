@@ -635,7 +635,6 @@ HtmlNode *  HtmlNodeBefore(HtmlNode *);
 HtmlNode *  HtmlNodeAfter(HtmlNode *);
 HtmlNode *  HtmlNodeRightSibling(HtmlNode *);
 HtmlNode *  HtmlNodeLeftSibling(HtmlNode *);
-HtmlNode *  HtmlNodeParent(HtmlNode *);
 char CONST *HtmlNodeTagName(HtmlNode *);
 char CONST *HtmlNodeAttr(HtmlNode *, char CONST *);
 char *      HtmlNodeToString(HtmlNode *);
