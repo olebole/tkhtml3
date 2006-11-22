@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.99 2006/11/22 11:44:19 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.100 2006/11/22 12:42:41 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -461,15 +461,14 @@ snit::widget ::hv3::browser_toplevel {
     # Create a GUI to handle this download
     set dler [::hv3::filedownload %AUTO%                \
         -source    [$handle cget -uri]                  \
-        -size      [$handle cget -expectedsize]        \
         -cancelcmd [list catch [list $handle fail]]     \
     ]
     ::hv3::the_download_manager show
 
     # Redirect the -incrscript and -finscript commands to the download GUI.
-    $handle configure -finscript [list $dler finish]
-    $handle configure -incrscript [list $dler append]
-    $dler append $data
+    $handle configure -finscript  [list $dler finish $handle]
+    $handle configure -incrscript [list $dler append $handle]
+    $dler append $handle $data
 
     # Pop up a GUI to select a "Save as..." filename. Schedule this as 
     # a background job to avoid any recursive entry to our event handles.

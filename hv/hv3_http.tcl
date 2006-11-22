@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.34 2006/11/22 11:44:18 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.35 2006/11/22 12:42:41 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd script used with 
@@ -378,7 +378,6 @@ snit::type ::hv3::protocol {
 #     Option        Default   Summary
 #     -------------------------------------
 #     -source       ""        Source of download (for display only)
-#     -size         ""        Expected size in bytes
 #     -cancelcmd    ""        Script to invoke to cancel the download
 #
 snit::type ::hv3::filedownload {
@@ -413,12 +412,14 @@ snit::type ::hv3::filedownload {
   variable myIsFinished 0
 
   option -source    -default ""
-  option -size      -default ""
   option -cancelcmd -default ""
   option -updateguicmd -default ""
 
   # Total bytes downloaded so far.
   variable myDownloaded 0
+
+  # Total bytes expected (i.e. size of the download)
+  variable myExpected 0
 
   constructor {args} {
     $self configurelist $args
@@ -478,7 +479,8 @@ snit::type ::hv3::filedownload {
     }
   }
 
-  method append {data} {
+  method append {handle data} {
+    set myExpected [$handle cget -expectedsize]
     if {$myChannel ne ""} {
       puts -nonewline $myChannel $data
       set myDownloaded [file size $myDestination]
@@ -492,8 +494,8 @@ snit::type ::hv3::filedownload {
   # Called by the driver download-handle when the download is 
   # complete. All the data will have been already passed to [append].
   #
-  method finish {data} {
-    $self append $data
+  method finish {handle data} {
+    $self append $handle $data
 
     # If the channel is open, close it. Also set the button to say "Ok".
     if {$myChannel ne ""} {
@@ -529,8 +531,13 @@ snit::type ::hv3::filedownload {
   }
   method percentage {} {
     if {$myIsFinished} {return 100}
-    if {$options(-size) eq ""} {return 50}
-    return [expr double($myDownloaded) / double($options(-size)) * 100]
+    if {$myExpected eq "" || $myExpected == 0} {
+      return [expr {$myDownloaded > 0 ? 50 : 0}]
+    }
+    return [expr double($myDownloaded) / double($myExpected) * 100]
+  }
+  method bytes {} {
+    return $myDownloaded
   }
   method source {} {
     return $options(-source)
@@ -611,7 +618,12 @@ snit::type ::hv3::downloadmanager {
         set search "#$id .status span"
         foreach N [$hv3 search $search] { 
           set percent [format %.2f%s [$filedownload percentage] %]
-          $N attr spancontent "[$filedownload state] ($percent)"
+          set bytes [$filedownload bytes]
+          switch -- [$filedownload state] {
+            Downloading { set status "Downloaded $bytes bytes ($percent)" }
+            Finished    { set status "Finished ($bytes bytes)" }
+          }
+          $N attr spancontent $status
         }
       }
     }
@@ -621,7 +633,7 @@ snit::type ::hv3::downloadmanager {
 
     set uri [$handle cget -uri]
     if {[regexp {.*delete=([^=&]*)} $uri -> delete]} {
-      set dl [string map {_ :} $delete]
+      set dl [string map {__ ::} $delete]
       set newlist [list]
       foreach download $myDownloads {
         if {$download ne $dl} {lappend newlist $download}
