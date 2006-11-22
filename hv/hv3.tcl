@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.121 2006/11/21 13:55:45 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.122 2006/11/22 07:34:24 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -147,6 +147,7 @@ source [file join [file dirname [info script]] hv3_form.tcl]
 source [file join [file dirname [info script]] hv3_widgets.tcl]
 source [file join [file dirname [info script]] hv3_object.tcl]
 source [file join [file dirname [info script]] hv3_doctype.tcl]
+source [file join [file dirname [info script]] hv3_request.tcl]
 
 proc assert {expr} {
   if { 0 == [uplevel [list expr $expr]] } {
@@ -714,6 +715,24 @@ snit::widget ::hv3::hv3 {
   # Current value to set the -cachecontrol option of download handles to.
   variable myCacheControl normal
 
+  # This variable stores the current type of resource being displayed.
+  # When valid, it is set to one of the following:
+  #
+  #     * html
+  #     * image
+  #
+  # Otherwise, it is set to an empty string, indicating that the resource
+  # has been requested, but has not yet arrived.
+  #
+  variable myMimetype ""
+
+  # This variable is only used when ($myMimetype eq "image"). It stores
+  # the name of the Tk image being displayed. This image will be deleted
+  # by the Html widget, but is populated incrementally by the ImageCallback
+  # method (see below).
+  #
+  variable myImageData
+
   constructor {} {
     # Create the scrolled html widget and bind it's events to the
     # mega-widget window.
@@ -793,7 +812,7 @@ snit::widget ::hv3::hv3 {
     # Check if the full-uri begins with the string "internal:". If so,
     # link this handle to the handle currently stored in object variable
     # $myInternalObject. Otherwise, invoke the -requestcmd script.
-    if {[string range [$downloadHandle uri] 0 8] eq "internal:"} {
+    if {[string range [$downloadHandle cget -uri] 0 8] eq "internal:"} {
 
       # Redirect the -incrscript and -finscript commands of myInternalObject
       # to this new downloadHandle. See the [lockcallback] method for
@@ -923,7 +942,7 @@ snit::widget ::hv3::hv3 {
   #
   method Imagecallback {handle name data} {
     if {[info commands $name] == ""} return 
-    lappend myDeps [$handle uri]
+    lappend myDeps [$handle cget -uri]
 
     # If the image data is invalid, it is not an error. Possibly hv3
     # should log a warning - if it had a warning system....
@@ -959,7 +978,7 @@ snit::widget ::hv3::hv3 {
   method Finishstyle {handle id importcmd urlcmd data} {
 # puts "Stylesheet finish: [$handle uri]"
     $myHtml style -id $id -importcmd $importcmd -urlcmd $urlcmd $data
-    lappend myDeps [$handle uri]
+    lappend myDeps [$handle cget -uri]
     $self goto_fragment
   }
 
@@ -990,10 +1009,10 @@ snit::widget ::hv3::hv3 {
       regexp {[^\"\']+} $uri uri
       if {$uri ne ""} {
         after [expr $seconds * 1000] [list $self goto $uri]
-        puts "Parse of content for http-equiv refresh successful! ($uri)"
+        # puts "Parse of content for http-equiv refresh successful! ($uri)"
       }
     } else {
-      puts "Parse of content for http-equiv refresh failed..."
+      # puts "Parse of content for http-equiv refresh failed..."
     }
   }
 
@@ -1132,47 +1151,15 @@ snit::widget ::hv3::hv3 {
   # actually depends on the mimetype).
   #
   method lockcallback {handle} {
-    set mimetype  [string trim [$handle mimetype]]
-
-    # TODO: Real mimetype parser...
-    foreach {major minor} [split $mimetype /] {}
-
-    switch -- $major {
-      text {
-        $self reset
-      }
-
-      image {
-        $self reset
-        set myInternalObject $handle
-        $self parse -final {
-          <html><head></head><body>
-            <img src="internal://">
-          </body></html>
-        }
-        $self force
-      }
-
-      default {
-        # Neither text nor an image. Give the user the option to
-        # save the file to disk. What else can you expect from a "demo"?
-        $self Savefile $handle
-        return
-      }
-    }
-
-    $myUri load [$handle cget -uri]
-    $self set_location_var
-    set myForceReload 0
-    set myStyleCount 0
+    return
   }
 
   method Savefile {handle} {
 
     # Create a GUI to handle this download
-    set dler [::hv3::filedownload %AUTO%     \
-        -source    [$handle uri]           \
-        -size      [$handle expected_size] \
+    set dler [::hv3::filedownload %AUTO%                \
+        -source    [$handle cget -uri]                  \
+        -size      [$handle cget -expectedsize]        \
         -cancelcmd [list catch [list $handle fail]]     \
     ]
     ::hv3::the_download_manager show
@@ -1196,7 +1183,7 @@ snit::widget ::hv3::hv3 {
     # Pop up a GUI to select a "Save as..." filename. Schedule this as 
     # a background job to avoid any recursive entry to our event handles.
     set suggested ""
-    regexp {/([^/]*)$} [$handle uri] dummy suggested
+    regexp {/([^/]*)$} [$handle cget -uri] dummy suggested
     set cmd [subst -nocommands {
       $dler set_destination [file normal [
           tk_getSaveFile -initialfile {$suggested}
@@ -1219,20 +1206,80 @@ snit::widget ::hv3::hv3 {
 
   method documentcallback {handle final data} {
 
-    if {$myQuirksmode eq "unknown"} {
-      set myQuirksmode [::hv3::configure_doctype_mode $myHtml $data]
-      $myHtml reset
-      $myHtml delay 500
+    if {$myMimetype eq ""} {
+  
+      # TODO: Real mimetype parser...
+      set mimetype  [string trim [$handle cget -mimetype]]
+      foreach {major minor} [split $mimetype /] {}
+  
+      switch -- $major {
+        text {
+          set myQuirksmode [::hv3::configure_doctype_mode $myHtml $data]
+          $self reset
+          set myMimetype html
+        }
+  
+        image {
+          set myImageData ""
+          $self reset
+          set myMimetype image
+        }
+  
+        default {
+          # Neither text nor an image. Give the user the option to
+          # save the file to disk. What else can you expect from a "demo"?
+          $self Savefile $handle
+          return
+        }
+      }
+  
+      $myUri load [$handle cget -uri]
+      $self set_location_var
+      set myForceReload 0
+      set myStyleCount 0
     }
 
+    switch -- $myMimetype {
+      html  {$self HtmlCallback $handle $final $data}
+      image {$self ImageCallback $handle $final $data}
+    }
+
+    # If there is a "Location" or "Refresh" header, handle it now.
+    set refreshheader ""
+    foreach {name value} [$handle cget -header] {
+      switch -- $name {
+        Location {
+          set refreshheader "0 ; URL=$value"
+        }
+        Refresh {
+          set refreshheader $value
+        }
+      }
+    }
+    if {$refreshheader ne ""} {
+      $self Refresh $refreshheader
+    }
+
+  }
+
+  method HtmlCallback {handle isFinal data} {
     $myHtml parse $data
-    if {$final} {
+    if {$isFinal} {
       $myHtml parse -final {}
       $self goto_fragment
-      set refreshheader [$handle refresh]
-      if {$refreshheader ne ""} {
-        $self Refresh $refreshheader
-      }
+    }
+  }
+
+  method ImageCallback {handle isFinal data} {
+    append myImageData $data
+    if {$isFinal} {
+      set img [image create photo -data $myImageData]
+      set myImageData ""
+      set imagecmd [$myHtml cget -imagecmd]
+      $myHtml configure -imagecmd [list ::hv3::ReturnWithArgs $img]
+      $myHtml parse -final { <img src="unused"> }
+      $myHtml force
+      $myHtml configure -imagecmd $imagecmd
     }
   }
 
@@ -1248,8 +1295,8 @@ snit::widget ::hv3::hv3 {
     event generate $win <<Goto>>
 
     set handle [::hv3::download %AUTO% -mimetype text/html]
+    set myMimetypeTestRequired 1
     $handle configure                                     \
-        -lockscript [mymethod lockcallback $handle]       \
         -incrscript [mymethod documentcallback $handle 0] \
         -finscript  [mymethod documentcallback $handle 1]
     if {$method eq "post"} {
@@ -1360,8 +1407,8 @@ snit::widget ::hv3::hv3 {
         -mimetype    $mimetype                     \
         -cachecontrol $myCacheControl              \
     ]
+    set myMimetype ""
     $handle configure                                     \
-        -lockscript [mymethod lockcallback $handle]       \
         -incrscript [mymethod documentcallback $handle 0] \
         -finscript  [mymethod documentcallback $handle 1]
 
@@ -1467,158 +1514,6 @@ bind Hv3 <KeyPress-space>  { %W yview scroll  1 pages }
 bind Hv3 <KeyPress-Prior>  { %W yview scroll -1 pages }
 
 
-#--------------------------------------------------------------------------
-# Class ::hv3::download
-#
-#     Instances of this class are used to interface between the protocol
-#     implementation and the hv3 widget. Refer to the hv3 man page for a more
-#     complete description of the interface as used by protocol
-#     implementations. Briefly, the protocol implementation uses only the
-#     following object methods:
-#
-#     Queries:
-#         uri
-#         postdata
-#         mimetype
-#
-#     Actions:
-#         redirect URI
-#         mimetype MIMETYPE
-#         append DATA
-#         finish
-#         fail
-#
-snit::type ::hv3::download {
-  variable myData ""
-  variable myChunksize 2048
-
-  # A download object is "locked" once the first call to [$handle append]
-  # is made. After an object is locked it may not be redirected and nor
-  # may the mimetype be changed. It is an error if the application attempts
-  # to do either of these things.
-  #
-  variable myLocked 0
-
-  variable myExpectedSize ""
-
-  # Contents of any "Refresh" header that came with this download.
-  variable myRefreshHeader ""
-
-  option -linkedhandle -default ""
-
-  option -incrscript   -default ""
-  option -finscript    -default ""
-  option -failscript   -default ""
-  option -redirscript  -default ""
-  option -lockscript   -default ""
-  option -cachecontrol -default normal
-
-  option -uri         -default ""
-  option -postdata    -default ""
-  option -mimetype    -default ""
-  option -enctype     -default ""
-
-  # Constructor and destructor
-  constructor {args} {eval $self configure $args}
-  destructor  {}
-
-  # Query interface used by protocol implementations
-  method uri       {} {return $options(-uri)}
-  method postdata  {} {return $options(-postdata)}
-  method enctype   {} {return $options(-enctype)}
-  method authority {} {
-    set obj [::hv3::uri %AUTO% $options(-uri)]
-    set authority [$obj cget -authority]
-    $obj destroy
-    return $authority
-  }
-  method locked {} {return $myLocked}
-  method mimetype {{newval ""}} {
-    if {$newval ne ""} {
-      if {$myLocked} {error "Download handle is locked"}
-      set options(-mimetype) $newval
-    }
-    return $options(-mimetype)
-  }
-  method expected_size {{newval ""}} {
-    if {$newval ne ""} {
-      if {$myLocked} {error "Download handle is locked"}
-      set myExpectedSize $newval
-    }
-    return $myExpectedSize
-  }
-
-  method cachecontrol {} {
-    return $options(-cachecontrol)
-  }
-
-  # Interface for returning data.
-  method append {data} {
-
-    # If this is the first call to [$handle append], the object becomes
-    # "locked". If there is a -lockscript option, evaluate it. "locked"
-    # means it is an error to change the mimetype or redirect the
-    # URI from this point on.
-    if {$myLocked == 0} {
-      if {$options(-lockscript) ne ""} { eval $options(-lockscript) }
-      set myLocked 1
-    }
-
-    ::append myData $data
-    set nData [string length $myData]
-    if {$options(-incrscript) != "" && $nData >= $myChunksize} {
-      eval [linsert $options(-incrscript) end $myData]
-      set myData {}
-      if {$myChunksize < 30000} {
-        set myChunksize [expr $myChunksize * 2]
-      }
-    }
-  }
-
-  # Called after all data has been passed to [append].
-  method finish {} {
-    if {$options(-finscript) != ""} { 
-      eval [linsert $options(-finscript) end $myData] 
-    } 
-    $self destroy
-  }
-
-  # Called if the download has failed.
-  method fail {{errmsg {Unspecified Error}}} {
-    if {$options(-failscript) != ""} { 
-      eval [concat $options(-failscript) [list $errmsg]]
-    } 
-    destroy $self
-  }
-
-  # Interface for returning a redirect. True is returned if the
-  # redirect results in a different URI.
-  #
-  method redirect {new_uri} {
-    if {$myLocked} {error "Download handle is locked"}
-
-    set obj [::hv3::uri %AUTO $options(-uri)]
-    $obj load $new_uri
-    set new_uri [$obj get]
-    $obj destroy
-
-    if {$options(-redirscript) != ""} {
-      eval [linsert $options(-redirscript) end $new_uri]
-    } 
-    set options(-uri) $new_uri
-    set myData {}
-    set options(-postdata) ""
-  }
-
-  method refresh {{content {}}} {
-    if {$content ne ""} {
-      set myRefreshHeader $content
-    }
-    return $myRefreshHeader
-  }
-}
-#--------------------------------------------------------------------------
-
 # This proc is used to add destructors to a download-handle object.
 #
 proc ::hv3::download_destructor {downloadHandle script} {
@@ -1652,4 +1547,6 @@ proc ::hv3::bg {script args} {
 }
 
 
-
+proc ::hv3::ReturnWithArgs {retval args} {
+  return $retval
+}

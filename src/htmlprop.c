@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.107 2006/11/21 08:31:32 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.108 2006/11/22 07:34:24 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1757,6 +1757,8 @@ HtmlComputedValuesInit(pTree, pNode, pParent, p)
 
     p->values.cColor->nRef++;
     p->values.cBackgroundColor->nRef++;
+    HtmlImageRef(p->values.imListStyleImage);
+
     assert(!p->values.cBorderTopColor);
     assert(!p->values.cBorderRightColor);
     assert(!p->values.cBorderBottomColor);

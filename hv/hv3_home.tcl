@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.6 2006/06/11 13:08:16 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.7 2006/11/22 07:34:24 danielk1977 Exp $)} 1 }
 
 # Register the about: scheme handler with ::hv3::protocol $protocol.
 #
@@ -38,7 +38,7 @@ proc ::hv3::home_scheme_init {hv3 protocol} {
 # When a URI with the scheme "home:" is requested, this proc is invoked.
 #
 proc ::hv3::home_request {http hv3 dir downloadHandle} {
-  set fname [string range [$downloadHandle uri] 8 end]
+  set fname [string range [$downloadHandle cget -uri] 8 end]
   if {$fname eq ""} {
       set fname index.html
       after idle [list ::hv3::home_after_idle $http $hv3]

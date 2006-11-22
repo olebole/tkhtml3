@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_object.tcl,v 1.6 2006/11/09 13:11:53 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_object.tcl,v 1.7 2006/11/22 07:34:24 danielk1977 Exp $)} 1 }
 
 #
 # The code in this file handles <object> elements for the hv3 mini-browser.
@@ -139,7 +139,7 @@ if 0 {
       set htmlet "${html}.[string map {: _} $node]_tclet"
       ::hv3::hv3 $htmlet
       $htmlet configure -requestcmd [list hv3_collect_data $data]
-      $htmlet goto [$handle uri]
+      $htmlet goto [$handle cget -uri]
       $htmlet configure -requestcmd       [$hv3 cget -requestcmd]
       $htmlet configure -cancelrequestcmd [$hv3 cget -cancelrequestcmd]
       $node replace $htmlet

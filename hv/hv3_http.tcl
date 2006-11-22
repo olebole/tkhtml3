@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.32 2006/11/21 13:55:45 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.33 2006/11/22 07:34:24 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd and -cancelrequestcmd
@@ -114,7 +114,7 @@ snit::type ::hv3::protocol {
     # Extract the URI scheme to figure out what kind of URI we are
     # dealing with. Currently supported are "file" and "http" (courtesy 
     # Tcl built-in http package).
-    set uri_obj [::hv3::uri %AUTO% [$downloadHandle uri]]
+    set uri_obj [::hv3::uri %AUTO% [$downloadHandle cget -uri]]
     set uri_scheme [$uri_obj cget -scheme]
     $uri_obj destroy
 
@@ -133,10 +133,10 @@ snit::type ::hv3::protocol {
   # Handle an http:// URI.
   #
   method request_http {downloadHandle} {
-    set uri       [$downloadHandle uri]
+    set uri       [$downloadHandle cget -uri]
+    set postdata  [$downloadHandle cget -postdata]
+    set enctype   [$downloadHandle cget -enctype]
     set authority [$downloadHandle authority]
-    set postdata  [$downloadHandle postdata]
-    set enctype   [$downloadHandle enctype]
 
     # Knock any #fragment off the end of the URI.
     set obj [::hv3::uri %AUTO% $uri]
@@ -149,7 +149,7 @@ snit::type ::hv3::protocol {
       set headers [list Cookie $headers]
     }
 
-    switch -- [$downloadHandle cachecontrol] {
+    switch -- [$downloadHandle cget -cachecontrol] {
       relax-transparency {
         lappend headers Cache-Control relax-transparency=1
       }
@@ -176,7 +176,7 @@ snit::type ::hv3::protocol {
       }
     }
 
-    set mimetype [$downloadHandle mimetype]
+    set mimetype [$downloadHandle cget -mimetype]
     if {$mimetype ne "" && ![string match text* $mimetype]} {
       lappend geturl -binary 1
     }
@@ -206,7 +206,7 @@ snit::type ::hv3::protocol {
   # https:// support implementation.
   # 
   method request_https {downloadHandle} {
-    set obj [::hv3::uri %AUTO% [$downloadHandle uri]]
+    set obj [::hv3::uri %AUTO% [$downloadHandle cget -uri]]
 
     set host [$obj cget -authority]
     set port 443
@@ -268,7 +268,7 @@ snit::type ::hv3::protocol {
   #    parameter  := attribute "=" value
   #
   method request_data {downloadHandle} {
-    set uri [$downloadHandle uri]
+    set uri [$downloadHandle cget -uri]
     set iData [expr [string first , $uri] + 1]
 
     set data [string range $uri $iData end]
@@ -281,7 +281,7 @@ snit::type ::hv3::protocol {
     }
 
     if {[regexp {^data:///([^,;]*)} $uri dummy mimetype]} {
-        $downloadHandle mimetype $mimetype
+        $downloadHandle configure -mimetype $mimetype
     }
 
     $downloadHandle append $bin
@@ -334,38 +334,39 @@ snit::type ::hv3::protocol {
       # Remove the entry from myWaitingHandles.
       set myWaitingHandles [lreplace $myWaitingHandles $idx $idx]
 
-      foreach {name value} $state(meta) {
-        switch -- $name {
-          Location {
-            set redirect $value
-          }
-          Refresh {
-            $downloadHandle refresh $value
-          }
-          Set-Cookie {
-            regexp {^([^= ]*)=([^ ;]*)(.*)$} $value dummy name val cookie_av
-            $myCookieManager SetCookie [$downloadHandle uri] $value
-          }
-          Content-Type {
-            if {[set idx [string first ";" $value]] >= 0} {
-              set value [string range $value 0 [expr $idx-1]]
-            }
-            $downloadHandle mimetype $value
-          }
-          Content-Length {
-            $downloadHandle expected_size $value
-          }
-        }
-      }
+      # Copy the HTTP header to the -header option of the download handle.
+      $downloadHandle configure -header $state(meta)
 
-
-      set current [$downloadHandle uri]
-      if {[info exists redirect]} {
-        ::http::reset $token
-        $downloadHandle redirect $redirect
-        $self requestcmd $downloadHandle
-        return
-      }
+#      foreach {name value} $state(meta) {
+#        switch -- $name {
+#          Location {
+#            set redirect $value
+#          }
+#          Refresh {
+#            $downloadHandle refresh $value
+#          }
+#          Set-Cookie {
+#            regexp {^([^= ]*)=([^ ;]*)(.*)$} $value dummy name val cookie_av
+#            $myCookieManager SetCookie [$downloadHandle uri] $value
+#          }
+#          Content-Type {
+#            if {[set idx [string first ";" $value]] >= 0} {
+#              set value [string range $value 0 [expr $idx-1]]
+#            }
+#            $downloadHandle mimetype $value
+#          }
+#          Content-Length {
+#            $downloadHandle expected_size $value
+#          }
+#        }
+#      }
+#
+#      if {[info exists redirect]} {
+#        ::http::reset $token
+#        $downloadHandle redirect $redirect
+#        $self requestcmd $downloadHandle
+#        return
+#      }
 
       lappend myInProgressHandles $downloadHandle 
       $self Updatestatusvar
@@ -657,7 +658,7 @@ snit::type ::hv3::downloadmanager {
 
   method request {hv3 handle} {
 
-    set uri [$handle uri]
+    set uri [$handle cget -uri]
     if {[regexp {.*delete=([^=&]*)} $uri -> delete]} {
       set dl [string map {_ :} $delete]
       set newlist [list]

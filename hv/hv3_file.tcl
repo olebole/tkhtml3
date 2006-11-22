@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_file.tcl,v 1.1 2006/09/01 05:30:35 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_file.tcl,v 1.2 2006/11/22 07:34:24 danielk1977 Exp $)} 1 }
 
 #
 # This file contains Tcl code for loading file:// URIs in the hv3 web browser
@@ -162,7 +162,7 @@ proc directoryIndex_CreateIcons {} {
 proc request_file {downloadHandle} {
 
     # Extract the "path" and "authority" components from the URI
-    set uri_obj [::hv3::uri %AUTO% [$downloadHandle uri]]
+    set uri_obj [::hv3::uri %AUTO% [$downloadHandle cget -uri]]
     set path      [$uri_obj cget -path]
     set authority [$uri_obj cget -authority]
     $uri_obj destroy

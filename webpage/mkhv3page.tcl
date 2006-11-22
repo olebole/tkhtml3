@@ -11,14 +11,14 @@ puts [subst -novariables {
 <html>
 <head>
 <link rel="stylesheet" href="tkhtml_tcl_tk.css">
-<title>Html Viewer 3 - Tkhtml test application</title>
+<title>Html Viewer 3 - Tkhtml3 Web Browser</title>
 </head>
 <body>
 
 [getTabs 3]
 
 <div id="body">
-<h1>Html Viewer 3 - Tkhtml Test Application</h1>
+<h1>Html Viewer 3 - Tkhtml3 Web Browser</h1>
 [getToc]
 <div id="text">
 

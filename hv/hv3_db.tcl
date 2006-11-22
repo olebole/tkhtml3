@@ -127,6 +127,7 @@ snit::type ::hv3::visiteddb {
 #
 snit::type ::hv3::cookiemanager {
 
+  # Constants used to schedule background activity.
   variable GUI_UPDATE_DELAY 3000
   variable EXPIRE_COOKIES_DELAY 10000
 
