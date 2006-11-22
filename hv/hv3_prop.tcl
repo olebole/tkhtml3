@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.46 2006/11/22 07:34:24 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.47 2006/11/22 11:44:19 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_prop.tcl --
@@ -522,7 +522,7 @@ proc tclInputConfigure {widget args} {
 # URI's as tcl scripts.
 #
 proc ::hv3::use_tclprotocol {hv3} {
-  $hv3 configure -requestcmd ::hv3::tclprotocol -cancelrequestcmd ""
+  $hv3 configure -requestcmd ::hv3::tclprotocol
 }
 proc ::hv3::tclprotocol {handle} {
   set uri [$handle cget -uri]

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.122 2006/11/22 07:34:24 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.123 2006/11/22 11:44:17 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -20,12 +20,6 @@ namespace eval hv3 { set {version($Id: hv3.tcl,v 1.122 2006/11/22 07:34:24 danie
 #         invoked for a GET or POST request. The script is invoked with a
 #         download handle appended to it. See the description of class
 #         ::hv3::download for a description.
-#
-#     -cancelrequestcmd
-#         If not an empty string, this option specifies a script that
-#         is invoked by the widget to cancel an earlier invocation of
-#         the -requestcmd script. The download handle to be cancelled
-#         is appended to the script before it is invoked.
 #
 #     -targetcmd
 #         If not an empty string, this option specifies a script for
@@ -148,229 +142,6 @@ source [file join [file dirname [info script]] hv3_widgets.tcl]
 source [file join [file dirname [info script]] hv3_object.tcl]
 source [file join [file dirname [info script]] hv3_doctype.tcl]
 source [file join [file dirname [info script]] hv3_request.tcl]
-
-proc assert {expr} {
-  if { 0 == [uplevel [list expr $expr]] } {
-    error "assert() failed - $expr"
-  }
-}
-
-#--------------------------------------------------------------------------
-# Class ::hv3::uri:
-#
-#     A very simple class for handling URI references. A partial 
-#     implementation of the syntax specification found at: 
-#
-#         http://www.gbiv.com/protocols/uri/rfc/rfc3986.html
-# 
-# Usage:
-#
-#     set uri_obj [::hv3::uri %AUTO% $URI]
-#
-#     $uri_obj load $URI
-#     $uri_obj get
-#     $uri_obj cget ?option?
-#
-#     $uri_obj destroy
-#
-snit::type ::hv3::uri {
-
-  # Public get/set variables for URI components
-  option -scheme    file
-  option -authority ""
-  option -path      "/"
-  option -query     ""
-  option -fragment  ""
-
-  # Constructor and destructor
-  constructor {{url {}}} {$self load $url}
-  destructor  {}
-
-  # Remove any dot segments "." or ".." from the argument path and 
-  # return the result.
-  proc remove_dot_segments {path} {
-    set output [list]
-    foreach component [split $path /] {
-      switch -- $component {
-        .       { #Do nothing }
-        ..      { set output [lreplace $output end end] }
-        default { 
-          if {[string match ?: $component]} {
-            set component [string range $component 0 0]
-          }
-          if {$output ne "" || $component ne ""} {
-            lappend output $component 
-          }
-        }
-      }
-    }
-    return "/[join $output /]"
-  }
-
-  proc merge {path1 path2} {
-    return [regsub {[^/]*$} $path1 $path2]
-  }
-
-  # Set the contents of the object to the specified URI.
-  method load {uri} {
-
-    # First, parse the argument URI into it's 5 main components. All five
-    # components are optional, as shown in the following syntax (each bracketed
-    # section is optional).
-    #
-    #     (SCHEME ":") ("//" AUTHORITY) (PATH) ("?" QUERY) ("#" FRAGMENT)
-    #
-    # Save each of the components, if they exist, in the variables 
-    # $Scheme, $Authority, $Path, $Query and $Fragment.
-    set str $uri
-    foreach {re var} [list \
-        {^([A-Za-z][A-Za-z0-9+-\.]+):(.*)} Scheme            \
-        {^//([^/#?]*)(.*)}                 Authority         \
-        {^([^#?]*)(.*)}                    Path              \
-        {^\?([^#]*)(.*)}                   Query             \
-        {^#(.*)(.*)}                       Fragment          \
-    ] {
-      if {[regexp $re $str dummy A B]} {
-        set $var $A
-        set str $B
-      }
-    }
-    if {$str ne ""} {
-      error "Bad URL: $url"
-    }
-
-    # Using the current contents of the option variables as a base URI,
-    # transform the relative argument URI to an absolute URI. The algorithm
-    # used is defined in section 5.2.2 of RFC 3986.
-    #
-    set hasScheme 1
-    set hasAuthority 1
-    set hasQuery 1
-    if {![info exists Path]}      {set Path ""}
-    if {![info exists Fragment]}  {set Fragment ""}
-    if {![info exists Scheme]}    {set Scheme ""    ; set hasScheme 0}
-    if {![info exists Authority]} {set Authority "" ; set hasAuthority 0}
-    if {![info exists Query]}     {set Query ""     ; set hasQuery 0}
-
-    if {$hasScheme} {
-      set options(-scheme)    $Scheme
-      set options(-authority) $Authority
-      set options(-path)      [remove_dot_segments $Path]
-      set options(-query)     $Query
-    } else {
-      if {$hasAuthority} {
-        set options(-authority) $Authority
-        set options(-path)      [remove_dot_segments $Path]
-        set options(-query)     $Query
-      } else {
-        if {$Path eq ""} {
-          if {$hasQuery} {
-            set options(-query) $Query
-          }
-        } else {
-          if {[string match {/*} $Path]} {
-            set options(-path) [remove_dot_segments $Path]
-          } else {
-            set merged_path [merge $options(-path) $Path]
-            set options(-path) [remove_dot_segments $merged_path]
-          }
-          set options(-query) $Query
-        }
-      }
-    }
-    set options(-fragment) $Fragment
-    $self Escape
-  }
-
-  method Escape {} {
-    if {[string match -nocase http* $options(-scheme)]} {
-      set options(-path) [::tkhtml::escape_uri $options(-path)]
-      set options(-query) [::tkhtml::escape_uri -query $options(-query)]
-    }
-  }
-
-  # Return the contents of the object formatted as a URI.
-  method get {{nofragment ""}} {
-    set result "$options(-scheme)://$options(-authority)"
-    ::append result "$options(-path)"
-    if {$options(-query) ne ""}    {
-      ::append result "?$options(-query)"
-    }
-    if {$nofragment eq "" && $options(-fragment) ne ""} {
-      ::append result "#$options(-fragment)"
-    }
-    return $result
-  }
-}
-
-# End of class ::hv3::uri
-#--------------------------------------------------------------------------
-
-#--------------------------------------------------------------------------
-# Automated tests for ::hv3::uri:
-#
-#     The following block runs some quick regression tests on the ::hv3::uri 
-#     implementation. These take next to no time to run, so there's little
-#     harm in leaving them in.
-#
-if 1 {
-  set test_data [list                                                 \
-    {http://tkhtml.tcl.tk/index.html}                                 \
-        -scheme http       -authority tkhtml.tcl.tk                   \
-        -path /index.html  -query "" -fragment ""                     \
-    {http:///index.html}                                              \
-        -scheme http       -authority ""                              \
-        -path /index.html  -query "" -fragment ""                     \
-    {http://tkhtml.tcl.tk}                                            \
-        -scheme http       -authority tkhtml.tcl.tk                   \
-        -path "/"          -query "" -fragment ""                     \
-    {/index.html}                                                     \
-        -scheme http       -authority tkhtml.tcl.tk                   \
-        -path /index.html  -query "" -fragment ""                     \
-    {other.html}                                                      \
-        -scheme http       -authority tkhtml.tcl.tk                   \
-        -path /other.html  -query "" -fragment ""                     \
-    {http://tkhtml.tcl.tk:80/a/b/c/index.html}                        \
-        -scheme http       -authority tkhtml.tcl.tk:80                \
-        -path "/a/b/c/index.html" -query "" -fragment ""              \
-    {http://wiki.tcl.tk/}                                             \
-        -scheme http       -authority wiki.tcl.tk                     \
-        -path "/"          -query "" -fragment ""                     \
-    {file:///home/dan/fbi.html}                                       \
-        -scheme file       -authority ""                              \
-        -path "/home/dan/fbi.html"  -query "" -fragment ""            \
-    {http://www.tclscripting.com}                                     \
-        -scheme http       -authority "www.tclscripting.com"          \
-        -path "/"  -query "" -fragment ""                             \
-    {file:///c:/dir1/dir2/file.html}                                  \
-        -scheme file       -authority ""                              \
-        -path "/c/dir1/dir2/file.html"  -query "" -fragment ""       \
-    {relative.html}                                                   \
-        -scheme file       -authority ""                              \
-        -path "/c/dir1/dir2/relative.html"  -query "" -fragment ""   \
-    ]
-
-  set obj [::hv3::uri %AUTO%]
-  for {set ii 0} {$ii < [llength $test_data]} {incr ii} {
-    set uri [lindex $test_data $ii]
-    $obj load $uri 
-    while {[string match -* [lindex $test_data [expr $ii+1]]]} {
-      set switch [lindex $test_data [expr $ii+1]]
-      set value [lindex $test_data [expr $ii+2]]
-      if {[$obj cget $switch] ne $value} {
-        puts "URI: $uri"
-        puts "SWITCH: $switch"
-        puts "EXPECTED: $value"
-        puts "GOT: [$obj cget $switch]"
-        puts ""
-      }
-      incr ii 2
-    }
-  }
-  $obj destroy
-}
-# End of tests for ::hv3::uri.
-#--------------------------------------------------------------------------
 
 #--------------------------------------------------------------------------
 # Class ::hv3::hv3::selectionmanager
@@ -557,7 +328,6 @@ snit::type ::hv3::hv3::hyperlinkmanager {
   variable myNodes [list]
 
   option -isvisitedcmd -default ""
-
   option -targetcmd -default ""
 
   constructor {hv3} {
@@ -644,45 +414,6 @@ snit::type ::hv3::hv3::hyperlinkmanager {
 #
 snit::widget ::hv3::hv3 {
 
-  #------------------------------------------------------------------------
-  # The following two type-scoped arrays are used as a layer of
-  # indirection for the -incrscript and -finscript scripts of download
-  # handles. Download handles created by this class may change their
-  # behaviour based on their -mimetype value, which is not known
-  # until after the download handle is locked (see the -lockscript option).
-  #
-  # The related type-scoped procs are [RedirectIncr], [RedirectFinish]
-  # ,[MakeRedirectable] and [FinishWithData].
-  #
-  typevariable theHandleIncr   -array ""
-  typevariable theHandleFinish -array ""
-
-  proc RedirectIncr {handle data} {
-    eval [linsert $theHandleIncr($handle) end $data]
-  }
-  proc RedirectFinish {handle data} {
-    eval [linsert $theHandleFinish($handle) end $data]
-    unset theHandleIncr($handle)
-    unset theHandleFinish($handle)
-  }
-
-  proc MakeRedirectable {handle} {
-    set incrscript [$handle cget -incrscript]
-    if {$incrscript ne ""} {
-      set theHandleIncr($handle) $incrscript
-      $handle configure -incrscript [namespace code [list RedirectIncr $handle]]
-    }
-    set theHandleFinish($handle) [$handle cget -finscript]
-    $handle configure -finscript [namespace code [list RedirectFinish $handle]]
-  }
-
-  proc FinishWithData {handle data} {
-    $handle append $data
-    $handle finish
-  }
-  # End of system for redirecting handles
-  #--------------------------------------
-
   # Object components
   component myHtml                   ;# The [::hv3::scrolled html] widget
   component myHyperlinkManager       ;# The ::hv3::hv3::hyperlinkmanager
@@ -706,10 +437,6 @@ snit::widget ::hv3::hv3 {
   # Finrequest and <TODO: related to stop?>.
   variable myCurrentDownloads [list]
 
-  variable myInternalObject
-
-  variable myDeps [list]
-
   variable myFirstReset 1
 
   # Current value to set the -cachecontrol option of download handles to.
@@ -727,11 +454,11 @@ snit::widget ::hv3::hv3 {
   variable myMimetype ""
 
   # This variable is only used when ($myMimetype eq "image"). It stores
-  # the name of the Tk image being displayed. This image will be deleted
-  # by the Html widget, but is populated incrementally by the ImageCallback
-  # method (see below).
+  # the data for the image about to be displayed. Once the image
+  # has finished downloading, the data in this variable is loaded into
+  # a Tk image and this variable reset to "".
   #
-  variable myImageData
+  variable myImageData ""
 
   constructor {} {
     # Create the scrolled html widget and bind it's events to the
@@ -791,12 +518,13 @@ snit::widget ::hv3::hv3 {
     if {[info exists myDynamicManager]}   { $myDynamicManager   destroy }
     if {[info exists myHyperlinkManager]} { $myHyperlinkManager destroy }
     if {[info exists myUri]}              { $myUri              destroy }
+    if {[info exists myFormManager]}      { $myFormManager      destroy }
     if {$myBase ne ""}                    { $myBase             destroy }
   }
 
   # The argument download-handle contains a configured request. This 
   # method initiates the request. It is used by hv3 and it's component
-  # objects (i.e. the form-manager).
+  # objects (i.e. code in hv3_object_handler).
   #
   method makerequest {downloadHandle} {
 
@@ -805,38 +533,16 @@ snit::widget ::hv3::hv3 {
     # download is finished.
     lappend myCurrentDownloads $downloadHandle
     $self set_pending_var
-    ::hv3::download_destructor $downloadHandle [
-      mymethod Finrequest $downloadHandle 
-    ]
+    $downloadHandle destroy_hook [mymethod Finrequest $downloadHandle] 
 
-    # Check if the full-uri begins with the string "internal:". If so,
-    # link this handle to the handle currently stored in object variable
-    # $myInternalObject. Otherwise, invoke the -requestcmd script.
-    if {[string range [$downloadHandle cget -uri] 0 8] eq "internal:"} {
-
-      # Redirect the -incrscript and -finscript commands of myInternalObject
-      # to this new downloadHandle. See the [lockcallback] method for
-      # an explanation of what's going on here.
-      assert {[info exists myInternalObject] && $myInternalObject ne ""}
-      assert {[info exists theHandleFinish($myInternalObject)]}
-      assert {[info exists theHandleIncr($myInternalObject)]}
-      set theHandleIncr($myInternalObject)   [list $downloadHandle append]
-      set theHandleFinish($myInternalObject) [
-           namespace code [list FinishWithData $downloadHandle]
-      ]
-      unset myInternalObject
-
-    } else {
-
-      # Execute the -requestcmd script. Fail the download and raise
-      # an exception if an error occurs during script evaluation.
-      set cmd [concat $options(-requestcmd) [list $downloadHandle]]
-      set rc [catch $cmd errmsg]
-      if {$rc} {
-        set einfo $::errorInfo
-        catch {$downloadHandle fail}
-        error $errmsg $einfo
-      }
+    # Execute the -requestcmd script. Fail the download and raise
+    # an exception if an error occurs during script evaluation.
+    set cmd [concat $options(-requestcmd) [list $downloadHandle]]
+    set rc [catch $cmd errmsg]
+    if {$rc} {
+      set einfo $::errorInfo
+      catch {$downloadHandle fail}
+      error $errmsg $einfo
     }
   }
 
@@ -942,7 +648,6 @@ snit::widget ::hv3::hv3 {
   #
   method Imagecallback {handle name data} {
     if {[info commands $name] == ""} return 
-    lappend myDeps [$handle cget -uri]
 
     # If the image data is invalid, it is not an error. Possibly hv3
     # should log a warning - if it had a warning system....
@@ -956,7 +661,7 @@ snit::widget ::hv3::hv3 {
   #
   method Requeststyle {parent_id full_uri} {
     set id        ${parent_id}.[format %.4d [incr myStyleCount]]
-    set importcmd [mymethod import_handler $id]
+    set importcmd [mymethod Requeststyle $id]
     set urlcmd    [mymethod resolve_uri $full_uri]
     append id .9999
 
@@ -968,7 +673,6 @@ snit::widget ::hv3::hv3 {
     $handle configure -finscript [
         mymethod Finishstyle $handle $id $importcmd $urlcmd
     ]
-# puts "Stylesheet at: $full_uri"
     $self makerequest $handle
   }
 
@@ -976,16 +680,8 @@ snit::widget ::hv3::hv3 {
   # from method Requeststyle above.
   #
   method Finishstyle {handle id importcmd urlcmd data} {
-# puts "Stylesheet finish: [$handle uri]"
     $myHtml style -id $id -importcmd $importcmd -urlcmd $urlcmd $data
-    lappend myDeps [$handle cget -uri]
     $self goto_fragment
-  }
-
-  # Handler for CSS @import directives.
-  #
-  method import_handler {parent_id uri} {
-    $self Requeststyle $parent_id $uri
   }
 
   # Node handler script for <meta> tags.
@@ -1031,9 +727,6 @@ snit::widget ::hv3::hv3 {
   }
   variable myTitleVar ""
   method titlevar {}    {return [myvar myTitleVar]}
-
-  method dependencies {} {return $myDeps}
-
 
   # Node handler script for <body> tags. The purpose of this handler
   # and the [body_style_handler] method immediately below it is
@@ -1114,7 +807,7 @@ snit::widget ::hv3::hv3 {
     }
 
     set id        author.[format %.4d [incr myStyleCount]]
-    set importcmd [mymethod import_handler $id]
+    set importcmd [mymethod Requeststyle $id]
     set urlcmd    [mymethod resolve_uri]
     append id .9999
     $myHtml style -id $id -importcmd $importcmd -urlcmd $urlcmd $script
@@ -1146,64 +839,6 @@ snit::widget ::hv3::hv3 {
     }
   }
 
-  # This method is called as the -lockscript for a download-handle 
-  # retrieving content for display in the browser window (possibly, 
-  # actually depends on the mimetype).
-  #
-  method lockcallback {handle} {
-    return
-  }
-
-  method Savefile {handle} {
-
-    # Create a GUI to handle this download
-    set dler [::hv3::filedownload %AUTO%                \
-        -source    [$handle cget -uri]                  \
-        -size      [$handle cget -expectedsize]        \
-        -cancelcmd [list catch [list $handle fail]]     \
-    ]
-    ::hv3::the_download_manager show
-
-    # Redirect the -incrscript and -finscript commands to the download GUI.
-    assert {[info exists theHandleFinish($handle)]}
-    set theHandleFinish($handle) [list $dler finish]
-    if {[info exists theHandleIncr($handle)]} {
-      set theHandleIncr($handle) [list $dler append]
-    }
-
-    # Remove the download handle from the list of handles to cancel
-    # if [$hv3 stop] is invoked (when the user clicks the "stop" button
-    # we don't want to cancel pending save-file operations).
-    set idx [lsearch $myCurrentDownloads $handle]
-    if {$idx >= 0} {
-      set myCurrentDownloads [lreplace $myCurrentDownloads $idx $idx]
-      $self set_pending_var
-    }
-
-    # Pop up a GUI to select a "Save as..." filename. Schedule this as 
-    # a background job to avoid any recursive entry to our event handles.
-    set suggested ""
-    regexp {/([^/]*)$} [$handle cget -uri] dummy suggested
-    set cmd [subst -nocommands {
-      $dler set_destination [file normal [
-          tk_getSaveFile -initialfile {$suggested}
-      ]]
-    }]
-    after idle $cmd
-  }
-
-  method download {uri} {
-    # Always use "normal" cache-control for a download.
-    set handle [::hv3::download %AUTO%              \
-        -uri         $uri                           \
-        -mimetype    application/gzip               \
-        -incrscript  blah -finscript blah           \
-    ]
-    MakeRedirectable $handle
-    $self makerequest $handle
-    $self Savefile $handle
-  }
-
   method documentcallback {handle final data} {
 
     if {$myMimetype eq ""} {
@@ -1226,9 +861,22 @@ snit::widget ::hv3::hv3 {
         }
   
         default {
-          # Neither text nor an image. Give the user the option to
-          # save the file to disk. What else can you expect from a "demo"?
-          $self Savefile $handle
+          # Neither text nor an image. This is the upper layers problem.
+          if {$options(-downloadcmd) ne ""} {
+            # Remove the download handle from the list of handles to cancel
+            # if [$hv3 stop] is invoked (when the user clicks the "stop" button
+            # we don't want to cancel pending save-file operations).
+            set idx [lsearch $myCurrentDownloads $handle]
+            if {$idx >= 0} {
+              set myCurrentDownloads [lreplace $myCurrentDownloads $idx $idx]
+              $self set_pending_var
+            }
+            eval [linsert $options(-downloadcmd) end $handle $data]
+          } else {
+            $handle destroy
+            set sheepish "Don't know how to handle \"$mimetype\""
+            tk_dialog .apology "Sheepish apology" $sheepish 0 OK
+          }
           return
         }
       }
@@ -1295,7 +943,7 @@ snit::widget ::hv3::hv3 {
     event generate $win <<Goto>>
 
     set handle [::hv3::download %AUTO% -mimetype text/html]
-    set myMimetypeTestRequired 1
+    set myMimetype ""
     $handle configure                                     \
         -incrscript [mymethod documentcallback $handle 0] \
         -finscript  [mymethod documentcallback $handle 1]
@@ -1307,7 +955,6 @@ snit::widget ::hv3::hv3 {
       $handle configure -uri "${full_uri}?${encdata}"
       $handle configure -cachecontrol $myCacheControl
     }  
-    MakeRedirectable $handle
     $self makerequest $handle
 
     # Grab the keyboard focus for this widget. This is so that after
@@ -1412,8 +1059,6 @@ snit::widget ::hv3::hv3 {
         -incrscript [mymethod documentcallback $handle 0] \
         -finscript  [mymethod documentcallback $handle 1]
 
-    MakeRedirectable $handle
-
     $self makerequest $handle
     $uri_obj destroy
   }
@@ -1436,7 +1081,6 @@ snit::widget ::hv3::hv3 {
     event generate $win <<Reset>>
 
     $self invalidate_nodecache
-    set myDeps [list]
     set myTitleVar ""
 
     foreach m [list $myDynamicManager $myFormManager $mySelectionManager] {
@@ -1459,7 +1103,7 @@ snit::widget ::hv3::hv3 {
         # The -enableimages switch. If false, configure an empty string
         # as the html widget's -imagecmd option. If true, configure the
         # same option to call the [Imagecmd] method of this mega-widget.
-        # In either case reload the frame.
+        # In either case reload the frame contents.
         #
         if {$value} {
           $myHtml configure -imagecmd [mymethod Imagecmd]
@@ -1483,15 +1127,9 @@ snit::widget ::hv3::hv3 {
 
   option          -locationvar      -default ""
   option          -pendingvar       -default ""
+  option          -downloadcmd      -default ""
   option          -requestcmd       -default ""
-  option          -cancelrequestcmd -default ""
   delegate option -isvisitedcmd     to myHyperlinkManager
-  delegate option -fonttable        to myHtml
-  delegate option -fontscale        to myHtml
-  delegate option -zoom             to myHtml
-  delegate option -forcefontmetrics to myHtml
-  delegate option -doublebuffer     to myHtml
-
   delegate option -targetcmd        to myHyperlinkManager
 
   # Delegated public methods
@@ -1503,7 +1141,15 @@ snit::widget ::hv3::hv3 {
   delegate option -yscrollcommand to myHtml
   delegate option -width          to myHtml
   delegate option -height         to myHtml
+
+  # Display configuration options implemented entirely by the html widget
+  delegate option -fonttable        to myHtml
+  delegate option -fontscale        to myHtml
+  delegate option -zoom             to myHtml
+  delegate option -forcefontmetrics to myHtml
+  delegate option -doublebuffer     to myHtml
 }
+
 bind Hv3 <KeyPress-Up>     { %W yview scroll -1 units }
 bind Hv3 <KeyPress-Down>   { %W yview scroll  1 units }
 bind Hv3 <KeyPress-Return> { %W yview scroll  1 units }
@@ -1512,24 +1158,6 @@ bind Hv3 <KeyPress-Left>   { %W xview scroll -1 units }
 bind Hv3 <KeyPress-Next>   { %W yview scroll  1 pages }
 bind Hv3 <KeyPress-space>  { %W yview scroll  1 pages }
 bind Hv3 <KeyPress-Prior>  { %W yview scroll -1 pages }
-
-
-# This proc is used to add destructors to a download-handle object.
-#
-proc ::hv3::download_destructor {downloadHandle script} {
-  $downloadHandle configure -failscript [
-    list ::hv3::eval2 $script [$downloadHandle cget -failscript]
-  ]
-  $downloadHandle configure -finscript [
-    list ::hv3::eval2 $script [$downloadHandle cget -finscript]
-  ]
-}
-proc ::hv3::eval2 {script finscript data} {
-  if {$finscript ne ""} {
-    eval [concat $finscript [list $data]]
-  }
-  eval $script
-}
 
 proc ::hv3::bg {script args} {
   set eval [concat $script $args]
@@ -1546,7 +1174,7 @@ proc ::hv3::bg {script args} {
   return $result
 }
 
-
 proc ::hv3::ReturnWithArgs {retval args} {
   return $retval
 }
+

@@ -1,9 +1,8 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.33 2006/11/22 07:34:24 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.34 2006/11/22 11:44:18 danielk1977 Exp $)} 1 }
 
 #
-# This file contains implementations of the -requestcmd and -cancelrequestcmd
-# scripts used with the hv3 widget for the demo browser. Supported functions
-# are:
+# This file contains implementations of the -requestcmd script used with 
+# the hv3 widget for the browser. Supported functions are:
 #
 #     * http:// (including cookies)
 #     * file:// (code for this is now in hv3_file.tcl)
@@ -28,7 +27,6 @@ source [sourcefile hv3_file.tcl]
 #     set protocol [::hv3::protocol %AUTO%]
 #
 #     $protocol requestcmd DOWNLOAD-HANDLE
-#     $protocol cancelrequestcmd DOWNLOAD-HANDLE
 #
 #     $protocol schemehandler scheme handler
 #
@@ -101,11 +99,6 @@ snit::type ::hv3::protocol {
   # Register a custom scheme handler command (like "home:").
   method schemehandler {scheme handler} {
     set mySchemeHandlers($scheme) $handler
-  }
-
-  # This method is invoked as the -cancelrequestcmd script of an hv3 widget
-  method cancelrequestcmd {downloadHandle} {
-    # TODO
   }
 
   # This method is invoked as the -requestcmd script of an hv3 widget
@@ -189,9 +182,7 @@ snit::type ::hv3::protocol {
     # automatically removes itself from our lists (myWaitingHandles and
     # myInProgressHandles) after the retrieval is complete.
     lappend myWaitingHandles $downloadHandle
-    ::hv3::download_destructor $downloadHandle [
-      mymethod Finish_request $downloadHandle $token
-    ]
+    $downloadHandle destroy_hook [mymethod FinishRequest $downloadHandle $token]
     $self Updatestatusvar
   }
 
@@ -289,7 +280,7 @@ snit::type ::hv3::protocol {
   }
 
 
-  method Finish_request {downloadHandle token} {
+  method FinishRequest {downloadHandle token} {
     if {[set idx [lsearch $myInProgressHandles $downloadHandle]] >= 0} {
       set myInProgressHandles [lreplace $myInProgressHandles $idx $idx]
     }
@@ -326,7 +317,6 @@ snit::type ::hv3::protocol {
   method _AppendCallback {downloadHandle socket token} {
     upvar \#0 $token state 
 
-#puts "APPEND [$downloadHandle uri]"
     # If this download-handle is still in the myWaitingHandles list,
     # process the http header and move it to the in-progress list.
     if {0 <= [set idx [lsearch $myWaitingHandles $downloadHandle]]} {
@@ -337,37 +327,8 @@ snit::type ::hv3::protocol {
       # Copy the HTTP header to the -header option of the download handle.
       $downloadHandle configure -header $state(meta)
 
-#      foreach {name value} $state(meta) {
-#        switch -- $name {
-#          Location {
-#            set redirect $value
-#          }
-#          Refresh {
-#            $downloadHandle refresh $value
-#          }
-#          Set-Cookie {
-#            regexp {^([^= ]*)=([^ ;]*)(.*)$} $value dummy name val cookie_av
-#            $myCookieManager SetCookie [$downloadHandle uri] $value
-#          }
-#          Content-Type {
-#            if {[set idx [string first ";" $value]] >= 0} {
-#              set value [string range $value 0 [expr $idx-1]]
-#            }
-#            $downloadHandle mimetype $value
-#          }
-#          Content-Length {
-#            $downloadHandle expected_size $value
-#          }
-#        }
-#      }
-#
-#      if {[info exists redirect]} {
-#        ::http::reset $token
-#        $downloadHandle redirect $redirect
-#        $self requestcmd $downloadHandle
-#        return
-#      }
-
+      # Add the handle to the myInProgressHandles list and update the
+      # status report variable.
       lappend myInProgressHandles $downloadHandle 
       $self Updatestatusvar
     }

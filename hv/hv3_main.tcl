@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.98 2006/11/20 13:58:02 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.99 2006/11/22 11:44:19 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -92,7 +92,7 @@ snit::widget ::hv3::browser_frame {
     ::hv3::the_visited_db init $myHv3
 
     catch {$myHv3 configure -fonttable $::hv3::fontsize_table}
-
+    $myHv3 configure -downloadcmd [list $myBrowser savehandle]
 
     # Click to focus (so that this frame accepts keyboard input).
 
@@ -270,7 +270,7 @@ snit::widget ::hv3::browser_frame {
         set new [.notebook addbg $uri]
       }
       downloadlink {
-        $myHv3 download $uri
+        $myBrowser saveuri $uri
       }
       copylink {
         set myCopiedLinkLocation $uri
@@ -363,7 +363,6 @@ snit::widget ::hv3::browser_frame {
 
   delegate option -requestcmd         to myHv3
   delegate option -resetcmd           to myHv3
-  delegate option -cancelrequestcmd   to myHv3
   delegate option -pendingvar         to myHv3
 
   delegate method stop to myHv3
@@ -411,7 +410,6 @@ snit::widget ::hv3::browser_toplevel {
     # Create the protocol
     set myProtocol [::hv3::protocol %AUTO%]
     $myMainFrame configure -requestcmd       [list $myProtocol requestcmd]
-    $myMainFrame configure -cancelrequestcmd [list $myProtocol cancelrequestcmd]
     $myMainFrame configure -pendingvar       [myvar myPendingVar]
 
     trace add variable [myvar myPendingVar] write [mymethod Setstopbutton]
@@ -439,6 +437,52 @@ snit::widget ::hv3::browser_toplevel {
     if {$myHistory ne ""}  { $myHistory destroy }
   }
 
+  # This method is called to activate the download-manager to download
+  # the specified URI ($uri) to the local file-system.
+  #
+  method saveuri {uri} {
+    set handle [::hv3::download %AUTO%              \
+        -uri         $uri                           \
+        -mimetype    application/gzip
+    ]
+    $self savehandle $handle ""
+    $myProtocol requestcmd $handle
+  }
+
+  # Activate the download manager to save the resource targeted by the
+  # ::hv3::download passed as an argument ($handle) to the local file-system.
+  # It is the responsbility of the caller to configure the download-handle
+  # and pass it to the protocol object. The second argument, $data, 
+  # contains an initial segment of the resource that has already been
+  # downloaded. 
+  #
+  method savehandle {handle data} {
+
+    # Create a GUI to handle this download
+    set dler [::hv3::filedownload %AUTO%                \
+        -source    [$handle cget -uri]                  \
+        -size      [$handle cget -expectedsize]        \
+        -cancelcmd [list catch [list $handle fail]]     \
+    ]
+    ::hv3::the_download_manager show
+
+    # Redirect the -incrscript and -finscript commands to the download GUI.
+    $handle configure -finscript [list $dler finish]
+    $handle configure -incrscript [list $dler append]
+    $dler append $data
+
+    # Pop up a GUI to select a "Save as..." filename. Schedule this as 
+    # a background job to avoid any recursive entry to our event handles.
+    set suggested ""
+    regexp {/([^/]*)$} [$handle cget -uri] dummy suggested
+    set cmd [subst -nocommands {
+      $dler set_destination [file normal [
+          tk_getSaveFile -initialfile {$suggested}
+      ]]
+    }]
+    after idle $cmd
+  }
+
   # Interface used by code in class ::hv3::browser_frame for frame management.
   #
   method add_frame {frame} {
@@ -459,14 +503,6 @@ snit::widget ::hv3::browser_toplevel {
     }
   }
   method get_frames {} {return $myFrames}
-
-  method debug_style {} {
-    set path ${win}.stylereport
-    if {![winfo exists $path]} {
-        ::hv3::stylereport $path [[$myMainFrame hv3] html]
-    }
-    $path update
-  }
 
   # This method is called by a [trace variable ... write] hook attached
   # to the myProtocolStatus variable. Set myStatusVar.
@@ -1028,7 +1064,6 @@ proc gui_menu {widget_array} {
   .m.tools add separator
   .m.tools add command -label Events -command [list gui_log_window $G(notebook)]
   .m.tools add command -label Browser -command [list gui_current browse]
-  # .m.tools add command -label Style   -command [list gui_current debug_style]
 
   .m.tools add separator
   .m.tools add command -label "firefox -remote" -command gui_firefox_remote
