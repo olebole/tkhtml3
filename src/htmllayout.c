@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.236 2006/11/19 07:07:52 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.237 2006/11/23 03:40:38 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -1282,7 +1282,7 @@ markerBoxLayout(pLayout, pBox, pNode, pVerticalOffset)
         }
 
         font = pComputed->fFont->tkfont;
-        // voffset = pComputed->fFont->metrics.ascent;
+        /* voffset = pComputed->fFont->metrics.ascent; */
         pBox->height = voffset + pComputed->fFont->metrics.descent;
         pBox->width = Tk_TextWidth(font, zBuf, strlen(zBuf));
 

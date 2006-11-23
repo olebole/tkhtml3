@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.103 2006/11/23 02:26:58 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.104 2006/11/23 03:40:38 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -1214,11 +1214,17 @@ HtmlTreeAddClosingTag(pTree, eTag, iOffset)
                     break;
                 }
 
-                if (eTag == Html_EndTR || eTag == Html_EndTABLE) continue;
-                if (
-                    p->eTag == Html_TD || p->eTag == Html_TH ||
-                    p->eTag == Html_TR || p->eTag == Html_TABLE
-                ) break;
+                /* Nothing but an </table> can close a <table> */
+                assert(p->eTag != Html_TABLE || eTag != Html_EndTABLE);
+                if (p->eTag == Html_TABLE) break;
+                if (eTag == Html_EndTABLE) continue;
+
+                /* Nothing but a </tr> or </table> can close a <tr> */
+                assert(p->eTag != Html_TR || eTag != Html_EndTR);
+                if (p->eTag == Html_TR) break;
+                if (eTag == Html_EndTR) continue;
+
+                if (p->eTag == Html_TD || p->eTag == Html_TH) break;
             }
             break;
         }

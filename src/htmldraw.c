@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.177 2006/11/17 15:55:37 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.178 2006/11/23 03:40:38 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -628,7 +628,7 @@ CHECK_CANVAS(pCanvas);
         int save = 0;
         switch (pItem->type) {
             case CANVAS_TEXT:
-                // HtmlFree(pItem->x.t.pString);
+                /* HtmlFree(pItem->x.t.pString); */
                 break;
             case CANVAS_IMAGE:
                 HtmlImageFree(pItem->x.i2.pImage);
