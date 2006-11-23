@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.40 2006/11/23 11:01:11 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.41 2006/11/23 11:18:09 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -399,6 +399,7 @@ snit::widget ::hv3::control {
 
   method ComboboxChanged {values args} {
     set myValue [lindex $values [$myWidget curselection]]
+    focus [winfo parent $win]
   }
 
   method CreateRadioWidget {} {
