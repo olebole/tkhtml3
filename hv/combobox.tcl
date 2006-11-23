@@ -1815,7 +1815,7 @@ proc ::combobox::UpdateVisualAttributes {w} {
     $widgets(entry)   configure -foreground $foreground -background $background
     $widgets(listbox) configure -foreground $foreground -background $background
     $widgets(button)  configure -foreground $foreground 
-    $widgets(vsb)     configure -background $background -troughcolor $background
+# $widgets(vsb)     configure -background $background -troughcolor $background
     $widgets(frame)   configure -background $background
 
     # we need to set the disabled colors in case our widget is disabled. 

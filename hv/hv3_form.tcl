@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.39 2006/11/15 10:09:54 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.40 2006/11/23 11:01:11 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -213,7 +213,7 @@ snit::widget ::hv3::control {
 
       select {
         # A <SELECT> element is replaced by a Tk combobox widget.
-        $self CreateComboboxWidget
+        $self CreateComboboxWidget $node
       }
 
       button {
@@ -339,7 +339,8 @@ snit::widget ::hv3::control {
     set myValue [$myControlNode attr -default "" value]
   }
  
-  method CreateComboboxWidget {} {
+  method CreateComboboxWidget {node} {
+
     # Figure out a list of options for the drop-down list. This block 
     # sets up two local list variables, $labels and $values. The $labels
     # list stores the options from which the user may select, and the $values
@@ -381,7 +382,11 @@ snit::widget ::hv3::control {
     # Set up the combobox widget. 
     set myWidget [combobox::combobox ${win}.widget]
     eval [concat [list $myWidget list insert 0] $labels]
-    $myWidget configure -command   [mymethod ComboboxChanged $values]
+    $myWidget configure -command [mymethod ComboboxChanged $values]
+    $myWidget configure -background white
+    $myWidget configure -borderwidth 0
+    $myWidget configure -highlightthickness 0
+
     $myWidget select $idx
     set myValue [lindex $values $idx]
 

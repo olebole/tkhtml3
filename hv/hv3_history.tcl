@@ -373,6 +373,7 @@ snit::widget ::hv3::scrolledlistbox {
 
     pack $myVsb -side right -fill y
     pack $myListbox -fill both -expand yes
+    bindtags $myListbox [concat [bindtags $myListbox] $win]
 
     $self configurelist $args
   }
