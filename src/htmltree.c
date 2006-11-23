@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.102 2006/11/21 12:03:29 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.103 2006/11/23 02:26:58 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -591,6 +591,9 @@ nodeHandlerCallbacks(pTree, pNode)
     Tcl_Interp *interp = pTree->interp;
     int eTag = HtmlNodeTagType(pNode);
 
+    /* Most immediate ancestor of pNode that is not a <form> element. */
+    HtmlNode *pNonFormParent;
+
     assert(
         (eTag != Html_TD && eTag != Html_TH) || (
              HtmlNodeParent(pNode) && 
@@ -598,8 +601,6 @@ nodeHandlerCallbacks(pTree, pNode)
         )
     );
 
-    /* Most immediate ancestor of pNode that is not a <form> element. */
-    HtmlNode *pNonFormParent;
 
     /* Special processing for children and ancestors of <table> nodes. 
      * See details in the support.html webpage. Briefly:

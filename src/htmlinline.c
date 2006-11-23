@@ -66,7 +66,7 @@
  * 
  *     HtmlInlineContextIsEmpty()
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.42 2006/11/19 07:07:52 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.43 2006/11/23 02:26:58 danielk1977 Exp $";
 
 /* The InlineBox and InlineMetrics types are only used within this file.
  * The InlineContext type is only used within this file, but opaque handles
@@ -879,10 +879,10 @@ calculateLineBoxWidth(p, flags, iReqWidth, piWidth, pnBox, pHasText)
          * 'forcebox' flag is not true. Return zero, but set *pWidth to the
          * minimum width required before doing so.
          */
-        assert(isForceBox == 0);
         int dummy1;
         int dummy2;
         int flags = LINEBOX_FORCEBOX | LINEBOX_FORCELINE;
+        assert(isForceBox == 0);
         calculateLineBoxWidth(p, flags, 0, &iWidth, &dummy1, &dummy2);
         goto exit_calculatewidth;
     }
@@ -1420,7 +1420,7 @@ HtmlInlineContextNew(pTree, pNode, isSizeOnly, iTextIndent)
     pContext->iTextIndent = iTextIndent;
     pContext->isSizeOnly = isSizeOnly;
 
-    START_LOG(pNode);
+    START_LOG(pNode)
         const char *zTextAlign = HtmlCssConstantToString(pContext->eTextAlign);
 
         oprintf(pLog, "<p>Created a new inline context initialised with:</p>");
