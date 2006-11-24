@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.237 2006/11/23 03:40:38 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.238 2006/11/24 09:28:21 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -3471,7 +3471,8 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
         memset(&sMarker, 0, sizeof(BoxContext));
         if (markerBoxLayout(pLayout, &sMarker, pNode, &iAscent)) {
             HtmlInlineContextAddBox(pContext, pNode, 
-                &sMarker.vc, sMarker.width, sMarker.height, iAscent * -1
+                &sMarker.vc, sMarker.width, sMarker.height, 
+                sMarker.height - iAscent
             );
         }
     }

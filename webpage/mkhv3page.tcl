@@ -37,53 +37,27 @@ puts [subst -novariables {
 
 <h2><a name="overview">Overview</a></h2>
   <p>
-    Hv3 is not yet as sophisticated as most popular web browsers. Most
+    Hv3 is not yet as sophisticated as some popular web browsers. Most
     notably, it does not support either javascript or plugins (although
     it can run most "tclets" created for the 
-    <a href="http://www.tcl.tk/software/plugin/">tcl plugin<a>). As
-    well as formatting HTML/CSS documents, hv3 supports FRAMESET documents,
-    tabs, HTML forms and HTTP cookies.
+    <a href="http://www.tcl.tk/software/plugin/">tcl plugin<a>). It
+    does support the following:
   </p>
+
+    <ul>
+      <li>Formatting of regular HTML/CSS documents,
+      <li>HTML Frameset documents,
+      <li>HTML forms,
+      <li>HTTP cookies,
+      <li>HTTP "Location" and "Refresh" headers.
+    </ul>
+
   <p>
     <a href="screenshot1.gif">
       <img class=screenshot align=left src="screenshot1_small.gif">
     </a>
-
-    By itself, hv3 can connect to remote servers to retrieve documents
-    specified by http URIs using the built-in Tcl http package. However
-    much better performance can be obtained by installing the custom
-    http proxy program hv3_polipo (also available for download from
-    this site).  Once installed, hv3 starts and stops hv3_polipo automatically.
-    See below for installation instructions.
   </p>
-  <p>
-    hv3_polipo is a very slightly modified version of the standard
-    polipo program by Juliusz Chroboczek, available at 
-    <a href="http://www.pps.jussieu.fr/~jch/software/polipo/">
-    http://www.pps.jussieu.fr/~jch/software/polipo/</a>. The modifications
-    are designed to make sure that no hv3_polipo processes are
-    left running if hv3 crashes or is terminated by the operating system.
-    The patch used to create the custom version is available 
-    <a href="hv3_polipo.patch">here</a>.
-  </p>
-
 <h2><a name="binaries">Binary Installation</a></h2>
-  <p>
-    <a href="screenshot2.gif">
-      <img class=screenshot align=right src="screenshot2_small.gif">
-    </a>
-    Binary packages are provided for Windows and Linux on x86 only. To
-    install a binary package, download the following:
-    <ol>
-      <li> The hv3 starkit (required),
-      <li> A Tclkit runtime for your platform (required),
-      <li> The custom web proxy program hv3_polipo (optional).
-    </ol>
-  <p>
-    Some users may already have a Tclkit runtime. Although only the
-    linked files below have been tested, any reasonably modern version 
-    of Tclkit should work.
-  </p>
   <p>
     The files offered for download below are not built from any specific
     released version of Tkhtml. Instead, they are updated whenever the
@@ -101,74 +75,43 @@ puts [subst -novariables {
     this information into bug reports can be a big help.
   </p>
 
-  <table border=1>
-    <tr><th>Windows<th>Linux
-    <tr><td>
-           <ol style="list-style-position: inside; margin: 0; padding: 1em">
-               <li><a href="hv3_img_w32.kit">hv3_img_w32.kit</a>
-               <li><a href="http://www.equi4.com/pub/tk/8.4.13/tclkit-win32.upx.exe">tclkit-w32.upx.exe</a>
-               <li><a href="hv3_polipo.exe">hv3_polipo.exe</a>
-           </ol>
-        <td>
-           <ol style="list-style-position: inside; margin: 0; padding: 1em">
-               <li><a href="hv3_img.kit">hv3_img.kit</a>
-               <li><a href="http://www.equi4.com/pub/tk/8.5a4/tclkit-linux-x86-xft.gz">tclkit-linux-x86-xft.gz</a>
-               <li><a href="hv3_polipo">hv3_polipo</a>
-           </ol>
-  </table>
+  <table border=1 cellpadding=5 style="margin-left:2em; margin-right:2em">
 
-  <p style="text-align:center"><b>Linux Specific Instructions</b></p>
-  <p>
-    After downloading the starkit and tclkit runtime (files 1 and 2), Linux
-    users must decompress the tclkit runtime, change it's permissions to
-    be executable and execute it with the path of to the starkit as the first
-    argument. For example:
-  </p>
+<tr>
+<td>Windows
+<td><a href="hv3-win32.exe">hv3-win32.exe</a> - Executable for win32 platforms.
 
-  <pre>
-      $ gunzip ./tclkit-linux-x86-xft.gz
-      $ chmod 755 ./tclkit-linux-x86-xft
-      $ ./tclkit-linux-x86-xft ./hv3_img.kit
-  </pre>
+<tr>
+<td>Generic Linux
+<td>
+    <p><a href="hv3-linux-x86.gz">hv3-linux-x86.gz</a> - Gzip'd executable for
+    linux x86 platforms. Everything is staticly linked in, so there are no
+    dependencies. To use this, download the file, gunzip it, set the
+    permissions to executable and run it. i.e. execute the following commands
+    from a terminal window:
 
-  <p>
-    To use the custom web proxy program hv3_polipo, simply download it, 
-    make sure it is executable and put the executable in the same directory
-    as the starkit file (hv3_img.kit).
-  </p>
+<pre>
+  wget http://tkhtml.tcl.tk/hv3-linux-x86.gz
+  gunzip hv3-linux-x86.gz
+  chmod 755 hv3-linux-x86
+  ./hv3-linux-x86
+</pre>
 
-  <p>
-    Linux users who are trusting sorts try consider cutting and paste the
-    following block of text into a command terminal to download, unpack and 
-    run hv3 without typing a whole lot of commands:
-  </p>
+    <p><a href="hv3_img.kit">hv3_img.kit</a> - Starkit package. To use
+    this you also require a tclkit runtime from Equi4 software
+    (<a href="http://www.equi4.com">http://www.equi4.com</a>). If you're 
+    not sure what this means, grab the file above instead.
 
-  <pre>
-    mkdir /tmp/test_hv3
-    cd /tmp/test_hv3
-    wget http://tkhtml.tcl.tk/hv3_img.kit
-    wget http://tkhtml.tcl.tk/hv3_polipo
-    wget http://www.equi4.com/pub/tk/8.5a4/tclkit-linux-x86-xft.gz
-    gunzip ./tclkit-linux-x86-xft.gz
-    chmod 755 ./tclkit-linux-x86-xft
-    chmod 755 ./hv3_polipo
-    ./tclkit-linux-x86-xft ./hv3_img.kit
-  </pre>
+<tr>
+<td>Puppy Linux
+<td>
+    <p><a href="hv3-alpha-13.tgz">hv3-alpha-13.tgz</a> - Dotpup package
+    for Puppy linux 
+    (<a href="http://www.puppyos.com">http://www.puppyos.com</a>). This
+    probably won't work on other linux distributions.
 
-  <p style="text-align:center"><b>Windows Specific Instructions</b></p>
-  <p>
-    After downloading the starkit and tclkit runtime (files 1 and 2), 
-    right-click on the starkit file (hv3_img_w32.kit) and select 
-    "Open With..." from the menu. The click "Browse" and choose
-    the tclkit runtime (tclkit-win32-upx.exe) with the file selection
-    dialog.
-  </p>
+</table>
 
-  <p>
-    To use the custom web proxy program hv3_polipo.exe, download it and put it
-    in the same directory as the starkit file (hv3_img_w32.kit).
-  </p>
- 
 <h2><a name="source">Source Code Installation</a></h2>
     
   <p>
@@ -202,14 +145,33 @@ puts [subst -novariables {
     the path to the hv/hv3_main.tcl file from the source distribution.
   </p>
 
+<h2><a name="hv3_polipo">Hv3 Polipo</a></h2>
+  <p>
+    hv3_polipo is a very slightly modified version of the standard
+    polipo program by Juliusz Chroboczek, available at 
+    <a href="http://www.pps.jussieu.fr/~jch/software/polipo/">
+    http://www.pps.jussieu.fr/~jch/software/polipo/</a>. The modifications
+    are designed to make sure that no hv3_polipo processes are
+    left running if hv3 crashes or is terminated by the operating system.
+    The patch used to create the custom version is available 
+    <a href="hv3_polipo.patch">here</a>.
+  </p>
+  <p>
+    If building Hv3 from source code, you probably want to obtain hv3_polipo
+    as well. The binary packages above already include pre-compiled versions.
+
 <h2><a name="future">Future Plans</a></h2>
   <p>
     Currently, the plan is for hv3 to develop alongside Tkhtml to serve
-    as it's primary test harness, but not to work on more complex browser
-    functions, such as javascrpt, plugins or https. But this is primarily due
-    to lack of resources. Anyone interested in volunteering to patch, work on
-    or fork the hv3 source code is encouraged to do so. Please 
-    <a href="index.html#part3">get in touch</a>!
+    as it's primary test harness, but not to immediately work on more complex
+    browser functions, such as javascrpt or plugins. But this is primarily due
+    to lack of resources. This said, Hv3 is already a useful web-browser
+    in it's own right, not merely a proof of concept.
+  </p>
+  <p>
+    Anyone interested in volunteering to patch, work on
+    or fork the hv3 source code is encouraged to do so. Why not 
+    <a href="index.html#part3">get in touch</a>?
   </p>
 
 </div>
