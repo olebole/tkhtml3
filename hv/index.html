@@ -149,9 +149,9 @@
 
     <div class=content>
 
-    <h1>Release Notes - Alpha 12</h1>
+    <h1>Release Notes - Alpha 13</h1>
     <p> Congratulations on successfully running Hv3 - the minimalist browser
-	designed to test Tkhtml3. The following release notes apply to the 11th
+	designed to test Tkhtml3. The following release notes apply to the 13th
         alpha release of both Hv3 and Tkhtml3. Please report bugs in Hv3 or
         Tkhtml3 here:
     </p>
@@ -161,8 +161,9 @@
 
     <p>
         Click "Ticket" near the top right hand corner to access the bug
-        report form.
-    </p>
+	report form. It is not only fun, but a moral obligation to report 
+        bugs!
+</p>
 
     <h3>1. The -statefile option</h3>
       <p>It is possible to configure Hv3 to use persistent storage for the
@@ -173,9 +174,10 @@
          </ul>
       <p>To configure hv3 to use a "state-file", add a -statefile option
          to the command line used to start Hv3. For example, if using a
-         starkit from http://tkhtml.tcl.tk, something like:
-      <pre>
-  hv3_img.kit -statefile /home/user/hv3state.db</pre>
+         self-contained binary from http://tkhtml.tcl.tk, something like:
+<pre>
+  hv3-linux-x86 -statefile /home/user/hv3state.db
+</pre>
 
       <p>The state-file is actually an SQLite database. This means that 
          multiple instances of hv3 running concurrently share cookies
@@ -186,17 +188,19 @@
 	 everything in memory. In this case all cookie and visited URI data is
          discarded on exit.
 
-    <h3>2. hv3_polipo</h3>
+    <h3>2. Use hv3_polipo!</h3>
       <p>It is best to use Hv3 in concert with hv3_polipo, a lightweight
-         web proxy. Using hv3_polipo has the following advantages:
-         <ul><li>DNS lookups are performed asynchronously in an external
+         web proxy. If you obtained a pre-built package from tkhtml.tcl.tk
+	 then this <i>should</i> happen automatically. Otherwise, check
+	 the website for instructions for obtaining it. Using hv3_polipo has
+         the following advantages: 
+	 <ul><li>DNS lookups are performed asynchronously in an external
                  process. This means the Hv3 GUI doesn't freeze while waiting
                  for a response from the DNS server.
 	     <li>The generated network traffic uses HTTP 1.1 features
 		 (i.e. pipelining) to significantly improve performance.
                  Without hv3_polipo Hv3 generates HTTP 1.0 network traffic.
          </ul>
-      <p>Instructions for obtaining hv3_polipo may be found at <a href="http://tkhtml.tcl.tk/hv3.html">http://tkhtml.tcl.tk/hv3.html</a>
       <p>To test if hv3_polipo is in use, select the Debug-&gt;Polipo menu
 	 option. If the log window that pops up contains (amongst other things)
 	 a line like "ERROR: No hv3_polipo binary found.", then hv3_polipo is
@@ -209,28 +213,42 @@
 
     <h3>4. HTTPS URIs</h3>
       <p>Hv3 can load https:// URIs if the Tcl "tls" package is installed.
+         Currently this is the case with pre-built linux packages, but not
+         their win32 counterparts. It's a work in progress.
 
     <h1>Credits</h1>
+      <p>
+	As well as the bits created by me, Dan Kennedy, and Tcl/Tk itself,
+	Hv3 uses software components developed by some very talented
+	individuals. Most have been slightly modified and may have had bugs
+        introduced, so don't blame them. Much gratitude to everyone involved
+        in the creation of the following components:
+      </p>
     <ul>
-      <li> Hv3 uses the pure-tcl combobox widget created by Bryan Oakley
+
+      <li>Tcl combobox widget by Bryan Oakley.
            <a href="http://www.purl.org/net/oakley/tcl/combobox/index.html">
              http://www.purl.org/net/oakley/tcl/combobox/index.html</a>.
-      <li> If available, the File-Tkcon menu entry launches the tkcon 
-           console by Jeffrey Hobbs and others.
-           <a href="http://tkcon.sourceforge.net">
-             http://tkcon.sourceforge.net</a>
-      <li> Hv3 is far more usable in concert with the web proxy program
-	   hv3_polipo (available for download from Tkhtml website). hv3_polipo
-	   is a slightly modified version of the polipo program by  by Juliusz
-           Chroboczek, available at 
+
+      <li>The polipo http proxy by Juliusz Chroboczek.
            <a href="http://www.pps.jussieu.fr/~jch/software/polipo/">
-           http://www.pps.jussieu.fr/~jch/software/polipo/</a>.
-      <li> The six toolbar icons were created by Ian Main 
-           (<a href="http://e-lusion.com">http://e-lusion.com</a>) and
-           are used by Hv3 under the terms of "Creative Commons Attribution
-           2.0 Australia" license.
+             http://www.pps.jussieu.fr/~jch/software/polipo/</a>.
+
+      <li>Icons created by Ian Main.
            <a href="http://e-lusion.com/design/greyscale">
-           http://e-lusion.com/design/greyscale</a>
-  </div>
+             http://e-lusion.com/design/greyscale</a>.
+	   Used under the terms of the "Creative Commons Attribution 2.0
+           Australia" license.  
+
+      <li>SQLite, and embedded database system created by D. Richard Hipp.
+           <a href="http://www.sqlite.org">http://www.sqlite.org</a>.
+
+      <li>TLS, a Tcl binding to openssh.
+
+      <li>The Tk Img package, extending Tcl/Tk to read most image formats used
+          on the web.
+
+    </div>
   </body>
 </html>
+

@@ -8,7 +8,7 @@ TOP = /home/dan/work/tkhtml/htmlwidget/
 # BUILD = DEBUG
 BUILD = RELEASE
 
-HV3_POLIPO = /z/hv3_polipo.exe
+HV3_POLIPO = /home/dan/work/polipo/hv3_polipo.exe
 
 ##### Version of and path to the Tcl installation to use.
 #
@@ -59,12 +59,19 @@ WISH = wish
 STRIP = i386-mingw32-strip
 
 MKSTARKIT = tclkit /home/dan/bin/sdx.kit wrap
+STARKITRT = /home/dan/work/tclkit-win32.upx.exe
 
 #
 # End of configuration section.
 ###########################################################################
 
 default: binaries
+
+hv3-win32.exe: hv3_img.kit
+	cp $(STARKITRT) starkit_runtime
+	$(MKSTARKIT) hv3_img.bin -runtime ./starkit_runtime
+	mv hv3_img.bin hv3-win32.exe
+	chmod 644 hv3-win32.exe
 
 ###############################################################################
 include $(TOP)/main.mk

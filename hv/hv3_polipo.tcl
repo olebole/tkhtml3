@@ -1,5 +1,5 @@
 
-namespace eval hv3 { set {version($Id: hv3_polipo.tcl,v 1.8 2006/10/05 15:23:40 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_polipo.tcl,v 1.9 2006/11/24 08:12:08 danielk1977 Exp $)} 1 }
 
 # This file contains code to control a single instance of the 
 # external program "hv3_polipo" that may be optionally used by
@@ -63,16 +63,107 @@ namespace eval ::hv3::polipo {
       set g(binary) ""
     }
     if {$g(binary) eq "" && [info exists ::HV3_STARKIT]} {
-      catch {
-        set binary [file join $dir $prog]
-        if {[file exists $binary]} {
-          file copy -force $binary [file dirname $dir]
-        }
-        set binary2 [file join [file dirname $dir] $prog]
-        set g(binary) $binary2
-        file attributes $binary2 -permissions a+x
+      set install_prog [file join $dir $prog]
+      if {[file exists $install_prog]} {
+        set g(binary) [install $install_prog]
       }
     }
+  }
+
+  # This proc is called when hv3 starts up if the following conditions
+  # are met:
+  #
+  #     1. Hv3 is deployed as a starkit.
+  #     2. There is no hv3_polipo[.exe] binary to be found.
+  #     3. The starkit contains such a binary.
+  #
+  # We present the user with a dialog offering them the option to
+  # copy the hv3_polipo binary out of the starkit to some location
+  # on the disk, where we can execute it from.
+  #
+  # If the user does install the binary, the full path to it is 
+  # returned. Otherwise an empty string is returned.
+  #
+  proc install {prog} {
+
+    wm state . withdrawn
+
+    set bin [file tail $prog]
+    set path [file join [file dirname [file dirname $prog]] $bin]
+    set radiooptions "-highlightthickness 0 -var ::hv3::polipo::c -bg white"
+
+    # Document to
+    set Template {
+      <h1 style="text-align:center">Install hv3_polipo?</h1>
+      <p>
+	  Hv3 optionally uses an auxillary program, "hv3_polipo" to connect 
+          to the internet. Currently, you do not have this program installed,
+          but hv3 can install it now if you wish.
+      <p>
+	  Installing hv3_polipo does not require any further downloads, 
+          requires less than 200KB disk space and greatly improves the
+          performance of the hv3 web browser. Furthermore, once hv3_polipo
+	  is installed, this irritating dialog box will stop appearing.The
+          correct answer is to go ahead with the install.
+
+      <table style="border:1px solid black;margin:1em auto; padding: 0 1em">
+        <tr><td>
+          <div class="widget" 
+            cmd="radiobutton ${h}.r1 -val 1 $radiooptions">
+            <td style="white-space:nowrap">Install hv3_polipo to $path
+        <tr><td>
+          <div class="widget" 
+            cmd="radiobutton ${h}.r0 -val 0 $radiooptions">
+            <td>Run without hv3_polipo.
+      </table>
+
+      <div class="widget" 
+        style="width:90% ; margin:auto"
+        cmd="button ${h}.button -text Ok -command ::hv3::polipo::install_ok">
+    }
+
+    set t [toplevel .polipo_install]
+    wm title $t "Install hv3_polipo?"
+    set h [html ${t}.html -width 800 -height 400 -shrink 1]
+    pack $h -fill both -expand 1
+
+    $h parse -final [subst -nocommands $Template]
+
+    foreach node [$h search .widget] {
+      $node replace [eval [$node attr cmd]]
+    }
+    set ::hv3::polipo::c 1
+
+    bind .polipo_install <Destroy> ::hv3::polipo::install_cancel
+    vwait ::hv3::polipo::signal
+    destroy $t
+
+    if {$::hv3::polipo::c} {
+      if {[catch {
+        file copy -force $prog $path
+        if {$::tcl_platform(platform) eq "unix"} {
+          file attributes $path -permissions rwxr-xr-x
+        }
+      }]} {
+        tk_dialog .polipo_install "Installation failed" \
+          "Installation of hv3_polipo failed (try running as root)" error 0 OK
+      } else {
+        wm state . normal
+        return $path
+      }
+    }
+
+    wm state . normal
+    return ""
+  }
+
+  proc install_ok {} {
+    bind .polipo_install <Destroy> ""
+    set ::hv3::polipo::signal 1
+  }
+
+  proc install_cancel {} {
+    exit
   }
 
   # Popup the gui log window.    

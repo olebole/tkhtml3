@@ -119,7 +119,7 @@ hv3_img.vfs: binaries
 	if test -d $(TCL)/lib/*sqlite3*/ ; then \
 	  cp -R $(TCL)/lib/*sqlite3* ./hv3_img.vfs/lib ; \
 	fi
-	# cp $(HV3_POLIPO) ./hv3_img.vfs/
+	cp $(HV3_POLIPO) ./hv3_img.vfs/
 	touch hv3_img.vfs
 
 hv3.vfs: binaries
@@ -137,7 +137,7 @@ hv3.vfs: binaries
 	if test -d $(TCL)/lib/*sqlite3*/ ; then \
 	  cp -R $(TCL)/lib/*sqlite3* ./hv3.vfs/lib ; \
 	fi
-	# cp $(HV3_POLIPO) ./hv3.vfs/
+	cp $(HV3_POLIPO) ./hv3.vfs/
 	touch hv3.vfs
 
 hv3_img.kit: hv3_img.vfs
@@ -146,7 +146,7 @@ hv3_img.kit: hv3_img.vfs
 hv3.kit: hv3.vfs
 	$(MKSTARKIT) hv3.kit
 
-website: hv3.kit hv3_img.kit
+website: hv3_img.kit
 	mkdir -p www
 	$(TCLSH) $(TOP)/webpage/mkwebpage.tcl > www/index.html
 	$(TCLSH) $(TOP)/webpage/mksupportpage.tcl > www/support.html
@@ -155,8 +155,6 @@ website: hv3.kit hv3_img.kit
 	$(TCLSH) $(TOP)/doc/tkhtml_requirements.tcl > www/requirements.html
 	cp $(TOP)/doc/tree.gif www/tree.gif
 	cp $(TOP)/webpage/tkhtml_tcl_tk.css www/tkhtml_tcl_tk.css
-	cp hv3.kit www/
-	chmod 644 www/hv3.kit
 	cp hv3_img.kit www/
 	chmod 644 www/hv3_img.kit
 

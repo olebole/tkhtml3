@@ -27,6 +27,7 @@ TCL = $(TCL_$(BUILD))
 
 # MKSTARKIT = ~/tcl/bin/tclkit-linux-x86-xft ~/bin/sdx.kit wrap
 MKSTARKIT = ~/bin/tclkit ~/bin/sdx.kit wrap
+STARKITRT = ~/bin/tclkit
 
 ##### Flags passed to the C-compiler to link to Tcl.
 #
@@ -97,6 +98,13 @@ install: binaries
 	mkdir -p $(INSTALLDIR)
 	mkdir -p $(MANINSTALLDIR)
 	cp -f $(BINARIES) $(INSTALLDIR)
+
+hv3-linux-x86.gz: hv3_img.kit
+	cp $(STARKITRT) starkit_runtime
+	$(MKSTARKIT) hv3_img.bin -runtime ./starkit_runtime
+	mv hv3_img.bin hv3-linux-x86
+	gzip hv3-linux-x86
+	chmod 644 hv3-linux-x86.gz
 
 ###############################################################################
 include $(TOP)/main.mk
