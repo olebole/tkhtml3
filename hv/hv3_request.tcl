@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.2 2006/11/22 11:44:19 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.3 2006/11/25 13:10:52 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file contains the implementation of two types used by hv3:
@@ -150,19 +150,10 @@ snit::type ::hv3::download {
 
   # Called after all data has been passed to [append].
   method finish {} {
-    if {$options(-finscript) != ""} { 
-      eval [linsert $options(-finscript) end $myData] 
-    } 
-    $self destroy
+    eval [linsert $options(-finscript) end $myData] 
   }
 
-  # Called if the download has failed.
-  method fail {{errmsg {Unspecified Error}}} {
-    if {$options(-failscript) != ""} { 
-      eval [concat $options(-failscript) [list $errmsg]]
-    } 
-    $self destroy
-  }
+  method fail {} {puts FAIL}
 }
 
 #--------------------------------------------------------------------------

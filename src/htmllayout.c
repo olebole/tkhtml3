@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.239 2006/11/25 05:01:10 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.240 2006/11/25 13:10:52 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -1603,7 +1603,13 @@ drawReplacementContent(pLayout, pBox, pNode)
             assert(width != 0);
             if (width == PIXELVAL_AUTO) {
                 switch (mmt) {
-                    case MINMAX_TEST_MIN: width = Tk_MinReqWidth(win); break;
+                    case MINMAX_TEST_MIN: 
+                        if (pV->eDisplay == CSS_CONST_INLINE) {
+                            width = Tk_ReqWidth(win); 
+                        } else {
+                            width = Tk_MinReqWidth(win); 
+                        }
+                        break;
                     default: 
                         width = MIN(pBox->iContaining, Tk_ReqWidth(win));
                 }

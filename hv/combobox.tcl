@@ -1876,7 +1876,6 @@ proc ::combobox::SetValue {w newValue} {
     # if the command somehow fails.
     set oldValue $newValue
 
-
     # call the associated command. The proc will handle whether or 
     # not to actually call it, and with what args
     CallCommand $w $newValue

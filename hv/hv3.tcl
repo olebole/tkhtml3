@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.123 2006/11/22 11:44:17 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.124 2006/11/25 13:10:52 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -541,7 +541,7 @@ snit::widget ::hv3::hv3 {
     set rc [catch $cmd errmsg]
     if {$rc} {
       set einfo $::errorInfo
-      catch {$downloadHandle fail}
+      catch {$downloadHandle finish}
       error $errmsg $einfo
     }
   }
@@ -640,6 +640,39 @@ snit::widget ::hv3::hv3 {
     return [list $name [list image delete $name]]
   }
 
+  # This method is called to handle the "Location" header for all requests
+  # except requests for the main document (see the [Refresh] method for
+  # these). If there is a Location method, then the handle object is
+  # destroyed, a new one dispatched and 1 returned. Otherwise 0 is returned.
+  #
+  method HandleLocation {handle} {
+    # Check for a "Location" header. TODO: Handling Location
+    # should be done in one common location for everything except 
+    # the main document. The main document is a bit different...
+    # or is it?
+    set location ""
+    foreach {header value} [$handle cget -header] {
+      if {$header eq "Location"} {
+        set location $value
+      }
+    }
+
+    if {$location ne ""} {
+      set finscript [$handle cget -finscript]
+      $handle destroy
+      set full_location [$self resolve_uri $location]
+      set handle2 [::hv3::download $handle               \
+          -uri          $full_location                   \
+          -mimetype     image/gif                        \
+          -cachecontrol $myCacheControl                  \
+      ]
+      $handle2 configure -finscript $finscript
+      $self makerequest $handle2
+      return 1
+    }
+    return 0
+  }
+
   # This proc is called when an image requested by the -imagecmd callback
   # ([imagecmd]) has finished downloading. The first argument is the name of
   # a Tk image. The second argument is the downloaded data (presumably a
@@ -647,11 +680,12 @@ snit::widget ::hv3::hv3 {
   # contain the downloaded data.
   #
   method Imagecallback {handle name data} {
-    if {[info commands $name] == ""} return 
-
-    # If the image data is invalid, it is not an error. Possibly hv3
-    # should log a warning - if it had a warning system....
-    catch { $name configure -data $data }
+    if {0 == [$self HandleLocation $handle]} {
+      # If the image data is invalid, it is not an error. Possibly hv3
+      # should log a warning - if it had a warning system....
+      catch { $name configure -data $data }
+      $handle destroy
+    }
   }
 
   # Request the resource located at URI $full_uri and treat it as
@@ -680,8 +714,11 @@ snit::widget ::hv3::hv3 {
   # from method Requeststyle above.
   #
   method Finishstyle {handle id importcmd urlcmd data} {
-    $myHtml style -id $id -importcmd $importcmd -urlcmd $urlcmd $data
-    $self goto_fragment
+    if {0 == [$self HandleLocation $handle]} {
+      $myHtml style -id $id -importcmd $importcmd -urlcmd $urlcmd $data
+      $self goto_fragment
+      $handle destroy
+    }
   }
 
   # Node handler script for <meta> tags.
@@ -908,6 +945,9 @@ snit::widget ::hv3::hv3 {
       $self Refresh $refreshheader
     }
 
+    if {$final} {
+      $handle destroy
+    }
   }
 
   method HtmlCallback {handle isFinal data} {
@@ -1067,7 +1107,7 @@ snit::widget ::hv3::hv3 {
   # public interface.
   method stop {} {
     foreach dl $myCurrentDownloads {
-      $dl fail "Operation cancelled by user"
+      $dl finish
     }
   }
 

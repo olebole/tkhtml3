@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_object.tcl,v 1.8 2006/11/22 11:44:19 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_object.tcl,v 1.9 2006/11/25 13:10:52 danielk1977 Exp $)} 1 }
 
 #
 # The code in this file handles <object> elements for the hv3 mini-browser.
@@ -111,7 +111,6 @@ proc hv3_object_handler {hv3 node} {
   $handle configure \
       -uri       $data                                                       \
       -finscript  [list hv3_object_data_handler $hv3 $node $params $handle]  \
-      -failscript [list hv3_object_data_failed $hv3 $node]                   \
       -mimetype  $type
   $hv3 makerequest $handle
 }
@@ -122,41 +121,43 @@ proc hv3_collect_data {data handle} {
 }
 
 proc hv3_object_data_handler {hv3 node params handle data} {
-  set mimetype [$handle cget -mimetype]
-
-  switch -glob -- $mimetype {
-
-    application/x-tcl {
-      set html [$hv3 html]
-      set tclet "${html}.[string map {: _} $node]_tclet"
-      ::hv3::tclet $tclet $params $data
-      $node replace $tclet -configurecmd [list $tclet configurecmd]
-    }
-
-    text/html {
+  if {$data ne ""} {
+    set mimetype [$handle cget -mimetype]
+  
+    switch -glob -- $mimetype {
+  
+      application/x-tcl {
+        set html [$hv3 html]
+        set tclet "${html}.[string map {: _} $node]_tclet"
+        ::hv3::tclet $tclet $params $data
+        $node replace $tclet -configurecmd [list $tclet configurecmd]
+      }
+  
+      text/html {
 if 0 {
-      set html [$hv3 html]
-      set htmlet "${html}.[string map {: _} $node]_tclet"
-      ::hv3::hv3 $htmlet
-      $htmlet configure -requestcmd [list hv3_collect_data $data]
-      $htmlet goto [$handle cget -uri]
-      $htmlet configure -requestcmd       [$hv3 cget -requestcmd]
-      $node replace $htmlet
+        set html [$hv3 html]
+        set htmlet "${html}.[string map {: _} $node]_tclet"
+        ::hv3::hv3 $htmlet
+        $htmlet configure -requestcmd [list hv3_collect_data $data]
+        $htmlet goto [$handle cget -uri]
+        $htmlet configure -requestcmd       [$hv3 cget -requestcmd]
+        $node replace $htmlet
 }
+      }
+  
+      image/* {
+        set img [image create photo -data $data]
+        $node replace $img -deletecmd [list image delete $img]
+        $node override [list -tkhtml-replacement-image url(replace:$img)]
+      }
+  
+      default { $node replace "" }
     }
-
-    image/* {
-      set img [image create photo -data $data]
-      $node replace $img -deletecmd [list image delete $img]
-      $node override [list -tkhtml-replacement-image url(replace:$img)]
-    }
-
-    default { hv3_object_data_failed $hv3 $node }
+  } else {
+    $node replace ""
   }
-}
 
-proc hv3_object_data_failed {hv3 node args} {
-  $node replace ""
+  $handle destroy
 }
 
 snit::widget ::hv3::tclet {

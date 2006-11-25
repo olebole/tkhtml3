@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.35 2006/11/22 12:42:41 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.36 2006/11/25 13:10:52 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd script used with 
@@ -511,6 +511,9 @@ snit::type ::hv3::filedownload {
 
     # Update the GUI.
     $self Updategui
+
+    # Delete the download request.
+    $handle destroy
   }
 
   destructor {
