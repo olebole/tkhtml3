@@ -34,8 +34,8 @@ TABLE[align="right"]      {
     text-align: inherit;
 }
 TABLE[align="center"]     { 
-    margin-left:auto; 
-    margin-right:auto; 
+    margin-left:auto;
+    margin-right:auto;
     text-align:inherit;
 }
 IMG[align="left"]         { float:left }
@@ -47,12 +47,9 @@ IMG[align="right"]        { float:right }
  *
  * Also the <center> tag means to center align things.
  */
-[align="right"]   { text-align:right }
-[align="left"]    { text-align:left }
-
-CENTER, [align="center"]     { text-align: center }
-CENTER *, [align="center"] * { margin-left: auto ; margin-right: auto }
-
+[align="right"]              { text-align: -tkhtml-right }
+[align="left"]               { text-align: -tkhtml-left  }
+CENTER, [align="center"]     { text-align: -tkhtml-center }
 
 /* Rules for unordered-lists */
 /* Todo! */

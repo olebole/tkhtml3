@@ -66,7 +66,7 @@
  * 
  *     HtmlInlineContextIsEmpty()
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.43 2006/11/23 02:26:58 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.44 2006/11/25 05:01:10 danielk1977 Exp $";
 
 /* The InlineBox and InlineMetrics types are only used within this file.
  * The InlineContext type is only used within this file, but opaque handles
@@ -1026,12 +1026,17 @@ HtmlInlineContextGetLineBox(pLayout, p, flags, pWidth, pCanvas, pVSpace,pAscent)
      * justification is implemented.
      */
     switch(p->eTextAlign) {
+
+        case CSS_CONST__TKHTML_CENTER:
         case CSS_CONST_CENTER:
             iLeft = (iReqWidth - iLineWidth) / 2;
             break;
+
+        case CSS_CONST__TKHTML_RIGHT:
         case CSS_CONST_RIGHT:
             iLeft = (iReqWidth - iLineWidth);
             break;
+
         case CSS_CONST_JUSTIFY:
             if (nBox > 1 && iReqWidth > iLineWidth && nBox < p->nInline) {
                 nExtra = (double)(iReqWidth - iLineWidth) / (double)(nBox-1);

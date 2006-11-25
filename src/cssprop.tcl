@@ -84,7 +84,8 @@ E outline-style         none hidden dotted dashed solid
 E outline-style         double groove ridge outset inset
 E position              static relative absolute fixed
 E table-layout          auto fixed
-E text-align            left right center justify
+E text-align            left right center justify 
+E text-align            -tkhtml-center -tkhtml-right -tkhtml-left
 E text-decoration       none underline overline line-through
 E text-transform        none capitalize uppercase lowercase
 E unicode-bidi          normal embed bidi-override
