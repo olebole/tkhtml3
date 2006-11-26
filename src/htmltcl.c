@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.138 2006/11/17 15:09:05 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.139 2006/11/26 15:09:29 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -2157,7 +2157,8 @@ newWidget(clientData, interp, objc, objv)
     mainwin = Tk_MainWindow(interp);
     pTree->tkwin = Tk_CreateWindowFromPath(interp, mainwin, zCmd, NULL); 
     if (!pTree->tkwin) {
-        goto error_out;
+        HtmlFree(pTree);
+        return TCL_ERROR;
     }
     Tk_SetClass(pTree->tkwin, "Html");
 
@@ -2183,6 +2184,10 @@ newWidget(clientData, interp, objc, objv)
 
     /* TODO: Handle the case where configureCmd() returns an error. */
     rc = configureCmd(pTree, interp, objc, objv);
+    if (rc != TCL_OK) {
+        Tk_DestroyWindow(pTree->tkwin);
+        return TCL_ERROR;
+    }
     assert(!pTree->options.logcmd);
     assert(!pTree->options.timercmd);
 
@@ -2192,19 +2197,6 @@ newWidget(clientData, interp, objc, objv)
     /* Return the name of the widget just created. */
     Tcl_SetObjResult(interp, objv[1]);
     return TCL_OK;
-
-    /* Exception handler. Jump here if an error occurs during
-     * initialisation. An error message should already have been written
-     * into the result of the interpreter.
-     */
-error_out:
-    if (pTree->tkwin) {
-        Tk_DestroyWindow(pTree->tkwin);
-    }
-    if (pTree) {
-        HtmlFree(pTree);
-    }
-    return TCL_ERROR;
 }
 
 /*
