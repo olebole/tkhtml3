@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.240 2006/11/25 13:10:52 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.241 2006/11/27 14:06:51 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -3786,6 +3786,7 @@ HtmlLayout(pTree)
     HtmlNode *pBody = 0;
     int rc = TCL_OK;
     int nWidth;
+    int nHeight;
     LayoutContext sLayout;
 
     /* Set variable nWidth to the pixel width of the viewport to render 
@@ -3800,6 +3801,10 @@ HtmlLayout(pTree)
     nWidth = Tk_Width(pTree->tkwin);
     if (nWidth < 5 || pTree->options.forcewidth) {
         nWidth = pTree->options.width;
+    }
+    nHeight = Tk_Height(pTree->tkwin);
+    if (nHeight < 5) {
+        nHeight = PIXELVAL_AUTO;
     }
 
     /* Delete any existing document layout. */
@@ -3840,6 +3845,7 @@ HtmlLayout(pTree)
 
         /* Layout content */
         sBox.iContaining =  nWidth;
+        sBox.iContainingHeight = nHeight;
         normalFlowLayoutBlock(&sLayout, &sBox, pBody, &y, 0, &sNormal);
         normalFlowMarginCollapse(&sLayout, pBody, &sNormal, &sBox.height);
 
