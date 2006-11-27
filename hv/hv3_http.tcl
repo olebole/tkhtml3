@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.36 2006/11/25 13:10:52 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.37 2006/11/27 05:36:29 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd script used with 
@@ -452,7 +452,7 @@ snit::type ::hv3::filedownload {
       # If the myIsFinished flag is set, then the entire download
       # was already in the buffer. We're finished.
       if {$myIsFinished} {
-        $self finish {}
+        $self finish {} {}
       }
 
       ::hv3::the_download_manager manage $self
@@ -495,7 +495,9 @@ snit::type ::hv3::filedownload {
   # complete. All the data will have been already passed to [append].
   #
   method finish {handle data} {
-    $self append $handle $data
+    if {$data ne ""} {
+      $self append $handle $data
+    }
 
     # If the channel is open, close it. Also set the button to say "Ok".
     if {$myChannel ne ""} {
@@ -513,7 +515,9 @@ snit::type ::hv3::filedownload {
     $self Updategui
 
     # Delete the download request.
-    $handle destroy
+    if {$handle ne ""} {
+      $handle destroy
+    }
   }
 
   destructor {

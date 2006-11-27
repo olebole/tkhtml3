@@ -66,7 +66,7 @@
  * 
  *     HtmlInlineContextIsEmpty()
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.44 2006/11/25 05:01:10 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.45 2006/11/27 05:36:29 danielk1977 Exp $";
 
 /* The InlineBox and InlineMetrics types are only used within this file.
  * The InlineContext type is only used within this file, but opaque handles
@@ -1523,7 +1523,10 @@ HtmlInlineContextAddText(pContext, pNode)
 
             case HTML_TEXT_TOKEN_NEWLINE:
                 if (eWhitespace == CSS_CONST_PRE) {
-                    inlineContextAddNewLine(pContext, nh);
+                    int i;
+                    for (i = 0; i < nData; i++) {
+                        inlineContextAddNewLine(pContext, nh);
+                    }
                     iIndex++;
                     break;
                 }

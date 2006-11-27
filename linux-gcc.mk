@@ -99,10 +99,12 @@ install: binaries
 	mkdir -p $(MANINSTALLDIR)
 	cp -f $(BINARIES) $(INSTALLDIR)
 
-hv3-linux-x86.gz: hv3_img.kit
+hv3-linux-x86: hv3_img.kit
 	cp $(STARKITRT) starkit_runtime
 	$(MKSTARKIT) hv3_img.bin -runtime ./starkit_runtime
 	mv hv3_img.bin hv3-linux-x86
+
+hv3-linux-x86.gz: hv3-linux-x86
 	gzip hv3-linux-x86
 	chmod 644 hv3-linux-x86.gz
 
