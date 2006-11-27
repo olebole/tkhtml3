@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.100 2006/11/22 12:42:41 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.101 2006/11/27 12:35:47 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -399,7 +399,7 @@ snit::widget ::hv3::browser_toplevel {
   # associated with the $myMainFrame frame. Set to true when the 
   # "Stop" button should be enabled, else false.
   #
-  # TODO: Frames bug.
+  # TODO: Frames bug?
   variable myPendingVar 0
 
   constructor {args} {
@@ -585,8 +585,10 @@ snit::widget ::hv3::browser_toplevel {
   delegate option -historymenu   to myHistory
   delegate option -backbutton    to myHistory
   delegate option -forwardbutton to myHistory
+  delegate option -locationentry to myHistory
 
   delegate method locationvar to myHistory
+  delegate method populatehistorymenu to myHistory
 
   delegate method debug_cookies  to myProtocol
 
@@ -1096,6 +1098,7 @@ proc gui_switch {new} {
     $browser configure -backbutton    ""
     $browser configure -stopbutton    ""
     $browser configure -forwardbutton ""
+    $browser configure -locationentry ""
   }
 
   # Configure the new current tab to control the history controls.
@@ -1105,13 +1108,13 @@ proc gui_switch {new} {
   $new configure -backbutton    $G(back_button)
   $new configure -stopbutton    $G(stop_button)
   $new configure -forwardbutton $G(forward_button)
+  $new configure -locationentry $G(location_entry)
 
   # Attach some other GUI elements to the new current tab.
   #
   set gotocmd [list goto_gui_location $new $G(location_entry)]
   $G(location_entry) configure -command $gotocmd
   $G(status_label) configure -textvar [$new statusvar]
-  $G(location_entry) configure -textvar [$new locationvar]
 
   # Configure the new current tab with the contents of the drop-down
   # config menu (i.e. font-size, are images enabled etc.).

@@ -107,9 +107,10 @@ snit::type ::hv3::history {
   # Configuration options to attach this history object to a set of
   # widgets - back and forward buttons and a menu widget.
   #
-  option -historymenu   -default "" -configuremethod setoption
-  option -backbutton    -default "" -configuremethod setoption
-  option -forwardbutton -default "" -configuremethod setoption
+  option -historymenu   -default "" 
+  option -backbutton    -default ""
+  option -forwardbutton -default ""
+  option -locationentry -default ""
 
   # An option to set the script to invoke to goto a URI. The script is
   # evaluated with a single value appended - the URI to load.
@@ -257,15 +258,6 @@ snit::type ::hv3::history {
     $self populatehistorymenu
   }
 
-  method setoption {option value} {
-    set options($option) $value
-    switch -- $option {
-      -historymenu   { $self populatehistorymenu }
-      -forwardbutton { $self populatehistorymenu }
-      -backbutton    { $self populatehistorymenu }
-    }
-  }
-
   # Load history state $idx into the browser window.
   #
   method gotohistory {idx} {
@@ -304,6 +296,7 @@ snit::type ::hv3::history {
     set menu $options(-historymenu)
     set back $options(-backbutton)
     set forward $options(-forwardbutton)
+    set locationentry $options(-locationentry)
 
     set myRadioVar $myStateIdx
     if {$menu ne ""} {
@@ -354,6 +347,10 @@ snit::type ::hv3::history {
         if {$menu ne ""} { $menu entryconfigure Forward -state disabled }
     }
 
+    if {$locationentry ne ""} { 
+        $locationentry delete 0 end
+        $locationentry insert 0 $myLocationVar
+    }
   }
 }
 
