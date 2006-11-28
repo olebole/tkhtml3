@@ -493,16 +493,9 @@ struct HtmlTree {
     /*
      * The following variables are used to stored the text of the current
      * document (i.e. the *.html file).
-     * 
-     * Variable 'iCol' stores the number of characters tokenized since the last
-     * newline encountered in the document source. When we encounter a TAB
-     * character, it is converted to (8-(iCol%8)) spaces. This makes text
-     * inside a block with the 'white-space' property set to "pre" look good
-     * even if the input contains tabs. 
      */
     Tcl_Obj *pDocument;             /* Text of the html document */
     int nParsed;                    /* Bytes of the html document tokenized */
-    int iCol;                       /* Current column in document */
     int isIgnoreNewline;            /* True after an opening tag */
     int isParseFinished;            /* True if the html parse is finished */
     int isCdataInHead;              /* True if previous token was <title> */

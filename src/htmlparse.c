@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.89 2006/11/08 10:28:35 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.90 2006/11/28 05:13:58 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -615,42 +615,6 @@ HtmlHashInit(htmlPtr, start)
 #endif
 }
 
-
-/*
- *---------------------------------------------------------------------------
- *
- * NextColumn --
- *
- *     Compute the new column index following the given character.
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-static int 
-NextColumn(iCol, c)
-    int iCol;
-    char c;
-{
-    switch (c) {
-        case '\n':
-            return 0;
-        case '\t':
-            return (iCol | 7) + 1;
-        case '\0':
-            return iCol;
-        default:
-            return iCol + 1;
-    }
-    /*
-     * NOT REACHED 
-     */
-}
-
 /*
 ** Convert a string to all lower-case letters.
 */
@@ -875,7 +839,6 @@ Tokenize(pTree, isFinal)
     char *z;                     /* The input HTML text */
     int c;                       /* The next character of input */
     int n;                       /* Number of bytes processed so far */
-    int iCol;                    /* Local copy of HtmlTree.iCol */
     int i, j;                    /* Loop counters */
     int selfClose;               /* True for content free elements. Ex: <br/> */
     int argc;                    /* The number of arguments on a markup */
@@ -889,7 +852,6 @@ Tokenize(pTree, isFinal)
      */
     int isTrimStart = 0;
 
-    iCol = pTree->iCol;
     n = pTree->nParsed;
     z = Tcl_GetString(pTree->pDocument);
 
@@ -939,9 +901,6 @@ Tokenize(pTree, isFinal)
             }
             if (z[n + i] == 0) {
                 goto incomplete;
-            }
-            for (j = 0; j < i + 3; j++) {
-                iCol = NextColumn(iCol, z[n + j]);
             }
             n += i + 3;
             isTrimStart = 0;
@@ -1100,9 +1059,6 @@ Tokenize(pTree, isFinal)
             }
             assert( c!=0 );
 
-            for (j = 0; j < i + 1; j++) {
-                iCol = NextColumn(iCol, z[n + j]);
-            }
             n += i + 1;
 
             /* Look up the markup name in the hash table. If it is an unknown
@@ -1202,7 +1158,6 @@ Tokenize(pTree, isFinal)
     }
 
   incomplete:
-    pTree->iCol = iCol;
     return n;
 }
 

@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.102 2006/11/28 04:08:51 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.103 2006/11/28 05:13:58 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -3169,8 +3169,6 @@ HtmlCssSelectorTest(pSelector, pNode, dynamic_true)
             case CSS_SELECTORCHAIN_ADJACENT: {
                 HtmlNode *pParent = N_PARENT(x);
                 int i;
-                HtmlNode *pLeft = 0;
-                HtmlNode *pTmp;
 
                 if (
                     !pParent || 

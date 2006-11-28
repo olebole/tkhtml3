@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.105 2006/11/28 04:08:51 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.106 2006/11/28 05:13:59 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -2360,7 +2360,6 @@ int HtmlTreeClear(pTree)
     }
     pTree->nParsed = 0;
     pTree->pDocument = 0;
-    pTree->iCol = 0;
 
     /* Free the stylesheets */
     HtmlCssStyleSheetFree(pTree->pStyle);
