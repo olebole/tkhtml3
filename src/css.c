@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.101 2006/11/09 13:11:53 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.102 2006/11/28 04:08:51 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -3169,6 +3169,9 @@ HtmlCssSelectorTest(pSelector, pNode, dynamic_true)
             case CSS_SELECTORCHAIN_ADJACENT: {
                 HtmlNode *pParent = N_PARENT(x);
                 int i;
+                HtmlNode *pLeft = 0;
+                HtmlNode *pTmp;
+
                 if (
                     !pParent || 
                     ((HtmlElementNode *)pParent)->pBefore == x ||
@@ -3176,13 +3179,18 @@ HtmlCssSelectorTest(pSelector, pNode, dynamic_true)
                 ) {
                     return 0;
                 }
-                for (i = 0; N_CHILD(pParent,i) != x; i++);
 
-                x = 0;
+                /* Search for the nearest left-hand sibling that is not
+                 * white-space. If no such sibling exists, set x==0 (this
+                 * will cause the selector-match to fail). If the sibling
+                 * does exist, set x to point at it.
+                 */
+                for (i = 0; N_CHILD(pParent, i) != x; i++);
                 i--;
-                while (i >= 0 && HtmlNodeIsWhitespace(x = N_CHILD(pParent,i))) {
+                do {
+                    x = N_CHILD(pParent, i);
                     i--;
-                }
+                } while (i >= 0 && HtmlNodeIsWhitespace(x));
                 if (i < 0) return 0;
 
                 break;

@@ -172,7 +172,7 @@ SUPPORTTABLE {Visual Rendering Properties} \
 	[CSSREF visudet height] {} \
 	[CSSREF visuren float] {} \
 	[CSSREF visuren clear] {} \
-	[CSSREF visudet line-height] {Supported on block level elements only}  \
+	[CSSREF visudet line-height] {} \
 	[CSSREF visudet min-width] {Support is a bit patchy. Most cases work.} \
 	[CSSREF visudet max-width] {Support is a bit patchy. Most cases work.} \
 	[CSSREF visudet min-height] {Support is a bit patchy. Most cases work.}\

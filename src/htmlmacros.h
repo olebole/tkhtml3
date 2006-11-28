@@ -65,6 +65,25 @@
 /*
  *---------------------------------------------------------------------------
  *
+ * HtmlNodeIsWhitespace --
+ *
+ *     Return non-zero if the node is a text node that consists entirely
+ *     of white-space.
+ *
+ * Results:
+ *     Non-zero if the node is white-space, else zero.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+#define HtmlNodeIsWhitespace(pNode) \
+    (HtmlNodeIsText(pNode) && ((HtmlTextNode *)(pNode))->zText == 0)
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * HtmlNodeAsElement --
  *
  *     This function is used as a safe cast from (HtmlNode*) to
@@ -142,5 +161,24 @@
  */
 #define HtmlNodeParent(pNode) \
     ((pNode)->pParent)
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlNodeChild --
+ *
+ *     Return the Nth child of node pNode (numbered from 0). It is assumed 
+ *     that pNode is an HtmlNodeElement with at least N children.
+ *
+ * Results:
+ *     Pointer to child node.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+#define HtmlNodeChild(pNode, N) \
+    (((HtmlElementNode *)pNode)->apChildren[N])
 
 #endif

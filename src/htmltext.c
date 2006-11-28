@@ -1581,6 +1581,8 @@ HtmlTextBboxCmd(clientData, interp, objc, objv)
  *         HtmlTextIterType
  *         HtmlTextIterLength
  *         HtmlTextIterData
+ *
+ *         HtmlNodeIsWhitespace
  *     
  *     An HtmlTextNode object stores it's text in two parts:
  *
@@ -1630,6 +1632,11 @@ HtmlTextBboxCmd(clientData, interp, objc, objv)
  *         {LONGTEXT, {650 >> 16} & 0xFF}, 
  *         {LONGTEXT, {650 >>  8} & 0xFF}, 
  *         {LONGTEXT, {650 >>  0} & 0xFF}
+ *
+ *     If a node consists entirely of white-space, then the HtmlTextNode.zText
+ *     string is zero bytes in length. In this case HtmlTextNode.zText is
+ *     set to NULL, to speed up checking if the node consists entirely
+ *     of whitespace.
  *
  *     Todo: It's tempting to use single byte tokens, instead of two. Three
  *     bits for the type and five for the length. On the other hand,
@@ -1814,15 +1821,22 @@ HtmlTextNew(n, z, isTrimEnd, isTrimStart)
 
     /* Figure out how much space is required for this HtmlTextNode. */
     populateTextNode(strlen(z2), z2, 0, &nToken, &nText);
+    assert(nText >= 0 && nToken > 0);
 
     /* Allocate space for the HtmlTextNode and it's two array members */
     nAlloc = sizeof(HtmlTextNode) + nText + (nToken * sizeof(HtmlTextToken));
     pText = (HtmlTextNode *)HtmlClearAlloc("HtmlTextNode", nAlloc);
     pText->aToken = (HtmlTextToken *)&pText[1];
-    pText->zText = (char *)&pText->aToken[nToken];
+    if (nText > 0) {
+        pText->zText = (char *)&pText->aToken[nToken];
+    } else {
+        /* If the node is all white-space, set HtmlTextNode.zText to NULL */
+        pText->zText = 0;
+    }
 
     /* Populate the HtmlTextNode.aToken and zText arrays. */
     populateTextNode(strlen(z2), z2, pText, 0, 0);
+    HtmlFree(z2);
 
     assert(pText->aToken[nToken-1].eType == HTML_TEXT_TOKEN_END);
     if (isTrimEnd && pText->aToken[nToken-2].eType == HTML_TEXT_TOKEN_NEWLINE) {
@@ -1833,7 +1847,34 @@ HtmlTextNew(n, z, isTrimEnd, isTrimStart)
         memmove(pText->aToken, &pText->aToken[1], sizeof(HtmlTextToken)*nToken);
     }
 
-    HtmlFree(z2);
+#ifndef NDEBUG
+    /* This assert() block checks the following:
+     *
+     *     1) If there is nothing but white-space in this node, then
+     *        HtmlTextNode.zText is set to NULL.
+     *     2) If there are any text elements in the node HtmlTextNode.zText 
+     *        is not set to NULL.
+     *
+     * In other words, the node is either white-space or not. This test is
+     * included because I am paranoid the optimized HtmlNodeIsWhitespace() 
+     * test (pText->zText==0) will malfunction one day.
+     */
+    if (1) {
+        int haveText = 0;
+        HtmlTextIter sIter;
+        HtmlTextIterFirst(pText, &sIter);
+        for ( ; HtmlTextIterIsValid(&sIter); HtmlTextIterNext(&sIter)) {
+            if (HtmlTextIterType(&sIter) == HTML_TEXT_TOKEN_TEXT) {
+                haveText = 1;
+            }
+        }
+        assert(
+            (!haveText && pText->zText == 0) ||        /* white-space */
+            (haveText && pText->zText)                 /* not white-space */
+        );
+    }
+#endif
+
     return pText;
 }
 

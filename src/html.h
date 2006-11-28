@@ -630,7 +630,7 @@ int HtmlWalkTree(HtmlTree*, HtmlNode *, html_walk_tree_cb, ClientData);
 void HtmlTreeFree(HtmlTree *p);
 int HtmlTreeClear(HtmlTree *);
 int         HtmlNodeNumChildren(HtmlNode *);
-HtmlNode *  HtmlNodeChild(HtmlNode *, int);
+// HtmlNode *  HtmlNodeChild(HtmlNode *, int);
 HtmlNode *  HtmlNodeBefore(HtmlNode *);
 HtmlNode *  HtmlNodeAfter(HtmlNode *);
 HtmlNode *  HtmlNodeRightSibling(HtmlNode *);
@@ -644,7 +644,6 @@ int HtmlNodeAddChild(HtmlElementNode *, int, HtmlAttributes *);
 int HtmlNodeAddTextChild(HtmlNode *, HtmlTextNode *);
 
 Html_u8     HtmlNodeTagType(HtmlNode *);
-int         HtmlNodeIsWhitespace(HtmlNode *);
 
 Tcl_Obj *HtmlNodeCommand(HtmlTree *, HtmlNode *pNode);
 int HtmlNodeDeleteCommand(HtmlTree *, HtmlNode *pNode);

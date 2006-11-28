@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.104 2006/11/23 03:40:38 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.105 2006/11/28 04:08:51 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -332,13 +332,15 @@ tokenAction(pTree, eTag, pNClose)
             case TAG_OK:
                 p = 0;
                 break;
-            case TAG_IMPLICIT:
+            case TAG_IMPLICIT: {
+                int n = HtmlNodeNumChildren(p) - 1;
                 seenImplicit = 1;
-                assert(HtmlNodeNumChildren(p) > 0);
-                p = HtmlNodeChild(p, HtmlNodeNumChildren(p) - 1);
+                assert(n >= 0);
+                p = HtmlNodeChild(p, n);
                 assert(p);
                 pCurrent = p;
                 break;
+            }
             case TAG_PARENT:
                 nLevel++;
                 p = HtmlNodeParent(p);
@@ -1083,8 +1085,9 @@ HtmlTreeAddElement(pTree, eType, pAttr, iOffset)
                 HtmlNode *pTmp = pCurrent;
                 assert(r || pTmp == pTree->pCurrent);
                 while (pTmp != pCurrent) {
-                    assert(HtmlNodeNumChildren(pTmp) > 0);
-                    pTmp = HtmlNodeChild(pTmp, HtmlNodeNumChildren(pTmp) - 1);
+                    int N = HtmlNodeNumChildren(pTmp) - 1;
+                    assert(N >= 0);
+                    pTmp = HtmlNodeChild(pTmp, N);
                 }
             }
 #endif
@@ -1092,10 +1095,10 @@ HtmlTreeAddElement(pTree, eType, pAttr, iOffset)
             pCurrent = pTree->pCurrent;
             if (r) {
                 HtmlElementNode *pC = HtmlNodeAsElement(pCurrent);
+                int N;
                 assert(!HtmlNodeIsText(pTree->pCurrent));
-                pCurrent = HtmlNodeChild(pCurrent, 
-                    HtmlNodeAddChild(pC, eType, pAttr)
-                );
+                N = HtmlNodeAddChild(pC, eType, pAttr);
+                pCurrent = HtmlNodeChild(pCurrent, N);
                 pCurrent->iNode = pTree->iNextNode++;
                 pParsed = pCurrent;
 
@@ -1347,6 +1350,7 @@ int HtmlNodeNumChildren(pNode)
  *
  *---------------------------------------------------------------------------
  */
+#if 0
 HtmlNode * 
 HtmlNodeChild(pNode, n)
     HtmlNode *pNode;
@@ -1356,6 +1360,7 @@ HtmlNodeChild(pNode, n)
     if (!pNode || HtmlNodeIsText(pNode) || pElem->nChild <= n) return 0;
     return pElem->apChildren[n];
 }
+#endif
 
 /*
  *---------------------------------------------------------------------------
@@ -1414,23 +1419,6 @@ HtmlNodeAfter(pNode)
 {
     if (!HtmlNodeIsText(pNode)) {
         return ((HtmlElementNode *)pNode)->pAfter;
-    }
-    return 0;
-}
-
-int 
-HtmlNodeIsWhitespace(pNode)
-    HtmlNode *pNode;
-{
-    if (pNode->eTag == Html_Text) {
-        HtmlTextIter sIter;
-        HtmlTextIterFirst((HtmlTextNode *)pNode, &sIter);
-        for ( ; HtmlTextIterIsValid(&sIter); HtmlTextIterNext(&sIter)) {
-            if (HtmlTextIterType(&sIter) == HTML_TEXT_TOKEN_TEXT) {
-                return 0;
-            }
-        }
-        return 1;
     }
     return 0;
 }
