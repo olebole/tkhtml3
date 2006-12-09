@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.124 2006/11/25 13:10:52 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.125 2006/12/09 03:11:35 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -142,6 +142,170 @@ source [file join [file dirname [info script]] hv3_widgets.tcl]
 source [file join [file dirname [info script]] hv3_object.tcl]
 source [file join [file dirname [info script]] hv3_doctype.tcl]
 source [file join [file dirname [info script]] hv3_request.tcl]
+source [file join [file dirname [info script]] hv3_dom.tcl]
+
+
+#--------------------------------------------------------------------------
+# Class ::hv3::hv3::mousemanager
+#
+#     This type contains code for the ::hv3::hv3 widget to manage 
+#     dispatching mouse events that occur in the HTML widget to the 
+#     rest of the application. The following HTML4 events are handled:
+#
+#         onmouseover
+#         onmousemove
+#         onmouseout
+#         onclick
+#         onmousedown
+#         onmouseup
+#
+#     TODO: Registering a handler for this is not an error, but the
+#     event is never generated:
+#
+#         ondblclick
+#
+snit::type ::hv3::hv3::mousemanager {
+
+  variable myHv3 ""
+
+  # Database of callback scripts for each event type.
+  #
+  variable myScripts -array [list]
+
+  # List of nodes currently "hovered" over and "active". An entry in
+  # the correspondoing array indicates the condition is true.
+  #
+  variable myHoverNodes -array [list]
+  variable myActiveNodes -array [list]
+
+  # List of handled HTML4 event types (a constant)
+  variable EVENTS [list onmouseover onmousemove onmouseout onclick \
+      ondblclick onmousedown onmouseup]
+
+  constructor {hv3} {
+    foreach e $EVENTS {
+      set myScripts($e) [list]
+    }
+
+    set myHv3 $hv3
+    bind $myHv3 <Motion>          "+[mymethod Motion %x %y]"
+    bind $myHv3 <ButtonPress-1>   "+[mymethod Press %x %y]"
+    bind $myHv3 <ButtonRelease-1> "+[mymethod Release %x %y]"
+  }
+
+  method subscribe {event script} {
+
+    # Check that the $event argument is Ok:
+    if {0 > [lsearch $EVENTS $event]} {
+      error "No such mouse-event: $event"
+    }
+
+    # Append the script to the callback list.
+    lappend myScripts($event) $script
+  }
+
+  method reset {} {
+    array unset myActiveNodes
+    array unset myHoverNodes
+  }
+
+  # Generate a $event event on node $node.
+  #
+  method Generate {event node} {
+    foreach script $myScripts($event) {
+      eval $script $node
+    }
+  }
+
+  method Motion {x y} {
+
+    # Figure out the node the cursor is currently hovering over. Todo:
+    # When the cursor is over multiple nodes (because overlapping content
+    # has been generated), maybe this should consider all overlapping nodes
+    # as "hovered".
+    set nodelist [lindex [$myHv3 node $x $y] end]
+
+    # After the loop runs, hovernodes will contain the list of 
+    # currently hovered nodes.
+    array set hovernodes [list]
+
+    # Events to generate:
+    set events(onmousemove) [list]
+    set events(onmouseout)  [list]
+    set events(onmouseover) [list]
+
+    foreach node $nodelist {
+      if {[$node tag] eq ""} {set node [$node parent]}
+
+      for {set n $node} {$n ne ""} {set n [$n parent]} {
+        if {[info exists hovernodes($n)]} {
+          break
+        } else {
+          if {[info exists myHoverNodes($n)]} {
+            unset myHoverNodes($n)
+          } else {
+            lappend events(onmouseover) $n
+          }
+          set hovernodes($n) ""
+        }
+      }
+    }
+    set events(onmouseout)  [array names myHoverNodes]
+    set events(onmousemove) [\
+        concat [array names hovernodes] $events(onmouseout) 
+    ]
+
+    array unset myHoverNodes
+    array set myHoverNodes [array get hovernodes]
+
+    foreach key [list onmouseover onmousemove onmouseout] {
+      foreach node $events($key) {
+        $self Generate $key $node
+      }
+    }
+  }
+
+  method Press {x y} {
+
+    set N [lindex [$myHv3 node $x $y] end]
+
+    if {$N ne ""} {
+      if {[$N tag] eq ""} {set N [$N parent]}
+    }
+
+    for {set n $N} {$n ne ""} {set n [$n parent]} {
+      set myActiveNodes($n) 1
+    }
+
+    foreach node [array names myActiveNodes] {
+      $self Generate onmousedown $node
+    }
+  }
+
+  method Release {x y} {
+
+    set onclick_nodes [list]
+    set N [lindex [$myHv3 node $x $y] end]
+    if {$N ne ""} {
+      if {[$N tag] eq ""} {set N [$N parent]}
+    }
+    for {set n $N} {$n ne ""} {set n [$n parent]} {
+      if {[info exists myActiveNodes($n)]} {
+        lappend onclick_nodes $n
+      }
+    }
+
+    foreach node [array names myActiveNodes] {
+      $self Generate onmouseup $node
+    }
+    foreach node $onclick_nodes {
+      $self Generate onclick $node
+    }
+
+    array unset myActiveNodes
+  }
+
+}
 
 #--------------------------------------------------------------------------
 # Class ::hv3::hv3::selectionmanager
@@ -246,62 +410,19 @@ snit::type ::hv3::hv3::selectionmanager {
 #     exactly how these should be dealt with.
 #
 snit::type ::hv3::hv3::dynamicmanager {
-  variable myHv3
-  variable myHoverNodes [list]
-  variable myActiveNodes [list]
 
   constructor {hv3} {
-    set myHv3 $hv3
-    bind $myHv3 <Motion> "+[mymethod motion %x %y]"
-    bind $myHv3 <ButtonPress-1>   "+[mymethod press %x %y]"
-    bind $myHv3 <ButtonRelease-1> "+[mymethod release %x %y]"
+    $hv3 Subscribe onmouseover [mymethod handle_mouseover]
+    $hv3 Subscribe onmouseout  [mymethod handle_mouseout]
+    $hv3 Subscribe onmousedown [mymethod handle_mousedown]
+    $hv3 Subscribe onmouseup   [mymethod handle_mouseup]
   }
 
-  method reset {} {
-    set myHoverNodes [list]
-    set myActiveNodes [list]
-  }
+  method handle_mouseover {node} { $node dynamic set hover }
+  method handle_mouseout {node}  { $node dynamic clear hover }
 
-  method press {x y} {
-    set N [lindex [$myHv3 node $x $y] end]
-    while {$N ne ""} {
-      if {[$N tag] ne ""} {
-        lappend myActiveNodes $N
-        $N dynamic set active
-      }
-      set N [$N parent]
-    }
-  }
-
-  method release {x y} {
-    foreach N $myActiveNodes {
-      $N dynamic clear active
-    }
-    set myActiveNodes [list]
-  }
-
-  method motion {x y} {
-    set nodelist [lindex [$myHv3 node $x $y] end]
-    set hovernodes $myHoverNodes
-    set myHoverNodes [list]
-    foreach node $nodelist {
-      for {set n $node} {$n ne ""} {set n [$n parent]} {
-        if {[$n tag] ne ""} {
-          set idx [lsearch $hovernodes $n]
-          lappend myHoverNodes $n
-          if {$idx < 0} {
-            $n dynamic set hover
-          } else {
-            set hovernodes [lreplace $hovernodes $idx $idx]
-          }
-        }
-      }
-    }
-    foreach node $hovernodes {
-      $node dynamic clear hover
-    }
-    set myHoverNodes [lsort -unique $myHoverNodes]
-  }
+  method handle_mousedown {node} { $node dynamic set active }
+  method handle_mouseup {node}   { $node dynamic clear active }
 }
 #
 # End of ::hv3::hv3::dynamicmanager
@@ -325,7 +446,8 @@ snit::type ::hv3::hv3::dynamicmanager {
 #
 snit::type ::hv3::hv3::hyperlinkmanager {
   variable myHv3
-  variable myNodes [list]
+
+  variable myLinkHoverCount 0
 
   option -isvisitedcmd -default ""
   option -targetcmd -default ""
@@ -335,9 +457,12 @@ snit::type ::hv3::hv3::hyperlinkmanager {
     set options(-targetcmd) [list set [myvar myHv3]]
 
     $myHv3 handler node a [mymethod a_node_handler]
-    bind $myHv3 <Motion>          "+[mymethod motion %x %y]"
-    bind $myHv3 <ButtonPress-1>   "+[mymethod press %x %y]"
-    bind $myHv3 <ButtonRelease-1> "+[mymethod release %x %y]"
+    bind $myHv3 <Motion>         "+[mymethod motion %x %y]"
+    $myHv3 Subscribe onclick     [mymethod handle_onclick]
+  }
+
+  method reset {} {
+    set myLinkHoverCount 0
   }
 
   method a_node_handler {node} {
@@ -353,15 +478,11 @@ snit::type ::hv3::hv3::hyperlinkmanager {
     }
   }
 
-  method press {x y} {
-    set nodelist [$myHv3 node $x $y]
-    set myNodes [list]
-    foreach node $nodelist {
-      for {set n $node} {$n ne ""} {set n [$n parent]} {
-        if {[$n tag] eq "a" && [$n attr -default "" href] ne ""} {
-          lappend myNodes $n
-        }
-      }
+  method handle_onclick {node} {
+    set href [$node attr -default "" href]
+    if {$href ne "" && [$node tag] eq "a"} {
+      set hv3 [eval [linsert $options(-targetcmd) end $node]]
+      $hv3 goto $href
     }
   }
 
@@ -384,26 +505,6 @@ snit::type ::hv3::hv3::hyperlinkmanager {
       $framewidget configure -cursor xterm
     }
   }
-
-  method release {x y} {
-    set nodelist [$myHv3 node $x $y]
-    set saved_nodes $myNodes
-    set myNodes [list]
-    foreach node [$myHv3 node $x $y] {
-      for {set n $node} {$n ne ""} {set n [$n parent]} {
-        if {[lsearch $saved_nodes $n] >= 0} {
-          # Node $n is a hyper-link that has been clicked on.
-          # Invoke the -targetcmd.
-          set href [string trim [$n attr -default "" href]]
-          if {$href ne ""} {
-            set hv3 [eval [linsert $options(-targetcmd) end $n]]
-            $hv3 goto $href
-          }
-          return
-        }
-      }
-    }
-  }
 }
 #
 # End of ::hv3::hv3::hyperlinkmanager
@@ -420,6 +521,11 @@ snit::widget ::hv3::hv3 {
   component myDynamicManager         ;# The ::hv3::hv3::dynamicmanager
   component mySelectionManager       ;# The ::hv3::hv3::selectionmanager
   component myFormManager            ;# The ::hv3::formmanager
+
+  variable myDom
+
+  component myMouseManager           ;# The ::hv3::hv3::mousemanager
+  delegate method Subscribe to myMouseManager as subscribe
 
   # The current location URI and the current base URI. If myBase is "",
   # use the URI stored in myUri as the base.
@@ -467,6 +573,8 @@ snit::widget ::hv3::hv3 {
     bindtags [$self html] [concat [bindtags [$self html]] $self]
     pack $myHtml -expand true -fill both
 
+    set myMouseManager [::hv3::hv3::mousemanager %AUTO% $self]
+
     # $myHtml configure -layoutcache 0
 
     # Create the event-handling components.
@@ -481,6 +589,8 @@ snit::widget ::hv3::hv3 {
     set myFormManager [::hv3::formmanager %AUTO% $self]
     $myFormManager configure -getcmd  [mymethod Formcmd get]
     $myFormManager configure -postcmd [mymethod Formcmd post]
+
+    set myDom [::hv3::dom %AUTO% $self]
 
     # Attach an image callback to the html widget
     $myHtml configure -imagecmd [mymethod Imagecmd]
@@ -500,7 +610,9 @@ snit::widget ::hv3::hv3 {
     $myHtml handler node   meta     [mymethod meta_node_handler]
     $myHtml handler node   title    [mymethod title_node_handler]
     $myHtml handler script style    [mymethod style_script_handler]
-    $myHtml handler script script   [mymethod script_script_handler]
+
+    # $myHtml handler script script   [mymethod script_script_handler]
+    $myHtml handler script script   [list $myDom script]
 
     # Register handler commands to handle <object> and kin.
     $myHtml handler node object   [list hv3_object_handler $self]
@@ -519,6 +631,7 @@ snit::widget ::hv3::hv3 {
     if {[info exists myHyperlinkManager]} { $myHyperlinkManager destroy }
     if {[info exists myUri]}              { $myUri              destroy }
     if {[info exists myFormManager]}      { $myFormManager      destroy }
+    if {[info exists myMouseManager]}     { $myMouseManager      destroy }
     if {$myBase ne ""}                    { $myBase             destroy }
   }
 
@@ -851,12 +964,6 @@ snit::widget ::hv3::hv3 {
     return ""
   }
 
-  # Script handler for <script> tags.
-  #
-  method script_script_handler {attr script} {
-    return ""
-  }
-
   method goto_fragment {} {
     set fragment [$myUri cget -fragment]
     if {$fragment ne ""} {
@@ -1037,6 +1144,8 @@ snit::widget ::hv3::hv3 {
     unset -nocomplain myNodeArgs
   }
 
+  method dom {} { return $myDom }
+
   method goto {uri {cachecontrol normal}} {
 
     set myCacheControl $cachecontrol
@@ -1123,7 +1232,9 @@ snit::widget ::hv3::hv3 {
     $self invalidate_nodecache
     set myTitleVar ""
 
-    foreach m [list $myDynamicManager $myFormManager $mySelectionManager] {
+    foreach m [list \
+        $myMouseManager $myFormManager $mySelectionManager $myHyperlinkManager
+    ] {
       if {$m ne ""} {$m reset}
     }
     $myHtml reset
