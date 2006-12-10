@@ -15,6 +15,7 @@ proc finish_test {} {
   if {$::nested_test_count == 0}  {
     catch {
       destroy .
+      catch {::tkhtml::htmlalloc}
     }
   }
 }

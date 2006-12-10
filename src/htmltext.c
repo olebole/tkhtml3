@@ -1085,14 +1085,14 @@ HtmlTagAddRemoveCmd(clientData, interp, objc, objv, isAdd)
 
     if (isAdd == HTML_TAG_REMOVE) {
         HtmlWidgetDamageText(pTree, 
-            sData.pFrom->iNode, sData.iFrom,
-            sData.pTo->iNode, sData.iTo
+            sData.pFrom, sData.iFrom,
+            sData.pTo, sData.iTo
         );
     } else if (sData.pFirst) {
         assert(sData.pLast);
         HtmlWidgetDamageText(pTree, 
-            sData.pFirst->iNode, sData.iFirst,
-            sData.pLast->iNode, sData.iLast
+            sData.pFirst, sData.iFirst,
+            sData.pLast, sData.iLast
         );
     }
 

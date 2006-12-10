@@ -499,13 +499,16 @@
 	manipulate the document node via the following subcommands:
 
 [Subcommand {
-	nodeHandle attr ??-default _default-value_? ?attribute??
+	nodeHandle attribute ??-default _default-value_? ?attribute? ?new-value??
 		If the _attribute_ argument is present, then return the value
 		of the named html attribute. If the attribute is not defined
 		for the node, then a copy of the _default-value_ argument is
 		returned instead. If no -default option was specified (and
 		hence there is no _default-value_ argument) and the named
 		attribute does not exist, an error is raised.
+
+		If the _new-value_ argument is present, then set the named
+                attribute to the specified _new-value_.
 
 		If no _attribute_ argument is present, return a key-value list
 		of the defined attributes of the form that can be passed to 
@@ -555,6 +558,7 @@
 }]
 [Subcommand {
 	nodeHandle override ?_value_?
+		Experimental.
 }]
 [Subcommand {
 	nodeHandle parent
@@ -563,7 +567,7 @@
 		return an empty string.
 }]
 [Subcommand {
-	nodeHandle prop ?_pseudo-element_?
+	nodeHandle property ?-before|-after? ?property-name?
 }]
 [Subcommand {
 	nodeHandle replace ? ?options? newValue?
@@ -636,14 +640,14 @@
 		the node is a text node.  
 }]
 [Subcommand {
-	nodeHandle text
+	nodeHandle text ?-tokens|-pre?
 		If the node is a "text" node, return the string contained
 		by the node. If the node is not a "text" node, return an
 		empty string.
 }]
 
 	TODO: Add the (not yet implemented) "write" part of the node 
-	interface to this section. 
+	interface to this section.
 
 [Section Stylesheet Loading]
 	Apart from the default stylesheet that is always loaded (see the

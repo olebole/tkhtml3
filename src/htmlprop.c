@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.108 2006/11/22 07:34:24 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.109 2006/12/10 08:38:08 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -2555,8 +2555,6 @@ HtmlComputedValuesSetupTables(pTree)
 
     pType = HtmlComputedValuesHashType();
     Tcl_InitCustomHashTable(&pTree->aValues, TCL_CUSTOM_TYPE_KEYS, pType);
-
-    Tcl_InitHashTable(&pTree->aImage, TCL_STRING_KEYS);
 
     /* Initialise the color table */
     for (ii = 0; ii < sizeof(color_map)/sizeof(struct CssColor); ii++) {

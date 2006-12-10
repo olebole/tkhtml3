@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.90 2006/11/28 05:13:58 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.91 2006/12/10 08:38:08 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -815,14 +815,20 @@ executeScript(pTree, pCallback, pAttributes, zScript, nScript)
 /*
  *---------------------------------------------------------------------------
  *
- * Tokenize --
+ * HtmlTokenize --
  *
  *     Process as much of the input HTML as possible. This results in 
  *     zero or more calls to the following functions:
  *
- *         HtmlTreeAddElement()
  *         HtmlTreeAddText()
+ *         HtmlTreeAddElement()
  *         HtmlTreeAddClosingTag()
+ *
+ *     or, if argument "isFragment" is true, to:
+ *
+ *         HtmlFragmentAddText()
+ *         HtmlFragmentAddElement()
+ *         HtmlFragmentAddClosingTag()
  *
  * Results:
  *     Return the number of bytes actually processed.
@@ -831,10 +837,16 @@ executeScript(pTree, pCallback, pAttributes, zScript, nScript)
  *
  *---------------------------------------------------------------------------
  */
-static int 
-Tokenize(pTree, isFinal)
+int 
+HtmlTokenize(
+pTree, zText, isFinal, isFragment, xAddText, xAddElement, xAddClosing)
     HtmlTree *pTree;             /* The HTML widget doing the parsing */
+    char const *zText;
     int isFinal;
+    int isFragment;
+    void (*xAddText)(HtmlTree *, HtmlTextNode *, int);
+    void (*xAddElement)(HtmlTree *, int, HtmlAttributes *, int);
+    void (*xAddClosing)(HtmlTree *, int, int);
 {
     char *z;                     /* The input HTML text */
     int c;                       /* The next character of input */
@@ -852,8 +864,8 @@ Tokenize(pTree, isFinal)
      */
     int isTrimStart = 0;
 
-    n = pTree->nParsed;
-    z = Tcl_GetString(pTree->pDocument);
+    n = 0;
+    z = (char *)zText;
 
     while ((c = z[n]) != 0) {
 
@@ -881,7 +893,7 @@ Tokenize(pTree, isFinal)
                  */
                 int ts = isTrimStart;
                 HtmlTextNode *pTextNode = HtmlTextNew(i, &z[n], isTrimEnd, ts);
-                HtmlTreeAddText(pTree, pTextNode, n);
+                xAddText(pTree, pTextNode, n);
                 n += i;
             } else {
                 goto incomplete;
@@ -1083,20 +1095,28 @@ Tokenize(pTree, isFinal)
 
             if (pMap->flags & HTMLTAG_END) {
                 /* Closing tag (i.e. "</p>"). */
-                HtmlTreeAddClosingTag(pTree, pMap->type, nStartScript);
+                xAddClosing(pTree, pMap->type, nStartScript);
             } else {
 
                 HtmlAttributes *pAttr;
-                Tcl_Obj *pScript;
+                Tcl_Obj *pScript = 0;
                 const char **zArgs = (const char **)(&argv[1]);
                 pAttr = HtmlAttributesNew(argc - 1, zArgs, &arglen[1], 1);
-                pScript = getScriptHandler(pTree, pMap->type);
+
+                /* Unless the isFragment flag is set, search for a 
+                 * script-handler for this element. Script handlers are
+                 * never fired from within [$html fragment] commands.
+                 */
+                if (!isFragment) {
+                    pScript = getScriptHandler(pTree, pMap->type);
+                }
+
                 if (!pScript) {
                     /* No special handler for this markup. Just append 
                      * it to the list of all tokens. 
                      */
                     assert(nStartScript >= 0);
-                    HtmlTreeAddElement(pTree, pMap->type, pAttr, nStartScript);
+                    xAddElement(pTree, pMap->type, pAttr, nStartScript);
                     isTrimStart = 1;
                 } else {
                     /* If pScript is not NULL, then we are parsing a node that
@@ -1201,7 +1221,12 @@ HtmlTokenizerAppend(pTree, zText, nText, isFinal)
     assert(!Tcl_IsShared(pTree->pDocument));
     Tcl_AppendToObj(pTree->pDocument, z, n);
 
-    pTree->nParsed = Tokenize(pTree, isFinal);
+    pTree->nParsed += HtmlTokenize(
+        pTree, &(Tcl_GetString(pTree->pDocument)[pTree->nParsed]), isFinal, 0,
+        HtmlTreeAddText,
+        HtmlTreeAddElement,
+        HtmlTreeAddClosingTag
+    );
 }
 
 /*

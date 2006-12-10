@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.140 2006/11/28 05:13:58 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.141 2006/12/10 08:38:08 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -841,6 +841,7 @@ static void
 deleteWidget(clientData)
     ClientData clientData;
 {
+    HtmlDamage *pDamage;
     HtmlTree *pTree = (HtmlTree *)clientData;
     HtmlTreeClear(pTree);
 
@@ -865,6 +866,10 @@ deleteWidget(clientData)
         Tcl_DeleteTimerHandler(pTree->delayToken);
     }
     pTree->delayToken = 0;
+    while ((pDamage = pTree->cb.pDamage)) {
+        pTree->cb.pDamage = pDamage->pNext;
+        HtmlFree(pDamage);
+    }
 
     /* Delete the structure itself */
     HtmlFree(pTree);
@@ -1288,6 +1293,7 @@ resetCmd(clientData, interp, objc, objv)
     HtmlCallbackDamage(pTree, 0, 0, Tk_Width(win), Tk_Height(win), 0);
     doLoadDefaultStyle(pTree);
     pTree->isParseFinished = 0;
+    pTree->isSequenceOk = 1;
     return TCL_OK;
 }
 
@@ -1426,6 +1432,38 @@ parseCmd(clientData, interp, objc, objv)
 /*
  *---------------------------------------------------------------------------
  *
+ * fragmentCmd --
+ *
+ *         $widget fragment HTML-TEXT
+ *
+ *     Parse the supplied markup test and return a list of node handles.
+ * 
+ * Results:
+ *     List of node-handles.
+ *
+ * Side effects:
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+fragmentCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget */
+    Tcl_Interp *interp;                /* The interpreter */
+    int objc;                          /* Number of arguments */
+    Tcl_Obj *const *objv;              /* List of all arguments */
+{
+    HtmlTree *pTree = (HtmlTree *)clientData;
+    if (objc != 3) {
+        Tcl_WrongNumArgs(interp, 2, objv, "HTML-TEXT");
+        return TCL_ERROR;
+    }
+    HtmlParseFragment(pTree, Tcl_GetString(objv[2]));
+    return TCL_OK;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * viewCommon --
  *
  * Results:
@@ -1479,7 +1517,7 @@ viewCommon(pTree, isXview, objc, objv)
             if (!pNode) {
                 return TCL_ERROR;
             }
-            iNewVal = HtmlWidgetNodeTop(pTree, pNode->iNode);
+            iNewVal = HtmlWidgetNodeTop(pTree, pNode);
             iMovePixels = pTree->canvas.bottom;
         } else {
             int eType;       /* One of the TK_SCROLL_ symbols */
@@ -2004,6 +2042,7 @@ int widgetCmd(clientData, interp, objc, objv)
         {"bbox",       0,           bboxCmd},
         {"cget",       0,           cgetCmd},
         {"configure",  0,           configureCmd},
+        {"fragment",   0,           fragmentCmd},
         {"handler",    "node",      handlerCmd},
         {"handler",    "script",    handlerCmd},
         {"handler",    "parse",     handlerCmd},
@@ -2167,7 +2206,7 @@ newWidget(clientData, interp, objc, objv)
     Tcl_InitHashTable(&pTree->aParseHandler, TCL_ONE_WORD_KEYS);
     Tcl_InitHashTable(&pTree->aScriptHandler, TCL_ONE_WORD_KEYS);
     Tcl_InitHashTable(&pTree->aNodeHandler, TCL_ONE_WORD_KEYS);
-    Tcl_InitHashTable(&pTree->aScaledImage, TCL_STRING_KEYS);
+    Tcl_InitHashTable(&pTree->aOrphan, TCL_ONE_WORD_KEYS);
     Tcl_InitHashTable(&pTree->aTag, TCL_STRING_KEYS);
     pTree->cmd = Tcl_CreateObjCommand(interp,zCmd,widgetCmd,pTree,widgetCmdDel);
 
@@ -2194,6 +2233,7 @@ newWidget(clientData, interp, objc, objv)
 
     /* Load the default style-sheet, ready for the first document. */
     doLoadDefaultStyle(pTree);
+    pTree->isSequenceOk = 1;
 
     /* Return the name of the widget just created. */
     Tcl_SetObjResult(interp, objv[1]);

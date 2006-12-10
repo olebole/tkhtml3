@@ -138,6 +138,8 @@ typedef struct HtmlTextIter HtmlTextIter;
 
 typedef struct HtmlDamage HtmlDamage;
 
+typedef struct HtmlFragmentContext HtmlFragmentContext;
+
 #include "css.h"
 #include "htmlprop.h"
 
@@ -172,7 +174,6 @@ struct HtmlTokenMap {
 #define TAG_CLOSE    1
 #define TAG_PARENT   2
 #define TAG_OK       3
-#define TAG_IMPLICIT 4
 
 struct HtmlAttributes {
     int nAttr;
@@ -288,6 +289,9 @@ struct HtmlNode {
     int iNode;                     /* Node index */
     HtmlNodeCmd *pNodeCmd;         /* Tcl command for this node */
 };
+
+/* Value of HtmlNode.iNode for orphan nodes. */
+#define HTML_NODE_ORPHAN -23
 
 /*
  * Structure to store a text node.
@@ -500,6 +504,16 @@ struct HtmlTree {
     int isParseFinished;            /* True if the html parse is finished */
     int isCdataInHead;              /* True if previous token was <title> */
 
+    /* Sub-trees that are not currently linked into the tree rooted at 
+     * pRoot are stored in the following hash-table. The HTML_NODE_ORPHAN
+     * flag is set in the HtmlNode.flags member of the root of each tree.
+     *
+     * The key for each entry is the pointer to the root HtmlNode 
+     * structure. Hash entry data is not used.
+     */
+    Tcl_HashTable aOrphan;          /* Orphan nodes (see [$html fragment]) */
+    HtmlFragmentContext *pFragment;
+
     HtmlNode *pCurrent;             /* The node currently being built. */
     HtmlNode *pRoot;                /* The root-node of the document. */
     int nFixedBackground;           /* Number of nodes with fixed backgrounds */
@@ -522,7 +536,6 @@ struct HtmlTree {
 
     CssStyleSheet *pStyle;          /* Style sheet configuration */
 
-    Tcl_HashTable aScaledImage;     /* All images used by document (by name) */ 
     HtmlOptions options;            /* Configurable options */
     Tk_OptionTable optionTable;     /* Option table */
 
@@ -547,7 +560,6 @@ struct HtmlTree {
     Tcl_HashTable aColor;
     Tcl_HashTable aFont;
     Tcl_HashTable aValues;
-    Tcl_HashTable aImage;
     HtmlComputedValuesCreator *pPrototypeCreator;
 
     int aFontSizeTable[7];
@@ -559,14 +571,7 @@ struct HtmlTree {
     Tcl_HashTable aTag;
     Tk_OptionTable tagOptionTable;     /* Option table for tags*/
 
-    /*
-     * These variables store the persistent data for the [widget select]
-     * command.
-     */
-    HtmlNode *pFromNode;
-    int iFromIndex;
-    HtmlNode *pToNode;
-    int iToIndex;
+    int isSequenceOk;
     int iNextNode;       /* Next node index to allocate */
 
     HtmlCallback cb;                /* See structure definition comments */
@@ -620,10 +625,8 @@ Html_u8 HtmlMarkupFlags(int);
 typedef int (*html_walk_tree_cb)(HtmlTree*,HtmlNode*,ClientData);
 int HtmlWalkTree(HtmlTree*, HtmlNode *, html_walk_tree_cb, ClientData);
 
-void HtmlTreeFree(HtmlTree *p);
 int HtmlTreeClear(HtmlTree *);
 int         HtmlNodeNumChildren(HtmlNode *);
-// HtmlNode *  HtmlNodeChild(HtmlNode *, int);
 HtmlNode *  HtmlNodeBefore(HtmlNode *);
 HtmlNode *  HtmlNodeAfter(HtmlNode *);
 HtmlNode *  HtmlNodeRightSibling(HtmlNode *);
@@ -671,8 +674,8 @@ int HtmlDrawGetMarker(HtmlCanvas*, HtmlCanvasItem *, int*, int*);
 void HtmlDrawAddLinebox(HtmlCanvas*, int, int);
 int HtmlDrawFindLinebox(HtmlCanvas*, int*, int*);
 
-void HtmlWidgetDamageText(HtmlTree *, int, int, int, int);
-int HtmlWidgetNodeTop(HtmlTree *, int);
+void HtmlWidgetDamageText(HtmlTree *, HtmlNode *, int, HtmlNode *, int);
+int HtmlWidgetNodeTop(HtmlTree *, HtmlNode *);
 
 HtmlTokenMap *HtmlMarkup(int);
 CONST char * HtmlMarkupName(int);
@@ -755,6 +758,14 @@ int HtmlNodeScrollbarDoCallback(HtmlTree *, HtmlNode *);
 void HtmlDelScrollbars(HtmlTree *, HtmlNode *);
 
 HtmlAttributes * HtmlAttributesNew(int, char const **, int *, int);
+
+void HtmlParseFragment(HtmlTree *, const char *);
+int HtmlTokenize(HtmlTree *, char const *, int, int,
+    void (*)(HtmlTree *, HtmlTextNode *, int),
+    void (*)(HtmlTree *, int, HtmlAttributes *, int),
+    void (*)(HtmlTree *, int, int)
+);
+void HtmlSequenceNodes(HtmlTree *);
 
 /*******************************************************************
  * Interface to code in htmltext.c

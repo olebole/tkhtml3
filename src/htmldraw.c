@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.178 2006/11/23 03:40:38 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.179 2006/12/10 08:38:08 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -87,6 +87,7 @@ static const char rcsid[] = "$Id: htmldraw.c,v 1.178 2006/11/23 03:40:38 danielk
  *
  * Functions to query a canvas layout:
  *     HtmlWidgetDamageText
+ *     HtmlWidgetBboxText
  *     HtmlWidgetNodeBox
  *     HtmlWidgetNodeTop
  *
@@ -105,7 +106,7 @@ static const char rcsid[] = "$Id: htmldraw.c,v 1.178 2006/11/23 03:40:38 danielk
  *     HtmlLayoutImage
  *
  *         Implementations of the [widget node] [widget image] and [widget
- *         primiitives] commands. Note that the latter two are intended for
+ *         primitives] commands. Note that the latter two are intended for
  *         debugging only and so are not really part of the public interface.
  *
  * Canvas management:
@@ -3329,17 +3330,23 @@ paintNodesSearchCb(pItem, origin_x, origin_y, pOverflow, clientData)
  *---------------------------------------------------------------------------
  */
 void
-HtmlWidgetDamageText(pTree, iNodeStart, iIndexStart, iNodeFin, iIndexFin)
+HtmlWidgetDamageText(pTree, pNodeStart, iIndexStart, pNodeFin, iIndexFin)
     HtmlTree *pTree;         /* Widget tree */
-    int iNodeStart;          /* First node to repaint */
+    HtmlNode *pNodeStart;    /* First node to repaint */
     int iIndexStart;         /* First node to repaint */
-    int iNodeFin;            /* Last node to repaint */
+    HtmlNode *pNodeFin;      /* Last node to repaint */
     int iIndexFin;           /* Last node to repaint */
 {
     PaintNodesQuery sQuery;
     int ymin, ymax;
     int x, y;
     int w, h;
+    int iNodeStart;
+    int iNodeFin;
+
+    HtmlSequenceNodes(pTree);
+    iNodeStart = pNodeStart->iNode;
+    iNodeFin = pNodeFin->iNode;
 
     if (iNodeStart > iNodeFin || 
         (iNodeStart == iNodeFin && iIndexStart > iIndexFin)
@@ -3384,9 +3391,12 @@ pTree, pNodeStart, iIndexStart, pNodeFin, iIndexFin, piT, piL, piB, piR
     int *piR;
 {
     PaintNodesQuery sQuery;
+    int iNodeStart;
+    int iNodeFin;
 
-    int iNodeStart = pNodeStart->iNode;
-    int iNodeFin = pNodeFin->iNode;
+    HtmlSequenceNodes(pTree);
+    iNodeStart = pNodeStart->iNode;
+    iNodeFin = pNodeFin->iNode;
   
     assert(iNodeStart <= iNodeFin);
     assert(iNodeFin > iNodeStart || iIndexFin >= iIndexStart);
@@ -3424,7 +3434,6 @@ struct ScrollToQuery {
  *
  * scrollToNodeCb --
  *     
- *     This function is the search-callback for HtmlWidgetNodeTop().
  *
  * Results:
  *
@@ -3494,13 +3503,16 @@ scrollToNodeCb(pItem, origin_x, origin_y, pOverflow, clientData)
  *---------------------------------------------------------------------------
  */
 int
-HtmlWidgetNodeTop(pTree, iNode)
+HtmlWidgetNodeTop(pTree, pNode)
     HtmlTree *pTree;
-    int iNode;
+    HtmlNode *pNode;
 {
     ScrollToQuery sQuery;
+
+    HtmlSequenceNodes(pTree);
     HtmlCallbackForce(pTree);
-    sQuery.iMaxNode = iNode;
+
+    sQuery.iMaxNode = pNode->iNode;
     sQuery.iMinNode = 0;
     sQuery.iReturn = 0;
     sQuery.pTree = pTree;
