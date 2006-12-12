@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.125 2006/12/09 03:11:35 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.126 2006/12/12 12:46:14 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -881,9 +881,12 @@ snit::widget ::hv3::hv3 {
   # Node handler script for <body> tags. The purpose of this handler
   # and the [body_style_handler] method immediately below it is
   # to handle the 'overflow' property on the document root element.
+  # 
+  # Also, fire the DOM "onload" event on the body node.
   #
   method body_node_handler {node} {
     $node replace dummy -stylecmd [mymethod body_style_handler $node]
+    $myDom onload $node
   }
   method body_style_handler {bodynode} {
 

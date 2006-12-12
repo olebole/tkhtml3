@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.141 2006/12/10 08:38:08 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.142 2006/12/12 12:46:14 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -538,6 +538,10 @@ upgradeRestylePoint(ppRestyle, pNode)
     HtmlNode *pA;
     HtmlNode *pB;
     assert(pNode && ppRestyle);
+
+    for (pA = pNode; pA; pA = HtmlNodeParent(pA)) {
+        if (pA->iNode == HTML_NODE_ORPHAN) return;
+    }
 
     for (pA = *ppRestyle; pA; pA = HtmlNodeParent(pA)) {
         HtmlNode *pParentA = HtmlNodeParent(pA);
@@ -1432,6 +1436,44 @@ parseCmd(clientData, interp, objc, objv)
 /*
  *---------------------------------------------------------------------------
  *
+ * preloadCmd --
+ *
+ *         $widget preload URI
+ * 
+ *     Preload the image located at the specified URI.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+preloadCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget */
+    Tcl_Interp *interp;                /* The interpreter */
+    int objc;                          /* Number of arguments */
+    Tcl_Obj *const *objv;              /* List of all arguments */
+{
+    HtmlTree *pTree = (HtmlTree *)clientData;
+    HtmlImage2 *pImg2 = 0;
+
+    if (objc != 3) {
+        Tcl_WrongNumArgs(interp, 2, objv, "URI");
+        return TCL_ERROR;
+    }
+
+    pImg2 = HtmlImageServerGet(pTree->pImageServer, Tcl_GetString(objv[2]));
+    HtmlImageFree(pImg2);
+
+    Tcl_ResetResult(interp);
+    return TCL_OK;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * fragmentCmd --
  *
  *         $widget fragment HTML-TEXT
@@ -2049,6 +2091,7 @@ int widgetCmd(clientData, interp, objc, objv)
         {"image",      0,           imageCmd},
         {"node",       0,           nodeCmd},
         {"parse",      0,           parseCmd},
+        {"preload",    0,           preloadCmd},
         {"reset",      0,           resetCmd},
         {"search",     0,           searchCmd},
         {"style",      0,           styleCmd},

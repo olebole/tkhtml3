@@ -1,6 +1,21 @@
 
 package require snit
 
+# This file contains the following types:
+#
+# ::hv3::JavascriptObject
+# ::hv3::dom
+#
+# ::hv3::dom::HTMLDocument
+# ::hv3::dom::HTMLCollection
+# ::hv3::dom::HTMLElement
+# ::hv3::dom::Text
+#
+# ::hv3::dom::Navigator
+# ::hv3::dom::Window
+#
+#
+
 # This type contains various convenience code to help with development
 # of the DOM bindings for Hv3.
 #
@@ -13,6 +28,10 @@ snit::type ::hv3::JavascriptObject {
   # If this object is an empty string, then this object is not callable.
   #
   option -call -default ""
+
+  # Similar to -call, but for construction (i.e. "new Object()") calls.
+  #
+  option -construct -default ""
 
   # Javascript interpreter this object is associated with.
   variable mySee
@@ -68,6 +87,19 @@ snit::type ::hv3::JavascriptObject {
       error "Cannot call this object"
     }
   }
+
+  method Construct {args} {
+    if {$options(-construct) ne ""} {
+      eval $options(-construct) $args
+    } else {
+      error "Cannot call this as a constructor"
+    }
+  }
+}
+
+# Shorter name for ::hv3::JavascriptObject
+proc ::hv3::JsObj {args} {
+  return [eval ::hv3::JavascriptObject $args]
 }
 
 # Snit class for the "document" object.
@@ -136,6 +168,14 @@ snit::type ::hv3::dom::HTMLDocument {
     return ""
   }
 
+  # This method is called for javascript of the form "new Image()". This
+  # is equivalent to "document.createElement("img")".
+  #
+  method newImage {this args} {
+    set node [$myHv3 fragment "<img>"]
+    return [list object [[$myHv3 dom] node_to_dom $node]]
+  }
+
   method Get {property} {
     switch -- $property {
 
@@ -147,7 +187,17 @@ snit::type ::hv3::dom::HTMLDocument {
       }
 
       default {
-        return [$myJavascriptObject Get $property]
+        set val [$myJavascriptObject Get $property]
+
+        if {$val eq ""} {
+          set css "\[name=\"$property\"\]"
+          set node [lindex [$myHv3 search $css] 0]
+          if {$node ne ""} {
+            set val [list object [[$myHv3 dom] node_to_dom $node]]
+          }
+        }
+
+        return $val
       }
     }
   }
@@ -165,6 +215,237 @@ snit::type ::hv3::dom::HTMLDocument {
   }
 }
 
+#-------------------------------------------------------------------------
+# js_XXX snit::macros used to make creating DOM objects easier.
+#
+#     js_init
+#
+#     js_get
+#     js_getobject
+#     js_put
+#     js_call
+#
+#     js_finish
+#
+::snit::macro js_init {arglist body} {
+  namespace eval ::hv3::dom {
+    set js_get_methods [list]
+    set js_put_methods [list]
+  }
+  component myJavascriptObject
+  delegate method * to myJavascriptObject
+
+  method js_initialize $arglist $body
+}
+::snit::macro js_get {varname code} {
+  lappend ::hv3::dom::js_get_methods $varname get_$varname
+  method get_$varname {} $code
+}
+::snit::macro js_getobject {varname code} {
+  lappend ::hv3::dom::js_get_methods $varname get_$varname
+  method get_$varname {} "\$self GetObject $varname {$code}"
+}
+::snit::macro js_put {varname argname code} {
+  lappend ::hv3::dom::js_put_methods $varname put_$varname
+  method put_$varname $argname $code
+}
+::snit::macro js_call {methodname arglist code} {
+  method call_$methodname $arglist $code
+  lappend ::hv3::dom::js_get_methods $methodname get_$methodname
+  method get_$methodname {} "\$self GetMethod $methodname"
+}
+
+::snit::macro js_finish {body} {
+  typevariable get_methods  -array $::hv3::dom::js_get_methods
+  typevariable put_methods  -array $::hv3::dom::js_put_methods
+
+  variable myCallMethods -array [list]
+  variable myObjectProperties -array [list]
+
+  method Get {property} {
+    if {[info exists get_methods($property)]} {
+      return [$self $get_methods($property)]
+    }
+    return [$myJavascriptObject Get $property]
+  }
+
+  method GetMethod {methodname} {
+    if {![info exists myCallMethods($methodname)]} {
+      set myCallMethods($methodname) [
+          ::hv3::JavascriptObject %AUTO% -call [mymethod call_$methodname]
+      ]
+    }
+    return [list object $myCallMethods($methodname)]
+  }
+
+  method GetObject {property code} {
+    if {![info exists myObjectProperties($property)]} {
+      set myObjectProperties($property) [eval $code]
+    }
+    return [list object $myObjectProperties($property)]
+  }
+
+  method Put {property value} {
+    if {[info exists put_methods($property)]} {
+      return [$self $put_methods($property) $value]
+    }
+    if {[info exists get_methods($property)]} {
+      error "Cannot set read-only property: $property"
+    }
+    return [$myJavascriptObject Put $property $value]
+  }
+
+  constructor {args} {
+    set myJavascriptObject [::hv3::JavascriptObject %AUTO%]
+    eval $self js_initialize $args
+  }
+
+  method js_finalize {} $body
+  destructor {
+    $self js_finalize
+    foreach key [array names myCallMethods] {
+      $myCallMethods($key) destroy
+    }
+    foreach key [array names myObjectProperties] {
+      $myObjectProperties($key) destroy
+    }
+  }
+
+  method HasProperty {property} {
+    if {[info exists get_methods($property)]} {
+      return 1
+    }
+    return 0
+  }
+}
+
+#-------------------------------------------------------------------------
+# Snit type for "Navigator" DOM object.
+#
+snit::type ::hv3::dom::Navigator {
+
+  js_init {} {}
+
+  js_get appName    { return [list string "Netscape"] }
+  js_get appVersion { return [list number 4] }
+
+  js_finish {}
+}
+
+#-------------------------------------------------------------------------
+# Snit type for "Window" DOM object.
+#
+#     Window.setTimeout()
+#     Window.clearTimeout()
+#
+#     Window.document
+#     Window.navigator
+#     Window.Image
+#
+#     Window.parent
+#     Window.top
+#     Window.self
+#     Window.window
+#
+snit::type ::hv3::dom::Window {
+  variable myHv3
+  variable mySee
+
+  js_init {see hv3} { 
+    set mySee $see 
+    set myHv3 $hv3 
+
+    set myDocument [::hv3::dom::HTMLDocument %AUTO% $myHv3]
+  }
+
+  #-----------------------------------------------------------------------
+  # Property implementations:
+  # 
+  #     Window.document
+  #
+  component myDocument 
+  delegate option -writevar to myDocument
+  js_get document { return [list object $myDocument] }
+
+  #-----------------------------------------------------------------------
+  # The "Image" property object. This is so that scripts can
+  # do the following:
+  #
+  #     img = new Image();
+  #
+  js_getobject Image {
+    ::hv3::JsObj %AUTO% -construct [list $myDocument newImage]
+  }
+
+  #-----------------------------------------------------------------------
+  # The "navigator" object.
+  #
+  js_getobject navigator {
+    ::hv3::dom::Navigator %AUTO%
+  }
+
+  #-----------------------------------------------------------------------
+  # The "parent" property. This should: 
+  #
+  #     "Returns a reference to the parent of the current window or subframe.
+  #      If a window does not have a parent, its parent property is a reference
+  #      to itself."
+  #
+  # For now, this always returns a "reference to itself".
+  #
+  js_get parent { return [list object $self] }
+  js_get top    { return [list object $self] }
+  js_get self   { return [list object $self] }
+  js_get window { return [list object $self] }
+
+  #-----------------------------------------------------------------------
+  # Method Implementations: 
+  #
+  #     Window.setTimeout(code, delay) 
+  #     Window.clearTimeout(timeoutid)
+  #
+  variable myTimeoutIds -array [list]
+  variable myNextTimeoutId 0
+
+  js_call setTimeout {THIS js_code js_delay} {
+    set delay [lindex $js_delay 1]
+    set code [lindex $js_code 1]
+
+    set timeoutid [incr myNextTimeoutId]
+    set myTimeoutIds($timeoutid) [
+      after [format %.0f $delay] [mymethod Timeout $timeoutid $code]
+    ]
+    return [list string $timeoutid]
+  }
+
+  js_call clearTimeout {THIS js_timeoutid} {
+    set timeoutid [lindex $js_timeoutid 1]
+    after cancel $myTimeoutIds($timeoutid)
+    unset myTimeoutIds($timeoutid)
+    return ""
+  }
+
+  method Timeout {timeoutid code args} {
+    unset myTimeoutIds($timeoutid)
+    $mySee eval $code
+  }
+  #-----------------------------------------------------------------------
+
+  js_finish {
+    # Cancel any outstanding timers created by Window.setTimeout().
+    #
+    foreach timeoutid [array names myTimeoutIds] {
+      after cancel $myTimeoutIds($timeoutid)
+    }
+    array unset myTimeoutIds
+
+    # Destroy the document object.
+    $myDocument destroy
+  }
+
+}
+
+#-------------------------------------------------------------------------
 # Snit class for DOM class "HTMLCollection".
 #
 # DOM class: (HTMLCollection)
@@ -174,6 +455,16 @@ snit::type ::hv3::dom::HTMLDocument {
 #     length
 #     item(index)
 #     namedItem(name)
+#
+# Also, a request for any property with a numeric name is mapped to a call
+# to the item() method. A request for any property with a non-numeric name
+# maps to a call to namedItem(). Hence, javascript references like:
+#
+#     collection[1]
+#     collection["name"]
+#     collection.name
+#
+# work as expected.
 #
 snit::type ::hv3::dom::HTMLCollection {
 
@@ -275,8 +566,11 @@ snit::type ::hv3::dom::HTMLCollection {
     set myNodes [list]
   }
 }
+# End of ::hv3::dom::HTMLCollection
+#-------------------------------------------------------------------------
 
 
+#-------------------------------------------------------------------------
 # Snit type for DOM type Text.
 #
 # DOM class: (Node -> CharacterData -> Text) 
@@ -290,7 +584,9 @@ snit::type ::hv3::dom::Text {
     set myNode $node
   }
 }
+#-------------------------------------------------------------------------
 
+#-------------------------------------------------------------------------
 # Snit type for DOM type HTMLElement.
 #
 # DOM class: (Node -> Element -> HTMLElement)
@@ -299,11 +595,13 @@ snit::type ::hv3::dom::Text {
 #
 snit::type ::hv3::dom::HTMLElement {
   variable myNode ""
+  variable myHv3 ""
 
   component myJavascriptObject
 
-  constructor {node} {
+  constructor {hv3 node} {
     set myNode $node
+    set myHv3 $hv3
     set myJavascriptObject [::hv3::JavascriptObject %AUTO%]
   }
 
@@ -349,6 +647,16 @@ snit::type ::hv3::dom::HTMLElement {
   }
 
   method Put {property value} {
+
+    # Special hack to ensure pre-loading of images works. For example:
+    #
+    #    i = new Image();
+    #    i.src = "preload_this_image.gif"
+    #
+    if {$property eq "src" && [$myNode tag] eq "img"} {
+      $myHv3 preload [lindex $value 1]
+    }
+
     set attr ""
     catch {set attr $ATTR_DATABASE(,$property)}
     catch {set attr $ATTR_DATABASE([$myNode tag],$property)}
@@ -388,30 +696,6 @@ snit::type ::hv3::dom::HTMLElement {
   }
 }
 
-#
-# Initialise the scripting environment. This should basically load (or
-# fail to load) the javascript interpreter library. If it fails, then
-# we have a scriptless browser. The test for whether or not the browser
-# is script-enabled is:
-#
-#     if {[::hv3::dom::have_scripting]} {
-#         puts "We have scripting :)"
-#     } else {
-#         puts "No scripting here. Probably better that way."
-#     }
-#
-proc ::hv3::dom::init {} {
-  catch { load [file join [file dirname [info script]] libtclsee.so] }
-  catch { load /home/dan/javascript/tcl/libtclsee.so }
-
-  ::hv3::dom::HTMLElement setup_ATTR_DATABASE
- 
-}
-proc ::hv3::dom::have_scripting {} {
-  return [expr {[info commands ::see::interp] ne ""}]
-}
-
-
 # List of scripting events (as per html 4.01, chapter 18):
 #
 # Document load/unload. These are activated when the [onload] and [onunload]
@@ -419,13 +703,15 @@ proc ::hv3::dom::have_scripting {} {
 #     onload
 #     onunload
 #
-# Click-related events.
+# Click-related events. Handled by the [mouseevent] method of this object.
+# The [mouseevent] method is invoked by subscribing to events dispatched by 
+# the ::hv3::mousemanager object.
 #     onclick
 #     ondblclick
 #     onmousedown
 #     onmouseup
 #
-# Mouse movement.
+# Mouse movement. Also [mouseevent] (see above).
 #     onmouseover
 #     onmousemove
 #     onmouseout
@@ -455,10 +741,7 @@ snit::type ::hv3::dom {
   variable myHv3 ""
 
   # Document object.
-  variable myDocument ""
-
-  # Debugging functions.
-  variable myDebugObjects [list]
+  variable myWindow ""
 
   # Map from Tkhtml3 node-handle to corresponding DOM object.
   # Entries are added by the [::hv3::dom node_to_dom] method. The
@@ -488,7 +771,6 @@ snit::type ::hv3::dom {
       # object constructor. 
       if {$mySee ne ""} {
         $mySee destroy
-        $myDocument destroy
 
         # Delete all the DOM objects in the $myNodeToDom array.
         foreach key [array names myNodeToDom] {
@@ -496,23 +778,15 @@ snit::type ::hv3::dom {
         }
         array unset myNodeToDom
 
-        foreach obj $myDebugObjects {
-          $obj destroy
-        }
-        set myDebugObjects [list]
+        # Destroy the toplevel object.
+        destroy $myWindow
       }
 
+
+      # Set up the new interpreter with the global "Window" object.
       set mySee [::see::interp]
-
-      # Set up the global "document" object
-      set myDocument [::hv3::dom::HTMLDocument %AUTO% $myHv3]
-      $mySee object document $myDocument 
-
-      lappend myDebugObjects [
-          ::hv3::JavascriptObject %AUTO% -call ::hv3::dom::puts
-      ]
-      $mySee object puts [lindex $myDebugObjects end]
-
+      set myWindow [::hv3::dom::Window %AUTO% $mySee $myHv3]
+      $mySee global $myWindow 
     }
   }
 
@@ -527,23 +801,43 @@ snit::type ::hv3::dom {
   #
   method script {attr script} {
     if {[::hv3::dom::have_scripting]} {
-      $myDocument configure -writevar [myvar myWriteVar]
+      $myWindow configure -writevar [myvar myWriteVar]
       if {[catch {$mySee eval $script} msg]} {
         after idle [list error $msg]
       }
       set res $myWriteVar
-      $myDocument configure -writevar ""
+      $myWindow configure -writevar ""
       set myWriteVar ""
       return $res
     }
     return ""
   }
 
+  # This method is called when one an event of type $event occurs on the
+  # document node $node. Argument $event is one of the following:
+  #
+  #     onclick 
+  #     onmouseout 
+  #     onmouseover
+  #     onmouseup 
+  #     onmousedown 
+  #     onmousemove 
+  #     ondblclick
+  #
   method mouseevent {event node} {
     set script [$node attr -default "" $event]
     if {$script ne ""} {
-      #puts "mouseevent: $script"
-      $mySee eval $script
+      # Instead of just calling [$mySee eval] on the script, wrap it
+      # in an anonymous function. This is so that event scripts like the
+      # following:
+      #
+      #     <a onmouseover="func(); return true">
+      #
+      # do not throw an exception on the "return" statement.
+      #
+      # Todo: Create some "event" object filled with event parameters.
+      #
+      $mySee eval "(function () {$script})()"
     }
   }
 
@@ -560,7 +854,19 @@ snit::type ::hv3::dom {
   # script is specified by the "onload" attribute of the document <BODY> or 
   # <FRAMESET> element(s).
   #
-  method onload {} {
+  # This method is called from within a node-handler for the <BODY> or
+  # <FRAMESET> element passed as the first argument.
+  #
+  method onload {node} {
+    if {[::hv3::dom::have_scripting]} {
+      set onload [$node attr -default "" onload]
+      if {$onload ne ""} {
+        if {[catch {$mySee eval $onload} msg]} {
+          after idle [list error $msg]
+        }
+      }
+    }
+    return ""
   }
 
   method node_to_dom {node} {
@@ -570,7 +876,7 @@ snit::type ::hv3::dom {
           set domobj [::hv3::dom::Text %AUTO% $node]
         }
         default {
-          set domobj [::hv3::dom::HTMLElement %AUTO% $node]
+          set domobj [::hv3::dom::HTMLElement %AUTO% $myHv3 $node]
         }
       }
       set myNodeToDom($node) $domobj
@@ -579,7 +885,35 @@ snit::type ::hv3::dom {
   }
 }
 
-proc ::hv3::dom::puts {this args} {
+#
+# Initialise the scripting environment. This should basically load (or
+# fail to load) the javascript interpreter library. If it fails, then
+# we have a scriptless browser. The test for whether or not the browser
+# is script-enabled is:
+#
+#     if {[::hv3::dom::have_scripting]} {
+#         puts "We have scripting :)"
+#     } else {
+#         puts "No scripting here. Probably better that way."
+#     }
+#
+proc ::hv3::dom::init {} {
+
+  # Load the javascript library.
+  #
+  catch { load [file join [file dirname [info script]] libtclsee.so] }
+  catch { load /home/dan/javascript/tcl/libtclsee.so }
+
+  # Set up all the sub-classes of ::HTMLElement.
+  #
+  ::hv3::dom::HTMLElement setup_ATTR_DATABASE
+}
+proc ::hv3::dom::have_scripting {} {
+  return [expr {[info commands ::see::interp] ne ""}]
+}
+
+
+proc ::hv3::dom::jsputs {this args} {
   ::puts [lindex $args 0 1]
   return ""
 }
