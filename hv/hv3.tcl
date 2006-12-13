@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.126 2006/12/12 12:46:14 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.127 2006/12/13 02:13:20 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -1317,11 +1317,9 @@ proc ::hv3::bg {script args} {
   set eval [concat $script $args]
   set rc [catch [list uplevel $eval] result]
   if {$rc} {
-    after idle [list                     \
-      set ::errorInfo $::errorInfo ;     \
-      set ::errorCode $::errorCode ;     \
-      bgerror $result ;
-    ]
+    set cmd [list bgerror $result]
+    set error [list $::errorInfo $::errorCode]
+    after idle [list foreach {::errorInfo ::errorCode} $error $cmd]
     set ::errorInfo ""
     return ""
   }

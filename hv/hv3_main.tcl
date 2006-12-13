@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.101 2006/11/27 12:35:47 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.102 2006/12/13 02:13:20 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -1154,6 +1154,8 @@ proc gui_new {path args} {
   bind [$new hv3] <Map>  [list event generate [$new hv3] <<Location>>]
   bind [$new hv3] <Map> +[list bind <Map> [$new hv3] ""]
 
+  # [[$new hv3] html] configure -logcmd print
+
   return $new
 }
 
@@ -1308,5 +1310,7 @@ proc hv3_html {args} {
 # arguments passed to the application.
 set ::hv3::maindir [file dirname [info script]] 
 eval [concat main $argv]
+
+proc print {args} { puts [join $args] }
 
 #--------------------------------------------------------------------------

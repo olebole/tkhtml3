@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.179 2006/12/10 08:38:08 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.180 2006/12/13 02:13:20 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -3313,7 +3313,7 @@ paintNodesSearchCb(pItem, origin_x, origin_y, pOverflow, clientData)
  *     This function is used to repaint the area covered by the text
  *     associated with a series of sequential nodes. It is used to update 
  *     the display when the selection changes. This function does not do any
- *     drawing itself, it schedules a callback using HtmlCallbackSchedule()
+ *     drawing itself, it schedules a callback using HtmlCallbackDamage()
  *     to do the actual work.
  *
  *     At most, a single rectangular area is redrawn. This is the minimum

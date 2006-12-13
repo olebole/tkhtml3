@@ -6,14 +6,17 @@ package require snit
 # ::hv3::JavascriptObject
 # ::hv3::dom
 #
-# ::hv3::dom::HTMLDocument
-# ::hv3::dom::HTMLCollection
-# ::hv3::dom::HTMLElement
-# ::hv3::dom::Text
+# DOM1 Standard classes:
+#     ::hv3::dom::HTMLDocument
+#     ::hv3::dom::HTMLCollection
+#     ::hv3::dom::HTMLElement
+#     ::hv3::dom::Text
 #
-# ::hv3::dom::Navigator
-# ::hv3::dom::Window
+#     ::hv3::dom::HTMLImageElement
 #
+# Defacto Standards:
+#     ::hv3::dom::Navigator
+#     ::hv3::dom::Window
 #
 
 # This type contains various convenience code to help with development
@@ -102,119 +105,6 @@ proc ::hv3::JsObj {args} {
   return [eval ::hv3::JavascriptObject $args]
 }
 
-# Snit class for the "document" object.
-#
-# DOM class: (Node -> Document -> HTMLDocument)
-#
-# Supports the following:
-#
-#     write(string)
-#     writeln(string)
-#
-#     images
-#
-snit::type ::hv3::dom::HTMLDocument {
-
-  variable myHv3
-
-  # If not set to an empty string, this option contains the name of
-  # a Tcl variable to accumulate the strings passed to document.write()
-  # and document.writeln() in.
-  #
-  # If it is an empty string, any javascript calls to write() or writeln()
-  # are effectively no-ops.
-  #
-  option -writevar -default ""
-
-  # document.images (HTMLCollection object).
-  variable myImages ""
-
-  # Object to handle generic operations.
-  component myJavascriptObject
-
-  # Call() is a no-op.
-  delegate method Call to myJavascriptObject
-
-  constructor {hv3 args} {
-    set myHv3 $hv3
-
-    # Initialise the superclass.
-    set myJavascriptObject [::hv3::JavascriptObject %AUTO%]
-
-    # Initialise document object methods.
-    $myJavascriptObject CreateMethod write   [mymethod write]
-    $myJavascriptObject CreateMethod writeln [mymethod writeln]
-
-    $self configurelist $args
-  }
-
-  # The document.write() method
-  #
-  method write {this str} {
-    if {$options(-writevar) ne ""} {
-      set val [lindex $str 1]
-      append $options(-writevar) $val
-    }
-    return ""
-  }
-
-  # The document.writeln() method. This just calls the write() method
-  # with a newline appended to the argument string. I guess this is
-  # used to populate <PRE> blocks or some such trickery.
-  #
-  method writeln {this str} {
-    set val [lindex $str 1]
-    $self write $this [list string "$val\n"]
-    return ""
-  }
-
-  # This method is called for javascript of the form "new Image()". This
-  # is equivalent to "document.createElement("img")".
-  #
-  method newImage {this args} {
-    set node [$myHv3 fragment "<img>"]
-    return [list object [[$myHv3 dom] node_to_dom $node]]
-  }
-
-  method Get {property} {
-    switch -- $property {
-
-      images {
-        if {$myImages eq ""} {
-          set myImages [::hv3::dom::HTMLCollection %AUTO% $myHv3 img]
-        }
-        return [list object $myImages]
-      }
-
-      default {
-        set val [$myJavascriptObject Get $property]
-
-        if {$val eq ""} {
-          set css "\[name=\"$property\"\]"
-          set node [lindex [$myHv3 search $css] 0]
-          if {$node ne ""} {
-            set val [list object [[$myHv3 dom] node_to_dom $node]]
-          }
-        }
-
-        return $val
-      }
-    }
-  }
-
-  method Put {property value} {
-    set readonly [list images]
-    if {0 <= [lsearch $readonly $property]} {
-      error "Read-only property: $property"
-    }
-    $myJavascriptObject Put $property $value
-  }
-
-  method CanPut {property} {
-    puts "CanPut $property"
-  }
-}
-
 #-------------------------------------------------------------------------
 # js_XXX snit::macros used to make creating DOM objects easier.
 #
@@ -232,14 +122,19 @@ snit::type ::hv3::dom::HTMLDocument {
     set js_get_methods [list]
     set js_put_methods [list]
   }
-  component myJavascriptObject
-  delegate method * to myJavascriptObject
+  component myJavascriptParent
+  delegate method * to myJavascriptParent
 
   method js_initialize $arglist $body
 }
+
 ::snit::macro js_get {varname code} {
   lappend ::hv3::dom::js_get_methods $varname get_$varname
-  method get_$varname {} $code
+  if {$varname eq "*"} {
+    method get_$varname {property} $code
+  } else {
+    method get_$varname {} $code
+  }
 }
 ::snit::macro js_getobject {varname code} {
   lappend ::hv3::dom::js_get_methods $varname get_$varname
@@ -266,7 +161,11 @@ snit::type ::hv3::dom::HTMLDocument {
     if {[info exists get_methods($property)]} {
       return [$self $get_methods($property)]
     }
-    return [$myJavascriptObject Get $property]
+    if {[info exists get_methods(*)]} {
+      set res [$self $get_methods(*) $property]
+      if {$res ne ""} {return $res}
+    }
+    return [$myJavascriptParent Get $property]
   }
 
   method GetMethod {methodname} {
@@ -292,12 +191,15 @@ snit::type ::hv3::dom::HTMLDocument {
     if {[info exists get_methods($property)]} {
       error "Cannot set read-only property: $property"
     }
-    return [$myJavascriptObject Put $property $value]
+    return [$myJavascriptParent Put $property $value]
   }
 
   constructor {args} {
-    set myJavascriptObject [::hv3::JavascriptObject %AUTO%]
+    set myJavascriptParent ""
     eval $self js_initialize $args
+    if {$myJavascriptParent eq ""} {
+      set myJavascriptParent [::hv3::JavascriptObject %AUTO%]
+    }
   }
 
   method js_finalize {} $body
@@ -317,6 +219,105 @@ snit::type ::hv3::dom::HTMLDocument {
     }
     return 0
   }
+}
+
+
+# Snit class for the "document" object.
+#
+# DOM class: (Node -> Document -> HTMLDocument)
+#
+# Supports the following:
+#
+#     write(string)
+#     writeln(string)
+#
+#     images
+#
+# Unsupported collections/elements:
+#    
+#     forms
+#     anchors
+#     links
+#     applets
+#     body
+#
+snit::type ::hv3::dom::HTMLDocument {
+
+  # If not set to an empty string, this option contains the name of
+  # a Tcl variable to accumulate the strings passed to document.write()
+  # and document.writeln() in.
+  #
+  # If it is an empty string, any javascript calls to write() or writeln()
+  # are effectively no-ops.
+  #
+  option -writevar -default ""
+
+  variable myHv3
+
+  js_init {hv3 args} {
+    set myHv3 $hv3
+    $self configurelist $args
+  }
+
+  #-------------------------------------------------------------------------
+  # The document.write() method
+  #
+  js_call write {THIS str} {
+    if {$options(-writevar) ne ""} {
+      set val [lindex $str 1]
+      append $options(-writevar) $val
+    }
+    return ""
+  }
+
+  #-------------------------------------------------------------------------
+  # The document.writeln() method. This just calls the write() method
+  # with a newline appended to the argument string. I guess this is
+  # used to populate <PRE> blocks or some such trickery.
+  #
+  js_call writeln {THIS str} {
+    set val [lindex $str 1]
+    $self call_write $THIS [list string "$val\n"]
+    return ""
+  }
+
+  #-------------------------------------------------------------------------
+  # The document.images[] array (type HTMLCollection).
+  #
+  js_getobject images {
+    hv3::dom::HTMLCollection %AUTO% $myHv3 img
+  }
+
+  #-------------------------------------------------------------------------
+  # Handle unknown property requests.
+  #
+  # An unknown property may refer to certain types of document element
+  # by either the "name" or "id" HTML attribute.
+  #
+  # 1: Have to find some reference for this behaviour...
+  # 2: Maybe this is too inefficient. Maybe it should go to the 
+  #    document.images and document.forms collections.
+  #
+  js_get * {
+
+    # Allowable element types.
+    set tags [list form img]
+
+    # Selectors to use to find document nodes.
+    set nameselector [subst -nocommands {[name="$property"]}]
+    set idselector   [subst -nocommands {[id="$property"]}]
+ 
+    foreach selector [list $nameselector $idselector] {
+      set node [lindex [$myHv3 search $selector] 0]
+      if {$node ne "" && [lsearch $tags [$node tag]] >= 0} {
+        return [list object [[$myHv3 dom] node_to_dom $node]]
+      }
+    }
+
+    return ""
+  }
+
+  js_finish {}
 }
 
 #-------------------------------------------------------------------------
@@ -374,7 +375,11 @@ snit::type ::hv3::dom::Window {
   #     img = new Image();
   #
   js_getobject Image {
-    ::hv3::JsObj %AUTO% -construct [list $myDocument newImage]
+    ::hv3::JsObj %AUTO% -construct [mymethod newImage]
+  }
+  method newImage {} {
+    set node [$myHv3 fragment "<img>"]
+    return [list object [[$myHv3 dom] node_to_dom $node]]
   }
 
   #-----------------------------------------------------------------------
@@ -440,7 +445,7 @@ snit::type ::hv3::dom::Window {
     array unset myTimeoutIds
 
     # Destroy the document object.
-    $myDocument destroy
+    catch {$myDocument destroy}
   }
 
 }
@@ -474,35 +479,40 @@ snit::type ::hv3::dom::HTMLCollection {
   variable myNodes [list]
   variable myIsValid 0
 
-  # Object to handle generic operations.
-  component myJavascriptObject
-  delegate method * to myJavascriptObject
-
-  constructor {hv3 selector} {
+  js_init {hv3 selector} {
     set myHv3 $hv3
     set mySelector $selector
-    set myJavascriptObject [::hv3::JavascriptObject %AUTO%]
-
-    # Attributes
-    $myJavascriptObject CreateReadOnlyAttr length [mymethod get_length]
-
-    # Methods
-    $myJavascriptObject CreateMethod item         [mymethod call_item]
-    $myJavascriptObject CreateMethod namedItem    [mymethod call_namedItem]
   }
 
-  method call_item {this args} {
+  #-------------------------------------------------------------------------
+  # The HTMLCollection.length property
+  #
+  js_get length {
     $self Refresh
+    return [list number [llength $myNodes]]
+  }
+
+  #-------------------------------------------------------------------------
+  # The HTMLCollection.item() method
+  #
+  js_call item {THIS args} {
     if {[llength $args] != 1} {
         error "Bad arguments to HTMLCollection.item()"
     }
-    set idx [lindex $args 0 1]
 
+    $self Refresh
+    set idx [lindex $args 0 1]
+    if {$idx < 0 || $idx >= [llength $myNodes]} {
+      return ""
+    }
     set domobj [[$myHv3 dom] node_to_dom [lindex $myNodes $idx]]
     return [list object $domobj]
   }
 
-  method call_namedItem {this args} {
+  #-------------------------------------------------------------------------
+  # The HTMLCollection.namedItem() method
+  #
+  js_call namedItem {this args} {
     if {[llength $args] != 1} {
         error "Wrong number of arg to HTMLCollection.namedItem()"
     }
@@ -525,29 +535,24 @@ snit::type ::hv3::dom::HTMLCollection {
     return ""
   }
 
-  method get_length {} {
-    $self Refresh
-    return [list number [llength $myNodes]]
-  }
+  #-------------------------------------------------------------------------
+  # Handle an attempt to retrieve an unknown property.
+  #
+  js_get * {
 
-  method Get {property} {
-    # Try to retrieve a conventionally stored property. If there
-    # is no such property defined, an empty string is returned.
-    set res [$myJavascriptObject Get $property]
-
-    if {$res eq ""} {
-      # No explicit property matches. If $property looks like a number,
-      # treat it as an index into $myNodes. Otherwise look for a node
-      # with the "name" or "id" attribute set to the attribute name.
-      if {[string is double $property]} {
-        set res [$self call_item THIS [list number $property]]
-      } else {
-        set res [$self call_namedItem THIS [list string $property]]
-      }
+    # If $property looks like a number, treat it as an index into $myNodes.
+    # Otherwise look for a node with the "name" or "id" attribute set to 
+    # the attribute name.
+    if {[string is double $property]} {
+      set res [$self call_item THIS [list number $property]]
+    } else {
+      set res [$self call_namedItem THIS [list string $property]]
     }
 
     return $res
   }
+
+  js_finish {}
 
   # Called to make sure the $myNodes list is current.
   #
@@ -593,107 +598,112 @@ snit::type ::hv3::dom::Text {
 #
 # Supports the following interface:
 #
+#      Element.nodeName
+#      Element.nodeValue
+#      Element.nodeType
+#      Element.parentNode
+#      Element.childNodes
+#      Element.firstChild
+#      Element.lastChild
+#      Element.previousSibling
+#      Element.nextSibling
+#      Element.attributes
+#      Element.ownerDocument
+#
 snit::type ::hv3::dom::HTMLElement {
   variable myNode ""
   variable myHv3 ""
 
-  component myJavascriptObject
-
-  constructor {hv3 node} {
+  js_init {hv3 node} {
     set myNode $node
     set myHv3 $hv3
-    set myJavascriptObject [::hv3::JavascriptObject %AUTO%]
   }
 
-  method Get {property} {
-
-    set attr ""
-    catch {set attr $ATTR_DATABASE(,$property)}
-    catch {set attr $ATTR_DATABASE([$myNode tag],$property)}
-    if {$attr ne ""} {
-      foreach {attribute type default} $attr {}
-      set val [$myNode attribute -default $default $attribute]
-
-      if {$type eq "number"} {
-        set f 0.0
-        scan $val %f f
-        set val $f
-      } elseif {$type eq "boolean"} {
-        set val [expr ($val == 0 ? 0 : 1)]
-      }
-
-      return [list $type $val]
-    }
-
-    switch -- $property {
-      nodeName {}
-      nodeValue {}
-      nodeType {}
-      parentNode {}
-      childNodes {}
-      firstChild {}
-      lastChild {}
-      previousSibling {}
-      nextSibling {}
-      attributes {}
-      ownerDocument {}
-
-      tagName {             # Element.tagName
-        return [list string [string toupper [$myNode tag]]] 
-      }
-    }
-
-    return [$myJavascriptObject Get $property]
+  js_get tagName { 
+    return [list string [string toupper [$myNode tag]]]
   }
 
-  method Put {property value} {
-
-    # Special hack to ensure pre-loading of images works. For example:
-    #
-    #    i = new Image();
-    #    i.src = "preload_this_image.gif"
-    #
-    if {$property eq "src" && [$myNode tag] eq "img"} {
-      $myHv3 preload [lindex $value 1]
+  # Get/Put functions for the attributes of $myNode:
+  #
+  method GetStringAttribute {prop} {
+    return [list string [$myNode attribute -default "" $prop]]
+  }
+  method PutStringAttribute {prop value} {
+    $myNode attribute $prop [lindex $value 1]
+  }
+  method GetBooleanAttribute {prop} {
+    set bool [$myNode attribute -default 0 $prop]
+    if {![catch {expr $bool}]} {
+      return [list boolean [expr {$bool ? 1 : 0}]]
+    } else {
+      return [list boolean 1]
     }
-
-    set attr ""
-    catch {set attr $ATTR_DATABASE(,$property)}
-    catch {set attr $ATTR_DATABASE([$myNode tag],$property)}
-    if {$attr ne ""} {
-      foreach {attribute type default} $attr {}
-      $myNode attribute $attribute [lindex $value 1]
-      return
-    }
-
-    return [$myJavascriptObject Put $property $value]
+  }
+  method PutBooleanAttribute {prop value} {
+    $myNode attribute $prop [lindex $value 1]
   }
 
-  typevariable ATTR_DATABASE -array [list]
-
-  typemethod setup_ATTR_DATABASE {} {
-
-    # Attributes of class HTMLElement 
-    set ATTR_DATABASE(,id)        [list id    string ""] 
-    set ATTR_DATABASE(,title)     [list title string ""] 
-    set ATTR_DATABASE(,lang)      [list lang  string ""] 
-    set ATTR_DATABASE(,dir)       [list dir   string ""] 
-    set ATTR_DATABASE(,className) [list class string ""] 
-
-    # Attributes of class HTMLImageElement 
-    set ATTR_DATABASE(img,name)     [list name     string ""]
-    set ATTR_DATABASE(img,align)    [list align    string ""]
-    set ATTR_DATABASE(img,alt)      [list alt      string ""]
-    set ATTR_DATABASE(img,border)   [list border   string ""]
-    set ATTR_DATABASE(img,height)   [list height   string ""]
-    set ATTR_DATABASE(img,hspace)   [list hspace   string ""]
-    set ATTR_DATABASE(img,longDesc) [list longdesc string ""]
-    set ATTR_DATABASE(img,src)      [list src      string ""]
-    set ATTR_DATABASE(img,useMap)   [list usemap   string ""]
-    set ATTR_DATABASE(img,vspace)   [list vspace   string ""]
-    set ATTR_DATABASE(img,width)    [list width    string ""]
-    set ATTR_DATABASE(img,isMap)    [list ismap    boolean ""]
+  # The following string attributes are common to all elements:
+  #
+  #     HTMLElement.id
+  #     HTMLElement.title
+  #     HTMLElement.lang
+  #     HTMLElement.dir
+  #     HTMLElement.className
+  #
+  foreach {prop attr} {id id title title lang lang dir dir className class} {
+    js_get $prop "\$self GetStringAttribute $prop"
+    js_put $prop val "\$self PutStringAttribute $prop \$val"
   }
+
+  js_finish {}
+}
+
+snit::type ::hv3::dom::HTMLImageElement {
+
+  variable myNode ""
+  variable myHv3 ""
+
+  js_init {hv3 node} {
+    set myHv3 $hv3
+    set myNode $node
+    set myJavascriptParent [::hv3::dom::HTMLElement %AUTO% $hv3 $node]
+  }
+
+  # Magic for "src" attribute. Whenever the "src" attribute is set on
+  # any HTMLImageElement object, tell the corresponding HTML widget to
+  # preload the image at the new value of "src".
+  #
+  js_get src { $self GetStringAttribute src }
+  js_put src value { 
+    $self PutStringAttribute src $value
+    $myHv3 preload [lindex $value 1]
+  }
+
+  # The "isMap" attribute. Javascript type "boolean".
+  #
+  js_get isMap       { $self GetBooleanAttribute src }
+  js_put isMap value { $self PutBooleanAttribute src $value }
+
+  # Configure all the other string attributes.
+  #
+  foreach {attribute property} [list \
+      name name         \
+      align align       \
+      alt alt           \
+      border border     \
+      height height     \
+      hspace hspace     \
+      longdesc longDesc \
+      usemap useMap     \
+      vspace vspace     \
+      width width       \
+  ] {
+    js_get $property       "\$self GetStringAttribute $attribute"
+    js_put $property value "\$self PutStringAttribute $attribute \$value"
+  }
+
+  js_finish {}
 }
 
 # List of scripting events (as per html 4.01, chapter 18):
@@ -802,9 +812,7 @@ snit::type ::hv3::dom {
   method script {attr script} {
     if {[::hv3::dom::have_scripting]} {
       $myWindow configure -writevar [myvar myWriteVar]
-      if {[catch {$mySee eval $script} msg]} {
-        after idle [list error $msg]
-      }
+      ::hv3::bg [list $mySee eval $script]
       set res $myWriteVar
       $myWindow configure -writevar ""
       set myWriteVar ""
@@ -875,6 +883,9 @@ snit::type ::hv3::dom {
         "" {
           set domobj [::hv3::dom::Text %AUTO% $node]
         }
+        img {
+          set domobj [::hv3::dom::HTMLImageElement %AUTO% $myHv3 $node]
+        }
         default {
           set domobj [::hv3::dom::HTMLElement %AUTO% $myHv3 $node]
         }
@@ -898,24 +909,13 @@ snit::type ::hv3::dom {
 #     }
 #
 proc ::hv3::dom::init {} {
-
   # Load the javascript library.
   #
   catch { load [file join [file dirname [info script]] libtclsee.so] }
   catch { load /home/dan/javascript/tcl/libtclsee.so }
-
-  # Set up all the sub-classes of ::HTMLElement.
-  #
-  ::hv3::dom::HTMLElement setup_ATTR_DATABASE
 }
 proc ::hv3::dom::have_scripting {} {
   return [expr {[info commands ::see::interp] ne ""}]
-}
-
-
-proc ::hv3::dom::jsputs {this args} {
-  ::puts [lindex $args 0 1]
-  return ""
 }
 
 ::hv3::dom::init

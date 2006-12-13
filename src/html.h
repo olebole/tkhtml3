@@ -449,9 +449,6 @@ struct HtmlCallback {
 /* 
  * Functions used to schedule callbacks and set the HtmlCallback state. 
  */
-void HtmlCallbackSchedule(HtmlTree *, int);
-void HtmlCallbackExtents(HtmlTree *, int, int, int, int);
-
 void HtmlCallbackForce(HtmlTree *);
 void HtmlCallbackDynamic(HtmlTree *, HtmlNode *);
 void HtmlCallbackDamage(HtmlTree *, int, int, int, int, int);
