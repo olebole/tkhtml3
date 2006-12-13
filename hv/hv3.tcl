@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.127 2006/12/13 02:13:20 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.128 2006/12/13 13:45:44 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -1151,10 +1151,15 @@ snit::widget ::hv3::hv3 {
 
   method goto {uri {cachecontrol normal}} {
 
-    set myCacheControl $cachecontrol
+    # Special case. If this URI begins with "javascript:" (case independant),
+    # pass it to the current running DOM implementation instead of loading
+    # anything into the current browser.
+    if {[string match -nocase javascript:* $uri]} {
+      $myDom javascript [string range $uri 11 end]
+      return
+    }
 
-    # Generate the <<Goto>> event.
-    event generate $win <<Goto>>
+    set myCacheControl $cachecontrol
 
     set current_uri [$myUri get -nofragment]
     set uri_obj [::hv3::uri %AUTO% $current_uri]
@@ -1162,6 +1167,9 @@ snit::widget ::hv3::hv3 {
     # set full_uri [$uri_obj get -nofragment]
     set full_uri [$uri_obj get -nofragment]
     set fragment [$uri_obj cget -fragment]
+
+    # Generate the <<Goto>> event.
+    event generate $win <<Goto>>
 
     if {$full_uri eq $current_uri && $fragment ne ""} {
       # Save the current state in the history system. This ensures

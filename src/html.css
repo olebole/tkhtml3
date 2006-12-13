@@ -179,21 +179,22 @@ TEXTAREA, SELECT {
 /*
  * Default style for buttons created using <input> elements.
  */
-INPUT[type="submit"] {
+INPUT[type="submit"],INPUT[type="button"] {
   display: inline-block;
   border: 2px solid;
   border-color: #ffffff #828282 #828282 #ffffff;
   background-color: #d9d9d9;
   color: #000000;
-  padding: 3px 10px 1px 10px;
+  /* padding: 3px 10px 1px 10px; */
+  padding: 3px 3px 1px 3px;
   white-space: nowrap;
   text-align: center;
 }
-INPUT[type="submit"]:after {
+INPUT[type="submit"]:after,INPUT[type="button"]:after {
   content: tcl(::tkhtml::attr value);
   position: relative;
 }
-INPUT[type="submit"]:hover:active {
+INPUT[type="submit"]:hover:active,INPUT[type="button"]:hover:active {
   border-color: #828282 #ffffff #ffffff #828282;
 }
 
