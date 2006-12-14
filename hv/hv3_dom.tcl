@@ -226,6 +226,14 @@ proc ::hv3::JsObj {args} {
   }
 }
 
+::snit::macro js_getput_attribute {property {attribute ""}} {
+   set G "list string \[\[\$self node\] attribute -default {} $attribute\]"
+   set P "\[\$self node\] attribute $property \[lindex \$v 1\]"
+   js_get $property $G
+   js_put $property v $P
+}
+
+
 
 # Snit class for the "document" object.
 #
@@ -289,12 +297,9 @@ snit::type ::hv3::dom::HTMLDocument {
   #-------------------------------------------------------------------------
   # The document.images[] and document.forms[] arrays (type HTMLCollection).
   #
-  js_getobject images {
-    hv3::dom::HTMLCollection %AUTO% $myHv3 img
-  }
-  js_getobject forms {
-    hv3::dom::HTMLCollection %AUTO% $myHv3 form
-  }
+  js_getobject images  { hv3::dom::HTMLCollection %AUTO% $myHv3 img }
+  js_getobject forms   { hv3::dom::HTMLCollection %AUTO% $myHv3 form }
+  js_getobject anchors { hv3::dom::HTMLCollection %AUTO% $myHv3 {a[name]} }
 
   #-------------------------------------------------------------------------
   # Handle unknown property requests.
@@ -427,7 +432,7 @@ snit::type ::hv3::dom::Window {
   js_getobject Image {
     ::hv3::JsObj %AUTO% -construct [mymethod newImage]
   }
-  method newImage {} {
+  method newImage {args} {
     set node [$myHv3 fragment "<img>"]
     return [list object [[$myHv3 dom] node_to_dom $node]]
   }
@@ -446,7 +451,8 @@ snit::type ::hv3::dom::Window {
   #      If a window does not have a parent, its parent property is a reference
   #      to itself."
   #
-  # For now, this always returns a "reference to itself".
+  # For now, this always returns a "reference to itself". Or actually, 
+  # a reference to the global object (the only Window in the system).
   #
   js_get parent { return [list object $self] }
   js_get top    { return [list object $self] }
@@ -771,6 +777,8 @@ snit::type ::hv3::dom::HTMLElement {
   }
 
   js_finish {}
+
+  method node {} {return $myNode}
 }
 
 #-------------------------------------------------------------------------
@@ -851,11 +859,11 @@ snit::type ::hv3::dom::HTMLFormElement {
   #----------------------------------------------------------------------
   # Form control methods: submit() and reset().
   #
-  js_call submit {} {
+  js_call submit {THIS} {
     set form [$myNode replace]
     $form submit ""
   }
-  js_call reset {} {
+  js_call reset {THIS} {
     set form [$myNode replace]
     $form reset
   }
@@ -1108,6 +1116,28 @@ snit::type ::hv3::dom::HTMLTextAreaElement {
   js_finish {}
 }
 
+snit::type ::hv3::dom::HTMLAnchorElement {
+
+  js_init {hv3 node} {
+    set myJavascriptParent [::hv3::dom::HTMLElement %AUTO% $hv3 $node]
+  }
+
+  js_getput_attribute accessKey accesskey
+  js_getput_attribute charset   charset
+  js_getput_attribute coords    coords
+  js_getput_attribute href      href
+  js_getput_attribute hreflang  hreflang
+  js_getput_attribute name      name
+  js_getput_attribute rel       rel
+  js_getput_attribute rev       rev
+  js_getput_attribute shape     shape
+  js_getput_attribute tabIndex  tabindex
+  js_getput_attribute target    target
+  js_getput_attribute type      type
+
+  js_finish {}
+}
+
 # List of scripting events (as per html 4.01, chapter 18):
 #
 # Document load/unload. These are activated when the [onload] and [onunload]
@@ -1152,7 +1182,7 @@ snit::type ::hv3::dom {
   # Document window associated with this scripting environment.
   variable myHv3 ""
 
-  # Document object.
+  # Global object.
   variable myWindow ""
 
   # Map from Tkhtml3 node-handle to corresponding DOM object.
@@ -1191,7 +1221,7 @@ snit::type ::hv3::dom {
         array unset myNodeToDom
 
         # Destroy the toplevel object.
-        destroy $myWindow
+        $myWindow destroy
       }
 
 
@@ -1254,7 +1284,8 @@ snit::type ::hv3::dom {
       #
       # Todo: Create some "event" object filled with event parameters.
       #
-      set rc [catch {$mySee eval "(function () {$script})()"} msg]
+      set this [$self node_to_dom $node]
+      set rc [catch {$mySee evalthis $this $script} msg]
       if {$rc} {
         puts $script
         error $msg
@@ -1308,6 +1339,9 @@ snit::type ::hv3::dom {
         textarea {
           set domobj [::hv3::dom::HTMLTextAreaElement %AUTO% $myHv3 $node]
         }
+        a {
+          set domobj [::hv3::dom::HTMLAnchorElement %AUTO% $myHv3 $node]
+        }
         default {
           set domobj [::hv3::dom::HTMLElement %AUTO% $myHv3 $node]
         }
@@ -1342,5 +1376,4 @@ proc ::hv3::dom::have_scripting {} {
 
 ::hv3::dom::init
 # puts "Have scripting: [::hv3::dom::have_scripting]"
-
 

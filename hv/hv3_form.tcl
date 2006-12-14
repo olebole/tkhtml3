@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.42 2006/12/13 13:45:44 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.43 2006/12/14 12:53:23 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -916,10 +916,13 @@ snit::type ::hv3::formmanager {
   option -getcmd  -default ""
   option -postcmd -default ""
 
-  # Each time the parser sees a <form> tag, the created node-handle
-  # is added to the end of the following list variable. Each time
-  # a </form> is encountered, the end element (if any) is removed.
-  variable myFormStack ""
+  # Each time the parser sees a <form> tag, the following
+  # variable is set to the created node handle. Subsequent controls
+  # are associated with this <form> element up until the point at
+  # which another <form> is encountered.
+  #
+  # </form> tags are completely ignored.
+  variable myParsedForm ""
 
   # Map from node-handle to ::hv3::clickcontrol object for all clickable
   # form controls currently managed by this form-manager.
@@ -942,8 +945,7 @@ snit::type ::hv3::formmanager {
     $myHtml handler node select    [mymethod control_handler]
     $myHtml handler script isindex [list ::hv3::isindex_handler $hv3]
 
-    $myHtml handler parse form [mymethod FormHandler start]
-    $myHtml handler parse /form [mymethod FormHandler end]
+    $myHtml handler parse form [mymethod FormHandler]
 
     # bind $myHv3 <ButtonPress-1>   "+[mymethod press %x %y]"
     # bind $myHv3 <ButtonRelease-1> "+[mymethod release %x %y]"
@@ -953,15 +955,11 @@ snit::type ::hv3::formmanager {
   # FormHandler
   #
   #     A Tkhtml parse-handler for <form> and </form> tags.
-  method FormHandler {i node offset} {
-    switch -- $i {
-      start {
-        lappend myFormStack $node
-      }
-      end {
-        set myFormStack [lrange $myFormStack 0 end-1]
-      }
-    }
+  method FormHandler {node offset} {
+    set myParsedForm $node
+    set myForms($node) [::hv3::form %AUTO% $node]
+    $myForms($node) configure -getcmd $options(-getcmd)
+    $myForms($node) configure -postcmd $options(-postcmd)
   }
 
   method control_handler {node} {
@@ -969,7 +967,8 @@ snit::type ::hv3::formmanager {
     set name [string map {: _} $node]
     set isSubmit 0
 
-    set formnode [lindex $myFormStack end]
+    set formnode $myParsedForm
+    set form $myForms($formnode)
 
     switch -- [string tolower [$node tag].[$node attr -default {} type]] {
       input.image {
@@ -980,12 +979,12 @@ snit::type ::hv3::formmanager {
       input.submit {
         set control [::hv3::clickcontrol %AUTO% $node]
         set myClickControls($node) $control
-        $control configure -clickcmd [list $formnode submit $control]
+        $control configure -clickcmd [list $form submit $control]
         set isSubmit 1
       }
       input.reset {
         set control [::hv3::clickcontrol %AUTO% $node]
-        $control configure -clickcmd [list $formnode reset]
+        $control configure -clickcmd [list $form reset]
         set myClickControls($node) $control
       }
       input.button {
@@ -1005,11 +1004,6 @@ snit::type ::hv3::formmanager {
         -deletecmd    [list destroy $control]
 
     if {$formnode ne ""} {
-      if {![info exists myForms($formnode)]} {
-        set myForms($formnode) [::hv3::form %AUTO% $formnode]
-        $myForms($formnode) configure -getcmd $options(-getcmd)
-        $myForms($formnode) configure -postcmd $options(-postcmd)
-      }
       $myForms($formnode) add_control $node $isSubmit
     }
   }
@@ -1024,7 +1018,7 @@ snit::type ::hv3::formmanager {
     }
     array unset myForms
     array unset myClickControls
-    set myFormStack [list]
+    set myParsedForm ""
   }
 
   method dumpforms {} {
