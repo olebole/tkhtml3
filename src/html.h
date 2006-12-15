@@ -757,7 +757,7 @@ void HtmlDelScrollbars(HtmlTree *, HtmlNode *);
 HtmlAttributes * HtmlAttributesNew(int, char const **, int *, int);
 
 void HtmlParseFragment(HtmlTree *, const char *);
-int HtmlTokenize(HtmlTree *, char const *, int, int,
+int HtmlTokenize(HtmlTree *, char const *, int,
     void (*)(HtmlTree *, HtmlTextNode *, int),
     void (*)(HtmlTree *, int, HtmlAttributes *, int),
     void (*)(HtmlTree *, int, int)

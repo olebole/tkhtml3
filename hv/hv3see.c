@@ -1113,8 +1113,35 @@ Hv3Global_Enumerator(pInterp, pObj)
  *     for interpreter pTclSeeInterp. This function should only be
  *     called once in the lifetime of pTclSeeInterp.
  *
+ *     The supplied object, pWindow, is attached to the real global 
+ *     object (SEE_interp.Global) so that the following SEE_objectclass
+ *     interface functions are intercepted and handled as follows:
+ *
+ *         Get:
+ *             If the HasProperty() method of pWindow returns true,
+ *             call the Get method of pWindow. Otherwise, call Get on
+ *             the real global object.
+ *         Put:
+ *             If the HasProperty() method of pWindow returns true,
+ *             call the Put method of pWindow. Otherwise, call Put on
+ *             the real global object.
+ *         CanPut:
+ *             If the HasProperty() method of pWindow returns true,
+ *             call the CanPut method of pWindow. Otherwise, call CanPut 
+ *             on the real global object.
+ *         HasProperty():
+ *             Return the logical OR of HasProperty called on pWindow and
+ *             the real global object.
+ *         Enumerator():
+ *             Return a wrapper SEE_enum object that first iterates through
+ *             the entries returned by a pWindow iterator, then through
+ *             the entries returned by the real global object.
+ *
+ *     The Delete() and DefaultValue() methods are passed through to
+ *     the real global object.
+ *
  * Results:
- *     Pointer to SeeTclObject structure.
+ *     None.
  *
  * Side effects:
  *

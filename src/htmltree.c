@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.107 2006/12/10 08:38:09 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.108 2006/12/15 06:49:14 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -2871,7 +2871,7 @@ HtmlParseFragment(pTree, zHtml)
     sContext.pNodeList = Tcl_NewObj();
 
     pTree->pFragment = &sContext;
-    HtmlTokenize(pTree, zHtml, 1, 1, 
+    HtmlTokenize(pTree, zHtml, 1,
         fragmentAddText, fragmentAddElement, fragmentAddClosingTag
     );
     fragmentOrphan(pTree);

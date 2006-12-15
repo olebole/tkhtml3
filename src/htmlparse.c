@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.92 2006/12/15 06:09:03 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.93 2006/12/15 06:49:14 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -841,11 +841,10 @@ executeScript(pTree, pCallback, pAttributes, zScript, nScript)
  */
 int 
 HtmlTokenize(
-pTree, zText, isFinal, isFragment, xAddText, xAddElement, xAddClosing)
+pTree, zText, isFinal, xAddText, xAddElement, xAddClosing)
     HtmlTree *pTree;             /* The HTML widget doing the parsing */
     char const *zText;
     int isFinal;
-    int isFragment;
     void (*xAddText)(HtmlTree *, HtmlTextNode *, int);
     void (*xAddElement)(HtmlTree *, int, HtmlAttributes *, int);
     void (*xAddClosing)(HtmlTree *, int, int);
@@ -1110,11 +1109,11 @@ pTree, zText, isFinal, isFragment, xAddText, xAddElement, xAddClosing)
                 const char **zArgs = (const char **)(&argv[1]);
                 pAttr = HtmlAttributesNew(argc - 1, zArgs, &arglen[1], 1);
 
-                /* Unless the isFragment flag is set, search for a 
+                /* Unless a fragment is being parsed, search for a 
                  * script-handler for this element. Script handlers are
                  * never fired from within [$html fragment] commands.
                  */
-                if (!isFragment) {
+                if (!zText) {
                     pScript = getScriptHandler(pTree, pMap->type);
                 }
 
@@ -1231,7 +1230,7 @@ HtmlTokenizerAppend(pTree, zText, nText, isFinal)
     assert(!Tcl_IsShared(pTree->pDocument));
     Tcl_AppendToObj(pTree->pDocument, z, n);
 
-    HtmlTokenize(pTree, 0, isFinal, 0,
+    HtmlTokenize(pTree, 0, isFinal, 
         HtmlTreeAddText,
         HtmlTreeAddElement,
         HtmlTreeAddClosingTag
@@ -1340,5 +1339,3 @@ char * HtmlMarkupArg(pAttr, zTag, zDefault)
     }
     return zDefault;
 }
-
-

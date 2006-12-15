@@ -151,18 +151,19 @@ proc ::hv3::sniff_doctype {text} {
 
 proc ::hv3::configure_doctype_mode {html text} {
   set mode [sniff_doctype $text]
+
   switch -- $mode {
-    quirks {
-        $html configure -defaultstyle [::tkhtml::htmlstyle -quirks]
-    }
-    "almost standards" {
-        $html configure -defaultstyle [::tkhtml::htmlstyle]
-    }
-    standards {
-        $html configure -defaultstyle [::tkhtml::htmlstyle]
+    "quirks"           { set defstyle [::tkhtml::htmlstyle -quirks] }
+    "almost standards" { set defstyle [::tkhtml::htmlstyle] }
+    "standards"        { set defstyle [::tkhtml::htmlstyle]
     }
   }
-  $html configure -mode $mode
+  if {![::hv3::dom::use_scripting]} {
+    append defstyle "\nnoscript {display:none}"
+  }
+
+  $html configure -defaultstyle $defstyle -mode $mode
+
 #  puts "Using mode $mode"
   return $mode
 }
