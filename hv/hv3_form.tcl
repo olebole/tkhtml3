@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.43 2006/12/14 12:53:23 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.44 2006/12/15 06:09:03 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -993,7 +993,7 @@ snit::type ::hv3::formmanager {
       }
       default {
         set control [::hv3::control ${myHtml}.control_${name} $node]
-        $control configure -submitcmd [list $formnode submit $control]
+        $control configure -submitcmd [list $form submit $control]
       }
     }
 

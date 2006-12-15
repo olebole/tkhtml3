@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.129 2006/12/14 12:53:23 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.130 2006/12/15 06:09:03 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -1097,6 +1097,8 @@ snit::widget ::hv3::hv3 {
     $handle configure                                     \
         -incrscript [mymethod documentcallback $handle 0] \
         -finscript  [mymethod documentcallback $handle 1]
+
+
     if {$method eq "post"} {
       $handle configure -uri $full_uri -postdata $encdata
       $handle configure -enctype $querytype
@@ -1154,8 +1156,7 @@ snit::widget ::hv3::hv3 {
     # Special case. If this URI begins with "javascript:" (case independent),
     # pass it to the current running DOM implementation instead of loading
     # anything into the current browser.
-    set hs [::hv3::dom::have_scripting]
-    if {$hs && [string match -nocase javascript:* $uri]} {
+    if {[string match -nocase javascript:* $uri]} {
       $myDom javascript [string range $uri 11 end]
       return
     }
@@ -1245,7 +1246,8 @@ snit::widget ::hv3::hv3 {
     set myTitleVar ""
 
     foreach m [list \
-        $myMouseManager $myFormManager $mySelectionManager $myHyperlinkManager
+        $myMouseManager $myFormManager $myDom   \
+        $mySelectionManager $myHyperlinkManager \
     ] {
       if {$m ne ""} {$m reset}
     }

@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.103 2006/11/28 05:13:58 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.104 2006/12/15 06:09:03 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -3832,7 +3832,7 @@ void HtmlCssImport(pParse, pToken)
 }
 
 struct CssSearch {
-  CssSelector *pSelector;
+  CssRule *pRuleList;
   Tcl_Obj *pResult;
   HtmlTree *pTree;
 };
@@ -3845,14 +3845,19 @@ cssSearchCallback(pTree, pNode, clientData)
     ClientData clientData;
 {
     CssSearch *pSearch = (CssSearch *)clientData;
-    assert(pSearch->pSelector);
+    assert(pSearch->pRuleList);
     assert(pSearch->pResult);
-    if (
-        0 == HtmlNodeIsText(pNode) &&
-        HtmlCssSelectorTest(pSearch->pSelector, pNode, 0)
-    ) {
-        Tcl_Obj *pCmd = HtmlNodeCommand(pSearch->pTree, pNode);
-        Tcl_ListObjAppendElement(0, pSearch->pResult, pCmd);
+    if (0 == HtmlNodeIsText(pNode)) {
+        CssRule *p;
+        for (
+            p = pSearch->pRuleList; 
+            p && 0 == HtmlCssSelectorTest(p->pSelector, pNode, 0);
+            p = p->pNext
+        );
+        if (p) {
+            Tcl_Obj *pCmd = HtmlNodeCommand(pSearch->pTree, pNode);
+            Tcl_ListObjAppendElement(0, pSearch->pResult, pCmd);
+        }
     }
     return HTML_WALK_DESCEND;
 }
@@ -3905,10 +3910,9 @@ HtmlCssSearch(clientData, interp, objc, objv)
         rc = TCL_ERROR;
         Tcl_AppendResult(interp, "Bad css selector: \"", zOrig, "\"", 0); 
     } else {
-        CssSelector *pSelector = pStyle->pUniversalRules->pSelector;
         CssSearch sSearch;
         Tcl_Obj *pObj = Tcl_NewObj();
-        sSearch.pSelector = pSelector;
+        sSearch.pRuleList = pStyle->pUniversalRules;
         sSearch.pResult = pObj;
         sSearch.pTree = pTree;
         HtmlWalkTree(pTree, 0, cssSearchCallback, (ClientData)&sSearch);

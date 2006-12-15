@@ -89,9 +89,10 @@ struct SeeJsObject {
  *---------------------------------------------------------------------------
  *
  * hashCommand --
+ *     Return a hash value between 0 and (OBJECT_HASH_SIZE-1) for the
+ *     nul-terminated string passed as an argument.
  *
  * Results: 
- *
  *     Integer between 0 and (OBJECT_HASH_SIZE-1), inclusive.
  *
  * Side effects:
@@ -1040,15 +1041,9 @@ Hv3Global_DefaultValue(pInterp, pObj, pHint, pRes)
     Hv3GlobalObject *p = (Hv3GlobalObject *)pObj;
     SEE_OBJECT_DEFAULTVALUE(pInterp, p->pGlobal, pHint, pRes);
 }
+
 static struct SEE_enum * 
-hv3GlobalEnumerator(struct SEE_interpreter *, struct SEE_object *);
-static struct SEE_enum *
-Hv3Global_Enumerator(pInterp, pObj)
-    struct SEE_interpreter *pInterp;
-    struct SEE_object *pObj;
-{
-    return hv3GlobalEnumerator(pInterp, pObj);
-}
+Hv3Global_Enumerator(struct SEE_interpreter *, struct SEE_object *);
 
 static struct SEE_objectclass Hv3GlobalObjectVtbl = {
     "Hv3GlobalObject",
@@ -1095,7 +1090,7 @@ static struct SEE_enumclass Hv3GlobalEnumVtbl = {
 };
 
 static struct SEE_enum *
-hv3GlobalEnumerator(pInterp, pObj)
+Hv3Global_Enumerator(pInterp, pObj)
     struct SEE_interpreter *pInterp;
     struct SEE_object *pObj;
 {
@@ -1103,19 +1098,38 @@ hv3GlobalEnumerator(pInterp, pObj)
     Hv3GlobalEnum *pEnum;
 
     pEnum = SEE_NEW(pInterp, Hv3GlobalEnum);
-    pEnum->base.enumclass = &SeeTclEnumVtbl;
+    pEnum->base.enumclass = &Hv3GlobalEnumVtbl;
     pEnum->pWindowEnum = SEE_OBJECT_ENUMERATOR(pInterp, p->pWindow);
     pEnum->pGlobalEnum = SEE_OBJECT_ENUMERATOR(pInterp, p->pGlobal);
     return ((struct SEE_enum *)pEnum);
 }
 
-static void installHv3Global(pTclSeeInterp, pWindow)
+/*
+ *---------------------------------------------------------------------------
+ *
+ * installHv3Global --
+ *
+ *     Install an object (argument pWindow) as the hv3-global object
+ *     for interpreter pTclSeeInterp. This function should only be
+ *     called once in the lifetime of pTclSeeInterp.
+ *
+ * Results:
+ *     Pointer to SeeTclObject structure.
+ *
+ * Side effects:
+ *
+ *---------------------------------------------------------------------------
+ */
+static void 
+installHv3Global(pTclSeeInterp, pWindow)
     SeeInterp *pTclSeeInterp;
     struct SEE_object *pWindow;
 {
     struct SEE_scope *pScope;
     struct SEE_interpreter *p = &pTclSeeInterp->interp;
     Hv3GlobalObject *pGlobal = SEE_NEW(p, Hv3GlobalObject);
+
+    assert(p->Global->objectclass != &Hv3GlobalObjectVtbl);
 
     pGlobal->object.objectclass = &Hv3GlobalObjectVtbl;
     pGlobal->object.Prototype = p->Global->Prototype;
@@ -1129,4 +1143,5 @@ static void installHv3Global(pTclSeeInterp, pWindow)
     }
     p->Global = (struct SEE_object *)pGlobal;
 }
+
 

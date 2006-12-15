@@ -47,18 +47,6 @@ snit::type ::hv3::JavascriptObject {
     $self configurelist $args
   }
 
-  method CreateMethod {name command} {
-    set js [::hv3::JavascriptObject %AUTO% -call $command]
-    $self Put $name [list object $js]
-  }
-
-  method CreateReadOnlyAttr {name command} {
-    $self Put $name [list ro $command]
-  }
-  method CreateReadWriteAttr {name command} {
-    $self Put $name [list rw $command]
-  }
-
   method Get {property} {
     if {[info exists myProperties($property)]} {
       set type [lindex $myProperties($property) 0]
@@ -99,11 +87,6 @@ snit::type ::hv3::JavascriptObject {
       error "Cannot call this as a constructor"
     }
   }
-}
-
-# Shorter name for ::hv3::JavascriptObject
-proc ::hv3::JsObj {args} {
-  return [eval ::hv3::JavascriptObject $args]
 }
 
 #-------------------------------------------------------------------------
@@ -295,11 +278,23 @@ snit::type ::hv3::dom::HTMLDocument {
   }
 
   #-------------------------------------------------------------------------
-  # The document.images[] and document.forms[] arrays (type HTMLCollection).
+  # The document collections:
+  #
+  #     document.images[] 
+  #     document.forms[]
+  #     document.anchors[]
+  #     document.links[]
+  #     document.applets[] 
+  #
+  # TODO: applets[] is supposed to contain "all the OBJECT elements that
+  # include applets and APPLET (deprecated) elements in a document". Here
+  # only the APPLET elements are collected.
   #
   js_getobject images  { hv3::dom::HTMLCollection %AUTO% $myHv3 img }
   js_getobject forms   { hv3::dom::HTMLCollection %AUTO% $myHv3 form }
   js_getobject anchors { hv3::dom::HTMLCollection %AUTO% $myHv3 {a[name]} }
+  js_getobject links   { hv3::dom::HTMLCollection %AUTO% $myHv3 {area,a[href]} }
+  js_getobject applets { hv3::dom::HTMLCollection %AUTO% $myHv3 applet }
 
   #-------------------------------------------------------------------------
   # Handle unknown property requests.
@@ -430,7 +425,7 @@ snit::type ::hv3::dom::Window {
   #     img = new Image();
   #
   js_getobject Image {
-    ::hv3::JsObj %AUTO% -construct [mymethod newImage]
+    ::hv3::JavascriptObject %AUTO% -construct [mymethod newImage]
   }
   method newImage {args} {
     set node [$myHv3 fragment "<img>"]
@@ -451,8 +446,7 @@ snit::type ::hv3::dom::Window {
   #      If a window does not have a parent, its parent property is a reference
   #      to itself."
   #
-  # For now, this always returns a "reference to itself". Or actually, 
-  # a reference to the global object (the only Window in the system).
+  # For now, this always returns a "reference to itself".
   #
   js_get parent { return [list object $self] }
   js_get top    { return [list object $self] }
@@ -740,7 +734,7 @@ snit::type ::hv3::dom::HTMLElement {
   }
 
   js_get tagName { 
-    return [list string [string toupper [$myNode tag]]]
+    list string [string toupper [$myNode tag]]
   }
 
   # Get/Put functions for the attributes of $myNode:
@@ -771,10 +765,11 @@ snit::type ::hv3::dom::HTMLElement {
   #     HTMLElement.dir
   #     HTMLElement.className
   #
-  foreach {prop attr} {id id title title lang lang dir dir className class} {
-    js_get $prop "\$self GetStringAttribute $prop"
-    js_put $prop val "\$self PutStringAttribute $prop \$val"
-  }
+  js_getput_attribute id        id
+  js_getput_attribute title     title
+  js_getput_attribute lang      lang
+  js_getput_attribute dir       dir
+  js_getput_attribute className class
 
   js_finish {}
 
@@ -801,10 +796,11 @@ snit::type ::hv3::dom::HTMLImageElement {
   # any HTMLImageElement object, tell the corresponding HTML widget to
   # preload the image at the new value of "src".
   #
-  js_get src { $self GetStringAttribute src }
+  js_get src { $myNode attr -default "" src }
   js_put src value { 
-    $self PutStringAttribute src $value
-    $myHv3 preload [lindex $value 1]
+    set v [lindex $value 1]
+    $myNode attr src $v 
+    $myHv3 preload $v
   }
 
   # The "isMap" attribute. Javascript type "boolean".
@@ -814,21 +810,16 @@ snit::type ::hv3::dom::HTMLImageElement {
 
   # Configure all the other string attributes.
   #
-  foreach {attribute property} [list \
-      name name         \
-      align align       \
-      alt alt           \
-      border border     \
-      height height     \
-      hspace hspace     \
-      longdesc longDesc \
-      usemap useMap     \
-      vspace vspace     \
-      width width       \
-  ] {
-    js_get $property       "\$self GetStringAttribute $attribute"
-    js_put $property value "\$self PutStringAttribute $attribute \$value"
-  }
+  js_getput_attribute name     name
+  js_getput_attribute align    align
+  js_getput_attribute alt      alt
+  js_getput_attribute border   border
+  js_getput_attribute height   height
+  js_getput_attribute hspace   hspace
+  js_getput_attribute longDesc longdesc
+  js_getput_attribute useMap   usemap
+  js_getput_attribute vspace   vspace
+  js_getput_attribute width    width
 
   js_finish {}
 }
@@ -871,19 +862,12 @@ snit::type ::hv3::dom::HTMLFormElement {
   #----------------------------------------------------------------------
   # Various Get/Put string property/attributes.
   #
-  js_get name          {$self GetStringAttribute name}
-  js_get target        {$self GetStringAttribute target}
-  js_get method        {$self GetStringAttribute method}
-  js_get action        {$self GetStringAttribute action}
-  js_get acceptCharset {$self GetStringAttribute acceptCharset}
-  js_get enctype       {$self GetStringAttribute enctype}
-
-  js_put name          {value} {$self PutStringAttribute name $value}
-  js_put target        {value} {$self PutStringAttribute target $value}
-  js_put method        {value} {$self PutStringAttribute method $value}
-  js_put action        {value} {$self PutStringAttribute action $value}
-  js_put acceptCharset {value} {$self PutStringAttribute acceptCharset $value}
-  js_put enctype       {value} {$self PutStringAttribute enctype $value}
+  js_getput_attribute name          name
+  js_getput_attribute target        target
+  js_getput_attribute method        method
+  js_getput_attribute action        action
+  js_getput_attribute acceptCharset acceptcharset
+  js_getput_attribute enctype       enctype
 
   #----------------------------------------------------------------------
   # The HTMLFormElement.elements array.
@@ -1193,16 +1177,15 @@ snit::type ::hv3::dom {
 
   constructor {hv3 args} {
     set myHv3 $hv3
-    if {[::hv3::dom::have_scripting]} {
-      $self reset
 
-      # Mouse events:
-      foreach e [list onclick onmouseout onmouseover \
-          onmouseup onmousedown onmousemove ondblclick
-      ] {
-        $myHv3 Subscribe $e [mymethod mouseevent $e]
-      }
+    # Mouse events:
+    foreach e [list onclick onmouseout onmouseover \
+        onmouseup onmousedown onmousemove ondblclick
+    ] {
+      $myHv3 Subscribe $e [mymethod mouseevent $e]
     }
+
+    $self reset
   }
 
   method reset {} {
@@ -1225,10 +1208,12 @@ snit::type ::hv3::dom {
       }
 
 
-      # Set up the new interpreter with the global "Window" object.
-      set mySee [::see::interp]
-      set myWindow [::hv3::dom::Window %AUTO% $mySee $myHv3]
-      $mySee global $myWindow 
+      if {[::hv3::dom::use_scripting]} {
+        # Set up the new interpreter with the global "Window" object.
+        set mySee [::see::interp]
+        set myWindow [::hv3::dom::Window %AUTO% $mySee $myHv3]
+        $mySee global $myWindow 
+      }
     }
   }
 
@@ -1242,7 +1227,7 @@ snit::type ::hv3::dom {
   # If scripting is not enabled in this browser, this method is a no-op.
   #
   method script {attr script} {
-    if {[::hv3::dom::have_scripting]} {
+    if {[::hv3::dom::use_scripting] && $mySee ne ""} {
       $myWindow configure -writevar [myvar myWriteVar]
       ::hv3::bg [list $mySee eval $script]
       set res $myWriteVar
@@ -1254,7 +1239,7 @@ snit::type ::hv3::dom {
   }
 
   method javascript {script} {
-    if {[::hv3::dom::have_scripting]} {
+    if {[::hv3::dom::use_scripting] && $mySee ne ""} {
       ::hv3::bg [list $mySee eval $script]
     }
     return ""
@@ -1310,7 +1295,7 @@ snit::type ::hv3::dom {
   # <FRAMESET> element passed as the first argument.
   #
   method onload {node} {
-    if {[::hv3::dom::have_scripting]} {
+    if {[::hv3::dom::use_scripting] && $mySee ne ""} {
       set onload [$node attr -default "" onload]
       if {$onload ne ""} {
         if {[catch {$mySee eval $onload} msg]} {
@@ -1373,6 +1358,13 @@ proc ::hv3::dom::init {} {
 proc ::hv3::dom::have_scripting {} {
   return [expr {[info commands ::see::interp] ne ""}]
 }
+
+set ::hv3::dom::use_scripting_option 0
+proc ::hv3::dom::use_scripting {} {
+  set r [expr [::hv3::dom::have_scripting]&&$::hv3::dom::use_scripting_option]
+  return $r
+}
+
 
 ::hv3::dom::init
 # puts "Have scripting: [::hv3::dom::have_scripting]"

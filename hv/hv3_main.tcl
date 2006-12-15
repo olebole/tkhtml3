@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.102 2006/12/13 02:13:20 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.103 2006/12/15 06:09:03 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -615,6 +615,8 @@ snit::type ::hv3::config {
   variable myFontScale 1.0
   variable myZoom 1.0
 
+  variable myEnableScripting 0
+
   method set_zoom {newval}      { set myZoom $newval }
   method set_fontscale {newval} { set myFontScale $newval }
   method set_guifont {newval}   { set myGuiFontSize $newval }
@@ -653,6 +655,13 @@ snit::type ::hv3::config {
     $myMenu add checkbutton \
         -label {Double-buffer} \
         -variable [myvar myDoubleBuffer]
+
+    $myMenu add checkbutton \
+        -label {Enable Ecmascript} \
+        -variable ::hv3::dom::use_scripting_option
+    if {![::hv3::dom::have_scripting]} {
+      $myMenu entryconfigure end -state disabled
+    }
 
     trace add variable myGuiFontSize      write [mymethod ConfigureGui]
     trace add variable myFontTable        write [mymethod ConfigureCurrent]

@@ -125,6 +125,44 @@ tcltest::test tree-1.4 {} -body {
 </html>
 }]
 
+tcltest::test tree-1.5 {} -body {
+  .h reset
+  .h parse [string trim {
+    <html><body>
+    <script>
+      First line of script
+  }]
+  .h parse [string trim {
+      .
+      Second line of script.
+    </script>
+    <p>Paragraph one
+  }]
+  .h parse -final [string trim {
+    <p>Paragraph two
+  }]
+  set ::script_handler_count
+} -result 3
+
+tcltest::test tree-1.6 {} -body {
+  string trim [get_tree]
+} -result [string trim {
+<html>
+  <head>
+  </head>
+  <body>
+    {space 4}
+    {newline 1} {space 4}
+    <p>
+      {text Paragraph} {space 1} {text one}
+    </p>
+    <p>
+      {text Paragraph} {space 1} {text two}
+    </p>
+  </body>
+</html>
+}]
+
 #--------------------------------------------------------------------------
 # Test cases tree-2.* test that ticket #12 has been fixed.
 #
