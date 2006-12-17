@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.35 2006/10/25 13:06:28 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.36 2006/12/17 04:57:27 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
@@ -851,7 +851,6 @@ proc ::hv3::ComparePositionId {frame1 frame2} {
 }
 
 snit::widget ::hv3::findwidget {
-  variable myHv3              ;# The HTML widget
   variable myBrowser          ;# The ::hv3::browser_toplevel widget
 
   variable myNocaseVar 1      ;# Variable for the "Case insensitive" checkbox 
@@ -866,7 +865,6 @@ snit::widget ::hv3::findwidget {
 
   constructor {browser args} {
     set myBrowser $browser
-    set myHv3 [[lindex [$browser get_frames] 0] hv3]
 
     ::hv3::label $win.label -text "Search for text:"
     ::hv3::entry $win.entry -width 30
@@ -902,7 +900,11 @@ snit::widget ::hv3::findwidget {
   }
 
   method Hv3List {} {
-    set frames [$myBrowser get_frames]
+    if {[catch {$myBrowser get_frames} msg]} {
+      return $myBrowser
+    } else {
+      set frames [$myBrowser get_frames]
+    }
 
     # Filter the $frames list so that it contains only leaf windows.
     set frames [lsort $frames]
@@ -1070,9 +1072,11 @@ snit::widget ::hv3::findwidget {
     # Delete any tags added to the hv3 widget. Do this inside a [catch]
     # block, as it may be that the hv3 widget has itself already been
     # destroyed.
-    catch {
-      $myHv3 tag delete findwidget
-      $myHv3 tag delete findwidgetcurrent
+    foreach hv3 [$self Hv3List] {
+      catch {
+        $hv3 tag delete findwidget
+        $hv3 tag delete findwidgetcurrent
+      }
     }
     trace remove variable [myvar myEntryVar] write [mymethod UpdateDisplay]
     trace remove variable [myvar myNocaseVar] write [mymethod UpdateDisplay]

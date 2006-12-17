@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.93 2006/12/15 06:49:14 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.94 2006/12/17 04:57:28 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -1144,27 +1144,29 @@ pTree, zText, isFinal, xAddText, xAddElement, xAddClosing)
                         HtmlFree(pAttr);
                         goto incomplete;
                     }
+
+                    assert(pTree->eWriteState == HTML_WRITE_NONE);
+                    pTree->eWriteState = HTML_WRITE_INHANDLER;
+                    pTree->iWriteInsert = n;
                     rc = executeScript(pTree, pScript, pAttr, zScript, nScript);
 
-		    /* If the script executed successfully, append the output
-		     * to the document text (it will be the next thing
-                     * tokenized).
-                     */
-                    if (rc==TCL_OK) {
-                        Tcl_Interp *interp = pTree->interp;
-                        Tcl_Obj *pHead = Tcl_NewStringObj(z, n);
-                        Tcl_IncrRefCount(pHead);
-                        Tcl_AppendObjToObj(pHead, Tcl_GetObjResult(interp));
-                        Tcl_AppendToObj(pHead, &z[n], -1);
-                        Tcl_DecrRefCount(pTree->pDocument);
-                        pTree->pDocument = pHead;
-                        z = Tcl_GetString(pHead);
-                        assert(!Tcl_IsShared(pTree->pDocument));
-                        Tcl_ResetResult(pTree->interp);
+                    assert(
+                        pTree->eWriteState == HTML_WRITE_INHANDLER || 
+                        pTree->eWriteState == HTML_WRITE_INHANDLERWAIT
+                    );
+                    if (pTree->eWriteState == HTML_WRITE_INHANDLER) {
+                        pTree->eWriteState = HTML_WRITE_NONE;
+                    } else {
+                        pTree->eWriteState = HTML_WRITE_WAIT;
                     }
+                    z = Tcl_GetString(pTree->pDocument);
 
                     HtmlFree(pAttr);
                     isTrimStart = 0;
+
+                    if (pTree->eWriteState == HTML_WRITE_WAIT) {
+                        goto incomplete;
+                    }
                 }
             }
 
@@ -1230,11 +1232,17 @@ HtmlTokenizerAppend(pTree, zText, nText, isFinal)
     assert(!Tcl_IsShared(pTree->pDocument));
     Tcl_AppendToObj(pTree->pDocument, z, n);
 
-    HtmlTokenize(pTree, 0, isFinal, 
-        HtmlTreeAddText,
-        HtmlTreeAddElement,
-        HtmlTreeAddClosingTag
+    assert(
+        pTree->eWriteState == HTML_WRITE_NONE || 
+        pTree->eWriteState == HTML_WRITE_WAIT
     );
+    if (pTree->eWriteState == HTML_WRITE_NONE) {
+        HtmlTokenize(pTree, 0, isFinal, 
+            HtmlTreeAddText,
+            HtmlTreeAddElement,
+            HtmlTreeAddClosingTag
+        );
+    }
 }
 
 /*
@@ -1339,3 +1347,128 @@ char * HtmlMarkupArg(pAttr, zTag, zDefault)
     }
     return zDefault;
 }
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlWriteWait --
+ *
+ *     $widget write wait
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+int 
+HtmlWriteWait(pTree)
+    HtmlTree *pTree;
+{
+    if (pTree->eWriteState != HTML_WRITE_INHANDLER) {
+        char *zErr = "Cannot call [write wait] here";
+        Tcl_SetResult(pTree->interp, zErr, TCL_STATIC);
+        return TCL_ERROR;
+    }
+
+    pTree->eWriteState = HTML_WRITE_INHANDLERWAIT;
+    return TCL_OK;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlWriteText --
+ *
+ *     $widget write text HTML
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+int 
+HtmlWriteText(pTree, pText)
+    HtmlTree *pTree;
+    Tcl_Obj *pText;
+{
+    int iInsert = pTree->iWriteInsert;
+  
+    Tcl_Obj *pDocument = pTree->pDocument;
+    Tcl_Obj *pHead;
+    Tcl_Obj *pTail;
+
+    if (pTree->eWriteState == HTML_WRITE_NONE) {
+        char *zErr = "Cannot call [write text] here";
+        Tcl_SetResult(pTree->interp, zErr, TCL_STATIC);
+        return TCL_ERROR;
+    }
+
+    pHead = Tcl_NewStringObj(Tcl_GetString(pDocument), iInsert);
+    pTail = Tcl_NewStringObj(&(Tcl_GetString(pDocument)[iInsert]), -1);
+
+    Tcl_IncrRefCount(pHead);
+    Tcl_AppendObjToObj(pHead, pText);
+    Tcl_GetStringFromObj(pHead, &pTree->iWriteInsert);
+    Tcl_AppendObjToObj(pHead, pTail);
+
+    Tcl_DecrRefCount(pDocument);
+    pTree->pDocument = pHead;
+ 
+    return TCL_OK;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlWriteContinue --
+ *
+ *     $widget write continue
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+int 
+HtmlWriteContinue(pTree)
+    HtmlTree *pTree;
+{
+    int eState = pTree->eWriteState;
+    if (eState != HTML_WRITE_WAIT && eState != HTML_WRITE_INHANDLERWAIT) {
+        char *zErr = "Cannot call [write continue] here";
+        Tcl_SetResult(pTree->interp, zErr, TCL_STATIC);
+        return TCL_ERROR;
+    }
+
+    switch (eState) {
+        case HTML_WRITE_WAIT: {
+            HtmlNode *pCurrent = pTree->pCurrent;
+            pTree->eWriteState = HTML_WRITE_NONE;
+            HtmlTokenize(pTree, 0, pTree->isParseFinished, 
+                HtmlTreeAddText,
+                HtmlTreeAddElement,
+                HtmlTreeAddClosingTag
+            );
+            HtmlCallbackRestyle(pTree, pCurrent ? pCurrent : pTree->pRoot);
+            HtmlCallbackRestyle(pTree, pTree->pCurrent);
+            HtmlCallbackLayout(pTree, pCurrent);
+            break;
+        }
+        case HTML_WRITE_INHANDLERWAIT:
+            pTree->eWriteState = HTML_WRITE_INHANDLER;
+            break;
+    }
+
+    return TCL_OK;
+}
+
+

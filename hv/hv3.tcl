@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.130 2006/12/15 06:09:03 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.131 2006/12/17 04:57:27 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -886,7 +886,7 @@ snit::widget ::hv3::hv3 {
   #
   method body_node_handler {node} {
     $node replace dummy -stylecmd [mymethod body_style_handler $node]
-    $myDom onload $node
+    $myDom event onload $node
   }
   method body_style_handler {bodynode} {
 
@@ -1298,6 +1298,7 @@ snit::widget ::hv3::hv3 {
   delegate option -targetcmd        to myHyperlinkManager
 
   # Delegated public methods
+  delegate method javascriptlog     to myDom
   delegate method dumpforms         to myFormManager
   delegate method *                 to myHtml
 

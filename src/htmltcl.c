@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.142 2006/12/12 12:46:14 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.143 2006/12/17 04:57:28 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -1298,6 +1298,7 @@ resetCmd(clientData, interp, objc, objv)
     doLoadDefaultStyle(pTree);
     pTree->isParseFinished = 0;
     pTree->isSequenceOk = 1;
+    pTree->eWriteState = HTML_WRITE_NONE;
     return TCL_OK;
 }
 
@@ -1642,6 +1643,80 @@ yviewCmd(clientData, interp, objc, objv)
     Tcl_Obj *const *objv;              /* List of all arguments */
 {
     return viewCommon((HtmlTree *)clientData, 0, objc, objv);
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * writeCmd --
+ *
+ *     $widget write wait
+ *     $widget write text TEXT
+ *     $widget write continue
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+writeCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    HtmlTree *pTree = (HtmlTree *)clientData;
+    int eChoice;
+
+    enum SubOptType {
+        OPT_WAIT, OPT_TEXT, OPT_CONTINUE
+    };
+    struct SubOpt {
+        char *zSubOption;
+        enum SubOptType eType;
+        int iExtraArgs;
+        char *zWrongNumArgsTail;
+    } aSub[] = {
+        {"wait", OPT_WAIT, 0, ""}, 
+        {"text", OPT_TEXT, 1, "TEXT"}, 
+        {"continue", OPT_CONTINUE, 0, ""}, 
+        {0, 0, 0}
+    };
+
+    if (objc < 3) {
+        Tcl_WrongNumArgs(interp, 2, objv, "OPTION");
+        return TCL_ERROR;
+    }
+
+    if (Tcl_GetIndexFromObjStruct(
+        interp, objv[2], aSub, sizeof(struct SubOpt), "option", 0, &eChoice) 
+    ){
+        return TCL_ERROR;
+    }
+    if ((objc - 3) != aSub[eChoice].iExtraArgs) {
+        Tcl_WrongNumArgs(interp, 3, objv, aSub[eChoice].zWrongNumArgsTail);
+        return TCL_ERROR;
+    }
+
+    assert(pTree->interp == interp);
+    switch (aSub[eChoice].eType) {
+        case OPT_WAIT:
+            return HtmlWriteWait(pTree);
+            break;
+        case OPT_TEXT:
+            return HtmlWriteText(pTree, objv[3]);
+            break;
+        case OPT_CONTINUE:
+            return HtmlWriteContinue(pTree);
+            break;
+    }
+
+    assert(!"Cannot happen");
+    return TCL_ERROR;
 }
 
 /*
@@ -2086,8 +2161,8 @@ int widgetCmd(clientData, interp, objc, objv)
         {"configure",  0,           configureCmd},
         {"fragment",   0,           fragmentCmd},
         {"handler",    "node",      handlerCmd},
-        {"handler",    "script",    handlerCmd},
         {"handler",    "parse",     handlerCmd},
+        {"handler",    "script",    handlerCmd},
         {"image",      0,           imageCmd},
         {"node",       0,           nodeCmd},
         {"parse",      0,           parseCmd},
@@ -2105,6 +2180,8 @@ int widgetCmd(clientData, interp, objc, objv)
         {"text",       "index",     textIndexCmd},
         {"text",       "bbox",      textBboxCmd},
         {"text",       "offset",    textOffsetCmd},
+
+        {"write",      0,           writeCmd},
 
         {"xview",      0,           xviewCmd},
         {"yview",      0,           yviewCmd},

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.103 2006/12/15 06:09:03 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.104 2006/12/17 04:57:27 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -367,6 +367,7 @@ snit::widget ::hv3::browser_frame {
 
   delegate method stop to myHv3
   delegate method titlevar to myHv3
+  delegate method javascriptlog to myHv3
 }
 
 # An instance of this widget represents a top-level browser frame (not
@@ -1074,6 +1075,11 @@ proc gui_menu {widget_array} {
   .m.tools add separator
   .m.tools add command -label Events -command [list gui_log_window $G(notebook)]
   .m.tools add command -label Browser -command [list gui_current browse]
+  .m.tools add command -label Javascript -accelerator (Ctrl-J) -command [
+    list gui_current javascriptlog
+  ]
+  bind Hv3HotKeys <Control-j>  [list gui_current javascriptlog]
+  bind Hv3HotKeys <Control-J>  [list gui_current javascriptlog]
 
   .m.tools add separator
   .m.tools add command -label "firefox -remote" -command gui_firefox_remote

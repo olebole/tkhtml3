@@ -461,7 +461,7 @@ void HtmlCallbackScrollY(HtmlTree *, int);
 struct HtmlTree {
 
     /*
-     * The interpreter and main window hosting this widget instance.
+     * The interpreter hosting this widget instance.
      */
     Tcl_Interp *interp;             /* Tcl interpreter */
 
@@ -491,15 +491,17 @@ struct HtmlTree {
      */
     HtmlImageServer *pImageServer;
 
-    /*
-     * The following variables are used to stored the text of the current
-     * document (i.e. the *.html file).
+    /* The following variables are used to stored the text of the current
+     * document (i.e. the *.html file) as it is being parsed.
      */
     Tcl_Obj *pDocument;             /* Text of the html document */
-    int nParsed;                    /* Bytes of the html document tokenized */
+    int nParsed;                    /* Bytes of pDocument tokenized */
+
+    int iWriteInsert;               /* Byte offset in pDocument for [write] */
+    int eWriteState;                /* One of the HTML_PARSE_XXX values */
+
     int isIgnoreNewline;            /* True after an opening tag */
     int isParseFinished;            /* True if the html parse is finished */
-    int isCdataInHead;              /* True if previous token was <title> */
 
     /* Sub-trees that are not currently linked into the tree rooted at 
      * pRoot are stored in the following hash-table. The HTML_NODE_ORPHAN
@@ -513,6 +515,7 @@ struct HtmlTree {
 
     HtmlNode *pCurrent;             /* The node currently being built. */
     HtmlNode *pRoot;                /* The root-node of the document. */
+    int isCdataInHead;              /* True if previous token was <title> */
     int nFixedBackground;           /* Number of nodes with fixed backgrounds */
 
     /*
@@ -580,6 +583,14 @@ struct HtmlTree {
      */
     HtmlText *pText;
 };
+
+#define HTML_WRITE_NONE          0
+#define HTML_WRITE_INHANDLER     1
+#define HTML_WRITE_INHANDLERWAIT 2
+#define HTML_WRITE_WAIT          3
+int HtmlWriteWait(HtmlTree *);
+int HtmlWriteText(HtmlTree *, Tcl_Obj *);
+int HtmlWriteContinue(HtmlTree *);
 
 #define MAX(x,y)   ((x)>(y)?(x):(y))
 #define MIN(x,y)   ((x)<(y)?(x):(y))

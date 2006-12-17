@@ -309,6 +309,7 @@ objToValue(pInterp, pObj, pValue)
 
     rc = Tcl_ListObjGetElements(pTclInterp, pObj, &nElem, &apElem);
     if (rc == TCL_OK) {
+        assert(nElem == 0 || 0 != strcmp("", Tcl_GetString(pObj)));
 
         if (nElem == 0) {
             SEE_SET_UNDEFINED(pValue);
@@ -331,6 +332,9 @@ objToValue(pInterp, pObj, pValue)
             if (Tcl_GetIndexFromObjStruct(pTclInterp, apElem[0], aType,
                 sizeof(struct ValueType), "type", 0, &iChoice) 
             ){
+                Tcl_AppendResult(pTclInterp, 
+                    " value was \"", Tcl_GetString(pObj), "\"", 0
+                );
                 return TCL_ERROR;
             }
             if (nElem != (aType[iChoice].nArg + 1)) {
@@ -383,6 +387,86 @@ objToValue(pInterp, pObj, pValue)
     return rc;
 }
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * handleJavascriptError --
+ *
+ *     This function is designed to be called when a javascript error
+ *     occurs (i.e. a SEE exception is thrown by either SEE_Global_eval()
+ *     or SEE_OBJECT_CALL()).
+ *
+ *     Information is retrieved from the try-catch context passed as 
+ *     argument pTry and loaded into the result of the Tcl-interpreter
+ *     component of argument pTclSeeInterp. 
+ *
+ * Results:
+ *     Always returns TCL_ERROR.
+ *
+ * Side effects:
+ *     Sets the result of Tcl interpreter pTclSeeInterp->pTclInterp.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+handleJavascriptError(pTclSeeInterp, pTry)
+    SeeInterp *pTclSeeInterp;
+    SEE_try_context_t *pTry;
+{
+    Tcl_Interp *pTclInterp = pTclSeeInterp->pTclInterp;
+    struct SEE_interpreter *pSeeInterp = &pTclSeeInterp->interp;
+
+    struct SEE_traceback *pTrace;
+
+    struct SEE_value error;
+    Tcl_Obj *pError = Tcl_NewStringObj("Javascript Error: ", -1);
+
+    SEE_ToString(pSeeInterp, SEE_CAUGHT(*pTry), &error);
+    if (SEE_VALUE_GET_TYPE(&error) == SEE_STRING) {
+        struct SEE_string *pS = error.u.string;
+        Tcl_AppendUnicodeToObj(pError, pS->data, pS->length);
+    } else {
+        Tcl_AppendToObj(pError, "unknown.", -1);
+    }
+    Tcl_AppendToObj(pError, "\n\n", -1);
+
+    for (pTrace = pTry->traceback; pTrace; pTrace = pTrace->prev) {
+        struct SEE_string *pLocation;
+
+        pLocation = SEE_location_string(pSeeInterp, pTrace->call_location);
+        Tcl_AppendUnicodeToObj(pError, pLocation->data, pLocation->length);
+        Tcl_AppendToObj(pError, "  ", -1);
+
+        switch (pTrace->call_type) {
+            case SEE_CALLTYPE_CONSTRUCT: {
+                char const *zClass =  pTrace->callee->objectclass->Class;
+                if (!zClass) zClass = "?";
+                Tcl_AppendToObj(pError, "new ", -1);
+                Tcl_AppendToObj(pError, zClass, -1);
+                break;
+            }
+            case SEE_CALLTYPE_CALL: {
+                struct SEE_string *pName;
+                Tcl_AppendToObj(pError, "call ", -1);
+                pName = SEE_function_getname(pSeeInterp, pTrace->callee);
+                if (pName) {
+                    Tcl_AppendUnicodeToObj(pError, pName->data, pName->length);
+                } else {
+                    Tcl_AppendToObj(pError, "?", -1);
+                }
+                break;
+            }
+            default:
+                assert(0);
+        }
+
+        Tcl_AppendToObj(pError, "\n", -1);
+    }
+
+    Tcl_SetObjResult(pTclInterp, pError);
+    return TCL_ERROR;
+}
+
 static void 
 delInterpCmd(clientData)
     ClientData clientData;             /* The SeeInterp data structure */
@@ -433,6 +517,7 @@ interpEvalThis(pTclSeeInterp, pTclThis, pCode)
         }
 
         Tcl_SetObjResult(pTclInterp, pTclError);
+SEE_PrintContextTraceback(pSeeInterp, &try_ctxt, stdout);
         rc = TCL_ERROR;
     }
 
@@ -515,6 +600,7 @@ interpCmd(clientData, pTclInterp, objc, objv)
             SEE_INPUT_CLOSE(pInput);
 
             if (SEE_CAUGHT(try_ctxt)) {
+#if 0
                 struct SEE_value error;
                 Tcl_Obj *pError = Tcl_NewStringObj("Javascript error: ", -1);
                 SEE_ToString(&pInterp->interp, SEE_CAUGHT(try_ctxt), &error);
@@ -526,7 +612,10 @@ interpCmd(clientData, pTclInterp, objc, objv)
                     Tcl_AppendToObj(pError, "unknown.", -1);
                 }
                 Tcl_SetObjResult(pTclInterp, pError);
+SEE_PrintContextTraceback(pSeeInterp, &try_ctxt, stdout);
                 return TCL_ERROR;
+#endif
+                return handleJavascriptError(pInterp, &try_ctxt);
             }
             break;
         }
@@ -627,20 +716,27 @@ SeeTcl_Get(pInterp, pObj, pProp, pRes)
     SeeInterp *pTclSeeInterp = pObject->pTclSeeInterp;
     Tcl_Interp *pTclInterp = pTclSeeInterp->pTclInterp;
     Tcl_Obj *pScript = Tcl_DuplicateObj(pObject->pObj);
+    Tcl_Obj *pScriptRes;
     int rc;
 
+    Tcl_IncrRefCount(pScript);
     Tcl_ListObjAppendElement(pTclInterp, pScript, Tcl_NewStringObj("Get", 3));
     Tcl_ListObjAppendElement(pTclInterp, pScript, 
             Tcl_NewUnicodeObj(pProp->data, pProp->length)
     );
 
     rc = Tcl_EvalObjEx(pTclInterp, pScript, TCL_GLOBAL_ONLY);
+    Tcl_DecrRefCount(pScript);
     if (rc != TCL_OK) {
         SEE_error_throw_sys(pInterp, 
             pInterp->RangeError, "%s", Tcl_GetStringResult(pTclInterp)
         );
     }
-    rc = objToValue(pTclSeeInterp, Tcl_GetObjResult(pTclInterp), pRes);
+
+    pScriptRes = Tcl_GetObjResult(pTclInterp);
+    Tcl_IncrRefCount(pScriptRes);
+    rc = objToValue(pTclSeeInterp, pScriptRes, pRes);
+    Tcl_DecrRefCount(pScriptRes);
     if (rc != TCL_OK) {
         SEE_error_throw_sys(pInterp, 
             pInterp->RangeError, "%s", Tcl_GetStringResult(pTclInterp)
@@ -1171,4 +1267,86 @@ installHv3Global(pTclSeeInterp, pWindow)
     p->Global = (struct SEE_object *)pGlobal;
 }
 
+
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * prettyPrintCmd --
+ *
+ *         $interp prettyprint JAVASCRIPT-CODE
+ *
+ *     This Tcl command does a primitive job of pretty-printing the 
+ *     supplied block of javascript. A (slightly) easier to read version
+ *     of the supplied input is returned.
+ *
+ *     Only white-space characters (space and newline) are added
+ *     to the input. Space (but not newline) characters may be removed 
+ *     from the input. 
+ *
+ *     1. A newline followed by zero or more spaces may be added after 
+ *        a ';', '{' or '}' token.
+ *     2. A newline followed by zero or more spaces may be added after 
+ *        a '}' token.
+ *     3. The number of spaces following an existing newline token may
+ *        be modified (spaces added or taken away).
+ */
+static int 
+prettyPrintCmd(interp, pCode)
+    Tcl_Interp *interp;         /* Current interpreter. */
+    Tcl_Obj *pCode;             /* Javascript code */
+{
+    const int INDENT = 4;
+    int iIndent = 0;
+
+    int nCode;
+    char const *zCode; 
+    int ii;
+    Tcl_Obj *pOut = Tcl_NewObj();
+
+#define JS_TOKEN_LBRACKET 1
+#define JS_TOKEN_RBRACKET 2
+#define JS_TOKEN_OPENBRACE 3
+#define JS_TOKEN_CLOSEBRACE 4
+
+    zCode = Tcl_GetStringFromObj(pCode, &nCode);
+    for (ii = 0; ii < nCode; ii++) {
+        switch (zCode[ii]) {
+            case '(':
+                break;
+            case ')':
+                break;
+            case '{':
+                break;
+            case '}':
+                break;
+            case ';':
+                break;
+
+            case '"': case '\'': {
+                char delim = zCode[ii];
+                char c;
+                int i;
+                for(i=1; i<n; i++){
+                    c = z[i];
+                    if( c=='\\' ){
+                        i++;
+                    }
+                    if( c==delim ){
+                        *pLen = i+1; 
+                        return CT_STRING;
+                    }
+                }
+            }
+            *pLen = n;
+            return -1;
+        }
+                break;
+
+        }
+    }
+
+    Tcl_SetObjResult(interp, pOut);
+    return TCL_OK;
+}
 
