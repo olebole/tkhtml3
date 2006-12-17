@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.36 2006/12/17 04:57:27 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.37 2006/12/17 12:41:07 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
@@ -366,7 +366,12 @@ snit::widget ::hv3::pretend_tile_notebook {
       lset myTitles end $A(-text)
     }
     $self Redraw
-    bind $widget <Destroy> [mymethod forget $widget]
+    # bind $widget <Destroy> [mymethod forget $widget]
+    bind $widget <Destroy> [mymethod HandleDestroy $widget %W]
+  }
+
+  method HandleDestroy {widget w} {
+    if {$widget eq $w} {$self forget $widget}
   }
 
   # forget WIDGET
@@ -375,6 +380,7 @@ snit::widget ::hv3::pretend_tile_notebook {
   #     whether or not $widget is the current tab, a <<NotebookTabChanged>>
   #     event is generated.
   method forget {widget} {
+
     set idx [lsearch $myWidgets $widget]
     if {$idx < 0} { error "$widget is not managed by $self" }
 

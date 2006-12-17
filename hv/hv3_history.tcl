@@ -266,7 +266,8 @@ snit::type ::hv3::history {
 
     incr myIgnoreGotoHandler 
     set myCacheControl relax-transparency
-    eval [linsert $options(-gotocmd) end [$state uri] $myCacheControl]
+    set c $myCacheControl
+    eval [linsert $options(-gotocmd) end [$state uri] -cachecontrol $c]
     incr myIgnoreGotoHandler -1
   }
 
@@ -275,7 +276,8 @@ snit::type ::hv3::history {
     set state [lindex $myStateList $myHistorySeek]
     incr myIgnoreGotoHandler 
     set myCacheControl no-cache
-    eval [linsert $options(-gotocmd) end [$state uri] $myCacheControl]
+    set c $myCacheControl
+    eval [linsert $options(-gotocmd) end [$state uri] -cachecontrol $c]
     incr myIgnoreGotoHandler -1
   }
 
