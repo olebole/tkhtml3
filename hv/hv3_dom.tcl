@@ -1321,7 +1321,7 @@ snit::type ::hv3::dom {
       # evaluating the script.
       #
       set this [$self node_to_dom $node]
-      set rc [catch {$mySee evalthis $this $script} msg]
+      set rc [catch {$mySee eval $this $script} msg]
       $self Log "$node $event" $script $rc $msg
     }
   }

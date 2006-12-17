@@ -52,14 +52,7 @@ static int iSeeInterp = 0;
 static struct SEE_objectclass *getVtbl();
 
 /* Each javascript object created by the Tcl-side is represented by
- * an instance of the following struct. Objects are created by the
- * following Tcl command:
- *
- *     $see_interp object OBJECT-NAME TCL-SCRIPT
- *
- * The first form creates an object as an attribute of the root
- * object, the second sets the result of a Get(), Construct() or
- * Call() request. See the interpCmd() function for details.
+ * an instance of the following struct. 
  */
 struct SeeTclObject {
     struct SEE_object object;
@@ -122,6 +115,9 @@ objectToCommand(pTclSeeInterp, pObject)
     int iSlot;
     SeeJsObject *pJsObject;
 
+    /* Check if the SEE object is actually a native Tcl object. If so,
+     * return the corresponding Tcl command.
+     */
     if (pObject->objectclass == getVtbl()) {
         return ((SeeTclObject *)pObject)->pObj;
     }
@@ -486,39 +482,30 @@ interpEvalThis(pTclSeeInterp, pTclThis, pCode)
 
     struct SEE_input *pInputCode;
     struct SEE_object *pFunction;
-    struct SEE_object *pThis;
 
 
     int rc = TCL_OK;
     SEE_try_context_t try_ctxt;
 
-    pThis = findOrCreateObject(pTclSeeInterp, pTclThis);
-
     pInputCode = SEE_input_utf8(pSeeInterp, Tcl_GetString(pCode));
 
     SEE_TRY(pSeeInterp, try_ctxt) {
         struct SEE_value result;
-        pFunction = SEE_Function_new(pSeeInterp, 0, 0, pInputCode);
-        SEE_OBJECT_CALL(pSeeInterp, pFunction, pThis, 0, 0, &result);
+        if (pTclThis) {
+            struct SEE_object *pThis = 0;
+            pThis = findOrCreateObject(pTclSeeInterp, pTclThis);
+            pFunction = SEE_Function_new(pSeeInterp, 0, 0, pInputCode);
+            SEE_OBJECT_CALL(pSeeInterp, pFunction, pThis, 0, 0, &result);
+        } else {
+            SEE_Global_eval(pSeeInterp, pInputCode, &result);
+        }
         Tcl_SetObjResult(pTclInterp, valueToObj(pTclSeeInterp, &result));
     }
 
     SEE_INPUT_CLOSE(pInputCode);
 
     if (SEE_CAUGHT(try_ctxt)) {
-        struct SEE_value error;
-        Tcl_Obj *pTclError = Tcl_NewStringObj("Javascript error: ", -1);
-        SEE_ToString(pSeeInterp, SEE_CAUGHT(try_ctxt), &error);
-        if (SEE_VALUE_GET_TYPE(&error) == SEE_STRING) {
-            struct SEE_string *pJsError = error.u.string;
-            Tcl_AppendUnicodeToObj(pTclError, pJsError->data, pJsError->length);
-        } else {
-            Tcl_AppendToObj(pTclError, "unknown.", -1);
-        }
-
-        Tcl_SetObjResult(pTclInterp, pTclError);
-SEE_PrintContextTraceback(pSeeInterp, &try_ctxt, stdout);
-        rc = TCL_ERROR;
+        rc = handleJavascriptError(pTclSeeInterp, &try_ctxt);
     }
 
     return rc;
@@ -545,7 +532,6 @@ interpCmd(clientData, pTclInterp, objc, objv)
 
     enum INTERP_enum {
         INTERP_EVAL,
-        INTERP_EVALTHIS,
         INTERP_DESTROY,
         INTERP_GLOBAL
     };
@@ -553,14 +539,14 @@ interpCmd(clientData, pTclInterp, objc, objv)
     static const struct InterpSubCommand {
         const char *zCommand;
         enum INTERP_enum eSymbol;
-        int nArgs;
+        int nMinArgs;
+        int nMaxArgs;
         char *zArgs;
     } aSubCommand[] = {
-        {"eval",    INTERP_EVAL,    1, "JAVASCRIPT"},  
-        {"evalthis",INTERP_EVALTHIS,2, "THIS-OBJECT JAVASCRIPT"},  
-        {"destroy", INTERP_DESTROY, 0, ""},
-        {"global",  INTERP_GLOBAL, 1, "TCL-COMMAND"},
-        {0, 0, 0}
+        {"eval",    INTERP_EVAL,    1, 2, "?THIS-OBJECT? JAVASCRIPT"},  
+        {"destroy", INTERP_DESTROY, 0, 0, ""},
+        {"global",  INTERP_GLOBAL,  1, 1, "TCL-COMMAND"},
+        {0, 0, 0, 0}
     };
 
     if (objc<2) {
@@ -573,7 +559,10 @@ interpCmd(clientData, pTclInterp, objc, objv)
         return TCL_ERROR;
     }
 
-    if (objc != (aSubCommand[iChoice].nArgs + 2)) {
+    if (
+        objc < (aSubCommand[iChoice].nMinArgs + 2) || 
+        objc > (aSubCommand[iChoice].nMaxArgs + 2)
+    ) {
         Tcl_WrongNumArgs(pTclInterp, 2, objv, aSubCommand[iChoice].zArgs);
         return TCL_ERROR;
     }
@@ -581,42 +570,15 @@ interpCmd(clientData, pTclInterp, objc, objv)
     switch (aSubCommand[iChoice].eSymbol) {
 
         /*
-         * seeInterp eval PROGRAM-TEXT
+         * seeInterp eval ?THIS-OBJECT? PROGRAM-TEXT
          * 
          *     Evaluate a javascript script.
          */
         case INTERP_EVAL: {
-            struct SEE_input *pInput;
-            struct SEE_value result;
-            SEE_try_context_t try_ctxt;
-
-            pInput = SEE_input_utf8(&pInterp->interp, Tcl_GetString(objv[2]));
-
-            SEE_TRY(&pInterp->interp, try_ctxt) {
-                SEE_Global_eval(&pInterp->interp, pInput, &result);
-                Tcl_SetObjResult(pTclInterp, valueToObj(pInterp, &result));
-            }
- 
-            SEE_INPUT_CLOSE(pInput);
-
-            if (SEE_CAUGHT(try_ctxt)) {
-#if 0
-                struct SEE_value error;
-                Tcl_Obj *pError = Tcl_NewStringObj("Javascript error: ", -1);
-                SEE_ToString(&pInterp->interp, SEE_CAUGHT(try_ctxt), &error);
-                if (SEE_VALUE_GET_TYPE(&error) == SEE_STRING) {
-                    Tcl_AppendUnicodeToObj(pError, 
-                        error.u.string->data, error.u.string->length
-                    );
-                } else {
-                    Tcl_AppendToObj(pError, "unknown.", -1);
-                }
-                Tcl_SetObjResult(pTclInterp, pError);
-SEE_PrintContextTraceback(pSeeInterp, &try_ctxt, stdout);
-                return TCL_ERROR;
-#endif
-                return handleJavascriptError(pInterp, &try_ctxt);
-            }
+            Tcl_Obj *pProgram = ((objc == 4) ? objv[3] : objv[2]);
+            Tcl_Obj *pThis =    ((objc == 4) ? objv[2] : 0);
+            int rc = interpEvalThis(pInterp, pThis, pProgram);
+            if (rc != TCL_OK) return rc;
             break;
         }
 
@@ -643,17 +605,8 @@ SEE_PrintContextTraceback(pSeeInterp, &try_ctxt, stdout);
             break;
         }
 
-        /*
-         * seeInterp evalthis THIS-OBJECT PROGRAM-TEXT
-         */
-        case INTERP_EVALTHIS: {
-            int rc = interpEvalThis(pInterp, objv[2], objv[3]);
-            if (rc != TCL_OK) return rc;
-            break;
-        }
-
         case INTERP_DESTROY: {
-            delInterpCmd(clientData);
+            Tcl_DeleteCommand(pTclInterp, Tcl_GetString(objv[0]));
             break;
         }
     }
@@ -1265,88 +1218,5 @@ installHv3Global(pTclSeeInterp, pWindow)
         }
     }
     p->Global = (struct SEE_object *)pGlobal;
-}
-
-
-
-/*
- *---------------------------------------------------------------------------
- *
- * prettyPrintCmd --
- *
- *         $interp prettyprint JAVASCRIPT-CODE
- *
- *     This Tcl command does a primitive job of pretty-printing the 
- *     supplied block of javascript. A (slightly) easier to read version
- *     of the supplied input is returned.
- *
- *     Only white-space characters (space and newline) are added
- *     to the input. Space (but not newline) characters may be removed 
- *     from the input. 
- *
- *     1. A newline followed by zero or more spaces may be added after 
- *        a ';', '{' or '}' token.
- *     2. A newline followed by zero or more spaces may be added after 
- *        a '}' token.
- *     3. The number of spaces following an existing newline token may
- *        be modified (spaces added or taken away).
- */
-static int 
-prettyPrintCmd(interp, pCode)
-    Tcl_Interp *interp;         /* Current interpreter. */
-    Tcl_Obj *pCode;             /* Javascript code */
-{
-    const int INDENT = 4;
-    int iIndent = 0;
-
-    int nCode;
-    char const *zCode; 
-    int ii;
-    Tcl_Obj *pOut = Tcl_NewObj();
-
-#define JS_TOKEN_LBRACKET 1
-#define JS_TOKEN_RBRACKET 2
-#define JS_TOKEN_OPENBRACE 3
-#define JS_TOKEN_CLOSEBRACE 4
-
-    zCode = Tcl_GetStringFromObj(pCode, &nCode);
-    for (ii = 0; ii < nCode; ii++) {
-        switch (zCode[ii]) {
-            case '(':
-                break;
-            case ')':
-                break;
-            case '{':
-                break;
-            case '}':
-                break;
-            case ';':
-                break;
-
-            case '"': case '\'': {
-                char delim = zCode[ii];
-                char c;
-                int i;
-                for(i=1; i<n; i++){
-                    c = z[i];
-                    if( c=='\\' ){
-                        i++;
-                    }
-                    if( c==delim ){
-                        *pLen = i+1; 
-                        return CT_STRING;
-                    }
-                }
-            }
-            *pLen = n;
-            return -1;
-        }
-                break;
-
-        }
-    }
-
-    Tcl_SetObjResult(interp, pOut);
-    return TCL_OK;
 }
 
