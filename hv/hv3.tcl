@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.131 2006/12/17 04:57:27 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.132 2006/12/17 08:37:15 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -57,7 +57,7 @@ namespace eval hv3 { set {version($Id: hv3.tcl,v 1.131 2006/12/17 04:57:27 danie
 #
 # Widget Sub-commands:
 #
-#     goto URI
+#     goto URI ?OPTIONS?
 #         Load the content at the specified URI into the widget. 
 #
 #     stop
@@ -98,8 +98,7 @@ namespace eval hv3 { set {version($Id: hv3.tcl,v 1.131 2006/12/17 04:57:27 danie
 #         is discarded.
 #
 #     <<Location>>
-#         This event is generated whenever the "location" is set. The
-#         field %location contains the new URI.
+#         This event is generated whenever the "location" is set.
 #
 #     <<SaveState>>
 #         Generated whenever the widget state should be saved.
@@ -854,7 +853,7 @@ snit::widget ::hv3::hv3 {
     if {$match} {
       regexp {[^\"\']+} $uri uri
       if {$uri ne ""} {
-        after [expr $seconds * 1000] [list $self goto $uri]
+        after [expr $seconds * 1000] [list $self goto $uri -nosave]
         # puts "Parse of content for http-equiv refresh successful! ($uri)"
       }
     } else {
@@ -986,7 +985,7 @@ snit::widget ::hv3::hv3 {
     }
   }
 
-  method documentcallback {handle final data} {
+  method documentcallback {handle savestate final data} {
 
     if {$myMimetype eq ""} {
   
@@ -997,13 +996,13 @@ snit::widget ::hv3::hv3 {
       switch -- $major {
         text {
           set myQuirksmode [::hv3::configure_doctype_mode $myHtml $data]
-          $self reset
+          $self reset $savestate
           set myMimetype html
         }
   
         image {
           set myImageData ""
-          $self reset
+          $self reset $savestate
           set myMimetype image
         }
   
@@ -1095,8 +1094,8 @@ snit::widget ::hv3::hv3 {
     set handle [::hv3::download %AUTO% -mimetype text/html]
     set myMimetype ""
     $handle configure                                     \
-        -incrscript [mymethod documentcallback $handle 0] \
-        -finscript  [mymethod documentcallback $handle 1]
+        -incrscript [mymethod documentcallback $handle 1 0] \
+        -finscript  [mymethod documentcallback $handle 1 1]
 
 
     if {$method eq "post"} {
@@ -1151,7 +1150,46 @@ snit::widget ::hv3::hv3 {
 
   method dom {} { return $myDom }
 
-  method goto {uri {cachecontrol normal}} {
+  #--------------------------------------------------------------------
+  # Load the URI specified as an argument into the main browser window.
+  # This method has the following syntax:
+  #
+  #     $hv3 goto URI ?OPTIONS?
+  #
+  # Where supported options are:
+  #
+  #     -cachecontrol "normal"|"relax-transparency"|"no-cache"
+  #     -nosave
+  #
+  # The -cachecontrol option (default "normal") specifies the value 
+  # that will be used for all ::hv3::request objects issued as a 
+  # result of this load URI operation.
+  #
+  # Normally, a <<SaveState>> event is generated. If -nosave is specified, 
+  # this is suppressed.
+  # 
+  method goto {uri args} {
+
+    # Process the argument switches. Local variable $cachecontrol
+    # is set to the effective value of the -cachecontrol option.
+    # Local boolean var $savestate is true unless the -nogoto
+    # option is specified.
+    set savestate 1
+    set cachecontrol normal
+    for {set iArg 0} {$iArg < [llength $args]} {incr iArg} {
+      switch -- [lindex $args $iArg] {
+        -cachecontrol {
+          incr iArg
+          set cachecontrol [lindex $args $iArg]
+        }
+        -nosave {
+          set savestate 0
+        }
+        default {
+          error "Bad option \"[lindex $args $iArg]\" to \[::hv3::hv3 goto\]"
+        }
+      }
+    }
 
     # Special case. If this URI begins with "javascript:" (case independent),
     # pass it to the current running DOM implementation instead of loading
@@ -1177,7 +1215,9 @@ snit::widget ::hv3::hv3 {
       # Save the current state in the history system. This ensures
       # that back/forward controls work when navigating between
       # different sections of the same document.
-      event generate $win <<SaveState>>
+      if {$savestate} {
+        event generate $win <<SaveState>>
+      }
 
       $myUri load $uri
       $self goto_fragment
@@ -1218,8 +1258,8 @@ snit::widget ::hv3::hv3 {
     ]
     set myMimetype ""
     $handle configure                                     \
-        -incrscript [mymethod documentcallback $handle 0] \
-        -finscript  [mymethod documentcallback $handle 1]
+        -incrscript [mymethod documentcallback $handle $savestate 0] \
+        -finscript  [mymethod documentcallback $handle $savestate 1]
 
     $self makerequest $handle
     $uri_obj destroy
@@ -1233,10 +1273,10 @@ snit::widget ::hv3::hv3 {
     }
   }
 
-  method reset {} {
+  method reset {isSaveState} {
 
     # Generate the <<Reset>> and <<SaveState> events.
-    if {!$myFirstReset} {
+    if {!$myFirstReset && $isSaveState} {
       event generate $win <<SaveState>>
     }
     set myFirstReset 0
@@ -1276,8 +1316,8 @@ snit::widget ::hv3::hv3 {
           $myHtml configure -imagecmd ""
         }
         set uri [$myUri get]
-        $self reset
-        $self goto $uri
+        $self reset 0
+        $self goto $uri -nosave
       }
     }
   }

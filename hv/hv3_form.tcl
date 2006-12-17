@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.44 2006/12/15 06:09:03 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.45 2006/12/17 08:37:15 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -9,13 +9,14 @@ namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.44 2006/12/15 06:09:03 d
 #     elements. The application must provide this module with callback
 #     scripts to execute for GET and POST form submissions.
 #
-#     The public interface to this file is the command:
-#
-#         ::hv3::forms_module_init HTML GETCMD POSTCMD
-#
 
+# Load Bryan Oakley combobox. 
+#
+# Todo: Puppy linux has this (combobox) packaged already. Should use 
+# this fact to reduce installation footprint size on that platform.
 source [file join [file dirname [info script]] combobox.tcl]
 
+#----------------------------------------------------------------------
 #     The following HTML elements create document nodes that are replaced with
 #     form controls:
 #
@@ -45,6 +46,16 @@ source [file join [file dirname [info script]] combobox.tcl]
 # <textarea>
 #
 # <isindex>
+#
+
+#----------------------------------------------------------------------
+# Code in this file is organized into the following types:
+#
+#     ::hv3::fileselect (widget)
+#     ::hv3::control (widget)
+#     ::hv3::clickcontrol
+#     ::hv3::form
+#     ::hv3::formmanager
 #
 
 # ::hv3::fileselect
@@ -192,13 +203,16 @@ snit::widget ::hv3::control {
       password Password \
       checkbox Checkbox \
       radio    Radio    \
-      submit   Submit   \
       hidden   Hidden   \
       file     File     \
-      image    ""       \
-      reset    ""       \
-      button   ""       \
   ]
+  # The following <INPUT> types are not in the above list as they should be
+  # handled by type "::hv3::clickcontrol":
+  # 
+  #     submit, image, reset, button
+  #
+  # TODO: Maybe "hidden" should too?
+  #
 
   constructor {node args} {
     set myControlNode $node

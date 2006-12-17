@@ -34,7 +34,7 @@ snit::type ::hv3::history_state {
   # Note that the top-level frame is included in this array (the index
   # of the top-level frame is always "0 0"). The code in this file uses
   # $myUri for display purposes (i.e. in the history menu) and 
-  # $myFrameUri
+  # $myFrameUri for reloading states.
   #
   variable myFrameUri -array [list]
 
@@ -166,7 +166,7 @@ snit::type ::hv3::history {
       set uri [$state get_frameuri [$frame positionid]]
       if {$uri ne ""} {
         incr myIgnoreGotoHandler
-        $frame goto $uri $myCacheControl
+        $frame goto $uri -cachecontrol $myCacheControl
         incr myIgnoreGotoHandler -1
         return 1
       }
