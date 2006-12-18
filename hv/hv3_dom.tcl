@@ -1251,6 +1251,7 @@ snit::type ::hv3::dom {
   #
   method script {attr script} {
     if {[::hv3::dom::use_scripting] && $mySee ne ""} {
+      $myHv3 write wait
       array set a $attr
       if {[info exists a(src)]} {
         set fulluri [$myHv3 resolve_uri $a(src)]
@@ -1260,10 +1261,9 @@ snit::type ::hv3::dom {
             -cachecontrol normal                       \
         ]
         $handle configure -finscript [mymethod scriptCallback $attr $handle]
-        $myHandle makerequest $handle
+        $myHv3 makerequest $handle
         $self Log "Dispatched script request - $handle" "" "" ""
       } else {
-        $myHv3 write wait
         return [$self scriptCallback $attr "" $script]
       }
     }

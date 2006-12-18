@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.133 2006/12/18 05:23:56 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.134 2006/12/18 07:53:30 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -167,6 +167,8 @@ snit::type ::hv3::hv3::mousemanager {
 
   variable myHv3 ""
 
+  variable myReset 0
+
   # Database of callback scripts for each event type.
   #
   variable myScripts -array [list]
@@ -176,6 +178,7 @@ snit::type ::hv3::hv3::mousemanager {
   #
   variable myHoverNodes -array [list]
   variable myActiveNodes -array [list]
+
 
   # List of handled HTML4 event types (a constant)
   variable EVENTS [list onmouseover onmousemove onmouseout onclick \
@@ -206,6 +209,7 @@ snit::type ::hv3::hv3::mousemanager {
   method reset {} {
     array unset myActiveNodes
     array unset myHoverNodes
+    set myReset 1
   }
 
   # Generate a $event event on node $node.
@@ -213,6 +217,16 @@ snit::type ::hv3::hv3::mousemanager {
   method Generate {event node} {
     foreach script $myScripts($event) {
       eval $script $node
+    }
+  }
+
+  method GenerateEvents {eventlist} {
+    foreach {event node} $eventlist {
+      foreach script $myScripts($event) {
+        set myReset 0
+        eval $script $node
+        if {$myReset} return
+      }
     }
   }
 
@@ -257,11 +271,13 @@ snit::type ::hv3::hv3::mousemanager {
     array unset myHoverNodes
     array set myHoverNodes [array get hovernodes]
 
+    set eventlist [list]
     foreach key [list onmouseover onmousemove onmouseout] {
       foreach node $events($key) {
-        $self Generate $key $node
+        lappend eventlist $key $node
       }
     }
+    $self GenerateEvents $eventlist
   }
 
   method Press {x y} {
@@ -276,9 +292,11 @@ snit::type ::hv3::hv3::mousemanager {
       set myActiveNodes($n) 1
     }
 
+    set eventlist [list]
     foreach node [array names myActiveNodes] {
-      $self Generate onmousedown $node
+      lappend eventlist onmousedown $node
     }
+    $self GenerateEvents $eventlist
   }
 
   method Release {x y} {
@@ -294,16 +312,17 @@ snit::type ::hv3::hv3::mousemanager {
       }
     }
 
+    set eventlist [list]
     foreach node [array names myActiveNodes] {
-      $self Generate onmouseup $node
+      lappend eventlist onmouseup $node
     }
     foreach node $onclick_nodes {
-      $self Generate onclick $node
+      lappend eventlist onclick $node
     }
+    $self GenerateEvents $eventlist
 
     array unset myActiveNodes
   }
-
 }
 
 #--------------------------------------------------------------------------
@@ -453,7 +472,9 @@ snit::type ::hv3::hv3::hyperlinkmanager {
 
   constructor {hv3} {
     set myHv3 $hv3
-    set options(-targetcmd) [list set [myvar myHv3]]
+
+    # Set upt the default -targetcmd script to always return $myHv3.
+    set options(-targetcmd) [list ::hv3::ReturnWithArgs $hv3]
 
     $myHv3 handler node a [mymethod a_node_handler]
     bind $myHv3 <Motion>         "+[mymethod motion %x %y]"

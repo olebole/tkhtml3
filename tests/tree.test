@@ -163,6 +163,14 @@ tcltest::test tree-1.6 {} -body {
 </html>
 }]
 
+tcltest::test tree-1.7 {} -body {
+  .h reset
+  .h parse -final {
+    <html><body><script src=hello></script></body>
+  }
+  set ::script_handler_count
+} -result 4
+
 #--------------------------------------------------------------------------
 # Test cases tree-2.* test that ticket #12 has been fixed.
 #
