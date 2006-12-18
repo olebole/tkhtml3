@@ -176,6 +176,8 @@ TEXTAREA, SELECT {
   line-height: normal;
 }
 
+INPUT[type="image"][src] { -tkhtml-replacement-image: tcl(::tkhtml::attr src) }
+
 /*
  * Default style for buttons created using <input> elements.
  */

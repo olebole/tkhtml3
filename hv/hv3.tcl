@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.132 2006/12/17 08:37:15 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.133 2006/12/18 05:23:56 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -565,6 +565,17 @@ snit::widget ::hv3::hv3 {
   #
   variable myImageData ""
 
+  # If this variable is not set to the empty string, it is the id of an
+  # [after] event that will refresh the current document (i.e from a 
+  # Refresh header or <meta type=http-equiv> markup). This scheduled 
+  # event should be cancelled when the [reset] method is called.
+  #
+  # There should only be one Refresh event scheduled at any one time.
+  # The [Refresh] method, which calls [after] to schedule the events,
+  # cancels any pending event before scheduling a new one.
+  #
+  variable myRefreshEventId ""
+
   constructor {} {
     # Create the scrolled html widget and bind it's events to the
     # mega-widget window.
@@ -632,6 +643,11 @@ snit::widget ::hv3::hv3 {
     if {[info exists myFormManager]}      { $myFormManager      destroy }
     if {[info exists myMouseManager]}     { $myMouseManager      destroy }
     if {$myBase ne ""}                    { $myBase             destroy }
+
+    if {$myRefreshEventId ne ""} {
+      after cancel $myRefreshEventId
+      set myRefreshEventId ""
+    }
   }
 
   # The argument download-handle contains a configured request. This 
@@ -846,19 +862,43 @@ snit::widget ::hv3::hv3 {
     }
   }
 
+  # This method is called to handle "Refresh" and "Location" headers
+  # delivered as part of the response to a request for a document to
+  # display in the main window. Refresh headers specified as 
+  # <meta type=http-equiv> markup are also handled. The $content argument
+  # contains a the content portion of the Request header, for example:
+  #
+  #     "5 ; URL=http://www.news.com"
+  #
+  # (wait 5 seconds before loading the page www.news.com).
+  #
+  # In the case of Location headers, a synthetic Refresh content header is
+  # constructed to pass to this method.
+  #
   method Refresh {content} {
-    # Regular expression to parse content attribute:
+    # Use a regular expression to extract the URI and number of seconds
+    # from the header content. Then dequote the URI string.
+    set uri ""
     set re {([[:digit:]]+) *; *[Uu][Rr][Ll] *= *([^ ]+)}
-    set match [regexp $re $content dummy seconds uri]
-    if {$match} {
-      regexp {[^\"\']+} $uri uri
-      if {$uri ne ""} {
-        after [expr $seconds * 1000] [list $self goto $uri -nosave]
-        # puts "Parse of content for http-equiv refresh successful! ($uri)"
+    regexp $re $content -> seconds uri
+    regexp {[^\"\']+} $uri uri                  ;# Primitive dequote
+
+    if {$uri ne ""} {
+      if {$myRefreshEventId ne ""} {
+          after cancel $myRefreshEventId
       }
+      set cmd [list $self RefreshEvent $uri]
+      set myRefreshEventId [after [expr {$seconds*1000}] $cmd]
+
+      # puts "Parse of content for http-equiv refresh successful! ($uri)"
     } else {
       # puts "Parse of content for http-equiv refresh failed..."
     }
+  }
+
+  method RefreshEvent {uri} {
+    set myRefreshEventId ""
+    $self goto $uri -nosave
   }
 
   # System for handling <title> elements. This object exports
@@ -1275,6 +1315,12 @@ snit::widget ::hv3::hv3 {
 
   method reset {isSaveState} {
 
+    # Cancel any pending "Refresh" event.
+    if {$myRefreshEventId ne ""} {
+      after cancel $myRefreshEventId
+      set myRefreshEventId ""
+    }
+
     # Generate the <<Reset>> and <<SaveState> events.
     if {!$myFirstReset && $isSaveState} {
       event generate $win <<SaveState>>
@@ -1284,6 +1330,7 @@ snit::widget ::hv3::hv3 {
 
     $self invalidate_nodecache
     set myTitleVar ""
+
 
     foreach m [list \
         $myMouseManager $myFormManager $myDom   \

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.45 2006/12/17 08:37:15 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.46 2006/12/18 05:23:56 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -168,6 +168,19 @@ snit::widget ::hv3::fileselect {
 #         [dump]
 #             Debugging only. Return a string rep. of the object.
 #
+# INTERFACE USED BY DOM CODE:
+#
+#     Some of the following methods only work for a subset of objects
+#     (depending on node type etc.).
+#
+#         [set_value]
+#         [checked]
+#         [set_checked]
+#         [dom_focus]
+#         [dom_blur]
+#         [dom_click]
+#         [dom_select]
+#
 #
 snit::widget ::hv3::control {
 
@@ -203,7 +216,6 @@ snit::widget ::hv3::control {
       password Password \
       checkbox Checkbox \
       radio    Radio    \
-      hidden   Hidden   \
       file     File     \
   ]
   # The following <INPUT> types are not in the above list as they should be
@@ -645,9 +657,22 @@ snit::widget ::hv3::control {
   }
 }
 
+#--------------------------------------------------------------------------
+# ::hv3::clickcontrol
+#
+#     An object of this class is used for the following types of form
+#     control elements:
+#
+#         <input type=hidden>
+#         <input type=image>
+#         <input type=button>
+#         <input type=submit>
+#         <input type=reset>
+#
+#
 ::snit::type ::hv3::clickcontrol {
   variable myNode ""
-  variable mySuccess 0
+  variable myClicked 0
 
   option -clickcmd -default ""
   option -formnode -default ""
@@ -658,16 +683,35 @@ snit::widget ::hv3::control {
  
   method value {}      { return [$myNode attr -default "" value] }
   method name {}       { return [$myNode attr -default "" name] }
-  method success {}    { return $mySuccess }
 
+  method success {}    { 
+    if {[catch {$myNode attr name ; $myNode attr value}]} {
+      return 0
+    }
+    switch -- [string tolower [$myNode attr type]] {
+      hidden { return 1 }
+      image  { return $myClicked }
+      submit { return $myClicked }
+      button { return 0 }
+      reset  { return 0 }
+      default { 
+        return 0 
+      }
+    }
+  }
+
+  # click --
+  #
+  #     This method is called externally when this widget is clicked
+  #     on. If it is not "", evaluate the script configured as -clickcmd
+  #
   method click {} {
-    # The control that submits the form is considered successful.
-    set mySuccess 1
     set cmd $options(-clickcmd)
     if {$cmd ne ""} {
+      set myClicked 1
       eval $cmd
+      set myClicked 0
     }
-    set mySuccess 0
   }
 
   method configurecmd {values} {}
@@ -918,12 +962,7 @@ snit::type ::hv3::form {
 #
 #     Each hv3 mega-widget has a single instance of the following type
 #     It contains the logic and state required to manager any HTML forms
-#     contained in the local document. This type implements the "manager"
-#     events interface:
-#
-#         $formmanager press X Y
-#         $formmanager release X Y
-#         $formmanager motion X Y
+#     contained in the current document.
 #    
 snit::type ::hv3::formmanager {
 
@@ -961,8 +1000,8 @@ snit::type ::hv3::formmanager {
 
     $myHtml handler parse form [mymethod FormHandler]
 
-    # bind $myHv3 <ButtonPress-1>   "+[mymethod press %x %y]"
-    # bind $myHv3 <ButtonRelease-1> "+[mymethod release %x %y]"
+    # Subscribe to mouse-clicks (for the benefit of ::hv3::clickcontrol
+    # instances).
     $myHv3 Subscribe onclick [mymethod clickhandler]
   }
 
@@ -986,9 +1025,10 @@ snit::type ::hv3::formmanager {
 
     switch -- [string tolower [$node tag].[$node attr -default {} type]] {
       input.image {
-        $node override [list -tkhtml-replacement-image [$node attr src]]
         set control [::hv3::clickcontrol %AUTO% $node]
         set myClickControls($node) $control
+        $control configure -clickcmd [list $form submit $control]
+        set isSubmit 1
       }
       input.submit {
         set control [::hv3::clickcontrol %AUTO% $node]
@@ -1005,19 +1045,22 @@ snit::type ::hv3::formmanager {
         set control [::hv3::clickcontrol %AUTO% $node]
         set myClickControls($node) $control
       }
+      input.hidden {
+        set control [::hv3::clickcontrol %AUTO% $node]
+        set myClickControls($node) $control
+      }
       default {
         set control [::hv3::control ${myHtml}.control_${name} $node]
         $control configure -submitcmd [list $form submit $control]
       }
     }
 
-    $control configure -formnode $formnode
-
     $node replace $control                         \
         -configurecmd [list $control configurecmd] \
         -deletecmd    [list destroy $control]
 
     if {$formnode ne ""} {
+      $control configure -formnode $formnode
       $myForms($formnode) add_control $node $isSubmit
     }
   }
