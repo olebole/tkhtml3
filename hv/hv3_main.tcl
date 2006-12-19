@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.105 2006/12/19 05:38:34 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.106 2006/12/19 11:46:08 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -33,8 +33,6 @@ source [sourcefile hv3_polipo.tcl]
 source [sourcefile hv3_icons.tcl]
 source [sourcefile hv3_history.tcl]
 source [sourcefile hv3_db.tcl]
-
-proc ::hv3::returnX {val args} {return $val}
 
 #--------------------------------------------------------------------------
 # Widget ::hv3::browser_frame
@@ -73,7 +71,6 @@ snit::widget ::hv3::browser_frame {
   variable myNodeList ""                  ;# Current nodes under the pointer
   variable myX 0                          ;# Current location of pointer
   variable myY 0                          ;# Current location of pointer
-  variable myHyperlinkNode ""             ;# Current node for hyper-link menu
 
   variable myBrowser ""                   ;# ::hv3::browser_toplevel widget
   variable myPositionId ""                ;# See sub-command [positionid]
@@ -94,29 +91,14 @@ snit::widget ::hv3::browser_frame {
     catch {$myHv3 configure -fonttable $::hv3::fontsize_table}
     $myHv3 configure -downloadcmd [list $myBrowser savehandle]
 
-    # Click to focus (so that this frame accepts keyboard input).
-
     # Create bindings for motion, right-click and middle-click.
     bind $myHv3 <Motion> +[mymethod motion %x %y]
     bind $myHv3 <3>       [mymethod rightclick %x %y %X %Y]
     bind $myHv3 <2>       [mymethod goto_selection]
 
-    # Create the hyper-link menu (right-click on hyper-link to access)
-    set m [::hv3::menu ${win}.hyperlinkmenu]
-    foreach {l c} [list                       \
-      "Open Link"            openlink         \
-      "Open Link in Bg Tab"  opentablink      \
-      "Download Link"        downloadlink     \
-      "Copy Link Location"   copylink         \
-      "Open Tree Browser"    browselink       \
-    ] {
-      $m add command -label $l -command [mymethod hyperlinkmenu_select $c]
-    }
-
     # When the hyperlink menu "owns" the selection (happens after 
     # "Copy Link Location" is selected), invoke method 
     # [GetCopiedLinkLocation] with no arguments to retrieve it.
-    selection handle ${win}.hyperlinkmenu [mymethod GetCopiedLinkLocation]
 
     # Register a handler command to handle <frameset>.
     set html [$myHv3 html]
@@ -127,6 +109,9 @@ snit::widget ::hv3::browser_frame {
     # option of the ::hv3::hv3 widget with our own version.
     $myBrowser add_frame $self
     $myHv3 configure -targetcmd [mymethod Targetcmd]
+
+    ::hv3::menu ${win}.hyperlinkmenu
+    selection handle ${win}.hyperlinkmenu [mymethod GetCopiedLinkLocation]
   }
 
   method browser {} {return $myBrowser}
@@ -215,6 +200,7 @@ snit::widget ::hv3::browser_frame {
   destructor {
     # Remove this object from the $theFrames list.
     $myBrowser del_frame $self
+    catch {destroy ${win}.hyperlinkmenu}
   }
 
   # This callback is invoked when the user right-clicks on this 
@@ -226,59 +212,86 @@ snit::widget ::hv3::browser_frame {
   # the root window.
   #
   method rightclick {x y X Y} {
+
+    set m ${win}.hyperlinkmenu
+    $m delete 0 end
+
     set nodelist [$myHv3 node $x $y]
+    if {[llength $nodelist] == 0} return
+    set leafnode [lindex $nodelist end]
+
+    set a_href ""
+    set img_src ""
 
     foreach leaf $nodelist {
       for {set N $leaf} {$N ne ""} {set N [$N parent]} {
-        if {[$N tag] eq "a" && 0 == [catch {$N attr href}]} {
-          # Right click on a hyper-link. Pop up the hyper-link menu.
-          $self hyperlinkmenu $N $X $Y
-          return
+        set tag [$N tag]
+
+        if {$a_href eq "" && $tag eq "a"} {
+          set a_href [$N attr -default "" href]
+        }
+        if {$img_src eq "" && $tag eq "img"} {
+          set img_src [$N attr -default "" src]
+        }
+
+      }
+    }
+
+    if {$a_href ne ""}  {set a_href [$myHv3 resolve_uri $a_href]}
+    if {$img_src ne ""} {set img_src [$myHv3 resolve_uri $img_src]}
+
+    set MENU [list \
+      a_href "Open Link"             [mymethod menu_select open $a_href]      \
+      a_href "Open Link in Bg Tab"   [mymethod menu_select opentab $a_href]   \
+      a_href "Download Link"         [mymethod menu_select download $a_href]  \
+      a_href "Copy Link Location"    [mymethod menu_select copy $a_href]      \
+      a_href --                      ""                                       \
+      img_src "View Image"           [mymethod menu_select open $img_src]     \
+      img_src "View Image in Bg Tab" [mymethod menu_select opentab $img_src]  \
+      img_src "Download Image"       [mymethod menu_select download $img_src] \
+      img_src "Copy Image Location"  [mymethod menu_select copy $img_src]     \
+      img_src --                     ""                                       \
+      ""      "Open Tree browser..." [list ::HtmlDebug::browse $myHv3 $leaf]  \
+    ]
+
+    foreach {var label cmd} $MENU {
+      if {$var eq "" || [set $var] ne ""} {
+        if {$label eq "--"} {
+          $m add separator
+        } else {
+          $m add command -label $label -command $cmd
         }
       }
     }
 
-    # No hyper-link. Launch the tree browser.
-    ::HtmlDebug::browse $myHv3 [lindex $nodelist 0]
-  }
+    $m add checkbutton -label "Hide Gui" -var [$::hv3::G(config) hideguivar]
 
-  # Popup the hyper-link menu. Argument $node is the hyperlink node to
-  # configure the menu for. Arguments $x and $y are the current position 
-  # of the mouse cursor relative to the root window.
-  method hyperlinkmenu {node x y} {
-    set myHyperlinkNode $node
-    # puts [::hv3::resolve_uri [$myHv3 location] [$node attr href]]
-    tk_popup ${win}.hyperlinkmenu $x $y
+    tk_popup $m $X $Y
   }
 
    # Called when an option has been selected on the hyper-link menu. The
    # argument identifies the specific option. May be one of:
    #
-   #     openlink
-   #     downloadlink
-   #     copylink
-   #     browselink
+   #     open
+   #     opentab
+   #     download
+   #     copy
    #
-  method hyperlinkmenu_select {option} {
-    set uri [$myHv3 resolve_uri [string trim [$myHyperlinkNode attr href]]]
-    set theTopFrame [lindex [$myBrowser get_frames] 0]
+  method menu_select {option uri} {
     switch -- $option {
-      openlink {
-        $theTopFrame goto $uri
+      open { 
+        set top_frame [lindex [$myBrowser get_frames] 0]
+        $top_frame goto $uri 
       }
-      opentablink {
-        set new [.notebook addbg $uri]
-      }
-      downloadlink {
-        $myBrowser saveuri $uri
-      }
-      copylink {
+      opentab { set new [.notebook addbg $uri] }
+      download { $myBrowser saveuri $uri }
+      copy {
         set myCopiedLinkLocation $uri
         selection own ${win}.hyperlinkmenu
+        clipboard clear
+        clipboard append $uri
       }
-      browselink {
-        ::HtmlDebug::browse $myHv3 $myHyperlinkNode
-      }
+
       default {
         error "Internal error"
       }
@@ -629,6 +642,8 @@ snit::type ::hv3::config {
 
   variable myEnableScripting 0
 
+  variable myHideGui 0
+
   method set_zoom {newval}      { set myZoom $newval }
   method set_fontscale {newval} { set myFontScale $newval }
   method set_guifont {newval}   { set myGuiFontSize $newval }
@@ -674,6 +689,9 @@ snit::type ::hv3::config {
     if {![::hv3::dom::have_scripting]} {
       $myMenu entryconfigure end -state disabled
     }
+    $myMenu add checkbutton            \
+        -label {Hide Gui}              \
+        -variable [myvar myHideGui]
 
     trace add variable myGuiFontSize      write [mymethod ConfigureGui]
     trace add variable myFontTable        write [mymethod ConfigureCurrent]
@@ -682,7 +700,22 @@ snit::type ::hv3::config {
     trace add variable myEnableImages     write [mymethod ConfigureCurrent]
     trace add variable myDoubleBuffer     write [mymethod ConfigureCurrent]
     trace add variable myZoom             write [mymethod ConfigureCurrent]
+
+    trace add variable myHideGui          write [mymethod ConfigureHideGui]
   }
+
+  method ConfigureHideGui {name1 name2 op} {
+    if {$myHideGui} {
+      . configure -menu ""
+      pack forget .status
+      pack forget .toolbar
+    } else {
+      . configure -menu .m
+      pack .status -after .notebook -fill x -side bottom
+      pack .toolbar -before .notebook -fill x -side top
+    }
+  }
+  method hideguivar {} { return [myvar myHideGui] }
 
   method ConfigureGui {name1 name2 op} {
     ::hv3::SetFont [list -size $myGuiFontSize]
@@ -1098,7 +1131,6 @@ proc gui_menu {widget_array} {
   # Add the 'History' menu
   .m add cascade -label {History} -menu [::hv3::menu .m.history] -underline 0
   set G(history_menu) .m.history
-
 }
 #--------------------------------------------------------------------------
 

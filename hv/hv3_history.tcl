@@ -294,7 +294,7 @@ snit::type ::hv3::history {
   #
   method populatehistorymenu {} {
 
-    # Handles for the three widgets this object is controlling.
+    # Handles for the four widgets this object is controlling.
     set menu $options(-historymenu)
     set back $options(-backbutton)
     set forward $options(-forwardbutton)

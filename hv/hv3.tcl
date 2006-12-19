@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.134 2006/12/18 07:53:30 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.135 2006/12/19 11:46:08 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -142,7 +142,6 @@ source [file join [file dirname [info script]] hv3_object.tcl]
 source [file join [file dirname [info script]] hv3_doctype.tcl]
 source [file join [file dirname [info script]] hv3_request.tcl]
 source [file join [file dirname [info script]] hv3_dom.tcl]
-
 
 #--------------------------------------------------------------------------
 # Class ::hv3::hv3::mousemanager
@@ -742,8 +741,8 @@ snit::widget ::hv3::hv3 {
         set baseuri [$myUri get -nofragment]
       }
     } 
-    set obj [::hv3::uri %AUTO% $baseuri]
-    $obj load $uri
+    set obj [::hv3::uri %AUTO% [string trim $baseuri]]
+    $obj load [string trim $uri]
     set ret [$obj get]
     $obj destroy
     return $ret
