@@ -1497,7 +1497,7 @@ proc ::hv3::dom::use_scripting {} {
   return $r
 }
 
-set ::hv3::dom::use_scripting_option 1
+set ::hv3::dom::use_scripting_option 0
 set ::hv3::dom::reformat_scripts_option 0
 # set ::hv3::dom::reformat_scripts_option 1
 

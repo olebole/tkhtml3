@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.104 2006/12/17 04:57:27 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.105 2006/12/19 05:38:34 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -566,8 +566,19 @@ snit::widget ::hv3::browser_toplevel {
     $self packwidget $fdname
     $fdname configure -borderwidth 1 -relief raised
 
+    # Bind up, down, next and prior key-press events to scroll the
+    # main hv3 widget. This means you can use the keyboard to scroll
+    # window (vertically) without shifting focus from the 
+    # find-as-you-type box.
+    #
+    set hv3 [$self hv3]
+    bind ${fdname} <KeyPress-Up>    [list $hv3 yview scroll -1 units]
+    bind ${fdname} <KeyPress-Down>  [list $hv3 yview scroll  1 units]
+    bind ${fdname} <KeyPress-Next>  [list $hv3 yview scroll  1 pages]
+    bind ${fdname} <KeyPress-Prior> [list $hv3 yview scroll -1 pages]
+
     # When the findwidget is destroyed, return focus to the html widget. 
-    bind ${fdname}.entry <KeyPress-Escape> gui_escape
+    bind ${fdname} <KeyPress-Escape> gui_escape
 
     ${fdname}.entry insert 0 $initval
     focus ${fdname}.entry
