@@ -653,7 +653,7 @@ int Tclsee_Init(interp)
     }
 #endif
 
-    Tcl_PkgProvide(interp, "Tclsee", "1.0");
+    Tcl_PkgProvide(interp, "Tclsee", "0.1");
     Tcl_CreateObjCommand(interp, "::see::interp", tclSeeInterp, 0, 0);
     return TCL_OK;
 }

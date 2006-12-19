@@ -10,24 +10,30 @@ BUILD = DEBUG
 # BUILD = MEMDEBUG
 # BUILD = PROFILE
 
-HV3_POLIPO = /home/dan/bin/hv3_polipo
+##### Path to hv3_polipo binary to include in starkit builds.
+#
+HV3_POLIPO = $(HOME)/bin/hv3_polipo
 
 ##### Version of and path to the Tcl installation to use.
 #
-# TCL_DEBUG   = $(HOME)/profiletcl
-# TCL_DEBUG   = $(HOME)/tcl
-
 TCLVERSION = 8.5
-TCL_RELEASE = /home/dan/tcl
 
-TCL_DEBUG    = /home/dan/tcl
-TCL_PROFILE  = /home/dan/tcl
+TCL_RELEASE  = $(HOME)/tcl
+TCL_DEBUG    = $(HOME)/tcl
+TCL_PROFILE  = $(HOME)/tcl
 TCL_MEMDEBUG = $(TCL_DEBUG)
 TCL = $(TCL_$(BUILD))
 
 # MKSTARKIT = ~/tcl/bin/tclkit-linux-x86-xft ~/bin/sdx.kit wrap
 MKSTARKIT = ~/bin/tclkit ~/bin/sdx.kit wrap
 STARKITRT = ~/bin/tclkit
+
+##### Javascript libaries - libgc.a and libsee.a
+#
+JS_SHARED_LIB = libTclsee.so
+JSLIB   = $(HOME)/javascript/install/lib/libgc.a
+JSLIB  += $(HOME)/javascript/install/lib/libsee.a
+JSFLAGS = -I$(HOME)/javascript/install/include
 
 ##### Flags passed to the C-compiler to link to Tcl.
 #

@@ -474,34 +474,51 @@ snit::type ::hv3::dom::Window {
   # Method Implementations: 
   #
   #     Window.setTimeout(code, delay) 
-  #     Window.clearTimeout(timeoutid)
+  #     Window.setInterval(code, delay) 
   #
-  variable myTimeoutIds -array [list]
-  variable myNextTimeoutId 0
+  #     Window.clearTimeout(timeoutid)
+  #     Window.clearInterval(timeoutid)
+  #
+  variable myTimerIds -array [list]
+  variable myNextTimerId 0
 
-  js_call setTimeout {THIS js_code js_delay} {
-    set delay [lindex $js_delay 1]
+  method SetTimer {isRepeat js_code js_delay} {
+    set ms [format %.0f [lindex $js_delay 1]] 
     set code [lindex $js_code 1]
-
-    set timeoutid [incr myNextTimeoutId]
-    set myTimeoutIds($timeoutid) [
-      after [format %.0f $delay] [mymethod Timeout $timeoutid $code]
-    ]
-    return [list string $timeoutid]
+    $self CallTimer "" $isRepeat $ms $code
   }
 
-  js_call clearTimeout {THIS js_timeoutid} {
-    set timeoutid [lindex $js_timeoutid 1]
-    after cancel $myTimeoutIds($timeoutid)
-    unset myTimeoutIds($timeoutid)
+  method ClearTimer {js_timerid} {
+    set timerid [lindex $js_timerid 1]
+    after cancel $myTimerIds($timerid)
+    unset myTimerIds($timerid)
     return ""
   }
 
-  method Timeout {timeoutid code args} {
-    unset myTimeoutIds($timeoutid)
-    set rc [catch {$mySee eval $code} msg]
-    [$myHv3 dom] Log "setTimeout()" $code $rc $msg
+  method CallTimer {timerid isRepeat ms code} {
+    if {$timerid ne ""} {
+      unset myTimerIds($timerid)
+      set rc [catch {$mySee eval $code} msg]
+      [$myHv3 dom] Log "setTimeout()" $code $rc $msg
+    }
+
+    if {$timerid eq "" || $isRepeat} {
+      if {$timerid eq ""} {set timerid [incr myNextTimeoutId]}
+      set tclid [after $ms [mymethod CallTimer $timerid $isRepeat $ms $code]]
+      set myTimerIds($timerid) [list $isRepeat $tclid]
+    }
+
+    list string $timerid
   }
+
+  js_call setInterval {THIS js_code js_delay} {
+    $self SetTimer 1 $js_code $js_delay
+  }
+  js_call setTimeout {THIS js_code js_delay} {
+    $self SetTimer 0 $js_code $js_delay
+  }
+  js_call clearTimeout  {THIS js_timerid} { $self ClearTimer 0 $js_timerid }
+  js_call clearInterval {THIS js_timerid} { $self ClearTimer 1 $js_timerid }
   #-----------------------------------------------------------------------
 
   js_call jsputs {THIS args} {
@@ -1283,13 +1300,14 @@ snit::type ::hv3::dom {
     }
 
     set rc [catch {$mySee eval $script} msg]
-    $myHv3 write continue
 
     set attributes ""
     foreach {a v} $attr {
       append attributes " [$self Escape $a]=\"[$self Escape $v]\""
     }
     $self Log "<SCRIPT$attributes> $downloadHandle" $script $rc $msg
+
+    $myHv3 write continue
   }
 
   method javascript {script} {
@@ -1466,8 +1484,8 @@ snit::widget ::hv3::dom::logwin {
 proc ::hv3::dom::init {} {
   # Load the javascript library.
   #
-  catch { load [file join [file dirname [info script]] libtclsee.so] }
-  catch { load /home/dan/javascript/tcl/libtclsee.so }
+  catch { load [file join tclsee0.1 libTclsee.so] }
+  catch { package require Tclsee }
 }
 ::hv3::dom::init
 # puts "Have scripting: [::hv3::dom::have_scripting]"

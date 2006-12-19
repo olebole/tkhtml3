@@ -1,64 +1,114 @@
-                       HOW TO COMPILE THE TKHTML WIDGET
 
-There are two ways to build the Tkhtml widget:
+This file has two sections:
 
-  * Using the configure script. This is quick and easy if it works,
-    virtually impossible to debug if it doesn't).
-  * Modifying the Makefile template. This takes a few minutes to set up, 
-    but it's easier to understand what's going on.
+1. How to compile the Tkhtml widget.
+2. How to run Hv3, the Tkhtml web browser.
 
-Both systems have been tested on Suse linux 9.2 and Mingw/Msys on Windows XP.
+--------------------------------------------------------------------------------
 
-Using the configure script
---------------------------
+1. HOW TO COMPILE THE TKHTML WIDGET
 
-1. If you're reading this you have already obtained the sources and they
-   are likely in a directory called "htmlwidget".
-2. Create a new empty directory to build in.
-3. Cd into the new directory.
-4. Run the "configure" script located in the htmlwidget directory. The
-   configure script will probably need the --with-tcl and --with-tk options
-   passed to it. 
-5. Run "make".
-6. If everything worked, run "make install".
+  There are two ways to build the Tkhtml widget:
+  
+    * Using the configure script. This is quick and easy if it works,
+      virtually impossible to debug if it doesn't).
+    * Modifying the Makefile template. This takes a few minutes to set up, 
+      but it's easier to understand what's going on.
+  
+  Both systems have been tested on Suse linux 9.2 and Mingw/Msys on 
+  Windows XP.
+  
+  Using the configure script
+  --------------------------
+  
+  1. If you're reading this you have already obtained the sources and they
+     are likely in a directory called "htmlwidget".
+  2. Create a new empty directory to build in.
+  3. Cd into the new directory.
+  4. Run the "configure" script located in the htmlwidget directory. The
+     configure script will probably need the --with-tcl and --with-tk options
+     passed to it. 
+  5. Run "make".
+  6. If everything worked, run "make install".
+  
+  The sequence of commands might look like this:
+  
+    $ tar -xzf tkhtml-3.alpha1.tar.gz
+    $ ls -o htmlwidget/configure
+    -rwxr-xr-x  1 user 233035 2005-07-06 17:37 htmlwidget/configure
+    $ mkdir bld
+    $ cd bld
+    $ ../htmlwidget/configure --with-tcl=/usr/local/ActiveTcl/lib --with-tk=/usr/local/ActiveTcl/lib 
+    <much output>
+    $ make
+    $ make install
+  
+  Modifying a Makefile template
+  -----------------------------
+  
+  There are two similar makefiles in the root directory of the source tree.
+  "main.mk" is for linux, and "mingw.mk" is for Mingw/Msys on windows. Both
+  require a handful of variables to be modified before they can be used.
+  Instructions are in comments in either file.
+  
+  1. If you're reading this you have already obtained the sources and they
+     are likely in a directory called "htmlwidget".
+  2. Edit the appropriate makefile ("linux-gcc.mk" or "mingw.mk").
+  2. Create a new empty directory to build in.
+  3. Cd into the new directory.
+  5. Run "make".
+  6. If everything worked, run "make install" (linux only).
+  
+  The sequence of commands might look like this:
+  
+    $ tar -xzf tkhtml-3.alpha1.tar.gz
+    $ ls -o htmlwidget/main.mk
+    -rw-r--r--  1 dan 4143 2005-07-10 19:45 htmlwidget/main.mk
+    $ vi htmlwidget/main.mk
+    $ mkdir bld
+    $ cd bld
+    $ make -f ../htmlwidget/main.mk
+    <much output>
+    $ make install
 
-The sequence of commands might look like this:
+2. HOW TO RUN HV3, THE TKHTML WEB BROWSER
 
-  $ tar -xzf tkhtml-3.alpha1.tar.gz
-  $ ls -o htmlwidget/configure
-  -rwxr-xr-x  1 user 233035 2005-07-06 17:37 htmlwidget/configure
-  $ mkdir bld
-  $ cd bld
-  $ ../htmlwidget/configure --with-tcl=/usr/local/ActiveTcl/lib --with-tk=/usr/local/ActiveTcl/lib 
-  <much output>
-  $ make
-  $ make install
+  Compiling Tclsee (javascript support)
+  -------------------------------------
 
-Modifying a Makefile template
------------------------------
+    When Hv3 is run, it tries to load package "Tclsee". If successful,
+    javascript support will be enabled. Tclsee is an extension developed
+    as part of Hv3 to provide access to the "Simple ECMAScript Engine" 
+    (SEE) library from Tcl scripts.
 
-There are two similar makefiles in the root directory of the source tree.
-"main.mk" is for linux, and "mingw.mk" is for Mingw/Msys on windows. Both
-require a handful of variables to be modified before they can be used.
-Instructions are in comments in either file.
+    The SEE library depends on the Boehm garbage-collector libary. To build
+    "Tclsee", the following third-party components are required:
+  
+      SEE:      http://www.adaptive-enterprises.com.au/~d/software/see/
+      Boehm GC: http://www.hpl.hp.com/personal/Hans_Boehm/gc/
+  
+    Libraries need to be built from these two packages (files libsee.a 
+    and libgc.a). Refer to the respective package documentation for 
+    details on how to do that. The SEE library should be configured
+    to use Boehm GC routines by default.
+  
+    Then, file "hv/hv3see.c" from the source distribution should be compiled
+    into a shared object linked with the two libraries above. The shared
+    object will contain the binary extension "Tclsee" (C init function
+    Tclsee_Init). 
+  
+    The template makefiles (linux-gcc.mk and mingw.mk) include a target
+    "tclsee" to build this package, complete with pkgIndex.tcl file. This
+    target requires configuration of makefile variables JSLIB, JSFLAGS and
+    JS_SHARED_LIB.
 
-1. If you're reading this you have already obtained the sources and they
-   are likely in a directory called "htmlwidget".
-2. Edit the appropriate makefile ("main.mk" or "mingw.mk").
-2. Create a new empty directory to build in.
-3. Cd into the new directory.
-5. Run "make".
-6. If everything worked, run "make install" (linux only).
+  
+  
+  Compiling hv3_polipo
+  --------------------
 
-The sequence of commands might look like this:
+    TODO
 
-  $ tar -xzf tkhtml-3.alpha1.tar.gz
-  $ ls -o htmlwidget/main.mk
-  -rw-r--r--  1 dan 4143 2005-07-10 19:45 htmlwidget/main.mk
-  $ vi htmlwidget/main.mk
-  $ mkdir bld
-  $ cd bld
-  $ make -f ../htmlwidget/main.mk
-  <much output>
-  $ make install
+
+
 

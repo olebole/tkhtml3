@@ -11,6 +11,9 @@
 # TCLLIB              Options to pass to CC to link with Tcl.
 # TOP                 Top of source tree (directory with this file).
 # MKSTARKIT           Command to transform a *.vfs directory to *.kit file.
+#
+# JSLIB               Options to pass to link with SEE and Boehm GC.
+# JS_SHARED_LIB       Name of javascript shared-library to build.
 # 
 
 CFLAGS += -I$(TCL)/include -I. -I$(TOP)/src/
@@ -119,6 +122,9 @@ hv3_img.vfs: binaries
 	if test -d $(TCL)/lib/*sqlite3*/ ; then \
 	  cp -R $(TCL)/lib/*sqlite3* ./hv3_img.vfs/lib ; \
 	fi
+	if test -d tclsee1.0/ ; then \
+	  cp -R tclsee1.0/ ./hv3_img.vfs/lib ; \
+	fi
 	cp $(HV3_POLIPO) ./hv3_img.vfs/
 	touch hv3_img.vfs
 
@@ -160,4 +166,31 @@ website: hv3_img.kit
 
 test: hwish
 	./hwish $(TOP)/tests/all.tcl
+
+
+#-----------------------------------------------------------------------
+# Targets to build the binary javascript extension (libtclsee.so) and
+# set up a package directory for it. Requires that the following 
+# variables are set:
+#
+#     JS_SHARED_LIB
+#     JSLIB
+#     JSFLAGS
+#
+# Building the target "tclsee" creates a directory "tclsee0.1" and
+# populates it with a pkgIndex.tcl and shared object file implementing
+# the "Tclsee" package.
+#
+tclsee: tclsee.o
+	mkdir -p tclsee0.1
+	$(MKSHLIB) tclsee.o $(JSLIB) -o $(JS_SHARED_LIB)
+	$(STRIP) $(JS_SHARED_LIB)
+	mv $(JS_SHARED_LIB) tclsee0.1
+	echo 'package ifneeded Tclsee 0.1 [list load [file join $$dir $(JS_SHARED_LIB)]]' > tclsee0.1/pkgIndex.tcl
+
+tclsee.o: $(TOP)/hv/hv3see.c
+	echo '$$(COMPILE) $(JSFLAGS) -c $< -o $@'
+	$(COMPILE) $(JSFLAGS) -c $< -o $@
+#
+#-----------------------------------------------------------------------
 
