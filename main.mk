@@ -122,8 +122,8 @@ hv3_img.vfs: binaries
 	if test -d $(TCL)/lib/*sqlite3*/ ; then \
 	  cp -R $(TCL)/lib/*sqlite3* ./hv3_img.vfs/lib ; \
 	fi
-	if test -d tclsee1.0/ ; then \
-	  cp -R tclsee1.0/ ./hv3_img.vfs/lib ; \
+	if test -d tclsee0.1/ ; then \
+	  cp -R tclsee0.1/ ./hv3_img.vfs/lib ; \
 	fi
 	cp $(HV3_POLIPO) ./hv3_img.vfs/
 	touch hv3_img.vfs

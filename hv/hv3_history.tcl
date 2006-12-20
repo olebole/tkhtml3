@@ -76,7 +76,6 @@ snit::type ::hv3::history_state {
 #
 # Options:
 #     -gotocmd
-#     -historymenu
 #     -backbutton
 #     -forwardbutton
 #
@@ -107,7 +106,6 @@ snit::type ::hv3::history {
   # Configuration options to attach this history object to a set of
   # widgets - back and forward buttons and a menu widget.
   #
-  option -historymenu   -default "" 
   option -backbutton    -default ""
   option -forwardbutton -default ""
   option -locationentry -default ""
@@ -295,46 +293,20 @@ snit::type ::hv3::history {
   method populatehistorymenu {} {
 
     # Handles for the four widgets this object is controlling.
-    set menu $options(-historymenu)
     set back $options(-backbutton)
     set forward $options(-forwardbutton)
     set locationentry $options(-locationentry)
 
     set myRadioVar $myStateIdx
-    if {$menu ne ""} {
-      $menu delete 0 end
-      $menu add command -label Back -accelerator (Alt-Left)
-      $menu add command -label Forward -accelerator (Alt-Right)
-      $menu add separator
-
-      set idx [expr [llength $myStateList] - 15]
-      if {$idx < 0} {set idx 0}
-      for {} {$idx < [llength $myStateList]} {incr idx} {
-        set state [lindex $myStateList $idx]
-
-        # Try to use the history-state "title" as the menu item label, 
-        # but if this is an empty string, fall back to the URI.
-        set caption [$state title]
-        if {$caption eq ""} {set caption [$state uri]}
-
-        $menu add radiobutton                       \
-          -label $caption                           \
-          -variable [myvar myRadioVar]              \
-          -value    $idx                            \
-          -command [mymethod gotohistory $idx]
-      }
-    }
 
     set backidx [expr $myStateIdx - 1]
     set backcmd [mymethod gotohistory $backidx]
     if {$backidx >= 0} {
         bind Hv3HotKeys <Alt-Left> $backcmd
         if {$back ne ""} { $back configure -state normal -command $backcmd }
-        if {$menu ne ""} { $menu entryconfigure Back -command $backcmd }
     } else {
         bind Hv3HotKeys <Alt-Left> ""
         if {$back ne ""} { $back configure -state disabled }
-        if {$menu ne ""} { $menu entryconfigure Back -state disabled }
     }
 
     set fwdidx [expr $myStateIdx + 1]
@@ -342,16 +314,53 @@ snit::type ::hv3::history {
     if {$fwdidx < [llength $myStateList]} {
         bind Hv3HotKeys <Alt-Right> $fwdcmd
         if {$forward ne ""} { $forward configure -state normal -command $fwdcmd}
-        if {$menu ne ""} { $menu entryconfigure Forward -command $fwdcmd }
     } else {
         bind Hv3HotKeys <Alt-Right> ""
         if {$forward ne ""} { $forward configure -state disabled }
-        if {$menu ne ""} { $menu entryconfigure Forward -state disabled }
     }
 
     if {$locationentry ne ""} { 
         $locationentry delete 0 end
         $locationentry insert 0 $myLocationVar
+    }
+  }
+
+  method populate_menu {menu} {
+    $menu delete 0 end
+
+    set backidx [expr $myStateIdx - 1]
+    $menu add command -label Back -accelerator (Alt-Left) -state disabled
+    if {$backidx >= 0} {
+      $menu entryconfigure end -command [mymethod gotohistory $backidx]
+      $menu entryconfigure end -state normal
+    }
+
+    set fwdidx [expr $myStateIdx + 1]
+    $menu add command -label Forward -accelerator (Alt-Right) -state disabled
+    if {$fwdidx < [llength $myStateList]} {
+      $menu entryconfigure end -command [mymethod gotohistory $fwdidx]
+      $menu entryconfigure end -state normal
+    }
+
+    $menu add separator
+
+    set myRadioVar $myStateIdx
+
+    set idx [expr [llength $myStateList] - 15]
+    if {$idx < 0} {set idx 0}
+    for {} {$idx < [llength $myStateList]} {incr idx} {
+      set state [lindex $myStateList $idx]
+
+      # Try to use the history-state "title" as the menu item label, 
+      # but if this is an empty string, fall back to the URI.
+      set caption [$state title]
+      if {$caption eq ""} {set caption [$state uri]}
+
+      $menu add radiobutton                       \
+        -label $caption                           \
+        -variable [myvar myRadioVar]              \
+        -value    $idx                            \
+        -command [mymethod gotohistory $idx]
     }
   }
 }

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.106 2006/12/19 11:46:08 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.107 2006/12/20 09:20:52 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -264,7 +264,17 @@ snit::widget ::hv3::browser_frame {
       }
     }
 
-    $m add checkbutton -label "Hide Gui" -var [$::hv3::G(config) hideguivar]
+    $::hv3::G(config) populate_hidegui_entry $m
+    $m add separator
+
+    # Add the "File", "Search", "View" and "Debug" menus.
+    foreach sub [list File Search View Debug History] {
+      catch {
+        set menu_widget $m.[string tolower $sub]
+        gui_populate_menu $sub [::hv3::menu $menu_widget]
+      }
+      $m add cascade -label $sub -menu $menu_widget -underline 0
+    }
 
     tk_popup $m $X $Y
   }
@@ -605,9 +615,10 @@ snit::widget ::hv3::browser_toplevel {
     $myHistory reload
   }
 
+  delegate method populate_history_menu to myHistory as populate_menu
+
   option -stopbutton -default "" -configuremethod Configurestopbutton
 
-  delegate option -historymenu   to myHistory
   delegate option -backbutton    to myHistory
   delegate option -forwardbutton to myHistory
   delegate option -locationentry to myHistory
@@ -623,133 +634,186 @@ snit::widget ::hv3::browser_toplevel {
 
 # ::hv3::config
 #
-#     An instance of this class manages the application "View" menu, which
-#     contains all the runtime configuration options (font size, image loading
-#     etc.).
+#     An instance of this class manages the application "View" menu, 
+#     which contains all the runtime configuration options (font size, 
+#     image loading etc.).
 #
 snit::type ::hv3::config {
 
-  variable myGuiFontSize 11
-
-  variable myFontTable [list 8 9 10 11 13 15 17]
-  variable myForceFontMetrics 1
-  variable myEnableImages 1
-  variable myDoubleBuffer 0
-  variable myMenu ""
-
-  variable myFontScale 1.0
-  variable myZoom 1.0
-
-  variable myEnableScripting 0
-
-  variable myHideGui 0
-
-  method set_zoom {newval}      { set myZoom $newval }
-  method set_fontscale {newval} { set myFontScale $newval }
-  method set_guifont {newval}   { set myGuiFontSize $newval }
+  foreach {opt def type} [list \
+    -doublebuffer     0                         Boolean \
+    -enableimages     1                         Boolean \
+    -forcefontmetrics 1                         Boolean \
+    -hidegui          0                         Boolean \
+    -zoom             1.0                       Double  \
+    -fontscale        1.0                       Double  \
+    -guifont          11                        Integer \
+    -fonttable        [list 8 9 10 11 13 15 17] SevenIntegers \
+  ] {
+    option $opt -default $def -validatemethod $type -configuremethod SetOption
+  }
   
-  constructor {menu_path} {
-    set myMenu $menu_path
-    ::hv3::menu $myMenu
+  constructor {args} {
+    if {$::tcl_platform(platform) eq "windows"} {
+      set options(-doublebuffer) 1
+    }
+    $self configurelist $args
+  }
+
+  method populate_menu {path} {
+
+    # Add the 'Gui Font (size)' menu
+    ::hv3::menu ${path}.guifont
+    $self PopulateRadioMenu ${path}.guifont -guifont [list \
+        8      "8 pts" \
+        9      "9 pts" \
+        10    "10 pts" \
+        11    "11 pts" \
+        12    "12 pts" \
+        14    "14 pts" \
+        16    "16 pts" \
+    ]
+    $path add cascade -label {Gui Font} -menu ${path}.guifont
 
     # Add the 'Zoom' menu
-    create_zoom_menu ${myMenu}.zoom [myvar myZoom]
-    $myMenu add cascade -label {Zoom} -menu ${myMenu}.zoom
-
-    # Add the 'Gui Font' menu
-    create_guifont_menu ${myMenu}.font3 [myvar myGuiFontSize]
-    $myMenu add cascade -label {GUI Font} -menu ${myMenu}.font3
-
-    # Add the 'Font Size Table' menu
-    create_fontsize_menu ${myMenu}.font [myvar myFontTable]
-    $myMenu add cascade -label {Browser Font Size Table} -menu ${myMenu}.font
+    ::hv3::menu ${path}.zoom
+    $self PopulateRadioMenu ${path}.zoom -zoom [list \
+        0.25    25% \
+        0.5     50% \
+        0.75    75% \
+        0.87    87% \
+        1.0    100% \
+        1.131  113% \
+        1.25   125% \
+        1.5    150% \
+        2.0    200% \
+    ]
+    $path add cascade -label {Browser Zoom} -menu ${path}.zoom
 
     # Add the 'Font Scale' menu
-    create_fontscale_menu ${myMenu}.font2 [myvar myFontScale]
-    $myMenu add cascade -label {Browser Font Scale} -menu ${myMenu}.font2
+    ::hv3::menu ${path}.fontscale
+    $self PopulateRadioMenu ${path}.fontscale -fontscale [list \
+        0.8     80% \
+        0.9     90% \
+        1.0    100% \
+        1.2    120% \
+        1.4    140% \
+        2.0    200% \
+    ]
+    $path add cascade -label {Browser Font Scale} -menu ${path}.fontscale
+      
+    # Add the 'Font Size Table' menu
+    set fonttable [::hv3::menu ${path}.fonttable]
+    $self PopulateRadioMenu $fonttable -fonttable [list \
+        {7 8 9 10 12 14 16}    "Normal"            \
+        {8 9 10 11 13 15 17}   "Medium"            \
+        {9 10 11 12 14 16 18}  "Large"             \
+        {11 12 13 14 16 18 20} "Very Large"        \
+        {13 14 15 16 18 20 22} "Extra Large"       \
+        {15 16 17 18 20 22 24} "Recklessly Large"  \
+    ]
+    $path add cascade -label {Browser Font Size Table} -menu $fonttable
 
-    $myMenu add checkbutton \
-        -label {Force CSS Font Metrics}                 \
-        -variable [myvar myForceFontMetrics]            
-
-    $myMenu add checkbutton \
-        -label {Enable Images} \
-        -variable [myvar myEnableImages]
-
-    if {$::tcl_platform(platform) eq "windows"} {
-      set myDoubleBuffer 1
+    foreach {option label} [list \
+        -doublebuffer     "Double-buffer" \
+        -enableimages     "Enable Images" \
+        -forcefontmetrics "Force CSS Font Metrics" \
+        -hidegui          "Hide Gui" \
+    ] {
+      set var [myvar options($option)]
+      set cmd [mymethod Reconfigure $option]
+      $path add checkbutton -label $label -variable $var -command $cmd
     }
-    $myMenu add checkbutton \
-        -label {Double-buffer} \
-        -variable [myvar myDoubleBuffer]
 
-    $myMenu add checkbutton \
+    $path add checkbutton \
         -label {Enable Ecmascript} \
         -variable ::hv3::dom::use_scripting_option
     if {![::hv3::dom::have_scripting]} {
-      $myMenu entryconfigure end -state disabled
-    }
-    $myMenu add checkbutton            \
-        -label {Hide Gui}              \
-        -variable [myvar myHideGui]
-
-    trace add variable myGuiFontSize      write [mymethod ConfigureGui]
-    trace add variable myFontTable        write [mymethod ConfigureCurrent]
-    trace add variable myFontScale        write [mymethod ConfigureCurrent]
-    trace add variable myForceFontMetrics write [mymethod ConfigureCurrent]
-    trace add variable myEnableImages     write [mymethod ConfigureCurrent]
-    trace add variable myDoubleBuffer     write [mymethod ConfigureCurrent]
-    trace add variable myZoom             write [mymethod ConfigureCurrent]
-
-    trace add variable myHideGui          write [mymethod ConfigureHideGui]
-  }
-
-  method ConfigureHideGui {name1 name2 op} {
-    if {$myHideGui} {
-      . configure -menu ""
-      pack forget .status
-      pack forget .toolbar
-    } else {
-      . configure -menu .m
-      pack .status -after .notebook -fill x -side bottom
-      pack .toolbar -before .notebook -fill x -side top
+      $path entryconfigure end -state disabled
     }
   }
+
+  method populate_hidegui_entry {path} {
+    $path add checkbutton -label "Hide Gui" -variable [myvar options(-hidegui)]
+    $path entryconfigure end -command [mymethod Reconfigure -hidegui]
+  }
+
+  method PopulateRadioMenu {path option config} {
+    foreach {val label} $config {
+      $path add radiobutton                      \
+        -variable [myvar options($option)]       \
+        -value $val                              \
+        -command [mymethod Reconfigure $option]  \
+        -label $label } }
+
+  method Reconfigure {option} {
+    $self configure $option $options($option)
+  }
+
+  method Boolean {option value} {
+    if {![string is boolean $value]} { error "Bad boolean value: $value" }
+  }
+  method Double {option value} {
+    if {![string is double $value]} { error "Bad double value: $value" }
+  }
+  method Integer {option value} {
+    if {![string is integer $value]} { error "Bad integer value: $value" }
+  }
+  method SevenIntegers {option value} {
+    set len [llength $value]
+    if {$len != 7} { error "Bad seven-integers value: $value" }
+    foreach elem $value {
+      if {![string is integer $elem]} { 
+        error "Bad seven-integers value: $value"
+      }
+    }
+  }
+
+  method SetOption {option value} {
+    set options($option) $value
+
+    switch -- $option {
+      -hidegui {
+        if {$value} {
+          . configure -menu ""
+          pack forget .status
+          pack forget .toolbar
+        } else {
+          . configure -menu .m
+          pack .status -after .notebook -fill x -side bottom
+          pack .toolbar -before .notebook -fill x -side top
+        }
+      }
+      -guifont {
+        ::hv3::SetFont [list -size $options(-guifont)]
+      }
+      default {
+        $self configurebrowser [.notebook current]
+      } 
+    }
+  }
+
   method hideguivar {} { return [myvar myHideGui] }
 
-  method ConfigureGui {name1 name2 op} {
-    ::hv3::SetFont [list -size $myGuiFontSize]
-  }
-
-  method ConfigureCurrent {name1 name2 op} {
-    $self configurebrowser [.notebook current]
-  }
-
   method configurebrowser {b} {
-
-    foreach {option var} [list                      \
-        -fonttable myFontTable                      \
-        -fontscale myFontScale                      \
-        -zoom      myZoom                           \
-        -forcefontmetrics myForceFontMetrics        \
-        -enableimages myEnableImages                \
-        -doublebuffer myDoubleBuffer                \
+    foreach {option var} [list                       \
+        -fonttable        options(-fonttable)        \
+        -fontscale        options(-fontscale)        \
+        -zoom             options(-zoom)             \
+        -forcefontmetrics options(-forcefontmetrics) \
+        -enableimages     options(-enableimages)     \
+        -doublebuffer     options(-doublebuffer)     \
     ] {
       if {[$b cget $option] ne [set $var]} {
         $b configure $option [set $var]
       }
     }
   }
-
-  # Return the created menu widget
-  method menu {} {
-    return $myMenu
-  }
 }
 
 snit::type ::hv3::search {
 
-  variable myHotKeys [list  \
+  typevariable SearchHotKeys -array [list  \
       {Google}    g         \
       {Tcl Wiki}  w         \
   ]
@@ -766,41 +830,35 @@ snit::type ::hv3::search {
   ]
   variable myDefaultEngine Google
 
-  variable myMenu
-  constructor {menu_path} {
-    set myMenu $menu_path
-    ::hv3::menu $myMenu
-
-    set findcmd [list gui_current Find] 
-    $myMenu add command \
-        -label {Find in page...} -command $findcmd -accelerator (Ctrl-F)
+  constructor {} {
     bind Hv3HotKeys <Control-f>  [list gui_current Find]
     bind Hv3HotKeys <Control-F>  [list gui_current Find]
-
-    array set hotkeys $myHotKeys
-
-    foreach {label uri} $mySearchEngines {
-
-      if {[string match ---* $label]} {
-        $myMenu add separator
-        continue
-      }
-
-      $myMenu add command -label $label -command [mymethod search $label]
-
-      if {[info exists hotkeys($label)]} {
-        set lc $hotkeys($label)
-        set uc [string toupper $hotkeys($label)]
-        $myMenu entryconfigure end -accelerator "(Ctrl-$uc)"
-        bind Hv3HotKeys <Control-$lc> [mymethod search $label]
-        bind Hv3HotKeys <Control-$uc> [mymethod search $label]
-      }
+    foreach {label} [array names SearchHotKeys] {
+      set lc $SearchHotKeys($label)
+      set uc [string toupper $SearchHotKeys($label)]
+      bind Hv3HotKeys <Control-$lc> [mymethod search $label]
+      bind Hv3HotKeys <Control-$uc> [mymethod search $label]
     }
   }
 
-  # Return the created menu widget
-  method menu {} {
-    return $myMenu
+  method populate_menu {path} {
+    set cmd [list gui_current Find] 
+    set acc (Ctrl-F)
+    $path add command -label {Find in page...} -command $cmd -accelerator $acc
+
+    foreach {label uri} $mySearchEngines {
+      if {[string match ---* $label]} {
+        $path add separator
+        continue
+      }
+
+      $path add command -label $label -command [mymethod search $label]
+
+      if {[info exists SearchHotKeys($label)]} {
+        set acc "(Ctrl-[string toupper $SearchHotKeys($label)])"
+        $path entryconfigure end -accelerator $acc
+      }
+    }
   }
 
   method search {{default ""}} {
@@ -836,6 +894,98 @@ snit::type ::hv3::search {
 
     ${fdname}.entry insert 0 $initval
     focus ${fdname}.entry
+  }
+}
+
+snit::type ::hv3::file_menu {
+
+  variable MENU
+
+  constructor {} {
+    set MENU [list \
+      "Open File..."  [list gui_openfile $::hv3::G(notebook)]           o  \
+      "Open Tab"      [list $::hv3::G(notebook) add]                    t  \
+      "Open Location" [list gui_openlocation $::hv3::G(location_entry)] l  \
+      "-----"         ""                                                "" \
+      "Downloads"     [list ::hv3::the_download_manager show]           "" \
+      "-----"         ""                                                "" \
+      "Close Tab"     [list $::hv3::G(notebook) close]                  "" \
+      "Exit"          exit                                              q  \
+    ]
+  }
+
+  method populate_menu {path} {
+    $path delete 0 end
+
+    foreach {label command key} $MENU {
+      if {[string match ---* $label]} {
+        $path add separator
+        continue
+      }
+      $path add command -label $label -command $command 
+      if {$key ne ""} {
+        set acc "(Ctrl-[string toupper $key])"
+        $path entryconfigure end -accelerator $acc
+      }
+    }
+
+    if {[llength [$::hv3::G(notebook) tabs]] < 2} {
+      $path entryconfigure "Close Tab" -state disabled
+    }
+  }
+
+  method setup_hotkeys {} {
+    foreach {label command key} $MENU {
+      if {$key ne ""} {
+        set uc [string toupper $key]
+        bind Hv3HotKeys <Control-$key> $command
+        bind Hv3HotKeys <Control-$uc> $command
+      }
+    }
+  }
+}
+
+snit::type ::hv3::debug_menu {
+
+  variable MENU
+
+  constructor {} {
+    set MENU [list \
+      "Cookies"       [list $::hv3::G(notebook) add cookies:]           "" \
+      "About"         [list $::hv3::G(notebook) add about:]             "" \
+      "Polipo..."     ::hv3::polipo::popup                              "" \
+      "-----"         ""                                                "" \
+      "Events..."     [list gui_log_window $::hv3::G(notebook)]         "" \
+      "Browser..."    [list gui_current browse]                         "" \
+      "Javascript..." [list gui_current javascriptlog]                  j \
+      "-----"         ""                                                "" \
+      "firefox -remote" gui_firefox_remote                              "" \
+    ]
+  }
+
+  method populate_menu {path} {
+    $path delete 0 end
+    foreach {label command key} $MENU {
+      if {[string match ---* $label]} {
+        $path add separator
+        continue
+      }
+      $path add command -label $label -command $command 
+      if {$key ne ""} {
+        set acc "(Ctrl-[string toupper $key])"
+        $path entryconfigure end -accelerator $acc
+      }
+    }
+  }
+
+  method setup_hotkeys {} {
+    foreach {label command key} $MENU {
+      if {$key ne ""} {
+        set uc [string toupper $key]
+        bind Hv3HotKeys <Control-$key> $command
+        bind Hv3HotKeys <Control-$uc> $command
+      }
+    }
   }
 }
 
@@ -973,164 +1123,66 @@ proc gui_load_tkcon {} {
   return ""
 }
 
-# A helper function for gui_menu.
-#
-# Create a menu widget named $menupath and populate it with entries
-# to set the font-size table of the hv3 widget at $hv3path to various
-# values (i.e. normal, large etc.).
-#
-# Return the name of the new menu widget.
-#
-proc create_fontsize_menu {menupath varname} {
-  ::hv3::menu $menupath
-  foreach {label table} [list \
-    Normal {7 8 9 10 12 14 16} \
-    Medium {8 9 10 11 13 15 17} \
-    Large  {9 10 11 12 14 16 18} \
-    {Very Large}  {11 12 13 14 16 18 20} \
-    {Extra Large}  {13 14 15 16 18 20 22} \
-    {Recklessly Large}  {15 16 17 18 20 22 24}
-  ] {
-    $menupath add radiobutton       \
-      -variable $varname            \
-      -value $table                 \
-      -command [list gui_setfontsize $varname] \
-      -label $label
-  }
-  set $varname [list 8 9 10 11 13 15 17]
-  return $menupath
-}
-
-proc create_zoom_menu {menupath varname} {
-  ::hv3::menu $menupath
-  foreach val [list 0.25 0.5 0.75 0.87 1.0 1.131 1.25 1.5 2.0] {
-    $menupath add radiobutton                  \
-      -variable $varname                       \
-      -value $val                              \
-      -label [format "%d%%" [expr int($val * 100)]]
-  }
-  set $varname 1.0
-  return $menupath
-}
-
-proc create_guifont_menu {menupath varname} {
-  ::hv3::menu $menupath
-  foreach val [list 8 9 10 11 12 14 16] {
-    $menupath add radiobutton                  \
-      -variable $varname                       \
-      -value $val                              \
-      -label "$val pts"
-  }
-  return $menupath
-}
-
-proc create_fontscale_menu {menupath varname} {
-  ::hv3::menu $menupath
-  foreach val [list 0.8 0.9 1.0 1.2 1.4 2.0] {
-    $menupath add radiobutton                  \
-      -variable $varname                       \
-      -value $val                              \
-      -label [format "%d%%" [expr int($val * 100)]]
-  }
-  set $varname 1.0
-  return $menupath
-}
-
-# Invoked when an entry in the font-size menu is selected.
-#
-proc gui_setfontsize {varname} {
-  gui_current configure -fonttable [set $varname]
-}
-
-proc gui_setfontscale {varname} {
-  gui_current configure -fontscale [set $varname]
-}
-
-# Invoked when an entry in the font-size menu is selected.
-#
-proc gui_setforcefontmetrics {varname} {
-  gui_current configure -forcefontmetrics [set $varname]
-}
-
 proc gui_openlocation {location_entry} {
   $location_entry selection range 0 end
   $location_entry OpenDropdown *
   focus ${location_entry}.entry
 }
 
-# gui_menu
-#
+proc gui_populate_menu {eMenu menu_widget} {
+  switch -- [string tolower $eMenu] {
+    file {
+      set cmd [list $::hv3::G(file_menu) populate_menu $menu_widget]
+      $menu_widget configure -postcommand $cmd
+    }
+
+    search {
+      # The "View" menu is controlled by the single ::hv3::config object
+      # created within this program.
+      $::hv3::G(search) populate_menu $menu_widget
+    }
+
+    view {
+      # The "View" menu is controlled by the single ::hv3::config object
+      # created within this program.
+      $::hv3::G(config) populate_menu $menu_widget
+    }
+
+    debug {
+      $::hv3::G(debug_menu) populate_menu $menu_widget
+    }
+
+    history {
+      set cmd [list gui_current populate_history_menu $menu_widget]
+      $menu_widget configure -postcommand $cmd
+    }
+
+    default {
+      error "gui_populate_menu: No such menu: $eMenu"
+    }
+  }
+}
+
 proc gui_menu {widget_array} {
   upvar $widget_array G
 
   # Attach a menu widget - .m - to the toplevel application window.
   . config -menu [::hv3::menu .m]
 
-  # Add the 'File menu'
-  .m add cascade -label {File} -menu [::hv3::menu .m.file] -underline 0
-  foreach {label command key} [list \
-      "Open File..."  [list gui_openfile $G(notebook)]           o \
-      "Open Tab"      [list $G(notebook) add]                    t \
-      "Open Location" [list gui_openlocation $G(location_entry)] l \
-  ] {
-    set uc [string toupper $key]
-    .m.file add command -label $label -command $command -accelerator (Ctrl-$uc)
-    bind Hv3HotKeys <Control-$key> $command
-    bind Hv3HotKeys <Control-$uc> $command
+  set G(file_menu)  [::hv3::file_menu %AUTO%]
+  set G(debug_menu) [::hv3::debug_menu %AUTO%]
+  set G(search)     [::hv3::search %AUTO%]
+  set G(config)     [::hv3::config %AUTO%]
+
+  # Add the "File", "Search" and "View" menus.
+  foreach m [list File Search View Debug History] {
+    set menu_widget .m.[string tolower $m]
+    gui_populate_menu $m [::hv3::menu $menu_widget]
+    .m add cascade -label $m -menu $menu_widget -underline 0
   }
 
-  .m.file add separator
-  .m.file add command -label Downloads -command [
-    list ::hv3::the_download_manager show
-  ]
-
-  # Add a separator the "Close Tab" command and the inevitable 
-  # Exit item to the File menu.
-  .m.file add separator
-  .m.file add command                      \
-      -label "Close Tab"                   \
-      -command [list $G(notebook) close]
-  set cmd [list .m.file entryconfigure [.m.file index end] -state]
-  $G(notebook) configure -delstatecmd $cmd
-  .m.file add command -label Exit -accelerator (Ctrl-Q) -command exit
-  bind Hv3HotKeys <Control-q>  exit
-  bind Hv3HotKeys <Control-Q>  exit
-
-  # Add the 'Search' menu
-  set G(search) [::hv3::search %AUTO% .m.search]
-  .m add cascade -label {Search} -menu [$G(search) menu] -underline 0
-
-  # Add the 'Config' menu
-  set G(config) [::hv3::config %AUTO% .m.config]
-  .m add cascade -label {View} -menu [$G(config) menu] -underline 0
-
-  # The 'Debug' menu (contains the little tools used to debug hv3/tkhtml3).
-  .m add cascade -label Debug -menu [::hv3::menu .m.tools] -underline 0
-
-  .m.tools add command -label Cookies -command [list $G(notebook) add cookies:]
-  .m.tools add command -label Version -command [list $G(notebook) add about:]
-  .m.tools add command -label Polipo -command ::hv3::polipo::popup
-  catch {
-    # If the [gui_load_tkcon] proc cannot find the Tkcon package, it
-    # throws an exception. No menu item will be added in this case.
-    gui_load_tkcon
-    .m.tools add command -label Tkcon -command {tkcon show}
-  }
-  .m.tools add separator
-  .m.tools add command -label Events -command [list gui_log_window $G(notebook)]
-  .m.tools add command -label Browser -command [list gui_current browse]
-  .m.tools add command -label Javascript -accelerator (Ctrl-J) -command [
-    list gui_current javascriptlog
-  ]
-  bind Hv3HotKeys <Control-j>  [list gui_current javascriptlog]
-  bind Hv3HotKeys <Control-J>  [list gui_current javascriptlog]
-
-  .m.tools add separator
-  .m.tools add command -label "firefox -remote" -command gui_firefox_remote
-
-  # Add the 'History' menu
-  .m add cascade -label {History} -menu [::hv3::menu .m.history] -underline 0
-  set G(history_menu) .m.history
+  $G(file_menu) setup_hotkeys
+  $G(debug_menu) setup_hotkeys
 }
 #--------------------------------------------------------------------------
 
@@ -1152,7 +1204,6 @@ proc gui_switch {new} {
   # structures in the corresponding ::hv3::history object).
   #
   foreach browser [.notebook tabs] {
-    $browser configure -historymenu   ""
     $browser configure -backbutton    ""
     $browser configure -stopbutton    ""
     $browser configure -forwardbutton ""
@@ -1162,7 +1213,6 @@ proc gui_switch {new} {
   # Configure the new current tab to control the history controls.
   #
   set new [.notebook current]
-  $new configure -historymenu   $G(history_menu)
   $new configure -backbutton    $G(back_button)
   $new configure -stopbutton    $G(stop_button)
   $new configure -forwardbutton $G(forward_button)

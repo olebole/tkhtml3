@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.37 2006/12/17 12:41:07 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.38 2006/12/20 09:20:52 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
@@ -587,7 +587,6 @@ snit::widget ::hv3::pretend_tile_notebook {
 #     -newcmd
 #     -switchcmd
 #     -delcmd
-#     -delstatecmd
 #
 # WIDGET COMMAND
 #
@@ -603,7 +602,6 @@ snit::widget ::hv3::notebook {
   option -newcmd      -default ""
   option -switchcmd   -default ""
   option -delcmd      -default ""
-  option -delstatecmd -default ""
 
   variable myNextId 0
   variable myPendingTitle ""
@@ -642,7 +640,6 @@ snit::widget ::hv3::notebook {
         ${win}.notebook add $tab1
         ${win}.notebook tab $tab1 -text $text1
       }
-      eval [linsert $options(-delstatecmd) end normal]
     } else {
       if {$myOnlyTab eq ""} {
         set myOnlyTab [${win} current]
@@ -655,7 +652,6 @@ snit::widget ::hv3::notebook {
         raise $myOnlyTab
         place $myOnlyTab -relheight 1.0 -relwidth 1.0
       }
-      eval [linsert $options(-delstatecmd) end disabled]
     }
   }
 
