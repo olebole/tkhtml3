@@ -406,6 +406,21 @@ snit::widget ::hv3::locationentry {
   constructor {args} {
     set myEntry [::hv3::entry ${win}.entry]
     $myEntry configure -background white
+
+    # Compatibility binding for other browser users: Double-clicking on the
+    # text in the location bar selects the entire entry widget, not just a
+    # single word. Users like this because they can double-click on the
+    # location toolbar, then type a new URI or copy the entire current
+    # URI to the clipboard.
+    #
+    # Double-click followed by dragging the mouse still selects text
+    # by word (standard Tk entry widget behaviour).
+    #
+    # Todo: Not completely sold on this idea... Simply removing the 
+    # following two lines is safe to do if required.
+    #
+    set cmd [list after idle [list $myEntry selection range 0 end]]
+    bind $myEntry <Double-1> $cmd
  
     set myButtonImage [image create bitmap -data {
       #define v_width 8
