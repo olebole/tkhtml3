@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.180 2006/12/13 02:13:20 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.181 2006/12/21 03:58:53 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -3150,11 +3150,15 @@ layoutNodeCmd(pTree, x, y)
  *
  * HtmlLayoutNode --
  *
- *     <widget> node ??-index? X Y?
+ *     <widget> node
+ *     <widget> node X Y
+ *     <widget> node -index X Y
  *
- *     Return the Tcl handle for the document node that lies at coordinates
- *     (X, Y), relative to the viewport. Or, if no node populates the given
- *     point, return an empty string.
+ *     Return the Tcl handle for a document node. The first form returns
+ *     a handle for the document root node.
+ *
+ *     The second form returns a list of zero or more nodes.
+ *
  *
  * Results:
  *     None.

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.37 2006/11/27 05:36:29 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.38 2006/12/21 03:58:53 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd script used with 
@@ -231,7 +231,7 @@ snit::type ::hv3::protocol {
   method SSocketProxyReady {fd downloadHandle} {
     set str [gets $fd line]
     if {$line ne ""} {
-      if {! [regexp {^HTTP/.* 200} $line]} { 
+      if {! [regexp {^HTTP/.* 200} $line]} {
         puts "ERRRORR!: $line"
         close $fd
         return
@@ -554,6 +554,17 @@ snit::type ::hv3::filedownload {
   }
 }
 
+# ::hv3::downloadmanager
+#
+# SYNOPSIS
+#
+#     set obj [::hv3::downloadmanager %AUTO%]
+#
+#     $obj show
+#     $obj manage FILE-DOWNLOAD
+#
+#     destroy $obj
+#
 snit::type ::hv3::downloadmanager {
   variable myDownloads [list]
   variable myHv3List [list]
@@ -565,6 +576,85 @@ snit::type ::hv3::downloadmanager {
     foreach hv3 $myHv3List {
       $hv3 goto download:
     }
+  }
+
+  # This is a helper proc for method [savehandle] to extract any
+  # filename-parameter from the value of an HTTP Content-Disposition
+  # header. If one exists, the value of the filename parameter is
+  # returned. Otherwise, an empty string.
+  # 
+  # Refer to RFC1806 for the complete format of a Content-Disposition 
+  # header. An example is:
+  #
+  #     {inline ; filename="src.tar.gz"}
+  #
+  proc ParseContentDisposition {value} {
+    set tokens [::hv3::string::tokenise $value]
+
+    set filename ""
+    for {set ii 0} {$ii < [llength $tokens]} {incr ii} {
+      set t [lindex $tokens $ii]
+      set t2 [lindex $tokens [expr $ii+1]]
+
+      if {[string match -nocase $t "filename"] && $t2 eq "="} {
+        set filename [lindex $tokens [expr $ii+2]]
+        set filename [::hv3::string::dequote $filename]
+        break
+      }
+    }
+
+    return $filename
+  }
+
+  # Activate the download manager to save the resource targeted by the
+  # ::hv3::download passed as an argument ($handle) to the local 
+  # file-system. It is the responsbility of the caller to configure 
+  # the download-handle and pass it to the protocol object. The second
+  # argument, $data, contains an initial segment of the resource that has
+  # already been downloaded. 
+  #
+  method savehandle {handle data} {
+
+    # Create a GUI to handle this download
+    set dler [::hv3::filedownload %AUTO%                \
+        -source    [$handle cget -uri]                  \
+        -cancelcmd [list catch [list $handle fail]]     \
+    ]
+    ::hv3::the_download_manager show
+
+    # Redirect the -incrscript and -finscript commands to the download GUI.
+    $handle configure -finscript  [list $dler finish $handle]
+    $handle configure -incrscript [list $dler append $handle]
+    $dler append $handle $data
+
+    # Figure out a default file-name to suggest to the user. This
+    # is one of the following (in order of preference):
+    #
+    # 1. The "filename" field from a Content-Disposition header. The
+    #    content disposition header is described in RFC 1806 (and 
+    #    later RFC 2183). A Content-Disposition header looks like
+    #    this:
+    #
+    # 2. By extracting the tail of the URI.
+    #
+    set suggested ""
+    foreach {key value} [$handle cget -header] {
+      if {[string equal -nocase $key Content-Disposition]} {
+        set suggested [ParseContentDisposition $value]
+      }
+    }
+    if {$suggested eq ""} {
+      regexp {/([^/]*)$} [$handle cget -uri] -> suggested
+    }
+
+    # Pop up a GUI to select a "Save as..." filename. Schedule this as 
+    # a background job to avoid any recursive entry to our event handles.
+    set cmd [subst -nocommands {
+      $dler set_destination [file normal [
+          tk_getSaveFile -initialfile {$suggested}
+      ]]
+    }]
+    after idle $cmd
   }
 
   method CheckGuiList {} {

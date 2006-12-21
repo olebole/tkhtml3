@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.3 2006/11/25 13:10:52 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.4 2006/12/21 03:58:53 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file contains the implementation of two types used by hv3:
@@ -73,7 +73,6 @@ snit::type ::hv3::download {
   #
   option -incrscript   -default ""
   option -finscript    -default ""
-  option -failscript   -default ""
 
 
   # END OF OPTIONS

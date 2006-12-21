@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.107 2006/12/20 09:20:52 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.108 2006/12/21 03:58:53 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -33,6 +33,7 @@ source [sourcefile hv3_polipo.tcl]
 source [sourcefile hv3_icons.tcl]
 source [sourcefile hv3_history.tcl]
 source [sourcefile hv3_db.tcl]
+source [sourcefile hv3_string.tcl]
 
 #--------------------------------------------------------------------------
 # Widget ::hv3::browser_frame
@@ -89,7 +90,8 @@ snit::widget ::hv3::browser_frame {
     ::hv3::the_visited_db init $myHv3
 
     catch {$myHv3 configure -fonttable $::hv3::fontsize_table}
-    $myHv3 configure -downloadcmd [list $myBrowser savehandle]
+    # $myHv3 configure -downloadcmd [list $myBrowser savehandle]
+    $myHv3 configure -downloadcmd [list ::hv3::the_download_manager savehandle]
 
     # Create bindings for motion, right-click and middle-click.
     bind $myHv3 <Motion> +[mymethod motion %x %y]
@@ -467,43 +469,13 @@ snit::widget ::hv3::browser_toplevel {
   method saveuri {uri} {
     set handle [::hv3::download %AUTO%              \
         -uri         $uri                           \
-        -mimetype    application/gzip
+        -mimetype    application/gzip               \
     ]
-    $self savehandle $handle ""
+    $handle configure \
+        -incrscript [list ::hv3::the_download_manager savehandle $handle] \
+        -finscript  [list ::hv3::the_download_manager savehandle $handle]
+
     $myProtocol requestcmd $handle
-  }
-
-  # Activate the download manager to save the resource targeted by the
-  # ::hv3::download passed as an argument ($handle) to the local file-system.
-  # It is the responsbility of the caller to configure the download-handle
-  # and pass it to the protocol object. The second argument, $data, 
-  # contains an initial segment of the resource that has already been
-  # downloaded. 
-  #
-  method savehandle {handle data} {
-
-    # Create a GUI to handle this download
-    set dler [::hv3::filedownload %AUTO%                \
-        -source    [$handle cget -uri]                  \
-        -cancelcmd [list catch [list $handle fail]]     \
-    ]
-    ::hv3::the_download_manager show
-
-    # Redirect the -incrscript and -finscript commands to the download GUI.
-    $handle configure -finscript  [list $dler finish $handle]
-    $handle configure -incrscript [list $dler append $handle]
-    $dler append $handle $data
-
-    # Pop up a GUI to select a "Save as..." filename. Schedule this as 
-    # a background job to avoid any recursive entry to our event handles.
-    set suggested ""
-    regexp {/([^/]*)$} [$handle cget -uri] dummy suggested
-    set cmd [subst -nocommands {
-      $dler set_destination [file normal [
-          tk_getSaveFile -initialfile {$suggested}
-      ]]
-    }]
-    after idle $cmd
   }
 
   # Interface used by code in class ::hv3::browser_frame for frame management.
@@ -662,6 +634,7 @@ snit::type ::hv3::config {
 
   method populate_menu {path} {
 
+
     # Add the 'Gui Font (size)' menu
     ::hv3::menu ${path}.guifont
     $self PopulateRadioMenu ${path}.guifont -guifont [list \
@@ -674,6 +647,9 @@ snit::type ::hv3::config {
         16    "16 pts" \
     ]
     $path add cascade -label {Gui Font} -menu ${path}.guifont
+
+    $self populate_hidegui_entry $path
+    $path add separator
 
     # Add the 'Zoom' menu
     ::hv3::menu ${path}.zoom
@@ -715,18 +691,18 @@ snit::type ::hv3::config {
     $path add cascade -label {Browser Font Size Table} -menu $fonttable
 
     foreach {option label} [list \
-        -doublebuffer     "Double-buffer" \
-        -enableimages     "Enable Images" \
         -forcefontmetrics "Force CSS Font Metrics" \
-        -hidegui          "Hide Gui" \
+        -enableimages     "Enable Images" \
+        -doublebuffer     "Double-buffer" \
     ] {
       set var [myvar options($option)]
       set cmd [mymethod Reconfigure $option]
       $path add checkbutton -label $label -variable $var -command $cmd
     }
 
+    $path add separator
     $path add checkbutton \
-        -label {Enable Ecmascript} \
+        -label {Enable ECMAscript} \
         -variable ::hv3::dom::use_scripting_option
     if {![::hv3::dom::have_scripting]} {
       $path entryconfigure end -state disabled
@@ -792,8 +768,6 @@ snit::type ::hv3::config {
       } 
     }
   }
-
-  method hideguivar {} { return [myvar myHideGui] }
 
   method configurebrowser {b} {
     foreach {option var} [list                       \
@@ -1137,14 +1111,10 @@ proc gui_populate_menu {eMenu menu_widget} {
     }
 
     search {
-      # The "View" menu is controlled by the single ::hv3::config object
-      # created within this program.
       $::hv3::G(search) populate_menu $menu_widget
     }
 
     view {
-      # The "View" menu is controlled by the single ::hv3::config object
-      # created within this program.
       $::hv3::G(config) populate_menu $menu_widget
     }
 
@@ -1422,3 +1392,4 @@ eval [concat main $argv]
 proc print {args} { puts [join $args] }
 
 #--------------------------------------------------------------------------
+
