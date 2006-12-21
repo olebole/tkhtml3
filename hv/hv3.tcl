@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.135 2006/12/19 11:46:08 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.136 2006/12/21 05:32:38 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -79,6 +79,10 @@ namespace eval hv3 { set {version($Id: hv3.tcl,v 1.135 2006/12/19 11:46:08 danie
 #         Return the path of the underlying html widget. This should only
 #         be used to determine paths for child widgets. Bypassing hv3 and
 #         accessing the html widget interface directly may confuse hv3.
+#
+#     selected        
+#         Return the currently selected text, or an empty string if no
+#         text is currently selected.
 #
 #
 # Widget Custom Events:
@@ -413,6 +417,11 @@ snit::type ::hv3::hv3::selectionmanager {
 
     return $T
   }
+
+  method selected {} {
+    return [$self get_selection 0 10000000]
+  }
+
 }
 #
 # End of ::hv3::hv3::selectionmanager
@@ -1407,6 +1416,7 @@ snit::widget ::hv3::hv3 {
   # Delegated public methods
   delegate method javascriptlog     to myDom
   delegate method dumpforms         to myFormManager
+  delegate method selected          to mySelectionManager
   delegate method *                 to myHtml
 
   # Standard scrollbar and geometry stuff is delegated to the html widget
