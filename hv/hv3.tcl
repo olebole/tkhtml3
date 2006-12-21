@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.137 2006/12/21 08:18:28 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.138 2006/12/21 11:15:52 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -374,6 +374,12 @@ snit::type ::hv3::hv3::selectionmanager {
   method reset {} {
     $myHv3 tag delete selection
     set myState 0
+
+    # Unset the myFromNode variable, since the node handle it (may) refer 
+    # to is now invalid. If this is not done, a future call to the [selected]
+    # method of this object will cause an error by trying to use the
+    # (now invalid) node-handle value in $myFromNode.
+    unset -nocomplain myFromNode
   }
 
   method motion {x y} {
