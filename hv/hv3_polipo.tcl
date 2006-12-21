@@ -1,5 +1,5 @@
 
-namespace eval hv3 { set {version($Id: hv3_polipo.tcl,v 1.9 2006/11/24 08:12:08 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_polipo.tcl,v 1.10 2006/12/21 11:00:33 danielk1977 Exp $)} 1 }
 
 # This file contains code to control a single instance of the 
 # external program "hv3_polipo" that may be optionally used by
@@ -227,7 +227,7 @@ namespace eval ::hv3::polipo {
     }
 
     # Kick off polipo.
-    set cmd "|{$g(binary)} dontCacheRedirects=true"
+    set cmd "|{$g(binary)} dontCacheRedirects=true dontCacheCookies=true"
     if {$::tcl_platform(platform) eq "unix"} {
       append cmd " |& cat"
       # set cmd "|{$g(binary)} diskCacheRoot=/home/dan/cache |& cat"
