@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.136 2006/12/21 05:32:38 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.137 2006/12/21 08:18:28 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -76,9 +76,10 @@ namespace eval hv3 { set {version($Id: hv3.tcl,v 1.136 2006/12/21 05:32:38 danie
 #         accessing the html widget interface directly may confuse hv3.
 #
 #     title        
-#         Return the path of the underlying html widget. This should only
-#         be used to determine paths for child widgets. Bypassing hv3 and
-#         accessing the html widget interface directly may confuse hv3.
+#         Return the "title" of the currently loaded document.
+#
+#     location        
+#         Return the location URI of the widget.
 #
 #     selected        
 #         Return the currently selected text, or an empty string if no
@@ -419,6 +420,7 @@ snit::type ::hv3::hv3::selectionmanager {
   }
 
   method selected {} {
+    if {![info exists myFromNode]} {return ""}
     return [$self get_selection 0 10000000]
   }
 
@@ -510,7 +512,7 @@ snit::type ::hv3::hv3::hyperlinkmanager {
     set href [$node attr -default "" href]
     if {$href ne "" && [$node tag] eq "a"} {
       set hv3 [eval [linsert $options(-targetcmd) end $node]]
-      $hv3 goto $href
+      $hv3 goto $href -referer [$myHv3 location]
     }
   }
 
@@ -678,6 +680,10 @@ snit::widget ::hv3::hv3 {
       set myRefreshEventId ""
     }
   }
+
+  # Return the location URI of the widget.
+  #
+  method location {} { return [$myUri get] }
 
   # The argument download-handle contains a configured request. This 
   # method initiates the request. It is used by hv3 and it's component
@@ -1162,10 +1168,10 @@ snit::widget ::hv3::hv3 {
 
     set handle [::hv3::download %AUTO% -mimetype text/html]
     set myMimetype ""
-    $handle configure                                     \
+    $handle configure                                       \
         -incrscript [mymethod documentcallback $handle 1 0] \
-        -finscript  [mymethod documentcallback $handle 1 1]
-
+        -finscript  [mymethod documentcallback $handle 1 1] \
+        -requestheader [list Referer [$self location]]
 
     if {$method eq "post"} {
       $handle configure -uri $full_uri -postdata $encdata
@@ -1229,6 +1235,7 @@ snit::widget ::hv3::hv3 {
   #
   #     -cachecontrol "normal"|"relax-transparency"|"no-cache"
   #     -nosave
+  #     -referer URI
   #
   # The -cachecontrol option (default "normal") specifies the value 
   # that will be used for all ::hv3::request objects issued as a 
@@ -1245,11 +1252,17 @@ snit::widget ::hv3::hv3 {
     # option is specified.
     set savestate 1
     set cachecontrol normal
+    set referer ""
+
     for {set iArg 0} {$iArg < [llength $args]} {incr iArg} {
       switch -- [lindex $args $iArg] {
         -cachecontrol {
           incr iArg
           set cachecontrol [lindex $args $iArg]
+        }
+        -referer {
+          incr iArg
+          set referer [lindex $args $iArg]
         }
         -nosave {
           set savestate 0
@@ -1329,6 +1342,9 @@ snit::widget ::hv3::hv3 {
     $handle configure                                     \
         -incrscript [mymethod documentcallback $handle $savestate 0] \
         -finscript  [mymethod documentcallback $handle $savestate 1]
+    if {$referer ne ""} {
+      $handle configure -requestheader [list Referer $referer]
+    }
 
     $self makerequest $handle
     $uri_obj destroy

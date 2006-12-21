@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.38 2006/12/21 03:58:53 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.39 2006/12/21 08:18:28 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd script used with 
@@ -137,9 +137,10 @@ snit::type ::hv3::protocol {
     $obj destroy
 
     # Store the HTTP header containing the cookies in variable $headers
-    set headers [$myCookieManager Cookie $uri]
-    if {$headers ne ""} {
-      set headers [list Cookie $headers]
+    set headers [$downloadHandle cget -requestheader]
+    set cookies [$myCookieManager Cookie $uri]
+    if {$cookies ne ""} {
+      lappend headers Cookie $cookies
     }
 
     switch -- [$downloadHandle cget -cachecontrol] {

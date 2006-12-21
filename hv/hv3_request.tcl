@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.4 2006/12/21 03:58:53 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.5 2006/12/21 08:18:28 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file contains the implementation of two types used by hv3:
@@ -62,6 +62,8 @@ snit::type ::hv3::download {
   #     Content-Length     (Set the -expectedsize option)
   #
   option -header -default "" -configuremethod ConfigureHeader
+
+  option -requestheader -default ""
 
   # Expected size of the resource being requested. This is used
   # for displaying a progress bar when saving remote resources
