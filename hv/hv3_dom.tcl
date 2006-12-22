@@ -47,6 +47,7 @@
 # Defacto Standards:
 #     ::hv3::dom::Navigator
 #     ::hv3::dom::Window
+#     ::hv3::dom::Location
 #
 
 package require snit
@@ -277,26 +278,104 @@ snit::type ::hv3::JavascriptObject {
    js_put $property v $P
 }
 
+#-------------------------------------------------------------------------
+# DOM class Location
+#
+#     This is not based on any standard, but on the Gecko class of
+#     the same name. Primary use is as the HTMLDocument.location 
+#     and Window.location properties.
+#
+#          hash
+#          host
+#          hostname
+#          href
+#          pathname
+#          port
+#          protocol
+#          search
+#          assign(string)
+#          reload(boolean)
+#          replace(string)
+#          toString()
+#
+#     http://developer.mozilla.org/en/docs/DOM:window.location
+#
+#
+::snit::type ::hv3::dom::Location {
+
+  variable myHv3
+
+  js_init {dom hv3} {
+    set myHv3 $hv3
+  }
+
+  # Default value.
+  method DefaultValue {} { list string [$myHv3 location] }
+
+  #---------------------------------------------------------------------
+  # Properties:
+  #
+  #     Todo: Writing to properties is not yet implemented.
+  #
+  js_get hostname {
+    set auth [$myHv3 uri cget -authority]
+    set hostname ""
+    regexp {^([^:]*)} -> hostname
+    list string $hostname
+  }
+  js_get port {
+    set auth [$myHv3 uri cget -authority]
+    set port ""
+    regexp {:(.*)$} -> port
+    list string $port
+  }
+  js_get host     { list string [$myHv3 uri cget -authority] }
+  js_get href     { list string [$myHv3 uri get] }
+  js_get pathname { list string [$myHv3 uri cget -path] }
+  js_get protocol { list string [$myHv3 uri cget -scheme]: }
+  js_get search   { 
+    set query [$myHv3 uri cget -query]
+    set str ""
+    if {$query ne ""} {set str "?$query"}
+    list string $str
+  }
+  js_get hash   { 
+    set fragment [$myHv3 uri cget -fragment]
+    set str ""
+    if {$query ne ""} {set str "#$fragment"}
+    list string $str
+  }
+
+  #---------------------------------------------------------------------
+  # Methods:
+  #
+  js_scall assign  {THIS uri} { $myHv3 goto $uri }
+  js_scall replace {THIS uri} { $myHv3 goto $uri -nosave }
+  js_scall reload  {THIS force} { 
+    if {![string is boolean $force]} { error "Bad boolean arg: $force" }
+    set cc normal
+    if {$force} { set cc no-cache }
+    $myHv3 goto [$myHv3 location] -nosave 
+  }
+  js_call toString {THIS} { $self DefaultValue }
+
+  js_finish {}
+}
 
 
+#-------------------------------------------------------------------------
 # Snit class for the "document" object.
 #
-# DOM class: (Node -> Document -> HTMLDocument)
+# DOM level 1 interface (- sign means it's missing) in Hv3.
 #
-# Supports the following:
-#
-#     write(string)
-#     writeln(string)
-#
-#     images
-#
-# Unsupported collections/elements:
-#    
-#     forms
-#     anchors
-#     links
-#     applets
-#     body
+#     HTMLDocument.write(string)
+#     HTMLDocument.writeln(string)
+#     HTMLDocument.getElementById(string)
+#     HTMLDocument.forms[]
+#     HTMLDocument.anchors[]
+#     HTMLDocument.links[]
+#     HTMLDocument.applets[]
+#     HTMLDocument.body[]
 #
 snit::type ::hv3::dom::HTMLDocument {
 
@@ -307,43 +386,38 @@ snit::type ::hv3::dom::HTMLDocument {
   }
 
   #-------------------------------------------------------------------------
-  # The document.write() method
+  # The HTMLDocument.write() and writeln() methods (DOM level 1)
   #
-  js_call write {THIS str} {
-    catch { [$myHv3 html] write text [lindex $str 1] }
+  js_scall write {THIS str} {
+    catch { [$myHv3 html] write text $str }
     return ""
+  }
+  js_scall writeln {THIS str} {
+    $self call_write $THIS "$str\n"
   }
 
   #-------------------------------------------------------------------------
-  # The document.writeln() method. This just calls the write() method
-  # with a newline appended to the argument string. I guess this is
-  # used to populate <PRE> blocks or some such trickery.
+  # HTMLDocument.getElementById() method. (DOM level 1)
   #
-  js_call writeln {THIS str} {
-    set val [lindex $str 1]
-    $self call_write $THIS [list string "$val\n"]
-    return ""
-  }
-
-  #-------------------------------------------------------------------------
-  # The document.getElementById() method.
+  # This returns a single object (or NULL if an object of the specified
+  # id cannot be found).
   #
   js_scall getElementById {THIS elementId} {
     set node [lindex [$myHv3 search "#$elementId"] 0]
     if {$node ne ""} {
       return [list object [[$myHv3 dom] node_to_dom $node]]
     }
-    return ""
+    return null
   }
 
   #-------------------------------------------------------------------------
-  # The document collections:
+  # The document collections (DOM level 1)
   #
-  #     document.images[] 
-  #     document.forms[]
-  #     document.anchors[]
-  #     document.links[]
-  #     document.applets[] 
+  #     HTMLDocument.images[] 
+  #     HTMLDocument.forms[]
+  #     HTMLDocument.anchors[]
+  #     HTMLDocument.links[]
+  #     HTMLDocument.applets[] 
   #
   # TODO: applets[] is supposed to contain "all the OBJECT elements that
   # include applets and APPLET (deprecated) elements in a document". Here
@@ -354,6 +428,16 @@ snit::type ::hv3::dom::HTMLDocument {
   js_getobject anchors { hv3::dom::HTMLCollection %AUTO% $myHv3 {a[name]} }
   js_getobject links   { hv3::dom::HTMLCollection %AUTO% $myHv3 {area,a[href]} }
   js_getobject applets { hv3::dom::HTMLCollection %AUTO% $myHv3 applet }
+
+  #-----------------------------------------------------------------------
+  # The "location" object (Gecko compatibility)
+  #
+  js_getobject location { ::hv3::dom::Location %AUTO% [$self dom] $myHv3 }
+  js_put location value { 
+    set location [lindex [$self Get location] 1]
+    set assign [lindex [$location Get assign] 1]
+    $assign Call THIS $value
+  }
 
   #-------------------------------------------------------------------------
   # Handle unknown property requests.
@@ -488,11 +572,23 @@ snit::type ::hv3::dom::Window {
   }
 
   #-----------------------------------------------------------------------
+  # The Window.location property (Gecko compatibility)
+  #
+  #     This is an alias for the document.location property.
+  #
+  js_get location {
+    set document [lindex [$self Get document] 1]
+    $document Get location
+  }
+  js_put location {value} {
+    set document [lindex [$self Get document] 1]
+    $document Put location $value
+  }
+
+  #-----------------------------------------------------------------------
   # The "navigator" object.
   #
-  js_getobject navigator {
-    ::hv3::dom::Navigator %AUTO%
-  }
+  js_getobject navigator { ::hv3::dom::Navigator %AUTO% [$self dom] }
 
   #-----------------------------------------------------------------------
   # The "parent" property. This should: 
@@ -558,6 +654,10 @@ snit::type ::hv3::dom::Window {
   js_call clearTimeout  {THIS js_timerid} { $self ClearTimer 0 $js_timerid }
   js_call clearInterval {THIS js_timerid} { $self ClearTimer 1 $js_timerid }
   #-----------------------------------------------------------------------
+
+  js_scall alert {THIS msg} {
+    tk_dialog .alert "Super Dialog Alert!" $msg "" 0 OK
+  }
 
   js_call jsputs {THIS args} {
     puts $args
@@ -1348,7 +1448,7 @@ snit::type ::hv3::dom {
     }
 
     if {$::hv3::dom::reformat_scripts_option} {
-     set script [::hv3::dom::pretty_print_script $script]
+     set script [::see::format $script]
     }
 
     set rc [catch {$mySee eval $script} msg]
@@ -1554,7 +1654,6 @@ proc ::hv3::dom::use_scripting {} {
 }
 
 set ::hv3::dom::use_scripting_option 1
-set ::hv3::dom::reformat_scripts_option 0
+set ::hv3::dom::reformat_scripts_option 1
 # set ::hv3::dom::reformat_scripts_option 1
-
 

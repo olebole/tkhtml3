@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.139 2006/12/22 05:25:07 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.140 2006/12/22 13:04:02 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -566,7 +566,7 @@ snit::widget ::hv3::hv3 {
   # The current location URI and the current base URI. If myBase is "",
   # use the URI stored in myUri as the base.
   #
-  variable  myUri                    ;# The current URI (type ::hv3::hv3uri)
+  component myUri -public uri
   variable  myBase ""                ;# The current URI (type ::hv3::hv3uri)
 
   # Used to assign internal stylesheet ids.
