@@ -1,5 +1,5 @@
 #
-# $Revision: 1.40 $
+# $Revision: 1.41 $
 #
 # tokenlist.tcl -- 
 #
@@ -32,9 +32,6 @@
 #     <th>       | %flow
 #     <thead>    | <tr> only
 #     <tr>       | <TH> or <TD> only.
-#
-#     Of course, all implicit closes are illegal in XHTML, which is what
-#     everyone should be using soon (yeah right!).
 #
 #----------------------------------------------------------------------------
 # Copyright (c) 2005 Eolas Technologies Inc.
@@ -87,6 +84,8 @@ proc TAG {args} {
 #         ?-head?
 #         ?-body?
 #         ?-frameset?
+#
+#         ?-pcdata?
 #
 TAG a -flow inline -content HtmlAnchorContent
 # TAG abbr
@@ -176,7 +175,7 @@ TAG table -flow block -content HtmlTableContent
 
 # TAG tbody
 TAG td -content HtmlTableCellContent
-TAG textarea -flow inline
+TAG textarea -flow inline -pcdata
 # TAG tfoot
 TAG th -content HtmlTableCellContent
 # TAG thead
@@ -208,11 +207,25 @@ TAG bgsound -content HtmlEmptyContent
 
 ###########################################################################
 # Below this line is the engine for processing the database declared 
-# above. We produce a header file and an implemation file.
+# above. We produce a header file (htmltokens.h) and an implementation 
+# file (htmltokens.c).
 #
 
-# The argument is the name of a list variable in the callers context. This
-# proc returns and removes the first element of that list.
+#-------------------------------------------------------------------------
+# shift --
+#
+#         shift LISTVAR
+#
+#     This is a helper proc for [_TAG]. The argument is the name of a 
+#     list variable in the callers context. This proc returns and removes 
+#     the first element of that list. i.e: 
+#    
+#         $ set abc {a b c}
+#         {a b c}
+#         $ shift abc
+#         a
+#         $ set abc
+#         {b c}
 #
 proc shift {list} {
     upvar $list l
@@ -228,6 +241,7 @@ proc _TAG {args} {
 
     # Parse the arguments. Default values are all zero.
     set flow 0
+    set pcdata 0
     set empty 0
     set xClose 0
 
@@ -238,6 +252,9 @@ proc _TAG {args} {
             }
             -content {
                  set xClose [shift args]
+            }
+            -pcdata {
+                 set pcdata 1
             }
         }
     }
@@ -262,6 +279,9 @@ proc _TAG {args} {
     if {$xClose == "HtmlEmptyContent"} {
         append flags |HTMLTAG_EMPTY
         set xClose 0
+    }
+    if {$pcdata} {
+        append flags |HTMLTAG_PCDATA
     }
     puts $::c_file [format $fmt "\"$tag\"," $opensym, $flags, $xClose, 0]
     set flags HTMLTAG_END

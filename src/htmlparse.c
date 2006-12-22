@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.94 2006/12/17 04:57:28 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.95 2006/12/22 01:50:45 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -618,7 +618,7 @@ HtmlHashInit(htmlPtr, start)
 /*
 ** Convert a string to all lower-case letters.
 */
-void
+static void
 ToLower(z)
     char *z;
 {
@@ -853,7 +853,6 @@ pTree, zText, isFinal, xAddText, xAddElement, xAddClosing)
     int c;                       /* The next character of input */
     int n;                       /* Number of bytes processed so far */
     int i, j;                    /* Loop counters */
-    int selfClose;               /* True for content free elements. Ex: <br/> */
     int argc;                    /* The number of arguments on a markup */
     HtmlTokenMap *pMap;          /* For searching the markup name hash table */
 # define mxARG 200               /* Max parameters in a single markup */
@@ -874,14 +873,8 @@ pTree, zText, isFinal, xAddText, xAddElement, xAddClosing)
     }
 
     while ((c = z[n]) != 0) {
-
-#if 0
-        /* TODO: What is the significance of -64 and -128? BOM or something? */
-        if ((signed char) c == -64 && (signed char) (z[n + 1]) == -128) {
-            n += 2;
-            continue;
-        } else
-#endif
+        
+        /* TEXT, HTML Comment, TAG (opening or closing) */
 
         /* A text (or whitespace) node */
         if (c != '<' && c != 0) {
@@ -974,14 +967,7 @@ pTree, zText, isFinal, xAddText, xAddElement, xAddClosing)
              * end of the document. The argv[] array is completely filled
              * by the time the loop exits.
              */
-            while (
-                (c = z[n+i]) != 0 &&          /* End of document */
-                (c != '>') &&                 /* '>'             */
-                1
-#if 0
-                (c != '/' || z[n+i+1] != '>') /* "/>"            */
-#endif
-            ){
+            while ((c = z[n+i]) != 0 && c != '>'){
                 if (argc > mxARG - 3) {
                     argc = mxARG - 3;
                 }
@@ -993,12 +979,9 @@ pTree, zText, isFinal, xAddText, xAddElement, xAddClosing)
                  */
                 argv[argc] = &z[n+i];
                 j = 0;
-                while ((c = z[n + i + j]) != 0 && !ISSPACE(c) && c != '>'
-                       && c != '=' && 
-                       1
-#if 0
-(c != '/' || z[n + i + j + 1] != '>')
-#endif
+                while (
+                    (c = z[n + i + j]) != 0 && 
+                    !ISSPACE(c) && c != '>' && c != '=' 
                 ) {
                     j++;
                 }
@@ -1065,18 +1048,6 @@ pTree, zText, isFinal, xAddText, xAddElement, xAddClosing)
                 goto incomplete;
             }
 
-            /* If this was a self-closing tag, set selfClose to 1 and 
-             * increment i so that &z[n+i] points to the '>' character.
-             */
-            if (c == '/') {
-                i++;
-                c = z[n + i];
-                selfClose = 1;
-            } else {
-                selfClose = 0;
-            }
-            assert( c!=0 );
-
             n += i + 1;
 
             /* Look up the markup name in the hash table. If it is an unknown
@@ -1104,10 +1075,14 @@ pTree, zText, isFinal, xAddText, xAddElement, xAddClosing)
                 xAddClosing(pTree, pMap->type, nStartScript);
             } else {
 
+                char *zScript = 0;
+                int nScript;
+
                 HtmlAttributes *pAttr;
                 Tcl_Obj *pScript = 0;
                 const char **zArgs = (const char **)(&argv[1]);
                 pAttr = HtmlAttributesNew(argc - 1, zArgs, &arglen[1], 1);
+
 
                 /* Unless a fragment is being parsed, search for a 
                  * script-handler for this element. Script handlers are
@@ -1117,13 +1092,30 @@ pTree, zText, isFinal, xAddText, xAddElement, xAddClosing)
                     pScript = getScriptHandler(pTree, pMap->type);
                 }
 
+                if (pScript || pMap->flags & HTMLTAG_PCDATA) {
+                    zScript = &z[n];
+                    nScript = findEndOfScript(pMap->type, z, &n);
+                    if (nScript < 0) {
+                        n = nStartScript;
+                        HtmlFree(pAttr);
+                        goto incomplete;
+                    }
+                }
+
                 if (!pScript) {
                     /* No special handler for this markup. Just append 
                      * it to the list of all tokens. 
                      */
                     assert(nStartScript >= 0);
                     xAddElement(pTree, pMap->type, pAttr, nStartScript);
-                    isTrimStart = 1;
+                    if (zScript) {
+                        HtmlTextNode *pTextNode;
+                        pTextNode = HtmlTextNew(nScript, zScript, 1, 1);
+                        xAddText(pTree, pTextNode, n);
+                    } else {
+                        isTrimStart = 1;
+                    }
+
                 } else {
                     /* If pScript is not NULL, then we are parsing a node that
                      * tkhtml treats as a "script". Essentially this means we
@@ -1133,17 +1125,7 @@ pTree, zText, isFinal, xAddText, xAddElement, xAddClosing)
                      * </script>, </noscript> or whatever closing tag matches
                      * the tag that opened the script node.
                      */
-                    char *zScript;
-                    int nScript;
                     int rc;
-
-                    zScript = &z[n];
-                    nScript = findEndOfScript(pMap->type, z, &n);
-                    if (nScript < 0) {
-                        n = nStartScript;
-                        HtmlFree(pAttr);
-                        goto incomplete;
-                    }
 
                     assert(pTree->eWriteState == HTML_WRITE_NONE);
                     pTree->eWriteState = HTML_WRITE_INHANDLER;
@@ -1169,19 +1151,6 @@ pTree, zText, isFinal, xAddText, xAddElement, xAddClosing)
                     }
                 }
             }
-
-#if 0
-            /* If this is self-closing markup (ex: <br/> or <img/>) then
-             * synthesize a closing token. 
-             */
-            if (selfClose && argv[0][0] != '/'
-                && strcmp(&pMap[1].zName[1], pMap->zName) == 0) {
-                selfClose = 0;
-                pMap++;
-                argc = 1;
-                goto makeMarkupEntry;
-            }
-#endif
         }
     }
 

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.109 2006/12/21 05:32:38 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.110 2006/12/22 01:50:45 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -105,6 +105,7 @@ snit::widget ::hv3::browser_frame {
     # Register a handler command to handle <frameset>.
     set html [$myHv3 html]
     $html handler node frameset [list ::hv3::frameset_handler $self]
+    $html handler node iframe [list ::hv3::iframe_handler $self]
 
     # Add this object to the browsers frames list. It will be removed by
     # the destructor proc. Also override the default -targetcmd
@@ -115,8 +116,6 @@ snit::widget ::hv3::browser_frame {
     ::hv3::menu ${win}.hyperlinkmenu
     selection handle ${win}.hyperlinkmenu [mymethod GetCopiedLinkLocation]
   }
-
-  method browser {} {return $myBrowser}
 
   # The name of this frame (as specified by the "name" attribute of 
   # the <frame> element).
@@ -371,9 +370,8 @@ snit::widget ::hv3::browser_frame {
     ::HtmlDebug::browse $myHv3 [$myHv3 node]
   }
 
-  method hv3 {} {
-    return $myHv3
-  }
+  method hv3     {} { return $myHv3 }
+  method browser {} { return $myBrowser }
 
   option -statusvar        -default ""
 

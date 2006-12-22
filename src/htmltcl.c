@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.143 2006/12/17 04:57:28 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.144 2006/12/22 01:50:45 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -1676,10 +1676,10 @@ writeCmd(clientData, interp, objc, objv)
         OPT_WAIT, OPT_TEXT, OPT_CONTINUE
     };
     struct SubOpt {
-        char *zSubOption;
-        enum SubOptType eType;
-        int iExtraArgs;
-        char *zWrongNumArgsTail;
+        char *zSubOption;             /* Name of sub-command */
+        enum SubOptType eType;        /* Corresponding OPT_XXX value */
+        int iExtraArgs;               /* Number of args following sub-command */
+        char *zWrongNumArgsTail;      /* 4th arg to Tcl_WrongNumArgs() */
     } aSub[] = {
         {"wait", OPT_WAIT, 0, ""}, 
         {"text", OPT_TEXT, 1, "TEXT"}, 
@@ -1687,6 +1687,9 @@ writeCmd(clientData, interp, objc, objv)
         {0, 0, 0}
     };
 
+    /* All commands must consist of at least three words - the widget name,
+     * "write", and the sub-command name. Otherwise, it's a Tcl error.
+     */
     if (objc < 3) {
         Tcl_WrongNumArgs(interp, 2, objv, "OPTION");
         return TCL_ERROR;

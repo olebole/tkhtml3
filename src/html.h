@@ -170,6 +170,7 @@ struct HtmlTokenMap {
 #define HTMLTAG_HEAD        0x10  /* Element must go in <head> */
 #define HTMLTAG_BODY        0x20  /* Element must go in <body> */
 #define HTMLTAG_FRAMESET    0x40  /* Element is from a frameset document */
+#define HTMLTAG_PCDATA      0x80  /* Contents of element is PCDATA */
 
 #define TAG_CLOSE    1
 #define TAG_PARENT   2

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_frameset.tcl,v 1.7 2006/11/22 11:44:18 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_frameset.tcl,v 1.8 2006/12/22 01:50:44 danielk1977 Exp $)} 1 }
 
 # This file contains code for implementing HTML frameset documents in Hv3. 
 #
@@ -55,6 +55,34 @@ namespace eval hv3 {
     #
     $node replace $win -deletecmd [list destroy $win]
     grid $win -column 0 -row 0 -sticky nsew
+  }
+
+  # iframe_handler
+  #
+  #     Tkhtml node-handler script for <iframe> elements. The first
+  #     argument is the name of an ::hv3::browser_frame widget. The
+  #     second argument is the <iframe> node.
+  #
+  proc iframe_handler {browser_frame node} {
+    set hv3 [$browser_frame hv3]
+
+    # Retrieve the URI for the resource to display in this <IFRAME>
+    set src [$node attribute -default "" src]
+    if {$src eq ""} {
+      return
+    }
+    set uri [[$browser_frame hv3] resolve_uri $src]
+
+    # Create an ::hv3::browser_frame to display the resource.
+    set panel [create_widget_name $browser_frame $node]
+    ::hv3::browser_frame $panel [$browser_frame browser]
+
+    # TODO: Should be properly configured...
+    $panel configure -requestcmd [$browser_frame cget -requestcmd]
+    $panel configure -statusvar  [$browser_frame cget -statusvar]
+
+    $panel goto $uri
+    $node replace $panel
   }
 
   # get_markup --
