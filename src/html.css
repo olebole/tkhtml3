@@ -215,6 +215,13 @@ FRAMESET {
   display: none;
 }
 
+/* Default size for <IFRAME> elements */
+IFRAME {
+  width: 300px;
+  height: 200px;
+}
+
+
 /*
  *************************************************************************
  * Below this point are stylesheet rules for mapping presentational 

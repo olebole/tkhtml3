@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.95 2006/12/22 01:50:45 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.96 2006/12/22 02:40:09 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -1112,6 +1112,7 @@ pTree, zText, isFinal, xAddText, xAddElement, xAddClosing)
                         HtmlTextNode *pTextNode;
                         pTextNode = HtmlTextNew(nScript, zScript, 1, 1);
                         xAddText(pTree, pTextNode, n);
+                        xAddClosing(pTree, pMap->type + 1, n);
                     } else {
                         isTrimStart = 1;
                     }
