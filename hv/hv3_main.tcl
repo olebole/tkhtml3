@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.110 2006/12/22 01:50:45 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.111 2006/12/22 05:30:07 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -218,12 +218,11 @@ snit::widget ::hv3::browser_frame {
     $m delete 0 end
 
     set nodelist [$myHv3 node $x $y]
-    if {[llength $nodelist] == 0} return
-    set leafnode [lindex $nodelist end]
 
     set a_href ""
     set img_src ""
     set select [$myHv3 selected]
+    set leaf ""
 
     foreach leaf $nodelist {
       for {set N $leaf} {$N ne ""} {set N [$N parent]} {
@@ -255,7 +254,7 @@ snit::widget ::hv3::browser_frame {
       img_src --                     ""                                       \
       select  "Copy Selected Text"   [mymethod menu_select copy $select]      \
       select  --                     ""                                       \
-      ""      "Open Tree browser..." [list ::HtmlDebug::browse $myHv3 $leaf]  \
+      leaf    "Open Tree browser..." [list ::HtmlDebug::browse $myHv3 $leaf]  \
     ]
 
     foreach {var label cmd} $MENU {
