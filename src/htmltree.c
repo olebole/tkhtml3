@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.108 2006/12/15 06:49:14 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.109 2006/12/22 05:25:07 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -1872,6 +1872,55 @@ nodeRemoveCmd(pNode, objc, objv)
 /*
  *---------------------------------------------------------------------------
  *
+ * nodeDestroyCmd --
+ *
+ *         $node destroy
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int
+nodeDestroyCmd(pNode, objc, objv)
+    HtmlNode *pNode;
+    int objc;
+    Tcl_Obj *CONST objv[];
+{
+    HtmlTree *pTree = pNode->pNodeCmd->pTree;
+
+    if (objc != 2) {
+        Tcl_WrongNumArgs(pTree->interp, 2, objv, "");
+        return TCL_ERROR;
+    }
+
+    assert(
+        pNode->iNode == HTML_NODE_ORPHAN || 
+        pNode == pTree->pRoot || 
+        pNode->pParent
+    );
+
+    if (pNode->iNode == HTML_NODE_ORPHAN) {
+        nodeDeorphanize(pTree, pNode);
+    } else if (pNode->pParent) {
+        HtmlCallbackRestyle(pTree, pNode->pParent);
+        HtmlCallbackLayout(pTree, pNode->pParent);
+        nodeRemoveChild(HtmlNodeAsElement(pNode->pParent), pNode);
+    } else {
+        assert(!"TODO: Delete the root node?");
+    }
+    
+    freeNode(pTree, pNode);
+
+    return TCL_OK;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * nodeInsertCmd --
  *
  *         $node insert ?-before NODE? NODE-LIST...
@@ -1993,9 +2042,10 @@ nodeCommand(clientData, interp, objc, objv)
     int iChoice;
 
     enum NODE_enum {
-	NODE_ATTRIBUTE, NODE_CHILDREN, NODE_DYNAMIC, NODE_INSERT,
-        NODE_OVERRIDE, NODE_PARENT, NODE_PROPERTY, NODE_REMOVE,
-        NODE_REPLACE, NODE_TAG, NODE_TEXT, NODE_XVIEW, NODE_YVIEW
+	NODE_ATTRIBUTE, NODE_CHILDREN, NODE_DESTROY, NODE_DYNAMIC, 
+        NODE_INSERT, NODE_OVERRIDE, NODE_PARENT, NODE_PROPERTY, 
+        NODE_REMOVE, NODE_REPLACE, NODE_TAG, NODE_TEXT, NODE_XVIEW, 
+        NODE_YVIEW
     };
 
     static const struct NodeSubCommand {
@@ -2005,6 +2055,7 @@ nodeCommand(clientData, interp, objc, objv)
     } aSubCommand[] = {
         {"attribute", NODE_ATTRIBUTE, 0},  
         {"children",  NODE_CHILDREN,  0},
+        {"destroy",   NODE_DESTROY,   0},      
         {"dynamic",   NODE_DYNAMIC,   0},      
         {"insert",    NODE_INSERT,    0},
         {"override",  NODE_OVERRIDE,  0},    
@@ -2507,7 +2558,6 @@ node_attr_usage:
         /*
          * nodeHandle insert ?-before NODE? NODE-LIST
          *
-         *     Get/set the override list.
          */
         case NODE_INSERT: {
             HtmlCallbackRestyle(pTree, pNode);
@@ -2517,13 +2567,18 @@ node_attr_usage:
 
         /*
          * nodeHandle remove NODE-LIST
-         *
-         *     Get/set the override list.
          */
         case NODE_REMOVE: {
             HtmlCallbackRestyle(pTree, pNode);
             HtmlCallbackLayout(pTree, pNode);
             return nodeRemoveCmd(pNode, objc, objv);
+        }
+
+        /*
+         * nodeHandle destroy
+         */
+        case NODE_DESTROY: {
+            return nodeDestroyCmd(pNode, objc, objv);
         }
 
         default:

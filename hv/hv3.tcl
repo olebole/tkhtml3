@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.138 2006/12/21 11:15:52 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.139 2006/12/22 05:25:07 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -673,13 +673,13 @@ snit::widget ::hv3::hv3 {
     # Destroy the components. We don't need to destroy the scrolled
     # html component because it is a Tk widget - it is automatically
     # destroyed when it's parent widget is.
-    if {[info exists mySelectionManager]} { $mySelectionManager destroy }
-    if {[info exists myDynamicManager]}   { $myDynamicManager   destroy }
-    if {[info exists myHyperlinkManager]} { $myHyperlinkManager destroy }
-    if {[info exists myUri]}              { $myUri              destroy }
-    if {[info exists myFormManager]}      { $myFormManager      destroy }
-    if {[info exists myMouseManager]}     { $myMouseManager      destroy }
-    if {$myBase ne ""}                    { $myBase             destroy }
+    catch { $mySelectionManager destroy }
+    catch { $myDynamicManager   destroy }
+    catch { $myHyperlinkManager destroy }
+    catch { $myUri              destroy }
+    catch { $myFormManager      destroy }
+    catch { $myMouseManager     destroy }
+    catch { $myBase             destroy }
 
     if {$myRefreshEventId ne ""} {
       after cancel $myRefreshEventId

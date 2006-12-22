@@ -527,13 +527,14 @@ interpCmd(clientData, pTclInterp, objc, objv)
     Tcl_Obj *CONST objv[];             /* Argument strings. */
 {
     int iChoice;
-    SeeInterp *pInterp = (SeeInterp *)clientData;
-    struct SEE_interpreter *pSeeInterp = &pInterp->interp;
+    SeeInterp *pTclSeeInterp = (SeeInterp *)clientData;
+    struct SEE_interpreter *pSeeInterp = &pTclSeeInterp->interp;
 
     enum INTERP_enum {
         INTERP_EVAL,
         INTERP_DESTROY,
-        INTERP_GLOBAL
+        INTERP_GLOBAL,
+        INTERP_TOSTRING
     };
 
     static const struct InterpSubCommand {
@@ -543,9 +544,10 @@ interpCmd(clientData, pTclInterp, objc, objv)
         int nMaxArgs;
         char *zArgs;
     } aSubCommand[] = {
-        {"eval",    INTERP_EVAL,    1, 2, "?THIS-OBJECT? JAVASCRIPT"},  
-        {"destroy", INTERP_DESTROY, 0, 0, ""},
-        {"global",  INTERP_GLOBAL,  1, 1, "TCL-COMMAND"},
+        {"eval",     INTERP_EVAL,     1, 2, "?THIS-OBJECT? JAVASCRIPT"},  
+        {"destroy",  INTERP_DESTROY,  0, 0, ""},
+        {"global",   INTERP_GLOBAL,   1, 1, "TCL-COMMAND"},
+        {"tostring", INTERP_TOSTRING, 1, 1, "JAVASCRIPT-VALUE"},
         {0, 0, 0, 0}
     };
 
@@ -577,7 +579,7 @@ interpCmd(clientData, pTclInterp, objc, objv)
         case INTERP_EVAL: {
             Tcl_Obj *pProgram = ((objc == 4) ? objv[3] : objv[2]);
             Tcl_Obj *pThis =    ((objc == 4) ? objv[2] : 0);
-            int rc = interpEvalThis(pInterp, pThis, pProgram);
+            int rc = interpEvalThis(pTclSeeInterp, pThis, pProgram);
             if (rc != TCL_OK) return rc;
             break;
         }
@@ -591,17 +593,40 @@ interpCmd(clientData, pTclInterp, objc, objv)
             char *zGlobal;
             struct SEE_object *pWindow;
 
-            if (pInterp->zGlobal) {
+            if (pTclSeeInterp->zGlobal) {
                 Tcl_ResetResult(pTclInterp);
                 Tcl_AppendResult(pTclInterp, "Can call [global] only once.", 0);
                 return TCL_ERROR;
             }
-            pWindow = findOrCreateObject(pInterp, objv[2]);
-            installHv3Global(pInterp, pWindow);
+            pWindow = findOrCreateObject(pTclSeeInterp, objv[2]);
+            installHv3Global(pTclSeeInterp, pWindow);
 
             zGlobal = Tcl_GetStringFromObj(objv[2], &nGlobal);
-            pInterp->zGlobal = SEE_malloc_string(pSeeInterp, nGlobal + 1);
-            strcpy(pInterp->zGlobal, zGlobal);
+            pTclSeeInterp->zGlobal = SEE_malloc_string(pSeeInterp, nGlobal + 1);
+            strcpy(pTclSeeInterp->zGlobal, zGlobal);
+            break;
+        }
+
+        /*
+         * seeInterp tostring JAVASCRIPT-VALUE
+         */
+        case INTERP_TOSTRING: {
+            Tcl_Obj *pRes = 0;
+            struct SEE_value val;
+            struct SEE_value str;
+            int rc;
+
+            rc = objToValue(pTclSeeInterp, objv[2], &val);
+            if (rc != TCL_OK) return rc;
+
+            SEE_ToString(pSeeInterp, &val, &str);
+            if (SEE_VALUE_GET_TYPE(&str) != SEE_STRING) {
+                Tcl_AppendResult(pTclInterp, "Failed to convert to string", 0);
+                return TCL_ERROR;
+            }
+
+            pRes = Tcl_NewUnicodeObj(str.u.string->data, str.u.string->length);
+            Tcl_SetObjResult(pTclInterp, pRes);
             break;
         }
 

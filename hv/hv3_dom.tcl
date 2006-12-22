@@ -67,17 +67,28 @@ snit::type ::hv3::JavascriptObject {
   #
   option -call -default ""
 
+  # If this boolean option is true, then transform all script arguments 
+  # to the -call script (except the "this" argument) by calling 
+  # [$mySee tostring] on them before evaluating -call.
+  #
+  option -callwithstrings -default 0
+
   # Similar to -call, but for construction (i.e. "new Object()") calls.
   #
   option -construct -default ""
 
-  # Javascript interpreter this object is associated with.
-  variable mySee
+  # ::hv3::dom object that owns this object.
+  #
+  variable myDom ""
+  method hv3 {} {$myDom hv3}
+  method see {} {$myDom see}
+  method dom {} {set myDom}
 
   # Array of simple javascript properties.
   variable myProperties -array [list]
 
-  constructor {args} {
+  constructor {dom args} {
+    set myDom $dom
     $self configurelist $args
   }
 
@@ -106,9 +117,15 @@ snit::type ::hv3::JavascriptObject {
     set myProperties($property) $value
   }
 
-  method Call {args} {
+  method Call {THIS args} {
     if {$options(-call) ne ""} {
-      eval $options(-call) $args
+      set A $args
+      if {$options(-callwithstrings)} {
+        set see [$myDom see]
+        set A [list]
+        foreach a $args { lappend A [$see tostring $a] }
+      }
+      eval $options(-call) [list $THIS] $A
     } else {
       error "Cannot call this object"
     }
@@ -130,8 +147,11 @@ snit::type ::hv3::JavascriptObject {
 #
 #     js_get
 #     js_getobject
+#
 #     js_put
+#
 #     js_call
+#     js_scall
 #
 #     js_finish
 #
@@ -165,7 +185,12 @@ snit::type ::hv3::JavascriptObject {
 ::snit::macro js_call {methodname arglist code} {
   method call_$methodname $arglist $code
   lappend ::hv3::dom::js_get_methods $methodname get_$methodname
-  method get_$methodname {} "\$self GetMethod $methodname"
+  method get_$methodname {} "\$self GetMethod 0 $methodname"
+}
+::snit::macro js_scall {methodname arglist code} {
+  method call_$methodname $arglist $code
+  lappend ::hv3::dom::js_get_methods $methodname get_$methodname
+  method get_$methodname {} "\$self GetMethod 1 $methodname"
 }
 
 ::snit::macro js_finish {body} {
@@ -186,10 +211,12 @@ snit::type ::hv3::JavascriptObject {
     return [$myJavascriptParent Get $property]
   }
 
-  method GetMethod {methodname} {
+  method GetMethod {stringify methodname} {
     if {![info exists myCallMethods($methodname)]} {
+      set dom [$self dom]
       set myCallMethods($methodname) [
-          ::hv3::JavascriptObject %AUTO% -call [mymethod call_$methodname]
+          ::hv3::JavascriptObject %AUTO% $dom \
+              -call [mymethod call_$methodname] -callwithstrings $stringify
       ]
     }
     return [list object $myCallMethods($methodname)]
@@ -212,11 +239,11 @@ snit::type ::hv3::JavascriptObject {
     return [$myJavascriptParent Put $property $value]
   }
 
-  constructor {args} {
+  constructor {dom args} {
     set myJavascriptParent ""
-    eval $self js_initialize $args
+    eval $self js_initialize $dom $args
     if {$myJavascriptParent eq ""} {
-      set myJavascriptParent [::hv3::JavascriptObject %AUTO%]
+      set myJavascriptParent [::hv3::JavascriptObject %AUTO% $dom]
     }
   }
 
@@ -275,7 +302,7 @@ snit::type ::hv3::dom::HTMLDocument {
 
   variable myHv3
 
-  js_init {hv3} {
+  js_init {dom hv3} {
     set myHv3 $hv3
   }
 
@@ -295,6 +322,17 @@ snit::type ::hv3::dom::HTMLDocument {
   js_call writeln {THIS str} {
     set val [lindex $str 1]
     $self call_write $THIS [list string "$val\n"]
+    return ""
+  }
+
+  #-------------------------------------------------------------------------
+  # The document.getElementById() method.
+  #
+  js_scall getElementById {THIS elementId} {
+    set node [lindex [$myHv3 search "#$elementId"] 0]
+    if {$node ne ""} {
+      return [list object [[$myHv3 dom] node_to_dom $node]]
+    }
     return ""
   }
 
@@ -373,7 +411,7 @@ snit::type ::hv3::dom::HTMLDocument {
 #
 snit::type ::hv3::dom::Navigator {
 
-  js_init {} {}
+  js_init {dom} {}
 
   js_get appCodeName    { list string "Mozilla" }
   js_get appName        { list string "Netscape" }
@@ -423,7 +461,7 @@ snit::type ::hv3::dom::Window {
   variable myHv3
   variable mySee
 
-  js_init {see hv3} { 
+  js_init {dom see hv3} { 
     set mySee $see 
     set myHv3 $hv3 
   }
@@ -433,7 +471,7 @@ snit::type ::hv3::dom::Window {
   # 
   #     Window.document
   #
-  js_getobject document { ::hv3::dom::HTMLDocument %AUTO% $myHv3 }
+  js_getobject document { ::hv3::dom::HTMLDocument %AUTO% [$myHv3 dom] $myHv3 }
 
   #-----------------------------------------------------------------------
   # The "Image" property object. This is so that scripts can
@@ -442,7 +480,7 @@ snit::type ::hv3::dom::Window {
   #     img = new Image();
   #
   js_getobject Image {
-    ::hv3::JavascriptObject %AUTO% -construct [mymethod newImage]
+    ::hv3::JavascriptObject %AUTO% [$myHv3 dom] -construct [mymethod newImage]
   }
   method newImage {args} {
     set node [$myHv3 fragment "<img>"]
@@ -565,7 +603,7 @@ snit::type ::hv3::dom::HTMLCollection {
   variable myNodes [list]
   variable myIsValid 0
 
-  js_init {hv3 selector} {
+  js_init {dom hv3 selector} {
     set myHv3 $hv3
     set mySelector $selector
   }
@@ -662,7 +700,7 @@ snit::type ::hv3::dom::HTMLCollection_FE {
   variable myNode
   variable myDom
 
-  js_init {hv3 node} {
+  js_init {dom hv3 node} {
     set myDom [$hv3 dom]
     set myNode $node
   }
@@ -756,11 +794,15 @@ snit::type ::hv3::dom::Text {
 #      Element.attributes
 #      Element.ownerDocument
 #
+# And the nonstandard:
+#
+#      HTMLElement.innerHTML
+#
 snit::type ::hv3::dom::HTMLElement {
   variable myNode ""
   variable myHv3 ""
 
-  js_init {hv3 node} {
+  js_init {dom hv3 node} {
     set myNode $node
     set myHv3 $hv3
   }
@@ -803,6 +845,16 @@ snit::type ::hv3::dom::HTMLElement {
   js_getput_attribute dir       dir
   js_getput_attribute className class
 
+  #-------------------------------------------------------------------
+  # Get and set the innerHTML property. The implmenetation of this
+  # is in hv3_dom2.tcl.
+  #
+  js_get innerHTML { list string [::hv3::dom::get_inner_html $myNode] }
+  js_put innerHTML {value} { 
+    set code [[$self see] tostring $value ]
+    ::hv3::dom::set_inner_html $myHv3 $myNode $code
+  }
+
   js_finish {}
 
   method node {} {return $myNode}
@@ -818,10 +870,10 @@ snit::type ::hv3::dom::HTMLImageElement {
   variable myNode ""
   variable myHv3 ""
 
-  js_init {hv3 node} {
+  js_init {dom hv3 node} {
     set myHv3 $hv3
     set myNode $node
-    set myJavascriptParent [::hv3::dom::HTMLElement %AUTO% $hv3 $node]
+    set myJavascriptParent [::hv3::dom::HTMLElement %AUTO% $dom $hv3 $node]
   }
 
   # Magic for "src" attribute. Whenever the "src" attribute is set on
@@ -873,10 +925,10 @@ snit::type ::hv3::dom::HTMLFormElement {
   variable myNode ""
   variable myHv3 ""
 
-  js_init {hv3 node} {
+  js_init {dom hv3 node} {
     set myHv3 $hv3
     set myNode $node
-    set myJavascriptParent [::hv3::dom::HTMLElement %AUTO% $hv3 $node]
+    set myJavascriptParent [::hv3::dom::HTMLElement %AUTO% $dom $hv3 $node]
   }
 
   #----------------------------------------------------------------------
@@ -935,8 +987,8 @@ snit::type ::hv3::dom::HTMLInputElement {
   variable myRadioCheckbox 0
   variable myRadioCheckboxButtonResetSubmit 0
 
-  js_init {hv3 node} {
-    set myJavascriptParent [::hv3::dom::HTMLElement %AUTO% $hv3 $node]
+  js_init {dom hv3 node} {
+    set myJavascriptParent [::hv3::dom::HTMLElement %AUTO% $dom $hv3 $node]
 
     set myHv3 $hv3
     set myNode $node
@@ -1107,10 +1159,10 @@ snit::type ::hv3::dom::HTMLTextAreaElement {
   variable myNode ""
   variable myHv3 ""
 
-  js_init {hv3 node} {
+  js_init {dom hv3 node} {
     set myHv3 $hv3
     set myNode $node
-    set myJavascriptParent [::hv3::dom::HTMLElement %AUTO% $hv3 $node]
+    set myJavascriptParent [::hv3::dom::HTMLElement %AUTO% $dom $hv3 $node]
   }
 
   #----------------------------------------------------------------------
@@ -1134,8 +1186,8 @@ snit::type ::hv3::dom::HTMLTextAreaElement {
 
 snit::type ::hv3::dom::HTMLAnchorElement {
 
-  js_init {hv3 node} {
-    set myJavascriptParent [::hv3::dom::HTMLElement %AUTO% $hv3 $node]
+  js_init {dom hv3 node} {
+    set myJavascriptParent [::hv3::dom::HTMLElement %AUTO% $dom $hv3 $node]
   }
 
   js_getput_attribute accessKey accesskey
@@ -1249,7 +1301,7 @@ snit::type ::hv3::dom {
       if {[::hv3::dom::use_scripting]} {
         # Set up the new interpreter with the global "Window" object.
         set mySee [::see::interp]
-        set myWindow [::hv3::dom::Window %AUTO% $mySee $myHv3]
+        set myWindow [::hv3::dom::Window %AUTO% $self $mySee $myHv3]
         $mySee global $myWindow 
       }
 
@@ -1331,6 +1383,8 @@ snit::type ::hv3::dom {
   #     onload
   #
   method event {event node} {
+    if {![::hv3::dom::use_scripting] || $mySee eq ""} {return ""}
+
     set script [$node attr -default "" $event]
     if {$script ne ""} {
       # TODO: Create some "event" object filled with event parameters.
@@ -1363,10 +1417,12 @@ snit::type ::hv3::dom {
         set objtype $tag_to_obj($tag)
       } 
 
-      set myNodeToDom($node) [$objtype %AUTO% $myHv3 $node]
+      set myNodeToDom($node) [$objtype %AUTO% $self $myHv3 $node]
     }
     return $myNodeToDom($node)
   }
+
+  method see {} { return $mySee }
 
   #------------------------------------------------------------------
   # Logging system follows.
@@ -1497,7 +1553,7 @@ proc ::hv3::dom::use_scripting {} {
   return $r
 }
 
-set ::hv3::dom::use_scripting_option 0
+set ::hv3::dom::use_scripting_option 1
 set ::hv3::dom::reformat_scripts_option 0
 # set ::hv3::dom::reformat_scripts_option 1
 

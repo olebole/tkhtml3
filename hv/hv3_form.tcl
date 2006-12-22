@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.46 2006/12/18 05:23:56 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.47 2006/12/22 05:25:07 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -277,7 +277,7 @@ snit::widget ::hv3::control {
   }
 
   method CreateTextWidget {node} {
-    set myWidget [text ${win}.widget]
+    set myWidget [::hv3::scrolled text ${win}.widget]
     set contents ""
     foreach child [$myControlNode children] {
       append contents [$child text -pre]
@@ -1021,24 +1021,30 @@ snit::type ::hv3::formmanager {
     set isSubmit 0
 
     set formnode $myParsedForm
-    set form $myForms($formnode)
+
+    set form ""
+    if {$formnode ne ""} {set form $myForms($formnode)}
 
     switch -- [string tolower [$node tag].[$node attr -default {} type]] {
       input.image {
         set control [::hv3::clickcontrol %AUTO% $node]
         set myClickControls($node) $control
-        $control configure -clickcmd [list $form submit $control]
+        if {$form ne ""} { 
+          $control configure -clickcmd [list $form submit $control] 
+        }
         set isSubmit 1
       }
       input.submit {
         set control [::hv3::clickcontrol %AUTO% $node]
         set myClickControls($node) $control
-        $control configure -clickcmd [list $form submit $control]
+        if {$form ne ""} { 
+          $control configure -clickcmd [list $form submit $control] 
+        }
         set isSubmit 1
       }
       input.reset {
         set control [::hv3::clickcontrol %AUTO% $node]
-        $control configure -clickcmd [list $form reset]
+        if {$form ne ""} { $control configure -clickcmd [list $form reset] }
         set myClickControls($node) $control
       }
       input.button {
@@ -1051,7 +1057,9 @@ snit::type ::hv3::formmanager {
       }
       default {
         set control [::hv3::control ${myHtml}.control_${name} $node]
-        $control configure -submitcmd [list $form submit $control]
+        if {$form ne ""} {
+          $control configure -submitcmd [list $form submit $control]
+        }
       }
     }
 
