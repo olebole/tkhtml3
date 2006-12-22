@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.47 2006/12/22 05:25:07 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.48 2006/12/22 06:01:26 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -277,7 +277,7 @@ snit::widget ::hv3::control {
   }
 
   method CreateTextWidget {node} {
-    set myWidget [::hv3::scrolled text ${win}.widget]
+    set myWidget [::hv3::scrolled text ${win}.widget -width 500]
     set contents ""
     foreach child [$myControlNode children] {
       append contents [$child text -pre]
