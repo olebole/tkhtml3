@@ -44,11 +44,11 @@
 #include <tcl.h>
 
 typedef struct CssSelector CssSelector;
-typedef struct CssPropertySet CssPropertySet;
 typedef struct CssRule CssRule;
 typedef struct CssParse CssParse;
 typedef struct CssToken CssToken;
 typedef struct CssPriority CssPriority;
+typedef struct CssProperties CssProperties;
 
 typedef unsigned char u8;
 typedef unsigned int u32;

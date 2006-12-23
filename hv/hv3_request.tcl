@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.5 2006/12/21 08:18:28 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.6 2006/12/23 09:01:52 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file contains the implementation of two types used by hv3:
@@ -209,7 +209,7 @@ snit::type ::hv3::uri {
     return "/[join $output /]"
   }
 
-  proc merge {path1 path2} {
+  proc Merge {path1 path2} {
     return [regsub {[^/]*$} $path1 $path2]
   }
 
@@ -273,7 +273,7 @@ snit::type ::hv3::uri {
           if {[string match {/*} $Path]} {
             set options(-path) [remove_dot_segments $Path]
           } else {
-            set merged_path [merge $options(-path) $Path]
+            set merged_path [Merge $options(-path) $Path]
             set options(-path) [remove_dot_segments $merged_path]
           }
           set options(-query) $Query

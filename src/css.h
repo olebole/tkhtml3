@@ -62,9 +62,11 @@
  *                   '<h1 style="font : italic">').
  */
 typedef struct CssStyleSheet CssStyleSheet;
-typedef struct CssProperties CssProperties;
+// typedef struct CssProperties CssProperties;
 typedef struct CssProperty CssProperty;
 typedef struct CssDynamic CssDynamic;
+
+typedef struct CssPropertySet CssPropertySet;
 
 /* Include html.h after we define our opaque types, because it includes
  * structures that contain pointers to them.
@@ -137,7 +139,6 @@ CssProperty *HtmlCssStringToProperty(CONST char *z, int n);
  * object internally.
  */
 int HtmlCssParse(Tcl_Obj *, int, Tcl_Obj *, Tcl_Obj *, CssStyleSheet **);
-int HtmlCssParseStyle(int, CONST char *, CssProperties **);
 int HtmlCssStyleSheetSyntaxErrs(CssStyleSheet *);
 void HtmlCssStyleSheetFree(CssStyleSheet *);
 
@@ -153,9 +154,13 @@ void HtmlCssStyleSheetApply(HtmlTree *, HtmlNode *);
 void HtmlCssStyleSheetGenerated(HtmlTree *, HtmlElementNode *);
 
 /*
- * Functions to interface with the results of a style application.
+ * Functions to interface with inline style information (in HTML, 
+ * the "style" attribute).
  */
-void HtmlCssPropertiesFree(CssProperties *);
+int  HtmlCssInlineParse(int, CONST char *, CssPropertySet **);
+void HtmlCssInlineFree(CssPropertySet *);
+int HtmlCssInlineQuery(Tcl_Interp *, CssPropertySet *, Tcl_Obj *);
+
 /*
   CssProperty *HtmlCssPropertiesGet(CssProperties *, int, int*, int*);
 */

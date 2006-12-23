@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.109 2006/12/10 08:38:08 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.110 2006/12/23 09:01:53 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -333,10 +333,8 @@ static PropertyDef *getPropertyDef(int eProp){
 /*
  *---------------------------------------------------------------------------
  *
- * propertyToString --
+ * HtmlPropertyToString --
  *
- *     This function is used for logging debugging info only.
- * 
  *     Return a pointer to a string representation of the CSS specified
  *     value contained in argument pProp. *pzFree is set to the value
  *     of a pointer (possibly NULL) that should be passed to HtmlFree(0, )

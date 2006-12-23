@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.109 2006/12/22 05:25:07 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.110 2006/12/23 09:01:53 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -487,7 +487,7 @@ HtmlNodeClearStyle(pTree, pElem)
         HtmlNodeClearGenerated(pTree, pElem);
         HtmlComputedValuesRelease(pTree, pElem->pPropertyValues);
         HtmlComputedValuesRelease(pTree, pElem->pPreviousValues);
-        HtmlCssPropertiesFree(pElem->pStyle);
+        HtmlCssInlineFree(pElem->pStyle);
         HtmlCssFreeDynamics(pElem);
         pElem->pStyle = 0;
         pElem->pPropertyValues = 0;
@@ -985,6 +985,11 @@ setNodeAttribute(pNode, zAttrName, zAttrVal)
 
     pElem->pAttributes = HtmlAttributesNew(nArgs, azPtr, aLen, 0);
     HtmlFree(pAttr);
+
+    if (strcmp(HTML_INLINE_STYLE_ATTR, zAttrName) == 0) {
+        HtmlCssInlineFree(pElem->pStyle);
+        pElem->pStyle = 0;
+    }
 }
 
 static void
@@ -2296,7 +2301,7 @@ node_attr_usage:
         }
 
         /*
-         * nodeHandle property ?-before? ?-after? ?PROPERTY-NAME?
+         * nodeHandle property ?-before|-after|-inline? ?PROPERTY-NAME?
          *
          *     Return the calculated value of a node's CSS property. If the
          *     node is a text node, return the value of the property as
@@ -2305,8 +2310,12 @@ node_attr_usage:
         case NODE_PROPERTY: {
             int nArg = objc - 2;
             Tcl_Obj * CONST *aArg = &objv[2];
+
             HtmlComputedValues *pComputed; 
             HtmlNode *p = pNode;
+
+            /* This method is a no-op for text nodes */
+            if (HtmlNodeIsText(p)) break;
 
             HtmlCallbackForce(pTree);
 
@@ -2318,10 +2327,19 @@ node_attr_usage:
                     aArg = &aArg[1];
                     nArg--;
                 }
-                if (0 == strcmp(zArg0, "-after")) {
+                else if (0 == strcmp(zArg0, "-after")) {
                     p = pElem ? pElem->pAfter : 0;
                     aArg = &aArg[1];
                     nArg--;
+                }
+                else if (0 == strcmp(zArg0, "-inline")) {
+                    CssPropertySet *pSet = HtmlNodeAsElement(p)->pStyle;
+                    
+                    if (nArg == 1) 
+                        return HtmlCssInlineQuery(interp, pSet, 0);
+                    if (nArg == 2) 
+                        return HtmlCssInlineQuery(interp, pSet, aArg[1]);
+                    /* Otherwise, fall through for the WrongNumArgs() message */
                 }
             }
             if (!p) {
@@ -2336,7 +2354,7 @@ node_attr_usage:
                     return HtmlNodeGetProperty(interp, objv[2], pComputed);
                 default:
                     Tcl_WrongNumArgs(
-                        interp, 2, objv, "?-before|-after? PROPERTY-NAME"
+                        interp, 2, objv,"?-before|-after|-inline? PROPERTY-NAME"
                     );
                     return TCL_ERROR;
             }

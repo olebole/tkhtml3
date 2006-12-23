@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.111 2006/12/22 05:30:07 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.112 2006/12/23 09:01:52 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -1287,31 +1287,9 @@ proc exit {args} {
   eval [concat tcl_exit $args]
 }
 
-proc ::hv3::scroll {r} {
-  set html [[gui_current hv3] html]
-  set region [$html yview]
-  set max [expr 1.0 - ([lindex $region 1] - [lindex $region 0])]
-  ::hv3::scrollcb idle $max 0 60 $r
-}
-proc ::hv3::scrollcb {delay max ii maxii r} {
-  set html [[gui_current hv3] html]
-  $html yview moveto [expr {double($ii) * (double($max) / double($maxii))}]
-  if {$ii < $maxii} {
-    after $delay [list ::hv3::scrollcb $delay $max [expr $ii + 1] $maxii $r] 
-  } elseif {$r > 0} {
-    after $delay [list ::hv3::scrollcb $delay $max 0 $maxii [expr $r - 1]] 
-  }
-}
-
-proc ::hv3::nOverflow {} {
-  ::hv3::walkTree [[gui_current hv3] node] N {
-    if {[$N tag] ne ""} {
-      set overflow [$N property overflow]
-      if {$overflow ne "visible"} {
-        puts "$N: $overflow"
-      }
-    }
-  }
+proc JS {args} {
+  set script [join $args " "]
+  [[gui_current hv3] dom] javascript $script
 }
 
 #--------------------------------------------------------------------------

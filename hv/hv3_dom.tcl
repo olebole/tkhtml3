@@ -52,8 +52,6 @@
 
 package require snit
 
-source [file join [file dirname [info script]] hv3_dom2.tcl]
-
 
 # This type contains various convenience code to help with development
 # of the DOM bindings for Hv3.
@@ -363,113 +361,6 @@ snit::type ::hv3::JavascriptObject {
 }
 
 
-#-------------------------------------------------------------------------
-# Snit class for the "document" object.
-#
-# DOM level 1 interface (- sign means it's missing) in Hv3.
-#
-#     HTMLDocument.write(string)
-#     HTMLDocument.writeln(string)
-#     HTMLDocument.getElementById(string)
-#     HTMLDocument.forms[]
-#     HTMLDocument.anchors[]
-#     HTMLDocument.links[]
-#     HTMLDocument.applets[]
-#     HTMLDocument.body[]
-#
-snit::type ::hv3::dom::HTMLDocument {
-
-  variable myHv3
-
-  js_init {dom hv3} {
-    set myHv3 $hv3
-  }
-
-  #-------------------------------------------------------------------------
-  # The HTMLDocument.write() and writeln() methods (DOM level 1)
-  #
-  js_scall write {THIS str} {
-    catch { [$myHv3 html] write text $str }
-    return ""
-  }
-  js_scall writeln {THIS str} {
-    $self call_write $THIS "$str\n"
-  }
-
-  #-------------------------------------------------------------------------
-  # HTMLDocument.getElementById() method. (DOM level 1)
-  #
-  # This returns a single object (or NULL if an object of the specified
-  # id cannot be found).
-  #
-  js_scall getElementById {THIS elementId} {
-    set node [lindex [$myHv3 search "#$elementId"] 0]
-    if {$node ne ""} {
-      return [list object [[$myHv3 dom] node_to_dom $node]]
-    }
-    return null
-  }
-
-  #-------------------------------------------------------------------------
-  # The document collections (DOM level 1)
-  #
-  #     HTMLDocument.images[] 
-  #     HTMLDocument.forms[]
-  #     HTMLDocument.anchors[]
-  #     HTMLDocument.links[]
-  #     HTMLDocument.applets[] 
-  #
-  # TODO: applets[] is supposed to contain "all the OBJECT elements that
-  # include applets and APPLET (deprecated) elements in a document". Here
-  # only the APPLET elements are collected.
-  #
-  js_getobject images  { hv3::dom::HTMLCollection %AUTO% $myHv3 img }
-  js_getobject forms   { hv3::dom::HTMLCollection %AUTO% $myHv3 form }
-  js_getobject anchors { hv3::dom::HTMLCollection %AUTO% $myHv3 {a[name]} }
-  js_getobject links   { hv3::dom::HTMLCollection %AUTO% $myHv3 {area,a[href]} }
-  js_getobject applets { hv3::dom::HTMLCollection %AUTO% $myHv3 applet }
-
-  #-----------------------------------------------------------------------
-  # The "location" object (Gecko compatibility)
-  #
-  js_getobject location { ::hv3::dom::Location %AUTO% [$self dom] $myHv3 }
-  js_put location value { 
-    set location [lindex [$self Get location] 1]
-    set assign [lindex [$location Get assign] 1]
-    $assign Call THIS $value
-  }
-
-  #-------------------------------------------------------------------------
-  # Handle unknown property requests.
-  #
-  # An unknown property may refer to certain types of document element
-  # by either the "name" or "id" HTML attribute.
-  #
-  # 1: Have to find some reference for this behaviour...
-  # 2: Maybe this is too inefficient. Maybe it should go to the 
-  #    document.images and document.forms collections.
-  #
-  js_get * {
-
-    # Allowable element types.
-    set tags [list form img]
-
-    # Selectors to use to find document nodes.
-    set nameselector [subst -nocommands {[name="$property"]}]
-    set idselector   [subst -nocommands {[id="$property"]}]
- 
-    foreach selector [list $nameselector $idselector] {
-      set node [lindex [$myHv3 search $selector] 0]
-      if {$node ne "" && [lsearch $tags [$node tag]] >= 0} {
-        return [list object [[$myHv3 dom] node_to_dom $node]]
-      }
-    }
-
-    return ""
-  }
-
-  js_finish {}
-}
 
 #-------------------------------------------------------------------------
 # Snit type for "Navigator" DOM object.
@@ -876,91 +767,6 @@ snit::type ::hv3::dom::Text {
 #-------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------
-# Snit type for DOM type HTMLElement.
-#
-# DOM class: (Node -> Element -> HTMLElement)
-#
-# Supports the following interface:
-#
-#      Element.nodeName
-#      Element.nodeValue
-#      Element.nodeType
-#      Element.parentNode
-#      Element.childNodes
-#      Element.firstChild
-#      Element.lastChild
-#      Element.previousSibling
-#      Element.nextSibling
-#      Element.attributes
-#      Element.ownerDocument
-#
-# And the nonstandard:
-#
-#      HTMLElement.innerHTML
-#
-snit::type ::hv3::dom::HTMLElement {
-  variable myNode ""
-  variable myHv3 ""
-
-  js_init {dom hv3 node} {
-    set myNode $node
-    set myHv3 $hv3
-  }
-
-  js_get tagName { 
-    list string [string toupper [$myNode tag]]
-  }
-
-  # Get/Put functions for the attributes of $myNode:
-  #
-  method GetStringAttribute {prop} {
-    return [list string [$myNode attribute -default "" $prop]]
-  }
-  method PutStringAttribute {prop value} {
-    $myNode attribute $prop [lindex $value 1]
-  }
-  method GetBooleanAttribute {prop} {
-    set bool [$myNode attribute -default 0 $prop]
-    if {![catch {expr $bool}]} {
-      return [list boolean [expr {$bool ? 1 : 0}]]
-    } else {
-      return [list boolean 1]
-    }
-  }
-  method PutBooleanAttribute {prop value} {
-    $myNode attribute $prop [lindex $value 1]
-  }
-
-  # The following string attributes are common to all elements:
-  #
-  #     HTMLElement.id
-  #     HTMLElement.title
-  #     HTMLElement.lang
-  #     HTMLElement.dir
-  #     HTMLElement.className
-  #
-  js_getput_attribute id        id
-  js_getput_attribute title     title
-  js_getput_attribute lang      lang
-  js_getput_attribute dir       dir
-  js_getput_attribute className class
-
-  #-------------------------------------------------------------------
-  # Get and set the innerHTML property. The implmenetation of this
-  # is in hv3_dom2.tcl.
-  #
-  js_get innerHTML { list string [::hv3::dom::get_inner_html $myNode] }
-  js_put innerHTML {value} { 
-    set code [[$self see] tostring $value ]
-    ::hv3::dom::set_inner_html $myHv3 $myNode $code
-  }
-
-  js_finish {}
-
-  method node {} {return $myNode}
-}
-
-#-------------------------------------------------------------------------
 # Snit type for DOM type HTMLImageElement.
 #
 # DOM class: (Node -> Element -> HTMLElement -> HTMLImageElement)
@@ -1339,6 +1145,22 @@ snit::type ::hv3::dom::HTMLAnchorElement {
 #     onselect
 #     onchange
 #
+
+
+
+#-------------------------------------------------------------------------
+# Class ::hv3::dom
+#
+#     set dom [::hv3::dom %AUTO% $hv3]
+#
+#     $dom script ATTR SCRIPT
+#     $dom javascript SCRIPT
+#     $dom event EVENT NODE
+#     $dom reset
+#     $dom javascriptlog
+#
+#     destroy $dom
+#
 snit::type ::hv3::dom {
   variable mySee ""
 
@@ -1467,7 +1289,7 @@ snit::type ::hv3::dom {
       set rc [catch {$mySee eval $script} msg]
       $self Log "javascript:" $script $rc $msg
     }
-    return ""
+    return $msg
   }
 
   # This method is called when one an event of type $event occurs on the
@@ -1626,6 +1448,12 @@ snit::widget ::hv3::dom::logwin {
 }
 
 #-----------------------------------------------------------------------
+# Pull in the object definitions.
+#
+source [file join [file dirname [info script]] hv3_dom2.tcl]
+source [file join [file dirname [info script]] hv3_dom3.tcl]
+
+#-----------------------------------------------------------------------
 # Initialise the scripting environment. This should basically load (or
 # fail to load) the javascript interpreter library. If it fails, then
 # we have a scriptless browser. The test for whether or not the browser
@@ -1653,7 +1481,7 @@ proc ::hv3::dom::use_scripting {} {
   return $r
 }
 
-set ::hv3::dom::use_scripting_option 1
-set ::hv3::dom::reformat_scripts_option 1
+set ::hv3::dom::use_scripting_option 0
+set ::hv3::dom::reformat_scripts_option 0
 # set ::hv3::dom::reformat_scripts_option 1
 

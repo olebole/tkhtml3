@@ -135,7 +135,7 @@ snit::type ::hv3::cookiemanager {
     if {![::hv3::have_sqlite3]} return
 
     # Make sure the database table has been created.
-    catch {::hv3::sqlitedb eval "
+    catch {::hv3::sqlitedb eval {
       CREATE TABLE cookiesdb(
         domain TEXT,
         flag BOOLEAN,
@@ -147,7 +147,7 @@ snit::type ::hv3::cookiemanager {
         lastused TIMESTAMP,
         PRIMARY KEY(domain, path, name)
       );
-    "}
+    }}
     after $EXPIRE_COOKIES_DELAY [mymethod ExpireCookies]
   }
 
@@ -228,16 +228,10 @@ snit::type ::hv3::cookiemanager {
     after $EXPIRE_COOKIES_DELAY [mymethod ExpireCookies]
   }
 
-  # Each cookie is stored as a list of 8 elements, as follows:
+  #------------------------------------------------------------------------
+  # SetCookie
   #
-  #     + domain
-  #     + flag (TRUE/FALSE)
-  #     + path
-  #     + secure (TRUE/FALSE)
-  #     + expires (time_t)
-  #     + name
-  #     + value
-  #     + <time last updated or sent>
+  # Add a cookie to the cookies database.
   #
   method SetCookie {uri data} {
     if {![::hv3::have_sqlite3]} return
