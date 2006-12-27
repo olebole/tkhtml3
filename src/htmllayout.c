@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.242 2006/12/22 02:40:09 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.243 2006/12/27 10:45:32 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -3039,7 +3039,7 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
 
     /* Look-up table used by this function. */
     #define F(z, d, c, l, x) static FlowType FT_ ## z = {#z, d, c, l, x}
-    F( NONE,            0, 1, 0, 0);
+    F( NONE,            0, 0, 0, 0);
     F( BLOCK,           1, 1, 0, normalFlowLayoutBlock);
     F( BR,              1, 1, 1, normalFlowLayoutBlock);
     F( FLOAT,           0, 0, 0, normalFlowLayoutFloat);

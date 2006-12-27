@@ -9,6 +9,42 @@
 #       ::hv3::dom::HTMLDocument
 #
 #   Widgets:
+#
+#
+
+
+#
+# Implemented subset of DOM Level 1:
+#
+#     Node
+#      +----- Document ---------- HTMLDocument
+#      +----- CharacterData ----- Text
+#      +----- Element  ---------- HTMLElement
+#                                     +------- HTMLInputElement
+#                                     +------- HTMLTextAreaElement
+#                                     +------- HTMLFormElement
+#                                     +------- HTMLImageElement
+#                                     +------- HTMLAnchorElement
+#
+#     HTMLCollection
+#
+
+# Not implemented DOM Level 1:
+#
+#      DOMException
+#      ExceptionCode
+#      DOMImplementation
+#      DocumentFragment
+#      Attr
+#      Comment
+#
+#      NodeList
+#      NamedNodeMap
+#
+
+
+
+
 
 #------------------------------------------------------------------------
 # http://www.w3.org/TR/DOM-Level-2-HTML/html.html
@@ -27,7 +63,7 @@ namespace eval ::hv3::dom {
 
     set ret ""
     foreach child [$node children] {
-      append ret [NodeToHtml $node]
+      append ret [NodeToHtml $child]
     }
     return $ret
   }
@@ -127,11 +163,21 @@ snit::type ::hv3::dom::HTMLDocument {
   # include applets and APPLET (deprecated) elements in a document". Here
   # only the APPLET elements are collected.
   #
-  js_getobject images  { hv3::dom::HTMLCollection %AUTO% $myHv3 img }
-  js_getobject forms   { hv3::dom::HTMLCollection %AUTO% $myHv3 form }
-  js_getobject anchors { hv3::dom::HTMLCollection %AUTO% $myHv3 {a[name]} }
-  js_getobject links   { hv3::dom::HTMLCollection %AUTO% $myHv3 {area,a[href]} }
-  js_getobject applets { hv3::dom::HTMLCollection %AUTO% $myHv3 applet }
+  js_getobject images  { 
+    hv3::dom::HTMLCollection %AUTO% [$self dom] $myHv3 img 
+  }
+  js_getobject forms { 
+    hv3::dom::HTMLCollection %AUTO% [$self dom] $myHv3 form 
+  }
+  js_getobject anchors { 
+    hv3::dom::HTMLCollection %AUTO% [$self dom] $myHv3 {a[name]} 
+  }
+  js_getobject links { 
+    hv3::dom::HTMLCollection %AUTO% [$self dom] $myHv3 {area,a[href]} 
+  }
+  js_getobject applets { 
+    hv3::dom::HTMLCollection %AUTO% [$self dom] $myHv3 applet 
+  }
 
   #-----------------------------------------------------------------------
   # The HTMLDocument.cookie property (DOM level 1)
@@ -223,68 +269,73 @@ snit::type ::hv3::dom::HTMLDocument {
 # And the nonstandard:
 #
 #      HTMLElement.innerHTML
+#      HTMLElement.style
 #
-snit::type ::hv3::dom::HTMLElement {
-  variable myNode ""
-  variable myHv3 ""
+namespace eval ::hv3::dom {
 
-  js_init {dom hv3 node} {
-    set myNode $node
-    set myHv3 $hv3
+  proc snit_type {type args} {
+    uplevel ::snit::type $type [list [join $args]]
   }
 
-  js_get tagName { 
-    list string [string toupper [$myNode tag]]
-  }
+  snit_type HTMLElement {
+    variable myNode ""
+    variable myHv3 ""
 
-  js_getobject style { ::hv3::dom::InlineStyle %AUTO% [$self dom] $myNode }
-
-  # Get/Put functions for the attributes of $myNode:
-  #
-  method GetStringAttribute {prop} {
-    return [list string [$myNode attribute -default "" $prop]]
-  }
-  method PutStringAttribute {prop value} {
-    $myNode attribute $prop [lindex $value 1]
-  }
-  method GetBooleanAttribute {prop} {
-    set bool [$myNode attribute -default 0 $prop]
-    if {![catch {expr $bool}]} {
-      return [list boolean [expr {$bool ? 1 : 0}]]
-    } else {
-      return [list boolean 1]
+    js_init {dom hv3 node} {
+      set myNode $node
+      set myHv3 $hv3
     }
+
+  } $DOM0Events_ElementCode {
+
+    js_get tagName { 
+      list string [string toupper [$myNode tag]]
+    }
+  
+    js_getobject style { ::hv3::dom::InlineStyle %AUTO% [$self dom] $myNode }
+  
+    # Get/Put functions for the attributes of $myNode:
+    #
+    method GetBooleanAttribute {prop} {
+      set bool [$myNode attribute -default 0 $prop]
+      if {![catch {expr $bool}]} {
+        return [list boolean [expr {$bool ? 1 : 0}]]
+      } else {
+        return [list boolean 1]
+      }
+    }
+    method PutBooleanAttribute {prop value} {
+      $myNode attribute $prop [lindex $value 1]
+    }
+  
+    #-------------------------------------------------------------------
+    # The following string attributes are common to all elements:
+    #
+    #     HTMLElement.id
+    #     HTMLElement.title
+    #     HTMLElement.lang
+    #     HTMLElement.dir
+    #     HTMLElement.className
+    #
+    js_getput_attribute id        id
+    js_getput_attribute title     title
+    js_getput_attribute lang      lang
+    js_getput_attribute dir       dir
+    js_getput_attribute className class
+  
+    #-------------------------------------------------------------------
+    # Get and set the innerHTML property. The implmenetation of this
+    # is in hv3_dom2.tcl.
+    #
+    js_get innerHTML { list string [::hv3::dom::get_inner_html $myNode] }
+    js_put innerHTML {value} { 
+      set code [[$self see] tostring $value ]
+      ::hv3::dom::set_inner_html $myHv3 $myNode $code
+    }
+  
+    js_finish {}
+  
+    method node {} {return $myNode}
   }
-  method PutBooleanAttribute {prop value} {
-    $myNode attribute $prop [lindex $value 1]
-  }
 
-  # The following string attributes are common to all elements:
-  #
-  #     HTMLElement.id
-  #     HTMLElement.title
-  #     HTMLElement.lang
-  #     HTMLElement.dir
-  #     HTMLElement.className
-  #
-  js_getput_attribute id        id
-  js_getput_attribute title     title
-  js_getput_attribute lang      lang
-  js_getput_attribute dir       dir
-  js_getput_attribute className class
-
-  #-------------------------------------------------------------------
-  # Get and set the innerHTML property. The implmenetation of this
-  # is in hv3_dom2.tcl.
-  #
-  js_get innerHTML { list string [::hv3::dom::get_inner_html $myNode] }
-  js_put innerHTML {value} { 
-    set code [[$self see] tostring $value ]
-    ::hv3::dom::set_inner_html $myHv3 $myNode $code
-  }
-
-  js_finish {}
-
-  method node {} {return $myNode}
 }
-

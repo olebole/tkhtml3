@@ -53,7 +53,10 @@
 package require snit
 
 
-# This type contains various convenience code to help with development
+#--------------------------------------------------------------------------
+# ::hv3::JavascriptObject
+# 
+# This type contains various convenience code to help with development 
 # of the DOM bindings for Hv3.
 #
 snit::type ::hv3::JavascriptObject {
@@ -83,37 +86,40 @@ snit::type ::hv3::JavascriptObject {
   method see {} {$myDom see}
   method dom {} {set myDom}
 
-  # Array of simple javascript properties.
-  variable myProperties -array [list]
+  # Reference to javascript object to store properties.
+  variable myNative
 
   constructor {dom args} {
     set myDom $dom
     $self configurelist $args
+    set myNative [[$dom see] native]
+  }
+
+  destructor {
+    # Todo: Finalize $myNative.
   }
 
   method Get {property} {
-    if {[info exists myProperties($property)]} {
-      set type [lindex $myProperties($property) 0]
-      if {$type eq "rw" || $type eq "ro"} {
-        return [eval [lindex $myProperties($property) 1]]
-      }
-      return $myProperties($property)
-    }
-
-    return ""
+    return [eval [$self see] $myNative Get $property]
   }
 
   method Put {property value} {
-    if {[info exists myProperties($property)]} {
-      set type [lindex $myProperties($property) 0]
-      if {$type eq "rw"} {
-        return [eval [linsert [lindex $myProperties($property) 1] end $value]]
-      } elseif {$type eq "ro"} {
-        error "Read-only property: $property"
+    return [eval [$self see] $myNative Put $property [list $value]]
+  }
+
+  method ToString {js_value} {
+    switch -- [lindex $js_value 0] {
+      undefined {return "undefined"}
+      null      {return "null"}
+      boolean   {return [lindex $js_value 1]}
+      number    {return [lindex $js_value 1]}
+      string    {return [lindex $js_value 1]}
+      object    {
+        set val [eval [$self see] [lindex $js_value 1] DefaultValue]
+        if {[lindex $val 1] eq "object"} {error "DefaultValue is object"}
+        return [$self ToString $val]
       }
     }
-
-    set myProperties($property) $value
   }
 
   method Call {THIS args} {
@@ -122,7 +128,8 @@ snit::type ::hv3::JavascriptObject {
       if {$options(-callwithstrings)} {
         set see [$myDom see]
         set A [list]
-        foreach a $args { lappend A [$see tostring $a] }
+        # foreach a $args { lappend A [$see tostring $a] }
+        foreach a $args { lappend A [$self ToString $a] }
       }
       eval $options(-call) [list $THIS] $A
     } else {
@@ -548,6 +555,7 @@ snit::type ::hv3::dom::Window {
 
   js_scall alert {THIS msg} {
     tk_dialog .alert "Super Dialog Alert!" $msg "" 0 OK
+    return ""
   }
 
   js_call jsputs {THIS args} {
@@ -1309,14 +1317,17 @@ snit::type ::hv3::dom {
 
     set script [$node attr -default "" $event]
     if {$script ne ""} {
-      # TODO: Create some "event" object filled with event parameters.
-      # At the javascript level this should be a property of the global 
-      # Window object that always exists, but is populated here before
-      # evaluating the script.
-      #
-      set this [$self node_to_dom $node]
-      set rc [catch {$mySee eval $this $script} msg]
-      $self Log "$node $event" $script $rc $msg
+      $self node_to_dom $node
+    }
+
+    if {[info exists myNodeToDom($node)]} {
+      set eventobj [eval $myNodeToDom($node) Get [list $event]]
+      if {[lindex $eventobj 0] eq "object"} {
+        set ref [lindex $eventobj 1]
+        set this [list object $myNodeToDom($node)]
+        set rc [catch {eval $mySee $ref Call [list $this]} msg]
+        $self Log "$node $event" [$mySee tostring $eventobj]" $rc $msg
+      }
     }
   }
 
@@ -1450,8 +1461,8 @@ snit::widget ::hv3::dom::logwin {
 #-----------------------------------------------------------------------
 # Pull in the object definitions.
 #
-source [file join [file dirname [info script]] hv3_dom2.tcl]
 source [file join [file dirname [info script]] hv3_dom3.tcl]
+source [file join [file dirname [info script]] hv3_dom2.tcl]
 
 #-----------------------------------------------------------------------
 # Initialise the scripting environment. This should basically load (or

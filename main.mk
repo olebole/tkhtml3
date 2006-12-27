@@ -190,7 +190,7 @@ tclsee: tclsee.o
 
 tclsee.o: $(TOP)/hv/hv3see.c
 	echo '$$(COMPILE) $(JSFLAGS) -c $< -o $@'
-	$(COMPILE) $(JSFLAGS) -c $< -o $@
+	@$(COMPILE) $(JSFLAGS) -c $< -o $@
 #
 #-----------------------------------------------------------------------
 

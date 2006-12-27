@@ -63,6 +63,56 @@ unset InlineStyleDefn
 #-----------------------------------------------------------------------
 
 
+namespace eval ::hv3::dom {
+  
+  # List of DOM Level 0 events.
+  #
+  set DOM0Events_EventList [list                                         \
+    onload onunload onclick ondblclick onmousedown onmouseup onmouseover \
+    onmousemove onmouseout onkeypress onkeydown onkeyup onfocus onblur   \
+    onsubmit onreset onselect onchange                                   \
+  ]
+
+  # Variable DOM0Events_ElementCode contains code to insert into the
+  # ::hv3::dom::HTMLElement type for DOM Level 0 event support.
+  #
+  set DOM0Events_ElementCode {
+    variable myEventFunctionsCompiled 0
+
+    # This method loops through all the DOM Level 0 event attributes of
+    # html widget node $myNode (onclick, onfocus etc.). For each defined 
+    # attribute, compile the value of the attribute into the body of
+    # a javascript function object. Set the event property of the 
+    # parent object to the compiled function object.
+    #
+    method CompileEventFunctions {} {
+      if {$myEventFunctionsCompiled} return
+      set see [$self see]
+      foreach event $::hv3::dom::DOM0Events_EventList {
+        set body [$myNode attr -default "" $event]
+        if {$body ne ""} {
+          set ref [$see function $body]
+          $myJavascriptParent Put $event [list object $ref]
+          eval $see $ref Finalize
+        }
+      }
+      set myEventFunctionsCompiled 1
+    }
+  }
+
+  foreach event $::hv3::dom::DOM0Events_EventList {
+    append DOM0Events_ElementCode [subst -nocommands {
+      js_get $event {
+        [set self] CompileEventFunctions
+        [set myJavascriptParent] Get $event
+      }
+      js_put $event value {
+        [set self] CompileEventFunctions
+        [set myJavascriptParent] Put $event [set value]
+      }
+    }]
+  }
+}
 
 
 
