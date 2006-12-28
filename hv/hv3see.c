@@ -169,6 +169,7 @@
      */
     #define GC_MALLOC_UNCOLLECTABLE(x) ckalloc(x)
     #define GC_FREE(x) ckfree((char *)x)
+    #define GC_register_finalizer(a,b,c,d,e) 
 #else
     #include <gc.h>
 #endif
@@ -187,13 +188,31 @@ typedef struct SeeJsObject SeeJsObject;
 #define OBJECT_HASH_SIZE 257
 
 struct SeeInterp {
+    /* The two interpreters - SEE and Tcl. */
     struct SEE_interpreter interp;
     Tcl_Interp *pTclInterp;
 
     /* Hash table containing the objects created by the Tcl interpreter.
      * This maps from the Tcl command to the SeeTclObject structure.
+     *
+     * When this structure is allocated (in function tclSeeInterp()), a
+     * seperate allocation is made for aTclObject using SEE_malloc_string().
      */
-    SeeTclObject *aTclObject[OBJECT_HASH_SIZE];
+    SeeTclObject **aTclObject;
+
+    /* Number of references to this structure. This is initially set to
+     * one, and incremented each time an object is added to the aTclObject[]
+     * table. It is decremented when an object when:
+     *
+     *     + A [$interp destroy] command is evaluated, or
+     *     + An object is removed from the aTclObject[] table.
+     *
+     * When nRef reaches zero, this structure may be freed using GC_FREE()
+     * (it is allocated with GC_MALLOC_UNCOLLECTABLE()). The structure may not
+     * be freed before all of the SeeTclObject structures have been collected
+     * as the finalizer for these structures refers to this one.
+     */
+    int nRef;
 
     /* Hash table containing the objects created by the Javascript side 
      * accessable via [$interp Get NAME] references. i.e.:
@@ -211,9 +230,15 @@ struct SeeInterp {
     int iNextKey;
     SeeJsObject *aJsObject[OBJECT_HASH_SIZE];
 
+    /* Linked list of SeeJsObject structures that will be removed from
+     * the aJsObject[] table next time removeTransientRefs() is called.
+     */
     SeeJsObject *pTransient;
 
-    /* Tcl name of the global object. */
+    /* Tcl name of the global object. The NULL-terminated string is
+     * allocated using SEE_malloc_string() when the global object
+     * is set (the [$interp global] command).
+     */
     char *zGlobal;
 };
 static int iSeeInterp = 0;
@@ -574,14 +599,43 @@ argValueToTcl(pTclSeeInterp, pValue)
 }
 
 static void
-finalizeSeeTclObject(pSeeInterp, p, closure)
-    struct SEE_interp *pSeeInterp;
+finalizeSeeTclObject(p, closure)
     void *p;
     void *closure;
 {
     SeeTclObject *pObject = (SeeTclObject *)p;
+    SeeInterp *pTclSeeInterp = (SeeInterp *)closure;
+    int iSlot = hashCommand(Tcl_GetString(pObject->pObj));
+
+    Tcl_Obj *pFinalize;
+
+    /* Remove the entry from the SeeInterp.aTclObject[] table */
+    if (pTclSeeInterp->aTclObject[iSlot] == pObject) {
+        pTclSeeInterp->aTclObject[iSlot] = pObject->pNext;
+    } else {
+        SeeTclObject *pTmp = pTclSeeInterp->aTclObject[iSlot];
+        while (pTmp->pNext != pObject) {
+            assert(pTmp && pTmp->pNext);
+            pTmp = pTmp->pNext;
+        }
+        pTmp->pNext = pObject->pNext;
+    }
+
+    /* Execute the Tcl Finalize hook. Do nothing with the result thereof. */
+    pFinalize = Tcl_DuplicateObj(pObject->pObj);
+    Tcl_IncrRefCount(pFinalize);
+    Tcl_ListObjAppendElement(0, pFinalize, Tcl_NewStringObj("Finalize", 8));
+    Tcl_EvalObjEx(pTclSeeInterp->pTclInterp, pFinalize, TCL_GLOBAL_ONLY);
+
+    /* Decrement the ref count on the Tcl object */
     Tcl_DecrRefCount(pObject->pObj);
-    pObject->pObj = 0;
+
+    /* Decrement the ref count on the SeeInterp structure */
+    pTclSeeInterp->nRef--;
+    assert(pTclSeeInterp->nRef >= 0);
+    if (pTclSeeInterp->nRef == 0) {
+        GC_FREE(pTclSeeInterp);
+    }
 }
 
 /*
@@ -665,12 +719,16 @@ findOrCreateObject(pTclSeeInterp, pTclCommand)
         pObject = pObject->pNext
     );
 
-    /* There is no existing object, create a new SeeTclObject. */
+    /* If pObject is still NULL, there is no existing object, create a new
+     * SeeTclObject. The object is allocated with SEE_malloc_string() and
+     * then the function finalizeSeeTclObject() added as a finalizer
+     * using GC_register_finalizer().
+     */
     if (!pObject) {
-        pObject = SEE_NEW_FINALIZE(
-            &pTclSeeInterp->interp, SeeTclObject,
-            finalizeSeeTclObject, 0
-        );
+        int nByte = sizeof(SeeTclObject);
+        pObject = (SeeTclObject *)SEE_malloc_string(pSeeInterp, nByte);
+        GC_register_finalizer(pObject,finalizeSeeTclObject,pTclSeeInterp,0,0);
+
         pObject->object.objectclass = getVtbl();
         pObject->object.Prototype = pTclSeeInterp->interp.Object_prototype;
         pObject->pObj = pTclCommand;
@@ -681,6 +739,9 @@ findOrCreateObject(pTclSeeInterp, pTclCommand)
         /* Insert the new object into the hash table */
         pObject->pNext = pTclSeeInterp->aTclObject[iSlot];
         pTclSeeInterp->aTclObject[iSlot] = pObject;
+
+        /* Increase the reference count on the SeeInterp structure */
+        pTclSeeInterp->nRef++;
     }
 
     return (struct SEE_object *)pObject;
@@ -862,8 +923,12 @@ static void
 delInterpCmd(clientData)
     ClientData clientData;             /* The SeeInterp data structure */
 {
-    SeeInterp *pInterp = (SeeInterp *)clientData;
-    GC_FREE(pInterp);
+    SeeInterp *pTclSeeInterp = (SeeInterp *)clientData;
+    SEE_gcollect(&pTclSeeInterp->interp);
+    pTclSeeInterp->nRef--;
+    if (pTclSeeInterp->nRef == 0) {
+        GC_FREE(pTclSeeInterp);
+    }
 }
 
 static int
@@ -1320,7 +1385,7 @@ interpCmd(clientData, pTclInterp, objc, objv)
 
 static int 
 tclSeeInterp(clientData, interp, objc, objv)
-    ClientData clientData;             /* The HTML widget data structure */
+    ClientData clientData;             /* Unused */
     Tcl_Interp *interp;                /* Current interpreter. */
     int objc;                          /* Number of arguments. */
     Tcl_Obj *CONST objv[];             /* Argument strings. */
@@ -1332,13 +1397,23 @@ tclSeeInterp(clientData, interp, objc, objv)
 
     pInterp = (SeeInterp *)GC_MALLOC_UNCOLLECTABLE(sizeof(SeeInterp));
     memset(pInterp, 0, sizeof(SeeInterp));
-
+ 
+    /* Initialize a new SEE interpreter */
     SEE_interpreter_init_compat(&pInterp->interp, 
         SEE_COMPAT_JS15|SEE_COMPAT_SGMLCOM
     );
-    pInterp->pTclInterp = interp;
-    Tcl_CreateObjCommand(interp, zCmd, interpCmd, pInterp, delInterpCmd);
 
+    /* Initialise the pTclInterp and nRef fields. */
+    pInterp->pTclInterp = interp;
+    pInterp->nRef = 1;
+
+    /* Allocate and initialise the SeeInterp.aTclObject[] table. */
+    pInterp->aTclObject = (SeeTclObject *)SEE_malloc_string(
+        &pInterp->interp, sizeof(SeeTclObject *) * OBJECT_HASH_SIZE
+    );
+    memset(pInterp->aTclObject, 0, sizeof(SeeTclObject *) * OBJECT_HASH_SIZE);
+
+    Tcl_CreateObjCommand(interp, zCmd, interpCmd, pInterp, delInterpCmd);
     Tcl_SetResult(interp, zCmd, TCL_VOLATILE);
     return TCL_OK;
 }

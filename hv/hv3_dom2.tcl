@@ -1,3 +1,4 @@
+
 #
 # Contains the following:
 #
@@ -11,7 +12,6 @@
 #   Widgets:
 #
 #
-
 
 #
 # Implemented subset of DOM Level 1:
@@ -286,6 +286,8 @@ namespace eval ::hv3::dom {
       set myHv3 $hv3
     }
 
+  # Insert the event property code. Defined in file hv3_dom3.tcl.
+  #
   } $DOM0Events_ElementCode {
 
     js_get tagName { 

@@ -144,6 +144,10 @@ snit::type ::hv3::JavascriptObject {
       error "Cannot call this as a constructor"
     }
   }
+
+  method Finalize {} {
+    # puts "Unimplemented Finalized method"
+  }
 }
 
 #-------------------------------------------------------------------------
@@ -1492,7 +1496,7 @@ proc ::hv3::dom::use_scripting {} {
   return $r
 }
 
-set ::hv3::dom::use_scripting_option 0
-set ::hv3::dom::reformat_scripts_option 0
-# set ::hv3::dom::reformat_scripts_option 1
+set ::hv3::dom::use_scripting_option 1
+# set ::hv3::dom::reformat_scripts_option 0
+set ::hv3::dom::reformat_scripts_option 1
 
