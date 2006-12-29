@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.110 2006/12/23 09:01:53 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.111 2006/12/29 06:16:46 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -625,6 +625,7 @@ nodeHandlerCallbacks(pTree, pNode)
     /* Most immediate ancestor of pNode that is not a <form> element. */
     HtmlNode *pNonFormParent;
 
+    assert(pTree->eWriteState == HTML_WRITE_NONE);
     assert(
         (eTag != Html_TD && eTag != Html_TH) || (
              HtmlNodeParent(pNode) && 
@@ -1135,6 +1136,7 @@ HtmlTreeAddElement(pTree, eType, pAttr, iOffset)
      * [$widget handler parse] callback script.
      */
     HtmlNode *pParsed = 0; 
+
     initTree(pTree);
 
     pCurrent = pTree->pCurrent;
@@ -2953,6 +2955,21 @@ HtmlParseFragment(pTree, zHtml)
     Tcl_SetObjResult(pTree->interp, sContext.pNodeList);
 }
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * sequenceCb --
+ *
+ *     This is an HtmlWalkTree() callback function (the tree iteration
+ *     is started from with HtmlSequenceNodes()).
+ *
+ * Results:
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
 static int 
 sequenceCb(pTree, pNode, clientData)
     HtmlTree *pTree;
@@ -2974,7 +2991,7 @@ sequenceCb(pTree, pNode, clientData)
  *     None.
  *
  *---------------------------------------------------------------------------
-*/
+ */
 void
 HtmlSequenceNodes(pTree)
     HtmlTree *pTree;

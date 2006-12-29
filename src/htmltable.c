@@ -1,6 +1,8 @@
 /*
  * htmltable.c ---
  *
+ *     This file contains code for layout of tables.
+ *
  *--------------------------------------------------------------------------
  * Copyright (c) 2005 Eolas Technologies Inc.
  * All rights reserved.
@@ -32,7 +34,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.115 2006/11/14 12:52:39 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.116 2006/12/29 06:16:46 danielk1977 Exp $";
 
 
 #include "htmllayout.h"
@@ -112,7 +114,7 @@ typedef int (CellCallback)(HtmlNode *, int, int, int, int, void *);
 typedef int (RowCallback)(HtmlNode *, int, void *);
 
 /* Iterate through each cell in each row of the table. */
-static int tableIterate(HtmlTree *,HtmlNode*, CellCallback, RowCallback, void*);
+static void tableIterate(HtmlTree*,HtmlNode*, CellCallback, RowCallback, void*);
 
 /* Count the number of rows/columns in the table */
 static CellCallback tableCountCells;
@@ -961,6 +963,14 @@ tableDrawCells(pNode, col, colspan, row, rowspan, pContext)
     return TCL_OK;
 }
 
+/*
+ * Context object used by the tableIterate() iteration procedure. i.e.
+ * the functions:
+ *
+ *     tableIterate()
+ *     rowIterate()
+ *     cellIterate()
+ */
 struct RowIterateContext {
     /* The cell and row callbacks */
     int (*xRowCallback)(HtmlNode *, int, void *);
@@ -987,7 +997,7 @@ struct RowIterateContext {
 typedef struct RowIterateContext RowIterateContext;
 
 static void
-doCellIterate(pTree, pNode, p)
+cellIterate(pTree, pNode, p)
     HtmlTree *pTree;
     HtmlNode *pNode;
     RowIterateContext *p;
@@ -998,7 +1008,14 @@ doCellIterate(pTree, pNode, p)
     char const *zSpan = 0;
 
     HtmlElementNode *pElem = (HtmlElementNode *)pNode;
-    assert(!HtmlNodeIsText(pNode));
+
+    /* Either this is a synthetic node, or it's 'display' property
+     * is set to "table-cell" (in HTML <TD> or <TH>).
+     */
+    assert(
+        0 == HtmlNodeParent(pNode) ||
+        CSS_CONST_TABLE_CELL == DISPLAY(HtmlNodeComputedValues(pNode))
+    );
     
     if (pElem->pPropertyValues) {
         /* Set nSpan to the number of columns this cell spans */
@@ -1061,37 +1078,22 @@ doCellIterate(pTree, pNode, p)
     p->iMaxRow = MAX(p->iMaxRow, p->iRow + nRSpan - 1);
 }
 
-#if 0
 static int 
-cellIterate(pTree, pNode, clientData)
+rowIterate(pTree, pNode, p)
     HtmlTree *pTree;
     HtmlNode *pNode;
-    ClientData clientData;
+    RowIterateContext *p;
 {
-    RowIterateContext *p = (RowIterateContext *)clientData;
-
-    if (HtmlNodeIsText(pNode)) return HTML_WALK_DO_NOT_DESCEND;
-
-    switch (DISPLAY(pNode->pPropertyValues)) {
-        case CSS_CONST_TABLE_CELL: {
-            doCellIterate(pTree, pNode, p);
-            return HTML_WALK_DO_NOT_DESCEND;
-        }
-    }
-
-    return HTML_WALK_DESCEND;
-}
-#endif
-
-static int 
-rowIterate(pTree, pNode, clientData)
-    HtmlTree *pTree;
-    HtmlNode *pNode;
-    ClientData clientData;
-{
-    RowIterateContext *p = (RowIterateContext *)clientData;
     int k;
     int ii;
+
+    /* Either this is a synthetic node, or it's 'display' property
+     * is set to "table-row".
+     */
+    assert(
+        0 == HtmlNodeParent(pNode) ||
+        CSS_CONST_TABLE_ROW == DISPLAY(HtmlNodeComputedValues(pNode))
+    );
 
     if (HtmlNodeIsText(pNode)) return 0;
     p->iCol = 0;
@@ -1108,7 +1110,7 @@ rowIterate(pTree, pNode, clientData)
 
         if (DISPLAY(pV) == CSS_CONST_TABLE_CELL) {
             /* Child has "display:table-cell". Good. */
-            doCellIterate(pTree, pCell, clientData);
+            cellIterate(pTree, pCell, p);
         } else {
             /* Have to create a fake <td> node. Bad. */
             int jj;
@@ -1122,7 +1124,7 @@ rowIterate(pTree, pNode, clientData)
             sCell.node.iNode = -1;
             sCell.nChild = jj - ii;
             sCell.apChildren = &((HtmlElementNode *)pNode)->apChildren[ii];
-            doCellIterate(pTree, (HtmlNode *)&sCell, clientData);
+            cellIterate(pTree, (HtmlNode *)&sCell, p);
             HtmlLayoutInvalidateCache(pTree, (HtmlNode *)&sCell);
             ii = jj - 1;
         }
@@ -1137,6 +1139,57 @@ rowIterate(pTree, pNode, clientData)
     }
 
     return 0;
+}
+
+static void 
+rowGroupIterate(pTree, pNode, p)
+    HtmlTree *pTree;
+    HtmlNode *pNode;
+    RowIterateContext *p;
+{
+    int ii;
+
+    if (!pNode) return;
+
+    /* Either this is a synthetic node, or it's 'display' property
+     * is set to one of "table-row-group", "table-footer-group" or
+     * "table-header-group".
+     */
+    assert(
+        0 == HtmlNodeParent(pNode)                                           ||
+        CSS_CONST_TABLE_ROW_GROUP==DISPLAY(HtmlNodeComputedValues(pNode))    ||
+        CSS_CONST_TABLE_FOOTER_GROUP==DISPLAY(HtmlNodeComputedValues(pNode)) ||
+        CSS_CONST_TABLE_HEADER_GROUP==DISPLAY(HtmlNodeComputedValues(pNode))
+    );
+
+    for (ii = 0; ii < HtmlNodeNumChildren(pNode); ii++) {
+        HtmlNode *pRow = HtmlNodeChild(pNode, ii);
+        HtmlComputedValues *pV = HtmlNodeComputedValues(pRow);
+
+        /* Throw away white-space node children of the <TBODY> node. */
+        if (HtmlNodeIsWhitespace(pRow)) continue;
+
+        if (DISPLAY(pV) == CSS_CONST_TABLE_ROW) {
+            /* Child has "display:table-row". Good. */
+            rowIterate(pTree, pRow, p);
+        } else {
+            /* Have to create a fake <tr> node. Bad. */
+            int jj;
+            HtmlElementNode sRow;
+            memset(&sRow, 0, sizeof(HtmlElementNode));
+            for (jj = ii + 1; jj < HtmlNodeNumChildren(pNode); jj++) {
+                HtmlNode *pNextRow = HtmlNodeChild(pNode, jj);
+                HtmlComputedValues *pV2 = HtmlNodeComputedValues(pNextRow);
+                if (DISPLAY(pV2) == CSS_CONST_TABLE_ROW) break;
+            }
+            sRow.node.iNode = -1;
+            sRow.nChild = jj - ii;
+            sRow.apChildren = &((HtmlElementNode *)pNode)->apChildren[ii];
+            rowIterate(pTree, &sRow, p);
+            assert(!sRow.pLayoutCache);
+            ii = jj - 1;
+        }
+    }
 }
 
 /*
@@ -1165,15 +1218,29 @@ rowIterate(pTree, pNode, clientData)
  *     to xRowCallback are the <tr> node object, the row number and a
  *     copy of the pContext argument passed to tableIterate().
  *
+ *   TRANSIENT NODES:
+ *
+ *     Sometimes, the nodes passed to the xCallback or xRowCallback 
+ *     callback functions may be allocated on the stack, rather than
+ *     actually part of the document tree. This happens when implicit
+ *     nodes are inserted.
+ *
+ *     Transient (stack) nodes can be identified by the following test:
+ *
+ *         if (pNode->pParent == 0) { // Is a transient node }
+ *
+ *     Because the node structure is allocated on the stack, it should
+ *     not be passed to HtmlDrawBox() etc.
+ *
  * Results:
- *     TCL_OK or TCL_ERROR.
+ *     None.
  *
  * Side effects:
  *     Whatever xCallback does.
  *
  *---------------------------------------------------------------------------
  */
-static int 
+static void 
 tableIterate(pTree, pNode, xCallback, xRowCallback, pContext)
     HtmlTree *pTree;
     HtmlNode *pNode;                               /* The <table> node */
@@ -1182,51 +1249,80 @@ tableIterate(pTree, pNode, xCallback, xRowCallback, pContext)
     void *pContext;                                /* pContext of callbacks */
 {
     int ii;
+  
+    HtmlNode *pHeader = 0;     /* Table header (i.e. <THEAD>) */
+    HtmlNode *pFooter = 0;     /* Table footer (i.e. <TFOOT>) */
+
     RowIterateContext sRowContext;
     memset(&sRowContext, 0, sizeof(RowIterateContext));
-
     sRowContext.xRowCallback = xRowCallback;
     sRowContext.xCallback  = xCallback;
     sRowContext.clientData = (ClientData)pContext;
 
+    /* Search for the table header and footer blocks. */
     for (ii = 0; ii < HtmlNodeNumChildren(pNode); ii++) {
-        HtmlNode *pRow = HtmlNodeChild(pNode, ii);
-        HtmlComputedValues *pV = HtmlNodeComputedValues(pRow);
+        HtmlNode *pChild = HtmlNodeChild(pNode, ii);
+        switch (DISPLAY(HtmlNodeComputedValues(pChild))) {
+             case CSS_CONST_TABLE_FOOTER_GROUP:
+                 pFooter = (pFooter ? pFooter : pChild);
+                 break;
+             case CSS_CONST_TABLE_HEADER_GROUP:
+                 pHeader = (pHeader ? pHeader : pChild);
+                 break;
+        }
+    }
 
-        /* Throw away text node children of the table node. Todo: Only
-         * white-space should be thrown away, Html_Text nodes should have
-         * implicit table-row and table-cell boxes created around them.
-         */
-        if (HtmlNodeIsText(pRow)) continue;
+    rowGroupIterate(pTree, pHeader, &sRowContext);
 
-        if (DISPLAY(pV) == CSS_CONST_TABLE_ROW) {
-            /* Child has "display:table-row". Good. */
-            rowIterate(pTree, pRow, &sRowContext);
+    for (ii = 0; ii < HtmlNodeNumChildren(pNode); ii++) {
+        HtmlNode *pChild = HtmlNodeChild(pNode, ii);
+        int eDisplay;
+
+        if (pChild == pFooter || pChild == pHeader) continue;
+
+	/* Throw away white-space node children of the table node. 
+         * Todo: Is this correct?  */
+        if (HtmlNodeIsWhitespace(pChild)) continue;
+
+        eDisplay = DISPLAY(HtmlNodeComputedValues(pChild));
+        if (
+            eDisplay == CSS_CONST_TABLE_ROW_GROUP ||
+            eDisplay == CSS_CONST_TABLE_FOOTER_GROUP ||
+            eDisplay == CSS_CONST_TABLE_HEADER_GROUP
+        ) {
+            rowGroupIterate(pTree, pChild, &sRowContext);
         } else {
-            /* Have to create a fake <tr> node. Bad. */
+            /* Create a transient <TBODY> node */
             int jj;
-            HtmlElementNode sRow;
-            memset(&sRow, 0, sizeof(HtmlElementNode));
+            HtmlElementNode sRowGroup;
+
             for (jj = ii + 1; jj < HtmlNodeNumChildren(pNode); jj++) {
-                HtmlNode *pNextRow = HtmlNodeChild(pNode, jj);
-                HtmlComputedValues *pV2 = HtmlNodeComputedValues(pNextRow);
-                if (DISPLAY(pV2) == CSS_CONST_TABLE_ROW) break;
+                HtmlNode *pSibling = HtmlNodeChild(pNode, jj);
+                eDisplay = DISPLAY(HtmlNodeComputedValues(pSibling));
+                if (
+                    eDisplay == CSS_CONST_TABLE_ROW_GROUP ||
+                    eDisplay == CSS_CONST_TABLE_FOOTER_GROUP ||
+                    eDisplay == CSS_CONST_TABLE_HEADER_GROUP
+                ) break;
             }
-            sRow.node.iNode = -1;
-            sRow.nChild = jj - ii;
-            sRow.apChildren = &((HtmlElementNode *)pNode)->apChildren[ii];
-            rowIterate(pTree, &sRow, &sRowContext);
-            assert(!sRow.pLayoutCache);
+
+            memset(&sRowGroup, 0, sizeof(HtmlElementNode));
+            sRowGroup.node.iNode = -1;
+            sRowGroup.nChild = jj - ii;
+            sRowGroup.apChildren = &((HtmlElementNode *)pNode)->apChildren[ii];
+            rowGroupIterate(pTree, &sRowGroup, &sRowContext);
+            assert(!sRowGroup.pLayoutCache);
             ii = jj - 1;
         }
     }
+
+    rowGroupIterate(pTree, pFooter, &sRowContext);
 
     while (sRowContext.iRow <= sRowContext.iMaxRow && xRowCallback) {
         xRowCallback(0, sRowContext.iRow, pContext);
         sRowContext.iRow++;
     }
     HtmlFree(sRowContext.aRowSpan);
-    return TCL_OK;
 }
 
 
@@ -1593,13 +1689,7 @@ tableCalculateMaxWidth(pData)
  *
  *     Lay out a table node.
  *
- *     Laying out tables largely uses HTML tags directly, instead of
- *     mapping them to CSS using a stylesheet first. This is not ideal, but
- *     the CSS table model is not complete by itself, it relies on the
- *     document language to specify some elements of table structure.
- *     Todo: In the long term, figure out if this can be fixed - either
- *     with CSS3, custom style-sheet syntax, or something I'm not currently
- *     aware of in CSS2.
+ *     Todo: Update this comment.
  *
  *     This is an incomplete implementation of HTML tables - it does not
  *     support the <col>, <colspan>, <thead>, <tfoot> or <tbody> elements.
@@ -1629,7 +1719,8 @@ tableCalculateMaxWidth(pData)
  *
  *---------------------------------------------------------------------------
  */
-int HtmlTableLayout(pLayout, pBox, pNode)
+int 
+HtmlTableLayout(pLayout, pBox, pNode)
     LayoutContext *pLayout;
     BoxContext *pBox;
     HtmlNode *pNode;          /* The node to layout */

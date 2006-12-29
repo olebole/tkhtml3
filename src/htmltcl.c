@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.144 2006/12/22 01:50:45 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.145 2006/12/29 06:16:46 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -1424,7 +1424,13 @@ parseCmd(clientData, interp, objc, objv)
     HtmlTokenizerAppend(pTree, zHtml, nHtml, isFinal);
     if (isFinal) {
         pTree->isParseFinished = 1;
-        HtmlFinishNodeHandlers(pTree);
+        assert(
+            pTree->eWriteState == HTML_WRITE_NONE ||
+            pTree->eWriteState == HTML_WRITE_WAIT
+        );
+        if (pTree->eWriteState == HTML_WRITE_NONE) {
+            HtmlFinishNodeHandlers(pTree);
+        }
     }
 
     HtmlCallbackRestyle(pTree, pCurrent ? pCurrent : pTree->pRoot);

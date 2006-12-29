@@ -474,6 +474,39 @@ snit::type ::hv3::dom::Window {
   }
 
   #-----------------------------------------------------------------------
+  # The "XMLHttpRequest" property object. This is so that scripts can
+  # do the following:
+  #
+  #     img = new Image();
+  #
+  js_getobject XMLHttpRequest {
+    ::hv3::JavascriptObject %AUTO% [$myHv3 dom] -construct [mymethod newRequest]
+  }
+  method newRequest {args} {
+    list object [::hv3::dom::XMLHttpRequest %AUTO% [$myHv3 dom] $myHv3]
+  }
+
+  #-----------------------------------------------------------------------
+  # The "Node" object. This contains the constants for Node.nodeType
+  #
+  js_getobject Node {
+    set obj [::hv3::JavascriptObject %AUTO% [$myHv3 dom]]
+    $obj Put ELEMENT_NODE                [list number 1]
+    $obj Put ATTRIBUTE_NODE              [list number 2]
+    $obj Put TEXT_NODE                   [list number 3]
+    $obj Put CDATA_SECTION_NODE          [list number 4]
+    $obj Put ENTITY_REFERENCE_NODE       [list number 5]
+    $obj Put ENTITY_NODE                 [list number 6]
+    $obj Put PROCESSING_INSTRUCTION_NODE [list number 7]
+    $obj Put COMMENT_NODE                [list number 8]
+    $obj Put DOCUMENT_NODE               [list number 9]
+    $obj Put DOCUMENT_TYPE_NODE          [list number 10]
+    $obj Put DOCUMENT_FRAGMENT_NODE      [list number 11]
+    $obj Put NOTATION_NODE               [list number 12]
+    set obj
+  }
+
+  #-----------------------------------------------------------------------
   # The Window.location property (Gecko compatibility)
   #
   #     This is an alias for the document.location property.
@@ -557,10 +590,44 @@ snit::type ::hv3::dom::Window {
   js_call clearInterval {THIS js_timerid} { $self ClearTimer 1 $js_timerid }
   #-----------------------------------------------------------------------
 
+  #-----------------------------------------------------------------------
+  # The "alert()" method.
+  #
   js_scall alert {THIS msg} {
     tk_dialog .alert "Super Dialog Alert!" $msg "" 0 OK
     return ""
   }
+
+  #-----------------------------------------------------------------------
+  # DOM level 0 events:
+  #
+  #     onload
+  #     onunload
+  #
+  # Note: For a frameset document, the Window.onload and Window.onunload
+  # properties may be set by the onload and onunload attributes of 
+  # the <FRAMESET> element, not the <BODY> (as is currently assumed).
+  #
+  variable myCompiledEvents 0
+  method CompileEvents {} {
+    if {$myCompiledEvents} return
+    set body [lindex [$myHv3 search body] 0]
+    set onload_script [$body attribute -default "" onload]
+    if {$onload_script ne ""} {
+      set ref [$mySee function $onload_script]
+      $myJavascriptParent Put onload [list object $ref]
+    }
+    set myCompiledEvents 1
+  }
+  js_get onload {
+    $self CompileEvents
+    $myJavascriptParent Get onload
+  }
+  js_put onload value {
+    $self CompileEvents
+    $myJavascriptParent Put onload $value
+  }
+  #-----------------------------------------------------------------------
 
   js_call jsputs {THIS args} {
     puts $args
@@ -574,7 +641,6 @@ snit::type ::hv3::dom::Window {
     }
     array unset myTimeoutIds
   }
-
 }
 
 #-------------------------------------------------------------------------
@@ -606,6 +672,8 @@ snit::type ::hv3::dom::HTMLCollection {
   variable myNodes [list]
   variable myIsValid 0
 
+  option -finalizable -default 0
+
   js_init {dom hv3 selector} {
     set myHv3 $hv3
     set mySelector $selector
@@ -628,7 +696,7 @@ snit::type ::hv3::dom::HTMLCollection {
     }
 
     $self Refresh
-    set idx [lindex $args 0 1]
+    set idx [format %.0f [lindex $args 0 1]]
     if {$idx < 0 || $idx >= [llength $myNodes]} {
       return ""
     }
@@ -688,6 +756,10 @@ snit::type ::hv3::dom::HTMLCollection {
       set myNodes [$myHv3 search $mySelector]
       set myIsValid 1
     }
+  }
+
+  method Finalize {} {
+    if {$options(-finalizable)} {$self destroy}
   }
 
   # This method is called externally when the underlying HTML document
@@ -772,9 +844,13 @@ snit::type ::hv3::dom::HTMLCollection_FE {
 snit::type ::hv3::dom::Text {
   variable myNode ""
 
-  constructor {hv3 node} {
+  js_init {dom hv3 node} {
     set myNode $node
   }
+
+  js_get nodeType { list number 3 ;#3 -> TEXT_NODE }
+
+  js_finish {}
 }
 #-------------------------------------------------------------------------
 
@@ -1319,19 +1395,30 @@ snit::type ::hv3::dom {
   method event {event node} {
     if {![::hv3::dom::use_scripting] || $mySee eq ""} {return ""}
 
-    set script [$node attr -default "" $event]
-    if {$script ne ""} {
-      $self node_to_dom $node
+    if {$event eq "onload"} {
+      # The Hv3 layer passes the <BODY> node along with the onload
+      # event, but DOM Level 0 browsers raise this event against
+      # the Window object (the onload attribute of a <BODY> element
+      # may be used to set the onload property of the corresponding 
+      # Window object).
+      #
+      set js_obj $myWindow
+    } else {
+
+      set script [$node attr -default "" $event]
+      if {$script ne ""} {
+        $self node_to_dom $node
+      }
+      if {![info exists myNodeToDom($node)]} {return ""}
+      set js_obj $myNodeToDom($node)
     }
 
-    if {[info exists myNodeToDom($node)]} {
-      set eventobj [eval $myNodeToDom($node) Get [list $event]]
-      if {[lindex $eventobj 0] eq "object"} {
-        set ref [lindex $eventobj 1]
-        set this [list object $myNodeToDom($node)]
-        set rc [catch {eval $mySee $ref Call [list $this]} msg]
-        $self Log "$node $event" [$mySee tostring $eventobj]" $rc $msg
-      }
+    set eventobj [eval $js_obj Get [list $event]]
+    if {[lindex $eventobj 0] eq "object"} {
+      set ref [lindex $eventobj 1]
+      set this [list object $js_obj]
+      set rc [catch {eval $mySee $ref Call [list $this]} msg]
+      $self Log "$node $event" [$mySee tostring $eventobj] $rc $msg
     }
   }
 

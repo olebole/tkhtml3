@@ -11,10 +11,10 @@ namespace eval ::hv3::dom {
 }
 
 #-----------------------------------------------------------------------
-# Snit class for InlineStyle 
+# ::hv3::dom::InlineStyle 
 #
-# This Snit type implements a javascript element.style object, used to
-# provide access to the "style" attribute of an HTML element.
+#     This Snit type implements a javascript element.style object, used to
+#     provide access to the "style" attribute of an HTML element.
 # 
 set InlineStyleDefn {
   js_init {dom node} { 
@@ -68,7 +68,7 @@ namespace eval ::hv3::dom {
   # List of DOM Level 0 events.
   #
   set DOM0Events_EventList [list                                         \
-    onload onunload onclick ondblclick onmousedown onmouseup onmouseover \
+    onclick ondblclick onmousedown onmouseup onmouseover                 \
     onmousemove onmouseout onkeypress onkeydown onkeyup onfocus onblur   \
     onsubmit onreset onselect onchange                                   \
   ]
@@ -113,6 +113,5 @@ namespace eval ::hv3::dom {
     }]
   }
 }
-
 
 

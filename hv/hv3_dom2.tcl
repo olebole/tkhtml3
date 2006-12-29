@@ -179,6 +179,12 @@ snit::type ::hv3::dom::HTMLDocument {
     hv3::dom::HTMLCollection %AUTO% [$self dom] $myHv3 applet 
   }
 
+  js_scall getElementsByTagName {THIS tag} { 
+    set obj [hv3::dom::HTMLCollection %AUTO% [$self dom] $myHv3 $tag]
+    $obj configure -finalizable 1
+    list object $obj
+  }
+
   #-----------------------------------------------------------------------
   # The HTMLDocument.cookie property (DOM level 1)
   #
@@ -248,7 +254,7 @@ snit::type ::hv3::dom::HTMLDocument {
 }
 
 #-------------------------------------------------------------------------
-# Snit type for DOM type HTMLElement.
+# ::hv3::dom::HTMLElement
 #
 # DOM class: (Node -> Element -> HTMLElement)
 #
@@ -324,6 +330,10 @@ namespace eval ::hv3::dom {
     js_getput_attribute lang      lang
     js_getput_attribute dir       dir
     js_getput_attribute className class
+
+    js_get nodeType { list number 1 ;# 1 -> ELEMENT_NODE }
+
+    js_getobject childNodes { ::hv3::dom::NodeList %AUTO% [$self dom] $myNode }
   
     #-------------------------------------------------------------------
     # Get and set the innerHTML property. The implmenetation of this
@@ -339,5 +349,111 @@ namespace eval ::hv3::dom {
   
     method node {} {return $myNode}
   }
-
 }
+#-------------------------------------------------------------------------
+
+#-------------------------------------------------------------------------
+# ::hv3::dom::NodeList
+#
+namespace eval ::hv3::dom {
+  ::snit::type NodeList {
+    variable myParent ""
+
+    js_init {dom parent} {
+      set myParent $parent
+    }
+
+    js_get length {
+      list number [llength [$myParent children]]
+    }
+
+    js_scall item {THIS idx} {
+      set i [format %.0f $idx]
+      set child [lindex [$myParent children] $i]
+      list object [[$self dom] node_to_dom $child]
+    }
+
+    js_finish {}
+  }
+}
+#-------------------------------------------------------------------------
+
+#-------------------------------------------------------------------------
+# ::hv3::dom::XMLHttpRequest
+#
+#     Hv3 will eventually feature a fully-featured XMLHttpRequest object,
+#     similar to that described here:
+#     
+#         http://www.w3.org/TR/XMLHttpRequest/
+#
+#     For now, this is a partial implementation to make the
+#     tests/browsertest.tcl framework work.
+#
+namespace eval ::hv3::dom {
+  ::snit::type XMLHttpRequest {
+
+    variable myHv3
+
+    variable myUri ""
+    variable myRequestHandle ""
+
+    js_init {dom hv3} {
+      set myHv3 $hv3
+    }
+
+    #-------------------------------------------------------------------
+    # XMLHttpRequest.readyState
+    #
+    variable myReadyState Uninitialized
+    js_get readyState {
+      switch -- $myReadyState {
+        Uninitialized {list number 0}
+        Open          {list number 1}
+        Sent          {list number 2}
+        Receiving     {list number 3}
+        Loaded        {list number 4}
+        default       {error "Bad myReadyState value: $myReadyState"}
+      }
+    }
+
+    js_scall open {THIS http_method uri args} {
+      if {$myReadyState ne "Uninitialized"} {
+        error "Cannot call XMLHttpRequest.open() in state $myReadyState"
+      }
+      set myUri [$myHv3 resolve_uri $uri]
+      set myReadyState Open
+      return ""
+    }
+
+    js_scall send {THIS args} {
+      if {$myReadyState ne "Open"} {
+        error "Cannot call XMLHttpRequest.open() in state $myReadyState"
+      }
+
+      set myRequestHandle [::hv3::download %AUTO%] 
+      $myRequestHandle configure -uri $myUri
+      $myRequestHandle configure -finscript [mymethod RequestFinished]
+      $myHv3 makerequest $myRequestHandle
+
+      set myReadyState Sent
+      return ""
+    }
+
+    variable isFinalized 0
+    method Finalize {} {
+      set isFinalized 1
+      if {$myReadyState ne "Sent" && $myReadyState ne "Receiving"} {
+        $self destroy
+      }
+    }
+    method RequestFinished {data} {
+      if {$isFinalized} {$self destroy}
+      $myRequestHandle destroy
+    }
+
+    js_finish {
+    }
+  }
+}
+#-------------------------------------------------------------------------
+

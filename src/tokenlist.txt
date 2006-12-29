@@ -1,5 +1,5 @@
 #
-# $Revision: 1.41 $
+# $Revision: 1.42 $
 #
 # tokenlist.tcl -- 
 #
@@ -173,12 +173,12 @@ TAG sup -flow inline
 TAG table -flow block -content HtmlTableContent
 # TAG table -content HtmlTableContent
 
-# TAG tbody
+TAG tbody
 TAG td -content HtmlTableCellContent
 TAG textarea -flow inline -pcdata
-# TAG tfoot
+TAG tfoot
 TAG th -content HtmlTableCellContent
-# TAG thead
+TAG thead
 TAG title
 TAG tr -content HtmlTableRowContent
 TAG tt -flow inline
