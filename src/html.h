@@ -110,6 +110,7 @@ typedef int            Html_32;      /* 32-bit signed integer */
 typedef struct HtmlNodeStack HtmlNodeStack;
 typedef struct HtmlOptions HtmlOptions;
 typedef struct HtmlTree HtmlTree;
+typedef struct HtmlTreeState HtmlTreeState;
 typedef struct HtmlAttributes HtmlAttributes;
 typedef struct HtmlTokenMap HtmlTokenMap;
 typedef struct HtmlCanvas HtmlCanvas;
@@ -162,7 +163,6 @@ struct HtmlTokenMap {
   HtmlTokenMap *pCollide;         /* Hash table collision chain */
 };
 
-#define HTMLTAG_END         0x01  /* Set for a closing tag (i.e. </p>) */
 #define HTMLTAG_INLINE      0x02  /* Set for an HTML inline tag */
 #define HTMLTAG_BLOCK       0x04  /* Set for an HTML block tag */
 #define HTMLTAG_EMPTY       0x08  /* Set for an empty tag (i.e. <img>) */
@@ -466,6 +466,20 @@ void HtmlCallbackRestyle(HtmlTree *, HtmlNode *);
 void HtmlCallbackScrollX(HtmlTree *, int);
 void HtmlCallbackScrollY(HtmlTree *, int);
 
+/*
+ * An instance of the following structure stores state for the tree
+ * construction phase. See the following functions:
+ *
+ *     HtmlTreeAddElement()
+ *     HtmlTreeAddText()
+ *     HtmlTreeAddClosingTag()
+ */
+struct HtmlTreeState {
+    HtmlNode *pCurrent;     /* By default, add new elements as children here */
+    HtmlNode *pFoster;      /* The current node in the foster tree (if any) */
+    int isCdataInHead;      /* True if previous token was <title> */
+};
+
 struct HtmlTree {
 
     /*
@@ -513,10 +527,7 @@ struct HtmlTree {
 
     HtmlNode *pRoot;                /* The root-node of the document. */
 
-    /* State variables used by the main document tree construction. 
-     */
-    HtmlNode *pCurrent;             /* The node currently being built. */
-    int isCdataInHead;              /* True if previous token was <title> */
+    HtmlTreeState state;
 
     /* Sub-trees that are not currently linked into the tree rooted at 
      * pRoot are stored in the following hash-table. The HTML_NODE_ORPHAN

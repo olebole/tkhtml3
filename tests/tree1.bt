@@ -1,0 +1,101 @@
+
+#----------------------------------------------------------------------
+# A "warm-body" test to check that the infrastructure is working.
+# Count the anchors in a document.
+#
+::browsertest::do_test warmbody.1 -timeout 10000000 -html {
+  <BODY>
+    <A name="one">One</A>
+    <A id="two">Two</A>          <!-- Not an anchor (no "name" attribute) -->
+    <A name="three">Three</A>
+} -javascript {
+  return document.anchors.length
+} -expected 2
+#----------------------------------------------------------------------
+
+
+proc body_tree_test {name doc} {
+
+  set body_tree_function {
+    <SCRIPT>
+      function elem_to_string (elem) {
+        var res = "<" + elem.tagName + ">"
+        for (var ii = 0; ii < elem.childNodes.length; ii++) {
+          var node = elem.childNodes.item(ii)
+          if (node.nodeType == Node.ELEMENT_NODE) {
+            res += elem_to_string(node)
+          }
+        }
+        res += "</" + elem.tagName + ">"
+        return res
+      }
+      function body_tree () {
+        body = document.getElementsByTagName("BODY").item(0)
+        return elem_to_string(body)
+      }
+    </SCRIPT>
+  }
+
+  ::browsertest::do_test $name -timeout 10000000 -html [subst {
+    $body_tree_function
+    $doc
+  }] -javascript {
+    return body_tree()
+  } -browsers {Hv3 Firefox}
+}
+
+
+#----------------------------------------------------------------------
+# The following test cases - tables.X - examine the document trees
+# created when incorrectly (or partially) specified tables are parsed.
+#
+# From the HTML 4.0.1 DTD:
+#
+# <!ELEMENT TABLE    - - (CAPTION?, (COL*|COLGROUP*), THEAD?, TFOOT?, TBODY+)> 
+# <!ELEMENT CAPTION  - - (%inline;)*  -- table caption --> 
+# <!ELEMENT THEAD    - O (TR)+        -- table header --> 
+# <!ELEMENT TFOOT    - O (TR)+        -- table footer --> 
+# <!ELEMENT TBODY    O O (TR)+        -- table body --> 
+# <!ELEMENT COLGROUP - O (COL)*       -- table column group --> 
+# <!ELEMENT COL      - O EMPTY        -- table column --> 
+# <!ELEMENT TR       - O (TH|TD)+     -- table row --> 
+# <!ELEMENT (TH|TD)  - O (%flow;)*    -- table header cell, table data cell-->
+#
+# In other words, all table sub-trees should look like:
+#
+# <TABLE>
+#     <CAPTION>...</CAPTION>)
+#     <COLGROUP>...</COLGROUP>   (etc.)
+#     <THEAD>
+#         (<TR> <TD|TH>*)*
+#     <TFOOT>
+#         (<TR> <TD|TH>*)*
+#     <TBODY>
+#         (<TR> <TD|TH>*)*
+#
+# The rules for how tag-soup is converted to this structure are 
+# specified as part of:
+#
+
+body_tree_test tables.1 { <BODY> <TBODY><TR><TD><DIV> }
+body_tree_test tables.2 { <BODY> <TABLE><TBODY><TR><TD><DIV> }
+
+body_tree_test tables.3 { <BODY> <TABLE><DIV><SPAN></SPAN><TD> }
+body_tree_test tables.4 { <BODY> <TABLE> <DIV> <DIV> <TR> <SPAN> }
+
+body_tree_test tables.5 { <BODY> <TABLE><TD> }
+body_tree_test tables.6 { <BODY> <TABLE><TR> }
+
+body_tree_test tables.7 { <BODY> <TABLE><DIV><TR></DIV> }
+body_tree_test tables.8 { <BODY> <TABLE><DIV><TD></DIV> }
+body_tree_test tables.9 { <BODY> <TABLE><DIV><SPAN></DIV> }
+
+body_tree_test tables.10 { <BODY> <TD><SPAN> }
+body_tree_test tables.11 { <BODY> <TR><SPAN> }
+body_tree_test tables.12 { <BODY> <TR><TD><SPAN> }
+body_tree_test tables.13 { <BODY> <TBODY><TR><TD><SPAN> }
+
+body_tree_test tables.14 { <BODY> <TABLE><DIV><DIV><SPAN></DIV><SPAN> }
+
+#---------------------------------------------------------------------- 
+

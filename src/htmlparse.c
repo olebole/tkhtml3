@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.98 2006/12/29 07:14:45 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.99 2006/12/29 14:31:43 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -442,17 +442,6 @@ HtmlTableRowContent(pTree, pNode, tag)
     if (tag == Html_TR) {
         return TAG_CLOSE;
     }
-    if (
-        tag == Html_FORM || 
-        tag == Html_TD || 
-        tag == Html_TH || 
-        tag == Html_Space
-    ) {
-        return TAG_OK;
-    }
-    if (HtmlMarkupFlags(tag) & HTMLTAG_END) {
-        return TAG_PARENT;
-    }
 
     return TAG_OK;
 }
@@ -477,7 +466,6 @@ HtmlTableCellContent(pTree, pNode, tag)
     int tag;
 {
     if (tag==Html_TH || tag==Html_TD || tag==Html_TR) return TAG_CLOSE;
-    if (!(HtmlMarkupFlags(tag) & HTMLTAG_END)) return TAG_OK;
     return TAG_PARENT;
 }
 
@@ -1429,7 +1417,7 @@ HtmlWriteContinue(pTree)
 
     switch (eState) {
         case HTML_WRITE_WAIT: {
-            HtmlNode *pCurrent = pTree->pCurrent;
+            HtmlNode *pCurrent = pTree->state.pCurrent;
             pTree->eWriteState = HTML_WRITE_NONE;
             HtmlTokenize(pTree, 0, pTree->isParseFinished, 
                 HtmlTreeAddText,
@@ -1440,7 +1428,7 @@ HtmlWriteContinue(pTree)
                 HtmlFinishNodeHandlers(pTree);
             }
             HtmlCallbackRestyle(pTree, pCurrent ? pCurrent : pTree->pRoot);
-            HtmlCallbackRestyle(pTree, pTree->pCurrent);
+            HtmlCallbackRestyle(pTree, pTree->state.pCurrent);
             HtmlCallbackLayout(pTree, pCurrent);
             break;
         }

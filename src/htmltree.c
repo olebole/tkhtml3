@@ -36,239 +36,33 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.112 2006/12/29 07:14:45 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.113 2006/12/29 14:31:43 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
 #include <assert.h>
 #include <string.h>
 
-#define NODE_EXT_IGNOREFORMS 0x00000001
-
-#if 0
-#define NODE_EXT_NUMCHILDREN 1
-#define NODE_EXT_CHILD       2
-
-struct ExtCbContext {
-    HtmlNode *pParent;
-    int flags;
-    int eType;
-    int n;
-    ClientData retval;
-};
-typedef struct ExtCbContext ExtCbContext;
-
-static int 
-extCb(pDummy, pNode, clientData)
-    HtmlTree *pDummy;
-    HtmlNode *pNode;
-    ClientData clientData;
-{
-    ExtCbContext *pContext = (ExtCbContext *)clientData;
-    if (
-        (pNode == pContext->pParent) || ( 
-            (pContext->flags & NODE_EXT_IGNOREFORMS) && 
-            (HtmlNodeTagType(pNode) == Html_FORM)
-        )
-    ) {
-        return HTML_WALK_DESCEND;
-    } else {
-        switch (pContext->eType) {
-            case NODE_EXT_NUMCHILDREN:
-                pContext->retval = (ClientData)((int)(pContext->retval) + 1);
-                break; 
-            case NODE_EXT_CHILD:
-                if (pContext->n == 0) {
-                    pContext->retval = (ClientData)pNode;
-                    return HTML_WALK_ABANDON;
-                }
-                pContext->n--;
-                break; 
-        }
-        return HTML_WALK_DO_NOT_DESCEND;
-    }
-}
-
-static int 
-nodeNumChildrenExt(pNode, flags)
-    HtmlNode *pNode;
-    int flags;
-{
-    ExtCbContext sContext;
-    sContext.pParent = pNode;
-    sContext.flags = flags;
-    sContext.eType = NODE_EXT_NUMCHILDREN;
-    sContext.retval = 0;
-    HtmlWalkTree(0, pNode, extCb, &sContext);
-    return (int)sContext.retval;
-}
-
-static HtmlNode * 
-nodeChildExt(pNode, n, flags)
-    HtmlNode *pNode;
-    int n;
-    int flags;
-{
-    ExtCbContext sContext;
-    sContext.pParent = pNode;
-    sContext.flags = flags;
-    sContext.eType = NODE_EXT_CHILD;
-    sContext.retval = 0;
-    sContext.n = n;
-    HtmlWalkTree(0, pNode, extCb, &sContext);
-    return (HtmlNode *)sContext.retval;
-}
-#endif
-
-static HtmlNode *
-nodeParentExt(pNode, flags)
-    HtmlNode *pNode;
-    int flags;
-{
-    HtmlNode *p = 0;
-    p = HtmlNodeParent(pNode);
-    if (flags & NODE_EXT_IGNOREFORMS) {
-        while (p && HtmlNodeTagType(p) == Html_FORM) {
-            p = HtmlNodeParent(p);
-        }
-    }
-    return p;
-}
 
 /*
- *---------------------------------------------------------------------------
+ * An HTML table is structured as follows:
  *
- * moveToLeftSibling --
+ *  <TABLE>                            <!-- Level 4 -->
+ *    <TBODY|THEAD|TFOOT>              <!-- Level 3 -->
+ *      <TR>                           <!-- Level 2 -->
+ *        <TH|TD>                      <!-- Level 1 -->
  *
- *     This function moves pNewSibling from whereever it is in the document
- *     tree and inserts it as the left sibling of node pNode. For example, if
- *     this function is called when the document tree looks like this:
- *
- *         <div>
- *           <table id=pNode>
- *             <tr>
- *               <td>...</td>
- *               <p id=pNewSibling>...</p>
- *
- *     it would be modified to the following:
- *
- *         <div>
- *           <p id=pNewSibling>...</p>
- *           <table id=pNode>
- *             <tr>
- *               <td>...</td>
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     Modifies tree structure.
- *
- *---------------------------------------------------------------------------
+ * Other, non-table, elements have a level of 0.
  */
-static void
-moveToLeftSibling(pNode, pNewSibling)
-    HtmlNode *pNode;
-    HtmlNode *pNewSibling;
-{
-    HtmlElementNode *pOldParent = (HtmlElementNode*)HtmlNodeParent(pNewSibling);
-    HtmlElementNode *pNewParent = (HtmlElementNode*)HtmlNodeParent(pNode);
-    int i;
-    int found = 0;
-
-    assert(pOldParent && pNewParent);
-
-    /* Remove pNewSibling from it's old parent */
-    for (i = 0; i < pOldParent->nChild; i++) {
-        if (found) {
-            pOldParent->apChildren[i - 1] = pOldParent->apChildren[i];
-        } else if (pOldParent->apChildren[i] == pNewSibling) {
-            found = 1;
-        }
-    }
-    assert(found);
-    pOldParent->nChild--;
-
-    /* Insert it into the new parent */
-    pNewParent->apChildren = (HtmlNode **)HtmlRealloc("HtmlNode.apChildren", 
-            pNewParent->apChildren, 
-            sizeof(HtmlNode *) * (pNewParent->nChild + 1)
-    );
-    for (found = 0, i = pNewParent->nChild - 1; i >= 0; i--) {
-        HtmlNode *pChild = pNewParent->apChildren[i];
-        if (!found) {
-            pNewParent->apChildren[i + 1] = pChild;
-        }
-        if (pChild == pNode) {
-            found = 1;
-            pNewParent->apChildren[i] = pNewSibling;
-            pNewSibling->pParent = (HtmlNode *)pNewParent;
-        }
-    }
-    assert(found);
-    pNewParent->nChild++;
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * insertImplicitTR --
- *
- *     Node *pNode is a <td> or <th> element. If the parent of this node
- *     is not a <tr>, then insert an implicit <tr> between pNode and it's
- *     parent.
- *
- *     Also permitted are structures with <form> elements between the
- *     cell and row elements. i.e.:
- *
- *         <tr>
- *           <form>
- *             <td or th>
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     Modifies tree structure.
- *
- *---------------------------------------------------------------------------
- */
-static void
-insertImplicitTR(pNode)
-    HtmlNode *pNode;
-{
-    HtmlNode *pParent = nodeParentExt(pNode, NODE_EXT_IGNOREFORMS);
-  
-    assert(HtmlNodeTagType(pNode)==Html_TD || HtmlNodeTagType(pNode)==Html_TH);
-    assert(pParent);
-
-    if (HtmlNodeTagType(pParent) != Html_TR) {
-        HtmlElementNode *pRowNode;
-        HtmlNode *pParent;
-        int iSlot;
-
-        pParent = HtmlNodeParent(pNode);
-
-        /* Create an HtmlNode for the new <tr> */
-        pRowNode = HtmlNew(HtmlElementNode);
-
-        /* Add pNode as the only child of the artificial node element */
-        pRowNode->node.eTag = Html_TR;
-        pRowNode->nChild = 1;
-        pRowNode->apChildren = (HtmlNode**)HtmlClearAlloc(
-            "HtmlNode.apChildren", sizeof(HtmlNode*)
-        );
-        pRowNode->apChildren[0] = pNode;
-        pNode->pParent = (HtmlNode *)pRowNode;
-
-        /* Link the new node into the parent node of pNode */
-        for (iSlot = 0; HtmlNodeChild(pParent, iSlot) != pNode; iSlot++) {
-            assert(iSlot < HtmlNodeNumChildren(pParent));
-        }
-        ((HtmlElementNode *)pParent)->apChildren[iSlot] = (HtmlNode *)pRowNode;
-        pRowNode->node.pParent = pParent;
-    }
-}
+#define TAG_TO_TABLELEVEL(eTag) (  \
+    (eTag==Html_TABLE) ? 4 :       \
+    (eTag==Html_TBODY) ? 3 :       \
+    (eTag==Html_THEAD) ? 3 :       \
+    (eTag==Html_TFOOT) ? 3 :       \
+    (eTag==Html_TR)    ? 2 :       \
+    (eTag==Html_TD)    ? 1 :       \
+    (eTag==Html_TH)    ? 1 : 0     \
+)
 
 /*
  *---------------------------------------------------------------------------
@@ -303,15 +97,10 @@ explicitCloseCount(pCurrent, eTag, pNClose)
                 break;
             }
 
-            /* Nothing but an </table> can close a <table> */
-            if (p->eTag == Html_TABLE) break;
-            if (eTag == Html_TABLE) continue;
-
-            /* Nothing but a </tr> or </table> can close a <tr> */
-            if (p->eTag == Html_TR) break;
-            if (eTag == Html_TR) continue;
-
-            if (p->eTag == Html_TD || p->eTag == Html_TH) break;
+            if (
+                TAG_TO_TABLELEVEL(p->eTag) &&
+                TAG_TO_TABLELEVEL(eTag) <= TAG_TO_TABLELEVEL(p->eTag)
+            ) break;
         }
     }
 }
@@ -350,77 +139,6 @@ implicitCloseCount(pTree, pCurrent, eTag, pNClose)
     }
 
     *pNClose = nClose;
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * tokenAction --
- *
- *     Figure out the effect on the document tree of adding an element
- *     of type eTag as the right-most child of HtmlTree.pCurrent.
- *
- * Results:
- *
- * Side effects:
- *     May modify pTree->pCurrent.
- *
- *---------------------------------------------------------------------------
- */
-static int 
-tokenAction(pTree, eTag, pNClose)
-    HtmlTree *pTree;
-    int eTag;
-    int *pNClose;
-{
-    HtmlNode *pCurrent = pTree->pCurrent;
-    int nClose = 0;
-    int nLevel = 0;
-    int tag = eTag;
-    HtmlNode *p = pCurrent;
-
-    assert(tag != Html_Space && tag != Html_Text);
-    assert(0 == (HTMLTAG_END & HtmlMarkupFlags(tag)));
-
-    while (p) {
-        HtmlTokenMap *pMap = HtmlMarkup(HtmlNodeTagType(p));
-        int a;
-
-        if (pMap && pMap->xClose) {
-            a = pMap->xClose(pTree, p, tag);
-        } else {
-            a = TAG_PARENT;
-        }
-
-        switch (a) {
-            case TAG_CLOSE:
-                p = HtmlNodeParent(p);
-                if (p) {
-                    pCurrent = p;
-                    nLevel++;
-                } else {
-                    pCurrent = pTree->pRoot;
-                }
-                nClose = nLevel;
-                break;
-
-            case TAG_OK:
-                p = 0;
-                break;
-
-            case TAG_PARENT:
-                nLevel++;
-                p = HtmlNodeParent(p);
-                break;
-
-            default: assert(!"Impossible");
-        }
-    }
-    assert(!HtmlNodeIsText(pCurrent));
-    
-    pTree->pCurrent = pCurrent;
-    *pNClose = nClose;
-    return 1;
 }
 
 static void
@@ -635,9 +353,6 @@ nodeHandlerCallbacks(pTree, pNode)
     Tcl_Interp *interp = pTree->interp;
     int eTag = HtmlNodeTagType(pNode);
 
-    /* Most immediate ancestor of pNode that is not a <form> element. */
-    HtmlNode *pNonFormParent;
-
     assert(pTree->eWriteState == HTML_WRITE_NONE);
     assert(
         (eTag != Html_TD && eTag != Html_TH) || (
@@ -646,50 +361,7 @@ nodeHandlerCallbacks(pTree, pNode)
         )
     );
 
-
-    /* Special processing for children and ancestors of <table> nodes. 
-     * See details in the support.html webpage. Briefly:
-     *
-     *     1. Children of <table> elements that are not <tr> nodes are
-     *        moved to become left-hand siblings of the <table> node.
-     *
-     *     2. Children of <tr> elements that are themselves children
-     *        of <table> elements that are not <th> or <td> nodes are
-     *        also moved to become left-hand siblings of the <table> 
-     *        node.
-     *
-     * The definition of "children" in the above two rules has a twist:
-     * <form> elements do not count. So the in the markup:
-     *
-     *     <table>
-     *         <form>
-     *             <form>
-     *                 <span>
-     *     </table>
-     *
-     * the <span> element is considered to be a child of the <table>.
-     */
-    for (
-        pNonFormParent = HtmlNodeParent(pNode);
-        pNonFormParent && HtmlNodeTagType(pNonFormParent) != Html_FORM;
-        pNonFormParent = HtmlNodeParent(pNonFormParent)
-    );
-    if (pNonFormParent) {
-        int ePTag = HtmlNodeTagType(pNonFormParent); 
-        if (ePTag == Html_TABLE && eTag != Html_TR) {
-            moveToLeftSibling(pNode, pNonFormParent);
-        } else if (ePTag == Html_TR && eTag != Html_TD && eTag != Html_TH) {
-            for (
-                pNonFormParent = HtmlNodeParent(pNonFormParent);
-                pNonFormParent && HtmlNodeTagType(pNonFormParent) != Html_FORM;
-                pNonFormParent = HtmlNodeParent(pNonFormParent)
-            );
-            if (pNonFormParent && HtmlNodeTagType(pNonFormParent)==Html_TABLE) {
-                moveToLeftSibling(pNode, pNonFormParent);
-            }
-        }
-    }
-
+    /* Execute the node-handler script for node pNode, if one exists. */
     pEntry = Tcl_FindHashEntry(&pTree->aNodeHandler, (char *)eTag);
     if (pEntry) {
         Tcl_Obj *pEval;
@@ -736,10 +408,10 @@ HtmlFinishNodeHandlers(pTree)
     HtmlTree *pTree;
 {
     HtmlNode *p;
-    for (p = pTree->pCurrent ; p; p = HtmlNodeParent(p)) {
+    for (p = pTree->state.pCurrent ; p; p = HtmlNodeParent(p)) {
         nodeHandlerCallbacks(pTree, p);
     }
-    pTree->pCurrent = 0;
+    pTree->state.pCurrent = 0;
 }   
 
 /*
@@ -1105,13 +777,225 @@ initTree(pTree)
         HtmlNodeAddChild(pRoot, Html_BODY, 0);
     }
 
-    if (!pTree->pCurrent) {
+    if (!pTree->state.pCurrent) {
 	/* If there is no current node, then the <body> node of the 
          * document is the current node.  
          */
-        pTree->pCurrent = HtmlNodeChild(pTree->pRoot, 1);
-        assert(HtmlNodeTagType(pTree->pCurrent) == Html_BODY);
+        pTree->state.pCurrent = HtmlNodeChild(pTree->pRoot, 1);
+        assert(HtmlNodeTagType(pTree->state.pCurrent) == Html_BODY);
     }
+}
+
+static HtmlNode *
+findFosterParent(pTree, piBefore)
+    HtmlTree *pTree;
+    int *piBefore;
+{
+    HtmlNode *pFosterParent;
+    HtmlNode *pTable;
+
+    /* Find the parent of the <TABLE> element (the foster-parent) */
+    for (
+        pTable = pTree->state.pCurrent;
+        HtmlNodeTagType(pTable) != Html_TABLE;
+        pTable = HtmlNodeParent(pTable)
+    );
+    pFosterParent = HtmlNodeParent(pTable);
+    assert(pFosterParent);
+
+    if (piBefore) {
+        int iBefore;
+        for (
+            iBefore = 0;
+            HtmlNodeChild(pFosterParent, iBefore) != pTable;
+            iBefore++
+        );
+        *piBefore = iBefore;
+    }
+
+    return pFosterParent;
+}
+
+static void
+treeCloseFosterTree(pTree)
+    HtmlTree *pTree;
+{
+    if (pTree->state.pFoster) {
+        HtmlNode *pFosterRoot = findFosterParent(pTree, 0);
+        HtmlNode *pFoster;
+
+        pFoster = pTree->state.pFoster;
+        for ( ;pFoster != pFosterRoot; pFoster = HtmlNodeParent(pFoster)) {
+            nodeHandlerCallbacks(pTree, pFoster);
+        }
+
+        pTree->state.pFoster = 0;
+    }
+}
+
+static void
+treeAddFosterText(pTree, pTextNode)
+    HtmlTree *pTree;
+    HtmlTextNode *pTextNode;
+{
+    if (pTree->state.pFoster) {
+        HtmlNodeAddTextChild(pTree->state.pFoster, pTextNode);
+    } else {
+        HtmlNode *pFosterParent;
+        int iBefore;
+        pFosterParent = findFosterParent(pTree, &iBefore);
+        nodeInsertChild(
+            (HtmlElementNode *)pFosterParent, iBefore, (HtmlNode *)pTextNode
+        );
+    }
+}
+
+HtmlNode * 
+treeAddFosterElement(pTree, eTag, pAttr)
+    HtmlTree *pTree;
+    int eTag;
+    HtmlAttributes *pAttr;
+{
+    HtmlNode *pFosterParent;
+    int iBefore;
+
+    HtmlNode *pNew;
+    HtmlNode *pFoster = pTree->state.pFoster;
+
+    /* Find the parent of the <TABLE> element (the foster-parent) */
+    pFosterParent = findFosterParent(pTree, &iBefore);
+
+    if (pFoster) {
+        int nClose;
+        int ii;
+        implicitCloseCount(pTree, pTree->state.pFoster, eTag, &nClose);
+        for (
+            ii = 0; 
+            ii < nClose && pFoster != pFosterParent; 
+            pFoster = HtmlNodeParent(pFoster)
+        ) {
+            nodeHandlerCallbacks(pTree, pFoster);
+        }
+        if (pFoster == pFosterParent) pFoster = 0;
+    }
+
+    if (pFoster) {
+        int n = HtmlNodeAddChild((HtmlElementNode *)pFoster, eTag, pAttr);
+        pNew = HtmlNodeChild(pFoster, n);
+    } else {
+        pNew = (HtmlNode *)HtmlNew(HtmlElementNode);
+        ((HtmlElementNode *)pNew)->pAttributes = pAttr;
+        pNew->eTag = eTag;
+        nodeInsertChild((HtmlElementNode *)pFosterParent, iBefore, pNew);
+    }
+
+    pNew->iNode = pTree->iNextNode++;
+    if (HtmlMarkupFlags(eTag) & HTMLTAG_EMPTY) {
+        nodeHandlerCallbacks(pTree, pNew);
+        pTree->state.pFoster = HtmlNodeParent(pNew);
+        if (pTree->state.pFoster == pFosterParent) pTree->state.pFoster = 0;
+    } else {
+        pTree->state.pFoster = pNew;
+    }
+
+    return pNew;
+}
+
+static void
+treeAddFosterClosingTag(pTree, eTag)
+    HtmlTree *pTree;
+    int eTag;
+{
+    HtmlNode *pFosterParent;
+    HtmlNode *pFoster;
+    int ii;
+    int nClose;
+
+    /* Find the parent of the <TABLE> element (the foster-parent) */
+    pFosterParent = findFosterParent(pTree, 0);
+    assert(pFosterParent);
+
+    explicitCloseCount(pTree->state.pFoster, eTag, &nClose);
+    pFoster = pTree->state.pFoster;
+    for (ii = 0; ii < nClose && pFoster != pFosterParent; ii++) {
+        nodeHandlerCallbacks(pTree, pFoster);
+        pFoster = HtmlNodeParent(pFoster);
+    }
+    if (pFoster == pFosterParent) pFoster = 0;
+    pTree->state.pFoster = pFoster;
+}
+
+static HtmlNode *
+treeAddTableComponent(pTree, eTag, pAttr)
+    HtmlTree *pTree;
+    int eTag;
+    HtmlAttributes *pAttr;
+{
+    HtmlNode *pCurrent = pTree->state.pCurrent;
+    HtmlNode *pParent;
+
+    int eParentTag;
+
+    /* The newly created document node */
+    HtmlNode *pNew;
+    int n;
+
+    for (pParent = pCurrent; pParent; pParent = HtmlNodeParent(pParent)) {
+        int eCTag = HtmlNodeTagType(pParent);
+
+        if (
+            (eCTag == Html_TABLE) || (
+                (eCTag==Html_TBODY || eCTag==Html_THEAD || eCTag==Html_TFOOT) &&
+                (eTag==Html_TH || eTag==Html_TD || eTag==Html_TR)
+            ) ||
+            (eCTag == Html_TR && (eTag == Html_TD || eTag == Html_TH))
+        ) break;
+    }
+    if (!pParent) {
+        HtmlFree(pAttr);
+        return pParent;
+    }
+    eParentTag = HtmlNodeTagType(pParent);
+
+    /* Invoke node-handler callbacks for implicitly closed nodes */
+    for ( ; pCurrent != pParent ; pCurrent = HtmlNodeParent(pCurrent)) {
+        nodeHandlerCallbacks(pTree, pCurrent);
+    }
+    treeCloseFosterTree(pTree);
+
+    assert( 
+        eParentTag == Html_TABLE || eParentTag == Html_TBODY || 
+        eParentTag == Html_THEAD || eParentTag == Html_TFOOT ||
+        eParentTag == Html_TR
+    );
+
+    /* See if we need to add an implicit <TBODY> node */
+    if (
+        eParentTag == Html_TABLE && 
+        (eTag == Html_TR || eTag == Html_TD || eTag == Html_TH)
+    ) {
+        int n2 = HtmlNodeAddChild((HtmlElementNode *)pParent, Html_TBODY, 0);
+        pParent = HtmlNodeChild(pParent, n2);
+        pParent->iNode = pTree->iNextNode++;
+        eParentTag = Html_TBODY;
+    }
+
+    /* See if we need to add an implicit <TR> node */
+    if (eParentTag != Html_TR && (eTag == Html_TD || eTag == Html_TH)) {
+        int n2 = HtmlNodeAddChild((HtmlElementNode *)pParent, Html_TR, 0);
+        pParent = HtmlNodeChild(pParent, n2);
+        pParent->iNode = pTree->iNextNode++;
+        eParentTag = Html_TR;
+    }
+    
+    /* Add the new node to pParent */
+    n = HtmlNodeAddChild((HtmlElementNode *)pParent, eTag, pAttr);
+    pNew = HtmlNodeChild(pParent, n);
+    pNew->iNode = pTree->iNextNode++;
+    pTree->state.pCurrent = pNew;
+
+    /* Return a pointer to the node just added */
+    return pNew;
 }
 
 /*
@@ -1140,6 +1024,7 @@ HtmlTreeAddElement(pTree, eType, pAttr, iOffset)
 {
     HtmlNode *pCurrent;
     HtmlNode *pHeadNode;
+    HtmlNode *pBodyNode;
     HtmlElementNode *pHeadElem;
 
     /* If token pToken causes a node to be added to the tree, or the
@@ -1152,8 +1037,9 @@ HtmlTreeAddElement(pTree, eType, pAttr, iOffset)
 
     initTree(pTree);
 
-    pCurrent = pTree->pCurrent;
+    pCurrent = pTree->state.pCurrent;
     pHeadNode = HtmlNodeChild(pTree->pRoot, 0);
+    pBodyNode = HtmlNodeChild(pTree->pRoot, 1);
     pHeadElem = HtmlNodeAsElement(pHeadNode);
 
     assert(pCurrent);
@@ -1188,12 +1074,12 @@ HtmlTreeAddElement(pTree, eType, pAttr, iOffset)
      */
 
 
-    if (pTree->isCdataInHead) {
+    if (pTree->state.isCdataInHead) {
         int nChild = HtmlNodeNumChildren(pHeadNode) - 1;
         HtmlNode *pTitle = HtmlNodeChild(pHeadNode, nChild);
-        pTree->isCdataInHead = 0;
         nodeHandlerCallbacks(pTree, pTitle);
     }
+    pTree->state.isCdataInHead = 0;
 
     switch (eType) {
         case Html_HTML:
@@ -1205,7 +1091,7 @@ HtmlTreeAddElement(pTree, eType, pAttr, iOffset)
             mergeAttributes(pParsed, pAttr);
             break;
         case Html_BODY:
-            pParsed = HtmlNodeChild(pTree->pRoot, 1);
+            pParsed = pBodyNode;
             mergeAttributes(pParsed, pAttr);
             break;
 
@@ -1220,7 +1106,7 @@ HtmlTreeAddElement(pTree, eType, pAttr, iOffset)
         case Html_TITLE: {
             int n = HtmlNodeAddChild(pHeadElem, eType, pAttr);
             HtmlNode *p = HtmlNodeChild(pHeadNode, n);
-            pTree->isCdataInHead = 1;
+            pTree->state.isCdataInHead = 1;
             p->iNode = pTree->iNextNode++;
             pParsed = p;
             break;
@@ -1238,56 +1124,57 @@ HtmlTreeAddElement(pTree, eType, pAttr, iOffset)
             break;
         }
 
+        case Html_TBODY:
+        case Html_TFOOT:
+        case Html_THEAD:
+        case Html_TR:
+        case Html_TD:
+        case Html_TH: {
+            pParsed = treeAddTableComponent(pTree, eType, pAttr);
+            break;
+        }
+
         default: {
-            int nClose = 0;
-            int i;
-            int r = tokenAction(pTree, eType, &nClose);
+            int eCurrentType = HtmlNodeTagType(pCurrent);
 
-            for (i = 0; i < nClose; i++) {
-                nodeHandlerCallbacks(pTree, pCurrent);
-                pCurrent = HtmlNodeParent(pCurrent);
-            }
-
-#ifndef NDEBUG
-            {
-                HtmlNode *pTmp = pCurrent;
-                assert(r || pTmp == pTree->pCurrent);
-                while (pTmp != pCurrent) {
-                    int N = HtmlNodeNumChildren(pTmp) - 1;
-                    assert(N >= 0);
-                    pTmp = HtmlNodeChild(pTmp, N);
-                }
-            }
-#endif
-
-            pCurrent = pTree->pCurrent;
-            if (r) {
-                HtmlElementNode *pC = HtmlNodeAsElement(pCurrent);
+            if (
+                eCurrentType == Html_TABLE || eCurrentType == Html_TBODY || 
+                eCurrentType == Html_TFOOT || eCurrentType == Html_THEAD || 
+                eCurrentType == Html_TR
+            ) {
+                /* Need to add this node to the foster tree. */
+                pParsed = treeAddFosterElement(pTree, eType, pAttr);
+            } else {
+                /* Add this node to pCurrent. */
+                int nClose = 0;
+                int i;
+                HtmlElementNode *pC;
                 int N;
-                assert(!HtmlNodeIsText(pTree->pCurrent));
+
+                implicitCloseCount(pTree, pCurrent, eType, &nClose);
+                for (i = 0; i < nClose && pCurrent != pBodyNode; i++) {
+                    nodeHandlerCallbacks(pTree, pCurrent);
+                    pCurrent = HtmlNodeParent(pCurrent);
+                }
+                pTree->state.pCurrent = pCurrent;
+
+                pC = HtmlNodeAsElement(pCurrent);
+                assert(!HtmlNodeIsText(pTree->state.pCurrent));
                 N = HtmlNodeAddChild(pC, eType, pAttr);
                 pCurrent = HtmlNodeChild(pCurrent, N);
                 pCurrent->iNode = pTree->iNextNode++;
                 pParsed = pCurrent;
 
-                if (eType == Html_TD || eType == Html_TH) {
-                    /* Possibly insert an implicit <tr> above this node */
-                    insertImplicitTR(pCurrent);
-                }
-
                 if (HtmlMarkupFlags(eType) & HTMLTAG_EMPTY) {
                     nodeHandlerCallbacks(pTree, pCurrent);
                     pCurrent = HtmlNodeParent(pCurrent);
                 }
-            } else {
-                HtmlFree(pAttr);
+                pTree->state.pCurrent = pCurrent;
             }
         }
     }
 
     doParseHandler(pTree, eType, pParsed, iOffset);
-
-    pTree->pCurrent = pCurrent;
 }
 
 /*
@@ -1312,19 +1199,29 @@ HtmlTreeAddText(pTree, pTextNode, iOffset)
     int iOffset;
 {
     HtmlNode *pCurrent;
+    int eCurrentType;
 
     initTree(pTree);
-    pCurrent = pTree->pCurrent;
+    pCurrent = pTree->state.pCurrent;
+    eCurrentType = HtmlNodeTagType(pCurrent);
 
-    if (pTree->isCdataInHead) {
+    if (pTree->state.isCdataInHead) {
         HtmlNode *pHeadNode = HtmlNodeChild(pTree->pRoot, 0);
         int nChild = HtmlNodeNumChildren(pHeadNode) - 1;
         HtmlNode *pTitle = HtmlNodeChild(pHeadNode, nChild);
 
         HtmlNodeAddTextChild(pTitle, pTextNode);
         pTextNode->node.iNode = pTree->iNextNode++;
-        pTree->isCdataInHead = 0;
+        pTree->state.isCdataInHead = 0;
         nodeHandlerCallbacks(pTree, pTitle);
+    } else if (
+        eCurrentType == Html_TABLE || eCurrentType == Html_TBODY || 
+        eCurrentType == Html_TFOOT || eCurrentType == Html_THEAD || 
+        eCurrentType == Html_TR
+    ) {
+        treeAddFosterText(pTree, pTextNode);
+        pTextNode->node.iNode = pTree->iNextNode++;
+        pTextNode->node.eTag = Html_Text;
     } else {
         HtmlNodeAddTextChild(pCurrent, pTextNode);
         pTextNode->node.iNode = pTree->iNextNode++;
@@ -1361,15 +1258,19 @@ HtmlTreeAddClosingTag(pTree, eTag, iOffset)
 {
     int nClose;
     int ii;
-    HtmlNode *pBody; 
 
     initTree(pTree);
-    pBody = HtmlNodeChild(pTree->pRoot, 1);
 
-    explicitCloseCount(pTree->pCurrent, eTag, &nClose);
-    for (ii = 0; ii < nClose && pTree->pCurrent != pBody; ii++) {
-        nodeHandlerCallbacks(pTree, pTree->pCurrent);
-        pTree->pCurrent = HtmlNodeParent(pTree->pCurrent);
+    if (pTree->state.pFoster && 0 == TAG_TO_TABLELEVEL(eTag)) {
+        assert(TAG_TO_TABLELEVEL(HtmlNodeTagType(pTree->state.pCurrent)) > 0);
+        treeAddFosterClosingTag(pTree, eTag);
+    } else {
+        HtmlNode *pBody = HtmlNodeChild(pTree->pRoot, 1);
+        explicitCloseCount(pTree->state.pCurrent, eTag, &nClose);
+        for (ii = 0; ii < nClose && pTree->state.pCurrent != pBody; ii++) {
+            nodeHandlerCallbacks(pTree, pTree->state.pCurrent);
+            pTree->state.pCurrent = HtmlNodeParent(pTree->state.pCurrent);
+        }
     }
 
     doParseHandler(pTree, eTag, 0, iOffset);
@@ -2717,7 +2618,7 @@ int HtmlTreeClear(pTree)
     /* Free the tree representation - pTree->pRoot */
     freeNode(pTree, pTree->pRoot);
     pTree->pRoot = 0;
-    pTree->pCurrent = 0;
+    pTree->state.pCurrent = 0;
 
     /* Free any orphan nodes associated with this tree: */
     for (
