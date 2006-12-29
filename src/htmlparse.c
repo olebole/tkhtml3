@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.97 2006/12/29 06:16:45 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.98 2006/12/29 07:14:45 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -187,7 +187,7 @@ HtmlUlContent(pTree, pNode, tag)
     HtmlNode *pNode;
     int tag;
 {
-    if (tag==Html_LI || tag==Html_EndLI) return TAG_OK;
+    if (tag==Html_LI) return TAG_OK;
     if (tag == Html_Text || tag == Html_Space) return TAG_OK;
     return TAG_PARENT;
 }
@@ -933,21 +933,29 @@ pTree, zText, isFinal, xAddText, xAddElement, xAddClosing)
              * and attributes. The pointer to the tag name, argv[0], is 
              * therefore &z[n+1].
              */
+            int isClosingTag = 0;
+            int i = 1;
             int nStartScript = n;
             argc = 1;
             argv[0] = &z[n + 1];
             assert( c=='<' );
 
+            /* Check if we are dealing with a closing tag. */
+            if (*argv[0] == '/') {
+                isClosingTag = 1;
+                argv[0]++;
+                i = 2;
+            }
+
             /* Increment i until &z[n+i] is the first byte past the
              * end of the tag name. Then set arglen[0] to the length of
              * argv[0].
              */
-            i = 0;
             do {
                 i++;
                 c = z[n + i];
             } while( c!=0 && !ISSPACE(c) && c!='>' && (i<2 || c!='/') );
-            arglen[0] = i - 1;
+            arglen[0] = i - 1 - isClosingTag;
 
             /* Now prepare to parse the markup attributes. Advance i until
              * &z[n+i] points to the first character of the first attribute,
@@ -1070,7 +1078,7 @@ pTree, zText, isFinal, xAddText, xAddElement, xAddClosing)
                 continue;
             }
 
-            if (pMap->flags & HTMLTAG_END) {
+            if (isClosingTag) {
                 /* Closing tag (i.e. "</p>"). */
                 xAddClosing(pTree, pMap->type, nStartScript);
             } else {

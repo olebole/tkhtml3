@@ -1,5 +1,5 @@
 #
-# $Revision: 1.42 $
+# $Revision: 1.43 $
 #
 # tokenlist.tcl -- 
 #
@@ -266,9 +266,9 @@ proc _TAG {args} {
     puts $::h_file [format $header_format $opensym $::nextfreeconst]
     incr ::nextfreeconst
 
-    set closesym "Html_End[string toupper $tag]"
-    puts $::h_file [format $header_format $closesym $::nextfreeconst]
-    incr ::nextfreeconst
+    # set closesym "Html_End[string toupper $tag]"
+    # puts $::h_file [format $header_format $closesym $::nextfreeconst]
+    # incr ::nextfreeconst
 
     # Insert the HtmlTokenMap record into the constant array.
     set fmt {  {% -15s % -18s %s %s %s},}
@@ -284,9 +284,10 @@ proc _TAG {args} {
         append flags |HTMLTAG_PCDATA
     }
     puts $::c_file [format $fmt "\"$tag\"," $opensym, $flags, $xClose, 0]
-    set flags HTMLTAG_END
-    if {$flow!=0} { append flags |$flow } 
-    puts $::c_file [format $fmt "\"/$tag\"," $closesym, $flags, 0, 0]
+
+    # set flags HTMLTAG_END
+    # if {$flow!=0} { append flags |$flow } 
+    # puts $::c_file [format $fmt "\"/$tag\"," $closesym, $flags, 0, 0]
 }
 
 # Open the files htmltokens.c and htmltokens.h for writing. Write a

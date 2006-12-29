@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.111 2006/12/29 06:16:46 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.112 2006/12/29 07:14:45 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -270,33 +270,46 @@ insertImplicitTR(pNode)
     }
 }
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * explicitCloseCount --
+ *
+ *
+ * Results:
+ *     Sets the value of *pNClose.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
 static void 
 explicitCloseCount(pCurrent, eTag, pNClose)
-    HtmlNode *pCurrent;
-    int eTag;
-    int *pNClose;
+    HtmlNode *pCurrent;     /* Node currently being constructed */
+    int eTag;               /* Id of closing tag (i.e. "</p>" -> Html_P) */
+    int *pNClose;           /* OUT: Number of elements to close */
 {
-    if (eTag != Html_EndHTML && eTag != Html_EndBODY && eTag != Html_EndHEAD) {
+    *pNClose = 0;
+    if (eTag != Html_HTML && eTag != Html_BODY && eTag != Html_HEAD) {
         HtmlNode *p;
         int nLevel = 0;
 
         for (p = pCurrent; p;  p = HtmlNodeParent(p)) {
             nLevel++;
 
-            if (eTag == (p->eTag + 1)) {
+            if (eTag == p->eTag) {
                 *pNClose = nLevel;
                 break;
             }
 
             /* Nothing but an </table> can close a <table> */
-            assert(p->eTag != Html_TABLE || eTag != Html_EndTABLE);
             if (p->eTag == Html_TABLE) break;
-            if (eTag == Html_EndTABLE) continue;
+            if (eTag == Html_TABLE) continue;
 
             /* Nothing but a </tr> or </table> can close a <tr> */
-            assert(p->eTag != Html_TR || eTag != Html_EndTR);
             if (p->eTag == Html_TR) break;
-            if (eTag == Html_EndTR) continue;
+            if (eTag == Html_TR) continue;
 
             if (p->eTag == Html_TD || p->eTag == Html_TH) break;
         }
@@ -1346,46 +1359,17 @@ HtmlTreeAddClosingTag(pTree, eTag, iOffset)
     int eTag;
     int iOffset;
 {
+    int nClose;
+    int ii;
+    HtmlNode *pBody; 
+
     initTree(pTree);
+    pBody = HtmlNodeChild(pTree->pRoot, 1);
 
-    switch (eTag) {
-        case Html_EndHTML:
-        case Html_EndBODY:
-        case Html_EndHEAD:
-            /* Do nothing */
-            break;
-
-        default: {
-            HtmlNode *pBody = HtmlNodeChild(pTree->pRoot, 1);
-            HtmlNode *p;
-            for (p = pTree->pCurrent; p && p != pBody;  p = HtmlNodeParent(p)) {
-                assert(p != pTree->pRoot);
-                assert(HtmlNodeParent(p) != pTree->pRoot);
-
-                if (eTag == (p->eTag + 1)) {
-                    HtmlNode *p2 = pTree->pCurrent;
-                    pTree->pCurrent = HtmlNodeParent(p);
-                    for ( ; p2 != pTree->pCurrent;  p2 = HtmlNodeParent(p2)) {
-                        nodeHandlerCallbacks(pTree, p2);
-                    }
-                    break;
-                }
-
-                /* Nothing but an </table> can close a <table> */
-                assert(p->eTag != Html_TABLE || eTag != Html_EndTABLE);
-                if (p->eTag == Html_TABLE) break;
-                if (eTag == Html_EndTABLE) continue;
-
-                /* Nothing but a </tr> or </table> can close a <tr> */
-                assert(p->eTag != Html_TR || eTag != Html_EndTR);
-                if (p->eTag == Html_TR) break;
-                if (eTag == Html_EndTR) continue;
-
-                if (p->eTag == Html_TD || p->eTag == Html_TH) break;
-            }
-            break;
-        }
- 
+    explicitCloseCount(pTree->pCurrent, eTag, &nClose);
+    for (ii = 0; ii < nClose && pTree->pCurrent != pBody; ii++) {
+        nodeHandlerCallbacks(pTree, pTree->pCurrent);
+        pTree->pCurrent = HtmlNodeParent(pTree->pCurrent);
     }
 
     doParseHandler(pTree, eTag, 0, iOffset);
