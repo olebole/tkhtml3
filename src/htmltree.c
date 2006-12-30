@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.113 2006/12/29 14:31:43 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.114 2006/12/30 06:36:29 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -52,7 +52,10 @@ static const char rcsid[] = "$Id: htmltree.c,v 1.113 2006/12/29 14:31:43 danielk
  *      <TR>                           <!-- Level 2 -->
  *        <TH|TD>                      <!-- Level 1 -->
  *
- * Other, non-table, elements have a level of 0.
+ * Other, non-table, elements have a level of 0. 
+ *
+ * Currently Tkhtml does not even parse <COL> and <COLGROUP> tags. When
+ * this is fixed these two elements may need to be factored into the macro.
  */
 #define TAG_TO_TABLELEVEL(eTag) (  \
     (eTag==Html_TABLE) ? 4 :       \
@@ -898,6 +901,7 @@ treeAddFosterElement(pTree, eTag, pAttr)
         pTree->state.pFoster = pNew;
     }
 
+    HtmlCallbackRestyle(pTree, pNew);
     return pNew;
 }
 
@@ -921,7 +925,9 @@ treeAddFosterClosingTag(pTree, eTag)
         nodeHandlerCallbacks(pTree, pFoster);
         pFoster = HtmlNodeParent(pFoster);
     }
-    if (pFoster == pFosterParent) pFoster = 0;
+    if (pFoster == pFosterParent) {
+        pFoster = 0;
+    }
     pTree->state.pFoster = pFoster;
 }
 

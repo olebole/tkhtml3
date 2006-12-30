@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.146 2006/12/29 14:31:43 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.147 2006/12/30 06:36:29 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -1435,6 +1435,7 @@ parseCmd(clientData, interp, objc, objv)
 
     HtmlCallbackRestyle(pTree, pCurrent ? pCurrent : pTree->pRoot);
     HtmlCallbackRestyle(pTree, pTree->state.pCurrent);
+    HtmlCallbackRestyle(pTree, pTree->state.pFoster);
     HtmlCallbackLayout(pTree, pCurrent);
 
     return TCL_OK;

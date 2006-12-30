@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.243 2006/12/27 10:45:32 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.244 2006/12/30 06:36:28 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -3794,6 +3794,16 @@ HtmlLayout(pTree)
     int nWidth;
     int nHeight;
     LayoutContext sLayout;
+
+    /* TODO: At this point we are assuming that the computed style 
+     * information in HtmlElementNode.pPropertyValues is complete
+     * and up to date. It would be good to run the style engine
+     * on the document tree here and assert() none of the pPropertyValues
+     * structures change.
+     *
+     * Of course, such an assert() would be pretty expensive. It would
+     * normally be disabled... 
+     */
 
     /* Set variable nWidth to the pixel width of the viewport to render 
      * to. This code should use the actual width of the window if the
