@@ -158,7 +158,7 @@ proc ::hv3::configure_doctype_mode {html text} {
     "standards"        { set defstyle [::tkhtml::htmlstyle]
     }
   }
-  if {![::hv3::dom::use_scripting]} {
+  if {[::hv3::dom::use_scripting]} {
     append defstyle "\nnoscript {display:none}"
   }
 

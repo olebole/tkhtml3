@@ -1373,6 +1373,7 @@ snit::type ::hv3::dom {
   }
 
   method javascript {script} {
+    set msg ""
     if {[::hv3::dom::use_scripting] && $mySee ne ""} {
       set rc [catch {$mySee eval $script} msg]
       $self Log "javascript:" $script $rc $msg

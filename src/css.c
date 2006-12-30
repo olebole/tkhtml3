@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.105 2006/12/23 09:01:52 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.106 2006/12/30 07:25:34 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -92,7 +92,6 @@ void *tkhtmlCssParserAlloc(void *(*)(size_t));
 void tkhtmlCssParser(void *, int, CssToken, CssParse*);
 void tkhtmlCssParserFree(void *, void (*)(void *));
 
-static void propertiesAdd(CssProperties **, CssRule *);
 static int cssGetToken(CONST char *, int , int *);
 static int cssParse(HtmlTree*,int,CONST char*,int,int,Tcl_Obj*,Tcl_Obj*,Tcl_Obj*,CssStyleSheet**);
 
@@ -3252,27 +3251,6 @@ HtmlCssSelectorTest(pSelector, pNode, dynamic_true)
     }
 
     return (x && !p)?1:0;
-}
-
-static void 
-propertiesAdd(ppProperties, pRule)
-    CssProperties **ppProperties;
-    CssRule *pRule;
-{
-    CssProperties *pProperties = *ppProperties;
-    int n = (pProperties?pProperties->nRule:0) + 1;
-    int nAlloc = sizeof(CssProperties) + n*sizeof(CssRule *);
-
-    assert( pRule );
-
-    pProperties = (CssProperties *)HtmlRealloc(
-        "CssProperties", (char *)pProperties, nAlloc
-    );
-    pProperties->nRule = n;
-    pProperties->apRule = (CssRule **)&pProperties[1];
-    pProperties->apRule[n-1] = pRule;
-
-    *ppProperties = pProperties;
 }
 
 void 
