@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.99 2006/12/29 14:31:43 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.100 2007/01/05 12:36:35 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -736,7 +736,7 @@ findEndOfScript(eTag, z, pN)
 
     for (ii = *pN; ii < (nLen - nEnd - 1); ii++) {
         if (
-            strnicmp(&z[ii], zEnd, nEnd) == 0 && 
+            strnicmp(&z[ii], zEnd, nEnd) == 0 &&
             (z[ii+nEnd] == '>' || ISSPACE(z[ii+nEnd]))
         ) {
             int nScript = ii - (*pN);
@@ -1108,7 +1108,7 @@ pTree, zText, isFinal, xAddText, xAddElement, xAddClosing)
                         HtmlTextNode *pTextNode;
                         pTextNode = HtmlTextNew(nScript, zScript, 1, 1);
                         xAddText(pTree, pTextNode, n);
-                        xAddClosing(pTree, pMap->type + 1, n);
+                        xAddClosing(pTree, pMap->type, n);
                     } else {
                         isTrimStart = 1;
                     }

@@ -167,6 +167,12 @@ website: hv3_img.kit
 test: hwish
 	./hwish $(TOP)/tests/all.tcl
 
+#-----------------------------------------------------------------------
+# Target to build the groff version of the widget manpage.
+#
+tkhtml.n: $(TOP)/doc/macros.tcl $(TOP)/doc/html.man 
+	$(TCLSH) $(TOP)/doc/macros.tcl -nroff $(TOP)/doc/html.man > tkhtml.n
+#-----------------------------------------------------------------------
 
 #-----------------------------------------------------------------------
 # Targets to build the binary javascript extension (libtclsee.so) and
