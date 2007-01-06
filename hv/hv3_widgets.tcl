@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.38 2006/12/20 09:20:52 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.39 2007/01/06 09:47:59 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
@@ -908,14 +908,11 @@ snit::widget ::hv3::findwidget {
       set frames [$myBrowser get_frames]
     }
 
-    # Filter the $frames list so that it contains only leaf windows.
-    set frames [lsort $frames]
-    set frames2 [list] 
-    for {set ii 0} {$ii < [llength $frames]} {incr ii} {
-      set thisframe [lindex $frames $ii]
-      set nextframe [lindex $frames [expr $ii + 1]]
-      if {![string match "${thisframe}*" $nextframe]} {
-        lappend frames2 $thisframe
+    # Filter the $frames list to exclude frameset documents.
+    set frames2 ""
+    foreach f $frames {
+      if {![$f isframeset]} {
+        lappend frames2 $f
       }
     }
 

@@ -1246,7 +1246,8 @@ initHtmlTextCallback(pTree, pNode, clientData)
     ClientData clientData;
 {
     HtmlTextInit *pInit = (HtmlTextInit *)clientData;
-    if (HtmlNodeIsText(pNode)) {
+    HtmlElementNode *pElem = HtmlNodeAsElement(pNode);
+    if (!pElem) {
         HtmlTextIter sIter;
         int iNodeIndex = 0;
 
@@ -1293,9 +1294,18 @@ initHtmlTextCallback(pTree, pNode, clientData)
         }
     } else {
       int eDisplay = HtmlNodeComputedValues(pNode)->eDisplay; 
-      if (eDisplay == CSS_CONST_NONE) {
+
+      /* If the element has "display:none" or a replacement window, do
+       * not consider any text children to be part of the text
+       * rendering of the document.
+       */
+      if (
+          (eDisplay == CSS_CONST_NONE) ||
+          (pElem->pReplacement && pElem->pReplacement->win)
+      ) {
         return HTML_WALK_DO_NOT_DESCEND;
       }
+
       if (eDisplay != CSS_CONST_INLINE) {
         pInit->eState = SEEN_BLOCK;
       }

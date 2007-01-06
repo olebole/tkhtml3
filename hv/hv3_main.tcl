@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.112 2006/12/23 09:01:52 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.113 2007/01/06 09:47:59 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -41,7 +41,7 @@ source [sourcefile hv3_string.tcl]
 #     This mega widget is instantiated for each browser frame (a regular
 #     html document has one frame, a <frameset> document may have more
 #     than one). This widget is not considered reusable - it is designed
-#     for the demo web browser only. The following application-specific
+#     for the web browser only. The following application-specific
 #     functionality is added to ::hv3::hv3:
 #
 #         * The -statusvar option
@@ -371,6 +371,23 @@ snit::widget ::hv3::browser_frame {
 
   method hv3     {} { return $myHv3 }
   method browser {} { return $myBrowser }
+
+  # The [isframeset] method returns true if this widget instance has
+  # been used to parse a frameset document (widget instances may parse
+  # either frameset or regular HTML documents).
+  #
+  method isframeset {} {
+    # When a <FRAMESET> tag is parsed, a node-handler in hv3_frameset.tcl
+    # creates a widget to manage the frames and then uses [place] to 
+    # map it on top of the html widget created by this ::hv3::browser_frame
+    # widget. Todo: It would be better if this code was in the same file
+    # as the node-handler, otherwise this test is a bit obscure.
+    #
+    set html [[$self hv3] html]
+    set slaves [place slaves $html]
+    set isFrameset [expr {[llength $slaves] > 0}]
+    return $isFrameset
+  }
 
   option -statusvar        -default ""
 

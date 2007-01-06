@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_frameset.tcl,v 1.10 2006/12/23 09:51:01 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_frameset.tcl,v 1.11 2007/01/06 09:47:59 danielk1977 Exp $)} 1 }
 
 # This file contains code for implementing HTML frameset documents in Hv3. 
 #
@@ -54,7 +54,7 @@ namespace eval hv3 {
     # our destructor when it loads a new resource into $browser_frame.
     #
     $node replace $win -deletecmd [list destroy $win]
-    grid $win -column 0 -row 0 -sticky nsew
+    place $win -relheight 1.0 -relwidth 1.0
   }
 
   # iframe_handler
