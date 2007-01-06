@@ -107,6 +107,10 @@ namespace eval tkhtml {
         switch -- [string tolower [$node attr -default text type]] {
           text     { set units ex }
           password { set units ex }
+          file     { 
+            incr size 10 
+            set units ex 
+          }
           default  { set units px }
         }
 
