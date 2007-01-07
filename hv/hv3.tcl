@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.140 2006/12/22 13:04:02 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.141 2007/01/07 11:58:34 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -334,7 +334,7 @@ snit::type ::hv3::hv3::mousemanager {
 #
 snit::type ::hv3::hv3::selectionmanager {
   variable myHv3
-  variable myState 0               ;# True when left-button is held down
+  variable myState false             ;# True when left-button is held down
 
   variable myFromNode
   variable myFromIdx
@@ -352,7 +352,7 @@ snit::type ::hv3::hv3::selectionmanager {
   }
 
   method press {x y} {
-    set myState 1
+    set myState true
     set from [$myHv3 node -index $x $y]
     if {[llength $from]==2} {
       foreach {node index} $from {}
@@ -368,12 +368,12 @@ snit::type ::hv3::hv3::selectionmanager {
   }
 
   method release {x y} {
-    set myState 0
+    set myState false
   }
 
   method reset {} {
     $myHv3 tag delete selection
-    set myState 0
+    set myState false
 
     # Unset the myFromNode variable, since the node handle it (may) refer 
     # to is now invalid. If this is not done, a future call to the [selected]
@@ -383,7 +383,7 @@ snit::type ::hv3::hv3::selectionmanager {
   }
 
   method motion {x y} {
-    if {0 == $myState} return
+    if {!$myState} return
     if {$myToNode eq ""} {
       $self press $x $y
       return
@@ -421,6 +421,10 @@ snit::type ::hv3::hv3::selectionmanager {
   
     set T [string range [$myHv3 text text] $stridx_a [expr $stridx_b - 1]]
     set T [string range $T $offset [expr $offset + $maxChars]]
+
+#puts "document text {[$myHv3 text text]}"
+#puts "from -> to {$n1 $i1 -> $n2 $i2}"
+#puts "from -> to {$stridx_a -> $stridx_b}"
 
     return $T
   }
@@ -594,6 +598,26 @@ snit::widget ::hv3::hv3 {
   # has been requested, but has not yet arrived.
   #
   variable myMimetype ""
+
+  # This variable is set to true while parsing the first chunk of an
+  # html document. i.e. code below effectively does:
+  #
+  #     set myChangeEncodingOk 1
+  #     $myHtml parse $first_chunk
+  #     set myChangeEncodingOk 0
+  #
+  # This is because we only do anything about <meta type="content-type">
+  # tags if they are encountered in the first chunk of the document. The
+  # default chunk-size is 2048 bytes, so this is reasonably safe.
+  #
+  variable myChangeEncodingOk 0
+
+  # If this variable is set to anything other than an empty string, then
+  # it is set to the encoding of the document.
+  #
+  variable myEncoding ""
+
+  variable myEncodedDocument ""
 
   # This variable is only used when ($myMimetype eq "image"). It stores
   # the data for the image about to be displayed. Once the image
@@ -900,6 +924,13 @@ snit::widget ::hv3::hv3 {
       refresh {
         $self Refresh $content
       }
+
+      content-type {
+        if {$myChangeEncodingOk} {
+          foreach {a b enc} [::hv3::string::parseContentType $content] {}
+          set myEncoding $enc
+        }
+      }
     }
   }
 
@@ -1079,6 +1110,8 @@ snit::widget ::hv3::hv3 {
           set myQuirksmode [::hv3::configure_doctype_mode $myHtml $data]
           $self reset $savestate
           set myMimetype html
+          set myEncoding ""
+          set myChangeEncodingOk 1
         }
   
         image {
@@ -1112,38 +1145,79 @@ snit::widget ::hv3::hv3 {
       $self set_location_var
       set myForceReload 0
       set myStyleCount 0
+
+      # If there is a "Location" or "Refresh" header, handle it now.
+      set refreshheader ""
+      foreach {name value} [$handle cget -header] {
+        switch -- $name {
+          Location {
+            set refreshheader "0 ; URL=$value"
+          }
+          Refresh {
+            set refreshheader $value
+          }
+          Content-Type {
+            set tokens [::hv3::string::tokenise $value]
+            foreach {a b enc} [::hv3::string::parseContentType $value] {}
+            if {$enc ne ""} {
+              set myChangeEncodingOk 0
+            }
+          }
+        }
+      }
+      if {$refreshheader ne ""} {
+        $self Refresh $refreshheader
+      }
     }
 
     switch -- $myMimetype {
       html  {$self HtmlCallback $handle $final $data}
       image {$self ImageCallback $handle $final $data}
     }
+    set myChangeEncodingOk 0
 
-    # If there is a "Location" or "Refresh" header, handle it now.
-    set refreshheader ""
-    foreach {name value} [$handle cget -header] {
-      switch -- $name {
-        Location {
-          set refreshheader "0 ; URL=$value"
-        }
-        Refresh {
-          set refreshheader $value
-        }
-      }
-    }
-    if {$refreshheader ne ""} {
-      $self Refresh $refreshheader
-    }
 
     if {$final} {
       $handle destroy
     }
   }
 
+  method EncodingConvertfrom {encoding input} {
+    switch -regexp -- $encoding {
+      ^iso- {
+        set encoding iso[string range $encoding 4 end]
+      }
+
+      {^windows-874$} {
+        set encoding tis-620
+      }
+    }
+    
+    set utf8 $input
+    if {[catch {
+      set utf8 [encoding convertfrom $encoding $utf8]
+    } msg]} {
+      tk_dialog .dialog "Unknown Encoding" $msg error 0 Ok
+    }
+    return $utf8
+  }
+
   method HtmlCallback {handle isFinal data} {
-    $myHtml parse $data
+    if {$myEncoding eq ""} {
+      $myHtml parse $data
+    }
+    if {$myEncoding ne ""} {
+      $myHtml reset
+      append myEncodedDocument $data
+    }
     if {$isFinal} {
-      $myHtml parse -final {}
+      if {$myEncoding ne ""} {
+        set utf8 [$self EncodingConvertfrom $myEncoding $myEncodedDocument]
+        set myEncodedDocument ""
+        $myHtml parse -final $utf8
+      } else {
+        $myHtml parse -final {}
+      }
       $self goto_fragment
     }
   }
@@ -1381,7 +1455,8 @@ snit::widget ::hv3::hv3 {
 
     $self invalidate_nodecache
     set myTitleVar ""
-
+    set myEncoding ""
+    set myEncodedDocument ""
 
     foreach m [list \
         $myMouseManager $myFormManager $myDom   \

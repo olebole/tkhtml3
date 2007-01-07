@@ -17,7 +17,7 @@ namespace eval ::hv3::string {
   
     while {[string length $zIn] > 0} {
   
-      if {[ regexp {^([[:alnum:]]+)(.*)$} $zIn -> zToken zIn ]} {
+      if {[ regexp {^([[:alnum:]_.-]+)(.*)$} $zIn -> zToken zIn ]} {
         # Contiguous alpha-numeric characters
         lappend tokens $zToken
   
@@ -46,6 +46,9 @@ namespace eval ::hv3::string {
     return $tokens
   }
 
+  # Dequote $input, if it appears to be a quoted string (starts with 
+  # a single or double quote character).
+  #
   proc dequote {input} {
     set zIn $input
     set zQuote [string range $zIn 0 0]
@@ -58,4 +61,32 @@ namespace eval ::hv3::string {
     }
     return $zIn
   }
+
+
+  # A procedure to parse an HTTP content-type (media type). See section
+  # 3.7 of the http 1.1 specification.
+  #
+  # A list of exactly three elements is returned. These are the type,
+  # subtype and charset as specified in the parsed content-type. Any or
+  # all of the fields may be empty strings, if they are not present in
+  # the input or a parse error occurs.
+  #
+  proc parseContentType {contenttype} {
+    set tokens [::hv3::string::tokenise $contenttype]
+
+    set type [lindex $tokens 0]
+    set subtype [lindex $tokens 2]
+
+    set enc ""
+    foreach idx [lsearch -regexp -all $tokens (?i)charset] {
+      if {[lindex $tokens [expr {$idx+1}]] eq "="} {
+        set enc [::hv3::string::dequote [lindex $tokens [expr {$idx+2}]]]
+        set enc [string tolower $enc]
+        break
+      }
+    }
+
+    return [list $type $subtype $enc]
+  }
+
 }

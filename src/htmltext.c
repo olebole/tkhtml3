@@ -41,6 +41,14 @@
 #define ISSPACE(x) isspace((unsigned char)(x))
 
 /*
+ * This file implements the experimental [tag] widget method. The
+ * following summarizes the interface supported:
+ *
+ *         html tag add TAGNAME FROM-NODE FROM-INDEX TO-NODE TO-INDEX
+ *         html tag remove TAGNAME FROM-NODE FROM-INDEX TO-NODE TO-INDEX
+ *         html tag delete TAGNAME
+ *         html tag configure TAGNAME ?-fg COLOR? ?-bg COLOR?
+ *
  * This file exports the following functions:
  *
  *     HtmlTranslateEscapes()
@@ -61,14 +69,12 @@
  *         deallocated to free outstanding tag related stuff.
  *
  *
- * This file implements the experimental [tag] widget method. The
- * following summarizes the interface supported:
+ * Also:
  *
- *         html tag add TAGNAME FROM-NODE FROM-INDEX TO-NODE TO-INDEX
- *         html tag remove TAGNAME FROM-NODE FROM-INDEX TO-NODE TO-INDEX
- *         html tag delete TAGNAME
- *         html tag configure TAGNAME ?-fg COLOR? ?-bg COLOR?
- *
+ *     HtmlTextTextCmd()
+ *     HtmlTextBboxCmd()
+ *     HtmlTextOffsetCmd()
+ *     HtmlTextIndexCmd()
  */
 
 /****************** Begin Escape Sequence Translator *************/
@@ -1199,14 +1205,19 @@ HtmlTagCleanupTree(pTree)
     Tcl_DeleteHashTable(&pTree->aTag);
 }
 
+
+/*
+ * The following two structs are used together to create a data-structure 
+ * to store the text-representation of the document.
+ *
+ */
 typedef struct HtmlTextMapping HtmlTextMapping;
 struct HtmlTextMapping {
-    HtmlNode *pNode;
-    int iStrIndex;
-    int iNodeIndex;
+    HtmlTextNode *pTextNode;
+    int iStrIndex;             /* Character offset in HtmlText.pObj */
+    int iNodeIndex;            /* Byte offset in HtmlTextNode.zText */
     HtmlTextMapping *pNext;
 };
-
 struct HtmlText {
     Tcl_Obj *pObj;
     HtmlTextMapping *pMapping;
@@ -1224,9 +1235,9 @@ struct HtmlTextInit {
 #define SEEN_BLOCK 2
 
 static void
-addTextMapping(pText, pNode, iNodeIndex, iStrIndex)
+addTextMapping(pText, pTextNode, iNodeIndex, iStrIndex)
     HtmlText *pText;
-    HtmlNode *pNode;
+    HtmlTextNode *pTextNode;
     int iNodeIndex;
     int iStrIndex;
 {
@@ -1234,7 +1245,7 @@ addTextMapping(pText, pNode, iNodeIndex, iStrIndex)
     p = (HtmlTextMapping *)HtmlAlloc("HtmlTextMapping",sizeof(HtmlTextMapping));
     p->iStrIndex = iStrIndex;
     p->iNodeIndex = iNodeIndex;
-    p->pNode = pNode;
+    p->pTextNode = pTextNode;
     p->pNext = pText->pMapping;
     pText->pMapping = p;
 }
@@ -1248,11 +1259,12 @@ initHtmlTextCallback(pTree, pNode, clientData)
     HtmlTextInit *pInit = (HtmlTextInit *)clientData;
     HtmlElementNode *pElem = HtmlNodeAsElement(pNode);
     if (!pElem) {
+        HtmlTextNode *pTextNode = HtmlNodeAsText(pNode);
         HtmlTextIter sIter;
         int iNodeIndex = 0;
 
         for (
-            HtmlTextIterFirst((HtmlTextNode *)pNode, &sIter);
+            HtmlTextIterFirst(pTextNode, &sIter);
             HtmlTextIterIsValid(&sIter);
             HtmlTextIterNext(&sIter)
         ) {
@@ -1280,7 +1292,9 @@ initHtmlTextCallback(pTree, pNode, clientData)
                                 break;
                         }
                     }
-                    addTextMapping(pTree->pText,pNode,iNodeIndex,pInit->iIdx);
+                    addTextMapping(
+                        pTree->pText, pTextNode, iNodeIndex, pInit->iIdx
+                    );
                     Tcl_AppendToObj(pInit->pText->pObj, zData, nData);
                     pInit->eState = SEEN_TEXT;
                     iNodeIndex += nData;
@@ -1433,10 +1447,15 @@ HtmlTextIndexCmd(clientData, interp, objc, objv)
         }
         for ( ; pMap; pMap = pMap->pNext) {
             assert(!pMap->pNext || pMap->iStrIndex >= pMap->pNext->iStrIndex);
-            if (pMap->iStrIndex < iIndex || !pMap->pNext) {
-                int iNodeIdx = pMap->iNodeIndex + iIndex - pMap->iStrIndex;
+            if (pMap->iStrIndex <= iIndex || !pMap->pNext) {
+                int iNodeIdx = pMap->iNodeIndex; 
                 Tcl_Obj *apObj[2];
-                apObj[0] = HtmlNodeCommand(pTree, pMap->pNode);
+
+                int nExtra = iIndex - pMap->iStrIndex;
+                char *zExtra = &(pMap->pTextNode->zText[iNodeIdx]);
+                iNodeIdx += (Tcl_UtfAtIndex(zExtra, nExtra) - zExtra);
+
+                apObj[0] = HtmlNodeCommand(pTree, &pMap->pTextNode->node);
                 apObj[1] = Tcl_NewIntObj(iNodeIdx);
                 Tcl_ListObjReplace(0, p, 0, 0, 2, apObj);
                 break;
@@ -1458,6 +1477,8 @@ HtmlTextIndexCmd(clientData, interp, objc, objv)
  *
  *     Given the supplied node/index pair, return the corresponding offset
  *     in the text representation of the document.
+ * 
+ *     The INDEX parameter is in bytes. The returned value is in characters.
  *
  * Results:
  *     None.
@@ -1476,9 +1497,11 @@ HtmlTextOffsetCmd(clientData, interp, objc, objv)
 {
     HtmlTree *pTree = (HtmlTree *)clientData;
     HtmlTextMapping *pMap;
+    HtmlTextMapping *pNearest = 0;
 
     /* C interpretations of arguments passed to the Tcl command */
     HtmlNode *pNode;
+    HtmlTextNode *pTextNode;
     int iIndex;
 
     /* Return value for the Tcl command. Anything less than 0 results
@@ -1496,12 +1519,22 @@ HtmlTextOffsetCmd(clientData, interp, objc, objv)
     ) {
         return TCL_ERROR;
     }
+    if (!(pTextNode = HtmlNodeAsText(pNode))) {
+        const char *zNode = Tcl_GetString(objv[3]);
+        Tcl_AppendResult(interp, zNode, " is not a text node", 0);
+        return TCL_ERROR;
+    }
 
     initHtmlText(pTree);
     for (pMap = pTree->pText->pMapping; pMap; pMap = pMap->pNext) {
-        if (pMap->pNode == pNode && pMap->iNodeIndex <= iIndex) {
-            iRet = pMap->iStrIndex + (iIndex - pMap->iNodeIndex);
+        if (pMap->pTextNode == pTextNode && pMap->iNodeIndex <= iIndex) {
+            pNearest = pMap;
         }
+    }
+    if (pNearest) {
+        char *zExtra = &pNearest->pTextNode->zText[pNearest->iNodeIndex];
+        int nExtra = iIndex - pNearest->iNodeIndex;
+        iRet = pNearest->iStrIndex + Tcl_NumUtfChars(zExtra, nExtra);
     }
 
     if (iRet >= 0) {

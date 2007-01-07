@@ -105,7 +105,7 @@ puts [subst -novariables {
 <tr>
 <td>Puppy Linux
 <td>
-    <p><a href="hv3-alpha-13.tgz">hv3-alpha-13.tgz</a> - Dotpup package
+    <p><a href="hv3-alpha-13.tgz">hv3-alpha-13.tgz</a> - Pupget package
     for Puppy linux 
     (<a href="http://www.puppyos.com">http://www.puppyos.com</a>). This
     probably won't work on other linux distributions.
