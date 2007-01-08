@@ -1262,6 +1262,14 @@ initHtmlTextCallback(pTree, pNode, clientData)
         HtmlTextNode *pTextNode = HtmlNodeAsText(pNode);
         HtmlTextIter sIter;
 
+        int isPre;
+        isPre = (HtmlNodeComputedValues(pNode)->eWhitespace == CSS_CONST_PRE);
+
+        if (pInit->eState == SEEN_BLOCK) {
+            Tcl_AppendToObj(pInit->pText->pObj, "\n", 1);
+            pInit->iIdx++;
+        }
+
         for (
             HtmlTextIterFirst(pTextNode, &sIter);
             HtmlTextIterIsValid(&sIter);
@@ -1274,22 +1282,26 @@ initHtmlTextCallback(pTree, pNode, clientData)
             switch (eType) {
                 case HTML_TEXT_TOKEN_NEWLINE:
                 case HTML_TEXT_TOKEN_SPACE:
-                    pInit->eState = MAX(pInit->eState, SEEN_SPACE);
+                    if (isPre) {
+                        int ii;
+                        const char *zWhite;
+                        zWhite = (eType==HTML_TEXT_TOKEN_SPACE ? " " : "\n");
+                        for (ii = 0; ii < nData; ii++) {
+                            Tcl_AppendToObj(pInit->pText->pObj, zWhite, 1);
+                        }
+                        pInit->iIdx += nData;
+                        pInit->eState = SEEN_TEXT;
+                    } else {
+                        pInit->eState = MAX(pInit->eState, SEEN_SPACE);
+                    }
                     break;
 
                 case HTML_TEXT_TOKEN_TEXT:
-                    if (pInit->iIdx > 0) {
-                        switch (pInit->eState) {
-                            case SEEN_BLOCK:
-                                Tcl_AppendToObj(pInit->pText->pObj, "\n", 1);
-                                pInit->iIdx++;
-                                break;
-                            case SEEN_SPACE:
-                                Tcl_AppendToObj(pInit->pText->pObj, " ", 1);
-                                pInit->iIdx++;
-                                break;
-                        }
+                    if (pInit->iIdx > 0 && pInit->eState == SEEN_SPACE) {
+                        Tcl_AppendToObj(pInit->pText->pObj, " ", 1);
+                        pInit->iIdx++;
                     }
+
                     addTextMapping(pTree->pText, 
                         pTextNode, (zData - pTextNode->zText), pInit->iIdx
                     );
@@ -1494,7 +1506,6 @@ HtmlTextOffsetCmd(clientData, interp, objc, objv)
 {
     HtmlTree *pTree = (HtmlTree *)clientData;
     HtmlTextMapping *pMap;
-    HtmlTextMapping *pNearest = 0;
 
     /* C interpretations of arguments passed to the Tcl command */
     HtmlNode *pNode;
@@ -1525,13 +1536,11 @@ HtmlTextOffsetCmd(clientData, interp, objc, objv)
     initHtmlText(pTree);
     for (pMap = pTree->pText->pMapping; pMap; pMap = pMap->pNext) {
         if (pMap->pTextNode == pTextNode && pMap->iNodeIndex <= iIndex) {
-            pNearest = pMap;
+            char *zExtra = &pTextNode->zText[pMap->iNodeIndex];
+            int nExtra = iIndex - pMap->iNodeIndex;
+            iRet = pMap->iStrIndex + Tcl_NumUtfChars(zExtra, nExtra);
+            break;
         }
-    }
-    if (pNearest) {
-        char *zExtra = &pNearest->pTextNode->zText[pNearest->iNodeIndex];
-        int nExtra = iIndex - pNearest->iNodeIndex;
-        iRet = pNearest->iStrIndex + Tcl_NumUtfChars(zExtra, nExtra);
     }
 
     if (iRet >= 0) {
