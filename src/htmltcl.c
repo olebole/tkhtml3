@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.147 2006/12/30 06:36:29 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.148 2007/01/08 09:56:16 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -2458,6 +2458,69 @@ htmlEscapeCmd(clientData, interp, objc, objv)
     return HtmlEscapeUriComponent(clientData, interp, objc, objv);
 }
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * htmlByteOffsetCmd --
+ * htmlCharOffsetCmd --
+ *
+ *     ::tkhtml::charoffset STRING BYTE-OFFSET
+ *     ::tkhtml::byteoffset STRING CHAR-OFFSET
+ *
+ * Results:
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+htmlByteOffsetCmd(clientData, interp, objc, objv)
+    ClientData clientData;
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    int iCharOffset;
+    int iRet;
+    char *zArg;
+
+    if (objc != 3) {
+        Tcl_WrongNumArgs(interp, 1, objv, "STRING CHAR-OFFSET");
+        return TCL_ERROR;
+    }
+
+    if (Tcl_GetIntFromObj(interp, objv[2], &iCharOffset)) return TCL_ERROR;
+    zArg = Tcl_GetString(objv[1]);
+
+    iRet = (Tcl_UtfAtIndex(zArg, iCharOffset) - zArg);
+    Tcl_SetObjResult(interp, Tcl_NewIntObj(iRet));
+    return TCL_OK;
+}
+static int 
+htmlCharOffsetCmd(clientData, interp, objc, objv)
+    ClientData clientData;
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    int iByteOffset;
+    int iRet;
+    char *zArg;
+
+    if (objc != 3) {
+        Tcl_WrongNumArgs(interp, 1, objv, "STRING BYTE-OFFSET");
+        return TCL_ERROR;
+    }
+
+    if (Tcl_GetIntFromObj(interp, objv[2], &iByteOffset)) return TCL_ERROR;
+    zArg = Tcl_GetString(objv[1]);
+
+    iRet = Tcl_NumUtfChars(zArg, iByteOffset);
+    Tcl_SetObjResult(interp, Tcl_NewIntObj(iRet));
+    return TCL_OK;
+}
+
 
 /*
  * Define the DLL_EXPORT macro, which must be set to something or other in
@@ -2516,6 +2579,9 @@ DLL_EXPORT int Tkhtml_Init(interp)
     Tcl_CreateObjCommand(interp, "::tkhtml::version", htmlVersionCmd, 0, 0);
     Tcl_CreateObjCommand(interp, "::tkhtml::decode", htmlDecodeCmd, 0, 0);
     Tcl_CreateObjCommand(interp, "::tkhtml::escape_uri", htmlEscapeCmd, 0, 0);
+
+    Tcl_CreateObjCommand(interp, "::tkhtml::byteoffset", htmlByteOffsetCmd,0,0);
+    Tcl_CreateObjCommand(interp, "::tkhtml::charoffset", htmlCharOffsetCmd,0,0);
 
 #ifndef NDEBUG
     Tcl_CreateObjCommand(interp, "::tkhtml::htmlalloc", allocCmd, 0, 0);

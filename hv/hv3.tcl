@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.141 2007/01/07 11:58:34 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.142 2007/01/08 09:56:16 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -330,41 +330,95 @@ snit::type ::hv3::hv3::mousemanager {
 }
 
 #--------------------------------------------------------------------------
-# Class ::hv3::hv3::selectionmanager
+# ::hv3::hv3::selectionmanager
+#
+#     This type encapsulates the code that manages selecting text
+#     in the html widget with the mouse.
 #
 snit::type ::hv3::hv3::selectionmanager {
-  variable myHv3
+
+  # Variable myMode may take one of the following values:
+  #
+  #     "char"           -> Currently text selecting by character.
+  #     "word"           -> Currently text selecting by word.
+  #     "line"           -> Currently text selecting by line.
+  #
   variable myState false             ;# True when left-button is held down
+  variable myMode char
 
-  variable myFromNode
-  variable myFromIdx
+  # The ::hv3::hv3 widget.
+  #
+  variable myHv3
 
-  variable myToNode
-  variable myToIdx
+  variable myFromNode ""
+  variable myFromIdx ""
+
+  variable myToNode ""
+  variable myToIdx ""
 
   constructor {hv3} {
     set myHv3 $hv3
     selection handle $myHv3 [list ::hv3::bg [mymethod get_selection]]
 
-    bind $myHv3 <Motion>          "+[mymethod motion %x %y]"
-    bind $myHv3 <ButtonPress-1>   "+[mymethod press %x %y]"
-    bind $myHv3 <ButtonRelease-1> "+[mymethod release %x %y]"
+    bind $myHv3 <Motion>               "+[mymethod motion %x %y]"
+    bind $myHv3 <ButtonPress-1>        "+[mymethod press %x %y]"
+    bind $myHv3 <Double-ButtonPress-1> "+[mymethod doublepress %x %y]"
+    bind $myHv3 <ButtonRelease-1>      "+[mymethod release %x %y]"
+  }
+
+  # Clear the selection.
+  #
+  method clear {} {
+    $myHv3 tag delete selection
+    $myHv3 tag configure selection -foreground white -background darkgrey
+    set myFromNode ""
+    set myToNode ""
   }
 
   method press {x y} {
+    # Single click -> Select by character.
+    $self clear
     set myState true
-    set from [$myHv3 node -index $x $y]
-    if {[llength $from]==2} {
-      foreach {node index} $from {}
-      $myHv3 tag delete selection
-      $myHv3 tag configure selection -foreground white -background darkgrey
-      set myFromNode $node
-      set myFromIdx $index
-      set myToNode $node
-      set myToIdx $index
-    } else {
-      set myToNode ""
-    }
+    set myMode char
+    $self motion $x $y
+  }
+
+  # Given a node-handle/index pair identifying a character in the 
+  # current document, return the index values for the start and end
+  # of the word containing the character.
+  #
+  proc ToWord {node idx} {
+    set t [$node text]
+    set cidx [::tkhtml::charoffset $t $idx]
+    set cidx1 [string wordstart $t $cidx]
+    set cidx2 [string wordend $t $cidx]
+    set idx1 [::tkhtml::byteoffset $t $cidx1]
+    set idx2 [::tkhtml::byteoffset $t $cidx2]
+    return [list $idx1 $idx2]
+  }
+
+  # Add the widget tag "selection" to the word containing the character
+  # identified by the supplied node-handle/index pair.
+  #
+  method TagWord {node idx} {
+    foreach {i1 i2} [ToWord $node $idx] {}
+    $myHv3 tag add selection $node $i1 $node $i2
+  }
+
+  # Remove the widget tag "selection" to the word containing the character
+  # identified by the supplied node-handle/index pair.
+  #
+  method UntagWord {node idx} {
+    foreach {i1 i2} [ToWord $node $idx] {}
+    $myHv3 tag remove selection $node $i1 $node $i2
+  }
+
+  method doublepress {x y} {
+    # Single click -> Select by word.
+    $self clear
+    set myMode word
+    set myState true
+    $self motion $x $y
   }
 
   method release {x y} {
@@ -372,32 +426,54 @@ snit::type ::hv3::hv3::selectionmanager {
   }
 
   method reset {} {
-    $myHv3 tag delete selection
     set myState false
 
     # Unset the myFromNode variable, since the node handle it (may) refer 
     # to is now invalid. If this is not done, a future call to the [selected]
     # method of this object will cause an error by trying to use the
     # (now invalid) node-handle value in $myFromNode.
-    unset -nocomplain myFromNode
+    set myFromNode ""
+    set myToNode ""
   }
 
   method motion {x y} {
     if {!$myState} return
-    if {$myToNode eq ""} {
-      $self press $x $y
-      return
-    }
+
     set to [$myHv3 node -index $x $y]
-    if {[llength $to]==2} {
-      foreach {node index} $to {}
-      if {$myToNode ne $node || $index != $myToIdx} {
-        $myHv3 tag remove selection $myToNode $myToIdx $node $index
-        set myToNode $node
-        set myToIdx $index
-        $myHv3 tag add selection $myFromNode $myFromIdx $myToNode $myToIdx
-      }
+    if {[llength $to] == 0} return
+    foreach {toNode toIdx} $to {}
+
+    if {$myFromNode eq ""} {
+      set myFromNode $toNode
+      set myFromIdx $toIdx
     }
+
+    if {$myToNode ne $toNode || $toIdx != $myToIdx} {
+      switch -- $myMode {
+        char {
+          if {$myToNode ne ""} {
+            $myHv3 tag remove selection $myToNode $myToIdx $toNode $toIdx
+          }
+          $myHv3 tag add selection $myFromNode $myFromIdx $toNode $toIdx
+        }
+
+        word {
+          if {$myToNode ne ""} {
+            $myHv3 tag remove selection $myToNode $myToIdx $toNode $toIdx
+            $self UntagWord $myToNode $myToIdx
+            $self UntagWord $toNode $toIdx
+          }
+
+          $myHv3 tag add selection $myFromNode $myFromIdx $toNode $toIdx
+          $self TagWord $toNode $toIdx
+          $self TagWord $myFromNode $myFromIdx
+        }
+      }
+
+      set myToNode $toNode
+      set myToIdx $toIdx
+    }
+
     selection own $myHv3
   }
 
@@ -408,6 +484,8 @@ snit::type ::hv3::hv3::selectionmanager {
   #     region is returned.
   #
   method get_selection {offset maxChars} {
+    set t [$myHv3 text text]
+
     set n1 $myFromNode
     set i1 $myFromIdx
     set n2 $myToNode
@@ -417,6 +495,11 @@ snit::type ::hv3::hv3::selectionmanager {
     set stridx_b [$myHv3 text offset $myToNode $myToIdx]
     if {$stridx_a > $stridx_b} {
       foreach {stridx_a stridx_b} [list $stridx_b $stridx_a] {}
+    }
+
+    if {$myMode eq "word"} {
+      set stridx_a [string wordstart $t $stridx_a]
+      set stridx_b [string wordend $t $stridx_b]
     }
   
     set T [string range [$myHv3 text text] $stridx_a [expr $stridx_b - 1]]
@@ -929,6 +1012,9 @@ snit::widget ::hv3::hv3 {
         if {$myChangeEncodingOk} {
           foreach {a b enc} [::hv3::string::parseContentType $content] {}
           set myEncoding $enc
+          if {[string match -nocase *utf-8* $myEncoding]} {
+            set myEncoding ""
+          }
         }
       }
     }

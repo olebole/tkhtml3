@@ -66,7 +66,7 @@
  * 
  *     HtmlInlineContextIsEmpty()
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.45 2006/11/27 05:36:29 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.46 2007/01/08 09:56:16 danielk1977 Exp $";
 
 /* The InlineBox and InlineMetrics types are only used within this file.
  * The InlineContext type is only used within this file, but opaque handles
@@ -1469,7 +1469,6 @@ HtmlInlineContextAddText(pContext, pNode)
     const int szonly = pContext->isSizeOnly;
 
     HtmlComputedValues *pValues;   /* Computed values (of parent node) */
-    int iIndex = 0;
 
     assert(pNode && HtmlNodeIsText(pNode) && HtmlNodeParent(pNode));
     pValues = HtmlNodeComputedValues(pNode);
@@ -1501,6 +1500,7 @@ HtmlInlineContextAddText(pContext, pNode)
                 InlineBox *pBox;
                 int tw;            /* Text width */
                 int y;             /* Y-offset */
+                int iIndex;
 
                 p = inlineContextAddInlineCanvas(pContext, INLINE_TEXT, pNode);
 
@@ -1513,10 +1513,10 @@ HtmlInlineContextAddText(pContext, pNode)
 
                 pText = Tcl_NewStringObj(zData, nData);
                 Tcl_IncrRefCount(pText);
+                iIndex = zData - ((HtmlTextNode *)pNode)->zText;
                 HtmlDrawText(p, zData, nData, 0, y, tw, szonly, pNode, iIndex);
                 Tcl_DecrRefCount(pText);
 
-                iIndex += nData;
                 pContext->ignoreLineHeight = 0;
                 break;
             }
@@ -1527,7 +1527,6 @@ HtmlInlineContextAddText(pContext, pNode)
                     for (i = 0; i < nData; i++) {
                         inlineContextAddNewLine(pContext, nh);
                     }
-                    iIndex++;
                     break;
                 }
                 /* Otherwise fall through */
@@ -1543,7 +1542,6 @@ HtmlInlineContextAddText(pContext, pNode)
                 for (i = 0; i < nData; i++) {
                     inlineContextAddSpace(pContext, sw, eWhitespace);
                 }
-                iIndex++;
                 break;
             }
 

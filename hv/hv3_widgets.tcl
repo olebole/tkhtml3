@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.39 2007/01/06 09:47:59 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.40 2007/01/08 09:56:16 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
@@ -852,6 +852,17 @@ proc ::hv3::ComparePositionId {frame1 frame2} {
   return [string compare [$frame1 positionid] [$frame2 positionid]]
 }
 
+#-------------------------------------------------------------------------
+# ::hv3::findwidget
+#
+#     This snit widget encapsulates the "Find in page..." functionality.
+#
+#     Two tags may be added to the html widget(s):
+#
+#         findwidget                      (all search hits)
+#         findwidgetcurrent               (the current search hit)
+#
+#
 snit::widget ::hv3::findwidget {
   variable myBrowser          ;# The ::hv3::browser_toplevel widget
 
@@ -989,9 +1000,10 @@ snit::widget ::hv3::findwidget {
       while {[set iStart [string first $searchtext $doctext $iFin]] >= 0} {
         set iFin [expr $iStart + [string length $searchtext]]
         lappend lMatch $iStart $iFin
+        incr nMatch
+        if {$nMatch == $nMaxHighlight} { set nMatch "many" ; break }
       }
 
-      incr nMatch [expr [llength $lMatch] / 2]
       set lMatch [lrange $lMatch 0 [expr ($nMaxHighlight - $nHighlight)*2 - 1]]
       incr nHighlight [expr [llength $lMatch] / 2]
       if {[llength $lMatch] > 0} {

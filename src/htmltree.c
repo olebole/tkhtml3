@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.114 2006/12/30 06:36:29 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.115 2007/01/08 09:56:17 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -2095,6 +2095,7 @@ node_attr_usage:
          */
         case NODE_TEXT: {
             Tcl_Obj *pRet;
+            int nByte = 0;
             int tokens;
             int pre;
             char *z3 = 0;
@@ -2118,65 +2119,68 @@ node_attr_usage:
             pRet = Tcl_NewObj();
             Tcl_IncrRefCount(pRet);
 
-            if (HtmlNodeIsText(pNode)) {
-                for (
-                    HtmlTextIterFirst((HtmlTextNode *)pNode, &sIter);
-                    HtmlTextIterIsValid(&sIter);
-                    HtmlTextIterNext(&sIter)
-                ) {
-                    int eType = HtmlTextIterType(&sIter);
-                    int nData = HtmlTextIterLength(&sIter);
-                    char const * zData = HtmlTextIterData(&sIter);
-    
-                    if (tokens) {
-                        char *zType = 0;
-                        Tcl_Obj *p = Tcl_NewObj();
-                        Tcl_Obj *pObj = 0;
-    
-                        switch (eType) {
-                            case HTML_TEXT_TOKEN_TEXT:
-                                zType = "text";
-                                pObj = Tcl_NewStringObj(zData, nData);
-                                break;
-                            case HTML_TEXT_TOKEN_SPACE:
-                                zType = "space";
-                                pObj = Tcl_NewIntObj(nData);
-                                break;
-                            case HTML_TEXT_TOKEN_NEWLINE:
-                                zType = "newline";
-                                pObj = Tcl_NewIntObj(nData);
-                                break;
-                        }
-                        assert(zType);
-                        Tcl_ListObjAppendElement(
-                            0, p, Tcl_NewStringObj(zType, -1)
-                        );
-                        Tcl_ListObjAppendElement(0, p, pObj);
-                        Tcl_ListObjAppendElement(0, pRet, p);
-                    } else {
-                        switch (eType) {
-                            case HTML_TEXT_TOKEN_TEXT:
-                                Tcl_AppendToObj(pRet, zData, nData);
-                                break;
-                            case HTML_TEXT_TOKEN_SPACE: 
-                            case HTML_TEXT_TOKEN_NEWLINE: {
-                                char *zWhite = " ";
-                                int nWhite = 1;
-                                int ii;
-                                if (pre) {
-                                    nWhite = nData;
-                                    if (HTML_TEXT_TOKEN_NEWLINE == eType) {
-                                        zWhite = "\n";
-                                    }
-                                }
-                                for (ii = 0; ii < nWhite; ii++) {
-                                    Tcl_AppendToObj(pRet, zWhite, 1);
-                                }
-                                break;
+            if (!HtmlNodeIsText(pNode)) break;
+
+            for (
+                HtmlTextIterFirst((HtmlTextNode *)pNode, &sIter);
+                HtmlTextIterIsValid(&sIter);
+                HtmlTextIterNext(&sIter)
+            ) {
+                int eType = HtmlTextIterType(&sIter);
+                int nData = HtmlTextIterLength(&sIter);
+                char const * zData = HtmlTextIterData(&sIter);
+
+                if (tokens) {
+                    char *zType = 0;
+                    Tcl_Obj *p = Tcl_NewObj();
+                    Tcl_Obj *pObj = 0;
+
+                    switch (eType) {
+                        case HTML_TEXT_TOKEN_TEXT:
+                            zType = "text";
+                            pObj = Tcl_NewStringObj(zData, nData);
+                            break;
+                        case HTML_TEXT_TOKEN_SPACE:
+                            zType = "space";
+                            pObj = Tcl_NewIntObj(nData);
+                            break;
+                        case HTML_TEXT_TOKEN_NEWLINE:
+                            zType = "newline";
+                            pObj = Tcl_NewIntObj(nData);
+                            break;
+                    }
+                    assert(zType);
+                    Tcl_ListObjAppendElement(0, p, Tcl_NewStringObj(zType, -1));
+                    Tcl_ListObjAppendElement(0, p, pObj);
+                    Tcl_ListObjAppendElement(0, pRet, p);
+                } else if (pre) {
+                    switch (eType) {
+                        case HTML_TEXT_TOKEN_TEXT:
+                            Tcl_AppendToObj(pRet, zData, nData);
+                            break;
+                        case HTML_TEXT_TOKEN_SPACE: 
+                        case HTML_TEXT_TOKEN_NEWLINE: {
+                            char *zWhite = " ";
+                            int ii;
+                            if (HTML_TEXT_TOKEN_NEWLINE == eType) {
+                                zWhite = "\n";
                             }
+                            for (ii = 0; ii < nData; ii++) {
+                                Tcl_AppendToObj(pRet, zWhite, 1);
+                            }
+                            break;
                         }
                     }
+                } else {
+                    if (eType == HTML_TEXT_TOKEN_TEXT) {
+                        if (nByte != 0) nByte++;
+                        nByte += nData;
+                    }
                 }
+            }
+            if (!tokens && !pre) {
+                HtmlTextNode *pTextNode = HtmlNodeAsText(pNode);
+                Tcl_SetStringObj(pRet, pTextNode->zText, nByte);
             }
 
             Tcl_SetObjResult(interp, pRet);

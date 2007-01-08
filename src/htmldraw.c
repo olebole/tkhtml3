@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.181 2006/12/21 03:58:53 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.182 2007/01/08 09:56:16 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -162,6 +162,11 @@ struct CanvasText {
     int y;                   /* Relative y coordinate to render at */
     HtmlNode *pNode;         /* Text node */
     int w;                   /* Width of the text */
+
+    /* If pNode is a non-generated text-node (not the product of a :before
+     * or :after rule), then iIndex is the byte offset of CanvasText.zText
+     * in HtmlTextNode.zText.
+     */
     int iIndex;              /* Index in pNode text of this item (or -1) */
 
     const char *zText;
@@ -2057,6 +2062,13 @@ drawText(pTree, pItem, drawable, x, y)
     /* Now, if the associated node is a text node with one or more tags
      * applied to it, draw any tagged regions of text over the top of the
      * stylesheet text.
+     *
+     * TODO: Because tagged regions are drawn over the top of the unadorned
+     * text (and possibly each other) Tkhtml does not support tags with
+     * transparent background regions. To fix this, this function needs
+     * to be rewritten to ensure each character is only drawn once. This
+     * would be more efficient too, although it's not really an important
+     * case.
      */
     pText = HtmlNodeAsText(pT->pNode);
     for (

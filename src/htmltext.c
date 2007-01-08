@@ -907,7 +907,7 @@ getOverlap(pTagged, iFrom, iTo)
     if (iFrom >= pTagged->iFrom && iTo <= pTagged->iTo) {
         return OVERLAP_SUB;
     }
-    if (iFrom > pTagged->iTo || iTo < pTagged->iTo) {
+    if (iFrom > pTagged->iTo || iTo < pTagged->iFrom) {
         return OVERLAP_NONE;
     }
     if (iFrom > pTagged->iFrom) {
@@ -1261,7 +1261,6 @@ initHtmlTextCallback(pTree, pNode, clientData)
     if (!pElem) {
         HtmlTextNode *pTextNode = HtmlNodeAsText(pNode);
         HtmlTextIter sIter;
-        int iNodeIndex = 0;
 
         for (
             HtmlTextIterFirst(pTextNode, &sIter);
@@ -1276,7 +1275,6 @@ initHtmlTextCallback(pTree, pNode, clientData)
                 case HTML_TEXT_TOKEN_NEWLINE:
                 case HTML_TEXT_TOKEN_SPACE:
                     pInit->eState = MAX(pInit->eState, SEEN_SPACE);
-                    iNodeIndex++;
                     break;
 
                 case HTML_TEXT_TOKEN_TEXT:
@@ -1292,12 +1290,11 @@ initHtmlTextCallback(pTree, pNode, clientData)
                                 break;
                         }
                     }
-                    addTextMapping(
-                        pTree->pText, pTextNode, iNodeIndex, pInit->iIdx
+                    addTextMapping(pTree->pText, 
+                        pTextNode, (zData - pTextNode->zText), pInit->iIdx
                     );
                     Tcl_AppendToObj(pInit->pText->pObj, zData, nData);
                     pInit->eState = SEEN_TEXT;
-                    iNodeIndex += nData;
                     assert(nData >= 0);
                     pInit->iIdx += Tcl_NumUtfChars(zData, nData);
                     break;

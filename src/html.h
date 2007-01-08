@@ -269,7 +269,7 @@ struct HtmlWidgetTag {
 
 /*
  * Each text node has a list of "tagged regions" attached to it (the 
- * list may be empty).
+ * list may be empty). See the HtmlTextNode.pTagged variable.
  */
 struct HtmlTaggedRegion {
     int iFrom;                 /* Index the region starts at */
