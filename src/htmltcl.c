@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.148 2007/01/08 09:56:16 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.149 2007/01/08 11:48:07 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -1111,12 +1111,10 @@ BOOLEAN(forcewidth, "forceWidth", "ForceWidth", "0", S_MASK),
             HTML_DEFAULT_CSS, FT_MASK),
         STRING(imagecmd, "imageCmd", "ImageCmd", ""),
         BOOLEAN(imagecache, "imageCache", "ImageCache", "1", S_MASK),
-        STRING(encoding, "encoding", "Encoding", ""),
     
         /* Options for logging info to debugging scripts */
         STRING(logcmd, "logCmd", "LogCmd", ""),
         STRING(timercmd, "timerCmd", "TimerCmd", ""),
-
 
         OBJ(fonttable, "fontTable", "FontTable", "8 9 10 11 13 15 17", FT_MASK),
 
@@ -1751,21 +1749,21 @@ handlerCmd(clientData, interp, objc, objv)
     int objc;                          /* Number of arguments. */
     Tcl_Obj *CONST objv[];             /* Argument strings. */
 {
-    Tcl_Obj *pTag;
     int tag;
     Tcl_Obj *pScript;
     Tcl_HashEntry *pEntry;
     Tcl_HashTable *pHash = 0;
     int newentry;
     HtmlTree *pTree = (HtmlTree *)clientData;
+    char *zTag;
 
     if (objc!=5) {
         Tcl_WrongNumArgs(interp, 3, objv, "TAG SCRIPT");
         return TCL_ERROR;
     }
 
-    pTag = objv[3];
-    tag = HtmlNameToType(0, Tcl_GetString(pTag));
+    zTag = Tcl_GetString(objv[3]);
+    tag = HtmlNameToType(0, zTag);
     switch (Tcl_GetString(objv[2])[0]) {
         case 'n':
             pHash = &pTree->aNodeHandler;
@@ -1773,20 +1771,25 @@ handlerCmd(clientData, interp, objc, objv)
         case 's':
             pHash = &pTree->aScriptHandler;
             break;
-        case 'p':
+        case 'p': {
             pHash = &pTree->aParseHandler;
-            if (0 == Tcl_GetString(pTag)[0]) {
+            if (0 == zTag[0]) {
                 tag = Html_Text;
+            } else if ('/' == zTag[0]) {
+                tag = HtmlNameToType(0, &zTag[1]);
+                if (tag != Html_Unknown) tag = tag * -1;
             }
             break;
+        }
         default:
             assert(!"Illegal objv[2] value in handlerCmd()");
     }
+
     assert(pHash);
     pScript = objv[4];
 
     if (tag==Html_Unknown) {
-        Tcl_AppendResult(interp, "Unknown tag type: ", Tcl_GetString(pTag), 0);
+        Tcl_AppendResult(interp, "Unknown tag type: ", zTag, 0);
         return TCL_ERROR;
     }
 

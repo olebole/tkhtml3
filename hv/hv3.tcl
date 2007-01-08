@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.142 2007/01/08 09:56:16 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.143 2007/01/08 11:48:07 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -513,7 +513,7 @@ snit::type ::hv3::hv3::selectionmanager {
   }
 
   method selected {} {
-    if {![info exists myFromNode]} {return ""}
+    if {$myFromNode eq ""} {return ""}
     return [$self get_selection 0 10000000]
   }
 

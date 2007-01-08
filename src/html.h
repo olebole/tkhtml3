@@ -399,7 +399,6 @@ struct HtmlOptions {
     Tcl_Obj *xscrollcommand;
     Tcl_Obj *defaultstyle;
     Tcl_Obj *imagecmd;
-    Tcl_Obj *encoding;
 
     Tcl_Obj *logcmd;
     Tcl_Obj *timercmd;

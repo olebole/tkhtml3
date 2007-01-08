@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.115 2007/01/08 09:56:17 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.116 2007/01/08 11:48:07 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -1279,7 +1279,7 @@ HtmlTreeAddClosingTag(pTree, eTag, iOffset)
         }
     }
 
-    doParseHandler(pTree, eTag, 0, iOffset);
+    doParseHandler(pTree, -1 * eTag, 0, iOffset);
 }
 
 /*

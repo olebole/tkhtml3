@@ -109,6 +109,8 @@
 		true is a better choice.
 	}]
 	[Option layoutcache {
+		NOTE: This interface may be removed before beta release.
+
 		If this boolean option is set to true, then Tkhtml caches 
 		layout information to improve performance when the layout of a
 		document must be recomputed. This can happen in a variety of
@@ -123,7 +125,7 @@
 		to turn it off. But it can be a source of layout bugs, hence
 		this option.
 
-		The default values is true.
+		The default value is true.
 	}]
 	[Option mode {
 		This option may be set to "quirks", "standards" or 
@@ -133,9 +135,19 @@
 		TODO: List the differences between the three modes in Tkhtml.
 	}]
 	[Option shrink {
-		If this boolean option is set to true, then the widgets
-		requested width and height are the width and height of the
-		currently displayed formatted document.
+		This boolean option governs the way the widgets requested width
+		and height are calculated. If it is set to false (the default),
+		then the requested width and height are set by the -width
+		and -height options as per usual.
+
+		If this option is set to true, then the widgets requested width
+		and height are determined by the current document. Each time
+		the document layout is calculated, the widgets requested height
+		and width are set to the size of the document layout. If the
+		widget is unmapped when the layout is calculated, then the
+		value of the -width option is used to determine the width
+		of the initial containing block for the layout. Otherwise, the
+		current window width is used.
 	}]
 	[Option logcmd {
 		This option is used for debugging the widget. Don't worry
