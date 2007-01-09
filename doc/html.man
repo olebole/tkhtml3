@@ -206,6 +206,11 @@
 		have any of the values accepted by the [SQ html] command.
 }]
 
+[Subcommand {
+	pathName fragment _html-text_
+		TODO
+}]
+
 [Subcommand -3 {
 	pathName handler node _tag_ _script_
 	pathName handler script _tag_ _script_
@@ -237,9 +242,12 @@
 		with text tags (by specifying an empty string as the tag
 		type). Whenever such a tag is encountered the parse handler
 		script is invoked with two arguments, the node handle for
-		the created node and the byte offset of the in the parsed 
+		the created node and the character offset of the in the parsed
 		document. For a closing tag (i.e. "/form") an empty string
 		is passed instead of a node handle.
+
+		TODO: The offset values passed to parse handler scripts 
+		currently have problems. See http://tkhtml.tcl.tk/cvstrac/tktview?tn=126
 
 		Handler callbacks are always made from within 
 		[SQ pathName parse] commands. The callback for a given node
@@ -297,10 +305,10 @@
 		coordinates, then instead of a list of node handles, a list of
 		two elements is returned. The first element of the list is the
 		node-handle associated with the generated text closest to 
-		the specified (x, y) coordinates. The second list value is an
-		index into the text obtainable by [SQ nodeHandle text] for the
-		character closest to coordinates (x, y). The index may be used
-		with the [SQ pathName tag] commands.
+		the specified (x, y) coordinates. The second list value is a
+		byte (not character) offset into the text obtainable by 
+		[SQ nodeHandle text] for the character closest to coordinates
+		(x, y). The index may be used with the [SQ pathName tag] commands.
 
 		The document node can be queried and manipulated using the
 		interface described in the "NODE COMMAND" section.
@@ -321,6 +329,11 @@
 		for any elements closed implicitly by the end of the document
 		will not be executed. It is not an error to specify an empty
 		string for the _html-text_ argument.
+}]
+
+[Subcommand {
+	pathName preload _uri_
+		TODO
 }]
 
 [Subcommand {
@@ -403,10 +416,10 @@
 
 		Each displayed document character is identified by a 
 		text node-handle (see below) and an index into the text
-		returned by the [SQ node text] command. See also the
-		documentation for the [SQ pathName node -index] command.
-		Both the [SQ pathName tag add] and [SQ pathName tag remove]
-		Use this convention.
+		returned by the [SQ node text] command. The index is a byte
+		(not character) offset. See also the documentation for the [SQ
+		pathName node -index] command.  Both the [SQ pathName tag add]
+		and [SQ pathName tag remove] use this convention.
 
 		Evaluating the [SQ pathName tag add] command adds the specified
 		tag to all displayed characters between the point in the 
@@ -458,10 +471,12 @@
 		The [SQ pathName text text] command returns a string 
 		containing the raw, unformatted text of the displayed document.
 		Each block box is seperated from the next by a newline
-		character.
+		character. Each block of whitespace is collapsed to a
+		single space, except within blocks with the CSS 'white-space'
+		property set to "pre".
 
 		The [SQ pathName text index] command is used to transform
-		from an offset in the string returned by 
+		from a character offset in the string returned by 
 		[SQ pathName text text] to a node/index pair that can be
 		used with the [SQ pathName tag] commands. The return value
 		is a list of two elements, the node-handle followed by the
@@ -470,8 +485,15 @@
 		Command [SQ pathName text offset] is the reverse of 
 		[SQ pathName text index]. Given a node-handle and index of the
 		type similar to that used by the [SQ pathName tag] commands,
-		this command returns the corresponding offset in the 
+		this command returns the corresponding character offset in the 
 		string returned by [SQ pathName text text] command.
+}]
+
+[Subcommand -3 {
+	pathName write continue
+	pathName write text _html-text_
+	pathName write wait
+		TODO
 }]
 
 [Subcommand -3 {
@@ -543,6 +565,10 @@
 		The leftmost child node becomes element 0 of the list, the
 		second leftmost element 1, and so on.
 }]
+[Subcommand {
+	nodeHandle destroy
+		TODO. Experimental.
+}]
 [Subcommand -2 {
 	nodeHandle dynamic set ?_flag_?
 	nodeHandle dynamic clear ?_flag_?
@@ -569,8 +595,12 @@
 	}]
 }]
 [Subcommand {
+	nodeHandle insert ?-before _node_? _node-list_
+		TODO. Experimental.
+}]
+[Subcommand {
 	nodeHandle override ?_value_?
-		Experimental.
+		TODO. Experimental.
 }]
 [Subcommand {
 	nodeHandle parent
@@ -580,6 +610,11 @@
 }]
 [Subcommand {
 	nodeHandle property ?-before|-after? ?property-name?
+		TODO.
+}]
+[Subcommand {
+	nodeHandle remove ?_node-list_?
+		TODO. Experimental.
 }]
 [Subcommand {
 	nodeHandle replace ? ?options? newValue?
@@ -605,6 +640,7 @@
 			--------------------------------------
 			-deletecmd    <script>   "destroy <window>"
 			-configurecmd <script>   ""
+			-stylecmd     <script>   ""
 }]
 
 		When a replacement object is no longer being used by the
@@ -656,10 +692,9 @@
 		If the node is a "text" node, return the string contained
 		by the node. If the node is not a "text" node, return an
 		empty string.
-}]
 
-	TODO: Add the (not yet implemented) "write" part of the node 
-	interface to this section.
+		TODO: Document -tokens and -pre.
+}]
 
 [Section Stylesheet Loading]
 	Apart from the default stylesheet that is always loaded (see the

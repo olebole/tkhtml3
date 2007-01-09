@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.149 2007/01/08 11:48:07 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.150 2007/01/09 10:05:37 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -2199,7 +2199,9 @@ int widgetCmd(clientData, interp, objc, objv)
         {"xview",      0,           xviewCmd},
         {"yview",      0,           yviewCmd},
 
-        /* The following are for debugging only. May change at any time. */
+        /* The following are for debugging only. May change at any time.
+	 * They are not included in the documentation. Just don't touch Ok? :)
+         */
         {"delay",       0,          delayCmd},
         {"force",       0,          forceCmd},
         {"primitives",  0,          primitivesCmd},

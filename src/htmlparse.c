@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.100 2007/01/05 12:36:35 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.101 2007/01/09 10:05:37 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -853,9 +853,11 @@ pTree, zText, isFinal, xAddText, xAddElement, xAddClosing)
     int isTrimStart = 0;
 
     if (zText) {
+        /* This is an [$html fragment] command */
         n = 0;
         z = (char *)zText;
     } else {
+        /* This is an [$html parse] command */
         n = pTree->nParsed;
         z = Tcl_GetString(pTree->pDocument);
     }

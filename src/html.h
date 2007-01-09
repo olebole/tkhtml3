@@ -514,9 +514,15 @@ struct HtmlTree {
 
     /* The following variables are used to stored the text of the current
      * document (i.e. the *.html file) as it is being parsed.
+     *
+     * nParsed and nCharParsed are kept in sync. If the document consists
+     * entirely of 7-bit ASCII, then they are equal. The nCharParsed variable
+     * is required so that the offsets passed to parse-handler callbacks
+     * are in characters, not bytes. TODO! See ticket #126.
      */
     Tcl_Obj *pDocument;             /* Text of the html document */
     int nParsed;                    /* Bytes of pDocument tokenized */
+    int nCharParsed;                /* TODO: Characters parsed */
 
     int iWriteInsert;               /* Byte offset in pDocument for [write] */
     int eWriteState;                /* One of the HTML_PARSE_XXX values */
