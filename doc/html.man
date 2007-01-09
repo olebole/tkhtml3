@@ -417,8 +417,8 @@
 		Each displayed document character is identified by a 
 		text node-handle (see below) and an index into the text
 		returned by the [SQ node text] command. The index is a byte
-		(not character) offset. See also the documentation for the [SQ
-		pathName node -index] command.  Both the [SQ pathName tag add]
+		(not character) offset. See also the documentation for the 
+		[SQ pathName node -index] command.  Both the [SQ pathName tag add]
 		and [SQ pathName tag remove] use this convention.
 
 		Evaluating the [SQ pathName tag add] command adds the specified
