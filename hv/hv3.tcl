@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.144 2007/01/10 15:34:15 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.145 2007/01/10 15:53:51 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -526,14 +526,20 @@ snit::type ::hv3::hv3::selectionmanager {
 
     selection own $myHv3
 
+    set motioncmd ""
     if {$y > [winfo height $myHv3]} {
-      set myIgnoreMotion 1
-      $myHv3 yview scroll 1 units
-      after 20 [mymethod ContinueMotion]
+      set motioncmd [list yview scroll 1 units]
+    } elseif {$y < 0} {
+      set motioncmd [list yview scroll -1 units]
+    } elseif {$x > [winfo width $myHv3]} {
+      set motioncmd [list xview scroll 1 units]
+    } elseif {$x < 0} {
+      set motioncmd [list xview scroll -1 units]
     }
-    if {$y < 0} {
+
+    if {$motioncmd ne ""} {
       set myIgnoreMotion 1
-      $myHv3 yview scroll -1 units
+      eval $myHv3 $motioncmd
       after 20 [mymethod ContinueMotion]
     }
   }
@@ -1657,6 +1663,10 @@ snit::widget ::hv3::hv3 {
   method yview {args} {
     $self invalidate_nodecache
     eval $myHtml yview $args
+  }
+  method xview {args} {
+    $self invalidate_nodecache
+    eval $myHtml xview $args
   }
 
   option -enableimages -default 1 -configuremethod SetOption
