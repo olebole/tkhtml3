@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.145 2007/01/10 15:53:51 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.146 2007/01/10 16:36:37 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -574,6 +574,12 @@ snit::type ::hv3::hv3::selectionmanager {
     if {$myMode eq "word"} {
       set stridx_a [string wordstart $t $stridx_a]
       set stridx_b [string wordend $t $stridx_b]
+    }
+    if {$myMode eq "block"} {
+      set stridx_a [string last "\n" $t $stridx_a]
+      if {$stridx_a < 0} {set stridx_a 0}
+      set stridx_b [string first "\n" $t $stridx_b]
+      if {$stridx_b < 0} {set stridx_b [string length $t]}
     }
   
     set T [string range [$myHv3 text text] $stridx_a [expr $stridx_b - 1]]
