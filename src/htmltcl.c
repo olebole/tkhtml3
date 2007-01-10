@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.150 2007/01/09 10:05:37 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.151 2007/01/10 15:34:15 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -511,6 +511,9 @@ delayCallbackHandler(clientData)
  *     If there is a callback scheduled, execute it now instead of waiting 
  *     for the idle loop.
  *
+ *     An exception: If the only reason for the callback is widget damage
+ *     (a repaint-area callback), don't run it.
+ *
  * Results:
  *     None.
  *
@@ -523,7 +526,7 @@ void
 HtmlCallbackForce(pTree)
     HtmlTree *pTree;
 {
-    if (pTree->cb.flags && !pTree->cb.inProgress) {
+    if ((pTree->cb.flags & ~HTML_DAMAGE) && !pTree->cb.inProgress) {
         ClientData clientData = (ClientData)pTree;
         Tcl_CancelIdleCall(callbackHandler, clientData);
         callbackHandler(clientData);

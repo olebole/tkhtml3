@@ -162,17 +162,8 @@ puts [subst -novariables {
 
 <h2><a name="future">Future Plans</a></h2>
   <p>
-    Currently, the plan is for hv3 to develop alongside Tkhtml to serve
-    as it's primary test harness, but not to immediately work on more complex
-    browser functions, such as javascrpt or plugins. But this is primarily due
-    to lack of resources. This said, Hv3 is already a useful web-browser
-    in it's own right, not merely a proof of concept.
-  </p>
-  <p>
-    Anyone interested in volunteering to patch, work on
-    or fork the hv3 source code is encouraged to do so. Why not 
-    <a href="index.html#part3">get in touch</a>?
-  </p>
+    Future plans for Hv3 are a moving target. See the 
+    <a href="http://tkhtml.tcl.tk/cvstrac/wiki/wiki?p=FuturePlans">wiki page</a>    for details.
 
 </div>
 </div>

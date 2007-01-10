@@ -1250,90 +1250,105 @@ addTextMapping(pText, pTextNode, iNodeIndex, iStrIndex)
     pText->pMapping = p;
 }
 
-static int
-initHtmlTextCallback(pTree, pNode, clientData)
+static void
+initHtmlText_TextNode(pTree, pTextNode, pInit)
     HtmlTree *pTree;
-    HtmlNode *pNode;
-    ClientData clientData;
+    HtmlTextNode *pTextNode;
+    HtmlTextInit *pInit;
 {
-    HtmlTextInit *pInit = (HtmlTextInit *)clientData;
-    HtmlElementNode *pElem = HtmlNodeAsElement(pNode);
-    if (!pElem) {
-        HtmlTextNode *pTextNode = HtmlNodeAsText(pNode);
-        HtmlTextIter sIter;
+    HtmlNode *pNode = &pTextNode->node;
+    int isPre = (HtmlNodeComputedValues(pNode)->eWhitespace == CSS_CONST_PRE);
 
-        int isPre;
-        isPre = (HtmlNodeComputedValues(pNode)->eWhitespace == CSS_CONST_PRE);
+    HtmlTextIter sIter;
 
-        if (pInit->eState == SEEN_BLOCK) {
-            Tcl_AppendToObj(pInit->pText->pObj, "\n", 1);
-            pInit->iIdx++;
-        }
-
-        for (
-            HtmlTextIterFirst(pTextNode, &sIter);
-            HtmlTextIterIsValid(&sIter);
-            HtmlTextIterNext(&sIter)
-        ) {
-            int eType = HtmlTextIterType(&sIter);
-            int nData = HtmlTextIterLength(&sIter);
-            char const * zData = HtmlTextIterData(&sIter);
-
-            switch (eType) {
-                case HTML_TEXT_TOKEN_NEWLINE:
-                case HTML_TEXT_TOKEN_SPACE:
-                    if (isPre) {
-                        int ii;
-                        const char *zWhite;
-                        zWhite = (eType==HTML_TEXT_TOKEN_SPACE ? " " : "\n");
-                        for (ii = 0; ii < nData; ii++) {
-                            Tcl_AppendToObj(pInit->pText->pObj, zWhite, 1);
-                        }
-                        pInit->iIdx += nData;
-                        pInit->eState = SEEN_TEXT;
-                    } else {
-                        pInit->eState = MAX(pInit->eState, SEEN_SPACE);
-                    }
-                    break;
-
-                case HTML_TEXT_TOKEN_TEXT:
-                    if (pInit->iIdx > 0 && pInit->eState == SEEN_SPACE) {
-                        Tcl_AppendToObj(pInit->pText->pObj, " ", 1);
-                        pInit->iIdx++;
-                    }
-
-                    addTextMapping(pTree->pText, 
-                        pTextNode, (zData - pTextNode->zText), pInit->iIdx
-                    );
-                    Tcl_AppendToObj(pInit->pText->pObj, zData, nData);
-                    pInit->eState = SEEN_TEXT;
-                    assert(nData >= 0);
-                    pInit->iIdx += Tcl_NumUtfChars(zData, nData);
-                    break;
-
-                default:
-                    assert(!"Bad return value from HtmlTextIterType()");
-            }
-        }
-    } else {
-      int eDisplay = HtmlNodeComputedValues(pNode)->eDisplay; 
-
-      /* If the element has "display:none" or a replacement window, do
-       * not consider any text children to be part of the text
-       * rendering of the document.
-       */
-      if (
-          (eDisplay == CSS_CONST_NONE) ||
-          (pElem->pReplacement && pElem->pReplacement->win)
-      ) {
-        return HTML_WALK_DO_NOT_DESCEND;
-      }
-
-      if (eDisplay != CSS_CONST_INLINE) {
-        pInit->eState = SEEN_BLOCK;
-      }
+    if (pInit->eState == SEEN_BLOCK) {
+        Tcl_AppendToObj(pInit->pText->pObj, "\n", 1);
+        pInit->iIdx++;
     }
-    return HTML_WALK_DESCEND;
+    for (
+        HtmlTextIterFirst(pTextNode, &sIter);
+        HtmlTextIterIsValid(&sIter);
+        HtmlTextIterNext(&sIter)
+    ) {
+        int eType = HtmlTextIterType(&sIter);
+        int nData = HtmlTextIterLength(&sIter);
+        char const * zData = HtmlTextIterData(&sIter);
+
+        switch (eType) {
+            case HTML_TEXT_TOKEN_NEWLINE:
+            case HTML_TEXT_TOKEN_SPACE:
+                if (isPre) {
+                    int ii;
+                    const char *zWhite;
+                    zWhite = (eType==HTML_TEXT_TOKEN_SPACE ? " " : "\n");
+                    for (ii = 0; ii < nData; ii++) {
+                        Tcl_AppendToObj(pInit->pText->pObj, zWhite, 1);
+                    }
+                    pInit->iIdx += nData;
+                    pInit->eState = SEEN_TEXT;
+                } else {
+                    pInit->eState = MAX(pInit->eState, SEEN_SPACE);
+                }
+                break;
+
+            case HTML_TEXT_TOKEN_TEXT:
+                if (pInit->iIdx > 0 && pInit->eState == SEEN_SPACE) {
+                    Tcl_AppendToObj(pInit->pText->pObj, " ", 1);
+                    pInit->iIdx++;
+                }
+
+                addTextMapping(pTree->pText, 
+                    pTextNode, (zData - pTextNode->zText), pInit->iIdx
+                );
+                Tcl_AppendToObj(pInit->pText->pObj, zData, nData);
+                pInit->eState = SEEN_TEXT;
+                assert(nData >= 0);
+                pInit->iIdx += Tcl_NumUtfChars(zData, nData);
+                break;
+
+            default:
+                assert(!"Bad return value from HtmlTextIterType()");
+        }
+    }
+}
+
+static void
+initHtmlText_Elem(pTree, pElem, pInit)
+    HtmlTree *pTree;
+    HtmlElementNode *pElem;
+    HtmlTextInit *pInit;
+{
+    HtmlNode *pNode = &pElem->node;
+    int eDisplay = HtmlNodeComputedValues(pNode)->eDisplay; 
+    int ii;
+
+    /* If the element has "display:none" or a replacement window, do
+     * not consider any text children to be part of the text
+     * rendering of the document.
+     */
+    if (
+        (eDisplay == CSS_CONST_NONE) ||
+        (pElem->pReplacement && pElem->pReplacement->win)
+    ) {
+        return;
+    }
+
+    if (eDisplay != CSS_CONST_INLINE) {
+        pInit->eState = SEEN_BLOCK;
+    }
+
+    for (ii = 0; ii < HtmlNodeNumChildren(pNode); ii++) {
+        HtmlNode *p = HtmlNodeChild(pNode, ii);
+        if (HtmlNodeIsText(p)) {
+            initHtmlText_TextNode(pTree, HtmlNodeAsText(p), pInit);
+        } else {
+            initHtmlText_Elem(pTree, HtmlNodeAsElement(p), pInit);
+        }
+    }
+
+    if (eDisplay != CSS_CONST_INLINE) {
+        pInit->eState = SEEN_BLOCK;
+    }
 }
 
 /*
@@ -1365,7 +1380,7 @@ initHtmlText(pTree)
         sInit.pText = pTree->pText;
         sInit.pText->pObj = Tcl_NewObj();
         Tcl_IncrRefCount(sInit.pText->pObj);
-        HtmlWalkTree(pTree, 0, initHtmlTextCallback, (ClientData)&sInit);
+        initHtmlText_Elem(pTree, HtmlNodeAsElement(pTree->pRoot), &sInit);
         Tcl_AppendToObj(sInit.pText->pObj, "\n", 1);
     }
 }

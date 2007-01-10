@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.182 2007/01/08 09:56:16 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.183 2007/01/10 15:34:15 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -3532,7 +3532,6 @@ HtmlWidgetNodeTop(pTree, pNode)
     sQuery.iMinNode = 0;
     sQuery.iReturn = 0;
     sQuery.pTree = pTree;
-    HtmlCallbackForce(pTree);
     searchCanvas(pTree, -1, -1, 0, scrollToNodeCb, (ClientData)&sQuery);
     return sQuery.iReturn;
 }

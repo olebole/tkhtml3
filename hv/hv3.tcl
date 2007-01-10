@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.143 2007/01/08 11:48:07 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.144 2007/01/10 15:34:15 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -341,7 +341,7 @@ snit::type ::hv3::hv3::selectionmanager {
   #
   #     "char"           -> Currently text selecting by character.
   #     "word"           -> Currently text selecting by word.
-  #     "line"           -> Currently text selecting by line.
+  #     "block"          -> Currently text selecting by block.
   #
   variable myState false             ;# True when left-button is held down
   variable myMode char
@@ -356,6 +356,8 @@ snit::type ::hv3::hv3::selectionmanager {
   variable myToNode ""
   variable myToIdx ""
 
+  variable myIgnoreMotion 0
+
   constructor {hv3} {
     set myHv3 $hv3
     selection handle $myHv3 [list ::hv3::bg [mymethod get_selection]]
@@ -363,6 +365,7 @@ snit::type ::hv3::hv3::selectionmanager {
     bind $myHv3 <Motion>               "+[mymethod motion %x %y]"
     bind $myHv3 <ButtonPress-1>        "+[mymethod press %x %y]"
     bind $myHv3 <Double-ButtonPress-1> "+[mymethod doublepress %x %y]"
+    bind $myHv3 <Triple-ButtonPress-1> "+[mymethod triplepress %x %y]"
     bind $myHv3 <ButtonRelease-1>      "+[mymethod release %x %y]"
   }
 
@@ -413,10 +416,42 @@ snit::type ::hv3::hv3::selectionmanager {
     $myHv3 tag remove selection $node $i1 $node $i2
   }
 
+  method ToBlock {node idx} {
+    set t [$myHv3 text text]
+    set offset [$myHv3 text offset $node $idx]
+
+    set start [string last "\n" $t $offset]
+    if {$start < 0} {set start 0}
+    set end   [string first "\n" $t $offset]
+    if {$end < 0} {set end [string length $t]}
+
+    set start_idx [$myHv3 text index $start]
+    set end_idx   [$myHv3 text index $end]
+
+    return [concat $start_idx $end_idx]
+  }
+
+  method TagBlock {node idx} {
+    foreach {n1 i1 n2 i2} [$self ToBlock $node $idx] {}
+    $myHv3 tag add selection $n1 $i1 $n2 $i2
+  }
+  method UntagBlock {node idx} {
+    foreach {n1 i1 n2 i2} [$self ToBlock $node $idx] {}
+    $myHv3 tag remove selection $n1 $i1 $n2 $i2
+  }
+
   method doublepress {x y} {
-    # Single click -> Select by word.
+    # Double click -> Select by word.
     $self clear
     set myMode word
+    set myState true
+    $self motion $x $y
+  }
+
+  method triplepress {x y} {
+    # Triple click -> Select by block.
+    $self clear
+    set myMode block
     set myState true
     $self motion $x $y
   }
@@ -437,44 +472,77 @@ snit::type ::hv3::hv3::selectionmanager {
   }
 
   method motion {x y} {
-    if {!$myState} return
+    if {!$myState || $myIgnoreMotion} return
 
     set to [$myHv3 node -index $x $y]
-    if {[llength $to] == 0} return
-    foreach {toNode toIdx} $to {}
-
-    if {$myFromNode eq ""} {
-      set myFromNode $toNode
-      set myFromIdx $toIdx
-    }
-
-    if {$myToNode ne $toNode || $toIdx != $myToIdx} {
-      switch -- $myMode {
-        char {
-          if {$myToNode ne ""} {
-            $myHv3 tag remove selection $myToNode $myToIdx $toNode $toIdx
-          }
-          $myHv3 tag add selection $myFromNode $myFromIdx $toNode $toIdx
-        }
-
-        word {
-          if {$myToNode ne ""} {
-            $myHv3 tag remove selection $myToNode $myToIdx $toNode $toIdx
-            $self UntagWord $myToNode $myToIdx
-            $self UntagWord $toNode $toIdx
-          }
-
-          $myHv3 tag add selection $myFromNode $myFromIdx $toNode $toIdx
-          $self TagWord $toNode $toIdx
-          $self TagWord $myFromNode $myFromIdx
-        }
+    if {[llength $to] > 0} {
+      foreach {toNode toIdx} $to {}
+  
+      if {$myFromNode eq ""} {
+        set myFromNode $toNode
+        set myFromIdx $toIdx
       }
-
-      set myToNode $toNode
-      set myToIdx $toIdx
+  
+      if {$myToNode ne $toNode || $toIdx != $myToIdx} {
+        switch -- $myMode {
+          char {
+            if {$myToNode ne ""} {
+              $myHv3 tag remove selection $myToNode $myToIdx $toNode $toIdx
+            }
+            $myHv3 tag add selection $myFromNode $myFromIdx $toNode $toIdx
+          }
+  
+          word {
+            if {$myToNode ne ""} {
+              $myHv3 tag remove selection $myToNode $myToIdx $toNode $toIdx
+              $self UntagWord $myToNode $myToIdx
+            }
+  
+            $myHv3 tag add selection $myFromNode $myFromIdx $toNode $toIdx
+            $self TagWord $toNode $toIdx
+            $self TagWord $myFromNode $myFromIdx
+          }
+  
+          block {
+            set to_block2  [$self ToBlock $toNode $toIdx]
+            set from_block [$self ToBlock $myFromNode $myFromIdx]
+  
+            if {$myToNode ne ""} {
+              set to_block [$self ToBlock $myToNode $myToIdx]
+              $myHv3 tag remove selection $myToNode $myToIdx $toNode $toIdx
+              eval $myHv3 tag remove selection $to_block
+            }
+  
+            $myHv3 tag add selection $myFromNode $myFromIdx $toNode $toIdx
+            eval $myHv3 tag add selection $to_block2
+            eval $myHv3 tag add selection $from_block
+          }
+        }
+  
+        set myToNode $toNode
+        set myToIdx $toIdx
+      }
     }
 
     selection own $myHv3
+
+    if {$y > [winfo height $myHv3]} {
+      set myIgnoreMotion 1
+      $myHv3 yview scroll 1 units
+      after 20 [mymethod ContinueMotion]
+    }
+    if {$y < 0} {
+      set myIgnoreMotion 1
+      $myHv3 yview scroll -1 units
+      after 20 [mymethod ContinueMotion]
+    }
+  }
+
+  method ContinueMotion {} {
+    set myIgnoreMotion 0
+    set x [expr [winfo pointerx $myHv3] - [winfo rootx $myHv3]]
+    set y [expr [winfo pointery $myHv3] - [winfo rooty $myHv3]]
+    $self motion $x $y
   }
 
   # get_selection OFFSET MAXCHARS
@@ -1586,6 +1654,11 @@ snit::widget ::hv3::hv3 {
   method html {}     { return [$myHtml widget] }
   method hull {}     { return $hull }
 
+  method yview {args} {
+    $self invalidate_nodecache
+    eval $myHtml yview $args
+  }
+
   option -enableimages -default 1 -configuremethod SetOption
   option -scrollbarpolicy -default auto
 
@@ -1621,6 +1694,7 @@ bind Hv3 <KeyPress-Down>   { %W yview scroll  1 units }
 bind Hv3 <KeyPress-Return> { %W yview scroll  1 units }
 bind Hv3 <KeyPress-Right>  { %W xview scroll  1 units }
 bind Hv3 <KeyPress-Left>   { %W xview scroll -1 units }
+
 bind Hv3 <KeyPress-Next>   { %W yview scroll  1 pages }
 bind Hv3 <KeyPress-space>  { %W yview scroll  1 pages }
 bind Hv3 <KeyPress-Prior>  { %W yview scroll -1 pages }
