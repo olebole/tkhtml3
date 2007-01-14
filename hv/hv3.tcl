@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.146 2007/01/10 16:36:37 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.147 2007/01/14 09:48:36 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -158,14 +158,15 @@ source [file join [file dirname [info script]] hv3_dom.tcl]
 #         onmouseover
 #         onmousemove
 #         onmouseout
-#         onclick
+#
 #         onmousedown
 #         onmouseup
 #
-#     TODO: Registering a handler for this is not an error, but the
-#     event is never generated:
-#
+#         onclick
 #         ondblclick
+#
+#     TODO: Registering a handler for this is not an error, but the
+#     event is never generated
 #
 snit::type ::hv3::hv3::mousemanager {
 

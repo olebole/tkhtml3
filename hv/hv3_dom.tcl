@@ -27,6 +27,17 @@
 #     $dom destroy
 #
 
+# Events module:
+#
+#     class EventTarget
+#     class EventListener (in ECMAScript is just a function reference)
+#     class Event
+#
+
+
+#--------------------------------------------------------------------------
+
+
 #--------------------------------------------------------------------------
 # Internals:
 #
@@ -457,7 +468,12 @@ snit::type ::hv3::dom::Window {
   # 
   #     Window.document
   #
-  js_getobject document { ::hv3::dom::HTMLDocument %AUTO% [$myHv3 dom] $myHv3 }
+  # js_getobject document { ::hv3::dom::HTMLDocument %AUTO% [$myHv3 dom] $myHv3 }
+  js_getobject document { 
+    ::hv3::DOM::HTMLDocument %AUTO% [$myHv3 dom] -hv3 $myHv3 
+
+    # ::hv3::dom::HTMLDocument %AUTO% [$myHv3 dom] $myHv3
+  }
 
   #-----------------------------------------------------------------------
   # The "Image" property object. This is so that scripts can
@@ -489,6 +505,7 @@ snit::type ::hv3::dom::Window {
   #-----------------------------------------------------------------------
   # The "Node" object. This contains the constants for Node.nodeType
   #
+if 0 {
   js_getobject Node {
     set obj [::hv3::JavascriptObject %AUTO% [$myHv3 dom]]
     $obj Put ELEMENT_NODE                [list number 1]
@@ -504,6 +521,10 @@ snit::type ::hv3::dom::Window {
     $obj Put DOCUMENT_FRAGMENT_NODE      [list number 11]
     $obj Put NOTATION_NODE               [list number 12]
     set obj
+  }
+}
+  js_getobject Node {
+    set obj [::hv3::DOM::NodePrototype %AUTO% [$myHv3 dom]]
   }
 
   #-----------------------------------------------------------------------
@@ -1423,31 +1444,57 @@ snit::type ::hv3::dom {
     }
   }
 
+#  typevariable tag_to_obj -array [list         \
+#      ""       ::hv3::dom::Text                \
+#      img      ::hv3::dom::HTMLImageElement    \
+#      form     ::hv3::dom::HTMLFormElement     \
+#      input    ::hv3::dom::HTMLInputElement    \
+#      textarea ::hv3::dom::HTMLTextAreaElement \
+#      a        ::hv3::dom::HTMLAnchorElement        \
+#  ]
   typevariable tag_to_obj -array [list         \
-      ""       ::hv3::dom::Text                \
-      img      ::hv3::dom::HTMLImageElement    \
-      form     ::hv3::dom::HTMLFormElement     \
-      input    ::hv3::dom::HTMLInputElement    \
-      textarea ::hv3::dom::HTMLTextAreaElement \
-      a        ::hv3::dom::HTMLAnchorElement        \
+      ""       ::hv3::DOM::Text                \
   ]
 
-  method node_to_dom {node} {
+  #------------------------------------------------------------------
+  # method node_to_dom
+  #
+  #     This is a factory method for HTMLElement/Text DOM wrappers
+  #     around html widget node-handles.
+  #
+  method node_to_dom {node args} {
     if {![info exists myNodeToDom($node)]} {
 
-      set objtype ::hv3::dom::HTMLElement
+      set objtype ::hv3::DOM::HTMLElement
 
       set tag [$node tag]
       if {[info exists tag_to_obj($tag)]} {
         set objtype $tag_to_obj($tag)
       } 
 
-      set myNodeToDom($node) [$objtype %AUTO% $self $myHv3 $node]
+      set myNodeToDom($node) [$objtype %AUTO% $self -nodehandle $node]
+      $myNodeToDom($node) configurelist $args
     }
     return $myNodeToDom($node)
   }
 
+  #----------------------------------------------------------------
+  # Given an html-widget node-handle, return the corresponding 
+  # ::hv3::DOM::HTMLDocument object. i.e. the thing needed for
+  # the Node.ownerDocument javascript property of an HTMLElement or
+  # Text Node.
+  #
+  method node_to_document {node} {
+    # TODO: Fix this for when there are other Document objects than
+    # the main one floating around. i.e. This will fail if the node-handle
+    # comes from a different <FRAME> than the script is being executed
+    # in.
+    #
+    lindex [$myWindow Get document] 1
+  }
+
   method see {} { return $mySee }
+  method hv3 {} { return $myHv3 }
 
   #------------------------------------------------------------------
   # Logging system follows.
@@ -1553,6 +1600,7 @@ snit::widget ::hv3::dom::logwin {
 #-----------------------------------------------------------------------
 # Pull in the object definitions.
 #
+source [file join [file dirname [info script]] hv3_dom4.tcl]
 source [file join [file dirname [info script]] hv3_dom3.tcl]
 source [file join [file dirname [info script]] hv3_dom2.tcl]
 

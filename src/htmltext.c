@@ -1647,6 +1647,8 @@ HtmlTextBboxCmd(clientData, interp, objc, objv)
  *         HtmlTextIterData
  *
  *         HtmlNodeIsWhitespace
+ *
+ *         HtmlTextCombine()
  *     
  *     An HtmlTextNode object stores it's text in two parts:
  *
@@ -1940,6 +1942,25 @@ HtmlTextNew(n, z, isTrimEnd, isTrimStart)
 #endif
 
     return pText;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlTextCombine --
+ * 
+ * Results:
+ *
+ * Side effects:
+ *
+ *---------------------------------------------------------------------------
+ */
+static HtmlTextNode *
+HtmlTextCombine(p1, p2)
+    HtmlTextNode *p1;
+    HtmlTextNode *p2;
+{
+    HtmlTextNode *pNew;
 }
 
 /*

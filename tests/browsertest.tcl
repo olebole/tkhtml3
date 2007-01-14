@@ -211,6 +211,7 @@ namespace eval browsertest {
   
     # [exec] the browser. Load the /get_test URI initially.
     #
+after 500
     set doc_uri "http://127.0.0.1:$listen_port/get_test"
     set pid [eval exec $b($browser) [list $doc_uri] &]
 
@@ -301,6 +302,8 @@ proc main {args} {
   if {[llength $args] > 1} usage
   set ::browsertest::pattern [lindex $args 0]
   source [file join [file dirname [info script]] tree1.bt]
+  source [file join [file dirname [info script]] node.bt]
+  source [file join [file dirname [info script]] events.bt]
 }
 
 eval main $argv

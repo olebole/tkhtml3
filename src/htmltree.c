@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.116 2007/01/08 11:48:07 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.117 2007/01/14 09:48:36 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -330,6 +330,119 @@ HtmlNodeClearGenerated(pTree, pElem)
     return 0;
 }
 
+static Tcl_Obj *
+nodeGetPreText(pTextNode)
+    HtmlTextNode *pTextNode;
+{
+    HtmlTextIter sIter;
+    Tcl_Obj *pRet = Tcl_NewObj();
+
+    for (
+        HtmlTextIterFirst(pTextNode, &sIter);
+        HtmlTextIterIsValid(&sIter);
+        HtmlTextIterNext(&sIter)
+    ) {
+        char *zWhite = " ";
+
+        int eType = HtmlTextIterType(&sIter);
+        int nData = HtmlTextIterLength(&sIter);
+        char const * zData = HtmlTextIterData(&sIter);
+
+        switch (eType) {
+            case HTML_TEXT_TOKEN_TEXT:
+                Tcl_AppendToObj(pRet, zData, nData);
+                break;
+
+            case HTML_TEXT_TOKEN_NEWLINE: 
+                zWhite = "\n";
+            case HTML_TEXT_TOKEN_SPACE: {
+                int ii;
+                for (ii = 0; ii < nData; ii++) {
+                    Tcl_AppendToObj(pRet, zWhite, 1);
+                }
+                break;
+            }
+        }
+    }
+
+    return pRet;
+}
+
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * nodeRemoveChild --
+ *
+ *     If pChild is a child-node of pElem, then remove it from the
+ *     HtmlElementNode.apChildren[] array (so that it is no longer a 
+ *     child).
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int
+nodeRemoveChild(pElem, pChild)
+    HtmlElementNode *pElem;
+    HtmlNode *pChild;
+{
+    int eSeen = 0;
+    int ii;
+    for (ii = 0; ii < pElem->nChild; ii++) {
+        if (eSeen) {
+            pElem->apChildren[ii - 1] = pElem->apChildren[ii];
+        }
+        if (pElem->apChildren[ii] == pChild) {
+            eSeen = 1;
+        }
+    }
+    if (eSeen) {
+        pElem->nChild--;
+    }
+    return eSeen;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlElementNormalize --
+ *
+ *     This function normalizes the text children of element *pElem.
+ *
+ * Results:
+ *     None
+ *
+ * Side effects:
+ *     May combine two or more text-nodes into a single node.
+ *
+ *---------------------------------------------------------------------------
+ */
+void
+HtmlElementNormalize(pElem)
+    HtmlElementNode *pElem;
+{
+    int ii;
+    for (ii = 0; ii < (pElem->nChild - 1); ii++) {
+        if (
+            HtmlNodeIsText(pElem->apChildren[ii]) &&
+            HtmlNodeIsText(pElem->apChildren[ii + 1])
+        ) {
+            HtmlNode *pRemove = pElem->apChildren[ii + 1];
+            nodeRemoveChild(pElem, pRemove);
+
+            /* TODO: Fold text from pRemove into pElem->apChildren[ii] */
+
+            HtmlTextFree(HtmlNodeAsText(pRemove));
+            ii--;
+        }
+    }
+}
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -363,6 +476,11 @@ nodeHandlerCallbacks(pTree, pNode)
              HtmlNodeTagType(HtmlNodeParent(pNode)) == Html_TR
         )
     );
+
+    
+    if (!HtmlNodeIsText(pNode)) {
+        HtmlElementNormalize(HtmlNodeAsElement(pNode));
+    }
 
     /* Execute the node-handler script for node pNode, if one exists. */
     pEntry = Tcl_FindHashEntry(&pTree->aNodeHandler, (char *)eTag);
@@ -416,44 +534,6 @@ HtmlFinishNodeHandlers(pTree)
     }
     pTree->state.pCurrent = 0;
 }   
-
-/*
- *---------------------------------------------------------------------------
- *
- * nodeRemoveChild --
- *
- *     If pChild is a child-node of pElem, then remove it from the
- *     HtmlElementNode.apChildren[] array (so that it is no longer a 
- *     child).
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-static int
-nodeRemoveChild(pElem, pChild)
-    HtmlElementNode *pElem;
-    HtmlNode *pChild;
-{
-    int eSeen = 0;
-    int ii;
-    for (ii = 0; ii < pElem->nChild; ii++) {
-        if (eSeen) {
-            pElem->apChildren[ii - 1] = pElem->apChildren[ii];
-        }
-        if (pElem->apChildren[ii] == pChild) {
-            eSeen = 1;
-        }
-    }
-    if (eSeen) {
-        pElem->nChild--;
-    }
-    return eSeen;
-}
 
 /*
  *---------------------------------------------------------------------------
@@ -2116,68 +2196,59 @@ node_attr_usage:
 
             tokens = ((objc == 3 && z3[1]=='t') ? 1 : 0);
             pre =    ((objc == 3 && z3[1]=='p') ? 1 : 0);
-            pRet = Tcl_NewObj();
-            Tcl_IncrRefCount(pRet);
 
             if (!HtmlNodeIsText(pNode)) break;
 
-            for (
-                HtmlTextIterFirst((HtmlTextNode *)pNode, &sIter);
-                HtmlTextIterIsValid(&sIter);
-                HtmlTextIterNext(&sIter)
-            ) {
-                int eType = HtmlTextIterType(&sIter);
-                int nData = HtmlTextIterLength(&sIter);
-                char const * zData = HtmlTextIterData(&sIter);
+            if (pre) {
+                pRet = nodeGetPreText(HtmlNodeAsText(pNode));
+                Tcl_IncrRefCount(pRet);
+            } else {
+                pRet = Tcl_NewObj();
+                Tcl_IncrRefCount(pRet);
 
-                if (tokens) {
-                    char *zType = 0;
-                    Tcl_Obj *p = Tcl_NewObj();
-                    Tcl_Obj *pObj = 0;
-
-                    switch (eType) {
-                        case HTML_TEXT_TOKEN_TEXT:
-                            zType = "text";
-                            pObj = Tcl_NewStringObj(zData, nData);
-                            break;
-                        case HTML_TEXT_TOKEN_SPACE:
-                            zType = "space";
-                            pObj = Tcl_NewIntObj(nData);
-                            break;
-                        case HTML_TEXT_TOKEN_NEWLINE:
-                            zType = "newline";
-                            pObj = Tcl_NewIntObj(nData);
-                            break;
-                    }
-                    assert(zType);
-                    Tcl_ListObjAppendElement(0, p, Tcl_NewStringObj(zType, -1));
-                    Tcl_ListObjAppendElement(0, p, pObj);
-                    Tcl_ListObjAppendElement(0, pRet, p);
-                } else if (pre) {
-                    switch (eType) {
-                        case HTML_TEXT_TOKEN_TEXT:
-                            Tcl_AppendToObj(pRet, zData, nData);
-                            break;
-                        case HTML_TEXT_TOKEN_SPACE: 
-                        case HTML_TEXT_TOKEN_NEWLINE: {
-                            char *zWhite = " ";
-                            int ii;
-                            if (HTML_TEXT_TOKEN_NEWLINE == eType) {
-                                zWhite = "\n";
-                            }
-                            for (ii = 0; ii < nData; ii++) {
-                                Tcl_AppendToObj(pRet, zWhite, 1);
-                            }
-                            break;
+                for (
+                    HtmlTextIterFirst((HtmlTextNode *)pNode, &sIter);
+                    HtmlTextIterIsValid(&sIter);
+                    HtmlTextIterNext(&sIter)
+                ) {
+                    int eType = HtmlTextIterType(&sIter);
+                    int nData = HtmlTextIterLength(&sIter);
+                    char const * zData = HtmlTextIterData(&sIter);
+    
+                    if (tokens) {
+                        char *zType = 0;
+                        Tcl_Obj *p = Tcl_NewObj();
+                        Tcl_Obj *pObj = 0;
+    
+                        switch (eType) {
+                            case HTML_TEXT_TOKEN_TEXT:
+                                zType = "text";
+                                pObj = Tcl_NewStringObj(zData, nData);
+                                break;
+                            case HTML_TEXT_TOKEN_SPACE:
+                                zType = "space";
+                                pObj = Tcl_NewIntObj(nData);
+                                break;
+                            case HTML_TEXT_TOKEN_NEWLINE:
+                                zType = "newline";
+                                pObj = Tcl_NewIntObj(nData);
+                                break;
                         }
-                    }
-                } else {
-                    if (eType == HTML_TEXT_TOKEN_TEXT) {
-                        if (nByte != 0) nByte++;
-                        nByte += nData;
+                        assert(zType);
+                        Tcl_ListObjAppendElement(
+                            0, p, Tcl_NewStringObj(zType, -1)
+                        );
+                        Tcl_ListObjAppendElement(0, p, pObj);
+                        Tcl_ListObjAppendElement(0, pRet, p);
+                    } else {
+                        if (eType == HTML_TEXT_TOKEN_TEXT) {
+                            if (nByte != 0) nByte++;
+                            nByte += nData;
+                        }
                     }
                 }
             }
+
             if (!tokens && !pre) {
                 HtmlTextNode *pTextNode = HtmlNodeAsText(pNode);
                 Tcl_SetStringObj(pRet, pTextNode->zText, nByte);

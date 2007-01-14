@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.151 2007/01/10 15:34:15 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.152 2007/01/14 09:48:36 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -938,8 +938,9 @@ eventHandler(clientData, pEvent)
     switch (pEvent->type) {
         case ConfigureNotify: {
             /* XConfigureEvent *p = (XConfigureEvent*)pEvent; */
-            HtmlLog(pTree, "EVENT", "ConfigureNotify:");
-            if (Tk_Width(pTree->tkwin) != pTree->iCanvasWidth) {
+            int iWidth = Tk_Width(pTree->tkwin);
+            HtmlLog(pTree, "EVENT", "ConfigureNotify: width=%dpx", iWidth);
+            if (iWidth != pTree->iCanvasWidth) {
                 HtmlCallbackLayout(pTree, pTree->pRoot);
             }
             break;

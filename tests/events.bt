@@ -1,0 +1,38 @@
+
+
+#------------------------------------------------------------------------
+# This is a "warm-body" test for the events module.
+#
+::browsertest::do_test events.1 -timeout 10000000 -html {
+  <BODY>
+    <SCRIPT>
+
+      document.testlog = ""
+      function log_node(elem) {
+        if (document.testlog != "") document.testlog += " "
+        document.testlog += elem.id
+      }
+
+    </SCRIPT>
+      <DIV id="one" onclick="log_node(this)">
+        <DIV id="two" onclick="log_node(this)">
+          <DIV id="three" onclick="log_node(this)">
+            Hello Hello
+
+} -javascript {
+
+  /* Create a synthetic mouse event. */
+  var e = document.createEvent("MouseEvents")
+  e.initMouseEvent(
+      "click", true, true, window, 0, 0, 0, 0, 0, 
+      false, false, false, false, 0, null
+  );
+
+  /* Dispatch the event to the <DIV id="three"> element. It should
+   * bubble up through <DIV id="two"> and <DIV id="one" blocks.
+   */
+  document.getElementById("three").dispatchEvent(e)
+
+  return document.testlog
+} -expected "three two one"
+

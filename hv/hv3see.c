@@ -274,6 +274,15 @@ struct SeeJsObject {
 };
 
 /*
+ * Forward declarations for the event-target implementation.
+ */
+static Tcl_ObjCmdProc    eventTargetNew;
+static Tcl_ObjCmdProc    eventTargetMethod;
+static Tcl_CmdDeleteProc eventTargetDelete;
+static struct SEE_object *eventTargetValue(SeeInterp *, Tcl_Obj *, Tcl_Obj *);
+
+
+/*
  *---------------------------------------------------------------------------
  *
  * hashCommand --
@@ -585,13 +594,17 @@ argValueToTcl(pTclSeeInterp, pValue)
         int iKey;
         Tcl_Obj *aTclValues[2];
         struct SEE_object *pObject = pValue->u.object;
- 
-        iKey = createObjectRef(pTclSeeInterp, pObject, 1);
-        /* TODO: SeeInterp.aTransient[] */
 
         aTclValues[0] = Tcl_NewStringObj("object", -1);
-        aTclValues[1] = Tcl_NewStringObj("Get", -1);
-        Tcl_ListObjAppendElement(0, aTclValues[1], Tcl_NewIntObj(iKey));
+
+        if (pObject->objectclass == getVtbl()) {
+          aTclValues[1] = ((SeeTclObject *)pObject)->pObj;
+        } else {
+          iKey = createObjectRef(pTclSeeInterp, pObject, 1);
+          /* TODO: SeeInterp.aTransient[] */
+          aTclValues[1] = Tcl_NewStringObj("Get", -1);
+          Tcl_ListObjAppendElement(0, aTclValues[1], Tcl_NewIntObj(iKey));
+        }
         return Tcl_NewListObj(2, aTclValues);
     } else {
         return primitiveValueToTcl(pTclSeeInterp, pValue);
@@ -767,17 +780,19 @@ objToValue(pInterp, pObj, pValue)
             SEE_SET_UNDEFINED(pValue);
         } else {
             int iChoice;
+            #define EVENT_VALUE -123
             struct ValueType {
                 char const *zType;
                 int eType;
                 int nArg;
             } aType[] = {
                 {"undefined", SEE_UNDEFINED, 0}, 
-                {"null", SEE_NULL, 0}, 
-                {"number", SEE_NUMBER, 1}, 
-                {"string", SEE_STRING, 1}, 
-                {"boolean", SEE_BOOLEAN, 1},
-                {"object", SEE_OBJECT, 1},
+                {"null",      SEE_NULL, 0}, 
+                {"number",    SEE_NUMBER, 1}, 
+                {"string",    SEE_STRING, 1}, 
+                {"boolean",   SEE_BOOLEAN, 1},
+                {"object",    SEE_OBJECT, 1},
+                {"event",     EVENT_VALUE, 2},
                 {0, 0, 0}
             };
 
@@ -831,6 +846,17 @@ objToValue(pInterp, pObj, pValue)
                     struct SEE_object *pObject = 
                         findOrCreateObject(pInterp, apElem[1]);
                     SEE_SET_OBJECT(pValue, pObject);
+                    break;
+                }
+
+                case EVENT_VALUE: {
+                    struct SEE_object *pObject = 
+                        eventTargetValue(pInterp, apElem[0], apElem[1]);
+                    if (pObject) {
+                        SEE_SET_OBJECT(pValue, pObject);
+                    } else {
+                        SEE_SET_UNDEFINED(pValue);
+                    }
                     break;
                 }
             }
@@ -1223,6 +1249,7 @@ interpCmd(clientData, pTclInterp, objc, objv)
         INTERP_GLOBAL,
         INTERP_TOSTRING,
         INTERP_Get,
+        INTERP_EVENTTARGET,
     };
 
     static const struct InterpSubCommand {
@@ -1232,13 +1259,14 @@ interpCmd(clientData, pTclInterp, objc, objv)
         int nMaxArgs;
         char *zArgs;
     } aSubCommand[] = {
-        {"destroy",  INTERP_DESTROY,  0, 0,     ""},
-        {"eval",     INTERP_EVAL,     1, 1,     "JAVASCRIPT"},
-        {"function", INTERP_FUNCTION, 1, 1,     "JAVASCRIPT"},
-        {"global",   INTERP_GLOBAL,   1, 1,     "TCL-COMMAND"},
-        {"native",   INTERP_NATIVE,   0, 0,     ""},
-        {"tostring", INTERP_TOSTRING, 1, 1,     ""},
-        {"Get",      INTERP_Get,      1, 10000, "ID"},
+        {"destroy",     INTERP_DESTROY,     0, 0,     ""},
+        {"eval",        INTERP_EVAL,        1, 1,     "JAVASCRIPT"},
+        {"function",    INTERP_FUNCTION,    1, 1,     "JAVASCRIPT"},
+        {"global",      INTERP_GLOBAL,      1, 1,     "TCL-COMMAND"},
+        {"native",      INTERP_NATIVE,      0, 0,     ""},
+        {"tostring",    INTERP_TOSTRING,    1, 1,     ""},
+        {"Get",         INTERP_Get,         1, 10000, "ID"},
+        {"eventtarget", INTERP_EVENTTARGET, 0, 0, ""},
         {0, 0, 0, 0}
     };
 
@@ -1351,6 +1379,13 @@ interpCmd(clientData, pTclInterp, objc, objv)
         }
 
         /*
+         * $interp eventtarget
+         */
+        case INTERP_EVENTTARGET: {
+            return eventTargetNew(clientData, pTclInterp, objc, objv);
+        }
+
+        /*
          * $interp Get ID ?Object-Command...?
          */
         case INTERP_Get: {
@@ -1408,7 +1443,7 @@ tclSeeInterp(clientData, interp, objc, objv)
     pInterp->nRef = 1;
 
     /* Allocate and initialise the SeeInterp.aTclObject[] table. */
-    pInterp->aTclObject = (SeeTclObject *)SEE_malloc_string(
+    pInterp->aTclObject = (SeeTclObject **)SEE_malloc_string(
         &pInterp->interp, sizeof(SeeTclObject *) * OBJECT_HASH_SIZE
     );
     memset(pInterp->aTclObject, 0, sizeof(SeeTclObject *) * OBJECT_HASH_SIZE);
@@ -1483,7 +1518,7 @@ SeeTcl_Put(pInterp, pObj, pProp, pVal, flags)
     removeTransientRefs(pTclSeeInterp);
     if (rc != TCL_OK) {
         SEE_error_throw_sys(pInterp, 
-            pInterp->RangeError, "%s", Tcl_GetStringResult(pTclInterp)
+            pInterp->TypeError, "%s", Tcl_GetStringResult(pTclInterp)
         );
     }
 }
@@ -1527,7 +1562,7 @@ SeeTcl_HasProperty(pInterp, pObj, pProp)
     Tcl_Interp *pTclInterp = pTclSeeInterp->pTclInterp;
     Tcl_Obj *pScript = Tcl_DuplicateObj(pObject->pObj);
     int rc;
-    int ret;
+    int ret = 0;
 
     Tcl_ListObjAppendElement(pTclInterp, pScript, 
             Tcl_NewStringObj("HasProperty", 11)
@@ -2263,4 +2298,408 @@ Tclsee_Init(interp)
     Tcl_CreateObjCommand(interp, "::see::format", tclSeeFormat, 0, 0);
     return TCL_OK;
 }
+
+
+/*----------------------------------------------------------------------- 
+ * Event target container object notes:
+ *
+ *     set container [$interp eventtarget]
+ *
+ *     $container addEventListener    TYPE LISTENER USE-CAPTURE
+ *     $container removeEventListener TYPE LISTENER USE-CAPTURE
+ *     $container setLegacyListener   TYPE LISTENER
+ *     $container runEvent            TYPE USE-CAPTURE THIS JS-ARG
+ *     $container destroy
+ *
+ * where:
+ * 
+ *     TYPE is an event type - e.g. "click", "load" etc. Case insensitive.
+ *     LISTENER is a javascript object reference (to a callable object)
+ *     USE-CAPTURE is a boolean.
+ *     JS-ARG is a typed javascript value to pass to the event handlers
+ *
+ * Implementing the EventTarget interface (see DOM Level 2) is difficult
+ * using the current ::see::interp interface. The following code implements
+ * a data structure to help with this while storing javascript function
+ * references in garbage collected memory (so that they are not collected
+ * prematurely).
+ *
+ * This data structure allows for storage of zero or more more pointers
+ * to javascript objects. For each event "type" either zero or one 
+ * legacy event-listener and any number of normal event-listeners may
+ * be stored. An event type is any string.
+ *
+ * Calling [destroy] exactly once for each call to [eventtarget] is 
+ * mandatory. Otherwise -> memory leak. Also, all event-target containers
+ * should be destroyed before the interpreter that created them. TODO:
+ * there should be an assert() to check this when NDEBUG is not defined.
+ *
+ * Implementation is in two C-functions below:
+ *
+ *     eventTargetNew()
+ *     eventTargetMethod()
+ */
+typedef struct EventTarget EventTarget;
+typedef struct ListenerContainer ListenerContainer;
+typedef struct EventType EventType;
+
+static int iNextEventTarget = 0;
+
+struct EventTarget {
+  SeeInterp *pTclSeeInterp;
+  EventType *pTypeList;
+};
+
+struct EventType {
+  char *zType;
+  ListenerContainer *pListenerList;
+  struct SEE_object *pLegacyListener;
+  EventType *pNext;
+};
+
+struct ListenerContainer {
+  int isCapture;                  /* True if a capturing event */
+  struct SEE_object *pListener;   /* Listener function */
+  ListenerContainer *pNext;       /* Next listener on this event type */
+};
+
+static struct SEE_object *
+eventTargetValue(pTclSeeInterp, pEventTarget, pEvent)
+    SeeInterp *pTclSeeInterp;
+    Tcl_Obj *pEventTarget;
+    Tcl_Obj *pEvent;
+{
+    Tcl_Interp *interp = pTclSeeInterp->pTclInterp;
+    Tcl_CmdInfo info;
+    int rc;
+    EventTarget *p;
+    EventType *pType;
+
+    rc = Tcl_GetCommandInfo(interp, Tcl_GetString(pEventTarget), &info);
+    if (rc != TCL_OK) return 0;
+    p = (EventTarget *)info.clientData;
+
+    for (
+        pType = p->pTypeList;
+        pType && strcasecmp(Tcl_GetString(pEvent), pType->zType);
+        pType = pType->pNext
+    );
+
+    return (pType ? pType->pLegacyListener : 0);
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * eventTargetDelete --
+ *
+ *     Called to delete an EventTarget object.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     Frees the EventTarget object passed as an argument.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void 
+eventTargetDelete(clientData)
+    ClientData clientData;          /* Pointer to the EventTarget structure */
+{
+    EventTarget *p = (EventTarget *)clientData;
+    GC_FREE(p);
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * eventTargetMethod --
+ *
+ *     $eventtarget addEventListener    TYPE LISTENER USE-CAPTURE
+ *
+ *     $eventtarget removeEventListener TYPE LISTENER USE-CAPTURE
+ *
+ *     $eventtarget setLegacyListener   TYPE LISTENER
+ *
+ *     $eventtarget runEvent            TYPE USE-CAPTURE THIS JS-ARG
+ *
+ *     $eventtarget destroy
+ *         Destroy the event-target object. This is eqivalent to
+ *         evaluating [rename $eventtarget ""].
+ *
+ * Results:
+ *     TCL_OK or TCL_ERROR.
+ *
+ * Side effects:
+ *     Whatever the method does (see above).
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+eventTargetMethod(clientData, interp, objc, objv)
+    ClientData clientData;          /* Pointer to the EventTarget structure */
+    Tcl_Interp *interp;             /* Current Tcl interpreter. */
+    int objc;                       /* Number of arguments. */
+    Tcl_Obj *CONST objv[];          /* Argument strings. */
+{
+    EventTarget *p = (EventTarget *)clientData;
+    struct SEE_interpreter *pSeeInterp = &(p->pTclSeeInterp->interp);
+
+    EventType *pType = 0;
+    struct SEE_object *pListener = 0;
+    int iChoice;
+
+    enum EVENTTARGET_enum {
+        ET_ADD,
+        ET_REMOVE,
+        ET_LEGACY,
+        ET_INLINE,
+        ET_RUNEVENT,
+        ET_DESTROY
+    };
+    enum EVENTTARGET_enum eChoice;
+
+    static const struct EventTargetSubCommand {
+        const char *zCommand;
+        enum EVENTTARGET_enum eSymbol;
+        int nArgs;
+        char *zArgs;
+    } aSubCommand[] = {
+        {"addEventListener",    ET_ADD,      3, "TYPE LISTENER USE-CAPTURE"},
+        {"removeEventListener", ET_REMOVE,   3, "TYPE LISTENER USE-CAPTURE"},
+        {"setLegacyListener",   ET_LEGACY,   2, "TYPE LISTENER"},
+        {"setLegacyScript",     ET_INLINE,   2, "TYPE JAVASCRIPT"},
+        {"runEvent",            ET_RUNEVENT, 4, "TYPE CAPTURE THIS JS-ARG"},
+        {"destroy",             ET_DESTROY,  0, ""},
+        {0, 0, 0, 0}
+    };
+
+    if (objc < 2) {
+        Tcl_WrongNumArgs(interp, 1, objv, "SUBCOMMAND ...");
+        return TCL_ERROR;
+    }
+    if (Tcl_GetIndexFromObjStruct(interp, objv[1], aSubCommand, 
+            sizeof(struct EventTargetSubCommand), "option", 0, &iChoice) 
+    ){
+        return TCL_ERROR;
+    }
+
+    if (objc != aSubCommand[iChoice].nArgs + 2) {
+        Tcl_WrongNumArgs(interp, 2, objv, aSubCommand[iChoice].zArgs);
+        return TCL_ERROR;
+    }
+
+    /* If this is an ADD, LEGACY, RUNEVENT or REMOVE operation, search
+     * for an EventType that matches objv[2]. If it is an ADD or LEGACY,
+     * create the EventType if it does not already exist. 
+     */
+    eChoice = aSubCommand[iChoice].eSymbol;
+    if (
+        eChoice == ET_REMOVE || eChoice == ET_RUNEVENT || 
+        eChoice == ET_ADD || eChoice == ET_LEGACY || eChoice == ET_INLINE
+    ) {
+        for (
+            pType = p->pTypeList;
+            pType && strcasecmp(Tcl_GetString(objv[2]), pType->zType);
+            pType = pType->pNext
+        );
+    }
+    if (
+        (!pType) && 
+        (eChoice == ET_ADD || eChoice == ET_LEGACY || eChoice == ET_INLINE)
+    ) {
+        int nType;
+        char *zType = Tcl_GetStringFromObj(objv[2], &nType);
+
+        nType++;
+        pType = (EventType *)SEE_malloc(pSeeInterp, sizeof(EventType) + nType);
+        memset(pType, 0, sizeof(EventType));
+
+        pType->zType = (char *)&pType[1];
+        strcpy(pType->zType, zType);
+        pType->pNext = p->pTypeList;
+        p->pTypeList = pType;
+    }
+
+    /* If this is an ADD, LEGACY, REMOVE operation, convert objv[3]
+     * (the LISTENER) into a SEE_object pointer.
+     */
+    if (eChoice == ET_ADD || eChoice == ET_LEGACY || eChoice == ET_REMOVE) {
+        pListener = findOrCreateObject(p->pTclSeeInterp, objv[3]);
+    }
+    if (eChoice == ET_INLINE) {
+        struct SEE_input *pInputCode;
+        pInputCode = SEE_input_utf8(pSeeInterp, Tcl_GetString(objv[3]));
+        pListener = SEE_Function_new(pSeeInterp, 0, 0, pInputCode);
+        SEE_INPUT_CLOSE(pInputCode);
+    }
+
+    Tcl_ResetResult(interp);
+
+    switch (eChoice) {
+        case ET_ADD: {
+            ListenerContainer *pListenerContainer;
+            int isCapture;
+            if (TCL_OK != Tcl_GetBooleanFromObj(interp, objv[4], &isCapture)) {
+                return TCL_ERROR;
+            }
+            isCapture = (isCapture ? 1 : 0);
+
+            pListenerContainer = SEE_NEW(pSeeInterp, ListenerContainer);
+            pListenerContainer->isCapture = isCapture;
+            pListenerContainer->pListener = pListener;
+            pListenerContainer->pNext = pType->pListenerList;
+            pType->pListenerList = pListenerContainer;
+
+            break;
+        }
+
+        case ET_REMOVE: {
+            ListenerContainer **ppListenerContainer;
+            int isCapture;
+            if (TCL_OK != Tcl_GetBooleanFromObj(interp, objv[4], &isCapture)) {
+                return TCL_ERROR;
+            }
+            isCapture = (isCapture ? 1 : 0);
+
+            ppListenerContainer = &pType->pListenerList;
+            while (*ppListenerContainer) {
+                ListenerContainer *pL = *ppListenerContainer;
+                if (pL->isCapture==isCapture && pL->pListener==pListener) {
+                    *ppListenerContainer = pL->pNext;
+                } else {
+                    ppListenerContainer = &pL->pNext;
+                }
+            }
+
+            break;
+        }
+
+        case ET_INLINE:
+        case ET_LEGACY:
+            pType->pLegacyListener = pListener;
+            break;
+
+
+        /*
+         * $eventtarget runEvent TYPE IS-CAPTURE THIS EVENT
+         */
+        case ET_RUNEVENT: {
+            ListenerContainer *pL;
+
+            /* The result of this Tcl command */
+            Tcl_Obj *pRes = 0;
+
+            struct SEE_object *pThis;
+            struct SEE_object *pLegacy = pType->pLegacyListener;
+
+            /* The event object passed as an argument */
+            struct SEE_object *pArg;
+            struct SEE_value sArgValue;
+            struct SEE_value *pArgValue;
+
+            int isCapture;
+            if (TCL_OK != Tcl_GetBooleanFromObj(interp, objv[3], &isCapture)) {
+                return TCL_ERROR;
+            }
+            isCapture = (isCapture ? 1 : 0);
+
+            pThis = findOrCreateObject(p->pTclSeeInterp, objv[4]);
+            pArg = findOrCreateObject(p->pTclSeeInterp, objv[5]);
+            SEE_SET_OBJECT(&sArgValue, pArg);
+            pArgValue = &sArgValue;
+
+            for (pL = pType->pListenerList; pL; pL = pL->pNext) {
+                if (isCapture == pL->isCapture) {
+                    struct SEE_value res;
+                    struct SEE_object *p2 = pL->pListener;
+                    SEE_OBJECT_CALL(pSeeInterp, p2, pThis, 1, &pArgValue, &res);
+                }
+            }
+
+            if (!isCapture && pLegacy) {
+                struct SEE_value res;
+/* TODO: Pass the correct "this" object */
+SEE_OBJECT_CALL(pSeeInterp, pLegacy, pThis, 1, &pArgValue, &res);
+                // SEE_OBJECT_CALL(pSeeInterp, pLegacy, 0, 1, &pArgValue,&res);
+                switch (SEE_VALUE_GET_TYPE(&res)) {
+                    case SEE_BOOLEAN:
+                        pRes = Tcl_NewBooleanObj(res.u.boolean);
+                        break;
+
+                    case SEE_NUMBER:
+                        pRes = Tcl_NewBooleanObj((int)res.u.number);
+                        break;
+
+                    default:
+                        break;
+                }
+            }
+
+            /* Note: The SEE_OBJECT_CALL() above may end up executing
+             * Tcl code in our main interpreter. Therefore it is important
+             * to set the command result here, after SEE_OBJECT_CALL().
+             *
+             * This was causing a bug earlier.
+             */
+            if (!pRes) pRes = Tcl_NewBooleanObj(1);
+            Tcl_SetObjResult(interp, pRes);
+            break;
+        }
+
+        case ET_DESTROY:
+            eventTargetDelete(clientData);
+            break;
+
+        default: assert(!"Can't happen");
+    }
+
+    return TCL_OK;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * eventTargetNew --
+ *
+ *         $see_interp eventtarget
+ *
+ *     Create a new event-target container.
+ *
+ * Results:
+ *     Standard Tcl result.
+ *
+ * Side effects:
+ *     None
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+eventTargetNew(clientData, interp, objc, objv)
+    ClientData clientData;             /* Pointer to the SeeInterp structure */
+    Tcl_Interp *interp;                /* Current Tcl interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    ClientData c;
+    EventTarget *pNew;
+    char zCmd[64];
+
+    pNew = (EventTarget *)GC_MALLOC_UNCOLLECTABLE(sizeof(EventTarget));
+    assert(pNew);
+    memset(pNew, 0, sizeof(EventTarget));
+
+    pNew->pTclSeeInterp = (SeeInterp *)clientData;
+
+    sprintf(zCmd, "::see::et%d", iNextEventTarget++);
+    c = (ClientData)pNew;
+    Tcl_CreateObjCommand(interp, zCmd, eventTargetMethod, c, eventTargetDelete);
+   
+    Tcl_SetResult(interp, zCmd, TCL_VOLATILE);
+    return TCL_OK;
+}
+
+
+
 

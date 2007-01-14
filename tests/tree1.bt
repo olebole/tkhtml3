@@ -16,8 +16,18 @@
 
 proc body_tree_test {name doc} {
 
+  # Uses:
+  #
+  #     Node.childNodes
+  #     Node.nodeType
+  #     Document.getElementsByTagName()
+  #
+  #     NodeList.length
+  #     NodeList.item()
+  #
   set body_tree_function {
     <SCRIPT>
+
       function elem_to_string (elem) {
         var res = "<" + elem.tagName + ">"
         for (var ii = 0; ii < elem.childNodes.length; ii++) {
@@ -29,10 +39,49 @@ proc body_tree_test {name doc} {
         res += "</" + elem.tagName + ">"
         return res
       }
+
       function body_tree () {
         body = document.getElementsByTagName("BODY").item(0)
         return elem_to_string(body)
       }
+
+      function node_to_string (N) {
+        /*
+         * Known incompatibility between Hv3 and firefox: Hv3 chops <SCRIPT>
+         * tags out of the tree completely, firefox leaves them in (but
+         * chops out their contents). Not sure if this is ever significant
+         * or not...
+         */
+        if (N.nodeType == Node.ELEMENT_NODE && N.nodeName == "SCRIPT") {
+          return ""
+        }
+
+        /*
+         * Another known incompatibility: Hv3 tends to add white-space nodes
+         * in a few places where fire-fox does not. This is probably more
+         * serious than the <SCRIPT> problem above, but still not too
+         * much of a concern in the short term. Ignore any text-node
+         * that consists entirely of white-space.
+         */
+        if (N.nodeType == Node.TEXT_NODE && !/[^\t\n\r ]/.test(N.nodeValue)) {
+          return ""
+        }
+
+        var res = "<" + N.nodeType + " " + N.nodeName + ">"
+
+        for (var ii = 0; ii < N.childNodes.length; ii++) {
+          var N2 = N.childNodes.item(ii)
+          res += node_to_string(N2)
+        }
+
+        res += "</>"
+        return res
+      }
+
+      function dom_tree () {
+        return node_to_string(document)
+      }
+
     </SCRIPT>
   }
 
@@ -40,7 +89,8 @@ proc body_tree_test {name doc} {
     $body_tree_function
     $doc
   }] -javascript {
-    return body_tree()
+    // return body_tree()
+    return dom_tree()
   } -browsers {Hv3 Firefox}
 }
 
@@ -96,6 +146,9 @@ body_tree_test tables.12 { <BODY> <TR><TD><SPAN> }
 body_tree_test tables.13 { <BODY> <TBODY><TR><TD><SPAN> }
 
 body_tree_test tables.14 { <BODY> <TABLE><DIV><DIV><SPAN></DIV><SPAN> }
+
+body_tree_test tree.1 { <BODY> <DIV> }
+body_tree_test attr.1 { <BODY> <DIV id="two"> hello }
 
 #---------------------------------------------------------------------- 
 
