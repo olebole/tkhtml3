@@ -356,6 +356,7 @@ namespace eval ::hv3::dom {
 #############################################################################
 
 source [file join [file dirname [info script]] hv3_dom_core.tcl]
+source [file join [file dirname [info script]] hv3_dom_html.tcl]
 source [file join [file dirname [info script]] hv3_dom_events.tcl]
 
 foreach class [list \

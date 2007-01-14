@@ -1600,8 +1600,8 @@ snit::widget ::hv3::dom::logwin {
 #-----------------------------------------------------------------------
 # Pull in the object definitions.
 #
-source [file join [file dirname [info script]] hv3_dom4.tcl]
-source [file join [file dirname [info script]] hv3_dom3.tcl]
+source [file join [file dirname [info script]] hv3_dom_compiler.tcl]
+# source [file join [file dirname [info script]] hv3_dom3.tcl]
 source [file join [file dirname [info script]] hv3_dom2.tcl]
 
 #-----------------------------------------------------------------------
@@ -1632,7 +1632,7 @@ proc ::hv3::dom::use_scripting {} {
   return $r
 }
 
-set ::hv3::dom::use_scripting_option 0
+set ::hv3::dom::use_scripting_option 1
 # set ::hv3::dom::reformat_scripts_option 0
 set ::hv3::dom::reformat_scripts_option 1
 
