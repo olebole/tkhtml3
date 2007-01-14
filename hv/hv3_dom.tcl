@@ -1297,7 +1297,7 @@ snit::type ::hv3::dom {
     foreach e [list onclick onmouseout onmouseover \
         onmouseup onmousedown onmousemove ondblclick
     ] {
-      $myHv3 Subscribe $e [mymethod event $e]
+      # $myHv3 Subscribe $e [mymethod event $e]
     }
 
     $self reset
@@ -1442,6 +1442,11 @@ snit::type ::hv3::dom {
       set rc [catch {eval $mySee $ref Call [list $this]} msg]
       $self Log "$node $event" [$mySee tostring $eventobj] $rc $msg
     }
+  }
+
+  method mouseevent {event node x y args} {
+    set Node [$self node_to_dom $node]
+    eval ::hv3::dom::dispatchMouseEvent $self $event $Node $x $y $args
   }
 
 #  typevariable tag_to_obj -array [list         \
@@ -1601,8 +1606,8 @@ snit::widget ::hv3::dom::logwin {
 # Pull in the object definitions.
 #
 source [file join [file dirname [info script]] hv3_dom_compiler.tcl]
-# source [file join [file dirname [info script]] hv3_dom3.tcl]
-source [file join [file dirname [info script]] hv3_dom2.tcl]
+# source [file join [file dirname [info script]] hv3_style.tcl]
+source [file join [file dirname [info script]] hv3_dom_xmlhttp.tcl]
 
 #-----------------------------------------------------------------------
 # Initialise the scripting environment. This should basically load (or

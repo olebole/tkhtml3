@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.147 2007/01/14 09:48:36 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.148 2007/01/14 16:04:43 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -155,22 +155,71 @@ source [file join [file dirname [info script]] hv3_dom.tcl]
 #     dispatching mouse events that occur in the HTML widget to the 
 #     rest of the application. The following HTML4 events are handled:
 #
-#         onmouseover
+#     Pointer movement:
 #         onmousemove
+#         onmouseover
 #         onmouseout
 #
+#     Click-related events:
 #         onmousedown
 #         onmouseup
-#
 #         onclick
-#         ondblclick
 #
-#     TODO: Registering a handler for this is not an error, but the
-#     event is never generated
+#     Currently, the following hv3 subsystems subscribe to one or more of
+#     these events:
+#
+#         ::hv3::hyperlinkmanager
+#             Click events, mouseover and mouseout on all nodes.
+#
+#         ::hv3::dynamicmanager
+#             Events mouseover, mouseout, mousedown mouseup on all nodes.
+#
+#         ::hv3::formmanager
+#             Click events (for clickable controls) on all nodes.
+#
+#         ::hv3::dom
+#             All events on leaf nodes..
 #
 snit::type ::hv3::hv3::mousemanager {
 
   variable myHv3 ""
+
+  # In browsers with no DOM support, the following option is set to
+  # an empty string.
+  #
+  # If not set to an empty string, this option is set to the name
+  # of the ::hv3::dom object to dispatch events too. The DOM 
+  # is a special client because it may cancel the "default action"
+  # of mouse-clicks (it may also cancel other events, but they are
+  # dispatched by other sub-systems).
+  #
+  # Each time an event occurs, the following script is executed:
+  #
+  #     $options(-dom) mouseevent EVENT-TYPE NODE X Y ?OPTIONS?
+  #
+  # where OPTIONS are:
+  #
+  #     -button          INTEGER        (default 0)
+  #     -detail          INTEGER        (default 0)
+  #     -relatedtarget   NODE-HANDLE    (default "")
+  #
+  # the EVENT-TYPE parameter is one of:
+  #
+  #     "click", "mouseup", "mousedown", 
+  #     "mousemove", "mouseover" or "mouseout".
+  #
+  # NODE is the target leaf node and X and Y are the pointer coordinates
+  # relative to the top-left of the html widget window.
+  #
+  # For "click" events, if the $options(-dom) script returns false, then
+  # the "click" event is not dispatched to any subscribers (this happens
+  # when some javascript calls the Event.preventDefault() method). If it
+  # returns true, proceed as normal. Other event types ignore the return 
+  # value of the $options(-dom) script.
+  #
+  option -dom -default ""
+
+  variable myClickedNode ""
 
   variable myReset 0
 
@@ -181,9 +230,8 @@ snit::type ::hv3::hv3::mousemanager {
   # List of nodes currently "hovered" over and "active". An entry in
   # the correspondoing array indicates the condition is true.
   #
-  variable myHoverNodes -array [list]
+  variable myHoverNodes  -array [list]
   variable myActiveNodes -array [list]
-
 
   # List of handled HTML4 event types (a constant)
   variable EVENTS [list onmouseover onmousemove onmouseout onclick \
@@ -285,10 +333,11 @@ snit::type ::hv3::hv3::mousemanager {
     $self GenerateEvents $eventlist
   }
 
+
   method Press {x y} {
 
     set N [lindex [$myHv3 node $x $y] end]
-
+  
     if {$N ne ""} {
       if {[$N tag] eq ""} {set N [$N parent]}
     }
@@ -305,15 +354,19 @@ snit::type ::hv3::hv3::mousemanager {
   }
 
   method Release {x y} {
-
-    set onclick_nodes [list]
     set N [lindex [$myHv3 node $x $y] end]
     if {$N ne ""} {
       if {[$N tag] eq ""} {set N [$N parent]}
     }
-    for {set n $N} {$n ne ""} {set n [$n parent]} {
-      if {[info exists myActiveNodes($n)]} {
-        lappend onclick_nodes $n
+
+    # Check if the is a "click" event to dispatch to the DOM
+    set domrc 1
+    if {$options(-dom) ne ""} {
+      for {set n $N} {$n ne ""} {set n [$n parent]} {
+        if {[info exists myActiveNodes($N)]} {
+          set rc [$options(-dom) mouseevent click $n $x $y]
+          break
+        }
       }
     }
 
@@ -321,9 +374,19 @@ snit::type ::hv3::hv3::mousemanager {
     foreach node [array names myActiveNodes] {
       lappend eventlist onmouseup $node
     }
-    foreach node $onclick_nodes {
-      lappend eventlist onclick $node
+    
+    if {$domrc} {
+      set onclick_nodes [list]
+      for {set n $N} {$n ne ""} {set n [$n parent]} {
+        if {[info exists myActiveNodes($n)]} {
+          lappend onclick_nodes $n
+        }
+      }
+      foreach node $onclick_nodes {
+        lappend eventlist onclick $node
+      }
     }
+
     $self GenerateEvents $eventlist
 
     array unset myActiveNodes
@@ -726,7 +789,7 @@ snit::widget ::hv3::hv3 {
   component mySelectionManager       ;# The ::hv3::hv3::selectionmanager
   component myFormManager            ;# The ::hv3::formmanager
 
-  variable myDom
+  variable myDom ""
 
   component myMouseManager           ;# The ::hv3::hv3::mousemanager
   delegate method Subscribe to myMouseManager as subscribe
@@ -808,11 +871,12 @@ snit::widget ::hv3::hv3 {
     bindtags [$self html] [concat [bindtags [$self html]] $self]
     pack $myHtml -expand true -fill both
 
+    set myDom [::hv3::dom %AUTO% $self]
+
     set myMouseManager [::hv3::hv3::mousemanager %AUTO% $self]
+    $myMouseManager configure -dom $myDom
 
     # $myHtml configure -layoutcache 0
-
-    set myDom [::hv3::dom %AUTO% $self]
 
     # Create the event-handling components.
     set myHyperlinkManager [::hv3::hv3::hyperlinkmanager %AUTO% $self]

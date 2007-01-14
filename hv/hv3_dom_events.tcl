@@ -32,19 +32,10 @@
 #
 #-------------------------------------------------------------------------
 
-# Map of HTML events handled by this module. This is used both at 
+# List of HTML events handled by this module. This is used both at 
 # runtime and when building DOM object definitions during application 
 # startup.
 #
-
-# set ::hv3::dom::HTML_Events_List(click)     MouseEvent
-# set ::hv3::dom::HTML_Events_List(dblclick)  MouseEvent
-# set ::hv3::dom::HTML_Events_List(mousedown) MouseEvent
-# set ::hv3::dom::HTML_Events_List(mouseup)   MouseEvent
-# set ::hv3::dom::HTML_Events_List(mouseover) MouseEvent
-# set ::hv3::dom::HTML_Events_List(mousemove) MouseEvent
-# set ::hv3::dom::HTML_Events_List(mouseout)  MouseEvent
-
 set ::hv3::dom::HTML_Events_List [list                          \
   click dblclick mousedown mouseup mouseover mousemove mouseout \
   keypress keydown keyup focus blur submit reset select change  \
@@ -283,7 +274,12 @@ set ::hv3::dom::HTML_Events_List [list                          \
   dom_get target {}
   dom_get currentTarget {}
   dom_get eventPhase { list number $options(-eventphase) }
-  dom_get timestamp {}
+
+  # TODO: Timestamp is supposed to return a timestamp in milliseconds
+  # from the epoch. But the DOM spec notes that this information is not
+  # available on all systems, in which case the property should return 0. 
+  #
+  dom_get timestamp  { list number 0 }
 
   dom_call stopPropagation {THIS} { set myStopPropagationCalled 1 }
   dom_call preventDefault {THIS}  { set myPreventDefaultCalled 1 }
@@ -361,7 +357,7 @@ set ::hv3::dom::HTML_Events_List [list                          \
 ::hv3::dom::type MouseEvent {UIEvent Event} {
 
   dom_call initMouseEvent {THIS 
-      eventtype canBubble cancelable view detail 
+      eventtype canBubble cancelable view detail
       screenX screenY clientX clientY 
       ctrlKey altKey shiftKey metaKey 
       button relatedTarget
@@ -388,4 +384,37 @@ set ::hv3::dom::HTML_Events_List [list                          \
   }
 
 }
+
+# Recognised mouse event types.
+#
+#     Mapping is from the event-type to the value of the "cancelable"
+#     property of the DOM MouseEvent object.
+#
+set ::hv3::dom::MouseEventType(click)     1
+set ::hv3::dom::MouseEventType(mousedown) 1
+set ::hv3::dom::MouseEventType(mouseup)   1
+set ::hv3::dom::MouseEventType(mouseover) 1
+set ::hv3::dom::MouseEventType(mousemove) 0
+set ::hv3::dom::MouseEventType(mouseout)  1
+
+# dispatchMouseEvent
+#
+#   Parameters:
+#
+#     dom         -> the ::hv3::dom object
+#     eventtype   -> One of the above event types, e.g. "click".
+#     EventTarget -> The DOM object implementing the EventTarget interface
+#     x, y        -> Widget coordinates for the event
+#
+proc ::hv3::dom::dispatchMouseEvent {dom eventtype EventTarget x y args} {
+
+  set isCancelable $::hv3::dom::MouseEventType($eventtype)
+
+  set event [::hv3::DOM::MouseEvent %AUTO% $dom]
+  $event Event_initEvent $eventtype 1 $isCancelable
+
+  $EventTarget doDispatchEvent $event
+}
+
+
 
