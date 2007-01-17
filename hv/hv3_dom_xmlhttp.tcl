@@ -1,5 +1,4 @@
-
-
+namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.2 2007/01/17 10:15:13 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # ::hv3::dom::XMLHttpRequest

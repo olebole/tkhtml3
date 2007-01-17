@@ -1,3 +1,4 @@
+namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.3 2007/01/17 10:15:12 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Html
@@ -5,6 +6,14 @@
 # This file contains the Hv3 implementation of the DOM Level 1 Html. Where
 # possible, Hv3 tries hard to be compatible with W3C and Gecko. Gecko
 # is pretty much a clean super-set of W3C for this module.
+#
+# Interfaces defined in this file:
+#
+#     HTMLDocument
+#     HTMLCollection
+#     HTMLElement
+#       HTMLFormElement
+#       plus a truckload of other HTML***Element interfaces to come.
 #
 #-------------------------------------------------------------------------
 
@@ -31,7 +40,6 @@
     EventTarget            \
 ] {
 
-  #-------------------------------------------------------------------------
   # The document collections (DOM level 1)
   #
   #     HTMLDocument.images[] 
@@ -44,11 +52,17 @@
   # include applets and APPLET (deprecated) elements in a document". Here
   # only the APPLET elements are collected.
   #
-  dom_get -cache images   { $self CollectionObject 0 img }
-  dom_get -cache forms    { $self CollectionObject 0 form }
-  dom_get -cache applet   { $self CollectionObject 0 applet }
-  dom_get -cache anchors  { $self CollectionObject 0 {a[name]} }
-  dom_get -cache links    { $self CollectionObject 0 {area,a[href]} }
+  dom_get -cache images   { $self HTMLDocument_Collection img }
+  dom_get -cache forms    { $self HTMLDocument_Collection form }
+  dom_get -cache applet   { $self HTMLDocument_Collection applet }
+  dom_get -cache anchors  { $self HTMLDocument_Collection {a[name]} }
+  dom_get -cache links    { $self HTMLDocument_Collection {area,a[href]} }
+  dom_snit {
+    method HTMLDocument_Collection {selector} {
+      set cmd [list $options(-hv3) search $selector]
+      list object [::hv3::DOM::HTMLCollection %AUTO% $myDom -nodelistcmd $cmd]
+    }
+  }
 
   #-------------------------------------------------------------------------
   # The HTMLDocument.write() and writeln() methods (DOM level 1)
@@ -152,6 +166,120 @@
   }
 }
 
+#-------------------------------------------------------------------------
+# DOM class: (HTMLCollection)
+#
+# Supports the following javascript interface:
+#
+#     length
+#     item(index)
+#     namedItem(name)
+#
+# Also, a request for any property with a numeric name is mapped to a call
+# to the item() method. A request for any property with a non-numeric name
+# maps to a call to namedItem(). Hence, javascript references like:
+#
+#     collection[1]
+#     collection["name"]
+#     collection.name
+#
+# work as expected.
+#
+::hv3::dom::type HTMLCollection {} {
+
+  #
+  # There are several variations on the role this object may play in
+  # DOM level 1 Html:
+  #
+  #     HTMLDocument.images
+  #     HTMLDocument.applets
+  #     HTMLDocument.links
+  #     HTMLDocument.forms
+  #     HTMLDocument.anchors
+  #
+  #     HTMLFormElement.elements
+  #     HTMLSelectElement.options
+  #     HTMLMapElement.areas
+  #
+  #     HTMLTableElement.rows
+  #     HTMLTableElement.tBodies
+  #     HTMLTableSectionElement.rows
+  #     HTMLTableRowElement.cells
+  #
+  dom_snit {
+    option -nodelistcmd -default ""
+  }
+
+  # HTMLCollection.length
+  #
+  dom_get length {
+    return [list number [llength [eval $options(-nodelistcmd)]]]
+  }
+
+  # HTMLCollection.item()
+  #
+  dom_call -string item {THIS index} {
+    $self HTMLCollection_item $index
+  }
+
+  # HTMLCollection.namedItem()
+  #
+  dom_call -string namedItem {THIS name} {
+    $self HTMLCollection_namedItem $name
+  }
+
+  # Handle an attempt to retrieve an unknown property.
+  #
+  dom_get * {
+
+    # If $property looks like a number, treat it as an index into the list
+    # of widget nodes. Otherwise look for a node with the "name" or "id"
+    # attribute set to the attribute name.
+    if {[string is double $property]} {
+      set res [$self HTMLCollection_item $property]
+    } else {
+      set res [$self HTMLCollection_namedItem $property]
+    }
+
+    return $res
+  }
+
+  dom_snit { 
+    method HTMLCollection_item {index} {
+      set idx [format %.0f $index]
+      set ret ""
+      set node [lindex [eval $options(-nodelistcmd)] $idx]
+      if {$node ne ""} {
+        set ret [list object [$myDom node_to_dom $node]]
+      }
+      set ret
+    }
+
+    method HTMLCollection_namedItem {name} {
+      set nodelist [eval $options(-nodelistcmd)]
+  
+      foreach node $nodelist {
+        if {[$node attr -default "" id] eq $name} {
+          set domobj [$myDom node_to_dom $node]
+          return [list object $domobj]
+        }
+      }
+  
+      foreach node $nodelist {
+        if {[$node attr -default "" name] eq $name} {
+          set domobj [$myDom node_to_dom $node]
+          return [list object $domobj]
+        }
+      }
+  
+      return ""
+    }
+  }
+}
+# </HTMLCollection>
+#-------------------------------------------------------------------------
+
+
 
 namespace eval ::hv3::dom::compiler {
 
@@ -189,8 +317,8 @@ namespace eval ::hv3::dom::compiler {
 #-------------------------------------------------------------------------
 # DOM Type HTMLElement (Node -> Element -> HTMLElement)
 #
-set BaseList {Element WidgetNode Node NodePrototype EventTarget}
-::hv3::dom::type HTMLElement $BaseList {
+#
+::hv3::dom::type HTMLElement Element {
   element_attr id
   element_attr title
   element_attr lang
@@ -206,10 +334,6 @@ set BaseList {Element WidgetNode Node NodePrototype EventTarget}
       $options(-nodehandle) attribute $name $val
       return ""
     }
-  }
-
-  dom_get -cache style { 
-    list object [::hv3::dom::InlineStyle %AUTO% $myDom $options(-nodehandle)]
   }
 
   #----------------------------------------------------------------------
@@ -264,6 +388,201 @@ set BaseList {Element WidgetNode Node NodePrototype EventTarget}
   }
 }
 
+#-------------------------------------------------------------------------
+# DOM Type HTMLFormElement (extends HTMLElement)
+#
+::hv3::dom::type HTMLFormElement HTMLElement {
+
+  # Various Get/Put string property/attributes.
+  #
+  element_attr name
+  element_attr target
+  element_attr method
+  element_attr action
+  element_attr acceptCharset -attribute acceptcharset
+  element_attr enctype
+
+  # The HTMLFormElement.elements array.
+  #
+  dom_get -cache elements {
+    set cmd [subst -nocommands {[$options(-nodehandle) replace] controls}]
+    list object [::hv3::DOM::HTMLCollection %AUTO% $myDom -nodelistcmd $cmd]
+  }
+
+  # Form control methods: submit() and reset().
+  #
+  dom_call submit {THIS} {
+    set form [$options(-nodehandle) replace]
+    $form submit ""
+  }
+  dom_call reset {THIS} {
+    set form [$options(-nodehandle) replace]
+    $form reset
+  }
+
+  # Unknown property handler. Delegate any unknown property requests to
+  # the HTMLFormElement.elements object.
+  #
+  dom_get * {
+    set obj [lindex [$self Get elements] 1]
+    $obj Get $property
+  }
+}
+# </HTMLFormElement>
+#-------------------------------------------------------------------------
+
+#-------------------------------------------------------------------------
+# DOM Type HTMLInputElement (extends HTMLElement)
+#
+::hv3::dom::type HTMLInputElement HTMLElement {
+
+  dom_todo defaultValue
+  dom_todo defaultChecked
+  dom_todo form
+  dom_todo accept
+  dom_todo accessKey
+  dom_todo align
+  dom_todo alt
+  dom_todo checked
+  dom_todo disabled
+  dom_todo maxLength
+  dom_todo name
+  dom_todo readOnly
+  dom_todo size
+  dom_todo src
+  dom_todo tabIndex
+  dom_todo type
+  dom_todo useMap
+
+  dom_get value             { list string [[$options(-nodehandle) replace] value] }
+  dom_put -string value val { [$options(-nodehandle) replace] set_value $val      }
+
+  dom_call blur   {THIS} { [$options(-nodehandle) replace] dom_blur }
+  dom_call focus  {THIS} { [$options(-nodehandle) replace] dom_focus }
+  dom_call select {THIS} { [$options(-nodehandle) replace] dom_select }
+  dom_call click  {THIS} { [$options(-nodehandle) replace] dom_click }
+}
+# </HTMLInputElement>
+#-------------------------------------------------------------------------
+
+#-------------------------------------------------------------------------
+# DOM Type HTMLSelectElement (extends HTMLElement)
+#
+::hv3::dom::type HTMLSelectElement HTMLElement {
+}
+# </HTMLSelectElement>
+#-------------------------------------------------------------------------
+
+#-------------------------------------------------------------------------
+# DOM Type HTMLTextAreaElement (extends HTMLElement)
+#
+::hv3::dom::type HTMLTextAreaElement HTMLElement {
+}
+# </HTMLTextAreaElement>
+#-------------------------------------------------------------------------
+
+#-------------------------------------------------------------------------
+# DOM Type HTMLButtonElement (extends HTMLElement)
+#
+::hv3::dom::type HTMLButtonElement HTMLElement {
+}
+# </HTMLButtonElement>
+#-------------------------------------------------------------------------
+
+#-------------------------------------------------------------------------
+# DOM Type HTMLOptGroupElement (extends HTMLElement)
+#
+::hv3::dom::type HTMLOptGroupElement HTMLElement {
+}
+# </HTMLOptGroupElement>
+#-------------------------------------------------------------------------
+
+#-------------------------------------------------------------------------
+# DOM Type HTMLOptionElement (extends HTMLElement)
+#
+::hv3::dom::type HTMLOptionElement HTMLElement {
+}
+# </HTMLOptionElement>
+#-------------------------------------------------------------------------
+
+#-------------------------------------------------------------------------
+# DOM Type HTMLLabelElement (extends HTMLElement)
+#
+::hv3::dom::type HTMLLabelElement HTMLElement {
+}
+# </HTMLLabelElement>
+#-------------------------------------------------------------------------
+
+#-------------------------------------------------------------------------
+# DOM Type HTMLFieldSetElement (extends HTMLElement)
+#
+::hv3::dom::type HTMLFieldSetElement HTMLElement {
+}
+# </HTMLFieldSetElement>
+#-------------------------------------------------------------------------
+
+#-------------------------------------------------------------------------
+# DOM Type HTMLLegendElement (extends HTMLElement)
+#
+::hv3::dom::type HTMLLegendElement HTMLElement {
+}
+# </HTMLLegendElement>
+#-------------------------------------------------------------------------
+
+#-------------------------------------------------------------------------
+# Element/Text Node Factory:
+#
+#     This block implements a factory method called by the ::hv3::dom
+#     object to transform html-widget node handles into DOM objects.
+#
+namespace eval ::hv3::dom {
+
+  ::variable TagToNodeTypeMap
+
+  array set TagToNodeTypeMap {
+    ""       ::hv3::DOM::Text
+  }
+
+  # HTML Forms related objects:
+  array set TagToNodeTypeMap {
+    form     ::hv3::DOM::HTMLFormElement
+    button   ::hv3::DOM::HTMLButtonElement
+    input    ::hv3::DOM::HTMLInputElement
+    select   ::hv3::DOM::HTMLSelectElement
+    textarea ::hv3::DOM::HTMLTextAreaElement
+    optgroup ::hv3::DOM::HTMLOptGroupElement
+    option   ::hv3::DOM::HTMLOptionElement
+    label    ::hv3::DOM::HTMLLabelElement
+    fieldset ::hv3::DOM::HTMLFieldSetElement
+    legend   ::hv3::DOM::HTMLLegendElement
+  }
+
+  proc getHTMLElementClassList {} {
+    ::variable TagToNodeTypeMap
+    set ret [list]
+    foreach e [array names TagToNodeTypeMap] {
+      lappend ret [string range $TagToNodeTypeMap($e) 12 end]
+    }
+    set ret
+  }
+
+  # Create a DOM HTMLElement or Text object in DOM $dom (type ::hv3::dom)
+  # wrapped around the html-widget $node.
+  #
+  proc createWidgetNode {dom node} {
+    ::variable TagToNodeTypeMap
+
+    set tag [$node tag]
+
+    set objtype ::hv3::DOM::HTMLElement
+    catch {
+      set objtype $TagToNodeTypeMap($tag)
+    }
+
+    $objtype %AUTO% $dom -nodehandle $node
+  }
+}
+#-------------------------------------------------------------------------
 
 
 

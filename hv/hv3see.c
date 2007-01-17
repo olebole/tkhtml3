@@ -251,9 +251,10 @@ static struct SEE_objectclass *getVtbl();
  * an instance of the following struct.
  */
 struct SeeTclObject {
-    struct SEE_object object;
-    SeeInterp *pTclSeeInterp;
-    Tcl_Obj *pObj;
+
+    struct SEE_object object;   /* Base class - the vtbl and object prototype */
+    SeeInterp *pTclSeeInterp;   /* Pointer to the owner ::see::interp */
+    Tcl_Obj *pObj;              /* Tcl script for object */
 
     /* Next entry (if any) in the SeeInterp.aObject hash table */
     SeeTclObject *pNext;
@@ -957,35 +958,45 @@ delInterpCmd(clientData)
     }
 }
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * interpEval --
+ *
+ *     This function does the work of the [$see_interp eval JAVASCRIPT]
+ *     Tcl command.
+ *
+ * Results:
+ *     Tcl result - TCL_OK or TCL_ERROR.
+ *
+ * Side effects:
+ *     Executes the block of javascript passed as parameter pCode in
+ *     the global context.
+ *
+ *---------------------------------------------------------------------------
+ */
 static int
-interpEvalThis(pTclSeeInterp, pTclThis, pCode)
+interpEval(pTclSeeInterp, pCode)
     SeeInterp *pTclSeeInterp;
-    Tcl_Obj *pTclThis;
     Tcl_Obj *pCode;
 {
     struct SEE_interpreter *pSeeInterp = &(pTclSeeInterp->interp);
     Tcl_Interp *pTclInterp = pTclSeeInterp->pTclInterp;
 
     struct SEE_input *pInputCode;
-    struct SEE_object *pFunction;
 
     int rc = TCL_OK;
     SEE_try_context_t try_ctxt;
 
     pInputCode = SEE_input_utf8(pSeeInterp, Tcl_GetString(pCode));
 
+    Tcl_ResetResult(pTclInterp);
+
     SEE_TRY(pSeeInterp, try_ctxt) {
         struct SEE_value result;
         Tcl_Obj *pRes;
 
-        if (pTclThis) {
-            struct SEE_object *pThis = 0;
-            pThis = findOrCreateObject(pTclSeeInterp, pTclThis);
-            pFunction = SEE_Function_new(pSeeInterp, 0, 0, pInputCode);
-            SEE_OBJECT_CALL(pSeeInterp, pFunction, pThis, 0, 0, &result);
-        } else {
-            SEE_Global_eval(pSeeInterp, pInputCode, &result);
-        }
+        SEE_Global_eval(pSeeInterp, pInputCode, &result);
 
         pRes = primitiveValueToTcl(pTclSeeInterp, &result);
         Tcl_SetObjResult(pTclInterp, pRes);
@@ -1237,6 +1248,7 @@ interpCmd(clientData, pTclInterp, objc, objv)
     int objc;                          /* Number of arguments. */
     Tcl_Obj *CONST objv[];             /* Argument strings. */
 {
+    int rc = TCL_OK;
     int iChoice;
     SeeInterp *pTclSeeInterp = (SeeInterp *)clientData;
     struct SEE_interpreter *pSeeInterp = &pTclSeeInterp->interp;
@@ -1291,15 +1303,12 @@ interpCmd(clientData, pTclInterp, objc, objv)
     switch (aSubCommand[iChoice].eSymbol) {
 
         /*
-         * seeInterp eval ?THIS-OBJECT? PROGRAM-TEXT
+         * seeInterp eval PROGRAM-TEXT
          * 
-         *     Evaluate a javascript script.
+         *     Evaluate a javascript script in the global context.
          */
         case INTERP_EVAL: {
-            Tcl_Obj *pProgram = ((objc == 4) ? objv[3] : objv[2]);
-            Tcl_Obj *pThis =    ((objc == 4) ? objv[2] : 0);
-            int rc = interpEvalThis(pTclSeeInterp, pThis, pProgram);
-            if (rc != TCL_OK) return rc;
+            rc = interpEval(pTclSeeInterp, objv[2]);
             break;
         }
 
@@ -1415,7 +1424,7 @@ interpCmd(clientData, pTclInterp, objc, objv)
         }
     }
 
-    return TCL_OK;
+    return rc;
 }
 
 static int 
@@ -2475,6 +2484,8 @@ eventTargetMethod(clientData, interp, objc, objv)
         {0, 0, 0, 0}
     };
 
+    int rc = TCL_OK;
+
     if (objc < 2) {
         Tcl_WrongNumArgs(interp, 1, objv, "SUBCOMMAND ...");
         return TCL_ERROR;
@@ -2591,13 +2602,28 @@ eventTargetMethod(clientData, interp, objc, objv)
             /* The result of this Tcl command */
             Tcl_Obj *pRes = 0;
 
+	    /* TODO: Try-catch context to execute the javascript callbacks in.
+             * At the moment only a single try-catch is used for all
+             * W3C and legacy listeners. So if one throws an exception
+             * the rest will not run. This is probably wrong, but fixing
+	     * it means figuring out some way to return the error information
+	     * to the browser. i.e. the current algorithm is:
+             *
+             *     TRY {
+             *         FOREACH (W3C listener) { ... }
+             *         IF (legacy listener) { ... }
+             *     } CATCH (...) { ... }
+             *
+             */
+            SEE_try_context_t try_ctxt;
+
             struct SEE_object *pThis;
             struct SEE_object *pLegacy = pType->pLegacyListener;
 
             /* The event object passed as an argument */
             struct SEE_object *pArg;
             struct SEE_value sArgValue;
-            struct SEE_value *pArgValue;
+            struct SEE_value *pArgV;
 
             int isCapture;
             if (TCL_OK != Tcl_GetBooleanFromObj(interp, objv[3], &isCapture)) {
@@ -2608,43 +2634,48 @@ eventTargetMethod(clientData, interp, objc, objv)
             pThis = findOrCreateObject(p->pTclSeeInterp, objv[4]);
             pArg = findOrCreateObject(p->pTclSeeInterp, objv[5]);
             SEE_SET_OBJECT(&sArgValue, pArg);
-            pArgValue = &sArgValue;
+            pArgV= &sArgValue;
 
-            for (pL = pType->pListenerList; pL; pL = pL->pNext) {
-                if (isCapture == pL->isCapture) {
-                    struct SEE_value res;
-                    struct SEE_object *p2 = pL->pListener;
-                    SEE_OBJECT_CALL(pSeeInterp, p2, pThis, 1, &pArgValue, &res);
+            SEE_TRY (pSeeInterp, try_ctxt) {
+
+                for (pL = pType->pListenerList; pL; pL = pL->pNext) {
+                    if (isCapture == pL->isCapture) {
+                        struct SEE_value res;
+                        struct SEE_object *p2 = pL->pListener;
+                        SEE_OBJECT_CALL(pSeeInterp, p2, pThis, 1, &pArgV, &res);
+                    }
+                }
+    
+                if (!isCapture && pLegacy) {
+                    struct SEE_value r;
+                    SEE_OBJECT_CALL(pSeeInterp, pLegacy, pThis, 1, &pArgV, &r);
+                    switch (SEE_VALUE_GET_TYPE(&r)) {
+                        case SEE_BOOLEAN:
+                            pRes = Tcl_NewBooleanObj(r.u.boolean);
+                            break;
+    
+                        case SEE_NUMBER:
+                            pRes = Tcl_NewBooleanObj((int)r.u.number);
+                            break;
+    
+                        default:
+                            break;
+                    }
                 }
             }
 
-            if (!isCapture && pLegacy) {
-                struct SEE_value res;
-/* TODO: Pass the correct "this" object */
-SEE_OBJECT_CALL(pSeeInterp, pLegacy, pThis, 1, &pArgValue, &res);
-                // SEE_OBJECT_CALL(pSeeInterp, pLegacy, 0, 1, &pArgValue,&res);
-                switch (SEE_VALUE_GET_TYPE(&res)) {
-                    case SEE_BOOLEAN:
-                        pRes = Tcl_NewBooleanObj(res.u.boolean);
-                        break;
-
-                    case SEE_NUMBER:
-                        pRes = Tcl_NewBooleanObj((int)res.u.number);
-                        break;
-
-                    default:
-                        break;
-                }
+            if (SEE_CAUGHT(try_ctxt)) {
+                rc = handleJavascriptError(p->pTclSeeInterp, &try_ctxt);
+            } else {
+                /* Note: The SEE_OBJECT_CALL() above may end up executing
+                 * Tcl code in our main interpreter. Therefore it is important
+                 * to set the command result here, after SEE_OBJECT_CALL().
+                 *
+                 * This was causing a bug earlier.
+                 */
+                if (!pRes) pRes = Tcl_NewBooleanObj(1);
+                Tcl_SetObjResult(interp, pRes);
             }
-
-            /* Note: The SEE_OBJECT_CALL() above may end up executing
-             * Tcl code in our main interpreter. Therefore it is important
-             * to set the command result here, after SEE_OBJECT_CALL().
-             *
-             * This was causing a bug earlier.
-             */
-            if (!pRes) pRes = Tcl_NewBooleanObj(1);
-            Tcl_SetObjResult(interp, pRes);
             break;
         }
 
@@ -2655,7 +2686,7 @@ SEE_OBJECT_CALL(pSeeInterp, pLegacy, pThis, 1, &pArgValue, &res);
         default: assert(!"Can't happen");
     }
 
-    return TCL_OK;
+    return rc;
 }
 
 /*

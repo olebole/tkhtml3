@@ -1,3 +1,4 @@
+namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.3 2007/01/17 10:15:12 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file implements infrastructure used to create the Snit objects
@@ -61,6 +62,13 @@ namespace eval ::hv3::dom {
       $::hv3::dom::CurrentType add_snit $code
     }
 
+    proc dom_todo {property} {
+      dom_get $property [subst -nocommands {
+        puts "TODO: [set self] info type].$property"
+        list
+      }]
+    }
+
     proc dom_get {args} {
       if {[llength $args] == 2} {
         set isCache 0
@@ -117,8 +125,26 @@ namespace eval ::hv3::dom {
     }
   }
 
-  proc compile {domtype} {
+  proc reverse_foreach {var list body} {
+    for {set ii [expr {[llength $list] - 1}]} {$ii >= 0} {incr ii -1} {
+      uplevel [list set $var [lindex $list $ii]]
+      uplevel $body
+    }
+  }
 
+  # Figure out the base-class list for this type. The base-class list
+  # should be in order from lowest to highest priority. i.e. if
+  # constructing the following hierachy:
+  #
+  #             Node
+  #              |
+  #           Element
+  #              |
+  #         HTMLElement
+  #
+  # the base class list for HTMLElement should be {Node Element}.
+  #
+  proc getBaseList {domtype} {
     ::variable TypeArray
     ::variable BaseArray
 
@@ -126,15 +152,30 @@ namespace eval ::hv3::dom {
       error "No such DOM type: $domtype"
     }
 
-    set ret ""
     set base_list ""
-    foreach n $BaseArray($domtype) {
-      if {![info exists TypeArray($n)]} {
-        error "No such DOM type: $n"
+    reverse_foreach base $BaseArray($domtype) {
+      if {![info exists TypeArray($base)]} {
+        error "No such DOM type: $base"
       }
-      set base_list [linsert $base_list 0 $TypeArray($n)]
-    }
 
+      eval lappend base_list [getBaseList $base]
+      lappend base_list $TypeArray($base)
+    }
+    return $base_list
+  }
+
+  proc compile {domtype} {
+
+    ::variable TypeArray
+
+    set base_list [getBaseList $domtype]
+# puts -nonewline "Base of $domtype:"
+# foreach b $base_list {
+#    puts -nonewline " [$b name]"
+# }
+# puts ""
+
+    set ret ""
     append ret [$TypeArray($domtype) compile $base_list]
     append ret "\n"
 
@@ -185,6 +226,7 @@ namespace eval ::hv3::dom {
 
   # Name of this type - i.e. "HTMLDocument".
   variable myName 
+  method name {} {set myName}
 
   constructor {name} {
     set myName $name
@@ -259,6 +301,10 @@ namespace eval ::hv3::dom {
           if {$result eq ""} {
             set result [eval [$myDom see] $myNative Get $property]
           }
+          
+          if {$result eq "" || $result eq "undefined"} {
+            $self Log_UndefinedProperty $property
+          }
     }]
 
     set SWITCHBODY ""
@@ -317,6 +363,8 @@ namespace eval ::hv3::dom {
         $Get
         $Put
         $Snit
+
+        $Log_UndefinedPropertyMethod
       }
     }
 
@@ -331,14 +379,20 @@ namespace eval ::hv3::dom {
         destructor {
           # Destroy objects returned by [dom_get -cache] methods.
           #
-          foreach name value $myGetCache {
+          foreach {name value} [array get myGetCache] {
             foreach {t v} $value {}
-            if {[lindex $value 0] eq "object"]} {
+            if {[lindex $value 0] eq "object"} {
               [lindex $value 1] destroy
             }
           }
 
           # TODO Destroy the myNative object?
+        }
+    }]
+
+    set Log_UndefinedPropertyMethod [subst -novariables {
+        method Log_UndefinedProperty {prop} {
+          puts "Request for DOM property [set myName].$prop -> undefined"
         }
     }]
 
@@ -358,14 +412,18 @@ namespace eval ::hv3::dom {
 source [file join [file dirname [info script]] hv3_dom_core.tcl]
 source [file join [file dirname [info script]] hv3_dom_html.tcl]
 source [file join [file dirname [info script]] hv3_dom_events.tcl]
+source [file join [file dirname [info script]] hv3_dom_style.tcl]
 
-foreach class [list \
-    HTMLElement Text HTMLDocument \
-    NodePrototype NodeList        \
-    MouseEvent UIEvent MutationEvent Event
+foreach class [concat \
+    HTMLCollection HTMLElement HTMLDocument \
+    [::hv3::dom::getHTMLElementClassList]   \
+    Text NodePrototype NodeList             \
+    MouseEvent UIEvent MutationEvent Event  \
+    CSSStyleDeclaration                     \
 ] {
   eval [::hv3::dom::compile $class]
   # puts [::hv3::dom::compile $class]
 }
 ::hv3::dom::cleanup
+
 

@@ -1,3 +1,4 @@
+namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.4 2007/01/17 10:15:12 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Core
@@ -45,8 +46,8 @@
 #
 ::hv3::dom::type Node {} {
 
-  dom_get nodeName        {error "Must be overridden"}
-  dom_get nodeType        {error "Must be overridden"}
+  dom_get nodeName        {error "Must be overridden ($property)"}
+  dom_get nodeType        {error "Must be overridden ($property)"}
 
   # Node.nodeValue is null of all nodes except ATTRIBUTE and TEXT.
   # Also, technically CDATA_SECTION, COMMENT and PROCESSING_INSTRUCTION,
@@ -77,7 +78,7 @@
     list object [::hv3::DOM::NodeList %AUTO% $myDom]
   }
 
-  dom_get ownerDocument { error "Must be overridden" }
+  dom_get ownerDocument { error "Must be overridden ($property)" }
 
   dom_call hasChildNodes {THIS} {list boolean false}
   dom_call insertBefore {THIS newChild refChild} {
@@ -121,8 +122,7 @@
   # document tree.
   #
   dom_get -cache childNodes {
-    set obj [::hv3::DOM::NodeList %AUTO% $myDom]
-    $obj configure -hv3widgethandle $options(-hv3) -nodelistmode document 
+    set obj [::hv3::DOM::NodeList %AUTO% $myDom -nodelistcmd [list $options(-hv3) node]]
     list object $obj
   }
   dom_get firstChild {list object [$self Document_getChildNode]}
@@ -154,16 +154,6 @@
     list object [$myDom node_to_dom [$options(-hv3) node]]
   }
 
-  dom_snit {
-    method CollectionObject {isFinalizable selector} {
-      set obj [hv3::dom::HTMLCollection %AUTO% $myDom $options(-hv3) $selector]
-      if {$isFinalizable} {
-        $obj configure -finalizable 1
-      }
-      list object $obj
-    }
-  }
-
   #-------------------------------------------------------------------------
   # The Document.getElementsByTagName() method (DOM level 1).
   #
@@ -172,7 +162,9 @@
     # someone is going to pass ".id" and wonder why all the elements with
     # the "class" attribute set to "id" are returned.
     #
-    $self CollectionObject 1 $tag
+    list object [
+        ::hv3::DOM::NodeList %AUTO% $myDom -nodelistcmd [list $options(-hv3) search $tag]
+    ]
   }
 }
 
@@ -189,48 +181,44 @@
 #
 ::hv3::dom::type NodeList {} {
   dom_snit {
-    # This is set to one of:
-    #
-    #     "document"
-    #     "element"
-    #     ""
-    #
-    option -nodelistmode -default ""
 
-    # Set to the node-handle (obtained from the HTML widget) that
-    # this NodeList accesses the children of.
+    # The following option is set to a command to return the html-widget nodes
+    # that comprise the contents of this list. i.e. for the value of
+    # the "Document.childNodes" property, this option will be set to
+    # [$hv3 node], where $hv3 is the name of an ::hv3::hv3 widget (that delagates
+    # the [node] method to the html widget).
     #
-    option -parentnodehandle -default ""
+    option -nodelistcmd -default ""
 
-    # This option is only valid if -nodelistmode is set to "document".
-    # It is set to the ::hv3::hv3 widget handle corresponding to
-    # the HTMLDocument object (that this list is the HTMLDocument.childNodes
-    # property of).
-    #
-    option -hv3widgethandle -default ""
-
-    method getChildren {} {
-      switch -- $options(-nodelistmode) {
-        element  { return [$options(-parentnodehandle) children] }
-        document { return [$options(-hv3widgethandle) node] }
-      }
-      return ""
+    method NodeList_getChildren {} {
+      eval $options(-nodelistcmd)
     }
+
+    method NodeList_item {idx} {
+      set children [$self NodeList_getChildren]
+      if {$idx < 0 || $idx >= [llength $children]} { return null }
+      list object [$myDom node_to_dom [lindex $children $idx]]
+    }
+
   }
 
   dom_call -string item {THIS index} {
     if {![string is double $index]} { return null }
-
-    set children [$self getChildren]
-
     set idx [expr {int($index)}]
-    if {$idx < 0 || $idx >= [llength $children]} { return null }
-
-    list object [$myDom node_to_dom [lindex $children $idx]]
+    $self NodeList_item $idx
   }
 
   dom_get length {
-    list number [llength [$self getChildren]]
+    list number [llength [$self NodeList_getChildren]]
+  }
+
+  # Unknown property request. If the property name looks like a number,
+  # invoke the NodeList.item() method. Otherwise, return undefined ("").
+  #
+  dom_get * {
+    if {[string is integer $property]} {
+      $self NodeList_item $property
+    }
   }
 }
 
@@ -298,7 +286,8 @@
 #     This object is never actually instantiated. HTMLElement (and other,
 #     element-specific types) are instantiated instead.
 #
-::hv3::dom::type Element {} {
+set BaseList {ElementCSSInlineStyle WidgetNode Node NodePrototype EventTarget}
+::hv3::dom::type Element $BaseList {
   
   # Override parts of the Node interface.
   #
@@ -307,7 +296,7 @@
 
   dom_get -cache childNodes {
     set NL [::hv3::DOM::NodeList %AUTO% $myDom]
-    $NL configure -parentnodehandle $options(-nodehandle) -nodelistmode element
+    $NL configure -nodelistcmd [list $options(-nodehandle) children]
     list object $NL
   }
 
@@ -319,6 +308,10 @@
   #---------------------------------
 
   # Element.tagName
+  #
+  #     DOM Level 1 HTML section 2.5.3 specifically says that the string
+  #     returned for the tag-name property be in upper-case. Tkhtml3 should
+  #     probably be altered to match this.
   #
   dom_get tagName {list string [string toupper [$options(-nodehandle) tag]]}
 }

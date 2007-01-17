@@ -1,3 +1,4 @@
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.24 2007/01/17 10:15:12 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Global interfaces in this file:
@@ -493,7 +494,7 @@ snit::type ::hv3::dom::Window {
   # The "XMLHttpRequest" property object. This is so that scripts can
   # do the following:
   #
-  #     img = new Image();
+  #     request = new XMLHttpRequest();
   #
   js_getobject XMLHttpRequest {
     ::hv3::JavascriptObject %AUTO% [$myHv3 dom] -construct [mymethod newRequest]
@@ -502,27 +503,6 @@ snit::type ::hv3::dom::Window {
     list object [::hv3::dom::XMLHttpRequest %AUTO% [$myHv3 dom] $myHv3]
   }
 
-  #-----------------------------------------------------------------------
-  # The "Node" object. This contains the constants for Node.nodeType
-  #
-if 0 {
-  js_getobject Node {
-    set obj [::hv3::JavascriptObject %AUTO% [$myHv3 dom]]
-    $obj Put ELEMENT_NODE                [list number 1]
-    $obj Put ATTRIBUTE_NODE              [list number 2]
-    $obj Put TEXT_NODE                   [list number 3]
-    $obj Put CDATA_SECTION_NODE          [list number 4]
-    $obj Put ENTITY_REFERENCE_NODE       [list number 5]
-    $obj Put ENTITY_NODE                 [list number 6]
-    $obj Put PROCESSING_INSTRUCTION_NODE [list number 7]
-    $obj Put COMMENT_NODE                [list number 8]
-    $obj Put DOCUMENT_NODE               [list number 9]
-    $obj Put DOCUMENT_TYPE_NODE          [list number 10]
-    $obj Put DOCUMENT_FRAGMENT_NODE      [list number 11]
-    $obj Put NOTATION_NODE               [list number 12]
-    set obj
-  }
-}
   js_getobject Node {
     set obj [::hv3::DOM::NodePrototype %AUTO% [$myHv3 dom]]
   }
@@ -665,217 +645,6 @@ if 0 {
 }
 
 #-------------------------------------------------------------------------
-# Snit class for DOM class "HTMLCollection".
-#
-# DOM class: (HTMLCollection)
-#
-# Supports the following javascript interface:
-#
-#     length
-#     item(index)
-#     namedItem(name)
-#
-# Also, a request for any property with a numeric name is mapped to a call
-# to the item() method. A request for any property with a non-numeric name
-# maps to a call to namedItem(). Hence, javascript references like:
-#
-#     collection[1]
-#     collection["name"]
-#     collection.name
-#
-# work as expected.
-#
-snit::type ::hv3::dom::HTMLCollection {
-
-  variable myHv3 ""
-  variable mySelector ""
-
-  variable myNodes [list]
-  variable myIsValid 0
-
-  option -finalizable -default 0
-
-  js_init {dom hv3 selector} {
-    set myHv3 $hv3
-    set mySelector $selector
-  }
-
-  #-------------------------------------------------------------------------
-  # The HTMLCollection.length property
-  #
-  js_get length {
-    $self Refresh
-    return [list number [llength $myNodes]]
-  }
-
-  #-------------------------------------------------------------------------
-  # The HTMLCollection.item() method
-  #
-  js_call item {THIS args} {
-    if {[llength $args] != 1} {
-        error "Bad arguments to HTMLCollection.item()"
-    }
-
-    $self Refresh
-    set idx [format %.0f [lindex $args 0 1]]
-    if {$idx < 0 || $idx >= [llength $myNodes]} {
-      return ""
-    }
-    set domobj [[$myHv3 dom] node_to_dom [lindex $myNodes $idx]]
-    return [list object $domobj]
-  }
-
-  #-------------------------------------------------------------------------
-  # The HTMLCollection.namedItem() method
-  #
-  js_call namedItem {this args} {
-    if {[llength $args] != 1} {
-        error "Wrong number of arg to HTMLCollection.namedItem()"
-    }
-    $self Refresh
-
-    set name [lindex $args 0 1]
-    foreach node $myNodes {
-      if {[$node attr -default "" id] eq $name} {
-        set domobj [[$myHv3 dom] node_to_dom $node]
-        return [list object $domobj]
-      }
-    }
-    foreach node $myNodes {
-      if {[$node attr -default "" name] eq $name} {
-        set domobj [[$myHv3 dom] node_to_dom $node]
-        return [list object $domobj]
-      }
-    }
-
-    return ""
-  }
-
-  #-------------------------------------------------------------------------
-  # Handle an attempt to retrieve an unknown property.
-  #
-  js_get * {
-
-    # If $property looks like a number, treat it as an index into $myNodes.
-    # Otherwise look for a node with the "name" or "id" attribute set to 
-    # the attribute name.
-    if {[string is double $property]} {
-      set res [$self call_item THIS [list number $property]]
-    } else {
-      set res [$self call_namedItem THIS [list string $property]]
-    }
-
-    return $res
-  }
-
-  js_finish {}
-
-  # Called to make sure the $myNodes list is current.
-  #
-  method Refresh {} {
-    if {$myIsValid == 0} {
-      set myNodes [$myHv3 search $mySelector]
-      set myIsValid 1
-    }
-  }
-
-  method Finalize {} {
-    if {$options(-finalizable)} {$self destroy}
-  }
-
-  # This method is called externally when the underlying HTML document
-  # changes structure. Any cache of the collection is purged.
-  #
-  method invalidate {} {
-    set myIsValid 0
-    set myNodes [list]
-  }
-}
-
-snit::type ::hv3::dom::HTMLCollection_FE {
-  variable myNode
-  variable myDom
-
-  js_init {dom hv3 node} {
-    set myDom [$hv3 dom]
-    set myNode $node
-  }
-
-  js_get length {
-    set controlnodes [[$myNode replace] controls]
-    return [list number [llength $controlnodes]]
-  }
-
-  js_call item {THIS js_index} {
-    set controlnodes [[$myNode replace] controls]
-
-    set len [llength $controlnodes]
-    set idx [lindex $js_index 1]
-    if {$idx < 0 || $idx >= $len} {return ""}
-    
-    return [list object [$myDom node_to_dom [lindex $controlnodes $idx]]]
-  }
-
-  js_call namedItem {THIS js_name} {
-    set controlnodes [[$myNode replace] controls]
-    set name [lindex $js_name 1]
-
-    foreach c $controlnodes {
-      if {[$c attribute -default "" name] eq $name} {
-        return [list object [$myDom node_to_dom $c]]
-      }
-    }
-
-    foreach c $controlnodes {
-      if {[$c attribute -default "" id] eq $name} {
-        return [list object [$myDom node_to_dom $c]]
-      }
-    }
-    return ""
-  }
-
-  js_get * {
-
-    # If $property looks like a number, treat it as an index into $myNodes.
-    # Otherwise look for a node with the "name" or "id" attribute set to 
-    # the attribute name.
-    if {[string is double $property]} {
-      set res [$self call_item THIS [list number $property]]
-    } else {
-      set res [$self call_namedItem THIS [list string $property]]
-    }
-
-    return $res
-  }
-
-  js_finish {}
-}
-
-# End of ::hv3::dom::HTMLCollection
-#-------------------------------------------------------------------------
-
-
-#-------------------------------------------------------------------------
-# Snit type for DOM type Text.
-#
-# DOM class: (Node -> CharacterData -> Text) 
-#
-# Supports the following interface:
-#
-snit::type ::hv3::dom::Text {
-  variable myNode ""
-
-  js_init {dom hv3 node} {
-    set myNode $node
-  }
-
-  js_get nodeType { list number 3 ;#3 -> TEXT_NODE }
-
-  js_finish {}
-}
-#-------------------------------------------------------------------------
-
-#-------------------------------------------------------------------------
 # Snit type for DOM type HTMLImageElement.
 #
 # DOM class: (Node -> Element -> HTMLElement -> HTMLImageElement)
@@ -919,70 +688,6 @@ snit::type ::hv3::dom::HTMLImageElement {
   js_getput_attribute useMap   usemap
   js_getput_attribute vspace   vspace
   js_getput_attribute width    width
-
-  js_finish {}
-}
-
-#-------------------------------------------------------------------------
-# Snit type for DOM type HTMLFormElement.
-#
-# DOM class: (Node -> Element -> HTMLElement -> HTMLFormElement)
-#
-# Form-control objects:
-#      HTMLSelectElement, HTMLInputElement, HTMLTextAreaElement,
-#      HTMLButtonElement.
-#
-#      HTMLOptGroupElement, HTMLOptionElement,
-#      HTMLLabelElement, HTMLFieldSetElement, HTMLLegendElement,
-#
-snit::type ::hv3::dom::HTMLFormElement {
-
-  variable myNode ""
-  variable myHv3 ""
-
-  js_init {dom hv3 node} {
-    set myHv3 $hv3
-    set myNode $node
-    set myJavascriptParent [::hv3::dom::HTMLElement %AUTO% $dom $hv3 $node]
-  }
-
-  #----------------------------------------------------------------------
-  # Form control methods: submit() and reset().
-  #
-  js_call submit {THIS} {
-    set form [$myNode replace]
-    $form submit ""
-  }
-  js_call reset {THIS} {
-    set form [$myNode replace]
-    $form reset
-  }
-
-  #----------------------------------------------------------------------
-  # Various Get/Put string property/attributes.
-  #
-  js_getput_attribute name          name
-  js_getput_attribute target        target
-  js_getput_attribute method        method
-  js_getput_attribute action        action
-  js_getput_attribute acceptCharset acceptcharset
-  js_getput_attribute enctype       enctype
-
-  #----------------------------------------------------------------------
-  # The HTMLFormElement.elements array.
-  #
-  js_getobject elements {
-    ::hv3::dom::HTMLCollection_FE %AUTO% $myHv3 $myNode
-  }
-
-  #----------------------------------------------------------------------
-  # Unknown property handler. Try any unknown property requests on the
-  # HTMLFormElement.elements object.
-  #
-  js_get * {
-    set obj [lindex [$self Get elements] 1]
-    return [$obj Get $property]
-  }
 
   js_finish {}
 }
@@ -1317,6 +1022,7 @@ snit::type ::hv3::dom {
       # object constructor. 
       if {$mySee ne ""} {
         $mySee destroy
+        set mySee ""
 
         # Delete all the DOM objects in the $myNodeToDom array.
         foreach key [array names myNodeToDom] {
@@ -1444,7 +1150,12 @@ snit::type ::hv3::dom {
     }
   }
 
+  # This method is called by the ::hv3::mousemanager object to 
+  # dispatch a mouse-event into DOM country.
+  #
   method mouseevent {event node x y args} {
+    if {![::hv3::dom::use_scripting] || $mySee eq ""} {return 1}
+
     set Node [$self node_to_dom $node]
     eval ::hv3::dom::dispatchMouseEvent $self $event $Node $x $y $args
   }
@@ -1469,15 +1180,7 @@ snit::type ::hv3::dom {
   #
   method node_to_dom {node args} {
     if {![info exists myNodeToDom($node)]} {
-
-      set objtype ::hv3::DOM::HTMLElement
-
-      set tag [$node tag]
-      if {[info exists tag_to_obj($tag)]} {
-        set objtype $tag_to_obj($tag)
-      } 
-
-      set myNodeToDom($node) [$objtype %AUTO% $self -nodehandle $node]
+      set myNodeToDom($node) [::hv3::dom::createWidgetNode $self $node]
       $myNodeToDom($node) configurelist $args
     }
     return $myNodeToDom($node)
@@ -1496,6 +1199,15 @@ snit::type ::hv3::dom {
     # in.
     #
     lindex [$myWindow Get document] 1
+  }
+
+  #----------------------------------------------------------------
+  # Given an html-widget node-handle, return the corresponding 
+  # ::hv3::hv3 object. i.e. the owner of the node-handle.
+  #
+  method node_to_hv3 {node} {
+    # TODO: Same fix as for [node_to_document] is required.
+    return $myHv3
   }
 
   method see {} { return $mySee }
@@ -1637,7 +1349,8 @@ proc ::hv3::dom::use_scripting {} {
   return $r
 }
 
-set ::hv3::dom::use_scripting_option 1
 # set ::hv3::dom::reformat_scripts_option 0
+
+set ::hv3::dom::use_scripting_option 1
 set ::hv3::dom::reformat_scripts_option 1
 

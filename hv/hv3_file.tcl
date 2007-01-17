@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_file.tcl,v 1.2 2006/11/22 07:34:24 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_file.tcl,v 1.3 2007/01/17 10:15:13 danielk1977 Exp $)} 1 }
 
 #
 # This file contains Tcl code for loading file:// URIs in the hv3 web browser
@@ -71,14 +71,33 @@ proc directoryIndex {directory} {
         &nbsp;<a href='[file dirname $directory]'>.. (parent directory)</a><br>"
     
     # List, sort and create an icon+link entry for each file/folder
+    set ex 0
     foreach entry [lsort [glob -nocomplain -directory $directory *]] {
+        append data "<div class=direntry>"
         if {[file isdirectory $entry]} {
             append data "\n<img src=replace:$iconsArray(bitmap_folder_icon)>"
         } else {
             append data "\n<img src=replace:$iconsArray(bitmap_file_icon)>"
         }
-        append data "&nbsp;<a href='$entry'>[file tail $entry]</a><br>"
+        set fname [file tail $entry]
+
+        append data "&nbsp;<a href='$entry'>$fname</a><br>"
+        append data "</div> "
+
+        set len [string length $fname]
+        incr len 10
+        if {$len > $ex} {set ex $len}
     }
+
+    append data [subst {
+      <style>
+      .direntry {
+        display: inline-block;
+        width: ${ex}ex;
+      }
+      </style>
+    }]
+
     append data {
           </body>
         </html>

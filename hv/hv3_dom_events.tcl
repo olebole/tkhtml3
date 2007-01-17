@@ -1,3 +1,4 @@
+namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.3 2007/01/17 10:15:12 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # DOM Level 2 Events.
