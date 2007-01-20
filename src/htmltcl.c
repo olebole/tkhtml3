@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.152 2007/01/14 09:48:36 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.153 2007/01/20 07:58:41 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -533,7 +533,21 @@ HtmlCallbackForce(pTree)
     }
 }
 
-static void
+/*
+ *---------------------------------------------------------------------------
+ *
+ * upgradeRestylePoint --
+ *
+ * Results:
+ *     True if argument pNode is located in the document tree, or false
+ *     if it is located in some orphan tree.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int
 upgradeRestylePoint(ppRestyle, pNode)
     HtmlNode **ppRestyle;
     HtmlNode *pNode;
@@ -543,7 +557,7 @@ upgradeRestylePoint(ppRestyle, pNode)
     assert(pNode && ppRestyle);
 
     for (pA = pNode; pA; pA = HtmlNodeParent(pA)) {
-        if (pA->iNode == HTML_NODE_ORPHAN) return;
+        if (pA->iNode == HTML_NODE_ORPHAN) return 0;
     }
 
     for (pA = *ppRestyle; pA; pA = HtmlNodeParent(pA)) {
@@ -551,7 +565,7 @@ upgradeRestylePoint(ppRestyle, pNode)
         for (pB = pNode; pB; pB = HtmlNodeParent(pB)) {
             if (pB == pA) {
                 *ppRestyle = pB;
-                return;
+                return 1;
             }  
             if (HtmlNodeParent(pB) == pParentA) {
                 int i;
@@ -559,11 +573,11 @@ upgradeRestylePoint(ppRestyle, pNode)
                     HtmlNode *pChild = HtmlNodeChild(pParentA, i);
                     if (pChild == pB) {
                         *ppRestyle = pB;
-                        return;
+                        return 1;
                     }
                     if (pChild == pA) {
                         *ppRestyle = pA;
-                        return;
+                        return 1;
                     }
                 }
             }
@@ -572,6 +586,7 @@ upgradeRestylePoint(ppRestyle, pNode)
 
     assert(!*ppRestyle);
     *ppRestyle = pNode;
+    return 1;
 }
 
 /*
@@ -600,11 +615,12 @@ HtmlCallbackRestyle(pTree, pNode)
     HtmlNode *pNode;
 {
     if (pNode) {
-        if (!pTree->cb.flags) {
-            Tcl_DoWhenIdle(callbackHandler, (ClientData)pTree);
+        if (upgradeRestylePoint(&pTree->cb.pRestyle, pNode)) {
+            if (!pTree->cb.flags) {
+                Tcl_DoWhenIdle(callbackHandler, (ClientData)pTree);
+            }
+            pTree->cb.flags |= HTML_RESTYLE;
         }
-        pTree->cb.flags |= HTML_RESTYLE;
-        upgradeRestylePoint(&pTree->cb.pRestyle, pNode);
     }
 
     /* This is also where the text-representation of the document is
@@ -640,11 +656,12 @@ HtmlCallbackDynamic(pTree, pNode)
     HtmlNode *pNode;
 {
     if (pNode) {
-        if (!pTree->cb.flags) {
-            Tcl_DoWhenIdle(callbackHandler, (ClientData)pTree);
+        if (upgradeRestylePoint(&pTree->cb.pDynamic, pNode)) {
+            if (!pTree->cb.flags) {
+                Tcl_DoWhenIdle(callbackHandler, (ClientData)pTree);
+            }
+            pTree->cb.flags |= HTML_DYNAMIC;
         }
-        pTree->cb.flags |= HTML_DYNAMIC;
-        upgradeRestylePoint(&pTree->cb.pDynamic, pNode);
     }
 }
 

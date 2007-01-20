@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.3 2007/01/17 10:15:12 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.4 2007/01/20 07:58:40 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # DOM Level 2 Events.
@@ -196,24 +196,35 @@ set ::hv3::dom::HTML_Events_List [list                          \
 
     method EventTarget_Put {event value} {
       if {[lindex $value 0] ne "object"} {
-        error "Bad type for on$event property"
+        if {$myEventTarget eq ""} return
+        $myEventTarget removeLegacyListener $event
+      } else {
+        $self initEventTarget
+        $myEventTarget setLegacyListener $event [lindex $value 1]
       }
-      $self initEventTarget
-      $myEventTarget setLegacyListener $event [lindex $value 1]
     } 
 
-    method runEvent {event_type isCapture THIS event} {
+    # Returns one of the following, as per the C event-target
+    # object (see hv3see.c):
+    #
+    #     "prevent"
+    #     "ok"
+    #     ""
+    #
+    method runEvent {event_type isCapture event} {
       $self EventTarget_InitIfAttribute $event_type
-      if {$myEventTarget eq ""} { return 1 }
-      $myEventTarget runEvent $event_type $isCapture $THIS $event
+      if {$myEventTarget eq ""} { return "" }
+      $myEventTarget runEvent $event_type $isCapture $self $event
     }
 
     method doDispatchEvent {event} {
       set event_type [$event cget -eventtype]
+      set isRun 0          ;# Set to true if one or more scripts are run.
 
       # Use the DOM Node.nodeParent interface to determine the ancestry.
       #
       set N [$self Get parentNode]
+      set nodes [list]
       while {[lindex $N 0] eq "object"} {
         set cmd [lindex $N 1]
         lappend nodes $cmd
@@ -225,37 +236,41 @@ set ::hv3::dom::HTML_Events_List [list                          \
       for {set ii [expr [llength $nodes] - 1]} {$ii >= 0} {incr ii -1} {
         if {[$event stoppropagationcalled]} break
         set node [lindex $nodes $ii]
-        $node runEvent $event_type 1 $node $event
+        
+        set rc [$node runEvent $event_type 1 $event]
+        if {$rc ne ""} {set isRun 1}
       }
 
       # Target phase:
       $event configure -eventphase 2
       if {![$event stoppropagationcalled]} {
-        if {![$self runEvent $event_type 0 $self $event]} {
-          $event Call preventDefault $event
+        set rc [$self runEvent $event_type 0 $event]
+        if {"prevent" eq $rc} {
+          $event configure -preventdefault true
         } 
+        if {$rc ne ""} {set isRun 1}
       }
 
       # Bubbling phase:
       $event configure -eventphase 3
       foreach node $nodes {
         if {[$event stoppropagationcalled]} break
-        if {![$node runEvent $event_type 0 $node $event]} {
-          $event Call preventDefault $event
+        set rc [$node runEvent $event_type 0 $event]
+        if {"prevent" eq $rc} {
+          $event configure -preventdefault true
         }
+        if {$rc ne ""} {set isRun 1}
       }
 
-      # If anyone called Event.preventDefault(), return false. Otherwise
-      # return true. This matches the traditional and inline event models:
-      # clicking on the following link does nothing as the "return false"
-      # prevents the default action.
+      # If anyone called Event.preventDefault(), return "prevent". Otherwise,
+      # if one or more scripts were executed, return "ok. If no scripts
+      # were executed, return "".
       #
-      #     <a href="www.net.com" onclick="return false">
-      #
-      return [expr {![$event preventdefaultcalled]}]
+      if {[$event cget -preventdefault]} {return "prevent"}
+      if {$isRun} {return "ok"}
+      return ""
     }
   }
-
 }
 
 ::hv3::dom::type Event {} {
@@ -283,7 +298,7 @@ set ::hv3::dom::HTML_Events_List [list                          \
   dom_get timestamp  { list number 0 }
 
   dom_call stopPropagation {THIS} { set myStopPropagationCalled 1 }
-  dom_call preventDefault {THIS}  { set myPreventDefaultCalled 1 }
+  dom_call preventDefault {THIS}  { set options(-preventdefault) true }
 
   dom_call -string initEvent {eventType canBubble cancelable} {
     $self Event_initEvent $eventType $canBubble $cancelable
@@ -298,6 +313,8 @@ set ::hv3::dom::HTML_Events_List [list                          \
     # Event.type interface.
     option -eventtype -default ""
 
+    option -preventdefault -default false
+
     variable myCanBubble ""
     variable myCancelable ""
 
@@ -307,9 +324,6 @@ set ::hv3::dom::HTML_Events_List [list                          \
       set myCancelable $cancelable
       return ""
     }
-
-    variable myPreventDefaultCalled 0
-    method preventdefaultcalled {} { return $myPreventDefaultCalled }
 
     variable myStopPropagationCalled 0
     method stoppropagationcalled {} {return $myStopPropagationCalled}
@@ -367,6 +381,17 @@ set ::hv3::dom::HTML_Events_List [list                          \
           [lindex $eventtype 1] [lindex $canBubble 1] [lindex $cancelable 1]
   }
 
+  dom_snit {
+    option -button -default 0
+    option -x
+    option -y
+  }
+
+  dom_get button { list number $options(-button) }
+  dom_get which  { list number [expr {$options(-button) + 1}]}
+
+  dom_get clientX { list number $options(-x) }
+  dom_get clientY { list number $options(-y) }
 }
 
 ::hv3::dom::type MutationEvent {Event} {
@@ -411,8 +436,9 @@ proc ::hv3::dom::dispatchMouseEvent {dom eventtype EventTarget x y args} {
 
   set isCancelable $::hv3::dom::MouseEventType($eventtype)
 
-  set event [::hv3::DOM::MouseEvent %AUTO% $dom]
+  set event [::hv3::DOM::MouseEvent %AUTO% $dom -x $x -y $y]
   $event Event_initEvent $eventtype 1 $isCancelable
+  $event configurelist $args
 
   $EventTarget doDispatchEvent $event
 }

@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.106 2006/12/30 07:25:34 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.107 2007/01/20 07:58:40 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -3805,6 +3805,7 @@ struct CssSearch {
   CssRule *pRuleList;
   Tcl_Obj *pResult;
   HtmlTree *pTree;
+  HtmlNode *pSearchRoot;
 };
 typedef struct CssSearch CssSearch;
 
@@ -3817,7 +3818,7 @@ cssSearchCallback(pTree, pNode, clientData)
     CssSearch *pSearch = (CssSearch *)clientData;
     assert(pSearch->pRuleList);
     assert(pSearch->pResult);
-    if (0 == HtmlNodeIsText(pNode)) {
+    if (pNode != pSearch->pSearchRoot && 0 == HtmlNodeIsText(pNode)) {
         CssRule *p;
         for (
             p = pSearch->pRuleList; 
@@ -3837,7 +3838,7 @@ cssSearchCallback(pTree, pNode, clientData)
  *
  * HtmlCssSearch --
  *
- *     widget search CSS-SELECTOR
+ *     widget search CSS-SELECTOR ?-root NODE?
  *
  * Results:
  *     None.
@@ -3860,9 +3861,16 @@ HtmlCssSearch(clientData, interp, objc, objv)
     int rc = TCL_OK;
     CssStyleSheet *pStyle = 0;
 
-    if (objc != 3) {
-        Tcl_WrongNumArgs(interp, 2, objv, "CSS-SELECTOR");
+    /* Search only descendants of this node (NULL means search whole tree) */
+    HtmlNode *pSearchRoot = 0;
+
+    if (objc != 3 && (objc != 5 || strcmp(Tcl_GetString(objv[3]), "-root"))) {
+        Tcl_WrongNumArgs(interp, 2, objv, "CSS-SELECTOR ?-root NODE?");
         return TCL_ERROR;
+    }
+    if (objc == 5) {
+        pSearchRoot = HtmlNodeGetPointer(pTree, Tcl_GetString(objv[4]));
+        if (!pSearchRoot) return TCL_ERROR;
     }
 
     zOrig = Tcl_GetStringFromObj(objv[2], &n);
@@ -3885,7 +3893,8 @@ HtmlCssSearch(clientData, interp, objc, objv)
         sSearch.pRuleList = pStyle->pUniversalRules;
         sSearch.pResult = pObj;
         sSearch.pTree = pTree;
-        HtmlWalkTree(pTree, 0, cssSearchCallback, (ClientData)&sSearch);
+        sSearch.pSearchRoot = pSearchRoot;
+        HtmlWalkTree(pTree, pSearchRoot, cssSearchCallback, (ClientData)&sSearch);
 
         Tcl_SetObjResult(interp, pObj);
     }

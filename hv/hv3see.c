@@ -829,10 +829,20 @@ objToValue(pInterp, pObj, pValue)
                 }
                 case SEE_NUMBER: {
                     double val;
+                    const char *zElem = Tcl_GetString(apElem[1]);
+                    if (0==strcmp(zElem, "-NaN") || 0==strcmp(zElem, "NaN")) {
+                        struct SEE_value v;
+                        struct SEE_string *pNaN = SEE_intern_ascii(
+                            &pInterp->interp, "NaN"
+                        );
+                        SEE_SET_STRING(&v, pNaN);
+                        SEE_ToNumber(&pInterp->interp, &v, pValue);
+                    } else 
                     if (Tcl_GetDoubleFromObj(pTclInterp, apElem[1], &val)) {
                         return TCL_ERROR;
+                    } else {
+                        SEE_SET_NUMBER(pValue, val);
                     }
-                    SEE_SET_NUMBER(pValue, val);
                     break;
                 }
                 case SEE_STRING: {
@@ -2431,6 +2441,8 @@ eventTargetDelete(clientData)
  *
  *     $eventtarget setLegacyListener   TYPE LISTENER
  *
+ *     $eventtarget removeLegacyListener TYPE
+ *
  *     $eventtarget runEvent            TYPE USE-CAPTURE THIS JS-ARG
  *
  *     $eventtarget destroy
@@ -2463,6 +2475,7 @@ eventTargetMethod(clientData, interp, objc, objv)
         ET_ADD,
         ET_REMOVE,
         ET_LEGACY,
+        ET_REMOVE_LEGACY,
         ET_INLINE,
         ET_RUNEVENT,
         ET_DESTROY
@@ -2475,12 +2488,13 @@ eventTargetMethod(clientData, interp, objc, objv)
         int nArgs;
         char *zArgs;
     } aSubCommand[] = {
-        {"addEventListener",    ET_ADD,      3, "TYPE LISTENER USE-CAPTURE"},
-        {"removeEventListener", ET_REMOVE,   3, "TYPE LISTENER USE-CAPTURE"},
-        {"setLegacyListener",   ET_LEGACY,   2, "TYPE LISTENER"},
-        {"setLegacyScript",     ET_INLINE,   2, "TYPE JAVASCRIPT"},
-        {"runEvent",            ET_RUNEVENT, 4, "TYPE CAPTURE THIS JS-ARG"},
-        {"destroy",             ET_DESTROY,  0, ""},
+        {"addEventListener",     ET_ADD,      3, "TYPE LISTENER USE-CAPTURE"},
+        {"removeEventListener",  ET_REMOVE,   3, "TYPE LISTENER USE-CAPTURE"},
+        {"setLegacyScript",      ET_INLINE,   2, "TYPE JAVASCRIPT"},
+        {"runEvent",             ET_RUNEVENT, 4, "TYPE CAPTURE THIS JS-ARG"},
+        {"setLegacyListener",    ET_LEGACY,        2, "TYPE LISTENER"},
+        {"removeLegacyListener", ET_REMOVE_LEGACY, 1, "TYPE"},
+        {"destroy",              ET_DESTROY,       0, ""},
         {0, 0, 0, 0}
     };
 
@@ -2501,14 +2515,15 @@ eventTargetMethod(clientData, interp, objc, objv)
         return TCL_ERROR;
     }
 
-    /* If this is an ADD, LEGACY, RUNEVENT or REMOVE operation, search
-     * for an EventType that matches objv[2]. If it is an ADD or LEGACY,
-     * create the EventType if it does not already exist. 
+    /* If this is an ADD, LEGACY, INLINE, RUNEVENT or REMOVE operation, 
+     * search for an EventType that matches objv[2]. If it is an ADD, 
+     * LEGACY or INLINE, create the EventType if it does not already exist. 
      */
     eChoice = aSubCommand[iChoice].eSymbol;
     if (
         eChoice == ET_REMOVE || eChoice == ET_RUNEVENT || 
-        eChoice == ET_ADD || eChoice == ET_LEGACY || eChoice == ET_INLINE
+        eChoice == ET_ADD || eChoice == ET_LEGACY || eChoice == ET_INLINE ||
+        eChoice == ET_REMOVE_LEGACY
     ) {
         for (
             pType = p->pTypeList;
@@ -2569,6 +2584,8 @@ eventTargetMethod(clientData, interp, objc, objv)
         case ET_REMOVE: {
             ListenerContainer **ppListenerContainer;
             int isCapture;
+
+            if (!pType) break;
             if (TCL_OK != Tcl_GetBooleanFromObj(interp, objv[4], &isCapture)) {
                 return TCL_ERROR;
             }
@@ -2589,18 +2606,37 @@ eventTargetMethod(clientData, interp, objc, objv)
 
         case ET_INLINE:
         case ET_LEGACY:
-            pType->pLegacyListener = pListener;
+        case ET_REMOVE_LEGACY:
+            assert(pType || (!pListener && eChoice == ET_REMOVE_LEGACY));
+            if (pType) {
+                pType->pLegacyListener = pListener;
+            }
             break;
-
 
         /*
          * $eventtarget runEvent TYPE IS-CAPTURE THIS EVENT
+         * 
+         *     The return value of this command is one of the following:
+         *
+         *         "prevent" - A legacy handler returned false, indicating
+         *                     that the default browser action should
+         *                     be cancelled.
+         *
+         *         "ok"      - Event handlers were run.
+         *
+         *         ""        - There were no event handlers to run.
+         *
+         *     If an error or unhandled exception occurs in the javascript,
+         *     a Tcl exception is thrown.
          */
         case ET_RUNEVENT: {
             ListenerContainer *pL;
 
-            /* The result of this Tcl command */
-            Tcl_Obj *pRes = 0;
+            /* The result of this Tcl command. eRes is set to an index
+             * into azRes. 
+             */
+            char const *azRes[] = {"", "ok", "prevent"};
+            int eRes = 0;
 
 	    /* TODO: Try-catch context to execute the javascript callbacks in.
              * At the moment only a single try-catch is used for all
@@ -2618,7 +2654,6 @@ eventTargetMethod(clientData, interp, objc, objv)
             SEE_try_context_t try_ctxt;
 
             struct SEE_object *pThis;
-            struct SEE_object *pLegacy = pType->pLegacyListener;
 
             /* The event object passed as an argument */
             struct SEE_object *pArg;
@@ -2636,35 +2671,44 @@ eventTargetMethod(clientData, interp, objc, objv)
             SEE_SET_OBJECT(&sArgValue, pArg);
             pArgV= &sArgValue;
 
-            SEE_TRY (pSeeInterp, try_ctxt) {
-
-                for (pL = pType->pListenerList; pL; pL = pL->pNext) {
-                    if (isCapture == pL->isCapture) {
-                        struct SEE_value res;
-                        struct SEE_object *p2 = pL->pListener;
-                        SEE_OBJECT_CALL(pSeeInterp, p2, pThis, 1, &pArgV, &res);
+            if (pType) {
+                SEE_TRY (pSeeInterp, try_ctxt) {
+                    struct SEE_object *pLegacy = pType->pLegacyListener;
+    
+                    for (pL = pType->pListenerList; pL; pL = pL->pNext) {
+                        if (isCapture == pL->isCapture) {
+                            struct SEE_value res;
+                            struct SEE_object *p2 = pL->pListener;
+                            SEE_OBJECT_CALL(
+                                pSeeInterp, p2, pThis, 1, &pArgV, &res
+                            );
+                            eRes = MAX(eRes, 1);
+                        }
                     }
-                }
-    
-                if (!isCapture && pLegacy) {
-                    struct SEE_value r;
-                    SEE_OBJECT_CALL(pSeeInterp, pLegacy, pThis, 1, &pArgV, &r);
-                    switch (SEE_VALUE_GET_TYPE(&r)) {
-                        case SEE_BOOLEAN:
-                            pRes = Tcl_NewBooleanObj(r.u.boolean);
-                            break;
-    
-                        case SEE_NUMBER:
-                            pRes = Tcl_NewBooleanObj((int)r.u.number);
-                            break;
-    
-                        default:
-                            break;
+        
+                    if (!isCapture && pLegacy) {
+                        struct SEE_value r;
+                        SEE_OBJECT_CALL(
+                            pSeeInterp, pLegacy, pThis, 1, &pArgV, &r
+                        );
+                        eRes = MAX(eRes, 1);
+                        switch (SEE_VALUE_GET_TYPE(&r)) {
+                            case SEE_BOOLEAN:
+                                if (0 == r.u.boolean) eRes = MAX(eRes, 2);
+                                break;
+        
+                            case SEE_NUMBER:
+                                if (0 == ((int)r.u.number)) eRes = MAX(eRes, 2);
+                                break;
+        
+                            default:
+                                break;
+                        }
                     }
                 }
             }
 
-            if (SEE_CAUGHT(try_ctxt)) {
+            if (pType && SEE_CAUGHT(try_ctxt)) {
                 rc = handleJavascriptError(p->pTclSeeInterp, &try_ctxt);
             } else {
                 /* Note: The SEE_OBJECT_CALL() above may end up executing
@@ -2673,7 +2717,7 @@ eventTargetMethod(clientData, interp, objc, objv)
                  *
                  * This was causing a bug earlier.
                  */
-                if (!pRes) pRes = Tcl_NewBooleanObj(1);
+                Tcl_Obj *pRes = Tcl_NewStringObj(azRes[eRes], -1);
                 Tcl_SetObjResult(interp, pRes);
             }
             break;

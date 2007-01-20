@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.3 2007/01/17 10:15:12 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.4 2007/01/20 07:58:40 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Html
@@ -281,38 +281,6 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.3 2007/01/17 10:15:1
 
 
 
-namespace eval ::hv3::dom::compiler {
-
-  # element_attr --
-  #
-  #     element_attr NAME ?OPTIONS?
-  #
-  #         -attribute ATTRIBUTE-NAME          (default NAME)
-  #         -readonly                          (make the attribute readonly)
-  #
-  proc element_attr {name args} {
-
-    set readonly 0
-    set attribute $name
-
-    # Process the arguments to [element_attr]:
-    for {set ii 0} {$ii < [llength $args]} {incr ii} {
-    }
-
-    # The Get code.
-    dom_get $name [subst -novariables {
-      $self HTMLElement_getAttributeString [set attribute] ""
-    }]
-
-    # Create the Put method (unless the -readonly switch was passed).
-    if {!$readonly} {
-      dom_put $name val [subst -novariables {
-        $self HTMLElement_putAttributeString [set name] $val
-      }]
-    }
-  }
-}
-
 
 #-------------------------------------------------------------------------
 # DOM Type HTMLElement (Node -> Element -> HTMLElement)
@@ -324,17 +292,6 @@ namespace eval ::hv3::dom::compiler {
   element_attr lang
   element_attr dir
   element_attr className -attribute class
-
-  dom_snit {
-    method HTMLElement_getAttributeString {name def} {
-      set val [$options(-nodehandle) attribute -default $def $name]
-      list string $val
-    }
-    method HTMLElement_putAttributeString {name val} {
-      $options(-nodehandle) attribute $name $val
-      return ""
-    }
-  }
 
   #----------------------------------------------------------------------
   # The HTMLElement.innerHTML property. This is not part of any standard.
@@ -385,6 +342,65 @@ namespace eval ::hv3::dom::compiler {
       $node insert $children
       return ""
     }
+  }
+
+  #--------------------------------------------------------------------
+  # The completely non-standard offsetParent, offsetTop and offsetLeft.
+  # TODO: Ref.
+  #
+  dom_snit {
+    method HTMLElement_offsetParent {} {
+      for {set N [$options(-nodehandle) par]} {$N ne ""} {set N [$N parent]} {
+        set position [$N property position]
+        if {$position ne "static"} break
+      }
+      return $N
+    }
+  }
+
+  dom_get offsetParent { 
+    set N [$self HTMLElement_offsetParent]
+    if {$N eq ""} {
+      list null
+    } else {
+      list object [$myDom node_to_dom $N]
+    }
+  }
+
+  dom_get offsetLeft { 
+    set hv3 [$myDom node_to_hv3 $options(-nodehandle)] 
+
+    set bbox [$hv3 bbox $options(-nodehandle)]
+    list number [lindex $bbox 0]
+  }
+
+  dom_get offsetTop { 
+    set hv3 [$myDom node_to_hv3 $options(-nodehandle)] 
+    set bbox [$hv3 bbox $options(-nodehandle)]
+    # if {[lindex $bbox 1] < 0} {error "$bbox"}
+    # set ret [list number [lindex $bbox 1]]
+    
+    set ptop 0
+    set parent [$self HTMLElement_offsetParent]
+    if {$parent ne ""} {
+      set bbox [$hv3 bbox $parent]
+      puts $bbox
+      set ptop [lindex [$hv3 bbox $parent] 1]
+    }
+
+    set ret [list number [expr {[lindex $bbox 1] - $ptop}]]
+    set ret
+  }
+
+  dom_get offsetHeight { 
+    set hv3 [$myDom node_to_hv3 $options(-nodehandle)] 
+    set bbox [$hv3 bbox $options(-nodehandle)]
+    list number [expr {[lindex $bbox 3] - [lindex $bbox 1]}]
+  }
+  dom_get offsetWidth { 
+    set hv3 [$myDom node_to_hv3 $options(-nodehandle)] 
+    set bbox [$hv3 bbox $options(-nodehandle)]
+    list number [expr {[lindex $bbox 2] - [lindex $bbox 0]}]
   }
 }
 
@@ -454,8 +470,8 @@ namespace eval ::hv3::dom::compiler {
   dom_todo type
   dom_todo useMap
 
-  dom_get value             { list string [[$options(-nodehandle) replace] value] }
-  dom_put -string value val { [$options(-nodehandle) replace] set_value $val      }
+  dom_get value { list string [[$options(-nodehandle) replace] value] }
+  dom_put -string value val { [$options(-nodehandle) replace] set_value $val }
 
   dom_call blur   {THIS} { [$options(-nodehandle) replace] dom_blur }
   dom_call focus  {THIS} { [$options(-nodehandle) replace] dom_focus }
@@ -476,7 +492,36 @@ namespace eval ::hv3::dom::compiler {
 #-------------------------------------------------------------------------
 # DOM Type HTMLTextAreaElement (extends HTMLElement)
 #
+#
+#     http://api.kde.org/cvs-api/kdelibs-apidocs/khtml/html/classDOM_1_1HTMLTextAreaElement.html
+#
 ::hv3::dom::type HTMLTextAreaElement HTMLElement {
+
+  dom_get value { list string [[$options(-nodehandle) replace] value] }
+  dom_put -string value val { [$options(-nodehandle) replace] set_value $val }
+
+  dom_call focus  {THIS} { [$options(-nodehandle) replace] dom_focus }
+
+  #-------------------------------------------------------------------------
+  # The following are not part of the standard DOM. They are mozilla
+  # extensions. KHTML implements them too. 
+  #
+  dom_get selectionEnd   { $self HTMLTextAreaElement_getSelection 1 }
+  dom_get selectionStart { $self HTMLTextAreaElement_getSelection 0 }
+
+  dom_snit {
+    method HTMLTextAreaElement_getSelection {isEnd} {
+      set t [[$options(-nodehandle) replace] get_text_widget]
+      set sel [$t tag nextrange sel 0.0]
+      if {$sel eq ""} {
+        set ret [string length [$t get 0.0 insert]]
+      } else {
+        set ret [string length [$t get 0.0 [lindex $sel $isEnd]]]
+      }
+      list number $ret
+    }
+  }
+
 }
 # </HTMLTextAreaElement>
 #-------------------------------------------------------------------------
@@ -530,6 +575,123 @@ namespace eval ::hv3::dom::compiler {
 #-------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------
+# DOM Type HTMLTableElement (extends HTMLElement)
+#
+::hv3::dom::type HTMLTableElement HTMLElement {
+  dom_todo caption
+  dom_todo tHead
+  dom_todo tFoot
+
+  dom_todo rows
+
+  dom_get -cache tBodies {
+    set cmd [mymethod HTMLTableElement_getTBodies]
+    list object [::hv3::DOM::HTMLCollection %AUTO% $myDom -nodelistcmd $cmd]
+  }
+  dom_snit {
+    method HTMLTableElement_getTBodies {} {
+      set tbodies [list] 
+      foreach child [$options(-nodehandle) children] {
+        if {[$child tag] eq "tbody"} { lappend tbodies $child }
+      }
+      set tbodies
+    }
+  }
+
+  element_attr align
+  element_attr bgColor -attribute bgcolor
+  element_attr border
+  element_attr cellPadding -attribute cellpadding
+  element_attr cellSpacing -attribute cellspacing
+  element_attr frame
+  element_attr rules
+  element_attr summary
+  element_attr width
+
+  dom_todo createTHead
+  dom_todo deleteTHead
+  dom_todo createTFoot
+  dom_todo deleteTFoot
+  dom_todo createCaption
+  dom_todo deleteCaption
+  dom_todo insertRow
+  dom_todo deleteRow
+}
+# </HTMLTableElement>
+#-------------------------------------------------------------------------
+#-------------------------------------------------------------------------
+# DOM Type HTMLTableSectionElement (extends HTMLElement)
+#
+#     This DOM type is used for HTML elements <TFOOT>, <THEAD> and <TBODY>.
+#
+::hv3::dom::type HTMLTableSectionElement HTMLElement {
+
+  element_attr align
+  element_attr ch -attribute char
+  element_attr chOff -attribute charoff
+  element_attr vAlign -attribute valign
+
+  dom_get -cache rows {
+    set cmd [mymethod HTMLTableSectionElement_getRows]
+    list object [::hv3::DOM::HTMLCollection %AUTO% $myDom -nodelistcmd $cmd]
+  }
+  dom_snit {
+    method HTMLTableSectionElement_getRows {} {
+      set rows [list] 
+      foreach child [$options(-nodehandle) children] {
+        if {[$child tag] eq "tr"} { lappend rows $child }
+      }
+      set rows
+    }
+  }
+
+  dom_todo insertRow
+  dom_todo deleteRow
+}
+
+# </HTMLTableSectionElement>
+#-------------------------------------------------------------------------
+
+#-------------------------------------------------------------------------
+# DOM Type HTMLTableRowElement (extends HTMLElement)
+#
+#     This DOM type is used for HTML <TR> elements.
+#
+::hv3::dom::type HTMLTableRowElement HTMLElement {
+
+  dom_todo rowIndex
+  dom_todo sectionRowIndex
+
+  dom_get -cache cells {
+    set cmd [mymethod HTMLTableRowElement_getCells]
+    list object [::hv3::DOM::HTMLCollection %AUTO% $myDom -nodelistcmd $cmd]
+  }
+  dom_snit {
+    method HTMLTableRowElement_getCells {} {
+      set cells [list] 
+      foreach child [$options(-nodehandle) children] {
+        set tag [$child tag]
+        if {$tag eq "td" || $tag eq "th"} {lappend cells $child}
+      }
+      set cells
+    }
+  }
+
+  element_attr align
+  element_attr bgColor -attribute bgcolor
+  element_attr ch -attribute char
+  element_attr chOff -attribute charoff
+  element_attr vAlign -attribute valign
+
+
+  dom_todo insertCell
+  dom_todo deleteCell
+}
+
+# </HTMLTableSectionElement>
+#-------------------------------------------------------------------------
+
+#-------------------------------------------------------------------------
 # Element/Text Node Factory:
 #
 #     This block implements a factory method called by the ::hv3::dom
@@ -555,6 +717,15 @@ namespace eval ::hv3::dom {
     label    ::hv3::DOM::HTMLLabelElement
     fieldset ::hv3::DOM::HTMLFieldSetElement
     legend   ::hv3::DOM::HTMLLegendElement
+  }
+
+  # HTML Tables related objects:
+  array set TagToNodeTypeMap {
+    table    ::hv3::DOM::HTMLTableElement
+    tbody    ::hv3::DOM::HTMLTableSectionElement
+    tfoot    ::hv3::DOM::HTMLTableSectionElement
+    thead    ::hv3::DOM::HTMLTableSectionElement
+    tr       ::hv3::DOM::HTMLTableRowElement
   }
 
   proc getHTMLElementClassList {} {
@@ -583,6 +754,4 @@ namespace eval ::hv3::dom {
   }
 }
 #-------------------------------------------------------------------------
-
-
 

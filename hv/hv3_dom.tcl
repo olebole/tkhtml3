@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.24 2007/01/17 10:15:12 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.25 2007/01/20 07:58:40 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Global interfaces in this file:
@@ -573,9 +573,9 @@ snit::type ::hv3::dom::Window {
     }
 
     if {$timerid eq "" || $isRepeat} {
-      if {$timerid eq ""} {set timerid [incr myNextTimeoutId]}
+      if {$timerid eq ""} {set timerid [incr myNextTimerId]}
       set tclid [after $ms [mymethod CallTimer $timerid $isRepeat $ms $code]]
-      set myTimerIds($timerid) [list $isRepeat $tclid]
+      set myTimerIds($timerid) $tclid
     }
 
     list string $timerid
@@ -587,8 +587,8 @@ snit::type ::hv3::dom::Window {
   js_call setTimeout {THIS js_code js_delay} {
     $self SetTimer 0 $js_code $js_delay
   }
-  js_call clearTimeout  {THIS js_timerid} { $self ClearTimer 0 $js_timerid }
-  js_call clearInterval {THIS js_timerid} { $self ClearTimer 1 $js_timerid }
+  js_call clearTimeout  {THIS js_timerid} { $self ClearTimer $js_timerid }
+  js_call clearInterval {THIS js_timerid} { $self ClearTimer $js_timerid }
   #-----------------------------------------------------------------------
 
   #-----------------------------------------------------------------------
@@ -643,322 +643,6 @@ snit::type ::hv3::dom::Window {
     array unset myTimeoutIds
   }
 }
-
-#-------------------------------------------------------------------------
-# Snit type for DOM type HTMLImageElement.
-#
-# DOM class: (Node -> Element -> HTMLElement -> HTMLImageElement)
-#
-snit::type ::hv3::dom::HTMLImageElement {
-
-  variable myNode ""
-  variable myHv3 ""
-
-  js_init {dom hv3 node} {
-    set myHv3 $hv3
-    set myNode $node
-    set myJavascriptParent [::hv3::dom::HTMLElement %AUTO% $dom $hv3 $node]
-  }
-
-  # Magic for "src" attribute. Whenever the "src" attribute is set on
-  # any HTMLImageElement object, tell the corresponding HTML widget to
-  # preload the image at the new value of "src".
-  #
-  js_get src { list string [$myNode attr -default "" src] }
-  js_put src value { 
-    set v [lindex $value 1]
-    $myNode attr src $v 
-    $myHv3 preload $v
-  }
-
-  # The "isMap" attribute. Javascript type "boolean".
-  #
-  js_get isMap       { $self GetBooleanAttribute src }
-  js_put isMap value { $self PutBooleanAttribute src $value }
-
-  # Configure all the other string attributes.
-  #
-  js_getput_attribute name     name
-  js_getput_attribute align    align
-  js_getput_attribute alt      alt
-  js_getput_attribute border   border
-  js_getput_attribute height   height
-  js_getput_attribute hspace   hspace
-  js_getput_attribute longDesc longdesc
-  js_getput_attribute useMap   usemap
-  js_getput_attribute vspace   vspace
-  js_getput_attribute width    width
-
-  js_finish {}
-}
-
-#-------------------------------------------------------------------------
-# Snit type for DOM type HTMLInputElement.
-#
-# DOM class: (Node -> Element -> HTMLElement -> HTMLInputElement)
-#
-snit::type ::hv3::dom::HTMLInputElement {
-
-  variable myHv3 ""
-
-  variable myNode ""
-
-  variable myTextFilePassword 0
-  variable myRadioCheckbox 0
-  variable myRadioCheckboxButtonResetSubmit 0
-
-  js_init {dom hv3 node} {
-    set myJavascriptParent [::hv3::dom::HTMLElement %AUTO% $dom $hv3 $node]
-
-    set myHv3 $hv3
-    set myNode $node
-    switch -- [string tolower [$myNode attribute -default text type]] {
-      text     { set myTextFilePassword 1 }
-      file     { set myTextFilePassword 1 }
-      password { set myTextFilePassword 1 }
-      radio    { 
-        set myRadioCheckbox 1 
-        set myRadioCheckboxButtonResetSubmit 1 
-      }
-      checkbox { 
-        set myRadioCheckbox 1 
-        set myRadioCheckboxButtonResetSubmit 1 
-      }
-      button { set myRadioCheckboxButtonResetSubmit 1 }
-      reset  { set myRadioCheckboxButtonResetSubmit 1 }
-      submit { set myRadioCheckboxButtonResetSubmit 1 }
-    }
-  }
-
-  #----------------------------------------------------------------------
-  # Read-only attribute "form".
-  #
-  js_get form { 
-    set formnode [[$myNode replace] cget -formnode]
-    if {$formnode ne ""} {
-      return [list object [[$myHv3 dom] node_to_dom $formnode]]
-    }
-    return ""
-  }
-
-  #----------------------------------------------------------------------
-  # Read-only attribute "type".
-  #
-  js_get type { list string [$myNode attribute -default text type] }
-
-  #----------------------------------------------------------------------
-  # Get and set the current value (value) and default value (defaultValue)
-  # properties of the control. 
-  #
-  # For an <input> with type "text", "file" or "password", the 'value'
-  # property is the current value of the control. For other <input> types,
-  # it is the underlying "value" attribute of the node.
-  #
-  # For an <input> with type "text", "file" or "password", the 'defaultValue'
-  # property is the value of the "value" attribute. For all others,
-  # undefined.
-  #
-  js_get value { 
-    if {$myTextFilePassword} {
-      list string [[$myNode replace] value]
-    } else {
-      list string [$myNode attribute -default "" value]
-    }
-  }
-  js_put value v {
-    if {$myTextFilePassword} { 
-      [$myNode replace] set_value [lindex $v 1] 
-    } else {
-      $myNode attribute value [lindex $v 1] 
-    }
-  }
-  js_get defaultValue { 
-    if {$myTextFilePassword} {
-      list string [$myNode attribute -default "" value]
-    }
-  }
-  js_put defaultValue v {
-    if {$myTextFilePassword} { 
-      [$myNode replace] set_value [lindex $v 1] 
-      $myNode attribute value [lindex $v 1] 
-    }
-  }
-
-  #----------------------------------------------------------------------
-  # Get and set the current checked (checked) and default checked
-  # (defaultChecked) properties of the control. 
-  #
-  js_get checked { 
-    if {$myRadioCheckbox} {
-      list boolean [[$myNode replace] checked]
-    }
-  }
-  js_put checked v {
-    if {$myRadioCheckbox} {
-      set val [lindex $v 1]
-      if {![string is boolean $val]} {
-        error "Bad value for HTMLInputElement.checked"
-      }
-      [$myNode replace] set_checked [lindex $v 1]
-    }
-  }
-  js_get defaultChecked { 
-    if {$myRadioCheckbox} {
-      list boolean [$myNode attribute -default 0 checked]
-    }
-  }
-  js_put defaultChecked v { 
-    if {$myRadioCheckbox} {
-      [$myNode replace] set_checked [lindex $v 1]
-      $myNode attribute checked [lindex $v 1]
-    }
-  }
-
-
-  #----------------------------------------------------------------------
-  # HTMLInputElement methods: focus(), blur(), select() and click().
-  #
-  #     focus()
-  #     blur()
-  #     select()   ("text", "file" and "password" only)
-  #     click()    ("radio", "checkbox", "button", "reset" and "submit" only)
-  #
-  js_call focus {THIS} { [$myNode replace] dom_focus }
-  js_call blur  {THIS} { [$myNode replace] dom_blur }
-  js_call select {THIS} { 
-    if {$myTextFilePassword} { [$myNode replace] dom_select }
-  }
-  js_call click  {THIS} { 
-    if {$myRadioCheckboxButtonResetSubmit} { 
-      [$myNode replace] dom_click 
-    }
-  }
-
-  #----------------------------------------------------------------------
-  # Vanilla string attribute/properties
-  #
-  # accept, accessKey, align, alt, maxlength, name, size, src, useMap
-  #
-  js_get accept    { list string [$myNode attribute -default "" accept] }
-  js_get accessKey { list string [$myNode attribute -default "" accesskey] }
-  js_get align     { list string [$myNode attribute -default "" align] }
-  js_get alt       { list string [$myNode attribute -default "" alt] }
-  js_get maxlength { list string [$myNode attribute -default "" maxlength] }
-  js_get name      { list string [$myNode attribute -default "" name] }
-  js_get size      { list string [$myNode attribute -default "" size] }
-  js_get src       { list string [$myNode attribute -default "" src] }
-  js_get useMap    { list string [$myNode attribute -default "" usemap] }
-
-  js_put accept    v { $myNode attribute accept    $v }
-  js_put accessKey v { $myNode attribute accesskey $v }
-  js_put align     v { $myNode attribute align     $v }
-  js_put alt       v { $myNode attribute alt       $v }
-  js_put maxlength v { $myNode attribute maxlength $v }
-  js_put name      v { $myNode attribute name      $v }
-  js_put size      v { $myNode attribute size      $v }
-  js_put src       v { $myNode attribute src       $v }
-  js_put useMap    v { $myNode attribute usemap    $v }
-
-  #----------------------------------------------------------------------
-  # Other attribute/properties. These should eventually have relationship
-  # with data structures in hv3_form.tcl - Todo. Note that property 
-  # "tabIndex" is read-only.
-  #
-  js_get tabIndex  { list number [$myNode attribute -default 0 tabindex] }
-  js_get accessKey { list string [$myNode attribute -default "" accesskey] }
-  js_get align     { list string [$myNode attribute -default "" align] }
-
-  js_put accessKey v { $myNode attribute accesskey [lindex $v 1] }
-  js_put align     v { $myNode attribute align [lindex $v 1] }
-
-  js_finish {}
-}
-
-snit::type ::hv3::dom::HTMLTextAreaElement {
-
-  variable myNode ""
-  variable myHv3 ""
-
-  js_init {dom hv3 node} {
-    set myHv3 $hv3
-    set myNode $node
-    set myJavascriptParent [::hv3::dom::HTMLElement %AUTO% $dom $hv3 $node]
-  }
-
-  #----------------------------------------------------------------------
-  # Get and set the current value of the control.
-  #
-  js_get value       { list string [[$myNode replace] value] }
-  js_put value value { [$myNode replace] set_value [lindex $value 1] }
-
-  #----------------------------------------------------------------------
-  # Read-only property "type". This is always the string "textarea", as
-  # per DOM level 1.
-  #
-  js_get type {list string "textarea"}
-
-  js_call focus  {THIS} { [$myNode replace] dom_focus }
-  js_call blur   {THIS} { [$myNode replace] dom_blur }
-  js_call select {THIS} { [$myNode replace] dom_select }
-
-  js_finish {}
-}
-
-snit::type ::hv3::dom::HTMLAnchorElement {
-
-  js_init {dom hv3 node} {
-    set myJavascriptParent [::hv3::dom::HTMLElement %AUTO% $dom $hv3 $node]
-  }
-
-  js_getput_attribute accessKey accesskey
-  js_getput_attribute charset   charset
-  js_getput_attribute coords    coords
-  js_getput_attribute href      href
-  js_getput_attribute hreflang  hreflang
-  js_getput_attribute name      name
-  js_getput_attribute rel       rel
-  js_getput_attribute rev       rev
-  js_getput_attribute shape     shape
-  js_getput_attribute tabIndex  tabindex
-  js_getput_attribute target    target
-  js_getput_attribute type      type
-
-  js_finish {}
-}
-
-# List of scripting events (as per html 4.01, chapter 18):
-#
-# Document load/unload. These are activated when the [event] 
-# method of this object is invoked (by code within the ::hv3::hv3 type).
-#     onload
-#     onunload
-#
-# Click-related events. Handled by the [event] method of this object.
-# The [event] method is invoked by subscribing to events dispatched by 
-# the ::hv3::mousemanager object.
-#     onclick
-#     ondblclick
-#     onmousedown
-#     onmouseup
-#
-# Mouse movement. Also [event] (see above).
-#     onmouseover
-#     onmousemove
-#     onmouseout
-#
-# Keyboard:
-#     onkeypress
-#     onkeydown
-#     onkeyup
-#
-# Form related stuff:
-#     onfocus
-#     onblur
-#     onsubmit
-#     onreset
-#     onselect
-#     onchange
-#
 
 
 
@@ -1156,7 +840,11 @@ snit::type ::hv3::dom {
   method mouseevent {event node x y args} {
     if {![::hv3::dom::use_scripting] || $mySee eq ""} {return 1}
 
-    set Node [$self node_to_dom $node]
+    if {$node eq ""} {
+      set Node [lindex [$myWindow Get document] 1]
+    } else {
+      set Node [$self node_to_dom $node]
+    }
     eval ::hv3::dom::dispatchMouseEvent $self $event $Node $x $y $args
   }
 

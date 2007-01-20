@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.48 2006/12/22 06:01:26 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.49 2007/01/20 07:58:40 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -585,6 +585,7 @@ snit::widget ::hv3::control {
   method dom_focus {} {
     switch -- $myWidgetType {
       File    { focus $myWidget.entry }
+      Text    { focus [$myWidget widget] }
       default { focus $myWidget }
     }
   }
@@ -593,6 +594,13 @@ snit::widget ::hv3::control {
     if {$myWidget ne "" && ($now eq $myWidget || $now eq "$myWidget.entry")} {
       focus [winfo parent $myWidget]
     }
+  }
+
+  method get_text_widget {} {
+    if {$myWidgetType eq "Text"} {
+      return $myWidget
+    }
+    return ""
   }
 
   # Return true if the control is successful, or false otherwise.
@@ -718,6 +726,20 @@ snit::widget ::hv3::control {
 
   method dump {values} {
     return "TODO"
+  }
+
+  # This method is called by the DOM when the HTMLInputElement.value 
+  # property is set. See also the ::hv3::control method of the same name.
+  #
+  # From the DOM Level 1 html module (about the HTMLInputElement.value
+  # property):
+  #
+  #     When the type attribute of the element has the value "Button",
+  #     "Hidden", "Submit", "Reset", "Image", "Checkbox" or "Radio", this
+  #     represents the HTML value attribute of the element.
+  #
+  method set_value {newValue} {
+    $myNode attr value $newValue
   }
 }
 

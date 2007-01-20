@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.4 2007/01/17 10:15:12 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.5 2007/01/20 07:58:40 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Core
@@ -77,10 +77,10 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.4 2007/01/17 10:15:1
   dom_get -cache childNodes {
     list object [::hv3::DOM::NodeList %AUTO% $myDom]
   }
-
-  dom_get ownerDocument { error "Must be overridden ($property)" }
-
   dom_call hasChildNodes {THIS} {list boolean false}
+
+  dom_todo ownerDocument
+
   dom_call insertBefore {THIS newChild refChild} {
     error "DOMException HIERACHY_REQUEST_ERR"
   }
@@ -122,15 +122,15 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.4 2007/01/17 10:15:1
   # document tree.
   #
   dom_get -cache childNodes {
-    set obj [::hv3::DOM::NodeList %AUTO% $myDom -nodelistcmd [list $options(-hv3) node]]
-    list object $obj
+    set cmd [list $options(-hv3) node]]
+    list object [::hv3::DOM::NodeList %AUTO% $myDom -nodelistcmd $cmd]
   }
   dom_get firstChild {list object [$self Document_getChildNode]}
   dom_get lastChild  {list object [$self Document_getChildNode]}
 
   dom_snit {
     method Document_getChildNode {} {
-      $myDom node_to_dom [$options(hv3) node]
+      $myDom node_to_dom [$options(-hv3) node]
     }
   }
 
@@ -138,10 +138,15 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.4 2007/01/17 10:15:1
   #
   dom_call hasChildNodes {THIS} {list boolean true}
 
-  dom_call insertBefore {THIS newChild refChild}  {error "TODO"}
-  dom_call replaceChild {THIS newChild oldChild}  {error "TODO"}
-  dom_call removeChild  {THIS oldChild}           {error "TODO"}
-  dom_call appendChild  {THIS newChild}           {error "TODO"}
+  # dom_call replaceChild {THIS newChild oldChild}  {error "TODO"}
+  # dom_call removeChild  {THIS oldChild}           {error "TODO"}
+  # dom_call appendChild  {THIS newChild}           {error "TODO"}
+  # dom_call insertBefore {THIS newChild refChild}  {error "TODO"}
+
+  dom_todo insertBefore
+  dom_todo replaceChild
+  dom_todo removeChild 
+  dom_todo appendChild  
 
   # For a Document node, the ownerDocument is null.
   #
@@ -150,9 +155,28 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.4 2007/01/17 10:15:1
   # End of Node interface overrides.
   #---------------------------------
 
+
+  dom_todo doctype
+  dom_todo implementation
+
   dom_get documentElement {
     list object [$myDom node_to_dom [$options(-hv3) node]]
   }
+
+  dom_call -string createElement {THIS tagname} {
+    set node [$options(-hv3) fragment "<$tagname>"]
+    if {$node eq ""} {error "DOMException NOT_SUPPORTED_ERR"}
+    list object [$myDom node_to_dom $node]
+  }
+  dom_call -string createTextNode {THIS data} {
+    set escaped [string map {< &lt; > &gt;} $data]
+    set node [$options(-hv3) fragment $escaped]
+  }
+
+  dom_todo createDocumentFragment
+  dom_todo createTextNode
+  dom_todo createComment
+  dom_todo createAttribute
 
   #-------------------------------------------------------------------------
   # The Document.getElementsByTagName() method (DOM level 1).
@@ -162,9 +186,8 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.4 2007/01/17 10:15:1
     # someone is going to pass ".id" and wonder why all the elements with
     # the "class" attribute set to "id" are returned.
     #
-    list object [
-        ::hv3::DOM::NodeList %AUTO% $myDom -nodelistcmd [list $options(-hv3) search $tag]
-    ]
+    set cmd [list $options(-hv3) search $tag]
+    list object [::hv3::DOM::NodeList %AUTO% $myDom -nodelistcmd $cmd]
   }
 }
 
@@ -263,7 +286,7 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.4 2007/01/17 10:15:1
     method WidgetNode_Sibling {dir} {
       set ret null
       set parent [$options(-nodehandle) parent]
-      if {$parent eq ""} {
+      if {$parent ne ""} {
         set siblings [$parent children]
         set idx [lsearch $siblings $options(-nodehandle)]
         incr idx $dir
@@ -304,6 +327,41 @@ set BaseList {ElementCSSInlineStyle WidgetNode Node NodePrototype EventTarget}
     error "TODO"
   }
 
+  dom_call insertBefore {THIS newChild refChild}  {
+    # TODO: Arg checking and correct error messages (excptions).
+    # Children of an Element Node can be either Element or Text nodes.
+    set new [[lindex $newChild 1] cget -nodehandle]
+
+    if {[lindex $refChild 0] eq "object"} {
+      set ref [[lindex $refChild 1] cget -nodehandle]
+    } else {
+      set ref [lindex [$options(-nodehandle) children] 0]
+    }
+
+    if {$ref ne ""} {
+      $options(-nodehandle) insert -before $ref $new
+    } else {
+      $options(-nodehandle) insert $new
+    }
+
+    return ""
+  }
+  dom_call appendChild {THIS newChild} {
+    set new [[lindex $newChild 1] cget -nodehandle]
+    $options(-nodehandle) insert $new
+    return ""
+  }
+
+  dom_call removeChild {THIS oldChild} {
+    set old [[lindex $oldChild 1] cget -nodehandle]
+    $options(-nodehandle) remove $old
+    return ""
+  }
+
+  # dom_todo insertBefore
+  dom_todo replaceChild
+
+
   # End of Node interface overrides.
   #---------------------------------
 
@@ -314,7 +372,83 @@ set BaseList {ElementCSSInlineStyle WidgetNode Node NodePrototype EventTarget}
   #     probably be altered to match this.
   #
   dom_get tagName {list string [string toupper [$options(-nodehandle) tag]]}
+
+  dom_call -string getAttribute {THIS attr}   {$self Element_getAttributeString $attr ""}
+  dom_call -string setAttribute {THIS attr v} {$self Element_putAttributeString $attr $v}
+
+  dom_todo removeAttribute
+  dom_todo getAttributeNode
+  dom_todo setAttributeNode
+  dom_todo removeAttributeNode
+
+  dom_call -string getElementsByTagName {THIS tagname} {
+    set hv3 [$myDom node_to_hv3 $options(-nodehandle)]
+    set cmd [list $hv3 search $tagname -root $options(-nodehandle)]
+
+    list object [::hv3::DOM::NodeList %AUTO% $myDom -nodelistcmd $cmd]
+  }
+
+  dom_todo normalize
+
+  dom_snit {
+    method Element_getAttributeString {name def} {
+      set val [$options(-nodehandle) attribute -default $def $name]
+      list string $val
+    }
+    method Element_putAttributeString {name val} {
+      $options(-nodehandle) attribute $name $val
+      return ""
+    }
+  }
 }
+
+# element_attr --
+#
+#     This command can be used in the body of DOM objects that mixin class Element.
+#
+#     element_attr NAME ?OPTIONS?
+#
+#         -attribute ATTRIBUTE-NAME          (default NAME)
+#         -readonly                          (make the attribute readonly)
+#
+namespace eval ::hv3::dom::compiler {
+
+  proc element_attr {name args} {
+
+    set readonly 0
+    set attribute $name
+
+    # Process the arguments to [element_attr]:
+    for {set ii 0} {$ii < [llength $args]} {incr ii} {
+      set s [lindex $args $ii]
+      switch -- $s {
+        -attribute {
+          incr ii
+          set attribute [lindex $args $ii]
+        }
+        -readonly {
+          set readonly 1
+        }
+        default {
+          error "Bad option to element_attr: $s"
+        }
+      }
+    }
+
+    # The Get code.
+    dom_get $name [subst -novariables {
+      $self Element_getAttributeString [set attribute] ""
+    }]
+
+    # Create the Put method (unless the -readonly switch was passed).
+    if {!$readonly} {
+      dom_put $name val [subst -novariables {
+        $self Element_putAttributeString [set name] $val
+      }]
+    }
+  }
+}
+
 
 #-------------------------------------------------------------------------
 # DOM Type Text (Node -> Text)

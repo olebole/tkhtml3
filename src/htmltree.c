@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.117 2007/01/14 09:48:36 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.118 2007/01/20 07:58:41 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -398,6 +398,8 @@ nodeRemoveChild(pElem, pChild)
             pElem->apChildren[ii - 1] = pElem->apChildren[ii];
         }
         if (pElem->apChildren[ii] == pChild) {
+            assert(pChild->pParent == (HtmlNode *)pElem);
+            pChild->pParent = 0;
             eSeen = 1;
         }
     }
@@ -589,7 +591,10 @@ nodeInsertChild(pElem, iBefore, pChild)
 
     /* Unlink pChild from it's parent node. */
     if (HtmlNodeParent(pChild)) {
-        nodeRemoveChild((HtmlElementNode *)HtmlNodeParent(pChild), pChild);
+        HtmlNode *pParent = HtmlNodeParent(pChild);
+        int nChildren = HtmlNodeNumChildren(pParent);
+        nodeRemoveChild(HtmlNodeAsElement(pParent), pChild);
+        assert(nChildren == 1 + HtmlNodeNumChildren(pParent));
     }
 
     if (iBefore < 0) {
@@ -605,7 +610,7 @@ nodeInsertChild(pElem, iBefore, pChild)
         "HtmlNode.apChildren", (char *)pElem->apChildren, n
     );
 
-    for (ii = iBefore + 1; ii < pElem->nChild; ii++) {
+    for (ii = (pElem->nChild - 1); ii > iBefore; ii--) {
         pElem->apChildren[ii] = pElem->apChildren[ii - 1];
     }
     pElem->apChildren[iBefore] = pChild;

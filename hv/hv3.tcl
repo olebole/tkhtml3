@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.148 2007/01/14 16:04:43 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.149 2007/01/20 07:58:40 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -219,7 +219,13 @@ snit::type ::hv3::hv3::mousemanager {
   #
   option -dom -default ""
 
-  variable myClickedNode ""
+  option -selectionmanager -default ""
+
+  # This variable is set to the node-handle that the pointer is currently
+  # hovered over. Used by code that dispatches the "mouseout", "mouseover"
+  # and "mousemove" to the DOM.
+  #
+  variable myCurrentDomNode ""
 
   variable myReset 0
 
@@ -263,6 +269,8 @@ snit::type ::hv3::hv3::mousemanager {
     array unset myActiveNodes
     array unset myHoverNodes
     set myReset 1
+
+    set myCurrentDomNode ""
   }
 
   # Generate a $event event on node $node.
@@ -290,6 +298,22 @@ snit::type ::hv3::hv3::mousemanager {
     # has been generated), maybe this should consider all overlapping nodes
     # as "hovered".
     set nodelist [lindex [$myHv3 node $x $y] end]
+
+    # Dispatch any DOM events in this order:
+    #
+    #     mouseout
+    #     mouseover
+    #     mousemotion
+    #
+    if {$options(-dom) ne ""} {
+      set N [lindex $nodelist end]
+      if {$N ne $myCurrentDomNode} {
+        $options(-dom) mouseevent mouseout $myCurrentDomNode $x $y
+        $options(-dom) mouseevent mouseover $N $x $y
+        set myCurrentDomNode $N
+      }
+      $options(-dom) mouseevent mousemove $N $x $y
+    }
 
     # After the loop runs, hovernodes will contain the list of 
     # currently hovered nodes.
@@ -321,6 +345,7 @@ snit::type ::hv3::hv3::mousemanager {
         concat [array names hovernodes] $events(onmouseout) 
     ]
 
+
     array unset myHoverNodes
     array set myHoverNodes [array get hovernodes]
 
@@ -342,6 +367,18 @@ snit::type ::hv3::hv3::mousemanager {
       if {[$N tag] eq ""} {set N [$N parent]}
     }
 
+    # Dispatch the "mousedown" event to the DOM, if any.
+    #
+    set rc ""
+    if {$options(-dom) ne ""} {
+      set rc [$options(-dom) mouseevent mousedown $N $x $y]
+    }
+
+puts "Press DOM RC is $rc"
+    if {$rc eq ""} {
+#      $options(-selectionmanager) press $x $y
+    }
+
     for {set n $N} {$n ne ""} {set n [$n parent]} {
       set myActiveNodes($n) 1
     }
@@ -359,12 +396,26 @@ snit::type ::hv3::hv3::mousemanager {
       if {[$N tag] eq ""} {set N [$N parent]}
     }
 
-    # Check if the is a "click" event to dispatch to the DOM
-    set domrc 1
+    # Dispatch the "mouseup" event to the DOM, if any.
+    #
+    # In Tk, the equivalent of the "mouseup" (<ButtonRelease>) is always
+    # dispatched to the same widget as the "mousedown" (<ButtonPress>). 
+    # But in the DOM things are different - the event target for "mouseup"
+    # depends on the current cursor location only.
+    #
+    if {$options(-dom) ne ""} {
+      $options(-dom) mouseevent mouseup $N $x $y
+    }
+
+    # Check if the is a "click" event to dispatch to the DOM. If the
+    # ::hv3::dom [mouseevent] method returns 0, then the click is
+    # not sent to the other hv3 sub-systems (default action is cancelled).
+    #
+    set domrc ""
     if {$options(-dom) ne ""} {
       for {set n $N} {$n ne ""} {set n [$n parent]} {
         if {[info exists myActiveNodes($N)]} {
-          set rc [$options(-dom) mouseevent click $n $x $y]
+          set domrc [$options(-dom) mouseevent click $n $x $y]
           break
         }
       }
@@ -375,7 +426,7 @@ snit::type ::hv3::hv3::mousemanager {
       lappend eventlist onmouseup $node
     }
     
-    if {$domrc} {
+    if {$domrc ne "prevent"} {
       set onclick_nodes [list]
       for {set n $N} {$n ne ""} {set n [$n parent]} {
         if {[info exists myActiveNodes($n)]} {
@@ -427,7 +478,7 @@ snit::type ::hv3::hv3::selectionmanager {
     selection handle $myHv3 [list ::hv3::bg [mymethod get_selection]]
 
     bind $myHv3 <Motion>               "+[mymethod motion %x %y]"
-    bind $myHv3 <ButtonPress-1>        "+[mymethod press %x %y]"
+    # bind $myHv3 <ButtonPress-1>        "+[mymethod press %x %y]"
     bind $myHv3 <Double-ButtonPress-1> "+[mymethod doublepress %x %y]"
     bind $myHv3 <Triple-ButtonPress-1> "+[mymethod triplepress %x %y]"
     bind $myHv3 <ButtonRelease-1>      "+[mymethod release %x %y]"
@@ -554,6 +605,9 @@ snit::type ::hv3::hv3::selectionmanager {
               $myHv3 tag remove selection $myToNode $myToIdx $toNode $toIdx
             }
             $myHv3 tag add selection $myFromNode $myFromIdx $toNode $toIdx
+            if {$myFromNode ne $toNode || $myFromIdx != $toIdx} {
+              selection own $myHv3
+            }
           }
   
           word {
@@ -565,6 +619,7 @@ snit::type ::hv3::hv3::selectionmanager {
             $myHv3 tag add selection $myFromNode $myFromIdx $toNode $toIdx
             $self TagWord $toNode $toIdx
             $self TagWord $myFromNode $myFromIdx
+            selection own $myHv3
           }
   
           block {
@@ -580,6 +635,7 @@ snit::type ::hv3::hv3::selectionmanager {
             $myHv3 tag add selection $myFromNode $myFromIdx $toNode $toIdx
             eval $myHv3 tag add selection $to_block2
             eval $myHv3 tag add selection $from_block
+            selection own $myHv3
           }
         }
   
@@ -588,7 +644,6 @@ snit::type ::hv3::hv3::selectionmanager {
       }
     }
 
-    selection own $myHv3
 
     set motioncmd ""
     if {$y > [winfo height $myHv3]} {
@@ -882,6 +937,8 @@ snit::widget ::hv3::hv3 {
     set myHyperlinkManager [::hv3::hv3::hyperlinkmanager %AUTO% $self]
     set mySelectionManager [::hv3::hv3::selectionmanager %AUTO% $self]
     set myDynamicManager   [::hv3::hv3::dynamicmanager   %AUTO% $self]
+
+    $myMouseManager configure -selectionmanager $mySelectionManager
 
     # Location URI. The default URI is index.html in the applications
     # current working directory.

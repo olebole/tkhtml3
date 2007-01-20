@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.183 2007/01/10 15:34:15 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.184 2007/01/20 07:58:40 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -255,8 +255,6 @@ struct CanvasOrigin {
 /*
  * A CanvasOverflow primitive is used to deal with blocks that have the
  * 'overflow' property set to something other than "visible".
- *
- * Currently, only "hidden" is handled (not "scroll" or "auto").
  */
 struct CanvasOverflow {
     int x;                    /* x-coord of top-left of region */
@@ -853,6 +851,11 @@ CHECK_CANVAS(pCanvas);
 
     pItem->pNext = pCanvas->pFirst;
     pCanvas->pFirst = pItem;
+
+    pCanvas->left = 0;
+    pCanvas->top = 0;
+    pCanvas->bottom = h;
+    pCanvas->right = w;
 CHECK_CANVAS(pCanvas);
 }
 
@@ -3562,6 +3565,9 @@ layoutBboxCb(pItem, origin_x, origin_y, pOverflow, clientData)
         x -= pOverflow->xscroll;
         y -= pOverflow->yscroll;
     }
+
+/* assert(x > -2000); */
+
     for (; pNode; pNode = HtmlNodeParent(pNode)) {
         if (pNode == pQuery->pNode) {
             pQuery->left = MIN(pQuery->left, x);
@@ -3584,6 +3590,11 @@ HtmlWidgetNodeBox(pTree, pNode, pX, pY, pW, pH)
 {
     HtmlCanvas *pCanvas = &pTree->canvas;
     LayoutBboxQuery sQuery;
+    HtmlCanvasItem *pItem;
+    HtmlCanvasItem *pSkip = 0;
+
+    int origin_x = 0;
+    int origin_y = 0;
 
     HtmlCallbackForce(pTree);
 
@@ -3593,7 +3604,27 @@ HtmlWidgetNodeBox(pTree, pNode, pX, pY, pW, pH)
     sQuery.bottom = pCanvas->top;
     sQuery.pNode = pNode;
 
-    searchCanvas(pTree, -1, -1, 0, layoutBboxCb, (ClientData)&sQuery);
+    for (pItem = pCanvas->pFirst; pItem; pItem = (pSkip?pSkip:pItem->pNext)) {
+        pSkip = 0;
+        if (pItem->type == CANVAS_OVERFLOW) {
+            CanvasOverflow *pO = &pItem->x.overflow;
+            HtmlNode *p = pO->pNode;
+            while (p && p != pNode) p = HtmlNodeParent(p);
+            if (p) {
+                CanvasOverflow *pO = &pItem->x.overflow;
+                sQuery.left = MIN(sQuery.left, pO->x + origin_x);
+                sQuery.top = MIN(sQuery.top, pO->y + origin_y);
+                sQuery.right = MAX(sQuery.right, sQuery.left + pO->w);
+                sQuery.bottom = MAX(sQuery.bottom, sQuery.bottom + pO->h);
+            }
+            pSkip = pO->pEnd;
+        } else if (pItem->type == CANVAS_ORIGIN) {
+            origin_x += pItem->x.o.x;
+            origin_y += pItem->x.o.y;
+        } else {
+            layoutBboxCb(pItem, origin_x, origin_y, 0, (ClientData)&sQuery);
+        }
+    }
 
     if (sQuery.left < sQuery.right && sQuery.top < sQuery.bottom) {
         *pX = sQuery.left;

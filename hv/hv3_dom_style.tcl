@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_style.tcl,v 1.2 2007/01/17 10:15:13 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_style.tcl,v 1.3 2007/01/20 07:58:40 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # DOM Level 2 Style.
@@ -30,19 +30,22 @@ namespace eval ::hv3::dom::compiler {
     if {$dom_prop eq ""} {
       set dom_prop $css_prop
     }
-    dom_get $dom_prop [
-        list CSSStyleDeclaration_getStyleProperty $css_prop
-    ]
-    dom_put -string $dom_prop {value} [
-        list CSSStyleDeclaration_setStyleProperty $css_prop {$value}
-    ]
+    set getcmd "\$self CSSStyleDeclaration_getStyleProperty $css_prop"
+    dom_get $dom_prop $getcmd
+
+    set putcmd "\$self CSSStyleDeclaration_setStyleProperty $css_prop \$value"
+    dom_put -string $dom_prop {value} $putcmd
   }
 }
 
 ::hv3::dom::type CSSStyleDeclaration {} {
+
   dom_snit {
+    option -nodehandle -default ""
+
     method CSSStyleDeclaration_getStyleProperty {css_property} {
-      list string [$options(-nodehandle) property -inline $css_property]
+      set val [$options(-nodehandle) property -inline $css_property]
+      list string $val
     }
 
     method CSSStyleDeclaration_setStyleProperty {css_property value} {
@@ -59,12 +62,32 @@ namespace eval ::hv3::dom::compiler {
         append style "$prop:$current($prop);"
       }
 
-      $myNode attribute style $style
+      $options(-nodehandle) attribute style $style
     }
   }
 
   style_property width width
   style_property height height
   style_property display display
+
+  style_property position position
+  style_property top top
+  style_property left left
+  style_property bottom bottom
+  style_property right right
+
+  style_property z-index zIndex
+
+  style_property border-top-width borderTopWidth
+  style_property border-right-width borderRightWidth
+  style_property border-left-width borderLeftWidth
+  style_property border-bottom-width borderBottomWidth
+
+  dom_put -string border value {
+    set style [$options(-nodehandle) attribute -default {} style]
+    if {$style ne ""} {append style ";"}
+    append style "border: $value"
+    $options(-nodehandle) attribute style $style
+  }
 }
 

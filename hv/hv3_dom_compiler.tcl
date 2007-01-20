@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.3 2007/01/17 10:15:12 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.4 2007/01/20 07:58:40 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file implements infrastructure used to create the Snit objects
@@ -64,7 +64,7 @@ namespace eval ::hv3::dom {
 
     proc dom_todo {property} {
       dom_get $property [subst -nocommands {
-        puts "TODO: [set self] info type].$property"
+        puts "TODO: [[set self] info type].$property"
         list
       }]
     }
@@ -169,11 +169,6 @@ namespace eval ::hv3::dom {
     ::variable TypeArray
 
     set base_list [getBaseList $domtype]
-# puts -nonewline "Base of $domtype:"
-# foreach b $base_list {
-#    puts -nonewline " [$b name]"
-# }
-# puts ""
 
     set ret ""
     append ret [$TypeArray($domtype) compile $base_list]
@@ -271,12 +266,13 @@ namespace eval ::hv3::dom {
       } else {
         set put_code "set $argname \$value\n"
       }
-      append put_code "$code\n"
+      append put_code "\n$code\n"
       append put_code return
       append SWITCHBODY "[list $name $put_code]\n            "
     }
 
     set NATIVE [string trim {
+puts "Native put on $self: $property -> $value"
       eval [$myDom see] $myNative Put $property [list $value]
     }]
 
@@ -288,9 +284,14 @@ namespace eval ::hv3::dom {
     set Get {
         variable myGetCache -array ""
         method Get {property} {
+          set isExplicit 1
           set result [switch -- [set property] {
             $SWITCHBODY
-            $DEFAULT
+            default {
+              set isExplicit 0
+              list
+              $DEFAULT
+            }
           }]
           $NATIVE
           set result
@@ -302,7 +303,7 @@ namespace eval ::hv3::dom {
             set result [eval [$myDom see] $myNative Get $property]
           }
           
-          if {$result eq "" || $result eq "undefined"} {
+          if {($result eq "" || $result eq "undefined") && !$isExplicit} {
             $self Log_UndefinedProperty $property
           }
     }]
@@ -330,8 +331,7 @@ namespace eval ::hv3::dom {
 
     set DEFAULT ""
     if {[info exists myGet(*)]} {
-      append DEFAULT "\n"
-      append DEFAULT [list default [lindex $myGet(*) 1]]
+      set DEFAULT [lindex $myGet(*) 1]
     }
 
     set Get [subst -nocommands $Get]
@@ -392,7 +392,8 @@ namespace eval ::hv3::dom {
 
     set Log_UndefinedPropertyMethod [subst -novariables {
         method Log_UndefinedProperty {prop} {
-          puts "Request for DOM property [set myName].$prop -> undefined"
+          # puts "Request for DOM property [set myName].$prop -> undefined"
+          # puts "Request for DOM property $self.$prop -> undefined"
         }
     }]
 

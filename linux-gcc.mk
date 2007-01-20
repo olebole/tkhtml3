@@ -36,8 +36,8 @@ JSLIB   = $(HOME)/javascript/install/lib/libgc.a
 JSLIB  += $(HOME)/javascript/install/lib/libsee.a
 JSFLAGS = -I$(HOME)/javascript/install/include
 
-# JSLIB  = $(HOME)/javascript/install_nogc/lib/libsee.a
-# JSFLAGS = -I$(HOME)/javascript/install_nogc/include -DNO_HAVE_GC
+#JSLIB  = $(HOME)/javascript/install_nogc/lib/libsee.a
+#JSFLAGS = -I$(HOME)/javascript/install_nogc/include -DNO_HAVE_GC
 
 ##### Flags passed to the C-compiler to link to Tcl.
 #

@@ -304,6 +304,7 @@ proc main {args} {
   source [file join [file dirname [info script]] tree1.bt]
   source [file join [file dirname [info script]] node.bt]
   source [file join [file dirname [info script]] events.bt]
+  source [file join [file dirname [info script]] style.bt]
 }
 
 eval main $argv
