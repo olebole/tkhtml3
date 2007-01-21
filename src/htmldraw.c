@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.184 2007/01/20 07:58:40 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.185 2007/01/21 05:39:51 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -3224,6 +3224,90 @@ HtmlLayoutNode(clientData, interp, objc, objv)
     return TCL_OK;
 }
 
+struct BboxContext {
+    int x1;
+    int y1;
+    int x2;
+    int y2;
+    HtmlNode *pNode;
+    int eType;
+};
+typedef struct BboxContext BboxContext;
+
+static int
+bboxCb(pItem, origin_x, origin_y, pOverflow, clientData)
+    HtmlCanvasItem *pItem;
+    int origin_x;
+    int origin_y;
+    Overflow *pOverflow;
+    ClientData clientData;
+{
+    BboxContext *p = (BboxContext *)clientData;
+    if (pItem->type == p->eType && pItem->x.generic.pNode == p->pNode) {
+        int x, y, w, h;
+        itemToBox(pItem, origin_x, origin_y, &x, &y, &w, &h);
+        p->x1 = MIN(p->x1, x);
+        p->y1 = MIN(p->y1, y);
+        p->x2 = MAX(p->x2, x + w);
+        p->y2 = MAX(p->y2, y + h);
+    }
+    return 0;
+}
+
+int 
+HtmlWidgetBboxCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    int x, y, w, h;
+    HtmlTree *pTree = (HtmlTree *)clientData;
+    Tcl_Obj *pRet = Tcl_NewObj();
+
+    if (objc != 2 && objc != 3) {
+        Tcl_WrongNumArgs(interp, 2, objv, "?NODE-HANDLE?");
+        return TCL_ERROR;
+    }
+
+    if (objc == 3) {
+        BboxContext sContext;
+        HtmlNode *pNode = HtmlNodeGetPointer(pTree, Tcl_GetString(objv[2]));
+        if (!pNode) {
+            return TCL_ERROR;
+        }
+        memset(&sContext, 0, sizeof(BboxContext));
+        sContext.pNode = pNode;
+        sContext.x1 = 10000000;
+        sContext.y1 = 10000000;
+        if (HtmlNodeIsText(pNode)) {
+            sContext.eType = CANVAS_TEXT;
+        } else {
+            sContext.eType = CANVAS_BOX;
+        }
+        searchCanvas(pTree, -1, -1, 0, bboxCb, (ClientData)&sContext);
+        x = sContext.x1;
+        y = sContext.y1;
+        w = sContext.x2 - x;
+        h = sContext.y2 - y;
+    } else {
+        x = 0;
+        y = 0;
+        w = pTree->canvas.right;
+        h = pTree->canvas.bottom;
+    }
+
+    if (w > 0 && h > 0) {
+        Tcl_ListObjAppendElement(0, pRet, Tcl_NewIntObj(x));
+        Tcl_ListObjAppendElement(0, pRet, Tcl_NewIntObj(y));
+        Tcl_ListObjAppendElement(0, pRet, Tcl_NewIntObj(x + w));
+        Tcl_ListObjAppendElement(0, pRet, Tcl_NewIntObj(y + h));
+    }
+
+    Tcl_SetObjResult(interp, pRet);
+    return TCL_OK;
+}
+
 /*
  * A pointer to an instance of the following structure is passed by 
  * HtmlWidgetDamageText() to paintNodesSearchCb() as the client-data
@@ -3597,6 +3681,12 @@ HtmlWidgetNodeBox(pTree, pNode, pX, pY, pW, pH)
     int origin_y = 0;
 
     HtmlCallbackForce(pTree);
+
+    int iLeftClip;
+    int iRightClip;
+    int iTopClip;
+    int iBottom;
+    int isClip = 0;
 
     sQuery.left = pCanvas->right;
     sQuery.right = pCanvas->left;

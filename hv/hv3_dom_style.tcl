@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_style.tcl,v 1.3 2007/01/20 07:58:40 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_style.tcl,v 1.4 2007/01/21 05:39:51 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # DOM Level 2 Style.
@@ -51,6 +51,8 @@ namespace eval ::hv3::dom::compiler {
     method CSSStyleDeclaration_setStyleProperty {css_property value} {
       array set current [$options(-nodehandle) prop -inline]
 
+# if {$value eq "NaNpx"} "error NAN"
+
       if {$value ne ""} {
         set current($css_property) $value
       } else {
@@ -89,5 +91,6 @@ namespace eval ::hv3::dom::compiler {
     append style "border: $value"
     $options(-nodehandle) attribute style $style
   }
+
 }
 

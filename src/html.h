@@ -636,9 +636,9 @@ Tcl_ObjCmdProc HtmlLayoutSize;
 Tcl_ObjCmdProc HtmlLayoutNode;
 Tcl_ObjCmdProc HtmlLayoutImage;
 Tcl_ObjCmdProc HtmlLayoutPrimitives;
-Tcl_ObjCmdProc HtmlLayoutBbox;
 Tcl_ObjCmdProc HtmlCssStyleConfigDump;
 Tcl_ObjCmdProc Rt_AllocCommand;
+Tcl_ObjCmdProc HtmlWidgetBboxCmd;
 
 Tcl_ObjCmdProc HtmlDebug;
 Tcl_ObjCmdProc HtmlDecode;

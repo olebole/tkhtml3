@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.149 2007/01/20 07:58:40 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.150 2007/01/21 05:39:51 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -374,9 +374,8 @@ snit::type ::hv3::hv3::mousemanager {
       set rc [$options(-dom) mouseevent mousedown $N $x $y]
     }
 
-puts "Press DOM RC is $rc"
     if {$rc eq ""} {
-#      $options(-selectionmanager) press $x $y
+      $options(-selectionmanager) press $x $y
     }
 
     for {set n $N} {$n ne ""} {set n [$n parent]} {

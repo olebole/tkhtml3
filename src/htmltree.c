@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.118 2007/01/20 07:58:41 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.119 2007/01/21 05:39:52 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -760,6 +760,9 @@ setNodeAttribute(pNode, zAttrName, zAttrVal)
     pElem->pAttributes = HtmlAttributesNew(nArgs, azPtr, aLen, 0);
     HtmlFree(pAttr);
 
+    /* If this was a call to set the "style" attribute, discard the
+     * compiled at version HtmlElementNode.pStyle.
+     */
     if (strcmp(HTML_INLINE_STYLE_ATTR, zAttrName) == 0) {
         HtmlCssInlineFree(pElem->pStyle);
         pElem->pStyle = 0;
@@ -1845,6 +1848,7 @@ nodeRemoveCmd(pNode, objc, objv)
             e = nodeRemoveChild((HtmlElementNode *)pNode, pChild);
             if (e) {
                 nodeOrphanize(pTree, pChild);
+                HtmlNodeClearStyle(pTree, HtmlNodeAsElement(pChild));
             }
         }
     }
@@ -1978,6 +1982,18 @@ nodeInsertCmd(pNode, objc, objv)
 
     pTree->isSequenceOk = 0;
     return TCL_OK;
+}
+
+static CssPropertySet *
+nodeGetStyle(p)
+    HtmlNode *p;
+{
+    HtmlElementNode *pElem = HtmlNodeAsElement(p);
+    const char *zStyle;
+    if (!pElem->pStyle && (zStyle = HtmlNodeAttr(p, "style"))) { 
+        HtmlCssInlineParse(-1, zStyle, &pElem->pStyle);
+    }
+    return pElem->pStyle;
 }
 
 /*
@@ -2290,6 +2306,13 @@ node_attr_usage:
             /* This method is a no-op for text nodes */
             if (HtmlNodeIsText(p)) break;
 
+            if (nArg > 0 && 0 == strcmp(Tcl_GetString(aArg[0]), "-inline")) {
+                CssPropertySet *pSet = nodeGetStyle(p);
+                if (nArg == 1) return HtmlCssInlineQuery(interp, pSet, 0);
+                if (nArg == 2) return HtmlCssInlineQuery(interp, pSet, aArg[1]);
+                /* Otherwise, fall through for the WrongNumArgs() message */
+            }
+
             HtmlCallbackForce(pTree);
 
             if (nArg > 0) {
@@ -2305,19 +2328,16 @@ node_attr_usage:
                     aArg = &aArg[1];
                     nArg--;
                 }
-                else if (0 == strcmp(zArg0, "-inline")) {
-                    CssPropertySet *pSet = HtmlNodeAsElement(p)->pStyle;
-                    
-                    if (nArg == 1) 
-                        return HtmlCssInlineQuery(interp, pSet, 0);
-                    if (nArg == 2) 
-                        return HtmlCssInlineQuery(interp, pSet, aArg[1]);
-                    /* Otherwise, fall through for the WrongNumArgs() message */
-                }
             }
+
+            /* If the -before or -after switch was specified, and the
+             * element doesn't have any corresponding generated content,
+             * then p is NULL at this point. Return an empty string.
+             */
             if (!p) {
                 return TCL_OK;
             }
+
             pComputed = HtmlNodeComputedValues(p);
 
             switch (nArg) {

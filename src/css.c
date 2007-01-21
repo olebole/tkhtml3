@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.107 2007/01/20 07:58:40 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.108 2007/01/21 05:39:51 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -322,8 +322,15 @@ static int tokenToReal(pToken, pLen, pVal)
     if (pToken->n>99) {
         return 0;
     }
+
     strncpy(zBuf, pToken->z, pToken->n);
     zBuf[pToken->n] = '\0';
+
+    /* Do not parse "NaN" or "-NaN" as a number. */
+    if (zBuf[0] == 'N' || (zBuf[0] == '-' && zBuf[1] == 'N')) {
+        return 0;
+    }
+
     *pVal = strtod(zBuf, &zEnd);
     if (zEnd!=zBuf) {
         *pLen = (zEnd-zBuf);

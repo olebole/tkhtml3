@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.5 2007/01/20 07:58:40 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.6 2007/01/21 05:39:51 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Core
@@ -442,8 +442,8 @@ namespace eval ::hv3::dom::compiler {
 
     # Create the Put method (unless the -readonly switch was passed).
     if {!$readonly} {
-      dom_put $name val [subst -novariables {
-        $self Element_putAttributeString [set name] $val
+      dom_put -string $name val [subst -novariables {
+        $self Element_putAttributeString [set attribute] $val
       }]
     }
   }

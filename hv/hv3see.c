@@ -846,10 +846,18 @@ objToValue(pInterp, pObj, pValue)
                     break;
                 }
                 case SEE_STRING: {
+                    int nChar;
+                    Tcl_UniChar *zChar;
                     struct SEE_string *pString;
-                    pString = SEE_string_sprintf(
-                        &pInterp->interp, "%s", Tcl_GetString(apElem[1])
-                    );
+                    struct SEE_string str;
+
+                    zChar = Tcl_GetUnicodeFromObj(apElem[1], &nChar);;
+
+                    pString = SEE_string_new(&pInterp->interp, nChar);
+                    str.length = nChar;
+                    str.data = zChar;
+                    SEE_string_append(pString, &str);
+
                     SEE_SET_STRING(pValue, pString);
                     break;
                 }

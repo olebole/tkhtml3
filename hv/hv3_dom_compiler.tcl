@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.4 2007/01/20 07:58:40 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.5 2007/01/21 05:39:51 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file implements infrastructure used to create the Snit objects
@@ -244,6 +244,7 @@ namespace eval ::hv3::dom {
   method CompilePut {mixins} {
     set Put {
         method Put {property value} {
+          $DEBUG
           switch -- [set property] {
             $SWITCHBODY
             default {
@@ -252,6 +253,9 @@ namespace eval ::hv3::dom {
           }
         }
     }
+
+    set DEBUG ""
+    # append DEBUG { puts "$self Put $property {$value}" }
 
     array set put_array ""
     foreach t [concat $mixins $self] {
@@ -272,7 +276,6 @@ namespace eval ::hv3::dom {
     }
 
     set NATIVE [string trim {
-puts "Native put on $self: $property -> $value"
       eval [$myDom see] $myNative Put $property [list $value]
     }]
 
@@ -294,9 +297,13 @@ puts "Native put on $self: $property -> $value"
             }
           }]
           $NATIVE
+          $DEBUG
           set result
         }
     }
+
+    set DEBUG {}
+    # append DEBUG { puts "$self Get $property -> $result" }
 
     set NATIVE [string trim {
           if {$result eq ""} {

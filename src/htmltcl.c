@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.153 2007/01/20 07:58:41 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.154 2007/01/21 05:39:52 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -2118,6 +2118,8 @@ bboxCmd(clientData, interp, objc, objv)
     int objc;                          /* Number of arguments. */
     Tcl_Obj *CONST objv[];             /* Argument strings. */
 {
+    return HtmlWidgetBboxCmd(clientData, interp, objc, objv);
+#if 0
     HtmlNode *pNode;
     int x, y, w, h;
     HtmlTree *pTree = (HtmlTree *)clientData;
@@ -2145,6 +2147,7 @@ bboxCmd(clientData, interp, objc, objv)
 
     Tcl_SetObjResult(interp, pRet);
     return TCL_OK;
+#endif
 }
 
 /*

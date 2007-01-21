@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.4 2007/01/20 07:58:40 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.5 2007/01/21 05:39:51 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Html
@@ -83,7 +83,9 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.4 2007/01/20 07:58:4
   # id cannot be found).
   #
   dom_call -string getElementById {THIS elementId} {
-    set node [lindex [$options(-hv3) search "#$elementId"] 0]
+    set elementId [string map {{"} {\"}} $elementId]
+    set selector [subst -nocommands {[id="$elementId"]}]
+    set node [lindex [$options(-hv3) search $selector] 0]
     if {$node ne ""} {
       return [list object [$myDom node_to_dom $node]]
     }
@@ -299,15 +301,19 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.4 2007/01/20 07:58:4
   #
   #     http://developer.mozilla.org/en/docs/DOM:element.innerHTML
   #
-  dom_get innerHTML { list string [$self HTMLElement_getInnerHTML] }
+  dom_get innerHTML { 
+    set res [$self HTMLElement_getInnerHTML]
+    set res
+  }
   dom_put -string innerHTML val { 
-    $self HTMLElement_putInnerHTML $val 
+    $self HTMLElement_putInnerHTML $val
   }
 
   dom_snit {
 
     method HTMLElement_getInnerHTML {} {
-      list string [HTMLElement_ChildrenToHtml $options(-nodehandle)]
+      set str [HTMLElement_ChildrenToHtml $options(-nodehandle)]
+      list string $str
     }
 
     proc HTMLElement_ChildrenToHtml {elem} {
@@ -349,57 +355,62 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.4 2007/01/20 07:58:4
   # TODO: Ref.
   #
   dom_snit {
-    method HTMLElement_offsetParent {} {
-      for {set N [$options(-nodehandle) par]} {$N ne ""} {set N [$N parent]} {
+
+    proc HTMLElement_offsetParent {node} {
+      for {set N [$node parent]} {$N ne ""} {set N [$N parent]} {
         set position [$N property position]
         if {$position ne "static"} break
       }
       return $N
     }
+
+    proc HTMLElement_nodeBox {dom node} {
+      set hv3 [$dom node_to_hv3 $node]
+      set bbox [$hv3 bbox $node]
+      if {$bbox eq ""} {set bbox [list 0 0 0 0]}
+      return $bbox
+    }
+
+    proc HTMLElement_offsetBox {dom node} {
+      set bbox [HTMLElement_nodeBox $dom $node]
+
+      set parent [HTMLElement_offsetParent $node]
+      if {$parent ne ""} {
+        set bbox2 [HTMLElement_nodeBox $dom $parent]
+        set x [lindex $bbox2 0]
+        set y [lindex $bbox2 1]
+        lset bbox 0 [expr {[lindex $bbox 0] - $x}]
+        lset bbox 1 [expr {[lindex $bbox 1] - $y}]
+        lset bbox 2 [expr {[lindex $bbox 2] - $x}]
+        lset bbox 3 [expr {[lindex $bbox 3] - $y}]
+      }
+      
+      return $bbox
+    }
+
   }
 
   dom_get offsetParent { 
-    set N [$self HTMLElement_offsetParent]
-    if {$N eq ""} {
-      list null
-    } else {
-      list object [$myDom node_to_dom $N]
-    }
-  }
-
-  dom_get offsetLeft { 
-    set hv3 [$myDom node_to_hv3 $options(-nodehandle)] 
-
-    set bbox [$hv3 bbox $options(-nodehandle)]
-    list number [lindex $bbox 0]
-  }
-
-  dom_get offsetTop { 
-    set hv3 [$myDom node_to_hv3 $options(-nodehandle)] 
-    set bbox [$hv3 bbox $options(-nodehandle)]
-    # if {[lindex $bbox 1] < 0} {error "$bbox"}
-    # set ret [list number [lindex $bbox 1]]
-    
-    set ptop 0
-    set parent [$self HTMLElement_offsetParent]
-    if {$parent ne ""} {
-      set bbox [$hv3 bbox $parent]
-      puts $bbox
-      set ptop [lindex [$hv3 bbox $parent] 1]
-    }
-
-    set ret [list number [expr {[lindex $bbox 1] - $ptop}]]
+    set N [HTMLElement_offsetParent $options(-nodehandle)]
+    set ret null
+    if {$N ne ""} { list object [$myDom node_to_dom $N] }
     set ret
   }
 
+  dom_get offsetLeft { 
+    list number [lindex [HTMLElement_offsetBox $myDom $options(-nodehandle)] 0]
+  }
+
+  dom_get offsetTop { 
+    list number [lindex [HTMLElement_offsetBox $myDom $options(-nodehandle)] 1]
+  }
+
   dom_get offsetHeight { 
-    set hv3 [$myDom node_to_hv3 $options(-nodehandle)] 
-    set bbox [$hv3 bbox $options(-nodehandle)]
+    set bbox [HTMLElement_offsetBox $myDom $options(-nodehandle)]
     list number [expr {[lindex $bbox 3] - [lindex $bbox 1]}]
   }
   dom_get offsetWidth { 
-    set hv3 [$myDom node_to_hv3 $options(-nodehandle)] 
-    set bbox [$hv3 bbox $options(-nodehandle)]
+    set bbox [HTMLElement_offsetBox $myDom $options(-nodehandle)]
     list number [expr {[lindex $bbox 2] - [lindex $bbox 0]}]
   }
 }
