@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.185 2007/01/21 05:39:51 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.186 2007/01/27 12:54:24 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -3681,12 +3681,6 @@ HtmlWidgetNodeBox(pTree, pNode, pX, pY, pW, pH)
     int origin_y = 0;
 
     HtmlCallbackForce(pTree);
-
-    int iLeftClip;
-    int iRightClip;
-    int iTopClip;
-    int iBottom;
-    int isClip = 0;
 
     sQuery.left = pCanvas->right;
     sQuery.right = pCanvas->left;
