@@ -4,19 +4,64 @@
  *     This file contains wrappers for functions that dynamically allocate
  *     and deallocate resources (for example ckalloc() and ckfree()). The
  *     purpose of this is to provide a built-in system for debugging
- *     resource leaks and buffer-overruns.
+ *     problems with dynamic resource allocation and buffer-overruns.
  *
- *     Currently, the following resources are allocated using wrapper 
- *     functions in this file:
+ *     Currently, only heap memory is managed, but others (colors, fonts,
+ *     pixmaps, Tcl_Obj, etc.) are to be added later.
  *
- *         * Heap memory           - Rt_Alloc(), Rt_Realloc() and Rt_Free()
- *         * Tcl object references - Rt_IncrRefCount() and Rt_DecrRefCount()
+ *     Heap memory alloc/free wrappers: 
+ *         Rt_Alloc()
+ *         Rt_Realloc()
+ *         Rt_Free()
  *
- * No tkhtml code outside of this file should call ckalloc() directly.
+ *     Other externally available functions:
+ *         Rt_AllocCommand()
+ *             This implements the [::tkhtml::htmlalloc] command. See 
+ *             below for details.
+ *
+ *         HtmlHeapDebug()
+ *             This implements the [::tkhtml::heapdebug] command. See
+ *             below for details.
+ *
+ *     No tkhtml code outside of this file should call ckalloc() and 
+ *     friends directly.
+ *
+ *     This code is not thread safe. It's only for debugging.
  *
  *-------------------------------------------------------------------------
+ *
+ * Copyright (c) 2005 Dan Kennedy.
+ * All rights reserved.
+ *
+ * This Open Source project was made possible through the financial support
+ * of Eolas Technologies Inc.
+ * 
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer in the
+ *       documentation and/or other materials provided with the distribution.
+ *     * Neither the name of Eolas Technologies Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived from
+ *       this software without specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ *
  */
-static const char rcsid[] = "$Id: restrack.c,v 1.10 2006/11/11 11:58:14 danielk1977 Exp $";
+static const char rcsid[] = "$Id: restrack.c,v 1.11 2007/01/27 12:53:15 danielk1977 Exp $";
 
 #ifdef HTML_RES_DEBUG
 #define RES_DEBUG
@@ -117,11 +162,15 @@ static Tcl_HashTable aOutstanding;
  *
  * ResAlloc --
  *
+ *     Add an entry to aOutstanding for the resource identified by (v1, v2).
+ *     Or, if the resource already exists, increment it's ref-count and
+ *     add a new stack-trace.
+ *
  * Results:
  *     None.
  *
  * Side effects:
- *     None.
+ *     See above.
  *
  *---------------------------------------------------------------------------
  */
@@ -175,11 +224,15 @@ ResAlloc(v1, v2)
  *
  * ResFree --
  *
+ *     Decrement the reference count of the resource identified by (v1, v2).
+ *     If the ref-count reaches 0, remove the entry from the aOutstanding
+ *     hash table.
+ *
  * Results:
  *     None.
  *
  * Side effects:
- *     None.
+ *     See above.
  *
  *---------------------------------------------------------------------------
  */
@@ -278,10 +331,40 @@ ResDump()
  *     * insertMallocHash()
  *     * freeMallocHash()
  *
+ * Each call to Rt_Alloc() or Rt_Realloc() is passed a "topic" argument
+ * (a string). Usually, the topic is the name of the structure being
+ * allocated (i.e. "HtmlComputedValues"), but can be anything.
+ *
+ * The aMalloc table is a mapping from topic name to the total number
+ * of bytes currently allocated specifying that topic. i.e:
+ *
+ *     "HtmlComputedValues" -> 4068
+ *     "HtmlNode" -> 13456
+ *     ...
+ *
+ * The aAllocationType is a mapping from each pointer returned by 
+ * Rt_Alloc() or Rt_Realloc() to a pointer to the hash entry corresponding 
+ * to that topic in the aMalloc table.
  */
 static Tcl_HashTable aMalloc;
 static Tcl_HashTable aAllocationType;
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * initMallocHash --
+ *
+ *     Initialise the global aMalloc and aAllocationType hash tables.
+ *     This function is a no-op if they have already been initialised.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     May initialise aMalloc and aAllocationType.
+ *
+ *---------------------------------------------------------------------------
+ */
 static void 
 initMallocHash() {
     static int init = 0;
@@ -292,11 +375,27 @@ initMallocHash() {
     }
 }
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * insertMallocHash --
+ *
+ *     Insert an entry into the aMalloc/aAllocationType database.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     May initialise aMalloc and aAllocationType. May insert an entry into
+ *     aMalloc. Always inserts an entry into aAllocationType.
+ *
+ *---------------------------------------------------------------------------
+ */
 static void
 insertMallocHash(zTopic, p, nBytes) 
-    const char *zTopic;
-    char *p;
-    int nBytes;
+    const char *zTopic;    /* Topic for allocation */
+    char *p;               /* Pointer just allocated by Rt_Alloc()/Realloc() */
+    int nBytes;            /* Number of bytes allocated at p */
 {
     int *aData;
     int isNewEntry;
@@ -321,10 +420,27 @@ insertMallocHash(zTopic, p, nBytes)
     Tcl_SetHashValue(pEntry2, pEntry);
 }
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * freeMallocHash --
+ *
+ *     Remove an entry from the aMalloc/aAllocationType database. If
+ *     the supplied pointer is not in the database, an assert() will 
+ *     fail.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     Removes an entry from aAllocationType hash table.
+ *
+ *---------------------------------------------------------------------------
+ */
 static void
 freeMallocHash(p, nBytes) 
-    char *p;
-    int nBytes;
+    char *p;              /* Pointer to remove from db */
+    int nBytes;           /* Number of bytes (previously) allocated at p */
 {
     int *aData;
     Tcl_HashEntry *pEntryAllocationType;
@@ -349,6 +465,36 @@ freeMallocHash(p, nBytes)
     Tcl_DeleteHashEntry(pEntryAllocationType);
 }
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlHeapDebug --
+ *
+ *         ::tkhtml::heapdebug
+ *
+ *     This Tcl command reports on the currently outstanding heap memory
+ *     allocations made by the Html widget code. A Tcl list is returned
+ *     containing a single entry for each allocation "topic" used by
+ *     the html widget (see above). Each list entry is itself a list
+ *     of length three, as follows:
+ *
+ *         [list TOPIC N-ALLOCATIONS N-BYTES]
+ *
+ *     i.e.:
+ *         
+ *         [list HtmlComputedValues 4 544]
+ * 
+ *     indicates that 4 HtmlComputedValues structures are allocated for
+ *     a total of 544 bytes.
+ *
+ * Results:
+ *     Always TCL_OK.
+ *
+ * Side effects:
+ *     Populates the tcl interpreter with a result.
+ *
+ *---------------------------------------------------------------------------
+ */
 int 
 HtmlHeapDebug(clientData, interp, objc, objv)
     ClientData clientData;
@@ -383,20 +529,25 @@ HtmlHeapDebug(clientData, interp, objc, objv)
  *
  * Rt_AllocCommand --
  *
- *         canvas3d_alloc
+ *         ::tkhtml::htmlalloc
  *
  *     This Tcl command is only available if NDEBUG is not defined. It
- *     returns a list of two integers, the number of unmatched Rt_Alloc()
- *     and Rt_IncrRefCount calls respectively.
+ *     returns a Tcl key-value list (suitable for passing to [array set])
+ *     containing the names of the managed resource types and the number
+ *     of outstanding allocations. i.e:
+ *
+ *         [list "memory allocation" 345 "tcl object reference" 0 ....]
+ * 
+ *     Note: At this stage all except "memory allocation" will be 0.
  *
  *     This function also invokes ResDump(). So if RES_DEBUG is defined at
  *     compile time and glibc is in use some data may be dumped to stdout.
  *
  * Results:
- *     None.
+ *     Always TCL_OK.
  *
  * Side effects:
- *     None.
+ *     Populates the tcl interpreter with a result. Invokes ResDump().
  *
  *---------------------------------------------------------------------------
  */
@@ -421,6 +572,7 @@ Rt_AllocCommand(clientData, interp, objc, objv)
     ResDump();
     return TCL_OK;
 }
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -515,225 +667,6 @@ Rt_Realloc(zTopic, p, n)
     }
     return pRet;
 }
-
-#if 0
-
-/*
- *---------------------------------------------------------------------------
- *
- * Rt_IncrRefCount --
- *
- *     A wrapper around Tcl_IncrRefCount() for use by code outside of this
- *     file.
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-void Rt_IncrRefCount(pObj)
-    Tcl_Obj *pObj;
-{
-    assert(pObj);
-    Tcl_IncrRefCount(pObj);
-    ResAlloc(RES_OBJREF, pObj);
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * Rt_DecrRefCount --
- *
- *     A wrapper around Tcl_DecrRefCount() for use by code outside of this
- *     file.
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-void 
-Rt_DecrRefCount(pObj)
-    Tcl_Obj *pObj;
-{
-    assert(pObj);
-    Tcl_DecrRefCount(pObj);
-    ResFree(RES_OBJREF, pObj);
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * Rt_GetGC --
- *
- *     A wrapper around Tk_GetGC() for use by code outside of this file.
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-GC 
-Rt_GetGC(tkwin, valueMask, gc_values)
-    Tk_Window tkwin;
-    unsigned long valueMask;
-    XGCValues *gc_values;
-{
-    GC gc = Tk_GetGC(tkwin, valueMask, gc_values);
-    ResAlloc(RES_GC, gc);
-    return gc;
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * Rt_GetGC --
- *
- *     A wrapper around Tk_FreeGC() for use by code outside of this file.
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-void 
-Rt_FreeGC(dpy, gc)
-    Display *dpy;
-    GC gc;
-{
-    ResFree(RES_GC, gc);
-    Tk_FreeGC(dpy, gc);
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * Rt_GetPixmap --
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-Pixmap 
-Rt_GetPixmap(dpy, drawable, w, h, depth)
-    Display *dpy;
-    Drawable drawable;
-    int w; 
-    int h;
-    int depth;
-{
-    Pixmap pixmap = Tk_GetPixmap(dpy, drawable, w, h, depth);
-    ResAlloc(RES_PIXMAP, pixmap);
-    return pixmap;
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * Rt_FreePixmap --
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-void 
-Rt_FreePixmap(dpy, pixmap)
-    Display *dpy;
-    Pixmap pixmap;
-{
-    ResFree(RES_PIXMAP, pixmap);
-    Tk_FreePixmap(dpy, pixmap);
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * Rt_FreeColor --
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-void 
-Rt_FreeColor(color)
-    XColor *color;
-{
-    ResFree(RES_XCOLOR, color);
-    Tk_FreeColor(color);
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * Rt_AllocColorFromObj --
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-XColor *
-Rt_AllocColorFromObj(interp, win, pObj)
-    Tcl_Interp *interp;
-    Tk_Window win; 
-    Tcl_Obj *pObj;
-{
-    XColor *color = Tk_AllocColorFromObj(interp, win, pObj);
-    ResAlloc(RES_XCOLOR, color);
-    return color;
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * Rt_GetColorByValue --
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-XColor *
-Rt_GetColorByValue(win, color)
-    Tk_Window win;
-    XColor *color;
-{
-    XColor *color2 = Tk_GetColorByValue(win, color);
-    ResAlloc(RES_XCOLOR, color2);
-    return color2;
-}
-
-#endif
 
 #endif
 

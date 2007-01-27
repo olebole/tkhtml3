@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.25 2007/01/20 07:58:40 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.26 2007/01/27 12:53:15 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Global interfaces in this file:
@@ -637,8 +637,8 @@ snit::type ::hv3::dom::Window {
   js_finish {
     # Cancel any outstanding timers created by Window.setTimeout().
     #
-    foreach timeoutid [array names myTimeoutIds] {
-      after cancel $myTimeoutIds($timeoutid)
+    foreach timeoutid [array names myTimerIds] {
+      after cancel $myTimerIds($timeoutid)
     }
     array unset myTimeoutIds
   }

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.5 2007/01/21 05:39:51 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.6 2007/01/27 12:53:15 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Html
@@ -39,6 +39,14 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.5 2007/01/21 05:39:5
     NodePrototype          \
     EventTarget            \
 ] {
+
+  dom_todo title
+  dom_todo referrer
+  dom_todo domain
+  dom_todo URL
+
+  dom_todo open
+  dom_todo close
 
   # The document collections (DOM level 1)
   #
@@ -83,13 +91,26 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.5 2007/01/21 05:39:5
   # id cannot be found).
   #
   dom_call -string getElementById {THIS elementId} {
-    set elementId [string map {{"} {\"}} $elementId]
+    set elementId [string map [list "\x22" "\x5C\x22"] $elementId]
     set selector [subst -nocommands {[id="$elementId"]}]
     set node [lindex [$options(-hv3) search $selector] 0]
     if {$node ne ""} {
       return [list object [$myDom node_to_dom $node]]
     }
     return null
+  }
+
+  #-------------------------------------------------------------------------
+  # HTMLDocument.getElementsByName() method. (DOM level 1)
+  #
+  # Return a NodeList of the elements whose "name" value is set to
+  # the supplied argument. This is similar to the 
+  # Document.getElementsByTagName() method in hv3_dom_core.tcl.
+  #
+  dom_call -string getElementsByName {THIS elementName} {
+    set name [string map [list "\x22" "\x5C\x22"] $elementName]
+    set cmd [list $options(-hv3) search [subst -nocommands {[name="$name"]}]]
+    list object [::hv3::DOM::NodeList %AUTO% $myDom -nodelistcmd $cmd]
   }
 
   #-----------------------------------------------------------------------
@@ -496,6 +517,73 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.5 2007/01/21 05:39:5
 # DOM Type HTMLSelectElement (extends HTMLElement)
 #
 ::hv3::dom::type HTMLSelectElement HTMLElement {
+
+  dom_get type {
+    # DOM Level 1 says: "This is the string "select-multiple" when the 
+    # multiple attribute is true and the string "select-one" when false."
+    # However since Hv3 does not support multiple-select controls, this
+    # property is always set to "select-one".
+    list string "select-one"
+  }
+
+  dom_get selectedIndex {
+    list number [[$options(-nodehandle) replace] dom_selectionIndex]
+  }
+  dom_put -string selectedIndex value {
+    [$options(-nodehandle) replace] dom_setSelectionIndex $value
+  }
+
+  dom_get value {
+    # The value attribute is read-only for this element. It is set to
+    # the string value that will be submitted by this control during
+    # form submission.
+    list string [[$options(-nodehandle) replace] value]
+  }
+
+  dom_todo length
+  dom_todo form
+
+  dom_snit {
+    method HTMLSelectElement_getOptions {} {
+      # Note: This needs to be merged with code in hv3_form.tcl.
+      set ret [list]
+      foreach child [$options(-nodehandle) children] {
+        if {[$child tag] == "option"} {lappend ret $child}
+      }
+      set ret
+    }
+  }
+  dom_get -cache options {
+    set cmd [mymethod HTMLSelectElement_getOptions]
+    list object [::hv3::DOM::HTMLCollection %AUTO% $myDom -nodelistcmd $cmd]
+  }
+
+  dom_todo disabled
+
+  dom_get multiple {
+    # In Hv3, this attribute is always 0. This is because Hv3 does not
+    # support multiple-select controls.
+    list number 0
+  }
+
+  element_attr name
+  element_attr size
+  element_attr tabIndex -attribute tabindex
+
+  dom_todo form
+  dom_todo disabled
+
+  dom_todo add
+  dom_todo remove
+  dom_call blur   {THIS} { [$options(-nodehandle) replace] dom_blur }
+  dom_call focus  {THIS} { [$options(-nodehandle) replace] dom_focus }
+
+  #--------------------------------------------------------------------
+  # Non-standard stuff starts here.
+  dom_get * {
+    set obj [lindex [$self Get options] 1]
+    $obj Get $property
+  }
 }
 # </HTMLSelectElement>
 #-------------------------------------------------------------------------
@@ -557,6 +645,45 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.5 2007/01/21 05:39:5
 # DOM Type HTMLOptionElement (extends HTMLElement)
 #
 ::hv3::dom::type HTMLOptionElement HTMLElement {
+  dom_todo form
+  dom_todo defaultSelected
+  dom_todo text
+  dom_todo index
+  dom_todo disabled
+  dom_get label {
+    # TODO: After writing this attribute, have to update data structures in
+    # the hv3_forms module.
+    list string [$self HTMLOptionElement_getLabelOrValue label]
+  }
+  dom_put -string label v {
+    $options(-nodehandle) attr label $v
+  }
+  dom_todo selected
+
+  dom_snit {
+    method HTMLOptionElement_getLabelOrValue {attr} {
+      # If the element has text content, this is used as the default
+      # for both the label and value of the entry (used if the Html
+      # attributes "value" and/or "label" are not defined.
+      #
+      # Note: This needs to be merged with code in hv3_form.tcl.
+      set contents ""
+      catch {
+        set t [lindex [$child children] 0]
+        set contents [$t text]
+      }
+      $options(-nodehandle) attribute -default $contents $attr
+    }
+  }
+
+  dom_get value {
+    list string [$self HTMLOptionElement_getLabelOrValue value]
+  }
+  dom_put -string value v {
+    # TODO: After writing this attribute, have to update data structures in
+    # the hv3_forms module.
+    $options(-nodehandle) attr value $v
+  }
 }
 # </HTMLOptionElement>
 #-------------------------------------------------------------------------
@@ -698,8 +825,35 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.5 2007/01/21 05:39:5
   dom_todo insertCell
   dom_todo deleteCell
 }
+# </HTMLTableRowElement>
+#-------------------------------------------------------------------------
 
-# </HTMLTableSectionElement>
+#-------------------------------------------------------------------------
+# DOM Type HTMLAnchorElement (extends HTMLElement)
+#
+#     This DOM type is used for HTML <A> elements.
+#
+::hv3::dom::type HTMLAnchorElement HTMLElement {
+  element_attr accessKey -attribute accesskey
+  element_attr charset
+  element_attr coords
+  element_attr href
+  element_attr hreflang
+  element_attr name
+  element_attr rel
+  element_attr shape
+  element_attr tabIndex -attribute tabindex
+  element_attr target
+  element_attr type
+
+  # Hv3 does not support keyboard focus on <A> elements yet. So these
+  # two calls are no-ops for now.
+  #
+  dom_call focus {THIS} {list}
+  dom_call blur {THIS} {list}
+}
+
+# </HTMLAnchorElement>
 #-------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------
@@ -714,6 +868,7 @@ namespace eval ::hv3::dom {
 
   array set TagToNodeTypeMap {
     ""       ::hv3::DOM::Text
+    a        ::hv3::DOM::HTMLAnchorElement
   }
 
   # HTML Forms related objects:

@@ -20,7 +20,7 @@ TCLVERSION = 8.5
 
 TCL_RELEASE  = $(HOME)/tcl
 TCL_DEBUG    = $(HOME)/tcl
-TCL_PROFILE  = $(HOME)/tcl
+TCL_PROFILE  = $(HOME)/tcl_profile
 TCL_MEMDEBUG = $(TCL_DEBUG)
 TCL = $(TCL_$(BUILD))
 

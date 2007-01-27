@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.5 2007/01/21 05:39:51 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.6 2007/01/27 12:53:15 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file implements infrastructure used to create the Snit objects
@@ -400,7 +400,7 @@ namespace eval ::hv3::dom {
     set Log_UndefinedPropertyMethod [subst -novariables {
         method Log_UndefinedProperty {prop} {
           # puts "Request for DOM property [set myName].$prop -> undefined"
-          # puts "Request for DOM property $self.$prop -> undefined"
+          puts "Request for DOM property $self.$prop -> undefined"
         }
     }]
 

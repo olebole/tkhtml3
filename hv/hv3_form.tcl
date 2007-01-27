@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.49 2007/01/20 07:58:40 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.50 2007/01/27 12:53:15 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -554,6 +554,9 @@ snit::widget ::hv3::control {
       default { error "Cannot call \[dom_select\] on this ::hv3::control" }
     }
   }
+
+  method dom_selectionIndex    {}      { $myWidget curselection }
+  method dom_setSelectionIndex {value} { $myWidget select $value }
 
   #-----------------------------------------------------------------------
   # Method [dom_click] is used to implement the HTMLInputElement.click()

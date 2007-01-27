@@ -66,7 +66,7 @@ struct HtmlFont {
 
     int em_pixels;         /* Pixels per 'em' unit */
     int ex_pixels;         /* Pixels per 'ex' unit */
-    int space_pixels;      /* Pixels per space (' ') in text */
+    int space_pixels;      /* Pixels per space (' ') in this font */
     Tk_FontMetrics metrics;
 };
 
