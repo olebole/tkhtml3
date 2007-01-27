@@ -239,8 +239,9 @@ struct HtmlComputedValues {
     /* The Tkhtml specific properties */
     HtmlImage2 *imReplacementImage;   /* '-tkhtml-replacement-image' */
 
-    /* Properties not yet in use - TODO! */
     int iZIndex;                      /* 'z-index'        (integer, AUTO) */
+
+    /* Properties not yet in use - TODO! */
     unsigned char eUnicodeBidi;       /* 'unicode-bidi' */
     unsigned char eTableLayout;       /* 'table-layout' */
 

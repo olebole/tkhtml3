@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.119 2007/01/21 05:39:52 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.120 2007/01/27 14:45:42 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -2043,8 +2043,8 @@ nodeCommand(clientData, interp, objc, objv)
     enum NODE_enum {
 	NODE_ATTRIBUTE, NODE_CHILDREN, NODE_DESTROY, NODE_DYNAMIC, 
         NODE_INSERT, NODE_OVERRIDE, NODE_PARENT, NODE_PROPERTY, 
-        NODE_REMOVE, NODE_REPLACE, NODE_TAG, NODE_TEXT, NODE_XVIEW, 
-        NODE_YVIEW
+        NODE_REMOVE, NODE_REPLACE, NODE_STACKING, NODE_TAG, NODE_TEXT, 
+        NODE_XVIEW, NODE_YVIEW
     };
 
     static const struct NodeSubCommand {
@@ -2062,6 +2062,7 @@ nodeCommand(clientData, interp, objc, objv)
         {"property",  NODE_PROPERTY,  0}, 
         {"remove",    NODE_REMOVE,    0},
         {"replace",   NODE_REPLACE,   0}, 
+        {"stacking",  NODE_STACKING,  0},    
         {"tag",       NODE_TAG,       0},    
         {"text",      NODE_TEXT,      0},  
         {"xview",     NODE_XVIEW,     0},
@@ -2175,6 +2176,25 @@ node_attr_usage:
             } else {
                 Tcl_WrongNumArgs(interp, 2, objv, "");
                 return TCL_ERROR;
+            }
+            break;
+        }
+
+        /*
+         * nodeHandle stacking
+         *
+         *     Return the node-handle that forms the stacking context
+         *     this node is located in. Return "" for the root-element.
+         */
+        case NODE_STACKING: {
+            HtmlElementNode *pElem = HtmlNodeAsElement(pNode);
+            if (!pElem) {
+                pElem = HtmlNodeAsElement(HtmlNodeParent(pNode));
+            }
+
+            if (pElem != pTree->pRoot) {
+                HtmlNode *p = &(pElem->pStack->pElem->node);
+                Tcl_SetObjResult(interp, HtmlNodeCommand(pTree, p));
             }
             break;
         }

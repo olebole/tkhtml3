@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.150 2007/01/21 05:39:51 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.151 2007/01/27 14:45:42 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -315,6 +315,8 @@ snit::type ::hv3::hv3::mousemanager {
       $options(-dom) mouseevent mousemove $N $x $y
     }
 
+    $options(-selectionmanager) motion $N $x $y
+
     # After the loop runs, hovernodes will contain the list of 
     # currently hovered nodes.
     array set hovernodes [list]
@@ -374,9 +376,7 @@ snit::type ::hv3::hv3::mousemanager {
       set rc [$options(-dom) mouseevent mousedown $N $x $y]
     }
 
-    if {$rc eq ""} {
-      $options(-selectionmanager) press $x $y
-    }
+    $options(-selectionmanager) press $N $x $y
 
     for {set n $N} {$n ne ""} {set n [$n parent]} {
       set myActiveNodes($n) 1
@@ -476,7 +476,7 @@ snit::type ::hv3::hv3::selectionmanager {
     set myHv3 $hv3
     selection handle $myHv3 [list ::hv3::bg [mymethod get_selection]]
 
-    bind $myHv3 <Motion>               "+[mymethod motion %x %y]"
+    # bind $myHv3 <Motion>               "+[mymethod motion %x %y]"
     # bind $myHv3 <ButtonPress-1>        "+[mymethod press %x %y]"
     bind $myHv3 <Double-ButtonPress-1> "+[mymethod doublepress %x %y]"
     bind $myHv3 <Triple-ButtonPress-1> "+[mymethod triplepress %x %y]"
@@ -492,12 +492,12 @@ snit::type ::hv3::hv3::selectionmanager {
     set myToNode ""
   }
 
-  method press {x y} {
+  method press {N x y} {
     # Single click -> Select by character.
     $self clear
     set myState true
     set myMode char
-    $self motion $x $y
+    $self motion $N $x $y
   }
 
   # Given a node-handle/index pair identifying a character in the 
@@ -559,7 +559,7 @@ snit::type ::hv3::hv3::selectionmanager {
     $self clear
     set myMode word
     set myState true
-    $self motion $x $y
+    $self motion "" $x $y
   }
 
   method triplepress {x y} {
@@ -567,7 +567,7 @@ snit::type ::hv3::hv3::selectionmanager {
     $self clear
     set myMode block
     set myState true
-    $self motion $x $y
+    $self motion "" $x $y
   }
 
   method release {x y} {
@@ -585,12 +585,25 @@ snit::type ::hv3::hv3::selectionmanager {
     set myToNode ""
   }
 
-  method motion {x y} {
+  method motion {N x y} {
     if {!$myState || $myIgnoreMotion} return
 
     set to [$myHv3 node -index $x $y]
+    foreach {toNode toIdx} $to {}
+
+    # $N containst the node-handle for the node that the cursor is
+    # currently hovering over (according to the mousemanager component).
+    # If $N is in a different stacking-context to the closest text, 
+    # do not update the highlighted region in this event.
+    #
+    if {$N ne "" && [info exists toNode]} {
+      if {[$N stacking] ne [$toNode stacking]} {
+        set to ""
+      }
+    }
+
     if {[llength $to] > 0} {
-      foreach {toNode toIdx} $to {}
+
   
       if {$myFromNode eq ""} {
         set myFromNode $toNode
@@ -666,7 +679,8 @@ snit::type ::hv3::hv3::selectionmanager {
     set myIgnoreMotion 0
     set x [expr [winfo pointerx $myHv3] - [winfo rootx $myHv3]]
     set y [expr [winfo pointery $myHv3] - [winfo rooty $myHv3]]
-    $self motion $x $y
+    set N [lindex [$myHv3 node $x $y] 0]
+    $self motion $N $x $y
   }
 
   # get_selection OFFSET MAXCHARS

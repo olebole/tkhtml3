@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.110 2006/12/23 09:01:53 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.111 2007/01/27 14:45:42 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1636,11 +1636,10 @@ getPrototypeCreator(pTree, pMask, piCopyBytes)
         pValues = &p->values;
         values = (char *)pValues;
 
-	/* Initialise the CUSTOM properties. Note that these are all 
-         * inherited.
-         */
+	/* Initialise the CUSTOM properties. */
 	pValues->eVerticalAlign = CSS_CONST_BASELINE;
         pValues->iLineHeight = PIXELVAL_NORMAL;
+        pValues->iZIndex = PIXELVAL_AUTO;
         propertyValuesSetFontSize(p, &Medium);
         p->fontKey.zFontFamily = "Helvetica";
 

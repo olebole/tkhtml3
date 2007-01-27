@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.4 2007/01/20 07:58:40 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.5 2007/01/27 14:45:42 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # DOM Level 2 Events.
@@ -298,7 +298,9 @@ set ::hv3::dom::HTML_Events_List [list                          \
   dom_get timestamp  { list number 0 }
 
   dom_call stopPropagation {THIS} { set myStopPropagationCalled 1 }
-  dom_call preventDefault {THIS}  { set options(-preventdefault) true }
+  dom_call preventDefault {THIS}  { 
+    set options(-preventdefault) true 
+  }
 
   dom_call -string initEvent {eventType canBubble cancelable} {
     $self Event_initEvent $eventType $canBubble $cancelable
