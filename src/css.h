@@ -62,7 +62,6 @@
  *                   '<h1 style="font : italic">').
  */
 typedef struct CssStyleSheet CssStyleSheet;
-// typedef struct CssProperties CssProperties;
 typedef struct CssProperty CssProperty;
 typedef struct CssDynamic CssDynamic;
 

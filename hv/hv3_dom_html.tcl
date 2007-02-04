@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.6 2007/01/27 12:53:15 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.7 2007/02/04 16:19:51 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Html
@@ -76,7 +76,7 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.6 2007/01/27 12:53:1
   # The HTMLDocument.write() and writeln() methods (DOM level 1)
   #
   dom_call -string write {THIS str} {
-    catch { [$options(-hv3) html] write text $str }
+    catch { [$options(-hv3) html] write text $str } msg
     return ""
   }
   dom_call -string writeln {THIS str} {
@@ -110,7 +110,8 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.6 2007/01/27 12:53:1
   dom_call -string getElementsByName {THIS elementName} {
     set name [string map [list "\x22" "\x5C\x22"] $elementName]
     set cmd [list $options(-hv3) search [subst -nocommands {[name="$name"]}]]
-    list object [::hv3::DOM::NodeList %AUTO% $myDom -nodelistcmd $cmd]
+    set nl [::hv3::DOM::NodeList %AUTO% $myDom -nodelistcmd $cmd]
+    list transient $nl
   }
 
   #-----------------------------------------------------------------------

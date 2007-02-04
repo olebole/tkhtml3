@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.26 2007/01/27 12:53:15 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.27 2007/02/04 16:19:51 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Global interfaces in this file:
@@ -104,7 +104,6 @@ snit::type ::hv3::JavascriptObject {
   constructor {dom args} {
     set myDom $dom
     $self configurelist $args
-    set myNative [[$dom see] native]
   }
 
   destructor {
@@ -112,11 +111,11 @@ snit::type ::hv3::JavascriptObject {
   }
 
   method Get {property} {
-    return [eval [$self see] $myNative Get $property]
+    return ""
   }
 
   method Put {property value} {
-    return [eval [$self see] $myNative Put $property [list $value]]
+    return "native"
   }
 
   method ToString {js_value} {
@@ -600,6 +599,19 @@ snit::type ::hv3::dom::Window {
   }
 
   #-----------------------------------------------------------------------
+  # The event property.
+  #
+  js_get event {
+    set event [[$myHv3 dom] getWindowEvent]
+    if {$event ne ""} {
+      list object event
+    } else {
+      list undefined
+    }
+  }
+
+
+  #-----------------------------------------------------------------------
   # DOM level 0 events:
   #
   #     onload
@@ -846,6 +858,16 @@ snit::type ::hv3::dom {
       set Node [$self node_to_dom $node]
     }
     eval ::hv3::dom::dispatchMouseEvent $self $event $Node $x $y $args
+  }
+
+  variable myWindowEvent ""
+  method setWindowEvent {event} {
+    set ret $myWindowEvent
+    set myWindowEvent $event
+    return $ret
+  }
+  method getWindowEvent {} {
+    return $myWindowEvent
   }
 
 #  typevariable tag_to_obj -array [list         \

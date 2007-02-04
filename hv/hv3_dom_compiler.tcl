@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.6 2007/01/27 12:53:15 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.7 2007/02/04 16:19:51 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file implements infrastructure used to create the Snit objects
@@ -275,9 +275,7 @@ namespace eval ::hv3::dom {
       append SWITCHBODY "[list $name $put_code]\n            "
     }
 
-    set NATIVE [string trim {
-      eval [$myDom see] $myNative Put $property [list $value]
-    }]
+    set NATIVE "return native"
 
     set Put [subst -nocommands $Put]
     return $Put
@@ -296,7 +294,6 @@ namespace eval ::hv3::dom {
               $DEFAULT
             }
           }]
-          $NATIVE
           $DEBUG
           set result
         }
@@ -304,16 +301,6 @@ namespace eval ::hv3::dom {
 
     set DEBUG {}
     # append DEBUG { puts "$self Get $property -> $result" }
-
-    set NATIVE [string trim {
-          if {$result eq ""} {
-            set result [eval [$myDom see] $myNative Get $property]
-          }
-          
-          if {($result eq "" || $result eq "undefined") && !$isExplicit} {
-            $self Log_UndefinedProperty $property
-          }
-    }]
 
     set SWITCHBODY ""
     foreach t [concat $mixins $self] {
@@ -359,9 +346,6 @@ namespace eval ::hv3::dom {
     set SnitCode {
       ::snit::type ::hv3::DOM::$myName {
 
-        # Reference to the javascript object to store properties.
-        variable myNative
-
         # Reference to the ::hv3::dom object
         variable myDom
 
@@ -370,19 +354,19 @@ namespace eval ::hv3::dom {
         $Get
         $Put
         $Snit
-
-        $Log_UndefinedPropertyMethod
       }
     }
 
     set CONSTRUCTOR [string trim {
         constructor {dom args} {
           set myDom $dom
-          set myNative [[$dom see] native]
           catch {$self configurelist $args}
         }
     }]
     set DESTRUCTOR [string trim {
+        method Finalize {} {
+          $self destroy
+        }
         destructor {
           # Destroy objects returned by [dom_get -cache] methods.
           #
@@ -392,15 +376,6 @@ namespace eval ::hv3::dom {
               [lindex $value 1] destroy
             }
           }
-
-          # TODO Destroy the myNative object?
-        }
-    }]
-
-    set Log_UndefinedPropertyMethod [subst -novariables {
-        method Log_UndefinedProperty {prop} {
-          # puts "Request for DOM property [set myName].$prop -> undefined"
-          puts "Request for DOM property $self.$prop -> undefined"
         }
     }]
 
@@ -432,6 +407,7 @@ foreach class [concat \
   eval [::hv3::dom::compile $class]
   # puts [::hv3::dom::compile $class]
 }
+#puts [::hv3::dom::compile HTMLElement]
 ::hv3::dom::cleanup
 
 

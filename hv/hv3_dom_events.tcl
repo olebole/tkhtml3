@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.5 2007/01/27 14:45:42 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.6 2007/02/04 16:19:51 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # DOM Level 2 Events.
@@ -442,7 +442,9 @@ proc ::hv3::dom::dispatchMouseEvent {dom eventtype EventTarget x y args} {
   $event Event_initEvent $eventtype 1 $isCancelable
   $event configurelist $args
 
+  set evt [$dom setWindowEvent $event]
   $EventTarget doDispatchEvent $event
+  $dom setWindowEvent $evt
 }
 
 

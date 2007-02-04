@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.101 2007/01/09 10:05:37 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.102 2007/02/04 16:19:51 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -1426,7 +1426,7 @@ HtmlWriteContinue(pTree)
                 HtmlTreeAddElement,
                 HtmlTreeAddClosingTag
             );
-            if (pTree->isParseFinished) {
+            if (pTree->isParseFinished && pTree->eWriteState==HTML_WRITE_NONE) {
                 HtmlFinishNodeHandlers(pTree);
             }
             HtmlCallbackRestyle(pTree, pCurrent ? pCurrent : pTree->pRoot);

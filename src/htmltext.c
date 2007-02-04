@@ -1960,7 +1960,8 @@ HtmlTextCombine(p1, p2)
     HtmlTextNode *p1;
     HtmlTextNode *p2;
 {
-    HtmlTextNode *pNew;
+    /* HtmlTextNode *pNew; */
+    return 0;
 }
 
 /*

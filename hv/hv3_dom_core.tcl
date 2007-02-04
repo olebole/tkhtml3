@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.6 2007/01/21 05:39:51 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.7 2007/02/04 16:19:51 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Core
@@ -187,7 +187,8 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.6 2007/01/21 05:39:5
     # the "class" attribute set to "id" are returned.
     #
     set cmd [list $options(-hv3) search $tag]
-    list object [::hv3::DOM::NodeList %AUTO% $myDom -nodelistcmd $cmd]
+    set nl [::hv3::DOM::NodeList %AUTO% $myDom -nodelistcmd $cmd]
+    list transient $nl
   }
 }
 
@@ -208,8 +209,8 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.6 2007/01/21 05:39:5
     # The following option is set to a command to return the html-widget nodes
     # that comprise the contents of this list. i.e. for the value of
     # the "Document.childNodes" property, this option will be set to
-    # [$hv3 node], where $hv3 is the name of an ::hv3::hv3 widget (that delagates
-    # the [node] method to the html widget).
+    # [$hv3 node], where $hv3 is the name of an ::hv3::hv3 widget (that
+    # delagates the [node] method to the html widget).
     #
     option -nodelistcmd -default ""
 
@@ -384,8 +385,8 @@ set BaseList {ElementCSSInlineStyle WidgetNode Node NodePrototype EventTarget}
   dom_call -string getElementsByTagName {THIS tagname} {
     set hv3 [$myDom node_to_hv3 $options(-nodehandle)]
     set cmd [list $hv3 search $tagname -root $options(-nodehandle)]
-
-    list object [::hv3::DOM::NodeList %AUTO% $myDom -nodelistcmd $cmd]
+    set nl [::hv3::DOM::NodeList %AUTO% $myDom -nodelistcmd $cmd]
+    list transient $nl
   }
 
   dom_todo normalize
@@ -404,7 +405,8 @@ set BaseList {ElementCSSInlineStyle WidgetNode Node NodePrototype EventTarget}
 
 # element_attr --
 #
-#     This command can be used in the body of DOM objects that mixin class Element.
+#     This command can be used in the body of DOM objects that mixin class
+#     Element.
 #
 #     element_attr NAME ?OPTIONS?
 #

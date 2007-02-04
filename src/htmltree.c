@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.120 2007/01/27 14:45:42 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.121 2007/02/04 16:19:51 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -185,7 +185,7 @@ clearReplacement(pTree, pElem)
             Tcl_EvalObjEx(pTree->interp, p->pDelete, flags);
         }
 
-	/* Remove any entry from the HtmlTree.pMapped list. */
+        /* Remove any entry from the HtmlTree.pMapped list. */
         if (p == pTree->pMapped) {
             pTree->pMapped = p->pNext;
         } else {
@@ -478,10 +478,9 @@ nodeHandlerCallbacks(pTree, pNode)
              HtmlNodeTagType(HtmlNodeParent(pNode)) == Html_TR
         )
     );
-
     
     if (!HtmlNodeIsText(pNode)) {
-        HtmlElementNormalize(HtmlNodeAsElement(pNode));
+        /* HtmlElementNormalize(HtmlNodeAsElement(pNode)); */
     }
 
     /* Execute the node-handler script for node pNode, if one exists. */
@@ -761,7 +760,7 @@ setNodeAttribute(pNode, zAttrName, zAttrVal)
     HtmlFree(pAttr);
 
     /* If this was a call to set the "style" attribute, discard the
-     * compiled at version HtmlElementNode.pStyle.
+     * compiled version at version HtmlElementNode.pStyle.
      */
     if (strcmp(HTML_INLINE_STYLE_ATTR, zAttrName) == 0) {
         HtmlCssInlineFree(pElem->pStyle);
@@ -866,11 +865,12 @@ initTree(pTree)
 
         HtmlNodeAddChild(pRoot, Html_HEAD, 0);
         HtmlNodeAddChild(pRoot, Html_BODY, 0);
+        HtmlCallbackRestyle(pTree, (HtmlNode *)pRoot);
     }
 
     if (!pTree->state.pCurrent) {
-	/* If there is no current node, then the <body> node of the 
-         * document is the current node.  
+        /* If there is no current node, then the <body> node of the 
+         * document is the current node. 
          */
         pTree->state.pCurrent = HtmlNodeChild(pTree->pRoot, 1);
         assert(HtmlNodeTagType(pTree->state.pCurrent) == Html_BODY);
@@ -989,7 +989,9 @@ treeAddFosterElement(pTree, eTag, pAttr)
         pTree->state.pFoster = pNew;
     }
 
+#if 0
     HtmlCallbackRestyle(pTree, pNew);
+#endif
     return pNew;
 }
 
@@ -1129,45 +1131,23 @@ HtmlTreeAddElement(pTree, eType, pAttr, iOffset)
      */
     HtmlNode *pParsed = 0; 
 
+    /* Initialise the tree and find the <HEAD> and <BODY> elements */
     initTree(pTree);
-
-    pCurrent = pTree->state.pCurrent;
     pHeadNode = HtmlNodeChild(pTree->pRoot, 0);
     pBodyNode = HtmlNodeChild(pTree->pRoot, 1);
     pHeadElem = HtmlNodeAsElement(pHeadNode);
+
+    pCurrent = pTree->state.pCurrent;
 
     assert(pCurrent);
     assert(pHeadNode);
     assert(eType != Html_Text && eType != Html_Space);
 
-    /* Variable HtmlTree.pCurrent is only manipulated by this function (not
-     * entirely true - it is also set to zero when the tree is deleted). It
-     * stores the node currently being constructed. All things being equal,
-     * if the next token parsed is an opening tag (i.e. "<strong>"), then
-     * it will create a new node that becomes the right-most child of
-     * pCurrent.
-     *
-     * From the point of view of building the tree, the token pToken may
-     * fall into one of three categories:
-     *
-     *     1. A text token (a token of type Html_Text or Html_Space). If
-     *        pCurrent is a text node, then nothing need be done. Otherwise,
-     *        the token starts a new node as the right-most child of
-     *        pCurrent.
-     *
-     *     2. An explicit closing tag (i.e. </strong>). This may close
-     *        pCurrent and zero or more of it's ancestors (it also may close
-     *        no tags at all)
-     *
-     *     3. An opening tag (i.e. <strong>). This may close pCurrent and
-     *        zero or more of it's ancestors. It also creates a new node, as
-     *        the right-most child of pCurrent or an ancestor.
-     *
-     * As well as the above three, the trivial case of an empty tree is
-     * handled seperately.
+    /* If the HtmlTreeState.isCdataInHead flag is true, then the previous
+     * token parsed was <TITLE> (generally: a token that generates an
+     * element in the <HEAD> section with #CDATA content). Close the 
+     * element before proceeding.
      */
-
-
     if (pTree->state.isCdataInHead) {
         int nChild = HtmlNodeNumChildren(pHeadNode) - 1;
         HtmlNode *pTitle = HtmlNodeChild(pHeadNode, nChild);
@@ -1189,14 +1169,14 @@ HtmlTreeAddElement(pTree, eType, pAttr, iOffset)
             mergeAttributes(pParsed, pAttr);
             break;
 
-            /* Elements with content #CDATA for the document head. 
-             *
-	     * Todo: Technically, we should be worried about <script> and
-	     * <style> elements in the document head too, but in practice it
-	     * makes little difference where these wind up. <script> is
-	     * a bit tricky as this can appear in either the <head> or <body>
-	     * section.
-             */
+        /* Elements with content #CDATA for the document head. 
+         *
+         * Todo: Technically, we should be worried about <script> and
+         * <style> elements in the document head too, but in practice it
+         * makes little difference where these wind up. <script> is
+         * a bit tricky as this can appear in either the <head> or <body>
+         * section.
+         */
         case Html_TITLE: {
             int n = HtmlNodeAddChild(pHeadElem, eType, pAttr);
             HtmlNode *p = HtmlNodeChild(pHeadNode, n);
@@ -1206,7 +1186,7 @@ HtmlTreeAddElement(pTree, eType, pAttr, iOffset)
             break;
         }
 
-            /* Self-closing elements to add to the document head */
+        /* Self-closing elements to add to the document head */
         case Html_META:
         case Html_LINK:
         case Html_BASE: {
@@ -1218,6 +1198,9 @@ HtmlTreeAddElement(pTree, eType, pAttr, iOffset)
             break;
         }
 
+        /* Elements that form part of <TABLE> structures. Special 
+         * rules apply to these so they are handled seperately.
+         */
         case Html_TBODY:
         case Html_TFOOT:
         case Html_THEAD:
@@ -1268,6 +1251,9 @@ HtmlTreeAddElement(pTree, eType, pAttr, iOffset)
         }
     }
 
+    if (pParsed == pTree->pRoot || HtmlNodeComputedValues(pParsed)) {
+        HtmlCallbackRestyle(pTree, pParsed);
+    }
     doParseHandler(pTree, eType, pParsed, iOffset);
 }
 
@@ -2041,7 +2027,7 @@ nodeCommand(clientData, interp, objc, objv)
     int iChoice;
 
     enum NODE_enum {
-	NODE_ATTRIBUTE, NODE_CHILDREN, NODE_DESTROY, NODE_DYNAMIC, 
+        NODE_ATTRIBUTE, NODE_CHILDREN, NODE_DESTROY, NODE_DYNAMIC, 
         NODE_INSERT, NODE_OVERRIDE, NODE_PARENT, NODE_PROPERTY, 
         NODE_REMOVE, NODE_REPLACE, NODE_STACKING, NODE_TAG, NODE_TEXT, 
         NODE_XVIEW, NODE_YVIEW
@@ -2159,9 +2145,9 @@ node_attr_usage:
         /*
          * nodeHandle children
          *
-	 *     Return a list of node handles for all children of nodeHandle.
-	 *     The leftmost child node becomes element 0 of the list, the
-	 *     second leftmost element 1, and so on.
+         *     Return a list of node handles for all children of nodeHandle.
+         *     The leftmost child node becomes element 0 of the list, the
+         *     second leftmost element 1, and so on.
          */
         case NODE_CHILDREN: {
             if (objc == 2) {
@@ -2192,7 +2178,7 @@ node_attr_usage:
                 pElem = HtmlNodeAsElement(HtmlNodeParent(pNode));
             }
 
-            if (pElem != pTree->pRoot) {
+            if ((HtmlNode *)pElem != pTree->pRoot) {
                 HtmlNode *p = &(pElem->pStack->pElem->node);
                 Tcl_SetObjResult(interp, HtmlNodeCommand(pTree, p));
             }
@@ -2413,7 +2399,7 @@ node_attr_usage:
                 zWin = Tcl_GetString(aArgs[0]);
 
                 if (zWin[0]) {
-		    /* If the replacement object is a Tk window,
+        	    /* If the replacement object is a Tk window,
                      * register Tkhtml as the geometry manager.
                      */
                     widget = Tk_NameToWindow(interp, zWin, mainwin);
@@ -2434,8 +2420,8 @@ node_attr_usage:
                     pReplace->win = widget;
                 }
 
-		/* Free any existing replacement object and set
-		 * pNode->pReplacement to point at the new structure. 
+        	/* Free any existing replacement object and set
+        	 * pNode->pReplacement to point at the new structure. 
                  */
                 clearReplacement(pTree, pElem);
                 pElem->pReplacement = pReplace;
@@ -2458,8 +2444,8 @@ node_attr_usage:
          * nodeHandle dynamic set|clear ?flag?
          * nodeHandle dynamic conditions
          *
-	 *     Note that the [nodeHandle dynamic conditions] command is for
-	 *     debugging only. It is not documented in the man page.
+         *     Note that the [nodeHandle dynamic conditions] command is for
+         *     debugging only. It is not documented in the man page.
          */
         case NODE_DYNAMIC: {
             struct DynamicFlag {
@@ -2884,7 +2870,7 @@ fragmentAddElement(pTree, eType, pAttributes, iOffset)
     int ii;
 
     switch (eType) {
-	/* Ignore <HEAD>, <BODY> and elements that occur as descendants of
+        /* Ignore <HEAD>, <BODY> and elements that occur as descendants of
          * <HEAD> completely.
          */
         case Html_HTML:
