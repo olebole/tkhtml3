@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.121 2007/02/04 16:19:51 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.122 2007/04/06 18:41:35 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -1251,7 +1251,7 @@ HtmlTreeAddElement(pTree, eType, pAttr, iOffset)
         }
     }
 
-    if (pParsed == pTree->pRoot || HtmlNodeComputedValues(pParsed)) {
+    if (HtmlNodeComputedValues(pParsed)) {
         HtmlCallbackRestyle(pTree, pParsed);
     }
     doParseHandler(pTree, eType, pParsed, iOffset);

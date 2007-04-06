@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.244 2006/12/30 06:36:28 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.245 2007/04/06 18:41:35 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -2629,7 +2629,8 @@ normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
     /* Re-normalize the float-list. */
     HtmlFloatListNormalize(pNormal->pFloat, x, y);
 
-    if (box.iBottom > 0 && 0) {
+    if (box.iBottom > 0) {
+        pNormal->nonegative = 1;
         normalFlowMarginCollapse(pLayout, pNode, pNormal, &sContent.height);
     } 
     *pY += sContent.height;

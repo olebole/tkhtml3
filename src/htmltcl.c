@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.155 2007/02/04 16:19:51 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.156 2007/04/06 18:41:35 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -340,7 +340,7 @@ callbackHandler(clientData)
     assert(
         !pTree->pRoot ||
         HtmlNodeComputedValues(pTree->pRoot) ||
-        pTree->cb.pRestyle
+        pTree->cb.pRestyle==pTree->pRoot
     );
 
     HtmlLog(pTree, "CALLBACK", 
@@ -387,6 +387,7 @@ callbackHandler(clientData)
         if (pParent) {
             int i;
             int nChild = HtmlNodeNumChildren(pParent);
+            assert(HtmlNodeComputedValues(pParent));
             for (i = 0; HtmlNodeChild(pParent, i) != pRestyle; i++);
             for ( ; i < nChild; i++) {
                  HtmlStyleApply(pTree, HtmlNodeChild(pParent, i));
@@ -556,6 +557,7 @@ upgradeRestylePoint(ppRestyle, pNode)
     HtmlNode *pB;
     assert(pNode && ppRestyle);
 
+    /* Do nothing if pNode is part of an orphan tree */
     for (pA = pNode; pA; pA = HtmlNodeParent(pA)) {
         if (pA->iNode == HTML_NODE_ORPHAN) return 0;
     }
@@ -1400,6 +1402,7 @@ parseCmd(clientData, interp, objc, objv)
 {
     HtmlTree *pTree = (HtmlTree *)clientData;
     HtmlNode *pCurrent = pTree->state.pCurrent;
+    HtmlNode *pFoster = pTree->state.pFoster;
 
     int isFinal;
     char *zHtml;
@@ -1452,11 +1455,11 @@ parseCmd(clientData, interp, objc, objv)
         }
     }
 
-#if 0
     HtmlCallbackRestyle(pTree, pCurrent ? pCurrent : pTree->pRoot);
     HtmlCallbackRestyle(pTree, pTree->state.pCurrent);
+    HtmlCallbackRestyle(pTree, pFoster);
     HtmlCallbackRestyle(pTree, pTree->state.pFoster);
-#endif
+
     HtmlCallbackLayout(pTree, pCurrent);
 
     return TCL_OK;
@@ -2257,6 +2260,13 @@ int widgetCmd(clientData, interp, objc, objv)
     if (objc>2) {
         zArg2 = Tcl_GetString(objv[2]);
     }
+
+#if 0
+    for (i=0; i<objc; i++) {
+        printf("%s ", Tcl_GetString(objv[i]));
+    }
+    printf("\n");
+#endif
 
     /* Search the array of built-in commands */
     for (i=0; i<sizeof(aSubcommand)/sizeof(struct SC); i++) {
