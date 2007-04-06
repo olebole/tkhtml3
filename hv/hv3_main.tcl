@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.113 2007/01/06 09:47:59 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.114 2007/04/06 16:22:26 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -34,6 +34,8 @@ source [sourcefile hv3_icons.tcl]
 source [sourcefile hv3_history.tcl]
 source [sourcefile hv3_db.tcl]
 source [sourcefile hv3_string.tcl]
+
+source [sourcefile htmlwrapper.tcl]
 
 #--------------------------------------------------------------------------
 # Widget ::hv3::browser_frame

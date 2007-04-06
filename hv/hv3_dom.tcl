@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.27 2007/02/04 16:19:51 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.28 2007/04/06 16:22:26 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Global interfaces in this file:
@@ -299,147 +299,6 @@ snit::type ::hv3::JavascriptObject {
 }
 
 #-------------------------------------------------------------------------
-# DOM class Location
-#
-#     This is not based on any standard, but on the Gecko class of
-#     the same name. Primary use is as the HTMLDocument.location 
-#     and Window.location properties.
-#
-#          hash
-#          host
-#          hostname
-#          href
-#          pathname
-#          port
-#          protocol
-#          search
-#          assign(string)
-#          reload(boolean)
-#          replace(string)
-#          toString()
-#
-#     http://developer.mozilla.org/en/docs/DOM:window.location
-#
-#
-::snit::type ::hv3::dom::Location {
-
-  variable myHv3
-
-  js_init {dom hv3} {
-    set myHv3 $hv3
-  }
-
-  # Default value.
-  method DefaultValue {} { list string [$myHv3 location] }
-
-  #---------------------------------------------------------------------
-  # Properties:
-  #
-  #     Todo: Writing to properties is not yet implemented.
-  #
-  js_get hostname {
-    set auth [$myHv3 uri cget -authority]
-    set hostname ""
-    regexp {^([^:]*)} -> hostname
-    list string $hostname
-  }
-  js_get port {
-    set auth [$myHv3 uri cget -authority]
-    set port ""
-    regexp {:(.*)$} -> port
-    list string $port
-  }
-  js_get host     { list string [$myHv3 uri cget -authority] }
-  js_get href     { list string [$myHv3 uri get] }
-  js_get pathname { list string [$myHv3 uri cget -path] }
-  js_get protocol { list string [$myHv3 uri cget -scheme]: }
-  js_get search   { 
-    set query [$myHv3 uri cget -query]
-    set str ""
-    if {$query ne ""} {set str "?$query"}
-    list string $str
-  }
-  js_get hash   { 
-    set fragment [$myHv3 uri cget -fragment]
-    set str ""
-    if {$query ne ""} {set str "#$fragment"}
-    list string $str
-  }
-
-  #---------------------------------------------------------------------
-  # Methods:
-  #
-  js_scall assign  {THIS uri} { $myHv3 goto $uri }
-  js_scall replace {THIS uri} { $myHv3 goto $uri -nosave }
-  js_scall reload  {THIS force} { 
-    if {![string is boolean $force]} { error "Bad boolean arg: $force" }
-    set cc normal
-    if {$force} { set cc no-cache }
-    $myHv3 goto [$myHv3 location] -nosave 
-  }
-  js_call toString {THIS} { $self DefaultValue }
-
-  js_finish {}
-}
-
-
-
-#-------------------------------------------------------------------------
-# Snit type for "Navigator" DOM object.
-#
-# Similar to the Gecko object documented here (some properties are missing):
-#
-#     http://developer.mozilla.org/en/docs/DOM:window.navigator
-#
-#     Navigator.appCodeName
-#     Navigator.appName
-#     Navigator.appVersion
-#     Navigator.cookieEnabled
-#     Navigator.language
-#     Navigator.onLine
-#     Navigator.oscpu
-#     Navigator.platform
-#     Navigator.product
-#     Navigator.productSub
-#     Navigator.securityPolicy
-#     Navigator.userAgent
-#     Navigator.vendor
-#     Navigator.vendorSub
-#
-snit::type ::hv3::dom::Navigator {
-
-  js_init {dom} {}
-
-  js_get appCodeName    { list string "Mozilla" }
-  js_get appName        { list string "Netscape" }
-  js_get appVersion     { list number 4.0 }
-
-  js_get product        { list string "Hv3" }
-  js_get productSub     { list string "alpha" }
-  js_get vendor         { list string "tkhtml.tcl.tk" }
-  js_get vendorSub      { list string "alpha" }
-
-  js_get cookieEnabled  { list boolean 1    }
-  js_get language       { list string en-US }
-  js_get onLine         { list boolean 1    }
-  js_get securityPolicy { list string "" }
-
-  js_get userAgent { 
-    # Use the user-agent that the http package is currently configured
-    # with so that HTTP requests match the value returned by this property.
-    list string [::http::config -useragent]
-  }
-
-  js_get platform {
-    # This will return something like "Linux i686".
-    list string "$::tcl_platform(os) $::tcl_platform(machine)"
-  }
-  js_get oscpu { $self get_platform }
-
-  js_finish {}
-}
-
-#-------------------------------------------------------------------------
 # Snit type for "Window" DOM object.
 #
 #     Window.setTimeout()
@@ -523,7 +382,7 @@ snit::type ::hv3::dom::Window {
   #-----------------------------------------------------------------------
   # The "navigator" object.
   #
-  js_getobject navigator { ::hv3::dom::Navigator %AUTO% [$self dom] }
+  js_getobject navigator { ::hv3::DOM::Navigator %AUTO% [$self dom] }
 
   #-----------------------------------------------------------------------
   # The "parent" property. This should: 
@@ -1061,6 +920,6 @@ proc ::hv3::dom::use_scripting {} {
 
 # set ::hv3::dom::reformat_scripts_option 0
 
-set ::hv3::dom::use_scripting_option 1
+set ::hv3::dom::use_scripting_option 0
 set ::hv3::dom::reformat_scripts_option 1
 

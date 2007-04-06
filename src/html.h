@@ -228,11 +228,17 @@ struct HtmlNodeCmd {
 struct HtmlNodeStack {
     HtmlElementNode *pElem;
     int eType;              /* Usage defined in htmlstyle.c */
+
+    HtmlNodeStack *pNext;
+    HtmlNodeStack *pPrev;
+
+    /* These three are set by HtmlRestackNodes() after the style-engine
+     * runs, and used by htmldraw.c at during drawing to determine the
+     * relative z-axis position of each drawing primitive.
+     */
     int iInlineZ;
     int iBlockZ;
     int iStackingZ;
-    HtmlNodeStack *pNext;
-    HtmlNodeStack *pPrev;
 };
 
 /*

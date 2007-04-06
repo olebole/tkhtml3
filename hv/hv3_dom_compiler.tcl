@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.7 2007/02/04 16:19:51 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.8 2007/04/06 16:22:26 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file implements infrastructure used to create the Snit objects
@@ -396,6 +396,7 @@ source [file join [file dirname [info script]] hv3_dom_core.tcl]
 source [file join [file dirname [info script]] hv3_dom_html.tcl]
 source [file join [file dirname [info script]] hv3_dom_events.tcl]
 source [file join [file dirname [info script]] hv3_dom_style.tcl]
+source [file join [file dirname [info script]] hv3_dom_ns.tcl]
 
 foreach class [concat \
     HTMLCollection HTMLElement HTMLDocument \

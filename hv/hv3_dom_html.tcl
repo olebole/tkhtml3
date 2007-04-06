@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.7 2007/02/04 16:19:51 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.8 2007/04/06 16:22:26 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Html
@@ -151,13 +151,12 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.7 2007/02/04 16:19:5
   # to calling "document.location.assign(VALUE)".
   #
   dom_get -cache location { 
-    set obj [::hv3::dom::Location %AUTO% $myDom $options(-hv3)] 
+    set obj [::hv3::DOM::Location %AUTO% $myDom -hv3 $options(-hv3)] 
     list object $obj
   }
-  dom_put location value { 
+  dom_put -string location value { 
     set location [lindex [$self Get location] 1]
-    set assign [lindex [$location Get assign] 1]
-    $assign Call THIS $value
+    $location Location_assign $value
   }
 
   #-------------------------------------------------------------------------

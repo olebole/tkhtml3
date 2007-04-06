@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlstyle.c,v 1.50 2006/12/23 09:01:53 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlstyle.c,v 1.51 2007/04/06 16:22:26 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -112,7 +112,6 @@ HtmlDelStackingInfo(pTree, pElem)
     pElem->pStack = 0;
 }
 
-
 #define STACK_NONE      0
 #define STACK_FLOAT     1
 #define STACK_AUTO      2
@@ -122,15 +121,28 @@ stackType(p)
     HtmlNode *p;
 {
     HtmlComputedValues *pV = HtmlNodeComputedValues(p);
-    if (!HtmlNodeParent(p)) {
+
+    /* STACK_CONTEXT is created by the root element and any
+     * positioned block with (z-index!='auto).
+     */
+    if (
+        (!HtmlNodeParent(p)) ||
+        (pV->ePosition != CSS_CONST_STATIC && pV->iZIndex != PIXELVAL_AUTO)
+    ) {
         return STACK_CONTEXT;
     }
+
+    /* Postioned elements with 'auto' z-index are STACK_AUTO. */
     if (pV->ePosition != CSS_CONST_STATIC) {
-        if (pV->iZIndex == PIXELVAL_AUTO) return STACK_AUTO;
-        return STACK_CONTEXT;
+        return STACK_AUTO;
     }
-    assert(pV->eFloat != CSS_CONST_NONE);
-    return STACK_FLOAT;
+
+    /* Floating boxes are STACK_FLOAT. */
+    if (pV->eFloat != CSS_CONST_NONE){
+        return STACK_FLOAT;
+    }
+
+    return STACK_NONE;
 }
 
 static void
@@ -138,23 +150,18 @@ addStackingInfo(pTree, pElem)
     HtmlTree *pTree;
     HtmlElementNode *pElem;
 {
-    HtmlComputedValues *pV = pElem->pPropertyValues;
     HtmlNode *pNode = (HtmlNode *)pElem;
+    int eStack = stackType(pNode);
     
     /* A node forms a new stacking context if it is positioned or floating.
-     * We only need create an HtmlNodeStack if this is the case.
-      */
-    if (
-        !HtmlNodeParent(pNode) ||
-        pV->eFloat != CSS_CONST_NONE ||
-        pV->ePosition != CSS_CONST_STATIC
-    ) {
-        HtmlNodeStack *pStack;
-        int nByte = sizeof(HtmlNodeStack);
+     * Or if it is the root node. We only need create an HtmlNodeStack if this
+     * is the case.
+     */
+    if (eStack != STACK_NONE) {
+        HtmlNodeStack *pStack = HtmlNew(HtmlNodeStack);
 
-        pStack = (HtmlNodeStack *)HtmlClearAlloc("HtmlNodeStack", nByte);
         pStack->pElem = pElem;
-        pStack->eType = stackType(pNode);
+        pStack->eType = eStack;
         pStack->pNext = pTree->pStack;
         if( pStack->pNext ){
             pStack->pNext->pPrev = pStack;
@@ -164,7 +171,7 @@ addStackingInfo(pTree, pElem)
         pTree->cb.flags |= HTML_STACK;
         pTree->nStack++;
     } else {
-      pElem->pStack = ((HtmlElementNode *)HtmlNodeParent(pNode))->pStack;
+        pElem->pStack = ((HtmlElementNode *)HtmlNodeParent(pNode))->pStack;
     }
     assert(pElem->pStack);
 }
@@ -178,9 +185,6 @@ struct StackCompare {
     int eStack;
 };
 
-#define IS_STACKING_CONTEXT(x) (                                    \
-         x == x->pStack->pElem && x->pStack->eType == STACK_CONTEXT \
-)
 
 /*
  *---------------------------------------------------------------------------
@@ -220,6 +224,23 @@ scoreStack(pParentStack, pStack, eStack)
     if (z < 0) return 2;
     return 7;
 }
+
+#define IS_STACKING_CONTEXT(x) (                                    \
+         x == x->pStack->pElem && x->pStack->eType == STACK_CONTEXT \
+)
+
+static void setStackingContext(p, ppOut)
+    HtmlElementNode *p;
+    HtmlNodeStack **ppOut;
+{
+    if (p == p->pStack->pElem) {
+        HtmlNodeStack *pS = p->pStack;
+        if (pS->eType == STACK_CONTEXT || (*ppOut)->eType != STACK_CONTEXT) {
+            *ppOut = pS;
+        }
+    }
+}
+
 
 static int
 stackCompare(pVoidLeft, pVoidRight)
@@ -262,20 +283,20 @@ stackCompare(pVoidLeft, pVoidRight)
     pL = pLeftStack->pElem;
     pR = pRightStack->pElem;
     for (ii = 0; ii < MAX(0, nLeftDepth - nRightDepth); ii++) {
-        if (IS_STACKING_CONTEXT(pL)) pLeftStack = pL->pStack;
+        setStackingContext(pL, &pLeftStack);
         pL = HtmlElemParent(pL);
         iTreeOrder = +1;
     }
     for (ii = 0; ii < MAX(0, nRightDepth - nLeftDepth); ii++) {
-        if (IS_STACKING_CONTEXT(pR)) pRightStack = pR->pStack;
+        setStackingContext(pR, &pRightStack);
         pR = HtmlElemParent(pR);
         iTreeOrder = -1;
     }
     while (pR != pL) {
         HtmlElementNode *pParentL = HtmlElemParent(pL);
         HtmlElementNode *pParentR = HtmlElemParent(pR);
-        if (IS_STACKING_CONTEXT(pL)) pLeftStack = pL->pStack;
-        if (IS_STACKING_CONTEXT(pR)) pRightStack = pR->pStack;
+        setStackingContext(pL, &pLeftStack);
+        setStackingContext(pR, &pRightStack);
         if (pParentL == pParentR) {
             iTreeOrder = 0;
             for (ii = 0; 0 == iTreeOrder; ii++) {
@@ -293,7 +314,7 @@ stackCompare(pVoidLeft, pVoidRight)
         pR = pParentR;
         assert(pL && pR);
     }
-    while (!IS_STACKING_CONTEXT(pR)) {
+    while (pR->pStack->pElem != pR) {
         pR = HtmlElemParent(pR);
         assert(pR);
     }
@@ -320,7 +341,6 @@ stackCompare(pVoidLeft, pVoidRight)
     }
     return iRes;
 }
-#undef IS_STACKING_CONTEXT
 
 /*
  *---------------------------------------------------------------------------
@@ -351,6 +371,9 @@ stackCompare(pVoidLeft, pVoidRight)
  *
  *---------------------------------------------------------------------------
  */
+#ifdef NDEBUG
+  #define checkStackSort(a,b,c)
+#else
 static void 
 checkStackSort(pTree, aStack, nStack)
     HtmlTree *pTree;
@@ -371,6 +394,7 @@ checkStackSort(pTree, aStack, nStack)
     }
 #endif
 }
+#endif
 
 void
 HtmlRestackNodes(pTree)
@@ -399,7 +423,7 @@ HtmlRestackNodes(pTree)
     for (iTmp = 0; iTmp < pTree->nStack * 3; iTmp++) {
 #if 0
 printf("Stack %d: %s %s\n", iTmp, 
-    Tcl_GetString(HtmlNodeCommand(pTree, apTmp[iTmp].pStack->pNode)),
+    Tcl_GetString(HtmlNodeCommand(pTree, &apTmp[iTmp].pStack->pElem->node)),
     (apTmp[iTmp].eStack == STACK_INLINE ? "inline" : 
      apTmp[iTmp].eStack == STACK_BLOCK ? "block" : "stacking")
 );
