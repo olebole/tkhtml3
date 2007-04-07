@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.108 2007/01/21 05:39:51 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.109 2007/04/07 11:37:26 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -503,7 +503,7 @@ tokenToProperty(pParse, pToken)
         for (i=0; i<(sizeof(lengths)/sizeof(lengths[0])); i++) {
             CONST char *zTokenUnit = &z[reallen];
             if ((n-reallen)==lengths[i].len &&
-                    0==strncmp(zTokenUnit, lengths[i].zUnit, lengths[i].len)) {
+                    0==strnicmp(zTokenUnit, lengths[i].zUnit, lengths[i].len)) {
                 pProp = HtmlNew(CssProperty);
                 pProp->eType = lengths[i].type;
                 pProp->v.rVal = realval;
@@ -1840,7 +1840,7 @@ cssGetToken(z, n, pLen)
             };
             int i;
             for(i=0; i<sizeof(atkeywords)/sizeof(struct AtKeyWord); i++){
-                if( 0==strncmp(&z[1], atkeywords[i].z, atkeywords[i].n) ){
+                if( 0==strnicmp(&z[1], atkeywords[i].z, atkeywords[i].n) ){
                     *pLen = atkeywords[i].n + 1;
                     return atkeywords[i].t;
                 }
@@ -1850,7 +1850,7 @@ cssGetToken(z, n, pLen)
         case '!': {
             int a = 1;
             while (z[a] && isspace(z[a])) a++; 
-            if( 0==strncmp(&z[a], "important", 9) ){
+            if( 0==strnicmp(&z[a], "important", 9) ){
                  *pLen = 9 + a;
                  return CT_IMPORTANT_SYM;
             }

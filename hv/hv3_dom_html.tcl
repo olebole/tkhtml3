@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.8 2007/04/06 16:22:26 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.9 2007/04/07 11:37:26 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Html
@@ -214,6 +214,11 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.8 2007/04/06 16:22:2
   # There are several variations on the role this object may play in
   # DOM level 1 Html:
   #
+  #     Document.getElementsByTagName()
+  #     Element.getElementsByTagName()
+  #
+  #     HTMLDocument.getElementsByName()
+  #
   #     HTMLDocument.images
   #     HTMLDocument.applets
   #     HTMLDocument.links
@@ -228,6 +233,9 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.8 2007/04/06 16:22:2
   #     HTMLTableElement.tBodies
   #     HTMLTableSectionElement.rows
   #     HTMLTableRowElement.cells
+  #
+  #     Node.childNodes
+  #     Node.attributes
   #
   dom_snit {
     option -nodelistcmd -default ""
