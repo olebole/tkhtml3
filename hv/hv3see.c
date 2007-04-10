@@ -855,32 +855,30 @@ delInterpCmd(clientData)
  *---------------------------------------------------------------------------
  */
 static int
-interpEval(pTclSeeInterp, pCode)
-    SeeInterp *pTclSeeInterp;
-    Tcl_Obj *pCode;
+interpEval(pTclSeeInterp, pCode, pFile)
+    SeeInterp *pTclSeeInterp;     /* Interpreter */
+    Tcl_Obj *pCode;               /* Javascript to evaluate */
+    Tcl_Obj *pFile;               /* File-name for stack-traces (may be NULL) */
 {
     struct SEE_interpreter *pSeeInterp = &(pTclSeeInterp->interp);
     Tcl_Interp *pTclInterp = pTclSeeInterp->pTclInterp;
-
     struct SEE_input *pInputCode;
-
     int rc = TCL_OK;
     SEE_try_context_t try_ctxt;
 
-    pInputCode = SEE_input_utf8(pSeeInterp, Tcl_GetString(pCode));
-
     Tcl_ResetResult(pTclInterp);
 
-    SEE_TRY(pSeeInterp, try_ctxt) {
-        struct SEE_value result;
-        Tcl_Obj *pRes;
-
-        SEE_Global_eval(pSeeInterp, pInputCode, &result);
-
-        pRes = primitiveValueToTcl(pTclSeeInterp, &result);
-        Tcl_SetObjResult(pTclInterp, pRes);
+    pInputCode = SEE_input_utf8(pSeeInterp, Tcl_GetString(pCode));
+    if( pFile ){
+        pInputCode->filename = SEE_string_sprintf(
+            pSeeInterp, "%s", Tcl_GetString(pFile)
+        );
     }
-
+    SEE_TRY(pSeeInterp, try_ctxt) {
+        struct SEE_value res;
+        SEE_Global_eval(pSeeInterp, pInputCode, &res);
+        Tcl_SetObjResult(pTclInterp, primitiveValueToTcl(pTclSeeInterp, &res));
+    }
     SEE_INPUT_CLOSE(pInputCode);
 
     if (SEE_CAUGHT(try_ctxt)) {
@@ -936,11 +934,11 @@ interpCmd(clientData, pTclInterp, objc, objv)
         int nMaxArgs;
         char *zArgs;
     } aSubCommand[] = {
-        {"destroy",     INTERP_DESTROY,     0, 0,     ""},
-        {"eval",        INTERP_EVAL,        1, 1,     "JAVASCRIPT"},
+        {"destroy",     INTERP_DESTROY, 0, 0, ""},
+        {"eval",        INTERP_EVAL,    1, 3, "?-file FILENAME? JAVASCRIPT"},
         {"eventtarget", INTERP_EVENTTARGET, 0, 0, ""},
-        {"global",      INTERP_GLOBAL,      1, 1,     "TCL-COMMAND"},
-        {"tostring",    INTERP_TOSTRING,    1, 1,     "JAVASCRIPT-VALUE"},
+        {"global",      INTERP_GLOBAL,      1, 1, "TCL-COMMAND"},
+        {"tostring",    INTERP_TOSTRING,    1, 1, "JAVASCRIPT-VALUE"},
         {0, 0, 0, 0}
     };
 
@@ -965,12 +963,16 @@ interpCmd(clientData, pTclInterp, objc, objv)
     switch (aSubCommand[iChoice].eSymbol) {
 
         /*
-         * seeInterp eval PROGRAM-TEXT
+         * seeInterp eval ?-file FILENAME? PROGRAM-TEXT
          * 
          *     Evaluate a javascript script in the global context.
          */
         case INTERP_EVAL: {
-            rc = interpEval(pTclSeeInterp, objv[2]);
+            Tcl_Obj *pFile = 0;
+            if( objc == 5 ){
+                pFile = objv[3];
+            }
+            rc = interpEval(pTclSeeInterp, objv[objc-1], pFile);
             break;
         }
 

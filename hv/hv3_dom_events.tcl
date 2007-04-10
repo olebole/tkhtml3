@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.6 2007/02/04 16:19:51 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.7 2007/04/10 16:22:09 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # DOM Level 2 Events.
@@ -221,7 +221,12 @@ set ::hv3::dom::HTML_Events_List [list                          \
       set event_type [$event cget -eventtype]
       set isRun 0          ;# Set to true if one or more scripts are run.
 
-      # Use the DOM Node.nodeParent interface to determine the ancestry.
+      # Use the DOM Node.parentNode interface to determine the ancestry.
+      #
+      # Due to the strange nature of the browsers that came before us
+      # object $self may either implement class "Node" (core module) or 
+      # "Window" (ns module). In the "Window" case the parentNode property
+      # will always be NULL (empty string form - "").
       #
       set N [$self Get parentNode]
       set nodes [list]
@@ -446,6 +451,5 @@ proc ::hv3::dom::dispatchMouseEvent {dom eventtype EventTarget x y args} {
   $EventTarget doDispatchEvent $event
   $dom setWindowEvent $evt
 }
-
 
 

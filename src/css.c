@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.109 2007/04/07 11:37:26 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.110 2007/04/10 16:22:09 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -3466,10 +3466,9 @@ nextRule(apRule, n)
  * HtmlCssStyleSheetApply --
  *
  *     It is assumed that pNode->pStyle contains the stylesheet parsed from
- *     any HTML style attribute attached to the node and that the nodes
- *     property cache has been allocated but not yet populated. Once this
- *     function returns, the property-cache of pNode is filled in with the
- *     styler output for the node.
+ *     any HTML style attribute attached to the node.  Once this function
+ *     returns, the HtmlNode.pPropertyValues variable points to the
+ *     structure containing the computed values applied to the node.
  *
  *     NOTE: There are two hard-coded limits in this function:
  *         1) No element may be a member of more than 126 classes.  

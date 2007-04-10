@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.8 2007/04/06 16:22:26 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.9 2007/04/10 16:22:09 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file implements infrastructure used to create the Snit objects
@@ -123,6 +123,10 @@ namespace eval ::hv3::dom {
         method call_$property $arg_list $code
       ]
     }
+
+    proc dom_finalize {code} {
+      $::hv3::dom::CurrentType add_finalizer $code
+    }
   }
 
   proc reverse_foreach {var list body} {
@@ -218,6 +222,7 @@ namespace eval ::hv3::dom {
   # List of snit blocks to add to the object definition
   #
   variable mySnit [list]
+  variable myFinalizer [list]
 
   # Name of this type - i.e. "HTMLDocument".
   variable myName 
@@ -236,10 +241,14 @@ namespace eval ::hv3::dom {
   method add_snit {code} {
     lappend mySnit $code
   }
+  method add_finalizer {code} {
+    lappend myFinalizer $code
+  }
 
   method get {} { return [array get myGet] }
   method put {} { return [array get myPut] }
   method snit {} { return $mySnit }
+  method final {} { return $myFinalizer }
 
   method CompilePut {mixins} {
     set Put {
@@ -332,15 +341,36 @@ namespace eval ::hv3::dom {
     return $Get
   }
 
+  method CompileHasProperty {mixins} {
+    set l [list]
+    foreach t [concat $mixins $self] {
+      foreach {key code} [$t get] {
+        lappend l $key
+      }
+    }
+    return [subst -nocommands {
+      method HasProperty {property} {
+        return [expr [lsearch {$l} [set property]]>=0]
+      }
+    }]
+  }
+
   method compile {mixins} {
 
-    set Get [$self CompileGet $mixins]
-    set Put [$self CompilePut $mixins]
+    set Get         [$self CompileGet $mixins]
+    set Put         [$self CompilePut $mixins]
+    set HasProperty [$self CompileHasProperty $mixins]
 
     set Snit ""
     foreach t [concat $self $mixins] {
       append Snit [join [$t snit] "\n"]
       append Snit "\n"
+    }
+
+    set Final ""
+    foreach t [concat $self $mixins] {
+      append Finalizer [join [$t final] "\n"]
+      append Finalizer "\n"
     }
 
     set SnitCode {
@@ -353,7 +383,12 @@ namespace eval ::hv3::dom {
         $DESTRUCTOR
         $Get
         $Put
+        $HasProperty
         $Snit
+
+        method Final {} {
+          $Final
+        }
       }
     }
 
@@ -368,6 +403,10 @@ namespace eval ::hv3::dom {
           $self destroy
         }
         destructor {
+          # Call the user destructor(s).
+          #
+          $self Final
+
           # Destroy objects returned by [dom_get -cache] methods.
           #
           foreach {name value} [array get myGetCache] {
@@ -398,17 +437,19 @@ source [file join [file dirname [info script]] hv3_dom_events.tcl]
 source [file join [file dirname [info script]] hv3_dom_style.tcl]
 source [file join [file dirname [info script]] hv3_dom_ns.tcl]
 
-foreach class [concat \
-    HTMLCollection HTMLElement HTMLDocument \
-    [::hv3::dom::getHTMLElementClassList]   \
-    Text NodePrototype NodeList             \
-    MouseEvent UIEvent MutationEvent Event  \
-    CSSStyleDeclaration                     \
-] {
+set classlist [concat \
+  HTMLCollection HTMLElement HTMLDocument \
+  [::hv3::dom::getHTMLElementClassList]   \
+  [::hv3::dom::getNSClassList]            \
+  Text NodePrototype NodeList             \
+  MouseEvent UIEvent MutationEvent Event  \
+  CSSStyleDeclaration                     \
+]
+
+foreach class $classlist {
   eval [::hv3::dom::compile $class]
   # puts [::hv3::dom::compile $class]
 }
 #puts [::hv3::dom::compile HTMLElement]
 ::hv3::dom::cleanup
-
 

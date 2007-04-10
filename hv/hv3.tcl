@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.151 2007/01/27 14:45:42 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.152 2007/04/10 16:22:09 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -982,6 +982,7 @@ snit::widget ::hv3::hv3 {
 
     # $myHtml handler script script   [mymethod script_script_handler]
     $myHtml handler script script   [list $myDom script]
+    $myHtml handler script noscript [list $myDom noscript]
 
     # Register handler commands to handle <object> and kin.
     $myHtml handler node object   [list hv3_object_handler $self]

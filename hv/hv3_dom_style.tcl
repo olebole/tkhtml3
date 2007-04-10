@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_style.tcl,v 1.4 2007/01/21 05:39:51 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_style.tcl,v 1.5 2007/04/10 16:22:09 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # DOM Level 2 Style.
@@ -6,13 +6,14 @@ namespace eval hv3 { set {version($Id: hv3_dom_style.tcl,v 1.4 2007/01/21 05:39:
 # This file contains the Hv3 implementation of the DOM Level 2 Style
 # specification.
 #
-#     ElementCSSInlineStyle         (mixed into Element interface)
-#     CSSStyleDeclaration           (mixed into Element interface)
+#     ElementCSSInlineStyle        (mixed into Element interface)
+#     CSSStyleDeclaration          (mixed into Element interface)
 #
 # TODO: The above statement is not really true at the moment. The
-# CSSStyleDeclaration interface currently only supports DOM Level 0 stuff, not
-# the standardised model. There is no reason that it cannot be supported, but
-# it's not really in use anywhere yet so supporting it is not a high priority. 
+# CSSStyleDeclaration interface currently only supports DOM Level
+# 0 stuff, not the standardised model. There is no reason that it
+# cannot be supported, but it's not really in use anywhere yet so
+# supporting it is not a high priority. 
 #
 
 package require snit

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.28 2007/04/06 16:22:26 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.29 2007/04/10 16:22:09 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Global interfaces in this file:
@@ -299,225 +299,6 @@ snit::type ::hv3::JavascriptObject {
 }
 
 #-------------------------------------------------------------------------
-# Snit type for "Window" DOM object.
-#
-#     Window.setTimeout()
-#     Window.clearTimeout()
-#
-#     Window.document
-#     Window.navigator
-#     Window.Image
-#
-#     Window.parent
-#     Window.top
-#     Window.self
-#     Window.window
-#
-snit::type ::hv3::dom::Window {
-  variable myHv3
-  variable mySee
-
-  js_init {dom see hv3} { 
-    set mySee $see 
-    set myHv3 $hv3 
-  }
-
-  #-----------------------------------------------------------------------
-  # Property implementations:
-  # 
-  #     Window.document
-  #
-  # js_getobject document { ::hv3::dom::HTMLDocument %AUTO% [$myHv3 dom] $myHv3 }
-  js_getobject document { 
-    ::hv3::DOM::HTMLDocument %AUTO% [$myHv3 dom] -hv3 $myHv3 
-
-    # ::hv3::dom::HTMLDocument %AUTO% [$myHv3 dom] $myHv3
-  }
-
-  #-----------------------------------------------------------------------
-  # The "Image" property object. This is so that scripts can
-  # do the following:
-  #
-  #     img = new Image();
-  #
-  js_getobject Image {
-    ::hv3::JavascriptObject %AUTO% [$myHv3 dom] -construct [mymethod newImage]
-  }
-  method newImage {args} {
-    set node [$myHv3 fragment "<img>"]
-    list object [[$myHv3 dom] node_to_dom $node]
-  }
-
-  #-----------------------------------------------------------------------
-  # The "XMLHttpRequest" property object. This is so that scripts can
-  # do the following:
-  #
-  #     request = new XMLHttpRequest();
-  #
-  js_getobject XMLHttpRequest {
-    ::hv3::JavascriptObject %AUTO% [$myHv3 dom] -construct [mymethod newRequest]
-  }
-  method newRequest {args} {
-    list object [::hv3::dom::XMLHttpRequest %AUTO% [$myHv3 dom] $myHv3]
-  }
-
-  js_getobject Node {
-    set obj [::hv3::DOM::NodePrototype %AUTO% [$myHv3 dom]]
-  }
-
-  #-----------------------------------------------------------------------
-  # The Window.location property (Gecko compatibility)
-  #
-  #     This is an alias for the document.location property.
-  #
-  js_get location {
-    set document [lindex [$self Get document] 1]
-    $document Get location
-  }
-  js_put location {value} {
-    set document [lindex [$self Get document] 1]
-    $document Put location $value
-  }
-
-  #-----------------------------------------------------------------------
-  # The "navigator" object.
-  #
-  js_getobject navigator { ::hv3::DOM::Navigator %AUTO% [$self dom] }
-
-  #-----------------------------------------------------------------------
-  # The "parent" property. This should: 
-  #
-  #     "Returns a reference to the parent of the current window or subframe.
-  #      If a window does not have a parent, its parent property is a reference
-  #      to itself."
-  #
-  # For now, this always returns a "reference to itself".
-  #
-  js_get parent { return [list object $self] }
-  js_get top    { return [list object $self] }
-  js_get self   { return [list object $self] }
-  js_get window { return [list object $self] }
-
-  #-----------------------------------------------------------------------
-  # Method Implementations: 
-  #
-  #     Window.setTimeout(code, delay) 
-  #     Window.setInterval(code, delay) 
-  #
-  #     Window.clearTimeout(timeoutid)
-  #     Window.clearInterval(timeoutid)
-  #
-  variable myTimerIds -array [list]
-  variable myNextTimerId 0
-
-  method SetTimer {isRepeat js_code js_delay} {
-    set ms [format %.0f [lindex $js_delay 1]] 
-    set code [lindex $js_code 1]
-    $self CallTimer "" $isRepeat $ms $code
-  }
-
-  method ClearTimer {js_timerid} {
-    set timerid [lindex $js_timerid 1]
-    after cancel $myTimerIds($timerid)
-    unset myTimerIds($timerid)
-    return ""
-  }
-
-  method CallTimer {timerid isRepeat ms code} {
-    if {$timerid ne ""} {
-      unset myTimerIds($timerid)
-      set rc [catch {$mySee eval $code} msg]
-      [$myHv3 dom] Log "setTimeout()" $code $rc $msg
-    }
-
-    if {$timerid eq "" || $isRepeat} {
-      if {$timerid eq ""} {set timerid [incr myNextTimerId]}
-      set tclid [after $ms [mymethod CallTimer $timerid $isRepeat $ms $code]]
-      set myTimerIds($timerid) $tclid
-    }
-
-    list string $timerid
-  }
-
-  js_call setInterval {THIS js_code js_delay} {
-    $self SetTimer 1 $js_code $js_delay
-  }
-  js_call setTimeout {THIS js_code js_delay} {
-    $self SetTimer 0 $js_code $js_delay
-  }
-  js_call clearTimeout  {THIS js_timerid} { $self ClearTimer $js_timerid }
-  js_call clearInterval {THIS js_timerid} { $self ClearTimer $js_timerid }
-  #-----------------------------------------------------------------------
-
-  #-----------------------------------------------------------------------
-  # The "alert()" method.
-  #
-  js_scall alert {THIS msg} {
-    tk_dialog .alert "Super Dialog Alert!" $msg "" 0 OK
-    return ""
-  }
-
-  #-----------------------------------------------------------------------
-  # The event property.
-  #
-  js_get event {
-    set event [[$myHv3 dom] getWindowEvent]
-    if {$event ne ""} {
-      list object event
-    } else {
-      list undefined
-    }
-  }
-
-
-  #-----------------------------------------------------------------------
-  # DOM level 0 events:
-  #
-  #     onload
-  #     onunload
-  #
-  # Note: For a frameset document, the Window.onload and Window.onunload
-  # properties may be set by the onload and onunload attributes of 
-  # the <FRAMESET> element, not the <BODY> (as is currently assumed).
-  #
-  variable myCompiledEvents 0
-  method CompileEvents {} {
-    if {$myCompiledEvents} return
-    set body [lindex [$myHv3 search body] 0]
-    set onload_script [$body attribute -default "" onload]
-    if {$onload_script ne ""} {
-      set ref [$mySee function $onload_script]
-      $myJavascriptParent Put onload [list object $ref]
-    }
-    set myCompiledEvents 1
-  }
-  js_get onload {
-    $self CompileEvents
-    $myJavascriptParent Get onload
-  }
-  js_put onload value {
-    $self CompileEvents
-    $myJavascriptParent Put onload $value
-  }
-  #-----------------------------------------------------------------------
-
-  js_call jsputs {THIS args} {
-    puts $args
-  }
-
-  js_finish {
-    # Cancel any outstanding timers created by Window.setTimeout().
-    #
-    foreach timeoutid [array names myTimerIds] {
-      after cancel $myTimerIds($timeoutid)
-    }
-    array unset myTimeoutIds
-  }
-}
-
-
-
-#-------------------------------------------------------------------------
 # Class ::hv3::dom
 #
 #     set dom [::hv3::dom %AUTO% $hv3]
@@ -549,6 +330,8 @@ snit::type ::hv3::dom {
   # array is cleared by the [::hv3::dom reset] method.
   #
   variable myNodeToDom -array [list]
+
+  variable myNextCodeblockNumber 1
 
   constructor {hv3 args} {
     set myHv3 $hv3
@@ -593,7 +376,7 @@ snit::type ::hv3::dom {
       if {[::hv3::dom::use_scripting]} {
         # Set up the new interpreter with the global "Window" object.
         set mySee [::see::interp]
-        set myWindow [::hv3::dom::Window %AUTO% $self $mySee $myHv3]
+        set myWindow [::hv3::DOM::Window %AUTO% $self -see $mySee -hv3 $myHv3]
         $mySee global $myWindow 
       }
 
@@ -601,6 +384,11 @@ snit::type ::hv3::dom {
     }
   }
 
+
+  method NewFilename {} {
+    return "blob[incr myNextCodeblockNumber]"
+  }
+  
   # This method is called as a Tkhtml3 "script handler" for elements
   # of type <SCRIPT>. I.e. this should be registered with the html widget
   # as follows:
@@ -630,6 +418,14 @@ snit::type ::hv3::dom {
     }
     return ""
   }
+
+  method noscript {attr script} {
+    if {[::hv3::dom::use_scripting] && $mySee ne ""} {
+      return ""
+    } else {
+      return $script
+    }
+  }
   
   # If a <SCRIPT> element has a "src" attribute, then the [script]
   # method will have issued a GET request for it. This is the 
@@ -640,16 +436,18 @@ snit::type ::hv3::dom {
     }
 
     if {$::hv3::dom::reformat_scripts_option} {
-     set script [::see::format $script]
+      set script [::see::format $script]
     }
 
-    set rc [catch {$mySee eval $script} msg]
+    set name [$self NewFilename]
+    set rc [catch {$mySee eval -file $name $script} msg]
 
     set attributes ""
     foreach {a v} $attr {
       append attributes " [$self Escape $a]=\"[$self Escape $v]\""
     }
-    $self Log "<SCRIPT$attributes> $downloadHandle" $script $rc $msg
+    set title "<SCRIPT$attributes> $downloadHandle file=$name" 
+    $self Log $title $script $rc $msg
 
     $myHv3 write continue
   }
@@ -657,8 +455,9 @@ snit::type ::hv3::dom {
   method javascript {script} {
     set msg ""
     if {[::hv3::dom::use_scripting] && $mySee ne ""} {
-      set rc [catch {$mySee eval $script} msg]
-      $self Log "javascript:" $script $rc $msg
+      set name [$self NewFilename]
+      set rc [catch {$mySee eval -file $name $script} msg]
+      $self Log "javascript: name=$name" $script $rc $msg
     }
     return $msg
   }
@@ -918,8 +717,7 @@ proc ::hv3::dom::use_scripting {} {
   return $r
 }
 
-# set ::hv3::dom::reformat_scripts_option 0
-
-set ::hv3::dom::use_scripting_option 0
+#set ::hv3::dom::reformat_scripts_option 0
+set ::hv3::dom::use_scripting_option 1
 set ::hv3::dom::reformat_scripts_option 1
 
