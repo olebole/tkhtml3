@@ -34,7 +34,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.116 2006/12/29 06:16:46 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.117 2007/04/10 18:27:19 danielk1977 Exp $";
 
 
 #include "htmllayout.h"
@@ -1605,7 +1605,8 @@ static int
 tableCalculateMaxWidth(pData)
     TableData *pData;
 {
-    int   *aMaxWidth      = pData->aMaxWidth;
+    int   *aMaxWidth         = pData->aMaxWidth;
+    int   *aMinWidth         = pData->aMinWidth;
     CellReqWidth *aReqWidth  = pData->aReqWidth;
     int ii;
     int ret = 0;
@@ -1621,8 +1622,9 @@ tableCalculateMaxWidth(pData)
 
     for (ii = 0; ii < pData->nCol; ii++) {
         if (aReqWidth[ii].eType == CELL_WIDTH_PIXELS) {
-            ret += aReqWidth[ii].x.iVal;
+            ret += MAX(aMinWidth[ii], aReqWidth[ii].x.iVal);
         } else {
+            assert(aMaxWidth[ii] >= aMinWidth[ii]);
             ret += aMaxWidth[ii];
         }
 
@@ -1637,6 +1639,8 @@ tableCalculateMaxWidth(pData)
         }
     }
 
+#if 0
+    /* TODO: Including this block breaks the google-groups message page. */
     for (p = HtmlNodeParent(pData->pNode); p; p = HtmlNodeParent(p)) {
         HtmlComputedValues *pComputed = HtmlNodeComputedValues(p);
         if (
@@ -1655,6 +1659,7 @@ tableCalculateMaxWidth(pData)
             break;
         }
     }
+#endif
     
 
     if (bConsiderPercent) {
