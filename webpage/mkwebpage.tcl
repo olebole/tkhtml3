@@ -2,7 +2,7 @@
 #
 # Construct the web page for tkhtml
 #
-# @(#) $Id: mkwebpage.tcl,v 1.32 2007/04/10 07:41:56 danielk1977 Exp $
+# @(#) $Id: mkwebpage.tcl,v 1.33 2007/04/10 08:47:58 danielk1977 Exp $
 #
 
 source [file join [file dirname [info script]] common.tcl]
@@ -212,12 +212,27 @@ p {
 p {
   There used to be a mailing list hosted by Yahoo groups. This mailing
   list was closed because of a spam problem. There is now a new group
-  hosted by Google-groups. Visit the following URI for details:
-  <blockquote>
-    <a href="http://groups.google.com/group/tkhtml3">
-      http://groups.google.com/group/tkhtml3
-    </a>
-  </blockquote>
+  hosted by Google-groups.
+
+<table border=0 style="background-color: #fff; padding: 5px;" cellspacing=0>
+  <tr><td>
+    <img src="http://groups.google.com/groups/img/3/groups_bar.gif"
+         height=26 width=132 alt="Google Groups Beta">
+  </td></tr>
+  <tr><td style="padding-left: 5px">
+    <b>Subscribe to tkhtml3</b>
+  </td></tr>
+  <form action="http://groups.google.com/group/tkhtml3/boxsubscribe">
+  <tr><td style="padding-left: 5px;">
+    Email: <input type=text name=email>
+           <input type=submit name="sub" value="Subscribe">
+  </td></tr>
+</form>
+<tr><td align=right>
+  <a href="http://groups.google.com/group/tkhtml3">Visit this group</a>
+</td></tr>
+</table>
+
 }
 
 p {
