@@ -2,7 +2,7 @@
 #
 # Construct the web page for tkhtml
 #
-# @(#) $Id: mkwebpage.tcl,v 1.31 2007/01/09 10:35:08 danielk1977 Exp $
+# @(#) $Id: mkwebpage.tcl,v 1.32 2007/04/10 07:41:56 danielk1977 Exp $
 #
 
 source [file join [file dirname [info script]] common.tcl]
@@ -210,11 +210,13 @@ p {
 }
 
 p {
-  There is a mailing list hosted by Yahoo groups. You can sign up
-  or review the archive at:
+  There used to be a mailing list hosted by Yahoo groups. This mailing
+  list was closed because of a spam problem. There is now a new group
+  hosted by Google-groups. Visit the following URI for details:
   <blockquote>
-    <a href="http://groups.yahoo.com/group/tkhtml/">
-    http://groups.yahoo.com/group/tkhtml/</a>
+    <a href="http://groups.google.com/group/tkhtml3">
+      http://groups.google.com/group/tkhtml3
+    </a>
   </blockquote>
 }
 
@@ -222,7 +224,8 @@ p {
   If you want to help, then you can send mail to one of the following 
   contacts (who are both subscribed to and read the mailing list).
   <blockquote>
-  <a href="mailto:danielk1977@yahoo.com">danielk1977@yahoo.com</a> (Dan)
+  <a href="mailto:danielk1977@gmail.com">danielk1977@gmail.com</a> (Dan -
+  current maintainer)
   <br>
   <a href="mailto:drh@hwaci.com">drh@hwaci.com</a> (Richard)
   </blockquote>
