@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.245 2007/04/06 18:41:35 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.246 2007/04/10 17:29:01 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -2886,7 +2886,11 @@ normalFlowLayoutInlineBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
     memset(&sBox2, 0, sizeof(BoxContext));
     memset(&sBox3, 0, sizeof(BoxContext));
 
-    iWidth = PIXELVAL(pV, WIDTH, pBox->iContaining);
+    if (pV->eDisplay == CSS_CONST__TKHTML_INLINE_BUTTON) {
+        iWidth = PIXELVAL_AUTO;
+    } else {
+        iWidth = PIXELVAL(pV, WIDTH, pBox->iContaining);
+    }
     iContaining = iWidth;
     if (iContaining == PIXELVAL_AUTO) {
         blockMinMaxWidth(pLayout, pNode, &iContaining, 0);
@@ -3089,7 +3093,10 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
         if (nodeIsReplaced(pNode)) {
             pFlow = &FT_INLINE_REPLACED;
         } 
-    } else if (eDisplay == CSS_CONST_INLINE_BLOCK) {
+    } else if (
+        eDisplay == CSS_CONST_INLINE_BLOCK ||
+        eDisplay == CSS_CONST__TKHTML_INLINE_BUTTON
+    ) {
         pFlow = &FT_INLINE_BLOCK;
         if (nodeIsReplaced(pNode)) {
             pFlow = &FT_INLINE_REPLACED;
@@ -3376,7 +3383,8 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
         DISPLAY(pV) == CSS_CONST_INLINE_BLOCK ||
         DISPLAY(pV) == CSS_CONST_TABLE_CELL ||
         DISPLAY(pV) == CSS_CONST_LIST_ITEM ||
-        DISPLAY(pV) == CSS_CONST_INLINE
+        DISPLAY(pV) == CSS_CONST_INLINE ||
+        DISPLAY(pV) == CSS_CONST__TKHTML_INLINE_BUTTON
     );
     assert(!nodeIsReplaced(pNode));
 

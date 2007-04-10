@@ -72,6 +72,7 @@ E display               run-in compact marker table inline-table
 E display               table-caption table-row-group table-cell
 E display               table-header-group table-footer-group table-row 
 E display               table-column-group table-column inline-block
+E display               -tkhtml-inline-button
 E empty-cells           show hide
 E float                 none left right
 E font-variant          normal small-caps

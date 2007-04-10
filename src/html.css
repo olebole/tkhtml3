@@ -182,7 +182,7 @@ INPUT[type="image"][src] { -tkhtml-replacement-image: tcl(::tkhtml::attr src) }
  * Default style for buttons created using <input> elements.
  */
 INPUT[type="submit"],INPUT[type="button"] {
-  display: inline-block;
+  display: -tkhtml-inline-button;
   border: 2px solid;
   border-color: #ffffff #828282 #828282 #ffffff;
   background-color: #d9d9d9;
@@ -198,6 +198,7 @@ INPUT[type="submit"]:after,INPUT[type="button"]:after {
 }
 INPUT[type="submit"]:hover:active,INPUT[type="button"]:hover:active {
   border-color: #828282 #ffffff #ffffff #828282;
+  padding: 4px 2px 0px 4px;
 }
 
 INPUT[size] { width: tcl(::tkhtml::inputsize_to_css) }
