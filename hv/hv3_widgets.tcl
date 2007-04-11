@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.40 2007/01/08 09:56:16 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.41 2007/04/11 17:37:53 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
@@ -321,6 +321,8 @@ snit::widget ::hv3::pretend_tile_notebook {
   variable myCloseTabImage2 ""
 
   delegate option * to hull
+
+  option -closetabbuttons -default 0
   
   constructor {args} {
   
@@ -353,6 +355,9 @@ snit::widget ::hv3::pretend_tile_notebook {
   destructor {
     image delete $myCloseTabImage
     image delete $myCloseTabImage2
+
+    after cancel [list event generate $self <<NotebookTabChanged>>]
+    after cancel [mymethod RedrawCallback]
   }
 
   # add WIDGET
@@ -393,7 +398,8 @@ snit::widget ::hv3::pretend_tile_notebook {
     if {$myCurrent == [llength $myWidgets]} {
       incr myCurrent -1
     }
-    after idle [list event generate $self <<NotebookTabChanged>>]
+    after cancel [list event generate $self <<NotebookTabChanged>>]
+    after idle   [list event generate $self <<NotebookTabChanged>>]
     $self Redraw
   }
 
@@ -409,7 +415,8 @@ snit::widget ::hv3::pretend_tile_notebook {
       if {$myCurrent != $idx} {
         set myCurrent $idx
         $self Redraw
-        after idle [list event generate $self <<NotebookTabChanged>>]
+        after cancel [list event generate $self <<NotebookTabChanged>>]
+        after idle   [list event generate $self <<NotebookTabChanged>>]
       }
     }
     return [lindex $myWidgets $myCurrent]
@@ -546,7 +553,9 @@ snit::widget ::hv3::pretend_tile_notebook {
       set id2 [${win}.tabs create text [expr $x2 + $iPadding] $yt]
       ${win}.tabs itemconfigure $id2 -anchor sw -text $zTitle -font $myFont
 
-      $self CreateButton $idx $ximg $yimg $iButton
+      if {$options(-closetabbuttons)} {
+        $self CreateButton $idx $ximg $yimg $iButton
+      }
 
       if {$idx == $myCurrent} {
         set yb [expr $y1 - 1]
@@ -574,6 +583,10 @@ snit::widget ::hv3::pretend_tile_notebook {
     ${win}.tabs raise whiteline
     set myRedrawScheduled 0
   }
+}
+
+proc ::hv3::tile_notebook {args} {
+  eval ::hv3::pretend_tile_notebook $args
 }
 
 #---------------------------------------------------------------------------
@@ -663,11 +676,8 @@ snit::widget ::hv3::notebook {
 
   constructor {args} {
     $self configurelist $args
-    if {$::hv3::toolkit eq "Tile"} {
-      ::ttk::notebook ${win}.notebook -width 700 -height 500 
-    } else {
-      ::hv3::pretend_tile_notebook ${win}.notebook -width 700 -height 500
-    }
+    ::hv3::tile_notebook ${win}.notebook -width 700 -height 500 
+    ${win}.notebook configure -closetabbuttons 1
     bind ${win}.notebook <<NotebookTabChanged>> [list $self Switchcmd]
     pack ${win}.notebook -fill both -expand true
   }

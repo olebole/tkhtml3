@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.47 2006/11/22 11:44:19 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.48 2007/04/11 17:37:53 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_prop.tcl --
@@ -35,88 +35,181 @@ namespace eval ::HtmlDebug {
   }
 }
 
-#--------------------------------------------------------------------------
-# class HtmlDebug --
-#
-#     This class encapsulates code used for debugging the Html widget. 
-#     It manages a gui which can be used to investigate the structure and
-#     Tkhtml's handling of the currently loaded Html document.
-#
-snit::widget HtmlDebug {
-  hulltype toplevel
+proc htmlize {zIn} {
+  string map [list "<" "&lt;" ">" "&gt;" "&" "&amp;" "\"" "&quote;"] $zIn
+}
 
-  # Class internals
-  typevariable Template
+snit::widget ::hv3::debug::tree {
+  # The canvas widget on which the tree is drawn:
+  #
+  variable myCanvas ""
 
+  # The Hv3 widget being inspected.
+  variable myHtml ""
+
+  # Internal tree state:
+  #
   variable mySelected ""         ;# Currently selected node
   variable myExpanded -array ""  ;# Array. Entries are present for exp. nodes
-  variable myHtml                ;# Name of html widget being debugged
 
-    # Debugging window widgets. The top 3 are managed by panedwindow
-    # widgets.
-    #
-    #   $myTreeCanvas                  ;# [::hv3::scrolled canvas] mega-widget
-    #   $mySearchHtml                  ;# Hv3 mega-widget
-    #     $mySearchHtml.html.relayout  ;# button
-    #     $mySearchHtml.html.outline   ;# button
-    #     $mySearchHtml.html.search    ;# entry
-    #   $myReportHtml                  ;# Hv3 mega-widget
-
-  variable myStyleEngineLog
-  variable myLayoutEngineLog
-  variable mySearchResults ""
-
-  variable myTreeCanvas         ;# The canvas widget with the tree
-  variable myReportHtml         ;# The hv3 widget with the report
-  variable mySearchHtml         ;# The hv3 widget with the search field
-
-  constructor {HTML} {
+  variable mySearchResults [list]
+  
+  constructor {HTML args} {
     set myHtml $HTML
+
+    # The canvas widget.
+    set myCanvas ${win}.canvas
+    ::hv3::scrolled canvas $myCanvas -propagate 1
+
+    # The two buttons (expand/collapse all).
+    frame ${win}.buttons
+    ::hv3::button ${win}.buttons.expand \
+      -text "Expand All" -command [mymethod ExpandAll]
+    ::hv3::button ${win}.buttons.collapse \
+      -text "Collapse All" -command [mymethod CollapseAll]
+    pack ${win}.buttons.expand -side left
+    pack ${win}.buttons.collapse -side left
+
+    # The search widget.
+    frame ${win}.search
+    ::hv3::label  ${win}.search.label -text "Search:"
+    ::hv3::entry  ${win}.search.entry
+    ::hv3::button ${win}.search.forward -text > -state disabled
+    ::hv3::button ${win}.search.back    -text < -state disabled
+    ::hv3::label  ${win}.search.label2 -text "?/0"
+
+    bind ${win}.search.entry <Return> [mymethod Search]
+    ${win}.search.forward configure -command [mymethod SearchNext +1]
+    ${win}.search.back    configure -command [mymethod SearchNext -1]
+
+    pack ${win}.search.label   -side left
+    pack ${win}.search.entry   -side left
+    pack ${win}.search.back    -side left
+    pack ${win}.search.forward -side left
+    pack ${win}.search.label2  -side left
   
-    # Top level window
-    bind $win <KeyPress-q>  [list destroy $win]
-    bind $win <KeyPress-Q>  [list destroy $win]
-  
-    set mySearchHtml $win.hpan.search
-    set myTreeCanvas $win.hpan.vpan.tree
-    set myReportHtml $win.hpan.vpan.report
-  
-    panedwindow $win.hpan -orient vertical
-    ::hv3::hv3 $mySearchHtml
-    panedwindow $win.hpan.vpan -orient horizontal
-    ::hv3::scrolled canvas $myTreeCanvas -propagate 1
-    ::hv3::hv3 $myReportHtml
-  
-    $win.hpan add $mySearchHtml
-    $win.hpan add $win.hpan.vpan
-    $win.hpan.vpan add $myTreeCanvas
-    $win.hpan.vpan add $myReportHtml 
-    catch {
-      $win.hpan.vpan paneconfigure $myTreeCanvas -stretch always
-      $win.hpan.vpan paneconfigure $myReportHtml -stretch always
+    $myCanvas configure -background white -borderwidth 10 -width 5
+    pack ${win}.search -fill x -expand 0
+    pack $myCanvas -fill both -expand true
+    pack ${win}.buttons -fill x -expand 0
+  }
+
+  method CollapseAll {} {
+    array unset myExpanded
+    $self redraw
+  }
+  method ExpandAll {} {
+    array unset myExpanded
+    $self ExpandChildren [$myHtml node]
+    $self redraw
+  }
+  method ExpandChildren {N} {
+    if {$N eq ""} return
+    set myExpanded($N) 1
+    foreach c [$N children] {
+      $self ExpandChildren $c
     }
-    $win.hpan sash place 0 200 200
-  
-    ::hv3::use_tclprotocol $mySearchHtml 
-    $mySearchHtml configure -height 200
-  
-    set b [button [$mySearchHtml html].relayout]
-    $b configure -text "Re-Render Document With Logging" 
-    $b configure -command [mymethod rerender]
-    set e [entry [$mySearchHtml html].search]
-    bind $e <Return> [mymethod searchNode]
-    $self searchNode
-  
-    ::hv3::use_tclprotocol $myReportHtml 
-    [$myReportHtml html] configure -width 5 -height 5
-  
-    $myTreeCanvas configure -background white -borderwidth 10
-    $myTreeCanvas configure -width 5
-  
-    pack ${win}.hpan -expand true -fill both
-    ${win}.hpan configure -width 800 -height 600
-  
-    bind ${win}.hpan <Destroy> [list destroy $win]
+  }
+
+  method SearchNext {dir} {
+    set idx [lsearch $mySearchResults $mySelected]
+    incr idx $dir
+    set node [lindex $mySearchResults $idx]
+    if {$node ne ""} {
+      ::HtmlDebug::browse $myHtml $node
+    }
+  }
+
+  method Search {} {
+    set selector [${win}.search.entry get]
+    set mySearchResults ""
+    if {$selector ne ""} {
+      set mySearchResults [$myHtml search $selector]
+    }
+    if {[llength $mySearchResults] > 0} {
+
+      # Expand the tree branches so that all of the found nodes are visible.
+      #
+      foreach s $mySearchResults {
+        for {set N [$s parent]} {$N ne ""} {set N [$N parent]} {
+          set myExpanded($N) 1
+        }
+      }
+
+      $self selected [lindex $mySearchResults 0]
+    }
+
+    ::HtmlDebug::browse $myHtml $mySelected
+  }
+
+  method redraw {} {
+    $myCanvas delete all
+
+    # Make sure the parentage of the selected node is explanded.
+    # This ensures that it is visible in the tree.
+    #
+    if {$mySelected ne ""} { set N [$mySelected parent] }
+    while {$N ne ""} {
+      set myExpanded($N) 1
+      set N [$N parent]
+    }
+
+    $self drawSubTree [$myHtml node] 15 30
+    set all [$myCanvas bbox all]
+    $myCanvas configure -scrollregion $all
+
+    # Scroll the canvas window the minimum vertical amount (may be zero) 
+    # to make the selected node visible.
+    #
+    set bbox [$myCanvas bbox selected]
+    if {$bbox ne ""} {
+      set base [lindex $all 1]
+      set ch [expr [lindex $all 3] - $base]
+      set y1 [expr double([lindex $bbox 1]-$base)/double($ch)]
+      set y2 [expr double([lindex $bbox 3]-$base)/double($ch)]
+      set yview [$myCanvas yview]
+      if {$y1 < [lindex $yview 0]} {
+        $myCanvas yview moveto $y1
+      }
+      if {$y2 > [lindex $yview 1]} {
+        $myCanvas yview moveto [expr $y2-([lindex $yview 1]-[lindex $yview 0])]
+      }
+    }
+
+    # Set the text in the search-report label.
+    #
+    set idx [lsearch $mySearchResults $mySelected]
+    incr idx
+    if {$idx <= 0} { 
+      ${win}.search.back configure -state disabled
+      ${win}.search.forward configure -state disabled
+      set idx ?
+    } else {
+      set state disabled
+      if {$idx < [llength $mySearchResults]} {
+        set state normal
+      }
+      ${win}.search.forward configure -state $state
+
+      set state disabled
+      if {$idx > 1} {
+        set state normal
+      }
+      ${win}.search.back configure -state $state
+    }
+    set caption "$idx/[llength $mySearchResults]"
+    ${win}.search.label2 configure -text $caption
+  }
+
+  method selected {args} {
+    if {[llength $args] > 0} {
+      catch { $mySelected override {} }
+      set mySelected [lindex $args 0]
+
+      set box [list outline-style solid outline-color blue outline-width 1px]
+      catch { $mySelected override $box }
+    } 
+    set mySelected
   }
 
   method drawSubTree {node x y} {
@@ -126,7 +219,7 @@ snit::widget HtmlDebug {
     set XINCR [expr $IWIDTH + 2]
     set YINCR [expr $IHEIGHT + 5]
 
-    set tree $myTreeCanvas
+    set tree $myCanvas
 
     set label [prop_nodeToLabel $node]
     if {$label == ""} {return 0}
@@ -147,13 +240,23 @@ snit::widget HtmlDebug {
 
     set tid [$tree create text [expr $x+$XINCR] $y]
     $tree itemconfigure $tid -text $label -anchor sw
-    if {$mySelected == $node} {
+
+    if {[lsearch $mySearchResults $node] >= 0} {
+        set bbox [$tree bbox $tid]
+        set rid [
+            $tree create rectangle $bbox -fill wheat -outline wheat
+        ]
+        $tree lower $rid $tid
+    }
+    if {$mySelected eq $node} {
         set bbox [$tree bbox $tid]
         set rid [
             $tree create rectangle $bbox -fill skyblue -outline skyblue
         ]
         $tree lower $rid $tid
+        $tree itemconfigure $rid -tags selected
     }
+
 
     $tree bind $tid <1> [list HtmlDebug::browse $myHtml $node]
     $tree bind $iid <1> [mymethod toggleExpanded $node]
@@ -180,174 +283,164 @@ snit::widget HtmlDebug {
     return $ret
   }
 
-  method redrawCanvas {} {
-    set canvas $myTreeCanvas
-    $canvas delete all
-    $self drawSubTree [$myHtml node] 15 30
-    $canvas configure -scrollregion [$canvas bbox all]
-  }
-
-  method browseNode {node} {
-    wm state $win normal
-    raise $win
-
-    $myReportHtml goto "tcl:///$self report $node"
-  }
-
-  # These are not actually part of the public interface, but they must
-  # be declared public because they are invoked by widget callback scripts
-  # and so on. They are really private methods.
-
-  # HtmlDebug::rerender
-  #
-  #     This method is called to force the attached html widget to rerun the
-  #     style and layout engines.
-  #
-  method rerender {} {
-    set html [$myHtml html]
-    set logcmd [$html cget -logcmd]
-    $html configure -logcmd [mymethod Logcmd]
-    unset -nocomplain myLayoutEngineLog
-    unset -nocomplain myStyleEngineLog
-    $html relayout
-    $html force
-    after idle [list ::HtmlDebug::browse $myHtml $mySelected]
-    # after idle [list $html configure -logcmd $logcmd]
-    $html configure -logcmd $logcmd
-  }
-
-  method searchNodeBg {idx} {
-    after idle [mymethod searchNode $idx]
-  }
-
-  method searchNode {{idx 0}} {
-
-    # The template document for the $myReportHtml widget.
-    #
-    set Template {
-      <html><head>
-        <style>
-          td { padding-left: 10px ; padding-right: 10px }
-        </style>
-      </head><body><center>
-        <h1>Tkhtml Document Tree Browser</h1>
-        <p>
-          <span style="margin-right:20px" widget="relayout"></span>
-          Search for node: <span widget="search"></span>
-        </p>
-        $search_results
-      </center></body></html>
-    }
-  
-    set search_results {}
-    set nodelist [list]
-    set selector [[$mySearchHtml html].search get]
-    if {$selector != ""} {
-      set search_results <table><tr>
-      set nodelist [$myHtml search $selector]
-      set ii 0
-      foreach node $nodelist {
-        # set script "after idle {::HtmlDebug::browse $myHtml $node}"
-        # set script "::HtmlDebug::browse $myHtml $node"
-        set script [mymethod searchNodeBg $ii]
-        append search_results "<td><a href=\"$script\">$node</a>"
-        incr ii
-        if {($ii % 5)==0} {
-          append search_results "</tr><tr>"
-        }
-      }
-      append search_results </table>
-    }
-  
-    set ::subbed_template [subst $Template]
-    $mySearchHtml goto "tcl:///list"
-    $mySearchHtml goto "tcl:///set ::subbed_template"
-    foreach node [$mySearchHtml search {span[widget]}] {
-      set widget [$node attr widget]
-      $node replace [$mySearchHtml html].$widget -deletecmd {}
-    }
-  
-    set h [lindex [[$mySearchHtml html] bbox] 3]
-    if {$selector != ""} {
-      set mh [expr [winfo height $win]/2]
-      if {$h > $mh} {set h $mh}
-    }
-    # [$mySearchHtml html] configure -height $h
-  
-    if {[llength $nodelist]>$idx} {
-      HtmlDebug::browse $myHtml [lindex $nodelist $idx]
-    }
-  
-    return ""
-  }
-
   method toggleExpanded {node} {
     if {[info exists myExpanded($node)]} {
       unset myExpanded($node)
     } else {
       set myExpanded($node) 1 
     }
-    $self redrawCanvas
+    $self redraw
   }
 
-# HtmlDebug::report node
+  destructor {
+    catch { $mySelected override {} }
+  }
+
+}
+
+snit::widgetadaptor ::hv3::debug::report {
+  option -reportcmd ""
+
+  constructor {args} {
+    installhull [::hv3::hv3 $win]
+    $self configurelist $args
+  }
+
+  # This is called to load the report for node-handle $node (a Tkhtml node
+  # handle belonging to hv3 mega-widget $hv3). Calling 
+  #
+  method report {hv3 node} {
+    $hull configure -requestcmd [mymethod GetReport $hv3 $node]
+    $hull goto "GetReport"
+  }
+  method GetReport {hv3 node downloadHandle} {
+    if {$options(-reportcmd) eq ""} {
+      error "empty -reportcmd option"
+    }
+    $downloadHandle append [eval $options(-reportcmd) $hv3 $node]
+    $downloadHandle finish
+  }
+
+  delegate method * to hull
+  delegate option * to hull
+}
+
+proc ::hv3::debug::ReportStyle {} {
+  return {
+    <style>
+      /* Table display parameters */
+      table { width: 100% }
+      table,th,td { border: 1px solid; }
+      td          { padding:0px 15px; }
+      table       { margin: 20px; }
+
+      /* Elements of class "code" are rendered in fixed font */
+      .code       { font-family: fixed; }
+
+    </style>
+  }
+}
+
+snit::widget ::hv3::debug::LogReport {
+
+  variable myReport ""
+
+  option -title ""
+
+  constructor {htmldebug args} {
+    ::hv3::button ${win}.button -text "Re-render Document With Logging"
+    ${win}.button configure -command [list $htmldebug rerender]
+
+    ::hv3::hv3 ${win}.hv3 
+    ${win}.hv3 configure -requestcmd [mymethod GetReport]
+
+    pack ${win}.button -fill x -side bottom
+    pack ${win}.hv3 -fill both -expand 1
+
+    $self configurelist $args
+  }
+
+  # This is called to load the report for node-handle $node (a Tkhtml node
+  # handle belonging to hv3 mega-widget $hv3). Calling 
+  #
+  method report {log} {
+    set Template {
+      <html>
+        [::hv3::debug::ReportStyle]
+      <body>
+        <h1>$options(-title)</h1>
+        $Tbl
+      </body> 
+      </html>
+    }
+    set Tbl ""
+    if {$log ne ""} {
+      append Tbl {<table border=1>}
+      foreach entry $log {
+        set entry [regsub {[A-Za-z]+\(\)} $entry <b>&</b>]
+        if {[string match matches* $entry]} {
+            append Tbl "    <tr><td><b>$entry<b>\n"
+        } else {
+            append Tbl "    <tr><td>$entry\n"
+        }
+      }
+      append Tbl "</table>\n"
+    } else {
+      append Tbl "<I>No logging info available.</I>"
+    }
+
+    set myReport [subst $Template]
+    ${win}.hv3 goto abc
+  }
+
+  method GetReport {downloadHandle} {
+    $downloadHandle append $myReport
+    $downloadHandle finish
+  }
+}
+
+# Format and return the "Events" report.
 #
-#     This method generates and returns an html formated report about 
-#     document node $node. It also sets the tree widget so that node 
-#     $node is the selected node and it's ancestor nodes are all 
-#     expanded.
+proc ::hv3::debug::EventsReport {hv3 node} {
+  set Template {
+    <html>
+      [::hv3::debug::ReportStyle]
+    <body>
+      <h1>DOM Event Listeners Report</h1>
+      $Tbl
+    </body> 
+    </html>
+  }
+
+  set dom [$hv3 dom]
+
+  set Tbl {<table border=1 width=100%>}
+  append Tbl {<tr><th>Event<th>Listener-Type<th>Javascript</tr>}
+  foreach evt [$dom eventdump $node] {
+    foreach {e l j} $evt {}
+    append Tbl "<tr><td>$e<td>$l<td><pre>[htmlize $j]</pre>" 
+  }
+  append Tbl { </table> }
+
+  subst $Template
+}
+
+# Format and return the "Tkhtml" report.
 #
-#     If $node is an empty string or is not a node of the current document
-#     the currently selected node is used instead. If there is no currently 
-#     selected node, or if it is not a node of the current document, the
-#     root node of the current document is used instead.
-#
-  method report {{node ""}} {
+proc ::hv3::debug::TkhtmlReport {hv3 node} {
 
   # Template for the node report. The $CONTENT variable is replaced by
   # some content generated by the Tcl code below.
   set Template {
     <html>
       <head>
-        <style>
-          /* Table display parameters */
-          table,th,td { border: 1px solid; }
-          td          { padding:0px 15px; }
-          table       { margin: 20px; }
-
-          /* Elements of class "code" are rendered in fixed font */
-          .code       { font-family: fixed; }
-
-        </style>
+        [::hv3::debug::ReportStyle]
       </head>
       <body>
         $CONTENT
       </body>
     </html>
   }
-
-  catch {
-    $mySelected override {}
-  }
-
-  if {$node != "" && [info commands $node] != ""} {
-    # The second argument to this proc is a valid node.
-    set mySelected $node
-    for {set n [$node parent]} {$n != ""} {set n [$n parent]} {
-      set myExpanded($n) 1
-    }
-    $self redrawCanvas
-
-  }
-  if {$mySelected == "" || [info commands $mySelected] == ""} {
-    set mySelected [$myHtml node]
-    set mySearchResults {}
-  }
-  set node $mySelected
-  catch {
-    $mySelected override {outline-style solid outline-color blue outline-width 1px}
-  }
-  if {$node eq ""} return ""
 
   set doc {}
 
@@ -459,6 +552,142 @@ snit::widget HtmlDebug {
     set CONTENT $doc
     set doc [subst $Template]
     return $doc
+}
+
+
+#--------------------------------------------------------------------------
+# class HtmlDebug --
+#
+#     This class encapsulates code used for debugging the Html widget. 
+#     It manages a gui which can be used to investigate the structure and
+#     Tkhtml's handling of the currently loaded Html document.
+#
+snit::widget HtmlDebug {
+  hulltype toplevel
+
+  # Class internals
+  typevariable Template
+
+  variable mySelected ""         ;# Currently selected node
+  variable myExpanded -array ""  ;# Array. Entries are present for exp. nodes
+  variable myHtml                ;# Name of html widget being debugged
+
+  variable mySearch ""
+
+    # Debugging window widgets. The top 3 are managed by panedwindow
+    # widgets.
+    #
+    #   $myTreeCanvas                  ;# [::hv3::scrolled canvas] mega-widget
+    #   $myReports                     ;# Tab set of reports.
+
+  variable myStyleEngineLog
+  variable myLayoutEngineLog
+  variable mySearchResults ""
+
+  variable myTree               ;# The tree widget
+
+  variable myHtmlReport         ;# The hv3 widget with the report
+  variable myEventsReport       ;# The DOM events report for the node.
+  variable myLayoutReport       ;# The layout engine report.
+  variable myStyleReport        ;# The style engine report.
+
+  variable myReports            ;# The ::hv3::tile_notebook widget.
+
+  constructor {HTML} {
+    set myHtml $HTML
+  
+    # Top level window bindings.
+    bind $win <Escape>          [list destroy $win]
+  
+    set myTree       $win.hpan.vpan.tree
+
+    set myHtmlReport   $win.hpan.vpan.reports.tkhtml
+    set myEventsReport $win.hpan.vpan.reports.events
+    set myLayoutReport $win.hpan.vpan.reports.layout
+    set myStyleReport  $win.hpan.vpan.reports.style
+    set myReports      $win.hpan.vpan.reports
+
+    panedwindow $win.hpan -orient vertical
+    # ::hv3::debug::search $mySearch $HTML
+    panedwindow $win.hpan.vpan -orient horizontal
+
+    ::hv3::debug::tree $myTree $HTML
+
+    # The tabs in the right-hand pane:
+    ::hv3::tile_notebook $myReports -width 600
+    ::hv3::debug::report $myEventsReport -reportcmd ::hv3::debug::EventsReport
+    ::hv3::debug::report $myHtmlReport -reportcmd ::hv3::debug::TkhtmlReport
+    ::hv3::debug::LogReport $myLayoutReport $self -title "Layout Engine Log"
+    ::hv3::debug::LogReport $myStyleReport $self -title "Style Engine Log"
+
+    $myReports add $myHtmlReport -text "Tkhtml"
+    $myReports add $myLayoutReport  -text "Layout Engine Log"
+    $myReports add $myStyleReport   -text "Style Engine Log"
+    $myReports add $myEventsReport  -text "DOM Event Listeners"
+  
+    $win.hpan add $win.hpan.vpan
+    $win.hpan.vpan add $myTree
+    $win.hpan.vpan add $myReports 
+    catch {
+      $win.hpan.vpan paneconfigure $myTree       -stretch always
+      $win.hpan.vpan paneconfigure $myReports    -stretch always
+    }
+  
+    pack ${win}.hpan -expand true -fill both
+    ${win}.hpan configure -width 800 -height 600
+  
+    bind ${win}.hpan <Destroy> [list destroy $win]
+  }
+
+  method browseNode {node} {
+    wm state $win normal
+    raise $win
+
+    if {$node != "" && [info commands $node] != ""} {
+      $myTree selected $node
+    } else {
+      $myTree selected [$myHtml node]
+      set mySearchResults {}
+    }
+
+    set selected [$myTree selected]
+    if {$selected ne ""} {
+      $myEventsReport report $myHtml $selected
+      $myHtmlReport report $myHtml $selected
+      if {[info exists myLayoutEngineLog($selected)]} {
+        $myLayoutReport report $myLayoutEngineLog($selected)
+      } else {
+        $myLayoutReport report ""
+      }
+      if {[info exists myStyleEngineLog($selected)]} {
+        $myStyleReport report $myStyleEngineLog($selected)
+      } else {
+        $myStyleReport report ""
+      }
+    }
+    $myTree redraw
+  }
+
+  # These are not actually part of the public interface, but they must
+  # be declared public because they are invoked by widget callback scripts
+  # and so on. They are really private methods.
+
+  # HtmlDebug::rerender
+  #
+  #     This method is called to force the attached html widget to rerun the
+  #     style and layout engines.
+  #
+  method rerender {} {
+    set html [$myHtml html]
+    set logcmd [$html cget -logcmd]
+    $html configure -logcmd [mymethod Logcmd]
+    unset -nocomplain myLayoutEngineLog
+    unset -nocomplain myStyleEngineLog
+    $html relayout
+    $html force
+    after idle [list ::HtmlDebug::browse $myHtml $mySelected]
+    # after idle [list $html configure -logcmd $logcmd]
+    $html configure -logcmd $logcmd
   }
 
   # Logcmd
@@ -488,7 +717,6 @@ snit::widget HtmlDebug {
       }
     }
   }
-
 }
 #--------------------------------------------------------------------------
 

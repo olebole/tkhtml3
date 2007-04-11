@@ -2087,6 +2087,86 @@ eventTargetDelete(clientData)
     GC_FREE(p);
 }
 
+static Tcl_Obj *
+listenerToString(pSeeInterp, pListener)
+    struct SEE_interpreter *pSeeInterp;
+    struct SEE_object *pListener;
+{
+    struct SEE_value val;
+    struct SEE_value res;
+
+    SEE_OBJECT_DEFAULTVALUE(pSeeInterp, pListener, 0, &val);
+    SEE_ToString(pSeeInterp, &val, &res);
+    return Tcl_NewUnicodeObj(
+        res.u.string->data, res.u.string->length
+    );
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * eventTargetDump --
+ *
+ *     This function is used to introspect the event-target object from
+ *     the Tcl level. The return value is a list. Each element of
+ *     the list takes the following form:
+ *
+ *       {EVENT-TYPE LISTENER-TYPE JAVASCRIPT}
+ *
+ *     where EVENT-TYPE is the event-type string passed to [addEventListener]
+ *     or [setLegacyListener]. LISTENER-TYPE is one of "legacy", "capturing"
+ *     or "non-capturing". JAVASCRIPT is the "tostring" version of the
+ *     js object to call to process the event.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void 
+eventTargetDump(interp, p)
+    Tcl_Interp *interp;
+    EventTarget *p;
+{
+    EventType *pType;
+    Tcl_Obj *apRow[3];
+    Tcl_Obj *pRet;
+    struct SEE_interpreter *pSeeInterp = &(p->pTclSeeInterp->interp);
+
+    pRet = Tcl_NewObj();
+    Tcl_IncrRefCount(pRet);
+
+    for (pType = p->pTypeList; pType; pType = pType->pNext) {
+        ListenerContainer *pL;
+
+        Tcl_Obj *pEventType = Tcl_NewStringObj(pType->zType, -1);
+        Tcl_IncrRefCount(pEventType);
+        apRow[0] = pEventType;
+
+        if (pType->pLegacyListener) {
+            apRow[1] = Tcl_NewStringObj("legacy", -1);
+            apRow[2] = listenerToString(pSeeInterp, pType->pLegacyListener);
+            Tcl_ListObjAppendElement(interp, pRet, Tcl_NewListObj(3, apRow));
+        }
+
+        for (pL = pType->pListenerList; pL; pL = pL->pNext) {
+            const char *zType = (pL->isCapture?"capturing":"non-capturing");
+            apRow[1] = Tcl_NewStringObj(zType, -1);
+            apRow[2] = listenerToString(pSeeInterp, pL->pListener);
+            Tcl_ListObjAppendElement(interp, pRet, Tcl_NewListObj(3, apRow));
+        }
+
+        Tcl_DecrRefCount(pEventType);
+    }
+    
+
+    Tcl_SetObjResult(interp, pRet);
+    Tcl_DecrRefCount(pRet);
+}
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -2130,12 +2210,13 @@ eventTargetMethod(clientData, interp, objc, objv)
 
     enum EVENTTARGET_enum {
         ET_ADD,
+        ET_DESTROY,
+        ET_DUMP,
         ET_REMOVE,
-        ET_LEGACY,
-        ET_REMOVE_LEGACY,
-        ET_INLINE,
+        ET_REMLEGACY,
         ET_RUNEVENT,
-        ET_DESTROY
+        ET_LEGACY,
+        ET_INLINE
     };
     enum EVENTTARGET_enum eChoice;
 
@@ -2145,13 +2226,14 @@ eventTargetMethod(clientData, interp, objc, objv)
         int nArgs;
         char *zArgs;
     } aSubCommand[] = {
-        {"addEventListener",     ET_ADD,      3, "TYPE LISTENER USE-CAPTURE"},
-        {"removeEventListener",  ET_REMOVE,   3, "TYPE LISTENER USE-CAPTURE"},
-        {"setLegacyScript",      ET_INLINE,   2, "TYPE JAVASCRIPT"},
-        {"runEvent",             ET_RUNEVENT, 4, "TYPE CAPTURE THIS JS-ARG"},
-        {"setLegacyListener",    ET_LEGACY,        2, "TYPE LISTENER"},
-        {"removeLegacyListener", ET_REMOVE_LEGACY, 1, "TYPE"},
-        {"destroy",              ET_DESTROY,       0, ""},
+        {"addEventListener",     ET_ADD,       3, "TYPE LISTENER USE-CAPTURE"},
+        {"destroy",              ET_DESTROY,   0, ""},
+        {"dump",                 ET_DUMP,      0, ""},
+        {"removeEventListener",  ET_REMOVE,    3, "TYPE LISTENER USE-CAPTURE"},
+        {"removeLegacyListener", ET_REMLEGACY, 1, "TYPE"},
+        {"runEvent",             ET_RUNEVENT,  4, "TYPE CAPTURE THIS JS-ARG"},
+        {"setLegacyListener",    ET_LEGACY,    2, "TYPE LISTENER"},
+        {"setLegacyScript",      ET_INLINE,    2, "TYPE JAVASCRIPT"},
         {0, 0, 0, 0}
     };
 
@@ -2180,7 +2262,7 @@ eventTargetMethod(clientData, interp, objc, objv)
     if (
         eChoice == ET_REMOVE || eChoice == ET_RUNEVENT || 
         eChoice == ET_ADD || eChoice == ET_LEGACY || eChoice == ET_INLINE ||
-        eChoice == ET_REMOVE_LEGACY
+        eChoice == ET_REMLEGACY
     ) {
         for (
             pType = p->pTypeList;
@@ -2263,8 +2345,8 @@ eventTargetMethod(clientData, interp, objc, objv)
 
         case ET_INLINE:
         case ET_LEGACY:
-        case ET_REMOVE_LEGACY:
-            assert(pType || (!pListener && eChoice == ET_REMOVE_LEGACY));
+        case ET_REMLEGACY:
+            assert(pType || (!pListener && eChoice == ET_REMLEGACY));
             if (pType) {
                 pType->pLegacyListener = pListener;
             }
@@ -2382,6 +2464,10 @@ eventTargetMethod(clientData, interp, objc, objv)
 
         case ET_DESTROY:
             eventTargetDelete(clientData);
+            break;
+
+        case ET_DUMP:
+            eventTargetDump(interp, p);
             break;
 
         default: assert(!"Can't happen");

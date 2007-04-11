@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.7 2007/04/10 16:22:09 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.8 2007/04/11 17:37:53 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # DOM Level 2 Events.
@@ -274,6 +274,13 @@ set ::hv3::dom::HTML_Events_List [list                          \
       if {[$event cget -preventdefault]} {return "prevent"}
       if {$isRun} {return "ok"}
       return ""
+    }
+  }
+
+  dom_snit {
+    method eventdump {} {
+      $self initEventTarget
+      $myEventTarget dump
     }
   }
 }

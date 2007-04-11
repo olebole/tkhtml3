@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.29 2007/04/10 16:22:09 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.30 2007/04/11 17:37:53 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Global interfaces in this file:
@@ -303,13 +303,19 @@ snit::type ::hv3::JavascriptObject {
 #
 #     set dom [::hv3::dom %AUTO% $hv3]
 #
-#     $dom script ATTR SCRIPT
+#     $dom script   ATTR SCRIPT
+#     $dom noscript ATTR SCRIPT
+#
 #     $dom javascript SCRIPT
 #     $dom event EVENT NODE
 #     $dom reset
-#     $dom javascriptlog
 #
-#     destroy $dom
+#     $dom destroy
+#
+#  Debugging aids:
+#     $dom javascriptlog
+#     $dom eventreport NODE
+#
 #
 snit::type ::hv3::dom {
   variable mySee ""
@@ -643,6 +649,11 @@ snit::type ::hv3::dom {
     set logwin ".[string map {: _} $self]_logwindow"
     return $logwin
   }
+
+  method eventdump {node} {
+    set Node [$self node_to_dom $node]
+    $Node eventdump
+  }
 }
 
 #-----------------------------------------------------------------------
@@ -719,5 +730,5 @@ proc ::hv3::dom::use_scripting {} {
 
 #set ::hv3::dom::reformat_scripts_option 0
 set ::hv3::dom::use_scripting_option 1
-set ::hv3::dom::reformat_scripts_option 1
+set ::hv3::dom::reformat_scripts_option 0
 

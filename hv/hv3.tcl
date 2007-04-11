@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.152 2007/04/10 16:22:09 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.153 2007/04/11 17:37:53 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -93,7 +93,8 @@ namespace eval hv3 { set {version($Id: hv3.tcl,v 1.152 2007/04/10 16:22:09 danie
 #
 #     <<Complete>>
 #         This event is generated once all of the resources required
-#         to display a document have been loaded.
+#         to display a document have been loaded. This is analogous
+#         to the Html "onload" event.
 #
 #     <<Reset>>
 #         This event is generated just before [$html reset] is called
@@ -813,11 +814,22 @@ snit::type ::hv3::hv3::hyperlinkmanager {
     }
   }
 
+  # This method is called whenever an onclick event occurs. If the
+  # node is an <A> with an "href" attribute that is not "#" or the
+  # empty string, call the [goto] method of some hv3 widget to follow 
+  # the hyperlink.
+  #
+  # The particular hv3 widget is located by evaluating the -targetcmd 
+  # callback script. This allows the upper layer to implement frames,
+  # links that open in new windows/tabs - all that irritating stuff :)
+  #
   method handle_onclick {node} {
-    set href [$node attr -default "" href]
-    if {$href ne "" && [$node tag] eq "a"} {
-      set hv3 [eval [linsert $options(-targetcmd) end $node]]
-      $hv3 goto $href -referer [$myHv3 location]
+    if {[$node tag] eq "a"} {
+      set href [$node attr -default "" href]
+      if {$href ne "" && $href ne "#"} {
+        set hv3 [eval [linsert $options(-targetcmd) end $node]]
+        $hv3 goto $href -referer [$myHv3 location]
+      }
     }
   }
 
@@ -1073,6 +1085,9 @@ snit::widget ::hv3::hv3 {
     if {[llength $myCurrentDownloads] == 0} {
       $myHtml delay 0
       event generate $win <<Complete>>
+ 
+      set bodynode [$myHtml search body]
+      $myDom event onload [lindex $bodynode 0]
     }
   }
 
@@ -1295,11 +1310,8 @@ snit::widget ::hv3::hv3 {
   # and the [body_style_handler] method immediately below it is
   # to handle the 'overflow' property on the document root element.
   # 
-  # Also, fire the DOM "onload" event on the body node.
-  #
   method body_node_handler {node} {
     $node replace dummy -stylecmd [mymethod body_style_handler $node]
-    $myDom event onload $node
   }
   method body_style_handler {bodynode} {
 
