@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.115 2007/04/07 11:37:26 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.116 2007/04/13 11:44:43 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -17,6 +17,10 @@ if {[catch { package require Img } errmsg]} {
 }
 if {[catch { package require sqlite3 } errmsg]} {
   puts stderr "WARNING: $errmsg"
+}
+
+proc htmlize {zIn} {
+  string map [list "<" "&lt;" ">" "&gt;" "&" "&amp;" "\"" "&quote;"] $zIn
 }
 
 # Source the other script files that are part of this application.

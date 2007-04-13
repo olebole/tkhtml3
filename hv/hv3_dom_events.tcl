@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.8 2007/04/11 17:37:53 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.9 2007/04/13 11:44:43 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # DOM Level 2 Events.
@@ -213,13 +213,22 @@ set ::hv3::dom::HTML_Events_List [list                          \
     #
     method runEvent {event_type isCapture event} {
       $self EventTarget_InitIfAttribute $event_type
-      if {$myEventTarget eq ""} { return "" }
-      $myEventTarget runEvent $event_type $isCapture $self $event
+      if {$myEventTarget ne ""} {
+        # Set the value of the Event.currentTarget property to this object
+        # before running the event listeners.
+        #
+        $event configure -currenttarget $self
+        $myEventTarget runEvent $event_type $isCapture $self $event
+      }
     }
 
     method doDispatchEvent {event} {
       set event_type [$event cget -eventtype]
       set isRun 0          ;# Set to true if one or more scripts are run.
+
+      # Set the value of the Event.target property to this object.
+      #
+      $event configure -target $self
 
       # Use the DOM Node.parentNode interface to determine the ancestry.
       #
@@ -295,13 +304,13 @@ set ::hv3::dom::HTML_Events_List [list                          \
 
   # Read-only attributes to access the values set by initEvent().
   #
-  dom_get type       { list string $myEventType }
+  dom_get type       { list string  $myEventType }
   dom_get bubbles    { list boolean $myCanBubble }
-  dom_get cancelable { list boolean myCancelable }
+  dom_get cancelable { list boolean $myCancelable }
 
-  dom_get target {}
-  dom_get currentTarget {}
-  dom_get eventPhase { list number $options(-eventphase) }
+  dom_get target        { list object $options(-target) }
+  dom_get currentTarget { list object $options(-currenttarget) }
+  dom_get eventPhase    { list number $options(-eventphase) }
 
   # TODO: Timestamp is supposed to return a timestamp in milliseconds
   # from the epoch. But the DOM spec notes that this information is not
@@ -329,8 +338,13 @@ set ::hv3::dom::HTML_Events_List [list                          \
 
     option -preventdefault -default false
 
-    variable myCanBubble ""
-    variable myCancelable ""
+    # Objects for the Event.target and Event.currentTarget properties.
+    #
+    option -target         -default ""
+    option -currenttarget  -default ""
+
+    variable myCanBubble  1
+    variable myCancelable 0
 
     method Event_initEvent {eventType canBubble cancelable} {
       set options(-eventtype)  $eventType

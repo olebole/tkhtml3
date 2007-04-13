@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.2 2007/04/10 16:22:09 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.3 2007/04/13 11:44:43 danielk1977 Exp $)} 1 }
 
 #---------------------------------
 # List of DOM objects in this file:
@@ -214,7 +214,7 @@ namespace eval ::hv3::dom {
   }
   dom_snit {
     method newRequest {args} {
-      list object [::hv3::dom::XMLHttpRequest %AUTO% $myDom $myHv3]
+      list object [::hv3::dom::XMLHttpRequest %AUTO% $myDom -hv3 $myHv3]
     }
   }
 

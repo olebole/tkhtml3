@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.30 2007/04/11 17:37:53 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.31 2007/04/13 11:44:43 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Global interfaces in this file:
@@ -342,6 +342,8 @@ snit::type ::hv3::dom {
   constructor {hv3 args} {
     set myHv3 $hv3
 
+    set myLogData [::hv3::dom::logdata %AUTO% $self]
+
     # Mouse events:
     foreach e [list onclick onmouseout onmouseover \
         onmouseup onmousedown onmousemove ondblclick
@@ -353,9 +355,7 @@ snit::type ::hv3::dom {
   }
 
   destructor { 
-    catch {
-      destroy [$self LogWindow]
-    }
+    catch { $myLogData destroy }
   }
 
   method reset {} {
@@ -417,7 +417,7 @@ snit::type ::hv3::dom {
         ]
         $handle configure -finscript [mymethod scriptCallback $attr $handle]
         $myHv3 makerequest $handle
-        $self Log "Dispatched script request - $handle" "" "" ""
+        # $self Log "Dispatched script request - $handle" "" "" ""
       } else {
         return [$self scriptCallback $attr "" $script]
       }
@@ -450,10 +450,10 @@ snit::type ::hv3::dom {
 
     set attributes ""
     foreach {a v} $attr {
-      append attributes " [$self Escape $a]=\"[$self Escape $v]\""
+      append attributes " [htmlize $a]=\"[htmlize $v]\""
     }
-    set title "<SCRIPT$attributes> $downloadHandle file=$name" 
-    $self Log $title $script $rc $msg
+    set title "<SCRIPT$attributes> $downloadHandle"
+    $myLogData Log $title $name $script $rc $msg
 
     $myHv3 write continue
   }
@@ -463,7 +463,7 @@ snit::type ::hv3::dom {
     if {[::hv3::dom::use_scripting] && $mySee ne ""} {
       set name [$self NewFilename]
       set rc [catch {$mySee eval -file $name $script} msg]
-      $self Log "javascript: name=$name" $script $rc $msg
+      # $self Log "javascript: name=$name" $script $rc $msg
     }
     return $msg
   }
@@ -506,7 +506,7 @@ snit::type ::hv3::dom {
       set ref [lindex $eventobj 1]
       set this [list object $js_obj]
       set rc [catch {eval $mySee $ref Call [list $this]} msg]
-      $self Log "$node $event" [$mySee tostring $eventobj] $rc $msg
+      # $self Log "$node $event" [$mySee tostring $eventobj] $rc $msg
     }
   }
 
@@ -590,6 +590,7 @@ snit::type ::hv3::dom {
   #------------------------------------------------------------------
   # Logging system follows.
   #
+  variable myLogData
 
   # This variable contains the current javascript debugging log in HTML 
   # form. It is appended to by calls to [Log] and truncated to an
@@ -600,56 +601,24 @@ snit::type ::hv3::dom {
 
   method Log {heading script rc result} {
 
-    set fscript "<table>"
-    set num 1
-    foreach line [split $script "\n"] {
-      set eline [string trimright [$self Escape $line]]
-      append fscript "<tr><td>$num<td><pre style=\"margin:0\">$eline</pre>"
-      incr num
-    }
-    append fscript "</table>"
-
-    set html [subst {
-      <hr>
-      <h3>[$self Escape $heading]</h3>
-      $fscript
-
-      <p>RC=$rc</p>
-      <pre>[$self Escape $result]</pre>
-    }]
-
-    append myLogDocument $html
-    set logwin [$self LogWindow]
-    if {[winfo exists $logwin]} {
-      $logwin append $html
-    }
-    # puts $myLogDocument
+    $myLogData Log $heading $script $rc $result
+    return
   }
 
 
   method LogReset {} {
-    set myLogDocument ""
-    set logwin [$self LogWindow]
-    if {[winfo exists $logwin]} {
-      [$logwin.hv3 html] reset
-    }
+    $myLogData Reset
+    return
   }
 
   method javascriptlog {} {
-    set logwin [$self LogWindow]
-    if {![winfo exists $logwin]} {
-      ::hv3::dom::logwin $logwin
-      $logwin append $myLogDocument
-    }
+    $myLogData Popup
+    return
   }
 
-  method Escape {text} { string map {< &lt; > &gt;} $text }
-
-  method LogWindow {} {
-    set logwin ".[string map {: _} $self]_logwindow"
-    return $logwin
-  }
-
+  # Called by the tree-browser to get event-listener info for the
+  # javascript object associated with the specified tkhtml node.
+  #
   method eventdump {node} {
     set Node [$self node_to_dom $node]
     $Node eventdump
@@ -657,41 +626,214 @@ snit::type ::hv3::dom {
 }
 
 #-----------------------------------------------------------------------
+# ::hv3::dom::logdata
+# ::hv3::dom::logscript
+#
+#     Javascript debugger state.
+#
 # ::hv3::dom::logwin
 #
-#     Toplevel window widget used by ::hv3::dom code to display it's 
-#     log file. 
+#     Toplevel window widget that implements the javascript debugger.
 #
+snit::type ::hv3::dom::logscript {
+  option -rc      -default ""
+  option -heading -default "" 
+  option -script  -default "" 
+  option -result  -default "" 
+  option -name    -default "" 
+}
+
+snit::type ::hv3::dom::logdata {
+  variable myDom ""
+  variable myLogScripts [list]
+  variable myWindow ""
+
+  constructor {dom} {
+    set myDom $dom
+    set myWindow ".[string map {: _} $self]_logwindow"
+  }
+
+  method Log {heading name script rc result} {
+    set ls [::hv3::dom::logscript %AUTO% \
+      -rc $rc -name $name -heading $heading -script $script -result $result
+    ]
+    lappend myLogScripts $ls
+  }
+
+  method Reset {} {
+    foreach ls $myLogScripts {
+      $ls destroy
+    }
+    set myLogScripts [list]
+  }
+
+  method Popup {} {
+    if {![winfo exists $myWindow]} {
+      ::hv3::dom::logwin $myWindow $self
+    } 
+    wm state $myWindow normal
+    raise $myWindow
+    $myWindow Populate
+  }
+
+  destructor {
+    $self Reset
+  }
+
+
+  method GetList {} {
+    return $myLogScripts
+  }
+
+  method Evaluate {script} {
+    set res [$myDom javascript $script]
+    return $res
+  }
+}
+
 snit::widget ::hv3::dom::logwin {
   hulltype toplevel
 
-  constructor {} {
-    set hv3 ${win}.hv3
-    ::hv3::hv3 $hv3
-    $hv3 configure -requestcmd [mymethod Requestcmd] -width 600 -height 400
+  # Internal widgets:
+  variable myFileList ""
+  variable myCode ""
+  variable myCodeTitle ""
 
-    # Create an ::hv3::findwidget so that the report is searchable.
-    #
-    ::hv3::findwidget ${win}.find $hv3
-    destroy ${win}.find.close
+  variable myInput ""
+  variable myOutput ""
 
-    bind $win <KeyPress-Up>     [list $hv3 yview scroll -1 units]
-    bind $win <KeyPress-Down>   [list $hv3 yview scroll  1 units]
-    bind $win <KeyPress-Next>   [list $hv3 yview scroll  1 pages]
-    bind $win <KeyPress-Prior>  [list $hv3 yview scroll -1 pages]
-    bind $win <Escape>          [list destroy $win]
+  # ::hv3::dom::logdata object
+  variable myData
 
-    focus $win.find.entry
+  constructor {data} {
+    
+    set myData $data
 
-    pack ${win}.find -side bottom -fill x
-    pack $hv3 -fill both -expand true
+    panedwindow ${win}.pan -orient horizontal
+    panedwindow ${win}.pan.right -orient vertical
+
+    set myFileList [::hv3::scrolled listbox ${win}.pan.files]
+    $myFileList configure -bg white
+    bind $myFileList <<ListboxSelect>> [mymethod PopulateText]
+
+    frame ${win}.pan.right.top 
+    set myCode [::hv3::scrolled ::hv3::text ${win}.pan.right.top.code]
+    set myCodeTitle [::hv3::label ${win}.pan.right.top.label]
+    pack $myCodeTitle -fill x
+    pack $myCode -fill both -expand 1
+    $myCode configure -bg white
+    $myCode tag configure linenumber -foreground darkblue
+
+    frame ${win}.pan.right.bottom 
+    set myOutput [::hv3::scrolled ::hv3::text ${win}.pan.right.bottom.output]
+    set myInput  [::hv3::text ${win}.pan.right.bottom.input -height 3]
+    $myInput configure -bg white
+    $myOutput configure -bg white -state disabled
+    bind $myInput <Return> [list after idle [mymethod Evaluate]]
+    $myOutput tag configure commandtext -foreground darkblue
+
+    pack $myInput -fill x -side bottom
+    pack $myOutput -fill both -expand 1
+
+    ${win}.pan add ${win}.pan.files -width 200
+    ${win}.pan add ${win}.pan.right
+
+    ${win}.pan.right add ${win}.pan.right.top  -height 300 -width 600
+    ${win}.pan.right add ${win}.pan.right.bottom -height 250
+
+    pack ${win}.pan -fill both -expand 1
+
+    bind ${win} <Escape> [list destroy ${win}]
+
+    focus $myInput
+    $myInput insert end "help"
+    $self Evaluate
   }
+
+  method Populate {} {
+    $myFileList delete 0 end
+
+    foreach ls [$myData GetList] {
+      set name [$ls cget -name] 
+      set rc [$ls cget -rc] 
+      $myFileList insert end $name
   
-  method append {html} {
-    set hv3 ${win}.hv3
-    [$hv3 html] parse $html
+      if {$rc} {
+        $myFileList itemconfigure end -foreground red
+      }
+    }
+  }
+
+  method PopulateText {} {
+    $myCode configure -state normal
+    $myCode delete 0.0 end
+    set idx [lindex [$myFileList curselection] 0]
+    if {$idx ne ""} {
+      set ls [lindex [$myData GetList] $idx]
+      $myCodeTitle configure -text [$ls cget -heading]
+
+      set script [$ls cget -script]
+      set N 1
+      foreach line [split $script "\n"] {
+        $myCode insert end [format "% 5d   " $N] linenumber
+        $myCode insert end "$line\n"
+        incr N
+      }
+    }
+    $myCode configure -state disabled
+  }
+
+  method Evaluate {} {
+    set script [string trim [$myInput get 0.0 end]]
+    $myInput delete 0.0 end
+    $myInput mark set insert 0.0
+
+    set idx [string first " " $script]
+    if {$idx < 0} {
+      set idx [string length $script]
+    }
+    set zWord [string range $script 0 [expr $idx-1]]
+    set nWord [string length $zWord]
+
+    $myOutput configure -state normal
+
+    if     {$nWord>=1 && [string first $zWord javascript]==0} {
+      # Command "javascript"
+      #
+      #     Evaluate a javascript script.
+      set js [string trim [string range $script $nWord end]]
+      set res [$myData Evaluate $js]
+      $myOutput insert end "javascript: $js\n" commandtext
+      $myOutput insert end "    [string trim $res]\n"
+    } \
+    elseif {$nWord>=1 && [string first $zWord result]==0} {
+      # Command "result"
+      #
+      #     Retrieve the result for previously evaluated <script> block.
+      set arg [lindex $script 1]
+      
+      $myOutput insert end "result: $arg\n" commandtext
+    } else {
+      # Command "help"
+      #
+      #     Print debugger usage instructions
+      
+      $myOutput insert end "help:" commandtext
+      $myOutput insert end {
+        help
+        javascript JAVASCRIPT...
+        result BLOBID
+
+    Unambiguous prefixes of the above commands are also accepted.}
+      $myOutput insert end "\n"
+    }
+
+    $myOutput yview -pickplace end
+    $myOutput insert end "\n"
+    $myOutput configure -state disabled
   }
 }
+#-----------------------------------------------------------------------
 
 #-----------------------------------------------------------------------
 # Pull in the object definitions.
@@ -730,5 +872,5 @@ proc ::hv3::dom::use_scripting {} {
 
 #set ::hv3::dom::reformat_scripts_option 0
 set ::hv3::dom::use_scripting_option 1
-set ::hv3::dom::reformat_scripts_option 0
+set ::hv3::dom::reformat_scripts_option 1
 

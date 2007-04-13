@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.48 2007/04/11 17:37:53 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.49 2007/04/13 11:44:43 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_prop.tcl --
@@ -33,10 +33,6 @@ namespace eval ::HtmlDebug {
     }
     return [$name browseNode $node]
   }
-}
-
-proc htmlize {zIn} {
-  string map [list "<" "&lt;" ">" "&gt;" "&" "&amp;" "\"" "&quote;"] $zIn
 }
 
 snit::widget ::hv3::debug::tree {
@@ -240,21 +236,21 @@ snit::widget ::hv3::debug::tree {
 
     set tid [$tree create text [expr $x+$XINCR] $y]
     $tree itemconfigure $tid -text $label -anchor sw
+    set bbox [$tree bbox $tid]
+    lset bbox 0 15
 
-    if {[lsearch $mySearchResults $node] >= 0} {
-        set bbox [$tree bbox $tid]
-        set rid [
-            $tree create rectangle $bbox -fill wheat -outline wheat
-        ]
-        $tree lower $rid $tid
-    }
     if {$mySelected eq $node} {
-        set bbox [$tree bbox $tid]
         set rid [
             $tree create rectangle $bbox -fill skyblue -outline skyblue
         ]
-        $tree lower $rid $tid
+        $tree lower $rid all
         $tree itemconfigure $rid -tags selected
+    }
+    if {[lsearch $mySearchResults $node] >= 0} {
+        set rid [
+            $tree create rectangle $bbox -fill wheat -outline wheat
+        ]
+        $tree lower $rid all
     }
 
 
@@ -386,7 +382,11 @@ snit::widget ::hv3::debug::LogReport {
       }
       append Tbl "</table>\n"
     } else {
-      append Tbl "<I>No logging info available.</I>"
+      append Tbl {
+        <I>No logging info available. Pressing the 
+           "Re-render Document With Logging" button below might help.
+        </I>
+      }
     }
 
     set myReport [subst $Template]
