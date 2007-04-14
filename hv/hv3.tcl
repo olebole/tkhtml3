@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.153 2007/04/11 17:37:53 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.154 2007/04/14 17:07:25 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -277,6 +277,7 @@ snit::type ::hv3::hv3::mousemanager {
   # Generate a $event event on node $node.
   #
   method Generate {event node} {
+    if {[info commands $node] eq ""} return
     foreach script $myScripts($event) {
       eval $script $node
     }
@@ -284,10 +285,12 @@ snit::type ::hv3::hv3::mousemanager {
 
   method GenerateEvents {eventlist} {
     foreach {event node} $eventlist {
-      foreach script $myScripts($event) {
-        set myReset 0
-        eval $script $node
-        if {$myReset} return
+      if {[info commands $node] ne ""} {
+        foreach script $myScripts($event) {
+          set myReset 0
+          eval $script $node
+          if {$myReset} return
+        }
       }
     }
   }

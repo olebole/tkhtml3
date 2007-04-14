@@ -358,7 +358,38 @@ static void
 formatSymbol(pBlob)
     JsBlob *pBlob;
 {
-    writeOut(pBlob, pBlob->zCsr, 1);
+    char zSpecial[] = "-+*%<=>?:&|/!";
+
+    char c = pBlob->zCsr[0];
+    char next = pBlob->zCsr[1];
+    char prev = 0;
+    if (pBlob->zCsr > pBlob->zIn){
+        prev = pBlob->zCsr[-1];
+    }
+
+    if (c == '!' && next != '='){
+        writeOut(pBlob, "!", -1);
+    }
+
+    else if (c == '~' || c == '^') {
+        writeOut(pBlob, pBlob->zCsr, 1);
+    } 
+
+    else if (c == next && (c == '+' || c == '-')) {
+        writeOut(pBlob, pBlob->zCsr, 1);
+    }
+
+    else {
+        if (0 == strchr(zSpecial, (unsigned char)prev)) {
+            writeOut(pBlob, " ", 1);
+        }
+
+        writeOut(pBlob, pBlob->zCsr, 1);
+
+        if (0 == strchr(zSpecial, (unsigned char)next)) {
+            writeOut(pBlob, " ", 1);
+        }
+    }
 }
 
 static void

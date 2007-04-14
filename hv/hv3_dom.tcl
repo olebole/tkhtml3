@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.32 2007/04/14 16:18:57 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.33 2007/04/14 17:07:25 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Global interfaces in this file:
@@ -517,6 +517,11 @@ snit::type ::hv3::dom {
   #
   method mouseevent {event node x y args} {
     if {![::hv3::dom::use_scripting] || $mySee eq ""} {return 1}
+
+    # This can happen if the node is deleted by a DOM event handler
+    # invoked by the same logical GUI event as this DOM event.
+    #
+    if {"" eq [info commands $node]} {return 1}
 
     if {$node eq ""} {
       set Node [lindex [$myWindow Get document] 1]
