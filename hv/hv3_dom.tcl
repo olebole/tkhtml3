@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.31 2007/04/13 11:44:43 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.32 2007/04/14 16:18:57 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Global interfaces in this file:
@@ -442,6 +442,8 @@ snit::type ::hv3::dom {
     }
 
     if {$::hv3::dom::reformat_scripts_option} {
+      set script [string map {"\r\n" "\n"} $script]
+      set script [string map {"\r" "\n"} $script]
       set script [::see::format $script]
     }
 
@@ -705,6 +707,8 @@ snit::widget ::hv3::dom::logwin {
   # ::hv3::dom::logdata object
   variable myData
 
+  variable myCurrentIdx 0
+
   constructor {data} {
     
     set myData $data
@@ -759,7 +763,7 @@ snit::widget ::hv3::dom::logwin {
       $myFileList insert end $name
   
       if {$rc} {
-        $myFileList itemconfigure end -foreground red
+        $myFileList itemconfigure end -foreground red -selectforeground red
       }
     }
   }
@@ -779,6 +783,7 @@ snit::widget ::hv3::dom::logwin {
         $myCode insert end "$line\n"
         incr N
       }
+      set myCurrentIdx $idx
     }
     $myCode configure -state disabled
   }
@@ -811,8 +816,45 @@ snit::widget ::hv3::dom::logwin {
       #
       #     Retrieve the result for previously evaluated <script> block.
       set arg [lindex $script 1]
+      if {$arg eq ""} {
+        # If there is no argument, get the result for the currently
+        # displayed blob.
+        set idx $myCurrentIdx
+        if {$idx eq ""} {set idx [llength [$myData GetList]]}
+      } else {
+        set idx 0
+        foreach ls [$myData GetList] {
+          if {[$ls cget -name] eq $arg} break
+          incr idx
+        }
+      }
+
+      set ls [lindex [$myData GetList] $idx]
+      if {$ls eq ""} {
+        error "No such file: \"$arg\""
+      }
+
+      $myOutput insert end "result: [$ls cget -name]\n" commandtext
+      $myOutput insert end "   rc    : [$ls cget -rc]\n"
+      if {[$ls cget -rc] && [lindex [$ls cget -result] 0] eq "JS_ERROR"} {
+        set res [$ls cget -result]
+        set msg [lindex $res 1]
+        set stack ""
+        foreach {file lineno a b} [lrange $res 2 end] {
+          set stack "-> $file:$lineno $stack"
+        }
+        $myOutput insert end "   result: $msg\n"
+        $myOutput insert end "   stack:  [string range $stack 3 end]\n"
+      } else {
+        $myOutput insert end "   result: [$ls cget -result]\n"
+      }
       
-      $myOutput insert end "result: $arg\n" commandtext
+    } \
+    elseif {$nWord>=1 && [string first $zWord clear]==0} {
+      # Command "clear"
+      #
+      #     Clear the myOutput window.
+      $myOutput delete 0.0 end
     } else {
       # Command "help"
       #
@@ -820,6 +862,7 @@ snit::widget ::hv3::dom::logwin {
       
       $myOutput insert end "help:" commandtext
       $myOutput insert end {
+        clear
         help
         javascript JAVASCRIPT...
         result BLOBID

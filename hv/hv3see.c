@@ -205,6 +205,8 @@
 #define MAX(x,y) ((x) > (y) ? (x) : (y))
 #define MIN(x,y) ((x) < (y) ? (x) : (y))
 
+#include "hv3format.c"
+
 typedef struct SeeInterp SeeInterp;
 typedef struct SeeTclObject SeeTclObject;
 typedef struct SeeJsObject SeeJsObject;
@@ -846,48 +848,51 @@ handleJavascriptError(pTclSeeInterp, pTry)
     struct SEE_traceback *pTrace;
 
     struct SEE_value error;
-    Tcl_Obj *pError = Tcl_NewStringObj("Javascript Error: ", -1);
+    Tcl_Obj *pError = Tcl_NewObj();
+    Tcl_ListObjAppendElement(0, pError, Tcl_NewStringObj("JS_ERROR", -1));
 
     SEE_ToString(pSeeInterp, SEE_CAUGHT(*pTry), &error);
     if (SEE_VALUE_GET_TYPE(&error) == SEE_STRING) {
         struct SEE_string *pS = error.u.string;
-        Tcl_AppendUnicodeToObj(pError, pS->data, pS->length);
+        Tcl_Obj *pErrorString = Tcl_NewUnicodeObj(pS->data, pS->length);
+        Tcl_ListObjAppendElement(0, pError, pErrorString);
     } else {
-        Tcl_AppendToObj(pError, "unknown.", -1);
+        Tcl_ListObjAppendElement(0, pError, Tcl_NewStringObj("N/A", -1));
     }
-    Tcl_AppendToObj(pError, "\n\n", -1);
 
     for (pTrace = pTry->traceback; pTrace; pTrace = pTrace->prev) {
-        struct SEE_string *pLocation;
-
-        pLocation = SEE_location_string(pSeeInterp, pTrace->call_location);
-        Tcl_AppendUnicodeToObj(pError, pLocation->data, pLocation->length);
-        Tcl_AppendToObj(pError, "  ", -1);
+        struct SEE_string *pFile = pTrace->call_location->filename;
+        Tcl_ListObjAppendElement(0, pError, 
+            Tcl_NewUnicodeObj(pFile->data, pFile->length)
+        );
+        Tcl_ListObjAppendElement(0, pError, 
+            Tcl_NewIntObj(pTrace->call_location->lineno)
+        );
 
         switch (pTrace->call_type) {
             case SEE_CALLTYPE_CONSTRUCT: {
                 char const *zClass =  pTrace->callee->objectclass->Class;
                 if (!zClass) zClass = "?";
-                Tcl_AppendToObj(pError, "new ", -1);
-                Tcl_AppendToObj(pError, zClass, -1);
+                Tcl_ListObjAppendElement(0,pError,Tcl_NewStringObj("new",-1));
+                Tcl_ListObjAppendElement(0,pError,Tcl_NewStringObj(zClass,-1));
                 break;
             }
             case SEE_CALLTYPE_CALL: {
                 struct SEE_string *pName;
-                Tcl_AppendToObj(pError, "call ", -1);
+                Tcl_ListObjAppendElement(0,pError,Tcl_NewStringObj("call",-1));
                 pName = SEE_function_getname(pSeeInterp, pTrace->callee);
                 if (pName) {
-                    Tcl_AppendUnicodeToObj(pError, pName->data, pName->length);
+                    Tcl_ListObjAppendElement(0, pError, 
+                        Tcl_NewUnicodeObj(pName->data, pName->length)
+                    );
                 } else {
-                    Tcl_AppendToObj(pError, "?", -1);
+                    Tcl_ListObjAppendElement(0,pError,Tcl_NewStringObj("?",-1));
                 }
                 break;
             }
             default:
                 assert(0);
         }
-
-        Tcl_AppendToObj(pError, "\n", -1);
     }
 
     Tcl_SetObjResult(pTclInterp, pError);
@@ -1803,240 +1808,6 @@ installHv3Global(pTclSeeInterp, pWindow)
         }
     }
     p->Global = (struct SEE_object *)pGlobal;
-}
-
-#define JSTOKEN_OPEN_BRACKET    1
-#define JSTOKEN_CLOSE_BRACKET   2
-#define JSTOKEN_OPEN_BRACE      3
-#define JSTOKEN_CLOSE_BRACE     4
-#define JSTOKEN_SEMICOLON       5
-#define JSTOKEN_NEWLINE         6
-#define JSTOKEN_SPACE           7
-
-#define JSTOKEN_WORD            8
-#define JSTOKEN_PUNC            9
-
-static int
-jsToken(zCode, ePrevToken, peToken)
-    const char *zCode;     /* String to read token from */
-    int ePrevToken;                 /* Previous token type */
-    int *peToken;                   /* OUT: Token type */
-{
-    int nToken = 1;
-    int eToken = 0;
-
-    assert(*zCode);
-
-    unsigned char aIsPunct[128] = {
-        0, 0, 0, 0, 0, 0, 0, 0,    0, 0, 0, 0, 0, 0, 0, 0,     /* 0x00 - 0x0F */
-        0, 0, 0, 0, 0, 0, 0, 0,    0, 0, 0, 0, 0, 0, 0, 0,     /* 0x10 - 0x1F */
-        1, 1, 1, 1, 1, 1, 1, 1,    1, 1, 1, 1, 1, 1, 1, 1,     /* 0x20 - 0x2F */
-        0, 0, 0, 0, 0, 0, 0, 0,    0, 0, 1, 1, 1, 1, 1, 1,     /* 0x30 - 0x3F */
-        1, 0, 0, 0, 0, 0, 0, 0,    0, 0, 0, 0, 0, 0, 0, 0,     /* 0x40 - 0x4F */
-        0, 0, 0, 0, 0, 0, 0, 0,    0, 0, 0, 1, 0, 1, 1, 0,     /* 0x50 - 0x5F */
-        1, 0, 0, 0, 0, 0, 0, 0,    0, 0, 0, 0, 0, 0, 0, 0,     /* 0x60 - 0x6F */
-        0, 0, 0, 0, 0, 0, 0, 0,    0, 0, 0, 1, 1, 1, 1, 0,     /* 0x70 - 0x7F */
-    };
-    
-    switch (*zCode) {
-        case '(':  eToken = JSTOKEN_OPEN_BRACKET; break;
-        case ')':  eToken = JSTOKEN_CLOSE_BRACKET; break;
-        case '{':  eToken = JSTOKEN_OPEN_BRACE; break;
-        case '}':  eToken = JSTOKEN_CLOSE_BRACE; break;
-        case ';':  eToken = JSTOKEN_SEMICOLON; break;
-        case '\n': eToken = JSTOKEN_NEWLINE; break;
-        case ' ':  eToken = JSTOKEN_SPACE; break;
-
-        case '/': {
-            /* C++ comment */
-            if (zCode[1] == '/') {
-              eToken = JSTOKEN_WORD;
-              while (zCode[nToken] && zCode[nToken] != '\n') nToken++;
-              if (zCode[nToken]) nToken++;
-              break;
-            }
-
-            /* C comment */
-            if (zCode[1] == '*') {
-              eToken = JSTOKEN_WORD;
-              while (zCode[nToken]) {
-                if (zCode[nToken] == '/' && zCode[nToken - 1] == '*') {
-                    nToken++;
-                    break;
-                }
-                nToken++;
-              }
-              break;
-            }
-
-            /* Division sign */
-            if (
-                ePrevToken == JSTOKEN_WORD || 
-                ePrevToken == JSTOKEN_CLOSE_BRACKET
-            ) {
-                eToken = JSTOKEN_PUNC;
-                break;
-            }
-
-            /* Regex literal (fall through) */
-        }
-
-        case '"':
-        case '\'': {
-          int ii;
-          for (ii = 1; zCode[ii] && zCode[ii] != zCode[0]; ii++) {
-            if (zCode[ii] == '\\' && zCode[ii + 1]) ii++;
-          }
-          eToken = JSTOKEN_WORD;
-          nToken = ii + (zCode[ii] ? 1 : 0);
-          break;
-        }
-
-        default: {
-            char c = *zCode;
-            if (c >= 0 && aIsPunct[(int)c]) {
-                eToken = JSTOKEN_PUNC;
-            } else {
-                int ii = 1;
-                for ( ; zCode[ii] > 0 && 0 == aIsPunct[(int)zCode[ii]]; ii++);
-                eToken = JSTOKEN_WORD;
-                nToken = ii;
-            }
-            break;
-        }
-    }
-
-    assert(eToken != 0);
-    *peToken = eToken;
-    return nToken;
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * tclSeeFormat --
- *
- *         ::see::format JAVASCRIPT-CODE
- *
- * Results:
- *     Standard Tcl result.
- *
- * Side effects:
- *     None
- *
- *---------------------------------------------------------------------------
- */
-static int 
-tclSeeFormat(clientData, interp, objc, objv)
-    ClientData clientData;             /* The HTML widget data structure */
-    Tcl_Interp *interp;                /* Current interpreter. */
-    int objc;                          /* Number of arguments. */
-    Tcl_Obj *CONST objv[];             /* Argument strings. */
-{
-    char *zCode;
-    char *zEnd;
-    int nCode;
-
-    int eToken = JSTOKEN_SEMICOLON;
-    Tcl_Obj *pRet;
-
-    static const int INDENT_SIZE = 2;
-    const int MAX_INDENT = 40;
-    static const char zWhite[] = "                                        ";
-
-    #define IGNORE_NONE 0
-    #define IGNORE_SPACE 1
-    #define IGNORE_NEWLINE 2
-    int eIgnore = IGNORE_NONE;
-    int iIndent = 0;
-    int iBracket = 0;
-
-    assert(strlen(zWhite) == MAX_INDENT);
-
-    if (objc != 2) {
-        Tcl_WrongNumArgs(interp, 1, objv, "JAVASCRIPT-CODE");
-        return TCL_ERROR;
-    }
-    pRet = Tcl_NewObj();
-    Tcl_IncrRefCount(pRet);
-
-    zCode = Tcl_GetStringFromObj(objv[1], &nCode);
-    zEnd = &zCode[nCode];
-    while (zCode < zEnd) {
-        int nToken;
- 
-        /* Read a token from the input */
-        char *zToken = zCode;
-        nToken = jsToken(zCode, eToken, &eToken);
-        zCode += nToken;
-
-        switch (eToken) {
-            case JSTOKEN_OPEN_BRACKET:  iBracket++; break;
-            case JSTOKEN_CLOSE_BRACKET: iBracket--; break;
-
-            case JSTOKEN_OPEN_BRACE:
-                if (iBracket == 0) {
-                  iIndent += INDENT_SIZE;
-                  Tcl_AppendToObj(pRet, "{\n", 2);
-                  Tcl_AppendToObj(pRet, zWhite, MIN(MAX_INDENT, iIndent));
-                  eIgnore = IGNORE_NEWLINE;
-                  zToken = 0;
-                }
-                break;
-
-            case JSTOKEN_CLOSE_BRACE:
-                if (iBracket == 0) {
-                  iIndent -= INDENT_SIZE;
-                  if (eIgnore == IGNORE_NONE) {
-                      Tcl_AppendToObj(pRet, "\n", 1);
-                      Tcl_AppendToObj(pRet, zWhite, MIN(MAX_INDENT, iIndent));
-                  } 
-                  Tcl_AppendToObj(pRet, "}\n", 2);
-                  Tcl_AppendToObj(pRet, zWhite, MIN(MAX_INDENT, iIndent));
-                  eIgnore = IGNORE_NEWLINE;
-                  zToken = 0;
-                }
-                break;
-
-            case JSTOKEN_SEMICOLON: 
-                if (iBracket == 0) {
-                  Tcl_AppendToObj(pRet, ";\n", 2);
-                  Tcl_AppendToObj(pRet, zWhite, MIN(MAX_INDENT, iIndent));
-                  eIgnore = IGNORE_NEWLINE;
-                  zToken = 0;
-                }
-                break;
-
-            case JSTOKEN_NEWLINE: 
-                if (eIgnore == IGNORE_NEWLINE) {
-                    eIgnore = IGNORE_SPACE;
-                    zToken = 0;
-                }
-                break;
-
-            case JSTOKEN_SPACE: 
-                if (eIgnore != IGNORE_NONE) {
-                    zToken = 0;
-                }
-                break;
-
-            case JSTOKEN_WORD:
-            case JSTOKEN_PUNC:
-                eIgnore = IGNORE_NONE;
-                break;
-
-            default:
-                assert(!"Bad token type");
-        }
-
-        if (zToken) {
-            Tcl_AppendToObj(pRet, zToken, nToken);
-        }
-    }
-
-    Tcl_SetObjResult(interp, pRet);
-    Tcl_DecrRefCount(pRet);
-    return TCL_OK;
 }
 
 int 
