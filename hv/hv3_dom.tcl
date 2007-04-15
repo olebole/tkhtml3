@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.33 2007/04/14 17:07:25 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.34 2007/04/15 11:04:49 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Global interfaces in this file:
@@ -698,11 +698,47 @@ snit::type ::hv3::dom::logdata {
   }
 }
 
+snit::widget ::hv3::dom::stacktrace {
+
+  variable myLogwin ""
+
+  constructor {logwin} {
+    ::hv3::label ${win}.label
+    ::hv3::scrolled listbox ${win}.listbox
+
+    set myLogwin $logwin
+
+    pack ${win}.label -fill x
+    pack ${win}.listbox -fill both -expand true
+
+    ${win}.listbox configure -background white
+    bind ${win}.listbox <<ListboxSelect>> [mymethod Select]
+  }
+
+  method Select {} {
+    set idx  [lindex [${win}.listbox curselection] 0]
+    set link [${win}.listbox get $idx]
+    $myLogwin GotoCmd -silent $link
+    ${win}.listbox selection set $idx
+  }
+
+  method Populate {title stacktrace} {
+    ${win}.label configure -text $title
+    ${win}.listbox delete 0 end
+    foreach {blobid lineno calltype callname} $stacktrace {
+      ${win}.listbox insert end "$blobid $lineno"
+    }
+  }
+}
+
 snit::widget ::hv3::dom::logwin {
   hulltype toplevel
 
-  # Internal widgets:
-  variable myFileList ""
+  # Internal widgets from left-hand pane:
+  variable myFileList ""                            ;# Listbox with file-list
+  variable mySearchbox ""                           ;# Search results
+  variable myStackList ""                           ;# Stack trace widget.
+
   variable myCode ""
   variable myCodeTitle ""
 
@@ -712,7 +748,14 @@ snit::widget ::hv3::dom::logwin {
   # ::hv3::dom::logdata object
   variable myData
 
+  # Index in $myFileList of currently displayed file:
   variable myCurrentIdx 0
+
+  # Current point in stack trace.
+  variable myTraceFile ""
+  variable myTraceLineno ""
+
+  variable myStack ""
 
   constructor {data} {
     
@@ -721,7 +764,16 @@ snit::widget ::hv3::dom::logwin {
     panedwindow ${win}.pan -orient horizontal
     panedwindow ${win}.pan.right -orient vertical
 
-    set myFileList [::hv3::scrolled listbox ${win}.pan.files]
+    set nb [::hv3::tile_notebook ${win}.pan.left]
+    set myFileList [::hv3::scrolled listbox ${win}.pan.left.files]
+
+    set mySearchbox [::hv3::scrolled listbox ${win}.pan.left.search]
+    set myStackList [::hv3::dom::stacktrace ${win}.pan.left.stack $self]
+
+    $nb add $myFileList  -text "Files"
+    $nb add $mySearchbox -text "Search"
+    $nb add $myStackList -text "Stack"
+
     $myFileList configure -bg white
     bind $myFileList <<ListboxSelect>> [mymethod PopulateText]
 
@@ -732,6 +784,8 @@ snit::widget ::hv3::dom::logwin {
     pack $myCode -fill both -expand 1
     $myCode configure -bg white
     $myCode tag configure linenumber -foreground darkblue
+    $myCode tag configure tracepoint -background skyblue
+    $myCode tag configure stackline -background wheat
 
     frame ${win}.pan.right.bottom 
     set myOutput [::hv3::scrolled ::hv3::text ${win}.pan.right.bottom.output]
@@ -744,7 +798,7 @@ snit::widget ::hv3::dom::logwin {
     pack $myInput -fill x -side bottom
     pack $myOutput -fill both -expand 1
 
-    ${win}.pan add ${win}.pan.files -width 200
+    ${win}.pan add ${win}.pan.left -width 200
     ${win}.pan add ${win}.pan.right
 
     ${win}.pan.right add ${win}.pan.right.top  -height 300 -width 600
@@ -766,6 +820,10 @@ snit::widget ::hv3::dom::logwin {
       set name [$ls cget -name] 
       set rc [$ls cget -rc] 
       $myFileList insert end $name
+
+      if {$name eq $myTraceFile} {
+        $myFileList selection set end
+      }
   
       if {$rc} {
         $myFileList itemconfigure end -foreground red -selectforeground red
@@ -781,16 +839,140 @@ snit::widget ::hv3::dom::logwin {
       set ls [lindex [$myData GetList] $idx]
       $myCodeTitle configure -text [$ls cget -heading]
 
+      set name [$ls cget -name]
+      set stacklines [list]
+      foreach {n l X Y} $myStack {
+        if {$n eq $name} { lappend stacklines $l }
+      }
+
       set script [$ls cget -script]
       set N 1
       foreach line [split $script "\n"] {
         $myCode insert end [format "% 5d   " $N] linenumber
-        $myCode insert end "$line\n"
+        if {[$ls cget -name] eq $myTraceFile && $N == $myTraceLineno} {
+          $myCode insert end "$line\n" tracepoint
+        } elseif {[lsearch $stacklines $N] >= 0} {
+          $myCode insert end "$line\n" stackline
+        } else {
+          $myCode insert end "$line\n"
+        }
         incr N
       }
       set myCurrentIdx $idx
     }
+
+    # The following line throws an error if no chars are tagged "tracepoint".
+    catch { $myCode yview -pickplace tracepoint.first }
     $myCode configure -state disabled
+  }
+
+  # This is called when the user issues a [result] command.
+  #
+  method ResultCmd {cmd} {
+    # The (optional) argument is one of the blob names. If
+    # it is not specified, use the currently displayed js blob 
+    # as a default.
+    #
+    set arg [lindex $cmd 0]
+    if {$arg eq ""} {
+      set idx $myCurrentIdx
+      if {$idx eq ""} {set idx [llength [$myData GetList]]}
+    } else {
+      set idx 0
+      foreach ls [$myData GetList] {
+        if {[$ls cget -name] eq $arg} break
+        incr idx
+      }
+    }
+    set ls [lindex [$myData GetList] $idx]
+    if {$ls eq ""} {
+      error "No such file: \"$arg\""
+    }
+
+    # Echo the command to the output panel.
+    #
+    $myOutput insert end "result: [$ls cget -name]\n" commandtext
+
+    $myOutput insert end "   rc    : [$ls cget -rc]\n"
+    if {[$ls cget -rc] && [lindex [$ls cget -result] 0] eq "JS_ERROR"} {
+      set res [$ls cget -result]
+      set msg [lindex $res 1]
+      set stacktrace [lrange $res 2 end]
+      set stack ""
+      foreach {file lineno a b} $stacktrace {
+        set stack "-> $file:$lineno $stack"
+      }
+      $myOutput insert end "   result: $msg\n"
+      $myOutput insert end "   stack:  [string range $stack 3 end]\n"
+
+      if {[llength $stacktrace] == 0} {
+        set r [$ls cget -result]
+        regexp {(blob[[:digit:]]*):([[:digit:]]*):} $r X blobid lineno
+      } else {
+        set blobid [lindex $stacktrace 0]
+        set lineno [lindex $stacktrace 1]
+        set myStack $stacktrace
+        $myStackList Populate "Result of [$ls cget -name]:" $stacktrace
+        [winfo parent $myStackList] select $myStackList
+      }
+
+      if {$blobid ne ""} {
+        $self GotoCmd -silent [list $blobid $lineno]
+      }
+      
+    } else {
+      $myOutput insert end "   result: [$ls cget -result]\n"
+    }
+  }
+ 
+  # This is called when the user issues a [clear] command.
+  #
+  method ClearCmd {cmd} {
+    $myOutput delete 0.0 end
+  }
+
+  # This is called when the user issues a [javascript] command.
+  #
+  method JavascriptCmd {cmd} {
+    set js [string trim $cmd]
+    set res [$myData Evaluate $js]
+    $myOutput insert end "javascript: $js\n" commandtext
+    $myOutput insert end "    [string trim $res]\n"
+  }
+
+  method GotoCmd {cmd {cmd2 ""}} {
+    if {$cmd2 ne ""} {set cmd $cmd2}
+    set blobid [lindex $cmd 0]
+    set lineno [lindex $cmd 1]
+    if {$lineno eq ""} {
+      set lineno 1
+    }
+
+    if {$cmd2 eq ""} {
+      $myOutput insert end "goto: $blobid $lineno\n" commandtext
+    }
+
+    set idx 0
+    set ok 0
+    foreach ls [$myData GetList] {
+      if {[$ls cget -name] eq $blobid} {set ok 1 ; break}
+      incr idx
+    }
+
+    if {!$ok} {
+      $myOutput insert end "        No such blob: $blobid"
+      return
+    }
+
+    set myTraceFile $blobid
+    set myTraceLineno $lineno
+    if {$cmd2 eq ""} {
+      $self Populate
+    } else {
+      $myFileList selection clear 0 end
+      $myFileList selection set $idx
+    }
+    $self PopulateText
   }
 
   method Evaluate {} {
@@ -807,73 +989,31 @@ snit::widget ::hv3::dom::logwin {
 
     $myOutput configure -state normal
 
-    if     {$nWord>=1 && [string first $zWord javascript]==0} {
-      # Command "javascript"
-      #
-      #     Evaluate a javascript script.
-      set js [string trim [string range $script $nWord end]]
-      set res [$myData Evaluate $js]
-      $myOutput insert end "javascript: $js\n" commandtext
-      $myOutput insert end "    [string trim $res]\n"
-    } \
-    elseif {$nWord>=1 && [string first $zWord result]==0} {
-      # Command "result"
-      #
-      #     Retrieve the result for previously evaluated <script> block.
-      set arg [lindex $script 1]
-      if {$arg eq ""} {
-        # If there is no argument, get the result for the currently
-        # displayed blob.
-        set idx $myCurrentIdx
-        if {$idx eq ""} {set idx [llength [$myData GetList]]}
-      } else {
-        set idx 0
-        foreach ls [$myData GetList] {
-          if {[$ls cget -name] eq $arg} break
-          incr idx
-        }
+    set cmdlist [list \
+      js         1 "JAVASCRIPT..."        JavascriptCmd \
+      result     1 "BLOBID"               ResultCmd     \
+      clear      1 ""                     ClearCmd      \
+      goto       1 "BLOBID ?LINE-NUMBER?" GotoCmd       \
+    ]
+    set done 0
+    foreach {cmd nMin NOTUSED method} $cmdlist {
+      if {$nWord>=$nMin && [string first $zWord $cmd]==0} {
+        $self $method [string range $script $nWord end]
+        set done 1
+        break
       }
-
-      set ls [lindex [$myData GetList] $idx]
-      if {$ls eq ""} {
-        error "No such file: \"$arg\""
+    }
+    
+    if {!$done} {
+        # Command "help"
+        #
+        #     Print debugger usage instructions
+        $myOutput insert end "help:\n" commandtext
+        foreach {cmd NOTUSED help NOTUSED} $cmdlist {
+        $myOutput insert end "          $cmd $help\n"
       }
-
-      $myOutput insert end "result: [$ls cget -name]\n" commandtext
-      $myOutput insert end "   rc    : [$ls cget -rc]\n"
-      if {[$ls cget -rc] && [lindex [$ls cget -result] 0] eq "JS_ERROR"} {
-        set res [$ls cget -result]
-        set msg [lindex $res 1]
-        set stack ""
-        foreach {file lineno a b} [lrange $res 2 end] {
-          set stack "-> $file:$lineno $stack"
-        }
-        $myOutput insert end "   result: $msg\n"
-        $myOutput insert end "   stack:  [string range $stack 3 end]\n"
-      } else {
-        $myOutput insert end "   result: [$ls cget -result]\n"
-      }
-      
-    } \
-    elseif {$nWord>=1 && [string first $zWord clear]==0} {
-      # Command "clear"
-      #
-      #     Clear the myOutput window.
-      $myOutput delete 0.0 end
-    } else {
-      # Command "help"
-      #
-      #     Print debugger usage instructions
-      
-      $myOutput insert end "help:" commandtext
-      $myOutput insert end {
-        clear
-        help
-        javascript JAVASCRIPT...
-        result BLOBID
-
-    Unambiguous prefixes of the above commands are also accepted.}
-      $myOutput insert end "\n"
+      set x "Unambiguous prefixes of the above commands are also accepted.\n"
+      $myOutput insert end "        $x"
     }
 
     $myOutput yview -pickplace end

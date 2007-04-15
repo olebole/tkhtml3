@@ -296,8 +296,10 @@ formatSlash(pBlob)
     else if (next == '/') {                     /* C++ style comment */
         const char *z = pBlob->zCsr;
         while (*z && *z != '\n') z++;
-        writeOut(pBlob, pBlob->zCsr, z - pBlob->zCsr);
-        writeLine(pBlob);
+if (pBlob->pLine) {
+          writeOut(pBlob, pBlob->zCsr, z - pBlob->zCsr);
+          writeLine(pBlob);
+}
         pBlob->zCsr = &z[(*z?0:-1)];
     }
 
@@ -399,8 +401,10 @@ formatLessthan(pBlob)
     if (0==strncmp("<!--", pBlob->zCsr, 4)) {
         const char *z = pBlob->zCsr;
         while (*z && *z != '\n') z++;
+if (pBlob->pLine) {
         writeOut(pBlob, pBlob->zCsr, z - pBlob->zCsr);
         writeLine(pBlob);
+}
         pBlob->zCsr = &z[(*z?0:-1)];
     } else {
         formatSymbol(pBlob);

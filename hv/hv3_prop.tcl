@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.49 2007/04/13 11:44:43 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.50 2007/04/15 11:04:49 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_prop.tcl --
@@ -418,7 +418,8 @@ proc ::hv3::debug::EventsReport {hv3 node} {
   append Tbl {<tr><th>Event<th>Listener-Type<th>Javascript</tr>}
   foreach evt [$dom eventdump $node] {
     foreach {e l j} $evt {}
-    append Tbl "<tr><td>$e<td>$l<td><pre>[htmlize $j]</pre>" 
+    set fj [htmlize [::see::format $j]]
+    append Tbl "<tr><td>$e<td>$l<td><pre>$fj</pre>" 
   }
   append Tbl { </table> }
 
