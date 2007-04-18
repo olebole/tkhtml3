@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.110 2007/04/10 16:22:09 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.111 2007/04/18 19:36:03 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -2070,6 +2070,146 @@ newCssPriority(pStyle, origin, pIdTail, important)
     return pNew;
 }
 
+#define MEDIA_QUERY_NONE         0
+#define MEDIA_QUERY_MATCH        1
+#define MEDIA_QUERY_NOMATCH      2
+/*
+ *---------------------------------------------------------------------------
+ *
+ * cssParseMediaQuery --
+ *
+ *     Parse a media query.
+ *
+ * Results:
+ *     Return the number of bytes parsed.
+ *
+ * Side effects:
+ *     Set *pRes to the "result" - one of the MEDIA_QUERY_* symbols.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int cssParseMediaQuery(pParse, p, z, n, pRes)
+    CssParse *pParse;
+    void *p;                /* The thing returned by tkhtmlCssParserAlloc */
+    const char *z;          /* Input text */
+    int n;                  /* Length of input text in bytes */
+    int *pRes;              /* Result - one of the MEDIA_QUERY_* symbols */
+{
+    int t;
+    int c = 0;
+    CssToken sToken;
+
+    /* 0 -> Expect identifier
+    ** 1 -> Expect comma
+    ** 2 -> Failed to parse.
+    ** 3 -> Finished.
+    */
+    int eState = 0;      /* Media-query parser state */
+
+    *pRes = MEDIA_QUERY_NOMATCH;
+    while (eState!=3 && (t = cssGetToken(&z[c], n-c, &sToken.n))) {
+        sToken.z = &z[c];
+        c += sToken.n;
+
+        switch (t) {
+            case CT_SEMICOLON:
+                /* If a ';' is encountered in the middle of a media-query,
+                ** then terminate media-query parsing and drop back to the 
+                ** upper level.
+                */
+                *pRes = MEDIA_QUERY_NONE;
+                eState = 3;
+                break;
+
+            case CT_SPACE:
+                 break;
+
+            case CT_LP:
+                if (eState == 0){
+                    *pRes = MEDIA_QUERY_NOMATCH;
+                }
+                eState = 3;
+                break;
+
+            case CT_COMMA:
+                if (eState == 0){
+                    *pRes = MEDIA_QUERY_NOMATCH;
+                    eState = 2;
+                }
+                if (eState == 1){
+                    eState = 0;
+                }
+                break;
+
+            case CT_IDENT:
+                if (eState == 1){
+                    *pRes = MEDIA_QUERY_NOMATCH;
+                    eState = 2;
+                }
+                if (eState == 0){
+                    eState = 1;
+                    if (
+                        (sToken.n == 3 && 0 == strnicmp(sToken.z, "all", 3)) ||
+                        (sToken.n == 6 && 0 == strnicmp(sToken.z, "screen", 6))
+                    ) {
+                        *pRes = MEDIA_QUERY_MATCH;
+                    }
+                }
+                break;
+
+            default:
+                *pRes = MEDIA_QUERY_NOMATCH;
+                eState = 2;
+                break;
+        }
+    }
+
+    return c;
+}
+
+static void cssParseBody(pParse, p, z, n)
+    CssParse *pParse;
+    void *p;                /* The thing returned by tkhtmlCssParserAlloc */
+    const char *z;          /* Input text */
+    int n;                  /* Length of input text in bytes */
+{
+    int t;
+    int c = 0;
+    CssToken sToken;
+
+    int eMedia = MEDIA_QUERY_NONE;
+    int nParen = 0;
+
+    while ((t = cssGetToken(&z[c], n-c, &sToken.n))) {
+        sToken.z = &z[c];
+        c += sToken.n;
+
+        if (t > 0) {
+            if (t == CT_MEDIA_SYM && eMedia == MEDIA_QUERY_NONE){
+                c += cssParseMediaQuery(pParse, p, &z[c], n-c, &eMedia);
+                if (eMedia != MEDIA_QUERY_NONE) {
+                    nParen++;
+                }
+            }else{
+                if (eMedia != MEDIA_QUERY_NONE) {
+                    if (t == CT_LP) {
+                        nParen++;
+                    }else if (t == CT_RP) {
+                        nParen--;
+                        if (nParen == 0) {
+                            eMedia = MEDIA_QUERY_NONE;
+                            continue;
+                        }
+                    }
+                }
+                if (eMedia != MEDIA_QUERY_NOMATCH) {
+                    tkhtmlCssParser(p, t, sToken, pParse);
+                }
+            }
+        }
+    }
+}
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -2084,8 +2224,9 @@ newCssPriority(pStyle, origin, pIdTail, important)
  *
  *     The third argument is true if z points to the text of a style
  *     attribute, i.e: "color:red ; margin:0.4em". If false, then z points
- *     to an stylesheet, i.e. "H1 {text-size: 1.2em}". The stylesheet
- *     produced when parsing a style is the same as "* {<style text>}".
+ *     to a complete stylesheet document, i.e. "H1 {text-size: 1.2em}". 
+ *     The stylesheet produced when parsing a style is the same as 
+ *     "* {<style text>}".
  *
  * Results:
  *     None.
@@ -2170,6 +2311,8 @@ cssParse(pTree, n, z, isStyle, origin, pStyleId, pImportCmd, pUrlCmd, ppStyle)
          tkhtmlCssParser(p, CT_LP, sToken, &sParse);
     }
 
+    cssParseBody(&sParse, p, z, n);
+#if 0
     while ((t = cssGetToken(&z[c], n-c, &sToken.n))) {
         sToken.z = &z[c];
         if (t > 0) {
@@ -2177,6 +2320,7 @@ cssParse(pTree, n, z, isStyle, origin, pStyleId, pImportCmd, pUrlCmd, ppStyle)
         }
         c += sToken.n;
     }
+#endif
 
     /* if this is a style, not a stylesheet (see above), then feed the
      * closing '}' token to the parser.
@@ -3113,6 +3257,7 @@ HtmlCssSelectorTest(pSelector, pNode, dynamic_true)
     assert(pElem);
 
     while( p && x ){
+        pElem = HtmlNodeAsElement(x);
 
         switch( p->eSelector ){
             case CSS_SELECTOR_UNIVERSAL:
@@ -3407,23 +3552,24 @@ applyRule(pTree, pNode, pRule, aPropDone, pzIfMatch, pCreator)
     CssSelector *pSelector = pRule->pSelector;
     int isMatch = HtmlCssSelectorTest(pSelector, pNode, 0);
 
+    /* There is a match. Log some output for debugging. */
+    LOG {
+        CssPriority *pPriority = pRule->pPriority;
+        Tcl_Obj *pS = Tcl_NewObj();
+        Tcl_IncrRefCount(pS);
+        HtmlCssSelectorToString(pSelector, pS);
+        HtmlLog(pTree, "STYLEENGINE", "%s %s \"%s\""
+            " from \"%s%s\"",
+            Tcl_GetString(HtmlNodeCommand(pTree, pNode)),
+            (isMatch ? "matches" : "nomatch"),
+            Tcl_GetString(pS),
+            pPriority->origin == CSS_ORIGIN_AUTHOR ? "author" :
+            pPriority->origin == CSS_ORIGIN_AGENT ? "agent" : "user",
+            Tcl_GetString(pPriority->pIdTail)
+        );
+        Tcl_DecrRefCount(pS);
+    }
     if (isMatch) {
-        /* There is a match. Log some output for debugging. */
-        LOG {
-            CssPriority *pPriority = pRule->pPriority;
-            Tcl_Obj *pS = Tcl_NewObj();
-            Tcl_IncrRefCount(pS);
-            HtmlCssSelectorToString(pSelector, pS);
-            HtmlLog(pTree, "STYLEENGINE", "%s matches \"%s\""
-                " from \"%s%s\"",
-                Tcl_GetString(HtmlNodeCommand(pTree, pNode)),
-                Tcl_GetString(pS),
-                pPriority->origin == CSS_ORIGIN_AUTHOR ? "author" :
-                pPriority->origin == CSS_ORIGIN_AGENT ? "agent" : "user",
-                Tcl_GetString(pPriority->pIdTail)
-            );
-            Tcl_DecrRefCount(pS);
-        }
 
         if (pzIfMatch) {
             HtmlComputedValuesInit(pTree, pNode, pNode, pCreator);

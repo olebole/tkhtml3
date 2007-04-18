@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.3 2007/04/13 11:44:43 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.4 2007/04/18 19:36:03 danielk1977 Exp $)} 1 }
 
 #---------------------------------
 # List of DOM objects in this file:
@@ -127,7 +127,7 @@ namespace eval ::hv3::dom {
   dom_get hash   { 
     set fragment [$options(-hv3) uri cget -fragment]
     set str ""
-    if {$query ne ""} {set str "#$fragment"}
+    if {$fragment ne ""} {set str "#$fragment"}
     list string $str
   }
 
@@ -288,7 +288,6 @@ namespace eval ::hv3::dom {
       if {$timerid ne ""} {
         unset myTimerIds($timerid)
         set rc [catch {$mySee eval -file setTimeout() $code} msg]
-        $myDom Log "setTimeout()" $code $rc $msg
       }
   
       if {$timerid eq "" || $isRepeat} {

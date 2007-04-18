@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.9 2007/04/13 11:44:43 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.10 2007/04/18 19:36:03 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # DOM Level 2 Events.
@@ -42,21 +42,29 @@ set ::hv3::dom::HTML_Events_List [list                          \
   keypress keydown keyup focus blur submit reset select change  \
 ]
 
+proc ArgToBoolean {see a} {
+  switch -- [lindex $a 0] {
+    null      { expr 0 }
+    undefined { expr 0 }
+    default   { $see tostring $a }
+  }
+}
+
 #-------------------------------------------------------------------------
-# EventTarget (DOM Level 2 Events)
+# eventtarget (dom level 2 events)
 #
-#     This interface is mixed into all objects implementing the Node 
-#     interface. Some of the Node interface is invoked via the 
+#     this interface is mixed into all objects implementing the node 
+#     interface. some of the node interface is invoked via the 
 #     javascript protocol. i.e. stuff like the following is expected to 
 #     work:
 #
-#         set value       [$self Get parentNode]
+#         set value       [$self get parentnode]
 #         set eventtarget [lindex $value 1]
 #
-#  Javascript Interface:
+#  javascript interface:
 #
-#     EventTarget.addEventListener()
-#     EventTarget.removeEventListener()
+#     eventtarget.addeventlistener()
+#     eventtarget.removeEventListener()
 #     EventTarget.dispatchEvent()
 #
 #     Also special handling on traditional/inline event model attribute
@@ -74,7 +82,7 @@ set ::hv3::dom::HTML_Events_List [list                          \
     set see [$myDom see]
     set T [$see tostring $event_type]
     set L [lindex $listener 1]
-    set C [$see tostring $useCapture]
+    set C [ArgToBoolean $see $useCapture]
     $myEventTarget addEventListener $T $L $C
   }
 
@@ -460,13 +468,13 @@ set ::hv3::dom::MouseEventType(mouseout)  1
 #     EventTarget -> The DOM object implementing the EventTarget interface
 #     x, y        -> Widget coordinates for the event
 #
-proc ::hv3::dom::dispatchMouseEvent {dom eventtype EventTarget x y args} {
+proc ::hv3::dom::dispatchMouseEvent {dom eventtype EventTarget x y extra} {
 
   set isCancelable $::hv3::dom::MouseEventType($eventtype)
 
   set event [::hv3::DOM::MouseEvent %AUTO% $dom -x $x -y $y]
   $event Event_initEvent $eventtype 1 $isCancelable
-  $event configurelist $args
+  $event configurelist $extra
 
   set evt [$dom setWindowEvent $event]
   $EventTarget doDispatchEvent $event

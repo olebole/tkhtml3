@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.154 2007/04/14 17:07:25 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.155 2007/04/18 19:36:03 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -555,7 +555,7 @@ snit::type ::hv3::hv3::selectionmanager {
   }
   method UntagBlock {node idx} {
     foreach {n1 i1 n2 i2} [$self ToBlock $node $idx] {}
-    $myHv3 tag remove selection $n1 $i1 $n2 $i2
+    catch {$myHv3 tag remove selection $n1 $i1 $n2 $i2}
   }
 
   method doublepress {x y} {

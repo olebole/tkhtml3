@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.50 2007/04/15 11:04:49 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.51 2007/04/18 19:36:03 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_prop.tcl --
@@ -374,10 +374,12 @@ snit::widget ::hv3::debug::LogReport {
       append Tbl {<table border=1>}
       foreach entry $log {
         set entry [regsub {[A-Za-z]+\(\)} $entry <b>&</b>]
-        if {[string match matches* $entry]} {
-            append Tbl "    <tr><td><b>$entry<b>\n"
+        if { [string match matches* $entry] } {
+          append Tbl "    <tr><td><i style=color:green>$entry<i>\n"
+        } elseif { [string match nomatch* $entry] } {
+          append Tbl "    <tr><td><i style=color:red>$entry<i>\n"
         } else {
-            append Tbl "    <tr><td>$entry\n"
+          append Tbl "    <tr><td>$entry\n"
         }
       }
       append Tbl "</table>\n"

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.34 2007/04/15 11:04:49 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.35 2007/04/18 19:36:03 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Global interfaces in this file:
@@ -508,7 +508,10 @@ snit::type ::hv3::dom {
       set ref [lindex $eventobj 1]
       set this [list object $js_obj]
       set rc [catch {eval $mySee $ref Call [list $this]} msg]
-      # $self Log "$node $event" [$mySee tostring $eventobj] $rc $msg
+      if {$rc} {
+        set name [string map {blob error} [$self NewFilename]]
+        $self Log "$node $event event" $name "event-handler" $rc $msg
+      }
     }
   }
 
@@ -528,7 +531,15 @@ snit::type ::hv3::dom {
     } else {
       set Node [$self node_to_dom $node]
     }
-    eval ::hv3::dom::dispatchMouseEvent $self $event $Node $x $y $args
+
+    set rc [catch {
+      ::hv3::dom::dispatchMouseEvent $self $event $Node $x $y $args
+    } msg]
+    if {$rc} {
+      set name [string map {blob error} [$self NewFilename]]
+      $myLogData Log "$node $event event" $name "event-handler" $rc $msg
+      $myLogData Popup
+    }
   }
 
   variable myWindowEvent ""
@@ -607,7 +618,6 @@ snit::type ::hv3::dom {
   variable myLogDocument ""
 
   method Log {heading script rc result} {
-
     $myLogData Log $heading $script $rc $result
     return
   }
@@ -627,6 +637,7 @@ snit::type ::hv3::dom {
   # javascript object associated with the specified tkhtml node.
   #
   method eventdump {node} {
+    if {![::hv3::dom::use_scripting] || $mySee eq ""} {return ""}
     set Node [$self node_to_dom $node]
     $Node eventdump
   }
@@ -973,6 +984,9 @@ snit::widget ::hv3::dom::logwin {
       $myFileList selection set $idx
     }
     $self PopulateText
+  }
+
+  method ErrorCmd {cmd} {
   }
 
   method Evaluate {} {

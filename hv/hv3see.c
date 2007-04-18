@@ -862,9 +862,13 @@ handleJavascriptError(pTclSeeInterp, pTry)
 
     for (pTrace = pTry->traceback; pTrace; pTrace = pTrace->prev) {
         struct SEE_string *pFile = pTrace->call_location->filename;
-        Tcl_ListObjAppendElement(0, pError, 
-            Tcl_NewUnicodeObj(pFile->data, pFile->length)
-        );
+        if (!pFile) {
+            Tcl_ListObjAppendElement(0, pError, Tcl_NewStringObj("N/A", -1));
+        } else {
+            Tcl_ListObjAppendElement(0, pError, 
+                Tcl_NewUnicodeObj(pFile->data, pFile->length)
+            );
+        }
         Tcl_ListObjAppendElement(0, pError, 
             Tcl_NewIntObj(pTrace->call_location->lineno)
         );

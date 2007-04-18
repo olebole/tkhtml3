@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.7 2006/11/22 07:34:24 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.8 2007/04/18 19:36:03 danielk1977 Exp $)} 1 }
 
 # Register the about: scheme handler with ::hv3::protocol $protocol.
 #
@@ -7,6 +7,9 @@ proc ::hv3::about_scheme_init {protocol} {
   $protocol schemehandler about [list ::hv3::about_request]
 }
 
+# This proc is called when any URI using the protocol "about:" is visited.
+# Usually, this is because the user selected the Debug->About menu option.
+#
 proc ::hv3::about_request {downloadHandle} {
   set tkhtml_version [::tkhtml::version]
   set hv3_version ""
