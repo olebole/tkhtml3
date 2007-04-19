@@ -1625,10 +1625,6 @@ HtmlTextBboxCmd(clientData, interp, objc, objv)
     return TCL_OK;
 }
 
-/* Extra values used internally for HtmlTextToken.eType */
-#define HTML_TEXT_TOKEN_LONGTEXT  4
-#define HTML_TEXT_TOKEN_END       0
-
 /*
  * NOTES ON INTERNALS OF HtmlTextNode:
  * 
@@ -1995,7 +1991,6 @@ HtmlTextIterFirst(pTextNode, pTextIter)
     pTextIter->iText = 0;
     pTextIter->iToken = 0;
 }
-
 
 int
 HtmlTextIterIsValid(pTextIter)

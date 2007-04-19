@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.51 2007/04/18 19:36:03 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.52 2007/04/19 09:57:14 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_prop.tcl --
@@ -374,13 +374,29 @@ snit::widget ::hv3::debug::LogReport {
       append Tbl {<table border=1>}
       foreach entry $log {
         set entry [regsub {[A-Za-z]+\(\)} $entry <b>&</b>]
-        if { [string match matches* $entry] } {
-          append Tbl "    <tr><td><i style=color:green>$entry<i>\n"
-        } elseif { [string match nomatch* $entry] } {
-          append Tbl "    <tr><td><i style=color:red>$entry<i>\n"
-        } else {
-          append Tbl "    <tr><td>$entry\n"
+
+        # Do some special processing if the string matches either:
+        #
+        #     {^nomatch (SELECTOR) from.*$}
+        #     {^match (SELECTOR) from.*$}
+        set pattern1 {^match \((.*)\) from (.*)$}
+        set pattern2 {^nomatch \((.*)\) from (.*)$}
+
+        append Tbl "    <tr><td>"
+        if {[regexp $pattern1 $entry DUMMY zSelector zFrom]} {
+          append Tbl "<i style=color:green>match </i>"
+          append Tbl "<span style=font-family:fixed>$zSelector</span>"
+          append Tbl "<i style=color:green>from $zFrom</i>\n"
+        } \
+        elseif {[regexp $pattern2 $entry DUMMY zSelector zFrom]} {
+          append Tbl "<i style=color:red>nomatch </i>"
+          append Tbl "<span style=font-family:fixed>$zSelector</span>"
+          append Tbl "<i style=color:red>from $zFrom</i>\n"
+        } \
+        else {
+          append Tbl "$entry\n"
         }
+
       }
       append Tbl "</table>\n"
     } else {

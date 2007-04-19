@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.155 2007/04/18 19:36:03 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.156 2007/04/19 09:57:14 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -1225,7 +1225,8 @@ snit::widget ::hv3::hv3 {
   #
   method Finishstyle {handle id importcmd urlcmd data} {
     if {0 == [$self HandleLocation $handle]} {
-      $myHtml style -id $id -importcmd $importcmd -urlcmd $urlcmd $data
+      set full_id "$id.[$handle cget -uri]"
+      $myHtml style -id $full_id -importcmd $importcmd -urlcmd $urlcmd $data
       $self goto_fragment
       $handle destroy
     }
@@ -1390,7 +1391,7 @@ snit::widget ::hv3::hv3 {
     set id        author.[format %.4d [incr myStyleCount]]
     set importcmd [mymethod Requeststyle $id]
     set urlcmd    [mymethod resolve_uri]
-    append id .9999
+    append id ".9999.<style>"
     $myHtml style -id $id -importcmd $importcmd -urlcmd $urlcmd $script
     return ""
   }

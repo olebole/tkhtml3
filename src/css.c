@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.111 2007/04/18 19:36:03 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.112 2007/04/19 09:57:15 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -246,7 +246,7 @@ dequote(z)
                 for (ii = 0; isxdigit(o) && ii <= 6; ii++) {
                     assert(hexvalue[o] >=0 && hexvalue[o] <= 15);
                     ch = (ch << 4) + hexvalue[o];
-                    o = z[(i++) + 1];
+                    o = z[(++i)+1];
                 }
                 if (ch > 0) {
                     int inc = Tcl_UniCharToUtf(ch, zOut);
@@ -2167,6 +2167,32 @@ static int cssParseMediaQuery(pParse, p, z, n, pRes)
     return c;
 }
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * cssParseBody --
+ *
+ *     Parse the body of a stylesheet. The string/length argument pair 
+ *     z/n is assumed to contain the body of a stylesheet document
+ *     (i.e. everything after the @charset and @import rules).
+ *
+ *     This function basically pulls tokens out of (z/n) and passes
+ *     them to the lemon parser via tkhtmlCssParser(). It performs two
+ *     other tasks:
+ *
+ *         1. Handles @media rules. Only the content of matching @media
+ *            rules are passed through to tkhtmlCssParser().
+ *
+ *         2. Handles @page rules. These are simply discarded. (TODO)
+ *
+ * Results:
+ *     Return the number of bytes parsed.
+ *
+ * Side effects:
+ *     Set *pRes to the "result" - one of the MEDIA_QUERY_* symbols.
+ *
+ *---------------------------------------------------------------------------
+ */
 static void cssParseBody(pParse, p, z, n)
     CssParse *pParse;
     void *p;                /* The thing returned by tkhtmlCssParserAlloc */
@@ -3558,7 +3584,7 @@ applyRule(pTree, pNode, pRule, aPropDone, pzIfMatch, pCreator)
         Tcl_Obj *pS = Tcl_NewObj();
         Tcl_IncrRefCount(pS);
         HtmlCssSelectorToString(pSelector, pS);
-        HtmlLog(pTree, "STYLEENGINE", "%s %s \"%s\""
+        HtmlLog(pTree, "STYLEENGINE", "%s %s (%s)"
             " from \"%s%s\"",
             Tcl_GetString(HtmlNodeCommand(pTree, pNode)),
             (isMatch ? "matches" : "nomatch"),
@@ -3780,11 +3806,35 @@ HtmlCssStyleSheetApply(pTree, pNode)
     pElem->pPropertyValues = HtmlComputedValuesFinish(&sCreator);
 }
 
+/*--------------------------------------------------------------------------
+ *
+ * generateContentText --
+ *
+ *     Argument zContent points to a nul-terminated string containing
+ *     a value assigned to the 'content' property. This function allocates 
+ *     and returns an HtmlTextNode structure populated with text
+ *     based on the 'content' property.
+ *
+ * Results:
+ *
+ *     None.
+ *
+ * Side effects:
+ *
+ *--------------------------------------------------------------------------
+ */
+static HtmlTextNode *
+generateContentText(pTree, pParent, pGenerated, zContent)
+{
+    HtmlTextNode *pTextNode = HtmlTextNew(strlen(zContent), zContent, 0, 0);
+    return pTextNode;
+}
+
 static void 
 generatedContent(pTree, pNode, pCssRule, ppNode)
     HtmlTree *pTree;
     HtmlNode *pNode;
-    CssRule *pCssRule;
+    CssRule *pCssRule;        /* List of rules including :after or :before */
     HtmlNode **ppNode;
 {
     CssRule *pRule;                                 /* Iterator variable */
@@ -3817,7 +3867,7 @@ generatedContent(pTree, pNode, pCssRule, ppNode)
         /* If a value was specified for the 'content' property, create
          * a text node also.
          */
-        HtmlTextNode *pTextNode = HtmlTextNew(strlen(zContent), zContent, 0, 0);
+        HtmlTextNode *pTextNode = generateContentText(pTree, 0, 0, zContent);
         int idx = HtmlNodeAddTextChild(*ppNode, pTextNode);
         HtmlNodeChild(*ppNode, idx)->iNode = -1;
         HtmlFree(zContent);

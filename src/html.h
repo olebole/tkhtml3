@@ -879,15 +879,29 @@ int HtmlTextIterIsValid(HtmlTextIter *);
  * call HtmlTextTokenData(). TokenLength() returns the number of
  * consecutive space or newline characters that occured in the
  * document.
+ *
+ * If the token type is HARDNEWLINE, this must have come from CSS
+ * generated content like this: "\A". In this case a newline will
+ * be rendered no matter the value of the 'white-space' property 
+ * and so on.
  */
 int         HtmlTextIterType(HtmlTextIter *);
 int         HtmlTextIterLength(HtmlTextIter *);
 const char *HtmlTextIterData(HtmlTextIter *);
 
 /* Values returned by HtmlTextTokenType */
-#define HTML_TEXT_TOKEN_TEXT      1
-#define HTML_TEXT_TOKEN_SPACE     2
-#define HTML_TEXT_TOKEN_NEWLINE   3
+#define HTML_TEXT_TOKEN_TEXT          1
+#define HTML_TEXT_TOKEN_SPACE         2
+#define HTML_TEXT_TOKEN_NEWLINE       3
+#define HTML_TEXT_TOKEN_HARDNEWLINE   4
+
+/* These values are used internally by the htmltext.c module. They
+ * should never be returned by HtmlTextTokenType(). But define them
+ * here to make it easier to keep them distinct from the other
+ * HTML_TEXT_* values defined above.
+ */
+#define HTML_TEXT_TOKEN_END       0
+#define HTML_TEXT_TOKEN_LONGTEXT  5
 
 #endif
 
