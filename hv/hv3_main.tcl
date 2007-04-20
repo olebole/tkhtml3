@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.117 2007/04/20 14:16:02 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.118 2007/04/20 15:35:07 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -639,7 +639,7 @@ snit::type ::hv3::config {
   foreach {opt def type} [list \
     -doublebuffer     0                         Boolean \
     -enableimages     1                         Boolean \
-    -enablejavascript 0                         Boolean \
+    -enablejavascript 1                         Boolean \
     -forcefontmetrics 1                         Boolean \
     -hidegui          0                         Boolean \
     -zoom             1.0                       Double  \
@@ -955,10 +955,10 @@ snit::type ::hv3::debug_menu {
       "Cookies"       [list $::hv3::G(notebook) add cookies:]           "" \
       "About"         [list $::hv3::G(notebook) add about:]             "" \
       "Polipo..."     ::hv3::polipo::popup                              "" \
-      "-----"         ""                                                "" \
       "Events..."     [list gui_log_window $::hv3::G(notebook)]         "" \
+      "-----"         ""                                                "" \
       "Browser..."    [list gui_current browse]                         "" \
-      "Javascript..." [list gui_current javascriptlog]                  j \
+      "ECMAscript..." [list gui_current javascriptlog]                  j \
       "-----"         ""                                                "" \
       "firefox -remote" gui_firefox_remote                              "" \
     ]

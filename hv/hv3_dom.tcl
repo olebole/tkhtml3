@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.36 2007/04/20 14:16:02 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.37 2007/04/20 15:35:07 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Global interfaces in this file:
@@ -421,6 +421,12 @@ snit::type ::hv3::dom {
     return ""
   }
 
+  # Script handler for <noscript> elements. If javascript is enabled,
+  # do nothing (meaning don't process the contents of the <noscript>
+  # block). On the other hand, if js is disabled, feed the contents
+  # of the <noscript> block back to the parser using the same
+  # Tcl interface used for document.write().
+  #
   method noscript {attr script} {
     if {$mySee ne ""} {
       return ""
@@ -432,6 +438,7 @@ snit::type ::hv3::dom {
   # If a <SCRIPT> element has a "src" attribute, then the [script]
   # method will have issued a GET request for it. This is the 
   # successful callback.
+  #
   method scriptCallback {attr downloadHandle script} {
     if {$downloadHandle ne ""} { 
       $downloadHandle destroy 
@@ -450,7 +457,7 @@ snit::type ::hv3::dom {
     foreach {a v} $attr {
       append attributes " [htmlize $a]=\"[htmlize $v]\""
     }
-    set title "<SCRIPT$attributes> $downloadHandle"
+    set title "<SCRIPT$attributes>"
     $myLogData Log $title $name $script $rc $msg
 
     $myHv3 write continue
@@ -461,7 +468,6 @@ snit::type ::hv3::dom {
     if {$mySee ne ""} {
       set name [$self NewFilename]
       set rc [catch {$mySee eval -file $name $script} msg]
-      # $self Log "javascript: name=$name" $script $rc $msg
     }
     return $msg
   }
@@ -705,6 +711,51 @@ snit::type ::hv3::dom::logdata {
   }
 }
 
+snit::widget ::hv3::dom::searchbox {
+
+  variable myLogwin 
+
+  constructor {logwin} {
+    ::hv3::label ${win}.label
+    ::hv3::scrolled listbox ${win}.listbox
+
+    set myLogwin $logwin
+
+    pack ${win}.label   -fill x
+    pack ${win}.listbox -fill both -expand true
+
+    ${win}.listbox configure -background white
+    bind ${win}.listbox <<ListboxSelect>> [mymethod Select]
+  }
+
+  method Select {} {
+    set idx  [lindex [${win}.listbox curselection] 0]
+    set link [${win}.listbox get $idx]
+    set link [string range $link 0 [expr [string first : $link] -1]]
+    $myLogwin GotoCmd -silent $link
+    ${win}.listbox selection set $idx
+  }
+
+  method Search {str} {
+    ${win}.listbox delete 0 end
+
+    set nHit 0
+    foreach ls [$myLogwin GetList] {
+      set blobid [$ls cget -name]
+      set iLine 0
+      foreach line [split [$ls cget -script] "\n"] {
+        incr iLine
+        if {[string first $str $line]>=0} {
+          ${win}.listbox insert end "$blobid $iLine: $line"
+          incr nHit
+        }
+      }
+    }
+
+    return $nHit
+  }
+}
+
 snit::widget ::hv3::dom::stacktrace {
 
   variable myLogwin ""
@@ -774,7 +825,7 @@ snit::widget ::hv3::dom::logwin {
     set nb [::hv3::tile_notebook ${win}.pan.left]
     set myFileList [::hv3::scrolled listbox ${win}.pan.left.files]
 
-    set mySearchbox [::hv3::scrolled listbox ${win}.pan.left.search]
+    set mySearchbox [::hv3::dom::searchbox ${win}.pan.left.search $self]
     set myStackList [::hv3::dom::stacktrace ${win}.pan.left.stack $self]
 
     $nb add $myFileList  -text "Files"
@@ -820,13 +871,19 @@ snit::widget ::hv3::dom::logwin {
     $self Evaluate
   }
 
+  method GetList {} { return [$myData GetList] }
+
   method Populate {} {
     $myFileList delete 0 end
 
+    # Populate the "Files" list-box.
+    #
     foreach ls [$myData GetList] {
-      set name [$ls cget -name] 
-      set rc [$ls cget -rc] 
-      $myFileList insert end $name
+      set name    [$ls cget -name] 
+      set heading [$ls cget -heading] 
+      set rc   [$ls cget -rc] 
+
+      $myFileList insert end "$name - $heading"
 
       if {$name eq $myTraceFile} {
         $myFileList selection set end
@@ -985,6 +1042,13 @@ snit::widget ::hv3::dom::logwin {
   method ErrorCmd {cmd} {
   }
 
+  method SearchCmd {cmd} {
+    set n [$mySearchbox Search $cmd]
+    ${win}.pan.left select $mySearchbox
+    $myOutput insert end "search: $cmd\n" commandtext
+    $myOutput insert end "    $n hits.\n"
+  }
+
   method Evaluate {} {
     set script [string trim [$myInput get 0.0 end]]
     $myInput delete 0.0 end
@@ -1004,11 +1068,12 @@ snit::widget ::hv3::dom::logwin {
       result     1 "BLOBID"               ResultCmd     \
       clear      1 ""                     ClearCmd      \
       goto       1 "BLOBID ?LINE-NUMBER?" GotoCmd       \
+      search     1 "STRING"               SearchCmd     \
     ]
     set done 0
     foreach {cmd nMin NOTUSED method} $cmdlist {
       if {$nWord>=$nMin && [string first $zWord $cmd]==0} {
-        $self $method [string range $script $nWord end]
+        $self $method [string trim [string range $script $nWord end]]
         set done 1
         break
       }
