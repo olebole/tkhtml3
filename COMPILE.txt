@@ -107,7 +107,7 @@ This file has two sections:
     If Boehm GC is not in the various paths, need to set CFLAGS, LDFLAGS and
     LD_LIBRARY_PATH before running configure:
 
-      export CFLAGS=-I/home/dan/javascript/install/include/
+      export CFLAGS="-I/home/dan/javascript/install/include/ -O2 -DNDEBUG"
       export LDFLAGS=-L/home/dan/javascript/install/lib/
       export LD_LIBRARY_PATH=/home/dan/javascript/install/lib/
 
