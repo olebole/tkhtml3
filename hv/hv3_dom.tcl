@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.35 2007/04/18 19:36:03 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.36 2007/04/20 14:16:02 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Global interfaces in this file:
@@ -7,13 +7,6 @@ namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.35 2007/04/18 19:36:03 da
 #         This method returns true if scripting is available, otherwise 
 #         false. Scripting is available if the command [::see::interp]
 #         is available (see file hv3see.c).
-#
-#     [::hv3::dom::use_scripting]
-#         This method returns the logical OR of [::hv3::dom::use_scripting] 
-#         and $::hv3::dom::use_scripting_option.
-#
-#     $::hv3::dom_use_scripting
-#         Variable used by [::hv3::dom::use_scripting].
 #
 # Also, type ::hv3::dom. Summary:
 #
@@ -320,6 +313,9 @@ snit::type ::hv3::JavascriptObject {
 snit::type ::hv3::dom {
   variable mySee ""
 
+  # Boolean option. Enable this DOM implementation or not.
+  option -enable -default 0
+
   # Variable used to accumulate the arguments of document.write() and
   # document.writeln() invocations from within [script].
   #
@@ -339,18 +335,13 @@ snit::type ::hv3::dom {
 
   variable myNextCodeblockNumber 1
 
+
   constructor {hv3 args} {
     set myHv3 $hv3
 
     set myLogData [::hv3::dom::logdata %AUTO% $self]
 
-    # Mouse events:
-    foreach e [list onclick onmouseout onmouseover \
-        onmouseup onmousedown onmousemove ondblclick
-    ] {
-      # $myHv3 Subscribe $e [mymethod event $e]
-    }
-
+    $self configurelist $args
     $self reset
   }
 
@@ -358,34 +349,39 @@ snit::type ::hv3::dom {
     catch { $myLogData destroy }
   }
 
+
+  # Return true if the Tclsee extension is available and 
+  # the user has foolishly enabled it.
+  method HaveScripting {} {
+    return $options(-enable)
+  }
+
   method reset {} {
-    if {[::hv3::dom::have_scripting]} {
 
-      # Delete the old interpreter and the various objects, if they exist.
-      # They may not exist, if this is being called from within the
-      # object constructor. 
-      if {$mySee ne ""} {
-        $mySee destroy
-        set mySee ""
+    # Delete the old interpreter and the various objects, if they exist.
+    # They may not exist, if this is being called from within the
+    # object constructor or scripting is disabled.
+    if {$mySee ne ""} {
+      $mySee destroy
+      set mySee ""
 
-        # Delete all the DOM objects in the $myNodeToDom array.
-        foreach key [array names myNodeToDom] {
-          $myNodeToDom($key) destroy
-        }
-        array unset myNodeToDom
-
-        # Destroy the toplevel object.
-        $myWindow destroy
+      # Delete all the DOM objects in the $myNodeToDom array.
+      foreach key [array names myNodeToDom] {
+        $myNodeToDom($key) destroy
       }
+      array unset myNodeToDom
 
+      # Destroy the toplevel object.
+      $myWindow destroy
+    }
 
-      if {[::hv3::dom::use_scripting]} {
-        # Set up the new interpreter with the global "Window" object.
-        set mySee [::see::interp]
-        set myWindow [::hv3::DOM::Window %AUTO% $self -see $mySee -hv3 $myHv3]
-        $mySee global $myWindow 
-      }
+    if {[$self HaveScripting]} {
+      # Set up the new interpreter with the global "Window" object.
+      set mySee [::see::interp]
+      set myWindow [::hv3::DOM::Window %AUTO% $self -see $mySee -hv3 $myHv3]
+      $mySee global $myWindow 
 
+      # Reset the debugger.
       $self LogReset
     }
   }
@@ -405,7 +401,7 @@ snit::type ::hv3::dom {
   # If scripting is not enabled in this browser, this method is a no-op.
   #
   method script {attr script} {
-    if {[::hv3::dom::use_scripting] && $mySee ne ""} {
+    if {$mySee ne ""} {
       $myHv3 write wait
       array set a $attr
       if {[info exists a(src)]} {
@@ -426,10 +422,10 @@ snit::type ::hv3::dom {
   }
 
   method noscript {attr script} {
-    if {[::hv3::dom::use_scripting] && $mySee ne ""} {
+    if {$mySee ne ""} {
       return ""
     } else {
-      return $script
+      [$myHv3 html] write text $script
     }
   }
   
@@ -462,7 +458,7 @@ snit::type ::hv3::dom {
 
   method javascript {script} {
     set msg ""
-    if {[::hv3::dom::use_scripting] && $mySee ne ""} {
+    if {$mySee ne ""} {
       set name [$self NewFilename]
       set rc [catch {$mySee eval -file $name $script} msg]
       # $self Log "javascript: name=$name" $script $rc $msg
@@ -483,7 +479,7 @@ snit::type ::hv3::dom {
   #     onload
   #
   method event {event node} {
-    if {![::hv3::dom::use_scripting] || $mySee eq ""} {return ""}
+    if {$mySee eq ""} {return ""}
 
     if {$event eq "onload"} {
       # The Hv3 layer passes the <BODY> node along with the onload
@@ -519,7 +515,7 @@ snit::type ::hv3::dom {
   # dispatch a mouse-event into DOM country.
   #
   method mouseevent {event node x y args} {
-    if {![::hv3::dom::use_scripting] || $mySee eq ""} {return 1}
+    if {$mySee eq ""} {return 1}
 
     # This can happen if the node is deleted by a DOM event handler
     # invoked by the same logical GUI event as this DOM event.
@@ -637,7 +633,7 @@ snit::type ::hv3::dom {
   # javascript object associated with the specified tkhtml node.
   #
   method eventdump {node} {
-    if {![::hv3::dom::use_scripting] || $mySee eq ""} {return ""}
+    if {$mySee eq ""} {return ""}
     set Node [$self node_to_dom $node]
     $Node eventdump
   }
@@ -1067,12 +1063,7 @@ proc ::hv3::dom::init {} {
 proc ::hv3::dom::have_scripting {} {
   return [expr {[info commands ::see::interp] ne ""}]
 }
-proc ::hv3::dom::use_scripting {} {
-  set r [expr [::hv3::dom::have_scripting]&&$::hv3::dom::use_scripting_option]
-  return $r
-}
 
 #set ::hv3::dom::reformat_scripts_option 0
-set ::hv3::dom::use_scripting_option 1
 set ::hv3::dom::reformat_scripts_option 1
 

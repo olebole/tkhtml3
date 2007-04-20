@@ -102,6 +102,25 @@ This file has two sections:
     target requires configuration of makefile variables JSLIB, JSFLAGS and
     JS_SHARED_LIB.
 
+  Hints for compiling SEE:
+
+    If Boehm GC is not in the various paths, need to set CFLAGS, LDFLAGS and
+    LD_LIBRARY_PATH before running configure:
+
+      export CFLAGS=-I/home/dan/javascript/install/include/
+      export LDFLAGS=-L/home/dan/javascript/install/lib/
+      export LD_LIBRARY_PATH=/home/dan/javascript/install/lib/
+
+    Then supply an installation path to configure:
+
+      ../see-2.1.1206_snapshot/configure --prefix=/home/dan/javascript/install/
+
+    This worked on a stock Suse 10.1.
+
+    Part of the target - "ssp" fails on linux. Run [make -k install] and
+    you get both the shell and libary, so no problem... UPDATE: As of 
+    SEE version 2.1.1206, it looks like ssp is not built by default.
+
   
   
   Compiling hv3_polipo

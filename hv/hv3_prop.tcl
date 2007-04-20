@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.52 2007/04/19 09:57:14 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.53 2007/04/20 14:16:02 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_prop.tcl --
@@ -325,15 +325,67 @@ proc ::hv3::debug::ReportStyle {} {
   return {
     <style>
       /* Table display parameters */
-      table { width: 100% }
+      table       { width: 100% }
       table,th,td { border: 1px solid; }
       td          { padding:0px 15px; }
       table       { margin: 20px; }
 
       /* Elements of class "code" are rendered in fixed font */
       .code       { font-family: fixed; }
-
     </style>
+  }
+}
+
+snit::widget ::hv3::debug::FormReport {
+
+  variable myReport ""
+
+  variable myCurrentHv3  ""
+  variable myCurrentNode ""
+
+  constructor {} {
+
+    # Button at the bottom of the frame to regenerate this report.
+    # The point of regenerating it is that it will read new control
+    # values from the forms modules.
+    #
+    ::hv3::button ${win}.button -text "Regenerate Report"
+    ${win}.button configure -command [mymethod Regenerate]
+
+    ::hv3::hv3 ${win}.hv3 
+    ${win}.hv3 configure -requestcmd [mymethod GetReport]
+    ${win}.hv3 configure -targetcmd  [mymethod ReturnSelf]
+
+    pack ${win}.button -fill x -side bottom
+    pack ${win}.hv3 -fill both -expand 1
+  }
+
+  method Regenerate {} {
+    $self report $myCurrentHv3 $myCurrentNode
+  }
+
+  method report {hv3 node} {
+    set myReport [::hv3::debug::ReportStyle]
+    append myReport {<h1>Forms Engine Report</h1>}
+    set msg [::hv3::formsreport $hv3 $node]
+    append myReport $msg
+    ${win}.hv3 goto abc
+
+    set myCurrentHv3 $hv3
+    set myCurrentNode $node
+  }
+
+  method GetReport {downloadHandle} {
+    $downloadHandle append $myReport
+    $downloadHandle finish
+  }
+
+  method goto {node args} {
+    ::HtmlDebug::browse $myCurrentHv3 $node
+  }
+
+  method ReturnSelf {args} {
+    return $self
   }
 }
 
@@ -379,18 +431,18 @@ snit::widget ::hv3::debug::LogReport {
         #
         #     {^nomatch (SELECTOR) from.*$}
         #     {^match (SELECTOR) from.*$}
-        set pattern1 {^match \((.*)\) from (.*)$}
+        set pattern1 {^matches \((.*)\) from (.*)$}
         set pattern2 {^nomatch \((.*)\) from (.*)$}
 
         append Tbl "    <tr><td>"
         if {[regexp $pattern1 $entry DUMMY zSelector zFrom]} {
           append Tbl "<i style=color:green>match </i>"
-          append Tbl "<span style=font-family:fixed>$zSelector</span>"
+          append Tbl "<span style=font-family:fixed>$zSelector</span> "
           append Tbl "<i style=color:green>from $zFrom</i>\n"
         } \
         elseif {[regexp $pattern2 $entry DUMMY zSelector zFrom]} {
           append Tbl "<i style=color:red>nomatch </i>"
-          append Tbl "<span style=font-family:fixed>$zSelector</span>"
+          append Tbl "<span style=font-family:fixed>$zSelector</span> "
           append Tbl "<i style=color:red>from $zFrom</i>\n"
         } \
         else {
@@ -509,13 +561,24 @@ proc ::hv3::debug::TkhtmlReport {hv3 node} {
 
         set attribute_rows ""
         foreach {p v} [$node attr] {
-            append attribute_rows "<tr><td>$p<td>$v"
+          append attribute_rows "<tr><td>$p<td>$v"
         }
+        if {$attribute_rows eq ""} {
+          set attribute_rows {
+            <tr><td colspan=2><i>Node has no attributes defined</i>
+          }
+        } 
         
         append doc [subst {
             <h1>&lt;[$node tag]&gt;</h1>
             <p>Tcl command: <span class="code">\[$node\]</span>
             <p>Replacement: <span class="code">\[[$node replace]\]</span>
+
+            <table>
+                <tr><th colspan=2>Attributes
+                $attribute_rows
+            </table>
+
             <p>Note: Fields 'margin', 'padding' and sometimes 'position' 
                contain either one or four length values. If there is only
 	       one value, then this is the value for the associated top,
@@ -523,19 +586,13 @@ proc ::hv3::debug::TkhtmlReport {hv3 node} {
                are respectively the top, right, bottom, and left lengths.
             </p>
 
-            <table class=computed>
-                <tr><th colspan=2>Computed Properties
+            <table>
+                <tr><th colspan=2>Computed Property Values
                 $property_rows
             </table>
 
             $after_tbl
             $before_tbl
-
-            <table class=attributes>
-                <tr><th colspan=2>Attributes
-                $attribute_rows
-
-            </table>
         }]
     }
 
@@ -604,11 +661,11 @@ snit::widget HtmlDebug {
   variable mySearchResults ""
 
   variable myTree               ;# The tree widget
-
   variable myHtmlReport         ;# The hv3 widget with the report
   variable myEventsReport       ;# The DOM events report for the node.
   variable myLayoutReport       ;# The layout engine report.
   variable myStyleReport        ;# The style engine report.
+  variable myFormsReport        ;# The forms engine report.
 
   variable myReports            ;# The ::hv3::tile_notebook widget.
 
@@ -624,6 +681,7 @@ snit::widget HtmlDebug {
     set myEventsReport $win.hpan.vpan.reports.events
     set myLayoutReport $win.hpan.vpan.reports.layout
     set myStyleReport  $win.hpan.vpan.reports.style
+    set myFormsReport  $win.hpan.vpan.reports.forms
     set myReports      $win.hpan.vpan.reports
 
     panedwindow $win.hpan -orient vertical
@@ -638,11 +696,13 @@ snit::widget HtmlDebug {
     ::hv3::debug::report $myHtmlReport -reportcmd ::hv3::debug::TkhtmlReport
     ::hv3::debug::LogReport $myLayoutReport $self -title "Layout Engine Log"
     ::hv3::debug::LogReport $myStyleReport $self -title "Style Engine Log"
+    ::hv3::debug::FormReport $myFormsReport
 
-    $myReports add $myHtmlReport -text "Tkhtml"
-    $myReports add $myLayoutReport  -text "Layout Engine Log"
-    $myReports add $myStyleReport   -text "Style Engine Log"
+    $myReports add $myHtmlReport    -text "Tkhtml"
+    $myReports add $myLayoutReport  -text "Layout Engine"
+    $myReports add $myStyleReport   -text "Style Engine"
     $myReports add $myEventsReport  -text "DOM Event Listeners"
+    $myReports add $myFormsReport   -text "HTML Forms"
   
     $win.hpan add $win.hpan.vpan
     $win.hpan.vpan add $myTree
@@ -672,7 +732,8 @@ snit::widget HtmlDebug {
     set selected [$myTree selected]
     if {$selected ne ""} {
       $myEventsReport report $myHtml $selected
-      $myHtmlReport report $myHtml $selected
+      $myHtmlReport   report $myHtml $selected
+      $myFormsReport  report $myHtml $selected
       if {[info exists myLayoutEngineLog($selected)]} {
         $myLayoutReport report $myLayoutEngineLog($selected)
       } else {

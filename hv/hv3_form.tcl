@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.50 2007/01/27 12:53:15 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.51 2007/04/20 14:16:02 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -666,6 +666,20 @@ snit::widget ::hv3::control {
     }
     return $drop
   }
+
+  method formsreport {} {
+    set n $options(-formnode)
+    set report "<p>"
+    if {$n eq ""} {
+      append report {<i>No associated form node.</i>}
+    } else {
+      append report [subst -nocommands {
+        <i>Controled by form node <a href="$n">$n</a></i>
+      }]
+    }
+    append report "</p>"
+    return $report
+  }
 }
 
 #--------------------------------------------------------------------------
@@ -743,6 +757,20 @@ snit::widget ::hv3::control {
   #
   method set_value {newValue} {
     $myNode attr value $newValue
+  }
+
+  method formsreport {} {
+    set n $options(-formnode)
+    set report "<p>"
+    if {$n eq ""} {
+      append report {<i>No associated form node.</i>}
+    } else {
+      append report [subst -nocommands {
+        <i>Controled by form node <a href="$n">$n</a></i>
+      }]
+    }
+    append report "</p>"
+    return $report
   }
 }
 
@@ -980,6 +1008,48 @@ snit::type ::hv3::form {
     }
     return $ret
   }
+
+  method formsreport {} {
+    set action [$myFormNode attr -default "" action]
+    set method [$myFormNode attr -default "" method]
+
+    set Template {
+      <table>
+        <tr><th>Action: <td>$action
+        <tr><th>Method: <td>$method
+      </table>
+
+      <table>
+        <tr><th>Name<th>Successful?<th>Value<th>Is Submit?
+    }
+
+    set report [subst $Template]
+
+    foreach controlnode $myControlNodes {
+
+      set control [$controlnode replace]
+      set success [$control success]
+      set name    [$control name]
+      set isSubmit [expr ([lsearch $mySubmitControls $control]>=0)]
+
+      if {$success} {
+        set value [htmlize [$control value]]
+      } else {
+        set value "<i>N/A</i>"
+      }
+      append report "<tr><td>"
+      append report "<a href=\"$controlnode\">"
+      if {$name ne ""} {
+        append report "[htmlize $name]"
+      } else {
+        append report "<i>$controlnode</i>"
+      }
+      append report "<td>$success<td>$value<td>$isSubmit"
+    }
+    append report "</table>"
+
+    return $report
+  }
 }
 
 #-----------------------------------------------------------------------
@@ -1122,7 +1192,47 @@ snit::type ::hv3::formmanager {
       $myClickControls($node) click
     }
   }
+}
 
+# This proc is called by the tree-browser code to obtain the HTML
+# text for the "HTML Forms" tab. If the argument $node is a <FORM>
+# node, or a node that generates a form control, a report
+# is returned explaining that nodes role in the HTML form.
+#
+# Otherwise, a message is returned to say that the forms module
+# doesn't care two figs for node $node.
+# 
+proc ::hv3::formsreport {hv3 node} {
+
+  # If the [replace] object for the node exists and is of
+  # one of the following classes, then we have a forms object!
+  # The following classes all support the [formsreport] method
+  # to return the report body.
+  #
+  set FORMS_CLASSES [list \
+      ::hv3::control      \
+      ::hv3::clickcontrol \
+      ::hv3::form         \
+  ]
+
+  # Never return a report for a text node.
+  if {[$node tag] ne ""} {
+    set form [$node replace]
+    if {$form ne ""} {
+      set rc [catch {
+        set type [$form info type]
+        expr {[lsearch $FORMS_CLASSES $type]>=0}
+      } msg]
+  
+      if {$rc == 0} {
+        if {$msg} {
+          return [$form formsreport]
+        }
+      }
+    }
+  }
+
+  return {<i>No forms engine handling for this node</i>}
 }
 
 #-----------------------------------------------------------------------

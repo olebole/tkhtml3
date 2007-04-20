@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.116 2007/04/13 11:44:43 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.117 2007/04/20 14:16:02 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -403,6 +403,7 @@ snit::widget ::hv3::browser_frame {
   delegate option -fontscale        to myHv3
   delegate option -zoom             to myHv3
   delegate option -enableimages     to myHv3
+  delegate option -enablejavascript to myHv3
 
   delegate method dumpforms         to myHv3
 
@@ -638,6 +639,7 @@ snit::type ::hv3::config {
   foreach {opt def type} [list \
     -doublebuffer     0                         Boolean \
     -enableimages     1                         Boolean \
+    -enablejavascript 0                         Boolean \
     -forcefontmetrics 1                         Boolean \
     -hidegui          0                         Boolean \
     -zoom             1.0                       Double  \
@@ -715,18 +717,19 @@ snit::type ::hv3::config {
 
     foreach {option label} [list \
         -forcefontmetrics "Force CSS Font Metrics" \
-        -enableimages     "Enable Images" \
-        -doublebuffer     "Double-buffer" \
+        -enableimages     "Enable Images"          \
+        -doublebuffer     "Double-buffer"          \
+        --                --                       \
+        -enablejavascript "Enable ECMAscript"      \
     ] {
-      set var [myvar options($option)]
-      set cmd [mymethod Reconfigure $option]
-      $path add checkbutton -label $label -variable $var -command $cmd
+      if {$option eq "--"} {
+        $path add separator
+      } else {
+        set var [myvar options($option)]
+        set cmd [mymethod Reconfigure $option]
+        $path add checkbutton -label $label -variable $var -command $cmd
+      }
     }
-
-    $path add separator
-    $path add checkbutton \
-        -label {Enable ECMAscript} \
-        -variable ::hv3::dom::use_scripting_option
     if {![::hv3::dom::have_scripting]} {
       $path entryconfigure end -state disabled
     }
@@ -799,6 +802,7 @@ snit::type ::hv3::config {
         -zoom             options(-zoom)             \
         -forcefontmetrics options(-forcefontmetrics) \
         -enableimages     options(-enableimages)     \
+        -enablejavascript options(-enablejavascript) \
         -doublebuffer     options(-doublebuffer)     \
     ] {
       if {[$b cget $option] ne [set $var]} {

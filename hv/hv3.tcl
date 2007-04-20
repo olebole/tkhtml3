@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.156 2007/04/19 09:57:14 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.157 2007/04/20 14:16:02 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -872,7 +872,9 @@ snit::widget ::hv3::hv3 {
   component mySelectionManager       ;# The ::hv3::hv3::selectionmanager
   component myFormManager            ;# The ::hv3::formmanager
 
-  variable myDom ""
+  # A DOM object is always created, whether it is a no-op or not.
+  #
+  component myDom                    ;# The DOM object (class ::hv3::dom) 
 
   component myMouseManager           ;# The ::hv3::hv3::mousemanager
   delegate method Subscribe to myMouseManager as subscribe
@@ -1018,6 +1020,7 @@ snit::widget ::hv3::hv3 {
     catch { $myFormManager      destroy }
     catch { $myMouseManager     destroy }
     catch { $myBase             destroy }
+    catch { $myDom              destroy }
 
     if {$myRefreshEventId ne ""} {
       after cancel $myRefreshEventId
@@ -1614,10 +1617,17 @@ snit::widget ::hv3::hv3 {
     if {![info exists myNodeArgs] || $myNodeArgs ne $args} {
       set myNodeArgs $args
       set myNodeRes [eval [linsert $args 0 $myHtml node]]
+
+      # Invalidate the node-cache in the next idle loop. This is because
+      # some javascript, incremental parsing or dynamic CSS may have
+      # modified the document layout - invalidating the cached result.
+      # 
+      after cancel [mymethod InvalidateNodecache]
+      after idle   [mymethod InvalidateNodecache]
     }
     return $myNodeRes
   }
-  method invalidate_nodecache {} {
+  method InvalidateNodecache {} {
     unset -nocomplain myNodeArgs
   }
 
@@ -1771,7 +1781,7 @@ snit::widget ::hv3::hv3 {
     set myFirstReset 0
     event generate $win <<Reset>>
 
-    $self invalidate_nodecache
+    $self InvalidateNodecache
     set myTitleVar ""
     set myEncoding ""
     set myEncodedDocument ""
@@ -1810,6 +1820,14 @@ snit::widget ::hv3::hv3 {
         $self reset 0
         $self goto $uri -nosave
       }
+
+      -enablejavascript {
+        set uri [$myUri get]
+        $self reset 0
+        $myDom configure -enable $value
+        $myDom reset
+        $self goto $uri -nosave
+      }
     }
   }
 
@@ -1819,15 +1837,19 @@ snit::widget ::hv3::hv3 {
   method hull {}     { return $hull }
 
   method yview {args} {
-    $self invalidate_nodecache
+    $self InvalidateNodecache
     eval $myHtml yview $args
   }
   method xview {args} {
-    $self invalidate_nodecache
+    $self InvalidateNodecache
     eval $myHtml xview $args
   }
 
-  option -enableimages -default 1 -configuremethod SetOption
+  # This option to enable the javascript implementation.  Default is 
+  # to not do so. Also the option to display images (default true).
+  option -enablejavascript -default 0 -configuremethod SetOption
+  option -enableimages     -default 1 -configuremethod SetOption
+
   option -scrollbarpolicy -default auto
 
   option          -locationvar      -default ""
@@ -1839,7 +1861,6 @@ snit::widget ::hv3::hv3 {
 
   # Delegated public methods
   delegate method javascriptlog     to myDom
-  delegate method dumpforms         to myFormManager
   delegate method selected          to mySelectionManager
   delegate method *                 to myHtml
 

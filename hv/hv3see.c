@@ -88,66 +88,45 @@
  *
  *         $obj Finalize
  *
- * The object command ($obj) passed to the [$interp global] command 
- * must be available for the lifetime of the interpreter. Resource
- * management for other objects is according to the following rules:
- *
- *   * The object-command must be available from the time the
- *     {object OBJ} or {transient OBJ} value is returned until
- *     the [Finalize] method is called by the interpreter.
- *
- *   * The interpreter assumes that the Tcl app stores no reference
- *     to objects created using {transient OBJ}. Each time such a 
- *     reference is returned a new js object is created. The [Finalize]
- *     method is called after the javascript has no references
- *     to the created object.
- *
- *     Therefore, if two copies of the {transient OBJ} ref are returned,
- *     two different objects are created and [Finalize] will (eventually)
- *     be called once for each.
- *  
- *
- *
  *
  * Argument PROPERTY is a simple property name (i.e. "className"). 
  * VALUE is a typed javascript value. 
  *
  * Object resource management:
  *
- *     All based around the following interface:
+ *     There are no resource management issues on the global object.
+ *     The script must ensure that the specified command exists for the
+ *     lifetime of the interpreter. The [Finalize] method is never
+ *     called by the extension on the global object (not even when the
+ *     interpreter is destroyed).
  *
- *         $obj Finalize
+ *     For other objects created by Tcl, things are more complicated.
+ *     An object is created by returning a value of the following two 
+ *     forms from a [Call], [Construct] or [Get] method.
  *
- *     1. The global object.
- *     2. Tcl-command based objects.
+ *         {object    COMMAND}
+ *         {transient COMMAND}
  *
- *     1. There are no resource management issues on the global object.
- *        The script must ensure that the specified command exists for the
- *        lifetime of the interpreter. The [Finalize] method is never
- *        called by the extension on the global object (not even when the
- *        interpreter is destroyed).
+ *     Both forms create the same kinds of javascript object, but 
+ *     the first initialises the object in "persistent" state
+ *     the second in "transient" state. Objects in "transient" state
+ *     are eligible for garbage collection once the SEE interpreter
+ *     state contains no more references to it. Objects in "persistent"
+ *     state are not garbage collected until the interpreter is deleted.
  *
- *     2. Objects may be created by Tcl scripts by returning a value of the
- *        form {object COMMAND} from a call to the [Call], [Construct] or
- *        [Get] method of the "Object Interface" (see above). Assuming 
- *        that COMMAND is a Tcl command, the "COMMAND" values is
- *        transformed to a javascript value containing an object 
- *        reference as follows:
+ *     When an object in "transient" state is garbage collected,
+ *     the [Finalize] method is invoked. When the interpreter is deleted,
+ *     [Finalize] is called for objects currently in "transient" state,
+ *     but not for those in "persistent" state.
  *
- *            i. Search the SeeInterp.aTclObject table for a match. If
- *               found, use the SeeTclObject* as the (struct SEE_object *)
- *               value to pass to javascript.
+ *     The Tcl script may move an object from "persistent" to "transient"
+ *     state with one of the command:
  *
- *           ii. If not found, allocate and populate a new SeeTclObject
- *               structure. Insert it into the aTclObject[] table. It is
- *               allocated with SEE_NEW_FINALIZE(). The finalization
- *               callback:
- *               
- *               a) Removes the entry from athe aTclObject[] table, and
- *               b) Calls the [Finalize] method of the Tcl command.
+ *         $interp set_state transient
  *
- *        If the Tcl script wants to delete the underlying Tcl object from
- *        within the [Finalize] method, it may safely do so.
+ *     And back again with
+ *
+ *         $interp set_state peristent
  */
 
 /*-------------------------------------------------------------------------- 
@@ -193,6 +172,7 @@
     #define GC_MALLOC_UNCOLLECTABLE(x) ckalloc(x)
     #define GC_FREE(x) ckfree((char *)x)
     #define GC_register_finalizer(a,b,c,d,e)
+    #define GC_register_finalizer_no_order(a,b,c,d,e)
 #else
     #include <gc.h>
 #endif
@@ -214,12 +194,18 @@ typedef struct SeeJsObject SeeJsObject;
 #define OBJECT_HASH_SIZE 257
 
 struct SeeInterp {
-    /* The two interpreters - SEE and Tcl. */
+    /* The two interpreters - SEE and Tcl. The interp member must be
+     * first, so that we can cast between (struct SEE_interpreter *)
+     * and (SeeInterp *).
+     */
     struct SEE_interpreter interp;
     Tcl_Interp *pTclInterp;
 
     /* Hash table containing the objects created by the Tcl interpreter.
      * This maps from the Tcl command to the SeeTclObject structure.
+     * This structure (and the aTclObject[] array along with it) is
+     * allocated using GC_MALLOC_UNCOLLECTABLE(), so anything in the
+     * following hash-table is not eligible for garbage collection.
      */
     SeeTclObject *aTclObject[OBJECT_HASH_SIZE];
 
@@ -243,10 +229,9 @@ static int iSeeInterp = 0;
  */
 struct SeeTclObject {
     struct SEE_native native;   /* Base class - store native properties here */
-    SeeInterp *pTclSeeInterp;   /* Pointer to the owner ::see::interp */
     Tcl_Obj *pObj;              /* Tcl script for object */
 
-    /* Next entry (if any) in the SeeInterp.aObject hash table */
+    /* Next entry (if any) in the SeeInterp.aTclObject[] hash table */
     SeeTclObject *pNext;
 };
 
@@ -539,7 +524,6 @@ newSeeTclObject(pTclSeeInterp, pTclCommand)
     SeeTclObject *p;
 
     p = SEE_NEW(&pTclSeeInterp->interp, SeeTclObject);
-    p->pTclSeeInterp = pTclSeeInterp;
     p->pObj = pTclCommand;
     p->pNext = 0;
     Tcl_IncrRefCount(p->pObj);
@@ -556,42 +540,48 @@ newSeeTclObject(pTclSeeInterp, pTclCommand)
 /*
  *---------------------------------------------------------------------------
  *
- * finalizeTransient --
+ * finalizeObject --
+ *
+ *     Finalize a SeeTclObject structure. Because this finalizer
+ *     is attached using _no_order(), we have to be careful what
+ *     is done here. The safest approach is to access no gc'd
+ *     memory except for the SeeTclObject itself.
+ *
+ *     The context argument, pContext, may point to a Tcl interpreter.
+ *     If so, evaluate the objects Tcl [Finalize] method.
+ *
+ *     TODO: This is going to be a problem if Hv3 ever uses multiple
+ *     interpreters. But it doesn't right now...
  *
  * Results:
- *     Do final cleanup on a transient Tcl object.
+ *     None.
  *
  * Side effects:
+ *     Drops the reference to SeeTclObject.pObj.
  *
  *---------------------------------------------------------------------------
  */
 static void
-finalizeTransient(pPtr, pContext)
-    void *pPtr;
-    void *pContext;
-{
-    Tcl_Obj *pFinalize;
-    SeeTclObject *p = (SeeTclObject *)pPtr;
-    SeeInterp *pTclSeeInterp = (SeeInterp *)pContext;
-
-    /* Execute the Tcl Finalize hook. Do nothing with the result thereof. */
-    pFinalize = Tcl_DuplicateObj(p->pObj);
-    Tcl_IncrRefCount(pFinalize);
-    Tcl_ListObjAppendElement(0, pFinalize, Tcl_NewStringObj("Finalize", 8));
-    Tcl_EvalObjEx(pTclSeeInterp->pTclInterp, pFinalize, TCL_GLOBAL_ONLY);
-    Tcl_DecrRefCount(pFinalize);
-
-    /* Decrement the ref count on the Tcl object */
-    Tcl_DecrRefCount(p->pObj);
-}
-
-static void
 finalizeObject(pPtr, pContext)
-    void *pPtr;
-    void *pContext;
+    void *pPtr;                 /* Object to finalize */
+    void *pContext;             /* If non-zero, Tcl interpreter */
 {
     SeeTclObject *p = (SeeTclObject *)pPtr;
+
+    if (pContext) {
+        /* Execute the Tcl Finalize hook. Do nothing with the result thereof. */
+        Tcl_Obj *pFinalize;
+        Tcl_Interp *pTclInterp = (Tcl_Interp *)pContext;
+
+        pFinalize = Tcl_DuplicateObj(p->pObj);
+        Tcl_IncrRefCount(pFinalize);
+        Tcl_ListObjAppendElement(0, pFinalize, Tcl_NewStringObj("Finalize", 8));
+        Tcl_EvalObjEx(pTclInterp, pFinalize, TCL_GLOBAL_ONLY);
+        Tcl_DecrRefCount(pFinalize);
+    }
+
     Tcl_DecrRefCount(p->pObj);
+    p->pObj = 0;
 }
 
 /*
@@ -611,8 +601,9 @@ createTransient(pTclSeeInterp, pTclCommand)
     SeeInterp *pTclSeeInterp;
     Tcl_Obj *pTclCommand;
 {
+    Tcl_Interp *pTcl = pTclSeeInterp->pTclInterp;
     SeeTclObject *p = newSeeTclObject(pTclSeeInterp, pTclCommand);
-    GC_register_finalizer(p, finalizeTransient, pTclSeeInterp, 0, 0);
+    GC_register_finalizer_no_order(p, finalizeObject, pTcl, 0, 0);
     return (struct SEE_object *)p;
 }
 
@@ -669,8 +660,10 @@ findOrCreateObject(pTclSeeInterp, pTclCommand)
     if (!pObject) {
         pObject = newSeeTclObject(pTclSeeInterp, pTclCommand);
 
-        /* TODO: This is causing a finalization cycle... */
-        GC_register_finalizer(pObject, finalizeObject, 0, 0, 0);
+        /* Have to be careful using the _no_order() variant to
+         * attach a finalizer. See comments above finalizeObject().
+         */
+        GC_register_finalizer_no_order(pObject, finalizeObject, 0, 0, 0);
 
         /* Insert the new object into the hash table */
         pObject->pNext = pTclSeeInterp->aTclObject[iSlot];
@@ -1197,7 +1190,7 @@ SeeTcl_Get(pInterp, pObj, pProp, pRes)
     struct SEE_value *pRes;
 {
     SeeTclObject *pObject = (SeeTclObject *)pObj;
-    SeeInterp *pTclSeeInterp = pObject->pTclSeeInterp;
+    SeeInterp *pTclSeeInterp = (SeeInterp *)pInterp;
     Tcl_Interp *pTclInterp = pTclSeeInterp->pTclInterp;
     Tcl_Obj *pScript = Tcl_DuplicateObj(pObject->pObj);
 
@@ -1251,7 +1244,7 @@ SeeTcl_Put(pInterp, pObj, pProp, pVal, flags)
     int flags;
 {
     SeeTclObject *pObject = (SeeTclObject *)pObj;
-    SeeInterp *p = pObject->pTclSeeInterp;
+    SeeInterp *p = (SeeInterp *)pInterp;
     Tcl_Interp *pTclInterp = p->pTclInterp;
     Tcl_Obj *pScript = Tcl_DuplicateObj(pObject->pObj);
     int rc;
@@ -1288,7 +1281,7 @@ SeeTcl_CanPut(pInterp, pObj, pProp)
     struct SEE_string *pProp;
 {
     SeeTclObject *pObject = (SeeTclObject *)pObj;
-    SeeInterp *pTclSeeInterp = pObject->pTclSeeInterp;
+    SeeInterp *pTclSeeInterp = (SeeInterp *)pInterp;
     Tcl_Interp *pTclInterp = pTclSeeInterp->pTclInterp;
     Tcl_Obj *pScript = Tcl_DuplicateObj(pObject->pObj);
     int rc;
@@ -1317,7 +1310,7 @@ SeeTcl_HasProperty(pInterp, pObj, pProp)
     struct SEE_string *pProp;
 {
     SeeTclObject *pObject = (SeeTclObject *)pObj;
-    SeeInterp *pTclSeeInterp = pObject->pTclSeeInterp;
+    SeeInterp *pTclSeeInterp = (SeeInterp *)pInterp;
     Tcl_Interp *pTclInterp = pTclSeeInterp->pTclInterp;
     Tcl_Obj *pScript = Tcl_DuplicateObj(pObject->pObj);
     int rc;
@@ -1348,7 +1341,7 @@ SeeTcl_Delete(pInterp, pObj, pProp)
     struct SEE_string *pProp;
 {
     SeeTclObject *pObject = (SeeTclObject *)pObj;
-    SeeInterp *pTclSeeInterp = pObject->pTclSeeInterp;
+    SeeInterp *pTclSeeInterp = (SeeInterp *)pInterp;
     Tcl_Interp *pTclInterp = pTclSeeInterp->pTclInterp;
     Tcl_Obj *pScript = Tcl_DuplicateObj(pObject->pObj);
     int rc;
@@ -1376,7 +1369,7 @@ SeeTcl_DefaultValue(pInterp, pObj, pHint, pRes)
     struct SEE_value *pRes;
 {
     SeeTclObject *pObject = (SeeTclObject *)pObj;
-    SeeInterp *pTclSeeInterp = pObject->pTclSeeInterp;
+    SeeInterp *pTclSeeInterp = (SeeInterp *)pInterp;
     Tcl_Interp *pTclInterp = pTclSeeInterp->pTclInterp;
     Tcl_Obj *pScript = Tcl_DuplicateObj(pObject->pObj);
     int rc;
@@ -1416,7 +1409,7 @@ tclCallOrConstruct(pMethod, pInterp, pObj, pThis, argc, argv, pRes)
     struct SEE_string *pRes;
 {
     SeeTclObject *pObject = (SeeTclObject *)pObj;
-    SeeInterp *pTclSeeInterp = pObject->pTclSeeInterp;
+    SeeInterp *pTclSeeInterp = (SeeInterp *)pInterp;
     Tcl_Interp *pTclInterp = pTclSeeInterp->pTclInterp;
     Tcl_Obj *pScript = Tcl_DuplicateObj(pObject->pObj);
     int rc;
@@ -1554,7 +1547,7 @@ tclEnumerator(pInterp, pObj)
     struct SEE_object *pObj;
 {
     SeeTclObject *pObject = (SeeTclObject *)pObj;
-    SeeInterp *pTclSeeInterp = pObject->pTclSeeInterp;
+    SeeInterp *pTclSeeInterp = (SeeInterp *)pInterp;
 
     Tcl_Interp *pTclInterp = pTclSeeInterp->pTclInterp;
     Tcl_Obj *pScript = Tcl_DuplicateObj(pObject->pObj);
