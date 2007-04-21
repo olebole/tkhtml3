@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.119 2007/04/20 17:44:04 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.120 2007/04/21 10:47:25 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -38,8 +38,6 @@ source [sourcefile hv3_icons.tcl]
 source [sourcefile hv3_history.tcl]
 source [sourcefile hv3_db.tcl]
 source [sourcefile hv3_string.tcl]
-
-# source [sourcefile htmlwrapper.tcl]
 
 #--------------------------------------------------------------------------
 # Widget ::hv3::browser_frame
@@ -957,8 +955,8 @@ snit::type ::hv3::debug_menu {
       "Polipo..."     ::hv3::polipo::popup                              "" \
       "Events..."     [list gui_log_window $::hv3::G(notebook)]         "" \
       "-----"         ""                                                "" \
-      "Browser..."    [list gui_current browse]                         "" \
-      "ECMAscript..." [list gui_current javascriptlog]                  j \
+      "Tree Browser..." [list gui_current browse]                         "" \
+      "ECMAscript..."   [list gui_current javascriptlog]                  j \
       "-----"         ""                                                "" \
       "firefox -remote" gui_firefox_remote                              "" \
     ]
