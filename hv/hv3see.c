@@ -418,8 +418,7 @@ primitiveValueToTcl(pTclSeeInterp, pValue)
     struct SEE_value *p = pValue;
 
     if (SEE_VALUE_GET_TYPE(pValue) == SEE_OBJECT) {
-        /* SEE_ToPrimitive(&pTclSeeInterp->interp, pValue, 0, &copy); */
-        SEE_ToString(&pTclSeeInterp->interp, pValue, copy);
+        SEE_ToPrimitive(&pTclSeeInterp->interp, pValue, 0, &copy);
         p = &copy;
     }
 

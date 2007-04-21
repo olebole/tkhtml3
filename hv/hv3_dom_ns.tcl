@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.5 2007/04/20 17:44:04 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.6 2007/04/21 08:54:48 danielk1977 Exp $)} 1 }
 
 #---------------------------------
 # List of DOM objects in this file:
@@ -164,7 +164,7 @@ namespace eval ::hv3::dom {
 #     Window.self
 #     Window.window
 #
-# Mixes in the Node interface.
+# Mixes in the EventTarget interface.
 #
 ::hv3::dom::type Window EventTarget {
   variable myHv3
@@ -174,6 +174,8 @@ namespace eval ::hv3::dom {
     option -hv3 -default ""
     option -see -default ""
   }
+
+  dom_call_todo scrollBy
 
   #-----------------------------------------------------------------------
   # Property implementations:

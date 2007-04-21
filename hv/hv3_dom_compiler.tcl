@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.9 2007/04/10 16:22:09 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.10 2007/04/21 08:54:48 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file implements infrastructure used to create the Snit objects
@@ -65,6 +65,13 @@ namespace eval ::hv3::dom {
     proc dom_todo {property} {
       dom_get $property [subst -nocommands {
         puts "TODO: [[set self] info type].$property"
+        list
+      }]
+    }
+
+    proc dom_call_todo {property} {
+      dom_call $property {args} [subst -nocommands {
+        puts "TODO: [[set self] info type].${property}()"
         list
       }]
     }

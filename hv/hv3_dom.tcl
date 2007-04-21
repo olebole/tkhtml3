@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.37 2007/04/20 15:35:07 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.38 2007/04/21 08:54:48 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Global interfaces in this file:
@@ -709,6 +709,10 @@ snit::type ::hv3::dom::logdata {
     set res [$myDom javascript $script]
     return $res
   }
+
+  method BrowseToNode {node} {
+    ::HtmlDebug::browse [$myDom hv3] $node
+  }
 }
 
 snit::widget ::hv3::dom::searchbox {
@@ -969,10 +973,15 @@ snit::widget ::hv3::dom::logwin {
       $myOutput insert end "   result: $msg\n"
       $myOutput insert end "   stack:  [string range $stack 3 end]\n"
 
-      if {[llength $stacktrace] == 0} {
-        set r [$ls cget -result]
-        regexp {(blob[[:digit:]]*):([[:digit:]]*):} $r X blobid lineno
-      } else {
+      set blobid ""
+      set r [$ls cget -result]
+      regexp {(blob[[:digit:]]*):([[:digit:]]*):} $r X blobid lineno
+
+      if {$blobid ne ""} {
+        set stacktrace [linsert $stacktrace 0 $blobid $lineno "" ""]
+      }
+
+      if {[llength $stacktrace] > 0} {
         set blobid [lindex $stacktrace 0]
         set lineno [lindex $stacktrace 1]
         set myStack $stacktrace
@@ -1049,6 +1058,11 @@ snit::widget ::hv3::dom::logwin {
     $myOutput insert end "    $n hits.\n"
   }
 
+  method TreeCmd {node} {
+    $myOutput insert end "tree: $node\n" commandtext
+    $myData BrowseToNode $node
+  }
+
   method Evaluate {} {
     set script [string trim [$myInput get 0.0 end]]
     $myInput delete 0.0 end
@@ -1069,6 +1083,7 @@ snit::widget ::hv3::dom::logwin {
       clear      1 ""                     ClearCmd      \
       goto       1 "BLOBID ?LINE-NUMBER?" GotoCmd       \
       search     1 "STRING"               SearchCmd     \
+      tree       1 "NODE"                 TreeCmd       \
     ]
     set done 0
     foreach {cmd nMin NOTUSED method} $cmdlist {
