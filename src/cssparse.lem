@@ -54,7 +54,7 @@
 /* This does not appear in the grammar, but the tokenizer generates it. It
  * will (hopefully) match "error" somewhere in the grammar.
  */
-%nonassoc UNKNOWN_SYM.
+%nonassoc UNKNOWN_SYM INVALID_AT_SYM.
 
 %syntax_error {
     pParse->pStyle->nSyntaxErr++;

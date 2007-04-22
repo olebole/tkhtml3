@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.156 2007/04/06 18:41:35 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.157 2007/04/22 11:32:19 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -311,6 +311,63 @@ doScrollCallback(pTree)
     doSingleScrollCallback(interp, pScrollCommand, iOffScreen, iTotal, iPage);
 }
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlCheckRestylePoint --
+ *
+ *     Check that for each node in the tree one of the following is true:
+ *
+ *       1. The node is a text node, or
+ *       2. The node has a computed style (HtmlElementNode.pComputed!=0), or
+ *       3. The node is HtmlTree.cb.pRestyle, or
+ *       4. The node is a descendant of a pRestyle or a descendent of
+ *          a right-sibling of pRestyle.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *
+ *---------------------------------------------------------------------------
+ */
+#ifndef NDEBUG
+static int
+checkRestylePointCb(pTree, pNode, clientData)
+    HtmlTree *pTree;
+    HtmlNode *pNode;
+    ClientData clientData;
+{
+    HtmlNode *pParent;
+    HtmlNode *p;
+
+    /* Condition 1 */
+    if (HtmlNodeIsText(pNode)) goto ok_out;
+
+    /* Condition 2 */
+    if (HtmlNodeComputedValues(pNode)) goto ok_out;
+
+    /* Condition 3 */
+    if (pNode==pTree->cb.pRestyle) goto ok_out;
+
+    /* Condition 4 */
+    assert(pTree->cb.pRestyle);
+    pParent = HtmlNodeParent(pTree->cb.pRestyle);
+    for (p = pNode; p && HtmlNodeParent(p) != pParent; p = HtmlNodeParent(p));
+    for ( ; p && p != pTree->cb.pRestyle; p = HtmlNodeLeftSibling(p));
+    assert(p);
+
+ok_out:
+    return HTML_WALK_DESCEND;
+}
+void
+HtmlCheckRestylePoint(pTree)
+    HtmlTree *pTree;
+{
+    HtmlWalkTree(pTree, 0, checkRestylePointCb, 0);
+}
+#endif /* #ifndef NDEBUG */
+
 
 /*
  *---------------------------------------------------------------------------
@@ -342,6 +399,7 @@ callbackHandler(clientData)
         HtmlNodeComputedValues(pTree->pRoot) ||
         pTree->cb.pRestyle==pTree->pRoot
     );
+    HtmlCheckRestylePoint(pTree);
 
     HtmlLog(pTree, "CALLBACK", 
         "flags=( %s%s%s%s%s) pDynamic=%s pRestyle=%s scroll=(+%d+%d) ",
@@ -368,6 +426,7 @@ callbackHandler(clientData)
         assert(pTree->cb.pDynamic);
         HtmlCssCheckDynamic(pTree);
     }
+    HtmlCheckRestylePoint(pTree);
 
     /* If the HtmlCallback.pRestyle variable is set, then recalculate 
      * style information for the sub-tree rooted at HtmlCallback.pRestyle. 
@@ -1401,8 +1460,6 @@ parseCmd(clientData, interp, objc, objv)
     Tcl_Obj *const *objv;              /* List of all arguments */
 {
     HtmlTree *pTree = (HtmlTree *)clientData;
-    HtmlNode *pCurrent = pTree->state.pCurrent;
-    HtmlNode *pFoster = pTree->state.pFoster;
 
     int isFinal;
     char *zHtml;
@@ -1439,6 +1496,7 @@ parseCmd(clientData, interp, objc, objv)
         return TCL_ERROR;
     }
 
+
     /* Add the new text to the internal cache of the document. Also tokenize
      * it and add the new HtmlToken objects to the HtmlTree.pFirst/pLast 
      * linked list.
@@ -1454,14 +1512,7 @@ parseCmd(clientData, interp, objc, objv)
             HtmlFinishNodeHandlers(pTree);
         }
     }
-
-    HtmlCallbackRestyle(pTree, pCurrent ? pCurrent : pTree->pRoot);
-    HtmlCallbackRestyle(pTree, pTree->state.pCurrent);
-    HtmlCallbackRestyle(pTree, pFoster);
-    HtmlCallbackRestyle(pTree, pTree->state.pFoster);
-
-    HtmlCallbackLayout(pTree, pCurrent);
-
+ 
     return TCL_OK;
 }
 

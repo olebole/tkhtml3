@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.158 2007/04/20 17:44:04 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.159 2007/04/22 11:32:18 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -949,6 +949,12 @@ snit::widget ::hv3::hv3 {
   #
   variable myRefreshEventId ""
 
+  # This boolean variable is set to zero until the first call to [goto].
+  # Before that point it is safe to change the values of the -enableimages
+  # and -enablejavascript options without reloading the document.
+  #
+  variable myGotoCalled 0
+
   constructor {} {
     # Create the scrolled html widget and bind it's events to the
     # mega-widget window.
@@ -1654,6 +1660,8 @@ snit::widget ::hv3::hv3 {
   # 
   method goto {uri args} {
 
+    set myGotoCalled 1
+
     # Process the argument switches. Local variable $cachecontrol
     # is set to the effective value of the -cachecontrol option.
     # Local boolean var $savestate is true unless the -nogoto
@@ -1802,6 +1810,9 @@ snit::widget ::hv3::hv3 {
     set myQuirksmode unknown
   }
 
+  method GetEnableJs {option} {
+    $myDom cget -enable
+  }
   method SetOption {option value} {
     set options($option) $value
     switch -- $option {
@@ -1816,17 +1827,21 @@ snit::widget ::hv3::hv3 {
         } else {
           $myHtml configure -imagecmd ""
         }
-        set uri [$myUri get]
-        $self reset 0
-        $self goto $uri -nosave
+        if {$myGotoCalled} {
+          set uri [$myUri get]
+          $self reset 0
+          $self goto $uri -nosave
+        }
       }
 
       -enablejavascript {
-        set uri [$myUri get]
-        $self reset 0
+        if {$myGotoCalled} {
+          set uri [$myUri get]
+          $self reset 0
+        }
         $myDom configure -enable $value
         $myDom reset
-        $self goto $uri -nosave
+        if {$myGotoCalled} {$self goto $uri -nosave}
       }
     }
   }
@@ -1847,7 +1862,7 @@ snit::widget ::hv3::hv3 {
 
   # This option to enable the javascript implementation.  Default is 
   # to not do so. Also the option to display images (default true).
-  option -enablejavascript -default 0 -configuremethod SetOption
+  option -enablejavascript -configuremethod SetOption -cgetmethod GetEnableJs
   option -enableimages     -default 1 -configuremethod SetOption
 
   option -scrollbarpolicy -default auto

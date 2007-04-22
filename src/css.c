@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.112 2007/04/19 09:57:15 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.113 2007/04/22 11:32:19 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -1845,7 +1845,7 @@ cssGetToken(z, n, pLen)
                     return atkeywords[i].t;
                 }
             }
-            goto bad_token;
+            return CT_INVALID_AT_SYM;
         }
         case '!': {
             int a = 1;
@@ -1931,8 +1931,9 @@ bad_token:
     return CT_UNKNOWN_SYM;
 }
 
-/* Versions of HtmlAlloc(0, ) and HtmlFree(0, ) that are always functions (not macros). 
-*/
+/* Versions of HtmlAlloc(0, ) and HtmlFree(0, ) that are always 
+ * functions (not macros). 
+ */
 static void * xCkalloc(size_t n){
     return HtmlAlloc("xCkalloc (css.c)", n);
 }
@@ -2184,6 +2185,24 @@ static int cssParseMediaQuery(pParse, p, z, n, pRes)
  *            rules are passed through to tkhtmlCssParser().
  *
  *         2. Handles @page rules. These are simply discarded. (TODO)
+ *
+ *         3. Handles invalid at-rules. These are also discarded. CSS 2.1
+ *            says "User agents must ignore an invalid at-keyword together 
+ *            with everything following it, up to and including the next
+ *            semicolon (;) or block ({...}), whichever comes first."
+ * 
+ *            Example from spec: 
+ *
+ *              @three-dee {
+ *                @background-lighting {
+ *                  azimuth: 30deg;
+ *                }
+ *                h1 { color: red }
+ *              }
+ *              h1 { color: blue }
+ *
+ *            h1 is blue, *not* red.
+ *
  *
  * Results:
  *     Return the number of bytes parsed.

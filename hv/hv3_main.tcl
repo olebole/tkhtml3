@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.120 2007/04/21 10:47:25 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.121 2007/04/22 11:32:18 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -512,6 +512,7 @@ snit::widget ::hv3::browser_toplevel {
     bind $HTML <1>               [list focus %W]
     bind $HTML <KeyPress-slash>  [mymethod Find]
     bindtags $HTML [concat Hv3HotKeys $self [bindtags $HTML]]
+    $::hv3::G(config) configurebrowser $frame
   }
   method del_frame {frame} {
     set idx [lsearch $myFrames $frame]
@@ -637,7 +638,7 @@ snit::type ::hv3::config {
   foreach {opt def type} [list \
     -doublebuffer     0                         Boolean \
     -enableimages     1                         Boolean \
-    -enablejavascript 0                         Boolean \
+    -enablejavascript 1                         Boolean \
     -forcefontmetrics 1                         Boolean \
     -hidegui          0                         Boolean \
     -zoom             1.0                       Double  \
@@ -1235,6 +1236,7 @@ proc gui_switch {new} {
 
 proc gui_new {path args} {
   set new [::hv3::browser_toplevel $path]
+  $::hv3::G(config) configurebrowser $new
 
   set var [$new titlevar]
   trace add variable $var write [list gui_settitle $new $var]

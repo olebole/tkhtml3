@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.38 2007/04/21 08:54:48 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.39 2007/04/22 11:32:18 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Global interfaces in this file:
@@ -20,6 +20,8 @@ namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.38 2007/04/21 08:54:48 da
 #
 #     $dom destroy
 #
+
+# Globals:
 
 # Events module:
 #

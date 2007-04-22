@@ -1,4 +1,8 @@
 
+#---------------------------------------------------------------------
+# This file contains automated tests for the Tkhtml stylesheet parser.
+#
+
 # Test script for Tkhtml
 proc sourcefile {file} {
   set fname [file join [file dirname [info script]] $file] 

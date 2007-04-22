@@ -889,6 +889,12 @@ int         HtmlTextIterType(HtmlTextIter *);
 int         HtmlTextIterLength(HtmlTextIter *);
 const char *HtmlTextIterData(HtmlTextIter *);
 
+#ifdef NDEBUG
+  #define HtmlCheckRestylePoint(x)
+#else
+  void HtmlCheckRestylePoint(HtmlTree *pTree);
+#endif
+
 /* Values returned by HtmlTextTokenType */
 #define HTML_TEXT_TOKEN_TEXT          1
 #define HTML_TEXT_TOKEN_SPACE         2

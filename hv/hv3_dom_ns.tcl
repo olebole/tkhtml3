@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.6 2007/04/21 08:54:48 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.7 2007/04/22 11:32:18 danielk1977 Exp $)} 1 }
 
 #---------------------------------
 # List of DOM objects in this file:
@@ -210,6 +210,7 @@ namespace eval ::hv3::dom {
   #
   #     request = new XMLHttpRequest();
   #
+  dom_todo XMLHttpRequest
 #  dom_get -cache XMLHttpRequest {
 #    set cons [mymethod newRequest]
 #    list object [::hv3::JavascriptObject %AUTO% $myDom -construct $cons]
