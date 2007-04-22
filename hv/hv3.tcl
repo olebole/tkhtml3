@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.159 2007/04/22 11:32:18 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.160 2007/04/22 14:09:02 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -1766,8 +1766,8 @@ snit::widget ::hv3::hv3 {
     $uri_obj destroy
   }
 
-  # Abandon all currently pending downloads. This method is part of the
-  # public interface.
+  # Abandon all currently pending downloads. This method is 
+  # part of the public interface.
   method stop {} {
     foreach dl $myCurrentDownloads {
       $dl finish

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.121 2007/04/22 11:32:18 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.122 2007/04/22 14:09:02 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -602,6 +602,39 @@ snit::widget ::hv3::browser_toplevel {
     focus ${fdname}.entry
   }
 
+  # ProtocolGui --
+  #
+  #     This method is called when the "toggle-protocol-gui" control
+  #     (implemented externally) is manipulated. The argument must
+  #     be one of the following strings:
+  #
+  #       "show"            (display gui)
+  #       "hide"            (hide gui)
+  #       "toggle"          (display if hidden, hide if displayed)
+  #
+  method ProtocolGui {cmd} {
+    set name ${win}.protocolgui
+    set exists [winfo exists $name]
+
+    switch -- $cmd {
+      show   {if {$exists} return}
+      hide   {if {!$exists} return}
+      toggle {
+        set cmd "show"
+        if {$exists} {set cmd "hide"}
+      }
+
+      default { error "Bad arg" }
+    }
+
+    if {$cmd eq "hide"} {
+      destroy $name
+    } else {
+      $myProtocol gui $name
+      $self packwidget $name
+    }
+  }
+
   method history {} {
     return $myHistory
   }
@@ -1066,6 +1099,7 @@ proc gui_build {widget_array} {
 
   # And the bottom bit - the status bar
   ::hv3::label .status -anchor w -width 1
+  bind .status <1> [list gui_current ProtocolGui toggle]
 
   # Set the widget-array variables
   set G(new_button)     .toolbar.b.new

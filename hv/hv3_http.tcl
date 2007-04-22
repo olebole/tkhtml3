@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.39 2006/12/21 08:18:28 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.40 2007/04/22 14:09:02 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd script used with 
@@ -51,7 +51,9 @@ snit::type ::hv3::protocol {
   option -statusvar -default "" -configuremethod ConfigureStatusvar
   option -relaxtransparency -default 0
 
-  # Instance of ::hv3::cookiemanager
+  # Instance of ::hv3::cookiemanager. Right now this is a global object.
+  # But this may change in the future. Hence this variable.
+  #
   variable myCookieManager ""
 
   # Both built-in ("http" and "file") and any configured scheme handlers 
@@ -300,6 +302,7 @@ snit::type ::hv3::protocol {
       append value "[llength $myInProgressHandles] in progress"
       uplevel #0 [list set $options(-statusvar) $value]
     }
+    catch {$myGui populate}
   }
   
   method busy {} {
@@ -350,12 +353,84 @@ snit::type ::hv3::protocol {
       [lsearch $myInProgressHandles $downloadHandle] >= 0 ||
       [lsearch $myWaitingHandles $downloadHandle] >= 0
     } {
+      catch {$myGui uri_done [$downloadHandle cget -uri]}
       $downloadHandle finish
     }
   }
 
   method debug_cookies {} {
     $myCookieManager debug
+  }
+
+  # gui --
+  #
+  #     This method is called to retrieve the GUI associated with
+  #     this protocol implementation. The protocol GUI should be a 
+  #     window named $name suitable to [pack] in with the main browser 
+  #     window.
+  #
+  variable myGui ""
+  method gui {name} {
+    catch {destroy $myGui}
+    ::hv3::protocol_gui $name $self
+    set myGui $name
+  }
+
+  method waiting_handles {} {
+    return $myWaitingHandles
+  }
+  method inprogress_handles {} {
+    return $myInProgressHandles
+  }
+}
+
+snit::widget ::hv3::protocol_gui {
+  
+  variable myProtocol ""
+  variable myTimerId ""
+
+  variable myDoneList [list]
+
+  constructor {protocol} {
+    set myProtocol $protocol
+    ::hv3::scrolled ::hv3::text ${win}.text -propagate 1
+    ${win}.text.widget configure -height 2
+    pack ${win}.text -expand 1 -fill both
+    $self populate
+  }
+
+  destructor {
+    catch {after cancel $myTimerId}
+  }
+
+  method uri_done {uri} {
+    lappend myDoneList $uri
+    $self populate
+  }
+
+  method populate {} {
+    set yview [lindex [${win}.text yview] 0]
+    ${win}.text delete 0.0 end
+
+    set n 0
+    foreach uri $myDoneList {
+      ${win}.text insert end [format "%-15s%s\n" DONE $uri]
+      incr n
+    }
+    foreach h [$myProtocol waiting_handles] {
+      ${win}.text insert end [format "%-15s%s\n" WAITING [$h cget -uri]] 
+      incr n
+    }
+    foreach h [$myProtocol inprogress_handles] {
+      ${win}.text insert end [format "%-15s%s\n" {IN PROGRESS} [$h cget -uri]]
+      incr n
+    }
+
+    if {$n > 15} {set n 15}
+    if {$n > [${win}.text.widget cget -height]} {
+      ${win}.text.widget configure -height $n
+    }
+    ${win}.text yview moveto $yview
   }
 }
 
