@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.103 2007/04/22 11:32:19 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.104 2007/04/22 14:49:07 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -1172,6 +1172,7 @@ tokenizeWrapper(pTree, zText, isFin, xAddText, xAddElement, xAddClosing)
 {
     int rc;
     HtmlNode *pCurrent = pTree->state.pCurrent;
+    int nParse = pTree->nParsed;
 
     assert(pTree->eWriteState == HTML_WRITE_NONE);
     HtmlCheckRestylePoint(pTree);

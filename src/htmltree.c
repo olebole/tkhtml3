@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.123 2007/04/22 11:32:19 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.124 2007/04/22 14:49:08 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -1159,14 +1159,17 @@ HtmlTreeAddElement(pTree, eType, pAttr, iOffset)
         case Html_HTML:
             pParsed = pTree->pRoot;
             mergeAttributes(pParsed, pAttr);
+            HtmlCallbackRestyle(pTree, pParsed);
             break;
         case Html_HEAD:
             pParsed = pHeadNode;
             mergeAttributes(pParsed, pAttr);
+            HtmlCallbackRestyle(pTree, pParsed);
             break;
         case Html_BODY:
             pParsed = pBodyNode;
             mergeAttributes(pParsed, pAttr);
+            HtmlCallbackRestyle(pTree, pParsed);
             break;
 
         /* Elements with content #CDATA for the document head. 
@@ -1183,6 +1186,7 @@ HtmlTreeAddElement(pTree, eType, pAttr, iOffset)
             pTree->state.isCdataInHead = 1;
             p->iNode = pTree->iNextNode++;
             pParsed = p;
+            HtmlCallbackRestyle(pTree, pParsed);
             break;
         }
 
@@ -1195,6 +1199,7 @@ HtmlTreeAddElement(pTree, eType, pAttr, iOffset)
             p->iNode = pTree->iNextNode++;
             nodeHandlerCallbacks(pTree, p);
             pParsed = p;
+            HtmlCallbackRestyle(pTree, pParsed);
             break;
         }
 
