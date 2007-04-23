@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.122 2007/04/22 14:09:02 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.123 2007/04/23 17:31:16 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -558,7 +558,7 @@ snit::widget ::hv3::browser_toplevel {
 
   method packwidget {w} {
     pack $w -before $myMainFrame -side bottom -fill x -expand false
-    bind $w <Destroy> [list focus [[$myMainFrame hv3] html]]
+    bind $w <Destroy> [list catch [list focus [[$myMainFrame hv3] html]]]
   }
 
   # Find --

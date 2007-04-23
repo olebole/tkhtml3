@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.10 2007/04/21 10:47:25 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.11 2007/04/23 17:31:16 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Html
@@ -264,18 +264,50 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.10 2007/04/21 10:47:
   dom_get * {
 
     # If $property looks like a number, treat it as an index into the list
-    # of widget nodes. Otherwise look for a node with the "name" or "id"
-    # attribute set to the attribute name.
+    # of widget nodes. 
+    #
+    # Otherwise look for nodes with the "name" or "id" attribute set 
+    # to the queried attribute name. If a single node is found, return
+    # it directly. If more than one have matching names or ids, a NodeList
+    # containing the matches is returned.
+    #
     if {[string is double $property]} {
       set res [$self HTMLCollection_item $property]
     } else {
-      set res [$self HTMLCollection_namedItem $property]
+      set res [
+        HTMLCollection_getNodeHandlesByName $options(-nodelistcmd) $property
+      ]
+      set nRet [llength $res]
+      if {$nRet==0} {
+        set res ""
+      } elseif {$nRet==1} {
+        set res [list object [$myDom node_to_dom [lindex $res 0]]]
+      } else {
+        set getnodes [namespace code [list \
+          HTMLCollection_getNodeHandlesByName $options(-nodelistcmd) $property
+        ]]
+        set obj [::hv3::DOM::NodeList %AUTO% $myDom -nodelistcmd $getnodes]
+        set res [list object $obj]
+      }
     }
 
     return $res
   }
 
   dom_snit { 
+
+    proc HTMLCollection_getNodeHandlesByName {supersetcmd name} {
+      set nodelist [eval $supersetcmd]
+      set ret [list]
+      foreach node $nodelist {
+        if {[$node attr -default "" id] eq $name || 
+            [$node attr -default "" name] eq $name} {
+          lappend ret $node
+        }
+      }
+      return $ret
+    }
+
     method HTMLCollection_item {index} {
       set idx [format %.0f $index]
       set ret ""
@@ -559,28 +591,81 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.10 2007/04/21 10:47:
 #-------------------------------------------------------------------------
 # DOM Type HTMLInputElement (extends HTMLElement)
 #
+#     <INPUT> elements. The really complex stuff for this object is 
+#     handled by the forms manager code.
+#
 ::hv3::dom::type HTMLInputElement HTMLElement {
 
   dom_todo defaultValue
-  dom_todo defaultChecked
   dom_todo form
   dom_todo accept
   dom_todo accessKey
   dom_todo align
   dom_todo alt
   dom_todo checked
-  dom_todo disabled
   dom_todo maxLength
   dom_todo name
   dom_todo readOnly
   dom_todo size
   dom_todo src
   dom_todo tabIndex
-  dom_todo type
   dom_todo useMap
 
-  dom_get value { list string [[$options(-nodehandle) replace] value] }
-  dom_put -string value val { [$options(-nodehandle) replace] set_value $val }
+  element_attr disabled
+  element_attr type -readonly
+
+  # According to DOM HTML Level 1, the HTMLInputElement.defaultChecked
+  # is the HTML element attribute, not the current value of the form
+  # control. Setting this attribute sets both the value of the form
+  # control and the HTML attribute.
+  #
+  dom_get defaultChecked { 
+    set c [$options(-nodehandle) attr -default 0 checked]
+    list boolean $c
+  }
+  dom_put -string defaultChecked C { 
+    set F [$options(-nodehandle) replace]
+    $F dom_checked $C
+    $options(-nodehandle) attr checked $C
+  }
+
+  # The HTMLInputElement.checked attribute on the other hand is the
+  # current state of the form control. Writing to it does not change
+  # the attribute on the underlying HTML element.
+  #
+  dom_get checked { 
+    set F [$options(-nodehandle) replace]
+    list boolean [$F dom_checked]
+  }
+  dom_put -string checked C { 
+    set F [$options(-nodehandle) replace]
+    $F dom_checked $C
+  }
+
+  # HTMLInputElement.value is the current form control value if
+  # the "type" is one of "Text", "File" or "Password". Otherwise
+  # it is the attribute on the underlying HTML element.
+  #
+  dom_get value {
+    set SPECIAL [list text file password]
+    set T [string tolower [$options(-nodehandle) attr -default text type]]
+    if {[lsearch $SPECIAL $T]>=0} {
+      set F [$options(-nodehandle) replace]
+      list string [$F dom_value]
+    } else {
+      list string [$options(-nodehandle) attr -default "" value]
+    }
+  }
+  dom_put -string value V { 
+    set SPECIAL [list text file password]
+    set T [string tolower [$options(-nodehandle) attr -default text type]]
+    if {[lsearch $SPECIAL $T]>=0} {
+      set F [$options(-nodehandle) replace]
+      $F dom_value $V
+    } else {
+      $options(-nodehandle) attr checked $V
+    }
+  }
 
   dom_call blur   {THIS} { [$options(-nodehandle) replace] dom_blur }
   dom_call focus  {THIS} { [$options(-nodehandle) replace] dom_focus }

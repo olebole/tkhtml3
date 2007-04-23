@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.124 2007/04/22 14:49:08 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.125 2007/04/23 17:31:16 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -310,7 +310,6 @@ freeNode(pTree, pNode)
 
         /* Delete the computed values caches. */
         HtmlDelScrollbars(pTree, pNode);
-
 
         HtmlNodeDeleteCommand(pTree, pNode);
 
@@ -1256,10 +1255,12 @@ HtmlTreeAddElement(pTree, eType, pAttr, iOffset)
         }
     }
 
-    if (HtmlNodeComputedValues(pParsed)) {
-        HtmlCallbackRestyle(pTree, pParsed);
+    if (pParsed) {
+        if (HtmlNodeComputedValues(pParsed)) {
+            HtmlCallbackRestyle(pTree, pParsed);
+        }
+        doParseHandler(pTree, eType, pParsed, iOffset);
     }
-    doParseHandler(pTree, eType, pParsed, iOffset);
 }
 
 /*

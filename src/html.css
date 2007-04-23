@@ -190,15 +190,18 @@ INPUT[type="submit"],INPUT[type="button"] {
   /* padding: 3px 10px 1px 10px; */
   padding: 3px 3px 1px 3px;
   white-space: nowrap;
-  text-align: center;
+  color:               tcl(::tkhtml::if_disabled #666666 #000000);
 }
 INPUT[type="submit"]:after,INPUT[type="button"]:after {
   content: tcl(::tkhtml::attr value);
   position: relative;
 }
+
 INPUT[type="submit"]:hover:active,INPUT[type="button"]:hover:active {
-  border-color: #828282 #ffffff #ffffff #828282;
-  padding: 4px 2px 0px 4px;
+  border-top-color:    tcl(::tkhtml::if_disabled #ffffff #828282);
+  border-left-color:   tcl(::tkhtml::if_disabled #ffffff #828282);
+  border-right-color:  tcl(::tkhtml::if_disabled #828282 #ffffff);
+  border-bottom-color: tcl(::tkhtml::if_disabled #828282 #ffffff);
 }
 
 INPUT[size] { width: tcl(::tkhtml::inputsize_to_css) }

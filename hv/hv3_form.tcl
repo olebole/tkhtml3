@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.51 2007/04/20 14:16:02 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.52 2007/04/23 17:31:16 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -498,46 +498,66 @@ snit::widget ::hv3::control {
     return $myValue
   }
 
-  method set_value {val} {
-    switch -- $myWidgetType {
-      Entry { set myValue $val }
-      Text  { $myWidget delete 0.0 end ; $myWidget insert 0.0 $val }
-      File  { 
-        $myWidget.entry delete 0 end
-        $myWidget.entry insert 0 $val
-      }
+  method dom_value {args} {
+    # Argument checking. Maximum of 1.
+    #
+    if { [llength $args]>1 } {
+      error "Problem parsing arguments."
+    }
 
-      default { error "Cannot call \[set_value\] on this ::hv3::control" }
+    if {[llength $args]==1} {
+      set val [lindex $args 0]
+      switch -- $myWidgetType {
+        Entry { set myValue $val }
+        Text  { $myWidget delete 0.0 end ; $myWidget insert 0.0 $val }
+        File  { 
+          $myWidget.entry delete 0 end
+          $myWidget.entry insert 0 $val
+        }
+      }
+    } else {
+      $self value
     }
   }
 
   #-----------------------------------------------------------------------
-  # Methods [checked] and [set_checked] are used to implement the DOM 
+  # Method [dom_checked] and [set_checked] are used to implement the DOM 
   # level 1 HTMLInputElement.checked property. These are only available
   # if the type of the control is "Radio" or "Checkbox".
   # 
-  method checked {} {
-    switch -- $myWidgetType {
-      Checkbox { return $myValue }
-      Radio {
-        return [expr [set [$myWidget cget -var]] eq [$myWidget cget -val]]
-      }
-
-      default { error "Cannot call \[checked\] on this ::hv3::control" }
+  method dom_checked {args} {
+    # Argument checking. Maximum of 1 - type boolean.
+    #
+    if { [llength $args]>1 
+      || ([llength $args]==1 && ![string is boolean [lindex $args 0]])
+    } {
+      error "Problem parsing arguments."
     }
-  }
-  method set_checked {val} {
-    switch -- $myWidgetType {
-      Checkbox { set myValue $val }
-      Radio {
-        if {$val} {
-          set [$myWidget cget -var] [$myWidget cget -val]
-        } else {
-          set [$myWidget cget -var] ""
+
+    if {[llength $args]==1} {
+      # A write operation.
+      set val [lindex $args 0]
+      switch -- $myWidgetType {
+        Checkbox {
+          set mySuccess [expr $val ? 1 : 0]
+        }
+        Radio {
+          if {$val} {
+            set [$myWidget cget -var] [$myWidget cget -val]
+          } else {
+            set [$myWidget cget -var] ""
+          }
         }
       }
-
-      default { error "Cannot call \[checked\] on this ::hv3::control" }
+    } else {
+      # A query.
+      switch -- $myWidgetType {
+        Checkbox { return $mySuccess }
+        Radio {
+          return [expr [set [$myWidget cget -var]] eq [$myWidget cget -val]]
+        }
+        default { return 0 }
+      }
     }
   }
 
@@ -710,6 +730,10 @@ snit::widget ::hv3::control {
   method name {}       { return [$myNode attr -default "" name] }
 
   method success {}    { 
+
+    # Controls that are disabled cannot be succesful:
+    if {[$myNode attr -default 0 disabled]} {return 0}
+
     if {[catch {$myNode attr name ; $myNode attr value}]} {
       return 0
     }
@@ -731,6 +755,11 @@ snit::widget ::hv3::control {
   #     on. If it is not "", evaluate the script configured as -clickcmd
   #
   method click {} {
+
+    # Controls that are disabled cannot be activated:
+    #
+    if {[$myNode attr -default 0 disabled]} return
+
     set cmd $options(-clickcmd)
     if {$cmd ne ""} {
       set myClicked 1
@@ -890,7 +919,7 @@ snit::type ::hv3::form {
 
   constructor {node} {
     set myFormNode $node
-    $node replace $self
+    $node replace $self -deletecmd [list $self destroy]
   }
 
   destructor { }
@@ -1262,7 +1291,7 @@ proc ::hv3::isindex_handler {hv3 attr script} {
   set PROMPT   $a(prompt)
   $loc destroy
 
-  return [subst {
+  $hv3 write text [subst {
     <hr>
     <form action="$LOCATION" method="ISINDEX">
       <p>

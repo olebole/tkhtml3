@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.7 2007/02/04 16:19:51 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.8 2007/04/23 17:31:16 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Core
@@ -122,7 +122,7 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.7 2007/02/04 16:19:5
   # document tree.
   #
   dom_get -cache childNodes {
-    set cmd [list $options(-hv3) node]]
+    set cmd [list $options(-hv3) node]
     list object [::hv3::DOM::NodeList %AUTO% $myDom -nodelistcmd $cmd]
   }
   dom_get firstChild {list object [$self Document_getChildNode]}

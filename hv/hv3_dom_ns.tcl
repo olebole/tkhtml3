@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.7 2007/04/22 11:32:18 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.8 2007/04/23 17:31:16 danielk1977 Exp $)} 1 }
 
 #---------------------------------
 # List of DOM objects in this file:
@@ -167,8 +167,6 @@ namespace eval ::hv3::dom {
 # Mixes in the EventTarget interface.
 #
 ::hv3::dom::type Window EventTarget {
-  variable myHv3
-  variable mySee
 
   dom_snit { 
     option -hv3 -default ""
@@ -182,7 +180,6 @@ namespace eval ::hv3::dom {
   # 
   #     Window.document
   #
-  # js_getobject document { ::hv3::dom::HTMLDocument %AUTO% $myDom $myHv3 }
   dom_get -cache document {
     list object [::hv3::DOM::HTMLDocument %AUTO% $myDom -hv3 $options(-hv3)]
   }
@@ -199,7 +196,7 @@ namespace eval ::hv3::dom {
   }
   dom_snit {
     method newImage {args} {
-      set node [$myHv3 fragment "<img>"]
+      set node [$options(-hv3) fragment "<img>"]
       list object [$myDom node_to_dom $node]
     }
   }
@@ -211,15 +208,15 @@ namespace eval ::hv3::dom {
   #     request = new XMLHttpRequest();
   #
   dom_todo XMLHttpRequest
-#  dom_get -cache XMLHttpRequest {
-#    set cons [mymethod newRequest]
-#    list object [::hv3::JavascriptObject %AUTO% $myDom -construct $cons]
-#  }
-#  dom_snit {
-#    method newRequest {args} {
-#      list object [::hv3::dom::XMLHttpRequest %AUTO% $myDom -hv3 $myHv3]
-#    }
-#  }
+  dom_get -cache XMLHttpRequest {
+    set cons [mymethod newRequest]
+    list object [::hv3::JavascriptObject %AUTO% $myDom -construct $cons]
+  }
+  dom_snit {
+    method newRequest {args} {
+      list object [::hv3::DOM::XMLHttpRequest %AUTO% $myDom -hv3 $options(-hv3)]
+    }
+  }
 
   dom_get -cache Node {
     set obj [::hv3::DOM::NodePrototype %AUTO% $myDom]
@@ -290,7 +287,7 @@ namespace eval ::hv3::dom {
     method CallTimer {timerid isRepeat ms code} {
       if {$timerid ne ""} {
         unset myTimerIds($timerid)
-        set rc [catch {$mySee eval -file setTimeout() $code} msg]
+        set rc [catch {$options(-see) eval -file setTimeout() $code} msg]
       }
   
       if {$timerid eq "" || $isRepeat} {

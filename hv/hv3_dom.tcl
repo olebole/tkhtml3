@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.39 2007/04/22 11:32:18 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.40 2007/04/23 17:31:16 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Global interfaces in this file:
@@ -477,13 +477,6 @@ snit::type ::hv3::dom {
   # This method is called when one an event of type $event occurs on the
   # document node $node. Argument $event is one of the following:
   #
-  #     onclick 
-  #     onmouseout 
-  #     onmouseover
-  #     onmouseup 
-  #     onmousedown 
-  #     onmousemove 
-  #     ondblclick
   #     onload
   #
   method event {event node} {
@@ -493,34 +486,42 @@ snit::type ::hv3::dom {
       # The Hv3 layer passes the <BODY> node along with the onload
       # event, but DOM Level 0 browsers raise this event against
       # the Window object (the onload attribute of a <BODY> element
-      # may be used to set the onload property of the corresponding 
+      # may be used to set the onload property of the corresponding
       # Window object).
       #
+      # According to "DOM Level 2 Events", the load event does not
+      # bubble and is not cancelable.
+      #
       set js_obj $myWindow
-    } else {
 
-      set script [$node attr -default "" $event]
-      if {$script ne ""} {
-        $self node_to_dom $node
-      }
-      if {![info exists myNodeToDom($node)]} {return ""}
-      set js_obj $myNodeToDom($node)
-    }
-
-    set eventobj [eval $js_obj Get [list $event]]
-    if {[lindex $eventobj 0] eq "object"} {
-      set ref [lindex $eventobj 1]
-      set this [list object $js_obj]
-      set rc [catch {eval $mySee $ref Call [list $this]} msg]
+      set rc [catch {
+        ::hv3::dom::dispatchLoadEvent $self $js_obj
+      } msg]
       if {$rc} {
         set name [string map {blob error} [$self NewFilename]]
-        $self Log "$node $event event" $name "event-handler" $rc $msg
+        $myLogData Log "$node $event event" $name "event-handler" $rc $msg
+        $myLogData Popup
       }
     }
   }
 
   # This method is called by the ::hv3::mousemanager object to 
-  # dispatch a mouse-event into DOM country.
+  # dispatch a mouse-event into DOM country. Argument $event
+  # is one of the following:
+  #
+  #     onclick 
+  #     onmouseout 
+  #     onmouseover
+  #     onmouseup 
+  #     onmousedown 
+  #     onmousemove 
+  #     ondblclick
+  #
+  # Argument $node is the Tkhtml node that the mouse-event is 
+  # to be dispatched against. $x and $y are the viewport coordinates
+  # as returned by the Tk [bind] commands %x and %y directives. Any
+  # addition arguments ($args) are passed through to 
+  # [::hv3::dom::dispatchMouseEvent].
   #
   method mouseevent {event node x y args} {
     if {$mySee eq ""} {return 1}
@@ -1120,7 +1121,6 @@ snit::widget ::hv3::dom::logwin {
 #
 source [file join [file dirname [info script]] hv3_dom_compiler.tcl]
 # source [file join [file dirname [info script]] hv3_style.tcl]
-source [file join [file dirname [info script]] hv3_dom_xmlhttp.tcl]
 
 #-----------------------------------------------------------------------
 # Initialise the scripting environment. This should basically load (or

@@ -4,9 +4,18 @@
 # DEFAULT BROWSER CONFIGURATION:
 #
 #     This should be edited for site-specific browsers. On SUSE linux
+#     the following works:
 #
 
-lappend BROWSERS Firefox {/usr/lib/firefox/firefox-bin}
+# lappend BROWSERS Firefox {/usr/lib/firefox/firefox-bin}
+
+lappend BROWSERS Firefox {/home/dan/sw/firefox/firefox-bin}
+
+if {![info exists env(LD_LIBRARY_PATH)]} {
+  set env(LD_LIBRARY_PATH) ""
+}
+set env(LD_LIBRARY_PATH) $env(LD_LIBRARY_PATH):/home/dan/sw/firefox/
+
 lappend BROWSERS Hv3     {./hwish ../htmlwidget/hv/hv3_main.tcl}
 lappend BROWSERS Opera   {opera -nosession}
 
@@ -211,15 +220,18 @@ namespace eval browsertest {
   
     # [exec] the browser. Load the /get_test URI initially.
     #
-after 500
+    after 500
     set doc_uri "http://127.0.0.1:$listen_port/get_test"
     set pid [eval exec $b($browser) [list $doc_uri] &]
 
     set timeout_msg "BROWSER TIMEOUT ($timeout ms)"
-    after $timeout [list set [namespace current]::test_result $timeout_msg]
+    set afterscript [list set [namespace current]::test_result $timeout_msg]
+    after $timeout $afterscript
   
     set test_result ""
     vwait [namespace current]::test_result
+
+    after cancel $afterscript
   
     # [kill] the browser process.
     #
@@ -305,6 +317,7 @@ proc main {args} {
   source [file join [file dirname [info script]] node.bt]
   source [file join [file dirname [info script]] events.bt]
   source [file join [file dirname [info script]] style.bt]
+  source [file join [file dirname [info script]] form.bt]
 }
 
 eval main $argv

@@ -1,4 +1,5 @@
 
+if 0 {_
 
 #------------------------------------------------------------------------
 # This is a "warm-body" test for the events module.
@@ -36,3 +37,4 @@
   return document.testlog
 } -expected "three two one"
 
+}

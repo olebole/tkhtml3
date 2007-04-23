@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.160 2007/04/22 14:09:02 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.161 2007/04/23 17:31:16 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -1097,7 +1097,7 @@ snit::widget ::hv3::hv3 {
     if {[llength $myCurrentDownloads] == 0} {
       $myHtml delay 0
       event generate $win <<Complete>>
- 
+
       set bodynode [$myHtml search body]
       $myDom event onload [lindex $bodynode 0]
     }

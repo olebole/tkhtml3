@@ -1,0 +1,42 @@
+
+#
+# The focus of this module is the HTMLFormElement object - the
+# thing created by a <FORM> tag in a document.
+#
+set ::Doc {
+  <HTML>
+    <BODY>
+     <FORM name=one>
+       <INPUT type=text name="i_one"></INPUT>
+       <INPUT type=text name="i_one"></INPUT>
+       <INPUT type=text name="i_two"></INPUT>
+       <INPUT type=text id="i_three"></INPUT>
+
+       <INPUT type=text name="i_four"></INPUT>
+       <INPUT type=text id="i_four"></INPUT>
+     </FORM>
+   </BODY>
+  </HTML>
+}
+
+# The reference to forms[0].i_one is a collection, because
+# there is more than one element named i_one.
+#
+::browsertest::do_test forms.1 -html $::Doc -javascript {
+  return document.forms[0].i_one
+} -expected 2 -browsers Firefox
+
+# But forms[0].i_two is the HTMLInputElement.
+#
+::browsertest::do_test forms.2 -html $::Doc -javascript {
+  return document.forms[0].i_two
+} -expected 1 -browsers Firefox
+
+::browsertest::do_test forms.3 -html $::Doc -javascript {
+  return document.forms[0].i_three
+} -expected 1 -browsers Firefox
+
+::browsertest::do_test forms.4 -html $::Doc -javascript {
+  return document.forms[0].i_four
+} -expected 1 -browsers Firefox
+

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.10 2007/04/18 19:36:03 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.11 2007/04/23 17:31:16 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # DOM Level 2 Events.
@@ -40,6 +40,7 @@ namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.10 2007/04/18 19:3
 set ::hv3::dom::HTML_Events_List [list                          \
   click dblclick mousedown mouseup mouseover mousemove mouseout \
   keypress keydown keyup focus blur submit reset select change  \
+  load
 ]
 
 proc ArgToBoolean {see a} {
@@ -233,34 +234,38 @@ proc ArgToBoolean {see a} {
     method doDispatchEvent {event} {
       set event_type [$event cget -eventtype]
       set isRun 0          ;# Set to true if one or more scripts are run.
+   
+      set isBubbling [$event bubbles]
 
       # Set the value of the Event.target property to this object.
       #
       $event configure -target $self
 
-      # Use the DOM Node.parentNode interface to determine the ancestry.
-      #
-      # Due to the strange nature of the browsers that came before us
-      # object $self may either implement class "Node" (core module) or 
-      # "Window" (ns module). In the "Window" case the parentNode property
-      # will always be NULL (empty string form - "").
-      #
-      set N [$self Get parentNode]
-      set nodes [list]
-      while {[lindex $N 0] eq "object"} {
-        set cmd [lindex $N 1]
-        lappend nodes $cmd
-        set N [$cmd Get parentNode]
-      }
-
-      # Capturing phase:
-      $event configure -eventphase 1
-      for {set ii [expr [llength $nodes] - 1]} {$ii >= 0} {incr ii -1} {
-        if {[$event stoppropagationcalled]} break
-        set node [lindex $nodes $ii]
-        
-        set rc [$node runEvent $event_type 1 $event]
-        if {$rc ne ""} {set isRun 1}
+      if {$isBubbling} {
+        # Use the DOM Node.parentNode interface to determine the ancestry.
+        #
+        # Due to the strange nature of the browsers that came before us
+        # object $self may either implement class "Node" (core module) or 
+        # "Window" (ns module). In the "Window" case the parentNode property
+        # will always be NULL (empty string form - "").
+        #
+        set N [$self Get parentNode]
+        set nodes [list]
+        while {[lindex $N 0] eq "object"} {
+          set cmd [lindex $N 1]
+          lappend nodes $cmd
+          set N [$cmd Get parentNode]
+        }
+  
+        # Capturing phase:
+        $event configure -eventphase 1
+        for {set ii [expr [llength $nodes] - 1]} {$ii >= 0} {incr ii -1} {
+          if {[$event stoppropagationcalled]} break
+          set node [lindex $nodes $ii]
+          
+          set rc [$node runEvent $event_type 1 $event]
+          if {$rc ne ""} {set isRun 1}
+        }
       }
 
       # Target phase:
@@ -273,15 +278,17 @@ proc ArgToBoolean {see a} {
         if {$rc ne ""} {set isRun 1}
       }
 
-      # Bubbling phase:
-      $event configure -eventphase 3
-      foreach node $nodes {
-        if {[$event stoppropagationcalled]} break
-        set rc [$node runEvent $event_type 0 $event]
-        if {"prevent" eq $rc} {
-          $event configure -preventdefault true
+      if {$isBubbling} {
+        # Bubbling phase:
+        $event configure -eventphase 3
+        foreach node $nodes {
+          if {[$event stoppropagationcalled]} break
+          set rc [$node runEvent $event_type 0 $event]
+          if {"prevent" eq $rc} {
+            $event configure -preventdefault true
+          }
+          if {$rc ne ""} {set isRun 1}
         }
-        if {$rc ne ""} {set isRun 1}
       }
 
       # If anyone called Event.preventDefault(), return "prevent". Otherwise,
@@ -353,6 +360,8 @@ proc ArgToBoolean {see a} {
 
     variable myCanBubble  1
     variable myCancelable 0
+
+    method bubbles {} {return $myCanBubble}
 
     method Event_initEvent {eventType canBubble cancelable} {
       set options(-eventtype)  $eventType
@@ -441,10 +450,8 @@ proc ArgToBoolean {see a} {
 }
 
 ::hv3::dom::type UIEvent {Event} {
-
   dom_call initUIEvent {THIS eventtype canBubble cancelable view detail} {
   }
-
 }
 
 # Recognised mouse event types.
@@ -459,14 +466,12 @@ set ::hv3::dom::MouseEventType(mouseover) 1
 set ::hv3::dom::MouseEventType(mousemove) 0
 set ::hv3::dom::MouseEventType(mouseout)  1
 
-# dispatchMouseEvent
+# dispatchMouseEvent --
 #
-#   Parameters:
-#
-#     dom         -> the ::hv3::dom object
-#     eventtype   -> One of the above event types, e.g. "click".
-#     EventTarget -> The DOM object implementing the EventTarget interface
-#     x, y        -> Widget coordinates for the event
+#     $dom         -> the ::hv3::dom object
+#     $eventtype   -> One of the above event types, e.g. "click".
+#     $EventTarget -> The DOM object implementing the EventTarget interface
+#     $x, $y       -> Widget coordinates for the event
 #
 proc ::hv3::dom::dispatchMouseEvent {dom eventtype EventTarget x y extra} {
 
@@ -481,4 +486,19 @@ proc ::hv3::dom::dispatchMouseEvent {dom eventtype EventTarget x y extra} {
   $dom setWindowEvent $evt
 }
 
+# dispatchLoadEvent --
+#
+#     $dom         -> the ::hv3::dom object
+#     $EventTarget -> The DOM object implementing the EventTarget interface
+#
+#     Dispatch an "onload" event.
+#
+proc ::hv3::dom::dispatchLoadEvent {dom EventTarget} {
+  set event [::hv3::DOM::Event %AUTO% $dom]
+  $event Event_initEvent load 0 0
+
+  set evt [$dom setWindowEvent $event]
+  $EventTarget doDispatchEvent $event
+  $dom setWindowEvent $evt
+}
 

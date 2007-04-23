@@ -638,7 +638,7 @@
 [Code {
 			Option                   Default Value
 			--------------------------------------
-			-deletecmd    <script>   "destroy <window>"
+			-deletecmd    <script>   ""
 			-configurecmd <script>   ""
 			-stylecmd     <script>   ""
 }]

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_frameset.tcl,v 1.11 2007/01/06 09:47:59 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_frameset.tcl,v 1.12 2007/04/23 17:31:16 danielk1977 Exp $)} 1 }
 
 # This file contains code for implementing HTML frameset documents in Hv3. 
 #
@@ -84,8 +84,11 @@ namespace eval hv3 {
     $panel configure -name [$node attr -default "" name]
 
     set hv3 [$panel hv3]
-    $node replace $panel -configurecmd [list ::hv3::iframe_configure $hv3 $node]
-    iframe_configure $hv3 $node ""
+
+    set cfg [list ::hv3::iframe_configure $hv3 $node]
+    set del [list destroy $panel]
+    $node replace $panel -configurecmd $cfg -deletecmd $del
+    ::hv3::iframe_configure $hv3 $node ""
 
     $panel goto $uri
   }

@@ -116,6 +116,13 @@ namespace eval tkhtml {
 
         return "${size}${units}"
     }
+
+    proc if_disabled {if else} {
+      upvar N node
+      set disabled [$node attr -default 0 disabled]
+      if {$disabled} {return $if}
+      return $else
+    }
     
     # The following two procs are used to determine the width and height of
     # <textarea> markups. Technically speaking, the "cols" and "rows"
