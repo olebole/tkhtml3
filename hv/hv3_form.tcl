@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.53 2007/04/24 13:12:22 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.54 2007/04/24 17:19:22 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -58,6 +58,163 @@ source [file join [file dirname [info script]] combobox.tcl]
 #     ::hv3::formmanager
 #
 
+# Standard controls interface:
+#
+#         formsreport
+#         name
+#         value
+#         success
+#         filename
+#         stylecmd
+#         reset
+#
+#         -formnode
+#         get_text_widget
+#         configurecmd
+#
+#     -formnode, get_text_widget and configurecmd will be removed 
+#     sooner or later.
+#
+# DOM HTMLInputElement interface:
+#
+#         dom_checked
+#         dom_value
+#         dom_select
+#         dom_focus
+#         dom_blur
+#         dom_click
+#
+
+
+#--------------------------------------------------------------------------
+# ::hv3::forms::checkbox 
+#
+#     Object for controls created elements of the following form:
+#    
+#         <INPUT type="checkbox">
+#
+::snit::widgetadaptor ::hv3::forms::checkbox {
+
+  variable mySuccess 0        ;# -variable for checkbutton widget
+  variable myNode             ;# Tkhtml <INPUT> node
+
+  option -formnode -default ""
+
+  delegate option * to hull
+  delegate method * to hull
+
+  constructor {node bindtag args} {
+    installhull [checkbutton $win]
+    $hull configure -variable [myvar mySuccess]
+    $hull configure -highlightthickness 0 -pady 0 -padx 0 -borderwidth 0
+    set myNode $node
+    bindtags $self [concat $bindtag [bindtags $self]]
+    $self reset
+  }
+
+  # Generate html for the "HTML Forms" tab of the tree-browser.
+  #
+  method formsreport {} { return {<i color=red>TODO</i>} }
+
+  # This method is called during form submission to determine the 
+  # name of the control. It returns the value of the Html "name" 
+  # attribute. Or, failing that, an empty string.
+  #
+  method name {} { return [$myNode attr -default "" name] }
+
+  # This method is called during form submission to determine the 
+  # value of the control. It returns the value of the Html "value" 
+  # attribute. Or, failing that, an empty string.
+  #
+  method value {} { return [$myNode attr -default "" value] }
+
+  # True if the control is considered successful for the purposes
+  # of submitting this form.
+  #
+  method success {} { return [expr {$mySuccess && [$self name] ne ""}] }
+
+  # Empty string. This method is only implemented by 
+  # <INPUT type="file"> controls.
+  #
+  method filename {} { return "" }
+
+  # Reset the state of the control.
+  #
+  method reset {} { 
+    set mySuccess [expr [catch {$myNode attr checked}] ? 0 : 1]
+  }
+
+  # TODO: Remove this.
+  method get_text_widget {} { return "" }
+
+  # TODO: The sole purpose of this is to return a linebox offset...
+  method configurecmd {values} { 
+    set font [$hull cget -font]
+    set descent [font metrics $font -descent]
+    set ascent  [font metrics $font -ascent]
+    expr {([winfo reqheight $win] + $descent - $ascent) / 2}
+  }
+
+  method stylecmd {} {
+    set N $myNode
+    set bg "transparent"
+    while {$bg eq "transparent" && $N ne ""} {
+      set bg [$N property background-color]
+      set N [$N parent]
+    }
+    if {$bg eq "transparent"} {set bg white}
+    catch {
+      $hull configure -bg $bg
+      $hull configure -highlightbackground $bg
+      $hull configure -activebackground $bg
+      $hull configure -highlightcolor $bg
+    }
+  }
+
+  #---------------------------------------------------------------------
+  # START OF DOM FUNCTIONALITY
+  #
+  # Below this point are some methods used by the DOM class 
+  # HTMLInputElement. None of this is used unless scripting is enabled.
+  #
+
+  # Get/set on the DOM "checked" attribute. This means the state 
+  # of control (1==checked, 0==not checked) for this type of object.
+  #
+  method dom_checked {args} {
+    if {[llength $args]>0} {
+      set mySuccess [expr {[lindex $args 0] ? 1 : 0}]
+    }
+    return $mySuccess
+  }
+
+  # DOM Implementation does not call this. HTMLInputElement.value is
+  # the "value" attribute of the HTML element for this type of object.
+  #
+  method dom_value {args} { error "N/A" }
+
+  # HTMLInputElement.select() is a no-op for this kind of object. It
+  # contains no text so there is nothing to select...
+  #
+  method dom_select  {} {}
+
+  # Hv3 will not support keyboard access to checkboxes. Until
+  # this changes these can be no-ops :)
+  method dom_focus {} {}
+  method dom_blur  {} {}
+
+  # Generate a synthetic click. This same trick can be used for <INPUT>
+  # elements with "type" set to "Button", "Radio", "Reset", or "Submit".
+  #
+  method dom_click {} {
+    set x [expr [winfo width $win]/2]
+    set y [expr [winfo height $win]/2]
+    event generate $win <ButtonPress-1> -x $x -y $y
+    event generate $win <ButtonRelease-1> -x $x -y $y
+  }
+}
+
+
 # ::hv3::fileselect
 #
 snit::widget ::hv3::fileselect {
@@ -115,128 +272,6 @@ snit::widget ::hv3::fileselect {
   method filename {} {
     set fname [${win}.entry get]
     return [file tail $fname]
-  }
-}
-
-#--------------------------------------------------------------------------
-# ::hv3::forms::checkbox 
-#
-#     Object for controls created elements of the following form:
-#    
-#         <INPUT type="checkbox">
-#
-::snit::widgetadaptor ::hv3::forms::checkbox {
-
-  variable mySuccess 0        ;# -variable for checkbutton widget
-  variable myNode             ;# Tkhtml <INPUT> node
-
-  option -formnode -default ""
-
-  delegate option * to hull
-  delegate method * to hull
-
-  constructor {node args} {
-    installhull [checkbutton $win]
-    set myNode $node
-
-    $hull configure -variable [myvar mySuccess]
-    set mySuccess [expr [catch {$myNode attr checked}] ? 0 : 1]
-  }
-
-  # Generate html for the "HTML Forms" tab of the tree-browser.
-  #
-  method formsreport {} { return {<i color=red>TODO</i>} }
-
-  # This method is called during form submission to determine the 
-  # name of the control. It returns the value of the Html "name" 
-  # attribute. Or, failing that, an empty string.
-  #
-  method name {} { return [$myNode attr -default "" name] }
-
-  # This method is called during form submission to determine the 
-  # value of the control. It returns the value of the Html "value" 
-  # attribute. Or, failing that, an empty string.
-  #
-  method value {} { return [$myNode attr -default "" value] }
-
-  # True if the control is considered successful for the purposes
-  # of submitting this form.
-  #
-  method success {} { return [expr {$mySuccess && [$self name] ne ""}] }
-
-  # Empty string. This method is only implemented by 
-  # <INPUT type="file"> controls.
-  #
-  method filename {} { return "" }
-
-  # TODO: Remove this.
-  method get_text_widget {} { return "" }
-
-  # TODO: Remove this.
-  method configurecmd {values} { 
-    set font [$hull cget -font]
-    set descent [font metrics $font -descent]
-    set ascent  [font metrics $font -ascent]
-    expr {([winfo reqheight $win] + $descent - $ascent) / 2}
-  }
-
-  method stylecmd {} {
-    $hull configure -highlightthickness 0 -pady 0 -padx 0 -borderwidth 0
-    set N $myNode
-    set bg "transparent"
-    while {$bg eq "transparent" && $N ne ""} {
-      set bg [$N property background-color]
-      set N [$N parent]
-    }
-    if {$bg eq "transparent"} {set bg white}
-    catch {
-      $hull configure -bg $bg
-      $hull configure -highlightbackground $bg
-      $hull configure -activebackground $bg
-      $hull configure -highlightcolor $bg
-    }
-  }
-
-  #---------------------------------------------------------------------
-  # START OF DOM FUNCTIONALITY
-  #
-  # Below this point are some methods used by the DOM class 
-  # HTMLInputElement. None of this is used unless scripting is enabled.
-  #
-
-  # Get/set on the DOM "checked" attribute. This means the state 
-  # of control (1==checked, 0==not checked) for this type of object.
-  #
-  method dom_checked {args} {
-    if {[llength $args]>0} {
-      set mySuccess [expr {[lindex $args 0] ? 1 : 0}]
-    }
-    return $mySuccess
-  }
-
-  # DOM Implementation does not call this. HTMLInputElement.value is
-  # the "value" attribute of the HTML element for this type of object.
-  #
-  method dom_value {args} { error "N/A" }
-
-  # HTMLInputElement.select() is a no-op for this kind of object. It
-  # contains no text so there is nothing to select...
-  #
-  method dom_select  {} {}
-
-  # Hv3 will not support keyboard access to checkboxes. Until
-  # this changes these can be no-ops :)
-  method dom_focus {} {}
-  method dom_blur  {} {}
-
-  # Generate a synthetic click. This same trick can be used for <INPUT>
-  # elements with "type" set to "Button", "Radio", "Reset", or "Submit".
-  #
-  method dom_click {} {
-    set x [expr [winfo width $win]/2]
-    set y [expr [winfo height $win]/2]
-    event generate $win <ButtonPress-1> -x $x -y $y
-    event generate $win <ButtonRelease-1> -x $x -y $y
   }
 }
 
@@ -336,7 +371,6 @@ snit::widget ::hv3::control {
   typevariable INPUT_TYPE -array [list \
       text     Entry    \
       password Password \
-      checkbox Checkbox \
       radio    Radio    \
       file     File     \
   ]
@@ -348,7 +382,7 @@ snit::widget ::hv3::control {
   # TODO: Maybe "hidden" should too?
   #
 
-  constructor {node args} {
+  constructor {node bindtag args} {
     set myControlNode $node
 
     # Call one of the following methods to initialise the myWidget and
@@ -366,9 +400,9 @@ snit::widget ::hv3::control {
         # depending on the value of the "type" attribute. The default value
         # of "type" is "text".
         #
-        # The "type" attribute is case independant. Code like <INPUT
-        # type="checkBox"> works (first example of this in the wild found 
-        # in w3c javascript tutorials).
+        # The "type" attribute is case independent. Code like 
+	# <INPUT type="checkBox"> works (first example of this in the wild
+	# found in w3c javascript tutorials).
         #
         set type [string tolower [$node attr -default text type]]
         catch { set myWidgetType $INPUT_TYPE($type) }
@@ -395,6 +429,7 @@ snit::widget ::hv3::control {
     $hull configure -borderwidth 0 -pady 0 -padx 0
 
     $self configurelist $args
+    bindtags $myWidget [concat $bindtag [bindtags $myWidget]]
   }
 
   destructor { 
@@ -594,6 +629,30 @@ snit::widget ::hv3::control {
     set cmd $options(-submitcmd)
     if {$cmd ne ""} {
       eval $cmd
+    }
+  }
+
+  # Reset the state of the control.
+  #
+  method reset {} { 
+    set class [winfo class $myWidget]
+
+    switch -- $class {
+      Entry {
+        set myValue [$myControlNode attr -default "" value]
+      }
+      Text {
+        $myWidget delete 0.0 end
+        set contents ""
+        foreach child [$myControlNode children] {
+          append contents [$child text -pre]
+        }
+        $myWidget insert 0.0 $contents
+      }
+
+      default {
+        puts "TODO: Reset control class $class"
+      }
     }
   }
 
@@ -923,6 +982,8 @@ snit::widget ::hv3::control {
     append report "</p>"
     return $report
   }
+
+  method reset {} { # no-op }
 }
 
 #-----------------------------------------------------------------------
@@ -1060,11 +1121,16 @@ snit::type ::hv3::form {
   }
 
   method reset {} {
-    error "TODO: ::hv3::form::reset is not yet implemented"
+    foreach c $myControlNodes {
+      [$c replace] reset
+    }
   }
 
   method submit {submitcontrol} {
-    # puts "FORM SUBMIT:"
+
+    # Before doing anything, execute the onsubmit event 
+    # handlers, if any.
+
     set data [list]
 
     if {
@@ -1303,20 +1369,18 @@ snit::type ::hv3::formmanager {
       }
 
       input.checkbox {
-        set control [::hv3::forms::checkbox $zWinPath $node]
         set hv3 [winfo parent [winfo parent $myHtml]]
+        set control [::hv3::forms::checkbox $zWinPath $node $hv3]
       }
 
       default {
-        set control [::hv3::control $zWinPath $node]
+        set hv3 [winfo parent [winfo parent $myHtml]]
+puts $hv3
+        set control [::hv3::control $zWinPath $node $hv3]
         if {$form ne ""} {
           $control configure -submitcmd [list $form submit $control]
         }
       }
-    }
-
-    catch {
-      bindtags $control [concat $hv3 [bindtags $control]]
     }
 
     $node replace $control                         \
