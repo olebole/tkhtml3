@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.161 2007/04/23 17:31:16 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.162 2007/04/24 13:12:22 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -250,9 +250,9 @@ snit::type ::hv3::hv3::mousemanager {
     }
 
     set myHv3 $hv3
-    bind $myHv3 <Motion>          "+[mymethod Motion %x %y]"
-    bind $myHv3 <ButtonPress-1>   "+[mymethod Press %x %y]"
-    bind $myHv3 <ButtonRelease-1> "+[mymethod Release %x %y]"
+    bind $myHv3 <Motion>          "+[mymethod Motion  %W %x %y]"
+    bind $myHv3 <ButtonPress-1>   "+[mymethod Press   %W %x %y]"
+    bind $myHv3 <ButtonRelease-1> "+[mymethod Release %W %x %y]"
   }
 
   method subscribe {event script} {
@@ -295,7 +295,18 @@ snit::type ::hv3::hv3::mousemanager {
     }
   }
 
-  method Motion {x y} {
+  proc AdjustCoords {to W xvar yvar} {
+    upvar $xvar x
+    upvar $yvar y
+    while {$W ne $to} {
+      incr x [winfo x $W]
+      incr y [winfo y $W]
+      set W [winfo parent $W]
+    }
+  }
+
+  method Motion {W x y} {
+    AdjustCoords "${myHv3}.html.widget" $W x y
 
     # Figure out the node the cursor is currently hovering over. Todo:
     # When the cursor is over multiple nodes (because overlapping content
@@ -364,11 +375,9 @@ snit::type ::hv3::hv3::mousemanager {
     $self GenerateEvents $eventlist
   }
 
-
-  method Press {x y} {
-
+  method Press {W x y} {
+    AdjustCoords "${myHv3}.html.widget" $W x y
     set N [lindex [$myHv3 node $x $y] end]
-  
     if {$N ne ""} {
       if {[$N tag] eq ""} {set N [$N parent]}
     }
@@ -393,7 +402,8 @@ snit::type ::hv3::hv3::mousemanager {
     $self GenerateEvents $eventlist
   }
 
-  method Release {x y} {
+  method Release {W x y} {
+    AdjustCoords "${myHv3}.html.widget" $W x y
     set N [lindex [$myHv3 node $x $y] end]
     if {$N ne ""} {
       if {[$N tag] eq ""} {set N [$N parent]}

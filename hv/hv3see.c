@@ -1,4 +1,3 @@
-
 /*
  * hv3see.c --
  *
@@ -16,7 +15,6 @@
  *
  * TODO: Copyright.
  */
-
 
 /*-------------------------------------------------------------------------- 
  *                         Interpreter Interface
@@ -215,6 +213,14 @@ struct SeeInterp {
      */
     char *zGlobal;
 
+    /* Debugger related stuff. If not NULL, pTrace is the tcl script 
+     * to invoke from within the SEE trace-callback. While the pTrace
+     * script is executing, pTraceContext is set to a copy of the
+     * SEE_context passed to the trace-callback.
+     */
+    Tcl_Obj *pTrace;
+    struct SEE_context *pTraceContext;
+
     /* Linked list of SeeJsObject structures that will be removed from
      * the aJsObject[] table next time removeTransientRefs() is called.
      */
@@ -222,7 +228,6 @@ struct SeeInterp {
     SeeJsObject *pJsObject;
 };
 static int iSeeInterp = 0;
-
 
 /* Each javascript object created by the Tcl-side is represented by
  * an instance of the following struct.
@@ -915,7 +920,15 @@ delInterpCmd(clientData)
     ClientData clientData;             /* The SeeInterp data structure */
 {
     SeeInterp *pTclSeeInterp = (SeeInterp *)clientData;
+    if (pTclSeeInterp->pTrace) {
+        Tcl_DecrRefCount(pTclSeeInterp->pTrace);
+        pTclSeeInterp->pTrace = 0;
+    }
+
+    /* Try to make garbage collection happen now. */
+    memset(pTclSeeInterp, 0, sizeof(SeeInterp));
     SEE_gcollect(&pTclSeeInterp->interp);
+
     GC_FREE(pTclSeeInterp);
 }
 
@@ -1006,6 +1019,7 @@ interpCmd(clientData, pTclInterp, objc, objv)
         INTERP_DESTROY,
         INTERP_GLOBAL,
         INTERP_TOSTRING,
+        INTERP_TRACE,
         INTERP_EVENTTARGET,
     };
 
@@ -1021,6 +1035,7 @@ interpCmd(clientData, pTclInterp, objc, objv)
         {"eventtarget", INTERP_EVENTTARGET, 0, 0, ""},
         {"global",      INTERP_GLOBAL,      1, 1, "TCL-COMMAND"},
         {"tostring",    INTERP_TOSTRING,    1, 1, "JAVASCRIPT-VALUE"},
+        {"trace",       INTERP_TRACE,       0, 1, "?TCL-COMMAND?"},
         {0, 0, 0, 0}
     };
 
@@ -1110,9 +1125,75 @@ interpCmd(clientData, pTclInterp, objc, objv)
         case INTERP_EVENTTARGET: {
             return eventTargetNew(clientData, pTclInterp, objc, objv);
         }
+
+        /*
+         * $interp trace ?TCL-COMMAND?
+         *
+	 *   Set or clear the javascript-trace callback. See the 
+         *   implementation of function seeTraceHook() for details.
+         */
+        case INTERP_TRACE: {
+            assert(objc == 3 || objc== 2);
+            if (pTclSeeInterp->pTrace) {
+                Tcl_DecrRefCount(pTclSeeInterp->pTrace);
+                pTclSeeInterp->pTrace = 0;
+            }
+            if (objc == 3){
+                pTclSeeInterp->pTrace = objv[2];
+                Tcl_IncrRefCount(pTclSeeInterp->pTrace);
+            }
+            break;
+        }
     }
 
     return rc;
+}
+
+static void
+seeTraceHook(pSeeInterp, pThrowLoc, pContext, event)
+    struct SEE_interpreter *pSeeInterp;
+    struct SEE_throw_location *pThrowLoc;
+    struct SEE_context *pContext;
+    enum SEE_trace_event event;
+{
+    SeeInterp *pTclSee = (SeeInterp *)pSeeInterp;
+    if (pTclSee->pTrace) {
+        const int evalflags = (TCL_EVAL_DIRECT|TCL_EVAL_GLOBAL);
+        const char *zEvent = "N/A";
+        struct SEE_context *pSavedContext;
+        int rc;
+
+        Tcl_Obj *pEval = Tcl_DuplicateObj(pTclSee->pTrace);
+        Tcl_IncrRefCount(pEval);
+
+        switch (event) {
+            case SEE_TRACE_CALL:      zEvent = "call";      break;
+            case SEE_TRACE_RETURN:    zEvent = "return";    break;
+            case SEE_TRACE_STATEMENT: zEvent = "statement"; break;
+            case SEE_TRACE_THROW:     zEvent = "throw";     break;
+        }
+        Tcl_ListObjAppendElement(0, pEval, Tcl_NewStringObj(zEvent, -1));
+
+        if (pThrowLoc->filename) {
+            Tcl_ListObjAppendElement(0, pEval, Tcl_NewUnicodeObj(
+                pThrowLoc->filename->data, pThrowLoc->filename->length
+            ));
+        } else {
+            Tcl_ListObjAppendElement(0, pEval, Tcl_NewObj());
+        }
+
+        Tcl_ListObjAppendElement(0, pEval, Tcl_NewIntObj(pThrowLoc->lineno));
+
+        pSavedContext = pTclSee->pTraceContext;
+        pTclSee->pTraceContext = pContext;
+        rc = Tcl_EvalObjEx(pTclSee->pTclInterp, pEval, evalflags);
+        if (rc != TCL_OK) {
+            Tcl_BackgroundError(pTclSee->pTclInterp);
+        }
+        pTclSee->pTraceContext = pSavedContext;
+
+        Tcl_DecrRefCount(pEval);
+    }
 }
 
 /*
@@ -1151,6 +1232,7 @@ tclSeeInterp(clientData, interp, objc, objv)
     SEE_interpreter_init_compat(&pInterp->interp, 
         SEE_COMPAT_JS15|SEE_COMPAT_SGMLCOM
     );
+    pInterp->interp.trace = seeTraceHook;
 
     /* Initialise the pTclInterp field. */
     pInterp->pTclInterp = interp;

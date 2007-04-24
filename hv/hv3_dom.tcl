@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.40 2007/04/23 17:31:16 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.41 2007/04/24 13:12:22 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Global interfaces in this file:
@@ -388,7 +388,6 @@ snit::type ::hv3::dom {
     }
   }
 
-
   method NewFilename {} {
     return "blob[incr myNextCodeblockNumber]"
   }
@@ -667,9 +666,31 @@ snit::type ::hv3::dom::logscript {
 }
 
 snit::type ::hv3::dom::logdata {
+
+  # Handle for associated (owner) ::hv3::dom object.
+  #
   variable myDom ""
+
+  # Ordered list of ::hv3::dom::logscript objects. The scripts 
+  # that make up the application being debugged.
+  #
   variable myLogScripts [list]
+
+  # Name of top-level debugging GUI window. At any time, this window
+  # may or may not exist. This object is responsible for creating
+  # it when it is required.
+  #
   variable myWindow ""
+
+  # Array of breakpoints set in the script. The array key is
+  # "${zFilename}:${iLine}". i.e. to test if there is a breakpoint
+  # in file "blob4" line 10, do:
+  #
+  #     if {[info exists myBreakpoints(blob4.10)]} {
+  #         ... breakpoint processing ...
+  #     }
+  #
+  variable myBreakpoints -array [list]
 
   constructor {dom} {
     set myDom $dom
@@ -688,6 +709,9 @@ snit::type ::hv3::dom::logdata {
       $ls destroy
     }
     set myLogScripts [list]
+    array unset myBreakpoints
+
+    [$myDom see] trace [mymethod SeeTrace]
   }
 
   method Popup {} {
@@ -715,6 +739,14 @@ snit::type ::hv3::dom::logdata {
 
   method BrowseToNode {node} {
     ::HtmlDebug::browse [$myDom hv3] $node
+  }
+
+  method SeeTrace {eEvent zFilename iLine} {
+    if {$eEvent eq "statement"} {
+      # See if there is a breakpoint set at this line:
+      if {[info exists myBreakpoints(${zFilename}:$iLine)]} {
+      }
+    }
   }
 }
 

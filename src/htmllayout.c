@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.246 2007/04/10 17:29:01 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.247 2007/04/24 13:12:22 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -3701,7 +3701,7 @@ doConfigureCmd(pTree, pElem, iContaining)
     Tcl_Obj *pConfigure;                           /* -configurecmd script */
 
     assert(pElem && pElem->pReplacement);
-    pConfigure = pElem->pReplacement->pConfigure;
+    pConfigure = pElem->pReplacement->pConfigureCmd;
     pElem->pReplacement->iOffset = 0;
 
     if (pConfigure) {

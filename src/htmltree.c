@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.125 2007/04/23 17:31:16 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.126 2007/04/24 13:12:22 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -207,7 +207,7 @@ clearReplacement(pTree, pElem)
         /* Delete the Tcl_Obj's and the structure itself. */
         if (p->pDelete) Tcl_DecrRefCount(p->pDelete);
         if (p->pReplace) Tcl_DecrRefCount(p->pReplace);
-        if (p->pConfigure) Tcl_DecrRefCount(p->pConfigure);
+        if (p->pConfigureCmd) Tcl_DecrRefCount(p->pConfigureCmd);
         HtmlFree(p);
     }
 }
@@ -2420,9 +2420,9 @@ node_attr_usage:
 
                     pReplace = HtmlNew(HtmlNodeReplacement);
                     pReplace->pReplace = aArgs[0];
-                    pReplace->pConfigure = aArgs[1];
+                    pReplace->pConfigureCmd = aArgs[1];
                     pReplace->pDelete = aArgs[2];
-                    pReplace->pStyle = aArgs[3];
+                    pReplace->pStyleCmd = aArgs[3];
                     pReplace->win = widget;
                 }
 

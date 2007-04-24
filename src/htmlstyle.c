@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlstyle.c,v 1.51 2007/04/06 16:22:26 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlstyle.c,v 1.52 2007/04/24 13:12:22 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -540,10 +540,9 @@ styleNode(pTree, pNode, clientData)
         /* If there has been a style-callback configured (-stylecmd option to
          * the [nodeHandle replace] command) for this node, invoke it now.
          */
-        if (pElem->pReplacement && pElem->pReplacement->pStyle) {
-            int rc = Tcl_EvalObjEx(
-                pTree->interp, pElem->pReplacement->pStyle, TCL_EVAL_GLOBAL
-            );
+        if (pElem->pReplacement && pElem->pReplacement->pStyleCmd) {
+            Tcl_Obj *pCmd = pElem->pReplacement->pStyleCmd;
+            int rc = Tcl_EvalObjEx(pTree->interp, pCmd, TCL_EVAL_GLOBAL);
             if (rc != TCL_OK) {
                 Tcl_BackgroundError(pTree->interp);
             }
