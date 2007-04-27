@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.11 2007/04/23 17:31:16 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.12 2007/04/27 10:47:19 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # DOM Level 2 Events.
@@ -486,19 +486,35 @@ proc ::hv3::dom::dispatchMouseEvent {dom eventtype EventTarget x y extra} {
   $dom setWindowEvent $evt
 }
 
-# dispatchLoadEvent --
+# Recognised HTML event types.
+#
+#     Mapping is from the event-type to the value of the "cancelable"
+#     property of the DOM Event object.
+#
+set ::hv3::dom::HtmlEventType(load)     0
+set ::hv3::dom::HtmlEventType(submit)   1
+
+# dispatchHtmlEvent --
 #
 #     $dom         -> the ::hv3::dom object
 #     $EventTarget -> The DOM object implementing the EventTarget interface
 #
-#     Dispatch an "onload" event.
+#     Dispatch one of the following events:
 #
-proc ::hv3::dom::dispatchLoadEvent {dom EventTarget} {
+#       load
+#       submit
+#
+proc ::hv3::dom::dispatchHtmlEvent {dom type EventTarget} {
+  set cancelable $::hv3::dom::HtmlEventType($type)
   set event [::hv3::DOM::Event %AUTO% $dom]
-  $event Event_initEvent load 0 0
+  $event Event_initEvent $type 0 $cancelable
 
   set evt [$dom setWindowEvent $event]
-  $EventTarget doDispatchEvent $event
+  set rc [$EventTarget doDispatchEvent $event]
   $dom setWindowEvent $evt
+
+  # TODO: Memory management for the event object.
+
+  return $rc
 }
 

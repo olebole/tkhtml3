@@ -2301,8 +2301,8 @@ eventTargetMethod(clientData, interp, objc, objv)
         case ET_RUNEVENT: {
             ListenerContainer *pL;
 
-            /* The result of this Tcl command. eRes is set to an index
-             * into azRes. 
+            /* The result of this Tcl command. eRes is set to an 
+             * index into azRes. 
              */
             char const *azRes[] = {"", "ok", "prevent"};
             int eRes = 0;

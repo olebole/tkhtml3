@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.55 2007/04/27 06:57:10 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.56 2007/04/27 10:47:19 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -1082,8 +1082,9 @@ proc ::hv3::escape_string {string} {
 #           Return a list of nodes that create controls associated with
 #           this <FORM> object (i.e. everything added via [add_control]).
 #
-#       dump 
-#           For debugging only.
+#       formsreport 
+#           For the tree-browser. Return a nicely formatted HTML report
+#           summarizing the form state.
 #    
 snit::type ::hv3::form {
 
@@ -1097,11 +1098,14 @@ snit::type ::hv3::form {
   # Subset of control elements storing all <input type=submit> controls
   variable mySubmitControls [list]
 
+  variable myHv3
+
   option -getcmd  -default ""
   option -postcmd -default ""
 
-  constructor {node} {
+  constructor {node hv3} {
     set myFormNode $node
+    set myHv3 $hv3
     $node replace $self -deletecmd [list $self destroy]
   }
 
@@ -1129,7 +1133,11 @@ snit::type ::hv3::form {
   method submit {submitcontrol} {
 
     # Before doing anything, execute the onsubmit event 
-    # handlers, if any.
+    # handlers, if any. If the submit handler script returns
+    # false, do not submit the form. Otherwise, proceed.
+    #
+    set rc [[$myHv3 dom] event onsubmit $myFormNode]
+    if {$rc eq "prevent"} return
 
     set data [list]
 
@@ -1213,17 +1221,6 @@ snit::type ::hv3::form {
       set exec [concat $script [list $myFormNode $action $querytype $querydata]]
       eval $exec
     }
-  }
-
-  method dump {} {
-    set action [$myFormNode attr -default "" action]
-    set method [$myFormNode attr -default "" method]
-    set ret "[string toupper $method] $action\n"
-    foreach controlnode $myControlNodes {
-      set control [$controlnode replace]
-      append ret "        [$control dump]\n"
-    }
-    return $ret
   }
 
   method formsreport {} {
@@ -1322,7 +1319,7 @@ snit::type ::hv3::formmanager {
   #     A Tkhtml parse-handler for <form> and </form> tags.
   method FormHandler {node offset} {
     set myParsedForm $node
-    set myForms($node) [::hv3::form %AUTO% $node]
+    set myForms($node) [::hv3::form %AUTO% $node $myHv3]
     $myForms($node) configure -getcmd $options(-getcmd)
     $myForms($node) configure -postcmd $options(-postcmd)
   }

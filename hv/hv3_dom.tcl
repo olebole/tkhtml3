@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.42 2007/04/27 06:57:10 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.43 2007/04/27 10:47:19 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Global interfaces in this file:
@@ -477,11 +477,16 @@ snit::type ::hv3::dom {
   # document node $node. Argument $event is one of the following:
   #
   #     onload
+  #     onsubmit
   #
   method event {event node} {
     if {$mySee eq ""} {return ""}
 
-    if {$event eq "onload"} {
+    # Strip off the "on", if present. i.e. "onsubmit" -> "submit"
+    #
+    if {[string first on $event]==0} {set event [string range $event 2 end]}
+
+    if {$event eq "load"} {
       # The Hv3 layer passes the <BODY> node along with the onload
       # event, but DOM Level 0 browsers raise this event against
       # the Window object (the onload attribute of a <BODY> element
@@ -492,16 +497,20 @@ snit::type ::hv3::dom {
       # bubble and is not cancelable.
       #
       set js_obj $myWindow
-
-      set rc [catch {
-        ::hv3::dom::dispatchLoadEvent $self $js_obj
-      } msg]
-      if {$rc} {
-        set name [string map {blob error} [$self NewFilename]]
-        $myLogData Log "$node $event event" $name "event-handler" $rc $msg
-        $myLogData Popup
-      }
+    } else {
+      set js_obj [$self node_to_dom $node]
     }
+
+    set rc [catch {
+      ::hv3::dom::dispatchHtmlEvent $self $event $js_obj
+    } msg]
+    if {$rc} {
+      set name [string map {blob error} [$self NewFilename]]
+      $myLogData Log "$node $event event" $name "event-handler" $rc $msg
+      $myLogData Popup
+    }
+
+    return $msg
   }
 
   # This method is called by the ::hv3::mousemanager object to 
