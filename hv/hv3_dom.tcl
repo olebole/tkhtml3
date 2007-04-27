@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.41 2007/04/24 13:12:22 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.42 2007/04/27 06:57:10 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Global interfaces in this file:
@@ -355,7 +355,7 @@ snit::type ::hv3::dom {
   # Return true if the Tclsee extension is available and 
   # the user has foolishly enabled it.
   method HaveScripting {} {
-    return $options(-enable)
+    return [expr {$options(-enable) && [info commands ::see::interp] ne ""}]
   }
 
   method reset {} {

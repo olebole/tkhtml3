@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.54 2007/04/24 17:19:22 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.55 2007/04/27 06:57:10 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -1375,7 +1375,6 @@ snit::type ::hv3::formmanager {
 
       default {
         set hv3 [winfo parent [winfo parent $myHtml]]
-puts $hv3
         set control [::hv3::control $zWinPath $node $hv3]
         if {$form ne ""} {
           $control configure -submitcmd [list $form submit $control]

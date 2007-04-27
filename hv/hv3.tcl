@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.162 2007/04/24 13:12:22 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.163 2007/04/27 06:57:10 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -1710,11 +1710,9 @@ snit::widget ::hv3::hv3 {
     set myCacheControl $cachecontrol
 
     set current_uri [$myUri get -nofragment]
-    set uri_obj [::hv3::uri %AUTO% $current_uri]
-    $uri_obj load $uri
+    set uri_obj [::hv3::uri %AUTO% [$self resolve_uri $uri]]
     set full_uri [$uri_obj get -nofragment]
     set fragment [$uri_obj cget -fragment]
-
 
     # Generate the <<Goto>> event.
     event generate $win <<Goto>>
