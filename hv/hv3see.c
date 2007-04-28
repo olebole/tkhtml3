@@ -422,7 +422,12 @@ primitiveValueToTcl(pTclSeeInterp, pValue)
     struct SEE_value copy;
     struct SEE_value *p = pValue;
 
-    if (SEE_VALUE_GET_TYPE(pValue) == SEE_OBJECT) {
+    int eType = SEE_VALUE_GET_TYPE(pValue);
+    if (
+        eType != SEE_UNDEFINED && eType != SEE_NULL &&
+        eType != SEE_BOOLEAN   && eType != SEE_NUMBER && 
+        eType != SEE_STRING
+    ) {
         SEE_ToPrimitive(&pTclSeeInterp->interp, pValue, 0, &copy);
         p = &copy;
     }
@@ -455,6 +460,17 @@ primitiveValueToTcl(pTclSeeInterp, pValue)
             break;
 
         case SEE_OBJECT: 
+            aTclValues[0] = Tcl_NewStringObj("OBJECT", -1);
+            break;
+
+        case SEE_REFERENCE: 
+            aTclValues[0] = Tcl_NewStringObj("REFERENCE", -1);
+            break;
+
+        case SEE_COMPLETION: 
+            aTclValues[0] = Tcl_NewStringObj("COMPLETION", -1);
+            break;
+
         default:
             assert(!"Bad value type");
 
@@ -961,23 +977,38 @@ interpEval(pTclSeeInterp, pCode, pFile)
     int rc = TCL_OK;
     SEE_try_context_t try_ctxt;
 
+    struct SEE_value res;               /* Result of script evaluation */
+    memset(&res, 0, sizeof(struct SEE_value));
+
     Tcl_ResetResult(pTclInterp);
 
-    pInputCode = SEE_input_utf8(pSeeInterp, Tcl_GetString(pCode));
-    if( pFile ){
-        pInputCode->filename = SEE_string_sprintf(
-            pSeeInterp, "%s", Tcl_GetString(pFile)
-        );
+    if (pTclSeeInterp->pTraceContext) {
+        /* If there is a trace-context, then this method is being called
+         * from within a trace callback. In this case use SEE_context_eval()
+         */
+        struct SEE_string input;
+        memset(&input, 0, sizeof(struct SEE_string));
+        input.data = Tcl_GetUnicodeFromObj(pCode, &input.length);
+        SEE_TRY(pSeeInterp, try_ctxt) {
+            SEE_context_eval(pTclSeeInterp->pTraceContext, &input, &res);
+        }
+    } else {
+        pInputCode = SEE_input_utf8(pSeeInterp, Tcl_GetString(pCode));
+        if( pFile ){
+            pInputCode->filename = SEE_string_sprintf(
+                pSeeInterp, "%s", Tcl_GetString(pFile)
+            );
+        }
+        SEE_TRY(pSeeInterp, try_ctxt) {
+            SEE_Global_eval(pSeeInterp, pInputCode, &res);
+        }
+        SEE_INPUT_CLOSE(pInputCode);
     }
-    SEE_TRY(pSeeInterp, try_ctxt) {
-        struct SEE_value res;
-        SEE_Global_eval(pSeeInterp, pInputCode, &res);
-        Tcl_SetObjResult(pTclInterp, primitiveValueToTcl(pTclSeeInterp, &res));
-    }
-    SEE_INPUT_CLOSE(pInputCode);
 
     if (SEE_CAUGHT(try_ctxt)) {
         rc = handleJavascriptError(pTclSeeInterp, &try_ctxt);
+    } else {
+        Tcl_SetObjResult(pTclInterp, primitiveValueToTcl(pTclSeeInterp, &res));
     }
 
     return rc;
@@ -1035,7 +1066,7 @@ interpCmd(clientData, pTclInterp, objc, objv)
         {"eventtarget", INTERP_EVENTTARGET, 0, 0, ""},
         {"global",      INTERP_GLOBAL,      1, 1, "TCL-COMMAND"},
         {"tostring",    INTERP_TOSTRING,    1, 1, "JAVASCRIPT-VALUE"},
-        {"trace",       INTERP_TRACE,       0, 1, "?TCL-COMMAND?"},
+        {"trace",       INTERP_TRACE,       1, 1, "TCL-COMMAND"},
         {0, 0, 0, 0}
     };
 
@@ -1127,18 +1158,18 @@ interpCmd(clientData, pTclInterp, objc, objv)
         }
 
         /*
-         * $interp trace ?TCL-COMMAND?
+         * $interp trace TCL-COMMAND
          *
 	 *   Set or clear the javascript-trace callback. See the 
          *   implementation of function seeTraceHook() for details.
          */
         case INTERP_TRACE: {
-            assert(objc == 3 || objc== 2);
+            assert(objc == 3);
             if (pTclSeeInterp->pTrace) {
                 Tcl_DecrRefCount(pTclSeeInterp->pTrace);
                 pTclSeeInterp->pTrace = 0;
             }
-            if (objc == 3){
+            if (strlen(Tcl_GetString(objv[2])) > 0) {
                 pTclSeeInterp->pTrace = objv[2];
                 Tcl_IncrRefCount(pTclSeeInterp->pTrace);
             }

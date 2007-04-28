@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.113 2007/04/22 11:32:19 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.114 2007/04/28 05:18:50 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -4140,7 +4140,7 @@ HtmlCssSelectorToString(pSelector, pObj)
  
     switch (pSelector->eSelector) {
         case CSS_SELECTORCHAIN_DESCENDANT:         z = " ";       break;
-        case CSS_SELECTORCHAIN_CHILD:              z = " &gt; ";  break;
+        case CSS_SELECTORCHAIN_CHILD:              z = " > ";     break;
         case CSS_SELECTORCHAIN_ADJACENT:           z = " + ";     break;
         case CSS_SELECTOR_UNIVERSAL:               z = "*";       break;
         case CSS_PSEUDOCLASS_LANG:                 z = ":lang";         break;

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.11 2007/04/23 17:31:16 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.12 2007/04/28 05:18:50 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file implements infrastructure used to create the Snit objects
@@ -10,6 +10,87 @@ namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.11 2007/04/23 17
 #
 
 package require snit
+
+#--------------------------------------------------------------------------
+# ::hv3::dom::TclCallable
+# 
+# This type contains various convenience code to help with development 
+# of the DOM bindings for Hv3.
+#
+snit::type ::hv3::dom::TclCallable {
+
+  # If this object is callable, then this option is set to a script to
+  # invoke when it is called. Appended to the script before it is passed
+  # to [eval] are the $this object and the script arguments.
+  #
+  # If this object is an empty string, then this object is not callable.
+  #
+  option -call -default ""
+
+  # If this boolean option is true, then transform all script arguments 
+  # to the -call script (except the "this" argument) by calling 
+  # [$mySee tostring] on them before evaluating -call.
+  #
+  option -callwithstrings -default 0
+
+  # Similar to -call, but for construction (i.e. "new Object()") calls.
+  #
+  option -construct -default ""
+
+  # ::hv3::dom object that owns this object.
+  #
+  variable myDom ""
+
+  constructor {dom args} {
+    set myDom $dom
+    $self configurelist $args
+  }
+
+  # Dummy Get and Put functions. These implementations cause all
+  # properties to be stored in the native property tables.
+  #
+  method Get {property} { return "" }
+  method Put {property value} { return "native" }
+
+  proc ToString {js_value} {
+    switch -- [lindex $js_value 0] {
+      undefined {return "undefined"}
+      null      {return "null"}
+      boolean   {return [lindex $js_value 1]}
+      number    {return [lindex $js_value 1]}
+      string    {return [lindex $js_value 1]}
+      object    {
+        set val [eval [$self see] [lindex $js_value 1] DefaultValue]
+        if {[lindex $val 1] eq "object"} {error "DefaultValue is object"}
+        return [ToString $val]
+      }
+    }
+  }
+
+  method Call {THIS args} {
+    if {$options(-call) ne ""} {
+      set A $args
+      if {$options(-callwithstrings)} {
+        set see [$myDom see]
+        set A [list]
+        # foreach a $args { lappend A [$see tostring $a] }
+        foreach a $args { lappend A [ToString $a] }
+      }
+      eval $options(-call) [list $THIS] $A
+    } else {
+      error "Cannot call this object"
+    }
+  }
+
+  method Construct {args} {
+    if {$options(-construct) ne ""} {
+      eval $options(-construct) $args
+    } else {
+      error "Cannot call this as a constructor"
+    }
+  }
+}
+
 
 #--------------------------------------------------------------------------
 # DOM objects are defined using the following command:
@@ -120,7 +201,7 @@ namespace eval ::hv3::dom {
 
       set get_code [subst -nocommands {
         list object [
-          ::hv3::JavascriptObject %AUTO% [set myDom] \
+          ::hv3::dom::TclCallable %AUTO% [set myDom] \
               -call [mymethod call_$property] -callwithstrings $isString
         ]
       }]

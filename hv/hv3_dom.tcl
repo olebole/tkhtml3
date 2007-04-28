@@ -1,297 +1,21 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.43 2007/04/27 10:47:19 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.44 2007/04/28 05:18:50 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
-# Global interfaces in this file:
+# Snit types in this file:
 #
-#     [::hv3::dom::have_scripting]
-#         This method returns true if scripting is available, otherwise 
-#         false. Scripting is available if the command [::see::interp]
-#         is available (see file hv3see.c).
+#     ::hv3::dom                       -- One object per js interpreter. 
+#     ::hv3::dom::logdata              -- Data for js debugger
+#     ::hv3::dom::logwin               -- Js debugger GUI
 #
-# Also, type ::hv3::dom. Summary:
+# Special widgets used in the ::hv3::dom::logwin GUI:
 #
-#     set dom [::hv3::dom %AUTO% HV3]
-#
-#     $dom script ATTR JAVASCRIPT-CODE
-#     $dom javascript JAVASCRIPT-CODE
-#     $dom event EVENT-TYPE NODE-HANDLE
-#
-#     $dom reset
-#
-#     $dom destroy
+#     ::hv3::dom::stacktrace           -- Debugger "Stack" tab
+#     ::hv3::dom::searchbox            -- Debugger "Search" tab
 #
 
-# Globals:
-
-# Events module:
-#
-#     class EventTarget
-#     class EventListener (in ECMAScript is just a function reference)
-#     class Event
-#
-
-
-#--------------------------------------------------------------------------
-
-
-#--------------------------------------------------------------------------
-# Internals:
-#
-# This file contains the following types:
-#
-# ::hv3::JavascriptObject
-# ::hv3::dom
-#
-# DOM1 Standard classes:
-#     ::hv3::dom::HTMLDocument
-#     ::hv3::dom::HTMLCollection
-#     ::hv3::dom::HTMLElement
-#     ::hv3::dom::Text
-#
-#     ::hv3::dom::HTMLImageElement
-#     ::hv3::dom::HTMLFormElement
-#
-# Defacto Standards:
-#     ::hv3::dom::Navigator
-#     ::hv3::dom::Window
-#     ::hv3::dom::Location
-#
 
 package require snit
 
-
-#--------------------------------------------------------------------------
-# ::hv3::JavascriptObject
-# 
-# This type contains various convenience code to help with development 
-# of the DOM bindings for Hv3.
-#
-snit::type ::hv3::JavascriptObject {
-
-  # If this object is callable, then this option is set to a script to
-  # invoke when it is called. Appended to the script before it is passed
-  # to [eval] are the $this object and the script arguments.
-  #
-  # If this object is an empty string, then this object is not callable.
-  #
-  option -call -default ""
-
-  # If this boolean option is true, then transform all script arguments 
-  # to the -call script (except the "this" argument) by calling 
-  # [$mySee tostring] on them before evaluating -call.
-  #
-  option -callwithstrings -default 0
-
-  # Similar to -call, but for construction (i.e. "new Object()") calls.
-  #
-  option -construct -default ""
-
-  # ::hv3::dom object that owns this object.
-  #
-  variable myDom ""
-  method hv3 {} {$myDom hv3}
-  method see {} {$myDom see}
-  method dom {} {set myDom}
-
-  # Reference to javascript object to store properties.
-  variable myNative
-
-  constructor {dom args} {
-    set myDom $dom
-    $self configurelist $args
-  }
-
-  destructor {
-    # Todo: Finalize $myNative.
-  }
-
-  method Get {property} {
-    return ""
-  }
-
-  method Put {property value} {
-    return "native"
-  }
-
-  method ToString {js_value} {
-    switch -- [lindex $js_value 0] {
-      undefined {return "undefined"}
-      null      {return "null"}
-      boolean   {return [lindex $js_value 1]}
-      number    {return [lindex $js_value 1]}
-      string    {return [lindex $js_value 1]}
-      object    {
-        set val [eval [$self see] [lindex $js_value 1] DefaultValue]
-        if {[lindex $val 1] eq "object"} {error "DefaultValue is object"}
-        return [$self ToString $val]
-      }
-    }
-  }
-
-  method Call {THIS args} {
-    if {$options(-call) ne ""} {
-      set A $args
-      if {$options(-callwithstrings)} {
-        set see [$myDom see]
-        set A [list]
-        # foreach a $args { lappend A [$see tostring $a] }
-        foreach a $args { lappend A [$self ToString $a] }
-      }
-      eval $options(-call) [list $THIS] $A
-    } else {
-      error "Cannot call this object"
-    }
-  }
-
-  method Construct {args} {
-    if {$options(-construct) ne ""} {
-      eval $options(-construct) $args
-    } else {
-      error "Cannot call this as a constructor"
-    }
-  }
-
-  method Finalize {} {
-    # puts "Unimplemented Finalized method"
-  }
-}
-
-#-------------------------------------------------------------------------
-# js_XXX snit::macros used to make creating DOM objects easier.
-#
-#     js_init
-#
-#     js_get
-#     js_getobject
-#
-#     js_put
-#
-#     js_call
-#     js_scall
-#
-#     js_finish
-#
-::snit::macro js_init {arglist body} {
-  namespace eval ::hv3::dom {
-    set js_get_methods [list]
-    set js_put_methods [list]
-  }
-  component myJavascriptParent
-  delegate method * to myJavascriptParent
-
-  method js_initialize $arglist $body
-}
-
-::snit::macro js_get {varname code} {
-  lappend ::hv3::dom::js_get_methods $varname get_$varname
-  if {$varname eq "*"} {
-    method get_$varname {property} $code
-  } else {
-    method get_$varname {} $code
-  }
-}
-::snit::macro js_getobject {varname code} {
-  lappend ::hv3::dom::js_get_methods $varname get_$varname
-  method get_$varname {} "\$self GetObject $varname {$code}"
-}
-::snit::macro js_put {varname argname code} {
-  lappend ::hv3::dom::js_put_methods $varname put_$varname
-  method put_$varname $argname $code
-}
-::snit::macro js_call {methodname arglist code} {
-  method call_$methodname $arglist $code
-  lappend ::hv3::dom::js_get_methods $methodname get_$methodname
-  method get_$methodname {} "\$self GetMethod 0 $methodname"
-}
-::snit::macro js_scall {methodname arglist code} {
-  method call_$methodname $arglist $code
-  lappend ::hv3::dom::js_get_methods $methodname get_$methodname
-  method get_$methodname {} "\$self GetMethod 1 $methodname"
-}
-
-::snit::macro js_finish {body} {
-  typevariable get_methods  -array $::hv3::dom::js_get_methods
-  typevariable put_methods  -array $::hv3::dom::js_put_methods
-
-  variable myCallMethods -array [list]
-  variable myObjectProperties -array [list]
-
-  method Get {property} {
-    if {[info exists get_methods($property)]} {
-      return [$self $get_methods($property)]
-    }
-    if {[info exists get_methods(*)]} {
-      set res [$self $get_methods(*) $property]
-      if {$res ne ""} {return $res}
-    }
-    return [$myJavascriptParent Get $property]
-  }
-
-  method GetMethod {stringify methodname} {
-    if {![info exists myCallMethods($methodname)]} {
-      set dom [$self dom]
-      set myCallMethods($methodname) [
-          ::hv3::JavascriptObject %AUTO% $dom \
-              -call [mymethod call_$methodname] -callwithstrings $stringify
-      ]
-    }
-    return [list object $myCallMethods($methodname)]
-  }
-
-  method GetObject {property code} {
-    if {![info exists myObjectProperties($property)]} {
-      set myObjectProperties($property) [eval $code]
-    }
-    return [list object $myObjectProperties($property)]
-  }
-
-  method Put {property value} {
-    if {[info exists put_methods($property)]} {
-      return [$self $put_methods($property) $value]
-    }
-    if {[info exists get_methods($property)]} {
-      error "Cannot set read-only property: $property"
-    }
-    return [$myJavascriptParent Put $property $value]
-  }
-
-  constructor {dom args} {
-    set myJavascriptParent ""
-    eval $self js_initialize $dom $args
-    if {$myJavascriptParent eq ""} {
-      set myJavascriptParent [::hv3::JavascriptObject %AUTO% $dom]
-    }
-  }
-
-  method js_finalize {} $body
-  destructor {
-    $self js_finalize
-    foreach key [array names myCallMethods] {
-      $myCallMethods($key) destroy
-    }
-    foreach key [array names myObjectProperties] {
-      $myObjectProperties($key) destroy
-    }
-  }
-
-  method HasProperty {property} {
-    if {[info exists get_methods($property)]} {
-      return 1
-    }
-    return 0
-  }
-
-  method Enumerator {} {
-    return [array names get_methods]
-  }
-}
-
-::snit::macro js_getput_attribute {property {attribute ""}} {
-   set G "list string \[\[\$self node\] attribute -default {} $attribute\]"
-   set P "\[\$self node\] attribute $property \[lindex \$v 1\]"
-   js_get $property $G
-   js_put $property v $P
-}
 
 #-------------------------------------------------------------------------
 # Class ::hv3::dom
@@ -336,7 +60,6 @@ snit::type ::hv3::dom {
   variable myNodeToDom -array [list]
 
   variable myNextCodeblockNumber 1
-
 
   constructor {hv3 args} {
     set myHv3 $hv3
@@ -386,6 +109,18 @@ snit::type ::hv3::dom {
       # Reset the debugger.
       $self LogReset
     }
+
+    # Reset the counter used to name blobs of code. This way, if
+    # a page is reloaded the names are the same, which makes it
+    # possible to set breakpoints in the debugger before reloading
+    # a page. 
+    #
+    # Of course, the network might deliver external scripts
+    # in a different order. Maybe there should be a debugging option
+    # to block while downloading all scripts, even if the "defer"
+    # attribute is set.
+    #
+    set myNextCodeblockNumber 1
   }
 
   method NewFilename {} {
@@ -615,8 +350,9 @@ snit::type ::hv3::dom {
     return $myHv3
   }
 
-  method see {} { return $mySee }
-  method hv3 {} { return $myHv3 }
+  method see    {} { return $mySee }
+  method hv3    {} { return $myHv3 }
+  method window {} { return $myWindow }
 
   #------------------------------------------------------------------
   # Logging system follows.
@@ -695,11 +431,13 @@ snit::type ::hv3::dom::logdata {
   # "${zFilename}:${iLine}". i.e. to test if there is a breakpoint
   # in file "blob4" line 10, do:
   #
-  #     if {[info exists myBreakpoints(blob4.10)]} {
+  #     if {[info exists myBreakpoints(blob4:10)]} {
   #         ... breakpoint processing ...
   #     }
   #
   variable myBreakpoints -array [list]
+
+  variable myInReload 0
 
   constructor {dom} {
     set myDom $dom
@@ -718,9 +456,14 @@ snit::type ::hv3::dom::logdata {
       $ls destroy
     }
     set myLogScripts [list]
-    array unset myBreakpoints
 
-    [$myDom see] trace [mymethod SeeTrace]
+    if {$myInReload} {
+      if {[llength [array names myBreakpoints]] > 0} {
+        [$myDom see] trace [mymethod SeeTrace]
+      }
+    } else {
+      array unset myBreakpoints
+    }
   }
 
   method Popup {} {
@@ -752,10 +495,40 @@ snit::type ::hv3::dom::logdata {
 
   method SeeTrace {eEvent zFilename iLine} {
     if {$eEvent eq "statement"} {
-      # See if there is a breakpoint set at this line:
       if {[info exists myBreakpoints(${zFilename}:$iLine)]} {
+        # There is a breakpoint set on this line. Pop up the
+        # debugging GUI and set the breakpoint stack.
+        $self Popup
+        $myWindow Breakpoint $zFilename $iLine
       }
     }
+  }
+
+  method breakpoints {} {
+    return [array names myBreakpoints]
+  }
+
+  method add_breakpoint {blobid lineno} {
+    set myBreakpoints(${blobid}:${lineno}) 1
+    [$myDom see] trace [mymethod SeeTrace]
+  }
+
+  method clear_breakpoint {blobid lineno} {
+    unset -nocomplain myBreakpoints(${blobid}:${lineno})
+    if {[llength [$self breakpoints]]==0} {
+      [$myDom see] trace ""
+    }
+  }
+
+  # Called by the GUI when the user issues a "reload" command.
+  # The difference between this and clicking the reload button
+  # in the GUI is that breakpoints are persistent when this
+  # command is issued.
+  #
+  method reload {} {
+    set myInReload 1
+    gui_current reload
+    set myInReload 0
   }
 }
 
@@ -837,27 +610,42 @@ snit::widget ::hv3::dom::stacktrace {
   }
 }
 
+#-------------------------------------------------------------------------
+# ::hv3::dom::logwin --
+#
+#     Top level widget for the debugger window.
+#
 snit::widget ::hv3::dom::logwin {
   hulltype toplevel
 
   # Internal widgets from left-hand pane:
+  #
   variable myFileList ""                            ;# Listbox with file-list
   variable mySearchbox ""                           ;# Search results
   variable myStackList ""                           ;# Stack trace widget.
 
+  # The text widget used to display code and the label displayed above it.
+  #
   variable myCode ""
   variable myCodeTitle ""
 
+  # The two text widgets: One for input and one for output.
+  #
   variable myInput ""
   variable myOutput ""
 
-  # ::hv3::dom::logdata object
+  # ::hv3::dom::logdata object containing the debugging
+  # data for the DOM environment being debugged.
+  #
   variable myData
 
-  # Index in $myFileList of currently displayed file:
+  # Index in [$myData GetList] of the currently displayed file:
+  #
   variable myCurrentIdx 0
 
-  # Current point in stack trace.
+  # Current point in stack trace. Tag this line with "tracepoint"
+  # in the $myCode widget.
+  #
   variable myTraceFile ""
   variable myTraceLineno ""
 
@@ -885,21 +673,29 @@ snit::widget ::hv3::dom::logwin {
 
     frame ${win}.pan.right.top 
     set myCode [::hv3::scrolled ::hv3::text ${win}.pan.right.top.code]
-    set myCodeTitle [::hv3::label ${win}.pan.right.top.label]
+    set myCodeTitle [::hv3::label ${win}.pan.right.top.label -anchor w]
     pack $myCodeTitle -fill x
     pack $myCode -fill both -expand 1
     $myCode configure -bg white
+
     $myCode tag configure linenumber -foreground darkblue
     $myCode tag configure tracepoint -background skyblue
-    $myCode tag configure stackline -background wheat
+    $myCode tag configure stackline  -background wheat
+    $myCode tag configure breakpoint -background red
+
+    $myCode tag bind linenumber <1> [mymethod ToggleBreakpoint %x %y]
 
     frame ${win}.pan.right.bottom 
     set myOutput [::hv3::scrolled ::hv3::text ${win}.pan.right.bottom.output]
     set myInput  [::hv3::text ${win}.pan.right.bottom.input -height 3]
     $myInput configure -bg white
     $myOutput configure -bg white -state disabled
-    bind $myInput <Return> [list after idle [mymethod Evaluate]]
     $myOutput tag configure commandtext -foreground darkblue
+
+    # Set up key bindings for the input window:
+    bind $myInput <Return> [list after idle [mymethod Evaluate]]
+    bind $myInput <Up>     [list after idle [mymethod HistoryBack]]
+    bind $myInput <Down>   [list after idle [mymethod HistoryForward]]
 
     pack $myInput -fill x -side bottom
     pack $myOutput -fill both -expand 1
@@ -976,6 +772,41 @@ snit::widget ::hv3::dom::logwin {
     # The following line throws an error if no chars are tagged "tracepoint".
     catch { $myCode yview -pickplace tracepoint.first }
     $myCode configure -state disabled
+    $self PopulateBreakpointTag
+  }
+
+  # This proc is called after either:
+  #
+  #     * The contents of the code window change, or
+  #     * A breakpoint is added or cleared from the debugger.
+  #
+  # It ensures the "breakpoint" tag is set on the line-number
+  # of any line that has a breakpoint set.
+  #
+  method PopulateBreakpointTag {} {
+    set ls     [lindex [$myData GetList] $myCurrentIdx]
+    set blobid [$ls cget -name]
+
+    $myCode tag remove breakpoint 0.0 end
+    foreach key [$myData breakpoints] {
+      foreach {b i} [split $key :] {}
+      if {$b eq $blobid} {
+        $myCode tag add breakpoint ${i}.0 ${i}.5
+      }
+    }
+  }
+
+  method ToggleBreakpoint {x y} {
+    set ls     [lindex [$myData GetList] $myCurrentIdx]
+    set lineno [lindex [split [$myCode index @${x},${y}] .] 0]
+    set blobid [$ls cget -name]
+
+    if {[lsearch [$myData breakpoints] "${blobid}:${lineno}"]>=0} {
+      $myData clear_breakpoint ${blobid} ${lineno}
+    } else {
+      $myData add_breakpoint ${blobid} ${lineno}
+    }
+    $self PopulateBreakpointTag
   }
 
   # This is called when the user issues a [result] command.
@@ -1107,6 +938,10 @@ snit::widget ::hv3::dom::logwin {
     $myData BrowseToNode $node
   }
 
+  method ReloadCmd {args} {
+    $myData reload
+  }
+
   method Evaluate {} {
     set script [string trim [$myInput get 0.0 end]]
     $myInput delete 0.0 end
@@ -1124,10 +959,12 @@ snit::widget ::hv3::dom::logwin {
     set cmdlist [list \
       js         1 "JAVASCRIPT..."        JavascriptCmd \
       result     1 "BLOBID"               ResultCmd     \
-      clear      1 ""                     ClearCmd      \
+      clear      2 ""                     ClearCmd      \
       goto       1 "BLOBID ?LINE-NUMBER?" GotoCmd       \
       search     1 "STRING"               SearchCmd     \
       tree       1 "NODE"                 TreeCmd       \
+      cont       2 ""                     ContCmd       \
+      reload     2 ""                     ReloadCmd     \
     ]
     set done 0
     foreach {cmd nMin NOTUSED method} $cmdlist {
@@ -1139,9 +976,8 @@ snit::widget ::hv3::dom::logwin {
     }
     
     if {!$done} {
-        # Command "help"
+        # An unknown command (or "help"). Print a summary of debugger commands.
         #
-        #     Print debugger usage instructions
         $myOutput insert end "help:\n" commandtext
         foreach {cmd NOTUSED help NOTUSED} $cmdlist {
         $myOutput insert end "          $cmd $help\n"
@@ -1153,6 +989,70 @@ snit::widget ::hv3::dom::logwin {
     $myOutput yview -pickplace end
     $myOutput insert end "\n"
     $myOutput configure -state disabled
+
+    $self HistoryAdd $script
+  }
+
+
+  # History list for input box. Interface is:
+  #
+  #     $self HistoryAdd $script       (add command to end of history list)
+  #     $self HistoryBack              (bind to <back> key>)
+  #     $self HistoryForward           (bind to <forward> key)
+  #
+  variable myHistory [list]
+  variable myHistoryIdx 0
+  method HistoryAdd {script} {
+    lappend myHistory $script
+    set myHistoryIdx [llength $myHistory]
+  }
+  method HistoryBack {} {
+    if {$myHistoryIdx==0} return
+    incr myHistoryIdx -1
+    $myInput delete 0.0 end
+    $myInput insert end [lindex $myHistory $myHistoryIdx]
+  }
+  method HistoryForward {} {
+    if {$myHistoryIdx==[llength $myHistory]} return
+    incr myHistoryIdx
+    $myInput delete 0.0 end
+    $myInput insert end [lindex $myHistory $myHistoryIdx]
+  }
+  #
+  # End of history list for input box.
+
+
+  # Variable used for breakpoint code.
+  variable myBreakpointVwait
+  method ContCmd {args} { 
+    $myOutput insert end "cont:\n" commandtext
+    set myBreakpointVwait 1 
+
+    set myTraceFile ""
+    set myTraceLineno ""
+    set myStack ""
+    $myStackList Populate "" $myStack
+    $myCode tag remove tracepoint 0.0 end
+    $myCode tag remove stackline 0.0 end
+  }
+
+  # This is called when the SEE interpreter has been stopped at
+  # a breakpoint. Js execution will continue after this method 
+  # returns.
+  #
+  method Breakpoint {zBlobid iLine} {
+    set myBreakpointVwait 0
+
+    set myStack [list $zBlobid $iLine "" ""]
+    $myStackList Populate "Breakpoint $zBlobid $iLine" $myStack
+    [winfo parent $myStackList] select $myStackList
+    $self GotoCmd -silent [list $zBlobid $iLine]
+
+    $myOutput configure -state normal
+    $myOutput insert end "breakpoint: $zBlobid $iLine\n\n" commandtext
+    $myOutput configure -state disabled
+
+    vwait [myvar myBreakpointVwait]
   }
 }
 #-----------------------------------------------------------------------
@@ -1164,12 +1064,11 @@ source [file join [file dirname [info script]] hv3_dom_compiler.tcl]
 # source [file join [file dirname [info script]] hv3_style.tcl]
 
 #-----------------------------------------------------------------------
-# Initialise the scripting environment. This should basically load (or
-# fail to load) the javascript interpreter library. If it fails, then
-# we have a scriptless browser. The test for whether or not the browser
-# is script-enabled is:
+# Initialise the scripting environment. This tries to load the javascript
+# interpreter library. If it fails, then we have a scriptless browser. 
+# The test for whether or not the browser is script-enabled is:
 #
-#     if {[::hv3::dom::have_scripting]} {
+#     if {[info commands ::see::interp] ne ""} {
 #         puts "We have scripting :)"
 #     } else {
 #         puts "No scripting here. Probably better that way."
@@ -1182,10 +1081,6 @@ proc ::hv3::dom::init {} {
   catch { package require Tclsee }
 }
 ::hv3::dom::init
-# puts "Have scripting: [::hv3::dom::have_scripting]"
-proc ::hv3::dom::have_scripting {} {
-  return [expr {[info commands ::see::interp] ne ""}]
-}
 
 #set ::hv3::dom::reformat_scripts_option 0
 set ::hv3::dom::reformat_scripts_option 1

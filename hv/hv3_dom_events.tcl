@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.12 2007/04/27 10:47:19 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.13 2007/04/28 05:18:50 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # DOM Level 2 Events.
@@ -153,7 +153,12 @@ proc ArgToBoolean {see a} {
         # Pass each to the event-target object to be compiled into an
         # event-listener function.
         # 
-        foreach event $::hv3::dom::HTML_Events_List {
+        if {$self eq [$myDom window]} {
+          set EventList [list load unload]
+        } else {
+          set EventList $::hv3::dom::HTML_Events_List
+        }
+        foreach event $EventList {
           set code [$node attribute -default "" "on${event}"]
           if {$code ne ""} {
             $myEventTarget setLegacyScript $event $code
@@ -162,7 +167,27 @@ proc ArgToBoolean {see a} {
       }
     }
 
+    method initWindowEventTarget {} {
+      # Events for which attributes of the <body> element should be
+      # used as initialisers.
+      #
+      set WindowEvents [list load unload]
+
+      set node [lindex [[$myDom hv3] search body] 0]
+      foreach event $WindowEvents {
+        set code [$node attribute -default "" "on${event}"]
+        if {$code ne ""} {
+          $myEventTarget setLegacyScript $event $code
+        }
+      }
+    }
+
     method getElementNode {} {
+      if {$self eq [$myDom window]} {
+        # For the window object, return the <body> node.
+        return [lindex [[$myDom hv3] search body] 0]
+      }
+
       # DOM Core level 1 defines the Node.ELEMENT_NODE constant as the
       # value 1. So if the javascript "nodeType" property of this object
       # is equal to "1", we are an element node. In this case, worry

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.123 2007/04/23 17:31:16 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.124 2007/04/28 05:18:50 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -762,7 +762,7 @@ snit::type ::hv3::config {
         $path add checkbutton -label $label -variable $var -command $cmd
       }
     }
-    if {![::hv3::dom::have_scripting]} {
+    if {[info commands ::see::interp] eq ""} {
       $path entryconfigure end -state disabled
     }
   }

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.54 2007/04/20 18:21:21 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.55 2007/04/28 05:18:50 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_prop.tcl --
@@ -436,11 +436,15 @@ snit::widget ::hv3::debug::LogReport {
 
         append Tbl "    <tr><td>"
         if {[regexp $pattern1 $entry DUMMY zSelector zFrom]} {
+          set zFrom [htmlize $zFrom]
+          set zSelector [htmlize $zSelector]
           append Tbl "<i style=color:green>match </i>"
           append Tbl "<span style=font-family:fixed>$zSelector</span> "
           append Tbl "<i style=color:green>from $zFrom</i>\n"
         } \
         elseif {[regexp $pattern2 $entry DUMMY zSelector zFrom]} {
+          set zFrom [htmlize $zFrom]
+          set zSelector [htmlize $zSelector]
           append Tbl "<i style=color:red>nomatch </i>"
           append Tbl "<span style=font-family:fixed>$zSelector</span> "
           append Tbl "<i style=color:red>from $zFrom</i>\n"

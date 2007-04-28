@@ -355,6 +355,9 @@ static struct sgEsc esc_sequences[] = {
     {"clubs", "\xE2\x99\xA3", 0},       /* Unicode code-point 9827 */
     {"hearts", "\xE2\x99\xA5", 0},      /* Unicode code-point 9829 */
     {"diams", "\xE2\x99\xA6", 0},       /* Unicode code-point 9830 */
+  
+    /* Non-standard. But very common. */
+    {"quote", "\"", 0},
 };
 
 /* The size of the handler hash table.  For best results this should
