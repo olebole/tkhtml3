@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.164 2007/05/12 15:44:55 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.165 2007/05/12 16:18:18 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -293,7 +293,7 @@ snit::type ::hv3::hv3::mousemanager {
   proc AdjustCoords {to W xvar yvar} {
     upvar $xvar x
     upvar $yvar y
-    while {$W ne $to} {
+    while {$W ne "" && $W ne $to} {
       incr x [winfo x $W]
       incr y [winfo y $W]
       set W [winfo parent $W]

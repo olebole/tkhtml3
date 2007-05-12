@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.57 2007/05/12 15:44:55 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.58 2007/05/12 16:18:18 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -317,17 +317,10 @@ snit::widgetadaptor ::hv3::forms::select {
     foreach child [$myNode children]  {
       if {[$child tag] == "option"} {
         if {![catch {$child attr selected}]} {
-          # If the Html "selected" attribute is defined, this option is 
-          # initially selected. If "selected" is not defined for any
-          # option, the first is initially selected.
-          #
-          if {![catch {$child attr selected}]} {
-            set idx [expr [llength $labels]]
-          }
-          set idx ii
+          set idx $ii
         }
+        incr ii
       }
-      incr ii
     }
     $win select $idx
   }
