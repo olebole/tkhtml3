@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_file.tcl,v 1.3 2007/01/17 10:15:13 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_file.tcl,v 1.4 2007/05/12 15:44:55 danielk1977 Exp $)} 1 }
 
 #
 # This file contains Tcl code for loading file:// URIs in the hv3 web browser
@@ -191,23 +191,20 @@ proc request_file {downloadHandle} {
         set filename "$authority:$path"
     }
     
+    set data ""
     if {[file readable $filename]} {
     
         if {[file isdirectory $filename]} {
 
             set data [directoryIndex $filename]
-            $downloadHandle append $data
-            $downloadHandle finish
 
         } else {
-
             # Read the file from the file system. The [open] or [read] command
             # might throw an exception. No problem, the hv3 widget will catch
             # it and automatically deem the request to have failed.
             #
             # Unless the expected mime-type begins with the string "text", 
             # configure the file-handle for binary mode.
-
 
             set fd [open $filename]
             if {![string match text* [$downloadHandle cget -mimetype]]} {
@@ -217,7 +214,6 @@ proc request_file {downloadHandle} {
             close $fd
             $downloadHandle append $data
             $downloadHandle finish
-
         }
         
     } else {
@@ -235,6 +231,7 @@ proc request_file {downloadHandle} {
         $downloadHandle finish
         #$downloadHandle fail "Unreadable path: $filename"
     }
+
 }
 
 };# End of [namespace eval hv3]

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.163 2007/04/27 06:57:10 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.164 2007/05/12 15:44:55 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -228,8 +228,6 @@ snit::type ::hv3::hv3::mousemanager {
   #
   variable myCurrentDomNode ""
 
-  variable myReset 0
-
   # Database of callback scripts for each event type.
   #
   variable myScripts -array [list]
@@ -269,7 +267,6 @@ snit::type ::hv3::hv3::mousemanager {
   method reset {} {
     array unset myActiveNodes
     array unset myHoverNodes
-    set myReset 1
 
     set myCurrentDomNode ""
   }
@@ -287,9 +284,7 @@ snit::type ::hv3::hv3::mousemanager {
     foreach {event node} $eventlist {
       if {[info commands $node] ne ""} {
         foreach script $myScripts($event) {
-          set myReset 0
           eval $script $node
-          if {$myReset} return
         }
       }
     }
@@ -306,6 +301,7 @@ snit::type ::hv3::hv3::mousemanager {
   }
 
   method Motion {W x y} {
+    if {$W eq ""} return
     AdjustCoords "${myHv3}.html.widget" $W x y
 
     # Figure out the node the cursor is currently hovering over. Todo:
@@ -376,6 +372,7 @@ snit::type ::hv3::hv3::mousemanager {
   }
 
   method Press {W x y} {
+    if {$W eq ""} return
     AdjustCoords "${myHv3}.html.widget" $W x y
     set N [lindex [$myHv3 node $x $y] end]
     if {$N ne ""} {
@@ -403,6 +400,7 @@ snit::type ::hv3::hv3::mousemanager {
   }
 
   method Release {W x y} {
+    if {$W eq ""} return
     AdjustCoords "${myHv3}.html.widget" $W x y
     set N [lindex [$myHv3 node $x $y] end]
     if {$N ne ""} {
@@ -841,7 +839,7 @@ snit::type ::hv3::hv3::hyperlinkmanager {
       set href [$node attr -default "" href]
       if {$href ne "" && $href ne "#"} {
         set hv3 [eval [linsert $options(-targetcmd) end $node]]
-        $hv3 goto $href -referer [$myHv3 location]
+        after idle [list $hv3 goto $href -referer [$myHv3 location]]
       }
     }
   }

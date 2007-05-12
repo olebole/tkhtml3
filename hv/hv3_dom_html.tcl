@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.11 2007/04/23 17:31:16 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.12 2007/05/12 15:44:55 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Html
@@ -809,31 +809,41 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.11 2007/04/23 17:31:
 ::hv3::dom::type HTMLOptionElement HTMLElement {
   dom_todo form
   dom_todo defaultSelected
-  dom_todo text
   dom_todo index
   dom_todo disabled
+
+  dom_get text {
+    list string [$self HTMLOptionElement_getText]
+  }
+
+  # TODO: After writing this attribute, have to update data 
+  # structures in the hv3_forms module.
   dom_get label {
-    # TODO: After writing this attribute, have to update data structures in
-    # the hv3_forms module.
     list string [$self HTMLOptionElement_getLabelOrValue label]
   }
   dom_put -string label v {
     $options(-nodehandle) attr label $v
   }
+
   dom_todo selected
 
   dom_snit {
+    method HTMLOptionElement_getText {} {
+      set contents ""
+      catch {
+        set t [lindex [$options(-nodehandle) children] 0]
+        set contents [$t text]
+      }
+      set contents
+    }
+
     method HTMLOptionElement_getLabelOrValue {attr} {
       # If the element has text content, this is used as the default
       # for both the label and value of the entry (used if the Html
       # attributes "value" and/or "label" are not defined.
       #
       # Note: This needs to be merged with code in hv3_form.tcl.
-      set contents ""
-      catch {
-        set t [lindex [$child children] 0]
-        set contents [$t text]
-      }
+      set contents [$self HTMLOptionElement_getText]
       $options(-nodehandle) attribute -default $contents $attr
     }
   }

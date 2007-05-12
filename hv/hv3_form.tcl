@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.56 2007/04/27 10:47:19 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.57 2007/05/12 15:44:55 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -85,6 +85,14 @@ source [file join [file dirname [info script]] combobox.tcl]
 #         dom_click
 #
 
+namespace eval ::hv3::forms {
+  proc configurecmd {win font} {
+    set descent [font metrics $font -descent]
+    set ascent  [font metrics $font -ascent]
+    expr {([winfo reqheight $win] + $descent - $ascent) / 2}
+  }
+}
+
 
 #--------------------------------------------------------------------------
 # ::hv3::forms::checkbox 
@@ -144,15 +152,9 @@ source [file join [file dirname [info script]] combobox.tcl]
     set mySuccess [expr [catch {$myNode attr checked}] ? 0 : 1]
   }
 
-  # TODO: Remove this.
-  method get_text_widget {} { return "" }
-
   # TODO: The sole purpose of this is to return a linebox offset...
   method configurecmd {values} { 
-    set font [$hull cget -font]
-    set descent [font metrics $font -descent]
-    set ascent  [font metrics $font -ascent]
-    expr {([winfo reqheight $win] + $descent - $ascent) / 2}
+    ::hv3::forms::configurecmd $win [$hull cget -font]
   }
 
   method stylecmd {} {
@@ -214,6 +216,152 @@ source [file join [file dirname [info script]] combobox.tcl]
   }
 }
 
+#--------------------------------------------------------------------------
+# ::hv3::forms::select 
+#
+#     Object for controls created by elements of the following form:
+#    
+#         <SELECT>
+#
+snit::widgetadaptor ::hv3::forms::select {
+  option -formnode -default ""
+
+  variable myHv3 ""
+  variable myNode ""
+  variable myValues [list]
+
+  delegate option * to hull
+  delegate method * to hull
+
+  constructor {node hv3 args} {
+    installhull [::combobox::combobox $win]
+    set myNode $node
+    set myHv3 $hv3
+    bindtags $self [concat $myHv3 [bindtags $self]]
+
+    $hull configure -highlightthickness 0
+
+    # Figure out a list of options for the drop-down list. This block 
+    # sets up two list variables, $labels and $myValues. The $labels
+    # list stores the options from which the user may select, and the $myValues
+    # list stores the corresponding form control values.
+    set maxlen 5
+    set labels [list]
+    set myValues [list]
+    foreach child [$myNode children] {
+      if {[$child tag] == "option"} {
+
+        # If the element has text content, this is used as the default
+	# for both the label and value of the entry (used if the Html
+	# attributes "value" and/or "label" are not defined.
+	set contents ""
+        catch {
+          set t [lindex [$child children] 0]
+          set contents [$t text]
+        }
+
+        # Append entries to both $myValues and $labels
+        set     label  [$child attr -default $contents label]
+        set     value  [$child attr -default $contents value]
+        lappend labels $label
+        lappend myValues $value
+
+        set len [string length $label]
+        if {$len > $maxlen} {set maxlen $len}
+      }
+    }
+
+    # Set up the combobox widget. 
+    eval [concat [list $hull list insert 0] $labels]
+    $self reset
+    $hull configure -command [mymethod ComboboxChanged]
+    $hull configure -background white
+    $hull configure -borderwidth 0
+    $hull configure -highlightthickness 0
+
+    # Set the width and height of the combobox. Prevent manual entry.
+    if {[set height [llength $myValues]] > 10} { set height 10 }
+    $hull configure -width  $maxlen
+    $hull configure -height $height
+    $hull configure -editable false
+  }
+
+  method formsreport {} {
+    return <I>TODO</I>
+  }
+
+  method name {} {
+    return [$myNode attr -default "" name]
+  }
+
+  method value {} {
+    lindex $myValues [$hull curselection]
+  }
+
+  method success {} {
+    # If it has a name, it is successful.
+    expr {[catch [$myNode attr name]] ? 0 : 1}
+  }
+
+  method filename {} { 
+    return "" 
+  }
+
+  method stylecmd {} {
+    $hull configure -font [$myNode property font]
+  }
+
+  method reset {} {
+    set idx 0
+    set ii 0
+    foreach child [$myNode children]  {
+      if {[$child tag] == "option"} {
+        if {![catch {$child attr selected}]} {
+          # If the Html "selected" attribute is defined, this option is 
+          # initially selected. If "selected" is not defined for any
+          # option, the first is initially selected.
+          #
+          if {![catch {$child attr selected}]} {
+            set idx [expr [llength $labels]]
+          }
+          set idx ii
+        }
+      }
+      incr ii
+    }
+    $win select $idx
+  }
+
+  # TODO: The sole purpose of this is to return a linebox offset...
+  method configurecmd {values} { 
+    ::hv3::forms::configurecmd $win [$hull cget -font]
+  }
+
+  method ComboboxChanged {args} {
+    focus [winfo parent $win]
+
+    # Fire the "onchange" dom event.
+    [$myHv3 dom] event onchange $myNode
+  }
+
+  #---------------------------------------------------------------------
+  # START OF DOM FUNCTIONALITY
+  #
+  # Below this point are some methods used by the DOM class 
+  # HTMLSelectElement. None of this is used unless scripting
+  # is enabled. This interface is unique to this object - no other
+  # control type has to interface with HTMLSelectElement.
+  #
+
+  method dom_selectionIndex    {}      { $win curselection }
+  method dom_setSelectionIndex {value} { $win select $value }
+
+  # Selection widget cannot take the focus in Hv3, so these two are 
+  # no-ops.  Maybe some keyboard enthusiast will change this one day.
+  #
+  method dom_blur  {} {}
+  method dom_focus {} {}
+}
 
 # ::hv3::fileselect
 #
@@ -347,11 +495,8 @@ snit::widget ::hv3::control {
 
   # The widget for this control. One of the following types:
   #
-  #     button
   #     entry
-  #     ::combobox::combobox
   #     text
-  #     checkbox
   #     radiobutton
   #     ::hv3::fileselect
   #
@@ -531,76 +676,6 @@ snit::widget ::hv3::control {
     set myValue [$myControlNode attr -default "" value]
   }
 
-  method CreateCheckboxWidget {node} {
-    set myWidget [checkbutton ${win}.widget]
-    $myWidget configure -variable [myvar mySuccess]
-    set mySuccess [expr [catch {$myControlNode attr checked}] ? 0 : 1]
-    set myValue [$myControlNode attr -default "" value]
-  }
- 
-  method CreateComboboxWidget {node} {
-
-    # Figure out a list of options for the drop-down list. This block 
-    # sets up two local list variables, $labels and $values. The $labels
-    # list stores the options from which the user may select, and the $values
-    # list stores the corresponding form control values.
-    set idx 0
-    set maxlen 5
-    set labels [list]
-    set values [list]
-    foreach child [$myControlNode children] {
-      if {[$child tag] == "option"} {
-
-        # If the Html "selected" attribute is defined, this option is 
-        # initially selected. If "selected" is not defined for any
-        # option, the first is initially selected.
-        if {![catch {$child attr selected}]} {
-          set idx [expr [llength $labels]]
-        } 
-
-        # If the element has text content, this is used as the default
-	# for both the label and value of the entry (used if the Html
-	# attributes "value" and/or "label" are not defined.
-	set contents ""
-        catch {
-          set t [lindex [$child children] 0]
-          set contents [$t text]
-        }
-
-        # Append entries to both $values and $labels
-        set     label  [$child attr -default $contents label]
-        set     value  [$child attr -default $contents value]
-        lappend labels $label
-        lappend values $value
-
-        set len [string length $label]
-        if {$len > $maxlen} {set maxlen $len}
-      }
-    }
-
-    # Set up the combobox widget. 
-    set myWidget [combobox::combobox ${win}.widget]
-    eval [concat [list $myWidget list insert 0] $labels]
-    $myWidget configure -command [mymethod ComboboxChanged $values]
-    $myWidget configure -background white
-    $myWidget configure -borderwidth 0
-    $myWidget configure -highlightthickness 0
-
-    $myWidget select $idx
-    set myValue [lindex $values $idx]
-
-    # Set the width and height of the combobox. Prevent manual entry.
-    if {[set height [llength $values]] > 10} { set height 10 }
-    $myWidget configure -width  $maxlen
-    $myWidget configure -height $height
-    $myWidget configure -editable false
-  }
-
-  method ComboboxChanged {values args} {
-    set myValue [lindex $values [$myWidget curselection]]
-    focus [winfo parent $win]
-  }
-
   method CreateRadioWidget {node} {
     set myWidget [radiobutton ${win}.widget]
     catch { $myWidget configure -tristatevalue EWLhwEUGHWZAZWWZE }
@@ -752,9 +827,6 @@ snit::widget ::hv3::control {
       default { error "Cannot call \[dom_select\] on this ::hv3::control" }
     }
   }
-
-  method dom_selectionIndex    {}      { $myWidget curselection }
-  method dom_setSelectionIndex {value} { $myWidget select $value }
 
   #-----------------------------------------------------------------------
   # Method [dom_click] is used to implement the HTMLInputElement.click()
@@ -1334,7 +1406,13 @@ snit::type ::hv3::formmanager {
     set form ""
     if {$formnode ne ""} {set form $myForms($formnode)}
 
-    switch -- [string tolower [$node tag].[$node attr -default {} type]] {
+    set tag [string tolower [$node tag]]
+    set type ""
+    if {$tag eq "input"} {
+      set type [string tolower [$node attr -default {} type]]
+    }
+
+    switch -- ${tag}.${type} {
       input.image {
         set control [::hv3::clickcontrol %AUTO% $node]
         set myClickControls($node) $control
@@ -1368,6 +1446,11 @@ snit::type ::hv3::formmanager {
       input.checkbox {
         set hv3 [winfo parent [winfo parent $myHtml]]
         set control [::hv3::forms::checkbox $zWinPath $node $hv3]
+      }
+
+      select. {
+        set hv3 [winfo parent [winfo parent $myHtml]]
+        set control [::hv3::forms::select $zWinPath $node $hv3]
       }
 
       default {

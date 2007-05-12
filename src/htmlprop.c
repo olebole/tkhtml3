@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.111 2007/01/27 14:45:42 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.112 2007/05/12 15:44:55 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -2760,6 +2760,18 @@ HtmlNodeGetProperty(interp, pProp, pValues)
     int nProp;
     const char *zProp = Tcl_GetStringFromObj(pProp, &nProp);
     int eProp = HtmlCssPropertyLookup(nProp, zProp);
+  
+    /* Special case - the "font" property returns the Tk font. This
+    ** is so that code implementing replaced objects can do this:
+    **
+    **     $widget configure -font [$node property font]
+    **
+    ** Probably in a -stylecmd callback.
+    */
+    if (eProp == CSS_SHORTCUTPROPERTY_FONT) {
+      Tcl_SetResult(interp, pValues->fFont->zFont, TCL_VOLATILE);
+      return TCL_OK;
+    }
 
     assert(eProp <= CSS_PROPERTY_MAX_PROPERTY);
     if (eProp < 0) {

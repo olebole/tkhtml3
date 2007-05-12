@@ -28,7 +28,6 @@
  *     Delete an interpreter and all associated resources. The command
  *     $interp is deleted by this command.
  *
- *
  * $interp global TCL-OBJECT
  *     Install the javascript wrapper of TCL-OBJECT as the global
  *     interpreter object. In web-browsers this is the Window object.
@@ -42,6 +41,10 @@
  * $interp eventtarget
  *     Create a new event-target object. See below for the description
  *     of an event-target object.
+ *
+ * $interp debug objects
+ *     Return a list of Tcl commands this interpreter is holding 
+ *     as persistent-state objects.
  *
  */
 
@@ -83,7 +86,6 @@
  *         $obj Get          PROPERTY
  *         $obj HasProperty  PROPERTY
  *         $obj Put          PROPERTY ARG-VALUE
- *
  *         $obj Finalize
  *
  *
@@ -98,9 +100,14 @@
  *     called by the extension on the global object (not even when the
  *     interpreter is destroyed).
  *
- *     For other objects created by Tcl, things are more complicated.
- *     An object is created by returning a value of the following two 
- *     forms from a [Call], [Construct] or [Get] method.
+ *     For all other objects, once the object is passed to javascript,
+ *     javascript is in charge of deleting the object. The Tcl script
+ *     must ensure that the command is valid until the javascript side
+ *     calls the [Finalize] method. Of course, the command may become
+ *     a no-op - that's a DOM detail....
+ *
+ *     An object is created by returning a value of one of the following 
+ *     two forms from a [Call], [Construct] or [Get] method.
  *
  *         {object    COMMAND}
  *         {transient COMMAND}
@@ -113,18 +120,18 @@
  *     state are not garbage collected until the interpreter is deleted.
  *
  *     When an object in "transient" state is garbage collected,
- *     the [Finalize] method is invoked. When the interpreter is deleted,
- *     [Finalize] is called for objects currently in "transient" state,
- *     but not for those in "persistent" state.
+ *     the [Finalize] method is invoked. After the interpreter is deleted,
+ *     [Finalize] will be (eventually) called for all objects in 
+ *     "persistent" state.
  *
- *     The Tcl script may move an object from "persistent" to "transient"
- *     state with one of the command:
+ *     The Tcl script may move an object from "persistent" to 
+ *     "transient" state with one of the command:
  *
- *         $interp set_state transient
+ *         $interp set_state transient COMMAND
  *
  *     And back again with
  *
- *         $interp set_state peristent
+ *         $interp set_state peristent COMMAND
  */
 
 /*-------------------------------------------------------------------------- 
@@ -155,7 +162,6 @@
  *
  *     # Delete object and all associated resources.
  *     $et destroy
- *
  */
 
 
@@ -207,6 +213,23 @@ struct SeeInterp {
      */
     SeeTclObject *aTclObject[OBJECT_HASH_SIZE];
 
+#if 0
+    /* Hash table containing the objects created by the Tcl interpreter.
+     * This maps from the Tcl command to the SeeTclObject structure.
+     *
+     * The hash table itself is allocated using ckalloc() (the Tcl
+     * allocator), so pointers stored within this table do not disqualify
+     * an object from garbage collection.
+     */
+    Tcl_HashTable *pObjectHash;
+
+    /* The start of a doubly linked list of objects in persistent 
+     * state. The linked-list pointers are the reason the garbage
+     * collector doesn't collect them.
+     */
+    SeeTclObject *pPersist;
+#endif
+
     /* Tcl name of the global object. The NULL-terminated string is
      * allocated using SEE_malloc_string() when the global object
      * is set (the [$interp global] command).
@@ -236,8 +259,16 @@ struct SeeTclObject {
     struct SEE_native native;   /* Base class - store native properties here */
     Tcl_Obj *pObj;              /* Tcl script for object */
 
-    /* Next entry (if any) in the SeeInterp.aTclObject[] hash table */
     SeeTclObject *pNext;
+
+#if 0
+    /* If this object is in "transient" state, the following two
+     * variables are set to 0. If it is in "persistent" state, then
+     * they form a doubly linked list starting at SeeInterp.pPersist.
+     */
+    SeeTclObject *pPrev;
+    SeeTclObject *pNext;
+#endif
 };
 
 /* Entries in the SeeInterp.pJsObject[] linked list are instances of
@@ -591,14 +622,21 @@ finalizeObject(pPtr, pContext)
 
     if (pContext) {
         /* Execute the Tcl Finalize hook. Do nothing with the result thereof. */
+        int rc;
         Tcl_Obj *pFinalize;
         Tcl_Interp *pTclInterp = (Tcl_Interp *)pContext;
 
         pFinalize = Tcl_DuplicateObj(p->pObj);
         Tcl_IncrRefCount(pFinalize);
         Tcl_ListObjAppendElement(0, pFinalize, Tcl_NewStringObj("Finalize", 8));
-        Tcl_EvalObjEx(pTclInterp, pFinalize, TCL_GLOBAL_ONLY);
+        rc = Tcl_EvalObjEx(pTclInterp, pFinalize, TCL_GLOBAL_ONLY);
         Tcl_DecrRefCount(pFinalize);
+
+        if (rc != TCL_OK) {
+            printf("WARNING Seetcl: Finalize script failed for %s\n", 
+                Tcl_GetString(p->pObj)
+            );
+        }
     }
 
     Tcl_DecrRefCount(p->pObj);
@@ -643,9 +681,10 @@ createTransient(pTclSeeInterp, pTclCommand)
  *---------------------------------------------------------------------------
  */
 static struct SEE_object *
-findOrCreateObject(pTclSeeInterp, pTclCommand)
+findOrCreateObject(pTclSeeInterp, pTclCommand, isGlobal)
     SeeInterp *pTclSeeInterp;
     Tcl_Obj *pTclCommand;
+    int isGlobal;               /* True when creating the global object */
 {
     Tcl_Interp *pTclInterp = pTclSeeInterp->pTclInterp;
     char const *zCommand = Tcl_GetString(pTclCommand);
@@ -679,12 +718,15 @@ findOrCreateObject(pTclSeeInterp, pTclCommand)
      * new SeeTclObject.
      */
     if (!pObject) {
+        Tcl_Interp *pTcl = pTclSeeInterp->pTclInterp;
         pObject = newSeeTclObject(pTclSeeInterp, pTclCommand);
 
         /* Have to be careful using the _no_order() variant to
          * attach a finalizer. See comments above finalizeObject().
          */
-        GC_register_finalizer_no_order(pObject, finalizeObject, 0, 0, 0);
+        if (!isGlobal) {
+            GC_register_finalizer_no_order(pObject, finalizeObject, pTcl, 0, 0);
+        }
 
         /* Insert the new object into the hash table */
         pObject->pNext = pTclSeeInterp->aTclObject[iSlot];
@@ -799,7 +841,7 @@ objToValue(pInterp, pObj, pValue)
 
                 case SEE_OBJECT: {
                     struct SEE_object *pObject = 
-                        findOrCreateObject(pInterp, apElem[1]);
+                        findOrCreateObject(pInterp, apElem[1], 0);
                     SEE_SET_OBJECT(pValue, pObject);
                     break;
                 }
@@ -1017,6 +1059,48 @@ interpEval(pTclSeeInterp, pCode, pFile)
 /*
  *---------------------------------------------------------------------------
  *
+ * interpDebug --
+ *
+ *    Implementation of the [$interp debug] command. This command is
+ *    not required for normal operation, but provides some sub-commands
+ *    useful while debugging the system.
+ *    
+ *       $interp debug objects
+ *
+ * Results:
+ *
+ * Side effects:
+ *
+ *---------------------------------------------------------------------------
+ */
+static int
+interpDebug(pTclSeeInterp, objc, objv)
+    SeeInterp *pTclSeeInterp;          /* Interpreter */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    int iSlot;
+    Tcl_Obj *pRet = Tcl_NewObj();
+    Tcl_IncrRefCount(pRet);
+
+    for (iSlot = 0; iSlot < OBJECT_HASH_SIZE; iSlot++){
+        SeeTclObject *pObject = pTclSeeInterp->aTclObject[iSlot];
+        for ( ; pObject; pObject = pObject->pNext) {
+            Tcl_ListObjAppendElement(0, pRet, pObject->pObj);
+        }
+    }
+
+    Tcl_SetObjResult(pTclSeeInterp->pTclInterp, pRet);
+    Tcl_DecrRefCount(pRet);
+
+    return TCL_OK;
+}
+
+
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * interpCmd --
  *
  *       $interp eval JAVASCRIPT
@@ -1024,6 +1108,7 @@ interpEval(pTclSeeInterp, pCode, pFile)
  *       $interp function JAVASCRIPT
  *       $interp native
  *       $interp global COMMAND
+ *       $interp debug SUB-COMMAND
  * 
  *       $interp Get ID ?OBJECT-CMD...?
  *
@@ -1052,6 +1137,7 @@ interpCmd(clientData, pTclInterp, objc, objv)
         INTERP_TOSTRING,
         INTERP_TRACE,
         INTERP_EVENTTARGET,
+        INTERP_DEBUG,
     };
 
     static const struct InterpSubCommand {
@@ -1067,6 +1153,7 @@ interpCmd(clientData, pTclInterp, objc, objv)
         {"global",      INTERP_GLOBAL,      1, 1, "TCL-COMMAND"},
         {"tostring",    INTERP_TOSTRING,    1, 1, "JAVASCRIPT-VALUE"},
         {"trace",       INTERP_TRACE,       1, 1, "TCL-COMMAND"},
+        {"debug",       INTERP_DEBUG,       1, 1, "SUB-COMMAND"},
         {0, 0, 0, 0}
     };
 
@@ -1105,6 +1192,14 @@ interpCmd(clientData, pTclInterp, objc, objv)
         }
 
         /*
+         * seeInterp debug SUB-COMMAND
+         */
+        case INTERP_DEBUG: {
+            rc = interpDebug(pTclSeeInterp, objc, objv);
+            break;
+        }
+
+        /*
          * seeInterp global TCL-COMMAND
          *
          */
@@ -1118,7 +1213,7 @@ interpCmd(clientData, pTclInterp, objc, objv)
                 Tcl_AppendResult(pTclInterp, "Can call [global] only once.", 0);
                 return TCL_ERROR;
             }
-            pWindow = findOrCreateObject(pTclSeeInterp, objv[2]);
+            pWindow = findOrCreateObject(pTclSeeInterp, objv[2], 1);
             installHv3Global(pTclSeeInterp, pWindow);
 
             zGlobal = Tcl_GetStringFromObj(objv[2], &nGlobal);
@@ -2252,7 +2347,7 @@ eventTargetMethod(clientData, interp, objc, objv)
      * (the LISTENER) into a SEE_object pointer.
      */
     if (eChoice == ET_ADD || eChoice == ET_LEGACY || eChoice == ET_REMOVE) {
-        pListener = findOrCreateObject(p->pTclSeeInterp, objv[3]);
+        pListener = findOrCreateObject(p->pTclSeeInterp, objv[3], 0);
     }
     if (eChoice == ET_INLINE) {
         struct SEE_input *pInputCode;
@@ -2366,8 +2461,8 @@ eventTargetMethod(clientData, interp, objc, objv)
             }
             isCapture = (isCapture ? 1 : 0);
 
-            pThis = findOrCreateObject(p->pTclSeeInterp, objv[4]);
-            pArg = findOrCreateObject(p->pTclSeeInterp, objv[5]);
+            pThis = findOrCreateObject(p->pTclSeeInterp, objv[4], 0);
+            pArg = findOrCreateObject(p->pTclSeeInterp, objv[5], 0);
             SEE_SET_OBJECT(&sArgValue, pArg);
             pArgV= &sArgValue;
 

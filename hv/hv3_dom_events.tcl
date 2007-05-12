@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.13 2007/04/28 05:18:50 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.14 2007/05/12 15:44:55 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # DOM Level 2 Events.
@@ -513,11 +513,12 @@ proc ::hv3::dom::dispatchMouseEvent {dom eventtype EventTarget x y extra} {
 
 # Recognised HTML event types.
 #
-#     Mapping is from the event-type to the value of the "cancelable"
-#     property of the DOM Event object.
+#     Mapping is from the event-type to the value of the "bubbles" and
+#     "cancelable" property of the DOM Event object.
 #
-set ::hv3::dom::HtmlEventType(load)     0
-set ::hv3::dom::HtmlEventType(submit)   1
+set ::hv3::dom::HtmlEventType(load)     [list 0 0]
+set ::hv3::dom::HtmlEventType(submit)   [list 0 1]
+set ::hv3::dom::HtmlEventType(change)   [list 1 1]
 
 # dispatchHtmlEvent --
 #
@@ -528,11 +529,13 @@ set ::hv3::dom::HtmlEventType(submit)   1
 #
 #       load
 #       submit
+#       change
 #
 proc ::hv3::dom::dispatchHtmlEvent {dom type EventTarget} {
-  set cancelable $::hv3::dom::HtmlEventType($type)
+  set properties $::hv3::dom::HtmlEventType($type)
+
   set event [::hv3::DOM::Event %AUTO% $dom]
-  $event Event_initEvent $type 0 $cancelable
+  eval $event Event_initEvent $type $properties
 
   set evt [$dom setWindowEvent $event]
   set rc [$EventTarget doDispatchEvent $event]

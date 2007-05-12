@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.44 2007/04/28 05:18:50 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.45 2007/05/12 15:44:55 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Snit types in this file:
@@ -213,6 +213,7 @@ snit::type ::hv3::dom {
   #
   #     onload
   #     onsubmit
+  #     onchange
   #
   method event {event node} {
     if {$mySee eq ""} {return ""}
@@ -449,6 +450,10 @@ snit::type ::hv3::dom::logdata {
       -rc $rc -name $name -heading $heading -script $script -result $result
     ]
     lappend myLogScripts $ls
+  }
+
+  method dom {} {
+    return $myDom
   }
 
   method Reset {} {
@@ -942,6 +947,14 @@ snit::widget ::hv3::dom::logwin {
     $myData reload
   }
 
+  method DebugCmd {args} {
+    set objlist [eval [[$myData dom] see] debug $args]
+    $myOutput insert end "debug: objects\n" commandtext
+    foreach obj $objlist {
+      $myOutput insert end "    $obj\n"
+    }
+  }
+
   method Evaluate {} {
     set script [string trim [$myInput get 0.0 end]]
     $myInput delete 0.0 end
@@ -957,14 +970,15 @@ snit::widget ::hv3::dom::logwin {
     $myOutput configure -state normal
 
     set cmdlist [list \
-      js         1 "JAVASCRIPT..."        JavascriptCmd \
-      result     1 "BLOBID"               ResultCmd     \
       clear      2 ""                     ClearCmd      \
+      cont       2 ""                     ContCmd       \
       goto       1 "BLOBID ?LINE-NUMBER?" GotoCmd       \
+      js         1 "JAVASCRIPT..."        JavascriptCmd \
+      debug      1 "SUB-COMMAND"          DebugCmd      \
+      reload     2 ""                     ReloadCmd     \
+      result     1 "BLOBID"               ResultCmd     \
       search     1 "STRING"               SearchCmd     \
       tree       1 "NODE"                 TreeCmd       \
-      cont       2 ""                     ContCmd       \
-      reload     2 ""                     ReloadCmd     \
     ]
     set done 0
     foreach {cmd nMin NOTUSED method} $cmdlist {
