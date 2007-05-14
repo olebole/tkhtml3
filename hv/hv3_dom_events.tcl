@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.14 2007/05/12 15:44:55 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.15 2007/05/14 02:45:05 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # DOM Level 2 Events.
@@ -509,6 +509,14 @@ proc ::hv3::dom::dispatchMouseEvent {dom eventtype EventTarget x y extra} {
   set evt [$dom setWindowEvent $event]
   $EventTarget doDispatchEvent $event
   $dom setWindowEvent $evt
+
+  set rc [catch [list [$dom see] make_transient $event] msg]
+  if {$rc} {
+    # This happens when the SEE interpreter knows nothing about the $event
+    # object. In other words, it was never used by the javascript 
+    # implementation. In this case we can simply destroy it here.
+    $event destroy
+  }
 }
 
 # Recognised HTML event types.
@@ -534,6 +542,7 @@ set ::hv3::dom::HtmlEventType(change)   [list 1 1]
 proc ::hv3::dom::dispatchHtmlEvent {dom type EventTarget} {
   set properties $::hv3::dom::HtmlEventType($type)
 
+  # Create and initialise the event object for this event.
   set event [::hv3::DOM::Event %AUTO% $dom]
   eval $event Event_initEvent $type $properties
 
@@ -542,7 +551,5 @@ proc ::hv3::dom::dispatchHtmlEvent {dom type EventTarget} {
   $dom setWindowEvent $evt
 
   # TODO: Memory management for the event object.
-
   return $rc
 }
-

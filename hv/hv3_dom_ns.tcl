@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.9 2007/04/28 05:18:50 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.10 2007/05/14 02:45:05 danielk1977 Exp $)} 1 }
 
 #---------------------------------
 # List of DOM objects in this file:
@@ -190,15 +190,9 @@ namespace eval ::hv3::dom {
   #
   #     img = new Image();
   #
-  dom_get -cache Image {
-    set cons [mymethod newRequest]
-    list object [::hv3::dom::TclCallable %AUTO% $myDom -construct $cons]
-  }
-  dom_snit {
-    method newImage {args} {
-      set node [$options(-hv3) fragment "<img>"]
-      list object [$myDom node_to_dom $node]
-    }
+  dom_construct Image {THIS} {
+    set node [$options(-hv3) fragment "<img>"]
+    list object [$myDom node_to_dom $node]
   }
 
   #-----------------------------------------------------------------------
@@ -207,15 +201,9 @@ namespace eval ::hv3::dom {
   #
   #     request = new XMLHttpRequest();
   #
-  dom_todo XMLHttpRequest
-  dom_get -cache XMLHttpRequest {
-    set cons [mymethod newRequest]
-    list object [::hv3::dom::TclCallable %AUTO% $myDom -construct $cons]
-  }
-  dom_snit {
-    method newRequest {args} {
-      list object [::hv3::DOM::XMLHttpRequest %AUTO% $myDom -hv3 $options(-hv3)]
-    }
+  # dom_todo XMLHttpRequest
+  dom_construct XMLHttpRequest {THIS args} {
+    list object [::hv3::DOM::XMLHttpRequest %AUTO% $myDom -hv3 $options(-hv3)]
   }
 
   dom_get -cache Node {

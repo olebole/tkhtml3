@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.45 2007/05/12 15:44:55 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.46 2007/05/14 02:45:05 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Snit types in this file:
@@ -708,8 +708,8 @@ snit::widget ::hv3::dom::logwin {
     ${win}.pan add ${win}.pan.left -width 200
     ${win}.pan add ${win}.pan.right
 
-    ${win}.pan.right add ${win}.pan.right.top  -height 300 -width 600
-    ${win}.pan.right add ${win}.pan.right.bottom -height 250
+    ${win}.pan.right add ${win}.pan.right.top  -height 200 -width 600
+    ${win}.pan.right add ${win}.pan.right.bottom -height 350
 
     pack ${win}.pan -fill both -expand 1
 

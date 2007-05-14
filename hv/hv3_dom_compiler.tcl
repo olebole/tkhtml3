@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.12 2007/04/28 05:18:50 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.13 2007/05/14 02:45:05 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file implements infrastructure used to create the Snit objects
@@ -11,86 +11,85 @@ namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.12 2007/04/28 05
 
 package require snit
 
-#--------------------------------------------------------------------------
-# ::hv3::dom::TclCallable
-# 
-# This type contains various convenience code to help with development 
-# of the DOM bindings for Hv3.
-#
-snit::type ::hv3::dom::TclCallable {
-
-  # If this object is callable, then this option is set to a script to
-  # invoke when it is called. Appended to the script before it is passed
-  # to [eval] are the $this object and the script arguments.
-  #
-  # If this object is an empty string, then this object is not callable.
-  #
-  option -call -default ""
-
-  # If this boolean option is true, then transform all script arguments 
-  # to the -call script (except the "this" argument) by calling 
-  # [$mySee tostring] on them before evaluating -call.
-  #
-  option -callwithstrings -default 0
-
-  # Similar to -call, but for construction (i.e. "new Object()") calls.
-  #
-  option -construct -default ""
-
-  # ::hv3::dom object that owns this object.
-  #
-  variable myDom ""
-
-  constructor {dom args} {
-    set myDom $dom
-    $self configurelist $args
-  }
-
-  # Dummy Get and Put functions. These implementations cause all
-  # properties to be stored in the native property tables.
-  #
-  method Get {property} { return "" }
-  method Put {property value} { return "native" }
-
-  proc ToString {js_value} {
-    switch -- [lindex $js_value 0] {
-      undefined {return "undefined"}
-      null      {return "null"}
-      boolean   {return [lindex $js_value 1]}
-      number    {return [lindex $js_value 1]}
-      string    {return [lindex $js_value 1]}
-      object    {
-        set val [eval [$self see] [lindex $js_value 1] DefaultValue]
-        if {[lindex $val 1] eq "object"} {error "DefaultValue is object"}
-        return [ToString $val]
-      }
+proc ::hv3::dom::ToString {pSee js_value} {
+  switch -- [lindex $js_value 0] {
+    undefined {return "undefined"}
+    null      {return "null"}
+    object    {
+      set val [$pSee [lindex $js_value 1] DefaultValue]
+      if {[lindex $val 1] eq "object"} {error "DefaultValue is object"}
+      return [::hv3::dom::ToString $val]
     }
   }
 
-  method Call {THIS args} {
-    if {$options(-call) ne ""} {
-      set A $args
-      if {$options(-callwithstrings)} {
-        set see [$myDom see]
-        set A [list]
-        # foreach a $args { lappend A [$see tostring $a] }
-        foreach a $args { lappend A [ToString $a] }
-      }
-      eval $options(-call) [list $THIS] $A
-    } else {
-      error "Cannot call this object"
-    }
-  }
-
-  method Construct {args} {
-    if {$options(-construct) ne ""} {
-      eval $options(-construct) $args
-    } else {
-      error "Cannot call this as a constructor"
-    }
-  }
+  # Handles "boolean", "number" and "string".
+  return [lindex $js_value 1]
 }
 
+# This proc is used in place of a full [dom_object] for callable
+# functions. i.e. the object returned by a Get on "document.write".
+#
+# Arguments:
+#
+#     $pSee     - Name of SEE interpreter command (returned by [::see::interp])
+#     $isString - True to convert arguments to strings
+#     $zScript  - Tcl script to invoke if this is a "Call"
+#     $op       - SEE/Tcl op (e.g. "Call", "Get", "Put" etc.)
+#     $args     - Args to SEE/Tcl op.
+#
+proc ::hv3::dom::TclCallableProc {pSee isString zScript op args} {
+  switch -- $op {
+    Get { return "" }
+
+    Put { return "native" }
+
+    Call {
+      set THIS [lindex $args 0]
+      if {$isString} {
+        foreach js_value [lrange $args 1 end] { 
+          lappend A [::hv3::dom::ToString $pSee $js_value] 
+        }
+      } else {
+        set A [lrange $args 1 end]
+      }
+      return [eval $zScript [list $THIS] $A]
+    }
+
+    Construct {
+      error "Cannot call this as a constructor"
+    }
+
+    Finalize {
+      # A no-op. There is no state data.
+      return
+    }
+  }
+
+  error "Unknown method: $op"
+}
+
+proc ::hv3::dom::TclConstructable {pSee zScript op args} {
+  switch -- $op {
+    Get { return "" }
+
+    Put { return "native" }
+
+    Construct {
+      return [eval $zScript $args]
+    }
+
+    Call {
+      error "Cannot call this object"
+    }
+
+    Finalize {
+      # A no-op. There is no state data.
+      return
+    }
+  }
+
+  error "Unknown method: $op"
+}
 
 #--------------------------------------------------------------------------
 # DOM objects are defined using the following command:
@@ -188,7 +187,10 @@ namespace eval ::hv3::dom {
     }
 
     # dom_call ?-string? PROPERTY ARG-LIST CODE
+    #
     proc dom_call {args} {
+
+      # Process arguments.
       if {[llength $args] == 3} {
         set isString 0
         foreach {property arg_list code} $args {}
@@ -199,16 +201,33 @@ namespace eval ::hv3::dom {
         error "Invalid args to dom_call: $args"
       }
 
-      set get_code [subst -nocommands {
-        list object [
-          ::hv3::dom::TclCallable %AUTO% [set myDom] \
-              -call [mymethod call_$property] -callwithstrings $isString
+      # Use [dom_get] to create the property in the javascript object.
+      dom_get -cache $property [subst -nocommands {
+        list object [list                                       \
+          ::hv3::dom::TclCallableProc                           \
+          [[set myDom] see] $isString [mymethod call_$property] \
         ]
       }]
 
-      $::hv3::dom::CurrentType add_get 0 $property $get_code
+      # Create a method in the Snit object to implement the function call.
       $::hv3::dom::CurrentType add_snit [list \
         method call_$property $arg_list $code
+      ]
+
+    }
+
+    proc dom_construct {property arg_list code} {
+      # Use [dom_get] to create the property in the javascript object.
+      dom_get -cache $property [subst -nocommands {
+        list object [list                                            \
+          ::hv3::dom::TclConstructable                               \
+          [[set myDom] see] [mymethod construct_$property]           \
+        ]
+      }]
+
+      # Create a method in the Snit object to implement the function call.
+      $::hv3::dom::CurrentType add_snit [list \
+        method construct_$property $arg_list $code
       ]
     }
 
@@ -488,6 +507,7 @@ namespace eval ::hv3::dom {
     }]
     set DESTRUCTOR [string trim {
         method Finalize {} {
+          puts "Finalize $self"
           $self destroy
         }
         destructor {
@@ -495,12 +515,14 @@ namespace eval ::hv3::dom {
           #
           $self Final
 
-          # Destroy objects returned by [dom_get -cache] methods.
+          # Move objects returned by [dom_get -cache] methods to 
+          # to transient state. The garbage collector will clean 
+          # them up eventually.
           #
           foreach {name value} [array get myGetCache] {
             foreach {t v} $value {}
             if {[lindex $value 0] eq "object"} {
-              [lindex $value 1] destroy
+              [$myDom see] make_transient [lindex $value 1]
             }
           }
         }
