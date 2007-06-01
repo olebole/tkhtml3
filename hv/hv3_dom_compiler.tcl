@@ -1,15 +1,13 @@
-namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.13 2007/05/14 02:45:05 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.14 2007/06/01 18:07:48 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
-# This file implements infrastructure used to create the Snit objects
+# This file implements infrastructure used to create the [proc] definitions
 # that implement the DOM objects. It adds the following command that
 # may be used to declare DOM object classes, in the same way as 
 # [::snit::type] is used to declare new Snit types:
 #
-#     ::hv3::dom::type TYPE-NAME BASE-TYPE-LIST BODY
+#     ::hv3::dom2::stateless TYPE-NAME BASE-TYPE-LIST BODY
 #
-
-package require snit
 
 proc ::hv3::dom::ToString {pSee js_value} {
   switch -- [lindex $js_value 0] {
@@ -68,6 +66,10 @@ proc ::hv3::dom::TclCallableProc {pSee isString zScript op args} {
   error "Unknown method: $op"
 }
 
+# This proc is used in place of a full [dom_object] for callable
+# functions. i.e. the object returned by a Get on the "window.Image"
+# property requested by the javascript "new Image()".
+#
 proc ::hv3::dom::TclConstructable {pSee zScript op args} {
   switch -- $op {
     Get { return "" }
@@ -91,28 +93,57 @@ proc ::hv3::dom::TclConstructable {pSee zScript op args} {
   error "Unknown method: $op"
 }
 
+proc Indent {iIndent str} {
+  set in  "\n[string repeat { } [expr {-1 * $iIndent}]]"
+  set out "\n[string repeat { } $iIndent]"
+  string map [list $in $out] $str
+}
+
+proc AutoIndent {iIndent str} {
+  set white 0
+  regexp {\n( *)[^[:space:]]} $str DUMMY white
+  set iIndent2 [expr $iIndent - [string length $white]]
+  Indent $iIndent2 $str
+}
+
+namespace eval ::hv3::DOM {
+  # Return the current javascript object command.
+  #
+  proc SELF {} {
+    set values [info level -1]
+    set arglist [info args [lindex $values 0]]
+    set iIdx [lsearch -exact $arglist Method]
+    lrange $values 0 $iIdx
+  }
+}
+
 #--------------------------------------------------------------------------
-# DOM objects are defined using the following command:
+# Stateless DOM objects are defined using the following command:
 #
-#     ::hv3::dom::type TYPE-NAME BASE-TYPE-LIST BODY
+#     ::hv3::dom2::stateless TYPE-NAME BASE-TYPE-LIST BODY
 #
-# This is a wrapper around [::snit::type]. The following commands are 
+# Also:
+#
+#     ::hv3::dom2::compile TYPE-NAME
+#     ::hv3::dom2::cleanup
+#
+# This generates code to implement the object using [proc]. The following are
 # supported within the BODY block:
 #
-#     dom_get ?-cache? PROPERTY CODE
+#     dom_parameter     NAME
 #
-#     dom_propertylist ?-cache? CODE
+#     dom_get           PROPERTY CODE
 #
-#     dom_put          ?-strings? PROPERTY ARG-NAME CODE
-#     dom_call         ?-strings? PROPERTY ARG-LIST CODE
+#     dom_put           ?-strings? PROPERTY ARG-NAME CODE
+#     dom_call          ?-strings? PROPERTY ARG-LIST CODE
 #
-#     dom_snit         CODE
+#     dom_todo          PROPERTY
+#     dom_call_todo     PROPERTY
 #
-#     dom_construct    CODE
-#     dom_destruct     CODE
-#     dom_finalize     CODE
+#     dom_default_value CODE
 #
-namespace eval ::hv3::dom {
+#
+namespace eval ::hv3::dom2 {
 
   ::variable BaseArray
   ::variable TypeArray
@@ -121,14 +152,14 @@ namespace eval ::hv3::dom {
   array set TypeArray ""
   set CurrentType ""
 
-  proc type {type_name base_list body} {
+  proc stateless {type_name base_list body} {
 
     ::variable TypeArray
     ::variable BaseArray
     ::variable CurrentType
 
     if {![info exists TypeArray($type_name)]} {
-      set TypeArray($type_name) [::hv3::dom::typecompiler %AUTO% $type_name]
+      set TypeArray($type_name) [::hv3::dom2::typecompiler %AUTO% $type_name]
       set BaseArray($type_name) $base_list 
     }
 
@@ -138,36 +169,37 @@ namespace eval ::hv3::dom {
   }
 
   namespace eval compiler {
-    proc dom_snit {code} {
-      $::hv3::dom::CurrentType add_snit $code
-    }
 
     proc dom_todo {property} {
+      set type [$::hv3::dom2::CurrentType name]
       dom_get $property [subst -nocommands {
-        puts "TODO: [[set self] info type].$property"
+        puts "TODO: $type.$property"
         list
       }]
     }
 
     proc dom_call_todo {property} {
+      set type [$::hv3::dom2::CurrentType name]
       dom_call $property {args} [subst -nocommands {
-        puts "TODO: [[set self] info type].${property}()"
+        puts "TODO: $type.${property}()"
         list
       }]
     }
 
-    proc dom_get {args} {
-      if {[llength $args] == 2} {
-        set isCache 0
-        foreach {property code} $args {}
-      } elseif {[llength $args] == 3 && [lindex $args 0] eq "-cache"} {
-        set isCache 1
-        foreach {dummy property code} $args {}
-      } else {
-        error "Invalid args to dom_get: $args"
-      }
+    proc dom_parameter {name} {
+      $::hv3::dom2::CurrentType add_parameter $name
+    }
 
-      $::hv3::dom::CurrentType add_get $isCache $property $code
+    proc dom_default_value {code} {
+      $::hv3::dom2::CurrentType add_default_value $code
+    }
+
+    proc dom_get {property code} {
+      $::hv3::dom2::CurrentType add_get $property $code
+    }
+
+    proc dom_finalize {code} {
+      $::hv3::dom2::CurrentType add_finalizer $code
     }
 
     # dom_put ?-string? PROPERTY ARG-NAME CODE
@@ -183,7 +215,7 @@ namespace eval ::hv3::dom {
         error "Invalid args to dom_put: $args"
       }
 
-      $::hv3::dom::CurrentType add_put $isString $property $arg_name $code
+      $::hv3::dom2::CurrentType add_put $isString $property $arg_name $code
     }
 
     # dom_call ?-string? PROPERTY ARG-LIST CODE
@@ -201,38 +233,11 @@ namespace eval ::hv3::dom {
         error "Invalid args to dom_call: $args"
       }
 
-      # Use [dom_get] to create the property in the javascript object.
-      dom_get -cache $property [subst -nocommands {
-        list object [list                                       \
-          ::hv3::dom::TclCallableProc                           \
-          [[set myDom] see] $isString [mymethod call_$property] \
-        ]
-      }]
-
-      # Create a method in the Snit object to implement the function call.
-      $::hv3::dom::CurrentType add_snit [list \
-        method call_$property $arg_list $code
-      ]
-
+      $::hv3::dom2::CurrentType add_call $property $isString $arg_list $code
     }
 
     proc dom_construct {property arg_list code} {
-      # Use [dom_get] to create the property in the javascript object.
-      dom_get -cache $property [subst -nocommands {
-        list object [list                                            \
-          ::hv3::dom::TclConstructable                               \
-          [[set myDom] see] [mymethod construct_$property]           \
-        ]
-      }]
-
-      # Create a method in the Snit object to implement the function call.
-      $::hv3::dom::CurrentType add_snit [list \
-        method construct_$property $arg_list $code
-      ]
-    }
-
-    proc dom_finalize {code} {
-      $::hv3::dom::CurrentType add_finalizer $code
+      $::hv3::dom2::CurrentType add_construct $property $arg_list $code
     }
   }
 
@@ -297,14 +302,13 @@ namespace eval ::hv3::dom {
   }
 }
 
-::snit::type ::hv3::dom::typecompiler {
+# Each stateless object declaration
+#
+::snit::type ::hv3::dom2::typecompiler {
 
   # Map of properties configured with a [dom_get]
   #
-  #     property-name -> [list IS-CACHE CODE]
-  #
-  # where IS-CACHE is a boolean variable indicating whether or not
-  # the -cache switch was specified.
+  #     property-name -> CODE
   #
   variable myGet -array [list]
 
@@ -319,19 +323,33 @@ namespace eval ::hv3::dom {
 
   # Map of object methods. More accurately: Map of callable properties.
   #
-  #     property-name -> [list IS-STRING ARG-LIST CODE]
+  #     property-name -> [list IS-CONSTRUCTOR IS-STRING ARG-LIST CODE]
   #
   # where IS-STRING is a boolean variable indicating whether or not
-  # the -string switch was specified.
+  # the -string switch was specified. IS-CONSTRUCTOR is true for a
+  # constructor ([dom_construct]) and false for a regular method 
+  # ([dom_call]).
   #
   variable myCall -array [list]
 
   # List of snit blocks to add to the object definition
   #
-  variable mySnit [list]
   variable myFinalizer [list]
 
+  # List of parameters that will be passed to the object proc.
+  #
+  variable myParam [list]
+
+  # Code for the [DefaultValue] method.
+  #
+  variable myDefaultValue ""
+
+  # List of [proc] declarations used for [dom_call].
+  #
+  variable myExtraCode ""
+
   # Name of this type - i.e. "HTMLDocument".
+  #
   variable myName 
   method name {} {set myName}
 
@@ -339,8 +357,8 @@ namespace eval ::hv3::dom {
     set myName $name
   }
 
-  method add_get {isCache property code} {
-    set myGet($property) [list $isCache $code]
+  method add_get {property code} {
+    set myGet($property) $code
   }
   method add_put {isString property argname code} {
     set myPut($property) [list $isString $argname $code]
@@ -351,27 +369,37 @@ namespace eval ::hv3::dom {
   method add_finalizer {code} {
     lappend myFinalizer $code
   }
+  method add_parameter {parameter} {
+    lappend myParam $parameter
+  }
+  method add_call {zName isString lArg zCode} {
+    set myCall($zName) [list 0 $isString $lArg $zCode]
+  }
+  method add_construct {zName lArg zCode} {
+    set myCall($zName) [list 1 0 $lArg $zCode]
+  }
+  method add_default_value {code} {
+    set myDefaultValue $code
+  }
 
+  method call {} { return [array get myCall] }
   method get {} { return [array get myGet] }
   method put {} { return [array get myPut] }
   method snit {} { return $mySnit }
   method final {} { return $myFinalizer }
+  method param {} { return $myParam }
 
   method CompilePut {mixins} {
-    set Put {
-        method Put {property value} {
-          $DEBUG
-          switch -- [set property] {
-            $SWITCHBODY
-            default {
-              $NATIVE
-            }
-          }
-        }
-    }
 
-    set DEBUG ""
-    # append DEBUG { puts "$self Put $property {$value}" }
+    set Put {
+      set value [lindex [set args] 1]
+      switch -exact -- [lindex [set args] 0] {
+        $SWITCHBODY
+        default {
+          $NATIVE
+        }
+      }
+    }
 
     array set put_array ""
     foreach t [concat $mixins $self] {
@@ -398,50 +426,88 @@ namespace eval ::hv3::dom {
   }
 
   method CompileGet {mixins} {
-    set Get {
-        variable myGetCache -array ""
-        method Get {property} {
-          set isExplicit 1
-          set result [switch -- [set property] {
-            $SWITCHBODY
-            default {
-              set isExplicit 0
-              list
-              $DEFAULT
-            }
-          }]
-          $DEBUG
-          set result
+    set Get [AutoIndent 0 {
+      set property [lindex [set args] 0]
+      set res [switch -exact -- [set property] {
+        $SWITCHBODY
+        default {
+          list
+          $DEFAULT
         }
-    }
-
-    set DEBUG {}
-    # append DEBUG { puts "$self Get $property -> $result" }
+      }]
+      set res
+    }]
 
     set SWITCHBODY ""
     foreach t [concat $mixins $self] {
       array set get_array [$t get]
     }
-    foreach {name value} [array get get_array] {
+    foreach t [concat $mixins $self] {
+      array set call_array [$t call]
+    }
+
+    # Add [switch] cases for properties declared with [dom_get].
+    #
+    foreach {name code} [array get get_array] {
       if {$name ne "*"} {
-        foreach {isCache code} $value {}
-        if {$isCache} {
-          set code [subst -nocommands {
-              if {[info exists myGetCache($name)]} {
-                set myGetCache($name)
-              } else {
-                set myGetCache($name) [$code]
-              }
-            }]
-        }
-        append SWITCHBODY "[list $name $code]\n            "
+        set code [string trim [AutoIndent 4 $code]]
+        append SWITCHBODY [subst -nocommands [AutoIndent 2 {
+          $name {
+            $code
+          }
+        }]]
       }
     }
+
+    # Add [switch] cases for properties declared with [dom_call].
+    #
+    set param_list [$self ParamList $mixins]
+    foreach {name value} [array get call_array] {
+      if {[info exists get_array($name)]} continue
+      foreach {isConstructor isString lArg zBody} $value {}
+
+      set arglist [concat $param_list myDom $lArg]
+      if {$isConstructor} {
+        set procname ::hv3::DOM::${myName}_construct_${name}
+      } else {
+        set procname ::hv3::DOM::${myName}_call_${name}
+      }
+      lappend myExtraCode [list proc $procname $arglist $zBody]
+
+      set SET_PARAMS ""
+      foreach param $param_list {
+        append SET_PARAMS " \$$param"
+      }
+
+      if {$isConstructor} {
+        set code [subst -nocommands {
+          list object [list \
+            ::hv3::dom::TclConstructable \
+            [[set myDom] see] [list $procname $SET_PARAMS [set myDom]]
+          ]
+        }]
+      } else {
+        set code [subst -nocommands {
+          list object [list \
+            ::hv3::dom::TclCallableProc \
+            [[set myDom] see] $isString [list $procname $SET_PARAMS [set myDom]]
+          ]
+        }]
+      }
+
+      set code [string trim [AutoIndent 2 $code]]
+      append SWITCHBODY [AutoIndent 2 [subst -nocommands {
+        $name {
+          $code
+        }
+      }]]
+    }
+
     set SWITCHBODY [string trim $SWITCHBODY]
 
     set DEFAULT ""
     if {[info exists myGet(*)]} {
-      set DEFAULT [lindex $myGet(*) 1]
+      set DEFAULT $myGet(*)
     }
 
     set Get [subst -nocommands $Get]
@@ -456,23 +522,23 @@ namespace eval ::hv3::dom {
       }
     }
     return [subst -nocommands {
-      method HasProperty {property} {
-        return [expr [lsearch {$l} [set property]]>=0]
-      }
+      return [expr [lsearch {$l} [lindex [set args] 0]]>=0]
     }]
+  }
+
+  method ParamList {mixins} {
+    set ret [list]
+    foreach t [concat $mixins $self] {
+      set ret [concat $ret [$t param]]
+    }
+    set ret
   }
 
   method compile {mixins} {
 
-    set Get         [$self CompileGet $mixins]
-    set Put         [$self CompilePut $mixins]
-    set HasProperty [$self CompileHasProperty $mixins]
-
-    set Snit ""
-    foreach t [concat $self $mixins] {
-      append Snit [join [$t snit] "\n"]
-      append Snit "\n"
-    }
+    set Get         [AutoIndent 6 [$self CompileGet $mixins]]
+    set Put         [AutoIndent 6 [$self CompilePut $mixins]]
+    set HasProperty [AutoIndent 6 [$self CompileHasProperty $mixins]]
 
     set Final ""
     foreach t [concat $self $mixins] {
@@ -480,88 +546,46 @@ namespace eval ::hv3::dom {
       append Finalizer "\n"
     }
 
-    set SnitCode {
-      ::snit::type ::hv3::DOM::$myName {
-
-        # Reference to the ::hv3::dom object
-        variable myDom
-
-        $CONSTRUCTOR
-        $DESTRUCTOR
-        $Get
-        $Put
-        $HasProperty
-        $Snit
-
-        method Final {} {
-          $Final
-        }
-      }
+    if {$myDefaultValue eq ""} {
+      set myDefaultValue {list string [SELF]}
     }
 
-    set CONSTRUCTOR [string trim {
-        constructor {dom args} {
-          set myDom $dom
-          catch {$self configurelist $args}
-        }
-    }]
-    set DESTRUCTOR [string trim {
-        method Finalize {} {
-          puts "Finalize $self"
-          $self destroy
-        }
-        destructor {
-          # Call the user destructor(s).
-          #
-          $self Final
+    set param_list [$self ParamList $mixins]
+    set SetStateVar ""
+    if {[lsearch -exact $param_list myStateArray]>=0} {
+      set SetStateVar {upvar #0 $myStateArray state}
+    }
+    set arglist [concat myDom $param_list Method args]
+    set Code [AutoIndent 0 {
+      proc ::hv3::DOM::$myName {$arglist} {
+        $SetStateVar
+        switch -exact -- [set Method] {
+          Get {
+            $Get
+          }
+          Put {
+            $Put
+          }
+          HasProperty {
+            $HasProperty
+          }
+          DefaultValue {
+            $myDefaultValue
+          }
 
-          # Move objects returned by [dom_get -cache] methods to 
-          # to transient state. The garbage collector will clean 
-          # them up eventually.
-          #
-          foreach {name value} [array get myGetCache] {
-            foreach {t v} $value {}
-            if {[lindex $value 0] eq "object"} {
-              [$myDom see] make_transient [lindex $value 1]
-            }
+          Finalize {
+            $Finalizer
           }
         }
+      }
     }]
 
-    set SnitCode [subst -nocommands $SnitCode]
-    return $SnitCode
+    set Code [subst -nocommands $Code]
+    append Code "\n"
+    append Code [join $myExtraCode "\n"]
+    return $Code
   }
 
-  destructor {
-  }
 }
 
-#
-# Above this line is system code. Below are the declarations for the 
-# objects that make up the DOM.
-#############################################################################
-
-source [file join [file dirname [info script]] hv3_dom_core.tcl]
-source [file join [file dirname [info script]] hv3_dom_html.tcl]
-source [file join [file dirname [info script]] hv3_dom_events.tcl]
-source [file join [file dirname [info script]] hv3_dom_style.tcl]
-source [file join [file dirname [info script]] hv3_dom_ns.tcl]
-source [file join [file dirname [info script]] hv3_dom_xmlhttp.tcl]
-
-set classlist [concat \
-  HTMLCollection HTMLElement HTMLDocument \
-  [::hv3::dom::getHTMLElementClassList]   \
-  [::hv3::dom::getNSClassList]            \
-  Text NodePrototype NodeList             \
-  MouseEvent UIEvent MutationEvent Event  \
-  CSSStyleDeclaration                     \
-  XMLHttpRequest                          \
-]
-
-foreach class $classlist {
-  eval [::hv3::dom::compile $class]
-  # puts [::hv3::dom::compile $class]
-}
-#puts [::hv3::dom::compile HTMLElement]
-::hv3::dom::cleanup
 

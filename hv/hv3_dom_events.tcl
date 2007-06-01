@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.15 2007/05/14 02:45:05 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.16 2007/06/01 18:07:48 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # DOM Level 2 Events.
@@ -33,6 +33,92 @@ namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.15 2007/05/14 02:4
 #
 #-------------------------------------------------------------------------
 
+proc ArgToBoolean {see a} {
+  switch -- [lindex $a 0] {
+    null      { expr 0 }
+    undefined { expr 0 }
+    default   { $see tostring $a }
+  }
+}
+
+::hv3::dom2::stateless Event {} {
+
+  dom_parameter myStateArray
+
+  # Constants for Event.eventPhase (Definition group PhaseType)
+  #
+  dom_get CAPTURING_PHASE { list number 1 }
+  dom_get AT_TARGET       { list number 2 }
+  dom_get BUBBLING_PHASE  { list number 3 }
+
+  # Read-only attributes to access the values set by initEvent().
+  #
+  dom_get type       { list string  $state(myEventType) }
+  dom_get bubbles    { list boolean $state(myCanBubble) }
+  dom_get cancelable { list boolean $state(myCancelable) }
+
+  dom_get target        { list object $state(-target) }
+  dom_get currentTarget { list object $state(-currenttarget) }
+  dom_get eventPhase    { list number $state(-eventphase) }
+
+  # TODO: Timestamp is supposed to return a timestamp in milliseconds
+  # from the epoch. But the DOM spec notes that this information is not
+  # available on all systems, in which case the property should return 0. 
+  #
+  dom_get timestamp  { list number 0 }
+
+  dom_call stopPropagation {THIS} { set state(-stoppropagationcalled) 1 }
+  dom_call preventDefault {THIS}  { 
+    set state(-preventdefault) true 
+  }
+
+  dom_call_todo initEvent
+
+  dom_finalize {
+    # puts "Unsetting event state $myStateArray"
+    array unset state
+  }
+}
+namespace eval ::hv3::DOM {
+  proc Event_initEvent {myStateArray eventType canBubble cancelable} {
+    upvar #0 $myStateArray state
+    set state(myEventType) $eventType
+    set state(myCanBubble) $canBubble
+    set state(myCancelable) $cancelable
+
+    set state(-stoppropagationcalled) 0
+    set state(-preventdefault) false
+    set state(-target) ""
+    set state(-currenttarget) ""
+
+    # The event phase, as returned by the Event.eventPhase interface
+    # must be set to either 1, 2 or 3. Setting this option is done
+    # by code in the [::hv3::dom::DispatchEvent] proc.
+    set state(-eventphase) ""
+  }
+}
+
+::hv3::dom2::stateless MouseEvent {UIEvent} {
+
+  dom_call_todo initMouseEvent
+
+  dom_get button { list number $state(-button) }
+  dom_get which  { list number [expr {$state(-button) + 1}]}
+
+  dom_get clientX { list number $state(-x) }
+  dom_get clientY { list number $state(-y) }
+}
+
+::hv3::dom2::stateless MutationEvent {Event} {
+
+  dom_call_todo initMutationEvent 
+}
+
+::hv3::dom2::stateless UIEvent {Event} {
+  dom_call_todo initUIEvent 
+}
+
+
 # List of HTML events handled by this module. This is used both at 
 # runtime and when building DOM object definitions during application 
 # startup.
@@ -43,23 +129,15 @@ set ::hv3::dom::HTML_Events_List [list                          \
   load
 ]
 
-proc ArgToBoolean {see a} {
-  switch -- [lindex $a 0] {
-    null      { expr 0 }
-    undefined { expr 0 }
-    default   { $see tostring $a }
-  }
-}
-
 #-------------------------------------------------------------------------
-# eventtarget (dom level 2 events)
+# EventTarget (dom level 2 events)
 #
-#     this interface is mixed into all objects implementing the node 
+#     this interface is mixed in to all objects implementing the node 
 #     interface. some of the node interface is invoked via the 
 #     javascript protocol. i.e. stuff like the following is expected to 
 #     work:
 #
-#         set value       [$self get parentnode]
+#         set value       [self Get parentnode]
 #         set eventtarget [lindex $value 1]
 #
 #  javascript interface:
@@ -72,337 +150,118 @@ proc ArgToBoolean {see a} {
 #     ("onclick", "onsubmit" etc.). See $::hv3::dom::HTML_Events_List
 #     above for a full list of HTML events.
 #
-::hv3::dom::type EventTarget {} {
+::hv3::dom2::stateless EventTarget {} {
+
+  #-----------------------------------------------------------------------
+  # Code to get and set properties from the traditional events model.
+  #
+  foreach event $::hv3::dom::HTML_Events_List {
+    dom_get on$event [subst -nocommands { 
+      EventTarget_GetAttr [set myDom] [SELF] $event
+    }]
+    dom_put on$event value [subst -nocommands { 
+      EventTarget_PutAttr [set myDom] [SELF] $event [set value]
+    }]
+  }
 
   #-----------------------------------------------------------------------
   # EventTarget.addEventListener()
   #
   dom_call addEventListener {THIS event_type listener useCapture} {
-    $self initEventTarget
-
+    set et [EventTarget_GetEventTarget $myDom [SELF]]
     set see [$myDom see]
     set T [$see tostring $event_type]
     set L [lindex $listener 1]
     set C [ArgToBoolean $see $useCapture]
-    $myEventTarget addEventListener $T $L $C
+    $et addEventListener $T $L $C
   }
 
   #-----------------------------------------------------------------------
   # EventTarget.removeEventListener()
   #
   dom_call removeEventListener {THIS event_type listener useCapture} {
-    if {$myEventTarget eq ""} return
-
+    set et [EventTarget_GetEventTarget $myDom [SELF]]
     set T [$see tostring $event_type]
     set L [lindex $listener 1]
     set C [$see tostring $useCapture]
-    $myEventTarget addEventListener $T $L $C
+    $et addEventListener $T $L $C
   }
 
   #-----------------------------------------------------------------------
   # EventTarget.dispatchEvent()
   #
-  dom_call dispatchEvent {THIS evt} {
-    set b [$self doDispatchEvent [lindex $evt 1]]
-    list boolean $b
-  }
-
-  #-----------------------------------------------------------------------
-  # Code to get and set properties from the traditional events model.
-  #
-  # Basically does the following mapping for each event $E:
-  #
-  #     [$self Get on$E]       -> [$self EventTarget_Get $E]
-  #     [$self Put on$E value] -> [$self EventTarget_Put $E $value]
-  #
-  # See below for the definitions of [EventTarget_Get] and [EventTarget_Put].
-  #
-  foreach event $::hv3::dom::HTML_Events_List {
-    set get_script [subst -novar {$self EventTarget_Get [set event]}]
-    set put_script [subst -novar {$self EventTarget_Put [set event] $value}]
-    dom_get on$event $get_script
-    dom_put on$event value $put_script
-  }
-
-  dom_snit {
-
-    variable myEventTarget ""
-
-    # Initialise the event-target object stored in $myEventTarget. Also
-    # compile any event functions specified using the inline model (i.e.
-    # the "onclick" attribute) here. The event-target object needs to
-    # be initialised under the following circumstances:
-    #
-    #   * When EventTarget.addEventListener() is called,
-    #   * When an event property from the traditional events model
-    #     is set (i.e. EventTarget.onclick),
-    #   * When an event is dispatched and there is an HTML attribute
-    #     defined for the corresponding event.
-    #
-    # This method is a no-op if the event-target object has already been
-    # initialised.
-    #
-    method initEventTarget {} {
-      if {$myEventTarget ne ""} return
-      set myEventTarget [[$myDom see] eventtarget]
-
-      set node [$self getElementNode]
-      if {$node ne ""} {
-        # For each type of event ("click", "submit", "mouseout" ...)
-        # search for an HTML attribute of the form "on$event"
-        # Pass each to the event-target object to be compiled into an
-        # event-listener function.
-        # 
-        if {$self eq [$myDom window]} {
-          set EventList [list load unload]
-        } else {
-          set EventList $::hv3::dom::HTML_Events_List
-        }
-        foreach event $EventList {
-          set code [$node attribute -default "" "on${event}"]
-          if {$code ne ""} {
-            $myEventTarget setLegacyScript $event $code
-          }
-        }
-      }
-    }
-
-    method initWindowEventTarget {} {
-      # Events for which attributes of the <body> element should be
-      # used as initialisers.
-      #
-      set WindowEvents [list load unload]
-
-      set node [lindex [[$myDom hv3] search body] 0]
-      foreach event $WindowEvents {
-        set code [$node attribute -default "" "on${event}"]
-        if {$code ne ""} {
-          $myEventTarget setLegacyScript $event $code
-        }
-      }
-    }
-
-    method getElementNode {} {
-      if {$self eq [$myDom window]} {
-        # For the window object, return the <body> node.
-        return [lindex [[$myDom hv3] search body] 0]
-      }
-
-      # DOM Core level 1 defines the Node.ELEMENT_NODE constant as the
-      # value 1. So if the javascript "nodeType" property of this object
-      # is equal to "1", we are an element node. In this case, worry
-      # about inline event definitions.
-      #
-      if {[lindex [$self Get nodeType] 1] == 1} {
-        return $options(-nodehandle)
-      }
-      return ""
-    }
-
-    # This method calls the [initEventTarget] method if:
-    #
-    #     * the event-target object has not already been defined, and
-    #     * this EventTarget interface is mixed into an Element node, and
-    #     * the element node has an attribute defining an event of
-    #       type $event using the inline model (i.e. if $event is "click", 
-    #       check for the attribute "onclick").
-    #
-    method EventTarget_InitIfAttribute {event} {
-      if {$myEventTarget eq ""} {
-        # If this event-listener is not an element-node, or if there
-        # is no "on$event" attribute defined for this event, return.
-        # Otherwise, if the is an "on$event" attribute, construct the
-        # event-target object. This will compile the inline event definition
-        # into a function that will be executed by the [runEvent] method.
-        #
-        set node [$self getElementNode]
-        if {$node ne "" && [$node attr -default "" "on$event"] ne ""} {
-          $self initEventTarget
-        }
-      }
-    }
-
-    method EventTarget_Get {event} {
-      $self EventTarget_InitIfAttribute $event
-      if {$myEventTarget eq ""} { return undefined }
-      list event $myEventTarget $event
-    } 
-
-    method EventTarget_Put {event value} {
-      if {[lindex $value 0] ne "object"} {
-        if {$myEventTarget eq ""} return
-        $myEventTarget removeLegacyListener $event
-      } else {
-        $self initEventTarget
-        $myEventTarget setLegacyListener $event [lindex $value 1]
-      }
-    } 
-
-    # Returns one of the following, as per the C event-target
-    # object (see hv3see.c):
-    #
-    #     "prevent"
-    #     "ok"
-    #     ""
-    #
-    method runEvent {event_type isCapture event} {
-      $self EventTarget_InitIfAttribute $event_type
-      if {$myEventTarget ne ""} {
-        # Set the value of the Event.currentTarget property to this object
-        # before running the event listeners.
-        #
-        $event configure -currenttarget $self
-        $myEventTarget runEvent $event_type $isCapture $self $event
-      }
-    }
-
-    method doDispatchEvent {event} {
-      set event_type [$event cget -eventtype]
-      set isRun 0          ;# Set to true if one or more scripts are run.
-   
-      set isBubbling [$event bubbles]
-
-      # Set the value of the Event.target property to this object.
-      #
-      $event configure -target $self
-
-      if {$isBubbling} {
-        # Use the DOM Node.parentNode interface to determine the ancestry.
-        #
-        # Due to the strange nature of the browsers that came before us
-        # object $self may either implement class "Node" (core module) or 
-        # "Window" (ns module). In the "Window" case the parentNode property
-        # will always be NULL (empty string form - "").
-        #
-        set N [$self Get parentNode]
-        set nodes [list]
-        while {[lindex $N 0] eq "object"} {
-          set cmd [lindex $N 1]
-          lappend nodes $cmd
-          set N [$cmd Get parentNode]
-        }
-  
-        # Capturing phase:
-        $event configure -eventphase 1
-        for {set ii [expr [llength $nodes] - 1]} {$ii >= 0} {incr ii -1} {
-          if {[$event stoppropagationcalled]} break
-          set node [lindex $nodes $ii]
-          
-          set rc [$node runEvent $event_type 1 $event]
-          if {$rc ne ""} {set isRun 1}
-        }
-      }
-
-      # Target phase:
-      $event configure -eventphase 2
-      if {![$event stoppropagationcalled]} {
-        set rc [$self runEvent $event_type 0 $event]
-        if {"prevent" eq $rc} {
-          $event configure -preventdefault true
-        } 
-        if {$rc ne ""} {set isRun 1}
-      }
-
-      if {$isBubbling} {
-        # Bubbling phase:
-        $event configure -eventphase 3
-        foreach node $nodes {
-          if {[$event stoppropagationcalled]} break
-          set rc [$node runEvent $event_type 0 $event]
-          if {"prevent" eq $rc} {
-            $event configure -preventdefault true
-          }
-          if {$rc ne ""} {set isRun 1}
-        }
-      }
-
-      # If anyone called Event.preventDefault(), return "prevent". Otherwise,
-      # if one or more scripts were executed, return "ok. If no scripts
-      # were executed, return "".
-      #
-      if {[$event cget -preventdefault]} {return "prevent"}
-      if {$isRun} {return "ok"}
-      return ""
-    }
-  }
-
-  dom_snit {
-    method eventdump {} {
-      $self initEventTarget
-      $myEventTarget dump
-    }
-  }
+  dom_call_todo dispatchEvent
 }
 
-::hv3::dom::type Event {} {
+namespace eval ::hv3::DOM {
 
-  # Constants for Event.eventPhase (Definition group PhaseType)
+  #-------------------------------------------------------------------
+  # Retrieve a legacy event property.
   #
-  dom_get CAPTURING_PHASE { list number 1 }
-  dom_get AT_TARGET       { list number 2 }
-  dom_get BUBBLING_PHASE  { list number 3 }
-
-  # Read-only attributes to access the values set by initEvent().
-  #
-  dom_get type       { list string  $myEventType }
-  dom_get bubbles    { list boolean $myCanBubble }
-  dom_get cancelable { list boolean $myCancelable }
-
-  dom_get target        { list object $options(-target) }
-  dom_get currentTarget { list object $options(-currenttarget) }
-  dom_get eventPhase    { list number $options(-eventphase) }
-
-  # TODO: Timestamp is supposed to return a timestamp in milliseconds
-  # from the epoch. But the DOM spec notes that this information is not
-  # available on all systems, in which case the property should return 0. 
-  #
-  dom_get timestamp  { list number 0 }
-
-  dom_call stopPropagation {THIS} { set myStopPropagationCalled 1 }
-  dom_call preventDefault {THIS}  { 
-    set options(-preventdefault) true 
+  proc EventTarget_GetAttr {dom js_obj event} {
+    set et [EventTarget_GetEventTarget $dom $js_obj]
+    list event $et $event
   }
 
-  dom_call -string initEvent {eventType canBubble cancelable} {
-    $self Event_initEvent $eventType $canBubble $cancelable
-    set myEventType  $eventType
-    set myCanBubble  $canBubble
-    set myCancelable $cancelable
+  #-------------------------------------------------------------------
+  # Set a legacy event property.
+  #
+  proc EventTarget_PutAttr {dom js_obj event value} {
+    set et [EventTarget_GetEventTarget $dom $js_obj]
+    if {[lindex $value 0] ne "object"} {
+      $et removeLegacyListener $event
+    } else {
+      $et setLegacyListener $event [lindex $value 1]
+    }
   }
 
-  dom_snit {
+  #-------------------------------------------------------------------
+  # Retrieve the EventTarget object associated with a javascript
+  # object.
+  #
+  proc EventTarget_GetEventTarget {dom js_obj {ifAttr ""}} {
 
-    # The event-type. i.e. "click" or "load". Returned by the 
-    # Event.type interface.
-    option -eventtype -default ""
+    set et [$dom getEventTarget $js_obj isNew]
 
-    option -preventdefault -default false
+    if {$isNew} {
+      # The event-target object was just allocated. So it needs to
+      # be populated with any legacy events (i.e. by compiling the 
+      # contents of HTML attributes like "onclick" to javascript 
+      # functions).
+      #
 
-    # Objects for the Event.target and Event.currentTarget properties.
-    #
-    option -target         -default ""
-    option -currenttarget  -default ""
+      # Grab the [proc] name of the javascript object:
+      set zProc [lindex $js_obj 0]
 
-    variable myCanBubble  1
-    variable myCancelable 0
+      switch -exact -- $zProc {
+        ::hv3::DOM::HTMLDocument {
+          set EventList ""
+        }
+        ::hv3::DOM::Window {
+          set node [lindex [[$dom hv3] search body] 0]
+          set EventList [list load unload]
+        }
+        default {
+          set idx [lsearch -exact [info args $zProc] myNode]
+          set node [lindex $js_obj [expr $idx+1]]
+          set EventList $::hv3::dom::HTML_Events_List
+        }
+      }
 
-    method bubbles {} {return $myCanBubble}
-
-    method Event_initEvent {eventType canBubble cancelable} {
-      set options(-eventtype)  $eventType
-      set myCanBubble  $canBubble
-      set myCancelable $cancelable
-      return ""
+      # For each type of event ("click", "submit", "mouseout" ...)
+      # search for an HTML attribute of the form "on$event"
+      # Pass each to the event-target object to be compiled into an
+      # event-listener function.
+      # 
+      foreach event $EventList {
+        set code [$node attribute -default "" "on${event}"]
+        if {$code ne ""} {
+          $et setLegacyScript $event $code
+        }
+      }
     }
 
-    variable myStopPropagationCalled 0
-    method stoppropagationcalled {} {return $myStopPropagationCalled}
-
-    # The event phase, as returned by the Event.eventPhase interface
-    # must be set to either 1, 2 or 3. Setting this option is done
-    # by code in the [doDispatchEvent] method of the EventListener
-    # interface.
-    option -eventphase -default 1
+    return $et
   }
 }
 
@@ -414,7 +273,7 @@ proc ArgToBoolean {see a} {
 #
 #         createEvent()
 #
-::hv3::dom::type DocumentEvent {} {
+::hv3::dom2::stateless DocumentEvent {} {
 
   # The DocumentEvent.createEvent() method. The argument (specified as
   # type DOMString in the spec) should be one of the following:
@@ -439,45 +298,99 @@ proc ArgToBoolean {see a} {
   }
 }
 
-::hv3::dom::type MouseEvent {UIEvent Event} {
-
-  dom_call initMouseEvent {THIS 
-      eventtype canBubble cancelable view detail
-      screenX screenY clientX clientY 
-      ctrlKey altKey shiftKey metaKey 
-      button relatedTarget
-  } {
-      $self Event_initEvent \
-          [lindex $eventtype 1] [lindex $canBubble 1] [lindex $cancelable 1]
-  }
-
-  dom_snit {
-    option -button -default 0
-    option -x
-    option -y
-  }
-
-  dom_get button { list number $options(-button) }
-  dom_get which  { list number [expr {$options(-button) + 1}]}
-
-  dom_get clientX { list number $options(-x) }
-  dom_get clientY { list number $options(-y) }
+proc ::hv3::dom::RunEvent {dom js_obj event isCapture zType} {
+  set et [::hv3::DOM::EventTarget_GetEventTarget $dom $js_obj]
+  $et runEvent $zType $isCapture $js_obj $event
 }
 
-::hv3::dom::type MutationEvent {Event} {
+proc ::hv3::dom::DispatchEvent {dom js_obj event arrayvar} {
+  upvar #0 $arrayvar eventstate
 
-  dom_call initMutationEvent {THIS
-      eventtype canBubble cancelable 
-      relatedNode prevValue newValue attrName attrChange
-  } {
+  set previous_event [$dom setWindowEvent $event]
+
+  set event_type $eventstate(myEventType)
+  set isRun 0          ;# Set to true if one or more scripts are run.
+   
+  set isBubbling $eventstate(myCanBubble)
+
+  # Set the value of the Event.target property to this object.
+  #
+  set eventstate(-target) $js_obj
+
+  if {$isBubbling} {
+    # Use the DOM Node.parentNode interface to determine the ancestry.
+    #
+    # Due to the strange nature of the browsers that came before us
+    # object $self may either implement class "Node" (core module) or 
+    # "Window" (ns module). For "Window", there are no ancestor nodes.
+    #
+    set js_nodes [list]
+    if {[lindex $js_obj 0] ne "::hv3::DOM::Window"} {
+      set N [eval $js_obj Get parentNode]
+      while {[lindex $N 0] eq "object"} {
+        set cmd [lindex $N 1]
+        lappend js_nodes $cmd
+        set N [eval $cmd Get parentNode]
+      }
+    }
+  
+    # Capturing phase:
+    set eventstate(-eventphase) 1
+    for {set ii [expr [llength $js_nodes] - 1]} {$ii >= 0} {incr ii -1} {
+      if {$eventstate(-stoppropagationcalled)} break
+      set js_node [lindex $js_nodes $ii]
+      set eventstate(-currenttarget) $js_node
+      set rc [::hv3::dom::RunEvent $dom $js_node $event 1 $event_type]
+      if {$rc ne ""} {set isRun 1}
+    }
   }
 
+  # Target phase:
+  set eventstate(-eventphase) 2
+  if {!$eventstate(-stoppropagationcalled)} {
+    set eventstate(-currenttarget) $js_obj
+    set rc [::hv3::dom::RunEvent $dom $js_obj $event 0 $event_type]
+    if {"prevent" eq $rc} {
+      set eventstate(-preventdefault) true
+    } 
+    if {$rc ne ""} {set isRun 1}
+  }
+
+  if {$isBubbling} {
+    # Bubbling phase:
+    set eventstate(-eventphase) 3
+    foreach js_node $js_nodes {
+      if {$eventstate(-stoppropagationcalled)} break
+      set eventstate(-currenttarget) $js_node
+      set rc [::hv3::dom::RunEvent $dom $js_node $event 0 $event_type]
+      if {"prevent" eq $rc} {
+        set eventstate(-preventdefault) true
+      }
+      if {$rc ne ""} {set isRun 1}
+    }
+  }
+
+  $dom setWindowEvent $previous_event
+
+  # If anyone called Event.preventDefault(), return "prevent". Otherwise,
+  # if one or more scripts were executed, return "ok. If no scripts
+  # were executed, return "".
+  #
+  set res ""
+  if {$eventstate(-preventdefault)} {set res "prevent"}
+  if {$isRun} {set res "ok"}
+
+  set isErr [catch [list [$dom see] make_transient $event] msg]
+  if {$isErr} {
+    # This happens when the SEE interpreter knows nothing about the $event
+    # object. In other words, it was never used by the javascript 
+    # implementation. In this case we can simply destroy it here.
+    eval $event Finalize
+  }
+
+  return $res
 }
 
-::hv3::dom::type UIEvent {Event} {
-  dom_call initUIEvent {THIS eventtype canBubble cancelable view detail} {
-  }
-}
 
 # Recognised mouse event types.
 #
@@ -498,25 +411,28 @@ set ::hv3::dom::MouseEventType(mouseout)  1
 #     $EventTarget -> The DOM object implementing the EventTarget interface
 #     $x, $y       -> Widget coordinates for the event
 #
-proc ::hv3::dom::dispatchMouseEvent {dom eventtype EventTarget x y extra} {
+proc ::hv3::dom::dispatchMouseEvent {dom type js_obj x y extra} {
 
-  set isCancelable $::hv3::dom::MouseEventType($eventtype)
+  set isCancelable $::hv3::dom::MouseEventType($type)
 
-  set event [::hv3::DOM::MouseEvent %AUTO% $dom -x $x -y $y]
-  $event Event_initEvent $eventtype 1 $isCancelable
-  $event configurelist $extra
+  # Create and initialise the event object for this event.
+  set arrayvar "::hv3::DOM::ea[incr ::hv3::dom::next_array]"
+  upvar #0 $arrayvar eventstate
+  ::hv3::DOM::Event_initEvent $arrayvar $type 1 $isCancelable
+  set eventstate(-x) $x
+  set eventstate(-y) $y
+  set eventstate(-button) 0
+  # array set eventstate $extra
 
-  set evt [$dom setWindowEvent $event]
-  $EventTarget doDispatchEvent $event
-  $dom setWindowEvent $evt
-
-  set rc [catch [list [$dom see] make_transient $event] msg]
-  if {$rc} {
-    # This happens when the SEE interpreter knows nothing about the $event
-    # object. In other words, it was never used by the javascript 
-    # implementation. In this case we can simply destroy it here.
-    $event destroy
+  # Dispatch!
+  set event [list ::hv3::DOM::MouseEvent $dom $arrayvar]
+  set isErr [catch {::hv3::dom::DispatchEvent $dom $js_obj $event $arrayvar} rc]
+  if {$isErr} { 
+    puts $rc 
+    puts $::errorInfo
+    puts $::errorCode
   }
+  return $rc
 }
 
 # Recognised HTML event types.
@@ -530,26 +446,28 @@ set ::hv3::dom::HtmlEventType(change)   [list 1 1]
 
 # dispatchHtmlEvent --
 #
-#     $dom         -> the ::hv3::dom object
-#     $EventTarget -> The DOM object implementing the EventTarget interface
+#     $dom     -> the ::hv3::dom object.
+#     $type    -> The event type (see list below).
+#     $js_obj  -> The DOM object with the EventTarget interface mixed in.
 #
-#     Dispatch one of the following events:
+#     Dispatch one of the following events ($type):
 #
 #       load
 #       submit
 #       change
 #
-proc ::hv3::dom::dispatchHtmlEvent {dom type EventTarget} {
+set ::hv3::dom::next_array 1
+proc ::hv3::dom::dispatchHtmlEvent {dom type js_obj} {
   set properties $::hv3::dom::HtmlEventType($type)
 
   # Create and initialise the event object for this event.
-  set event [::hv3::DOM::Event %AUTO% $dom]
-  eval $event Event_initEvent $type $properties
+  set arrayvar "::hv3::DOM::ea[incr ::hv3::dom::next_array]"
+  eval ::hv3::DOM::Event_initEvent $arrayvar $type $properties
 
-  set evt [$dom setWindowEvent $event]
-  set rc [$EventTarget doDispatchEvent $event]
-  $dom setWindowEvent $evt
-
-  # TODO: Memory management for the event object.
+  # Dispatch!
+  set event [list ::hv3::DOM::Event $dom $arrayvar]
+  set isErr [catch {::hv3::dom::DispatchEvent $dom $js_obj $event $arrayvar} rc]
+  if {$isErr} { puts $rc }
   return $rc
 }
+

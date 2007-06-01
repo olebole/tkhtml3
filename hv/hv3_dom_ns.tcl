@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.10 2007/05/14 02:45:05 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.11 2007/06/01 18:07:48 danielk1977 Exp $)} 1 }
 
 #---------------------------------
 # List of DOM objects in this file:
@@ -35,7 +35,7 @@ namespace eval ::hv3::dom {
 #     Navigator.vendor
 #     Navigator.vendorSub
 #
-::hv3::dom::type Navigator {} {
+::hv3::dom2::stateless Navigator {} {
 
   dom_get appCodeName    { list string "Mozilla" }
   dom_get appName        { list string "Netscape" }
@@ -61,7 +61,7 @@ namespace eval ::hv3::dom {
     # This will return something like "Linux i686".
     list string "$::tcl_platform(os) $::tcl_platform(machine)"
   }
-  dom_get oscpu { $self Get platform }
+  dom_get oscpu { eval [SELF] Get platform }
 }
 
 #-------------------------------------------------------------------------
@@ -87,15 +87,13 @@ namespace eval ::hv3::dom {
 #     http://developer.mozilla.org/en/docs/DOM:window.location
 #
 #
-::hv3::dom::type Location {} {
+::hv3::dom2::stateless Location {} {
 
-  dom_snit {
-    option -hv3 -default ""
+  dom_parameter myHv3
 
-    # Default value.
-    method DefaultValue {} { list string [$options(-hv3) location] }
+  dom_default_value {
+    list string [$myHv3 location]
   }
-
 
   #---------------------------------------------------------------------
   # Properties:
@@ -103,29 +101,29 @@ namespace eval ::hv3::dom {
   #     Todo: Writing to properties is not yet implemented.
   #
   dom_get hostname {
-    set auth [$options(-hv3) uri cget -authority]
+    set auth [$myHv3 uri cget -authority]
     set hostname ""
     regexp {^([^:]*)} -> hostname
     list string $hostname
   }
   dom_get port {
-    set auth [$options(-hv3) uri cget -authority]
+    set auth [$myHv3 uri cget -authority]
     set port ""
     regexp {:(.*)$} -> port
     list string $port
   }
-  dom_get host     { list string [$options(-hv3) uri cget -authority] }
-  dom_get href     { list string [$options(-hv3) uri get] }
-  dom_get pathname { list string [$options(-hv3) uri cget -path] }
-  dom_get protocol { list string [$options(-hv3) uri cget -scheme]: }
+  dom_get host     { list string [$myHv3 uri cget -authority] }
+  dom_get href     { list string [$myHv3 uri get] }
+  dom_get pathname { list string [$myHv3 uri cget -path] }
+  dom_get protocol { list string [$myHv3 uri cget -scheme]: }
   dom_get search   { 
-    set query [$options(-hv3) uri cget -query]
+    set query [$myHv3 uri cget -query]
     set str ""
     if {$query ne ""} {set str "?$query"}
     list string $str
   }
   dom_get hash   { 
-    set fragment [$options(-hv3) uri cget -fragment]
+    set fragment [$myHv3 uri cget -fragment]
     set str ""
     if {$fragment ne ""} {set str "#$fragment"}
     list string $str
@@ -134,19 +132,15 @@ namespace eval ::hv3::dom {
   #---------------------------------------------------------------------
   # Methods:
   #
-  dom_snit {
-    method Location_assign {uri} { $options(-hv3) goto $uri }
-  }
-  dom_call -string assign  {THIS uri} { $self Location_assign $uri }
-
-  dom_call -string replace {THIS uri} { $options(-hv3) goto $uri -nosave }
+  dom_call -string assign  {THIS uri} { $myHv3 goto $uri }
+  dom_call -string replace {THIS uri} { $myHv3 goto $uri -nosave }
   dom_call -string reload  {THIS force} { 
     if {![string is boolean $force]} { error "Bad boolean arg: $force" }
     set cc normal
     if {$force} { set cc no-cache }
-    $options(-hv3) goto [$options(-hv3) location] -nosave 
+    $myHv3 goto [$myHv3 location] -nosave 
   }
-  dom_call toString {THIS} { $self DefaultValue }
+  dom_call toString {THIS} { eval [SELF] DefaultValue }
 }
 
 #-------------------------------------------------------------------------
@@ -166,12 +160,11 @@ namespace eval ::hv3::dom {
 #
 # Mixes in the EventTarget interface.
 #
-::hv3::dom::type Window EventTarget {
+#set BaseList {EventTarget}
+set BaseList {}
+::hv3::dom2::stateless Window $BaseList {
 
-  dom_snit { 
-    option -hv3 -default ""
-    option -see -default ""
-  }
+  dom_parameter myHv3
 
   dom_call_todo scrollBy
 
@@ -180,8 +173,8 @@ namespace eval ::hv3::dom {
   # 
   #     Window.document
   #
-  dom_get -cache document {
-    list object [::hv3::DOM::HTMLDocument %AUTO% $myDom -hv3 $options(-hv3)]
+  dom_get document {
+    list object [list ::hv3::DOM::HTMLDocument $myDom $myHv3]
   }
 
   #-----------------------------------------------------------------------
@@ -191,7 +184,7 @@ namespace eval ::hv3::dom {
   #     img = new Image();
   #
   dom_construct Image {THIS} {
-    set node [$options(-hv3) fragment "<img>"]
+    set node [$myHv3 fragment "<img>"]
     list object [$myDom node_to_dom $node]
   }
 
@@ -203,11 +196,11 @@ namespace eval ::hv3::dom {
   #
   # dom_todo XMLHttpRequest
   dom_construct XMLHttpRequest {THIS args} {
-    list object [::hv3::DOM::XMLHttpRequest %AUTO% $myDom -hv3 $options(-hv3)]
+    list object [::hv3::DOM::XMLHttpRequest %AUTO% $myDom -hv3 $myHv3]
   }
 
-  dom_get -cache Node {
-    set obj [::hv3::DOM::NodePrototype %AUTO% $myDom]
+  dom_get Node {
+    set obj [list ::hv3::DOM::Node $myDom]
     list object $obj
   }
 
@@ -217,19 +210,19 @@ namespace eval ::hv3::dom {
   #     This is an alias for the document.location property.
   #
   dom_get location {
-    set document [lindex [$self Get document] 1]
-    $document Get location
+    set document [lindex [eval [SELF] Get document] 1]
+    eval $document Get location
   }
   dom_put location {value} {
-    set document [lindex [$self Get document] 1]
-    $document Put location $value
+    set document [lindex [eval [SELF] Get document] 1]
+    eval $document Put location $value
   }
 
   #-----------------------------------------------------------------------
   # The "navigator" object.
   #
-  dom_get -cache navigator { 
-    list object [::hv3::DOM::Navigator %AUTO% $myDom]
+  dom_get navigator { 
+    list object [list ::hv3::DOM::Navigator $myDom]
   }
 
   #-----------------------------------------------------------------------
@@ -241,11 +234,12 @@ namespace eval ::hv3::dom {
   #
   # For now, this always returns a "reference to itself".
   #
-  dom_get parent { return [list object $self] }
-  dom_get top    { return [list object $self] }
-  dom_get self   { return [list object $self] }
-  dom_get window { return [list object $self] }
+  dom_get parent { return [list object [SELF]] }
+  dom_get top    { return [list object [SELF]] }
+  dom_get self   { return [list object [SELF]] }
+  dom_get window { return [list object [SELF]] }
 
+if 0 {
   #-----------------------------------------------------------------------
   # Method Implementations: 
   #
@@ -275,7 +269,8 @@ namespace eval ::hv3::dom {
     method CallTimer {timerid isRepeat ms code} {
       if {$timerid ne ""} {
         unset myTimerIds($timerid)
-        set rc [catch {$options(-see) eval -file setTimeout() $code} msg]
+        set see [[$myHv3 dom] see]
+        set rc [catch {$see eval -file setTimeout() $code} msg]
       }
   
       if {$timerid eq "" || $isRepeat} {
@@ -296,6 +291,16 @@ namespace eval ::hv3::dom {
   }
   dom_call clearTimeout  {THIS js_timerid} { $self ClearTimer $js_timerid }
   dom_call clearInterval {THIS js_timerid} { $self ClearTimer $js_timerid }
+
+  dom_finalize {
+    # Cancel any outstanding timers created by Window.setTimeout().
+    #
+    foreach timeoutid [array names myTimerIds] {
+      after cancel $myTimerIds($timeoutid)
+    }
+    array unset myTimeoutIds
+  }
+}
   #-----------------------------------------------------------------------
 
   #-----------------------------------------------------------------------
@@ -320,15 +325,6 @@ namespace eval ::hv3::dom {
 
   dom_call -string jsputs {THIS args} {
     puts $args
-  }
-
-  dom_finalize {
-    # Cancel any outstanding timers created by Window.setTimeout().
-    #
-    foreach timeoutid [array names myTimerIds] {
-      after cancel $myTimerIds($timeoutid)
-    }
-    array unset myTimeoutIds
   }
 }
 

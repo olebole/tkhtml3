@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.12 2007/05/12 15:44:55 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.13 2007/06/01 18:07:48 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Html
@@ -32,13 +32,9 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.12 2007/05/12 15:44:
 #     HTMLDocument.body
 #     HTMLDocument.cookie
 #
-::hv3::dom::type HTMLDocument [list \
-    Document               \
-    DocumentEvent          \
-    Node                   \
-    NodePrototype          \
-    EventTarget            \
-] {
+#set BaseList {Document DocumentEvent Node NodePrototype EventTarget}
+set BaseList {Document Node NodePrototype}
+::hv3::dom2::stateless HTMLDocument $BaseList {
 
   dom_todo title
   dom_todo referrer
@@ -60,27 +56,21 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.12 2007/05/12 15:44:
   # include applets and APPLET (deprecated) elements in a document". Here
   # only the APPLET elements are collected.
   #
-  dom_get -cache images   { $self HTMLDocument_Collection img }
-  dom_get -cache forms    { $self HTMLDocument_Collection form }
-  dom_get -cache applet   { $self HTMLDocument_Collection applet }
-  dom_get -cache anchors  { $self HTMLDocument_Collection {a[name]} }
-  dom_get -cache links    { $self HTMLDocument_Collection {area,a[href]} }
-  dom_snit {
-    method HTMLDocument_Collection {selector} {
-      set cmd [list $options(-hv3) search $selector]
-      list object [::hv3::DOM::HTMLCollection %AUTO% $myDom -nodelistcmd $cmd]
-    }
-  }
+  dom_get images  { HTMLDocument_Collection $myDom $myHv3 img }
+  dom_get forms   { HTMLDocument_Collection $myDom $myHv3 form }
+  dom_get applet  { HTMLDocument_Collection $myDom $myHv3 applet }
+  dom_get anchors { HTMLDocument_Collection $myDom $myHv3 {a[name]} }
+  dom_get links   { HTMLDocument_Collection $myDom $myHv3 {area,a[href]} }
 
   #-------------------------------------------------------------------------
   # The HTMLDocument.write() and writeln() methods (DOM level 1)
   #
   dom_call -string write {THIS str} {
-    catch { [$options(-hv3) html] write text $str } msg
+    catch { [$myHv3 html] write text $str } msg
     return ""
   }
   dom_call -string writeln {THIS str} {
-    catch { [$options(-hv3) html] write text "$str\n" }
+    catch { [$myHv3 html] write text "$str\n" }
     return ""
   }
 
@@ -93,7 +83,7 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.12 2007/05/12 15:44:
   dom_call -string getElementById {THIS elementId} {
     set elementId [string map [list "\x22" "\x5C\x22"] $elementId]
     set selector [subst -nocommands {[id="$elementId"]}]
-    set node [lindex [$options(-hv3) search $selector] 0]
+    set node [lindex [$myHv3 search $selector] 0]
     if {$node ne ""} {
       return [list object [$myDom node_to_dom $node]]
     }
@@ -109,8 +99,8 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.12 2007/05/12 15:44:
   #
   dom_call -string getElementsByName {THIS elementName} {
     set name [string map [list "\x22" "\x5C\x22"] $elementName]
-    set cmd [list $options(-hv3) search [subst -nocommands {[name="$name"]}]]
-    set nl [::hv3::DOM::NodeList %AUTO% $myDom -nodelistcmd $cmd]
+    set cmd [list $myHv3 search [subst -nocommands {[name="$name"]}]]
+    set nl [list ::hv3::DOM::NodeList $myDom $cmd]
     list transient $nl
   }
 
@@ -130,17 +120,17 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.12 2007/05/12 15:44:
   # perhaps)?
   #
   dom_get cookie {
-    list string [::hv3::the_cookie_manager Cookie [$options(-hv3) uri get]]
+    list string [::hv3::the_cookie_manager Cookie [$myHv3 uri get]]
   }
   dom_put -string cookie value {
-    ::hv3::the_cookie_manager SetCookie [$options(-hv3) uri get] $value
+    ::hv3::the_cookie_manager SetCookie [$myHv3 uri get] $value
   }
 
   #-----------------------------------------------------------------------
   # The HTMLDocument.body property (DOM level 1)
   #
   dom_get body {
-    set body [lindex [$options(-hv3) search body] 0]
+    set body [lindex [$myHv3 search body] 0]
     list object [$myDom node_to_dom $body]
   }
 
@@ -150,13 +140,13 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.12 2007/05/12 15:44:
   # Setting the value of the document.location property is equivalent
   # to calling "document.location.assign(VALUE)".
   #
-  dom_get -cache location { 
-    set obj [::hv3::DOM::Location %AUTO% $myDom -hv3 $options(-hv3)] 
+  dom_get location { 
+    set obj [list ::hv3::DOM::Location $myDom $myHv3] 
     list object $obj
   }
-  dom_put -string location value { 
-    set location [lindex [$self Get location] 1]
-    $location Location_assign $value
+  dom_put location value { 
+    set callable [list ::hv3::DOM::Location $myDom $myHv3 Get assign]
+    eval callable Call THIS $value
   }
 
   #-------------------------------------------------------------------------
@@ -179,176 +169,26 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.12 2007/05/12 15:44:
     set idselector   [subst -nocommands {[id="$property"]}]
  
     foreach selector [list $nameselector $idselector] {
-      set node [lindex [$options(-hv3) search $selector] 0]
+      set node [lindex [$myHv3 search $selector] 0]
       if {$node ne "" && [lsearch $tags [$node tag]] >= 0} {
-        return [list object [[$options(-hv3) dom] node_to_dom $node]]
+        return [list object [[$myHv3 dom] node_to_dom $node]]
       }
     }
 
     list
   }
 }
-
-#-------------------------------------------------------------------------
-# DOM class: (HTMLCollection)
-#
-# Supports the following javascript interface:
-#
-#     length
-#     item(index)
-#     namedItem(name)
-#
-# Also, a request for any property with a numeric name is mapped to a call
-# to the item() method. A request for any property with a non-numeric name
-# maps to a call to namedItem(). Hence, javascript references like:
-#
-#     collection[1]
-#     collection["name"]
-#     collection.name
-#
-# work as expected.
-#
-::hv3::dom::type HTMLCollection {} {
-
-  #
-  # There are several variations on the role this object may play in
-  # DOM level 1 Html:
-  #
-  #     Document.getElementsByTagName()
-  #     Element.getElementsByTagName()
-  #
-  #     HTMLDocument.getElementsByName()
-  #
-  #     HTMLDocument.images
-  #     HTMLDocument.applets
-  #     HTMLDocument.links
-  #     HTMLDocument.forms
-  #     HTMLDocument.anchors
-  #
-  #     HTMLFormElement.elements
-  #     HTMLSelectElement.options
-  #     HTMLMapElement.areas
-  #
-  #     HTMLTableElement.rows
-  #     HTMLTableElement.tBodies
-  #     HTMLTableSectionElement.rows
-  #     HTMLTableRowElement.cells
-  #
-  #     Node.childNodes
-  #     Node.attributes
-  #
-  dom_snit {
-    option -nodelistcmd -default ""
-  }
-
-  # HTMLCollection.length
-  #
-  dom_get length {
-    return [list number [llength [eval $options(-nodelistcmd)]]]
-  }
-
-  # HTMLCollection.item()
-  #
-  dom_call -string item {THIS index} {
-    $self HTMLCollection_item $index
-  }
-
-  # HTMLCollection.namedItem()
-  #
-  dom_call -string namedItem {THIS name} {
-    $self HTMLCollection_namedItem $name
-  }
-
-  # Handle an attempt to retrieve an unknown property.
-  #
-  dom_get * {
-
-    # If $property looks like a number, treat it as an index into the list
-    # of widget nodes. 
-    #
-    # Otherwise look for nodes with the "name" or "id" attribute set 
-    # to the queried attribute name. If a single node is found, return
-    # it directly. If more than one have matching names or ids, a NodeList
-    # containing the matches is returned.
-    #
-    if {[string is double $property]} {
-      set res [$self HTMLCollection_item $property]
-    } else {
-      set res [
-        HTMLCollection_getNodeHandlesByName $options(-nodelistcmd) $property
-      ]
-      set nRet [llength $res]
-      if {$nRet==0} {
-        set res ""
-      } elseif {$nRet==1} {
-        set res [list object [$myDom node_to_dom [lindex $res 0]]]
-      } else {
-        set getnodes [namespace code [list \
-          HTMLCollection_getNodeHandlesByName $options(-nodelistcmd) $property
-        ]]
-        set obj [::hv3::DOM::NodeList %AUTO% $myDom -nodelistcmd $getnodes]
-        set res [list object $obj]
-      }
-    }
-
-    return $res
-  }
-
-  dom_snit { 
-
-    proc HTMLCollection_getNodeHandlesByName {supersetcmd name} {
-      set nodelist [eval $supersetcmd]
-      set ret [list]
-      foreach node $nodelist {
-        if {[$node attr -default "" id] eq $name || 
-            [$node attr -default "" name] eq $name} {
-          lappend ret $node
-        }
-      }
-      return $ret
-    }
-
-    method HTMLCollection_item {index} {
-      set idx [format %.0f $index]
-      set ret ""
-      set node [lindex [eval $options(-nodelistcmd)] $idx]
-      if {$node ne ""} {
-        set ret [list object [$myDom node_to_dom $node]]
-      }
-      set ret
-    }
-
-    method HTMLCollection_namedItem {name} {
-      set nodelist [eval $options(-nodelistcmd)]
-  
-      foreach node $nodelist {
-        if {[$node attr -default "" id] eq $name} {
-          set domobj [$myDom node_to_dom $node]
-          return [list object $domobj]
-        }
-      }
-  
-      foreach node $nodelist {
-        if {[$node attr -default "" name] eq $name} {
-          set domobj [$myDom node_to_dom $node]
-          return [list object $domobj]
-        }
-      }
-  
-      return ""
-    }
+namespace eval ::hv3::DOM {
+  proc HTMLDocument_Collection {dom hv3 selector} {
+    set cmd [list $hv3 search $selector]
+    list object [list ::hv3::DOM::HTMLCollection $dom $cmd]
   }
 }
-# </HTMLCollection>
-#-------------------------------------------------------------------------
-
-
-
 
 #-------------------------------------------------------------------------
 # DOM Type HTMLElement (Node -> Element -> HTMLElement)
 #
-::hv3::dom::type HTMLElement Element {
+::hv3::dom2::stateless HTMLElement Element {
   element_attr id
   element_attr title
   element_attr lang
@@ -365,7 +205,6 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.12 2007/05/12 15:44:
   dom_todo prefix
   dom_todo textContent
 
-
   #----------------------------------------------------------------------
   # The HTMLElement.innerHTML property. This is not part of any standard.
   # See reference for the equivalent mozilla property at:
@@ -373,95 +212,19 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.12 2007/05/12 15:44:
   #     http://developer.mozilla.org/en/docs/DOM:element.innerHTML
   #
   dom_get innerHTML { 
-    set res [$self HTMLElement_getInnerHTML]
+    set res [HTMLElement_getInnerHTML $myNode]
     set res
   }
   dom_put -string innerHTML val { 
-    $self HTMLElement_putInnerHTML $val
-  }
-
-  dom_snit {
-
-    method HTMLElement_getInnerHTML {} {
-      set str [HTMLElement_ChildrenToHtml $options(-nodehandle)]
-      list string $str
-    }
-
-    proc HTMLElement_ChildrenToHtml {elem} {
-      set ret ""
-      foreach child [$elem children] {
-        set tag [$child tag]
-        if {$tag eq ""} {
-          append ret [$child text -pre]
-        } else {
-          append ret "<$tag>"
-          append ret [HTMLElement_ChildrenToHtml $child]
-          append ret "</$tag>"
-        }
-      }
-      return $ret
-    }
-
-    method HTMLElement_putInnerHTML {newHtml} {
-      set node $options(-nodehandle)
-
-      # Destroy the existing children (and their descendants)
-      set children [$node children]
-      $node remove $children
-      foreach child $children {
-        $child destroy
-      }
-
-      # Insert the new descendants, created by parsing $newHtml.
-      set doc [$myDom node_to_document $node]
-      set htmlwidget [[$doc cget -hv3] html]
-      set children [$htmlwidget fragment $newHtml]
-      $node insert $children
-      return ""
-    }
+    HTMLElement_putInnerHTML $myDom $myNode $val
   }
 
   #--------------------------------------------------------------------
   # The completely non-standard offsetParent, offsetTop and offsetLeft.
   # TODO: Ref.
   #
-  dom_snit {
-
-    proc HTMLElement_offsetParent {node} {
-      for {set N [$node parent]} {$N ne ""} {set N [$N parent]} {
-        set position [$N property position]
-        if {$position ne "static"} break
-      }
-      return $N
-    }
-
-    proc HTMLElement_nodeBox {dom node} {
-      set hv3 [$dom node_to_hv3 $node]
-      set bbox [$hv3 bbox $node]
-      if {$bbox eq ""} {set bbox [list 0 0 0 0]}
-      return $bbox
-    }
-
-    proc HTMLElement_offsetBox {dom node} {
-      set bbox [HTMLElement_nodeBox $dom $node]
-
-      set parent [HTMLElement_offsetParent $node]
-      if {$parent ne ""} {
-        set bbox2 [HTMLElement_nodeBox $dom $parent]
-        set x [lindex $bbox2 0]
-        set y [lindex $bbox2 1]
-        lset bbox 0 [expr {[lindex $bbox 0] - $x}]
-        lset bbox 1 [expr {[lindex $bbox 1] - $y}]
-        lset bbox 2 [expr {[lindex $bbox 2] - $x}]
-        lset bbox 3 [expr {[lindex $bbox 3] - $y}]
-      }
-      
-      return $bbox
-    }
-  }
-
   dom_get offsetParent { 
-    set N [HTMLElement_offsetParent $options(-nodehandle)]
+    set N [HTMLElement_offsetParent $myNode]
     set ret null
     if {$N ne ""} { list object [$myDom node_to_dom $N] }
     set ret
@@ -501,37 +264,37 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.12 2007/05/12 15:44:
   #    are the current scroll offsets.
   #
   dom_get offsetLeft { 
-    list number [lindex [HTMLElement_offsetBox $myDom $options(-nodehandle)] 0]
+    list number [lindex [HTMLElement_offsetBox $myDom $myNode] 0]
   }
   dom_get offsetTop { 
-    list number [lindex [HTMLElement_offsetBox $myDom $options(-nodehandle)] 1]
+    list number [lindex [HTMLElement_offsetBox $myDom $myNode] 1]
   }
   dom_get offsetHeight { 
-    set bbox [HTMLElement_offsetBox $myDom $options(-nodehandle)]
+    set bbox [HTMLElement_offsetBox $myDom $myNode]
     list number [expr {[lindex $bbox 3] - [lindex $bbox 1]}]
   }
   dom_get offsetWidth { 
-    set bbox [HTMLElement_offsetBox $myDom $options(-nodehandle)]
+    set bbox [HTMLElement_offsetBox $myDom $myNode]
     list number [expr {[lindex $bbox 2] - [lindex $bbox 0]}]
   }
 
   dom_get clientLeft {
-    set bw [$options(-nodehandle) property border-left-width]
+    set bw [$myNode property border-left-width]
     list number [string range $bw 0 end-2]
   }
   dom_get clientTop {
-    set bw [$options(-nodehandle) property border-top-width]
+    set bw [$myNode property border-top-width]
     list number [string range $bw 0 end-2]
   }
   dom_get clientHeight {
-    set N $options(-nodehandle)
+    set N $myNode
     set bbox [HTMLElement_nodeBox $myDom $N]
     set bt [string range [$N property border-top-width] 0 end-2]
     set bb [string range [$N property border-bottom-width] 0 end-2]
     list number [expr [lindex $bbox 3] - [lindex $bbox 1] - $bt - $bb]
   }
   dom_get clientWidth {
-    set N $options(-nodehandle)
+    set N $myNode
     set bbox [HTMLElement_nodeBox $myDom $N]
     set bt [string range [$N property border-left-width] 0 end-2]
     set bb [string range [$N property border-right-width] 0 end-2]
@@ -541,14 +304,85 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.12 2007/05/12 15:44:
   # TODO: See comments above for what these are supposed to do.
   dom_get scrollTop    { list number 0 }
   dom_get scrollLeft   { list number 0 }
-  dom_get scrollWidth  { $self Get clientWidth }
-  dom_get scrollHeight { $self Get clientHeight }
+  dom_get scrollWidth  { eval [SELF] Get clientWidth }
+  dom_get scrollHeight { eval [SELF] Get clientHeight }
+}
+
+namespace eval ::hv3::DOM {
+
+  proc HTMLElement_offsetParent {node} {
+    for {set N [$node parent]} {$N ne ""} {set N [$N parent]} {
+      set position [$N property position]
+      if {$position ne "static"} break
+    }
+    return $N
+  }
+
+  proc HTMLElement_nodeBox {dom node} {
+    set hv3 [$dom node_to_hv3 $node]
+    set bbox [$hv3 bbox $node]
+    if {$bbox eq ""} {set bbox [list 0 0 0 0]}
+    return $bbox
+  }
+
+  proc HTMLElement_offsetBox {dom node} {
+    set bbox [HTMLElement_nodeBox $dom $node]
+
+    set parent [HTMLElement_offsetParent $node]
+    if {$parent ne ""} {
+      set bbox2 [HTMLElement_nodeBox $dom $parent]
+      set x [lindex $bbox2 0]
+      set y [lindex $bbox2 1]
+      lset bbox 0 [expr {[lindex $bbox 0] - $x}]
+      lset bbox 1 [expr {[lindex $bbox 1] - $y}]
+      lset bbox 2 [expr {[lindex $bbox 2] - $x}]
+      lset bbox 3 [expr {[lindex $bbox 3] - $y}]
+    }
+    
+    return $bbox
+  }
+
+  proc HTMLElement_getInnerHTML {node} {
+    set str [HTMLElement_ChildrenToHtml $node]
+    list string $str
+  }
+
+  proc HTMLElement_ChildrenToHtml {elem} {
+    set ret ""
+    foreach child [$elem children] {
+      set tag [$child tag]
+      if {$tag eq ""} {
+        append ret [$child text -pre]
+      } else {
+        append ret "<$tag>"
+        append ret [HTMLElement_ChildrenToHtml $child]
+        append ret "</$tag>"
+      }
+    }
+    return $ret
+  }
+
+  proc HTMLElement_putInnerHTML {dom node newHtml} {
+
+    # Destroy the existing children (and their descendants)
+    set children [$node children]
+    $node remove $children
+    foreach child $children {
+      $child destroy
+    }
+
+    # Insert the new descendants, created by parsing $newHtml.
+    set htmlwidget [[$dom node_to_hv3 $node] html]
+    set children [$htmlwidget fragment $newHtml]
+    $node insert $children
+    return ""
+  }
 }
 
 #-------------------------------------------------------------------------
 # DOM Type HTMLFormElement (extends HTMLElement)
 #
-::hv3::dom::type HTMLFormElement HTMLElement {
+::hv3::dom2::stateless HTMLFormElement HTMLElement {
 
   # Various Get/Put string property/attributes.
   #
@@ -561,19 +395,19 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.12 2007/05/12 15:44:
 
   # The HTMLFormElement.elements array.
   #
-  dom_get -cache elements {
-    set cmd [subst -nocommands {[$options(-nodehandle) replace] controls}]
-    list object [::hv3::DOM::HTMLCollection %AUTO% $myDom -nodelistcmd $cmd]
+  dom_get elements {
+    set cmd [subst -nocommands {[$myNode replace] controls}]
+    list object [list ::hv3::DOM::HTMLCollection $myDom $cmd]
   }
 
   # Form control methods: submit() and reset().
   #
   dom_call submit {THIS} {
-    set form [$options(-nodehandle) replace]
+    set form [$myNode replace]
     $form submit ""
   }
   dom_call reset {THIS} {
-    set form [$options(-nodehandle) replace]
+    set form [$myNode replace]
     $form reset
   }
 
@@ -581,8 +415,8 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.12 2007/05/12 15:44:
   # the HTMLFormElement.elements object.
   #
   dom_get * {
-    set obj [lindex [$self Get elements] 1]
-    $obj Get $property
+    set obj [lindex [eval [SELF] Get elements] 1]
+    eval $obj Get $property
   }
 }
 # </HTMLFormElement>
@@ -594,7 +428,7 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.12 2007/05/12 15:44:
 #     <INPUT> elements. The really complex stuff for this object is 
 #     handled by the forms manager code.
 #
-::hv3::dom::type HTMLInputElement HTMLElement {
+::hv3::dom2::stateless HTMLInputElement HTMLElement {
 
   dom_todo defaultValue
   dom_todo form
@@ -620,13 +454,13 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.12 2007/05/12 15:44:
   # control and the HTML attribute.
   #
   dom_get defaultChecked { 
-    set c [$options(-nodehandle) attr -default 0 checked]
+    set c [$myNode attr -default 0 checked]
     list boolean $c
   }
   dom_put -string defaultChecked C { 
-    set F [$options(-nodehandle) replace]
+    set F [$myNode replace]
     $F dom_checked $C
-    $options(-nodehandle) attr checked $C
+    $myNode attr checked $C
   }
 
   # The HTMLInputElement.checked attribute on the other hand is the
@@ -634,11 +468,11 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.12 2007/05/12 15:44:
   # the attribute on the underlying HTML element.
   #
   dom_get checked { 
-    set F [$options(-nodehandle) replace]
+    set F [$myNode replace]
     list boolean [$F dom_checked]
   }
   dom_put -string checked C { 
-    set F [$options(-nodehandle) replace]
+    set F [$myNode replace]
     $F dom_checked $C
   }
 
@@ -648,29 +482,29 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.12 2007/05/12 15:44:
   #
   dom_get value {
     set SPECIAL [list text file password]
-    set T [string tolower [$options(-nodehandle) attr -default text type]]
+    set T [string tolower [$myNode attr -default text type]]
     if {[lsearch $SPECIAL $T]>=0} {
-      set F [$options(-nodehandle) replace]
+      set F [$myNode replace]
       list string [$F dom_value]
     } else {
-      list string [$options(-nodehandle) attr -default "" value]
+      list string [$myNode attr -default "" value]
     }
   }
   dom_put -string value V { 
     set SPECIAL [list text file password]
-    set T [string tolower [$options(-nodehandle) attr -default text type]]
+    set T [string tolower [$myNode attr -default text type]]
     if {[lsearch $SPECIAL $T]>=0} {
-      set F [$options(-nodehandle) replace]
+      set F [$myNode replace]
       $F dom_value $V
     } else {
-      $options(-nodehandle) attr checked $V
+      $myNode attr checked $V
     }
   }
 
-  dom_call blur   {THIS} { [$options(-nodehandle) replace] dom_blur }
-  dom_call focus  {THIS} { [$options(-nodehandle) replace] dom_focus }
-  dom_call select {THIS} { [$options(-nodehandle) replace] dom_select }
-  dom_call click  {THIS} { [$options(-nodehandle) replace] dom_click }
+  dom_call blur   {THIS} { [$myNode replace] dom_blur }
+  dom_call focus  {THIS} { [$myNode replace] dom_focus }
+  dom_call select {THIS} { [$myNode replace] dom_select }
+  dom_call click  {THIS} { [$myNode replace] dom_click }
 }
 # </HTMLInputElement>
 #-------------------------------------------------------------------------
@@ -678,7 +512,7 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.12 2007/05/12 15:44:
 #-------------------------------------------------------------------------
 # DOM Type HTMLSelectElement (extends HTMLElement)
 #
-::hv3::dom::type HTMLSelectElement HTMLElement {
+::hv3::dom2::stateless HTMLSelectElement HTMLElement {
 
   dom_get type {
     # DOM Level 1 says: "This is the string "select-multiple" when the 
@@ -689,35 +523,25 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.12 2007/05/12 15:44:
   }
 
   dom_get selectedIndex {
-    list number [[$options(-nodehandle) replace] dom_selectionIndex]
+    list number [[$myNode replace] dom_selectionIndex]
   }
   dom_put -string selectedIndex value {
-    [$options(-nodehandle) replace] dom_setSelectionIndex $value
+    [$myNode replace] dom_setSelectionIndex $value
   }
 
   dom_get value {
     # The value attribute is read-only for this element. It is set to
     # the string value that will be submitted by this control during
     # form submission.
-    list string [[$options(-nodehandle) replace] value]
+    list string [[$myNode replace] value]
   }
 
   dom_todo length
   dom_todo form
 
-  dom_snit {
-    method HTMLSelectElement_getOptions {} {
-      # Note: This needs to be merged with code in hv3_form.tcl.
-      set ret [list]
-      foreach child [$options(-nodehandle) children] {
-        if {[$child tag] == "option"} {lappend ret $child}
-      }
-      set ret
-    }
-  }
-  dom_get -cache options {
-    set cmd [mymethod HTMLSelectElement_getOptions]
-    list object [::hv3::DOM::HTMLCollection %AUTO% $myDom -nodelistcmd $cmd]
+  dom_get options {
+    set cmd [list HTMLSelectElement_getOptions $myNode]
+    list object [list ::hv3::DOM::HTMLCollection $myDom $cmd]
   }
 
   dom_todo disabled
@@ -737,14 +561,24 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.12 2007/05/12 15:44:
 
   dom_todo add
   dom_todo remove
-  dom_call blur   {THIS} { [$options(-nodehandle) replace] dom_blur }
-  dom_call focus  {THIS} { [$options(-nodehandle) replace] dom_focus }
+  dom_call blur   {THIS} { [$myNode replace] dom_blur }
+  dom_call focus  {THIS} { [$myNode replace] dom_focus }
 
   #--------------------------------------------------------------------
   # Non-standard stuff starts here.
   dom_get * {
-    set obj [lindex [$self Get options] 1]
-    $obj Get $property
+    set obj [lindex [eval [SELF] Get options] 1]
+    eval $obj Get $property
+  }
+}
+namespace eval ::hv3::DOM {
+  proc HTMLSelectElement_getOptions {node} {
+    # Note: This needs to be merged with code in hv3_form.tcl.
+    set ret [list]
+    foreach child [$node children] {
+      if {[$child tag] == "option"} {lappend ret $child}
+    }
+    set ret
   }
 }
 # </HTMLSelectElement>
@@ -756,33 +590,31 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.12 2007/05/12 15:44:
 #
 #     http://api.kde.org/cvs-api/kdelibs-apidocs/khtml/html/classDOM_1_1HTMLTextAreaElement.html
 #
-::hv3::dom::type HTMLTextAreaElement HTMLElement {
+::hv3::dom2::stateless HTMLTextAreaElement HTMLElement {
 
-  dom_get value { list string [[$options(-nodehandle) replace] value] }
-  dom_put -string value val { [$options(-nodehandle) replace] set_value $val }
+  dom_get value { list string [[$myNode replace] value] }
+  dom_put -string value val { [$myNode replace] set_value $val }
 
-  dom_call focus  {THIS} { [$options(-nodehandle) replace] dom_focus }
+  dom_call focus  {THIS} { [$myNode replace] dom_focus }
 
   #-------------------------------------------------------------------------
   # The following are not part of the standard DOM. They are mozilla
   # extensions. KHTML implements them too. 
   #
-  dom_get selectionEnd   { $self HTMLTextAreaElement_getSelection 1 }
-  dom_get selectionStart { $self HTMLTextAreaElement_getSelection 0 }
-
-  dom_snit {
-    method HTMLTextAreaElement_getSelection {isEnd} {
-      set t [[$options(-nodehandle) replace] get_text_widget]
-      set sel [$t tag nextrange sel 0.0]
-      if {$sel eq ""} {
-        set ret [string length [$t get 0.0 insert]]
-      } else {
-        set ret [string length [$t get 0.0 [lindex $sel $isEnd]]]
-      }
-      list number $ret
+  dom_get selectionEnd   { HTMLTextAreaElement_getSelection $myNode 1 }
+  dom_get selectionStart { HTMLTextAreaElement_getSelection $myNode 0 }
+}
+namespace eval ::hv3::DOM {
+  proc HTMLTextAreaElement_getSelection {node isEnd} {
+    set t [[$node replace] get_text_widget]
+    set sel [$t tag nextrange sel 0.0]
+    if {$sel eq ""} {
+      set ret [string length [$t get 0.0 insert]]
+    } else {
+      set ret [string length [$t get 0.0 [lindex $sel $isEnd]]]
     }
+    list number $ret
   }
-
 }
 # </HTMLTextAreaElement>
 #-------------------------------------------------------------------------
@@ -790,7 +622,7 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.12 2007/05/12 15:44:
 #-------------------------------------------------------------------------
 # DOM Type HTMLButtonElement (extends HTMLElement)
 #
-::hv3::dom::type HTMLButtonElement HTMLElement {
+::hv3::dom2::stateless HTMLButtonElement HTMLElement {
 }
 # </HTMLButtonElement>
 #-------------------------------------------------------------------------
@@ -798,7 +630,7 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.12 2007/05/12 15:44:
 #-------------------------------------------------------------------------
 # DOM Type HTMLOptGroupElement (extends HTMLElement)
 #
-::hv3::dom::type HTMLOptGroupElement HTMLElement {
+::hv3::dom2::stateless HTMLOptGroupElement HTMLElement {
 }
 # </HTMLOptGroupElement>
 #-------------------------------------------------------------------------
@@ -806,64 +638,64 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.12 2007/05/12 15:44:
 #-------------------------------------------------------------------------
 # DOM Type HTMLOptionElement (extends HTMLElement)
 #
-::hv3::dom::type HTMLOptionElement HTMLElement {
+::hv3::dom2::stateless HTMLOptionElement HTMLElement {
   dom_todo form
   dom_todo defaultSelected
   dom_todo index
   dom_todo disabled
 
   dom_get text {
-    list string [$self HTMLOptionElement_getText]
+    list string [HTMLOptionElement_getText $myNode]
   }
 
   # TODO: After writing this attribute, have to update data 
   # structures in the hv3_forms module.
   dom_get label {
-    list string [$self HTMLOptionElement_getLabelOrValue label]
+    list string [HTMLOptionElement_getLabelOrValue $myNode label]
   }
   dom_put -string label v {
-    $options(-nodehandle) attr label $v
+    $myNode attr label $v
   }
 
   dom_todo selected
 
-  dom_snit {
-    method HTMLOptionElement_getText {} {
-      set contents ""
-      catch {
-        set t [lindex [$options(-nodehandle) children] 0]
-        set contents [$t text]
-      }
-      set contents
-    }
-
-    method HTMLOptionElement_getLabelOrValue {attr} {
-      # If the element has text content, this is used as the default
-      # for both the label and value of the entry (used if the Html
-      # attributes "value" and/or "label" are not defined.
-      #
-      # Note: This needs to be merged with code in hv3_form.tcl.
-      set contents [$self HTMLOptionElement_getText]
-      $options(-nodehandle) attribute -default $contents $attr
-    }
-  }
-
   dom_get value {
-    list string [$self HTMLOptionElement_getLabelOrValue value]
+    list string [HTMLOptionElement_getLabelOrValue $myNode value]
   }
   dom_put -string value v {
     # TODO: After writing this attribute, have to update data structures in
     # the hv3_forms module.
-    $options(-nodehandle) attr value $v
+    $myNode attr value $v
   }
 }
+namespace eval ::hv3::DOM {
+  proc HTMLOptionElement_getText {node} {
+    set contents ""
+    catch {
+      set t [lindex [$node children] 0]
+      set contents [$t text]
+    }
+    set contents
+  }
+
+  proc HTMLOptionElement_getLabelOrValue {node attr} {
+    # If the element has text content, this is used as the default
+    # for both the label and value of the entry (used if the Html
+    # attributes "value" and/or "label" are not defined.
+    #
+    # Note: This needs to be merged with code in hv3_form.tcl.
+    set contents [HTMLOptionElement_getText $node]
+    $node attribute -default $contents $attr
+  }
+}
+
 # </HTMLOptionElement>
 #-------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------
 # DOM Type HTMLLabelElement (extends HTMLElement)
 #
-::hv3::dom::type HTMLLabelElement HTMLElement {
+::hv3::dom2::stateless HTMLLabelElement HTMLElement {
 }
 # </HTMLLabelElement>
 #-------------------------------------------------------------------------
@@ -871,7 +703,7 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.12 2007/05/12 15:44:
 #-------------------------------------------------------------------------
 # DOM Type HTMLFieldSetElement (extends HTMLElement)
 #
-::hv3::dom::type HTMLFieldSetElement HTMLElement {
+::hv3::dom2::stateless HTMLFieldSetElement HTMLElement {
 }
 # </HTMLFieldSetElement>
 #-------------------------------------------------------------------------
@@ -879,7 +711,7 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.12 2007/05/12 15:44:
 #-------------------------------------------------------------------------
 # DOM Type HTMLLegendElement (extends HTMLElement)
 #
-::hv3::dom::type HTMLLegendElement HTMLElement {
+::hv3::dom2::stateless HTMLLegendElement HTMLElement {
 }
 # </HTMLLegendElement>
 #-------------------------------------------------------------------------
@@ -887,25 +719,16 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.12 2007/05/12 15:44:
 #-------------------------------------------------------------------------
 # DOM Type HTMLTableElement (extends HTMLElement)
 #
-::hv3::dom::type HTMLTableElement HTMLElement {
+::hv3::dom2::stateless HTMLTableElement HTMLElement {
   dom_todo caption
   dom_todo tHead
   dom_todo tFoot
 
   dom_todo rows
 
-  dom_get -cache tBodies {
-    set cmd [mymethod HTMLTableElement_getTBodies]
-    list object [::hv3::DOM::HTMLCollection %AUTO% $myDom -nodelistcmd $cmd]
-  }
-  dom_snit {
-    method HTMLTableElement_getTBodies {} {
-      set tbodies [list] 
-      foreach child [$options(-nodehandle) children] {
-        if {[$child tag] eq "tbody"} { lappend tbodies $child }
-      }
-      set tbodies
-    }
+  dom_get tBodies {
+    set cmd [list HTMLTableElement_getTBodies $myNode]
+    list object [list ::hv3::DOM::HTMLCollection $myDom $cmd]
   }
 
   element_attr align
@@ -927,6 +750,15 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.12 2007/05/12 15:44:
   dom_todo insertRow
   dom_todo deleteRow
 }
+namespace eval ::hv3::DOM {
+  proc HTMLTableElement_getTBodies {node} {
+    set tbodies [list] 
+    foreach child [$node children] {
+      if {[$child tag] eq "tbody"} { lappend tbodies $child }
+    }
+    set tbodies
+  }
+}
 # </HTMLTableElement>
 #-------------------------------------------------------------------------
 #-------------------------------------------------------------------------
@@ -934,29 +766,29 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.12 2007/05/12 15:44:
 #
 #     This DOM type is used for HTML elements <TFOOT>, <THEAD> and <TBODY>.
 #
-::hv3::dom::type HTMLTableSectionElement HTMLElement {
+::hv3::dom2::stateless HTMLTableSectionElement HTMLElement {
 
   element_attr align
   element_attr ch -attribute char
   element_attr chOff -attribute charoff
   element_attr vAlign -attribute valign
 
-  dom_get -cache rows {
-    set cmd [mymethod HTMLTableSectionElement_getRows]
-    list object [::hv3::DOM::HTMLCollection %AUTO% $myDom -nodelistcmd $cmd]
-  }
-  dom_snit {
-    method HTMLTableSectionElement_getRows {} {
-      set rows [list] 
-      foreach child [$options(-nodehandle) children] {
-        if {[$child tag] eq "tr"} { lappend rows $child }
-      }
-      set rows
-    }
+  dom_get rows {
+    set cmd [list HTMLTableSectionElement_getRows $myNode]
+    list object [list ::hv3::DOM::HTMLCollection $myDom $cmd]
   }
 
   dom_todo insertRow
   dom_todo deleteRow
+}
+namespace eval ::hv3::DOM {
+  proc HTMLTableSectionElement_getRows {node} {
+    set rows [list] 
+    foreach child [$node children] {
+      if {[$child tag] eq "tr"} { lappend rows $child }
+    }
+    set rows
+  }
 }
 
 # </HTMLTableSectionElement>
@@ -967,24 +799,14 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.12 2007/05/12 15:44:
 #
 #     This DOM type is used for HTML <TR> elements.
 #
-::hv3::dom::type HTMLTableRowElement HTMLElement {
+::hv3::dom2::stateless HTMLTableRowElement HTMLElement {
 
   dom_todo rowIndex
   dom_todo sectionRowIndex
 
-  dom_get -cache cells {
-    set cmd [mymethod HTMLTableRowElement_getCells]
-    list object [::hv3::DOM::HTMLCollection %AUTO% $myDom -nodelistcmd $cmd]
-  }
-  dom_snit {
-    method HTMLTableRowElement_getCells {} {
-      set cells [list] 
-      foreach child [$options(-nodehandle) children] {
-        set tag [$child tag]
-        if {$tag eq "td" || $tag eq "th"} {lappend cells $child}
-      }
-      set cells
-    }
+  dom_get cells {
+    set cmd [list HTMLTableRowElement_getCells $myNode]
+    list object [list ::hv3::DOM::HTMLCollection $myDom $cmd]
   }
 
   element_attr align
@@ -993,9 +815,18 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.12 2007/05/12 15:44:
   element_attr chOff -attribute charoff
   element_attr vAlign -attribute valign
 
-
   dom_todo insertCell
   dom_todo deleteCell
+}
+namespace eval ::hv3::DOM {
+  proc HTMLTableRowElement_getCells {node} {
+    set cells [list] 
+    foreach child [$node children] {
+      set tag [$child tag]
+      if {$tag eq "td" || $tag eq "th"} {lappend cells $child}
+    }
+    set cells
+  }
 }
 # </HTMLTableRowElement>
 #-------------------------------------------------------------------------
@@ -1005,7 +836,7 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.12 2007/05/12 15:44:
 #
 #     This DOM type is used for HTML <A> elements.
 #
-::hv3::dom::type HTMLAnchorElement HTMLElement {
+::hv3::dom2::stateless HTMLAnchorElement HTMLElement {
   element_attr accessKey -attribute accesskey
   element_attr charset
   element_attr coords
@@ -1088,8 +919,7 @@ namespace eval ::hv3::dom {
       set objtype $TagToNodeTypeMap($tag)
     }
 
-    $objtype %AUTO% $dom -nodehandle $node
+    list $objtype $dom $node
   }
 }
 #-------------------------------------------------------------------------
-

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_style.tcl,v 1.5 2007/04/10 16:22:09 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_style.tcl,v 1.6 2007/06/01 18:07:48 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # DOM Level 2 Style.
@@ -16,58 +16,28 @@ namespace eval hv3 { set {version($Id: hv3_dom_style.tcl,v 1.5 2007/04/10 16:22:
 # supporting it is not a high priority. 
 #
 
-package require snit
-
-::hv3::dom::type ElementCSSInlineStyle {} {
-  dom_get -cache style {
-    list object [
-        ::hv3::DOM::CSSStyleDeclaration %AUTO% $myDom -nodehandle $options(-nodehandle)
-    ]
+::hv3::dom2::stateless ElementCSSInlineStyle {} {
+  dom_get style {
+    list object [list ::hv3::DOM::CSSStyleDeclaration $myDom $myNode]
   }
 }
 
-namespace eval ::hv3::dom::compiler {
+namespace eval ::hv3::dom2::compiler {
   proc style_property {css_prop {dom_prop ""}} {
     if {$dom_prop eq ""} {
       set dom_prop $css_prop
     }
-    set getcmd "\$self CSSStyleDeclaration_getStyleProperty $css_prop"
+    set getcmd "CSSStyleDeclaration_getStyleProperty \$myNode $css_prop"
     dom_get $dom_prop $getcmd
 
-    set putcmd "\$self CSSStyleDeclaration_setStyleProperty $css_prop \$value"
+    set putcmd "CSSStyleDeclaration_setStyleProperty \$myNode $css_prop \$value"
     dom_put -string $dom_prop {value} $putcmd
   }
 }
 
-::hv3::dom::type CSSStyleDeclaration {} {
+::hv3::dom2::stateless CSSStyleDeclaration {} {
 
-  dom_snit {
-    option -nodehandle -default ""
-
-    method CSSStyleDeclaration_getStyleProperty {css_property} {
-      set val [$options(-nodehandle) property -inline $css_property]
-      list string $val
-    }
-
-    method CSSStyleDeclaration_setStyleProperty {css_property value} {
-      array set current [$options(-nodehandle) prop -inline]
-
-# if {$value eq "NaNpx"} "error NAN"
-
-      if {$value ne ""} {
-        set current($css_property) $value
-      } else {
-        unset -nocomplain current($css_property)
-      }
-
-      set style ""
-      foreach prop [array names current] {
-        append style "$prop:$current($prop);"
-      }
-
-      $options(-nodehandle) attribute style $style
-    }
-  }
+  dom_parameter myNode
 
   style_property width width
   style_property height height
@@ -87,11 +57,36 @@ namespace eval ::hv3::dom::compiler {
   style_property border-bottom-width borderBottomWidth
 
   dom_put -string border value {
-    set style [$options(-nodehandle) attribute -default {} style]
+    set style [$myNode attribute -default {} style]
     if {$style ne ""} {append style ";"}
     append style "border: $value"
-    $options(-nodehandle) attribute style $style
+    $myNode attribute style $style
+  }
+}
+
+namespace eval ::hv3::DOM {
+  proc CSSStyleDeclaration_getStyleProperty {node css_property} {
+    set val [$node property -inline $css_property]
+    list string $val
   }
 
+  proc CSSStyleDeclaration_setStyleProperty {node css_property value} {
+    array set current [$node prop -inline]
+
+# if {$value eq "NaNpx"} "error NAN"
+
+    if {$value ne ""} {
+      set current($css_property) $value
+    } else {
+      unset -nocomplain current($css_property)
+    }
+
+    set style ""
+    foreach prop [array names current] {
+      append style "$prop:$current($prop);"
+    }
+
+    $node attribute style $style
+  }
 }
 

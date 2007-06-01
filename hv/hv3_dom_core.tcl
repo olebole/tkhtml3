@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.8 2007/04/23 17:31:16 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.9 2007/06/01 18:07:48 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Core
@@ -22,7 +22,7 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.8 2007/04/23 17:31:1
 #     Probably also want to implement Document-fragment nodes at some
 #     stage. And Comment too, but I bet we can get away without it :)
 #    
-::hv3::dom::type NodePrototype {} {
+::hv3::dom2::stateless NodePrototype {} {
   # Required by XML and HTML applications:
   dom_get ELEMENT_NODE                {list number 1}
   dom_get ATTRIBUTE_NODE              {list number 2}
@@ -44,7 +44,7 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.8 2007/04/23 17:31:1
 # This block contains default implementations of the methods and
 # attributes in the Node interface (DOM Level 1 Core).
 #
-::hv3::dom::type Node {} {
+::hv3::dom2::stateless Node {} {
 
   dom_get nodeName        {error "Must be overridden ($property)"}
   dom_get nodeType        {error "Must be overridden ($property)"}
@@ -74,8 +74,8 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.8 2007/04/23 17:31:1
   # Default implementation of childNodes() returns an empty NodeList 
   # containing no Nodes.
   #
-  dom_get -cache childNodes {
-    list object [::hv3::DOM::NodeList %AUTO% $myDom]
+  dom_get childNodes {
+    list object [list ::hv3::DOM::NodeList $myDom list]
   }
   dom_call hasChildNodes {THIS} {list boolean false}
 
@@ -100,14 +100,12 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.8 2007/04/23 17:31:1
   dom_call cloneNode {THIS} {error "DOMException NOT_SUPPORTED_ERR"}
 }
 
-::hv3::dom::type Document {} {
+::hv3::dom2::stateless Document {} {
 
   # The ::hv3::hv3 widget containing the document this DOM object
   # represents.
   #
-  dom_snit {
-    option -hv3 ""
-  }
+  dom_parameter myHv3
 
   # Override the two mandatory Node methods.
   #
@@ -121,18 +119,12 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.8 2007/04/23 17:31:1
   # The Document node only has one child -> the <HTML> node of the 
   # document tree.
   #
-  dom_get -cache childNodes {
-    set cmd [list $options(-hv3) node]
-    list object [::hv3::DOM::NodeList %AUTO% $myDom -nodelistcmd $cmd]
+  dom_get childNodes {
+    set cmd [list $myHv3 node]
+    list object [list ::hv3::DOM::NodeList $myDom $cmd]
   }
-  dom_get firstChild {list object [$self Document_getChildNode]}
-  dom_get lastChild  {list object [$self Document_getChildNode]}
-
-  dom_snit {
-    method Document_getChildNode {} {
-      $myDom node_to_dom [$options(-hv3) node]
-    }
-  }
+  dom_get firstChild {list object [$myDom node_to_dom [$myHv3 node]]}
+  dom_get lastChild  {list object [$myDom node_to_dom [$myHv3 node]]}
 
   # The document node always has exactly one child node.
   #
@@ -160,17 +152,17 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.8 2007/04/23 17:31:1
   dom_todo implementation
 
   dom_get documentElement {
-    list object [$myDom node_to_dom [$options(-hv3) node]]
+    list object [$myDom node_to_dom [$myHv3 node]]
   }
 
   dom_call -string createElement {THIS tagname} {
-    set node [$options(-hv3) fragment "<$tagname>"]
+    set node [$myHv3 fragment "<$tagname>"]
     if {$node eq ""} {error "DOMException NOT_SUPPORTED_ERR"}
     list object [$myDom node_to_dom $node]
   }
   dom_call -string createTextNode {THIS data} {
     set escaped [string map {< &lt; > &gt;} $data]
-    set node [$options(-hv3) fragment $escaped]
+    set node [$myHv3 fragment $escaped]
   }
 
   dom_todo createDocumentFragment
@@ -186,63 +178,9 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.8 2007/04/23 17:31:1
     # someone is going to pass ".id" and wonder why all the elements with
     # the "class" attribute set to "id" are returned.
     #
-    set cmd [list $options(-hv3) search $tag]
-    set nl [::hv3::DOM::NodeList %AUTO% $myDom -nodelistcmd $cmd]
+    set cmd [list $myHv3 search $tag]
+    set nl [list ::hv3::DOM::NodeList $myDom $cmd]
     list transient $nl
-  }
-}
-
-#-------------------------------------------------------------------------
-# DOM Type NodeList
-#
-#     This object is used to store lists of child-nodes (property
-#     Node.childNodes). There are three variations, depending on the
-#     type of the Node that this object represents the children of:
-#
-#         * Document node (one child - the root (<HTML>) element)
-#         * Element node (children based on html widget node-handle)
-#         * Text or Attribute node (no children)
-#
-::hv3::dom::type NodeList {} {
-  dom_snit {
-
-    # The following option is set to a command to return the html-widget nodes
-    # that comprise the contents of this list. i.e. for the value of
-    # the "Document.childNodes" property, this option will be set to
-    # [$hv3 node], where $hv3 is the name of an ::hv3::hv3 widget (that
-    # delagates the [node] method to the html widget).
-    #
-    option -nodelistcmd -default ""
-
-    method NodeList_getChildren {} {
-      eval $options(-nodelistcmd)
-    }
-
-    method NodeList_item {idx} {
-      set children [$self NodeList_getChildren]
-      if {$idx < 0 || $idx >= [llength $children]} { return null }
-      list object [$myDom node_to_dom [lindex $children $idx]]
-    }
-
-  }
-
-  dom_call -string item {THIS index} {
-    if {![string is double $index]} { return null }
-    set idx [expr {int($index)}]
-    $self NodeList_item $idx
-  }
-
-  dom_get length {
-    list number [llength [$self NodeList_getChildren]]
-  }
-
-  # Unknown property request. If the property name looks like a number,
-  # invoke the NodeList.item() method. Otherwise, return undefined ("").
-  #
-  dom_get * {
-    if {[string is integer $property]} {
-      $self NodeList_item $property
-    }
   }
 }
 
@@ -257,23 +195,20 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.8 2007/04/23 17:31:1
 #     Node.nextSibling
 #     Node.ownerDocument
 #
-::hv3::dom::type WidgetNode {} {
-  dom_snit {
-    # Set to the Html widget node-handle.
-    #
-    option -nodehandle -default ""
-  }
+::hv3::dom2::stateless WidgetNode {} {
+
+  dom_parameter myNode
 
   # Retrieve the parent node.
   #
   dom_get parentNode {
-    set parent [$options(-nodehandle) parent]
+    set parent [$myNode parent]
     if {$parent eq ""} {
       # Parent of the root of the document (the <HTML> node)
       # is the DOM HTMLDocument object.
       #
-      set ret [list object [$myDom node_to_document $options(-nodehandle)]]
-    } else { 
+      set ret [list object [$myDom node_to_document $myNode]]
+    } else {
       set ret [list object [$myDom node_to_dom $parent]]
     }
     set ret
@@ -281,26 +216,26 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.8 2007/04/23 17:31:1
 
   # Retrieve the left and right sibling nodes.
   #
-  dom_get previousSibling {$self WidgetNode_Sibling -1}
-  dom_get nextSibling     {$self WidgetNode_Sibling +1}
-  dom_snit {
-    method WidgetNode_Sibling {dir} {
-      set ret null
-      set parent [$options(-nodehandle) parent]
-      if {$parent ne ""} {
-        set siblings [$parent children]
-        set idx [lsearch $siblings $options(-nodehandle)]
-        incr idx $dir
-        if {$idx >= 0 && $idx < [llength $siblings]} {
-          set ret [list object [$myDom node_to_dom [lindex $siblings $idx]]]
-        }
-      }
-      set ret
-    }
-  }
+  dom_get previousSibling {WidgetNode_Sibling $myNode -1}
+  dom_get nextSibling     {WidgetNode_Sibling $myNode +1}
 
   dom_get ownerDocument { 
-    list object [$myDom node_to_document $options(-nodehandle)]
+    list object [$myDom node_to_document $myNode]
+  }
+}
+namespace eval ::hv3::DOM {
+  proc WidgetNode_Sibling {node dir} {
+    set ret null
+    set parent [$node parent]
+    if {$parent ne ""} {
+      set siblings [$parent children]
+      set idx [lsearch $siblings $node]
+      incr idx $dir
+      if {$idx >= 0 && $idx < [llength $siblings]} {
+        set ret [list object [$myDom node_to_dom [lindex $siblings $idx]]]
+      }
+    }
+    set ret
   }
 }
 
@@ -311,17 +246,15 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.8 2007/04/23 17:31:1
 #     element-specific types) are instantiated instead.
 #
 set BaseList {ElementCSSInlineStyle WidgetNode Node NodePrototype EventTarget}
-::hv3::dom::type Element $BaseList {
+::hv3::dom2::stateless Element $BaseList {
   
   # Override parts of the Node interface.
   #
   dom_get nodeType {list number 1}           ;#     Node.ELEMENT_NODE -> 1
-  dom_get nodeName {list string [string toupper [$options(-nodehandle) tag]]}
+  dom_get nodeName {list string [string toupper [$myNode tag]]}
 
-  dom_get -cache childNodes {
-    set NL [::hv3::DOM::NodeList %AUTO% $myDom]
-    $NL configure -nodelistcmd [list $options(-nodehandle) children]
-    list object $NL
+  dom_get childNodes {
+    list object [list ::hv3::DOM::NodeList $myDom [list $myNode children]]
   }
 
   dom_get ownerDocument {
@@ -329,6 +262,8 @@ set BaseList {ElementCSSInlineStyle WidgetNode Node NodePrototype EventTarget}
   }
 
   dom_call insertBefore {THIS newChild refChild}  {
+    error "TODO"
+
     # TODO: Arg checking and correct error messages (excptions).
     # Children of an Element Node can be either Element or Text nodes.
     set new [[lindex $newChild 1] cget -nodehandle]
@@ -336,26 +271,30 @@ set BaseList {ElementCSSInlineStyle WidgetNode Node NodePrototype EventTarget}
     if {[lindex $refChild 0] eq "object"} {
       set ref [[lindex $refChild 1] cget -nodehandle]
     } else {
-      set ref [lindex [$options(-nodehandle) children] 0]
+      set ref [lindex [$myNode children] 0]
     }
 
     if {$ref ne ""} {
-      $options(-nodehandle) insert -before $ref $new
+      $myNode insert -before $ref $new
     } else {
-      $options(-nodehandle) insert $new
+      $myNode insert $new
     }
 
     return ""
   }
   dom_call appendChild {THIS newChild} {
+    error "TODO"
+
     set new [[lindex $newChild 1] cget -nodehandle]
-    $options(-nodehandle) insert $new
+    $myNode insert $new
     return ""
   }
 
   dom_call removeChild {THIS oldChild} {
+    error "TODO"
+
     set old [[lindex $oldChild 1] cget -nodehandle]
-    $options(-nodehandle) remove $old
+    $myNode remove $old
     return ""
   }
 
@@ -372,10 +311,16 @@ set BaseList {ElementCSSInlineStyle WidgetNode Node NodePrototype EventTarget}
   #     returned for the tag-name property be in upper-case. Tkhtml3 should
   #     probably be altered to match this.
   #
-  dom_get tagName {list string [string toupper [$options(-nodehandle) tag]]}
+  dom_get tagName {
+    list string [string toupper [$myNode tag]]
+  }
 
-  dom_call -string getAttribute {THIS attr}   {$self Element_getAttributeString $attr ""}
-  dom_call -string setAttribute {THIS attr v} {$self Element_putAttributeString $attr $v}
+  dom_call -string getAttribute {THIS attr} {
+    Element_getAttributeString $myNode $attr ""
+  }
+  dom_call -string setAttribute {THIS attr v} {
+    Element_putAttributeString $myNode $attr $v
+  }
 
   dom_todo removeAttribute
   dom_todo getAttributeNode
@@ -383,23 +328,23 @@ set BaseList {ElementCSSInlineStyle WidgetNode Node NodePrototype EventTarget}
   dom_todo removeAttributeNode
 
   dom_call -string getElementsByTagName {THIS tagname} {
-    set hv3 [$myDom node_to_hv3 $options(-nodehandle)]
-    set cmd [list $hv3 search $tagname -root $options(-nodehandle)]
-    set nl [::hv3::DOM::NodeList %AUTO% $myDom -nodelistcmd $cmd]
+    set hv3 [$myDom node_to_hv3 $myNode]
+    set cmd [list $hv3 search $tagname -root $myNode]
+    set nl [list ::hv3::DOM::NodeList $myDom $cmd]
     list transient $nl
   }
 
   dom_todo normalize
 
-  dom_snit {
-    method Element_getAttributeString {name def} {
-      set val [$options(-nodehandle) attribute -default $def $name]
-      list string $val
-    }
-    method Element_putAttributeString {name val} {
-      $options(-nodehandle) attribute $name $val
-      return ""
-    }
+}
+namespace eval ::hv3::DOM {
+  proc Element_getAttributeString {node name def} {
+    set val [$node attribute -default $def $name]
+    list string $val
+  }
+  proc Element_putAttributeString {node name val} {
+    $node attribute $name $val
+    return ""
   }
 }
 
@@ -439,13 +384,50 @@ namespace eval ::hv3::dom::compiler {
 
     # The Get code.
     dom_get $name [subst -novariables {
-      $self Element_getAttributeString [set attribute] ""
+      Element_getAttributeString $myNode [set attribute] ""
     }]
 
     # Create the Put method (unless the -readonly switch was passed).
     if {!$readonly} {
       dom_put -string $name val [subst -novariables {
-        $self Element_putAttributeString [set attribute] $val
+        Element_putAttributeString $myNode [set attribute] $val
+      }]
+    }
+  }
+}
+namespace eval ::hv3::dom2::compiler {
+
+  proc element_attr {name args} {
+
+    set readonly 0
+    set attribute $name
+
+    # Process the arguments to [element_attr]:
+    for {set ii 0} {$ii < [llength $args]} {incr ii} {
+      set s [lindex $args $ii]
+      switch -- $s {
+        -attribute {
+          incr ii
+          set attribute [lindex $args $ii]
+        }
+        -readonly {
+          set readonly 1
+        }
+        default {
+          error "Bad option to element_attr: $s"
+        }
+      }
+    }
+
+    # The Get code.
+    dom_get $name [subst -novariables {
+      Element_getAttributeString $myNode [set attribute] ""
+    }]
+
+    # Create the Put method (unless the -readonly switch was passed).
+    if {!$readonly} {
+      dom_put -string $name val [subst -novariables {
+        Element_putAttributeString $myNode [set attribute] $val
       }]
     }
   }
@@ -456,13 +438,13 @@ namespace eval ::hv3::dom::compiler {
 # DOM Type Text (Node -> Text)
 #
 set BaseList {WidgetNode Node NodePrototype EventTarget}
-::hv3::dom::type Text $BaseList {
+::hv3::dom2::stateless Text $BaseList {
 
   # Override parts of the Node interface.
   #
   dom_get nodeType  {list number 3}           ;#     Node.TEXT_NODE -> 3
   dom_get nodeName  {list string #text}
-  dom_get nodeValue {list string [$options(-nodehandle) text -pre] }
+  dom_get nodeValue {list string [$myNode text -pre] }
 
   # TODO: This needs to be implemented.
   #

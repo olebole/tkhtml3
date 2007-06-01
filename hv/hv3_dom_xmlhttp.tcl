@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.3 2007/04/13 11:44:43 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.4 2007/06/01 18:07:48 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # ::hv3::dom::XMLHttpRequest
@@ -10,6 +10,9 @@ namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.3 2007/04/13 11:4
 #
 #     For now, this is a partial implementation to make the
 #     tests/browsertest.tcl framework work.
+#
+if 0 {
+# TODO: Change to ::stateless
 #
 ::hv3::dom::type XMLHttpRequest {} {
   dom_snit {
@@ -69,6 +72,7 @@ namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.3 2007/04/13 11:4
     set myReadyState Sent
     return ""
   }
+}
 }
 #-------------------------------------------------------------------------
 

@@ -88,7 +88,6 @@
  *         $obj Put          PROPERTY ARG-VALUE
  *         $obj Finalize
  *
- *
  * Argument PROPERTY is a simple property name (i.e. "className"). 
  * VALUE is a typed javascript value. 
  *
@@ -265,10 +264,15 @@ struct SeeTclObject {
     Tcl_Obj *pObj;              /* Tcl script for object */
 
     /* This is used by objects while they reside in the 
-     * SeeInterp.aTclObject[] hash table.
+     * SeeInterp.aTclObject[] hash table. 
      */
     SeeTclObject *pNext;
 };
+
+/* This variable, used for debugging, stores the total number of 
+ * SeeTclObject structures currently allocated.
+ */
+static int iNumSeeTclObject = 0;
 
 /* Entries in the SeeInterp.pJsObject[] linked list are instances of
  * the following structure. 
@@ -613,6 +617,7 @@ newSeeTclObject(pTclSeeInterp, pTclCommand)
             pTclSeeInterp->interp.Object_prototype       
     );
 
+    iNumSeeTclObject++;
     return p;
 }
 
@@ -668,6 +673,7 @@ finalizeObject(pPtr, pContext)
 
     Tcl_DecrRefCount(p->pObj);
     p->pObj = 0;
+    iNumSeeTclObject--;
 }
 
 /*
@@ -974,7 +980,7 @@ objToValue(pInterp, pObj, pValue)
 
                 case EVENT_VALUE: {
                     struct SEE_object *pObject = 
-                        eventTargetValue(pInterp, apElem[0], apElem[1]);
+                        eventTargetValue(pInterp, apElem[1], apElem[2]);
                     if (pObject) {
                         SEE_SET_OBJECT(pValue, pObject);
                     } else {
@@ -1101,6 +1107,10 @@ delInterpCmd(clientData)
         Tcl_DecrRefCount(pTclSeeInterp->pTrace);
         pTclSeeInterp->pTrace = 0;
     }
+  
+    if( pTclSeeInterp->zGlobal ){
+      iNumSeeTclObject--;
+    }
 
     /* Try to make garbage collection happen now. This could be taken
      * out and (according to the garbage-collection folk) things might
@@ -1189,6 +1199,7 @@ interpEval(pTclSeeInterp, pCode, pFile)
  *    useful while debugging the system.
  *    
  *       $interp debug objects
+ *       $interp debug alloc
  *
  *    (Probably there are more sub-commands, peers of "objects", to come)
  *
@@ -1208,15 +1219,47 @@ interpDebug(pTclSeeInterp, objc, objv)
     Tcl_Obj *pRet = Tcl_NewObj();
     Tcl_IncrRefCount(pRet);
 
-    for (iSlot = 0; iSlot < OBJECT_HASH_SIZE; iSlot++){
-        SeeTclObject *pObject = pTclSeeInterp->aTclObject[iSlot];
-        for ( ; pObject; pObject = pObject->pNext) {
-            Tcl_ListObjAppendElement(0, pRet, pObject->pObj);
-        }
-    }
+    if (0 == strcmp("alloc", Tcl_GetString(objv[2]))){
+        char z[256];
+        Tcl_Obj *pRet = Tcl_NewObj();
+        int ii;
 
-    Tcl_SetObjResult(pTclSeeInterp->pTclInterp, pRet);
-    Tcl_DecrRefCount(pRet);
+        const char *azString[6] = {
+          "SeeTclObject structures allocated",
+          "sizeof(SeeTclObject)",
+          "GC_get_heap_size",
+          "GC_get_free_bytes",
+          "GC_get_bytes_since_gc",
+          "GC_get_total_bytes",
+        };
+        int aVal[6];
+
+        memset(aVal, 0, sizeof(aVal));
+        aVal[0] = iNumSeeTclObject;
+        aVal[1] = sizeof(SeeTclObject);
+        aVal[2] = (int)GC_get_heap_size();
+        aVal[3] = (int)GC_get_free_bytes();
+        aVal[4] = (int)GC_get_bytes_since_gc();
+        aVal[5] = (int)GC_get_total_bytes();
+
+        for (ii = 0; ii < 6; ii++){
+          Tcl_ListObjAppendElement(0, pRet, Tcl_NewStringObj(azString[ii], -1));
+          Tcl_ListObjAppendElement(0, pRet, Tcl_NewIntObj(aVal[ii]));
+        }
+
+        Tcl_SetObjResult(pTclSeeInterp->pTclInterp, pRet);
+    } 
+    else {
+        for (iSlot = 0; iSlot < OBJECT_HASH_SIZE; iSlot++){
+            SeeTclObject *pObject = pTclSeeInterp->aTclObject[iSlot];
+            for ( ; pObject; pObject = pObject->pNext) {
+                Tcl_ListObjAppendElement(0, pRet, pObject->pObj);
+            }
+        }
+    
+        Tcl_SetObjResult(pTclSeeInterp->pTclInterp, pRet);
+        Tcl_DecrRefCount(pRet);
+    }
 
     return TCL_OK;
 }
@@ -2254,8 +2297,8 @@ eventTargetValue(pTclSeeInterp, pEventTarget, pEvent)
     EventType *pType;
 
     rc = Tcl_GetCommandInfo(interp, Tcl_GetString(pEventTarget), &info);
-    if (rc != TCL_OK) return 0;
-    p = (EventTarget *)info.clientData;
+    if (rc == 0) return 0;
+    p = (EventTarget *)info.objClientData;
 
     for (
         pType = p->pTypeList;
@@ -2665,7 +2708,7 @@ eventTargetMethod(clientData, interp, objc, objv)
         }
 
         case ET_DESTROY:
-            eventTargetDelete(clientData);
+            Tcl_DeleteCommand(interp, Tcl_GetString(objv[0]));
             break;
 
         case ET_DUMP:

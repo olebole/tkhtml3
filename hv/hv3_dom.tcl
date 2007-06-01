@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.46 2007/05/14 02:45:05 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.47 2007/06/01 18:07:48 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Snit types in this file:
@@ -50,14 +50,8 @@ snit::type ::hv3::dom {
   # Document window associated with this scripting environment.
   variable myHv3 ""
 
-  # Global object.
+  # Javascript window command.
   variable myWindow ""
-
-  # Map from Tkhtml3 node-handle to corresponding DOM object.
-  # Entries are added by the [::hv3::dom node_to_dom] method. The
-  # array is cleared by the [::hv3::dom reset] method.
-  #
-  variable myNodeToDom -array [list]
 
   variable myNextCodeblockNumber 1
 
@@ -71,6 +65,7 @@ snit::type ::hv3::dom {
   }
 
   destructor { 
+    $self clear
     catch { $myLogData destroy }
   }
 
@@ -81,30 +76,42 @@ snit::type ::hv3::dom {
     return [expr {$options(-enable) && [info commands ::see::interp] ne ""}]
   }
 
-  method reset {} {
+  # Return the javascript object command for the global "window"
+  # object supplied to the interpreter.
+  method window {} { list ::hv3::DOM::Window $self $myHv3 }
 
+  # Delete any allocated interpreter and objects. This is called in
+  # two circumstances: when deleting this object and from within
+  # the [reset] method.
+  #
+  method clear {} {
     # Delete the old interpreter and the various objects, if they exist.
     # They may not exist, if this is being called from within the
     # object constructor or scripting is disabled.
     if {$mySee ne ""} {
+
+      # Delete all of the event-target objects allocated since last 
+      # reset. This strategy won't work in the long term (because of
+      # AJAX apps that run for a long time), but it's good enough for 
+      # now.
+      foreach et [array names myEventTargetList] {
+        $myEventTargetList($et) destroy
+      }
+      array unset myEventTargetList
+
       $mySee destroy
       set mySee ""
-
-      # Delete all the DOM objects in the $myNodeToDom array.
-      foreach key [array names myNodeToDom] {
-        $myNodeToDom($key) destroy
-      }
-      array unset myNodeToDom
-
-      # Destroy the toplevel object.
-      $myWindow destroy
     }
+  }
+
+  method reset {} {
+
+    $self clear
 
     if {[$self HaveScripting]} {
       # Set up the new interpreter with the global "Window" object.
       set mySee [::see::interp]
-      set myWindow [::hv3::DOM::Window %AUTO% $self -see $mySee -hv3 $myHv3]
-      $mySee global $myWindow 
+      $mySee global [$self window]
 
       # Reset the debugger.
       $self LogReset
@@ -121,6 +128,47 @@ snit::type ::hv3::dom {
     # attribute is set.
     #
     set myNextCodeblockNumber 1
+  }
+
+  # Array used by the [getEventTarget] and [queryEventTarget] methods.
+  #
+  variable myEventTargetList -array [list]
+
+  # Return the event-target object associated with argument $object,
+  # allocating it if necessary . An event-target is a Tcl object 
+  # implemented in C to help implement the EventTarget interface 
+  # (DOM Level 2 Events). Variable $pIsNew in the parent context is
+  # set to true if a new allocation was required, or false otherwise.
+  #
+  # The $object argument should be one of the following:
+  #
+  #     * A Tkhtml3 node-handle,
+  #     * The literal string "::hv3::DOM::Document", or
+  #     * The literal string "::hv3::DOM::Window".
+  #
+  # All event-target objects are destroyed when the [reset] method is 
+  # called. This approach to memory-management will one day cause a 
+  # problem for applications that run in web-pages. Worry about that later.
+  #
+  method getEventTarget {object pIsNew} {
+    upvar $pIsNew isNew 
+    set isNew false
+    if {![info exists myEventTargetList($object)]} {
+      set myEventTargetList($object) [$mySee eventtarget]
+      set isNew true
+    }
+    return $myEventTargetList($object)
+  }
+
+  # Return the event-target object associated with arguement $object
+  # (see description of getEventTarget above), or an empty string if
+  # no such event-target has been allocated.
+  #
+  method queryEventTarget {object} {
+    if {![info exists myEventTargetList($object)]} {
+      return ""
+    }
+    return $myEventTargetList($object)
   }
 
   method NewFilename {} {
@@ -232,18 +280,23 @@ snit::type ::hv3::dom {
       # According to "DOM Level 2 Events", the load event does not
       # bubble and is not cancelable.
       #
-      set js_obj $myWindow
+      set js_obj [$self window]
     } else {
       set js_obj [$self node_to_dom $node]
     }
 
+    # Dispatch the event.
     set rc [catch {
       ::hv3::dom::dispatchHtmlEvent $self $event $js_obj
     } msg]
+
+    # If an error occured, log it in the debugging window.
+    #
     if {$rc} {
       set name [string map {blob error} [$self NewFilename]]
       $myLogData Log "$node $event event" $name "event-handler" $rc $msg
       $myLogData Popup
+      set msg ""
     }
 
     return $msg
@@ -276,7 +329,7 @@ snit::type ::hv3::dom {
     if {"" eq [info commands $node]} {return 1}
 
     if {$node eq ""} {
-      set Node [lindex [$myWindow Get document] 1]
+      set Node [lindex [eval [$self window] Get document] 1]
     } else {
       set Node [$self node_to_dom $node]
     }
@@ -291,6 +344,12 @@ snit::type ::hv3::dom {
     }
   }
 
+  #------------------------------------------------------------------
+  # setWindowEvent/getWindowEvent
+  #
+  #     Get/set the javascript object command that will be returned
+  #     for Get requests on the "window.event" property.
+  #
   variable myWindowEvent ""
   method setWindowEvent {event} {
     set ret $myWindowEvent
@@ -301,30 +360,14 @@ snit::type ::hv3::dom {
     return $myWindowEvent
   }
 
-#  typevariable tag_to_obj -array [list         \
-#      ""       ::hv3::dom::Text                \
-#      img      ::hv3::dom::HTMLImageElement    \
-#      form     ::hv3::dom::HTMLFormElement     \
-#      input    ::hv3::dom::HTMLInputElement    \
-#      textarea ::hv3::dom::HTMLTextAreaElement \
-#      a        ::hv3::dom::HTMLAnchorElement        \
-#  ]
-  typevariable tag_to_obj -array [list         \
-      ""       ::hv3::DOM::Text                \
-  ]
-
   #------------------------------------------------------------------
   # method node_to_dom
   #
   #     This is a factory method for HTMLElement/Text DOM wrappers
   #     around html widget node-handles.
   #
-  method node_to_dom {node args} {
-    if {![info exists myNodeToDom($node)]} {
-      set myNodeToDom($node) [::hv3::dom::createWidgetNode $self $node]
-      $myNodeToDom($node) configurelist $args
-    }
-    return $myNodeToDom($node)
+  method node_to_dom {node} {
+    ::hv3::dom::createWidgetNode $self $node
   }
 
   #----------------------------------------------------------------
@@ -339,7 +382,7 @@ snit::type ::hv3::dom {
     # comes from a different <FRAME> than the script is being executed
     # in.
     #
-    lindex [$myWindow Get document] 1
+    lindex [eval [$self window] Get document] 1
   }
 
   #----------------------------------------------------------------
@@ -353,7 +396,6 @@ snit::type ::hv3::dom {
 
   method see    {} { return $mySee }
   method hv3    {} { return $myHv3 }
-  method window {} { return $myWindow }
 
   #------------------------------------------------------------------
   # Logging system follows.
@@ -389,7 +431,7 @@ snit::type ::hv3::dom {
   method eventdump {node} {
     if {$mySee eq ""} {return ""}
     set Node [$self node_to_dom $node]
-    $Node eventdump
+    return "TODO"
   }
 }
 
@@ -943,13 +985,19 @@ snit::widget ::hv3::dom::logwin {
     $myData BrowseToNode $node
   }
 
+  method TclCmd {args} {
+    $myOutput insert end "tcl: $args\n" commandtext
+    set res [eval uplevel #0 $args]
+    $myOutput insert end "    $res\n" 
+  }
+
   method ReloadCmd {args} {
     $myData reload
   }
 
   method DebugCmd {args} {
     set objlist [eval [[$myData dom] see] debug $args]
-    $myOutput insert end "debug: objects\n" commandtext
+    $myOutput insert end "debug: $args\n" commandtext
     foreach obj $objlist {
       $myOutput insert end "    $obj\n"
     }
@@ -978,7 +1026,8 @@ snit::widget ::hv3::dom::logwin {
       reload     2 ""                     ReloadCmd     \
       result     1 "BLOBID"               ResultCmd     \
       search     1 "STRING"               SearchCmd     \
-      tree       1 "NODE"                 TreeCmd       \
+      tree       2 "NODE"                 TreeCmd       \
+      tcl        2 "TCL-SCRIPT"           TclCmd        \
     ]
     set done 0
     foreach {cmd nMin NOTUSED method} $cmdlist {
@@ -1075,7 +1124,32 @@ snit::widget ::hv3::dom::logwin {
 # Pull in the object definitions.
 #
 source [file join [file dirname [info script]] hv3_dom_compiler.tcl]
-# source [file join [file dirname [info script]] hv3_style.tcl]
+
+foreach f [list \
+  hv3_dom_containers.tcl \
+  hv3_dom_core.tcl \
+  hv3_dom_html.tcl \
+  hv3_dom_style.tcl \
+  hv3_dom_ns.tcl \
+  hv3_dom_events.tcl \
+  hv3_dom_xmlhttp.tcl \
+] {
+  source [file join [file dirname [info script]] $f]
+}
+set classlist [concat \
+  HTMLCollection HTMLElement HTMLDocument \
+  [::hv3::dom::getHTMLElementClassList]   \
+  [::hv3::dom::getNSClassList]            \
+  Text NodePrototype NodeList             \
+  CSSStyleDeclaration                     \
+  Event MouseEvent                        \
+]
+foreach c $classlist {
+  eval [::hv3::dom2::compile $c]
+}
+#puts [::hv3::dom2::compile Event]
+
+::hv3::dom2::cleanup
 
 #-----------------------------------------------------------------------
 # Initialise the scripting environment. This tries to load the javascript
@@ -1096,6 +1170,6 @@ proc ::hv3::dom::init {} {
 }
 ::hv3::dom::init
 
-#set ::hv3::dom::reformat_scripts_option 0
-set ::hv3::dom::reformat_scripts_option 1
+set ::hv3::dom::reformat_scripts_option 0
+#set ::hv3::dom::reformat_scripts_option 1
 
