@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.58 2007/05/12 16:18:18 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.59 2007/06/02 11:21:16 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -214,6 +214,162 @@ namespace eval ::hv3::forms {
     event generate $win <ButtonPress-1> -x $x -y $y
     event generate $win <ButtonRelease-1> -x $x -y $y
   }
+}
+
+#--------------------------------------------------------------------------
+# ::hv3::forms::entrycontrol 
+#
+#     Object for controls created elements of the following form:
+#    
+#         <INPUT type="text">
+#         <INPUT type="password">
+#
+::snit::widget ::hv3::forms::entrycontrol {
+
+  option -formnode -default ""
+  option -submitcmd -default ""
+
+  variable myWidget ""
+  variable myValue ""
+  variable myNode ""
+
+  constructor {node bindtag args} {
+    set myWidget [entry ${win}.entry]
+    $myWidget configure -highlightthickness 0 -borderwidth 0 
+    $myWidget configure -selectborderwidth 0
+    $myWidget configure -textvar [myvar myValue]
+    $myWidget configure -background white
+
+    $myWidget configure -validatecommand [mymethod Validate %P]
+    $myWidget configure -validate key
+
+    pack $myWidget -expand true -fill both
+
+    # If this is a password entry field, obscure it's contents
+    set zType [string tolower [$node attr -default "" type]]
+    if {$zType eq "password" } { $myWidget configure -show * }
+
+    # Set the default width of the widget to 20 characters. Unless there
+    # is no size attribute and the CSS 'width' property is set to "auto",
+    # this will be overidden.
+    $myWidget configure -width 20
+
+    # Pressing enter in an entry widget submits the form.
+    bind $myWidget <KeyPress-Return> [mymethod Submit]
+
+    set myNode $node
+    bindtags $myWidget [concat $bindtag [bindtags $myWidget] $win]
+    $self reset
+
+    $self configurelist $args
+  }
+
+  # Generate html for the "HTML Forms" tab of the tree-browser.
+  #
+  method formsreport {} { return {<i color=red>TODO</i>} }
+
+  # This method is called during form submission to determine the 
+  # name of the control. It returns the value of the Html "name" 
+  # attribute. Or, failing that, an empty string.
+  #
+  method name {} { return [$myNode attr -default "" name] }
+
+  # This method is called during form submission to determine the 
+  # value of the control. Return the current contents of the widget.
+  #
+  method value {} { return $myValue }
+
+  # True if the control is considered successful for the 
+  # purposes of submitting this form.
+  #
+  method success {} { return [expr {[$self name] ne ""}] }
+
+  # Empty string. This method is only implemented by 
+  # <INPUT type="file"> controls.
+  #
+  method filename {} { return "" }
+
+  # Reset the state of the control.
+  #
+  method reset {} { 
+    set myValue [$myNode attr -default "" value]
+  }
+
+  # TODO: The sole purpose of this is to return a linebox offset...
+  method configurecmd {values} { 
+    ::hv3::forms::configurecmd $myWidget [$myWidget cget -font]
+  }
+
+  method stylecmd {} {
+    catch { $myWidget configure -font [$myNode property font] }
+  }
+
+  method Submit {} {
+    if {$options(-submitcmd) ne ""} {
+      eval $options(-submitcmd)
+    }
+  }
+
+  method Validate {newvalue} {
+    set iLimit [$myNode attr -default -1 maxlength]
+    if {$iLimit >= 0 && [string length $newvalue] > $iLimit} {
+      return 0
+    }
+    return 1
+  }
+
+  #---------------------------------------------------------------------
+  # START OF DOM FUNCTIONALITY
+  #
+  # Below this point are some methods used by the DOM class 
+  # HTMLInputElement. None of this is used unless scripting is enabled.
+  #
+
+  # Get/set on the DOM "checked" attribute. This means the state 
+  # of control (1==checked, 0==not checked) for this type of object.
+  #
+  method dom_checked {args} {
+    error "N/A"
+  }
+
+  # DOM Implementation does not call this. HTMLInputElement.value is
+  # the "value" attribute of the HTML element for this type of object.
+  #
+  method dom_value {args} {
+    if {[llength $args]>0} {
+      set myValue [lindex $args 0]
+    }
+    return $myValue
+  }
+
+  # Select the text in this widget.
+  #
+  method dom_select  {} {
+    $self selection range 0 end
+  }
+
+  # Methods [dom_focus] and [dom_blur] are used to implement the
+  # focus() and blur() methods on DOM classes HTMLInputElement,
+  # HTMLTextAreaElement and HTMLSelectElement.
+  #
+  # At present, calling blur() when a widget has the focus causes the
+  # focus to be transferred to the html widget. This should be fixed 
+  # so that the focus is passed to the next control in tab-index order
+  # But tab-index is not supported yet. :(
+  # 
+  method dom_focus {} {
+    focus $myWidget
+  }
+  method dom_blur {} {
+    set now [focus]
+    if {$myWidget eq [focus]} {
+      focus [winfo parent $win]
+    }
+  }
+
+  # This is a no-op for this type of <INPUT> element.
+  #
+  method dom_click {} {}
 }
 
 #--------------------------------------------------------------------------
@@ -567,7 +723,7 @@ snit::widget ::hv3::control {
     $hull configure -borderwidth 0 -pady 0 -padx 0
 
     $self configurelist $args
-    bindtags $myWidget [concat $bindtag [bindtags $myWidget]]
+    bindtags $myWidget [concat $bindtag [bindtags $myWidget] $self]
   }
 
   destructor { 
@@ -1389,6 +1545,31 @@ snit::type ::hv3::formmanager {
     $myForms($node) configure -postcmd $options(-postcmd)
   }
 
+  # This method is called by the [control_handler] method to add [bind] 
+  # scripts to the forms control widget passed as an argument. The
+  # [bind] scripts are used to generate the "keyup", "keydown" and 
+  # "keypress" HTML 4.01 scripting events.
+  #
+  method SetupKeyBindings {widget node} {
+    bind $widget <KeyPress>   +[mymethod WidgetKeyPress $widget $node]
+    bind $widget <KeyRelease> +[mymethod WidgetKeyRelease $widget $node]
+  }
+
+  # Handler scripts for the <KeyPress> and <KeyRelease> events.
+  #
+  variable myKeyPressNode ""
+  method WidgetKeyPress {widget node} {
+    [$myHv3 dom] event keydown $node
+    set myKeyPressNode $node
+  }
+  method WidgetKeyRelease {widget node} {
+    [$myHv3 dom] event keyup $node
+    if {$node eq $myKeyPressNode} {
+      [$myHv3 dom] event keypress $node
+    }
+    set myKeyPressNode ""
+  }
+
   method control_handler {node} {
 
     set zWinPath ${myHtml}.control_[string map {: _} $node]
@@ -1447,13 +1628,20 @@ snit::type ::hv3::formmanager {
       }
 
       default {
+        set tt ${tag}.${type}
         set hv3 [winfo parent [winfo parent $myHtml]]
-        set control [::hv3::control $zWinPath $node $hv3]
+        if {$tag eq "input" && $tt ne "input.radio" && $tt ne "input.file"} {
+          set control [::hv3::::forms::entrycontrol $zWinPath $node $hv3]
+        } else {
+          set control [::hv3::control $zWinPath $node $hv3]
+        }
         if {$form ne ""} {
           $control configure -submitcmd [list $form submit $control]
         }
       }
     }
+
+    $self SetupKeyBindings $control $node
 
     $node replace $control                         \
         -configurecmd [list $control configurecmd] \

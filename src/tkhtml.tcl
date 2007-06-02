@@ -105,8 +105,14 @@ namespace eval tkhtml {
 
         # Figure out if we are talking characters or pixels:
         switch -- [string tolower [$node attr -default text type]] {
-          text     { set units ex }
-          password { set units ex }
+          text     { 
+            incr size [expr {int(($size/10)+1)}]
+            set units ex 
+          }
+          password { 
+            incr size [expr {int(($size/10)+1)}]
+            set units ex 
+          }
           file     { 
             incr size 10 
             set units ex 

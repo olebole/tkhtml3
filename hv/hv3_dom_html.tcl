@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.13 2007/06/01 18:07:48 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.14 2007/06/02 11:21:16 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Html
@@ -432,21 +432,20 @@ namespace eval ::hv3::DOM {
 
   dom_todo defaultValue
   dom_todo form
-  dom_todo accept
-  dom_todo accessKey
-  dom_todo align
-  dom_todo alt
-  dom_todo checked
-  dom_todo maxLength
-  dom_todo name
   dom_todo readOnly
-  dom_todo size
-  dom_todo src
-  dom_todo tabIndex
-  dom_todo useMap
 
+  element_attr accept
+  element_attr accessKey -attribute accesskey
+  element_attr align
+  element_attr alt
   element_attr disabled
+  element_attr name
+  element_attr maxLength -attribute maxlength
+  element_attr size
+  element_attr src
+  element_attr tabIndex  -attribute tabindex
   element_attr type -readonly
+  element_attr useMap
 
   # According to DOM HTML Level 1, the HTMLInputElement.defaultChecked
   # is the HTML element attribute, not the current value of the form
