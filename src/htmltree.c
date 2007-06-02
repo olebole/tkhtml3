@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.126 2007/04/24 13:12:22 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.127 2007/06/02 15:27:53 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -2034,6 +2034,7 @@ nodeCommand(clientData, interp, objc, objv)
 
     enum NODE_enum {
         NODE_ATTRIBUTE, NODE_CHILDREN, NODE_DESTROY, NODE_DYNAMIC, 
+        NODE_HTML,
         NODE_INSERT, NODE_OVERRIDE, NODE_PARENT, NODE_PROPERTY, 
         NODE_REMOVE, NODE_REPLACE, NODE_STACKING, NODE_TAG, NODE_TEXT, 
         NODE_XVIEW, NODE_YVIEW
@@ -2048,6 +2049,7 @@ nodeCommand(clientData, interp, objc, objv)
         {"children",  NODE_CHILDREN,  0},
         {"destroy",   NODE_DESTROY,   0},      
         {"dynamic",   NODE_DYNAMIC,   0},      
+        {"html",      NODE_HTML,      0},
         {"insert",    NODE_INSERT,    0},
         {"override",  NODE_OVERRIDE,  0},    
         {"parent",    NODE_PARENT,    0},     
@@ -2576,6 +2578,19 @@ node_attr_usage:
         }
         case NODE_YVIEW: {
             return nodeViewCmd(pNode, 1, objv, objc);
+        }
+
+        /*
+         * nodeHandle html
+         */
+        case NODE_HTML: {
+            if (objc != 2) {
+                Tcl_WrongNumArgs(interp, 2, objv, "");
+                return TCL_ERROR;
+            }
+            Tcl_ResetResult(interp);
+            Tcl_AppendResult(interp, Tcl_GetCommandName(interp, pTree->cmd), 0);
+            return TCL_OK;
         }
 
         /*

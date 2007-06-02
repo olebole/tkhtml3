@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.9 2007/06/01 18:07:48 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.10 2007/06/02 15:27:53 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Core
@@ -363,6 +363,7 @@ namespace eval ::hv3::dom::compiler {
   proc element_attr {name args} {
 
     set readonly 0
+    set boolean 0
     set attribute $name
 
     # Process the arguments to [element_attr]:

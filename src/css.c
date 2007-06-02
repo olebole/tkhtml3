@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.114 2007/04/28 05:18:50 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.115 2007/06/02 15:27:53 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -2826,11 +2826,13 @@ ruleCompare(CssRule *pLeft, CssRule *pRight) {
     int res = 0;
 
     assert(pLeft && pRight);
-    assert(pLeft->pPriority);
-    assert(pRight->pPriority);
+    assert(
+        (pLeft->pPriority && pRight->pPriority) ||  
+        (!pLeft->pPriority && !pRight->pPriority)
+    );
+    if( !pLeft->pPriority ) return 0;
 
     res = pLeft->pPriority->iPriority - pRight->pPriority->iPriority;
-
     if (res == 0) {
         /* But here we want (left - right), because specificity is higher
          * for more specific rules.
@@ -4103,8 +4105,7 @@ HtmlCssSearch(clientData, interp, objc, objv)
     cssParse(pTree, n, z, 0, 0, 0, 0, 0,&pStyle);
     if (
         !pStyle || 
-        !pStyle->pUniversalRules || 
-        pStyle->pUniversalRules->pNext
+        !pStyle->pUniversalRules
     ) {
         rc = TCL_ERROR;
         Tcl_AppendResult(interp, "Bad css selector: \"", zOrig, "\"", 0); 

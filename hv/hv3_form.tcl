@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.59 2007/06/02 11:21:16 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.60 2007/06/02 15:27:53 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -93,6 +93,48 @@ namespace eval ::hv3::forms {
   }
 }
 
+proc ::hv3::boolean_attr {node attr def} {
+  set val [$node attribute -default $def $attr]
+  if {$val eq "" || ![string is boolean $val]} {
+    set val true
+  }
+  return $val
+}
+proc ::hv3::put_boolean_attr {node attr val} {
+  if {$val eq "" || ![string is boolean $val]} {
+    set val true
+  }
+  $node attribute $attr $val
+}
+
+# The argument node must be either a <FORM> or an element that generates 
+# a form control. The return value is a list of node handles. The first
+# is the associated <FORM> node, followed by all controls also associated
+# with the same <FORM> node.
+#
+proc ::hv3::get_form_nodes {node} {
+  set html [$node html]
+  set N [$html search INPUT,SELECT,TEXTAREA,BUTTON,FORM]
+
+  set idx [lsearch -exact $N $node]
+  if {$idx<0} {error "$node is not a forms node"}
+
+  set iFirst $idx
+  while { $iFirst>=0 && [[lindex $N $iFirst] tag] ne "form" } {
+    incr iFirst -1
+  }
+
+  set iLast [expr $idx+1]
+  while { $iLast<[llength $N] && [[lindex $N $iLast] tag] ne "form" } {
+    incr iLast 1
+  }
+
+  if {$iFirst>=0} {
+    return [lrange $N $iFirst [expr $iLast-1]]
+  }
+
+  return ""
+}
 
 #--------------------------------------------------------------------------
 # ::hv3::forms::checkbox 
@@ -310,6 +352,10 @@ namespace eval ::hv3::forms {
     }
   }
 
+  # This method is called each time a character is inserted or
+  # removed from the [entry] widget. To enforce the semantics of
+  # the HTML "maxlength" attribute.
+  #
   method Validate {newvalue} {
     set iLimit [$myNode attr -default -1 maxlength]
     if {$iLimit >= 0 && [string length $newvalue] > $iLimit} {
@@ -345,7 +391,7 @@ namespace eval ::hv3::forms {
   # Select the text in this widget.
   #
   method dom_select  {} {
-    $self selection range 0 end
+    $myWidget selection range 0 end
   }
 
   # Methods [dom_focus] and [dom_blur] are used to implement the
@@ -385,6 +431,7 @@ snit::widgetadaptor ::hv3::forms::select {
   variable myHv3 ""
   variable myNode ""
   variable myValues [list]
+  variable myCurrentSelected -1
 
   delegate option * to hull
   delegate method * to hull
@@ -396,50 +443,14 @@ snit::widgetadaptor ::hv3::forms::select {
     bindtags $self [concat $myHv3 [bindtags $self]]
 
     $hull configure -highlightthickness 0
-
-    # Figure out a list of options for the drop-down list. This block 
-    # sets up two list variables, $labels and $myValues. The $labels
-    # list stores the options from which the user may select, and the $myValues
-    # list stores the corresponding form control values.
-    set maxlen 5
-    set labels [list]
-    set myValues [list]
-    foreach child [$myNode children] {
-      if {[$child tag] == "option"} {
-
-        # If the element has text content, this is used as the default
-	# for both the label and value of the entry (used if the Html
-	# attributes "value" and/or "label" are not defined.
-	set contents ""
-        catch {
-          set t [lindex [$child children] 0]
-          set contents [$t text]
-        }
-
-        # Append entries to both $myValues and $labels
-        set     label  [$child attr -default $contents label]
-        set     value  [$child attr -default $contents value]
-        lappend labels $label
-        lappend myValues $value
-
-        set len [string length $label]
-        if {$len > $maxlen} {set maxlen $len}
-      }
-    }
-
-    # Set up the combobox widget. 
-    eval [concat [list $hull list insert 0] $labels]
-    $self reset
-    $hull configure -command [mymethod ComboboxChanged]
     $hull configure -background white
     $hull configure -borderwidth 0
     $hull configure -highlightthickness 0
-
-    # Set the width and height of the combobox. Prevent manual entry.
-    if {[set height [llength $myValues]] > 10} { set height 10 }
-    $hull configure -width  $maxlen
-    $hull configure -height $height
     $hull configure -editable false
+    $hull configure -command [mymethod ComboboxChanged]
+
+    $self treechanged
+    $self reset
   }
 
   method formsreport {} {
@@ -478,6 +489,7 @@ snit::widgetadaptor ::hv3::forms::select {
         incr ii
       }
     }
+    set myCurrentSelected $idx
     $win select $idx
   }
 
@@ -486,11 +498,72 @@ snit::widgetadaptor ::hv3::forms::select {
     ::hv3::forms::configurecmd $win [$hull cget -font]
   }
 
-  method ComboboxChanged {args} {
+  method ComboboxChanged {widget newValue} {
+    set idx [$hull curselection]
+    if {$myCurrentSelected<0 || $idx eq "" || $idx == $myCurrentSelected} return
+    set myCurrentSelected $idx
+puts ComboboxChanged
     focus [winfo parent $win]
 
     # Fire the "onchange" dom event.
     [$myHv3 dom] event onchange $myNode
+  }
+
+  # This is called by the DOM module whenever the tree-structure 
+  # surrounding this element has been modified. Update the
+  # state of the widget to reflect the new tree structure.
+  method treechanged {} {
+    $hull configure -state normal
+
+    # Figure out a list of options for the drop-down list. This block 
+    # sets up two list variables, $labels and $myValues. The $labels
+    # list stores the options from which the user may select, and the $myValues
+    # list stores the corresponding form control values.
+    set maxlen 5
+    set labels [list]
+    set myValues [list]
+    foreach child [$myNode children] {
+      if {[$child tag] == "option"} {
+
+        # If the element has text content, this is used as the default
+	# for both the label and value of the entry (used if the Html
+	# attributes "value" and/or "label" are not defined.
+	set contents ""
+        catch {
+          set t [lindex [$child children] 0]
+          set contents [$t text]
+        }
+
+        # Append entries to both $myValues and $labels
+        set     label  [$child attr -default $contents label]
+        set     value  [$child attr -default $contents value]
+        lappend labels $label
+        lappend myValues $value
+
+        set len [string length $label]
+        if {$len > $maxlen} {set maxlen $len}
+      }
+    }
+
+    # Set up the combobox widget. 
+    $hull list delete 0 end
+    eval [concat [list $hull list insert 0] $labels]
+
+    # Set the width and height of the combobox. Prevent manual entry.
+    if {[set height [llength $myValues]] > 10} { set height 10 }
+    $hull configure -width  $maxlen
+    $hull configure -height $height
+
+    if {$myCurrentSelected>0 && $myCurrentSelected>=[llength $myValues]} {
+      set myCurrentSelected [expr [llength $myValues]-1]
+    }
+    $hull select $myCurrentSelected
+    set disabled [::hv3::boolean_attr $myNode disabled 0]
+    if {$disabled} {
+      $hull configure -state disabled
+    } else {
+      $hull configure -state normal
+    }
   }
 
   #---------------------------------------------------------------------

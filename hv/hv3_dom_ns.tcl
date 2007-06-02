@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.11 2007/06/01 18:07:48 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.12 2007/06/02 15:27:53 danielk1977 Exp $)} 1 }
 
 #---------------------------------
 # List of DOM objects in this file:
@@ -215,7 +215,7 @@ set BaseList {}
   }
   dom_put location {value} {
     set document [lindex [eval [SELF] Get document] 1]
-    eval $document Put location $value
+    eval $document Put location [list $value]
   }
 
   #-----------------------------------------------------------------------
@@ -317,7 +317,7 @@ if 0 {
   dom_get event {
     set event [$myDom getWindowEvent]
     if {$event ne ""} {
-      list object event
+      list object $event
     } else {
       list undefined
     }

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.14 2007/06/02 11:21:16 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.15 2007/06/02 15:27:53 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Html
@@ -141,12 +141,12 @@ set BaseList {Document Node NodePrototype}
   # to calling "document.location.assign(VALUE)".
   #
   dom_get location { 
-    set obj [list ::hv3::DOM::Location $myDom $myHv3] 
+    set obj [list ::hv3::DOM::Location $myDom $myHv3]
     list object $obj
   }
-  dom_put location value { 
-    set callable [list ::hv3::DOM::Location $myDom $myHv3 Get assign]
-    eval callable Call THIS $value
+  dom_put location value {
+    set callable [lindex [::hv3::DOM::Location $myDom $myHv3 Get assign] 1]
+    eval $callable Call THIS [list $value]
   }
 
   #-------------------------------------------------------------------------
@@ -431,7 +431,6 @@ namespace eval ::hv3::DOM {
 ::hv3::dom2::stateless HTMLInputElement HTMLElement {
 
   dom_todo defaultValue
-  dom_todo form
   dom_todo readOnly
 
   element_attr accept
@@ -446,6 +445,8 @@ namespace eval ::hv3::DOM {
   element_attr tabIndex  -attribute tabindex
   element_attr type -readonly
   element_attr useMap
+
+  dom_get form { HTMLElement_get_form $myDom $myNode }
 
   # According to DOM HTML Level 1, the HTMLInputElement.defaultChecked
   # is the HTML element attribute, not the current value of the form
@@ -513,6 +514,8 @@ namespace eval ::hv3::DOM {
 #
 ::hv3::dom2::stateless HTMLSelectElement HTMLElement {
 
+  dom_get form { HTMLElement_get_form $myDom $myNode }
+
   dom_get type {
     # DOM Level 1 says: "This is the string "select-multiple" when the 
     # multiple attribute is true and the string "select-one" when false."
@@ -535,19 +538,18 @@ namespace eval ::hv3::DOM {
     list string [[$myNode replace] value]
   }
 
-  dom_todo length
-  dom_todo form
+  dom_get length {
+    list number [llength [HTMLSelectElement_getOptions $myNode]]
+  }
 
   dom_get options {
     set cmd [list HTMLSelectElement_getOptions $myNode]
     list object [list ::hv3::DOM::HTMLCollection $myDom $cmd]
   }
 
-  dom_todo disabled
-
   dom_get multiple {
     # In Hv3, this attribute is always 0. This is because Hv3 does not
-    # support multiple-select controls.
+    # support multiple-select controls. But maybe it should...
     list number 0
   }
 
@@ -555,16 +557,36 @@ namespace eval ::hv3::DOM {
   element_attr size
   element_attr tabIndex -attribute tabindex
 
-  dom_todo form
-  dom_todo disabled
+  # The "disabled" property.
+  dom_get disabled { 
+    list boolean [::hv3::boolean_attr $myNode disabled false] 
+  }
+  dom_put -string disabled val { 
+    ::hv3::put_boolean_attr $myNode disabled $val
+    [$myNode replace] treechanged
+  }
 
-  dom_todo add
-  dom_todo remove
+  dom_call_todo add
+
+  # void remove(in long index);
+  #
+  #     Remove the index'th option from the <select> node.
+  #
+  dom_call -string remove {THIS idx} {
+    set options [HTMLSelectElement_getOptions $myNode]
+    set o [lindex $options [expr {int($idx)}]] 
+    if {$o ne ""} {
+      $o destroy
+      [$myNode replace] treechanged
+    }
+  }
+
   dom_call blur   {THIS} { [$myNode replace] dom_blur }
   dom_call focus  {THIS} { [$myNode replace] dom_focus }
 
   #--------------------------------------------------------------------
   # Non-standard stuff starts here.
+  #
   dom_get * {
     set obj [lindex [eval [SELF] Get options] 1]
     eval $obj Get $property
@@ -579,6 +601,14 @@ namespace eval ::hv3::DOM {
     }
     set ret
   }
+  proc HTMLElement_get_form {dom node} {
+    set f [lindex [::hv3::get_form_nodes $node] 0]
+    if {$f eq ""} { 
+      set f null
+    } else {
+      list object [$dom node_to_dom $f]
+    }
+  }
 }
 # </HTMLSelectElement>
 #-------------------------------------------------------------------------
@@ -590,6 +620,8 @@ namespace eval ::hv3::DOM {
 #     http://api.kde.org/cvs-api/kdelibs-apidocs/khtml/html/classDOM_1_1HTMLTextAreaElement.html
 #
 ::hv3::dom2::stateless HTMLTextAreaElement HTMLElement {
+
+  dom_get form { HTMLElement_get_form $myDom $myNode }
 
   dom_get value { list string [[$myNode replace] value] }
   dom_put -string value val { [$myNode replace] set_value $val }
@@ -622,6 +654,7 @@ namespace eval ::hv3::DOM {
 # DOM Type HTMLButtonElement (extends HTMLElement)
 #
 ::hv3::dom2::stateless HTMLButtonElement HTMLElement {
+  dom_get form { HTMLElement_get_form $myDom $myNode }
 }
 # </HTMLButtonElement>
 #-------------------------------------------------------------------------
@@ -645,6 +678,11 @@ namespace eval ::hv3::DOM {
 
   dom_get text {
     list string [HTMLOptionElement_getText $myNode]
+  }
+  dom_put -string text zText {
+    set z [string map {< &lt; > &gt;} $zText]
+    HTMLElement_putInnerHTML $myDom $myNode $z
+    HTMLOptionElement_treechanged $myNode
   }
 
   # TODO: After writing this attribute, have to update data 
@@ -675,6 +713,17 @@ namespace eval ::hv3::DOM {
       set contents [$t text]
     }
     set contents
+  }
+
+  proc HTMLOptionElement_treechanged {node} {
+    set P [$node parent]
+    while {$P ne ""} {
+      if {[$P tag] eq "select"} {
+        [$P replace] treechanged
+        return
+      }
+      set P [$P parent]
+    }
   }
 
   proc HTMLOptionElement_getLabelOrValue {node attr} {
@@ -858,6 +907,25 @@ namespace eval ::hv3::DOM {
 # </HTMLAnchorElement>
 #-------------------------------------------------------------------------
 
+::hv3::dom2::stateless HTMLImageElement HTMLElement {
+  element_attr lowSrc -attribute lowsrc
+  element_attr name
+  element_attr align
+  element_attr alt
+  element_attr border
+  element_attr height
+  element_attr hspace
+
+  dom_get isMap { list boolean [::hv3::boolean_attr $myNode ismap false] }
+  dom_put -string isMap val { ::hv3::put_boolean_attr $myNode ismap $val] }
+
+  element_attr longDesc -attribute longdesc;
+  element_attr src;
+  element_attr useMap -attribute usemap;
+  element_attr vspace;
+  element_attr width;
+};
+
 #-------------------------------------------------------------------------
 # Element/Text Node Factory:
 #
@@ -871,6 +939,7 @@ namespace eval ::hv3::dom {
   array set TagToNodeTypeMap {
     ""       ::hv3::DOM::Text
     a        ::hv3::DOM::HTMLAnchorElement
+    img      ::hv3::DOM::HTMLImageElement
   }
 
   # HTML Forms related objects:

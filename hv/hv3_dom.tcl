@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.47 2007/06/01 18:07:48 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.48 2007/06/02 15:27:53 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Snit types in this file:
@@ -1147,7 +1147,7 @@ set classlist [concat \
 foreach c $classlist {
   eval [::hv3::dom2::compile $c]
 }
-#puts [::hv3::dom2::compile Event]
+#puts [::hv3::dom2::compile Window]
 
 ::hv3::dom2::cleanup
 
