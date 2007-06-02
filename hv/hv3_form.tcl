@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.60 2007/06/02 15:27:53 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.61 2007/06/02 16:59:22 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -57,6 +57,12 @@ source [file join [file dirname [info script]] combobox.tcl]
 #     ::hv3::form
 #     ::hv3::formmanager
 #
+
+#
+#     ::hv3::forms::checkbox
+#     ::hv3::forms::entrycontrol
+#     ::hv3::forms::select
+#     ::hv3::forms::textarea
 
 # Standard controls interface:
 #
@@ -419,6 +425,111 @@ proc ::hv3::get_form_nodes {node} {
 }
 
 #--------------------------------------------------------------------------
+# ::hv3::forms::textarea 
+#
+#     Object for controls created elements of the following form:
+#    
+#         <TEXTAREA>
+#
+::snit::widget ::hv3::forms::textarea {
+
+  option -formnode -default ""
+  option -submitcmd -default ""
+
+  variable myWidget ""
+  variable myNode ""
+
+  constructor {node bindtag args} {
+    set myWidget [::hv3::scrolled text ${win}.widget -width 500]
+
+    $myWidget configure -borderwidth 0
+    $myWidget configure -pady 0
+    $myWidget configure -selectborderwidth 0
+    $myWidget configure -highlightthickness 0
+    $myWidget configure -background white
+
+    set myNode $node
+    bindtags $myWidget [concat $bindtag [bindtags $myWidget] $win]
+    $self reset
+    $self configurelist $args
+
+    pack $myWidget -expand true -fill both
+  }
+
+  # Generate html for the "HTML Forms" tab of the tree-browser.
+  #
+  method formsreport {} { return {<i color=red>TODO</i>} }
+
+  # This method is called during form submission to determine the 
+  # name of the control. It returns the value of the Html "name" 
+  # attribute. Or, failing that, an empty string.
+  #
+  method name {} { return [$myNode attr -default "" name] }
+
+  # This method is called during form submission to determine the 
+  # value of the control. Return the current contents of the widget.
+  #
+  method value {} { 
+    string range [$myWidget get 0.0 end] 0 end-1
+  }
+
+  # True if the control is considered successful for the 
+  # purposes of submitting this form.
+  #
+  method success {} { return [expr {[$self name] ne ""}] }
+
+  # Empty string. This method is only implemented by 
+  # <INPUT type="file"> controls.
+  #
+  method filename {} { return "" }
+
+  # Reset the state of the control.
+  #
+  method reset {} { 
+    set state [$myWidget cget -state]
+    $myWidget configure -state normal
+    set contents ""
+    $myWidget delete 0.0 end
+    foreach child [$myNode children] {
+      append contents [$child text -pre]
+    }
+    $myWidget insert 0.0 $contents
+    $myWidget configure -state $state
+  }
+
+  # TODO: The sole purpose of this is to return a linebox offset...
+  method configurecmd {values} { 
+    ::hv3::forms::configurecmd $myWidget [$myWidget cget -font]
+  }
+
+  method stylecmd {} {
+    catch { $myWidget configure -font [$myNode property font] }
+  }
+
+  #---------------------------------------------------------------------
+  # START OF DOM FUNCTIONALITY
+  #
+  # Below this point are some methods used by the DOM class 
+  # HTMLTextAreaElement. All the important stuff uses the text widget
+  # directly (see hv3_dom_html.tcl).
+  #
+  method get_text_widget {} {
+    return $myWidget
+  }
+
+  method dom_blur {} {
+    set now [focus]
+    if {$myWidget eq [focus]} {
+      focus [winfo parent $win]
+    }
+  }
+  method dom_focus {} {
+    focus $myWidget
+  }
+}
+
+
+#--------------------------------------------------------------------------
 # ::hv3::forms::select 
 #
 #     Object for controls created by elements of the following form:
@@ -502,7 +613,6 @@ snit::widgetadaptor ::hv3::forms::select {
     set idx [$hull curselection]
     if {$myCurrentSelected<0 || $idx eq "" || $idx == $myCurrentSelected} return
     set myCurrentSelected $idx
-puts ComboboxChanged
     focus [winfo parent $win]
 
     # Fire the "onchange" dom event.
@@ -1698,6 +1808,11 @@ snit::type ::hv3::formmanager {
       select. {
         set hv3 [winfo parent [winfo parent $myHtml]]
         set control [::hv3::forms::select $zWinPath $node $hv3]
+      }
+
+      textarea. {
+        set hv3 [winfo parent [winfo parent $myHtml]]
+        set control [::hv3::forms::textarea $zWinPath $node $hv3]
       }
 
       default {

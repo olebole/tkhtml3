@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.165 2007/05/12 16:18:18 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.166 2007/06/02 16:59:22 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -1040,6 +1040,8 @@ snit::widget ::hv3::hv3 {
       after cancel $myRefreshEventId
       set myRefreshEventId ""
     }
+
+    after cancel [mymethod MightBeComplete]
   }
 
   # Return the location URI of the widget.

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.15 2007/06/02 15:27:53 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.16 2007/06/02 16:59:22 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Html
@@ -497,7 +497,7 @@ namespace eval ::hv3::DOM {
       set F [$myNode replace]
       $F dom_value $V
     } else {
-      $myNode attr checked $V
+      $myNode attr value $V
     }
   }
 
@@ -621,12 +621,28 @@ namespace eval ::hv3::DOM {
 #
 ::hv3::dom2::stateless HTMLTextAreaElement HTMLElement {
 
+  dom_todo defaultValue;
+  dom_todo cols;
+
+  element_attr accessKey -attribute accesskey
+  element_attr name;
+  element_attr tabIndex -attribute tabindex; 
+
+  dom_get type { list string textarea }
+
+  dom_todo disabled;
+  dom_todo readOnly;
+  dom_todo rows;
+  dom_todo value;
+
   dom_get form { HTMLElement_get_form $myDom $myNode }
 
-  dom_get value { list string [[$myNode replace] value] }
-  dom_put -string value val { [$myNode replace] set_value $val }
+  dom_get value             { HTMLTextAreaElement_getValue $myNode }
+  dom_put -string value val { HTMLTextAreaElement_putValue $myNode $val }
 
   dom_call focus  {THIS} { [$myNode replace] dom_focus }
+  dom_call blur   {THIS} { [$myNode replace] dom_blur }
+  dom_call select {THIS} { HTMLTextAreaElement_select $myNode }
 
   #-------------------------------------------------------------------------
   # The following are not part of the standard DOM. They are mozilla
@@ -646,6 +662,22 @@ namespace eval ::hv3::DOM {
     }
     list number $ret
   }
+
+  proc HTMLTextAreaElement_select {node} {
+    set t [[$node replace] get_text_widget]
+    $t tag add sel 0.0 end
+    list undefined
+  }
+
+  proc HTMLTextAreaElement_getValue {node} {
+    list string [[$node replace] value] 
+  }
+
+  proc HTMLTextAreaElement_putValue {node str} {
+    set t [[$node replace] get_text_widget]
+    $t delete 0.0 end
+    $t insert 0.0 $str
+  }
 }
 # </HTMLTextAreaElement>
 #-------------------------------------------------------------------------
@@ -654,7 +686,16 @@ namespace eval ::hv3::DOM {
 # DOM Type HTMLButtonElement (extends HTMLElement)
 #
 ::hv3::dom2::stateless HTMLButtonElement HTMLElement {
+  dom_todo disabled;
+
   dom_get form { HTMLElement_get_form $myDom $myNode }
+
+  element_attr accessKey -attribute accesskey
+  element_attr name;
+  element_attr tabIndex -attribute tabindex;
+  element_attr type;
+
+  dom_todo value;
 }
 # </HTMLButtonElement>
 #-------------------------------------------------------------------------
@@ -671,10 +712,19 @@ namespace eval ::hv3::DOM {
 # DOM Type HTMLOptionElement (extends HTMLElement)
 #
 ::hv3::dom2::stateless HTMLOptionElement HTMLElement {
-  dom_todo form
+
   dom_todo defaultSelected
   dom_todo index
   dom_todo disabled
+
+  dom_get form {
+    set select [HTMLOptionElement_getSelect $myNode]
+    if {$select ne ""} {
+      HTMLElement_get_form $myDom $select
+    } else {
+      set f null
+    }
+  }
 
   dom_get text {
     list string [HTMLOptionElement_getText $myNode]
@@ -715,14 +765,21 @@ namespace eval ::hv3::DOM {
     set contents
   }
 
-  proc HTMLOptionElement_treechanged {node} {
+  proc HTMLOptionElement_getSelect {node} {
     set P [$node parent]
     while {$P ne ""} {
       if {[$P tag] eq "select"} {
-        [$P replace] treechanged
-        return
+        return $P
       }
       set P [$P parent]
+    }
+    return ""
+  }
+
+  proc HTMLOptionElement_treechanged {node} {
+    set P [HTMLOptionElement_getSelect $node]
+    if {$P ne ""} {
+      [$P replace] treechanged
     }
   }
 
