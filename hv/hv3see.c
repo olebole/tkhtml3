@@ -200,10 +200,11 @@
  */
 #include "hv3format.c"
 
-
 typedef struct SeeInterp SeeInterp;
 typedef struct SeeTclObject SeeTclObject;
 typedef struct SeeJsObject SeeJsObject;
+
+typedef struct SeeTimeout SeeTimeout;
 
 /* Size of hash-table. This should be replaced with a dynamic hash 
  * table structure. 
@@ -217,6 +218,8 @@ struct SeeInterp {
      */
     struct SEE_interpreter interp;
     Tcl_Interp *pTclInterp;
+
+    Tcl_Obj *pTclError;
 
     /* Hash table containing the objects created by the Tcl interpreter
      * that are currently in "persistent" state.
@@ -241,6 +244,12 @@ struct SeeInterp {
      */
     Tcl_Obj *pTrace;
     struct SEE_context *pTraceContext;
+
+    /* Start of a linked list of SeeTimeout structures. See 
+    ** included file hv3timeout.c for details.
+    */
+    SeeTimeout *pTimeout;
+    int iNextTimeout;
 
     /* Linked list of SeeJsObject structures that will be removed from
      * the aJsObject[] table next time removeTransientRefs() is called.
@@ -297,6 +306,21 @@ static void installHv3Global(SeeInterp *, struct SEE_object *);
 /* Return a pointer to the V-Table for Tcl based javascript objects. 
  */
 static struct SEE_objectclass *getVtbl();
+
+/* Source file hv3timeout.c contains the implementation of the 
+** following methods of the Window (global) object:
+**
+**     setTimeout()
+**     setInterval()
+**     clearTimeout()
+**     clearInterval()
+**
+** The hv3timeout.c module uses the SeeInterp.pTimeout pointer. The
+** external interface (called from this file) is:
+*/ 
+static void interpTimeoutInit(SeeInterp *);
+static void interpTimeoutCleanup(SeeInterp *);
+#include "hv3timeout.c"
 
 /*
  *---------------------------------------------------------------------------
@@ -1025,11 +1049,24 @@ handleJavascriptError(pTclSeeInterp, pTry)
 {
     Tcl_Interp *pTclInterp = pTclSeeInterp->pTclInterp;
     struct SEE_interpreter *pSeeInterp = &pTclSeeInterp->interp;
-
     struct SEE_traceback *pTrace;
-
     struct SEE_value error;
-    Tcl_Obj *pError = Tcl_NewObj();
+    Tcl_Obj *pError;
+    
+    /* The Tcl error message is a well formed Tcl list. The elements
+     * of which are as follows:
+     *
+     *   * The literal string "JS_ERROR"
+     *   * The string form of the javascript object thrown.
+     *   * The value of $errorInfo (if this is a Tcl error, otherwise 
+     *     an empty string).
+     *   * Followed by an even number of elements - alternating filenames
+     *     and line numbers that make up the stack trace (first pair
+     *     is at the bottom of the stack - where the exception was thrown
+     *     from).
+     */
+
+    pError = Tcl_NewObj();
     Tcl_ListObjAppendElement(0, pError, Tcl_NewStringObj("JS_ERROR", -1));
 
     SEE_ToString(pSeeInterp, SEE_CAUGHT(*pTry), &error);
@@ -1039,6 +1076,14 @@ handleJavascriptError(pTclSeeInterp, pTry)
         Tcl_ListObjAppendElement(0, pError, pErrorString);
     } else {
         Tcl_ListObjAppendElement(0, pError, Tcl_NewStringObj("N/A", -1));
+    }
+
+    if (pTclSeeInterp->pTclError) {
+        Tcl_ListObjAppendElement(0, pError, pTclSeeInterp->pTclError);
+        Tcl_DecrRefCount(pTclSeeInterp->pTclError);
+        pTclSeeInterp->pTclError = 0;
+    } else {
+        Tcl_ListObjAppendElement(0, pError, Tcl_NewStringObj("", -1));
     }
 
     for (pTrace = pTry->traceback; pTrace; pTrace = pTrace->prev) {
@@ -1111,6 +1156,9 @@ delInterpCmd(clientData)
     if( pTclSeeInterp->zGlobal ){
       iNumSeeTclObject--;
     }
+
+    /* Clean up any stray timer events */
+    interpTimeoutCleanup(pTclSeeInterp);
 
     /* Try to make garbage collection happen now. This could be taken
      * out and (according to the garbage-collection folk) things might
@@ -1220,7 +1268,6 @@ interpDebug(pTclSeeInterp, objc, objv)
     Tcl_IncrRefCount(pRet);
 
     if (0 == strcmp("alloc", Tcl_GetString(objv[2]))){
-        char z[256];
         Tcl_Obj *pRet = Tcl_NewObj();
         int ii;
 
@@ -1545,12 +1592,15 @@ tclSeeInterp(clientData, interp, objc, objv)
  
     /* Initialize a new SEE interpreter */
     SEE_interpreter_init_compat(&pInterp->interp, 
-        SEE_COMPAT_JS15|SEE_COMPAT_SGMLCOM
+        SEE_COMPAT_JS15|SEE_COMPAT_SGMLCOM|SEE_COMPAT_262_3B
     );
     pInterp->interp.trace = seeTraceHook;
 
     /* Initialise the pTclInterp field. */
     pInterp->pTclInterp = interp;
+
+    /* Initialise the setTimeout(), setInterval() functions */
+    interpTimeoutInit(pInterp);
 
     Tcl_CreateObjCommand(interp, zCmd, interpCmd, pInterp, delInterpCmd);
     Tcl_SetResult(interp, zCmd, TCL_VOLATILE);
@@ -1576,6 +1626,35 @@ stringToObj(pString)
     struct SEE_string *pString;
 {
     return Tcl_NewUnicodeObj(pString->data, pString->length);
+}
+
+static void throwTclError(p, rc)
+    struct SEE_interpreter *p;
+    int rc;
+{
+    if (rc!=TCL_OK) {
+        SeeInterp *pTclSeeInterp = (SeeInterp *)p;
+
+        Tcl_Interp *interp = pTclSeeInterp->pTclInterp;
+        Tcl_Obj *pErrorInfo;
+        Tcl_Obj *pErr;
+
+        Tcl_Obj *pSaved = Tcl_GetObjResult(interp);
+
+        pErrorInfo = Tcl_NewStringObj("errorInfo", -1);
+        Tcl_IncrRefCount(pErrorInfo);
+        pErr = Tcl_ObjGetVar2(interp, pErrorInfo, 0, TCL_GLOBAL_ONLY);
+        pErr = Tcl_DuplicateObj(pErr);
+        Tcl_IncrRefCount(pErr);
+        if (pTclSeeInterp->pTclError) {
+            Tcl_DecrRefCount(pTclSeeInterp->pTclError);
+        }
+        pTclSeeInterp->pTclError = pErr;
+        Tcl_DecrRefCount(pErrorInfo);
+
+        Tcl_SetObjResult(interp, pSaved);
+        SEE_error_throw(p, p->Error, "%s", Tcl_GetStringResult(interp));
+    }
 }
 
 
@@ -1625,11 +1704,7 @@ SeeTcl_Get(pInterp, pObj, pProp, pRes)
         }
     }
 
-    if (rc != TCL_OK) {
-        SEE_error_throw_sys(pInterp, 
-            pInterp->RangeError, "%s", Tcl_GetStringResult(pTclInterp)
-        );
-    }
+    throwTclError(pInterp, rc);
 }
 
 static void 
@@ -1664,11 +1739,7 @@ SeeTcl_Put(pInterp, pObj, pProp, pVal, flags)
         SEE_native_put(&p->interp, pNative, pProp, pVal, flags);
     }
 
-    if (rc != TCL_OK) {
-        SEE_error_throw_sys(pInterp, 
-            pInterp->TypeError, "%s", Tcl_GetStringResult(pTclInterp)
-        );
-    }
+    throwTclError(pInterp, rc);
 }
 
 static int 
@@ -1690,14 +1761,11 @@ SeeTcl_CanPut(pInterp, pObj, pProp)
     );
 
     rc = Tcl_EvalObjEx(pTclInterp, pScript, TCL_GLOBAL_ONLY);
-    if (
-        rc != TCL_OK || TCL_OK != 
-        Tcl_GetBooleanFromObj(pTclInterp, Tcl_GetObjResult(pTclInterp), &ret)
-    ) {
-        SEE_error_throw_sys(pInterp, 
-            pInterp->RangeError, "%s", Tcl_GetStringResult(pTclInterp)
-        );
+    if (rc==TCL_OK) {
+        Tcl_Obj *pRes = Tcl_GetObjResult(pTclInterp);
+        rc = Tcl_GetBooleanFromObj(pTclInterp, pRes, &ret);
     }
+    throwTclError(pInterp, rc);
     return ret;
 }
 static int 
@@ -1721,14 +1789,11 @@ SeeTcl_HasProperty(pInterp, pObj, pProp)
     );
 
     rc = Tcl_EvalObjEx(pTclInterp, pScript, TCL_GLOBAL_ONLY);
-    if (
-        rc != TCL_OK || TCL_OK != 
-        Tcl_GetBooleanFromObj(pTclInterp, Tcl_GetObjResult(pTclInterp), &ret)
-    ) {
-        SEE_error_throw_sys(pInterp, 
-            pInterp->RangeError, "%s", Tcl_GetStringResult(pTclInterp)
-        );
-    }
+    throwTclError(pInterp, rc);
+
+    rc = Tcl_GetBooleanFromObj(pTclInterp, Tcl_GetObjResult(pTclInterp), &ret);
+    throwTclError(pInterp, rc);
+
     return ret;
 }
 static int 
@@ -1749,11 +1814,7 @@ SeeTcl_Delete(pInterp, pObj, pProp)
     );
 
     rc = Tcl_EvalObjEx(pTclInterp, pScript, TCL_GLOBAL_ONLY);
-    if (rc != TCL_OK) {
-        SEE_error_throw_sys(pInterp, 
-            pInterp->RangeError, "%s", Tcl_GetStringResult(pTclInterp)
-        );
-    }
+    throwTclError(pInterp, rc);
 
     return 0;
 }
@@ -1824,18 +1885,10 @@ tclCallOrConstruct(pMethod, pInterp, pObj, pThis, argc, argv, pRes)
 
     rc = Tcl_EvalObjEx(pTclInterp, pScript, TCL_GLOBAL_ONLY);
     removeTransientRefs(pTclSeeInterp, nObj);
-    if (rc != TCL_OK) {
-        SEE_error_throw_sys(pInterp, 
-            pInterp->RangeError, "%s", Tcl_GetStringResult(pTclInterp)
-        );
-    }
+    throwTclError(pInterp, rc);
 
     rc = objToValue(pTclSeeInterp, Tcl_GetObjResult(pTclInterp), pRes);
-    if (rc != TCL_OK) {
-        SEE_error_throw_sys(pInterp, 
-            pInterp->RangeError, "%s", Tcl_GetStringResult(pTclInterp)
-        );
-    }
+    throwTclError(pInterp, rc);
 }
 static void 
 SeeTcl_Construct(pInterp, pObj, pThis, argc, argv, pRes)
@@ -1956,16 +2009,16 @@ tclEnumerator(pInterp, pObj)
     SeeTclEnum *pEnum;
     int ii;
 
+    int rc;
+
     Tcl_ListObjAppendElement(0, pScript, Tcl_NewStringObj("Enumerator", 10));
-    if (
-        TCL_OK != Tcl_EvalObjEx(pTclInterp, pScript, TCL_GLOBAL_ONLY) ||
-        0      == (pRet = Tcl_GetObjResult(pTclInterp)) ||
-        TCL_OK != Tcl_ListObjGetElements(pTclInterp, pRet, &nRet, &apRet)
-    ) {
-        SEE_error_throw_sys(pInterp, 
-            pInterp->RangeError, "%s", Tcl_GetStringResult(pTclInterp)
-        );
-    }
+
+    rc = Tcl_EvalObjEx(pTclInterp, pScript, TCL_GLOBAL_ONLY);
+    throwTclError(pInterp, rc);
+
+    pRet = Tcl_GetObjResult(pTclInterp);
+    rc = Tcl_ListObjGetElements(pTclInterp, pRet, &nRet, &apRet);
+    throwTclError(pInterp, rc);
 
     pEnum = SEE_malloc(&pTclSeeInterp->interp,
         sizeof(SeeTclEnum) + sizeof(struct SEE_String *) * nRet
@@ -2133,8 +2186,8 @@ Hv3Global_Enumerator(pInterp, pObj)
 
 struct SEE_scope;
 struct SEE_scope {
-  struct SEE_scope *next;
-  struct SEE_object *obj;
+    struct SEE_scope *next;
+    struct SEE_object *obj;
 };
 
 /*

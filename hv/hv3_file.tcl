@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_file.tcl,v 1.4 2007/05/12 15:44:55 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_file.tcl,v 1.5 2007/06/03 10:35:19 danielk1977 Exp $)} 1 }
 
 #
 # This file contains Tcl code for loading file:// URIs in the hv3 web browser
@@ -47,7 +47,7 @@ namespace eval hv3 {
 #
 ##############################################################################
 proc directoryIndex {directory} {
-    
+
     array set iconsArray [directoryIndex_CreateIcons]
     set data {
         <html>
@@ -103,6 +103,7 @@ proc directoryIndex {directory} {
         </html>
     }
     
+puts $data
     return $data
     
 };#End of procedure directoryIndex
@@ -212,8 +213,6 @@ proc request_file {downloadHandle} {
             }
             set data [read $fd]
             close $fd
-            $downloadHandle append $data
-            $downloadHandle finish
         }
         
     } else {
@@ -226,12 +225,11 @@ proc request_file {downloadHandle} {
             set data "<H3>Not found</H3> Missing $filename"
             set errmsg "Not found: $filename"
         }
-        
-        $downloadHandle append $data
-        $downloadHandle finish
         #$downloadHandle fail "Unreadable path: $filename"
     }
 
+    $downloadHandle append $data
+    $downloadHandle finish
 }
 
 };# End of [namespace eval hv3]

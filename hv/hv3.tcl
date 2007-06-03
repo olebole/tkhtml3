@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.166 2007/06/02 16:59:22 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.167 2007/06/03 10:35:19 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -893,6 +893,13 @@ snit::widget ::hv3::hv3 {
   component myUri -public uri
   variable  myBase ""                ;# The current URI (type ::hv3::hv3uri)
 
+  # Full text of referrer URI, if any.
+  #
+  # Note that the DOM attribute HTMLDocument.referrer has a double-r,
+  # but the name of the HTTP header, "Referer", has only one.
+  #
+  variable  myReferrer ""     
+
   # Used to assign internal stylesheet ids.
   variable  myStyleCount 0 
 
@@ -1047,6 +1054,10 @@ snit::widget ::hv3::hv3 {
   # Return the location URI of the widget.
   #
   method location {} { return [$myUri get] }
+
+  # Return the referrer URI of the widget.
+  #
+  method referrer {} { return $myReferrer }
 
   # The argument download-handle contains a configured request. This 
   # method initiates the request. It is used by hv3 and it's component
@@ -1328,6 +1339,7 @@ snit::widget ::hv3::hv3 {
   }
   variable myTitleVar ""
   method titlevar {}    {return [myvar myTitleVar]}
+  method title {}       {return $myTitleVar}
 
   # Node handler script for <body> tags. The purpose of this handler
   # and the [body_style_handler] method immediately below it is
@@ -1434,7 +1446,7 @@ snit::widget ::hv3::hv3 {
     }
   }
 
-  method documentcallback {handle savestate final data} {
+  method documentcallback {handle referrer savestate final data} {
 
     if {$myMimetype eq ""} {
   
@@ -1477,6 +1489,8 @@ snit::widget ::hv3::hv3 {
           return
         }
       }
+
+      set myReferrer $referrer
   
       $myUri load [$handle cget -uri]
       $self set_location_var
@@ -1544,7 +1558,18 @@ snit::widget ::hv3::hv3 {
       $myHtml parse $data
     }
     if {$myEncoding ne ""} {
+      # This occurs when the document author has specified an encoding
+      # using an HTML <META> element. In this case it's now too late to
+      # modify the stream encoding, so accumulate the whole HTML document
+      # in variable $myEncodedDocument before translating and passing
+      # it to the Tkhtml widget.
+      #
+      # Note: At the moment we only handle such <META> constructs in
+      # the first "chunk" of HTML parsed. Chunksize is determined by
+      # the ::hv3::download object (see hv3_request.tcl).
+      #
       $myHtml reset
+      $self InvalidateNodecache
       append myEncodedDocument $data
     }
     if {$isFinal} {
@@ -1585,10 +1610,11 @@ snit::widget ::hv3::hv3 {
 
     set handle [::hv3::download %AUTO% -mimetype text/html]
     set myMimetype ""
+    set referer [$self uri get]
     $handle configure                                       \
-        -incrscript [mymethod documentcallback $handle 1 0] \
-        -finscript  [mymethod documentcallback $handle 1 1] \
-        -requestheader [list Referer [$self location]]
+        -incrscript [mymethod documentcallback $handle $referer 1 0] \
+        -finscript  [mymethod documentcallback $handle $referer 1 1] \
+        -requestheader [list Referer $referer]              \
 
     if {$method eq "post"} {
       $handle configure -uri $full_uri -postdata $encdata
@@ -1763,9 +1789,9 @@ snit::widget ::hv3::hv3 {
         -cachecontrol $myCacheControl              \
     ]
     set myMimetype ""
-    $handle configure                                     \
-        -incrscript [mymethod documentcallback $handle $savestate 0] \
-        -finscript  [mymethod documentcallback $handle $savestate 1]
+    $handle configure                                                         \
+        -incrscript [mymethod documentcallback $handle $referer $savestate 0] \
+        -finscript  [mymethod documentcallback $handle $referer $savestate 1] 
     if {$referer ne ""} {
       $handle configure -requestheader [list Referer $referer]
     }
@@ -1855,7 +1881,6 @@ snit::widget ::hv3::hv3 {
   }
 
   method pending {}  { return [llength $myCurrentDownloads] }
-  method location {} { return [$myUri get] }
   method html {}     { return [$myHtml widget] }
   method hull {}     { return $hull }
 

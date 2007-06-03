@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.10 2007/06/02 15:27:53 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.11 2007/06/03 10:35:19 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Core
@@ -46,8 +46,9 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.10 2007/06/02 15:27:
 #
 ::hv3::dom2::stateless Node {} {
 
-  dom_get nodeName        {error "Must be overridden ($property)"}
-  dom_get nodeType        {error "Must be overridden ($property)"}
+  # These must both be overridden.
+  dom_todo nodeName
+  dom_todo nodeType
 
   # Node.nodeValue is null of all nodes except ATTRIBUTE and TEXT.
   # Also, technically CDATA_SECTION, COMMENT and PROCESSING_INSTRUCTION,
@@ -147,7 +148,6 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.10 2007/06/02 15:27:
   # End of Node interface overrides.
   #---------------------------------
 
-
   dom_todo doctype
   dom_todo implementation
 
@@ -216,15 +216,15 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.10 2007/06/02 15:27:
 
   # Retrieve the left and right sibling nodes.
   #
-  dom_get previousSibling {WidgetNode_Sibling $myNode -1}
-  dom_get nextSibling     {WidgetNode_Sibling $myNode +1}
+  dom_get previousSibling {WidgetNode_Sibling $myDom $myNode -1}
+  dom_get nextSibling     {WidgetNode_Sibling $myDom $myNode +1}
 
   dom_get ownerDocument { 
     list object [$myDom node_to_document $myNode]
   }
 }
 namespace eval ::hv3::DOM {
-  proc WidgetNode_Sibling {node dir} {
+  proc WidgetNode_Sibling {dom node dir} {
     set ret null
     set parent [$node parent]
     if {$parent ne ""} {
@@ -232,7 +232,7 @@ namespace eval ::hv3::DOM {
       set idx [lsearch $siblings $node]
       incr idx $dir
       if {$idx >= 0 && $idx < [llength $siblings]} {
-        set ret [list object [$myDom node_to_dom [lindex $siblings $idx]]]
+        set ret [list object [$dom node_to_dom [lindex $siblings $idx]]]
       }
     }
     set ret
@@ -257,19 +257,15 @@ set BaseList {ElementCSSInlineStyle WidgetNode Node NodePrototype EventTarget}
     list object [list ::hv3::DOM::NodeList $myDom [list $myNode children]]
   }
 
-  dom_get ownerDocument {
-    error "TODO"
-  }
+  dom_todo ownerDocument
 
   dom_call insertBefore {THIS newChild refChild}  {
-    error "TODO"
-
     # TODO: Arg checking and correct error messages (excptions).
-    # Children of an Element Node can be either Element or Text nodes.
-    set new [[lindex $newChild 1] cget -nodehandle]
+
+    set new [GetNodeFromObj [lindex $newChild 1]]
 
     if {[lindex $refChild 0] eq "object"} {
-      set ref [[lindex $refChild 1] cget -nodehandle]
+      set ref [GetNodeFromObj [lindex $refChild 1]]
     } else {
       set ref [lindex [$myNode children] 0]
     }
@@ -280,26 +276,50 @@ set BaseList {ElementCSSInlineStyle WidgetNode Node NodePrototype EventTarget}
       $myNode insert $new
     }
 
-    return ""
+    # Return value is a reference to the object just inserted 
+    # as a new child node.
+    set newChild
   }
-  dom_call appendChild {THIS newChild} {
-    error "TODO"
 
-    set new [[lindex $newChild 1] cget -nodehandle]
+  dom_call appendChild {THIS newChild} {
+    # TODO: Arg checking and correct error messages (excptions).
+
+    set new [GetNodeFromObj [lindex $newChild 1]]
     $myNode insert $new
-    return ""
+
+    # Return value is a reference to the object just inserted 
+    # as a new child node.
+    set newChild
   }
 
   dom_call removeChild {THIS oldChild} {
-    error "TODO"
+    # TODO: Arg checking and correct error messages (excptions).
 
-    set old [[lindex $oldChild 1] cget -nodehandle]
+    set old [GetNodeFromObj [lindex $oldChild 1]]
     $myNode remove $old
-    return ""
+
+    # Return value is a reference to the node just removed. 
+    #
+    # TODO: At the Tkhtml widget level, the node is now an 
+    # orphan. What we should be doing is telling the javascript 
+    # interpreter that the object is now eligible for finalization.
+    # The finalizer can safely delete the orphaned node object. 
+    #
+    set oldChild
   }
 
-  # dom_todo insertBefore
-  dom_todo replaceChild
+  dom_call replaceChild {THIS newChild oldChild} {
+    # TODO: Arg checking and correct error messages (excptions).
+
+    set new [GetNodeFromObj [lindex $newChild 1]]
+    set old [GetNodeFromObj [lindex $oldChild 1]]
+
+    $myNode insert -before $old $new
+    $myNode remove $old
+
+    # TODO: Same memory management problem as removeChild().
+    set oldChild
+  }
 
 
   # End of Node interface overrides.
@@ -342,9 +362,19 @@ namespace eval ::hv3::DOM {
     set val [$node attribute -default $def $name]
     list string $val
   }
+
   proc Element_putAttributeString {node name val} {
     $node attribute $name $val
     return ""
+  }
+
+  # Assuming $js_obj is a javascript object that implements WidgetNode,
+  # return the corresponding Tkhtml node handle. Return an empty string
+  # if $js_obj does not not implement WidgetNode.
+  #
+  proc GetNodeFromObj {js_obj} {
+    set idx [lsearch -exact [info args [lindex $js_obj 0]] myNode]
+    lindex $js_obj [expr $idx+1]
   }
 }
 
@@ -447,9 +477,7 @@ set BaseList {WidgetNode Node NodePrototype EventTarget}
   dom_get nodeName  {list string #text}
   dom_get nodeValue {list string [$myNode text -pre] }
 
-  # TODO: This needs to be implemented.
-  #
-  dom_call cloneNode {THIS} {error "DOMException NOT_SUPPORTED_ERR"}
+  dom_call_todo cloneNode
 
   # End of Node interface overrides.
   #---------------------------------

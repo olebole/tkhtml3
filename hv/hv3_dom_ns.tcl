@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.12 2007/06/02 15:27:53 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.13 2007/06/03 10:35:19 danielk1977 Exp $)} 1 }
 
 #---------------------------------
 # List of DOM objects in this file:
@@ -6,10 +6,11 @@ namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.12 2007/06/02 15:27:53
 #     Navigator
 #     Window
 #     Location
+#     History
 #
 namespace eval ::hv3::dom {
   proc getNSClassList {} {
-    list Navigator Location Window
+    list Navigator Location Window History
   }
 }
 
@@ -34,6 +35,8 @@ namespace eval ::hv3::dom {
 #     Navigator.userAgent
 #     Navigator.vendor
 #     Navigator.vendorSub
+#
+#     Navigator.javaEnabled()
 #
 ::hv3::dom2::stateless Navigator {} {
 
@@ -62,6 +65,9 @@ namespace eval ::hv3::dom {
     list string "$::tcl_platform(os) $::tcl_platform(machine)"
   }
   dom_get oscpu { eval [SELF] Get platform }
+
+  # No. Absolutely not. Never going to happen.
+  dom_call javaEnabled {THIS} { list boolean false }
 }
 
 #-------------------------------------------------------------------------
@@ -146,22 +152,7 @@ namespace eval ::hv3::dom {
 #-------------------------------------------------------------------------
 # "Window" DOM object.
 #
-#     Window.setTimeout()
-#     Window.clearTimeout()
-#
-#     Window.document
-#     Window.navigator
-#     Window.Image
-#
-#     Window.parent
-#     Window.top
-#     Window.self
-#     Window.window
-#
-# Mixes in the EventTarget interface.
-#
-#set BaseList {EventTarget}
-set BaseList {}
+set BaseList {EventTarget}
 ::hv3::dom2::stateless Window $BaseList {
 
   dom_parameter myHv3
@@ -226,6 +217,13 @@ set BaseList {}
   }
 
   #-----------------------------------------------------------------------
+  # The "history" object.
+  #
+  dom_get history { 
+    list object [list ::hv3::DOM::History $myDom $myHv3]
+  }
+
+  #-----------------------------------------------------------------------
   # The "parent" property. This should: 
   #
   #     "Returns a reference to the parent of the current window or subframe.
@@ -238,70 +236,6 @@ set BaseList {}
   dom_get top    { return [list object [SELF]] }
   dom_get self   { return [list object [SELF]] }
   dom_get window { return [list object [SELF]] }
-
-if 0 {
-  #-----------------------------------------------------------------------
-  # Method Implementations: 
-  #
-  #     Window.setTimeout(code, delay) 
-  #     Window.setInterval(code, delay) 
-  #
-  #     Window.clearTimeout(timeoutid)
-  #     Window.clearInterval(timeoutid)
-  #
-  dom_snit {
-    variable myTimerIds -array [list]
-    variable myNextTimerId 0
-  
-    method SetTimer {isRepeat js_code js_delay} {
-      set ms [format %.0f [lindex $js_delay 1]] 
-      set code [lindex $js_code 1]
-      $self CallTimer "" $isRepeat $ms $code
-    }
-  
-    method ClearTimer {js_timerid} {
-      set timerid [lindex $js_timerid 1]
-      after cancel $myTimerIds($timerid)
-      unset myTimerIds($timerid)
-      return ""
-    }
-  
-    method CallTimer {timerid isRepeat ms code} {
-      if {$timerid ne ""} {
-        unset myTimerIds($timerid)
-        set see [[$myHv3 dom] see]
-        set rc [catch {$see eval -file setTimeout() $code} msg]
-      }
-  
-      if {$timerid eq "" || $isRepeat} {
-        if {$timerid eq ""} {set timerid [incr myNextTimerId]}
-        set tclid [after $ms [mymethod CallTimer $timerid $isRepeat $ms $code]]
-        set myTimerIds($timerid) $tclid
-      }
-  
-      list string $timerid
-    }
-  }
-
-  dom_call setInterval {THIS js_code js_delay} {
-    $self SetTimer 1 $js_code $js_delay
-  }
-  dom_call setTimeout {THIS js_code js_delay} {
-    $self SetTimer 0 $js_code $js_delay
-  }
-  dom_call clearTimeout  {THIS js_timerid} { $self ClearTimer $js_timerid }
-  dom_call clearInterval {THIS js_timerid} { $self ClearTimer $js_timerid }
-
-  dom_finalize {
-    # Cancel any outstanding timers created by Window.setTimeout().
-    #
-    foreach timeoutid [array names myTimerIds] {
-      after cancel $myTimerIds($timeoutid)
-    }
-    array unset myTimeoutIds
-  }
-}
-  #-----------------------------------------------------------------------
 
   #-----------------------------------------------------------------------
   # The "alert()" method.
@@ -326,5 +260,22 @@ if 0 {
   dom_call -string jsputs {THIS args} {
     puts $args
   }
+}
+
+#-------------------------------------------------------------------------
+# "History" DOM object.
+#
+#     http://developer.mozilla.org/en/docs/DOM:window.history
+#     http://www.w3schools.com/htmldom/dom_obj_history.asp
+#
+# Right now this is a placeholder. It does not work.
+# 
+::hv3::dom2::stateless History {} {
+  dom_parameter myHv3
+
+  dom_get length   { list number 0 }
+  dom_call back    {THIS}     { }
+  dom_call forward {THIS}     { }
+  dom_call go      {THIS arg} { }
 }
 

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.48 2007/06/02 15:27:53 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.49 2007/06/03 10:35:19 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Snit types in this file:
@@ -883,17 +883,23 @@ snit::widget ::hv3::dom::logwin {
     #
     $myOutput insert end "result: [$ls cget -name]\n" commandtext
 
-    $myOutput insert end "   rc    : [$ls cget -rc]\n"
+    $myOutput insert end "   rc       : " commandtext
+    $myOutput insert end "[$ls cget -rc]\n"
     if {[$ls cget -rc] && [lindex [$ls cget -result] 0] eq "JS_ERROR"} {
       set res [$ls cget -result]
-      set msg [lindex $res 1]
-      set stacktrace [lrange $res 2 end]
+      set msg        [lindex $res 1]
+      set zErrorInfo [lindex $res 2]
+      set stacktrace [lrange $res 3 end]
       set stack ""
       foreach {file lineno a b} $stacktrace {
         set stack "-> $file:$lineno $stack"
       }
-      $myOutput insert end "   result: $msg\n"
-      $myOutput insert end "   stack:  [string range $stack 3 end]\n"
+      $myOutput insert end "   result   : " commandtext
+      $myOutput insert end "$msg\n"
+      $myOutput insert end "   stack    : " commandtext
+      $myOutput insert end "[string range $stack 3 end]\n"
+      $myOutput insert end "   errorInfo: " commandtext
+      $myOutput insert end "$zErrorInfo\n"
 
       set blobid ""
       set r [$ls cget -result]

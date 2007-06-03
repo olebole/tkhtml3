@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.15 2007/06/02 15:27:53 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.16 2007/06/03 10:35:19 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file implements infrastructure used to create the [proc] definitions
@@ -111,7 +111,18 @@ namespace eval ::hv3::DOM {
   #
   proc SELF {} {
     set values [info level -1]
-    set arglist [info args [lindex $values 0]]
+    set procname [lindex $values 0]
+
+    # Black magic so that [SELF] works in [dom_call] methods.
+    #
+    set idx [string first _call_ $procname]
+    if {$idx > 0} {
+      set values [lindex [info level -2] 3]
+      set procname [string range $procname 0 [expr $idx-1]]
+      lset values 0 $procname
+    }
+
+    set arglist [info args $procname]
     set iIdx [lsearch -exact $arglist Method]
     lrange $values 0 $iIdx
   }

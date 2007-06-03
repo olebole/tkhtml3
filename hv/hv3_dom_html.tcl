@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.16 2007/06/02 16:59:22 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.17 2007/06/03 10:35:19 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Html
@@ -36,10 +36,33 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.16 2007/06/02 16:59:
 set BaseList {Document Node NodePrototype}
 ::hv3::dom2::stateless HTMLDocument $BaseList {
 
-  dom_todo title
-  dom_todo referrer
-  dom_todo domain
-  dom_todo URL
+  # The "title" attribute is supposed to be read/write. But this one
+  # is only read-only for the meantime.
+  dom_get title {
+    list string [$myHv3 title]
+  }
+  dom_put title val {
+    puts "TODO: HTMLDocument.title (Put method)"
+  }
+
+  # Read-only attribute "domain".
+  dom_get domain {
+    set str [$myHv3 uri cget -authority]
+    if {$str eq ""} {
+      list null
+    } else {
+      list string $str
+    }
+  }
+
+  # Read-only attribute "URL".
+  dom_get URL {
+    list string [$myHv3 uri get]
+  }
+
+  dom_get referrer {
+    list string [$myHv3 referrer]
+  }
 
   dom_todo open
   dom_todo close
@@ -364,12 +387,18 @@ namespace eval ::hv3::DOM {
 
   proc HTMLElement_putInnerHTML {dom node newHtml} {
 
-    # Destroy the existing children (and their descendants)
+    # Remove the existing children.
     set children [$node children]
     $node remove $children
-    foreach child $children {
-      $child destroy
-    }
+
+    # TODO: At this point it would be nice to delete the child nodes.
+    # But this will cause problems if the javascript world has any
+    # references to them. The solution should be the same as the
+    # HTMLElement.removeChild() function.
+    #
+    ### foreach child $children {
+    ###  $child destroy
+    ### }
 
     # Insert the new descendants, created by parsing $newHtml.
     set htmlwidget [[$dom node_to_hv3 $node] html]
@@ -576,8 +605,13 @@ namespace eval ::hv3::DOM {
     set options [HTMLSelectElement_getOptions $myNode]
     set o [lindex $options [expr {int($idx)}]] 
     if {$o ne ""} {
-      $o destroy
+      $myNode remove $o
       [$myNode replace] treechanged
+     
+      # TODO: See HTMLElement.removeChild(). Same problem with memory
+      # management of "possibly deleted" nodes occurs here.
+      #
+      ### $o destroy
     }
   }
 
