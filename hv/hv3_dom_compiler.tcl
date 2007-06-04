@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.17 2007/06/04 08:22:31 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.18 2007/06/04 14:31:38 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file implements infrastructure used to create the [proc] definitions
@@ -473,9 +473,16 @@ namespace eval ::hv3::dom2 {
     # Add [switch] cases for properties declared with [dom_call].
     #
     set param_list [$self ParamList $mixins]
+    set SetStateVar ""
+    if {[lsearch -exact $param_list myStateArray]>=0} {
+      set SetStateVar {upvar #0 $myStateArray state}
+    }
+
     foreach {name value} [array get call_array] {
       if {[info exists get_array($name)]} continue
       foreach {isConstructor isString lArg zBody} $value {}
+
+      set zBody "\n${SetStateVar}\n${zBody}"
 
       set arglist [concat myDom $param_list $lArg]
       if {$isConstructor} {

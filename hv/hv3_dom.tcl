@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.50 2007/06/04 08:22:31 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.51 2007/06/04 14:31:38 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Snit types in this file:
@@ -431,7 +431,8 @@ snit::type ::hv3::dom {
   method eventdump {node} {
     if {$mySee eq ""} {return ""}
     set Node [$self node_to_dom $node]
-    return "TODO"
+    set et [::hv3::DOM::EventTarget_GetEventTarget $self $Node]
+    $et dump
   }
 }
 
@@ -1164,11 +1165,12 @@ set classlist [concat \
   Text NodePrototype NodeList             \
   CSSStyleDeclaration                     \
   Event MouseEvent                        \
+  XMLHttpRequest XMLHttpRequestEvent      \
 ]
 foreach c $classlist {
   eval [::hv3::dom2::compile $c]
 }
-#puts [::hv3::dom2::compile Window]
+#puts [::hv3::dom2::compile XMLHttpRequest]
 
 ::hv3::dom2::cleanup
 
@@ -1191,6 +1193,6 @@ proc ::hv3::dom::init {} {
 }
 ::hv3::dom::init
 
-set ::hv3::dom::reformat_scripts_option 0
-#set ::hv3::dom::reformat_scripts_option 1
+#set ::hv3::dom::reformat_scripts_option 0
+set ::hv3::dom::reformat_scripts_option 1
 

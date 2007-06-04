@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.167 2007/06/03 10:35:19 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.168 2007/06/04 14:31:38 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -970,6 +970,10 @@ snit::widget ::hv3::hv3 {
   #
   variable myGotoCalled 0
 
+  # This boolean variable is set after the DOM "onload" event is fired.
+  # It is cleared by the [reset] method.
+  variable myOnloadFired 0
+
   constructor {} {
     # Create the scrolled html widget and bind it's events to the
     # mega-widget window.
@@ -1060,8 +1064,10 @@ snit::widget ::hv3::hv3 {
   method referrer {} { return $myReferrer }
 
   # The argument download-handle contains a configured request. This 
-  # method initiates the request. It is used by hv3 and it's component
-  # objects (i.e. code in hv3_object_handler).
+  # method initiates the request. 
+  #
+  # This method is used by hv3 and it's component objects (i.e. code in
+  # hv3_object_handler). Also the dom code, for XMLHTTPRequest.
   #
   method makerequest {downloadHandle} {
 
@@ -1119,8 +1125,13 @@ snit::widget ::hv3::hv3 {
       $myHtml delay 0
       event generate $win <<Complete>>
 
-      set bodynode [$myHtml search body]
-      $myDom event onload [lindex $bodynode 0]
+      # There are no outstanding HTTP transactions. So fire
+      # the DOM "onload" event.
+      if {!$myOnloadFired} {
+        set myOnloadFired 1
+        set bodynode [$myHtml search body]
+        $myDom event load [lindex $bodynode 0]
+      }
     }
   }
 
@@ -1809,6 +1820,9 @@ snit::widget ::hv3::hv3 {
   }
 
   method reset {isSaveState} {
+
+    # Clear the "onload-event-fired" flag
+    set myOnloadFired 0
 
     # Cancel any pending "Refresh" event.
     if {$myRefreshEventId ne ""} {

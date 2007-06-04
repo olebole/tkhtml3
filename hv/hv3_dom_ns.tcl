@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.14 2007/06/04 08:22:31 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.15 2007/06/04 14:31:38 danielk1977 Exp $)} 1 }
 
 #---------------------------------
 # List of DOM objects in this file:
@@ -7,10 +7,11 @@ namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.14 2007/06/04 08:22:31
 #     Window
 #     Location
 #     History
+#     Screen
 #
 namespace eval ::hv3::dom {
   proc getNSClassList {} {
-    list Navigator Location Window History
+    list Navigator Location Window History Screen
   }
 }
 
@@ -193,10 +194,9 @@ set BaseList {EventTarget}
   #
   #     request = new XMLHttpRequest();
   #
-  dom_todo XMLHttpRequest
-  # dom_construct XMLHttpRequest {THIS args} {
-  #   list object [::hv3::DOM::XMLHttpRequest %AUTO% $myDom -hv3 $myHv3]
-  # }
+  dom_construct XMLHttpRequest {THIS args} {
+    ::hv3::dom::newXMLHttpRequest $myDom
+  }
 
   dom_get Node {
     set obj [list ::hv3::DOM::Node $myDom]
@@ -229,6 +229,13 @@ set BaseList {EventTarget}
   #
   dom_get history { 
     list object [list ::hv3::DOM::History $myDom $myHv3]
+  }
+
+  #-----------------------------------------------------------------------
+  # The "screen" object.
+  #
+  dom_get history { 
+    list object [list ::hv3::DOM::Screen $myDom $myHv3]
   }
 
   #-----------------------------------------------------------------------
@@ -285,5 +292,28 @@ set BaseList {EventTarget}
   dom_call back    {THIS}     { }
   dom_call forward {THIS}     { }
   dom_call go      {THIS arg} { }
+}
+
+#-------------------------------------------------------------------------
+# "Screen" DOM object.
+#
+#     http://developer.mozilla.org/en/docs/DOM:window.screen
+#
+# 
+::hv3::dom2::stateless Screen {} {
+  dom_parameter myHv3
+
+  dom_get colorDepth  { list number [winfo screendepth $myHv3] }
+  dom_get pixelDepth  { list number [winfo screendepth $myHv3] }
+
+  dom_get width       { list number [winfo screenwidth $myHv3] }
+  dom_get height      { list number [winfo screenheight $myHv3] }
+  dom_get availWidth  { list number [winfo screenwidth $myHv3] }
+  dom_get availHeight { list number [winfo screenheight $myHv3] }
+
+  dom_get availTop    { list number 0}
+  dom_get availLeft   { list number 0}
+  dom_get top         { list number 0}
+  dom_get left        { list number 0}
 }
 

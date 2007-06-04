@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.62 2007/06/04 08:22:31 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.63 2007/06/04 14:31:39 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -142,6 +142,13 @@ proc ::hv3::get_form_nodes {node} {
   return ""
 }
 
+# Given a node that generates a control - $node - return the
+# corresponding <FORM> node. Or an empty string, if there is
+# no such node.
+proc ::hv3::control_to_form {node} {
+  lindex [::hv3::get_form_nodes $node] 0
+}
+
 #--------------------------------------------------------------------------
 # ::hv3::forms::checkbox 
 #
@@ -170,7 +177,9 @@ proc ::hv3::get_form_nodes {node} {
 
   # Generate html for the "HTML Forms" tab of the tree-browser.
   #
-  method formsreport {} { return {<i color=red>TODO</i>} }
+  method formsreport {} { 
+    subst {}
+  }
 
   # This method is called during form submission to determine the 
   # name of the control. It returns the value of the Html "name" 
@@ -1878,6 +1887,9 @@ snit::type ::hv3::formmanager {
 # 
 proc ::hv3::formsreport {hv3 node} {
 
+  # Never return a report for a text node.
+  if {[$node tag] eq ""} return
+
   # If the [replace] object for the node exists and is of
   # one of the following classes, then we have a forms object!
   # The following classes all support the [formsreport] method
@@ -1885,25 +1897,39 @@ proc ::hv3::formsreport {hv3 node} {
   #
   set FORMS_CLASSES [list    \
       ::hv3::control         \
-      ::hv3::forms::checkbox \
       ::hv3::clickcontrol    \
       ::hv3::form            \
   ]
 
-  # Never return a report for a text node.
-  if {[$node tag] ne ""} {
-    set form [$node replace]
-    if {$form ne ""} {
-      set rc [catch {
-        set type [$form info type]
-        expr {[lsearch $FORMS_CLASSES $type]>=0}
-      } msg]
-  
-      if {$rc == 0} {
-        if {$msg} {
-          return [$form formsreport]
-        }
+  set CONTROL_CLASSES [list    \
+      ::hv3::forms::checkbox     \
+      ::hv3::forms::entrycontrol \
+      ::hv3::forms::select       \
+      ::hv3::forms::textarea     \
+  ]
+
+  set R [$node replace]
+  set rc [catch { set T [$R info type] } msg]
+
+  if {$rc == 0} {
+    if {[lsearch $CONTROL_CLASSES $T] >= 0} {
+      set formnode [::hv3::control_to_form $node]
+      if {$formnode eq ""} {
+        set formnode "none"
+      } else {
+        set formnode "<A href=\"$formnode\">$formnode</A>"
       }
+  
+      return [subst {
+        <TABLE>
+          <TR><TH>Tcl (snit) class <TD>$T
+          <TR><TH>Form node        <TD>$formnode
+        </TABLE>
+      }]
+    }
+  
+    if {[lsearch $FORMS_CLASSES $T] >= 0} {
+      return [$R formsreport]
     }
   }
 
