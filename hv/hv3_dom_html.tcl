@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.17 2007/06/03 10:35:19 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.18 2007/06/04 08:22:31 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Html
@@ -32,8 +32,7 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.17 2007/06/03 10:35:
 #     HTMLDocument.body
 #     HTMLDocument.cookie
 #
-#set BaseList {Document DocumentEvent Node NodePrototype EventTarget}
-set BaseList {Document Node NodePrototype}
+set BaseList {Document DocumentEvent Node NodePrototype EventTarget}
 ::hv3::dom2::stateless HTMLDocument $BaseList {
 
   # The "title" attribute is supposed to be read/write. But this one
@@ -1017,6 +1016,59 @@ namespace eval ::hv3::DOM {
   element_attr width;
 };
 
+::hv3::dom2::stateless HTMLIFrameElement HTMLElement {
+  element_attr align
+  element_attr frameBorder   -attribute frameborder
+  element_attr height
+  element_attr longDesc      -attribute longdesc
+  element_attr marginHeight  -attribute marginheight
+  element_attr marginWidth   -attribute marginwidth
+  element_attr name
+  element_attr scrolling
+  element_attr src
+  element_attr width
+}
+
+::hv3::dom2::stateless XXX HTMLElement { }
+
+::hv3::dom2::stateless HTMLUListElement     HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLOListElement     HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLDListElement     HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLDirectoryElement HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLMenuElement      HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLLIElement        HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLDivElement       HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLParagraphElement HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLHeadingElement   HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLQuoteElement     HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLPreElement       HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLBRElement        HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLBaseFontElement  HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLFontElement      HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLHRElement        HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLModElement       HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLObjectElement    HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLParamElement     HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLAppletElement    HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLMapElement       HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLAreaElement      HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLScriptElement    HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLFrameSetElement  HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLFrameElement     HTMLElement { #TODO }
+
+::hv3::dom2::stateless HTMLTableCaptionElement HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLTableColElement     HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLTableCellElement    HTMLElement { #TODO }
+
+::hv3::dom2::stateless HTMLHtmlElement      HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLHeadElement      HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLLinkElement      HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLTitleElement     HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLMetaElement      HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLBaseElement      HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLStyleElement     HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLBodyElement      HTMLElement { #TODO }
+
 #-------------------------------------------------------------------------
 # Element/Text Node Factory:
 #
@@ -1027,10 +1079,20 @@ namespace eval ::hv3::dom {
 
   ::variable TagToNodeTypeMap
 
+  # The TagToNodeTypeMap table contains mappings for all HTMLElement
+  # types in HTML DOM Level 1 except for the following:
+  #
+  #   HTMLIsIndexElement
+  #
+  # This is because the <isindex> element is never part of the tree
+  # in Hv3 (it is transformed to other forms elements first).
+  #
+
   array set TagToNodeTypeMap {
     ""       ::hv3::DOM::Text
     a        ::hv3::DOM::HTMLAnchorElement
     img      ::hv3::DOM::HTMLImageElement
+    iframe   ::hv3::DOM::HTMLIFrameElement
   }
 
   # HTML Forms related objects:
@@ -1054,6 +1116,56 @@ namespace eval ::hv3::dom {
     tfoot    ::hv3::DOM::HTMLTableSectionElement
     thead    ::hv3::DOM::HTMLTableSectionElement
     tr       ::hv3::DOM::HTMLTableRowElement
+    caption  ::hv3::DOM::HTMLTableCaptionElement
+    col      ::hv3::DOM::HTMLTableColElement
+    th       ::hv3::DOM::HTMLTableCellElement
+    td       ::hv3::DOM::HTMLTableCellElement
+  }
+
+  # HTML specific objects:
+  array set TagToNodeTypeMap {
+    html     ::hv3::DOM::HTMLHtmlElement 
+    head     ::hv3::DOM::HTMLHeadElement
+    link     ::hv3::DOM::HTMLLinkElement
+    title    ::hv3::DOM::HTMLTitleElement
+    meta     ::hv3::DOM::HTMLMetaElement 
+    base     ::hv3::DOM::HTMLBaseElement
+    style    ::hv3::DOM::HTMLStyleElement
+    body     ::hv3::DOM::HTMLBodyElement
+  }
+
+  # Other:
+  array set TagToNodeTypeMap {
+    ul          ::hv3::DOM::HTMLUListElement 
+    ol          ::hv3::DOM::HTMLOListElement 
+    dl          ::hv3::DOM::HTMLDListElement 
+    dir         ::hv3::DOM::HTMLDirectoryElement 
+    menu        ::hv3::DOM::HTMLMenuElement 
+    li          ::hv3::DOM::HTMLLIElement 
+    Div         ::hv3::DOM::HTMLDivElement 
+    p           ::hv3::DOM::HTMLParagraphElement 
+    h1          ::hv3::DOM::HTMLHeadingElement 
+    h2          ::hv3::DOM::HTMLHeadingElement 
+    h3          ::hv3::DOM::HTMLHeadingElement 
+    h4          ::hv3::DOM::HTMLHeadingElement 
+    h5          ::hv3::DOM::HTMLHeadingElement 
+    h6          ::hv3::DOM::HTMLHeadingElement 
+    q           ::hv3::DOM::HTMLQuoteElement 
+    blockquote  ::hv3::DOM::HTMLQuoteElement 
+    pre         ::hv3::DOM::HTMLPreElement
+    br          ::hv3::DOM::HTMLBRElement
+    basefont    ::hv3::DOM::HTMLBaseFontElement
+    font        ::hv3::DOM::HTMLFontElement
+    hr          ::hv3::DOM::HTMLHRElement
+    mod         ::hv3::DOM::HTMLModElement
+    object      ::hv3::DOM::HTMLObjectElement
+    param       ::hv3::DOM::HTMLParamElement
+    applet      ::hv3::DOM::HTMLAppletElement
+    map         ::hv3::DOM::HTMLMapElement
+    area        ::hv3::DOM::HTMLAreaElement
+    script      ::hv3::DOM::HTMLScriptElement
+    frameSet    ::hv3::DOM::HTMLFrameSetElement
+    frame       ::hv3::DOM::HTMLFrameElement
   }
 
   proc getHTMLElementClassList {} {

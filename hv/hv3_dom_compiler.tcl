@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.16 2007/06/03 10:35:19 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.17 2007/06/04 08:22:31 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file implements infrastructure used to create the [proc] definitions
@@ -477,7 +477,7 @@ namespace eval ::hv3::dom2 {
       if {[info exists get_array($name)]} continue
       foreach {isConstructor isString lArg zBody} $value {}
 
-      set arglist [concat $param_list myDom $lArg]
+      set arglist [concat myDom $param_list $lArg]
       if {$isConstructor} {
         set procname ::hv3::DOM::${myName}_construct_${name}
       } else {
@@ -494,14 +494,14 @@ namespace eval ::hv3::dom2 {
         set code [subst -nocommands {
           list object [list \
             ::hv3::dom::TclConstructable \
-            [[set myDom] see] [list $procname $SET_PARAMS [set myDom]]
+            [[set myDom] see] [list $procname [set myDom] $SET_PARAMS]
           ]
         }]
       } else {
         set code [subst -nocommands {
           list object [list \
             ::hv3::dom::TclCallableProc \
-            [[set myDom] see] $isString [list $procname $SET_PARAMS [set myDom]]
+            [[set myDom] see] $isString [list $procname [set myDom] $SET_PARAMS]
           ]
         }]
       }

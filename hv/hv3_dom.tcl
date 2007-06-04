@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.49 2007/06/03 10:35:19 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.50 2007/06/04 08:22:31 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Snit types in this file:
@@ -1002,10 +1002,25 @@ snit::widget ::hv3::dom::logwin {
   }
 
   method DebugCmd {args} {
-    set objlist [eval [[$myData dom] see] debug $args]
     $myOutput insert end "debug: $args\n" commandtext
-    foreach obj $objlist {
-      $myOutput insert end "    $obj\n"
+    set see [[$myData dom] see] 
+    switch -- [lindex $args 0] {
+
+      alloc {
+        set data [eval $see debug $args]
+        foreach {key value} $data {
+          set key [format "    % -30s" $key]
+          $myOutput insert end $key commandtext 
+          $myOutput insert end ": $value\n"
+        }
+      }
+
+      default {
+        set objlist [eval [[$myData dom] see] debug $args]
+        foreach obj $objlist {
+          $myOutput insert end "    $obj\n"
+        }
+      }
     }
   }
 

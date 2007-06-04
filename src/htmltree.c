@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.127 2007/06/02 15:27:53 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.128 2007/06/04 08:22:31 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -1840,7 +1840,7 @@ nodeRemoveCmd(pNode, objc, objv)
             e = nodeRemoveChild((HtmlElementNode *)pNode, pChild);
             if (e) {
                 nodeOrphanize(pTree, pChild);
-                HtmlNodeClearStyle(pTree, HtmlNodeAsElement(pChild));
+                HtmlNodeClearRecursive(pTree, pChild);
             }
         }
     }
@@ -2652,7 +2652,7 @@ HtmlNodeCommand(pTree, pNode)
     static int nodeNumber = 0;
     HtmlNodeCmd *pNodeCmd = pNode->pNodeCmd;
 
-    if (pNode->iNode < 0) {
+    if (pNode->iNode == HTML_NODE_GENERATED) {
         return 0;
     }
 

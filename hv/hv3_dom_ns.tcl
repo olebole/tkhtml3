@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.13 2007/06/03 10:35:19 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.14 2007/06/04 08:22:31 danielk1977 Exp $)} 1 }
 
 #---------------------------------
 # List of DOM objects in this file:
@@ -174,8 +174,16 @@ set BaseList {EventTarget}
   #
   #     img = new Image();
   #
-  dom_construct Image {THIS} {
-    set node [$myHv3 fragment "<img>"]
+  dom_construct Image {THIS args} {
+    set w ""
+    set h ""
+    if {[llength $args] > 0} {
+      set w " width=[lindex $args 0 1]"
+    }
+    if {[llength $args] > 1} {
+      set h " height=[lindex $args 0 1]"
+    }
+    set node [$myHv3 fragment "<img${w}${h}>"]
     list object [$myDom node_to_dom $node]
   }
 
@@ -185,10 +193,10 @@ set BaseList {EventTarget}
   #
   #     request = new XMLHttpRequest();
   #
-  # dom_todo XMLHttpRequest
-  dom_construct XMLHttpRequest {THIS args} {
-    list object [::hv3::DOM::XMLHttpRequest %AUTO% $myDom -hv3 $myHv3]
-  }
+  dom_todo XMLHttpRequest
+  # dom_construct XMLHttpRequest {THIS args} {
+  #   list object [::hv3::DOM::XMLHttpRequest %AUTO% $myDom -hv3 $myHv3]
+  # }
 
   dom_get Node {
     set obj [list ::hv3::DOM::Node $myDom]

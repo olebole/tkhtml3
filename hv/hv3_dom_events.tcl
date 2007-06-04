@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.19 2007/06/02 16:59:22 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.20 2007/06/04 08:22:31 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # DOM Level 2 Events.
@@ -123,6 +123,20 @@ lappend ::hv3::dom::HTML_Events_List    load unload
   dom_finalize {
     # puts "Unsetting event state $myStateArray"
     array unset state
+  }
+
+  #-------------------------------------------------------------------
+  # Non-standard things:
+  #
+  # The cancelBubble attribute is false by default. Setting it to true
+  # "cancels bubbling". This is close enough to a get/set on the value
+  # set by the stopPropagation() function.
+  #
+  # At time of writing google toolkits use this.
+  #
+  dom_get cancelBubble { list boolean $state(-stoppropagationcalled) }
+  dom_put -string cancelBubble val { 
+    set state(-stoppropagationcalled) [expr {$val ? 1 : 0}]
   }
 }
 namespace eval ::hv3::DOM {

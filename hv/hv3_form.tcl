@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.61 2007/06/02 16:59:22 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.62 2007/06/04 08:22:31 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -578,7 +578,7 @@ snit::widgetadaptor ::hv3::forms::select {
 
   method success {} {
     # If it has a name, it is successful.
-    expr {[catch [$myNode attr name]] ? 0 : 1}
+    expr {[catch {$myNode attr name}] ? 0 : 1}
   }
 
   method filename {} { 

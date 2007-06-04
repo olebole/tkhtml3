@@ -297,8 +297,9 @@ struct HtmlNode {
     HtmlNodeCmd *pNodeCmd;         /* Tcl command for this node */
 };
 
-/* Value of HtmlNode.iNode for orphan nodes. */
+/* Value of HtmlNode.iNode for orphan and generated nodes. */
 #define HTML_NODE_ORPHAN -23
+#define HTML_NODE_GENERATED -1
 
 /*
  * Structure to store a text node.
@@ -774,6 +775,7 @@ void HtmlWidgetRepair(HtmlTree *, int, int, int, int, int, int);
 
 int HtmlNodeClearStyle(HtmlTree *, HtmlElementNode *);
 int HtmlNodeClearGenerated(HtmlTree *, HtmlElementNode *);
+void HtmlNodeClearRecursive(HtmlTree *, HtmlNode *);
 
 void HtmlTranslateEscapes(char *);
 void HtmlRestackNodes(HtmlTree *pTree);
