@@ -1,3 +1,4 @@
+namespace eval hv3 { set {version($Id: hv3_string.tcl,v 1.3 2007/06/05 15:34:14 danielk1977 Exp $)} 1 }
 
 
 namespace eval ::hv3::string {

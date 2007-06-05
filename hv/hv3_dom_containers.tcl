@@ -1,3 +1,4 @@
+namespace eval hv3 { set {version($Id: hv3_dom_containers.tcl,v 1.2 2007/06/05 15:34:14 danielk1977 Exp $)} 1 }
 
 # This file contains the implementation of the two DOM specific
 # container objects:

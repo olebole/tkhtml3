@@ -1,4 +1,4 @@
-
+namespace eval hv3 { set {version($Id: hv3_db.tcl,v 1.7 2007/06/05 15:34:14 danielk1977 Exp $)} 1 }
 
 # Class ::hv3::visiteddb
 #

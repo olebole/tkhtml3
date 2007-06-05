@@ -1,3 +1,4 @@
+namespace eval hv3 { set {version($Id: hv3_history.tcl,v 1.23 2007/06/05 15:34:14 danielk1977 Exp $)} 1 }
 
 package require snit
 

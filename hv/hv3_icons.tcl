@@ -1,3 +1,5 @@
+namespace eval hv3 { set {version($Id: hv3_icons.tcl,v 1.4 2007/06/05 15:34:14 danielk1977 Exp $)} 1 }
+
 set ::hv3::back_icon {
 R0lGODlhHgAeANUzAOHh4eLi4uTk5PDw8N3d3dDQ0NfX1+Dg4Ofn5/Hx8fT0
 9PLy8tvb29TU1NXV1eXl5e3t7e/v7+Pj4+bm5u7u7tra2t7e3tLS0vf39+jo

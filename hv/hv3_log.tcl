@@ -1,5 +1,6 @@
+namespace eval hv3 { set {version($Id: hv3_log.tcl,v 1.13 2007/06/05 15:34:14 danielk1977 Exp $)} 1 }
 
-namespace eval hv3 { set {version($Id: hv3_log.tcl,v 1.12 2006/07/14 14:44:29 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_log.tcl,v 1.13 2007/06/05 15:34:14 danielk1977 Exp $)} 1 }
 
 source [file join [file dirname [info script]] hv3_widgets.tcl]
 
