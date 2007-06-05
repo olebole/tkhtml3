@@ -1284,10 +1284,12 @@ interpDebug(pTclSeeInterp, objc, objv)
         memset(aVal, 0, sizeof(aVal));
         aVal[0] = iNumSeeTclObject;
         aVal[1] = sizeof(SeeTclObject);
+#ifndef NO_HAVE_GC
         aVal[2] = (int)GC_get_heap_size();
         aVal[3] = (int)GC_get_free_bytes();
         aVal[4] = (int)GC_get_bytes_since_gc();
         aVal[5] = (int)GC_get_total_bytes();
+#endif
 
         for (ii = 0; ii < 6; ii++){
           Tcl_ListObjAppendElement(0, pRet, Tcl_NewStringObj(azString[ii], -1));

@@ -73,6 +73,14 @@ This file has two sections:
 
 2. HOW TO RUN HV3, THE TKHTML WEB BROWSER
 
+  Hv3 uses the following compiled components:
+
+  * Tkhtml3
+  * Tls
+  * Img
+  * Sqlite3
+  * tclsee (requires: SEE and optionally GC)
+
   Compiling Tclsee (javascript support)
   -------------------------------------
 
@@ -129,5 +137,36 @@ This file has two sections:
     TODO
 
 
+3. NOTES FOR CROSS COMPILING
+
+    One way to build Tkhtml3 and/or Hv3 for windows is to use a cross
+    compiler from Linux using mingw. Binaries for the mingw gcc are 
+    available here:
+
+        http://mirzam.it.vu.nl/mingw/
+
+    Note: If anyone reading this knows how to cross-compile from linux
+    for mac, please tell me! (danielk1977@gmail.com)
+
+    Both SEE and GC can be cross-compiled with a command like:
+
+      ../<path>/configure --host=i386mingw --prefix=<install-path>
+      make
+      make install
+
+    Details:
+
+    1. In version 2.1.1206 of SEE, do the following to the configure script
+       (pattern occurs twice):
+
+           s/ac_cv_func_memcmp_working=no/ac_cv_func_memcmp_working=yes/
+
+    2. I can't compile a working libgc for mingw. Same problem is reported
+       by these folk (kaya scripting language):
+
+           http://kayalang.org/download/compiling/windows
+
+       For the starkits, I took their advice and downloaded a binary 
+       package.
 
 

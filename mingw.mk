@@ -49,10 +49,10 @@ TCLSTUBSLIB =  "/home/dan/work/tkhtml/mingwtcl/install/lib/libtclstub85.a"
 TCLSTUBSLIB += "/home/dan/work/tkhtml/mingwtcl/install/lib/libtkstub85.a" 
 TCLSTUBSLIB += -LC:/Tcl/lib
 
-##### Commands to run tclsh and wish.
+##### Commands to run tclsh on the build platform (to generate C files
+#     to be passed to $(CC) from tcl scripts).
 #
 TCLSH = tclsh
-WISH = wish
 
 ##### Strip the shared library
 #
@@ -60,6 +60,14 @@ STRIP = i386-mingw32-strip
 
 MKSTARKIT = tclkit /home/dan/bin/sdx.kit wrap
 STARKITRT = /home/dan/work/tclkit-win32.upx.exe
+
+##### Javascript libaries - libgc.a and libsee.a
+#
+JS_SHARED_LIB = libTclsee.dll
+
+JSLIB   = $(HOME)/javascript/mingw/install/lib/libsee.a
+JSLIB  += $(HOME)/javascript/mingw/install/lib/libgc.a
+JSFLAGS = -I$(HOME)/javascript/mingw/install/include
 
 #
 # End of configuration section.

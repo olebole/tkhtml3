@@ -190,8 +190,8 @@ tkhtml.n: $(TOP)/doc/macros.tcl $(TOP)/doc/html.man
 tclsee: tclsee.o
 	mkdir -p tclsee0.1
 	@echo '$$(MKSHLIB) tclsee.o $(JSLIB) -o $(JS_SHARED_LIB)'
+	@$(MKSHLIB) tclsee.o $(JSLIB) $(TCLSTUBSLIB) -o $(JS_SHARED_LIB)
 	@echo '$$(STRIP) $(JS_SHARED_LIB)'
-	@$(MKSHLIB) tclsee.o $(JSLIB) -o $(JS_SHARED_LIB)
 	@$(STRIP) $(JS_SHARED_LIB)
 	mv $(JS_SHARED_LIB) tclsee0.1
 	echo 'package ifneeded Tclsee 0.1 [list load [file join $$dir $(JS_SHARED_LIB)]]' > tclsee0.1/pkgIndex.tcl
