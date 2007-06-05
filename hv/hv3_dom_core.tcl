@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.12 2007/06/05 07:03:47 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.13 2007/06/05 07:57:14 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Core
@@ -101,6 +101,22 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.12 2007/06/05 07:03:
   dom_call cloneNode {THIS} {error "DOMException NOT_SUPPORTED_ERR"}
 }
 
+::hv3::dom2::stateless Implementation {} {
+  dom_call -string hasFeature {THIS feature version} {
+    set feature [string tolower $feature]
+    set version [string tolower $version]
+
+    set FeatureList { html 1.0 }
+    array set f $FeatureList
+
+    if {[info exists f($feature)]} {
+      list boolean true
+    } else {
+      list boolean false
+    }
+  }
+}
+
 ::hv3::dom2::stateless Document {} {
 
   # The ::hv3::hv3 widget containing the document this DOM object
@@ -149,7 +165,10 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.12 2007/06/05 07:03:
   #---------------------------------
 
   dom_todo doctype
-  dom_todo implementation
+
+  dom_get implementation {
+    list object [list ::hv3::DOM::Implementation $myDom]
+  }
 
   dom_get documentElement {
     list object [$myDom node_to_dom [$myHv3 node]]
@@ -162,6 +181,7 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.12 2007/06/05 07:03:
   #     createDocumentFragment()     (todo)
   #     createComment()              (todo)
   #     createAttribute()            (todo)
+  #     createEntityReference()      (todo)
   #
   dom_call -string createElement {THIS tagname} {
     set node [$myHv3 fragment "<$tagname>"]
@@ -173,9 +193,10 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.12 2007/06/05 07:03:
     set node [$myHv3 fragment $escaped]
     list object [$myDom node_to_dom $node]
   }
-  dom_todo createDocumentFragment
-  dom_todo createComment
-  dom_todo createAttribute
+  dom_call_todo createDocumentFragment
+  dom_call_todo createComment
+  dom_call_todo createAttribute
+  dom_call_todo createEntityReference
 
   #-------------------------------------------------------------------------
   # The Document.getElementsByTagName() method (DOM level 1).
@@ -471,11 +492,29 @@ namespace eval ::hv3::dom2::compiler {
   }
 }
 
+::hv3::dom2::stateless CharacterData {} {
+
+  # The "data" property is a get/set on the contents of this text node.
+  # TODO: Put method for this property.
+  #
+  dom_get data { list string [$myNode text -pre] }
+  #dom_put -string data newText {}
+
+  # Read-only "length" property.
+  #
+  dom_get length { list number [string length [$myNode text -pre]] }
+
+  dom_call_todo substringData
+  dom_call_todo appendData
+  dom_call_todo insertData
+  dom_call_todo deleteData
+  dom_call_todo replaceData
+}
 
 #-------------------------------------------------------------------------
-# DOM Type Text (Node -> Text)
+# DOM Type Text (Node -> CharacterData -> Text)
 #
-set BaseList {WidgetNode Node NodePrototype EventTarget}
+set BaseList {CharacterData WidgetNode Node NodePrototype EventTarget}
 ::hv3::dom2::stateless Text $BaseList {
 
   # Override parts of the Node interface.

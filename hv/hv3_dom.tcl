@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.52 2007/06/05 07:03:47 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.53 2007/06/05 07:57:14 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Snit types in this file:
@@ -1144,6 +1144,7 @@ foreach f [list \
   source [file join [file dirname [info script]] $f]
 }
 set classlist [concat \
+  Implementation                          \
   HTMLCollection HTMLElement HTMLDocument \
   [::hv3::dom::getHTMLElementClassList]   \
   [::hv3::dom::getNSClassList]            \
