@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.11 2007/06/03 10:35:19 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.12 2007/06/05 07:03:47 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Core
@@ -155,6 +155,14 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.11 2007/06/03 10:35:
     list object [$myDom node_to_dom [$myHv3 node]]
   }
 
+  # Constructors:
+  #
+  #     createElement()
+  #     createTextNode()
+  #     createDocumentFragment()     (todo)
+  #     createComment()              (todo)
+  #     createAttribute()            (todo)
+  #
   dom_call -string createElement {THIS tagname} {
     set node [$myHv3 fragment "<$tagname>"]
     if {$node eq ""} {error "DOMException NOT_SUPPORTED_ERR"}
@@ -163,10 +171,9 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.11 2007/06/03 10:35:
   dom_call -string createTextNode {THIS data} {
     set escaped [string map {< &lt; > &gt;} $data]
     set node [$myHv3 fragment $escaped]
+    list object [$myDom node_to_dom $node]
   }
-
   dom_todo createDocumentFragment
-  dom_todo createTextNode
   dom_todo createComment
   dom_todo createAttribute
 

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.15 2007/06/04 14:31:38 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.16 2007/06/05 07:03:47 danielk1977 Exp $)} 1 }
 
 #---------------------------------
 # List of DOM objects in this file:
@@ -43,7 +43,7 @@ namespace eval ::hv3::dom {
 
   dom_get appCodeName    { list string "Mozilla" }
   dom_get appName        { list string "Netscape" }
-  dom_get appVersion     { list number 4.0 }
+  dom_get appVersion     { list string "4.0 (Hv3)" }
 
   dom_get product        { list string "Hv3" }
   dom_get productSub     { list string "alpha" }
@@ -234,7 +234,7 @@ set BaseList {EventTarget}
   #-----------------------------------------------------------------------
   # The "screen" object.
   #
-  dom_get history { 
+  dom_get screen { 
     list object [list ::hv3::DOM::Screen $myDom $myHv3]
   }
 
@@ -258,18 +258,6 @@ set BaseList {EventTarget}
   dom_call -string alert {THIS msg} {
     tk_dialog .alert "Super Dialog Alert!" $msg "" 0 OK
     return ""
-  }
-
-  #-----------------------------------------------------------------------
-  # The event property.
-  #
-  dom_get event {
-    set event [$myDom getWindowEvent]
-    if {$event ne ""} {
-      list object $event
-    } else {
-      list undefined
-    }
   }
 
   dom_call -string jsputs {THIS args} {

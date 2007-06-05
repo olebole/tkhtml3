@@ -2593,9 +2593,12 @@ eventTargetMethod(clientData, interp, objc, objv)
     }
     if (eChoice == ET_INLINE) {
         struct SEE_input *pInputCode;
+        struct SEE_input *pInputParam;
         pInputCode = SEE_input_utf8(pSeeInterp, Tcl_GetString(objv[3]));
-        pListener = SEE_Function_new(pSeeInterp, 0, 0, pInputCode);
+        pInputParam = SEE_input_utf8(pSeeInterp, "event");
+        pListener = SEE_Function_new(pSeeInterp, 0, pInputParam, pInputCode);
         SEE_INPUT_CLOSE(pInputCode);
+        SEE_INPUT_CLOSE(pInputParam);
     }
 
     Tcl_ResetResult(interp);

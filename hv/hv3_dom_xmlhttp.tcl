@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.5 2007/06/04 14:31:39 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.6 2007/06/05 07:03:47 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # ::hv3::dom::XMLHttpRequest
@@ -133,6 +133,7 @@ namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.5 2007/06/04 14:3
       error "INVALID_STATE_ERR"
     }
     if {[llength $args]>0 && $state(method) eq "POST"} {
+#puts "Send XMLHttpRequest $myStateArray data=[lindex $args 0 1]"
       $state(downloadHandle) configure -postdata [lindex $args 0 1]
     }
     [$myDom hv3] makerequest $state(downloadHandle)
@@ -218,12 +219,12 @@ namespace eval ::hv3::DOM {
     set    state(status)         200
     set    state(statusText)     "OK"
     append state(responseText)   $data
-puts "FIN: $statevar $state(responseText)"
 
     XMLHttpRequest_SetState $dom $statevar Receiving
     $state(downloadHandle) destroy
     set state(downloadHandle) ""
     XMLHttpRequest_SetState $dom $statevar Loaded
+#puts "FIN: $state(responseText)"
   }
 
   proc XMLHttpRequest_SetState {dom statevar newState} {
@@ -240,9 +241,7 @@ puts "FIN: $statevar $state(responseText)"
 puts "Setting XMLHttpRequest $statevar to $newState ($uri)"
     set this  [list ::hv3::DOM::XMLHttpRequest $dom $statevar]
     set event [list ::hv3::DOM::XMLHttpRequestEvent $dom $this]
-    set E [$dom setWindowEvent $event]
     set rc [catch { $state(et) runEvent readystatechange 0 $this $event } msg]
-    $dom setWindowEvent $E
 
     if {$rc} {
       puts $msg

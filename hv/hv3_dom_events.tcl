@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.20 2007/06/04 08:22:31 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.21 2007/06/05 07:03:47 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # DOM Level 2 Events.
@@ -364,8 +364,6 @@ proc ::hv3::dom::RunEvent {dom js_obj event isCapture zType} {
 proc ::hv3::dom::DispatchEvent {dom js_obj event arrayvar} {
   upvar #0 $arrayvar eventstate
 
-  set previous_event [$dom setWindowEvent $event]
-
   set event_type $eventstate(myEventType)
   set isRun 0          ;# Set to true if one or more scripts are run.
    
@@ -427,8 +425,6 @@ proc ::hv3::dom::DispatchEvent {dom js_obj event arrayvar} {
       if {$rc ne ""} {set isRun 1}
     }
   }
-
-  $dom setWindowEvent $previous_event
 
   # If anyone called Event.preventDefault(), return "prevent". Otherwise,
   # if one or more scripts were executed, return "ok. If no scripts

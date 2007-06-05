@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.51 2007/06/04 14:31:38 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.52 2007/06/05 07:03:47 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Snit types in this file:
@@ -342,22 +342,6 @@ snit::type ::hv3::dom {
       $myLogData Log "$node $event event" $name "event-handler" $rc $msg
       $myLogData Popup
     }
-  }
-
-  #------------------------------------------------------------------
-  # setWindowEvent/getWindowEvent
-  #
-  #     Get/set the javascript object command that will be returned
-  #     for Get requests on the "window.event" property.
-  #
-  variable myWindowEvent ""
-  method setWindowEvent {event} {
-    set ret $myWindowEvent
-    set myWindowEvent $event
-    return $ret
-  }
-  method getWindowEvent {} {
-    return $myWindowEvent
   }
 
   #------------------------------------------------------------------
@@ -739,6 +723,7 @@ snit::widget ::hv3::dom::logwin {
     $myInput configure -bg white
     $myOutput configure -bg white -state disabled
     $myOutput tag configure commandtext -foreground darkblue
+    $myOutput tag configure commandalert -foreground darkred
 
     # Set up key bindings for the input window:
     bind $myInput <Return> [list after idle [mymethod Evaluate]]
@@ -1134,7 +1119,7 @@ snit::widget ::hv3::dom::logwin {
     $self GotoCmd -silent [list $zBlobid $iLine]
 
     $myOutput configure -state normal
-    $myOutput insert end "breakpoint: $zBlobid $iLine\n\n" commandtext
+    $myOutput insert end "breakpoint: $zBlobid $iLine\n\n" commandalert
     $myOutput configure -state disabled
 
     vwait [myvar myBreakpointVwait]
@@ -1193,6 +1178,6 @@ proc ::hv3::dom::init {} {
 }
 ::hv3::dom::init
 
-#set ::hv3::dom::reformat_scripts_option 0
-set ::hv3::dom::reformat_scripts_option 1
+set ::hv3::dom::reformat_scripts_option 0
+#set ::hv3::dom::reformat_scripts_option 1
 
