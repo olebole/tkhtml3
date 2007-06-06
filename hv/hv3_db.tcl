@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_db.tcl,v 1.7 2007/06/05 15:34:14 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_db.tcl,v 1.8 2007/06/06 19:28:39 danielk1977 Exp $)} 1 }
 
 # Class ::hv3::visiteddb
 #
@@ -47,14 +47,13 @@ snit::type ::hv3::visiteddb {
     $self addkey $location
   }
 
-  method LocationQuery {hv3 node} {
+  method LocationQuery {hv3 reluri} {
 
     # Resolve the "href" attribute of the node against the current
     # location of the specified hv3 widget.
     #
-    set rel [$node attr href]
     set obj [::hv3::uri %AUTO% [$hv3 location]]
-    $obj load $rel
+    $obj load $reluri
     set full [$obj get]
     $obj destroy
 

@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.129 2007/06/06 15:56:39 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.130 2007/06/06 19:28:39 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -778,6 +778,33 @@ mergeAttributes(pNode, pAttr)
         setNodeAttribute(pNode, pAttr->a[ii].zName, pAttr->a[ii].zValue);
     }
     HtmlFree(pAttr);
+}
+
+static int
+doAttributeHandler(pTree, pNode, zAttr, zValue) 
+    HtmlTree *pTree;
+    HtmlNode *pNode;
+    const char *zAttr;
+    const char *zValue;
+{
+    int rc = TCL_OK;
+    Tcl_HashEntry *pEntry;
+
+    pEntry = Tcl_FindHashEntry(&pTree->aAttributeHandler, (char*)(pNode->eTag));
+    if (pEntry) {
+        Tcl_Obj *pScript;
+        pScript = (Tcl_Obj *)Tcl_GetHashValue(pEntry);
+
+        pScript = Tcl_DuplicateObj(pScript);
+        Tcl_IncrRefCount(pScript);
+        Tcl_ListObjAppendElement(0, pScript, HtmlNodeCommand(pTree, pNode));
+        Tcl_ListObjAppendElement(0, pScript, Tcl_NewStringObj(zAttr, -1));
+        Tcl_ListObjAppendElement(0, pScript, Tcl_NewStringObj(zValue, -1));
+        rc = Tcl_EvalObjEx(pTree->interp, pScript, TCL_EVAL_GLOBAL);
+        Tcl_DecrRefCount(pScript);
+    }
+
+    return rc;
 }
 
 static int
@@ -2311,7 +2338,25 @@ nodeCommand(clientData, interp, objc, objv)
              * query, so that the new attribute value is returned.
              */
             if (zAttrName && zAttrVal) {
+                /* Check if there is an attribute-handler for this type
+                 * of node. If so, invoke the script as follows:
+                 *
+                 *     eval $handler [list $attribute-name] [list $new-value]
+                 */
+                int rc;
+                char *zCopy; 
+
                 assert(!zDefault);
+
+                zCopy = HtmlAlloc("tmp", strlen(zAttrName)+1);
+                strcpy(zCopy, zAttrName);
+                Tcl_UtfToLower(zCopy);
+                rc = doAttributeHandler(pTree, pNode, zCopy, zAttrVal);
+                HtmlFree(zCopy);
+
+                if (rc != TCL_OK) {
+                    return rc;
+                }
                 setNodeAttribute(pNode, zAttrName, zAttrVal);
                 HtmlCallbackRestyle(pTree, pNode);
             }
@@ -2489,6 +2534,7 @@ node_attr_usage:
          *
          *         -configurecmd       <script>
          *         -deletecmd          <script>
+         *         -stylecmd           <script>
          */
         case NODE_REPLACE: {
 

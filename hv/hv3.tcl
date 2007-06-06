@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.169 2007/06/06 17:50:27 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.170 2007/06/06 19:28:39 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -306,6 +306,8 @@ snit::type ::hv3::hv3::mousemanager {
     }
   }
 
+  # Mapping from CSS2 cursor type to Tk cursor type.
+  #
   typevariable CURSORS -array [list \
       crosshair crosshair    \
       default   ""           \
@@ -326,7 +328,6 @@ snit::type ::hv3::hv3::mousemanager {
     # has been generated), maybe this should consider all overlapping nodes
     # as "hovered".
     set nodelist [lindex [$myHv3 node $x $y] end]
-
     
     # Handle the 'cursor' property.
     #
@@ -835,11 +836,12 @@ snit::type ::hv3::hv3::hyperlinkmanager {
   constructor {hv3} {
     set myHv3 $hv3
 
-    # Set upt the default -targetcmd script to always return $myHv3.
+    # Set up the default -targetcmd script to always return $myHv3.
     set options(-targetcmd) [list ::hv3::ReturnWithArgs $hv3]
 
-    $myHv3 handler node a [mymethod a_node_handler]
-    bind $myHv3 <Motion>         "+[mymethod motion %x %y]"
+    $myHv3 handler node      a [mymethod a_node_handler]
+    $myHv3 handler attribute a [mymethod a_attribute_handler]
+
     $myHv3 Subscribe onclick     [mymethod handle_onclick]
   }
 
@@ -847,11 +849,21 @@ snit::type ::hv3::hv3::hyperlinkmanager {
     set myLinkHoverCount 0
   }
 
+  # Handle creation of a new <A> node:
+  #
   method a_node_handler {node} {
     if {[$node attr -default "" href] ne ""} {
+      $self a_attribute_handler $node href [$node attr href]
+    }
+  }
+
+  # Handle modifying an attribute of an <A> node:
+  #
+  method a_attribute_handler {node attr val} {
+    if {$attr eq "href"} {
       if {
         $options(-isvisitedcmd) ne "" && 
-        [eval [linsert $options(-isvisitedcmd) end $node]]
+        [eval [linsert $options(-isvisitedcmd) end $val]]
       } {
         $node dynamic set visited
       } else {
@@ -877,29 +889,6 @@ snit::type ::hv3::hv3::hyperlinkmanager {
         after idle [list $hv3 goto $href -referer [$myHv3 location]]
       }
     }
-  }
-
-  method motion {x y} {
-    return
-
-    set nodelist [$myHv3 node $x $y]
-    set text 0
-    set framewidget [$myHv3 hull]
-    foreach node $nodelist {
-      if {[$node tag] eq ""} {set text 1}
-      for {set n $node} {$n ne ""} {set n [$n parent]} {
-        if {[$n tag] eq "a" && [$n attr -default "" href] ne ""} {
-          $framewidget configure -cursor hand2
-          return 
-        }
-      }
-    }
-    if {$text == 0} {
-      $framewidget configure -cursor ""
-    } else {
-      $framewidget configure -cursor xterm
-    }
-
   }
 }
 #

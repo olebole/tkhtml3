@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_style.tcl,v 1.7 2007/06/06 15:56:39 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_style.tcl,v 1.8 2007/06/06 19:28:39 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # DOM Level 2 Style.
@@ -93,6 +93,7 @@ set ::hv3::DOM::CSS2Properties_simple(left) left
 set ::hv3::DOM::CSS2Properties_simple(bottom) bottom
 set ::hv3::DOM::CSS2Properties_simple(right) right
 set ::hv3::DOM::CSS2Properties_simple(z-index) zIndex
+set ::hv3::DOM::CSS2Properties_simple(cursor) cursor
 set ::hv3::DOM::CSS2Properties_simple(border-top-width)    borderTopWidth
 set ::hv3::DOM::CSS2Properties_simple(border-right-width)  borderRightWidth
 set ::hv3::DOM::CSS2Properties_simple(border-left-width)   borderLeftWidth

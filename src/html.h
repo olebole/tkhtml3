@@ -569,9 +569,10 @@ struct HtmlTree {
      *
      * The node-handler and parse-handler tables are similar.
      */
-    Tcl_HashTable aScriptHandler;   /* Script handler callbacks. */
-    Tcl_HashTable aNodeHandler;     /* Node handler callbacks. */
-    Tcl_HashTable aParseHandler;    /* Parse handler callbacks. */
+    Tcl_HashTable aScriptHandler;     /* Script handler callbacks. */
+    Tcl_HashTable aNodeHandler;       /* Node handler callbacks. */
+    Tcl_HashTable aParseHandler;      /* Parse handler callbacks. */
+    Tcl_HashTable aAttributeHandler;  /* Attribute handler callbacks. */
 
     CssStyleSheet *pStyle;          /* Style sheet configuration */
 

@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.158 2007/06/04 08:22:31 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.159 2007/06/06 19:28:39 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -932,6 +932,7 @@ deleteWidget(clientData)
 
     /* Delete the contents of the three "handler" hash tables */
     cleanupHandlerTable(&pTree->aNodeHandler);
+    cleanupHandlerTable(&pTree->aAttributeHandler);
     cleanupHandlerTable(&pTree->aParseHandler);
     cleanupHandlerTable(&pTree->aScriptHandler);
 
@@ -1841,22 +1842,55 @@ handlerCmd(clientData, interp, objc, objv)
     HtmlTree *pTree = (HtmlTree *)clientData;
     char *zTag;
 
+    enum HandlerType {
+      HANDLER_ATTRIBUTE,
+      HANDLER_NODE,
+      HANDLER_SCRIPT,
+      HANDLER_PARSE
+    };
+
+    static const struct HandlerSubCommand {
+        const char *zCommand;
+        enum HandlerType eSymbol;
+    } aSubCommand[] = {
+        {"attribute",   HANDLER_ATTRIBUTE},
+        {"node",        HANDLER_NODE},
+        {"script",      HANDLER_SCRIPT},
+        {"parse",       HANDLER_PARSE},
+        {0, 0}
+    };
+    int iChoice;
+
     if (objc!=5) {
         Tcl_WrongNumArgs(interp, 3, objv, "TAG SCRIPT");
         return TCL_ERROR;
     }
 
+    if (Tcl_GetIndexFromObjStruct(interp, objv[2], aSubCommand, 
+        sizeof(struct HandlerSubCommand), "option", 0, &iChoice) 
+    ){
+        return TCL_ERROR;
+    }
+
     zTag = Tcl_GetString(objv[3]);
     tag = HtmlNameToType(0, zTag);
-    switch (Tcl_GetString(objv[2])[0]) {
-        case 'n':
+    if (tag==Html_Unknown) {
+        Tcl_AppendResult(interp, "Unknown tag type: ", zTag, 0);
+        return TCL_ERROR;
+    }
+
+    switch ((enum HandlerType)iChoice) {
+        case HANDLER_ATTRIBUTE:
+            pHash = &pTree->aAttributeHandler;
+            break;
+        case HANDLER_NODE:
             pHash = &pTree->aNodeHandler;
             break;
-        case 's':
-            pHash = &pTree->aScriptHandler;
-            break;
-        case 'p': {
+        case HANDLER_PARSE:
             pHash = &pTree->aParseHandler;
+            break;
+        case HANDLER_SCRIPT:
+            pHash = &pTree->aScriptHandler;
             if (0 == zTag[0]) {
                 tag = Html_Text;
             } else if ('/' == zTag[0]) {
@@ -1864,18 +1898,10 @@ handlerCmd(clientData, interp, objc, objv)
                 if (tag != Html_Unknown) tag = tag * -1;
             }
             break;
-        }
-        default:
-            assert(!"Illegal objv[2] value in handlerCmd()");
     }
 
     assert(pHash);
     pScript = objv[4];
-
-    if (tag==Html_Unknown) {
-        Tcl_AppendResult(interp, "Unknown tag type: ", zTag, 0);
-        return TCL_ERROR;
-    }
 
     if (Tcl_GetCharLength(pScript) == 0) {
         pEntry = Tcl_FindHashEntry(pHash, (char *)tag);
@@ -2263,6 +2289,7 @@ int widgetCmd(clientData, interp, objc, objv)
         {"handler",    "node",      handlerCmd},
         {"handler",    "parse",     handlerCmd},
         {"handler",    "script",    handlerCmd},
+        {"handler",    "attribute", handlerCmd},
         {"image",      0,           imageCmd},
         {"node",       0,           nodeCmd},
         {"parse",      0,           parseCmd},
@@ -2435,6 +2462,7 @@ newWidget(clientData, interp, objc, objv)
     Tcl_InitHashTable(&pTree->aParseHandler, TCL_ONE_WORD_KEYS);
     Tcl_InitHashTable(&pTree->aScriptHandler, TCL_ONE_WORD_KEYS);
     Tcl_InitHashTable(&pTree->aNodeHandler, TCL_ONE_WORD_KEYS);
+    Tcl_InitHashTable(&pTree->aAttributeHandler, TCL_ONE_WORD_KEYS);
     Tcl_InitHashTable(&pTree->aOrphan, TCL_ONE_WORD_KEYS);
     Tcl_InitHashTable(&pTree->aTag, TCL_STRING_KEYS);
     pTree->cmd = Tcl_CreateObjCommand(interp,zCmd,widgetCmd,pTree,widgetCmdDel);
