@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.6 2007/06/05 07:03:47 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.7 2007/06/06 17:50:27 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # ::hv3::dom::XMLHttpRequest
@@ -238,7 +238,7 @@ namespace eval ::hv3::DOM {
     # The value of XMLHttpRequest.readyState has changed, so fire
     # a "readystatechange" event.
     #
-puts "Setting XMLHttpRequest $statevar to $newState ($uri)"
+#puts "Setting XMLHttpRequest $statevar to $newState ($uri)"
     set this  [list ::hv3::DOM::XMLHttpRequest $dom $statevar]
     set event [list ::hv3::DOM::XMLHttpRequestEvent $dom $this]
     set rc [catch { $state(et) runEvent readystatechange 0 $this $event } msg]

@@ -178,7 +178,7 @@ struct HtmlColor {
  *     because (a) layout engine support is a long way off, and (b) it would 
  *     be tricky in some way to do so:
  *
- *         'clip' 'cursor' 'content' 'counter-increment' 
+ *         'clip' 'cursor' 'counter-increment' 
  *         'counter-reset' 'quotes'
  */
 struct HtmlComputedValues {
@@ -260,6 +260,8 @@ struct HtmlComputedValues {
     int iBorderSpacing;               /* 'border-spacing' (pixels)            */
     int iLineHeight;                  /* 'line-height'    (pixels, %, NORMAL) */
     unsigned char eFontVariant;       /* 'font-variant' */
+
+    unsigned char eCursor;            /* 'cursor' */
 
     /* Properties not yet in use - TODO! */
     int iWordSpacing;                 /* 'word-spacing'   (pixels, NORMAL) */

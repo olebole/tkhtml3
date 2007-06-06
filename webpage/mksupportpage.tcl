@@ -205,7 +205,11 @@ SUPPORTTABLE {Table Properties} \
 	[CSSREF tables table-layout nosupport] {No support.}
 
 SUPPORTTABLE {User Interface Properties} \
-	[CSSREF ui cursor nosupport] {No support.} \
+	[CSSREF ui cursor] {
+          Only enumerated values are supported. Tkhtml3 doesn't actually
+          do anything with this property, but it is available for the
+          applications use.
+        }
 	[CSSREF ui outline]        {} \
 	[CSSREF ui outline-width ] {} \
 	[CSSREF ui outline-color ] {} \

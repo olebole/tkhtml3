@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.53 2007/06/05 07:57:14 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.54 2007/06/06 17:50:27 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Snit types in this file:
@@ -1179,6 +1179,6 @@ proc ::hv3::dom::init {} {
 }
 ::hv3::dom::init
 
-set ::hv3::dom::reformat_scripts_option 0
-#set ::hv3::dom::reformat_scripts_option 1
+#set ::hv3::dom::reformat_scripts_option 0
+set ::hv3::dom::reformat_scripts_option 1
 

@@ -56,6 +56,7 @@ C inherit
 C auto
 
 # Enumerated type mappings.
+#
 E background-attachment scroll fixed
 E background-repeat     repeat no-repeat repeat-x repeat-y
 E border-collapse       separate collapse 
@@ -65,6 +66,9 @@ foreach dir [list top left bottom right] {
 }
 E caption-side          top bottom
 E clear                 none left right both
+E cursor                auto crosshair default pointer move e-resize
+E cursor                ne-resize nw-resize n-resize se-resize sw-resize
+E cursor                s-resize w-resize text wait help progress
 E direction             ltr rtl
 E display               inline table-header-group table-footer-group 
 E display               table-row block list-item none

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.22 2007/06/06 15:56:39 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.23 2007/06/06 17:50:27 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # DOM Level 2 Events.
@@ -481,12 +481,9 @@ proc ::hv3::dom::dispatchMouseEvent {dom type js_obj x y extra} {
 
   # Dispatch!
   set event [list ::hv3::DOM::MouseEvent $dom $arrayvar]
-  set isErr [catch {::hv3::dom::DispatchEvent $dom $js_obj $event $arrayvar} rc]
-  if {$isErr} { 
-    puts $rc 
-    puts $::errorInfo
-    puts $::errorCode
-  }
+# set isErr [catch {::hv3::dom::DispatchEvent $dom $js_obj $event $arrayvar} rc]
+# if {$isErr} { puts $rc }
+  set rc [::hv3::dom::DispatchEvent $dom $js_obj $event $arrayvar]
   return $rc
 }
 
@@ -525,8 +522,11 @@ proc ::hv3::dom::dispatchHtmlEvent {dom type js_obj} {
 
   # Dispatch!
   set event [list ::hv3::DOM::Event $dom $arrayvar]
-  set isErr [catch {::hv3::dom::DispatchEvent $dom $js_obj $event $arrayvar} rc]
-  if {$isErr} { puts $rc }
+
+# set isErr [catch {::hv3::dom::DispatchEvent $dom $js_obj $event $arrayvar} rc]
+# if {$isErr} { puts $rc }
+  set rc [::hv3::dom::DispatchEvent $dom $js_obj $event $arrayvar]
+
   return $rc
 }
 

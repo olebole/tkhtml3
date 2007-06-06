@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.168 2007/06/04 14:31:38 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.169 2007/06/06 17:50:27 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -238,6 +238,12 @@ snit::type ::hv3::hv3::mousemanager {
   variable myHoverNodes  -array [list]
   variable myActiveNodes -array [list]
 
+  # The "top" node from the myHoverNodes array. This is the node
+  # that determines the pointer to display (via the CSS2 'cursor' 
+  # property).
+  #
+  variable myTopHoverNode ""
+
   # List of handled HTML4 event types (a constant)
   variable EVENTS [list onmouseover onmousemove onmouseout onclick \
       ondblclick onmousedown onmouseup]
@@ -300,6 +306,17 @@ snit::type ::hv3::hv3::mousemanager {
     }
   }
 
+  typevariable CURSORS -array [list \
+      crosshair crosshair    \
+      default   ""           \
+      pointer   hand2        \
+      move      fleur        \
+      text      xterm        \
+      wait      watch        \
+      progress  box_spiral     \
+      help      question_arrow \
+  ]
+
   method Motion {W x y} {
     if {$W eq ""} return
     AdjustCoords "${myHv3}.html.widget" $W x y
@@ -309,6 +326,25 @@ snit::type ::hv3::hv3::mousemanager {
     # has been generated), maybe this should consider all overlapping nodes
     # as "hovered".
     set nodelist [lindex [$myHv3 node $x $y] end]
+
+    
+    # Handle the 'cursor' property.
+    #
+    set topnode [lindex $nodelist end]
+    if {$topnode ne "" && $topnode ne $myTopHoverNode} {
+      set Cursor ""
+      if {[$topnode tag] eq ""} {
+        set Cursor xterm
+        set topnode [$topnode parent]
+      }
+      set css2_cursor [$topnode property cursor]
+      catch {
+        set Cursor $CURSORS($css2_cursor)
+      }
+
+      [$myHv3 hull] configure -cursor $Cursor
+      set myTopHoverNode $topnode
+    }
 
     # Dispatch any DOM events in this order:
     #
@@ -357,7 +393,6 @@ snit::type ::hv3::hv3::mousemanager {
     set events(onmousemove) [\
         concat [array names hovernodes] $events(onmouseout) 
     ]
-
 
     array unset myHoverNodes
     array set myHoverNodes [array get hovernodes]
@@ -845,6 +880,8 @@ snit::type ::hv3::hv3::hyperlinkmanager {
   }
 
   method motion {x y} {
+    return
+
     set nodelist [$myHv3 node $x $y]
     set text 0
     set framewidget [$myHv3 hull]
@@ -862,6 +899,7 @@ snit::type ::hv3::hv3::hyperlinkmanager {
     } else {
       $framewidget configure -cursor xterm
     }
+
   }
 }
 #

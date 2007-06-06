@@ -151,8 +151,8 @@ PRE, PLAINTEXT, XMP {
 }
 
 /* Display properties for hyperlinks */
-:link    { color: darkblue; text-decoration: underline }
-:visited { color: purple; text-decoration: underline }
+:link    { color: darkblue; text-decoration: underline ; cursor: pointer }
+:visited { color: purple; text-decoration: underline ; cursor: pointer }
 
 /* Deal with the "nowrap" HTML attribute on table cells. */
 TD[nowrap] ,     TH[nowrap]     { white-space: nowrap; }

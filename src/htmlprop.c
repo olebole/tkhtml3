@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.112 2007/05/12 15:44:55 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.113 2007/06/06 17:50:27 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -100,6 +100,7 @@ static PropertyDef propdef[] = {
   PROPDEF(ENUM, BORDER_RIGHT_STYLE,    eBorderRightStyle),
   PROPDEF(ENUM, BORDER_TOP_STYLE,      eBorderTopStyle),
   PROPDEF(ENUM, CLEAR,                 eClear), 
+  PROPDEF(ENUM, CURSOR,                eCursor),
   PROPDEF(ENUM, DISPLAY,               eDisplay), 
   PROPDEF(ENUM, FLOAT,                 eFloat), 
   PROPDEF(ENUM, LIST_STYLE_POSITION,   eListStylePosition),
