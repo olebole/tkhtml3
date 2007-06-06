@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.128 2007/06/04 08:22:31 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.129 2007/06/06 15:56:39 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -561,6 +561,7 @@ nodeOrphanize(pTree, pNode)
     int eNew;
     assert(pNode->iNode != HTML_NODE_ORPHAN);
     pNode->iNode = HTML_NODE_ORPHAN;
+    pNode->pParent = 0;
 
     Tcl_CreateHashEntry(&pTree->aOrphan, (const char *)pNode, &eNew);
     assert(eNew);
@@ -1989,6 +1990,205 @@ nodeGetStyle(p)
 }
 
 /*
+ */
+/*
+ *---------------------------------------------------------------------------
+ *
+ * nodeTextCommand --
+ *
+ *         $node text ?get?
+ *         $node text -tokens 
+ *         $node text -pre 
+ *         $node text set TEXT
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int
+nodeTextCommand(interp, pNode, objc, objv)
+    Tcl_Interp *interp;
+    HtmlNode *pNode;
+    int objc;
+    Tcl_Obj *CONST objv[];
+{
+    HtmlTree *pTree = pNode->pNodeCmd->pTree;
+    Tcl_Obj *pRet = 0;
+    int nByte = 0;
+
+    enum NODE_TEXT_enum {
+        NODE_TEXT_GET,
+        NODE_TEXT_PRE, 
+        NODE_TEXT_SET, 
+        NODE_TEXT_TOKENS 
+    };
+    enum NODE_TEXT_enum eChoice;
+
+    static const struct NodeTextSubCommand {
+        const char *zCommand;
+        enum NODE_TEXT_enum eSymbol;
+        int nArg;
+    } aSubCommand[] = {
+        {"get",       NODE_TEXT_GET, 0},  
+        {"-pre",      NODE_TEXT_PRE, 0},      
+        {"set",       NODE_TEXT_SET, 1},
+        {"-tokens",   NODE_TEXT_TOKENS, 0},      
+        {0, 0, 0}
+    };
+
+    /* This is a no-op for non text nodes */
+    if (!HtmlNodeIsText(pNode)) return TCL_OK;
+
+    if (objc==2) {
+        eChoice = NODE_TEXT_GET;
+    } else {
+        int iChoice;
+        if (Tcl_GetIndexFromObjStruct(interp, objv[2], aSubCommand, 
+            sizeof(struct NodeTextSubCommand), "option", 0, &iChoice) 
+        ){
+            return TCL_ERROR;
+        }
+        if (objc != 3+aSubCommand[iChoice].nArg) {
+            Tcl_WrongNumArgs(interp, 3, objv, ((objc==3)?"TEXT":""));
+            return TCL_ERROR;
+        }
+        eChoice = aSubCommand[iChoice].eSymbol;
+    }
+
+    if (eChoice == NODE_TEXT_SET) {
+        /* Because the storage for a text nodes data is allocated as
+         * part of the HtmlTextNode allocation, the only way to modify
+         * the text of a node is to allocate a new HtmlTextNode 
+         * structure and then to change all the pointers that refer to
+         * it. There are only three possibilities:
+         *
+         *     * In the Tcl_CmdInfo struct for this node-handle,
+         *     * In the parent node, if this is not an orphan.
+         *     * In the orphan node table, if this is an orphan.
+         */
+        const char *zCommand;
+        const char *zNew;
+        int nNew;
+        HtmlTextNode *pNew;
+        HtmlTextNode *pOrig;
+        Tcl_CmdInfo info;
+
+        pOrig = HtmlNodeAsText(pNode);
+        assert(pOrig);
+
+        /* Invalidate the layout of this node. */
+        HtmlCallbackLayout(pTree, pNode);
+
+        zNew = Tcl_GetStringFromObj(objv[3], &nNew);
+        pNew = HtmlTextNew(nNew, zNew, 0, 0);
+
+        /* Copy the base class attributes to the new HtmlTextNode */
+        memcpy(pNew, pNode, sizeof(HtmlNode));
+        pNode->pParent = 0;
+        pNode->pNodeCmd = 0;
+
+        /* Move any node tags */
+        pNew->pTagged = pOrig->pTagged;
+        pOrig->pTagged = 0;
+
+        /* Modify the parent node or orphan table pointer */
+        if( pNew->node.pParent ){
+            int i;
+            HtmlElementNode *pParent = HtmlNodeAsElement(pNew->node.pParent);
+            for (i=0; i < pParent->nChild; i++) {
+                if (pNode == pParent->apChildren[i]) {
+                    pParent->apChildren[i] = (HtmlNode *)pNew;
+                    break;
+                }
+            }
+            assert(i<pParent->nChild);
+        } else {
+            int eNew;
+            assert(pNew->node.iNode == HTML_NODE_ORPHAN);
+            Tcl_CreateHashEntry(&pTree->aOrphan, (const char *)pNew, &eNew);
+            nodeDeorphanize(pTree, pNode);
+            assert(eNew);
+        }
+
+        /* Modify the Tcl_CmdInfo structure */
+        zCommand = Tcl_GetString(pNew->node.pNodeCmd->pCommand);
+        Tcl_GetCommandInfo(interp, zCommand, &info);
+        info.objClientData = pNew;
+        Tcl_SetCommandInfo(interp, zCommand, &info);
+
+        /* Delete the old node structure */
+        freeNode(pTree, pNode);
+
+    } else if (eChoice == NODE_TEXT_PRE) {
+        pRet = nodeGetPreText(HtmlNodeAsText(pNode));
+        Tcl_IncrRefCount(pRet);
+    } else {
+        HtmlTextIter sIter;
+
+        pRet = Tcl_NewObj();
+        Tcl_IncrRefCount(pRet);
+
+        for (
+            HtmlTextIterFirst((HtmlTextNode *)pNode, &sIter);
+            HtmlTextIterIsValid(&sIter);
+            HtmlTextIterNext(&sIter)
+        ) {
+            int eType = HtmlTextIterType(&sIter);
+            int nData = HtmlTextIterLength(&sIter);
+            char const * zData = HtmlTextIterData(&sIter);
+    
+            if (eChoice == NODE_TEXT_TOKENS) {
+                char *zType = 0;
+                Tcl_Obj *p = Tcl_NewObj();
+                Tcl_Obj *pObj = 0;
+    
+                switch (eType) {
+                    case HTML_TEXT_TOKEN_TEXT:
+                        zType = "text";
+                        pObj = Tcl_NewStringObj(zData, nData);
+                        break;
+                    case HTML_TEXT_TOKEN_SPACE:
+                        zType = "space";
+                        pObj = Tcl_NewIntObj(nData);
+                        break;
+                    case HTML_TEXT_TOKEN_NEWLINE:
+                        zType = "newline";
+                        pObj = Tcl_NewIntObj(nData);
+                        break;
+                }
+                assert(zType);
+                Tcl_ListObjAppendElement(
+                    0, p, Tcl_NewStringObj(zType, -1)
+                );
+                Tcl_ListObjAppendElement(0, p, pObj);
+                Tcl_ListObjAppendElement(0, pRet, p);
+            } else {
+                assert(eChoice == NODE_TEXT_GET);
+                if (eType == HTML_TEXT_TOKEN_TEXT) {
+                    if (nByte != 0) nByte++;
+                    nByte += nData;
+                }
+            }
+        }
+    }
+
+    if (eChoice == NODE_TEXT_GET) {
+        HtmlTextNode *pTextNode = HtmlNodeAsText(pNode);
+        Tcl_SetStringObj(pRet, pTextNode->zText, nByte);
+    }
+
+    if( pRet ){
+        Tcl_SetObjResult(interp, pRet);
+        Tcl_DecrRefCount(pRet);
+    }
+    return TCL_OK;
+}
+
+/*
  *---------------------------------------------------------------------------
  *
  * nodeCommand --
@@ -2204,94 +2404,8 @@ node_attr_usage:
             break;
         }
 
-        /*
-         * nodeHandle text ?-tokens || -pre?
-         *
-         */
         case NODE_TEXT: {
-            Tcl_Obj *pRet;
-            int nByte = 0;
-            int tokens;
-            int pre;
-            char *z3 = 0;
-
-            HtmlTextIter sIter;
-
-            if (objc == 3) {
-                z3 = Tcl_GetString(objv[2]);
-            }
-
-            if (
-                (objc != 2 && objc != 3) ||
-                (objc == 3 && strcmp(z3, "-tokens") && strcmp(z3, "-pre"))
-            ) {
-                Tcl_WrongNumArgs(interp, 2, objv, "?-tokens || -pre?");
-                return TCL_ERROR;
-            }
-
-            tokens = ((objc == 3 && z3[1]=='t') ? 1 : 0);
-            pre =    ((objc == 3 && z3[1]=='p') ? 1 : 0);
-
-            if (!HtmlNodeIsText(pNode)) break;
-
-            if (pre) {
-                pRet = nodeGetPreText(HtmlNodeAsText(pNode));
-                Tcl_IncrRefCount(pRet);
-            } else {
-                pRet = Tcl_NewObj();
-                Tcl_IncrRefCount(pRet);
-
-                for (
-                    HtmlTextIterFirst((HtmlTextNode *)pNode, &sIter);
-                    HtmlTextIterIsValid(&sIter);
-                    HtmlTextIterNext(&sIter)
-                ) {
-                    int eType = HtmlTextIterType(&sIter);
-                    int nData = HtmlTextIterLength(&sIter);
-                    char const * zData = HtmlTextIterData(&sIter);
-    
-                    if (tokens) {
-                        char *zType = 0;
-                        Tcl_Obj *p = Tcl_NewObj();
-                        Tcl_Obj *pObj = 0;
-    
-                        switch (eType) {
-                            case HTML_TEXT_TOKEN_TEXT:
-                                zType = "text";
-                                pObj = Tcl_NewStringObj(zData, nData);
-                                break;
-                            case HTML_TEXT_TOKEN_SPACE:
-                                zType = "space";
-                                pObj = Tcl_NewIntObj(nData);
-                                break;
-                            case HTML_TEXT_TOKEN_NEWLINE:
-                                zType = "newline";
-                                pObj = Tcl_NewIntObj(nData);
-                                break;
-                        }
-                        assert(zType);
-                        Tcl_ListObjAppendElement(
-                            0, p, Tcl_NewStringObj(zType, -1)
-                        );
-                        Tcl_ListObjAppendElement(0, p, pObj);
-                        Tcl_ListObjAppendElement(0, pRet, p);
-                    } else {
-                        if (eType == HTML_TEXT_TOKEN_TEXT) {
-                            if (nByte != 0) nByte++;
-                            nByte += nData;
-                        }
-                    }
-                }
-            }
-
-            if (!tokens && !pre) {
-                HtmlTextNode *pTextNode = HtmlNodeAsText(pNode);
-                Tcl_SetStringObj(pRet, pTextNode->zText, nByte);
-            }
-
-            Tcl_SetObjResult(interp, pRet);
-            Tcl_DecrRefCount(pRet);
-            break;
+            return nodeTextCommand(interp, pNode, objc, objv);
         }
 
         case NODE_PARENT: {

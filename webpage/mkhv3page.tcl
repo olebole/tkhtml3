@@ -102,6 +102,13 @@ puts [subst -novariables {
     (<a href="http://www.equi4.com">http://www.equi4.com</a>). If you're 
     not sure what this means, grab the file above instead.
 
+</table>
+
+  <p>
+    The following package is based on the alpha-14 release (January 2007).
+  </p>
+
+  <table border=1 cellpadding=5 style="margin-left:2em; margin-right:2em">
 <tr>
 <td>Puppy Linux
 <td>

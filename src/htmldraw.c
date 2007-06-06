@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.186 2007/01/27 12:54:24 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.187 2007/06/06 15:56:39 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -3207,6 +3207,8 @@ HtmlLayoutNode(clientData, interp, objc, objv)
             return TCL_ERROR;
         }
 
+        HtmlCallbackForce(pTree);
+
         /* Transform x and y from viewport to document coordinates */
         x += pTree->iScrollX;
         y += pTree->iScrollY;
@@ -3269,6 +3271,8 @@ HtmlWidgetBboxCmd(clientData, interp, objc, objv)
         Tcl_WrongNumArgs(interp, 2, objv, "?NODE-HANDLE?");
         return TCL_ERROR;
     }
+
+    HtmlCallbackForce(pTree);
 
     if (objc == 3) {
         BboxContext sContext;

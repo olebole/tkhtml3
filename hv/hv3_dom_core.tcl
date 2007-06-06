@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.13 2007/06/05 07:57:14 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.14 2007/06/06 15:56:39 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Core
@@ -102,11 +102,16 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.13 2007/06/05 07:57:
 }
 
 ::hv3::dom2::stateless Implementation {} {
+
   dom_call -string hasFeature {THIS feature version} {
     set feature [string tolower $feature]
     set version [string tolower $version]
 
-    set FeatureList { html 1.0 }
+    set FeatureList { 
+      html        1.0 
+      css         2.0 
+      mouseevents 2.0 
+    }
     array set f $FeatureList
 
     if {[info exists f($feature)]} {
@@ -189,8 +194,16 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.13 2007/06/05 07:57:
     list object [$myDom node_to_dom $node]
   }
   dom_call -string createTextNode {THIS data} {
-    set escaped [string map {< &lt; > &gt;} $data]
-    set node [$myHv3 fragment $escaped]
+    if {$data eq ""} {
+      # Special case - The [fragment] API usually parses an empty string
+      # to an empty fragment. So create a text node with text "X", then 
+      # set the text to an empty string.
+      set node [$myHv3 fragment X]
+      $node text set ""
+    } else {
+      set escaped [string map {< &lt; > &gt;} $data]
+      set node [$myHv3 fragment $escaped]
+    }
     list object [$myDom node_to_dom $node]
   }
   dom_call_todo createDocumentFragment
@@ -349,6 +362,27 @@ set BaseList {ElementCSSInlineStyle WidgetNode Node NodePrototype EventTarget}
     set oldChild
   }
 
+  dom_get childNodes {
+    set cmd [list $myNode children]
+    list object [list ::hv3::DOM::NodeList $myDom $cmd]
+  }
+  dom_get lastChild {
+    set f [lindex [$myNode children] end]
+    if {$f eq ""} {
+      list null
+    } else {
+      list object [$myDom node_to_dom $f]
+    }
+  }
+  dom_get firstChild {
+    set f [lindex [$myNode children] 0]
+    if {$f eq ""} {
+      list null
+    } else {
+      list object [$myDom node_to_dom $f]
+    }
+  }
+
 
   # End of Node interface overrides.
   #---------------------------------
@@ -495,10 +529,9 @@ namespace eval ::hv3::dom2::compiler {
 ::hv3::dom2::stateless CharacterData {} {
 
   # The "data" property is a get/set on the contents of this text node.
-  # TODO: Put method for this property.
   #
   dom_get data { list string [$myNode text -pre] }
-  #dom_put -string data newText {}
+  dom_put -string data newText { $myNode text set $newText }
 
   # Read-only "length" property.
   #

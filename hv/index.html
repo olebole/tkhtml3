@@ -90,6 +90,21 @@
       .links li a:hover {
         background-color: #d9d9d9;
       }
+ 
+      div.warning {
+        margin: 5px 20px;
+        padding: 5px;
+        border: solid 2px red;
+      }
+      span.warning {
+        color: red;
+        display: block;
+        font-weight: bold;
+        text-align: center;
+      }
+
+    <div class=warning>
+      <span class=warning>WARNING</span>
 
 
     </style>
@@ -108,9 +123,10 @@
         <ul>
           <li> <a href="http://www.tcl.tk">Tcl site</a>
           <li> <a href="http://mini.net/tcl/">Tcl wiki</a>
-          <li> <a href="http://www.tclscripting.com/">tclscripting.com</a>
+          <li> <a href="http://www.activestate.com/">ActiveState</a>
           <li> <a href="http://www.evolane.com/">Evolane (eTcl)</a>
           <li> <a href="http://groups.google.com/group/comp.lang.tcl">comp.lang.tcl</a>
+          <li> <a href="http://www.tclscripting.com/">tclscripting.com</a>
         </ul>
       </div>
 
@@ -121,26 +137,37 @@
           <li><a href="http://www.w3.org/TR/CSS1">CSS 1.0</a>
           <li><a href="http://www.w3.org/TR/CSS21/">CSS 2.1</a>
           <li><a href="http://www.w3.org/TR/html4/">HTML 4.01</a>
-          <li><a href="http://www.whatwg.org/specs/web-apps/current-work/">Web Apps 1.0</a>
-          <li><a href="http://www.webstandards.org/files/acid2/test.html">Acid 2 Test</a>
+          <li><a href="http://www.w3.org/DOM/">W3 DOM Pages</a>
+          <li><a href="http://www.whatwg.org/specs/web-apps/current-work/">
+            Web Apps 1.0</a>
+          <li><a href="http://www.webstandards.org/files/acid2/test.html">
+            Acid 2 Test</a>
         </ul>
       </div>
 
       <div class="linkset">
         <h3>Tkhtml</h3>
         <ul>
-          <li> <a href="http://tkhtml.tcl.tk">Tkhtml</a>
-          <li> <a href="http://freshmeat.net/hv3">freshmeat.net/hv3</a>
+          <li> <a href="http://tkhtml.tcl.tk">tkhtml.tcl.tk</a>
+          <li> <a href="http://groups.google.com/group/tkhtml3">Google Group</a>
+          <li> <a href="http://freshmeat.net/hv3">Hv3 @ freshmeat.net</a>
         </ul>
       </div>
 
       <div class="linkset">
         <h3>Other</h3>
         <ul>
-          <li> <a href="http://del.icio.us">del.icio.us</a>
-          <li> <a href="http://news.google.com">Google News</a>
-          <li> <a href="http://slashdot.org">Slashdot</a>
-          <li> <a href="http://www.sqlite.org">Sqlite</a>
+          <li><a href="http://www.sqlite.org">Sqlite</a>
+          <li><a href="http://www.purl.org/net/oakley/tcl/combobox/index.html">
+             Combobox</a>
+
+          <li><a href="http://www.pps.jussieu.fr/~jch/software/polipo/">
+             Polipo</a>
+
+          <li><a href="http://www.adaptive-enterprises.com.au/~d/software/see/">
+            SEE</a>
+
+          <li><a href="http://e-lusion.com/design/greyscale">Icons</a>
         </ul>
       </div>
 
@@ -150,6 +177,15 @@
     <div class=content>
 
     <h1>Release Notes - Alpha 14</h1>
+
+    <div class=warning>
+      <span class=warning>WARNING</span>
+      This cvs head build has the <b>very experimental</b> javascript 
+      support enabled by default. Interpret that statement however you 
+      will. To disable, uncheck the "View-&gt;Enable ECMAScript" menu 
+      option.
+    </div>
+
     <p> Congratulations on successfully running Hv3 - the minimalist browser
 	designed to test Tkhtml3. The following release notes apply to the 14th
         alpha release of both Hv3 and Tkhtml3. Please report bugs in Hv3 or
@@ -232,6 +268,11 @@
       <li>The polipo http proxy by Juliusz Chroboczek.
            <a href="http://www.pps.jussieu.fr/~jch/software/polipo/">
              http://www.pps.jussieu.fr/~jch/software/polipo/</a>.
+
+      <li>The "Simple ECMAScript Engine" by David Leonard".
+         <a href="http://www.adaptive-enterprises.com.au/~d/software/see/">
+         http://www.adaptive-enterprises.com.au/~d/software/see/
+         </a>
 
       <li>Icons created by Ian Main.
            <a href="http://e-lusion.com/design/greyscale">

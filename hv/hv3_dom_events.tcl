@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.21 2007/06/05 07:03:47 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.22 2007/06/06 15:56:39 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # DOM Level 2 Events.
@@ -231,10 +231,11 @@ namespace eval ::hv3::DOM {
   #
   dom_call removeEventListener {THIS event_type listener useCapture} {
     set et [EventTarget_GetEventTarget $myDom [SELF]]
+    set see [$myDom see]
     set T [$see tostring $event_type]
     set L [lindex $listener 1]
     set C [$see tostring $useCapture]
-    $et addEventListener $T $L $C
+    $et removeEventListener $T $L $C
   }
 
   #-----------------------------------------------------------------------

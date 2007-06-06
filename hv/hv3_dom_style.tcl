@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_style.tcl,v 1.6 2007/06/01 18:07:48 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_style.tcl,v 1.7 2007/06/06 15:56:39 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # DOM Level 2 Style.
@@ -6,14 +6,12 @@ namespace eval hv3 { set {version($Id: hv3_dom_style.tcl,v 1.6 2007/06/01 18:07:
 # This file contains the Hv3 implementation of the DOM Level 2 Style
 # specification.
 #
-#     ElementCSSInlineStyle        (mixed into Element interface)
-#     CSSStyleDeclaration          (mixed into Element interface)
+#     ElementCSSInlineStyle        (mixed into Element)
+#     CSSStyleDeclaration          (mixed into ElementCSSInlineStyle)
+#     CSS2Properties               (mixed into CSSStyleDeclaration)
 #
-# TODO: The above statement is not really true at the moment. The
-# CSSStyleDeclaration interface currently only supports DOM Level
-# 0 stuff, not the standardised model. There is no reason that it
-# cannot be supported, but it's not really in use anywhere yet so
-# supporting it is not a high priority. 
+# http://www.w3.org/TR/2000/REC-DOM-Level-2-Style-20001113/css.html
+#
 #
 
 ::hv3::dom2::stateless ElementCSSInlineStyle {} {
@@ -35,26 +33,78 @@ namespace eval ::hv3::dom2::compiler {
   }
 }
 
-::hv3::dom2::stateless CSSStyleDeclaration {} {
+# In a complete implementation of the DOM Level 2 style for an HTML 
+# browser, the CSSStyleDeclaration interface is used for two purposes:
+#
+#     * As the ElementCSSInlineStyle.style property object. This 
+#       represents the contents of an HTML "style" attribute.
+#
+#     * As part of the DOM representation of a parsed stylesheet 
+#       document. Hv3 does not implement this function.
+#
+::hv3::dom2::stateless CSSStyleDeclaration CSS2Properties {
+
+  # cssText attribute - access the text of the style declaration. 
+  # TODO: Setting this to a value that does not parse is supposed to
+  # throw a SYNTAX_ERROR exception.
+  #
+  dom_get cssText { list string [$myNode attribute -default "" style] }
+  dom_put -string cssText val { 
+    $myNode attribute style $val
+  }
+
+  dom_call_todo getPropertyValue
+  dom_call_todo getPropertyCSSValue
+  dom_call_todo removeProperty
+  dom_call_todo getPropertyPriority
+
+  dom_call -string setProperty {THIS propertyName value priority} {
+    if {[info exists ::hv3::DOM::CSS2Properties_simple($propertyName)]} {
+      CSSStyleDeclaration_setStyleProperty $myNode $propertyName $value
+      return
+    }
+    error "DOMException SYNTAX_ERROR {unknown property $propertyName}"
+  }
+  
+  # Interface to iterate through property names:
+  #
+  #     readonly unsigned long length;
+  #     DOMString              item(in unsigned long index);
+  #
+  dom_get length {
+    list number [expr {[llength [$myNode prop -inline]]}/2]
+  }
+  dom_call -string item {THIS index} {
+    set idx [expr {2*int([lindex $index 1])}]
+    list string [lindex [$myNode prop -inline] $idx]
+  }
+
+  # Read-only parentRule property. Always null in hv3.
+  #
+  dom_get parentRule { list null }
+}
+
+set ::hv3::DOM::CSS2Properties_simple(width) width
+set ::hv3::DOM::CSS2Properties_simple(height) height
+set ::hv3::DOM::CSS2Properties_simple(display) display
+set ::hv3::DOM::CSS2Properties_simple(position) position
+set ::hv3::DOM::CSS2Properties_simple(top) top
+set ::hv3::DOM::CSS2Properties_simple(left) left
+set ::hv3::DOM::CSS2Properties_simple(bottom) bottom
+set ::hv3::DOM::CSS2Properties_simple(right) right
+set ::hv3::DOM::CSS2Properties_simple(z-index) zIndex
+set ::hv3::DOM::CSS2Properties_simple(border-top-width)    borderTopWidth
+set ::hv3::DOM::CSS2Properties_simple(border-right-width)  borderRightWidth
+set ::hv3::DOM::CSS2Properties_simple(border-left-width)   borderLeftWidth
+set ::hv3::DOM::CSS2Properties_simple(border-bottom-width) borderBottomWidth
+
+::hv3::dom2::stateless CSS2Properties {} {
 
   dom_parameter myNode
 
-  style_property width width
-  style_property height height
-  style_property display display
-
-  style_property position position
-  style_property top top
-  style_property left left
-  style_property bottom bottom
-  style_property right right
-
-  style_property z-index zIndex
-
-  style_property border-top-width borderTopWidth
-  style_property border-right-width borderRightWidth
-  style_property border-left-width borderLeftWidth
-  style_property border-bottom-width borderBottomWidth
+  foreach {k v} [array get ::hv3::DOM::CSS2Properties_simple] {
+    style_property $k $v
+  } 
 
   dom_put -string border value {
     set style [$myNode attribute -default {} style]
