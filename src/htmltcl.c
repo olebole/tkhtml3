@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.159 2007/06/06 19:28:39 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.160 2007/06/07 17:09:20 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -690,6 +690,8 @@ HtmlCallbackRestyle(pTree, pNode)
      * is clearly suspect.
      */
     HtmlTextInvalidate(pTree);
+
+    HtmlCssSearchInvalidateCache(pTree);
 }
 
 /*
@@ -945,6 +947,9 @@ deleteWidget(clientData)
     /* Delete the image-server */
     HtmlImageServerDoGC(pTree);
     HtmlImageServerShutdown(pTree);
+
+    /* Delete the search cache. */
+    HtmlCssSearchShutdown(pTree);
 
     /* Cancel any pending idle callback */
     Tcl_CancelIdleCall(callbackHandler, (ClientData)pTree);
@@ -2466,6 +2471,8 @@ newWidget(clientData, interp, objc, objv)
     Tcl_InitHashTable(&pTree->aOrphan, TCL_ONE_WORD_KEYS);
     Tcl_InitHashTable(&pTree->aTag, TCL_STRING_KEYS);
     pTree->cmd = Tcl_CreateObjCommand(interp,zCmd,widgetCmd,pTree,widgetCmdDel);
+
+    HtmlCssSearchInit(pTree);
 
     /* Initialise the hash tables used by styler code */
     HtmlComputedValuesSetupTables(pTree);

@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.130 2007/06/06 19:28:39 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.131 2007/06/07 17:09:20 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -591,9 +591,7 @@ nodeInsertChild(pElem, iBefore, pChild)
     /* Unlink pChild from it's parent node. */
     if (HtmlNodeParent(pChild)) {
         HtmlNode *pParent = HtmlNodeParent(pChild);
-        int nChildren = HtmlNodeNumChildren(pParent);
         nodeRemoveChild(HtmlNodeAsElement(pParent), pChild);
-        assert(nChildren == 1 + HtmlNodeNumChildren(pParent));
     }
 
     if (iBefore < 0) {
@@ -788,9 +786,10 @@ doAttributeHandler(pTree, pNode, zAttr, zValue)
     const char *zValue;
 {
     int rc = TCL_OK;
+    int eType = pNode->eTag;
     Tcl_HashEntry *pEntry;
 
-    pEntry = Tcl_FindHashEntry(&pTree->aAttributeHandler, (char*)(pNode->eTag));
+    pEntry = Tcl_FindHashEntry(&pTree->aAttributeHandler, (char*)eType);
     if (pEntry) {
         Tcl_Obj *pScript;
         pScript = (Tcl_Obj *)Tcl_GetHashValue(pEntry);
@@ -2908,6 +2907,9 @@ int HtmlTreeClear(pTree)
     HtmlDrawCleanup(pTree, &pTree->canvas);
     memset(&pTree->canvas, 0, sizeof(HtmlCanvas));
 
+    /* Free the contents of the search-cache */
+    HtmlCssSearchInvalidateCache(pTree);
+
     /* Free the tree representation - pTree->pRoot */
     freeNode(pTree, pTree->pRoot);
     pTree->pRoot = 0;
@@ -3175,6 +3177,7 @@ HtmlSequenceNodes(pTree)
     HtmlTree *pTree;
 {
     if (!pTree->isSequenceOk) {
+        pTree->iNextNode = 0;
         HtmlWalkTree(pTree, 0, sequenceCb, 0);
         pTree->isSequenceOk = 1;
     }

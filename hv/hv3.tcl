@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.170 2007/06/06 19:28:39 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.171 2007/06/07 17:09:20 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -1965,6 +1965,13 @@ snit::widget ::hv3::hv3 {
   delegate option -zoom             to myHtml
   delegate option -forcefontmetrics to myHtml
   delegate option -doublebuffer     to myHtml
+
+method search {args} {
+  for {set ii 0} {$ii < [info level]} {incr ii} {
+    # puts [info level $ii]
+  }
+  eval $myHtml search $args
+}
 }
 
 bind Hv3 <KeyPress-Up>     { %W yview scroll -1 units }

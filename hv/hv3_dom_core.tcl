@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.14 2007/06/06 15:56:39 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.15 2007/06/07 17:09:20 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Core
@@ -76,7 +76,7 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.14 2007/06/06 15:56:
   # containing no Nodes.
   #
   dom_get childNodes {
-    list object [list ::hv3::DOM::NodeList $myDom list]
+    list object [list ::hv3::DOM::NodeListC $myDom list]
   }
   dom_call hasChildNodes {THIS} {list boolean false}
 
@@ -143,7 +143,7 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.14 2007/06/06 15:56:
   #
   dom_get childNodes {
     set cmd [list $myHv3 node]
-    list object [list ::hv3::DOM::NodeList $myDom $cmd]
+    list object [list ::hv3::DOM::NodeListC $myDom $cmd]
   }
   dom_get firstChild {list object [$myDom node_to_dom [$myHv3 node]]}
   dom_get lastChild  {list object [$myDom node_to_dom [$myHv3 node]]}
@@ -219,8 +219,7 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.14 2007/06/06 15:56:
     # someone is going to pass ".id" and wonder why all the elements with
     # the "class" attribute set to "id" are returned.
     #
-    set cmd [list $myHv3 search $tag]
-    set nl [list ::hv3::DOM::NodeList $myDom $cmd]
+    set nl [list ::hv3::DOM::NodeListS $myDom [$myHv3 html] "" $tag]
     list transient $nl
   }
 }
@@ -295,7 +294,7 @@ set BaseList {ElementCSSInlineStyle WidgetNode Node NodePrototype EventTarget}
   dom_get nodeName {list string [string toupper [$myNode tag]]}
 
   dom_get childNodes {
-    list object [list ::hv3::DOM::NodeList $myDom [list $myNode children]]
+    list object [list ::hv3::DOM::NodeListC $myDom [list $myNode children]]
   }
 
   dom_todo ownerDocument
@@ -364,7 +363,7 @@ set BaseList {ElementCSSInlineStyle WidgetNode Node NodePrototype EventTarget}
 
   dom_get childNodes {
     set cmd [list $myNode children]
-    list object [list ::hv3::DOM::NodeList $myDom $cmd]
+    list object [list ::hv3::DOM::NodeListC $myDom $cmd]
   }
   dom_get lastChild {
     set f [lindex [$myNode children] end]
@@ -411,8 +410,7 @@ set BaseList {ElementCSSInlineStyle WidgetNode Node NodePrototype EventTarget}
 
   dom_call -string getElementsByTagName {THIS tagname} {
     set hv3 [$myDom node_to_hv3 $myNode]
-    set cmd [list $hv3 search $tagname -root $myNode]
-    set nl [list ::hv3::DOM::NodeList $myDom $cmd]
+    set nl [list ::hv3::DOM::NodeListS $myDom [$hv3 html] $myNode $tagname]
     list transient $nl
   }
 

@@ -282,5 +282,7 @@ void HtmlCssSelectorToString(CssSelector *, Tcl_Obj *);
 
 int HtmlCssTclNodeDynamics(Tcl_Interp *, HtmlNode *);
 
+int HtmlCssSelectorParse(HtmlTree *, int, const char *, CssStyleSheet **);
+
 #endif /* __CSS_H__ */
 

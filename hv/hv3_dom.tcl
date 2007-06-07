@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.54 2007/06/06 17:50:27 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.55 2007/06/07 17:09:20 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Snit types in this file:
@@ -1145,10 +1145,12 @@ foreach f [list \
 }
 set classlist [concat \
   Implementation                          \
-  HTMLCollection HTMLElement HTMLDocument \
+  HTMLCollectionC HTMLCollectionS         \
+  NodeListC NodeListS                     \
+  HTMLElement HTMLDocument \
   [::hv3::dom::getHTMLElementClassList]   \
   [::hv3::dom::getNSClassList]            \
-  Text NodePrototype NodeList             \
+  Text NodePrototype                      \
   CSSStyleDeclaration                     \
   Event MouseEvent                        \
   XMLHttpRequest XMLHttpRequestEvent      \

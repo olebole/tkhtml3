@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_containers.tcl,v 1.2 2007/06/05 15:34:14 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_containers.tcl,v 1.3 2007/06/07 17:09:20 danielk1977 Exp $)} 1 }
 
 # This file contains the implementation of the two DOM specific
 # container objects:
@@ -6,7 +6,9 @@ namespace eval hv3 { set {version($Id: hv3_dom_containers.tcl,v 1.2 2007/06/05 1
 #     NodeList               (DOM Core 1)
 #     HTMLCollection         (DOM HTML 1)
 #
-# Both are implemented as stateless js objects.
+# Both are implemented as stateless js objects. There are two 
+# implementations of NodeList - NodeListC (commands) and NodeListS
+# (selectors). Also HTMLCollectionC and HTMLCollectionS
 #
 
 
@@ -29,13 +31,10 @@ namespace eval hv3 { set {version($Id: hv3_dom_containers.tcl,v 1.2 2007/06/05 1
 #
 # work as expected.
 #
-::hv3::dom2::stateless HTMLCollection {} {
+::hv3::dom2::stateless HTMLCollectionC {} {
 
   # There are several variations on the role this object may play in
   # DOM level 1 Html:
-  #
-  #     Document.getElementsByTagName()
-  #     Element.getElementsByTagName()
   #
   #     HTMLDocument.getElementsByName()
   #
@@ -54,9 +53,6 @@ namespace eval hv3 { set {version($Id: hv3_dom_containers.tcl,v 1.2 2007/06/05 1
   #     HTMLTableSectionElement.rows
   #     HTMLTableRowElement.cells
   #
-  #     Node.childNodes
-  #     Node.attributes
-  #
   dom_parameter nodelistcmd
 
   # HTMLCollection.length
@@ -68,13 +64,13 @@ namespace eval hv3 { set {version($Id: hv3_dom_containers.tcl,v 1.2 2007/06/05 1
   # HTMLCollection.item()
   #
   dom_call -string item {THIS index} {
-    HTMLCollection_item $myDom $nodelistcmd $index
+    HTMLCollectionC_item $myDom $nodelistcmd $index
   }
 
   # HTMLCollection.namedItem()
   #
   dom_call -string namedItem {THIS name} {
-    HTMLCollection_namedItem $myDom $nodelistcmd $name
+    HTMLCollectionC_namedItem $myDom $nodelistcmd $name
   }
 
   # Handle an attempt to retrieve an unknown property.
@@ -90,10 +86,10 @@ namespace eval hv3 { set {version($Id: hv3_dom_containers.tcl,v 1.2 2007/06/05 1
     # containing the matches is returned.
     #
     if {[string is double $property]} {
-      set res [HTMLCollection_item $myDom $nodelistcmd $property]
+      set res [HTMLCollectionC_item $myDom $nodelistcmd $property]
     } else {
       set res [
-        HTMLCollection_getNodeHandlesByName $nodelistcmd $property
+        HTMLCollectionC_getNodeHandlesByName $nodelistcmd $property
       ]
       set nRet [llength $res]
       if {$nRet==0} {
@@ -102,9 +98,9 @@ namespace eval hv3 { set {version($Id: hv3_dom_containers.tcl,v 1.2 2007/06/05 1
         set res [list object [$myDom node_to_dom [lindex $res 0]]]
       } else {
         set getnodes [namespace code [list \
-          HTMLCollection_getNodeHandlesByName $nodelistcmd $property
+          HTMLCollectionC_getNodeHandlesByName $nodelistcmd $property
         ]]
-        set obj [list ::hv3::DOM::NodeList $myDom $getnodes]
+        set obj [list ::hv3::DOM::NodeListC $myDom $getnodes]
         set res [list object $obj]
       }
     }
@@ -114,7 +110,7 @@ namespace eval hv3 { set {version($Id: hv3_dom_containers.tcl,v 1.2 2007/06/05 1
 }
 
 namespace eval ::hv3::DOM {
-  proc HTMLCollection_getNodeHandlesByName {supersetcmd name} {
+  proc HTMLCollectionC_getNodeHandlesByName {supersetcmd name} {
     set nodelist [eval $supersetcmd]
     set ret [list]
     foreach node $nodelist {
@@ -126,7 +122,7 @@ namespace eval ::hv3::DOM {
     return $ret
   }
   
-  proc HTMLCollection_item {dom nodelistcmd index} {
+  proc HTMLCollectionC_item {dom nodelistcmd index} {
     set idx [format %.0f $index]
     set ret ""
     set node [lindex [eval $nodelistcmd] $idx]
@@ -136,7 +132,7 @@ namespace eval ::hv3::DOM {
     set ret
   }
   
-  proc HTMLCollection_namedItem {dom nodelistcmd name} {
+  proc HTMLCollectionC_namedItem {dom nodelistcmd name} {
     set nodelist [eval $nodelistcmd]
     
     foreach node $nodelist {
@@ -157,10 +153,74 @@ namespace eval ::hv3::DOM {
   }
 }
 
+::hv3::dom2::stateless HTMLCollectionS {} {
+
+  # Name of the tkhtml widget to evaluate [$myHtml search] with.
+  #
+  dom_parameter myHtml
+
+  # The following option is set to a CSS Selector to return the
+  # nodes in that make up the contents of this NodeList.
+  #
+  dom_parameter mySelector
+
+  # HTMLCollection.length
+  #
+  dom_get length {
+    list number [$myHtml search $mySelector -length]
+  }
+
+  # HTMLCollection.item()
+  #
+  dom_call -string item {THIS index} {
+    set node [$myHtml search $mySelector -index [expr {int($index)}]]
+    if {$node ne ""} { list object [$myDom node_to_dom $node] }
+  }
+
+  # HTMLCollection.namedItem()
+  #
+  dom_call -string namedItem {THIS name} {
+    set sel [format {%s[name="%s"]} $mySelector $name]
+    set node [$myHtml search $sel -index 0]
+    if {$node ne ""} { list object [$myDom node_to_dom $node] }
+  }
+
+  # Handle an attempt to retrieve an unknown property.
+  #
+  dom_get * {
+
+    # If $property looks like a number, treat it as an index into the list
+    # of widget nodes. 
+    #
+    # Otherwise look for nodes with the "name" or "id" attribute set 
+    # to the queried attribute name. If a single node is found, return
+    # it directly. If more than one have matching names or ids, a NodeList
+    # containing the matches is returned.
+    #
+    if {[string is double $property]} {
+      set node [$myHtml search $mySelector -index [expr {int($property)}]]
+      if {$node ne ""} { list object [$myDom node_to_dom $node] }
+    } else {
+      set name $property
+      set sel [format {%s[name="%s"],%s[id="%s"]} $mySelector $name $name]
+
+      set nNode [$myHtml search $sel -length]
+      if {$nNode > 0} {
+        if {$nNode == 1} {
+          list object [$myDom node_to_dom [$myHtml search $sel]]
+        } else {
+          list object [list \
+            ::hv3::DOM::NodeListC $myDom [list $myHtml search $sel]
+          ]
+        }
+      }
+    }
+  }
+}
 
 
 #-------------------------------------------------------------------------
-# DOM Type NodeList
+# DOM Type NodeListC
 #
 #     This object is used to store lists of child-nodes (property
 #     Node.childNodes). There are three variations, depending on the
@@ -170,7 +230,7 @@ namespace eval ::hv3::DOM {
 #         * Element node (children based on html widget node-handle)
 #         * Text or Attribute node (no children)
 #
-::hv3::dom2::stateless NodeList {} {
+::hv3::dom2::stateless NodeListC {} {
 
   # The following option is set to a command to return the html-widget nodes
   # that comprise the contents of this list. i.e. for the value of
@@ -183,7 +243,7 @@ namespace eval ::hv3::DOM {
   dom_call -string item {THIS index} {
     if {![string is double $index]} { return null }
     set idx [expr {int($index)}]
-    NodeList_item $myDom $myNodelistcmd $idx
+    NodeListC_item $myDom $myNodelistcmd $idx
   }
 
   dom_get length {
@@ -195,16 +255,69 @@ namespace eval ::hv3::DOM {
   #
   dom_get * {
     if {[string is integer $property]} {
-      NodeList_item $myDom $myNodelistcmd $property
+      NodeListC_item $myDom $myNodelistcmd $property
     }
   }
 }
 
 namespace eval ::hv3::DOM {
-  proc NodeList_item {dom nodelistcmd idx} {
+  proc NodeListC_item {dom nodelistcmd idx} {
     set children [eval $nodelistcmd]
     if {$idx < 0 || $idx >= [llength $children]} { return null }
     list object [$dom node_to_dom [lindex $children $idx]]
   }
 }
 
+#-------------------------------------------------------------------------
+# DOM Type NodeListS
+#
+#     This object is used to implement the NodeList collections
+#     returned by getElementsByTagName() and kin. It is a wrapper
+#     around [$html search].
+#
+::hv3::dom2::stateless NodeListS {} {
+
+  # Name of the tkhtml widget to evaluate [$myHtml search] with.
+  #
+  dom_parameter myHtml
+
+  # The following option is set to the root-node of the sub-tree
+  # to search with $mySelector. An empty string means search the
+  # whole tree.
+  #
+  dom_parameter myRoot
+
+  # The following option is set to a CSS Selector to return the
+  # nodes in that make up the contents of this NodeList.
+  #
+  dom_parameter mySelector
+
+  dom_call -string item {THIS index} {
+    if {![string is double $index]} { return null }
+    NodeListS_item $myDom $myHtml $mySelector $myRoot [expr {int($index)}]
+  }
+
+  dom_get length {
+    list number [$myHtml search $mySelector -length -root $myRoot]
+  }
+
+  # Unknown property request. If the property name looks like a number,
+  # invoke the NodeList.item() method. Otherwise, return undefined ("").
+  #
+  dom_get * {
+    if {[string is integer $property]} {
+      NodeListS_item $myDom $myHtml $mySelector $myRoot $property
+    }
+  }
+}
+
+namespace eval ::hv3::DOM {
+  proc NodeListS_item {dom html selector root idx} {
+    set N [$html search $selector -index $idx -root $root]
+    if {$N eq ""} {
+      list null
+    } else {
+      list object [$dom node_to_dom $N]
+    }
+  }
+}

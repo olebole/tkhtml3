@@ -140,6 +140,7 @@ typedef struct HtmlTextIter HtmlTextIter;
 typedef struct HtmlDamage HtmlDamage;
 
 typedef struct HtmlFragmentContext HtmlFragmentContext;
+typedef struct HtmlSearchCache HtmlSearchCache;
 
 #include "css.h"
 #include "htmlprop.h"
@@ -518,6 +519,11 @@ struct HtmlTree {
      * The image server object.
      */
     HtmlImageServer *pImageServer;
+
+    /*
+     * The search cache object.
+     */
+    HtmlSearchCache *pSearchCache;
 
     /* The following variables are used to stored the text of the current
      * document (i.e. the *.html file) as it is being parsed.

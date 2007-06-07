@@ -164,12 +164,19 @@ int HtmlCssInlineQuery(Tcl_Interp *, CssPropertySet *, Tcl_Obj *);
   CssProperty *HtmlCssPropertiesGet(CssProperties *, int, int*, int*);
 */
 
-Tcl_ObjCmdProc HtmlCssSearch;
 Tcl_ObjCmdProc HtmlCssStyleReport;
 
 void HtmlCssCheckDynamic(HtmlTree *);
 void HtmlCssFreeDynamics(HtmlElementNode *);
 int  HtmlCssTclNodeDynamics(Tcl_Interp *, HtmlNode *);
+
+/* The interface to the csssearch.c module. This module is responsible
+ * for implementation of the [$widget search] command.
+ */
+int HtmlCssSearchInit(HtmlTree *);
+int HtmlCssSearchShutdown(HtmlTree *);
+int HtmlCssSearchInvalidateCache(HtmlTree *);
+Tcl_ObjCmdProc HtmlCssSearch;
 
 #if 0
 

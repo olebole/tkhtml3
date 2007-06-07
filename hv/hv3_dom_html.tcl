@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.18 2007/06/04 08:22:31 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.19 2007/06/07 17:09:20 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Html
@@ -121,8 +121,8 @@ set BaseList {Document DocumentEvent Node NodePrototype EventTarget}
   #
   dom_call -string getElementsByName {THIS elementName} {
     set name [string map [list "\x22" "\x5C\x22"] $elementName]
-    set cmd [list $myHv3 search [subst -nocommands {[name="$name"]}]]
-    set nl [list ::hv3::DOM::NodeList $myDom $cmd]
+    set selector [subst -nocommands {[name="$name"]}]
+    set nl [list ::hv3::DOM::NodeListS $myDom [$myHv3 html] "" $selector]
     list transient $nl
   }
 
@@ -152,7 +152,8 @@ set BaseList {Document DocumentEvent Node NodePrototype EventTarget}
   # The HTMLDocument.body property (DOM level 1)
   #
   dom_get body {
-    set body [lindex [$myHv3 search body] 0]
+    # set body [lindex [$myHv3 search body] 0]
+    set body [lindex [[$myHv3 node] children] 1]
     list object [$myDom node_to_dom $body]
   }
 
@@ -203,7 +204,7 @@ set BaseList {Document DocumentEvent Node NodePrototype EventTarget}
 namespace eval ::hv3::DOM {
   proc HTMLDocument_Collection {dom hv3 selector} {
     set cmd [list $hv3 search $selector]
-    list object [list ::hv3::DOM::HTMLCollection $dom $cmd]
+    list object [list ::hv3::DOM::HTMLCollectionS $dom [$hv3 html] $selector]
   }
 }
 
@@ -425,7 +426,7 @@ namespace eval ::hv3::DOM {
   #
   dom_get elements {
     set cmd [subst -nocommands {[$myNode replace] controls}]
-    list object [list ::hv3::DOM::HTMLCollection $myDom $cmd]
+    list object [list ::hv3::DOM::HTMLCollectionC $myDom $cmd]
   }
 
   # Form control methods: submit() and reset().
@@ -572,7 +573,7 @@ namespace eval ::hv3::DOM {
 
   dom_get options {
     set cmd [list HTMLSelectElement_getOptions $myNode]
-    list object [list ::hv3::DOM::HTMLCollection $myDom $cmd]
+    list object [list ::hv3::DOM::HTMLCollectionC $myDom $cmd]
   }
 
   dom_get multiple {
@@ -866,7 +867,7 @@ namespace eval ::hv3::DOM {
 
   dom_get tBodies {
     set cmd [list HTMLTableElement_getTBodies $myNode]
-    list object [list ::hv3::DOM::HTMLCollection $myDom $cmd]
+    list object [list ::hv3::DOM::HTMLCollectionC $myDom $cmd]
   }
 
   element_attr align
@@ -913,7 +914,7 @@ namespace eval ::hv3::DOM {
 
   dom_get rows {
     set cmd [list HTMLTableSectionElement_getRows $myNode]
-    list object [list ::hv3::DOM::HTMLCollection $myDom $cmd]
+    list object [list ::hv3::DOM::HTMLCollectionC $myDom $cmd]
   }
 
   dom_todo insertRow
@@ -944,7 +945,7 @@ namespace eval ::hv3::DOM {
 
   dom_get cells {
     set cmd [list HTMLTableRowElement_getCells $myNode]
-    list object [list ::hv3::DOM::HTMLCollection $myDom $cmd]
+    list object [list ::hv3::DOM::HTMLCollectionC $myDom $cmd]
   }
 
   element_attr align

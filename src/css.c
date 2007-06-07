@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.116 2007/06/04 08:22:31 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.117 2007/06/07 17:09:20 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -2424,6 +2424,16 @@ HtmlCssParse(pText, origin, pStyleId, pImportCmd, ppStyle)
 }
 #endif
 
+int 
+HtmlCssSelectorParse(pTree, n, z, ppStyle)
+    HtmlTree *pTree;
+    int n;
+    const char *z;
+    CssStyleSheet **ppStyle;
+{
+    return cssParse(pTree, n, z, 0, 0, 0, 0, 0, ppStyle);
+}
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -4022,108 +4032,6 @@ void HtmlCssImport(pParse, pToken)
         Tcl_DecrRefCount(pEval);
         HtmlFree(p);
     }
-}
-
-struct CssSearch {
-  CssRule *pRuleList;
-  Tcl_Obj *pResult;
-  HtmlTree *pTree;
-  HtmlNode *pSearchRoot;
-};
-typedef struct CssSearch CssSearch;
-
-static int 
-cssSearchCallback(pTree, pNode, clientData)
-    HtmlTree *pTree; 
-    HtmlNode *pNode;
-    ClientData clientData;
-{
-    CssSearch *pSearch = (CssSearch *)clientData;
-    assert(pSearch->pRuleList);
-    assert(pSearch->pResult);
-    if (pNode != pSearch->pSearchRoot && 0 == HtmlNodeIsText(pNode)) {
-        CssRule *p;
-        for (
-            p = pSearch->pRuleList; 
-            p && 0 == HtmlCssSelectorTest(p->pSelector, pNode, 0);
-            p = p->pNext
-        );
-        if (p) {
-            Tcl_Obj *pCmd = HtmlNodeCommand(pSearch->pTree, pNode);
-            Tcl_ListObjAppendElement(0, pSearch->pResult, pCmd);
-        }
-    }
-    return HTML_WALK_DESCEND;
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * HtmlCssSearch --
- *
- *     widget search CSS-SELECTOR ?-root NODE?
- *
- * Results:
- *     None.
- *
- * Side effects:
- *
- *---------------------------------------------------------------------------
- */
-int 
-HtmlCssSearch(clientData, interp, objc, objv)
-    ClientData clientData;             /* The HTML widget */
-    Tcl_Interp *interp;                /* The interpreter */
-    int objc;                          /* Number of arguments */
-    Tcl_Obj *CONST objv[];             /* List of all arguments */
-{
-    HtmlTree *pTree = (HtmlTree *)clientData;
-    char *zOrig;
-    char *z;
-    int n;
-    int rc = TCL_OK;
-    CssStyleSheet *pStyle = 0;
-
-    /* Search only descendants of this node (NULL means search whole tree) */
-    HtmlNode *pSearchRoot = 0;
-
-    if (objc != 3 && (objc != 5 || strcmp(Tcl_GetString(objv[3]), "-root"))) {
-        Tcl_WrongNumArgs(interp, 2, objv, "CSS-SELECTOR ?-root NODE?");
-        return TCL_ERROR;
-    }
-    if (objc == 5) {
-        pSearchRoot = HtmlNodeGetPointer(pTree, Tcl_GetString(objv[4]));
-        if (!pSearchRoot) return TCL_ERROR;
-    }
-
-    zOrig = Tcl_GetStringFromObj(objv[2], &n);
-    assert(n == strlen(zOrig));
-    n += 14;
-    z = (char *)HtmlAlloc("temp", n);
-    sprintf(z, "%s {width:0}", zOrig);
-
-    cssParse(pTree, n, z, 0, 0, 0, 0, 0,&pStyle);
-    if (
-        !pStyle || 
-        !pStyle->pUniversalRules
-    ) {
-        rc = TCL_ERROR;
-        Tcl_AppendResult(interp, "Bad css selector: \"", zOrig, "\"", 0); 
-    } else {
-        CssSearch sSearch;
-        Tcl_Obj *pObj = Tcl_NewObj();
-        sSearch.pRuleList = pStyle->pUniversalRules;
-        sSearch.pResult = pObj;
-        sSearch.pTree = pTree;
-        sSearch.pSearchRoot = pSearchRoot;
-        HtmlWalkTree(pTree, pSearchRoot, cssSearchCallback, (ClientData)&sSearch);
-
-        Tcl_SetObjResult(interp, pObj);
-    }
-
-    HtmlCssStyleSheetFree(pStyle);
-    HtmlFree(z);
-    return rc;
 }
 
 
