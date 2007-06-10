@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.15 2007/06/07 17:09:20 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.16 2007/06/10 16:33:45 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Core
@@ -98,7 +98,9 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.15 2007/06/07 17:09:
   # Method to clone the node. Spec indicates that it is optional to
   # support this on for DOCUMENT nodes, hence the exception.
   #
-  dom_call cloneNode {THIS} {error "DOMException NOT_SUPPORTED_ERR"}
+  dom_call -string cloneNode {THIS isDeep} {
+    error "DOMException NOT_SUPPORTED_ERR"
+  }
 }
 
 ::hv3::dom2::stateless Implementation {} {
@@ -259,6 +261,8 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.15 2007/06/07 17:09:
   dom_get previousSibling {WidgetNode_Sibling $myDom $myNode -1}
   dom_get nextSibling     {WidgetNode_Sibling $myDom $myNode +1}
 
+  dom_call_todo cloneNode
+
   dom_get ownerDocument { 
     list object [$myDom node_to_document $myNode]
   }
@@ -304,10 +308,9 @@ set BaseList {ElementCSSInlineStyle WidgetNode Node NodePrototype EventTarget}
 
     set new [GetNodeFromObj [lindex $newChild 1]]
 
+    set ref ""
     if {[lindex $refChild 0] eq "object"} {
       set ref [GetNodeFromObj [lindex $refChild 1]]
-    } else {
-      set ref [lindex [$myNode children] 0]
     }
 
     if {$ref ne ""} {
@@ -416,6 +419,12 @@ set BaseList {ElementCSSInlineStyle WidgetNode Node NodePrototype EventTarget}
 
   dom_todo normalize
 
+  # Introduced in Core DOM Level 2:
+  #
+  dom_call -string hasAttribute {THIS attr} {
+    set rc [catch {$myNode attribute $attr}]
+    expr {$rc ? 0 : 1}
+  }
 }
 namespace eval ::hv3::DOM {
   proc Element_getAttributeString {node name def} {
@@ -553,8 +562,6 @@ set BaseList {CharacterData WidgetNode Node NodePrototype EventTarget}
   dom_get nodeType  {list number 3}           ;#     Node.TEXT_NODE -> 3
   dom_get nodeName  {list string #text}
   dom_get nodeValue {list string [$myNode text -pre] }
-
-  dom_call_todo cloneNode
 
   # End of Node interface overrides.
   #---------------------------------

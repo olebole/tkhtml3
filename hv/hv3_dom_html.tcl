@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.19 2007/06/07 17:09:20 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.20 2007/06/10 16:33:45 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Html
@@ -286,6 +286,11 @@ namespace eval ::hv3::DOM {
   #    are the height and width of the scrollable areas. scrollLeft/scrollTop
   #    are the current scroll offsets.
   #
+  #    One of the <HTML> or <BODY> nodes returns values for these attributes
+  #    corresponding to the scrollbars and scrollable region for the whole
+  #    document. In firefox standards mode, it is the <HTML> element.
+  #    In quirks mode, the <BODY>. In Hv3 it is always the <HTML> element.
+  #
   dom_get offsetLeft { 
     list number [lindex [HTMLElement_offsetBox $myDom $myNode] 0]
   }
@@ -324,14 +329,49 @@ namespace eval ::hv3::DOM {
     list number [expr [lindex $bbox 2] - [lindex $bbox 0] - $bt - $bb]
   }
 
-  # TODO: See comments above for what these are supposed to do.
-  dom_get scrollTop    { list number 0 }
-  dom_get scrollLeft   { list number 0 }
-  dom_get scrollWidth  { eval [SELF] Get clientWidth }
-  dom_get scrollHeight { eval [SELF] Get clientHeight }
+  # See comments above for what these are supposed to do.
+  #
+  dom_get scrollTop    { 
+    list number [HTMLElement_scrollTop [$myNode html] $myNode]
+  }
+  dom_get scrollLeft   { 
+    list number [HTMLElement_scrollLeft [$myNode html] $myNode]
+  }
+  dom_get scrollWidth  {
+    list number [HTMLElement_scrollWidth [$myNode html] $myNode]
+  }
+  dom_get scrollHeight { 
+    list number [HTMLElement_scrollHeight [$myNode html] $myNode]
+  }
 }
 
 namespace eval ::hv3::DOM {
+
+  # Return the scrollable width and height of the window $html.
+  #
+  proc HTMLElement_scrollWidth {html node} {
+    if {[$html node] ne $node} {return 0}
+    foreach {x1 x2} [$html xview] {}
+    set w [expr {double([winfo width $html])}]
+    expr {int(0.5 + ($w/($x2-$x1)))}
+  }
+
+  proc HTMLElement_scrollHeight {html node} {
+    if {[$html node] ne $node} {return 0}
+    foreach {y1 y2} [$html yview] {}
+    set h [expr {double([winfo height $html])}]
+    expr {int(0.5 + ($h/($y2-$y1)))}
+  }
+
+  proc HTMLElement_scrollTop {html node} {
+    foreach {y1 y2} [$html yview] {}
+    expr {int(0.5 + $y1 * double([HTMLElement_scrollHeight $html $node]))}
+  }
+
+  proc HTMLElement_scrollLeft {html node} {
+    foreach {x1 x2} [$html xview] {}
+    expr {int(0.5 + $x1 * double([HTMLElement_scrollWidth $html $node]))}
+  }
 
   proc HTMLElement_offsetParent {node} {
     for {set N [$node parent]} {$N ne ""} {set N [$N parent]} {

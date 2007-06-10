@@ -442,6 +442,7 @@ struct HtmlDamage {
 struct HtmlCallback {
     int flags;                  /* Comb. of HTML_XXX bitmasks defined below */
     int inProgress;             /* Prevent recursive invocation */
+    int isForce;                /* Not an idle callback */
 
     /* Snapshot of layout before the latest round of changes. This is
      * used to reduce the area repainted during "animation" changes.

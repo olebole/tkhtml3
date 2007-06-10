@@ -716,6 +716,22 @@ newSeeTclObject(pTclSeeInterp, pTclCommand)
     return p;
 }
 
+
+static int evalObjv(pTcl, nWord, apWord)
+    Tcl_Interp *pTcl;
+    int nWord;
+    Tcl_Obj **apWord;
+{
+#if 0
+    int ii;
+    for (ii = 0; ii < nWord; ii++){
+         printf("%s ", Tcl_GetString(apWord[ii]));
+    }
+    printf("\n");
+#endif
+    return Tcl_EvalObjv(pTcl, nWord, apWord, TCL_EVAL_GLOBAL);
+} 
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -767,7 +783,7 @@ callSeeTclMethod(pTcl, p, zMethod, pProperty, pVal)
         nArg++;
     }
 
-    rc = Tcl_EvalObjv(pTcl, p->nWord + nArg, p->apWord, TCL_EVAL_GLOBAL);
+    rc = evalObjv(pTcl, p->nWord + nArg, p->apWord);
 
     if (pMethod) Tcl_DecrRefCount(pMethod);
     if (pProp) Tcl_DecrRefCount(pProp);
@@ -1806,7 +1822,7 @@ tclCallOrConstruct(zMethod, pInterp, pObj, pThis, argc, argv, pRes)
     for (ii = 0; ii < (argc + 2); ii++) {
         Tcl_IncrRefCount(p->apWord[p->nWord + ii]);
     }
-    rc = Tcl_EvalObjv(pTclInterp, p->nWord + argc + 2, p->apWord, flags);
+    rc = evalObjv(pTclInterp, p->nWord + argc + 2, p->apWord);
     for (ii = 0; ii < (argc + 2); ii++) {
         Tcl_DecrRefCount(p->apWord[p->nWord + ii]);
     }

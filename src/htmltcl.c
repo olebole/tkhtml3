@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.161 2007/06/10 07:53:04 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.162 2007/06/10 16:33:45 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -429,6 +429,7 @@ callbackHandler(clientData)
         HtmlCssCheckDynamic(pTree);
     }
     HtmlCheckRestylePoint(pTree);
+    pTree->cb.flags &= ~HTML_DYNAMIC;
 
     /* If the HtmlCallback.pRestyle variable is set, then recalculate 
      * style information for the sub-tree rooted at HtmlCallback.pRestyle. 
@@ -490,20 +491,16 @@ callbackHandler(clientData)
         layoutClock = clock();
         HtmlLayout(pTree);
         layoutClock = clock() - layoutClock;
-
-#if 0
-        if (!pTree->cb.pSnapshot) {
-            /* Discard any damage info, and redraw the whole viewport */
+        if (0 && pTree->cb.isForce) {
             pTree->cb.flags |= HTML_SCROLL;
-            pTree->cb.flags &= ~HTML_DAMAGE;
-            while (pD) {
-                HtmlDamage *pNext = pD->pNext;
-                HtmlFree(pD);
-                pD = pNext;
-            }
-            pTree->cb.pDamage = 0;
         }
-#endif
+    }
+    /* pTree->cb.flags &= ~HTML_LAYOUT; */
+
+    if (0 && pTree->cb.isForce) {
+        assert(pTree->cb.inProgress);
+        pTree->cb.inProgress = 0;
+        return;
     }
 
     if (pTree->cb.pSnapshot) {
@@ -535,7 +532,8 @@ callbackHandler(clientData)
     /* If the HTML_SCROLL flag is set, scroll the viewport. */
     if (pTree->cb.flags & HTML_SCROLL) {
         clock_t scrollClock = 0;              
-        int force_redraw = (pTree->cb.flags & HTML_LAYOUT);
+        /* int force_redraw = (pTree->cb.flags & HTML_LAYOUT); */
+        int force_redraw = 0;
         HtmlLog(pTree, "ACTION", "SetViewport: x=%d y=%d force=%d nFixed=%d", 
             p->iScrollX, p->iScrollY, force_redraw, pTree->nFixedBackground
         );
@@ -546,7 +544,7 @@ callbackHandler(clientData)
     }
 
     if (pTree->cb.flags & (HTML_SCROLL|HTML_LAYOUT)) {
-      doScrollCallback(pTree);
+        doScrollCallback(pTree);
     }
 
     pTree->cb.flags = 0;
@@ -606,10 +604,18 @@ void
 HtmlCallbackForce(pTree)
     HtmlTree *pTree;
 {
-    if ((pTree->cb.flags & ~HTML_DAMAGE) && !pTree->cb.inProgress) {
+    if (
+        (pTree->cb.flags & ~(HTML_DAMAGE|HTML_SCROLL|HTML_NODESCROLL)) && 
+        (!pTree->cb.inProgress) 
+    ) {
         ClientData clientData = (ClientData)pTree;
-        Tcl_CancelIdleCall(callbackHandler, clientData);
+        assert(!pTree->cb.isForce);
+        pTree->cb.isForce = 1;
         callbackHandler(clientData);
+        pTree->cb.isForce = 0;
+        if (pTree->cb.flags == 0) {
+            Tcl_CancelIdleCall(callbackHandler, clientData);
+        }
     }
 }
 
