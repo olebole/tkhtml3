@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.247 2007/04/24 13:12:22 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.248 2007/06/10 07:53:03 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -2077,7 +2077,10 @@ wrapContent(pLayout, pBox, pContent, pNode)
 
     w = box.iLeft + pContent->width + box.iRight;
     h = box.iTop + pContent->height + box.iBottom;
-    HtmlDrawBox(&pBox->vc, x, y, w, h, pNode, 0, pLayout->minmaxTest);
+
+    HtmlLayoutDrawBox(
+        pLayout->pTree, &pBox->vc, x, y, w, h, pNode, 0, pLayout->minmaxTest
+    );
 
     x += box.iLeft;
     y += box.iTop;
@@ -2164,6 +2167,31 @@ wrapContent(pLayout, pBox, pContent, pNode)
             iRelLeft + margin.margin_left + iLeftBorder, 
             iRelTop + iTopBorder, pNode
         );
+    }
+}
+
+void 
+HtmlLayoutDrawBox(pTree, pCanvas, x, y, w, h, pNode, flags, size_only)
+    HtmlTree *pTree;
+    HtmlCanvas *pCanvas;
+    int x;
+    int y;
+    int w;
+    int h;
+    HtmlNode *pNode;
+    int flags;
+    int size_only;
+{
+    if (size_only) {
+        HtmlDrawBox(pCanvas, x, y, w, h, pNode, flags, size_only, 0);
+    } else {
+        HtmlElementNode *pElem = HtmlNodeAsElement(pNode); 
+        HtmlCanvasItem *pNew;
+        HtmlCanvasItem *pItem = pElem->pBox;
+        pNew = HtmlDrawBox(pCanvas, x, y, w, h, pNode, flags, size_only, pItem);
+        HtmlDrawCanvasItemRelease(pTree, pItem);
+        HtmlDrawCanvasItemReference(pNew);
+        pElem->pBox = pNew;
     }
 }
 
@@ -3208,7 +3236,7 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
 
 #define LAYOUT_CACHE_N_USE_COND 6
 #ifdef LAYOUT_CACHE_DEBUG
-#define LAYOUT_CACHE_N_STORE_COND 3
+#define LAYOUT_CACHE_N_STORE_COND 9
 static int aDebugUseCacheCond[LAYOUT_CACHE_N_USE_COND + 1];
 static int aDebugStoreCacheCond[LAYOUT_CACHE_N_STORE_COND + 1];
 #endif
@@ -3290,8 +3318,15 @@ normalFlowLayoutFromCache(pLayout, pBox, pElem, pNormal, iLeft, iRight)
         COND(5, iLeft == pCache->iFloatLeft && iRight == pCache->iFloatRight) &&
         COND(6, HtmlFloatListIsConstant(pFloat, 0, pCache->iHeight))
     )) {
+        if (pLayoutCache) {
+            HtmlDrawCleanup(pLayout->pTree, &pCache->canvas);
+        }
         return 0;
     }
+
+#ifdef LAYOUT_CACHE_DEBUG
+    aDebugUseCacheCond[0]++;
+#endif
 
     /* Hooray! A cached layout can be used. */
     assert(!pBox->vc.pFirst);
@@ -3403,9 +3438,7 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
      * not the contents of pCache are currently valid.
      */
     if (!pElem->pLayoutCache) {
-        const int nBytes = sizeof(HtmlLayoutCache);
-        pElem->pLayoutCache = 
-            (HtmlLayoutCache *)HtmlClearAlloc("HtmlLayoutCache", nBytes);
+        pElem->pLayoutCache = HtmlNew(HtmlLayoutCache);
     }
     pLayoutCache = pElem->pLayoutCache;
     pCache = &pLayoutCache->aCache[pLayout->minmaxTest];
@@ -3496,15 +3529,23 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
 
     normalFlowCbDelete(pNormal, &sCallback);
 
+#undef COND
+#ifdef LAYOUT_CACHE_DEBUG
+  #define COND(x, y) ( (y) || ((aDebugStoreCacheCond[x]++) < 0) )
+#else
+  #define COND(x, y) (y)
+#endif
+
     if (
-        pLayout->pTree->options.layoutcache && 
-        pCache->iFloatLeft == left &&
-        pCache->iFloatRight == right &&
-        HtmlFloatListIsConstant(pFloat, pBox->height, overhang) &&
-        pLayout->pAbsolute == pAbsolute &&
-        pLayout->pFixed == pFixed &&
-        !HtmlNodeBefore(pNode) && !HtmlNodeAfter(pNode) && pNode->pParent &&
-        pNode->iNode >= 0 && 0
+        COND(1, pLayout->pTree->options.layoutcache) && 
+        COND(2, pCache->iFloatLeft == left) &&
+        COND(3, pCache->iFloatRight == right) &&
+        COND(4, HtmlFloatListIsConstant(pFloat, pBox->height, overhang)) &&
+        COND(5, pLayout->pAbsolute == pAbsolute) &&
+        COND(6, pLayout->pFixed == pFixed) &&
+        COND(7, !HtmlNodeBefore(pNode) && !HtmlNodeAfter(pNode)) && 
+        COND(8, pNode->pParent) &&
+        COND(9, pNode->iNode >= 0)
     ) {
         HtmlDrawOrigin(&pBox->vc);
         HtmlDrawCopyCanvas(&pCache->canvas, &pBox->vc);
@@ -3530,18 +3571,6 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
 
 #ifdef LAYOUT_CACHE_DEBUG
         aDebugStoreCacheCond[0]++;
-    } else {
-        if (0 == pLayout->pTree->options.layoutcache) {
-            aDebugStoreCacheCond[1]++;
-        } else if (!(
-            pCache->iFloatLeft == left &&
-            pCache->iFloatRight == right &&
-            HtmlFloatListIsConstant(pFloat, pBox->height, overhang)
-        )) {
-            aDebugStoreCacheCond[2]++;
-        } else {
-            aDebugStoreCacheCond[3]++;
-        }
 #endif
     }
 
@@ -3909,22 +3938,6 @@ HtmlLayout(pTree)
         pTree->canvas.right = MAX(pTree->canvas.right, sBox.width);
         pTree->canvas.bottom = MAX(pTree->canvas.bottom, sBox.height);
 
-#if 0
-printf("c.b = %d ", pTree->canvas.bottom);
-        pTree->canvas.bottom = MAX(0,
-            margin.margin_top + box.iTop + 
-            sContent.height + 
-            box.iBottom + margin.margin_bottom
-        );
-printf("final = %d\n", pTree->canvas.bottom);
-#endif
-#if 0
-        pTree->canvas.right = MAX(0, 
-            margin.margin_left + box.iLeft + 
-            sContent.width + 
-            box.iRight + margin.margin_right
-        );
-#endif
         HtmlFloatListDelete(sNormal.pFloat);
     }
 

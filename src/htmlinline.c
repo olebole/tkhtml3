@@ -66,7 +66,7 @@
  * 
  *     HtmlInlineContextIsEmpty()
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.46 2007/01/08 09:56:16 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.47 2007/06/10 07:53:03 danielk1977 Exp $";
 
 /* The InlineBox and InlineMetrics types are only used within this file.
  * The InlineContext type is only used within this file, but opaque handles
@@ -689,7 +689,13 @@ pLayout, pCanvas, pBorder, x1, x2, iVerticalOffset, drb, aRepX, nRepX)
     iHeight += (pBorder->box.iTop + pBorder->box.iBottom) + 1;
 
     if (pBorder->pParent) {
-        HtmlDrawBox(pCanvas, x1, iTop, x2 - x1, iHeight, pNode, flags, mmt);
+        if (flags == 0) {
+            HtmlLayoutDrawBox(pLayout->pTree, 
+                pCanvas, x1, iTop, x2-x1, iHeight, pNode, flags, mmt
+            );
+        } else {
+            HtmlDrawBox(pCanvas, x1, iTop, x2-x1, iHeight, pNode, flags, mmt,0);
+        }
     }
 
     x1 += (dlb ? pBorder->box.iLeft : 0);

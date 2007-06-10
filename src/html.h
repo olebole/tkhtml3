@@ -295,6 +295,7 @@ struct HtmlNode {
     Html_u8 eTag;                  /* Tag type */
     HtmlNode *pParent;             /* Parent of this node */
     int iNode;                     /* Node index */
+    int iSnapshot;                 /* Last changed snapshot */
     HtmlNodeCmd *pNodeCmd;         /* Tcl command for this node */
 };
 
@@ -353,6 +354,8 @@ struct HtmlElementNode {
     HtmlNodeReplacement *pReplacement;     /* Replaced object, if any */
     HtmlLayoutCache *pLayoutCache;         /* Cached layout, if any */
     HtmlNodeScrollbars *pScrollbar;        /* Internal scrollbars, if any */
+
+    HtmlCanvasItem *pBox;
 };
 
 /* Alias for HtmlNodeXXX() methods */
@@ -419,6 +422,8 @@ struct HtmlOptions {
 void HtmlLog(HtmlTree *, CONST char *, CONST char *, ...);
 void HtmlTimer(HtmlTree *, CONST char *, CONST char *, ...);
 
+typedef struct HtmlCanvasSnapshot HtmlCanvasSnapshot;
+
 struct HtmlDamage {
   int x;
   int y;
@@ -437,6 +442,12 @@ struct HtmlDamage {
 struct HtmlCallback {
     int flags;                  /* Comb. of HTML_XXX bitmasks defined below */
     int inProgress;             /* Prevent recursive invocation */
+
+    /* Snapshot of layout before the latest round of changes. This is
+     * used to reduce the area repainted during "animation" changes.
+     * (drag and drop, menus etc. in javascript).
+     */
+    HtmlCanvasSnapshot *pSnapshot;
 
     /* HTML_DYNAMIC */
     HtmlNode *pDynamic;         /* Recalculate dynamic CSS for this node */
@@ -472,6 +483,8 @@ void HtmlCallbackRestyle(HtmlTree *, HtmlNode *);
 
 void HtmlCallbackScrollX(HtmlTree *, int);
 void HtmlCallbackScrollY(HtmlTree *, int);
+
+void HtmlCallbackDamageNode(HtmlTree *, HtmlNode *);
 
 /*
  * An instance of the following structure stores state for the tree
@@ -621,6 +634,7 @@ struct HtmlTree {
     int iNextNode;       /* Next node index to allocate */
 
     HtmlCallback cb;                /* See structure definition comments */
+    int iLastSnapshotId;            /* Last snapshot id allocated */
     Tcl_TimerToken delayToken;
 
     /* 
@@ -705,7 +719,8 @@ int HtmlDrawTextLength(HtmlCanvas*);
 
 #define CANVAS_BOX_OPEN_LEFT    0x01      /* Open left-border */
 #define CANVAS_BOX_OPEN_RIGHT   0x02      /* Open right-border */
-void HtmlDrawBox(HtmlCanvas *, int, int, int, int, HtmlNode *, int, int);
+HtmlCanvasItem *HtmlDrawBox(
+HtmlCanvas *, int, int, int, int, HtmlNode *, int, int, HtmlCanvasItem *);
 void HtmlDrawLine(HtmlCanvas *, int, int, int, int, int, HtmlNode *, int);
 
 void HtmlDrawWindow(HtmlCanvas *, HtmlNode *, int, int, int, int, int);
@@ -724,6 +739,13 @@ int HtmlDrawGetMarker(HtmlCanvas*, HtmlCanvasItem *, int*, int*);
 
 void HtmlDrawAddLinebox(HtmlCanvas*, int, int);
 int HtmlDrawFindLinebox(HtmlCanvas*, int*, int*);
+
+HtmlCanvasSnapshot *HtmlDrawSnapshot(HtmlTree *, int);
+void HtmlDrawSnapshotDamage(HtmlTree *, HtmlCanvasSnapshot *);
+void HtmlDrawSnapshotFree(HtmlTree *, HtmlCanvasSnapshot *);
+
+void HtmlDrawCanvasItemRelease(HtmlTree *, HtmlCanvasItem *);
+void HtmlDrawCanvasItemReference(HtmlCanvasItem *);
 
 void HtmlWidgetDamageText(HtmlTree *, HtmlNode *, int, HtmlNode *, int);
 int HtmlWidgetNodeTop(HtmlTree *, HtmlNode *);
@@ -813,6 +835,9 @@ HtmlAttributes * HtmlAttributesNew(int, char const **, int *, int);
 
 void HtmlParseFragment(HtmlTree *, const char *);
 void HtmlSequenceNodes(HtmlTree *);
+
+void HtmlFontReference(HtmlFont *);
+void HtmlFontRelease(HtmlTree *, HtmlFont *);
 
 /* HTML Tokenizer function. */
 int HtmlTokenize(HtmlTree *, char const *, int,

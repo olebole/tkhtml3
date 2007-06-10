@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.160 2007/06/07 17:09:20 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.161 2007/06/10 07:53:04 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -374,6 +374,10 @@ HtmlCheckRestylePoint(pTree)
  *
  * callbackHandler --
  *
+ *     This is called, usually from an idle-callback handler, to update
+ *     the widget display. This may involve all manner of stuff, depending
+ *     on the bits set in the HtmlTree.cb.flags mask:
+ *
  * Results:
  *     None.
  *
@@ -391,7 +395,6 @@ callbackHandler(clientData)
 
     clock_t styleClock = 0;              
     clock_t layoutClock = 0;
-
     int offscreen;
 
     assert(
@@ -419,8 +422,7 @@ callbackHandler(clientData)
     /* If the HTML_DYNAMIC flag is set, then call HtmlCssCheckDynamic()
      * to recalculate all the dynamic CSS rules that may apply to 
      * the sub-tree rooted at HtmlCallback.pDynamic. CssCheckDynamic() may
-     * call either HtmlCallbackDamage() or HtmlCallbackRestyle() if any
-     * computed style values are modified.
+     * call HtmlCallbackRestyle() if any computed style values are modified.
      */
     if (!pTree->delayToken && (pTree->cb.flags & HTML_DYNAMIC)) {
         assert(pTree->cb.pDynamic);
@@ -440,6 +442,7 @@ callbackHandler(clientData)
         HtmlNode *pRestyle = pTree->cb.pRestyle;
 
         pTree->cb.pRestyle = 0;
+        assert(pTree->cb.pSnapshot);
         assert(pRestyle);
         styleClock = clock();
 
@@ -464,10 +467,12 @@ callbackHandler(clientData)
     }
     pTree->cb.flags &= ~HTML_RESTYLE;
 
+#if 0
     if (pTree->delayToken) {
         pTree->cb.inProgress = 0;
         return;
     }
+#endif
 
     /* If the HTML_LAYOUT flag is set, run the layout engine. If the layout
      * engine is run, then also set the HTML_SCROLL bit in the
@@ -477,24 +482,39 @@ callbackHandler(clientData)
      */
     assert(pTree->cb.pDamage == 0 || pTree->cb.flags & HTML_DAMAGE);
     if (pTree->cb.flags & HTML_LAYOUT) {
-        HtmlDamage *pD = pTree->cb.pDamage;
+        HtmlDamage *pD;
 
+        assert(pTree->cb.pSnapshot);
+
+        pD = pTree->cb.pDamage;
         layoutClock = clock();
         HtmlLayout(pTree);
         layoutClock = clock() - layoutClock;
-        pTree->cb.flags |= HTML_SCROLL;
 
-        /* Discard any damage info, as the whole viewport will be redrawn */
-        pTree->cb.flags &= ~HTML_DAMAGE;
-        while (pD) {
-            HtmlDamage *pNext = pD->pNext;
-            HtmlFree(pD);
-            pD = pNext;
+#if 0
+        if (!pTree->cb.pSnapshot) {
+            /* Discard any damage info, and redraw the whole viewport */
+            pTree->cb.flags |= HTML_SCROLL;
+            pTree->cb.flags &= ~HTML_DAMAGE;
+            while (pD) {
+                HtmlDamage *pNext = pD->pNext;
+                HtmlFree(pD);
+                pD = pNext;
+            }
+            pTree->cb.pDamage = 0;
         }
-        pTree->cb.pDamage = 0;
+#endif
     }
 
-    /* If the HTML_DAMAGE flag is set, repaint a window region. */
+    if (pTree->cb.pSnapshot) {
+        HtmlDrawSnapshotDamage(pTree, pTree->cb.pSnapshot);
+    }
+
+    /* Throw away the current layout snapshot, if any. */
+    HtmlDrawSnapshotFree(pTree, pTree->cb.pSnapshot);
+    pTree->cb.pSnapshot = 0;
+
+    /* If the HTML_DAMAGE flag is set, repaint one or more window regions. */
     assert(pTree->cb.pDamage == 0 || pTree->cb.flags & HTML_DAMAGE);
     if (pTree->cb.flags & HTML_DAMAGE) {
         HtmlDamage *pD = pTree->cb.pDamage;
@@ -650,6 +670,15 @@ upgradeRestylePoint(ppRestyle, pNode)
     return 1;
 }
 
+static void
+snapshotLayout(pTree)
+    HtmlTree *pTree;
+{
+    if (pTree->cb.pSnapshot == 0) {
+        pTree->cb.pSnapshot = HtmlDrawSnapshot(pTree, 0);
+    }
+}
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -676,11 +705,13 @@ HtmlCallbackRestyle(pTree, pNode)
     HtmlNode *pNode;
 {
     if (pNode) {
+        snapshotLayout(pTree);
         if (upgradeRestylePoint(&pTree->cb.pRestyle, pNode)) {
             if (!pTree->cb.flags) {
                 Tcl_DoWhenIdle(callbackHandler, (ClientData)pTree);
             }
             pTree->cb.flags |= HTML_RESTYLE;
+            assert(pTree->cb.pSnapshot);
         }
     }
 
@@ -690,7 +721,6 @@ HtmlCallbackRestyle(pTree, pNode)
      * is clearly suspect.
      */
     HtmlTextInvalidate(pTree);
-
     HtmlCssSearchInvalidateCache(pTree);
 }
 
@@ -753,13 +783,39 @@ HtmlCallbackLayout(pTree, pNode)
 {
     if (pNode) {
         HtmlNode *p;
+        snapshotLayout(pTree);
         if (!pTree->cb.flags) {
             Tcl_DoWhenIdle(callbackHandler, (ClientData)pTree);
         }
         pTree->cb.flags |= HTML_LAYOUT;
+        assert(pTree->cb.pSnapshot);
         for (p = pNode; p; p = HtmlNodeParent(p)) {
             HtmlLayoutInvalidateCache(pTree, p);
         }
+    }
+}
+
+static int setSnapshotId(pTree, pNode)
+    HtmlTree *pTree;
+    HtmlNode *pNode;
+{
+    pNode->iSnapshot = pTree->iLastSnapshotId;
+    return HTML_WALK_DESCEND;
+}
+
+void 
+HtmlCallbackDamageNode(pTree, pNode)
+    HtmlTree *pTree;
+    HtmlNode *pNode;
+{
+    if (pTree->cb.pSnapshot) {
+        if (pNode->iSnapshot != pTree->iLastSnapshotId){
+            HtmlWalkTree(pTree, pNode, setSnapshotId, 0);
+        }
+    } else {
+        int x, y, w, h;
+        HtmlWidgetNodeBox(pTree, pNode, &x, &y, &w, &h);
+        HtmlCallbackDamage(pTree,x-pTree->iScrollX,y-pTree->iScrollY,w,h,0);
     }
 }
 
@@ -767,6 +823,10 @@ HtmlCallbackLayout(pTree, pNode)
  *---------------------------------------------------------------------------
  *
  * HtmlCallbackDamage --
+ *
+ *     Schedule a region to be repainted during the next callback.
+ *     The x and y arguments are relative to the viewport, not the
+ *     document origin.
  *
  * Results:
  *     None.

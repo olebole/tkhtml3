@@ -1,6 +1,6 @@
-namespace eval hv3 { set {version($Id: hv3_log.tcl,v 1.13 2007/06/05 15:34:14 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_log.tcl,v 1.14 2007/06/10 07:53:03 danielk1977 Exp $)} 1 }
 
-namespace eval hv3 { set {version($Id: hv3_log.tcl,v 1.13 2007/06/05 15:34:14 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_log.tcl,v 1.14 2007/06/10 07:53:03 danielk1977 Exp $)} 1 }
 
 source [file join [file dirname [info script]] hv3_widgets.tcl]
 
@@ -29,8 +29,16 @@ proc ::hv3::destroy_log_window {html} {
   $html configure -logcmd ""
 }
 
+set ::hv3::event_log_subjects {
+  ACTION
+}
+
 proc ::hv3::log_window_log {args} {
   if {[string match *ENGINE [lindex $args 0]]} return
-  .event_log.text insert end "$args\n"
+
+  set subject [lindex $args 0]
+  if {[lsearch -exact $::hv3::event_log_subjects $subject] >= 0} {
+    .event_log.text insert end "$args\n"
+  }
 }
 

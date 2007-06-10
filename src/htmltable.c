@@ -34,7 +34,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.117 2007/04/10 18:27:19 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.118 2007/06/10 07:53:04 danielk1977 Exp $";
 
 
 #include "htmllayout.h"
@@ -765,7 +765,10 @@ tableDrawRow(pNode, row, pContext)
             w1 += pData->aWidth[i];
         }
         w1 += ((pData->nCol - 1) * pData->border_spacing);
-        HtmlDrawBox(&pData->pBox->vc, x1, y1, w1, h1, pNode, 0, mmt);
+        // HtmlDrawBox(&pData->pBox->vc, x1, y1, w1, h1, pNode, 0, mmt, 0);
+        HtmlLayoutDrawBox(pData->pLayout->pTree, 
+            &pData->pBox->vc, x1, y1, w1, h1, pNode, 0, mmt
+        );
     }
     CHECK_INTEGER_PLAUSIBILITY(pData->pBox->vc.bottom);
     CHECK_INTEGER_PLAUSIBILITY(pData->pBox->vc.right);
@@ -794,7 +797,10 @@ tableDrawRow(pNode, row, pContext)
             w1 += ((pCell->colspan-1) * pData->border_spacing);
             h1 = pData->aY[pCell->finrow] - pData->border_spacing - y1;
             if (pCell->pNode->iNode >= 0) {
-                HtmlDrawBox(pCanvas, x1, y1, w1, h1, pCell->pNode, 0, mmt);
+                // HtmlDrawBox(pCanvas, x1, y1, w1, h1, pCell->pNode, 0, mmt, 0);
+                HtmlLayoutDrawBox(pData->pLayout->pTree, 
+                    pCanvas, x1, y1, w1, h1, pCell->pNode, 0, mmt
+                );
             }
             nodeGetBoxProperties(pLayout, pCell->pNode, 0, &box);
 

@@ -397,8 +397,11 @@ void HtmlComputedValuesInit(
 HtmlTree*, HtmlNode*, HtmlNode*, HtmlComputedValuesCreator*);
 int HtmlComputedValuesSet(HtmlComputedValuesCreator *, int, CssProperty*);
 HtmlComputedValues *HtmlComputedValuesFinish(HtmlComputedValuesCreator *);
-void HtmlComputedValuesRelease(HtmlTree *, HtmlComputedValues*);
+
 void HtmlComputedValuesFreeProperty(HtmlComputedValuesCreator*, CssProperty *);
+
+void HtmlComputedValuesRelease(HtmlTree *, HtmlComputedValues*);
+void HtmlComputedValuesReference(HtmlComputedValues *);
 
 /*
  * The following two functions are used to initialise and destroy the following

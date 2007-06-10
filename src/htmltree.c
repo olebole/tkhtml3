@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.131 2007/06/07 17:09:20 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.132 2007/06/10 07:53:04 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -301,6 +301,8 @@ freeNode(pTree, pNode)
             HtmlFree(pElem->apChildren);
 
             clearReplacement(pTree, pElem);
+
+            HtmlDrawCanvasItemRelease(pTree, pElem->pBox);
 
         } else {
             HtmlTextNode *pTextNode = HtmlNodeAsText(pNode);
@@ -580,7 +582,8 @@ nodeDeorphanize(pTree, pNode)
 }
 
 static void
-nodeInsertChild(pElem, iBefore, pChild)
+nodeInsertChild(pTree, pElem, iBefore, pChild)
+    HtmlTree *pTree;
     HtmlElementNode *pElem;
     int iBefore;
     HtmlNode *pChild;
@@ -591,6 +594,16 @@ nodeInsertChild(pElem, iBefore, pChild)
     /* Unlink pChild from it's parent node. */
     if (HtmlNodeParent(pChild)) {
         HtmlNode *pParent = HtmlNodeParent(pChild);
+
+        /* Before removing a child, invalidate the layout of the parent */
+        HtmlCallbackLayout(pTree, pChild);
+
+        /* Clear all the style and layout information cached in the
+         * sub-tree rooted at the child node. At present anything
+         * moved to the orphan tree has all style/layout info cleared.
+         */
+        HtmlNodeClearRecursive(pTree, pChild);
+
         nodeRemoveChild(HtmlNodeAsElement(pParent), pChild);
     }
 
@@ -961,7 +974,7 @@ treeAddFosterText(pTree, pTextNode)
         HtmlNode *pFosterParent;
         int iBefore;
         pFosterParent = findFosterParent(pTree, &iBefore);
-        nodeInsertChild(
+        nodeInsertChild(pTree,
             (HtmlElementNode *)pFosterParent, iBefore, (HtmlNode *)pTextNode
         );
     }
@@ -1003,7 +1016,7 @@ treeAddFosterElement(pTree, eTag, pAttr)
         pNew = (HtmlNode *)HtmlNew(HtmlElementNode);
         ((HtmlElementNode *)pNew)->pAttributes = pAttr;
         pNew->eTag = eTag;
-        nodeInsertChild((HtmlElementNode *)pFosterParent, iBefore, pNew);
+        nodeInsertChild(pTree, (HtmlElementNode *)pFosterParent, iBefore, pNew);
     }
 
     pNew->iNode = pTree->iNextNode++;
@@ -1994,7 +2007,7 @@ nodeInsertCmd(pNode, objc, objv)
                 if (pChild->iNode == HTML_NODE_ORPHAN) {
                     nodeDeorphanize(pTree, pChild);
                 }
-                nodeInsertChild((HtmlElementNode *)pNode, iBefore, pChild);
+                nodeInsertChild(pTree,(HtmlElementNode*)pNode, iBefore, pChild);
             }
         }
     }
@@ -2907,6 +2920,10 @@ int HtmlTreeClear(pTree)
     HtmlDrawCleanup(pTree, &pTree->canvas);
     memset(&pTree->canvas, 0, sizeof(HtmlCanvas));
 
+    /* Free any snapshot */
+    HtmlDrawSnapshotFree(pTree, pTree->cb.pSnapshot);
+    pTree->cb.pSnapshot = 0;
+
     /* Free the contents of the search-cache */
     HtmlCssSearchInvalidateCache(pTree);
 
@@ -3032,7 +3049,7 @@ fragmentAddText(pTree, pTextNode, iOffset)
         /* If there is a fragment root node, add the new text node
          * as the right-most child of HtmlFragmentContext.pCurrent.
          */
-        nodeInsertChild(pFragment->pCurrent, -1, (HtmlNode *)pTextNode);
+        nodeInsertChild(pTree, pFragment->pCurrent, -1, (HtmlNode *)pTextNode);
     } else {
         /* The text node becomes the a sub-tree all on it's own. */
         pFragment->pRoot = (HtmlNode *)pTextNode;
@@ -3079,7 +3096,7 @@ fragmentAddElement(pTree, eType, pAttributes, iOffset)
     pElem->node.eTag = eType;
 
     if (pFragment->pCurrent) {
-        nodeInsertChild(pFragment->pCurrent, -1, (HtmlNode *)pElem);
+        nodeInsertChild(pTree, pFragment->pCurrent, -1, (HtmlNode *)pElem);
     } else {
         assert(!pFragment->pRoot);
         pFragment->pRoot = (HtmlNode *)pElem;

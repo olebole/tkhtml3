@@ -2,9 +2,11 @@
 #include "html.h"
 #include "cssInt.h"
 
-static const char rcsid[] = "$Id: csssearch.c,v 1.1 2007/06/07 17:09:20 danielk1977 Exp $";
+static const char rcsid[] = "$Id: csssearch.c,v 1.2 2007/06/10 07:53:03 danielk1977 Exp $";
 
-/*
+/*-----------------------------------------------------------------------
+ *
+ * 
  * Public interface to this file:
  *
  *     Startup and shutdown:
@@ -57,7 +59,6 @@ cssSearchCb(pTree, pNode, clientData)
 {
     CssSearch *pSearch = (CssSearch *)clientData;
     assert(pSearch->pRuleList);
-    assert(pSearch->pResult);
 
     if (pNode != pSearch->pSearchRoot && 0 == HtmlNodeIsText(pNode)) {
         CssRule *p;

@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.113 2007/06/06 17:50:27 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.114 2007/06/10 07:53:04 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -2423,8 +2423,25 @@ HtmlComputedValuesFinish(p)
     return pValues;
 }
 
-static void 
-decrementFontRef(pTree, pFont)
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlFontRelease --
+ *
+ *     Decrement the refcount of font pFont. Fonts are deleted when
+ *     the refcount reaches 0.
+ *
+ * Results: 
+ *
+ *     None.
+ *
+ * Side effects:
+ *     May delete pFont.
+ *
+ *---------------------------------------------------------------------------
+ */
+void 
+HtmlFontRelease(pTree, pFont)
     HtmlTree *pTree;
     HtmlFont *pFont;
 {
@@ -2439,6 +2456,39 @@ decrementFontRef(pTree, pFont)
             HtmlFree(pFont);
         }
     }
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlFontReference --
+ *
+ *     Increment the refcount of font pFont.
+ *
+ * Results: 
+ *
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+void 
+HtmlFontReference(pFont)
+    HtmlFont *pFont;
+{
+    assert(pFont);
+    assert(pFont->nRef >= 0);
+    pFont->nRef++;
+}
+
+void 
+HtmlComputedValuesReference(pValues)
+    HtmlComputedValues *pValues;
+{
+    assert(pValues->nRef > 0);
+    pValues->nRef++;
 }
 
 void 
@@ -2460,7 +2510,7 @@ HtmlComputedValuesRelease(pTree, pValues)
             pEntry = Tcl_FindHashEntry(&pTree->aValues, (CONST char *)pValues);
             assert(pValues == &pTree->pPrototypeCreator->values || pEntry);
     
-            decrementFontRef(pTree, pValues->fFont);
+            HtmlFontRelease(pTree, pValues->fFont);
             decrementColorRef(pTree, pValues->cColor);
             decrementColorRef(pTree, pValues->cBackgroundColor);
             decrementColorRef(pTree, pValues->cBorderTopColor);

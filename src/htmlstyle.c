@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlstyle.c,v 1.52 2007/04/24 13:12:22 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlstyle.c,v 1.53 2007/06/10 07:53:04 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -396,6 +396,23 @@ checkStackSort(pTree, aStack, nStack)
 }
 #endif
 
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlRestackNodes --
+ *
+ *     This function is called from with the callbackHandler() routine
+ *     after updating the computed properties of the tree.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
 void
 HtmlRestackNodes(pTree)
     HtmlTree *pTree;
@@ -461,7 +478,7 @@ printf("Stack %d: %s %s\n", iTmp,
  */
 static int 
 styleNode(pTree, pNode, clientData)
-    HtmlTree *pTree; 
+    HtmlTree *pTree;
     HtmlNode *pNode;
     ClientData clientData;
 {
@@ -490,6 +507,11 @@ styleNode(pTree, pNode, clientData)
          * has been styled before. The stylesheet configuration may have
          * changed since then, so we have to recalculate pNode->pProperties,
          * but the "style" attribute is constant so pStyle is never invalid.
+         *
+         * Actually, the style attribute can be modified by the user, using 
+         * the [$node attribute style "new-value] command. In this case
+         * the style attribute is treated as a special case and the 
+         * pElem->pStyle structure is invalidated/recalculated as required.
          */
         if (!pElem->pStyle) {
             zStyle = HtmlNodeAttr(pNode, "style");
@@ -503,6 +525,14 @@ styleNode(pTree, pNode, clientData)
         HtmlComputedValuesRelease(pTree, pElem->pPreviousValues);
         pElem->pPreviousValues = pV;
 
+        /* Compare the new computed property set with the old. If
+         * ComputedValuesCompare() returns 0, then the properties have
+         * not changed (in any way that affects rendering). If it
+         * returns 1, then some aspect has changed that does not
+         * require a relayout (i.e. 'color', or 'text-decoration'). 
+         * If it returns 2, then something has changed that does require
+         * relayout (i.e. 'display', 'font-size').
+         */
         redrawmode = HtmlComputedValuesCompare(pElem->pPropertyValues, pV);
 
         /* Regenerate any :before and :after content */
@@ -518,10 +548,10 @@ styleNode(pTree, pNode, clientData)
 
         if (!pV || redrawmode == 2) {
             HtmlCallbackLayout(pTree, pNode);
-        } else if (redrawmode == 1 && !(pTree->cb.flags & HTML_LAYOUT)) {
-            int x, y, w, h;
-            HtmlWidgetNodeBox(pTree, pNode, &x, &y, &w, &h);
-            HtmlCallbackDamage(pTree,x-pTree->iScrollX,y-pTree->iScrollY,w,h,0);
+            HtmlCallbackDamageNode(pTree, pNode);
+        } else if (redrawmode == 1) {
+            /* HtmlCallbackLayout(pTree, pNode); */
+            HtmlCallbackDamageNode(pTree, pNode);
         }
 
         addStackingInfo(pTree, pElem);
