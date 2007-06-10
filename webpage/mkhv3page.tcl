@@ -38,10 +38,11 @@ puts [subst -novariables {
 <h2><a name="overview">Overview</a></h2>
   <p>
     Hv3 is not yet as sophisticated as some popular web browsers. Most
-    notably, it does not support either javascript or plugins (although
-    it can run most "tclets" created for the 
-    <a href="http://www.tcl.tk/software/plugin/">tcl plugin<a>). It
-    does support the following:
+    notably, it does not support plugins (although it can run many 
+    "tclets" created for the 
+    <a href="http://www.tcl.tk/software/plugin/">tcl plugin<a>) and
+    the experimental javascript implementation is still in it's infancy. 
+    It does support the following:
   </p>
 
     <ul>
@@ -51,6 +52,9 @@ puts [subst -novariables {
       <li>HTTP cookies,
       <li>HTTP "Location" and "Refresh" headers.
     </ul>
+
+  <p>
+    And many other HTML/HTTP related features.
 
   <p>
     <a href="screenshot1.gif">

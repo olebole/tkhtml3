@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.171 2007/06/07 17:09:20 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.172 2007/06/10 10:33:41 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -1074,12 +1074,17 @@ snit::widget ::hv3::hv3 {
     catch { $myBase             destroy }
     catch { $myDom              destroy }
 
+    # Cancel any refresh-event that may be pending.
     if {$myRefreshEventId ne ""} {
       after cancel $myRefreshEventId
       set myRefreshEventId ""
     }
 
+    # Cancel any idle callbacks that might be pending. Otherwise
+    # Tcl will throw a background error when they are delivered and
+    # this object no longer exists.
     after cancel [mymethod MightBeComplete]
+    after cancel [mymethod InvalidateNodecache]
   }
 
   # Return the location URI of the widget.

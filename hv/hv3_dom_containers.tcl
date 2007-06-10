@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_containers.tcl,v 1.3 2007/06/07 17:09:20 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_containers.tcl,v 1.4 2007/06/10 10:33:41 danielk1977 Exp $)} 1 }
 
 # This file contains the implementation of the two DOM specific
 # container objects:
@@ -202,7 +202,8 @@ namespace eval ::hv3::DOM {
       if {$node ne ""} { list object [$myDom node_to_dom $node] }
     } else {
       set name $property
-      set sel [format {%s[name="%s"],%s[id="%s"]} $mySelector $name $name]
+      set s $mySelector
+      set sel [format {%s[name="%s"],%s[id="%s"]} $s $name $s $name]
 
       set nNode [$myHtml search $sel -length]
       if {$nNode > 0} {

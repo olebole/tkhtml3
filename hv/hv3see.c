@@ -272,6 +272,13 @@ struct SeeTclObject {
     struct SEE_native native;   /* Base class - store native properties here */
     Tcl_Obj *pObj;              /* Tcl script for object */
 
+    /* The data stored in these variables is based on the data in pObj. 
+     * See the allocWordArray() function for details. 
+     */
+    Tcl_Obj **apWord;
+    int nWord;
+    int nAllocWord;
+
     /* This is used by objects while they reside in the 
      * SeeInterp.aTclObject[] hash table. 
      */
@@ -321,6 +328,50 @@ static struct SEE_objectclass *getVtbl();
 static void interpTimeoutInit(SeeInterp *);
 static void interpTimeoutCleanup(SeeInterp *);
 #include "hv3timeout.c"
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * allocWordArray --
+ *
+ * Results: 
+ *     See above.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int
+allocWordArray(p, pSeeTclObject, nExtra)
+    SeeInterp *p;
+    SeeTclObject *pSeeTclObject;
+    int nExtra;
+{
+    if ( 
+        (pSeeTclObject->nWord == 0) || 
+        ((pSeeTclObject->nAllocWord - pSeeTclObject->nWord) < nExtra)
+    ) {
+        int n;
+        int nByte;
+        int rc;
+        Tcl_Obj **apWord;
+        Tcl_Interp *interp = p->pTclInterp;
+
+        rc = Tcl_ListObjGetElements(interp, pSeeTclObject->pObj, &n, &apWord);
+        if (rc != TCL_OK) {
+            return rc;
+        }
+
+        pSeeTclObject->nWord = n;
+        pSeeTclObject->nAllocWord = n + nExtra;
+        nByte = (sizeof(Tcl_Obj*) * (n+nExtra));
+        pSeeTclObject->apWord = SEE_malloc_string(&p->interp, nByte);
+        memcpy(pSeeTclObject->apWord, apWord, nByte);
+    }
+
+    return TCL_OK;
+}
 
 /*
  *---------------------------------------------------------------------------
@@ -478,6 +529,27 @@ lookupObjectRef(pTclSeeInterp, iKey)
 /*
  *---------------------------------------------------------------------------
  *
+ * stringToObj --
+ *
+ *     Create a Tcl object containing a copy of the string pString. The
+ *     returned object has a ref-count of 0.
+ *
+ * Results:
+ *
+ * Side effects:
+ *
+ *---------------------------------------------------------------------------
+ */
+static Tcl_Obj *
+stringToObj(pString)
+    struct SEE_string *pString;
+{
+    return Tcl_NewUnicodeObj(pString->data, pString->length);
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * primitiveValueToTcl --
  *
  *     Convert the SEE value *pValue to it's Tcl representation, assuming
@@ -539,9 +611,7 @@ primitiveValueToTcl(pTclSeeInterp, pValue)
 
         case SEE_STRING:
             aTclValues[0] = Tcl_NewStringObj("string", -1);
-            aTclValues[1] = Tcl_NewUnicodeObj(
-                p->u.string->data, p->u.string->length
-            );
+            aTclValues[1] = stringToObj(p->u.string);
             break;
 
         case SEE_OBJECT: 
@@ -640,9 +710,69 @@ newSeeTclObject(pTclSeeInterp, pTclCommand)
             getVtbl(),
             pTclSeeInterp->interp.Object_prototype       
     );
+    allocWordArray(pTclSeeInterp, p, 5);
 
     iNumSeeTclObject++;
     return p;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * callSeeTclMethod --
+ *
+ *     This is a helper function used to call the following methods of
+ *     the supplied SeeTclObject (argument p):
+ *
+ *         Get Put CanPut HasProperty Delete DefaultValue Enumerator
+ *
+ *     The other methods (Call and Construct) are invoked via XXX.
+ *
+ * Results: 
+ *     See above.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+callSeeTclMethod(pTcl, p, zMethod, pProperty, pVal)
+    Tcl_Interp *pTcl;                      /* Tcl Interpreter context */
+    SeeTclObject *p;                       /* Object to call method of */
+    const char *zMethod;                   /* Method name */
+    struct SEE_string *pProperty;          /* First argument (or null) */
+    Tcl_Obj *pVal;                         /* Second argument (or null) */
+{
+    Tcl_Obj *pMethod;
+    Tcl_Obj *pProp = 0;
+    int nArg = 1;
+    int rc;
+
+    assert(p->nAllocWord - p->nWord >= 3);
+
+    pMethod = Tcl_NewStringObj(zMethod, -1);
+    Tcl_IncrRefCount(pMethod);
+    p->apWord[p->nWord] = pMethod;
+
+    if (pProperty) {
+        pProp = stringToObj(pProperty);
+        Tcl_IncrRefCount(pProp);
+        p->apWord[p->nWord + nArg] = pProp;
+        nArg++;
+    }
+
+    if (pVal) {
+        p->apWord[p->nWord + nArg] = pVal;
+        nArg++;
+    }
+
+    rc = Tcl_EvalObjv(pTcl, p->nWord + nArg, p->apWord, TCL_EVAL_GLOBAL);
+
+    if (pMethod) Tcl_DecrRefCount(pMethod);
+    if (pProp) Tcl_DecrRefCount(pProp);
+
+    return rc;
 }
 
 /*
@@ -678,16 +808,8 @@ finalizeObject(pPtr, pContext)
 
     if (pContext) {
         /* Execute the Tcl Finalize hook. Do nothing with the result thereof. */
-        int rc;
-        Tcl_Obj *pFinalize;
         Tcl_Interp *pTclInterp = (Tcl_Interp *)pContext;
-
-        pFinalize = Tcl_DuplicateObj(p->pObj);
-        Tcl_IncrRefCount(pFinalize);
-        Tcl_ListObjAppendElement(0, pFinalize, Tcl_NewStringObj("Finalize", 8));
-        rc = Tcl_EvalObjEx(pTclInterp, pFinalize, TCL_GLOBAL_ONLY);
-        Tcl_DecrRefCount(pFinalize);
-
+        int rc = callSeeTclMethod(pTclInterp, p, "Finalize", 0, 0);
         if (rc != TCL_OK) {
             printf("WARNING Seetcl: Finalize script failed for %s: %s\n", 
                 Tcl_GetString(p->pObj), Tcl_GetStringResult(pTclInterp)
@@ -1072,7 +1194,7 @@ handleJavascriptError(pTclSeeInterp, pTry)
     SEE_ToString(pSeeInterp, SEE_CAUGHT(*pTry), &error);
     if (SEE_VALUE_GET_TYPE(&error) == SEE_STRING) {
         struct SEE_string *pS = error.u.string;
-        Tcl_Obj *pErrorString = Tcl_NewUnicodeObj(pS->data, pS->length);
+        Tcl_Obj *pErrorString = stringToObj(pS);
         Tcl_ListObjAppendElement(0, pError, pErrorString);
     } else {
         Tcl_ListObjAppendElement(0, pError, Tcl_NewStringObj("N/A", -1));
@@ -1091,9 +1213,7 @@ handleJavascriptError(pTclSeeInterp, pTry)
         if (!pFile) {
             Tcl_ListObjAppendElement(0, pError, Tcl_NewStringObj("N/A", -1));
         } else {
-            Tcl_ListObjAppendElement(0, pError, 
-                Tcl_NewUnicodeObj(pFile->data, pFile->length)
-            );
+            Tcl_ListObjAppendElement(0, pError, stringToObj(pFile));
         }
         Tcl_ListObjAppendElement(0, pError, 
             Tcl_NewIntObj(pTrace->call_location->lineno)
@@ -1112,9 +1232,7 @@ handleJavascriptError(pTclSeeInterp, pTry)
                 Tcl_ListObjAppendElement(0,pError,Tcl_NewStringObj("call",-1));
                 pName = SEE_function_getname(pSeeInterp, pTrace->callee);
                 if (pName) {
-                    Tcl_ListObjAppendElement(0, pError, 
-                        Tcl_NewUnicodeObj(pName->data, pName->length)
-                    );
+                    Tcl_ListObjAppendElement(0, pError, stringToObj(pName));
                 } else {
                     Tcl_ListObjAppendElement(0,pError,Tcl_NewStringObj("?",-1));
                 }
@@ -1460,9 +1578,7 @@ interpCmd(clientData, pTclInterp, objc, objv)
             struct SEE_value res;
             objToValue(pTclSeeInterp, objv[2], &val);
             SEE_ToString(pSeeInterp, &val, &res);
-            Tcl_SetObjResult(pTclInterp, Tcl_NewUnicodeObj(
-                res.u.string->data, res.u.string->length
-            ));
+            Tcl_SetObjResult(pTclInterp, stringToObj(res.u.string));
             break;
         }
 
@@ -1539,9 +1655,8 @@ seeTraceHook(pSeeInterp, pThrowLoc, pContext, event)
         Tcl_ListObjAppendElement(0, pEval, Tcl_NewStringObj(zEvent, -1));
 
         if (pThrowLoc->filename) {
-            Tcl_ListObjAppendElement(0, pEval, Tcl_NewUnicodeObj(
-                pThrowLoc->filename->data, pThrowLoc->filename->length
-            ));
+            Tcl_Obj *pFilename = stringToObj(pThrowLoc->filename);
+            Tcl_ListObjAppendElement(0, pEval, pFilename);
         } else {
             Tcl_ListObjAppendElement(0, pEval, Tcl_NewObj());
         }
@@ -1609,27 +1724,6 @@ tclSeeInterp(clientData, interp, objc, objv)
     return TCL_OK;
 }
 
-/*
- *---------------------------------------------------------------------------
- *
- * stringToObj --
- *
- *     Create a Tcl object containing a copy of the string pString. The
- *     returned object has a ref-count of 0.
- *
- * Results:
- *
- * Side effects:
- *
- *---------------------------------------------------------------------------
- */
-static Tcl_Obj *
-stringToObj(pString)
-    struct SEE_string *pString;
-{
-    return Tcl_NewUnicodeObj(pString->data, pString->length);
-}
-
 static void throwTclError(p, rc)
     struct SEE_interpreter *p;
     int rc;
@@ -1660,6 +1754,69 @@ static void throwTclError(p, rc)
 }
 
 
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * callSeeTclFunction --
+ *
+ *     This is a helper function used to call the following methods of
+ *     the supplied SeeTclObject (argument p):
+ *
+ *         Call Construct
+ *
+ *     TODO: Fix the "$this" argument. 
+ *
+ * Results: 
+ *     See above.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void 
+tclCallOrConstruct(zMethod, pInterp, pObj, pThis, argc, argv, pRes)
+    const char *zMethod;
+    struct SEE_interpreter *pInterp;
+    struct SEE_object *pObj;
+    struct SEE_object *pThis;
+    int argc;
+    struct SEE_value **argv;
+    struct SEE_string *pRes;
+{
+    SeeTclObject *p = (SeeTclObject *)pObj;
+    SeeInterp *pTclSeeInterp = (SeeInterp *)pInterp;
+    Tcl_Interp *pTclInterp = pTclSeeInterp->pTclInterp;
+    int rc;
+    int ii;
+    int nObj = 0;
+    const int flags = TCL_EVAL_GLOBAL;
+
+    /* Make sure there is enough space to marshall the arguments */
+    allocWordArray(pTclSeeInterp, p, argc + 2);
+
+    p->apWord[p->nWord]     = Tcl_NewStringObj(zMethod, -1);
+    p->apWord[p->nWord + 1] = Tcl_NewStringObj("THIS", 4);
+    for (ii = 0; ii < argc; ii++) {
+        Tcl_Obj *pArg = argValueToTcl(pTclSeeInterp, argv[ii], &nObj);
+        p->apWord[p->nWord+2+ii] = pArg;
+    }
+
+    for (ii = 0; ii < (argc + 2); ii++) {
+        Tcl_IncrRefCount(p->apWord[p->nWord + ii]);
+    }
+    rc = Tcl_EvalObjv(pTclInterp, p->nWord + argc + 2, p->apWord, flags);
+    for (ii = 0; ii < (argc + 2); ii++) {
+        Tcl_DecrRefCount(p->apWord[p->nWord + ii]);
+    }
+    removeTransientRefs(pTclSeeInterp, nObj);
+    throwTclError(pInterp, rc);
+
+    rc = objToValue(pTclSeeInterp, Tcl_GetObjResult(pTclInterp), pRes);
+    throwTclError(pInterp, rc);
+}
+
 static void 
 SeeTcl_Get(pInterp, pObj, pProp, pRes)
     struct SEE_interpreter *pInterp;
@@ -1667,10 +1824,9 @@ SeeTcl_Get(pInterp, pObj, pProp, pRes)
     struct SEE_string *pProp;
     struct SEE_value *pRes;
 {
-    SeeTclObject *pObject = (SeeTclObject *)pObj;
+    SeeTclObject *p = (SeeTclObject *)pObj;
     SeeInterp *pTclSeeInterp = (SeeInterp *)pInterp;
     Tcl_Interp *pTclInterp = pTclSeeInterp->pTclInterp;
-    Tcl_Obj *pScript = Tcl_DuplicateObj(pObject->pObj);
 
     Tcl_Obj *pScriptRes;
     int nRes;
@@ -1680,56 +1836,49 @@ SeeTcl_Get(pInterp, pObj, pProp, pRes)
      *
      *     $obj Get $property
      */
-    Tcl_IncrRefCount(pScript);
-    Tcl_ListObjAppendElement(pTclInterp, pScript, Tcl_NewStringObj("Get", 3));
-    Tcl_ListObjAppendElement(pTclInterp, pScript, stringToObj(pProp));
-    rc = Tcl_EvalObjEx(pTclInterp, pScript, TCL_GLOBAL_ONLY);
-    Tcl_DecrRefCount(pScript);
+    rc = callSeeTclMethod(pTclInterp, p, "Get", pProp, 0);
+    throwTclError(pInterp, rc);
 
-    if (rc == TCL_OK) {
-        pScriptRes = Tcl_GetObjResult(pTclInterp);
-        rc = Tcl_ListObjLength(pTclInterp, pScriptRes, &nRes);
-    }
+    pScriptRes = Tcl_GetObjResult(pTclInterp);
+    rc = Tcl_ListObjLength(pTclInterp, pScriptRes, &nRes);
+    throwTclError(pInterp, rc);
 
-    if (rc == TCL_OK) {
-        if (nRes == 0) {
-            /* If the [$obj Get] script returned a list of zero length (i.e.
-             * an empty string), then look up the property in the 
-             * pObject->native hash table.
-             */
-            struct SEE_object *pNative = (struct SEE_object*)(&pObject->native);
-            SEE_native_get(pInterp, pNative, pProp, pRes);
-        } else {
-            Tcl_IncrRefCount(pScriptRes);
-            rc = objToValue(pTclSeeInterp, pScriptRes, pRes);
-            Tcl_DecrRefCount(pScriptRes);
-        }
+    if (nRes == 0) {
+        /* If the [$obj Get] script returned a list of zero length (i.e.
+         * an empty string), then look up the property in the 
+         * p->native hash table.
+         */
+        struct SEE_object *pNative = (struct SEE_object*)(&p->native);
+        SEE_native_get(pInterp, pNative, pProp, pRes);
+    } else {
+        Tcl_IncrRefCount(pScriptRes);
+        rc = objToValue(pTclSeeInterp, pScriptRes, pRes);
+        Tcl_DecrRefCount(pScriptRes);
     }
 
     throwTclError(pInterp, rc);
 }
 
 static void 
-SeeTcl_Put(pInterp, pObj, pProp, pVal, flags)
+SeeTcl_Put(pInterp, pObj, pProp, pValue, flags)
     struct SEE_interpreter *pInterp;
     struct SEE_object *pObj;
     struct SEE_string *pProp;
-    struct SEE_value *pVal;
+    struct SEE_value *pValue;
     int flags;
 {
     SeeTclObject *pObject = (SeeTclObject *)pObj;
     SeeInterp *p = (SeeInterp *)pInterp;
     Tcl_Interp *pTclInterp = p->pTclInterp;
-    Tcl_Obj *pScript = Tcl_DuplicateObj(pObject->pObj);
     int rc;
+
+    Tcl_Obj *pVal;
     int nObj = 0;
 
-    Tcl_ListObjAppendElement(pTclInterp, pScript, Tcl_NewStringObj("Put", 3));
-    Tcl_ListObjAppendElement(pTclInterp, pScript, stringToObj(pProp));
-    Tcl_ListObjAppendElement(pTclInterp, pScript, argValueToTcl(p,pVal,&nObj));
-
-    rc = Tcl_EvalObjEx(pTclInterp, pScript, TCL_GLOBAL_ONLY);
+    pVal = argValueToTcl(p, pValue, &nObj);
+    rc = callSeeTclMethod(pTclInterp, pObject, "Put", pProp, pVal);
     removeTransientRefs(p, nObj);
+    throwTclError(pInterp, rc);
 
     /* If the result of the [$obj Put] script was the literal string 
      * "native", then store this property in the pObject->native hash 
@@ -1738,10 +1887,8 @@ SeeTcl_Put(pInterp, pObj, pProp, pVal, flags)
     if (0 == strcmp(Tcl_GetStringResult(pTclInterp), "native")) {
         struct SEE_object *pNative = (struct SEE_object *)(&pObject->native);
         flags |= SEE_ATTR_INTERNAL;
-        SEE_native_put(&p->interp, pNative, pProp, pVal, flags);
+        SEE_native_put(&p->interp, pNative, pProp, pValue, flags);
     }
-
-    throwTclError(pInterp, rc);
 }
 
 static int 
@@ -1753,23 +1900,18 @@ SeeTcl_CanPut(pInterp, pObj, pProp)
     SeeTclObject *pObject = (SeeTclObject *)pObj;
     SeeInterp *pTclSeeInterp = (SeeInterp *)pInterp;
     Tcl_Interp *pTclInterp = pTclSeeInterp->pTclInterp;
-    Tcl_Obj *pScript = Tcl_DuplicateObj(pObject->pObj);
     int rc;
     int ret;
 
-    Tcl_ListObjAppendElement(pTclInterp, pScript, Tcl_NewStringObj("CanPut",6));
-    Tcl_ListObjAppendElement(pTclInterp, pScript, 
-            Tcl_NewUnicodeObj(pProp->data, pProp->length)
-    );
+    rc = callSeeTclMethod(pTclInterp, pObject, "CanPut", pProp, 0);
+    throwTclError(pInterp, rc);
 
-    rc = Tcl_EvalObjEx(pTclInterp, pScript, TCL_GLOBAL_ONLY);
-    if (rc==TCL_OK) {
-        Tcl_Obj *pRes = Tcl_GetObjResult(pTclInterp);
-        rc = Tcl_GetBooleanFromObj(pTclInterp, pRes, &ret);
-    }
+    Tcl_Obj *pRes = Tcl_GetObjResult(pTclInterp);
+    rc = Tcl_GetBooleanFromObj(pTclInterp, pRes, &ret);
     throwTclError(pInterp, rc);
     return ret;
 }
+
 static int 
 SeeTcl_HasProperty(pInterp, pObj, pProp)
     struct SEE_interpreter *pInterp;
@@ -1779,18 +1921,10 @@ SeeTcl_HasProperty(pInterp, pObj, pProp)
     SeeTclObject *pObject = (SeeTclObject *)pObj;
     SeeInterp *pTclSeeInterp = (SeeInterp *)pInterp;
     Tcl_Interp *pTclInterp = pTclSeeInterp->pTclInterp;
-    Tcl_Obj *pScript = Tcl_DuplicateObj(pObject->pObj);
     int rc;
     int ret = 0;
 
-    Tcl_ListObjAppendElement(pTclInterp, pScript, 
-            Tcl_NewStringObj("HasProperty", 11)
-    );
-    Tcl_ListObjAppendElement(pTclInterp, pScript, 
-            Tcl_NewUnicodeObj(pProp->data, pProp->length)
-    );
-
-    rc = Tcl_EvalObjEx(pTclInterp, pScript, TCL_GLOBAL_ONLY);
+    rc = callSeeTclMethod(pTclInterp, pObject, "HasProperty", pProp, 0);
     throwTclError(pInterp, rc);
 
     rc = Tcl_GetBooleanFromObj(pTclInterp, Tcl_GetObjResult(pTclInterp), &ret);
@@ -1807,15 +1941,9 @@ SeeTcl_Delete(pInterp, pObj, pProp)
     SeeTclObject *pObject = (SeeTclObject *)pObj;
     SeeInterp *pTclSeeInterp = (SeeInterp *)pInterp;
     Tcl_Interp *pTclInterp = pTclSeeInterp->pTclInterp;
-    Tcl_Obj *pScript = Tcl_DuplicateObj(pObject->pObj);
     int rc;
 
-    Tcl_ListObjAppendElement(pTclInterp, pScript, Tcl_NewStringObj("Delete",6));
-    Tcl_ListObjAppendElement(pTclInterp, pScript, 
-            Tcl_NewUnicodeObj(pProp->data, pProp->length)
-    );
-
-    rc = Tcl_EvalObjEx(pTclInterp, pScript, TCL_GLOBAL_ONLY);
+    rc = callSeeTclMethod(pTclInterp, pObject, "Delete", pProp, 0);
     throwTclError(pInterp, rc);
 
     return 0;
@@ -1831,14 +1959,9 @@ SeeTcl_DefaultValue(pInterp, pObj, pHint, pRes)
     SeeTclObject *pObject = (SeeTclObject *)pObj;
     SeeInterp *pTclSeeInterp = (SeeInterp *)pInterp;
     Tcl_Interp *pTclInterp = pTclSeeInterp->pTclInterp;
-    Tcl_Obj *pScript = Tcl_DuplicateObj(pObject->pObj);
     int rc;
 
-    Tcl_ListObjAppendElement(
-        pTclInterp, pScript, Tcl_NewStringObj("DefaultValue", 12)
-    );
-    rc = Tcl_EvalObjEx(pTclInterp, pScript, TCL_GLOBAL_ONLY);
-
+    rc = callSeeTclMethod(pTclInterp, pObject, "DefaultValue", 0, 0);
     if (rc == TCL_OK) {
         objToValue(pTclSeeInterp, Tcl_GetObjResult(pTclInterp), pRes);
     } else {
@@ -1859,40 +1982,6 @@ SeeTcl_Enumerator(pInterp, pObj)
     return tclEnumerator(pInterp, pObj);
 }
 static void 
-tclCallOrConstruct(pMethod, pInterp, pObj, pThis, argc, argv, pRes)
-    Tcl_Obj *pMethod;
-    struct SEE_interpreter *pInterp;
-    struct SEE_object *pObj;
-    struct SEE_object *pThis;
-    int argc;
-    struct SEE_value **argv;
-    struct SEE_string *pRes;
-{
-    SeeTclObject *pObject = (SeeTclObject *)pObj;
-    SeeInterp *pTclSeeInterp = (SeeInterp *)pInterp;
-    Tcl_Interp *pTclInterp = pTclSeeInterp->pTclInterp;
-    Tcl_Obj *pScript = Tcl_DuplicateObj(pObject->pObj);
-    int rc;
-    int ii;
-    int nObj = 0;
-
-    Tcl_ListObjAppendElement(0, pScript, pMethod);
-    /* TODO: The "this" object */
-    Tcl_ListObjAppendElement(0, pScript, Tcl_NewStringObj("THIS", 4));
-    for (ii = 0; ii < argc; ii++) {
-        Tcl_ListObjAppendElement(0, pScript, 
-            argValueToTcl(pTclSeeInterp, argv[ii], &nObj)
-        );
-    }
-
-    rc = Tcl_EvalObjEx(pTclInterp, pScript, TCL_GLOBAL_ONLY);
-    removeTransientRefs(pTclSeeInterp, nObj);
-    throwTclError(pInterp, rc);
-
-    rc = objToValue(pTclSeeInterp, Tcl_GetObjResult(pTclInterp), pRes);
-    throwTclError(pInterp, rc);
-}
-static void 
 SeeTcl_Construct(pInterp, pObj, pThis, argc, argv, pRes)
     struct SEE_interpreter *pInterp;
     struct SEE_object *pObj;
@@ -1901,10 +1990,7 @@ SeeTcl_Construct(pInterp, pObj, pThis, argc, argv, pRes)
     struct SEE_value **argv;
     struct SEE_string *pRes;
 {
-    tclCallOrConstruct(
-        Tcl_NewStringObj("Construct", 9),
-        pInterp, pObj, pThis, argc, argv, pRes
-    );
+    tclCallOrConstruct("Construct", pInterp, pObj, pThis, argc, argv, pRes);
 }
 static void 
 SeeTcl_Call(pInterp, pObj, pThis, argc, argv, pRes)
@@ -1915,10 +2001,7 @@ SeeTcl_Call(pInterp, pObj, pThis, argc, argv, pRes)
     struct SEE_value **argv;
     struct SEE_string *pRes;
 {
-    tclCallOrConstruct(
-        Tcl_NewStringObj("Call", 4),
-        pInterp, pObj, pThis, argc, argv, pRes
-    );
+    tclCallOrConstruct("Call", pInterp, pObj, pThis, argc, argv, pRes);
 }
 static int 
 SeeTcl_HasInstance(pInterp, pObj, pInstance)
@@ -2002,7 +2085,6 @@ tclEnumerator(pInterp, pObj)
     SeeInterp *pTclSeeInterp = (SeeInterp *)pInterp;
 
     Tcl_Interp *pTclInterp = pTclSeeInterp->pTclInterp;
-    Tcl_Obj *pScript = Tcl_DuplicateObj(pObject->pObj);
 
     Tcl_Obj *pRet = 0;       /* Return value of script */
     Tcl_Obj **apRet = 0;     /* List elements of pRet */
@@ -2013,9 +2095,7 @@ tclEnumerator(pInterp, pObj)
 
     int rc;
 
-    Tcl_ListObjAppendElement(0, pScript, Tcl_NewStringObj("Enumerator", 10));
-
-    rc = Tcl_EvalObjEx(pTclInterp, pScript, TCL_GLOBAL_ONLY);
+    rc = callSeeTclMethod(pTclInterp, pObject, "Enumerator", 0, 0);
     throwTclError(pInterp, rc);
 
     pRet = Tcl_GetObjResult(pTclInterp);
@@ -2397,9 +2477,7 @@ listenerToString(pSeeInterp, pListener)
 
     SEE_OBJECT_DEFAULTVALUE(pSeeInterp, pListener, 0, &val);
     SEE_ToString(pSeeInterp, &val, &res);
-    return Tcl_NewUnicodeObj(
-        res.u.string->data, res.u.string->length
-    );
+    return stringToObj(res.u.string);
 }
 
 /*

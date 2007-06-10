@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.18 2007/06/04 14:31:38 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.19 2007/06/10 10:33:41 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file implements infrastructure used to create the [proc] definitions
@@ -14,9 +14,10 @@ proc ::hv3::dom::ToString {pSee js_value} {
     undefined {return "undefined"}
     null      {return "null"}
     object    {
-      set val [$pSee [lindex $js_value 1] DefaultValue]
-      if {[lindex $val 1] eq "object"} {error "DefaultValue is object"}
-      return [::hv3::dom::ToString $val]
+      return [$pSee tostring $js_value]
+#      set val [eval [lindex $js_value 1] DefaultValue]
+#      if {[lindex $val 1] eq "object"} {error "DefaultValue is object"}
+#      return [::hv3::dom::ToString $pSee $val]
     }
   }
 
