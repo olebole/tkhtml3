@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.133 2007/06/10 10:33:41 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.134 2007/06/11 18:17:16 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -536,6 +536,15 @@ HtmlFinishNodeHandlers(pTree)
     }
     pTree->state.pCurrent = 0;
 }   
+
+int HtmlNodeIsOrphan(pNode)
+    HtmlNode *pNode;
+{
+    while (pNode && pNode->iNode != HTML_NODE_ORPHAN) {
+        pNode = HtmlNodeParent(pNode);
+    }
+    return (pNode ? 1 : 0);
+}
 
 /*
  *---------------------------------------------------------------------------
@@ -2436,14 +2445,19 @@ node_attr_usage:
          *
          *     Return the node-handle that forms the stacking context
          *     this node is located in. Return "" for the root-element.
+         *
+         *     Also return "" for any element that is part of an
+         *     orphan subtree.
          */
         case NODE_STACKING: {
             HtmlElementNode *pElem = HtmlNodeAsElement(pNode);
             if (!pElem) {
                 pElem = HtmlNodeAsElement(HtmlNodeParent(pNode));
             }
-
-            if ((HtmlNode *)pElem != pTree->pRoot) {
+            assert(
+                pNode==pTree->pRoot || pElem->pStack || HtmlNodeIsOrphan(pNode)
+            );
+            if ((HtmlNode *)pElem != pTree->pRoot && pElem->pStack) {
                 HtmlNode *p = &(pElem->pStack->pElem->node);
                 Tcl_SetObjResult(interp, HtmlNodeCommand(pTree, p));
             }
@@ -2490,6 +2504,8 @@ node_attr_usage:
 
             /* This method is a no-op for text nodes */
             if (HtmlNodeIsText(p)) break;
+
+            if (HtmlNodeIsOrphan(p)) break;
 
             if (nArg > 0 && 0 == strcmp(Tcl_GetString(aArg[0]), "-inline")) {
                 CssPropertySet *pSet = nodeGetStyle(p);

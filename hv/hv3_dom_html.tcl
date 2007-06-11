@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.20 2007/06/10 16:33:45 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.21 2007/06/11 18:17:16 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Html
@@ -402,27 +402,13 @@ namespace eval ::hv3::DOM {
       lset bbox 3 [expr {[lindex $bbox 3] - $y}]
     }
     
+#puts "OFFSETBOX: $node $bbox (parent = $parent)"
     return $bbox
   }
 
   proc HTMLElement_getInnerHTML {node} {
-    set str [HTMLElement_ChildrenToHtml $node]
+    set str [WidgetNode_ChildrenToHtml $node]
     list string $str
-  }
-
-  proc HTMLElement_ChildrenToHtml {elem} {
-    set ret ""
-    foreach child [$elem children] {
-      set tag [$child tag]
-      if {$tag eq ""} {
-        append ret [$child text -pre]
-      } else {
-        append ret "<$tag>"
-        append ret [HTMLElement_ChildrenToHtml $child]
-        append ret "</$tag>"
-      }
-    }
-    return $ret
   }
 
   proc HTMLElement_putInnerHTML {dom node newHtml} {

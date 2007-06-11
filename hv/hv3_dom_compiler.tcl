@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.19 2007/06/10 10:33:41 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.20 2007/06/11 18:17:16 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file implements infrastructure used to create the [proc] definitions
@@ -212,6 +212,18 @@ namespace eval ::hv3::dom2 {
 
     proc dom_finalize {code} {
       $::hv3::dom2::CurrentType add_finalizer $code
+    }
+
+    proc noisy {args} {
+      set code [lindex $args end]
+      set code [subst -nocommands {
+        puts "CALL: [info level 0]"
+        set res [$code]
+        puts "RETURN [set res]"
+        set res
+      }]
+      lset args end $code
+      eval $args
     }
 
     # dom_put ?-string? PROPERTY ARG-NAME CODE

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_style.tcl,v 1.8 2007/06/06 19:28:39 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_style.tcl,v 1.9 2007/06/11 18:17:16 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # DOM Level 2 Style.
@@ -111,6 +111,23 @@ set ::hv3::DOM::CSS2Properties_simple(border-bottom-width) borderBottomWidth
     set style [$myNode attribute -default {} style]
     if {$style ne ""} {append style ";"}
     append style "border: $value"
+    $myNode attribute style $style
+  }
+
+  dom_put -string background value {
+    array set current [$myNode prop -inline]
+    unset -nocomplain current(background-color)
+    unset -nocomplain current(background-image)
+    unset -nocomplain current(background-repeat)
+    unset -nocomplain current(background-attachment)
+    unset -nocomplain current(background-position)
+    unset -nocomplain current(background-position-y)
+    unset -nocomplain current(background-position-x)
+
+    set style "background:$value;"
+    foreach prop [array names current] {
+      append style "$prop:$current($prop);"
+    }
     $myNode attribute style $style
   }
 }

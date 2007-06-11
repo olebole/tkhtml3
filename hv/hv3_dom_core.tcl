@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.16 2007/06/10 16:33:45 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.17 2007/06/11 18:17:16 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Core
@@ -261,13 +261,56 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.16 2007/06/10 16:33:
   dom_get previousSibling {WidgetNode_Sibling $myDom $myNode -1}
   dom_get nextSibling     {WidgetNode_Sibling $myDom $myNode +1}
 
-  dom_call_todo cloneNode
+  dom_call -string cloneNode {THIS isDeep} {
+ 
+    # To clone a node, first obtain the serialized HTML representation.
+    # Then parse it using the [widget fragment] API. The result is the
+    # cloned DOM node.
+    #
+    set zHtml [WidgetNode_ToHtml $myNode $isDeep]
+    if {$zHtml eq ""} {
+      set clone [[$myNode html] fragment .]
+      $clone text set ""
+    } else {
+      set clone [[$myNode html] fragment $zHtml]
+    }
+    
+    list object [$myDom node_to_dom $clone]
+  }
 
   dom_get ownerDocument { 
     list object [$myDom node_to_document $myNode]
   }
 }
 namespace eval ::hv3::DOM {
+
+  proc WidgetNode_ToHtml {node isDeep} {
+    set tag [$node tag]
+    if {$tag eq ""} {
+      append ret [$node text -pre]
+    } else {
+      append ret "<$tag"
+      foreach {zKey zVal} [$node attribute] {
+        set zEscaped [string map [list "\x22" "\x5C\x22"] $zVal]
+        append ret " $zKey=\"$zEscaped\""
+      }
+      append ret ">"
+      if {$isDeep} {
+        append ret [HTMLElement_ChildrenToHtml $node]
+      }
+      append ret "</$tag>"
+    }
+  }
+
+  proc WidgetNode_ChildrenToHtml {elem} {
+    set ret ""
+    foreach child [$elem children] {
+      append ret [WidgetNode_ToHtml $child 1]
+    }
+    return $ret
+  }
+
+
   proc WidgetNode_Sibling {dom node dir} {
     set ret null
     set parent [$node parent]
@@ -423,7 +466,7 @@ set BaseList {ElementCSSInlineStyle WidgetNode Node NodePrototype EventTarget}
   #
   dom_call -string hasAttribute {THIS attr} {
     set rc [catch {$myNode attribute $attr}]
-    expr {$rc ? 0 : 1}
+    list boolean [expr {$rc ? 0 : 1}]
   }
 }
 namespace eval ::hv3::DOM {

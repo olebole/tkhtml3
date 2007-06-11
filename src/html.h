@@ -701,6 +701,7 @@ char CONST *HtmlNodeTagName(HtmlNode *);
 char CONST *HtmlNodeAttr(HtmlNode *, char CONST *);
 char *      HtmlNodeToString(HtmlNode *);
 HtmlNode *  HtmlNodeGetPointer(HtmlTree *, char CONST *);
+int         HtmlNodeIsOrphan(HtmlNode *);
 
 int HtmlNodeAddChild(HtmlElementNode *, int, HtmlAttributes *);
 int HtmlNodeAddTextChild(HtmlNode *, HtmlTextNode *);

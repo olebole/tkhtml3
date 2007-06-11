@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.172 2007/06/10 10:33:41 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.173 2007/06/11 18:17:16 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -658,49 +658,61 @@ snit::type ::hv3::hv3::selectionmanager {
         set myFromIdx $toIdx
       }
   
-      if {$myToNode ne $toNode || $toIdx != $myToIdx} {
-        switch -- $myMode {
-          char {
-            if {$myToNode ne ""} {
-              $myHv3 tag remove selection $myToNode $myToIdx $toNode $toIdx
+      # This block is where the "selection" tag is added to the HTML 
+      # widget (so that the selected text is highlighted). If some
+      # javascript has been messing with the tree, then either or
+      # both of $myFromNode and $myToNode may be orphaned or deleted.
+      # If so, catch the exception and clear the selection.
+      #
+      set rc [catch {
+        if {$myToNode ne $toNode || $toIdx != $myToIdx} {
+          switch -- $myMode {
+            char {
+              if {$myToNode ne ""} {
+                $myHv3 tag remove selection $myToNode $myToIdx $toNode $toIdx
+              }
+              $myHv3 tag add selection $myFromNode $myFromIdx $toNode $toIdx
+              if {$myFromNode ne $toNode || $myFromIdx != $toIdx} {
+                selection own $myHv3
+              }
             }
-            $myHv3 tag add selection $myFromNode $myFromIdx $toNode $toIdx
-            if {$myFromNode ne $toNode || $myFromIdx != $toIdx} {
+    
+            word {
+              if {$myToNode ne ""} {
+                $myHv3 tag remove selection $myToNode $myToIdx $toNode $toIdx
+                $self UntagWord $myToNode $myToIdx
+              }
+    
+              $myHv3 tag add selection $myFromNode $myFromIdx $toNode $toIdx
+              $self TagWord $toNode $toIdx
+              $self TagWord $myFromNode $myFromIdx
+              selection own $myHv3
+            }
+    
+            block {
+              set to_block2  [$self ToBlock $toNode $toIdx]
+              set from_block [$self ToBlock $myFromNode $myFromIdx]
+    
+              if {$myToNode ne ""} {
+                set to_block [$self ToBlock $myToNode $myToIdx]
+                $myHv3 tag remove selection $myToNode $myToIdx $toNode $toIdx
+                eval $myHv3 tag remove selection $to_block
+              }
+    
+              $myHv3 tag add selection $myFromNode $myFromIdx $toNode $toIdx
+              eval $myHv3 tag add selection $to_block2
+              eval $myHv3 tag add selection $from_block
               selection own $myHv3
             }
           }
-  
-          word {
-            if {$myToNode ne ""} {
-              $myHv3 tag remove selection $myToNode $myToIdx $toNode $toIdx
-              $self UntagWord $myToNode $myToIdx
-            }
-  
-            $myHv3 tag add selection $myFromNode $myFromIdx $toNode $toIdx
-            $self TagWord $toNode $toIdx
-            $self TagWord $myFromNode $myFromIdx
-            selection own $myHv3
-          }
-  
-          block {
-            set to_block2  [$self ToBlock $toNode $toIdx]
-            set from_block [$self ToBlock $myFromNode $myFromIdx]
-  
-            if {$myToNode ne ""} {
-              set to_block [$self ToBlock $myToNode $myToIdx]
-              $myHv3 tag remove selection $myToNode $myToIdx $toNode $toIdx
-              eval $myHv3 tag remove selection $to_block
-            }
-  
-            $myHv3 tag add selection $myFromNode $myFromIdx $toNode $toIdx
-            eval $myHv3 tag add selection $to_block2
-            eval $myHv3 tag add selection $from_block
-            selection own $myHv3
-          }
+    
+          set myToNode $toNode
+          set myToIdx $toIdx
         }
-  
-        set myToNode $toNode
-        set myToIdx $toIdx
+      } msg]
+
+      if {$rc && [regexp {[^ ]+ is an orphan} $msg]} {
+        $self clear
       }
     }
 

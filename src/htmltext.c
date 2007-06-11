@@ -1062,7 +1062,6 @@ HtmlTagAddRemoveCmd(clientData, interp, objc, objv, isAdd)
 {
     HtmlTree *pTree = (HtmlTree *)clientData;
     HtmlNode *pParent;
-
     HtmlWidgetTag *pTag;
 
     TagOpData sData;
@@ -1082,6 +1081,16 @@ HtmlTagAddRemoveCmd(clientData, interp, objc, objv, isAdd)
         0 == (sData.pTo=HtmlNodeGetPointer(pTree, Tcl_GetString(objv[6]))) ||
         TCL_OK != Tcl_GetIntFromObj(interp, objv[7], &sData.iTo)
     ) {
+        return TCL_ERROR;
+    }
+
+    /* If either node is an orphan node, throw a Tcl exception. */
+    if (HtmlNodeIsOrphan(sData.pFrom)) {
+        Tcl_AppendResult(interp, Tcl_GetString(objv[4]), " is an orphan", 0);
+        return TCL_ERROR;
+    }
+    if (HtmlNodeIsOrphan(sData.pTo)) {
+        Tcl_AppendResult(interp, Tcl_GetString(objv[6]), " is an orphan", 0);
         return TCL_ERROR;
     }
 
