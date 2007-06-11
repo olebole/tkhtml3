@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.17 2007/06/11 18:17:16 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.18 2007/06/11 18:25:21 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Core
@@ -296,7 +296,7 @@ namespace eval ::hv3::DOM {
       }
       append ret ">"
       if {$isDeep} {
-        append ret [HTMLElement_ChildrenToHtml $node]
+        append ret [WidgetNode_ChildrenToHtml $node]
       }
       append ret "</$tag>"
     }
