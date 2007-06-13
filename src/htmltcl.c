@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.162 2007/06/10 16:33:45 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.163 2007/06/13 08:25:04 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -2600,7 +2600,7 @@ htmlstyleCmd(clientData, interp, objc, objv)
 
     Tcl_SetResult(interp, HTML_DEFAULT_CSS, TCL_STATIC);
     if (objc == 2) {
-        Tcl_AppendResult(interp, HTML_DEFAULT_QUIRKS);
+        Tcl_AppendResult(interp, HTML_DEFAULT_QUIRKS, 0);
     }
 
     return TCL_OK;
