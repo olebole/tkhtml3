@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.21 2007/06/14 17:24:50 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.22 2007/06/14 18:54:17 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file implements infrastructure used to create the [proc] definitions
@@ -45,6 +45,7 @@ proc ::hv3::dom::TclCallableProc {pSee isString zScript op args} {
     Call {
       set THIS [lindex $args 0]
       if {$isString} {
+        set A [list]
         foreach js_value [lrange $args 1 end] { 
           lappend A [::hv3::dom::ToString $pSee $js_value] 
         }

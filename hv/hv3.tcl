@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.173 2007/06/11 18:17:16 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.174 2007/06/14 18:54:17 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -422,7 +422,16 @@ snit::type ::hv3::hv3::mousemanager {
       set rc [$options(-dom) mouseevent mousedown $N $x $y]
     }
 
-    $options(-selectionmanager) press $N $x $y
+    # If there is no DOM implementation, or the DOM implementation
+    # did nothing with the event, dispatch it to the selection manager.
+    # If there is javascript defined behaviour, we don't want to 
+    # start selecting text.
+    #
+    if {$rc eq "prevent"} {
+      $options(-selectionmanager) clear
+    } else {
+      $options(-selectionmanager) press $N $x $y
+    }
 
     for {set n $N} {$n ne ""} {set n [$n parent]} {
       set myActiveNodes($n) 1

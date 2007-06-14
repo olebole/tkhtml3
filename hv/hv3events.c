@@ -190,7 +190,7 @@ runEvent(interp, pTarget, pEvent, zType, isCapture)
     assert(SEE_VALUE_GET_TYPE(pEvent) == SEE_OBJECT);
 
     SEE_SET_OBJECT(&target, pTarget);
-    SEE_OBJECT_PUTA(interp, pEvent->u.object, "currenttarget", &target, 0);
+    SEE_OBJECT_PUTA(interp, pEvent->u.object, "currentTarget", &target, 0);
 
     /* Check if stopPropagation() has been called. */
     if (getBooleanFlag(interp, pEvent->u.object, STOP_PROPAGATION)) {
@@ -301,7 +301,7 @@ stopPropagationFunc(interp, self, thisobj, argc, argv, res)
  *         stopPropagation()
  *         preventDefault()
  *
- *         currenttarget            (updated throughout)
+ *         currentTarget            (updated throughout)
  *         eventPhase               (updated throughout)
  *
  * Results: 
@@ -453,7 +453,7 @@ eventDispatchCmd(clientData, pTcl, objc, objv)
     int rc = TCL_OK;
 
     pTarget = findOrCreateObject(pTclSeeInterp, objv[2], 0);
-    pEvent = findOrCreateObject(pTclSeeInterp, objv[3], 0);
+    pEvent = createTransient(pTclSeeInterp, objv[3]);
 
     SEE_TRY (p, try_ctxt) {
         SEE_SET_OBJECT(&event, pEvent);

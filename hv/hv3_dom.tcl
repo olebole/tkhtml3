@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.56 2007/06/14 17:24:50 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.57 2007/06/14 18:54:17 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Snit types in this file:
@@ -308,6 +308,8 @@ snit::type ::hv3::dom {
       set name [string map {blob error} [$self NewFilename]]
       $myLogData Log "$node $event event" $name "event-handler" $rc $msg
       $myLogData Popup
+    } else {
+      set msg
     }
   }
 
