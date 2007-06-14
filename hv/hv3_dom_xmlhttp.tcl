@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.7 2007/06/06 17:50:27 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.8 2007/06/14 17:24:50 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # ::hv3::dom::XMLHttpRequest
@@ -25,22 +25,8 @@ namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.7 2007/06/06 17:5
       $state(downloadHandle) destroy
     }
 
-    # Clean up the event-target object.
-    $state(et) destroy
-
     # Clean up the Tcl state for this XMLHttpRequest.
     array unset state 
-  }
-
-  # The "onreadystatechange" attribute.
-  #
-  dom_get onreadystatechange { list event $state(et) readystatechange }
-  dom_put onreadystatechange val { 
-    if {[lindex $val 0] eq "object"} {
-      $state(et) setLegacyListener readystatechange [lindex $val 1]
-    } else {
-      $state(et) removeLegacyListener readystatechange
-    }
   }
 
   # The read-only "readyState" attribute.
@@ -172,9 +158,9 @@ namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.7 2007/06/06 17:5
 
   # Read-only attributes to access the values set by initEvent().
   #
-  dom_get type          { list string  $state(myEventType) }
-  dom_get bubbles       { list boolean $state(myCanBubble) }
-  dom_get cancelable    { list boolean $state(myCancelable) }
+  dom_get type          { list string "readystatechange" }
+  dom_get bubbles       { list boolean 0 }
+  dom_get cancelable    { list boolean 0 }
 
   dom_get target        { list object $myXMLHttpRequest }
   dom_get currentTarget { list object $myXMLHttpRequest }
@@ -224,7 +210,6 @@ namespace eval ::hv3::DOM {
     $state(downloadHandle) destroy
     set state(downloadHandle) ""
     XMLHttpRequest_SetState $dom $statevar Loaded
-#puts "FIN: $state(responseText)"
   }
 
   proc XMLHttpRequest_SetState {dom statevar newState} {
@@ -238,14 +223,10 @@ namespace eval ::hv3::DOM {
     # The value of XMLHttpRequest.readyState has changed, so fire
     # a "readystatechange" event.
     #
-#puts "Setting XMLHttpRequest $statevar to $newState ($uri)"
     set this  [list ::hv3::DOM::XMLHttpRequest $dom $statevar]
     set event [list ::hv3::DOM::XMLHttpRequestEvent $dom $this]
-    set rc [catch { $state(et) runEvent readystatechange 0 $this $event } msg]
 
-    if {$rc} {
-      puts $msg
-    }
+    [$dom see] dispatch $this $event
   }
 }
 
@@ -260,7 +241,6 @@ proc ::hv3::dom::newXMLHttpRequest {dom} {
   # Intialize the new object state.
   set state(async)          0
   set state(downloadHandle) ""
-  set state(et)             [$see eventtarget]
   set state(method)         "GET"
   set state(readyState)     "Uninitialized"
   set state(responseText)   ""

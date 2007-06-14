@@ -196,7 +196,7 @@ tclsee: tclsee.o
 	mv $(JS_SHARED_LIB) tclsee0.1
 	echo 'package ifneeded Tclsee 0.1 [list load [file join $$dir $(JS_SHARED_LIB)]]' > tclsee0.1/pkgIndex.tcl
 
-tclsee.o: $(TOP)/hv/hv3see.c $(TOP)/hv/hv3format.c
+tclsee.o: $(TOP)/hv/hv3see.c $(TOP)/hv/hv3format.c $(TOP)/hv/hv3events.c
 	@echo '$$(COMPILE) $(JSFLAGS) -c $(TOP)/hv/hv3see.c -o $@'
 	@$(COMPILE) $(JSFLAGS) -c $(TOP)/hv/hv3see.c -o $@
 #

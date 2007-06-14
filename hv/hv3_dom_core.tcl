@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.18 2007/06/11 18:25:21 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.19 2007/06/14 17:24:50 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Core
@@ -332,7 +332,7 @@ namespace eval ::hv3::DOM {
 #     This object is never actually instantiated. HTMLElement (and other,
 #     element-specific types) are instantiated instead.
 #
-set BaseList {ElementCSSInlineStyle WidgetNode Node NodePrototype EventTarget}
+set BaseList {ElementCSSInlineStyle WidgetNode Node NodePrototype}
 ::hv3::dom2::stateless Element $BaseList {
   
   # Override parts of the Node interface.
@@ -597,7 +597,7 @@ namespace eval ::hv3::dom2::compiler {
 #-------------------------------------------------------------------------
 # DOM Type Text (Node -> CharacterData -> Text)
 #
-set BaseList {CharacterData WidgetNode Node NodePrototype EventTarget}
+set BaseList {CharacterData WidgetNode Node NodePrototype}
 ::hv3::dom2::stateless Text $BaseList {
 
   # Override parts of the Node interface.

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.16 2007/06/05 07:03:47 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.17 2007/06/14 17:24:50 danielk1977 Exp $)} 1 }
 
 #---------------------------------
 # List of DOM objects in this file:
@@ -153,8 +153,7 @@ namespace eval ::hv3::dom {
 #-------------------------------------------------------------------------
 # "Window" DOM object.
 #
-set BaseList {EventTarget}
-::hv3::dom2::stateless Window $BaseList {
+::hv3::dom2::stateless Window {} {
 
   dom_parameter myHv3
 
@@ -263,6 +262,8 @@ set BaseList {EventTarget}
   dom_call -string jsputs {THIS args} {
     puts $args
   }
+
+  dom_events { list }
 }
 
 #-------------------------------------------------------------------------

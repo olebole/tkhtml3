@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.21 2007/06/11 18:17:16 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.22 2007/06/14 17:24:50 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Html
@@ -32,7 +32,7 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.21 2007/06/11 18:17:
 #     HTMLDocument.body
 #     HTMLDocument.cookie
 #
-set BaseList {Document DocumentEvent Node NodePrototype EventTarget}
+set BaseList {Document DocumentEvent Node NodePrototype}
 ::hv3::dom2::stateless HTMLDocument $BaseList {
 
   # The "title" attribute is supposed to be read/write. But this one
@@ -342,6 +342,16 @@ namespace eval ::hv3::DOM {
   }
   dom_get scrollHeight { 
     list number [HTMLElement_scrollHeight [$myNode html] $myNode]
+  }
+
+  dom_events {
+    set R [list]
+    foreach {k v} [$myNode attr] {
+      if {[info exists ::hv3::DOM::HTMLElement_EventAttrArray($k)]} {
+        lappend R $k $v
+      }
+    }
+    return $R
   }
 }
 

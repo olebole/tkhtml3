@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.20 2007/06/11 18:17:16 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.21 2007/06/14 17:24:50 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file implements infrastructure used to create the [proc] definitions
@@ -62,6 +62,8 @@ proc ::hv3::dom::TclCallableProc {pSee isString zScript op args} {
       # A no-op. There is no state data.
       return
     }
+
+    Events { return }
   }
 
   error "Unknown method: $op"
@@ -89,6 +91,8 @@ proc ::hv3::dom::TclConstructable {pSee zScript op args} {
       # A no-op. There is no state data.
       return
     }
+
+    Events { return }
   }
 
   error "Unknown method: $op"
@@ -212,6 +216,10 @@ namespace eval ::hv3::dom2 {
 
     proc dom_finalize {code} {
       $::hv3::dom2::CurrentType add_finalizer $code
+    }
+
+    proc dom_events {code} {
+      $::hv3::dom2::CurrentType add_events $code
     }
 
     proc noisy {args} {
@@ -372,6 +380,10 @@ namespace eval ::hv3::dom2 {
   #
   variable myExtraCode ""
 
+  # Code for the "Events" method.
+  #
+  variable myEvents ""
+
   # Name of this type - i.e. "HTMLDocument".
   #
   variable myName 
@@ -405,6 +417,9 @@ namespace eval ::hv3::dom2 {
   method add_default_value {code} {
     set myDefaultValue $code
   }
+  method add_events {code} {
+    set myEvents $code
+  }
 
   method call {} { return [array get myCall] }
   method get {} { return [array get myGet] }
@@ -412,6 +427,7 @@ namespace eval ::hv3::dom2 {
   method snit {} { return $mySnit }
   method final {} { return $myFinalizer }
   method param {} { return $myParam }
+  method events {} { return $myEvents }
 
   method CompilePut {mixins} {
 
@@ -557,6 +573,16 @@ namespace eval ::hv3::dom2 {
     }]
   }
 
+  method CompileEvents {mixins} {
+    set L [concat $mixins $self]   
+    set code ""
+    for {set ii [llength $L]} {$code eq "" && $ii > 0} {incr ii -1} {
+      set C [lindex $L $ii-1]
+      set code [$C events]
+    }
+    return $code
+  }
+
   method ParamList {mixins} {
     set ret [list]
     foreach t [concat $mixins $self] {
@@ -570,6 +596,7 @@ namespace eval ::hv3::dom2 {
     set Get         [AutoIndent 6 [$self CompileGet $mixins]]
     set Put         [AutoIndent 6 [$self CompilePut $mixins]]
     set HasProperty [AutoIndent 6 [$self CompileHasProperty $mixins]]
+    set Events      [AutoIndent 6 [$self CompileEvents $mixins]]
 
     set Final ""
     foreach t [concat $self $mixins] {
@@ -603,9 +630,11 @@ namespace eval ::hv3::dom2 {
           DefaultValue {
             $myDefaultValue
           }
-
           Finalize {
             $Finalizer
+          }
+          Events {
+            $Events
           }
         }
       }
@@ -616,7 +645,6 @@ namespace eval ::hv3::dom2 {
     append Code [join $myExtraCode "\n"]
     return $Code
   }
-
 }
 
 
