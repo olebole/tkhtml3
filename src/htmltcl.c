@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.165 2007/06/16 17:20:28 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.166 2007/06/16 17:39:32 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -1169,6 +1169,8 @@ worldChangedCb(pTree, pNode, clientData)
         HtmlElementNode *pElem = (HtmlElementNode *)pNode;
         HtmlLayoutInvalidateCache(pTree, pNode);
         HtmlNodeClearStyle(pTree, pElem);
+        HtmlDrawCanvasItemRelease(pTree, pElem->pBox);
+        pElem->pBox = 0;
     }
     return HTML_WALK_DESCEND;
 }

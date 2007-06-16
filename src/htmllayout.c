@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.249 2007/06/16 17:20:28 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.250 2007/06/16 17:39:32 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -4004,7 +4004,5 @@ HtmlLayoutInvalidateCache(pTree, pNode)
             HtmlFree(pElem->pLayoutCache);
             pElem->pLayoutCache = 0;
         }
-        HtmlDrawCanvasItemRelease(pTree, pElem->pBox);
-        pElem->pBox = 0;
     }
 }
