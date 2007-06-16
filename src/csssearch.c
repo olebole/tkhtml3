@@ -2,7 +2,7 @@
 #include "html.h"
 #include "cssInt.h"
 
-static const char rcsid[] = "$Id: csssearch.c,v 1.2 2007/06/10 07:53:03 danielk1977 Exp $";
+static const char rcsid[] = "$Id: csssearch.c,v 1.3 2007/06/16 17:20:28 danielk1977 Exp $";
 
 /*-----------------------------------------------------------------------
  *
@@ -115,6 +115,8 @@ HtmlCssSearchShutdown(pTree)
 {
     HtmlCssSearchInvalidateCache(pTree);
     Tcl_DeleteHashTable(&pTree->pSearchCache->aCache);
+    HtmlFree(pTree->pSearchCache);
+    pTree->pSearchCache = 0;
     return TCL_OK;
 }
 

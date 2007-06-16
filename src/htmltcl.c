@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.164 2007/06/16 16:19:58 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.165 2007/06/16 17:20:28 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -1348,15 +1348,32 @@ BOOLEAN(forcewidth, "forceWidth", "ForceWidth", "0", S_MASK),
                 rc = TCL_ERROR;
             } else {
                 memcpy(pTree->aFontSizeTable, aFontSize, sizeof(aFontSize));
-                HtmlCallbackRestyle(pTree, pTree->pRoot);
+                mask |= S_MASK;
             }
         }
 
         if (mask & S_MASK) {
+            /* This happens when one of the font related options changes.
+             * The key here is that the font cache (HtmlTree.aFont) must
+             * be completely empty before we rerun the styler. Otherwise
+             * fonts returned by the cache will match the old -fontscale
+             * and -fonttable options.
+             */
             HtmlImageServerSuspendGC(pTree);
-            HtmlWalkTree(pTree, pTree->pRoot, worldChangedCb, 0);
+            HtmlDrawCleanup(pTree, &pTree->canvas);
+            HtmlDrawSnapshotFree(pTree, pTree->cb.pSnapshot);
+            pTree->cb.pSnapshot = 0;
             HtmlCallbackRestyle(pTree, pTree->pRoot);
-            HtmlCallbackLayout(pTree, pTree->pRoot);
+            HtmlWalkTree(pTree, pTree->pRoot, worldChangedCb, 0);
+            HtmlCallbackDamage(pTree, 0, 0, Tk_Width(win), Tk_Height(win), 0);
+
+#ifndef NDEBUG
+            if (1) {
+                Tcl_HashSearch search;
+                assert(0 == Tcl_FirstHashEntry(&pTree->aValues, &search));
+                assert(0 == Tcl_FirstHashEntry(&pTree->aFont, &search));
+            }
+#endif
         }
 
         if (rc != TCL_OK) {
