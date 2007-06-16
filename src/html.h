@@ -743,7 +743,7 @@ void HtmlDrawAddLinebox(HtmlCanvas*, int, int);
 int HtmlDrawFindLinebox(HtmlCanvas*, int*, int*);
 
 HtmlCanvasSnapshot *HtmlDrawSnapshot(HtmlTree *, int);
-void HtmlDrawSnapshotDamage(HtmlTree *, HtmlCanvasSnapshot *);
+void HtmlDrawSnapshotDamage(HtmlTree*,HtmlCanvasSnapshot*,HtmlCanvasSnapshot**);
 void HtmlDrawSnapshotFree(HtmlTree *, HtmlCanvasSnapshot *);
 
 void HtmlDrawCanvasItemRelease(HtmlTree *, HtmlCanvasItem *);

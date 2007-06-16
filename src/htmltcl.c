@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.163 2007/06/13 08:25:04 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.164 2007/06/16 16:19:58 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -504,12 +504,11 @@ callbackHandler(clientData)
     }
 
     if (pTree->cb.pSnapshot) {
-        HtmlDrawSnapshotDamage(pTree, pTree->cb.pSnapshot);
+        HtmlCanvasSnapshot *pSnapshot = 0;
+        HtmlDrawSnapshotDamage(pTree, pTree->cb.pSnapshot, &pSnapshot);
+        HtmlDrawSnapshotFree(pTree, pTree->cb.pSnapshot);
+        pTree->cb.pSnapshot = pSnapshot;
     }
-
-    /* Throw away the current layout snapshot, if any. */
-    HtmlDrawSnapshotFree(pTree, pTree->cb.pSnapshot);
-    pTree->cb.pSnapshot = 0;
 
     /* If the HTML_DAMAGE flag is set, repaint one or more window regions. */
     assert(pTree->cb.pDamage == 0 || pTree->cb.flags & HTML_DAMAGE);
@@ -528,6 +527,10 @@ callbackHandler(clientData)
             pD = pNext;
         }
     }
+
+    /* Clear the current layout snapshot, if any. */
+    HtmlDrawSnapshotFree(pTree, pTree->cb.pSnapshot);
+    pTree->cb.pSnapshot = 0;
 
     /* If the HTML_SCROLL flag is set, scroll the viewport. */
     if (pTree->cb.flags & HTML_SCROLL) {

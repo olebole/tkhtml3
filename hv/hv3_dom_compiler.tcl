@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.22 2007/06/14 18:54:17 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.23 2007/06/16 16:19:58 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file implements infrastructure used to create the [proc] definitions
@@ -578,7 +578,7 @@ namespace eval ::hv3::dom2 {
     set L [concat $mixins $self]   
     set code ""
     for {set ii [llength $L]} {$code eq "" && $ii > 0} {incr ii -1} {
-      set C [lindex $L $ii-1]
+      set C [lindex $L [expr {$ii-1}]]
       set code [$C events]
     }
     return $code

@@ -30,11 +30,12 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.188 2007/06/10 07:53:03 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.189 2007/06/16 16:19:58 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
 #include <X11/Xutil.h>
+
 
 /*-------------------------------------------------------------------------
  * OVERVIEW:
@@ -70,6 +71,20 @@ static const char rcsid[] = "$Id: htmldraw.c,v 1.188 2007/06/10 07:53:03 danielk
  *     There are a few different variations on case (3).
  *
  */
+
+/*
+ * This module runs much faster if it can use the Xlib API to set
+ * clipping regions. However this doesn't work on windows, or with
+ * Xft fonts on Linux. Doubtful that it works on mac either.
+ *
+ * If this symbol is set to 0, then we use pixmaps for clipping.
+ * This can be *really* expensive, so this module tries hard to 
+ * detect cases where the CSS design has specified a clipping 
+ * window ("overflow:hidden") but no visible items are clipped by it.
+ */
+#define USE_XLIB_CLIPPING 0
+/* #define USE_XLIB_CLIPPING 1 */
+
 
 /*
  * EXPORTED FUNCTIONS:
@@ -1526,8 +1541,172 @@ int HtmlLayoutPrimitives(clientData, interp, objc, objv)
     return TCL_OK;
 }
 
+typedef struct Outline Outline;
+struct Outline {
+    int x;
+    int y;
+    int w;
+    int h;
+    HtmlNode *pNode;
+    Outline *pNext;
+};
+
+typedef struct GetPixmapQuery GetPixmapQuery;
+struct GetPixmapQuery {
+    HtmlTree *pTree;
+    HtmlNode *pBgRoot;
+    int x;
+    int y;
+    int w;
+    int h;
+    int getwin;
+    Outline *pOutline;
+    Pixmap pmap;
+
+    Overflow *pCurrentOverflow;
+    Overflow *pOverflowList;
+};
+
+static void
+setClippingDrawable(pQuery, pItem, pDrawable, pX, pY)
+    GetPixmapQuery *pQuery;
+    HtmlCanvasItem *pItem;
+    Drawable *pDrawable;
+    int *pX;
+    int *pY;
+{
+#if !USE_XLIB_CLIPPING
+    Overflow *p = pQuery->pCurrentOverflow;
+    if (p && *pDrawable != p->pixmap) {
+        int x, y, w, h;
+        int ii;
+
+        if (
+            p->pmw <= 0 || p->pmh <= 0 ||
+            (p->pmx == pQuery->x && p->pmy == pQuery->y &&
+            p->pmw == pQuery->w && p->pmh == pQuery->h)
+        ) {
+            return;
+        }
+
+        itemToBox(pItem, *pX + pQuery->x, *pY + pQuery->y, &x, &y, &w, &h);
+        if (pItem->type == CANVAS_TEXT) {
+            int nSpace = 0;
+            CanvasText *pText = &pItem->x.t;
+            for (ii = pText->nText - 1; ii >= 0; ii--) {
+              if (pText->zText[ii] == '\xA0' && pText->zText[ii-1] == '\xC2') {
+                  ii--;
+              } else if (pText->zText[ii] != ' ') {
+                  break;
+              }
+              nSpace++;
+            } 
+            w -= (nSpace * pText->fFont->space_pixels);
+        }
+
+        if (
+            w > 0 && (
+                x < p->x || y < p->y || 
+                (x + w) > (p->x + p->w) || (y + h) > (p->y + p->h)
+            )
+        ) {
+            Tk_Window win = pQuery->pTree->tkwin;
+            GC gc;
+            XGCValues gc_values;
+
+#if 0
+printf("Create overflow pixmap 2\n");
+printf("TEXT: %dx%d +%d+%d \"%.*s\"(%d)", w, h, x, y, pText->nText, pText->zText, pText->nText);
+printf("NSPA: %d\n", nSpace);
+printf("%s\n", Tcl_GetString(HtmlNodeCommand(pQuery->pTree, pText->pNode)));
+printf("OVFL: %dx%d +%d+%d ", p->w, p->h, p->x, p->y);
+printf("%s\n", Tcl_GetString(HtmlNodeCommand(pQuery->pTree, p->pItem->pNode)));
+#endif
+
+            if (!p->pixmap) {
+                printf(
+                    "TODO: Using %dx%d pixmap for clipping. (performance hit)\n"
+                    , p->pmw, p->pmh
+                );
+                p->pixmap = Tk_GetPixmap(
+    		    Tk_Display(win), Tk_WindowId(win), 
+                    p->pmw, p->pmh,
+                    Tk_Depth(win)
+                );
+                assert(p->pixmap);
+
+                /* Since we have allocated a pixmap, link this structure
+                 * into the GetPixmapQuery.pOverflowList linked list. This
+                 * is used later to free all allocated pixmaps.
+                 */
+                p->pNext = pQuery->pOverflowList;
+                pQuery->pOverflowList = p;
+            }
+            memset(&gc_values, 0, sizeof(XGCValues));
+            gc = Tk_GetGC(pQuery->pTree->tkwin, 0, &gc_values);
+
+            assert(p->pmx >= pQuery->x);
+            assert(p->pmy >= pQuery->y);
+            XCopyArea(Tk_Display(win), pQuery->pmap, p->pixmap, gc, 
+                p->pmx - pQuery->x, p->pmy - pQuery->y, 
+                p->pmw, p->pmh, 
+                0, 0
+            );
+            Tk_FreeGC(Tk_Display(win), gc);
+
+            *pDrawable = p->pixmap;
+            *pX += (pQuery->x - p->pmx);
+            *pY += (pQuery->y - p->pmy);
+        }
+    }
+#endif /* if !USE_XLIB_CLIPPING */
+}
+
+static void
+setClippingRegion(pQuery, pDisplay, gc)
+    GetPixmapQuery *pQuery;
+    Display *pDisplay;
+    GC gc;
+{
+#if USE_XLIB_CLIPPING
+    Overflow *p = pQuery->pCurrentOverflow;
+    if (p) {
+        XRectangle rectangles[1];
+        assert(p->pmw>0 && p->pmh>0);
+
+        assert(p->pmx >= pQuery->x);
+        assert(p->pmy >= pQuery->y);
+        rectangles[0].x = (p->pmx - pQuery->x);
+        rectangles[0].y = (p->pmy - pQuery->y);
+        rectangles[0].width = p->pmw;
+        rectangles[0].height = p->pmh;
+
+        XSetClipRectangles(pDisplay, gc, 0, 0, rectangles, 1, Unsorted);
+
+#if 0
+        printf("Set clipping region to: %dx%d, +%d+%d\n",
+            rectangles[0].x, rectangles[0].y,
+            rectangles[0].width, rectangles[0].height
+        );
+#endif
+    }
+
+#endif /* if USE_XLIB_CLIPPING */
+}
+
+static void
+clearClippingRegion(pDisplay, gc)
+    Display *pDisplay;
+    GC gc;
+{
+#if USE_XLIB_CLIPPING
+    XSetClipMask(pDisplay, gc, None);
+#endif
+}
+
 static int
-fill_quad(win, d, xcolor, x1, y1, x2, y2, x3, y3, x4, y4)
+fill_quad(pQuery, win, d, xcolor, x1, y1, x2, y2, x3, y3, x4, y4)
+    GetPixmapQuery *pQuery;
     Tk_Window win;
     Drawable d;
     XColor *xcolor;
@@ -1544,6 +1723,9 @@ fill_quad(win, d, xcolor, x1, y1, x2, y2, x3, y3, x4, y4)
 
     gc_values.foreground = xcolor->pixel;
     gc = Tk_GetGC(win, GCForeground, &gc_values);
+    if (pQuery) {
+        setClippingRegion(pQuery, display, gc);
+    }
 
     /* The coordinates provided to this function are suitable for
      * passing to XFillPolygon() with the "mode" argument set to 
@@ -1563,6 +1745,7 @@ fill_quad(win, d, xcolor, x1, y1, x2, y2, x3, y3, x4, y4)
 
     XFillPolygon(display, d, gc, points, 4, Convex, CoordModeOrigin);
 
+    clearClippingRegion(display, gc);
     Tk_FreeGC(display, gc);
     return rc;
 }
@@ -1604,7 +1787,8 @@ fill_rectangle(win, d, xcolor, x, y, w, h)
  */
 static void
 tileimage(
-drawable, d_w, d_h, pImage, bg_x, bg_y, bg_w, bg_h, iPosX, iPosY)
+pQuery, drawable, d_w, d_h, pImage, bg_x, bg_y, bg_w, bg_h, iPosX, iPosY)
+    GetPixmapQuery *pQuery;   /* Clipping region */
     Drawable drawable;        /* Where to draw */
     int d_w; int d_h;         /* Total width and height of drawable */
     HtmlImage2 *pImage;
@@ -1622,6 +1806,22 @@ drawable, d_w, d_h, pImage, bg_x, bg_y, bg_w, bg_h, iPosX, iPosY)
     Tk_Image img;
     int i_w;
     int i_h;
+
+    /* Clipping for pQuery */
+#if 0
+    if (
+        pQuery->pCurrentOverflow && 
+        drawable != pQuery->pCurrentOverflow->pixmap
+    ) {
+        Overflow *p = pQuery->pCurrentOverflow;
+        int ocx = p->pmx - pQuery->x;
+        int ocy = p->pmx - pQuery->x;
+        clip_x1 = MAX(clip_x1, ocx);
+        clip_y1 = MAX(clip_y1, ocy);
+        clip_x2 = MIN(clip_x2, ocx + p->pmw);
+        clip_y2 = MIN(clip_y2, ocy + p->pmh);
+    }
+#endif
 
     img = HtmlImageImage(pImage);
     Tk_SizeOfImage(img, &i_w, &i_h);
@@ -1674,16 +1874,6 @@ drawable, d_w, d_h, pImage, bg_x, bg_y, bg_w, bg_h, iPosX, iPosY)
         }
     }
 }
-
-typedef struct Outline Outline;
-struct Outline {
-    int x;
-    int y;
-    int w;
-    int h;
-    HtmlNode *pNode;
-    Outline *pNext;
-};
 
 static void
 drawScrollbars(pTree, pItem, origin_x, origin_y)
@@ -1756,8 +1946,9 @@ drawScrollbars(pTree, pItem, origin_x, origin_y)
  *---------------------------------------------------------------------------
  */
 static Outline* 
-drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview, flags)
-    HtmlTree *pTree;
+drawBox(pQuery, pItem, pBox, drawable, x, y, w, h, xview, yview, flags)
+    GetPixmapQuery *pQuery;
+    HtmlCanvasItem *pItem;
     CanvasBox *pBox;
     Drawable drawable;
     int x;                 /* X-coord in *pDrawable */
@@ -1768,6 +1959,7 @@ drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview, flags)
     int yview;             /* Y-coord of drawable in viewport */
     int flags;             /* Combination of DRAWBOX_XXX flags */
 {
+    HtmlTree *pTree = pQuery->pTree;
     HtmlComputedValues *pV = HtmlNodeComputedValues(pBox->pNode);
 
     /* Figure out the widths of the top, bottom, right and left borders */
@@ -1790,6 +1982,10 @@ drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview, flags)
     XColor *oc = pV->cOutlineColor->xcolor;
 
     /* int isInline = (pV->eDisplay == CSS_CONST_INLINE); */
+    if (pItem) {
+        setClippingDrawable(pQuery, pItem, &drawable, &x, &y);
+    }
+    assert(pBox);
 
     if (pBox->flags & CANVAS_BOX_OPEN_LEFT) {
         lw = 0;
@@ -1812,7 +2008,7 @@ drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview, flags)
     if (0 == (flags & DRAWBOX_NOBORDER)) {
         /* Top border */
         if (tw > 0 && tc) {
-            fill_quad(pTree->tkwin, drawable, tc,
+            fill_quad(pQuery, pTree->tkwin, drawable, tc,
                 x + pBox->x, y + pBox->y,
                 lw, tw,
                 pBox->w - lw - rw, 0,
@@ -1822,7 +2018,7 @@ drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview, flags)
     
         /* Left border, if required */
         if (lw > 0 && lc) {
-            fill_quad(pTree->tkwin, drawable, lc,
+            fill_quad(pQuery, pTree->tkwin, drawable, lc,
                 x + pBox->x, y + pBox->y,
                 lw, tw,
                 0, pBox->h - tw - bw,
@@ -1832,7 +2028,7 @@ drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview, flags)
     
         /* Bottom border, if required */
         if (bw > 0 && bc) {
-            fill_quad(pTree->tkwin, drawable, bc,
+            fill_quad(pQuery, pTree->tkwin, drawable, bc,
                 x + pBox->x, y + pBox->y + pBox->h,
                 lw, - 1 * bw,
                 pBox->w - lw - rw, 0,
@@ -1842,7 +2038,7 @@ drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview, flags)
     
         /* Right border, if required */
         if (rw > 0 && rc) {
-            fill_quad(pTree->tkwin, drawable, rc,
+            fill_quad(pQuery, pTree->tkwin, drawable, rc,
                 x + pBox->x + pBox->w, y + pBox->y,
                 -1 * rw, tw,
                 0, pBox->h - tw - bw,
@@ -1932,7 +2128,7 @@ drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview, flags)
 
             if (isAlpha) {
                 tileimage(
-                    drawable, w, h, 
+                    pQuery, drawable, w, h, 
                     pV->imZoomedBackgroundImage,
                     bg_x, bg_y, bg_w, bg_h, 
                     iPosX, iPosY
@@ -1946,7 +2142,7 @@ drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview, flags)
                 for ( ; pBgNode; pBgNode = HtmlNodeParent(pBgNode)) {
                     HtmlComputedValues *pV2 = HtmlNodeComputedValues(pBgNode);
                     if (pV2->cBackgroundColor->xcolor) {
-                        fill_quad(pTree->tkwin, ipix, 
+                        fill_quad(0, pTree->tkwin, ipix, 
                             pV2->cBackgroundColor->xcolor,
                             0, 0, iWidth, 0, 0, iHeight, -1 * iWidth, 0
                         );
@@ -1969,10 +2165,12 @@ drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview, flags)
                     GCTile|GCTileStipXOrigin|GCTileStipYOrigin|GCFillStyle, 
                     &gc_values
                 );
+                setClippingRegion(pQuery, display, gc);
                 if (bg_h > 0 && bg_w > 0) {
                     XFillRectangle(display,drawable,gc,bg_x,bg_y,bg_w,bg_h);
                 }
                 Tk_FreePixmap(display, ipix);
+                clearClippingRegion(display, gc);
                 Tk_FreeGC(display, gc);
             }
         }
@@ -2009,8 +2207,8 @@ drawBox(pTree, pBox, drawable, x, y, w, h, xview, yview, flags)
  *---------------------------------------------------------------------------
  */
 static void 
-drawImage(pTree, pI2, drawable, x, y, w, h)
-    HtmlTree *pTree;
+drawImage(pQuery, pI2, drawable, x, y, w, h)
+    GetPixmapQuery *pQuery;
     CanvasImage *pI2;
     Drawable drawable;
     int x;                 /* X-coord in *pDrawable */
@@ -2027,7 +2225,7 @@ drawImage(pTree, pI2, drawable, x, y, w, h)
         Tk_SizeOfImage(img, &imW, &imH);
 
         tileimage(
-            drawable, w, h, 
+            pQuery, drawable, w, h, 
             pI2->pImage,
             x + pI2->x, y + pI2->y,
             imW, imH,
@@ -2053,15 +2251,17 @@ drawImage(pTree, pI2, drawable, x, y, w, h)
  *---------------------------------------------------------------------------
  */
 static void 
-drawLine(pTree, pLine, drawable, x, y, w, h)
-    HtmlTree *pTree;
-    CanvasLine *pLine;
+drawLine(pQuery, pItem, drawable, x, y, w, h)
+    GetPixmapQuery *pQuery;
+    HtmlCanvasItem *pItem;
     Drawable drawable;
     int x;                 /* X-coord in *pDrawable */
     int y;                 /* Y-coord in *pDrawable */
     int w;                 /* Total width of *pDrawable */
     int h;                 /* Total height of *pDrawable */
 {
+    HtmlTree *pTree = pQuery->pTree;
+    CanvasLine *pLine = &pItem->x.line;
     XColor *xcolor;
     int yrel;
 
@@ -2079,11 +2279,12 @@ drawLine(pTree, pLine, drawable, x, y, w, h)
             return;
     }
     xcolor = HtmlNodeComputedValues(pLine->pNode)->cColor->xcolor;
-
-    fill_quad(pTree->tkwin, drawable, xcolor, 
+    setClippingDrawable(pQuery, pItem, &drawable, &x, &y);
+    fill_quad(pQuery, pTree->tkwin, drawable, xcolor, 
         x + pLine->x, y + yrel, pLine->w, 0, 0, 1, -1 * pLine->w, 0
     );
 }
+
 
 #define SWAPINT(x,y) {int tmp = x; x = y; y = tmp;}
 
@@ -2103,13 +2304,14 @@ drawLine(pTree, pLine, drawable, x, y, w, h)
  *---------------------------------------------------------------------------
  */
 static void
-drawText(pTree, pItem, drawable, x, y)
-    HtmlTree *pTree;
-    HtmlCanvasItem *pItem;
-    Drawable drawable;
-    int x;
-    int y;
+drawText(pQuery, pItem, drawable, x, y)
+    GetPixmapQuery *pQuery;        /* Pointer to pixmap-query */
+    HtmlCanvasItem *pItem;         /* Text item to draw */
+    Drawable drawable;             /* Drawable to draw on */
+    int x;                         /* X-coord for drawing origin */
+    int y;                         /* Y-coord for drawing origin */
 {
+    HtmlTree *pTree = pQuery->pTree;
     Display *disp = Tk_Display(pTree->tkwin);
     CanvasText *pT = &pItem->x.t;
 
@@ -2145,7 +2347,10 @@ drawText(pTree, pItem, drawable, x, y)
         gc_values.foreground = pColor->xcolor->pixel;
         gc_values.font = Tk_FontId(font);
         gc = Tk_GetGC(pTree->tkwin, mask, &gc_values);
+        setClippingRegion(pQuery, disp, gc);
+        setClippingDrawable(pQuery, pItem, &drawable, &x, &y);
         Tk_DrawChars(disp, drawable, gc, font, z, n, pT->x + x, pT->y + y);
+        clearClippingRegion(disp, gc);
         Tk_FreeGC(disp, gc);
     }
 
@@ -2197,14 +2402,18 @@ drawText(pTree, pItem, drawable, x, y)
             mask = GCForeground;
             gc_values.foreground = pTag->background->pixel;
             gc = Tk_GetGC(pTree->tkwin, mask, &gc_values);
+            setClippingRegion(pQuery, disp, gc);
             XFillRectangle(disp, drawable, gc, pT->x + xs, ybg, w, h);
+            clearClippingRegion(disp, gc);
             Tk_FreeGC(disp, gc);
     
             mask = GCForeground | GCFont;
             gc_values.foreground = pTag->foreground->pixel;
             gc_values.font = Tk_FontId(font);
             gc = Tk_GetGC(pTree->tkwin, mask, &gc_values);
+            setClippingRegion(pQuery, disp, gc);
             Tk_DrawChars(disp, drawable, gc, font, zSel, nSel,pT->x+xs,pT->y+y);
+            clearClippingRegion(disp, gc);
             Tk_FreeGC(disp, gc);
         }
     }
@@ -2406,14 +2615,18 @@ sorterCb(pItem, x, y, pOverflow, clientData)
     }
 
     if (pSorter->iSnapshot) {
+        /* If CanvasItemSorter.iSnapshot is not zero, then we are creating
+         * a snap-shot for HtmlDrawSnapshot().
+         */
         pItem->iSnapshot = pSorter->iSnapshot;
-        pItem->nRef++;
-        assert(pItem->nRef >= 2);
         if (pItem->type == CANVAS_BOX) {
             x += pItem->x.box.x;
             y += pItem->x.box.y;
         }
-    }
+        pItem->nRef++;
+        assert(pItem->nRef >= 2);
+    } 
+
     sorterInsert(pSorter, pItem, x, y, pOverflow);
     return 0;
 }
@@ -2456,11 +2669,9 @@ HtmlDrawSnapshot(pTree, isDrawable)
     int ymax = ymin + Tk_Height(pTree->tkwin);
     CanvasItemSorter *p;
 
-    int iCount = 0;
-
     p = HtmlNew(CanvasItemSorter);
     p->iSnapshot = (++pTree->iLastSnapshotId);
-    searchCanvas(pTree, ymin, ymax, sorterCb, (ClientData)p, 0);
+    searchCanvas(pTree, ymin, ymax, sorterCb, (ClientData)p, 1);
 
     return (HtmlCanvasSnapshot *)p;
 }
@@ -2505,7 +2716,7 @@ static void damageSlot(pTree, pSlot, pX1, pY1, pX2, pY2, isOld)
         x -= pSlot->pItem->x.box.x;
         y -= pSlot->pItem->x.box.y;
     }
-// printf("%dx%d +%d+%d (%d)\n", w, h, x, y, pSlot->pItem->type);
+/* printf("%dx%d +%d+%d (%d)\n", w, h, x, y, pSlot->pItem->type); */
     if (pSlot->pItem->type == CANVAS_WINDOW) {
         pTree->cb.flags |= HTML_NODESCROLL;
     }
@@ -2556,9 +2767,10 @@ static int itemsAreEqual(p1, p2)
 }
 
 void
-HtmlDrawSnapshotDamage(pTree, pSnapshot)
+HtmlDrawSnapshotDamage(pTree, pSnapshot, ppCurrent)
     HtmlTree *pTree;
     HtmlCanvasSnapshot *pSnapshot;
+    HtmlCanvasSnapshot **ppCurrent;
 {
     CanvasItemSorter *pOld = (CanvasItemSorter *)pSnapshot;
     CanvasItemSorter *pNew;
@@ -2586,9 +2798,9 @@ HtmlDrawSnapshotDamage(pTree, pSnapshot)
     CanvasItemSorterSlot *pNewSlot;
     CanvasItemSorterSlot *pOldSlot;
 
-    /* Create a new psuedo-snapshot */
+    /* Create a new current snapshot. */
     pNew = HtmlNew(CanvasItemSorter);
-    searchCanvas(pTree, ymin, ymax, sorterCb, (ClientData)pNew, 0);
+    searchCanvas(pTree, ymin, ymax, sorterCb, (ClientData)pNew, 1);
 
     pNewSlot = nextItem(pNew, &iNewLevel, &iNewItem);
     pOldSlot = nextItem(pOld, &iOldLevel, &iOldItem);
@@ -2614,8 +2826,8 @@ HtmlDrawSnapshotDamage(pTree, pSnapshot)
                     iStuck++;
                 }
             }
-            pNewSlot = nextItem(pNew, &iNewLevel, &iNewItem);
             pOldSlot = nextItem(pOld, &iOldLevel, &iOldItem);
+            pNewSlot = nextItem(pNew, &iNewLevel, &iNewItem);
         } else if (pNewSlot->pItem->iSnapshot == pOld->iSnapshot) {
             damageSlot(pTree, pOldSlot, &x1, &y1, &x2, &y2, 1);
             iDeleted++;
@@ -2644,8 +2856,12 @@ HtmlDrawSnapshotDamage(pTree, pSnapshot)
         HtmlCallbackDamage(pTree, x, y, 1+x2-x1, 1+y2-y1, 0);
     }
 
-    sorterReset(pNew);
-    HtmlFree(pNew);
+    if (ppCurrent) {
+        *ppCurrent = (HtmlCanvasSnapshot *)pNew;
+    } else {
+        sorterReset(pNew);
+        HtmlFree(pNew);
+    }
 }
 
 void
@@ -2655,28 +2871,13 @@ HtmlDrawSnapshotFree(pTree, pSnapshot)
 {
     if (pSnapshot) {
         CanvasItemSorter *p = (CanvasItemSorter *)pSnapshot;
-        sorterIterate(p, snapshotReleaseItemsCb, (ClientData)pTree);
+        if (p->iSnapshot) {
+            sorterIterate(p, snapshotReleaseItemsCb, (ClientData)pTree);
+        }
         sorterReset(p);
         HtmlFree(pSnapshot);
     }
 }
-
-
-typedef struct GetPixmapQuery GetPixmapQuery;
-struct GetPixmapQuery {
-    HtmlTree *pTree;
-    HtmlNode *pBgRoot;
-    int x;
-    int y;
-    int w;
-    int h;
-    int getwin;
-    Outline *pOutline;
-    Pixmap pmap;
-
-    Overflow *pCurrentOverflow;
-    Overflow *pOverflowList;
-};
 
 static void
 clipRectangle(pX, pY, pW, pH, x2, y2, w2, h2)
@@ -2729,15 +2930,16 @@ pixmapQuerySwitchOverflow(pQuery, pOverflow)
         }
 #endif
 
+        /* If there is a pixmap associated with the current Overflow object,
+         * copy it to the output pixmap now (GetPixmapQuery.pmap)
+         */
         if (pCurrentOverflow && pCurrentOverflow->pixmap) {
-
             int src_x = 0;
             int src_y = 0;
             int dest_x = pCurrentOverflow->pmx - pQuery->x;
             int dest_y = pCurrentOverflow->pmy - pQuery->y;
             int copy_w = pCurrentOverflow->pmw;
             int copy_h = pCurrentOverflow->pmh;
-
             if (copy_w > 0 && copy_h > 0) {
                 Tk_Window win = pQuery->pTree->tkwin;
                 Pixmap o = pCurrentOverflow->pixmap;
@@ -2757,7 +2959,6 @@ pixmapQuerySwitchOverflow(pQuery, pOverflow)
         pQuery->pCurrentOverflow = 0;
 
         if (pOverflow && pOverflow->w > 0 && pOverflow->h > 0) {
-
             pOverflow->pmx = pOverflow->x;
             pOverflow->pmy = pOverflow->y;
             pOverflow->pmw = pOverflow->w;
@@ -2767,55 +2968,6 @@ pixmapQuerySwitchOverflow(pQuery, pOverflow)
                 &pOverflow->pmw, &pOverflow->pmh, 
                 pQuery->x, pQuery->y, pQuery->w, pQuery->h
             );
-
-#if 0
-            int src_x = pOverflow->pmx - pQuery->x;
-            int src_y = pOverflow->pmy - pQuery->y;
-            int dest_x = 0;
-            int dest_y = 0;
-            int copy_w = pOverflow->pmw;
-            int copy_h = pOverflow->pmh;
-
-            if (src_x < 0) {
-                dest_x = -1 * src_x;
-                copy_w = copy_w + src_x;
-                src_x = 0;
-            }
-            if (src_y < 0) {
-                dest_y = -1 * src_y;
-                copy_h = copy_h + src_y;
-                src_y = 0;
-            }
-#endif
-
-            if (pOverflow->pmw > 0 && pOverflow->pmh > 0) {
-
-                Tk_Window win = pQuery->pTree->tkwin;
-                GC gc;
-                XGCValues gc_values;
-    
-                if (!pOverflow->pixmap) {
-                    pOverflow->pixmap = Tk_GetPixmap(
-    		        Tk_Display(win), Tk_WindowId(win), 
-                        pOverflow->pmw, pOverflow->pmh,
-                        Tk_Depth(win)
-                    );
-                    assert(pOverflow->pixmap);
-                    pOverflow->pNext = pQuery->pOverflowList;
-                    pQuery->pOverflowList = pOverflow;
-                }
-                memset(&gc_values, 0, sizeof(XGCValues));
-                gc = Tk_GetGC(pQuery->pTree->tkwin, 0, &gc_values);
-
-                assert(pOverflow->pmx >= pQuery->x);
-                assert(pOverflow->pmy >= pQuery->y);
-                XCopyArea(Tk_Display(win), pQuery->pmap, pOverflow->pixmap, gc, 
-                    pOverflow->pmx - pQuery->x, pOverflow->pmy - pQuery->y, 
-                    pOverflow->pmw, pOverflow->pmh, 
-                    0, 0
-                );
-                Tk_FreeGC(Tk_Display(win), gc);
-            }
         }
 
         pQuery->pCurrentOverflow = pOverflow;
@@ -2859,27 +3011,28 @@ pixmapQueryCb(pItem, origin_x, origin_y, pOverflow, clientData)
     assert(!pQuery->pCurrentOverflow || pOverflow == pQuery->pCurrentOverflow);
     if (pQuery->pCurrentOverflow) {
         Overflow *p = pQuery->pCurrentOverflow;
-        if (!p->pixmap) {
+        if (p->pmw <= 0 || p->pmh <= 0) {
             return 0;
         }
-        drawable = p->pixmap;
-
-        x = origin_x - p->pmx;
-        y = origin_y - p->pmy;
-        w = p->pmw;
-        h = p->pmh;
-
+        if (p->pixmap) {
+            drawable = p->pixmap;
+            x = origin_x - p->pmx;
+            y = origin_y - p->pmy;
+            w = p->pmw;
+            h = p->pmh;
+        }
         x -= p->xscroll;
         y -= p->yscroll;
     }
 
     switch (pItem->type) {
         case CANVAS_TEXT: {
-            drawText(pQuery->pTree, pItem, drawable, x, y);
+            drawText(pQuery, pItem, drawable, x, y);
             break;
         }
 
         case CANVAS_IMAGE: {
+            setClippingDrawable(pQuery, pItem, &drawable, &x, &y);
             drawImage(pQuery->pTree, &pItem->x.i2, drawable, x, y, w, h);
             break;
         }
@@ -2890,7 +3043,7 @@ pixmapQueryCb(pItem, origin_x, origin_y, pOverflow, clientData)
             int yv = pQuery->y - pQuery->pTree->iScrollY;
             int f = 0;
             if (pQuery->pBgRoot == pItem->x.box.pNode) f = DRAWBOX_NOBACKGROUND;
-            p = drawBox(pQuery->pTree,&pItem->x.box,drawable,x,y,w,h,xv,yv,f);
+            p = drawBox(pQuery, pItem, &pItem->x.box,drawable,x,y,w,h,xv,yv,f);
             if (p) {
                 p->pNext = pQuery->pOutline;
                 pQuery->pOutline = p;
@@ -2902,7 +3055,7 @@ pixmapQueryCb(pItem, origin_x, origin_y, pOverflow, clientData)
         }
 
         case CANVAS_LINE: {
-            drawLine(pQuery->pTree, &pItem->x.line, drawable, x, y, w, h);
+            drawLine(pQuery, pItem, drawable, x, y, w, h);
             break;
         }
         case CANVAS_WINDOW: {
@@ -3018,22 +3171,8 @@ getPixmap(pTree, xcanvas, ycanvas, w, h, getwin)
         pEntry = Tcl_FindHashEntry(&pTree->aColor, "white");
         assert(pEntry);
         bg_color = ((HtmlColor *)Tcl_GetHashValue(pEntry))->xcolor;
-        fill_quad(win, pmap, bg_color, 0, 0, w, 0, 0, h, -1 * w, 0);
+        fill_quad(0, win, pmap, bg_color, 0, 0, w, 0, 0, h, -1 * w, 0);
     }
-
-    if (pBgRoot) {
-        CanvasBox sBox;
-        int xv = xcanvas - pTree->iScrollX;
-        int yv = ycanvas - pTree->iScrollY;
-        memset(&sBox, 0, sizeof(CanvasBox));
-        sBox.pNode = pBgRoot;
-        sBox.w = MAX(Tk_Width(pTree->tkwin), pTree->canvas.right);
-        sBox.h = MAX(Tk_Height(pTree->tkwin), pTree->canvas.bottom);
-        drawBox(
-            pTree, &sBox, pmap, -1*xcanvas, -1*ycanvas, 
-            w, h, xv, yv, DRAWBOX_NOBORDER
-        );
-    } 
 
     sQuery.pTree = pTree;
     sQuery.pBgRoot = pBgRoot;
@@ -3047,11 +3186,30 @@ getPixmap(pTree, xcanvas, ycanvas, w, h, getwin)
     sQuery.pCurrentOverflow = 0;
     sQuery.pOverflowList = 0;
 
+    if (pBgRoot) {
+        CanvasBox sBox;
+        int xv = xcanvas - pTree->iScrollX;
+        int yv = ycanvas - pTree->iScrollY;
+        memset(&sBox, 0, sizeof(CanvasBox));
+        sBox.pNode = pBgRoot;
+        sBox.w = MAX(Tk_Width(pTree->tkwin), pTree->canvas.right);
+        sBox.h = MAX(Tk_Height(pTree->tkwin), pTree->canvas.bottom);
+        drawBox(
+            &sQuery, 0, &sBox, pmap, -1*xcanvas, -1*ycanvas, 
+            w, h, xv, yv, DRAWBOX_NOBORDER
+        );
+    } 
+
     clientData = (ClientData)&sQuery;
 #if 0
     searchCanvas(pTree, ycanvas, ycanvas+h, 0, pixmapQueryCb, clientData);
 #else
-    searchSortedCanvas(pTree, ycanvas, ycanvas+h, 0, pixmapQueryCb, clientData);
+    if (pTree->cb.pSnapshot) {
+        CanvasItemSorter *pSorter = (CanvasItemSorter *)pTree->cb.pSnapshot;
+        sorterIterate(pSorter, pixmapQueryCb, clientData);
+    }else{
+        searchSortedCanvas(pTree, ycanvas, ycanvas+h, 0, pixmapQueryCb, clientData);
+    }
 #endif
     pixmapQuerySwitchOverflow(&sQuery, 0);
     for (
@@ -3073,10 +3231,10 @@ getPixmap(pTree, xcanvas, ycanvas, w, h, getwin)
         int w1 = pOutline->w;
         int h1 = pOutline->h;
         Outline *pPrev = pOutline;
-        fill_quad(pTree->tkwin, pmap, oc, x1,y1, w1,0, 0,ow, -w1,0);
-        fill_quad(pTree->tkwin, pmap, oc, x1,y1+h1, w1,0, 0,-ow, -w1,0);
-        fill_quad(pTree->tkwin, pmap, oc, x1,y1, 0,h1, ow,0, 0,-h1);
-        fill_quad(pTree->tkwin, pmap, oc, x1+w1,y1, 0,h1, -ow,0, 0,-h1);
+        fill_quad(0, pTree->tkwin, pmap, oc, x1,y1, w1,0, 0,ow, -w1,0);
+        fill_quad(0, pTree->tkwin, pmap, oc, x1,y1+h1, w1,0, 0,-ow, -w1,0);
+        fill_quad(0, pTree->tkwin, pmap, oc, x1,y1, 0,h1, ow,0, 0,-h1);
+        fill_quad(0, pTree->tkwin, pmap, oc, x1+w1,y1, 0,h1, -ow,0, 0,-h1);
         pOutline = pOutline->pNext;
         HtmlFree(pPrev);
     }

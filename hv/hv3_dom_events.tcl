@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.24 2007/06/14 17:24:50 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.25 2007/06/16 16:19:58 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # DOM Level 2 Events.
@@ -11,6 +11,7 @@ namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.24 2007/06/14 17:2
 #     DocumentEvent    (mixed into the DOM Document object)
 #     Event            (Event objects)
 #     MutationEvent    (Mutation event objects)
+#     UIEvent          (UI event objects)
 #     MouseEvent       (Mouse event objects)
 #
 # And event object interfaces:
@@ -35,10 +36,9 @@ namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.24 2007/06/14 17:2
 #
 #-------------------------------------------------------------------------
 
-# The $HTML_Events_List variable contains a list of HTML events handled 
-# by this module. This is used both at runtime and when building DOM object
-# definitions during application startup. This list comes from chapter 18
-# ("Scripts") of HTML 4.01.
+# The $HTML_Events_List variable contains a list of HTML events 
+# handled by this module. This is used at runtime by HTMLElement 
+# objects. This list comes from chapter 18 ("Scripts") of HTML 4.01.
 #
 # Other notes from HTML 4.01:
 #
@@ -134,23 +134,48 @@ namespace eval ::hv3::DOM {
 }
 
 ::hv3::dom2::stateless MouseEvent {UIEvent} {
-
   dom_call_todo initMouseEvent
 
   dom_get button { list number $state(-button) }
-  dom_get which  { list number [expr {$state(-button) + 1}]}
 
   dom_get clientX { list number $state(-x) }
   dom_get clientY { list number $state(-y) }
-}
 
-::hv3::dom2::stateless MutationEvent {Event} {
+  dom_get screenX { list number $state(-screenx) }
+  dom_get screenY { list number $state(-screeny) }
 
-  dom_call_todo initMutationEvent 
+  dom_get ctrlKey  { list boolean $state(-ctrlkey) }
+  dom_get shiftKey { list boolean $state(-shiftkey) }
+  dom_get altKey   { list boolean $state(-altkey) }
+  dom_get metaKey  { list boolean $state(-metakey) }
+
+  dom_get relatedTarget  { list object $state(-relatedtarget) }
+
+  # Mozilla extensions:
+  #
+  dom_get which  { list number [expr {$state(-button) + 1}]}
 }
 
 ::hv3::dom2::stateless UIEvent {Event} {
   dom_call_todo initUIEvent 
+
+  dom_todo view
+  dom_todo detail
+  dom_call_todo initUIEvent 
+}
+
+::hv3::dom2::stateless MutationEvent {Event} {
+  dom_call_todo initMutationEvent 
+
+  dom_get MODIFICATION { list number 1 }
+  dom_get ADDITION     { list number 2 }
+  dom_get REMOVAL      { list number 3 }
+
+  dom_todo relatedNode
+  dom_todo prevValue
+  dom_todo newValue
+  dom_todo attrName
+  dom_todo attrChange
 }
 
 #-------------------------------------------------------------------------
@@ -170,21 +195,22 @@ namespace eval ::hv3::DOM {
   #     "UIEvents"
   #     "MouseEvents"
   #     "MutationEvents"
+  #     "Events"
   #
   dom_call -string createEvent {THIS eventType} {
-
-    switch -- $eventType {
-      HTMLEvents {
-        list object [::hv3::DOM::Event %AUTO% $myDom]
-      }
-
-      MouseEvents {
-        list object [::hv3::DOM::MouseEvent %AUTO% $myDom]
-      }
+    if {![info exists ::hv3::DOM::EventGroup($eventType)]} {
+      error {DOMException HIERACHY_REQUEST_ERR}
     }
-
+    append arrayvar ::hv3::DOM::ea [incr ::hv3::dom::next_array]
+    list transient [list $::hv3::DOM::EventGroup($eventType) $myDom $arrayvar]
   }
+  set ::hv3::DOM::EventGroup(HTMLEvents)     ::hv3::DOM::Event
+  set ::hv3::DOM::EventGroup(Events)         ::hv3::DOM::Event
+  set ::hv3::DOM::EventGroup(MouseEvent)     ::hv3::DOM::MouseEvent
+  set ::hv3::DOM::EventGroup(UIEvents)       ::hv3::DOM::UIEvent
+  set ::hv3::DOM::EventGroup(MutationEvents) ::hv3::DOM::MutationEvent
 }
+
 
 # Recognised mouse event types.
 #
@@ -232,9 +258,7 @@ namespace eval ::hv3::dom {
     set eventstate(-x) $x
     set eventstate(-y) $y
     set eventstate(-button) 0
-    # array set eventstate $extra
   
-    # Dispatch!
     set event [list ::hv3::DOM::MouseEvent $dom $arrayvar]
     Dispatch [$dom see] $js_obj $event
   }
