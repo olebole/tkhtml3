@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_string.tcl,v 1.3 2007/06/05 15:34:14 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_string.tcl,v 1.4 2007/06/17 08:00:48 danielk1977 Exp $)} 1 }
 
 
 namespace eval ::hv3::string {
@@ -91,3 +91,19 @@ namespace eval ::hv3::string {
   }
 
 }
+
+proc pretty_print_heapdebug {} {
+  set data [lsort -index 2 -integer [::tkhtml::heapdebug]]
+  set ret ""
+  set nTotalS 0
+  set nTotalB 0
+  foreach type $data {
+    foreach {zStruct nStruct nByte} $type {}
+    append ret [format "% -30s % 10d % 10d\n" $zStruct $nStruct $nByte]
+    incr nTotalB $nByte
+    incr nTotalS $nStruct
+  }
+  append ret [format "% -30s % 10d % 10d\n" "Totals" $nTotalS $nTotalB]
+  set ret
+}
+

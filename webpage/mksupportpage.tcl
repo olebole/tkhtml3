@@ -209,7 +209,7 @@ SUPPORTTABLE {User Interface Properties} \
           Only enumerated values are supported. Tkhtml3 doesn't actually
           do anything with this property, but it is available for the
           applications use.
-        }
+        } \
 	[CSSREF ui outline]        {} \
 	[CSSREF ui outline-width ] {} \
 	[CSSREF ui outline-color ] {} \

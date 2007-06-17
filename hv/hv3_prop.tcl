@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.55 2007/04/28 05:18:50 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.56 2007/06/17 08:00:48 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_prop.tcl --
@@ -118,10 +118,24 @@ snit::widget ::hv3::debug::tree {
 
   method Search {} {
     set selector [${win}.search.entry get]
-    set mySearchResults ""
-    if {$selector ne ""} {
+    set mySearchResults [list]
+
+    # Allow two "special" selector syntaxes:
+    #
+    #     ::tkhtml::nodeNNN
+    #     NNN
+    #
+    # where NNN is some integer. This is used to navigate to a node
+    # given it's Tcl command name.
+    #
+    if {[string is integer $selector]} {
+      set mySearchResults [list "::tkhtml::node${selector}"]
+    } elseif {[regexp {::tkhtml::node([1234567890]+)} $selector X int]} {
+      set mySearchResults [list "::tkhtml::node${int}"]
+    } elseif {$selector ne ""} {
       set mySearchResults [$myHtml search $selector]
     }
+
     if {[llength $mySearchResults] > 0} {
 
       # Expand the tree branches so that all of the found nodes are visible.

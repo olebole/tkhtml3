@@ -2,7 +2,7 @@
 #
 # Construct the web page for tkhtml
 #
-# @(#) $Id: mkwebpage.tcl,v 1.33 2007/04/10 08:47:58 danielk1977 Exp $
+# @(#) $Id: mkwebpage.tcl,v 1.34 2007/06/17 08:00:48 danielk1977 Exp $
 #
 
 source [file join [file dirname [info script]] common.tcl]
@@ -116,7 +116,10 @@ p {
 
 p {
   More detail is available in the <a href="requirements.html">
-  Tkhtml revitalization requirements draft</a>.
+  Tkhtml revitalization requirements draft</a>. Another good source of
+  info is the 
+  <A href="http://www.tcl.tk/community/tcl2007/papers/Dan_Kennedy/file___localhost_...tcl2006_tkhtml3_tcl2006.pdf">Tkhtml
+3.0 paper</A> (www.tcl.tk) from the 2006 Tcl conference.
 }
 
 p {

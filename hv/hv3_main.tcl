@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.124 2007/04/28 05:18:50 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.125 2007/06/17 08:00:48 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -984,15 +984,15 @@ snit::type ::hv3::debug_menu {
 
   constructor {} {
     set MENU [list \
-      "Cookies"       [list $::hv3::G(notebook) add cookies:]           "" \
-      "About"         [list $::hv3::G(notebook) add about:]             "" \
-      "Polipo..."     ::hv3::polipo::popup                              "" \
-      "Events..."     [list gui_log_window $::hv3::G(notebook)]         "" \
-      "-----"         ""                                                "" \
-      "Tree Browser..." [list gui_current browse]                         "" \
-      "ECMAscript..."   [list gui_current javascriptlog]                  j \
-      "-----"         ""                                                "" \
-      "firefox -remote" gui_firefox_remote                              "" \
+      "Cookies"              [list $::hv3::G(notebook) add cookies:]    "" \
+      "About"                [list $::hv3::G(notebook) add about:]      "" \
+      "Polipo..."            [list ::hv3::polipo::popup]                "" \
+      "Events..."            [list gui_log_window $::hv3::G(notebook)]  "" \
+      "-----"                [list]                                     "" \
+      "Tree Browser..."      [list gui_current browse]                  "" \
+      "ECMAscript..."        [list gui_current javascriptlog]           j  \
+      "-----"                [list]                                     "" \
+      "Exec firefox -remote" [list gui_firefox_remote]                  "" \
     ]
   }
 
