@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.189 2007/06/16 16:19:58 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.190 2007/06/20 10:51:58 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -2507,36 +2507,36 @@ searchCanvas(pTree, ymin, ymax, xFunc, clientData, requireOverflow)
             }
 
             case CANVAS_OVERFLOW: {
-                if (!requireOverflow) break;
-
-                Overflow *pOverflow = (Overflow *)&pItem[1];
-                HtmlNode *pNode = pItem->x.overflow.pNode;
-
-                HtmlElementNode *pElem = (HtmlElementNode *)pNode;
-                assert(!HtmlNodeIsText(pNode));
-
-                iOverflow++;
-                assert(iOverflow <= nOverflow);
-                if (iOverflow == nOverflow) {
-                    int nBytes = sizeof(Overflow *) * (nOverflow + 1);
-                    apOverflow = (Overflow**)HtmlRealloc(0, apOverflow, nBytes);
-                    nOverflow++;
-                }
-                apOverflow[iOverflow] = pOverflow;
-                pOverflow->pItem = &pItem->x.overflow;
-                pOverflow->x = pItem->x.overflow.x + origin_x;
-                pOverflow->y = pItem->x.overflow.y + origin_y;
-                pOverflow->w = pItem->x.overflow.w;
-                pOverflow->h = pItem->x.overflow.h;
-                pOverflow->pixmap = 0;
-                pOverflow->pNext = 0;
-
-                /* Adjust the x and y coords for scrollable blocks: */
-                pOverflow->xscroll = 0;
-                pOverflow->yscroll = 0;
-                if (pElem->pScrollbar) {
-                    pOverflow->xscroll = pElem->pScrollbar->iHorizontal;
-                    pOverflow->yscroll = pElem->pScrollbar->iVertical;
+                if (requireOverflow) {
+                    Overflow *pOverflow = (Overflow *)&pItem[1];
+                    HtmlNode *pNode = pItem->x.overflow.pNode;
+    
+                    HtmlElementNode *pElem = (HtmlElementNode *)pNode;
+                    assert(!HtmlNodeIsText(pNode));
+    
+                    iOverflow++;
+                    assert(iOverflow <= nOverflow);
+                    if (iOverflow == nOverflow) {
+                        int n = sizeof(Overflow *) * (nOverflow + 1);
+                        apOverflow = (Overflow**)HtmlRealloc(0, apOverflow, n);
+                        nOverflow++;
+                    }
+                    apOverflow[iOverflow] = pOverflow;
+                    pOverflow->pItem = &pItem->x.overflow;
+                    pOverflow->x = pItem->x.overflow.x + origin_x;
+                    pOverflow->y = pItem->x.overflow.y + origin_y;
+                    pOverflow->w = pItem->x.overflow.w;
+                    pOverflow->h = pItem->x.overflow.h;
+                    pOverflow->pixmap = 0;
+                    pOverflow->pNext = 0;
+    
+                    /* Adjust the x and y coords for scrollable blocks: */
+                    pOverflow->xscroll = 0;
+                    pOverflow->yscroll = 0;
+                    if (pElem->pScrollbar) {
+                        pOverflow->xscroll = pElem->pScrollbar->iHorizontal;
+                        pOverflow->yscroll = pElem->pScrollbar->iVertical;
+                    }
                 }
            
                 break;
