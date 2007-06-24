@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.168 2007/06/24 16:50:35 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.169 2007/06/24 17:19:49 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -2252,6 +2252,7 @@ nodeCmd(clientData, interp, objc, objv)
     int objc;                          /* Number of arguments. */
     Tcl_Obj *CONST objv[];             /* Argument strings. */
 {
+    HtmlInitTree((HtmlTree *)clientData);
     return HtmlLayoutNode(clientData, interp, objc, objv);
 }
 static int 

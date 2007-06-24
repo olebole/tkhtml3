@@ -866,6 +866,8 @@ void HtmlTreeAddElement(HtmlTree *, int, HtmlAttributes *, int);
 void HtmlTreeAddText(HtmlTree *, HtmlTextNode *, int);
 void HtmlTreeAddClosingTag(HtmlTree *, int, int);
 
+void HtmlInitTree(HtmlTree *);
+
 
 /*******************************************************************
  * Interface to code in htmltext.c

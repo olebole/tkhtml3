@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.134 2007/06/11 18:17:16 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.135 2007/06/24 17:19:49 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -869,7 +869,7 @@ doParseHandler(pTree, eType, pNode, iOffset)
 /*
  *---------------------------------------------------------------------------
  *
- * initTree --
+ * HtmlInitTree --
  *
  *     Create the parts of the tree that are always present. i.e.:
  *
@@ -886,8 +886,8 @@ doParseHandler(pTree, eType, pNode, iOffset)
  *
  *---------------------------------------------------------------------------
  */
-static void
-initTree(pTree)
+void
+HtmlInitTree(pTree)
     HtmlTree *pTree;
 {
     if (!pTree->pRoot) {
@@ -1180,7 +1180,7 @@ HtmlTreeAddElement(pTree, eType, pAttr, iOffset)
     HtmlNode *pParsed = 0; 
 
     /* Initialise the tree and find the <HEAD> and <BODY> elements */
-    initTree(pTree);
+    HtmlInitTree(pTree);
     pHeadNode = HtmlNodeChild(pTree->pRoot, 0);
     pBodyNode = HtmlNodeChild(pTree->pRoot, 1);
     pHeadElem = HtmlNodeAsElement(pHeadNode);
@@ -1336,7 +1336,7 @@ HtmlTreeAddText(pTree, pTextNode, iOffset)
     HtmlNode *pCurrent;
     int eCurrentType;
 
-    initTree(pTree);
+    HtmlInitTree(pTree);
     pCurrent = pTree->state.pCurrent;
     eCurrentType = HtmlNodeTagType(pCurrent);
 
@@ -1394,7 +1394,7 @@ HtmlTreeAddClosingTag(pTree, eTag, iOffset)
     int nClose;
     int ii;
 
-    initTree(pTree);
+    HtmlInitTree(pTree);
 
     if (pTree->state.pFoster && 0 == TAG_TO_TABLELEVEL(eTag)) {
         assert(TAG_TO_TABLELEVEL(HtmlNodeTagType(pTree->state.pCurrent)) > 0);
