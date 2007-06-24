@@ -742,6 +742,7 @@ int HtmlDrawGetMarker(HtmlCanvas*, HtmlCanvasItem *, int*, int*);
 void HtmlDrawAddLinebox(HtmlCanvas*, int, int);
 int HtmlDrawFindLinebox(HtmlCanvas*, int*, int*);
 
+HtmlCanvasSnapshot *HtmlDrawSnapshotZero(HtmlTree *);
 HtmlCanvasSnapshot *HtmlDrawSnapshot(HtmlTree *, int);
 void HtmlDrawSnapshotDamage(HtmlTree*,HtmlCanvasSnapshot*,HtmlCanvasSnapshot**);
 void HtmlDrawSnapshotFree(HtmlTree *, HtmlCanvasSnapshot *);

@@ -21,7 +21,7 @@ TCLVERSION = 8.5
 TCL_RELEASE  = $(HOME)/tcl
 TCL_DEBUG    = $(HOME)/tcl
 TCL_PROFILE  = $(HOME)/tcl_profile
-TCL_MEMDEBUG = $(TCL_DEBUG)
+TCL_MEMDEBUG = $(HOME)/memtcl
 TCL = $(TCL_$(BUILD))
 
 # MKSTARKIT = ~/tcl/bin/tclkit-linux-x86-xft ~/bin/sdx.kit wrap
@@ -45,7 +45,10 @@ JSFLAGS = -I$(HOME)/javascript/install/include
 TCLLIB_RELEASE  = -L$(TCL)/lib -ltcl$(TCLVERSION) -ltk$(TCLVERSION)   
 TCLLIB_DEBUG    = -L$(TCL)/lib -ltcl$(TCLVERSION) -ltk$(TCLVERSION)   
 TCLLIB_PROFILE  = -L$(TCL)/lib -ltcl$(TCLVERSION) -ltk$(TCLVERSION)
+
 TCLLIB_MEMDEBUG = $(TCLLIB_DEBUG)
+TCLLIB_MEMDEBUG += $(TCL)/lib/libtclstub$(TCLVERSION).a
+TCLLIB_MEMDEBUG += $(TCL)/lib/libtkstub$(TCLVERSION).a
 
 TCLLIB = -L/usr/X11R6/lib/ -lX11 -ldl -lm $(TCLLIB_$(BUILD))
 
@@ -63,7 +66,7 @@ CFLAGS_RELEASE = -O2 -Wall -DNDEBUG -DHTML_MACROS
 #CFLAGS_DEBUG   = -g -Wall -DHTML_MACROS -DHTML_RES_DEBUG
 CFLAGS_DEBUG    = -g -Wall -DHTML_DEBUG
 CFLAGS_PROFILE  = -g -pg -O2 -Wall -DNDEBUG
-CFLAGS_MEMDEBUG = -g -Wall -DRES_DEBUG -DHTML_DEBUG
+CFLAGS_MEMDEBUG = -g -Wall -DRES_DEBUG -DHTML_DEBUG -DTCL_MEM_DEBUG=1
 CFLAGS = $(CFLAGS_$(BUILD))
 
 ##### The name of the shared library file to build.
@@ -80,6 +83,10 @@ SHARED_LIB = $(SHARED_LIB_$(BUILD))
 #         $(MKSHLIB) $(OBJS) -o $(SHARED_LIB)
 #
 MKSHLIB = $(CC) -shared
+TCLSTUBSLIB_MEMDEBUG  =  "/home/dan/memtcl/lib/libtclstub8.5.a" 
+TCLSTUBSLIB_MEMDEBUG += "/home/dan/memtcl/lib/libtkstub8.5.a" 
+
+TCLSTUBSLIB = $(TCLSTUBSLIB_$(BUILD))
 
 STRIP_RELEASE = strip
 STRIP_DEBUG = true

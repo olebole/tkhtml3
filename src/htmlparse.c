@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.104 2007/04/22 14:49:07 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.105 2007/06/24 16:50:35 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -1172,7 +1172,6 @@ tokenizeWrapper(pTree, zText, isFin, xAddText, xAddElement, xAddClosing)
 {
     int rc;
     HtmlNode *pCurrent = pTree->state.pCurrent;
-    int nParse = pTree->nParsed;
 
     assert(pTree->eWriteState == HTML_WRITE_NONE);
     HtmlCheckRestylePoint(pTree);
@@ -1194,7 +1193,8 @@ tokenizeWrapper(pTree, zText, isFin, xAddText, xAddElement, xAddClosing)
      *
      * TODO. Each time an element is added to a foster-tree in htmltree.c
      * it calls HtmlCheckRestylePoint(). This is inefficient. But otherwise
-     * the following assert() fails.
+     * the following assert() fails (HtmlCheckRestylePoint() is a complex
+     * assert() function).
      */
     HtmlCheckRestylePoint(pTree);
 

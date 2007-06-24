@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.167 2007/06/24 16:07:23 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.168 2007/06/24 16:50:35 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -1106,6 +1106,7 @@ eventHandler(clientData, pEvent)
             if (iWidth != pTree->iCanvasWidth) {
                 HtmlCallbackLayout(pTree, pTree->pRoot);
             }
+            HtmlCallbackDamage(pTree, 0, 0, iWidth, Tk_Height(pTree->tkwin), 0);
             snapshotZero(pTree);
             break;
         }
