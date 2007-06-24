@@ -836,6 +836,7 @@ finalizeObject(pPtr, pContext)
         }
     }
 
+    assert(p->pObj->refCount >= 1);
     Tcl_DecrRefCount(p->pObj);
     p->pObj = 0;
     iNumSeeTclObject--;
@@ -1400,25 +1401,23 @@ interpDebug(pTclSeeInterp, objc, objv)
 
         const char *azString[6] = {
           "SeeTclObject structures allocated",
-          "sizeof(SeeTclObject)",
           "GC_get_heap_size",
           "GC_get_free_bytes",
           "GC_get_bytes_since_gc",
           "GC_get_total_bytes",
         };
-        int aVal[6];
+        int aVal[5];
 
         memset(aVal, 0, sizeof(aVal));
         aVal[0] = iNumSeeTclObject;
-        aVal[1] = sizeof(SeeTclObject);
 #ifndef NO_HAVE_GC
-        aVal[2] = (int)GC_get_heap_size();
-        aVal[3] = (int)GC_get_free_bytes();
-        aVal[4] = (int)GC_get_bytes_since_gc();
-        aVal[5] = (int)GC_get_total_bytes();
+        aVal[1] = (int)GC_get_heap_size();
+        aVal[2] = (int)GC_get_free_bytes();
+        aVal[3] = (int)GC_get_bytes_since_gc();
+        aVal[4] = (int)GC_get_total_bytes();
 #endif
 
-        for (ii = 0; ii < 6; ii++){
+        for (ii = 0; ii < 5; ii++){
           Tcl_ListObjAppendElement(0, pRet, Tcl_NewStringObj(azString[ii], -1));
           Tcl_ListObjAppendElement(0, pRet, Tcl_NewIntObj(aVal[ii]));
         }
@@ -1580,6 +1579,7 @@ interpCmd(clientData, pTclInterp, objc, objv)
          *
          */
         case INTERP_DESTROY: {
+            /* Deleting the command automatically calls delInterpCmd() */
             Tcl_DeleteCommand(pTclInterp, Tcl_GetString(objv[0]));
             break;
         }
@@ -2363,6 +2363,56 @@ installHv3Global(pTclSeeInterp, pWindow)
     p->Global = (struct SEE_object *)pGlobal;
 }
 
+static int 
+tclSeeAlloc(clientData, interp, objc, objv)
+    ClientData clientData;             /* Unused */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    Tcl_Obj *pRet = Tcl_NewObj();
+    int ii;
+
+    const char *azString[6] = {
+          "SeeTclObject",
+          "GC_get_heap_size",
+          "GC_get_free_bytes",
+          "GC_get_bytes_since_gc",
+          "GC_get_total_bytes",
+    };
+    int aVal[5];
+
+    memset(aVal, 0, sizeof(aVal));
+    aVal[0] = iNumSeeTclObject;
+#ifndef NO_HAVE_GC
+    aVal[1] = (int)GC_get_heap_size();
+    aVal[2] = (int)GC_get_free_bytes();
+    aVal[3] = (int)GC_get_bytes_since_gc();
+    aVal[4] = (int)GC_get_total_bytes();
+#endif
+
+    for (ii = 0; ii < 5; ii++){
+        Tcl_ListObjAppendElement(0, pRet, Tcl_NewStringObj(azString[ii], -1));
+        Tcl_ListObjAppendElement(0, pRet, Tcl_NewIntObj(aVal[ii]));
+    }
+
+    Tcl_SetObjResult(interp, pRet);
+    return TCL_OK;
+}
+
+static int 
+tclSeeCollect(clientData, interp, objc, objv)
+    ClientData clientData;             /* Unused */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+#ifndef NO_HAVE_GC
+    GC_gcollect();
+#endif
+    return TCL_OK;
+}
+
 int 
 Tclsee_Init(interp)
     Tcl_Interp *interp;
@@ -2376,7 +2426,9 @@ Tclsee_Init(interp)
 
     Tcl_PkgProvide(interp, "Tclsee", "0.1");
     Tcl_CreateObjCommand(interp, "::see::interp", tclSeeInterp, 0, 0);
+    Tcl_CreateObjCommand(interp, "::see::alloc",  tclSeeAlloc, 0, 0);
     Tcl_CreateObjCommand(interp, "::see::format", tclSeeFormat, 0, 0);
+    Tcl_CreateObjCommand(interp, "::see::gc",     tclSeeCollect, 0, 0);
     return TCL_OK;
 }
 

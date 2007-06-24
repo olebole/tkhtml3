@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_style.tcl,v 1.9 2007/06/11 18:17:16 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_style.tcl,v 1.10 2007/06/24 16:22:10 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # DOM Level 2 Style.
@@ -84,6 +84,9 @@ namespace eval ::hv3::dom2::compiler {
   dom_get parentRule { list null }
 }
 
+# Set up an array of known "simple" properties. This is used during
+# DOM compilation and at runtime.
+#
 set ::hv3::DOM::CSS2Properties_simple(width) width
 set ::hv3::DOM::CSS2Properties_simple(height) height
 set ::hv3::DOM::CSS2Properties_simple(display) display
@@ -106,6 +109,8 @@ set ::hv3::DOM::CSS2Properties_simple(border-bottom-width) borderBottomWidth
   foreach {k v} [array get ::hv3::DOM::CSS2Properties_simple] {
     style_property $k $v
   } 
+  unset -nocomplain k
+  unset -nocomplain v
 
   dom_put -string border value {
     set style [$myNode attribute -default {} style]

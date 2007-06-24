@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_string.tcl,v 1.4 2007/06/17 08:00:48 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_string.tcl,v 1.5 2007/06/24 16:22:10 danielk1977 Exp $)} 1 }
 
 
 namespace eval ::hv3::string {
@@ -105,5 +105,52 @@ proc pretty_print_heapdebug {} {
   }
   append ret [format "% -30s % 10d % 10d\n" "Totals" $nTotalS $nTotalB]
   set ret
+}
+
+proc pretty_print_vars {} {
+  set ret ""
+  foreach e [lsort -integer -index 1 [get_vars]] {
+    append ret [format "% -50s %d\n" [lindex $e 0] [lindex $e 1]]
+  }
+  set ret
+}
+
+proc get_vars {{ns ::}} {
+  set nVar 0
+  set ret [list]
+  set vlist [info vars ${ns}::*]
+  foreach var $vlist {
+    if {[array exists $var]} {
+      incr nVar [llength [array names $var]]
+    } else {
+      incr nVar 1
+    }
+  }
+  lappend ret [list $ns $nVar]
+  foreach child [namespace children $ns] {
+    eval lappend ret [get_vars $child]
+  }
+  set ret
+}
+proc count_vars {{ns ::} {print 0}} {
+  set nVar 0
+  foreach entry [get_vars $ns] {
+    incr nVar [lindex $entry 1]
+  }
+  set nVar
+}
+proc count_commands {{ns ::}} {
+  set nCmd [llength [info commands ${ns}::*]]
+  foreach child [namespace children $ns] {
+    incr nCmd [count_commands $child]
+  }
+  set nCmd
+}
+proc count_namespaces {{ns ::}} {
+  set nNs 1
+  foreach child [namespace children $ns] {
+    incr nNs [count_namespaces $child]
+  }
+  set nNs
 }
 

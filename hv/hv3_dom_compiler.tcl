@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.23 2007/06/16 16:19:58 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.24 2007/06/24 16:22:10 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file implements infrastructure used to create the [proc] definitions
@@ -328,10 +328,14 @@ namespace eval ::hv3::dom2 {
 
   proc cleanup {} {
     ::variable TypeArray
+    ::variable BaseArray
+    ::variable CurrentType
     foreach {name type} [array get TypeArray] {
       $type destroy
     }
-    array set TypeArray ""
+    unset -nocomplain TypeArray
+    unset -nocomplain BaseArray
+    unset -nocomplain CurrentType
   }
 }
 

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.125 2007/06/17 08:00:48 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.126 2007/06/24 16:22:10 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -465,7 +465,7 @@ snit::widget ::hv3::browser_toplevel {
     $myProtocol configure -statusvar [myvar myProtocolStatus]
     $myMainFrame configure -statusvar [myvar myFrameStatus]
     trace add variable [myvar myProtocolStatus] write [mymethod Writestatus]
-    trace add variable [myvar myFrameStatus] write    [mymethod Writestatus]
+    trace add variable [myvar myFrameStatus]    write [mymethod Writestatus]
 
     # Link in the "home:" and "about:" scheme handlers (from hv3_home.tcl)
     ::hv3::home_scheme_init [$myMainFrame hv3] $myProtocol
@@ -854,7 +854,7 @@ snit::type ::hv3::search {
   variable mySearchEngines [list \
       ----------- -                                                        \
       {Google}    "http://www.google.com/search?q=%s"                      \
-      {Tcl Wiki}  "http://wiki.tcl.tk/2?Q=%s"                              \
+      {Tcl Wiki}  "http://wiki.tcl.tk/_search?S=%s"                        \
       ----------- -                                                        \
       {Ask.com}   "http://www.ask.com/web?q=%s"                            \
       {MSN}       "http://search.msn.com/results.aspx?q=%s"                \
@@ -1100,6 +1100,7 @@ proc gui_build {widget_array} {
   # And the bottom bit - the status bar
   ::hv3::label .status -anchor w -width 1
   bind .status <1> [list gui_current ProtocolGui toggle]
+  bind .status <3> [list gui_toggle_status $widget_array]
 
   # Set the widget-array variables
   set G(new_button)     .toolbar.b.new
@@ -1109,8 +1110,9 @@ proc gui_build {widget_array} {
   set G(home_button)    .toolbar.b.home
   set G(reload_button)  .toolbar.b.reload
   set G(location_entry) .toolbar.entry
-  set G(status_label)   .status
   set G(notebook)       .notebook
+  set G(status_label)   .status
+  set G(status_mode)    "browser"
 
   # Pack the elements of the "top bit" into the .entry frame
   pack .toolbar.b.new -side left
@@ -1252,7 +1254,9 @@ proc gui_switch {new} {
   #
   set gotocmd [list goto_gui_location $new $G(location_entry)]
   $G(location_entry) configure -command $gotocmd
-  $G(status_label) configure -textvar [$new statusvar]
+  if {$G(status_mode) eq "browser"} {
+    $G(status_label) configure -textvar [$new statusvar]
+  }
 
   # Configure the new current tab with the contents of the drop-down
   # config menu (i.e. font-size, are images enabled etc.).
@@ -1336,6 +1340,49 @@ proc gui_escape {} {
   focus [[gui_current hv3] html]
 }
 bind Hv3HotKeys <KeyPress-Escape> gui_escape
+
+proc gui_toggle_status {widget_array} {
+  upvar $widget_array G
+  if {$G(status_mode) eq "browser"} {
+    set G(status_mode) "memory"
+    $G(status_label) configure -textvar ""
+    gui_set_memstatus $widget_array
+  } else {
+    set G(status_mode) "browser"
+    $G(status_label) configure -textvar [gui_current statusvar]
+  }
+}
+proc gui_set_memstatus {widget_array} {
+  upvar $widget_array G
+  if {$G(status_mode) eq "memory"} {
+    set status "Script:   "
+    append status "[::count_vars] vars, [::count_commands] commands,"
+    append status "[::count_namespaces] namespaces"
+
+    catch {
+      array set v [::see::alloc]
+      set nHeap [expr {int($v(GC_get_heap_size) / 1000)}]
+      set nFree [expr {int($v(GC_get_free_bytes) / 1000)}]
+      set nDom $v(SeeTclObject)
+      append status "          GC Heap: ${nHeap}K (${nFree}K free) ($v(SeeTclObject) DOM objects)"
+    }
+    catch {
+      foreach line [split [memory info] "\n"] {
+        if {[string match {current packets allocated*} $line]} {
+          set nAllocs [lindex $line end]
+        }
+        if {[string match {current bytes allocated*} $line]} {
+          set nBytes [lindex $line end]
+        }
+      }
+      set nBytes "[expr {int($nBytes / 1000)}]K"
+      append status "          Tcl Heap: ${nBytes} in $nAllocs allocs"
+    }
+
+    $G(status_label) configure -text $status
+    after 2000 [list gui_set_memstatus $widget_array]
+  }
+}
 
 # Override the [exit] command to check if the widget code leaked memory
 # or not before exiting.

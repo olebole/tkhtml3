@@ -1,5 +1,5 @@
 
-namespace eval hv3 { set {version($Id: hv3_polipo.tcl,v 1.10 2006/12/21 11:00:33 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_polipo.tcl,v 1.11 2007/06/24 16:22:10 danielk1977 Exp $)} 1 }
 
 # This file contains code to control a single instance of the 
 # external program "hv3_polipo" that may be optionally used by
@@ -130,6 +130,7 @@ namespace eval ::hv3::polipo {
     $h parse -final [subst -nocommands $Template]
 
     foreach node [$h search .widget] {
+puts [$node attr cmd]
       $node replace [eval [$node attr cmd]]
     }
     set ::hv3::polipo::c 1

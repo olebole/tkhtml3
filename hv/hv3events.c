@@ -454,6 +454,7 @@ eventDispatchCmd(clientData, pTcl, objc, objv)
 
     pTarget = findOrCreateObject(pTclSeeInterp, objv[2], 0);
     pEvent = createTransient(pTclSeeInterp, objv[3]);
+    assert(Tcl_IsShared(objv[3]));
 
     SEE_TRY (p, try_ctxt) {
         SEE_SET_OBJECT(&event, pEvent);

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.63 2007/06/04 14:31:39 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.64 2007/06/24 16:22:10 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -1840,10 +1840,15 @@ snit::type ::hv3::formmanager {
 
     $self SetupKeyBindings $control $node
 
+    if {[info exists myClickControls($node)]} {
+      set deletecmd [list $control destroy]
+    } else {
+      set deletecmd [list destroy $control]
+    }
     $node replace $control                         \
         -configurecmd [list $control configurecmd] \
         -stylecmd     [list $control stylecmd]     \
-        -deletecmd    [list destroy $control]
+        -deletecmd    $deletecmd
 
     if {$formnode ne ""} {
       $control configure -formnode $formnode

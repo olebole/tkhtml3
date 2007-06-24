@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.25 2007/06/16 16:19:58 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.26 2007/06/24 16:22:10 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # DOM Level 2 Events.
@@ -89,6 +89,9 @@ lappend ::hv3::dom::HTML_Events_List    click dblclick
 #
 lappend ::hv3::dom::HTML_Events_List    load unload
 
+# Set up the HTMLElement_EventAttrArray array. This is used
+# at runtime while compiling legacy event listeners (i.e. "onclick") 
+# to javascript functions.
 foreach E $::hv3::dom::HTML_Events_List {
   set ::hv3::DOM::HTMLElement_EventAttrArray(on${E}) 1
 }

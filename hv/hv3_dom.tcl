@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.58 2007/06/17 08:00:48 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.59 2007/06/24 16:22:10 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Snit types in this file:
@@ -151,6 +151,7 @@ snit::type ::hv3::dom {
   # If scripting is not enabled in this browser, this method is a no-op.
   #
   method script {attr script} {
+#puts "$attr $script"
     if {$mySee ne ""} {
       $myHv3 write wait
       array set a $attr
@@ -1149,6 +1150,6 @@ proc ::hv3::dom::init {} {
 }
 ::hv3::dom::init
 
-#set ::hv3::dom::reformat_scripts_option 0
-set ::hv3::dom::reformat_scripts_option 1
+set ::hv3::dom::reformat_scripts_option 0
+#set ::hv3::dom::reformat_scripts_option 1
 

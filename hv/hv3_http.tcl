@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.40 2007/04/22 14:09:02 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.41 2007/06/24 16:22:10 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd script used with 
@@ -356,6 +356,8 @@ snit::type ::hv3::protocol {
       catch {$myGui uri_done [$downloadHandle cget -uri]}
       $downloadHandle finish
     }
+
+    ::http::cleanup $token
   }
 
   method debug_cookies {} {
