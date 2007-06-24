@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.190 2007/06/20 10:51:58 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.191 2007/06/24 16:07:23 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -2764,6 +2764,13 @@ static int itemsAreEqual(p1, p2)
         }
     }
     return 0;
+}
+
+HtmlCanvasSnapshot *
+HtmlDrawSnapshotZero(pTree)
+    HtmlTree *pTree;
+{
+    return (HtmlCanvasSnapshot *)HtmlNew(CanvasItemSorter);
 }
 
 void

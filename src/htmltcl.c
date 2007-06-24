@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.166 2007/06/16 17:39:32 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.167 2007/06/24 16:07:23 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -494,6 +494,9 @@ callbackHandler(clientData)
         if (0 && pTree->cb.isForce) {
             pTree->cb.flags |= HTML_SCROLL;
         }
+        if (!pTree->cb.pSnapshot) {
+            pTree->cb.flags |= HTML_NODESCROLL;
+        }
     }
     /* pTree->cb.flags &= ~HTML_LAYOUT; */
 
@@ -686,6 +689,13 @@ snapshotLayout(pTree)
     if (pTree->cb.pSnapshot == 0) {
         pTree->cb.pSnapshot = HtmlDrawSnapshot(pTree, 0);
     }
+}
+static void
+snapshotZero(pTree)
+    HtmlTree *pTree;
+{
+    HtmlDrawSnapshotFree(pTree, pTree->cb.pSnapshot);
+    pTree->cb.pSnapshot = HtmlDrawSnapshotZero(pTree);
 }
 
 /*
@@ -1096,6 +1106,7 @@ eventHandler(clientData, pEvent)
             if (iWidth != pTree->iCanvasWidth) {
                 HtmlCallbackLayout(pTree, pTree->pRoot);
             }
+            snapshotZero(pTree);
             break;
         }
 
