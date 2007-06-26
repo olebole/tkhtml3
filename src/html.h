@@ -394,6 +394,7 @@ struct HtmlOptions {
     int forcewidth;
 
     int mode;        /* 0 -> quirks, 1 -> almost standards, 2 -> standards */
+    int xhtml;       /* 1 -> parse as XHTML, 0 -> parse as HTML */
 
     /* Font related options */
     Tcl_Obj *fonttable;

@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.169 2007/06/24 17:19:49 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.170 2007/06/26 14:41:27 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -1274,6 +1274,8 @@ BOOLEAN(doublebuffer, "doubleBuffer", "DoubleBuffer", "1", 0),
 BOOLEAN(doublebuffer, "doubleBuffer", "DoubleBuffer", "0", 0),
 #endif
 BOOLEAN(forcewidth, "forceWidth", "ForceWidth", "0", S_MASK),
+
+        BOOLEAN(xhtml, "xhtml", "xhtml", "0", 0),
 
         DOUBLE(fontscale, "fontScale", "FontScale", "1.0", S_MASK),
         DOUBLE(zoom, "zoom", "Zoom", "1.0", S_MASK),

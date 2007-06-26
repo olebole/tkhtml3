@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.175 2007/06/16 16:19:58 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.176 2007/06/26 14:41:27 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -1517,11 +1517,12 @@ snit::widget ::hv3::hv3 {
       # TODO: Real mimetype parser...
       set mimetype  [string trim [$handle cget -mimetype]]
       foreach {major minor} [split $mimetype /] {}
-  
+
       switch -- $major {
         text {
-          set myQuirksmode [::hv3::configure_doctype_mode $myHtml $data]
+          set myQuirksmode [::hv3::configure_doctype_mode $myHtml $data isXHTML]
           $self reset $savestate
+          $myHtml configure -xhtml $isXHTML
           set myMimetype html
           set myEncoding ""
           set myChangeEncodingOk 1

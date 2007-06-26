@@ -72,6 +72,9 @@
 		font requested. This improves CSS compatibility, but on some
 		systems may cause problems. The default is true.
 	}]
+	[Option forcewidth {
+		TODO: Document this option.
+	}]
 	[Option imagecmd {
 		As well as for replacing entire document nodes (i.e. <img>),
 		images are used in several other contexts in CSS formatted
@@ -149,6 +152,9 @@
 		of the initial containing block for the layout. Otherwise, the
 		current window width is used.
 	}]
+	[Option zoom {
+		TODO: Document this option.
+        }]
 	[Option logcmd {
 		This option is used for debugging the widget. Don't worry
 		about it.
@@ -208,11 +214,12 @@
 
 [Subcommand {
 	pathName fragment _html-text_
-		TODO
+		TODO: Document this command.
 }]
 
 [Subcommand -3 {
 	pathName handler node _tag_ _script_
+	pathName handler attribute _tag_ _script_
 	pathName handler script _tag_ _script_
 	pathName handler parse _tag_ _script_
 		This command is used to define "handler" scripts - Tcl
@@ -245,6 +252,8 @@
 		the created node and the character offset of the in the parsed
 		document. For a closing tag (i.e. "/form") an empty string
 		is passed instead of a node handle.
+
+		TODO: Describe "attribute" handlers.
 
 		TODO: The offset values passed to parse handler scripts 
 		currently have problems. See http://tkhtml.tcl.tk/cvstrac/tktview?tn=126
@@ -333,7 +342,7 @@
 
 [Subcommand {
 	pathName preload _uri_
-		TODO
+		TODO: Document this command.
 }]
 
 [Subcommand {

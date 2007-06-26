@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_doctype.tcl,v 1.6 2007/06/05 15:34:14 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_doctype.tcl,v 1.7 2007/06/26 14:41:27 danielk1977 Exp $)} 1 }
 
 namespace eval hv3 {}
 
@@ -36,7 +36,8 @@ proc ::hv3::next_word {text idx idx_out} {
   return $word
 }
 
-proc ::hv3::sniff_doctype {text} {
+proc ::hv3::sniff_doctype {text pIsXhtml} {
+  upvar $pIsXhtml isXHTML
   # <!DOCTYPE TopElement Availability "IDENTIFIER" "URL">
 
   set QuirksmodeIdentifiers [list \
@@ -115,6 +116,7 @@ proc ::hv3::sniff_doctype {text} {
     "-//metrius//dtd metrius presentational//en" \
   ]
 
+  set isXHTML 0
   set idx [string first <!DOCTYPE $text]
   if {$idx < 0} { return "quirks" }
 
@@ -130,6 +132,13 @@ proc ::hv3::sniff_doctype {text} {
 #  foreach ii [list TopElement Availability Identifier Url] {
 #    puts "$ii -> [set $ii]"
 #  }
+
+  # Figure out if this should be handled as XHTML
+  #
+  if {[string first xhtml $Identifier] >= 0} {
+    set isXHTML 1
+  }
+
 
   if {$Availability eq "public"} {
     set s [expr [string length $Url] > 0]
@@ -150,8 +159,9 @@ proc ::hv3::sniff_doctype {text} {
 }
 
 
-proc ::hv3::configure_doctype_mode {html text} {
-  set mode [sniff_doctype $text]
+proc ::hv3::configure_doctype_mode {html text pIsXhtml} {
+  upvar $pIsXhtml isXHTML
+  set mode [sniff_doctype $text isXHTML]
 
   switch -- $mode {
     "quirks"           { set defstyle [::tkhtml::htmlstyle -quirks] }

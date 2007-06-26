@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.105 2007/06/24 16:50:35 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.106 2007/06/26 14:41:27 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -923,6 +923,7 @@ HtmlTokenize(pTree, zText, isFinal, xAddText, xAddElement, xAddClosing)
              * therefore &z[n+1].
              */
             int isClosingTag = 0;
+            int isSelfClosing = 0;
             int i = 1;
             int nStartScript = n;
             argc = 1;
@@ -1044,8 +1045,13 @@ HtmlTokenize(pTree, zText, isFinal, xAddText, xAddElement, xAddClosing)
             if( c==0 ){
                 goto incomplete;
             }
-
+            assert(c == '>');
             n += i + 1;
+
+            if (pTree->options.xhtml) {
+                for (i = n - 2; i>=0 && z[i] == ' '; i--);
+                if (z[i] == '/') isSelfClosing = 1;
+            }
 
             /* Look up the markup name in the hash table. If it is an unknown
              * tag, just ignore it by jumping to the next iteration of
@@ -1112,6 +1118,9 @@ HtmlTokenize(pTree, zText, isFinal, xAddText, xAddElement, xAddClosing)
                         xAddClosing(pTree, pMap->type, n);
                     } else {
                         isTrimStart = 1;
+                        if (isSelfClosing) {
+                            xAddClosing(pTree, pMap->type, n);
+                        }
                     }
 
                 } else {
