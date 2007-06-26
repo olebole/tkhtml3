@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.17 2007/06/14 17:24:50 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.18 2007/06/26 15:39:13 danielk1977 Exp $)} 1 }
 
 #---------------------------------
 # List of DOM objects in this file:
@@ -69,6 +69,18 @@ namespace eval ::hv3::dom {
 
   # No. Absolutely not. Never going to happen.
   dom_call javaEnabled {THIS} { list boolean false }
+
+  # I don't even know what this does. All I know is that if this method
+  # is not implemented wikipedia thinks we are KHTML and serves up a
+  # special stylesheet. The following page from wikipedia has some
+  # good information on why that is a bad thing to do:
+  #
+  #    http://en.wikipedia.org/wiki/Browser_sniffing
+  #
+  # On the other hand, if I don't know what "taint" is, it's probably
+  # not enabled. Ok. All is forgiven wikipedia, we can be friends again.
+  #
+  dom_call taintEnabled {THIS} { list boolean false }
 }
 
 #-------------------------------------------------------------------------
