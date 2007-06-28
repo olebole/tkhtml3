@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.250 2007/06/16 17:39:32 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.251 2007/06/28 15:19:58 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -573,6 +573,17 @@ getWidth(iWidthCalculated, iWidthContent)
     return iWidthCalculated;
 }
 
+static int
+getWidthProperty(pLayout, pComputed, iContaining) 
+    LayoutContext *pLayout;
+    HtmlComputedValues *pComputed;
+    int iContaining;
+{
+    return PIXELVAL(
+        pComputed, WIDTH, pLayout->minmaxTest ? PIXELVAL_AUTO : iContaining
+    );
+}
+
 static void
 considerMinMaxWidth(pNode, iContaining, piWidth)
     HtmlNode *pNode;
@@ -830,7 +841,7 @@ normalFlowLayoutOverflow(pLayout, pBox, pNode, pY, pContext, pNormal)
 
     nodeGetMargins(pLayout, pNode, pBox->iContaining, &margin);
     nodeGetBoxProperties(pLayout, pNode, pBox->iContaining, &box);
-    iWidth = PIXELVAL(pV, WIDTH, pBox->iContaining);
+    iWidth = getWidthProperty(pLayout, pV, pBox->iContaining);
     iMPB = margin.margin_left + margin.margin_right + box.iLeft + box.iRight;
 
     /* Collapse the vertical margins above this box. */
@@ -897,8 +908,10 @@ normalFlowLayoutOverflow(pLayout, pBox, pNode, pY, pContext, pNormal)
     }
     HtmlLayoutNodeContent(pLayout, &sContent, pNode);
     sContent.height = getHeight(pNode, sContent.height, iHeight);
-    sContent.width = iWidth;
-
+    if (!pLayout->minmaxTest) {
+        sContent.width = iWidth;
+    }
+   
     LOG(pNode) {
         HtmlTree *pTree = pLayout->pTree;
         char const *zNode = Tcl_GetString(HtmlNodeCommand(pTree, pNode));

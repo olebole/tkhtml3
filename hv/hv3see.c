@@ -1293,7 +1293,9 @@ delInterpCmd(clientData)
      * run more smoothly. But leaving it in makes the system a bit more
      * debuggable, which is a much bigger concern.
      */
-    memset(pTclSeeInterp, 0, sizeof(SeeInterp));
+    memset(pTclSeeInterp->aTclObject, 0, 
+        sizeof(SeeTclObject *) * OBJECT_HASH_SIZE
+    );
     SEE_gcollect(&pTclSeeInterp->interp);
 
     GC_FREE(pTclSeeInterp);

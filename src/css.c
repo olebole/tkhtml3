@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.117 2007/06/07 17:09:20 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.118 2007/06/28 15:19:58 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -1075,28 +1075,30 @@ static void
 propertyTransformBgPosition(pProp)
     CssProperty *pProp;
 {
-    double rVal;
-    switch (pProp->eType) {
-        case CSS_CONST_RIGHT:
-        case CSS_CONST_BOTTOM:
-            rVal = 100.0; 
-            break;
-
-        case CSS_CONST_CENTER:
-            rVal = 50.0; 
-            break;
- 
-        case CSS_CONST_TOP:
-        case CSS_CONST_LEFT:
-            rVal = 0.0; 
-            break;
-
-        default: 
-            return;
+    if (pProp) {
+        double rVal;
+        switch (pProp->eType) {
+            case CSS_CONST_RIGHT:
+            case CSS_CONST_BOTTOM:
+                rVal = 100.0; 
+                break;
+    
+            case CSS_CONST_CENTER:
+                rVal = 50.0; 
+                break;
+     
+            case CSS_CONST_TOP:
+            case CSS_CONST_LEFT:
+                rVal = 0.0; 
+                break;
+    
+            default: 
+                return;
+        }
+    
+        pProp->eType = CSS_TYPE_PERCENT;
+        pProp->v.rVal = rVal;
     }
-
-    pProp->eType = CSS_TYPE_PERCENT;
-    pProp->v.rVal = rVal;
 }
 
 /*
@@ -1124,8 +1126,6 @@ shortcutBackground(pParse, p, v)
     CONST char *zEnd = z + v->n;
     int nProp = 0;
     int ii;
-    int symbolicPosition = 0;
-    CONST char *zDefaultPosition = 0;
 
     CssProperty *pColor = 0;
     CssProperty *pImage = 0;
@@ -1152,12 +1152,9 @@ shortcutBackground(pParse, p, v)
     for (ii = 0; ii < nProp; ii++) {
         CssProperty *pProp = apProp[ii];
         if (propertyIsLength(pProp) || pProp->eType==CSS_TYPE_FLOAT) {
-            if (!pPositionX) {
-                pPositionX = pProp;
-            } else {
-                if (pPositionY) goto error_out;
-                pPositionY = pProp;
-            }
+            if (!pPositionX) pPositionX = pProp;
+            else if(!pPositionY) pPositionY = pProp;
+            else goto error_out;
         } else {
             switch (pProp->eType) {
                 case CSS_CONST_SCROLL:
@@ -1182,28 +1179,12 @@ shortcutBackground(pParse, p, v)
 
                 case CSS_CONST_TOP:
                 case CSS_CONST_BOTTOM:
-                    if (pPositionY) goto error_out;
-                    propertyTransformBgPosition(pProp);
-                    pPositionY = pProp;
-                    symbolicPosition = 1;
-                    break;
-
                 case CSS_CONST_RIGHT:
                 case CSS_CONST_LEFT:
-                    if (pPositionX) goto error_out;
-                    propertyTransformBgPosition(pProp);
-                    pPositionX = pProp;
-                    symbolicPosition = 2;
-                    break;
-
                 case CSS_CONST_CENTER:
-                    propertyTransformBgPosition(pProp);
-                    if (!pPositionX) {
-                        pPositionX = pProp;
-                    } else {
-                        if (pPositionY) goto error_out;
-                        pPositionY = pProp;
-                    }
+                    if (!pPositionX) pPositionX = pProp;
+                    else if(!pPositionY) pPositionY = pProp;
+                    else goto error_out;
                     break;
 
                 default:
@@ -1224,6 +1205,33 @@ shortcutBackground(pParse, p, v)
     }
 #endif
 
+    /*
+     * From CSS2 description of the 'background-position' property:
+     */
+    if ((pPositionX && pPositionY && (
+        pPositionX->eType == CSS_CONST_TOP ||
+        pPositionX->eType == CSS_CONST_BOTTOM || 
+        pPositionY->eType == CSS_CONST_RIGHT ||
+        pPositionY->eType == CSS_CONST_LEFT)) 
+    ) {
+        CssProperty *pTmp = pPositionX;
+        pPositionX = pPositionY;
+        pPositionY = pTmp;
+    }
+    if ((pPositionX && (
+            pPositionX->eType == CSS_CONST_TOP ||
+            pPositionX->eType == CSS_CONST_BOTTOM)) || 
+        (pPositionY && (
+            pPositionY->eType == CSS_CONST_RIGHT ||
+            pPositionY->eType == CSS_CONST_LEFT)) 
+    ) {
+        goto error_out;
+    }
+    propertyTransformBgPosition(pPositionX);
+    propertyTransformBgPosition(pPositionY);
+    if (!pPositionX) { pPositionX = HtmlCssStringToProperty("50%", 3); }
+    if (!pPositionY) { pPositionY = HtmlCssStringToProperty("50%", 3); }
+ 
     propertySetAdd(p, CSS_PROPERTY_BACKGROUND_IMAGE, 
         pImage ? pImage : HtmlCssStringToProperty("none", 4)
     );
@@ -1236,27 +1244,6 @@ shortcutBackground(pParse, p, v)
     propertySetAdd(p, CSS_PROPERTY_BACKGROUND_REPEAT, 
         pRepeat ? pRepeat : HtmlCssStringToProperty("repeat", 6)
     );
-
-    if (symbolicPosition || (!pPositionY && !pPositionX)) {
-        zDefaultPosition = (symbolicPosition ? "50%" : "00%");
-    }
-
-    if (!pPositionX) {
-        if (zDefaultPosition) {
-            pPositionX = HtmlCssStringToProperty(zDefaultPosition, -3);
-        } else {
-            assert(pPositionY);
-            pPositionX = propertyDup(pPositionY);
-        }
-    }
-    if (!pPositionY) {
-        if (zDefaultPosition) {
-            pPositionY = HtmlCssStringToProperty(zDefaultPosition, -3);
-        } else {
-            assert(pPositionX);
-            pPositionY = propertyDup(pPositionX);
-        }
-    }
     propertySetAdd(p, CSS_PROPERTY_BACKGROUND_POSITION_X, pPositionX);
     propertySetAdd(p, CSS_PROPERTY_BACKGROUND_POSITION_Y, pPositionY);
 
