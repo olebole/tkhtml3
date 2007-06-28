@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.135 2007/06/24 17:19:49 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.136 2007/06/28 17:48:12 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -1894,6 +1894,7 @@ nodeRemoveCmd(pNode, objc, objv)
         }
     }
 
+    HtmlCheckRestylePoint(pTree);
     return TCL_OK;
 }
 
@@ -1943,6 +1944,7 @@ nodeDestroyCmd(pNode, objc, objv)
     
     freeNode(pTree, pNode);
 
+    HtmlCheckRestylePoint(pTree);
     return TCL_OK;
 }
 
@@ -2022,6 +2024,7 @@ nodeInsertCmd(pNode, objc, objv)
     }
 
     pTree->isSequenceOk = 0;
+    HtmlCheckRestylePoint(pTree);
     return TCL_OK;
 }
 

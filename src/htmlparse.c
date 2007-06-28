@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.106 2007/06/26 14:41:27 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.107 2007/06/28 17:48:12 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -1133,6 +1133,7 @@ HtmlTokenize(pTree, zText, isFinal, xAddText, xAddElement, xAddClosing)
                      * the tag that opened the script node.
                      */
                     int rc;
+                    HtmlCallbackRestyle(pTree, pTree->state.pCurrent);
 
                     assert(pTree->eWriteState == HTML_WRITE_NONE);
                     pTree->eWriteState = HTML_WRITE_INHANDLER;
@@ -1185,15 +1186,13 @@ tokenizeWrapper(pTree, zText, isFin, xAddText, xAddElement, xAddClosing)
     assert(pTree->eWriteState == HTML_WRITE_NONE);
     HtmlCheckRestylePoint(pTree);
 
+    HtmlCallbackRestyle(pTree, pCurrent ? pCurrent : pTree->pRoot);
+    HtmlCallbackLayout(pTree, pCurrent);
     rc = HtmlTokenize(pTree, zText, isFin, xAddText, xAddElement, xAddClosing);
-
     if (pTree->isParseFinished && pTree->eWriteState==HTML_WRITE_NONE) {
         HtmlFinishNodeHandlers(pTree);
     }
-
-    HtmlCallbackRestyle(pTree, pCurrent ? pCurrent : pTree->pRoot);
     HtmlCallbackRestyle(pTree, pTree->state.pCurrent);
-    HtmlCallbackLayout(pTree, pCurrent);
 
     /* The theory is that the above three commands ensure that any
      * nodes added to the tree by this call to [$widget parse] are

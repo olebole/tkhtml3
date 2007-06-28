@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.170 2007/06/26 14:41:27 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.171 2007/06/28 17:48:12 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -354,6 +354,7 @@ checkRestylePointCb(pTree, pNode, clientData)
     assert(pTree->cb.pRestyle);
     pParent = HtmlNodeParent(pTree->cb.pRestyle);
     for (p = pNode; p && HtmlNodeParent(p) != pParent; p = HtmlNodeParent(p));
+    assert(p);
     for ( ; p && p != pTree->cb.pRestyle; p = HtmlNodeLeftSibling(p));
     assert(p);
 
@@ -459,6 +460,7 @@ callbackHandler(clientData)
             HtmlStyleApply(pTree, pRestyle);
         }
         HtmlRestackNodes(pTree);
+        HtmlCheckRestylePoint(pTree);
 
         if (!pTree->options.imagecache) {
             HtmlImageServerDoGC(pTree);
@@ -664,15 +666,12 @@ upgradeRestylePoint(ppRestyle, pNode)
                 int i;
                 for (i = 0; i < HtmlNodeNumChildren(pParentA); i++) {
                     HtmlNode *pChild = HtmlNodeChild(pParentA, i);
-                    if (pChild == pB) {
-                        *ppRestyle = pB;
-                        return 1;
-                    }
-                    if (pChild == pA) {
-                        *ppRestyle = pA;
+                    if (pChild == pB || pChild == pA) {
+                        *ppRestyle = pChild;
                         return 1;
                     }
                 }
+                assert(!"Cannot happen");
             }
         }
     }
@@ -1628,6 +1627,7 @@ parseCmd(clientData, interp, objc, objv)
         }
     }
  
+    HtmlCheckRestylePoint(pTree);
     return TCL_OK;
 }
 
@@ -1868,6 +1868,7 @@ writeCmd(clientData, interp, objc, objv)
 {
     HtmlTree *pTree = (HtmlTree *)clientData;
     int eChoice;
+    int rc = TCL_ERROR;
 
     enum SubOptType {
         OPT_WAIT, OPT_TEXT, OPT_CONTINUE
@@ -1905,18 +1906,19 @@ writeCmd(clientData, interp, objc, objv)
     assert(pTree->interp == interp);
     switch (aSub[eChoice].eType) {
         case OPT_WAIT:
-            return HtmlWriteWait(pTree);
+            rc = HtmlWriteWait(pTree);
             break;
         case OPT_TEXT:
-            return HtmlWriteText(pTree, objv[3]);
+            rc = HtmlWriteText(pTree, objv[3]);
             break;
         case OPT_CONTINUE:
-            return HtmlWriteContinue(pTree);
+            rc = HtmlWriteContinue(pTree);
             break;
+        default:
+            assert(!"Cannot happen");
     }
 
-    assert(!"Cannot happen");
-    return TCL_ERROR;
+    return rc;
 }
 
 /*
