@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.251 2007/06/28 15:19:58 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.252 2007/06/28 18:00:58 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -2612,7 +2612,7 @@ normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
      * Do this by setting up a callback on the normal-flow object.
      */
     yBorderOffset = 0;
-    if (box.iTop > 0) {
+    if (box.iTop > 0 || pLayout->pTree->pRoot == pNode) {
         normalFlowMarginCollapse(pLayout, pNode, pNormal, pY); 
     } else {
         sNormalFlowCallback.xCallback = setValueCallback;
