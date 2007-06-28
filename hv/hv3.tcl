@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.177 2007/06/28 18:42:17 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.178 2007/06/28 18:51:23 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -1027,7 +1027,7 @@ snit::widget ::hv3::hv3 {
     # mega-widget window.
     set myHtml [::hv3::scrolled html ${win}.html -propagate 1]
     bindtags [$self html] [concat [bindtags [$self html]] $self]
-    place $myHtml -relheight 1.0 -relwidth 1.0
+    pack $myHtml -fill both -expand 1
 
     set myDom [::hv3::dom %AUTO% $self]
 
