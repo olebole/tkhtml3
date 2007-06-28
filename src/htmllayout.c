@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.252 2007/06/28 18:00:58 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.253 2007/06/28 18:42:17 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -3976,6 +3976,9 @@ HtmlLayout(pTree)
         pTree->iCanvasWidth = Tk_Width(pTree->tkwin);
         if (pTree->options.shrink) {
             Tk_GeometryRequest(
+                pTree->tkwin, pTree->canvas.right, pTree->canvas.bottom
+            );
+            Tk_SetMinimumRequestSize(
                 pTree->tkwin, pTree->canvas.right, pTree->canvas.bottom
             );
         }

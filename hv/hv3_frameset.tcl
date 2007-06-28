@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_frameset.tcl,v 1.12 2007/04/23 17:31:16 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_frameset.tcl,v 1.13 2007/06/28 18:42:17 danielk1977 Exp $)} 1 }
 
 # This file contains code for implementing HTML frameset documents in Hv3. 
 #
@@ -76,6 +76,7 @@ namespace eval hv3 {
     # Create an ::hv3::browser_frame to display the resource.
     set panel [create_widget_name $browser_frame $node]
     ::hv3::browser_frame $panel [$browser_frame browser]
+    [[$panel hv3] html] configure -shrink 1
 
     # TODO: Should be properly configured...
     $panel configure -requestcmd [$browser_frame cget -requestcmd]
