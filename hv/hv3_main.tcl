@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.126 2007/06/24 16:22:10 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.127 2007/06/28 16:06:45 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -27,6 +27,7 @@ proc htmlize {zIn} {
 #
 proc sourcefile {file} { return [file join [file dirname [info script]] $file] }
 source [sourcefile snit.tcl]
+source [sourcefile hv3_encodings.tcl]
 source [sourcefile hv3.tcl]
 source [sourcefile hv3_prop.tcl]
 source [sourcefile hv3_log.tcl]
