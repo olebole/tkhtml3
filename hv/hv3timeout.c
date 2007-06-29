@@ -54,6 +54,8 @@ static void timeoutCb(clientData)
     SEE_try_context_t try_ctxt;
     struct SEE_value *pError;
 
+    assert(p->ppThis);
+
     if (SEE_VALUE_GET_TYPE(&p->func) == SEE_OBJECT) {
         struct SEE_value r;
         SEE_TRY(interp, try_ctxt) {
@@ -88,7 +90,12 @@ static void timeoutCb(clientData)
 
     if (p->iInterval < 0) {
         delTimeout(p);
-    } else {
+        p->token = 0;
+    } else if (p->token) {
+        /* If p->token was NULL, then the callback has invoked javascript
+         * function cancelInterval(). Otherwise, reschedule.
+         */
+        assert(p->ppThis);
         p->token = Tcl_CreateTimerHandler(p->iInterval,timeoutCb,(ClientData)p);
     }
 }
@@ -158,6 +165,7 @@ static void newTimeout(pSeeInterp, isInterval, argc, argv, res)
         p->pNext->ppThis = &p->pNext;
     }
 
+    assert(p->ppThis);
     p->token = Tcl_CreateTimerHandler(iMilli, timeoutCb, (ClientData)p);
     SEE_SET_NUMBER(res, p->iId);
 }
@@ -188,6 +196,7 @@ static void cancelTimeout(pSeeInterp, isInterval, argc, argv, res)
     for (p = pSeeInterp->pTimeout; p; p = p->pNext) {
         if (p->iId == iId) {
             Tcl_DeleteTimerHandler(p->token);
+            p->token = 0;
             delTimeout(p);
             break;
         }
@@ -260,5 +269,6 @@ interpTimeoutCleanup(pSeeInterp)
         *p->ppThis = 0;
         p->ppThis = 0;
     }
+    assert(!pSeeInterp->pTimeout);
 }
 
