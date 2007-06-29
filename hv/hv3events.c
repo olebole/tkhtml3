@@ -696,7 +696,7 @@ eventTargetInit(pTclSeeInterp, p)
     int ii;
 
     int rc;
-    rc = callSeeTclMethod(pTcl, p, "Events", 0, 0);
+    rc = callSeeTclMethod(pTcl, 0, p, "Events", 0, 0);
     if (rc != TCL_OK) {
         Tcl_BackgroundError(pTcl);
         return;

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.59 2007/06/24 16:22:10 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.60 2007/06/29 10:58:59 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Snit types in this file:
@@ -42,6 +42,9 @@ snit::type ::hv3::dom {
   # Boolean option. Enable this DOM implementation or not.
   option -enable -default 0
 
+  # Logging command.
+  option -logcmd -default "" -configuremethod ConfigureLogcmd
+
   # Variable used to accumulate the arguments of document.write() and
   # document.writeln() invocations from within [script].
   #
@@ -69,6 +72,13 @@ snit::type ::hv3::dom {
     catch { $myLogData destroy }
   }
 
+  # Invoked to set the value of the -logcmd option
+  method ConfigureLogcmd {option value} {
+    set options($option) $value
+    if {$mySee ne ""} {
+      $mySee log $value
+    }
+  }
 
   # Return true if the Tclsee extension is available and 
   # the user has foolishly enabled it.
@@ -117,6 +127,7 @@ snit::type ::hv3::dom {
     if {[$self HaveScripting]} {
       # Set up the new interpreter with the global "Window" object.
       set mySee [::see::interp]
+      $mySee log $options(-logcmd)
       set myWindowInitEvents 0
       $mySee global [$self window]
 

@@ -212,6 +212,8 @@ struct SeeInterp {
     Tcl_Obj *pTrace;
     struct SEE_context *pTraceContext;
 
+    Tcl_Obj *pLog;
+
     /* Start of a linked list of SeeTimeout structures. See 
     ** included file hv3timeout.c for details.
     */
@@ -706,7 +708,8 @@ static int evalObjv(pTcl, nWord, apWord)
  *
  *         Get Put CanPut HasProperty Delete DefaultValue Enumerator
  *
- *     The other methods (Call and Construct) are invoked via XXX.
+ *     The other methods (Call and Construct) are invoked via
+ *     tclCallOrConstruct().
  *
  * Results: 
  *     See above.
@@ -717,8 +720,9 @@ static int evalObjv(pTcl, nWord, apWord)
  *---------------------------------------------------------------------------
  */
 static int 
-callSeeTclMethod(pTcl, p, zMethod, pProperty, pVal)
+callSeeTclMethod(pTcl, pLog, p, zMethod, pProperty, pVal)
     Tcl_Interp *pTcl;                      /* Tcl Interpreter context */
+    Tcl_Obj *pLog;                         /* Log command */
     SeeTclObject *p;                       /* Object to call method of */
     const char *zMethod;                   /* Method name */
     struct SEE_string *pProperty;          /* First argument (or null) */
@@ -748,6 +752,25 @@ callSeeTclMethod(pTcl, p, zMethod, pProperty, pVal)
     }
 
     rc = evalObjv(pTcl, p->nWord + nArg, p->apWord);
+
+    if (pLog && rc==TCL_OK) {
+        Tcl_Obj *pEval;
+        Tcl_Obj *pRes = Tcl_GetObjResult(pTcl);
+        Tcl_IncrRefCount(pRes);
+
+        pEval = Tcl_DuplicateObj(pLog);
+        Tcl_IncrRefCount(pEval);
+        Tcl_ListObjAppendElement(0, pEval, Tcl_NewStringObj("ECMASCRIPT", -1));
+        Tcl_ListObjAppendElement(0, pEval, p->pObj);
+        if (pMethod) Tcl_ListObjAppendElement(0, pEval, pMethod);
+        if (pProp) Tcl_ListObjAppendElement(0, pEval, pProp);
+        Tcl_ListObjAppendElement(0, pEval, pRes);
+        Tcl_EvalObjEx(pTcl, pEval, TCL_EVAL_DIRECT|TCL_EVAL_GLOBAL);
+        Tcl_DecrRefCount(pEval);
+
+        Tcl_SetObjResult(pTcl, pRes);
+        Tcl_DecrRefCount(pRes);
+    }
 
     if (pMethod) Tcl_DecrRefCount(pMethod);
     if (pProp) Tcl_DecrRefCount(pProp);
@@ -828,7 +851,7 @@ finalizeObject(pPtr, pContext)
     if (pContext) {
         /* Execute the Tcl Finalize hook. Do nothing with the result thereof. */
         Tcl_Interp *pTclInterp = (Tcl_Interp *)pContext;
-        int rc = callSeeTclMethod(pTclInterp, p, "Finalize", 0, 0);
+        int rc = callSeeTclMethod(pTclInterp, 0, p, "Finalize", 0, 0);
         if (rc != TCL_OK) {
             printf("WARNING Seetcl: Finalize script failed for %s: %s\n", 
                 Tcl_GetString(p->pObj), Tcl_GetStringResult(pTclInterp)
@@ -1280,6 +1303,11 @@ delInterpCmd(clientData)
         Tcl_DecrRefCount(pTclSeeInterp->pTrace);
         pTclSeeInterp->pTrace = 0;
     }
+
+    if (pTclSeeInterp->pLog) {
+        Tcl_DecrRefCount(pTclSeeInterp->pLog);
+        pTclSeeInterp->pLog = 0;
+    }
   
     if( pTclSeeInterp->zGlobal ){
       iNumSeeTclObject--;
@@ -1478,8 +1506,9 @@ interpCmd(clientData, pTclInterp, objc, objv)
         INTERP_MAKE_PERSISTENT,       /* Cancel a previous [make_transient] */
 
         /* Debugging API - not essential for normal operation. */
-        INTERP_EVENTS,
         INTERP_DEBUG,
+        INTERP_EVENTS,
+        INTERP_LOG,
         INTERP_TRACE,
 
         INTERP_DISPATCH,
@@ -1507,6 +1536,7 @@ interpCmd(clientData, pTclInterp, objc, objv)
         /* Debugging API */
         {"debug",       INTERP_DEBUG,       1, 1, "SUB-COMMAND"},
         {"trace",       INTERP_TRACE,       1, 1, "TCL-COMMAND"},
+        {"log",         INTERP_LOG,         1, 1, "TCL-COMMAND"},
         {"events",      INTERP_EVENTS,      1, 1, "TCL-COMMAND"},
         {0, 0, 0, 0}
     };
@@ -1643,6 +1673,19 @@ interpCmd(clientData, pTclInterp, objc, objv)
 
         case INTERP_EVENTS: {
             return eventDumpCmd(clientData, pTclInterp, objc, objv);
+        }
+
+        case INTERP_LOG: {
+            Tcl_Obj *pLog = objv[2];
+            if (pTclSeeInterp->pLog) {
+                Tcl_DecrRefCount(pTclSeeInterp->pLog);
+                pTclSeeInterp->pLog = 0;
+            }
+            if (strlen(Tcl_GetString(pLog))>0) {
+                Tcl_IncrRefCount(pLog);
+                pTclSeeInterp->pLog = pLog;
+            }
+            break;
         }
     }
 
@@ -1855,7 +1898,7 @@ SeeTcl_Get(pInterp, pObj, pProp, pRes)
      *
      *     $obj Get $property
      */
-    rc = callSeeTclMethod(pTclInterp, p, "Get", pProp, 0);
+    rc = callSeeTclMethod(pTclInterp, pTclSeeInterp->pLog, p, "Get", pProp, 0);
     throwTclError(pInterp, rc);
 
     pScriptRes = Tcl_GetObjResult(pTclInterp);
@@ -1895,7 +1938,7 @@ SeeTcl_Put(pInterp, pObj, pProp, pValue, flags)
 
     pVal = argValueToTcl(p, pValue, &nObj);
     Tcl_IncrRefCount(pVal);
-    rc = callSeeTclMethod(pTclInterp, pObject, "Put", pProp, pVal);
+    rc = callSeeTclMethod(pTclInterp, 0, pObject, "Put", pProp, pVal);
     Tcl_DecrRefCount(pVal);
     removeTransientRefs(p, nObj);
     throwTclError(pInterp, rc);
@@ -1923,7 +1966,7 @@ SeeTcl_CanPut(pInterp, pObj, pProp)
     int rc;
     int ret;
 
-    rc = callSeeTclMethod(pTclInterp, pObject, "CanPut", pProp, 0);
+    rc = callSeeTclMethod(pTclInterp, 0, pObject, "CanPut", pProp, 0);
     throwTclError(pInterp, rc);
 
     Tcl_Obj *pRes = Tcl_GetObjResult(pTclInterp);
@@ -1949,7 +1992,7 @@ SeeTcl_HasProperty(pInterp, pObj, pProp)
 
     if (!ret) {
         Tcl_Interp *pTcl = pTclSeeInterp->pTclInterp;
-        rc = callSeeTclMethod(pTcl, pObject, "HasProperty", pProp, 0);
+        rc = callSeeTclMethod(pTcl, 0, pObject, "HasProperty", pProp, 0);
         throwTclError(pInterp, rc);
         rc = Tcl_GetBooleanFromObj(pTcl, Tcl_GetObjResult(pTcl), &ret);
         throwTclError(pInterp, rc);
@@ -1968,7 +2011,7 @@ SeeTcl_Delete(pInterp, pObj, pProp)
     Tcl_Interp *pTclInterp = pTclSeeInterp->pTclInterp;
     int rc;
 
-    rc = callSeeTclMethod(pTclInterp, pObject, "Delete", pProp, 0);
+    rc = callSeeTclMethod(pTclInterp, 0, pObject, "Delete", pProp, 0);
     throwTclError(pInterp, rc);
 
     return 0;
@@ -1986,7 +2029,7 @@ SeeTcl_DefaultValue(pInterp, pObj, pHint, pRes)
     Tcl_Interp *pTclInterp = pTclSeeInterp->pTclInterp;
     int rc;
 
-    rc = callSeeTclMethod(pTclInterp, pObject, "DefaultValue", 0, 0);
+    rc = callSeeTclMethod(pTclInterp, 0, pObject, "DefaultValue", 0, 0);
     if (rc == TCL_OK) {
         objToValue(pTclSeeInterp, Tcl_GetObjResult(pTclInterp), pRes);
     } else {
@@ -2120,7 +2163,7 @@ tclEnumerator(pInterp, pObj)
 
     int rc;
 
-    rc = callSeeTclMethod(pTclInterp, pObject, "Enumerator", 0, 0);
+    rc = callSeeTclMethod(pTclInterp, 0, pObject, "Enumerator", 0, 0);
     throwTclError(pInterp, rc);
 
     pRet = Tcl_GetObjResult(pTclInterp);

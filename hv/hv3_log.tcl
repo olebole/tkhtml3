@@ -1,44 +1,86 @@
-namespace eval hv3 { set {version($Id: hv3_log.tcl,v 1.14 2007/06/10 07:53:03 danielk1977 Exp $)} 1 }
-
-namespace eval hv3 { set {version($Id: hv3_log.tcl,v 1.14 2007/06/10 07:53:03 danielk1977 Exp $)} 1 }
+#
+# This file contains code to implement the dynamic logging window. 
+#
+namespace eval hv3 { set {version($Id: hv3_log.tcl,v 1.15 2007/06/29 10:58:59 danielk1977 Exp $)} 1 }
 
 source [file join [file dirname [info script]] hv3_widgets.tcl]
 
-proc ::hv3::log_window {html} {
-  toplevel .event_log
+snit::widget ::hv3::dynamiclog {
+  component myText
 
-  ::hv3::scrolled ::hv3::text .event_log.text -width 400 -height 300 -wrap none
+  # The Tkhtml3 widget producing events to log.
+  variable myHtml ""
 
-  frame .event_log.button
-  ::hv3::button .event_log.button.dismiss -text Dismiss 
-  ::hv3::button .event_log.button.clear -text Clear 
-  .event_log.button.clear configure -command {.event_log.text delete 0.0 end}
-  .event_log.button.dismiss configure -command {destroy .event_log}
+  # The DOM widget producing events to log.
+  variable myDom ""
 
-  pack .event_log.button.dismiss -side left -fill x -expand true
-  pack .event_log.button.clear -side left -fill x -expand true
-  pack .event_log.button -fill x -side bottom
-  pack .event_log.text   -fill both -expand true
+  variable myState -array {
+    LAYOUTENGINE 0
+    STYLEENGINE  0
+    ACTION       0
+    ECMASCRIPT   1
+  }
 
-  bind .event_log <Destroy> [list ::hv3::destroy_log_window $html]
+  constructor {html} {
+    set myHtml $html
+    $html configure -logcmd [mymethod log]
 
-  $html configure -logcmd ::hv3::log_window_log
-}
+    set myDom [[winfo parent [winfo parent $html]] dom]
+    $myDom configure -logcmd [mymethod log]
 
-proc ::hv3::destroy_log_window {html} {
-  $html configure -logcmd ""
-}
+    set myText ${win}.text
+    ::hv3::scrolled ::hv3::text $myText -width 400 -height 300 -wrap none
 
-set ::hv3::event_log_subjects {
-  ACTION
-}
+    set f ${win}.checkbutton
+    frame $f
 
-proc ::hv3::log_window_log {args} {
-  if {[string match *ENGINE [lindex $args 0]]} return
+    foreach key [array names myState] {
+      set w [string tolower ${f}.${key}]
+      checkbutton $w -variable [myvar myState($key)] -text $key
+      pack $w -side left
+    }
 
-  set subject [lindex $args 0]
-  if {[lsearch -exact $::hv3::event_log_subjects $subject] >= 0} {
-    .event_log.text insert end "$args\n"
+    frame ${win}.button
+    ::hv3::button ${win}.button.dismiss -text Dismiss 
+    ::hv3::button ${win}.button.clear -text Clear 
+    ${win}.button.dismiss configure -command [mymethod Dismiss]
+    ${win}.button.clear configure -command [mymethod Clear]
+
+    pack ${win}.button.dismiss -side left -fill x -expand true
+    pack ${win}.button.clear -side left -fill x -expand true
+
+    pack ${win}.button -fill x -side bottom
+    pack ${win}.checkbutton -fill x -side bottom
+    pack ${win}.text   -fill both -expand true
+  }
+
+  method log {args} {
+    set subject [lindex $args 0]
+    if {[info exists myState($subject)]} {
+      if {$myState($subject)} {
+        $myText insert end "$args\n"
+      }
+    }
+  }
+
+  method Clear {} {
+    $myText delete 0.0 end
+  }
+  method Dismiss {} {
+    destroy [winfo parent ${win}]
+  }
+
+  destructor {
+    $myHtml configure -logcmd ""
+    if {$myDom ne ""} {$myDom configure -logcmd ""}
   }
 }
+
+proc ::hv3::log_window {html} {
+  toplevel .event_log
+  ::hv3::dynamiclog .event_log.log $html
+  pack .event_log.log -expand 1 -fill both
+}
+
+set ::hv3::event_log_subjects { ACTION }
 
