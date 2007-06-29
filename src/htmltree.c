@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.136 2007/06/28 17:48:12 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.137 2007/06/29 17:17:17 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -1037,9 +1037,7 @@ treeAddFosterElement(pTree, eTag, pAttr)
         pTree->state.pFoster = pNew;
     }
 
-#if 1
     HtmlCallbackRestyle(pTree, pNew);
-#endif
     return pNew;
 }
 

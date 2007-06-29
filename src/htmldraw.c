@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.191 2007/06/24 16:07:23 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.192 2007/06/29 17:17:17 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -677,15 +677,18 @@ windowsRepair(pTree, pCanvas)
             }
             p->pNext = 0;
         } else {
-            if (Tk_IsMapped(control)) {
+            if (!Tk_IsMapped(control)) {
+                Tk_MoveResizeWindow(control, iViewX, iViewY, iWidth, iHeight);
+                Tk_MapWindow(control);
+            } else if(
+                iViewX != Tk_X(control) || Tk_Y(control) != iViewY ||
+                iWidth != Tk_Width(control) || Tk_Height(control) != iHeight
+            ) {
                 HtmlCallbackDamage(pTree, 
                     Tk_X(control), Tk_Y(control), 
                     Tk_Width(control), Tk_Height(control), 1
                 );
-            }
-            Tk_MoveResizeWindow(control, iViewX, iViewY, iWidth, iHeight);
-            if (!Tk_IsMapped(control)) {
-                Tk_MapWindow(control);
+                Tk_MoveResizeWindow(control, iViewX, iViewY, iWidth, iHeight);
             }
             pPrev = p;
         }
@@ -718,15 +721,6 @@ HtmlDrawCleanup(pTree, pCanvas)
 CHECK_CANVAS(pCanvas);
 
     assert(pTree || !pCanvas->pFirst);
-
-    if (&pTree->canvas == pCanvas) {
-        HtmlNodeReplacement *p;
-        for (p = pTree->pMapped; p; p = p->pNext) {
-            p->iCanvasX = -10000;
-            p->iCanvasY = -10000;
-            assert(p->iCanvasX < 0 && p->iCanvasY < 0);
-        }
-    }
 
     pItem = pCanvas->pFirst;
     while (pItem) {
@@ -2718,7 +2712,8 @@ static void damageSlot(pTree, pSlot, pX1, pY1, pX2, pY2, isOld)
     }
 /* printf("%dx%d +%d+%d (%d)\n", w, h, x, y, pSlot->pItem->type); */
     if (pSlot->pItem->type == CANVAS_WINDOW) {
-        pTree->cb.flags |= HTML_NODESCROLL;
+        pSlot->pItem->x.w.pElem->pReplacement->iCanvasX = -10000;
+        pSlot->pItem->x.w.pElem->pReplacement->iCanvasY = -10000;
     }
     *pX1 = MIN(*pX1, x);
     *pY1 = MIN(*pY1, y);
@@ -4474,6 +4469,13 @@ HtmlWidgetSetViewport(pTree, scroll_x, scroll_y, force_redraw)
     pTree->iScrollY = scroll_y;
     pTree->iScrollX = scroll_x;
     if (force_redraw || delta_x != 0 || abs(delta_y) >= h) {
+        HtmlNodeReplacement *p;
+/*
+        for (p = pTree->pMapped; p; p = p->pNext) {
+            p->iCanvasX = -10000;
+            p->iCanvasY = -10000;
+        }
+*/
         widgetRepair(pTree, 0, 0, w, h, 1);
         flushPixmap(pTree);
     } else {

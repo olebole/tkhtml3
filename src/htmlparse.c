@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.107 2007/06/28 17:48:12 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.108 2007/06/29 17:17:17 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -1172,9 +1172,8 @@ HtmlTokenize(pTree, zText, isFinal, xAddText, xAddElement, xAddClosing)
 /************************** End HTML Tokenizer Code ***************************/
 
 static int 
-tokenizeWrapper(pTree, zText, isFin, xAddText, xAddElement, xAddClosing)
+tokenizeWrapper(pTree, isFin, xAddText, xAddElement, xAddClosing)
     HtmlTree *pTree;             /* The HTML widget doing the parsing */
-    char const *zText;
     int isFin;
     void (*xAddText)(HtmlTree *, HtmlTextNode *, int);
     void (*xAddElement)(HtmlTree *, int, HtmlAttributes *, int);
@@ -1188,16 +1187,18 @@ tokenizeWrapper(pTree, zText, isFin, xAddText, xAddElement, xAddClosing)
 
     HtmlCallbackRestyle(pTree, pCurrent ? pCurrent : pTree->pRoot);
     HtmlCallbackLayout(pTree, pCurrent);
-    rc = HtmlTokenize(pTree, zText, isFin, xAddText, xAddElement, xAddClosing);
+    rc = HtmlTokenize(pTree, 0, isFin, xAddText, xAddElement, xAddClosing);
     if (pTree->isParseFinished && pTree->eWriteState==HTML_WRITE_NONE) {
         HtmlFinishNodeHandlers(pTree);
     }
-    HtmlCallbackRestyle(pTree, pTree->state.pCurrent);
 
-    /* The theory is that the above three commands ensure that any
-     * nodes added to the tree by this call to [$widget parse] are
-     * styled in the next idle callback. This call, which is a no-op
-     * in -DNDEBUG builds, checks if that is true.
+    pCurrent = pTree->state.pCurrent;
+    HtmlCallbackRestyle(pTree, pCurrent ? pCurrent : pTree->pRoot);
+    
+    /* The theory is that the above calls to CallbackRestyle() ensure that
+     * any nodes added to the tree by HtmlTokenize() are styled in the next
+     * idle callback. This call, which is a no-op in -DNDEBUG builds, 
+     * checks if that is true.
      *
      * TODO. Each time an element is added to a foster-tree in htmltree.c
      * it calls HtmlCheckRestylePoint(). This is inefficient. But otherwise
@@ -1252,7 +1253,7 @@ HtmlTokenizerAppend(pTree, zText, nText, isFinal)
         pTree->eWriteState == HTML_WRITE_WAIT
     );
     if (pTree->eWriteState == HTML_WRITE_NONE) {
-        tokenizeWrapper(pTree, 0, isFinal, 
+        tokenizeWrapper(pTree, isFinal, 
             HtmlTreeAddText,
             HtmlTreeAddElement,
             HtmlTreeAddClosingTag
@@ -1467,7 +1468,7 @@ HtmlWriteContinue(pTree)
     switch (eState) {
         case HTML_WRITE_WAIT: {
             pTree->eWriteState = HTML_WRITE_NONE;
-            tokenizeWrapper(pTree, 0, pTree->isParseFinished, 
+            tokenizeWrapper(pTree, pTree->isParseFinished, 
                 HtmlTreeAddText,
                 HtmlTreeAddElement,
                 HtmlTreeAddClosingTag

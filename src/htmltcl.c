@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.171 2007/06/28 17:48:12 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.172 2007/06/29 17:17:17 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -422,8 +422,9 @@ callbackHandler(clientData)
 
     /* If the HTML_DYNAMIC flag is set, then call HtmlCssCheckDynamic()
      * to recalculate all the dynamic CSS rules that may apply to 
-     * the sub-tree rooted at HtmlCallback.pDynamic. CssCheckDynamic() may
-     * call HtmlCallbackRestyle() if any computed style values are modified.
+     * the sub-tree rooted at HtmlCallback.pDynamic. CssCheckDynamic() 
+     * calls HtmlCallbackRestyle() if any computed style values are 
+     * modified (setting the HTML_RESTYLE flag). 
      */
     if (!pTree->delayToken && (pTree->cb.flags & HTML_DYNAMIC)) {
         assert(pTree->cb.pDynamic);
@@ -433,7 +434,8 @@ callbackHandler(clientData)
     pTree->cb.flags &= ~HTML_DYNAMIC;
 
     /* If the HtmlCallback.pRestyle variable is set, then recalculate 
-     * style information for the sub-tree rooted at HtmlCallback.pRestyle. 
+     * style information for the sub-tree rooted at HtmlCallback.pRestyle,
+     * and the sub-trees rooted at all right-siblings of pRestyle. 
      * Note that restyling a node may invoke the -imagecmd callback.
      *
      * Todo: This seems dangerous.  What happens if the -imagecmd calls
@@ -525,9 +527,12 @@ callbackHandler(clientData)
             HtmlLog(pTree, 
                 "ACTION", "Repair: %dx%d +%d+%d", pD->w, pD->h, pD->x, pD->y
             );
+#if 0
             HtmlWidgetRepair(pTree, pD->x, pD->y, pD->w, pD->h, 
                 pD->pixmapok, (pTree->cb.flags & HTML_NODESCROLL)?1:0
             );
+#endif
+            HtmlWidgetRepair(pTree, pD->x, pD->y, pD->w, pD->h, pD->pixmapok, 1);
             HtmlFree(pD);
             pD = pNext;
         }
@@ -693,8 +698,13 @@ static void
 snapshotZero(pTree)
     HtmlTree *pTree;
 {
+    HtmlNodeReplacement *p;
     HtmlDrawSnapshotFree(pTree, pTree->cb.pSnapshot);
     pTree->cb.pSnapshot = HtmlDrawSnapshotZero(pTree);
+    for (p = pTree->pMapped; p ; p = p->pNext) {
+        p->iCanvasX = -10000;
+        p->iCanvasY = -10000;
+    }
 }
 
 /*
