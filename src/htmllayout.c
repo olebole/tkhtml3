@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.253 2007/06/28 18:42:17 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.254 2007/06/29 07:12:17 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -833,6 +833,7 @@ normalFlowLayoutOverflow(pLayout, pBox, pNode, pY, pContext, pNormal)
     int iMin;              /* Minimum width as used for vertical positioning */
     int iSpareWidth;
 
+    int iComputedWidth;    /* Return value of getWidthProperty() */
     int iWidth;            /* Content width of box */
     int iHeight;           /* Content height of box */
 
@@ -841,7 +842,9 @@ normalFlowLayoutOverflow(pLayout, pBox, pNode, pY, pContext, pNormal)
 
     nodeGetMargins(pLayout, pNode, pBox->iContaining, &margin);
     nodeGetBoxProperties(pLayout, pNode, pBox->iContaining, &box);
-    iWidth = getWidthProperty(pLayout, pV, pBox->iContaining);
+    iComputedWidth = getWidthProperty(pLayout, pV, pBox->iContaining);
+    iWidth = iComputedWidth;
+
     iMPB = margin.margin_left + margin.margin_right + box.iLeft + box.iRight;
 
     /* Collapse the vertical margins above this box. */
@@ -910,6 +913,8 @@ normalFlowLayoutOverflow(pLayout, pBox, pNode, pY, pContext, pNormal)
     sContent.height = getHeight(pNode, sContent.height, iHeight);
     if (!pLayout->minmaxTest) {
         sContent.width = iWidth;
+    } else if (iComputedWidth >= 0) {
+        sContent.width = iComputedWidth;
     }
    
     LOG(pNode) {

@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.118 2007/06/28 15:19:58 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.119 2007/06/29 07:12:17 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -1229,6 +1229,10 @@ shortcutBackground(pParse, p, v)
     }
     propertyTransformBgPosition(pPositionX);
     propertyTransformBgPosition(pPositionY);
+    if (!pPositionX && !pPositionY) { 
+      pPositionX = HtmlCssStringToProperty("0%", 2);
+      pPositionY = HtmlCssStringToProperty("0%", 2);
+    }
     if (!pPositionX) { pPositionX = HtmlCssStringToProperty("50%", 3); }
     if (!pPositionY) { pPositionY = HtmlCssStringToProperty("50%", 3); }
  
