@@ -1,7 +1,7 @@
 #
 # This file contains code to implement the dynamic logging window. 
 #
-namespace eval hv3 { set {version($Id: hv3_log.tcl,v 1.15 2007/06/29 10:58:59 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_log.tcl,v 1.16 2007/06/30 16:43:49 danielk1977 Exp $)} 1 }
 
 source [file join [file dirname [info script]] hv3_widgets.tcl]
 
@@ -18,7 +18,8 @@ snit::widget ::hv3::dynamiclog {
     LAYOUTENGINE 0
     STYLEENGINE  0
     ACTION       0
-    ECMASCRIPT   1
+    "ECMASCRIPT Get"  1
+    "ECMASCRIPT Put"  1
   }
 
   constructor {html} {

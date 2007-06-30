@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.178 2007/06/28 18:51:23 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.179 2007/06/30 16:43:49 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -2001,15 +2001,8 @@ method search {args} {
 }
 }
 
-bind Hv3 <KeyPress-Up>     { %W yview scroll -1 units }
-bind Hv3 <KeyPress-Down>   { %W yview scroll  1 units }
-bind Hv3 <KeyPress-Return> { %W yview scroll  1 units }
-bind Hv3 <KeyPress-Right>  { %W xview scroll  1 units }
-bind Hv3 <KeyPress-Left>   { %W xview scroll -1 units }
-
-bind Hv3 <KeyPress-Next>   { %W yview scroll  1 pages }
-bind Hv3 <KeyPress-space>  { %W yview scroll  1 pages }
-bind Hv3 <KeyPress-Prior>  { %W yview scroll -1 pages }
+bind Html <Tab>       [list ::hv3::forms::tab %W]
+bind Html <Shift-Tab> [list ::hv3::forms::tab %W]
 
 proc ::hv3::bg {script args} {
   set eval [concat $script $args]

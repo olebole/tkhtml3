@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.64 2007/06/24 16:22:10 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.65 2007/06/30 16:43:49 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -142,6 +142,68 @@ proc ::hv3::get_form_nodes {node} {
   return ""
 }
 
+# Scan the document currently displayed by html widget $html, returning
+# a list of nodes that can accept focus. The list is ordered according
+# to the order in which they should be navigated by the user agent (the
+# "tabindex" order).
+#
+# In Hv3, the following are considered focusable:
+#
+#   + <TEXTAREA>
+#   + <INPUT type="text"> <INPUT type="password"> <INPUT type="file">
+#
+proc ::hv3::get_focusable_nodes {html} {
+  set ret [list]
+  foreach N [$html search TEXTAREA,INPUT] {
+    if {[::hv3::boolean_attr $N disabled 0]} continue
+    if {[string toupper [$N tag]] eq "INPUT"} {
+      set type [string tolower [$N attr -default "" type]]
+      set L [list radio button hidden checkbox image reset submit]
+      if {[lsearch $L $type]>=0} continue
+    }
+    lappend ret $N
+  }
+
+  lsort -command [list ::hv3::compare_focusable $ret] $ret
+}
+
+proc ::hv3::compare_focusable {orig L R} {
+  set tl [$L attr -default 0 tabindex]
+  set tr [$R attr -default 0 tabindex]
+  if {![string is integer $tl]} {set tl 0}
+  if {![string is integer $tr]} {set tr 0}
+  if {$tr<0} {set tr 0}
+  if {$tl<0} {set tl 0}
+
+  if {$tr == $tl} {
+    # Compare based on order in $orig
+    set il [lsearch $orig $L]
+    set ir [lsearch $orig $R]
+    return [expr {$il - $ir}]
+  }
+
+  # Nodes with tabindex=0 come after those with +ve tabindex values
+  if {$tr == 0} {return -1}
+  if {$tl == 0} {return 1}
+
+  # Node with the smallest tabindex comes first.
+  return [expr {$tl - $tr}]
+}
+
+# Called when <Tab> or <Shift-Tab> is pressed when the html widget or
+# one of it's form controls has the focus. This makes sure the stacking
+# order of the controls within the Html widget is correct for
+# html traversal rules (i.e. the "tabindex" attribute).
+#
+proc ::hv3::forms::tab {html} {
+  set L [::hv3::get_focusable_nodes $html]
+  set prev ""
+  foreach node $L {
+    set win [$node replace]
+    raise $win
+  }
+}
+
 # Given a node that generates a control - $node - return the
 # corresponding <FORM> node. Or an empty string, if there is
 # no such node.
@@ -157,6 +219,7 @@ proc ::hv3::control_to_form {node} {
 #         <INPUT type="checkbox">
 #
 ::snit::widgetadaptor ::hv3::forms::checkbox {
+  option -takefocus -default 0
 
   variable mySuccess 0        ;# -variable for checkbutton widget
   variable myNode             ;# Tkhtml <INPUT> node
@@ -282,6 +345,7 @@ proc ::hv3::control_to_form {node} {
 #         <INPUT type="password">
 #
 ::snit::widget ::hv3::forms::entrycontrol {
+  option -takefocus -default 0
 
   option -formnode -default ""
   option -submitcmd -default ""
@@ -291,6 +355,8 @@ proc ::hv3::control_to_form {node} {
   variable myNode ""
 
   constructor {node bindtag args} {
+    set myNode $node
+
     set myWidget [entry ${win}.entry]
     $myWidget configure -highlightthickness 0 -borderwidth 0 
     $myWidget configure -selectborderwidth 0
@@ -314,10 +380,13 @@ proc ::hv3::control_to_form {node} {
     # Pressing enter in an entry widget submits the form.
     bind $myWidget <KeyPress-Return> [mymethod Submit]
 
-    set myNode $node
-    bindtags $myWidget [concat $bindtag [bindtags $myWidget] $win]
-    $self reset
+    bind $myWidget <Tab>       [list ::hv3::forms::tab [$myNode html]]
+    bind $myWidget <Shift-Tab> [list ::hv3::forms::tab [$myNode html]]
 
+    set tags [bindtags $myWidget]
+    bindtags $myWidget [concat $tags $win]
+
+    $self reset
     $self configurelist $args
   }
 
@@ -441,6 +510,7 @@ proc ::hv3::control_to_form {node} {
 #         <TEXTAREA>
 #
 ::snit::widget ::hv3::forms::textarea {
+  option -takefocus -default 0
 
   option -formnode -default ""
   option -submitcmd -default ""
@@ -461,6 +531,10 @@ proc ::hv3::control_to_form {node} {
     bindtags $myWidget [concat $bindtag [bindtags $myWidget] $win]
     $self reset
     $self configurelist $args
+
+    $myWidget configure -takefocus 1
+    bind $myEntry <Tab>       [list ::hv3::forms::tab [$myNode html]]
+    bind $myEntry <Shift-Tab> [list ::hv3::forms::tab [$myNode html]]
 
     pack $myWidget -expand true -fill both
   }
@@ -546,6 +620,7 @@ proc ::hv3::control_to_form {node} {
 #         <SELECT>
 #
 snit::widgetadaptor ::hv3::forms::select {
+
   option -formnode -default ""
 
   variable myHv3 ""
@@ -568,6 +643,7 @@ snit::widgetadaptor ::hv3::forms::select {
     $hull configure -highlightthickness 0
     $hull configure -editable false
     $hull configure -command [mymethod ComboboxChanged]
+    $hull configure -takefocus 0
 
     $self treechanged
     $self reset
@@ -707,6 +783,7 @@ snit::widgetadaptor ::hv3::forms::select {
 # ::hv3::fileselect
 #
 snit::widget ::hv3::fileselect {
+  option -takefocus -default 0
 
   component myButton
   component myEntry
@@ -726,6 +803,13 @@ snit::widget ::hv3::fileselect {
 
     $myButton configure -highlightthickness 0
     $myButton configure -pady 0
+
+    # The [entry] widget may take the focus. The [button] does not.
+    #
+    $myButton configure -takefocus 0
+    $myEntry configure  -takefocus 1
+    bind $myEntry <Tab>       [list ::hv3::forms::tab [$myNode html]]
+    bind $myEntry <Shift-Tab> [list ::hv3::forms::tab [$myNode html]]
 
     pack $myButton -side right
     pack $myEntry -fill both -expand true
@@ -774,7 +858,6 @@ snit::widget ::hv3::fileselect {
 #         <input>            -> button|radiobutton|combobox|entry|image
 #         <button>           -> button|image
 #         <select>           -> combobox
-#         <textarea>         -> text
 #
 #     An attempt to baseline align the button, entry, radiobutton and 
 #     combobox widgets is made. (Note that <isindex> is not mentioned
@@ -829,6 +912,7 @@ snit::widget ::hv3::fileselect {
 #
 #
 snit::widget ::hv3::control {
+  option -takefocus -default 0
 
   # The document node corresponding to the element that created this 
   # control (i.e. the <input>).
@@ -892,11 +976,6 @@ snit::widget ::hv3::control {
         #
         set type [string tolower [$node attr -default text type]]
         catch { set myWidgetType $INPUT_TYPE($type) }
-      }
-
-      textarea {
-        # A <TEXTAREA> element is replaced by a Tk text widget.
-        set myWidgetType Text
       }
 
       select {
@@ -1085,10 +1164,6 @@ snit::widget ::hv3::control {
   method value {} {
     # If the $myWidget object has a [value] method, use it.
     if {$myWidgetIsSmart} { return [$myWidget value] }
-
-    if {[$myControlNode tag] eq "textarea"} {
-      return [string range [$myWidget get 0.0 end] 0 end-1]
-    }
     return $myValue
   }
 

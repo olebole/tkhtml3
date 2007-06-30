@@ -97,13 +97,14 @@ valueToBoolean(interp, pValue, eDef)
  *---------------------------------------------------------------------------
  */
 static void
-setBooleanFlag(interp, pObj, zName)
+setBooleanFlag(interp, pObj, zName, v)
     struct SEE_interpreter *interp;
     struct SEE_object *pObj;
     const char *zName;
+    int v;
 {
     struct SEE_value yes;
-    SEE_SET_BOOLEAN(&yes, 1);
+    SEE_SET_BOOLEAN(&yes, v);
     SEE_OBJECT_PUTA(interp, pObj, zName, &yes, 0);
 }
 
@@ -205,7 +206,7 @@ runEvent(interp, pTarget, pEvent, zType, isCapture)
             if (pL->isCapture == isCapture) {
                 struct SEE_value r;
                 SEE_OBJECT_CALL(interp, pL->pListener, pTarget, 1, &pEvent, &r);
-                setBooleanFlag(interp, pEvent->u.object, CALLED_LISTENER);
+                setBooleanFlag(interp, pEvent->u.object, CALLED_LISTENER, 1);
             }
         }
     }
@@ -224,11 +225,11 @@ runEvent(interp, pTarget, pEvent, zType, isCapture)
             struct SEE_object *pE = pEvent->u.object;
             struct SEE_value res;
             SEE_OBJECT_CALL(interp, val.u.object, pTarget, 1, &pEvent, &res);
-            setBooleanFlag(interp, pE, CALLED_LISTENER);
+            setBooleanFlag(interp, pE, CALLED_LISTENER, 1);
             rc = valueToBoolean(interp, &res, 1);
             if (!rc) {
-                setBooleanFlag(interp, pE, PREVENT_DEFAULT);
-                setBooleanFlag(interp, pE, STOP_PROPAGATION);
+                setBooleanFlag(interp, pE, PREVENT_DEFAULT, 1);
+                setBooleanFlag(interp, pE, STOP_PROPAGATION, 1);
             }
         }
     }
@@ -256,7 +257,7 @@ preventDefaultFunc(interp, self, thisobj, argc, argv, res)
     int argc;
     struct SEE_value **argv, *res;
 {
-    setBooleanFlag(interp, thisobj, PREVENT_DEFAULT);
+    setBooleanFlag(interp, thisobj, PREVENT_DEFAULT, 1);
 }
 
 /*
@@ -279,7 +280,7 @@ stopPropagationFunc(interp, self, thisobj, argc, argv, res)
     int argc;
     struct SEE_value **argv, *res;
 {
-    setBooleanFlag(interp, thisobj, STOP_PROPAGATION);
+    setBooleanFlag(interp, thisobj, STOP_PROPAGATION, 1);
 }
 
 /*
@@ -351,6 +352,10 @@ dispatchEventFunc(interp, self, thisobj, argc, argv, res)
 
     SEE_SET_OBJECT(&target, thisobj);
     SEE_OBJECT_PUTA(interp, pEvent, "target", &target, 0);
+
+    setBooleanFlag(interp, pEvent, STOP_PROPAGATION, 0);
+    setBooleanFlag(interp, pEvent, PREVENT_DEFAULT, 0);
+    setBooleanFlag(interp, pEvent, CALLED_LISTENER, 0);
 
     /* Get the event type */
     SEE_OBJECT_GETA(interp, pEvent, "type", &val);

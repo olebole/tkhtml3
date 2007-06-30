@@ -755,12 +755,16 @@ callSeeTclMethod(pTcl, pLog, p, zMethod, pProperty, pVal)
 
     if (pLog && rc==TCL_OK) {
         Tcl_Obj *pEval;
+        Tcl_Obj *pSubject;
         Tcl_Obj *pRes = Tcl_GetObjResult(pTcl);
         Tcl_IncrRefCount(pRes);
 
+        pSubject = Tcl_NewStringObj("ECMASCRIPT ", -1);
+        Tcl_AppendToObj(pSubject, zMethod, -1);
+
         pEval = Tcl_DuplicateObj(pLog);
         Tcl_IncrRefCount(pEval);
-        Tcl_ListObjAppendElement(0, pEval, Tcl_NewStringObj("ECMASCRIPT", -1));
+        Tcl_ListObjAppendElement(0, pEval, pSubject);
         Tcl_ListObjAppendElement(0, pEval, p->pObj);
         if (pMethod) Tcl_ListObjAppendElement(0, pEval, pMethod);
         if (pProp) Tcl_ListObjAppendElement(0, pEval, pProp);
@@ -1889,34 +1893,33 @@ SeeTcl_Get(pInterp, pObj, pProp, pRes)
     SeeTclObject *p = (SeeTclObject *)pObj;
     SeeInterp *pTclSeeInterp = (SeeInterp *)pInterp;
     Tcl_Interp *pTclInterp = pTclSeeInterp->pTclInterp;
+    struct SEE_object *pNative = (struct SEE_object *)p->pNative;
 
     Tcl_Obj *pScriptRes;
-    int nRes;
     int rc;
 
-    /* Execute the script:
+    /* Test if the requested property is stored in the pNative object.
+     * If so, return this value instead of evaluating a Tcl script.
      *
-     *     $obj Get $property
+     * The assumption is that the hash-lookup on the native object is
+     * much faster than evaluating the Tcl command.
+     */
+    pProp = SEE_intern(pInterp, pProp);
+    if (SEE_native_hasproperty(pInterp, pNative, pProp)) {
+        SEE_native_get(pInterp, pNative, pProp, pRes);
+        return;
+    }
+
+    /* Execute the Tcl script:
+     *
+     *     eval $obj Get $property
      */
     rc = callSeeTclMethod(pTclInterp, pTclSeeInterp->pLog, p, "Get", pProp, 0);
     throwTclError(pInterp, rc);
-
     pScriptRes = Tcl_GetObjResult(pTclInterp);
-    rc = Tcl_ListObjLength(pTclInterp, pScriptRes, &nRes);
-    throwTclError(pInterp, rc);
-
-    if (nRes == 0) {
-        /* If the [$obj Get] script returned a list of zero length (i.e.
-         * an empty string), then look up the property in the 
-         * p->pNative hash table.
-         */
-        SEE_native_get(pInterp, (struct SEE_object *)p->pNative, pProp, pRes);
-    } else {
-        Tcl_IncrRefCount(pScriptRes);
-        rc = objToValue(pTclSeeInterp, pScriptRes, pRes);
-        Tcl_DecrRefCount(pScriptRes);
-    }
-
+    Tcl_IncrRefCount(pScriptRes);
+    rc = objToValue(pTclSeeInterp, pScriptRes, pRes);
+    Tcl_DecrRefCount(pScriptRes);
     throwTclError(pInterp, rc);
 }
 
@@ -1938,7 +1941,7 @@ SeeTcl_Put(pInterp, pObj, pProp, pValue, flags)
 
     pVal = argValueToTcl(p, pValue, &nObj);
     Tcl_IncrRefCount(pVal);
-    rc = callSeeTclMethod(pTclInterp, 0, pObject, "Put", pProp, pVal);
+    rc = callSeeTclMethod(pTclInterp, p->pLog, pObject, "Put", pProp, pVal);
     Tcl_DecrRefCount(pVal);
     removeTransientRefs(p, nObj);
     throwTclError(pInterp, rc);
