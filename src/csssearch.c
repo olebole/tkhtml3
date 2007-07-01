@@ -2,7 +2,7 @@
 #include "html.h"
 #include "cssInt.h"
 
-static const char rcsid[] = "$Id: csssearch.c,v 1.3 2007/06/16 17:20:28 danielk1977 Exp $";
+static const char rcsid[] = "$Id: csssearch.c,v 1.4 2007/07/01 09:56:11 danielk1977 Exp $";
 
 /*-----------------------------------------------------------------------
  *
@@ -278,7 +278,7 @@ HtmlCssSearch(clientData, interp, objc, objv)
             break;
 
         case SEARCH_MODE_INDEX:
-            if (iIndex < pCache->nNode) {
+            if (iIndex >= 0 && iIndex < pCache->nNode) {
                 Tcl_SetObjResult(
                     interp, HtmlNodeCommand(pTree, pCache->apNode[iIndex])
                 );

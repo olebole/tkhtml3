@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.65 2007/06/30 16:43:49 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.66 2007/07/01 09:56:11 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -533,8 +533,8 @@ proc ::hv3::control_to_form {node} {
     $self configurelist $args
 
     $myWidget configure -takefocus 1
-    bind $myEntry <Tab>       [list ::hv3::forms::tab [$myNode html]]
-    bind $myEntry <Shift-Tab> [list ::hv3::forms::tab [$myNode html]]
+    bind $myWidget <Tab>       [list ::hv3::forms::tab [$myNode html]]
+    bind $myWidget <Shift-Tab> [list ::hv3::forms::tab [$myNode html]]
 
     pack $myWidget -expand true -fill both
   }

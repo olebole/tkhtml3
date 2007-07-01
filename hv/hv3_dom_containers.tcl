@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_containers.tcl,v 1.4 2007/06/10 10:33:41 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_containers.tcl,v 1.5 2007/07/01 09:56:10 danielk1977 Exp $)} 1 }
 
 # This file contains the implementation of the two DOM specific
 # container objects:
@@ -124,7 +124,7 @@ namespace eval ::hv3::DOM {
   
   proc HTMLCollectionC_item {dom nodelistcmd index} {
     set idx [format %.0f $index]
-    set ret ""
+    set ret null
     set node [lindex [eval $nodelistcmd] $idx]
     if {$node ne ""} {
       set ret [list object [$dom node_to_dom $node]]
@@ -149,7 +149,7 @@ namespace eval ::hv3::DOM {
       }
     }
     
-    return ""
+    return null
   }
 }
 
@@ -174,15 +174,36 @@ namespace eval ::hv3::DOM {
   #
   dom_call -string item {THIS index} {
     set node [$myHtml search $mySelector -index [expr {int($index)}]]
-    if {$node ne ""} { list object [$myDom node_to_dom $node] }
+    if {$node ne ""} { 
+      list object [$myDom node_to_dom $node] 
+    } else {
+      list null
+    }
   }
 
   # HTMLCollection.namedItem()
   #
+  # TODO: This may fail if the $name argument contains spaces or 
+  # something. This is not dangerous - there is no scope for injection
+  # attacks.
   dom_call -string namedItem {THIS name} {
-    set sel [format {%s[name="%s"]} $mySelector $name]
+
+    # First search for a match on the id attribute.
+    set sel [format {%s[id="%s"]} $mySelector $name]
     set node [$myHtml search $sel -index 0]
-    if {$node ne ""} { list object [$myDom node_to_dom $node] }
+
+    # Next try to find a node with a matching name attribute.
+    if {$node eq ""} {
+      set sel [format {%s[name="%s"]} $mySelector $name]
+      set node [$myHtml search $sel -index 0]
+    }
+
+    # Return a Node object if successful, otherwise null.
+    if {$node ne ""} { 
+      list object [$myDom node_to_dom $node] 
+    } else {
+      list null
+    }
   }
 
   # Handle an attempt to retrieve an unknown property.
@@ -199,12 +220,13 @@ namespace eval ::hv3::DOM {
     #
     if {[string is double $property]} {
       set node [$myHtml search $mySelector -index [expr {int($property)}]]
-      if {$node ne ""} { list object [$myDom node_to_dom $node] }
+      if {$node ne ""} { 
+        list object [$myDom node_to_dom $node] 
+      }
     } else {
       set name $property
       set s $mySelector
       set sel [format {%s[name="%s"],%s[id="%s"]} $s $name $s $name]
-
       set nNode [$myHtml search $sel -length]
       if {$nNode > 0} {
         if {$nNode == 1} {
