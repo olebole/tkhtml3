@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.22 2007/06/14 17:24:50 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.23 2007/07/01 11:27:59 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Html
@@ -600,7 +600,11 @@ namespace eval ::hv3::DOM {
     # The value attribute is read-only for this element. It is set to
     # the string value that will be submitted by this control during
     # form submission.
-    list string [[$myNode replace] value]
+    if {[::hv3::boolean_attr $myNode disabled 0]} {
+      list string ""
+    } else {
+      list string [[$myNode replace] value]
+    }
   }
 
   dom_get length {

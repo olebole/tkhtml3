@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.19 2007/06/14 17:24:50 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.20 2007/07/01 11:27:59 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Core
@@ -449,10 +449,10 @@ set BaseList {ElementCSSInlineStyle WidgetNode Node NodePrototype}
     Element_putAttributeString $myNode $attr $v
   }
 
-  dom_todo removeAttribute
-  dom_todo getAttributeNode
-  dom_todo setAttributeNode
-  dom_todo removeAttributeNode
+  dom_call_todo removeAttribute
+  dom_call_todo getAttributeNode
+  dom_call_todo setAttributeNode
+  dom_call_todo removeAttributeNode
 
   dom_call -string getElementsByTagName {THIS tagname} {
     set hv3 [$myDom node_to_hv3 $myNode]

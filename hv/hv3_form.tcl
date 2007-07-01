@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.66 2007/07/01 09:56:11 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.67 2007/07/01 11:27:59 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -662,8 +662,10 @@ snit::widgetadaptor ::hv3::forms::select {
   }
 
   method success {} {
-    # If it has a name, it is successful.
-    expr {[catch {$myNode attr name}] ? 0 : 1}
+    # If it has a name and is not disabled, it is successful.
+    if {[catch {$myNode attr name}]}              { return 0 }
+    if {[::hv3::boolean_attr $myNode disabled 0]} { return 0 }
+    return 1
   }
 
   method filename {} { 
@@ -770,8 +772,17 @@ snit::widgetadaptor ::hv3::forms::select {
   # control type has to interface with HTMLSelectElement.
   #
 
-  method dom_selectionIndex    {}      { $win curselection }
-  method dom_setSelectionIndex {value} { $win select $value }
+  method dom_selectionIndex {} { 
+    if {[$hull cget -state] eq "disabled"} {
+      return -1
+    }
+    $win curselection 
+  }
+  method dom_setSelectionIndex {value} { 
+    if {[$hull cget -state] ne "disabled"} {
+      $win select $value 
+    }
+  }
 
   # Selection widget cannot take the focus in Hv3, so these two are 
   # no-ops.  Maybe some keyboard enthusiast will change this one day.
