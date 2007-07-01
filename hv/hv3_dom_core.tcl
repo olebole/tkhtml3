@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.20 2007/07/01 11:27:59 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.21 2007/07/01 11:46:35 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Core
@@ -244,12 +244,17 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.20 2007/07/01 11:27:
   # Retrieve the parent node.
   #
   dom_get parentNode {
+    set ret null
     set parent [$myNode parent]
     if {$parent eq ""} {
-      # Parent of the root of the document (the <HTML> node)
-      # is the DOM HTMLDocument object.
+      # This may be either the root node of the document, or an
+      # orphan. The parent of the root node is the DOM HTMLDocument
+      # object. The parent of an orphan node is null.
       #
-      set ret [list object [$myDom node_to_document $myNode]]
+      set root [[$myNode html] node]
+      if {$root eq $myNode} {
+        set ret [list object [$myDom node_to_document $myNode]]
+      }
     } else {
       set ret [list object [$myDom node_to_dom $parent]]
     }
