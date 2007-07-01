@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.21 2007/07/01 11:46:35 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.22 2007/07/01 12:13:37 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Core
@@ -592,11 +592,48 @@ namespace eval ::hv3::dom2::compiler {
   #
   dom_get length { list number [string length [$myNode text -pre]] }
 
-  dom_call_todo substringData
-  dom_call_todo appendData
-  dom_call_todo insertData
-  dom_call_todo deleteData
-  dom_call_todo replaceData
+  # The 5 functions specified by DOM:
+  #
+  #   substringData(offset, count)
+  #   appendData(arg)
+  #   insertData(offset, arg)
+  #   deleteData(offset, count)
+  #   replaceData(offset, count arg)
+  #
+  # The appendData(), insertData() and deleteData() are all implemented
+  # as special cases of replaceData().
+  #
+  dom_call -string substringData {THIS offset count} {
+    set nOffset [expr {int($offset)}]
+    set nCount  [expr {int($count)}]
+    set idx2 [expr {$nOffset + $nCount - 1}]
+    list string [string range [$myNode text -pre] $nOffset $idx2]
+  }
+  dom_call -string appendData {THIS arg} {
+    set nChar [string length [$myNode text -pre]]
+    CharacterData_replaceData $myNode $nChar 0 $arg
+  }
+  dom_call -string insertData {THIS offset arg} {
+    CharacterData_replaceData $myNode $offset 0 $arg
+  }
+  dom_call -string deleteData {THIS offset count} {
+    CharacterData_replaceData $myNode $offset $count ""
+  }
+  dom_call -string replaceData {THIS offset count arg} {
+    CharacterData_replaceData $myNode $offset $count $arg
+  }
+}
+namespace eval ::hv3::DOM {
+  proc CharacterData_replaceData {node offset count arg} {
+    set nOffset [expr {int($offset)}]
+    set nCount  [expr {int($count)}]
+    set idx     [expr {$nOffset + $nCount}]
+    set text [$node text -pre]
+    set    out [string range $text 0 [expr {$nOffset-1}]]
+    append out $arg
+    append out [string range $text $idx end]
+    $node text set $out
+  }
 }
 
 #-------------------------------------------------------------------------
