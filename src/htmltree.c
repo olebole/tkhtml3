@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.138 2007/07/01 11:27:59 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.139 2007/07/01 12:54:29 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -604,15 +604,24 @@ HtmlNodeIndexOfChild(pParent, pChild)
 }
 
 static void
-nodeInsertChild(pTree, pElem, pBefore, pChild)
+nodeInsertChild(pTree, pElem, pBefore, pAfter, pChild)
     HtmlTree *pTree;
     HtmlElementNode *pElem;
     HtmlNode *pBefore;
+    HtmlNode *pAfter;
     HtmlNode *pChild;
 {
     int n;                  /* Number of bytes to alloc for pNode->apChildren */
     int ii;
     int iBefore;
+
+    assert(pBefore == 0 || pAfter == 0);
+    assert(pChild);
+
+    if (pChild == pBefore || pChild == pAfter) {
+        assert(HtmlNodeParent(pChild) == (HtmlNode *)pElem);
+        return;
+    }
 
     /* Unlink pChild from it's parent node. */
     if (HtmlNodeParent(pChild)) {
@@ -629,11 +638,16 @@ nodeInsertChild(pTree, pElem, pBefore, pChild)
         nodeRemoveChild(HtmlNodeAsElement(pParent), pChild);
     }
 
-    iBefore = HtmlNodeIndexOfChild((HtmlNode *)pElem, pBefore);
-    if (iBefore < 0) {
+    if (pBefore) {
+        iBefore = HtmlNodeIndexOfChild((HtmlNode *)pElem, pBefore);
+        assert(iBefore>=0);
+    } else if (pAfter) {
+        iBefore = HtmlNodeIndexOfChild((HtmlNode *)pElem, pAfter);
+        assert(iBefore>=0);
+        iBefore++;
+    } else {
         iBefore = pElem->nChild;
     }
-    assert(iBefore <= pElem->nChild);
 
     /* Extend the size of the HtmlElementNode.apChildren[] array */
     assert(pElem);
@@ -992,7 +1006,7 @@ treeAddFosterText(pTree, pTextNode)
         pFosterParent = findFosterParent(pTree, &pBefore);
            
         nodeInsertChild(pTree,
-            (HtmlElementNode *)pFosterParent, pBefore, (HtmlNode *)pTextNode
+            (HtmlElementNode *)pFosterParent, pBefore, 0, (HtmlNode *)pTextNode
         );
     }
 }
@@ -1004,7 +1018,6 @@ treeAddFosterElement(pTree, eTag, pAttr)
     HtmlAttributes *pAttr;
 {
     HtmlNode *pFosterParent;
-    int iBefore;
 
     HtmlNode *pNew;
     HtmlNode *pFoster = pTree->state.pFoster;
@@ -1034,7 +1047,7 @@ treeAddFosterElement(pTree, eTag, pAttr)
         pNew = (HtmlNode *)HtmlNew(HtmlElementNode);
         ((HtmlElementNode *)pNew)->pAttributes = pAttr;
         pNew->eTag = eTag;
-        nodeInsertChild(pTree, (HtmlElementNode *)pFosterParent, pBefore, pNew);
+        nodeInsertChild(pTree, (HtmlElementNode *)pFosterParent,pBefore,0,pNew);
     }
 
     pNew->iNode = pTree->iNextNode++;
@@ -1960,7 +1973,7 @@ nodeDestroyCmd(pNode, objc, objv)
  *
  * nodeInsertCmd --
  *
- *         $node insert ?-before NODE? NODE-LIST...
+ *         $node insert ?-before|-after NODE? NODE-LIST...
  *
  * Results:
  *     None.
@@ -1977,14 +1990,17 @@ nodeInsertCmd(pNode, objc, objv)
     Tcl_Obj *CONST objv[];
 {
     HtmlTree *pTree = pNode->pNodeCmd->pTree;
+    Tcl_Interp *interp = pTree->interp;
     int ii;
     HtmlNode *pBefore = 0;
+    HtmlNode *pAfter = 0;
 
-    /* Process the "-before" option, if one is specified. This block
-     * sets local variable iBefore to a value suitable for passing as
-     * the second parameter of nodeInsertChild().
+    /* Process the "-before" or "-after" option, if one is specified. 
      */
-    if (objc > 3 && 0 == strcmp(Tcl_GetString(objv[2]), "-before")) {
+    if (objc > 3 && (
+            0 == strcmp(Tcl_GetString(objv[2]), "-before") ||
+            0 == strcmp(Tcl_GetString(objv[2]), "-after")
+    )) {
         int iBefore;
         pBefore = HtmlNodeGetPointer(pTree, Tcl_GetString(objv[3]));
         iBefore = HtmlNodeIndexOfChild(pNode, pBefore);
@@ -1995,11 +2011,16 @@ nodeInsertCmd(pNode, objc, objv)
             );
             return TCL_ERROR;
         }
+        if (0 == strcmp(Tcl_GetString(objv[2]), "-after")) {
+            pAfter = pBefore;
+            pBefore = 0;
+        }
     }
+
 
     /* Complain if there are insufficient arguments to this command */
     if (objc < 3 || (pBefore && objc < 5)) {
-        Tcl_WrongNumArgs(pTree->interp, 2, objv, "?-before NODE? NODE-LIST");
+        Tcl_WrongNumArgs(interp, 2, objv, "?-before|-after NODE? NODE-LIST");
         return TCL_ERROR;
     }
 
@@ -2009,7 +2030,7 @@ nodeInsertCmd(pNode, objc, objv)
         int jj;
         int rc;
 
-        rc = Tcl_ListObjGetElements(pTree->interp, objv[ii], &nNode, &apNode);
+        rc = Tcl_ListObjGetElements(interp, objv[ii], &nNode, &apNode);
         if (rc != TCL_OK) {
             return rc;
         }
@@ -2018,10 +2039,11 @@ nodeInsertCmd(pNode, objc, objv)
             Tcl_Obj *pObj = apNode[jj];
             HtmlNode *pChild = HtmlNodeGetPointer(pTree, Tcl_GetString(pObj));
             if (pChild) {
+                HtmlElementNode *pElem = HtmlNodeAsElement(pNode);
                 if (pChild->iNode == HTML_NODE_ORPHAN) {
                     nodeDeorphanize(pTree, pChild);
                 }
-                nodeInsertChild(pTree,(HtmlElementNode*)pNode, pBefore, pChild);
+                nodeInsertChild(pTree, pElem, pBefore, pAfter, pChild);
             }
         }
     }
@@ -3071,7 +3093,7 @@ fragmentAddText(pTree, pTextNode, iOffset)
         /* If there is a fragment root node, add the new text node
          * as the right-most child of HtmlFragmentContext.pCurrent.
          */
-        nodeInsertChild(pTree, pFragment->pCurrent, 0, (HtmlNode *)pTextNode);
+        nodeInsertChild(pTree, pFragment->pCurrent, 0,0, (HtmlNode *)pTextNode);
     } else {
         /* The text node becomes the a sub-tree all on it's own. */
         pFragment->pRoot = (HtmlNode *)pTextNode;
@@ -3118,7 +3140,7 @@ fragmentAddElement(pTree, eType, pAttributes, iOffset)
     pElem->node.eTag = eType;
 
     if (pFragment->pCurrent) {
-        nodeInsertChild(pTree, pFragment->pCurrent, 0, (HtmlNode *)pElem);
+        nodeInsertChild(pTree, pFragment->pCurrent, 0, 0, (HtmlNode *)pElem);
     } else {
         assert(!pFragment->pRoot);
         pFragment->pRoot = (HtmlNode *)pElem;

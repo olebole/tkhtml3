@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.22 2007/07/01 12:13:37 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.23 2007/07/01 12:54:29 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Core
@@ -465,7 +465,16 @@ set BaseList {ElementCSSInlineStyle WidgetNode Node NodePrototype}
     list transient $nl
   }
 
-  dom_todo normalize
+  # normalize()
+  #
+  #     Coalesce adjacent text nodes in the sub-tree rooted at this
+  #     element. In Hv3, for each string of adjacent text nodes, the
+  #     contents of the first is modified, and each adjacent text
+  #     node removed from the tree.
+  #
+  dom_call normalize {THIS} {
+    Element_normalize $myNode
+  }
 
   # Introduced in Core DOM Level 2:
   #
@@ -483,6 +492,25 @@ namespace eval ::hv3::DOM {
   proc Element_putAttributeString {node name val} {
     $node attribute $name $val
     return ""
+  }
+
+  proc Element_normalize {node} {
+    set T ""
+    foreach child [$node children] {
+      if {[$child tag] eq ""} {
+        if {$T eq ""} {
+          set T $child
+        } else {
+          set t [$T text -pre]
+          append t [$child text -pre]
+          $T text set $t
+          $node remove $child
+        }
+      } else {
+        Element_normalize $child
+        set T ""
+      }
+    }
   }
 
   # Assuming $js_obj is a javascript object that implements WidgetNode,
@@ -650,4 +678,35 @@ set BaseList {CharacterData WidgetNode Node NodePrototype}
 
   # End of Node interface overrides.
   #---------------------------------
+
+  # splitText(offset)
+  #
+  dom_call -string splitText {THIS offset} {
+    set nOffset [expr {int($offset)}]
+    set t [$myNode text -pre]
+
+    if {$nOffset > [string length $t]} {
+      error "DOMException INDEX_SIZE_ERR"
+    }
+
+    set z1 [string range $t 0 [expr {$nOffset-1}]]
+    set z2 [string range $t $nOffset end]
+
+    set html   [$myNode html]
+    set parent [$myNode parent]
+
+    $myNode text set $z1
+    set z2 [string map {< &lt; > &gt;} $z2]
+
+    if {$z2 eq ""} {
+      set new [$html fragment .]
+      $new text set ""
+    } else {
+      set new [$html fragment $z2]
+    }
+    $parent insert -after $myNode $new
+    list object [$myDom node_to_dom $new]
+  }
 }
+
+
