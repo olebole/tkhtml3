@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.8 2007/06/14 17:24:50 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.9 2007/07/02 12:53:33 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # ::hv3::dom::XMLHttpRequest
@@ -162,19 +162,11 @@ namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.8 2007/06/14 17:2
   dom_get bubbles       { list boolean 0 }
   dom_get cancelable    { list boolean 0 }
 
-  dom_get target        { list object $myXMLHttpRequest }
-  dom_get currentTarget { list object $myXMLHttpRequest }
-  dom_get eventPhase    { list number 2 }
-
   # TODO: Timestamp is supposed to return a timestamp in milliseconds
   # from the epoch. But the DOM spec notes that this information is not
   # available on all systems, in which case the property should return 0. 
   #
   dom_get timestamp  { list number 0 }
-
-  # No-ops.
-  dom_call stopPropagation {THIS} { }
-  dom_call preventDefault {THIS}  { }
 
   dom_call_todo initEvent
 }

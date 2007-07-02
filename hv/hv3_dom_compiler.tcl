@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.24 2007/06/24 16:22:10 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.25 2007/07/02 12:53:33 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file implements infrastructure used to create the [proc] definitions
@@ -434,8 +434,7 @@ namespace eval ::hv3::dom2 {
   method param {} { return $myParam }
   method events {} { return $myEvents }
 
-  method CompilePut {mixins} {
-
+  method CompilePut {mixins} { 
     set Put {
       set value [lindex [set args] 1]
       switch -exact -- [lindex [set args] 0] {
@@ -449,6 +448,13 @@ namespace eval ::hv3::dom2 {
     array set put_array ""
     foreach t [concat $mixins $self] {
       array set put_array [$t put]
+    }
+    foreach t [concat $mixins $self] {
+      foreach {k v} [$t get] {
+        if {![info exists put_array($k)]} {
+          set put_array($k) {0 value {error "Read-only property"}}
+        }
+      }
     }
 
     set SWITCHBODY ""
@@ -651,5 +657,4 @@ namespace eval ::hv3::dom2 {
     return $Code
   }
 }
-
 
