@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.60 2007/06/29 10:58:59 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.61 2007/07/02 12:31:33 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Snit types in this file:
@@ -101,7 +101,7 @@ snit::type ::hv3::dom {
           append script "window.onload = function(event) {$V}\n" 
         }
       }
-      $mySee eval $script
+      $mySee source $script
       set myWindowInitEvents 1
     }
   }
@@ -213,7 +213,7 @@ snit::type ::hv3::dom {
     }
 
     set name [$self NewFilename]
-    set rc [catch {$mySee eval -file $name $script} msg]
+    set rc [catch {$mySee source -file $name $script} msg]
 
     set attributes ""
     foreach {a v} $attr {

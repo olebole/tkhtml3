@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.26 2007/06/24 16:22:10 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.27 2007/07/02 12:31:33 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # DOM Level 2 Events.
@@ -260,8 +260,12 @@ namespace eval ::hv3::dom {
     ::hv3::DOM::Event_initEvent $arrayvar $type 1 $isCancelable
     set eventstate(-x) $x
     set eventstate(-y) $y
-    set eventstate(-button) 0
-  
+    set eventstate(-button)   0
+    set eventstate(-ctrlkey)  0
+    set eventstate(-shiftkey) 0
+    set eventstate(-altkey)   0
+    set eventstate(-metakey)  0
+
     set event [list ::hv3::DOM::MouseEvent $dom $arrayvar]
     Dispatch [$dom see] $js_obj $event
   }

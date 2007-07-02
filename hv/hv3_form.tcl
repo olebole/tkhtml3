@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.67 2007/07/01 11:27:59 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.68 2007/07/02 12:31:33 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -804,7 +804,7 @@ snit::widget ::hv3::fileselect {
 
   delegate option -highlightthickness to hull
 
-  constructor {args} {
+  constructor {node args} {
     set myEntry [entry ${win}.entry -width 30]
     set myButton [button ${win}.button -command [mymethod Browse]]
 
@@ -819,8 +819,8 @@ snit::widget ::hv3::fileselect {
     #
     $myButton configure -takefocus 0
     $myEntry configure  -takefocus 1
-    bind $myEntry <Tab>       [list ::hv3::forms::tab [$myNode html]]
-    bind $myEntry <Shift-Tab> [list ::hv3::forms::tab [$myNode html]]
+    bind $myEntry <Tab>       [list ::hv3::forms::tab [$node html]]
+    bind $myEntry <Shift-Tab> [list ::hv3::forms::tab [$node html]]
 
     pack $myButton -side right
     pack $myEntry -fill both -expand true
@@ -1072,7 +1072,7 @@ snit::widget ::hv3::control {
   }
 
   method CreateFileWidget {node} {
-    set myWidget [::hv3::fileselect ${win}.widget]
+    set myWidget [::hv3::fileselect ${win}.widget $node]
     set myWidgetIsSmart 1
     $myWidget configure -text Browse...
   }

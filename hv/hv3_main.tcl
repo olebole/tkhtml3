@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.127 2007/06/28 16:06:45 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.128 2007/07/02 12:31:33 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -826,6 +826,11 @@ snit::type ::hv3::config {
         $self configurebrowser [.notebook current]
       } 
     }
+  }
+
+  method StoreOptions {} {
+  }
+  method RetrieveOptions {} {
   }
 
   method configurebrowser {b} {

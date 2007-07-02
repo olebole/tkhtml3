@@ -103,13 +103,9 @@
         text-align: center;
       }
 
-    <div class=warning>
-      <span class=warning>WARNING</span>
-
-
     </style>
   </head>
-  <body>
+  <body onload="document.getElementById('warning').style.display='block';">
 
     <h1 class="heading">
       Welcome to Html Viewer 3
@@ -178,12 +174,11 @@
 
     <h1>Release Notes - Alpha 14</h1>
 
-    <div class=warning>
+    <div id="warning" class=warning style="display:none">
       <span class=warning>WARNING</span>
-      This cvs head build has the <b>very experimental</b> javascript 
-      support enabled by default. Interpret that statement however you 
-      will. To disable, uncheck the "View-&gt;Enable ECMAScript" menu 
-      option.
+      The <b>very experimental</b> javascript is enabled.  Interpret that
+      statement however you will. To disable, uncheck the "View-&gt;Enable
+      ECMAScript" menu option.
     </div>
 
     <p> Congratulations on successfully running Hv3 - the minimalist browser
