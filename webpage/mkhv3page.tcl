@@ -6,6 +6,11 @@ addPageSection "Binaries"     binaries
 addPageSection "Source Code"  source
 addPageSection "Future Plans" future
 
+proc VERSION {} {
+  if {[info exists ::env(VERSION)]} {return $::env(VERSION)}
+  return "alpha-14"
+}
+
 puts [subst -novariables {
 
 <html>
@@ -83,43 +88,38 @@ puts [subst -novariables {
 
 <tr>
 <td>Windows
-<td><a href="hv3-win32.exe">hv3-win32.exe</a> - Executable for win32 platforms.
+<td><a href="hv3-win32-[VERSION].exe">hv3-win32-[VERSION].exe</a> - Executable for win32 platforms.
 
 <tr>
 <td>Generic Linux
 <td>
-    <p><a href="hv3-linux-x86.gz">hv3-linux-x86.gz</a> - Gzip'd executable for
+    <p><a href="hv3-linux-[VERSION].gz">
+        hv3-linux-[VERSION].gz</a> - Gzip'd executable for
     linux x86 platforms. Everything is staticly linked in, so there are no
     dependencies. To use this, download the file, gunzip it, set the
     permissions to executable and run it. i.e. execute the following commands
     from a terminal window:
 
 <pre>
-  wget http://tkhtml.tcl.tk/hv3-linux-x86.gz
-  gunzip hv3-linux-x86.gz
-  chmod 755 hv3-linux-x86
-  ./hv3-linux-x86
+  wget http://tkhtml.tcl.tk/hv3-linux-[VERSION].gz
+  gunzip hv3-linux-[VERSION].gz
+  chmod 755 hv3-linux-[VERSION]
+  ./hv3-linux-[VERSION]
 </pre>
 
-    <p><a href="hv3_img.kit">hv3_img.kit</a> - Starkit package. To use
-    this you also require a tclkit runtime from Equi4 software
+    <p><a href="hv3-[VERSION].kit">hv3-[VERSION].kit</a> - Starkit package. 
+    To use this you also require a tclkit runtime from Equi4 software
     (<a href="http://www.equi4.com">http://www.equi4.com</a>). If you're 
     not sure what this means, grab the file above instead.
 
-</table>
-
-  <p>
-    The following package is based on the alpha-14 release (January 2007).
-  </p>
-
-  <table border=1 cellpadding=5 style="margin-left:2em; margin-right:2em">
 <tr>
 <td>Puppy Linux
 <td>
-    <p><a href="hv3-alpha-14.tgz">hv3-alpha-14.tgz</a> - Pupget package
+    <p><a href="hv3-[VERSION].pet">hv3-[VERSION].pet</a> - Pupget package
     for Puppy linux 
-    (<a href="http://www.puppyos.com">http://www.puppyos.com</a>). This
-    probably won't work on other linux distributions.
+    (<a href="http://www.puppyos.com">http://www.puppyos.com</a>). 
+    This won't work with other linux distributions. For anything other 
+    than puppy or puppy derivitives, use the generic linux package above.
 
 </table>
 
