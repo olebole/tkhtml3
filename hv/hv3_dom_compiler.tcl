@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.25 2007/07/02 12:53:33 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.26 2007/07/03 16:28:01 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file implements infrastructure used to create the [proc] definitions
@@ -620,6 +620,7 @@ namespace eval ::hv3::dom2 {
     }
 
     set param_list [$self ParamList $mixins]
+#puts "$myName has [llength $param_list] params: $param_list"
     set SetStateVar ""
     if {[lsearch -exact $param_list myStateArray]>=0} {
       set SetStateVar {upvar #0 $myStateArray state}

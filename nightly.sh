@@ -35,6 +35,11 @@ mv ${BLD1}/hv3-linux-x86.gz ./hv3-linux-${VERSION}.gz
 mv ${BLD2}/hv3-win32.exe ./hv3-win32-${VERSION}.exe
 mv ${BLD3}/hv3-${VERSION}.pet .
 
+chmod 644 ./hv3-${VERSION}.kit
+chmod 644 ./hv3-win32-${VERSION}.exe
+chmod 644 ./hv3-${VERSION}.pet
+chmod 644 ./hv3-linux-${VERSION}.gz
+
 tclsh ${SRC}/webpage/mkhv3page.tcl > hv3.html
 
 

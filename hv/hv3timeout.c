@@ -88,15 +88,21 @@ static void timeoutCb(clientData)
         fflush(stdout);
     }
 
-    if (p->iInterval < 0) {
-        delTimeout(p);
-        p->token = 0;
-    } else if (p->token) {
+    if (p->token) {
         /* If p->token was NULL, then the callback has invoked javascript
-         * function cancelInterval(). Otherwise, reschedule.
+         * function cancelInterval() or cancelTimeout(). Otherwise, either
+         * reschedule the callback (for an interval) or remove the structure
+         * from the linked-list so the garbage-collector can find it (for a 
+         * timeout).
          */
-        assert(p->ppThis);
-        p->token = Tcl_CreateTimerHandler(p->iInterval,timeoutCb,(ClientData)p);
+        if (p->iInterval < 0) {
+            delTimeout(p);
+            p->token = 0;
+        } else if (p->token) {
+            ClientData c = (ClientData)p;
+            assert(p->ppThis);
+            p->token = Tcl_CreateTimerHandler(p->iInterval, timeoutCb, c);
+        }
     }
 }
 

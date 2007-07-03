@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.68 2007/07/02 12:31:33 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.69 2007/07/03 16:28:01 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -41,11 +41,11 @@ source [file join [file dirname [info script]] combobox.tcl]
 # <button>
 # type = submit|button|reset
 #
-# <select>
+#     <select>   -> [::hv3::forms::select]
+#     <textarea> -> [::hv3::forms::textarea]
+#     <isindex>  -> Transformed to <INPUT type="text"> by script handler 
 #
-# <textarea>
-#
-# <isindex>
+# TODO: Handle <BUTTON> markup.
 #
 
 #----------------------------------------------------------------------
@@ -63,8 +63,9 @@ source [file join [file dirname [info script]] combobox.tcl]
 #     ::hv3::forms::entrycontrol
 #     ::hv3::forms::select
 #     ::hv3::forms::textarea
+#
 
-# Standard controls interface:
+# Standard controls interface. All control types implement this.
 #
 #         formsreport
 #         name
@@ -81,6 +82,7 @@ source [file join [file dirname [info script]] combobox.tcl]
 #     -formnode, get_text_widget and configurecmd will be removed 
 #     sooner or later.
 #
+
 # DOM HTMLInputElement interface:
 #
 #         dom_checked
@@ -337,6 +339,104 @@ proc ::hv3::control_to_form {node} {
 }
 
 #--------------------------------------------------------------------------
+# ::hv3::forms::radio 
+#
+#     Object for controls created by elements of the following form:
+#    
+#         <INPUT type="radio">
+#
+::snit::widgetadaptor ::hv3::forms::radio {
+  option -takefocus -default 0
+
+  variable myNode             ;# Tkhtml <INPUT> node
+  variable myVarname
+
+  option -formnode -default ""
+
+  delegate option * to hull
+  delegate method * to hull
+
+  constructor {node bindtag} {
+    installhull [radiobutton $win]
+    set myNode $node
+    set myVarname ::hv3::radiobutton_[$node attr -default "" name]
+
+    $hull configure -variable [myvar mySuccess]
+    $hull configure -highlightthickness 0 -pady 0 -padx 0 -borderwidth 0
+    catch { $hull configure -tristatevalue EWLhwEUGHWZAZWWZE }
+
+    bindtags $self [concat $bindtag [bindtags $self]]
+    $self reset
+
+    $hull configure -value $myNode
+    $hull configure -variable $myVarname
+    if {[::hv3::boolean_attr $myNode checked 0] || ![info exists $myVarname]} {
+      set $myVarname $myNode
+    }
+  }
+
+  # Generate html for the "HTML Forms" tab of the tree-browser.
+  #
+  method formsreport {} { 
+    subst {}
+  }
+
+  # This method is called during form submission to determine the 
+  # name of the control. It returns the value of the Html "name" 
+  # attribute. Or, failing that, an empty string.
+  #
+  method name {} { return [$myNode attr -default "" name] }
+
+  # This method is called during form submission to determine the 
+  # value of the control. It returns the value of the Html "value" 
+  # attribute. Or, failing that, an empty string.
+  #
+  method value {} { return [$myNode attr -default "" value] }
+
+  # True if the control is considered successful for the purposes
+  # of submitting this form.
+  #
+  method success {} { 
+    if {[catch {$myNode attr name}]} {return 0}
+    return [expr {[set $myVarname] eq $myNode}]
+  }
+
+  # Empty string. This method is only implemented by 
+  # <INPUT type="file"> controls.
+  #
+  method filename {} { return "" }
+
+  # Reset the state of the control.
+  #
+  method reset {} {
+    puts "TODO: ::hv3::forms::radio reset"
+  }
+
+  # TODO: The sole purpose of this is to return a linebox offset...
+  method configurecmd {values} { 
+    ::hv3::forms::configurecmd $win [$hull cget -font]
+  }
+
+  # Style the widget. All we do is set the background color.
+  #
+  method stylecmd {} {
+    set N $myNode
+    set bg "transparent"
+    while {$bg eq "transparent" && $N ne ""} {
+      set bg [$N property background-color]
+      set N [$N parent]
+    }
+    if {$bg eq "transparent"} {set bg white}
+    catch {
+      $hull configure -bg $bg
+      $hull configure -highlightbackground $bg
+      $hull configure -activebackground $bg
+      $hull configure -highlightcolor $bg
+    }
+  }
+}
+
+#--------------------------------------------------------------------------
 # ::hv3::forms::entrycontrol 
 #
 #     Object for controls created elements of the following form:
@@ -348,7 +448,6 @@ proc ::hv3::control_to_form {node} {
   option -takefocus -default 0
 
   option -formnode -default ""
-  option -submitcmd -default ""
 
   variable myWidget ""
   variable myValue ""
@@ -431,8 +530,9 @@ proc ::hv3::control_to_form {node} {
   }
 
   method Submit {} {
-    if {$options(-submitcmd) ne ""} {
-      eval $options(-submitcmd)
+    set form $options(-formnode)
+    if {$form} {
+      $form submit $self
     }
   }
 
@@ -793,20 +893,24 @@ snit::widgetadaptor ::hv3::forms::select {
 
 # ::hv3::fileselect
 #
-snit::widget ::hv3::fileselect {
+snit::widget ::hv3::forms::fileselect {
   option -takefocus -default 0
+
+  option -formnode
 
   component myButton
   component myEntry
 
-  option -font {Helvetica 14}
   delegate option -text to myButton
-
   delegate option -highlightthickness to hull
 
-  constructor {node args} {
+  variable myNode ""
+
+  constructor {node bindtag} {
+    set myNode $node
     set myEntry [entry ${win}.entry -width 30]
     set myButton [button ${win}.button -command [mymethod Browse]]
+    $myButton configure -text "Browse..."
 
     $myEntry configure -highlightthickness 0
     $myEntry configure -borderwidth 0
@@ -822,17 +926,11 @@ snit::widget ::hv3::fileselect {
     bind $myEntry <Tab>       [list ::hv3::forms::tab [$node html]]
     bind $myEntry <Shift-Tab> [list ::hv3::forms::tab [$node html]]
 
+    bindtags $myEntry  [concat $bindtag [bindtags $myEntry] $self]
+    bindtags $myButton [concat $bindtag [bindtags $myButton] $self]
+
     pack $myButton -side right
     pack $myEntry -fill both -expand true
-    $self configurelist $args
-  }
-
-  method Browse {} {
-    set file [tk_getOpenFile]
-    if {$file ne ""} {
-      $myEntry delete 0 end
-      $myEntry insert 0 $file
-    }
   }
 
   method success {} {
@@ -857,527 +955,34 @@ snit::widget ::hv3::fileselect {
     set fname [${win}.entry get]
     return [file tail $fname]
   }
-}
-
-#--------------------------------------------------------------------------
-# ::hv3::control
-#
-# WIDGETS
-#
-#     The following Tk widgets are used for form elements:
-#
-#         <input>            -> button|radiobutton|combobox|entry|image
-#         <button>           -> button|image
-#         <select>           -> combobox
-#
-#     An attempt to baseline align the button, entry, radiobutton and 
-#     combobox widgets is made. (Note that <isindex> is not mentioned
-#     here because it is transformed to an <input> element by the 
-#     [::hv3::isindex_handler] script handler proc below.
-#
-# INTERFACE
-#
-#     Each replaced element is replaced by an instance of the 
-#     ::hv3::control widget. ::hv3::control supports the following
-#     public interface:
-#
-#         -submitcmd
-#             If not set to an empty string, the value of this option
-#             is evaluated as a Tcl command when the control determines
-#             that the form it belongs to should be submitted (i.e. when
-#             a submit button is clicked on, <enter> is pressed in
-#             a text field etc.)
-#
-#         -formnode
-#             Set to the corresponding <form> node (if any). This is used
-#             by the DOM code to navigate from control to form objects.
-#
-#         [name] 
-#             Return the value of the Html "name" attribute associated
-#             with the control.
-#
-#         [success] 
-#             Return true if the control is currently "successful".
-#
-#         [value] 
-#             Return current the value of the control.
-#
-#         [configurecmd] 
-#             Called by Tkhtml as the -configurecmd callback.
-#
-#         [dump]
-#             Debugging only. Return a string rep. of the object.
-#
-# INTERFACE USED BY DOM CODE:
-#
-#     Some of the following methods only work for a subset of objects
-#     (depending on node type etc.).
-#
-#         [set_value]
-#         [checked]
-#         [set_checked]
-#         [dom_focus]
-#         [dom_blur]
-#         [dom_click]
-#         [dom_select]
-#
-#
-snit::widget ::hv3::control {
-  option -takefocus -default 0
-
-  # The document node corresponding to the element that created this 
-  # control (i.e. the <input>).
-  variable  myControlNode
-
-  # The widget for this control. One of the following types:
-  #
-  #     entry
-  #     text
-  #     radiobutton
-  #     ::hv3::fileselect
-  #
-  variable  myWidgetType ""
-  variable  myWidget ""
-  variable  myWidgetIsSmart 0
-
-  variable  mySuccess 1            ;# Value returned by [success]
-  variable  myValue   ""           ;# Value returned by [value]
-
-  # If this is a radiobutton widget, the name of the -variable var.
-  variable  myRadioVarname ""      ;# Used by radiobuttons only
-
-  option -submitcmd -default ""
-  option -formnode -default ""
-
-  typevariable INPUT_TYPE -array [list \
-      text     Entry    \
-      password Password \
-      radio    Radio    \
-      file     File     \
-  ]
-  # The following <INPUT> types are not in the above list as they should be
-  # handled by type "::hv3::clickcontrol":
-  # 
-  #     submit, image, reset, button
-  #
-  # TODO: Maybe "hidden" should too?
-  #
-
-  constructor {node bindtag args} {
-    set myControlNode $node
-
-    # Call one of the following methods to initialise the myWidget and
-    # myWidgetIsSmart variables:
-    #
-    #     CreateEntryWidget, CreateCheckboxWidget, CreateRadioWidget,
-    #     CreateButtonWidget, CreateFileWidget, CreateTextWidget
-    #     CreateComboboxWidget.
-    #
-    set tag [$myControlNode tag]
-    switch -- $tag {
-
-      input {
-        # An <INPUT> element can create a variety of different control types,
-        # depending on the value of the "type" attribute. The default value
-        # of "type" is "text".
-        #
-        # The "type" attribute is case independent. Code like 
-	# <INPUT type="checkBox"> works (first example of this in the wild
-	# found in w3c javascript tutorials).
-        #
-        set type [string tolower [$node attr -default text type]]
-        catch { set myWidgetType $INPUT_TYPE($type) }
-      }
-
-      select {
-        # A <SELECT> element is replaced by a Tk combobox widget.
-        set myWidgetType Combobox
-      }
-    }
-
-    if {$myWidgetType ne ""} {
-      $self "Create${myWidgetType}Widget" $node
-    }
-
-    # If myWidget is "", then this is a hidden control. Otherwise,
-    # pack $myWidget into the hull.
-    if {$myWidget ne ""} { pack $myWidget -expand 1 -fill both }
-    $hull configure -borderwidth 0 -pady 0 -padx 0
-
-    $self configurelist $args
-    bindtags $myWidget [concat $bindtag [bindtags $myWidget] $self]
-  }
-
-  destructor { 
-    if {$myRadioVarname ne ""} {
-      unset -nocomplain $myRadioVarname
-    }
-  }
-
-  method CreateTextWidget {node} {
-    set myWidget [::hv3::scrolled text ${win}.widget -width 500]
-    set contents ""
-    foreach child [$myControlNode children] {
-      append contents [$child text -pre]
-    }
-    $myWidget insert 0.0 $contents
-
-    $myWidget configure -borderwidth 0
-    $myWidget configure -pady 0
-    $myWidget configure -selectborderwidth 0
-    $myWidget configure -highlightthickness 0
-    $myWidget configure -background white
-  }
-
-  # Create a standard Tk entry widget for this control. The argument is
-  # true if this is a password entry field, in which case the contents are
-  # visually obscured.
-  #
-  method CreateEntryWidget2 {isPassword node} {
-    set myWidget [entry ${win}.widget]
-    $myWidget configure -textvar [myvar myValue]
-    $myWidget configure -background white
-
-    # Borders are specified by CSS and drawn by the html widget. So
-    # disable the entry widget's built-in border.
-    $myWidget configure -borderwidth 0
-    $myWidget configure -selectborderwidth 0
-    $myWidget configure -highlightthickness 0
-
-    # If this is a password entry field, obscure it's contents
-    if {$isPassword} { $myWidget configure -show * }
-
-    # Set the default width of the widget to 20 characters. Unless there
-    # is no size attribute and the CSS 'width' property is set to "auto",
-    # this will be overidden.
-    $myWidget configure -width 20
-
-    # The "value" attribute, if any, is used as the initial contents
-    # of the entry widget.
-    set myValue [$myControlNode attr -default "" value]
-
-    # Pressing enter in an entry widget submits the form.
-    bind $myWidget <KeyPress-Return> [mymethod Submit]
-  }
-
-  method CreatePasswordWidget {node} {
-    $self CreateEntryWidget2 1 $node
-  }
-  method CreateEntryWidget {node} {
-    $self CreateEntryWidget2 0 $node
-  }
-
-  method CreateHiddenWidget {node} {
-    set myValue [$myControlNode attr -default "" value]
-  }
-
-  method CreateFileWidget {node} {
-    set myWidget [::hv3::fileselect ${win}.widget $node]
-    set myWidgetIsSmart 1
-    $myWidget configure -text Browse...
-  }
-
-  # Create a standard Tk button widget for this control. 
-  #
-  method CreateSubmitWidget {node} {
-    set myWidget [button ${win}.widget]
-
-    $myWidget configure -pady 0 
-
-    # Determine the text to use for the button label. If this is a
-    # file-select button, then the text is always "Select File...".
-    # Otherwise, it is the value of the Html "value" attribute. If no such
-    # attribute is defined, enigmaticly use "?" as the label.
-    switch -- $variant {
-      file    { set labeltext "Select File..."                       }
-      default { set labeltext [$myControlNode attr -default ? value] }
-    }
-    $myWidget configure -text $labeltext
-
-    # Configure an action for when the button is pushed.
-    switch -- $variant {
-      submit  { 
-        set mySuccess 0
-        set cmd [mymethod Submit] 
-      }
-      default { set cmd "" }
-    }
-    $myWidget configure -command $cmd
-
-    set myValue [$myControlNode attr -default "" value]
-  }
-
-  method CreateRadioWidget {node} {
-    set myWidget [radiobutton ${win}.widget]
-    catch { $myWidget configure -tristatevalue EWLhwEUGHWZAZWWZE }
-    set myRadioVarname ::hv3::radiobutton_[$self name]
-    set myValue [$myControlNode attr -default "" value]
-
-    if { 
-      ([catch {$myControlNode attr checked}] ? 0 : 1) ||
-      ![info exists $myRadioVarname]
-    } {
-      set $myRadioVarname $myValue
-    }
-
-    $myWidget configure -value $myValue
-    $myWidget configure -variable $myRadioVarname
-    $myWidget configure -padx 0 -pady 0
-    $myWidget configure -borderwidth 0
-    $myWidget configure -highlightthickness 0
-  }
-
-  # Submit the form this control belongs to.
-  method Submit {} {
-    # The control that submits the form is always successful
-    set mySuccess 1
-
-    set cmd $options(-submitcmd)
-    if {$cmd ne ""} {
-      eval $cmd
-    }
-  }
-
-  # Reset the state of the control.
-  #
-  method reset {} { 
-    set class [winfo class $myWidget]
-
-    switch -- $class {
-      Entry {
-        set myValue [$myControlNode attr -default "" value]
-      }
-      Text {
-        $myWidget delete 0.0 end
-        set contents ""
-        foreach child [$myControlNode children] {
-          append contents [$child text -pre]
-        }
-        $myWidget insert 0.0 $contents
-      }
-
-      default {
-        puts "TODO: Reset control class $class"
-      }
-    }
-  }
-
-  # This method is called during form submission to determine the name of the
-  # control. It returns the value of the Html "name" attribute, or failing that
-  # an empty string.
-  #
-  method name {} {
-    return [$myControlNode attr -default "" name]
-  }
-
-  # Return the current value of the control.
-  #
-  method value {} {
-    # If the $myWidget object has a [value] method, use it.
-    if {$myWidgetIsSmart} { return [$myWidget value] }
-    return $myValue
-  }
-
-  method dom_value {args} {
-    # Argument checking. Maximum of 1.
-    #
-    if { [llength $args]>1 } {
-      error "Problem parsing arguments."
-    }
-
-    if {[llength $args]==1} {
-      set val [lindex $args 0]
-      switch -- $myWidgetType {
-        Entry { set myValue $val }
-        Text  { $myWidget delete 0.0 end ; $myWidget insert 0.0 $val }
-        File  { 
-          $myWidget.entry delete 0 end
-          $myWidget.entry insert 0 $val
-        }
-      }
-    } else {
-      $self value
-    }
-  }
-
-  #-----------------------------------------------------------------------
-  # Method [dom_checked] and [set_checked] are used to implement the DOM 
-  # level 1 HTMLInputElement.checked property. These are only available
-  # if the type of the control is "Radio" or "Checkbox".
-  # 
-  method dom_checked {args} {
-    # Argument checking. Maximum of 1 - type boolean.
-    #
-    if { [llength $args]>1 
-      || ([llength $args]==1 && ![string is boolean [lindex $args 0]])
-    } {
-      error "Problem parsing arguments."
-    }
-
-    if {[llength $args]==1} {
-      # A write operation.
-      set val [lindex $args 0]
-      switch -- $myWidgetType {
-        Checkbox {
-          set mySuccess [expr $val ? 1 : 0]
-        }
-        Radio {
-          if {$val} {
-            set [$myWidget cget -var] [$myWidget cget -val]
-          } else {
-            set [$myWidget cget -var] ""
-          }
-        }
-      }
-    } else {
-      # A query.
-      switch -- $myWidgetType {
-        Checkbox { return $mySuccess }
-        Radio {
-          return [expr [set [$myWidget cget -var]] eq [$myWidget cget -val]]
-        }
-        default { return 0 }
-      }
-    }
-  }
-
-  #-----------------------------------------------------------------------
-  # Method [dom_select] is used to implement the HTMLInputElement.select()
-  # method. It is only available for Entry, File and Text type widgets.
-  # 
-  method dom_select {} {
-    switch -- $myWidgetType {
-      Entry { $myWidget selection range 0 end }
-      File  { $myWidget.entry selection range 0 end }
-      Text  { $myWidget tag add sel 0.0 end }
-
-      default { error "Cannot call \[dom_select\] on this ::hv3::control" }
-    }
-  }
-
-  #-----------------------------------------------------------------------
-  # Method [dom_click] is used to implement the HTMLInputElement.click()
-  # method. It is only available for Checkbox, Radio, Button, Reset
-  # and Submit type widgets.
-  # 
-  method dom_click {} {
-    switch -- $myWidgetType {
-      Checkbox { }
-      Radio    { }
-      Button   { }
-      Reset    { }
-      Submit   { }
-
-      default { error "Cannot call \[dom_click\] on this ::hv3::control" }
-    }
-  }
-
-  #-----------------------------------------------------------------------
-  # Methods [dom_focus] and [dom_blur] are used to implement the
-  # focus() and blur() methods on DOM classes HTMLInputElement,
-  # HTMLTextAreaElement and HTMLSelectElement.
-  #
-  # At present, calling blur() when a widget has the focus causes the
-  # focus to be transferred to the html widget. This should be fixed 
-  # so that the focus is passed to the next control in tab-index order
-  # But tab-index is not supported yet. :(
-  # 
-  method dom_focus {} {
-    switch -- $myWidgetType {
-      File    { focus $myWidget.entry }
-      Text    { focus [$myWidget widget] }
-      default { focus $myWidget }
-    }
-  }
-  method dom_blur {} {
-    set now [focus]
-    if {$myWidget ne "" && ($now eq $myWidget || $now eq "$myWidget.entry")} {
-      focus [winfo parent $myWidget]
-    }
-  }
-
-  method get_text_widget {} {
-    if {$myWidgetType eq "Text"} {
-      return $myWidget
-    }
-    return ""
-  }
-
-  # Return true if the control is successful, or false otherwise.
-  #
-  method success {} {
-    if {[$self name] eq ""} {
-      # A control without a name is never successful.
-      return 0
-    }
-
-    # If the $myWidget object has a [success] method, use it.
-    if {$myWidgetIsSmart} { return [$myWidget success] }
-
-    if {$myRadioVarname ne ""} {
-      set res [expr \
-        {[set $myRadioVarname] eq [$myControlNode attr -default "" value]}
-      ]
-      return $res
-    }
-
-    return $mySuccess
-  }
-
-  method filename {} {
-    if {$myWidgetIsSmart} { return [$myWidget filename] }
-    return ""
-  }
-
-  # This method is invoked by Tkhtml as the -configurecmd callback for this
-  # control. The argument is a serialized array of property-value pairs, as
-  # described in the Tkhtml man page along with the [node replace] command.
-  #
-  method configurecmd {values} {
-    if {$myWidget eq ""} return
-
-    set class [winfo class $myWidget]
-
-    # If the widget has a -highlightthickness option, set it to 0.
-    if {$class ne "Combobox"} {
-      catch { $myWidget configure -highlightthickness 0 }
-    }
-
-    array set v $values
-    if {$class eq "Checkbutton" || $class eq "Radiobutton"} {
-      catch { $myWidget configure -bg $v(background-color) }
-      catch { $myWidget configure -highlightbackground $v(background-color) }
-      catch { $myWidget configure -activebackground $v(background-color) }
-      catch { $myWidget configure -highlightcolor $v(background-color) }
-    }
-
-    catch { $myWidget configure -font $v(font) }
-
-    set font [$myWidget cget -font]
-    if {$class eq "Text" || $class eq "Entry"} {
-        set drop [font metrics $font -descent]
-    } else {
-        set descent [font metrics $font -descent]
-        set ascent  [font metrics $font -ascent]
-        set drop [expr ([winfo reqheight $myWidget] + $descent - $ascent) / 2]
-    }
-    return $drop
-  }
-  method stylecmd {} {
-  }
 
   method formsreport {} {
-    set n $options(-formnode)
-    set report "<p>"
-    if {$n eq ""} {
-      append report {<i>No associated form node.</i>}
-    } else {
-      append report [subst -nocommands {
-        <i>Controled by form node <a href="$n">$n</a></i>
-      }]
+    return <I>TODO</I>
+  }
+  
+  method reset {} {
+    $myEntry delete 0 end
+  }
+
+  method stylecmd {} {
+    set font [$myNode property font]
+    $myEntry configure -font $font
+    $myButton configure -font $font
+  }
+
+  method configurecmd {values} { 
+    ::hv3::forms::configurecmd $win [$myEntry cget -font]
+  }
+
+  #-----------------------------------------------------------------------
+  # End of standard controls interface. Start of internal methods.
+  #
+  method Browse {} {
+    set file [tk_getOpenFile]
+    if {$file ne ""} {
+      $myEntry delete 0 end
+      $myEntry insert 0 $file
     }
-    append report "</p>"
-    return $report
   }
 }
 
@@ -1449,10 +1054,6 @@ snit::widget ::hv3::control {
 
   method configurecmd {values} {}
   method stylecmd {} {}
-
-  method dump {values} {
-    return "TODO"
-  }
 
   # This method is called by the DOM when the HTMLInputElement.value 
   # property is set. See also the ::hv3::control method of the same name.
@@ -1865,6 +1466,17 @@ snit::type ::hv3::formmanager {
     }
 
     switch -- ${tag}.${type} {
+
+      select. {
+        set hv3 [winfo parent [winfo parent $myHtml]]
+        set control [::hv3::forms::select $zWinPath $node $hv3]
+      }
+
+      textarea. {
+        set hv3 [winfo parent [winfo parent $myHtml]]
+        set control [::hv3::forms::textarea $zWinPath $node $hv3]
+      }
+
       input.image {
         set control [::hv3::clickcontrol %AUTO% $node]
         set myClickControls($node) $control
@@ -1894,33 +1506,25 @@ snit::type ::hv3::formmanager {
         set control [::hv3::clickcontrol %AUTO% $node]
         set myClickControls($node) $control
       }
-
       input.checkbox {
         set hv3 [winfo parent [winfo parent $myHtml]]
         set control [::hv3::forms::checkbox $zWinPath $node $hv3]
       }
-
-      select. {
+      input.radio {
         set hv3 [winfo parent [winfo parent $myHtml]]
-        set control [::hv3::forms::select $zWinPath $node $hv3]
+        set control [::hv3::forms::radio $zWinPath $node $hv3]
       }
-
-      textarea. {
+      input.file {
         set hv3 [winfo parent [winfo parent $myHtml]]
-        set control [::hv3::forms::textarea $zWinPath $node $hv3]
+        set control [::hv3::forms::fileselect $zWinPath $node $hv3]
       }
 
       default {
-        set tt ${tag}.${type}
+        # This includes <INPUT type="password">, <INPUT type="text"> and
+        # any unrecognized value for the type attribute.
+        #
         set hv3 [winfo parent [winfo parent $myHtml]]
-        if {$tag eq "input" && $tt ne "input.radio" && $tt ne "input.file"} {
-          set control [::hv3::::forms::entrycontrol $zWinPath $node $hv3]
-        } else {
-          set control [::hv3::control $zWinPath $node $hv3]
-        }
-        if {$form ne ""} {
-          $control configure -submitcmd [list $form submit $control]
-        }
+        set control [::hv3::::forms::entrycontrol $zWinPath $node $hv3]
       }
     }
 
@@ -1968,15 +1572,18 @@ snit::type ::hv3::formmanager {
   }
 }
 
-# This proc is called by the tree-browser code to obtain the HTML
-# text for the "HTML Forms" tab. If the argument $node is a <FORM>
-# node, or a node that generates a form control, a report
-# is returned explaining that nodes role in the HTML form.
+#-----------------------------------------------------------------------
+# ::hv3::formsreport
 #
-# Otherwise, a message is returned to say that the forms module
-# doesn't care two figs for node $node.
+#     This proc is called by the tree-browser code to obtain the HTML
+#     text for the "HTML Forms" tab. If the argument $node is a <FORM>
+#     node, or a node that generates a form control, a report is
+#     returned explaining that nodes role in the HTML form.
+#
+#     Otherwise, a message is returned to say that the forms module
+#     doesn't care two figs for node $node.
 # 
-proc ::hv3::formsreport {hv3 node} {
+proc ::hv3::formsreport {node} {
 
   # Never return a report for a text node.
   if {[$node tag] eq ""} return
@@ -1987,16 +1594,17 @@ proc ::hv3::formsreport {hv3 node} {
   # to return the report body.
   #
   set FORMS_CLASSES [list    \
-      ::hv3::control         \
       ::hv3::clickcontrol    \
       ::hv3::form            \
   ]
 
-  set CONTROL_CLASSES [list    \
+  set CONTROL_CLASSES [list      \
       ::hv3::forms::checkbox     \
       ::hv3::forms::entrycontrol \
       ::hv3::forms::select       \
       ::hv3::forms::textarea     \
+      ::hv3::forms::fileselect   \
+      ::hv3::forms::radio        \
   ]
 
   set R [$node replace]

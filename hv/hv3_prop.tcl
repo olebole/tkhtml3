@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.56 2007/06/17 08:00:48 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.57 2007/07/03 16:28:01 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_prop.tcl --
@@ -381,7 +381,7 @@ snit::widget ::hv3::debug::FormReport {
   method report {hv3 node} {
     set myReport [::hv3::debug::ReportStyle]
     append myReport {<h1>Forms Engine Report</h1>}
-    set msg [::hv3::formsreport $hv3 $node]
+    set msg [::hv3::formsreport $node]
     append myReport $msg
     ${win}.hv3 goto abc
 
