@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.179 2007/06/30 16:43:49 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.180 2007/07/03 11:35:11 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -1198,8 +1198,12 @@ snit::widget ::hv3::hv3 {
       }
     } 
     set obj [::hv3::uri %AUTO% [string trim $baseuri]]
-    $obj load [string trim $uri]
-    set ret [$obj get]
+    if {$uri eq ""} {
+      set ret "[$obj cget -scheme]://[$obj cget -authority][$obj cget -path]"
+    } else {
+      $obj load [string trim $uri]
+      set ret [$obj get]
+    }
     $obj destroy
     return $ret
   }
