@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.69 2007/07/03 16:28:01 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.70 2007/07/03 16:53:16 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -531,8 +531,8 @@ proc ::hv3::control_to_form {node} {
 
   method Submit {} {
     set form $options(-formnode)
-    if {$form} {
-      $form submit $self
+    if {$form ne ""} {
+      [$form replace] submit $self
     }
   }
 
