@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.70 2007/07/03 16:53:16 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.71 2007/07/04 18:11:45 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -14,6 +14,7 @@ namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.70 2007/07/03 16:53:16 d
 #
 # Todo: Puppy linux has this (combobox) packaged already. Should use 
 # this fact to reduce installation footprint size on that platform.
+#
 source [file join [file dirname [info script]] combobox.tcl]
 
 #----------------------------------------------------------------------
@@ -75,11 +76,10 @@ source [file join [file dirname [info script]] combobox.tcl]
 #         stylecmd
 #         reset
 #
-#         -formnode
 #         get_text_widget
 #         configurecmd
 #
-#     -formnode, get_text_widget and configurecmd will be removed 
+#     get_text_widget and configurecmd will be removed 
 #     sooner or later.
 #
 
@@ -119,6 +119,8 @@ proc ::hv3::put_boolean_attr {node attr val} {
 # a form control. The return value is a list of node handles. The first
 # is the associated <FORM> node, followed by all controls also associated
 # with the same <FORM> node.
+#
+# If there is no associated <FORM>, an empty string is returned.
 #
 proc ::hv3::get_form_nodes {node} {
   set html [$node html]
@@ -225,8 +227,6 @@ proc ::hv3::control_to_form {node} {
 
   variable mySuccess 0        ;# -variable for checkbutton widget
   variable myNode             ;# Tkhtml <INPUT> node
-
-  option -formnode -default ""
 
   delegate option * to hull
   delegate method * to hull
@@ -351,8 +351,6 @@ proc ::hv3::control_to_form {node} {
   variable myNode             ;# Tkhtml <INPUT> node
   variable myVarname
 
-  option -formnode -default ""
-
   delegate option * to hull
   delegate method * to hull
 
@@ -447,8 +445,6 @@ proc ::hv3::control_to_form {node} {
 ::snit::widget ::hv3::forms::entrycontrol {
   option -takefocus -default 0
 
-  option -formnode -default ""
-
   variable myWidget ""
   variable myValue ""
   variable myNode ""
@@ -530,7 +526,7 @@ proc ::hv3::control_to_form {node} {
   }
 
   method Submit {} {
-    set form $options(-formnode)
+    set form [::hv3::control_to_form $myNode]
     if {$form ne ""} {
       [$form replace] submit $self
     }
@@ -612,7 +608,6 @@ proc ::hv3::control_to_form {node} {
 ::snit::widget ::hv3::forms::textarea {
   option -takefocus -default 0
 
-  option -formnode -default ""
   option -submitcmd -default ""
 
   variable myWidget ""
@@ -632,7 +627,6 @@ proc ::hv3::control_to_form {node} {
     $self reset
     $self configurelist $args
 
-    $myWidget configure -takefocus 1
     bind $myWidget <Tab>       [list ::hv3::forms::tab [$myNode html]]
     bind $myWidget <Shift-Tab> [list ::hv3::forms::tab [$myNode html]]
 
@@ -702,12 +696,12 @@ proc ::hv3::control_to_form {node} {
 
   method dom_blur {} {
     set now [focus]
-    if {$myWidget eq [focus]} {
+    if {[$myWidget widget] eq [focus]} {
       focus [winfo parent $win]
     }
   }
   method dom_focus {} {
-    focus $myWidget
+    focus [$myWidget widget]
   }
 }
 
@@ -720,8 +714,6 @@ proc ::hv3::control_to_form {node} {
 #         <SELECT>
 #
 snit::widgetadaptor ::hv3::forms::select {
-
-  option -formnode -default ""
 
   variable myHv3 ""
   variable myNode ""
@@ -896,8 +888,6 @@ snit::widgetadaptor ::hv3::forms::select {
 snit::widget ::hv3::forms::fileselect {
   option -takefocus -default 0
 
-  option -formnode
-
   component myButton
   component myEntry
 
@@ -1004,7 +994,6 @@ snit::widget ::hv3::forms::fileselect {
   variable myClicked 0
 
   option -clickcmd -default ""
-  option -formnode -default ""
 
   constructor {node} {
     set myNode $node
@@ -1070,7 +1059,7 @@ snit::widget ::hv3::forms::fileselect {
   }
 
   method formsreport {} {
-    set n $options(-formnode)
+    set n [::hv3::control_to_form $myNode]
     set report "<p>"
     if {$n eq ""} {
       append report {<i>No associated form node.</i>}
@@ -1212,7 +1201,6 @@ snit::type ::hv3::form {
   destructor { }
 
   method add_control {node isSubmit} {
-
     lappend myControlNodes $node
     if {$isSubmit} {
       set control [$node replace]
@@ -1220,8 +1208,10 @@ snit::type ::hv3::form {
     }
   }
 
+  # Return a list of control nodes associated with this form.
+  #
   method controls {} {
-    return $myControlNodes
+    return [lrange [::hv3::get_form_nodes $myFormNode] 1 end]
   }
 
   method reset {} {
@@ -1541,7 +1531,6 @@ snit::type ::hv3::formmanager {
         -deletecmd    $deletecmd
 
     if {$formnode ne ""} {
-      $control configure -formnode $formnode
       $myForms($formnode) add_control $node $isSubmit
     }
   }

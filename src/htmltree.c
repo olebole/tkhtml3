@@ -36,13 +36,19 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.140 2007/07/04 10:49:55 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.141 2007/07/04 18:11:45 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
 #include <assert.h>
 #include <string.h>
 
+
+struct HtmlFragmentContext {
+  HtmlNode *pRoot;
+  HtmlElementNode *pCurrent;
+  Tcl_Obj *pNodeList;
+};
 
 /*
  * An HTML table is structured as follows:
@@ -473,12 +479,11 @@ nodeHandlerCallbacks(pTree, pNode)
     Tcl_Interp *interp = pTree->interp;
     int eTag = HtmlNodeTagType(pNode);
 
-    assert(pTree->eWriteState == HTML_WRITE_NONE);
-    assert(
-        (eTag != Html_TD && eTag != Html_TH) || (
-             HtmlNodeParent(pNode) && 
-             HtmlNodeTagType(HtmlNodeParent(pNode)) == Html_TR
-        )
+    assert(pTree->pFragment || pTree->eWriteState == HTML_WRITE_NONE);
+    assert(pTree->pFragment || (eTag != Html_TD && eTag != Html_TH) || (
+           HtmlNodeParent(pNode) && 
+           HtmlNodeTagType(HtmlNodeParent(pNode)) == Html_TR
+       )
     );
     
     if (!HtmlNodeIsText(pNode)) {
@@ -571,7 +576,10 @@ nodeOrphanize(pTree, pNode)
     HtmlNode *pNode;
 {
     int eNew;
-    assert(pNode->iNode != HTML_NODE_ORPHAN);
+    assert(
+        pNode->iNode != HTML_NODE_ORPHAN || 
+        pNode == pTree->pFragment->pRoot
+    );
     pNode->iNode = HTML_NODE_ORPHAN;
     pNode->pParent = 0;
 
@@ -3055,12 +3063,6 @@ HtmlNodeGetPointer(pTree, zCmd)
  * Start of [fragment] parsing code.
  */
 
-struct HtmlFragmentContext {
-  HtmlNode *pRoot;
-  HtmlElementNode *pCurrent;
-  Tcl_Obj *pNodeList;
-};
-
 static void
 fragmentOrphan(pTree)
     HtmlTree *pTree;
@@ -3071,9 +3073,9 @@ fragmentOrphan(pTree)
     if (pOrphan) {
         Tcl_Obj *pCmd = HtmlNodeCommand(pTree, pOrphan);
         Tcl_ListObjAppendElement(0, pFragment->pNodeList, pCmd);
+        nodeOrphanize(pTree, pOrphan);
         pFragment->pRoot = 0;
         pFragment->pCurrent = 0;
-        nodeOrphanize(pTree, pOrphan);
     }
 
     assert(!pFragment->pRoot && !pFragment->pCurrent);
@@ -3129,7 +3131,7 @@ fragmentAddElement(pTree, eType, pAttributes, iOffset)
 
     implicitCloseCount(pTree, pFragment->pCurrent, eType, &nClose);
     for (ii = 0; ii < nClose; ii++) {
-        HtmlNode *pC = pFragment->pCurrent;
+        HtmlNode *pC = &pFragment->pCurrent->node;
         assert(pC);
         nodeHandlerCallbacks(pTree, pC);
         pFragment->pCurrent = HtmlNodeAsElement(HtmlNodeParent(pC));
@@ -3144,6 +3146,7 @@ fragmentAddElement(pTree, eType, pAttributes, iOffset)
     } else {
         assert(!pFragment->pRoot);
         pFragment->pRoot = (HtmlNode *)pElem;
+        pElem->node.iNode = HTML_NODE_ORPHAN;
     }
     pFragment->pCurrent = pElem;
 
@@ -3194,8 +3197,9 @@ HtmlParseFragment(pTree, zHtml)
     );
 
     while (sContext.pCurrent) {
+        HtmlNode *pParent = HtmlNodeParent(sContext.pCurrent); 
         nodeHandlerCallbacks(pTree, sContext.pCurrent);
-        sContext.pCurrent = HtmlNodeParent(sContext.pCurrent);
+        sContext.pCurrent = (HtmlElementNode *)pParent;
     }
 
     fragmentOrphan(pTree);

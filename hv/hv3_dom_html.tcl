@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.23 2007/07/01 11:27:59 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.24 2007/07/04 18:11:45 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Html
@@ -724,8 +724,29 @@ namespace eval ::hv3::DOM {
   #
   dom_get selectionEnd   { HTMLTextAreaElement_getSelection $myNode 1 }
   dom_get selectionStart { HTMLTextAreaElement_getSelection $myNode 0 }
+
+  # I couldn't find any mozilla docs for this API, but it is used
+  # all over the place. Hv3 sets the selected region of the text
+  # widget to include all characters between $start and $end, which
+  # must both be numbers (and are cast to integers). The insertion
+  # cursor is set to the character just after the selected range.
+  #
+  dom_call -string setSelectionRange {THIS start end} {
+    HTMLTextAreaElement_setSelectionRange $myNode $start $end
+  }
 }
 namespace eval ::hv3::DOM {
+
+  proc HTMLTextAreaElement_setSelectionRange {node iStart iEnd} {
+    set iStart [expr {int($iStart)}]
+    set iEnd   [expr {int($iEnd)}]
+    set t [[$node replace] get_text_widget]
+    $t tag remove sel 0.0 end
+    $t tag add sel "0.0 + $iStart c" "0.0 + $iEnd c"
+    $t mark set insert "0.0 + $iEnd c"
+    return ""
+  }
+
   proc HTMLTextAreaElement_getSelection {node isEnd} {
     set t [[$node replace] get_text_widget]
     set sel [$t tag nextrange sel 0.0]

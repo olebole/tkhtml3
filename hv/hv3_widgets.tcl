@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.41 2007/04/11 17:37:53 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.42 2007/07/04 18:11:45 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
@@ -204,6 +204,7 @@ snit::widget ::hv3::scrolledwidget {
 
   option -propagate -default 0 -configuremethod set_propagate
   option -scrollbarpolicy -default auto
+  option -takefocus -default 0
 
   method set_propagate {option value} {
     grid propagate $win $value
@@ -264,10 +265,10 @@ snit::widget ::hv3::scrolledwidget {
 
   method widget {} {return $myWidget}
 
-  delegate option -width  to hull
-  delegate option -height to hull
-  delegate option *       to myWidget
-  delegate method *       to myWidget
+  delegate option -width     to hull
+  delegate option -height    to hull
+  delegate option *          to myWidget
+  delegate method *          to myWidget
 }
 
 # Wrapper around the ::hv3::scrolledwidget constructor. 
