@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.172 2007/06/29 17:17:17 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.173 2007/07/04 10:49:55 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -1936,7 +1936,7 @@ writeCmd(clientData, interp, objc, objv)
  *
  * handlerCmd --
  *
- *     $widget handler [node|script|parse] TAG SCRIPT
+ *     $widget handler [node|attribute|script|parse] TAG SCRIPT
  *
  * Results:
  *     None.
@@ -2406,10 +2406,7 @@ int widgetCmd(clientData, interp, objc, objv)
         {"cget",       0,           cgetCmd},
         {"configure",  0,           configureCmd},
         {"fragment",   0,           fragmentCmd},
-        {"handler",    "node",      handlerCmd},
-        {"handler",    "parse",     handlerCmd},
-        {"handler",    "script",    handlerCmd},
-        {"handler",    "attribute", handlerCmd},
+        {"handler",    0,           handlerCmd},
         {"image",      0,           imageCmd},
         {"node",       0,           nodeCmd},
         {"parse",      0,           parseCmd},
@@ -2443,7 +2440,7 @@ int widgetCmd(clientData, interp, objc, objv)
         {"styleconfig", 0,          styleconfigCmd},
         {"stylereport", 0,          stylereportCmd},
 #ifndef NDEBUG
-        {"_hashstats", 0, hashstatsCmd},
+        {"_hashstats",  0, hashstatsCmd},
 #endif
     };
 

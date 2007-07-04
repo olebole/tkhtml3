@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.139 2007/07/01 12:54:29 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.140 2007/07/04 10:49:55 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -3115,7 +3115,7 @@ fragmentAddElement(pTree, eType, pAttributes, iOffset)
 
     switch (eType) {
         /* Ignore <HEAD>, <BODY> and elements that occur as descendants of
-         * <HEAD> completely.
+         * <HEAD> completely. TODO: This will have to change....
          */
         case Html_HTML:
         case Html_HEAD:
@@ -3129,10 +3129,10 @@ fragmentAddElement(pTree, eType, pAttributes, iOffset)
 
     implicitCloseCount(pTree, pFragment->pCurrent, eType, &nClose);
     for (ii = 0; ii < nClose; ii++) {
-        assert(pFragment->pCurrent);
-        pFragment->pCurrent = HtmlNodeAsElement(
-            HtmlNodeParent(pFragment->pCurrent)
-        );
+        HtmlNode *pC = pFragment->pCurrent;
+        assert(pC);
+        nodeHandlerCallbacks(pTree, pC);
+        pFragment->pCurrent = HtmlNodeAsElement(HtmlNodeParent(pC));
     }
 
     pElem = HtmlNew(HtmlElementNode);
@@ -3148,6 +3148,7 @@ fragmentAddElement(pTree, eType, pAttributes, iOffset)
     pFragment->pCurrent = pElem;
 
     if (HtmlMarkup(eType)->flags & HTMLTAG_EMPTY) {
+        nodeHandlerCallbacks(pTree, pFragment->pCurrent);
         pFragment->pCurrent = (HtmlElementNode *)HtmlNodeParent(pElem);
     }
     if (!pFragment->pCurrent) {
@@ -3167,6 +3168,7 @@ fragmentAddClosingTag(pTree, eType, iOffset)
     explicitCloseCount(p->pCurrent, eType, &nClose);
     for (ii = 0; ii < nClose; ii++) {
         assert(p->pCurrent);
+        nodeHandlerCallbacks(pTree, p->pCurrent);
         p->pCurrent = (HtmlElementNode *)HtmlNodeParent(p->pCurrent);
     }
     if (!p->pCurrent) {
@@ -3190,9 +3192,14 @@ HtmlParseFragment(pTree, zHtml)
     HtmlTokenize(pTree, zHtml, 1,
         fragmentAddText, fragmentAddElement, fragmentAddClosingTag
     );
+
+    while (sContext.pCurrent) {
+        nodeHandlerCallbacks(pTree, sContext.pCurrent);
+        sContext.pCurrent = HtmlNodeParent(sContext.pCurrent);
+    }
+
     fragmentOrphan(pTree);
     pTree->pFragment = 0;
-
     Tcl_SetObjResult(pTree->interp, sContext.pNodeList);
 }
 
