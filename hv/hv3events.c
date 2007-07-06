@@ -153,9 +153,6 @@ getEventList(interp, pObj)
     if (pObj->objectclass == getVtbl()) {
         return &((SeeTclObject *)pObj)->pTypeList;
     }
-    if (pObj->objectclass == &Hv3GlobalObjectVtbl){
-        return getEventList(interp, ((Hv3GlobalObject *)pObj)->pWindow);
-    }
     return 0;
 }
 
@@ -700,6 +697,8 @@ eventTargetInit(pTclSeeInterp, p)
     int nWord;
     int ii;
 
+    struct SEE_scope *pScope = 0;
+
     int rc;
     rc = callSeeTclMethod(pTcl, 0, p, "Events", 0, 0);
     if (rc != TCL_OK) {
@@ -712,6 +711,36 @@ eventTargetInit(pTclSeeInterp, p)
     if (rc != TCL_OK) {
         Tcl_BackgroundError(pTcl);
         return;
+    }
+    Tcl_IncrRefCount(pList);
+
+    if (nWord > 0) {
+        int nS;
+        Tcl_Obj **apS;
+        Tcl_Obj *pScopeList;
+
+        rc = callSeeTclMethod(pTcl, 0, p, "Scope", 0, 0);
+        if (rc != TCL_OK) {
+            Tcl_BackgroundError(pTcl);
+            return;
+        }
+
+        pScopeList = Tcl_GetObjResult(pTcl);
+        rc = Tcl_ListObjGetElements(pTcl, pScopeList, &nS, &apS);
+        if (rc != TCL_OK) {
+            Tcl_DecrRefCount(pList);
+            Tcl_BackgroundError(pTcl);
+            return;
+        }
+        Tcl_IncrRefCount(pScopeList);
+
+        pScope = (struct SEE_scope *)SEE_malloc(pSee, sizeof(*pScope) * (nS+1));
+        for (ii = 0; ii < nS; ii++){
+            pScope[ii].obj = findOrCreateObject(pTclSeeInterp, apS[ii], 0);
+            pScope[ii].next = &pScope[ii+1];
+        }
+        pScope[nS].obj = pSee->Global;
+        pScope[nS].next = 0;
     }
 
     for (ii = 0; ii < (nWord-1); ii += 2){
@@ -729,12 +758,14 @@ eventTargetInit(pTclSeeInterp, p)
         pListener = SEE_Function_new(
             &pTclSeeInterp->interp, 0, pInputParam, pInputCode
         );
+        pListener = SEE_Function_change_scope(pSee, pListener, pScope);
         SEE_INPUT_CLOSE(pInputCode);
         SEE_INPUT_CLOSE(pInputParam);
 
         SEE_SET_OBJECT(&listener, pListener);
         SEE_OBJECT_PUTA(&pTclSeeInterp->interp, pNative, zAttr,&listener,0);
     }
+    Tcl_DecrRefCount(pList);
     Tcl_ResetResult(pTcl);
 
     if (!pTclSeeInterp->pEventPrototype) {

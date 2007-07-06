@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.26 2007/07/03 16:28:01 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.27 2007/07/06 11:01:13 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file implements infrastructure used to create the [proc] definitions
@@ -222,6 +222,9 @@ namespace eval ::hv3::dom2 {
     proc dom_events {code} {
       $::hv3::dom2::CurrentType add_events $code
     }
+    proc dom_scope {code} {
+      $::hv3::dom2::CurrentType add_scope $code
+    }
 
     proc noisy {args} {
       set code [lindex $args end]
@@ -389,6 +392,10 @@ namespace eval ::hv3::dom2 {
   #
   variable myEvents ""
 
+  # Code for the "Scope" method.
+  #
+  variable myScope ""
+
   # Name of this type - i.e. "HTMLDocument".
   #
   variable myName 
@@ -425,14 +432,18 @@ namespace eval ::hv3::dom2 {
   method add_events {code} {
     set myEvents $code
   }
+  method add_scope {code} {
+    set myScope $code
+  }
 
-  method call {} { return [array get myCall] }
-  method get {} { return [array get myGet] }
-  method put {} { return [array get myPut] }
-  method snit {} { return $mySnit }
-  method final {} { return $myFinalizer }
-  method param {} { return $myParam }
+  method call {}   { return [array get myCall] }
+  method get {}    { return [array get myGet] }
+  method put {}    { return [array get myPut] }
+  method snit {}   { return $mySnit }
+  method final {}  { return $myFinalizer }
+  method param {}  { return $myParam }
   method events {} { return $myEvents }
+  method scope {}  { return $myScope }
 
   method CompilePut {mixins} { 
     set Put {
@@ -593,6 +604,15 @@ namespace eval ::hv3::dom2 {
     }
     return $code
   }
+  method CompileScope {mixins} {
+    set L [concat $mixins $self]   
+    set code ""
+    for {set ii [llength $L]} {$code eq "" && $ii > 0} {incr ii -1} {
+      set C [lindex $L [expr {$ii-1}]]
+      set code [$C scope]
+    }
+    return $code
+  }
 
   method ParamList {mixins} {
     set ret [list]
@@ -608,6 +628,7 @@ namespace eval ::hv3::dom2 {
     set Put         [AutoIndent 6 [$self CompilePut $mixins]]
     set HasProperty [AutoIndent 6 [$self CompileHasProperty $mixins]]
     set Events      [AutoIndent 6 [$self CompileEvents $mixins]]
+    set Scope       [AutoIndent 6 [$self CompileScope $mixins]]
 
     set Final ""
     foreach t [concat $self $mixins] {
@@ -647,6 +668,9 @@ namespace eval ::hv3::dom2 {
           }
           Events {
             $Events
+          }
+          Scope {
+            $Scope
           }
         }
       }

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.61 2007/07/02 12:31:33 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.62 2007/07/06 11:01:11 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Snit types in this file:
@@ -101,7 +101,11 @@ snit::type ::hv3::dom {
           append script "window.onload = function(event) {$V}\n" 
         }
       }
-      $mySee source $script
+      append script "window.setInterval = setInterval\n" 
+      append script "window.setTimeout  = setTimeout\n" 
+      append script "window.clearInterval = clearInterval\n" 
+      append script "window.clearTimeout = clearTimeout\n" 
+      $mySee eval -window [$self window] -noresult $script
       set myWindowInitEvents 1
     }
   }
@@ -129,7 +133,6 @@ snit::type ::hv3::dom {
       set mySee [::see::interp]
       $mySee log $options(-logcmd)
       set myWindowInitEvents 0
-      $mySee global [$self window]
 
       # Reset the debugger.
       $self LogReset
@@ -213,7 +216,8 @@ snit::type ::hv3::dom {
     }
 
     set name [$self NewFilename]
-    set rc [catch {$mySee source -file $name $script} msg]
+    set w [$self window]
+    set rc [catch {$mySee eval -window $w -noresult -file $name $script} msg]
 
     set attributes ""
     foreach {a v} $attr {
@@ -229,7 +233,8 @@ snit::type ::hv3::dom {
     set msg ""
     if {$mySee ne ""} {
       set name [$self NewFilename]
-      set rc [catch {$mySee eval -file $name $script} msg]
+      set w [$self window]
+      set rc [catch {$mySee eval -window $w -file $name $script} msg]
     }
     return $msg
   }

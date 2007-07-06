@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.71 2007/07/04 18:11:45 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.72 2007/07/06 11:01:13 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -66,6 +66,7 @@ source [file join [file dirname [info script]] combobox.tcl]
 #     ::hv3::forms::textarea
 #
 
+#----------------------------------------------------------------------
 # Standard controls interface. All control types implement this.
 #
 #         formsreport
@@ -79,11 +80,10 @@ source [file join [file dirname [info script]] combobox.tcl]
 #         get_text_widget
 #         configurecmd
 #
-#     get_text_widget and configurecmd will be removed 
-#     sooner or later.
+#     get_text_widget and configurecmd will be removed sooner or later.
 #
-
-# DOM HTMLInputElement interface:
+# As well as the standard controls interface, each type implements an
+# interface for interaction with the DOM. For HTMLInputElement objects:
 #
 #         dom_checked
 #         dom_value
@@ -551,12 +551,10 @@ proc ::hv3::control_to_form {node} {
   # HTMLInputElement. None of this is used unless scripting is enabled.
   #
 
-  # Get/set on the DOM "checked" attribute. This means the state 
-  # of control (1==checked, 0==not checked) for this type of object.
+  # Get/set on the DOM "checked" attribute. This is always 0 for
+  # an entry widget.
   #
-  method dom_checked {args} {
-    error "N/A"
-  }
+  method dom_checked {args} { return 0 }
 
   # DOM Implementation does not call this. HTMLInputElement.value is
   # the "value" attribute of the HTML element for this type of object.

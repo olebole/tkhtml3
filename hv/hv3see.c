@@ -297,8 +297,6 @@ static Tcl_ObjCmdProc eventDispatchCmd;
 static Tcl_ObjCmdProc eventDumpCmd;
 static void eventTargetInit(SeeInterp *, SeeTclObject *);
 
-static void installHv3Global(SeeInterp *, struct SEE_object *);
-
 /* Return a pointer to the V-Table for Tcl based javascript objects. 
  */
 static struct SEE_objectclass *getVtbl();
@@ -947,6 +945,10 @@ findOrCreateObject(pTclSeeInterp, pTclCommand, isGlobal)
         Tcl_Interp *pTcl = pTclSeeInterp->pTclInterp;
         pObject = newSeeTclObject(pTclSeeInterp, pTclCommand);
 
+        /* Insert the new object into the hash table */
+        pObject->pNext = pTclSeeInterp->aTclObject[iSlot];
+        pTclSeeInterp->aTclObject[iSlot] = pObject;
+
         /* Initialise the objects events subsystem. */
         eventTargetInit(pTclSeeInterp, pObject);
 
@@ -956,10 +958,6 @@ findOrCreateObject(pTclSeeInterp, pTclCommand, isGlobal)
         if (!isGlobal) {
             GC_register_finalizer_no_order(pObject, finalizeObject, pTcl, 0, 0);
         } 
-
-        /* Insert the new object into the hash table */
-        pObject->pNext = pTclSeeInterp->aTclObject[iSlot];
-        pTclSeeInterp->aTclObject[iSlot] = pObject;
     }
 
     return (struct SEE_object *)pObject;
@@ -1333,13 +1331,56 @@ delInterpCmd(clientData)
     GC_FREE(pTclSeeInterp);
 }
 
+typedef struct TclCmdArg TclCmdArg;
+struct TclCmdArg {
+  const char *zName;
+  int isBoolean;
+  Tcl_Obj *pVal;
+};
+
+static int
+processArgs(pTcl, aOpt, nArg, apArg)
+    Tcl_Interp *pTcl;
+    TclCmdArg *aOpt;
+    int nArg;
+    Tcl_Obj **apArg;
+{
+    int ii;
+    for (ii = 0; ii < nArg; ii++){
+        Tcl_Obj *p = apArg[ii];
+        size_t s = sizeof(TclCmdArg);
+        int iIdx;
+        if (Tcl_GetIndexFromObjStruct(pTcl, p, aOpt, s, "option", 0, &iIdx)) {
+            return TCL_ERROR;
+        }
+        if (0 == aOpt[iIdx].isBoolean) {
+            ii++;
+            if (ii >= nArg) {
+                Tcl_AppendResult(pTcl, 
+                    "option ", aOpt[iIdx].zName, " requires an argument", 0
+                );
+                return TCL_ERROR;
+            }
+        }
+        aOpt[iIdx].pVal = apArg[ii];
+    }
+    return TCL_OK;
+}
+
 /*
  *---------------------------------------------------------------------------
  *
  * interpEval --
  *
  *     This function does the work of the [$see_interp eval JAVASCRIPT]
- *     Tcl command.
+ *     Tcl command. Syntax:
+ *
+ *         $interp eval ?OPTIONS? JAVASCRIPT
+ *
+ *     where OPTIONS are:
+ *
+ *         -file  FILENAME
+ *         -scope JAVASCRIPT-OBJECT
  *
  * Results:
  *     Tcl result - TCL_OK or TCL_ERROR.
@@ -1351,21 +1392,40 @@ delInterpCmd(clientData)
  *---------------------------------------------------------------------------
  */
 static int
-interpEval(pTclSeeInterp, pCode, pFile, isEval)
+interpEval(pTclSeeInterp, nArg, apArg)
     SeeInterp *pTclSeeInterp;     /* Interpreter */
-    Tcl_Obj *pCode;               /* Javascript to evaluate */
-    Tcl_Obj *pFile;               /* File-name for stack-traces (may be NULL) */
-    int isEval;
+    int nArg;
+    Tcl_Obj **apArg;
 {
-    struct SEE_interpreter *pSeeInterp = &(pTclSeeInterp->interp);
+    struct SEE_interpreter *pSee = &(pTclSeeInterp->interp);
     Tcl_Interp *pTclInterp = pTclSeeInterp->pTclInterp;
-    struct SEE_input *pInputCode;
     int rc = TCL_OK;
     SEE_try_context_t try_ctxt;
 
-    struct SEE_value res;               /* Result of script evaluation */
-    memset(&res, 0, sizeof(struct SEE_value));
+    TclCmdArg aOptions[] = {
+      {"-file",     0, 0},              /* 0 */
+      {"-window",    0, 0},             /* 1 */
+      {"-noresult", 1, 0},              /* 2 */
+      {0,           0, 0}
+    };
+    Tcl_Obj *pFile;                     /* Value passed to -file option */
+    Tcl_Obj *pWindow;                   /* Value passed to -window option */
+    Tcl_Obj *pCode;                     /* Javascript to evaluate */
 
+    struct SEE_value res;               /* Result of script evaluation */
+
+    if (nArg < 3) {
+        Tcl_WrongNumArgs(pTclInterp, 1, apArg, "SUBCOMMAND ...");
+        return TCL_ERROR;
+    }
+    if (processArgs(pTclInterp, aOptions, nArg - 3, &apArg[2])) {
+        return TCL_ERROR;
+    }
+    pCode = apArg[nArg - 1];
+    pFile = aOptions[0].pVal;
+    pWindow = aOptions[1].pVal;
+
+    memset(&res, 0, sizeof(struct SEE_value));
     Tcl_ResetResult(pTclInterp);
 
     if (pTclSeeInterp->pTraceContext) {
@@ -1375,25 +1435,43 @@ interpEval(pTclSeeInterp, pCode, pFile, isEval)
         struct SEE_string input;
         memset(&input, 0, sizeof(struct SEE_string));
         input.data = Tcl_GetUnicodeFromObj(pCode, (int *)&input.length);
-        SEE_TRY(pSeeInterp, try_ctxt) {
+        SEE_TRY(pSee, try_ctxt) {
             SEE_context_eval(pTclSeeInterp->pTraceContext, &input, &res);
         }
     } else {
-        pInputCode = SEE_input_utf8(pSeeInterp, Tcl_GetString(pCode));
+        struct SEE_input *pInput = SEE_input_utf8(pSee, Tcl_GetString(pCode));
+
         if( pFile ){
-            pInputCode->filename = SEE_string_sprintf(
-                pSeeInterp, "%s", Tcl_GetString(pFile)
+            pInput->filename = SEE_string_sprintf(
+                pSee, "%s", Tcl_GetString(pFile)
             );
         }
-        SEE_TRY(pSeeInterp, try_ctxt) {
-            SEE_Global_eval(pSeeInterp, pInputCode, &res);
+
+        if (pWindow) {
+            struct SEE_object *p = 0;
+            struct SEE_scope *pScope = 0;
+
+            p = findOrCreateObject(pTclSeeInterp, pWindow, 0);
+            pScope = (struct SEE_scope *)SEE_malloc(pSee, sizeof(*pScope) * 2);
+            pScope->obj = p;
+            pScope->next = &pScope[1];
+            pScope->next->obj = pTclSeeInterp->interp.Global;
+            pScope->next->next = 0;
+
+            SEE_TRY(pSee, try_ctxt) {
+                SEE_eval(pSee, pInput, p, p, pScope, &res);
+            }
+        } else {
+            SEE_TRY(pSee, try_ctxt) {
+                SEE_Global_eval(pSee, pInput, &res);
+            }
         }
-        SEE_INPUT_CLOSE(pInputCode);
+        SEE_INPUT_CLOSE(pInput);
     }
 
     if (SEE_CAUGHT(try_ctxt)) {
         rc = handleJavascriptError(pTclSeeInterp, &try_ctxt);
-    } else if (isEval) {
+    } else if (!aOptions[0].pVal) {
         Tcl_SetObjResult(pTclInterp, primitiveValueToTcl(pTclSeeInterp, &res));
     }
 
@@ -1499,12 +1577,13 @@ interpCmd(clientData, pTclInterp, objc, objv)
     SeeInterp *pTclSeeInterp = (SeeInterp *)clientData;
     struct SEE_interpreter *pSeeInterp = &pTclSeeInterp->interp;
 
+    int nMin;
+    int nMax;
+
     enum INTERP_enum {
 
         INTERP_DESTROY,               /* Destroy the interpreter */
         INTERP_EVAL,                  /* Evaluate some javascript */
-        INTERP_SOURCE,                /* Evaluate some javascript */
-        INTERP_GLOBAL,                /* Set the global object */
         INTERP_TOSTRING,              /* Convert js value to a string */
 
         /* Object management */
@@ -1528,9 +1607,7 @@ interpCmd(clientData, pTclInterp, objc, objv)
         char *zArgs;
     } aSubCommand[] = {
         {"destroy",     INTERP_DESTROY,     0, 0, ""},
-        {"eval",        INTERP_EVAL,        1, 3, "?-file NAME? JAVASCRIPT"},
-        {"source",      INTERP_SOURCE,      1, 3, "?-file NAME? JAVASCRIPT"},
-        {"global",      INTERP_GLOBAL,      1, 1, "TCL-COMMAND"},
+        {"eval",        INTERP_EVAL,        0, -1, 0},
         {"tostring",    INTERP_TOSTRING,    1, 1, "JAVASCRIPT-VALUE"},
 
         /* Events */
@@ -1558,10 +1635,9 @@ interpCmd(clientData, pTclInterp, objc, objv)
         return TCL_ERROR;
     }
 
-    if (
-        objc < (aSubCommand[iChoice].nMinArgs + 2) || 
-        objc > (aSubCommand[iChoice].nMaxArgs + 2)
-    ) {
+    nMin = aSubCommand[iChoice].nMinArgs;
+    nMax = aSubCommand[iChoice].nMaxArgs;
+    if ((nMin >= 0 && objc < (nMin + 2)) || (nMax >= 0 && objc < (nMax + 2))) {
         Tcl_WrongNumArgs(pTclInterp, 2, objv, aSubCommand[iChoice].zArgs);
         return TCL_ERROR;
     }
@@ -1569,31 +1645,12 @@ interpCmd(clientData, pTclInterp, objc, objv)
     switch (aSubCommand[iChoice].eSymbol) {
 
         /*
-         * seeInterp eval ?-file FILENAME? PROGRAM-TEXT
+         * seeInterp eval ?OPTIONS? PROGRAM-TEXT
          * 
-         *     Evaluate a javascript script in the global context.
+         *     Evaluate a javascript script.
          */
         case INTERP_EVAL: {
-            Tcl_Obj *pFile = 0;
-            if( objc == 5 ){
-                pFile = objv[3];
-            }
-            rc = interpEval(pTclSeeInterp, objv[objc-1], pFile, 1);
-            break;
-        }
-
-        /*
-         * seeInterp source ?-file FILENAME? PROGRAM-TEXT
-         * 
-         *     Evaluate a javascript script in the global context.
-         *     Unless an error occurs, return an empty string.
-         */
-        case INTERP_SOURCE: {
-            Tcl_Obj *pFile = 0;
-            if( objc == 5 ){
-                pFile = objv[3];
-            }
-            rc = interpEval(pTclSeeInterp, objv[objc-1], pFile, 0);
+            rc = interpEval(pTclSeeInterp, objc, objv);
             break;
         }
 
@@ -1602,29 +1659,6 @@ interpCmd(clientData, pTclInterp, objc, objv)
          */
         case INTERP_DEBUG: {
             rc = interpDebug(pTclSeeInterp, objc, objv);
-            break;
-        }
-
-        /*
-         * seeInterp global TCL-COMMAND
-         *
-         */
-        case INTERP_GLOBAL: {
-            int nGlobal;
-            char *zGlobal;
-            struct SEE_object *pWindow;
-
-            if (pTclSeeInterp->zGlobal) {
-                Tcl_ResetResult(pTclInterp);
-                Tcl_AppendResult(pTclInterp, "Can call [global] only once.", 0);
-                return TCL_ERROR;
-            }
-            pWindow = findOrCreateObject(pTclSeeInterp, objv[2], 1);
-            installHv3Global(pTclSeeInterp, pWindow);
-
-            zGlobal = Tcl_GetStringFromObj(objv[2], &nGlobal);
-            pTclSeeInterp->zGlobal = SEE_malloc_string(pSeeInterp, nGlobal + 1);
-            strcpy(pTclSeeInterp->zGlobal, zGlobal);
             break;
         }
 
@@ -2210,223 +2244,6 @@ tclEnumerator(pInterp, pObj)
     );
 
     return (struct SEE_enum *)pEnum;
-}
-
-typedef struct Hv3GlobalObject Hv3GlobalObject;
-struct Hv3GlobalObject {
-    struct SEE_object object;
-    struct SEE_object *pWindow;
-    struct SEE_object *pGlobal;
-};
-
-static struct SEE_object *
-hv3GlobalPick(pInterp, pObj, pProp)
-    struct SEE_interpreter *pInterp;
-    struct SEE_object *pObj;
-    struct SEE_string *pProp;
-{
-    Hv3GlobalObject *p = (Hv3GlobalObject *)pObj;
-    pProp = SEE_intern(pInterp, pProp);
-    if (SEE_OBJECT_HASPROPERTY(pInterp, p->pWindow, pProp)) {
-        return p->pWindow;
-    } 
-    return p->pGlobal;
-}
-
-static void 
-Hv3Global_Get(pInterp, pObj, pProp, pRes)
-    struct SEE_interpreter *pInterp;
-    struct SEE_object *pObj;
-    struct SEE_string *pProp;
-    struct SEE_value *pRes;
-{
-    SEE_OBJECT_GET(pInterp, hv3GlobalPick(pInterp, pObj, pProp), pProp, pRes);
-}
-static void 
-Hv3Global_Put(pInterp, pObj, pProp, pVal, flags)
-    struct SEE_interpreter *pInterp;
-    struct SEE_object *pObj;
-    struct SEE_string *pProp;
-    struct SEE_value *pVal;
-    int flags;
-{
-    struct SEE_object *p = hv3GlobalPick(pInterp, pObj, pProp);
-    SEE_OBJECT_PUT(pInterp, p, pProp, pVal, flags);
-}
-static int 
-Hv3Global_CanPut(pInterp, pObj, pProp)
-    struct SEE_interpreter *pInterp;
-    struct SEE_object *pObj;
-    struct SEE_string *pProp;
-{
-    struct SEE_object *p = hv3GlobalPick(pInterp, pObj, pProp);
-    return SEE_OBJECT_CANPUT(pInterp, p, pProp);
-}
-static int 
-Hv3Global_HasProperty(pInterp, pObj, pProp)
-    struct SEE_interpreter *pInterp;
-    struct SEE_object *pObj;
-    struct SEE_string *pProp;
-{
-    Hv3GlobalObject *p = (Hv3GlobalObject *)pObj;
-    return (
-        SEE_OBJECT_HASPROPERTY(pInterp, p->pWindow, pProp) ||
-        SEE_OBJECT_HASPROPERTY(pInterp, p->pGlobal, pProp)
-    );
-}
-static int 
-Hv3Global_Delete(pInterp, pObj, pProp)
-    struct SEE_interpreter *pInterp;
-    struct SEE_object *pObj;
-    struct SEE_string *pProp;
-{
-    Hv3GlobalObject *p = (Hv3GlobalObject *)pObj;
-    return SEE_OBJECT_DELETE(pInterp, p->pGlobal, pProp);
-}
-static void 
-Hv3Global_DefaultValue(pInterp, pObj, pHint, pRes)
-    struct SEE_interpreter *pInterp;
-    struct SEE_object *pObj;
-    struct SEE_value *pHint;
-    struct SEE_value *pRes;
-{
-    Hv3GlobalObject *p = (Hv3GlobalObject *)pObj;
-    SEE_OBJECT_DEFAULTVALUE(pInterp, p->pGlobal, pHint, pRes);
-}
-
-static struct SEE_enum * 
-Hv3Global_Enumerator(struct SEE_interpreter *, struct SEE_object *);
-
-static struct SEE_objectclass Hv3GlobalObjectVtbl = {
-    "Hv3GlobalObject",
-    Hv3Global_Get,
-    Hv3Global_Put,
-    Hv3Global_CanPut,
-    Hv3Global_HasProperty,
-    Hv3Global_Delete,
-    Hv3Global_DefaultValue,
-    Hv3Global_Enumerator,
-    0,
-    0,
-    0,
-    0
-};
-
-typedef struct Hv3GlobalEnum Hv3GlobalEnum;
-struct Hv3GlobalEnum {
-    struct SEE_enum base;
-    struct SEE_enum *pWindowEnum;
-    struct SEE_enum *pGlobalEnum;
-};
-
-static struct SEE_string *
-Hv3GlobalEnum_Next(pSeeInterp, pEnum, pFlags)
-    struct SEE_interpreter *pSeeInterp;
-    struct SEE_enum *pEnum;
-    int *pFlags;                          /* OUT: true for "do not enumerate" */
-{
-    Hv3GlobalEnum *p = (Hv3GlobalEnum *)pEnum;
-    struct SEE_string *pRet;
-
-    pRet = SEE_ENUM_NEXT(pSeeInterp, p->pWindowEnum, pFlags);
-    if (!pRet) {
-        pRet = SEE_ENUM_NEXT(pSeeInterp, p->pGlobalEnum, pFlags);
-    }
-
-    return pRet;
-}
-
-static struct SEE_enumclass Hv3GlobalEnumVtbl = {
-  0,  /* Unused */
-  Hv3GlobalEnum_Next
-};
-
-static struct SEE_enum *
-Hv3Global_Enumerator(pInterp, pObj)
-    struct SEE_interpreter *pInterp;
-    struct SEE_object *pObj;
-{
-    Hv3GlobalObject *p = (Hv3GlobalObject *)pObj;
-    Hv3GlobalEnum *pEnum;
-
-    pEnum = SEE_NEW(pInterp, Hv3GlobalEnum);
-    pEnum->base.enumclass = &Hv3GlobalEnumVtbl;
-    pEnum->pWindowEnum = SEE_OBJECT_ENUMERATOR(pInterp, p->pWindow);
-    pEnum->pGlobalEnum = SEE_OBJECT_ENUMERATOR(pInterp, p->pGlobal);
-    return ((struct SEE_enum *)pEnum);
-}
-
-struct SEE_scope;
-struct SEE_scope {
-    struct SEE_scope *next;
-    struct SEE_object *obj;
-};
-
-/*
- *---------------------------------------------------------------------------
- *
- * installHv3Global --
- *
- *     Install an object (argument pWindow) as the hv3-global object
- *     for interpreter pTclSeeInterp. This function should only be
- *     called once in the lifetime of pTclSeeInterp.
- *
- *     The supplied object, pWindow, is attached to the real global 
- *     object (SEE_interp.Global) so that the following SEE_objectclass
- *     interface functions are intercepted and handled as follows:
- *
- *         Get:
- *             If the HasProperty() method of pWindow returns true,
- *             call the Get method of pWindow. Otherwise, call Get on
- *             the real global object.
- *         Put:
- *             If the HasProperty() method of pWindow returns true,
- *             call the Put method of pWindow. Otherwise, call Put on
- *             the real global object.
- *         CanPut:
- *             If the HasProperty() method of pWindow returns true,
- *             call the CanPut method of pWindow. Otherwise, call CanPut 
- *             on the real global object.
- *         HasProperty():
- *             Return the logical OR of HasProperty called on pWindow and
- *             the real global object.
- *         Enumerator():
- *             Return a wrapper SEE_enum object that first iterates through
- *             the entries returned by a pWindow iterator, then through
- *             the entries returned by the real global object.
- *
- *     The Delete() and DefaultValue() methods are passed through to
- *     the real global object.
- *
- * Results:
- *     None.
- *
- * Side effects:
- *
- *---------------------------------------------------------------------------
- */
-static void 
-installHv3Global(pTclSeeInterp, pWindow)
-    SeeInterp *pTclSeeInterp;
-    struct SEE_object *pWindow;
-{
-    struct SEE_scope *pScope;
-    struct SEE_interpreter *p = &pTclSeeInterp->interp;
-    Hv3GlobalObject *pGlobal = SEE_NEW(p, Hv3GlobalObject);
-
-    assert(p->Global->objectclass != &Hv3GlobalObjectVtbl);
-
-    pGlobal->object.objectclass = &Hv3GlobalObjectVtbl;
-    pGlobal->object.Prototype = p->Global->Prototype;
-    pGlobal->pWindow = pWindow;
-    pGlobal->pGlobal = p->Global;
-
-    for (pScope = p->Global_scope; pScope; pScope = pScope->next) {
-        if (pScope->obj == p->Global) {
-            pScope->obj = (struct SEE_object *)pGlobal;
-        }
-    }
-    p->Global = (struct SEE_object *)pGlobal;
 }
 
 static int 

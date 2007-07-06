@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.24 2007/07/04 18:11:45 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.25 2007/07/06 11:01:13 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Html
@@ -353,6 +353,9 @@ namespace eval ::hv3::DOM {
     }
     return $R
   }
+  dom_scope {
+    list [$myDom window]
+  }
 }
 
 namespace eval ::hv3::DOM {
@@ -570,6 +573,8 @@ namespace eval ::hv3::DOM {
   dom_call focus  {THIS} { [$myNode replace] dom_focus }
   dom_call select {THIS} { [$myNode replace] dom_select }
   dom_call click  {THIS} { [$myNode replace] dom_click }
+
+  dom_scope { HTMLElement_control_scope $myDom $myNode }
 }
 # </HTMLInputElement>
 #-------------------------------------------------------------------------
@@ -665,6 +670,8 @@ namespace eval ::hv3::DOM {
     set obj [lindex [eval [SELF] Get options] 1]
     eval $obj Get $property
   }
+
+  dom_scope { HTMLElement_control_scope $myDom $myNode }
 }
 namespace eval ::hv3::DOM {
   proc HTMLSelectElement_getOptions {node} {
@@ -682,6 +689,16 @@ namespace eval ::hv3::DOM {
     } else {
       list object [$dom node_to_dom $f]
     }
+  }
+  proc HTMLElement_control_scope {dom node} {
+    set scope [list \
+        [$dom node_to_dom $node] [$dom window] [$dom node_to_document $node]
+    ]
+    set f [lindex [::hv3::get_form_nodes $node] 0]
+    if {$f ne ""} { 
+      set scope [linsert $scope 1 [$dom node_to_dom $f]]
+    }
+    return $scope
   }
 }
 # </HTMLSelectElement>
@@ -734,6 +751,8 @@ namespace eval ::hv3::DOM {
   dom_call -string setSelectionRange {THIS start end} {
     HTMLTextAreaElement_setSelectionRange $myNode $start $end
   }
+
+  dom_scope { HTMLElement_control_scope $myDom $myNode }
 }
 namespace eval ::hv3::DOM {
 
@@ -791,6 +810,8 @@ namespace eval ::hv3::DOM {
   element_attr type;
 
   dom_todo value;
+
+  dom_scope { HTMLElement_control_scope $myDom $myNode }
 }
 # </HTMLButtonElement>
 #-------------------------------------------------------------------------
