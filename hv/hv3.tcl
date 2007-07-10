@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.181 2007/07/10 09:11:04 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.182 2007/07/10 11:00:05 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -1125,13 +1125,6 @@ snit::widget ::hv3::hv3 {
     lappend myCurrentDownloads $downloadHandle
     $self set_pending_var
     $downloadHandle destroy_hook [mymethod Finrequest $downloadHandle] 
-
-    # Special case: blank://
-    if {[string first blank: [$downloadHandle cget -uri]] == 0} {
-      $downloadHandle append " "
-      $downloadHandle finish
-      return
-    }
 
     # Execute the -requestcmd script. Fail the download and raise
     # an exception if an error occurs during script evaluation.

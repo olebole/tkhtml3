@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.63 2007/07/10 09:11:04 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.64 2007/07/10 11:00:05 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Snit types in this file:
@@ -301,8 +301,9 @@ return
     # If an error occured, log it in the debugging window.
     #
     if {$rc} {
+      set objtype [lindex $js_obj 0]
       set name [string map {blob error} [$self NewFilename]]
-      $myLogData Log "$node $event event" $name "event-handler" $rc $msg
+      $myLogData Log "$objtype $event event" $name "event-handler" $rc $msg
       $myLogData Popup
       set msg ""
     }
@@ -330,17 +331,7 @@ return
     set js_obj [$self hv3_to_window [$p hv3]]
 
     # Dispatch the event.
-    set rc [catch { ::hv3::dom::dispatchHtmlEvent $self load $js_obj } msg]
-
-    # If an error occured, log it in the debugging window.
-    #
-    if {$rc} {
-      set name [string map {blob error} [$self NewFilename]]
-      $myLogData Log "$node $event event" $name "event-handler" $rc $msg
-      $myLogData Popup
-      set msg ""
-    }
-
+    $self DispatchHtmlEvent load $js_obj
   }
 
   # This method is called by the ::hv3::mousemanager object to 
@@ -473,6 +464,7 @@ return
   }
   method delete_window {hv3} {
     catch { unset myWindows($hv3) }
+    catch { $mySee clear          [list ::hv3::DOM::Window $self $hv3] }
     catch { $mySee make_transient [list ::hv3::DOM::Window $self $hv3] }
   }
   variable myWindows -array [list]
@@ -618,7 +610,8 @@ snit::type ::hv3::dom::logdata {
   }
 
   method BrowseToNode {node} {
-    ::HtmlDebug::browse [$myDom hv3] $node
+    set hv3 [winfo parent [winfo parent [$node html]]]
+    ::HtmlDebug::browse $hv3 $node
   }
 
   method SeeTrace {eEvent zFilename iLine} {

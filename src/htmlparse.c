@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.108 2007/06/29 17:17:17 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.109 2007/07/10 11:00:06 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -970,12 +970,18 @@ HtmlTokenize(pTree, zText, isFinal, xAddText, xAddElement, xAddClosing)
                     argc = mxARG - 3;
                 }
 
+                if (z[n+i] == '/') {
+                    i++;
+                    continue;
+                }
+
                 /* Set the next element of the argv[] array to point at
                  * the attribute name. Then figure out the length of the
                  * attribute name by searching for one of ">", "=", "/>", 
                  * white-space or the end of the document.
                  */
                 argv[argc] = &z[n+i];
+
                 j = 0;
                 while (
                     (c = z[n + i + j]) != 0 && 

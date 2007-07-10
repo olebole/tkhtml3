@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.41 2007/06/24 16:22:10 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.42 2007/07/10 11:00:05 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd script used with 
@@ -7,6 +7,7 @@ namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.41 2007/06/24 16:22:10 d
 #     * http:// (including cookies)
 #     * file:// (code for this is now in hv3_file.tcl)
 #     * data://
+#     * blank://
 #     * https:// (if the "tls" package is available)
 #
 
@@ -81,6 +82,7 @@ snit::type ::hv3::protocol {
     $self schemehandler file  ::hv3::request_file
     $self schemehandler http  [mymethod request_http]
     $self schemehandler data  [mymethod request_data]
+    $self schemehandler blank [mymethod request_blank]
     if {[info commands ::tls::socket] ne ""} {
       $self schemehandler https [mymethod request_https]
       ::http::register https 443 [list ::hv3::protocol SSocket]
@@ -280,6 +282,15 @@ snit::type ::hv3::protocol {
 
     $downloadHandle append $bin
     $downloadHandle finish
+  }
+
+  method request_blank {downloadHandle} {
+    # Special case: blank://
+    if {[string first blank: [$downloadHandle cget -uri]] == 0} {
+      $downloadHandle append ""
+      $downloadHandle finish
+      return
+    }
   }
 
 
