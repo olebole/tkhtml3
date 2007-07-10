@@ -1,10 +1,11 @@
-namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.57 2007/07/03 16:28:01 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.58 2007/07/10 09:11:04 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_prop.tcl --
 #
-#     This file contains code to implement the Tkhtml debugging interface.
-#     Sometimes I call it the "tree browser".
+#     This file contains code to implement the Hv3 debugging interface.
+#     Sometimes I call it the "tree browser". To open from Hv3, select
+#     (Debug->Tree Browser...)
 #
 
 package require Tk

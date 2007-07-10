@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.72 2007/07/06 11:01:13 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.73 2007/07/10 09:11:04 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -715,8 +715,10 @@ snit::widgetadaptor ::hv3::forms::select {
 
   variable myHv3 ""
   variable myNode ""
-  variable myValues [list]
   variable myCurrentSelected -1
+
+  variable myValues [list]
+  variable myLabels [list]
 
   delegate option * to hull
   delegate method * to hull
@@ -784,6 +786,7 @@ snit::widgetadaptor ::hv3::forms::select {
   # TODO: The sole purpose of this is to return a linebox offset...
   method configurecmd {values} { 
     ::hv3::forms::configurecmd $win [$hull cget -font]
+    $self treechanged
   }
 
   method ComboboxChanged {widget newValue} {
@@ -800,15 +803,14 @@ snit::widgetadaptor ::hv3::forms::select {
   # surrounding this element has been modified. Update the
   # state of the widget to reflect the new tree structure.
   method treechanged {} {
-    $hull configure -state normal
 
     # Figure out a list of options for the drop-down list. This block 
-    # sets up two list variables, $labels and $myValues. The $labels
-    # list stores the options from which the user may select, and the $myValues
-    # list stores the corresponding form control values.
+    # sets up two list variables, $labels and $values. The $labels
+    # list stores the options from which the user may select, and the 
+    # $values list stores the corresponding form control values.
     set maxlen 5
     set labels [list]
-    set myValues [list]
+    set values [list]
     foreach child [$myNode children] {
       if {[$child tag] == "option"} {
 
@@ -821,16 +823,29 @@ snit::widgetadaptor ::hv3::forms::select {
           set contents [$t text]
         }
 
-        # Append entries to both $myValues and $labels
+        # Append entries to both $values and $labels
         set     label  [$child attr -default $contents label]
         set     value  [$child attr -default $contents value]
         lappend labels $label
-        lappend myValues $value
+        lappend values $value
 
         set len [string length $label]
         if {$len > $maxlen} {set maxlen $len}
       }
     }
+
+    # If the following if{...} statement is true, then the tree has
+    # not changed in any way that this object cares about. In this 
+    # case, we can return early.
+    #
+    if {$labels eq $myLabels && $values eq $myValues} {
+      return
+    }
+
+    $hull configure -state normal
+
+    set myLabels $labels
+    set myValues $values
 
     # Set up the combobox widget. 
     $hull list delete 0 end
@@ -866,11 +881,11 @@ snit::widgetadaptor ::hv3::forms::select {
     if {[$hull cget -state] eq "disabled"} {
       return -1
     }
-    $win curselection 
+    $hull curselection 
   }
   method dom_setSelectionIndex {value} { 
     if {[$hull cget -state] ne "disabled"} {
-      $win select $value 
+      $hull select $value 
     }
   }
 
@@ -943,6 +958,9 @@ snit::widget ::hv3::forms::fileselect {
     set fname [${win}.entry get]
     return [file tail $fname]
   }
+  method name {} {
+    return [$myNode attr -default "" name]
+  }
 
   method formsreport {} {
     return <I>TODO</I>
@@ -972,6 +990,36 @@ snit::widget ::hv3::forms::fileselect {
       $myEntry insert 0 $file
     }
   }
+
+  #-----------------------------------------------------------------------
+  # DOM interface for HTMLInputElement
+  #
+  method dom_checked {args} {return 0}
+
+  method dom_value {args} {
+    if {[llength $args]>0} {
+      $myEntry delete 0 end
+      $myEntry insert 0 [lindex $args 0]
+    }
+    return [$myEntry get]
+  }
+
+  method dom_select  {} {
+    $myEntry selection range 0 end
+  }
+
+  method dom_focus  {} {
+    focus $myEntry
+  }
+
+  method dom_blur  {} {
+    set now [focus]
+    if {$myEntry eq [focus]} {
+      focus [winfo parent $win]
+    }
+  }
+
+  method dom_click  {} { }
 }
 
 #--------------------------------------------------------------------------

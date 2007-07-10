@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.9 2007/07/02 12:53:33 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.10 2007/07/10 09:11:04 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # ::hv3::dom::XMLHttpRequest
@@ -81,7 +81,7 @@ namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.9 2007/07/02 12:5
 
     # Configure the download-handle with the URI to access.
     set rel [lindex $uri 1]
-    set fulluri [[$myDom hv3] resolve_uri $rel]
+    set fulluri [$state(hv3) resolve_uri $rel]
     $state(downloadHandle) configure -uri $fulluri
 
     # Set the asynchronous flag.
@@ -122,7 +122,7 @@ namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.9 2007/07/02 12:5
 #puts "Send XMLHttpRequest $myStateArray data=[lindex $args 0 1]"
       $state(downloadHandle) configure -postdata [lindex $args 0 1]
     }
-    [$myDom hv3] makerequest $state(downloadHandle)
+    $state(hv3) makerequest $state(downloadHandle)
     XMLHttpRequest_SetState $myDom $myStateArray Sent
     list
   }
@@ -223,7 +223,8 @@ namespace eval ::hv3::DOM {
 }
 
 set ::hv3::dom::next_xmlhttp_id 0
-proc ::hv3::dom::newXMLHttpRequest {dom} {
+proc ::hv3::dom::newXMLHttpRequest {dom hv3} {
+puts "New XMLHttpRequest"
   set see [$dom see]
 
   # Name of the state-array for the new object.
@@ -238,6 +239,7 @@ proc ::hv3::dom::newXMLHttpRequest {dom} {
   set state(responseText)   ""
   set state(status)         0
   set state(statusText)     ""
+  set state(hv3)            $hv3
 
   list object [list ::hv3::DOM::XMLHttpRequest $dom $statevar]
 }

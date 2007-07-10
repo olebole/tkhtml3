@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.141 2007/07/04 18:11:45 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.142 2007/07/10 09:11:04 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -2025,7 +2025,6 @@ nodeInsertCmd(pNode, objc, objv)
         }
     }
 
-
     /* Complain if there are insufficient arguments to this command */
     if (objc < 3 || (pBefore && objc < 5)) {
         Tcl_WrongNumArgs(interp, 2, objv, "?-before|-after NODE? NODE-LIST");
@@ -2058,6 +2057,7 @@ nodeInsertCmd(pNode, objc, objv)
 
     pTree->isSequenceOk = 0;
     HtmlCheckRestylePoint(pTree);
+
     return TCL_OK;
 }
 

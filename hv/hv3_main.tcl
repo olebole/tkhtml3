@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.128 2007/07/02 12:31:33 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.129 2007/07/10 09:11:04 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -126,6 +126,12 @@ snit::widget ::hv3::browser_frame {
   # the <frame> element).
   option -name -default ""
 
+  # If this [::hv3::browser_frame] is used as a replacement object
+  # for an <iframe> element, then this option is set to the Tkhtml3
+  # node-handle for that <iframe> element.
+  #
+  option -iframe -default ""
+
   method Targetcmd {node} {
     set target [$node attr -default "" target]
     if {$target eq ""} {
@@ -184,6 +190,26 @@ snit::widget ::hv3::browser_frame {
     return $widget
   }
 
+  method parent_frame {} {
+    set frames [$myBrowser get_frames]
+    set w [winfo parent $self]
+    while {$w ne "" && [lsearch $frames $w] < 0} {
+      set w [winfo parent $w]
+    }
+    return $w
+  }
+  method top_frame {} {
+    lindex [$myBrowser get_frames] 0
+  }
+  method child_frames {} {
+    set ret [list]
+    set tree [$myBrowser frames_tree $self]
+    foreach c [$myBrowser frames_tree $self] {
+      lappend ret [lindex $c 0]
+    }
+    set ret
+  }
+
   # This method returns the "position-id" of a frame, an id that is
   # used by the history sub-system when loading a historical state of
   # a frameset document.
@@ -205,7 +231,7 @@ snit::widget ::hv3::browser_frame {
 
   destructor {
     # Remove this object from the $theFrames list.
-    $myBrowser del_frame $self
+    catch {$myBrowser del_frame $self}
     catch {destroy ${win}.hyperlinkmenu}
   }
 
@@ -402,7 +428,7 @@ snit::widget ::hv3::browser_frame {
   delegate option -fontscale        to myHv3
   delegate option -zoom             to myHv3
   delegate option -enableimages     to myHv3
-  delegate option -enablejavascript to myHv3
+  delegate option -dom              to myHv3
 
   delegate method dumpforms         to myHv3
 
@@ -420,13 +446,14 @@ snit::widget ::hv3::browser_frame {
 
 # An instance of this widget represents a top-level browser frame (not
 # a toplevel window - an html frame not contained in any frameset 
-# document).
+# document). These are the things managed by the notebook widget.
 #
 snit::widget ::hv3::browser_toplevel {
 
-  component myHistory                ;# The undo/redo system
+  component myHistory                ;# The back/forward system
   component myProtocol               ;# The ::hv3::protocol
   component myMainFrame              ;# The browser_frame widget
+  component myDom                    ;# The ::hv3::dom object
 
   # Variables passed to [$myProtocol configure -statusvar] and
   # the same option of $myMainFrame. Used to create the value for 
@@ -478,12 +505,16 @@ snit::widget ::hv3::browser_toplevel {
     set myHistory [::hv3::history %AUTO% [$myMainFrame hv3] $myProtocol $self]
     $myHistory configure -gotocmd [mymethod goto]
 
+    set myDom [::hv3::dom %AUTO% $self]
+    $myMainFrame configure -dom $myDom
+
     $self configurelist $args
   }
 
   destructor {
     if {$myProtocol ne ""} { $myProtocol destroy }
     if {$myHistory ne ""}  { $myHistory destroy }
+    if {$myDom ne ""}      { $myDom destroy }
   }
 
   # This method is called to activate the download-manager to download
@@ -508,12 +539,12 @@ snit::widget ::hv3::browser_toplevel {
     if {$myHistory ne ""} {
       $myHistory add_hv3 [$frame hv3]
     }
-
     set HTML [[$frame hv3] html]
     bind $HTML <1>               [list focus %W]
     bind $HTML <KeyPress-slash>  [mymethod Find]
     bindtags $HTML [concat Hv3HotKeys $self [bindtags $HTML]]
-    $::hv3::G(config) configurebrowser $frame
+    $frame configure -dom $myDom
+    $::hv3::G(config) configureframe $frame
   }
   method del_frame {frame} {
     set idx [lsearch $myFrames $frame]
@@ -522,6 +553,30 @@ snit::widget ::hv3::browser_toplevel {
     }
   }
   method get_frames {} {return $myFrames}
+
+  # Return a list describing the current structure of the frameset 
+  # displayed by this browser.
+  #
+  method frames_tree {{head {}}} {
+    set ret ""
+
+    array set A {}
+    foreach f [lsort $myFrames] {
+      set p [$f parent_frame]
+      lappend A($p) $f
+      if {![info exists A($f)]} {set A($f) [list]}
+    }
+
+    foreach f [concat [lsort -decreasing $myFrames] [list {}]] {
+      set new [list]
+      foreach child $A($f) {
+        lappend new [list $child $A($child)]
+      }
+      set A($f) $new
+    }
+    
+    set A($head)
+  }
 
   # This method is called by a [trace variable ... write] hook attached
   # to the myProtocolStatus variable. Set myStatusVar.
@@ -651,6 +706,8 @@ snit::widget ::hv3::browser_toplevel {
   delegate option -backbutton    to myHistory
   delegate option -forwardbutton to myHistory
   delegate option -locationentry to myHistory
+
+  delegate option -enablejavascript to myDom as -enable
 
   delegate method locationvar to myHistory
   delegate method populatehistorymenu to myHistory
@@ -841,6 +898,20 @@ snit::type ::hv3::config {
         -forcefontmetrics options(-forcefontmetrics) \
         -enableimages     options(-enableimages)     \
         -enablejavascript options(-enablejavascript) \
+        -doublebuffer     options(-doublebuffer)     \
+    ] {
+      if {[$b cget $option] ne [set $var]} {
+        $b configure $option [set $var]
+      }
+    }
+  }
+  method configureframe {b} {
+    foreach {option var} [list                       \
+        -fonttable        options(-fonttable)        \
+        -fontscale        options(-fontscale)        \
+        -zoom             options(-zoom)             \
+        -forcefontmetrics options(-forcefontmetrics) \
+        -enableimages     options(-enableimages)     \
         -doublebuffer     options(-doublebuffer)     \
     ] {
       if {[$b cget $option] ne [set $var]} {
@@ -1426,7 +1497,10 @@ proc main {args} {
         set ::hv3::statefile [lindex $args $ii]
       }
       default {
-        lappend docs $val
+        set uri [::hv3::uri %AUTO% file:///[pwd]]
+        $uri load $val
+        lappend docs [$uri get]
+        $uri destroy
       }
     }
   }

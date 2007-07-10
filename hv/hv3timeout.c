@@ -21,6 +21,8 @@ struct SeeTimeout {
 
   SeeInterp *pTclSeeInterp;
 
+  struct SEE_object *pWindow;
+
   struct SEE_value func;
   int nArg;
   struct SEE_value **apArg;
@@ -49,7 +51,7 @@ static void timeoutCb(clientData)
     ClientData clientData;
 {
     SeeTimeout *p = (SeeTimeout *)clientData;
-    struct SEE_interpreter *interp = &p->pTclSeeInterp->interp;
+    struct SEE_interpreter *pSee = &p->pTclSeeInterp->interp;
 
     SEE_try_context_t try_ctxt;
     struct SEE_value *pError;
@@ -58,33 +60,45 @@ static void timeoutCb(clientData)
 
     if (SEE_VALUE_GET_TYPE(&p->func) == SEE_OBJECT) {
         struct SEE_value r;
-        SEE_TRY(interp, try_ctxt) {
+        SEE_TRY(pSee, try_ctxt) {
             SEE_OBJECT_CALL(
-                interp, p->func.u.object, interp->Global, p->nArg, p->apArg, &r
+                pSee, p->func.u.object, pSee->Global, p->nArg, p->apArg, &r
             );
         }
     } else {
         struct SEE_input *pInputCode;
         struct SEE_value str;
         struct SEE_value res;
+        struct SEE_object *pW = p->pWindow;
 
-        SEE_ToString(interp, &p->func, &str);
+        struct SEE_scope *pScope;
+        pScope = (struct SEE_scope *)SEE_malloc(pSee, sizeof(*pScope) * 2);
+        pScope->obj = pW;
+        pScope->next = &pScope[1];
+        pScope->next->obj = pSee->Global;
+        pScope->next->next = 0;
+
+        SEE_ToString(pSee, &p->func, &str);
         assert(SEE_VALUE_GET_TYPE(&str) == SEE_STRING);
 
-        pInputCode = SEE_input_string(interp, str.u.string);
-        SEE_TRY(interp, try_ctxt) {
-            SEE_Global_eval(interp, pInputCode, &res);
+        pInputCode = SEE_input_string(pSee, str.u.string);
+        SEE_TRY(pSee, try_ctxt) {
+            SEE_eval(pSee, pInputCode, pW, pW, pScope, &res);
         }
         SEE_INPUT_CLOSE(pInputCode);
     }
 
     pError = SEE_CAUGHT(try_ctxt);
     if (pError) {
+        struct SEE_value str;
         struct SEE_value err;
-        SEE_ToString(interp, pError, &err);
-        SEE_PrintValue(interp, pError, stdout);
-        SEE_PrintString(interp, err.u.string, stdout);
+        printf("TIMER CALLBACK ERROR:");
+        SEE_ToString(pSee, pError, &err);
+        SEE_PrintValue(pSee, pError, stdout);
+        SEE_PrintString(pSee, err.u.string, stdout);
         printf("\n");
+        SEE_ToString(pSee, &p->func, &str);
+        SEE_PrintString(pSee, str.u.string, stdout);
         fflush(stdout);
     }
 
@@ -106,8 +120,9 @@ static void timeoutCb(clientData)
     }
 }
 
-static void newTimeout(pSeeInterp, isInterval, argc, argv, res)
+static void newTimeout(pSeeInterp, pThis, isInterval, argc, argv, res)
     SeeInterp *pSeeInterp;
+    struct SEE_object *pThis;
     int isInterval;
     int argc;
     struct SEE_value **argv;
@@ -118,8 +133,14 @@ static void newTimeout(pSeeInterp, isInterval, argc, argv, res)
     int ii;
     int iMilli;
     struct SEE_value milli;
-
     struct SEE_value *pCopy;
+    SeeTclObject *pWindow;
+
+    /* Check pThis is a tcl based object */
+    if (pThis->objectclass != getVtbl()) {
+        SEE_error_throw(pI, pI->Error, "thisobj is not a SeeTclObject");
+    }
+    pWindow = (SeeTclObject *)pThis;
 
     /* Check the number of function arguments. */
     if (argc < 2) {
@@ -164,20 +185,22 @@ static void newTimeout(pSeeInterp, isInterval, argc, argv, res)
     p->iInterval = (isInterval?iMilli:-1);
     p->iId = pSeeInterp->iNextTimeout++;
     p->pTclSeeInterp = pSeeInterp;
-    p->pNext = pSeeInterp->pTimeout;
-    pSeeInterp->pTimeout = p;
-    p->ppThis = &pSeeInterp->pTimeout;
+    p->pNext = pWindow->pTimeout;
+    pWindow->pTimeout = p;
+    p->ppThis = &pWindow->pTimeout;
     if (p->pNext) {
         p->pNext->ppThis = &p->pNext;
     }
+    p->pWindow = (struct SEE_object *)pWindow;
 
     assert(p->ppThis);
     p->token = Tcl_CreateTimerHandler(iMilli, timeoutCb, (ClientData)p);
     SEE_SET_NUMBER(res, p->iId);
 }
 
-static void cancelTimeout(pSeeInterp, isInterval, argc, argv, res)
+static void cancelTimeout(pSeeInterp, pThis, isInterval, argc, argv, res)
     SeeInterp *pSeeInterp;
+    struct SEE_object *pThis;
     int isInterval;
     int argc;
     struct SEE_value **argv;
@@ -187,6 +210,13 @@ static void cancelTimeout(pSeeInterp, isInterval, argc, argv, res)
     struct SEE_value id;
     struct SEE_interpreter *pI = &pSeeInterp->interp;
     SeeTimeout *p;
+    SeeTclObject *pWindow;
+
+    /* Check pThis is a tcl based object */
+    if (pThis->objectclass != getVtbl()) {
+        SEE_error_throw(pI, pI->Error, "thisobj is not a SeeTclObject");
+    }
+    pWindow = (SeeTclObject *)pThis;
 
     /* Check the number of function arguments. */
     if (argc != 1) {
@@ -199,7 +229,7 @@ static void cancelTimeout(pSeeInterp, isInterval, argc, argv, res)
     assert(SEE_VALUE_GET_TYPE(&id) == SEE_NUMBER);
     iId = (int)id.u.number;
 
-    for (p = pSeeInterp->pTimeout; p; p = p->pNext) {
+    for (p = pWindow->pTimeout; p; p = p->pNext) {
         if (p->iId == iId) {
             Tcl_DeleteTimerHandler(p->token);
             p->token = 0;
@@ -218,7 +248,7 @@ setTimeoutFunc(interp, self, thisobj, argc, argv, res)
         int argc;
         struct SEE_value **argv, *res;
 {
-    newTimeout((SeeInterp *)interp, 0, argc, argv, res);
+    newTimeout((SeeInterp *)interp, thisobj, 0, argc, argv, res);
 }
 
 static void
@@ -228,7 +258,7 @@ setIntervalFunc(interp, self, thisobj, argc, argv, res)
         int argc;
         struct SEE_value **argv, *res;
 {
-    newTimeout((SeeInterp *)interp, 1, argc, argv, res);
+    newTimeout((SeeInterp *)interp, thisobj, 1, argc, argv, res);
 }
 
 static void
@@ -238,7 +268,7 @@ clearTimeoutFunc(interp, self, thisobj, argc, argv, res)
         int argc;
         struct SEE_value **argv, *res;
 {
-    cancelTimeout((SeeInterp *)interp, 0, argc, argv, res);
+    cancelTimeout((SeeInterp *)interp, thisobj, 0, argc, argv, res);
 }
 
 static void
@@ -248,15 +278,16 @@ clearIntervalFunc(interp, self, thisobj, argc, argv, res)
         int argc;
         struct SEE_value **argv, *res;
 {
-    cancelTimeout((SeeInterp *)interp, 1, argc, argv, res);
+    cancelTimeout((SeeInterp *)interp, thisobj, 1, argc, argv, res);
 }
 
 static void 
-interpTimeoutInit(pSeeInterp)
+interpTimeoutInit(pSeeInterp, pWindow)
     SeeInterp *pSeeInterp;
+    SeeTclObject *pWindow;
 {
     struct SEE_interpreter *interp = (struct SEE_interpreter *)pSeeInterp;
-    struct SEE_object *g = interp->Global;
+    struct SEE_object *g = (struct SEE_object *)pWindow;
  
     SEE_CFUNCTION_PUTA(interp, g, "setTimeout", setTimeoutFunc, 2, 0);
     SEE_CFUNCTION_PUTA(interp, g, "setInterval", setIntervalFunc, 2, 0);
@@ -265,16 +296,17 @@ interpTimeoutInit(pSeeInterp)
 }
 
 static void 
-interpTimeoutCleanup(pSeeInterp)
+interpTimeoutCleanup(pSeeInterp, pWindow)
     SeeInterp *pSeeInterp;
+    SeeTclObject *pWindow;
 {
     SeeTimeout *p;
-    for (p = pSeeInterp->pTimeout; p; p = p->pNext) {
+    for (p = pWindow->pTimeout; p; p = p->pNext) {
         Tcl_DeleteTimerHandler(p->token);
         assert(*p->ppThis == p);
         *p->ppThis = 0;
         p->ppThis = 0;
     }
-    assert(!pSeeInterp->pTimeout);
+    assert(!pWindow->pTimeout);
 }
 

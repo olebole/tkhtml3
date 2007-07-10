@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_string.tcl,v 1.5 2007/06/24 16:22:10 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_string.tcl,v 1.6 2007/07/10 09:11:04 danielk1977 Exp $)} 1 }
 
 
 namespace eval ::hv3::string {
@@ -113,6 +113,23 @@ proc pretty_print_vars {} {
     append ret [format "% -50s %d\n" [lindex $e 0] [lindex $e 1]]
   }
   set ret
+}
+
+proc tree_to_report {tree indent} {
+  set i [string repeat " " $indent]
+  set f [lindex $tree 0]
+
+  set name [$f cget -name]
+  set uri  [[$f hv3] uri get]
+
+  append ret [format "% -40s %s\n" $i\"$name\" $uri]
+  foreach child [lindex $tree 1] {
+    append ret [tree_to_report $child [expr {$indent+4}]] 
+  }
+  set ret
+}
+proc pretty_print_frames {} {
+  tree_to_report [lindex [gui_current frames_tree] 0] 0
 }
 
 proc get_vars {{ns ::}} {

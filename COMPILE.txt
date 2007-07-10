@@ -11,7 +11,7 @@ This file has two sections:
   There are two ways to build the Tkhtml widget:
   
     * Using the configure script. This is quick and easy if it works,
-      virtually impossible to debug if it doesn't).
+      virtually impossible to debug if it doesn't.
     * Modifying the Makefile template. This takes a few minutes to set up, 
       but it's easier to understand what's going on.
   
@@ -115,9 +115,10 @@ This file has two sections:
     If Boehm GC is not in the various paths, need to set CFLAGS, LDFLAGS and
     LD_LIBRARY_PATH before running configure:
 
-      export CFLAGS="-I/home/dan/javascript/install/include/ -O2 -DNDEBUG"
-      export LDFLAGS=-L/home/dan/javascript/install/lib/
-      export LD_LIBRARY_PATH=/home/dan/javascript/install/lib/
+      INSTALL_PATH=/home/dan/javascript/install
+      export CFLAGS="-I${INSTALL_PATH}/include/ -O2 -DNDEBUG"
+      export LDFLAGS=-L${INSTALL_PATH}/lib/
+      export LD_LIBRARY_PATH=${INSTALL_PATH}/lib/
 
     Then supply an installation path to configure:
 
@@ -150,7 +151,7 @@ This file has two sections:
 
     Both SEE and GC can be cross-compiled with a command like:
 
-      ../<path>/configure --host=i386mingw --prefix=<install-path>
+      ../<path>/configure --host=i386-mingw32 --prefix=<install-path>
       make
       make install
 

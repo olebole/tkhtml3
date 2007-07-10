@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.62 2007/07/06 11:01:11 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.63 2007/07/10 09:11:04 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Snit types in this file:
@@ -13,17 +13,15 @@ namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.62 2007/07/06 11:01:11 da
 #     ::hv3::dom::searchbox            -- Debugger "Search" tab
 #
 
-
 package require snit
-
 
 #-------------------------------------------------------------------------
 # Class ::hv3::dom
 #
 #     set dom [::hv3::dom %AUTO% $hv3]
 #
-#     $dom script   ATTR SCRIPT
-#     $dom noscript ATTR SCRIPT
+#     $dom script   HV3 ATTR SCRIPT
+#     $dom noscript HV3 ATTR SCRIPT
 #
 #     $dom javascript SCRIPT
 #     $dom event EVENT NODE
@@ -33,42 +31,45 @@ package require snit
 #
 #  Debugging aids:
 #     $dom javascriptlog
-#     $dom eventreport NODE
-#
 #
 snit::type ::hv3::dom {
   variable mySee ""
 
   # Boolean option. Enable this DOM implementation or not.
-  option -enable -default 0
+  option -enable -default 0 -configuremethod SetEnable
 
   # Logging command.
   option -logcmd -default "" -configuremethod ConfigureLogcmd
 
-  # Variable used to accumulate the arguments of document.write() and
-  # document.writeln() invocations from within [script].
-  #
-  variable myWriteVar ""
+  # Instance of [::hv3::browser_toplevel] associated with this object.
+  variable myBrowser ""
 
-  # Document window associated with this scripting environment.
-  variable myHv3 ""
-
-  # Javascript window command.
-  variable myWindow ""
-
+  # Used to assign unique ids to each block of script evaluated. 
+  # This is used by the script debugging gui.
   variable myNextCodeblockNumber 1
 
-  constructor {hv3 args} {
-    set myHv3 $hv3
-
+  constructor {browser args} {
+    set myBrowser $browser
     set myLogData [::hv3::dom::logdata %AUTO% $self]
-
     $self configurelist $args
-    $self reset
+  }
+
+  method SetEnable {option value} {
+    set options($option) $value
+    if {$mySee ne "" && ![$self HaveScripting]} {
+      $mySee destroy
+      set mySee ""
+    }
+    if {$mySee eq "" && [$self HaveScripting]} {
+      set mySee [::see::interp]
+      foreach win [array names myWindows] {
+        $mySee window [list ::hv3::DOM::Window $self $win]
+      }
+    }
   }
 
   destructor { 
-    $self clear
+    $mySee destroy
     catch { $myLogData destroy }
   }
 
@@ -86,28 +87,17 @@ snit::type ::hv3::dom {
     return [expr {$options(-enable) && [info commands ::see::interp] ne ""}]
   }
 
-  # Return the javascript object command for the global "window"
-  # object supplied to the interpreter.
-  method window {} { list ::hv3::DOM::Window $self $myHv3 }
-  variable myWindowInitEvents 0
-
-  method InitWindowEvents {} {
-    if {$myWindowInitEvents == 0} {
-      set body [lindex [[$myHv3 node] children] 1]
-      set script ""
-      foreach A {onload onunload} {
-        catch {
-          set V [$body attr $A]
-          append script "window.onload = function(event) {$V}\n" 
-        }
+  method InitWindowEvents {body} {
+    set script ""
+    foreach A {onload onunload} {
+      catch {
+        set V [$body attr $A]
+        append script [subst {
+          if (!window.$A) { window.$A = function(event) {$V} }
+        }]
       }
-      append script "window.setInterval = setInterval\n" 
-      append script "window.setTimeout  = setTimeout\n" 
-      append script "window.clearInterval = clearInterval\n" 
-      append script "window.clearTimeout = clearTimeout\n" 
-      $mySee eval -window [$self window] -noresult $script
-      set myWindowInitEvents 1
     }
+    $mySee eval -window [$self node_to_window $body] -noresult $script
   }
 
   # Delete any allocated interpreter and objects. This is called in
@@ -118,21 +108,26 @@ snit::type ::hv3::dom {
     # Delete the old interpreter and the various objects, if they exist.
     # They may not exist, if this is being called from within the
     # object constructor or scripting is disabled.
-    if {$mySee ne ""} {
-      $mySee destroy
-      set mySee ""
-    }
+    # if {$mySee ne ""} {
+    #   $mySee make_transient [$self window]
+    #   $mySee destroy
+    #   set mySee ""
+    # }
   }
 
   method reset {} {
+return
 
     $self clear
 
     if {[$self HaveScripting]} {
+
       # Set up the new interpreter with the global "Window" object.
       set mySee [::see::interp]
-      $mySee log $options(-logcmd)
+      $mySee window [$self window]
       set myWindowInitEvents 0
+
+      $mySee log $options(-logcmd)
 
       # Reset the debugger.
       $self LogReset
@@ -164,23 +159,23 @@ snit::type ::hv3::dom {
   # This is done externally, not by code within this type definition.
   # If scripting is not enabled in this browser, this method is a no-op.
   #
-  method script {attr script} {
-#puts "$attr $script"
+  method script {hv3 attr script} {
     if {$mySee ne ""} {
-      $myHv3 write wait
+      $hv3 write wait
       array set a $attr
       if {[info exists a(src)]} {
-        set fulluri [$myHv3 resolve_uri $a(src)]
+        set fulluri [$hv3 resolve_uri $a(src)]
         set handle [::hv3::download %AUTO%             \
             -uri         $fulluri                      \
             -mimetype    text/javascript               \
             -cachecontrol normal                       \
         ]
-        $handle configure -finscript [mymethod scriptCallback $attr $handle]
-        $myHv3 makerequest $handle
+        set fin [mymethod scriptCallback $hv3 $attr $handle]
+        $handle configure -finscript $fin
+        $hv3 makerequest $handle
         # $self Log "Dispatched script request - $handle" "" "" ""
       } else {
-        return [$self scriptCallback $attr "" $script]
+        return [$self scriptCallback $hv3 $attr "" $script]
       }
     }
     return ""
@@ -192,11 +187,11 @@ snit::type ::hv3::dom {
   # of the <noscript> block back to the parser using the same
   # Tcl interface used for document.write().
   #
-  method noscript {attr script} {
+  method noscript {hv3 attr script} {
     if {$mySee ne ""} {
       return ""
     } else {
-      [$myHv3 html] write text $script
+      [$hv3 html] write text $script
     }
   }
   
@@ -204,7 +199,7 @@ snit::type ::hv3::dom {
   # method will have issued a GET request for it. This is the 
   # successful callback.
   #
-  method scriptCallback {attr downloadHandle script} {
+  method scriptCallback {hv3 attr downloadHandle script} {
     if {$downloadHandle ne ""} { 
       $downloadHandle destroy 
     }
@@ -216,7 +211,7 @@ snit::type ::hv3::dom {
     }
 
     set name [$self NewFilename]
-    set w [$self window]
+    set w [list ::hv3::DOM::Window $self $hv3]
     set rc [catch {$mySee eval -window $w -noresult -file $name $script} msg]
 
     set attributes ""
@@ -226,14 +221,15 @@ snit::type ::hv3::dom {
     set title "<SCRIPT$attributes>"
     $myLogData Log $title $name $script $rc $msg
 
-    $myHv3 write continue
+    $hv3 write continue
   }
 
-  method javascript {script} {
+  method javascript {hv3 script} {
     set msg ""
     if {$mySee ne ""} {
       set name [$self NewFilename]
-      set w [$self window]
+      if {$hv3 eq ""} {set hv3 [$myBrowser hv3]}
+      set w [$self hv3_to_window $hv3]
       set rc [catch {$mySee eval -window $w -file $name $script} msg]
     }
     return $msg
@@ -263,8 +259,14 @@ snit::type ::hv3::dom {
       # According to "DOM Level 2 Events", the load event does not
       # bubble and is not cancelable.
       #
-      $self InitWindowEvents
-      set js_obj [$self window]
+      set fs [[$node html] search frameset -index 0]
+      if {$fs ne ""} { 
+        $self InitWindowEvents $fs
+        return
+      }
+      $self InitWindowEvents $node
+
+      set js_obj [$self node_to_window $node]
     } else {
       set js_obj [$self node_to_dom $node]
     }
@@ -283,7 +285,62 @@ snit::type ::hv3::dom {
       set msg ""
     }
 
+    if {$event eq "load"} {
+      $self DoFramesetLoadEvents $node
+    }
+
     return $msg
+  }
+
+  method DispatchHtmlEvent {event js_obj} {
+    # Dispatch the event.
+    set rc [catch {
+      ::hv3::dom::dispatchHtmlEvent $self $event $js_obj
+    } msg]
+
+    # If an error occured, log it in the debugging window.
+    #
+    if {$rc} {
+      set name [string map {blob error} [$self NewFilename]]
+      $myLogData Log "$node $event event" $name "event-handler" $rc $msg
+      $myLogData Popup
+      set msg ""
+    }
+
+    set msg
+  }
+
+  method DoFramesetLoadEvents {node} {
+    set frame [$self node_to_frame $node]
+
+    # If $frame is a replacement object for an <IFRAME> element, 
+    # then fire the load event on the <IFRAME> element.
+    if {[$frame cget -iframe] ne ""} {
+      $self DispatchHtmlEvent load [$self node_to_dom [$frame cget -iframe]]
+      return
+    }
+
+    set p [$frame parent_frame]
+    if {$p eq ""} return
+    
+    foreach c [$p child_frames] {
+      if {0 == [[$c hv3] onload_fired]} return
+    }
+
+    set js_obj [$self hv3_to_window [$p hv3]]
+
+    # Dispatch the event.
+    set rc [catch { ::hv3::dom::dispatchHtmlEvent $self load $js_obj } msg]
+
+    # If an error occured, log it in the debugging window.
+    #
+    if {$rc} {
+      set name [string map {blob error} [$self NewFilename]]
+      $myLogData Log "$node $event event" $name "event-handler" $rc $msg
+      $myLogData Popup
+      set msg ""
+    }
+
   }
 
   # This method is called by the ::hv3::mousemanager object to 
@@ -347,12 +404,7 @@ snit::type ::hv3::dom {
   # Text Node.
   #
   method node_to_document {node} {
-    # TODO: Fix this for when there are other Document objects than
-    # the main one floating around. i.e. This will fail if the node-handle
-    # comes from a different <FRAME> than the script is being executed
-    # in.
-    #
-    lindex [eval [$self window] Get document] 1
+    lindex [eval [$self node_to_window $node] Get document] 1
   }
 
   #----------------------------------------------------------------
@@ -360,12 +412,72 @@ snit::type ::hv3::dom {
   # ::hv3::hv3 object. i.e. the owner of the node-handle.
   #
   method node_to_hv3 {node} {
-    # TODO: Same fix as for [node_to_document] is required.
-    return $myHv3
+    set html [$node html]
+    winfo parent [winfo parent $html]
   }
 
+  method node_to_frame {node} {
+    winfo parent [$self node_to_hv3 $node]
+  }
+
+  # Given a Tkhtml3 node-handle, return the javascript wrapper 
+  # for the containing window. 
+  #
+  method node_to_window {node} {
+    set hv3 [$self node_to_hv3 $node]
+    list ::hv3::DOM::Window $self $hv3
+  }
+
+  method hv3_to_window {hv3} {
+    list ::hv3::DOM::Window $self $hv3
+  }
+
+  # The following methods:
+  #
+  #     [make_window]
+  #     [clear_window]
+  #     [delete_window]
+  #
+  # are used to manage the life-time of DOM Window objects.
+  #
+  method clear_window {hv3} {
+    catch {$mySee clear [list ::hv3::DOM::Window $self $hv3]}
+
+    # If javascript is enabled and Window object being cleared
+    # is the top-level frame, delete and recreated the SEE interpreter.
+    # Theoretically this isn't necessary, but helps to contain any
+    # leaks of js/tcl objects.
+    #
+    # Also, reset the debugging gui here.
+    #
+    if {$mySee ne ""} {
+      set frame [winfo parent $hv3]
+      if {$frame eq [$frame top_frame]} {
+        $mySee destroy
+        set mySee [::see::interp]
+        $mySee log $options(-logcmd)
+
+        array unset myWindows 
+        set myWindows($hv3) 1
+        $mySee window [list ::hv3::DOM::Window $self $hv3]
+
+        $self LogReset
+      }
+    }
+  }
+  method make_window {hv3} {
+    set myWindows($hv3) 1
+    if {$mySee ne ""} {
+      $mySee window [list ::hv3::DOM::Window $self $hv3]
+    }
+  }
+  method delete_window {hv3} {
+    catch { unset myWindows($hv3) }
+    catch { $mySee make_transient [list ::hv3::DOM::Window $self $hv3] }
+  }
+  variable myWindows -array [list]
+
   method see    {} { return $mySee }
-  method hv3    {} { return $myHv3 }
 
   #------------------------------------------------------------------
   # Logging system follows.
@@ -501,7 +613,7 @@ snit::type ::hv3::dom::logdata {
   }
 
   method Evaluate {script} {
-    set res [$myDom javascript $script]
+    set res [$myDom javascript "" $script]
     return $res
   }
 
@@ -1139,6 +1251,7 @@ set classlist [concat \
   CSSStyleDeclaration                     \
   Event MouseEvent                        \
   XMLHttpRequest XMLHttpRequestEvent      \
+  FramesList                              \
 ]
 foreach c $classlist {
   eval [::hv3::dom2::compile $c]

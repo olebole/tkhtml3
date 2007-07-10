@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_containers.tcl,v 1.5 2007/07/01 09:56:10 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_containers.tcl,v 1.6 2007/07/10 09:11:04 danielk1977 Exp $)} 1 }
 
 # This file contains the implementation of the two DOM specific
 # container objects:
@@ -344,3 +344,29 @@ namespace eval ::hv3::DOM {
     }
   }
 }
+
+::hv3::dom2::stateless FramesList {} {
+  dom_parameter myFrame
+
+  dom_get length {
+    list number [llength [$myFrame child_frames]]
+  }
+
+  dom_get * {
+    set frames [$myFrame child_frames]
+    if {[string is integer $property]} {
+      set f [lindex $frames [expr {int($property)}]]
+      if {$f eq ""} return ""
+      return [list object [$myDom hv3_to_window [$f hv3]]]
+    }
+
+    foreach f $frames {
+      if {$property eq [$f cget -name]} {
+        return [list object [$myDom hv3_to_window [$f hv3]]]
+      }
+    }
+
+    return ""
+  }
+}
+

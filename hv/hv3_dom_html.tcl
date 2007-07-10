@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.25 2007/07/06 11:01:13 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.26 2007/07/10 09:11:04 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Html
@@ -167,9 +167,8 @@ set BaseList {Document DocumentEvent Node NodePrototype}
     set obj [list ::hv3::DOM::Location $myDom $myHv3]
     list object $obj
   }
-  dom_put location value {
-    set callable [lindex [::hv3::DOM::Location $myDom $myHv3 Get assign] 1]
-    eval $callable Call THIS [list $value]
+  dom_put -string location value {
+    Location_assign $myHv3 $value
   }
 
   #-------------------------------------------------------------------------
@@ -354,7 +353,7 @@ namespace eval ::hv3::DOM {
     return $R
   }
   dom_scope {
-    list [$myDom window]
+    list [$myDom node_to_window $myNode]
   }
 }
 
@@ -691,9 +690,9 @@ namespace eval ::hv3::DOM {
     }
   }
   proc HTMLElement_control_scope {dom node} {
-    set scope [list \
-        [$dom node_to_dom $node] [$dom window] [$dom node_to_document $node]
-    ]
+    set w [$dom node_to_window $node]
+    set scope [list [$dom node_to_dom $node] $w [$dom node_to_document $node]]
+
     set f [lindex [::hv3::get_form_nodes $node] 0]
     if {$f ne ""} { 
       set scope [linsert $scope 1 [$dom node_to_dom $f]]

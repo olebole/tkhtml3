@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.23 2007/07/01 12:54:29 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.24 2007/07/10 09:11:04 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Core
@@ -348,8 +348,6 @@ set BaseList {ElementCSSInlineStyle WidgetNode Node NodePrototype}
   dom_get childNodes {
     list object [list ::hv3::DOM::NodeListC $myDom [list $myNode children]]
   }
-
-  dom_todo ownerDocument
 
   dom_call insertBefore {THIS newChild refChild}  {
     # TODO: Arg checking and correct error messages (excptions).

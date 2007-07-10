@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.18 2007/06/26 15:39:13 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.19 2007/07/10 09:11:04 danielk1977 Exp $)} 1 }
 
 #---------------------------------
 # List of DOM objects in this file:
@@ -132,7 +132,6 @@ namespace eval ::hv3::dom {
     list string $port
   }
   dom_get host     { list string [$myHv3 uri cget -authority] }
-  dom_get href     { list string [$myHv3 uri get] }
   dom_get pathname { list string [$myHv3 uri cget -path] }
   dom_get protocol { list string [$myHv3 uri cget -scheme]: }
   dom_get search   { 
@@ -148,10 +147,17 @@ namespace eval ::hv3::dom {
     list string $str
   }
 
+  dom_get href { 
+    list string [$myHv3 uri get] 
+  }
+  dom_put -string href value { 
+    Location_assign $myHv3 $value 
+  }
+
   #---------------------------------------------------------------------
   # Methods:
   #
-  dom_call -string assign  {THIS uri} { $myHv3 goto $uri }
+  dom_call -string assign  {THIS uri} { Location_assign $myHv3 $uri }
   dom_call -string replace {THIS uri} { $myHv3 goto $uri -nosave }
   dom_call -string reload  {THIS force} { 
     if {![string is boolean $force]} { error "Bad boolean arg: $force" }
@@ -160,6 +166,21 @@ namespace eval ::hv3::dom {
     $myHv3 goto [$myHv3 location] -nosave 
   }
   dom_call toString {THIS} { eval [SELF] DefaultValue }
+}
+namespace eval ::hv3::DOM {
+  proc Location_assign {hv3 loc} {
+    set f [winfo parent $hv3]
+
+    # TODO: When assigning a URI from javascript, resolve it relative 
+    # to the top-level document... This has got to be wrong... Maybe
+    # it is supposed to be the window object in scope...
+    #
+    # Test case in jsunit source: "jsunit/tests/jsUnitTestLoadData.html"
+    #
+    set top [$f top_frame]
+    set loc [[$top hv3] resolve_uri $loc]
+    $hv3 goto $loc
+  }
 }
 
 #-------------------------------------------------------------------------
@@ -206,7 +227,7 @@ namespace eval ::hv3::dom {
   #     request = new XMLHttpRequest();
   #
   dom_construct XMLHttpRequest {THIS args} {
-    ::hv3::dom::newXMLHttpRequest $myDom
+    ::hv3::dom::newXMLHttpRequest $myDom $myHv3
   }
 
   dom_get Node {
@@ -256,26 +277,54 @@ namespace eval ::hv3::dom {
   #      If a window does not have a parent, its parent property is a reference
   #      to itself."
   #
-  # For now, this always returns a "reference to itself".
-  #
-  dom_get parent { return [list object [SELF]] }
-  dom_get top    { return [list object [SELF]] }
+  dom_get parent {
+    set frame [winfo parent $myHv3]
+    set parent [$frame parent_frame]
+    if {$parent eq ""} {set parent $frame}
+    list object [$myDom hv3_to_window [$parent hv3]]
+  }
+  dom_get top { 
+    set frame [winfo parent $myHv3]
+    set top [$frame top_frame]
+    list object [$myDom hv3_to_window [$top hv3]]
+  }
   dom_get self   { return [list object [SELF]] }
   dom_get window { return [list object [SELF]] }
 
+  dom_get frames {
+    list object [list ::hv3::DOM::FramesList $myDom [winfo parent $myHv3]]
+  }
+
   #-----------------------------------------------------------------------
-  # The "alert()" method.
+  # The alert() and confirm() methods.
   #
   dom_call -string alert {THIS msg} {
     tk_dialog .alert "Super Dialog Alert!" $msg "" 0 OK
     return ""
   }
+  dom_call -string confirm {THIS msg} {
+    set i [tk_dialog .alert "Super Dialog Alert!" $msg "" 0 OK Cancel]
+    list boolean [expr {$i ? 0 : 1}]
+  }
+
+  dom_events { list }
+
+  # Pass any request for an unknown property to the FramesList object.
+  #
+  # TODO: I don't know about this. It seems to be required for JsUnit,
+  # which has code like:
+  #
+  #     top.testContainer.document.getElementById(...);
+  #
+  # where testContainer is the name of a child frame.
+  #
+  dom_get * { 
+    ::hv3::DOM::FramesList $myDom [winfo parent $myHv3] Get $property
+  }
 
   dom_call -string jsputs {THIS args} {
     puts $args
   }
-
-  dom_events { list }
 }
 
 #-------------------------------------------------------------------------

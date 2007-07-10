@@ -198,12 +198,6 @@ struct SeeInterp {
      */
     SeeTclObject *aTclObject[OBJECT_HASH_SIZE];
 
-    /* Tcl name of the global object. The NULL-terminated string is
-     * allocated using SEE_malloc_string() when the global object
-     * is set (the [$interp global] command).
-     */
-    char *zGlobal;
-
     /* Debugger related stuff. If not NULL, pTrace is the tcl script 
      * to invoke from within the SEE trace-callback. While the pTrace
      * script is executing, pTraceContext is set to a copy of the
@@ -217,7 +211,6 @@ struct SeeInterp {
     /* Start of a linked list of SeeTimeout structures. See 
     ** included file hv3timeout.c for details.
     */
-    SeeTimeout *pTimeout;
     int iNextTimeout;
 
     /* Objects used by the events subsystem. See hv3events.c for details */
@@ -244,13 +237,18 @@ typedef struct EventType EventType;
  */
 struct SeeTclObject {
     struct SEE_object object;     /* Base class - Object */
-
     struct SEE_native *pNative;   /* Store native properties here */
-
     Tcl_Obj *pObj;                /* Tcl script for object */
 
     /* Used by the events sub-system (hv3events.c) */
     EventType *pTypeList;
+
+    /* Used by the timer sub-system (hv3timeout.c). This pointer is only
+     * ever used for objects of type Window, but space is allocated for
+     * every single object. This seems a bit wasteful, but it's not our
+     * biggest problem right now.
+     */
+    SeeTimeout *pTimeout;
 
     /* The data stored in these variables is based on the data in pObj. 
      * See the allocWordArray() function for details. The idea is that
@@ -312,8 +310,8 @@ static struct SEE_objectclass *getVtbl();
 ** The hv3timeout.c module uses the SeeInterp.pTimeout pointer. The
 ** external interface (called from this file) is:
 */ 
-static void interpTimeoutInit(SeeInterp *);
-static void interpTimeoutCleanup(SeeInterp *);
+static void interpTimeoutInit(SeeInterp *, SeeTclObject *);
+static void interpTimeoutCleanup(SeeInterp *, SeeTclObject *);
 #include "hv3timeout.c"
 
 /*
@@ -915,11 +913,6 @@ findOrCreateObject(pTclSeeInterp, pTclCommand, isGlobal)
     int iSlot = hashCommand(zCommand);
     SeeTclObject *pObject;
 
-    /* Check for the global object */
-    if (pTclSeeInterp->zGlobal && !strcmp(zCommand, pTclSeeInterp->zGlobal)) {
-        return pTclSeeInterp->interp.Global;
-    }
-
     /* See if this is a javascript object reference. It is assumed to
      * be a javascript reference if the first character is a digit.
      */
@@ -981,7 +974,7 @@ makeObjectTransient(pTclSeeInterp, pCommand)
 {
     const char *zCommand = Tcl_GetString(pCommand);
     SeeTclObject **pp;
- 
+
     for (
         pp = &pTclSeeInterp->aTclObject[hashCommand(zCommand)];
         *pp && strcmp(zCommand, Tcl_GetString((*pp)->pObj));
@@ -989,6 +982,7 @@ makeObjectTransient(pTclSeeInterp, pCommand)
     );
     if (*pp) {
         SeeTclObject *p = *pp;
+        interpTimeoutCleanup(pTclSeeInterp, p);
         *pp = p->pNext;
         p->pNext = 0;
     } else {
@@ -1311,13 +1305,6 @@ delInterpCmd(clientData)
         pTclSeeInterp->pLog = 0;
     }
   
-    if( pTclSeeInterp->zGlobal ){
-      iNumSeeTclObject--;
-    }
-
-    /* Clean up any stray timer events */
-    interpTimeoutCleanup(pTclSeeInterp);
-
     /* Try to make garbage collection happen now. This could be taken
      * out and (according to the garbage-collection folk) things might
      * run more smoothly. But leaving it in makes the system a bit more
@@ -1403,10 +1390,10 @@ interpEval(pTclSeeInterp, nArg, apArg)
     SEE_try_context_t try_ctxt;
 
     TclCmdArg aOptions[] = {
-      {"-file",     0, 0},              /* 0 */
-      {"-window",    0, 0},             /* 1 */
-      {"-noresult", 1, 0},              /* 2 */
-      {0,           0, 0}
+      {"-file",      0, 0},              /* 0 */
+      {"-window",    0, 0},              /* 1 */
+      {"-noresult",  1, 0},              /* 2 */
+      {0,            0, 0}
     };
     Tcl_Obj *pFile;                     /* Value passed to -file option */
     Tcl_Obj *pWindow;                   /* Value passed to -window option */
@@ -1471,11 +1458,31 @@ interpEval(pTclSeeInterp, nArg, apArg)
 
     if (SEE_CAUGHT(try_ctxt)) {
         rc = handleJavascriptError(pTclSeeInterp, &try_ctxt);
-    } else if (!aOptions[0].pVal) {
+    } else if (!aOptions[2].pVal) {
         Tcl_SetObjResult(pTclInterp, primitiveValueToTcl(pTclSeeInterp, &res));
     }
 
     return rc;
+}
+
+static int
+interpClear(pTclSeeInterp, objc, objv)
+    SeeInterp *pTclSeeInterp;          /* Interpreter */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    struct SEE_object *pObj;
+    SeeTclObject *p;
+
+    pObj = findOrCreateObject(pTclSeeInterp,objv[2],0);
+    p = (SeeTclObject *)pObj;
+    interpTimeoutCleanup(pTclSeeInterp, p);
+    assert(p->pTimeout == 0);
+    memset(p->pNative->properties, 0, sizeof(p->pNative->properties));
+    p->pTypeList = 0;
+    interpTimeoutInit(pTclSeeInterp, p);
+
+    return TCL_OK;
 }
 
 /*
@@ -1581,10 +1588,11 @@ interpCmd(clientData, pTclInterp, objc, objv)
     int nMax;
 
     enum INTERP_enum {
-
         INTERP_DESTROY,               /* Destroy the interpreter */
         INTERP_EVAL,                  /* Evaluate some javascript */
         INTERP_TOSTRING,              /* Convert js value to a string */
+        INTERP_WINDOW,                /* Initialize a "Window" object */
+        INTERP_CLEAR,
 
         /* Object management */
         INTERP_MAKE_TRANSIENT,        /* Declare an object eligible for GC */
@@ -1596,6 +1604,7 @@ interpCmd(clientData, pTclInterp, objc, objv)
         INTERP_LOG,
         INTERP_TRACE,
 
+        /* Dispatch a DOM event */
         INTERP_DISPATCH,
     };
 
@@ -1609,6 +1618,8 @@ interpCmd(clientData, pTclInterp, objc, objv)
         {"destroy",     INTERP_DESTROY,     0, 0, ""},
         {"eval",        INTERP_EVAL,        0, -1, 0},
         {"tostring",    INTERP_TOSTRING,    1, 1, "JAVASCRIPT-VALUE"},
+        {"window",      INTERP_WINDOW,      1, 1, "JAVASCRIPT-VALUE"},
+        {"clear",       INTERP_CLEAR,       1, 1, "JAVASCRIPT-VALUE"},
 
         /* Events */
         {"dispatch",    INTERP_DISPATCH, 2, 2, "TARGET-COMMAND EVENT-COMMAND"},
@@ -1659,6 +1670,23 @@ interpCmd(clientData, pTclInterp, objc, objv)
          */
         case INTERP_DEBUG: {
             rc = interpDebug(pTclSeeInterp, objc, objv);
+            break;
+        }
+
+        /*
+         * seeInterp window JAVASCRIPT-OBJECT
+         */
+        case INTERP_WINDOW: {
+            struct SEE_object *p = findOrCreateObject(pTclSeeInterp,objv[2],0);
+            interpTimeoutInit(pTclSeeInterp, (SeeTclObject *)p);
+            break;
+        }
+
+        /*
+         * seeInterp clear JAVASCRIPT-OBJECT
+         */
+        case INTERP_CLEAR: {
+            rc = interpClear(pTclSeeInterp, objc, objv);
             break;
         }
 
@@ -1834,9 +1862,6 @@ tclSeeInterp(clientData, interp, objc, objv)
 
     /* Initialise the pTclInterp field. */
     pInterp->pTclInterp = interp;
-
-    /* Initialise the setTimeout(), setInterval() functions */
-    interpTimeoutInit(pInterp);
 
     Tcl_CreateObjCommand(interp, zCmd, interpCmd, pInterp, delInterpCmd);
     Tcl_SetResult(interp, zCmd, TCL_VOLATILE);

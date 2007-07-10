@@ -1,9 +1,17 @@
-namespace eval hv3 { set {version($Id: hv3_frameset.tcl,v 1.13 2007/06/28 18:42:17 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_frameset.tcl,v 1.14 2007/07/10 09:11:04 danielk1977 Exp $)} 1 }
 
 # This file contains code for implementing HTML frameset documents in Hv3. 
 #
 # Each <frameset> element is implemented by a single ::hv3::frameset
 # widget. 
+#
+
+#
+# Code structure:
+#
+#     ::hv3::frameset_handler
+#     ::hv3::iframe_handler
+#     ::hv3::get_markup
 #
 
 namespace eval hv3 {
@@ -66,13 +74,6 @@ namespace eval hv3 {
   proc iframe_handler {browser_frame node} {
     set hv3 [$browser_frame hv3]
 
-    # Retrieve the URI for the resource to display in this <IFRAME>
-    set src [$node attribute -default "" src]
-    if {$src eq ""} {
-      return
-    }
-    set uri [[$browser_frame hv3] resolve_uri $src]
-
     # Create an ::hv3::browser_frame to display the resource.
     set panel [create_widget_name $browser_frame $node]
     ::hv3::browser_frame $panel [$browser_frame browser]
@@ -81,8 +82,8 @@ namespace eval hv3 {
     # TODO: Should be properly configured...
     $panel configure -requestcmd [$browser_frame cget -requestcmd]
     $panel configure -statusvar  [$browser_frame cget -statusvar]
-
     $panel configure -name [$node attr -default "" name]
+    $panel configure -iframe $node
 
     set hv3 [$panel hv3]
 
@@ -91,7 +92,12 @@ namespace eval hv3 {
     $node replace $panel -configurecmd $cfg -deletecmd $del
     ::hv3::iframe_configure $hv3 $node ""
 
-    $panel goto $uri
+    # Retrieve the URI for the resource to display in this <IFRAME>
+    set src [$node attribute -default "" src]
+    if {$src ne ""} {
+      set uri [[$browser_frame hv3] resolve_uri $src]
+      $panel goto $uri
+    }
   }
   proc iframe_configure {hv3 node values} {
     set scrolling [$node attr -default auto scrolling]

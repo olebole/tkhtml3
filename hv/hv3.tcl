@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.180 2007/07/03 11:35:11 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.181 2007/07/10 09:11:04 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -353,8 +353,8 @@ snit::type ::hv3::hv3::mousemanager {
     #     mouseover
     #     mousemotion
     #
+    set N [lindex $nodelist end]
     if {$options(-dom) ne ""} {
-      set N [lindex $nodelist end]
       if {$N ne $myCurrentDomNode} {
         $options(-dom) mouseevent mouseout $myCurrentDomNode $x $y
         $options(-dom) mouseevent mouseover $N $x $y
@@ -928,9 +928,7 @@ snit::widget ::hv3::hv3 {
   component mySelectionManager       ;# The ::hv3::hv3::selectionmanager
   component myFormManager            ;# The ::hv3::formmanager
 
-  # A DOM object is always created, whether it is a no-op or not.
-  #
-  component myDom                    ;# The DOM object (class ::hv3::dom) 
+  option -dom -default "" -configuremethod SetDom
 
   component myMouseManager           ;# The ::hv3::hv3::mousemanager
   delegate method Subscribe to myMouseManager as subscribe
@@ -1014,7 +1012,7 @@ snit::widget ::hv3::hv3 {
 
   # This boolean variable is set to zero until the first call to [goto].
   # Before that point it is safe to change the values of the -enableimages
-  # and -enablejavascript options without reloading the document.
+  # option without reloading the document.
   #
   variable myGotoCalled 0
 
@@ -1029,10 +1027,7 @@ snit::widget ::hv3::hv3 {
     bindtags [$self html] [concat [bindtags [$self html]] $self]
     pack $myHtml -fill both -expand 1
 
-    set myDom [::hv3::dom %AUTO% $self]
-
     set myMouseManager [::hv3::hv3::mousemanager %AUTO% $self]
-    $myMouseManager configure -dom $myDom
 
     # $myHtml configure -layoutcache 0
 
@@ -1043,9 +1038,8 @@ snit::widget ::hv3::hv3 {
 
     $myMouseManager configure -selectionmanager $mySelectionManager
 
-    # Location URI. The default URI is index.html in the applications
-    # current working directory.
-    set myUri              [::hv3::uri %AUTO% file://[pwd]/index.html]
+    # Location URI. The default URI is "blank://".
+    set myUri              [::hv3::uri %AUTO% blank:]
 
     set myFormManager [::hv3::formmanager %AUTO% $self]
     $myFormManager configure -getcmd  [mymethod Formcmd get]
@@ -1071,8 +1065,6 @@ snit::widget ::hv3::hv3 {
     $myHtml handler script style    [mymethod style_script_handler]
 
     # $myHtml handler script script   [mymethod script_script_handler]
-    $myHtml handler script script   [list $myDom script]
-    $myHtml handler script noscript [list $myDom noscript]
 
     # Register handler commands to handle <object> and kin.
     $myHtml handler node object   [list hv3_object_handler $self]
@@ -1093,7 +1085,10 @@ snit::widget ::hv3::hv3 {
     catch { $myFormManager      destroy }
     catch { $myMouseManager     destroy }
     catch { $myBase             destroy }
-    catch { $myDom              destroy }
+
+    # Tell the DOM implementation that any Window object created for
+    # this widget is no longer required.
+    catch { $options(-dom) delete_window $self }
 
     # Cancel any refresh-event that may be pending.
     if {$myRefreshEventId ne ""} {
@@ -1130,6 +1125,13 @@ snit::widget ::hv3::hv3 {
     lappend myCurrentDownloads $downloadHandle
     $self set_pending_var
     $downloadHandle destroy_hook [mymethod Finrequest $downloadHandle] 
+
+    # Special case: blank://
+    if {[string first blank: [$downloadHandle cget -uri]] == 0} {
+      $downloadHandle append " "
+      $downloadHandle finish
+      return
+    }
 
     # Execute the -requestcmd script. Fail the download and raise
     # an exception if an error occurs during script evaluation.
@@ -1180,13 +1182,15 @@ snit::widget ::hv3::hv3 {
 
       # There are no outstanding HTTP transactions. So fire
       # the DOM "onload" event.
-      if {!$myOnloadFired} {
+      if {$options(-dom) ne "" && !$myOnloadFired} {
         set myOnloadFired 1
         set bodynode [$myHtml search body]
-        $myDom event load [lindex $bodynode 0]
+        $options(-dom) event load [lindex $bodynode 0]
       }
     }
   }
+
+  method onload_fired {} { return $myOnloadFired }
 
   method resolve_uri {baseuri {uri {}}} {
     if {$uri eq ""} {
@@ -1742,7 +1746,7 @@ snit::widget ::hv3::hv3 {
     unset -nocomplain myNodeArgs
   }
 
-  method dom {} { return $myDom }
+  method dom {} { return $options(-dom) }
 
   #--------------------------------------------------------------------
   # Load the URI specified as an argument into the main browser window.
@@ -1798,7 +1802,9 @@ snit::widget ::hv3::hv3 {
     # pass it to the current running DOM implementation instead of loading
     # anything into the current browser.
     if {[string match -nocase javascript:* $uri]} {
-      $myDom javascript [string range $uri 11 end]
+      if {$options(-dom) ne ""} {
+        $options(-dom) javascript $self [string range $uri 11 end]
+      }
       return
     }
 
@@ -1901,12 +1907,16 @@ snit::widget ::hv3::hv3 {
     set myEncodedDocument ""
 
     foreach m [list \
-        $myMouseManager $myFormManager $myDom   \
+        $myMouseManager $myFormManager          \
         $mySelectionManager $myHyperlinkManager \
     ] {
       if {$m ne ""} {$m reset}
     }
     $myHtml reset
+
+    if {$options(-dom) ne ""} {
+      $options(-dom) clear_window $self
+    }
 
     if {$myBase ne ""} {
       $myBase destroy
@@ -1917,7 +1927,8 @@ snit::widget ::hv3::hv3 {
   }
 
   method GetEnableJs {option} {
-    $myDom cget -enable
+    if {$options(-dom) eq ""} {return 0}
+    $options(-dom) cget -enable
   }
   method SetOption {option value} {
     set options($option) $value
@@ -1939,16 +1950,16 @@ snit::widget ::hv3::hv3 {
           $self goto $uri -nosave
         }
       }
+    }
+  }
 
-      -enablejavascript {
-        if {$myGotoCalled} {
-          set uri [$myUri get]
-          $self reset 0
-        }
-        $myDom configure -enable $value
-        $myDom reset
-        if {$myGotoCalled} {$self goto $uri -nosave}
-      }
+  method SetDom {option value} {
+    set options(-dom) $value
+    $myMouseManager configure -dom $options(-dom)
+    if {$options(-dom) ne ""} {
+      $myHtml handler script script   [list $options(-dom) script $self]
+      $myHtml handler script noscript [list $options(-dom) noscript $self]
+      $options(-dom) make_window $self
     }
   }
 
@@ -1965,9 +1976,13 @@ snit::widget ::hv3::hv3 {
     eval $myHtml xview $args
   }
 
-  # This option to enable the javascript implementation.  Default is 
-  # to not do so. Also the option to display images (default true).
-  option -enablejavascript -configuremethod SetOption -cgetmethod GetEnableJs
+  method javascriptlog {args} {
+    if {$options(-dom) ne ""} {
+      eval $options(-dom) javascriptlog $args
+    }
+  }
+
+  # The option to display images (default true).
   option -enableimages     -default 1 -configuremethod SetOption
 
   option -scrollbarpolicy -default auto
@@ -1980,7 +1995,6 @@ snit::widget ::hv3::hv3 {
   delegate option -targetcmd        to myHyperlinkManager
 
   # Delegated public methods
-  delegate method javascriptlog     to myDom
   delegate method selected          to mySelectionManager
   delegate method *                 to myHtml
 
