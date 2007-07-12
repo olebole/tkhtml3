@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.74 2007/07/12 15:41:56 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.75 2007/07/12 15:57:51 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -1247,30 +1247,26 @@ snit::type ::hv3::form {
   }
 
   method reset {resetcontrol} {
-    foreach c [lrange [::hv3::get_form_nodes] 1 end] {
+    foreach c [lrange [::hv3::get_form_nodes $myFormNode] 1 end] {
       [$c replace] reset
     }
   }
 
   method ControlNodes {} {
     set ret [list]
-    foreach c [lrange [::hv3::get_form_nodes] 1 end] {
-      set tag [string toupper [$c tag]]
-      set type [string toupper [$c attr -default "" type]]
-      if {$tag ne "INPUT" || $type ne "SUBMIT"} {
-        lappend ret $c
-      }
+    foreach c [lrange [::hv3::get_form_nodes $myFormNode] 1 end] {
+      lappend ret $c
     }
     set ret
   }
 
   method SubmitNodes {} {
     set ret [list]
-    foreach c [lrange [::hv3::get_form_nodes] 1 end] {
+    foreach c [lrange [::hv3::get_form_nodes $myFormNode] 1 end] {
       set tag [string toupper [$c tag]]
       set type [string toupper [$c attr -default "" type]]
       if {$tag eq "INPUT" && $type eq "SUBMIT"} {
-        lappend ret $c
+        lappend ret [$c replace]
       }
     }
     set ret
@@ -1298,7 +1294,7 @@ snit::type ::hv3::form {
         if {[$s name] ne ""} {
           lappend data [$s name]
           lappend data 1
-          break;
+          break
         }
       }
     }
@@ -1515,22 +1511,18 @@ snit::type ::hv3::formmanager {
       input.image {
         set control [::hv3::clickcontrol %AUTO% $node]
         set myClickControls($node) $control
-        if {$form ne ""} { 
-          $control configure -clickcmd submit
-        }
+        $control configure -clickcmd submit
         set isSubmit 1
       }
       input.submit {
         set control [::hv3::clickcontrol %AUTO% $node]
         set myClickControls($node) $control
-        if {$form ne ""} { 
-          $control configure -clickcmd submit
-        }
+        $control configure -clickcmd submit
         set isSubmit 1
       }
       input.reset {
         set control [::hv3::clickcontrol %AUTO% $node]
-        if {$form ne ""} { $control configure -clickcmd reset }
+        $control configure -clickcmd reset
         set myClickControls($node) $control
       }
       input.button {
