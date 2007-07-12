@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.109 2007/07/10 11:00:06 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.110 2007/07/12 15:41:56 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -1148,12 +1148,19 @@ HtmlTokenize(pTree, zText, isFinal, xAddText, xAddElement, xAddClosing)
 
                     assert(
                         pTree->eWriteState == HTML_WRITE_INHANDLER || 
-                        pTree->eWriteState == HTML_WRITE_INHANDLERWAIT
+                        pTree->eWriteState == HTML_WRITE_INHANDLERWAIT ||
+                        pTree->eWriteState == HTML_WRITE_INHANDLERRESET
                     );
-                    if (pTree->eWriteState == HTML_WRITE_INHANDLER) {
-                        pTree->eWriteState = HTML_WRITE_NONE;
-                    } else {
-                        pTree->eWriteState = HTML_WRITE_WAIT;
+                    switch (pTree->eWriteState) {
+                        case HTML_WRITE_INHANDLER:
+                            pTree->eWriteState = HTML_WRITE_NONE;
+                            break;
+                        case HTML_WRITE_INHANDLERWAIT:
+                            pTree->eWriteState = HTML_WRITE_WAIT;
+                            break;
+                        case HTML_WRITE_INHANDLERRESET:
+                            pTree->eWriteState = HTML_WRITE_NONE;
+                            return;
                     }
                     z = Tcl_GetString(pTree->pDocument);
 
@@ -1254,10 +1261,6 @@ HtmlTokenizerAppend(pTree, zText, nText, isFinal)
     assert(!Tcl_IsShared(pTree->pDocument));
     Tcl_AppendToObj(pTree->pDocument, z, n);
 
-    assert(
-        pTree->eWriteState == HTML_WRITE_NONE || 
-        pTree->eWriteState == HTML_WRITE_WAIT
-    );
     if (pTree->eWriteState == HTML_WRITE_NONE) {
         tokenizeWrapper(pTree, isFinal, 
             HtmlTreeAddText,

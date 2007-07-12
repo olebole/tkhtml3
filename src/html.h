@@ -646,10 +646,11 @@ struct HtmlTree {
     HtmlText *pText;
 };
 
-#define HTML_WRITE_NONE          0
-#define HTML_WRITE_INHANDLER     1
-#define HTML_WRITE_INHANDLERWAIT 2
-#define HTML_WRITE_WAIT          3
+#define HTML_WRITE_NONE           0
+#define HTML_WRITE_INHANDLER      1
+#define HTML_WRITE_INHANDLERWAIT  2
+#define HTML_WRITE_INHANDLERRESET 3
+#define HTML_WRITE_WAIT           4
 int HtmlWriteWait(HtmlTree *);
 int HtmlWriteText(HtmlTree *, Tcl_Obj *);
 int HtmlWriteContinue(HtmlTree *);

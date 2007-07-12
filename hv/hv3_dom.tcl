@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.64 2007/07/10 11:00:05 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.65 2007/07/12 15:41:56 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Snit types in this file:
@@ -200,7 +200,11 @@ return
   # successful callback.
   #
   method scriptCallback {hv3 attr downloadHandle script} {
+
     if {$downloadHandle ne ""} { 
+      # Handle an HTTP redirect or a Location header:
+      #
+      if {[$hv3 HandleLocation $downloadHandle]} return
       $downloadHandle destroy 
     }
 
@@ -282,7 +286,7 @@ return
       set name [string map {blob error} [$self NewFilename]]
       $myLogData Log "$node $event event" $name "event-handler" $rc $msg
       $myLogData Popup
-      set msg ""
+      set msg error
     }
 
     if {$event eq "load"} {
@@ -444,15 +448,19 @@ return
     if {$mySee ne ""} {
       set frame [winfo parent $hv3]
       if {$frame eq [$frame top_frame]} {
+        foreach win [array names myWindows] {
+          $mySee make_transient [list ::hv3::DOM::Window $self $hv3]
+        }
+        $self LogReset
         $mySee destroy
+
         set mySee [::see::interp]
         $mySee log $options(-logcmd)
 
-        array unset myWindows 
+        array unset myWindows
         set myWindows($hv3) 1
         $mySee window [list ::hv3::DOM::Window $self $hv3]
 
-        $self LogReset
       }
     }
   }
@@ -1250,6 +1258,8 @@ foreach c $classlist {
   eval [::hv3::dom2::compile $c]
 }
 #puts [::hv3::dom2::compile XMLHttpRequest]
+
+::hv3::compile_bookmarks_object
 
 ::hv3::dom2::cleanup
 

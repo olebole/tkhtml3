@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.9 2007/06/06 15:56:39 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.10 2007/07/12 15:41:56 danielk1977 Exp $)} 1 }
 
 # Register the about: scheme handler with ::hv3::protocol $protocol.
 #
@@ -38,125 +38,846 @@ proc ::hv3::home_scheme_init {hv3 protocol} {
   $protocol schemehandler home [list ::hv3::home_request $protocol $hv3 $dir]
 }
 
+::snit::type ::hv3::bookmarkdb {
+  variable myDb ""
+
+  typevariable Schema {
+      CREATE TABLE bookmarks1(
+        bookmark_id     INTEGER PRIMARY KEY,
+        bookmark_name   TEXT,
+        bookmark_uri    TEXT,
+        bookmark_tags   TEXT,
+        bookmark_folder TEXT, bookmark_folder_idx INTEGER,
+        UNIQUE(bookmark_folder, bookmark_folder_idx)
+      );
+
+      /* This table defines the display order for folders. Also, whether
+       * or not the folder is in "hidden" state. 
+       */
+      CREATE TABLE folders1(
+        folder_id       INTEGER PRIMARY KEY,
+        folder_name     TEXT UNIQUE,
+        folder_hidden   BOOLEAN
+      );
+  }
+
+  typevariable BookmarkTemplate [join {
+      {<DIV 
+         class="bookmark" 
+         active="true"
+         onmousedown="return bookmark_mousedown(this, event)"
+         bookmark_id="$bookmark_id"
+         bookmark_name="$bookmark_name"
+         bookmark_uri="$bookmark_uri"
+         bookmark_tags="$bookmark_tags"
+      >}
+      {<SPAN class="edit" 
+         onclick="return bookmark_edit(this.parentNode)">(edit)</SPAN>}
+      {<A href="$bookmark_uri">$bookmark_name</A>}
+      {<FORM 
+         style="display:none" 
+         onsubmit="return bookmark_submit(this.parentNode)"
+       >
+          <TABLE width=100%>
+            <TR><TD>Name: <TD width=100%><INPUT width=90% name=n></INPUT>
+            <TR><TD>Uri:  <TD><INPUT width=90% name=u></INPUT>
+            <TR><TD>Tags: <TD><INPUT width=90% name=t></INPUT>
+          </TABLE>
+        </FORM>
+      </DIV>}
+  } ""]
+
+  typevariable FolderTemplate [join {
+    {<DIV
+      class="folder"
+      folder_id="$folder_id"
+      folder_name="$folder_name"
+      folder_hidden="$folder_hidden"
+    >}
+      {<H2 
+         style="display:$folder_display"
+         onmousedown="return folder_mousedown(this, event)"
+         onclick="return folder_toggle(this.parentNode, event, 1)"
+       >}
+      {<SPAN class="edit" 
+         onclick="return folder_edit(this.parentNode.parentNode)">(edit)</SPAN>}
+      {<SPAN>- </SPAN>$folder_name}
+      {<FORM
+         style="display:none"
+         onsubmit="return folder_submit(this.parentNode.parentNode)"
+       >
+        <TABLE width=100% style="color:black;margin-left:15px">
+        <TR><TD>Name: <TD width=100%><INPUT name=n></INPUT>
+        </TABLE>
+      </FORM>}
+      {</H2><UL style="clear:both;width:100%">}
+  } ""]
+
+  constructor {db} {
+    set myDb $db
+
+    set rc [catch { $myDb eval $Schema } msg]
+
+    # When this is loaded, each bookmarks record is transformed to
+    # the following HTML:
+    #
+    if {$rc == 0} {
+      set folder ""
+
+      $myDb transaction {
+        set ii 0
+        foreach B {
+      { "Hv3 User Manual"         {home://man} }
+
+      { "Tkhtml and Hv3 Related" }
+      { "tkhtml.tcl.tk"         {http://tkhtml.tcl.tk} }
+      { "Tkhtml3 Google Group" {http://groups.google.com/group/tkhtml3} }
+      { "Hv3 site at freshmeat.net" {http://freshmeat.net/hv3} }
+      { "Sqlite" {http://www.sqlite.org} }
+      { "Tk Combobox" {http://www.purl.org/net/oakley/tcl/combobox/index.html} }
+      { "Polipo (web proxy)" {http://www.pps.jussieu.fr/~jch/software/polipo/} }
+      { "SEE (javascript engine)" {http://www.adaptive-enterprises.com.au/~d/software/see/} }
+      { "Icons used in Hv3" {http://e-lusion.com/design/greyscale} }
+
+      { "Tcl" }
+      { "Tcl site"         {http://www.tcl.tk} }
+      { "Tcl wiki"         {http://mini.net/tcl/} }
+      { "ActiveState"      {http://www.activestate.com/} }
+      { "Evolane (eTcl)"   {http://www.evolane.com/} }
+      { "comp.lang.tcl"    {http://groups.google.com/group/comp.lang.tcl} }
+      { "tclscripting.com" {http://www.tclscripting.com/} }
+
+      { "WWW" }
+      { "W3 Consortium"   {http://www.w3.org} }
+      { "CSS 1.0"         {http://www.w3.org/TR/CSS1} }
+      { "CSS 2.1"         {http://www.w3.org/TR/CSS21/} }
+      { "HTML 4.01"       {http://www.w3.org/TR/html4/} }
+      { "W3 DOM Pages"    {http://www.w3.org/DOM/} }
+      { "Web Apps 1.0"    {http://www.whatwg.org/specs/web-apps/current-work/} }
+      { "Acid 2 Test"     {http://www.webstandards.org/files/acid2/test.html} }
+
+        } {
+          if {[llength $B] == 1} {
+            set folder [lindex $B 0]
+            $myDb eval { 
+              INSERT INTO folders1(folder_name, folder_hidden)
+                VALUES($folder, 0)
+            }
+            continue
+          }
+
+          foreach {name uri} $B {
+            $myDb eval { 
+              INSERT INTO bookmarks1(
+                bookmark_name, bookmark_uri, bookmark_tags, 
+                bookmark_folder, bookmark_folder_idx) 
+                VALUES($name, $uri, '', $folder, $ii)
+            }
+            incr ii
+          }
+        }
+      }
+    }
+  }
+
+  method GetFolderTemplate {} {return $FolderTemplate}
+  method GetBookmarkTemplate {} {return $BookmarkTemplate}
+
+  method db {} {return $myDb}
+}
+
+proc ::hv3::bookmarks_style {} {
+  return {
+    h1 {
+      text-align:center;
+      font-size: 1.4em;
+      font-weight: normal;
+    }
+    h2 {
+      float: left;
+      width: 45%;
+      border: solid 1px purple;
+      border-right: none;
+      border-bottom: none;
+      color: purple;
+      margin: 2px;
+      background: #CCCCCC;
+      cursor: pointer;
+      font-size: 1.4em;
+    }
+    li {
+      float: left;
+      width: 50%;
+      min-width: 180px;
+    }
+    form {
+      margin: 0;
+    }
+
+    .bookmark[active="true"]:hover {
+       background: white;
+     }
+    .bookmark {
+      cursor:pointer;
+      margin: 1px;
+      padding: 2px 0 2px 15px;
+      background: #EEEEEE;
+      border: solid 2px purple;
+      display: block;
+      position: relative;
+
+      float: left;
+      width: 45%;
+      min-width: 180px;
+    }
+    .bookmark a {
+      text-decoration: none;
+      color: black;
+      display: block;
+    }
+
+    ul {
+      padding: 0;
+      margin: auto auto auto 15px;
+    }
+    .folder {
+      padding: 0px 5px;
+      margin: 0 0 10px 0;
+      width: 100%;
+      display: table;
+      position: relative;
+    }
+
+    #controls {
+      border-bottom: solid black 2px;
+      background: white;
+      position: fixed;
+      top: 0px;
+      left: 0px;
+      right: 0px;
+      z-index: 5;
+    }
+    .edit {
+      display: block;
+      float: right;
+      font-size: small;
+      color: darkblue;
+      text-decoration: underline;
+      font-weight: normal;
+      padding-right: 5px;
+    }
+
+    body {
+      margin-top: 3em;
+    }
+  }
+}
+
+proc ::hv3::bookmarks_script {} {
+  return {
+
+    var drag = new Object()
+    drag.element = undefined
+    drag.interval = undefined
+    drag.x = undefined
+    drag.y = undefined
+    drag.original_x = undefined
+    drag.original_y = undefined
+    drag.isDelete = false
+
+    function controls_mouseover(elem, event) {
+      if (drag.element) {
+        elem.style.background = 'black'
+        drag.isDelete = true
+      }
+    }
+    function controls_mouseout(elem, event) {
+      if (drag.element) {
+        elem.style.background = 'white'
+        drag.isDelete = false
+      }
+    }
+
+    function mouseup_handler (event) {
+      drag.element.style.top = '0px'
+      drag.element.style.left = '0px'
+      drag.element.style.zIndex = 'auto'
+      drag.element.style.backgroundColor = ""
+      clearInterval(drag.interval)
+      document.onmouseup = undefined
+      document.onmousemove = undefined
+
+      if (drag.isDel) {
+        drag.element.parentNode.removeChild(drag.element)
+        hv3_bookmarks.remove(drag.element)
+      } else if (drag.element.onclick == ignore_click) {
+        if (drag.element.className == 'bookmark') {
+          hv3_bookmarks.bookmark_move(drag.element)
+        }
+        if (drag.element.className == 'folder') {
+          hv3_bookmarks.folder_move(drag.element)
+        }
+      }
+      drag.isDel = false
+      drag.element = undefined
+      return 0
+    }
+    function mousemove_handler (event) {
+      drag.x = event.clientX
+      drag.y = event.clientY
+      return 0
+    }
+
+    function ignore_click () {
+      this.onclick = undefined
+      return 0
+    }
+
+    function drag_cache_position(d) {
+      d.drag_x1 = 0
+      d.drag_y1 = 0
+      for (var p = d; p != null; p = p.offsetParent) {
+        d.drag_x1 += p.offsetLeft
+        d.drag_y1 += p.offsetTop
+      }
+      d.drag_x2 = d.drag_x1 + d.offsetWidth
+      d.drag_y2 = d.drag_y1 + d.offsetHeight
+    }
+
+    function drag_makedropmap(elem) {
+      var dlist = document.getElementsByTagName('div');
+      drag.drag_targets = new Array()
+
+      var skip = (elem.className == 'folder') ? 1 : 0
+      for ( var i = 0; i < dlist.length; i++) {
+        var d = dlist[i]
+        if (d != elem && d.className == elem.className) {
+          if (skip) {
+            skip = 0
+            continue
+          }
+          drag_cache_position(d)
+          drag.drag_targets.push(d)
+        }
+      }
+
+      if (elem.className == 'bookmark') {
+        var hlist = document.getElementsByTagName('h2')
+        for ( var i = 0; i < hlist.length; i++) {
+          var h = hlist[i]
+          drag_cache_position(h)
+          drag.drag_targets.push(h)
+        }
+      }
+
+      drag_cache_position(drag.controls)
+    }
+
+    function drag_update() {
+      if (
+         Math.abs(drag.x - drag.original_x) > 5 ||
+         Math.abs(drag.y - drag.original_y) > 5
+      ) {
+        drag.element.onclick = ignore_click
+      }
+      drag.element.style.left = (drag.x - drag.original_x) + 'px'
+      drag.element.style.top  = (drag.y - drag.original_y) + 'px'
+
+      if (!drag.drag_targets) {
+        drag_makedropmap(drag.element)
+      }
+
+      drag_cache_position(drag.element)
+      var cx = (drag.element.drag_x1 + drag.element.drag_x2) / 2
+      var cy = (drag.element.drag_y1 + drag.element.drag_y2) / 2
+
+      var isDel = ((drag.element.drag_y1+5) < drag.controls.drag_y2)
+      if (isDel && !drag.isDel) {
+        drag.element.style.backgroundColor = "black"
+        drag.isDel = isDel
+      } else if (!isDel && drag.isDel) {
+        drag.element.style.backgroundColor = ""
+        drag.isDel = isDel
+      }
+
+      for (var i = 0; i < drag.drag_targets.length; i++) {
+        var a = drag.drag_targets[i]
+        if (a.drag_x1 < cx && a.drag_x2 > cx &&
+            a.drag_y1 < cy && a.drag_y2 > cy
+        ) {
+
+          var x = drag.element.drag_x1
+          var y = drag.element.drag_y1
+
+          var p = a.parentNode
+          if (a.nodeName == "H2") {
+            p = a.nextSibling
+            a = p.firstChild
+          }
+
+          if (drag.element.parentNode == p) {
+            for (var j = 0; j < p.childNodes.length; j++) {
+              var child = p.childNodes[j]
+              if (child == a) {
+                break
+              } else if (child == drag.element) {
+                a = a.nextSibling
+                break
+              }
+            }
+          }
+
+          p.insertBefore(drag.element, a)
+
+          drag_cache_position(drag.element)
+          var sx = drag.element.drag_x1 - x
+          var sy = drag.element.drag_y1 - y
+
+          drag.original_x += sx
+          drag.original_y += sy
+
+          drag.element.style.left = (drag.x - drag.original_x) + 'px'
+          drag.element.style.top  = (drag.y - drag.original_y) + 'px'
+
+          drag_makedropmap(drag.element)
+          break
+        }
+      }
+    }
+
+    function mousedown_handler (elem, event) {
+      drag.element = elem
+      drag.original_x = event.clientX
+      drag.original_y = event.clientY
+      drag.x = event.clientX
+      drag.y = event.clientY
+      drag.element.style.zIndex = 10
+      drag.interval = setInterval(drag_update, 20)
+      document.onmouseup = mouseup_handler
+      document.onmousemove = mousemove_handler
+
+      drag_makedropmap(drag.element)
+      return 0
+    }
+
+    // Toggle visibility of folder contents.
+    //
+    function folder_toggle (folder, event, toggle) {
+      var h2 = folder.childNodes[0]
+      var ul = folder.childNodes[1]
+
+      if (folder.onclick == ignore_click) return
+
+      var isHidden = (1 * folder.getAttribute('folder_hidden'))
+      if (toggle) {
+        isHidden = (isHidden ? 0 : 1)
+        folder.setAttribute('folder_hidden', isHidden)
+        hv3_bookmarks.folder_hidden(folder)
+      }
+
+      if (isHidden) {
+        /* Hide the folder contents */
+        ul.style.display = 'none'
+        ul.style.clear = 'none'
+
+        h2.childNodes[1].innerHTML = '+ '
+        h2.style.width = 'auto'
+        h2.style.cssFloat = 'none'
+
+        folder.style.cssFloat = 'left'
+        folder.style.width = '45%'
+        folder.style.clear = 'none'
+        folder.style.marginBottom = '0'
+      } else {
+        /* Expand the folder contents */
+        ul.style.display = 'table'
+        ul.style.clear = 'both'
+
+        h2.childNodes[1].innerHTML = '- '
+        h2.style.width = '45%'
+        h2.style.cssFloat = 'left'
+
+        folder.style.clear = 'both'
+        folder.style.cssFloat = 'none'
+        folder.style.width = '100%'
+        folder.style.marginBottom = '10px'
+      }
+
+      return 0
+    }
+
+    function bookmark_mousedown(elem, event) {
+      mousedown_handler(elem, event)
+      return 0
+    }
+    function folder_mousedown(elem, event) {
+      mousedown_handler(elem.parentNode, event)
+      return 0
+    }
+
+    function bookmark_submit(elem) {
+      var f = elem.childNodes[2]
+      
+      var new_name = f.n.value
+      var new_uri = f.u.value
+      var new_tags = f.t.value
+
+      elem.setAttribute('bookmark_name', new_name)
+      elem.setAttribute('bookmark_uri',  new_uri)
+      elem.setAttribute('bookmark_tags', new_tags)
+
+      var a = elem.childNodes[1]
+      a.firstChild.data = new_name
+      a.href = new_uri
+
+      hv3_bookmarks.bookmark_edit(elem)
+ 
+      bookmark_edit(elem)
+      return 0
+    }
+
+    function bookmark_edit(elem) {
+      var f = elem.childNodes[2]
+      var d = f.style.display
+      if (d == 'none') {
+        d = 'block'
+        f.n.value = elem.getAttribute('bookmark_name')
+        f.u.value = elem.getAttribute('bookmark_uri')
+        f.t.value = elem.getAttribute('bookmark_tags')
+        f.n.select()
+        f.n.focus()
+        elem.firstChild.firstChild.data = "(cancel)"
+        elem.setAttribute("active", "false")
+      } else {
+        d = 'none'
+        elem.firstChild.firstChild.data = "(edit)"
+        elem.setAttribute("active", "true")
+      }
+      f.style.display = d
+      return 0
+    }
+
+    function folder_submit(elem) {
+      var f = elem.firstChild.childNodes[3]
+      var t = elem.firstChild.childNodes[2]
+      var new_name = f.n.value
+      elem.setAttribute('folder_name', new_name)
+      t.data = new_name
+
+      hv3_bookmarks.folder_edit(elem)
+      folder_edit(elem)
+      return 0
+    }
+
+    function folder_edit(elem) {
+      var ed = elem.firstChild.firstChild
+      var f = elem.firstChild.childNodes[3]
+
+      var d = f.style.display
+      if (d == 'none') {
+        d = 'block'
+        f.n.value = elem.getAttribute('folder_name')
+        f.n.select()
+        f.n.focus()
+        ed.firstChild.data = "(cancel)"
+      } else {
+        d = 'none'
+        ed.firstChild.data = "(edit)"
+      }
+      f.style.display = d
+      return 0
+    }
+
+    function bookmark_new() {
+      hv3_bookmarks.bookmark_new()
+      refresh_content()
+    }
+    function folder_new() {
+      hv3_bookmarks.folder_new()
+      refresh_content()
+    }
+
+    function refresh_content() {
+      drag.content.innerHTML = hv3_bookmarks.get_html_content()
+
+      var dlist = document.getElementsByTagName('div');
+      for ( var i = 0; i < dlist.length; i++) {
+        var d = dlist[i]
+        if (d.className == "folder") {
+          folder_toggle(d, 0, 0)
+        }
+      }
+    }
+
+    window.onload = function () {
+      document.getElementById("display_filter").focus()
+      drag.controls = document.getElementById("controls")
+      drag.content = document.getElementById("content")
+      refresh_content()
+    }
+  }
+}
+
+proc ::hv3::bookmarks_controls {} {
+  return {
+    <TABLE id="controls"><TR>
+      <TD align="center">
+        <INPUT type="button" value="New Folder" onclick="folder_new()">
+      <TD align="center">
+        <INPUT type="button" value="New Bookmark" onclick="bookmark_new()">
+        </INPUT>
+      <TD align="left" width=100%>
+        Display filter:
+        <INPUT type="text" id="display_filter"></INPUT>
+      <TD align="center">
+        <INPUT type="button" disabled=1 value="Undo Last Action"></INPUT>
+    </TABLE>
+  }
+}
+
 # When a URI with the scheme "home:" is requested, this proc is invoked.
 #
 proc ::hv3::home_request {http hv3 dir downloadHandle} {
-  set fname [string range [$downloadHandle cget -uri] 8 end]
-  if {$fname eq ""} {
-      set fname index.html
-      after idle [list ::hv3::home_after_idle $http $hv3]
+
+  # Check if the bookmarks database has been created already.
+  if {[info commands ::hv3::the_bookmark_manager] eq ""} {
+    ::hv3::bookmarkdb ::hv3::the_bookmark_manager ::hv3::sqlitedb
   }
-  set fd   [open [file join $dir $fname]]
-  set data [read $fd]
-  close $fd
-  $downloadHandle append $data
+
+  $downloadHandle append [subst {
+    <HTML>
+    <STYLE>
+      [::hv3::bookmarks_style]
+    </STYLE>
+    <SCRIPT>
+      [::hv3::bookmarks_script]
+    </SCRIPT>
+    <BODY>
+    [::hv3::bookmarks_controls]
+    <H1>HV3 BOOKMARKS SYSTEM</H1>
+    <DIV id=content></DIV>
+  }]
   $downloadHandle finish
 }
 
-proc ::hv3::home_after_idle {http hv3} {
-  return
-  set html [$hv3 html]
+proc ::hv3::compile_bookmarks_object {} {
 
-  foreach node [$html search {span[widget]}] {
-    switch [$node attr widget] {
-      radio_noproxy {
-        set widget [radiobutton ${html}.radio_noproxy]
-        $widget configure -variable ::hv3_home_radio -value noproxy
+# This is a custom object used by the javascript part of the bookmarks
+# appliation to access the database.
+#
+::hv3::dom2::stateless Bookmarks {} {
+  dom_parameter myManager
+
+  dom_call remove {THIS node} {
+    set N [GetNodeFromObj [lindex $node 1]]
+    set db [$myManager db]
+    $db transaction {
+      if {[$N attr class] eq "bookmark"} {
+        set bookmark_id [$N attr bookmark_id]
+        $db eval { DELETE FROM bookmarks1 WHERE bookmark_id = $bookmark_id }
       }
-      radio_configured_proxy {
-        set widget [radiobutton ${html}.radio_configured_proxy]
-        $widget configure -variable ::hv3_home_radio -value proxy
-      }
-      entry_host {
-        set widget [entry ${html}.entry_host -textvar ::hv3_home_host]
-        bind $widget <KeyPress>        ::hv3::home_entervalue
-        bind $widget <KeyPress-Return> ::hv3::home_set_proxy
-        lappend ::hv3::home_widgets $widget
-      }
-      entry_port {
-        set widget [entry ${html}.entry_port -textvar ::hv3_home_port]
-        bind $widget <KeyPress-Return> ::hv3::home_set_proxy
-        lappend ::hv3::home_widgets $widget
+      if {[$N attr class] eq "folder"} {
+        set folder_name [$N attr folder_name]
+        $db eval { DELETE FROM bookmarks1 WHERE bookmark_folder = $folder_name }
+        $db eval { DELETE FROM folders1 WHERE folder_name = $folder_name }
       }
     }
-    $node replace $widget                                  \
-        -deletecmd    [list ::hv3::home_delwidget $widget] \
-        -configurecmd [list ::hv3::home_configure $widget]
   }
-  ::hv3::home_configurewidgets
-}
 
-proc ::hv3::home_configure {widget values} {
-  array set v $values
-  set class [winfo class $widget]
-
-  if {$class eq "Checkbutton" || $class eq "Radiobutton"} {
-    catch { $widget configure -background          $v(background-color) }
-    catch { $widget configure -highlightbackground $v(background-color) }
-    catch { $widget configure -activebackground    $v(background-color) }
-    catch { $widget configure -highlightcolor      $v(background-color) }
-    $widget configure -padx 0 -pady 0
-  }
-  catch { $widget configure -font $v(font) }
-
-  $widget configure -borderwidth 0
-  $widget configure -highlightthickness 0
-  catch { $widget configure -selectborderwidth 0 } 
-
-  set font [$widget cget -font]
-  set descent [font metrics $font -descent]
-  set ascent  [font metrics $font -ascent]
-  set drop [expr ([winfo reqheight $widget] + $descent - $ascent) / 2]
-  return $drop
-}
-
-proc ::hv3::home_set_proxy {args} {
-  switch $::hv3_home_radio {
-    proxy {
-      set val normal
-      ::http::config -proxyhost $::hv3_home_host
-      ::http::config -proxyport $::hv3_home_port
-      set ::hv3::home_entervalue_color black
+  dom_call bookmark_edit {THIS node} {
+    set N [GetNodeFromObj [lindex $node 1]]
+    foreach v {bookmark_id bookmark_name bookmark_uri bookmark_tags} {
+      set $v [$N attribute $v]
     }
-    noproxy {
-      ::http::config -proxyhost ""
-      ::http::config -proxyport ""
+    set db [$myManager db]
+    $db eval {
+      UPDATE bookmarks1 SET bookmark_name = $bookmark_name,
+                            bookmark_uri = $bookmark_uri,
+                            bookmark_tags = $bookmark_tags
+      WHERE bookmark_id = $bookmark_id
+    }
+    list string "Undo Edit Bookmark"
+  }
+
+  dom_call bookmark_move {THIS node} {
+    set N [GetNodeFromObj [lindex $node 1]]
+    set P [$N parent]
+    set F [[$N parent] parent]
+
+    set bookmark_folder [$F attr folder_name]
+
+    set db [$myManager db]
+    $db transaction {
+      set iMax [$db onecolumn {
+        SELECT max(bookmark_folder_idx) 
+        FROM bookmarks1 
+        WHERE bookmark_folder = $bookmark_folder
+      }]
+      if {$iMax eq ""} {set iMax 1}
+ 
+      foreach child [$P children] {
+        set bookmark_id [$child attr bookmark_id]
+        incr iMax
+        $db eval {
+          UPDATE bookmarks1 
+          SET bookmark_folder = $bookmark_folder, bookmark_folder_idx = $iMax
+          WHERE bookmark_id = $bookmark_id
+        }
+      }
     }
   }
-  ::hv3::home_configurewidgets
-  ::http::config -useragent {Mozilla/5.0 Gecko/20050513}
-}
 
-proc ::hv3::home_configurewidgets {} {
-  set state normal
-  if {$::hv3_home_radio eq "noproxy"} {set state disabled}
-  foreach widget $::hv3::home_widgets {
-    $widget configure -state $state -foreground $::hv3::home_entervalue_color
+  dom_call folder_move {THIS node} {
+    set N [GetNodeFromObj [lindex $node 1]]
+    set P [$N parent]
+
+    set db [$myManager db]
+    $db transaction {
+      set iMax [$db onecolumn {
+        SELECT max(folder_id) FROM folders1 
+      }]
+      if {$iMax eq ""} {set iMax 1}
+ 
+      foreach child [$P children] {
+        if {[catch {set folder_id [$child attr folder_id]}]} continue
+        incr iMax
+        $db eval {
+          UPDATE folders1 SET folder_id = $iMax WHERE folder_id = $folder_id
+        }
+      }
+    }
+  }
+
+  dom_call folder_edit {THIS node} {
+    set N [GetNodeFromObj [lindex $node 1]]
+    foreach v {folder_id folder_name} {
+      set $v [$N attribute $v]
+    }
+    set db [$myManager db]
+    $db transaction {
+    $db eval {
+      UPDATE bookmarks1 SET bookmark_folder = $folder_name
+      WHERE bookmark_folder = 
+          (SELECT folder_name FROM folders1 WHERE folder_id = $folder_id);
+
+      UPDATE folders1 SET folder_name = $folder_name
+      WHERE folder_id = $folder_id;
+      }
+    }
+    list string "Undo Edit Bookmark"
+  }
+
+  dom_call folder_hidden {THIS node} {
+    set N [GetNodeFromObj [lindex $node 1]]
+    foreach v {folder_id folder_hidden} {
+      set $v [$N attribute $v]
+    }
+    set db [$myManager db]
+    $db eval {
+      UPDATE folders1 SET folder_hidden = $folder_hidden
+      WHERE folder_id = $folder_id;
+    }
+  }
+
+  dom_call bookmark_new {THIS} {
+    set db [$myManager db]
+    $db eval {
+      INSERT INTO bookmarks1 (
+        bookmark_name, bookmark_uri, bookmark_tags, 
+        bookmark_folder, bookmark_folder_idx
+      ) VALUES(
+        'New Bookmark', '', '', '', (
+          SELECT min(bookmark_folder_idx)-1 FROM bookmarks1
+        )
+      )
+    }
+  }
+
+  dom_call folder_new {THIS} {
+    set db [$myManager db]
+
+    set rc 1
+    set msg "column folder_name is not unique"
+
+    set idx 1
+    while {$rc && $msg eq "column folder_name is not unique"} {
+      set rc [catch {
+        $db eval {
+          INSERT INTO folders1 (
+            folder_id, folder_name, folder_hidden 
+          ) VALUES(
+            (SELECT min(folder_id)-1 FROM folders1), 'New Folder ' || $idx, 0
+          );
+        }
+      } msg]
+      incr idx
+    }
+
+  }
+
+  dom_call get_html_content {THIS} {
+    set ret ""
+
+    set BookmarkTemplate [$myManager GetBookmarkTemplate]
+    set FolderTemplate [$myManager GetFolderTemplate]
+
+    set sql { 
+      SELECT 
+      bookmark_id, bookmark_name, bookmark_uri, bookmark_tags, 
+      bookmark_folder, bookmark_folder_idx, 
+      0 AS folder_id, 0 AS folder_hidden
+      FROM bookmarks1 WHERE bookmark_folder = ''
+
+      UNION ALL
+
+      SELECT 
+      bookmark_id, bookmark_name, bookmark_uri, bookmark_tags, 
+      folder_name AS bookmark_folder, bookmark_folder_idx, folder_id, 
+      folder_hidden
+      FROM folders1 LEFT JOIN bookmarks1 ON (bookmark_folder = folder_name)
+
+      ORDER BY folder_id, bookmark_folder_idx
+    }
+
+    set current_folder null
+    [$myManager db] eval $sql {
+
+      set bookmark_folder [htmlize $bookmark_folder]
+
+      if {$bookmark_folder ne $current_folder} {
+        if {$current_folder ne "null"} {
+          append ret "</UL></DIV>"
+        }
+
+        set folder_name $bookmark_folder
+        set folder_display block
+        set content_display block
+        set folder_marker -
+        if {$folder_hidden} {
+          set content_display none
+          set folder_marker +
+        }
+        if {$bookmark_folder eq ""} {set folder_display none}
+
+        append ret [subst -nocommands $FolderTemplate]
+        set current_folder $bookmark_folder
+      }
+
+      if {$bookmark_id ne ""} {
+        set bookmark_name [htmlize $bookmark_name]
+        set bookmark_uri  [htmlize $bookmark_uri]
+        set bookmark_id   [htmlize $bookmark_id]
+        set bookmark_tags [htmlize $bookmark_tags]
+        append ret [subst -nocommands $BookmarkTemplate]
+      }
+    }
+
+    list string $ret
   }
 }
 
-proc ::hv3::home_entervalue {args} {
-  if {$::hv3::home_entervalue_color eq "red"} return
-  set ::hv3::home_entervalue_color red
-  foreach widget $::hv3::home_widgets {
-    $widget configure -foreground $::hv3::home_entervalue_color
-  }
+eval [::hv3::dom2::compile Bookmarks]
+
 }
 
-proc ::hv3::home_delwidget {widget} {
-  set idx [lsearch $::hv3::home_widgets $widget]
-  if {$idx >= 0} {
-    set ::hv3::home_widgets [lreplace $::hv3::home_widgets $idx $idx]
-  }
-  destroy $widget
-}
-
-set ::hv3::home_widgets [list]
-set ::hv3::home_entervalue_color black
-set ::hv3_home_radio proxy
-set ::hv3_home_host localhost
-set ::hv3_home_port 8123
-
-# ::hv3::home_set_proxy
-# trace add variable ::hv3_home_radio write ::hv3::home_set_proxy
 

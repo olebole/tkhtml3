@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.42 2007/07/10 11:00:05 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.43 2007/07/12 15:41:56 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd script used with 
@@ -38,6 +38,8 @@ snit::type ::hv3::protocol {
   # Lists of waiting and in-progress http URI download-handles.
   variable myWaitingHandles    [list]
   variable myInProgressHandles [list]
+
+  variable myTokenMap -array [list]
  
   # If not set to an empty string, contains the name of a global
   # variable to set to a short string describing the state of
@@ -77,12 +79,13 @@ snit::type ::hv3::protocol {
       ::hv3::cookiemanager $myCookieManager
     }
 
-    # Register the 4 types of URIs the ::hv3::protocol code knows about.
-    # Note that https:// URIs require the "tls" package.
+    # Register the 4 basic types of URIs the ::hv3::protocol code knows about.
     $self schemehandler file  ::hv3::request_file
     $self schemehandler http  [mymethod request_http]
     $self schemehandler data  [mymethod request_data]
     $self schemehandler blank [mymethod request_blank]
+
+    # If the tls package is loaded, we can also support https.
     if {[info commands ::tls::socket] ne ""} {
       $self schemehandler https [mymethod request_https]
       ::http::register https 443 [list ::hv3::protocol SSocket]
@@ -178,16 +181,24 @@ snit::type ::hv3::protocol {
     if {$mimetype ne "" && ![string match text* $mimetype]} {
       lappend geturl -binary 1
     }
+
     
     set token [eval $geturl]
+    $self AddToWaitingList $downloadHandle
+    set myTokenMap($downloadHandle) $token
 #puts "REQUEST $geturl -> $token"
+  }
+
+  method AddToWaitingList {downloadHandle} {
+    if {[lsearch -exact $myWaitingHandles $downloadHandle] >= 0} return
 
     # Add this handle the the waiting-handles list. Also add a callback
     # to the -failscript and -finscript of the object so that it 
     # automatically removes itself from our lists (myWaitingHandles and
     # myInProgressHandles) after the retrieval is complete.
+    #
     lappend myWaitingHandles $downloadHandle
-    $downloadHandle destroy_hook [mymethod FinishRequest $downloadHandle $token]
+    $downloadHandle destroy_hook [mymethod FinishRequest $downloadHandle]
     $self Updatestatusvar
   }
 
@@ -210,6 +221,8 @@ snit::type ::hv3::protocol {
 
     set proxyhost [::http::config -proxyhost]
     set proxyport [::http::config -proxyport]
+
+    $self AddToWaitingList $downloadHandle
 
     if {$proxyhost eq ""} {
       set fd [socket -async $host $port]
@@ -293,15 +306,17 @@ snit::type ::hv3::protocol {
     }
   }
 
-
-  method FinishRequest {downloadHandle token} {
+  method FinishRequest {downloadHandle} {
     if {[set idx [lsearch $myInProgressHandles $downloadHandle]] >= 0} {
       set myInProgressHandles [lreplace $myInProgressHandles $idx $idx]
     }
     if {[set idx [lsearch $myWaitingHandles $downloadHandle]] >= 0} {
       set myWaitingHandles [lreplace $myWaitingHandles $idx $idx]
     }
-    ::http::reset $token
+    if {[info exists myTokenMap($downloadHandle)]} {
+      ::http::reset $myTokenMap($downloadHandle);
+      unset myTokenMap($downloadHandle)
+    }
     $self Updatestatusvar
   }
 

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.26 2007/07/10 09:11:04 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.27 2007/07/12 15:41:56 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Html
@@ -247,9 +247,11 @@ namespace eval ::hv3::DOM {
   #
   dom_get offsetParent { 
     set N [HTMLElement_offsetParent $myNode]
-    set ret null
-    if {$N ne ""} { list object [$myDom node_to_dom $N] }
-    set ret
+    if {$N ne ""} { 
+      list object [$myDom node_to_dom $N] 
+    } else {
+      list null
+    }
   }
   
   # Implementation of Gecko/DHTML compatibility properties for 
@@ -463,7 +465,7 @@ namespace eval ::hv3::DOM {
   # The HTMLFormElement.elements array.
   #
   dom_get elements {
-    set cmd [subst -nocommands {[$myNode replace] controls}]
+    set cmd [subst -nocommands {lrange [::hv3::get_form_nodes $myNode] 1 end}]
     list object [list ::hv3::DOM::HTMLCollectionC $myDom $cmd]
   }
 

@@ -1050,10 +1050,11 @@ makeObjectPersistent(pTclSeeInterp, pCommand)
 }
 
 static int
-objToValue(pInterp, pObj, pValue)
+objToValue(pInterp, pObj, pValue, pIsCacheable)
     SeeInterp *pInterp;
     Tcl_Obj *pObj;                  /* IN: Tcl js value */
     struct SEE_value *pValue;       /* OUT: Parsed value */
+    int *pIsCacheable;              /* OUT: Cacheable? */
 {
     int rc;
     int nElem = 0;
@@ -1064,6 +1065,16 @@ objToValue(pInterp, pObj, pValue)
     rc = Tcl_ListObjGetElements(pTclInterp, pObj, &nElem, &apElem);
     if (rc == TCL_OK) {
         assert(nElem == 0 || 0 != strcmp("", Tcl_GetString(pObj)));
+
+        /* Check if the first word is "cache" */
+        if (pIsCacheable) {
+            *pIsCacheable = 0;
+            if (nElem > 0 && 0 == strcmp("cache", Tcl_GetString(apElem[0]))) {
+                *pIsCacheable = 1;
+                nElem--;
+                apElem++;
+            }
+        }
 
         if (nElem == 0) {
             SEE_SET_UNDEFINED(pValue);
@@ -1706,7 +1717,7 @@ interpCmd(clientData, pTclInterp, objc, objv)
         case INTERP_TOSTRING: {
             struct SEE_value val;
             struct SEE_value res;
-            objToValue(pTclSeeInterp, objv[2], &val);
+            objToValue(pTclSeeInterp, objv[2], &val, 0);
             SEE_ToString(pSeeInterp, &val, &res);
             Tcl_SetObjResult(pTclInterp, stringToObj(res.u.string));
             break;
@@ -1956,7 +1967,7 @@ tclCallOrConstruct(zMethod, pInterp, pObj, pThis, argc, argv, pRes)
     removeTransientRefs(pTclSeeInterp, nObj);
     throwTclError(pInterp, rc);
 
-    rc = objToValue(pTclSeeInterp, Tcl_GetObjResult(pTclInterp), pRes);
+    rc = objToValue(pTclSeeInterp, Tcl_GetObjResult(pTclInterp), pRes, 0);
     throwTclError(pInterp, rc);
 }
 
@@ -1974,6 +1985,7 @@ SeeTcl_Get(pInterp, pObj, pProp, pRes)
 
     Tcl_Obj *pScriptRes;
     int rc;
+    int isCacheable = 0;
 
     /* Test if the requested property is stored in the pNative object.
      * If so, return this value instead of evaluating a Tcl script.
@@ -1995,9 +2007,13 @@ SeeTcl_Get(pInterp, pObj, pProp, pRes)
     throwTclError(pInterp, rc);
     pScriptRes = Tcl_GetObjResult(pTclInterp);
     Tcl_IncrRefCount(pScriptRes);
-    rc = objToValue(pTclSeeInterp, pScriptRes, pRes);
+    rc = objToValue(pTclSeeInterp, pScriptRes, pRes, &isCacheable);
     Tcl_DecrRefCount(pScriptRes);
     throwTclError(pInterp, rc);
+
+    if (isCacheable) {
+        SEE_native_put(pInterp, pNative, pProp, pRes, SEE_ATTR_INTERNAL);
+    }
 }
 
 static void 
@@ -2111,7 +2127,7 @@ SeeTcl_DefaultValue(pInterp, pObj, pHint, pRes)
 
     rc = callSeeTclMethod(pTclInterp, 0, pObject, "DefaultValue", 0, 0);
     if (rc == TCL_OK) {
-        objToValue(pTclSeeInterp, Tcl_GetObjResult(pTclInterp), pRes);
+        objToValue(pTclSeeInterp, Tcl_GetObjResult(pTclInterp), pRes, 0);
     } else {
         struct SEE_string *pString;
         pString = SEE_string_sprintf(

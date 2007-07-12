@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.73 2007/07/10 09:11:04 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.74 2007/07/12 15:41:56 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -1080,9 +1080,10 @@ snit::widget ::hv3::forms::fileselect {
     if {[$myNode attr -default 0 disabled]} return
 
     set cmd $options(-clickcmd)
-    if {$cmd ne ""} {
+    set formnode [::hv3::control_to_form $myNode]
+    if {$cmd ne "" && $formnode ne ""} {
       set myClicked 1
-      eval $cmd
+      eval [[$formnode replace] $cmd $self]
       set myClicked 0
     }
   }
@@ -1226,13 +1227,6 @@ snit::type ::hv3::form {
   # <FORM> element that corresponds to this object.
   variable myFormNode 
 
-  # List of elements (node-handles) that create controls that 
-  # correspond to this form.
-  variable myControlNodes [list] 
-
-  # Subset of control elements storing all <input type=submit> controls
-  variable mySubmitControls [list]
-
   variable myHv3
 
   option -getcmd  -default ""
@@ -1246,24 +1240,40 @@ snit::type ::hv3::form {
 
   destructor { }
 
-  method add_control {node isSubmit} {
-    lappend myControlNodes $node
-    if {$isSubmit} {
-      set control [$node replace]
-      lappend mySubmitControls $control
-    }
-  }
-
   # Return a list of control nodes associated with this form.
   #
   method controls {} {
     return [lrange [::hv3::get_form_nodes $myFormNode] 1 end]
   }
 
-  method reset {} {
-    foreach c $myControlNodes {
+  method reset {resetcontrol} {
+    foreach c [lrange [::hv3::get_form_nodes] 1 end] {
       [$c replace] reset
     }
+  }
+
+  method ControlNodes {} {
+    set ret [list]
+    foreach c [lrange [::hv3::get_form_nodes] 1 end] {
+      set tag [string toupper [$c tag]]
+      set type [string toupper [$c attr -default "" type]]
+      if {$tag ne "INPUT" || $type ne "SUBMIT"} {
+        lappend ret $c
+      }
+    }
+    set ret
+  }
+
+  method SubmitNodes {} {
+    set ret [list]
+    foreach c [lrange [::hv3::get_form_nodes] 1 end] {
+      set tag [string toupper [$c tag]]
+      set type [string toupper [$c attr -default "" type]]
+      if {$tag eq "INPUT" && $type eq "SUBMIT"} {
+        lappend ret $c
+      }
+    }
+    set ret
   }
 
   method submit {submitcontrol} {
@@ -1274,14 +1284,17 @@ snit::type ::hv3::form {
     #
     set rc [[$myHv3 dom] event onsubmit $myFormNode]
     if {$rc eq "prevent"} return
+    if {$rc eq "error"} return
+
+    set SubmitControls [$self SubmitNodes]
+    set Controls       [$self ControlNodes]
 
     set data [list]
-
     if {
-        [lsearch $mySubmitControls $submitcontrol] < 0 &&
-        [llength $mySubmitControls] > 0
+        [lsearch $SubmitControls $submitcontrol] < 0 &&
+        [llength $SubmitControls] > 0
     } {
-      foreach s $mySubmitControls {
+      foreach s $SubmitControls {
         if {[$s name] ne ""} {
           lappend data [$s name]
           lappend data 1
@@ -1290,7 +1303,7 @@ snit::type ::hv3::form {
       }
     }
 
-    foreach controlnode $myControlNodes {
+    foreach controlnode $Controls {
       set control [$controlnode replace]
       set success [$control success]
       set name    [$control name]
@@ -1315,7 +1328,7 @@ snit::type ::hv3::form {
       set querytype "multipart/form-data ; boundary=$bound"
       set querydata ""
       set CR "\r\n"
-      foreach controlnode $myControlNodes {
+      foreach controlnode $Controls {
         set control [$controlnode replace]
         if {[$control success]} {
 
@@ -1347,7 +1360,7 @@ snit::type ::hv3::form {
       POST    { set script $options(-postcmd) }
       ISINDEX { 
         set script $options(-getcmd) 
-        set control [[lindex $myControlNodes 0] replace]
+        set control [[lindex $Controls 0] replace]
         set querydata [::hv3::format_query [$control value]]
       }
       default { set script "" }
@@ -1414,14 +1427,6 @@ snit::type ::hv3::formmanager {
   option -getcmd  -default ""
   option -postcmd -default ""
 
-  # Each time the parser sees a <form> tag, the following
-  # variable is set to the created node handle. Subsequent controls
-  # are associated with this <form> element up until the point at
-  # which another <form> is encountered.
-  #
-  # </form> tags are completely ignored.
-  variable myParsedForm ""
-
   # Map from node-handle to ::hv3::clickcontrol object for all clickable
   # form controls currently managed by this form-manager.
   variable myClickControls -array [list]
@@ -1443,7 +1448,7 @@ snit::type ::hv3::formmanager {
     $myHtml handler node select    [mymethod control_handler]
     $myHtml handler script isindex [list ::hv3::isindex_handler $hv3]
 
-    $myHtml handler parse form [mymethod FormHandler]
+    $myHtml handler node form [mymethod FormHandler]
 
     # Subscribe to mouse-clicks (for the benefit of ::hv3::clickcontrol
     # instances).
@@ -1453,8 +1458,7 @@ snit::type ::hv3::formmanager {
   # FormHandler
   #
   #     A Tkhtml parse-handler for <form> and </form> tags.
-  method FormHandler {node offset} {
-    set myParsedForm $node
+  method FormHandler {node} {
     set myForms($node) [::hv3::form %AUTO% $node $myHv3]
     $myForms($node) configure -getcmd $options(-getcmd)
     $myForms($node) configure -postcmd $options(-postcmd)
@@ -1490,11 +1494,6 @@ snit::type ::hv3::formmanager {
     set zWinPath ${myHtml}.control_[string map {: _} $node]
     set isSubmit 0
 
-    set formnode $myParsedForm
-
-    set form ""
-    if {$formnode ne ""} {set form $myForms($formnode)}
-
     set tag [string tolower [$node tag]]
     set type ""
     if {$tag eq "input"} {
@@ -1517,7 +1516,7 @@ snit::type ::hv3::formmanager {
         set control [::hv3::clickcontrol %AUTO% $node]
         set myClickControls($node) $control
         if {$form ne ""} { 
-          $control configure -clickcmd [list $form submit $control] 
+          $control configure -clickcmd submit
         }
         set isSubmit 1
       }
@@ -1525,13 +1524,13 @@ snit::type ::hv3::formmanager {
         set control [::hv3::clickcontrol %AUTO% $node]
         set myClickControls($node) $control
         if {$form ne ""} { 
-          $control configure -clickcmd [list $form submit $control] 
+          $control configure -clickcmd submit
         }
         set isSubmit 1
       }
       input.reset {
         set control [::hv3::clickcontrol %AUTO% $node]
-        if {$form ne ""} { $control configure -clickcmd [list $form reset] }
+        if {$form ne ""} { $control configure -clickcmd reset }
         set myClickControls($node) $control
       }
       input.button {
@@ -1576,9 +1575,6 @@ snit::type ::hv3::formmanager {
         -stylecmd     [list $control stylecmd]     \
         -deletecmd    $deletecmd
 
-    if {$formnode ne ""} {
-      $myForms($formnode) add_control $node $isSubmit
-    }
   }
 
   destructor {

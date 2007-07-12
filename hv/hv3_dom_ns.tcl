@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.19 2007/07/10 09:11:04 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.20 2007/07/12 15:41:56 danielk1977 Exp $)} 1 }
 
 #---------------------------------
 # List of DOM objects in this file:
@@ -253,7 +253,7 @@ namespace eval ::hv3::DOM {
   # The "navigator" object.
   #
   dom_get navigator { 
-    list object [list ::hv3::DOM::Navigator $myDom]
+    list cache transient [list ::hv3::DOM::Navigator $myDom]
   }
 
   #-----------------------------------------------------------------------
@@ -324,6 +324,16 @@ namespace eval ::hv3::DOM {
 
   dom_call -string jsputs {THIS args} {
     puts $args
+  }
+
+  dom_get hv3_bookmarks {
+    set frame [winfo parent $myHv3]
+    set top [$frame top_frame]
+    if {[string first home: [[$frame hv3] uri get]] == 0} {
+      list object [list ::hv3::DOM::Bookmarks $myDom ::hv3::the_bookmark_manager]
+    } else {
+      list
+    }
   }
 }
 

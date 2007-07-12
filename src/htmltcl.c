@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.174 2007/07/10 11:00:06 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.175 2007/07/12 15:41:56 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -501,20 +501,23 @@ callbackHandler(clientData)
         if (!pTree->cb.pSnapshot) {
             pTree->cb.flags |= HTML_NODESCROLL;
         }
-    }
-    /* pTree->cb.flags &= ~HTML_LAYOUT; */
 
-    if (0 && pTree->cb.isForce) {
-        assert(pTree->cb.inProgress);
-        pTree->cb.inProgress = 0;
-        return;
+        doScrollCallback(pTree);
     }
+    pTree->cb.flags &= ~HTML_LAYOUT;
 
     if (pTree->cb.pSnapshot) {
         HtmlCanvasSnapshot *pSnapshot = 0;
         HtmlDrawSnapshotDamage(pTree, pTree->cb.pSnapshot, &pSnapshot);
         HtmlDrawSnapshotFree(pTree, pTree->cb.pSnapshot);
-        pTree->cb.pSnapshot = pSnapshot;
+        HtmlDrawSnapshotFree(pTree, pSnapshot);
+        pTree->cb.pSnapshot = 0;
+    }
+
+    if (pTree->cb.isForce) {
+        assert(pTree->cb.inProgress);
+        pTree->cb.inProgress = 0;
+        return;
     }
 
     /* If the HTML_DAMAGE flag is set, repaint one or more window regions. */
@@ -538,10 +541,6 @@ callbackHandler(clientData)
         }
     }
 
-    /* Clear the current layout snapshot, if any. */
-    HtmlDrawSnapshotFree(pTree, pTree->cb.pSnapshot);
-    pTree->cb.pSnapshot = 0;
-
     /* If the HTML_SCROLL flag is set, scroll the viewport. */
     if (pTree->cb.flags & HTML_SCROLL) {
         clock_t scrollClock = 0;              
@@ -556,7 +555,7 @@ callbackHandler(clientData)
         HtmlLog(pTree, "TIMING", "SetViewport: clicks=%d", scrollClock);
     }
 
-    if (pTree->cb.flags & (HTML_SCROLL|HTML_LAYOUT)) {
+    if (pTree->cb.flags & (HTML_SCROLL)) {
         doScrollCallback(pTree);
     }
 
@@ -623,9 +622,10 @@ HtmlCallbackForce(pTree)
     ) {
         ClientData clientData = (ClientData)pTree;
         assert(!pTree->cb.isForce);
-        pTree->cb.isForce = 1;
+        pTree->cb.isForce++;
         callbackHandler(clientData);
-        pTree->cb.isForce = 0;
+        pTree->cb.isForce--;
+        assert(pTree->cb.isForce >= 0);
         if (pTree->cb.flags == 0) {
             Tcl_CancelIdleCall(callbackHandler, clientData);
         }
@@ -1502,7 +1502,13 @@ resetCmd(clientData, interp, objc, objv)
     doLoadDefaultStyle(pTree);
     pTree->isParseFinished = 0;
     pTree->isSequenceOk = 1;
-    pTree->eWriteState = HTML_WRITE_NONE;
+    if (pTree->eWriteState == HTML_WRITE_WAIT || 
+        pTree->eWriteState == HTML_WRITE_NONE
+    ) {
+        pTree->eWriteState = HTML_WRITE_NONE;
+    } else {
+        pTree->eWriteState = HTML_WRITE_INHANDLERRESET;
+    }
     return TCL_OK;
 }
 
@@ -1620,19 +1626,11 @@ parseCmd(clientData, interp, objc, objv)
         return TCL_ERROR;
     }
 
-
-    /* Add the new text to the internal cache of the document. Also tokenize
-     * it and add the new HtmlToken objects to the HtmlTree.pFirst/pLast 
-     * linked list.
-     */
+    /* Add the new text to the internal cache of the document. */
     HtmlTokenizerAppend(pTree, zHtml, nHtml, isFinal);
     if (isFinal) {
         HtmlInitTree(pTree);
         pTree->isParseFinished = 1;
-        assert(
-            pTree->eWriteState == HTML_WRITE_NONE ||
-            pTree->eWriteState == HTML_WRITE_WAIT
-        );
         if (pTree->eWriteState == HTML_WRITE_NONE) {
             HtmlFinishNodeHandlers(pTree);
         }

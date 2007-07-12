@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.27 2007/07/06 11:01:13 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.28 2007/07/12 15:41:56 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file implements infrastructure used to create the [proc] definitions
@@ -550,14 +550,14 @@ namespace eval ::hv3::dom2 {
 
       if {$isConstructor} {
         set code [subst -nocommands {
-          list object [list \
+          list cache transient [list \
             ::hv3::dom::TclConstructable \
             [[set myDom] see] [list $procname [set myDom] $SET_PARAMS]
           ]
         }]
       } else {
         set code [subst -nocommands {
-          list object [list \
+          list cache transient [list \
             ::hv3::dom::TclCallableProc \
             [[set myDom] see] $isString [list $procname [set myDom] $SET_PARAMS]
           ]
@@ -584,15 +584,23 @@ namespace eval ::hv3::dom2 {
   }
 
   method CompileHasProperty {mixins} {
-    set l [list]
-    foreach t [concat $mixins $self] {
-      foreach {key code} [concat [$t call] [$t get]] {
-        lappend l $key
+    if {[info exists myGet(*)]} {
+      return [subst -nocommands {
+        return [expr {[eval [SELF] Get [set args]] ne ""}]
+      }]
+    } else {
+
+      set l [list]
+      foreach t [concat $mixins $self] {
+        foreach {key code} [concat [$t call] [$t get]] {
+          lappend l $key
+        }
       }
+      return [subst -nocommands {
+        return [expr [lsearch {$l} [lindex [set args] 0]]>=0]
+      }]
+
     }
-    return [subst -nocommands {
-      return [expr [lsearch {$l} [lindex [set args] 0]]>=0]
-    }]
   }
 
   method CompileEvents {mixins} {
