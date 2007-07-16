@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.12 2007/07/16 09:20:52 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.13 2007/07/16 09:58:01 danielk1977 Exp $)} 1 }
 
 # Register the about: scheme handler with ::hv3::protocol $protocol.
 #
@@ -395,6 +395,14 @@ proc ::hv3::bookmarks_script {} {
             drag.drag_targets.push(h)
           }
         }
+
+        hlist = document.getElementsByTagName('h1')
+        for ( var i = 0; i < hlist.length; i++) {
+          var h = hlist[i]
+          drag_cache_position(h)
+          h.drag_y2 += 15
+          drag.drag_targets.push(h)
+        }
       }
 
       drag_cache_position(drag.controls)
@@ -439,6 +447,9 @@ proc ::hv3::bookmarks_script {} {
           var p = a.parentNode
           if (a.nodeName == "H2") {
             p = a.nextSibling
+            a = p.firstChild
+          } else if (a.nodeName == "H1") {
+            p = app.nofolder.childNodes[1]
             a = p.firstChild
           }
 
@@ -655,6 +666,7 @@ proc ::hv3::bookmarks_script {} {
       drag.controls = document.getElementById("controls")
       drag.content = document.getElementById("content")
       refresh_content()
+      app.nofolder = document.getElementById("")
       setInterval(check_refresh_content, 2000)
     }
   }
