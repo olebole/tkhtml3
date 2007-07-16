@@ -20,6 +20,8 @@ LI[type="disc"]      { list-style-type : disc   }
 
 OL, UL, DIR, MENU, DD  { padding-left: 40px ; margin-left: 1em }
 
+OL[type]         { list-style-type : tcl(::tkhtml::ol_liststyletype) }
+
 NOBR {
   white-space: nowrap;
 }

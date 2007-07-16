@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.13 2007/07/16 09:58:01 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.14 2007/07/16 15:35:49 danielk1977 Exp $)} 1 }
 
 # Register the about: scheme handler with ::hv3::protocol $protocol.
 #
@@ -97,7 +97,7 @@ proc ::hv3::home_scheme_init {hv3 protocol} {
        >
           <TABLE width=100%>
             <TR><TD>Name: <TD width=100%><INPUT width=90% name=n></INPUT>
-            <TR><TD>Uri:  <TD><INPUT width=90% name=u></INPUT>
+            <TR><TD>URI:  <TD><INPUT width=90% name=u></INPUT>
             <TR><TD>Tags: <TD><INPUT width=90% name=t></INPUT>
           </TABLE>
         </FORM>
@@ -146,6 +146,7 @@ proc ::hv3::home_scheme_init {hv3 protocol} {
         set ii 0
         foreach B {
       { "Hv3 User Manual"         {home://man} }
+      { "Hv3 Programmers Manual"  {home://dom} }
 
       { "Tkhtml and Hv3 Related" }
       { "tkhtml.tcl.tk"         {http://tkhtml.tcl.tk} }
@@ -227,7 +228,6 @@ proc ::hv3::home_scheme_init {hv3 protocol} {
 proc ::hv3::bookmarks_style {} {
   return {
     h1 {
-      text-align:center;
       font-size: 1.4em;
       font-weight: normal;
     }
@@ -646,6 +646,7 @@ proc ::hv3::bookmarks_script {} {
     function refresh_content() {
       drag.content.innerHTML = hv3_bookmarks.get_html_content()
       app.version = hv3_bookmarks.get_version()
+      app.nofolder = document.getElementById("")
 
       var dlist = document.getElementsByTagName('div');
       for ( var i = 0; i < dlist.length; i++) {
@@ -666,7 +667,6 @@ proc ::hv3::bookmarks_script {} {
       drag.controls = document.getElementById("controls")
       drag.content = document.getElementById("content")
       refresh_content()
-      app.nofolder = document.getElementById("")
       setInterval(check_refresh_content, 2000)
     }
   }
@@ -684,8 +684,10 @@ proc ::hv3::bookmarks_controls {} {
         <INPUT type="button" disabled=1 value="Undo Last Action"></INPUT>
       <TD align="left" style="padding-left:15px">
         Filter:
-      <TD align="left" width=100%>
-        <INPUT width=90% type="text" id="searchbox"></INPUT>
+      <TD align="left" width=100% style="padding-right:2px">
+         <INPUT width=100% type="text" id="searchbox"></INPUT>
+      <TD align="center">
+        <INPUT type="button" disabled=1 value="Clear"></INPUT>
     </TABLE>
   }
 }
@@ -704,7 +706,7 @@ proc ::hv3::home_request {http hv3 dir downloadHandle} {
     </SCRIPT>
     <BODY>
     [::hv3::bookmarks_controls]
-    <H1>HV3 BOOKMARKS SYSTEM</H1>
+    <H1>BOOKMARKS:</H1>
     <DIV id=content></DIV>
   }]
   $downloadHandle finish
@@ -890,16 +892,21 @@ proc ::hv3::compile_bookmarks_object {} {
       ORDER BY folder_id, bookmark_folder_idx
     }
 
-    set current_folder null
+    set current_folder ""
+    set folder_name ""
+    set folder_id ""
+    set folder_hidden 0
+    set folder_display none
+    set content_display block
+    set folder_marker -
+    append ret [subst -nocommands $FolderTemplate]
+    
     [$myManager db] eval $sql {
 
       set bookmark_folder [htmlize $bookmark_folder]
 
       if {$bookmark_folder ne $current_folder} {
-        if {$current_folder ne "null"} {
-          append ret "</UL></DIV>"
-        }
-
+        append ret "</UL></DIV>"
         set folder_name $bookmark_folder
         set folder_display block
         set content_display block
@@ -908,7 +915,6 @@ proc ::hv3::compile_bookmarks_object {} {
           set content_display none
           set folder_marker +
         }
-        if {$bookmark_folder eq ""} {set folder_display none}
 
         append ret [subst -nocommands $FolderTemplate]
         set current_folder $bookmark_folder

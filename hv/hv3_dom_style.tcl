@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_style.tcl,v 1.11 2007/07/12 15:41:56 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_style.tcl,v 1.12 2007/07/16 15:35:48 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # DOM Level 2 Style.
@@ -104,10 +104,11 @@ set ::hv3::DOM::CSS2Properties_simple(border-top-width)    borderTopWidth
 set ::hv3::DOM::CSS2Properties_simple(border-right-width)  borderRightWidth
 set ::hv3::DOM::CSS2Properties_simple(border-left-width)   borderLeftWidth
 set ::hv3::DOM::CSS2Properties_simple(border-bottom-width) borderBottomWidth
-set ::hv3::DOM::CSS2Properties_simple(margin-top)    marginTop
-set ::hv3::DOM::CSS2Properties_simple(margin-right)  marginRight
-set ::hv3::DOM::CSS2Properties_simple(margin-left)   marginLeft
-set ::hv3::DOM::CSS2Properties_simple(margin-bottom) marginBottom
+set ::hv3::DOM::CSS2Properties_simple(margin-top)          marginTop
+set ::hv3::DOM::CSS2Properties_simple(margin-right)        marginRight
+set ::hv3::DOM::CSS2Properties_simple(margin-left)         marginLeft
+set ::hv3::DOM::CSS2Properties_simple(margin-bottom)       marginBottom
+set ::hv3::DOM::CSS2Properties_simple(visibility)          visibility
 
 set ::hv3::DOM::CSS2Properties_simple(background-color) backgroundColor
 

@@ -2,12 +2,11 @@
 #include "html.h"
 #include "cssInt.h"
 
-static const char rcsid[] = "$Id: csssearch.c,v 1.4 2007/07/01 09:56:11 danielk1977 Exp $";
+static const char rcsid[] = "$Id: csssearch.c,v 1.5 2007/07/16 15:35:49 danielk1977 Exp $";
 
 /*-----------------------------------------------------------------------
- *
  * 
- * Public interface to this file:
+ * Public interface to this subsystem:
  *
  *     Startup and shutdown:
  *

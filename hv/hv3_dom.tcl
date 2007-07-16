@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.67 2007/07/16 09:20:52 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.68 2007/07/16 15:35:48 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Snit types in this file:
@@ -81,7 +81,7 @@ snit::type ::hv3::dom {
   }
 
   destructor { 
-    $mySee destroy
+    catch { $mySee destroy }
     catch { $myLogData destroy }
   }
 

@@ -205,5 +205,16 @@ namespace eval tkhtml {
       $sb configure -borderwidth 1 -highlightthickness 0 -command "$node xview"
       return $sb
     }
+
+    proc ol_liststyletype {} {
+      switch -exact -- [uplevel {$N attr type}] {
+        i {return lower-roman}
+        I {return upper-roman}
+        a {return lower-alpha}
+        A {return upper-alpha}
+        1 {return decimal}
+      }
+      error "Unrecognized type attribute on OL element"
+    }
 }
 
