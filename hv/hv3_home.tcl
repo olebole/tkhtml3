@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.11 2007/07/16 07:39:09 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.12 2007/07/16 09:20:52 danielk1977 Exp $)} 1 }
 
 # Register the about: scheme handler with ::hv3::protocol $protocol.
 #
@@ -594,7 +594,7 @@ proc ::hv3::bookmarks_script {} {
       elem.setAttribute('folder_name', new_name)
       t.data = new_name
 
-      hv3_bookmarks.folder_edit(elem)
+      app.version = hv3_bookmarks.folder_edit(elem)
       folder_edit(elem)
       return 0
     }

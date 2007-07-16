@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.66 2007/07/16 07:39:09 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.67 2007/07/16 09:20:52 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Snit types in this file:
@@ -61,6 +61,18 @@ snit::type ::hv3::dom {
       set mySee ""
     }
     if {$mySee eq "" && [$self HaveScripting]} {
+      set mySee [::see::interp]
+      foreach win [array names myWindows] {
+        $mySee window [list ::hv3::DOM::Window $self $win]
+      }
+    }
+  }
+
+  method autoenable {hv3 uri} {
+    if {$mySee eq "" && 
+        $hv3 eq [$myBrowser hv3] && 
+        [string first home: $uri] == 0
+    } {
       set mySee [::see::interp]
       foreach win [array names myWindows] {
         $mySee window [list ::hv3::DOM::Window $self $win]
@@ -436,8 +448,8 @@ return
 
     # If javascript is enabled and Window object being cleared
     # is the top-level frame, delete and recreated the SEE interpreter.
-    # Theoretically this isn't necessary, but helps to contain any
-    # leaks of js/tcl objects.
+    # This is necessary, in case the previous URI was in the 
+    # "home://" namespace.
     #
     # Also, reset the debugging gui here.
     #
@@ -449,14 +461,16 @@ return
         }
         $self LogReset
         $mySee destroy
-
-        set mySee [::see::interp]
-        $mySee log $options(-logcmd)
+        set mySee ""
 
         array unset myWindows
         set myWindows($hv3) 1
-        $mySee window [list ::hv3::DOM::Window $self $hv3]
 
+        if {[$self HaveScripting]} {
+          set mySee [::see::interp]
+          $mySee log $options(-logcmd)
+          $mySee window [list ::hv3::DOM::Window $self $hv3]
+        }
       }
     }
   }
