@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.130 2007/07/12 15:41:56 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.131 2007/07/16 07:39:09 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -28,6 +28,7 @@ proc htmlize {zIn} {
 proc sourcefile {file} { return [file join [file dirname [info script]] $file] }
 source [sourcefile snit.tcl]
 source [sourcefile hv3_encodings.tcl]
+source [sourcefile hv3_db.tcl]
 source [sourcefile hv3_home.tcl]
 source [sourcefile hv3.tcl]
 source [sourcefile hv3_prop.tcl]
@@ -37,7 +38,6 @@ source [sourcefile hv3_frameset.tcl]
 source [sourcefile hv3_polipo.tcl]
 source [sourcefile hv3_icons.tcl]
 source [sourcefile hv3_history.tcl]
-source [sourcefile hv3_db.tcl]
 source [sourcefile hv3_string.tcl]
 
 #--------------------------------------------------------------------------
@@ -1017,6 +1017,8 @@ snit::type ::hv3::file_menu {
       "Open Tab"      [list $::hv3::G(notebook) add]                    t  \
       "Open Location" [list gui_openlocation $::hv3::G(location_entry)] l  \
       "-----"         ""                                                "" \
+      "Bookmark Page" [list ::hv3::gui_bookmark]                        b  \
+      "-----"         ""                                                "" \
       "Downloads"     [list ::hv3::the_download_manager show]           "" \
       "-----"         ""                                                "" \
       "Close Tab"     [list $::hv3::G(notebook) close]                  "" \
@@ -1052,6 +1054,19 @@ snit::type ::hv3::file_menu {
         bind Hv3HotKeys <Control-$uc> $command
       }
     }
+  }
+}
+
+proc ::hv3::gui_bookmark {} {
+  set uri  [[gui_current hv3] uri get]
+  set name [[gui_current hv3] title]
+  if {$name eq ""} {set name $uri}
+  ::hv3::the_bookmark_manager add $name $uri
+
+  set msg "Bookmarked Page"
+  set i [tk_dialog .alert "Bookmarked!" $msg "" 0 Continue {Go to Bookmarks}]
+  if {$i} {
+    [gui_current hv3] goto home://bookmarks/
   }
 }
 
@@ -1505,8 +1520,9 @@ proc main {args} {
     }
   }
 
-  if {[llength $docs] == 0} {set docs [list home:///]}
-  set ::hv3::homeuri [lindex $docs 0]
+  if {[llength $docs] == 0} {set docs [list home://bookmarks/]}
+  # set ::hv3::homeuri [lindex $docs 0]
+  set ::hv3::homeuri home://bookmarks/
 
   # Build the GUI
   gui_build     ::hv3::G

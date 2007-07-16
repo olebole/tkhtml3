@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.65 2007/07/12 15:41:56 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.66 2007/07/16 07:39:09 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Snit types in this file:
@@ -364,11 +364,7 @@ return
     #
     if {"" eq [info commands $node]} {return 1}
 
-    if {$node eq ""} {
-      set Node [lindex [eval [$self window] Get document] 1]
-    } else {
-      set Node [$self node_to_dom $node]
-    }
+    set Node [$self node_to_dom $node]
 
     set rc [catch {
       ::hv3::dom::dispatchMouseEvent $self $event $Node $x $y $args

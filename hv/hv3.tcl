@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.182 2007/07/10 11:00:05 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.183 2007/07/16 07:39:09 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -354,6 +354,8 @@ snit::type ::hv3::hv3::mousemanager {
     #     mousemotion
     #
     set N [lindex $nodelist end]
+    if {$N eq ""} {set N [$myHv3 node]}
+
     if {$options(-dom) ne ""} {
       if {$N ne $myCurrentDomNode} {
         $options(-dom) mouseevent mouseout $myCurrentDomNode $x $y
@@ -414,6 +416,7 @@ snit::type ::hv3::hv3::mousemanager {
     if {$N ne ""} {
       if {[$N tag] eq ""} {set N [$N parent]}
     }
+    if {$N eq ""} {set N [$myHv3 node]}
 
     # Dispatch the "mousedown" event to the DOM, if any.
     #
@@ -451,6 +454,7 @@ snit::type ::hv3::hv3::mousemanager {
     if {$N ne ""} {
       if {[$N tag] eq ""} {set N [$N parent]}
     }
+    if {$N eq ""} {set N [$myHv3 node]}
 
     # Dispatch the "mouseup" event to the DOM, if any.
     #
