@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.16 2007/07/17 17:04:29 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.17 2007/07/17 17:23:55 danielk1977 Exp $)} 1 }
 
 # Register the about: scheme handler with ::hv3::protocol $protocol.
 #
@@ -167,20 +167,22 @@ proc ::hv3::create_undo_trigger {db zTable} {
       $myDb transaction {
         set ii 0
         foreach B {
-      { "Hv3 User Manual (todo)"         {home://man} }
-      { "Hv3 Programmers Manual (todo)"  {home://dom} }
+
+      { "Report Hv3 bugs here!" {http://tkhtml.tcl.tk/cvstrac/tktnew} }
 
       { "Tkhtml and Hv3 Related" }
-      { "tkhtml.tcl.tk"         {http://tkhtml.tcl.tk} }
-      { "Tkhtml3 Google Group" {http://groups.google.com/group/tkhtml3} }
+      { "tkhtml.tcl.tk"             {http://tkhtml.tcl.tk} }
+      { "Tkhtml3 Mailing List"      {http://groups.google.com/group/tkhtml3} }
       { "Hv3 site at freshmeat.net" {http://freshmeat.net/hv3} }
+
+      { "Components Used By Hv3" }
       { "Sqlite" {http://www.sqlite.org} }
       { "Tk Combobox" {http://www.purl.org/net/oakley/tcl/combobox/index.html} }
       { "Polipo (web proxy)" {http://www.pps.jussieu.fr/~jch/software/polipo/} }
       { "SEE (javascript engine)" {http://www.adaptive-enterprises.com.au/~d/software/see/} }
       { "Icons used in Hv3" {http://e-lusion.com/design/greyscale} }
 
-      { "Tcl" }
+      { "Tcl Sites" }
       { "Tcl site"         {http://www.tcl.tk} }
       { "Tcl wiki"         {http://mini.net/tcl/} }
       { "ActiveState"      {http://www.activestate.com/} }
@@ -453,8 +455,8 @@ proc ::hv3::bookmarks_script {} {
 
     function drag_update() {
       if (
-         Math.abs(drag.x - drag.original_x) > 5 ||
-         Math.abs(drag.y - drag.original_y) > 5
+         Math.abs(drag.x - drag.original_x) > 10 ||
+         Math.abs(drag.y - drag.original_y) > 10
       ) {
         drag.element.onclick = ignore_click
       }
@@ -1005,16 +1007,16 @@ proc ::hv3::compile_bookmarks_object {} {
     set sql [subst { 
       SELECT 
       bookmark_id, bookmark_name, bookmark_uri, bookmark_tags, 
-      bookmark_folder, bookmark_folder_idx, 
+      '' AS folder_name, bookmark_folder_idx, 
       null AS folder_id, 0 AS folder_hidden, null AS folder_idx
       FROM bm_bookmarks1 
-      WHERE bookmark_folder = '' AND ( $where )
+      WHERE bookmark_folder = 0 AND ( $where )
 
       UNION ALL
 
       SELECT 
       bookmark_id, bookmark_name, bookmark_uri, bookmark_tags, 
-      folder_name AS bookmark_folder, bookmark_folder_idx, folder_id, 
+      folder_name, bookmark_folder_idx, folder_id, 
       folder_hidden, folder_idx
       FROM bm_folders1 LEFT JOIN (SELECT * FROM bm_bookmarks1 WHERE $where) 
         ON (bookmark_folder=folder_id)
@@ -1032,11 +1034,10 @@ proc ::hv3::compile_bookmarks_object {} {
     
     [$myManager db] eval $sql {
 
-      set bookmark_folder [htmlize $bookmark_folder]
+      set folder_name [htmlize $folder_name]
 
-      if {$bookmark_folder ne $current_folder} {
+      if {$folder_name ne $current_folder} {
         append ret "</UL></DIV>"
-        set folder_name $bookmark_folder
         set folder_display block
         set content_display block
         set folder_marker -
@@ -1046,7 +1047,7 @@ proc ::hv3::compile_bookmarks_object {} {
         }
 
         append ret [subst -nocommands $FolderTemplate]
-        set current_folder $bookmark_folder
+        set current_folder $folder_name
       }
 
       if {$bookmark_id ne ""} {
