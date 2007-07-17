@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.17 2007/07/17 17:23:55 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.18 2007/07/17 17:52:54 danielk1977 Exp $)} 1 }
 
 # Register the about: scheme handler with ::hv3::protocol $protocol.
 #
@@ -423,7 +423,7 @@ proc ::hv3::bookmarks_script {} {
       for ( var i = 0; i < dlist.length; i++) {
         var d = dlist[i]
         if (d != elem && d.className == elem.className) {
-          if (d.className == "folder" && d.id == "") {
+          if (d.className == "folder" && d.id == "0") {
             continue
           }
           drag_cache_position(d)
@@ -691,7 +691,7 @@ proc ::hv3::bookmarks_script {} {
     function refresh_content() {
       drag.content.innerHTML = hv3_bookmarks.get_html_content(app.zFilter)
       app.version = hv3_bookmarks.get_version()
-      app.nofolder = document.getElementById("")
+      app.nofolder = document.getElementById("0")
 
       var u = document.getElementById("undelete")
       u.innerHTML = hv3_bookmarks.get_undelete()
@@ -1008,7 +1008,7 @@ proc ::hv3::compile_bookmarks_object {} {
       SELECT 
       bookmark_id, bookmark_name, bookmark_uri, bookmark_tags, 
       '' AS folder_name, bookmark_folder_idx, 
-      null AS folder_id, 0 AS folder_hidden, null AS folder_idx
+      0 AS folder_id, 0 AS folder_hidden, null AS folder_idx
       FROM bm_bookmarks1 
       WHERE bookmark_folder = 0 AND ( $where )
 
@@ -1025,7 +1025,7 @@ proc ::hv3::compile_bookmarks_object {} {
 
     set current_folder ""
     set folder_name ""
-    set folder_id ""
+    set folder_id 0
     set folder_hidden 0
     set folder_display none
     set content_display block
