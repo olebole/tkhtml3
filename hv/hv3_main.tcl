@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.134 2007/07/17 07:49:40 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.135 2007/07/17 17:04:29 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -1068,6 +1068,7 @@ proc ::hv3::gui_bookmark {} {
   if {$i} {
     [gui_current hv3] goto home://bookmarks/
   }
+
 }
 
 snit::type ::hv3::debug_menu {

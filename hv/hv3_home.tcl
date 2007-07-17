@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.15 2007/07/17 07:49:40 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.16 2007/07/17 17:04:29 danielk1977 Exp $)} 1 }
 
 # Register the about: scheme handler with ::hv3::protocol $protocol.
 #
@@ -38,18 +38,40 @@ proc ::hv3::home_scheme_init {hv3 protocol} {
   $protocol schemehandler home [list ::hv3::home_request $protocol $hv3 $dir]
 }
 
+proc ::hv3::create_undo_trigger {db zTable} {
+  set columns [list]
+  $db eval "PRAGMA table_info($zTable)" {
+    lappend columns quote(old.${name})
+  }
+  set trigger "CREATE TRIGGER ${zTable}_ud AFTER DELETE ON $zTable BEGIN "
+  append trigger "INSERT INTO bm_undo1 VALUES("
+  append trigger   "'sql', 'INSERT INTO $zTable VALUES(' || "
+  append trigger   [join $columns "|| ', ' || "]
+  append trigger   "|| ')'" 
+  append trigger ");" 
+  append trigger "END;"
+
+  $db eval $trigger
+}
+
 ::snit::type ::hv3::bookmarkdb {
   variable myDb ""
 
   typevariable Schema {
+
+      /* Each bookmark is represented by a single entry in this
+       * table. The "bookmark_id" is allocated when the record
+       * is created and never modified.
+       */
       CREATE TABLE bm_bookmarks1(
         bookmark_id     INTEGER PRIMARY KEY,
-        bookmark_name   TEXT,
-        bookmark_uri    TEXT,
-        bookmark_tags   TEXT,
 
-        bookmark_folder TEXT, bookmark_folder_idx INTEGER,
-        UNIQUE(bookmark_folder, bookmark_folder_idx)
+        bookmark_name   TEXT,          /* Link caption */
+        bookmark_uri    TEXT,          /* Uri of bookmarked page */
+        bookmark_tags   TEXT,          /* Arbitrary. Used for user queries */
+
+        bookmark_folder     INTEGER,
+        bookmark_folder_idx INTEGER
       );
 
       /* This table defines the display order for folders. Also, whether
@@ -57,22 +79,22 @@ proc ::hv3::home_scheme_init {hv3 protocol} {
        */
       CREATE TABLE bm_folders1(
         folder_id       INTEGER PRIMARY KEY,
-        folder_name     TEXT UNIQUE,
-        folder_hidden   BOOLEAN
+        folder_name     TEXT,
+        folder_hidden   BOOLEAN,
+        folder_idx      INTEGER
       );
 
       CREATE TABLE bm_version1(
         version         INTEGER PRIMARY KEY
       );
 
-      /* The "undo" log */
+      /* The "undo" log. Each entry is either a caption or an sql
+       * statement. The type column is either 'caption' or 'sql'.
+       */
       CREATE TABLE bm_undo1(
-        caption         TEXT,
-        sql             TEXT
+        type       TEXT,
+        str        TEXT
       );
-      CREATE TRIGGER bm_undo_limit AFTER INSERT ON bm_undo1 BEGIN
-        DELETE FROM bm_undo1 WHERE rowid < (10 + new.rowid);
-      END;
 
       INSERT INTO bm_version1 VALUES(1);
   }
@@ -140,7 +162,7 @@ proc ::hv3::home_scheme_init {hv3 protocol} {
     # the following HTML:
     #
     if {$rc == 0} {
-      set folder ""
+      set folderid 0
 
       $myDb transaction {
         set ii 0
@@ -177,38 +199,44 @@ proc ::hv3::home_scheme_init {hv3 protocol} {
 
         } {
           if {[llength $B] == 1} {
-            set folder [lindex $B 0]
+            set f [lindex $B 0]
             $myDb eval { 
-              INSERT INTO bm_folders1(folder_name, folder_hidden)
-                VALUES($folder, 0)
+              INSERT INTO bm_folders1(folder_name, folder_hidden, folder_idx) 
+              VALUES($f, 0, (
+                  SELECT coalesce(max(folder_idx),0)+1 FROM bm_folders1
+                )
+              )
             }
-            continue
-          }
-
-          foreach {name uri} $B {
-            $myDb eval { 
-              INSERT INTO bm_bookmarks1(
-                bookmark_name, bookmark_uri, bookmark_tags, 
-                bookmark_folder, bookmark_folder_idx) 
-                VALUES($name, $uri, '', $folder, $ii)
+            set folderid [$myDb last_insert_rowid]
+          } else {
+            foreach {name uri} $B {
+              $myDb eval { 
+                INSERT INTO bm_bookmarks1(
+                  bookmark_name, bookmark_uri, bookmark_tags, 
+                  bookmark_folder, bookmark_folder_idx) 
+                  VALUES($name, $uri, '', $folderid, $ii)
+              }
+              incr ii
             }
-            incr ii
           }
         }
       }
+
+      ::hv3::create_undo_trigger $myDb bm_bookmarks1
+      ::hv3::create_undo_trigger $myDb bm_folders1
     }
   }
 
   # This method is called to add a bookmark to the system.
   #
-  method add {name uri} {
+  method add {name uri {tags ""}} {
     $myDb transaction {
       $myDb eval {
         INSERT INTO bm_bookmarks1 (
           bookmark_name, bookmark_uri, bookmark_tags, 
           bookmark_folder, bookmark_folder_idx
         ) VALUES(
-          $name, $uri, '', '', (
+          $name, $uri, $tags, 0, (
             SELECT min(bookmark_folder_idx)-1 FROM bm_bookmarks1
           )
         )
@@ -308,6 +336,16 @@ proc ::hv3::bookmarks_style {} {
     body {
       margin-top: 3em;
     }
+
+    #searchbox[active="1"] {
+      border-color: red;
+    }
+
+    #undelete {
+      display:block;
+      float:right;
+      font-size:medium;
+    }
   }
 }
 
@@ -324,6 +362,7 @@ proc ::hv3::bookmarks_script {} {
     drag.isDelete = false
 
     var app = new Object()
+    app.zFilter = ""
 
     function mouseup_handler (event) {
       drag.element.style.top = '0px'
@@ -337,6 +376,10 @@ proc ::hv3::bookmarks_script {} {
       if (drag.isDelete) {
         drag.element.parentNode.removeChild(drag.element)
         app.version = hv3_bookmarks.remove(drag.element)
+
+        var u = document.getElementById("undelete")
+        u.innerHTML = hv3_bookmarks.get_undelete()
+
       } else if (drag.element.onclick == ignore_click) {
         if (drag.element.className == 'bookmark') {
           app.version = hv3_bookmarks.bookmark_move(drag.element)
@@ -633,7 +676,7 @@ proc ::hv3::bookmarks_script {} {
     // and "New Folder" buttons respectively.
     //
     function bookmark_new() {
-      var id = hv3_bookmarks.bookmark_new()
+      var id = hv3_bookmarks.bookmark_new(app.zFilter)
       refresh_content()
       bookmark_edit(document.getElementById(id))
     }
@@ -644,9 +687,12 @@ proc ::hv3::bookmarks_script {} {
     }
 
     function refresh_content() {
-      drag.content.innerHTML = hv3_bookmarks.get_html_content()
+      drag.content.innerHTML = hv3_bookmarks.get_html_content(app.zFilter)
       app.version = hv3_bookmarks.get_version()
       app.nofolder = document.getElementById("")
+
+      var u = document.getElementById("undelete")
+      u.innerHTML = hv3_bookmarks.get_undelete()
 
       var dlist = document.getElementsByTagName('div');
       for ( var i = 0; i < dlist.length; i++) {
@@ -660,6 +706,30 @@ proc ::hv3::bookmarks_script {} {
       if (app.version != hv3_bookmarks.get_version()) {
         refresh_content()
       }
+    }
+
+    function filter_bookmarks () {
+      var s = document.getElementById("searchbox")
+      app.zFilter = s.value
+      refresh_content()
+      if (app.zFilter != "") {
+        s.setAttribute("active", "1")
+      } else {
+        s.setAttribute("active", "0")
+      }
+      return 0
+    }
+
+    function clear_filter () {
+      var s = document.getElementById("searchbox")
+      s.value = ""
+      return filter_bookmarks()
+    }
+
+    function bookmark_undelete () {
+      hv3_bookmarks.undelete()
+      refresh_content()
+      return 0
     }
 
     window.onload = function () {
@@ -680,14 +750,14 @@ proc ::hv3::bookmarks_controls {} {
       <TD align="center">
         <INPUT type="button" value="New Bookmark" onclick="bookmark_new()">
         </INPUT>
-      <TD align="center">
-        <INPUT type="button" disabled=1 value="Undo Last Action"></INPUT>
       <TD align="left" style="padding-left:15px">
         Filter:
       <TD align="left" width=100% style="padding-right:2px">
+         <FORM onsubmit="return filter_bookmarks()">
          <INPUT width=100% type="text" id="searchbox"></INPUT>
+         </FORM>
       <TD align="center">
-        <INPUT type="button" disabled=1 value="Clear"></INPUT>
+        <INPUT type="button" value="View All" onclick="clear_filter()"></INPUT>
     </TABLE>
   }
 }
@@ -706,7 +776,7 @@ proc ::hv3::home_request {http hv3 dir downloadHandle} {
     </SCRIPT>
     <BODY>
     [::hv3::bookmarks_controls]
-    <H1>BOOKMARKS:</H1>
+    <H1>BOOKMARKS:<span id="undelete"></H1>
     <DIV id=content></DIV>
   }]
   $downloadHandle finish
@@ -715,7 +785,20 @@ proc ::hv3::home_request {http hv3 dir downloadHandle} {
 proc ::hv3::compile_bookmarks_object {} {
 
 # This is a custom object used by the javascript part of the bookmarks
-# appliation to access the database.
+# appliation to access the database. Interface:
+#
+#     remove(node)
+#     bookmark_edit(node)
+#     bookmark_move(node)
+#     folder_edit(node)
+#     folder_move(node)
+#     folder_hidden(node)
+#
+#     bookmark_new()
+#     folder_new()
+#
+#     get_html_content()
+#     get_version()
 #
 ::hv3::dom2::stateless Bookmarks {} {
   dom_parameter myManager
@@ -726,14 +809,37 @@ proc ::hv3::compile_bookmarks_object {} {
       set N [GetNodeFromObj [lindex $node 1]]
       if {[$N attr class] eq "bookmark"} {
         set bookmark_id [$N attr bookmark_id]
-        $db eval { DELETE FROM bm_bookmarks1 WHERE bookmark_id = $bookmark_id }
+        set n " \"[$N attr bookmark_name]\""
+        $db eval { 
+          DELETE FROM bm_undo1;
+          INSERT INTO bm_undo1 VALUES('caption', 'Undelete Bookmark' || $n);
+          DELETE FROM bm_bookmarks1 WHERE bookmark_id = $bookmark_id 
+        }
       }
       if {[$N attr class] eq "folder"} {
-        set folder_name [$N attr folder_name]
+        set folder_id [$N attr folder_id]
+        set n " \"[$N attr folder_name]\""
         $db eval { 
-          DELETE FROM bm_bookmarks1 WHERE bookmark_folder = $folder_name;
-          DELETE FROM bm_folders1 WHERE folder_name = $folder_name;
+          DELETE FROM bm_undo1;
+          INSERT INTO bm_undo1 VALUES('caption', 'Undelete Folder ' || $n);
+          DELETE FROM bm_bookmarks1 WHERE bookmark_folder = $folder_id;
+          DELETE FROM bm_folders1 WHERE folder_id = $folder_id;
         }
+      }
+    }
+  }
+
+  dom_call undelete {THIS} {
+    set db [$myManager db]
+    bookmark_transaction $db {
+      set oid [$db one {SELECT max(rowid) FROM bm_undo1 WHERE type = 'caption'}]
+      if {$oid ne ""} {
+        $db eval { 
+          SELECT str FROM bm_undo1 WHERE rowid > $oid
+        } {
+          $db eval $str
+        }
+        $db eval { DELETE FROM bm_undo1 WHERE rowid >= $oid }
       }
     }
   }
@@ -762,7 +868,7 @@ proc ::hv3::compile_bookmarks_object {} {
       set P [$N parent]
       set F [[$N parent] parent]
 
-      set bookmark_folder [$F attr folder_name]
+      set bookmark_folder [$F attr folder_id]
 
       set iMax [$db onecolumn {
         SELECT max(bookmark_folder_idx) 
@@ -790,7 +896,7 @@ proc ::hv3::compile_bookmarks_object {} {
       set P [$N parent]
 
       set iMax [$db onecolumn {
-        SELECT max(folder_id) FROM bm_folders1 
+        SELECT max(folder_idx) FROM bm_folders1 
       }]
       if {$iMax eq ""} {set iMax 1}
 
@@ -798,7 +904,7 @@ proc ::hv3::compile_bookmarks_object {} {
         if {[catch {set folder_id [$child attr folder_id]}]} continue
         incr iMax
         $db eval {
-          UPDATE bm_folders1 SET folder_id = $iMax WHERE folder_id = $folder_id
+          UPDATE bm_folders1 SET folder_idx = $iMax WHERE folder_id = $folder_id
         }
       }
     }
@@ -812,10 +918,6 @@ proc ::hv3::compile_bookmarks_object {} {
         set $v [$N attribute $v]
       }
       $db eval {
-        UPDATE bm_bookmarks1 SET bookmark_folder = $folder_name
-        WHERE bookmark_folder = 
-            (SELECT folder_name FROM bm_folders1 WHERE folder_id = $folder_id);
-
         UPDATE bm_folders1 SET folder_name = $folder_name
         WHERE folder_id = $folder_id;
       }
@@ -837,9 +939,9 @@ proc ::hv3::compile_bookmarks_object {} {
     }
   }
 
-  dom_call bookmark_new {THIS} {
+  dom_call -string bookmark_new {THIS tag} {
     set db [$myManager db]
-    list string [$myManager add {New Bookmark} {}]
+    list string [$myManager add {New Bookmark} {} $tag]
   }
 
   dom_call folder_new {THIS} {
@@ -854,9 +956,9 @@ proc ::hv3::compile_bookmarks_object {} {
         set rc [catch {
           $db eval {
             INSERT INTO bm_folders1 (
-              folder_id, folder_name, folder_hidden 
-            ) VALUES(
-              (SELECT min(folder_id)-1 FROM bm_folders1), 'New Folder ' || $idx, 0
+              folder_idx, folder_name, folder_hidden 
+            ) VALUES (
+              (SELECT min(folder_idx)-1 FROM bm_folders1), 'New Folder ' || $idx, 0
             );
           }
         } msg]
@@ -868,29 +970,56 @@ proc ::hv3::compile_bookmarks_object {} {
     list string [$db last_insert_rowid]
   }
 
-  dom_call get_html_content {THIS} {
+  dom_call -string get_undelete {THIS} {
+    set db [$myManager db]
+    set caption [$db one { 
+      SELECT str FROM bm_undo1 WHERE type = 'caption' ORDER BY oid DESC LIMIT 1
+    }]
+    if {$caption ne ""} {
+      list string [subst {
+        <INPUT 
+          onclick="bookmark_undelete()" 
+          type=button value="[htmlize $caption]">
+        </INPUT>
+      }]
+    } else {
+      list string ""
+    }
+  }
+
+  dom_call -string get_html_content {THIS zFilter} {
     set ret ""
 
     set BookmarkTemplate [$myManager GetBookmarkTemplate]
     set FolderTemplate [$myManager GetFolderTemplate]
 
-    set sql { 
+    set where { 1 }
+    if {$zFilter ne ""} {
+      set where { 
+          bookmark_name LIKE ('%' || $zFilter || '%') OR
+          bookmark_uri  LIKE ('%' || $zFilter || '%') OR
+          bookmark_tags LIKE ('%' || $zFilter || '%')
+      }
+    }
+
+    set sql [subst { 
       SELECT 
       bookmark_id, bookmark_name, bookmark_uri, bookmark_tags, 
       bookmark_folder, bookmark_folder_idx, 
-      null AS folder_id, 0 AS folder_hidden
-      FROM bm_bookmarks1 WHERE bookmark_folder = ''
+      null AS folder_id, 0 AS folder_hidden, null AS folder_idx
+      FROM bm_bookmarks1 
+      WHERE bookmark_folder = '' AND ( $where )
 
       UNION ALL
 
       SELECT 
       bookmark_id, bookmark_name, bookmark_uri, bookmark_tags, 
       folder_name AS bookmark_folder, bookmark_folder_idx, folder_id, 
-      folder_hidden
-      FROM bm_folders1 LEFT JOIN bm_bookmarks1 ON (bookmark_folder = folder_name)
-
-      ORDER BY folder_id, bookmark_folder_idx
-    }
+      folder_hidden, folder_idx
+      FROM bm_folders1 LEFT JOIN (SELECT * FROM bm_bookmarks1 WHERE $where) 
+        ON (bookmark_folder=folder_id)
+      ORDER BY folder_idx, bookmark_folder_idx
+    }]
 
     set current_folder ""
     set folder_name ""
@@ -952,5 +1081,4 @@ namespace eval ::hv3::DOM {
     list number $ret
   }
 }
-
 

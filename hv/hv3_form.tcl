@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.75 2007/07/12 15:57:51 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.76 2007/07/17 17:04:29 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -127,20 +127,20 @@ proc ::hv3::get_form_nodes {node} {
   set N [$html search INPUT,SELECT,TEXTAREA,BUTTON,FORM]
 
   set idx [lsearch -exact $N $node]
-  if {$idx<0} {error "$node is not a forms node"}
-
-  set iFirst $idx
-  while { $iFirst>=0 && [[lindex $N $iFirst] tag] ne "form" } {
-    incr iFirst -1
-  }
-
-  set iLast [expr $idx+1]
-  while { $iLast<[llength $N] && [[lindex $N $iLast] tag] ne "form" } {
-    incr iLast 1
-  }
-
-  if {$iFirst>=0} {
-    return [lrange $N $iFirst [expr $iLast-1]]
+  if {$idx >= 0} {
+    set iFirst $idx
+    while { $iFirst>=0 && [[lindex $N $iFirst] tag] ne "form" } {
+      incr iFirst -1
+    }
+  
+    set iLast [expr $idx+1]
+    while { $iLast<[llength $N] && [[lindex $N $iLast] tag] ne "form" } {
+      incr iLast 1
+    }
+  
+    if {$iFirst>=0} {
+      return [lrange $N $iFirst [expr $iLast-1]]
+    }
   }
 
   return ""
