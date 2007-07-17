@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.192 2007/06/29 17:17:17 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.193 2007/07/17 07:49:40 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -2537,26 +2537,33 @@ searchCanvas(pTree, ymin, ymax, xFunc, clientData, requireOverflow)
             }
            
             default: {
-                int x, y, w, h;
-                int ymin2 = ymin;
-                int ymax2 = ymax;
+                Overflow *pOver = 0;
                 nTest++;
-                itemToBox(pItem, origin_x, origin_y, &x, &y, &w, &h);
-                if (iOverflow >= 0) {
-                    ymin2 += apOverflow[iOverflow]->yscroll;
-                    ymax2 += apOverflow[iOverflow]->yscroll;
-                }
-                if ((ymax < 0 || y <= ymax2) && (ymin < 0 || (y+h) >= ymin2)) {
-                    Overflow *pOver = 0;
+
+                if (ymax >= 0 || ymin >= 0) {
+                    int x, y, w, h;
+                    int ymin2 = ymin;
+                    int ymax2 = ymax;
+                    itemToBox(pItem, origin_x, origin_y, &x, &y, &w, &h);
                     if (iOverflow >= 0) {
-                        pOver = apOverflow[iOverflow];
+                        ymin2 += apOverflow[iOverflow]->yscroll;
+                        ymax2 += apOverflow[iOverflow]->yscroll;
                     }
-                    rc = xFunc(pItem, origin_x, origin_y, pOver, clientData);
-                    if (0 != rc) {
-                        goto search_out;
+                    if ((ymax >= 0 && y >= ymax2) || 
+                        (ymin >= 0 && (y+h) <= ymin2)
+                    ) {
+                       break;
                     }
-                    nCallback++;
                 }
+
+                if (iOverflow >= 0) {
+                    pOver = apOverflow[iOverflow];
+                }
+                rc = xFunc(pItem, origin_x, origin_y, pOver, clientData);
+                if (0 != rc) {
+                    goto search_out;
+                }
+                nCallback++;
                 break;
             }
         }
@@ -3035,7 +3042,7 @@ pixmapQueryCb(pItem, origin_x, origin_y, pOverflow, clientData)
 
         case CANVAS_IMAGE: {
             setClippingDrawable(pQuery, pItem, &drawable, &x, &y);
-            drawImage(pQuery->pTree, &pItem->x.i2, drawable, x, y, w, h);
+            drawImage(pQuery, &pItem->x.i2, drawable, x, y, w, h);
             break;
         }
 
@@ -3744,12 +3751,7 @@ HtmlLayoutNode(clientData, interp, objc, objv)
 }
 
 struct BboxContext {
-    int x1;
-    int y1;
-    int x2;
-    int y2;
-    HtmlNode *pNode;
-    int eType;
+    HtmlNode *pPrevNode;
 };
 typedef struct BboxContext BboxContext;
 
@@ -3762,13 +3764,23 @@ bboxCb(pItem, origin_x, origin_y, pOverflow, clientData)
     ClientData clientData;
 {
     BboxContext *p = (BboxContext *)clientData;
-    if (pItem->type == p->eType && pItem->x.generic.pNode == p->pNode) {
+    if (pItem->x.generic.pNode && 
+        (pItem->type == CANVAS_BOX || pItem->type == CANVAS_TEXT)
+    ) {
+        HtmlNode *pNode = pItem->x.generic.pNode;
         int x, y, w, h;
         itemToBox(pItem, origin_x, origin_y, &x, &y, &w, &h);
-        p->x1 = MIN(p->x1, x);
-        p->y1 = MIN(p->y1, y);
-        p->x2 = MAX(p->x2, x + w);
-        p->y2 = MAX(p->y2, y + h);
+        if (pItem->x.generic.pNode == p->pPrevNode) {
+            pNode->iBboxX = MIN(pNode->iBboxX, x);
+            pNode->iBboxY = MIN(pNode->iBboxY, y);
+            pNode->iBboxX2 = MAX(pNode->iBboxX2, x + w);
+            pNode->iBboxY2 = MAX(pNode->iBboxY2, y + h);
+        } else {
+            pNode->iBboxX = x;
+            pNode->iBboxY = y;
+            pNode->iBboxX2 = x + w;
+            pNode->iBboxY2 = y + h;
+        }
     }
     return 0;
 }
@@ -3780,7 +3792,7 @@ HtmlWidgetBboxCmd(clientData, interp, objc, objv)
     int objc;                          /* Number of arguments. */
     Tcl_Obj *CONST objv[];             /* Argument strings. */
 {
-    int x, y, w, h;
+    int x = 0, y = 0, x2 = -1, y2 = -1;
     HtmlTree *pTree = (HtmlTree *)clientData;
     Tcl_Obj *pRet = Tcl_NewObj();
 
@@ -3792,37 +3804,35 @@ HtmlWidgetBboxCmd(clientData, interp, objc, objv)
     HtmlCallbackForce(pTree);
 
     if (objc == 3) {
-        BboxContext sContext;
         HtmlNode *pNode = HtmlNodeGetPointer(pTree, Tcl_GetString(objv[2]));
         if (!pNode) {
             return TCL_ERROR;
         }
-        memset(&sContext, 0, sizeof(BboxContext));
-        sContext.pNode = pNode;
-        sContext.x1 = 10000000;
-        sContext.y1 = 10000000;
-        if (HtmlNodeIsText(pNode)) {
-            sContext.eType = CANVAS_TEXT;
-        } else {
-            sContext.eType = CANVAS_BOX;
+        if (!HtmlNodeIsOrphan(pNode)) {
+            if (!pTree->isBboxOk) {
+                BboxContext sContext;
+                sContext.pPrevNode = 0;
+                searchCanvas(pTree, -1, -1, bboxCb, (ClientData)&sContext, 1);
+                pTree->isBboxOk = 1;
+            }
+    
+            x = pNode->iBboxX;
+            y = pNode->iBboxY;
+            x2 = pNode->iBboxX2;
+            y2 = pNode->iBboxY2;
         }
-        searchCanvas(pTree, -1, -1, bboxCb, (ClientData)&sContext, 1);
-        x = sContext.x1;
-        y = sContext.y1;
-        w = sContext.x2 - x;
-        h = sContext.y2 - y;
     } else {
         x = 0;
         y = 0;
-        w = pTree->canvas.right;
-        h = pTree->canvas.bottom;
+        x2 = pTree->canvas.right;
+        y2 = pTree->canvas.bottom;
     }
 
-    if (w > 0 && h > 0) {
+    if (x2 >= x) {
         Tcl_ListObjAppendElement(0, pRet, Tcl_NewIntObj(x));
         Tcl_ListObjAppendElement(0, pRet, Tcl_NewIntObj(y));
-        Tcl_ListObjAppendElement(0, pRet, Tcl_NewIntObj(x + w));
-        Tcl_ListObjAppendElement(0, pRet, Tcl_NewIntObj(y + h));
+        Tcl_ListObjAppendElement(0, pRet, Tcl_NewIntObj(x2));
+        Tcl_ListObjAppendElement(0, pRet, Tcl_NewIntObj(y2));
     }
 
     Tcl_SetObjResult(interp, pRet);
@@ -4469,8 +4479,8 @@ HtmlWidgetSetViewport(pTree, scroll_x, scroll_y, force_redraw)
     pTree->iScrollY = scroll_y;
     pTree->iScrollX = scroll_x;
     if (force_redraw || delta_x != 0 || abs(delta_y) >= h) {
-        HtmlNodeReplacement *p;
 /*
+        HtmlNodeReplacement *p;
         for (p = pTree->pMapped; p; p = p->pNext) {
             p->iCanvasX = -10000;
             p->iCanvasY = -10000;

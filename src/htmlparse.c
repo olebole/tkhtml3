@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.110 2007/07/12 15:41:56 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.111 2007/07/17 07:49:41 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -1160,7 +1160,7 @@ HtmlTokenize(pTree, zText, isFinal, xAddText, xAddElement, xAddClosing)
                             break;
                         case HTML_WRITE_INHANDLERRESET:
                             pTree->eWriteState = HTML_WRITE_NONE;
-                            return;
+                            return 0;
                     }
                     z = Tcl_GetString(pTree->pDocument);
 

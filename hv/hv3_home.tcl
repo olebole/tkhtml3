@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.14 2007/07/16 15:35:49 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.15 2007/07/17 07:49:40 danielk1977 Exp $)} 1 }
 
 # Register the about: scheme handler with ::hv3::protocol $protocol.
 #
@@ -145,8 +145,8 @@ proc ::hv3::home_scheme_init {hv3 protocol} {
       $myDb transaction {
         set ii 0
         foreach B {
-      { "Hv3 User Manual"         {home://man} }
-      { "Hv3 Programmers Manual"  {home://dom} }
+      { "Hv3 User Manual (todo)"         {home://man} }
+      { "Hv3 Programmers Manual (todo)"  {home://dom} }
 
       { "Tkhtml and Hv3 Related" }
       { "tkhtml.tcl.tk"         {http://tkhtml.tcl.tk} }

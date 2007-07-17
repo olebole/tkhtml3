@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.133 2007/07/16 15:35:49 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.134 2007/07/17 07:49:40 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -729,7 +729,7 @@ snit::type ::hv3::config {
   foreach {opt def type} [list \
     -doublebuffer     0                         Boolean \
     -enableimages     1                         Boolean \
-    -enablejavascript 0                         Boolean \
+    -enablejavascript 1                         Boolean \
     -forcefontmetrics 1                         Boolean \
     -hidegui          0                         Boolean \
     -zoom             1.0                       Double  \

@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.175 2007/07/12 15:41:56 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.176 2007/07/17 07:49:41 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -820,6 +820,8 @@ HtmlCallbackLayout(pTree, pNode)
         for (p = pNode; p; p = HtmlNodeParent(p)) {
             HtmlLayoutInvalidateCache(pTree, p);
         }
+
+        pTree->isBboxOk = 0;
     }
 }
 
@@ -1192,6 +1194,7 @@ worldChangedCb(pTree, pNode, clientData)
         HtmlNodeClearStyle(pTree, pElem);
         HtmlDrawCanvasItemRelease(pTree, pElem->pBox);
         pElem->pBox = 0;
+        pTree->isBboxOk = 0;
     }
     return HTML_WALK_DESCEND;
 }
