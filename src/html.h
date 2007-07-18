@@ -384,38 +384,38 @@ struct HtmlCanvas {
     HtmlCanvasItem *pLast;
 };
 
+/*
+ * All widget options are stored in this structure, which is a part of
+ * the HtmlTree structure (HtmlTree.options).
+ *
+ * All of the options in this structure should be documented in the 
+ * Tkhtml3 man-page. If they are not, please report a bug.
+ */
 struct HtmlOptions {
-    int width;
-    int height;
-    int xscrollincrement;
-    int yscrollincrement;
 
-    /* Boolean options */
-    int shrink;
-    int layoutcache;
-    int imagecache;
-    int doublebuffer;
-    int forcewidth;
-
-    int mode;        /* 0 -> quirks, 1 -> almost standards, 2 -> standards */
-    int xhtml;       /* 1 -> parse as XHTML, 0 -> parse as HTML */
-
-    /* Font related options */
-    Tcl_Obj *fonttable;
-    int      forcefontmetrics;
-    double   fontscale;
-
-    /* Universal scaling factor. */
-    double   zoom;
-
-    XColor *selectforeground;
-    XColor *selectbackground;
-
+    /* Tkhtml3 supports the following standard Tk options */
+    int      width;
+    int      height;
+    int      xscrollincrement;
+    int      yscrollincrement;
     Tcl_Obj *yscrollcommand;
     Tcl_Obj *xscrollcommand;
-    Tcl_Obj *defaultstyle;
-    Tcl_Obj *imagecmd;
 
+    Tcl_Obj *defaultstyle;
+    int      doublebuffer;              /* Boolean */
+    double   fontscale;
+    Tcl_Obj *fonttable;
+    int      forcefontmetrics;
+    int      forcewidth;
+    Tcl_Obj *imagecmd;
+    int      imagecache;
+    int      mode;                      /* One of the HTML_MODE_XXX values */
+    int      shrink;                    /* Boolean */
+    int      xhtml;                     /* Boolean. True -> parse as XHTML */
+    double   zoom;                      /* Universal scaling factor. */
+
+    /* Debugging options. Not part of the official interface. */
+    int      layoutcache;
     Tcl_Obj *logcmd;
     Tcl_Obj *timercmd;
 };

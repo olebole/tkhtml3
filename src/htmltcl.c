@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.176 2007/07/17 07:49:41 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.177 2007/07/18 11:40:13 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -102,6 +102,12 @@ hashstatsCmd(clientData, interp, objc, objv)
     return TCL_OK;
 }
 #endif
+
+struct SubCmd {
+    const char *zName;
+    Tcl_ObjCmdProc *xFunc;
+};
+typedef struct SubCmd SubCmd;
 
 
 /*
@@ -2149,6 +2155,48 @@ tagDeleteCmd(clientData, interp, objc, objv)
 }
 
 static int
+callSubCmd(aSub, iIdx, clientData, interp, objc, objv)
+    SubCmd *aSub;
+    int iIdx;
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    int iChoice;
+
+    assert(objc >= iIdx);
+    if (iIdx == objc) {
+        Tcl_WrongNumArgs(interp, objc, objv, "SUB-COMMAND");
+        return TCL_ERROR;
+    }
+
+    if (Tcl_GetIndexFromObjStruct(interp, 
+            objv[iIdx], aSub, sizeof(SubCmd), "sub-command", 0, &iChoice)
+    ){
+        return TCL_ERROR;
+    }
+    return aSub[iChoice].xFunc(clientData, interp, objc, objv);
+}
+
+static int
+tagCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    SubCmd aSub[] = {
+        { "add"      , tagAddCmd }, 
+        { "remove"   , tagRemoveCmd }, 
+        { "configure", tagCfgCmd }, 
+        { "delete"   , tagDeleteCmd }, 
+        { 0, 0 }
+    };
+    return callSubCmd(aSub, 2, clientData, interp, objc, objv);
+}
+
+static int
 textTextCmd(clientData, interp, objc, objv)
     ClientData clientData;             /* The HTML widget data structure */
     Tcl_Interp *interp;                /* Current interpreter. */
@@ -2183,6 +2231,22 @@ textOffsetCmd(clientData, interp, objc, objv)
     Tcl_Obj *CONST objv[];             /* Argument strings. */
 {
     return HtmlTextOffsetCmd(clientData, interp, objc, objv);
+}
+static int
+textCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    SubCmd aSub[] = {
+        { "text",   textTextCmd },
+        { "index",  textIndexCmd },
+        { "bbox",   textBboxCmd },
+        { "offset", textOffsetCmd },
+        { 0 , 0 }
+    };
+    return callSubCmd(aSub, 2, clientData, interp, objc, objv);
 }
 
 
@@ -2368,19 +2432,6 @@ bboxCmd(clientData, interp, objc, objv)
  *
  *     This is the C function invoked for a widget command.
  *
- *         cget
- *         configure
- *         handler
- *         image
- *         node
- *         parse
- *         reset
- *         style
- *         tag
- *         text
- *         xview
- *         yview
- *
  * Results:
  *     Tcl result.
  *
@@ -2399,132 +2450,40 @@ int widgetCmd(clientData, interp, objc, objv)
      * function just parses the first one or two arguments and vectors control
      * to one of the command service routines defined in the following array.
      */
-    static struct SC {
-        char *zCmd1;                /* First-level subcommand.  Required */
-        char *zCmd2;                /* Second-level subcommand.  May be NULL */
-        Tcl_ObjCmdProc *xFuncObj;   /* Object cmd */
-    } aSubcommand[] = {
-        {"bbox",       0,           bboxCmd},
-        {"cget",       0,           cgetCmd},
-        {"configure",  0,           configureCmd},
-        {"fragment",   0,           fragmentCmd},
-        {"handler",    0,           handlerCmd},
-        {"image",      0,           imageCmd},
-        {"node",       0,           nodeCmd},
-        {"parse",      0,           parseCmd},
-        {"preload",    0,           preloadCmd},
-        {"reset",      0,           resetCmd},
-        {"search",     0,           searchCmd},
-        {"style",      0,           styleCmd},
-
-        {"tag",        "add",       tagAddCmd},
-        {"tag",        "remove",    tagRemoveCmd},
-        {"tag",        "configure", tagCfgCmd},
-        {"tag",        "delete",    tagDeleteCmd},
-
-        {"text",       "text",      textTextCmd},
-        {"text",       "index",     textIndexCmd},
-        {"text",       "bbox",      textBboxCmd},
-        {"text",       "offset",    textOffsetCmd},
-
-        {"write",      0,           writeCmd},
-
-        {"xview",      0,           xviewCmd},
-        {"yview",      0,           yviewCmd},
+    SubCmd aSub[] = {
+        {"bbox",         bboxCmd},
+        {"cget",         cgetCmd},
+        {"configure",    configureCmd},
+        {"fragment",     fragmentCmd},
+        {"handler",      handlerCmd},
+        {"image",        imageCmd},
+        {"node",         nodeCmd},
+        {"parse",        parseCmd},
+        {"preload",      preloadCmd},
+        {"reset",        resetCmd},
+        {"search",       searchCmd},
+        {"style",        styleCmd},
+        {"tag",          tagCmd},
+        {"text",         textCmd},
+        {"write",        writeCmd},
+        {"xview",        xviewCmd},
+        {"yview",        yviewCmd},
 
         /* The following are for debugging only. May change at any time.
 	 * They are not included in the documentation. Just don't touch Ok? :)
          */
-        {"delay",       0,          delayCmd},
-        {"force",       0,          forceCmd},
-        {"primitives",  0,          primitivesCmd},
-        {"relayout",    0,          relayoutCmd},
-        {"styleconfig", 0,          styleconfigCmd},
-        {"stylereport", 0,          stylereportCmd},
+        {"_delay",       delayCmd},
+        {"_force",       forceCmd},
+        {"_primitives",  primitivesCmd},
+        {"_relayout",    relayoutCmd},
+        {"_styleconfig", styleconfigCmd},
+        {"_stylereport", stylereportCmd},
 #ifndef NDEBUG
-        {"_hashstats",  0, hashstatsCmd},
+        {"_hashstats",  hashstatsCmd},
 #endif
+        { 0, 0}
     };
-
-    int i;
-    CONST char *zArg1 = 0;
-    CONST char *zArg2 = 0;
-    Tcl_Obj *pError;
-
-    int matchone = 0; /* True if the first argument matched something */
-    int multiopt = 0; /* True if their were multiple options for second match */
-    CONST char *zBad;
-
-    if (objc>1) {
-        zArg1 = Tcl_GetString(objv[1]);
-    } else {
-        Tcl_WrongNumArgs(interp, 1, objv, "option ?arg arg ...?");
-        return TCL_ERROR;
-    }
-    if (objc>2) {
-        zArg2 = Tcl_GetString(objv[2]);
-    }
-
-#if 0
-    for (i=0; i<objc; i++) {
-        printf("%s ", Tcl_GetString(objv[i]));
-    }
-    printf("\n");
-#endif
-
-    /* Search the array of built-in commands */
-    for (i=0; i<sizeof(aSubcommand)/sizeof(struct SC); i++) {
-         struct SC *pCommand = &aSubcommand[i];
-         if (zArg1 && 0==strcmp(zArg1, pCommand->zCmd1)) {
-             matchone = 1;
-             if (!pCommand->zCmd2 || 
-                 (zArg2 && 0==strcmp(zArg2, pCommand->zCmd2))) 
-             {
-                 return pCommand->xFuncObj(clientData, interp, objc, objv);
-             }
-         }
-    }
-
-    /* Failed to find a matching sub-command. The remainder of this routine
-     * is generating an error message. 
-     */
-    zBad = matchone?zArg2:zArg1;
-    pError = Tcl_NewStringObj("bad option \"", -1);
-    Tcl_IncrRefCount(pError);
-    Tcl_AppendToObj(pError, zBad, -1);
-    Tcl_AppendToObj(pError, "\" must be ", -1);
-    zBad = 0;
-    for (i=0; i<sizeof(aSubcommand)/sizeof(struct SC); i++) {
-        struct SC *pCommand = &aSubcommand[i];
-        CONST char *zAdd = 0;
-
-        if (matchone) { 
-            if (0==strcmp(pCommand->zCmd1, zArg1)) {
-                zAdd = pCommand->zCmd2;
-            }
-        } else if (!zBad || strcmp(pCommand->zCmd1, zBad)) {
-            zAdd = pCommand->zCmd1;
-        }
-
-        if (zAdd) {
-            if (zBad) {
-                Tcl_AppendToObj(pError, zBad, -1);
-                Tcl_AppendToObj(pError, ", ", -1);
-                multiopt = 1;
-            }
-            zBad = zAdd;
-        }
-    }
-    if (zBad) {
-        if (multiopt) {
-            Tcl_AppendToObj(pError, "or ", -1);
-        }
-        Tcl_AppendToObj(pError, zBad, -1);
-    }
-    Tcl_SetObjResult(interp, pError);
-    Tcl_DecrRefCount(pError);
-    
-    return TCL_ERROR;
+    return callSubCmd(aSub, 1, clientData, interp, objc, objv);
 }
 
 
@@ -2823,9 +2782,10 @@ DLL_EXPORT int Tkhtml_Init(interp)
     Tcl_PkgProvide(interp, "Tkhtml", "3.0");
 
     Tcl_CreateObjCommand(interp, "html", newWidget, 0, 0);
-    Tcl_CreateObjCommand(interp, "::tkhtml::htmlstyle", htmlstyleCmd, 0, 0);
-    Tcl_CreateObjCommand(interp, "::tkhtml::version", htmlVersionCmd, 0, 0);
-    Tcl_CreateObjCommand(interp, "::tkhtml::decode", htmlDecodeCmd, 0, 0);
+
+    Tcl_CreateObjCommand(interp, "::tkhtml::htmlstyle",  htmlstyleCmd, 0, 0);
+    Tcl_CreateObjCommand(interp, "::tkhtml::version",    htmlVersionCmd, 0, 0);
+    Tcl_CreateObjCommand(interp, "::tkhtml::decode",     htmlDecodeCmd, 0, 0);
     Tcl_CreateObjCommand(interp, "::tkhtml::escape_uri", htmlEscapeCmd, 0, 0);
 
     Tcl_CreateObjCommand(interp, "::tkhtml::byteoffset", htmlByteOffsetCmd,0,0);

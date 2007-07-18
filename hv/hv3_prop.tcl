@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.58 2007/07/10 09:11:04 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.59 2007/07/18 11:40:12 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_prop.tcl --
@@ -784,8 +784,8 @@ snit::widget HtmlDebug {
     unset -nocomplain myStyleEngineLog
     set selected [$myTree selected]
     $myTree selected ""
-    $html relayout
-    $html force
+    $html _relayout
+    $html _force
     after idle [list ::HtmlDebug::browse $myHtml $selected]
     $html configure -logcmd $logcmd
   }

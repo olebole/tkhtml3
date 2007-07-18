@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.193 2007/07/17 07:49:40 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.194 2007/07/18 11:40:13 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -603,6 +603,34 @@ freeCanvasItem(pTree, p)
         HtmlFree(p);
     }
 }
+
+
+#if 0
+static int 
+byteToCharOffset(z, iByte)
+    const unsigned char *z;
+    int iByte;
+{
+    int iChar = 0;
+    int i;
+    for (i = 0; i < iByte; i++) {
+        if (!(z[i] & 0x80)) iChar++;
+    }
+    return iChar;
+}
+static int 
+charToByteOffset(z, iChar)
+    const unsigned char *z;
+    int iChar;
+{
+    int i = iChar;
+    int iByte;
+    for (iByte = 0; i > 0; iByte++) {
+        if (!(z[iByte] & 0x80)) i--;
+    }
+    return iByte;
+}
+#endif
 
 void
 HtmlDrawCanvasItemRelease(pTree, pItem)
@@ -2365,7 +2393,6 @@ drawText(pQuery, pItem, drawable, x, y)
         pTagged; 
         pTagged = pTagged->pNext
     ) {
-
         /* The tagged region of this primitive */
         int iSelFrom = MAX(0, pTagged->iFrom - pT->iIndex);
         int iSelTo = MIN(n, pTagged->iTo - pT->iIndex);
@@ -3439,7 +3466,6 @@ layoutNodeIndexCb(pItem, origin_x, origin_y, pOverflow, clientData)
     return 0;
 }
 
-
 /*
  *---------------------------------------------------------------------------
  *
@@ -3487,6 +3513,7 @@ layoutNodeIndexCmd(pTree, x, y)
         const char *z;
         int n;
         Tcl_Obj *pCmd;
+        HtmlTextNode *pTextNode;
 
         z = sQuery.pClosest->zText;
         n = sQuery.pClosest->nText;
@@ -4027,6 +4054,10 @@ pTree, pNodeStart, iIndexStart, pNodeFin, iIndexFin, piT, piL, piB, piR
     PaintNodesQuery sQuery;
     int iNodeStart;
     int iNodeFin;
+
+    HtmlTextNode *p1 = HtmlNodeAsText(pNodeStart);
+    HtmlTextNode *p2 = HtmlNodeAsText(pNodeFin);
+    assert(p1 && p2);
 
     HtmlSequenceNodes(pTree);
     iNodeStart = pNodeStart->iNode;

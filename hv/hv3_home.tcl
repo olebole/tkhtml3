@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.18 2007/07/17 17:52:54 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.19 2007/07/18 11:40:12 danielk1977 Exp $)} 1 }
 
 # Register the about: scheme handler with ::hv3::protocol $protocol.
 #
@@ -339,6 +339,9 @@ proc ::hv3::bookmarks_style {} {
       margin-top: 3em;
     }
 
+    #searchbox {
+      width:100%;
+    }
     #searchbox[active="1"] {
       border-color: red;
     }
@@ -756,7 +759,7 @@ proc ::hv3::bookmarks_controls {} {
         Filter:
       <TD align="left" width=100% style="padding-right:2px">
          <FORM onsubmit="return filter_bookmarks()">
-         <INPUT width=100% type="text" id="searchbox"></INPUT>
+         <INPUT type="text" id="searchbox"></INPUT>
          </FORM>
       <TD align="center">
         <INPUT type="button" value="View All" onclick="clear_filter()"></INPUT>

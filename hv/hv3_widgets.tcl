@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.42 2007/07/04 18:11:45 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.43 2007/07/18 11:40:12 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
@@ -1135,7 +1135,7 @@ snit::widget ::hv3::stylereport {
   }
 
   method Requestcmd {downloadHandle} {
-    $downloadHandle append "<html><body>[$myHtml stylereport]"
+    $downloadHandle append "<html><body>[$myHtml _stylereport]"
     $downloadHandle finish
   }
 }

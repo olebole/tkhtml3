@@ -73,7 +73,18 @@
 		systems may cause problems. The default is true.
 	}]
 	[Option forcewidth {
-		TODO: Document this option.
+		When determining the layout of a document, Tkhtml3 (and all
+		other HTML/CSS engines) require as an input the width of
+		the containing block for the whole document. For web-browsers,
+		this is usually the width of the viewport in which the document
+		will be displayed.
+
+		If this option is true or the widget window is not mapped, 
+		Tkhtml3 uses the value of the -width option as the initial
+		containing block width. Otherwise, the width of the widget
+		window is used.
+
+		The default value is false.
 	}]
 	[Option imagecmd {
 		As well as for replacing entire document nodes (i.e. <img>),
@@ -111,25 +122,6 @@
 		elements may be modified by mouseover events and so on, 
 		true is a better choice.
 	}]
-	[Option layoutcache {
-		NOTE: This interface may be removed before beta release.
-
-		If this boolean option is set to true, then Tkhtml caches 
-		layout information to improve performance when the layout of a
-		document must be recomputed. This can happen in a variety of
-		situations, for example when extra text is appended to the
-		document, a new style is applied to the document, a dynamic CSS
-		selector (i.e. :hover) is activated, the widget window is
-		resized, or when the size of an embedded image or Tk window
-		changes.
-
-		Layout caching consumes no extra memory or significant
-		processing cycles, so in an ideal world there is no real reason
-		to turn it off. But it can be a source of layout bugs, hence
-		this option.
-
-		The default value is true.
-	}]
 	[Option mode {
 		This option may be set to "quirks", "standards" or 
 		"almost standards", to set the rendering engine mode. The
@@ -153,15 +145,43 @@
 		current window width is used.
 	}]
 	[Option zoom {
-		TODO: Document this option.
+		This option may be set to any floating point number. Before
+		the document layout is calculated, all lengths and sizes
+		specified in the HTML document or CSS style configuration,
+		implicit or explicit, are multiplied by this value.
+
+		The default value is 1.0.
         }]
 	[Option logcmd {
-		This option is used for debugging the widget. Don't worry
-		about it.
+		This option is used for debugging the widget. It is not
+		part of the official interface and may be modified or
+		removed at any time. Don't worry about it.
 	}]
 	[Option timercmd {
-		This option is used for debugging the widget. Don't worry
-		about it.
+		This option is used for debugging the widget. It is not
+		part of the official interface and may be modified or
+		removed at any time. Don't worry about it.
+	}]
+	[Option layoutcache {
+		This option is used for debugging the widget. It is not
+		part of the official interface and may be modified or
+		removed at any time. Don't worry about it.
+
+		If this boolean option is set to true, then Tkhtml caches 
+		layout information to improve performance when the layout of a
+		document must be recomputed. This can happen in a variety of
+		situations, for example when extra text is appended to the
+		document, a new style is applied to the document, a dynamic CSS
+		selector (i.e. :hover) is activated, the widget window is
+		resized, or when the size of an embedded image or Tk window
+		changes.
+
+		Layout caching consumes no extra memory or significant
+		processing cycles, so in an ideal world there is no real reason
+		to turn it off. But it can be a source of layout bugs, hence
+		this option.
+
+		The default value is true.
 	}]
 
 [Section Description]
@@ -342,7 +362,14 @@
 
 [Subcommand {
 	pathName preload _uri_
-		TODO: Document this command.
+		This command is only useful if the -imagecache option is
+		set to true and an -imagecmd script is defined. It causes
+		the widget to invoke the -imagecmd script to retrieve
+		the image at URI _uri_. Assuming -imagecache is true, the
+		returned image is then stored in the image-cache.
+
+		This command may be useful when implementing scripting
+		environments that support "preloading" of images.
 }]
 
 [Subcommand {
@@ -623,7 +650,7 @@
 }]
 [Subcommand {
 	nodeHandle remove ?_node-list_?
-		TODO. Experimental.
+		TODO.
 }]
 [Subcommand {
 	nodeHandle replace ? ?options? newValue?

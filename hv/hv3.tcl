@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.184 2007/07/16 09:20:52 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.185 2007/07/18 11:40:12 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -1174,7 +1174,6 @@ snit::widget ::hv3::hv3 {
 
   method MightBeComplete {} {
     if {[llength $myCurrentDownloads] == 0} {
-      $myHtml delay 0
       event generate $win <<Complete>>
 
       # There are no outstanding HTTP transactions. So fire
@@ -1666,7 +1665,7 @@ snit::widget ::hv3::hv3 {
       set imagecmd [$myHtml cget -imagecmd]
       $myHtml configure -imagecmd [list ::hv3::ReturnWithArgs $img]
       $myHtml parse -final { <img src="unused"> }
-      $myHtml force
+      $myHtml _force
       $myHtml configure -imagecmd $imagecmd
     }
   }
