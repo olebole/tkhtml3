@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.135 2007/07/17 17:04:29 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.136 2007/07/18 15:56:38 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -726,10 +726,16 @@ snit::widget ::hv3::browser_toplevel {
 #
 snit::type ::hv3::config {
 
+  # The SQLite database containing the configuration used
+  # by this application instance. 
+  #
+  variable myDb ""
+  variable myPollActive 0
+
   foreach {opt def type} [list \
     -doublebuffer     0                         Boolean \
     -enableimages     1                         Boolean \
-    -enablejavascript 1                         Boolean \
+    -enablejavascript 0                         Boolean \
     -forcefontmetrics 1                         Boolean \
     -hidegui          0                         Boolean \
     -zoom             1.0                       Double  \
@@ -740,15 +746,48 @@ snit::type ::hv3::config {
     option $opt -default $def -validatemethod $type -configuremethod SetOption
   }
   
-  constructor {args} {
+  constructor {db args} {
+    set myDb $db
     if {$::tcl_platform(platform) eq "windows"} {
       set options(-doublebuffer) 1
     }
+
+    $myDb transaction {
+      set rc [catch {
+        $myDb eval {
+          CREATE TABLE cfg_options1(name TEXT PRIMARY KEY, value);
+        }
+      }]
+      if {$rc == 0} {
+        foreach {n v} [array get options] {
+          $myDb eval {INSERT INTO cfg_options1 VALUES($n, $v)}
+        } 
+      } else {
+        $myDb eval {SELECT name, value FROM cfg_options1} {
+          set options($name) $value
+        }
+      }
+    }
+
     $self configurelist $args
+    after 2000 [mymethod PollConfiguration]
+  }
+
+  method PollConfiguration {} {
+    set myPollActive 1
+    $myDb transaction {
+      foreach n [array names options] {
+        set v [$myDb one { SELECT value FROM cfg_options1 WHERE name = $n }]
+        if {$options($n) ne $v} {
+          $self configure $n $v
+        }
+      }
+    }
+    set myPollActive 0
+    after 2000 [mymethod PollConfiguration]
   }
 
   method populate_menu {path} {
-
 
     # Add the 'Gui Font (size)' menu
     ::hv3::menu ${path}.guifont
@@ -863,6 +902,9 @@ snit::type ::hv3::config {
 
   method SetOption {option value} {
     set options($option) $value
+    if {$myPollActive == 0} {
+      $myDb eval {REPLACE INTO cfg_options1 VALUES($option, $value)}
+    }
 
     switch -- $option {
       -hidegui {
@@ -918,6 +960,10 @@ snit::type ::hv3::config {
         $b configure $option [set $var]
       }
     }
+  }
+
+  destructor {
+    after cancel [mymethod PollConfiguration]
   }
 }
 
@@ -1297,7 +1343,7 @@ proc gui_menu {widget_array} {
   set G(file_menu)  [::hv3::file_menu %AUTO%]
   set G(debug_menu) [::hv3::debug_menu %AUTO%]
   set G(search)     [::hv3::search %AUTO%]
-  set G(config)     [::hv3::config %AUTO%]
+  set G(config)     [::hv3::config %AUTO% ::hv3::sqlitedb]
 
   # Add the "File", "Search" and "View" menus.
   foreach m [list File Search View Debug History] {
@@ -1521,6 +1567,8 @@ proc main {args} {
     }
   }
 
+  ::hv3::dbinit
+
   if {[llength $docs] == 0} {set docs [list home://bookmarks/]}
   # set ::hv3::homeuri [lindex $docs 0]
   set ::hv3::homeuri home://bookmarks/
@@ -1530,7 +1578,6 @@ proc main {args} {
   gui_menu      ::hv3::G
 
   ::hv3::downloadmanager ::hv3::the_download_manager
-  ::hv3::dbinit
 
   # After the event loop has run to create the GUI, run [main2]
   # to load the startup document. It's better if the GUI is created first,
