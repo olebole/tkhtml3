@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.68 2007/07/16 15:35:48 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.69 2007/07/18 15:16:44 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Snit types in this file:
@@ -57,6 +57,9 @@ snit::type ::hv3::dom {
   method SetEnable {option value} {
     set options($option) $value
     if {$mySee ne "" && ![$self HaveScripting]} {
+      foreach win [array names myWindows] {
+        $mySee make_transient [list ::hv3::DOM::Window $self $win]
+      }
       $mySee destroy
       set mySee ""
     }

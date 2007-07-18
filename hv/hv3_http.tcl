@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.43 2007/07/12 15:41:56 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.44 2007/07/18 15:16:44 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd script used with 
@@ -243,8 +243,15 @@ snit::type ::hv3::protocol {
     # as for a normal http server.
     fileevent $fd writable ""
     fileevent $fd readable ""
-    set theWaitingSocket [::tls::import $fd]
-    $self request_http $downloadHandle
+
+    if {[info commands $downloadHandle] eq ""} {
+      # This occurs if the download-handle was cancelled by Hv3 while
+      # waiting for the SSL connection to be established. 
+      close $fd
+    } else {
+      set theWaitingSocket [::tls::import $fd]
+      $self request_http $downloadHandle
+    }
   }
   method SSocketProxyReady {fd downloadHandle} {
     set str [gets $fd line]
@@ -266,6 +273,7 @@ snit::type ::hv3::protocol {
     return $ss
   }
   # End of code for https://
+  #-------------------------
 
   # Handle a data: URI.
   #
