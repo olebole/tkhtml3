@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.136 2007/07/18 15:56:38 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.137 2007/07/18 17:44:37 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -497,7 +497,6 @@ snit::widget ::hv3::browser_toplevel {
 
     # Link in the "home:" and "about:" scheme handlers (from hv3_home.tcl)
     ::hv3::home_scheme_init [$myMainFrame hv3] $myProtocol
-    ::hv3::about_scheme_init $myProtocol
     ::hv3::cookies_scheme_init $myProtocol
     ::hv3::download_scheme_init [$myMainFrame hv3] $myProtocol
 
@@ -1123,15 +1122,15 @@ snit::type ::hv3::debug_menu {
 
   constructor {} {
     set MENU [list \
-      "Cookies"              [list $::hv3::G(notebook) add cookies:]    "" \
-      "About"                [list $::hv3::G(notebook) add about:]      "" \
-      "Polipo..."            [list ::hv3::polipo::popup]                "" \
-      "Events..."            [list gui_log_window $::hv3::G(notebook)]  "" \
-      "-----"                [list]                                     "" \
-      "Tree Browser..."      [list gui_current browse]                  "" \
-      "ECMAscript..."        [list gui_current javascriptlog]           j  \
-      "-----"                [list]                                     "" \
-      "Exec firefox -remote" [list gui_firefox_remote]                  "" \
+      "Cookies"              [list $::hv3::G(notebook) add cookies:]     "" \
+      "About"                [list $::hv3::G(notebook) add home://about] "" \
+      "Polipo..."            [list ::hv3::polipo::popup]                 "" \
+      "Events..."            [list gui_log_window $::hv3::G(notebook)]   "" \
+      "-----"                [list]                                      "" \
+      "Tree Browser..."      [list gui_current browse]                   "" \
+      "ECMAscript..."        [list gui_current javascriptlog]            j  \
+      "-----"                [list]                                      "" \
+      "Exec firefox -remote" [list gui_firefox_remote]                   "" \
     ]
   }
 
