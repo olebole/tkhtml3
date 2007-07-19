@@ -30,9 +30,10 @@ cd ${BLD3}
 sh ${SRC}/puppy.sh
 
 cd ${HERE}
-mv ${BLD1}/hv3_img.kit ./hv3-${VERSION}.kit
+mv ${BLD1}/hv3_img.kit ./hv3-linux-${VERSION}.kit
 mv ${BLD1}/hv3-linux-x86.gz ./hv3-linux-${VERSION}.gz
 mv ${BLD2}/hv3-win32.exe ./hv3-win32-${VERSION}.exe
+mv ${BLD2}/hv3_img.kit ./hv3-win32-${VERSION}.kit
 mv ${BLD3}/hv3-${VERSION}.pet .
 
 chmod 644 ./hv3-${VERSION}.kit

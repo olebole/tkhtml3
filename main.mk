@@ -110,6 +110,7 @@ hv3_img.vfs: binaries
 	cp $(TOP)/hv/combobox.tcl ./hv3_img.vfs/
 	cp $(TOP)/hv/snit.tcl ./hv3_img.vfs/
 	cp $(TOP)/hv/index.html ./hv3_img.vfs/
+	cp $(TOP)/hv/bookmarks.html ./hv3_img.vfs/
 	if test -d $(TCL)/lib/Img*/ ; then \
 		cp -R $(TCL)/lib/Img*/ ./hv3_img.vfs/lib ; \
 	fi
@@ -157,6 +158,7 @@ website: hv3_img.kit
 	$(TCLSH) $(TOP)/webpage/mkwebpage.tcl > www/index.html
 	$(TCLSH) $(TOP)/webpage/mksupportpage.tcl > www/support.html
 	$(TCLSH) $(TOP)/webpage/mkhv3page.tcl > www/hv3.html
+	$(TCLSH) $(TOP)/webpage/mkffaqpage.tcl > www/ffaq.html
 	$(TCLSH) $(TOP)/doc/macros.tcl -html $(TOP)/doc/html.man > www/tkhtml.html
 	$(TCLSH) $(TOP)/doc/tkhtml_requirements.tcl > www/requirements.html
 	cp $(TOP)/doc/tree.gif www/tree.gif

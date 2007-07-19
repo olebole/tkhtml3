@@ -52,8 +52,8 @@ proc FINISH {} {
     puts [subst {
         <div id="body">
         <h1>$::title</h1>
+        [getToc]
     }]
-    puts [getToc]
     puts {<div id="text">}
     puts $::html
     puts {
@@ -66,18 +66,18 @@ proc FINISH {} {
 
 ###########################################################################
 
-START "Tkhtml CSS and HTML Support"
+START "DOM, CSS and HTML Support"
 
 P {
 <p>
-	Ultimately, Tkhtml aims to support those aspects of HTML 4.01 and CSS
+	Ultimately, Tkhtml3 aims to support those aspects of HTML 4.01 and CSS
 	2.1 that apply to the parsing and visual rendering of documents. But,
 	as you may have surmised, that is a work in progress. This document
 	describes the current situation in terms of the CSS properties, CSS
 	selectors, HTML attributes and HTML tags supported.
 </p><p>
 	This document currently tracks the CVS version against the CSS 
-	2.1 and HTML 4.01 (todo) specifications.
+	2.1, HTML 4.01 (todo) and DOM (todo) specifications.
 </p>
 }
 
@@ -85,7 +85,7 @@ SECTION "CSS Property Support"
 
 P {
 <p>
-	The tables in this section compare CSS property support in Tkhtml with
+	The tables in this section compare CSS property support in Tkhtml3 with
 	the <a href="http://www.w3.org/TR/CSS21/">CSS level 2.1</a>
 	specification. Property names in blue are supported, those in grey 
 	are unsupported. Of course, there may be bugs in the support of
@@ -187,7 +187,7 @@ SUPPORTTABLE {Visual Rendering Properties} \
 	[CSSREF visuren bottom] {}  \
 	[CSSREF visuren z-index] {} \
 	[CSSREF visuren unicode-bidi nosupport] {
-		Tkhtml does not yet support bi-directional text. So the
+		Tkhtml3 does not yet support bi-directional text. So the
 		properties "unicode-bidi" and "direction" are both ignored.
 	} \
 	[CSSREF visuren direction nosupport] {No support.}
@@ -236,7 +236,7 @@ set outofscopes {
 P {
   <p>
     The following CSS 2.1 properties are currently considered to be
-    outside of Tkhtml's scope, as they only apply to aural or paged 
+    outside of Tkhtml3's scope, as they only apply to aural or paged 
     document rendering:
   </p>
 }
@@ -265,6 +265,7 @@ P {
 }
 
 
+if 0 {
 
 SECTION {HTML Parsing Support}
 
@@ -386,7 +387,6 @@ P {
 
 SECTION {HTML Element Support}
 
-if 0 {
 
 # List of HTML attributes:
 abbr

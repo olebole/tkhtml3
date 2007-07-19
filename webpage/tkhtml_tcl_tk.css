@@ -1,7 +1,7 @@
 
 #toc {
   float: right;
-  margin: 0 1em 1em 1em;
+  margin: 1em 1em 1em 1em;
   padding: 1em;
   border: 1px solid black;
 }
@@ -105,6 +105,13 @@ a[href]:hover {
   max-width: 720px;
   margin: auto;
   background-color: white;
+}
+
+.bigred {
+  font-size: 1.6em;
+  /* color:red;
+  text-decoration:none;
+*/
 }
 
 .screenshot {

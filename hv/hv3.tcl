@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.185 2007/07/18 11:40:12 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.186 2007/07/19 11:35:54 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -1043,7 +1043,7 @@ snit::widget ::hv3::hv3 {
     $myMouseManager configure -selectionmanager $mySelectionManager
 
     # Location URI. The default URI is "blank://".
-    set myUri              [::hv3::uri %AUTO% blank:]
+    set myUri              [::hv3::uri %AUTO% home://blank/]
 
     set myFormManager [::hv3::formmanager %AUTO% $self]
     $myFormManager configure -getcmd  [mymethod Formcmd get]

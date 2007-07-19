@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.44 2007/07/18 15:16:44 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.45 2007/07/19 11:35:54 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd script used with 
@@ -84,6 +84,7 @@ snit::type ::hv3::protocol {
     $self schemehandler http  [mymethod request_http]
     $self schemehandler data  [mymethod request_data]
     $self schemehandler blank [mymethod request_blank]
+    $self schemehandler about [mymethod request_blank]
 
     # If the tls package is loaded, we can also support https.
     if {[info commands ::tls::socket] ne ""} {

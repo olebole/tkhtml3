@@ -27,12 +27,8 @@ set ::SiteMap {
              </span>
         <li> <a href="hv3.html">Hv3</a>
              <span class="caption">
-		 Page for the demo/test application hv3. Screenshots and
+                 Page for the demo/test application hv3. Screenshots and
                  starpacks for windows and linux are available here.
-             </span>
-        <li> <a href="requirements.html">Requirements</a>
-             <span class="caption">
-                 Requirements document for Tkhtml 3.
              </span>
         <li> <a href="http://tkhtml.tcl.tk/cvstrac/timeline">Cvstrac</a>
              <span class="caption">
@@ -48,14 +44,14 @@ proc getTabs {idx} {
   append ret {<div id="sitemap">}
   append ret <ul>
   set ii 0
-  foreach {label href caption} [list                                        \
-    Home       index.html   "Front page of this site"                       \
-    Standards  support.html "Summary of support for CSS and HTML standards" \
-    "Man page" tkhtml.html  "Unix style manual page for the widget."        \
+  foreach {label href caption} [list                                         \
+    Home       index.html   "Front page of this site"                        \
+    Standards  support.html "Summary of support for CSS and HTML standards"  \
+    "Tkhtml3"  tkhtml.html  "Unix style manual page for the Tkhtml3 widget." \
     Hv3        hv3.html     {
 		 Page for the web browser application hv3. Screenshots and
-                 starpacks for windows and linux are available here. }     \
-    Requirements requirements.html {Requirements document for Tkhtml 3}     \
+                 starpacks for windows and linux are available here. }       \
+    FFAQ       ffaq.html     "tkhtml.tcl.tk FFAQ"                            \
     Cvstrac      http://tkhtml.tcl.tk/cvstrac/timeline {
 		  Cvstrac is used for project change-log, wiki and bug
                   tracking. }
