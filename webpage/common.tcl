@@ -40,9 +40,9 @@ set ::SiteMap {
 }
 
 proc getTabs {idx} {
-  set ret ""
+  set ret "<center>"
   append ret {<div id="sitemap">}
-  append ret <ul>
+  append ret <table><tr>
   set ii 0
   foreach {label href caption} [list                                         \
     Home       index.html   "Front page of this site"                        \
@@ -57,14 +57,17 @@ proc getTabs {idx} {
                   tracking. }
   ] {
     if {$ii==$idx} {
-      append ret "<li id=\"active\"> <a href=\"$href\">$label</a>"
+      append ret [subst {
+        <td><a id="active" href="$href">$label</div></a>}]
     } else {
-      append ret "<li> <a href=\"$href\">$label</a>"
+      append ret "<td><a href=\"$href\">$label</a>"
     }
     append ret "<span class=\"caption\">$caption</span>"
+
+    append ret {<td width=10 class="spacer"></td>}
     incr ii
   }
-  append ret </ul>
+  append ret </table>
   append ret </div>
   return $ret
 }

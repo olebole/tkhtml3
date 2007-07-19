@@ -33,26 +33,30 @@ table {
 }
 
 #sitemap {
-  max-width:720px;
+  width:720px;
   margin:auto;
   position: relative;
-  bottom: -11px;
 }
 
 #sitemap h3 {
   display: none;
 }
-#sitemap ul {
-  display:table;
+#sitemap table {
   overflow: auto;
   margin:auto;
   line-height: 1.5em;
   padding: 0px;
-  border-spacing: 10px;
+  border-spacing: 0px;
 }
-#sitemap li {
-  display: table-cell;
+#sitemap tr {
+  border-spacing: 0px;
+}
+#sitemap td {
   border: black 1px solid;
+  border-bottom: none;
+}
+#sitemap td.spacer {
+  border: none;
 }
 #sitemap a[href] {
   display: block;
@@ -64,7 +68,7 @@ table {
   display: none;
 }
 
-#sitemap li:hover .caption {
+#sitemap td:hover .caption {
   display: block;
   position: absolute;
   top: 110%;
@@ -91,18 +95,18 @@ a[href]:hover {
   border-bottom: none;
   background-color: transparent;
 }
-#sitemap li:hover {
+#sitemap td:hover {
   background-color: #ececec;
 }
 #sitemap #active {
-  border-bottom-color: transparent;
   background-color: white;
 }
 
 #body {
+  text-align: left;
   border: black 1px solid;
   padding: 0px 0.5em;
-  max-width: 720px;
+  width: 720px;
   margin: auto;
   background-color: white;
 }

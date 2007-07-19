@@ -42,8 +42,7 @@ puts [subst -novariables {
 <h2><a name="download">Download</a></h2>
   <table cellpadding=5 style="margin-left:2em; margin-right:2em">
 
-<tr style="border-top:solid 1px black">
-<td valign=top>Windows
+<tr style="border-top:solid black 1px"><td valign=top>Windows
 <td>
     <p><a href="hv3-win32-[VERSION].exe">hv3-win32-[VERSION].exe</a> -
     Executable for win32 platforms.

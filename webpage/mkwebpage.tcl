@@ -2,7 +2,7 @@
 #
 # Construct the web page for tkhtml
 #
-# @(#) $Id: mkwebpage.tcl,v 1.35 2007/07/19 11:35:54 danielk1977 Exp $
+# @(#) $Id: mkwebpage.tcl,v 1.36 2007/07/19 16:04:29 danielk1977 Exp $
 #
 
 source [file join [file dirname [info script]] common.tcl]
@@ -12,7 +12,7 @@ proc header {} {
     <html>
     <head>
     <link rel="stylesheet" href="tkhtml_tcl_tk.css">
-    <title>An HTML Widget For Tk</title>
+    <title>tkhtml.tcl.tk</title>
     </head>
     <body>
   }
@@ -142,7 +142,7 @@ p {
       source code for the latest release (alpha 14)</a>.
 
   <p>Or to obtain the lastest source-code from cvs, use the following 
-     procedure (from an x-term or command prompt):<b>
+     procedure (from an x-term or command prompt):
 
     <ol>
       <li> Log in with the following command:

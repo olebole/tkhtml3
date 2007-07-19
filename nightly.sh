@@ -36,7 +36,8 @@ mv ${BLD2}/hv3-win32.exe ./hv3-win32-${VERSION}.exe
 mv ${BLD2}/hv3_img.kit ./hv3-win32-${VERSION}.kit
 mv ${BLD3}/hv3-${VERSION}.pet .
 
-chmod 644 ./hv3-${VERSION}.kit
+chmod 644 ./hv3-linux-${VERSION}.kit
+chmod 644 ./hv3-win32-${VERSION}.kit
 chmod 644 ./hv3-win32-${VERSION}.exe
 chmod 644 ./hv3-${VERSION}.pet
 chmod 644 ./hv3-linux-${VERSION}.gz
