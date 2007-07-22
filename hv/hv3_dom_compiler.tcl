@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.28 2007/07/12 15:41:56 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.29 2007/07/22 06:45:49 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file implements infrastructure used to create the [proc] definitions
@@ -123,14 +123,12 @@ namespace eval ::hv3::DOM {
     #
     set idx [string first _call_ $procname]
     if {$idx > 0} {
-      set values [lindex [info level -2] 3]
-      set procname [string range $procname 0 [expr $idx-1]]
-      lset values 0 $procname
+      set level 2
+    } else {
+      set level 1
     }
 
-    set arglist [info args $procname]
-    set iIdx [lsearch -exact $arglist Method]
-    lrange $values 0 $iIdx
+    uplevel $level {set SELF}
   }
 }
 
@@ -654,10 +652,18 @@ namespace eval ::hv3::dom2 {
     if {[lsearch -exact $param_list myStateArray]>=0} {
       set SetStateVar {upvar #0 $myStateArray state}
     }
+
+    set selflist "list ::hv3::DOM::$myName \[set myDom\] "
+    foreach param $param_list {
+      append selflist [subst -nocommands {[set $param]}]
+      append selflist " "
+    }
+
     set arglist [concat myDom $param_list Method args]
     set Code [AutoIndent 0 {
       proc ::hv3::DOM::$myName {$arglist} {
         $SetStateVar
+        set SELF [$selflist]
         switch -exact -- [set Method] {
           Get {
             $Get

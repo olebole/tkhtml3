@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.69 2007/07/18 15:16:44 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.70 2007/07/22 06:45:49 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Snit types in this file:
@@ -65,6 +65,7 @@ snit::type ::hv3::dom {
     }
     if {$mySee eq "" && [$self HaveScripting]} {
       set mySee [::see::interp]
+      ::hv3::profile::instrument $mySee
       foreach win [array names myWindows] {
         $mySee window [list ::hv3::DOM::Window $self $win]
       }
@@ -77,6 +78,7 @@ snit::type ::hv3::dom {
         [string first home: $uri] == 0
     } {
       set mySee [::see::interp]
+      ::hv3::profile::instrument $mySee
       foreach win [array names myWindows] {
         $mySee window [list ::hv3::DOM::Window $self $win]
       }
@@ -471,6 +473,7 @@ return
 
         if {[$self HaveScripting]} {
           set mySee [::see::interp]
+          ::hv3::profile::instrument $mySee
           $mySee log $options(-logcmd)
           $mySee window [list ::hv3::DOM::Window $self $hv3]
         }

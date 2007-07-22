@@ -40,9 +40,15 @@ puts [subst -novariables {
 </p>
 
 <h2><a name="download">Download</a></h2>
-  <table cellpadding=5 style="margin-left:2em; margin-right:2em">
+  <table style="margin-left:2em; margin-right:2em; margin-top:0">
 
-<tr style="border-top:solid black 1px"><td valign=top>Windows
+<!-- A black line. We should be able to style the <tr> blocks for
+     this effect, but that hits a Gecko bug. And (of course) the
+     corresponding IE6 bug.
+-->
+<tr><td colspan=3><div style="border-bottom: 1px solid black;padding: 0">
+
+<tr><td valign=top>Windows<td width=10>
 <td>
     <p><a href="hv3-win32-[VERSION].exe">hv3-win32-[VERSION].exe</a> -
     Executable for win32 platforms.
@@ -53,8 +59,8 @@ puts [subst -novariables {
     (<a href="http://www.equi4.com">http://www.equi4.com</a>). If you're 
     not sure what this means, grab the executable file above instead.
 
-<tr style="border-top:solid 1px black">
-<td valign=top>Generic&nbsp;Linux
+<tr><td colspan=3><div style="border-bottom: 1px solid black;padding: 0">
+<tr><td valign=top>Generic&nbsp;Linux<td>
 <td>
     <p><a href="hv3-linux-[VERSION].gz">
         hv3-linux-[VERSION].gz</a> - Gzip'd executable for
@@ -76,8 +82,8 @@ puts [subst -novariables {
     (<a href="http://www.equi4.com">http://www.equi4.com</a>). If you're 
     not sure what this means, grab the gzip'd executable file above instead.
 
-<tr style="border-top:solid 1px black;border-bottom:solid 1px black;">
-<td valign=top>Puppy&nbsp;Linux
+<tr><td colspan=3><div style="border-bottom: 1px solid black;padding: 0">
+<tr><td valign=top>Puppy&nbsp;Linux<td>
 <td>
     <p><a href="hv3-[VERSION].pet">hv3-[VERSION].pet</a> - Pupget package
     for Puppy linux 
@@ -85,6 +91,7 @@ puts [subst -novariables {
     This won't work with other linux distributions. For anything other 
     than puppy or puppy derivitives, use the generic linux package above.
 
+<tr><td colspan=3><div style="border-bottom: 1px solid black;padding: 0">
 </table>
 
   <p>

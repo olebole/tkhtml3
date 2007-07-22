@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.194 2007/07/18 11:40:13 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.195 2007/07/22 06:45:49 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -3613,7 +3613,8 @@ layoutNodeCb(pItem, origin_x, origin_y, pOverflow, clientData)
     if (
         pNode && pNode->iNode >= 0 && 
         x <= pQuery->x && (x + w) >= pQuery->x &&
-        y <= pQuery->y && (y + h) >= pQuery->y
+        y <= pQuery->y && (y + h) >= pQuery->y &&
+        !HtmlNodeIsOrphan(pNode)
     ) {
         int i;
 
@@ -3621,7 +3622,7 @@ layoutNodeCb(pItem, origin_x, origin_y, pOverflow, clientData)
          * not include this node in the set returned by [pathName node].
          */
         HtmlComputedValues *pComputed = HtmlNodeComputedValues(pNode);
-        if (pComputed->eVisibility != CSS_CONST_VISIBLE) {
+        if (pComputed==0 || pComputed->eVisibility != CSS_CONST_VISIBLE) {
             return 0;
         }
 
@@ -3758,7 +3759,12 @@ HtmlLayoutNode(clientData, interp, objc, objv)
             return TCL_ERROR;
         }
 
-        HtmlCallbackForce(pTree);
+        /*
+        ** Really, we do not want to force a callback here. Particularly
+        ** since it causes a performance hit. But are the structures
+        ** intact enough to do layoutNodeCmd() if we do not?
+        */
+        // HtmlCallbackForce(pTree);
 
         /* Transform x and y from viewport to document coordinates */
         x += pTree->iScrollX;

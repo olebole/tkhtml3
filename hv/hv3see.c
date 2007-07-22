@@ -2027,24 +2027,30 @@ SeeTcl_Put(pInterp, pObj, pProp, pValue, flags)
     SeeTclObject *pObject = (SeeTclObject *)pObj;
     SeeInterp *p = (SeeInterp *)pInterp;
     Tcl_Interp *pTclInterp = p->pTclInterp;
+    struct SEE_object *pNative = (struct SEE_object *)pObject->pNative;
+
     int rc;
+    int isNative;
 
     Tcl_Obj *pVal;
     int nObj = 0;
 
-    pVal = argValueToTcl(p, pValue, &nObj);
-    Tcl_IncrRefCount(pVal);
-    rc = callSeeTclMethod(pTclInterp, p->pLog, pObject, "Put", pProp, pVal);
-    Tcl_DecrRefCount(pVal);
-    removeTransientRefs(p, nObj);
-    throwTclError(pInterp, rc);
+    isNative = SEE_OBJECT_HASPROPERTY(pInterp, pNative, pProp);
+
+    if (!isNative) {
+        pVal = argValueToTcl(p, pValue, &nObj);
+        Tcl_IncrRefCount(pVal);
+        rc = callSeeTclMethod(pTclInterp, p->pLog, pObject, "Put", pProp, pVal);
+        Tcl_DecrRefCount(pVal);
+        removeTransientRefs(p, nObj);
+        throwTclError(pInterp, rc);
+    }
 
     /* If the result of the [$obj Put] script was the literal string 
      * "native", then store this property in the pObject->native hash 
      * table.
      */
-    if (0 == strcmp(Tcl_GetStringResult(pTclInterp), "native")) {
-        struct SEE_object *pNative = (struct SEE_object *)pObject->pNative;
+    if (isNative || 0 == strcmp(Tcl_GetStringResult(pTclInterp), "native")) {
         flags |= SEE_ATTR_INTERNAL;
         SEE_native_put(&p->interp, pNative, pProp, pValue, flags);
     }

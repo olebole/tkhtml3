@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.177 2007/07/18 11:40:13 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.178 2007/07/22 06:45:49 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -2797,6 +2797,7 @@ DLL_EXPORT int Tkhtml_Init(interp)
 #endif
 
     SwprocInit(interp);
+    HtmlInstrumentInit(interp);
 
     rc = Tcl_EvalEx(interp, HTML_DEFAULT_TCL, -1, TCL_EVAL_GLOBAL);
     assert(rc == TCL_OK);

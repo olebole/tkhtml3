@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.20 2007/07/12 15:41:56 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.21 2007/07/22 06:45:49 danielk1977 Exp $)} 1 }
 
 #---------------------------------
 # List of DOM objects in this file:
@@ -318,9 +318,11 @@ namespace eval ::hv3::DOM {
   #
   # where testContainer is the name of a child frame.
   #
+if 0 {
   dom_get * { 
     ::hv3::DOM::FramesList $myDom [winfo parent $myHv3] Get $property
   }
+}
 
   dom_call -string jsputs {THIS args} {
     puts $args

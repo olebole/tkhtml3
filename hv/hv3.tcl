@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.186 2007/07/19 11:35:54 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.187 2007/07/22 06:45:49 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -1025,9 +1025,11 @@ snit::widget ::hv3::hv3 {
   variable myOnloadFired 0
 
   constructor {} {
+
     # Create the scrolled html widget and bind it's events to the
     # mega-widget window.
     set myHtml [::hv3::scrolled html ${win}.html -propagate 1]
+    ::hv3::profile::instrument [$myHtml widget]
     bindtags [$self html] [concat [bindtags [$self html]] $self]
     pack $myHtml -fill both -expand 1
 
@@ -1726,12 +1728,12 @@ snit::widget ::hv3::hv3 {
   # here is that several different application components need to be notified
   # of the list of nodes under the cursor every time the cursor moves.
   #
-  variable myNodeArgs 
+  variable myNodeArgs NULL
   variable myNodeRes
   method node {args} {
-    if {![info exists myNodeArgs] || $myNodeArgs ne $args} {
+    if {$myNodeArgs ne $args} {
       set myNodeArgs $args
-      set myNodeRes [eval [linsert $args 0 $myHtml node]]
+      set myNodeRes [eval $myHtml node $args]
 
       # Invalidate the node-cache in the next idle loop. This is because
       # some javascript, incremental parsing or dynamic CSS may have
@@ -1743,7 +1745,7 @@ snit::widget ::hv3::hv3 {
     return $myNodeRes
   }
   method InvalidateNodecache {} {
-    unset -nocomplain myNodeArgs
+    set myNodeArgs NULL
   }
 
   method dom {} { return $options(-dom) }
@@ -2010,13 +2012,6 @@ snit::widget ::hv3::hv3 {
   delegate option -zoom             to myHtml
   delegate option -forcefontmetrics to myHtml
   delegate option -doublebuffer     to myHtml
-
-method search {args} {
-  for {set ii 0} {$ii < [info level]} {incr ii} {
-    # puts [info level $ii]
-  }
-  eval $myHtml search $args
-}
 }
 
 bind Html <Tab>       [list ::hv3::forms::tab %W]

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.24 2007/07/10 09:11:04 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.25 2007/07/22 06:45:49 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Core
@@ -483,8 +483,7 @@ set BaseList {ElementCSSInlineStyle WidgetNode Node NodePrototype}
 }
 namespace eval ::hv3::DOM {
   proc Element_getAttributeString {node name def} {
-    set val [$node attribute -default $def $name]
-    list string $val
+    list string [$node attribute -default $def $name]
   }
 
   proc Element_putAttributeString {node name val} {
@@ -516,8 +515,9 @@ namespace eval ::hv3::DOM {
   # if $js_obj does not not implement WidgetNode.
   #
   proc GetNodeFromObj {js_obj} {
-    set idx [lsearch -exact [info args [lindex $js_obj 0]] myNode]
-    lindex $js_obj [expr $idx+1]
+    # set idx [lsearch -exact [info args [lindex $js_obj 0]] myNode]
+    # lindex $js_obj [expr $idx+1]
+    lindex $js_obj 2
   }
 }
 

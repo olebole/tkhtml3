@@ -962,5 +962,7 @@ const char *HtmlTextIterData(HtmlTextIter *);
 #define HTML_TEXT_TOKEN_END       0
 #define HTML_TEXT_TOKEN_LONGTEXT  5
 
+void HtmlInstrumentInit(Tcl_Interp *);
+
 #endif
 

@@ -33,7 +33,7 @@ table {
 }
 
 #sitemap {
-  width:720px;
+  max-width:720px;
   margin:auto;
   position: relative;
 }
@@ -106,7 +106,7 @@ a[href]:hover {
   text-align: left;
   border: black 1px solid;
   padding: 0px 0.5em;
-  width: 720px;
+  max-width: 720px;
   margin: auto;
   background-color: white;
 }

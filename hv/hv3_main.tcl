@@ -1,9 +1,17 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.137 2007/07/18 17:44:37 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.138 2007/07/22 06:45:49 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
 package require Tk
 package require Tkhtml 3.0
+
+proc sourcefile {file} { return [file join [file dirname [info script]] $file] }
+
+# Before doing anything else, set up profiling if it is requested.
+# Profiling is only used if the "-profile" option was passed on
+# the command line.
+source [sourcefile hv3_profile.tcl]
+::hv3::profile::init $argv
 
 # option add *TButton.compound left
 
@@ -25,7 +33,6 @@ proc htmlize {zIn} {
 
 # Source the other script files that are part of this application.
 #
-proc sourcefile {file} { return [file join [file dirname [info script]] $file] }
 source [sourcefile snit.tcl]
 source [sourcefile hv3_encodings.tcl]
 source [sourcefile hv3_db.tcl]
@@ -203,7 +210,6 @@ snit::widget ::hv3::browser_frame {
   }
   method child_frames {} {
     set ret [list]
-    set tree [$myBrowser frames_tree $self]
     foreach c [$myBrowser frames_tree $self] {
       lappend ret [lindex $c 0]
     }
@@ -1131,6 +1137,9 @@ snit::type ::hv3::debug_menu {
       "ECMAscript..."        [list gui_current javascriptlog]            j  \
       "-----"                [list]                                      "" \
       "Exec firefox -remote" [list gui_firefox_remote]                   "" \
+      "-----"                [list]                                      "" \
+      "Reset Profiling Data..." [list ::hv3::profile::zero]               "" \
+      "Save Profiling Data..."  [list ::hv3::profile::report_to_file]     "" \
     ]
   }
 
@@ -1146,6 +1155,11 @@ snit::type ::hv3::debug_menu {
         set acc "(Ctrl-[string toupper $key])"
         $path entryconfigure end -accelerator $acc
       }
+    }
+
+    if {0 == [hv3::profile::enabled]} {
+      $path entryconfigure end -state disabled
+      $path entryconfigure [expr [$path index end] - 1] -state disabled
     }
   }
 
@@ -1546,7 +1560,6 @@ proc JS {args} {
 #
 proc main {args} {
 
-  # Default startup page is "home:///"
   set docs [list]
 
   for {set ii 0} {$ii < [llength $args]} {incr ii} {
@@ -1556,6 +1569,10 @@ proc main {args} {
         if {$ii == [llength $args] - 1} ::hv3::usage
         incr ii
         set ::hv3::statefile [lindex $args $ii]
+      }
+      -profile { 
+	# Ignore this here. If the -profile option is present it will 
+        # have been handled already.
       }
       default {
         set uri [::hv3::uri %AUTO% file:///[pwd]/]

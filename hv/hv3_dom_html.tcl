@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.27 2007/07/12 15:41:56 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.28 2007/07/22 06:45:49 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Html
@@ -105,7 +105,7 @@ set BaseList {Document DocumentEvent Node NodePrototype}
   dom_call -string getElementById {THIS elementId} {
     set elementId [string map [list "\x22" "\x5C\x22"] $elementId]
     set selector [subst -nocommands {[id="$elementId"]}]
-    set node [lindex [$myHv3 search $selector] 0]
+    set node [$myHv3 search $selector -index 0]
     if {$node ne ""} {
       return [list object [$myDom node_to_dom $node]]
     }
@@ -187,13 +187,17 @@ set BaseList {Document DocumentEvent Node NodePrototype}
     set tags [list form img]
 
     # Selectors to use to find document nodes.
-    set nameselector [subst -nocommands {[name="$property"]}]
-    set idselector   [subst -nocommands {[id="$property"]}]
+    set nameselector [subst -nocommands {
+      form[name="$property"],img[name="$property"]
+    }]
+    set idselector [subst -nocommands {
+      form[id="$property"],img[id="$property"]
+    }]
  
     foreach selector [list $nameselector $idselector] {
-      set node [lindex [$myHv3 search $selector] 0]
-      if {$node ne "" && [lsearch $tags [$node tag]] >= 0} {
-        return [list object [[$myHv3 dom] node_to_dom $node]]
+      set node [$myHv3 search $selector -index 0]
+      if {$node ne ""} {
+        return [list object [$myDom node_to_dom $node]]
       }
     }
 
@@ -396,8 +400,7 @@ namespace eval ::hv3::DOM {
   }
 
   proc HTMLElement_nodeBox {dom node} {
-    set hv3 [$dom node_to_hv3 $node]
-    set bbox [$hv3 bbox $node]
+    set bbox [[$node html] bbox $node]
     if {$bbox eq ""} {set bbox [list 0 0 0 0]}
     return $bbox
   }
