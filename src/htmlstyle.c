@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlstyle.c,v 1.53 2007/06/10 07:53:04 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlstyle.c,v 1.54 2007/07/23 13:22:24 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -552,6 +552,20 @@ styleNode(pTree, pNode, clientData)
         } else if (redrawmode == 1) {
             /* HtmlCallbackLayout(pTree, pNode); */
             HtmlCallbackDamageNode(pTree, pNode);
+        }
+
+        /* If this element was either the <body> or <html> nodes,
+         * go ahead and repaint the entire display. The worst that
+         * can happen is that we have to paint a little extra
+         * area if the document background is set by the <HTML>
+         * element.
+         */
+        if (redrawmode && (
+                pElem == pTree->pRoot || 
+                pElem == HtmlNodeChild(pTree->pRoot, 1)
+            )
+        ) {
+            HtmlCallbackDamage(pTree, 0, 0, 1000000, 1000000, 0);
         }
 
         addStackingInfo(pTree, pElem);
