@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.70 2007/07/22 06:45:49 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.71 2007/07/23 07:15:41 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Snit types in this file:
@@ -289,7 +289,7 @@ return
 
       set js_obj [$self node_to_window $node]
     } else {
-      set js_obj [$self node_to_dom $node]
+      set js_obj [::hv3::dom::wrapWidgetNode $self $node]
     }
 
     # Dispatch the event.
@@ -338,7 +338,7 @@ return
     # If $frame is a replacement object for an <IFRAME> element, 
     # then fire the load event on the <IFRAME> element.
     if {[$frame cget -iframe] ne ""} {
-      $self DispatchHtmlEvent load [$self node_to_dom [$frame cget -iframe]]
+      $self DispatchHtmlEvent load [::hv3::dom::wrapWidgetNode $self [$frame cget -iframe]]
       return
     }
 
@@ -381,7 +381,7 @@ return
     #
     if {"" eq [info commands $node]} {return 1}
 
-    set Node [$self node_to_dom $node]
+    set Node [::hv3::dom::wrapWidgetNode $self $node]
 
     set rc [catch {
       ::hv3::dom::dispatchMouseEvent $self $event $Node $x $y $args
@@ -393,16 +393,6 @@ return
       set msg "prevent"
     }
     set msg
-  }
-
-  #------------------------------------------------------------------
-  # method node_to_dom
-  #
-  #     This is a factory method for HTMLElement/Text DOM wrappers
-  #     around html widget node-handles.
-  #
-  method node_to_dom {node} {
-    ::hv3::dom::createWidgetNode $self $node
   }
 
   #----------------------------------------------------------------
@@ -528,7 +518,7 @@ return
   #
   method eventdump {node} {
     if {$mySee eq ""} {return ""}
-    $mySee events [$self node_to_dom $node]
+    $mySee events [::hv3::dom::wrapWidgetNode $self $node]
   }
 }
 

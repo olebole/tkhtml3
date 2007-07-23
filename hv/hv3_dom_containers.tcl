@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_containers.tcl,v 1.6 2007/07/10 09:11:04 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_containers.tcl,v 1.7 2007/07/23 07:15:41 danielk1977 Exp $)} 1 }
 
 # This file contains the implementation of the two DOM specific
 # container objects:
@@ -95,7 +95,7 @@ namespace eval hv3 { set {version($Id: hv3_dom_containers.tcl,v 1.6 2007/07/10 0
       if {$nRet==0} {
         set res ""
       } elseif {$nRet==1} {
-        set res [list object [$myDom node_to_dom [lindex $res 0]]]
+        set res [list object [::hv3::dom::wrapWidgetNode $myDom [lindex $res 0]]]
       } else {
         set getnodes [namespace code [list \
           HTMLCollectionC_getNodeHandlesByName $nodelistcmd $property
@@ -127,7 +127,7 @@ namespace eval ::hv3::DOM {
     set ret null
     set node [lindex [eval $nodelistcmd] $idx]
     if {$node ne ""} {
-      set ret [list object [$dom node_to_dom $node]]
+      set ret [list object [::hv3::dom::wrapWidgetNode $dom $node]]
     }
     set ret
   }
@@ -137,14 +137,14 @@ namespace eval ::hv3::DOM {
     
     foreach node $nodelist {
       if {[$node attr -default "" id] eq $name} {
-        set domobj [$dom node_to_dom $node]
+        set domobj [::hv3::dom::wrapWidgetNode $dom $node]
         return [list object $domobj]
       }
     }
     
     foreach node $nodelist {
       if {[$node attr -default "" name] eq $name} {
-        set domobj [$dom node_to_dom $node]
+        set domobj [::hv3::dom::wrapWidgetNode $dom $node]
         return [list object $domobj]
       }
     }
@@ -175,7 +175,7 @@ namespace eval ::hv3::DOM {
   dom_call -string item {THIS index} {
     set node [$myHtml search $mySelector -index [expr {int($index)}]]
     if {$node ne ""} { 
-      list object [$myDom node_to_dom $node] 
+      list object [::hv3::dom::wrapWidgetNode $myDom $node] 
     } else {
       list null
     }
@@ -200,7 +200,7 @@ namespace eval ::hv3::DOM {
 
     # Return a Node object if successful, otherwise null.
     if {$node ne ""} { 
-      list object [$myDom node_to_dom $node] 
+      list object [::hv3::dom::wrapWidgetNode $myDom $node] 
     } else {
       list null
     }
@@ -221,7 +221,7 @@ namespace eval ::hv3::DOM {
     if {[string is double $property]} {
       set node [$myHtml search $mySelector -index [expr {int($property)}]]
       if {$node ne ""} { 
-        list object [$myDom node_to_dom $node] 
+        list object [::hv3::dom::wrapWidgetNode $myDom $node] 
       }
     } else {
       set name $property
@@ -230,7 +230,7 @@ namespace eval ::hv3::DOM {
       set nNode [$myHtml search $sel -length]
       if {$nNode > 0} {
         if {$nNode == 1} {
-          list object [$myDom node_to_dom [$myHtml search $sel]]
+          list object [::hv3::dom::wrapWidgetNode $myDom [$myHtml search $sel]]
         } else {
           list object [list \
             ::hv3::DOM::NodeListC $myDom [list $myHtml search $sel]
@@ -287,7 +287,7 @@ namespace eval ::hv3::DOM {
   proc NodeListC_item {dom nodelistcmd idx} {
     set children [eval $nodelistcmd]
     if {$idx < 0 || $idx >= [llength $children]} { return null }
-    list object [$dom node_to_dom [lindex $children $idx]]
+    list object [::hv3::dom::wrapWidgetNode $dom [lindex $children $idx]]
   }
 }
 
@@ -340,7 +340,7 @@ namespace eval ::hv3::DOM {
     if {$N eq ""} {
       list null
     } else {
-      list object [$dom node_to_dom $N]
+      list object [::hv3::dom::wrapWidgetNode $dom $N]
     }
   }
 }

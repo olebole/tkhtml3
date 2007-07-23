@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.21 2007/07/22 06:45:49 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.22 2007/07/23 07:15:41 danielk1977 Exp $)} 1 }
 
 #---------------------------------
 # List of DOM objects in this file:
@@ -217,7 +217,7 @@ namespace eval ::hv3::DOM {
       set h " height=[lindex $args 0 1]"
     }
     set node [$myHv3 fragment "<img${w}${h}>"]
-    list object [$myDom node_to_dom $node]
+    list object [::hv3::dom::wrapWidgetNode $myDom $node]
   }
 
   #-----------------------------------------------------------------------

@@ -4,6 +4,16 @@
 
 #include <sys/time.h>
 
+#include "html.h"
+
+/*
+** External interface:
+**
+**     HtmlInstrumentInit()
+**
+**     ::tkhtml::instrument
+*/
+
 typedef struct InstCommand InstCommand;
 typedef struct InstGlobal InstGlobal;
 typedef struct InstFrame InstFrame;
@@ -11,21 +21,11 @@ typedef struct InstVector InstVector;
 typedef struct InstData InstData;
 
 struct InstCommand {
-    Tcl_CmdInfo info;
-    int isDeleted;
-
-    Tcl_Obj *pFullName;
-
-    int nCall;              /* Number of calls to this object command */
-    Tcl_WideInt iTotal;     /* Total number of micro seconds */
-    Tcl_WideInt iChildren;  /* Child number of micro seconds */
-
-    InstGlobal *pGlobal;
+    Tcl_CmdInfo info;       /* Original command info, before instrumentation */
+    int isDeleted;          /* True after the Tcl command has been deleted */
+    Tcl_Obj *pFullName;     /* The name to use for this object command */
+    InstGlobal *pGlobal;    /* Pointer to associated "global" object */
     InstCommand *pNext;     /* Next in linked list starting at pGlobal */
-};
-
-struct InstFrame {
-    InstCommand *pCommand;
 };
 
 struct InstVector {
@@ -39,54 +39,36 @@ struct InstData {
 };
 
 struct InstGlobal {
+    void (*xCall)(ClientData, int, void (*)(ClientData), ClientData);
 
-    /* List of all InstCommand commands */
+    /* List of all dynamic InstCommand commands */
     InstCommand *pGlobal;
 
-    /* Current caller frame. */
-    InstFrame *pCaller;
+    /* Current caller (or NULL). */
+    InstCommand *pCaller;
 
     Tcl_HashTable aVector;
+
+    InstCommand aCommand[HTML_INSTRUMENT_NUM_SYMS];
 };
 
 #define timevalToClicks(tv) ( \
     (Tcl_WideInt)tv.tv_usec + ((Tcl_WideInt)1000000 * (Tcl_WideInt)tv.tv_sec) \
 )
 
-static int 
-execInst(clientData, interp, objc, objv)
-    ClientData clientData;
-    Tcl_Interp *interp;                /* Current interpreter. */
-    int objc;                          /* Number of arguments. */
-    Tcl_Obj *CONST objv[];             /* Argument strings. */
+static void
+updateInstData(pGlobal, p, iClicks)
+    InstGlobal *pGlobal;
+    InstCommand *p;
+    int iClicks;
 {
-    InstCommand *p = (InstCommand *)clientData;
-    InstGlobal *pGlobal = p->pGlobal;
-    InstFrame frame;            /* This frame */
-    InstFrame *pCaller;         /* Calling frame (if any) */
-
-    int rc;
-
     InstVector vector;
     InstData *pData;
     Tcl_HashEntry *pEntry;
-    int isNew = 0;
+    int isNew;
 
-    Tcl_WideInt iClicks;
-    struct timeval tv;
-
-    pCaller = pGlobal->pCaller;
-    pGlobal->pCaller = &frame;
-    frame.pCommand = p;
-
-    gettimeofday(&tv, 0);
-    iClicks = timevalToClicks(tv);
-    rc = p->info.objProc(p->info.objClientData, interp, objc, objv);
-    gettimeofday(&tv, 0);
-    iClicks = timevalToClicks(tv) - iClicks;
-
-    /* Update the call vector */
-    vector.p1 = (pCaller ? pCaller->pCommand : 0);
+    /* Update the InstData structure associated with this call vector */
+    vector.p1 = pGlobal->pCaller;
     vector.p2 = p;
     pEntry = Tcl_CreateHashEntry(&pGlobal->aVector, (char *)&vector, &isNew);
     if (isNew) {
@@ -98,17 +80,63 @@ execInst(clientData, interp, objc, objv)
     }
     pData->nCall++;
     pData->iClicks += iClicks;
+}
 
-    /* Update the callers iChildren variable */
-    if (pCaller) {
-        pCaller->pCommand->iChildren += iClicks;
-    }
+void
+HtmlInstrumentCall(pClientData, iCall, xFunc, clientData)
+    ClientData pClientData;
+    int iCall;
+    void (*xFunc)(ClientData);
+    ClientData clientData;
+{
+    InstGlobal *pGlobal = (InstGlobal *)pClientData;
+    InstCommand *p = &pGlobal->aCommand[iCall];
+    InstCommand *pCaller;       /* Calling frame (if any) */
+
+    Tcl_WideInt iClicks;
+    struct timeval tv;
+
+    pCaller = pGlobal->pCaller;
+    pGlobal->pCaller = p;
+    gettimeofday(&tv, 0);
+    iClicks = timevalToClicks(tv);
+
+    xFunc(clientData);
+
+    gettimeofday(&tv, 0);
+    iClicks = timevalToClicks(tv) - iClicks;
     pGlobal->pCaller = pCaller;
 
-    /* Update the total clicks and number of calls to this proc */
-    p->iTotal += iClicks;
-    p->nCall++;
+    updateInstData(pGlobal, p, iClicks);
+}
 
+static int 
+execInst(clientData, interp, objc, objv)
+    ClientData clientData;
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    InstCommand *p = (InstCommand *)clientData;
+    InstGlobal *pGlobal = p->pGlobal;
+    InstCommand *pCaller;       /* Calling frame (if any) */
+
+    int rc;
+    Tcl_WideInt iClicks;
+    struct timeval tv;
+
+    pCaller = pGlobal->pCaller;
+    pGlobal->pCaller = p;
+    gettimeofday(&tv, 0);
+    iClicks = timevalToClicks(tv);
+
+    rc = p->info.objProc(p->info.objClientData, interp, objc, objv);
+
+    gettimeofday(&tv, 0);
+    iClicks = timevalToClicks(tv) - iClicks;
+    pGlobal->pCaller = pCaller;
+
+    updateInstData(pGlobal, p, iClicks);
     return rc;
 }
 
@@ -166,41 +194,6 @@ instCommand(clientData, interp, objc, objv)
     new_info.deleteData = pInst;
     Tcl_SetCommandInfoFromToken(token, &new_info);
 
-    return TCL_OK;
-}
-
-static int 
-instReport(clientData, interp, objc, objv)
-    ClientData clientData;             /* Unused */
-    Tcl_Interp *interp;                /* Current interpreter. */
-    int objc;                          /* Number of arguments. */
-    Tcl_Obj *CONST objv[];             /* Argument strings. */
-{
-    InstGlobal *pGlobal = (InstGlobal *)clientData;
-    InstCommand *p;
-    Tcl_Obj *pRet;
-
-    pRet = Tcl_NewObj();
-    Tcl_IncrRefCount(pRet);
-
-    for (p = pGlobal->pGlobal; p; p = p->pNext) {
-        Tcl_WideInt iSelf;
-        Tcl_Obj *pSub = Tcl_NewObj();
-        Tcl_IncrRefCount(pSub);
-
-        iSelf = p->iTotal - p->iChildren;
-
-        Tcl_ListObjAppendElement(interp, pSub, p->pFullName);
-        Tcl_ListObjAppendElement(interp, pSub, Tcl_NewIntObj(p->nCall));
-        Tcl_ListObjAppendElement(interp, pSub, Tcl_NewIntObj(iSelf));
-        Tcl_ListObjAppendElement(interp, pSub, Tcl_NewIntObj(p->iChildren));
-
-        Tcl_ListObjAppendElement(interp, pRet, pSub);
-        Tcl_DecrRefCount(pSub);
-    }
-
-    Tcl_SetObjResult(interp, pRet);
-    Tcl_DecrRefCount(pRet);
     return TCL_OK;
 }
 
@@ -268,9 +261,6 @@ instZero(clientData, interp, objc, objv)
 
     pp = &pGlobal->pGlobal;
     for (p = *pp; p; p = *pp) {
-        p->nCall = 0;
-        p->iTotal = 0;
-        p->iChildren = 0;
         if (p->isDeleted) {
             *pp = p->pNext;
             freeInstStruct(p);
@@ -326,7 +316,6 @@ instrument_objcmd(clientData, interp, objc, objv)
         Tcl_ObjCmdProc *xFunc;
     } aSub[] = {
         { "command", instCommand }, 
-        { "report",  instReport }, 
         { "vectors", instVectors }, 
         { "zero",    instZero }, 
         { 0, 0 }
@@ -359,9 +348,26 @@ HtmlInstrumentInit(interp)
 {
     InstGlobal *p = (InstGlobal *)ckalloc(sizeof(InstGlobal));
     memset(p, 0, sizeof(InstGlobal));
+
+    p->xCall = HtmlInstrumentCall;
+    p->aCommand[0].pFullName = Tcl_NewStringObj("C: External Script Event", -1);
+    p->aCommand[1].pFullName = Tcl_NewStringObj("C: callbackHandler()", -1);
+    p->aCommand[2].pFullName = Tcl_NewStringObj(
+        "C: runDynamicStyleEngine()", -1
+    );
+    p->aCommand[3].pFullName = Tcl_NewStringObj("C: runStyleEngine()", -1);
+    p->aCommand[4].pFullName = Tcl_NewStringObj("C: runLayoutEngine()", -1);
+
+    Tcl_IncrRefCount(p->aCommand[0].pFullName);
+    Tcl_IncrRefCount(p->aCommand[1].pFullName);
+    Tcl_IncrRefCount(p->aCommand[2].pFullName);
+    Tcl_IncrRefCount(p->aCommand[3].pFullName);
+    Tcl_IncrRefCount(p->aCommand[4].pFullName);
+
     Tcl_InitHashTable(&p->aVector, sizeof(InstVector)/sizeof(int));
     Tcl_CreateObjCommand(interp, 
         "::tkhtml::instrument", instrument_objcmd, (ClientData)p, instDelCommand
     );
 }
+
 

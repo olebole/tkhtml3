@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.28 2007/07/22 06:45:49 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.29 2007/07/23 07:15:41 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Html
@@ -107,7 +107,7 @@ set BaseList {Document DocumentEvent Node NodePrototype}
     set selector [subst -nocommands {[id="$elementId"]}]
     set node [$myHv3 search $selector -index 0]
     if {$node ne ""} {
-      return [list object [$myDom node_to_dom $node]]
+      return [list object [::hv3::dom::wrapWidgetNode $myDom $node]]
     }
     return null
   }
@@ -154,7 +154,7 @@ set BaseList {Document DocumentEvent Node NodePrototype}
   dom_get body {
     # set body [lindex [$myHv3 search body] 0]
     set body [lindex [[$myHv3 node] children] 1]
-    list object [$myDom node_to_dom $body]
+    list object [::hv3::dom::wrapWidgetNode $myDom $body]
   }
 
   #-----------------------------------------------------------------------
@@ -197,7 +197,7 @@ set BaseList {Document DocumentEvent Node NodePrototype}
     foreach selector [list $nameselector $idselector] {
       set node [$myHv3 search $selector -index 0]
       if {$node ne ""} {
-        return [list object [$myDom node_to_dom $node]]
+        return [list object [::hv3::dom::wrapWidgetNode $myDom $node]]
       }
     }
 
@@ -252,7 +252,7 @@ namespace eval ::hv3::DOM {
   dom_get offsetParent { 
     set N [HTMLElement_offsetParent $myNode]
     if {$N ne ""} { 
-      list object [$myDom node_to_dom $N] 
+      list object [::hv3::dom::wrapWidgetNode $myDom $N] 
     } else {
       list null
     }
@@ -691,16 +691,16 @@ namespace eval ::hv3::DOM {
     if {$f eq ""} { 
       set f null
     } else {
-      list object [$dom node_to_dom $f]
+      list object [::hv3::dom::wrapWidgetNode $dom $f]
     }
   }
   proc HTMLElement_control_scope {dom node} {
     set w [$dom node_to_window $node]
-    set scope [list [$dom node_to_dom $node] $w [$dom node_to_document $node]]
+    set scope [list [::hv3::dom::wrapWidgetNode $dom $node] $w [$dom node_to_document $node]]
 
     set f [lindex [::hv3::get_form_nodes $node] 0]
     if {$f ne ""} { 
-      set scope [linsert $scope 1 [$dom node_to_dom $f]]
+      set scope [linsert $scope 1 [::hv3::dom::wrapWidgetNode $dom $f]]
     }
     return $scope
   }
@@ -1267,7 +1267,7 @@ namespace eval ::hv3::dom {
   # Create a DOM HTMLElement or Text object in DOM $dom (type ::hv3::dom)
   # wrapped around the html-widget $node.
   #
-  proc createWidgetNode {dom node} {
+  proc wrapWidgetNode {dom node} {
     ::variable TagToNodeTypeMap
 
     set tag [$node tag]

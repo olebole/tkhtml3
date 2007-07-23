@@ -656,6 +656,13 @@ struct HtmlTree {
      * HtmlTextXXX() API below. 
      */
     HtmlText *pText;
+
+#ifndef NDEBUG
+    /*
+     * Client data from instrument command ([::tkhtml::instrument]).
+     */
+    ClientData pInstrumentData;
+#endif
 };
 
 #define HTML_WRITE_NONE           0
@@ -962,7 +969,19 @@ const char *HtmlTextIterData(HtmlTextIter *);
 #define HTML_TEXT_TOKEN_END       0
 #define HTML_TEXT_TOKEN_LONGTEXT  5
 
+/*
+ * The following symbols are used for the built-in instrumentation 
+ * function. (profile data).
+ */
+#define HTML_INSTRUMENT_SCRIPT_CALLBACK      0
+#define HTML_INSTRUMENT_CALLBACK             1
+#define HTML_INSTRUMENT_DYNAMIC_STYLE_ENGINE 2
+#define HTML_INSTRUMENT_STYLE_ENGINE         3
+#define HTML_INSTRUMENT_LAYOUT_ENGINE        4
+
+#define HTML_INSTRUMENT_NUM_SYMS             5
 void HtmlInstrumentInit(Tcl_Interp *);
+void HtmlInstrumentCall(ClientData, int, void (*)(ClientData), ClientData);
 
 #endif
 

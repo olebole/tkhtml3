@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.25 2007/07/22 06:45:49 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.26 2007/07/23 07:15:41 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Core
@@ -147,8 +147,8 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.25 2007/07/22 06:45:
     set cmd [list $myHv3 node]
     list object [list ::hv3::DOM::NodeListC $myDom $cmd]
   }
-  dom_get firstChild {list object [$myDom node_to_dom [$myHv3 node]]}
-  dom_get lastChild  {list object [$myDom node_to_dom [$myHv3 node]]}
+  dom_get firstChild {list object [::hv3::dom::wrapWidgetNode $myDom [$myHv3 node]]}
+  dom_get lastChild  {list object [::hv3::dom::wrapWidgetNode $myDom [$myHv3 node]]}
 
   # The document node always has exactly one child node.
   #
@@ -178,7 +178,7 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.25 2007/07/22 06:45:
   }
 
   dom_get documentElement {
-    list object [$myDom node_to_dom [$myHv3 node]]
+    list object [::hv3::dom::wrapWidgetNode $myDom [$myHv3 node]]
   }
 
   # Constructors:
@@ -193,7 +193,7 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.25 2007/07/22 06:45:
   dom_call -string createElement {THIS tagname} {
     set node [$myHv3 fragment "<$tagname>"]
     if {$node eq ""} {error "DOMException NOT_SUPPORTED_ERR"}
-    list object [$myDom node_to_dom $node]
+    list object [::hv3::dom::wrapWidgetNode $myDom $node]
   }
   dom_call -string createTextNode {THIS data} {
     if {$data eq ""} {
@@ -206,7 +206,7 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.25 2007/07/22 06:45:
       set escaped [string map {< &lt; > &gt;} $data]
       set node [$myHv3 fragment $escaped]
     }
-    list object [$myDom node_to_dom $node]
+    list object [::hv3::dom::wrapWidgetNode $myDom $node]
   }
   dom_call_todo createDocumentFragment
   dom_call_todo createComment
@@ -256,7 +256,7 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.25 2007/07/22 06:45:
         set ret [list object [$myDom node_to_document $myNode]]
       }
     } else {
-      set ret [list object [$myDom node_to_dom $parent]]
+      set ret [list object [::hv3::dom::wrapWidgetNode $myDom $parent]]
     }
     set ret
   }
@@ -280,7 +280,7 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.25 2007/07/22 06:45:
       set clone [[$myNode html] fragment $zHtml]
     }
     
-    list object [$myDom node_to_dom $clone]
+    list object [::hv3::dom::wrapWidgetNode $myDom $clone]
   }
 
   dom_get ownerDocument { 
@@ -324,7 +324,7 @@ namespace eval ::hv3::DOM {
       set idx [lsearch $siblings $node]
       incr idx $dir
       if {$idx >= 0 && $idx < [llength $siblings]} {
-        set ret [list object [$dom node_to_dom [lindex $siblings $idx]]]
+        set ret [list object [::hv3::dom::wrapWidgetNode $dom [lindex $siblings $idx]]]
       }
     }
     set ret
@@ -419,7 +419,7 @@ set BaseList {ElementCSSInlineStyle WidgetNode Node NodePrototype}
     if {$f eq ""} {
       list null
     } else {
-      list object [$myDom node_to_dom $f]
+      list object [::hv3::dom::wrapWidgetNode $myDom $f]
     }
   }
   dom_get firstChild {
@@ -427,7 +427,7 @@ set BaseList {ElementCSSInlineStyle WidgetNode Node NodePrototype}
     if {$f eq ""} {
       list null
     } else {
-      list object [$myDom node_to_dom $f]
+      list object [::hv3::dom::wrapWidgetNode $myDom $f]
     }
   }
 
@@ -703,7 +703,7 @@ set BaseList {CharacterData WidgetNode Node NodePrototype}
       set new [$html fragment $z2]
     }
     $parent insert -after $myNode $new
-    list object [$myDom node_to_dom $new]
+    list object [::hv3::dom::wrapWidgetNode $myDom $new]
   }
 }
 

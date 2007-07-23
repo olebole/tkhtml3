@@ -205,6 +205,9 @@ function drag_makedropmap(elem) {
   drag_cache_position(drag.controls)
 }
 
+// This function is called periodically while an object is being
+// dragged (once every 20 ms or so).
+//
 function drag_update() {
   if (
      Math.abs(drag.x - drag.original_x) > 10 ||
@@ -263,6 +266,7 @@ function drag_update() {
         }
       }
 
+      if (drag.element == a) return
       p.insertBefore(drag.element, a)
 
       drag_cache_position(drag.element)

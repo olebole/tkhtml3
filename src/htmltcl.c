@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.178 2007/07/22 06:45:49 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.179 2007/07/23 07:15:41 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -375,6 +375,82 @@ HtmlCheckRestylePoint(pTree)
 }
 #endif /* #ifndef NDEBUG */
 
+static void callbackHandler(ClientData clientData);
+static void runDynamicStyleEngine(ClientData clientData);
+static void runStyleEngine(ClientData clientData);
+static void runLayoutEngine(ClientData clientData);
+
+#ifndef NDEBUG
+  #define INSTRUMENTED(name, id)                                             \
+    static void real_ ## name (ClientData);                                  \
+    static void name (clientData)                                            \
+      ClientData clientData;                                                 \
+    {                                                                        \
+      HtmlTree *p = (HtmlTree *)clientData;                                  \
+      HtmlInstrumentCall(p->pInstrumentData, id, real_ ## name, clientData); \
+    }                                                                        \
+    static void real_ ## name (clientData)                                   \
+      ClientData clientData;                                                 
+#else
+  #define INSTRUMENTED(name, id)                                             \
+    static void name (clientData)                                            \
+      ClientData clientData;                                                 
+#endif
+
+INSTRUMENTED(runDynamicStyleEngine, HTML_INSTRUMENT_DYNAMIC_STYLE_ENGINE)
+{
+    HtmlTree *pTree = (HtmlTree *)clientData;
+    assert(pTree->cb.pDynamic);
+    HtmlCssCheckDynamic(pTree);
+}
+
+INSTRUMENTED(runStyleEngine, HTML_INSTRUMENT_STYLE_ENGINE)
+{
+    HtmlTree *pTree = (HtmlTree *)clientData;
+    HtmlNode *pParent = HtmlNodeParent(pTree->cb.pRestyle);
+    HtmlNode *pRestyle = pTree->cb.pRestyle;
+
+    pTree->cb.pRestyle = 0;
+    assert(pTree->cb.pSnapshot);
+    assert(pRestyle);
+
+    if (pParent) {
+        int i;
+        int nChild = HtmlNodeNumChildren(pParent);
+        assert(HtmlNodeComputedValues(pParent));
+        for (i = 0; HtmlNodeChild(pParent, i) != pRestyle; i++);
+        for ( ; i < nChild; i++) {
+             HtmlStyleApply(pTree, HtmlNodeChild(pParent, i));
+        }
+    } else {
+        HtmlStyleApply(pTree, pRestyle);
+    }
+    HtmlRestackNodes(pTree);
+    HtmlCheckRestylePoint(pTree);
+
+    if (!pTree->options.imagecache) {
+        HtmlImageServerDoGC(pTree);
+    }
+}
+
+INSTRUMENTED(runLayoutEngine, HTML_INSTRUMENT_LAYOUT_ENGINE)
+{
+    HtmlTree *pTree = (HtmlTree *)clientData;
+    HtmlDamage *pD;
+
+    assert(pTree->cb.pSnapshot);
+
+    pD = pTree->cb.pDamage;
+    HtmlLayout(pTree);
+    if (0 && pTree->cb.isForce) {
+        pTree->cb.flags |= HTML_SCROLL;
+    }
+    if (!pTree->cb.pSnapshot) {
+        pTree->cb.flags |= HTML_NODESCROLL;
+    }
+
+    doScrollCallback(pTree);
+}
 
 /*
  *---------------------------------------------------------------------------
@@ -383,7 +459,14 @@ HtmlCheckRestylePoint(pTree)
  *
  *     This is called, usually from an idle-callback handler, to update
  *     the widget display. This may involve all manner of stuff, depending
- *     on the bits set in the HtmlTree.cb.flags mask:
+ *     on the bits set in the HtmlTree.cb.flags mask. Basically, it
+ *     is a 5 step process:
+ *
+ *         1. Dynamic
+ *         2. Style engine, 
+ *         3. Layout engine, 
+ *         4. Repair,
+ *         5. Scroll
  *
  * Results:
  *     None.
@@ -393,9 +476,7 @@ HtmlCheckRestylePoint(pTree)
  *
  *---------------------------------------------------------------------------
  */
-static void
-callbackHandler(clientData)
-    ClientData clientData;
+INSTRUMENTED(callbackHandler, HTML_INSTRUMENT_CALLBACK)
 {
     HtmlTree *pTree = (HtmlTree *)clientData;
     HtmlCallback *p = &pTree->cb;
@@ -432,9 +513,8 @@ callbackHandler(clientData)
      * calls HtmlCallbackRestyle() if any computed style values are 
      * modified (setting the HTML_RESTYLE flag). 
      */
-    if (!pTree->delayToken && (pTree->cb.flags & HTML_DYNAMIC)) {
-        assert(pTree->cb.pDynamic);
-        HtmlCssCheckDynamic(pTree);
+    if (pTree->cb.flags & HTML_DYNAMIC) {
+        runDynamicStyleEngine(clientData);
     }
     HtmlCheckRestylePoint(pTree);
     pTree->cb.flags &= ~HTML_DYNAMIC;
@@ -448,42 +528,9 @@ callbackHandler(clientData)
      * [.html parse] or something?
      */
     if (pTree->cb.flags & HTML_RESTYLE) {
-        HtmlNode *pParent = HtmlNodeParent(pTree->cb.pRestyle);
-        HtmlNode *pRestyle = pTree->cb.pRestyle;
-
-        pTree->cb.pRestyle = 0;
-        assert(pTree->cb.pSnapshot);
-        assert(pRestyle);
-        styleClock = clock();
-
-        if (pParent) {
-            int i;
-            int nChild = HtmlNodeNumChildren(pParent);
-            assert(HtmlNodeComputedValues(pParent));
-            for (i = 0; HtmlNodeChild(pParent, i) != pRestyle; i++);
-            for ( ; i < nChild; i++) {
-                 HtmlStyleApply(pTree, HtmlNodeChild(pParent, i));
-            }
-        } else {
-            HtmlStyleApply(pTree, pRestyle);
-        }
-        HtmlRestackNodes(pTree);
-        HtmlCheckRestylePoint(pTree);
-
-        if (!pTree->options.imagecache) {
-            HtmlImageServerDoGC(pTree);
-        }
-
-        styleClock = clock() - styleClock;
+        runStyleEngine(clientData);
     }
     pTree->cb.flags &= ~HTML_RESTYLE;
-
-#if 0
-    if (pTree->delayToken) {
-        pTree->cb.inProgress = 0;
-        return;
-    }
-#endif
 
     /* If the HTML_LAYOUT flag is set, run the layout engine. If the layout
      * engine is run, then also set the HTML_SCROLL bit in the
@@ -493,22 +540,7 @@ callbackHandler(clientData)
      */
     assert(pTree->cb.pDamage == 0 || pTree->cb.flags & HTML_DAMAGE);
     if (pTree->cb.flags & HTML_LAYOUT) {
-        HtmlDamage *pD;
-
-        assert(pTree->cb.pSnapshot);
-
-        pD = pTree->cb.pDamage;
-        layoutClock = clock();
-        HtmlLayout(pTree);
-        layoutClock = clock() - layoutClock;
-        if (0 && pTree->cb.isForce) {
-            pTree->cb.flags |= HTML_SCROLL;
-        }
-        if (!pTree->cb.pSnapshot) {
-            pTree->cb.flags |= HTML_NODESCROLL;
-        }
-
-        doScrollCallback(pTree);
+        runLayoutEngine(clientData);
     }
     pTree->cb.flags &= ~HTML_LAYOUT;
 
@@ -2571,6 +2603,14 @@ newWidget(clientData, interp, objc, objv)
     /* Load the default style-sheet, ready for the first document. */
     doLoadDefaultStyle(pTree);
     pTree->isSequenceOk = 1;
+
+#ifndef NDEBUG
+    if (1) {
+        Tcl_CmdInfo cmdinfo;
+        Tcl_GetCommandInfo(interp, "::tkhtml::instrument", &cmdinfo);
+        pTree->pInstrumentData = cmdinfo.objClientData;
+    }
+#endif
 
     /* Return the name of the widget just created. */
     Tcl_SetObjResult(interp, objv[1]);

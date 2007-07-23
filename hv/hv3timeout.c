@@ -47,7 +47,26 @@ static void delTimeout(p)
     p->ppThis = 0;
 }
 
-static void timeoutCb(clientData)
+#ifndef NDEBUG
+  static void realTimeoutCb(ClientData);
+  static void
+  timeoutCb(clientData)
+      ClientData clientData;
+  {
+      SeeTimeout *p = (SeeTimeout *)clientData;
+      ClientData pInstrumentData = p->pTclSeeInterp->pInstrumentData;
+      if (pInstrumentData) {
+          void (*xCall)(ClientData, int, void (*)(ClientData), ClientData);
+          xCall = *((void **)pInstrumentData);
+          xCall(pInstrumentData, 0, realTimeoutCb, clientData);
+      } else {
+          realTimeoutCb(clientData);
+      }
+  }
+  static void realTimeoutCb(clientData)
+#else
+  static void timeoutCb(clientData)
+#endif
     ClientData clientData;
 {
     SeeTimeout *p = (SeeTimeout *)clientData;

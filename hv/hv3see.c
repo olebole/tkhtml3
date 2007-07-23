@@ -186,6 +186,8 @@ struct SeeInterp {
     struct SEE_interpreter interp;
     Tcl_Interp *pTclInterp;
 
+    ClientData pInstrumentData;
+
     Tcl_Obj *pTclError;
 
     /* Hash table containing the objects created by the Tcl interpreter
@@ -1873,6 +1875,15 @@ tclSeeInterp(clientData, interp, objc, objv)
 
     /* Initialise the pTclInterp field. */
     pInterp->pTclInterp = interp;
+
+#ifndef NDEBUG
+    if (1) {
+        Tcl_CmdInfo cmdinfo;
+        if (Tcl_GetCommandInfo(interp, "::tkhtml::instrument", &cmdinfo)) {
+            pInterp->pInstrumentData = cmdinfo.objClientData;
+        }
+    }
+#endif
 
     Tcl_CreateObjCommand(interp, zCmd, interpCmd, pInterp, delInterpCmd);
     Tcl_SetResult(interp, zCmd, TCL_VOLATILE);
