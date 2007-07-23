@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.20 2007/07/18 17:44:37 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.21 2007/07/23 12:00:14 danielk1977 Exp $)} 1 }
 
 # Register the home: scheme handler with ::hv3::protocol $protocol.
 #
@@ -82,17 +82,8 @@ proc ::hv3::create_undo_trigger {db zTable} {
       {<SPAN class="edit" 
          onclick="return bookmark_edit(this.parentNode)">(edit)</SPAN>}
       {<A href="$bookmark_uri">$bookmark_name</A>}
-      {<FORM 
-         style="display:none" 
-         onsubmit="return bookmark_submit(this.parentNode)"
-       >
-          <TABLE width=100%>
-            <TR><TD>Name: <TD width=100%><INPUT width=90% name=n></INPUT>
-            <TR><TD>URI:  <TD><INPUT width=90% name=u></INPUT>
-            <TR><TD>Tags: <TD><INPUT width=90% name=t></INPUT>
-          </TABLE>
-        </FORM>
-      </DIV>}
+      {<DIV></DIV>}
+      {</DIV>}
   } ""]
 
   typevariable FolderTemplate [join {
@@ -111,14 +102,7 @@ proc ::hv3::create_undo_trigger {db zTable} {
       {<SPAN class="edit" 
          onclick="return folder_edit(this.parentNode.parentNode)">(edit)</SPAN>}
       {<SPAN>- </SPAN>$folder_name}
-      {<FORM
-         style="display:none"
-         onsubmit="return folder_submit(this.parentNode.parentNode)"
-       >
-        <TABLE width=100% style="color:black;margin-left:15px">
-        <TR><TD>Name: <TD width=100%><INPUT name=n></INPUT>
-        </TABLE>
-      </FORM>}
+      {<DIV></DIV>}
       {</H2><UL style="clear:both;width:100%">}
   } ""]
 

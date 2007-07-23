@@ -358,12 +358,12 @@ function folder_mousedown(elem, event) {
   return 0
 }
 
-function bookmark_submit(elem) {
-  var f = elem.childNodes[2]
+function bookmark_submit(form) {
+  var elem = form.parentNode.parentNode
   
-  var new_name = f.n.value
-  var new_uri = f.u.value
-  var new_tags = f.t.value
+  var new_name = form.n.value
+  var new_uri =  form.u.value
+  var new_tags = form.t.value
 
   elem.setAttribute('bookmark_name', new_name)
   elem.setAttribute('bookmark_uri',  new_uri)
@@ -380,10 +380,23 @@ function bookmark_submit(elem) {
 }
 
 function bookmark_edit(elem) {
-  var f = elem.childNodes[2]
-  var d = f.style.display
-  if (d == 'none') {
-    d = 'block'
+  var div = elem.childNodes[2]
+  if (div.isExpanded) {
+    div.innerHTML = ""
+    elem.firstChild.firstChild.data = "(edit)"
+    elem.setAttribute("active", "true")
+    div.isExpanded = 0
+  } else {
+    var str = ""
+    str += '<FORM onsubmit="return bookmark_submit(this)">'
+    str += '<TABLE width=100%>'
+    str += '<TR><TD>Name: <TD width=100%><INPUT width=90% name=n></INPUT>'
+    str += '<TR><TD>URI:  <TD><INPUT width=90% name=u></INPUT>'
+    str += '<TR><TD>Tags: <TD><INPUT width=90% name=t></INPUT>'
+    str += '</TABLE></FORM>'
+
+    div.innerHTML = str
+    var f = div.firstChild;
     f.n.value = elem.getAttribute('bookmark_name')
     f.u.value = elem.getAttribute('bookmark_uri')
     f.t.value = elem.getAttribute('bookmark_tags')
@@ -391,19 +404,16 @@ function bookmark_edit(elem) {
     f.n.focus()
     elem.firstChild.firstChild.data = "(cancel)"
     elem.setAttribute("active", "false")
-  } else {
-    d = 'none'
-    elem.firstChild.firstChild.data = "(edit)"
-    elem.setAttribute("active", "true")
+
+    div.isExpanded = 1
   }
-  f.style.display = d
   return 0
 }
 
-function folder_submit(elem) {
-  var f = elem.firstChild.childNodes[3]
+function folder_submit(form) {
+  var elem = form.parentNode.parentNode.parentNode
   var t = elem.firstChild.childNodes[2]
-  var new_name = f.n.value
+  var new_name = form.n.value
   elem.setAttribute('folder_name', new_name)
   t.data = new_name
 
@@ -414,20 +424,29 @@ function folder_submit(elem) {
 
 function folder_edit(elem) {
   var ed = elem.firstChild.firstChild
-  var f = elem.firstChild.childNodes[3]
+  var div = elem.firstChild.childNodes[3]
 
-  var d = f.style.display
-  if (d == 'none') {
-    d = 'block'
+  if (div.isExpanded) {
+    ed.firstChild.data = "(edit)"
+    div.innerHTML = ""
+    div.isExpanded = 0
+  } else {
+    ed.firstChild.data = "(cancel)"
+
+    var str = "";
+    str += '<FORM onsubmit="return folder_submit(this)">'
+    str += '<TABLE width=100% style="color:black;margin-left:15px">'
+    str += '<TR><TD>Name: <TD width=100%><INPUT name=n></INPUT>'
+    str += '</TABLE></FORM>'
+    div.innerHTML = str
+
+    f = div.firstChild
     f.n.value = elem.getAttribute('folder_name')
     f.n.select()
     f.n.focus()
-    ed.firstChild.data = "(cancel)"
-  } else {
-    d = 'none'
-    ed.firstChild.data = "(edit)"
+
+    div.isExpanded = 1
   }
-  f.style.display = d
   return 0
 }
 
