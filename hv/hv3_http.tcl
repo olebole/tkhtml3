@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.45 2007/07/19 11:35:54 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.46 2007/08/01 06:42:04 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd script used with 
@@ -538,7 +538,10 @@ snit::type ::hv3::filedownload {
     $self configurelist $args
   }
 
-  method set_destination {dest} {
+  method set_destination {dest isFinished} {
+    if {$isFinished} {
+      set myIsFinished 1
+    }
 
     # It is an error if this method has been called before.
     if {$myDestination ne ""} {
@@ -726,7 +729,7 @@ snit::type ::hv3::downloadmanager {
   # argument, $data, contains an initial segment of the resource that has
   # already been downloaded. 
   #
-  method savehandle {handle data} {
+  method savehandle {handle data isFinished} {
 
     # Create a GUI to handle this download
     set dler [::hv3::filedownload %AUTO%                \
@@ -765,7 +768,7 @@ snit::type ::hv3::downloadmanager {
     set cmd [subst -nocommands {
       $dler set_destination [file normal [
           tk_getSaveFile -initialfile {$suggested}
-      ]]
+      ]] $isFinished
     }]
     after idle $cmd
   }

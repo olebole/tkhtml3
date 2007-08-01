@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.78 2007/08/01 05:16:31 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.79 2007/08/01 06:42:04 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -1114,10 +1114,14 @@ snit::widget ::hv3::forms::fileselect {
 
       set myClicked 1
       eval [[$formnode replace] $cmd $self]
-      set myClicked 0
 
-      set myClickX 0
-      set myClickY 0
+      catch {
+        # Catch these in case this object has been destroyed by the 
+        # form method invoked above.
+        set myClicked 0
+        set myClickX 0
+        set myClickY 0
+      }
     }
   }
 

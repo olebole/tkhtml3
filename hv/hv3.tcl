@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.187 2007/07/22 06:45:49 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.188 2007/08/01 06:42:04 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -1521,20 +1521,22 @@ snit::widget ::hv3::hv3 {
     if {$myMimetype eq ""} {
   
       # TODO: Real mimetype parser...
-      set mimetype  [string trim [$handle cget -mimetype]]
+      set mimetype  [string tolower [string trim [$handle cget -mimetype]]]
       foreach {major minor} [split $mimetype /] {}
 
       switch -- $major {
         text {
-          set myQuirksmode [::hv3::configure_doctype_mode $myHtml $data isXHTML]
-          $self reset $savestate
-          $myHtml configure -xhtml $isXHTML
-          set myMimetype html
-          set myEncoding ""
-          set myChangeEncodingOk 1
-
-          if {$options(-dom) ne ""} {
-            $options(-dom) autoenable $self [$handle cget -uri]
+          if {[lsearch [list html xml xhtml] $minor]>=0} {
+            set q [::hv3::configure_doctype_mode $myHtml $data isXHTML]
+            set myQuirksmode $q
+            $self reset $savestate
+            $myHtml configure -xhtml $isXHTML
+            set myMimetype html
+            set myEncoding ""
+            set myChangeEncodingOk 1
+            if {$options(-dom) ne ""} {
+              $options(-dom) autoenable $self [$handle cget -uri]
+            }
           }
         }
   
@@ -1543,26 +1545,27 @@ snit::widget ::hv3::hv3 {
           $self reset $savestate
           set myMimetype image
         }
+      }
   
-        default {
-          # Neither text nor an image. This is the upper layers problem.
-          if {$options(-downloadcmd) ne ""} {
-            # Remove the download handle from the list of handles to cancel
-            # if [$hv3 stop] is invoked (when the user clicks the "stop" button
-            # we don't want to cancel pending save-file operations).
-            set idx [lsearch $myCurrentDownloads $handle]
-            if {$idx >= 0} {
-              set myCurrentDownloads [lreplace $myCurrentDownloads $idx $idx]
-              $self set_pending_var
-            }
-            eval [linsert $options(-downloadcmd) end $handle $data]
-          } else {
-            $handle destroy
-            set sheepish "Don't know how to handle \"$mimetype\""
-            tk_dialog .apology "Sheepish apology" $sheepish 0 OK
+  
+      if {$myMimetype eq ""} {
+        # Neither text nor an image. This is the upper layers problem.
+        if {$options(-downloadcmd) ne ""} {
+          # Remove the download handle from the list of handles to cancel
+          # if [$hv3 stop] is invoked (when the user clicks the "stop" button
+          # we don't want to cancel pending save-file operations).
+          set idx [lsearch $myCurrentDownloads $handle]
+          if {$idx >= 0} {
+            set myCurrentDownloads [lreplace $myCurrentDownloads $idx $idx]
+            $self set_pending_var
           }
-          return
+          eval [linsert $options(-downloadcmd) end $handle $data $final]
+        } else {
+          $handle destroy
+          set sheepish "Don't know how to handle \"$mimetype\""
+          tk_dialog .apology "Sheepish apology" $sheepish 0 OK
         }
+        return
       }
 
       set myReferrer $referrer
