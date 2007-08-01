@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.77 2007/07/23 12:00:14 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.78 2007/08/01 05:16:31 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -1037,18 +1037,34 @@ snit::widget ::hv3::forms::fileselect {
 #
 ::snit::type ::hv3::clickcontrol {
   variable myNode ""
+
   variable myClicked 0
+  variable myClickX 0
+  variable myClickY 0 
 
   option -clickcmd -default ""
 
   constructor {node} {
     set myNode $node
   }
- 
-  method value {}      { return [$myNode attr -default "" value] }
-  method name {}       { return [$myNode attr -default "" name] }
 
-  method success {}    { 
+  # This method is used by graphical-submit buttons only. Controls
+  # created by markup like:
+  #
+  #     <INPUT type="image">
+  #
+  method graphicalSubmit {} {
+    set t    [string tolower [$myNode attr -default "" type]]
+    set name [$myNode attr -default "" name]
+    if {$t ne "image" || $name eq ""} {return [list]}
+
+    list "${name}.x" $myClickX "${name}.y" $myClickY
+  }
+ 
+  method value {} { return [$myNode attr -default "" value] }
+  method name {}  { return [$myNode attr -default "" name] }
+
+  method success {} { 
 
     # Controls that are disabled cannot be succesful:
     if {[$myNode attr -default 0 disabled]} {return 0}
@@ -1058,8 +1074,8 @@ snit::widget ::hv3::forms::fileselect {
     }
     switch -- [string tolower [$myNode attr type]] {
       hidden { return 1 }
-      image  { return $myClicked }
       submit { return $myClicked }
+      image  { return 0 }
       button { return 0 }
       reset  { return 0 }
       default { 
@@ -1073,7 +1089,7 @@ snit::widget ::hv3::forms::fileselect {
   #     This method is called externally when this widget is clicked
   #     on. If it is not "", evaluate the script configured as -clickcmd
   #
-  method click {} {
+  method click {{isSynthetic 1}} {
 
     # Controls that are disabled cannot be activated:
     #
@@ -1082,9 +1098,26 @@ snit::widget ::hv3::forms::fileselect {
     set cmd $options(-clickcmd)
     set formnode [::hv3::control_to_form $myNode]
     if {$cmd ne "" && $formnode ne ""} {
+
+      set bbox [[$myNode html] bbox $myNode]
+      foreach {x1 y1 x2 y2} $bbox {}
+      if {$isSynthetic} {
+        set myClickX [expr {($x2-$x1)/2}]
+        set myClickY [expr {($y2-$y1)/2}]
+      } else {
+        foreach {px py} [winfo pointerxy [$myNode html]] {}
+        set wx [winfo rootx [$myNode html]]
+        set wy [winfo rooty [$myNode html]]
+        set myClickX [expr $px - ($x1 + $wx)]
+        set myClickY [expr $py - ($y1 + $wy)]
+      }
+
       set myClicked 1
       eval [[$formnode replace] $cmd $self]
       set myClicked 0
+
+      set myClickX 0
+      set myClickY 0
     }
   }
 
@@ -1298,6 +1331,11 @@ snit::type ::hv3::form {
         }
       }
     }
+
+    # If $submitcontrol is a graphical submit control, this line adds
+    # the ${name}.x and ${name}.y elements to the form submission data.
+    #
+    catch { eval lappend data [$submitcontrol graphicalSubmit] }
 
     foreach controlnode $Controls {
       set control [$controlnode replace]
@@ -1590,7 +1628,7 @@ snit::type ::hv3::formmanager {
 
   method clickhandler {node} {
     if {[info exists myClickControls($node)]} {
-      $myClickControls($node) click
+      $myClickControls($node) click 0
     }
   }
 }
