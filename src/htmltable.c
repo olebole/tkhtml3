@@ -34,7 +34,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.119 2007/06/26 16:50:08 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.120 2007/08/01 03:40:44 danielk1977 Exp $";
 
 
 #include "htmllayout.h"
@@ -845,9 +845,9 @@ tableDrawRow(pNode, row, pContext)
                     y += box.iTop;
                     break;
             }
-CHECK_INTEGER_PLAUSIBILITY(pCanvas->bottom);
+            CHECK_INTEGER_PLAUSIBILITY(pCanvas->bottom);
             DRAW_CANVAS(pCanvas, &pCell->box.vc, x+box.iLeft, y, pCell->pNode);
-CHECK_INTEGER_PLAUSIBILITY(pCanvas->bottom);
+            CHECK_INTEGER_PLAUSIBILITY(pCanvas->bottom);
             memset(pCell, 0, sizeof(TableCell));
         }
         x += pData->aWidth[i];
@@ -1891,5 +1891,15 @@ HtmlTableLayout(pLayout, pBox, pNode)
     CHECK_INTEGER_PLAUSIBILITY(pBox->height);
     CHECK_INTEGER_PLAUSIBILITY(pBox->vc.bottom);
     CHECK_INTEGER_PLAUSIBILITY(pBox->vc.right);
+LOG {
+    Tcl_Obj *pCmd = HtmlNodeCommand(pTree, pNode);
+    if (pCmd) {
+        HtmlTree *pTree = pLayout->pTree;
+        HtmlLog(pTree, "LAYOUTENGINE", "%s HtmlTableLayout() "
+            "Content size is %dx%d", Tcl_GetString(pCmd), 
+                pBox->width, pBox->height
+            );
+    }
+}
     return TCL_OK;
 }

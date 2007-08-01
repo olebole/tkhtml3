@@ -169,13 +169,16 @@ function drag_cache_position(d) {
 }
 
 function drag_makedropmap(elem) {
-  var dlist = document.getElementsByTagName('div');
   drag.drag_targets = new Array()
 
+  var dlist = document.getElementsByTagName('div');
   for ( var i = 0; i < dlist.length; i++) {
     var d = dlist[i]
     if (d != elem && d.className == elem.className) {
       if (d.className == "folder" && d.id == "0") {
+        continue
+      }
+      if (d.parentNode.style.display == "none") {
         continue
       }
       drag_cache_position(d)

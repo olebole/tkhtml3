@@ -94,16 +94,20 @@ HtmlInstrumentCall(pClientData, iCall, xFunc, clientData)
     InstCommand *pCaller;       /* Calling frame (if any) */
 
     Tcl_WideInt iClicks;
-    struct timeval tv;
+    struct timeval tv = {0, 0};
 
     pCaller = pGlobal->pCaller;
     pGlobal->pCaller = p;
+#ifndef __WIN32__
     gettimeofday(&tv, 0);
+#endif
     iClicks = timevalToClicks(tv);
 
     xFunc(clientData);
 
+#ifndef __WIN32__
     gettimeofday(&tv, 0);
+#endif
     iClicks = timevalToClicks(tv) - iClicks;
     pGlobal->pCaller = pCaller;
 
@@ -123,16 +127,20 @@ execInst(clientData, interp, objc, objv)
 
     int rc;
     Tcl_WideInt iClicks;
-    struct timeval tv;
+    struct timeval tv = {0, 0};
 
     pCaller = pGlobal->pCaller;
     pGlobal->pCaller = p;
+#ifndef __WIN32__
     gettimeofday(&tv, 0);
+#endif
     iClicks = timevalToClicks(tv);
 
     rc = p->info.objProc(p->info.objClientData, interp, objc, objv);
 
+#ifndef __WIN32__
     gettimeofday(&tv, 0);
+#endif
     iClicks = timevalToClicks(tv) - iClicks;
     pGlobal->pCaller = pCaller;
 

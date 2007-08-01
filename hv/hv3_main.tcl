@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.138 2007/07/22 06:45:49 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.139 2007/08/01 03:40:44 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -308,7 +308,7 @@ snit::widget ::hv3::browser_frame {
     $m add separator
 
     # Add the "File", "Search", "View" and "Debug" menus.
-    foreach sub [list File Search View Debug History] {
+    foreach sub [list File Search Options Debug History] {
       catch {
         set menu_widget $m.[string tolower $sub]
         gui_populate_menu $sub [::hv3::menu $menu_widget]
@@ -1328,7 +1328,7 @@ proc gui_populate_menu {eMenu menu_widget} {
       $::hv3::G(search) populate_menu $menu_widget
     }
 
-    view {
+    options {
       $::hv3::G(config) populate_menu $menu_widget
     }
 
@@ -1359,7 +1359,7 @@ proc gui_menu {widget_array} {
   set G(config)     [::hv3::config %AUTO% ::hv3::sqlitedb]
 
   # Add the "File", "Search" and "View" menus.
-  foreach m [list File Search View Debug History] {
+  foreach m [list File Search Options Debug History] {
     set menu_widget .m.[string tolower $m]
     gui_populate_menu $m [::hv3::menu $menu_widget]
     .m add cascade -label $m -menu $menu_widget -underline 0
