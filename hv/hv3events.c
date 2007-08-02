@@ -744,26 +744,39 @@ eventTargetInit(pTclSeeInterp, p)
     }
 
     for (ii = 0; ii < (nWord-1); ii += 2){
+        Tcl_Obj *pJ;
+        struct SEE_input *pInputCode;
+        struct SEE_interpreter *pSee = &pTclSeeInterp->interp;
+        SEE_try_context_t try_ctxt;
+
         struct SEE_object *pNative = (struct SEE_object *)p->pNative;
         const char *zAttr   = Tcl_GetString(apWord[ii]);
         const char *zScript = Tcl_GetString(apWord[ii+1]);
 
-        struct SEE_input *pInputCode;
-        struct SEE_input *pInputParam;
-        struct SEE_object *pListener;
-        struct SEE_value listener;
+        /* Construct a string like this:
+         *
+         *   this.$zAttr = function (event) { $zScript }
+         *
+         * We then evaluate the script with the "this" object set to the
+         * object we are trying to attach the legacy event handler to.
+         */
+        pJ = Tcl_NewStringObj("this.", -1);
+        Tcl_IncrRefCount(pJ);
+        Tcl_AppendToObj(pJ, zAttr, -1);
+        Tcl_AppendToObj(pJ, " = function (event) { ", -1);
+        Tcl_AppendToObj(pJ, zScript, -1);
+        Tcl_AppendToObj(pJ, " } ", -1);
+        /* printf("%s\n", Tcl_GetString(pJ)); */
 
-        pInputCode = SEE_input_utf8(&pTclSeeInterp->interp, zScript);
-        pInputParam = SEE_input_utf8(&pTclSeeInterp->interp, "event");
-        pListener = SEE_Function_new(
-            &pTclSeeInterp->interp, 0, pInputParam, pInputCode
-        );
-        pListener = SEE_Function_change_scope(pSee, pListener, pScope);
+        pInputCode = SEE_input_utf8(&pTclSeeInterp->interp, Tcl_GetString(pJ));
+
+        SEE_TRY(pSee, try_ctxt) {
+          SEE_eval(pSee, pInputCode, pNative, pNative, pScope, 0);
+        }
+        /* Not a lot we can do with an error here... */
+
         SEE_INPUT_CLOSE(pInputCode);
-        SEE_INPUT_CLOSE(pInputParam);
-
-        SEE_SET_OBJECT(&listener, pListener);
-        SEE_OBJECT_PUTA(&pTclSeeInterp->interp, pNative, zAttr,&listener,0);
+        Tcl_DecrRefCount(pJ);
     }
     Tcl_DecrRefCount(pList);
     Tcl_ResetResult(pTcl);

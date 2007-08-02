@@ -122,7 +122,7 @@ This file has two sections:
 
     Then supply an installation path to configure:
 
-      ../see-2.1.1206_snapshot/configure --prefix=/home/dan/javascript/install/
+      ../see-2.1.1206_snapshot/configure --prefix=${INSTALL_PATH}/
 
     This worked on a stock Suse 10.1.
 
