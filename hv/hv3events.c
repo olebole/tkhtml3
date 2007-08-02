@@ -514,7 +514,7 @@ addEventListenerFunc(interp, self, thisobj, argc, argv, res)
     ListenerContainer *pL;
 
     /* Parameters passed to javascript function */
-    SEE_boolean_t useCapture = 0;
+    int useCapture = 0;
     struct SEE_string *zType = 0;
     struct SEE_object *pListener = 0;
 
@@ -534,7 +534,18 @@ addEventListenerFunc(interp, self, thisobj, argc, argv, res)
     }
 
     /* Parse the arguments */
-    SEE_parse_args(interp, argc, argv, "s|o|b",&zType,&pListener,&useCapture);
+    /* TODO: Something wrong with the first call to SEE_parse_args() here. 
+     * Need to figure out what it is and report to see-dev.
+     */
+#if 0
+    SEE_parse_args(interp, argc, argv, "s|o|b|",&zType,&pListener,&useCapture);
+#else
+    assert(argc == 3);
+    SEE_parse_args(interp, 1, argv, "s",&zType);
+    SEE_parse_args(interp, 1, &argv[1], "o",&pListener);
+    SEE_parse_args(interp, 1, &argv[2], "b",&useCapture);
+#endif
+
     zType = SEE_intern(interp, zType);
     useCapture = (useCapture ? 1 : 0);
 
@@ -623,7 +634,12 @@ removeEventListenerFunc(interp, self, thisobj, argc, argv, res)
     }
 
     /* Parse the arguments */
-    SEE_parse_args(interp, argc, argv, "s|o|b", &zType, &pListener,&useCapture);
+#if 0
+    SEE_parse_args(interp, argc, argv, "s|o|b|",&zType,&pListener,&useCapture);
+#endif
+    SEE_parse_args(interp, 1, argv, "s",&zType);
+    SEE_parse_args(interp, 1, &argv[1], "o",&pListener);
+    SEE_parse_args(interp, 1, &argv[2], "b",&useCapture);
     zType = SEE_intern(interp, zType);
     useCapture = (useCapture ? 1 : 0);
 
