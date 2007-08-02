@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.26 2007/07/23 07:15:41 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.27 2007/08/02 16:26:52 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Core
@@ -177,6 +177,13 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.26 2007/07/23 07:15:
     list object [list ::hv3::DOM::Implementation $myDom]
   }
 
+  #------------------------------------------------------------------------
+  # Document.documentElement
+  #
+  #     This property always returns the <HTML> element. It's more
+  #     complex for XML DOM implementations, but for HTML this is 
+  #     correct.
+  #
   dom_get documentElement {
     list object [::hv3::dom::wrapWidgetNode $myDom [$myHv3 node]]
   }

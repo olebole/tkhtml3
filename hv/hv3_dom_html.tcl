@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.29 2007/07/23 07:15:41 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.30 2007/08/02 16:26:52 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Html
@@ -296,6 +296,8 @@ namespace eval ::hv3::DOM {
   #    document. In firefox standards mode, it is the <HTML> element.
   #    In quirks mode, the <BODY>. In Hv3 it is always the <HTML> element.
   #
+  #    BUG: For nodes other than the <HTML> node, values are always all 0.
+  #
   dom_get offsetLeft { 
     list number [lindex [HTMLElement_offsetBox $myDom $myNode] 0]
   }
@@ -400,7 +402,12 @@ namespace eval ::hv3::DOM {
   }
 
   proc HTMLElement_nodeBox {dom node} {
-    set bbox [[$node html] bbox $node]
+    set html [$node html]
+    if {$node eq [$html node]} {
+      set bbox [$html bbox]
+    } else {
+      set bbox [$html bbox $node]
+    }
     if {$bbox eq ""} {set bbox [list 0 0 0 0]}
     return $bbox
   }
