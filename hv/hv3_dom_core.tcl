@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.27 2007/08/02 16:26:52 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.28 2007/08/02 16:46:40 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Core
@@ -679,7 +679,11 @@ set BaseList {CharacterData WidgetNode Node NodePrototype}
   #
   dom_get nodeType  {list number 3}           ;#     Node.TEXT_NODE -> 3
   dom_get nodeName  {list string #text}
+
+  # nodeValue is read/write for a Text node.
+  #
   dom_get nodeValue {list string [$myNode text -pre] }
+  dom_put -string nodeValue newText { $myNode text set $newText }
 
   # End of Node interface overrides.
   #---------------------------------
