@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.22 2007/07/23 07:15:41 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.23 2007/08/02 16:08:29 danielk1977 Exp $)} 1 }
 
 #---------------------------------
 # List of DOM objects in this file:
@@ -307,6 +307,19 @@ namespace eval ::hv3::DOM {
     list boolean [expr {$i ? 0 : 1}]
   }
 
+  #-----------------------------------------------------------------------
+  # The innerHeight and innerWidth properties.
+  #
+  # These return the height and width of the browser window, including
+  # any scrollbars. Refer to:
+  #
+  #     http://developer.mozilla.org/en/docs/DOM:window.innerWidth
+  #     http://tkhtml.tcl.tk/cvstrac/tktview?tn=175
+  #     http://www.howtocreate.co.uk/tutorials/javascript/browserwindow
+  #
+  dom_get innerHeight { list number [winfo height $myHv3] }
+  dom_get innerWidth  { list number [winfo width $myHv3] }
+
   dom_events { list }
 
   # Pass any request for an unknown property to the FramesList object.
@@ -328,11 +341,16 @@ if 0 {
     puts $args
   }
 
+  # Access the very special hv3_bookmarks. We hard-code some security
+  # here: The hv3_bookmarks object is only available if the toplevel
+  # frame is from the home:// namespace.
+  #
   dom_get hv3_bookmarks {
     set frame [winfo parent $myHv3]
     set top [$frame top_frame]
     if {[string first home: [[$frame hv3] uri get]] == 0} {
-      list object [list ::hv3::DOM::Bookmarks $myDom ::hv3::the_bookmark_manager]
+      set o [list ::hv3::DOM::Bookmarks $myDom ::hv3::the_bookmark_manager]
+      list object $o
     } else {
       list
     }
