@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.139 2007/08/01 03:40:44 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.140 2007/08/04 17:15:25 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -1070,7 +1070,7 @@ snit::type ::hv3::file_menu {
       "-----"         ""                                                "" \
       "Bookmark Page" [list ::hv3::gui_bookmark]                        b  \
       "-----"         ""                                                "" \
-      "Downloads"     [list ::hv3::the_download_manager show]           "" \
+      "Downloads..."  [list ::hv3::the_download_manager show]           "" \
       "-----"         ""                                                "" \
       "Close Tab"     [list $::hv3::G(notebook) close]                  "" \
       "Exit"          exit                                              q  \
@@ -1128,16 +1128,17 @@ snit::type ::hv3::debug_menu {
 
   constructor {} {
     set MENU [list \
-      "Cookies"              [list $::hv3::G(notebook) add cookies:]     "" \
-      "About"                [list $::hv3::G(notebook) add home://about] "" \
-      "Polipo..."            [list ::hv3::polipo::popup]                 "" \
-      "Events..."            [list gui_log_window $::hv3::G(notebook)]   "" \
-      "-----"                [list]                                      "" \
-      "Tree Browser..."      [list gui_current browse]                   "" \
-      "ECMAscript..."        [list gui_current javascriptlog]            j  \
-      "-----"                [list]                                      "" \
-      "Exec firefox -remote" [list gui_firefox_remote]                   "" \
-      "-----"                [list]                                      "" \
+      "Cookies"              [list $::hv3::G(notebook) add cookies:]      "" \
+      "About"                [list $::hv3::G(notebook) add home://about]  "" \
+      "Polipo..."            [list ::hv3::polipo::popup]                  "" \
+      "Events..."            [list gui_log_window $::hv3::G(notebook)]    "" \
+      "-----"                [list]                                       "" \
+      "Tree Browser..."      [list gui_current browse]                    "" \
+      "Javascript Debugger..." [list gui_current javascriptlog]           j  \
+      "DOM Reference..."     [list $::hv3::G(notebook) add home://domref] "" \
+      "-----"                [list]                                       "" \
+      "Exec firefox -remote" [list gui_firefox_remote]                    "" \
+      "-----"                   [list]                                    "" \
       "Reset Profiling Data..." [list ::hv3::profile::zero]               "" \
       "Save Profiling Data..."  [list ::hv3::profile::report_to_file]     "" \
     ]

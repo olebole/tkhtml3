@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.71 2007/07/23 07:15:41 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.72 2007/08/04 17:15:25 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Snit types in this file:
@@ -1265,8 +1265,9 @@ foreach c $classlist {
 }
 #puts [::hv3::dom2::compile XMLHttpRequest]
 
-::hv3::compile_bookmarks_object
+::hv3::create_domref
 
+::hv3::compile_bookmarks_object
 ::hv3::dom2::cleanup
 
 #-----------------------------------------------------------------------

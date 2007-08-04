@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.10 2007/07/10 09:11:04 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.11 2007/08/04 17:15:25 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # ::hv3::dom::XMLHttpRequest
@@ -243,5 +243,4 @@ puts "New XMLHttpRequest"
 
   list object [list ::hv3::DOM::XMLHttpRequest $dom $statevar]
 }
-
 

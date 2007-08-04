@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.28 2007/08/02 16:46:40 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.29 2007/08/04 17:15:25 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Core
@@ -131,41 +131,49 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.28 2007/08/02 16:46:
   #
   dom_parameter myHv3
 
-  # Override the two mandatory Node methods.
-  #
-  dom_get nodeType {list number 9}          ;# Node.DOCUMENT_NODE -> 9
+  -- Always Node.DOCUMENT_NODE (integer value 9).
+  --
+  dom_get nodeType {list number 9}
+
+  -- Always the literal string \"#document\".
+  --
   dom_get nodeName {list string #document}
 
-  # Override other Node methods. The default implementations of 
-  # nextSibling(), previousSibling() and parentNode() are Ok, but the
-  # properties for accessing child-nodes need to be implemented.
-  #
-  # The Document node only has one child -> the <HTML> node of the 
-  # document tree.
-  #
+  -- The Document node always has exactly one child: the &lt\;HTML&gt\; element
+  -- of the document tree. This property always contains a [Ref NodeList] 
+  -- collection containing that element.
+  --
   dom_get childNodes {
     set cmd [list $myHv3 node]
     list object [list ::hv3::DOM::NodeListC $myDom $cmd]
   }
-  dom_get firstChild {list object [::hv3::dom::wrapWidgetNode $myDom [$myHv3 node]]}
-  dom_get lastChild  {list object [::hv3::dom::wrapWidgetNode $myDom [$myHv3 node]]}
 
-  # The document node always has exactly one child node.
-  #
+  -- Return the root element of the document tree (an object of class
+  -- [Ref HTMLHtmlElement]).
+  --
+  dom_get firstChild {
+    list object [::hv3::dom::wrapWidgetNode $myDom [$myHv3 node]]
+  }
+
+  -- Return the root element of the document tree (an object of class
+  -- [Ref HTMLHtmlElement]).
+  --
+  dom_get lastChild  {
+    list object [::hv3::dom::wrapWidgetNode $myDom [$myHv3 node]]
+  }
+
+  -- The document node always has exactly one child node. So this property
+  -- is always set to true.
+  --
   dom_call hasChildNodes {THIS} {list boolean true}
 
-  # dom_call replaceChild {THIS newChild oldChild}  {error "TODO"}
-  # dom_call removeChild  {THIS oldChild}           {error "TODO"}
-  # dom_call appendChild  {THIS newChild}           {error "TODO"}
-  # dom_call insertBefore {THIS newChild refChild}  {error "TODO"}
+  dom_call_todo insertBefore
+  dom_call_todo replaceChild
+  dom_call_todo removeChild 
+  dom_call_todo appendChild  
 
-  dom_todo insertBefore
-  dom_todo replaceChild
-  dom_todo removeChild 
-  dom_todo appendChild  
-
-  # For a Document node, the ownerDocument is null.
-  #
+  -- For a Document node, the ownerDocument is null.
+  -- 
   dom_get ownerDocument {list null}
 
   # End of Node interface overrides.
@@ -173,17 +181,15 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.28 2007/08/02 16:46:
 
   dom_todo doctype
 
+  -- Reference to the [Ref Implementation] object.
+  --
   dom_get implementation {
     list object [list ::hv3::DOM::Implementation $myDom]
   }
 
-  #------------------------------------------------------------------------
-  # Document.documentElement
-  #
-  #     This property always returns the <HTML> element. It's more
-  #     complex for XML DOM implementations, but for HTML this is 
-  #     correct.
-  #
+  -- This property is always set to the &lt\;HTML&gt\; element (an object of
+  -- class [Ref HTMLHtmlElement]).
+  --
   dom_get documentElement {
     list object [::hv3::dom::wrapWidgetNode $myDom [$myHv3 node]]
   }

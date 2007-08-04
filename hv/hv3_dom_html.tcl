@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.30 2007/08/02 16:26:52 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.31 2007/08/04 17:15:25 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Html
@@ -973,14 +973,14 @@ namespace eval ::hv3::DOM {
   element_attr summary
   element_attr width
 
-  dom_todo createTHead
-  dom_todo deleteTHead
-  dom_todo createTFoot
-  dom_todo deleteTFoot
-  dom_todo createCaption
-  dom_todo deleteCaption
-  dom_todo insertRow
-  dom_todo deleteRow
+  dom_call_todo createTHead
+  dom_call_todo deleteTHead
+  dom_call_todo createTFoot
+  dom_call_todo deleteTFoot
+  dom_call_todo createCaption
+  dom_call_todo deleteCaption
+  dom_call_todo insertRow
+  dom_call_todo deleteRow
 }
 namespace eval ::hv3::DOM {
   proc HTMLTableElement_getTBodies {node} {
@@ -1122,8 +1122,6 @@ namespace eval ::hv3::DOM {
   element_attr src
   element_attr width
 }
-
-::hv3::dom2::stateless XXX HTMLElement { }
 
 ::hv3::dom2::stateless HTMLUListElement     HTMLElement { #TODO }
 ::hv3::dom2::stateless HTMLOListElement     HTMLElement { #TODO }

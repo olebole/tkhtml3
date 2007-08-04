@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.23 2007/08/02 16:08:29 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.24 2007/08/04 17:15:25 danielk1977 Exp $)} 1 }
 
 #---------------------------------
 # List of DOM objects in this file:
@@ -201,12 +201,11 @@ namespace eval ::hv3::DOM {
     list object [list ::hv3::DOM::HTMLDocument $myDom $myHv3]
   }
 
-  #-----------------------------------------------------------------------
   # The "Image" property object. This is so that scripts can
   # do the following:
   #
   #     img = new Image();
-  #
+  # 
   dom_construct Image {THIS args} {
     set w ""
     set h ""
@@ -235,11 +234,8 @@ namespace eval ::hv3::DOM {
     list object $obj
   }
 
-  #-----------------------------------------------------------------------
-  # The Window.location property (Gecko compatibility)
-  #
-  #     This is an alias for the document.location property.
-  #
+  -- An alias for the document.location property (see [Ref HTMLDocument]).
+  -- 
   dom_get location {
     set document [lindex [eval [SELF] Get document] 1]
     eval $document Get location
@@ -249,9 +245,8 @@ namespace eval ::hv3::DOM {
     eval $document Put location [list $value]
   }
 
-  #-----------------------------------------------------------------------
-  # The "navigator" object.
-  #
+  -- A reference to the [Ref Navigator] object.
+  --
   dom_get navigator { 
     list cache transient [list ::hv3::DOM::Navigator $myDom]
   }
@@ -270,19 +265,17 @@ namespace eval ::hv3::DOM {
     list object [list ::hv3::DOM::Screen $myDom $myHv3]
   }
 
-  #-----------------------------------------------------------------------
-  # The "parent" property. This should: 
-  #
-  #     "Returns a reference to the parent of the current window or subframe.
-  #      If a window does not have a parent, its parent property is a reference
-  #      to itself."
-  #
+  -- Returns a reference to the parent of the current window or subframe.
+  -- If the window does not have a parent, then a reference to the window
+  -- itself is returned.
+  --
   dom_get parent {
     set frame [winfo parent $myHv3]
     set parent [$frame parent_frame]
     if {$parent eq ""} {set parent $frame}
     list object [$myDom hv3_to_window [$parent hv3]]
   }
+
   dom_get top { 
     set frame [winfo parent $myHv3]
     set top [$frame top_frame]
@@ -295,29 +288,46 @@ namespace eval ::hv3::DOM {
     list object [list ::hv3::DOM::FramesList $myDom [winfo parent $myHv3]]
   }
 
-  #-----------------------------------------------------------------------
-  # The alert() and confirm() methods.
-  #
+  -- Pop up a modal dialog box with a single button - \"OK\". The <i>msg</i>
+  -- argument is displayed in the dialog. This function does not return
+  -- until the user dismisses the dialog.
+  --
+  -- Returns null.
+  --
   dom_call -string alert {THIS msg} {
     tk_dialog .alert "Super Dialog Alert!" $msg "" 0 OK
     return ""
   }
+
+  -- Pop up a modal dialog box with two buttons: - \"OK\" and \"Cancel\". 
+  -- The <i>msg</i> argument is displayed in the dialog. This function 
+  -- does not return until the user dismisses the dialog by clicking one
+  -- of the buttons.
+  --
+  -- If the user chooses the \"OK\" button, true is returned. If the
+  -- user chooses \"Cancel\", false is returned.
+  --
   dom_call -string confirm {THIS msg} {
     set i [tk_dialog .alert "Super Dialog Alert!" $msg "" 0 OK Cancel]
     list boolean [expr {$i ? 0 : 1}]
   }
 
-  #-----------------------------------------------------------------------
-  # The innerHeight and innerWidth properties.
-  #
-  # These return the height and width of the browser window, including
-  # any scrollbars. Refer to:
-  #
-  #     http://developer.mozilla.org/en/docs/DOM:window.innerWidth
-  #     http://tkhtml.tcl.tk/cvstrac/tktview?tn=175
-  #     http://www.howtocreate.co.uk/tutorials/javascript/browserwindow
-  #
+  -- The current height of the browser window in pixels (the area 
+  -- available for displaying HTML documents), including the horizontal 
+  -- scrollbar if one is displayed.
+  --
+  --     http://developer.mozilla.org/en/docs/DOM:window.innerWidth
+  --     http://tkhtml.tcl.tk/cvstrac/tktview?tn=175
+  --     http://www.howtocreate.co.uk/tutorials/javascript/browserwindow
+  --
   dom_get innerHeight { list number [winfo height $myHv3] }
+
+  -- The current width of the browser window in pixels (the area 
+  -- available for displaying HTML documents), including the vertical 
+  -- scrollbar if one is displayed.
+  --
+  --     http://developer.mozilla.org/en/docs/DOM:window.innerHeight
+  --
   dom_get innerWidth  { list number [winfo width $myHv3] }
 
   dom_events { list }
@@ -337,9 +347,11 @@ if 0 {
   }
 }
 
+if 0 {
   dom_call -string jsputs {THIS args} {
     puts $args
   }
+}
 
   # Access the very special hv3_bookmarks. We hard-code some security
   # here: The hv3_bookmarks object is only available if the toplevel

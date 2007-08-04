@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_style.tcl,v 1.12 2007/07/16 15:35:48 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_style.tcl,v 1.13 2007/08/04 17:15:25 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # DOM Level 2 Style.
@@ -15,6 +15,9 @@ namespace eval hv3 { set {version($Id: hv3_dom_style.tcl,v 1.12 2007/07/16 15:35
 #
 
 ::hv3::dom2::stateless ElementCSSInlineStyle {} {
+  -- A reference to the [Ref CSSStyleDeclaration] object used to access 
+  -- the HTML \"style\" attribute of this document element.
+  --
   dom_get style {
     list object [list ::hv3::DOM::CSSStyleDeclaration $myDom $myNode]
   }

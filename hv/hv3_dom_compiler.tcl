@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.29 2007/07/22 06:45:49 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.30 2007/08/04 17:15:25 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file implements infrastructure used to create the [proc] definitions
@@ -65,6 +65,7 @@ proc ::hv3::dom::TclCallableProc {pSee isString zScript op args} {
     }
 
     Events { return }
+    Scope  { return }
   }
 
   error "Unknown method: $op"
@@ -106,6 +107,7 @@ proc Indent {iIndent str} {
 }
 
 proc AutoIndent {iIndent str} {
+return $str
   set white 0
   regexp {\n( *)[^[:space:]]} $str DUMMY white
   set iIndent2 [expr $iIndent - [string length $white]]
@@ -164,6 +166,9 @@ namespace eval ::hv3::dom2 {
   ::variable TypeArray
   ::variable CurrentType
 
+  ::variable DocBuffer
+  ::variable Docs
+
   array set TypeArray ""
   set CurrentType ""
 
@@ -210,6 +215,7 @@ namespace eval ::hv3::dom2 {
     }
 
     proc dom_get {property code} {
+      FlushDocBuffer $property
       $::hv3::dom2::CurrentType add_get $property $code
     }
 
@@ -222,6 +228,42 @@ namespace eval ::hv3::dom2 {
     }
     proc dom_scope {code} {
       $::hv3::dom2::CurrentType add_scope $code
+    }
+
+    proc Ref {ref {text ""}} {
+      if {$text eq ""} {set text $ref}
+      subst {<A href="#${ref}">${text}</A>}
+    }
+
+    proc FlushDocBuffer {{property {}}} {
+      if {[info exists ::hv3::dom2::DocBuffer]} {
+        if {[string range $::hv3::dom2::DocBuffer end-2 end] eq "<p>"} {
+          set ::hv3::dom2::DocBuffer [
+            string range $::hv3::dom2::DocBuffer 0 end-3
+          ]
+        }
+        set name [$::hv3::dom2::CurrentType name]
+        if {$property ne ""} {append name ".$property"}
+        append ::hv3::dom2::Docs($name) $::hv3::dom2::DocBuffer
+        unset ::hv3::dom2::DocBuffer
+      }
+    }
+    proc -- {args} {
+      if {[llength $args]==1 
+         && [string range [lindex $args 0] 0 4] eq "http:"
+      } {
+        set uri [lindex $args 0]
+        append ::hv3::dom2::DocBuffer [subst {
+          <DIV class=uri><A href="$uri">$uri</A></DIV>
+        }]
+        return
+      } elseif {[llength $args]==0 || ![info exists ::hv3::dom2::DocBuffer]} {
+        append ::hv3::dom2::DocBuffer <p>
+        append ::hv3::dom2::DocBuffer [join $args]
+      } else {
+        append ::hv3::dom2::DocBuffer " "
+        append ::hv3::dom2::DocBuffer [join $args]
+      }
     }
 
     proc noisy {args} {
@@ -267,6 +309,7 @@ namespace eval ::hv3::dom2 {
         error "Invalid args to dom_call: $args"
       }
 
+      FlushDocBuffer $property
       $::hv3::dom2::CurrentType add_call $property $isString $arg_list $code
     }
 
@@ -314,8 +357,9 @@ namespace eval ::hv3::dom2 {
     return $base_list
   }
 
+  # Return the text for a Tcl [proc] implementing the object.
+  #
   proc compile {domtype} {
-
     ::variable TypeArray
 
     set base_list [getBaseList $domtype]
@@ -325,6 +369,18 @@ namespace eval ::hv3::dom2 {
     append ret "\n"
 
     return $ret
+  }
+
+  # Return some HTML text describing the named object.
+  #
+  proc document {domtype} {
+    ::variable TypeArray
+    $TypeArray($domtype) document [getBaseList $domtype]
+  }
+
+  proc classlist {} {
+    ::variable TypeArray
+    array names TypeArray
   }
 
   proc cleanup {} {
@@ -337,6 +393,8 @@ namespace eval ::hv3::dom2 {
     unset -nocomplain TypeArray
     unset -nocomplain BaseArray
     unset -nocomplain CurrentType
+    unset -nocomplain Docs
+    unset -nocomplain DocBuffer
   }
 }
 
@@ -695,5 +753,84 @@ namespace eval ::hv3::dom2 {
     append Code [join $myExtraCode "\n"]
     return $Code
   }
+
+
+  method GetDocs {{property ""}} {
+    set name [$self name]
+    if {$property ne ""} {append name ".$property"}
+    if {[info exists ::hv3::dom2::Docs($name)]} {
+      return $::hv3::dom2::Docs($name)
+    }
+    if {$property eq ""} {return ""}
+    return "<SPAN class=nodocs>No docs available.</SPAN>"
+  }
+
+  method document {mixins} {
+    # Big heading: The name of the DOM class:
+    #
+    append ret "<A name=$myName><H1>$myName</H1></A>\n"
+
+    set d [$self GetDocs]
+    if {$d ne ""} { append ret "<P>$d</P>" }
+
+    # The list of implemented interfaces:
+    #
+    if {[llength $mixins] > 0} {
+      append ret "<H2>Inheritance</H2><UL>"
+      foreach mixin $mixins {
+        set name [$mixin name]
+        append ret "<LI><A href=#${name}>${name}</A>"
+      }
+      append ret "</UL>"
+    }
+
+    # The list of properties
+    #
+    array set property_array [$self get]
+    array set put_array [$self put]
+    set props [array names property_array]
+    if {[llength $props] > 0} {
+      append ret {<H2>Properties</H2><TABLE border=1>}
+      foreach k [lsort -command ::hv3::dom2::DocSorter $props] {
+        set mode read-only
+        if {[info exists put_array($k)]} {set mode read/write}
+        set docs [$self GetDocs $k]
+        if {$k eq "*"} {set k {Other Properties} }
+        append ret "<TR><TH>$k<TD class=mode><I>$mode</I><TD>$docs"
+      }
+      append ret "</TABLE>"
+    }
+
+    # The list of methods
+    #
+    array set call_array [$self call]
+    set calls [array names call_array]
+    if {[llength $calls] > 0} {
+      append ret {<H2>Methods</H2><TABLE border=1>}
+      foreach k [lsort -command ::hv3::dom2::DocSorter $calls] {
+        foreach {isConstructor isString lArg zBody} $call_array($k) {}
+        set param_list [list]
+        foreach param [lrange $lArg 1 end] {
+          lappend param_list [lindex $param 0]
+        }
+        set params [join $param_list ", "]
+        if {!$isConstructor} {
+          set docs [$self GetDocs $k]
+          append ret {<TR><TH>}
+          append ret "${k}(${params})"
+          append ret "<TD>$docs"
+        }
+      }
+      append ret "</TABLE>"
+    }
+
+    set ret
+  }
+}
+
+proc ::hv3::dom2::DocSorter {a b} {
+  if {$a eq "*"} {return +1}
+  if {$b eq "*"} {return -1}
+  return [string compare $a $b]
 }
 
