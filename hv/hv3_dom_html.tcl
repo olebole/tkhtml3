@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.31 2007/08/04 17:15:25 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.32 2007/08/05 06:54:47 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Html
@@ -555,10 +555,16 @@ namespace eval ::hv3::DOM {
     $F dom_checked $C
   }
 
-  # HTMLInputElement.value is the current form control value if
-  # the "type" is one of "Text", "File" or "Password". Otherwise
-  # it is the attribute on the underlying HTML element.
-  #
+  -- This property refers to current value of the corresponding form control 
+  -- if the \"type\" property is one of \"Text\", \"File\" or \"Password\".
+  -- In this case writing to this property sets the value of the form 
+  -- control. Note that writing to this attribute is not permitted if the
+  -- type is \"File\". This is a security measure. If this is attempted the
+  -- write will silently fail.
+  --
+  -- If the \"type\"  property is other than those listed above, then this
+  -- property refers the attribute on the underlying HTML element.
+  --
   dom_get value {
     set SPECIAL [list text file password]
     set T [string tolower [$myNode attr -default text type]]
@@ -570,8 +576,9 @@ namespace eval ::hv3::DOM {
     }
   }
   dom_put -string value V { 
-    set SPECIAL [list text file password]
+    set SPECIAL [list text password]
     set T [string tolower [$myNode attr -default text type]]
+    if {$T eq "file"} {return}
     if {[lsearch $SPECIAL $T]>=0} {
       set F [$myNode replace]
       $F dom_value $V

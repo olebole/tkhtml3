@@ -208,6 +208,8 @@ struct SeeInterp {
     Tcl_Obj *pTrace;
     struct SEE_context *pTraceContext;
 
+    struct SEE_scope *pScope;
+
     Tcl_Obj *pLog;
 
     /* Start of a linked list of SeeTimeout structures. See 
@@ -315,6 +317,10 @@ static struct SEE_objectclass *getVtbl();
 static void interpTimeoutInit(SeeInterp *, SeeTclObject *);
 static void interpTimeoutCleanup(SeeInterp *, SeeTclObject *);
 #include "hv3timeout.c"
+
+static void interpFunctionInit(SeeInterp *, SeeTclObject *);
+#include "hv3function.c"
+
 
 /*
  *---------------------------------------------------------------------------
@@ -1450,6 +1456,7 @@ interpEval(pTclSeeInterp, nArg, apArg)
         if (pWindow) {
             struct SEE_object *p = 0;
             struct SEE_scope *pScope = 0;
+            struct SEE_scope *pScopeOld = pTclSeeInterp->pScope;
 
             p = findOrCreateObject(pTclSeeInterp, pWindow, 0);
             pScope = (struct SEE_scope *)SEE_malloc(pSee, sizeof(*pScope) * 2);
@@ -1458,9 +1465,11 @@ interpEval(pTclSeeInterp, nArg, apArg)
             pScope->next->obj = pTclSeeInterp->interp.Global;
             pScope->next->next = 0;
 
+            pTclSeeInterp->pScope = pScope;
             SEE_TRY(pSee, try_ctxt) {
                 SEE_eval(pSee, pInput, p, p, pScope, &res);
             }
+            pTclSeeInterp->pScope = pScopeOld;
         } else {
             SEE_TRY(pSee, try_ctxt) {
                 SEE_Global_eval(pSee, pInput, &res);
@@ -1494,6 +1503,7 @@ interpClear(pTclSeeInterp, objc, objv)
     memset(p->pNative->properties, 0, sizeof(p->pNative->properties));
     p->pTypeList = 0;
     interpTimeoutInit(pTclSeeInterp, p);
+    interpFunctionInit(pTclSeeInterp, p);
 
     return TCL_OK;
 }
@@ -1692,6 +1702,7 @@ interpCmd(clientData, pTclInterp, objc, objv)
         case INTERP_WINDOW: {
             struct SEE_object *p = findOrCreateObject(pTclSeeInterp,objv[2],0);
             interpTimeoutInit(pTclSeeInterp, (SeeTclObject *)p);
+            interpFunctionInit(pTclSeeInterp, (SeeTclObject *)p);
             break;
         }
 

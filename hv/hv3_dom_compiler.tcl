@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.30 2007/08/04 17:15:25 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.31 2007/08/05 06:54:47 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file implements infrastructure used to create the [proc] definitions
@@ -192,6 +192,9 @@ namespace eval ::hv3::dom2 {
 
     proc dom_todo {property} {
       set type [$::hv3::dom2::CurrentType name]
+
+      -- This property is not yet implemented. For the moment it is a
+      -- placeholder that always contains null.
       dom_get $property [subst -nocommands {
         puts "TODO: $type.$property"
         list
@@ -200,6 +203,9 @@ namespace eval ::hv3::dom2 {
 
     proc dom_call_todo {property} {
       set type [$::hv3::dom2::CurrentType name]
+
+      -- This method is not yet implemented. For the moment it is a
+      -- placeholder that has no effect and always returns null.
       dom_call $property {args} [subst -nocommands {
         puts "TODO: $type.${property}()"
         list
