@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_file.tcl,v 1.5 2007/06/03 10:35:19 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_file.tcl,v 1.6 2007/09/01 14:21:28 danielk1977 Exp $)} 1 }
 
 #
 # This file contains Tcl code for loading file:// URIs in the hv3 web browser
@@ -103,7 +103,6 @@ proc directoryIndex {directory} {
         </html>
     }
     
-puts $data
     return $data
     
 };#End of procedure directoryIndex

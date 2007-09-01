@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.179 2007/07/23 07:15:41 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.180 2007/09/01 14:21:28 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -380,7 +380,7 @@ static void runDynamicStyleEngine(ClientData clientData);
 static void runStyleEngine(ClientData clientData);
 static void runLayoutEngine(ClientData clientData);
 
-#ifndef NDEBUG
+#if !defined(NDEBUG) && defined(TKHTML_ENABLE_PROFILE)
   #define INSTRUMENTED(name, id)                                             \
     static void real_ ## name (ClientData);                                  \
     static void name (clientData)                                            \
@@ -481,8 +481,6 @@ INSTRUMENTED(callbackHandler, HTML_INSTRUMENT_CALLBACK)
     HtmlTree *pTree = (HtmlTree *)clientData;
     HtmlCallback *p = &pTree->cb;
 
-    clock_t styleClock = 0;              
-    clock_t layoutClock = 0;
     int offscreen;
 
     assert(

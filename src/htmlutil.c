@@ -1,9 +1,10 @@
 
 #include <tcl.h>
+
+#ifdef TKHTML_ENABLE_PROFILE
+
 #include <string.h>
-
 #include <sys/time.h>
-
 #include "html.h"
 
 /*
@@ -377,5 +378,15 @@ HtmlInstrumentInit(interp)
         "::tkhtml::instrument", instrument_objcmd, (ClientData)p, instDelCommand
     );
 }
+
+#else  /* TKHTML_ENABLE_PROFILE */
+void
+HtmlInstrumentInit(interp)
+    Tcl_Interp *interp;
+{
+    /* No-op */
+}
+
+#endif
 
 

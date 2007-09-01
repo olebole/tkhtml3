@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.72 2007/08/04 17:15:25 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.73 2007/09/01 14:21:28 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Snit types in this file:
@@ -74,6 +74,7 @@ snit::type ::hv3::dom {
 
   method autoenable {hv3 uri} {
     if {$mySee eq "" && 
+        [info commands ::see::interp] ne "" &&
         $hv3 eq [$myBrowser hv3] && 
         [string first home: $uri] == 0
     } {
@@ -974,7 +975,6 @@ snit::widget ::hv3::dom::logwin {
 
     $myOutput insert end "   rc       : " commandtext
     $myOutput insert end "[$ls cget -rc]\n"
-puts [$ls cget -result]
     if {[$ls cget -rc] && [lindex [$ls cget -result] 0] eq "JS_ERROR"} {
       set res [$ls cget -result]
       set msg        [lindex $res 1]

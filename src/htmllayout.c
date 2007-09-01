@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.255 2007/08/01 03:40:44 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.256 2007/09/01 14:21:28 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -895,8 +895,8 @@ normalFlowLayoutOverflow(pLayout, pBox, pNode, pY, pContext, pNormal)
 
     /* Figure out whether or not this block uses a horizontal scrollbar. */
     if (eOverflow == CSS_CONST_SCROLL || (
-            eOverflow == PIXELVAL_AUTO && 
-            iMinContentWidth > iWidth - (useVertical ? SCROLLBAR_WIDTH : 0)
+            eOverflow == CSS_CONST_AUTO && 
+            iMinContentWidth > (iWidth - (useVertical ? SCROLLBAR_WIDTH : 0))
         )
     ) {
         useHorizontal = 1;
@@ -926,18 +926,6 @@ normalFlowLayoutOverflow(pLayout, pBox, pNode, pY, pContext, pNormal)
         );
     }
 
-
-    /* Wrap an overflow primitive around the content of this box. At
-     * the moment this just clips the displayed content. But eventually
-     * the HtmlCanvas module will automatically insert scrollbars if 
-     * required.
-     */
-    if (
-        sContent.width < sContent.vc.right ||
-        sContent.height < sContent.vc.bottom
-    ) {
-        HtmlDrawOverflow(&sContent.vc, pNode, sContent.width, sContent.height);
-    }
     if (
         pV->eOverflow == CSS_CONST_SCROLL || 
         (pV->eOverflow == CSS_CONST_AUTO && (useHorizontal || useVertical))
@@ -951,6 +939,17 @@ normalFlowLayoutOverflow(pLayout, pBox, pNode, pY, pContext, pNormal)
             useHorizontal ? sContent.vc.right : -1, 
             useVertical ? sContent.vc.bottom : -1
         );
+    }
+
+    /* Wrap an overflow primitive around the content of this box. This
+     * has to be done after the createScrollbars() call above, because
+     * it modifies the sContent.vc.right and sContent.vc.bottom variables.
+     */
+    if (
+        sContent.width < sContent.vc.right ||
+        sContent.height < sContent.vc.bottom
+    ) {
+        HtmlDrawOverflow(&sContent.vc, pNode, sContent.width, sContent.height);
     }
 
     sBox.iContaining = pBox->iContaining;

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.11 2007/08/04 17:15:25 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.12 2007/09/01 14:21:28 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # ::hv3::dom::XMLHttpRequest
@@ -224,7 +224,6 @@ namespace eval ::hv3::DOM {
 
 set ::hv3::dom::next_xmlhttp_id 0
 proc ::hv3::dom::newXMLHttpRequest {dom hv3} {
-puts "New XMLHttpRequest"
   set see [$dom see]
 
   # Name of the state-array for the new object.
