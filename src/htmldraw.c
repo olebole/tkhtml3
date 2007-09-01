@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.195 2007/07/22 06:45:49 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.196 2007/09/01 14:12:38 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -3764,7 +3764,7 @@ HtmlLayoutNode(clientData, interp, objc, objv)
         ** since it causes a performance hit. But are the structures
         ** intact enough to do layoutNodeCmd() if we do not?
         */
-        // HtmlCallbackForce(pTree);
+        /* HtmlCallbackForce(pTree); */
 
         /* Transform x and y from viewport to document coordinates */
         x += pTree->iScrollX;
