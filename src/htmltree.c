@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.144 2007/09/01 14:21:28 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.145 2007/09/05 17:49:52 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -2929,7 +2929,6 @@ int HtmlNodeScrollbarDoCallback(pTree, pNode)
                 (double)p->iVertical / (double)p->iVerticalMax,
                 (double)(p->iVertical + p->iHeight) / (double)p->iVerticalMax
             );
-printf("%s\n", zTmp);
             zTmp[255] = '\0';
             Tcl_Eval(pTree->interp, zTmp);
         }

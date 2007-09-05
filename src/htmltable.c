@@ -34,7 +34,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.120 2007/08/01 03:40:44 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.121 2007/09/05 17:49:52 danielk1977 Exp $";
 
 
 #include "htmllayout.h"
@@ -785,7 +785,6 @@ tableDrawRow(pNode, row, pContext)
             w1 += pData->aWidth[i];
         }
         w1 += ((pData->nCol - 1) * pData->border_spacing);
-        // HtmlDrawBox(&pData->pBox->vc, x1, y1, w1, h1, pNode, 0, mmt, 0);
         HtmlLayoutDrawBox(pData->pLayout->pTree, 
             &pData->pBox->vc, x1, y1, w1, h1, pNode, 0, mmt
         );
@@ -817,7 +816,6 @@ tableDrawRow(pNode, row, pContext)
             w1 += ((pCell->colspan-1) * pData->border_spacing);
             h1 = pData->aY[pCell->finrow] - pData->border_spacing - y1;
             if (pCell->pNode->iNode >= 0) {
-                // HtmlDrawBox(pCanvas, x1, y1, w1, h1, pCell->pNode, 0, mmt, 0);
                 HtmlLayoutDrawBox(pData->pLayout->pTree, 
                     pCanvas, x1, y1, w1, h1, pCell->pNode, 0, mmt
                 );
