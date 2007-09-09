@@ -7,6 +7,20 @@
 #     the original commands so that the http package sees our encoding
 #     database.
 #
+#     To add new encoding aliases, entries should be added to the
+#     global ::Hv3EncodingMap array. This array maps from identifiers
+#     commonly used on the web to the cannonical name used by Tcl. For
+#     example, some Japanese websites use "shift_jis", but Tcl calls
+#     this encoding "shiftjis". To work around this, we add the following
+#     entry to ::Hv3EncodingMap:
+#
+#          set ::Hv3EncodingMap(shift_jis) shiftjis
+#
+#     Entries may be added to ::Hv3EncodingMap at any time (even before
+#     this file is [source]ed).
+#
+
+
 rename encoding encoding_orig
 rename fconfigure fconfigure_orig
 
@@ -53,6 +67,11 @@ proc fconfigure {args} {
   eval fconfigure_orig $argv
 }
 
+##########################################################################
+# Below this point is where new encoding alias' can be added. See
+# the comment in the file header for instructions.
+#
+
 # Build the mappings "database".
 #
 foreach name [encoding_orig names] {
@@ -63,4 +82,6 @@ foreach name [encoding_orig names] {
     set ::Hv3EncodingMap($name2) $name
   } 
 }
+
+set ::Hv3EncodingMap(shift_jis) shiftjis
 
