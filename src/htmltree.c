@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.145 2007/09/05 17:49:52 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.146 2007/09/09 06:34:36 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -2124,8 +2124,10 @@ nodeTextCommand(interp, pNode, objc, objv)
         {0, 0, 0}
     };
 
+    HtmlTextNode *pTextNode = HtmlNodeAsText(pNode);
+
     /* This is a no-op for non text nodes */
-    if (!HtmlNodeIsText(pNode)) return TCL_OK;
+    if (!pTextNode) return TCL_OK;
 
     if (objc==2) {
         eChoice = NODE_TEXT_GET;
@@ -2253,15 +2255,14 @@ nodeTextCommand(interp, pNode, objc, objv)
             } else {
                 assert(eChoice == NODE_TEXT_GET);
                 if (eType == HTML_TEXT_TOKEN_TEXT) {
-                    if (nByte != 0) nByte++;
-                    nByte += nData;
+                    nByte = (HtmlTextIterData(&sIter) - pTextNode->zText);
+                    nByte += HtmlTextIterLength(&sIter);
                 }
             }
         }
     }
 
     if (eChoice == NODE_TEXT_GET) {
-        HtmlTextNode *pTextNode = HtmlNodeAsText(pNode);
         Tcl_SetStringObj(pRet, pTextNode->zText, nByte);
     }
 

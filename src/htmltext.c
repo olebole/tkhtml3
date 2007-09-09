@@ -1721,12 +1721,106 @@ struct HtmlTextToken {
     unsigned char eType;
 };
 
+/* Return true if the argument is a unicode codpoint that should be handled
+ * as a 'cjk' character.
+ */
+#define ISCJK(ii) ((ii)>=0x3000 && (ii)<=0x9fff)
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * utf8Read --
+ * 
+ *     Decode a single UTF8 character from the buffer pointed to by z.
+ *
+ * Results:
+ *     Unicode codepoint of read character, or 0 if the end of the buffer
+ *     has been reached.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static Tcl_UniChar utf8Read(
+  const unsigned char *z,         /* first byte of utf-8 character */
+  const unsigned char *zTerm,     /* pretend this byte is 0x00 */
+  const unsigned char **pzNext    /* write first byte past utf-8 char here */
+){
+    static const unsigned char UtfTrans[] = {
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+        0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+        0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+        0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+        0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+        0x00, 0x01, 0x02, 0x03, 0x00, 0x01, 0x00, 0x00,
+    };
+
+    unsigned int c = 0;
+    if (zTerm>z) {
+        c = (unsigned int)*z;
+        if ((c&0xC0)==0xC0) {
+            const unsigned char *zCsr = &z[1];
+            c = UtfTrans[c-0xC0];
+            while (zCsr!=zTerm && ((*zCsr)&0xC0)==0x80){
+                c = (c << 6) + ((*zCsr)&0x3F);
+                zCsr++;
+            }
+            *pzNext = zCsr;
+        } else {
+            *pzNext = &z[1];
+        }
+    } else {
+      *pzNext = zTerm;
+    }
+  
+    return c;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * tokenLength --
+ * 
+ *     Argument zToken points at the start of a text token (a non-whitespace
+ *     character). This function returns the number of bytes in the token.
+ *     zEnd points to 1 byte passed the end of the buffer - reading *zEnd
+ *     would be a seg-fault.
+ *
+ * Results:
+ *     Length of token at zToken in bytes.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+tokenLength(zToken, zEnd)
+    const char *zToken;
+    const char *zEnd;
+{
+    Tcl_UniChar iChar = 0;
+    const char *zCsr = zToken;
+    const char *zNext = zToken;
+
+    iChar = utf8Read(zCsr, (const unsigned char *)zEnd, &zNext);
+    while (iChar && (iChar >= 256 || !ISSPACE(iChar)) && !ISCJK(iChar)){
+      zCsr = zNext;
+      iChar = utf8Read(zCsr, (const unsigned char *)zEnd, &zNext);
+    }
+
+    return ((zCsr==zToken)?zNext:zCsr)-zToken;
+}
+
 /*
  *---------------------------------------------------------------------------
  *
  * populateTextNode --
  * 
- *     This function is called to tokenizes a block of document text into 
+ *     This function is called to tokenize a block of document text into 
  *     an HtmlTextNode structure. It is a helper function for HtmlTextNew().
  *
  *     This function is designed to be called twice for each block of text
@@ -1765,7 +1859,7 @@ populateTextNode(n, z, pText, pnToken, pnText)
     int isPrevTokenText = 0;
 
     while (zCsr < zStop) {
-        unsigned char c = (unsigned char)(*zCsr);
+        unsigned char c = (int)(*zCsr);
         char const *zStart = zCsr;
 
         if (ISSPACE(c)) {
@@ -1827,12 +1921,14 @@ populateTextNode(n, z, pText, pnToken, pnText)
             }
         } else {
 
-            int nThisText;
-            do { 
-                zCsr++; 
-                c = (unsigned char)(*zCsr);
-            } while (*zCsr && !ISSPACE(c) && zCsr < zStop);
-            nThisText = MIN(0x00FFFFFF, (zCsr - zStart));
+            /* This block sets nThisText to the number of bytes (not 
+             * characters) in the token starting at zStart. zCsr is
+             * left pointing to the byte immediately after the token.
+             */
+            int nThisText = tokenLength(zCsr, zStop);
+            assert(zCsr == zStart);
+            assert(nThisText>0);
+            zCsr = &zCsr[nThisText];
 
             if (nThisText > 255) {
                 if (pText) {
@@ -2017,15 +2113,24 @@ HtmlTextIterNext(pTextIter)
     HtmlTextIter *pTextIter;
 {
     HtmlTextToken *p = &pTextIter->pTextNode->aToken[pTextIter->iToken];
+    int eType = p[0].eType;
+    int eNext = p[1].eType;
 
-    assert(p->eType != HTML_TEXT_TOKEN_END);
-    if (p->eType == HTML_TEXT_TOKEN_TEXT) {
-        pTextIter->iText += (p->n + 1);
+    assert(eType != HTML_TEXT_TOKEN_END);
+
+    if (eType == HTML_TEXT_TOKEN_TEXT) {
+        pTextIter->iText += p->n;
     }
-    if (p->eType == HTML_TEXT_TOKEN_LONGTEXT) {
+    else if (eType == HTML_TEXT_TOKEN_LONGTEXT) {
         int n = (p[0].n << 16) + (p[1].n << 8) + p[2].n;
-        pTextIter->iText += (n + 1);
+        pTextIter->iText += n;
         pTextIter->iToken += 2;
+    }
+
+    if ((eType == HTML_TEXT_TOKEN_TEXT || eType == HTML_TEXT_TOKEN_LONGTEXT) &&
+        (eNext != HTML_TEXT_TOKEN_TEXT && eNext != HTML_TEXT_TOKEN_LONGTEXT)
+    ) {
+        pTextIter->iText++;
     }
 
     pTextIter->iToken++;
