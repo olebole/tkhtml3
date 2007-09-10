@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.256 2007/09/01 14:21:28 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.257 2007/09/10 04:11:04 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -405,7 +405,7 @@ normalFlowMarginCollapse(pLayout, pNode, pNormal, pY)
         char const *zNode = Tcl_GetString(HtmlNodeCommand(pTree, pNode));
         HtmlLog(pTree, "LAYOUTENGINE", "%s normalFlowMarginCollapse()"
             "<p>Margins collapse to: %dpx", zNode, iMargin
-        );
+		, NULL);
     }
 }
 static void 
@@ -433,7 +433,7 @@ normalFlowMarginAdd(pLayout, pNode, pNormal, y)
             zNode, y, pNormal->iMaxMargin, pNormal->iMinMargin,
             pNormal->isValid ? "true" : "false",
             pNormal->nonegative ? "true" : "false"
-        );
+		, NULL);
     }
 }
 
@@ -923,7 +923,7 @@ normalFlowLayoutOverflow(pLayout, pBox, pNode, pY, pContext, pNormal)
         HtmlLog(pTree, "LAYOUTENGINE", "%s normalFlowLayoutOverflow()"
             "containing width for content = %dpx",
             zNode, sContent.iContaining
-        );
+		, NULL);
     }
 
     if (
@@ -1172,7 +1172,7 @@ normalFlowLayoutFloat(pLayout, pBox, pNode, pY, pDoNotUse, pNormal)
         char const *zNode = Tcl_GetString(HtmlNodeCommand(pTree, pNode));
         char const *zCaption = "normalFlowLayoutFloat() Float list after:";
         HtmlLog(pTree, "LAYOUTENGINE", "%s (Float) %dx%d (%d,%d)", 
-            zNode, iTotalWidth, iTotalHeight, x, iTop);
+		zNode, iTotalWidth, iTotalHeight, x, iTop, NULL);
         HtmlFloatListLog(pTree, zCaption, zNode, pNormal->pFloat);
     }
 
@@ -1676,7 +1676,7 @@ drawReplacementContent(pLayout, pBox, pNode)
              pLayout->minmaxTest == MINMAX_TEST_MAX ? "maxtest" : "regular"),
              iWidth, height, 
              (pElem->pReplacement ? pElem->pReplacement->iOffset : 0)
-        );
+		, NULL);
     }
 
     /* Note that width and height may still be PIXELVAL_AUTO here (if we failed
@@ -1797,11 +1797,11 @@ drawAbsolute(pLayout, pBox, pStaticCanvas, x, y)
             char const *zNode = Tcl_GetString(HtmlNodeCommand(pTree, pNode));
             HtmlLog(pTree, "LAYOUTENGINE", "%s drawAbsolute() -> "
                 "containing block is %dx%d", zNode, pBox->width, iBoxHeight
-            );
+		    , NULL);
             HtmlLog(pTree, "LAYOUTENGINE", "%s "
                 "static position is (%d,%d) (includes correction of (%d,%d))", 
                 zNode, s_x, s_y, x, y
-            );
+		    , NULL);
         }
 
         memset(&sContent, 0, sizeof(BoxContext));
@@ -1872,7 +1872,7 @@ drawAbsolute(pLayout, pBox, pStaticCanvas, x, y)
                     "Using shrink-to-fit width: %dpx "
                     "(min=%dpx max=%dpx available=%dpx)", zNode, 
                     iWidth, min, max, iSpace
-                );
+			, NULL);
             }
             iSpace -= iWidth;
         }
@@ -1982,7 +1982,7 @@ drawAbsolute(pLayout, pBox, pStaticCanvas, x, y)
             HtmlLog(pTree, "LAYOUTENGINE", "%s Calculated values: "
                 "left=%d right=%d top=%d bottom=%d width=%d height=%d", 
                 zNode, iLeft, iRight, iTop, iBottom, iWidth, iHeight
-            );
+		    , NULL);
         }
 
         DRAW_CANVAS(&pBox->vc, &sBox.vc, iLeft, iTop+margin.margin_top, pNode);
@@ -2146,9 +2146,8 @@ wrapContent(pLayout, pBox, pContent, pNode)
 
         HtmlLog(pTree, "LAYOUTENGINE", "%s wrapContent() %s",
             Tcl_GetString(HtmlNodeCommand(pTree, pNode)),
-            Tcl_GetString(pLog),
-            x, y
-        );
+            Tcl_GetString(pLog)
+		, NULL);
         Tcl_DecrRefCount(pLog);
     }
 
@@ -2350,7 +2349,7 @@ normalFlowLayoutTable(pLayout, pBox, pNode, pY, pContext, pNormal)
             Tcl_GetString(HtmlNodeCommand(pTree, pNode)),
             Tcl_GetString(pLog),
             x, y
-        );
+		, NULL);
         Tcl_DecrRefCount(pLog);
     }
 
@@ -2412,7 +2411,7 @@ normalFlowLayoutTableComponent(pLayout, pBox, pNode, pY, pContext, pNormal)
                     "%s normalFlowLayoutTableComponent() -> "
                     "Child %d of implicit display:table";
             const char *zNode = Tcl_GetString(HtmlNodeCommand(pTree, pChild));
-            HtmlLog(pTree, "LAYOUTENGINE", zFmt, zNode, ii - idx);
+            HtmlLog(pTree, "LAYOUTENGINE", zFmt, zNode, ii - idx, NULL);
         }
     }
     nChild = ii - idx;
@@ -2673,7 +2672,7 @@ normalFlowLayoutBlock(pLayout, pBox, pNode, pY, pContext, pNormal)
                 "content size: %dx%d (y-border-offset: %d)";
         const char *zNode = Tcl_GetString(HtmlNodeCommand(pTree, pNode));
         HtmlLog(pTree, "LAYOUTENGINE", zFmt, zNode, sContent.width, 
-            sContent.height - yBorderOffset, yBorderOffset);
+		sContent.height - yBorderOffset, yBorderOffset, NULL);
     }
 
     /* Re-normalize the float-list. */
@@ -3202,7 +3201,7 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
         HtmlLog(pTree, "LAYOUTENGINE", "%s normalFlowLayoutNode() Before: %s",
             Tcl_GetString(HtmlNodeCommand(pTree, pNode)),
             Tcl_GetString(pLog)
-        );
+		, NULL);
 
         HtmlFloatListLog(pTree, "Float list Before:", 
             Tcl_GetString(HtmlNodeCommand(pTree, pNode)),
@@ -3244,7 +3243,7 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
         HtmlLog(pTree, "LAYOUTENGINE", "%s normalFlowLayoutNode() After: %s",
             Tcl_GetString(HtmlNodeCommand(pTree, pNode)),
             Tcl_GetString(pLog)
-        );
+		, NULL);
 
         Tcl_DecrRefCount(pLog);
     }
@@ -3588,7 +3587,7 @@ normalFlowLayout(pLayout, pBox, pNode, pNormal)
                 "</ul>",
                 Tcl_GetString(HtmlNodeCommand(pTree, pNode)),
                 pCache->iWidth, pCache->iHeight
-            );
+		    , NULL);
         }
 
 #ifdef LAYOUT_CACHE_DEBUG
@@ -3716,7 +3715,7 @@ blockMinMaxWidth(pLayout, pNode, pMin, pMax)
             "min=%s max=%s",
             Tcl_GetString(HtmlNodeCommand(pTree, pNode)), 
             zMin, zMax
-        );
+		, NULL);
     }
 
     return TCL_OK;
@@ -3897,7 +3896,7 @@ HtmlLayout(pTree)
     memset(aDebugStoreCacheCond, 0, sizeof(int)*(LAYOUT_CACHE_N_STORE_COND+1));
 #endif
 
-    HtmlLog(pTree, "LAYOUTENGINE", "START");
+    HtmlLog(pTree, "LAYOUTENGINE", "START", NULL);
 
     /* Call HtmlLayoutNodeContent() to layout the top level box, generated 
      * by the root node.  

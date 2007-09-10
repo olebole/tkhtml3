@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.119 2007/06/29 07:12:17 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.120 2007/09/10 04:11:04 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -4061,33 +4061,33 @@ HtmlCssSelectorToString(pSelector, pObj)
             break;
 
         case CSS_SELECTOR_CLASS: 
-            Tcl_AppendStringsToObj(pObj, ".", pSelector->zValue, 0);
+            Tcl_AppendStringsToObj(pObj, ".", pSelector->zValue, NULL);
             break;
 
         case CSS_SELECTOR_ID: 
-            Tcl_AppendStringsToObj(pObj, "#", pSelector->zValue, 0);
+            Tcl_AppendStringsToObj(pObj, "#", pSelector->zValue, NULL);
             break;
 
         case CSS_SELECTOR_ATTR: 
-            Tcl_AppendStringsToObj(pObj, "[", pSelector->zAttr, "]", 0);
+            Tcl_AppendStringsToObj(pObj, "[", pSelector->zAttr, "]", NULL);
             break;
            
         case CSS_SELECTOR_ATTRVALUE: 
             Tcl_AppendStringsToObj(pObj, 
-                "[", pSelector->zAttr, "=\"", pSelector->zValue, "\"]", 0);
+                "[", pSelector->zAttr, "=\"", pSelector->zValue, "\"]", NULL);
             break;
 
         case CSS_SELECTOR_ATTRLISTVALUE: 
             Tcl_AppendStringsToObj(pObj, 
-                "[", pSelector->zAttr, "~=\"", pSelector->zValue, "\"]", 0);
+                "[", pSelector->zAttr, "~=\"", pSelector->zValue, "\"]", NULL);
             break;
         case CSS_SELECTOR_ATTRHYPHEN: 
             Tcl_AppendStringsToObj(pObj, 
-                "[", pSelector->zAttr, "|=\"", pSelector->zValue, "\"]", 0);
+                "[", pSelector->zAttr, "|=\"", pSelector->zValue, "\"]", NULL);
             break;
 
         case CSS_SELECTOR_NEVERMATCH: 
-            Tcl_AppendStringsToObj(pObj, "NEVERMATCH", 0);
+            Tcl_AppendStringsToObj(pObj, "NEVERMATCH", NULL);
             break;
 
         default:
@@ -4111,14 +4111,14 @@ rulelistReport(pRule, pObj, pN)
 
         if (pRule->pSelector->isDynamic) {
             Tcl_AppendStringsToObj(pObj, 
-                "<tr><td style=\"background:lightgrey\">", 0
+                "<tr><td style=\"background:lightgrey\">", NULL
             );
         } else {
-            Tcl_AppendStringsToObj(pObj, "<tr><td>", 0);
+            Tcl_AppendStringsToObj(pObj, "<tr><td>", NULL);
         }
 
         HtmlCssSelectorToString(p->pSelector, pObj);
-        Tcl_AppendStringsToObj(pObj, "</td><td><ul>", 0);
+        Tcl_AppendStringsToObj(pObj, "</td><td><ul>", NULL);
 
         for (i = 0; i < p->pPropertySet->n; i++) {
             CssProperty *pProp = p->pPropertySet->a[i].pProp;
@@ -4127,13 +4127,13 @@ rulelistReport(pRule, pObj, pN)
                 int eProp = p->pPropertySet->a[i].eProp;
                 Tcl_AppendStringsToObj(pObj, 
                     "<li>", HtmlCssPropertyToString(eProp), ": ", 
-                    HtmlPropertyToString(pProp, &zFree), 0
+                    HtmlPropertyToString(pProp, &zFree), NULL
                 );
                 HtmlFree(zFree);
             }
         }
 
-        Tcl_AppendStringsToObj(pObj, "</ul></td></tr>", 0);
+        Tcl_AppendStringsToObj(pObj, "</ul></td></tr>", NULL);
     }
 }
 
@@ -4172,34 +4172,34 @@ HtmlCssStyleReport(clientData, interp, objc, objv)
     Tcl_IncrRefCount(pUniversal);
     Tcl_AppendStringsToObj(pUniversal, 
         "<h1>Universal Rules</h1>",
-        "<table border=1>", 0
+        "<table border=1>", NULL
     );
     rulelistReport(pStyle->pUniversalRules, pUniversal, &nUniversal);
-    Tcl_AppendStringsToObj(pUniversal, "</table>", 0);
+    Tcl_AppendStringsToObj(pUniversal, "</table>", NULL);
 
     pAfter = Tcl_NewObj();
     Tcl_IncrRefCount(pAfter);
     Tcl_AppendStringsToObj(pAfter, 
         "<h1>After Rules</h1>",
-        "<table border=1>", 0
+        "<table border=1>", NULL
     );
     rulelistReport(pStyle->pAfterRules, pAfter, &nAfter);
-    Tcl_AppendStringsToObj(pAfter, "</table>", 0);
+    Tcl_AppendStringsToObj(pAfter, "</table>", NULL);
 
     pBefore = Tcl_NewObj();
     Tcl_IncrRefCount(pBefore);
     Tcl_AppendStringsToObj(pBefore, 
         "<h1>Before Rules</h1>",
-        "<table border=1>", 0
+        "<table border=1>", NULL
     );
     rulelistReport(pStyle->pBeforeRules, pBefore, &nBefore);
-    Tcl_AppendStringsToObj(pBefore, "</table>", 0);
+    Tcl_AppendStringsToObj(pBefore, "</table>", NULL);
 
     pByTag = Tcl_NewObj();
     Tcl_IncrRefCount(pByTag);
     Tcl_AppendStringsToObj(pByTag, 
         "<h1>By Tag Rules</h1>",
-        "<table border=1>", 0
+        "<table border=1>", NULL
     );
     for (
         pEntry = Tcl_FirstHashEntry(&pStyle->aByTag, &search);
@@ -4209,13 +4209,13 @@ HtmlCssStyleReport(clientData, interp, objc, objv)
         pRule = (CssRule *)Tcl_GetHashValue(pEntry);
         rulelistReport(pRule, pByTag, &nByTag);
     }
-    Tcl_AppendStringsToObj(pByTag, "</table>", 0);
+    Tcl_AppendStringsToObj(pByTag, "</table>", NULL);
 
     pByClass = Tcl_NewObj();
     Tcl_IncrRefCount(pByClass);
     Tcl_AppendStringsToObj(pByClass, 
         "<h1>By Class Rules</h1>",
-        "<table border=1>", 0
+        "<table border=1>", NULL
     );
     for (
         pEntry = Tcl_FirstHashEntry(&pStyle->aByClass, &search);
@@ -4225,13 +4225,13 @@ HtmlCssStyleReport(clientData, interp, objc, objv)
         pRule = (CssRule *)Tcl_GetHashValue(pEntry);
         rulelistReport(pRule, pByClass, &nByClass);
     }
-    Tcl_AppendStringsToObj(pByClass, "</table>", 0);
+    Tcl_AppendStringsToObj(pByClass, "</table>", NULL);
 
     pById = Tcl_NewObj();
     Tcl_IncrRefCount(pById);
     Tcl_AppendStringsToObj(pById, 
         "<h1>By Id Rules</h1>",
-        "<table border=1>", 0
+        "<table border=1>", NULL
     );
     for (
         pEntry = Tcl_FirstHashEntry(&pStyle->aById, &search);
@@ -4241,32 +4241,32 @@ HtmlCssStyleReport(clientData, interp, objc, objv)
         pRule = (CssRule *)Tcl_GetHashValue(pEntry);
         rulelistReport(pRule, pById, &nById);
     }
-    Tcl_AppendStringsToObj(pById, "</table>", 0);
+    Tcl_AppendStringsToObj(pById, "</table>", NULL);
 
     pReport = Tcl_NewObj();
     Tcl_IncrRefCount(pReport);
 
     Tcl_AppendStringsToObj(pReport, 
         "<div><ul>", 
-        "<li>Universal rules list: ", 0
+        "<li>Universal rules list: ", NULL
     );
     Tcl_AppendObjToObj(pReport, Tcl_NewIntObj(nUniversal));
 
-    Tcl_AppendStringsToObj(pReport, "<li>By tag rules lists: ", 0);
+    Tcl_AppendStringsToObj(pReport, "<li>By tag rules lists: ", NULL);
     Tcl_AppendObjToObj(pReport, Tcl_NewIntObj(nByTag));
 
-    Tcl_AppendStringsToObj(pReport, "<li>By class rules lists: ", 0);
+    Tcl_AppendStringsToObj(pReport, "<li>By class rules lists: ", NULL);
     Tcl_AppendObjToObj(pReport, Tcl_NewIntObj(nByClass));
 
-    Tcl_AppendStringsToObj(pReport, "<li>By id rules lists: ", 0);
+    Tcl_AppendStringsToObj(pReport, "<li>By id rules lists: ", NULL);
     Tcl_AppendObjToObj(pReport, Tcl_NewIntObj(nById));
 
-    Tcl_AppendStringsToObj(pReport, "<li>:before rules lists: ", 0);
+    Tcl_AppendStringsToObj(pReport, "<li>:before rules lists: ", NULL);
     Tcl_AppendObjToObj(pReport, Tcl_NewIntObj(nBefore));
 
-    Tcl_AppendStringsToObj(pReport, "<li>:after rules lists: ", 0);
+    Tcl_AppendStringsToObj(pReport, "<li>:after rules lists: ", NULL);
     Tcl_AppendObjToObj(pReport, Tcl_NewIntObj(nAfter));
-    Tcl_AppendStringsToObj(pReport, "</ul></div>", 0);
+    Tcl_AppendStringsToObj(pReport, "</ul></div>", NULL);
 
     Tcl_AppendObjToObj(pReport, pUniversal);
     Tcl_AppendObjToObj(pReport, pByTag);
