@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_string.tcl,v 1.6 2007/07/10 09:11:04 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_string.tcl,v 1.7 2007/09/10 03:57:41 danielk1977 Exp $)} 1 }
 
 
 namespace eval ::hv3::string {
@@ -82,7 +82,6 @@ namespace eval ::hv3::string {
     foreach idx [lsearch -regexp -all $tokens (?i)charset] {
       if {[lindex $tokens [expr {$idx+1}]] eq "="} {
         set enc [::hv3::string::dequote [lindex $tokens [expr {$idx+2}]]]
-        set enc [string tolower $enc]
         break
       }
     }

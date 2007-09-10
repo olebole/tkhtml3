@@ -40,7 +40,7 @@ proc encoding {args} {
   # Map any explicitly specified encoding.
   #
   if {[llength $argv] == 3} {
-    set enc [lindex $argv 1]
+    set enc [string tolower [lindex $argv 1]]
     if {[info exists ::Hv3EncodingMap($enc)]} {
       lset argv 1 $::Hv3EncodingMap($enc)
     }
@@ -56,7 +56,7 @@ proc fconfigure {args} {
   set argv $args
   for {set ii 1} {($ii+1) < [llength $argv]} {incr ii 2} {
     if {[lindex $argv $ii] eq "-encoding"} {
-      set enc [lindex $argv [expr {$ii+1}]]
+      set enc [string tolower [lindex $argv [expr {$ii+1}]]]
       if {[info exists ::Hv3EncodingMap($enc)]} {
         lset argv [expr {$ii+1}] $::Hv3EncodingMap($enc)
       }
@@ -83,5 +83,16 @@ foreach name [encoding_orig names] {
   } 
 }
 
-set ::Hv3EncodingMap(shift_jis) shiftjis
+# Deal with some Japanese encodings. Because of the dominance of
+# Microsoft, websites that specify "shift_jis" or "shiftjis" as an
+# encoding are usually better handled with cp932. So, if cp932 is
+# present, use it in preference to the encoding Tcl calls shiftjis.
+#
+if {[lsearch [encoding_orig names] cp932]>=0} {
+  set ::Hv3EncodingMap(shiftjis) cp932
+  set ::Hv3EncodingMap(shift_jis) cp932
+} else {
+  set ::Hv3EncodingMap(shift_jis) shiftjis
+}
+
 
