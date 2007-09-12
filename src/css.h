@@ -156,7 +156,7 @@ void HtmlCssStyleSheetGenerated(HtmlTree *, HtmlElementNode *);
  * Functions to interface with inline style information (in HTML, 
  * the "style" attribute).
  */
-int  HtmlCssInlineParse(int, CONST char *, CssPropertySet **);
+int  HtmlCssInlineParse(HtmlTree *, int, CONST char *, CssPropertySet **);
 void HtmlCssInlineFree(CssPropertySet *);
 int HtmlCssInlineQuery(Tcl_Interp *, CssPropertySet *, Tcl_Obj *);
 

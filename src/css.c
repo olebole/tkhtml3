@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.121 2007/09/12 09:43:06 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.122 2007/09/12 10:11:42 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -1363,6 +1363,110 @@ bad_parse:
 /*
  *---------------------------------------------------------------------------
  *
+ * getNextFontFamily --
+ *
+ *     This function is used for splitting up a font-family list.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static CONST char *
+getNextFontFamily(zList, nList, pzNext)
+    CONST char *zList;
+    int nList;
+    CONST char **pzNext;
+{
+    CssToken token;
+    int t;
+    int nToken = 0;
+    int nElem = 0;
+    char *zRet;
+
+    while( 
+        (t = cssGetToken(&zList[nElem], nList-nElem, &nToken)) && 
+        (t != CT_COMMA) 
+    ){
+      nElem += nToken;
+    }
+    token.z = zList;
+    token.n = nElem;
+    
+    *pzNext = &zList[nElem];
+    if( t == CT_COMMA ){
+        *pzNext = &zList[nElem + 1];
+    }
+
+    zRet = tokenToString(&token);
+    dequote(zRet);
+    return zRet;
+}
+
+static CssProperty *
+textToFontFamilyProperty(pParse, zText, nText)
+    CssParse *pParse;          /* Parse context */
+    const char *zText;
+    int nText;
+{
+    int ii;
+    int nCsr;
+    int nToken;
+    const char *zFamily = 0;
+
+    Tcl_HashTable *aFamily = &pParse->pTree->aFontFamilies;
+    const char *zCsr = zText;
+    const char *zEnd = &zText[nText];
+
+    while (zCsr < zEnd) {
+        Tcl_HashEntry *pEntry;
+        zFamily = getNextFontFamily(zCsr, zEnd-zCsr, &zCsr);
+        pEntry = Tcl_FindHashEntry(aFamily, zFamily);
+        HtmlFree(zFamily);
+        if (pEntry) {
+            zFamily = Tcl_GetHashValue(pEntry);
+            if (!zFamily) {
+                zFamily = Tcl_GetHashKey(aFamily, pEntry);
+            } 
+            break;
+        }
+        zFamily = 0;
+    }
+
+    return textToProperty(0, (zFamily ? zFamily : "Helvetica"), -1);
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * propertySetAddFontFamily --
+ *
+ *     Add a 'font-family' property value to a property set.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void
+propertySetAddFontFamily(pParse, p, v)
+    CssParse *pParse;          /* Parse context */
+    CssPropertySet *p;         /* Property set */
+    CssToken *v;               /* Value for 'background' property */
+{
+    CssProperty *pProp = textToFontFamilyProperty(pParse, v->z, v->n);
+    propertySetAdd(p, CSS_PROPERTY_FONT_FAMILY, pProp);
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * propertySetAddShortcutFont --
  *
  *     [ <font-style> || <font-variant> || <font-weight> ]? 
@@ -1377,7 +1481,8 @@ bad_parse:
  *---------------------------------------------------------------------------
  */
 static void
-propertySetAddShortcutFont(p, v)
+propertySetAddShortcutFont(pParse, p, v)
+    CssParse *pParse;
     CssPropertySet *p;         /* Property set */
     CssToken *v;               /* Value for 'background' property */
 {
@@ -1462,7 +1567,7 @@ propertySetAddShortcutFont(p, v)
                     } 
                     z = getNextListItem(z, zEnd-z, &n);
                     if (!z) goto bad_parse;
-                    pFamily = textToProperty(0, z, zEnd-z);
+                    pFamily = textToFontFamilyProperty(pParse, z, zEnd-z);
                     z = 0;
                }
             }
@@ -1493,95 +1598,6 @@ bad_parse:
     if (pSize) HtmlFree(pSize);
     if (pFamily) HtmlFree(pFamily);
     if (pLineHeight) HtmlFree(pLineHeight);
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * getNextFontFamily --
- *
- *     This function is used for splitting up a font-family list.
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-static CONST char *
-getNextFontFamily(zList, nList, pzNext)
-    CONST char *zList;
-    int nList;
-    CONST char **pzNext;
-{
-    CssToken token;
-    int t;
-    int nToken = 0;
-    int nElem = 0;
-    char *zRet;
-
-    while( 
-        (t = cssGetToken(&zList[nElem], nList-nElem, &nToken)) && 
-        (t != CT_COMMA) 
-    ){
-      nElem += nToken;
-    }
-    token.z = zList;
-    token.n = nElem;
-    
-    *pzNext = &zList[nElem];
-    if( t == CT_COMMA ){
-        *pzNext = &zList[nElem + 1];
-    }
-
-    zRet = tokenToString(&token);
-    dequote(zRet);
-    return zRet;
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * propertySetAddFontFamily --
- *
- *     Add a 'font-family' property value to a property set.
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-static void
-propertySetAddFontFamily(pParse, p, v)
-    CssParse *pParse;          /* Parse context */
-    CssPropertySet *p;         /* Property set */
-    CssToken *v;               /* Value for 'background' property */
-{
-    int ii;
-    int nCsr;
-    int nToken;
-    const char *zFamily = 0;
-    CssProperty *pProp;
-
-    Tcl_HashTable *aFamily = &pParse->pTree->aFontFamilies;
-    const char *zCsr = v->z;
-    const char *zEnd = &v->z[v->n];
-
-    while (zCsr < zEnd) {
-        zFamily = getNextFontFamily(zCsr, zEnd-zCsr, &zCsr);
-        if( Tcl_FindHashEntry(aFamily, zFamily) ) break;
-        HtmlFree(zFamily);
-        zFamily = 0;
-    }
-
-    pProp = textToProperty(0, (zFamily ? zFamily : "Helvetica"), -1);
-    propertySetAdd(p, CSS_PROPERTY_FONT_FAMILY, pProp);
-    HtmlFree(zFamily);
 }
 
 static int
@@ -2605,13 +2621,14 @@ HtmlStyleParse(pTree, interp, pStyleText, pId, pImportCmd, pUrlCmd)
  */
 int 
 HtmlCssInlineParse(
+    HtmlTree *pTree,
     int n,
     const char *z,
     CssPropertySet **ppPropertySet
 ){
     CssStyleSheet *pStyle = 0;
     assert(ppPropertySet && !(*ppPropertySet));
-    cssParse(0, n, z, 1, 0, 0, 0, 0,&pStyle);
+    cssParse(pTree, n, z, 1, 0, 0, 0, 0,&pStyle);
 
     if (pStyle) {
         if (pStyle->pUniversalRules) {
@@ -2810,7 +2827,7 @@ HtmlCssDeclaration(pParse, pProp, pExpr, isImportant)
             shortcutBackgroundPosition(pParse, *ppPropertySet, pExpr);
             break;
         case CSS_SHORTCUTPROPERTY_FONT:
-            propertySetAddShortcutFont(*ppPropertySet, pExpr);
+            propertySetAddShortcutFont(pParse, *ppPropertySet, pExpr);
             break;
         case CSS_PROPERTY_FONT_FAMILY:
             propertySetAddFontFamily(pParse, *ppPropertySet, pExpr);

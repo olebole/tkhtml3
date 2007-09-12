@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.146 2007/09/09 06:34:36 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.147 2007/09/12 10:11:42 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -2062,13 +2062,14 @@ nodeInsertCmd(pNode, objc, objv)
 }
 
 static CssPropertySet *
-nodeGetStyle(p)
+nodeGetStyle(pTree, p)
+    HtmlTree *pTree;
     HtmlNode *p;
 {
     HtmlElementNode *pElem = HtmlNodeAsElement(p);
     const char *zStyle;
     if (!pElem->pStyle && (zStyle = HtmlNodeAttr(p, "style"))) { 
-        HtmlCssInlineParse(-1, zStyle, &pElem->pStyle);
+        HtmlCssInlineParse(pTree, -1, zStyle, &pElem->pStyle);
     }
     return pElem->pStyle;
 }
@@ -2545,7 +2546,7 @@ node_attr_usage:
             if (HtmlNodeIsOrphan(p)) break;
 
             if (nArg > 0 && 0 == strcmp(Tcl_GetString(aArg[0]), "-inline")) {
-                CssPropertySet *pSet = nodeGetStyle(p);
+                CssPropertySet *pSet = nodeGetStyle(pTree, p);
                 if (nArg == 1) return HtmlCssInlineQuery(interp, pSet, 0);
                 if (nArg == 2) return HtmlCssInlineQuery(interp, pSet, aArg[1]);
                 /* Otherwise, fall through for the WrongNumArgs() message */

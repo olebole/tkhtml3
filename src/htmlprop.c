@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.115 2007/09/12 09:43:06 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.116 2007/09/12 10:11:42 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1980,16 +1980,6 @@ allocateNewFont(pTree, tkwin, pFontKey)
     char zTkFontName[256];      /* Tk font name */
     HtmlFont *pFont;
 
-    struct FamilyMap {
-        CONST char *cssFont;
-        CONST char *tkFont;
-    } familyMap [] = {
-        {"serif",      "Times"},
-        {"sans-serif", "Helvetica"},
-        {"monospace",  "Courier"}
-    };
-    int i;
-
     /* Local variable iFontSize is in points - not thousandths */
     int iFontSize;
     float fontsize = ((float)pFontKey->iFontSize / (float)HTML_IFONTSIZE_SCALE);
@@ -2004,13 +1994,6 @@ allocateNewFont(pTree, tkwin, pFontKey)
 #else
     iFontSize = INTEGER(fontsize);
 #endif
-
-    for (i = 0; i < sizeof(familyMap)/sizeof(struct FamilyMap); i++) {
-        if (strcmp(zFamily, familyMap[i].cssFont) == 0) {
-            zFamily = familyMap[i].tkFont;
-            break;
-        }
-    }
 
     do {
         sprintf(zTkFontName, "{%s} %d%.8s%.8s", 
@@ -2572,6 +2555,7 @@ HtmlComputedValuesSetupTables(pTree)
 
     Tcl_Obj **apFamily;
     int nFamily;
+    int dummy;
 
     pType = HtmlCaseInsenstiveHashType();
     Tcl_InitCustomHashTable(&pTree->aColor, TCL_CUSTOM_TYPE_KEYS, pType);
@@ -2583,11 +2567,11 @@ HtmlComputedValuesSetupTables(pTree)
     Tcl_InitCustomHashTable(&pTree->aValues, TCL_CUSTOM_TYPE_KEYS, pType);
 
     /* Initialise the aFontFamilies hash table. */
-    Tcl_InitHashTable(&pTree->aFontFamilies, TCL_STRING_KEYS);
+    pType = HtmlCaseInsenstiveHashType();
+    Tcl_InitCustomHashTable(&pTree->aFontFamilies, TCL_CUSTOM_TYPE_KEYS, pType);
     Tcl_Eval(interp, "font families");
     Tcl_ListObjGetElements(NULL, Tcl_GetObjResult(interp), &nFamily, &apFamily);
     for (ii = 0; ii < nFamily; ii++) {
-        int dummy;
         Tcl_CreateHashEntry(
             &pTree->aFontFamilies, Tcl_GetString(apFamily[ii]), &dummy
         );
@@ -2595,6 +2579,12 @@ HtmlComputedValuesSetupTables(pTree)
          * containing duplicate elements. Therefore we cannot "assert(dummy)".
          */
     }
+    pEntry = Tcl_CreateHashEntry(&pTree->aFontFamilies, "serif", &dummy);
+    Tcl_SetHashValue(pEntry, "Times");
+    pEntry = Tcl_CreateHashEntry(&pTree->aFontFamilies, "sans-serif", &dummy);
+    Tcl_SetHashValue(pEntry, "Helvetica");
+    pEntry = Tcl_CreateHashEntry(&pTree->aFontFamilies, "monospace", &dummy);
+    Tcl_SetHashValue(pEntry, "Courier");
 
     /* Initialise the color table */
     for (ii = 0; ii < sizeof(color_map)/sizeof(struct CssColor); ii++) {
