@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.120 2007/09/10 04:11:04 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.121 2007/09/12 09:43:06 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -225,11 +225,21 @@ dequote(z)
         int i;
         char *zOut = z;
         int n = strlen(z);
-        
+        char q;
+
+        /* Trim white-space from the start and end of the input buffer. */
+        while( n>0 && isspace((unsigned char)z[0]) ){
+            z++;
+            n--;
+        }
+        while( n>0 && isspace((unsigned char)z[n-1]) ){
+            n--;
+        }
+  
 	/* Figure out if the is a quote character (" or ').  If there is one,
          * strip it from the start of the string before proceeding. 
          */
-        char q = z[0];
+        q = z[0];
         if (q != '\'' && q != '"') {
             q = '\0';
         }
@@ -1485,6 +1495,95 @@ bad_parse:
     if (pLineHeight) HtmlFree(pLineHeight);
 }
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * getNextFontFamily --
+ *
+ *     This function is used for splitting up a font-family list.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static CONST char *
+getNextFontFamily(zList, nList, pzNext)
+    CONST char *zList;
+    int nList;
+    CONST char **pzNext;
+{
+    CssToken token;
+    int t;
+    int nToken = 0;
+    int nElem = 0;
+    char *zRet;
+
+    while( 
+        (t = cssGetToken(&zList[nElem], nList-nElem, &nToken)) && 
+        (t != CT_COMMA) 
+    ){
+      nElem += nToken;
+    }
+    token.z = zList;
+    token.n = nElem;
+    
+    *pzNext = &zList[nElem];
+    if( t == CT_COMMA ){
+        *pzNext = &zList[nElem + 1];
+    }
+
+    zRet = tokenToString(&token);
+    dequote(zRet);
+    return zRet;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * propertySetAddFontFamily --
+ *
+ *     Add a 'font-family' property value to a property set.
+ *
+ * Results:
+ *     None.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static void
+propertySetAddFontFamily(pParse, p, v)
+    CssParse *pParse;          /* Parse context */
+    CssPropertySet *p;         /* Property set */
+    CssToken *v;               /* Value for 'background' property */
+{
+    int ii;
+    int nCsr;
+    int nToken;
+    const char *zFamily = 0;
+    CssProperty *pProp;
+
+    Tcl_HashTable *aFamily = &pParse->pTree->aFontFamilies;
+    const char *zCsr = v->z;
+    const char *zEnd = &v->z[v->n];
+
+    while (zCsr < zEnd) {
+        zFamily = getNextFontFamily(zCsr, zEnd-zCsr, &zCsr);
+        if( Tcl_FindHashEntry(aFamily, zFamily) ) break;
+        HtmlFree(zFamily);
+        zFamily = 0;
+    }
+
+    pProp = textToProperty(0, (zFamily ? zFamily : "Helvetica"), -1);
+    propertySetAdd(p, CSS_PROPERTY_FONT_FAMILY, pProp);
+    HtmlFree(zFamily);
+}
+
 static int
 tokenToPropertyList(pToken, apProp, nMax) 
     CssToken *pToken;
@@ -2287,8 +2386,6 @@ cssParse(pTree, n, z, isStyle, origin, pStyleId, pImportCmd, pUrlCmd, ppStyle)
     CssParse sParse;
     CssToken sToken;
     void *p;
-    int t;
-    int c = 0;
     int ii;
 
     memset(&sParse, 0, sizeof(CssParse));
@@ -2348,15 +2445,6 @@ cssParse(pTree, n, z, isStyle, origin, pStyleId, pImportCmd, pUrlCmd, ppStyle)
     }
 
     cssParseBody(&sParse, p, z, n);
-#if 0
-    while ((t = cssGetToken(&z[c], n-c, &sToken.n))) {
-        sToken.z = &z[c];
-        if (t > 0) {
-            tkhtmlCssParser(p, t, sToken, &sParse);
-        }
-        c += sToken.n;
-    }
-#endif
 
     /* if this is a style, not a stylesheet (see above), then feed the
      * closing '}' token to the parser.
@@ -2723,6 +2811,9 @@ HtmlCssDeclaration(pParse, pProp, pExpr, isImportant)
             break;
         case CSS_SHORTCUTPROPERTY_FONT:
             propertySetAddShortcutFont(*ppPropertySet, pExpr);
+            break;
+        case CSS_PROPERTY_FONT_FAMILY:
+            propertySetAddFontFamily(pParse, *ppPropertySet, pExpr);
             break;
         case CSS_SHORTCUTPROPERTY_LIST_STYLE:
             shortcutListStyle(pParse, *ppPropertySet, pExpr);

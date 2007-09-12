@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.114 2007/06/10 07:53:04 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.115 2007/09/12 09:43:06 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1988,6 +1988,7 @@ allocateNewFont(pTree, tkwin, pFontKey)
         {"sans-serif", "Helvetica"},
         {"monospace",  "Courier"}
     };
+    int i;
 
     /* Local variable iFontSize is in points - not thousandths */
     int iFontSize;
@@ -2004,56 +2005,29 @@ allocateNewFont(pTree, tkwin, pFontKey)
     iFontSize = INTEGER(fontsize);
 #endif
 
-    do {
-        const char *zF;      /* Pointer to tk font family name */
-        int iF = 0;          /* Length of tk font family name in bytes */
-
-        if (0 == *zFamily) {
-            /* End of the line default font: Helvetica */
-            zF = DEFAULT_FONT_FAMILY;
-            iF = strlen(zF);
-        } else {
-            int i;
-            zF = zFamily;
-            while (*zFamily && *zFamily != ',') zFamily++;
-            iF = (zFamily - zF);
-            if (*zFamily == ',') {
-                zFamily++;
-            }
-            while (*zFamily == ' ') zFamily++;
-
-            /* Trim spaces from the beginning and end of the string */
-            while (iF > 0 && zF[iF-1] == ' ') iF--;
-            while (iF > 0 && *zF == ' ') {
-                iF--;
-                zF++;
-            }
-
-            for (i = 0; i < sizeof(familyMap)/sizeof(struct FamilyMap); i++) {
-                if (
-                    iF == strlen(familyMap[i].cssFont) && 
-                    0 == strncmp(zF, familyMap[i].cssFont, iF)
-                ) {
-                    zF = familyMap[i].tkFont;
-                    iF = strlen(zF);
-                    break;
-                }
-            }
+    for (i = 0; i < sizeof(familyMap)/sizeof(struct FamilyMap); i++) {
+        if (strcmp(zFamily, familyMap[i].cssFont) == 0) {
+            zFamily = familyMap[i].tkFont;
+            break;
         }
+    }
 
-        sprintf(zTkFontName, "%.*s %d%.8s%.8s", 
-             ((iF > 64) ? 64 : iF), zF,
+    do {
+        sprintf(zTkFontName, "{%s} %d%.8s%.8s", 
+             zFamily,
              iFontSize,
              isItalic ? " italic" : "", 
              isBold ? " bold" : ""
         );
 
         tkfont = Tk_GetFont(interp, tkwin, zTkFontName);
-        if (!tkfont && zF == DEFAULT_FONT_FAMILY) {
+        if (!tkfont) {
             if (isItalic) {
                 isItalic = 0;
             } else if (isBold) {
                 isBold = 0;
+            } else if (zFamily != DEFAULT_FONT_FAMILY) {
+                zFamily = DEFAULT_FONT_FAMILY;
             } else if (iFontSize != 10) {
                 iFontSize = 10;
             } else {
@@ -2547,6 +2521,7 @@ HtmlComputedValuesRelease(pTree, pValues)
  *
  *         HtmlTree.aColor
  *         HtmlTree.aFont
+ *         HtmlTree.aFontFamilies
  *         HtmlTree.aValues
  *
  *     The aColor array is pre-loaded with 16 colors - the colors defined by
@@ -2595,6 +2570,9 @@ HtmlComputedValuesSetupTables(pTree)
     HtmlColor *pColor;
     int n;
 
+    Tcl_Obj **apFamily;
+    int nFamily;
+
     pType = HtmlCaseInsenstiveHashType();
     Tcl_InitCustomHashTable(&pTree->aColor, TCL_CUSTOM_TYPE_KEYS, pType);
 
@@ -2603,6 +2581,20 @@ HtmlComputedValuesSetupTables(pTree)
 
     pType = HtmlComputedValuesHashType();
     Tcl_InitCustomHashTable(&pTree->aValues, TCL_CUSTOM_TYPE_KEYS, pType);
+
+    /* Initialise the aFontFamilies hash table. */
+    Tcl_InitHashTable(&pTree->aFontFamilies, TCL_STRING_KEYS);
+    Tcl_Eval(interp, "font families");
+    Tcl_ListObjGetElements(NULL, Tcl_GetObjResult(interp), &nFamily, &apFamily);
+    for (ii = 0; ii < nFamily; ii++) {
+        int dummy;
+        Tcl_CreateHashEntry(
+            &pTree->aFontFamilies, Tcl_GetString(apFamily[ii]), &dummy
+        );
+        /* Note that sometimes the [font families] command returns a list
+         * containing duplicate elements. Therefore we cannot "assert(dummy)".
+         */
+    }
 
     /* Initialise the color table */
     for (ii = 0; ii < sizeof(color_map)/sizeof(struct CssColor); ii++) {
@@ -2640,6 +2632,7 @@ HtmlComputedValuesSetupTables(pTree)
  *
  *         - The entries in aColor for the 15 CSS defined colors.
  *         - The entry in aColor for "transparent".
+ *         - The entries in the font-family table.
  *
  * Results: 
  *     None.
@@ -2689,6 +2682,8 @@ HtmlComputedValuesCleanupTables(pTree)
         pColor = (HtmlColor *)Tcl_GetHashValue(pEntry);
         decrementColorRef(pTree, pColor);
     }
+
+    Tcl_DeleteHashTable(&pTree->aFontFamilies);
 
 #ifndef NDEBUG
     /* This code is to assert() that there are no stray entries left in
