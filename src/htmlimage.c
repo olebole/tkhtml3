@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlimage.c,v 1.63 2006/11/11 12:14:49 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlimage.c,v 1.64 2007/09/12 06:29:31 danielk1977 Exp $";
 
 #include <assert.h>
 #include "html.h"
@@ -387,6 +387,10 @@ HtmlImageServerGet(p, zUrl)
             if (rc != TCL_OK) {
                 goto image_get_out;
             }
+            if (nObj==0) {
+                Tcl_DeleteHashEntry(pEntry);
+                goto image_unavailable;
+            }
 
             pImage = HtmlNew(HtmlImage2);
             if (nObj == 1 || nObj == 2) {
@@ -427,6 +431,8 @@ image_get_out:
         assert(pEntry);
         Tcl_DeleteHashEntry(pEntry);
     }
+
+image_unavailable:
     return pImage;
 }
 

@@ -95,4 +95,5 @@ if {[lsearch [encoding_orig names] cp932]>=0} {
   set ::Hv3EncodingMap(shift_jis) shiftjis
 }
 
+set ::Hv3EncodingMap(us-ascii) utf-8
 
