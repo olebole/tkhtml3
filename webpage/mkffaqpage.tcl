@@ -7,7 +7,7 @@ addPageSection "More Information"    info
 
 proc VERSION {} {
   if {[info exists ::env(VERSION)]} {return $::env(VERSION)}
-  return "alpha-14"
+  return "alpha-15"
 }
 
 set idx 1
