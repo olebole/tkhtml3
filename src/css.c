@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.122 2007/09/12 10:11:42 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.123 2007/09/14 07:32:37 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -1412,9 +1412,6 @@ textToFontFamilyProperty(pParse, zText, nText)
     const char *zText;
     int nText;
 {
-    int ii;
-    int nCsr;
-    int nToken;
     const char *zFamily = 0;
 
     Tcl_HashTable *aFamily = &pParse->pTree->aFontFamilies;
@@ -1469,8 +1466,24 @@ propertySetAddFontFamily(pParse, p, v)
  *
  * propertySetAddShortcutFont --
  *
- *     [ <font-style> || <font-variant> || <font-weight> ]? 
- *         <font-size> [ / <line-height> ]? <font-family>
+ *     Tkhtml3 supports two syntax for the 'font' short-hand property:
+ *
+ *       font ::= inherit
+ *
+ *       font ::= [ <font-style> || <font-variant> || <font-weight> ]? 
+ *                <font-size> [ / <line-height> ]? <font-family>
+ *
+ *     According to CSS2.1, it should also be possible to use the following:
+ *
+ *       font ::= caption
+ *       font ::= icon
+ *       font ::= menu
+ *       font ::= message-box
+ *       font ::= small-caption
+ *       font ::= status-bar
+ *
+ *     But Tkhtml3 does not support these yet.
+ *     
  *
  * Results:
  *     None.
@@ -1489,6 +1502,8 @@ propertySetAddShortcutFont(pParse, p, v)
     CONST char *z= v->z;
     CONST char *zEnd = z + v->n;
 
+    static const CssToken normal = { "normal", CSS_CONST_NORMAL };
+
     CssProperty *pStyle = 0;
     CssProperty *pVariant = 0;
     CssProperty *pWeight = 0;
@@ -1497,7 +1512,6 @@ propertySetAddShortcutFont(pParse, p, v)
     CssProperty *pFamily = 0;
 
     CssProperty *pProp = 0;
-
     while (z) {
         int n;
         z = getNextListItem(z, zEnd-z, &n);
@@ -1577,9 +1591,16 @@ propertySetAddShortcutFont(pParse, p, v)
             }
         }
     }
-
     pProp = 0;
-    if (!pFamily) goto bad_parse;
+
+    /* Both the font-family and size must be specified. */
+    if (!pFamily || !pSize) goto bad_parse;
+
+    /* Everything else defaults to "normal". */
+    if (!pStyle) pStyle = tokenToProperty(pParse, &normal);
+    if (!pVariant) pVariant = tokenToProperty(pParse, &normal);
+    if (!pWeight) pWeight = tokenToProperty(pParse, &normal);
+    if (!pLineHeight) pLineHeight = tokenToProperty(pParse, &normal);
 
     propertySetAdd(p, CSS_PROPERTY_FONT_STYLE, pStyle);
     propertySetAdd(p, CSS_PROPERTY_FONT_VARIANT, pVariant);
@@ -3954,7 +3975,9 @@ HtmlCssStyleSheetApply(pTree, pNode)
  *--------------------------------------------------------------------------
  */
 static HtmlTextNode *
-generateContentText(pTree, pParent, pGenerated, zContent)
+generateContentText(pTree, zContent)
+    HtmlTree *pTree;
+    const char *zContent;
 {
     HtmlTextNode *pTextNode = HtmlTextNew(strlen(zContent), zContent, 0, 0);
     return pTextNode;
@@ -3997,7 +4020,7 @@ generatedContent(pTree, pNode, pCssRule, ppNode)
         /* If a value was specified for the 'content' property, create
          * a text node also.
          */
-        HtmlTextNode *pTextNode = generateContentText(pTree, 0, 0, zContent);
+        HtmlTextNode *pTextNode = generateContentText(pTree, zContent);
         int idx = HtmlNodeAddTextChild(*ppNode, pTextNode);
         HtmlNodeChild(*ppNode, idx)->iNode = HTML_NODE_GENERATED;
         HtmlFree(zContent);

@@ -77,8 +77,7 @@ proc fconfigure {args} {
 foreach name [encoding_orig names] {
   set ::Hv3EncodingMap($name) $name
   if {[string match cp* $name]} {
-    set    name2 "windows-"
-    append name2 [string range $name 2 end]
+    set name2 "windows-[string range $name 2 end]"
     set ::Hv3EncodingMap($name2) $name
   } 
 }
@@ -95,5 +94,7 @@ if {[lsearch [encoding_orig names] cp932]>=0} {
   set ::Hv3EncodingMap(shift_jis) shiftjis
 }
 
+# Various encodings best handled by pretending they are utf-8.
 set ::Hv3EncodingMap(us-ascii) utf-8
+set ::Hv3EncodingMap(iso-8559-1) utf-8
 
