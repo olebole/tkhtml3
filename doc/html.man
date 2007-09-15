@@ -259,10 +259,28 @@
 		parsed.
 
 		If the handler script is a "script" handler, whenever a
-		document node of type tag is parsed, then the text
-		that appears between the start and end tags of the node is
-		appended to script and the resulting list evaluated
-		as a Tcl command.
+		document node of type tag is parsed, two arguments are
+		appended to the specified _script_ before it is evaluated.
+		The first argument is a key-value list (suitable for passing 
+		to the [SQ array set] command containing the HTML attributes
+		that were part of the element declaration. The second
+		argument is the literal text that appears between the 
+		start and end tags of the element. 
+
+		Elements for which a "script" handler is evaluated are not
+		included in the parsed form of the HTML document. Instead,
+		the result of the script handler evaluation is substituted
+		into the document and parsed. For example, to handle the
+		following embedded javascript:
+
+[Code {
+			<SCRIPT>
+			  document.write("<p>A paragraph</p>")
+			</SCRIPT>
+}]
+
+		A script handler that returns the string "<p>A paragraph</p>"
+		must be configured for nodes of type "SCRIPT".
 
 		Unlike node or script handlers, a "parse" handler may be
 		associated with a specific opening tag, a closing tag or 
