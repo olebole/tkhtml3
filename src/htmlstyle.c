@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlstyle.c,v 1.55 2007/09/12 10:11:42 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlstyle.c,v 1.56 2007/09/15 07:59:12 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -561,8 +561,8 @@ styleNode(pTree, pNode, clientData)
          * element.
          */
         if (redrawmode && (
-                pElem == pTree->pRoot || 
-                pElem == HtmlNodeChild(pTree->pRoot, 1)
+                (HtmlNode *)pElem == pTree->pRoot || 
+                (HtmlNode *)pElem == HtmlNodeChild(pTree->pRoot, 1)
             )
         ) {
             HtmlCallbackDamage(pTree, 0, 0, 1000000, 1000000, 0);

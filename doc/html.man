@@ -237,7 +237,7 @@
 		TODO: Document this command.
 }]
 
-[Subcommand -3 {
+[Subcommand -4 {
 	pathName handler node _tag_ _script_
 	pathName handler attribute _tag_ _script_
 	pathName handler script _tag_ _script_
@@ -279,7 +279,7 @@
 			</SCRIPT>
 }]
 
-		A script handler that returns the string "<p>A paragraph</p>"
+		a script handler that returns the string "<p>A paragraph</p>"
 		must be configured for nodes of type "SCRIPT".
 
 		Unlike node or script handlers, a "parse" handler may be

@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.147 2007/09/12 10:11:42 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.148 2007/09/15 07:59:12 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -2815,7 +2815,7 @@ node_attr_usage:
                 return TCL_ERROR;
             }
             Tcl_SetResult(interp, 
-                Tcl_GetCommandName(interp, pTree->cmd), TCL_STATIC
+                (char *)Tcl_GetCommandName(interp, pTree->cmd), TCL_STATIC
             );
             return TCL_OK;
         }

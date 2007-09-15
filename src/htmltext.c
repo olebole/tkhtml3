@@ -1799,17 +1799,17 @@ static Tcl_UniChar utf8Read(
  */
 static int 
 tokenLength(zToken, zEnd)
-    const char *zToken;
-    const char *zEnd;
+    const unsigned char *zToken;
+    const unsigned char *zEnd;
 {
     Tcl_UniChar iChar = 0;
-    const char *zCsr = zToken;
-    const char *zNext = zToken;
+    const unsigned char *zCsr = zToken;
+    const unsigned char *zNext = zCsr;
 
-    iChar = utf8Read(zCsr, (const unsigned char *)zEnd, &zNext);
+    iChar = utf8Read(zCsr, zEnd, &zNext);
     while (iChar && (iChar >= 256 || !ISSPACE(iChar)) && !ISCJK(iChar)){
       zCsr = zNext;
-      iChar = utf8Read(zCsr, (const unsigned char *)zEnd, &zNext);
+      iChar = utf8Read(zCsr, zEnd, &zNext);
     }
 
     return ((zCsr==zToken)?zNext:zCsr)-zToken;
@@ -1925,7 +1925,9 @@ populateTextNode(n, z, pText, pnToken, pnText)
              * characters) in the token starting at zStart. zCsr is
              * left pointing to the byte immediately after the token.
              */
-            int nThisText = tokenLength(zCsr, zStop);
+            int nThisText = tokenLength(
+                (unsigned char *)zCsr, (unsigned char *)zStop
+            );
             assert(zCsr == zStart);
             assert(nThisText>0);
             zCsr = &zCsr[nThisText];
@@ -2059,6 +2061,7 @@ HtmlTextNew(n, z, isTrimEnd, isTrimStart)
  *
  *---------------------------------------------------------------------------
  */
+#if 0
 static HtmlTextNode *
 HtmlTextCombine(p1, p2)
     HtmlTextNode *p1;
@@ -2067,6 +2070,7 @@ HtmlTextCombine(p1, p2)
     /* HtmlTextNode *pNew; */
     return 0;
 }
+#endif
 
 /*
  *---------------------------------------------------------------------------

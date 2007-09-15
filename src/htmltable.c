@@ -34,7 +34,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.121 2007/09/05 17:49:52 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.122 2007/09/15 07:59:12 danielk1977 Exp $";
 
 
 #include "htmllayout.h"
@@ -1640,7 +1640,6 @@ tableCalculateMaxWidth(pData)
     int iPercent = 0;
 
     int bConsiderPercent = 0;
-    HtmlNode *p;
 
     HtmlComputedValues *pV = HtmlNodeComputedValues(pData->pNode);
 
@@ -1684,7 +1683,6 @@ tableCalculateMaxWidth(pData)
         }
     }
 #endif
-    
 
     if (bConsiderPercent) {
         if (fTotalPercent <= 99.0) {

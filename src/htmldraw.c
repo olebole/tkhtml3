@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.196 2007/09/01 14:12:38 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.197 2007/09/15 07:59:12 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -3513,7 +3513,6 @@ layoutNodeIndexCmd(pTree, x, y)
         const char *z;
         int n;
         Tcl_Obj *pCmd;
-        HtmlTextNode *pTextNode;
 
         z = sQuery.pClosest->zText;
         n = sQuery.pClosest->nText;
