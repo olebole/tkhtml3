@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.113 2007/09/16 10:41:25 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.114 2007/09/16 10:57:02 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -851,10 +851,6 @@ HtmlTokenize(pTree, zText, isFinal, xAddText, xAddElement, xAddClosing)
      */
     int isTrimStart = 0;
 
-#ifndef NDEBUG 
-    int nMax = strlen(zText?zText:Tcl_GetString(pTree->pDocument));
-#endif
-
     if (zText) {
         /* This is an [$html fragment] command */
         n = 0;
@@ -866,6 +862,7 @@ HtmlTokenize(pTree, zText, isFinal, xAddText, xAddElement, xAddClosing)
     }
 
     while ((c = z[n]) != 0) {
+        assert(n <= strlen(z));
         
         /* TEXT, HTML Comment, TAG (opening or closing) */
 
@@ -891,7 +888,6 @@ HtmlTokenize(pTree, zText, isFinal, xAddText, xAddElement, xAddClosing)
                 goto incomplete;
             }
             isTrimStart = 0;
-            assert(n <= nMax);
         }
 
         /* An HTML comment. Just skip it. Tkhtml uses the non-SGML (i.e.
@@ -909,7 +905,6 @@ HtmlTokenize(pTree, zText, isFinal, xAddText, xAddElement, xAddClosing)
             }
             n += i + 3;
             isTrimStart = 0;
-            assert(n <= nMax);
         }
 
         /* A markup tag (i.e "<p>" or <p color="red"> or </p>). We parse 
@@ -971,7 +966,6 @@ HtmlTokenize(pTree, zText, isFinal, xAddText, xAddElement, xAddClosing)
              * end of the document. The argv[] array is completely filled
              * by the time the loop exits.
              */
-            assert(n <= nMax);
             while ((c = z[n+i]) != 0 && c != '>'){
                 if (argc > mxARG - 3) {
                     argc = mxARG - 3;
@@ -1060,7 +1054,6 @@ HtmlTokenize(pTree, zText, isFinal, xAddText, xAddElement, xAddClosing)
             }
             assert(c == '>');
             n += i + 1;
-            assert(n <= nMax);
 
             if (pTree->options.xhtml) {
                 for (i = n - 2; i>=0 && z[i] == ' '; i--);
