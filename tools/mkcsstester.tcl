@@ -56,16 +56,10 @@ set TemplateTwo {
       function failed() { top.frames.list.failed() }
       function passed() { top.frames.list.passed() }
 
-      function report() {
-        loadtest(0, null)
-        var doc = frames.testframe.document
-        doc.body.innerHTML = "<PRE id=\"report\"> </PRE>"
-        doc.getElementById("report").firstChild.data = top.frames.list.report()
-      }
     </SCRIPT>
   <BODY>
     <DIV style="float:right">
-      <INPUT type="button" value="Generate Report" onclick="report()">
+      <INPUT type="button" value="Generate Report" onclick="loadtest(0,0)">
     </DIV>
     <H1>Test Case: <SPAN id="testname"> </H1>
     <DIV id="container">
@@ -152,6 +146,14 @@ set TemplateThree {
 </HTML>
 }
 
+set TemplateFour {
+  <HTML>
+    <BODY>
+      <PRE><SCRIPT>document.write(top.frames.list.report())</SCRIPT></PRE>
+    </BODY>
+  </HTML>
+}
+
 proc write_file {fname content} {
   set fd [open $fname w]
   puts -nonewline $fd $content
@@ -170,4 +172,4 @@ foreach a $argv {
 write_file hv3_csstester.html $TemplateOne
 write_file hv3_csstester_mainframe.html $TemplateTwo
 write_file hv3_csstester_testlist.html [subst -nocommands $TemplateThree]
-write_file hv3_csstester_report.html   {<HTML><BODY>}
+write_file hv3_csstester_report.html $TemplateFour  
