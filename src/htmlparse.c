@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.112 2007/09/12 11:14:34 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.113 2007/09/16 10:41:25 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -1120,11 +1120,15 @@ HtmlTokenize(pTree, zText, isFinal, xAddText, xAddElement, xAddClosing)
                 }
 
                 if (!pScript) {
+
                     /* No special handler for this markup. Just append 
                      * it to the list of all tokens. 
                      */
                     assert(nStartScript >= 0);
                     xAddElement(pTree, pMap->type, pAttr, nStartScript);
+                    if( pTree->eWriteState==HTML_WRITE_INHANDLERRESET ){
+                        goto incomplete;
+                    }
                     if (zScript) {
                         HtmlTextNode *pTextNode;
                         pTextNode = HtmlTextNew(nScript, zScript, 1, 1);
@@ -1184,7 +1188,7 @@ HtmlTokenize(pTree, zText, isFinal, xAddText, xAddElement, xAddClosing)
     }
 
   incomplete:
-    if (!zText) {
+    if (!zText && pTree->eWriteState != HTML_WRITE_INHANDLERRESET) {
         pTree->nParsed = n;
     }
     return n;

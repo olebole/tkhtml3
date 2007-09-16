@@ -557,7 +557,7 @@ struct HtmlTree {
     int nCharParsed;                /* TODO: Characters parsed */
 
     int iWriteInsert;               /* Byte offset in pDocument for [write] */
-    int eWriteState;                /* One of the HTML_PARSE_XXX values */
+    int eWriteState;                /* One of the HTML_WRITE_XXX values */
 
     int isIgnoreNewline;            /* True after an opening tag */
     int isParseFinished;            /* True if the html parse is finished */
@@ -671,9 +671,11 @@ struct HtmlTree {
 #define HTML_WRITE_INHANDLERWAIT  2
 #define HTML_WRITE_INHANDLERRESET 3
 #define HTML_WRITE_WAIT           4
+#define HTML_PARSE_NODEHANDLER    5
 int HtmlWriteWait(HtmlTree *);
 int HtmlWriteText(HtmlTree *, Tcl_Obj *);
 int HtmlWriteContinue(HtmlTree *);
+
 
 #define MAX(x,y)   ((x)>(y)?(x):(y))
 #define MIN(x,y)   ((x)<(y)?(x):(y))

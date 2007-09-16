@@ -1,0 +1,81 @@
+
+
+# This test script tests that Tkhtml3 behaves well when the 
+# [$widget reset] method is called from with a node-handler
+# callback. This happens in Hv3 when a <meta> node specifies
+# a charset for the document.
+#
+
+proc sourcefile {file} {
+  set fname [file join [file dirname [info script]] $file] 
+  uplevel "#0" [list source $fname]
+}
+sourcefile common.tcl
+
+set ::DocumentOne {
+  <html>
+    <head>
+      <meta id=1>
+      <script>script1 contents</script>
+      <meta id=2>
+      <script>script2 contents</script>
+    </head>
+    <body>
+      <div>123</div>
+    </body>
+  </html>
+}
+
+set ::DocumentTwo {
+  <html>
+    <body>
+      <div>456</div>
+    </body>
+}
+
+html .h
+.h handler node meta meta_node_handler
+
+proc meta_node_handler {n} {
+  if {[$n attr id] eq $::iReset} {
+    .h reset
+    if {$::doParse == 1} {
+      .h parse -final $::DocumentTwo
+    } elseif {$::doParse == 2} {
+      set ::doParse 1
+      .h parse -final $::DocumentOne
+    }
+  }
+}
+
+proc get_div_contents {} {
+  set n [.h search div -index 0]
+  if {$n eq ""} {
+    set res ""
+  } else {
+    set res [[lindex [$n children] 0] text]
+  }
+  set res
+}
+
+# Run some tests with a few different values for global variables
+# ::doParse and ::iReset (used by proc [meta_node_handler] above).
+#
+foreach {test_number ::iReset ::doParse result} [list \
+         1           n/a      n/a       123           \
+         2           1        0         ""            \
+         3           1        1         456           \
+         4           1        2         456           \
+         5           2        0         ""            \
+         6           2        1         456           \
+         7           1        2         456           \
+] {
+  tcltest::test reset-1.$test_number {} -body {
+    .h reset
+    .h parse -final $::DocumentOne
+    get_div_contents
+  } -result $result
+}
+
+finish_test
+

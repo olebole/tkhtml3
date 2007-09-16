@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.148 2007/09/15 07:59:12 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.149 2007/09/16 10:41:28 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -462,6 +462,9 @@ HtmlElementNormalize(pElem)
  *     after the document tree is constructed. It calls the node handler
  *     script for the node, if one exists.
  *
+ *     If the [$widget reset] method is called within the node-handler,
+ *     non-zero is returned. Otherwise 0.
+ *
  * Results:
  *     None.
  *
@@ -478,9 +481,15 @@ nodeHandlerCallbacks(pTree, pNode)
     Tcl_HashEntry *pEntry;
     Tcl_Interp *interp = pTree->interp;
     int eTag = HtmlNodeTagType(pNode);
+    int isFragment = (pTree->pFragment?1:0);
 
-    assert(pTree->pFragment || pTree->eWriteState == HTML_WRITE_NONE);
-    assert(pTree->pFragment || (eTag != Html_TD && eTag != Html_TH) || (
+    /* If this is called as a result of a [parse] (not [fragment])
+     * command, this variable will be set to true if there is a node-handler
+     * script and the script calls the [reset] method of this widget.
+     */
+
+    assert(isFragment || pTree->eWriteState == HTML_WRITE_NONE);
+    assert(isFragment || (eTag != Html_TD && eTag != Html_TH) || (
            HtmlNodeParent(pNode) && 
            HtmlNodeTagType(HtmlNodeParent(pNode)) == Html_TR
        )
@@ -502,14 +511,26 @@ nodeHandlerCallbacks(pTree, pNode)
         pEval = Tcl_DuplicateObj(pScript);
         Tcl_IncrRefCount(pEval);
 
-        pNodeCmd = HtmlNodeCommand(pTree, pNode); 
+        if (!isFragment) {
+            pTree->eWriteState = HTML_PARSE_NODEHANDLER;
+        }
+
+        pNodeCmd = HtmlNodeCommand(pTree, pNode);
         Tcl_ListObjAppendElement(0, pEval, pNodeCmd);
         rc = Tcl_EvalObjEx(interp, pEval, TCL_EVAL_DIRECT|TCL_EVAL_GLOBAL);
         if (rc != TCL_OK) {
             Tcl_BackgroundError(interp);
         }
-
         Tcl_DecrRefCount(pEval);
+
+        assert(
+            isFragment || 
+            pTree->eWriteState == HTML_PARSE_NODEHANDLER ||
+            pTree->eWriteState == HTML_WRITE_INHANDLERRESET
+        );
+        if (!isFragment && pTree->eWriteState == HTML_PARSE_NODEHANDLER){
+            pTree->eWriteState = HTML_WRITE_NONE;
+        }
     }
     return 0;
 }
@@ -1274,8 +1295,10 @@ HtmlTreeAddElement(pTree, eType, pAttr, iOffset)
             HtmlNode *p = HtmlNodeChild(pHeadNode, n);
             p->iNode = pTree->iNextNode++;
             nodeHandlerCallbacks(pTree, p);
-            pParsed = p;
-            HtmlCallbackRestyle(pTree, pParsed);
+            if (pTree->eWriteState != HTML_WRITE_INHANDLERRESET) {
+                pParsed = p;
+                HtmlCallbackRestyle(pTree, pParsed);
+            }
             break;
         }
 

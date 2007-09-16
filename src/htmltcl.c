@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.180 2007/09/01 14:21:28 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.181 2007/09/16 10:41:25 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -1633,6 +1633,7 @@ parseCmd(clientData, interp, objc, objv)
     int isFinal;
     char *zHtml;
     int nHtml;
+    int eWriteState;
 
     Tcl_Obj *aObj[2];
     SwprocConf aConf[3] = {
@@ -1666,7 +1667,37 @@ parseCmd(clientData, interp, objc, objv)
     }
 
     /* Add the new text to the internal cache of the document. */
+    eWriteState = pTree->eWriteState;
     HtmlTokenizerAppend(pTree, zHtml, nHtml, isFinal);
+    assert(eWriteState == HTML_WRITE_NONE || pTree->eWriteState == eWriteState);
+
+    if (
+        eWriteState != HTML_WRITE_INHANDLERRESET && 
+        pTree->eWriteState == HTML_WRITE_INHANDLERRESET
+    ) {
+        /* This case occurs when a node or script handler callback invokes
+         * the [reset] method on this widget. The script-handler may then
+         * go on to call [parse], which is the tricky bit...
+         */
+        int nCount = 0;
+        while (pTree->eWriteState == HTML_WRITE_INHANDLERRESET && nCount<100) {
+            assert(pTree->nParsed == 0);
+            pTree->eWriteState = HTML_WRITE_NONE;
+            if (pTree->pDocument) {
+                HtmlTokenizerAppend(pTree, "", 0, pTree->isParseFinished);
+            }
+            nCount++;
+        }
+        if (nCount==100){
+            Tcl_ResetResult(interp);
+            Tcl_AppendResult(interp, "infinite loop: "
+                "caused by node-handler calling [reset], [parse].", 0
+            );
+            return TCL_ERROR;
+        }
+        isFinal = pTree->isParseFinished;
+    }
+
     if (isFinal) {
         HtmlInitTree(pTree);
         pTree->isParseFinished = 1;
