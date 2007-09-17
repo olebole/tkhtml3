@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_icons.tcl,v 1.4 2007/06/05 15:34:14 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_icons.tcl,v 1.5 2007/09/17 14:22:39 danielk1977 Exp $)} 1 }
 
 set ::hv3::back_icon {
 R0lGODlhHgAeANUzAOHh4eLi4uTk5PDw8N3d3dDQ0NfX1+Dg4Ofn5/Hx8fT0
@@ -107,5 +107,20 @@ BkEEgQcoGPHooEWiEbUYGDGJUmURli1cJow5AAnEcSMTW7ZYkCjEl3D3bn7M
 ucBFoqN1ksoIytSF04R0CkW4R3Wo1atowmhFeaTjUq9fE9UxhNJYObNCFzRN
 m7AQpWfRCsJlOpcumklttentKver3zR33Q4+W9iwizsJX0ieTLmyZcswZsDY
 zLmz58+gZwQBADs=
+}
+
+set ::hv3::bug_icon {
+R0lGODlhHQAdANUvAPX19fT09PLy8vb29vDw8O7u7t/f3/f39+/v7/Hx8fj4
++Orq6uTk5Nra2uHh4fn5+ePj4+np6ejo6Ozs7OLi4u3t7dvb29jY2NXV1dzc
+3OXl5dnZ2ebm5t7e3tPT0+vr69TU1ODg4Ofn59bW1tfX19HR0dLS0tDQ0M/P
+z/r6+vPz893d3Zubm39/f////////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACH5BAEAAC8ALAAAAAAdAB0AAAb/
+wJdwSByyWsWkcvk6Mp9KVuqBhFqbD0X1ypQqDoMtN8nKDgDisTF7AAQEaXUZ
+HFAl4tyy4qwSEAp4Vixfbn4IFYFPLC57LY4tKhMLiUuLbS0smSofEZRkLnSY
+mgsSHJ5Ei3yiLCoRIhqnQpaFqyqvDBSxqXV3mawcDBAOp6kAfQS1GsIGHZ6L
+hQQItbghBistK10uA7wIgL4qyysZDYnPxwWI4BQhHRkWG9hR228Jhx+kwOzW
+Fg0XI3jOJfgjyZUyB8zIbSCBQR4qF9DScXoEqcMKeP8weEizqFsBSRJqXfTH
+EMTGbLIgoiv4apm7BgtHmDRRYktHQxU4laLGb0NGKBA0T8hr4cKFHW8ggYkj
+d6GkhxInUKDARrGq1atWUa7YyrWr169fgwAAOw==
 }
 

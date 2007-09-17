@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.23 2007/08/05 06:54:47 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.24 2007/09/17 14:22:39 danielk1977 Exp $)} 1 }
 
 # Register the home: scheme handler with ::hv3::protocol $protocol.
 #
@@ -324,6 +324,12 @@ proc ::hv3::home_request {http hv3 dir downloadHandle} {
 
     domref {
       $downloadHandle append $::hv3::dom::Documentation
+    }
+
+    bug {
+      set fd [open [file join $dir bugreport.html]]
+      $downloadHandle append [read $fd]
+      close $fd
     }
 
     default {

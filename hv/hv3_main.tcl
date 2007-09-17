@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.140 2007/08/04 17:15:25 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.141 2007/09/17 14:22:39 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -1224,10 +1224,13 @@ proc gui_build {widget_array} {
       gui_current goto $::hv3::homeuri
   ]
   ::hv3::toolbutton .toolbar.b.reload -text Reload -command {gui_current reload}
+  ::hv3::toolbutton .toolbar.bug -text {Report Bug} -command gui_report_bug
 
   .toolbar.b.new configure -tooltip "Open New Tab"
   .toolbar.b.home configure -tooltip "Go Home"
   .toolbar.b.reload configure -tooltip "Reload Current Document"
+
+  .toolbar.bug configure -tooltip "Bug Report"
 
   catch {
     set backimg [image create photo -data $::hv3::back_icon]
@@ -1242,6 +1245,8 @@ proc gui_build {widget_array} {
     .toolbar.b.home configure -image $homeimg
     set reloadimg [image create photo -data $::hv3::reload_icon]
     .toolbar.b.reload configure -image $reloadimg
+    set bugimg [image create photo -data $::hv3::bug_icon]
+    .toolbar.bug configure -image $bugimg
   }
 
   # Create the middle bit - the browser window
@@ -1277,6 +1282,7 @@ proc gui_build {widget_array} {
   pack [frame .toolbar.b.spacer -width 2 -height 1] -side left
 
   pack .toolbar.b -side left
+  pack .toolbar.bug -side right
   pack .toolbar.entry -fill x -expand true
 
   # Pack the top, bottom and middle, in that order. The middle must be 
@@ -1484,6 +1490,22 @@ proc gui_openfile {notebook} {
 proc gui_log_window {notebook} {
   set browser [$notebook current]
   ::hv3::log_window [[$browser hv3] html]
+}
+
+proc gui_report_bug {} {
+  upvar ::hv3::G G
+  set uri [[[$G(notebook) current] hv3] uri get]
+  .notebook add home://bug/
+
+  set hv3 [[$G(notebook) current] hv3]
+  set dom [$hv3 cget -dom]
+
+  $dom javascript $hv3 [subst {
+    document.getElementById('uritext').value = '$uri'
+  }]
+
+  set cookie "tkhtml_captcha=[expr [clock seconds]+86399]; Path=/; Version=1"
+  ::hv3::the_cookie_manager SetCookie http://tkhtml.tcl.tk/ $cookie
 }
 
 proc gui_escape {} {
