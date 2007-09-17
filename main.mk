@@ -112,6 +112,7 @@ hv3_img.vfs: binaries
 	cp $(TOP)/hv/snit.tcl ./hv3_img.vfs/
 	cp $(TOP)/hv/index.html ./hv3_img.vfs/
 	cp $(TOP)/hv/bookmarks.html ./hv3_img.vfs/
+	cp $(TOP)/hv/bugreport.html ./hv3_img.vfs/
 	if test -d $(TCL)/lib/Img*/ ; then \
 		cp -R $(TCL)/lib/Img*/ ./hv3_img.vfs/lib ; \
 	fi
