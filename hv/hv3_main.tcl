@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.141 2007/09/17 14:22:39 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.142 2007/09/17 17:22:51 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -1495,14 +1495,7 @@ proc gui_log_window {notebook} {
 proc gui_report_bug {} {
   upvar ::hv3::G G
   set uri [[[$G(notebook) current] hv3] uri get]
-  .notebook add home://bug/
-
-  set hv3 [[$G(notebook) current] hv3]
-  set dom [$hv3 cget -dom]
-
-  $dom javascript $hv3 [subst {
-    document.getElementById('uritext').value = '$uri'
-  }]
+  .notebook add "home://bug/[::hv3::format_query $uri]"
 
   set cookie "tkhtml_captcha=[expr [clock seconds]+86399]; Path=/; Version=1"
   ::hv3::the_cookie_manager SetCookie http://tkhtml.tcl.tk/ $cookie

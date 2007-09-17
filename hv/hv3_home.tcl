@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.24 2007/09/17 14:22:39 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.25 2007/09/17 17:22:51 danielk1977 Exp $)} 1 }
 
 # Register the home: scheme handler with ::hv3::protocol $protocol.
 #
@@ -341,6 +341,18 @@ proc ::hv3::home_request {http hv3 dir downloadHandle} {
   }
 
   $downloadHandle finish
+}
+
+proc ::hv3::hv3_version {} {
+  set src [split [::tkhtml::version] "\n"]
+  foreach version [lsort [array names ::hv3::version]] {
+    set t [string trim [string range $version 5 end-1]]
+    lappend src $t
+  }
+  foreach s $src {
+    lappend datelist [lrange $s 2 3]
+  }
+  return [lindex [lsort -decreasing $datelist] 0]
 }
 
 proc ::hv3::compile_bookmarks_object {} {

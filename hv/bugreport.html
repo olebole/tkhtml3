@@ -12,7 +12,7 @@
        border: 2px solid purple;
        background: white;
        padding: 5px;
-       margin: 10px 0;
+       margin: 10px 5px;
      }
      h1      { text-align: center; }
      a[href]       { color: purple ; font-style: italic ; font-weight: bold }
@@ -23,6 +23,11 @@
      function onload_handler (e) {
        document.forms.quickreport.t.focus()
        document.getElementById("formcontainer").style.display="block"
+
+       var uri = decodeURIComponent(document.location.pathname)
+       document.getElementById('uritext').value = uri.substring(1, uri.length-1)
+
+       document.getElementById("version").value = navigator.hv3_version
      }
 
      function submit_handler(e) {
@@ -75,6 +80,7 @@
             <INPUT type=hidden name=r value="1">
             <INPUT type=hidden name=p value="1">
             <INPUT type=hidden name=y value="Hv3">
+            <INPUT type=hidden id=version name=v value="">
         </FORM>
       </DIV>
       <NOSCRIPT>
@@ -110,6 +116,9 @@
         fixed. Or if the bug is complex we might mail you for clarification.
 	Whether or not you include an e-mail address, your help in bringing Hv3
         bugs to our attention will be greatly appreciated.
+      </P>
+      <P>
+        <CENTER><B><I>If in doubt, report it!</I></B></CENTER>
       </P>
     </DIV>
     <DIV class=block>

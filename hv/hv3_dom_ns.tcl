@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.24 2007/08/04 17:15:25 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.25 2007/09/17 17:22:51 danielk1977 Exp $)} 1 }
 
 #---------------------------------
 # List of DOM objects in this file:
@@ -40,6 +40,9 @@ namespace eval ::hv3::dom {
 #     Navigator.javaEnabled()
 #
 ::hv3::dom2::stateless Navigator {} {
+
+  # Fairly obviously, this is an Hv3 specific property.
+  dom_get hv3_version    { list string [::hv3::hv3_version] }
 
   dom_get appCodeName    { list string "Mozilla" }
   dom_get appName        { list string "Netscape" }
