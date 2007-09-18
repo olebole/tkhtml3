@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.142 2007/09/17 17:22:51 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.143 2007/09/18 11:27:46 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -227,6 +227,11 @@ snit::widget ::hv3::browser_frame {
         set class [winfo class $p]
         if {$class eq "Panedwindow"} {
           set myPositionId [linsert $myPositionId 0 [lsearch [$p panes] $w]]
+        }
+        if {$class eq "Hv3" && $myPositionId eq ""} {
+          set node $options(-iframe)
+          set idx [lsearch [$p search iframe] $node]
+          set myPositionId [linsert $myPositionId 0 iframe $idx]
         }
         set w $p
       }

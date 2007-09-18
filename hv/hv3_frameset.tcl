@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_frameset.tcl,v 1.14 2007/07/10 09:11:04 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_frameset.tcl,v 1.15 2007/09/18 11:27:46 danielk1977 Exp $)} 1 }
 
 # This file contains code for implementing HTML frameset documents in Hv3. 
 #
@@ -92,11 +92,14 @@ namespace eval hv3 {
     $node replace $panel -configurecmd $cfg -deletecmd $del
     ::hv3::iframe_configure $hv3 $node ""
 
-    # Retrieve the URI for the resource to display in this <IFRAME>
-    set src [$node attribute -default "" src]
-    if {$src ne ""} {
-      set uri [[$browser_frame hv3] resolve_uri $src]
-      $panel goto $uri
+    set history [[$browser_frame browser] history]
+    if {0 == [$history loadframe $panel]} {
+      # Retrieve the URI for the resource to display in this <IFRAME>
+      set src [$node attribute -default "" src]
+      if {$src ne ""} {
+        set uri [[$browser_frame hv3] resolve_uri $src]
+        $panel goto $uri
+      }
     }
   }
   proc iframe_configure {hv3 node values} {
@@ -275,7 +278,9 @@ snit::widget ::hv3::frameset {
           }
 
           # First, see if the history system wants to set the URI for
-          # the new frame. This happens during history-seek only.
+          # the new frame. This happens during history-seek only. Otherwise,
+          # load the document specified by the "src" attribute into
+          # the new frame.
           set history [[$myBrowserFrame browser] history]
           if {0 == [$history loadframe $pframe]} {
             set uri [$pnode attr -default "" src]
