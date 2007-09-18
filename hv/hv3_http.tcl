@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.46 2007/08/01 06:42:04 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.47 2007/09/18 08:56:53 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd script used with 
@@ -151,7 +151,20 @@ snit::type ::hv3::protocol {
       lappend headers Cookie $cookies
     }
 
-    switch -- [$downloadHandle cget -cachecontrol] {
+    # TODO: This is ridiculous. The version of cvstrac on tkhtml.tcl.tk
+    # does something that confuses polipo into incorrectly caching 
+    # pages. And it's too hard right now to fix the root cause, so work
+    # around it by explicitly telling polipo not to use cached instances
+    # of these pages.
+    #
+    set handle_cachecontrol [$downloadHandle cget -cachecontrol]
+    if {$handle_cachecontrol eq "normal"} {
+      if {[string first http://tkhtml.tcl.tk/cvstrac $uri] == 0} {
+        set handle_cachecontrol no-cache
+      }
+    }
+
+    switch -- $handle_cachecontrol {
       relax-transparency {
         lappend headers Cache-Control relax-transparency=1
       }
