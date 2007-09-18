@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.25 2007/09/17 17:22:51 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.26 2007/09/18 09:24:04 danielk1977 Exp $)} 1 }
 
 # Register the home: scheme handler with ::hv3::protocol $protocol.
 #
@@ -120,8 +120,6 @@ proc ::hv3::create_undo_trigger {db zTable} {
       $myDb transaction {
         set ii 0
         foreach B {
-
-      { "Report Hv3 bugs here!" {http://tkhtml.tcl.tk/cvstrac/tktnew} }
 
       { "Tkhtml and Hv3 Related" }
       { "tkhtml.tcl.tk"             {http://tkhtml.tcl.tk} }
