@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.79 2007/08/01 06:42:04 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.80 2007/09/18 16:13:26 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -785,8 +785,8 @@ snit::widgetadaptor ::hv3::forms::select {
 
   # TODO: The sole purpose of this is to return a linebox offset...
   method configurecmd {values} { 
-    ::hv3::forms::configurecmd $win [$hull cget -font]
     $self treechanged
+    ::hv3::forms::configurecmd $win [$hull cget -font]
   }
 
   method ComboboxChanged {widget newValue} {
