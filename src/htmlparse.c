@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.114 2007/09/16 10:57:02 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.115 2007/09/18 15:59:43 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -41,6 +41,7 @@ static char const rcsid[] =
 #include "html.h"
 
 #define ISSPACE(x) isspace((unsigned char)(x))
+#define ISALPHA(x) isalpha((unsigned char)(x))
 
 /*
  * The following elements have optional opening and closing tags:
@@ -870,16 +871,30 @@ HtmlTokenize(pTree, zText, isFinal, xAddText, xAddElement, xAddClosing)
         if (c != '<' && c != 0) {
             int isTrimEnd = 0;
             for (i = 0; (c = z[n + i]) != 0 && c != '<'; i++);
+
+            /* If the next tag is a </PRE>, then skip the final newline
+             * of this text node by setting isTrimEnd to true. TODO: It
+             * might be required to do this for some other types of tag
+             * too - </XMP> etc.
+             */
             if (c == '<') {
-                c = z[n + i + 1];
-                if (c == '/') {
-                    isTrimEnd = 1;
+                int iTmp = n+i+1;
+                while (ISSPACE(z[iTmp])) iTmp++;
+                if (z[iTmp] == '/') {
+                    int iTmp2;
+                    iTmp++;
+                    while (ISSPACE(z[iTmp])) iTmp++;
+                    if( !z[iTmp] ) goto incomplete;
+                    iTmp2 = iTmp;
+                    while (ISALPHA(z[iTmp2])) iTmp2++;
+                    if( !z[iTmp2] ) goto incomplete;
+                    if( 0==strnicmp(&z[iTmp], "pre", iTmp2-iTmp) ){
+                        isTrimEnd = 1;
+                    }
                 }
             }
+
             if (c || isFinal) {
-                /* Todo: Figure out if we need to trim any newline characters
-                 * from the string passed to HtmlTextNew(). 
-                 */
                 int ts = isTrimStart;
                 HtmlTextNode *pTextNode = HtmlTextNew(i, &z[n], isTrimEnd, ts);
                 xAddText(pTree, pTextNode, n);
@@ -1128,7 +1143,9 @@ HtmlTokenize(pTree, zText, isFinal, xAddText, xAddElement, xAddClosing)
                         xAddText(pTree, pTextNode, n);
                         xAddClosing(pTree, pMap->type, n);
                     } else {
-                        isTrimStart = 1;
+                        if (pMap->type == Html_PRE) {
+                            isTrimStart = 1;
+                        }
                         if (isSelfClosing) {
                             xAddClosing(pTree, pMap->type, n);
                         }

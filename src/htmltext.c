@@ -1977,6 +1977,7 @@ HtmlTextNew(n, z, isTrimEnd, isTrimStart)
 {
     char *z2;
     HtmlTextNode *pText;
+    HtmlTextToken *pFinal;
 
     int nText = 0;
     int nToken = 0;
@@ -2011,9 +2012,13 @@ HtmlTextNew(n, z, isTrimEnd, isTrimStart)
     HtmlFree(z2);
 
     assert(pText->aToken[nToken-1].eType == HTML_TEXT_TOKEN_END);
-    if (isTrimEnd && pText->aToken[nToken-2].eType == HTML_TEXT_TOKEN_NEWLINE) {
-        pText->aToken[nToken-2].eType = HTML_TEXT_TOKEN_END;
-        nToken--;
+    pFinal = &pText->aToken[nToken-2];
+    if (isTrimEnd && pFinal->eType == HTML_TEXT_TOKEN_NEWLINE) {
+        pFinal->n--;
+        if( pFinal->n==0 ){
+            pFinal->eType = HTML_TEXT_TOKEN_END;
+            nToken--;
+        }
     }
     if (isTrimStart && pText->aToken[0].eType == HTML_TEXT_TOKEN_NEWLINE) {
         memmove(pText->aToken, &pText->aToken[1], sizeof(HtmlTextToken)*nToken);
