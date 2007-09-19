@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.26 2007/09/18 09:24:04 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.27 2007/09/19 18:43:42 danielk1977 Exp $)} 1 }
 
 # Register the home: scheme handler with ::hv3::protocol $protocol.
 #
@@ -291,9 +291,8 @@ proc ::hv3::create_domref {} {
 #
 proc ::hv3::home_request {http hv3 dir downloadHandle} {
 
-  set obj [::hv3::uri %AUTO [$downloadHandle cget -uri]]
-  set path [$obj cget -path]
-  set authority [$obj cget -authority]
+  set obj [::tkhtml::uri [$downloadHandle cget -uri]]
+  set authority [$obj authority]
   $obj destroy
 
   switch -exact -- $authority {

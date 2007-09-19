@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.25 2007/09/17 17:22:51 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.26 2007/09/19 18:43:42 danielk1977 Exp $)} 1 }
 
 #---------------------------------
 # List of DOM objects in this file:
@@ -123,28 +123,28 @@ namespace eval ::hv3::dom {
   #     Todo: Writing to properties is not yet implemented.
   #
   dom_get hostname {
-    set auth [$myHv3 uri cget -authority]
+    set auth [$myHv3 uri authority]
     set hostname ""
     regexp {^([^:]*)} -> hostname
     list string $hostname
   }
   dom_get port {
-    set auth [$myHv3 uri cget -authority]
+    set auth [$myHv3 uri authority]
     set port ""
     regexp {:(.*)$} -> port
     list string $port
   }
-  dom_get host     { list string [$myHv3 uri cget -authority] }
-  dom_get pathname { list string [$myHv3 uri cget -path] }
-  dom_get protocol { list string [$myHv3 uri cget -scheme]: }
+  dom_get host     { list string [$myHv3 uri authority] }
+  dom_get pathname { list string [$myHv3 uri path] }
+  dom_get protocol { list string [$myHv3 uri scheme]: }
   dom_get search   { 
-    set query [$myHv3 uri cget -query]
+    set query [$myHv3 uri query]
     set str ""
     if {$query ne ""} {set str "?$query"}
     list string $str
   }
   dom_get hash   { 
-    set fragment [$myHv3 uri cget -fragment]
+    set fragment [$myHv3 uri fragment]
     set str ""
     if {$fragment ne ""} {set str "#$fragment"}
     list string $str

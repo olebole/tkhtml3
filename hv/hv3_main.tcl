@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.143 2007/09/18 11:27:46 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.144 2007/09/19 18:43:42 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -1596,9 +1596,8 @@ proc main {args} {
         # have been handled already.
       }
       default {
-        set uri [::hv3::uri %AUTO% file:///[pwd]/]
-        $uri load $val
-        lappend docs [$uri get]
+        set uri [::tkhtml::uri file:///[pwd]/]
+        lappend docs [$uri resolve $val]
         $uri destroy
       }
     }

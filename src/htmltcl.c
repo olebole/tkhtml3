@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.181 2007/09/16 10:41:25 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.182 2007/09/19 18:43:42 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -380,7 +380,7 @@ static void runDynamicStyleEngine(ClientData clientData);
 static void runStyleEngine(ClientData clientData);
 static void runLayoutEngine(ClientData clientData);
 
-#if !defined(NDEBUG) && defined(TKHTML_ENABLE_PROFILE)
+#if defined(TKHTML_ENABLE_PROFILE)
   #define INSTRUMENTED(name, id)                                             \
     static void real_ ## name (ClientData);                                  \
     static void name (clientData)                                            \
@@ -2633,7 +2633,7 @@ newWidget(clientData, interp, objc, objv)
     doLoadDefaultStyle(pTree);
     pTree->isSequenceOk = 1;
 
-#ifndef NDEBUG
+#ifdef TKHTML_ENABLE_PROFILE
     if (1) {
         Tcl_CmdInfo cmdinfo;
         Tcl_GetCommandInfo(interp, "::tkhtml::instrument", &cmdinfo);
@@ -2732,6 +2732,15 @@ htmlEscapeCmd(clientData, interp, objc, objv)
     Tcl_Obj *CONST objv[];             /* Argument strings. */
 {
     return HtmlEscapeUriComponent(clientData, interp, objc, objv);
+}
+static int 
+htmlUriCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    return HtmlCreateUri(clientData, interp, objc, objv);
 }
 
 /*
@@ -2856,6 +2865,8 @@ DLL_EXPORT int Tkhtml_Init(interp)
     Tcl_CreateObjCommand(interp, "::tkhtml::version",    htmlVersionCmd, 0, 0);
     Tcl_CreateObjCommand(interp, "::tkhtml::decode",     htmlDecodeCmd, 0, 0);
     Tcl_CreateObjCommand(interp, "::tkhtml::escape_uri", htmlEscapeCmd, 0, 0);
+
+    Tcl_CreateObjCommand(interp, "::tkhtml::uri", htmlUriCmd, 0, 0);
 
     Tcl_CreateObjCommand(interp, "::tkhtml::byteoffset", htmlByteOffsetCmd,0,0);
     Tcl_CreateObjCommand(interp, "::tkhtml::charoffset", htmlCharOffsetCmd,0,0);

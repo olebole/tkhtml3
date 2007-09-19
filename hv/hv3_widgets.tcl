@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.43 2007/07/18 11:40:12 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.44 2007/09/19 18:43:42 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
@@ -786,18 +786,6 @@ proc ::hv3::walkTree2 {N body varname level} {
       # Do nothing. Do not descend the tree.
     }
   }
-}
-#---------------------------------------------------------------------------
-
-#---------------------------------------------------------------------------
-# ::hv3::resolve_uri
-#
-proc ::hv3::resolve_uri {base relative} {
-  set obj [::hv3::uri %AUTO% $base]
-  $obj load $relative
-  set ret [$obj get]
-  $obj destroy
-  return $ret
 }
 #---------------------------------------------------------------------------
 

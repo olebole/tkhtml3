@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_db.tcl,v 1.9 2007/07/16 07:39:09 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_db.tcl,v 1.10 2007/09/19 18:43:42 danielk1977 Exp $)} 1 }
 
 # Class ::hv3::visiteddb
 #
@@ -49,13 +49,7 @@ snit::type ::hv3::visiteddb {
 
   method LocationQuery {hv3 reluri} {
 
-    # Resolve the "href" attribute of the node against the current
-    # location of the specified hv3 widget.
-    #
-    set obj [::hv3::uri %AUTO% [$hv3 location]]
-    $obj load $reluri
-    set full [$obj get]
-    $obj destroy
+    set full [$hv3 resolve_uri $reluri]
 
     # Query the database to see if this URI has been visited before.
     # If so 1 is returned, otherwise 0.
@@ -236,9 +230,9 @@ snit::type ::hv3::cookiemanager {
     if {![::hv3::have_sqlite3]} return
 
     # Default values for "domain" and "path"
-    set obj [::hv3::uri %AUTO% $uri]
-    regexp {[^:]*} [$obj cget -authority] v(domain)
-    regexp {^.*/} [$obj cget -path] v(path)
+    set obj [::tkhtml::uri $uri]
+    set v(domain) [$obj authority]
+    regexp {^.*/} [$obj path] v(path)
     $obj destroy
 
     set  v(flag) TRUE
@@ -299,9 +293,9 @@ snit::type ::hv3::cookiemanager {
   method Cookie {uri} {
     if {![::hv3::have_sqlite3]} return
 
-    set obj [::hv3::uri %AUTO% $uri]
-    set uri_domain [$obj cget -authority]
-    set uri_path [$obj cget -path]
+    set obj [::tkhtml::uri $uri]
+    set uri_domain [$obj authority]
+    set uri_path [$obj path]
     $obj destroy
 
     set ret ""

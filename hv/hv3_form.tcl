@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.80 2007/09/18 16:13:26 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.81 2007/09/19 18:43:42 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -1722,8 +1722,8 @@ proc ::hv3::isindex_handler {hv3 attr script} {
   set a(prompt) ""
   array set a $attr
 
-  set loc [::hv3::uri %AUTO% [$hv3 location]]
-  set LOCATION "[$loc cget -scheme]://[$loc cget -authority]/[$loc cget -path]"
+  set loc [::tkhtml::uri [$hv3 location]]
+  set LOCATION "[$loc scheme]://[$loc authority][$loc path]"
   set PROMPT   $a(prompt)
   $loc destroy
 

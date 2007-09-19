@@ -68,8 +68,14 @@ namespace eval ::hv3::profile {
 
   proc report {chan} {
     set db ::hv3::sqlitedb
-    puts $chan [format "%7s %10s %10s  %s" Calls Self Children Proc]
 
+    set total_clicks [$db eval {
+      SELECT sum(clicks) FROM vectors WHERE caller = '<toplevel>'
+    }]
+    puts $chan "Total clicks: $total_clicks"
+    puts $chan ""
+
+    puts $chan [format "%7s %10s %10s  %s" Calls Self Children Proc]
     $db eval {
       SELECT proc, 
         sum(calls) AS calls, 

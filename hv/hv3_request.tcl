@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.6 2006/12/23 09:01:52 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.7 2007/09/19 18:43:42 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file contains the implementation of two types used by hv3:
@@ -130,8 +130,8 @@ snit::type ::hv3::download {
   # Return the "authority" part of the URI configured as the -uri option.
   #
   method authority {} {
-    set obj [::hv3::uri %AUTO% $options(-uri)]
-    set authority [$obj cget -authority]
+    set obj [::tkhtml::uri $options(-uri)]
+    set authority [$obj authority]
     $obj destroy
     return $authority
   }

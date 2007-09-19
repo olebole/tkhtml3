@@ -658,7 +658,7 @@ struct HtmlTree {
      */
     HtmlText *pText;
 
-#ifndef NDEBUG
+#ifdef TKHTML_ENABLE_PROFILE
     /*
      * Client data from instrument command ([::tkhtml::instrument]).
      */
@@ -696,6 +696,8 @@ Tcl_ObjCmdProc HtmlWidgetBboxCmd;
 Tcl_ObjCmdProc HtmlDebug;
 Tcl_ObjCmdProc HtmlDecode;
 Tcl_ObjCmdProc HtmlEscapeUriComponent;
+Tcl_ObjCmdProc HtmlResolveUri;
+Tcl_ObjCmdProc HtmlCreateUri;
 
 char *HtmlPropertyToString(CssProperty *, char **);
 

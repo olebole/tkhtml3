@@ -99,20 +99,16 @@ HtmlInstrumentCall(pClientData, iCall, xFunc, clientData)
 
     pCaller = pGlobal->pCaller;
     pGlobal->pCaller = p;
-#ifndef __WIN32__
     gettimeofday(&tv, 0);
-#endif
     iClicks = timevalToClicks(tv);
 
     xFunc(clientData);
 
-#ifndef __WIN32__
     gettimeofday(&tv, 0);
-#endif
     iClicks = timevalToClicks(tv) - iClicks;
     pGlobal->pCaller = pCaller;
 
-    updateInstData(pGlobal, p, iClicks);
+    updateInstData(pGlobal, p, (int)iClicks);
 }
 
 static int 
@@ -132,20 +128,16 @@ execInst(clientData, interp, objc, objv)
 
     pCaller = pGlobal->pCaller;
     pGlobal->pCaller = p;
-#ifndef __WIN32__
     gettimeofday(&tv, 0);
-#endif
     iClicks = timevalToClicks(tv);
 
     rc = p->info.objProc(p->info.objClientData, interp, objc, objv);
 
-#ifndef __WIN32__
     gettimeofday(&tv, 0);
-#endif
     iClicks = timevalToClicks(tv) - iClicks;
     pGlobal->pCaller = pCaller;
 
-    updateInstData(pGlobal, p, iClicks);
+    updateInstData(pGlobal, p, (int)iClicks);
     return rc;
 }
 

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.48 2007/09/18 09:24:04 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.49 2007/09/19 18:43:42 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd script used with 
@@ -115,11 +115,12 @@ snit::type ::hv3::protocol {
     # Extract the URI scheme to figure out what kind of URI we are
     # dealing with. Currently supported are "file" and "http" (courtesy 
     # Tcl built-in http package).
-    set uri_obj [::hv3::uri %AUTO% [$downloadHandle cget -uri]]
-    set uri_scheme [$uri_obj cget -scheme]
+    set uri_obj [::tkhtml::uri [$downloadHandle cget -uri]]
+    set uri_scheme [$uri_obj scheme]
     $uri_obj destroy
 
-    # Fold the scheme to lower-case. Should ::hv3::uri have already done this?
+    # Fold the scheme to lower-case. Should ::tkhtml::uri have already 
+    # done this?
     set uri_scheme [string tolower $uri_scheme]
 
     # Execute the scheme-handler, or raise an error if no scheme-handler
@@ -134,14 +135,17 @@ snit::type ::hv3::protocol {
   # Handle an http:// URI.
   #
   method request_http {downloadHandle} {
+    $downloadHandle finish
+    return
+
     set uri       [$downloadHandle cget -uri]
     set postdata  [$downloadHandle cget -postdata]
     set enctype   [$downloadHandle cget -enctype]
     set authority [$downloadHandle authority]
 
     # Knock any #fragment off the end of the URI.
-    set obj [::hv3::uri %AUTO% $uri]
-    set uri [$obj get -nofragment]
+    set obj [::tkhtml::uri $uri]
+    set uri [$obj get_no_fragment]
     $obj destroy
 
     # Store the HTTP header containing the cookies in variable $headers
@@ -227,9 +231,10 @@ snit::type ::hv3::protocol {
   # https:// support implementation.
   # 
   method request_https {downloadHandle} {
-    set obj [::hv3::uri %AUTO% [$downloadHandle cget -uri]]
+    set obj [::tkhtml::uri [$downloadHandle cget -uri]]
+    set host [$obj authority]
+    $obj destroy
 
-    set host [$obj cget -authority]
     set port 443
     regexp {^(.*):([0123456789]+)$} $host -> host port
 

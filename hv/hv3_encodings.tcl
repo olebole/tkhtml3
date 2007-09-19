@@ -80,6 +80,10 @@ foreach name [encoding_orig names] {
     set name2 "windows-[string range $name 2 end]"
     set ::Hv3EncodingMap($name2) $name
   } 
+  if {[string match iso* $name]} {
+    set name2 "iso-[string range $name 3 end]"
+    set ::Hv3EncodingMap($name2) $name
+  } 
 }
 
 # Deal with some Japanese encodings. Because of the dominance of
@@ -97,4 +101,7 @@ if {[lsearch [encoding_orig names] cp932]>=0} {
 # Various encodings best handled by pretending they are utf-8.
 set ::Hv3EncodingMap(us-ascii) utf-8
 set ::Hv3EncodingMap(iso-8559-1) utf-8
+
+# Thai encoding.
+set ::Hv3EncodingMap(windows-874) tis-620
 

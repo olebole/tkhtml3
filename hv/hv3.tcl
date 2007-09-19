@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.188 2007/08/01 06:42:04 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.189 2007/09/19 18:43:42 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -112,15 +112,13 @@ namespace eval hv3 { set {version($Id: hv3.tcl,v 1.188 2007/08/01 06:42:04 danie
 #
 # The code in this file is partitioned into the following classes:
 #
-#     ::hv3::uri
 #     ::hv3::hv3
 #     ::hv3::download
 #     ::hv3::selectionmanager
 #     ::hv3::dynamicmanager
 #     ::hv3::hyperlinkmanager
 #
-# ::hv3::hv3 is, of course, the main mega-widget class. Class ::hv3::uri
-# is a class that encapsulates code to manipulate URI strings. Class
+# ::hv3::hv3 is, of course, the main mega-widget class. Class
 # ::hv3::download is part of the public interface to ::hv3::hv3. A
 # single instance of ::hv3::download represents a resource request made
 # by the mega-widget package - for document, stylesheet, image or 
@@ -1045,7 +1043,7 @@ snit::widget ::hv3::hv3 {
     $myMouseManager configure -selectionmanager $mySelectionManager
 
     # Location URI. The default URI is "blank://".
-    set myUri              [::hv3::uri %AUTO% home://blank/]
+    set myUri [::tkhtml::uri home://blank/]
 
     set myFormManager [::hv3::formmanager %AUTO% $self]
     $myFormManager configure -getcmd  [mymethod Formcmd get]
@@ -1190,23 +1188,16 @@ snit::widget ::hv3::hv3 {
 
   method onload_fired {} { return $myOnloadFired }
 
-  method resolve_uri {baseuri {uri {}}} {
-    if {$uri eq ""} {
-      set uri $baseuri
-      if {$myBase ne ""} {
-        set baseuri [$myBase get -nofragment]
-      } else {
-        set baseuri [$myUri get -nofragment]
-      }
-    } 
-    set obj [::hv3::uri %AUTO% [string trim $baseuri]]
-    if {$uri eq ""} {
-      set ret "[$obj cget -scheme]://[$obj cget -authority][$obj cget -path]"
-    } else {
-      $obj load [string trim $uri]
-      set ret [$obj get]
+  method resolve_uri {uri} {
+    set base $myBase
+    if {$base eq ""} {
+      set base $myUri
     }
-    $obj destroy
+    if {$uri eq ""} {
+      set ret "[$base scheme]://[$base authority][$base path]"
+    } else {
+      set ret [$base resolve $uri]
+    }
     return $ret
   }
 
@@ -1476,7 +1467,7 @@ snit::widget ::hv3::hv3 {
       # current location URI. This is not standards compliant, but seems
       # like a reasonable idea.
       if {$myBase ne ""} {$myBase destroy}
-      set myBase [::hv3::uri %AUTO% [$myUri get -nofragment]]
+      set myBase [::tkhtml::uri [$myUri get_no_fragment]]
       $myBase load $baseuri
     }
   }
@@ -1498,7 +1489,7 @@ snit::widget ::hv3::hv3 {
   }
 
   method goto_fragment {} {
-    set fragment [$myUri cget -fragment]
+    set fragment [$myUri fragment]
     if {$fragment ne ""} {
       set selector [format {[name="%s"]} $fragment]
       set goto_node [lindex [$myHtml search $selector] 0]
@@ -1612,16 +1603,6 @@ snit::widget ::hv3::hv3 {
   }
 
   method EncodingConvertfrom {encoding input} {
-    switch -regexp -- $encoding {
-      ^iso- {
-        set encoding iso[string range $encoding 4 end]
-      }
-
-      {^windows-874$} {
-        set encoding tis-620
-      }
-    }
-    
     set utf8 $input
     if {[catch {
       set utf8 [encoding convertfrom $encoding $utf8]
@@ -1815,10 +1796,10 @@ snit::widget ::hv3::hv3 {
 
     set myCacheControl $cachecontrol
 
-    set current_uri [$myUri get -nofragment]
-    set uri_obj [::hv3::uri %AUTO% [$self resolve_uri $uri]]
-    set full_uri [$uri_obj get -nofragment]
-    set fragment [$uri_obj cget -fragment]
+    set current_uri [$myUri get_no_fragment]
+    set uri_obj [::tkhtml::uri [$self resolve_uri $uri]]
+    set full_uri [$uri_obj get_no_fragment]
+    set fragment [$uri_obj fragment]
 
     # Generate the <<Goto>> event.
     event generate $win <<Goto>>
@@ -1845,7 +1826,7 @@ snit::widget ::hv3::hv3 {
     # URI, if any. If we can't figure out an expected type, assume
     # text/html. The protocol handler may override this anyway.
     set mimetype text/html
-    set path [$uri_obj cget -path]
+    set path [$uri_obj path]
     if {[regexp {\.([A-Za-z0-9]+)$} $path dummy ext]} {
       switch -- [string tolower $ext] {
 	jpg  { set mimetype image/jpeg }

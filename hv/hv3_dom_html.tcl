@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.32 2007/08/05 06:54:47 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.33 2007/09/19 18:43:42 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Html
@@ -46,7 +46,7 @@ set BaseList {Document DocumentEvent Node NodePrototype}
 
   # Read-only attribute "domain".
   dom_get domain {
-    set str [$myHv3 uri cget -authority]
+    set str [$myHv3 uri authority]
     if {$str eq ""} {
       list null
     } else {
