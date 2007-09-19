@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.49 2007/09/19 18:43:42 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.50 2007/09/19 19:17:33 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd script used with 
@@ -135,8 +135,8 @@ snit::type ::hv3::protocol {
   # Handle an http:// URI.
   #
   method request_http {downloadHandle} {
-    $downloadHandle finish
-    return
+    #$downloadHandle finish
+    #return
 
     set uri       [$downloadHandle cget -uri]
     set postdata  [$downloadHandle cget -postdata]
