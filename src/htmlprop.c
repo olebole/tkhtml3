@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.117 2007/09/20 17:21:48 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.118 2007/09/20 18:09:31 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -2201,6 +2201,7 @@ HtmlComputedValuesFinish(p)
                     pCsr = pCsr->pNext;
                 }
             }
+            pFont->pNext = 0;
             pCache->nZeroRef--;
         }
     }
@@ -2443,7 +2444,7 @@ HtmlFontRelease(pTree, pFont)
         if (pFont->nRef == 0) {
             HtmlFontCache *p = &pTree->fontcache;
             assert(pFont->pNext == 0);
-            assert((p->pLruTail&&p->LruHead) || (!p->pLruTail&&!p->pLruHead));
+            assert((p->pLruTail&&p->pLruHead) || (!p->pLruTail&&!p->pLruHead));
             if (p->pLruTail) {
                 p->pLruTail->pNext = pFont;
             }else{

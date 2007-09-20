@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmldecode.c,v 1.5 2007/09/19 18:43:42 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmldecode.c,v 1.6 2007/09/20 18:09:31 danielk1977 Exp $";
 
 
 #include "html.h"
@@ -639,6 +639,7 @@ uriObjCmd(clientData, interp, objc, objv)
             Uri *pNew;
             char *zRes = uriResolve(p, objv[2]);
             Tcl_Obj *pObj = Tcl_NewStringObj(zRes, -1);
+            HtmlFree(zRes);
             Tcl_IncrRefCount(pObj);
             pNew = objToUri(pObj);
             Tcl_DecrRefCount(pObj);

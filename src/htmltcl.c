@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.182 2007/09/19 18:43:42 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.183 2007/09/20 18:09:33 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -1435,7 +1435,6 @@ BOOLEAN(forcewidth, "forceWidth", "ForceWidth", "0", S_MASK),
             if (1) {
                 Tcl_HashSearch search;
                 assert(0 == Tcl_FirstHashEntry(&pTree->aValues, &search));
-                assert(0 == Tcl_FirstHashEntry(&pTree->aFont, &search));
             }
 #endif
         }
