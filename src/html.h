@@ -623,7 +623,7 @@ struct HtmlTree {
      * set via the -fonttable option. 
      */
     Tcl_HashTable aColor;
-    Tcl_HashTable aFont;
+    HtmlFontCache fontcache;
     Tcl_HashTable aValues;
     Tcl_HashTable aFontFamilies;
     HtmlComputedValuesCreator *pPrototypeCreator;
@@ -983,10 +983,12 @@ const char *HtmlTextIterData(HtmlTextIter *);
 #define HTML_INSTRUMENT_DYNAMIC_STYLE_ENGINE 2
 #define HTML_INSTRUMENT_STYLE_ENGINE         3
 #define HTML_INSTRUMENT_LAYOUT_ENGINE        4
+#define HTML_INSTRUMENT_ALLOCATE_FONT        5
 
-#define HTML_INSTRUMENT_NUM_SYMS             5
+#define HTML_INSTRUMENT_NUM_SYMS             6
 void HtmlInstrumentInit(Tcl_Interp *);
-void HtmlInstrumentCall(ClientData, int, void (*)(ClientData), ClientData);
+void HtmlInstrumentCall(ClientData, int, void(*)(ClientData), ClientData);
+void *HtmlInstrumentCall2(ClientData, int, void*(*)(ClientData), ClientData);
 
 #endif
 

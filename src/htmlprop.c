@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.116 2007/09/12 10:11:42 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.117 2007/09/20 17:21:48 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1962,12 +1962,15 @@ HtmlComputedValuesSet(p, eProp, pProp)
  *
  *---------------------------------------------------------------------------
  */
-static HtmlFont * 
-allocateNewFont(pTree, tkwin, pFontKey)
-    HtmlTree *pTree;
-    Tk_Window tkwin;
-    HtmlFontKey *pFontKey;
+static void * 
+allocateNewFont(clientData)
+    ClientData clientData;
 {
+    HtmlComputedValuesCreator *p = (HtmlComputedValuesCreator *)clientData;
+    HtmlTree *pTree = p->pTree;
+    HtmlFontKey *pFontKey = &p->fontKey;
+    Tk_Window tkwin = pTree->tkwin;
+
     Tcl_Interp *interp = pTree->interp;
     int isForceFontMetrics = pTree->options.forcefontmetrics;
     Tk_Font tkfont = 0;
@@ -1979,6 +1982,7 @@ allocateNewFont(pTree, tkwin, pFontKey)
 
     char zTkFontName[256];      /* Tk font name */
     HtmlFont *pFont;
+
 
     /* Local variable iFontSize is in points - not thousandths */
     int iFontSize;
@@ -2021,7 +2025,7 @@ allocateNewFont(pTree, tkwin, pFontKey)
 
     } while (0 == tkfont);
 
-    pFont = (HtmlFont *)HtmlAlloc(
+    pFont = (HtmlFont *)HtmlClearAlloc(
         "HtmlFont", sizeof(HtmlFont) + strlen(zTkFontName)+1
     );
     pFont->nRef = 0;
@@ -2057,7 +2061,7 @@ allocateNewFont(pTree, tkwin, pFontKey)
         }
     } 
 
-    return pFont;
+    return (void *)pFont;
 }
     
 /*
@@ -2157,17 +2161,48 @@ HtmlComputedValuesFinish(p)
     };
 #undef OFFSET
 
-    /* Find the font to use. If there is not a matching font in the aFont hash
+    Tcl_HashTable *pFontHash = &p->pTree->fontcache.aHash;
+
+    /* Find the font to use. If there is not a matching font in the font hash
      * table already, allocate a new one.
      */
-    pEntry = Tcl_CreateHashEntry(&p->pTree->aFont, (char *)&p->fontKey, &ne);
+    pEntry = Tcl_CreateHashEntry(pFontHash, (char *)&p->fontKey, &ne);
     if (ne) {
-        pFont = allocateNewFont(p->pTree, p->pTree->tkwin, &p->fontKey);
+#ifndef TKHTML_ENABLE_PROFILE
+        pFont = (HtmlFont *)allocateNewFont((ClientData)p);
+#else
+        pFont = (HtmlFont *)HtmlInstrumentCall2(p->pTree->pInstrumentData, 
+             HTML_INSTRUMENT_ALLOCATE_FONT, allocateNewFont, (ClientData)p
+        );
+#endif
         assert(pFont);
         Tcl_SetHashValue(pEntry, pFont);
-        pFont->pKey = (HtmlFontKey *)Tcl_GetHashKey(&p->pTree->aFont, pEntry);
+        pFont->pKey = (HtmlFontKey *)Tcl_GetHashKey(pFontHash, pEntry);
     } else {
         pFont = Tcl_GetHashValue(pEntry);
+        if (pFont->nRef == 0) {
+            HtmlFontCache *pCache = &p->pTree->fontcache;
+            if (pFont == pCache->pLruHead) {
+                pCache->pLruHead = pCache->pLruHead->pNext;
+                if (!pCache->pLruHead) {
+                    pCache->pLruTail = 0;
+                }
+            } else {
+                HtmlFont *pCsr = pCache->pLruHead;
+                while (pCsr->pNext) {
+                    if (pCsr->pNext == pFont) {
+                        pCsr->pNext = pFont->pNext;
+                        if (!pCsr->pNext) {
+                            assert(pCache->pLruTail == pFont);
+                            pCache->pLruTail = pCsr;
+                        }
+                        break;
+                    }
+                    pCsr = pCsr->pNext;
+                }
+            }
+            pCache->nZeroRef--;
+        }
     }
     pFont->nRef++;
     p->values.fFont = pFont;
@@ -2406,11 +2441,31 @@ HtmlFontRelease(pTree, pFont)
         pFont->nRef--;
         assert(pFont->nRef >= 0);
         if (pFont->nRef == 0) {
-            CONST char *pKey = (CONST char *)pFont->pKey;
-            Tcl_HashEntry *pEntry = Tcl_FindHashEntry(&pTree->aFont, pKey);
-            Tcl_DeleteHashEntry(pEntry);
-            Tk_FreeFont(pFont->tkfont);
-            HtmlFree(pFont);
+            HtmlFontCache *p = &pTree->fontcache;
+            assert(pFont->pNext == 0);
+            assert((p->pLruTail&&p->LruHead) || (!p->pLruTail&&!p->pLruHead));
+            if (p->pLruTail) {
+                p->pLruTail->pNext = pFont;
+            }else{
+                p->pLruHead = pFont;
+            }
+            p->pLruTail = pFont;
+
+            p->nZeroRef++;
+            if (p->nZeroRef > HTML_MAX_ZEROREF_FONTS) {
+                Tcl_HashEntry *pEntry;
+                HtmlFont *pRem = p->pLruHead;
+                const char *pKey = (const char *)pRem->pKey;
+
+                p->pLruHead = pRem->pNext;
+                if (!p->pLruHead) {
+                    p->pLruTail = 0;
+                }
+                pEntry = Tcl_FindHashEntry(&p->aHash, pKey);
+                Tcl_DeleteHashEntry(pEntry);
+                Tk_FreeFont(pRem->tkfont);
+                HtmlFree(pRem);
+            }
         }
     }
 }
@@ -2503,7 +2558,7 @@ HtmlComputedValuesRelease(pTree, pValues)
  *     three hash-tables used by code in this file:
  *
  *         HtmlTree.aColor
- *         HtmlTree.aFont
+ *         HtmlTree.fontcache.aHash
  *         HtmlTree.aFontFamilies
  *         HtmlTree.aValues
  *
@@ -2513,7 +2568,7 @@ HtmlComputedValuesRelease(pTree, pValues)
  *     leave them in the color-cache permanently, we can be sure that the CSS
  *     defintions will always be used.
  *
- *     The aFont and aValues hash tables are initialised empty.
+ *     The fontcache.aHash and aValues hash tables are initialised empty.
  *
  * Results: 
  *
@@ -2561,7 +2616,7 @@ HtmlComputedValuesSetupTables(pTree)
     Tcl_InitCustomHashTable(&pTree->aColor, TCL_CUSTOM_TYPE_KEYS, pType);
 
     pType = HtmlFontKeyHashType();
-    Tcl_InitCustomHashTable(&pTree->aFont, TCL_CUSTOM_TYPE_KEYS, pType);
+    Tcl_InitCustomHashTable(&pTree->fontcache.aHash,TCL_CUSTOM_TYPE_KEYS,pType);
 
     pType = HtmlComputedValuesHashType();
     Tcl_InitCustomHashTable(&pTree->aValues, TCL_CUSTOM_TYPE_KEYS, pType);
@@ -2637,6 +2692,8 @@ HtmlComputedValuesCleanupTables(pTree)
     HtmlTree *pTree;
 {
     CONST char **pzCursor;
+    HtmlFont *pFont;
+    HtmlFont *pNext;
    
     CONST char *azColor[] = {
         "silver",
@@ -2671,6 +2728,13 @@ HtmlComputedValuesCleanupTables(pTree)
         assert(pEntry);
         pColor = (HtmlColor *)Tcl_GetHashValue(pEntry);
         decrementColorRef(pTree, pColor);
+    }
+  
+    Tcl_DeleteHashTable(&pTree->fontcache.aHash);
+    for (pFont = pTree->fontcache.pLruHead; pFont; pFont = pNext) {
+        Tk_FreeFont(pFont->tkfont);
+        pNext = pFont->pNext;
+        HtmlFree(pFont);
     }
 
     Tcl_DeleteHashTable(&pTree->aFontFamilies);

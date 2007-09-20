@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.197 2007/09/15 07:59:12 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.198 2007/09/20 17:21:48 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -4059,10 +4059,6 @@ pTree, pNodeStart, iIndexStart, pNodeFin, iIndexFin, piT, piL, piB, piR
     PaintNodesQuery sQuery;
     int iNodeStart;
     int iNodeFin;
-
-    HtmlTextNode *p1 = HtmlNodeAsText(pNodeStart);
-    HtmlTextNode *p2 = HtmlNodeAsText(pNodeFin);
-    assert(p1 && p2);
 
     HtmlSequenceNodes(pTree);
     iNodeStart = pNodeStart->iNode;

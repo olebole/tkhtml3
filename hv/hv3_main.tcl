@@ -1,9 +1,6 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.144 2007/09/19 18:43:42 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.145 2007/09/20 17:21:48 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
-
-package require Tk
-package require Tkhtml 3.0
 
 proc sourcefile {file} { return [file join [file dirname [info script]] $file] }
 
@@ -12,6 +9,9 @@ proc sourcefile {file} { return [file join [file dirname [info script]] $file] }
 # the command line.
 source [sourcefile hv3_profile.tcl]
 ::hv3::profile::init $argv
+
+package require Tk
+package require Tkhtml 3.0
 
 # option add *TButton.compound left
 

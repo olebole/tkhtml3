@@ -20,11 +20,13 @@
 #include <limits.h>
 
 typedef struct HtmlFourSides HtmlFourSides;
-typedef struct HtmlFont HtmlFont;
 typedef struct HtmlComputedValues HtmlComputedValues;
 typedef struct HtmlComputedValuesCreator HtmlComputedValuesCreator;
-typedef struct HtmlFontKey HtmlFontKey;
 typedef struct HtmlColor HtmlColor;
+
+typedef struct HtmlFont HtmlFont;
+typedef struct HtmlFontKey HtmlFontKey;
+typedef struct HtmlFontCache HtmlFontCache;
 
 /* 
  * This structure is used to group four padding, margin or border-width
@@ -68,6 +70,20 @@ struct HtmlFont {
     int ex_pixels;         /* Pixels per 'ex' unit */
     int space_pixels;      /* Pixels per space (' ') in this font */
     Tk_FontMetrics metrics;
+
+    HtmlFont *pNext;       /* Next entry in the Html.FontCache LRU list */
+};
+
+/*
+ * In Tk, allocating new fonts is very expensive. So we try hard to 
+ * avoid doing it more than is required.
+ */
+#define HTML_MAX_ZEROREF_FONTS 50
+struct HtmlFontCache {
+    Tcl_HashTable aHash;
+    HtmlFont *pLruHead;
+    HtmlFont *pLruTail;
+    int nZeroRef;
 };
 
 /*

@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.115 2007/09/18 15:59:43 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.116 2007/09/20 17:21:48 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -1101,7 +1101,7 @@ HtmlTokenize(pTree, zText, isFinal, xAddText, xAddElement, xAddClosing)
             } else {
 
                 char *zScript = 0;
-                int nScript;
+                int nScript = 0;
 
                 HtmlAttributes *pAttr;
                 Tcl_Obj *pScript = 0;

@@ -83,7 +83,36 @@ updateInstData(pGlobal, p, iClicks)
     pData->iClicks += iClicks;
 }
 
-void
+void *
+HtmlInstrumentCall2(pClientData, iCall, xFunc, clientData)
+    ClientData pClientData;
+    int iCall;
+    void *(*xFunc)(ClientData);
+    ClientData clientData;
+{
+    InstGlobal *pGlobal = (InstGlobal *)pClientData;
+    InstCommand *p = &pGlobal->aCommand[iCall];
+    InstCommand *pCaller;       /* Calling frame (if any) */
+
+    Tcl_WideInt iClicks;
+    struct timeval tv = {0, 0};
+    void *pRet;
+
+    pCaller = pGlobal->pCaller;
+    pGlobal->pCaller = p;
+    gettimeofday(&tv, 0);
+    iClicks = timevalToClicks(tv);
+
+    pRet = xFunc(clientData);
+
+    gettimeofday(&tv, 0);
+    iClicks = timevalToClicks(tv) - iClicks;
+    pGlobal->pCaller = pCaller;
+
+    updateInstData(pGlobal, p, (int)iClicks);
+    return pRet;
+}
+void 
 HtmlInstrumentCall(pClientData, iCall, xFunc, clientData)
     ClientData pClientData;
     int iCall;
@@ -358,6 +387,7 @@ HtmlInstrumentInit(interp)
     );
     p->aCommand[3].pFullName = Tcl_NewStringObj("C: runStyleEngine()", -1);
     p->aCommand[4].pFullName = Tcl_NewStringObj("C: runLayoutEngine()", -1);
+    p->aCommand[5].pFullName = Tcl_NewStringObj("C: allocateNewFont()", -1);
 
     Tcl_IncrRefCount(p->aCommand[0].pFullName);
     Tcl_IncrRefCount(p->aCommand[1].pFullName);
