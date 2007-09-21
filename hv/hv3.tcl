@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.189 2007/09/19 18:43:42 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.190 2007/09/21 09:31:08 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -1297,7 +1297,7 @@ snit::widget ::hv3::hv3 {
   method Requeststyle {parent_id full_uri} {
     set id        ${parent_id}.[format %.4d [incr myStyleCount]]
     set importcmd [mymethod Requeststyle $id]
-    set urlcmd    [mymethod resolve_uri $full_uri]
+    set urlcmd    [list ::hv3::ss_resolve_uri $full_uri]
     append id .9999
 
     set handle [::hv3::download %AUTO%              \
@@ -1996,6 +1996,17 @@ snit::widget ::hv3::hv3 {
   delegate option -zoom             to myHtml
   delegate option -forcefontmetrics to myHtml
   delegate option -doublebuffer     to myHtml
+}
+
+# This proc is passed as the -urlcmd option to the [style] method of the
+# Tkhtml3 widget. Returns the full-uri formed by resolving $rel relative
+# to $base.
+#
+proc ::hv3::ss_resolve_uri {base rel} {
+  set b [::tkhtml::uri $base]
+  set ret [$b resolve $rel]
+  $b destroy
+  set ret
 }
 
 bind Html <Tab>       [list ::hv3::forms::tab %W]
