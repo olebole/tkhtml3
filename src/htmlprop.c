@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.118 2007/09/20 18:09:31 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.119 2007/09/21 09:32:39 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -365,11 +365,17 @@ HtmlPropertyToString(pProp, pzFree)
     *pzFree = 0;
 
     if (!zRet) {
-        if (pProp->eType == CSS_TYPE_TCL || pProp->eType == CSS_TYPE_URL) {
+        if (
+            pProp->eType == CSS_TYPE_TCL || 
+            pProp->eType == CSS_TYPE_URL ||
+            pProp->eType == CSS_TYPE_ATTR
+        ) {
             int nBytes = strlen(pProp->v.zVal) + 6;
             zRet = HtmlAlloc("HtmlPropertyToString()", nBytes);
             sprintf(zRet, "%s(%s)", 
-                    (pProp->eType==CSS_TYPE_TCL)?"tcl":"url", pProp->v.zVal
+                    (pProp->eType==CSS_TYPE_TCL)?"tcl":
+                    (pProp->eType==CSS_TYPE_URL)?"url":
+                    "attr", pProp->v.zVal
             );
         } else {
             char *zSym = 0;
@@ -1825,7 +1831,9 @@ propertyValuesTclScript(p, eProp, zScript)
 
     /* Now that we've successfully called HtmlComputedValuesSet(), the
      * CssProperty structure (it's associated string data is what matters)
-     * cannot be HtmlFree(0, )d until after HtmlComputedValuesFinish() is called.
+     * cannot be HtmlFree(0, )d until after HtmlComputedValuesFinish() is 
+     * called.
+     *
      * So we make a linked list of such structures at p->pDeleteList using
      * CssProperty.v.p as the pNext pointer.
      * 
@@ -1834,6 +1842,91 @@ propertyValuesTclScript(p, eProp, zScript)
     HtmlComputedValuesFreeProperty(p, pVal);
 
     return 0;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * propertyValuesAttr --
+ *
+ *     Used to handle the special CSS syntax attr(). Tkhtml supports
+ *     the following extensions to this syntax:
+ *
+ *         attr(<attr-name>)
+ *         attr(<attr-name> <modifiers>)
+ *         attr(<attr-name> <modifiers> <ancestor-tag>)
+ *         attr(<attr-name> <modifiers> <ancestor-tag> <value>)
+ *
+ *     Where modifiers is currently either "n" or "l":
+ *
+ *         n  ->  normal
+ *         l  ->  length
+ *   
+ * Results:
+ *
+ * Side effects:
+ *
+ *---------------------------------------------------------------------------
+ */
+static int 
+propertyValuesAttr(p, eProp, zArglist)
+    HtmlComputedValuesCreator *p;
+    int eProp;
+    const char *zArglist;
+{
+    int rc = 1;
+    char *zCopy;
+    const char *zCsr;
+    const char *zEnd;
+    int n;
+
+    char *zAttr = 0;
+    char *zMod = 0;
+    char *zAncestor = 0;
+    char *zValue = 0;
+    HtmlNode *pNode = p->pNode;
+
+    zCopy = (char *)HtmlAlloc("tmp", strlen(zArglist) + 1);
+    strcpy(zCopy, zArglist);
+    zCsr = zCopy;
+    zEnd = &zCopy[strlen(zCopy)];
+
+    zAttr = (char *)HtmlCssGetNextListItem(zCsr, zEnd-zCsr, &n);
+    if (zAttr) {
+        zAttr[n] = '\0';
+        zCsr = &zAttr[n+1];
+        zMod = (char *)HtmlCssGetNextListItem(zCsr, zEnd-zCsr, &n);
+    }
+    if (zMod) {
+        zMod[n] = '\0';
+        zCsr = &zMod[n+1];
+        zAncestor = (char *)HtmlCssGetNextListItem(zCsr, zEnd-zCsr, &n);
+    }
+    if (zAncestor) {
+        zAncestor[n] = '\0';
+        zCsr = &zAncestor[n+1];
+        zValue = (char *)HtmlCssGetNextListItem(zCsr, zEnd-zCsr, &n);
+    }
+
+    if (zAncestor) {
+        while (pNode && stricmp(zAncestor, HtmlNodeTagName(pNode))){
+            pNode = HtmlNodeParent(pNode);
+        }
+    }
+    
+    if (pNode) {
+        const char *zVal = HtmlNodeAttr(pNode, zAttr);
+        if (zVal) {
+            CssProperty *pProp = HtmlCssStringToProperty(zValue?zValue:zVal,-1);
+            if (zMod && *zMod=='l' && pProp->eType == CSS_TYPE_FLOAT) {
+                pProp->eType = CSS_TYPE_PX;
+            }
+            rc = HtmlComputedValuesSet(p, eProp, pProp);
+            HtmlComputedValuesFreeProperty(p, pProp);
+        }
+    }
+    HtmlFree(zCopy);
+    return rc;
 }
 
 void HtmlComputedValuesFreeProperty(p, pProp)
@@ -1904,6 +1997,11 @@ HtmlComputedValuesSet(p, eProp, pProp)
     /* Special case - a Tcl script to evaluate */
     if (pProp->eType == CSS_TYPE_TCL) {
         return propertyValuesTclScript(p, eProp, pProp->v.zVal);
+    }
+
+    /* Special case number 2 - attr() */
+    if (pProp->eType == CSS_TYPE_ATTR) {
+        return propertyValuesAttr(p, eProp, pProp->v.zVal);
     }
 
     if (pDef) {

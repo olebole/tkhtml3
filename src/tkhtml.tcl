@@ -69,29 +69,6 @@ switch -- $::tcl_platform(platform) {
 # Some Tcl procs used by html.css
 #
 namespace eval tkhtml {
-    proc len {val} {
-        if {[regexp {^[0-9]+$} $val]} {
-            append val px
-        }
-        return $val
-    }
-
-    proc color {val} {
-        set len [string length $val]
-        if {0==($len % 3) && [regexp {^[0-9a-fA-F]*$} $val]} {
-            return "#$val"
-        }
-        return $val
-    }
-
-    swproc attr {attr {len 0 1} {color 0 1}} {
-        upvar N node
-        set val [$node attr -default "" $attr]
-        if {$val == ""}    {error ""}
-        if {$len}          {return [len $val]}
-        if {$color}        {return [color $val]}
-        return $val
-    }
 
     # This is called for <input type=text> tags that have a size
     # attribute. The size attribute in this case is supposed to be
@@ -177,22 +154,6 @@ namespace eval tkhtml {
         }
 
         error "logic error"
-    }
-
-    swproc aa {tag attr {len 0 1} {if NULL} {color 0 1}} {
-        upvar N node
-        for {} {$node != ""} {set node [$node parent]} {
-            if {[$node tag] == $tag} {
-                if {[catch {$node attr $attr} val]} {error ""}
-
-                if {$if != "NULL"} {return $if}
-                if {$val == ""}    {error ""}
-                if {$len}          {return [len $val]}
-                if {$color}        {return [color $val]}
-                return $val
-            }
-        }
-        error "No such ancestor attribute: $tag $attr"
     }
 
     proc vscrollbar {base node} {

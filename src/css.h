@@ -75,23 +75,24 @@ typedef struct CssPropertySet CssPropertySet;
 #define CSS_TYPE_EM           1            /* Value in 'rVal' */
 #define CSS_TYPE_PX           2            /* Value in 'rVal' */
 #define CSS_TYPE_PT           3            /* Value in 'rVal' */
-#define CSS_TYPE_PC           14           /* Value in 'rVal' */
-#define CSS_TYPE_EX           15           /* Value in 'rVal' */
+#define CSS_TYPE_PC           4            /* Value in 'rVal' */
+#define CSS_TYPE_EX           5            /* Value in 'rVal' */
 
 /* Physical units. */
-#define CSS_TYPE_CENTIMETER   10           /* Value in 'rVal */
-#define CSS_TYPE_INCH         11           /* Value in 'rVal */
-#define CSS_TYPE_MILLIMETER   12           /* Value in 'rVal */
+#define CSS_TYPE_CENTIMETER   6            /* Value in 'rVal */
+#define CSS_TYPE_INCH         7            /* Value in 'rVal */
+#define CSS_TYPE_MILLIMETER   8            /* Value in 'rVal */
 
-#define CSS_TYPE_PERCENT      5            /* Value in 'rVal' */
-#define CSS_TYPE_FLOAT        6            /* Value in 'rVal' */
+#define CSS_TYPE_PERCENT      9            /* Value in 'rVal' */
+#define CSS_TYPE_FLOAT       10            /* Value in 'rVal' */
 
-#define CSS_TYPE_STRING       4            /* Value in 'sVal' */
-#define CSS_TYPE_NONE         7            /* No value */
+#define CSS_TYPE_STRING      11            /* Value in 'sVal' */
+#define CSS_TYPE_NONE        12            /* No value */
 
 /* Function notation */
-#define CSS_TYPE_TCL          8            /* Value in 'zVal' */
-#define CSS_TYPE_URL          9            /* Value in 'zVal' */
+#define CSS_TYPE_TCL         13            /* Value in 'zVal' */
+#define CSS_TYPE_URL         14            /* Value in 'zVal' */
+#define CSS_TYPE_ATTR        15            /* Value in 'zVal' */
 
 
 /*
@@ -121,6 +122,11 @@ CONST char *HtmlCssPropertyGetString(CssProperty *pProp);
  * not "h1 {font:large}").
  */
 CssProperty *HtmlCssStringToProperty(CONST char *z, int n);
+
+/*
+ * This is used to split up a white-space seperated list.
+ */
+const char *HtmlCssGetNextListItem(CONST char *z, int n, int *pN);
 
 /*
  * Functions to parse stylesheet and style data into CssStyleSheet objects.

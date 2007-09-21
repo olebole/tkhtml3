@@ -178,7 +178,7 @@ TEXTAREA, SELECT {
   line-height: normal;
 }
 
-INPUT[type="image"][src] { -tkhtml-replacement-image: tcl(::tkhtml::attr src) }
+INPUT[type="image"][src] { -tkhtml-replacement-image: attr(src) }
 
 /*
  * Default style for buttons created using <input> elements.
@@ -195,7 +195,7 @@ INPUT[type="submit"],INPUT[type="button"] {
   color:               tcl(::tkhtml::if_disabled #666666 #000000);
 }
 INPUT[type="submit"]:after,INPUT[type="button"]:after {
-  content: tcl(::tkhtml::attr value);
+  content: attr(value);
   position: relative;
 }
 
@@ -237,22 +237,22 @@ IFRAME {
  */
 
 /* 'color' */
-[color]              { color: tcl(::tkhtml::attr color -color) }
-body a[href]:link    { color: tcl(::tkhtml::aa body link -color) }
-body a[href]:visited { color: tcl(::tkhtml::aa body vlink -color) }
+[color]              { color: attr(color) }
+body a[href]:link    { color: attr(link x body) }
+body a[href]:visited { color: attr(vlink x body) }
 
 /* 'width', 'height', 'background-color' and 'font-size' */
-[width]            { width:            tcl(::tkhtml::attr width -len) }
-[height]           { height:           tcl(::tkhtml::attr height -len) }
-basefont[size]     { font-size:        tcl(::tkhtml::attr size) }
+[width]            { width:            attr(width l) }
+[height]           { height:           attr(height l) }
+basefont[size]     { font-size:        attr(size) }
 font[size]         { font-size:        tcl(::tkhtml::size_to_fontsize) }
-[bgcolor]          { background-color: tcl(::tkhtml::attr bgcolor -color) }
+[bgcolor]          { background-color: attr(bgcolor) }
 
-BR[clear]          { clear: tcl(::tkhtml::attr clear) }
+BR[clear]          { clear: attr(clear) }
 BR[clear="all"]    { clear: both; }
 
 /* Standard html <img> tags - replace the node with the image at url $src */
-IMG[src]              { -tkhtml-replacement-image: tcl(::tkhtml::attr src) }
+IMG[src]              { -tkhtml-replacement-image: attr(src) }
 IMG                   { -tkhtml-replacement-image: "" }
 
 /*
@@ -264,30 +264,30 @@ IMG                   { -tkhtml-replacement-image: "" }
  *     'border-spacing'
  */
 TABLE[border], TABLE[border] TD, TABLE[border] TH {
-    border-top-width:     tcl(::tkhtml::aa table border -len);
-    border-right-width:   tcl(::tkhtml::aa table border -len);
-    border-bottom-width:  tcl(::tkhtml::aa table border -len);
-    border-left-width:    tcl(::tkhtml::aa table border -len);
+    border-top-width:     attr(border l table);
+    border-right-width:   attr(border l table);
+    border-bottom-width:  attr(border l table);
+    border-left-width:    attr(border l table);
 
-    border-top-style:     tcl(::tkhtml::aa table border -if solid);
-    border-right-style:   tcl(::tkhtml::aa table border -if solid);
-    border-bottom-style:  tcl(::tkhtml::aa table border -if solid);
-    border-left-style:    tcl(::tkhtml::aa table border -if solid);
+    border-top-style:     attr(border x table solid);
+    border-right-style:   attr(border x table solid);
+    border-bottom-style:  attr(border x table solid);
+    border-left-style:    attr(border x table solid);
 }
 TABLE[border=""], TABLE[border=""] td, TABLE[border=""] th {
-    border-top-width:     tcl(::tkhtml::aa table border -if 1px);
-    border-right-width:   tcl(::tkhtml::aa table border -if 1px);
-    border-bottom-width:  tcl(::tkhtml::aa table border -if 1px);
-    border-left-width:    tcl(::tkhtml::aa table border -if 1px);
+    border-top-width:     attr(border x table solid);
+    border-right-width:   attr(border x table solid);
+    border-bottom-width:  attr(border x table solid);
+    border-left-width:    attr(border x table solid);
 }
 TABLE[cellpadding] td, TABLE[cellpadding] th {
-    padding-top:    tcl(::tkhtml::aa table cellpadding -len);
-    padding-right:  tcl(::tkhtml::aa table cellpadding -len);
-    padding-bottom: tcl(::tkhtml::aa table cellpadding -len);
-    padding-left:   tcl(::tkhtml::aa table cellpadding -len);
+    padding-top:    attr(cellpadding l table);
+    padding-right:  attr(cellpadding l table);
+    padding-bottom: attr(cellpadding l table);
+    padding-left:   attr(cellpadding l table);
 }
 TABLE[cellspacing], table[cellspacing] {
-    border-spacing: tcl(::tkhtml::attr cellspacing -len);
+    border-spacing: attr(cellspacing l);
 }
 
 /* Map the valign attribute to the 'vertical-align' property for table 
@@ -295,45 +295,43 @@ TABLE[cellspacing], table[cellspacing] {
  * valign if it is defined.
  */
 TD,TH                        {vertical-align: middle}
-TR[valign]>TD, TR[valign]>TH {vertical-align: tcl(::tkhtml::aa tr valign)}
-TR>TD[valign], TR>TH[valign] {vertical-align: tcl(::tkhtml::attr  valign)}
+TR[valign]>TD, TR[valign]>TH {vertical-align: attr(valign x tr)}
+TR>TD[valign], TR>TH[valign] {vertical-align: attr(valign)}
 
 
 /* Support the "text" attribute on the <body> tag */
-body[text]       {color: tcl(::tkhtml::attr text -color)}
+body[text]       {color: attr(text)}
 
 /* Allow background images to be specified using the "background" attribute.
  * According to HTML 4.01 this is only allowed for <body> elements, but
  * many websites use it arbitrarily.
  */
-[background] {
-    background-image: tcl(format "url(%s)" [::tkhtml::attr background])
-}
+[background] { background-image: attr(background) }
 
 /* The vspace and hspace attributes map to margins for elements of type
  * <IMG>, <OBJECT> and <APPLET> only. Note that this attribute is
  * deprecated in HTML 4.01.
  */
 IMG[vspace], OBJECT[vspace], APPLET[vspace] {
-    margin-top: tcl(::tkhtml::attr vspace -len);
-    margin-bottom: tcl(::tkhtml::attr vspace -len);
+    margin-top: attr(vspace l);
+    margin-bottom: attr(vspace l);
 }
 IMG[hspace], OBJECT[hspace], APPLET[hspace] {
-    margin-left: tcl(::tkhtml::attr hspace -len);
-    margin-right: tcl(::tkhtml::attr hspace -len);
+    margin-left: attr(hspace l);
+    margin-right: attr(hspace l);
 }
 
 /* marginheight and marginwidth attributes on <BODY> (netscape compatibility) */
 BODY[marginheight] {
-  margin-top: tcl(::tkhtml::attr marginheight -len);
-  margin-bottom: tcl(::tkhtml::attr marginheight -len);
+  margin-top: attr(marginheight l);
+  margin-bottom: attr(marginheight l);
 }
 BODY[marginwidth] {
-  margin-left: tcl(::tkhtml::attr marginwidth -len);
-  margin-right: tcl(::tkhtml::attr marginwidth -len);
+  margin-left: attr(marginwidth l);
+  margin-right: attr(marginwidth l);
 }
 
 SPAN[spancontent]:after {
-  content: tcl(::tkhtml::attr spancontent);
+  content: attr(spancontent);
 }
 

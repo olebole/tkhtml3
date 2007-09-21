@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.123 2007/09/14 07:32:37 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.124 2007/09/21 09:32:39 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -492,9 +492,10 @@ tokenToProperty(pParse, pToken)
         int len;
         char *zFunc;
     } functions[] = {
-        {CSS_TYPE_TCL, 3, "tcl"},
-        {CSS_TYPE_URL, 3, "url"},
-        {-1,           3, "rgb"},
+        {CSS_TYPE_TCL,  3, "tcl"},
+        {CSS_TYPE_URL,  3, "url"},
+        {CSS_TYPE_ATTR, 4, "attr"},
+        {-1,            3, "rgb"},
     };
 
     CssProperty *pProp = 0;
@@ -883,7 +884,7 @@ static int propertyIsLength(pProp)
 /*
  *---------------------------------------------------------------------------
  *
- * getNextListItem --
+ * HtmlCssGetNextListItem --
  *
  *     Return the first property from a space seperated list of properties.
  *
@@ -900,17 +901,17 @@ static int propertyIsLength(pProp)
  *
  *---------------------------------------------------------------------------
  */
-static CONST char *
-getNextListItem(zList, nList, pN)
-    CONST char *zList;
+const char *
+HtmlCssGetNextListItem(zList, nList, pN)
+    const char *zList;
     int nList;
     int *pN;
 {
     int n = 0;
     int t = CT_SPACE;
-    CONST char *zRet = 0;
-    CONST char *z = zList;
-    CONST char *zEnd = zList+nList;
+    const char *zRet = 0;
+    const char *z = zList;
+    const char *zEnd = zList+nList;
 
     while (z<zEnd && (t==CT_SPACE || t <= 0)) {
         t = cssGetToken(z, zEnd-z, &n);
@@ -1012,7 +1013,7 @@ static void propertySetAddShortcutBorder(p, prop, v)
     }
 
     while (z) {
-        z = getNextListItem(z, zEnd-z, &n);
+        z = HtmlCssGetNextListItem(z, zEnd-z, &n);
         if (z) {
             int *aProp = 0;
             CssToken token;
@@ -1147,7 +1148,7 @@ shortcutBackground(pParse, p, v)
     CssProperty *apProp[6];
     while (z && nProp<6) {
         int n;
-        z = getNextListItem(z, zEnd-z, &n);
+        z = HtmlCssGetNextListItem(z, zEnd-z, &n);
         if (z) {
             CssToken token;
             token.z = z;
@@ -1299,7 +1300,7 @@ shortcutListStyle(pParse, p, v)
 
     while (z) {
         int n;
-        z = getNextListItem(z, zEnd-z, &n);
+        z = HtmlCssGetNextListItem(z, zEnd-z, &n);
         if (z) {
             pProp = textToProperty(pParse, z, n);
             switch (pProp->eType) {
@@ -1514,7 +1515,7 @@ propertySetAddShortcutFont(pParse, p, v)
     CssProperty *pProp = 0;
     while (z) {
         int n;
-        z = getNextListItem(z, zEnd-z, &n);
+        z = HtmlCssGetNextListItem(z, zEnd-z, &n);
         if (z) {
             pProp = textToProperty(0, z, n);
             switch (pProp->eType) {
@@ -1575,11 +1576,11 @@ propertySetAddShortcutFont(pParse, p, v)
                     }
     
                     if (hasLineHeight) {
-                        z = getNextListItem(z, zEnd-z, &n);
+                        z = HtmlCssGetNextListItem(z, zEnd-z, &n);
                         pLineHeight = textToProperty(0, z, n);
                         z += n;
                     } 
-                    z = getNextListItem(z, zEnd-z, &n);
+                    z = HtmlCssGetNextListItem(z, zEnd-z, &n);
                     if (!z) goto bad_parse;
                     pFamily = textToFontFamilyProperty(pParse, z, zEnd-z);
                     z = 0;
@@ -1634,7 +1635,7 @@ tokenToPropertyList(pToken, apProp, nMax)
 
     while (z) {
         int nBytes;
-        z = getNextListItem(z, zEnd-z, &nBytes);
+        z = HtmlCssGetNextListItem(z, zEnd-z, &nBytes);
         if (z) {
             CssToken token;
             if (nProp == nMax) {
@@ -1778,7 +1779,7 @@ static void propertySetAddShortcutBorderColor(p, prop, v)
     memset(apProp, 0, sizeof(CssProperty *)*4);
 
     while (z && i<4) {
-        z = getNextListItem(z, zEnd-z, &n);
+        z = HtmlCssGetNextListItem(z, zEnd-z, &n);
         if (z) {
             CssToken token;
             token.z = z;
@@ -3377,7 +3378,7 @@ static int attrTest(eType, zString, zAttr)
             const char *pAttr = zAttr;
             int nAttr;
             int nString = strlen(zString);
-            while ((pAttr=getNextListItem(pAttr, strlen(pAttr), &nAttr))) {
+            while ((pAttr=HtmlCssGetNextListItem(pAttr, strlen(pAttr), &nAttr))) {
                 if (nString==nAttr && 0==strnicmp(pAttr, zString, nAttr)) {
                     return 1;
                 }
@@ -3873,7 +3874,7 @@ HtmlCssStyleSheetApply(pTree, pNode)
 
         while (
             npRule < (MAX_CLASSES + 2) &&
-            (zClass = getNextListItem(zClass, strlen(zClass), &nClass))
+            (zClass = HtmlCssGetNextListItem(zClass, strlen(zClass), &nClass))
         ) {
             strncpy(zTerm, zClass, MIN(MAX_CLASS_NAME, nClass));
             zTerm[MIN(MAX_CLASS_NAME - 1, nClass)] = '\0';
