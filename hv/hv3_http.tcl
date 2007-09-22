@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.50 2007/09/19 19:17:33 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.51 2007/09/22 17:12:34 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd script used with 
@@ -316,7 +316,7 @@ snit::type ::hv3::protocol {
       set bin [::tkhtml::decode $data]
     }
 
-    if {[regexp {^data:///([^,;]*)} $uri dummy mimetype]} {
+    if {[regexp {^data:/*([^,;]*)} $uri dummy mimetype]} {
         $downloadHandle configure -mimetype $mimetype
     }
 

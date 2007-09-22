@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.147 2007/09/22 16:05:18 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.148 2007/09/22 17:12:34 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -734,7 +734,7 @@ snit::widget ::hv3::browser_toplevel {
       -cgetmethod      CgetEnableJavascript
 
   method ConfigureEnableJavascript {option value} {
-    $myDom cget -enable $value
+    $myDom configure -enable $value
     set dom ""
     if {$value} { set dom $myDom }
     foreach f $myFrames {

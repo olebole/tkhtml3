@@ -1103,6 +1103,7 @@ snit::widget ::hv3::hv3 {
     $myHtml handler node   meta     [mymethod meta_node_handler]
     $myHtml handler node   title    [mymethod title_node_handler]
     $myHtml handler script style    [mymethod style_script_handler]
+    $myHtml handler script script   [mymethod ::hv3::ignore_script]
 
     # $myHtml handler script script   [mymethod script_script_handler]
 
@@ -1938,6 +1939,9 @@ snit::widget ::hv3::hv3 {
       $myHtml handler script script   [list $options(-dom) script $self]
       $myHtml handler script noscript [list $options(-dom) noscript $self]
       $options(-dom) make_window $self
+    } else {
+      $myHtml handler script script   ::hv3::ignore_script
+      $myHtml handler script noscript {}
     }
   }
 
@@ -1987,6 +1991,8 @@ snit::widget ::hv3::hv3 {
   delegate option -forcefontmetrics to myHtml
   delegate option -doublebuffer     to myHtml
 }
+
+proc ::hv3::ignore_script {attr script} {}
 
 # This proc is passed as the -urlcmd option to the [style] method of the
 # Tkhtml3 widget. Returns the full-uri formed by resolving $rel relative

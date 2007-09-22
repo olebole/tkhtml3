@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.74 2007/09/22 04:49:38 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.75 2007/09/22 17:12:34 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Snit types in this file:
@@ -75,11 +75,11 @@ snit::type ::hv3::dom {
 
   method autoenable {hv3 uri} {
     if {$mySee eq "" && 
-        [info commands ::see::interp] ne "" &&
         $hv3 eq [$myBrowser hv3] && 
         [string first home: $uri] == 0
     } {
       ::hv3::enable_javascript
+      if {[info commands ::see::interp] eq ""} return
       set mySee [::see::interp]
       ::hv3::profile::instrument $mySee
       foreach win [array names myWindows] {

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.59 2007/07/18 11:40:12 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.60 2007/09/22 17:12:34 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_prop.tcl --
@@ -505,10 +505,12 @@ proc ::hv3::debug::EventsReport {hv3 node} {
 
   set Tbl {<table border=1 width=100%>}
   append Tbl {<tr><th>Event<th>Listener-Type<th>Javascript</tr>}
-  foreach evt [$dom eventdump $node] {
-    foreach {e l j} $evt {}
-    set fj [htmlize [::see::format $j]]
-    append Tbl "<tr><td>$e<td>$l<td><pre>$fj</pre>" 
+  if {$dom ne ""} {
+    foreach evt [$dom eventdump $node] {
+      foreach {e l j} $evt {}
+      set fj [htmlize [::see::format $j]]
+      append Tbl "<tr><td>$e<td>$l<td><pre>$fj</pre>" 
+    }
   }
   append Tbl { </table> }
 
