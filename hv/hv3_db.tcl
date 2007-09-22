@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_db.tcl,v 1.10 2007/09/19 18:43:42 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_db.tcl,v 1.11 2007/09/22 04:49:38 danielk1977 Exp $)} 1 }
 
 # Class ::hv3::visiteddb
 #
@@ -39,7 +39,7 @@ snit::type ::hv3::visiteddb {
     if {![::hv3::have_sqlite3]} return
 
     bind $hv3 <<Location>> +[mymethod LocationHandler %W]
-    $hv3 configure -isvisitedcmd [mymethod LocationQuery $hv3]
+    $hv3 configure -isvisitedcmd [myproc LocationQuery]
   }
 
   method LocationHandler {hv3} {
@@ -47,14 +47,12 @@ snit::type ::hv3::visiteddb {
     $self addkey $location
   }
 
-  method LocationQuery {hv3 reluri} {
-
-    set full [$hv3 resolve_uri $reluri]
-
+  proc LocationQuery {uri} {
     # Query the database to see if this URI has been visited before.
     # If so 1 is returned, otherwise 0.
-    set sql {SELECT count(*) FROM visiteddb WHERE uri = $full}
-    return [::hv3::sqlitedb eval $sql]
+    return [::hv3::sqlitedb eval {
+        SELECT count(*) FROM visiteddb WHERE uri = $uri
+    }]
   }
 
   # Return a list of all visited URIs that match the pattern $pattern.
@@ -82,7 +80,7 @@ snit::type ::hv3::visiteddb {
     set sql1 {REPLACE INTO visiteddb VALUES($uri, $timestamp)}
     set sql2 {
       DELETE FROM visiteddb WHERE oid IN (
-        SELECT oid FROM visiteddb ORDER BY lastvisited DESC
+        SELECT oid FROM visiteddb ORDER BY oid DESC
         LIMIT -1 OFFSET $MAX_ENTRIES
       )
     }

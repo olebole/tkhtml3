@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.190 2007/09/21 09:31:08 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.191 2007/09/22 04:49:38 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -848,16 +848,18 @@ snit::type ::hv3::hv3::dynamicmanager {
 # to the <Motion>, <ButtonPress-1> and <ButtonRelease-1> events on the
 # associated hv3 widget.
 #
+
 snit::type ::hv3::hv3::hyperlinkmanager {
   variable myHv3
-
+  variable myBaseUri ""
   variable myLinkHoverCount 0
 
-  option -isvisitedcmd -default ""
+  option -isvisitedcmd -default "" -configuremethod SetVisitedCmd
   option -targetcmd -default ""
 
-  constructor {hv3} {
+  constructor {hv3 baseuri} {
     set myHv3 $hv3
+    set myBaseUri $baseuri
 
     # Set up the default -targetcmd script to always return $myHv3.
     set options(-targetcmd) [list ::hv3::ReturnWithArgs $hv3]
@@ -870,6 +872,45 @@ snit::type ::hv3::hv3::hyperlinkmanager {
 
   method reset {} {
     set myLinkHoverCount 0
+  }
+
+  method SetVisitedCmd {option value} {
+    set options($option) $value
+
+    set P_NODE ${selfns}::a_node_handler
+    catch {rename $P_NODE ""}
+    set template [list \
+      proc $P_NODE {node} {
+        if {![catch {
+          set uri [%BASEURI% resolve [$node attr href]]
+        }]} {
+          if {[%VISITEDCMD% $uri]} {
+            $node dynamic set visited
+          } else {
+            $node dynamic set link
+          }
+        }
+      }
+    ]
+    eval [::snit::Expand $template %BASEURI% $myBaseUri %VISITEDCMD% $value]
+
+    set P_ATTR ${selfns}::a_attr_handler
+    catch {rename $P_ATTR ""}
+    set template [list \
+      proc $P_ATTR {node attr val} {
+        if {attr eq "href"} {
+          if {[%VISITEDCMD% [%BASEURI% resolve $uri]]} {
+            $node dynamic set visited
+          } else {
+            $node dynamic set link
+          }
+        }
+      }
+    ]
+    eval [::snit::Expand $template %BASEURI% $myBaseUri %VISITEDCMD% $value]
+
+    $myHv3 handler node a $P_NODE
+    $myHv3 handler attribute a $P_ATTR
   }
 
   # Handle creation of a new <A> node:
@@ -1035,15 +1076,16 @@ snit::widget ::hv3::hv3 {
 
     # $myHtml configure -layoutcache 0
 
+    # Location URI. The default URI is "blank://".
+    set myUri  [::tkhtml::uri home://blank/]
+    set myBase [::tkhtml::uri home://blank/]
+
     # Create the event-handling components.
-    set myHyperlinkManager [::hv3::hv3::hyperlinkmanager %AUTO% $self]
+    set myHyperlinkManager [::hv3::hv3::hyperlinkmanager %AUTO% $self $myBase]
     set mySelectionManager [::hv3::hv3::selectionmanager %AUTO% $self]
     set myDynamicManager   [::hv3::hv3::dynamicmanager   %AUTO% $self]
 
     $myMouseManager configure -selectionmanager $mySelectionManager
-
-    # Location URI. The default URI is "blank://".
-    set myUri [::tkhtml::uri home://blank/]
 
     set myFormManager [::hv3::formmanager %AUTO% $self]
     $myFormManager configure -getcmd  [mymethod Formcmd get]
@@ -1165,8 +1207,7 @@ snit::widget ::hv3::hv3 {
 
   method set_pending_var {} {
     if {$options(-pendingvar) ne ""} {
-      set val [expr [llength $myCurrentDownloads] > 0]
-      uplevel #0 [list set $options(-pendingvar) $val]
+      uplevel #0 $options(-pendingvar) [llength $myCurrentDownloads]
     }
     after cancel [mymethod MightBeComplete]
     after idle [mymethod MightBeComplete]
@@ -1189,14 +1230,10 @@ snit::widget ::hv3::hv3 {
   method onload_fired {} { return $myOnloadFired }
 
   method resolve_uri {uri} {
-    set base $myBase
-    if {$base eq ""} {
-      set base $myUri
-    }
     if {$uri eq ""} {
-      set ret "[$base scheme]://[$base authority][$base path]"
+      set ret "[$myBase scheme]://[$myBase authority][$myBase path]"
     } else {
-      set ret [$base resolve $uri]
+      set ret [$myBase resolve $uri]
     }
     return $ret
   }
@@ -1460,16 +1497,11 @@ snit::widget ::hv3::hv3 {
   # Node handler script for <base> tags.
   #
   method base_node_handler {node} {
-    set baseuri [$node attr -default "" href]
-    if {$baseuri ne ""} {
-      # Technically, a <base> tag is required to specify an absolute URI.
-      # If a relative URI is specified, hv3 resolves it relative to the
-      # current location URI. This is not standards compliant, but seems
-      # like a reasonable idea.
-      if {$myBase ne ""} {$myBase destroy}
-      set myBase [::tkhtml::uri [$myUri get_no_fragment]]
-      $myBase load $baseuri
-    }
+    # Technically, a <base> tag is required to specify an absolute URI.
+    # If a relative URI is specified, hv3 resolves it relative to the
+    # current location URI. This is not standards compliant (a relative URI
+    # is technically illegal), but seems like a reasonable idea.
+    $myBase load [$node attr -default "" href]
   }
 
   # Script handler for <style> tags.
@@ -1562,6 +1594,7 @@ snit::widget ::hv3::hv3 {
       set myReferrer $referrer
   
       $myUri load [$handle cget -uri]
+      $myBase load [$myUri get]
       $self set_location_var
       set myForceReload 0
       set myStyleCount 0
@@ -1694,6 +1727,7 @@ snit::widget ::hv3::hv3 {
 
   method seturi {uri} {
     $myUri load $uri
+    $myBase load [$myUri get]
   }
 
   #--------------------------------------------------------------------------
@@ -1902,11 +1936,6 @@ snit::widget ::hv3::hv3 {
 
     if {$options(-dom) ne ""} {
       $options(-dom) clear_window $self
-    }
-
-    if {$myBase ne ""} {
-      $myBase destroy
-      set myBase ""
     }
 
     set myQuirksmode unknown

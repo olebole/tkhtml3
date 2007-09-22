@@ -110,6 +110,7 @@ hv3_img.vfs: binaries
 	cp $(TOP)/hv/main.tcl ./hv3_img.vfs/
 	cp $(TOP)/hv/combobox.tcl ./hv3_img.vfs/
 	cp $(TOP)/hv/snit.tcl ./hv3_img.vfs/
+	cp $(TOP)/hv/snit2.tcl ./hv3_img.vfs/
 	cp $(TOP)/hv/index.html ./hv3_img.vfs/
 	cp $(TOP)/hv/bookmarks.html ./hv3_img.vfs/
 	cp $(TOP)/hv/bugreport.html ./hv3_img.vfs/

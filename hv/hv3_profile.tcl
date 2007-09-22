@@ -79,8 +79,8 @@ namespace eval ::hv3::profile {
     $db eval {
       SELECT proc, 
         sum(calls) AS calls, 
-        sum(clicks) -
-          (SELECT sum(clicks) FROM vectors WHERE caller = v1.proc) AS self,
+        sum(clicks) - COALESCE(
+          (SELECT sum(clicks) FROM vectors WHERE caller = v1.proc), 0) AS self,
         (SELECT sum(clicks) FROM vectors WHERE caller = v1.proc) AS children
       FROM vectors AS v1
       GROUP BY proc

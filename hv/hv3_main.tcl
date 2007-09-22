@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.145 2007/09/20 17:21:48 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.146 2007/09/22 04:49:38 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -33,7 +33,12 @@ proc htmlize {zIn} {
 
 # Source the other script files that are part of this application.
 #
-source [sourcefile snit.tcl]
+if {[package vsatisfies [package provide Tcl] 8.5]} {
+  source [sourcefile snit2.tcl]
+} else {
+  source [sourcefile snit.tcl]
+}
+
 source [sourcefile hv3_encodings.tcl]
 source [sourcefile hv3_db.tcl]
 source [sourcefile hv3_home.tcl]
@@ -497,8 +502,8 @@ snit::widget ::hv3::browser_toplevel {
     # Create the protocol
     set myProtocol [::hv3::protocol %AUTO%]
     $myMainFrame configure -requestcmd       [list $myProtocol requestcmd]
-    $myMainFrame configure -pendingvar       [myvar myPendingVar]
 
+    $myMainFrame configure -pendingvar       [mymethod pendingcmd]
     trace add variable [myvar myPendingVar] write [mymethod Setstopbutton]
 
     $myProtocol configure -statusvar [myvar myProtocolStatus]
@@ -594,9 +599,10 @@ snit::widget ::hv3::browser_toplevel {
     set myStatusVar "$myProtocolStatus    $myFrameStatus"
   }
 
-  method Setstopbutton {args} {
-    if {$options(-stopbutton) ne ""} {
-      if {$myPendingVar} { 
+  variable myIsPending -1
+  method pendingcmd {isPending} {
+    if {$options(-stopbutton) ne "" && $myIsPending != $isPending} {
+      if {$isPending} { 
         $options(-stopbutton) configure -state normal
         $hull configure -cursor watch
       } else {
@@ -604,11 +610,14 @@ snit::widget ::hv3::browser_toplevel {
         $hull configure -cursor ""
       }
       $options(-stopbutton) configure -command [list $myMainFrame stop]
+      set myIsPending $isPending
     }
   }
   method Configurestopbutton {option value} {
     set options(-stopbutton) $value
-    $self Setstopbutton
+    set val $myIsPending
+    set myIsPending -1
+    $self pendingcmd $val
   }
 
   # Escape --

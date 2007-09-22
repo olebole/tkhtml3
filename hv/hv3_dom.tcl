@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.73 2007/09/01 14:21:28 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.74 2007/09/22 04:49:38 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Snit types in this file:
@@ -56,6 +56,7 @@ snit::type ::hv3::dom {
 
   method SetEnable {option value} {
     set options($option) $value
+    if {$value} ::hv3::enable_javascript
     if {$mySee ne "" && ![$self HaveScripting]} {
       foreach win [array names myWindows] {
         $mySee make_transient [list ::hv3::DOM::Window $self $win]
@@ -78,6 +79,7 @@ snit::type ::hv3::dom {
         $hv3 eq [$myBrowser hv3] && 
         [string first home: $uri] == 0
     } {
+      ::hv3::enable_javascript
       set mySee [::see::interp]
       ::hv3::profile::instrument $mySee
       foreach win [array names myWindows] {
@@ -1234,41 +1236,50 @@ snit::widget ::hv3::dom::logwin {
 #-----------------------------------------------------------------------
 # Pull in the object definitions.
 #
-source [file join [file dirname [info script]] hv3_dom_compiler.tcl]
+proc ::hv3::dom_init {} {
+  if {[info commands ::see::interp] eq ""} return
+  uplevel #0 {
 
-foreach f [list \
-  hv3_dom_containers.tcl \
-  hv3_dom_core.tcl \
-  hv3_dom_html.tcl \
-  hv3_dom_style.tcl \
-  hv3_dom_ns.tcl \
-  hv3_dom_events.tcl \
-  hv3_dom_xmlhttp.tcl \
-] {
-  source [file join [file dirname [info script]] $f]
+    source [file join $::hv3::scriptdir hv3_dom_compiler.tcl]
+    
+    foreach f [list \
+      hv3_dom_containers.tcl \
+      hv3_dom_core.tcl \
+      hv3_dom_html.tcl \
+      hv3_dom_style.tcl \
+      hv3_dom_ns.tcl \
+      hv3_dom_events.tcl \
+      hv3_dom_xmlhttp.tcl \
+    ] {
+      source [file join $::hv3::scriptdir $f]
+    }
+    set classlist [concat \
+      Implementation                          \
+      HTMLCollectionC HTMLCollectionS         \
+      NodeListC NodeListS                     \
+      HTMLElement HTMLDocument \
+      [::hv3::dom::getHTMLElementClassList]   \
+      [::hv3::dom::getNSClassList]            \
+      Text NodePrototype                      \
+      CSSStyleDeclaration                     \
+      Event MouseEvent                        \
+      XMLHttpRequest XMLHttpRequestEvent      \
+      FramesList                              \
+    ]
+    foreach c $classlist {
+      eval [::hv3::dom2::compile $c]
+    }
+    #puts [::hv3::dom2::compile XMLHttpRequest]
+    
+    ::hv3::create_domref
+    
+    ::hv3::compile_bookmarks_object
+    ::hv3::dom2::cleanup
+    
+    set ::hv3::dom::reformat_scripts_option 0
+    #set ::hv3::dom::reformat_scripts_option 1
+  }
 }
-set classlist [concat \
-  Implementation                          \
-  HTMLCollectionC HTMLCollectionS         \
-  NodeListC NodeListS                     \
-  HTMLElement HTMLDocument \
-  [::hv3::dom::getHTMLElementClassList]   \
-  [::hv3::dom::getNSClassList]            \
-  Text NodePrototype                      \
-  CSSStyleDeclaration                     \
-  Event MouseEvent                        \
-  XMLHttpRequest XMLHttpRequestEvent      \
-  FramesList                              \
-]
-foreach c $classlist {
-  eval [::hv3::dom2::compile $c]
-}
-#puts [::hv3::dom2::compile XMLHttpRequest]
-
-::hv3::create_domref
-
-::hv3::compile_bookmarks_object
-::hv3::dom2::cleanup
 
 #-----------------------------------------------------------------------
 # Initialise the scripting environment. This tries to load the javascript
@@ -1281,14 +1292,15 @@ foreach c $classlist {
 #         puts "No scripting here. Probably better that way."
 #     }
 #
-proc ::hv3::dom::init {} {
-  # Load the javascript library.
-  #
-  catch { load [file join tclsee0.1 libTclsee.so] }
-  catch { package require Tclsee }
-}
-::hv3::dom::init
+catch { load [file join tclsee0.1 libTclsee.so] }
+catch { package require Tclsee }
 
-set ::hv3::dom::reformat_scripts_option 0
-#set ::hv3::dom::reformat_scripts_option 1
+set ::hv3::scriptdir [file dirname [info script]]
+set ::hv3::dom_init_has_run 0
+proc ::hv3::enable_javascript {} {
+  if {!$::hv3::dom_init_has_run} {
+    ::hv3::dom_init
+    set ::hv3::dom_init_has_run 1
+  }
+}
 
