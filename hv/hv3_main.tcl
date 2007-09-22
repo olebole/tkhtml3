@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.146 2007/09/22 04:49:38 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.147 2007/09/22 16:05:18 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -111,7 +111,7 @@ snit::widget ::hv3::browser_frame {
     $myHv3 configure -downloadcmd [list ::hv3::the_download_manager savehandle]
 
     # Create bindings for motion, right-click and middle-click.
-    bind $myHv3 <Motion> +[mymethod motion %x %y]
+    $myHv3 Subscribe motion [list $self motion]
     bind $myHv3 <3>       [mymethod rightclick %x %y %X %Y]
     bind $myHv3 <2>       [mymethod goto_selection]
 
@@ -368,10 +368,10 @@ snit::widget ::hv3::browser_frame {
     $theTopFrame goto [selection get]
   }
 
-  method motion {x y} {
+  method motion {N x y} {
     set myX $x
     set myY $y
-    set myNodeList [$myHv3 node $x $y]
+    set myNodeList $N
     $self update_statusvar
   }
 
@@ -396,9 +396,26 @@ snit::widget ::hv3::browser_frame {
 
   method update_statusvar {} {
     if {$options(-statusvar) ne ""} {
-      set value [$self node_to_string [lindex $myNodeList end]]
-      set str "($myX $myY) $value"
-      uplevel #0 [list set $options(-statusvar) $str]
+      global $options(-statusvar)
+      set str ""
+      switch -- $::hv3::G(status_mode) {
+        browser-tree {
+          set value [$self node_to_string [lindex $myNodeList end]]
+          set str "($myX $myY) $value"
+        }
+        browser {
+          for {set n [lindex $myNodeList end]} {$n ne ""} {set n [$n parent]} {
+            if {[$n tag] eq "a" && [$n attr -default "" href] ne ""} {
+              set str "hyper-link: [string trim [$n attr href]]"
+              break
+            }
+          }
+        }
+      }
+
+      if {$options(-statusvar) ne $str} {
+        set $options(-statusvar) $str
+      }
     }
   }
  
@@ -408,6 +425,7 @@ snit::widget ::hv3::browser_frame {
 
   method goto {args} {
     eval [concat $myHv3 goto $args]
+    set myNodeList ""
     $self update_statusvar
   }
 
@@ -453,7 +471,7 @@ snit::widget ::hv3::browser_frame {
 
   delegate option -requestcmd         to myHv3
   delegate option -resetcmd           to myHv3
-  delegate option -pendingvar         to myHv3
+  delegate option -pendingcmd         to myHv3
 
   delegate method stop to myHv3
   delegate method titlevar to myHv3
@@ -484,17 +502,12 @@ snit::widget ::hv3::browser_toplevel {
   # their toplevel browser. 
   variable myFrames [list]
 
-  method statusvar {}   {return [myvar myStatusVar]}
+  method statusvar {} {return [myvar myStatusVar]}
   delegate method titlevar to myMainFrame
 
-  # Variable passed to the -pendingvar option of the ::hv3::hv3 widget
-  # associated with the $myMainFrame frame. Set to true when the 
-  # "Stop" button should be enabled, else false.
-  #
-  # TODO: Frames bug?
-  variable myPendingVar 0
-
   constructor {args} {
+    set myDom [::hv3::dom %AUTO% $self]
+
     # Create the main browser frame (always present)
     set myMainFrame [::hv3::browser_frame $win.browser_frame $self]
     pack $myMainFrame -expand true -fill both -side top
@@ -502,14 +515,12 @@ snit::widget ::hv3::browser_toplevel {
     # Create the protocol
     set myProtocol [::hv3::protocol %AUTO%]
     $myMainFrame configure -requestcmd       [list $myProtocol requestcmd]
+    $myMainFrame configure -pendingcmd       [mymethod pendingcmd]
 
-    $myMainFrame configure -pendingvar       [mymethod pendingcmd]
-    trace add variable [myvar myPendingVar] write [mymethod Setstopbutton]
-
-    $myProtocol configure -statusvar [myvar myProtocolStatus]
-    $myMainFrame configure -statusvar [myvar myFrameStatus]
     trace add variable [myvar myProtocolStatus] write [mymethod Writestatus]
     trace add variable [myvar myFrameStatus]    write [mymethod Writestatus]
+    $myMainFrame configure -statusvar [myvar myFrameStatus]
+    $myProtocol  configure -statusvar [myvar myProtocolStatus]
 
     # Link in the "home:" and "about:" scheme handlers (from hv3_home.tcl)
     ::hv3::home_scheme_init [$myMainFrame hv3] $myProtocol
@@ -519,9 +530,6 @@ snit::widget ::hv3::browser_toplevel {
     # Create the history sub-system
     set myHistory [::hv3::history %AUTO% [$myMainFrame hv3] $myProtocol $self]
     $myHistory configure -gotocmd [mymethod goto]
-
-    set myDom [::hv3::dom %AUTO% $self]
-    $myMainFrame configure -dom $myDom
 
     $self configurelist $args
   }
@@ -558,7 +566,9 @@ snit::widget ::hv3::browser_toplevel {
     bind $HTML <1>               [list focus %W]
     bind $HTML <KeyPress-slash>  [mymethod Find]
     bindtags $HTML [concat Hv3HotKeys $self [bindtags $HTML]]
-    $frame configure -dom $myDom
+    if {[$myDom cget -enable]} {
+      $frame configure -dom $dom
+    }
     $::hv3::G(config) configureframe $frame
   }
   method del_frame {frame} {
@@ -718,6 +728,23 @@ snit::widget ::hv3::browser_toplevel {
     $myHistory reload
   }
 
+  option -enablejavascript                         \
+      -default 0                                   \
+      -configuremethod ConfigureEnableJavascript   \
+      -cgetmethod      CgetEnableJavascript
+
+  method ConfigureEnableJavascript {option value} {
+    $myDom cget -enable $value
+    set dom ""
+    if {$value} { set dom $myDom }
+    foreach f $myFrames {
+      $f configure -dom $dom
+    }
+  }
+  method CgetEnableJavascript {option} {
+    $myDom cget -enable
+  }
+
   delegate method populate_history_menu to myHistory as populate_menu
 
   option -stopbutton -default "" -configuremethod Configurestopbutton
@@ -725,8 +752,6 @@ snit::widget ::hv3::browser_toplevel {
   delegate option -backbutton    to myHistory
   delegate option -forwardbutton to myHistory
   delegate option -locationentry to myHistory
-
-  delegate option -enablejavascript to myDom as -enable
 
   delegate method locationvar to myHistory
   delegate method populatehistorymenu to myHistory
@@ -1271,8 +1296,11 @@ proc gui_build {widget_array} {
 
   # And the bottom bit - the status bar
   ::hv3::label .status -anchor w -width 1
-  bind .status <1> [list gui_current ProtocolGui toggle]
-  bind .status <3> [list gui_toggle_status $widget_array]
+  bind .status <1>     [list gui_current ProtocolGui toggle]
+
+  bind .status <3>     [list gui_status_toggle $widget_array]
+  bind .status <Enter> [list gui_status_enter  $widget_array]
+  bind .status <Leave> [list gui_status_leave  $widget_array]
 
   # Set the widget-array variables
   set G(new_button)     .toolbar.b.new
@@ -1284,6 +1312,18 @@ proc gui_build {widget_array} {
   set G(location_entry) .toolbar.entry
   set G(notebook)       .notebook
   set G(status_label)   .status
+
+  # The G(status_mode) variable takes one of the following values:
+  #
+  #     "browser"      - Normal browser status bar.
+  #     "browser-tree" - Similar to "browser", but displays the document tree
+  #                      hierachy for the node the cursor is currently 
+  #                      hovering over. This used to be the default.
+  #     "memory"       - Show information to do with Hv3's memory usage.
+  #
+  # The "browser" mode uses less CPU than "browser-tree" and "memory". 
+  # The user cycles through the modes by right-clicking on the status bar.
+  #
   set G(status_mode)    "browser"
 
   # Pack the elements of the "top bit" into the .entry frame
@@ -1427,9 +1467,7 @@ proc gui_switch {new} {
   #
   set gotocmd [list goto_gui_location $new $G(location_entry)]
   $G(location_entry) configure -command $gotocmd
-  if {$G(status_mode) eq "browser"} {
-    $G(status_label) configure -textvar [$new statusvar]
-  }
+  gui_status_leave ::hv3::G
 
   # Configure the new current tab with the contents of the drop-down
   # config menu (i.e. font-size, are images enabled etc.).
@@ -1523,17 +1561,49 @@ proc gui_escape {} {
 }
 bind Hv3HotKeys <KeyPress-Escape> gui_escape
 
-proc gui_toggle_status {widget_array} {
+proc gui_status_enter {widget_array} {
   upvar $widget_array G
-  if {$G(status_mode) eq "browser"} {
-    set G(status_mode) "memory"
-    $G(status_label) configure -textvar ""
-    gui_set_memstatus $widget_array
-  } else {
-    set G(status_mode) "browser"
-    $G(status_label) configure -textvar [gui_current statusvar]
+  after cancel [list gui_set_memstatus $widget_array]
+  gui_status_help $widget_array
+  $G(status_label) configure -textvar ::hv3::G(status_help)
+}
+proc gui_status_help {widget_array} {
+  upvar $widget_array G
+  set G(status_help)    "Current status-bar mode: "
+  switch -- $G(status_mode) {
+    browser      { append G(status_help) "Normal" }
+    browser-tree { append G(status_help) "Tree-Browser" }
+    memory       { append G(status_help) "Memory-Usage" }
+  }
+  append G(status_help) "        "
+  append G(status_help) "(To toggle mode, right-click)"
+  append G(status_help) "        "
+  append G(status_help) "(To view outstanding resource requests, left-click)"
+}
+proc gui_status_leave {widget_array} {
+  upvar $widget_array G
+
+  switch -exact -- $G(status_mode) {
+    browser {
+      $G(status_label) configure -textvar [gui_current statusvar]
+    }
+    browser-tree {
+      $G(status_label) configure -textvar [gui_current statusvar]
+    }
+    memory {
+      $G(status_label) configure -textvar ""
+      gui_set_memstatus $widget_array
+    }
   }
 }
+proc gui_status_toggle {widget_array} {
+  upvar $widget_array G
+  set modes [list browser browser-tree memory]
+  set iNewMode [expr {([lsearch $modes $G(status_mode)]+1)%[llength $modes]}]
+  set G(status_mode) [lindex $modes $iNewMode]
+  gui_status_help $widget_array
+}
+
 proc gui_set_memstatus {widget_array} {
   upvar $widget_array G
   if {$G(status_mode) eq "memory"} {
@@ -1546,7 +1616,9 @@ proc gui_set_memstatus {widget_array} {
       set nHeap [expr {int($v(GC_get_heap_size) / 1000)}]
       set nFree [expr {int($v(GC_get_free_bytes) / 1000)}]
       set nDom $v(SeeTclObject)
-      append status "          GC Heap: ${nHeap}K (${nFree}K free) ($v(SeeTclObject) DOM objects)"
+      append status "          "
+      append status "GC Heap: ${nHeap}K (${nFree}K free) "
+      append status "($v(SeeTclObject) DOM objects)"
     }
     catch {
       foreach line [split [memory info] "\n"] {

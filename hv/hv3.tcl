@@ -1,4 +1,3 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.191 2007/09/22 04:49:38 danielk1977 Exp $)} 1 }
 
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
@@ -42,11 +41,11 @@ namespace eval hv3 { set {version($Id: hv3.tcl,v 1.191 2007/09/22 04:49:38 danie
 #     -locationvar
 #         Set to the URI of the currently displayed document.
 #
-#     -pendingvar
-#         Name of var to set to true while resource requests are
-#         pending for the currently displayed document. This is
-#         useful for a web browser GUI that needs to disable the 
-#         "stop" button after all resource requests are completed.
+#     -pendingcmd
+#         Name of command to invoke to inform the user as to whether or not
+#         there are currently resource requests pending.  This is useful for a
+#         web browser GUI that needs to disable the "stop" button after all
+#         resource requests are completed.
 #
 #     -scrollbarpolicy
 #         This option may be set to either a boolean value or "auto". It
@@ -155,9 +154,9 @@ source [file join [file dirname [info script]] hv3_dom.tcl]
 #     rest of the application. The following HTML4 events are handled:
 #
 #     Pointer movement:
-#         onmousemove
 #         onmouseover
 #         onmouseout
+#         motion
 #
 #     Click-related events:
 #         onmousedown
@@ -176,12 +175,13 @@ source [file join [file dirname [info script]] hv3_dom.tcl]
 #         ::hv3::formmanager
 #             Click events (for clickable controls) on all nodes.
 #
-#         ::hv3::dom
-#             All events on leaf nodes..
+#         ::hv3::selectionmanager
+#             motion
 #
 snit::type ::hv3::hv3::mousemanager {
 
   variable myHv3 ""
+  variable myHtml ""
 
   # In browsers with no DOM support, the following option is set to
   # an empty string.
@@ -204,8 +204,7 @@ snit::type ::hv3::hv3::mousemanager {
   #
   # the EVENT-TYPE parameter is one of:
   #
-  #     "click", "mouseup", "mousedown", 
-  #     "mousemove", "mouseover" or "mouseout".
+  #     "click", "mouseup", "mousedown", "mouseover" or "mouseout".
   #
   # NODE is the target leaf node and X and Y are the pointer coordinates
   # relative to the top-left of the html widget window.
@@ -217,8 +216,6 @@ snit::type ::hv3::hv3::mousemanager {
   # value of the $options(-dom) script.
   #
   option -dom -default ""
-
-  option -selectionmanager -default ""
 
   # This variable is set to the node-handle that the pointer is currently
   # hovered over. Used by code that dispatches the "mouseout", "mouseover"
@@ -243,8 +240,12 @@ snit::type ::hv3::hv3::mousemanager {
   variable myTopHoverNode ""
 
   # List of handled HTML4 event types (a constant)
-  variable EVENTS [list onmouseover onmousemove onmouseout onclick \
-      ondblclick onmousedown onmouseup]
+  variable EVENTS [list \
+      onmouseover onmouseout onclick onmousedown onmouseup motion
+  ]
+
+  variable myCursor ""
+  variable myCursorWin ""
 
   constructor {hv3} {
     foreach e $EVENTS {
@@ -252,6 +253,9 @@ snit::type ::hv3::hv3::mousemanager {
     }
 
     set myHv3 $hv3
+    set myHtml [$hv3 html]
+    set myCursorWin [$hv3 hull]
+
     bind $myHv3 <Motion>          "+[mymethod Motion  %W %x %y]"
     bind $myHv3 <ButtonPress-1>   "+[mymethod Press   %W %x %y]"
     bind $myHv3 <ButtonRelease-1> "+[mymethod Release %W %x %y]"
@@ -271,17 +275,7 @@ snit::type ::hv3::hv3::mousemanager {
   method reset {} {
     array unset myActiveNodes
     array unset myHoverNodes
-
     set myCurrentDomNode ""
-  }
-
-  # Generate a $event event on node $node.
-  #
-  method Generate {event node} {
-    if {[info commands $node] eq ""} return
-    foreach script $myScripts($event) {
-      eval $script $node
-    }
   }
 
   method GenerateEvents {eventlist} {
@@ -325,23 +319,25 @@ snit::type ::hv3::hv3::mousemanager {
     # When the cursor is over multiple nodes (because overlapping content
     # has been generated), maybe this should consider all overlapping nodes
     # as "hovered".
-    set nodelist [lindex [$myHv3 node $x $y] end]
+    set nodelist [lindex [$myHtml node $x $y] end]
     
     # Handle the 'cursor' property.
     #
     set topnode [lindex $nodelist end]
     if {$topnode ne "" && $topnode ne $myTopHoverNode} {
+
       set Cursor ""
       if {[$topnode tag] eq ""} {
         set Cursor xterm
         set topnode [$topnode parent]
       }
       set css2_cursor [$topnode property cursor]
-      catch {
-        set Cursor $CURSORS($css2_cursor)
-      }
+      catch { set Cursor $CURSORS($css2_cursor) }
 
-      [$myHv3 hull] configure -cursor $Cursor
+      if {$Cursor ne $myCursor} {
+        $myCursorWin configure -cursor $Cursor
+        set myCursor $Cursor
+      }
       set myTopHoverNode $topnode
     }
 
@@ -363,14 +359,15 @@ snit::type ::hv3::hv3::mousemanager {
       $options(-dom) mouseevent mousemove $N $x $y
     }
 
-    $options(-selectionmanager) motion $N $x $y
+    foreach script $myScripts(motion) {
+      eval $script $N $x $y
+    }
 
     # After the loop runs, hovernodes will contain the list of 
     # currently hovered nodes.
     array set hovernodes [list]
 
     # Events to generate:
-    set events(onmousemove) [list]
     set events(onmouseout)  [list]
     set events(onmouseover) [list]
 
@@ -391,15 +388,12 @@ snit::type ::hv3::hv3::mousemanager {
       }
     }
     set events(onmouseout)  [array names myHoverNodes]
-    set events(onmousemove) [\
-        concat [array names hovernodes] $events(onmouseout) 
-    ]
 
     array unset myHoverNodes
     array set myHoverNodes [array get hovernodes]
 
     set eventlist [list]
-    foreach key [list onmouseover onmousemove onmouseout] {
+    foreach key [list onmouseover onmouseout] {
       foreach node $events($key) {
         lappend eventlist $key $node
       }
@@ -410,7 +404,7 @@ snit::type ::hv3::hv3::mousemanager {
   method Press {W x y} {
     if {$W eq ""} return
     AdjustCoords "${myHv3}.html.widget" $W x y
-    set N [lindex [$myHv3 node $x $y] end]
+    set N [lindex [$myHtml node $x $y] end]
     if {$N ne ""} {
       if {[$N tag] eq ""} {set N [$N parent]}
     }
@@ -429,9 +423,9 @@ snit::type ::hv3::hv3::mousemanager {
     # into an annoying state.
     #
     if {$rc eq "prevent"} {
-      $options(-selectionmanager) clear
+      $myHv3 selectionmanager clear
     } else {
-      $options(-selectionmanager) press $N $x $y
+      $myHv3 selectionmanager press $N $x $y
     }
 
     for {set n $N} {$n ne ""} {set n [$n parent]} {
@@ -448,7 +442,7 @@ snit::type ::hv3::hv3::mousemanager {
   method Release {W x y} {
     if {$W eq ""} return
     AdjustCoords "${myHv3}.html.widget" $W x y
-    set N [lindex [$myHv3 node $x $y] end]
+    set N [lindex [$myHtml node $x $y] end]
     if {$N ne ""} {
       if {[$N tag] eq ""} {set N [$N parent]}
     }
@@ -968,7 +962,7 @@ snit::widget ::hv3::hv3 {
   component myHtml                   ;# The [::hv3::scrolled html] widget
   component myHyperlinkManager       ;# The ::hv3::hv3::hyperlinkmanager
   component myDynamicManager         ;# The ::hv3::hv3::dynamicmanager
-  component mySelectionManager       ;# The ::hv3::hv3::selectionmanager
+  component mySelectionManager -public selectionmanager
   component myFormManager            ;# The ::hv3::formmanager
 
   option -dom -default "" -configuremethod SetDom
@@ -1085,7 +1079,7 @@ snit::widget ::hv3::hv3 {
     set mySelectionManager [::hv3::hv3::selectionmanager %AUTO% $self]
     set myDynamicManager   [::hv3::hv3::dynamicmanager   %AUTO% $self]
 
-    $myMouseManager configure -selectionmanager $mySelectionManager
+    $myMouseManager subscribe motion [list $mySelectionManager motion]
 
     set myFormManager [::hv3::formmanager %AUTO% $self]
     $myFormManager configure -getcmd  [mymethod Formcmd get]
@@ -1146,7 +1140,6 @@ snit::widget ::hv3::hv3 {
     # Tcl will throw a background error when they are delivered and
     # this object no longer exists.
     after cancel [mymethod MightBeComplete]
-    after cancel [mymethod InvalidateNodecache]
   }
 
   # Return the location URI of the widget.
@@ -1206,8 +1199,8 @@ snit::widget ::hv3::hv3 {
   }
 
   method set_pending_var {} {
-    if {$options(-pendingvar) ne ""} {
-      uplevel #0 $options(-pendingvar) [llength $myCurrentDownloads]
+    if {$options(-pendingcmd) ne ""} {
+      uplevel #0 $options(-pendingcmd) [llength $myCurrentDownloads]
     }
     after cancel [mymethod MightBeComplete]
     after idle [mymethod MightBeComplete]
@@ -1661,7 +1654,6 @@ snit::widget ::hv3::hv3 {
       # the ::hv3::download object (see hv3_request.tcl).
       #
       $myHtml reset
-      $self InvalidateNodecache
       append myEncodedDocument $data
     }
     if {$isFinal} {
@@ -1741,30 +1733,6 @@ snit::widget ::hv3::hv3 {
   #     html                N/A
   #     hull                N/A
   #   
-
-  # The caching version of the html widget [node] subcommand. The rational
-  # here is that several different application components need to be notified
-  # of the list of nodes under the cursor every time the cursor moves.
-  #
-  variable myNodeArgs NULL
-  variable myNodeRes
-  method node {args} {
-    if {$myNodeArgs ne $args} {
-      set myNodeArgs $args
-      set myNodeRes [eval $myHtml node $args]
-
-      # Invalidate the node-cache in the next idle loop. This is because
-      # some javascript, incremental parsing or dynamic CSS may have
-      # modified the document layout - invalidating the cached result.
-      # 
-      after cancel [mymethod InvalidateNodecache]
-      after idle   [mymethod InvalidateNodecache]
-    }
-    return $myNodeRes
-  }
-  method InvalidateNodecache {} {
-    set myNodeArgs NULL
-  }
 
   method dom {} { return $options(-dom) }
 
@@ -1921,7 +1889,6 @@ snit::widget ::hv3::hv3 {
     set myFirstReset 0
     event generate $win <<Reset>>
 
-    $self InvalidateNodecache
     set myTitleVar ""
     set myEncoding ""
     set myEncodedDocument ""
@@ -1941,10 +1908,6 @@ snit::widget ::hv3::hv3 {
     set myQuirksmode unknown
   }
 
-  method GetEnableJs {option} {
-    if {$options(-dom) eq ""} {return 0}
-    $options(-dom) cget -enable
-  }
   method SetOption {option value} {
     set options($option) $value
     switch -- $option {
@@ -1983,11 +1946,9 @@ snit::widget ::hv3::hv3 {
   method hull {}     { return $hull }
 
   method yview {args} {
-    $self InvalidateNodecache
     eval $myHtml yview $args
   }
   method xview {args} {
-    $self InvalidateNodecache
     eval $myHtml xview $args
   }
 
@@ -2003,7 +1964,7 @@ snit::widget ::hv3::hv3 {
   option -scrollbarpolicy -default auto
 
   option          -locationvar      -default ""
-  option          -pendingvar       -default ""
+  option          -pendingcmd       -default ""
   option          -downloadcmd      -default ""
   option          -requestcmd       -default ""
   delegate option -isvisitedcmd     to myHyperlinkManager

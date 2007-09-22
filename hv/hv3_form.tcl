@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.81 2007/09/19 18:43:42 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.82 2007/09/22 16:05:18 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -1472,7 +1472,6 @@ snit::type ::hv3::formmanager {
 
   variable myHv3
   variable myHtml
-  variable myForms -array [list]
 
   constructor {hv3 args} {
     $self configurelist $args
@@ -1497,9 +1496,12 @@ snit::type ::hv3::formmanager {
   #
   #     A Tkhtml parse-handler for <form> and </form> tags.
   method FormHandler {node} {
-    set myForms($node) [::hv3::form %AUTO% $node $myHv3]
-    $myForms($node) configure -getcmd $options(-getcmd)
-    $myForms($node) configure -postcmd $options(-postcmd)
+    # This ::hv3::form object will be automatically deleted when
+    # the <FORM> node is removed from the document.
+    set form [::hv3::form %AUTO% $node $myHv3]
+
+    $form configure -getcmd $options(-getcmd)
+    $form configure -postcmd $options(-postcmd)
   }
 
   # This method is called by the [control_handler] method to add [bind] 
@@ -1616,17 +1618,13 @@ snit::type ::hv3::formmanager {
   }
 
   method reset {} {
-    foreach form [array names myForms] {
-      $myForms($form) destroy
-    }
-    array unset myForms
     array unset myClickControls
-    set myParsedForm ""
   }
 
   method dumpforms {} {
-    foreach form [array names myForms] {
-      puts [$myForms($form) dump]
+    foreach node [$myHv3 search form] {
+      set form [$node replace]
+      puts [$form dump]
     }
   }
 

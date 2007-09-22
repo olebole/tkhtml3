@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_db.tcl,v 1.11 2007/09/22 04:49:38 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_db.tcl,v 1.12 2007/09/22 16:05:18 danielk1977 Exp $)} 1 }
 
 # Class ::hv3::visiteddb
 #
@@ -120,7 +120,7 @@ snit::type ::hv3::cookiemanager {
 
   # Constants used to schedule background activity.
   variable GUI_UPDATE_DELAY 3000
-  variable EXPIRE_COOKIES_DELAY 10000
+  variable EXPIRE_COOKIES_DELAY 30000
 
   constructor {} {
     if {![::hv3::have_sqlite3]} return
