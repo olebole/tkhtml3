@@ -1551,9 +1551,6 @@ snit::widget ::hv3::hv3 {
             set myMimetype html
             set myEncoding ""
             set myChangeEncodingOk 1
-            if {$options(-dom) ne ""} {
-              $options(-dom) autoenable $self [$handle cget -uri]
-            }
           }
         }
   
@@ -1735,7 +1732,10 @@ snit::widget ::hv3::hv3 {
   #     hull                N/A
   #   
 
-  method dom {} { return $options(-dom) }
+  method dom {} { 
+    if {$options(-dom) eq ""} { return ::hv3::ignore_script }
+    return $options(-dom)
+  }
 
   #--------------------------------------------------------------------
   # Load the URI specified as an argument into the main browser window.
@@ -1992,7 +1992,7 @@ snit::widget ::hv3::hv3 {
   delegate option -doublebuffer     to myHtml
 }
 
-proc ::hv3::ignore_script {attr script} {}
+proc ::hv3::ignore_script {args} {}
 
 # This proc is passed as the -urlcmd option to the [style] method of the
 # Tkhtml3 widget. Returns the full-uri formed by resolving $rel relative
