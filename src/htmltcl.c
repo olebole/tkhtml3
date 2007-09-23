@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.186 2007/09/23 10:02:26 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.187 2007/09/23 14:58:57 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -482,6 +482,7 @@ INSTRUMENTED(callbackHandler, HTML_INSTRUMENT_CALLBACK)
     HtmlCallback *p = &pTree->cb;
 
     int offscreen;
+    int force_redraw = 0;
 
     assert(
         !pTree->pRoot ||
@@ -561,17 +562,24 @@ INSTRUMENTED(callbackHandler, HTML_INSTRUMENT_CALLBACK)
     if (pTree->cb.flags & HTML_DAMAGE) {
         HtmlDamage *pD = pTree->cb.pDamage;
         pTree->cb.pDamage = 0;
+        if (
+            pTree->cb.flags & HTML_SCROLL &&
+            pD && pD->x == 0 && pD->y == 0 && 
+            pD->w >= Tk_Width(pTree->tkwin) &&
+            pD->h >= Tk_Height(pTree->tkwin)
+        ) {
+            force_redraw = 1;
+        }
         while (pD) {
             HtmlDamage *pNext = pD->pNext;
-            HtmlLog(pTree, 
-                "ACTION", "Repair: %dx%d +%d+%d", pD->w, pD->h, pD->x, pD->y
-            );
-#if 0
-            HtmlWidgetRepair(pTree, pD->x, pD->y, pD->w, pD->h, 
-                pD->pixmapok, (pTree->cb.flags & HTML_NODESCROLL)?1:0
-            );
-#endif
-            HtmlWidgetRepair(pTree, pD->x, pD->y, pD->w, pD->h, pD->pixmapok, 1);
+
+            if (!force_redraw) {
+                HtmlLog(pTree, 
+                    "ACTION", "Repair: %dx%d +%d+%d", pD->w, pD->h, pD->x, pD->y
+                );
+                HtmlWidgetRepair(pTree,pD->x,pD->y,pD->w,pD->h,pD->pixmapok,1);
+            }
+
             HtmlFree(pD);
             pD = pNext;
         }
@@ -580,8 +588,6 @@ INSTRUMENTED(callbackHandler, HTML_INSTRUMENT_CALLBACK)
     /* If the HTML_SCROLL flag is set, scroll the viewport. */
     if (pTree->cb.flags & HTML_SCROLL) {
         clock_t scrollClock = 0;              
-        /* int force_redraw = (pTree->cb.flags & HTML_LAYOUT); */
-        int force_redraw = 0;
         HtmlLog(pTree, "ACTION", "SetViewport: x=%d y=%d force=%d nFixed=%d", 
             p->iScrollX, p->iScrollY, force_redraw, pTree->nFixedBackground
         );

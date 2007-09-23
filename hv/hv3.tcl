@@ -996,6 +996,7 @@ snit::widget ::hv3::hv3 {
   variable myFirstReset 1
 
   # Current value to set the -cachecontrol option of download handles to.
+  #
   variable myCacheControl normal
 
   # This variable stores the current type of resource being displayed.
@@ -1057,6 +1058,8 @@ snit::widget ::hv3::hv3 {
   # It is cleared by the [reset] method.
   variable myOnloadFired 0
 
+  variable myFragmentSeek ""
+
   constructor {} {
 
     # Create the scrolled html widget and bind it's events to the
@@ -1113,6 +1116,8 @@ snit::widget ::hv3::hv3 {
 
     # Register handler commands to handle <body>.
     $myHtml handler node body   [mymethod body_node_handler]
+
+    bind $win <Configure> [list $self goto_fragment]
   }
 
   destructor {
@@ -1515,22 +1520,52 @@ snit::widget ::hv3::hv3 {
   }
 
   method goto_fragment {} {
-    set fragment [$myUri fragment]
-    if {$fragment ne ""} {
-      set selector [format {[name="%s"]} $fragment]
-      set goto_node [lindex [$myHtml search $selector] 0]
-
-      # If there was no node with the name attribute set to the fragment,
-      # search for a node with the id attribute set to the fragment.
-      if {$goto_node eq ""} {
-        set selector [format {[id="%s"]} $fragment]
-        set goto_node [lindex [$myHtml search $selector] 0]
+    switch -- [llength $myFragmentSeek] {
+      0 { # Do nothing }
+      1 {
+        $myHtml _force
+        $myHtml yview moveto [lindex $myFragmentSeek 0]
       }
+      2 {
+        set fragment [lindex $myFragmentSeek 1]
+        set selector [format {[name="%s"]} $fragment]
+        set goto_node [lindex [$myHtml search $selector] 0]
 
-      if {$goto_node ne ""} {
-        $myHtml yview $goto_node
+        # If there was no node with the name attribute set to the fragment,
+        # search for a node with the id attribute set to the fragment.
+        if {$goto_node eq ""} {
+          set selector [format {[id="%s"]} $myFragmentSeek]
+          set goto_node [lindex [$myHtml search $selector] 0]
+        }
+  
+        if {$goto_node ne ""} {
+          $myHtml yview $goto_node
+        }
       }
     }
+  }
+
+  method seek_to_fragment {fragment} {
+    # A fragment was specified as part of the URI that has just started
+    # loading. Set myFragmentSeek to the fragment name. Each time some
+    # more of the document or a stylesheet loads, the [goto_fragment]
+    # method will try to align the vertical scrollbar so that the 
+    # named fragment is at the top of the view.
+    #
+    # If and when the user manually scrolls the viewport, the 
+    # myFragmentSeek variable is cleared. This is so we don't wrest
+    # control of the vertical scrollbar after the user has manually
+    # positioned it.
+    #
+    $myHtml take_control [list set [myvar myFragmentSeek] ""]
+    if {$fragment ne ""} {
+      set myFragmentSeek [list # $fragment]
+    }
+  }
+
+  method seek_to_yview {moveto} {
+    $myHtml take_control [list set [myvar myFragmentSeek] ""]
+    set myFragmentSeek $moveto
   }
 
   method documentcallback {handle referrer savestate final data} {
@@ -1544,9 +1579,9 @@ snit::widget ::hv3::hv3 {
       switch -- $major {
         text {
           if {[lsearch [list html xml xhtml] $minor]>=0} {
+            $self reset $savestate
             set q [::hv3::configure_doctype_mode $myHtml $data isXHTML]
             set myQuirksmode $q
-            $self reset $savestate
             $myHtml configure -xhtml $isXHTML
             set myMimetype html
             set myEncoding ""
@@ -1587,6 +1622,11 @@ snit::widget ::hv3::hv3 {
       $myUri load [$handle cget -uri]
       $myBase load [$myUri get]
       $self set_location_var
+
+      if {$myCacheControl ne "relax-transparency"} {
+        $self seek_to_fragment [$myUri fragment]
+      }
+
       set myForceReload 0
       set myStyleCount 0
 
@@ -1662,8 +1702,8 @@ snit::widget ::hv3::hv3 {
       } else {
         $myHtml parse -final {}
       }
-      $self goto_fragment
     }
+    $self goto_fragment
   }
 
   method ImageCallback {handle isFinal data} {
@@ -1807,18 +1847,28 @@ snit::widget ::hv3::hv3 {
     # Generate the <<Goto>> event.
     event generate $win <<Goto>>
 
-    if {$full_uri eq $current_uri && $fragment ne ""} {
+    if {$full_uri eq $current_uri && $cachecontrol ne "no-cache"} {
       # Save the current state in the history system. This ensures
       # that back/forward controls work when navigating between
       # different sections of the same document.
       if {$savestate} {
         event generate $win <<SaveState>>
       }
-
       $myUri load $uri
-      $self goto_fragment
-      $self set_location_var
 
+      # If the cache-mode is "relax-transparency", then the history 
+      # system is controlling this document load. It will call 
+      # [seek_to_yview] to provide a seek offset.
+      if {$cachecontrol ne "relax-transparency"} {
+        if {$fragment eq ""} {
+          $myHtml yview moveto 0.0
+        } else {
+          $self seek_to_fragment $fragment
+          $self goto_fragment
+        }
+      }
+
+      $self set_location_var
       return [$myUri get]
     }
 

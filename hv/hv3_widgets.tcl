@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.44 2007/09/19 18:43:42 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.45 2007/09/23 14:58:57 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
@@ -211,9 +211,37 @@ snit::widget ::hv3::scrolledwidget {
     set options(-propagate) $value
   }
 
+  variable myTakeControlCb ""
+  method take_control {callback} {
+    if {$myTakeControlCb ne ""} {
+      uplevel #0 $myTakeControlCb
+    }
+    set myTakeControlCb $callback
+  }
+
+  proc scrollme {var args} {
+    if {[set $var] ne ""} {
+      uplevel #0 [set $var]
+      set $var ""
+    }
+    eval $args
+  }
+
   constructor {widget args} {
     # Create the three widgets - one user widget and two scrollbars.
     set myWidget [eval [linsert $widget 1 ${win}.widget]]
+
+    set v [myvar myTakeControlCb]
+    set w $myWidget
+    set scrollme [myproc scrollme]
+    bind $w <KeyPress-Up>     [list $scrollme $v $w yview scroll -1 units]
+    bind $w <KeyPress-Down>   [list $scrollme $v $w yview scroll  1 units]
+    bind $w <KeyPress-Return> [list $scrollme $v $w yview scroll  1 units]
+    bind $w <KeyPress-Right>  [list $scrollme $v $w xview scroll  1 units]
+    bind $w <KeyPress-Left>   [list $scrollme $v $w xview scroll -1 units]
+    bind $w <KeyPress-Next>   [list $scrollme $v $w yview scroll  1 pages]
+    bind $w <KeyPress-space>  [list $scrollme $v $w yview scroll  1 pages]
+    bind $w <KeyPress-Prior>  [list $scrollme $v $w yview scroll -1 pages]
 
     set myVsb [::hv3::scrollbar ${win}.vsb -orient vertical] 
     set myHsb [::hv3::scrollbar ${win}.hsb -orient horizontal] 
@@ -236,8 +264,9 @@ snit::widget ::hv3::scrolledwidget {
     # Wire up the scrollbars using the standard Tk idiom.
     $myWidget configure -yscrollcommand [mymethod scrollcallback $myVsb]
     $myWidget configure -xscrollcommand [mymethod scrollcallback $myHsb]
-    $myVsb    configure -command        [mymethod yview]
-    $myHsb    configure -command        [mymethod xview]
+    set v [myvar myTakeControlCb]
+    $myVsb configure -command [list [myproc scrollme] $v $myWidget yview]
+    $myHsb configure -command [list [myproc scrollme] $v $myWidget xview]
 
     # Propagate events from the scrolled widget to this one.
     bindtags $myWidget [concat [bindtags $myWidget] $win]

@@ -39,18 +39,6 @@
 # POSSIBILITY OF SUCH DAMAGE.
 #
 
-# Default bindings
-#
-# bind Html <ButtonPress>     { focus %W }
-bind Html <KeyPress-Up>     { %W yview scroll -1 units }
-bind Html <KeyPress-Down>   { %W yview scroll  1 units }
-bind Html <KeyPress-Return> { %W yview scroll  1 units }
-bind Html <KeyPress-Right>  { %W xview scroll  1 units }
-bind Html <KeyPress-Left>   { %W xview scroll -1 units }
-bind Html <KeyPress-Next>   { %W yview scroll  1 pages }
-bind Html <KeyPress-space>  { %W yview scroll  1 pages }
-bind Html <KeyPress-Prior>  { %W yview scroll -1 pages }
-
 switch -- $::tcl_platform(platform) {
   windows {
     bind Html <MouseWheel>   { %W yview scroll [expr %D/-30] units }

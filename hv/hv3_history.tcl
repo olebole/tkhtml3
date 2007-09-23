@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_history.tcl,v 1.23 2007/06/05 15:34:14 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_history.tcl,v 1.24 2007/09/23 14:58:57 danielk1977 Exp $)} 1 }
 
 package require snit
 
@@ -138,7 +138,7 @@ snit::type ::hv3::history {
     set myBrowser $browser
 
     # bind $hv3 <<Reset>>    +[mymethod ResetHandler]
-    bind $hv3 <<Complete>>  +[mymethod CompleteHandler]
+    # bind $hv3 <<Complete>>  +[mymethod CompleteHandler]
     bind $hv3 <<Location>>  +[mymethod Locvarcmd]
     $self add_hv3 $hv3
 
@@ -266,6 +266,7 @@ snit::type ::hv3::history {
     incr myIgnoreGotoHandler 
     set myCacheControl relax-transparency
     set c $myCacheControl
+    $myHv3 seek_to_yview [$state yscroll]
     eval [linsert $options(-gotocmd) end [$state uri] -cachecontrol $c]
     incr myIgnoreGotoHandler -1
   }
