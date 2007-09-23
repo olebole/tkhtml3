@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.119 2007/09/21 09:32:39 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.120 2007/09/23 06:34:08 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -2765,6 +2765,66 @@ HtmlComputedValuesSetupTables(pTree)
 /*
  *---------------------------------------------------------------------------
  *
+ * HtmlFontClearCache --
+ * 
+ *     Assuming there are no valid references to any fonts in the 
+ *     font-cache, clean up all fonts at the Tk level. This happens:
+ *
+ *       (a) when the widget is being destroyed, and
+ *       (b) when font-related options change.
+ *
+ *     If the isReinit argument is non-zero, the hash-table at
+ *     HtmlTree.fontcache.aHash is left in a usable (but empty) state.
+ *     If isReinit is zero, it is not safe to use the hash table after
+ *     this function returns.
+ *
+ * Results: 
+ *     None.
+ *
+ * Side effects:
+ *     None
+ *
+ *---------------------------------------------------------------------------
+ */
+void
+HtmlFontCacheClear(pTree, isReinit)
+    HtmlTree *pTree;
+    int isReinit;
+{
+    HtmlFont *pFont;
+    HtmlFont *pNext;
+
+#ifndef NDEBUG
+    /* Check there are no valid font references. */
+    Tcl_HashSearch search;
+    Tcl_HashEntry *pEntry;
+    for (
+        pEntry = Tcl_FirstHashEntry(&pTree->fontcache.aHash, &search);
+        pEntry;
+        pEntry = Tcl_NextHashEntry(&search)
+    ) {
+        pFont = (HtmlFont *)Tcl_GetHashValue(pEntry);
+        assert(pFont->nRef == 0);
+    }
+#endif
+
+    Tcl_DeleteHashTable(&pTree->fontcache.aHash);
+    for (pFont = pTree->fontcache.pLruHead; pFont; pFont = pNext) {
+        Tk_FreeFont(pFont->tkfont);
+        pNext = pFont->pNext;
+        HtmlFree(pFont);
+    }
+    if (isReinit) {
+        memset(&pTree->fontcache, 0, sizeof(HtmlFontCache));
+        Tcl_InitCustomHashTable(
+            &pTree->fontcache.aHash, TCL_CUSTOM_TYPE_KEYS, HtmlFontKeyHashType()
+        );
+    }
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * HtmlComputedValuesCleanupTables --
  * 
  *     This function is called during widget destruction to deallocate
@@ -2791,8 +2851,6 @@ HtmlComputedValuesCleanupTables(pTree)
     HtmlTree *pTree;
 {
     CONST char **pzCursor;
-    HtmlFont *pFont;
-    HtmlFont *pNext;
    
     CONST char *azColor[] = {
         "silver",
@@ -2828,13 +2886,8 @@ HtmlComputedValuesCleanupTables(pTree)
         pColor = (HtmlColor *)Tcl_GetHashValue(pEntry);
         decrementColorRef(pTree, pColor);
     }
-  
-    Tcl_DeleteHashTable(&pTree->fontcache.aHash);
-    for (pFont = pTree->fontcache.pLruHead; pFont; pFont = pNext) {
-        Tk_FreeFont(pFont->tkfont);
-        pNext = pFont->pNext;
-        HtmlFree(pFont);
-    }
+
+    HtmlFontCacheClear(pTree, 0);
 
     Tcl_DeleteHashTable(&pTree->aFontFamilies);
 

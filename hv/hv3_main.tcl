@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.149 2007/09/22 18:11:28 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.150 2007/09/23 06:34:08 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -570,7 +570,7 @@ snit::widget ::hv3::browser_toplevel {
     bind $HTML <KeyPress-slash>  [mymethod Find]
     bindtags $HTML [concat Hv3HotKeys $self [bindtags $HTML]]
     if {[$myDom cget -enable]} {
-      $frame configure -dom $dom
+      $frame configure -dom $myDom
     }
     $::hv3::G(config) configureframe $frame
   }

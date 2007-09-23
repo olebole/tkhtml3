@@ -432,6 +432,11 @@ void HtmlComputedValuesReference(HtmlComputedValues *);
 void HtmlComputedValuesSetupTables(HtmlTree *);
 void HtmlComputedValuesCleanupTables(HtmlTree *);
 
+/*
+ * Empty the font cache (i.e. because font config options have changed).
+ */
+void HtmlFontCacheClear(HtmlTree *, int);
+
 /* 
  * This function formats the HtmlComputedValues structure as a Tcl list and
  * sets the result of the interpreter to that list. Used to allow inspection of

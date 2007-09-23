@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.183 2007/09/20 18:09:33 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.184 2007/09/23 06:34:08 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -1430,6 +1430,7 @@ BOOLEAN(forcewidth, "forceWidth", "ForceWidth", "0", S_MASK),
             HtmlCallbackRestyle(pTree, pTree->pRoot);
             HtmlWalkTree(pTree, pTree->pRoot, worldChangedCb, 0);
             HtmlCallbackDamage(pTree, 0, 0, Tk_Width(win), Tk_Height(win), 0);
+            HtmlFontCacheClear(pTree, 1);
 
 #ifndef NDEBUG
             if (1) {
