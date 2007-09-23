@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.184 2007/09/23 06:34:08 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.185 2007/09/23 07:08:06 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -1279,6 +1279,7 @@ configureCmd(clientData, interp, objc, objv)
     #define FT_MASK        0x00000002    
     #define DS_MASK        0x00000004    
     #define S_MASK         0x00000008    
+    #define F_MASK         0x00000010   
 
     /*
      * Macros to generate static Tk_OptionSpec structures for the
@@ -1315,7 +1316,7 @@ configureCmd(clientData, interp, objc, objv)
 
 BOOLEAN(shrink, "shrink", "Shrink", "0", S_MASK),
 BOOLEAN(layoutcache, "layoutCache", "LayoutCache", "1", S_MASK),
-BOOLEAN(forcefontmetrics, "forceFontMetrics", "ForceFontMetrics", "1", S_MASK),
+BOOLEAN(forcefontmetrics, "forceFontMetrics", "ForceFontMetrics", "1", F_MASK),
 #ifdef WIN32
 BOOLEAN(doublebuffer, "doubleBuffer", "DoubleBuffer", "1", 0),
 #else
@@ -1325,8 +1326,8 @@ BOOLEAN(forcewidth, "forceWidth", "ForceWidth", "0", S_MASK),
 
         BOOLEAN(xhtml, "xhtml", "xhtml", "0", 0),
 
-        DOUBLE(fontscale, "fontScale", "FontScale", "1.0", S_MASK),
-        DOUBLE(zoom, "zoom", "Zoom", "1.0", S_MASK),
+        DOUBLE(fontscale, "fontScale", "FontScale", "1.0", F_MASK),
+        DOUBLE(zoom, "zoom", "Zoom", "1.0", F_MASK),
 
         /* Standard scroll interface - same as canvas, text */
         PIXELS(yscrollincrement, "yScrollIncrement", "ScrollIncrement", "20"),
@@ -1416,13 +1417,7 @@ BOOLEAN(forcewidth, "forceWidth", "ForceWidth", "0", S_MASK),
             }
         }
 
-        if (mask & S_MASK) {
-            /* This happens when one of the font related options changes.
-             * The key here is that the font cache (HtmlTree.aFont) must
-             * be completely empty before we rerun the styler. Otherwise
-             * fonts returned by the cache will match the old -fontscale
-             * and -fonttable options.
-             */
+        if (mask & (S_MASK|F_MASK)) {
             HtmlImageServerSuspendGC(pTree);
             HtmlDrawCleanup(pTree, &pTree->canvas);
             HtmlDrawSnapshotFree(pTree, pTree->cb.pSnapshot);
@@ -1430,7 +1425,6 @@ BOOLEAN(forcewidth, "forceWidth", "ForceWidth", "0", S_MASK),
             HtmlCallbackRestyle(pTree, pTree->pRoot);
             HtmlWalkTree(pTree, pTree->pRoot, worldChangedCb, 0);
             HtmlCallbackDamage(pTree, 0, 0, Tk_Width(win), Tk_Height(win), 0);
-            HtmlFontCacheClear(pTree, 1);
 
 #ifndef NDEBUG
             if (1) {
@@ -1438,6 +1432,15 @@ BOOLEAN(forcewidth, "forceWidth", "ForceWidth", "0", S_MASK),
                 assert(0 == Tcl_FirstHashEntry(&pTree->aValues, &search));
             }
 #endif
+        }
+        if (mask & F_MASK) {
+            /* This happens when one of the font related options changes.
+             * The key here is that the font cache (HtmlTree.aFont) must
+             * be completely empty before we rerun the styler. Otherwise
+             * fonts returned by the cache will match the old -fontscale
+             * and -fonttable options.
+             */
+            HtmlFontCacheClear(pTree, 1);
         }
 
         if (rc != TCL_OK) {
