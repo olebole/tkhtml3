@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.185 2007/09/23 07:08:06 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.186 2007/09/23 10:02:26 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -1869,6 +1869,19 @@ viewCommon(pTree, isXview, objc, objv)
             HtmlCallbackScrollX(pTree, iNewVal);
         } else {
             HtmlCallbackScrollY(pTree, iNewVal);
+        
+            /* Shoot off a scroll-callback for the y-scroll bar now. There 
+             * will be another one after the next callbackHandler() 
+             * invocation. But if for some reason the page is slow to scroll, 
+             * doing this now makes using the scrollbar a bit more 
+             * comfortable. I think...
+             */
+            doSingleScrollCallback(pTree->interp, 
+                pTree->options.yscrollcommand,
+                iNewVal,
+                pTree->canvas.bottom,
+                Tk_Height(pTree->tkwin)
+            );
         }
     }
 
