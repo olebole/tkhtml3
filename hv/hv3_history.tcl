@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_history.tcl,v 1.24 2007/09/23 14:58:57 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_history.tcl,v 1.25 2007/09/25 18:13:35 danielk1977 Exp $)} 1 }
 
 package require snit
 
@@ -130,16 +130,16 @@ snit::type ::hv3::history {
     $hv3 configure -locationvar [myvar myLocationVar]
     $self configurelist $args
 
-    trace add variable [$hv3 titlevar] write [mymethod Locvarcmd]
+    trace add variable [$hv3 titlevar] write [list $self Locvarcmd]
 
     set myTitleVarName [$hv3 titlevar]
     set myHv3 $hv3
     set myProtocol $protocol
     set myBrowser $browser
 
-    # bind $hv3 <<Reset>>    +[mymethod ResetHandler]
-    # bind $hv3 <<Complete>>  +[mymethod CompleteHandler]
-    bind $hv3 <<Location>>  +[mymethod Locvarcmd]
+    # bind $hv3 <<Reset>>    +[list $self ResetHandler]
+    # bind $hv3 <<Complete>>  +[list $self CompleteHandler]
+    bind $hv3 <<Location>>  +[list $self Locvarcmd]
     $self add_hv3 $hv3
 
     # Initialise the state-list to contain a single, unconfigured state.
@@ -148,15 +148,15 @@ snit::type ::hv3::history {
   }
 
   destructor {
-    trace remove variable $myTitleVarName write [mymethod Locvarcmd]
+    trace remove variable $myTitleVarName write [list $self Locvarcmd]
     foreach state $myStateList {
       $state destroy
     }
   }
 
   method add_hv3 {hv3} {
-    bind $hv3 <<Goto>>      +[mymethod GotoHandler]
-    bind $hv3 <<SaveState>> +[mymethod SaveStateHandler $hv3]
+    bind $hv3 <<Goto>>      +[list $self GotoHandler]
+    bind $hv3 <<SaveState>> +[list $self SaveStateHandler $hv3]
   }
 
   method loadframe {frame} {
@@ -302,7 +302,7 @@ snit::type ::hv3::history {
     set myRadioVar $myStateIdx
 
     set backidx [expr $myStateIdx - 1]
-    set backcmd [mymethod gotohistory $backidx]
+    set backcmd [list $self gotohistory $backidx]
     if {$backidx >= 0} {
         bind Hv3HotKeys <Alt-Left> $backcmd
         if {$back ne ""} { $back configure -state normal -command $backcmd }
@@ -312,7 +312,7 @@ snit::type ::hv3::history {
     }
 
     set fwdidx [expr $myStateIdx + 1]
-    set fwdcmd [mymethod gotohistory $fwdidx]
+    set fwdcmd [list $self gotohistory $fwdidx]
     if {$fwdidx < [llength $myStateList]} {
         bind Hv3HotKeys <Alt-Right> $fwdcmd
         if {$forward ne ""} { $forward configure -state normal -command $fwdcmd}
@@ -333,14 +333,14 @@ snit::type ::hv3::history {
     set backidx [expr $myStateIdx - 1]
     $menu add command -label Back -accelerator (Alt-Left) -state disabled
     if {$backidx >= 0} {
-      $menu entryconfigure end -command [mymethod gotohistory $backidx]
+      $menu entryconfigure end -command [list $self gotohistory $backidx]
       $menu entryconfigure end -state normal
     }
 
     set fwdidx [expr $myStateIdx + 1]
     $menu add command -label Forward -accelerator (Alt-Right) -state disabled
     if {$fwdidx < [llength $myStateList]} {
-      $menu entryconfigure end -command [mymethod gotohistory $fwdidx]
+      $menu entryconfigure end -command [list $self gotohistory $fwdidx]
       $menu entryconfigure end -state normal
     }
 
@@ -362,7 +362,7 @@ snit::type ::hv3::history {
         -label $caption                           \
         -variable [myvar myRadioVar]              \
         -value    $idx                            \
-        -command [mymethod gotohistory $idx]
+        -command [list $self gotohistory $idx]
     }
   }
 }
@@ -430,7 +430,7 @@ snit::widget ::hv3::locationentry {
       static unsigned char v_bits[] = { 0xff, 0x7e, 0x3c, 0x18 };
     }]
     set myButton [button ${win}.button -image $myButtonImage -width 12]
-    $myButton configure -command [mymethod ButtonPress]
+    $myButton configure -command [list $self ButtonPress]
 
     pack $myButton -side right -fill y
     pack $myEntry -fill both -expand true
@@ -446,11 +446,11 @@ snit::widget ::hv3::locationentry {
     ::hv3::scrolledlistbox $myListbox
 
     # Any button-press anywhere in the GUI folds up the drop-down menu.
-    bind [winfo toplevel $win] <ButtonPress> +[mymethod AnyButtonPress %W]
+    bind [winfo toplevel $win] <ButtonPress> +[list $self AnyButtonPress %W]
 
-    bind $myEntry <KeyPress>        +[mymethod KeyPress]
-    bind $myEntry <KeyPress-Return> +[mymethod KeyPressReturn]
-    bind $myEntry <KeyPress-Down>   +[mymethod KeyPressDown]
+    bind $myEntry <KeyPress>        +[list $self KeyPress]
+    bind $myEntry <KeyPress-Return> +[list $self KeyPressReturn]
+    bind $myEntry <KeyPress-Down>   +[list $self KeyPressDown]
     bind $myEntry <KeyPress-Escape> gui_escape
 
     $myListbox configure -listvariable [myvar myListboxVar]
@@ -459,9 +459,9 @@ snit::widget ::hv3::locationentry {
     $myListbox configure -highlightthickness 0
     $myListbox configure -borderwidth 1
 
-    # bind $myListbox.listbox <<ListboxSelect>> [mymethod ListboxSelect]
-    bind $myListbox.listbox <KeyPress-Return> [mymethod ListboxReturn]
-    bind $myListbox.listbox <1>   [mymethod ListboxPress %y]
+    # bind $myListbox.listbox <<ListboxSelect>> [list $self ListboxSelect]
+    bind $myListbox.listbox <KeyPress-Return> [list $self ListboxReturn]
+    bind $myListbox.listbox <1>   [list $self ListboxPress %y]
 
     $self configurelist $args
   }
@@ -539,7 +539,7 @@ snit::widget ::hv3::locationentry {
     }
   }
   method KeyPress {} {
-    after idle [mymethod AfterKeyPress]
+    after idle [list $self AfterKeyPress]
   }
   method AfterKeyPress {} {
     $self OpenDropdown [$myEntry get]

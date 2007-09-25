@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.83 2007/09/25 11:21:42 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.84 2007/09/25 18:13:35 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -458,7 +458,7 @@ proc ::hv3::control_to_form {node} {
     $myWidget configure -textvar [myvar myValue]
     $myWidget configure -background white
 
-    $myWidget configure -validatecommand [mymethod Validate %P]
+    $myWidget configure -validatecommand [list $self Validate %P]
     $myWidget configure -validate key
 
     pack $myWidget -expand true -fill both
@@ -473,7 +473,7 @@ proc ::hv3::control_to_form {node} {
     $myWidget configure -width 20
 
     # Pressing enter in an entry widget submits the form.
-    bind $myWidget <KeyPress-Return> [mymethod Submit]
+    bind $myWidget <KeyPress-Return> [list $self Submit]
 
     bind $myWidget <Tab>       [list ::hv3::forms::tab [$myNode html]]
     bind $myWidget <Shift-Tab> [list ::hv3::forms::tab [$myNode html]]
@@ -734,7 +734,7 @@ snit::widgetadaptor ::hv3::forms::select {
     $hull configure -borderwidth 0
     $hull configure -highlightthickness 0
     $hull configure -editable false
-    $hull configure -command [mymethod ComboboxChanged]
+    $hull configure -command [list $self ComboboxChanged]
     $hull configure -takefocus 0
 
     $self treechanged
@@ -912,7 +912,7 @@ snit::widget ::hv3::forms::fileselect {
   constructor {node bindtag} {
     set myNode $node
     set myEntry [entry ${win}.entry -width 30]
-    set myButton [button ${win}.button -command [mymethod Browse]]
+    set myButton [button ${win}.button -command [list $self Browse]]
     $myButton configure -text "Browse..."
 
     $myEntry configure -highlightthickness 0
@@ -1480,16 +1480,16 @@ snit::type ::hv3::formmanager {
 
     # Register handlers for elements that create controls. (todo: <button>).
     #
-    $myHtml handler node input     [mymethod control_handler]
-    $myHtml handler node textarea  [mymethod control_handler]
-    $myHtml handler node select    [mymethod control_handler]
+    $myHtml handler node input     [list $self control_handler]
+    $myHtml handler node textarea  [list $self control_handler]
+    $myHtml handler node select    [list $self control_handler]
     $myHtml handler script isindex [list ::hv3::isindex_handler $hv3]
 
-    $myHtml handler node form [mymethod FormHandler]
+    $myHtml handler node form [list $self FormHandler]
 
     # Subscribe to mouse-clicks (for the benefit of ::hv3::clickcontrol
     # instances).
-    $myHv3 Subscribe onclick [mymethod clickhandler]
+    $myHv3 Subscribe onclick [list $self clickhandler]
   }
 
   # FormHandler
@@ -1510,8 +1510,8 @@ snit::type ::hv3::formmanager {
   # "keypress" HTML 4.01 scripting events.
   #
   method SetupKeyBindings {widget node} {
-    bind $widget <KeyPress>   +[mymethod WidgetKeyPress $widget $node]
-    bind $widget <KeyRelease> +[mymethod WidgetKeyRelease $widget $node]
+    bind $widget <KeyPress>   +[list $self WidgetKeyPress $widget $node]
+    bind $widget <KeyRelease> +[list $self WidgetKeyRelease $widget $node]
   }
 
   # Handler scripts for the <KeyPress> and <KeyRelease> events.

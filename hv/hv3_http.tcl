@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.51 2007/09/22 17:12:34 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.52 2007/09/25 18:13:35 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd script used with 
@@ -81,14 +81,14 @@ snit::type ::hv3::protocol {
 
     # Register the 4 basic types of URIs the ::hv3::protocol code knows about.
     $self schemehandler file  ::hv3::request_file
-    $self schemehandler http  [mymethod request_http]
-    $self schemehandler data  [mymethod request_data]
-    $self schemehandler blank [mymethod request_blank]
-    $self schemehandler about [mymethod request_blank]
+    $self schemehandler http  [list $self request_http]
+    $self schemehandler data  [list $self request_data]
+    $self schemehandler blank [list $self request_blank]
+    $self schemehandler about [list $self request_blank]
 
     # If the tls package is loaded, we can also support https.
     if {[info commands ::tls::socket] ne ""} {
-      $self schemehandler https [mymethod request_https]
+      $self schemehandler https [list $self request_https]
       ::http::register https 443 [list ::hv3::protocol SSocket]
     }
 
@@ -184,8 +184,8 @@ snit::type ::hv3::protocol {
 
     # Fire off a request via the http package.
     set geturl [list ::http::geturl $uri                     \
-      -command [mymethod _DownloadCallback $downloadHandle]  \
-      -handler [mymethod _AppendCallback $downloadHandle]    \
+      -command [list $self _DownloadCallback $downloadHandle]  \
+      -handler [list $self _AppendCallback $downloadHandle]    \
       -headers $headers                                      \
     ]
     if {$postdata ne ""} {
@@ -216,7 +216,7 @@ snit::type ::hv3::protocol {
     # myInProgressHandles) after the retrieval is complete.
     #
     lappend myWaitingHandles $downloadHandle
-    $downloadHandle destroy_hook [mymethod FinishRequest $downloadHandle]
+    $downloadHandle destroy_hook [list $self FinishRequest $downloadHandle]
     $self Updatestatusvar
   }
 
@@ -245,14 +245,14 @@ snit::type ::hv3::protocol {
 
     if {$proxyhost eq ""} {
       set fd [socket -async $host $port]
-      fileevent $fd writable [mymethod SSocketReady $fd $downloadHandle]
+      fileevent $fd writable [list $self SSocketReady $fd $downloadHandle]
     } else {
       set fd [socket $proxyhost $proxyport]
       fconfigure $fd -blocking 0 -buffering full
       puts $fd "CONNECT $host:$port HTTP/1.1"
       puts $fd ""
       flush $fd
-      fileevent $fd readable [mymethod SSocketProxyReady $fd $downloadHandle]
+      fileevent $fd readable [list $self SSocketProxyReady $fd $downloadHandle]
     }
   }
   method SSocketReady {fd downloadHandle} {
@@ -704,7 +704,7 @@ snit::type ::hv3::downloadmanager {
   variable myHv3List [list]
 
   method manage {filedownload} {
-    $filedownload configure -updateguicmd [mymethod UpdateGui $filedownload]
+    $filedownload configure -updateguicmd [list $self UpdateGui $filedownload]
     lappend myDownloads $filedownload
     $self CheckGuiList
     foreach hv3 $myHv3List {

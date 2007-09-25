@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_db.tcl,v 1.13 2007/09/25 17:01:47 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_db.tcl,v 1.14 2007/09/25 18:13:35 danielk1977 Exp $)} 1 }
 
 # Class ::hv3::visiteddb
 #
@@ -38,7 +38,7 @@ snit::type ::hv3::visiteddb {
   method init {hv3} {
     if {![::hv3::have_sqlite3]} return
 
-    bind $hv3 <<Location>> +[mymethod LocationHandler %W]
+    bind $hv3 <<Location>> +[list $self LocationHandler %W]
     $hv3 configure -isvisitedcmd [myproc LocationQuery]
   }
 
@@ -137,11 +137,11 @@ snit::type ::hv3::cookiemanager {
         PRIMARY KEY(domain, path, name)
       );
     }}
-    after $EXPIRE_COOKIES_DELAY [mymethod ExpireCookies]
+    after $EXPIRE_COOKIES_DELAY [list $self ExpireCookies]
   }
 
   destructor {
-    after cancel [mymethod ExpireCookies]
+    after cancel [list $self ExpireCookies]
   }
 
 
@@ -214,7 +214,7 @@ snit::type ::hv3::cookiemanager {
       }
       ::hv3::sqlitedb eval $sql3
     }
-    after $EXPIRE_COOKIES_DELAY [mymethod ExpireCookies]
+    after $EXPIRE_COOKIES_DELAY [list $self ExpireCookies]
   }
 
   #------------------------------------------------------------------------

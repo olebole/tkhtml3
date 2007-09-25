@@ -256,9 +256,9 @@ snit::type ::hv3::hv3::mousemanager {
     set myHtml [$hv3 html]
     set myCursorWin [$hv3 hull]
 
-    bind $myHv3 <Motion>          "+[mymethod Motion  %W %x %y]"
-    bind $myHv3 <ButtonPress-1>   "+[mymethod Press   %W %x %y]"
-    bind $myHv3 <ButtonRelease-1> "+[mymethod Release %W %x %y]"
+    bind $myHv3 <Motion>          "+[list $self Motion  %W %x %y]"
+    bind $myHv3 <ButtonPress-1>   "+[list $self Press   %W %x %y]"
+    bind $myHv3 <ButtonRelease-1> "+[list $self Release %W %x %y]"
   }
 
   method subscribe {event script} {
@@ -527,13 +527,13 @@ snit::type ::hv3::hv3::selectionmanager {
 
   constructor {hv3} {
     set myHv3 $hv3
-    selection handle $myHv3 [list ::hv3::bg [mymethod get_selection]]
+    selection handle $myHv3 [list ::hv3::bg [list $self get_selection]]
 
-    # bind $myHv3 <Motion>               "+[mymethod motion %x %y]"
-    # bind $myHv3 <ButtonPress-1>        "+[mymethod press %x %y]"
-    bind $myHv3 <Double-ButtonPress-1> "+[mymethod doublepress %x %y]"
-    bind $myHv3 <Triple-ButtonPress-1> "+[mymethod triplepress %x %y]"
-    bind $myHv3 <ButtonRelease-1>      "+[mymethod release %x %y]"
+    # bind $myHv3 <Motion>               "+[list $self motion %x %y]"
+    # bind $myHv3 <ButtonPress-1>        "+[list $self press %x %y]"
+    bind $myHv3 <Double-ButtonPress-1> "+[list $self doublepress %x %y]"
+    bind $myHv3 <Triple-ButtonPress-1> "+[list $self triplepress %x %y]"
+    bind $myHv3 <ButtonRelease-1>      "+[list $self release %x %y]"
   }
 
   # Clear the selection.
@@ -736,7 +736,7 @@ snit::type ::hv3::hv3::selectionmanager {
     if {$motioncmd ne ""} {
       set myIgnoreMotion 1
       eval $myHv3 $motioncmd
-      after 20 [mymethod ContinueMotion]
+      after 20 [list $self ContinueMotion]
     }
   }
 
@@ -810,10 +810,10 @@ snit::type ::hv3::hv3::selectionmanager {
 snit::type ::hv3::hv3::dynamicmanager {
 
   constructor {hv3} {
-    $hv3 Subscribe onmouseover [mymethod handle_mouseover]
-    $hv3 Subscribe onmouseout  [mymethod handle_mouseout]
-    $hv3 Subscribe onmousedown [mymethod handle_mousedown]
-    $hv3 Subscribe onmouseup   [mymethod handle_mouseup]
+    $hv3 Subscribe onmouseover [list $self handle_mouseover]
+    $hv3 Subscribe onmouseout  [list $self handle_mouseout]
+    $hv3 Subscribe onmousedown [list $self handle_mousedown]
+    $hv3 Subscribe onmouseup   [list $self handle_mouseup]
   }
 
   method handle_mouseover {node} { $node dynamic set hover }
@@ -858,10 +858,10 @@ snit::type ::hv3::hv3::hyperlinkmanager {
     # Set up the default -targetcmd script to always return $myHv3.
     set options(-targetcmd) [list ::hv3::ReturnWithArgs $hv3]
 
-    $myHv3 handler node      a [mymethod a_node_handler]
-    $myHv3 handler attribute a [mymethod a_attribute_handler]
+    $myHv3 handler node      a [list $self a_node_handler]
+    $myHv3 handler attribute a [list $self a_attribute_handler]
 
-    $myHv3 Subscribe onclick     [mymethod handle_onclick]
+    $myHv3 Subscribe onclick     [list $self handle_onclick]
   }
 
   method reset {} {
@@ -1094,11 +1094,11 @@ snit::widget ::hv3::hv3 {
     $myMouseManager subscribe motion [list $mySelectionManager motion]
 
     set myFormManager [::hv3::formmanager %AUTO% $self]
-    $myFormManager configure -getcmd  [mymethod Formcmd get]
-    $myFormManager configure -postcmd [mymethod Formcmd post]
+    $myFormManager configure -getcmd  [list $self Formcmd get]
+    $myFormManager configure -postcmd [list $self Formcmd post]
 
     # Attach an image callback to the html widget
-    $myHtml configure -imagecmd [mymethod Imagecmd]
+    $myHtml configure -imagecmd [list $self Imagecmd]
 
     # Register node handlers to deal with the various elements
     # that may appear in the document <head>. In html, the <head> section
@@ -1110,21 +1110,21 @@ snit::widget ::hv3::hv3 {
     # handler for <object> is the same whether the element is located in
     # the head or body of the html document.
     #
-    $myHtml handler node   link     [mymethod link_node_handler]
-    $myHtml handler node   base     [mymethod base_node_handler]
-    $myHtml handler node   meta     [mymethod meta_node_handler]
-    $myHtml handler node   title    [mymethod title_node_handler]
-    $myHtml handler script style    [mymethod style_script_handler]
-    $myHtml handler script script   [mymethod ::hv3::ignore_script]
+    $myHtml handler node   link     [list $self link_node_handler]
+    $myHtml handler node   base     [list $self base_node_handler]
+    $myHtml handler node   meta     [list $self meta_node_handler]
+    $myHtml handler node   title    [list $self title_node_handler]
+    $myHtml handler script style    [list $self style_script_handler]
+    $myHtml handler script script   [list $self ::hv3::ignore_script]
 
-    # $myHtml handler script script   [mymethod script_script_handler]
+    # $myHtml handler script script   [list $self script_script_handler]
 
     # Register handler commands to handle <object> and kin.
     $myHtml handler node object   [list hv3_object_handler $self]
     $myHtml handler node embed    [list hv3_object_handler $self]
 
     # Register handler commands to handle <body>.
-    $myHtml handler node body   [mymethod body_node_handler]
+    $myHtml handler node body   [list $self body_node_handler]
 
     bind $win <Configure> [list $self goto_fragment]
   }
@@ -1154,7 +1154,7 @@ snit::widget ::hv3::hv3 {
     # Cancel any idle callbacks that might be pending. Otherwise
     # Tcl will throw a background error when they are delivered and
     # this object no longer exists.
-    after cancel [mymethod MightBeComplete]
+    after cancel [list $self MightBeComplete]
   }
 
   # Return the location URI of the widget.
@@ -1178,7 +1178,7 @@ snit::widget ::hv3::hv3 {
     # download is finished.
     lappend myCurrentDownloads $downloadHandle
     $self set_pending_var
-    $downloadHandle destroy_hook [mymethod Finrequest $downloadHandle] 
+    $downloadHandle destroy_hook [list $self Finrequest $downloadHandle] 
 
     # Execute the -requestcmd script. Fail the download and raise
     # an exception if an error occurs during script evaluation.
@@ -1217,8 +1217,8 @@ snit::widget ::hv3::hv3 {
     if {$options(-pendingcmd) ne ""} {
       uplevel #0 $options(-pendingcmd) [llength $myCurrentDownloads]
     }
-    after cancel [mymethod MightBeComplete]
-    after idle [mymethod MightBeComplete]
+    after cancel [list $self MightBeComplete]
+    after idle [list $self MightBeComplete]
   }
 
   method MightBeComplete {} {
@@ -1277,7 +1277,7 @@ snit::widget ::hv3::hv3 {
           -mimetype     image/gif                      \
           -cachecontrol $myCacheControl                \
       ]
-      $handle configure -finscript [mymethod Imagecallback $handle $name]
+      $handle configure -finscript [list $self Imagecallback $handle $name]
       $self makerequest $handle
     }
 
@@ -1341,7 +1341,7 @@ snit::widget ::hv3::hv3 {
   #
   method Requeststyle {parent_id full_uri} {
     set id        ${parent_id}.[format %.4d [incr myStyleCount]]
-    set importcmd [mymethod Requeststyle $id]
+    set importcmd [list $self Requeststyle $id]
     set urlcmd    [list ::hv3::ss_resolve_uri $full_uri]
     append id .9999
 
@@ -1351,7 +1351,7 @@ snit::widget ::hv3::hv3 {
         -cachecontrol $myCacheControl               \
     ]
     $handle configure -finscript [
-        mymethod Finishstyle $handle $id $importcmd $urlcmd
+        list $self Finishstyle $handle $id $importcmd $urlcmd
     ]
     $self makerequest $handle
   }
@@ -1452,7 +1452,7 @@ snit::widget ::hv3::hv3 {
   # to handle the 'overflow' property on the document root element.
   # 
   method body_node_handler {node} {
-    $node replace dummy -stylecmd [mymethod body_style_handler $node]
+    $node replace dummy -stylecmd [list $self body_style_handler $node]
   }
   method body_style_handler {bodynode} {
 
@@ -1521,8 +1521,8 @@ snit::widget ::hv3::hv3 {
     }
 
     set id        author.[format %.4d [incr myStyleCount]]
-    set importcmd [mymethod Requeststyle $id]
-    set urlcmd    [mymethod resolve_uri]
+    set importcmd [list $self Requeststyle $id]
+    set urlcmd    [list $self resolve_uri]
     append id ".9999.<style>"
     $myHtml style -id $id -importcmd $importcmd -urlcmd $urlcmd $script
     return ""
@@ -1743,8 +1743,8 @@ snit::widget ::hv3::hv3 {
     set myMimetype ""
     set referer [$self uri get]
     $handle configure                                       \
-        -incrscript [mymethod documentcallback $handle $referer 1 0] \
-        -finscript  [mymethod documentcallback $handle $referer 1 1] \
+        -incrscript [list $self documentcallback $handle $referer 1 0] \
+        -finscript  [list $self documentcallback $handle $referer 1 1] \
         -requestheader [list Referer $referer]              \
 
     if {$method eq "post"} {
@@ -1913,8 +1913,8 @@ snit::widget ::hv3::hv3 {
     ]
     set myMimetype ""
     $handle configure                                                         \
-        -incrscript [mymethod documentcallback $handle $referer $savestate 0] \
-        -finscript  [mymethod documentcallback $handle $referer $savestate 1] 
+        -incrscript [list $self documentcallback $handle $referer $savestate 0] \
+        -finscript  [list $self documentcallback $handle $referer $savestate 1] 
     if {$referer ne ""} {
       $handle configure -requestheader [list Referer $referer]
     }
@@ -1978,7 +1978,7 @@ snit::widget ::hv3::hv3 {
         # In either case reload the frame contents.
         #
         if {$value} {
-          $myHtml configure -imagecmd [mymethod Imagecmd]
+          $myHtml configure -imagecmd [list $self Imagecmd]
         } else {
           $myHtml configure -imagecmd ""
         }

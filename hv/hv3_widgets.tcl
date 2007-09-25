@@ -1,12 +1,12 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.45 2007/09/23 14:58:57 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.46 2007/09/25 18:13:35 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
 
 set ::hv3::toolkit Tk
 catch {
-#  package require tile
-#  set ::hv3::toolkit Tile
+  package require tile
+  set ::hv3::toolkit Tile
 }
 
 #-------------------------------------------------------------------
@@ -123,9 +123,9 @@ proc ::hv3::label {args} {
 
     $self configurelist $args
 
-    bind $myButton <Enter> [mymethod Enter]
-    bind $myButton <Leave> [mymethod Leave]
-    bind $myButton <ButtonPress-1> +[mymethod Leave]
+    bind $myButton <Enter> [list $self Enter]
+    bind $myButton <Leave> [list $self Leave]
+    bind $myButton <ButtonPress-1> +[list $self Leave]
   }
 
   destructor {
@@ -133,11 +133,11 @@ proc ::hv3::label {args} {
   }
 
   method Enter {} {
-    after 600 [mymethod Popup]
+    after 600 [list $self Popup]
   }
 
   method Leave {} {
-    after cancel [mymethod Popup]
+    after cancel [list $self Popup]
     place forget $myPopup
   }
 
@@ -262,8 +262,8 @@ snit::widget ::hv3::scrolledwidget {
     $self configurelist $args
 
     # Wire up the scrollbars using the standard Tk idiom.
-    $myWidget configure -yscrollcommand [mymethod scrollcallback $myVsb]
-    $myWidget configure -xscrollcommand [mymethod scrollcallback $myHsb]
+    $myWidget configure -yscrollcommand [list $self scrollcallback $myVsb]
+    $myWidget configure -xscrollcommand [list $self scrollcallback $myHsb]
     set v [myvar myTakeControlCb]
     $myVsb configure -command [list [myproc scrollme] $v $myWidget yview]
     $myHsb configure -command [list [myproc scrollme] $v $myWidget xview]
@@ -362,7 +362,7 @@ snit::widget ::hv3::pretend_tile_notebook {
     ${win}.tabs configure -highlightthickness 0 
     ${win}.tabs configure -selectborderwidth 0
 
-    bind ${win}.tabs <Configure> [mymethod Redraw]
+    bind ${win}.tabs <Configure> [list $self Redraw]
     $self configurelist $args
 
     # Set up the two images used for the "close tab" buttons positioned
@@ -387,7 +387,7 @@ snit::widget ::hv3::pretend_tile_notebook {
     image delete $myCloseTabImage2
 
     after cancel [list event generate $self <<NotebookTabChanged>>]
-    after cancel [mymethod RedrawCallback]
+    after cancel [list $self RedrawCallback]
   }
 
   # add WIDGET
@@ -401,8 +401,8 @@ snit::widget ::hv3::pretend_tile_notebook {
       lset myTitles end $A(-text)
     }
     $self Redraw
-    # bind $widget <Destroy> [mymethod forget $widget]
-    bind $widget <Destroy> [mymethod HandleDestroy $widget %W]
+    # bind $widget <Destroy> [list $self forget $widget]
+    bind $widget <Destroy> [list $self HandleDestroy $widget %W]
   }
 
   method HandleDestroy {widget w} {
@@ -475,7 +475,7 @@ snit::widget ::hv3::pretend_tile_notebook {
   method Redraw {} {
     if {$myRedrawScheduled == 0} {
       set myRedrawScheduled 1
-      after idle [mymethod RedrawCallback]
+      after idle [list $self RedrawCallback]
     }
   }
 
@@ -491,7 +491,7 @@ snit::widget ::hv3::pretend_tile_notebook {
     $c itemconfigure $tag -image $myCloseTabImage
     $c bind $tag <Enter> [list $c itemconfigure $tag -image $myCloseTabImage2]
     $c bind $tag <Leave> [list $c itemconfigure $tag -image $myCloseTabImage]
-    $c bind $tag <ButtonRelease-1> [mymethod ButtonRelease $tag $idx %x %y]
+    $c bind $tag <ButtonRelease-1> [list $self ButtonRelease $tag $idx %x %y]
   }
 
   method RedrawCallback {} {
@@ -599,7 +599,7 @@ snit::widget ::hv3::pretend_tile_notebook {
         foreach i [list $id $id2] {
           ${win}.tabs bind $i <Enter> [concat $cmd #ececec]
           ${win}.tabs bind $i <Leave> [concat $cmd #c3c3c3]
-          ${win}.tabs bind $i <1> [mymethod select [lindex $myWidgets $idx]]
+          ${win}.tabs bind $i <1> [list $self select [lindex $myWidgets $idx]]
         }
       }
 
@@ -852,7 +852,7 @@ snit::widget ::hv3::googlewidget {
     pack $w -side left
     pack $win.close -side right
 
-    bind $win.entry <Return>       [mymethod Search]
+    bind $win.entry <Return>       [list $self Search]
 
     # Propagate events that occur in the entry widget to the 
     # ::hv3::findwidget widget itself. This allows the calling script
@@ -917,11 +917,11 @@ snit::widget ::hv3::findwidget {
     ::hv3::button $win.close -text dismiss -command [list destroy $win]
  
     $win.entry configure -textvar [myvar myEntryVar]
-    trace add variable [myvar myEntryVar] write [mymethod DynamicUpdate]
-    trace add variable [myvar myNocaseVar] write [mymethod DynamicUpdate]
+    trace add variable [myvar myEntryVar] write [list $self DynamicUpdate]
+    trace add variable [myvar myNocaseVar] write [list $self DynamicUpdate]
 
-    bind $win.entry <Return>       [mymethod Return 1]
-    bind $win.entry <Shift-Return> [mymethod Return -1]
+    bind $win.entry <Return>       [list $self Return 1]
+    bind $win.entry <Shift-Return> [list $self Return -1]
     focus $win.entry
 
     # Propagate events that occur in the entry widget to the 
@@ -1117,8 +1117,8 @@ snit::widget ::hv3::findwidget {
         $hv3 tag delete findwidgetcurrent
       }
     }
-    trace remove variable [myvar myEntryVar] write [mymethod UpdateDisplay]
-    trace remove variable [myvar myNocaseVar] write [mymethod UpdateDisplay]
+    trace remove variable [myvar myEntryVar] write [list $self UpdateDisplay]
+    trace remove variable [myvar myNocaseVar] write [list $self UpdateDisplay]
   }
 }
 
@@ -1133,7 +1133,7 @@ snit::widget ::hv3::stylereport {
     set hv3 ${win}.hv3
 
     ::hv3::hv3 $hv3
-    $hv3 configure -requestcmd [mymethod Requestcmd] -width 600 -height 400
+    $hv3 configure -requestcmd [list $self Requestcmd] -width 600 -height 400
 
     # Create an ::hv3::findwidget so that the report is searchable.
     # In this case the findwidget should always be visible, so remove

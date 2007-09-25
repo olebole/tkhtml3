@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.152 2007/09/25 17:01:47 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.153 2007/09/25 18:13:35 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -112,8 +112,8 @@ snit::widget ::hv3::browser_frame {
 
     # Create bindings for motion, right-click and middle-click.
     $myHv3 Subscribe motion [list $self motion]
-    bind $myHv3 <3>       [mymethod rightclick %x %y %X %Y]
-    bind $myHv3 <2>       [mymethod goto_selection]
+    bind $myHv3 <3>       [list $self rightclick %x %y %X %Y]
+    bind $myHv3 <2>       [list $self goto_selection]
 
     # When the hyperlink menu "owns" the selection (happens after 
     # "Copy Link Location" is selected), invoke method 
@@ -128,10 +128,10 @@ snit::widget ::hv3::browser_frame {
     # the destructor proc. Also override the default -targetcmd
     # option of the ::hv3::hv3 widget with our own version.
     $myBrowser add_frame $self
-    $myHv3 configure -targetcmd [mymethod Targetcmd]
+    $myHv3 configure -targetcmd [list $self Targetcmd]
 
     ::hv3::menu ${win}.hyperlinkmenu
-    selection handle ${win}.hyperlinkmenu [mymethod GetCopiedLinkLocation]
+    selection handle ${win}.hyperlinkmenu [list $self GetCopiedLinkLocation]
   }
 
   # The name of this frame (as specified by the "name" attribute of 
@@ -289,19 +289,19 @@ snit::widget ::hv3::browser_frame {
     if {$img_src ne ""} {set img_src [$myHv3 resolve_uri $img_src]}
 
     set MENU [list \
-      a_href "Open Link"             [mymethod menu_select open $a_href]      \
-      a_href "Open Link in Bg Tab"   [mymethod menu_select opentab $a_href]   \
-      a_href "Download Link"         [mymethod menu_select download $a_href]  \
-      a_href "Copy Link Location"    [mymethod menu_select copy $a_href]      \
-      a_href --                      ""                                       \
-      img_src "View Image"           [mymethod menu_select open $img_src]     \
-      img_src "View Image in Bg Tab" [mymethod menu_select opentab $img_src]  \
-      img_src "Download Image"       [mymethod menu_select download $img_src] \
-      img_src "Copy Image Location"  [mymethod menu_select copy $img_src]     \
-      img_src --                     ""                                       \
-      select  "Copy Selected Text"   [mymethod menu_select copy $select]      \
-      select  --                     ""                                       \
-      leaf    "Open Tree browser..." [list ::HtmlDebug::browse $myHv3 $leaf]  \
+      a_href "Open Link"             [list $self menu_select open $a_href]     \
+      a_href "Open Link in Bg Tab"   [list $self menu_select opentab $a_href]  \
+      a_href "Download Link"         [list $self menu_select download $a_href] \
+      a_href "Copy Link Location"    [list $self menu_select copy $a_href]     \
+      a_href --                      ""                                        \
+      img_src "View Image"           [list $self menu_select open $img_src]    \
+      img_src "View Image in Bg Tab" [list $self menu_select opentab $img_src] \
+      img_src "Download Image"       [list $self menu_select download $img_src]\
+      img_src "Copy Image Location"  [list $self menu_select copy $img_src]    \
+      img_src --                     ""                                        \
+      select  "Copy Selected Text"   [list $self menu_select copy $select]     \
+      select  --                     ""                                        \
+      leaf    "Open Tree browser..." [list ::HtmlDebug::browse $myHv3 $leaf]   \
     ]
 
     foreach {var label cmd} $MENU {
@@ -508,7 +508,7 @@ snit::widget ::hv3::browser_toplevel {
   delegate method titlevar to myMainFrame
 
   constructor {args} {
-    set myDom [::hv3::dom %AUTO% $self -clearcmd [mymethod dom_clearcmd]]
+    set myDom [::hv3::dom %AUTO% $self -clearcmd [list $self dom_clearcmd]]
 
     # Create the main browser frame (always present)
     set myMainFrame [::hv3::browser_frame $win.browser_frame $self]
@@ -517,10 +517,10 @@ snit::widget ::hv3::browser_toplevel {
     # Create the protocol
     set myProtocol [::hv3::protocol %AUTO%]
     $myMainFrame configure -requestcmd       [list $myProtocol requestcmd]
-    $myMainFrame configure -pendingcmd       [mymethod pendingcmd]
+    $myMainFrame configure -pendingcmd       [list $self pendingcmd]
 
-    trace add variable [myvar myProtocolStatus] write [mymethod Writestatus]
-    trace add variable [myvar myFrameStatus]    write [mymethod Writestatus]
+    trace add variable [myvar myProtocolStatus] write [list $self Writestatus]
+    trace add variable [myvar myFrameStatus]    write [list $self Writestatus]
     $myMainFrame configure -statusvar [myvar myFrameStatus]
     $myProtocol  configure -statusvar [myvar myProtocolStatus]
 
@@ -531,7 +531,7 @@ snit::widget ::hv3::browser_toplevel {
 
     # Create the history sub-system
     set myHistory [::hv3::history %AUTO% [$myMainFrame hv3] $myProtocol $self]
-    $myHistory configure -gotocmd [mymethod goto]
+    $myHistory configure -gotocmd [list $self goto]
 
     $self configurelist $args
   }
@@ -566,7 +566,7 @@ snit::widget ::hv3::browser_toplevel {
     }
     set HTML [[$frame hv3] html]
     bind $HTML <1>               [list focus %W]
-    bind $HTML <KeyPress-slash>  [mymethod Find]
+    bind $HTML <KeyPress-slash>  [list $self Find]
     bindtags $HTML [concat Hv3HotKeys $self [bindtags $HTML]]
     if {[$myDom cget -enable]} {
       $frame configure -dom $myDom
@@ -846,7 +846,7 @@ snit::type ::hv3::config {
     }
 
     $self configurelist $args
-    after 2000 [mymethod PollConfiguration]
+    after 2000 [list $self PollConfiguration]
   }
 
   method PollConfiguration {} {
@@ -860,7 +860,7 @@ snit::type ::hv3::config {
       }
     }
     set myPollActive 0
-    after 2000 [mymethod PollConfiguration]
+    after 2000 [list $self PollConfiguration]
   }
 
   method populate_menu {path} {
@@ -930,7 +930,7 @@ snit::type ::hv3::config {
         $path add separator
       } else {
         set var [myvar options($option)]
-        set cmd [mymethod Reconfigure $option]
+        set cmd [list $self Reconfigure $option]
         $path add checkbutton -label $label -variable $var -command $cmd
       }
     }
@@ -941,7 +941,7 @@ snit::type ::hv3::config {
 
   method populate_hidegui_entry {path} {
     $path add checkbutton -label "Hide Gui" -variable [myvar options(-hidegui)]
-    $path entryconfigure end -command [mymethod Reconfigure -hidegui]
+    $path entryconfigure end -command [list $self Reconfigure -hidegui]
   }
 
   method PopulateRadioMenu {path option config} {
@@ -949,7 +949,7 @@ snit::type ::hv3::config {
       $path add radiobutton                      \
         -variable [myvar options($option)]       \
         -value $val                              \
-        -command [mymethod Reconfigure $option]  \
+        -command [list $self Reconfigure $option]  \
         -label $label } }
 
   method Reconfigure {option} {
@@ -1036,7 +1036,7 @@ snit::type ::hv3::config {
   }
 
   destructor {
-    after cancel [mymethod PollConfiguration]
+    after cancel [list $self PollConfiguration]
   }
 }
 
@@ -1065,8 +1065,8 @@ snit::type ::hv3::search {
     foreach {label} [array names SearchHotKeys] {
       set lc $SearchHotKeys($label)
       set uc [string toupper $SearchHotKeys($label)]
-      bind Hv3HotKeys <Control-$lc> [mymethod search $label]
-      bind Hv3HotKeys <Control-$uc> [mymethod search $label]
+      bind Hv3HotKeys <Control-$lc> [list $self search $label]
+      bind Hv3HotKeys <Control-$uc> [list $self search $label]
     }
   }
 
@@ -1081,7 +1081,7 @@ snit::type ::hv3::search {
         continue
       }
 
-      $path add command -label $label -command [mymethod search $label]
+      $path add command -label $label -command [list $self search $label]
 
       if {[info exists SearchHotKeys($label)]} {
         set acc "(Ctrl-[string toupper $SearchHotKeys($label)])"
