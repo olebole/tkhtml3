@@ -720,9 +720,10 @@ HtmlTranslateEscapes(z)
 }
 
 static HtmlWidgetTag *
-getWidgetTag(pTree, zTag)
+getWidgetTag(pTree, zTag, pIsNew)
     HtmlTree *pTree;
     const char *zTag;
+    int *pIsNew;
 {
     Tcl_HashEntry *pEntry;
     int isNew;
@@ -755,6 +756,9 @@ getWidgetTag(pTree, zTag)
         pTag = (HtmlWidgetTag *)Tcl_GetHashValue(pEntry);
     }
 
+    if (pIsNew) {
+        *pIsNew = isNew;
+    }
     return pTag;
 }
 
@@ -823,11 +827,25 @@ orderIndexPair(ppA, piA, ppB, piB)
     return pParent;
 }
 
-static void
+/*
+ *---------------------------------------------------------------------------
+ *
+ * removeTagFromNode --
+ * 
+ * Results:
+ *     Returns non-zero if one or more characters of this node were tagged.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static int
 removeTagFromNode(pTextNode, pTag)
     HtmlTextNode *pTextNode;
     HtmlWidgetTag *pTag;
 {
+    int eRet = 0;
     HtmlTaggedRegion *pTagged = pTextNode->pTagged;
     if (pTagged) { 
         HtmlTaggedRegion **pPtr = &pTextNode->pTagged;
@@ -836,6 +854,7 @@ removeTagFromNode(pTextNode, pTag)
             if (pTagged->pTag == pTag) {
                 *pPtr = pTagged->pNext;
                 HtmlFree(pTagged);
+                eRet = 1;
             } else {
                 pPtr = &pTagged->pNext;
             }
@@ -848,6 +867,8 @@ removeTagFromNode(pTextNode, pTag)
         assert(pTagged->pTag != pTag);
     }
 #endif
+
+    return eRet;
 }
 
 static HtmlTaggedRegion *
@@ -1094,7 +1115,7 @@ HtmlTagAddRemoveCmd(clientData, interp, objc, objv, isAdd)
         return TCL_ERROR;
     }
 
-    pTag = getWidgetTag(pTree, Tcl_GetString(objv[3]));
+    pTag = getWidgetTag(pTree, Tcl_GetString(objv[3]), 0);
     sData.pTag = pTag;
     sData.isAdd = isAdd;
 
@@ -1128,22 +1149,31 @@ HtmlTagConfigureCmd(clientData, interp, objc, objv)
     Tk_OptionTable otab;
     HtmlWidgetTag *pTag;
     Tk_Window win = pTree->tkwin;
+    int isNew;
 
     if (objc < 4) {
         Tcl_WrongNumArgs(interp, 3, objv, "TAGNAME ?options?");
         return TCL_ERROR;
     }
 
-    pTag = getWidgetTag(pTree, Tcl_GetString(objv[3]));
+    pTag = getWidgetTag(pTree, Tcl_GetString(objv[3]), &isNew);
     otab = pTree->tagOptionTable;
     assert(otab);
     Tk_SetOptions(interp, (char *)pTag, otab, objc - 4, &objv[4], win, 0, 0);
 
-    /* Redraw the whole viewport. Todo: Update only the required regions */
-    HtmlCallbackDamage(pTree, 0, 0, 1000000, 1000000);
+    if (!isNew) {
+        /* Redraw the whole viewport. Todo: Update only the tagged regions */
+        HtmlCallbackDamage(pTree, 0, 0, 1000000, 1000000);
+    }
 
     return TCL_OK;
 }
+
+struct TagDeleteContext {
+    HtmlWidgetTag *pTag; 
+    int nOcc;
+};
+typedef struct TagDeleteContext TagDeleteContext;
 
 static int
 tagDeleteCallback(pTree, pNode, clientData)
@@ -1153,7 +1183,8 @@ tagDeleteCallback(pTree, pNode, clientData)
 {
     HtmlTextNode *pTextNode = HtmlNodeAsText(pNode);
     if (pTextNode) {
-        removeTagFromNode(pTextNode, (HtmlWidgetTag *)clientData);
+        TagDeleteContext *p = (TagDeleteContext *)clientData;
+        p->nOcc += removeTagFromNode(pTextNode, p->pTag);
     }
     return HTML_WALK_DESCEND;
 }
@@ -1168,6 +1199,7 @@ HtmlTagDeleteCmd(clientData, interp, objc, objv)
     const char *zTag;
     Tcl_HashEntry *pEntry;
     HtmlTree *pTree = (HtmlTree *)clientData;
+    TagDeleteContext context = {0, 0};
 
     if (objc != 4) {
         Tcl_WrongNumArgs(interp, 3, objv, "TAGNAME");
@@ -1178,13 +1210,16 @@ HtmlTagDeleteCmd(clientData, interp, objc, objv)
     pEntry = Tcl_FindHashEntry(&pTree->aTag, zTag);
     if (pEntry) {
         HtmlWidgetTag *pTag = (HtmlWidgetTag *)Tcl_GetHashValue(pEntry);
-        HtmlWalkTree(pTree, 0, tagDeleteCallback, (ClientData)pTag);
+        context.pTag = pTag;
+        HtmlWalkTree(pTree, 0, tagDeleteCallback, (ClientData)&context);
         HtmlFree(pTag);
         Tcl_DeleteHashEntry(pEntry);
     }
 
     /* Redraw the whole viewport. Todo: Update only the required regions */
-    HtmlCallbackDamage(pTree, 0, 0, 1000000, 1000000);
+    if (context.nOcc) {
+        HtmlCallbackDamage(pTree, 0, 0, 1000000, 1000000);
+    }
 
     return TCL_OK;
 }
