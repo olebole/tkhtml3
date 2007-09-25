@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.151 2007/09/25 11:21:42 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.152 2007/09/25 17:01:47 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -611,10 +611,28 @@ snit::widget ::hv3::browser_toplevel {
     set myStatusVar "$myProtocolStatus    $myFrameStatus"
   }
 
-  variable myIsPending -1
+  # The widget may be in one of two states - "pending" or "not pending".
+  # "pending" state is when the browser is still waiting for one or more
+  # downloads to finish before the document is correctly displayed. In
+  # this mode the default cursor is an hourglass and the stop-button
+  # widget is in normal state (stop button is clickable).
+  #
+  # Otherwise the default cursor is "" (system default) and the stop-button
+  # widget is disabled.
+  #
+  variable myIsPending 0
+  variable myPendingPending ""
+
   method pendingcmd {isPending} {
-    if {$options(-stopbutton) ne "" && $myIsPending != $isPending} {
-      if {$isPending} { 
+    if {$myPendingPending eq ""} {
+      after idle [list $self do_pendingcmd]
+    }
+    set myPendingPending [expr {$isPending>0}]
+  }
+
+  method do_pendingcmd {} {
+    if {$options(-stopbutton) ne "" && $myIsPending != $myPendingPending} {
+      if {$myPendingPending} { 
         $options(-stopbutton) configure -state normal
         $hull configure -cursor watch
       } else {
@@ -622,9 +640,11 @@ snit::widget ::hv3::browser_toplevel {
         $hull configure -cursor ""
       }
       $options(-stopbutton) configure -command [list $myMainFrame stop]
-      set myIsPending $isPending
+      set myIsPending $myPendingPending
     }
+    set myPendingPending ""
   }
+
   method Configurestopbutton {option value} {
     set options(-stopbutton) $value
     set val $myIsPending

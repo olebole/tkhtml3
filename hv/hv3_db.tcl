@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_db.tcl,v 1.12 2007/09/22 16:05:18 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_db.tcl,v 1.13 2007/09/25 17:01:47 danielk1977 Exp $)} 1 }
 
 # Class ::hv3::visiteddb
 #
@@ -74,21 +74,19 @@ snit::type ::hv3::visiteddb {
     # timestamp if the URI is already in the table.
     #
     # Second statement deletes all but the most recent $MAX_ENTRIES URIs.
-    # This is to stop the db growing indefinitely. Todo: This operation might
-    # not be all that efficient...
+    # This is to stop the db growing indefinitely.
     #
-    set sql1 {REPLACE INTO visiteddb VALUES($uri, $timestamp)}
-    set sql2 {
-      DELETE FROM visiteddb WHERE oid IN (
-        SELECT oid FROM visiteddb ORDER BY oid DESC
-        LIMIT -1 OFFSET $MAX_ENTRIES
-      )
-    }
-
     set timestamp [clock seconds]
     ::hv3::sqlitedb transaction {
-      ::hv3::sqlitedb eval $sql1
-      ::hv3::sqlitedb eval $sql2
+      ::hv3::sqlitedb eval {
+        REPLACE INTO visiteddb VALUES($uri, $timestamp)
+      }
+      set id [::hv3::sqlitedb last_insert_rowid]
+      if {($id%10) == 0} {
+        ::hv3::sqlitedb eval {
+          DELETE FROM visiteddb WHERE oid < ($id - $MAX_ENTRIES);
+        }
+      }
     }
   }
 }
