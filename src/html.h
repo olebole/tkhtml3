@@ -402,7 +402,6 @@ struct HtmlOptions {
     Tcl_Obj *xscrollcommand;
 
     Tcl_Obj *defaultstyle;
-    int      doublebuffer;              /* Boolean */
     double   fontscale;
     Tcl_Obj *fonttable;
     int      forcefontmetrics;
@@ -434,7 +433,6 @@ struct HtmlDamage {
   int y;
   int w;
   int h;
-  int pixmapok;
   int windowsrepair;
   HtmlDamage *pNext;
 };
@@ -483,7 +481,7 @@ struct HtmlCallback {
  */
 void HtmlCallbackForce(HtmlTree *);
 void HtmlCallbackDynamic(HtmlTree *, HtmlNode *);
-void HtmlCallbackDamage(HtmlTree *, int, int, int, int, int);
+void HtmlCallbackDamage(HtmlTree *, int, int, int, int);
 void HtmlCallbackLayout(HtmlTree *, HtmlNode *);
 void HtmlCallbackRestyle(HtmlTree *, HtmlNode *);
 
@@ -519,14 +517,8 @@ struct HtmlTree {
     Tk_Window tkwin;           /* Widget window */
     int iScrollX;              /* Number of pixels offscreen to the left */
     int iScrollY;              /* Number of pixels offscreen to the top */
-    int eVisibility;           /* Most recent XVisibilityEvent.state */
 
-    /*
-     * Optional backing store. Only used in double-buffer mode.
-     */
-    Pixmap pixmap;
-    int iPixmapWidth;
-    int iPixmapHeight;
+    Tk_Window docwin;          /* Document window */
 
     /*
      * The widget command.
@@ -829,7 +821,7 @@ void HtmlLayoutInvalidateCache(HtmlTree *, HtmlNode *);
 void HtmlWidgetNodeBox(HtmlTree *, HtmlNode *, int *, int *, int *, int *);
 
 void HtmlWidgetSetViewport(HtmlTree *, int, int, int);
-void HtmlWidgetRepair(HtmlTree *, int, int, int, int, int, int);
+void HtmlWidgetRepair(HtmlTree *, int, int, int, int, int);
 
 int HtmlNodeClearStyle(HtmlTree *, HtmlElementNode *);
 int HtmlNodeClearGenerated(HtmlTree *, HtmlElementNode *);

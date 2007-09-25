@@ -23,7 +23,8 @@ cp $BUILD/tclsee0.1/libTclsee.so hv3-$VERSION/usr/lib/hv3/
 cat $BUILD/tclsee0.1/pkgIndex.tcl >> hv3-$VERSION/usr/lib/hv3/pkgIndex.tcl
 
 cp $SRC/hv/*.tcl hv3-$VERSION/usr/lib/hv3/
-cp $SRC/hv/index.html hv3-$VERSION/usr/lib/hv3/
+cp $SRC/hv/bookmarks.html hv3-$VERSION/usr/lib/hv3/
+cp $SRC/hv/bugreport.html hv3-$VERSION/usr/lib/hv3/
 rm hv3-$VERSION/usr/lib/hv3/tst_main.tcl
 rm hv3-$VERSION/usr/lib/hv3/main.tcl
 

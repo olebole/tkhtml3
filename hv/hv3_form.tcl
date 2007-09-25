@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.82 2007/09/22 16:05:18 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.83 2007/09/25 11:21:42 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -1531,7 +1531,8 @@ snit::type ::hv3::formmanager {
 
   method control_handler {node} {
 
-    set zWinPath ${myHtml}.control_[string map {: _} $node]
+    #set zWinPath ${myHtml}.document.control_[string map {: _} $node]
+    set zWinPath ${myHtml}.document.control_[string map {: _} $node]
     set isSubmit 0
 
     set tag [string tolower [$node tag]]

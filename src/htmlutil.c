@@ -368,7 +368,7 @@ static void
 instDelCommand(clientData)
     ClientData clientData;
 {
-    InstGlobal *p = (InstGlobal *)clientData;
+    /* InstGlobal *p = (InstGlobal *)clientData; */
     /* TODO */
 }
 

@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.257 2007/09/10 04:11:04 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.258 2007/09/25 11:21:42 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -3991,6 +3991,7 @@ HtmlLayout(pTree)
             );
         }
     }
+
     return rc;
 }
 

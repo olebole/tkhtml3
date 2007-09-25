@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlimage.c,v 1.64 2007/09/12 06:29:31 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlimage.c,v 1.65 2007/09/25 11:21:42 danielk1977 Exp $";
 
 #include <assert.h>
 #include "html.h"
@@ -312,7 +312,7 @@ imageChanged(clientData, x, y, width, height, imgWidth, imgHeight)
          * to draw, then stuff like animated gifs would be much more
          * efficient.
          */
-        HtmlCallbackDamage(pTree, 0, 0, 1000000, 1000000, 0);
+        HtmlCallbackDamage(pTree, 0, 0, 1000000, 1000000);
 
         pImage->eAlpha = ALPHA_CHANNEL_UNKNOWN;
     }

@@ -868,9 +868,16 @@ snit::type ::hv3::hv3::hyperlinkmanager {
     set myLinkHoverCount 0
   }
 
+  # This is the configure method for the -isvisitedcmd option. This
+  # option configures a callback script that sets or clears the 'visited' 
+  # and 'link' properties of an <a href="..."> element. This is a 
+  # performance critical operation because it is called so many times.
+  #
   method SetVisitedCmd {option value} {
     set options($option) $value
 
+    # Create a proc to use as the node-handler for <a> elements.
+    #
     set P_NODE ${selfns}::a_node_handler
     catch {rename $P_NODE ""}
     set template [list \
@@ -888,11 +895,13 @@ snit::type ::hv3::hv3::hyperlinkmanager {
     ]
     eval [::snit::Expand $template %BASEURI% $myBaseUri %VISITEDCMD% $value]
 
+    # Create a proc to use as the attribute-handler for <a> elements.
+    #
     set P_ATTR ${selfns}::a_attr_handler
     catch {rename $P_ATTR ""}
     set template [list \
       proc $P_ATTR {node attr val} {
-        if {attr eq "href"} {
+        if {$attr eq "href"} {
           if {[%VISITEDCMD% [%BASEURI% resolve $uri]]} {
             $node dynamic set visited
           } else {
@@ -1857,16 +1866,16 @@ snit::widget ::hv3::hv3 {
       $myUri load $uri
 
       # If the cache-mode is "relax-transparency", then the history 
-      # system is controlling this document load. It will call 
+      # system is controlling this document load. It has already called
       # [seek_to_yview] to provide a seek offset.
       if {$cachecontrol ne "relax-transparency"} {
         if {$fragment eq ""} {
-          $myHtml yview moveto 0.0
+          $self seek_to_yview 0.0
         } else {
           $self seek_to_fragment $fragment
-          $self goto_fragment
         }
       }
+      $self goto_fragment
 
       $self set_location_var
       return [$myUri get]
@@ -2039,7 +2048,6 @@ snit::widget ::hv3::hv3 {
   delegate option -fontscale        to myHtml
   delegate option -zoom             to myHtml
   delegate option -forcefontmetrics to myHtml
-  delegate option -doublebuffer     to myHtml
 }
 
 proc ::hv3::ignore_script {args} {}

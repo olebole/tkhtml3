@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.198 2007/09/20 17:21:48 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.199 2007/09/25 11:21:42 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -155,6 +155,11 @@ static const char rcsid[] = "$Id: htmldraw.c,v 1.198 2007/09/20 17:21:48 danielk
  * Adding and querying for markers:
  *     HtmlDrawAddMarker
  *     HtmlDrawGetMarker
+ *
+ * HtmlDrawCanvasItemRelease
+ * HtmlDrawCanvasItemReference
+ *
+ * 
  */
 
 #define CANVAS_TEXT     1
@@ -656,10 +661,6 @@ windowsRepair(pTree, pCanvas)
     HtmlTree *pTree;
     HtmlCanvas *pCanvas;
 {
-    Tk_Window win = (pTree ? pTree->tkwin : 0);
-    int w         = (win ? Tk_Width(win) : 0);
-    int h         = (win ? Tk_Height(win): 0);
-
     HtmlNodeReplacement *p = pTree->pMapped;
     HtmlNodeReplacement *pPrev = 0;
 
@@ -677,8 +678,12 @@ windowsRepair(pTree, pCanvas)
         int iViewX;
 
         if (pTree) {
-            iViewX = p->iCanvasX - pTree->iScrollX;
-            iViewY = p->iCanvasY - pTree->iScrollY;
+            iViewX = p->iCanvasX - pTree->iScrollX; 
+            iViewY = p->iCanvasY - pTree->iScrollY; 
+            if (Tk_Parent(control) == pTree->docwin) {
+                iViewX -= Tk_X(pTree->docwin);
+                iViewY -= Tk_Y(pTree->docwin);
+            }
             iHeight = p->iHeight;
             iWidth = p->iWidth;
         }
@@ -687,12 +692,7 @@ windowsRepair(pTree, pCanvas)
          * widget is being destroyed (pTree==0) unmap the window and remove it
          * from the HtmlTree.pMapped linked-list. 
          */
-	if (
-            !pTree ||
-            iViewX > w || iViewY > h ||
-            (iViewX + iWidth) <= 0 || (iViewY + iHeight) <= 0 ||
-            p->clipped || iWidth <= 0 || iHeight <= 0
-        ) {
+	if (!pTree || p->clipped || iWidth <= 0 || iHeight <= 0) {
             if (Tk_IsMapped(control)) {
                 Tk_UnmapWindow(control);
             }
@@ -712,10 +712,6 @@ windowsRepair(pTree, pCanvas)
                 iViewX != Tk_X(control) || Tk_Y(control) != iViewY ||
                 iWidth != Tk_Width(control) || Tk_Height(control) != iHeight
             ) {
-                HtmlCallbackDamage(pTree, 
-                    Tk_X(control), Tk_Y(control), 
-                    Tk_Width(control), Tk_Height(control), 1
-                );
                 Tk_MoveResizeWindow(control, iViewX, iViewY, iWidth, iHeight);
             }
             pPrev = p;
@@ -2889,7 +2885,7 @@ HtmlDrawSnapshotDamage(pTree, pSnapshot, ppCurrent)
     if (x1<x2 && y1<y2) {
         int x = x1 - pTree->iScrollX - 1;
         int y = y1 - pTree->iScrollY - 1;
-        HtmlCallbackDamage(pTree, x, y, 1+x2-x1, 1+y2-y1, 0);
+        HtmlCallbackDamage(pTree, x, y, 1+x2-x1, 1+y2-y1);
     }
 
     if (ppCurrent) {
@@ -3317,12 +3313,15 @@ int HtmlLayoutImage(clientData, interp, objc, objv)
 
     w = pTree->canvas.right;
     h = pTree->canvas.bottom;
+    Tk_MakeWindowExist(pTree->tkwin);
+    w = Tk_Width(pTree->tkwin);
+    h = Tk_Height(pTree->tkwin);
     assert(w >= 0 && h >= 0);
     if (w>0 && h>0) {
         Pixmap pixmap;
         Tcl_Obj *pImage;
         XImage *pXImage;
-        pixmap = getPixmap(pTree, 0, 0, w, h, 0);
+        pixmap = getPixmap(pTree, pTree->iScrollX, pTree->iScrollY, w, h, 0);
         pXImage = XGetImage(pDisplay, pixmap, x, y, w, h, AllPlanes, ZPixmap);
         pImage = HtmlXImageToImage(pTree, pXImage, w, h);
         XDestroyImage(pXImage);
@@ -4039,7 +4038,7 @@ HtmlWidgetDamageText(pTree, pNodeStart, iIndexStart, pNodeFin, iIndexFin)
     w = (sQuery.right - pTree->iScrollX) - x;
     y = sQuery.top - pTree->iScrollY;
     h = (sQuery.bottom - pTree->iScrollY) - y;
-    HtmlCallbackDamage(pTree, x, y, w, h, 0);
+    HtmlCallbackDamage(pTree, x, y, w, h);
 }
 
 void
@@ -4305,73 +4304,18 @@ widgetRepair(pTree, x, y, w, h, g)
         return;
     }
 
-    /* If the widget is in "-doublebuffer 1" mode and the pixmap is not
-     * allocated, allocate it now. If this happens, we need to redraw the
-     * whole viewport.
-     */
-    if (
-        pTree->options.doublebuffer && (
-            !pTree->pixmap ||
-            pTree->iPixmapWidth != Tk_Width(win) ||
-            pTree->iPixmapHeight != Tk_Height(win)
-       )
-    ) {
-       if (pTree->pixmap) {
-           Tk_FreePixmap(pDisp, pTree->pixmap);
-       }
-       w = Tk_Width(win);
-       h = Tk_Height(win);
-       x = 0;
-       y = 0;
-       pTree->pixmap = Tk_GetPixmap(pDisp,Tk_WindowId(win),w,h,Tk_Depth(win));
-       pTree->iPixmapWidth = w;
-       pTree->iPixmapHeight = h;
-    }
-
-    else if (!pTree->options.doublebuffer && pTree->pixmap) {
-        Tk_FreePixmap(pDisp, pTree->pixmap);
-        pTree->pixmap = 0;
-    }
-
     pixmap = getPixmap(pTree, pTree->iScrollX+x, pTree->iScrollY+y, w, h, g);
     memset(&gc_values, 0, sizeof(XGCValues));
     gc = Tk_GetGC(pTree->tkwin, 0, &gc_values);
     assert(Tk_WindowId(win));
 
-    /* If the doublebuffer mode pixmap exists, update it as well as the
-     * application window. Otherwise, just the application window.
-     */
-    if (pTree->pixmap) {
-        XCopyArea(pDisp, pixmap, pTree->pixmap, gc, 0, 0, w, h, x, y);
-    } else {
-        XCopyArea(pDisp, pixmap, Tk_WindowId(win), gc, 0, 0, w, h, x, y);
-    }
+    XCopyArea(
+        pDisp, pixmap, Tk_WindowId(pTree->docwin), gc, 0, 0, w, h, 
+        x - Tk_X(pTree->docwin), y - Tk_Y(pTree->docwin)
+    );
 
     Tk_FreePixmap(pDisp, pixmap);
     Tk_FreeGC(pDisp, gc);
-}
-
-static void 
-flushPixmap(pTree)
-    HtmlTree *pTree;
-{
-    Pixmap pm = pTree->pixmap;
-    if (pm) {
-        XGCValues gc_values;
-        GC gc;
-        Display *pDisp = Tk_Display(pTree->tkwin);
-        Window xwin = Tk_WindowId(pTree->tkwin);
-        int w = pTree->iPixmapWidth;
-        int h = pTree->iPixmapHeight;
-
-        assert(w == Tk_Width(pTree->tkwin));
-        assert(h == Tk_Height(pTree->tkwin));
-
-        memset(&gc_values, 0, sizeof(XGCValues));
-        gc = Tk_GetGC(pTree->tkwin, 0, &gc_values);
-        XCopyArea(pDisp, pm, xwin, gc, 0, 0, w, h, 0, 0); 
-        Tk_FreeGC(pDisp, gc);
-    }
 }
 
 /*
@@ -4387,79 +4331,23 @@ flushPixmap(pTree)
  *---------------------------------------------------------------------------
  */
 void 
-HtmlWidgetRepair(pTree, x, y, w, h, pixmapok, windowsrepair)
+HtmlWidgetRepair(pTree, x, y, w, h, windowsrepair)
     HtmlTree *pTree;
     int x;
     int y;
     int w;
     int h;
-    int pixmapok;
     int windowsrepair;
 {
     /* Make sure the widget main window exists before painting anything */
     Tk_MakeWindowExist(pTree->tkwin);
+    Tk_MakeWindowExist(pTree->docwin);
 
-    if (!pTree->pixmap || !pixmapok) {
-        widgetRepair(pTree, x, y, w, h, windowsrepair);
-    }
-   
-    if (pTree->pixmap) {
-        Display *pDisp = Tk_Display(pTree->tkwin);
-        Window xwin = Tk_WindowId(pTree->tkwin);
-        XGCValues gc_values;
-
-        GC gc;
-        memset(&gc_values, 0, sizeof(XGCValues));
-        gc = Tk_GetGC(pTree->tkwin, 0, &gc_values);
-
-        XCopyArea(pDisp, pTree->pixmap, xwin, gc, x, y, w, h, x, y);
- 
-        Tk_FreeGC(pDisp, gc);
-    }
-
+    widgetRepair(pTree, x, y, w, h, windowsrepair);
     if (windowsrepair) {
         windowsRepair(pTree, &pTree->canvas);
     }
 }
-
-#if 0
-#ifdef WIN32
-#include <windows.h>
-static void
-queryVisibility(pTree)
-    HtmlTree *pTree;
-{
-    HWND hWindow = (HWND)Tk_WindowId(pTree->tkwin);
-    HDC hDc = GetDC(hWindow);
-    RECT clip;                 /* Clipped rectangle */
-    RECT client;               /* Client window rectangle */
-    int rc;
-
-    GetClientRect(hWindow,  &client);
-    rc = GetClipBox(hDc, &clip);
-    ReleaseDC(hWindow, hDc);
-
-    if (rc == SIMPLEREGION && EqualRect(&clip, &client)) {
-        pTree->eVisibility = VisibilityUnobscured; 
-    } else {
-        pTree->eVisibility = VisibilityPartiallyObscured; 
-    }
-
-    HtmlLog(pTree, "EVENT", "queryVisibility: state=%s", 
-                pTree->eVisibility == VisibilityFullyObscured ?
-                        "VisibilityFullyObscured":
-                pTree->eVisibility == VisibilityPartiallyObscured ?
-                        "VisibilityPartiallyObscured":
-                pTree->eVisibility == VisibilityUnobscured ?
-                        "VisibilityUnobscured":
-                "N/A"
-    );
-}
-#else
-  #define queryVisibility(x)
-#endif
-#endif
-
 
 /*
  *---------------------------------------------------------------------------
@@ -4480,80 +4368,47 @@ HtmlWidgetSetViewport(pTree, scroll_x, scroll_y, force_redraw)
     int scroll_y;               /* New value for pTree->iScrollY */
     int force_redraw;           /* Redraw the entire viewport regardless */
 {
-    int w;
-    int h;
-    Tk_Window win = pTree->tkwin;
-
-    int delta_x = scroll_x - pTree->iScrollX;
-    int delta_y = scroll_y - pTree->iScrollY;
-
-    if (
-        !force_redraw && 
-        pTree->iScrollY == scroll_y && 
-        pTree->iScrollX == scroll_x
-    ) {
-        return;
-    }
-
-    /* Make sure the widget main window exists before doing anything */
-    Tk_MakeWindowExist(win);
-    w = Tk_Width(win);
-    h = Tk_Height(win);
-
-    assert(pTree->nFixedBackground >= 0);
-    if (
-        (pTree->nFixedBackground > 0) || 
-        (!pTree->pixmap && pTree->eVisibility != VisibilityUnobscured)
-    ) {
-        force_redraw = 1;
-    }
-
     pTree->iScrollY = scroll_y;
     pTree->iScrollX = scroll_x;
-    if (force_redraw || delta_x != 0 || abs(delta_y) >= h) {
-/*
-        HtmlNodeReplacement *p;
-        for (p = pTree->pMapped; p; p = p->pNext) {
-            p->iCanvasX = -10000;
-            p->iCanvasY = -10000;
+
+    if (pTree->nFixedBackground) {
+        /* Variable HtmlTree.nFixedBackground contains the number of 
+         * fixed background images or boxes contained in this document. If
+         * this is not zero, then we need to redraw the entire viewport
+         * each time the user scrolls the window. In other words, we need
+         * to do something generate an expose event that covers the whole
+         * viewport.
+         *
+         * Moving the docwin between coords (0,0) and (-10000,0) each time
+         * the window is scrolled seems to achieve this.
+         */
+        int iNewY = Tk_Y(pTree->docwin);
+        if (iNewY <= -5000) {
+            iNewY = 0;
+        }else{
+            iNewY = -10000;
         }
-*/
-        widgetRepair(pTree, 0, 0, w, h, 1);
-        flushPixmap(pTree);
+        Tk_MoveWindow(pTree->docwin, 0, iNewY);
     } else {
-        XGCValues gc_values;
-        GC gc;
-        Display *pDisp = Tk_Display(win);
-        Window xwin = Tk_WindowId(win);
-        Pixmap pm = pTree->pixmap;
+        int iShiftY;
+        int iShiftX;
 
-        memset(&gc_values, 0, sizeof(XGCValues));
-        gc = Tk_GetGC(pTree->tkwin, 0, &gc_values);
+        scroll_x = scroll_x%25000;
+        scroll_y = scroll_y%25000;
+        iShiftY = Tk_Y(pTree->docwin) - scroll_y;
+        iShiftX = Tk_X(pTree->docwin) - scroll_x;
 
-        if (delta_y > 0) {
-
-            if (pm) {
-                XCopyArea(pDisp, pm, pm, gc, 0, delta_y, w, h-delta_y, 0, 0);
-            } else {
-                XCopyArea(pDisp, xwin, xwin, gc, 0, delta_y, w, h-delta_y ,0,0);
-            }
-            widgetRepair(pTree, 0, h-delta_y, w, delta_y, 1);
-            flushPixmap(pTree);
-
-        } else if (delta_y < 0) {
-            if (pm) {
-                XCopyArea(pDisp,pm,pm,gc,0,0,w,h+delta_y,0,0-delta_y);
-            } else {
-                XCopyArea(pDisp,xwin,xwin,gc,0,0,w,h+delta_y,0,0-delta_y);
-            }
-            widgetRepair(pTree, 0, 0, w, 0 - delta_y, 1);
-            flushPixmap(pTree);
+        if ( iShiftY > 20000 || iShiftY < -20000 || 
+             iShiftX > 20000 || iShiftX < -20000
+        ) {
+            /* If moving the window more than 20000 pixels in either the
+	     * horizontal or vertical direction, make sure the entire viewport
+             * is redrawn.
+             */
+            HtmlCallbackDamage(pTree, 0, 0, 100000, 100000);
         }
-
-        Tk_FreeGC(pDisp, gc);
+        Tk_MoveWindow(pTree->docwin, -1*scroll_x, -1*scroll_y);
     }
-
-    windowsRepair(pTree, &pTree->canvas);
 }
 
 HtmlCanvasItem *

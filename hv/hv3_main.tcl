@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.150 2007/09/23 06:34:08 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.151 2007/09/25 11:21:42 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -459,7 +459,6 @@ snit::widget ::hv3::browser_frame {
 
   option -statusvar        -default ""
 
-  delegate option -doublebuffer     to myHv3
   delegate option -forcefontmetrics to myHv3
   delegate option -fonttable        to myHv3
   delegate option -fontscale        to myHv3
@@ -794,7 +793,6 @@ snit::type ::hv3::config {
   variable myPollActive 0
 
   foreach {opt def type} [list \
-    -doublebuffer     0                         Boolean \
     -enableimages     1                         Boolean \
     -enablejavascript 0                         Boolean \
     -forcefontmetrics 1                         Boolean \
@@ -809,9 +807,6 @@ snit::type ::hv3::config {
   
   constructor {db args} {
     set myDb $db
-    if {$::tcl_platform(platform) eq "windows"} {
-      set options(-doublebuffer) 1
-    }
 
     $myDb transaction {
       set rc [catch {
@@ -908,7 +903,6 @@ snit::type ::hv3::config {
     foreach {option label} [list \
         -forcefontmetrics "Force CSS Font Metrics" \
         -enableimages     "Enable Images"          \
-        -doublebuffer     "Double-buffer"          \
         --                --                       \
         -enablejavascript "Enable ECMAscript"      \
     ] {
@@ -1001,7 +995,6 @@ snit::type ::hv3::config {
         -forcefontmetrics options(-forcefontmetrics) \
         -enableimages     options(-enableimages)     \
         -enablejavascript options(-enablejavascript) \
-        -doublebuffer     options(-doublebuffer)     \
     ] {
       if {[$b cget $option] ne [set $var]} {
         $b configure $option [set $var]
@@ -1015,7 +1008,6 @@ snit::type ::hv3::config {
         -zoom             options(-zoom)             \
         -forcefontmetrics options(-forcefontmetrics) \
         -enableimages     options(-enableimages)     \
-        -doublebuffer     options(-doublebuffer)     \
     ] {
       if {[$b cget $option] ne [set $var]} {
         $b configure $option [set $var]

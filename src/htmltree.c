@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.149 2007/09/16 10:41:28 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.150 2007/09/25 11:21:43 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -1886,7 +1886,7 @@ nodeViewCmd(pNode, isVertical, objv, objc)
 
     HtmlNodeScrollbarDoCallback(pNode->pNodeCmd->pTree, pNode);
     HtmlWidgetNodeBox(pTree, pNode, &x, &y, &w, &h);
-    HtmlCallbackDamage(pTree, x - pTree->iScrollX, y - pTree->iScrollY, w, h,0);
+    HtmlCallbackDamage(pTree, x - pTree->iScrollX, y - pTree->iScrollY, w, h);
     pTree->cb.flags |= HTML_NODESCROLL;
     HtmlWalkTree(pTree, pNode, markWindowAsClipped, 0);
 

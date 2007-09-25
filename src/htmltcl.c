@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.187 2007/09/23 14:58:57 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.188 2007/09/25 11:21:42 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -561,27 +561,23 @@ INSTRUMENTED(callbackHandler, HTML_INSTRUMENT_CALLBACK)
     assert(pTree->cb.pDamage == 0 || pTree->cb.flags & HTML_DAMAGE);
     if (pTree->cb.flags & HTML_DAMAGE) {
         HtmlDamage *pD = pTree->cb.pDamage;
-        pTree->cb.pDamage = 0;
-        if (
-            pTree->cb.flags & HTML_SCROLL &&
-            pD && pD->x == 0 && pD->y == 0 && 
-            pD->w >= Tk_Width(pTree->tkwin) &&
-            pD->h >= Tk_Height(pTree->tkwin)
-        ) {
-            force_redraw = 1;
-        }
-        while (pD) {
-            HtmlDamage *pNext = pD->pNext;
-
-            if (!force_redraw) {
+        if (pD && (
+            (pTree->cb.flags & HTML_SCROLL)==0 ||
+            pD->x != 0 || pD->y != 0 || 
+            pD->w < Tk_Width(pTree->tkwin) ||
+            pD->h < Tk_Height(pTree->tkwin)
+        )) {
+            pTree->cb.pDamage = 0;
+            while (pD) {
+                HtmlDamage *pNext = pD->pNext;
                 HtmlLog(pTree, 
-                    "ACTION", "Repair: %dx%d +%d+%d", pD->w, pD->h, pD->x, pD->y
+                    "ACTION", "Repair: %dx%d +%d+%d", 
+                    pD->w, pD->h, pD->x, pD->y
                 );
-                HtmlWidgetRepair(pTree,pD->x,pD->y,pD->w,pD->h,pD->pixmapok,1);
+                HtmlWidgetRepair(pTree, pD->x, pD->y, pD->w, pD->h, 1);
+                HtmlFree(pD);
+                pD = pNext;
             }
-
-            HtmlFree(pD);
-            pD = pNext;
         }
     }
 
@@ -592,7 +588,7 @@ INSTRUMENTED(callbackHandler, HTML_INSTRUMENT_CALLBACK)
             p->iScrollX, p->iScrollY, force_redraw, pTree->nFixedBackground
         );
         scrollClock = clock();
-        HtmlWidgetSetViewport(pTree, p->iScrollX, p->iScrollY, force_redraw);
+        HtmlWidgetSetViewport(pTree, p->iScrollX, p->iScrollY, 0);
         scrollClock = clock() - scrollClock;
         HtmlLog(pTree, "TIMING", "SetViewport: clicks=%d", scrollClock);
     }
@@ -887,7 +883,7 @@ HtmlCallbackDamageNode(pTree, pNode)
     } else {
         int x, y, w, h;
         HtmlWidgetNodeBox(pTree, pNode, &x, &y, &w, &h);
-        HtmlCallbackDamage(pTree,x-pTree->iScrollX,y-pTree->iScrollY,w,h,0);
+        HtmlCallbackDamage(pTree, x-pTree->iScrollX, y-pTree->iScrollY, w, h);
     }
 }
 
@@ -909,13 +905,12 @@ HtmlCallbackDamageNode(pTree, pNode)
  *---------------------------------------------------------------------------
  */
 void 
-HtmlCallbackDamage(pTree, x, y, w, h, pixmapok)
+HtmlCallbackDamage(pTree, x, y, w, h)
     HtmlTree *pTree;
     int x; 
     int y;
     int w; 
     int h;
-    int pixmapok;
 {
     HtmlDamage *pNew;
     HtmlDamage *p;
@@ -1159,48 +1154,12 @@ eventHandler(clientData, pEvent)
             if (iWidth != pTree->iCanvasWidth) {
                 HtmlCallbackLayout(pTree, pTree->pRoot);
             }
-            HtmlCallbackDamage(pTree, 0, 0, iWidth, Tk_Height(pTree->tkwin), 0);
+            HtmlCallbackDamage(pTree, 0, 0, iWidth, Tk_Height(pTree->tkwin));
             snapshotZero(pTree);
             break;
         }
 
-        case Expose: {
-            XExposeEvent *p = (XExposeEvent *)pEvent;
-
-            HtmlLog(pTree, "EVENT", "Expose: x=%d y=%d width=%d height=%d",
-                p->x, p->y, p->width, p->height
-            );
-
-            HtmlCallbackDamage(pTree, p->x, p->y, p->width, p->height, 1);
-            break;
-        }
-
-        case VisibilityNotify: {
-            XVisibilityEvent *p = (XVisibilityEvent *)pEvent;
-
-            HtmlLog(pTree, "EVENT", "VisibilityNotify: state=%s", 
-                p->state == VisibilityFullyObscured ?
-                        "VisibilityFullyObscured":
-                p->state == VisibilityPartiallyObscured ?
-                        "VisibilityPartiallyObscured":
-                p->state == VisibilityUnobscured ?
-                        "VisibilityUnobscured":
-                "N/A"
-            );
-
-
-#ifndef WIN32
-            pTree->eVisibility = p->state;
-#endif
-            break;
-        }
-
         case UnmapNotify: {
-            if (pTree->pixmap) {
-                /* If the window has a double-buffer pixmap, free it now. */
-                Tk_FreePixmap(Tk_Display(pTree->tkwin), pTree->pixmap);
-                pTree->pixmap = 0;
-            }
             break;
         }
 
@@ -1211,6 +1170,41 @@ eventHandler(clientData, pEvent)
             break;
         }
 
+    }
+}
+
+static void 
+docwinEventHandler(clientData, pEvent)
+    ClientData clientData;
+    XEvent *pEvent;
+{
+    HtmlTree *pTree = (HtmlTree *)clientData;
+
+    switch (pEvent->type) {
+        case Expose: {
+            XExposeEvent *p = (XExposeEvent *)pEvent;
+    
+            HtmlLog(pTree, "EVENT", 
+                "Docwin Expose: x=%d y=%d width=%d height=%d",
+                p->x, p->y, p->width, p->height
+            );
+    
+            HtmlCallbackDamage(pTree, 
+                p->x + Tk_X(pTree->docwin), p->y + Tk_Y(pTree->docwin),
+                p->width, p->height
+            );
+            break;
+        }
+        case ButtonPress:
+        case ButtonRelease:
+        case MotionNotify:
+        case LeaveNotify:
+        case EnterNotify:
+            pEvent->xmotion.window = Tk_WindowId(pTree->tkwin);
+            pEvent->xmotion.x += Tk_X(pTree->docwin);
+            pEvent->xmotion.y += Tk_Y(pTree->docwin);
+            Tk_HandleEvent(pEvent);
+            break;
     }
 }
 
@@ -1286,6 +1280,7 @@ configureCmd(clientData, interp, objc, objv)
     #define DS_MASK        0x00000004    
     #define S_MASK         0x00000008    
     #define F_MASK         0x00000010   
+    #define L_MASK         0x00000020   
 
     /*
      * Macros to generate static Tk_OptionSpec structures for the
@@ -1323,12 +1318,7 @@ configureCmd(clientData, interp, objc, objv)
 BOOLEAN(shrink, "shrink", "Shrink", "0", S_MASK),
 BOOLEAN(layoutcache, "layoutCache", "LayoutCache", "1", S_MASK),
 BOOLEAN(forcefontmetrics, "forceFontMetrics", "ForceFontMetrics", "1", F_MASK),
-#ifdef WIN32
-BOOLEAN(doublebuffer, "doubleBuffer", "DoubleBuffer", "1", 0),
-#else
-BOOLEAN(doublebuffer, "doubleBuffer", "DoubleBuffer", "0", 0),
-#endif
-BOOLEAN(forcewidth, "forceWidth", "ForceWidth", "0", S_MASK),
+BOOLEAN(forcewidth, "forceWidth", "ForceWidth", "0", L_MASK),
 
         BOOLEAN(xhtml, "xhtml", "xhtml", "0", 0),
 
@@ -1430,7 +1420,7 @@ BOOLEAN(forcewidth, "forceWidth", "ForceWidth", "0", S_MASK),
             pTree->cb.pSnapshot = 0;
             HtmlCallbackRestyle(pTree, pTree->pRoot);
             HtmlWalkTree(pTree, pTree->pRoot, worldChangedCb, 0);
-            HtmlCallbackDamage(pTree, 0, 0, Tk_Width(win), Tk_Height(win), 0);
+            HtmlCallbackDamage(pTree, 0, 0, Tk_Width(win), Tk_Height(win));
 
 #ifndef NDEBUG
             if (1) {
@@ -1447,6 +1437,12 @@ BOOLEAN(forcewidth, "forceWidth", "ForceWidth", "0", S_MASK),
              * and -fonttable options.
              */
             HtmlFontCacheClear(pTree, 1);
+        }
+        if (mask & L_MASK) {
+            /* This happens when the -forcewidth option is set. In this
+             * case we need to rebuild the layout.
+             */
+            HtmlCallbackLayout(pTree, pTree->pRoot);
         }
 
         if (rc != TCL_OK) {
@@ -1546,7 +1542,7 @@ resetCmd(clientData, interp, objc, objv)
 
     HtmlCallbackScrollY(pTree, 0);
     HtmlCallbackScrollX(pTree, 0);
-    HtmlCallbackDamage(pTree, 0, 0, Tk_Width(win), Tk_Height(win), 0);
+    HtmlCallbackDamage(pTree, 0, 0, Tk_Width(win), Tk_Height(win));
     doLoadDefaultStyle(pTree);
     pTree->isParseFinished = 0;
     pTree->isSequenceOk = 1;
@@ -1875,19 +1871,6 @@ viewCommon(pTree, isXview, objc, objv)
             HtmlCallbackScrollX(pTree, iNewVal);
         } else {
             HtmlCallbackScrollY(pTree, iNewVal);
-        
-            /* Shoot off a scroll-callback for the y-scroll bar now. There 
-             * will be another one after the next callbackHandler() 
-             * invocation. But if for some reason the page is slow to scroll, 
-             * doing this now makes using the scrollbar a bit more 
-             * comfortable. I think...
-             */
-            doSingleScrollCallback(pTree->interp, 
-                pTree->options.yscrollcommand,
-                iNewVal,
-                pTree->canvas.bottom,
-                Tk_Height(pTree->tkwin)
-            );
         }
     }
 
@@ -2607,7 +2590,6 @@ newWidget(clientData, interp, objc, objv)
     
     zCmd = Tcl_GetString(objv[1]);
     pTree = HtmlNew(HtmlTree);
-    pTree->eVisibility = VisibilityPartiallyObscured;
 
     /* Create the Tk window.
      */
@@ -2618,6 +2600,16 @@ newWidget(clientData, interp, objc, objv)
         return TCL_ERROR;
     }
     Tk_SetClass(pTree->tkwin, "Html");
+
+    pTree->docwin = Tk_CreateWindow(interp, pTree->tkwin, "document", NULL); 
+    if (!pTree->docwin) {
+        Tk_DestroyWindow(pTree->tkwin);
+        HtmlFree(pTree);
+        return TCL_ERROR;
+    }
+    Tk_MakeWindowExist(pTree->docwin);
+    Tk_ResizeWindow(pTree->docwin, 30000, 30000);
+    Tk_MapWindow(pTree->docwin);
 
     pTree->interp = interp;
     Tcl_InitHashTable(&pTree->aParseHandler, TCL_ONE_WORD_KEYS);
@@ -2637,6 +2629,14 @@ newWidget(clientData, interp, objc, objv)
     Tk_CreateEventHandler(pTree->tkwin, 
             ExposureMask|StructureNotifyMask|VisibilityChangeMask, 
             eventHandler, (ClientData)pTree
+    );
+
+    Tk_CreateEventHandler(pTree->docwin, 
+        ExposureMask|ButtonMotionMask|ButtonPressMask|
+        ButtonReleaseMask|PointerMotionMask|PointerMotionHintMask|
+        Button1MotionMask|Button2MotionMask|Button3MotionMask|
+        Button4MotionMask|Button5MotionMask|ButtonMotionMask, 
+        docwinEventHandler, (ClientData)pTree
     );
 
     /* Create the image-server */
