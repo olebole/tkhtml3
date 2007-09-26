@@ -1543,7 +1543,7 @@ snit::widget ::hv3::hv3 {
         # If there was no node with the name attribute set to the fragment,
         # search for a node with the id attribute set to the fragment.
         if {$goto_node eq ""} {
-          set selector [format {[id="%s"]} $myFragmentSeek]
+          set selector [format {[id="%s"]} $fragment]
           set goto_node [lindex [$myHtml search $selector] 0]
         }
   
