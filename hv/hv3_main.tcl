@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.154 2007/09/28 14:14:56 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.155 2007/09/28 16:17:15 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -58,6 +58,7 @@ source [sourcefile hv3_icons.tcl]
 source [sourcefile hv3_history.tcl]
 source [sourcefile hv3_string.tcl]
 source [sourcefile hv3_bookmarks.tcl]
+source [sourcefile hv3_bugreport.tcl]
 
 #--------------------------------------------------------------------------
 # Widget ::hv3::browser_frame
@@ -460,7 +461,10 @@ snit::widget ::hv3::browser_frame {
     #
     set html [[$self hv3] html]
     set slaves [place slaves $html]
-    set isFrameset [expr {[winfo class [lindex $slaves 0]] eq "Frameset"}]
+    set isFrameset 0
+    if {[llength $slaves]>0} {
+      set isFrameset [expr {[winfo class [lindex $slaves 0]] eq "Frameset"}]
+    }
     return $isFrameset
   }
 

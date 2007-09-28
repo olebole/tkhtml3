@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.84 2007/09/25 18:13:35 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.85 2007/09/28 16:17:15 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -556,8 +556,8 @@ proc ::hv3::control_to_form {node} {
   #
   method dom_checked {args} { return 0 }
 
-  # DOM Implementation does not call this. HTMLInputElement.value is
-  # the "value" attribute of the HTML element for this type of object.
+  # HTMLInputElement.value is the current contents of the widget 
+  # for this type of object.
   #
   method dom_value {args} {
     if {[llength $args]>0} {

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.28 2007/09/28 14:14:56 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.29 2007/09/28 16:17:15 danielk1977 Exp $)} 1 }
 
 # Register the home: scheme handler with ::hv3::protocol $protocol.
 #
@@ -21,189 +21,6 @@ proc ::hv3::create_undo_trigger {db zTable} {
   append trigger "END;"
 
   $db eval $trigger
-}
-
-::snit::type ::hv3::bookmarkdb {
-  variable myDb ""
-
-  typevariable Schema {
-
-      /* Each bookmark is represented by a single entry in this
-       * table. The "bookmark_id" is allocated when the record
-       * is created and never modified.
-       */
-      CREATE TABLE bm_bookmarks1(
-        bookmark_id     INTEGER PRIMARY KEY,
-
-        bookmark_name   TEXT,          /* Link caption */
-        bookmark_uri    TEXT,          /* Uri of bookmarked page */
-        bookmark_tags   TEXT,          /* Arbitrary. Used for user queries */
-
-        bookmark_folder     INTEGER,
-        bookmark_folder_idx INTEGER
-      );
-
-      /* This table defines the display order for folders. Also, whether
-       * or not the folder is in "hidden" state. 
-       */
-      CREATE TABLE bm_folders1(
-        folder_id       INTEGER PRIMARY KEY,
-        folder_name     TEXT,
-        folder_hidden   BOOLEAN,
-        folder_idx      INTEGER
-      );
-
-      CREATE TABLE bm_version1(
-        version         INTEGER PRIMARY KEY
-      );
-
-      /* The "undo" log. Each entry is either a caption or an sql
-       * statement. The type column is either 'caption' or 'sql'.
-       */
-      CREATE TABLE bm_undo1(
-        type       TEXT,
-        str        TEXT
-      );
-
-      INSERT INTO bm_version1 VALUES(1);
-  }
-
-  typevariable BookmarkTemplate [join {
-      {<DIV 
-         class="bookmark" 
-         active="true"
-         id="${bookmark_id}"
-         onmousedown="return bookmark_mousedown(this, event)"
-         bookmark_id="$bookmark_id"
-         bookmark_name="$bookmark_name"
-         bookmark_uri="$bookmark_uri"
-         bookmark_tags="$bookmark_tags"
-      >}
-      {<SPAN class="edit" 
-         onclick="return bookmark_edit(this.parentNode)">(edit)</SPAN>}
-      {<A href="$bookmark_uri">$bookmark_name</A>}
-      {<DIV></DIV>}
-      {</DIV>}
-  } ""]
-
-  typevariable FolderTemplate [join {
-    {<DIV
-      class="folder"
-      id="$folder_id"
-      folder_id="$folder_id"
-      folder_name="$folder_name"
-      folder_hidden="$folder_hidden"
-    >}
-      {<H2 
-         style="display:$folder_display"
-         onmousedown="return folder_mousedown(this, event)"
-         onclick="return folder_toggle(this.parentNode, event, 1)"
-       >}
-      {<SPAN class="edit" 
-         onclick="return folder_edit(this.parentNode.parentNode)">(edit)</SPAN>}
-      {<SPAN>- </SPAN>$folder_name}
-      {<DIV></DIV>}
-      {</H2><UL style="clear:both;width:100%">}
-  } ""]
-
-  constructor {db} {
-    set myDb $db
-
-    set rc [catch { $myDb eval $Schema } msg]
-
-    # When this is loaded, each bookmarks record is transformed to
-    # the following HTML:
-    #
-    if {$rc == 0} {
-      set folderid 0
-
-      $myDb transaction {
-        set ii 0
-        foreach B {
-
-      { "Tkhtml and Hv3 Related" }
-      { "tkhtml.tcl.tk"             {http://tkhtml.tcl.tk} }
-      { "Tkhtml3 Mailing List"      {http://groups.google.com/group/tkhtml3} }
-      { "Hv3 site at freshmeat.net" {http://freshmeat.net/hv3} }
-
-      { "Components Used By Hv3" }
-      { "Sqlite" {http://www.sqlite.org} }
-      { "Tk Combobox" {http://www.purl.org/net/oakley/tcl/combobox/index.html} }
-      { "Polipo (web proxy)" {http://www.pps.jussieu.fr/~jch/software/polipo/} }
-      { "SEE (javascript engine)" {http://www.adaptive-enterprises.com.au/~d/software/see/} }
-      { "Icons used in Hv3" {http://e-lusion.com/design/greyscale} }
-
-      { "Tcl Sites" }
-      { "Tcl site"         {http://www.tcl.tk} }
-      { "Tcl wiki"         {http://mini.net/tcl/} }
-      { "ActiveState"      {http://www.activestate.com/} }
-      { "Evolane (eTcl)"   {http://www.evolane.com/} }
-      { "comp.lang.tcl"    {http://groups.google.com/group/comp.lang.tcl} }
-      { "tclscripting.com" {http://www.tclscripting.com/} }
-
-      { "WWW" }
-      { "W3 Consortium"   {http://www.w3.org} }
-      { "CSS 1.0"         {http://www.w3.org/TR/CSS1} }
-      { "CSS 2.1"         {http://www.w3.org/TR/CSS21/} }
-      { "HTML 4.01"       {http://www.w3.org/TR/html4/} }
-      { "W3 DOM Pages"    {http://www.w3.org/DOM/} }
-      { "Web Apps 1.0"    {http://www.whatwg.org/specs/web-apps/current-work/} }
-      { "Acid 2 Test"     {http://www.webstandards.org/files/acid2/test.html} }
-
-        } {
-          if {[llength $B] == 1} {
-            set f [lindex $B 0]
-            $myDb eval { 
-              INSERT INTO bm_folders1(folder_name, folder_hidden, folder_idx) 
-              VALUES($f, 0, (
-                  SELECT coalesce(max(folder_idx),0)+1 FROM bm_folders1
-                )
-              )
-            }
-            set folderid [$myDb last_insert_rowid]
-          } else {
-            foreach {name uri} $B {
-              $myDb eval { 
-                INSERT INTO bm_bookmarks1(
-                  bookmark_name, bookmark_uri, bookmark_tags, 
-                  bookmark_folder, bookmark_folder_idx) 
-                  VALUES($name, $uri, '', $folderid, $ii)
-              }
-              incr ii
-            }
-          }
-        }
-      }
-
-      ::hv3::create_undo_trigger $myDb bm_bookmarks1
-      ::hv3::create_undo_trigger $myDb bm_folders1
-    }
-  }
-
-  # This method is called to add a bookmark to the system.
-  #
-  method add {name uri {tags ""}} {
-    $myDb transaction {
-      $myDb eval {
-        INSERT INTO bm_bookmarks1 (
-          bookmark_name, bookmark_uri, bookmark_tags, 
-          bookmark_folder, bookmark_folder_idx
-        ) VALUES(
-          $name, $uri, $tags, 0, (
-            SELECT min(bookmark_folder_idx)-1 FROM bm_bookmarks1
-          )
-        )
-      }
-      $myDb eval {UPDATE bm_version1 SET version = version + 1}
-    }
-
-    $myDb last_insert_rowid
-  }
-
-  method GetFolderTemplate {} {return $FolderTemplate}
-  method GetBookmarkTemplate {} {return $BookmarkTemplate}
-
-  method db {} {return $myDb}
 }
 
 proc ::hv3::create_domref {} {
@@ -325,9 +142,10 @@ proc ::hv3::home_request {http hv3 dir downloadHandle} {
     }
 
     bug {
-      set fd [open [file join $dir bugreport.html]]
-      $downloadHandle append [read $fd]
-      close $fd
+      set uri [::tkhtml::decode [string range $path 1 end]]
+      after idle [list \
+          ::hv3::bugreport::init [$downloadHandle cget -hv3] $uri
+      ]
     }
 
     bookmarks_left { }

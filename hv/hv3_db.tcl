@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_db.tcl,v 1.15 2007/09/28 14:14:56 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_db.tcl,v 1.16 2007/09/28 16:17:15 danielk1977 Exp $)} 1 }
 
 # Class ::hv3::visiteddb
 #
@@ -395,7 +395,6 @@ proc ::hv3::dbinit {} {
       ::hv3::sqlitedb timeout 2000
     }
 
-    ::hv3::bookmarkdb      ::hv3::the_bookmark_manager ::hv3::sqlitedb
     ::hv3::cookiemanager   ::hv3::the_cookie_manager
     ::hv3::visiteddb       ::hv3::the_visited_db
 
