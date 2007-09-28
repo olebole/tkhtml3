@@ -1591,8 +1591,8 @@ snit::widget ::hv3::hv3 {
       switch -- $major {
         text {
           if {[lsearch [list html xml xhtml] $minor]>=0} {
-            $self reset $savestate
             set q [::hv3::configure_doctype_mode $myHtml $data isXHTML]
+            $self reset $savestate
             set myQuirksmode $q
             $myHtml configure -xhtml $isXHTML
             set myMimetype html
