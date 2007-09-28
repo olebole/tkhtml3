@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.7 2007/09/19 18:43:42 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.8 2007/09/28 14:14:56 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file contains the implementation of two types used by hv3:
@@ -47,6 +47,11 @@ snit::type ::hv3::download {
   option -postdata     -default ""
   option -mimetype     -default ""
   option -enctype      -default ""
+
+  # The hv3 widget that issued this request. This is only used by the
+  # handler for home:// uris.
+  #
+  option -hv3      -default ""
 
   # The protocol implementation sets this option to contain the 
   # HTTP header (or it's equivalent). The format is a serialised array.

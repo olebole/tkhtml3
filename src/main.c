@@ -37,7 +37,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: main.c,v 1.8 2006/07/12 06:47:38 danielk1977 Exp $";
+static const char rcsid[] = "$Id: main.c,v 1.9 2007/09/28 14:14:56 danielk1977 Exp $";
 
 #undef USE_TCL_STUBS
 #undef USE_TK_STUBS
@@ -126,6 +126,7 @@ Tcl_AppInit(interp)
     Tcl_Interp *interp;		/* Interpreter for application. */
 {
     int Tkhtml_Init(Tcl_Interp *);
+    int Tkhtml_SafeInit(Tcl_Interp *);
 
     if (Tcl_Init(interp) == TCL_ERROR) {
 	return TCL_ERROR;
@@ -145,6 +146,7 @@ Tcl_AppInit(interp)
      if (Tkhtml_Init(interp) == TCL_ERROR) {
          return TCL_ERROR;
      }
+    Tcl_StaticPackage(interp, "Tkhtml", Tkhtml_Init, Tkhtml_SafeInit);
 
     /*
      * Specify a user-specific startup file to invoke if the application

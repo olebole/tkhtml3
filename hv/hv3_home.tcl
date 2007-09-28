@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.27 2007/09/19 18:43:42 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.28 2007/09/28 14:14:56 danielk1977 Exp $)} 1 }
 
 # Register the home: scheme handler with ::hv3::protocol $protocol.
 #
@@ -293,6 +293,7 @@ proc ::hv3::home_request {http hv3 dir downloadHandle} {
 
   set obj [::tkhtml::uri [$downloadHandle cget -uri]]
   set authority [$obj authority]
+  set path      [$obj path]
   $obj destroy
 
   switch -exact -- $authority {
@@ -329,11 +330,16 @@ proc ::hv3::home_request {http hv3 dir downloadHandle} {
       close $fd
     }
 
+    bookmarks_left { }
+    bookmarks_right { }
+
     default {
-      set filename [file join $dir bookmarks.html]
-      set fd [open $filename]
-      $downloadHandle append [read $fd]
-      close $fd
+      $downloadHandle append {
+        <FRAMESET cols="33%,*">
+          <FRAME src="home://bookmarks_left">
+          <FRAME src="home://bookmarks_right">
+      }
+      after idle [list ::hv3::bookmarks::init [$downloadHandle cget -hv3]]
     }
   }
 

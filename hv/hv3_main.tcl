@@ -1,8 +1,13 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.153 2007/09/25 18:13:35 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.154 2007/09/28 14:14:56 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
-proc sourcefile {file} { return [file join [file dirname [info script]] $file] }
+proc sourcefile {file} [string map              \
+  [list %HV3_DIR% [file dirname [info script]]] \
+{ 
+  return [file join %HV3_DIR% $file] 
+}]
+
 
 # Before doing anything else, set up profiling if it is requested.
 # Profiling is only used if the "-profile" option was passed on
@@ -39,6 +44,7 @@ if {[package vsatisfies [package provide Tcl] 8.5]} {
   source [sourcefile snit.tcl]
 }
 
+source [sourcefile hv3_widgets.tcl]
 source [sourcefile hv3_encodings.tcl]
 source [sourcefile hv3_db.tcl]
 source [sourcefile hv3_home.tcl]
@@ -51,6 +57,7 @@ source [sourcefile hv3_polipo.tcl]
 source [sourcefile hv3_icons.tcl]
 source [sourcefile hv3_history.tcl]
 source [sourcefile hv3_string.tcl]
+source [sourcefile hv3_bookmarks.tcl]
 
 #--------------------------------------------------------------------------
 # Widget ::hv3::browser_frame
@@ -453,7 +460,7 @@ snit::widget ::hv3::browser_frame {
     #
     set html [[$self hv3] html]
     set slaves [place slaves $html]
-    set isFrameset [expr {[llength $slaves] > 0}]
+    set isFrameset [expr {[winfo class [lindex $slaves 0]] eq "Frameset"}]
     return $isFrameset
   }
 
@@ -609,6 +616,10 @@ snit::widget ::hv3::browser_toplevel {
   # to the myProtocolStatus variable. Set myStatusVar.
   method Writestatus {args} {
     set myStatusVar "$myProtocolStatus    $myFrameStatus"
+  }
+
+  method set_frame_status {text} {
+    set myFrameStatus $text
   }
 
   # The widget may be in one of two states - "pending" or "not pending".
@@ -1177,17 +1188,7 @@ snit::type ::hv3::file_menu {
 }
 
 proc ::hv3::gui_bookmark {} {
-  set uri  [[gui_current hv3] uri get]
-  set name [[gui_current hv3] title]
-  if {$name eq ""} {set name $uri}
-  ::hv3::the_bookmark_manager add $name $uri
-
-  set msg "Bookmarked Page"
-  set i [tk_dialog .alert "Bookmarked!" $msg "" 0 Continue {Go to Bookmarks}]
-  if {$i} {
-    [gui_current hv3] goto home://bookmarks/
-  }
-
+  ::hv3::bookmarks::new_bookmark [gui_current hv3]
 }
 
 snit::type ::hv3::debug_menu {

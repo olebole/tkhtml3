@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.60 2007/09/22 17:12:34 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.61 2007/09/28 14:14:56 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_prop.tcl --
@@ -9,8 +9,6 @@ namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.60 2007/09/22 17:12:34 d
 #
 
 package require Tk
-
-source [file join [file dirname [info script]] hv3_widgets.tcl]
 
 # The first argument, $HTML, must be the name of an html widget that
 # exists somewhere in the application. If one does not already exist,
@@ -322,7 +320,7 @@ snit::widgetadaptor ::hv3::debug::report {
   #
   method report {hv3 node} {
     $hull configure -requestcmd [mymethod GetReport $hv3 $node]
-    $hull goto "GetReport"
+    $hull goto "GetReport" -cachecontrol no-cache
   }
   method GetReport {hv3 node downloadHandle} {
     if {$options(-reportcmd) eq ""} {
@@ -384,7 +382,7 @@ snit::widget ::hv3::debug::FormReport {
     append myReport {<h1>Forms Engine Report</h1>}
     set msg [::hv3::formsreport $node]
     append myReport $msg
-    ${win}.hv3 goto abc
+    ${win}.hv3 goto abc -cachecontrol no-cache
 
     set myCurrentHv3 $hv3
     set myCurrentNode $node
@@ -479,7 +477,7 @@ snit::widget ::hv3::debug::LogReport {
     }
 
     set myReport [subst $Template]
-    ${win}.hv3 goto abc
+    ${win}.hv3 goto abc -cachecontrol no-cache
   }
 
   method GetReport {downloadHandle} {
@@ -980,3 +978,24 @@ image create photo ifile -data {
     yADrWE8qC8WN0+BZAmBq1GMOqwigXFXCrGk/cxjjr27fLtout6n9eMIYMTXsFZsogXRKJf6u
     P0kCADv/
 }
+image create photo iopendir -data {
+    R0lGODlhEAANAKIAANnZ2YSEhP///8bGxv//AAAAAP///////yH5BAEAAAAALAAAAAAQAA0A
+    AANgCIqhiqDLgaIaCLoagkNDIxi6AIFCQ0M4KKpRgCFDQzg0NIQThaHLSxgVKLochRMVMkhD
+    Q4M0VBFYEDKEQ0NDOFFRgCE0NEhDQ4MVBRAoNDSEQ0NRWAAYuqyFBQBYurwJADs=
+}
+
+image create photo itrash -data {
+    R0lGODdhEAAQALMAAP///wAAANzc3KCgoEBAAABAQMPDw4CAgFhYWP//////////////////
+    /////////ywAAAAAEAAQAAAEkxBIGYIIc84QgoCDlBBCAACAAAAExpgTjBkBABCgGAYAYAxC
+    KAAAAShHiDHGOCdAIGUYY5yD0EEBAinDAEOccxAKEEgZBhjinINQgEDKMMAQ5xyEAgRShgGG
+    OOcgFCCQMgwwxDkHoQCBlGGAIc45CAUIpAwDDHHOQShAIGUQYIhzDkIBAjlDEGKME8KcEwpS
+    QiBnBAA7
+}
+image create photo iopentrash -data {
+    R0lGODdhEAAQALMAAP///wAAAP//wADAwMPDw8DAAKCgoP+oWICAAFhYWICAgNzc3P//////
+    /////////ywAAAAAEAAQAAAElRCAEGQIUkoJAoAihDFCCAEAAAIEQhBCSClBBAAgAEEUE8I5
+    QQgBAwAABGQCISkUKAIEUgaTglIqpRQgkDKYtYhRSqUAgZTBALOUSSoFCKQMBpilTFIpQCBl
+    MMAsZZJKAQIpgwFmKZNUChBIGQwwS5mkUoBAymCAWcoklQIEUoYFzFImqRQgkDOEtYxJIcw5
+    oSAlBHJGADs=
+}
+

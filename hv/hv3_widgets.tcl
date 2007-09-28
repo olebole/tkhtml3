@@ -1,12 +1,12 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.47 2007/09/26 08:14:48 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.48 2007/09/28 14:14:56 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
 
 set ::hv3::toolkit Tk
 catch {
-  package require tile
-  set ::hv3::toolkit Tile
+#  package require tile
+#  set ::hv3::toolkit Tile
 }
 
 #-------------------------------------------------------------------
@@ -38,58 +38,196 @@ proc ::hv3::SetFont {font} {
 #    ::hv3::label
 #    ::hv3::toolbutton
 
-proc ::hv3::scrollbar {args} {
-  if {$::hv3::toolkit eq "Tile"} {
-    set w [eval [linsert $args 0 ::ttk::scrollbar]]
-  } else {
-    set w [eval [linsert $args 0 ::scrollbar]]
-    $w configure -highlightthickness 0
-    $w configure -borderwidth 1
+namespace eval ::hv3 {
+
+  set toolkit "Tk"
+
+  proc UseHv3Font {widget} {
+    $widget configure -font Hv3DefaultFont
   }
-  return $w
+  proc SetFont {font} {
+    catch {font delete Hv3DefaultFont}
+    eval [linsert $font 0 font create Hv3DefaultFont]
+  
+    # WARNING: Horrible, horrible action at a distance...
+    catch {.notebook.notebook Redraw}
+  }
+
+  SetFont {-size 10}
+
+  proc button {args} {
+    if {$::hv3::toolkit eq "Tile"} {
+      set w [eval [linsert $args 0 ::ttk::button]]
+    } else {
+      set w [eval [linsert $args 0 ::button]]
+      $w configure -highlightthickness 0
+      $w configure -pady 0 -borderwidth 1
+      ::hv3::UseHv3Font $w
+    }
+    return $w
+  }
+  proc scrollbar {args} {
+    if {$::hv3::toolkit eq "Tile"} {
+      set w [eval [linsert $args 0 ::ttk::scrollbar]]
+    } else {
+      set w [eval [linsert $args 0 ::scrollbar]]
+      $w configure -highlightthickness 0
+      $w configure -borderwidth 1
+    }
+    return $w
+  }
+  proc entry {args} {
+    if {$::hv3::toolkit eq "Tile"} {
+      set w [eval [linsert $args 0 ::ttk::entry]]
+    } else {
+      set w [eval [linsert $args 0 ::entry]]
+      $w configure -highlightthickness 0
+      $w configure -borderwidth 1
+      $w configure -background white
+      ::hv3::UseHv3Font $w
+    }
+    return $w
+  }
+  proc text {args} {
+    set w [eval [linsert $args 0 ::text]]
+    $w configure -highlightthickness 0
+    return $w
+  }
+  
+  proc label {args} {
+    if {$::hv3::toolkit eq "Tile"} {
+      set w [eval [linsert $args 0 ::ttk::label]]
+    } else {
+      set w [eval [linsert $args 0 ::label]]
+      $w configure -highlightthickness 0
+      ::hv3::UseHv3Font $w
+    }
+    return $w
+  }
+
+
+  # scrolledwidget
+  #
+  #     Widget to add automatic scrollbars to a widget supporting the
+  #     [xview], [yview], -xscrollcommand and -yscrollcommand interface (e.g.
+  #     html, canvas or text).
+  #
+  ::snit::widget scrolledwidget {
+    component myWidget
+    variable  myVsb
+    variable  myHsb
+  
+    option -propagate -default 0 -configuremethod set_propagate
+    option -scrollbarpolicy -default auto
+    option -takefocus -default 0
+  
+    method set_propagate {option value} {
+      grid propagate $win $value
+      set options(-propagate) $value
+    }
+  
+    variable myTakeControlCb ""
+    method take_control {callback} {
+      if {$myTakeControlCb ne ""} {
+        uplevel #0 $myTakeControlCb
+      }
+      set myTakeControlCb $callback
+    }
+  
+    proc scrollme {var args} {
+      if {[set $var] ne ""} {
+        uplevel #0 [set $var]
+        set $var ""
+      }
+      eval $args
+    }
+  
+    constructor {widget args} {
+      # Create the three widgets - one user widget and two scrollbars.
+      set myWidget [eval [linsert $widget 1 ${win}.widget]]
+  
+      set v [myvar myTakeControlCb]
+      set w $myWidget
+      set scrollme [myproc scrollme]
+      bind $w <KeyPress-Up>     [list $scrollme $v $w yview scroll -1 units]
+      bind $w <KeyPress-Down>   [list $scrollme $v $w yview scroll  1 units]
+      bind $w <KeyPress-Return> [list $scrollme $v $w yview scroll  1 units]
+      bind $w <KeyPress-Right>  [list $scrollme $v $w xview scroll  1 units]
+      bind $w <KeyPress-Left>   [list $scrollme $v $w xview scroll -1 units]
+      bind $w <KeyPress-Next>   [list $scrollme $v $w yview scroll  1 pages]
+      bind $w <KeyPress-space>  [list $scrollme $v $w yview scroll  1 pages]
+      bind $w <KeyPress-Prior>  [list $scrollme $v $w yview scroll -1 pages]
+  
+      set myVsb [::hv3::scrollbar ${win}.vsb -orient vertical] 
+      set myHsb [::hv3::scrollbar ${win}.hsb -orient horizontal] 
+  
+      $myVsb configure -cursor "top_left_arrow"
+      $myHsb configure -cursor "top_left_arrow"
+  
+      grid configure $myWidget -column 0 -row 0 -sticky nsew
+      grid columnconfigure $win 0 -weight 1
+      grid rowconfigure    $win 0 -weight 1
+      grid propagate       $win $options(-propagate)
+  
+      # First, set the values of -width and -height to the defaults for 
+      # the scrolled widget class. Then configure this widget with the
+      # arguments provided.
+      $self configure -width  [$myWidget cget -width] 
+      $self configure -height [$myWidget cget -height]
+      $self configurelist $args
+  
+      # Wire up the scrollbars using the standard Tk idiom.
+      $myWidget configure -yscrollcommand [list $self scrollcallback $myVsb]
+      $myWidget configure -xscrollcommand [list $self scrollcallback $myHsb]
+      set v [myvar myTakeControlCb]
+      $myVsb configure -command [list [myproc scrollme] $v $myWidget yview]
+      $myHsb configure -command [list [myproc scrollme] $v $myWidget xview]
+  
+      # Propagate events from the scrolled widget to this one.
+      bindtags $myWidget [concat [bindtags $myWidget] $win]
+    }
+  
+    method scrollcallback {scrollbar first last} {
+      $scrollbar set $first $last
+      set ismapped   [expr [winfo ismapped $scrollbar] ? 1 : 0]
+  
+      if {$options(-scrollbarpolicy) eq "auto"} {
+        set isrequired [expr ($first == 0.0 && $last == 1.0) ? 0 : 1]
+      } else {
+        set isrequired $options(-scrollbarpolicy)
+      }
+  
+      if {$isrequired && !$ismapped} {
+        switch [$scrollbar cget -orient] {
+          vertical   {grid configure $scrollbar  -column 1 -row 0 -sticky ns}
+          horizontal {grid configure $scrollbar  -column 0 -row 1 -sticky ew}
+        }
+      } elseif {$ismapped && !$isrequired} {
+        grid forget $scrollbar
+      }
+    }
+  
+    method widget {} {return $myWidget}
+  
+    delegate option -width     to hull
+    delegate option -height    to hull
+    delegate option *          to myWidget
+    delegate method *          to myWidget
+  }
+  
+  # Wrapper around the ::hv3::scrolledwidget constructor. 
+  #
+  # Example usage to create a 400x400 canvas widget named ".c" with 
+  # automatic scrollbars:
+  #
+  #     ::hv3::scrolled canvas .c -width 400 -height 400
+  #
+  proc scrolled {widget name args} {
+    return [eval [concat ::hv3::scrolledwidget $name $widget $args]]
+  }
+  
 }
 
-proc ::hv3::button {args} {
-  if {$::hv3::toolkit eq "Tile"} {
-    set w [eval [linsert $args 0 ::ttk::button]]
-  } else {
-    set w [eval [linsert $args 0 ::button]]
-    $w configure -highlightthickness 0
-    $w configure -pady 0 -borderwidth 1
-    ::hv3::UseHv3Font $w
-  }
-  return $w
-}
-
-proc ::hv3::entry {args} {
-  if {$::hv3::toolkit eq "Tile"} {
-    set w [eval [linsert $args 0 ::ttk::entry]]
-  } else {
-    set w [eval [linsert $args 0 ::entry]]
-    $w configure -highlightthickness 0
-    $w configure -borderwidth 1
-    $w configure -background white
-    ::hv3::UseHv3Font $w
-  }
-  return $w
-}
-
-proc ::hv3::text {args} {
-  set w [eval [linsert $args 0 ::text]]
-  $w configure -highlightthickness 0
-  return $w
-}
-
-proc ::hv3::label {args} {
-  if {$::hv3::toolkit eq "Tile"} {
-    set w [eval [linsert $args 0 ::ttk::label]]
-  } else {
-    set w [eval [linsert $args 0 ::label]]
-    $w configure -highlightthickness 0
-    ::hv3::UseHv3Font $w
-  }
-  return $w
-}
 
 ::snit::widget ::hv3::toolbutton {
 
@@ -190,129 +328,6 @@ proc ::hv3::menu_color {} {
   }
 }
 
-#---------------------------------------------------------------------------
-# ::hv3::scrolledwidget
-#
-#     Widget to add automatic scrollbars to a widget supporting the
-#     [xview], [yview], -xscrollcommand and -yscrollcommand interface (e.g.
-#     html, canvas or text).
-#
-snit::widget ::hv3::scrolledwidget {
-  component myWidget
-  variable  myVsb
-  variable  myHsb
-
-  option -propagate -default 0 -configuremethod set_propagate
-  option -scrollbarpolicy -default auto
-  option -takefocus -default 0
-
-  method set_propagate {option value} {
-    grid propagate $win $value
-    set options(-propagate) $value
-  }
-
-  variable myTakeControlCb ""
-  method take_control {callback} {
-    if {$myTakeControlCb ne ""} {
-      uplevel #0 $myTakeControlCb
-    }
-    set myTakeControlCb $callback
-  }
-
-  proc scrollme {var args} {
-    if {[set $var] ne ""} {
-      uplevel #0 [set $var]
-      set $var ""
-    }
-    eval $args
-  }
-
-  constructor {widget args} {
-    # Create the three widgets - one user widget and two scrollbars.
-    set myWidget [eval [linsert $widget 1 ${win}.widget]]
-
-    set v [myvar myTakeControlCb]
-    set w $myWidget
-    set scrollme [myproc scrollme]
-    bind $w <KeyPress-Up>     [list $scrollme $v $w yview scroll -1 units]
-    bind $w <KeyPress-Down>   [list $scrollme $v $w yview scroll  1 units]
-    bind $w <KeyPress-Return> [list $scrollme $v $w yview scroll  1 units]
-    bind $w <KeyPress-Right>  [list $scrollme $v $w xview scroll  1 units]
-    bind $w <KeyPress-Left>   [list $scrollme $v $w xview scroll -1 units]
-    bind $w <KeyPress-Next>   [list $scrollme $v $w yview scroll  1 pages]
-    bind $w <KeyPress-space>  [list $scrollme $v $w yview scroll  1 pages]
-    bind $w <KeyPress-Prior>  [list $scrollme $v $w yview scroll -1 pages]
-
-    set myVsb [::hv3::scrollbar ${win}.vsb -orient vertical] 
-    set myHsb [::hv3::scrollbar ${win}.hsb -orient horizontal] 
-
-    $myVsb configure -cursor "top_left_arrow"
-    $myHsb configure -cursor "top_left_arrow"
-
-    grid configure $myWidget -column 0 -row 0 -sticky nsew
-    grid columnconfigure $win 0 -weight 1
-    grid rowconfigure    $win 0 -weight 1
-    grid propagate       $win $options(-propagate)
-
-    # First, set the values of -width and -height to the defaults for 
-    # the scrolled widget class. Then configure this widget with the
-    # arguments provided.
-    $self configure -width  [$myWidget cget -width] 
-    $self configure -height [$myWidget cget -height]
-    $self configurelist $args
-
-    # Wire up the scrollbars using the standard Tk idiom.
-    $myWidget configure -yscrollcommand [list $self scrollcallback $myVsb]
-    $myWidget configure -xscrollcommand [list $self scrollcallback $myHsb]
-    set v [myvar myTakeControlCb]
-    $myVsb configure -command [list [myproc scrollme] $v $myWidget yview]
-    $myHsb configure -command [list [myproc scrollme] $v $myWidget xview]
-
-    # Propagate events from the scrolled widget to this one.
-    bindtags $myWidget [concat [bindtags $myWidget] $win]
-  }
-
-  method scrollcallback {scrollbar first last} {
-    $scrollbar set $first $last
-    set ismapped   [expr [winfo ismapped $scrollbar] ? 1 : 0]
-
-    if {$options(-scrollbarpolicy) eq "auto"} {
-      set isrequired [expr ($first == 0.0 && $last == 1.0) ? 0 : 1]
-    } else {
-      set isrequired $options(-scrollbarpolicy)
-    }
-
-    if {$isrequired && !$ismapped} {
-      switch [$scrollbar cget -orient] {
-        vertical   {grid configure $scrollbar  -column 1 -row 0 -sticky ns}
-        horizontal {grid configure $scrollbar  -column 0 -row 1 -sticky ew}
-      }
-    } elseif {$ismapped && !$isrequired} {
-      grid forget $scrollbar
-    }
-  }
-
-  method widget {} {return $myWidget}
-
-  delegate option -width     to hull
-  delegate option -height    to hull
-  delegate option *          to myWidget
-  delegate method *          to myWidget
-}
-
-# Wrapper around the ::hv3::scrolledwidget constructor. 
-#
-# Example usage to create a 400x400 canvas widget named ".c" with 
-# automatic scrollbars:
-#
-#     ::hv3::scrolled canvas .c -width 400 -height 400
-#
-proc ::hv3::scrolled {widget name args} {
-  return [eval [concat ::hv3::scrolledwidget $name $widget $args]]
-}
-#
-# End of "scrolled" implementation
-#---------------------------------------------------------------------------
 
 
 #
@@ -945,6 +960,7 @@ snit::widget ::hv3::findwidget {
 
   method Hv3List {} {
     if {[catch {$myBrowser get_frames} msg]} {
+puts $msg
       return $myBrowser
     } else {
       set frames [$myBrowser get_frames]

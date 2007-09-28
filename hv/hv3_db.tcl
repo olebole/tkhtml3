@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_db.tcl,v 1.14 2007/09/25 18:13:35 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_db.tcl,v 1.15 2007/09/28 14:14:56 danielk1977 Exp $)} 1 }
 
 # Class ::hv3::visiteddb
 #
@@ -18,7 +18,6 @@ namespace eval hv3 { set {version($Id: hv3_db.tcl,v 1.14 2007/09/25 18:13:35 dan
 snit::type ::hv3::visiteddb {
 
   # Constant: Maximum size of database.
-  variable MAX_ENTRIES 200
 
   constructor {} {
     if {![::hv3::have_sqlite3]} return
@@ -27,6 +26,7 @@ snit::type ::hv3::visiteddb {
     catch {::hv3::sqlitedb eval "
       CREATE TABLE visiteddb(
           uri TEXT PRIMARY KEY, 
+          title TEXT,
           lastvisited TIMESTAMP
       );
     "}
@@ -38,13 +38,37 @@ snit::type ::hv3::visiteddb {
   method init {hv3} {
     if {![::hv3::have_sqlite3]} return
 
-    bind $hv3 <<Location>> +[list $self LocationHandler %W]
-    $hv3 configure -isvisitedcmd [myproc LocationQuery]
+    $hv3 configure -storevisitedcmd [myproc LocationHandler $hv3]
+    $hv3 configure -isvisitedcmd    [myproc LocationQuery]
   }
 
-  method LocationHandler {hv3} {
-    set location [$hv3 location]
-    $self addkey $location
+  proc LocationHandler {hv3 isSaveState} {
+    set MAX_ENTRIES 1000
+
+    if {[$hv3 uri scheme] eq "home"} return
+    set location [$hv3 uri get]
+    if {$isSaveState} {
+      set title [$hv3 title]
+    }
+
+    # First statement inserts the new URI into the table, or updates the
+    # timestamp if the URI is already in the table.
+    #
+    # Second statement deletes all but the most recent $MAX_ENTRIES URIs.
+    # This is to stop the db growing indefinitely.
+    #
+    set timestamp [clock seconds]
+    ::hv3::sqlitedb transaction {
+      ::hv3::sqlitedb eval {
+        REPLACE INTO visiteddb VALUES($location, $title, $timestamp)
+      }
+      set id [::hv3::sqlitedb last_insert_rowid]
+      if {($id%10) == 0} {
+        ::hv3::sqlitedb eval {
+          DELETE FROM visiteddb WHERE oid < ($id - $MAX_ENTRIES);
+        }
+      }
+    }
   }
 
   proc LocationQuery {uri} {
@@ -66,28 +90,6 @@ snit::type ::hv3::visiteddb {
       ORDER BY lastvisited DESC
     }
     return [::hv3::sqlitedb eval $sql]
-  }
-
-  method addkey {uri} {
-
-    # First statement inserts the new URI into the table, or updates the
-    # timestamp if the URI is already in the table.
-    #
-    # Second statement deletes all but the most recent $MAX_ENTRIES URIs.
-    # This is to stop the db growing indefinitely.
-    #
-    set timestamp [clock seconds]
-    ::hv3::sqlitedb transaction {
-      ::hv3::sqlitedb eval {
-        REPLACE INTO visiteddb VALUES($uri, $timestamp)
-      }
-      set id [::hv3::sqlitedb last_insert_rowid]
-      if {($id%10) == 0} {
-        ::hv3::sqlitedb eval {
-          DELETE FROM visiteddb WHERE oid < ($id - $MAX_ENTRIES);
-        }
-      }
-    }
   }
 }
 
@@ -396,6 +398,8 @@ proc ::hv3::dbinit {} {
     ::hv3::bookmarkdb      ::hv3::the_bookmark_manager ::hv3::sqlitedb
     ::hv3::cookiemanager   ::hv3::the_cookie_manager
     ::hv3::visiteddb       ::hv3::the_visited_db
+
+    ::hv3::bookmarks::initialise_database
   }
 }
 

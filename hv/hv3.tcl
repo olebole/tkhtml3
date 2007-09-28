@@ -140,7 +140,6 @@ package require Tkhtml 3.0
 package require snit
 
 source [file join [file dirname [info script]] hv3_form.tcl]
-source [file join [file dirname [info script]] hv3_widgets.tcl]
 source [file join [file dirname [info script]] hv3_object.tcl]
 source [file join [file dirname [info script]] hv3_doctype.tcl]
 source [file join [file dirname [info script]] hv3_request.tcl]
@@ -976,6 +975,10 @@ snit::widget ::hv3::hv3 {
 
   option -dom -default "" -configuremethod SetDom
 
+  option -storevisitedcmd -default ""
+
+  variable myStorevisitedDone 0
+
   component myMouseManager           ;# The ::hv3::hv3::mousemanager
   delegate method Subscribe to myMouseManager as subscribe
 
@@ -1228,10 +1231,10 @@ snit::widget ::hv3::hv3 {
       # There are no outstanding HTTP transactions. So fire
       # the DOM "onload" event.
       if {$options(-dom) ne "" && !$myOnloadFired} {
-        set myOnloadFired 1
         set bodynode [$myHtml search body]
         $options(-dom) event load [lindex $bodynode 0]
       }
+      set myOnloadFired 1
     }
   }
 
@@ -1672,6 +1675,10 @@ snit::widget ::hv3::hv3 {
 
     if {$final} {
       $handle destroy
+      if {$myStorevisitedDone == 0 && $options(-storevisitedcmd) ne ""} {
+        set myStorevisitedDone 1
+        eval $options(-storevisitedcmd) 1
+      }
     }
   }
 
@@ -1882,6 +1889,10 @@ snit::widget ::hv3::hv3 {
     }
 
     # Abandon any pending requests
+    if {$myStorevisitedDone == 0 && $options(-storevisitedcmd) ne ""} {
+      set myStorevisitedDone 1
+      eval $options(-storevisitedcmd) $savestate
+    }
     $self stop
 
     # Base the expected type on the extension of the filename in the
@@ -1910,10 +1921,11 @@ snit::widget ::hv3::hv3 {
         -uri         [$uri_obj get]                \
         -mimetype    $mimetype                     \
         -cachecontrol $myCacheControl              \
+        -hv3          $self                        \
     ]
     set myMimetype ""
-    $handle configure                                                         \
-        -incrscript [list $self documentcallback $handle $referer $savestate 0] \
+    $handle configure                                                          \
+        -incrscript [list $self documentcallback $handle $referer $savestate 0]\
         -finscript  [list $self documentcallback $handle $referer $savestate 1] 
     if {$referer ne ""} {
       $handle configure -requestheader [list Referer $referer]
@@ -1929,12 +1941,17 @@ snit::widget ::hv3::hv3 {
     foreach dl $myCurrentDownloads {
       $dl finish
     }
+    if {$myStorevisitedDone == 0 && $options(-storevisitedcmd) ne ""} {
+      set myStorevisitedDone 1
+      eval $options(-storevisitedcmd) 1
+    }
   }
 
   method reset {isSaveState} {
 
     # Clear the "onload-event-fired" flag
     set myOnloadFired 0
+    set myStorevisitedDone 0
 
     # Cancel any pending "Refresh" event.
     if {$myRefreshEventId ne ""} {

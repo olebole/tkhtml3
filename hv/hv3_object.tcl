@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_object.tcl,v 1.9 2006/11/25 13:10:52 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_object.tcl,v 1.10 2007/09/28 14:14:56 danielk1977 Exp $)} 1 }
 
 #
 # The code in this file handles <object> elements for the hv3 mini-browser.
@@ -167,6 +167,8 @@ snit::widget ::hv3::tclet {
   constructor {params data} {
     set myFrame [frame ${self}.tclet_frame -container 1]
     pack $myFrame -expand 1 -fill both
+
+    # Create a safe interpreter with Tk available.
     set myInterp [::safe::interpCreate]
     ::safe::loadTk $myInterp -use $myFrame
 

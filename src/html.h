@@ -605,6 +605,7 @@ struct HtmlTree {
      */
     HtmlCanvas canvas;              /* Canvas to render into */
     int iCanvasWidth;               /* Width of window for canvas */
+    int iCanvasHeight;              /* Height of window for canvas */
 
     /* Linked list of currently mapped replacement objects */
     HtmlNodeReplacement *pMapped;

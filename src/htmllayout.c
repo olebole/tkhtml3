@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.258 2007/09/25 11:21:42 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.259 2007/09/28 14:14:56 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -1609,7 +1609,7 @@ drawReplacementContent(pLayout, pBox, pNode)
     iWidth = PIXELVAL(
         pV, WIDTH, pLayout->minmaxTest ? PIXELVAL_AUTO : pBox->iContaining
     );
-    height = PIXELVAL(pV, HEIGHT, PIXELVAL_AUTO);
+    height = PIXELVAL(pV, HEIGHT, pBox->iContainingHeight);
     if (height != PIXELVAL_AUTO) height = MAX(height, 1);
     if (iWidth != PIXELVAL_AUTO) iWidth = MAX(iWidth, 1);
     assert(iWidth != 0);
@@ -1731,6 +1731,7 @@ drawReplacement(pLayout, pBox, pNode)
 
     memset(&sBox, 0, sizeof(BoxContext));
     sBox.iContaining = pBox->iContaining;
+    sBox.iContainingHeight = PIXELVAL_AUTO;
     drawReplacementContent(pLayout, &sBox, pNode);
     wrapContent(pLayout, pBox, &sBox, pNode);
 }
@@ -1807,6 +1808,7 @@ drawAbsolute(pLayout, pBox, pStaticCanvas, x, y)
         memset(&sContent, 0, sizeof(BoxContext));
         if (isReplaced) {
             sContent.iContaining = pBox->iContaining;
+            sContent.iContainingHeight = pBox->height;
             drawReplacementContent(pLayout, &sContent, pNode);
             iWidth = sContent.width;
         }
@@ -3982,6 +3984,7 @@ HtmlLayout(pTree)
 
     if (rc == TCL_OK) {
         pTree->iCanvasWidth = Tk_Width(pTree->tkwin);
+        pTree->iCanvasHeight = Tk_Height(pTree->tkwin);
         if (pTree->options.shrink) {
             Tk_GeometryRequest(
                 pTree->tkwin, pTree->canvas.right, pTree->canvas.bottom

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_file.tcl,v 1.7 2007/09/19 18:43:42 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_file.tcl,v 1.8 2007/09/28 14:14:56 danielk1977 Exp $)} 1 }
 
 #
 # This file contains Tcl code for loading file:// URIs in the hv3 web browser
@@ -52,8 +52,6 @@ proc directoryIndex {directory} {
     set data {
         <html>
           <head>
-            <!-- Reuse style sheet from HV3 home:///index.html -->
-            <link rel='stylesheet' type='text/css' href='home:///index.html'>
           </head>
           <body>
     }
