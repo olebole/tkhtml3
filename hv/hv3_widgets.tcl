@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.48 2007/09/28 14:14:56 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.49 2007/09/28 15:14:22 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
@@ -608,9 +608,7 @@ snit::widget ::hv3::pretend_tile_notebook {
         ${win}.tabs create line 0 $yb $x $yb -fill white -tags whiteline
         ${win}.tabs create line $x4 $yb $iCanvasWidth $yb -tags whiteline
         ${win}.tabs itemconfigure whiteline -fill white
-        ${win}.tabs itemconfigure $id2 -font [
-          concat [font actual $myFont] -weight bold
-        ]
+        ${win}.tabs itemconfigure $id2 -fill darkblue
       } else {
         ${win}.tabs itemconfigure $id -fill #c3c3c3
         set cmd [list ${win}.tabs itemconfigure $id -fill]
