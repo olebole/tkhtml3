@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.76 2007/09/22 18:11:28 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.77 2007/09/28 16:33:32 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Snit types in this file:
@@ -41,9 +41,6 @@ snit::type ::hv3::dom {
   # Logging command.
   option -logcmd -default "" -configuremethod ConfigureLogcmd
 
-  # Called when the main window is cleared.
-  option -clearcmd -default ""
-
   # Instance of [::hv3::browser_toplevel] associated with this object.
   variable myBrowser ""
 
@@ -73,21 +70,6 @@ snit::type ::hv3::dom {
       foreach win [array names myWindows] {
         $mySee window [list ::hv3::DOM::Window $self $win]
       }
-    }
-  }
-
-  variable myAutoEnable 0
-  method autoenable {} {
-    if {$mySee eq ""} {
-      ::hv3::enable_javascript
-      if {[info commands ::see::interp] eq ""} return
-      set mySee [::see::interp]
-      ::hv3::profile::instrument $mySee
-      foreach win [array names myWindows] {
-        $mySee window [list ::hv3::DOM::Window $self $win]
-      }
-      set myAutoEnable 1 
-      after idle [list set [myvar myAutoEnable] 0]
     }
   }
 
@@ -465,11 +447,8 @@ return
         set mySee ""
 
         array unset myWindows
-        if {$myAutoEnable==0 && $options(-clearcmd) ne ""} {
-          eval $options(-clearcmd)
-        }
         set myWindows($hv3) 1
-        if {$myAutoEnable || [$self HaveScripting]} {
+        if {[$self HaveScripting]} {
           set mySee [::see::interp]
           ::hv3::profile::instrument $mySee
           $mySee log $options(-logcmd)
@@ -1277,8 +1256,6 @@ proc ::hv3::dom_init {} {
     #puts [::hv3::dom2::compile XMLHttpRequest]
     
     ::hv3::create_domref
-    
-    ::hv3::compile_bookmarks_object
     ::hv3::dom2::cleanup
     
     set ::hv3::dom::reformat_scripts_option 0

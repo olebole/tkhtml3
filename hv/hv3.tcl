@@ -900,10 +900,14 @@ snit::type ::hv3::hv3::hyperlinkmanager {
     set template [list \
       proc $P_ATTR {node attr val} {
         if {$attr eq "href"} {
-          if {[%VISITEDCMD% [%BASEURI% resolve $uri]]} {
-            $node dynamic set visited
-          } else {
-            $node dynamic set link
+          if {![catch {
+            set uri [%BASEURI% resolve $val]
+          }]} {
+            if {[%VISITEDCMD% $uri]} {
+              $node dynamic set visited
+            } else {
+              $node dynamic set link
+            }
           }
         }
       }

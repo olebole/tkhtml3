@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.155 2007/09/28 16:17:15 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.156 2007/09/28 16:33:32 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -432,9 +432,6 @@ snit::widget ::hv3::browser_frame {
   #--------------------------------------------------------------------------
 
   method goto {args} {
-    if {[string first home: [lindex $args 0]] == 0} {
-      $myBrowser load_home_uri $self
-    }
     eval [concat $myHv3 goto $args]
     set myNodeList ""
     $self update_statusvar
@@ -519,7 +516,7 @@ snit::widget ::hv3::browser_toplevel {
   delegate method titlevar to myMainFrame
 
   constructor {args} {
-    set myDom [::hv3::dom %AUTO% $self -clearcmd [list $self dom_clearcmd]]
+    set myDom [::hv3::dom %AUTO% $self]
 
     # Create the main browser frame (always present)
     set myMainFrame [::hv3::browser_frame $win.browser_frame $self]
@@ -763,20 +760,6 @@ snit::widget ::hv3::browser_toplevel {
 
   method reload {} {
     $myHistory reload
-  }
-
-  method load_home_uri {frame} {
-    if {$frame eq $myMainFrame && ![$myDom cget -enable]} {
-      $myDom autoenable
-      foreach f $myFrames {
-        $f configure -dom $myDom
-      }
-    }
-  }
-  method dom_clearcmd {} {
-    if {![$myDom cget -enable]} {
-      $self configure -enablejavascript 0
-    }
   }
 
   option -enablejavascript                         \
