@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.49 2007/09/28 15:14:22 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.50 2007/09/29 09:51:13 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
@@ -22,7 +22,9 @@ proc ::hv3::UseHv3Font {widget} {
 }
 proc ::hv3::SetFont {font} {
   catch {font delete Hv3DefaultFont}
-  eval [linsert $font 0 font create Hv3DefaultFont]
+  catch {font delete Hv3DefaultBold}
+  eval font create Hv3DefaultFont $font
+  eval font create Hv3DefaultBold $font -weight bold
 
   # WARNING: Horrible, horrible action at a distance...
   catch {.notebook.notebook Redraw}

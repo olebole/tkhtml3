@@ -1,6 +1,5 @@
 
 namespace eval ::hv3::bookmarks {
-
   proc noop {args} {}
 
   proc initialise_database {} {
@@ -37,55 +36,52 @@ namespace eval ::hv3::bookmarks {
       set folderid 0
 
       ::hv3::sqlitedb transaction {
-        foreach B {
+        foreach {A B} {
 
-      { "tkhtml.tcl.tk"             {http://tkhtml.tcl.tk} }
-      { "Tkhtml3 Mailing List"      {http://groups.google.com/group/tkhtml3} }
-      { "Hv3 site at freshmeat.net" {http://freshmeat.net/hv3} }
+  "Hv3/Tkhtml3 Home page"       http://tkhtml.tcl.tk
+  "Hv3/Tkhtml3 Mailing List"    http://groups.google.com/group/tkhtml3
+  "Hv3/Tkhtml3 CVSTrac"         http://tkhtml.tcl.tk/cvstrac/timeline
+  "Hv3 @ freshmeat.net"         http://freshmeat.net/hv3
 
-      { "Components Used By Hv3" }
-      { "Sqlite" {http://www.sqlite.org} }
-      { "Tk Combobox" {http://www.purl.org/net/oakley/tcl/combobox/index.html} }
-      { "Polipo (web proxy)" {http://www.pps.jussieu.fr/~jch/software/polipo/} }
-      { "SEE (javascript engine)" {http://www.adaptive-enterprises.com.au/~d/software/see/} }
-      { "Icons used in Hv3" {http://e-lusion.com/design/greyscale} }
+F {Components Used By Hv3}
+  "Sqlite"               http://www.sqlite.org
+  "Tk Combobox"          http://www.purl.org/net/oakley/tcl/combobox/index.html
+  "Polipo (web proxy)"   http://www.pps.jussieu.fr/~jch/software/polipo/
+  "Icons used in Hv3"    http://e-lusion.com/design/greyscale
+  "SEE (javascript engine)" 
+    http://www.adaptive-enterprises.com.au/~d/software/see/
 
-      { "Tcl Sites" }
-      { "Tcl site"         {http://www.tcl.tk} }
-      { "Tcl wiki"         {http://mini.net/tcl/} }
-      { "ActiveState"      {http://www.activestate.com/} }
-      { "Evolane (eTcl)"   {http://www.evolane.com/} }
-      { "comp.lang.tcl"    {http://groups.google.com/group/comp.lang.tcl} }
-      { "tclscripting.com" {http://www.tclscripting.com/} }
+F {Tcl Sites}
+  "Tcl site"             http://www.tcl.tk 
+  "Tcl wiki"             http://mini.net/tcl/ 
+  "ActiveState"          http://www.activestate.com/ 
+  "Evolane (eTcl)"       http://www.evolane.com/ 
+  "comp.lang.tcl"        http://groups.google.com/group/comp.lang.tcl 
+  "tclscripting.com"     http://www.tclscripting.com/ 
 
-      { "WWW" }
-      { "W3 Consortium"   {http://www.w3.org} }
-      { "CSS 1.0"         {http://www.w3.org/TR/CSS1} }
-      { "CSS 2.1"         {http://www.w3.org/TR/CSS21/} }
-      { "HTML 4.01"       {http://www.w3.org/TR/html4/} }
-      { "W3 DOM Pages"    {http://www.w3.org/DOM/} }
-      { "Web Apps 1.0"    {http://www.whatwg.org/specs/web-apps/current-work/} }
-      { "Acid 2 Test"     {http://www.webstandards.org/files/acid2/test.html} }
+F {WWW}
+  "W3 Consortium"        http://www.w3.org 
+  "CSS 1.0"              http://www.w3.org/TR/CSS1 
+  "CSS 2.1"              http://www.w3.org/TR/CSS21/ 
+  "HTML 4.01"            http://www.w3.org/TR/html4/ 
+  "W3 DOM Pages"         http://www.w3.org/DOM/ 
+  "Web Apps 1.0"         http://www.whatwg.org/specs/web-apps/current-work/ 
+  "Acid 2 Test"          http://www.webstandards.org/files/acid2/test.html 
 
         } {
-          if {[llength $B] == 1} {
-            set f [lindex $B 0]
-            ::hv3::sqlitedb eval { 
-              INSERT INTO bm_folder2(name) VALUES($f);
-            }
+          if {$A eq "F"} {
+            ::hv3::sqlitedb eval { INSERT INTO bm_folder2(name) VALUES($B) }
             set folderid [::hv3::sqlitedb last_insert_rowid]
             ::hv3::sqlitedb eval { 
               INSERT INTO bm_tree2(folderid, objecttype, objectid) 
               VALUES(0, 'f', $folderid);
             }
           } else {
-            foreach {name uri} $B {
-              ::hv3::sqlitedb eval { 
-                INSERT INTO bm_bookmark2(caption, uri, description)
-                  VALUES($name, $uri, '');
-                INSERT INTO bm_tree2(folderid, objecttype, objectid) 
-                  VALUES($folderid, 'b', last_insert_rowid());
-              }
+            ::hv3::sqlitedb eval { 
+              INSERT INTO bm_bookmark2(caption, uri, description)
+                VALUES($A, $B, '');
+              INSERT INTO bm_tree2(folderid, objecttype, objectid) 
+                VALUES($folderid, 'b', last_insert_rowid());
             }
           }
         }
@@ -217,41 +213,147 @@ namespace eval ::hv3::bookmarks {
       ::hv3::bookmarks::new_bookmark $self
     }
 
+    # Notes on the mozilla bookmarks.html format:
+    #
+    #     * Each folder is a <DL> element.
+    #     * Each bookmark is an <A> element.
+    #     * Folder names are stored in <H3> elements.
+    #
+    method click_importexport {} {
+      ${win}.importexport configure -state normal
+
+      set initial /home/dan/.mozilla/firefox/jghthwxj.default/bookmarks.html
+      set initialdir [file dirname $initial]
+      set f [tk_getOpenFile -initialfile $initial -initialdir $initialdir \
+          -filetypes [list \
+              {{Html Files} {.html}} \
+              {{All Files} *}
+          ]
+      ]
+      if {$f eq ""} return
+
+      set fd [open $f]
+      set zBookmarks [read $fd]
+      close $fd
+
+      set H [html .boomarksparser]
+      $H parse -final $zBookmarks
+
+      unset -nocomplain zTitle
+      foreach N [$H search dl,h3] {
+
+        if {[$N tag] eq "dl"} {
+          if {![info exists zTitle]} {
+            set zTitle "Imported Bookmarks"
+          }
+
+          # Create the bm_folder2 record.
+          ::hv3::sqlitedb eval {
+            INSERT INTO bm_folder2(name) VALUES($zTitle);
+          }
+          set iFolderId [::hv3::sqlitedb last_insert_rowid]
+          set imported_folders($N) $iFolderId
+
+          set iParentId 0
+          for {set P [$N parent]} {$P ne ""} {set P [$P parent]} {
+            if {[$P tag] eq "dl"} {
+              set iParentId $imported_folders($P)
+              break
+            }
+          }
+
+          # Create the bm_tree2 record.
+          ::hv3::sqlitedb eval {
+            INSERT INTO bm_tree2(folderid, objecttype, objectid) 
+            VALUES($iParentId, 'f', $iFolderId)
+          }
+
+        } else {
+          set zTitle [[lindex [$N children] 0] text]
+        }
+      }
+
+      foreach N [$H search {dl a[href]}] {
+        set zCaption [[lindex [$N children] 0] text]
+        set zUri [$N attribute href]
+
+        for {set P [$N parent]} {$P ne ""} {set P [$P parent]} {
+          if {[$P tag] eq "dl"} {
+            set iParentId $imported_folders($P)
+            break
+          }
+        }
+
+        # Create the bm_bookmark2 record.
+        ::hv3::sqlitedb eval {
+          INSERT INTO bm_bookmark2(caption, uri)
+          VALUES($zCaption, $zUri)
+        }
+        set iBookmarkId [::hv3::sqlitedb last_insert_rowid]
+
+        # Create the bm_tree2 record.
+        ::hv3::sqlitedb eval {
+          INSERT INTO bm_tree2(folderid, objecttype, objectid) 
+          VALUES($iParentId, 'b', $iBookmarkId)
+        }
+      }
+
+      destroy $H
+
+      $self populate_tree
+    }
+
     constructor {browser controller} {
       set myBrowser $browser
       set myController $controller
 
-      ::hv3::button ${win}.importexport      \
-          -text "Import/Export Bookmarks..." \
-          -state disabled
-      ::hv3::button ${win}.newfolder    \
-          -text "New Folder" \
+      # On certain systems (linux using xft), it is very expensive
+      # to grab a font for the first time. So create a label here to
+      # make sure there is always at least one reference to the font
+      # Hv3DefaultBold. There are always lot's of references to the
+      # other font used by this widget - Hv3DefaultFont.
+      #
+      label ${win}.fontrefholder -font Hv3DefaultBold
+
+      # Set up the button widgets used by this gui.
+      #
+      ::hv3::button ${win}.importexport                     \
+          -text "Import Mozilla bookmarks.html"             \
+          -command [list $self click_importexport]
+      ::hv3::button ${win}.newfolder                        \
+          -text "New Folder"                                \
           -command [list $self click_new_folder] 
-      ::hv3::button ${win}.newbookmark \
-          -text "New Bookmark"         \
+      ::hv3::button ${win}.newbookmark                      \
+          -text "New Bookmark"                              \
           -command [list $self click_new_bookmark] 
-      ::hv3::scrolled canvas ${win}.canvas -background white
+      ::hv3::button ${win}.expand                           \
+          -text "Expand All"                                \
+          -command [list $self expand_all]
+      ::hv3::button ${win}.collapse                         \
+          -text "Collapse All"                              \
+          -command [list $self collapse_all]
 
-      frame ${win}.tc
-      ::hv3::button ${win}.tc.expand              \
-           -text "Expand All"                     \
-           -command [list $self expand_all]
-      ::hv3::button ${win}.tc.collapse            \
-            -text "Collapse All"                  \
-            -command [list $self collapse_all]
 
-      pack ${win}.tc.expand -side left -fill x
-      pack ${win}.tc.collapse -side left -fill x
+      # Create the canvas on which the tree is drawn
+      #
+      ::hv3::scrolled canvas ${win}.canvas -background white -propagate 1
 
-      pack ${win}.importexport -side top -fill x
-      pack ${win}.newfolder -side top -fill x
-      pack ${win}.newbookmark -side top -fill x
-      pack ${win}.canvas -side top -fill both -expand 1
-      pack ${win}.tc -side bottom
+      # Set up the geometry manager
+      #
+      grid ${win}.importexport              -columnspan 2 -sticky ew     ;# 0
+      grid ${win}.newfolder                 -columnspan 2 -sticky ew     ;# 1
+      grid ${win}.newbookmark               -columnspan 2 -sticky ew     ;# 2
+      grid ${win}.canvas                    -columnspan 2 -sticky nsew   ;# 3
+      grid ${win}.expand ${win}.collapse                                 ;# 4
+      grid configure ${win}.expand   -sticky e
+      grid configure ${win}.collapse -sticky w
+      grid rowconfigure    ${win} 3 -weight 1
+      grid columnconfigure ${win} 0 -weight 1
+      grid columnconfigure ${win} 1 -weight 1
 
-      bind ${win}.canvas <Motion>   [list $self motion_event %x %y]
-      bind ${win}.canvas <Leave>    [list $self leave_event]
-      bind ${win}.canvas <ButtonPress-1> [list $self press_event %x %y]
+      bind ${win}.canvas <Motion>          [list $self motion_event %x %y]
+      bind ${win}.canvas <Leave>           [list $self leave_event]
+      bind ${win}.canvas <ButtonPress-1>   [list $self press_event %x %y]
       bind ${win}.canvas <ButtonRelease-1> [list $self release_event %x %y]
     }
 
@@ -269,54 +371,59 @@ namespace eval ::hv3::bookmarks {
 
       set myTreeStart $y
       incr y $yincr
-      ::hv3::sqlitedb transaction { set y [$self drawSubTree $x $y 0] }
-      incr y $yincr
-
-      # Color for special links.
-      #
-      set c darkblue
-
-      # Create the special "trash" folder.
-      #
-      set f Hv3DefaultFont
-      set x2 [expr {$x + [image width itrash] + 5}]
-      if {[$myController current] eq "folder -1"} {
-        set f [concat [font actual Hv3DefaultFont] -weight bold]
-      }
-      set tid [$C create text $x2 $y -text "Trash" -anchor sw -font $f -fill $c]
-      set myTextId($tid)  "folder -1"
-      set myTextId($tid) "folder -1 {Click to view trashcan contents}"
-      if {[info exists myOpenFolder(-1)]} {
-        set tid [$C create image $x $y -image iopentrash -anchor sw]
-      } else {
-        set tid [$C create image $x $y -image itrash -anchor sw]
-      }
-      set myIconId($tid) "folder -1"
-      incr y $yincr
-      if {[info exists myOpenFolder(-1)]} {
-        set y [$self drawSubTree [expr $x + $yincr] $y -1]
-      }
-
-      incr y $yincr
-      foreach {label textid} [list                                   \
-          "25 Most Recently Viewed URIs"                             \
-          {recent 25 "Click to view 25 most recently viewed URIs"}   \
-          "All Recently Viewed URIs"                                 \
-          {recent -1 "Click to view all recently viewed URIs"}       \
-          "Bookmarks"                                                \
-          {folder 0 "Click to view root folder of bookmarks tree"}   \
-      ] {
-        set f Hv3DefaultFont
-        if {[lrange $textid 0 1] eq [$myController current]} {
-          set f [concat [font actual Hv3DefaultFont] -weight bold]
-        }
-        set tid [$C create text $x $y -text $label -anchor sw -font $f -fill $c]
-        set myTextId($tid) $textid
+      ::hv3::sqlitedb transaction { 
+        set y [$self drawSubTree $x $y 0]
         incr y $yincr
+  
+        # Color for special links.
+        #
+        set c darkblue
+  
+        # Create the special "trash" folder.
+        #
+        set f Hv3DefaultFont
+        set x2 [expr {$x + [image width itrash] + 5}]
+        if {[$myController current] eq "folder -1"} {
+          set f Hv3DefaultBold
+        }
+        set tid [
+            $C create text $x2 $y -text "Trash" -anchor sw -font $f -fill $c
+        ]
+        set myTextId($tid)  "folder -1"
+        set myTextId($tid) "folder -1 {Click to view trashcan contents}"
+        if {[info exists myOpenFolder(-1)]} {
+          set tid [$C create image $x $y -image iopentrash -anchor sw]
+        } else {
+          set tid [$C create image $x $y -image itrash -anchor sw]
+        }
+        set myIconId($tid) "folder -1"
+        incr y $yincr
+        if {[info exists myOpenFolder(-1)]} {
+          set y [$self drawSubTree [expr $x + $yincr] $y -1]
+        }
+  
+        incr y $yincr
+        foreach {label textid} [list                                   \
+            "25 Most Recently Viewed URIs"                             \
+            {recent 25 "Click to view 25 most recently viewed URIs"}   \
+            "All Recently Viewed URIs"                                 \
+            {recent -1 "Click to view all recently viewed URIs"}       \
+            "Bookmarks"                                                \
+            {folder 0 "Click to view root folder of bookmarks tree"}   \
+        ] {
+          set f Hv3DefaultFont
+          if {[lrange $textid 0 1] eq [$myController current]} {
+            set f Hv3DefaultBold
+          }
+          set tid [
+              $C create text $x $y -text $label -anchor sw -font $f -fill $c
+          ]
+          set myTextId($tid) $textid
+          incr y $yincr
+        }
+   
+        $C configure -scrollregion [concat 0 0 [lrange [$C bbox all] 2 3]]
       }
-
-
-      $C configure -scrollregion [concat 0 0 [lrange [$C bbox all] 2 3]]
     }
 
     method set_drag_tag {item} {
@@ -429,7 +536,9 @@ namespace eval ::hv3::bookmarks {
 
       if {$myDragObject ne ""} {
         set item [lindex [
-          $C find overlapping [expr $x-3] [expr $y-3] [expr $x+3] [expr $y+3]
+          $C find overlapping               \
+              [expr {$x-300}] [expr {$y-3}] \
+              [expr {$x+300}] [expr {$y+3}]
         ] 0]
 
         # We were dragging either a bookmark or a folder. Let's see what
@@ -450,13 +559,13 @@ namespace eval ::hv3::bookmarks {
           set dropid [list folder 0]
         }
 
-        if {$dropid ne "" && $myDragObject ne ""} {
-          ::hv3::sqlitedb transaction {
+        ::hv3::sqlitedb transaction {
+          if {$dropid ne "" && $myDragObject ne ""} {
             $self drop $dropid $myDragObject [expr $myDragY > $myPressedY]
           }
-        }
         
-        $self populate_tree
+          $self populate_tree
+        }
       } else {
         set item [lindex [$C find overlapping $x $y $x $y] 0]
         if {$item eq $myPressedItem} {
@@ -512,10 +621,12 @@ namespace eval ::hv3::bookmarks {
     }
 
     method expand_all {} {
-      ::hv3::sqlitedb eval { SELECT folderid FROM bm_folder2 } {
-        set myOpenFolder($folderid) 1
+      ::hv3::sqlitedb transaction {
+        ::hv3::sqlitedb eval { SELECT folderid FROM bm_folder2 } {
+          set myOpenFolder($folderid) 1
+        }
+        $self populate_tree
       }
-      $self populate_tree
     }
     method collapse_all {} {
       array unset myOpenFolder
@@ -536,11 +647,11 @@ namespace eval ::hv3::bookmarks {
           bm_tree2.folderid = $folderid AND
           bm_tree2.objecttype = 'b' AND
           bm_tree2.objectid = bm_bookmark2.bookmarkid
-        ORDER BY(bm_tree2.linkid)
+        ORDER BY bm_tree2.linkid
       } {
         set font Hv3DefaultFont
         if {$page eq "bookmark" && $pageid eq $bookmarkid} {
-          set font [concat [font actual Hv3DefaultFont] -weight bold]
+          set font Hv3DefaultBold
         }
         set t [concat "bookmark$bookmarkid" $tags]
 
@@ -562,11 +673,11 @@ namespace eval ::hv3::bookmarks {
           bm_tree2.folderid = $folderid AND
           bm_tree2.objecttype = 'f' AND
           bm_tree2.objectid = bm_folder2.folderid
-        ORDER BY(bm_tree2.linkid)
+        ORDER BY bm_tree2.linkid 
       } {
         set font Hv3DefaultFont
         if {$page eq "folder" && $pageid eq $thisfolderid} {
-          set font [concat [font actual Hv3DefaultFont] -weight bold]
+          set font Hv3DefaultBold
         }
         set t [concat "folder$thisfolderid" $tags]
 
@@ -675,17 +786,19 @@ namespace eval ::hv3::bookmarks {
     }
 
     method populate {page pageid} {
-      switch -exact -- $page {
-        recent   { $self time populate_recent   $pageid }
-        folder   { $self time populate_folder   $pageid }
-        search   { $self time populate_search   $pageid }
-        default {
-          error [join "
-            {Bad page: \"$page\"}
-            {- should be recent, folder, bookmark or search}
-          "]
+      ::hv3::sqlitedb transaction {
+        switch -exact -- $page {
+          recent   { $self time populate_recent $pageid }
+          folder   { $self time populate_folder $pageid }
+          search   { $self time populate_search $pageid }
+          default {
+            error [join "
+              {Bad page: \"$page\"}
+              {- should be recent, folder, bookmark or search}
+            "]
+          }
         }
-      } 
+      }
     }
 
     method populate_recent {nLimit} {
@@ -912,10 +1025,10 @@ namespace eval ::hv3::bookmarks {
       ::hv3::sqlitedb eval { INSERT INTO bm_folder2(name) VALUES($name) }
       set object [list folder [::hv3::sqlitedb last_insert_rowid]]
       ::hv3::bookmarks::dropobject [list folder 0] $object 0 1
-    }
 
-    if {$treewidget ne ""} {
-      $treewidget populate_tree
+      if {$treewidget ne ""} {
+        $treewidget populate_tree
+      }
     }
   }
 
@@ -943,10 +1056,10 @@ namespace eval ::hv3::bookmarks {
       }
       set object [list bookmark [::hv3::sqlitedb last_insert_rowid]]
       ::hv3::bookmarks::dropobject [list folder 0] $object 0 1
-    }
 
-    if {$treewidget ne ""} {
-      $treewidget populate_tree
+      if {$treewidget ne ""} {
+        $treewidget populate_tree
+      }
     }
   }
 

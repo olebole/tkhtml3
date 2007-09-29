@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_db.tcl,v 1.16 2007/09/28 16:17:15 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_db.tcl,v 1.17 2007/09/29 09:51:13 danielk1977 Exp $)} 1 }
 
 # Class ::hv3::visiteddb
 #
@@ -391,6 +391,7 @@ proc ::hv3::dbinit {} {
   if {"" eq [info commands ::hv3::the_cookie_manager]} {
     if {[::hv3::have_sqlite3]} {
       sqlite3 ::hv3::sqlitedb $::hv3::statefile
+      ::hv3::profile::instrument ::hv3::sqlitedb
       ::hv3::sqlitedb eval {PRAGMA synchronous = OFF}
       ::hv3::sqlitedb timeout 2000
     }
