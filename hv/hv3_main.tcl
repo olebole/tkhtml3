@@ -1,11 +1,11 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.156 2007/09/28 16:33:32 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.157 2007/10/03 10:06:38 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
 proc sourcefile {file} [string map              \
   [list %HV3_DIR% [file dirname [info script]]] \
 { 
-  return [file join %HV3_DIR% $file] 
+  return [file join {%HV3_DIR%} $file] 
 }]
 
 
@@ -239,16 +239,21 @@ snit::widget ::hv3::browser_frame {
       while {[set p [winfo parent $w]] ne ""} {
         set class [winfo class $p]
         if {$class eq "Panedwindow"} {
-          set myPositionId [linsert $myPositionId 0 [lsearch [$p panes] $w]]
+          set a [lsearch [$p panes] $w]
+          set w $p
+          set p [winfo parent $p]
+          set b [lsearch [$p panes] $w]
+
+          set myPositionId [linsert $myPositionId 0 "${b}.${a}"]
         }
         if {$class eq "Hv3" && $myPositionId eq ""} {
           set node $options(-iframe)
           set idx [lsearch [$p search iframe] $node]
-          set myPositionId [linsert $myPositionId 0 iframe $idx]
+          set myPositionId [linsert $myPositionId 0 iframe.${idx}]
         }
         set w $p
       }
-      set myPositionId [linsert $myPositionId 0 0 0]
+      set myPositionId [linsert $myPositionId 0 0]
     }
     return $myPositionId
   }
@@ -1016,6 +1021,11 @@ snit::type ::hv3::config {
     ] {
       if {[$b cget $option] ne [set $var]} {
         $b configure $option [set $var]
+        foreach f [$b get_frames] {
+          if {[$f positionid] ne "0"} {
+            $self configureframe $f
+          }
+        }
       }
     }
   }

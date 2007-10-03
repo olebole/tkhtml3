@@ -1,3 +1,4 @@
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.203 2007/10/03 10:06:38 danielk1977 Exp $)} 1 }
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
 # browser. An instance of this widget displays a single HTML frame.
@@ -856,9 +857,6 @@ snit::type ::hv3::hv3::hyperlinkmanager {
     # Set up the default -targetcmd script to always return $myHv3.
     set options(-targetcmd) [list ::hv3::ReturnWithArgs $hv3]
 
-    $myHv3 handler node      a [list $self a_node_handler]
-    $myHv3 handler attribute a [list $self a_attribute_handler]
-
     $myHv3 Subscribe onclick     [list $self handle_onclick]
   }
 
@@ -918,29 +916,6 @@ snit::type ::hv3::hv3::hyperlinkmanager {
     $myHv3 handler attribute a $P_ATTR
   }
 
-  # Handle creation of a new <A> node:
-  #
-  method a_node_handler {node} {
-    if {[$node attr -default "" href] ne ""} {
-      $self a_attribute_handler $node href [$node attr href]
-    }
-  }
-
-  # Handle modifying an attribute of an <A> node:
-  #
-  method a_attribute_handler {node attr val} {
-    if {$attr eq "href"} {
-      if {
-        $options(-isvisitedcmd) ne "" && 
-        [eval [linsert $options(-isvisitedcmd) end $val]]
-      } {
-        $node dynamic set visited
-      } else {
-        $node dynamic set link
-      }
-    }
-  }
-
   # This method is called whenever an onclick event occurs. If the
   # node is an <A> with an "href" attribute that is not "#" or the
   # empty string, call the [goto] method of some hv3 widget to follow 
@@ -955,6 +930,7 @@ snit::type ::hv3::hv3::hyperlinkmanager {
       set href [$node attr -default "" href]
       if {$href ne "" && $href ne "#"} {
         set hv3 [eval [linsert $options(-targetcmd) end $node]]
+        set href [$myBaseUri resolve $href]
         after idle [list $hv3 goto $href -referer [$myHv3 location]]
       }
     }

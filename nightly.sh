@@ -1,5 +1,6 @@
 
 export VERSION=nightly-`date +"%y_%m%d"`
+#export VERSION=alpha-16
 
 HERE=`pwd`
 
@@ -43,5 +44,4 @@ chmod 644 ./hv3-${VERSION}.pet
 chmod 644 ./hv3-linux-${VERSION}.gz
 
 tclsh ${SRC}/webpage/mkhv3page.tcl > hv3.html
-
 

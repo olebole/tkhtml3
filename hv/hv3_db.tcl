@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_db.tcl,v 1.17 2007/09/29 09:51:13 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_db.tcl,v 1.18 2007/10/03 10:06:38 danielk1977 Exp $)} 1 }
 
 # Class ::hv3::visiteddb
 #
@@ -380,7 +380,8 @@ snit::type ::hv3::cookiemanager {
 }
 
 proc ::hv3::have_sqlite3 {} {
-  return [expr [catch {package present sqlite3}] ? 0 : 1]
+  return [expr {[info commands sqlite3] ne ""}]
+  # return [expr [catch {package present sqlite3}] ? 0 : 1]
 }
 
 proc ::hv3::cookies_scheme_init {protocol} {
@@ -394,6 +395,7 @@ proc ::hv3::dbinit {} {
       ::hv3::profile::instrument ::hv3::sqlitedb
       ::hv3::sqlitedb eval {PRAGMA synchronous = OFF}
       ::hv3::sqlitedb timeout 2000
+      ::hv3::sqlitedb function result_transform ::hv3::bookmarks::result_transform
     }
 
     ::hv3::cookiemanager   ::hv3::the_cookie_manager

@@ -6,7 +6,21 @@ addPageSection "More Information"    info
 
 proc VERSION {} {
   if {[info exists ::env(VERSION)]} {return $::env(VERSION)}
-  return "alpha-15"
+  return "alpha-16"
+}
+
+if {[string first alpha [VERSION]] == 0} {
+  set files_comment ""
+} else {
+  set files_comment [subst -novariables {
+    <p>
+    The files offered for download above are not built from any specific
+    released version of Tkhtml. Instead, they are updated whenever the
+    source code is considered stable enough (some projects call these 
+    "nightly" builds). In practice this means once every couple of days.
+    The binaries currently offered were last updated at 
+    <b>[clock format [clock seconds]]</b>.
+  }]
 }
 
 puts [subst -novariables {
@@ -94,13 +108,7 @@ puts [subst -novariables {
 <tr><td colspan=3><div style="border-bottom: 1px solid black;padding: 0">
 </table>
 
-  <p>
-    The files offered for download above are not built from any specific
-    released version of Tkhtml. Instead, they are updated whenever the
-    source code is considered stable enough (some projects call these 
-    "nightly" builds). In practice this means once every couple of days.
-    The binaries currently offered were last updated at 
-    <b>[clock format [clock seconds]]</b>.
+    [set ::files_comment]
 
   <p>
     Detailed version information for any hv3 build may be found by

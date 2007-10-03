@@ -1,3 +1,4 @@
+namespace eval hv3 { set {version($Id: hv3_bookmarks.tcl,v 1.3 2007/10/03 10:06:38 danielk1977 Exp $)} 1 }
 
 namespace eval ::hv3::bookmarks {
   proc noop {args} {}
@@ -5,13 +6,28 @@ namespace eval ::hv3::bookmarks {
   proc initialise_database {} {
     set rc [catch {
       ::hv3::sqlitedb eval {
+        CREATE VIRTUAL TABLE bm_fulltext2 USING fts3(
+          caption, description, snapshot
+        );
+      }
+    }]
+    set rc [catch {
+      ::hv3::sqlitedb eval {
 
+        -- has_snapshot interpretation:
+        --
+        --     0 -> There is no snapshot (snapshot column is NULL)
+        --     1 -> There is a snapshot, but it is not used by default
+        --     2 -> There is a snapshot, used by default
+        --
         CREATE TABLE bm_bookmark2(
           bookmarkid INTEGER PRIMARY KEY,
           caption TEXT,
           uri TEXT,
           description TEXT,
-          image BLOB
+          has_snapshot INTEGER NOT NULL DEFAULT 0,
+          image BLOB,
+          snapshot TEXT
         );
 
         CREATE TABLE bm_folder2(
@@ -37,53 +53,12 @@ namespace eval ::hv3::bookmarks {
 
       ::hv3::sqlitedb transaction {
         foreach {A B} {
-
   "Hv3/Tkhtml3 Home page"       http://tkhtml.tcl.tk
   "Hv3/Tkhtml3 Mailing List"    http://groups.google.com/group/tkhtml3
   "Hv3/Tkhtml3 CVSTrac"         http://tkhtml.tcl.tk/cvstrac/timeline
   "Hv3 @ freshmeat.net"         http://freshmeat.net/hv3
-
-F {Components Used By Hv3}
-  "Sqlite"               http://www.sqlite.org
-  "Tk Combobox"          http://www.purl.org/net/oakley/tcl/combobox/index.html
-  "Polipo (web proxy)"   http://www.pps.jussieu.fr/~jch/software/polipo/
-  "Icons used in Hv3"    http://e-lusion.com/design/greyscale
-  "SEE (javascript engine)" 
-    http://www.adaptive-enterprises.com.au/~d/software/see/
-
-F {Tcl Sites}
-  "Tcl site"             http://www.tcl.tk 
-  "Tcl wiki"             http://mini.net/tcl/ 
-  "ActiveState"          http://www.activestate.com/ 
-  "Evolane (eTcl)"       http://www.evolane.com/ 
-  "comp.lang.tcl"        http://groups.google.com/group/comp.lang.tcl 
-  "tclscripting.com"     http://www.tclscripting.com/ 
-
-F {WWW}
-  "W3 Consortium"        http://www.w3.org 
-  "CSS 1.0"              http://www.w3.org/TR/CSS1 
-  "CSS 2.1"              http://www.w3.org/TR/CSS21/ 
-  "HTML 4.01"            http://www.w3.org/TR/html4/ 
-  "W3 DOM Pages"         http://www.w3.org/DOM/ 
-  "Web Apps 1.0"         http://www.whatwg.org/specs/web-apps/current-work/ 
-  "Acid 2 Test"          http://www.webstandards.org/files/acid2/test.html 
-
         } {
-          if {$A eq "F"} {
-            ::hv3::sqlitedb eval { INSERT INTO bm_folder2(name) VALUES($B) }
-            set folderid [::hv3::sqlitedb last_insert_rowid]
-            ::hv3::sqlitedb eval { 
-              INSERT INTO bm_tree2(folderid, objecttype, objectid) 
-              VALUES(0, 'f', $folderid);
-            }
-          } else {
-            ::hv3::sqlitedb eval { 
-              INSERT INTO bm_bookmark2(caption, uri, description)
-                VALUES($A, $B, '');
-              INSERT INTO bm_tree2(folderid, objecttype, objectid) 
-                VALUES($folderid, 'b', last_insert_rowid());
-            }
-          }
+          db_store_new_bookmark 0 $A $B "" 0 "" ""
         }
       }
     }
@@ -97,17 +72,16 @@ F {WWW}
     set html_hv3 [[lindex $frames 1] hv3]
     set browser  [[winfo parent $hv3] browser]
 
-    set controller [$html_hv3 html].controller
+    set controller [winfo parent $html_hv3].controller
     set treewidget [$tree_hv3 html].treewidget
 
-    controller $controller $browser $html_hv3 $treewidget
+    controller $controller $browser $html_hv3 $treewidget 
     treewidget $treewidget $browser $controller
 
-    $controller populate folder 0
-
-    place $controller -x 0.0 -y 0.0 -relwidth 1.0 -height 50
+    pack $controller -before $html_hv3 -side top -fill x
     place $treewidget -x 0.0 -y 0.0 -relwidth 1.0 -relheight 1.0
 
+    $treewidget populate_tree
     focus ${controller}.filter
   }
 
@@ -172,6 +146,70 @@ F {WWW}
     }
   }
 
+  # The argument is a tkhtml3 widget. This proc generates an HTML 
+  # document equivalent to the one currently loaded into the widget.
+  # All style information is inlined in a <STYLE> block in the 
+  # document head.
+  #
+  proc create_snapshot {hv3} {
+    set zTitle ""
+    set zStyle "\n"
+    set zBody ""
+    set zBase ""
+
+    set html [$hv3 html]
+    set zBase [$hv3 resolve_uri ""]
+
+    foreach rule [$html _styleconfig] {
+      foreach {selector properties origin} $rule {}
+      if {$origin eq "agent"} continue
+      append zStyle "$selector { $properties }\n"
+    }
+
+    set titlenode [$html search title]
+    if {$titlenode ne ""} {
+      set child [lindex [$titlenode children] 0]
+      if {$child ne ""} { set zTitle [$child text] }
+    }
+
+    set bodynode [$html search body]
+    set zBody [serialize_node_content $bodynode]
+
+    return [subst {
+      <HTML>
+        <HEAD>
+          <TITLE>$zTitle</TITLE>
+          <STYLE>$zStyle</STYLE>
+          <BASE href="$zBase"></BASE>
+        </HEAD>
+        <BODY>$zBody</BODY>
+      </HTML>
+    }]
+  }
+
+  proc serialize_node {node} {
+    set tag [$node tag]
+    if {$tag eq ""} {
+      return [string map {< &lt; > &gt;} [$node text -pre]]
+    } else {
+      set attr ""
+      foreach {k v} [$node attribute] {
+        set val [string map [list "\x22" "\x5C\x22"] $v]
+        append attr " $k=\"$val\""
+      }
+      set content [serialize_node_content $node]
+      return "<${tag}${attr}>$content</${tag}>"
+    }
+  }
+
+  proc serialize_node_content {node} {
+    set zRes ""
+    foreach child [$node children] {
+      append zRes [serialize_node $child]
+    }
+    return $zRes
+  }
+
 
   ::snit::widget treewidget {
 
@@ -213,12 +251,6 @@ F {WWW}
       ::hv3::bookmarks::new_bookmark $self
     }
 
-    # Notes on the mozilla bookmarks.html format:
-    #
-    #     * Each folder is a <DL> element.
-    #     * Each bookmark is an <A> element.
-    #     * Folder names are stored in <H3> elements.
-    #
     method click_importexport {} {
       ${win}.importexport configure -state normal
 
@@ -284,18 +316,8 @@ F {WWW}
           }
         }
 
-        # Create the bm_bookmark2 record.
-        ::hv3::sqlitedb eval {
-          INSERT INTO bm_bookmark2(caption, uri)
-          VALUES($zCaption, $zUri)
-        }
-        set iBookmarkId [::hv3::sqlitedb last_insert_rowid]
-
-        # Create the bm_tree2 record.
-        ::hv3::sqlitedb eval {
-          INSERT INTO bm_tree2(folderid, objecttype, objectid) 
-          VALUES($iParentId, 'b', $iBookmarkId)
-        }
+        ::hv3::bookmarks::db_store_new_bookmark \
+            $iParentId $zCaption $zUri "" 0 "" ""
       }
 
       destroy $H
@@ -317,9 +339,24 @@ F {WWW}
 
       # Set up the button widgets used by this gui.
       #
-      ::hv3::button ${win}.importexport                     \
-          -text "Import Mozilla bookmarks.html"             \
-          -command [list $self click_importexport]
+      menubutton ${win}.importexport \
+          -text "Import Data..."     \
+          -font Hv3DefaultFont       \
+          -borderwidth 1             \
+          -relief raised             \
+          -pady 1                    
+
+      set menu [::hv3::menu ${win}.importexport.menu]
+      ${win}.importexport configure -menu $menu
+      $menu add command \
+          -label "Auto-import Mozilla bookmarks"            \
+          -command ::hv3::bookmarks::import_bookmarks
+      $menu add command \
+          -label "Import Mozilla bookmarks.html file"       \
+          -command ::hv3::bookmarks::import_bookmarks_manual
+      $menu add command \
+          -label "Import Document Tree" \
+          -command [list ::hv3::bookmarks::import_tree]
       ::hv3::button ${win}.newfolder                        \
           -text "New Folder"                                \
           -command [list $self click_new_folder] 
@@ -344,9 +381,7 @@ F {WWW}
       grid ${win}.newfolder                 -columnspan 2 -sticky ew     ;# 1
       grid ${win}.newbookmark               -columnspan 2 -sticky ew     ;# 2
       grid ${win}.canvas                    -columnspan 2 -sticky nsew   ;# 3
-      grid ${win}.expand ${win}.collapse                                 ;# 4
-      grid configure ${win}.expand   -sticky e
-      grid configure ${win}.collapse -sticky w
+      grid ${win}.expand ${win}.collapse    -sticky ew                   ;# 4
       grid rowconfigure    ${win} 3 -weight 1
       grid columnconfigure ${win} 0 -weight 1
       grid columnconfigure ${win} 1 -weight 1
@@ -372,12 +407,26 @@ F {WWW}
       set myTreeStart $y
       incr y $yincr
       ::hv3::sqlitedb transaction { 
-        set y [$self drawSubTree $x $y 0]
-        incr y $yincr
   
         # Color for special links.
         #
         set c darkblue
+
+        # Create the special "bookmarks" folder.
+        #
+        set f Hv3DefaultFont
+        if {[$myController current] eq "folder 0"} {
+          set f Hv3DefaultBold
+        }
+        set tid [
+            $C create text $x $y -text "Start here" -anchor sw -font $f -fill $c
+        ]
+        set myTextId($tid) {folder 0 "Click to view root folder"}
+        incr y $yincr
+        incr y $yincr
+
+        set y [$self drawSubTree $x $y 0]
+        incr y $yincr
   
         # Create the special "trash" folder.
         #
@@ -401,27 +450,18 @@ F {WWW}
         if {[info exists myOpenFolder(-1)]} {
           set y [$self drawSubTree [expr $x + $yincr] $y -1]
         }
-  
-        incr y $yincr
-        foreach {label textid} [list                                   \
-            "25 Most Recently Viewed URIs"                             \
-            {recent 25 "Click to view 25 most recently viewed URIs"}   \
-            "All Recently Viewed URIs"                                 \
-            {recent -1 "Click to view all recently viewed URIs"}       \
-            "Bookmarks"                                                \
-            {folder 0 "Click to view root folder of bookmarks tree"}   \
-        ] {
-          set f Hv3DefaultFont
-          if {[lrange $textid 0 1] eq [$myController current]} {
-            set f Hv3DefaultBold
-          }
-          set tid [
-              $C create text $x $y -text $label -anchor sw -font $f -fill $c
-          ]
-          set myTextId($tid) $textid
-          incr y $yincr
+
+        # Create the special "history" folder.
+        #
+        set f Hv3DefaultFont
+        if {[$myController current] eq "recent -1"} {
+          set f Hv3DefaultBold
         }
-   
+        set tid [
+            $C create text $x2 $y -text "History" -anchor sw -font $f -fill $c
+        ]
+        set myTextId($tid) {recent -1 "Click to view all recently viewed URIs"}
+  
         $C configure -scrollregion [concat 0 0 [lrange [$C bbox all] 2 3]]
       }
     }
@@ -520,7 +560,7 @@ F {WWW}
     method drop {target drag insertAfter} {
       ::hv3::bookmarks::dropobject $target $drag $insertAfter \
           [info exists myOpenFolder([lindex $target 1])]
-      eval $myController populate [$myController current]
+      ::hv3::bookmarks::refresh_gui
     }
 
     method release_event {x y} { 
@@ -590,19 +630,23 @@ F {WWW}
             if {![info exists myOpenFolder($id)]} {
               set myOpenFolder($id) 1
             }
-            $myController time populate_folder $id
+            #$myController time populate_folder $id
+            $myController goto "home://bookmarks/folder/$id"
           }
           bookmark {
             # Find the URI for this bookmark and send the browser there :)
-            set uri [::hv3::sqlitedb eval {
-              SELECT uri FROM bm_bookmark2 WHERE bookmarkid = $id
-            }]
-            if {$uri ne ""} {
-              $myBrowser goto $uri
+            ::hv3::sqlitedb eval {
+              SELECT uri, has_snapshot FROM bm_bookmark2 WHERE bookmarkid = $id
+            } {
+              if {$has_snapshot == 2} {
+                $myController goto "home://bookmarks/snapshot/$id"
+              } elseif {$uri ne ""} {
+                $myBrowser goto $uri
+              }
             }
           }
           recent {
-            $myController time populate_recent $id
+            $myController goto "home://bookmarks/recent/$id"
           }
         }
       } elseif {$clicktype eq "image"} {
@@ -613,6 +657,16 @@ F {WWW}
               unset myOpenFolder($id)
             } else {
               set myOpenFolder($id) 1
+            }
+            $self populate_tree
+          }
+          bookmark {
+            ::hv3::sqlitedb eval {
+              UPDATE bm_bookmark2 SET has_snapshot = 
+                CASE WHEN has_snapshot = 0 THEN 0 
+                     WHEN has_snapshot = 1 THEN 2
+                     ELSE 1 END
+              WHERE bookmarkid = $id
             }
             $self populate_tree
           }
@@ -641,7 +695,7 @@ F {WWW}
       foreach {page pageid} [$myController current] {}
 
       ::hv3::sqlitedb eval {
-        SELECT bookmarkid, caption, uri
+        SELECT bookmarkid, caption, uri, has_snapshot
         FROM bm_tree2, bm_bookmark2
         WHERE 
           bm_tree2.folderid = $folderid AND
@@ -655,8 +709,14 @@ F {WWW}
         }
         set t [concat "bookmark$bookmarkid" $tags]
 
-        set tid [$C create image $x $y -image ifile -anchor sw -tags $t]
+        switch -exact -- $has_snapshot {
+          0 { set image iworld }
+          1 { set image iworldfile }
+          2 { set image ifile }
+        }
+        set tid [$C create image $x $y -image $image -anchor sw -tags $t]
         set myIconId($tid) [list bookmark $bookmarkid]
+
         set tid [
           $C create text $x2 $y -text $caption -anchor sw -font $font -tags $t
         ]
@@ -703,29 +763,314 @@ F {WWW}
     }
   }
 
+  proc requestpage {zPath} {
+    set components [lrange [split $zPath /] 1 end]
+
+    set page   [lindex $components 0]
+    set pageid [lindex $components 1]
+
+    ::hv3::sqlitedb transaction {
+      switch -exact -- $page {
+        recent   { request_recent $pageid }
+        folder   { request_folder $pageid }
+        search   { request_search $pageid }
+        snapshot { request_snapshot $pageid }
+        default {
+          error [join "
+            {Bad page: \"$page\"}
+            {- should be recent, folder, bookmark or search}
+          "]
+        }
+      }
+    }
+  }
+
+  proc start_page {title} {
+    set Template {
+      <STYLE>
+        :visited { color: darkblue; }
+        .lastvisited, .uri, .description { 
+          display: block ; padding-left: 10ex 
+        }
+        .time,.info {font-size: small; text-align: center; font-style: italic}
+        .info { margin: 0 10px }
+
+        a[bookmarks_page] { color: purple }
+
+        .uri a[href] { font-size: small ; color: green }
+
+        .snippet {
+            margin: 0 10ex;
+            font-size: small;
+        }
+
+        .viewbookmark { float:right }
+        .viewfolder   { width:90% ; margin: 5px auto }
+        .delete,.rename { float:right }
+
+        .edit { width: 90% }
+
+        a[href]:hover  { text-decoration: none; }
+        a[href]:active { color: red; }
+
+        h1 { font-size: 1.4em; }
+      </STYLE>
+    }
+    return "$Template<H1>$title</H1>"
+  }
+
+  proc pp_bookmark_record {N id caption uri description has_snapshot snippet} {
+    if {$caption eq ""} {set caption $uri}
+    if {$has_snapshot > 0} {
+      set A_attr "
+        href=\"snapshot of $uri\" bookmarks_page=\"snapshot $id\"
+      "
+    } else {
+      set A_attr "href=\"$uri\""
+    }
+    subst -nocommands {
+      <DIV style="margin:1em">
+        <DIV>
+          <SPAN style="white-space:nowrap">
+            ${N}. <A $A_attr>$caption</A>
+          </SPAN>
+        </DIV>
+        <DIV class="snippet">
+          $snippet
+        </DIV>
+        <DIV class="description">$description</DIV>
+        <SPAN class="uri"><A href="$uri">$uri</A></SPAN>
+      </DIV>
+    }
+  }
+
+  proc request_recent {nLimit} {
+    set zRes "<APPLET bookmarks_page=\"recent $nLimit\"></APPLET>"
+
+    append zRes [start_page "Recently Visited URIs"]
+
+    set sql { 
+      SELECT uri, title, lastvisited 
+      FROM visiteddb 
+      WHERE title IS NOT NULL
+      ORDER BY oid DESC 
+      LIMIT 200
+    }
+    set N 0
+    ::hv3::sqlitedb eval { 
+      SELECT uri, title, lastvisited 
+      FROM visiteddb 
+      WHERE title IS NOT NULL
+      ORDER BY oid DESC 
+      LIMIT 200
+    } {
+      incr N
+      set description "Last visited: [clock format $lastvisited]"
+      append zRes [pp_bookmark_record $N 0 $title $uri $description 0 ""]
+    }
+    return $zRes
+  }
+
+
+  proc request_search {search} {
+    set zRes "<APPLET bookmarks_page=\"search $search\"></APPLET>"
+    append zRes [start_page "Search for $search"]
+
+    set N 0
+    ::hv3::sqlitedb eval {
+      SELECT 
+        bookmarkid, 
+        bm_bookmark2.caption AS caption,
+        bm_bookmark2.uri AS uri,
+        bm_bookmark2.description AS description,
+        bm_bookmark2.has_snapshot AS has_snapshot,
+        snippet(bm_fulltext2) AS snippet
+      FROM bm_fulltext2, bm_bookmark2
+      WHERE 
+        bm_fulltext2 MATCH $search AND 
+        bm_fulltext2.docid = bookmarkid
+      ORDER BY result_transform(offsets(bm_fulltext2)) DESC
+      LIMIT 500
+    } {
+      incr N
+      append zRes [pp_bookmark_record \
+          $N $bookmarkid $caption $uri $description $has_snapshot $snippet
+      ]
+    }
+    return $zRes
+  }
+
+  proc request_snapshot {bookmarkid} {
+    set zRes "<APPLET bookmarks_page=\"snapshot $bookmarkid\"></APPLET>"
+    append zRes [::hv3::sqlitedb one {
+      SELECT snapshot FROM bm_bookmark2 WHERE bookmarkid = $bookmarkid
+    }]
+    return $zRes
+  }
+
+  proc request_folder {folderid} {
+    # Set to true if it turns out the folder is not empty.
+    #
+    set isEmpty 1
+
+    set zRes "<APPLET bookmarks_page=\"folder $folderid\"></APPLET>"
+
+    if {$folderid > 0} {
+      set name [::hv3::sqlitedb one {
+        SELECT name FROM bm_folder2 WHERE folderid = $folderid
+      }]
+      append zRes [start_page "$name
+        <APPLET 
+          style=\"float:right\"
+          class=bookmarks_button
+          text=\"Rename Folder...\"
+          command=\"::hv3::bookmarks::rename_folder $folderid\"
+        ></APPLET>
+      "]
+
+      # Set up the "really delete" button.
+      #set node [$myHv3 search .rename]
+      #set rename [::hv3::button [$myHv3 html].document.rename \
+      #  -text "Rename Folder..."                          \
+      #  -command [list ::hv3::bookmarks::rename_folder $self $folderid]
+      #]
+      #$node replace $rename -deletecmd [list destroy $rename]
+    } else {
+      if {$folderid == 0} {
+        append zRes [start_page "Bookmarks"]
+      }
+      if {$folderid == -1} {
+        append zRes [start_page "Trash
+          <APPLET 
+            style=\"float:right\"
+            class=bookmarks_button
+            text=\"Permanently delete trashcan contents\"
+            command=\"::hv3::bookmarks::delete_folder_contents $folderid\"
+          ></APPLET>
+        "]
+
+        # Set up the "really delete" button.
+        #set node [$myHv3 search .delete]
+        #set trashbutton [::hv3::button [$myHv3 html].document.trash \
+        #    -text "Permanently delete trashcan contents"            \
+        #    -command [list $self delete_folder_contents -1]
+        #]
+        #$node replace $trashbutton -deletecmd [list destroy $trashbutton]
+      }
+    }
+
+    set N 0
+    ::hv3::sqlitedb eval {
+      SELECT bookmarkid, caption, uri, description, image, has_snapshot
+      FROM bm_tree2, bm_bookmark2
+      WHERE 
+        bm_tree2.folderid = $folderid AND
+        bm_tree2.objecttype = 'b' AND
+        bm_tree2.objectid = bm_bookmark2.bookmarkid
+      ORDER BY(bm_tree2.linkid)
+    } {
+      incr N
+      set snippet ""
+      append zRes [pp_bookmark_record \
+          $N $bookmarkid $caption $uri $description $has_snapshot $snippet
+      ]
+      set isEmpty 0
+    }
+    append zRes <HR>
+    ::hv3::sqlitedb eval {
+      SELECT linkid, folderid AS thisfolderid, 'Parent Folder' AS name
+      FROM bm_tree2 
+      WHERE objecttype = 'f' AND objectid = $folderid
+
+      UNION ALL
+
+      SELECT linkid, bm_folder2.folderid AS thisfolderid, name
+      FROM bm_tree2, bm_folder2
+      WHERE 
+        bm_tree2.folderid = $folderid AND
+        bm_tree2.objecttype = 'f' AND
+        bm_tree2.objectid = bm_folder2.folderid
+      ORDER BY 1
+    } {
+      append zRes [subst -nocommands {
+          <P><A href="." bookmarks_page="folder $thisfolderid">$name</A></P>
+      }]
+      set foldername($thisfolderid) $name
+      set isEmpty 0
+    }
+
+#    set parent [$myHv3 html].document
+#    foreach node [$myHv3 search .viewbookmark] {
+#      set bookmarkid [$node attribute bookmarkid]
+#      set widget ${parent}.bookmark${bookmarkid}
+#      ::hv3::button $widget                             \
+#          -text "Edit..."                               \
+#          -command [list ::hv3::bookmarks::edit_bookmark $self $bookmarkid]
+#      $node replace $widget -deletecmd [list destroy $widget]
+#    }
+#    foreach node [$myHv3 search .viewfolder] {
+#      set thisfolderid [$node attribute folderid]
+#      set widget ${parent}.folder${thisfolderid}
+#      ::hv3::button $widget                             \
+#          -text "View folder \"$foldername($thisfolderid)\"..."              \
+#          -command [list $self time populate_folder $thisfolderid]
+#      $node replace $widget -deletecmd [list destroy $widget]
+#    }
+#
+#    if {$isEmpty && [info exists trashbutton]} {
+#      $trashbutton configure -state disabled
+#    }
+    return $zRes
+  }
+
+
   ::snit::widget controller {
     variable myHv3
     variable myBrowser
     variable myTree
 
-    variable myPage ""
-    variable myPageId ""
+    variable myPage folder
+    variable myPageId 0
+
+    delegate option -width to hull
+    delegate option -height to hull
+
+    method goto {args} {eval $myHv3 goto $args}
+    method refresh {} {
+      $myHv3 seek_to_yview [lindex [$myHv3 yview] 0]
+      $myHv3 goto "" -nosave -cachecontrol "no-cache"
+    }
+
+    method applet {node} {
+      set bookmarks_page [$node attr -default "" bookmarks_page]
+      if {$bookmarks_page ne ""} {
+        eval $self set_page_id $bookmarks_page
+      }
+
+      set class [$node attr -default "" class]
+      if {$class eq "bookmarks_button"} {
+        set w [$myHv3 html].document.button_[string map {: _} $node]
+        ::hv3::button $w -text [$node attr text] -command [$node attr command]
+        $node replace $w -deletecmd [list destroy $w]
+      }
+    }
 
     constructor {browser hv3 tree} {
       set myHv3 $hv3
       set myTree $tree
       set myBrowser $browser
 
+      $myHv3 handler node applet [mymethod applet]
+
       set searchcmd [subst -nocommands {
-          $self populate search [${win}.filter get]
+          $myHv3 goto "home://bookmarks/search/[${win}.filter get]"
       }]
 
-      ::hv3::label ${win}.filter_label -text "Search bookmarks: " \
-          -background white
+      ::hv3::label ${win}.filter_label -text "Search: " -background white
       ::hv3::entry  ${win}.filter
       ::hv3::button ${win}.go -text Go -command $searchcmd
   
-      pack ${win}.filter_label -side left
+      pack ${win}.filter_label -side left -padx 5 -pady 10
       pack ${win}.filter -side left
       pack ${win}.go -side left
 
@@ -738,8 +1083,30 @@ F {WWW}
 
     method TargetCmd {node} {
       set bookmarks_page [$node attr -default "" bookmarks_page]
+ 
+      if {$myPage eq "snapshot" && [$node tag] eq "a"} {
+        set obj [::tkhtml::uri [$myHv3 resolve_uri [$node attr href]]]
+        set uri [$obj get_no_fragment]
+
+        set bookmarkid [::hv3::sqlitedb one {
+          SELECT bookmarkid FROM bm_bookmark2 
+          WHERE uri = $uri AND has_snapshot
+          ORDER BY bookmarkid DESC
+        }]
+        set fragment [$obj fragment]
+        $obj destroy
+        if {$bookmarkid ne ""} {
+          set internal_uri "home://bookmarks/snapshot/$bookmarkid"
+          if {$fragment ne ""} {
+            append internal_uri #$fragment
+          }
+          $myHv3 goto $internal_uri
+          return ::hv3::bookmarks::noop
+        }
+      }
+      
       if {$bookmarks_page ne ""} {
-        eval $self populate $bookmarks_page
+        after idle [$myHv3 goto "home://bookmarks/[join $bookmarks_page /]"]
         return ::hv3::bookmarks::noop
       }
       return [$myBrowser hv3]
@@ -759,10 +1126,20 @@ F {WWW}
       $myHv3 parse {
         <STYLE>
           :visited { color: darkblue; }
-          .lastvisited,.uri,.description { display: block ; padding-left: 10ex }
-          .uri { font-size: small; color: green }
+          .lastvisited, .uri, .description { 
+            display: block ; padding-left: 10ex 
+          }
           .time,.info {font-size: small; text-align: center; font-style: italic}
           .info { margin: 0 10px }
+
+          a[bookmarks_page] { color: purple }
+
+          .uri a[href] { font-size: small ; color: green }
+
+          .snippet {
+              margin: 0 10ex;
+              font-size: small;
+          }
 
           .viewbookmark { float:right }
           .viewfolder   { width:90% ; margin: 5px auto }
@@ -773,7 +1150,7 @@ F {WWW}
           a[href]:hover  { text-decoration: none; }
           a[href]:active { color: red; }
 
-          h1 { margin-top: 50px ; font-size: 1.4em; }
+          h1 { font-size: 1.4em; }
         </STYLE>
       }
       $myHv3 parse "<H1>$title</H1>"
@@ -791,6 +1168,7 @@ F {WWW}
           recent   { $self time populate_recent $pageid }
           folder   { $self time populate_folder $pageid }
           search   { $self time populate_search $pageid }
+          snapshot { $self populate_snapshot $pageid }
           default {
             error [join "
               {Bad page: \"$page\"}
@@ -799,6 +1177,15 @@ F {WWW}
           }
         }
       }
+    }
+
+    method populate_snapshot {bookmarkid} {
+      $self set_page_id snapshot $bookmarkid
+      set snapshot [::hv3::sqlitedb one {
+        SELECT snapshot FROM bm_bookmark2 WHERE bookmarkid = $bookmarkid
+      }]
+      $myHv3 reset 0
+      $myHv3 parse -final $snapshot
     }
 
     method populate_recent {nLimit} {
@@ -884,7 +1271,7 @@ F {WWW}
         set name [::hv3::sqlitedb one {
           SELECT name FROM bm_folder2 WHERE folderid = $folderid
         }]
-        $self start_page "Folder \"$name\"<DIV class=rename></DIV>"
+        $self start_page "$name<DIV class=rename></DIV>"
           # Set up the "really delete" button.
         set node [$myHv3 search .rename]
         set rename [::hv3::button [$myHv3 html].document.rename \
@@ -913,7 +1300,7 @@ F {WWW}
 
       set N 0
       ::hv3::sqlitedb eval {
-        SELECT bookmarkid, caption, uri, description, image
+        SELECT bookmarkid, caption, uri, description, image, has_snapshot
         FROM bm_tree2, bm_bookmark2
         WHERE 
           bm_tree2.folderid = $folderid AND
@@ -922,12 +1309,26 @@ F {WWW}
         ORDER BY(bm_tree2.linkid)
       } {
         incr N
+        if {$has_snapshot} {
+          set snapshot_link [subst {
+            <SPAN class="snapshot">
+              <A href="." bookmarks_page="snapshot $bookmarkid">
+                view database snapshot
+              </A>
+            </SPAN>
+          }]
+        } else {
+          set snapshot_link {}
+        }
         $myHv3 parse [subst -nocommands {
           <P>
             <SPAN class="viewbookmark" bookmarkid=$bookmarkid></SPAN>
-            <SPAN style="white-space:nowrap">
-              ${N}. <A href="$uri" target="_top">$caption</A><BR>
-            </SPAN>
+            <DIV>
+              <SPAN style="white-space:nowrap">
+                ${N}. <A href="$uri" target="_top">$caption</A>
+              </SPAN>
+              $snapshot_link
+            </DIV>
             <SPAN class="description">$description</SPAN>
             <SPAN class="uri">$uri</SPAN>
           </P>
@@ -986,21 +1387,42 @@ F {WWW}
       $self start_page "Search bookmarks for \"$search\""
 
       set N 0
-      set like %${search}%
       ::hv3::sqlitedb eval {
-        SELECT bookmarkid, caption, uri, description, image
-        FROM bm_bookmark2
-        WHERE uri LIKE $like OR caption LIKE $like OR description LIKE $like
+        SELECT 
+          bookmarkid, 
+          bm_bookmark2.caption AS caption,
+          bm_bookmark2.uri AS uri,
+          bm_bookmark2.description AS description,
+          bm_bookmark2.has_snapshot AS has_snapshot,
+          snippet(bm_fulltext2) AS snippet
+        FROM bm_fulltext2, bm_bookmark2
+        WHERE 
+          bm_fulltext2 MATCH $search AND 
+          bm_fulltext2.docid = bookmarkid
+        ORDER BY result_transform(offsets(bm_fulltext2)) DESC
       } {
+
         incr N
+        if {$has_snapshot > 0} {
+          set A_attr "
+            href=\"snapshot of $uri\" bookmarks_page=\"snapshot $bookmarkid\"
+          "
+        } else {
+          set A_attr "href=\"$uri\""
+        }
         $myHv3 parse [subst -nocommands {
-          <P>
-            <SPAN style="white-space:nowrap">
-              ${N}. <A href="$uri" target="_top">$caption</A><BR>
-            </SPAN>
+          <DIV style="margin:1em">
+            <DIV>
+              <SPAN style="white-space:nowrap">
+                ${N}. <A $A_attr>$caption</A>
+              </SPAN>
+            </DIV>
+            <DIV class="snippet">
+              $snippet
+            </DIV>
             <SPAN class="description">$description</SPAN>
-            <SPAN class="uri">$uri</SPAN>
-          </P>
+            <SPAN class="uri"><A href="$uri">$uri</A></SPAN>
+          </DIV>
         }]
       }
     }
@@ -1016,6 +1438,27 @@ F {WWW}
     method current {} { list $myPage $myPageId }
   }
 
+  #
+  # Each match is worth a number of points based on whether it was 
+  # found in the caption (0), description (1) or snapshot (2) column.
+  # Matches with large scores are displayed before those with smaller
+  # scores.
+  #
+  #    Caption:     1,000,000 points per match
+  #    Description: 1,000 points per match
+  #    Snapshot:    1 point per match
+  #
+  proc result_transform {offsets} {
+    set iScore 0
+    set INCR(0) 1000000
+    set INCR(1) 1000
+    set INCR(2) 1
+    foreach {a b c d} $offsets {
+      incr iScore $INCR($a)
+    }
+    return $iScore
+  }
+
   proc store_new_folder {treewidget} {
     set name [.new.entry get]
 
@@ -1025,38 +1468,95 @@ F {WWW}
       ::hv3::sqlitedb eval { INSERT INTO bm_folder2(name) VALUES($name) }
       set object [list folder [::hv3::sqlitedb last_insert_rowid]]
       ::hv3::bookmarks::dropobject [list folder 0] $object 0 1
-
-      if {$treewidget ne ""} {
-        $treewidget populate_tree
-      }
     }
+    refresh_gui
   }
 
-  proc store_rename_folder {htmlwidget folderid} {
+  proc store_rename_folder {folderid} {
     set name [.new.entry get]
+    destroy .new
     ::hv3::sqlitedb eval {
       UPDATE bm_folder2 SET name = $name WHERE folderid = $folderid
     }
-    destroy .new
-    if {$htmlwidget ne ""} {
-      eval $htmlwidget populate [$htmlwidget current]
+    refresh_gui
+  }
+
+  proc refresh_gui {} {
+    foreach obj [::hv3::bookmarks::treewidget info instances] {
+      $obj populate_tree
+    }
+    foreach obj [::hv3::bookmarks::controller info instances] {
+      $obj refresh
     }
   }
 
-  proc store_new_bookmark {treewidget} {
+  proc db_store_new_folder {iFolder zName} {
+    ::hv3::sqlitedb eval {
+      INSERT INTO bm_folder2(name) VALUES($zName);
+    }
+    set folderid [::hv3::sqlitedb last_insert_rowid]
+    ::hv3::sqlitedb eval {
+      INSERT INTO bm_tree2(folderid, objecttype, objectid)
+      VALUES($iFolder, 'f', $folderid)
+    }
+    return $folderid
+  }
+
+  proc db_store_new_bookmark {
+      iFolder zCaption zUri zDescription iSnapshot zSnapshot zSnapshotText
+  } {
+    # To store a new bookmark, we need to store a row in each of the
+    # following tables:
+    #
+    #     + bm_bookmark2               (primary bookmark record)
+    #     + bm_tree2                   (link the bookmark into the tree)
+    #     + bm_fulltext2               (if available - for searching)
+    #
+
+    ::hv3::sqlitedb eval {
+      INSERT INTO bm_bookmark2
+      (caption, uri, description, has_snapshot, snapshot) 
+      VALUES($zCaption, $zUri, $zDescription, $iSnapshot, $zSnapshot)
+    }
+
+    set bookmarkid [::hv3::sqlitedb last_insert_rowid]
+    ::hv3::sqlitedb eval {
+      INSERT INTO bm_tree2(folderid, objecttype, objectid)
+      VALUES($iFolder, 'b', $bookmarkid)
+    }
+
+    set rc [catch {
+      ::hv3::sqlitedb eval {
+        INSERT INTO bm_fulltext2(rowid, caption, description, snapshot)
+        VALUES($bookmarkid, $zCaption, $zDescription, $zSnapshotText)
+      }
+    } msg]
+    if {$rc && [string first "no such" $msg] != 0} {
+      error $msg
+    }
+
+    return $bookmarkid
+  }
+
+  set save_snapshot_variable 0
+  proc store_new_bookmark {treewidget hv3} {
     set caption [.new.caption get]
     set uri [.new.uri get]
-    set description [.new.desc get 0.0 end]
+    set desc [.new.desc get 0.0 end]
     destroy .new
 
     ::hv3::sqlitedb transaction {
-      ::hv3::sqlitedb eval {
-        INSERT INTO bm_bookmark2(caption, uri, description) 
-        VALUES($caption, $uri, $description)
+      set has_snapshot 0
+          set snapshot ""
+      if {$::hv3::bookmarks::save_snapshot_variable && $hv3 ne ""} {
+        set has_snapshot 1
+        set snapshot [create_snapshot $hv3]
       }
-      set object [list bookmark [::hv3::sqlitedb last_insert_rowid]]
+      set bookmarkid [
+        db_store_new_bookmark 0 $caption $uri $desc $has_snapshot $snapshot ""
+      ]
+      set object [list bookmark $bookmarkid]
       ::hv3::bookmarks::dropobject [list folder 0] $object 0 1
-
       if {$treewidget ne ""} {
         $treewidget populate_tree
       }
@@ -1074,9 +1574,8 @@ F {WWW}
       WHERE bookmarkid = $bookmarkid
     }
     destroy .new
-    if {$htmlwidget ne ""} {
-      eval $htmlwidget populate [$htmlwidget current]
-    }
+
+    refresh_gui
   }
 
   proc new_folder {treewidget} {
@@ -1091,9 +1590,8 @@ F {WWW}
 
     grid .new.label -columnspan 2 -sticky ew
     grid .new.entry -columnspan 2 -sticky ew -padx 5
-    grid .new.cancel .new.save -pady 5 -padx 5
+    grid .new.cancel .new.save -pady 5 -padx 5 -sticky e
 
-    grid columnconfigure .new 1 -weight 1
     grid columnconfigure .new 0 -weight 1
 
     bind .new.entry <KeyPress-Return> {.new.save invoke}
@@ -1101,14 +1599,10 @@ F {WWW}
     .new.entry selection range 0 end
     focus .new.entry
 
-    grab .new
-    wm transient .new .
-    # wm protocol .new WM_DELETE_WINDOW { grab release .new ; destroy .new }
-    raise .new
-    tkwait window .new
+    launch_dialog .new
   }
 
-  proc rename_folder {treewidget folderid} {
+  proc rename_folder {folderid} {
     toplevel .new
 
     set name [::hv3::sqlitedb one {
@@ -1117,15 +1611,14 @@ F {WWW}
 
     ::hv3::label .new.label -text "Rename Folder \"$name\" To: " -anchor s
     ::hv3::entry .new.entry -width 60
-    set cmd [list ::hv3::bookmarks::store_rename_folder $treewidget $folderid]
+    set cmd [list ::hv3::bookmarks::store_rename_folder $folderid]
     ::hv3::button .new.save -text "Save" -command $cmd
     ::hv3::button .new.cancel -text "Cancel" -command {destroy .new}
 
     grid .new.label -columnspan 2 -sticky ew
     grid .new.entry -columnspan 2 -sticky ew -padx 5
-    grid .new.cancel .new.save -pady 5 -padx 5
+    grid .new.cancel .new.save -pady 5 -padx 5 -sticky e
 
-    grid columnconfigure .new 1 -weight 1
     grid columnconfigure .new 0 -weight 1
 
     bind .new.entry <KeyPress-Return> {.new.save invoke}
@@ -1133,17 +1626,17 @@ F {WWW}
     .new.entry selection range 0 end
     focus .new.entry
 
-    grab .new
-    wm transient .new .
-    # wm protocol .new WM_DELETE_WINDOW { grab release .new ; destroy .new }
-    raise .new
-    tkwait window .new
+    launch_dialog .new
   }
 
-  proc create_bookmark_dialog {} {
+  proc create_bookmark_dialog {isCreate} {
     toplevel .new
 
-    ::hv3::label .new.label -text "Create New Bookmark: " -anchor s
+    if {$isCreate} {
+      ::hv3::label .new.label -text "Create New Bookmark: " -anchor s
+    } else {
+      ::hv3::label .new.label -text "Edit Bookmark: " -anchor s
+    }
     ::hv3::entry .new.caption -width 40
     ::hv3::entry .new.uri -width 40
     ::hv3::text .new.desc -height 10 -background white -borderwidth 1 -width 40
@@ -1155,22 +1648,30 @@ F {WWW}
     ::hv3::button .new.save -text "Save"
     ::hv3::button .new.cancel -text "Cancel" -command {destroy .new}
 
-    grid .new.label -columnspan 2
+    grid .new.label -columnspan 4
 
-    grid .new.l_caption     .new.caption -pady 5 -padx 5
-    grid .new.l_uri         .new.uri -pady 5 -padx 5
-    grid .new.l_desc .new.desc -pady 5 -padx 5
+    grid .new.l_caption .new.caption -pady 5 -padx 5
+    grid .new.l_uri     .new.uri -pady 5 -padx 5
+    grid .new.l_desc    .new.desc -pady 5 -padx 5
 
-    grid configure .new.caption -columnspan 2 -sticky ew
-    grid configure .new.uri -columnspan 2 -sticky ew 
-    grid configure .new.desc -columnspan 2 -sticky ewns
+    grid configure .new.caption -columnspan 3 -sticky ew
+    grid configure .new.uri -columnspan 3 -sticky ew 
+    grid configure .new.desc -columnspan 3 -sticky ewns
 
     grid configure .new.l_caption -sticky e
     grid configure .new.l_uri -sticky e
     grid configure .new.l_desc -sticky e
 
+    if {$isCreate>1} {
+      checkbutton .new.snapshot \
+          -text "Save website text in database"                   \
+          -variable ::hv3::bookmarks::save_snapshot_variable
+      grid .new.snapshot -column 1 -padx 5 -pady 5 -sticky w
+    }
+
     grid .new.save .new.cancel -pady 5 -padx 5 -sticky e
-    grid configure .new.save -column 2
+    grid configure .new.save -column 3
+    grid configure .new.cancel -column 2
 
     grid columnconfigure .new 1 -weight 1
     grid rowconfigure .new 3 -weight 1
@@ -1186,9 +1687,9 @@ F {WWW}
       set treewidget ""
     }
 
-    create_bookmark_dialog 
+    create_bookmark_dialog 2
     .new.save configure \
-        -command [list ::hv3::bookmarks::store_new_bookmark $treewidget]
+        -command [list ::hv3::bookmarks::store_new_bookmark $treewidget $hv3]
 
     focus .new.caption
     if {$hv3 ne ""} {
@@ -1197,15 +1698,11 @@ F {WWW}
       .new.caption selection range 0 end
     }
 
-    grab .new
-    wm transient .new .
-    # wm protocol .new WM_DELETE_WINDOW { grab release .new ; destroy .new }
-    raise .new
-    tkwait window .new
+    launch_dialog .new
   }
 
   proc edit_bookmark {htmlwidget bookmarkid} {
-    create_bookmark_dialog 
+    create_bookmark_dialog 0
     set cmd [list ::hv3::bookmarks::store_edit_bookmark $htmlwidget $bookmarkid]
     .new.save configure -command $cmd
 
@@ -1220,11 +1717,187 @@ F {WWW}
     .new.desc insert 0.0     $description
     .new.caption selection range 0 end
 
-    grab .new
-    wm transient .new .
+    launch_dialog .new
+  }
+
+  proc launch_dialog {dialog} {
+    wm withdraw $dialog
+    update idletasks
+
+    set w [winfo reqwidth $dialog]
+    set h [winfo reqheight $dialog]
+    scan [wm geometry [winfo parent $dialog]] "%dx%d+%d+%d" pw ph px py
+    set geom "+[expr $px + $pw/2 - $w/2]+[expr $py + $ph/2 - $h/2]"
+    wm geometry $dialog $geom
+
+    wm deiconify $dialog
+
+    grab $dialog
+    wm transient $dialog .
     # wm protocol .new WM_DELETE_WINDOW { grab release .new ; destroy .new }
-    raise .new
-    tkwait window .new
+    raise $dialog
+    tkwait window $dialog
+  }
+
+  # Notes on the mozilla bookmarks.html format:
+  #
+  #     * Each folder is a <DL> element.
+  #     * Each bookmark is an <A> element.
+  #     * Folder names are stored in <H3> elements.
+  #
+  proc import_bookmarks_file {zFile} {
+
+    set fd [open $zFile]
+    set zBookmarks [read $fd]
+    close $fd
+
+    set H [html .boomarksparser]
+    $H parse -final $zBookmarks
+
+    unset -nocomplain zTitle
+    foreach N [$H search dl,h3] {
+
+      if {[$N tag] eq "dl"} {
+        if {![info exists zTitle]} {
+          set zTitle "Imported Bookmarks"
+        }
+
+        # Create the bm_folder2 record.
+        ::hv3::sqlitedb eval {
+          INSERT INTO bm_folder2(name) VALUES($zTitle);
+        }
+        set iFolderId [::hv3::sqlitedb last_insert_rowid]
+        set imported_folders($N) $iFolderId
+
+        set iParentId 0
+        for {set P [$N parent]} {$P ne ""} {set P [$P parent]} {
+          if {[$P tag] eq "dl"} {
+            set iParentId $imported_folders($P)
+            break
+          }
+        }
+
+        # Create the bm_tree2 record.
+        ::hv3::sqlitedb eval {
+          INSERT INTO bm_tree2(folderid, objecttype, objectid) 
+          VALUES($iParentId, 'f', $iFolderId)
+        }
+
+      } else {
+        set zTitle [[lindex [$N children] 0] text]
+      }
+    }
+
+    foreach N [$H search {dl a[href]}] {
+      set zCaption [[lindex [$N children] 0] text]
+      set zUri [$N attribute href]
+
+      for {set P [$N parent]} {$P ne ""} {set P [$P parent]} {
+        if {[$P tag] eq "dl"} {
+          set iParentId $imported_folders($P)
+          break
+        }
+      }
+
+      ::hv3::bookmarks::db_store_new_bookmark \
+          $iParentId $zCaption $zUri "" 0 "" ""
+    }
+
+    destroy $H
+  }
+
+  proc import_bookmarks_dir {zDir} {
+    if {[file exists [file join $zDir bookmarks.html]]} {
+      import_bookmarks_file [file join $zDir bookmarks.html]
+    }
+    foreach dir [glob -nocomplain -directory ${zDir} -type d *] {
+      import_bookmarks_dir $dir
+    }
+  }
+
+  proc import_bookmarks {} {
+    import_bookmarks_dir [file join $::env(HOME) .mozilla]
+
+    foreach obj [::hv3::bookmarks::treewidget info instances] {
+      $obj populate_tree
+    }
+  }
+
+  proc import_bookmarks_manual {} {
+    set zFile [tk_getOpenFile]
+    if {$zFile ne ""} {
+      import_bookmarks_file $zFile
+      foreach obj [::hv3::bookmarks::treewidget info instances] {
+        $obj populate_tree
+      }
+    }
+  }
+
+  proc import_tree {{zDirname ""}} {
+    if {$zDirname eq ""} {
+      set zDirname [tk_chooseDirectory -initialdir /home/dan/work/tkhtml/docs]
+    }
+
+    #toplevel .import
+    #::hv3::label .import.label -width 60
+    #pack .import.label -fill both -expand 1
+
+    if {$zDirname eq ""} return
+    ::hv3::sqlitedb transaction {
+      set iFolder [db_store_new_folder 0 "Imported from $zDirname"]
+      catch {import_dir $iFolder $zDirname}
+    }
+
+    foreach obj [::hv3::bookmarks::treewidget info instances] {
+      $obj populate_tree
+    }
+  }
+
+  proc import_dir {iFolder dir} {
+    set obj [::tkhtml::uri file://]
+    set hv3 [::hv3::hv3 .tmphv3]
+    set protocol [::hv3::protocol %AUTO%]
+
+    # Disable handling of special object types.
+    $hv3 handler node object ""
+    $hv3 handler node frameset ""
+    $hv3 handler node embed ""
+
+    $hv3 configure -requestcmd [list $protocol requestcmd]
+
+    set flist [glob -nocomplain -directory $dir *.html *.htm *.HTML *.HTM]
+    foreach f $flist {
+      puts "Importing $f"
+      set zCaption $f
+      set zDesc ""
+      set zUri ""
+      set zSnapshot ""
+
+      set zUri [$obj resolve $f]
+
+      $hv3 reset 0
+      $hv3 goto $zUri
+      set zSnapshot [create_snapshot $hv3]
+     
+      set titlenode [$hv3 search title]
+      if {$titlenode ne "" && [llength [$titlenode children]]>0} {
+        set zCaption [[lindex [$titlenode children] 0] text]
+      }
+
+      set text [[$hv3 html] text text]
+      db_store_new_bookmark $iFolder $zCaption $zUri $zDesc 2 $zSnapshot $text
+    }
+
+    destroy $hv3
+    $protocol destroy
+    $obj destroy
+
+    foreach f [glob -nocomplain -directory $dir *] {
+      if {[file isdirectory $f]} {
+        set iSubFolder [db_store_new_folder $iFolder [file tail $f]]
+        catch {import_dir $iSubFolder $f}
+      }
+    }
   }
 }
 

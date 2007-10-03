@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_history.tcl,v 1.25 2007/09/25 18:13:35 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_history.tcl,v 1.26 2007/10/03 10:06:38 danielk1977 Exp $)} 1 }
 
 package require snit
 
@@ -55,15 +55,22 @@ snit::type ::hv3::history_state {
   #
   method get_frameuri {positionid} {
     if {[info exists myFrameUri($positionid)]} {
-      return $myFrameUri($positionid)
+      return [lindex $myFrameUri($positionid) 0]
+    }
+    return ""
+  }
+
+  method get_frameyview {positionid} {
+    if {[info exists myFrameUri($positionid)]} {
+      return [lindex $myFrameUri($positionid) 2]
     }
     return ""
   }
 
   # Set an entry in the $myFrameUri array.
   #
-  method set_frameuri {positionid uri} {
-    set myFrameUri($positionid) $uri
+  method set_framestate {positionid uri xscroll yscroll} {
+    set myFrameUri($positionid) [list $uri $xscroll $yscroll]
   }
 
   # Clear the $myFrameUri array.
@@ -213,11 +220,16 @@ snit::type ::hv3::history {
     $state xscroll [lindex [$myHv3 xview] 0]
     $state yscroll [lindex [$myHv3 yview] 0]
 
-    $state clear_frameurilist
-    foreach frame [$myBrowser get_frames] {
-      set positionid [$frame positionid]
-      set uri [[$frame hv3] location]
-      $state set_frameuri $positionid $uri
+    if {$myHistorySeek != $myStateIdx} {
+      $state clear_frameurilist
+      foreach frame [$myBrowser get_frames] {
+        set fhv3 [$frame hv3]
+        set pos [$frame positionid]
+        $state set_framestate $pos   \
+            [$fhv3 uri get]          \
+            [lindex [$fhv3 xview] 0] \
+            [lindex [$fhv3 yview] 0]
+      }
     }
 
     if {$myHistorySeek >= 0} {
@@ -257,6 +269,26 @@ snit::type ::hv3::history {
     $self populatehistorymenu
   }
 
+  method framegotohistory {state browser_frame} {
+    set hv3 [$browser_frame hv3]
+
+    set pos [$browser_frame positionid]
+    set zUri [$state get_frameuri $pos]
+    set zUriNow [$hv3 uri get]
+
+    $hv3 seek_to_yview [$state get_frameyview $pos]
+    $hv3 goto $zUri -cachecontrol $myCacheControl
+
+    if {$zUriNow eq [$hv3 uri get]} {
+      foreach frame [$myBrowser get_frames] {
+        set fpos [$frame positionid]
+        if {[llength [$frame positionid]] == [llength $pos]+1} {
+          $self framegotohistory $state $frame
+        }
+      }
+    }
+  }
+
   # Load history state $idx into the browser window.
   #
   method gotohistory {idx} {
@@ -266,8 +298,7 @@ snit::type ::hv3::history {
     incr myIgnoreGotoHandler 
     set myCacheControl relax-transparency
     set c $myCacheControl
-    $myHv3 seek_to_yview [$state yscroll]
-    eval [linsert $options(-gotocmd) end [$state uri] -cachecontrol $c]
+    $self framegotohistory $state $myBrowser
     incr myIgnoreGotoHandler -1
   }
 

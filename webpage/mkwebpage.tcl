@@ -2,7 +2,7 @@
 #
 # Construct the web page for tkhtml
 #
-# @(#) $Id: mkwebpage.tcl,v 1.37 2007/09/13 11:04:13 danielk1977 Exp $
+# @(#) $Id: mkwebpage.tcl,v 1.38 2007/10/03 10:06:39 danielk1977 Exp $
 #
 
 source [file join [file dirname [info script]] common.tcl]
@@ -138,8 +138,8 @@ p {
      project for source code management purposes. It can be obtained 
      either by downloading a release tarball, or via anonymous CVS.
 
-  <p>Download the <a href="tkhtml3-alpha-15.tar.gz">
-      source code for the latest release (alpha 15)</a>.
+  <p>Download the <a href="tkhtml3-alpha-16.tar.gz">
+      source code for the latest release (alpha 16)</a>.
 
   <p>Or to obtain the lastest source-code from cvs, use the following 
      procedure (from an x-term or command prompt):

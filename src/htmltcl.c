@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.190 2007/09/28 14:14:56 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.191 2007/10/03 10:06:38 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -1348,7 +1348,7 @@ BOOLEAN(forcewidth, "forceWidth", "ForceWidth", "0", L_MASK),
 
         /* Non-debugging widget specific options */
         OBJ(defaultstyle, "defaultStyle", "DefaultStyle", 
-            HTML_DEFAULT_CSS, FT_MASK),
+            HTML_DEFAULT_CSS, 0),
         STRING(imagecmd, "imageCmd", "ImageCmd", ""),
         BOOLEAN(imagecache, "imageCache", "ImageCache", "1", S_MASK),
     
@@ -1359,7 +1359,7 @@ BOOLEAN(forcewidth, "forceWidth", "ForceWidth", "0", L_MASK),
         OBJ(fonttable, "fontTable", "FontTable", "8 9 10 11 13 15 17", FT_MASK),
 
         {TK_OPTION_STRING_TABLE, "-mode", "mode", "Mode", "standards", 
-             -1, Tk_Offset(HtmlOptions, mode), 0, (ClientData)azModes, S_MASK
+             -1, Tk_Offset(HtmlOptions, mode), 0, (ClientData)azModes, 0
         },
     
         {TK_OPTION_END, 0, 0, 0, 0, 0, 0, 0, 0}

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.61 2007/09/28 14:14:56 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.62 2007/10/03 10:06:38 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_prop.tcl --
@@ -998,4 +998,21 @@ image create photo iopentrash -data {
     MMAsZZJKAQIpgwFmKZNUChBIGQwwS5mkUoBAymCAWcoklQIEUoYFzFImqRQgkDOEtYxJIcw5
     oSAlBHJGADs=
 }
+image create photo iworld -data {
+    R0lGODlhEAAQALMAANnZ2f///yCZEBBs0uz41vH558ns+tLusUWi6Ze75lWzS4rSbHLHV9Lt
+    w6zapwpexSH5BAEAAAAALAAAAAAQABAAAASHEMhJqwUhhHBngEGIMUKAQE4QhCClmCECBFIG
+    UQg5CKUjYAAAgDDKOQotBo8IAIAwTDsLIagWcyIAEIZBDkGEFlNOBADCMAkiiZRSTgQAgmhw
+    MYTQGMKNAACAQbSl1HgvjQAABCAId5QYL6URIJAyCOFcSmOEOQEoBDHGkBDISUMIgVJKqYQR
+    ADs=
+}
+image create photo iworldfile -data {
+    R0lGODlhEAAQAMQAANnZ2f///7HM2I20w4SpvnaXtNvm7OXt9ezx9oS68FdwkcPh/l60VzKf
+    LBx0xySN2vL2+r/f7a/ZnTaUkVJhe67X7uHyvqPYb0eO05PH91W0NXjEXHK5rgBLrDxDVHCb
+    2yH5BAEAAAAALAAAAAAQABAAAAW3YCCO5AgAQCAMA0EQxFAURREAQDAYB3KAiGEcx5EoARAM
+    x7IITOM8ApIkShAMUAQyjQRFycQYEBUEBFRNkHU9k8QMEBUEBAhhmXVNj7ZtDUQFAQE5Fcc9
+    z6ZtDUQFYEBAToQ9z9M0W3NQQVAgjbRNz9N1jHOAXhAUSNVYWtN1n5MdXhAUSMVoG4NhTgJm
+    hhcEBbRUXDM5WJZliBcEigEh4CGOBiJ4QVAoikJRFAV6okiBgTiSpRgCADs=
+}
+
+
 
