@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_bookmarks.tcl,v 1.3 2007/10/03 10:06:38 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_bookmarks.tcl,v 1.4 2007/10/03 13:30:18 danielk1977 Exp $)} 1 }
 
 namespace eval ::hv3::bookmarks {
   proc noop {args} {}
@@ -83,6 +83,10 @@ namespace eval ::hv3::bookmarks {
 
     $treewidget populate_tree
     focus ${controller}.filter
+
+    foreach node [$html_hv3 search applet] {
+      $controller applet $node
+    }
   }
 
   proc dropobject {target drag insertAfter inFolder} {
@@ -374,6 +378,7 @@ namespace eval ::hv3::bookmarks {
       # Create the canvas on which the tree is drawn
       #
       ::hv3::scrolled canvas ${win}.canvas -background white -propagate 1
+      ${win}.canvas configure -yscrollincrement 1
 
       # Set up the geometry manager
       #
@@ -392,7 +397,41 @@ namespace eval ::hv3::bookmarks {
       bind ${win}.canvas <ButtonRelease-1> [list $self release_event %x %y]
     }
 
-    method populate_tree {} {
+    method open_folders {objecttype objectid} {
+      set parent [::hv3::sqlitedb one {
+        SELECT folderid 
+        FROM bm_tree2 
+        WHERE objecttype = $objecttype AND objectid = $objectid
+      }]
+      if {$parent eq "" || $parent == 0} return
+      set myOpenFolder($parent) 1
+      if {$parent == -1} return
+
+      $self open_folders f $parent
+    }
+
+    method seek_tree {} {
+      set C ${win}.canvas.widget
+      foreach {page pageid} [$myController current] {}
+      if {$page ne "folder" && $page ne "snapshot"} return
+
+      if {$page eq "snapshot"} {set page bookmark}
+      set tag "${page}$pageid"
+
+      set bbox [$C bbox $tag]
+      if {$bbox eq ""} return
+
+      foreach {dummy1 top dummy2 bottom} $bbox {}
+      if {$top < [$C canvasy 0]} {
+        set pixels [expr {int($top - [$C canvasy 0] - 20)}]
+        $C yview scroll $pixels units
+      } elseif {$bottom > [$C canvasy [winfo height $C]]} {
+        set pixels [expr {int($bottom + 20 - [$C canvasy [winfo height $C]])}]
+        $C yview scroll $pixels units
+      }
+    }
+
+    method populate_tree {{isAutoOpen 0}} {
       set C ${win}.canvas.widget
 
       set y 20
@@ -407,6 +446,18 @@ namespace eval ::hv3::bookmarks {
       set myTreeStart $y
       incr y $yincr
       ::hv3::sqlitedb transaction { 
+
+        if {$isAutoOpen} {
+          foreach {page pageid} [$myController current] {}
+          if {$page eq "folder" || $page eq "snapshot"} {
+            if {$page eq "folder"} {
+              set page f
+            } else {
+              set page b
+            }
+            $self open_folders $page $pageid
+          }
+        }
   
         # Color for special links.
         #
@@ -425,6 +476,8 @@ namespace eval ::hv3::bookmarks {
         incr y $yincr
         incr y $yincr
 
+        # Create the tree of user bookmarks.
+        #
         set y [$self drawSubTree $x $y 0]
         incr y $yincr
   
@@ -463,6 +516,10 @@ namespace eval ::hv3::bookmarks {
         set myTextId($tid) {recent -1 "Click to view all recently viewed URIs"}
   
         $C configure -scrollregion [concat 0 0 [lrange [$C bbox all] 2 3]]
+
+        if {$isAutoOpen} {
+          $self seek_tree
+        }
       }
     }
 
@@ -704,7 +761,7 @@ namespace eval ::hv3::bookmarks {
         ORDER BY bm_tree2.linkid
       } {
         set font Hv3DefaultFont
-        if {$page eq "bookmark" && $pageid eq $bookmarkid} {
+        if {$page eq "snapshot" && $pageid eq $bookmarkid} {
           set font Hv3DefaultBold
         }
         set t [concat "bookmark$bookmarkid" $tags]
@@ -828,12 +885,24 @@ namespace eval ::hv3::bookmarks {
     } else {
       set A_attr "href=\"$uri\""
     }
+    set applet ""
+    if {$id != 0} {
+      set applet "
+        <APPLET 
+          style=\"float:right\"
+          class=bookmarks_button
+          text=\"Edit Bookmark...\"
+          command=\"::hv3::bookmarks::edit_bookmark $id\"
+        ></APPLET>
+      "
+    }
     subst -nocommands {
       <DIV style="margin:1em">
         <DIV>
           <SPAN style="white-space:nowrap">
             ${N}. <A $A_attr>$caption</A>
           </SPAN>
+          $applet
         </DIV>
         <DIV class="snippet">
           $snippet
@@ -873,7 +942,7 @@ namespace eval ::hv3::bookmarks {
 
 
   proc request_search {search} {
-    set zRes "<APPLET bookmarks_page=\"search $search\"></APPLET>"
+    set zRes "<APPLET bookmarks_page=\"search {$search}\"></APPLET>"
     append zRes [start_page "Search for $search"]
 
     set N 0
@@ -909,9 +978,6 @@ namespace eval ::hv3::bookmarks {
   }
 
   proc request_folder {folderid} {
-    # Set to true if it turns out the folder is not empty.
-    #
-    set isEmpty 1
 
     set zRes "<APPLET bookmarks_page=\"folder $folderid\"></APPLET>"
 
@@ -948,14 +1014,6 @@ namespace eval ::hv3::bookmarks {
             command=\"::hv3::bookmarks::delete_folder_contents $folderid\"
           ></APPLET>
         "]
-
-        # Set up the "really delete" button.
-        #set node [$myHv3 search .delete]
-        #set trashbutton [::hv3::button [$myHv3 html].document.trash \
-        #    -text "Permanently delete trashcan contents"            \
-        #    -command [list $self delete_folder_contents -1]
-        #]
-        #$node replace $trashbutton -deletecmd [list destroy $trashbutton]
       }
     }
 
@@ -974,7 +1032,6 @@ namespace eval ::hv3::bookmarks {
       append zRes [pp_bookmark_record \
           $N $bookmarkid $caption $uri $description $has_snapshot $snippet
       ]
-      set isEmpty 0
     }
     append zRes <HR>
     ::hv3::sqlitedb eval {
@@ -996,7 +1053,6 @@ namespace eval ::hv3::bookmarks {
           <P><A href="." bookmarks_page="folder $thisfolderid">$name</A></P>
       }]
       set foldername($thisfolderid) $name
-      set isEmpty 0
     }
 
 #    set parent [$myHv3 html].document
@@ -1106,7 +1162,7 @@ namespace eval ::hv3::bookmarks {
       }
       
       if {$bookmarks_page ne ""} {
-        after idle [$myHv3 goto "home://bookmarks/[join $bookmarks_page /]"]
+        $myHv3 goto "home://bookmarks/[join $bookmarks_page /]"
         return ::hv3::bookmarks::noop
       }
       return [$myBrowser hv3]
@@ -1162,280 +1218,46 @@ namespace eval ::hv3::bookmarks {
       expr {([winfo reqheight $win] + $descent - $ascent) / 2}
     }
 
-    method populate {page pageid} {
-      ::hv3::sqlitedb transaction {
-        switch -exact -- $page {
-          recent   { $self time populate_recent $pageid }
-          folder   { $self time populate_folder $pageid }
-          search   { $self time populate_search $pageid }
-          snapshot { $self populate_snapshot $pageid }
-          default {
-            error [join "
-              {Bad page: \"$page\"}
-              {- should be recent, folder, bookmark or search}
-            "]
-          }
-        }
-      }
-    }
-
-    method populate_snapshot {bookmarkid} {
-      $self set_page_id snapshot $bookmarkid
-      set snapshot [::hv3::sqlitedb one {
-        SELECT snapshot FROM bm_bookmark2 WHERE bookmarkid = $bookmarkid
-      }]
-      $myHv3 reset 0
-      $myHv3 parse -final $snapshot
-    }
-
-    method populate_recent {nLimit} {
-      $self set_page_id recent $nLimit
-
-      if {$nLimit > 0} {
-        $self start_page "$nLimit Most Recently Visited URIs"
-      } else {
-        $self start_page "All Recently Visited URIs"
-      }
-
-      if {$nLimit > 0} {
-        $myHv3 parse [subst {
-          <P class="info"> 
-              To view all visited URIs in the database, 
-              <SPAN id=viewall></SPAN>
-          </P>
-        }]
-
-        set node [$myHv3 search #viewall]
-        set widget [$myHv3 html].document.viewall
-        ::hv3::button $widget                            \
-            -text "Click here"                           \
-            -command [list $self time populate_recent -1]    
-        $node replace $widget                            \
-            -deletecmd [list destroy $widget]            \
-            -configurecmd [myproc configurecmd $widget]
-      }
-
-      set sql { 
-        SELECT uri, title, lastvisited 
-        FROM visiteddb 
-        WHERE title IS NOT NULL
-        ORDER BY oid DESC 
-        LIMIT $nLimit
-      }
-      set N 0
-      ::hv3::sqlitedb eval $sql {
-        incr N
-        set lastvisited [clock format $lastvisited]
-        if {$title eq ""} {set title $uri}
-        $myHv3 parse [subst -nocommands {
-          <P style="clear:both">
-            <SPAN style="white-space:nowrap">
-              ${N}. <A href="$uri" target="_top">$title</A><BR>
-              <SPAN class="uri">$uri</SPAN>
-            </SPAN>
-            <SPAN class="lastvisited">Last visited: $lastvisited</SPAN>
-          </P>
-        }]
-      }
-    }
-
-    method delete_folder_contents {folderid} {
-      ::hv3::sqlitedb eval {
-        SELECT objectid AS thisfolderid 
-        FROM bm_tree2 
-        WHERE folderid = $folderid AND objecttype = 'f'
-      } {
-        $self delete_folder_contents $thisfolderid
-      }
-      ::hv3::sqlitedb eval {
-        DELETE FROM bm_folder2 WHERE folderid IN (
-          SELECT objectid FROM bm_tree2 
-          WHERE folderid = $folderid AND objecttype = 'f'
-        );
-        DELETE FROM bm_bookmark2 WHERE bookmarkid IN (
-          SELECT objectid FROM bm_tree2 
-          WHERE folderid = $folderid AND objecttype = 'b'
-        );
-        DELETE FROM bm_tree2 WHERE folderid = $folderid
-      }
-      if {$folderid == -1} {
-        $self populate $myPage $myPageId
-      }
-    }
-
-    method populate_folder {folderid} {
-      $self set_page_id folder $folderid
-      set isEmpty 1
-
-      if {$folderid > 0} {
-        set name [::hv3::sqlitedb one {
-          SELECT name FROM bm_folder2 WHERE folderid = $folderid
-        }]
-        $self start_page "$name<DIV class=rename></DIV>"
-          # Set up the "really delete" button.
-        set node [$myHv3 search .rename]
-        set rename [::hv3::button [$myHv3 html].document.rename \
-          -text "Rename Folder..."                          \
-          -command [list ::hv3::bookmarks::rename_folder $self $folderid]
-        ]
-  
-        $node replace $rename -deletecmd [list destroy $rename]
-      } else {
-        if {$folderid == 0} {
-          $self start_page "Bookmarks"
-        }
-        if {$folderid == -1} {
-          $self start_page "Trash<DIV class=delete></DIV>"
-
-          # Set up the "really delete" button.
-          set node [$myHv3 search .delete]
-          set trashbutton [::hv3::button [$myHv3 html].document.trash \
-              -text "Permanently delete trashcan contents"            \
-              -command [list $self delete_folder_contents -1]
-          ]
-  
-          $node replace $trashbutton -deletecmd [list destroy $trashbutton]
-        }
-      }
-
-      set N 0
-      ::hv3::sqlitedb eval {
-        SELECT bookmarkid, caption, uri, description, image, has_snapshot
-        FROM bm_tree2, bm_bookmark2
-        WHERE 
-          bm_tree2.folderid = $folderid AND
-          bm_tree2.objecttype = 'b' AND
-          bm_tree2.objectid = bm_bookmark2.bookmarkid
-        ORDER BY(bm_tree2.linkid)
-      } {
-        incr N
-        if {$has_snapshot} {
-          set snapshot_link [subst {
-            <SPAN class="snapshot">
-              <A href="." bookmarks_page="snapshot $bookmarkid">
-                view database snapshot
-              </A>
-            </SPAN>
-          }]
-        } else {
-          set snapshot_link {}
-        }
-        $myHv3 parse [subst -nocommands {
-          <P>
-            <SPAN class="viewbookmark" bookmarkid=$bookmarkid></SPAN>
-            <DIV>
-              <SPAN style="white-space:nowrap">
-                ${N}. <A href="$uri" target="_top">$caption</A>
-              </SPAN>
-              $snapshot_link
-            </DIV>
-            <SPAN class="description">$description</SPAN>
-            <SPAN class="uri">$uri</SPAN>
-          </P>
-        }]
-        set isEmpty 0
-      }
-      $myHv3 parse <HR>
-      ::hv3::sqlitedb eval {
-        SELECT linkid, folderid AS thisfolderid, 'Parent Folder' AS name
-        FROM bm_tree2 
-        WHERE objecttype = 'f' AND objectid = $folderid
-
-        UNION ALL
-
-        SELECT linkid, bm_folder2.folderid AS thisfolderid, name
-        FROM bm_tree2, bm_folder2
-        WHERE 
-          bm_tree2.folderid = $folderid AND
-          bm_tree2.objecttype = 'f' AND
-          bm_tree2.objectid = bm_folder2.folderid
-        ORDER BY 1
-      } {
-        $myHv3 parse [subst -nocommands {
-            <P><A href="." bookmarks_page="folder $thisfolderid">$name</A></P>
-        }]
-        set foldername($thisfolderid) $name
-        set isEmpty 0
-      }
-
-      set parent [$myHv3 html].document
-      foreach node [$myHv3 search .viewbookmark] {
-        set bookmarkid [$node attribute bookmarkid]
-        set widget ${parent}.bookmark${bookmarkid}
-        ::hv3::button $widget                             \
-            -text "Edit..."                               \
-            -command [list ::hv3::bookmarks::edit_bookmark $self $bookmarkid]
-        $node replace $widget -deletecmd [list destroy $widget]
-      }
-      foreach node [$myHv3 search .viewfolder] {
-        set thisfolderid [$node attribute folderid]
-        set widget ${parent}.folder${thisfolderid}
-        ::hv3::button $widget                             \
-            -text "View folder \"$foldername($thisfolderid)\"..."              \
-            -command [list $self time populate_folder $thisfolderid]
-        $node replace $widget -deletecmd [list destroy $widget]
-      }
-
-      if {$isEmpty && [info exists trashbutton]} {
-        $trashbutton configure -state disabled
-      }
-    }
-
-    method populate_search {search} {
-      $self set_page_id search $search
-
-      $self start_page "Search bookmarks for \"$search\""
-
-      set N 0
-      ::hv3::sqlitedb eval {
-        SELECT 
-          bookmarkid, 
-          bm_bookmark2.caption AS caption,
-          bm_bookmark2.uri AS uri,
-          bm_bookmark2.description AS description,
-          bm_bookmark2.has_snapshot AS has_snapshot,
-          snippet(bm_fulltext2) AS snippet
-        FROM bm_fulltext2, bm_bookmark2
-        WHERE 
-          bm_fulltext2 MATCH $search AND 
-          bm_fulltext2.docid = bookmarkid
-        ORDER BY result_transform(offsets(bm_fulltext2)) DESC
-      } {
-
-        incr N
-        if {$has_snapshot > 0} {
-          set A_attr "
-            href=\"snapshot of $uri\" bookmarks_page=\"snapshot $bookmarkid\"
-          "
-        } else {
-          set A_attr "href=\"$uri\""
-        }
-        $myHv3 parse [subst -nocommands {
-          <DIV style="margin:1em">
-            <DIV>
-              <SPAN style="white-space:nowrap">
-                ${N}. <A $A_attr>$caption</A>
-              </SPAN>
-            </DIV>
-            <DIV class="snippet">
-              $snippet
-            </DIV>
-            <SPAN class="description">$description</SPAN>
-            <SPAN class="uri"><A href="$uri">$uri</A></SPAN>
-          </DIV>
-        }]
-      }
-    }
-
     method set_page_id {page pageid} { 
       set myPage $page
       set myPageId $pageid
-      $myTree populate_tree
+      $myTree populate_tree 1
     }
     method sub_page_id {pageid} {
       set myPageId $pageid
     }
     method current {} { list $myPage $myPageId }
+  }
+
+  proc db_delete_folder_contents {folderid} {
+    ::hv3::sqlitedb eval {
+      SELECT objectid AS thisfolderid 
+      FROM bm_tree2 
+      WHERE folderid = $folderid AND objecttype = 'f'
+    } {
+      db_delete_folder_contents $thisfolderid
+    }
+    ::hv3::sqlitedb eval {
+      DELETE FROM bm_folder2 WHERE folderid IN (
+        SELECT objectid FROM bm_tree2 
+        WHERE folderid = $folderid AND objecttype = 'f'
+      );
+      DELETE FROM bm_bookmark2 WHERE bookmarkid IN (
+        SELECT objectid FROM bm_tree2 
+        WHERE folderid = $folderid AND objecttype = 'b'
+      );
+      DELETE FROM bm_fulltext2 WHERE rowid IN (
+        SELECT objectid FROM bm_tree2 
+        WHERE folderid = $folderid AND objecttype = 'b'
+      );
+      DELETE FROM bm_tree2 WHERE folderid = $folderid
+    }
+  }
+  proc delete_folder_contents {folderid} {
+    ::hv3::sqlitedb transaction {
+      db_delete_folder_contents $folderid
+    }
+    refresh_gui
   }
 
   #
@@ -1563,7 +1385,7 @@ namespace eval ::hv3::bookmarks {
     }
   }
 
-  proc store_edit_bookmark {htmlwidget bookmarkid} {
+  proc store_edit_bookmark {bookmarkid} {
     set caption     [.new.caption get]
     set uri         [.new.uri get]
     set description [.new.desc get 0.0 end]
@@ -1701,9 +1523,9 @@ namespace eval ::hv3::bookmarks {
     launch_dialog .new
   }
 
-  proc edit_bookmark {htmlwidget bookmarkid} {
+  proc edit_bookmark {bookmarkid} {
     create_bookmark_dialog 0
-    set cmd [list ::hv3::bookmarks::store_edit_bookmark $htmlwidget $bookmarkid]
+    set cmd [list ::hv3::bookmarks::store_edit_bookmark $bookmarkid]
     .new.save configure -command $cmd
 
     focus .new.caption
