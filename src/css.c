@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.124 2007/09/21 09:32:39 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.125 2007/10/03 17:46:37 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -4512,7 +4512,7 @@ HtmlCssStyleConfigDump(clientData, interp, objc, objv)
             if (pProp) {
                 int eProp = pRule->pPropertySet->a[ii].eProp;
                 char *zPropVal;
-                char *zFree;
+                char *zFree = 0;
                 if (isRequireSemi) {
                     Tcl_AppendToObj(p, "; ", 2);
                 }

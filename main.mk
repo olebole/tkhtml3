@@ -141,6 +141,7 @@ hv3.vfs: binaries
 	cp $(TOP)/hv/combobox.tcl ./hv3.vfs/
 	cp $(TOP)/hv/main.tcl ./hv3.vfs/
 	cp $(TOP)/hv/snit.tcl ./hv3.vfs/
+	cp $(TOP)/hv/snit2.tcl ./hv3.vfs/
 	cp $(TOP)/hv/index.html ./hv3.vfs/
 	if test -d $(TCL)/lib/*tls*/ ; then \
 	  cp -R $(TCL)/lib/*tls* ./hv3.vfs/lib ; \

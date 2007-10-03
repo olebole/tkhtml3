@@ -1,6 +1,7 @@
-namespace eval hv3 { set {version($Id: hv3_bookmarks.tcl,v 1.4 2007/10/03 13:30:18 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_bookmarks.tcl,v 1.5 2007/10/03 17:46:37 danielk1977 Exp $)} 1 }
 
 namespace eval ::hv3::bookmarks {
+
   proc noop {args} {}
 
   proc initialise_database {} {
@@ -828,6 +829,7 @@ namespace eval ::hv3::bookmarks {
 
     ::hv3::sqlitedb transaction {
       switch -exact -- $page {
+        images   { return [idir data -format ppm] }
         recent   { request_recent $pageid }
         folder   { request_folder $pageid }
         search   { request_search $pageid }
@@ -859,6 +861,18 @@ namespace eval ::hv3::bookmarks {
         .snippet {
             margin: 0 10ex;
             font-size: small;
+        }
+
+        .subfolder {
+            float:left;
+            padding: 0;
+            padding-left:50px;
+            min-width:20ex;
+            white-space:nowrap;
+        }
+        .subfolder a {
+            display: list-item;
+            list-style-image: url(home://bookmarks/images/idir);
         }
 
         .viewbookmark { float:right }
@@ -993,14 +1007,6 @@ namespace eval ::hv3::bookmarks {
           command=\"::hv3::bookmarks::rename_folder $folderid\"
         ></APPLET>
       "]
-
-      # Set up the "really delete" button.
-      #set node [$myHv3 search .rename]
-      #set rename [::hv3::button [$myHv3 html].document.rename \
-      #  -text "Rename Folder..."                          \
-      #  -command [list ::hv3::bookmarks::rename_folder $self $folderid]
-      #]
-      #$node replace $rename -deletecmd [list destroy $rename]
     } else {
       if {$folderid == 0} {
         append zRes [start_page "Bookmarks"]
@@ -1035,7 +1041,7 @@ namespace eval ::hv3::bookmarks {
     }
     append zRes <HR>
     ::hv3::sqlitedb eval {
-      SELECT linkid, folderid AS thisfolderid, 'Parent Folder' AS name
+      SELECT linkid, folderid AS thisfolderid, '.. (parent folder)' AS name
       FROM bm_tree2 
       WHERE objecttype = 'f' AND objectid = $folderid
 
@@ -1050,32 +1056,12 @@ namespace eval ::hv3::bookmarks {
       ORDER BY 1
     } {
       append zRes [subst -nocommands {
-          <P><A href="." bookmarks_page="folder $thisfolderid">$name</A></P>
+          <DIV class=subfolder>
+            <A href="." bookmarks_page="folder $thisfolderid">$name</A>
+          </DIV>
       }]
       set foldername($thisfolderid) $name
     }
-
-#    set parent [$myHv3 html].document
-#    foreach node [$myHv3 search .viewbookmark] {
-#      set bookmarkid [$node attribute bookmarkid]
-#      set widget ${parent}.bookmark${bookmarkid}
-#      ::hv3::button $widget                             \
-#          -text "Edit..."                               \
-#          -command [list ::hv3::bookmarks::edit_bookmark $self $bookmarkid]
-#      $node replace $widget -deletecmd [list destroy $widget]
-#    }
-#    foreach node [$myHv3 search .viewfolder] {
-#      set thisfolderid [$node attribute folderid]
-#      set widget ${parent}.folder${thisfolderid}
-#      ::hv3::button $widget                             \
-#          -text "View folder \"$foldername($thisfolderid)\"..."              \
-#          -command [list $self time populate_folder $thisfolderid]
-#      $node replace $widget -deletecmd [list destroy $widget]
-#    }
-#
-#    if {$isEmpty && [info exists trashbutton]} {
-#      $trashbutton configure -state disabled
-#    }
     return $zRes
   }
 
@@ -1390,10 +1376,17 @@ namespace eval ::hv3::bookmarks {
     set uri         [.new.uri get]
     set description [.new.desc get 0.0 end]
 
-    ::hv3::sqlitedb eval {
-      UPDATE bm_bookmark2 
-      SET caption = $caption, uri = $uri, description = $description
-      WHERE bookmarkid = $bookmarkid
+    ::hv3::sqlitedb transaction {
+      ::hv3::sqlitedb eval {
+        UPDATE bm_bookmark2 
+        SET caption = $caption, uri = $uri, description = $description
+        WHERE bookmarkid = $bookmarkid
+      }
+      ::hv3::sqlitedb eval {
+        UPDATE bm_fulltext2 
+        SET caption = $caption, description = $description
+        WHERE rowid = $bookmarkid
+      }
     }
     destroy .new
 

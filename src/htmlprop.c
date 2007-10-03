@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.120 2007/09/23 06:34:08 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.121 2007/10/03 17:46:37 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -370,7 +370,7 @@ HtmlPropertyToString(pProp, pzFree)
             pProp->eType == CSS_TYPE_URL ||
             pProp->eType == CSS_TYPE_ATTR
         ) {
-            int nBytes = strlen(pProp->v.zVal) + 6;
+            int nBytes = strlen(pProp->v.zVal) + 7;
             zRet = HtmlAlloc("HtmlPropertyToString()", nBytes);
             sprintf(zRet, "%s(%s)", 
                     (pProp->eType==CSS_TYPE_TCL)?"tcl":

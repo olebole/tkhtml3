@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.157 2007/10/03 10:06:38 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.158 2007/10/03 17:46:37 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -26,7 +26,7 @@ package require Tkhtml 3.0
 # coloring of visited URIs work.
 #
 if {[catch { package require Img } errmsg]} {
-  puts stderr "WARNING: $errmsg"
+  puts stderr "WARNING: $errmsg (most image types will fail to load)"
 }
 if {[catch { package require sqlite3 } errmsg]} {
   puts stderr "WARNING: $errmsg"
