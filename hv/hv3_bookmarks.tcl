@@ -1,6 +1,74 @@
-namespace eval hv3 { set {version($Id: hv3_bookmarks.tcl,v 1.5 2007/10/03 17:46:37 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_bookmarks.tcl,v 1.6 2007/10/03 18:47:36 danielk1977 Exp $)} 1 }
 
 namespace eval ::hv3::bookmarks {
+
+  set INSTRUCTIONS {
+BASICS:
+
+This set of frames is Hv3's bookmarks-system-slash-homepage. Initially,
+there are 5 bookmarks in the system. You can see them in the left-hand frame,
+under the words "Start here" and above "Trash".
+
+Changes made to the bookmarks system are saved in the state-file
+selected by the -statefile command-line option. If no -statefile option
+is supplied, then changes are discarded when the browser window is closed.
+
+Initially, there are no folders in the database. Folders can be 
+added to the bookmarks list by pressing the "New Folder" button. You can then
+organize existing bookmarks into folders by dragging and dropping them.
+Clicking the folder icon beside a folder expands or hides it's contents.
+Clicking on the name of a folder loads it's contents into this window.
+
+Similarly, new bookmarks can be added to the system and initialized manually by
+clicking "New Bookmark". Or, to bookmark the current page when browsing an HTML
+document, press Ctrl-B or select the "File->Bookmark Page" menu option.
+
+To edit an existing bookmark, click on it's containing folder (or "Start
+here" if the bookmark is not in any folder). Then click the corresponding
+"Edit Bookmark..." button in the right-hand frame (this window).
+
+SNAPSHOTS:
+
+Hv3's bookmarks system has one unique feature - it allows you to save a
+copy of a bookmarked document in the database along with the bookmark
+itself. This copy is called a snapshot. The snapshot contains all 
+document content and style information, but any scripts are discarded
+before it is saved. Images are not saved. Snapshots are useful for two
+reasons - they can be viewed when the original resource is not available 
+(i.e. because you are not online) and they make it easier to search the
+bookmarks database (see below).
+
+You can tell if a bookmark has an accompanying snapshot by looking at
+it's icon. This document (INSTRUCTIONS) has a document icon, indicating
+that it has a snapshot and if the accompanying hyperlink is clicked the
+default action is to load the snapshot into the right-hand frame (this 
+window). The four Hv3 related links have a different icon, one that
+indicates no snapshot is saved in the database for this link.
+
+The third kind of icon a bookmark indicates that a snapshot is saved,
+but clicking on the hyperlink still navigates to the original resource,
+not the saved snapshot. You can toggle the status of any bookmark that
+has a saved snapshot by clicking on the icon itself. Try it now with
+the INSTRUCTIONS bookmark, so that you know what the third type of icon
+looks like.
+
+When bookmarking a webpage using Ctrl-B or the "File->New Bookmark" menu,
+you can save a snapshot along with the bookmark by checking the "Save website
+text in database" checkbox on the create new bookmark dialog.
+
+Documents can also be imported from the local file system by clicking 
+"Import Data...", then "Import Document Tree". This allows you to select a 
+file-system directory to import. All *.html or *.htm documents within the
+selected directory and any sub-directories are saved with snapshots to 
+the database. This is useful for creating a searchable full-text database
+of downloaded documentation distributed in html format.
+
+SEARCHING:
+
+You can search the bookmarks database using SQLite's FTS3 extension by 
+entering a string in the search box at the top of this frame and 
+pressing enter.
+  }
 
   proc noop {args} {}
 
@@ -53,13 +121,27 @@ namespace eval ::hv3::bookmarks {
       set folderid 0
 
       ::hv3::sqlitedb transaction {
-        foreach {A B} {
-  "Hv3/Tkhtml3 Home page"       http://tkhtml.tcl.tk
-  "Hv3/Tkhtml3 Mailing List"    http://groups.google.com/group/tkhtml3
-  "Hv3/Tkhtml3 CVSTrac"         http://tkhtml.tcl.tk/cvstrac/timeline
-  "Hv3 @ freshmeat.net"         http://freshmeat.net/hv3
+        foreach {A B C} {
+  "INSTRUCTIONS"                http://tkhtml.tcl.tk 1
+  "Hv3/Tkhtml3 Home page"       http://tkhtml.tcl.tk 0
+  "Hv3/Tkhtml3 Mailing List"    http://groups.google.com/group/tkhtml3 0
+  "Hv3/Tkhtml3 CVSTrac"         http://tkhtml.tcl.tk/cvstrac/timeline 0
+  "Hv3 @ freshmeat.net"         http://freshmeat.net/hv3 0
         } {
-          db_store_new_bookmark 0 $A $B "" 0 "" ""
+          if {$C} {
+            set zSnapshot "
+              <DIV style=font-family:courier>
+              [string map {\n\n <P>} $::hv3::bookmarks::INSTRUCTIONS]
+              </DIV>
+            "
+            set zSnapshotText $::hv3::bookmarks::INSTRUCTIONS
+            set iSnapshot 2
+          } else {
+            set zSnapshot ""
+            set zSnapshotText ""
+            set iSnapshot 0
+          }
+          db_store_new_bookmark 0 $A $B "" $iSnapshot $zSnapshot $zSnapshotText
         }
       }
     }
