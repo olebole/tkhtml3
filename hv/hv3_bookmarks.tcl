@@ -1,6 +1,15 @@
-namespace eval hv3 { set {version($Id: hv3_bookmarks.tcl,v 1.6 2007/10/03 18:47:36 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_bookmarks.tcl,v 1.7 2007/10/04 11:08:12 danielk1977 Exp $)} 1 }
 
 namespace eval ::hv3::bookmarks {
+
+  # Test if fts3 is available. There must be a better way to do this
+  proc test_for_fts3 {} {
+    catch {::hv3::sqlitedb eval {
+      CREATE VIRTUAL TEMP TABLE fts3test USING fts3(a);
+      DROP TABLE fts3test;
+    }} msg
+    puts $msg
+  }
 
   set INSTRUCTIONS {
 BASICS:
@@ -70,6 +79,8 @@ entering a string in the search box at the top of this frame and
 pressing enter.
   }
 
+  set fts3_warning ""
+
   proc noop {args} {}
 
   proc initialise_database {} {
@@ -136,13 +147,43 @@ pressing enter.
             "
             set zSnapshotText $::hv3::bookmarks::INSTRUCTIONS
             set iSnapshot 2
+            set zDesc {
+              Instruction manual for Hv3.
+            }
           } else {
             set zSnapshot ""
+            set zDesc ""
             set zSnapshotText ""
             set iSnapshot 0
           }
-          db_store_new_bookmark 0 $A $B "" $iSnapshot $zSnapshot $zSnapshotText
+          db_store_new_bookmark 0 $A $B $zDesc $iSnapshot $zSnapshot $zSnapshotText
         }
+      }
+    }
+
+    if {$::hv3::have_fts3} {
+      set rc [catch {::hv3::sqlitedb eval {SELECT * FROM bm_rebuild_fulltext2}}]
+      if {$rc == 0} {
+        set ::hv3::bookmarks::fts3_warning {
+          <DIV style="font-size:small;color:darkred">
+          <APPLET 
+            style="float:right"
+            class=bookmarks_button
+            text="Rebuild Fts3 Database"
+            command="::hv3::bookmarks::rebuild_fts_database"
+          ></APPLET>
+	    WARNING: Fts3 database requires rebuild. Fts3 is available now,
+	    but the database was edited while it was not.  Until the database
+            is rebuilt, search results will be unreliable.
+          </DIV>
+        }
+      }
+    } else {
+      set ::hv3::bookmarks::fts3_warning {
+        <DIV style="font-size:small;color:darkred">
+              WARNING: Fts3 extension not available.
+              Search functionality is severely compromised.
+        </DIV>
       }
     }
   }
@@ -753,8 +794,13 @@ pressing enter.
         }
       }
    
-      set myDragObject ""
-      set myPressedItem ""
+      # Clear the DragObject and PressedItem variables. This has to
+      # be in a [catch] block as the call to [click_event] above may
+      # have destroyed the whole widget.
+      catch {
+        set myDragObject ""
+        set myPressedItem ""
+      }
     }
 
     method click_event {click} {
@@ -848,6 +894,7 @@ pressing enter.
           set font Hv3DefaultBold
         }
         set t [concat "bookmark$bookmarkid" $tags]
+        if {$caption eq ""} {set caption $uri}
 
         switch -exact -- $has_snapshot {
           0 { set image iworld }
@@ -1036,27 +1083,72 @@ pressing enter.
     return $zRes
   }
 
+  proc html_to_text {zHtml} {
+    .tmphv3 reset
+    .tmphv3 parse -final $zHtml
+    return [.tmphv3 text text]
+  }
+
+  proc rebuild_fts_database {} {
+    html .tmphv3
+    ::hv3::sqlitedb transaction {
+      ::hv3::sqlitedb eval {
+        DELETE FROM bm_fulltext2;
+        INSERT INTO bm_fulltext2(docid, caption, snapshot) 
+          SELECT bookmarkid, caption, html_to_text(snapshot)
+          FROM bm_bookmark2;
+        DROP TABLE IF EXISTS bm_rebuild_fulltext2;
+      }
+      set ::hv3::bookmarks::fts3_warning {}
+    }
+    destroy .tmphv3
+    refresh_gui
+  }
 
   proc request_search {search} {
     set zRes "<APPLET bookmarks_page=\"search {$search}\"></APPLET>"
     append zRes [start_page "Search for $search"]
 
+    append zRes $::hv3::bookmarks::fts3_warning
+
+    if {$::hv3::have_fts3} {
+      set sql {
+        SELECT 
+          bookmarkid, 
+          bm_bookmark2.caption AS caption,
+          bm_bookmark2.uri AS uri,
+          bm_bookmark2.description AS description,
+          bm_bookmark2.has_snapshot AS has_snapshot,
+          snippet(bm_fulltext2) AS snippet
+        FROM bm_fulltext2, bm_bookmark2
+        WHERE 
+          bm_fulltext2 MATCH $search AND 
+          bm_fulltext2.docid = bookmarkid
+        ORDER BY result_transform(offsets(bm_fulltext2)) DESC
+        LIMIT 500
+      }
+    } else {
+      set like "%${search}%"
+      set sql {
+        SELECT 
+          bookmarkid, 
+          bm_bookmark2.caption AS caption,
+          bm_bookmark2.uri AS uri,
+          bm_bookmark2.description AS description,
+          bm_bookmark2.has_snapshot AS has_snapshot,
+          '' AS snippet
+        FROM bm_bookmark2
+        WHERE 
+          caption     LIKE $like OR
+          description LIKE $like OR
+          uri         LIKE $like
+        ORDER BY ((caption LIKE $like) * 100 + (description LIKE $like)) DESC
+        LIMIT 500
+      }
+    }
+
     set N 0
-    ::hv3::sqlitedb eval {
-      SELECT 
-        bookmarkid, 
-        bm_bookmark2.caption AS caption,
-        bm_bookmark2.uri AS uri,
-        bm_bookmark2.description AS description,
-        bm_bookmark2.has_snapshot AS has_snapshot,
-        snippet(bm_fulltext2) AS snippet
-      FROM bm_fulltext2, bm_bookmark2
-      WHERE 
-        bm_fulltext2 MATCH $search AND 
-        bm_fulltext2.docid = bookmarkid
-      ORDER BY result_transform(offsets(bm_fulltext2)) DESC
-      LIMIT 500
-    } {
+    ::hv3::sqlitedb eval $sql {
       incr N
       append zRes [pp_bookmark_record \
           $N $bookmarkid $caption $uri $description $has_snapshot $snippet
@@ -1104,6 +1196,8 @@ pressing enter.
         "]
       }
     }
+ 
+    append zRes $::hv3::bookmarks::fts3_warning
 
     set N 0
     ::hv3::sqlitedb eval {
@@ -1305,16 +1399,24 @@ pressing enter.
     } {
       db_delete_folder_contents $thisfolderid
     }
+
+    if {$::hv3::have_fts3} {
+      ::hv3::sqlitedb eval {
+        DELETE FROM bm_fulltext2 WHERE rowid IN (
+          SELECT objectid FROM bm_tree2 
+          WHERE folderid = $folderid AND objecttype = 'b'
+        );
+      }
+    } else {
+      catch { ::hv3::sqlitedb eval {CREATE TABLE bm_rebuild_fulltext2(a)} }
+    }
+
     ::hv3::sqlitedb eval {
       DELETE FROM bm_folder2 WHERE folderid IN (
         SELECT objectid FROM bm_tree2 
         WHERE folderid = $folderid AND objecttype = 'f'
       );
       DELETE FROM bm_bookmark2 WHERE bookmarkid IN (
-        SELECT objectid FROM bm_tree2 
-        WHERE folderid = $folderid AND objecttype = 'b'
-      );
-      DELETE FROM bm_fulltext2 WHERE rowid IN (
         SELECT objectid FROM bm_tree2 
         WHERE folderid = $folderid AND objecttype = 'b'
       );
@@ -1415,21 +1517,20 @@ pressing enter.
       VALUES($iFolder, 'b', $bookmarkid)
     }
 
-    set rc [catch {
+    if {$::hv3::have_fts3} {
       ::hv3::sqlitedb eval {
         INSERT INTO bm_fulltext2(rowid, caption, description, snapshot)
         VALUES($bookmarkid, $zCaption, $zDescription, $zSnapshotText)
       }
-    } msg]
-    if {$rc && [string first "no such" $msg] != 0} {
-      error $msg
+    } else {
+      catch { ::hv3::sqlitedb eval {CREATE TABLE bm_rebuild_fulltext2(a)} }
     }
 
     return $bookmarkid
   }
 
-  set save_snapshot_variable 0
-  proc store_new_bookmark {treewidget hv3} {
+  set save_snapshot_variable 1
+  proc store_new_bookmark {hv3} {
     set caption [.new.caption get]
     set uri [.new.uri get]
     set desc [.new.desc get 0.0 end]
@@ -1437,20 +1538,21 @@ pressing enter.
 
     ::hv3::sqlitedb transaction {
       set has_snapshot 0
-          set snapshot ""
+      set snapshot ""
+      set snapshot_text ""
       if {$::hv3::bookmarks::save_snapshot_variable && $hv3 ne ""} {
         set has_snapshot 1
         set snapshot [create_snapshot $hv3]
+        set snapshot_text [$hv3 text text]
       }
       set bookmarkid [
-        db_store_new_bookmark 0 $caption $uri $desc $has_snapshot $snapshot ""
+        db_store_new_bookmark 0 $caption $uri $desc $has_snapshot $snapshot $snapshot_text
       ]
       set object [list bookmark $bookmarkid]
       ::hv3::bookmarks::dropobject [list folder 0] $object 0 1
-      if {$treewidget ne ""} {
-        $treewidget populate_tree
-      }
     }
+
+    refresh_gui
   }
 
   proc store_edit_bookmark {bookmarkid} {
@@ -1464,10 +1566,14 @@ pressing enter.
         SET caption = $caption, uri = $uri, description = $description
         WHERE bookmarkid = $bookmarkid
       }
-      ::hv3::sqlitedb eval {
-        UPDATE bm_fulltext2 
-        SET caption = $caption, description = $description
-        WHERE rowid = $bookmarkid
+      if {$::hv3::have_fts3} {
+        ::hv3::sqlitedb eval {
+          UPDATE bm_fulltext2 
+          SET caption = $caption, description = $description
+          WHERE rowid = $bookmarkid
+        } 
+      } else {
+        catch { ::hv3::sqlitedb eval {CREATE TABLE bm_rebuild_fulltext2(a)} }
       }
     }
     destroy .new
@@ -1497,6 +1603,7 @@ pressing enter.
     focus .new.entry
 
     launch_dialog .new
+    tkwait window .new
   }
 
   proc rename_folder {folderid} {
@@ -1524,6 +1631,7 @@ pressing enter.
     focus .new.entry
 
     launch_dialog .new
+    tkwait window .new
   }
 
   proc create_bookmark_dialog {isCreate} {
@@ -1559,7 +1667,7 @@ pressing enter.
     grid configure .new.l_uri -sticky e
     grid configure .new.l_desc -sticky e
 
-    if {$isCreate>1} {
+    if {$isCreate<2} {
       checkbutton .new.snapshot \
           -text "Save website text in database"                   \
           -variable ::hv3::bookmarks::save_snapshot_variable
@@ -1579,14 +1687,15 @@ pressing enter.
 
   proc new_bookmark {treewidget} {
     set hv3 ""
+    set dialog_version 2
     if {[$treewidget info type] eq "::hv3::hv3"} {
       set hv3 $treewidget
-      set treewidget ""
+      set dialog_version 1
     }
 
-    create_bookmark_dialog 2
+    create_bookmark_dialog $dialog_version
     .new.save configure \
-        -command [list ::hv3::bookmarks::store_new_bookmark $treewidget $hv3]
+        -command [list ::hv3::bookmarks::store_new_bookmark $hv3]
 
     focus .new.caption
     if {$hv3 ne ""} {
@@ -1596,6 +1705,7 @@ pressing enter.
     }
 
     launch_dialog .new
+    tkwait window .new
   }
 
   proc edit_bookmark {bookmarkid} {
@@ -1615,6 +1725,7 @@ pressing enter.
     .new.caption selection range 0 end
 
     launch_dialog .new
+    tkwait window .new
   }
 
   proc launch_dialog {dialog} {
@@ -1633,7 +1744,6 @@ pressing enter.
     wm transient $dialog .
     # wm protocol .new WM_DELETE_WINDOW { grab release .new ; destroy .new }
     raise $dialog
-    tkwait window $dialog
   }
 
   # Notes on the mozilla bookmarks.html format:
@@ -1734,37 +1844,74 @@ pressing enter.
     if {$zDirname eq ""} {
       set zDirname [tk_chooseDirectory -initialdir /home/dan/work/tkhtml/docs]
     }
-
-    #toplevel .import
-    #::hv3::label .import.label -width 60
-    #pack .import.label -fill both -expand 1
-
     if {$zDirname eq ""} return
-    ::hv3::sqlitedb transaction {
-      set iFolder [db_store_new_folder 0 "Imported from $zDirname"]
-      catch {import_dir $iFolder $zDirname}
-    }
 
-    foreach obj [::hv3::bookmarks::treewidget info instances] {
-      $obj populate_tree
+    set hv3      [::hv3::hv3 .tmphv3]
+    set protocol [::hv3::protocol %AUTO%]
+    $hv3 handler node object ""
+    $hv3 handler node frameset ""
+    $hv3 handler node embed ""
+    $hv3 configure -requestcmd [list $protocol requestcmd]
+
+    toplevel .import
+    ::hv3::label .import.label -width 60 -anchor w
+    ::hv3::button .import.cancel \
+        -command [list destroy .import] -text "Cancel Import"
+    pack .import.label -fill both -expand 1 -side top
+    pack .import.cancel -fill x -expand 1
+
+    launch_dialog .import
+    set ::hv3::bookmarks::files_to_import [count_html_files $zDirname]
+    set ::hv3::bookmarks::files_imported 0
+
+    set rc [catch {::hv3::sqlitedb transaction {
+      set iFolder [db_store_new_folder 0 "Imported from $zDirname"]
+      import_dir $iFolder $zDirname
+    }} msg]
+
+    destroy $hv3
+    $protocol destroy
+    destroy .import
+
+    if {$rc == 0} {
+      foreach obj [::hv3::bookmarks::treewidget info instances] {
+        $obj populate_tree
+      }
+    } else {
+      error $msg
     }
+  }
+
+  set files_to_import 0
+  set files_imported 0
+
+  proc count_html_files {dir} {
+    if {![winfo exists .import.label]} {
+      error "Operation cancelled by user"
+    }
+    .import.label configure -text "Searching for html files in $dir"
+    update
+    set iRes [llength [
+      glob -nocomplain -directory $dir *.html *.htm *.HTML *.HTM
+    ]]
+    foreach d [glob -nocomplain -type d -directory $dir *] {
+      incr iRes [count_html_files $d]
+    }
+    set iRes
   }
 
   proc import_dir {iFolder dir} {
     set obj [::tkhtml::uri file://]
-    set hv3 [::hv3::hv3 .tmphv3]
-    set protocol [::hv3::protocol %AUTO%]
-
-    # Disable handling of special object types.
-    $hv3 handler node object ""
-    $hv3 handler node frameset ""
-    $hv3 handler node embed ""
-
-    $hv3 configure -requestcmd [list $protocol requestcmd]
+    set hv3 .tmphv3
 
     set flist [glob -nocomplain -directory $dir *.html *.htm *.HTML *.HTM]
     foreach f $flist {
-      puts "Importing $f"
+      if {![winfo exists .import.label]} {
+        error "Operation cancelled by user"
+      }
+      incr ::hv3::bookmarks::files_imported
+      .import.label configure -text "Importing file ${::hv3::bookmarks::files_imported}/${::hv3::bookmarks::files_to_import} ($f)"
+      update
       set zCaption $f
       set zDesc ""
       set zUri ""
@@ -1784,15 +1931,12 @@ pressing enter.
       set text [[$hv3 html] text text]
       db_store_new_bookmark $iFolder $zCaption $zUri $zDesc 2 $zSnapshot $text
     }
-
-    destroy $hv3
-    $protocol destroy
     $obj destroy
 
     foreach f [glob -nocomplain -directory $dir *] {
       if {[file isdirectory $f]} {
         set iSubFolder [db_store_new_folder $iFolder [file tail $f]]
-        catch {import_dir $iSubFolder $f}
+        import_dir $iSubFolder $f
       }
     }
   }

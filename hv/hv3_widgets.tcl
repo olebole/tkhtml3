@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.50 2007/09/29 09:51:13 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.51 2007/10/04 11:08:12 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
@@ -120,7 +120,7 @@ namespace eval ::hv3 {
     variable  myHsb
   
     option -propagate -default 0 -configuremethod set_propagate
-    option -scrollbarpolicy -default auto
+    option -scrollbarpolicy -default auto -configuremethod set_policy
     option -takefocus -default 0
   
     method set_propagate {option value} {
@@ -206,6 +206,14 @@ namespace eval ::hv3 {
         }
       } elseif {$ismapped && !$isrequired} {
         grid forget $scrollbar
+      }
+    }
+
+    method set_policy {option value} {
+      if {$value ne $options($option)} {
+        set options($option) $value
+        eval $self scrollcallback $myHsb [$myWidget xview]
+        eval $self scrollcallback $myVsb [$myWidget yview]
       }
     }
   

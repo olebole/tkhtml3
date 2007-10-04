@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_db.tcl,v 1.18 2007/10/03 10:06:38 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_db.tcl,v 1.19 2007/10/04 11:08:12 danielk1977 Exp $)} 1 }
 
 # Class ::hv3::visiteddb
 #
@@ -396,6 +396,18 @@ proc ::hv3::dbinit {} {
       ::hv3::sqlitedb eval {PRAGMA synchronous = OFF}
       ::hv3::sqlitedb timeout 2000
       ::hv3::sqlitedb function result_transform ::hv3::bookmarks::result_transform
+      ::hv3::sqlitedb function html_to_text ::hv3::bookmarks::html_to_text
+
+      # Test if fts3 is present. fts3 is used by the bookmarks app.
+      #
+      set ::hv3::have_fts3 [expr {![catch {::hv3::sqlitedb eval {
+        CREATE VIRTUAL TABLE temp.fts3test USING fts3(a);
+        DROP TABLE fts3test;
+      }} msg]}]
+      if {$::hv3::have_fts3 == 0} {
+        puts "WARNING: fts3 not loaded ($msg)"
+        set ::hv3::bookmarks::save_snapshot_variable 0
+      }
     }
 
     ::hv3::cookiemanager   ::hv3::the_cookie_manager
