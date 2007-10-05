@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.121 2007/10/03 17:46:37 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.122 2007/10/05 18:33:57 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -2726,9 +2726,11 @@ HtmlComputedValuesSetupTables(pTree)
     Tcl_Eval(interp, "font families");
     Tcl_ListObjGetElements(NULL, Tcl_GetObjResult(interp), &nFamily, &apFamily);
     for (ii = 0; ii < nFamily; ii++) {
-        Tcl_CreateHashEntry(
+        Tcl_HashEntry *pEntry = Tcl_CreateHashEntry(
             &pTree->aFontFamilies, Tcl_GetString(apFamily[ii]), &dummy
         );
+        Tcl_SetHashValue(pEntry, 0);
+       
         /* Note that sometimes the [font families] command returns a list
          * containing duplicate elements. Therefore we cannot "assert(dummy)".
          */
