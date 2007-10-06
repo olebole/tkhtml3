@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.200 2007/09/26 08:14:48 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.201 2007/10/06 10:11:51 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -2298,8 +2298,8 @@ drawLine(pQuery, pItem, drawable, x, y, w, h)
     }
     xcolor = HtmlNodeComputedValues(pLine->pNode)->cColor->xcolor;
     setClippingDrawable(pQuery, pItem, &drawable, &x, &y);
-    fill_quad(pQuery, pTree->tkwin, drawable, xcolor, 
-        x + pLine->x, y + yrel, pLine->w, 0, 0, 1, -1 * pLine->w, 0
+    fill_rectangle(
+        pTree->tkwin, drawable, xcolor, x + pLine->x, y + yrel, pLine->w, 1
     );
 }
 
@@ -3149,6 +3149,9 @@ pixmapQueryCb(pItem, origin_x, origin_y, pOverflow, clientData)
  *    Return a Pixmap containing the rendered document. The caller is
  *    responsible for calling Tk_FreePixmap() on the returned value.
  *
+ *    This is the function that actually does the drawing using X11 
+ *    drawing primitives.
+ *
  * Results:
  *     None.
  *
@@ -3203,7 +3206,7 @@ getPixmap(pTree, xcanvas, ycanvas, w, h, getwin)
         pEntry = Tcl_FindHashEntry(&pTree->aColor, "white");
         assert(pEntry);
         bg_color = ((HtmlColor *)Tcl_GetHashValue(pEntry))->xcolor;
-        fill_quad(0, win, pmap, bg_color, 0, 0, w, 0, 0, h, -1 * w, 0);
+        fill_rectangle(win, pmap, bg_color, 0, 0, w, h);
     }
 
     sQuery.pTree = pTree;
