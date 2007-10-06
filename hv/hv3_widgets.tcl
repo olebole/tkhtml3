@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.51 2007/10/04 11:08:12 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.52 2007/10/06 14:58:22 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
@@ -20,16 +20,6 @@ catch {
 proc ::hv3::UseHv3Font {widget} {
   $widget configure -font Hv3DefaultFont
 }
-proc ::hv3::SetFont {font} {
-  catch {font delete Hv3DefaultFont}
-  catch {font delete Hv3DefaultBold}
-  eval font create Hv3DefaultFont $font
-  eval font create Hv3DefaultBold $font -weight bold
-
-  # WARNING: Horrible, horrible action at a distance...
-  catch {.notebook.notebook Redraw}
-}
-::hv3::SetFont {-size 10}
 
 # Basic wrapper widget-names used to abstract Tk and Tile:
 #
@@ -49,7 +39,10 @@ namespace eval ::hv3 {
   }
   proc SetFont {font} {
     catch {font delete Hv3DefaultFont}
+    catch {font delete Hv3DefaultBold}
     eval [linsert $font 0 font create Hv3DefaultFont]
+    eval [linsert $font 0 font create Hv3DefaultBold -weight bold]
+
   
     # WARNING: Horrible, horrible action at a distance...
     catch {.notebook.notebook Redraw}
@@ -968,7 +961,6 @@ snit::widget ::hv3::findwidget {
 
   method Hv3List {} {
     if {[catch {$myBrowser get_frames} msg]} {
-puts $msg
       return $myBrowser
     } else {
       set frames [$myBrowser get_frames]
