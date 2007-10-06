@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_bookmarks.tcl,v 1.7 2007/10/04 11:08:12 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_bookmarks.tcl,v 1.8 2007/10/06 10:29:35 danielk1977 Exp $)} 1 }
 
 namespace eval ::hv3::bookmarks {
 
@@ -1842,7 +1842,7 @@ pressing enter.
 
   proc import_tree {{zDirname ""}} {
     if {$zDirname eq ""} {
-      set zDirname [tk_chooseDirectory -initialdir /home/dan/work/tkhtml/docs]
+      set zDirname [tk_chooseDirectory]
     }
     if {$zDirname eq ""} return
 
