@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.52 2007/09/25 18:13:35 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.53 2007/10/07 06:45:46 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd script used with 
@@ -489,6 +489,7 @@ snit::widget ::hv3::protocol_gui {
   }
 }
 
+#
 # ::hv3::filedownload
 #
 # Each currently downloading file is managed by an instance of the
@@ -708,7 +709,7 @@ snit::type ::hv3::downloadmanager {
     lappend myDownloads $filedownload
     $self CheckGuiList
     foreach hv3 $myHv3List {
-      $hv3 goto download:
+      $hv3 goto download: -cachecontrol no-cache
     }
   }
 
@@ -880,7 +881,7 @@ snit::type ::hv3::downloadmanager {
       $handle finish
       $self CheckGuiList
       foreach hv3 $myHv3List {
-        after idle [list $hv3 goto download:]
+        after idle [list $hv3 goto download: -cachecontrol no-cache]
       }
       return
     }
