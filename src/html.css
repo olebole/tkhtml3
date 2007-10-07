@@ -208,6 +208,12 @@ INPUT[type="submit"]:hover:active,INPUT[type="button"]:hover:active {
 
 INPUT[size] { width: tcl(::tkhtml::inputsize_to_css) }
 
+BUTTON {
+  white-space:nowrap;
+  border-width: 2px;
+  border-style: solid;
+}
+
 /* Handle "cols" and "rows" on a <textarea> element. By default, use
  * a fixed width font in <textarea> elements.
  */

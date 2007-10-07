@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.85 2007/09/28 16:17:15 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.86 2007/10/07 11:09:02 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -1212,9 +1212,10 @@ proc ::hv3::escape_string {string} {
     for {set i 0} {$i < 256} {incr i} {
       set c [format %c $i]
       if {$c ne "-" && ![string match {[a-zA-Z0-9_.!~*'()]} $c]} {
-        set map($c) %[format %.2x $i]
+        set map($c) %[format %.2X $i]
       }
     }
+    set {map( )} +
     set ::hv3::escape_map [array get map]
   }
 
@@ -1483,6 +1484,7 @@ snit::type ::hv3::formmanager {
     $myHtml handler node input     [list $self control_handler]
     $myHtml handler node textarea  [list $self control_handler]
     $myHtml handler node select    [list $self control_handler]
+    $myHtml handler node button    [list $self control_handler]
     $myHtml handler script isindex [list ::hv3::isindex_handler $hv3]
 
     $myHtml handler node form [list $self FormHandler]
@@ -1569,6 +1571,17 @@ snit::type ::hv3::formmanager {
         set control [::hv3::clickcontrol %AUTO% $node]
         $control configure -clickcmd reset
         set myClickControls($node) $control
+      }
+      button. {
+        set buttontype [string tolower [$node attr -default {} type]]
+        if {$buttontype eq "submit" || $buttontype eq "reset"} {
+          set control [::hv3::clickcontrol %AUTO% $node]
+          set myClickControls($node) $control
+          $control configure -clickcmd $buttontype
+          set isSubmit [expr {$buttontype eq "reset"}]
+        } else {
+          return
+        }
       }
       input.button {
         set control [::hv3::clickcontrol %AUTO% $node]
