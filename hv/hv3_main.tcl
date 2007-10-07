@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.158 2007/10/03 17:46:37 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.159 2007/10/07 16:30:08 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -39,7 +39,9 @@ proc htmlize {zIn} {
 # Source the other script files that are part of this application.
 #
 if {[package vsatisfies [package provide Tcl] 8.5]} {
-  source [sourcefile snit2.tcl]
+  # FIXME: Disabling snit2.tcl for now as it seems to be incompatible with
+  # tcl 8.5b1.
+  source [sourcefile snit.tcl]
 } else {
   source [sourcefile snit.tcl]
 }
@@ -844,6 +846,9 @@ snit::type ::hv3::config {
       } else {
         $myDb eval {SELECT name, value FROM cfg_options1} {
           set options($name) $value
+          if {$name eq "-guifont"} {
+            after idle [list ::hv3::SetFont [list -size $value]]
+          }
         }
       }
     }
@@ -953,7 +958,9 @@ snit::type ::hv3::config {
         -variable [myvar options($option)]       \
         -value $val                              \
         -command [list $self Reconfigure $option]  \
-        -label $label } }
+        -label $label 
+    }
+  }
 
   method Reconfigure {option} {
     $self configure $option $options($option)

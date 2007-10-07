@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.204 2007/10/07 10:26:20 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.205 2007/10/07 16:30:08 danielk1977 Exp $)} 1 }
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
 # browser. An instance of this widget displays a single HTML frame.
@@ -1112,6 +1112,11 @@ snit::widget ::hv3::hv3 {
   }
 
   destructor {
+    # Clean up any pending downloads.
+    foreach dl $myCurrentDownloads {
+      $dl destroy
+    }
+
     # Destroy the components. We don't need to destroy the scrolled
     # html component because it is a Tk widget - it is automatically
     # destroyed when it's parent widget is.
@@ -1971,17 +1976,15 @@ snit::widget ::hv3::hv3 {
         # The -enableimages switch. If false, configure an empty string
         # as the html widget's -imagecmd option. If true, configure the
         # same option to call the [Imagecmd] method of this mega-widget.
-        # In either case reload the frame contents.
+        #
+        # We used to reload the frame contents here. But it turns out
+        # that is really inconvenient. If the user wants to reload the
+        # document the reload button is right there anyway.
         #
         if {$value} {
           $myHtml configure -imagecmd [list $self Imagecmd]
         } else {
           $myHtml configure -imagecmd ""
-        }
-        if {$myGotoCalled} {
-          set uri [$myUri get]
-          $self reset 0
-          $self goto $uri -nosave
         }
       }
     }

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.53 2007/10/07 06:45:46 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.54 2007/10/07 16:30:08 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd script used with 
@@ -751,9 +751,9 @@ snit::type ::hv3::downloadmanager {
   method savehandle {handle data {isFinished 0}} {
 
     # Create a GUI to handle this download
-    set dler [::hv3::filedownload %AUTO%                \
-        -source    [$handle cget -uri]                  \
-        -cancelcmd [list catch [list $handle fail]]     \
+    set dler [::hv3::filedownload %AUTO%                   \
+        -source    [$handle cget -uri]                     \
+        -cancelcmd [list catch [list $handle destroy]]     \
     ]
     ::hv3::the_download_manager show
 

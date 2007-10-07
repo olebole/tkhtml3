@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.10 2007/10/07 11:27:50 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.11 2007/10/07 16:30:08 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file contains the implementation of two types used by hv3:
@@ -16,7 +16,7 @@ namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.10 2007/10/07 11:27:5
 #
 # METHODS:
 #
-#     Methods are used only by the protocol implementation.
+#     Methods used by the protocol implementation:
 #
 #         append DATA
 #         finish
