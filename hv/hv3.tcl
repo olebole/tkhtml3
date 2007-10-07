@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.203 2007/10/03 10:06:38 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.204 2007/10/07 10:26:20 danielk1977 Exp $)} 1 }
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
 # browser. An instance of this widget displays a single HTML frame.
@@ -1280,7 +1280,7 @@ snit::widget ::hv3::hv3 {
     # or is it?
     set location ""
     foreach {header value} [$handle cget -header] {
-      if {$header eq "Location"} {
+      if {[string equal -nocase $header "Location"]} {
         set location $value
       }
     }
@@ -1624,14 +1624,14 @@ snit::widget ::hv3::hv3 {
       # If there is a "Location" or "Refresh" header, handle it now.
       set refreshheader ""
       foreach {name value} [$handle cget -header] {
-        switch -- $name {
-          Location {
+        switch -- [string tolower $name] {
+          location {
             set refreshheader "0 ; URL=$value"
           }
-          Refresh {
+          refresh {
             set refreshheader $value
           }
-          Content-Type {
+          content-type {
             set tokens [::hv3::string::tokenise $value]
             foreach {a b enc} [::hv3::string::parseContentType $value] {}
             if {$enc ne ""} {

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.8 2007/09/28 14:14:56 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.9 2007/10/07 10:26:21 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file contains the implementation of two types used by hv3:
@@ -116,16 +116,16 @@ snit::type ::hv3::download {
   method ConfigureHeader {name option_value} {
     set options($name) $option_value
     foreach {name value} $option_value {
-      switch -- $name {
-        Set-Cookie {
+      switch -- [string tolower $name] {
+        set-cookie {
           ::hv3::the_cookie_manager SetCookie $options(-uri) $value
         }
-        Content-Type {
+        content-type {
           if {[set idx [string first ";" $value]] >= 0} {
             set options(-mimetype) [string range $value 0 [expr $idx-1]]
           }
         }
-        Content-Length {
+        content-length {
           set options(-expectedsize) $value
         }
       }
