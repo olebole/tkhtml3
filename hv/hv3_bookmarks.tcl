@@ -1,15 +1,6 @@
-namespace eval hv3 { set {version($Id: hv3_bookmarks.tcl,v 1.8 2007/10/06 10:29:35 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_bookmarks.tcl,v 1.9 2007/10/08 14:28:06 danielk1977 Exp $)} 1 }
 
 namespace eval ::hv3::bookmarks {
-
-  # Test if fts3 is available. There must be a better way to do this
-  proc test_for_fts3 {} {
-    catch {::hv3::sqlitedb eval {
-      CREATE VIRTUAL TEMP TABLE fts3test USING fts3(a);
-      DROP TABLE fts3test;
-    }} msg
-    puts $msg
-  }
 
   set INSTRUCTIONS {
 BASICS:
@@ -91,6 +82,17 @@ pressing enter.
         );
       }
     }]
+
+    # Test if fts3 is present.
+    #
+    set ::hv3::have_fts3 [expr {![catch {::hv3::sqlitedb eval {
+      SELECT * FROM bm_fulltext2 WHERE 0
+    }}]}]
+    if {$::hv3::have_fts3 == 0} {
+      puts "WARNING: fts3 not loaded ($msg)"
+      set ::hv3::bookmarks::save_snapshot_variable 0
+    }
+
     set rc [catch {
       ::hv3::sqlitedb eval {
 
@@ -189,8 +191,6 @@ pressing enter.
   }
 
   proc init {hv3} {
-    initialise_database
-
     set frames [[winfo parent [winfo parent $hv3]] child_frames]
     set tree_hv3 [[lindex $frames 0] hv3]
     set html_hv3 [[lindex $frames 1] hv3]

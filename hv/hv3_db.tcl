@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_db.tcl,v 1.19 2007/10/04 11:08:12 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_db.tcl,v 1.20 2007/10/08 14:28:06 danielk1977 Exp $)} 1 }
 
 # Class ::hv3::visiteddb
 #
@@ -20,8 +20,6 @@ snit::type ::hv3::visiteddb {
   # Constant: Maximum size of database.
 
   constructor {} {
-    if {![::hv3::have_sqlite3]} return
-
     # Make sure the database table has been created.
     catch {::hv3::sqlitedb eval "
       CREATE TABLE visiteddb(
@@ -36,8 +34,6 @@ snit::type ::hv3::visiteddb {
   # ::hv3::hv3 mega-widget. Argument $hv3 is the new mega-widget.
   #
   method init {hv3} {
-    if {![::hv3::have_sqlite3]} return
-
     $hv3 configure -storevisitedcmd [myproc LocationHandler $hv3]
     $hv3 configure -isvisitedcmd    [myproc LocationQuery]
   }
@@ -83,7 +79,6 @@ snit::type ::hv3::visiteddb {
   # $pattern is interpreted by the SQLite GLOB operator.
   #
   method keys {pattern} {
-    if {![::hv3::have_sqlite3]} return
     set sql { 
       SELECT uri FROM visiteddb 
       WHERE uri GLOB $pattern 
@@ -123,8 +118,6 @@ snit::type ::hv3::cookiemanager {
   variable EXPIRE_COOKIES_DELAY 30000
 
   constructor {} {
-    if {![::hv3::have_sqlite3]} return
-
     # Make sure the database table has been created.
     catch {::hv3::sqlitedb eval {
       CREATE TABLE cookiesdb(
@@ -225,8 +218,6 @@ snit::type ::hv3::cookiemanager {
   # Add a cookie to the cookies database.
   #
   method SetCookie {uri data} {
-    if {![::hv3::have_sqlite3]} return
-
     # Default values for "domain" and "path"
     set obj [::tkhtml::uri $uri]
     set v(domain) [$obj authority]
@@ -289,8 +280,6 @@ snit::type ::hv3::cookiemanager {
   #     "NAME1=OPAQUE_STRING1; NAME2=OPAQUE_STRING2 ..."
   #
   method Cookie {uri} {
-    if {![::hv3::have_sqlite3]} return
-
     set obj [::tkhtml::uri $uri]
     set uri_domain [$obj authority]
     set uri_path [$obj path]
@@ -322,8 +311,6 @@ snit::type ::hv3::cookiemanager {
   }
 
   method Report {} {
-    if {![::hv3::have_sqlite3]} return
-
     set Template {
       <html><head>
         <style>$Style</style>
@@ -379,41 +366,19 @@ snit::type ::hv3::cookiemanager {
   }
 }
 
-proc ::hv3::have_sqlite3 {} {
-  return [expr {[info commands sqlite3] ne ""}]
-  # return [expr [catch {package present sqlite3}] ? 0 : 1]
-}
-
 proc ::hv3::cookies_scheme_init {protocol} {
   $protocol schemehandler cookies {::hv3::the_cookie_manager cookies_request}
 }
 
 proc ::hv3::dbinit {} {
-  if {"" eq [info commands ::hv3::the_cookie_manager]} {
-    if {[::hv3::have_sqlite3]} {
-      sqlite3 ::hv3::sqlitedb $::hv3::statefile
-      ::hv3::profile::instrument ::hv3::sqlitedb
-      ::hv3::sqlitedb eval {PRAGMA synchronous = OFF}
-      ::hv3::sqlitedb timeout 2000
-      ::hv3::sqlitedb function result_transform ::hv3::bookmarks::result_transform
-      ::hv3::sqlitedb function html_to_text ::hv3::bookmarks::html_to_text
+  sqlite3 ::hv3::sqlitedb $::hv3::statefile
+  ::hv3::profile::instrument ::hv3::sqlitedb
+  ::hv3::sqlitedb eval {PRAGMA synchronous = OFF}
+  ::hv3::sqlitedb timeout 2000
+  ::hv3::sqlitedb function result_transform ::hv3::bookmarks::result_transform
+  ::hv3::sqlitedb function html_to_text ::hv3::bookmarks::html_to_text
 
-      # Test if fts3 is present. fts3 is used by the bookmarks app.
-      #
-      set ::hv3::have_fts3 [expr {![catch {::hv3::sqlitedb eval {
-        CREATE VIRTUAL TABLE temp.fts3test USING fts3(a);
-        DROP TABLE fts3test;
-      }} msg]}]
-      if {$::hv3::have_fts3 == 0} {
-        puts "WARNING: fts3 not loaded ($msg)"
-        set ::hv3::bookmarks::save_snapshot_variable 0
-      }
-    }
-
-    ::hv3::cookiemanager   ::hv3::the_cookie_manager
-    ::hv3::visiteddb       ::hv3::the_visited_db
-
-    ::hv3::bookmarks::initialise_database
-  }
+  ::hv3::cookiemanager   ::hv3::the_cookie_manager
+  ::hv3::visiteddb       ::hv3::the_visited_db
 }
 
