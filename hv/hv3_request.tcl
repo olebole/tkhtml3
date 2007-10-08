@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.11 2007/10/07 16:30:08 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.12 2007/10/08 13:46:10 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file contains the implementation of two types used by hv3:
@@ -123,6 +123,8 @@ snit::type ::hv3::download {
         content-type {
           if {[set idx [string first ";" $value]] >= 0} {
             set options(-mimetype) [string range $value 0 [expr $idx-1]]
+          } else {
+            set options(-mimetype) $value
           }
         }
         content-length {
