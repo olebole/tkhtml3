@@ -1,5 +1,5 @@
 
-set       ::aBrowser {Hv3 Firefox}
+set       ::aBrowser {Hv3 Mozilla}
 array set ::aResult {}
 array set ::anOutstanding {}
 set       ::zStatus {}
@@ -131,7 +131,7 @@ proc setup_gui {} {
     [gui_current hv3] goto http://localhost:8080/ -cachecontrol no-cache
   }]
   button .gotos.firefox -text "Signal Firefox" -command [list exec \
-    firefox-remote http://localhost:8080/
+    firefox -remote "openurl(http://localhost:8080/,new-tab)"
   ]
   pack .gotos.hv3 -side left
   pack .gotos.firefox -side left

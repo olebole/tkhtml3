@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.160 2007/10/09 16:59:29 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.161 2007/10/09 17:53:49 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -1018,6 +1018,7 @@ snit::type ::hv3::config {
   }
 
   method configurebrowser {b} {
+    if {$b eq ""} return
     foreach {option var} [list                       \
         -fonttable        options(-fonttable)        \
         -fontscale        options(-fontscale)        \
@@ -1710,6 +1711,9 @@ proc main {args} {
 	# Ignore this here. If the -profile option is present it will 
         # have been handled already.
       }
+      -enablejavascript { 
+        set enablejavascript 1
+      }
       default {
         set uri [::tkhtml::uri file:///[pwd]/]
         lappend docs [$uri resolve $val]
@@ -1727,6 +1731,10 @@ proc main {args} {
   # Build the GUI
   gui_build     ::hv3::G
   gui_menu      ::hv3::G
+
+  if {[info exists enablejavascript]} {
+    $::hv3::G(config) configure -enablejavascript 1
+  }
 
   ::hv3::downloadmanager ::hv3::the_download_manager
 

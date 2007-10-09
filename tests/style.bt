@@ -1,0 +1,33 @@
+
+#------------------------------------------------------------------------
+# This is a "warm-body" test for the events module.
+#
+do_browser_test style.1 -timeout 10000000 -html {
+  <BODY>
+    <DIV id="div">
+    </DIV>
+
+} -javascript {
+  var div = document.getElementById("div");
+  return div.style.borderTopWidth
+} -expected ""
+
+do_browser_test style.2 -timeout 10000000 -html {
+  <BODY>
+    <DIV id="div" style="border-top-width: 22px;">
+    </DIV>
+
+} -javascript {
+  var div = document.getElementById("div");
+  return div.style.borderTopWidth
+} -expected 22px
+
+do_browser_test style.3 -timeout 10000000 -javascript {
+  return parseInt("")
+} -expected NaN
+do_browser_test style.4 -timeout 10000000 -javascript {
+  var b = 8911
+  b = b - parseInt("")
+  return b
+} -expected NaN
+
