@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.150 2007/09/25 11:21:43 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.151 2007/10/09 16:59:29 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -211,9 +211,9 @@ clearReplacement(pTree, pElem)
         }
 
         /* Delete the Tcl_Obj's and the structure itself. */
-        if (p->pDelete) Tcl_DecrRefCount(p->pDelete);
-        if (p->pReplace) Tcl_DecrRefCount(p->pReplace);
-        if (p->pConfigureCmd) Tcl_DecrRefCount(p->pConfigureCmd);
+        if (p->pDelete)       { Tcl_DecrRefCount(p->pDelete); }
+        if (p->pReplace)      { Tcl_DecrRefCount(p->pReplace); }
+        if (p->pConfigureCmd) { Tcl_DecrRefCount(p->pConfigureCmd); }
         HtmlFree(p);
     }
 }
@@ -3009,6 +3009,7 @@ int HtmlTreeClear(pTree)
     freeNode(pTree, pTree->pRoot);
     pTree->pRoot = 0;
     pTree->state.pCurrent = 0;
+    pTree->state.pFoster = 0;
 
     /* Free any orphan nodes associated with this tree: */
     for (

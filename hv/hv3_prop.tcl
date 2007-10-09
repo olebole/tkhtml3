@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.62 2007/10/03 10:06:38 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.63 2007/10/09 16:59:29 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_prop.tcl --
@@ -356,7 +356,10 @@ snit::widget ::hv3::debug::FormReport {
   variable myCurrentHv3  ""
   variable myCurrentNode ""
 
-  constructor {} {
+  component myHv3
+  delegate option -fonttable to myHv3
+
+  constructor {args} {
 
     # Button at the bottom of the frame to regenerate this report.
     # The point of regenerating it is that it will read new control
@@ -365,12 +368,15 @@ snit::widget ::hv3::debug::FormReport {
     ::hv3::button ${win}.button -text "Regenerate Report"
     ${win}.button configure -command [mymethod Regenerate]
 
+    set myHv3 ${win}.hv3
     ::hv3::hv3 ${win}.hv3 
     ${win}.hv3 configure -requestcmd [mymethod GetReport]
     ${win}.hv3 configure -targetcmd  [mymethod ReturnSelf]
 
     pack ${win}.button -fill x -side bottom
     pack ${win}.hv3 -fill both -expand 1
+
+    $self configurelist $args
   }
 
   method Regenerate {} {
@@ -408,10 +414,14 @@ snit::widget ::hv3::debug::LogReport {
 
   option -title ""
 
+  component myHv3
+  delegate option -fonttable to myHv3
+
   constructor {htmldebug args} {
     ::hv3::button ${win}.button -text "Re-render Document With Logging"
     ${win}.button configure -command [list $htmldebug rerender]
 
+    set myHv3 ${win}.hv3
     ::hv3::hv3 ${win}.hv3 
     ${win}.hv3 configure -requestcmd [mymethod GetReport]
 
@@ -690,6 +700,7 @@ snit::widget HtmlDebug {
 
   constructor {HTML} {
     set myHtml $HTML
+    set fonttable [$HTML cget -fonttable]
   
     # Top level window bindings.
     bind $win <Escape>          [list destroy $win]
@@ -711,11 +722,15 @@ snit::widget HtmlDebug {
 
     # The tabs in the right-hand pane:
     ::hv3::tile_notebook $myReports -width 600
-    ::hv3::debug::report $myEventsReport -reportcmd ::hv3::debug::EventsReport
-    ::hv3::debug::report $myHtmlReport -reportcmd ::hv3::debug::TkhtmlReport
-    ::hv3::debug::LogReport $myLayoutReport $self -title "Layout Engine Log"
-    ::hv3::debug::LogReport $myStyleReport $self -title "Style Engine Log"
-    ::hv3::debug::FormReport $myFormsReport
+    ::hv3::debug::report $myEventsReport \
+        -reportcmd ::hv3::debug::EventsReport -fonttable $fonttable
+    ::hv3::debug::report $myHtmlReport \
+        -reportcmd ::hv3::debug::TkhtmlReport -fonttable $fonttable
+    ::hv3::debug::LogReport $myLayoutReport $self \
+        -title "Layout Engine Log" -fonttable $fonttable
+    ::hv3::debug::LogReport $myStyleReport $self \
+        -title "Style Engine Log" -fonttable $fonttable
+    ::hv3::debug::FormReport $myFormsReport -fonttable $fonttable
 
     $myReports add $myHtmlReport    -text "Tkhtml"
     $myReports add $myLayoutReport  -text "Layout Engine"

@@ -26,21 +26,21 @@ set ::Doc {
 # The reference to forms[0].i_one is a collection, because
 # there is more than one element named i_one.
 #
-::browsertest::do_test forms.1 -html $::Doc -javascript {
+do_browser_test forms.1 -html $::Doc -javascript {
   return document.forms.one.i_one.length
 } -expected 2
 
 # But forms[0].i_two is the HTMLInputElement.
 #
-::browsertest::do_test forms.2 -html $::Doc -javascript {
+do_browser_test forms.2 -html $::Doc -javascript {
   return document.forms[0].i_two.type
 } -expected "text"
 
-::browsertest::do_test forms.3 -html $::Doc -javascript {
+do_browser_test forms.3 -html $::Doc -javascript {
   return document.forms[0].i_three.type
 } -expected "text"
 
-::browsertest::do_test forms.4 -html $::Doc -javascript {
+do_browser_test forms.4 -html $::Doc -javascript {
   return document.forms[0].i_four.length
 } -expected 2 
 

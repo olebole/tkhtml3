@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.159 2007/10/07 16:30:08 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.160 2007/10/09 16:59:29 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -41,7 +41,7 @@ proc htmlize {zIn} {
 if {[package vsatisfies [package provide Tcl] 8.5]} {
   # FIXME: Disabling snit2.tcl for now as it seems to be incompatible with
   # tcl 8.5b1.
-  source [sourcefile snit.tcl]
+  source [sourcefile snit2.tcl]
 } else {
   source [sourcefile snit.tcl]
 }
@@ -1300,7 +1300,7 @@ proc gui_build {widget_array} {
   ::hv3::toolbutton .toolbar.bug -text {Report Bug} -command gui_report_bug
 
   .toolbar.b.new configure -tooltip "Open New Tab"
-  .toolbar.b.home configure -tooltip "Go Home"
+  .toolbar.b.home configure -tooltip "Go to Bookmarks Manager"
   .toolbar.b.reload configure -tooltip "Reload Current Document"
 
   .toolbar.bug configure -tooltip "Bug Report"

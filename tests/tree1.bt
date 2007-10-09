@@ -3,14 +3,14 @@
 # A "warm-body" test to check that the infrastructure is working.
 # Count the anchors in a document.
 #
-::browsertest::do_test warmbody.1 -timeout 10000000 -html {
-  <BODY>
-    <A name="one">One</A>
-    <A id="two">Two</A>          <!-- Not an anchor (no "name" attribute) -->
-    <A name="three">Three</A>
-} -javascript {
-  return document.anchors.length
-} -expected 2
+#::browsertest::do_test warmbody.1 -timeout 10000000 -html {
+#  <BODY>
+#    <A name="one">One</A>
+#    <A id="two">Two</A>          <!-- Not an anchor (no "name" attribute) -->
+#    <A name="three">Three</A>
+#} -javascript {
+#  return document.anchors.length
+#} -expected 2
 #----------------------------------------------------------------------
 
 proc body_tree_test {name doc} {
@@ -84,13 +84,21 @@ proc body_tree_test {name doc} {
     </SCRIPT>
   }
 
-  ::browsertest::do_test $name -timeout 10000000 -html [subst {
+  browsertest $name "
     $body_tree_function
     $doc
-  }] -javascript {
-    // return body_tree()
-    return dom_tree()
-  } -browsers {Hv3 Firefox}
+    <SCRIPT>
+      function browsertest () { return dom_tree() }
+    </SCRIPT>
+  "
+
+#  ::browsertest::do_test $name -timeout 10000000 -html [subst {
+#    $body_tree_function
+#    $doc
+#  }] -javascript {
+#    // return body_tree()
+#    return dom_tree()
+#  } -browsers {Hv3 Firefox}
 }
 
 
