@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.28 2007/10/12 06:12:59 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.29 2007/10/12 08:20:06 danielk1977 Exp $)} 1 }
 
 #---------------------------------
 # List of DOM objects in this file:
@@ -10,9 +10,7 @@ namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.28 2007/10/12 06:12:59
 #     Screen
 #
 namespace eval ::hv3::dom {
-  proc getNSClassList {} {
-    list Navigator History Screen
-  }
+  proc getNSClassList {} { list }
 }
 
 #-------------------------------------------------------------------------
@@ -39,50 +37,66 @@ namespace eval ::hv3::dom {
 #
 #     Navigator.javaEnabled()
 #
-::hv3::dom2::stateless Navigator {} {
+::hv3::dom2::stateless2 Navigator {
 
-  # Fairly obviously, this is an Hv3 specific property.
+  dom_parameter dummy
+
+  -- Fairly obviously, this is an Hv3 specific property.
   dom_get hv3_version    { list string [::hv3::hv3_version] }
 
-  dom_get appCodeName    { list string "Mozilla" }
-  dom_get appName        { list string "Netscape" }
-  dom_get appVersion     { list string "4.0 (Hv3)" }
+  foreach {property string} {
+    appCodeName    "Mozilla"
+    appName        "Netscape"
+    appVersion     "4.0 (Hv3)"
+    product        "Hv3"
+    productSub     "alpha"
+    vendor         "tkhtml.tcl.tk"
+    vendorSub      "alpha"
+    language       "en-US"
+    securityPolicy ""
+  } {
+    -- The constant string <code>"${string}"</code>
+    dom_get $property [list list string $string]
+  }
 
-  dom_get product        { list string "Hv3" }
-  dom_get productSub     { list string "alpha" }
-  dom_get vendor         { list string "tkhtml.tcl.tk" }
-  dom_get vendorSub      { list string "alpha" }
-
+  -- Boolean value indicating whether or not cookies are enabled. In Hv3
+  -- this is always true.
   dom_get cookieEnabled  { list boolean 1    }
-  dom_get language       { list string en-US }
-  dom_get onLine         { list boolean 1    }
-  dom_get securityPolicy { list string "" }
 
+  -- Boolean value indicating whether or not the browser is in {"online"}
+  -- mode. In Hv3 this is always true.
+  dom_get onLine         { list boolean 1    }
+
+  -- Return the user-agent string sent with HTTP requests. Hv3 normally
+  -- sends a lying user-agent string that claims Hv3 uses Gecko.
   dom_get userAgent { 
     # Use the user-agent that the http package is currently configured
     # with so that HTTP requests match the value returned by this property.
     list string [::http::config -useragent]
   }
 
+  -- Return something like {"Linux i686".}
   dom_get platform {
-    # This will return something like "Linux i686".
     list string "$::tcl_platform(os) $::tcl_platform(machine)"
   }
+
+  -- Alias for the <I>platform</I> property.
   dom_get oscpu { eval [SELF] Get platform }
 
-  # No. Absolutely not. Never going to happen.
+  -- Return true if java is enabled, false otherwise. Under Hv3 this is 
+  -- always false (and always will be).
   dom_call javaEnabled {THIS} { list boolean false }
 
-  # I don't even know what this does. All I know is that if this method
-  # is not implemented wikipedia thinks we are KHTML and serves up a
-  # special stylesheet. The following page from wikipedia has some
-  # good information on why that is a bad thing to do:
-  #
-  #    http://en.wikipedia.org/wiki/Browser_sniffing
-  #
-  # On the other hand, if I don't know what "taint" is, it's probably
-  # not enabled. Ok. All is forgiven wikipedia, we can be friends again.
-  #
+  -- I don't even know what this does. All I knows is that if this method
+  -- is not implemented wikipedia thinks we are KHTML and serves up a
+  -- special stylesheet. The following page from wikipedia has some
+  -- good information on why that is a bad thing to do:
+  --
+  -- <P class=refs>
+  --    [Ref http://en.wikipedia.org/wiki/Browser_sniffing]
+  --
+  -- On the other hand, if I don't know what "taint" is, it's probably
+  -- not enabled. No problem.
   dom_call taintEnabled {THIS} { list boolean false }
 }
 
@@ -296,7 +310,7 @@ namespace eval ::hv3::DOM {
   -- A reference to the [Ref Navigator] object.
   --
   dom_get navigator { 
-    list cache transient [list ::hv3::DOM::Navigator $myDom]
+    list cache transient [list ::hv3::DOM::Navigator $myDom ""]
   }
 
   #-----------------------------------------------------------------------
@@ -410,7 +424,7 @@ if 0 {
 #
 # Right now this is a placeholder. It does not work.
 # 
-::hv3::dom2::stateless History {} {
+::hv3::dom2::stateless2 History {
   dom_parameter myHv3
 
   dom_get length   { list number 0 }
@@ -425,7 +439,7 @@ if 0 {
 #     http://developer.mozilla.org/en/docs/DOM:window.screen
 #
 # 
-::hv3::dom2::stateless Screen {} {
+::hv3::dom2::stateless2 Screen {
   dom_parameter myHv3
 
   dom_get colorDepth  { list number [winfo screendepth $myHv3] }

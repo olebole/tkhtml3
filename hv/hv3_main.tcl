@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.161 2007/10/09 17:53:49 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.162 2007/10/12 08:20:06 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -41,7 +41,7 @@ proc htmlize {zIn} {
 if {[package vsatisfies [package provide Tcl] 8.5]} {
   # FIXME: Disabling snit2.tcl for now as it seems to be incompatible with
   # tcl 8.5b1.
-  source [sourcefile snit2.tcl]
+  source [sourcefile snit.tcl]
 } else {
   source [sourcefile snit.tcl]
 }

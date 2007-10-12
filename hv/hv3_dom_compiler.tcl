@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.32 2007/10/12 06:12:59 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.33 2007/10/12 08:20:06 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file implements infrastructure used to create the [proc] definitions
@@ -10,6 +10,7 @@ namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.32 2007/10/12 06
 #
 
 namespace eval ::hv3::dom::code {}
+namespace eval ::hv3::DOM::docs {}
 
 proc ::hv3::dom::ToString {pSee js_value} {
   switch -- [lindex $js_value 0] {
@@ -184,16 +185,16 @@ namespace eval ::hv3::dom2 {
     set compiler2::parameter ""
     set compiler2::default_value ""
     set compiler2::finalize ""
-    array unset       compiler2::get_array
-    array unset       compiler2::put_array
-    array unset       compiler2::call_array
+    array unset compiler2::get_array
+    array unset compiler2::put_array
+    array unset compiler2::call_array
 
     # Compile the documentation for this object. This step is optional.
     doccompiler::clean
     namespace eval doccompiler $body
     set documentation [doccompiler::make $type_name]
     evalcode [list \
-       proc ::hv3::DOM::${type_name}._docs {} [list return $documentation]
+       proc ::hv3::DOM::docs::${type_name} {} [list return $documentation]
     ]
 
     namespace eval compiler2 $body
@@ -513,6 +514,7 @@ namespace eval ::hv3::dom2 {
           %METHODS%    $methods        \
       ] {
         <LINK rel="stylesheet" href="home://dom/style.css">
+        <TITLE>Class %CLASSNAME%</TITLE>
         <H1>DOM Class %CLASSNAME%</H1>
         <DIV class=overview> %OVERVIEW% </DIV>
         <TABLE>

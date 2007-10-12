@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.33 2007/10/12 06:12:59 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.34 2007/10/12 08:20:06 danielk1977 Exp $)} 1 }
 
 # Register the home: scheme handler with ::hv3::protocol $protocol.
 #
@@ -145,10 +145,11 @@ proc ::hv3::home_request {http hv3 dir downloadHandle} {
 
           .refs A[href] { display:block }
           .refs         { padding-left: 1.5cm }
-          PRE           { margin: 0 1.5cm }
+          PRE           { font-family: "courier new" ; margin: 0 1.5cm }
+          CODE          { font-family: "courier new" }
 
           .property,.method {
-            font-family: courier;
+            font-family: "courier new";
             white-space: nowrap;
           }
           TD { padding: 0 1ex; vertical-align: top;}
@@ -158,7 +159,7 @@ proc ::hv3::home_request {http hv3 dir downloadHandle} {
         }
       } else {
         set obj [string range $path 1 end]
-        $downloadHandle append [::hv3::DOM::${obj}._docs]
+        $downloadHandle append [::hv3::DOM::docs::${obj}]
       }
     }
 

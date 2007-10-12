@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_bookmarks.tcl,v 1.9 2007/10/08 14:28:06 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_bookmarks.tcl,v 1.10 2007/10/12 08:20:06 danielk1977 Exp $)} 1 }
 
 namespace eval ::hv3::bookmarks {
 
@@ -485,6 +485,9 @@ pressing enter.
       $menu add command \
           -label "Import Document Tree" \
           -command [list ::hv3::bookmarks::import_tree]
+      $menu add command \
+          -label "Index Hv3 DOM Reference" \
+          -command [list ::hv3::bookmarks::import_dom]
       ::hv3::button ${win}.newfolder                        \
           -text "New Folder"                                \
           -command [list $self click_new_folder] 
@@ -1846,12 +1849,7 @@ pressing enter.
     }
     if {$zDirname eq ""} return
 
-    set hv3      [::hv3::hv3 .tmphv3]
-    set protocol [::hv3::protocol %AUTO%]
-    $hv3 handler node object ""
-    $hv3 handler node frameset ""
-    $hv3 handler node embed ""
-    $hv3 configure -requestcmd [list $protocol requestcmd]
+    setup_tmphv3
 
     toplevel .import
     ::hv3::label .import.label -width 60 -anchor w
@@ -1869,7 +1867,7 @@ pressing enter.
       import_dir $iFolder $zDirname
     }} msg]
 
-    destroy $hv3
+    destroy .tmphv3
     $protocol destroy
     destroy .import
 
@@ -1900,6 +1898,25 @@ pressing enter.
     set iRes
   }
 
+  proc import_local_uri {iFolder zUri} {
+    set zCaption $zUri
+    set zDesc ""
+    set zSnapshot ""
+
+    set hv3 .tmphv3
+    $hv3 reset 0
+    $hv3 goto $zUri
+    set zSnapshot [create_snapshot $hv3]
+   
+    set titlenode [$hv3 search title]
+    if {$titlenode ne "" && [llength [$titlenode children]]>0} {
+      set zCaption [[lindex [$titlenode children] 0] text]
+    }
+
+    set text [[$hv3 html] text text]
+    db_store_new_bookmark $iFolder $zCaption $zUri $zDesc 2 $zSnapshot $text
+  }
+
   proc import_dir {iFolder dir} {
     set obj [::tkhtml::uri file://]
     set hv3 .tmphv3
@@ -1910,26 +1927,14 @@ pressing enter.
         error "Operation cancelled by user"
       }
       incr ::hv3::bookmarks::files_imported
-      .import.label configure -text "Importing file ${::hv3::bookmarks::files_imported}/${::hv3::bookmarks::files_to_import} ($f)"
+      set    T "Importing file ${::hv3::bookmarks::files_imported}/"
+      append T "${::hv3::bookmarks::files_to_import} ($f)"
+
+      .import.label configure -text $T
       update
-      set zCaption $f
-      set zDesc ""
-      set zUri ""
-      set zSnapshot ""
 
       set zUri [$obj resolve $f]
-
-      $hv3 reset 0
-      $hv3 goto $zUri
-      set zSnapshot [create_snapshot $hv3]
-     
-      set titlenode [$hv3 search title]
-      if {$titlenode ne "" && [llength [$titlenode children]]>0} {
-        set zCaption [[lindex [$titlenode children] 0] text]
-      }
-
-      set text [[$hv3 html] text text]
-      db_store_new_bookmark $iFolder $zCaption $zUri $zDesc 2 $zSnapshot $text
+      import_local_uri $iFolder $zUri
     }
     $obj destroy
 
@@ -1940,5 +1945,30 @@ pressing enter.
       }
     }
   }
+
+  proc import_dom {} {
+    setup_tmphv3
+    ::hv3::sqlitedb transaction {
+      set iFolder [db_store_new_folder 0 "Hv3 DOM Reference"]
+
+      foreach cmd [lsort [info commands ::hv3::DOM::docs::*]] {
+        set localcmd [string range $cmd [expr {[string last : $cmd]+1}] end]
+        import_local_uri $iFolder home://dom/$localcmd
+      }
+    }
+    destroy .tmphv3
+    refresh_gui
+  }
+
+  proc setup_tmphv3 {} {
+    set hv3      [::hv3::hv3 .tmphv3]
+    set protocol [::hv3::protocol %AUTO%]
+    ::hv3::home_scheme_init $hv3 $protocol
+    $hv3 handler node object ""
+    $hv3 handler node frameset ""
+    $hv3 handler node embed ""
+    $hv3 configure -requestcmd [list $protocol requestcmd]
+  }
+
 }
 
