@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.33 2007/09/19 18:43:42 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.34 2007/10/12 06:12:59 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Html
@@ -32,8 +32,11 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.33 2007/09/19 18:43:
 #     HTMLDocument.body
 #     HTMLDocument.cookie
 #
-set BaseList {Document DocumentEvent Node NodePrototype}
+set BaseList {Document DocumentEvent}
 ::hv3::dom2::stateless HTMLDocument $BaseList {
+
+  %NODE%
+  %NODE_PROTOTYPE%
 
   # The "title" attribute is supposed to be read/write. But this one
   # is only read-only for the meantime.

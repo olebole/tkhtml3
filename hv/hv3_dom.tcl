@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.77 2007/09/28 16:33:32 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.78 2007/10/12 06:12:58 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Snit types in this file:
@@ -18,6 +18,8 @@ package require snit
 #-------------------------------------------------------------------------
 # Class ::hv3::dom
 #
+# SYNOPSYS
+#
 #     set dom [::hv3::dom %AUTO% $hv3]
 #
 #     $dom script   HV3 ATTR SCRIPT
@@ -29,8 +31,14 @@ package require snit
 #
 #     $dom destroy
 #
-#  Debugging aids:
-#     $dom javascriptlog
+#     $dom javascriptlog               ;# DEBUGGING ONLY.
+#
+#     $dom configure -enable BOOLEAN
+#
+# DESCRIPTION
+#
+#   Each DOM browsing context (in Hv3, each tab), creates an instance
+#   of this class.
 #
 snit::type ::hv3::dom {
   variable mySee ""
@@ -54,6 +62,14 @@ snit::type ::hv3::dom {
     $self configurelist $args
   }
 
+  method register_classes {} {
+    $mySee class ::hv3::DOM::Window [list \
+      innerWidth innerHeight confirm alert frames window self \
+      top parent screen history navigator location Node XMLHttpRequest \
+      Image document scrollBy
+    ]
+  }
+
   method SetEnable {option value} {
     set options($option) $value
     if {$value} ::hv3::enable_javascript
@@ -67,6 +83,7 @@ snit::type ::hv3::dom {
     if {$mySee eq "" && [$self HaveScripting]} {
       set mySee [::see::interp]
       ::hv3::profile::instrument $mySee
+      $self register_classes
       foreach win [array names myWindows] {
         $mySee window [list ::hv3::DOM::Window $self $win]
       }
@@ -451,6 +468,7 @@ return
         if {[$self HaveScripting]} {
           set mySee [::see::interp]
           ::hv3::profile::instrument $mySee
+          $self register_classes
           $mySee log $options(-logcmd)
           $mySee window [list ::hv3::DOM::Window $self $hv3]
         }

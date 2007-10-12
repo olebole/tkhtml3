@@ -167,10 +167,11 @@
  */
 #include "hv3format.c"
 
-typedef struct SeeInterp SeeInterp;
 typedef struct SeeTclObject SeeTclObject;
-typedef struct SeeJsObject SeeJsObject;
+typedef struct SeeTclClass SeeTclClass;
 
+typedef struct SeeInterp SeeInterp;
+typedef struct SeeJsObject SeeJsObject;
 typedef struct SeeTimeout SeeTimeout;
 
 /* Size of hash-table. This should be replaced with a dynamic hash 
@@ -199,6 +200,9 @@ struct SeeInterp {
      * following hash-table is not eligible for garbage collection.
      */
     SeeTclObject *aTclObject[OBJECT_HASH_SIZE];
+
+    /* Hash table of the classes registered using [$interp class] */
+    Tcl_HashTable aClass;
 
     /* Debugger related stuff. If not NULL, pTrace is the tcl script 
      * to invoke from within the SEE trace-callback. While the pTrace
@@ -240,7 +244,7 @@ typedef struct EventType EventType;
  * an instance of the following struct.
  */
 struct SeeTclObject {
-    struct SEE_object object;     /* Base class - Object */
+    struct SEE_object object;     /* C Base class - Object */
     struct SEE_native *pNative;   /* Store native properties here */
     Tcl_Obj *pObj;                /* Tcl script for object */
 
@@ -253,6 +257,8 @@ struct SeeTclObject {
      * biggest problem right now.
      */
     SeeTimeout *pTimeout;
+
+    SeeTclClass *pClass;
 
     /* The data stored in these variables is based on the data in pObj. 
      * See the allocWordArray() function for details. The idea is that
@@ -278,6 +284,14 @@ struct SeeTclObject {
      */
     SeeTclObject *pNext;
 };
+
+struct SeeTclClass  {
+  /* Hash table containing fixed list of properties for this class. Hash
+   * table keys are intern'd SEE_string pointers.
+   */
+  Tcl_HashTable aProperty;
+};
+
 
 /* This variable, used for debugging, stores the total number of 
  * SeeTclObject structures currently allocated.
@@ -807,6 +821,7 @@ newSeeTclObject(pTclSeeInterp, pTclCommand)
     SeeInterp *pTclSeeInterp;
     Tcl_Obj *pTclCommand;
 {
+    Tcl_HashEntry *pEntry;
     SeeTclObject *p;
 
     p = SEE_NEW(&pTclSeeInterp->interp, SeeTclObject);
@@ -820,6 +835,12 @@ newSeeTclObject(pTclSeeInterp, pTclCommand)
 
     /* Initialise the native object (used to store native properties) */
     p->pNative = (struct SEE_native *)SEE_native_new(&pTclSeeInterp->interp);
+
+    /* Initialise the class, if any */
+    pEntry = Tcl_FindHashEntry(&pTclSeeInterp->aClass, (char *)p->apWord[0]);
+    if (pEntry) {
+        p->pClass = (SeeTclClass *)Tcl_GetHashValue(pEntry);
+    }
 
     iNumSeeTclObject++;
     return p;
@@ -1508,6 +1529,45 @@ interpClear(pTclSeeInterp, objc, objv)
     return TCL_OK;
 }
 
+static int
+interpClass(pTclSeeInterp, objc, objv)
+    SeeInterp *pTclSeeInterp;          /* Interpreter */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    Tcl_Interp *pTclInterp = pTclSeeInterp->pTclInterp;
+    SeeTclClass *pClass;
+    Tcl_HashEntry *p;
+    int isNew = 0;
+
+    Tcl_Obj **apObj;
+    int nObj;
+    int ii;
+
+    p = Tcl_CreateHashEntry(&pTclSeeInterp->aClass, (char *)objv[2], &isNew);
+    if (isNew) {
+        pClass = (SeeTclClass *)ckalloc(sizeof(SeeTclClass));
+        memset(pClass, 0, sizeof(SeeTclClass));
+        Tcl_SetHashValue(p, pClass);
+    }else{
+        pClass = Tcl_GetHashValue(p);
+        Tcl_DeleteHashTable(&pClass->aProperty);
+    }
+    Tcl_InitHashTable(&pClass->aProperty, TCL_ONE_WORD_KEYS);
+
+    if (Tcl_ListObjGetElements(pTclInterp, objv[3], &nObj, &apObj)) {
+        return TCL_ERROR;
+    }
+    for (ii = 0; ii < nObj; ii++) {
+        struct SEE_string *str = SEE_intern_ascii(&pTclSeeInterp->interp,
+            Tcl_GetString(apObj[ii])
+        );
+        Tcl_CreateHashEntry(&pClass->aProperty, (char *)str, &isNew);
+    }
+
+    return TCL_OK;
+}
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -1617,6 +1677,8 @@ interpCmd(clientData, pTclInterp, objc, objv)
         INTERP_WINDOW,                /* Initialize a "Window" object */
         INTERP_CLEAR,
 
+        INTERP_CLASS,
+
         /* Object management */
         INTERP_MAKE_TRANSIENT,        /* Declare an object eligible for GC */
         INTERP_MAKE_PERSISTENT,       /* Cancel a previous [make_transient] */
@@ -1643,6 +1705,8 @@ interpCmd(clientData, pTclInterp, objc, objv)
         {"tostring",    INTERP_TOSTRING,    1, 1, "JAVASCRIPT-VALUE"},
         {"window",      INTERP_WINDOW,      1, 1, "JAVASCRIPT-VALUE"},
         {"clear",       INTERP_CLEAR,       1, 1, "JAVASCRIPT-VALUE"},
+
+        {"class",       INTERP_CLASS,       2, 2, "CLASS-NAME PROPERTY-LIST"},
 
         /* Events */
         {"dispatch",    INTERP_DISPATCH, 2, 2, "TARGET-COMMAND EVENT-COMMAND"},
@@ -1711,6 +1775,14 @@ interpCmd(clientData, pTclInterp, objc, objv)
          */
         case INTERP_CLEAR: {
             rc = interpClear(pTclSeeInterp, objc, objv);
+            break;
+        }
+
+        /*
+         * seeInterp class CLASS-NAME LIST-OF-PROPERTIES
+         */
+        case INTERP_CLASS: {
+            rc = interpClass(pTclSeeInterp, objc, objv);
             break;
         }
 
@@ -1887,6 +1959,8 @@ tclSeeInterp(clientData, interp, objc, objv)
     /* Initialise the pTclInterp field. */
     pInterp->pTclInterp = interp;
 
+    Tcl_InitObjHashTable(&pInterp->aClass);
+
 #ifndef NDEBUG
     if (1) {
         Tcl_CmdInfo cmdinfo;
@@ -2025,16 +2099,18 @@ SeeTcl_Get(pInterp, pObj, pProp, pRes)
      *
      *     eval $obj Get $property
      */
-    rc = callSeeTclMethod(pTclInterp, pTclSeeInterp->pLog, p, "Get", pProp, 0);
-    throwTclError(pInterp, rc);
-    pScriptRes = Tcl_GetObjResult(pTclInterp);
-    Tcl_IncrRefCount(pScriptRes);
-    rc = objToValue(pTclSeeInterp, pScriptRes, pRes, &isCacheable);
-    Tcl_DecrRefCount(pScriptRes);
-    throwTclError(pInterp, rc);
-
-    if (isCacheable) {
-        SEE_native_put(pInterp, pNative, pProp, pRes, SEE_ATTR_INTERNAL);
+    if (!p->pClass || Tcl_FindHashEntry(&p->pClass->aProperty, (char *)pProp)) {
+        rc = callSeeTclMethod(pTclInterp, pTclSeeInterp->pLog, p,"Get",pProp,0);
+        throwTclError(pInterp, rc);
+        pScriptRes = Tcl_GetObjResult(pTclInterp);
+        Tcl_IncrRefCount(pScriptRes);
+        rc = objToValue(pTclSeeInterp, pScriptRes, pRes, &isCacheable);
+        Tcl_DecrRefCount(pScriptRes);
+        throwTclError(pInterp, rc);
+    
+        if (isCacheable) {
+            SEE_native_put(pInterp, pNative, pProp, pRes, SEE_ATTR_INTERNAL);
+        }
     }
 }
 
@@ -2105,18 +2181,21 @@ SeeTcl_HasProperty(pInterp, pObj, pProp)
     struct SEE_object *pObj;
     struct SEE_string *pProp;
 {
-    SeeTclObject *pObject = (SeeTclObject *)pObj;
+    SeeTclObject *p = (SeeTclObject *)pObj;
     SeeInterp *pTclSeeInterp = (SeeInterp *)pInterp;
     int rc;
     int ret = 0;
-    struct SEE_object *pNative = (struct SEE_object *)pObject->pNative;
+    struct SEE_object *pNative = (struct SEE_object *)p->pNative;
 
     /* First check if the property is stored in the native hash table. */
+    pProp = SEE_intern(pInterp, pProp);
     ret = SEE_OBJECT_HASPROPERTY(pInterp, pNative, pProp);
 
-    if (!ret) {
+    if (!ret && (
+        !p->pClass || Tcl_FindHashEntry(&p->pClass->aProperty, (char *)pProp)
+    )) {
         Tcl_Interp *pTcl = pTclSeeInterp->pTclInterp;
-        rc = callSeeTclMethod(pTcl, 0, pObject, "HasProperty", pProp, 0);
+        rc = callSeeTclMethod(pTcl, 0, p, "HasProperty", pProp, 0);
         throwTclError(pInterp, rc);
         rc = Tcl_GetBooleanFromObj(pTcl, Tcl_GetObjResult(pTcl), &ret);
         throwTclError(pInterp, rc);

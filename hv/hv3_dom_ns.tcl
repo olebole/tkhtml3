@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.27 2007/10/09 16:59:29 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.28 2007/10/12 06:12:59 danielk1977 Exp $)} 1 }
 
 #---------------------------------
 # List of DOM objects in this file:
@@ -11,7 +11,7 @@ namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.27 2007/10/09 16:59:29
 #
 namespace eval ::hv3::dom {
   proc getNSClassList {} {
-    list Navigator Location Window History Screen
+    list Navigator History Screen
   }
 }
 
@@ -89,10 +89,6 @@ namespace eval ::hv3::dom {
 #-------------------------------------------------------------------------
 # DOM class Location
 #
-#     This is not based on any standard, but on the Gecko class of
-#     the same name. Primary use is as the HTMLDocument.location 
-#     and Window.location properties.
-#
 #          hash
 #          host
 #          hostname
@@ -109,40 +105,72 @@ namespace eval ::hv3::dom {
 #     http://developer.mozilla.org/en/docs/DOM:window.location
 #
 #
-::hv3::dom2::stateless Location {} {
+::hv3::dom2::stateless2 Location {
+  -- One location object is allocated for each [Ref Window] object in the
+  -- system. It contains the URI of the current document. Writing to
+  -- this object causes the window to load the new URI. The location
+  -- object is available via either of the following two global
+  -- references:
+  --
+  -- <PRE>
+  -- window.location
+  -- window.document.location
+  -- </PRE>
+  --
+  -- This is not based on any standard, but on the Gecko class of
+  -- the same name:
+  --
+  -- <P class=refs>
+  -- [Ref http://developer.mozilla.org/en/docs/DOM:window.location]
+  -- [Ref http://developer.mozilla.org/en/docs/DOM:document.location]
+  XX
 
   dom_parameter myHv3
-
-  dom_default_value {
-    list string [$myHv3 location]
-  }
+  dom_default_value { list string [$myHv3 uri get] }
 
   #---------------------------------------------------------------------
   # Properties:
   #
   #     Todo: Writing to properties is not yet implemented.
   #
+
+  -- The authority part of the URI, not including any 
+  -- {<code>:&lt;port-number&gt;</code>} section.
   dom_get hostname {
     set auth [$myHv3 uri authority]
     set hostname ""
     regexp {^([^:]*)} -> hostname
     list string $hostname
   }
+
+  -- The port-number specified as part of the URI authority, or an empty
+  -- string if no port-number was specified.
   dom_get port {
     set auth [$myHv3 uri authority]
     set port ""
     regexp {:(.*)$} -> port
     list string $port
   }
+
+  -- The URI authority.
   dom_get host     { list string [$myHv3 uri authority] }
+
+  -- The URI path.
   dom_get pathname { list string [$myHv3 uri path] }
+
+  -- The URI scheme, including the colon following the scheme name. For 
+  -- example, <code>"http:"</code> or <code>"https:"</code>.
   dom_get protocol { list string [$myHv3 uri scheme]: }
+
+  -- The URI query, including the '?' character.
   dom_get search   { 
     set query [$myHv3 uri query]
     set str ""
     if {$query ne ""} {set str "?$query"}
     list string $str
   }
+
+  -- The URI fragment, including the '#' character.
   dom_get hash   { 
     set fragment [$myHv3 uri fragment]
     set str ""
@@ -150,9 +178,8 @@ namespace eval ::hv3::dom {
     list string $str
   }
 
-  dom_get href { 
-    list string [$myHv3 uri get] 
-  }
+  -- The entire URI as a string.
+  dom_get href { list string [$myHv3 uri get] }
   dom_put -string href value { 
     Location_assign $myHv3 $value 
   }
@@ -160,14 +187,28 @@ namespace eval ::hv3::dom {
   #---------------------------------------------------------------------
   # Methods:
   #
+
+  -- Set the location to the supplied URI. The window loads the document
+  -- at the specified URI.
   dom_call -string assign  {THIS uri} { Location_assign $myHv3 $uri }
+
+  -- Set the location to the supplied URI. The window loads the document
+  -- at the specified URI. The difference between this method and the
+  -- assign() method is that this method does not add a new entry to
+  -- the browser Back/Forward list - it replaces the current one.
   dom_call -string replace {THIS uri} { $myHv3 goto $uri -nosave }
+
+  -- Refresh the current URI. If the boolean <I>force</I> argument is true,
+  -- reload the document from the server, bypassing any caches. If <I>force</I>
+  -- is false, normal HTTP caching rules apply.
   dom_call -string reload  {THIS force} { 
     if {![string is boolean $force]} { error "Bad boolean arg: $force" }
     set cc normal
     if {$force} { set cc no-cache }
     $myHv3 goto [$myHv3 location] -nosave 
   }
+
+  -- Returns the same value as reading the <I>href</I> property.
   dom_call toString {THIS} { eval [SELF] DefaultValue }
 }
 namespace eval ::hv3::DOM {
@@ -189,7 +230,7 @@ namespace eval ::hv3::DOM {
 #-------------------------------------------------------------------------
 # "Window" DOM object.
 #
-::hv3::dom2::stateless Window {} {
+::hv3::dom2::stateless2 Window {
 
   dom_parameter myHv3
 
@@ -237,15 +278,19 @@ namespace eval ::hv3::DOM {
     list object $obj
   }
 
-  -- An alias for the document.location property (see [Ref HTMLDocument]).
+  -- Return the [Ref Location] object associated with this window. This 
+  -- property can be set to the string representation of a URI, causing 
+  -- the browser to load the document at the location specified. i.e. 
   -- 
+  -- <PRE>
+  --   window.location = {"http://tkhtml.tcl.tk/hv3.html"} 
+  -- </PRE>
   dom_get location {
-    set document [lindex [eval [SELF] Get document] 1]
-    eval $document Get location
+    list object [list ::hv3::DOM::Location $myDom $myHv3]
+    list object $obj
   }
   dom_put location {value} {
-    set document [lindex [eval [SELF] Get document] 1]
-    eval $document Put location [list $value]
+    Location_assign $myHv3 $value
   }
 
   -- A reference to the [Ref Navigator] object.
@@ -319,10 +364,10 @@ namespace eval ::hv3::DOM {
   -- available for displaying HTML documents), including the horizontal 
   -- scrollbar if one is displayed.
   --
-  --     http://developer.mozilla.org/en/docs/DOM:window.innerWidth
-  --     http://tkhtml.tcl.tk/cvstrac/tktview?tn=175
-  --     http://www.howtocreate.co.uk/tutorials/javascript/browserwindow
-  --
+  -- <P class=refs>
+  -- [Ref http://developer.mozilla.org/en/docs/DOM:window.innerWidth]
+  -- [Ref http://tkhtml.tcl.tk/cvstrac/tktview?tn=175]
+  -- [Ref http://www.howtocreate.co.uk/tutorials/javascript/browserwindow]
   dom_get innerHeight { list number [winfo height $myHv3] }
 
   -- The current width of the browser window in pixels (the area 
@@ -355,21 +400,6 @@ if 0 {
     puts $args
   }
 }
-
-  # Access the very special hv3_bookmarks. We hard-code some security
-  # here: The hv3_bookmarks object is only available if the toplevel
-  # frame is from the home:// namespace.
-  #
-  dom_get hv3_bookmarks {
-    set frame [winfo parent $myHv3]
-    set top [$frame top_frame]
-    if {[string first home: [[$frame hv3] uri get]] == 0} {
-      set o [list ::hv3::DOM::Bookmarks $myDom ::hv3::the_bookmark_manager]
-      list object $o
-    } else {
-      list
-    }
-  }
 }
 
 #-------------------------------------------------------------------------

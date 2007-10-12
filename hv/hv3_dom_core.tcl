@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.29 2007/08/04 17:15:25 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.30 2007/10/12 06:12:59 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Core
@@ -7,6 +7,20 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.29 2007/08/04 17:15:
 # possible, Hv3 tries hard to be compatible with W3C and Gecko. Gecko
 # is pretty much a clean super-set of W3C for this module.
 #
+#     DOMImplementation
+#     Document
+#     Node
+#     NodeList
+#     CharacterData
+#     Element
+#     Text
+#
+# Not implemented:
+#     Attr
+#     Comment
+#     NamedNodeMap
+#     DocumentFragment
+# 
 #-------------------------------------------------------------------------
 
 #--------------------------------------------------------------------------
@@ -22,7 +36,7 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.29 2007/08/04 17:15:
 #     Probably also want to implement Document-fragment nodes at some
 #     stage. And Comment too, but I bet we can get away without it :)
 #    
-::hv3::dom2::stateless NodePrototype {} {
+set ::hv3::dom::code::NODE_PROTOTYPE {
   # Required by XML and HTML applications:
   dom_get ELEMENT_NODE                {list number 1}
   dom_get ATTRIBUTE_NODE              {list number 2}
@@ -40,11 +54,13 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.29 2007/08/04 17:15:
   dom_get NOTATION_NODE               {list number 12}
 }
 
+::hv3::dom2::stateless NodePrototype {} { %NODE_PROTOTYPE% }
+
 #--------------------------------------------------------------------------
 # This block contains default implementations of the methods and
 # attributes in the Node interface (DOM Level 1 Core).
 #
-::hv3::dom2::stateless Node {} {
+set ::hv3::dom::code::NODE {
 
   # These must both be overridden.
   dom_todo nodeName
@@ -250,12 +266,14 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.29 2007/08/04 17:15:
 #     Node.nextSibling
 #     Node.ownerDocument
 #
-::hv3::dom2::stateless WidgetNode {} {
-
+set ::hv3::dom::code::WIDGET_NODE {
   dom_parameter myNode
 
-  # Retrieve the parent node.
-  #
+  -- Retrieve the parent element. If this node is the root of the 
+  -- document tree, return the associated window.document object.
+  -- Return null if there is no parent element (can happen if this
+  -- node has been removed from the document tree.
+  --
   dom_get parentNode {
     set ret null
     set parent [$myNode parent]
@@ -350,8 +368,12 @@ namespace eval ::hv3::DOM {
 #     This object is never actually instantiated. HTMLElement (and other,
 #     element-specific types) are instantiated instead.
 #
-set BaseList {ElementCSSInlineStyle WidgetNode Node NodePrototype}
+set BaseList {ElementCSSInlineStyle}
 ::hv3::dom2::stateless Element $BaseList {
+
+  %NODE%
+  %WIDGET_NODE%
+  %NODE_PROTOTYPE%
   
   # Override parts of the Node interface.
   #
@@ -494,6 +516,7 @@ set BaseList {ElementCSSInlineStyle WidgetNode Node NodePrototype}
     list boolean [expr {$rc ? 0 : 1}]
   }
 }
+
 namespace eval ::hv3::DOM {
   proc Element_getAttributeString {node name def} {
     list string [$node attribute -default $def $name]
@@ -678,8 +701,12 @@ namespace eval ::hv3::DOM {
 #-------------------------------------------------------------------------
 # DOM Type Text (Node -> CharacterData -> Text)
 #
-set BaseList {CharacterData WidgetNode Node NodePrototype}
+set BaseList {CharacterData}
 ::hv3::dom2::stateless Text $BaseList {
+
+  %NODE%
+  %WIDGET_NODE%
+  %NODE_PROTOTYPE%
 
   # Override parts of the Node interface.
   #
