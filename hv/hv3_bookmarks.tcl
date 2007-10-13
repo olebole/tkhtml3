@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_bookmarks.tcl,v 1.11 2007/10/13 04:21:02 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_bookmarks.tcl,v 1.12 2007/10/13 08:59:58 danielk1977 Exp $)} 1 }
 
 namespace eval ::hv3::bookmarks {
 
@@ -1958,6 +1958,9 @@ pressing enter.
       set iElemFolder  [
         db_store_new_folder $iTreeFolder "HTMLElement Sub-classes"
       ]
+      
+      set fname [file normalize [file join $::hv3::scriptdir dom_events.html]]
+      import_local_uri $iFolder file://$fname
 
       if {[llength [info commands ::hv3::DOM::docs::HTMLElement]] == 0} {
         ::hv3::dom_init 1

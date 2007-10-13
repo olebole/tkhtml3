@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.28 2007/10/13 04:21:02 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.29 2007/10/13 08:59:58 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # DOM Level 2 Events.
@@ -309,36 +309,5 @@ namespace eval ::hv3::dom {
     set event [list ::hv3::DOM::Event $dom $arrayvar]
     Dispatch [$dom see] $js_obj $event
   }
-}
-
-if {$::hv3::dom::CREATE_DOM_DOCS} {
-proc ::hv3::DOM::docs::event_overview {} { return {
-  <HTML>
-  <TITLE>Overview of Events</TITLE>
-    <UL>
-      <LI>onload
-      <LI>onunload
-
-      <LI>onclick
-      <LI>ondblclick
-      <LI>onmousedown
-      <LI>onmouseup
-      <LI>onmouseover
-      <LI>onmousemove
-      <LI>onmouseout
-
-      <LI>onfocus
-      <LI>onblur
-      <LI>onsubmit
-      <LI>onreset
-      <LI>onselect
-      <LI>onchange
-
-      <LI>onkeypress
-      <LI>onkeydown
-      <LI>onkeyup
-    </UL>
-  </HTML>
-}}
 }
 
