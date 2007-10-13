@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.30 2007/10/12 06:12:59 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.31 2007/10/13 04:21:02 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Core
@@ -54,7 +54,7 @@ set ::hv3::dom::code::NODE_PROTOTYPE {
   dom_get NOTATION_NODE               {list number 12}
 }
 
-::hv3::dom2::stateless NodePrototype {} { %NODE_PROTOTYPE% }
+::hv3::dom2::stateless NodePrototype { %NODE_PROTOTYPE% }
 
 #--------------------------------------------------------------------------
 # This block contains default implementations of the methods and
@@ -119,7 +119,7 @@ set ::hv3::dom::code::NODE {
   }
 }
 
-::hv3::dom2::stateless Implementation {} {
+::hv3::dom2::stateless Implementation {
 
   dom_call -string hasFeature {THIS feature version} {
     set feature [string tolower $feature]
@@ -140,7 +140,7 @@ set ::hv3::dom::code::NODE {
   }
 }
 
-::hv3::dom2::stateless Document {} {
+set ::hv3::dom::code::DOCUMENT {
 
   # The ::hv3::hv3 widget containing the document this DOM object
   # represents.
@@ -250,7 +250,7 @@ set ::hv3::dom::code::NODE {
     # someone is going to pass ".id" and wonder why all the elements with
     # the "class" attribute set to "id" are returned.
     #
-    set nl [list ::hv3::DOM::NodeListS $myDom [$myHv3 html] "" $tag]
+    set nl [list ::hv3::DOM::NodeListS $myDom [list [$myHv3 html] search $tag]
     list transient $nl
   }
 }
@@ -369,12 +369,8 @@ namespace eval ::hv3::DOM {
 #     element-specific types) are instantiated instead.
 #
 set BaseList {ElementCSSInlineStyle}
-::hv3::dom2::stateless Element $BaseList {
+set ::hv3::dom::code::ELEMENT {
 
-  %NODE%
-  %WIDGET_NODE%
-  %NODE_PROTOTYPE%
-  
   # Override parts of the Node interface.
   #
   dom_get nodeType {list number 1}           ;#     Node.ELEMENT_NODE -> 1
@@ -494,7 +490,9 @@ set BaseList {ElementCSSInlineStyle}
 
   dom_call -string getElementsByTagName {THIS tagname} {
     set hv3 [$myDom node_to_hv3 $myNode]
-    set nl [list ::hv3::DOM::NodeListS $myDom [$hv3 html] $myNode $tagname]
+    set nl [list ::hv3::DOM::NodeListS $myDom [
+      list [$hv3 html] search $tagname -root $myNode
+    ]]
     list transient $nl
   }
 
@@ -605,45 +603,68 @@ namespace eval ::hv3::dom::compiler {
     }
   }
 }
-namespace eval ::hv3::dom2::compiler {
 
-  proc element_attr {name args} {
-
-    set readonly 0
-    set attribute $name
-
-    # Process the arguments to [element_attr]:
-    for {set ii 0} {$ii < [llength $args]} {incr ii} {
-      set s [lindex $args $ii]
-      switch -- $s {
-        -attribute {
-          incr ii
-          set attribute [lindex $args $ii]
-        }
-        -readonly {
-          set readonly 1
-        }
-        default {
-          error "Bad option to element_attr: $s"
+foreach ns [list ::hv3::dom2::compiler2 ::hv3::dom2::doccompiler] {
+  namespace eval $ns {
+  
+    proc element_attr {name args} {
+  
+      set readonly 0
+      set attribute $name
+  
+      # Process the arguments to [element_attr]:
+      for {set ii 0} {$ii < [llength $args]} {incr ii} {
+        set s [lindex $args $ii]
+        switch -- $s {
+          -attribute {
+            incr ii
+            set attribute [lindex $args $ii]
+          }
+          -readonly {
+            set readonly 1
+          }
+          default {
+            error "Bad option to element_attr: $s"
+          }
         }
       }
-    }
-
-    # The Get code.
-    dom_get $name [subst -novariables {
-      Element_getAttributeString $myNode [set attribute] ""
-    }]
-
-    # Create the Put method (unless the -readonly switch was passed).
-    if {!$readonly} {
-      dom_put -string $name val [subst -novariables {
-        Element_putAttributeString $myNode [set attribute] $val
+  
+      # The Get code.
+      dom_get $name [subst -novariables {
+        Element_getAttributeString $myNode [set attribute] ""
       }]
+  
+      # Create the Put method (unless the -readonly switch was passed).
+      if {!$readonly} {
+        dom_put -string $name val [subst -novariables {
+          Element_putAttributeString $myNode [set attribute] $val
+        }]
+      }
     }
   }
 }
 
-::hv3::dom2::stateless CharacterData {} {
+namespace eval ::hv3::DOM {
+  proc CharacterData_replaceData {node offset count arg} {
+    set nOffset [expr {int($offset)}]
+    set nCount  [expr {int($count)}]
+    set idx     [expr {$nOffset + $nCount}]
+    set text [$node text -pre]
+    set    out [string range $text 0 [expr {$nOffset-1}]]
+    append out $arg
+    append out [string range $text $idx end]
+    $node text set $out
+  }
+}
+
+#-------------------------------------------------------------------------
+# DOM Type Text (Node -> CharacterData -> Text)
+#
+::hv3::dom2::stateless Text {
+
+  %NODE%
+  %WIDGET_NODE%
+  %NODE_PROTOTYPE%
 
   # The "data" property is a get/set on the contents of this text node.
   #
@@ -684,29 +705,6 @@ namespace eval ::hv3::dom2::compiler {
   dom_call -string replaceData {THIS offset count arg} {
     CharacterData_replaceData $myNode $offset $count $arg
   }
-}
-namespace eval ::hv3::DOM {
-  proc CharacterData_replaceData {node offset count arg} {
-    set nOffset [expr {int($offset)}]
-    set nCount  [expr {int($count)}]
-    set idx     [expr {$nOffset + $nCount}]
-    set text [$node text -pre]
-    set    out [string range $text 0 [expr {$nOffset-1}]]
-    append out $arg
-    append out [string range $text $idx end]
-    $node text set $out
-  }
-}
-
-#-------------------------------------------------------------------------
-# DOM Type Text (Node -> CharacterData -> Text)
-#
-set BaseList {CharacterData}
-::hv3::dom2::stateless Text $BaseList {
-
-  %NODE%
-  %WIDGET_NODE%
-  %NODE_PROTOTYPE%
 
   # Override parts of the Node interface.
   #

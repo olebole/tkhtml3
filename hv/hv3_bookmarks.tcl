@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_bookmarks.tcl,v 1.10 2007/10/12 08:20:06 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_bookmarks.tcl,v 1.11 2007/10/13 04:21:02 danielk1977 Exp $)} 1 }
 
 namespace eval ::hv3::bookmarks {
 
@@ -1949,11 +1949,48 @@ pressing enter.
   proc import_dom {} {
     setup_tmphv3
     ::hv3::sqlitedb transaction {
-      set iFolder [db_store_new_folder 0 "Hv3 DOM Reference"]
+      set iFolder      [db_store_new_folder 0 "Hv3 DOM Reference"]
+      set iTreeFolder  [db_store_new_folder $iFolder "DOM Tree Objects"]
+      set iEventFolder [db_store_new_folder $iFolder "Event/XMLHttp Objects"]
+      set iNSFolder    [db_store_new_folder $iFolder "Compatibility Objects"]
+      set iContFolder  [db_store_new_folder $iFolder "Container Objects"]
+      set iStyleFolder [db_store_new_folder $iFolder "Style Objects"]
+      set iElemFolder  [
+        db_store_new_folder $iTreeFolder "HTMLElement Sub-classes"
+      ]
+
+      if {[llength [info commands ::hv3::DOM::docs::HTMLElement]] == 0} {
+        ::hv3::dom_init 1
+      }
 
       foreach cmd [lsort [info commands ::hv3::DOM::docs::*]] {
         set localcmd [string range $cmd [expr {[string last : $cmd]+1}] end]
-        import_local_uri $iFolder home://dom/$localcmd
+        set folder $iFolder
+
+        if {[string match HTML?*Element $localcmd]} {
+          set folder $iElemFolder
+        } elseif {
+            [string match *Event* $localcmd] || 
+            [string match *XML* $localcmd]
+        } {
+          set folder $iEventFolder
+        } elseif { [lsearch \
+          {History Location Screen Window Navigator FramesList} $localcmd]>=0 
+        } {
+          set folder $iNSFolder
+        } elseif { [lsearch \
+          {HTMLDocument HTMLElement NodePrototype Text} $localcmd]>=0 
+        } {
+          set folder $iTreeFolder
+        } elseif { [lsearch \
+          {NodeListC NodeListS HTMLCollectionC HTMLCollectionS} $localcmd]>=0 
+        } {
+          set folder $iContFolder
+        } elseif { [lsearch {CSSStyleDeclaration} $localcmd]>=0 } {
+          set folder $iStyleFolder
+        }
+
+        import_local_uri $folder home://dom/$localcmd
       }
     }
     destroy .tmphv3

@@ -220,7 +220,7 @@ BUTTON {
 TEXTAREA[cols] { width: tcl(::tkhtml::textarea_width) }
 TEXTAREA[rows] { height: tcl(::tkhtml::textarea_height) }
 TEXTAREA {
-  font-family: fixed;
+  font-family: monospace;
 }
 
 FRAMESET {

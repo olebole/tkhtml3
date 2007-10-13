@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_containers.tcl,v 1.7 2007/07/23 07:15:41 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_containers.tcl,v 1.8 2007/10/13 04:21:02 danielk1977 Exp $)} 1 }
 
 # This file contains the implementation of the two DOM specific
 # container objects:
@@ -31,7 +31,7 @@ namespace eval hv3 { set {version($Id: hv3_dom_containers.tcl,v 1.7 2007/07/23 0
 #
 # work as expected.
 #
-::hv3::dom2::stateless HTMLCollectionC {} {
+::hv3::dom2::stateless HTMLCollectionC {
 
   # There are several variations on the role this object may play in
   # DOM level 1 Html:
@@ -153,27 +153,23 @@ namespace eval ::hv3::DOM {
   }
 }
 
-::hv3::dom2::stateless HTMLCollectionS {} {
+::hv3::dom2::stateless HTMLCollectionS {
 
-  # Name of the tkhtml widget to evaluate [$myHtml search] with.
+  # This is set to a search command like ".html search p" (to find
+  # all <P> elements in the system).
   #
-  dom_parameter myHtml
-
-  # The following option is set to a CSS Selector to return the
-  # nodes in that make up the contents of this NodeList.
-  #
-  dom_parameter mySelector
+  dom_parameter mySearchCmd
 
   # HTMLCollection.length
   #
   dom_get length {
-    list number [$myHtml search $mySelector -length]
+    list number [eval $mySearchCmd -length]
   }
 
   # HTMLCollection.item()
   #
   dom_call -string item {THIS index} {
-    set node [$myHtml search $mySelector -index [expr {int($index)}]]
+    set node [eval $mySearchCmd -index [expr {int($index)}]]
     if {$node ne ""} { 
       list object [::hv3::dom::wrapWidgetNode $myDom $node] 
     } else {
@@ -187,15 +183,17 @@ namespace eval ::hv3::DOM {
   # something. This is not dangerous - there is no scope for injection
   # attacks.
   dom_call -string namedItem {THIS name} {
+    set html     [lindex $mySearchCmd 0]
+    set selector [lindex $mySearchCmd 2]
 
     # First search for a match on the id attribute.
-    set sel [format {%s[id="%s"]} $mySelector $name]
-    set node [$myHtml search $sel -index 0]
+    set sel [format {%s[id="%s"]} $selector $name]
+    set node [$html search $sel -index 0]
 
     # Next try to find a node with a matching name attribute.
     if {$node eq ""} {
-      set sel [format {%s[name="%s"]} $mySelector $name]
-      set node [$myHtml search $sel -index 0]
+      set sel [format {%s[name="%s"]} $selector $name]
+      set node [$html search $sel -index 0]
     }
 
     # Return a Node object if successful, otherwise null.
@@ -219,21 +217,22 @@ namespace eval ::hv3::DOM {
     # containing the matches is returned.
     #
     if {[string is double $property]} {
-      set node [$myHtml search $mySelector -index [expr {int($property)}]]
+      set node [eval $mySearchCmd -index [expr {int($property)}]]
       if {$node ne ""} { 
         list object [::hv3::dom::wrapWidgetNode $myDom $node] 
       }
     } else {
       set name $property
-      set s $mySelector
+      set html [lindex $mySearchCmd 0]
+      set s    [lindex $mySearchCmd 2]
       set sel [format {%s[name="%s"],%s[id="%s"]} $s $name $s $name]
-      set nNode [$myHtml search $sel -length]
+      set nNode [$html search $sel -length]
       if {$nNode > 0} {
         if {$nNode == 1} {
           list object [::hv3::dom::wrapWidgetNode $myDom [$myHtml search $sel]]
         } else {
           list object [list \
-            ::hv3::DOM::NodeListC $myDom [list $myHtml search $sel]
+            ::hv3::DOM::NodeListC $myDom [list $html search $sel]
           ]
         }
       }
@@ -253,7 +252,7 @@ namespace eval ::hv3::DOM {
 #         * Element node (children based on html widget node-handle)
 #         * Text or Attribute node (no children)
 #
-::hv3::dom2::stateless NodeListC {} {
+::hv3::dom2::stateless NodeListC {
 
   # The following option is set to a command to return the html-widget nodes
   # that comprise the contents of this list. i.e. for the value of
@@ -298,30 +297,21 @@ namespace eval ::hv3::DOM {
 #     returned by getElementsByTagName() and kin. It is a wrapper
 #     around [$html search].
 #
-::hv3::dom2::stateless NodeListS {} {
+::hv3::dom2::stateless NodeListS {
 
   # Name of the tkhtml widget to evaluate [$myHtml search] with.
   #
-  dom_parameter myHtml
-
-  # The following option is set to the root-node of the sub-tree
-  # to search with $mySelector. An empty string means search the
-  # whole tree.
+  # Command like ".html search $selector -root $rootnode"
   #
-  dom_parameter myRoot
-
-  # The following option is set to a CSS Selector to return the
-  # nodes in that make up the contents of this NodeList.
-  #
-  dom_parameter mySelector
+  dom_parameter mySearchCmd
 
   dom_call -string item {THIS index} {
     if {![string is double $index]} { return null }
-    NodeListS_item $myDom $myHtml $mySelector $myRoot [expr {int($index)}]
+    NodeListS_item $myDom $mySearchCmd [expr {int($index)}]
   }
 
   dom_get length {
-    list number [$myHtml search $mySelector -length -root $myRoot]
+    list number [eval $mySearchCmd -length] 
   }
 
   # Unknown property request. If the property name looks like a number,
@@ -329,14 +319,14 @@ namespace eval ::hv3::DOM {
   #
   dom_get * {
     if {[string is integer $property]} {
-      NodeListS_item $myDom $myHtml $mySelector $myRoot $property
+      NodeListS_item $myDom $mySearchCmd $property
     }
   }
 }
 
 namespace eval ::hv3::DOM {
-  proc NodeListS_item {dom html selector root idx} {
-    set N [$html search $selector -index $idx -root $root]
+  proc NodeListS_item {dom searchcmd idx} {
+    set N [eval $searchcmd -index $idx]
     if {$N eq ""} {
       list null
     } else {
@@ -345,9 +335,14 @@ namespace eval ::hv3::DOM {
   }
 }
 
-::hv3::dom2::stateless FramesList {} {
+::hv3::dom2::stateless FramesList {
+  -- This class implements a container used for the 
+  -- <code>window.frames</code> property in Hv3.
+  XX
+
   dom_parameter myFrame
 
+  -- Return the number of items in this container.
   dom_get length {
     list number [llength [$myFrame child_frames]]
   }

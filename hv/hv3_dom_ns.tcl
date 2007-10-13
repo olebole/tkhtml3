@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.29 2007/10/12 08:20:06 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.30 2007/10/13 04:21:02 danielk1977 Exp $)} 1 }
 
 #---------------------------------
 # List of DOM objects in this file:
@@ -9,16 +9,9 @@ namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.29 2007/10/12 08:20:06
 #     History
 #     Screen
 #
-namespace eval ::hv3::dom {
-  proc getNSClassList {} { list }
-}
 
 #-------------------------------------------------------------------------
 # "Navigator" DOM object.
-#
-# Similar to the Gecko object documented here (some properties are missing):
-#
-#     http://developer.mozilla.org/en/docs/DOM:window.navigator
 #
 #     Navigator.appCodeName
 #     Navigator.appName
@@ -37,7 +30,12 @@ namespace eval ::hv3::dom {
 #
 #     Navigator.javaEnabled()
 #
-::hv3::dom2::stateless2 Navigator {
+::hv3::dom2::stateless Navigator {
+  -- Based on the Gecko object documented here (some properties are missing):
+  --
+  -- <P class=refs>
+  --     [Ref http://developer.mozilla.org/en/docs/DOM:window.navigator]
+  XX
 
   dom_parameter dummy
 
@@ -81,7 +79,9 @@ namespace eval ::hv3::dom {
   }
 
   -- Alias for the <I>platform</I> property.
-  dom_get oscpu { eval [SELF] Get platform }
+  dom_get oscpu {
+    list string "$::tcl_platform(os) $::tcl_platform(machine)"
+  }
 
   -- Return true if java is enabled, false otherwise. Under Hv3 this is 
   -- always false (and always will be).
@@ -119,7 +119,7 @@ namespace eval ::hv3::dom {
 #     http://developer.mozilla.org/en/docs/DOM:window.location
 #
 #
-::hv3::dom2::stateless2 Location {
+::hv3::dom2::stateless Location {
   -- One location object is allocated for each [Ref Window] object in the
   -- system. It contains the URI of the current document. Writing to
   -- this object causes the window to load the new URI. The location
@@ -153,7 +153,7 @@ namespace eval ::hv3::dom {
   dom_get hostname {
     set auth [$myHv3 uri authority]
     set hostname ""
-    regexp {^([^:]*)} -> hostname
+    regexp {^([^:]*)} $auth -> hostname
     list string $hostname
   }
 
@@ -223,7 +223,7 @@ namespace eval ::hv3::dom {
   }
 
   -- Returns the same value as reading the <I>href</I> property.
-  dom_call toString {THIS} { eval [SELF] DefaultValue }
+  dom_call toString {THIS} { ::hv3::DOM::Location $myDom $myHv3 DefaultValue }
 }
 namespace eval ::hv3::DOM {
   proc Location_assign {hv3 loc} {
@@ -244,7 +244,7 @@ namespace eval ::hv3::DOM {
 #-------------------------------------------------------------------------
 # "Window" DOM object.
 #
-::hv3::dom2::stateless2 Window {
+::hv3::dom2::stateless Window {
 
   dom_parameter myHv3
 
@@ -300,8 +300,7 @@ namespace eval ::hv3::DOM {
   --   window.location = {"http://tkhtml.tcl.tk/hv3.html"} 
   -- </PRE>
   dom_get location {
-    list object [list ::hv3::DOM::Location $myDom $myHv3]
-    list object $obj
+    list object [list ::hv3::DOM::Location $myDom $myHv3] 
   }
   dom_put location {value} {
     Location_assign $myHv3 $value
@@ -310,7 +309,7 @@ namespace eval ::hv3::DOM {
   -- A reference to the [Ref Navigator] object.
   --
   dom_get navigator { 
-    list cache transient [list ::hv3::DOM::Navigator $myDom ""]
+    list object [list ::hv3::DOM::Navigator $myDom dummy]
   }
 
   #-----------------------------------------------------------------------
@@ -343,8 +342,8 @@ namespace eval ::hv3::DOM {
     set top [$frame top_frame]
     list object [$myDom hv3_to_window [$top hv3]]
   }
-  dom_get self   { return [list object [SELF]] }
-  dom_get window { return [list object [SELF]] }
+  dom_get self   { list object [list ::hv3::DOM::Window $myDom $myHv3] }
+  dom_get window { list object [list ::hv3::DOM::Window $myDom $myHv3] }
 
   dom_get frames {
     list object [list ::hv3::DOM::FramesList $myDom [winfo parent $myHv3]]
@@ -416,15 +415,15 @@ if 0 {
 }
 }
 
-#-------------------------------------------------------------------------
-# "History" DOM object.
-#
-#     http://developer.mozilla.org/en/docs/DOM:window.history
-#     http://www.w3schools.com/htmldom/dom_obj_history.asp
-#
-# Right now this is a placeholder. It does not work.
-# 
-::hv3::dom2::stateless2 History {
+::hv3::dom2::stateless History {
+  -- Right now this is a placeholder. It does not work. Eventually, it
+  -- will be based on the objects described in these references:
+  --
+  -- <P class=refs>
+  --     [Ref http://developer.mozilla.org/en/docs/DOM:window.history]
+  --     [Ref http://www.w3schools.com/htmldom/dom_obj_history.asp]
+  XX
+
   dom_parameter myHv3
 
   dom_get length   { list number 0 }
@@ -439,7 +438,7 @@ if 0 {
 #     http://developer.mozilla.org/en/docs/DOM:window.screen
 #
 # 
-::hv3::dom2::stateless2 Screen {
+::hv3::dom2::stateless Screen {
   dom_parameter myHv3
 
   dom_get colorDepth  { list number [winfo screendepth $myHv3] }

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.78 2007/10/12 06:12:58 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.79 2007/10/13 04:21:02 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Snit types in this file:
@@ -829,12 +829,13 @@ snit::widget ::hv3::dom::logwin {
     set myOutput [::hv3::scrolled ::hv3::text ${win}.pan.right.bottom.output]
     set myInput  [::hv3::text ${win}.pan.right.bottom.input -height 3]
     $myInput configure -bg white
-    $myOutput configure -bg white -state disabled
+    $myOutput configure -bg white -state disabled -wrap none
     $myOutput tag configure commandtext -foreground darkblue
     $myOutput tag configure commandalert -foreground darkred
 
     # Set up key bindings for the input window:
-    bind $myInput <Return> [list after idle [mymethod Evaluate]]
+    #bind $myInput <Return> [list after idle [mymethod Evaluate]]
+    bind $myInput <Return> [mymethod Evaluate]
     bind $myInput <Up>     [list after idle [mymethod HistoryBack]]
     bind $myInput <Down>   [list after idle [mymethod HistoryForward]]
 
@@ -1032,7 +1033,54 @@ snit::widget ::hv3::dom::logwin {
     set js [string trim $cmd]
     set res [$myData Evaluate $js]
     $myOutput insert end "javascript: $js\n" commandtext
-    $myOutput insert end "    [string trim $res]\n"
+    if {[lindex $res 0] eq "object" && [llength $res] == 2} {
+      $self PrintObject [lindex $res 1]
+    } else {
+      $myOutput insert end "    [string trim $res]\n"
+    }
+  }
+
+  method PrintObject {obj} {
+    set state [$myOutput cget -state]
+    if {$state eq "disabled"} {
+      $myOutput configure -state normal
+    }
+   
+    $myOutput insert end "    object $obj\n"
+
+    set nMax 0
+    set propertylist [lsort [eval $obj List]]
+    foreach property $propertylist {
+      if {[string length $property] > $nMax} {
+        set nMax [string length $property]
+      }
+    }
+    incr nMax 2
+    foreach property $propertylist {
+      set value [eval $obj Get $property]
+      $myOutput insert end [format "        %-${nMax}s" $property]
+      if {[lindex $value 0] eq "object" && [llength $value] == 2} {
+        set tag [string map [list " " _ ":" _] $value]
+ 
+        set classname [lindex $value 1 0]
+        set classname [
+          string range $classname [expr {[string last : $classname]+1}] end
+        ]
+       
+        $myOutput insert end "object "
+        $myOutput insert end $classname $tag
+
+        $myOutput tag bind $tag <1> [list $self PrintObject [lindex $value 1]]
+        $myOutput tag bind $tag <Enter> [list $myOutput configure -cursor hand2]
+        $myOutput tag bind $tag <Leave> [list $myOutput configure -cursor ""]
+        $myOutput tag configure $tag -underline 1 -foreground darkblue
+      } else {
+        $myOutput insert end $value
+      }
+      $myOutput insert end "\n"
+    }
+    $myOutput yview -pickplace end
+    $myOutput configure -state $state
   }
 
   method GotoCmd {cmd {cmd2 ""}} {
@@ -1238,43 +1286,28 @@ snit::widget ::hv3::dom::logwin {
 #-----------------------------------------------------------------------
 # Pull in the object definitions.
 #
-proc ::hv3::dom_init {} {
-  if {[info commands ::see::interp] eq ""} return
+proc ::hv3::dom_init {{init_docs 0}} {
+  set ::hv3::dom::CREATE_DOM_DOCS 0
+  if {$init_docs} {set ::hv3::dom::CREATE_DOM_DOCS 1}
+
+  if {
+    $::hv3::dom::CREATE_DOM_DOCS == 0 && [info commands ::see::interp] eq ""
+  } return
+
   uplevel #0 {
 
-    source [file join $::hv3::scriptdir hv3_dom_compiler.tcl]
-    
     foreach f [list \
+      hv3_dom_compiler.tcl \
       hv3_dom_containers.tcl \
       hv3_dom_core.tcl \
-      hv3_dom_html.tcl \
       hv3_dom_style.tcl \
-      hv3_dom_ns.tcl \
       hv3_dom_events.tcl \
+      hv3_dom_html.tcl \
+      hv3_dom_ns.tcl \
       hv3_dom_xmlhttp.tcl \
     ] {
       source [file join $::hv3::scriptdir $f]
     }
-    set classlist [concat \
-      Implementation                          \
-      HTMLCollectionC HTMLCollectionS         \
-      NodeListC NodeListS                     \
-      HTMLElement HTMLDocument \
-      [::hv3::dom::getHTMLElementClassList]   \
-      [::hv3::dom::getNSClassList]            \
-      Text NodePrototype                      \
-      CSSStyleDeclaration                     \
-      Event MouseEvent                        \
-      XMLHttpRequest XMLHttpRequestEvent      \
-      FramesList                              \
-    ]
-    foreach c $classlist {
-      eval [::hv3::dom2::compile $c]
-    }
-    #puts [::hv3::dom2::compile XMLHttpRequest]
-    
-    ::hv3::create_domref
-    ::hv3::dom2::cleanup
     
     set ::hv3::dom::reformat_scripts_option 0
     #set ::hv3::dom::reformat_scripts_option 1

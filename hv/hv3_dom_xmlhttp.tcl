@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.12 2007/09/01 14:21:28 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.13 2007/10/13 04:21:02 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # ::hv3::dom::XMLHttpRequest
@@ -11,7 +11,7 @@ namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.12 2007/09/01 14:
 #
 # TODO: Change to ::stateless
 #
-::hv3::dom2::stateless XMLHttpRequest {} {
+::hv3::dom2::stateless XMLHttpRequest {
 
   # Magical state array. And the matching destructor. The 
   # "constructor" for the Tcl side of the XMLHttpRequest is the
@@ -147,7 +147,7 @@ namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.12 2007/09/01 14:
   # End of W3C interface. Below this point is non-standard stuff.
 }
 
-::hv3::dom2::stateless XMLHttpRequestEvent {} {
+::hv3::dom2::stateless XMLHttpRequestEvent {
   dom_parameter myXMLHttpRequest
 
   # Constants for Event.eventPhase (Definition group PhaseType)

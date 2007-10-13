@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.34 2007/10/12 06:12:59 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.35 2007/10/13 04:21:02 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Html
@@ -32,11 +32,13 @@ namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.34 2007/10/12 06:12:
 #     HTMLDocument.body
 #     HTMLDocument.cookie
 #
-set BaseList {Document DocumentEvent}
-::hv3::dom2::stateless HTMLDocument $BaseList {
+set BaseList {DocumentEvent}
+::hv3::dom2::stateless HTMLDocument {
 
   %NODE%
   %NODE_PROTOTYPE%
+  %DOCUMENT%
+  %DOCUMENTEVENT%
 
   # The "title" attribute is supposed to be read/write. But this one
   # is only read-only for the meantime.
@@ -125,7 +127,9 @@ set BaseList {Document DocumentEvent}
   dom_call -string getElementsByName {THIS elementName} {
     set name [string map [list "\x22" "\x5C\x22"] $elementName]
     set selector [subst -nocommands {[name="$name"]}]
-    set nl [list ::hv3::DOM::NodeListS $myDom [$myHv3 html] "" $selector]
+    set nl [list ::hv3::DOM::NodeListS $myDom [
+      list [$myHv3 html] search $selector
+    ]
     list transient $nl
   }
 
@@ -186,9 +190,6 @@ set BaseList {Document DocumentEvent}
   #
   dom_get * {
 
-    # Allowable element types.
-    set tags [list form img]
-
     # Selectors to use to find document nodes.
     set nameselector [subst -nocommands {
       form[name="$property"],img[name="$property"]
@@ -209,15 +210,24 @@ set BaseList {Document DocumentEvent}
 }
 namespace eval ::hv3::DOM {
   proc HTMLDocument_Collection {dom hv3 selector} {
-    set cmd [list $hv3 search $selector]
-    list object [list ::hv3::DOM::HTMLCollectionS $dom [$hv3 html] $selector]
+    set cmd [list [$hv3 html] search $selector]
+    list object [list ::hv3::DOM::HTMLCollectionS $dom $cmd] 
   }
 }
 
 #-------------------------------------------------------------------------
 # DOM Type HTMLElement (Node -> Element -> HTMLElement)
 #
-::hv3::dom2::stateless HTMLElement Element {
+set HTMLElement {
+  %NODE_PROTOTYPE%
+  %NODE%
+  %WIDGET_NODE%
+  %ELEMENT%
+  %HTMLELEMENT%
+  %ELEMENTCSSINLINESTYLE%
+}
+set ::hv3::dom::code::HTMLELEMENT {
+  
   element_attr id
   element_attr title
   element_attr lang
@@ -368,6 +378,8 @@ namespace eval ::hv3::DOM {
   }
 }
 
+::hv3::dom2::stateless HTMLElement $HTMLElement
+
 namespace eval ::hv3::DOM {
 
   # Return the scrollable width and height of the window $html.
@@ -464,7 +476,7 @@ namespace eval ::hv3::DOM {
 #-------------------------------------------------------------------------
 # DOM Type HTMLFormElement (extends HTMLElement)
 #
-::hv3::dom2::stateless HTMLFormElement HTMLElement {
+::hv3::dom2::stateless HTMLFormElement $HTMLElement {
 
   # Various Get/Put string property/attributes.
   #
@@ -497,7 +509,7 @@ namespace eval ::hv3::DOM {
   # the HTMLFormElement.elements object.
   #
   dom_get * {
-    set obj [lindex [eval [SELF] Get elements] 1]
+    set obj [lindex [eval HTMLFormElement $myDom $myNode Get elements] 1]
     eval $obj Get $property
   }
 }
@@ -510,7 +522,13 @@ namespace eval ::hv3::DOM {
 #     <INPUT> elements. The really complex stuff for this object is 
 #     handled by the forms manager code.
 #
-::hv3::dom2::stateless HTMLInputElement HTMLElement {
+::hv3::dom2::stateless HTMLInputElement {
+
+  %NODE_PROTOTYPE%
+  %NODE%
+  %WIDGET_NODE%
+  %ELEMENT%
+  %HTMLELEMENT%
 
   dom_todo defaultValue
   dom_todo readOnly
@@ -603,7 +621,14 @@ namespace eval ::hv3::DOM {
 #-------------------------------------------------------------------------
 # DOM Type HTMLSelectElement (extends HTMLElement)
 #
-::hv3::dom2::stateless HTMLSelectElement HTMLElement {
+::hv3::dom2::stateless HTMLSelectElement {
+
+  %NODE_PROTOTYPE%
+  %NODE%
+  %WIDGET_NODE%
+  %ELEMENT%
+  %HTMLELEMENT%
+
 
   dom_get form { HTMLElement_get_form $myDom $myNode }
 
@@ -688,7 +713,7 @@ namespace eval ::hv3::DOM {
   # Non-standard stuff starts here.
   #
   dom_get * {
-    set obj [lindex [eval [SELF] Get options] 1]
+    set obj [lindex [HTMLSelectElement $myDom $myNode Get options] 1]
     eval $obj Get $property
   }
 
@@ -731,7 +756,7 @@ namespace eval ::hv3::DOM {
 #
 #     http://api.kde.org/cvs-api/kdelibs-apidocs/khtml/html/classDOM_1_1HTMLTextAreaElement.html
 #
-::hv3::dom2::stateless HTMLTextAreaElement HTMLElement {
+::hv3::dom2::stateless HTMLTextAreaElement $HTMLElement {
 
   dom_todo defaultValue;
   dom_todo cols;
@@ -820,7 +845,8 @@ namespace eval ::hv3::DOM {
 #-------------------------------------------------------------------------
 # DOM Type HTMLButtonElement (extends HTMLElement)
 #
-::hv3::dom2::stateless HTMLButtonElement HTMLElement {
+::hv3::dom2::stateless HTMLButtonElement $HTMLElement {
+
   dom_todo disabled;
 
   dom_get form { HTMLElement_get_form $myDom $myNode }
@@ -840,7 +866,7 @@ namespace eval ::hv3::DOM {
 #-------------------------------------------------------------------------
 # DOM Type HTMLOptGroupElement (extends HTMLElement)
 #
-::hv3::dom2::stateless HTMLOptGroupElement HTMLElement {
+::hv3::dom2::stateless HTMLOptGroupElement $HTMLElement {
 }
 # </HTMLOptGroupElement>
 #-------------------------------------------------------------------------
@@ -848,7 +874,7 @@ namespace eval ::hv3::DOM {
 #-------------------------------------------------------------------------
 # DOM Type HTMLOptionElement (extends HTMLElement)
 #
-::hv3::dom2::stateless HTMLOptionElement HTMLElement {
+::hv3::dom2::stateless HTMLOptionElement $HTMLElement {
 
   dom_todo defaultSelected
   dom_todo index
@@ -937,7 +963,7 @@ namespace eval ::hv3::DOM {
 #-------------------------------------------------------------------------
 # DOM Type HTMLLabelElement (extends HTMLElement)
 #
-::hv3::dom2::stateless HTMLLabelElement HTMLElement {
+::hv3::dom2::stateless HTMLLabelElement $HTMLElement {
 }
 # </HTMLLabelElement>
 #-------------------------------------------------------------------------
@@ -945,7 +971,7 @@ namespace eval ::hv3::DOM {
 #-------------------------------------------------------------------------
 # DOM Type HTMLFieldSetElement (extends HTMLElement)
 #
-::hv3::dom2::stateless HTMLFieldSetElement HTMLElement {
+::hv3::dom2::stateless HTMLFieldSetElement $HTMLElement {
 }
 # </HTMLFieldSetElement>
 #-------------------------------------------------------------------------
@@ -953,7 +979,7 @@ namespace eval ::hv3::DOM {
 #-------------------------------------------------------------------------
 # DOM Type HTMLLegendElement (extends HTMLElement)
 #
-::hv3::dom2::stateless HTMLLegendElement HTMLElement {
+::hv3::dom2::stateless HTMLLegendElement $HTMLElement {
 }
 # </HTMLLegendElement>
 #-------------------------------------------------------------------------
@@ -961,7 +987,8 @@ namespace eval ::hv3::DOM {
 #-------------------------------------------------------------------------
 # DOM Type HTMLTableElement (extends HTMLElement)
 #
-::hv3::dom2::stateless HTMLTableElement HTMLElement {
+::hv3::dom2::stateless HTMLTableElement $HTMLElement {
+
   dom_todo caption
   dom_todo tHead
   dom_todo tFoot
@@ -1008,7 +1035,7 @@ namespace eval ::hv3::DOM {
 #
 #     This DOM type is used for HTML elements <TFOOT>, <THEAD> and <TBODY>.
 #
-::hv3::dom2::stateless HTMLTableSectionElement HTMLElement {
+::hv3::dom2::stateless HTMLTableSectionElement $HTMLElement {
 
   element_attr align
   element_attr ch -attribute char
@@ -1041,7 +1068,12 @@ namespace eval ::hv3::DOM {
 #
 #     This DOM type is used for HTML <TR> elements.
 #
-::hv3::dom2::stateless HTMLTableRowElement HTMLElement {
+::hv3::dom2::stateless HTMLTableRowElement $HTMLElement {
+  %NODE_PROTOTYPE%
+  %NODE%
+  %WIDGET_NODE%
+  %ELEMENT%
+  %HTMLELEMENT%
 
   dom_todo rowIndex
   dom_todo sectionRowIndex
@@ -1078,7 +1110,8 @@ namespace eval ::hv3::DOM {
 #
 #     This DOM type is used for HTML <A> elements.
 #
-::hv3::dom2::stateless HTMLAnchorElement HTMLElement {
+::hv3::dom2::stateless HTMLAnchorElement $HTMLElement {
+
   element_attr accessKey -attribute accesskey
   element_attr charset
   element_attr coords
@@ -1101,7 +1134,8 @@ namespace eval ::hv3::DOM {
 # </HTMLAnchorElement>
 #-------------------------------------------------------------------------
 
-::hv3::dom2::stateless HTMLImageElement HTMLElement {
+::hv3::dom2::stateless HTMLImageElement $HTMLElement {
+
   element_attr lowSrc -attribute lowsrc
   element_attr name
   element_attr align
@@ -1120,7 +1154,8 @@ namespace eval ::hv3::DOM {
   element_attr width;
 };
 
-::hv3::dom2::stateless HTMLIFrameElement HTMLElement {
+::hv3::dom2::stateless HTMLIFrameElement $HTMLElement {
+
   element_attr align
   element_attr frameBorder   -attribute frameborder
   element_attr height
@@ -1133,43 +1168,43 @@ namespace eval ::hv3::DOM {
   element_attr width
 }
 
-::hv3::dom2::stateless HTMLUListElement     HTMLElement { #TODO }
-::hv3::dom2::stateless HTMLOListElement     HTMLElement { #TODO }
-::hv3::dom2::stateless HTMLDListElement     HTMLElement { #TODO }
-::hv3::dom2::stateless HTMLDirectoryElement HTMLElement { #TODO }
-::hv3::dom2::stateless HTMLMenuElement      HTMLElement { #TODO }
-::hv3::dom2::stateless HTMLLIElement        HTMLElement { #TODO }
-::hv3::dom2::stateless HTMLDivElement       HTMLElement { #TODO }
-::hv3::dom2::stateless HTMLParagraphElement HTMLElement { #TODO }
-::hv3::dom2::stateless HTMLHeadingElement   HTMLElement { #TODO }
-::hv3::dom2::stateless HTMLQuoteElement     HTMLElement { #TODO }
-::hv3::dom2::stateless HTMLPreElement       HTMLElement { #TODO }
-::hv3::dom2::stateless HTMLBRElement        HTMLElement { #TODO }
-::hv3::dom2::stateless HTMLBaseFontElement  HTMLElement { #TODO }
-::hv3::dom2::stateless HTMLFontElement      HTMLElement { #TODO }
-::hv3::dom2::stateless HTMLHRElement        HTMLElement { #TODO }
-::hv3::dom2::stateless HTMLModElement       HTMLElement { #TODO }
-::hv3::dom2::stateless HTMLObjectElement    HTMLElement { #TODO }
-::hv3::dom2::stateless HTMLParamElement     HTMLElement { #TODO }
-::hv3::dom2::stateless HTMLAppletElement    HTMLElement { #TODO }
-::hv3::dom2::stateless HTMLMapElement       HTMLElement { #TODO }
-::hv3::dom2::stateless HTMLAreaElement      HTMLElement { #TODO }
-::hv3::dom2::stateless HTMLScriptElement    HTMLElement { #TODO }
-::hv3::dom2::stateless HTMLFrameSetElement  HTMLElement { #TODO }
-::hv3::dom2::stateless HTMLFrameElement     HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLUListElement     $HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLOListElement     $HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLDListElement     $HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLDirectoryElement $HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLMenuElement      $HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLLIElement        $HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLDivElement       $HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLParagraphElement $HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLHeadingElement   $HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLQuoteElement     $HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLPreElement       $HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLBRElement        $HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLBaseFontElement  $HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLFontElement      $HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLHRElement        $HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLModElement       $HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLObjectElement    $HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLParamElement     $HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLAppletElement    $HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLMapElement       $HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLAreaElement      $HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLScriptElement    $HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLFrameSetElement  $HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLFrameElement     $HTMLElement { #TODO }
 
-::hv3::dom2::stateless HTMLTableCaptionElement HTMLElement { #TODO }
-::hv3::dom2::stateless HTMLTableColElement     HTMLElement { #TODO }
-::hv3::dom2::stateless HTMLTableCellElement    HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLTableCaptionElement $HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLTableColElement     $HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLTableCellElement    $HTMLElement { #TODO }
 
-::hv3::dom2::stateless HTMLHtmlElement      HTMLElement { #TODO }
-::hv3::dom2::stateless HTMLHeadElement      HTMLElement { #TODO }
-::hv3::dom2::stateless HTMLLinkElement      HTMLElement { #TODO }
-::hv3::dom2::stateless HTMLTitleElement     HTMLElement { #TODO }
-::hv3::dom2::stateless HTMLMetaElement      HTMLElement { #TODO }
-::hv3::dom2::stateless HTMLBaseElement      HTMLElement { #TODO }
-::hv3::dom2::stateless HTMLStyleElement     HTMLElement { #TODO }
-::hv3::dom2::stateless HTMLBodyElement      HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLHtmlElement      $HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLHeadElement      $HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLLinkElement      $HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLTitleElement     $HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLMetaElement      $HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLBaseElement      $HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLStyleElement     $HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLBodyElement      $HTMLElement { #TODO }
 
 #-------------------------------------------------------------------------
 # Element/Text Node Factory:
@@ -1271,6 +1306,7 @@ namespace eval ::hv3::dom {
   }
 
   proc getHTMLElementClassList {} {
+return [list]
     ::variable TagToNodeTypeMap
     set ret [list]
     foreach e [array names TagToNodeTypeMap] {

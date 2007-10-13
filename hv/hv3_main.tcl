@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.162 2007/10/12 08:20:06 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.163 2007/10/13 04:21:02 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -1209,7 +1209,6 @@ snit::type ::hv3::debug_menu {
       "-----"                [list]                                       "" \
       "Tree Browser..."      [list gui_current browse]                    "" \
       "Javascript Debugger..." [list gui_current javascriptlog]           j  \
-      "DOM Reference..."     [list $::hv3::G(notebook) add home://domref] "" \
       "-----"                [list]                                       "" \
       "Exec firefox -remote" [list gui_firefox_remote]                    "" \
       "-----"                   [list]                                    "" \

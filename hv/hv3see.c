@@ -590,7 +590,7 @@ primitiveValueToTcl(pTclSeeInterp, pValue)
     if (
         eType != SEE_UNDEFINED && eType != SEE_NULL &&
         eType != SEE_BOOLEAN   && eType != SEE_NUMBER && 
-        eType != SEE_STRING
+        eType != SEE_STRING    && eType != SEE_OBJECT
     ) {
         SEE_ToPrimitive(&pTclSeeInterp->interp, pValue, 0, &copy);
         p = &copy;
@@ -621,9 +621,16 @@ primitiveValueToTcl(pTclSeeInterp, pValue)
             aTclValues[1] = stringToObj(p->u.string);
             break;
 
-        case SEE_OBJECT: 
-            aTclValues[0] = Tcl_NewStringObj("OBJECT", -1);
+        case SEE_OBJECT: {
+            if (p->u.object->objectclass != getVtbl()) {
+                aTclValues[0] = Tcl_NewStringObj("OBJECT", -1);
+            } else {
+                SeeTclObject *pObj = (SeeTclObject *)(p->u.object);
+                aTclValues[0] = Tcl_NewStringObj("object", -1);
+                aTclValues[1] = pObj->pObj;
+            }
             break;
+        }
 
         case SEE_REFERENCE: 
             aTclValues[0] = Tcl_NewStringObj("REFERENCE", -1);
@@ -2111,6 +2118,8 @@ SeeTcl_Get(pInterp, pObj, pProp, pRes)
         if (isCacheable) {
             SEE_native_put(pInterp, pNative, pProp, pRes, SEE_ATTR_INTERNAL);
         }
+    } else {
+        SEE_SET_UNDEFINED(pRes);
     }
 }
 

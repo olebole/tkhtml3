@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.27 2007/07/02 12:31:33 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.28 2007/10/13 04:21:02 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # DOM Level 2 Events.
@@ -96,7 +96,7 @@ foreach E $::hv3::dom::HTML_Events_List {
   set ::hv3::DOM::HTMLElement_EventAttrArray(on${E}) 1
 }
 
-::hv3::dom2::stateless Event {} {
+set ::hv3::dom::code::EVENT {
 
   # Need a state-array to accomadate initEvent().
   #
@@ -127,6 +127,7 @@ foreach E $::hv3::dom::HTML_Events_List {
     array unset state
   }
 }
+
 namespace eval ::hv3::DOM {
   proc Event_initEvent {myStateArray eventType canBubble cancelable} {
     upvar #0 $myStateArray state
@@ -136,7 +137,7 @@ namespace eval ::hv3::DOM {
   }
 }
 
-::hv3::dom2::stateless MouseEvent {UIEvent} {
+set ::hv3::dom::code::MOUSEEVENT {
   dom_call_todo initMouseEvent
 
   dom_get button { list number $state(-button) }
@@ -159,15 +160,14 @@ namespace eval ::hv3::DOM {
   dom_get which  { list number [expr {$state(-button) + 1}]}
 }
 
-::hv3::dom2::stateless UIEvent {Event} {
+set ::hv3::dom::code::UIEVENT {
   dom_call_todo initUIEvent 
-
   dom_todo view
   dom_todo detail
   dom_call_todo initUIEvent 
 }
 
-::hv3::dom2::stateless MutationEvent {Event} {
+set ::hv3::dom::code::MUTATIONEVENT {
   dom_call_todo initMutationEvent 
 
   dom_get MODIFICATION { list number 1 }
@@ -181,6 +181,11 @@ namespace eval ::hv3::DOM {
   dom_todo attrChange
 }
 
+::hv3::dom2::stateless Event         %EVENT%
+::hv3::dom2::stateless UIEvent       %EVENT% %UIEVENT%
+::hv3::dom2::stateless MouseEvent    %EVENT% %UIEVENT% %MOUSEEVENT%
+::hv3::dom2::stateless MutationEvent %EVENT% %MUTATIONEVENT%
+
 #-------------------------------------------------------------------------
 # DocumentEvent (DOM Level 2 Events)
 #
@@ -189,7 +194,7 @@ namespace eval ::hv3::DOM {
 #
 #         createEvent()
 #
-::hv3::dom2::stateless DocumentEvent {} {
+set ::hv3::dom::code::DOCUMENTEVENT {
 
   # The DocumentEvent.createEvent() method. The argument (specified as
   # type DOMString in the spec) should be one of the following:
@@ -304,5 +309,36 @@ namespace eval ::hv3::dom {
     set event [list ::hv3::DOM::Event $dom $arrayvar]
     Dispatch [$dom see] $js_obj $event
   }
+}
+
+if {$::hv3::dom::CREATE_DOM_DOCS} {
+proc ::hv3::DOM::docs::event_overview {} { return {
+  <HTML>
+  <TITLE>Overview of Events</TITLE>
+    <UL>
+      <LI>onload
+      <LI>onunload
+
+      <LI>onclick
+      <LI>ondblclick
+      <LI>onmousedown
+      <LI>onmouseup
+      <LI>onmouseover
+      <LI>onmousemove
+      <LI>onmouseout
+
+      <LI>onfocus
+      <LI>onblur
+      <LI>onsubmit
+      <LI>onreset
+      <LI>onselect
+      <LI>onchange
+
+      <LI>onkeypress
+      <LI>onkeydown
+      <LI>onkeyup
+    </UL>
+  </HTML>
+}}
 }
 

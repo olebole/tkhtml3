@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_style.tcl,v 1.13 2007/08/04 17:15:25 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_style.tcl,v 1.14 2007/10/13 04:21:02 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # DOM Level 2 Style.
@@ -13,79 +13,6 @@ namespace eval hv3 { set {version($Id: hv3_dom_style.tcl,v 1.13 2007/08/04 17:15
 # http://www.w3.org/TR/2000/REC-DOM-Level-2-Style-20001113/css.html
 #
 #
-
-::hv3::dom2::stateless ElementCSSInlineStyle {} {
-  -- A reference to the [Ref CSSStyleDeclaration] object used to access 
-  -- the HTML \"style\" attribute of this document element.
-  --
-  dom_get style {
-    list object [list ::hv3::DOM::CSSStyleDeclaration $myDom $myNode]
-  }
-}
-
-namespace eval ::hv3::dom2::compiler {
-  proc style_property {css_prop {dom_prop ""}} {
-    if {$dom_prop eq ""} {
-      set dom_prop $css_prop
-    }
-    set getcmd "CSSStyleDeclaration_getStyleProperty \$myNode $css_prop"
-    dom_get $dom_prop $getcmd
-
-    set putcmd "CSSStyleDeclaration_setStyleProperty \$myNode $css_prop \$value"
-    dom_put -string $dom_prop {value} $putcmd
-  }
-}
-
-# In a complete implementation of the DOM Level 2 style for an HTML 
-# browser, the CSSStyleDeclaration interface is used for two purposes:
-#
-#     * As the ElementCSSInlineStyle.style property object. This 
-#       represents the contents of an HTML "style" attribute.
-#
-#     * As part of the DOM representation of a parsed stylesheet 
-#       document. Hv3 does not implement this function.
-#
-::hv3::dom2::stateless CSSStyleDeclaration CSS2Properties {
-
-  # cssText attribute - access the text of the style declaration. 
-  # TODO: Setting this to a value that does not parse is supposed to
-  # throw a SYNTAX_ERROR exception.
-  #
-  dom_get cssText { list string [$myNode attribute -default "" style] }
-  dom_put -string cssText val { 
-    $myNode attribute style $val
-  }
-
-  dom_call_todo getPropertyValue
-  dom_call_todo getPropertyCSSValue
-  dom_call_todo removeProperty
-  dom_call_todo getPropertyPriority
-
-  dom_call -string setProperty {THIS propertyName value priority} {
-    if {[info exists ::hv3::DOM::CSS2Properties_simple($propertyName)]} {
-      CSSStyleDeclaration_setStyleProperty $myNode $propertyName $value
-      return
-    }
-    error "DOMException SYNTAX_ERROR {unknown property $propertyName}"
-  }
-  
-  # Interface to iterate through property names:
-  #
-  #     readonly unsigned long length;
-  #     DOMString              item(in unsigned long index);
-  #
-  dom_get length {
-    list number [expr {[llength [$myNode prop -inline]]}/2]
-  }
-  dom_call -string item {THIS index} {
-    set idx [expr {2*int([lindex $index 1])}]
-    list string [lindex [$myNode prop -inline] $idx]
-  }
-
-  # Read-only parentRule property. Always null in hv3.
-  #
-  dom_get parentRule { list null }
-}
 
 # Set up an array of known "simple" properties. This is used during
 # DOM compilation and at runtime.
@@ -115,12 +42,28 @@ set ::hv3::DOM::CSS2Properties_simple(visibility)          visibility
 
 set ::hv3::DOM::CSS2Properties_simple(background-color) backgroundColor
 
-::hv3::dom2::stateless CSS2Properties {} {
+
+set ::hv3::dom::code::ELEMENTCSSINLINESTYLE {
+  -- A reference to the [Ref CSSStyleDeclaration] object used to access 
+  -- the HTML \"style\" attribute of this document element.
+  --
+  dom_get style {
+    list object [list ::hv3::DOM::CSSStyleDeclaration $myDom $myNode]
+  }
+}
+
+set ::hv3::dom::code::CSS2PROPERTIES {
 
   dom_parameter myNode
 
   foreach {k v} [array get ::hv3::DOM::CSS2Properties_simple] {
-    style_property $k $v
+    if {$v eq ""} { set v $k }
+    dom_get $k "
+      CSSStyleDeclaration.getStyleProperty \$myNode $v
+    "
+    dom_put -string $k value "
+      CSSStyleDeclaration.setStyleProperty \$myNode $v \$value
+    "
   } 
   unset -nocomplain k
   unset -nocomplain v
@@ -150,13 +93,65 @@ set ::hv3::DOM::CSS2Properties_simple(background-color) backgroundColor
   }
 }
 
+# In a complete implementation of the DOM Level 2 style for an HTML 
+# browser, the CSSStyleDeclaration interface is used for two purposes:
+#
+#     * As the ElementCSSInlineStyle.style property object. This 
+#       represents the contents of an HTML "style" attribute.
+#
+#     * As part of the DOM representation of a parsed stylesheet 
+#       document. Hv3 does not implement this function.
+#
+::hv3::dom2::stateless CSSStyleDeclaration {
+  %CSS2PROPERTIES%
+
+  # cssText attribute - access the text of the style declaration. 
+  # TODO: Setting this to a value that does not parse is supposed to
+  # throw a SYNTAX_ERROR exception.
+  #
+  dom_get cssText { list string [$myNode attribute -default "" style] }
+  dom_put -string cssText val { 
+    $myNode attribute style $val
+  }
+
+  dom_call_todo getPropertyValue
+  dom_call_todo getPropertyCSSValue
+  dom_call_todo removeProperty
+  dom_call_todo getPropertyPriority
+
+  dom_call -string setProperty {THIS propertyName value priority} {
+    if {[info exists ::hv3::DOM::CSS2Properties_simple($propertyName)]} {
+      CSSStyleDeclaration_setStyleProperty $myNode $propertyName $value
+      return
+    }
+    error "DOMException SYNTAX_ERROR {unknown property $propertyName}"
+  }
+  
+  # Interface to iterate through property names:
+  #
+  #     readonly unsigned long length;
+  #     DOMString              item(in unsigned long index);
+  #
+  dom_get length {
+    list number [expr {[llength [$myNode prop -inline]]/2}]
+  }
+  dom_call -string item {THIS index} {
+    set idx [expr {2*int([lindex $index 1])}]
+    list string [lindex [$myNode prop -inline] $idx]
+  }
+
+  # Read-only parentRule property. Always null in hv3.
+  #
+  dom_get parentRule { list null }
+}
+
 namespace eval ::hv3::DOM {
-  proc CSSStyleDeclaration_getStyleProperty {node css_property} {
+  proc CSSStyleDeclaration.getStyleProperty {node css_property} {
     set val [$node property -inline $css_property]
     list string $val
   }
 
-  proc CSSStyleDeclaration_setStyleProperty {node css_property value} {
+  proc CSSStyleDeclaration.setStyleProperty {node css_property value} {
     array set current [$node prop -inline]
 
 # if {$value eq "NaNpx"} "error NAN"
@@ -175,4 +170,3 @@ namespace eval ::hv3::DOM {
     $node attribute style $style
   }
 }
-
