@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.35 2007/10/13 04:21:02 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.36 2007/10/13 18:05:45 danielk1977 Exp $)} 1 }
 
 # Register the home: scheme handler with ::hv3::protocol $protocol.
 #
@@ -60,6 +60,7 @@ proc ::hv3::home_request {http hv3 dir downloadHandle} {
 
           .refs A[href] { display:block }
           .refs         { padding-left: 1.5cm }
+          .superclass   { font-style: italic; padding: 0 1.5cm; }
           PRE           { margin: 0 1.5cm }
 
           .property,.method {

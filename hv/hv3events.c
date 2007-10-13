@@ -183,6 +183,11 @@ runEvent(interp, pTarget, pEvent, zType, isCapture)
     ListenerContainer *pL = 0;
     struct SEE_value target;
 
+    /* If *pTarget is a tcl-based object, then set this pointer to pTarget. 
+     * Otherwise leave it as null.
+     */
+    SeeTclObject *pTclObject = 0;
+
     assert(zType->flags & SEE_STRING_FLAG_INTERNED);
     assert(isCapture == 1 || isCapture == 0);
     assert(SEE_VALUE_GET_TYPE(pEvent) == SEE_OBJECT);
@@ -195,9 +200,13 @@ runEvent(interp, pTarget, pEvent, zType, isCapture)
         return 0;
     }
 
+    if (pTarget->objectclass == getVtbl()) {
+        pTclObject = (SeeTclObject *)pTarget;
+    }
+
     /* If this is a Tcl based object, run any registered DOM event handlers */
-    ppET = getEventList(interp, pTarget);
-    if (ppET) {
+    if (pTclObject) {
+        ppET = &pTclObject->pTypeList;
         for (pET = *ppET; pET && pET->zType != zType; pET = pET->pNext);
         for (pL = (pET ? pET->pListenerList: 0); rc && pL; pL = pL->pNext) {
             if (pL->isCapture == isCapture) {
@@ -212,12 +221,15 @@ runEvent(interp, pTarget, pEvent, zType, isCapture)
     if (!isCapture) {
         struct SEE_value val;
         struct SEE_string *e = SEE_string_new(interp, 128);
+        struct SEE_object *pLookup = (pTclObject ?
+            ((struct SEE_object *)pTclObject->pNative) : pTarget
+        );
+
         SEE_string_append_ascii(e, "on");
         SEE_string_append(e, zType);
-
         e = SEE_intern(interp, e);
 
-        SEE_OBJECT_GET(interp, pTarget, e, &val);
+        SEE_OBJECT_GET(interp, pLookup, e, &val);
         if (SEE_VALUE_GET_TYPE(&val) == SEE_OBJECT) {
             struct SEE_object *pE = pEvent->u.object;
             struct SEE_value res;

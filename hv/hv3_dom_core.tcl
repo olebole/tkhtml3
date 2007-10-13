@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.31 2007/10/13 04:21:02 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.32 2007/10/13 18:05:45 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Core
@@ -36,25 +36,27 @@ namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.31 2007/10/13 04:21:
 #     Probably also want to implement Document-fragment nodes at some
 #     stage. And Comment too, but I bet we can get away without it :)
 #    
-set ::hv3::dom::code::NODE_PROTOTYPE {
-  # Required by XML and HTML applications:
-  dom_get ELEMENT_NODE                {list number 1}
-  dom_get ATTRIBUTE_NODE              {list number 2}
-  dom_get TEXT_NODE                   {list number 3}
-  dom_get COMMENT_NODE                {list number 8}
-  dom_get DOCUMENT_NODE               {list number 9}
-  dom_get DOCUMENT_FRAGMENT_NODE      {list number 11}
-
-  # Required by XML applications only:
-  dom_get CDATA_SECTION_NODE          {list number 4}
-  dom_get ENTITY_REFERENCE_NODE       {list number 5}
-  dom_get ENTITY_NODE                 {list number 6}
-  dom_get PROCESSING_INSTRUCTION_NODE {list number 7}
-  dom_get DOCUMENT_TYPE_NODE          {list number 10}
-  dom_get NOTATION_NODE               {list number 12}
+namespace eval ::hv3::dom::code {
+  set NODE_PROTOTYPE {
+    # Required by XML and HTML applications:
+    dom_get ELEMENT_NODE                {list number 1}
+    dom_get ATTRIBUTE_NODE              {list number 2}
+    dom_get TEXT_NODE                   {list number 3}
+    dom_get COMMENT_NODE                {list number 8}
+    dom_get DOCUMENT_NODE               {list number 9}
+    dom_get DOCUMENT_FRAGMENT_NODE      {list number 11}
+  
+    # Required by XML applications only:
+    dom_get CDATA_SECTION_NODE          {list number 4}
+    dom_get ENTITY_REFERENCE_NODE       {list number 5}
+    dom_get ENTITY_NODE                 {list number 6}
+    dom_get PROCESSING_INSTRUCTION_NODE {list number 7}
+    dom_get DOCUMENT_TYPE_NODE          {list number 10}
+    dom_get NOTATION_NODE               {list number 12}
+  }
+  ::hv3::dom2::stateless NodePrototype %NODE_PROTOTYPE%
+  set NODE_PROTOTYPE [list Inherit NodePrototype $NODE_PROTOTYPE]
 }
-
-::hv3::dom2::stateless NodePrototype { %NODE_PROTOTYPE% }
 
 #--------------------------------------------------------------------------
 # This block contains default implementations of the methods and
@@ -81,10 +83,9 @@ set ::hv3::dom::code::NODE {
   dom_get previousSibling {list null}
   dom_get nextSibling     {list null}
 
-  # Default implementations for nodes that are not allowed children.
-  # i.e. those of type ATTRIBUTE and TEXT.
-  #
-  dom_get parentNode {list null}
+  -- Always null for this object.
+  dom_get parentNode {list cache null}
+
   dom_get firstChild {list null}
   dom_get lastChild  {list null}
 
@@ -148,17 +149,14 @@ set ::hv3::dom::code::DOCUMENT {
   dom_parameter myHv3
 
   -- Always Node.DOCUMENT_NODE (integer value 9).
-  --
   dom_get nodeType {list number 9}
 
   -- Always the literal string \"#document\".
-  --
   dom_get nodeName {list string #document}
 
   -- The Document node always has exactly one child: the &lt\;HTML&gt\; element
   -- of the document tree. This property always contains a [Ref NodeList] 
   -- collection containing that element.
-  --
   dom_get childNodes {
     set cmd [list $myHv3 node]
     list object [list ::hv3::DOM::NodeListC $myDom $cmd]
@@ -166,21 +164,18 @@ set ::hv3::dom::code::DOCUMENT {
 
   -- Return the root element of the document tree (an object of class
   -- [Ref HTMLHtmlElement]).
-  --
   dom_get firstChild {
     list object [::hv3::dom::wrapWidgetNode $myDom [$myHv3 node]]
   }
 
   -- Return the root element of the document tree (an object of class
   -- [Ref HTMLHtmlElement]).
-  --
   dom_get lastChild  {
     list object [::hv3::dom::wrapWidgetNode $myDom [$myHv3 node]]
   }
 
   -- The document node always has exactly one child node. So this property
   -- is always set to true.
-  --
   dom_call hasChildNodes {THIS} {list boolean true}
 
   dom_call_todo insertBefore
@@ -189,7 +184,6 @@ set ::hv3::dom::code::DOCUMENT {
   dom_call_todo appendChild  
 
   -- For a Document node, the ownerDocument is null.
-  -- 
   dom_get ownerDocument {list null}
 
   # End of Node interface overrides.
@@ -198,14 +192,12 @@ set ::hv3::dom::code::DOCUMENT {
   dom_todo doctype
 
   -- Reference to the [Ref Implementation] object.
-  --
   dom_get implementation {
     list object [list ::hv3::DOM::Implementation $myDom]
   }
 
   -- This property is always set to the &lt\;HTML&gt\; element (an object of
   -- class [Ref HTMLHtmlElement]).
-  --
   dom_get documentElement {
     list object [::hv3::dom::wrapWidgetNode $myDom [$myHv3 node]]
   }
@@ -273,23 +265,17 @@ set ::hv3::dom::code::WIDGET_NODE {
   -- document tree, return the associated window.document object.
   -- Return null if there is no parent element (can happen if this
   -- node has been removed from the document tree.
-  --
   dom_get parentNode {
-    set ret null
+    # Note that there is another version of this function in the
+    # implementation of HTMLHtmlElement. Since the root of the document
+    # tree is always an <HTML> element, we can deal with possibly having
+    # to return the HTMLDocument object there.
     set parent [$myNode parent]
-    if {$parent eq ""} {
-      # This may be either the root node of the document, or an
-      # orphan. The parent of the root node is the DOM HTMLDocument
-      # object. The parent of an orphan node is null.
-      #
-      set root [[$myNode html] node]
-      if {$root eq $myNode} {
-        set ret [list object [$myDom node_to_document $myNode]]
-      }
+    if {$parent ne ""} {
+      list object [::hv3::dom::wrapWidgetNode $myDom $parent]
     } else {
-      set ret [list object [::hv3::dom::wrapWidgetNode $myDom $parent]]
+      list null
     }
-    set ret
   }
 
   # Retrieve the left and right sibling nodes.

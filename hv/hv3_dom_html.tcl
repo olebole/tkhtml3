@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.35 2007/10/13 04:21:02 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.36 2007/10/13 18:05:45 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Html
@@ -380,6 +380,8 @@ set ::hv3::dom::code::HTMLELEMENT {
 
 ::hv3::dom2::stateless HTMLElement $HTMLElement
 
+set HTMLElement "Inherit HTMLElement { $HTMLElement }"
+
 namespace eval ::hv3::DOM {
 
   # Return the scrollable width and height of the window $html.
@@ -522,13 +524,7 @@ namespace eval ::hv3::DOM {
 #     <INPUT> elements. The really complex stuff for this object is 
 #     handled by the forms manager code.
 #
-::hv3::dom2::stateless HTMLInputElement {
-
-  %NODE_PROTOTYPE%
-  %NODE%
-  %WIDGET_NODE%
-  %ELEMENT%
-  %HTMLELEMENT%
+::hv3::dom2::stateless HTMLInputElement $HTMLElement {
 
   dom_todo defaultValue
   dom_todo readOnly
@@ -621,14 +617,7 @@ namespace eval ::hv3::DOM {
 #-------------------------------------------------------------------------
 # DOM Type HTMLSelectElement (extends HTMLElement)
 #
-::hv3::dom2::stateless HTMLSelectElement {
-
-  %NODE_PROTOTYPE%
-  %NODE%
-  %WIDGET_NODE%
-  %ELEMENT%
-  %HTMLELEMENT%
-
+::hv3::dom2::stateless HTMLSelectElement $HTMLElement {
 
   dom_get form { HTMLElement_get_form $myDom $myNode }
 
@@ -1069,11 +1058,6 @@ namespace eval ::hv3::DOM {
 #     This DOM type is used for HTML <TR> elements.
 #
 ::hv3::dom2::stateless HTMLTableRowElement $HTMLElement {
-  %NODE_PROTOTYPE%
-  %NODE%
-  %WIDGET_NODE%
-  %ELEMENT%
-  %HTMLELEMENT%
 
   dom_todo rowIndex
   dom_todo sectionRowIndex
@@ -1197,7 +1181,17 @@ namespace eval ::hv3::DOM {
 ::hv3::dom2::stateless HTMLTableColElement     $HTMLElement { #TODO }
 ::hv3::dom2::stateless HTMLTableCellElement    $HTMLElement { #TODO }
 
-::hv3::dom2::stateless HTMLHtmlElement      $HTMLElement { #TODO }
+::hv3::dom2::stateless HTMLHtmlElement $HTMLElement { 
+  Inherit HTMLElement {
+    dom_get parentNode {
+      if {$myNode eq [[$myNode html] node]} {
+        list object [node_to_document $myDom $myNode]
+      } else {
+        list null
+      }
+    }
+  }
+}
 ::hv3::dom2::stateless HTMLHeadElement      $HTMLElement { #TODO }
 ::hv3::dom2::stateless HTMLLinkElement      $HTMLElement { #TODO }
 ::hv3::dom2::stateless HTMLTitleElement     $HTMLElement { #TODO }

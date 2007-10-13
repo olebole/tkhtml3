@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_bookmarks.tcl,v 1.12 2007/10/13 08:59:58 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_bookmarks.tcl,v 1.13 2007/10/13 18:05:45 danielk1977 Exp $)} 1 }
 
 namespace eval ::hv3::bookmarks {
 
@@ -1951,16 +1951,17 @@ pressing enter.
     ::hv3::sqlitedb transaction {
       set iFolder      [db_store_new_folder 0 "Hv3 DOM Reference"]
       set iTreeFolder  [db_store_new_folder $iFolder "DOM Tree Objects"]
-      set iEventFolder [db_store_new_folder $iFolder "Event/XMLHttp Objects"]
+      set iEventFolder [db_store_new_folder $iFolder "DOM Event Objects"]
+      set iContFolder  [db_store_new_folder $iFolder "DOM Container Objects"]
+      set iStyleFolder [db_store_new_folder $iFolder "DOM Style Objects"]
+      set iXMLFolder   [db_store_new_folder $iFolder "XMLHttpRequest Objects"]
       set iNSFolder    [db_store_new_folder $iFolder "Compatibility Objects"]
-      set iContFolder  [db_store_new_folder $iFolder "Container Objects"]
-      set iStyleFolder [db_store_new_folder $iFolder "Style Objects"]
       set iElemFolder  [
         db_store_new_folder $iTreeFolder "HTMLElement Sub-classes"
       ]
       
-      set fname [file normalize [file join $::hv3::scriptdir dom_events.html]]
-      import_local_uri $iFolder file://$fname
+      #set fname [file normalize [file join $::hv3::scriptdir dom_events.html]]
+      #import_local_uri $iFolder file://$fname
 
       if {[llength [info commands ::hv3::DOM::docs::HTMLElement]] == 0} {
         ::hv3::dom_init 1
@@ -1972,10 +1973,9 @@ pressing enter.
 
         if {[string match HTML?*Element $localcmd]} {
           set folder $iElemFolder
-        } elseif {
-            [string match *Event* $localcmd] || 
-            [string match *XML* $localcmd]
-        } {
+        } elseif { [string match *XML* $localcmd] } {
+          set folder $iXMLFolder
+        } elseif { [string match *Event* $localcmd] } {
           set folder $iEventFolder
         } elseif { [lsearch \
           {History Location Screen Window Navigator FramesList} $localcmd]>=0 

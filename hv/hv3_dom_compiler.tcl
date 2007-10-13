@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.34 2007/10/13 04:21:02 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.35 2007/10/13 18:05:45 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file implements infrastructure used to create the [proc] definitions
@@ -395,6 +395,10 @@ namespace eval ::hv3::dom2 {
     proc -- {args} {}
     proc XX {args} {}
     proc Ref {args} {}
+
+    proc Inherit {superclass code} {
+      eval $code
+    }
   }
 
 
@@ -403,6 +407,8 @@ namespace eval ::hv3::dom2 {
     variable get_array
     variable put_array
     variable call_array
+
+    variable superclass
 
     variable current_xx ""
     variable xx_array
@@ -415,6 +421,11 @@ namespace eval ::hv3::dom2 {
     proc dom_construct    {args} {}
     proc dom_events    {args} {}
     proc dom_scope {args} {}
+
+    proc Inherit {super code} {
+      variable superclass
+      set superclass $super
+    }
 
     proc dom_get  {zProperty args} {
       variable get_array
@@ -479,9 +490,11 @@ namespace eval ::hv3::dom2 {
       variable put_array
       variable call_array
       variable docbuffer
+      variable superclass
       variable current_xx
       variable xx_array
 
+      set superclass ""
       set docbuffer ""
       set current_xx ""
       array unset get_array
@@ -496,6 +509,7 @@ namespace eval ::hv3::dom2 {
       variable put_array
       variable call_array
       variable xx_array
+      variable superclass
 
       set properties "<TR><TD colspan=3><H2>Properties</H2>"
       set iStripe 0
@@ -528,16 +542,29 @@ namespace eval ::hv3::dom2 {
         set iStripe [expr {($iStripe+1)%2}]
       }
 
+      set super ""
+      if {$superclass ne ""} {
+        set super [string map [list %SUPER% $superclass] {
+          <P class=superclass>
+            This object type inherits from <A href="%SUPER%">%SUPER%</A>.
+            In addition to the properties and methods shown below, it has
+            all the properties and methods of the %SUPER% object.
+          </P>
+        }]
+      }
+
       set Docs [string map [list       \
           %CLASSNAME%  $classname      \
           %OVERVIEW%   $xx_array()     \
           %PROPERTIES% $properties     \
           %METHODS%    $methods        \
+          %SUPERCLASS% $super          \
       ] {
         <LINK rel="stylesheet" href="home://dom/style.css">
         <TITLE>Class %CLASSNAME%</TITLE>
         <H1>DOM Class %CLASSNAME%</H1>
         <DIV class=overview> %OVERVIEW% </DIV>
+        %SUPERCLASS%
         <TABLE>
           %PROPERTIES%
           %METHODS%

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.79 2007/10/13 04:21:02 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.80 2007/10/13 18:05:45 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Snit types in this file:
@@ -1334,6 +1334,12 @@ proc ::hv3::enable_javascript {} {
   if {!$::hv3::dom_init_has_run} {
     ::hv3::dom_init
     set ::hv3::dom_init_has_run 1
+  }
+}
+
+namespace eval ::hv3::DOM {
+  proc node_to_document {dom node} {
+    list ::hv3::DOM::HTMLDocument $dom [winfo parent [$node html]]
   }
 }
 

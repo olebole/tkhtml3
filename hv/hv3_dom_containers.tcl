@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_containers.tcl,v 1.8 2007/10/13 04:21:02 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_containers.tcl,v 1.9 2007/10/13 18:05:45 danielk1977 Exp $)} 1 }
 
 # This file contains the implementation of the two DOM specific
 # container objects:
@@ -229,7 +229,7 @@ namespace eval ::hv3::DOM {
       set nNode [$html search $sel -length]
       if {$nNode > 0} {
         if {$nNode == 1} {
-          list object [::hv3::dom::wrapWidgetNode $myDom [$myHtml search $sel]]
+          list object [::hv3::dom::wrapWidgetNode $myDom [$html search $sel]]
         } else {
           list object [list \
             ::hv3::DOM::NodeListC $myDom [list $html search $sel]

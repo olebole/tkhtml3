@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.30 2007/10/13 04:21:02 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.31 2007/10/13 18:05:45 danielk1977 Exp $)} 1 }
 
 #---------------------------------
 # List of DOM objects in this file:
@@ -288,7 +288,7 @@ namespace eval ::hv3::DOM {
   }
 
   dom_get Node {
-    set obj [list ::hv3::DOM::NodePrototype $myDom]
+    set obj [list ::hv3::DOM::NodePrototype $myDom dummy]
     list object $obj
   }
 
