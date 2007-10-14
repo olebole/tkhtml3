@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.33 2007/10/14 07:17:22 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.34 2007/10/14 12:02:14 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Core
@@ -272,7 +272,7 @@ set ::hv3::dom::code::WIDGET_NODE {
     # to return the HTMLDocument object there.
     set parent [$myNode parent]
     if {$parent ne ""} {
-      list object [::hv3::dom::wrapWidgetNode $myDom $parent]
+      list node [::hv3::dom::wrapWidgetNode $myDom $parent]
     } else {
       list null
     }

@@ -174,6 +174,13 @@ typedef struct SeeInterp SeeInterp;
 typedef struct SeeJsObject SeeJsObject;
 typedef struct SeeTimeout SeeTimeout;
 
+typedef struct NodeHack NodeHack;
+struct NodeHack {
+  SeeTclObject *pObj;
+  NodeHack *pParent;             /* Parent of this node */
+  int iNode;                     /* Node index */
+};
+
 /* Size of hash-table. This should be replaced with a dynamic hash 
  * table structure. 
  */
@@ -250,6 +257,7 @@ struct SeeTclObject {
 
     /* Used by the events sub-system (hv3events.c) */
     EventType *pTypeList;
+    NodeHack *nodehandle;        /* Non-zero if this is a "node" object */
 
     /* Used by the timer sub-system (hv3timeout.c). This pointer is only
      * ever used for objects of type Window, but space is allocated for
@@ -1032,6 +1040,28 @@ findOrCreateObject(pTclSeeInterp, pTclCommand, isGlobal)
     return (struct SEE_object *)pObject;
 }
 
+static struct SEE_object *
+createNode(pTclSeeInterp, pTclCommand)
+    SeeInterp *pTclSeeInterp;
+    Tcl_Obj *pTclCommand;
+{
+    Tcl_Interp *pTcl = pTclSeeInterp->pTclInterp;
+    SeeTclObject * p;
+
+    p = (SeeTclObject *)findOrCreateObject(pTclSeeInterp, pTclCommand, 0);
+    if (p->nodehandle == 0) {
+        Tcl_Command t;
+        Tcl_CmdInfo info;
+        t = Tcl_GetCommandFromObj(pTcl, p->apWord[2]);
+        assert(t);
+        Tcl_GetCommandInfoFromToken(t, &info);
+        p->nodehandle = info.objClientData;
+        ((NodeHack *)p->nodehandle)->pObj = p;
+    }
+    return (struct SEE_object *)p;
+}
+
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -1158,6 +1188,7 @@ objToValue(pInterp, pObj, pValue, pIsCacheable)
             int iChoice;
             #define TRANSIENT -124
             #define NATIVE    -123
+            #define NODE      -122
             struct ValueType {
                 char const *zType;
                 int eType;
@@ -1171,6 +1202,7 @@ objToValue(pInterp, pObj, pValue, pIsCacheable)
                 {"object",    SEE_OBJECT, 1},
                 {"transient", TRANSIENT, 1},
                 {"native",    NATIVE, 1},
+                {"node",      NODE, 1},
                 {0, 0, 0}
             };
 
@@ -1243,6 +1275,12 @@ objToValue(pInterp, pObj, pValue, pIsCacheable)
                     struct SEE_object *pObject = 
                         findOrCreateObject(pInterp, apElem[1], 0);
                     SEE_SET_OBJECT(pValue, pObject);
+                    break;
+                }
+
+                case NODE: {
+                    struct SEE_object *p = createNode(pInterp, apElem[1]);
+                    SEE_SET_OBJECT(pValue, (struct SEE_object *)p);
                     break;
                 }
 
@@ -1734,6 +1772,7 @@ interpCmd(clientData, pTclInterp, objc, objv)
         INTERP_CLEAR,
 
         INTERP_CLASS,
+        INTERP_NODE,
 
         /* Object management */
         INTERP_MAKE_TRANSIENT,        /* Declare an object eligible for GC */
@@ -1763,6 +1802,7 @@ interpCmd(clientData, pTclInterp, objc, objv)
         {"clear",       INTERP_CLEAR,       1, 1, "JAVASCRIPT-VALUE"},
 
         {"class",       INTERP_CLASS,       2, 2, "CLASS-NAME PROPERTY-LIST"},
+        {"node",        INTERP_NODE,        1, 1, "TCL-COMMAND"},
 
         /* Events */
         {"dispatch",    INTERP_DISPATCH, 2, 2, "TARGET-COMMAND EVENT-COMMAND"},
@@ -1839,6 +1879,14 @@ interpCmd(clientData, pTclInterp, objc, objv)
          */
         case INTERP_CLASS: {
             rc = interpClass(pTclSeeInterp, objc, objv);
+            break;
+        }
+
+        /*
+         * seeInterp class CLASS-NAME LIST-OF-PROPERTIES
+         */
+        case INTERP_NODE: {
+            createNode(pTclSeeInterp, objv[2]);
             break;
         }
 

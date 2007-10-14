@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.38 2007/10/14 09:59:18 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.39 2007/10/14 12:02:14 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Html
@@ -1185,7 +1185,9 @@ namespace eval ::hv3::DOM {
   Inherit HTMLElement {
     dom_get parentNode {
       if {$myNode eq [[$myNode html] node]} {
-        list object [node_to_document $myDom $myNode]
+        # TODO: Maybe this is not quite cacheable... But caching it saves
+        # calling this code for every single event propagation....
+        list cache object [node_to_document $myDom $myNode]
       } else {
         list null
       }

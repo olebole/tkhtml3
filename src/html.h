@@ -292,9 +292,11 @@ struct HtmlTaggedRegion {
  * node is carried by the derived classes HtmlTextNode and HtmlElementNode.
  */
 struct HtmlNode {
-    Html_u8 eTag;                  /* Tag type */
+    ClientData clientData;
     HtmlNode *pParent;             /* Parent of this node */
     int iNode;                     /* Node index */
+    Html_u8 eTag;                  /* Tag type */
+
     int iSnapshot;                 /* Last changed snapshot */
     HtmlNodeCmd *pNodeCmd;         /* Tcl command for this node */
 

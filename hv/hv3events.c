@@ -292,6 +292,31 @@ stopPropagationFunc(interp, self, thisobj, argc, argv, res)
     setBooleanFlag(interp, thisobj, STOP_PROPAGATION, 1);
 }
 
+static struct SEE_object *
+getParentNode(interp, p)
+    struct SEE_interpreter *interp;
+    struct SEE_object *p;
+{
+    struct SEE_value val;
+
+    if (p->objectclass == getVtbl()){
+        NodeHack *pNode = ((SeeTclObject *)p)->nodehandle;
+        if (pNode && pNode->pParent && pNode->pParent->pObj) {
+            return (struct SEE_object *)pNode->pParent->pObj;
+        }
+        if (pNode && pNode->pParent == 0 && pNode->iNode < 0){
+            return 0;
+        }
+        if (pNode && pNode->pParent == 0) {
+            /* Return document... */
+        }
+    }
+
+    SEE_OBJECT_GETA(interp, p, "parentNode", &val);
+    if (SEE_VALUE_GET_TYPE(&val) != SEE_OBJECT) return 0;
+    return val.u.object;
+}
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -388,9 +413,8 @@ dispatchEventFunc(interp, self, thisobj, argc, argv, res)
     if (isBubbler) {
         struct SEE_object *p = thisobj;
         while (1) {
-            SEE_OBJECT_GETA(interp, p, "parentNode", &val);
-            if (SEE_VALUE_GET_TYPE(&val) != SEE_OBJECT) break;
-
+            struct SEE_object *pObj = getParentNode(interp, p);
+            if (!pObj) break;
             if (nObj == nObjAlloc) {
                 int nNew;
                 struct SEE_object **aNew;
@@ -403,9 +427,8 @@ dispatchEventFunc(interp, self, thisobj, argc, argv, res)
                 }
                 apObj = aNew;
             }
-
-            p = val.u.object;
-            apObj[nObj++] = p;
+            apObj[nObj++] = pObj;
+            p = pObj;
         }
     }
 

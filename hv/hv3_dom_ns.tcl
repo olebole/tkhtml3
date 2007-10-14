@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.31 2007/10/13 18:05:45 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.32 2007/10/14 12:02:14 danielk1977 Exp $)} 1 }
 
 #---------------------------------
 # List of DOM objects in this file:
@@ -256,7 +256,7 @@ namespace eval ::hv3::DOM {
   #     Window.document
   #
   dom_get document {
-    list object [list ::hv3::DOM::HTMLDocument $myDom $myHv3]
+    list cache object [list ::hv3::DOM::HTMLDocument $myDom $myHv3]
   }
 
   # The "Image" property object. This is so that scripts can
