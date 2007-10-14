@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_frameset.tcl,v 1.15 2007/09/18 11:27:46 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_frameset.tcl,v 1.16 2007/10/14 07:40:04 danielk1977 Exp $)} 1 }
 
 # This file contains code for implementing HTML frameset documents in Hv3. 
 #
@@ -327,6 +327,7 @@ snit::widget ::hv3::frameset {
   destructor {
     $myHv3 configure -scrollbarpolicy auto
     bind [$myHv3 html] <Configure> ""
+    after cancel [list $self Sizecallback]
   }
 
   method ApplyFrameAttrs {pan node} {
