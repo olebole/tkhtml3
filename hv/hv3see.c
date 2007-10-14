@@ -927,6 +927,46 @@ createTransient(pTclSeeInterp, pTclCommand)
 /*
  *---------------------------------------------------------------------------
  *
+ * createNative --
+ *
+ * Results:
+ *     Pointer to SEE_object structure.
+ *
+ * Side effects:
+ *
+ *---------------------------------------------------------------------------
+ */
+static int objToValue(SeeInterp *, Tcl_Obj *, struct SEE_value *, int *);
+static struct SEE_object *
+createNative(pTclSeeInterp, pTclList)
+    SeeInterp *pTclSeeInterp;
+    Tcl_Obj *pTclList;
+{
+    Tcl_Interp *pTcl = pTclSeeInterp->pTclInterp;
+    struct SEE_interpreter *pSee = (struct SEE_interpreter *)pTclSeeInterp;
+    int nElem = 0;
+    Tcl_Obj **apElem = 0;
+    int rc;
+    int ii;
+    struct SEE_object *pRet;
+
+    rc = Tcl_ListObjGetElements(pTcl, pTclList, &nElem, &apElem);
+    if (rc != TCL_OK) return 0;
+
+    pRet = (struct SEE_object *)SEE_native_new(pSee);
+    for (ii = 0; ii < (nElem-1); ii += 2){
+      struct SEE_value value;
+      rc = objToValue(pTclSeeInterp, apElem[ii+1], &value, 0);
+      if (rc != TCL_OK) return 0;
+      SEE_OBJECT_PUTA(pSee, pRet, Tcl_GetString(apElem[ii]), &value, 0);
+    }
+
+    return pRet;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * findOrCreateObject --
  *
  * Results:
@@ -1117,6 +1157,7 @@ objToValue(pInterp, pObj, pValue, pIsCacheable)
         } else {
             int iChoice;
             #define TRANSIENT -124
+            #define NATIVE    -123
             struct ValueType {
                 char const *zType;
                 int eType;
@@ -1129,6 +1170,7 @@ objToValue(pInterp, pObj, pValue, pIsCacheable)
                 {"boolean",   SEE_BOOLEAN, 1},
                 {"object",    SEE_OBJECT, 1},
                 {"transient", TRANSIENT, 1},
+                {"native",    NATIVE, 1},
                 {0, 0, 0}
             };
 
@@ -1207,6 +1249,13 @@ objToValue(pInterp, pObj, pValue, pIsCacheable)
                 case TRANSIENT: {
                     struct SEE_object *pObject = 
                         createTransient(pInterp, apElem[1]);
+                    SEE_SET_OBJECT(pValue, pObject);
+                    break;
+                }
+
+                case NATIVE: {
+                    struct SEE_object *pObject;
+                    pObject = createNative(pInterp, apElem[1]);
                     SEE_SET_OBJECT(pValue, pObject);
                     break;
                 }
@@ -2041,7 +2090,7 @@ tclCallOrConstruct(zMethod, pInterp, pObj, pThis, argc, argv, pRes)
     struct SEE_object *pThis;
     int argc;
     struct SEE_value **argv;
-    struct SEE_string *pRes;
+    struct SEE_value *pRes;
 {
     SeeTclObject *p = (SeeTclObject *)pObj;
     SeeInterp *pTclSeeInterp = (SeeInterp *)pInterp;
@@ -2268,7 +2317,7 @@ SeeTcl_Construct(pInterp, pObj, pThis, argc, argv, pRes)
     struct SEE_object *pThis;
     int argc;
     struct SEE_value **argv;
-    struct SEE_string *pRes;
+    struct SEE_value *pRes;
 {
     tclCallOrConstruct("Construct", pInterp, pObj, pThis, argc, argv, pRes);
 }
@@ -2279,7 +2328,7 @@ SeeTcl_Call(pInterp, pObj, pThis, argc, argv, pRes)
     struct SEE_object *pThis;
     int argc;
     struct SEE_value **argv;
-    struct SEE_string *pRes;
+    struct SEE_value *pRes;
 {
     tclCallOrConstruct("Call", pInterp, pObj, pThis, argc, argv, pRes);
 }

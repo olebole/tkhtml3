@@ -467,7 +467,8 @@ eventDispatchCmd(clientData, pTcl, objc, objv)
     int rc = TCL_OK;
 
     pTarget = findOrCreateObject(pTclSeeInterp, objv[2], 0);
-    pEvent = createTransient(pTclSeeInterp, objv[3]);
+    // pEvent = createTransient(pTclSeeInterp, objv[3]);
+    pEvent = createNative(pTclSeeInterp, objv[3]);
     assert(Tcl_IsShared(objv[3]));
 
     SEE_TRY (p, try_ctxt) {

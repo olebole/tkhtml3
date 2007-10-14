@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.30 2007/10/13 18:05:45 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.31 2007/10/14 09:59:18 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # DOM Level 2 Events.
@@ -36,88 +36,168 @@ namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.30 2007/10/13 18:0
 #
 #-------------------------------------------------------------------------
 
+############################################################################
+# DOCUMENTATION FOR EVENTS SUB-SYSTEM
+#
 if {$::hv3::dom::CREATE_DOM_DOCS} {
-namespace eval ::hv3::DOM::macros {
-  proc ER {type target bubbles cancellable eventtype} {
-    return "
-      <TR><TD width=16ex>$type 
-          <TD>$target 
-          <TD width=1%>$bubbles 
-          <TD width=1%>$cancellable 
-          <TD width=1%><A href=$eventtype>$eventtype</A>
-    "
+  namespace eval ::hv3::DOM::macros {
+    proc ER {type target bubbles cancellable eventtype} {
+      return "
+        <TR><TD width=16ex>$type 
+            <TD>$target 
+            <TD width=1%>$bubbles 
+            <TD width=1%>$cancellable 
+            <TD width=1%><A href=$eventtype>$eventtype</A>
+      "
+    }
+    proc ::hv3::DOM::docs::eventoverview {} [subst -novar { return {
+    <HTML>
+      <HEAD>
+        <LINK rel=stylesheet href="home://dom/style.css">
+        <STYLE>
+          TABLE          { margin: 0 1cm; width: 100% }
+          H1             { margin-left: auto; margin-right: auto }
+          TH             { white-space: nowrap }
+        </STYLE>
+    
+        <TITLE>Overview of Events</TITLE>
+      </HEAD>
+    
+      <H1>Hv3 Events Reference</H1>
+      <P>
+        This document describes the way Hv3 dispatches events for handling
+        by javascript programs embedded in web-pages. It also describes the
+        <A>specific set of events supported by Hv3</A>.
+      <P>
+        In general, Hv3 supports those events specified by Chapter 18 of the 
+        <A href="http://www.w3.org/TR/html401/">HTML 4.01 standard</A>. 
+        The processing model for events is based on the W3C
+        <A href="http://www.w3.org/TR/DOM-Level-2-Events/">DOM Level 2 Events
+        </A> recomendation.
+    
+      <H2>Event Processing in Hv3</H2>
+    
+      <H2 name="types">Supported Event Types</H2>
+    
+      <H3>Document Events</H3>
+    
+      <TABLE border=1>
+        <TR><TH>Event<TH>Target<TH>Bubbles<TH>Cancellable<TH>Event Object Type
+        [ER   Load    Window 0 0 Event]
+        [ER   Unload {} {} {} {}]
+      </TABLE>
+    
+      <H3>Mouse Events</H3>
+      <TABLE border=1>
+        <TR><TH>Event<TH>Target<TH>Bubbles<TH>Cancellable<TH>Event Object Type
+        [ER Click     {All elements and text} 1 1 MouseEvent]
+        [ER Dblclick  {} {} {} {}]
+        [ER Mousedown {All HTMLElement, Text} 1 1 MouseEvent]
+        [ER Mouseup   {All HTMLElement, Text} 1 1 MouseEvent]
+        [ER Mouseover {All HTMLElement, Text} 1 1 MouseEvent]
+        [ER Mousemove {All HTMLElement, Text} 1 0 MouseEvent]
+        [ER Mouseout  {All HTMLElement, Text} 1 1 MouseEvent]
+      </TABLE>
+    
+      <H3>HTML Forms Related Events</H3>
+      <TABLE border=1>
+        <TR><TH>Event<TH>Target<TH>Bubbles<TH>Cancellable<TH>Event Object Type
+        [ER Focus  {Form controls that take the focus} 0 0 Event]
+        [ER Blur   {Form controls that take the focus} 0 0 Event]
+        [ER Submit {FORM elements} 1 0 Event]
+        [ER Reset  {FORM elements} 1 0 Event]
+        [ER Select {Form controls that generate text fields} 1 0 Event]
+        [ER Change {Form controls with state} 1 0 Event]
+      </TABLE>
+    
+      <H3>Keyboard Events</H3>
+      <TABLE border=1>
+        <TR><TH>Event<TH>Target<TH>Bubbles<TH>Cancellable<TH>Event Object Type
+        [ER Keypress  {} {} {} {}]
+        [ER Keydown   {} {} {} {}]
+        [ER Keyup     {} {} {} {}]
+      </TABLE>
+    
+    </HTML>
+    }}]
   }
-  proc ::hv3::DOM::docs::eventoverview {} [subst -novar { return {
-  <HTML>
-    <HEAD>
-      <LINK rel=stylesheet href="home://dom/style.css">
-      <STYLE>
-        TABLE          { margin: 0 1cm; width: 100% }
-        H1             { margin-left: auto; margin-right: auto }
-        TH             { white-space: nowrap }
-      </STYLE>
+
+
+  ::hv3::dom2::stateless Event {
   
-      <TITLE>Overview of Events</TITLE>
-    </HEAD>
+    -- Constant value 1.
+    dom_get CAPTURING_PHASE {}
+    -- Constant value 2.
+    dom_get AT_TARGET       {}
+    -- Constant value 3.
+    dom_get BUBBLING_PHASE  {}
   
-    <H1>Hv3 Events Reference</H1>
-    <P>
-      This document describes the way Hv3 dispatches events for handling
-      by javascript programs embedded in web-pages. It also describes the
-      <A>specific set of events supported by Hv3</A>.
-    <P>
-      In general, Hv3 supports those events specified by Chapter 18 of the 
-      <A href="http://www.w3.org/TR/html401/">HTML 4.01 standard</A>. 
-      The processing model for events is based on the W3C
-      <A href="http://www.w3.org/TR/DOM-Level-2-Events/">DOM Level 2 Events</A>
-      recomendation.
+    dom_get type       {}
+    dom_get bubbles    {}
+    dom_get cancelable {}
   
-    <H2>Event Processing in Hv3</H2>
+    -- This property is supposed to return a timestamp in milliseconds
+    -- from the epoch. But the DOM spec notes that this information is not
+    -- available on all systems, in which case the property should return 0. 
+    -- Hv3 always returns 0.
+    dom_get timestamp  {}
   
-    <H2 name="types">Supported Event Types</H2>
+    dom_call_todo initEvent
+  }
   
-    <H3>Document Events</H3>
+  ::hv3::dom2::stateless UIEvent {
+    Inherit Event   {}
+    dom_get view    {}
+    dom_get detail  {}
+    dom_call_todo initUIEvent 
+  }
+  ::hv3::dom2::stateless MouseEvent {
+    Inherit UIEvent { }
   
-    <TABLE border=1>
-      <TR><TH>Event <TH>Target <TH>Bubbles <TH>Cancellable <TH>Event Object Type
-      [ER   Load    Window 0 0 Event]
-      [ER   Unload {} {} {} {}]
-    </TABLE>
+    dom_call_todo initMouseEvent
   
-    <H3>Mouse Events</H3>
-    <TABLE border=1>
-      <TR><TH>Event <TH>Target <TH>Bubbles <TH>Cancellable <TH>Event Object Type
-      [ER Click     {All elements and text} 1 1 MouseEvent]
-      [ER Dblclick  {} {} {} {}]
-      [ER Mousedown {All HTMLElement, Text} 1 1 MouseEvent]
-      [ER Mouseup   {All HTMLElement, Text} 1 1 MouseEvent]
-      [ER Mouseover {All HTMLElement, Text} 1 1 MouseEvent]
-      [ER Mousemove {All HTMLElement, Text} 1 0 MouseEvent]
-      [ER Mouseout  {All HTMLElement, Text} 1 1 MouseEvent]
-    </TABLE>
+    dom_get button  {}
   
-    <H3>HTML Forms Related Events</H3>
-    <TABLE border=1>
-      <TR><TH>Event <TH>Target <TH>Bubbles <TH>Cancellable <TH>Event Object Type
-      [ER Focus  {Form controls that take the focus} 0 0 Event]
-      [ER Blur   {Form controls that take the focus} 0 0 Event]
-      [ER Submit {FORM elements} 1 0 Event]
-      [ER Reset  {FORM elements} 1 0 Event]
-      [ER Select {Form controls that generate text fields} 1 0 Event]
-      [ER Change {Form controls with state} 1 0 Event]
-    </TABLE>
+    dom_get clientX {}
+    dom_get clientY {}
   
-    <H3>Keyboard Events</H3>
-    <TABLE border=1>
-      <TR><TH>Event <TH>Target <TH>Bubbles <TH>Cancellable <TH>Event Object Type
-      [ER Keypress  {} {} {} {}]
-      [ER Keydown   {} {} {} {}]
-      [ER Keyup     {} {} {} {}]
-    </TABLE>
+    dom_get screenX {}
+    dom_get screenY {}
   
-  </HTML>
-  }}]
-}}
+    dom_get ctrlKey  {}
+    dom_get shiftKey {}
+    dom_get altKey   {}
+    dom_get metaKey  {}
+  
+    dom_get relatedTarget  { list object $state(-relatedtarget) }
+  
+    -- This property is for Gecko compatibility only. It is always equal
+    -- to the value of the <I>button</I> property plus one.
+    dom_get which  { list number [expr {$state(-button) + 1}]}
+  }
+  ::hv3::dom2::stateless MutationEvent {
+    Inherit Event { }
+  
+    dom_call_todo initMutationEvent 
+  
+    -- Constant value 1.
+    dom_get MODIFICATION {}
+    -- Constant value 2.
+    dom_get ADDITION     {}
+    -- Constant value 3.
+    dom_get REMOVAL      {}
+  
+    dom_todo relatedNode
+    dom_todo prevValue
+    dom_todo newValue
+    dom_todo attrName
+    dom_todo attrChange
+  }
+
+  namespace delete ::hv3::DOM::macros
+}
+# END OF DOCUMENTATION
+############################################################################
 
 # The $HTML_Events_List variable contains a list of HTML events 
 # handled by this module. This is used at runtime by HTMLElement 
@@ -177,106 +257,6 @@ lappend ::hv3::dom::HTML_Events_List    load unload
 # to javascript functions.
 foreach E $::hv3::dom::HTML_Events_List {
   set ::hv3::DOM::HTMLElement_EventAttrArray(on${E}) 1
-}
-
-set ::hv3::dom::code::EVENT {
-
-  # Need a state-array to accomadate initEvent().
-  #
-  dom_parameter myStateArray
-
-  -- Constant value 1.
-  dom_get CAPTURING_PHASE { list number 1 }
-  -- Constant value 2.
-  dom_get AT_TARGET       { list number 2 }
-  -- Constant value 3.
-  dom_get BUBBLING_PHASE  { list number 3 }
-
-  # Read-only attributes to access the values set by initEvent().
-  #
-  dom_get type       { list string  $state(myEventType) }
-  dom_get bubbles    { list boolean $state(myCanBubble) }
-  dom_get cancelable { list boolean $state(myCancelable) }
-
-  -- This property is supposed to return a timestamp in milliseconds
-  -- from the epoch. But the DOM spec notes that this information is not
-  -- available on all systems, in which case the property should return 0. 
-  -- Hv3 always returns 0.
-  dom_get timestamp  { list number 0 }
-
-  dom_call_todo initEvent
-
-  dom_finalize {
-    # puts "Unsetting event state $myStateArray"
-    array unset state
-  }
-}
-
-namespace eval ::hv3::DOM {
-  proc Event_initEvent {myStateArray eventType canBubble cancelable} {
-    upvar #0 $myStateArray state
-    set state(myEventType) $eventType
-    set state(myCanBubble) $canBubble
-    set state(myCancelable) $cancelable
-  }
-}
-
-set ::hv3::dom::code::MOUSEEVENT {
-  dom_call_todo initMouseEvent
-
-  dom_get button { list number $state(-button) }
-
-  dom_get clientX { list number $state(-x) }
-  dom_get clientY { list number $state(-y) }
-
-  dom_get screenX { list number $state(-screenx) }
-  dom_get screenY { list number $state(-screeny) }
-
-  dom_get ctrlKey  { list boolean $state(-ctrlkey) }
-  dom_get shiftKey { list boolean $state(-shiftkey) }
-  dom_get altKey   { list boolean $state(-altkey) }
-  dom_get metaKey  { list boolean $state(-metakey) }
-
-  dom_get relatedTarget  { list object $state(-relatedtarget) }
-
-  # Mozilla extensions:
-  #
-  dom_get which  { list number [expr {$state(-button) + 1}]}
-}
-
-set ::hv3::dom::code::UIEVENT {
-  dom_call_todo initUIEvent 
-  dom_todo view
-  dom_todo detail
-  dom_call_todo initUIEvent 
-}
-
-set ::hv3::dom::code::MUTATIONEVENT {
-  dom_call_todo initMutationEvent 
-
-  dom_get MODIFICATION { list number 1 }
-  dom_get ADDITION     { list number 2 }
-  dom_get REMOVAL      { list number 3 }
-
-  dom_todo relatedNode
-  dom_todo prevValue
-  dom_todo newValue
-  dom_todo attrName
-  dom_todo attrChange
-}
-
-::hv3::dom2::stateless Event         %EVENT%
-::hv3::dom2::stateless UIEvent {
-  Inherit Event   { %EVENT% }
-  %UIEVENT%
-}
-::hv3::dom2::stateless MouseEvent {
-  Inherit UIEvent { %EVENT% %UIEVENT% }
-  %MOUSEEVENT%
-}
-::hv3::dom2::stateless MutationEvent {
-  Inherit Event { %EVENT% }
-  %MUTATIONEVENT%
 }
 
 #-------------------------------------------------------------------------
@@ -348,35 +328,44 @@ namespace eval ::hv3::dom {
   #     $EventTarget -> The DOM object implementing the EventTarget interface
   #     $x, $y       -> Widget coordinates for the event
   #
-  proc ::hv3::dom::dispatchMouseEvent {dom type js_obj x y extra} {
-  
+  proc dispatchMouseEvent {dom type js_obj x y extra} {
     set isCancelable $::hv3::dom::MouseEventType($type)
-  
-    # Create and initialise the event object for this event.
-    set arrayvar "::hv3::DOM::ea[incr ::hv3::dom::next_array]"
-    upvar #0 $arrayvar eventstate
-    ::hv3::DOM::Event_initEvent $arrayvar $type 1 $isCancelable
-    set eventstate(-x) $x
-    set eventstate(-y) $y
-    set eventstate(-button)   0
-    set eventstate(-ctrlkey)  0
-    set eventstate(-shiftkey) 0
-    set eventstate(-altkey)   0
-    set eventstate(-metakey)  0
 
-    set event [list ::hv3::DOM::MouseEvent $dom $arrayvar]
-    Dispatch [$dom see] $js_obj $event
+    # Dispatch an event of type MouseEvent. The properties are broken into
+    # the following blocks:
+    #
+    #   DOM Event
+    #   DOM UIEvent
+    #   DOM MouseEvent
+    #   Gecko compatibility
+    #
+    Dispatch [$dom see] $js_obj [list                    \
+      CAPTURING_PHASE {number 1}                         \
+      AT_TARGET       {number 2}                         \
+      BUBBLING_PHASE  {number 3}                         \
+      type            [list string $type]                \
+      bubbles         {boolean 1}                        \
+      cancelable      [list boolean $isCancelable]       \
+      timestamp       {number 0}                         \
+\
+      view            undefined                          \
+      detail          undefined                          \
+\
+      altKey          undefined                          \
+      button          undefined                          \
+      clientX         [list number $x]                   \
+      clientY         [list number $y]                   \
+      ctrlKey         undefined                          \
+      metaKey         undefined                          \
+      relatedTarget   undefined                          \
+      screenX         undefined                          \
+      screenY         undefined                          \
+      shiftKey        undefined                          \
+\
+      which           undefined                          \
+    ]
   }
     
-  
-  # Dispatch --
-  #
-  proc Dispatch {see js_obj event_obj} {
-    foreach {isHandled isPrevented} [$see dispatch $js_obj $event_obj] {}
-    if {$isPrevented} {return "prevent"}
-    if {$isHandled}   {return "handled"}
-    return ""
-  }
   
   # dispatchHtmlEvent --
   #
@@ -390,17 +379,27 @@ namespace eval ::hv3::dom {
   #       submit
   #       change
   #
-  set ::hv3::dom::next_array 1
   proc ::hv3::dom::dispatchHtmlEvent {dom type js_obj} {
-    set properties $::hv3::dom::HtmlEventType($type)
-  
-    # Create and initialise the event object for this event.
-    set arrayvar "::hv3::DOM::ea[incr ::hv3::dom::next_array]"
-    eval ::hv3::DOM::Event_initEvent $arrayvar $type $properties
-  
-    # Dispatch!
-    set event [list ::hv3::DOM::Event $dom $arrayvar]
-    Dispatch [$dom see] $js_obj $event
+    foreach {bubbles isCancelable} $::hv3::dom::HtmlEventType($type) {}
+ 
+    Dispatch [$dom see] $js_obj [list                       \
+      CAPTURING_PHASE {number 1}                            \
+      AT_TARGET       {number 2}                            \
+      BUBBLING_PHASE  {number 3}                            \
+      type            [list string $type]                   \
+      bubbles         [list boolean $bubbles]               \
+      cancelable      [list boolean $isCancelable]            \
+      timestamp       {number 0}                            \
+    ]
+  }
+
+  # Dispatch --
+  #
+  proc Dispatch {see js_obj event_obj} {
+    foreach {isHandled isPrevented} [$see dispatch $js_obj $event_obj] {}
+    if {$isPrevented} {return "prevent"}
+    if {$isHandled}   {return "handled"}
+    return ""
   }
 }
 

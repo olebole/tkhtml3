@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.37 2007/10/14 07:17:22 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.38 2007/10/14 09:59:18 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Html
@@ -1299,29 +1299,14 @@ namespace eval ::hv3::dom {
     frame       ::hv3::DOM::HTMLFrameElement
   }
 
-  proc getHTMLElementClassList {} {
-return [list]
-    ::variable TagToNodeTypeMap
-    set ret [list]
-    foreach e [array names TagToNodeTypeMap] {
-      lappend ret [string range $TagToNodeTypeMap($e) 12 end]
-    }
-    set ret
-  }
-
   # Create a DOM HTMLElement or Text object in DOM $dom (type ::hv3::dom)
   # wrapped around the html-widget $node.
   #
   proc wrapWidgetNode {dom node} {
     ::variable TagToNodeTypeMap
-
     set tag [$node tag]
-
     set objtype ::hv3::DOM::HTMLElement
-    catch {
-      set objtype $TagToNodeTypeMap($tag)
-    }
-
+    catch { set objtype $TagToNodeTypeMap($tag) }
     list $objtype $dom $node
   }
 }
