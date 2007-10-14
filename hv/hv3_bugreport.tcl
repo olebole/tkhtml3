@@ -142,6 +142,7 @@ namespace eval ::hv3::bugreport {
 
   proc submitform {status hv3} {
     set caption_field [[$hv3 search {[name="t"]}] replace]
+    set contact_field [[$hv3 search {[name="c"]}] replace]
 
     set v [$caption_field value]
     if {[string length $v]>60 || [string length $v]==0} {
@@ -149,6 +150,11 @@ namespace eval ::hv3::bugreport {
           {The Caption field should be between 1 and 60 characters in length} \
           {} 0 OK
       return
+    }
+
+    set c [$contact_field value]
+    if {$c eq ""} {
+      $contact_field dom_value "Anonymous Hv3 User"
     }
 
     set uri [[[$hv3 search #uritext] replace] value]

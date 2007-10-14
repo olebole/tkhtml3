@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.86 2007/10/07 11:09:02 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.87 2007/10/14 07:17:22 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -431,6 +431,37 @@ proc ::hv3::control_to_form {node} {
       $hull configure -activebackground $bg
       $hull configure -highlightcolor $bg
     }
+  }
+
+  #---------------------------------------------------------------------
+  # START OF DOM FUNCTIONALITY
+  #
+  # Below this point are some methods used by the DOM class 
+  # HTMLInputElement. None of this is used unless scripting is enabled.
+  #
+
+  # Get/set on the DOM "checked" attribute.
+  #
+  method dom_checked {args} {
+    if {[llength $args] == 1} {
+      if {[lindex $args 0]} {
+        set $myVarName $myNode
+      } else {
+        set $myVarName ""
+      }
+    }
+    return [expr {[set $myVarname] eq $myNode}]
+  }
+
+  method dom_select  {} { }
+  method dom_focus {} { }
+  method dom_blur  {} { }
+
+  method dom_click {} {
+    set x [expr [winfo width $win]/2]
+    set y [expr [winfo height $win]/2]
+    event generate $win <ButtonPress-1> -x $x -y $y
+    event generate $win <ButtonRelease-1> -x $x -y $y
   }
 }
 

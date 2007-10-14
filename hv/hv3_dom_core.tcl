@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.32 2007/10/13 18:05:45 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.33 2007/10/14 07:17:22 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Core
@@ -242,7 +242,7 @@ set ::hv3::dom::code::DOCUMENT {
     # someone is going to pass ".id" and wonder why all the elements with
     # the "class" attribute set to "id" are returned.
     #
-    set nl [list ::hv3::DOM::NodeListS $myDom [list [$myHv3 html] search $tag]
+    set nl [list ::hv3::DOM::NodeListS $myDom [list [$myHv3 html] search $tag]]
     list transient $nl
   }
 }

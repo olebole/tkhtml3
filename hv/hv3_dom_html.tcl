@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.36 2007/10/13 18:05:45 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.37 2007/10/14 07:17:22 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Html
@@ -129,7 +129,7 @@ set BaseList {DocumentEvent}
     set selector [subst -nocommands {[name="$name"]}]
     set nl [list ::hv3::DOM::NodeListS $myDom [
       list [$myHv3 html] search $selector
-    ]
+    ]]
     list transient $nl
   }
 
@@ -1129,7 +1129,7 @@ namespace eval ::hv3::DOM {
   element_attr hspace
 
   dom_get isMap { list boolean [::hv3::boolean_attr $myNode ismap false] }
-  dom_put -string isMap val { ::hv3::put_boolean_attr $myNode ismap $val] }
+  dom_put -string isMap val { ::hv3::put_boolean_attr $myNode ismap $val }
 
   element_attr longDesc -attribute longdesc;
   element_attr src;
