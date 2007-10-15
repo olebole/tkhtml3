@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.151 2007/10/09 16:59:29 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.152 2007/10/15 10:38:27 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -1317,12 +1317,12 @@ HtmlTreeAddElement(pTree, eType, pAttr, iOffset)
 
         default: {
             int eCurrentType = HtmlNodeTagType(pCurrent);
-
-            if (
+            int isTableType = ((
                 eCurrentType == Html_TABLE || eCurrentType == Html_TBODY || 
                 eCurrentType == Html_TFOOT || eCurrentType == Html_THEAD || 
                 eCurrentType == Html_TR
-            ) {
+            ) ? 1 : 0);
+            if (isTableType && eType != Html_FORM) {
                 /* Need to add this node to the foster tree. */
                 pParsed = treeAddFosterElement(pTree, eType, pAttr);
             } else {
@@ -1346,7 +1346,8 @@ HtmlTreeAddElement(pTree, eType, pAttr, iOffset)
                 pCurrent->iNode = pTree->iNextNode++;
                 pParsed = pCurrent;
 
-                if (HtmlMarkupFlags(eType) & HTMLTAG_EMPTY) {
+                assert(!isTableType || eType == Html_FORM);
+                if ((HtmlMarkupFlags(eType) & HTMLTAG_EMPTY) || isTableType) {
                     nodeHandlerCallbacks(pTree, pCurrent);
                     pCurrent = HtmlNodeParent(pCurrent);
                 }

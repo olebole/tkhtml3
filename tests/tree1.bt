@@ -87,13 +87,13 @@ proc body_tree_test {name doc} {
     </SCRIPT>
   }
 
-  browsertest $name "
+  browsertest $name [string trim "
     $body_tree_function
     $doc
     <SCRIPT>
       function browsertest () { return dom_tree() }
     </SCRIPT>
-  "
+  "]
 
 #  ::browsertest::do_test $name -timeout 10000000 -html [subst {
 #    $body_tree_function
@@ -159,8 +159,8 @@ body_tree_test tables.14 { <BODY> <TABLE><DIV><DIV><SPAN></DIV><SPAN> }
 
 # This structure is found in the mail.yahoo.com application.
 #
-body_tree_test tables.15 { <TABLE><FORM><TR><FORM><TR></TABLE> }
-body_tree_test tables.16 { <TABLE><TBODY><FORM><TR><FORM><TR></TABLE> }
+body_tree_test tables.15 { <TABLE><FORM><TR><TR></TABLE> }
+body_tree_test tables.16 { <TABLE><TBODY><FORM><TR><TR></TABLE> }
 
 body_tree_test tree.1 { <BODY> <DIV> }
 body_tree_test attr.1 { <BODY> <DIV id="two"> hello }

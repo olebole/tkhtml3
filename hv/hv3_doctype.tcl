@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_doctype.tcl,v 1.7 2007/06/26 14:41:27 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_doctype.tcl,v 1.8 2007/10/15 10:38:27 danielk1977 Exp $)} 1 }
 
 namespace eval hv3 {}
 
@@ -138,8 +138,6 @@ proc ::hv3::sniff_doctype {text pIsXhtml} {
   if {[string first xhtml $Identifier] >= 0} {
     set isXHTML 1
   }
-
-
   if {$Availability eq "public"} {
     set s [expr [string length $Url] > 0]
     if {
