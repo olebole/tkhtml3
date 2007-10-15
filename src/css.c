@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.125 2007/10/03 17:46:37 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.126 2007/10/15 12:41:10 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -1900,6 +1900,7 @@ cssGetToken(z, n, pLen)
     switch( z[0] ){
         case ' ':
         case '\n':
+        case '\r':
         case '\t': {
             /* Collapse any contiguous whitespace to a single token */
             int i;
