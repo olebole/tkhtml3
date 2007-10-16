@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.35 2007/10/13 18:05:45 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.36 2007/10/16 10:01:53 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file implements infrastructure used to create the [proc] definitions
@@ -209,11 +209,6 @@ namespace eval ::hv3::dom2 {
         ]
       }
   
-      set hasproperty [list]
-      foreach {key value} $GET {
-        lappend hasproperty $key {return 1}
-      }
-  
       set PUT [list]
       foreach {zProp val} [array get compiler2::put_array] {
         foreach {isString zArg zCode} $val {}
@@ -294,6 +289,14 @@ namespace eval ::hv3::dom2 {
       ]]
   
       evalcode $proccode
+
+      if {![info exists zDefaultGet]} {
+        set property_list [concat \
+            [array names compiler2::get_array] \
+            [array names compiler2::call_array] \
+        ]
+        evalcode [list ::see::class ::hv3::DOM::$type_name $property_list]
+      } 
     }
   }
 

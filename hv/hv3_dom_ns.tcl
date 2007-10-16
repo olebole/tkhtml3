@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.32 2007/10/14 12:02:14 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.33 2007/10/16 10:01:53 danielk1977 Exp $)} 1 }
 
 #---------------------------------
 # List of DOM objects in this file:
@@ -250,11 +250,8 @@ namespace eval ::hv3::DOM {
 
   dom_call_todo scrollBy
 
-  #-----------------------------------------------------------------------
-  # Property implementations:
-  # 
-  #     Window.document
-  #
+  -- A reference to the [Ref HTMLDocument] object currently associated
+  -- with this window.
   dom_get document {
     list cache object [list ::hv3::DOM::HTMLDocument $myDom $myHv3]
   }
@@ -287,6 +284,7 @@ namespace eval ::hv3::DOM {
     ::hv3::dom::newXMLHttpRequest $myDom $myHv3
   }
 
+  -- A reference to the [Ref NodePrototype] object.
   dom_get Node {
     set obj [list ::hv3::DOM::NodePrototype $myDom dummy]
     list object $obj
@@ -307,29 +305,23 @@ namespace eval ::hv3::DOM {
   }
 
   -- A reference to the [Ref Navigator] object.
-  --
   dom_get navigator { 
     list object [list ::hv3::DOM::Navigator $myDom dummy]
   }
 
-  #-----------------------------------------------------------------------
-  # The "history" object.
-  #
+  -- A reference to the [Ref History] object.
   dom_get history { 
     list object [list ::hv3::DOM::History $myDom $myHv3]
   }
 
-  #-----------------------------------------------------------------------
-  # The "screen" object.
-  #
+  -- A reference to the [Ref Screen] object.
   dom_get screen { 
     list object [list ::hv3::DOM::Screen $myDom $myHv3]
   }
 
-  -- Returns a reference to the parent of the current window or subframe.
-  -- If the window does not have a parent, then a reference to the window
+  -- A reference to the parent of the current window or subframe. If the
+  -- window does not have a parent, then a reference to the window
   -- itself is returned.
-  --
   dom_get parent {
     set frame [winfo parent $myHv3]
     set parent [$frame parent_frame]
@@ -337,14 +329,23 @@ namespace eval ::hv3::DOM {
     list object [$myDom hv3_to_window [$parent hv3]]
   }
 
+  -- A reference to the outermost window in the frameset. For ordinary
+  -- HTML documents (not framesets) this property is set to a reference
+  -- to this object (same as the <I>window</I> and <I>self</I> properties).
   dom_get top { 
     set frame [winfo parent $myHv3]
     set top [$frame top_frame]
     list object [$myDom hv3_to_window [$top hv3]]
   }
+
+  -- A reference to this object.
   dom_get self   { list object [list ::hv3::DOM::Window $myDom $myHv3] }
+
+  -- A reference to this object.
   dom_get window { list object [list ::hv3::DOM::Window $myDom $myHv3] }
 
+  -- Set to a container of type [Ref FramesList] containing the sub-frames
+  -- of this window.
   dom_get frames {
     list object [list ::hv3::DOM::FramesList $myDom [winfo parent $myHv3]]
   }
@@ -354,7 +355,6 @@ namespace eval ::hv3::DOM {
   -- until the user dismisses the dialog.
   --
   -- Returns null.
-  --
   dom_call -string alert {THIS msg} {
     tk_dialog .alert "Super Dialog Alert!" $msg "" 0 OK
     return ""
@@ -367,7 +367,6 @@ namespace eval ::hv3::DOM {
   --
   -- If the user chooses the \"OK\" button, true is returned. If the
   -- user chooses \"Cancel\", false is returned.
-  --
   dom_call -string confirm {THIS msg} {
     set i [tk_dialog .alert "Super Dialog Alert!" $msg "" 0 OK Cancel]
     list boolean [expr {$i ? 0 : 1}]
@@ -378,7 +377,7 @@ namespace eval ::hv3::DOM {
   -- scrollbar if one is displayed.
   --
   -- <P class=refs>
-  -- [Ref http://developer.mozilla.org/en/docs/DOM:window.innerWidth]
+  -- [Ref http://developer.mozilla.org/en/docs/DOM:window.innerHeight]
   -- [Ref http://tkhtml.tcl.tk/cvstrac/tktview?tn=175]
   -- [Ref http://www.howtocreate.co.uk/tutorials/javascript/browserwindow]
   dom_get innerHeight { list number [winfo height $myHv3] }
@@ -387,8 +386,8 @@ namespace eval ::hv3::DOM {
   -- available for displaying HTML documents), including the vertical 
   -- scrollbar if one is displayed.
   --
-  --     http://developer.mozilla.org/en/docs/DOM:window.innerHeight
-  --
+  -- <P class=refs>
+  -- [Ref http://developer.mozilla.org/en/docs/DOM:window.innerWidth]
   dom_get innerWidth  { list number [winfo width $myHv3] }
 
   dom_events { list }

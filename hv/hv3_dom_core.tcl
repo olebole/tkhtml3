@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.34 2007/10/14 12:02:14 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.35 2007/10/16 10:01:53 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Core
@@ -301,7 +301,7 @@ set ::hv3::dom::code::WIDGET_NODE {
   }
 
   dom_get ownerDocument { 
-    list object [$myDom node_to_document $myNode]
+    list object [node_to_document $myDom $myNode]
   }
 }
 namespace eval ::hv3::DOM {

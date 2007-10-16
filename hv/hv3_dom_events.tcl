@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.31 2007/10/14 09:59:18 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.32 2007/10/16 10:01:53 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # DOM Level 2 Events.
@@ -132,8 +132,18 @@ if {$::hv3::dom::CREATE_DOM_DOCS} {
     -- Constant value 3.
     dom_get BUBBLING_PHASE  {}
   
+    -- A string containing the type of the event. For example 
+    -- <code>"click"</code> or <code>"load"</code>.
     dom_get type       {}
+
+    -- Boolean value. Set to true if the event bubbles. See 
+    -- [Ref eventoverview {the event overview}] for a table describing
+    -- which events bubble and which do not.
     dom_get bubbles    {}
+
+    -- Boolean value. Set to true if the event is cancelable. See 
+    -- [Ref eventoverview {the event overview}] for a table describing
+    -- which events are cancelable and which are not.
     dom_get cancelable {}
   
     -- This property is supposed to return a timestamp in milliseconds
@@ -156,25 +166,56 @@ if {$::hv3::dom::CREATE_DOM_DOCS} {
   
     dom_call_todo initMouseEvent
   
+    -- This attribute is populated for events of type 'mouseup', 'mousedown',
+    -- 'click' and 'dblclick' to indicate which mouse button the event
+    -- is related to. For mice configured for right-hand use, buttons are
+    -- numbered from right to left, starting with zero (left-click sets
+    -- this attribute to zero).
     dom_get button  {}
   
+    -- X coordinate where the event occurred relative to the top left
+    -- corner of the viewport.
     dom_get clientX {}
+
+    -- Y coordinate where the event occurred relative to the top left
+    -- corner of the viewport.
     dom_get clientY {}
   
+    -- X coordinate where the event occurred relative to the screen
+    -- coordinate system.
     dom_get screenX {}
+
+    -- Y coordinate where the event occurred relative to the screen
+    -- coordinate system.
     dom_get screenY {}
   
+    -- Boolean attribute. True if the 'ctrl' key was pressed when the
+    -- event was fired.
     dom_get ctrlKey  {}
+
+    -- Boolean attribute. True if the 'shift' key was pressed when the
+    -- event was fired.
     dom_get shiftKey {}
+
+    -- Boolean attribute. True if the 'alt' key was pressed when the
+    -- event was fired.
     dom_get altKey   {}
+
+    -- Boolean attribute. True if the 'meta' key was pressed when the
+    -- event was fired.
     dom_get metaKey  {}
   
-    dom_get relatedTarget  { list object $state(-relatedtarget) }
+    -- This attribute is populated for 'mouseover' and 'mouseout' events
+    -- only. For a 'mouseover' event, this property is set to the document
+    -- node that the pointer is exiting, if any. For 'mouseout', it is set to
+    -- the document node that the pointer is exiting (if any).
+    dom_get relatedTarget  {}
   
     -- This property is for Gecko compatibility only. It is always equal
     -- to the value of the <I>button</I> property plus one.
-    dom_get which  { list number [expr {$state(-button) + 1}]}
+    dom_get which  { }
   }
+
   ::hv3::dom2::stateless MutationEvent {
     Inherit Event { }
   

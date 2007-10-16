@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.39 2007/10/14 12:02:14 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.40 2007/10/16 10:01:53 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Html
@@ -727,7 +727,9 @@ namespace eval ::hv3::DOM {
   }
   proc HTMLElement_control_scope {dom node} {
     set w [$dom node_to_window $node]
-    set scope [list [::hv3::dom::wrapWidgetNode $dom $node] $w [$dom node_to_document $node]]
+    set scope [list \
+      [::hv3::dom::wrapWidgetNode $dom $node] $w [node_to_document $dom $node]
+    ]
 
     set f [lindex [::hv3::get_form_nodes $node] 0]
     if {$f ne ""} { 

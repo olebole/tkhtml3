@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.81 2007/10/14 12:02:14 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.82 2007/10/16 10:01:53 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Snit types in this file:
@@ -62,14 +62,6 @@ snit::type ::hv3::dom {
     $self configurelist $args
   }
 
-  method register_classes {} {
-    $mySee class ::hv3::DOM::Window [list \
-      innerWidth innerHeight confirm alert frames window self \
-      top parent screen history navigator location Node XMLHttpRequest \
-      Image document scrollBy
-    ]
-  }
-
   method SetEnable {option value} {
     set options($option) $value
     if {$value} ::hv3::enable_javascript
@@ -83,7 +75,6 @@ snit::type ::hv3::dom {
     if {$mySee eq "" && [$self HaveScripting]} {
       set mySee [::see::interp]
       ::hv3::profile::instrument $mySee
-      $self register_classes
       foreach win [array names myWindows] {
         $mySee window [list ::hv3::DOM::Window $self $win]
       }
@@ -120,6 +111,13 @@ snit::type ::hv3::dom {
       }
     }
     $mySee eval -window [$self node_to_window $body] -noresult $script
+  }
+
+  method set_object_property {object property value} {
+    if {$mySee eq ""} {
+      error "set_object_property before SEE was initialized"
+    }
+    $mySee set $object $property $value
   }
 
   # Delete any allocated interpreter and objects. This is called in
@@ -403,16 +401,6 @@ return
 
   #----------------------------------------------------------------
   # Given an html-widget node-handle, return the corresponding 
-  # ::hv3::DOM::HTMLDocument object. i.e. the thing needed for
-  # the Node.ownerDocument javascript property of an HTMLElement or
-  # Text Node.
-  #
-  method node_to_document {node} {
-    lindex [eval [$self node_to_window $node] Get document] 1
-  }
-
-  #----------------------------------------------------------------
-  # Given an html-widget node-handle, return the corresponding 
   # ::hv3::hv3 object. i.e. the owner of the node-handle.
   #
   method node_to_hv3 {node} {
@@ -469,7 +457,6 @@ return
         if {[$self HaveScripting]} {
           set mySee [::see::interp]
           ::hv3::profile::instrument $mySee
-          $self register_classes
           $mySee log $options(-logcmd)
           $mySee window [list ::hv3::DOM::Window $self $hv3]
         }
@@ -1339,6 +1326,11 @@ proc ::hv3::enable_javascript {} {
 }
 
 namespace eval ::hv3::DOM {
+  # Given an html-widget node-handle, return the corresponding 
+  # ::hv3::DOM::HTMLDocument object. i.e. the thing needed for
+  # the Node.ownerDocument javascript property of an HTMLElement or
+  # Text Node.
+  #
   proc node_to_document {dom node} {
     list ::hv3::DOM::HTMLDocument $dom [winfo parent [$node html]]
   }

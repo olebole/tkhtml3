@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.163 2007/10/13 04:21:02 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.164 2007/10/16 10:01:53 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -146,13 +146,35 @@ snit::widget ::hv3::browser_frame {
 
   # The name of this frame (as specified by the "name" attribute of 
   # the <frame> element).
-  option -name -default ""
+  option -name -default "" -configuremethod ConfigureName
 
   # If this [::hv3::browser_frame] is used as a replacement object
   # for an <iframe> element, then this option is set to the Tkhtml3
   # node-handle for that <iframe> element.
   #
   option -iframe -default ""
+
+  method ConfigureName {-name value} {
+    # This method is called when the "name" of attribute of this
+    # frame is modified. If javascript is enabled we have to update
+    # the properties on the parent window object (if any).
+    set dom [$self cget -dom]
+    if {$dom ne "" && [$dom cget -enable]} {
+      set parent [$self parent_frame]
+      if {$parent ne ""} {
+        set parent_window [list ::hv3::DOM::Window $dom [$parent hv3]]
+        set this_win [list ::hv3::DOM::Window $dom $myHv3]
+        if {$options(-name) ne ""} {
+          $dom set_object_property $parent_window $options(-name) undefined
+        }
+        if {$value ne ""} {
+          $dom set_object_property $parent_window $value [list object $this_win]
+        }
+      }
+    }
+
+    set options(-name) $value
+  }
 
   method Targetcmd {node} {
     set target [$node attr -default "" target]
@@ -261,6 +283,7 @@ snit::widget ::hv3::browser_frame {
   }
 
   destructor {
+    catch {$self ConfigureName -name ""}
     # Remove this object from the $theFrames list.
     catch {$myBrowser del_frame $self}
     catch {destroy ${win}.hyperlinkmenu}
