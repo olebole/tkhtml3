@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_style.tcl,v 1.14 2007/10/13 04:21:02 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_style.tcl,v 1.15 2007/10/17 17:45:07 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # DOM Level 2 Style.
@@ -41,6 +41,7 @@ set ::hv3::DOM::CSS2Properties_simple(margin-bottom)       marginBottom
 set ::hv3::DOM::CSS2Properties_simple(visibility)          visibility
 
 set ::hv3::DOM::CSS2Properties_simple(background-color) backgroundColor
+set ::hv3::DOM::CSS2Properties_simple(background-image) backgroundImage
 
 
 set ::hv3::dom::code::ELEMENTCSSINLINESTYLE {
@@ -58,13 +59,13 @@ set ::hv3::dom::code::CSS2PROPERTIES {
 
   foreach {k v} [array get ::hv3::DOM::CSS2Properties_simple] {
     if {$v eq ""} { set v $k }
-    dom_get $k "
-      CSSStyleDeclaration.getStyleProperty \$myNode $v
+    dom_get $v "
+      CSSStyleDeclaration.getStyleProperty \$myNode $k
     "
-    dom_put -string $k value "
-      CSSStyleDeclaration.setStyleProperty \$myNode $v \$value
+    dom_put -string $v value "
+      CSSStyleDeclaration.setStyleProperty \$myNode $k \$value
     "
-  } 
+  }
   unset -nocomplain k
   unset -nocomplain v
 
@@ -153,8 +154,6 @@ namespace eval ::hv3::DOM {
 
   proc CSSStyleDeclaration.setStyleProperty {node css_property value} {
     array set current [$node prop -inline]
-
-# if {$value eq "NaNpx"} "error NAN"
 
     if {$value ne ""} {
       set current($css_property) $value

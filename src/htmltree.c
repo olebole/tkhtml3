@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.152 2007/10/15 10:38:27 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.153 2007/10/17 17:45:07 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -2567,8 +2567,6 @@ node_attr_usage:
             /* This method is a no-op for text nodes */
             if (HtmlNodeIsText(p)) break;
 
-            if (HtmlNodeIsOrphan(p)) break;
-
             if (nArg > 0 && 0 == strcmp(Tcl_GetString(aArg[0]), "-inline")) {
                 CssPropertySet *pSet = nodeGetStyle(pTree, p);
                 if (nArg == 1) return HtmlCssInlineQuery(interp, pSet, 0);
@@ -2576,6 +2574,12 @@ node_attr_usage:
                 /* Otherwise, fall through for the WrongNumArgs() message */
             }
 
+	    /* Orphan nodes may have an inline style specified (required by 
+             * DOM implementations to implement HTMLElement.style), but 
+             * they do not have a computed style, so the rest of this 
+             * function is a no-op for orphan nodes.
+             */
+            if (HtmlNodeIsOrphan(p)) break;
             HtmlCallbackForce(pTree);
 
             if (nArg > 0) {

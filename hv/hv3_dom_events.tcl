@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.32 2007/10/16 10:01:53 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.33 2007/10/17 17:45:07 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # DOM Level 2 Events.
@@ -392,18 +392,18 @@ namespace eval ::hv3::dom {
       view            undefined                          \
       detail          undefined                          \
 \
-      altKey          undefined                          \
-      button          undefined                          \
+      altKey          [list boolean 0]                   \
+      button          [list number 0]                    \
       clientX         [list number $x]                   \
       clientY         [list number $y]                   \
-      ctrlKey         undefined                          \
-      metaKey         undefined                          \
+      ctrlKey         [list boolean 0]                   \
+      metaKey         [list boolean 0]                   \
       relatedTarget   undefined                          \
       screenX         undefined                          \
       screenY         undefined                          \
-      shiftKey        undefined                          \
+      shiftKey        [list boolean 0]                   \
 \
-      which           undefined                          \
+      which           [list number 1]                    \
     ]
   }
     
@@ -427,9 +427,9 @@ namespace eval ::hv3::dom {
       CAPTURING_PHASE {number 1}                            \
       AT_TARGET       {number 2}                            \
       BUBBLING_PHASE  {number 3}                            \
-      type            [list string $type]                   \
+      type            [list string  $type]                  \
       bubbles         [list boolean $bubbles]               \
-      cancelable      [list boolean $isCancelable]            \
+      cancelable      [list boolean $isCancelable]          \
       timestamp       {number 0}                            \
     ]
   }

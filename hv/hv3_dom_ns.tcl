@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.33 2007/10/16 10:01:53 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.34 2007/10/17 17:45:07 danielk1977 Exp $)} 1 }
 
 #---------------------------------
 # List of DOM objects in this file:
@@ -248,7 +248,8 @@ namespace eval ::hv3::DOM {
 
   dom_parameter myHv3
 
-  dom_call_todo scrollBy
+  -- TODO. Right now this is a no-op.
+  dom_call -string scrollBy {args} { }
 
   -- A reference to the [Ref HTMLDocument] object currently associated
   -- with this window.

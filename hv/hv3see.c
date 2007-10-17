@@ -798,6 +798,7 @@ callSeeTclMethod(pTcl, pLog, p, zMethod, pProperty, pVal)
         Tcl_ListObjAppendElement(0, pEval, p->pObj);
         if (pMethod) Tcl_ListObjAppendElement(0, pEval, pMethod);
         if (pProp) Tcl_ListObjAppendElement(0, pEval, pProp);
+        if (pVal) Tcl_ListObjAppendElement(0, pEval, pVal);
         Tcl_ListObjAppendElement(0, pEval, pRes);
         Tcl_EvalObjEx(pTcl, pEval, TCL_EVAL_DIRECT|TCL_EVAL_GLOBAL);
         Tcl_DecrRefCount(pEval);
