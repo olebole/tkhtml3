@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.36 2007/10/16 10:01:53 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.37 2007/10/18 06:09:19 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file implements infrastructure used to create the [proc] definitions
@@ -172,12 +172,22 @@ namespace eval ::hv3::dom2 {
         set zDefaultGet $compiler2::get_array(*)
         unset compiler2::get_array(*)
       }
+
+      set SETSTATEARRAY ""
+      if {$compiler2::parameter eq "myStateArray"} {
+        set SETSTATEARRAY {upvar $myStateArray state}
+      }
   
       set GET [array get compiler2::get_array]
       set LIST [array names compiler2::get_array]
   
       foreach {zProp val} [array get compiler2::call_array] {
         foreach {isString call_args zCode} $val {}
+
+        set zCode "
+          $SETSTATEARRAY
+          $zCode
+        "
   
         set procname ::hv3::DOM::${type_name}.${zProp}
         set arglist [concat myDom $compiler2::parameter $call_args]
@@ -237,11 +247,6 @@ namespace eval ::hv3::dom2 {
       ] {
         expr {[llength [%FUNC% $myDom $%PARAM% Get [lindex $args 0]]]>0}
       }]
-  
-      set SETSTATEARRAY ""
-      if {$compiler2::parameter eq "myStateArray"} {
-        set SETSTATEARRAY {upvar $myStateArray state}
-      }
   
       set arglist [list myDom $compiler2::parameter Method args]
       set proccode [list \

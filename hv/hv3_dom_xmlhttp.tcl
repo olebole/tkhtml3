@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.13 2007/10/13 04:21:02 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.14 2007/10/18 06:09:19 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # ::hv3::dom::XMLHttpRequest
@@ -9,8 +9,6 @@ namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.13 2007/10/13 04:
 #         http://www.w3.org/TR/XMLHttpRequest/
 #
 #
-# TODO: Change to ::stateless
-#
 ::hv3::dom2::stateless XMLHttpRequest {
 
   # Magical state array. And the matching destructor. The 
@@ -18,6 +16,7 @@ namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.13 2007/10/13 04:
   # [::hv3::dom::newXMLHttpRequest] proc.
   #
   dom_parameter myStateArray
+
   dom_finalize { 
 
     # Clean up the download handle, if it exists.

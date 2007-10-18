@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.259 2007/09/28 14:14:56 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.260 2007/10/18 06:09:19 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -1064,7 +1064,9 @@ normalFlowLayoutFloat(pLayout, pBox, pNode, pY, pDoNotUse, pNormal)
          * calculating the actual width and height, and of drawing borders
          * etc. As usual horizontal margins are included, but vertical are not.
          */
+        CHECK_INTEGER_PLAUSIBILITY(sBox.vc.bottom);
         drawReplacement(pLayout, &sBox, pNode);
+        CHECK_INTEGER_PLAUSIBILITY(sBox.vc.bottom);
     } else {
         /* A non-replaced element. */
         BoxProperties box;   /* Box properties of pNode */
