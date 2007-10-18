@@ -380,6 +380,7 @@ dispatchEventFunc(interp, self, thisobj, argc, argv, res)
         return;
     }
     pEvent = argv[0]->u.object;
+    assert(pEvent);
 
     SEE_CFUNCTION_PUTA(interp,pEvent,"stopPropagation",stopPropagationFunc,0,0);
     SEE_CFUNCTION_PUTA(interp,pEvent,"preventDefault",preventDefaultFunc,0,0);

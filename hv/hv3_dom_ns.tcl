@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.34 2007/10/17 17:45:07 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.35 2007/10/18 11:29:20 danielk1977 Exp $)} 1 }
 
 #---------------------------------
 # List of DOM objects in this file:
@@ -301,7 +301,7 @@ namespace eval ::hv3::DOM {
   dom_get location {
     list object [list ::hv3::DOM::Location $myDom $myHv3] 
   }
-  dom_put location {value} {
+  dom_put -string location {value} {
     Location_assign $myHv3 $value
   }
 

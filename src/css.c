@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.126 2007/10/15 12:41:10 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.127 2007/10/18 11:29:20 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -970,7 +970,11 @@ static void propertySetAddShortcutBorder(p, prop, v)
 {
     CONST char *z = v->z;
     CONST char *zEnd = z + v->n;
-    int n;
+    int i;
+
+    CssProperty *pBorderColor = 0;
+    CssProperty *pBorderStyle = 0;
+    CssProperty *pBorderWidth = 0;
 
     int aWidth[] = {
         CSS_PROPERTY_BORDER_TOP_WIDTH,
@@ -1013,12 +1017,11 @@ static void propertySetAddShortcutBorder(p, prop, v)
     }
 
     while (z) {
+        int n;
         z = HtmlCssGetNextListItem(z, zEnd-z, &n);
         if (z) {
-            int *aProp = 0;
             CssToken token;
             CssProperty *pProp;
-            int i;
             int eType;
 
             token.z = z;
@@ -1026,8 +1029,12 @@ static void propertySetAddShortcutBorder(p, prop, v)
             pProp = tokenToProperty(0, &token);
             eType = pProp->eType;
 
-            if (propertyIsLength(pProp) || eType==CSS_TYPE_FLOAT) {
-                aProp = aWidth;
+            if (propertyIsLength(pProp)  || 
+                eType == CSS_TYPE_FLOAT  || eType == CSS_CONST_THIN   || 
+                eType == CSS_CONST_THICK || eType == CSS_CONST_MEDIUM
+            ) {
+                /* TODO: Should be an error if there is already a width */
+                pBorderWidth = pProp;
             } else if (
                 eType == CSS_CONST_NONE   || eType == CSS_CONST_HIDDEN ||
                 eType == CSS_CONST_DOTTED || eType == CSS_CONST_DASHED ||
@@ -1035,26 +1042,38 @@ static void propertySetAddShortcutBorder(p, prop, v)
                 eType == CSS_CONST_GROOVE || eType == CSS_CONST_RIDGE  ||
                 eType == CSS_CONST_OUTSET || eType == CSS_CONST_INSET 
             ) {
-                aProp = aStyle;
-            } else if (
-                eType == CSS_CONST_THIN || eType == CSS_CONST_THICK ||
-                eType == CSS_CONST_MEDIUM
-            ) {
-                aProp = aWidth;
+                /* TODO: Should be an error if there is already a style */
+                pBorderStyle = pProp;
             } else {
-                aProp = aColor;
+                /* TODO: Should be an error if there is already a color */
+                pBorderColor = pProp;
             }
-
-            for (i = iOffset; i < iOffset+nProp; i++) {
-                if (i != iOffset) {
-                    pProp = propertyDup(pProp);
-                }
-                propertySetAdd(p, aProp[i], pProp);
-            }
-            
-            assert(n>0);
             z += n;
         }
+    }
+
+    if (!pBorderColor) {
+        pBorderColor = HtmlCssStringToProperty("-tkhtml-no-color", -1);
+    }
+    if (!pBorderWidth) {
+        pBorderWidth = HtmlCssStringToProperty("0px", -1);
+    }
+    if (!pBorderStyle) {
+        pBorderStyle = HtmlCssStringToProperty("none", -1);
+    }
+
+    for (i = iOffset; i < iOffset+nProp; i++) {
+        CssProperty *pC = pBorderColor;
+        CssProperty *pW = pBorderWidth;
+        CssProperty *pS = pBorderStyle;
+        if (i != iOffset) {
+            pC = propertyDup(pC);
+            pW = propertyDup(pW);
+            pS = propertyDup(pS);
+        }
+        propertySetAdd(p, aColor[i], pC);
+        propertySetAdd(p, aWidth[i], pW);
+        propertySetAdd(p, aStyle[i], pS);
     }
 }
 

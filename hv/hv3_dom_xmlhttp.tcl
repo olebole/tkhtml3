@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.14 2007/10/18 06:09:19 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.15 2007/10/18 11:29:20 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # ::hv3::dom::XMLHttpRequest
@@ -215,7 +215,15 @@ namespace eval ::hv3::DOM {
     # a "readystatechange" event.
     #
     set this  [list ::hv3::DOM::XMLHttpRequest $dom $statevar]
-    set event [list ::hv3::DOM::XMLHttpRequestEvent $dom $this]
+    set event [list                             \
+      CAPTURING_PHASE {number 1}                \
+      AT_TARGET       {number 2}                \
+      BUBBLING_PHASE  {number 3}                \
+      type            {string readystatechange} \
+      bubbles         {boolean 0}               \
+      cancelable      {boolean 0}               \
+      timestamp       {number 0}                \
+    ]
 
     [$dom see] dispatch $this $event
   }

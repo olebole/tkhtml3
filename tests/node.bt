@@ -2,12 +2,12 @@
 
 do_browser_test node.1 -javascript {
   return Node.ELEMENT_NODE
-} -expected 1
+}
 
-do_browser_test node.2 -timeout 10000000 -javascript {
+do_browser_test node.2 -javascript {
   Node.prop = "hello"
   return Node.prop
-} -expected hello
+}
 
 # This test does not work. Firefox allows the Node.ELEMENT_NODE
 # constant to be overwritten, whereas Hv3 throws an exception.
@@ -17,9 +17,7 @@ do_browser_test node.2 -timeout 10000000 -javascript {
 #   return Node.ELEMENT_NODE
 # } -expected hello
 
-do_browser_test node.3 -html {
- <body>
-} -javascript {
+do_browser_test node.3 -javascript {
   try {
     document.body.nodeType = 10
   } catch (e) {

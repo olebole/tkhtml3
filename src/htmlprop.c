@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.122 2007/10/05 18:33:57 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.123 2007/10/18 11:29:21 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1044,6 +1044,9 @@ propertyValuesSetColor(p, pCVar, pProp)
         cVal = *pInherit;
         goto setcolor_out;
     }
+    if (pProp->eType == CSS_CONST__TKHTML_NO_COLOR) {
+        goto setcolor_out;
+    }
 
     zColor = HtmlCssPropertyGetString(pProp);
     if (!zColor) return 1;
@@ -1099,8 +1102,10 @@ propertyValuesSetColor(p, pCVar, pProp)
     }
 
 setcolor_out:
-    assert(cVal);
-    cVal->nRef++;
+    assert(cVal || pProp->eType == CSS_CONST__TKHTML_NO_COLOR);
+    if (cVal) {
+        cVal->nRef++;
+    }
     if (*pCVar) {
         decrementColorRef(pTree, *pCVar);
     }

@@ -110,6 +110,7 @@ C normal italic oblique
 C black silver gray white maroon red purple aqua
 C fuchsia green lime olive yellow navy blue teal
 C transparent
+C -tkhtml-no-color
 
 P azimuth background-attachment background-color background-image 
 P background-repeat border-collapse border-spacing 
