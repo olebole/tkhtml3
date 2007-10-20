@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.205 2007/10/07 16:30:08 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.206 2007/10/20 23:20:32 hkoba Exp $)} 1 }
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
 # browser. An instance of this widget displays a single HTML frame.
@@ -980,9 +980,10 @@ snit::widget ::hv3::hv3 {
   # This variable may be set to "unknown", "quirks" or "standards".
   variable myQuirksmode unknown
 
-  # List of currently outstanding download-handles. See methods makerequest,
+  # Root of currently outstanding download-handles. See methods makerequest,
   # Finrequest and <TODO: related to stop?>.
-  variable myCurrentDownloads [list]
+  variable myRootDownload ""
+  variable myStartDownload ""
 
   variable myFirstReset 1
 
@@ -1018,8 +1019,6 @@ snit::widget ::hv3::hv3 {
   # it is set to the encoding of the document.
   #
   variable myEncoding ""
-
-  variable myEncodedDocument ""
 
   # This variable is only used when ($myMimetype eq "image"). It stores
   # the data for the image about to be displayed. Once the image
@@ -1113,8 +1112,8 @@ snit::widget ::hv3::hv3 {
 
   destructor {
     # Clean up any pending downloads.
-    foreach dl $myCurrentDownloads {
-      $dl destroy
+    if {$myRootDownload ne ""} {
+      $myRootDownload destroy
     }
 
     # Destroy the components. We don't need to destroy the scrolled
@@ -1160,12 +1159,22 @@ snit::widget ::hv3::hv3 {
   #
   method makerequest {downloadHandle} {
 
-    # Put the handle in the myCurrentDownloads list. Add a wrapper to the
-    # code in the -failscript and -finscript options to remove it when the
-    # download is finished.
-    lappend myCurrentDownloads $downloadHandle
+      # Let the handles form a flat lifetime tree.
+      if {$myRootDownload eq ""} {
+	  # First download is remembered as root.
+	  # It now officially knows owner hv3 so that
+	  # it can notify its destruction to hv3.
+	  set myRootDownload $downloadHandle
+	  $downloadHandle configure -root yes -hv3 $self
+	  set myStartDownload [clock clicks -milli]
+      } else {
+	  # Child downloads are chained under root. Add a wrapper to
+	  # the code in the -failscript and -finscript options to
+	  # remove it when the download is finished.
+	  $downloadHandle destroy_hook [list $self set_pending_var]
+	  $myRootDownload addChild $downloadHandle
+      }
     $self set_pending_var
-    $downloadHandle destroy_hook [list $self Finrequest $downloadHandle] 
 
     # Execute the -requestcmd script. Fail the download and raise
     # an exception if an error occurs during script evaluation.
@@ -1176,18 +1185,31 @@ snit::widget ::hv3::hv3 {
       catch {$downloadHandle finish}
       error $errmsg $einfo
     }
+
+      # For http/s case, when META triggered reload occurs,
+      # we cannot simply destruct it because of proxy race condition.
+      # So, we need temporarily to disable but kept connected 
+      # until entire downloads are finished.
+      # To achieve this, $download needs to know $httpToken.
+      # XXX: Really dirty hack. May fail unless it is hv3::protocol.
+      catch {
+	  set protocol [lindex $options(-requestcmd) 0]
+	  if {[set token [$protocol getToken $downloadHandle]] ne ""} {
+	      $downloadHandle configure -token $token
+	  }
+      }
   }
 
-  # This method is only called internally, via download-handle -failscript
-  # and -finscript scripts. It removes the argument handle from the
-  # myCurrentDownloads list and invokes [concat $script [list $data]].
-  # 
-  method Finrequest {downloadHandle} {
-    set idx [lsearch $myCurrentDownloads $downloadHandle]
-    if {$idx >= 0} {
-      set myCurrentDownloads [lreplace $myCurrentDownloads $idx $idx]
-      $self set_pending_var
-    }
+  # Forget root of current downloads.
+  # This method is only called internally from destructor of $download.
+  method Forgetrequest {} {
+    # puts "got Finrequest for $myRootDownload"
+      if {[catch {$myRootDownload cget -uri} dluri]} {
+	  set dluri "(unknown)"
+      }
+    set myRootDownload {}
+    $self set_pending_var
+    puts stderr elapsed=[expr {[clock clicks -milli] - $myStartDownload}]ms\t$dluri
   }
 
   # Based on the current contents of instance variable $myUri, set the
@@ -1201,22 +1223,27 @@ snit::widget ::hv3::hv3 {
   }
 
   method set_pending_var {} {
+    # puts stderr setpending\t[lrange [info level -2] 0 1]
     if {$options(-pendingcmd) ne ""} {
-      uplevel #0 $options(-pendingcmd) [llength $myCurrentDownloads]
+      uplevel #0 $options(-pendingcmd) [$self pending]
     }
     after cancel [list $self MightBeComplete]
     after idle [list $self MightBeComplete]
   }
 
   method MightBeComplete {} {
-    if {[llength $myCurrentDownloads] == 0} {
+    if {! [$self pending]} {
       event generate $win <<Complete>>
 
       # There are no outstanding HTTP transactions. So fire
       # the DOM "onload" event.
       if {$options(-dom) ne "" && !$myOnloadFired} {
         set bodynode [$myHtml search body]
-        $options(-dom) event load [lindex $bodynode 0]
+	# Workaround. Currently meta reload causes empty completion.
+	# XXX: Check this again!
+	if {[llength $bodynode]} {
+	    $options(-dom) event load [lindex $bodynode 0]
+	}
       }
       set myOnloadFired 1
     }
@@ -1292,7 +1319,7 @@ snit::widget ::hv3::hv3 {
 
     if {$location ne ""} {
       set finscript [$handle cget -finscript]
-      $handle destroy
+      $handle release
       set full_location [$self resolve_uri $location]
       set handle2 [::hv3::download $handle               \
           -uri          $full_location                   \
@@ -1317,7 +1344,7 @@ snit::widget ::hv3::hv3 {
       # If the image data is invalid, it is not an error. Possibly hv3
       # should log a warning - if it had a warning system....
       catch { $name configure -data $data }
-      $handle destroy
+      $handle release
     }
   }
 
@@ -1351,7 +1378,7 @@ snit::widget ::hv3::hv3 {
       set full_id "$id.[$handle cget -uri]"
       $myHtml style -id $full_id -importcmd $importcmd -urlcmd $urlcmd $data
       $self goto_fragment
-      $handle destroy
+      $handle release
     }
   }
 
@@ -1367,15 +1394,31 @@ snit::widget ::hv3::hv3 {
       }
 
       content-type {
-        if {$myChangeEncodingOk} {
-          foreach {a b enc} [::hv3::string::parseContentType $content] {}
-          set myEncoding $enc
-          if {[string match -nocase *utf-8* $myEncoding]} {
-            set myEncoding ""
-          }
-        }
+	  foreach {a b enc} [::hv3::string::parseContentType $content] {}
+	  if {![$myRootDownload isSameEncoding $enc $myEncoding]
+	      && $myRefreshEventId eq ""
+	  } {
+	      puts "meta enc reload ('$myEncoding' -> $enc) [$myUri get]"
+	      $myHtml reset
+	      $self ReloadWithEncoding $enc
+	  }
       }
     }
+  }
+
+  method encoding {} {
+      # To supply default encoding for related js (and css).
+      set myEncoding
+  }
+
+  method setEncoding enc {
+      set myEncoding $enc
+  }
+
+  method ReloadWithEncoding {enc} {
+      $self reset 0
+      set myEncoding $enc
+      $myRootDownload reload_with_encoding $enc
   }
 
   # This method is called to handle "Refresh" and "Location" headers
@@ -1390,6 +1433,8 @@ snit::widget ::hv3::hv3 {
   #
   # In the case of Location headers, a synthetic Refresh content header is
   # constructed to pass to this method.
+  #
+  # Returns 1 if immediate refresh (seconds = 0) is requested.
   #
   method Refresh {content} {
     # Use a regular expression to extract the URI and number of seconds
@@ -1407,8 +1452,11 @@ snit::widget ::hv3::hv3 {
       set myRefreshEventId [after [expr {$seconds*1000}] $cmd]
 
       # puts "Parse of content for http-equiv refresh successful! ($uri)"
+
+      return [expr {$seconds == 0}]
     } else {
       # puts "Parse of content for http-equiv refresh failed..."
+      return 0
     }
   }
 
@@ -1580,7 +1628,7 @@ snit::widget ::hv3::hv3 {
             set myQuirksmode $q
             $myHtml configure -xhtml $isXHTML
             set myMimetype html
-            set myEncoding ""
+	    set myEncoding [$handle suggestedEncoding]
             set myChangeEncodingOk 1
           }
         }
@@ -1599,14 +1647,12 @@ snit::widget ::hv3::hv3 {
           # Remove the download handle from the list of handles to cancel
           # if [$hv3 stop] is invoked (when the user clicks the "stop" button
           # we don't want to cancel pending save-file operations).
-          set idx [lsearch $myCurrentDownloads $handle]
-          if {$idx >= 0} {
-            set myCurrentDownloads [lreplace $myCurrentDownloads $idx $idx]
-            $self set_pending_var
-          }
+	  if {[$myRootDownload forget $handle]} {
+	      $self set_pending_var
+	  }
           eval [linsert $options(-downloadcmd) end $handle $data $final]
         } else {
-          $handle destroy
+          $handle release
           set sheepish "Don't know how to handle \"$mimetype\""
           tk_dialog .apology "Sheepish apology" $sheepish 0 OK
         }
@@ -1646,7 +1692,12 @@ snit::widget ::hv3::hv3 {
         }
       }
       if {$refreshheader ne ""} {
-        $self Refresh $refreshheader
+	  if {[$self Refresh $refreshheader]} {
+	      # Immediate refresh is requested.
+	      # No need to parse body.
+	      $handle release
+	      return
+	  }
       }
     }
 
@@ -1658,7 +1709,10 @@ snit::widget ::hv3::hv3 {
 
 
     if {$final} {
-      $handle destroy
+      # For root, $handle is scheduled to checkPending.
+      # For child, $handle is removed from root and destroyed.
+      $handle finish
+      $handle release
       if {$myStorevisitedDone == 0 && $options(-storevisitedcmd) ne ""} {
         set myStorevisitedDone 1
         eval $options(-storevisitedcmd) 1
@@ -1666,42 +1720,11 @@ snit::widget ::hv3::hv3 {
     }
   }
 
-  method EncodingConvertfrom {encoding input} {
-    set utf8 $input
-    if {[catch {
-      set utf8 [encoding convertfrom $encoding $utf8]
-    } msg]} {
-      tk_dialog .dialog "Unknown Encoding" $msg error 0 Ok
-    }
-    return $utf8
-  }
-
   method HtmlCallback {handle isFinal data} {
-    if {$myEncoding eq ""} {
-      $myHtml parse $data
-    }
-    if {$myEncoding ne ""} {
-      # This occurs when the document author has specified an encoding
-      # using an HTML <META> element. In this case it's now too late to
-      # modify the stream encoding, so accumulate the whole HTML document
-      # in variable $myEncodedDocument before translating and passing
-      # it to the Tkhtml widget.
-      #
-      # Note: At the moment we only handle such <META> constructs in
-      # the first "chunk" of HTML parsed. Chunksize is determined by
-      # the ::hv3::download object (see hv3_request.tcl).
-      #
-      $myHtml reset
-      append myEncodedDocument $data
-    }
     if {$isFinal} {
-      if {$myEncoding ne ""} {
-        set utf8 [$self EncodingConvertfrom $myEncoding $myEncodedDocument]
-        set myEncodedDocument ""
-        $myHtml parse -final $utf8
-      } else {
-        $myHtml parse -final {}
-      }
+	$myHtml parse -final $data
+    } else {
+	$myHtml parse $data
     }
     $self goto_fragment
   }
@@ -1922,9 +1945,12 @@ snit::widget ::hv3::hv3 {
   # Abandon all currently pending downloads. This method is 
   # part of the public interface.
   method stop {} {
-    foreach dl $myCurrentDownloads {
-      $dl finish
-    }
+      if {$myRootDownload ne ""} {
+	  # puts "stop: destroying $myRootDownload\n [join [hv3::download::backtrace] \n\ ]"
+	  $myRootDownload destroy
+      }
+      set myRootDownload {}
+
     if {$myStorevisitedDone == 0 && $options(-storevisitedcmd) ne ""} {
       set myStorevisitedDone 1
       eval $options(-storevisitedcmd) 1
@@ -1952,7 +1978,6 @@ snit::widget ::hv3::hv3 {
 
     set myTitleVar ""
     set myEncoding ""
-    set myEncodedDocument ""
 
     foreach m [list \
         $myMouseManager $myFormManager          \
@@ -2003,7 +2028,10 @@ snit::widget ::hv3::hv3 {
     }
   }
 
-  method pending {}  { return [llength $myCurrentDownloads] }
+  method pending {}  {
+      if {$myRootDownload eq ""} {return 0}
+      $myRootDownload pending
+  }
   method html {}     { return [$myHtml widget] }
   method hull {}     { return $hull }
 

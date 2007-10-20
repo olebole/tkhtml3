@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.83 2007/10/17 17:45:07 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.84 2007/10/20 23:20:32 hkoba Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Snit types in this file:
@@ -190,6 +190,11 @@ return
             -mimetype    text/javascript               \
             -cachecontrol normal                       \
         ]
+	  if {[$hv3 encoding] ne ""} {
+	      # puts "load script $fulluri encoding [$hv3 encoding]"
+	      $handle configure -encoding [$hv3 encoding]
+	  }
+	  
         set fin [mymethod scriptCallback $hv3 $attr $handle]
         $handle configure -finscript $fin
         $hv3 makerequest $handle

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.55 2007/10/09 16:59:29 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.56 2007/10/20 23:20:32 hkoba Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd script used with 
@@ -183,10 +183,12 @@ snit::type ::hv3::protocol {
     }
 
     # Fire off a request via the http package.
+    # Always uses -binary mode.
     set geturl [list ::http::geturl $uri                     \
       -command [list $self _DownloadCallback $downloadHandle]  \
       -handler [list $self _AppendCallback $downloadHandle]    \
       -headers $headers                                      \
+      -binary 1                                              \
     ]
     if {$postdata ne ""} {
       lappend geturl -query $postdata
@@ -195,16 +197,19 @@ snit::type ::hv3::protocol {
       }
     }
 
-    set mimetype [$downloadHandle cget -mimetype]
-    if {$mimetype ne "" && ![string match text* $mimetype]} {
-      lappend geturl -binary 1
-    }
-
-    
     set token [eval $geturl]
     $self AddToWaitingList $downloadHandle
     set myTokenMap($downloadHandle) $token
 #puts "REQUEST $geturl -> $token"
+  }
+
+  # To get http token for given downloadHandle.
+  # Called from [hv3::hv3::makerequest]
+  #
+  method getToken {downloadHandle} {
+      set vn myTokenMap($downloadHandle)
+      if {![info exists $vn]} return
+      set $vn
   }
 
   method AddToWaitingList {downloadHandle} {

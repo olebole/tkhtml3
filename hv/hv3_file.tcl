@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_file.tcl,v 1.8 2007/09/28 14:14:56 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_file.tcl,v 1.9 2007/10/20 23:20:32 hkoba Exp $)} 1 }
 
 #
 # This file contains Tcl code for loading file:// URIs in the hv3 web browser
@@ -204,10 +204,19 @@ proc request_file {downloadHandle} {
             # Unless the expected mime-type begins with the string "text", 
             # configure the file-handle for binary mode.
 
+	    # If $downloadHandle has -encoding, read data is converted by
+	    # $downloadHandle itself.
+
             set fd [open $filename]
+
+	    # Always uses binary encoding.
+	    # $download is responsible to convert it.
+	    #
+	    fconfigure $fd -encoding binary
+
             if {![string match text* [$downloadHandle cget -mimetype]]} {
-              fconfigure $fd -encoding binary -translation binary
-            }
+              fconfigure $fd -translation binary
+	    }
             set data [read $fd]
             close $fd
         }
