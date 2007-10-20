@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.87 2007/10/14 07:17:22 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.88 2007/10/21 00:10:17 hkoba Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -1224,11 +1224,11 @@ snit::widget ::hv3::forms::fileselect {
 #     So in a way both versions are correct. But some websites (yahoo.com)
 #     do not work unless we allow the extra characters through unescaped.
 #
-proc ::hv3::format_query {args} {
+proc ::hv3::format_query {enc args} {
   set result ""
   set sep ""
   foreach i $args {
-    append result $sep [::hv3::escape_string $i]
+      append result $sep [::hv3::escape_string [encoding convertto $enc $i]]
     if {$sep eq "="} {
       set sep &
     } else {
@@ -1420,7 +1420,8 @@ snit::type ::hv3::form {
       append querydata "--${bound}--$CR"
     } else {
       set querytype "application/x-www-form-urlencoded"
-      set querydata [eval [linsert $data 0 ::hv3::format_query]]
+	set querydata [eval [linsert $data 0 ::hv3::format_query \
+				 [$myHv3 encoding]]]
     }
 
     set action [$myFormNode attr -default "" action]
@@ -1431,7 +1432,7 @@ snit::type ::hv3::form {
       ISINDEX { 
         set script $options(-getcmd) 
         set control [[lindex $Controls 0] replace]
-        set querydata [::hv3::format_query [$control value]]
+        set querydata [::hv3::format_query [$myHv3 encoding] [$control value]]
       }
       default { set script "" }
     }
