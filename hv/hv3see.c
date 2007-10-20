@@ -2220,6 +2220,7 @@ SeeTcl_Put(pInterp, pObj, pProp, pValue, flags)
     Tcl_Obj *pVal;
     int nObj = 0;
 
+    pProp = SEE_intern(pInterp, pProp);
     isNative = SEE_OBJECT_HASPROPERTY(pInterp, pNative, pProp);
 
     if (!isNative) {
