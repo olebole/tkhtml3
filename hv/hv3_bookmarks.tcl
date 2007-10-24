@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_bookmarks.tcl,v 1.13 2007/10/13 18:05:45 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_bookmarks.tcl,v 1.14 2007/10/25 01:41:05 hkoba Exp $)} 1 }
 
 namespace eval ::hv3::bookmarks {
 
@@ -87,7 +87,7 @@ pressing enter.
     #
     set ::hv3::have_fts3 [expr {![catch {::hv3::sqlitedb eval {
       SELECT * FROM bm_fulltext2 WHERE 0
-    }}]}]
+    }} msg]}]
     if {$::hv3::have_fts3 == 0} {
       puts "WARNING: fts3 not loaded ($msg)"
       set ::hv3::bookmarks::save_snapshot_variable 0
@@ -161,6 +161,8 @@ pressing enter.
           db_store_new_bookmark 0 $A $B $zDesc $iSnapshot $zSnapshot $zSnapshotText
         }
       }
+    } else {
+	puts stderr "Can't create bookmark tables! $msg"
     }
 
     if {$::hv3::have_fts3} {
