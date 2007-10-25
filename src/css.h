@@ -86,13 +86,14 @@ typedef struct CssPropertySet CssPropertySet;
 #define CSS_TYPE_PERCENT      9            /* Value in 'rVal' */
 #define CSS_TYPE_FLOAT       10            /* Value in 'rVal' */
 
-#define CSS_TYPE_STRING      11            /* Value in 'sVal' */
+#define CSS_TYPE_STRING      11            /* Value in 'zVal' */
 #define CSS_TYPE_NONE        12            /* No value */
 
 /* Function notation */
 #define CSS_TYPE_TCL         13            /* Value in 'zVal' */
 #define CSS_TYPE_URL         14            /* Value in 'zVal' */
 #define CSS_TYPE_ATTR        15            /* Value in 'zVal' */
+#define CSS_TYPE_RAW         16            /* Value in 'zVal' */
 
 
 /*

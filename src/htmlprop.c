@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.123 2007/10/18 11:29:21 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.124 2007/10/25 11:22:14 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -481,9 +481,9 @@ physicalToPixels(p, rVal, type)
  *
  * propertyValuesSetFontStyle --
  *
- * Keywords 'italic' and 'oblique' map to a Tk italic font. Keyword
- * 'normal' maps to a non-italic font. Any other property value is
- * rejected as a type-mismatch.
+ *     Keywords 'italic' and 'oblique' map to a Tk italic font. Keyword
+ *     'normal' maps to a non-italic font. Any other property value is
+ *     rejected as a type-mismatch.
  *
  * Results: 
  *     0 if value is successfully set. 1 if the value of *pProp is not a valid
@@ -517,7 +517,9 @@ propertyValuesSetContent(p, pProp)
     HtmlComputedValuesCreator *p;
     CssProperty *pProp;
 {
-    if (pProp->eType == CSS_TYPE_STRING && p->pzContent) {
+    if ((pProp->eType == CSS_TYPE_STRING || pProp->eType == CSS_TYPE_RAW) && 
+        p->pzContent
+    ) {
         int nBytes = strlen(pProp->v.zVal) + 1;
         *(p->pzContent) = HtmlAlloc(
             "*HtmlComputedValuesCreator.pzContent", nBytes
@@ -1048,6 +1050,15 @@ propertyValuesSetColor(p, pCVar, pProp)
         goto setcolor_out;
     }
 
+    /* According to CSS2.1, a color value must be either one of the 
+     * keyword colors, or a numeric color specification. We modify
+     * this slightly so that any Tk color can be used as a keyword (but
+     * not as a string).
+     */
+    if (pProp->eType == CSS_TYPE_STRING) {
+        return 1;
+    }
+
     zColor = HtmlCssPropertyGetString(pProp);
     if (!zColor) return 1;
 
@@ -1330,6 +1341,7 @@ propertyValuesSetImage(p, pImVar, pProp)
 
         case CSS_TYPE_URL:
         case CSS_TYPE_STRING: 
+        case CSS_TYPE_RAW: 
             zUrl = pProp->v.zVal;
             break;
  

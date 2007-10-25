@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.127 2007/10/18 11:29:20 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.128 2007/10/25 11:22:14 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -204,10 +204,12 @@ static const char *constantToString(int c){
  *
  *--------------------------------------------------------------------------
  */
-static void 
+static int 
 dequote(z)
     char *z;
 {
+    int rc = 1;
+
     static char hexvalue[128] = {
         -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1, /* 0x00-0x0F */
         -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1, /* 0x10-0x1F */
@@ -241,6 +243,7 @@ dequote(z)
          */
         q = z[0];
         if (q != '\'' && q != '"') {
+            rc = 0;
             q = '\0';
         }
         if (n > 1 && z[n - 1] == q && z[n - 2] != '\\') {
@@ -269,6 +272,7 @@ dequote(z)
         *zOut = 0;
     }
 
+    return rc;
     /* printf("OUT: %s\n", z); */
 }
 
@@ -567,7 +571,7 @@ tokenToProperty(pParse, pToken)
                          */
                         int nAlloc = sizeof(CssProperty) + 7 + 1;
                         pProp = (CssProperty *)HtmlAlloc("CssProperty", nAlloc);
-                        pProp->eType = CSS_TYPE_STRING;
+                        pProp->eType = CSS_TYPE_RAW;
                         pProp->v.zVal = (char *)&pProp[1];
                         rgbToColor(pProp->v.zVal, zArg, nArg);
                     } else {
@@ -602,8 +606,8 @@ tokenToProperty(pParse, pToken)
 
     /* Finally, treat the property as a generic string. v.zVal will point at
      * a NULL-terminated copy of the string. The eType field is set to
-     * either CSS_TYPE_STRING, or one of the symbols in cssprop.h (i.e.
-     * CSS_TYPE_BLOCK).
+     * either CSS_TYPE_STRING, CSS_TYPE_RAW, or one of the symbols in 
+     * cssprop.h (i.e. CSS_TYPE_BLOCK).
      */
     if (!pProp) {
         int eType;
@@ -614,10 +618,11 @@ tokenToProperty(pParse, pToken)
         pProp->v.zVal[n] = '\0';
 
         eType = HtmlCssConstantLookup(-1, pProp->v.zVal);
-        pProp->eType = eType > 0 ? eType : CSS_TYPE_STRING;
-
-        if (pProp->eType == CSS_TYPE_STRING) {
-            dequote(pProp->v.zVal);
+        if (eType <= 0) {
+            int isQuoted = dequote(pProp->v.zVal);
+            pProp->eType = (isQuoted?CSS_TYPE_STRING:CSS_TYPE_RAW);
+        } else {
+            pProp->eType = eType;
         }
     }
     return pProp;
@@ -698,7 +703,7 @@ HtmlCssPropertyGetString(pProp)
 {
     if (pProp) {
         int eType = pProp->eType;
-        if (eType == CSS_TYPE_STRING || 
+        if (eType == CSS_TYPE_STRING || eType == CSS_TYPE_RAW ||
             (eType >= CSS_CONST_MIN_CONSTANT && eType <= CSS_CONST_MAX_CONSTANT)
         ) {
             return pProp->v.zVal;
@@ -1341,6 +1346,7 @@ shortcutListStyle(pParse, p, v)
 
                 case CSS_TYPE_URL:
                 case CSS_TYPE_STRING:
+                case CSS_TYPE_RAW:
                     if (pImage) goto bad_parse;
                     pImage = pProp;
                     break;
@@ -1578,7 +1584,9 @@ propertySetAddShortcutFont(pParse, p, v)
 
                 default: {
                     int hasLineHeight = 0;
-                    if (pProp->eType == CSS_TYPE_STRING) {
+                    if (pProp->eType == CSS_TYPE_STRING || 
+                        pProp->eType == CSS_TYPE_RAW
+                    ) {
                         int j;
                         for (j = 0; j < n && z[j] != '/'; j++);
                         if (j == n) goto bad_parse;
@@ -4158,6 +4166,7 @@ void HtmlCssImport(pParse, pToken)
         switch (p->eType) {
             case CSS_TYPE_URL:
                 break;
+            case CSS_TYPE_RAW:
             case CSS_TYPE_STRING:
                 if (pParse && pParse->pUrlCmd) {
                     doUrlCmd(pParse, zUrl, strlen(zUrl));
