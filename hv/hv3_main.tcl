@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.166 2007/10/26 18:35:29 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.167 2007/10/26 18:37:49 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -680,8 +680,8 @@ snit::widget ::hv3::browser_toplevel {
         $hull configure -cursor ""
       }
       $options(-stopbutton) configure -command [list $myMainFrame stop]
-      set myIsPending $isPending
     }
+    set myIsPending $isPending
   }
 
   method Configurestopbutton {option value} {
