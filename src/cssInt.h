@@ -40,7 +40,6 @@
 #define __CSSINT_H__
 
 #include "css.h"
-// #include "cssparse.h"
 #include <tcl.h>
 
 typedef struct CssSelector CssSelector;
@@ -265,13 +264,6 @@ void HtmlCssSelector(CssParse *, int, CssToken *, CssToken *);
 void HtmlCssRule(CssParse *, int);
 void HtmlCssSelectorComma(CssParse *pParse);
 void HtmlCssImport(CssParse *pParse, CssToken *);
-
-/*
- * Called by the parser to transform between the name of a psuedo-class or
- * psuedo-selector to a CSS_PSEUDO... value that can be passed to
- * HtmlCssSelector().
- */
-int HtmlCssPseudo(CssToken *, int);
 
 /* Test if a selector matches a node */
 int HtmlCssSelectorTest(CssSelector *, HtmlNode *, int);
