@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.126 2007/10/26 14:29:22 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.127 2007/10/26 14:41:32 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -791,7 +791,7 @@ propertyValuesSetFontSize(p, pProp)
             if (pParent) {
                 int ii;
                 int *aSize = p->pTree->aFontSizeTable;
-                int ps = normalizeFontSize(pParent);
+                int ps = normalizeFontSize(p, pParent);
                 int points = ps / HTML_IFONTSIZE_SCALE;
                 for (ii = 1; ii < 7 && aSize[ii] < points; ii++);
                 iPoints = ps + (aSize[ii-1] - aSize[ii]) * HTML_IFONTSIZE_SCALE;
@@ -805,7 +805,7 @@ propertyValuesSetFontSize(p, pProp)
             if (pParent) {
                 int ii;
                 int *aSize = p->pTree->aFontSizeTable;
-                int ps = normalizeFontSize(pParent);
+                int ps = normalizeFontSize(p, pParent);
                 int points = ps / HTML_IFONTSIZE_SCALE;
                 for (ii = 0; ii < 6 && aSize[ii] < points; ii++);
                 iPoints = ps + (aSize[ii+1] - aSize[ii]) * HTML_IFONTSIZE_SCALE;
