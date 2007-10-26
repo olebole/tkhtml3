@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.125 2007/10/26 09:31:15 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.126 2007/10/26 14:29:22 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -642,7 +642,11 @@ propertyValuesObjFontSize(p)
 {
     char zBuf[64];
     int iFontSize = p->fFont->pKey->iFontSize;
-    sprintf(zBuf, "%.3fpts", (float)iFontSize / 1000);
+    if (iFontSize >= 0) {
+        sprintf(zBuf, "%.3fpts", (float)iFontSize / HTML_IFONTSIZE_SCALE);
+    } else {
+        sprintf(zBuf, "%dpx", -1 * iFontSize / HTML_IFONTSIZE_SCALE);
+    }
     return Tcl_NewStringObj(zBuf, -1);
 }
 static Tcl_Obj*
@@ -713,6 +717,17 @@ propertyValuesObjVerticalAlign(p)
     return Tcl_NewStringObj(zBuf, -1);
 }
  
+static int normalizeFontSize(p, pNode)
+    HtmlComputedValuesCreator *p;
+    HtmlNode *pNode;
+{
+    int iFontSize = HtmlNodeComputedValues(pNode)->fFont->pKey->iFontSize;
+    if (iFontSize >= 0) {
+        return iFontSize;
+    } else {
+        return pixelsToPoints(p, iFontSize * -1);
+    }
+}
 
 /*
  *---------------------------------------------------------------------------
@@ -776,7 +791,7 @@ propertyValuesSetFontSize(p, pProp)
             if (pParent) {
                 int ii;
                 int *aSize = p->pTree->aFontSizeTable;
-                int ps =HtmlNodeComputedValues(pParent)->fFont->pKey->iFontSize;
+                int ps = normalizeFontSize(pParent);
                 int points = ps / HTML_IFONTSIZE_SCALE;
                 for (ii = 1; ii < 7 && aSize[ii] < points; ii++);
                 iPoints = ps + (aSize[ii-1] - aSize[ii]) * HTML_IFONTSIZE_SCALE;
@@ -790,7 +805,7 @@ propertyValuesSetFontSize(p, pProp)
             if (pParent) {
                 int ii;
                 int *aSize = p->pTree->aFontSizeTable;
-                int ps =HtmlNodeComputedValues(pParent)->fFont->pKey->iFontSize;
+                int ps = normalizeFontSize(pParent);
                 int points = ps / HTML_IFONTSIZE_SCALE;
                 for (ii = 0; ii < 6 && aSize[ii] < points; ii++);
                 iPoints = ps + (aSize[ii+1] - aSize[ii]) * HTML_IFONTSIZE_SCALE;
@@ -859,7 +874,7 @@ propertyValuesSetFontSize(p, pProp)
     }
 
     if (iPixels > 0) {
-        p->fontKey.iFontSize = HTML_IFONTSIZE_SCALE * pixelsToPoints(p,iPixels);
+        p->fontKey.iFontSize = HTML_IFONTSIZE_SCALE * iPixels * -1;
     } else if (iPoints > 0) {
         p->fontKey.iFontSize = iPoints;
     } else if (iScale > 0.0) {
@@ -2164,8 +2179,12 @@ allocateNewFont(clientData)
         Tk_FontMetrics *pMet = &pFont->metrics;
 
         char zBuf[24];
-        sprintf(zBuf, "%.3fp", fontsize);
-        Tk_GetPixels(interp, tkwin, zBuf, &pFont->em_pixels);
+        if (iFontSize >= 0) {
+            sprintf(zBuf, "%.3fp", fontsize);
+            Tk_GetPixels(interp, tkwin, zBuf, &pFont->em_pixels);
+        } else {
+            pFont->em_pixels = -1 * iFontSize;
+        }
 
         pMet->linespace = pMet->ascent + pMet->descent;
         if (pFont->em_pixels < pMet->linespace) {

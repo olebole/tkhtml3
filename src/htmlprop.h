@@ -55,7 +55,10 @@ struct HtmlFourSides {
  */
 #define HTML_IFONTSIZE_SCALE 1000
 struct HtmlFontKey {
+    /* If iFontSize is positive, then it is in thousandths of points. 
+     * If negative, in thousandths of pixels. */
     int iFontSize;           /* Font size in thousandths of points */
+
     const char *zFontFamily; /* Name of font family (i.e. "Serif") */
     unsigned char isItalic;  /* True if the font is italic */
     unsigned char isBold;    /* True if the font is bold */

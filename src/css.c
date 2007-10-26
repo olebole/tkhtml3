@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.129 2007/10/26 09:31:15 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.130 2007/10/26 14:29:22 danielk1977 Exp $";
 
 // #include "cssparse.h"
 
@@ -1057,7 +1057,7 @@ static void propertySetAddShortcutBorder(p, prop, v)
         pBorderColor = HtmlCssStringToProperty("-tkhtml-no-color", -1);
     }
     if (!pBorderWidth) {
-        pBorderWidth = HtmlCssStringToProperty("0px", -1);
+        pBorderWidth = HtmlCssStringToProperty("medium", -1);
     }
     if (!pBorderStyle) {
         pBorderStyle = HtmlCssStringToProperty("none", -1);
