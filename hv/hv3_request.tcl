@@ -1,10 +1,9 @@
-namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.13 2007/10/20 23:20:32 hkoba Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.14 2007/10/26 18:35:29 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file contains the implementation of two types used by hv3:
 #
 #     ::hv3::download
-#     ::hv3::uri
 #
 
 

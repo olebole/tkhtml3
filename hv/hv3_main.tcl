@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.165 2007/10/26 09:31:15 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.166 2007/10/26 18:35:29 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -511,7 +511,6 @@ snit::widget ::hv3::browser_frame {
 
   delegate option -requestcmd         to myHv3
   delegate option -resetcmd           to myHv3
-  delegate option -pendingcmd         to myHv3
 
   delegate method stop to myHv3
   delegate method titlevar to myHv3
@@ -555,9 +554,9 @@ snit::widget ::hv3::browser_toplevel {
     # Create the protocol
     set myProtocol [::hv3::protocol %AUTO%]
     $myMainFrame configure -requestcmd       [list $myProtocol requestcmd]
-    $myMainFrame configure -pendingcmd       [list $self pendingcmd]
 
-    trace add variable [myvar myProtocolStatus] write [list $self Writestatus]
+    set psc [list $self ProtocolStatusChanged]
+    trace add variable [myvar myProtocolStatus] write $psc
     trace add variable [myvar myFrameStatus]    write [list $self Writestatus]
     $myMainFrame configure -statusvar [myvar myFrameStatus]
     $myProtocol  configure -statusvar [myvar myProtocolStatus]
@@ -649,6 +648,13 @@ snit::widget ::hv3::browser_toplevel {
     set myStatusVar "$myProtocolStatus    $myFrameStatus"
   }
 
+  method ProtocolStatusChanged {args} {
+    $self pendingcmd [expr {
+        ([lindex $myProtocolStatus 0] + [lindex $myProtocolStatus 2])>0
+    }]
+    $self Writestatus
+  }
+
   method set_frame_status {text} {
     set myFrameStatus $text
   }
@@ -663,18 +669,10 @@ snit::widget ::hv3::browser_toplevel {
   # widget is disabled.
   #
   variable myIsPending 0
-  variable myPendingPending ""
 
   method pendingcmd {isPending} {
-    if {$myPendingPending eq ""} {
-      after idle [list $self do_pendingcmd]
-    }
-    set myPendingPending [expr {$isPending>0}]
-  }
-
-  method do_pendingcmd {} {
-    if {$options(-stopbutton) ne "" && $myIsPending != $myPendingPending} {
-      if {$myPendingPending} { 
+    if {$options(-stopbutton) ne "" && $myIsPending != $isPending} {
+      if {$isPending} { 
         $options(-stopbutton) configure -state normal
         $hull configure -cursor watch
       } else {
@@ -682,9 +680,8 @@ snit::widget ::hv3::browser_toplevel {
         $hull configure -cursor ""
       }
       $options(-stopbutton) configure -command [list $myMainFrame stop]
-      set myIsPending $myPendingPending
+      set myIsPending $isPending
     }
-    set myPendingPending ""
   }
 
   method Configurestopbutton {option value} {

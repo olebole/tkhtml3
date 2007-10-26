@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.207 2007/10/26 09:31:15 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.208 2007/10/26 18:35:29 danielk1977 Exp $)} 1 }
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
 # browser. An instance of this widget displays a single HTML frame.
@@ -40,12 +40,6 @@ namespace eval hv3 { set {version($Id: hv3.tcl,v 1.207 2007/10/26 09:31:15 danie
 #
 #     -locationvar
 #         Set to the URI of the currently displayed document.
-#
-#     -pendingcmd
-#         Name of command to invoke to inform the user as to whether or not
-#         there are currently resource requests pending.  This is useful for a
-#         web browser GUI that needs to disable the "stop" button after all
-#         resource requests are completed.
 #
 #     -scrollbarpolicy
 #         This option may be set to either a boolean value or "auto". It
@@ -1277,10 +1271,6 @@ snit::widget ::hv3::hv3 {
   }
 
   method set_pending_var {} {
-    # puts stderr setpending\t[lrange [info level -2] 0 1]
-    if {$options(-pendingcmd) ne ""} {
-      uplevel #0 $options(-pendingcmd) [$self pending]
-    }
     after cancel [list $self MightBeComplete]
     after idle [list $self MightBeComplete]
   }
@@ -2125,7 +2115,6 @@ snit::widget ::hv3::hv3 {
   option -scrollbarpolicy -default auto
 
   option          -locationvar      -default ""
-  option          -pendingcmd       -default ""
   option          -downloadcmd      -default ""
   option          -requestcmd       -default ""
   delegate option -isvisitedcmd     to myHyperlinkManager
