@@ -2,7 +2,7 @@
 #include "html.h"
 #include "cssInt.h"
 
-static const char rcsid[] = "$Id: csssearch.c,v 1.5 2007/07/16 15:35:49 danielk1977 Exp $";
+static const char rcsid[] = "$Id: csssearch.c,v 1.6 2007/10/27 01:46:51 hkoba Exp $";
 
 /*-----------------------------------------------------------------------
  * 
@@ -236,7 +236,7 @@ HtmlCssSearch(clientData, interp, objc, objv)
         CssSearch sSearch;
 
         assert(n == strlen(zOrig));
-        n += 14;
+        n += 11;
         z = (char *)HtmlAlloc("temp", n);
         sprintf(z, "%s {width:0}", zOrig);
         HtmlCssSelectorParse(pTree, n, z, &pStyle);
