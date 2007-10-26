@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.36 2007/10/13 18:05:45 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.37 2007/10/26 09:31:15 danielk1977 Exp $)} 1 }
 
 # Register the home: scheme handler with ::hv3::protocol $protocol.
 #
@@ -76,6 +76,11 @@ proc ::hv3::home_request {http hv3 dir downloadHandle} {
         set obj [string range $path 1 end]
         $downloadHandle append [::hv3::DOM::docs::${obj}]
       }
+    }
+
+    css_parse_errors {
+      set path [string range $path 1 end]
+      $downloadHandle append [$path css_parse_errors]
     }
 
     bookmarks_left { }

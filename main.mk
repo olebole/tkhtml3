@@ -20,19 +20,18 @@ CFLAGS += -I$(TCL)/include -I. -I$(TOP)/src/
 STUBSFLAGS = -DUSE_TCL_STUBS -DUSE_TK_STUBS
 
 SRC = htmlparse.c htmldraw.c htmltcl.c htmlimage.c htmltree.c htmltagdb.c \
-      cssparse.c css.c cssprop.c csssearch.c htmlstyle.c htmllayout.c     \
+      css.c cssprop.c csssearch.c htmlstyle.c htmllayout.c     \
       htmlprop.c htmlfloat.c htmlhash.c swproc.c htmlinline.c             \
       htmltable.c restrack.c cssdynamic.c htmldecode.c htmltext.c         \
-      htmlutil.c
+      htmlutil.c cssparser.c
 
 SRCHDR = $(TOP)/src/html.h $(TOP)/src/cssInt.h $(TOP)/src/css.h
-GENHDR = cssprop.h htmltokens.h cssparse.h
+GENHDR = cssprop.h htmltokens.h
 
 HDR = $(GENHDR) $(SRCHDR)
 
 OBJS = $(SRC:.c=.o)
 
-LEMON = lemon
 BINARIES = $(SHARED_LIB) pkgIndex.tcl
 
 # How to run the C compiler:
@@ -83,18 +82,6 @@ htmltokens.h:	$(TOP)/src/tokenlist.txt
 cssprop.c: cssprop.h
 
 htmltokens.c: htmltokens.h
-
-$(LEMON): $(TOP)/tools/lemon.c
-	@echo '$$(BCC) $< -o $@'
-	@$(BCC) $(TOP)/tools/lemon.c -o $(LEMON)
-
-cssparse.c: $(TOP)/src/cssparse.lem $(LEMON)
-	cp $(TOP)/src/cssparse.lem .
-	cp $(TOP)/tools/lempar.c .
-	@echo '$$(LEMON) cssparse.lem'
-	@./$(LEMON) cssparse.lem
-
-cssparse.h: cssparse.c
 
 # hwish: $(OBJS) $(TOP)/src/main.c
 # $(CC) $(CFLAGS) $^ $(TCLLIB) -o $@

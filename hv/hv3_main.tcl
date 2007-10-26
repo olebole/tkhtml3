@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.164 2007/10/16 10:01:53 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.165 2007/10/26 09:31:15 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -1232,6 +1232,7 @@ snit::type ::hv3::debug_menu {
       "-----"                [list]                                       "" \
       "Tree Browser..."      [list gui_current browse]                    "" \
       "Javascript Debugger..." [list gui_current javascriptlog]           j  \
+      "CSS Parse Errors"     [list gui_view_css_log]                      "" \
       "-----"                [list]                                       "" \
       "Exec firefox -remote" [list gui_firefox_remote]                    "" \
       "-----"                   [list]                                    "" \
@@ -1495,6 +1496,10 @@ proc gui_current {args} {
 proc gui_firefox_remote {} {
   set url [.toolbar.entry get]
   exec firefox -remote "openurl($url,new-tab)"
+}
+
+proc gui_view_css_log {} {
+  $::hv3::G(notebook) add "home://css_parse_errors/[gui_current hv3]"
 }
 
 proc gui_switch {new} {

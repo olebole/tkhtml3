@@ -127,7 +127,9 @@ CssProperty *HtmlCssStringToProperty(CONST char *z, int n);
 /*
  * This is used to split up a white-space seperated list.
  */
-const char *HtmlCssGetNextListItem(CONST char *z, int n, int *pN);
+const char *HtmlCssGetNextListItem(const char *z, int n, int *pN);
+
+const char *HtmlCssGetNextCommaListItem(const char *z, int n, int *pN);
 
 /*
  * Functions to parse stylesheet and style data into CssStyleSheet objects.

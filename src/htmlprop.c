@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.124 2007/10/25 11:22:14 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.125 2007/10/26 09:31:15 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1060,7 +1060,7 @@ propertyValuesSetColor(p, pCVar, pProp)
     }
 
     zColor = HtmlCssPropertyGetString(pProp);
-    if (!zColor) return 1;
+    if (!zColor || !zColor[0]) return 1;
 
     pEntry = Tcl_CreateHashEntry(&pTree->aColor, zColor, &newEntry);
     if (newEntry) {

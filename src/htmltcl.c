@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.191 2007/10/03 10:06:38 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.192 2007/10/26 09:31:15 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -219,7 +219,7 @@ doLoadDefaultStyle(pTree)
     Tcl_Obj *pId = Tcl_NewStringObj("agent", 5);
     assert(pObj);
     Tcl_IncrRefCount(pId);
-    HtmlStyleParse(pTree, pTree->interp, pObj, pId, 0, 0);
+    HtmlStyleParse(pTree, pObj, pId, 0, 0, 0);
     Tcl_DecrRefCount(pId);
 }
 
@@ -2154,14 +2154,15 @@ styleCmd(clientData, interp, objc, objv)
     int objc;                          /* Number of arguments. */
     Tcl_Obj *CONST objv[];             /* Argument strings. */
 {
-    SwprocConf aConf[4 + 1] = {
+    SwprocConf aConf[5 + 1] = {
         {SWPROC_OPT, "id", "author", 0},      /* -id <style-sheet id> */
         {SWPROC_OPT, "importcmd", 0, 0},      /* -importcmd <cmd> */
         {SWPROC_OPT, "urlcmd", 0, 0},         /* -urlcmd <cmd> */
+        {SWPROC_OPT, "errorvar", 0, 0},       /* -errorvar <varname> */
         {SWPROC_ARG, 0, 0, 0},                /* STYLE-SHEET-TEXT */
         {SWPROC_END, 0, 0, 0}
     };
-    Tcl_Obj *apObj[4];
+    Tcl_Obj *apObj[5];
     int rc = TCL_OK;
     int n;
     HtmlTree *pTree = (HtmlTree *)clientData;
@@ -2173,7 +2174,8 @@ styleCmd(clientData, interp, objc, objv)
      *     apObj[0] -> Value passed to -id option (or default "author")
      *     apObj[1] -> Value passed to -importcmd option (or default "")
      *     apObj[2] -> Value passed to -urlcmd option (or default "")
-     *     apObj[3] -> Text of stylesheet to parse
+     *     apObj[3] -> Variable to store error log in
+     *     apObj[4] -> Text of stylesheet to parse
      *
      * Pass these on to the HtmlStyleParse() command to actually parse the
      * stylesheet.
@@ -2183,9 +2185,9 @@ styleCmd(clientData, interp, objc, objv)
         return TCL_ERROR;
     }
 
-    Tcl_GetStringFromObj(apObj[3], &n);
+    Tcl_GetStringFromObj(apObj[4], &n);
     if (n > 0) {
-        rc = HtmlStyleParse(pTree,interp,apObj[3],apObj[0],apObj[1],apObj[2]);
+        rc = HtmlStyleParse(pTree,apObj[4],apObj[0],apObj[1],apObj[2],apObj[3]);
     }
 
     /* Clean up object references created by SwprocRt() */

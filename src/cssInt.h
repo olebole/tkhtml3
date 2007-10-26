@@ -40,7 +40,7 @@
 #define __CSSINT_H__
 
 #include "css.h"
-#include "cssparse.h"
+// #include "cssparse.h"
 #include <tcl.h>
 
 typedef struct CssSelector CssSelector;
@@ -251,6 +251,7 @@ struct CssParse {
     Tcl_Obj *pStyleId;
     Tcl_Obj *pImportCmd;            /* Script to invoke for @import */
     Tcl_Obj *pUrlCmd;               /* Script to invoke for url() */
+    Tcl_Obj *pErrorLog;             /* In non-zero, store syntax errors here */
     Tcl_Interp *interp;             /* Interpreter to invoke pImportCmd */
     HtmlTree *pTree;                /* Tree used to determine if quirks mode */
 };
@@ -283,6 +284,21 @@ void HtmlCssSelectorToString(CssSelector *, Tcl_Obj *);
 int HtmlCssTclNodeDynamics(Tcl_Interp *, HtmlNode *);
 
 int HtmlCssSelectorParse(HtmlTree *, int, const char *, CssStyleSheet **);
+
+enum CssTokenType {
+    CT_SPACE,    CT_LP,           CT_RP,        CT_RRP,        CT_LSP,
+    CT_RSP,      CT_SEMICOLON,    CT_COMMA,     CT_COLON,      CT_PLUS,
+    CT_DOT,      CT_HASH,         CT_EQUALS,    CT_TILDE,      CT_PIPE,
+    CT_AT,       CT_BANG,         CT_STRING,    CT_LRP,        CT_GT,
+    CT_STAR,     CT_SLASH,        CT_IDENT,     CT_FUNCTION,
+
+    CT_SGML_OPEN, CT_SGML_CLOSE, CT_SYNTAX_ERROR, CT_EOF
+};
+typedef enum CssTokenType CssTokenType;
+
+void HtmlCssRunParser(const char *, int, CssParse *);
+void HtmlCssRunStyleParser(const char *, int, CssParse *);
+CssTokenType HtmlCssGetToken(const char *, int, int *);
 
 #endif /* __CSS_H__ */
 

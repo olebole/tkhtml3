@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.206 2007/10/20 23:20:32 hkoba Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.207 2007/10/26 09:31:15 danielk1977 Exp $)} 1 }
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
 # browser. An instance of this widget displays a single HTML frame.
@@ -940,6 +940,55 @@ snit::type ::hv3::hv3::hyperlinkmanager {
 # End of ::hv3::hv3::hyperlinkmanager
 #--------------------------------------------------------------------------
 
+snit::type ::hv3::hv3::styleerrorlog {
+  variable myStyleErrors {}
+  variable myHv3 {}
+
+  constructor {hv3} {
+    set myHv3 $hv3
+  }
+
+  method log {filename data parse_errors} {
+    lappend myStyleErrors [list $filename $data $parse_errors]
+  }
+
+  method clear {} {
+    set myStyleErrors ""
+  }
+
+  method get {} {
+    set ret ""
+    foreach set $myStyleErrors {
+      foreach {filename data parse_errors} $set {}
+      append ret "<H2>[htmlize $filename]</H2>"
+      append ret "<PRE>"
+      set iCurrent 0
+      foreach {iStart nLen} $parse_errors {
+        append ret [htmlize [string range $data $iCurrent [expr {$iStart-1}]]]
+        append ret {<span color=red>}
+        append ret [htmlize [
+            string range $data $iStart [expr {$iStart+$nLen-1}]
+        ]]
+        append ret {</span>}
+        set iCurrent [expr {$iStart + $nLen}]
+      }
+      append ret [htmlize [string range $data $iCurrent end]]
+      append ret "</PRE>"
+    }
+
+    append ret "<HR><PRE>"
+    foreach rule [$myHv3 _styleconfig] {
+      foreach {selector properties origin} $rule break
+      if {![string match agent* $origin]} {
+        append ret "[htmlize $selector] { [htmlize $properties] }\n"
+      }
+    }
+    append ret "</PRE>"
+  
+    return $ret
+  }
+}
+
 #--------------------------------------------------------------------------
 # Class hv3 - the public widget class.
 #
@@ -951,6 +1000,9 @@ snit::widget ::hv3::hv3 {
   component myDynamicManager         ;# The ::hv3::hv3::dynamicmanager
   component mySelectionManager -public selectionmanager
   component myFormManager            ;# The ::hv3::formmanager
+
+  component myStyleErrorLog          ;# The ::hv3::styleerrorlog
+  delegate method css_parse_errors to myStyleErrorLog as get
 
   option -dom -default "" -configuremethod SetDom
 
@@ -1071,6 +1123,8 @@ snit::widget ::hv3::hv3 {
     set myHyperlinkManager [::hv3::hv3::hyperlinkmanager %AUTO% $self $myBase]
     set mySelectionManager [::hv3::hv3::selectionmanager %AUTO% $self]
     set myDynamicManager   [::hv3::hv3::dynamicmanager   %AUTO% $self]
+
+    set myStyleErrorLog    [::hv3::hv3::styleerrorlog   %AUTO% $self]
 
     $myMouseManager subscribe motion [list $mySelectionManager motion]
 
@@ -1376,7 +1430,15 @@ snit::widget ::hv3::hv3 {
   method Finishstyle {handle id importcmd urlcmd data} {
     if {0 == [$self HandleLocation $handle]} {
       set full_id "$id.[$handle cget -uri]"
-      $myHtml style -id $full_id -importcmd $importcmd -urlcmd $urlcmd $data
+      $myHtml style              \
+          -id $full_id           \
+          -importcmd $importcmd  \
+          -urlcmd $urlcmd        \
+          -errorvar parse_errors \
+          $data
+
+      $myStyleErrorLog log [$handle cget -uri] $data $parse_errors
+
       $self goto_fragment
       $handle release
     }
@@ -1559,7 +1621,14 @@ snit::widget ::hv3::hv3 {
     set importcmd [list $self Requeststyle $id]
     set urlcmd    [list $self resolve_uri]
     append id ".9999.<style>"
-    $myHtml style -id $id -importcmd $importcmd -urlcmd $urlcmd $script
+    $myHtml style -id $id      \
+        -importcmd $importcmd  \
+        -urlcmd $urlcmd        \
+        -errorvar parse_errors \
+        $script
+
+    $myStyleErrorLog log {<style> block} $script $parse_errors
+
     return ""
   }
 
@@ -1968,6 +2037,8 @@ snit::widget ::hv3::hv3 {
       after cancel $myRefreshEventId
       set myRefreshEventId ""
     }
+
+    $myStyleErrorLog clear
 
     # Generate the <<Reset>> and <<SaveState> events.
     if {!$myFirstReset && $isSaveState} {

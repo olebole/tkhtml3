@@ -29,7 +29,9 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.128 2007/10/25 11:22:14 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.129 2007/10/26 09:31:15 danielk1977 Exp $";
+
+// #include "cssparse.h"
 
 #define LOG if (pTree->options.logcmd)
 
@@ -92,8 +94,7 @@ void *tkhtmlCssParserAlloc(void *(*)(size_t));
 void tkhtmlCssParser(void *, int, CssToken, CssParse*);
 void tkhtmlCssParserFree(void *, void (*)(void *));
 
-static int cssGetToken(CONST char *, int , int *);
-static int cssParse(HtmlTree*,int,CONST char*,int,int,Tcl_Obj*,Tcl_Obj*,Tcl_Obj*,CssStyleSheet**);
+static int cssParse(HtmlTree*,int,CONST char*,int,int,Tcl_Obj*,Tcl_Obj*,Tcl_Obj*,Tcl_Obj*,CssStyleSheet**);
 
 /*
  *---------------------------------------------------------------------------
@@ -188,7 +189,7 @@ static const char *constantToString(int c){
  *
  * dequote --
  *
- *     This function is used to dequote a CSS string value. 
+ *     This function is used to dequote a CSS string or identifier value. 
  * 
  *     Argument z is a pointer to a buffer containing a possibly quoted,
  *     null-terminated string. If it is quoted, then this function overwrites
@@ -238,7 +239,7 @@ dequote(z)
             n--;
         }
   
-	/* Figure out if the is a quote character (" or ').  If there is one,
+	/* Figure out if there is a quote character (" or ').  If there is one,
          * strip it from the start of the string before proceeding. 
          */
         q = z[0];
@@ -256,7 +257,7 @@ dequote(z)
                 unsigned int ch = 0;
                 int ii;
                 o = z[i+1];
-                for (ii = 0; isxdigit(o) && ii <= 6; ii++) {
+                for (ii = 0; isxdigit(o) && ii < 6; ii++) {
                     assert(hexvalue[o] >=0 && hexvalue[o] <= 15);
                     ch = (ch << 4) + hexvalue[o];
                     o = z[(++i)+1];
@@ -264,7 +265,17 @@ dequote(z)
                 if (ch > 0) {
                     int inc = Tcl_UniCharToUtf(ch, zOut);
                     zOut += inc;
+     
+		    /* Ignore a single white-space character after a
+                     * hexadecimal escape.
+                     */
+                    if (isspace((unsigned char)(z[i + 1]))) i++;
                 }
+          
+                /* Inside a string, if an escape character occurs just before
+                 * a newline, ignore that newline. 
+                 */
+                if (ii == 0 && o == '\n') i++;
             } else {
                 *zOut++ = o;
             }
@@ -413,21 +424,52 @@ rgbToColor(zOut, zRgb, nRgb)
     CONST char *z = zRgb;
     CONST char *zEnd = zRgb+nRgb;
     int n = 0;
-    int aN[3] = {0, 0, 0};
 
-    while (z < zEnd && n < 3) {
-        while (!isdigit(*z) && *z!='.' && *z!='-' && *z!='+') z++;
-        aN[n] = (int)strtod(z, (char **)&z);
-        if (*z=='%') {
-            aN[n] = ((aN[n] * 255) / 100);
+    int aN[3] = {0, 0, 0};
+    CssToken aToken[3];
+
+    int ii;
+    for (ii = 0; ii < 3; ii++){
+        aToken[ii].z = HtmlCssGetNextCommaListItem(z, zEnd - z, &aToken[ii].n);
+        z = &(aToken[ii].z[aToken[ii].n]);
+    }
+    if (!aToken[0].z || !aToken[1].z || !aToken[2].z ||
+        !aToken[0].n || !aToken[1].n || !aToken[2].n
+    ) {
+        goto bad_color;
+    }
+
+    if (aToken[0].z[aToken[0].n-1]  == '%') {
+        for (ii = 0; ii < 3; ii++){
+            char *zEnd;
+            double percent;
+            
+            if (aToken[ii].z[aToken[ii].n-1]  != '%') {
+                goto bad_color;
+            }
+            percent = strtod(aToken[ii].z, &zEnd);
+            if ((zEnd - aToken[ii].z) != (aToken[ii].n-1)) {
+                goto bad_color;
+            }
+            aN[ii] = (percent * 255) / 100;
         }
-        aN[n] = MIN(aN[n], 255);
-        aN[n] = MAX(aN[n], 0);
-        n++;
+    } else {
+        for (ii = 0; ii < 3; ii++){
+            char *zEnd;
+            aN[ii] = strtol(aToken[ii].z, &zEnd, 0);
+            if ((zEnd - aToken[ii].z) != aToken[ii].n) {
+                goto bad_color;
+            }
+        }
     }
 
     n = sprintf(zOut, "#%.2x%.2x%.2x", aN[0], aN[1], aN[2]);
     assert(n==7);
+    return;
+
+  bad_color:
+    zOut[0] = '\0';
+    return;
 }
 
 static int
@@ -617,12 +659,17 @@ tokenToProperty(pParse, pToken)
         memcpy(pProp->v.zVal, z, n);
         pProp->v.zVal[n] = '\0';
 
-        eType = HtmlCssConstantLookup(-1, pProp->v.zVal);
-        if (eType <= 0) {
-            int isQuoted = dequote(pProp->v.zVal);
-            pProp->eType = (isQuoted?CSS_TYPE_STRING:CSS_TYPE_RAW);
+        if (z[0] == '"' || z[0] == '\'') {
+            dequote(pProp->v.zVal);
+            pProp->eType = CSS_TYPE_STRING;
         } else {
-            pProp->eType = eType;
+            dequote(pProp->v.zVal);
+            eType = HtmlCssConstantLookup(-1, pProp->v.zVal);
+            if (eType <= 0) {
+                pProp->eType = CSS_TYPE_RAW;
+            } else {
+                pProp->eType = eType;
+            }
         }
     }
     return pProp;
@@ -852,8 +899,17 @@ propertySetFree(CssPropertySet *p){
 static CssProperty *propertyDup(pProp)
     CssProperty *pProp;
 {
-    CssProperty *pRet = HtmlNew(CssProperty);
+    CssProperty *pRet;
+    const char *z = HtmlCssPropertyGetString(pProp);
+    int n = sizeof(CssProperty);
+
+    if (z) n += (strlen(z) + 1);
+    pRet = (CssProperty *)HtmlAlloc("CssProperty", n);
     memcpy(pRet, pProp, sizeof(CssProperty));
+    if (z) {
+        pRet->v.zVal = (char *)(&pRet[1]);
+        strcpy(pRet->v.zVal, z);
+    }
     return pRet;
 }
 
@@ -884,66 +940,6 @@ static int propertyIsLength(pProp)
         pProp->eType==CSS_TYPE_PX ||
         pProp->eType==CSS_TYPE_PERCENT
     );
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * HtmlCssGetNextListItem --
- *
- *     Return the first property from a space seperated list of properties.
- *
- *     The property list is stored in string zList, length nList.
- *
- *     A pointer to the first property is returned. The length of the first
- *     property is stored in *pN.
- *
- * Results:
- *     None.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-const char *
-HtmlCssGetNextListItem(zList, nList, pN)
-    const char *zList;
-    int nList;
-    int *pN;
-{
-    int n = 0;
-    int t = CT_SPACE;
-    const char *zRet = 0;
-    const char *z = zList;
-    const char *zEnd = zList+nList;
-
-    while (z<zEnd && (t==CT_SPACE || t <= 0)) {
-        t = cssGetToken(z, zEnd-z, &n);
-        assert(n>0);
-        if (t==CT_SPACE || t <= 0) {
-            z += n;
-        }
-    }
-    zRet = z;
-    z += n;
-
-    while (z<zEnd && t!=CT_SPACE && t > 0) {
-        int n2 = 0;
-        t = cssGetToken(z, zEnd-z, &n2);
-        assert(n2>0);
-        z += n2;
-        if (t!=CT_SPACE && t > 0) {
-            n += n2;
-        }
-    }
-
-    if (zRet<zEnd && n>0) {
-        assert(n<=nList);
-        *pN = n;
-        return zRet;
-    }
-    return 0;
 }
 
 /*
@@ -1414,7 +1410,7 @@ getNextFontFamily(zList, nList, pzNext)
     char *zRet;
 
     while( 
-        (t = cssGetToken(&zList[nElem], nList-nElem, &nToken)) && 
+        (CT_EOF != (t = HtmlCssGetToken(&zList[nElem], nList-nElem, &nToken))) && 
         (t != CT_COMMA) 
     ){
       nElem += nToken;
@@ -1899,208 +1895,6 @@ static void selectorFree(pSelector)
 /*
  *---------------------------------------------------------------------------
  *
- * cssGetToken --
- *
- *     Return the id of the next CSS token in the string pointed to by z,
- *     length n. The length of the token is written to *pLen. 0 is returned
- *     if there are no complete tokens remaining.
- *
- * Results:
- *     See above.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-static int 
-cssGetToken(z, n, pLen)
-    CONST char *z; 
-    int n; 
-    int *pLen;
-{
-    if( n<=0 ){
-      return 0;
-    }
-
-    *pLen = 1;
-    switch( z[0] ){
-        case ' ':
-        case '\n':
-        case '\r':
-        case '\t': {
-            /* Collapse any contiguous whitespace to a single token */
-            int i;
-            for (i = 1; isspace((int)z[i]); i++);
-            *pLen = i;
-            return CT_SPACE;
-        }
-        case '{':  return CT_LP;
-        case '}':  return CT_RP;
-        case ')':  return CT_RRP;
-        case '[':  return CT_LSP;
-        case ']':  return CT_RSP;
-        case ';':  return CT_SEMICOLON;
-        case ',':  return CT_COMMA;
-        case ':':  return CT_COLON;
-        case '+':  return CT_PLUS;
-        case '>':  return CT_GT;
-        case '*':  return CT_STAR;
-        case '.':  return CT_DOT;
-        case '#':  return CT_HASH;
-        case '=':  return CT_EQUALS;
-        case '~':  return CT_TILDE;
-        case '|':  return CT_PIPE;
-        case '/':  {
-            int i;
-            int c;
-            if( z[1]!='*' || z[2]==0 ){
-                return CT_SLASH;
-            }
-            /* C style comment. */
-            for(i=3, c=z[2]; (c!='*' || z[i]!='/') && (c=z[i])!=0; i++){}
-            if( c ) i++;
-            *pLen = i;
-            return -1;
-        }
-
-        case '"': case '\'': {
-            char delim = z[0];
-            char c;
-            int i;
-            for(i=1; i<n; i++){
-                c = z[i];
-                if( c=='\\' ){
-                    i++;
-                }
-                if( c==delim ){
-                    *pLen = i+1; 
-                    return CT_STRING;
-                }
-            }
-            *pLen = n;
-            return -1;
-        }
-
-        case '@': {
-            struct AtKeyWord {
-                const char *z;
-                int n;
-                int t;
-            } atkeywords[] = {
-                {"import",    6, CT_IMPORT_SYM},
-                {"page",      4, CT_PAGE_SYM},
-                {"media",     5, CT_MEDIA_SYM},
-                {"font-face", 9, CT_FONT_SYM},
-                {"charset",   7, CT_CHARSET_SYM},
-            };
-            int i;
-            for(i=0; i<sizeof(atkeywords)/sizeof(struct AtKeyWord); i++){
-                if( 0==strnicmp(&z[1], atkeywords[i].z, atkeywords[i].n) ){
-                    *pLen = atkeywords[i].n + 1;
-                    return atkeywords[i].t;
-                }
-            }
-            return CT_INVALID_AT_SYM;
-        }
-        case '!': {
-            int a = 1;
-            while (z[a] && isspace(z[a])) a++; 
-            if( 0==strnicmp(&z[a], "important", 9) ){
-                 *pLen = 9 + a;
-                 return CT_IMPORTANT_SYM;
-            }
-            goto bad_token;
-        }
-
-        case '<': {
-            if (z[1] != '!' || z[2] != '-' || z[3] != '-') {
-                goto parse_as_token;
-            }
-            *pLen = 4;
-            return -1;
-        }
-        case '-': {
-            if (z[1] != '-' || z[2] != '>') {
-                goto parse_as_token;
-            }
-            *pLen = 3;
-            return -1;
-        }
-
-parse_as_token:
-        default: {
-                
-            /* This must be either an identifier or a function. For the
-            ** ASCII character range 0-127, the 'charmap' array is 1 for
-            ** characters allowed in an identifier or function name, 0
-            ** for characters not allowed. Allowed characters are a-z, 
-	    ** 0-9, '-', '_', '%' and '\'. All unicode characters
-            ** outside the ASCII range are allowed.
-            */
-            static u8 charmap[128] = {
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 0x00-0x0F */
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* 0x10-0x1F */
-                0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, /* 0x20-0x2F */
-                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, /* 0x30-0x3F */
-                0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, /* 0x40-0x4F */
-                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1, /* 0x50-0x5F */
-                0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, /* 0x60-0x6F */
-                1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0  /* 0x70-0x7F */
-            };
-            int i;
-
-            /* Weed out HTML comment symbols: <!-- and --> */
-            if (n >= 4 && 0 == strncmp("<!--", z, 4)) {
-                *pLen = 4;
-                return -1;
-            }
-            if (n >= 3 && 0 == strncmp("-->", z, 3)) {
-                *pLen = 3;
-                return -1;
-            }
-
-            for(i=0; i<n && (z[i]<0 || charmap[(int)z[i]]); i++){
-                if (z[i] == '\\' && z[i + 1]) i++;
-            }
-
-            if( i==0 ) goto bad_token;
-            if( i<n && z[i]=='(' ){
-                int t = -1;
-                int tlen;
-                i++;
-                while( i!=n && t!=0 && t!=CT_RRP ){
-                    t = cssGetToken(&z[i], n-i, &tlen);
-                    i += tlen;
-                }
-                if( t!=CT_RRP ) goto bad_token;
-                *pLen = i;
-                return CT_FUNCTION;
-            }
-            *pLen = i;
-            return CT_IDENT;
-        }
-    }
-
-bad_token:
-    *pLen = 1;
-    return CT_UNKNOWN_SYM;
-}
-
-/* Versions of HtmlAlloc(0, ) and HtmlFree(0, ) that are always 
- * functions (not macros). 
- */
-static void * xCkalloc(size_t n){
-    return HtmlAlloc("xCkalloc (css.c)", n);
-}
-static void xCkfree(void *p){
-    HtmlFree(p);
-}
-
-
-/*
- *---------------------------------------------------------------------------
- *
  * comparePriority --
  *
  *     Compare stylesheet priorities *pLeft and *pRight, returning less
@@ -2227,190 +2021,6 @@ newCssPriority(pStyle, origin, pIdTail, important)
     return pNew;
 }
 
-#define MEDIA_QUERY_NONE         0
-#define MEDIA_QUERY_MATCH        1
-#define MEDIA_QUERY_NOMATCH      2
-/*
- *---------------------------------------------------------------------------
- *
- * cssParseMediaQuery --
- *
- *     Parse a media query.
- *
- * Results:
- *     Return the number of bytes parsed.
- *
- * Side effects:
- *     Set *pRes to the "result" - one of the MEDIA_QUERY_* symbols.
- *
- *---------------------------------------------------------------------------
- */
-static int cssParseMediaQuery(pParse, p, z, n, pRes)
-    CssParse *pParse;
-    void *p;                /* The thing returned by tkhtmlCssParserAlloc */
-    const char *z;          /* Input text */
-    int n;                  /* Length of input text in bytes */
-    int *pRes;              /* Result - one of the MEDIA_QUERY_* symbols */
-{
-    int t;
-    int c = 0;
-    CssToken sToken;
-
-    /* 0 -> Expect identifier
-    ** 1 -> Expect comma
-    ** 2 -> Failed to parse.
-    ** 3 -> Finished.
-    */
-    int eState = 0;      /* Media-query parser state */
-
-    *pRes = MEDIA_QUERY_NOMATCH;
-    while (eState!=3 && (t = cssGetToken(&z[c], n-c, &sToken.n))) {
-        sToken.z = &z[c];
-        c += sToken.n;
-
-        switch (t) {
-            case CT_SEMICOLON:
-                /* If a ';' is encountered in the middle of a media-query,
-                ** then terminate media-query parsing and drop back to the 
-                ** upper level.
-                */
-                *pRes = MEDIA_QUERY_NONE;
-                eState = 3;
-                break;
-
-            case CT_SPACE:
-                 break;
-
-            case CT_LP:
-                if (eState == 0){
-                    *pRes = MEDIA_QUERY_NOMATCH;
-                }
-                eState = 3;
-                break;
-
-            case CT_COMMA:
-                if (eState == 0){
-                    *pRes = MEDIA_QUERY_NOMATCH;
-                    eState = 2;
-                }
-                if (eState == 1){
-                    eState = 0;
-                }
-                break;
-
-            case CT_IDENT:
-                if (eState == 1){
-                    *pRes = MEDIA_QUERY_NOMATCH;
-                    eState = 2;
-                }
-                if (eState == 0){
-                    eState = 1;
-                    if (
-                        (sToken.n == 3 && 0 == strnicmp(sToken.z, "all", 3)) ||
-                        (sToken.n == 6 && 0 == strnicmp(sToken.z, "screen", 6))
-                    ) {
-                        *pRes = MEDIA_QUERY_MATCH;
-                    }
-                }
-                break;
-
-            default:
-                *pRes = MEDIA_QUERY_NOMATCH;
-                eState = 2;
-                break;
-        }
-    }
-
-    return c;
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * cssParseBody --
- *
- *     Parse the body of a stylesheet. The string/length argument pair 
- *     z/n is assumed to contain the body of a stylesheet document
- *     (i.e. everything after the @charset and @import rules).
- *
- *     This function basically pulls tokens out of (z/n) and passes
- *     them to the lemon parser via tkhtmlCssParser(). It performs two
- *     other tasks:
- *
- *         1. Handles @media rules. Only the content of matching @media
- *            rules are passed through to tkhtmlCssParser().
- *
- *         2. Handles @page rules. These are simply discarded. (TODO)
- *
- *         3. Handles invalid at-rules. These are also discarded. CSS 2.1
- *            says "User agents must ignore an invalid at-keyword together 
- *            with everything following it, up to and including the next
- *            semicolon (;) or block ({...}), whichever comes first."
- * 
- *            Example from spec: 
- *
- *              @three-dee {
- *                @background-lighting {
- *                  azimuth: 30deg;
- *                }
- *                h1 { color: red }
- *              }
- *              h1 { color: blue }
- *
- *            h1 is blue, *not* red.
- *
- *
- * Results:
- *     Return the number of bytes parsed.
- *
- * Side effects:
- *     Set *pRes to the "result" - one of the MEDIA_QUERY_* symbols.
- *
- *---------------------------------------------------------------------------
- */
-static void cssParseBody(pParse, p, z, n)
-    CssParse *pParse;
-    void *p;                /* The thing returned by tkhtmlCssParserAlloc */
-    const char *z;          /* Input text */
-    int n;                  /* Length of input text in bytes */
-{
-    int t;
-    int c = 0;
-    CssToken sToken;
-
-    int eMedia = MEDIA_QUERY_NONE;
-    int nParen = 0;
-
-    while ((t = cssGetToken(&z[c], n-c, &sToken.n))) {
-        sToken.z = &z[c];
-        c += sToken.n;
-
-        if (t > 0) {
-            if (t == CT_MEDIA_SYM && eMedia == MEDIA_QUERY_NONE){
-                c += cssParseMediaQuery(pParse, p, &z[c], n-c, &eMedia);
-                if (eMedia != MEDIA_QUERY_NONE) {
-                    nParen++;
-                }
-            }else{
-                if (eMedia != MEDIA_QUERY_NONE) {
-                    if (t == CT_LP) {
-                        nParen++;
-                    }else if (t == CT_RP) {
-                        nParen--;
-                        if (nParen == 0) {
-                            eMedia = MEDIA_QUERY_NONE;
-                            continue;
-                        }
-                    }
-                }
-                if (eMedia != MEDIA_QUERY_NOMATCH) {
-                    tkhtmlCssParser(p, t, sToken, pParse);
-                }
-            }
-        }
-    }
-}
-
 /*
  *---------------------------------------------------------------------------
  *
@@ -2438,7 +2048,8 @@ static void cssParseBody(pParse, p, z, n)
  *---------------------------------------------------------------------------
  */
 static int 
-cssParse(pTree, n, z, isStyle, origin, pStyleId, pImportCmd, pUrlCmd, ppStyle)
+cssParse(
+pTree, n, z, isStyle, origin, pStyleId, pImportCmd, pUrlCmd, pErrorVar, ppStyle)
     HtmlTree *pTree;
     int n;                       /* Size of z in bytes */
     CONST char *z;               /* Text of attribute/document */
@@ -2447,11 +2058,10 @@ cssParse(pTree, n, z, isStyle, origin, pStyleId, pImportCmd, pUrlCmd, ppStyle)
     Tcl_Obj *pStyleId;           /* Second and later parts of stylesheet id */
     Tcl_Obj *pImportCmd;         /* Command to invoke to process @import */
     Tcl_Obj *pUrlCmd;            /* Command to invoke to translate url() */
+    Tcl_Obj *pErrorVar;          /* Name of error-log variable */
     CssStyleSheet **ppStyle;     /* IN/OUT: Stylesheet to append to   */
 {
     CssParse sParse;
-    CssToken sToken;
-    void *p;
     int ii;
 
     memset(&sParse, 0, sizeof(CssParse));
@@ -2461,13 +2071,14 @@ cssParse(pTree, n, z, isStyle, origin, pStyleId, pImportCmd, pUrlCmd, ppStyle)
     sParse.pUrlCmd = pUrlCmd;
     sParse.interp = (pTree ? pTree->interp : 0);
     sParse.pTree = pTree;
+    if (pErrorVar) {
+        sParse.pErrorLog = Tcl_NewObj();
+        Tcl_IncrRefCount(sParse.pErrorLog);
+    }
 
     if( n<0 ){
         n = strlen(z);
     }
-    p = tkhtmlCssParserAlloc(xCkalloc);
-
-/* tkhtmlCssParserTrace(stdout, "CSS: "); */
 
     /* If *ppStyle is NULL, then create a new CssStyleSheet object. If it
      * is not zero, then append the rules from the new stylesheet document
@@ -2477,9 +2088,11 @@ cssParse(pTree, n, z, isStyle, origin, pStyleId, pImportCmd, pUrlCmd, ppStyle)
         sParse.pStyle = HtmlNew(CssStyleSheet);
         
         /* If pStyleId is not NULL, then initialise the hash-tables */
-        Tcl_InitHashTable(&sParse.pStyle->aByTag, TCL_STRING_KEYS);
-        Tcl_InitHashTable(&sParse.pStyle->aByClass, TCL_STRING_KEYS);
-        Tcl_InitHashTable(&sParse.pStyle->aById, TCL_STRING_KEYS);
+        if (pStyleId) {
+            Tcl_InitHashTable(&sParse.pStyle->aByTag, TCL_STRING_KEYS);
+            Tcl_InitHashTable(&sParse.pStyle->aByClass, TCL_STRING_KEYS);
+            Tcl_InitHashTable(&sParse.pStyle->aById, TCL_STRING_KEYS);
+        }
     } else {
         sParse.pStyle = *ppStyle;
     }
@@ -2497,35 +2110,13 @@ cssParse(pTree, n, z, isStyle, origin, pStyleId, pImportCmd, pUrlCmd, ppStyle)
         sParse.pPriority2 = newCssPriority(sParse.pStyle, origin, pStyleId, 1);
     }
 
-    /* If this is a style attribute, not a stylesheet, then feed the
-     * parser the tokens '*' and '{' before attempting to parse the style
-     * attribute text. After parsing the text, feed the parser a '}' to
-     * finish everything off. Thus a style is converted to a stylesheet
-     * with a rule, using the universal selector.
-     */
     if (isStyle) {
-         sToken.z = "*"; sToken.n = 1; 
-         tkhtmlCssParser(p, CT_STAR, sToken, &sParse);
-         sToken.z = "{"; sToken.n = 1; 
-         tkhtmlCssParser(p, CT_LP, sToken, &sParse);
+        HtmlCssRunStyleParser(z, n, &sParse);
+    } else {
+        HtmlCssRunParser(z, n, &sParse);
     }
-
-    cssParseBody(&sParse, p, z, n);
-
-    /* if this is a style, not a stylesheet (see above), then feed the
-     * closing '}' token to the parser.
-     */
-    if (isStyle) {
-         sToken.z = "}"; sToken.n = 1; 
-         tkhtmlCssParser(p, CT_RP, sToken, &sParse);
-    }
-
-    /* Pass the end-of-input token to the parser */
-    sToken.z = ""; sToken.n = 0; 
-    tkhtmlCssParser(p, 0, sToken, &sParse);
 
     *ppStyle = sParse.pStyle;
-    tkhtmlCssParserFree(p, xCkfree);
 
     /* Clean up anything left in sParse */
     selectorFree(sParse.pSelector);
@@ -2535,39 +2126,13 @@ cssParse(pTree, n, z, isStyle, origin, pStyleId, pImportCmd, pUrlCmd, ppStyle)
     propertySetFree(sParse.pPropertySet);
     propertySetFree(sParse.pImportant);
 
+    if (pErrorVar) {
+        Tcl_ObjSetVar2(pTree->interp, pErrorVar, 0, sParse.pErrorLog, 0);
+        Tcl_DecrRefCount(sParse.pErrorLog);
+    }
+
     return 0;
 }
-
-/*--------------------------------------------------------------------------
- *
- * HtmlCssParse --
- *
- *     Parse the stylesheet pointed to by z, length n bytes. See comments
- *     above cssParse() for more detail.
- *
- * Results:
- *
- *     Returns a CssStyleSheet pointer, written to *ppStyle.
- *
- * Side effects:
- *
- *--------------------------------------------------------------------------
- */
-#if 0
-int 
-HtmlCssParse(pText, origin, pStyleId, pImportCmd, ppStyle)
-    Tcl_Obj *pText;
-    int origin;
-    Tcl_Obj *pStyleId;
-    Tcl_Obj *pImportCmd;
-    CssStyleSheet **ppStyle;
-{
-    int n;
-    CONST char *z;
-    z = Tcl_GetStringFromObj(pText, &n);
-    return cssParse(n, z, 0, origin, pStyleId, pImportCmd, 0, 0, ppStyle);
-}
-#endif
 
 int 
 HtmlCssSelectorParse(pTree, n, z, ppStyle)
@@ -2576,7 +2141,7 @@ HtmlCssSelectorParse(pTree, n, z, ppStyle)
     const char *z;
     CssStyleSheet **ppStyle;
 {
-    return cssParse(pTree, n, z, 0, 0, 0, 0, 0, ppStyle);
+    return cssParse(pTree, n, z, 0, 0, 0, 0, 0, 0, ppStyle);
 }
 
 /*
@@ -2595,13 +2160,13 @@ HtmlCssSelectorParse(pTree, n, z, ppStyle)
  *---------------------------------------------------------------------------
  */
 int 
-HtmlStyleParse(pTree, interp, pStyleText, pId, pImportCmd, pUrlCmd)
+HtmlStyleParse(pTree, pStyleText, pId, pImportCmd, pUrlCmd, pErrorVar)
     HtmlTree *pTree;
-    Tcl_Interp *interp;
     Tcl_Obj *pStyleText;
     Tcl_Obj *pId;
     Tcl_Obj *pImportCmd;
     Tcl_Obj *pUrlCmd;
+    Tcl_Obj *pErrorVar;
 {
     int origin = 0;
     Tcl_Obj *pStyleId = 0;
@@ -2626,7 +2191,7 @@ HtmlStyleParse(pTree, interp, pStyleText, pId, pImportCmd, pUrlCmd)
         pStyleId = Tcl_NewStringObj(&zId[6], -1);
     }
     if (!pStyleId) {
-        Tcl_AppendResult(interp, "Bad style-sheet-id: ", zId, 0);
+        Tcl_AppendResult(pTree->interp, "Bad style-sheet-id: ", zId, 0);
         return TCL_ERROR;
     }
     Tcl_IncrRefCount(pStyleId);
@@ -2647,6 +2212,7 @@ HtmlStyleParse(pTree, interp, pStyleText, pId, pImportCmd, pUrlCmd)
         pStyleId,                          /* Rest of -id option */
         pImportCmd,                        /* How to handle @import */
         pUrlCmd,                           /* How to handle url() */
+        pErrorVar,                         /* Variable to store errors in */
         &pTree->pStyle                     /* CssStylesheet to update/create */
     );
 
@@ -2678,7 +2244,7 @@ HtmlCssInlineParse(
 ){
     CssStyleSheet *pStyle = 0;
     assert(ppPropertySet && !(*ppPropertySet));
-    cssParse(pTree, n, z, 1, 0, 0, 0, 0,&pStyle);
+    cssParse(pTree, n, z, 1, 0, 0, 0, 0, 0, &pStyle);
 
     if (pStyle) {
         if (pStyle->pUniversalRules) {
@@ -2827,6 +2393,7 @@ HtmlCssDeclaration(pParse, pProp, pExpr, isImportant)
 {
     int prop; 
     CssPropertySet **ppPropertySet;
+    char zBuf[128];
 
     /* Do nothing if the isIgnore flag is set */
     if (pParse->isIgnore) return;
@@ -2843,7 +2410,15 @@ HtmlCssDeclaration(pParse, pProp, pExpr, isImportant)
      * declaration (CSS2 spec says to do this - besides, what else could we
      * do?).
      */
+#if 0
     prop = HtmlCssPropertyLookup(pProp->n, pProp->z);
+#else
+    if (pProp->n > 127) pProp->n = 127;
+    memcpy(zBuf, pProp->z, pProp->n);
+    zBuf[pProp->n] = '\0';
+    dequote(zBuf);
+    prop = HtmlCssPropertyLookup(-1, zBuf);
+#endif
     if( prop<0 ) return;
 
     if (isImportant) {
@@ -3304,6 +2879,10 @@ void HtmlCssRule(pParse, success)
     CssSelector **apXtraSelector = pParse->apXtraSelector;
     int nXtra = pParse->nXtra;
     int i;
+
+#if TRACE_PARSER_CALLS
+    printf("HtmlCssRule(%p, %d)\n", pParse, success);
+#endif
 
     if (pPropertySet && pPropertySet->n == 0) {
         propertySetFree(pPropertySet);
@@ -4156,7 +3735,7 @@ void HtmlCssImport(pParse, pToken)
     Tcl_Obj *pEval = pParse->pImportCmd;
 
     /* Do nothing if the isIgnore or isBody flags are set */
-    if (pParse->isIgnore || pParse->isBody) return;
+    if (pParse->isBody) return;
 
     if (pEval) {
         Tcl_Interp *interp = pParse->interp;
