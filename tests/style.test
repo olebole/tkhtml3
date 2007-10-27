@@ -471,5 +471,48 @@ tcltest::test style-10.1 {} -body {
   set res
 } -result [list normal 10px 130px 2.00 normal]
 
+#----------------------------------------------------------------------------
+# The following tests - style-10.* - test property and override method.
+#
+tcltest::test style-11.1 {} -body {
+    .h reset
+    .h parse -final {
+	<html>
+	<body>
+	<div id="outer">
+	<h2>foo</h2>
+	<div id="inner" style="background: none repeat scroll 0% 0%">bar</div>
+	baz</div>
+	</body>
+	</html>
+    }
+    pack .h
+    set n [.h search {div[id="inner"]}]
+    # wish: ./src/htmlprop.c:3035: HtmlNodeGetProperty:
+    #  Assertion `eProp <= 108' failed.
+    $n property background
+} -result [list none repeat scroll 0% 0%]
+
+tcltest::test style-11.2 {} -body {
+    $n override 
+} -result {}
+
+tcltest::test style-11.3 {} -body {
+    # Missusing of trailing ':'
+    set res [$n override {background-color: red}]
+    after idle [list set ::wait 1]
+    vwait ::wait
+    # wish: ./src/htmlprop.c:300: getPropertyDef:
+    #  Assertion `eProp >= 0' failed.
+    set res
+} -result {background-color: red}
+
+tcltest::test style-11.4 {} -body {
+    set res [$n override {background-color red}]
+} -result {background-color red}
+
+
+#----------------------------------------------------------------------
+
 finish_test
 
