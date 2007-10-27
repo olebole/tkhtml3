@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.131 2007/10/26 16:34:41 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.132 2007/10/27 04:13:29 hkoba Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -960,6 +960,7 @@ static CssProperty *propertyDup(pProp)
  *---------------------------------------------------------------------------
  */
 static void propertySetAddShortcutBorder(pParse, p, prop, v)
+    CssParse *pParse;
     CssPropertySet *p;         /* Property set. */
     int prop;
     CssToken *v;               /* Value for property. */
