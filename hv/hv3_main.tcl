@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.167 2007/10/26 18:37:49 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.168 2007/10/27 12:06:52 hkoba Exp $)} 1 }
 
 catch {memory init on}
 
@@ -61,6 +61,9 @@ source [sourcefile hv3_history.tcl]
 source [sourcefile hv3_string.tcl]
 source [sourcefile hv3_bookmarks.tcl]
 source [sourcefile hv3_bugreport.tcl]
+if {![llength [info procs ::console]]} {
+    source [sourcefile hv3_console.tcl]
+}
 
 #--------------------------------------------------------------------------
 # Widget ::hv3::browser_frame
@@ -1232,6 +1235,8 @@ snit::type ::hv3::debug_menu {
       "CSS Parse Errors"     [list gui_view_css_log]                      "" \
       "-----"                [list]                                       "" \
       "Exec firefox -remote" [list gui_firefox_remote]                    "" \
+      "-----"                   [list]                                    "" \
+      "Show Tcl Console"     [list ::console show]                        "" \
       "-----"                   [list]                                    "" \
       "Reset Profiling Data..." [list ::hv3::profile::zero]               "" \
       "Save Profiling Data..."  [list ::hv3::profile::report_to_file]     "" \
