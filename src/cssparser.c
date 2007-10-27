@@ -27,7 +27,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: cssparser.c,v 1.1 2007/10/26 18:40:02 danielk1977 Exp $";
+static const char rcsid[] = "$Id: cssparser.c,v 1.2 2007/10/27 06:39:43 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <assert.h>
@@ -248,13 +248,25 @@ static int inputNextToken(pInput)
                 if( c=='\\' ){
                     i++;
                 }
-                if( c==delim ){
+                else if( c=='\n' ){
+                    /* This is illegal. A CSS string cannot contain a new-line
+                     * unless it is escaped by a '\' character. The correct
+                     * response is to skip all the input parsed so far,
+                     * then fall back to normal syntax-error parsing.
+                     */
+                    pInput->iInput += i;
+                    goto bad_token;
+                } 
+                else if( c==delim ){
                     nToken = i+1; 
                     eToken = CT_STRING;
                     break;
                 }
             }
-            assert(i<n);    /* TODO: Parse error here */
+            /* This is actually not a parse error. If an EOF occurs in the
+             * middle of a string constant, the correct behaviour is to
+             * act as though the string was closed with a " or ' character.
+             */
             break;
         }
 

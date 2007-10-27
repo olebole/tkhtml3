@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.208 2007/10/26 18:35:29 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.209 2007/10/27 06:39:43 danielk1977 Exp $)} 1 }
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
 # browser. An instance of this widget displays a single HTML frame.
@@ -958,6 +958,11 @@ snit::type ::hv3::hv3::styleerrorlog {
       append ret "<PRE>"
       set iCurrent 0
       foreach {iStart nLen} $parse_errors {
+        # The offsets stored in the $parse_errors array are byte-offsets.
+        # Transform these to character offsets before using them:
+        set iStart [::tkhtml::charoffset $data $iStart]
+        set nLen   [::tkhtml::charoffset [string range $data $iStart end] $nLen]
+
         append ret [htmlize [string range $data $iCurrent [expr {$iStart-1}]]]
         append ret {<span color=red>}
         append ret [htmlize [
