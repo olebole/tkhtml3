@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.117 2007/09/25 11:21:42 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.118 2007/10/27 15:08:36 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -1227,20 +1227,22 @@ tokenizeWrapper(pTree, isFin, xAddText, xAddElement, xAddClosing)
         HtmlFinishNodeHandlers(pTree);
     }
 
-    pCurrent = pTree->state.pCurrent;
-    HtmlCallbackRestyle(pTree, pCurrent ? pCurrent : pTree->pRoot);
-    
-    /* The theory is that the above calls to CallbackRestyle() ensure that
-     * any nodes added to the tree by HtmlTokenize() are styled in the next
-     * idle callback. This call, which is a no-op in -DNDEBUG builds, 
-     * checks if that is true.
-     *
-     * TODO. Each time an element is added to a foster-tree in htmltree.c
-     * it calls HtmlCheckRestylePoint(). This is inefficient. But otherwise
-     * the following assert() fails (HtmlCheckRestylePoint() is a complex
-     * assert() function).
-     */
-    HtmlCheckRestylePoint(pTree);
+    if (pTree->eWriteState != HTML_WRITE_INHANDLERRESET) {
+        pCurrent = pTree->state.pCurrent;
+        HtmlCallbackRestyle(pTree, pCurrent ? pCurrent : pTree->pRoot);
+        
+        /* The theory is that the above calls to CallbackRestyle() ensure that
+         * any nodes added to the tree by HtmlTokenize() are styled in the next
+         * idle callback. This call, which is a no-op in -DNDEBUG builds, 
+         * checks if that is true.
+         *
+         * TODO. Each time an element is added to a foster-tree in htmltree.c
+         * it calls HtmlCheckRestylePoint(). This is inefficient. But otherwise
+         * the following assert() fails (HtmlCheckRestylePoint() is a complex
+         * assert() function).
+         */
+        HtmlCheckRestylePoint(pTree);
+    }
 
     return rc;
 }

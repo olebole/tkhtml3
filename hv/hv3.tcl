@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.210 2007/10/27 11:26:20 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.211 2007/10/27 15:08:36 danielk1977 Exp $)} 1 }
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
 # browser. An instance of this widget displays a single HTML frame.
@@ -1016,17 +1016,17 @@ snit::widget ::hv3::hv3 {
   # use the URI stored in myUri as the base.
   #
   component myUri -public uri
-  variable  myBase ""                ;# The current URI (type ::hv3::hv3uri)
+  variable myBase ""                ;# The current URI (type ::hv3::hv3uri)
 
   # Full text of referrer URI, if any.
   #
   # Note that the DOM attribute HTMLDocument.referrer has a double-r,
   # but the name of the HTTP header, "Referer", has only one.
   #
-  variable  myReferrer ""     
+  variable myReferrer ""     
 
   # Used to assign internal stylesheet ids.
-  variable  myStyleCount 0 
+  variable myStyleCount 0 
 
   # This variable may be set to "unknown", "quirks" or "standards".
   variable myQuirksmode unknown
@@ -1439,11 +1439,10 @@ snit::widget ::hv3::hv3 {
 
       content-type {
 	  foreach {a b enc} [::hv3::string::parseContentType $content] {}
-	  if {![$myRootDownload isSameEncoding $enc $myEncoding]
+	  if {![::hv3::encoding_isequal $enc $myEncoding]
 	      && $myRefreshEventId eq ""
 	  } {
 	      puts "meta enc reload ('$myEncoding' -> $enc) [$myUri get]"
-	      $myHtml reset
 	      $self ReloadWithEncoding $enc
 	  }
       }
@@ -1719,7 +1718,6 @@ snit::widget ::hv3::hv3 {
         $self seek_to_fragment [$myUri fragment]
       }
 
-      set myForceReload 0
       set myStyleCount 0
 
       # If there is a "Location" or "Refresh" header, handle it now.

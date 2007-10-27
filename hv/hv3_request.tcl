@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.14 2007/10/26 18:35:29 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.15 2007/10/27 15:08:36 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file contains the implementation of two types used by hv3:
@@ -278,7 +278,7 @@ snit::type ::hv3::download {
   }
 
   onconfigure -encoding enc {
-      set options(-encoding) [$self resolveEncodingAlias $enc]
+      set options(-encoding) [::hv3::encoding_resolve $enc]
   }
 
   # Return the "authority" part of the URI configured as the -uri option.
@@ -396,14 +396,9 @@ snit::type ::hv3::download {
       }
   }
 
-  method isSameEncoding {x y} {
-      string equal \
-	  [$self resolveEncodingAlias $x] [$self resolveEncodingAlias $y]
-  }
-
   method suggestEncoding enc {
       puts "suggested encoding $enc"
-      set suggestedEncoding [$self resolveEncodingAlias $enc]
+      set suggestedEncoding [::hv3::encoding_resolve $enc]
       if {$options(-root) && $options(-hv3) ne ""} {
 	  puts " -> send it to hv3"
 	  $options(-hv3) setEncoding $enc
@@ -433,20 +428,6 @@ snit::type ::hv3::download {
 	  set raw [string replace $raw 0 $found]
       }
       set decoded
-  }
-
-  method resolveEncodingAlias enc {
-    set encoding [string tolower $enc]
-    set vn ::Hv3EncodingMap($encoding)
-    if {[info exists $vn]} {
-	set encoding [set $vn]
-    }
-    if {[lsearch -exact [encoding names] $encoding] < 0} {
-	# Last resort. Ignore unknown encoding and use system encoding.
-	encoding system
-    } else {
-	set encoding
-    }
   }
 
   proc string-or args {

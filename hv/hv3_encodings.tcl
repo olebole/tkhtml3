@@ -67,6 +67,33 @@ proc fconfigure {args} {
   eval fconfigure_orig $argv
 }
 
+namespace eval ::hv3 {
+
+  # The argument is an encoding name, which may or may not be known to Tcl.
+  # Return the name of the Tcl encoding that will be used by Hv3.
+  #
+  proc encoding_resolve {enc} {
+    set encoding [string tolower $enc]
+    set vn ::Hv3EncodingMap($encoding)
+    if {[info exists $vn]} {
+      set encoding [set $vn]
+    }
+    if {[lsearch -exact [encoding names] $encoding] < 0} {
+      # Last resort. Ignore unknown encoding and use system encoding.
+      encoding system
+    } else {
+      set encoding
+    }
+  }
+
+  # The two arguments are encoding names. This proc returns true if the
+  # two encodings are handled identically by Hv3.
+  #
+  proc ::hv3::encoding_isequal {enc1 enc2} {
+    string equal [::hv3::encoding_resolve $enc1] [::hv3::encoding_resolve $enc2]
+  }
+}
+
 ##########################################################################
 # Below this point is where new encoding alias' can be added. See
 # the comment in the file header for instructions.
@@ -104,4 +131,5 @@ set ::Hv3EncodingMap(iso-8559-1) utf-8
 
 # Thai encoding.
 set ::Hv3EncodingMap(windows-874) tis-620
+
 
