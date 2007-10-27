@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.37 2007/10/26 09:31:15 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.38 2007/10/27 12:17:37 hkoba Exp $)} 1 }
 
 # Register the home: scheme handler with ::hv3::protocol $protocol.
 #
@@ -91,9 +91,7 @@ proc ::hv3::home_request {http hv3 dir downloadHandle} {
             <FRAME src="home://bookmarks_left">
             <FRAME src="home://bookmarks/folder/0">
         }
-        ::hv3::sqlitedb transaction {
-          ::hv3::bookmarks::initialise_database
-        }
+        ::hv3::bookmarks::ensure_initialized
         after idle [list ::hv3::bookmarks::init [$downloadHandle cget -hv3]]
       } else {
         $downloadHandle append [::hv3::bookmarks::requestpage $path]

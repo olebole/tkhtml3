@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_bookmarks.tcl,v 1.14 2007/10/25 01:41:05 hkoba Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_bookmarks.tcl,v 1.15 2007/10/27 12:17:37 hkoba Exp $)} 1 }
 
 namespace eval ::hv3::bookmarks {
 
@@ -73,6 +73,17 @@ pressing enter.
   set fts3_warning ""
 
   proc noop {args} {}
+
+  proc ensure_initialized {} {
+    set db ::hv3::sqlitedb
+    $db transaction {
+	if {![$db exists {select * from sqlite_master
+	    where name = 'bm_bookmark2'}]} {
+	    puts stderr "initializing bookmark database.."
+	    initialise_database
+	}
+    }
+  }
 
   proc initialise_database {} {
     set rc [catch {
