@@ -435,6 +435,8 @@ void HtmlComputedValuesReference(HtmlComputedValues *);
 void HtmlComputedValuesSetupTables(HtmlTree *);
 void HtmlComputedValuesCleanupTables(HtmlTree *);
 
+void HtmlComputedValuesFreePrototype(HtmlTree *);
+
 /*
  * Empty the font cache (i.e. because font config options have changed).
  */

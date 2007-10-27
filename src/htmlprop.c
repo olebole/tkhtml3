@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.127 2007/10/26 14:41:32 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.128 2007/10/27 15:47:15 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -2860,6 +2860,18 @@ HtmlFontCacheClear(pTree, isReinit)
     }
 }
 
+
+void HtmlComputedValuesFreePrototype(pTree)
+    HtmlTree *pTree;
+{
+    if (pTree->pPrototypeCreator) {
+        pTree->pPrototypeCreator->values.nRef = 1;
+        HtmlComputedValuesRelease(pTree, &pTree->pPrototypeCreator->values);
+        HtmlFree(pTree->pPrototypeCreator);
+        pTree->pPrototypeCreator = 0;
+    }
+}
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -2910,12 +2922,7 @@ HtmlComputedValuesCleanupTables(pTree)
         0
     };
 
-    if (pTree->pPrototypeCreator) {
-        pTree->pPrototypeCreator->values.nRef = 1;
-        HtmlComputedValuesRelease(pTree, &pTree->pPrototypeCreator->values);
-        HtmlFree(pTree->pPrototypeCreator);
-        pTree->pPrototypeCreator = 0;
-    }
+    HtmlComputedValuesFreePrototype(pTree);
 
     for (pzCursor = azColor; *pzCursor; pzCursor++) {
         HtmlColor *pColor;

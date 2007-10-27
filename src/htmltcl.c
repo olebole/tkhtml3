@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.192 2007/10/26 09:31:15 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.193 2007/10/27 15:47:15 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -1425,6 +1425,7 @@ BOOLEAN(forcewidth, "forceWidth", "ForceWidth", "0", L_MASK),
             } else {
                 memcpy(pTree->aFontSizeTable, aFontSize, sizeof(aFontSize));
                 mask |= S_MASK;
+                HtmlComputedValuesFreePrototype(pTree);
             }
         }
 
