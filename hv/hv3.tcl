@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.209 2007/10/27 06:39:43 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.210 2007/10/27 11:26:20 danielk1977 Exp $)} 1 }
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
 # browser. An instance of this widget displays a single HTML frame.
@@ -1053,19 +1053,6 @@ snit::widget ::hv3::hv3 {
   #
   variable myMimetype ""
 
-  # This variable is set to true while parsing the first chunk of an
-  # html document. i.e. code below effectively does:
-  #
-  #     set myChangeEncodingOk 1
-  #     $myHtml parse $first_chunk
-  #     set myChangeEncodingOk 0
-  #
-  # This is because we only do anything about <meta type="content-type">
-  # tags if they are encountered in the first chunk of the document. The
-  # default chunk-size is 2048 bytes, so this is reasonably safe.
-  #
-  variable myChangeEncodingOk 0
-
   # If this variable is set to anything other than an empty string, then
   # it is set to the encoding of the document.
   #
@@ -1693,7 +1680,6 @@ snit::widget ::hv3::hv3 {
             $myHtml configure -xhtml $isXHTML
             set myMimetype html
 	    set myEncoding [$handle suggestedEncoding]
-            set myChangeEncodingOk 1
           }
         }
   
@@ -1746,13 +1732,6 @@ snit::widget ::hv3::hv3 {
           refresh {
             set refreshheader $value
           }
-          content-type {
-            set tokens [::hv3::string::tokenise $value]
-            foreach {a b enc} [::hv3::string::parseContentType $value] {}
-            if {$enc ne ""} {
-              set myChangeEncodingOk 0
-            }
-          }
         }
       }
       if {$refreshheader ne ""} {
@@ -1769,7 +1748,6 @@ snit::widget ::hv3::hv3 {
       html  {$self HtmlCallback $handle $final $data}
       image {$self ImageCallback $handle $final $data}
     }
-    set myChangeEncodingOk 0
 
 
     if {$final} {

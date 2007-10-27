@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.41 2007/10/17 17:45:07 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.42 2007/10/27 11:26:20 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Html
@@ -1189,7 +1189,7 @@ namespace eval ::hv3::DOM {
       if {$myNode eq [[$myNode html] node]} {
         # TODO: Maybe this is not quite cacheable... But caching it saves
         # calling this code for every single event propagation....
-        list object [node_to_document $myDom $myNode]
+        list cache object [node_to_document $myDom $myNode]
       } else {
         list null
       }
