@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_bookmarks.tcl,v 1.15 2007/10/27 12:17:37 hkoba Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_bookmarks.tcl,v 1.16 2007/10/28 03:33:12 hkoba Exp $)} 1 }
 
 namespace eval ::hv3::bookmarks {
 
@@ -71,6 +71,7 @@ pressing enter.
   }
 
   set fts3_warning ""
+  set ::hv3::have_fts3 0
 
   proc noop {args} {}
 
