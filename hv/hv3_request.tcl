@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.15 2007/10/27 15:08:36 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.16 2007/10/28 05:12:07 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file contains the implementation of two types used by hv3:
@@ -326,6 +326,36 @@ snit::type ::hv3::download {
   method fail {} {puts FAIL}
 
   method reload_with_encoding enc {
+
+      # At present, this method is called on the "root" download by
+      # the Hv3 widget when it encounters a tag of the form:
+      #
+      #     <META http-equiv="content-type" content="text/html;charset=ENC">
+      #
+      # where ENC is not the same as the encoding specified by the 
+      # transport layer (or the system encoding, if the transport layer did
+      # not specify an encoding).
+      #
+      # Usually, but not always, this occurs before the widget requests any
+      # other resources (the HTML5 specification at www.whatwg.org suggests
+      # that UA's should ignore such <META> elements in other circumstances,
+      # but this doesn't work on the web in 2007). In this case, all that
+      # is required is to translate the binary data to the new encoding
+      # and reinvoke the -incrscript/-finscript callbacks.
+      #
+      if {[llength $myChildren] == 0} {
+          set options(-encoding) $enc
+          set readPos 0
+          set myData ""
+          if {$isFinished} {
+              set isFinished 0 
+              $self finish
+          } else {
+              $self append ""
+          }
+          return
+      }
+
       set nowReloading 1
       # puts "freezing root request."
       $self freeze
