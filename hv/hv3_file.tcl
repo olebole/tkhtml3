@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_file.tcl,v 1.9 2007/10/20 23:20:32 hkoba Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_file.tcl,v 1.10 2007/10/28 06:07:30 danielk1977 Exp $)} 1 }
 
 #
 # This file contains Tcl code for loading file:// URIs in the hv3 web browser
@@ -234,8 +234,7 @@ proc request_file {downloadHandle} {
         #$downloadHandle fail "Unreadable path: $filename"
     }
 
-    $downloadHandle append $data
-    $downloadHandle finish
+    $downloadHandle finish $data
 }
 
 };# End of [namespace eval hv3]

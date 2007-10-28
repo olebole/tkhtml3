@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.16 2007/10/28 05:12:07 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.17 2007/10/28 06:07:31 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file contains the implementation of two types used by hv3:
@@ -313,9 +313,10 @@ snit::type ::hv3::download {
 
   method isFinished {} {set isFinished}
   # Called after all data has been passed to [append].
-  method finish {} {
-    if {$isFinished} return
+  method finish {{raw ""}} {
+    if {$isFinished} {error "finish called twice on $self"}
     set isFinished 1
+    append myRaw $raw
     if {$isText && $myRaw ne ""} {
 	append myData [$self EncodingGetConvertible myRaw 1]
 	# puts stderr fin\t$self\t[$self cget -uri]\t[clock seconds]\n[string length $myData]\n[lrange [info level -1] 0 1]\n$myData
@@ -453,7 +454,7 @@ snit::type ::hv3::download {
       set decoded [encoding convertfrom [$self encoding] \
 		       [string range $raw $readPos $found]]
       if {$options(-root)} {
-	  set readPos $found
+	  set readPos [expr {$found+1}]
       } else {
 	  set raw [string replace $raw 0 $found]
       }

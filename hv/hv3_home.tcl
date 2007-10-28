@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.38 2007/10/27 12:17:37 hkoba Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_home.tcl,v 1.39 2007/10/28 06:07:31 danielk1977 Exp $)} 1 }
 
 # Register the home: scheme handler with ::hv3::protocol $protocol.
 #
@@ -16,6 +16,8 @@ proc ::hv3::home_request {http hv3 dir downloadHandle} {
   set path      [$obj path]
   $obj destroy
 
+  set data {}
+
   switch -exact -- $authority {
 
     blank { }
@@ -28,7 +30,7 @@ proc ::hv3::home_request {http hv3 dir downloadHandle} {
         append hv3_version "$t\n"
       }
     
-      set html [subst {
+      set data [subst {
         <html> <head> </head> <body>
         <h1>Tkhtml Source Code Versions</h1>
         <pre>$tkhtml_version</pre>
@@ -36,8 +38,6 @@ proc ::hv3::home_request {http hv3 dir downloadHandle} {
         <pre>$hv3_version</pre>
         </body> </html>
       }]
-    
-      $downloadHandle append $html
     }
 
     bug {
@@ -74,13 +74,13 @@ proc ::hv3::home_request {http hv3 dir downloadHandle} {
         }
       } else {
         set obj [string range $path 1 end]
-        $downloadHandle append [::hv3::DOM::docs::${obj}]
+        set data [::hv3::DOM::docs::${obj}]
       }
     }
 
     css_parse_errors {
       set path [string range $path 1 end]
-      $downloadHandle append [$path css_parse_errors]
+      set data [$path css_parse_errors]
     }
 
     bookmarks_left { }
@@ -94,12 +94,12 @@ proc ::hv3::home_request {http hv3 dir downloadHandle} {
         ::hv3::bookmarks::ensure_initialized
         after idle [list ::hv3::bookmarks::init [$downloadHandle cget -hv3]]
       } else {
-        $downloadHandle append [::hv3::bookmarks::requestpage $path]
+        set data [::hv3::bookmarks::requestpage $path]
       }
     }
   }
 
-  $downloadHandle finish
+  $downloadHandle finish $data
 }
 
 proc ::hv3::hv3_version {} {

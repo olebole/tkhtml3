@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.211 2007/10/27 15:08:36 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.212 2007/10/28 06:07:30 danielk1977 Exp $)} 1 }
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
 # browser. An instance of this widget displays a single HTML frame.
@@ -1751,7 +1751,7 @@ snit::widget ::hv3::hv3 {
     if {$final} {
       # For root, $handle is scheduled to checkPending.
       # For child, $handle is removed from root and destroyed.
-      $handle finish
+      #$handle finish
       $handle release
       if {$myStorevisitedDone == 0 && $options(-storevisitedcmd) ne ""} {
         set myStorevisitedDone 1
