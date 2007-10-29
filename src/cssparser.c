@@ -27,7 +27,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: cssparser.c,v 1.2 2007/10/27 06:39:43 danielk1977 Exp $";
+static const char rcsid[] = "$Id: cssparser.c,v 1.3 2007/10/30 00:49:46 hkoba Exp $";
 
 #include <ctype.h>
 #include <assert.h>
@@ -753,7 +753,7 @@ static int parseDeclarationBlock(CssInput *pInput, CssParse *pParse){
         CssToken tProp;
         CssToken tVal;
         CssTokenType eToken;
-        int isImportant;
+        int isImportant = 0;
 
         /* Property name */
         if (inputGetToken(pInput, 0, 0) == CT_SPACE) inputNextToken(pInput);
