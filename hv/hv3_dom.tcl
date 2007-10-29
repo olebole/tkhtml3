@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.84 2007/10/20 23:20:32 hkoba Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.85 2007/10/29 14:49:42 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Snit types in this file:
@@ -226,14 +226,24 @@ return
   #
   method scriptCallback {hv3 attr downloadHandle script} {
 
+    set title ""
     if {$downloadHandle ne ""} { 
       # Handle an HTTP redirect or a Location header:
       #
       if {[$hv3 HandleLocation $downloadHandle]} return
+      set title [$downloadHandle cget -uri]
       $downloadHandle destroy 
     }
 
-    if {$::hv3::dom::reformat_scripts_option} {
+    if {$title eq ""} {
+      set attributes ""
+      foreach {a v} $attr {
+        append attributes " [htmlize $a]=\"[htmlize $v]\""
+      }
+      set title "<script$attributes>"
+    }
+
+    if {$::hv3::reformat_scripts_option} {
       set script [string map {"\r\n" "\n"} $script]
       set script [string map {"\r" "\n"} $script]
       set script [::see::format $script]
@@ -243,12 +253,7 @@ return
     set w [list ::hv3::DOM::Window $self $hv3]
     set rc [catch {$mySee eval -window $w -noresult -file $name $script} msg]
 
-    set attributes ""
-    foreach {a v} $attr {
-      append attributes " [htmlize $a]=\"[htmlize $v]\""
-    }
-    set title "<SCRIPT$attributes>"
-    $myLogData Log $title $name $script $rc $msg
+    $self Log $title $name $script $rc $msg
 
     $hv3 write continue
   }
@@ -309,8 +314,7 @@ return
     #
     if {$rc} {
       set name [string map {blob error} [$self NewFilename]]
-      $myLogData Log "$node $event event" $name "event-handler" $rc $msg
-      $myLogData Popup
+      $self EventLog "$event $node" $name "" $rc $msg
       set msg error
     }
 
@@ -332,8 +336,7 @@ return
     if {$rc} {
       set objtype [lindex $js_obj 0]
       set name [string map {blob error} [$self NewFilename]]
-      $myLogData Log "$objtype $event event" $name "event-handler" $rc $msg
-      $myLogData Popup
+      $self Log "$objtype $event event" $name "event-handler" $rc $msg
       set msg ""
     }
 
@@ -397,8 +400,7 @@ return
     } msg]
     if {$rc} {
       set name [string map {blob error} [$self NewFilename]]
-      $myLogData Log "$node $event event" $name "event-handler" $rc $msg
-      $myLogData Popup
+      $self EventLog "$event $node" $name "" $rc $msg
       set msg "prevent"
     }
     set msg
@@ -486,28 +488,33 @@ return
   #------------------------------------------------------------------
   # Logging system follows.
   #
-  variable myLogData
+  variable myLogList ""
 
-  # This variable contains the current javascript debugging log in HTML 
-  # form. It is appended to by calls to [Log] and truncated to an
-  # empty string by [LogReset]. If the debugging window is displayed,
-  # the contents are identical to that of this variable.
-  #
-  variable myLogDocument ""
+  method GetLog {} {return $myLogList}
 
-  method Log {heading script rc result} {
-    $myLogData Log $heading $script $rc $result
-    return
+  method Log {heading name script rc result} {
+    if {!$::hv3::log_source_option} return
+
+    set obj [::hv3::dom::logscript %AUTO% \
+        -rc $rc -heading $heading -script $script -result $result -name $name
+    ]
+    lappend myLogList $obj
   }
 
+  method EventLog {heading name script rc result} {
+    if {!$::hv3::log_source_option} return
+
+    set obj [::hv3::dom::logscript %AUTO% -isevent true \
+        -rc $rc -heading $heading -script $script -result $result -name $name
+    ]
+    lappend myLogList $obj
+
+    ::hv3::launch_console
+    .console.console Errors javascript [list -1 $self $obj]
+  }
 
   method LogReset {} {
-    $myLogData Reset
-    return
-  }
-
-  method javascriptlog {} {
-    $myLogData Popup
+    set myLogList [list]
     return
   }
 
@@ -536,6 +543,7 @@ snit::type ::hv3::dom::logscript {
   option -script  -default "" 
   option -result  -default "" 
   option -name    -default "" 
+  option -isevent -default 0 
 }
 
 snit::type ::hv3::dom::logdata {
@@ -573,6 +581,7 @@ snit::type ::hv3::dom::logdata {
   }
 
   method Log {heading name script rc result} {
+    if {!$::hv3::log_source_option} return
     set ls [::hv3::dom::logscript %AUTO% \
       -rc $rc -name $name -heading $heading -script $script -result $result
     ]
@@ -1301,9 +1310,6 @@ proc ::hv3::dom_init {{init_docs 0}} {
     ] {
       source [file join $::hv3::scriptdir $f]
     }
-    
-    set ::hv3::dom::reformat_scripts_option 0
-    #set ::hv3::dom::reformat_scripts_option 1
   }
 }
 

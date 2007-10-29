@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.212 2007/10/28 06:07:30 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.213 2007/10/29 14:49:41 danielk1977 Exp $)} 1 }
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
 # browser. An instance of this widget displays a single HTML frame.
@@ -934,57 +934,43 @@ snit::type ::hv3::hv3::hyperlinkmanager {
 # End of ::hv3::hv3::hyperlinkmanager
 #--------------------------------------------------------------------------
 
-snit::type ::hv3::hv3::styleerrorlog {
-  variable myStyleErrors {}
+snit::type ::hv3::hv3::framelog {
   variable myHv3 {}
+
+  variable myStyleErrors {}
+  variable myHtmlDocument {}
 
   constructor {hv3} {
     set myHv3 $hv3
   }
 
+  method loghtml {data} {
+    if {$::hv3::log_source_option} {
+      append myHtmlDocument $data
+    }
+  }
+
   method log {filename data parse_errors} {
-    lappend myStyleErrors [list $filename $data $parse_errors]
+    if {$::hv3::log_source_option} {
+      lappend myStyleErrors [list $filename $data $parse_errors]
+    }
   }
 
   method clear {} {
     set myStyleErrors ""
+    set myHtmlDocument ""
   }
 
-  method get {} {
-    set ret ""
-    foreach set $myStyleErrors {
-      foreach {filename data parse_errors} $set {}
-      append ret "<H2>[htmlize $filename]</H2>"
-      append ret "<PRE>"
-      set iCurrent 0
-      foreach {iStart nLen} $parse_errors {
-        # The offsets stored in the $parse_errors array are byte-offsets.
-        # Transform these to character offsets before using them:
-        set iStart [::tkhtml::charoffset $data $iStart]
-        set nLen   [::tkhtml::charoffset [string range $data $iStart end] $nLen]
-
-        append ret [htmlize [string range $data $iCurrent [expr {$iStart-1}]]]
-        append ret {<span color=red>}
-        append ret [htmlize [
-            string range $data $iStart [expr {$iStart+$nLen-1}]
-        ]]
-        append ret {</span>}
-        set iCurrent [expr {$iStart + $nLen}]
+  method get {args} {
+    switch -- [lindex $args 0] {
+      html { 
+        return $myHtmlDocument 
       }
-      append ret [htmlize [string range $data $iCurrent end]]
-      append ret "</PRE>"
-    }
 
-    append ret "<HR><PRE>"
-    foreach rule [$myHv3 _styleconfig] {
-      foreach {selector properties origin} $rule break
-      if {![string match agent* $origin]} {
-        append ret "[htmlize $selector] { [htmlize $properties] }\n"
+      css { 
+        return $myStyleErrors
       }
     }
-    append ret "</PRE>"
-  
-    return $ret
   }
 }
 
@@ -1000,8 +986,7 @@ snit::widget ::hv3::hv3 {
   component mySelectionManager -public selectionmanager
   component myFormManager            ;# The ::hv3::formmanager
 
-  component myStyleErrorLog          ;# The ::hv3::styleerrorlog
-  delegate method css_parse_errors to myStyleErrorLog as get
+  component myFrameLog -public log     ;# The ::hv3::hv3::framelog
 
   option -dom -default "" -configuremethod SetDom
 
@@ -1110,7 +1095,9 @@ snit::widget ::hv3::hv3 {
     set mySelectionManager [::hv3::hv3::selectionmanager %AUTO% $self]
     set myDynamicManager   [::hv3::hv3::dynamicmanager   %AUTO% $self]
 
-    set myStyleErrorLog    [::hv3::hv3::styleerrorlog   %AUTO% $self]
+    # The frame log (records component HTML and CSS documents).
+    #
+    set myFrameLog         [::hv3::hv3::framelog   %AUTO% $self]
 
     $myMouseManager subscribe motion [list $mySelectionManager motion]
 
@@ -1419,7 +1406,7 @@ snit::widget ::hv3::hv3 {
           -errorvar parse_errors \
           $data
 
-      $myStyleErrorLog log [$handle cget -uri] $data $parse_errors
+      $myFrameLog log [$handle cget -uri] $data $parse_errors
 
       $self goto_fragment
       $handle release
@@ -1608,7 +1595,7 @@ snit::widget ::hv3::hv3 {
         -errorvar parse_errors \
         $script
 
-    $myStyleErrorLog log {<style> block} $script $parse_errors
+    $myFrameLog log "<style> block $myStyleCount" $script $parse_errors
 
     return ""
   }
@@ -1761,6 +1748,7 @@ snit::widget ::hv3::hv3 {
   }
 
   method HtmlCallback {handle isFinal data} {
+    $myFrameLog loghtml $data
     if {$isFinal} {
 	$myHtml parse -final $data
     } else {
@@ -2009,7 +1997,7 @@ snit::widget ::hv3::hv3 {
       set myRefreshEventId ""
     }
 
-    $myStyleErrorLog clear
+    $myFrameLog clear
 
     # Generate the <<Reset>> and <<SaveState> events.
     if {!$myFirstReset && $isSaveState} {

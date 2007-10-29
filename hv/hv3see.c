@@ -1353,6 +1353,7 @@ handleJavascriptError(pTclSeeInterp, pTry)
     pError = Tcl_NewObj();
     Tcl_ListObjAppendElement(0, pError, Tcl_NewStringObj("JS_ERROR", -1));
 
+    /* String form of exception object thrown */
     SEE_ToString(pSeeInterp, SEE_CAUGHT(*pTry), &error);
     if (SEE_VALUE_GET_TYPE(&error) == SEE_STRING) {
         struct SEE_string *pS = error.u.string;
@@ -1362,12 +1363,21 @@ handleJavascriptError(pTclSeeInterp, pTry)
         Tcl_ListObjAppendElement(0, pError, Tcl_NewStringObj("N/A", -1));
     }
 
+    /* If there is a Tcl error, append it. Otherwise append an empty string. */
     if (pTclSeeInterp->pTclError) {
         Tcl_ListObjAppendElement(0, pError, pTclSeeInterp->pTclError);
         Tcl_DecrRefCount(pTclSeeInterp->pTclError);
         pTclSeeInterp->pTclError = 0;
     } else {
         Tcl_ListObjAppendElement(0, pError, Tcl_NewStringObj("", -1));
+    }
+
+    if (pSeeInterp->try_location) {
+        struct SEE_throw_location *pLoc = pSeeInterp->try_location;
+        Tcl_ListObjAppendElement(0, pError, stringToObj(pLoc->filename));
+        Tcl_ListObjAppendElement(0, pError, Tcl_NewIntObj(pLoc->lineno));
+        Tcl_ListObjAppendElement(0, pError, Tcl_NewObj());
+        Tcl_ListObjAppendElement(0, pError, Tcl_NewObj());
     }
 
     for (pTrace = pTry->traceback; pTrace; pTrace = pTrace->prev) {

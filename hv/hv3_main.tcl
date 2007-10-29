@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.168 2007/10/27 12:06:52 hkoba Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.169 2007/10/29 14:49:42 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -46,6 +46,11 @@ if {[package vsatisfies [package provide Tcl] 8.5]} {
   source [sourcefile snit.tcl]
 }
 
+namespace eval ::hv3 {
+  set log_source_option 0
+  set reformat_scripts_option 0
+}
+
 source [sourcefile hv3_widgets.tcl]
 source [sourcefile hv3_encodings.tcl]
 source [sourcefile hv3_db.tcl]
@@ -61,6 +66,7 @@ source [sourcefile hv3_history.tcl]
 source [sourcefile hv3_string.tcl]
 source [sourcefile hv3_bookmarks.tcl]
 source [sourcefile hv3_bugreport.tcl]
+source [sourcefile hv3_debug.tcl]
 if {![llength [info procs ::console]]} {
     source [sourcefile hv3_console.tcl]
 }
@@ -1223,6 +1229,8 @@ snit::type ::hv3::debug_menu {
 
   variable MENU
 
+  variable myDebugLevel 0
+
   constructor {} {
     set MENU [list \
       "Cookies"              [list $::hv3::G(notebook) add cookies:]      "" \
@@ -1231,8 +1239,7 @@ snit::type ::hv3::debug_menu {
       "Events..."            [list gui_log_window $::hv3::G(notebook)]    "" \
       "-----"                [list]                                       "" \
       "Tree Browser..."      [list gui_current browse]                    "" \
-      "Javascript Debugger..." [list gui_current javascriptlog]           j  \
-      "CSS Parse Errors"     [list gui_view_css_log]                      "" \
+      "Debugging Console..." [list ::hv3::launch_console]                 d  \
       "-----"                [list]                                       "" \
       "Exec firefox -remote" [list gui_firefox_remote]                    "" \
       "-----"                   [list]                                    "" \
@@ -1245,6 +1252,24 @@ snit::type ::hv3::debug_menu {
 
   method populate_menu {path} {
     $path delete 0 end
+
+    set m [::hv3::menu ${path}.debuglevel]
+    $m add radiobutton                            \
+        -variable [myvar myDebugLevel]            \
+        -value 0                                  \
+        -command [list $self SetDebugLevel]   \
+        -label "No logging"
+    $m add radiobutton                            \
+        -variable [myvar myDebugLevel]            \
+        -value 1                                  \
+        -command [list $self SetDebugLevel]   \
+        -label "Log source"
+    $m add radiobutton                            \
+        -variable [myvar myDebugLevel]            \
+        -value 2                                  \
+        -command [list $self SetDebugLevel]   \
+        -label "Reformat and log source (buggy)"
+
     foreach {label command key} $MENU {
       if {[string match ---* $label]} {
         $path add separator
@@ -1255,11 +1280,33 @@ snit::type ::hv3::debug_menu {
         set acc "(Ctrl-[string toupper $key])"
         $path entryconfigure end -accelerator $acc
       }
+      if {$key eq "d"} {
+        $path add cascade -menu $m -label "Application Source Logging"
+      }
     }
 
     if {0 == [hv3::profile::enabled]} {
       $path entryconfigure end -state disabled
       $path entryconfigure [expr [$path index end] - 1] -state disabled
+    }
+
+    $self SetDebugLevel
+  }
+
+  method SetDebugLevel {} {
+    switch -- $myDebugLevel {
+      0 {
+        set ::hv3::reformat_scripts_option 0
+        set ::hv3::log_source_option 0
+      }
+      1 {
+        set ::hv3::reformat_scripts_option 0
+        set ::hv3::log_source_option 1
+      }
+      2 {
+        set ::hv3::reformat_scripts_option 1
+        set ::hv3::log_source_option 1
+      }
     }
   }
 
@@ -1498,10 +1545,6 @@ proc gui_current {args} {
 proc gui_firefox_remote {} {
   set url [.toolbar.entry get]
   exec firefox -remote "openurl($url,new-tab)"
-}
-
-proc gui_view_css_log {} {
-  $::hv3::G(notebook) add "home://css_parse_errors/[gui_current hv3]"
 }
 
 proc gui_switch {new} {
