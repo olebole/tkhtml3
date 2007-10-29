@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.88 2007/10/21 00:10:17 hkoba Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.89 2007/10/29 16:22:36 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -1228,7 +1228,7 @@ proc ::hv3::format_query {enc args} {
   set result ""
   set sep ""
   foreach i $args {
-      append result $sep [::hv3::escape_string [encoding convertto $enc $i]]
+    append result $sep [::hv3::escape_string [encoding convertto $enc $i]]
     if {$sep eq "="} {
       set sep &
     } else {
@@ -1420,8 +1420,8 @@ snit::type ::hv3::form {
       append querydata "--${bound}--$CR"
     } else {
       set querytype "application/x-www-form-urlencoded"
-	set querydata [eval [linsert $data 0 ::hv3::format_query \
-				 [$myHv3 encoding]]]
+      set enc [$myHv3 encoding]
+      set querydata [eval [linsert $data 0 ::hv3::format_query $enc]]
     }
 
     set action [$myFormNode attr -default "" action]

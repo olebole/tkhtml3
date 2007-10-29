@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.213 2007/10/29 14:49:41 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.214 2007/10/29 16:22:36 danielk1977 Exp $)} 1 }
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
 # browser. An instance of this widget displays a single HTML frame.
@@ -1438,6 +1438,9 @@ snit::widget ::hv3::hv3 {
 
   method encoding {} {
       # To supply default encoding for related js (and css).
+      if {$myEncoding eq ""} {
+        return [encoding system]
+      }
       set myEncoding
   }
 
