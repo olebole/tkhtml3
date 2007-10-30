@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.170 2007/10/29 16:22:36 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.171 2007/10/30 10:55:32 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -854,6 +854,7 @@ snit::type ::hv3::config {
     -zoom             1.0                       Double  \
     -fontscale        1.0                       Double  \
     -guifont          11                        Integer \
+    -debuglevel       0                         Integer \
     -fonttable        [list 8 9 10 11 13 15 17] SevenIntegers \
   ] {
     option $opt -default $def -validatemethod $type -configuremethod SetOption
@@ -1034,6 +1035,22 @@ snit::type ::hv3::config {
       }
       -guifont {
         ::hv3::SetFont [list -size $options(-guifont)]
+      }
+      -debuglevel {
+        switch -- $value {
+          0 {
+            set ::hv3::reformat_scripts_option 0
+            set ::hv3::log_source_option 0
+          }
+          1 {
+            set ::hv3::reformat_scripts_option 0
+            set ::hv3::log_source_option 1
+          }
+          2 {
+            set ::hv3::reformat_scripts_option 1
+            set ::hv3::log_source_option 1
+          }
+        }
       }
       default {
         $self configurebrowser [.notebook current]
@@ -1230,8 +1247,11 @@ snit::type ::hv3::debug_menu {
   variable MENU
 
   variable myDebugLevel 0
+  variable myHv3Options
 
-  constructor {} {
+  constructor {hv3_options} {
+    set myHv3Options $hv3_options
+    set myDebugLevel [$hv3_options cget -debuglevel]
     set MENU [list \
       "Cookies"              [list $::hv3::G(notebook) add cookies:]      "" \
       "About"                [list $::hv3::G(notebook) add home://about]  "" \
@@ -1294,20 +1314,7 @@ snit::type ::hv3::debug_menu {
   }
 
   method SetDebugLevel {} {
-    switch -- $myDebugLevel {
-      0 {
-        set ::hv3::reformat_scripts_option 0
-        set ::hv3::log_source_option 0
-      }
-      1 {
-        set ::hv3::reformat_scripts_option 0
-        set ::hv3::log_source_option 1
-      }
-      2 {
-        set ::hv3::reformat_scripts_option 1
-        set ::hv3::log_source_option 1
-      }
-    }
+    $myHv3Options configure -debuglevel $myDebugLevel
   }
 
   method setup_hotkeys {} {
@@ -1521,10 +1528,10 @@ proc gui_menu {widget_array} {
   # Attach a menu widget - .m - to the toplevel application window.
   . config -menu [::hv3::menu .m]
 
-  set G(file_menu)  [::hv3::file_menu %AUTO%]
-  set G(debug_menu) [::hv3::debug_menu %AUTO%]
-  set G(search)     [::hv3::search %AUTO%]
   set G(config)     [::hv3::config %AUTO% ::hv3::sqlitedb]
+  set G(file_menu)  [::hv3::file_menu %AUTO%]
+  set G(search)     [::hv3::search %AUTO%]
+  set G(debug_menu) [::hv3::debug_menu %AUTO% $G(config)]
 
   # Add the "File", "Search" and "View" menus.
   foreach m [list File Search Options Debug History] {
