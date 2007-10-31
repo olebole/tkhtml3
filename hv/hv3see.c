@@ -2631,6 +2631,10 @@ Tclsee_Init(interp)
     }
 #endif
 
+#ifndef NO_HAVE_GC
+    GC_init();
+#endif
+
     Tcl_PkgProvide(interp, "Tclsee", "0.1");
     Tcl_CreateObjCommand(interp, "::see::interp", tclSeeInterp, 0, 0);
     Tcl_CreateObjCommand(interp, "::see::alloc",  tclSeeAlloc, 0, 0);
