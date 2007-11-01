@@ -27,7 +27,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: cssparser.c,v 1.4 2007/11/01 07:36:02 danielk1977 Exp $";
+static const char rcsid[] = "$Id: cssparser.c,v 1.5 2007/11/01 11:48:09 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <assert.h>
@@ -503,6 +503,7 @@ static int parseDeclarationError(pInput, pParse)
     return ((eToken == CT_SEMICOLON) ? 0: 1);
 }
 
+#define safe_isdigit(c) (isdigit((unsigned char)(c)))
 
 /*
  *---------------------------------------------------------------------------
@@ -633,12 +634,12 @@ static int parseSelector(pInput, pParse)
                 eToken = inputGetToken(pInput, &t.z, &t.n);
 
                 /* Section 4.1.3 of CSS 2.1 says that class names, 
-                 * id names and element names may not start with a hyphen
-                 * or digit.
+                 * id names and element names may not start with a digit
+                 * or a hyphen followed by a digit.
                  */
                 if (eToken != CT_IDENT || 
-                    t.z[0] == '-' ||
-                    isdigit((unsigned char)t.z[0])
+                    (t.z[0] == '-' && t.n > 1 && safe_isdigit(t.z[1])) ||
+                    safe_isdigit(t.z[0])
                 ) {
                     goto syntax_error;
                 }
@@ -652,12 +653,12 @@ static int parseSelector(pInput, pParse)
                 eToken = inputGetToken(pInput, &t.z, &t.n);
 
                 /* Section 4.1.3 of CSS 2.1 says that class names, 
-                 * id names and element names may not start with a hyphen
-                 * or digit.
+                 * id names and element names may not start with a digit
+                 * or a hyphen followed by a digit.
                  */
                 if (eToken != CT_IDENT || 
-                    t.z[0] == '-' ||
-                    isdigit((unsigned char)t.z[0])
+                    (t.z[0] == '-' && t.n > 1 && safe_isdigit(t.z[1])) ||
+                    safe_isdigit(t.z[0])
                 ) {
                     goto syntax_error;
                 }
@@ -886,6 +887,13 @@ static int parseAtRule(CssInput *pInput, CssParse *pParse){
         CssTokenType eToken;
         CssToken tToken;
         int media_ok = 1;
+
+	/* If we are already into the stylesheet "body", this is a 
+         * syntax error 
+         */
+        if (pParse->isBody) {
+            return 1;
+        }
   
         inputNextTokenIgnoreSpace(pInput);
         eToken = inputGetToken(pInput, &tToken.z, &tToken.n);
@@ -988,7 +996,10 @@ void HtmlCssRunParser(zInput, nInput, pParse)
         int isSyntaxError;
 
         eToken = inputGetToken(&sInput, 0, 0);
-        if (eToken == CT_RP) {
+
+        if (eToken == CT_SGML_OPEN || eToken == CT_SGML_CLOSE) {
+            isSyntaxError = 0;
+        } else if (eToken == CT_RP) {
             isSyntaxError = 0;
         } else if (eToken == CT_AT) {
             isSyntaxError = parseAtRule(&sInput, pParse);

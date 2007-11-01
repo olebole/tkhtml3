@@ -34,7 +34,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.122 2007/09/15 07:59:12 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.123 2007/11/01 11:48:09 danielk1977 Exp $";
 
 
 #include "htmllayout.h"
@@ -278,7 +278,7 @@ tableColWidthSingleSpan(pNode, col, colspan, row, rowspan, pContext)
         } else if (pV->iWidth >= 0) {
 
             /* There is a pixel value for the 'width' property */
-            int val = pV->iWidth;
+            int val = pV->iWidth + box.iLeft + box.iRight;
             switch (aReq[col].eType) {
                 case CELL_WIDTH_AUTO:
                 case CELL_WIDTH_PIXELS:

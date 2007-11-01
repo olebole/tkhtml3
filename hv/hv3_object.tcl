@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_object.tcl,v 1.10 2007/09/28 14:14:56 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_object.tcl,v 1.11 2007/11/01 11:48:09 danielk1977 Exp $)} 1 }
 
 #
 # The code in this file handles <object> elements for the hv3 mini-browser.
@@ -17,6 +17,7 @@ proc hv3_ext_to_mime {extension} {
     html {set mime text/html}
     htm  {set mime text/html}
     tcl  {set mime application/x-tcl}
+    png  {set mime image/png}
 
     default {
       set mime ""

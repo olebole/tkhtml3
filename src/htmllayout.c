@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.260 2007/10/18 06:09:19 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.261 2007/11/01 11:48:09 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -2797,7 +2797,7 @@ normalFlowLayoutReplacedInline(pLayout, pBox, pNode, pY, pContext, pNormal)
     BoxContext sBox;
     HtmlCanvas canvas;
     int w, h;
-    int iOffset;
+    int iOffset = 0;
 
     MarginProperties margin;
     BoxProperties box;
@@ -2814,7 +2814,15 @@ normalFlowLayoutReplacedInline(pLayout, pBox, pNode, pY, pContext, pNormal)
     nodeGetBoxProperties(pLayout, pNode, pBox->iContaining, &box);
     h = sBox.height + margin.margin_top + margin.margin_bottom;
     w = sBox.width;
-    iOffset = box.iBottom + (pReplace ? pReplace->iOffset : 0);
+
+    /* If the box does not have a baseline (i.e. if the replaced content
+     * is an image, not a widget), then the bottom margin edge of the box 
+     * is it's baseline. See the description of "baseline" in CSS2.1 section
+     * 10.8 ('vertical-align' property).
+     */
+    if (pReplace) {
+        iOffset = box.iBottom + pReplace->iOffset;
+    } 
     memset(&canvas, 0, sizeof(HtmlCanvas));
     DRAW_CANVAS(&canvas, &sBox.vc, 0, margin.margin_top, pNode);
     HtmlInlineContextAddBox(pContext, pNode, &canvas, w, h, iOffset);
