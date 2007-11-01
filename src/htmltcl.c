@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.193 2007/10/27 15:47:15 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.194 2007/11/01 05:14:12 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -2189,6 +2189,14 @@ styleCmd(clientData, interp, objc, objv)
     Tcl_GetStringFromObj(apObj[4], &n);
     if (n > 0) {
         rc = HtmlStyleParse(pTree,apObj[4],apObj[0],apObj[1],apObj[2],apObj[3]);
+    } else {
+        /* For a zero length stylesheet, we don't need to run the parser.
+         * But we do need to set the error-log variable to an empty string
+         * if one was specified. 
+         */
+        if (apObj[3]) {
+            Tcl_ObjSetVar2(interp, apObj[3], 0, Tcl_NewObj(), 0);
+        }
     }
 
     /* Clean up object references created by SwprocRt() */
