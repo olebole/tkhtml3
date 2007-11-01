@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.128 2007/10/27 15:47:15 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.129 2007/11/01 07:06:07 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -2979,7 +2979,7 @@ getPropertyObj(pValues, eProp)
                 HtmlImage2 *pImage = *(HtmlImage2 **)(v + pDef->iOffset);
                 if (pImage) {
                     /* Todo: Might be some character escapin' to do here */
-                    pValue = Tcl_NewStringObj("uri('", -1);
+                    pValue = Tcl_NewStringObj("url('", -1);
                     Tcl_AppendToObj(pValue, HtmlImageUrl(pImage), -1);
                     Tcl_AppendToObj(pValue, "')", -1);
                 } else {

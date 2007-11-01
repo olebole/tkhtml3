@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_debug.tcl,v 1.1 2007/10/29 14:49:42 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_debug.tcl,v 1.2 2007/11/01 07:06:07 danielk1977 Exp $)} 1 }
 
 namespace eval ::hv3 {
   ::snit::widget console {
@@ -40,7 +40,7 @@ namespace eval ::hv3 {
 
       set myEntryField [::hv3::entry ${win}.f.entry_field]
       set sel ${win}.f.select 
-      set om [tk_optionMenu $sel [myvar myLanguage] Javascript Tcl Search]
+      set om [tk_optionMenu $sel [myvar myLanguage] Tcl Javascript Search]
       $sel configure -width 9
 
       $om configure -borderwidth 1 -activeborderwidth 1
@@ -156,7 +156,9 @@ namespace eval ::hv3 {
       $myOutputWindow configure -state normal
       switch -- $myLanguage {
         Tcl {
-          set rc [catch $cmd result]
+          set rc [catch [list \
+            namespace eval ::hv3::console_commands $cmd
+          ] result]
           set result [string map {"\n" "\n    "} $result]
           $myOutputWindow insert end "\$ $cmd\n" tcl
           if {$rc} {
@@ -471,6 +473,34 @@ namespace eval ::hv3 {
     wm state .console normal
     raise .console
   }
+}
+
+namespace eval ::hv3::console_commands {
+
+proc primitives {} {
+  set zRet ""
+  set iIndent 0
+  foreach primitive [hv3_html _primitives] {
+    set t [lindex $primitive 0]
+    if {$t eq "draw_origin_end"} {incr iIndent -4}
+    append zRet [string repeat " " $iIndent] $primitive "\n"
+    if {$t eq "draw_origin_start"} {incr iIndent 4}
+    incr hist($t)
+  }
+
+  append zRet "\n"
+  foreach {key value} [array get hist] {
+    append zRet $key ":" $value "\n"
+  }
+
+  set zRet
+}
+
+proc hv3 {args} {
+  set hv3 [gui_current hv3]
+  eval $hv3 $args
+}
+
 }
 
 

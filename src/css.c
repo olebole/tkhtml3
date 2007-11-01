@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.132 2007/10/27 04:13:29 hkoba Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.133 2007/11/01 07:06:07 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -81,8 +81,6 @@ static const char rcsid[] = "$Id: css.c,v 1.132 2007/10/27 04:13:29 hkoba Exp $"
  * output on stdout.
  */
 #define TRACE_PARSER_CALLS 0
-#define TRACE_STYLE_APPLICATION 0
-#define TRACE_PROPERTY_PARSE 0
 
 static int cssParse(HtmlTree*,int,CONST char*,int,int,Tcl_Obj*,Tcl_Obj*,Tcl_Obj*,Tcl_Obj*,CssStyleSheet**);
 
@@ -474,6 +472,9 @@ rgbToColor(zOut, zRgb, nRgb)
                 goto bad_color;
             }
         }
+    }
+    for (ii = 0; ii < 3; ii++){
+        aN[ii] = MIN(MAX(aN[ii], 0), 255);
     }
 
     n = sprintf(zOut, "#%.2x%.2x%.2x", aN[0], aN[1], aN[2]);
@@ -2417,10 +2418,11 @@ HtmlCssDeclaration(pParse, pProp, pExpr, isImportant)
     if (pParse->isIgnore) return;
 
 #if TRACE_PARSER_CALLS
-    printf("HtmlCssDeclaration(%p, \"%.*s\", \"%.*s\")\n", 
+    printf("HtmlCssDeclaration(%p, \"%.*s\", \"%.*s\", %d)\n", 
         pParse,
         pProp?pProp->n:0, pProp?pProp->z:"", 
-        pExpr?pExpr->n:0, pExpr?pExpr->z:""
+        pExpr?pExpr->n:0, pExpr?pExpr->z:"",
+        isImportant
     );
 #endif
 

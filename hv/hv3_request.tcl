@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.17 2007/10/28 06:07:31 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.18 2007/11/01 07:06:07 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file contains the implementation of two types used by hv3:
@@ -320,6 +320,8 @@ snit::type ::hv3::download {
     if {$isText && $myRaw ne ""} {
 	append myData [$self EncodingGetConvertible myRaw 1]
 	# puts stderr fin\t$self\t[$self cget -uri]\t[clock seconds]\n[string length $myData]\n[lrange [info level -1] 0 1]\n$myData
+    } else {
+	append myData $myRaw
     }
     eval [linsert $options(-finscript) end $myData] 
   }

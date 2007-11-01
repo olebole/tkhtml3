@@ -556,7 +556,13 @@ static Tcl_Obj *
 stringToObj(pString)
     struct SEE_string *pString;
 {
-    return Tcl_NewUnicodeObj(pString->data, pString->length);
+    Tcl_Obj *pObj;
+    if( pString ){
+        pObj = Tcl_NewUnicodeObj(pString->data, pString->length);
+    } else {
+        pObj = Tcl_NewObj();
+    }
+    return pObj;
 }
 
 /*
