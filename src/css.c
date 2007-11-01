@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.133 2007/11/01 07:06:07 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.134 2007/11/01 08:56:02 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -1209,6 +1209,7 @@ shortcutBackground(pParse, p, v)
                 case CSS_CONST_RIGHT:
                 case CSS_CONST_LEFT:
                 case CSS_CONST_CENTER:
+                case CSS_TYPE_PERCENT:
                     if (!pPositionX) pPositionX = pProp;
                     else if(!pPositionY) pPositionY = pProp;
                     else goto error_out;

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_debug.tcl,v 1.3 2007/11/01 07:36:02 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_debug.tcl,v 1.4 2007/11/01 08:56:02 danielk1977 Exp $)} 1 }
 
 namespace eval ::hv3 {
   ::snit::widget console {
@@ -476,30 +476,29 @@ namespace eval ::hv3 {
 }
 
 namespace eval ::hv3::console_commands {
-
-proc primitives {} {
-  set zRet ""
-  set iIndent 0
-  foreach primitive [hv3_html _primitives] {
-    set t [lindex $primitive 0]
-    if {$t eq "draw_origin_end"} {incr iIndent -4}
-    append zRet [string repeat " " $iIndent] $primitive "\n"
-    if {$t eq "draw_origin_start"} {incr iIndent 4}
-    incr hist($t)
+  proc primitives {} {
+    set zRet ""
+    set iIndent 0
+    foreach primitive [hv3_html _primitives] {
+      set t [lindex $primitive 0]
+      if {$t eq "draw_origin_end"} {incr iIndent -4}
+      append zRet [string repeat " " $iIndent] $primitive "\n"
+      if {$t eq "draw_origin_start"} {incr iIndent 4}
+      incr hist($t)
+    }
+  
+    append zRet "\n"
+    foreach {key value} [array get hist] {
+      append zRet $key ":" $value "\n"
+    }
+  
+    set zRet
   }
-
-  append zRet "\n"
-  foreach {key value} [array get hist] {
-    append zRet $key ":" $value "\n"
+  
+  proc hv3 {args} {
+    set hv3 [gui_current hv3]
+    eval $hv3 $args
   }
-
-  set zRet
-}
-
-proc hv3 {args} {
-  set hv3 [gui_current hv3]
-  eval $hv3 $args
-}
 
 }
 
