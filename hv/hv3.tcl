@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.214 2007/10/29 16:22:36 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.215 2007/11/01 07:36:02 danielk1977 Exp $)} 1 }
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
 # browser. An instance of this widget displays a single HTML frame.
@@ -950,9 +950,9 @@ snit::type ::hv3::hv3::framelog {
     }
   }
 
-  method log {filename data parse_errors} {
+  method log {id filename data parse_errors} {
     if {$::hv3::log_source_option} {
-      lappend myStyleErrors [list $filename $data $parse_errors]
+      lappend myStyleErrors [list $id $filename $data $parse_errors]
     }
   }
 
@@ -1406,7 +1406,7 @@ snit::widget ::hv3::hv3 {
           -errorvar parse_errors \
           $data
 
-      $myFrameLog log [$handle cget -uri] $data $parse_errors
+      $myFrameLog log $full_id [$handle cget -uri] $data $parse_errors
 
       $self goto_fragment
       $handle release
@@ -1598,7 +1598,7 @@ snit::widget ::hv3::hv3 {
         -errorvar parse_errors \
         $script
 
-    $myFrameLog log "<style> block $myStyleCount" $script $parse_errors
+    $myFrameLog log $id "<style> block $myStyleCount" $script $parse_errors
 
     return ""
   }

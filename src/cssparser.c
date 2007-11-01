@@ -27,7 +27,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: cssparser.c,v 1.3 2007/10/30 00:49:46 hkoba Exp $";
+static const char rcsid[] = "$Id: cssparser.c,v 1.4 2007/11/01 07:36:02 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <assert.h>
@@ -932,9 +932,14 @@ static int parseAtRule(CssInput *pInput, CssParse *pParse){
   /*
     }
     else if (nWord == 4 && strnicmp("page", zWord, nWord) == 0) {
+  */
     }
     else if (nWord == 7 && strnicmp("charset", zWord, nWord) == 0) {
-  */
+        CssTokenType eNext;
+        do {
+            inputNextTokenIgnoreSpace(pInput);
+            eNext = inputGetToken(pInput, 0, 0);
+        } while (eNext != CT_SEMICOLON && eNext != CT_EOF);
     } else {
         pParse->isBody = 1;
         return 1;

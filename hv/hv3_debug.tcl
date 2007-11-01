@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_debug.tcl,v 1.2 2007/11/01 07:06:07 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_debug.tcl,v 1.3 2007/11/01 07:36:02 danielk1977 Exp $)} 1 }
 
 namespace eval ::hv3 {
   ::snit::widget console {
@@ -255,10 +255,10 @@ namespace eval ::hv3 {
       return $tag
     }
 
-    proc getcss {frame filename} {
+    proc getcss {frame id} {
       set hv3 [$frame hv3]
       foreach css [$hv3 log get css] {
-        if {[lindex $css 0] eq $filename} {return $css}
+        if {[lindex $css 0] eq $id} {return $css}
       }
       return ""
     }
@@ -284,7 +284,7 @@ namespace eval ::hv3 {
       $myOutputWindow configure -state normal
       switch -- $page {
         css {
-          foreach {f data errors} [eval getcss $pageid] break
+          foreach {id f data errors} [eval getcss $pageid] break
           $myOutputWindow insert end "Errors from CSS: $f\n" error
           foreach {i n} $errors {
             # The offsets stored in the $errors array are 
@@ -344,11 +344,11 @@ namespace eval ::hv3 {
       }
     }
 
-    method DisplayCss {frame filename} {
+    method DisplayCss {frame styleid} {
       set hv3 [$frame hv3]
       foreach css [$hv3 log get css] {
-        foreach {f data errors} $css break
-        if {$f eq $filename} {
+        foreach {id f data errors} $css break
+        if {$id eq $styleid} {
           set iCurrent 0
           foreach {iStart nLen} $errors {
             # The offsets stored in the $errors array are 
@@ -433,17 +433,17 @@ namespace eval ::hv3 {
       # Links for each loaded CSS document.
       #
       foreach css [$hv3 log get css] {
-        foreach {filename data errors} $css break
+        foreach {id filename data errors} $css break
         $myCodeViewer insert end "${zIndent}  "
         $myCodeViewer insert end "CSS: $filename  "
         if {[llength $errors] > 0} {
             set nErr [expr {[llength $errors]/2}]
-            set cmd [list $self Errors css [list $frame $filename]]
+            set cmd [list $self Errors css [list $frame $id]]
             set t [$self CreateCodeViewerLink "($nErr parse errors)" $cmd]
             $myCodeViewer tag configure $t -foreground red
             $myCodeViewer insert end "  "
         }
-        set cmd [list $self Display css [list $frame $filename]]
+        set cmd [list $self Display css [list $frame $id]]
         $self CreateCodeViewerLink "View Source" $cmd
         $myCodeViewer insert end "\n"
       }
