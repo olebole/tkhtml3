@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.129 2007/11/01 07:06:07 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.130 2007/11/01 09:27:05 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -2164,7 +2164,6 @@ allocateNewFont(clientData)
     strcpy(pFont->zFont, zTkFontName);
 
     Tk_GetFontMetrics(tkfont, &pFont->metrics);
-    pFont->ex_pixels = Tk_TextWidth(tkfont, "x", 1);
     pFont->space_pixels = Tk_TextWidth(tkfont, " ", 1);
 
     /* Set the number of pixels to be used for 1 "em" unit for this font.
@@ -2173,7 +2172,6 @@ allocateNewFont(clientData)
      * new Xft fonts (Tk 8.5). 
      */
     pFont->em_pixels = pFont->metrics.ascent + pFont->metrics.descent;
-
     if (isForceFontMetrics) {
         float ratio;
         Tk_FontMetrics *pMet = &pFont->metrics;
@@ -2194,6 +2192,17 @@ allocateNewFont(clientData)
             pMet->linespace = pFont->em_pixels;
         }
     } 
+
+    /* Determine the x-height of the font. See ticket #221. 
+     *
+     * The case dealing specifically with the "Ahem" font is added so
+     * that the official CSS 2.1 test suite can be more easily used to 
+     * test Hv3. Ticket #221 describes this issue further.
+     */
+    pFont->ex_pixels = Tk_TextWidth(tkfont, "x", 1);
+    if (0 == stricmp("Ahem", zFamily)) {
+        pFont->ex_pixels = ((pFont->em_pixels * 4) / 5);
+    }
 
     return (void *)pFont;
 }
