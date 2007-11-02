@@ -1,5 +1,5 @@
 #
-# $Revision: 1.43 $
+# $Revision: 1.44 $
 #
 # tokenlist.tcl -- 
 #
@@ -111,7 +111,7 @@ TAG code -flow inline
 TAG dd -content HtmlLiContent
 # TAG del
 TAG dfn -flow inline
-TAG dir -flow block
+TAG dir -flow block -content HtmlUlContent
 TAG div -flow block
 TAG dl -flow block -content HtmlDlContent
 TAG dt -content HtmlLiContent
@@ -141,7 +141,7 @@ TAG legend -flow inline
 TAG li -content HtmlLiContent
 TAG link -content HtmlEmptyContent  
 TAG map -flow inline
-TAG menu -flow block
+TAG menu -flow block -content HtmlUlContent
 TAG meta -content HtmlEmptyContent 
 TAG noframes
 TAG noscript                            
