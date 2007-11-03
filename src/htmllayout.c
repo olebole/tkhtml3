@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.264 2007/11/03 12:58:07 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.265 2007/11/03 13:45:05 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -184,7 +184,7 @@ static FlowLayoutFunc normalFlowLayoutReplaced;
 static FlowLayoutFunc normalFlowLayoutTable;
 static FlowLayoutFunc normalFlowLayoutText;
 static FlowLayoutFunc normalFlowLayoutInline;
-static FlowLayoutFunc normalFlowLayoutReplacedInline;
+static FlowLayoutFunc normalFlowLayoutInlineReplaced;
 static FlowLayoutFunc normalFlowLayoutAbsolute;
 static FlowLayoutFunc normalFlowLayoutOverflow;
 
@@ -2817,7 +2817,7 @@ normalFlowLayoutText(pLayout, pBox, pNode, pY, pContext, pNormal)
 /*
  *---------------------------------------------------------------------------
  *
- * normalFlowLayoutReplacedInline --
+ * normalFlowLayoutInlineReplaced --
  *
  * Results:
  *     None.
@@ -2828,7 +2828,7 @@ normalFlowLayoutText(pLayout, pBox, pNode, pY, pContext, pNormal)
  *---------------------------------------------------------------------------
  */
 static int 
-normalFlowLayoutReplacedInline(pLayout, pBox, pNode, pY, pContext, pNormal)
+normalFlowLayoutInlineReplaced(pLayout, pBox, pNode, pY, pContext, pNormal)
     LayoutContext *pLayout;
     BoxContext *pBox;
     HtmlNode *pNode;
@@ -3154,7 +3154,7 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
     F( TEXT,            0, 0, normalFlowLayoutText);
     F( INLINE,          0, 0, normalFlowLayoutInline);
     F( INLINE_BLOCK,    0, 0, normalFlowLayoutInlineBlock);
-    F( INLINE_REPLACED, 0, 0, normalFlowLayoutReplacedInline);
+    F( INLINE_REPLACED, 0, 0, normalFlowLayoutInlineReplaced);
     F( ABSOLUTE,        0, 0, normalFlowLayoutAbsolute);
     F( FIXED,           0, 0, normalFlowLayoutFixed);
     F( OVERFLOW,        1, 1, normalFlowLayoutOverflow);

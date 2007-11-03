@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.135 2007/11/03 09:47:12 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.136 2007/11/03 13:45:05 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -2488,6 +2488,10 @@ HtmlCssDeclaration(pParse, pProp, pExpr, isImportant)
         isImportant
     );
 #endif
+
+    if (pParse->pStyleId == 0) {
+        isImportant = 0;
+    }
 
     /* Resolve the property name. If we don't recognize it, then ignore the
      * declaration (CSS2 spec says to do this - besides, what else could we
