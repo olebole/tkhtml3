@@ -66,7 +66,7 @@
  * 
  *     HtmlInlineContextIsEmpty()
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.47 2007/06/10 07:53:03 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.48 2007/11/03 12:58:07 danielk1977 Exp $";
 
 /* The InlineBox and InlineMetrics types are only used within this file.
  * The InlineContext type is only used within this file, but opaque handles
@@ -612,9 +612,10 @@ inlineContextAddSpace(p, nPixels, eWhitespace)
  *---------------------------------------------------------------------------
  */
 static void 
-inlineContextAddNewLine(p, nHeight)
+inlineContextAddNewLine(p, nHeight, isLast)
     InlineContext *p; 
     int nHeight;
+    int isLast;
 {
     InlineBox *pBox;
     inlineContextAddInlineCanvas(p, INLINE_NEWLINE, 0);
@@ -623,7 +624,9 @@ inlineContextAddNewLine(p, nHeight)
     /* This inline-box is added only to account for space that may come
      * after the new line box.
      */
-    inlineContextAddInlineCanvas(p, INLINE_TEXT, 0);
+    if (!isLast) {
+        inlineContextAddInlineCanvas(p, INLINE_TEXT, 0);
+    }
 }
 
 /*
@@ -1530,8 +1533,9 @@ HtmlInlineContextAddText(pContext, pNode)
             case HTML_TEXT_TOKEN_NEWLINE:
                 if (eWhitespace == CSS_CONST_PRE) {
                     int i;
+                    int isLast = HtmlTextIterIsLast(&sIter);
                     for (i = 0; i < nData; i++) {
-                        inlineContextAddNewLine(pContext, nh);
+                        inlineContextAddNewLine(pContext, nh, isLast);
                     }
                     break;
                 }

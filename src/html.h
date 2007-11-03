@@ -936,6 +936,7 @@ struct HtmlTextIter {
 void HtmlTextIterFirst(HtmlTextNode *, HtmlTextIter *);
 void HtmlTextIterNext(HtmlTextIter *);
 int HtmlTextIterIsValid(HtmlTextIter *);
+int HtmlTextIterIsLast(HtmlTextIter *);
 
 /*
  * Query functions to discover the token type, length and data.

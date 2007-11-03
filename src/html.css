@@ -142,6 +142,8 @@ OL              { list-style-type: decimal }
 OL UL, UL OL,
 UL UL, OL OL    { margin-top: 0; margin-bottom: 0 }
 U, INS          { text-decoration: underline }
+BR:before       { content: "\A" ; white-space: pre }
+/* :before, :after { white-space: pre-line } */
 ABBR, ACRONYM   { font-variant: small-caps; letter-spacing: 0.1em }
 
 /* Formatting for <pre> etc. */
@@ -159,11 +161,6 @@ PRE, PLAINTEXT, XMP {
 /* Deal with the "nowrap" HTML attribute on table cells. */
 TD[nowrap] ,     TH[nowrap]     { white-space: nowrap; }
 TD[nowrap="0"] , TH[nowrap="0"] { white-space: normal; }
-
-BR { 
-    display: block;
-}
-/* BR:before       { content: "\A" } */
 
 /*
  * Default decorations for form items. 

@@ -2180,6 +2180,16 @@ HtmlTextIterNext(pTextIter)
     pTextIter->iToken++;
 }
 
+int
+HtmlTextIterIsLast(pTextIter)
+    HtmlTextIter *pTextIter;
+{
+    HtmlTextIter sIter;
+    memcpy(&sIter, pTextIter, sizeof(HtmlTextIter));
+    HtmlTextIterNext(&sIter);
+    return !HtmlTextIterIsValid(&sIter);
+}
+
 int 
 HtmlTextIterType(pTextIter)
     HtmlTextIter *pTextIter;

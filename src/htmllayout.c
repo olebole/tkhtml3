@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.263 2007/11/03 11:23:16 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.264 2007/11/03 12:58:07 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -3141,26 +3141,24 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
         char *z;
         int doDrawLines;          /* True to call inlineLayoutDrawLines() */
         int doClearFloat;         /* True to call normalFlowClearFloat() */
-        int doLineBreak;          /* Make a line-break (i.e. for <br>) */
         FlowLayoutFunc *xLayout;  /* Layout function to invoke */
     };
 
     /* Look-up table used by this function. */
-    #define F(z, d, c, l, x) static FlowType FT_ ## z = {#z, d, c, l, x}
-    F( NONE,            0, 0, 0, 0);
-    F( BLOCK,           1, 1, 0, normalFlowLayoutBlock);
-    F( BR,              1, 1, 1, normalFlowLayoutBlock);
-    F( FLOAT,           0, 0, 0, normalFlowLayoutFloat);
-    F( TABLE,           1, 1, 0, normalFlowLayoutTable);
-    F( BLOCK_REPLACED,  1, 1, 0, normalFlowLayoutReplaced);
-    F( TEXT,            0, 0, 0, normalFlowLayoutText);
-    F( INLINE,          0, 0, 0, normalFlowLayoutInline);
-    F( INLINE_BLOCK,    0, 0, 0, normalFlowLayoutInlineBlock);
-    F( INLINE_REPLACED, 0, 0, 0, normalFlowLayoutReplacedInline);
-    F( ABSOLUTE,        0, 0, 0, normalFlowLayoutAbsolute);
-    F( FIXED,           0, 0, 0, normalFlowLayoutFixed);
-    F( OVERFLOW,        1, 1, 0, normalFlowLayoutOverflow);
-    F( TABLE_COMPONENT, 0, 0, 0, normalFlowLayoutTableComponent);
+    #define F(z, d, c, x) static FlowType FT_ ## z = {#z, d, c, x}
+    F( NONE,            0, 0, 0);
+    F( BLOCK,           1, 1, normalFlowLayoutBlock);
+    F( FLOAT,           0, 0, normalFlowLayoutFloat);
+    F( TABLE,           1, 1, normalFlowLayoutTable);
+    F( BLOCK_REPLACED,  1, 1, normalFlowLayoutReplaced);
+    F( TEXT,            0, 0, normalFlowLayoutText);
+    F( INLINE,          0, 0, normalFlowLayoutInline);
+    F( INLINE_BLOCK,    0, 0, normalFlowLayoutInlineBlock);
+    F( INLINE_REPLACED, 0, 0, normalFlowLayoutReplacedInline);
+    F( ABSOLUTE,        0, 0, normalFlowLayoutAbsolute);
+    F( FIXED,           0, 0, normalFlowLayoutFixed);
+    F( OVERFLOW,        1, 1, normalFlowLayoutOverflow);
+    F( TABLE_COMPONENT, 0, 0, normalFlowLayoutTableComponent);
     #undef F
 
     /* 
@@ -3214,9 +3212,7 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
         pFlow = &FT_BLOCK_REPLACED;
     } else if (eDisplay == CSS_CONST_BLOCK || eDisplay == CSS_CONST_LIST_ITEM) {
         pFlow = &FT_BLOCK;
-        if (HtmlNodeTagType(pNode) == Html_BR) {
-            pFlow = &FT_BR;
-        } else if (pV->eOverflow != CSS_CONST_VISIBLE) {
+        if (pV->eOverflow != CSS_CONST_VISIBLE) {
             pFlow = &FT_OVERFLOW;
         }
     } else if (eDisplay == CSS_CONST_TABLE) {
@@ -3265,9 +3261,6 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
         Tcl_DecrRefCount(pLog);
     }
 
-    if (pFlow->doLineBreak && HtmlInlineContextIsEmpty(pContext)) {
-        *pY += pV->fFont->em_pixels;
-    }
     if (pFlow->doDrawLines) {
         inlineLayoutDrawLines(pLayout, pBox, pContext, 1, pY, pNormal);
     }
