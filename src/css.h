@@ -93,7 +93,12 @@ typedef struct CssPropertySet CssPropertySet;
 #define CSS_TYPE_TCL         13            /* Value in 'zVal' */
 #define CSS_TYPE_URL         14            /* Value in 'zVal' */
 #define CSS_TYPE_ATTR        15            /* Value in 'zVal' */
-#define CSS_TYPE_RAW         16            /* Value in 'zVal' */
+#define CSS_TYPE_COUNTER     16            /* Value in 'zVal' */
+#define CSS_TYPE_COUNTERS    17            /* Value in 'zVal' */
+
+#define CSS_TYPE_RAW         18 
+
+#define CSS_TYPE_LIST        19            /* Used for 'content' property */
 
 
 /*
@@ -160,6 +165,7 @@ void HtmlCssStyleSheetFree(CssStyleSheet *);
  */
 void HtmlCssStyleSheetApply(HtmlTree *, HtmlNode *);
 void HtmlCssStyleSheetGenerated(HtmlTree *, HtmlElementNode *);
+void HtmlCssStyleGenerateContent(HtmlTree *, HtmlElementNode *, int);
 
 /*
  * Functions to interface with inline style information (in HTML, 

@@ -595,6 +595,9 @@ struct HtmlTree {
 
     CssStyleSheet *pStyle;          /* Style sheet configuration */
 
+    /* Used by code in HtmlStyleApply() */
+    void *pStyleApply;
+
     HtmlOptions options;            /* Configurable options */
     Tk_OptionTable optionTable;     /* Option table */
 
@@ -621,6 +624,7 @@ struct HtmlTree {
     HtmlFontCache fontcache;
     Tcl_HashTable aValues;
     Tcl_HashTable aFontFamilies;
+    Tcl_HashTable aCounterLists;
     HtmlComputedValuesCreator *pPrototypeCreator;
 
     int aFontSizeTable[7];
@@ -697,8 +701,12 @@ Tcl_ObjCmdProc HtmlCreateUri;
 char *HtmlPropertyToString(CssProperty *, char **);
 
 int HtmlStyleApply(HtmlTree *, HtmlNode *);
+int HtmlStyleCounter(HtmlTree *, const char *);
+int HtmlStyleCounters(HtmlTree *, const char *, int *, int);
+void HtmlStyleHandleCounters(HtmlTree *, HtmlComputedValues *);
 
 int HtmlLayout(HtmlTree *);
+void HtmlLayoutMarkerBox(int, int, int, char *);
 
 int HtmlStyleParse(HtmlTree*, Tcl_Obj*, Tcl_Obj*, Tcl_Obj*, Tcl_Obj*, Tcl_Obj*);
 void HtmlTokenizerAppend(HtmlTree *, const char *, int, int);

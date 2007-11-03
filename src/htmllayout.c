@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.261 2007/11/01 11:48:09 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.262 2007/11/03 09:47:12 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -1199,9 +1199,9 @@ normalFlowLayoutFloat(pLayout, pBox, pNode, pY, pDoNotUse, pNormal)
  *---------------------------------------------------------------------------
  */
 static void 
-getRomanIndex(zBuf, index, isUpper)
+getRomanIndex(zBuf, iList, isUpper)
     char *zBuf;
-    int index;
+    int iList;
     int isUpper;
 {
     int i = 0;
@@ -1230,13 +1230,15 @@ getRomanIndex(zBuf, index, isUpper)
         { 4, "iv"   },
         { 1, "i"    },
     };
+    int index = iList;
+
     if (index<1 || index>=5000) {
         sprintf(zBuf, "%d", index);
         return;
     }
     for (j = 0; index > 0 && j < sizeof(values)/sizeof(values[0]); j++) {
-        int k;
         while (index >= values[j].value) {
+            int k;
             for (k = 0; values[j].name[k]; k++) {
                 zBuf[i++] = values[j].name[k];
             }
@@ -1249,7 +1251,61 @@ getRomanIndex(zBuf, index, isUpper)
             zBuf[i] += 'A' - 'a';
         }
     }
-    strcat(zBuf,".");
+}
+
+void
+HtmlLayoutMarkerBox(eStyle, iList, isList, zBuf)
+    int eStyle;
+    int iList;
+    int isList;
+    char *zBuf;
+{
+    zBuf[0] = '\0';
+
+    if (eStyle == CSS_CONST_LOWER_LATIN) eStyle = CSS_CONST_LOWER_ALPHA;
+    if (eStyle == CSS_CONST_UPPER_LATIN) eStyle = CSS_CONST_UPPER_ALPHA;
+
+    /* If the document has requested an alpha marker, switch to decimal
+     * after item 26. (i.e. item markers will be "x", "y", "z", "27".
+     */
+    if (eStyle == CSS_CONST_LOWER_ALPHA || eStyle == CSS_CONST_UPPER_ALPHA)
+        if (iList > 26) {
+            eStyle = CSS_CONST_DECIMAL;
+        }
+
+    switch (eStyle) {
+        case CSS_CONST_SQUARE:
+             strcpy(zBuf, "\xe2\x96\xa1");      /* Unicode 0x25A1 */ 
+             break;
+        case CSS_CONST_CIRCLE:
+             strcpy(zBuf, "\xe2\x97\x8b");      /* Unicode 0x25CB */ 
+             break;
+        case CSS_CONST_DISC:
+             strcpy(zBuf ,"\xe2\x80\xa2");      /* Unicode 0x25CF */ 
+             break;
+
+        case CSS_CONST_LOWER_ALPHA:
+             sprintf(zBuf, "%c%s", iList + 96, isList?".":"");
+             break;
+        case CSS_CONST_UPPER_ALPHA:
+             sprintf(zBuf, "%c%s", iList + 64, isList?".":"");
+             break;
+
+        case CSS_CONST_LOWER_ROMAN:
+             getRomanIndex(zBuf, iList, 0);
+             if (isList) strcat(zBuf, ".");
+             break;
+        case CSS_CONST_UPPER_ROMAN:
+             getRomanIndex(zBuf, iList, 1);
+             if (isList) strcat(zBuf, ".");
+             break;
+        case CSS_CONST_DECIMAL:
+             sprintf(zBuf, "%d%s", iList, isList?".":"");
+             break;
+        case CSS_CONST_DECIMAL_LEADING_ZERO:
+             sprintf(zBuf, "%.2d%s", iList, isList?".":"");
+             break;
+    }
 }
 
 
@@ -1328,42 +1384,7 @@ markerBoxLayout(pLayout, pBox, pNode, pVerticalOffset)
             }
         }
 
-        /* If the document has requested an alpha marker, switch to decimal
-         * after item 26. (i.e. item markers will be "x", "y", "z", "27".
-         */
-        if (eStyle == CSS_CONST_LOWER_ALPHA || eStyle == CSS_CONST_UPPER_ALPHA)
-            if (iList > 26) {
-                eStyle = CSS_CONST_DECIMAL;
-            }
-
-        switch (eStyle) {
-            case CSS_CONST_SQUARE:
-                 strcpy(zBuf, "\xe2\x96\xa1");      /* Unicode 0x25A1 */ 
-                 break;
-            case CSS_CONST_CIRCLE:
-                 strcpy(zBuf, "\xe2\x97\x8b");      /* Unicode 0x25CB */ 
-                 break;
-            case CSS_CONST_DISC:
-                 strcpy(zBuf ,"\xe2\x80\xa2");      /* Unicode 0x25CF */ 
-                 break;
-    
-            case CSS_CONST_LOWER_ALPHA:
-                 sprintf(zBuf, "%c.", iList + 96);
-                 break;
-            case CSS_CONST_UPPER_ALPHA:
-                 sprintf(zBuf, "%c.", iList + 64);
-                 break;
-    
-            case CSS_CONST_LOWER_ROMAN:
-                 getRomanIndex(zBuf, iList, 0);
-                 break;
-            case CSS_CONST_UPPER_ROMAN:
-                 getRomanIndex(zBuf, iList, 1);
-                 break;
-            case CSS_CONST_DECIMAL:
-                 sprintf(zBuf, "%d.", iList);
-                 break;
-        }
+        HtmlLayoutMarkerBox(eStyle, iList, 1, zBuf);
 
         font = pComputed->fFont->tkfont;
         /* voffset = pComputed->fFont->metrics.ascent; */

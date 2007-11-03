@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.130 2007/11/01 09:27:05 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.131 2007/11/03 09:47:12 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -66,7 +66,7 @@ static const char rcsid[] = "$Id: htmlprop.c,v 1.130 2007/11/01 09:27:05 danielk
  */
 
 enum PropertyValueType {
-    ENUM, COLOR, LENGTH, IMAGE, BORDERWIDTH, CUSTOM
+    ENUM, COLOR, LENGTH, IMAGE, BORDERWIDTH, COUNTERLIST, CUSTOM
 };
 
 typedef struct PropertyDef PropertyDef;
@@ -179,6 +179,9 @@ static PropertyDef propdef[] = {
   PROPDEF(CUSTOM, FONT_STYLE,                fFont),
 
   PROPDEF(CUSTOM, CONTENT,                   fFont),
+
+  PROPDEF(COUNTERLIST, COUNTER_INCREMENT,    clCounterIncrement),
+  PROPDEF(COUNTERLIST, COUNTER_RESET,        clCounterReset),
 };
 
 #define SZ_AUTO     0x00000001
@@ -377,6 +380,8 @@ HtmlPropertyToString(pProp, pzFree)
                     (pProp->eType==CSS_TYPE_URL)?"url":
                     "attr", pProp->v.zVal
             );
+        } if (pProp->eType == CSS_TYPE_LIST) {
+            return "List";
         } else {
             char *zSym = 0;
             switch (pProp->eType) {
@@ -512,22 +517,165 @@ propertyValuesSetFontStyle(p, pProp)
     return 0;
 }
 
+
+static int propertyValuesSetEnum(HtmlComputedValuesCreator *, unsigned char*, unsigned char *, CssProperty *);
+
+static int
+contentCounter(pTree, pProp, zOut, nOut)
+    HtmlTree *pTree;
+    CssProperty *pProp;
+    char *zOut;
+    int nOut;
+{
+    const char *zCounter; int nCounter;
+    const char *zStyle; int nStyle;
+
+    CssProperty *pCounter;
+
+    int iValue;
+    unsigned char eStyle = CSS_CONST_DECIMAL;
+
+    zCounter = HtmlCssGetNextCommaListItem(pProp->v.zVal, -1, &nCounter);
+    zStyle = HtmlCssGetNextCommaListItem(&zCounter[nCounter], -1, &nStyle);
+
+    pCounter = HtmlCssStringToProperty(zCounter, nCounter);
+    if (zStyle) {
+        CssProperty *pStyle;
+        unsigned char *options; 
+        options = HtmlCssEnumeratedValues(CSS_PROPERTY_LIST_STYLE_TYPE);
+        pStyle = HtmlCssStringToProperty(zStyle, nStyle);
+        propertyValuesSetEnum(0, &eStyle, options, pStyle);
+        HtmlFree(pStyle);
+    }
+
+    zCounter = HtmlCssPropertyGetString(pCounter);
+    iValue = HtmlStyleCounter(pTree, zCounter);
+
+    HtmlLayoutMarkerBox(eStyle, iValue, 0, zOut);
+
+    HtmlFree(pCounter);
+
+    return 0;
+}
+
+static int
+contentCounters(pTree, pProp, zOut, nOut)
+    HtmlTree *pTree;
+    CssProperty *pProp;
+    char *zOut;
+    int nOut;
+{
+    const char *zCounter; int nCounter;
+    const char *zStyle; int nStyle;
+    const char *zSep; int nSep;
+
+    CssProperty *pCounter;
+    CssProperty *pSep;
+
+    unsigned char eStyle = CSS_CONST_DECIMAL;
+
+    int aValue[128];
+    int nValue;
+    int ii;
+
+    zCounter = HtmlCssGetNextCommaListItem(pProp->v.zVal, -1, &nCounter);
+    zSep = HtmlCssGetNextCommaListItem(&zCounter[nCounter], -1, &nSep);
+    zStyle = HtmlCssGetNextCommaListItem(&zSep[nSep], -1, &nStyle);
+
+    pCounter = HtmlCssStringToProperty(zCounter, nCounter);
+    pSep = HtmlCssStringToProperty(zSep, nSep);
+    zCounter = HtmlCssPropertyGetString(pCounter);
+
+    if (!zCounter || !pSep || pSep->eType != CSS_TYPE_STRING) {
+        HtmlFree(pCounter);
+        HtmlFree(pSep);
+        return 1;
+    }
+    zSep = HtmlCssPropertyGetString(pSep);
+
+    if (zStyle) {
+        CssProperty *pStyle;
+        unsigned char *options; 
+        options = HtmlCssEnumeratedValues(CSS_PROPERTY_LIST_STYLE_TYPE);
+        pStyle = HtmlCssStringToProperty(zStyle, nStyle);
+        propertyValuesSetEnum(0, &eStyle, options, pStyle);
+        HtmlFree(pStyle);
+    }
+
+    nValue = HtmlStyleCounters(pTree, zCounter, aValue, 128);
+    assert(nValue > 0);    /* Otherwise zOut[] will never be initialized */
+
+    for (ii = 0; ii < nValue; ii++) {
+        if (ii != 0) {
+            strcat(zOut, zSep);
+            zOut = &zOut[strlen(zOut)];
+        }
+        HtmlLayoutMarkerBox(eStyle, aValue[ii], 0, zOut);
+        zOut = &zOut[strlen(zOut)];
+    }
+
+    HtmlFree(pCounter);
+    HtmlFree(pSep);
+    return 0;
+}
+
 static int 
 propertyValuesSetContent(p, pProp)
     HtmlComputedValuesCreator *p;
     CssProperty *pProp;
 {
-    if ((pProp->eType == CSS_TYPE_STRING || pProp->eType == CSS_TYPE_RAW) && 
-        p->pzContent
-    ) {
-        int nBytes = strlen(pProp->v.zVal) + 1;
-        *(p->pzContent) = HtmlAlloc(
-            "*HtmlComputedValuesCreator.pzContent", nBytes
-        );
-        strcpy(*(p->pzContent), pProp->v.zVal);
-        return 0;
+    if (p->pzContent) {
+        p->pContent = pProp;
     }
-    return 1;
+    return 0;
+}
+
+static void
+propertyValuesCalculateContent(p)
+    HtmlComputedValuesCreator *p;
+{
+    int ii;
+    int nOut = 0;
+    char *zOut = 0;
+    CssProperty *pProp = p->pContent;
+
+    CssProperty **apProp;
+    assert(p->pzContent);
+
+    assert(pProp->eType == CSS_TYPE_LIST);
+    apProp = (CssProperty **)pProp->v.p;
+    for (ii = 0; apProp[ii]; ii++) {
+        char zCounter[512];
+        const char *z = 0;
+        switch (apProp[ii]->eType) {
+
+            case CSS_TYPE_STRING:
+                z = apProp[ii]->v.zVal;
+                break;
+
+            case CSS_TYPE_ATTR:
+                z = HtmlNodeAttr(p->pNode, apProp[ii]->v.zVal);
+                break;
+
+            case CSS_TYPE_COUNTER:
+                contentCounter(p->pTree, apProp[ii], zCounter, 512);
+                z = zCounter;
+                break;
+
+            case CSS_TYPE_COUNTERS:
+                contentCounters(p->pTree, apProp[ii], zCounter, 512);
+                z = zCounter;
+                break;
+        }
+
+        if (z) {
+            int n = strlen(z);
+            zOut = HtmlRealloc("zContent", zOut, nOut + n + 1);
+            strcpy(&zOut[nOut], z);
+            nOut += n;
+        }
+    }
+    *(p->pzContent) = zOut;
 }
 
 static int
@@ -1137,6 +1285,82 @@ setcolor_out:
     }
     *pCVar = cVal;
     return 0;
+}
+
+static int 
+propertyValuesSetCounterList(p, ppCL, eProp, pProp)
+    HtmlComputedValuesCreator *p;
+    HtmlCounterList **ppCL;
+    int eProp;
+    CssProperty *pProp;
+{
+    int nByte = 0;
+    int nCounter = 0;
+    int nCounter2 = 0;
+
+    int ii;
+    CssProperty **ap;
+
+    HtmlCounterList *pRet;
+    char *zOut;
+
+    /* Property should always be a list. */
+    if (pProp->eType != CSS_TYPE_LIST) return 1;
+    ap = (CssProperty **)(pProp->v.p);
+
+    /* Figure out the number of counters and the amount of space required
+     * to store everything.
+     */
+    for (ii = 0; ap[ii]; ii++) {
+        if (ap[ii]->eType == CSS_TYPE_RAW) {
+            nByte += (strlen(ap[ii]->v.zVal) + 1);
+            nCounter++;
+        } else {
+            return 1;
+        }
+        if (ap[ii + 1] && ap[ii + 1]->eType == CSS_TYPE_FLOAT) {
+            ii++;
+        }
+    }
+
+    nByte += sizeof(HtmlCounterList);
+    nByte += nCounter * (sizeof(int *) + sizeof(char *));
+   
+    pRet = (HtmlCounterList *)HtmlAlloc("HtmlCounterList", nByte);
+    pRet->nRef = 0;
+    pRet->nCounter = nCounter;
+    pRet->azCounter = (char **)&pRet[1];
+    pRet->anValue = (int *)&pRet->azCounter[nCounter];
+    zOut = (char *)&pRet->anValue[nCounter];
+
+    for (ii = 0; ap[ii]; ii++) {
+        int n; 
+        assert(ap[ii]->eType == CSS_TYPE_RAW);
+        n = (strlen(ap[ii]->v.zVal) + 1);
+        memcpy(zOut, ap[ii]->v.zVal, n);
+        pRet->azCounter[nCounter2] = zOut;
+        zOut += n;
+        if (ap[ii + 1] && ap[ii + 1]->eType == CSS_TYPE_FLOAT) {
+            pRet->anValue[nCounter2] = INTEGER(ap[ii + 1]->v.rVal);
+            ii++;
+        } else if (eProp == CSS_PROPERTY_COUNTER_INCREMENT) {
+            pRet->anValue[nCounter2] = 1;
+        } else {
+            pRet->anValue[nCounter2] = 0;
+        }
+        nCounter2++;
+    }
+    assert(nCounter2 == nCounter);
+
+    *ppCL = pRet;
+    return 0;
+}
+
+static void 
+decrementCounterListRef(pCounterList)
+    HtmlCounterList *pCounterList;
+{
+    HtmlFree(pCounterList);
 }
 
 /*
@@ -2065,6 +2289,11 @@ HtmlComputedValuesSet(p, eProp, pProp)
                 pCVar = (HtmlColor **)((char *)&p->values + pDef->iOffset);
                 return propertyValuesSetColor(p, pCVar, pProp);
             }
+            case COUNTERLIST: {
+                HtmlCounterList **ppCL; 
+                ppCL= (HtmlCounterList **)((char *)&p->values + pDef->iOffset);
+                return propertyValuesSetCounterList(p, ppCL, eProp, pProp);
+            }
             case IMAGE: {
                 HtmlImage2 **pI2Var; 
                 pI2Var = (HtmlImage2 **)
@@ -2544,6 +2773,11 @@ HtmlComputedValuesFinish(p)
         pValues->imZoomedBackgroundImage = pZ;
     }
 
+    if (p->pContent) {
+        HtmlStyleHandleCounters(p->pTree, pValues);
+        propertyValuesCalculateContent(p);
+    }
+
     /* Delete any CssProperty structures allocated for Tcl properties */
     if (p->pDeleteList) {
         CssProperty *p1 = p->pDeleteList;
@@ -2685,6 +2919,9 @@ HtmlComputedValuesRelease(pTree, pValues)
                 pTree->nFixedBackground--;
                 assert(pTree->nFixedBackground >= 0);
             }
+
+            decrementCounterListRef(pValues->clCounterIncrement);
+            decrementCounterListRef(pValues->clCounterReset);
 
             if (pEntry) {
                 Tcl_DeleteHashEntry(pEntry);
@@ -2984,6 +3221,27 @@ getPropertyObj(pValues, eProp)
                 break;
             }
 
+            case COUNTERLIST: {
+                HtmlCounterList *pCL = *(HtmlCounterList **)(v + pDef->iOffset);
+                if (!pCL) {
+                    pValue = Tcl_NewStringObj("none", -1);
+                } else {
+                    int ii;
+                    pValue = Tcl_NewObj();
+                    for (ii = 0; ii < pCL->nCounter; ii++) {
+                        if (ii > 0) {
+                            Tcl_AppendToObj(pValue, " ", -1);
+                        }
+                        Tcl_AppendToObj(pValue, pCL->azCounter[ii], -1);
+                        Tcl_AppendToObj(pValue, " ", -1);
+                        Tcl_AppendObjToObj(
+                            pValue, Tcl_NewIntObj(pCL->anValue[ii])
+                        );
+                    }
+                }
+                break;
+            }
+
             case IMAGE: {
                 HtmlImage2 *pImage = *(HtmlImage2 **)(v + pDef->iOffset);
                 if (pImage) {
@@ -3117,6 +3375,7 @@ HtmlNodeProperties(interp, pValues)
     return TCL_OK;
 }
 
+#define HTML_REQUIRE_CONTENT 3
 #define HTML_REQUIRE_LAYOUT 2
 #define HTML_REQUIRE_PAINT  1
 #define HTML_OK     0
@@ -3131,6 +3390,22 @@ HtmlComputedValuesCompare(pV1, pV2)
 
     if (pV1 == pV2) {
         return HTML_OK;
+    }
+
+    /* 
+     * Check for changes in the following properties:
+     *
+     *     'counter-reset'
+     *     'counter-increment'
+     *
+     */
+    if (
+        (!pV1 && (pV2->clCounterIncrement || pV2->clCounterReset)) ||
+        (!pV2 && (pV1->clCounterIncrement || pV1->clCounterReset)) ||
+        (pV1 && pV2 && pV2->clCounterIncrement != pV1->clCounterIncrement) ||
+        (pV1 && pV2 && pV2->clCounterReset != pV1->clCounterReset)
+    ) {
+        return HTML_REQUIRE_CONTENT;
     }
 
     /* 
@@ -3182,6 +3457,10 @@ HtmlComputedValuesCompare(pV1, pV2)
             case COLOR:
             case IMAGE:
             case CUSTOM:
+                break;
+
+            case COUNTERLIST:
+                /* TODO */
                 break;
         }
     }

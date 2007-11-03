@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.153 2007/10/17 17:45:07 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.154 2007/11/03 09:47:12 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -330,6 +330,7 @@ HtmlNodeClearGenerated(pTree, pElem)
     HtmlTree *pTree;
     HtmlElementNode *pElem;
 {
+    assert(!pElem->pBefore || !HtmlNodeIsText(pElem->pBefore));
     freeNode(pTree, pElem->pBefore);
     freeNode(pTree, pElem->pAfter);
     pElem->pBefore = 0;

@@ -23,6 +23,7 @@ typedef struct HtmlFourSides HtmlFourSides;
 typedef struct HtmlComputedValues HtmlComputedValues;
 typedef struct HtmlComputedValuesCreator HtmlComputedValuesCreator;
 typedef struct HtmlColor HtmlColor;
+typedef struct HtmlCounterList HtmlCounterList;
 
 typedef struct HtmlFont HtmlFont;
 typedef struct HtmlFontKey HtmlFontKey;
@@ -98,6 +99,18 @@ struct HtmlColor {
     int nRef;              /* Number of pointers to this structure */
     char *zColor;          /* Name of color */
     XColor *xcolor;        /* The XColor* */
+};
+
+/*
+ * An HtmlCounterList is used to store the computed value of the 
+ * 'counter-increment' and 'counter-reset' properties.
+ */
+struct HtmlCounterList {
+  int nRef;
+
+  int nCounter;
+  char **azCounter;
+  int *anValue;
 };
 
 /*
@@ -264,6 +277,9 @@ struct HtmlComputedValues {
     unsigned char eUnicodeBidi;       /* 'unicode-bidi' */
     unsigned char eTableLayout;       /* 'table-layout' */
 
+    HtmlCounterList *clCounterReset;
+    HtmlCounterList *clCounterIncrement;
+
     /* 'font-size', 'font-family', 'font-style', 'font-weight' */
     HtmlFont *fFont;
 
@@ -307,8 +323,10 @@ struct HtmlComputedValuesCreator {
     unsigned int em_mask;
     unsigned int ex_mask;
     int eVerticalAlignPercent;       /* True if 'vertical-align' is a % */
-    char **pzContent;
     CssProperty *pDeleteList;
+
+    CssProperty *pContent;
+    char **pzContent;
 };
 
 /*

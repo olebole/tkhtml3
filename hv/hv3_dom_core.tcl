@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.35 2007/10/16 10:01:53 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.36 2007/11/03 09:47:12 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Core
@@ -469,7 +469,10 @@ set ::hv3::dom::code::ELEMENT {
     Element_putAttributeString $myNode $attr $v
   }
 
-  dom_call_todo removeAttribute
+  dom_call -string removeAttribute {THIS attr} {
+    Element_putAttributeString $myNode $attr ""
+  }
+
   dom_call_todo getAttributeNode
   dom_call_todo setAttributeNode
   dom_call_todo removeAttributeNode

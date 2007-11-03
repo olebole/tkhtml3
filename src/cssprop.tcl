@@ -83,7 +83,8 @@ E font-variant          normal small-caps
 E list-style-position   outside inside
 E list-style-type       disc square circle none
 E list-style-type       decimal lower-alpha upper-alpha lower-roman
-E list-style-type       upper-roman
+E list-style-type       upper-roman decimal-leading-zero lower-latin
+E list-style-type       upper-latin
 E overflow              visible auto hidden scroll
 E outline-style         none hidden dotted dashed solid 
 E outline-style         double groove ridge outset inset

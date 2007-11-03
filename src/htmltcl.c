@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.194 2007/11/01 05:14:12 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.195 2007/11/03 09:47:12 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -407,24 +407,13 @@ INSTRUMENTED(runDynamicStyleEngine, HTML_INSTRUMENT_DYNAMIC_STYLE_ENGINE)
 INSTRUMENTED(runStyleEngine, HTML_INSTRUMENT_STYLE_ENGINE)
 {
     HtmlTree *pTree = (HtmlTree *)clientData;
-    HtmlNode *pParent = HtmlNodeParent(pTree->cb.pRestyle);
     HtmlNode *pRestyle = pTree->cb.pRestyle;
 
     pTree->cb.pRestyle = 0;
     assert(pTree->cb.pSnapshot);
     assert(pRestyle);
 
-    if (pParent) {
-        int i;
-        int nChild = HtmlNodeNumChildren(pParent);
-        assert(HtmlNodeComputedValues(pParent));
-        for (i = 0; HtmlNodeChild(pParent, i) != pRestyle; i++);
-        for ( ; i < nChild; i++) {
-             HtmlStyleApply(pTree, HtmlNodeChild(pParent, i));
-        }
-    } else {
-        HtmlStyleApply(pTree, pRestyle);
-    }
+    HtmlStyleApply(pTree, pRestyle);
     HtmlRestackNodes(pTree);
     HtmlCheckRestylePoint(pTree);
 

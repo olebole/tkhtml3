@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.134 2007/11/01 08:56:02 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.135 2007/11/03 09:47:12 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -563,10 +563,12 @@ tokenToProperty(pParse, pToken)
         int len;
         char *zFunc;
     } functions[] = {
-        {CSS_TYPE_TCL,  3, "tcl"},
-        {CSS_TYPE_URL,  3, "url"},
-        {CSS_TYPE_ATTR, 4, "attr"},
-        {-1,            3, "rgb"},
+        {CSS_TYPE_TCL,      3, "tcl"},
+        {CSS_TYPE_URL,      3, "url"},
+        {CSS_TYPE_ATTR,     4, "attr"},
+        {CSS_TYPE_COUNTER,  7, "counter"},
+        {CSS_TYPE_COUNTERS, 8, "counters"},
+        {-1,                3, "rgb"},
     };
 
     CssProperty *pProp = 0;
@@ -883,6 +885,19 @@ propertySetAdd(p, i, v)
     p->n++;
 }
 
+
+static void 
+propertyFree(CssProperty *p){
+  if (p && p->eType == CSS_TYPE_LIST) {
+    int ii;
+    CssProperty **apProp = (CssProperty **)p->v.p;
+    for (ii = 0; apProp[ii]; ii++) {
+        propertyFree(apProp[ii]);
+    }
+  }
+  HtmlFree(p);
+}
+
 /*--------------------------------------------------------------------------
  *
  * propertySetFree --
@@ -902,7 +917,7 @@ propertySetFree(CssPropertySet *p){
     int i;
     if( !p ) return;
     for (i = 0; i < p->n; i++) {
-        HtmlFree(p->a[i].pProp);
+        propertyFree(p->a[i].pProp);
     }
     HtmlFree(p->a);
     HtmlFree(p);
@@ -1377,6 +1392,53 @@ bad_parse:
     if (pImage) HtmlFree(pImage);
     if (pPosition) HtmlFree(pPosition);
     if (pType) HtmlFree(pType);
+}
+
+static void
+propertySetAddList(pParse, eProp, p, v)
+    CssParse *pParse;
+    int eProp;
+    CssPropertySet *p;         /* Property set */
+    CssToken *v;               /* Value for 'content' property */
+{
+    CssProperty *pProp;
+    CssProperty **apProp;
+    int nAlloc;
+    int n;
+
+    int nElem = 0;
+    const char *z = v->z;
+    const char *zEnd = &z[v->n];
+
+    /* Count the elements in the list. */
+    z = HtmlCssGetNextListItem(z, zEnd-z, &n);
+    while (z) {
+        z = &z[n];
+        nElem++;
+        z = HtmlCssGetNextListItem(z, zEnd-z, &n);
+    }
+
+    nAlloc = sizeof(CssProperty) + (nElem + 1) * sizeof(CssProperty *);
+    pProp = (CssProperty *)HtmlAlloc("CssProperty", nAlloc);
+    pProp->v.p = &(pProp[1]);
+    pProp->eType = CSS_TYPE_LIST;
+    apProp = (CssProperty **)(pProp->v.p);
+    apProp[nElem] = 0;
+
+    z = HtmlCssGetNextListItem(v->z, zEnd - v->z, &n);
+    nElem = 0;
+    while (z) {
+        CssToken token;
+        token.z = z;
+        token.n = n;
+        apProp[nElem] = tokenToProperty(pParse, &token);
+        z = &z[n];
+        nElem++;
+        z = HtmlCssGetNextListItem(z, zEnd-z, &n);
+    }
+    assert(apProp[nElem] == 0);
+
+    propertySetAdd(p, eProp, pProp);
 }
 
 /*
@@ -2480,6 +2542,11 @@ HtmlCssDeclaration(pParse, pProp, pExpr, isImportant)
             break;
         case CSS_SHORTCUTPROPERTY_LIST_STYLE:
             shortcutListStyle(pParse, *ppPropertySet, pExpr);
+            break;
+        case CSS_PROPERTY_CONTENT:
+        case CSS_PROPERTY_COUNTER_INCREMENT:
+        case CSS_PROPERTY_COUNTER_RESET:
+            propertySetAddList(pParse, prop, *ppPropertySet, pExpr);
             break;
         default:
             propertySetAdd(*ppPropertySet, prop, tokenToProperty(pParse,pExpr));
@@ -3591,6 +3658,7 @@ generatedContent(pTree, pNode, pCssRule, ppNode)
     char *zContent = 0;
 
     memset(aPropDone, 0, sizeof(aPropDone));
+
     sCreator.pzContent = &zContent;
     for (pRule = pCssRule; pRule; pRule = pRule->pNext) {
         char **pz = (have ? 0 : (&zContent));
@@ -3631,14 +3699,18 @@ generatedContent(pTree, pNode, pCssRule, ppNode)
  *
  *--------------------------------------------------------------------------
  */
-void HtmlCssStyleSheetGenerated(pTree, pElem)
+void HtmlCssStyleGenerateContent(pTree, pElem, isBefore)
     HtmlTree *pTree;
     HtmlElementNode *pElem;
+    int isBefore;
 {
     CssStyleSheet *pStyle = pTree->pStyle;    /* Stylesheet config */
     HtmlNode *pNode = (HtmlNode *)pElem;
-    generatedContent(pTree, pNode, pStyle->pAfterRules, &pElem->pAfter);
-    generatedContent(pTree, pNode, pStyle->pBeforeRules, &pElem->pBefore);
+    if (isBefore) {
+        generatedContent(pTree, pNode, pStyle->pBeforeRules, &pElem->pBefore);
+    } else {
+        generatedContent(pTree, pNode, pStyle->pAfterRules, &pElem->pAfter);
+    }
 }
 
 /*--------------------------------------------------------------------------

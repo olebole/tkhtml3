@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlstyle.c,v 1.57 2007/09/25 11:21:42 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlstyle.c,v 1.58 2007/11/03 09:47:12 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -485,101 +485,105 @@ styleNode(pTree, pNode, clientData)
     CONST char *zStyle;      /* Value of "style" attribute for node */
     int trashDynamics = (int)clientData;
 
-    if (!HtmlNodeIsText(pNode)) {
-        HtmlElementNode *pElem = (HtmlElementNode *)pNode;
-        int redrawmode = 0;
-        HtmlComputedValues *pV = pElem->pPropertyValues;
-        pElem->pPropertyValues = 0;
-        HtmlDelStackingInfo(pTree, pElem);
+    HtmlElementNode *pElem = (HtmlElementNode *)pNode;
+    HtmlComputedValues *pV = pElem->pPropertyValues;
+    pElem->pPropertyValues = 0;
+    HtmlDelStackingInfo(pTree, pElem);
 
-        /* If the clientData was set to a non-zero value, then the 
-         * stylesheet configuration has changed. In this case we need to
-         * recalculate the nodes list of dynamic conditions.
-         */
-        if (trashDynamics) {
-            HtmlCssFreeDynamics(pElem);
-        }
-    
-        /* If there is a "style" attribute on this node, parse the attribute
-         * value and put the resulting mini-stylesheet in pNode->pStyle. 
-         *
-         * We assume that if the pStyle attribute is not NULL, then this node
-         * has been styled before. The stylesheet configuration may have
-         * changed since then, so we have to recalculate pNode->pProperties,
-         * but the "style" attribute is constant so pStyle is never invalid.
-         *
-         * Actually, the style attribute can be modified by the user, using 
-         * the [$node attribute style "new-value] command. In this case
-         * the style attribute is treated as a special case and the 
-         * pElem->pStyle structure is invalidated/recalculated as required.
-         */
-        if (!pElem->pStyle) {
-            zStyle = HtmlNodeAttr(pNode, "style");
-            if (zStyle) {
-                HtmlCssInlineParse(pTree, -1, zStyle, &pElem->pStyle);
-            }
-        }
-    
-        /* Recalculate the properties for this node */
-        HtmlCssStyleSheetApply(pTree, pNode);
-        HtmlComputedValuesRelease(pTree, pElem->pPreviousValues);
-        pElem->pPreviousValues = pV;
+    /* If the clientData was set to a non-zero value, then the 
+     * stylesheet configuration has changed. In this case we need to
+     * recalculate the nodes list of dynamic conditions.
+     */
+    if (trashDynamics) {
+        HtmlCssFreeDynamics(pElem);
+    }
 
-        /* Compare the new computed property set with the old. If
-         * ComputedValuesCompare() returns 0, then the properties have
-         * not changed (in any way that affects rendering). If it
-         * returns 1, then some aspect has changed that does not
-         * require a relayout (i.e. 'color', or 'text-decoration'). 
-         * If it returns 2, then something has changed that does require
-         * relayout (i.e. 'display', 'font-size').
-         */
-        redrawmode = HtmlComputedValuesCompare(pElem->pPropertyValues, pV);
+    /* If there is a "style" attribute on this node, parse the attribute
+     * value and put the resulting mini-stylesheet in pNode->pStyle. 
+     *
+     * We assume that if the pStyle attribute is not NULL, then this node
+     * has been styled before. The stylesheet configuration may have
+     * changed since then, so we have to recalculate pNode->pProperties,
+     * but the "style" attribute is constant so pStyle is never invalid.
+     *
+     * Actually, the style attribute can be modified by the user, using 
+     * the [$node attribute style "new-value"] command. In this case
+     * the style attribute is treated as a special case and the 
+     * pElem->pStyle structure is invalidated/recalculated as required.
+     */
+    if (!pElem->pStyle) {
+        zStyle = HtmlNodeAttr(pNode, "style");
+        if (zStyle) {
+            HtmlCssInlineParse(pTree, -1, zStyle, &pElem->pStyle);
+        }
+    }
 
-        /* Regenerate any :before and :after content */
-        if (pElem->pBefore || pElem->pAfter) {
-            HtmlCallbackLayout(pTree, pNode);
-            HtmlNodeClearGenerated(pTree, pElem);
-            redrawmode = 2;
-        }
-        HtmlCssStyleSheetGenerated(pTree, pElem);
-        if (pElem->pBefore || pElem->pAfter) {
-            redrawmode = 2;
-        }
+    /* Recalculate the properties for this node */
+    HtmlCssStyleSheetApply(pTree, pNode);
+    HtmlComputedValuesRelease(pTree, pElem->pPreviousValues);
+    pElem->pPreviousValues = pV;
 
-        if (!pV || redrawmode == 2) {
-            HtmlCallbackLayout(pTree, pNode);
-            HtmlCallbackDamageNode(pTree, pNode);
-        } else if (redrawmode == 1) {
-            /* HtmlCallbackLayout(pTree, pNode); */
-            HtmlCallbackDamageNode(pTree, pNode);
-        }
+    addStackingInfo(pTree, pElem);
 
-        /* If this element was either the <body> or <html> nodes,
-         * go ahead and repaint the entire display. The worst that
-         * can happen is that we have to paint a little extra
-         * area if the document background is set by the <HTML>
-         * element.
-         */
-        if (redrawmode && (
-                (HtmlNode *)pElem == pTree->pRoot || 
-                (HtmlNode *)pElem == HtmlNodeChild(pTree->pRoot, 1)
-            )
-        ) {
-            HtmlCallbackDamage(pTree, 0, 0, 1000000, 1000000);
-        }
+    /* Compare the new computed property set with the old. If
+     * ComputedValuesCompare() returns 0, then the properties have
+     * not changed (in any way that affects rendering). If it
+     * returns 1, then some aspect has changed that does not
+     * require a relayout (i.e. 'color', or 'text-decoration'). 
+     * If it returns 2, then something has changed that does require
+     * relayout (i.e. 'display', 'font-size').
+     */
+    return HtmlComputedValuesCompare(pElem->pPropertyValues, pV);
+}
 
-        addStackingInfo(pTree, pElem);
+typedef struct StyleCounter StyleCounter;
+struct StyleCounter {
+  char *zName;
+  int iValue;
+};
 
-        if (pElem->pBefore) {
-            ((HtmlElementNode *)(pElem->pBefore))->pStack = pElem->pStack;
-            pElem->pBefore->pParent = pNode;
-            pElem->pBefore->iNode = -1;
-        }
-        if (pElem->pAfter) {
-            ((HtmlElementNode *)(pElem->pAfter))->pStack = pElem->pStack;
-            pElem->pAfter->pParent = pNode;
-            pElem->pAfter->iNode = -1;
-        }
+struct StyleApply {
+  /* Node to begin recalculating style at */
+  HtmlNode *pRestyle;
+
+  /* True if currently traversing pRestyle, or a descendent, right-sibling
+   * or descendent of a right-sibling of pRestyle.
+   */
+  int doStyle;
+
+  int doContent;
+
+  /* True if the whole tree is being restyled. */
+  int isRoot;
+
+  StyleCounter **apCounter;
+  int nCounter;
+  int nCounterAlloc;
+  int nCounterStartScope;
+};
+typedef struct StyleApply StyleApply;
+
+static void 
+styleApply(pTree, pNode, p)
+    HtmlTree *pTree;
+    HtmlNode *pNode;
+    StyleApply *p;
+{
+    int i;
+    int doStyle;
+    int nCounterStartScope;
+    int redrawmode = 0;
+    HtmlElementNode *pElem = HtmlNodeAsElement(pNode);
+
+    /* Text nodes do not have an associated style. */
+    if (!pElem) return;
+
+    if (p->pRestyle == pNode) {
+        p->doStyle = 1;
+    }
+
+    if (p->doStyle) {
+        redrawmode = styleNode(pTree, pNode, p->isRoot);
 
         /* If there has been a style-callback configured (-stylecmd option to
          * the [nodeHandle replace] command) for this node, invoke it now.
@@ -593,7 +597,207 @@ styleNode(pTree, pNode, clientData)
         }
     }
 
-    return HTML_WALK_DESCEND;
+    HtmlStyleHandleCounters(pTree, HtmlNodeComputedValues(pNode));
+    nCounterStartScope = p->nCounterStartScope;
+    p->nCounterStartScope = p->nCounter;
+
+    if (p->doStyle || p->doContent) {
+        /* Destroy current generated content */
+        if (pElem->pBefore || pElem->pAfter) {
+            HtmlNodeClearGenerated(pTree, pElem);
+            redrawmode = MAX(redrawmode, 2);
+        }
+
+        /* Generate :before content */
+        HtmlCssStyleGenerateContent(pTree, pElem, 1);
+        if (pElem->pBefore) {
+            ((HtmlElementNode *)(pElem->pBefore))->pStack = pElem->pStack;
+            pElem->pBefore->pParent = pNode;
+            pElem->pBefore->iNode = -1;
+        }
+    } else if (pElem->pBefore) {
+        HtmlStyleHandleCounters(pTree, HtmlNodeComputedValues(pElem->pBefore));
+    }
+
+    doStyle = p->doStyle;
+    for (i = 0; i < HtmlNodeNumChildren(pNode); i++) {
+        styleApply(pTree, HtmlNodeChild(pNode, i), p);
+    }
+    p->doStyle = doStyle;
+
+    if (p->doStyle || p->doContent) {
+        /* Generate :after content */
+        HtmlCssStyleGenerateContent(pTree, pElem, 0);
+        if (pElem->pAfter) {
+            ((HtmlElementNode *)(pElem->pAfter))->pStack = pElem->pStack;
+            pElem->pAfter->pParent = pNode;
+            pElem->pAfter->iNode = -1;
+        }
+
+        if (pElem->pBefore || pElem->pAfter) {
+            redrawmode = MAX(redrawmode, 2);
+        }
+    } else if(pElem->pAfter) {
+        HtmlStyleHandleCounters(pTree, HtmlNodeComputedValues(pElem->pAfter));
+    }
+
+    for (i = p->nCounterStartScope; i < p->nCounter; i++) {
+        HtmlFree(p->apCounter[i]);
+    }
+    p->nCounter = p->nCounterStartScope;
+    p->nCounterStartScope = nCounterStartScope;
+
+    if (redrawmode == 3) {
+        HtmlCallbackLayout(pTree, pNode);
+        HtmlCallbackDamageNode(pTree, pNode);
+        p->doContent = 1;
+    } else if (redrawmode == 2) {
+        HtmlCallbackLayout(pTree, pNode);
+        HtmlCallbackDamageNode(pTree, pNode);
+    } else if (redrawmode == 1) {
+        /* HtmlCallbackLayout(pTree, pNode); */
+        HtmlCallbackDamageNode(pTree, pNode);
+    }
+
+    /* If this element was either the <body> or <html> nodes,
+     * go ahead and repaint the entire display. The worst that
+     * can happen is that we have to paint a little extra
+     * area if the document background is set by the <HTML>
+     * element.
+     */
+    if (redrawmode && (
+            (HtmlNode *)pElem == pTree->pRoot || 
+            (HtmlNode *)pElem == HtmlNodeChild(pTree->pRoot, 1)
+        )
+    ) {
+        HtmlCallbackDamage(pTree, 0, 0, 1000000, 1000000);
+    }
+}
+
+static void addCounterEntry(p, zName, iValue)
+    StyleApply *p;
+    const char *zName;
+    int iValue;
+{
+    StyleCounter *pCounter;
+
+    int n;
+    if (p->nCounterAlloc < (p->nCounter + 1)) {
+        int nByte;
+        p->nCounterAlloc += 10;
+        nByte = p->nCounterAlloc * sizeof(HtmlCounterList *);
+        p->apCounter = (StyleCounter **)HtmlRealloc(
+            "apCounter", p->apCounter, nByte
+        );
+    }
+
+    n = sizeof(StyleCounter) + strlen(zName) + 1;
+    pCounter = (StyleCounter *)HtmlAlloc("StyleCounter", n);
+    pCounter->zName = (char *)&pCounter[1];
+    strcpy(pCounter->zName, zName);
+    pCounter->iValue = iValue;
+    p->apCounter[p->nCounter] = pCounter;
+    p->nCounter++;
+}
+
+void
+HtmlStyleHandleCounters(pTree, pComputed)
+    HtmlTree *pTree;
+    HtmlComputedValues *pComputed;
+{
+    StyleApply *p = (StyleApply *)pTree->pStyleApply;
+
+    HtmlCounterList *pReset = pComputed->clCounterReset;
+    HtmlCounterList *pIncr = pComputed->clCounterIncrement;
+
+
+    /* Section 12.4.3 of CSS 2.1: Elements with "display:none" neither
+     * increment or reset counters.
+     */
+    if (pComputed->eDisplay == CSS_CONST_NONE) {
+        return;
+    }
+
+    if (pReset) {
+        int ii;
+
+        for (ii = 0; ii < pReset->nCounter; ii++) {
+            StyleCounter *pCounter = 0;
+            int jj;
+            for (jj = p->nCounterStartScope; jj < p->nCounter; jj++) {
+                if (!strcmp(pReset->azCounter[ii], p->apCounter[jj]->zName)) {
+                    pCounter = p->apCounter[jj];
+                    pCounter->iValue = pReset->anValue[ii];
+                    break;
+                }
+            }
+            if (pCounter == 0) {
+                addCounterEntry(p, pReset->azCounter[ii], pReset->anValue[ii]);
+            }
+        }
+    }
+
+    if (pIncr) {
+        int ii;
+        for (ii = 0; ii < pIncr->nCounter; ii++) {
+            int jj;
+            for (jj = p->nCounter - 1; jj >= 0; jj--) {
+                if (0 == strcmp(pIncr->azCounter[ii],p->apCounter[jj]->zName)) {
+                    p->apCounter[jj]->iValue += pIncr->anValue[ii];
+                    break;
+                }
+            }
+
+            if (jj < 0) {
+                /* No counter with the specified name is found. Act as if 
+                 * there is a 'counter-reset: zName iValue' directive.
+                 */
+                addCounterEntry(p, pIncr->azCounter[ii], pIncr->anValue[ii]);
+            }
+        }
+    }
+}
+
+int HtmlStyleCounters(pTree, zName, aValue, nValue)
+    HtmlTree *pTree;
+    const char *zName;
+    int *aValue;
+    int nValue;
+{
+    int ii;
+    StyleApply *p = (StyleApply *)(pTree->pStyleApply);
+
+    int n = 0;
+
+    for (ii = 0; ii < p->nCounter && n < nValue; ii++) {
+        if (0 == strcmp(zName, p->apCounter[ii]->zName)) {
+            aValue[n] = p->apCounter[ii]->iValue;
+            n++;
+        }
+    }
+
+    if (n == 0) {
+        n = 1;
+        aValue[0] = 0;
+    }
+
+    return n;
+}
+
+int HtmlStyleCounter(pTree, zName)
+    HtmlTree *pTree;
+    const char *zName;
+{
+    int ii;
+    StyleApply *p = (StyleApply *)(pTree->pStyleApply);
+
+    for (ii = p->nCounter - 1; ii >= 0; ii--) {
+        if (0 == strcmp(zName, p->apCounter[ii]->zName)) {
+            return p->apCounter[ii]->iValue;
+        }
+    }
+
+    return 0;
 }
 
 /*
@@ -614,9 +818,19 @@ HtmlStyleApply(pTree, pNode)
     HtmlTree *pTree;
     HtmlNode *pNode;
 {
+    StyleApply sApply;
     int isRoot = ((pNode == pTree->pRoot) ? 1 : 0);
     HtmlLog(pTree, "STYLEENGINE", "START");
-    HtmlWalkTree(pTree, pNode, styleNode, (ClientData)isRoot);
+
+    memset(&sApply, 0, sizeof(StyleApply));
+    sApply.pRestyle = pNode;
+    sApply.isRoot = isRoot;
+
+    assert(pTree->pStyleApply == 0);
+    pTree->pStyleApply = (void *)&sApply;
+    styleApply(pTree, pTree->pRoot, &sApply);
+    pTree->pStyleApply = 0;
+    HtmlFree(sApply.apCounter);
     return TCL_OK;
 }
 
