@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.132 2007/11/03 11:23:16 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.133 2007/11/03 16:20:51 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -2601,12 +2601,19 @@ HtmlComputedValuesFinish(p)
      */
     for (ii = 0; ii < sizeof(emexmap)/sizeof(struct EmExMap); ii++) {
         struct EmExMap *pMap = &emexmap[ii];
+        int h;             /* Computed value in hundrenths of pixels */
+        int *pVal = 0;
         if (p->em_mask & pMap->mask) {
-            int *pVal = (int *)(((unsigned char *)&p->values) + pMap->offset);
-            *pVal = (*pVal * pFont->em_pixels) / 100;
+            pVal = (int *)(((unsigned char *)&p->values) + pMap->offset);
+            h = (*pVal * pFont->em_pixels);
         } else if (p->ex_mask & pMap->mask) {
-            int *pVal = (int *)(((unsigned char *)&p->values) + pMap->offset);
-            *pVal = (*pVal * pFont->ex_pixels) / 100;
+            pVal = (int *)(((unsigned char *)&p->values) + pMap->offset);
+            h = (*pVal * pFont->ex_pixels);
+        }
+
+        if (pVal) {
+            h += ((h>0)?50:-50);
+            *pVal = h / 100;
         }
     }
 

@@ -85,11 +85,11 @@ SECTION "CSS Property Support"
 
 P {
 <p>
-	The tables in this section compare CSS property support in Tkhtml3 with
-	the <a href="http://www.w3.org/TR/CSS21/">CSS level 2.1</a>
-	specification. Property names in blue are supported, those in grey 
-	are unsupported. Of course, there may be bugs in the support of
-	any or all of these. If you find a bug, <i>please report it</i>!
+	The tables in this section compare CSS property support in Tkhtml3 
+	with the <a href="http://www.w3.org/TR/CSS21/">CSS level 2.1</a>
+	specification. Of course, there may be bugs in the support of
+	any or all of the properties listed as supported below. If you find a
+        bug, <i>please report it</i>!
 </p>
 }
 
@@ -220,9 +220,12 @@ SUPPORTTABLE {Generated Content Properties}                         \
 	[CSSREF generate list-style-image] {}                       \
 	[CSSREF generate list-style-position] {}                    \
 	[CSSREF generate list-style] {}                             \
-	[CSSREF generate content] {String values only. }  \
-	[CSSREF generate counter-increment nosupport] {No support.} \
-	[CSSREF generate counter-reset nosupport] {No support.}     \
+	[CSSREF generate content] {String, attr(), counter() and counters() 
+          values work. There is no support for url(), or the keywords
+          for automatic quotes generation.
+        }  \
+	[CSSREF generate counter-increment] {} \
+	[CSSREF generate counter-reset] {}     \
 	[CSSREF generate quotes nosupport] {No support.}
 
 # List of CSS 2.1 properties considered out of scope for Tkhtml.
@@ -257,7 +260,6 @@ P {
 	the following pseudo-elements:
 </p>
 <ul>
-	<li> :first-child
 	<li> :first-letter
 	<li> :first-line
 	<li> :lang

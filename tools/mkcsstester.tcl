@@ -61,7 +61,7 @@ set TemplateTwo {
     <DIV style="float:right">
       <INPUT type="button" value="Generate Report" onclick="loadtest(0,0)">
     </DIV>
-    <H1>Test Case: <SPAN id="testname"> </H1>
+    <H3>Test Case: <SPAN id="testname"> </H3>
     <DIV id="container">
       <DIV id="testframe_border">
         <IFRAME name="testframe">

@@ -66,7 +66,7 @@
  * 
  *     HtmlInlineContextIsEmpty()
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.48 2007/11/03 12:58:07 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.49 2007/11/03 16:20:51 danielk1977 Exp $";
 
 /* The InlineBox and InlineMetrics types are only used within this file.
  * The InlineContext type is only used within this file, but opaque handles
@@ -195,7 +195,7 @@ if (pContext->pTree->options.logcmd && !pContext->isSizeOnly &&                \
 
 #define END_LOG(zFunction) \
     }                                                                          \
-    HtmlLog(pContext->pTree, "LAYOUTENGINE", "%s %s() -> %s",                  \
+    HtmlLog(pContext->pTree, "LAYOUTENGINE", "%s %s(): %s",                  \
             Tcl_GetString(pLogCmd),                                            \
             zFunction, Tcl_GetString(pLog)                                     \
     );                                                                         \
@@ -375,7 +375,7 @@ int HtmlInlineContextPushBorder(pContext, pBorder)
                     iVert = pPM->iBaseline - (pM->iLogical / 2);
                     if (pNodeParent) {
                         HtmlFont *pF=HtmlNodeComputedValues(pNodeParent)->fFont;
-                        iVert -= pF->ex_pixels;
+                        iVert -= (pF->ex_pixels / 2);
                     }
                     break;
                 }
@@ -687,9 +687,14 @@ pLayout, pCanvas, pBorder, x1, x2, iVerticalOffset, drb, aRepX, nRepX)
     x1 += (dlb ? pBorder->margin.margin_left : 0);
     x2 -= (drb ? pBorder->margin.margin_right : 0);
 
+#if 0
     iTop = iVerticalOffset + pBorder->metrics.iFontTop - pBorder->box.iTop - 1;
     iHeight  = (pBorder->metrics.iFontBottom - pBorder->metrics.iFontTop);
     iHeight += (pBorder->box.iTop + pBorder->box.iBottom) + 1;
+#endif
+    iTop = iVerticalOffset + pBorder->metrics.iFontTop - pBorder->box.iTop;
+    iHeight  = (pBorder->metrics.iFontBottom - pBorder->metrics.iFontTop);
+    iHeight += (pBorder->box.iTop + pBorder->box.iBottom);
 
     if (pBorder->pParent) {
         if (flags == 0) {
@@ -1606,6 +1611,11 @@ HtmlInlineContextAddBox(pContext, pNode, pCanvas, iWidth, iHeight, iOffset)
         HtmlDrawCleanup(pContext->pTree, pCanvas);
         return;
     }
+
+    START_LOG(pNode);
+        oprintf(pLog, "iWidth=%d iHeight=%d ", iWidth, iHeight);
+        oprintf(pLog, "iOffset=%d", iOffset);
+    END_LOG("HtmlInlineContextAddBox");
 
     pBorder = HtmlNew(InlineBorder);
     pBorder->isReplaced = 1;
