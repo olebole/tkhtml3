@@ -34,7 +34,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmltable.c,v 1.123 2007/11/01 11:48:09 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltable.c,v 1.124 2007/11/03 11:23:16 danielk1977 Exp $";
 
 
 #include "htmllayout.h"
@@ -1126,11 +1126,8 @@ rowIterate(pTree, pNode, p)
         HtmlNode *pCell = HtmlNodeChild(pNode, ii);
         HtmlComputedValues *pV = HtmlNodeComputedValues(pCell);
 
-        /* Throw away text node children of the row node. Todo: Only
-         * white-space should be thrown away, Html_Text nodes should have
-         * implicit table-cell boxes created around them.
-         */
-        if (HtmlNodeIsText(pCell)) continue;
+        /* Throw away white-space children of the row node. */
+        if (HtmlNodeIsWhitespace(pCell)) continue;
 
         if (DISPLAY(pV) == CSS_CONST_TABLE_CELL) {
             /* Child has "display:table-cell". Good. */

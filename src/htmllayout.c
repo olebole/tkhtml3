@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.262 2007/11/03 09:47:12 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.263 2007/11/03 11:23:16 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -584,6 +584,19 @@ getWidthProperty(pLayout, pComputed, iContaining)
     );
 }
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * considerMinMaxWidth --
+ *
+ * Results:
+ *     See above.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
 static void
 considerMinMaxWidth(pNode, iContaining, piWidth)
     HtmlNode *pNode;
@@ -1269,7 +1282,7 @@ HtmlLayoutMarkerBox(eStyle, iList, isList, zBuf)
      * after item 26. (i.e. item markers will be "x", "y", "z", "27".
      */
     if (eStyle == CSS_CONST_LOWER_ALPHA || eStyle == CSS_CONST_UPPER_ALPHA)
-        if (iList > 26) {
+        if (iList > 26 || iList < 0) {
             eStyle = CSS_CONST_DECIMAL;
         }
 
@@ -1684,7 +1697,15 @@ drawReplacementContent(pLayout, pBox, pNode)
         }
     } else {
         int t = pLayout->minmaxTest;
+        int dummy_height = height;
         HtmlImage2 *pImg = pV->imReplacementImage;
+
+        /* Take the 'max-width'/'min-width' properties into account */
+        if (iWidth == PIXELVAL_AUTO) {
+            HtmlImageScale(pImg, &iWidth, &dummy_height, 0);
+        }
+        considerMinMaxWidth(pNode, pBox->iContaining, &iWidth);
+
         pImg = HtmlImageScale(pImg, &iWidth, &height, (t ? 0 : 1));
         HtmlDrawImage(&pBox->vc, pImg, 0, 0, iWidth, height, pNode, t);
         HtmlImageFree(pImg);

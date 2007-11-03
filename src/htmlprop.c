@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.131 2007/11/03 09:47:12 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.132 2007/11/03 11:23:16 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -380,10 +380,11 @@ HtmlPropertyToString(pProp, pzFree)
                     (pProp->eType==CSS_TYPE_URL)?"url":
                     "attr", pProp->v.zVal
             );
-        } if (pProp->eType == CSS_TYPE_LIST) {
+        } else if (pProp->eType == CSS_TYPE_LIST) {
             return "List";
         } else {
             char *zSym = 0;
+            char *zFunc = 0;
             switch (pProp->eType) {
                 case CSS_TYPE_EM:         zSym = "em"; break;
                 case CSS_TYPE_PX:         zSym = "px"; break;
@@ -395,12 +396,22 @@ HtmlPropertyToString(pProp, pzFree)
                 case CSS_TYPE_CENTIMETER: zSym = "cm"; break;
                 case CSS_TYPE_INCH:       zSym = "in"; break;
                 case CSS_TYPE_MILLIMETER: zSym = "mm"; break;
+                case CSS_TYPE_ATTR:       zFunc = "attr"; break;
+                case CSS_TYPE_COUNTER:    zFunc = "counter"; break;
+                case CSS_TYPE_COUNTERS:   zFunc = "counters"; break;
                 default:
                     assert(!"Unknown CssProperty.eType value");
             }
 
-            zRet = HtmlAlloc("HtmlPropertyToString()", 128);
-            sprintf(zRet, "%.2f%s", pProp->v.rVal, zSym);
+            if (zSym) {
+                zRet = HtmlAlloc("HtmlPropertyToString()", 128);
+                sprintf(zRet, "%.2f%s", pProp->v.rVal, zSym);
+            } else if (zFunc) {
+                zRet = HtmlAlloc("HtmlPropertyToString()", 
+                    strlen(zFunc) + strlen(pProp->v.zVal) + 3
+                );
+                sprintf(zRet, "%s(%s)", zFunc, pProp->v.zVal);
+            }
         }
         *pzFree = zRet;
     }
@@ -544,7 +555,10 @@ contentCounter(pTree, pProp, zOut, nOut)
         unsigned char *options; 
         options = HtmlCssEnumeratedValues(CSS_PROPERTY_LIST_STYLE_TYPE);
         pStyle = HtmlCssStringToProperty(zStyle, nStyle);
-        propertyValuesSetEnum(0, &eStyle, options, pStyle);
+        if (propertyValuesSetEnum(0, &eStyle, options, pStyle)) {
+            /* Unknown style type */
+            return 1;
+        }
         HtmlFree(pStyle);
     }
 

@@ -27,7 +27,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: cssparser.c,v 1.6 2007/11/03 09:47:12 danielk1977 Exp $";
+static const char rcsid[] = "$Id: cssparser.c,v 1.7 2007/11/03 11:23:16 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <assert.h>
@@ -1109,6 +1109,7 @@ HtmlCssGetNextListItem(zList, nList, pN)
 {
     char *zRet;
     int eToken;
+    int eFirst;
     int nLen = 0;
 
     CssInput sInput;
@@ -1118,11 +1119,16 @@ HtmlCssGetNextListItem(zList, nList, pN)
     sInput.nInput = nList;
 
     inputNextTokenIgnoreSpace(&sInput);
-    if (inputGetToken(&sInput, &zRet, 0) == CT_EOF) {
-        *pN = 0;
+    eFirst = inputGetToken(&sInput, &zRet, &nLen);
+    *pN = nLen;
+    if (eFirst == CT_EOF) {
         return 0;
     }
+    if (eFirst == CT_STRING || eFirst == CT_FUNCTION) {
+        return zRet;
+    }
 
+    nLen = 0;
     do {
         int n;
         inputGetToken(&sInput, 0, &n);
