@@ -66,7 +66,7 @@
  * 
  *     HtmlInlineContextIsEmpty()
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.49 2007/11/03 16:20:51 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.50 2007/11/05 11:12:49 danielk1977 Exp $";
 
 /* The InlineBox and InlineMetrics types are only used within this file.
  * The InlineContext type is only used within this file, but opaque handles
@@ -185,6 +185,18 @@ struct InlineContext {
     InlineBorder *pCurrent;    /* Current inline border */
 };
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * Logging system --
+ *
+ *     START_LOG(pNode)
+ *       oprintf(pLog, ...)
+ *       oprintf(pLog, ...)
+ *     END_LOG(zFunction)
+ *
+ *---------------------------------------------------------------------------
+ */
 #define START_LOG(pLogNode) \
 if (pContext->pTree->options.logcmd && !pContext->isSizeOnly &&                \
     pLogNode->iNode >= 0) {                                                    \
@@ -192,16 +204,14 @@ if (pContext->pTree->options.logcmd && !pContext->isSizeOnly &&                \
     Tcl_Obj *pLogCmd = HtmlNodeCommand(pContext->pTree, pLogNode);             \
     Tcl_IncrRefCount(pLog);                                                    \
     {
-
 #define END_LOG(zFunction) \
     }                                                                          \
-    HtmlLog(pContext->pTree, "LAYOUTENGINE", "%s %s(): %s",                  \
+    HtmlLog(pContext->pTree, "LAYOUTENGINE", "%s %s(): %s",                    \
             Tcl_GetString(pLogCmd),                                            \
             zFunction, Tcl_GetString(pLog)                                     \
     );                                                                         \
     Tcl_DecrRefCount(pLog);                                                    \
 }
-
 static void 
 oprintf(Tcl_Obj *pObj, CONST char *zFormat, ...) {
     int nBuf = 0;
@@ -277,6 +287,63 @@ inlineBoxMetrics(pContext, pNode, pMetrics)
     END_LOG("inlineBoxMetrics()");
 }
 
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * inlineContextAddInlineCanvas --
+ *
+ *     This function is used to add inline box content to an inline
+ *     context. The content is drawn by the caller into the canvas object
+ *     returned by this function.
+ *
+ * Results:
+ *     Returns a pointer to an empty html canvas to draw the content of the
+ *     new inline-box to.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static HtmlCanvas * 
+inlineContextAddInlineCanvas(p, eType, pNode)
+    InlineContext *p;
+    int eType;        /* One of INLINE_NEWLINE, INLINE_TEXT, INLINE_REPLACED */
+    HtmlNode *pNode;
+{
+    InlineBox *pBox;
+    InlineBorder *pBorder;
+
+    p->nInline++;
+    if(p->nInline > p->nInlineAlloc) {
+        /* We need to grow the InlineContext.aInline array. Note that we
+         * don't bother to zero the newly allocated memory. The InlineBox
+         * for which the canvas is returned is zeroed below.
+         */
+        char *a = (char *)p->aInline;
+        int nAlloc = p->nInlineAlloc + 25;
+        p->aInline = (InlineBox *)HtmlRealloc(
+            "InlineContext.aInline", a, nAlloc*sizeof(InlineBox)
+        );
+        p->nInlineAlloc = nAlloc;
+    }
+
+    pBox = &p->aInline[p->nInline - 1];
+    memset(pBox, 0, sizeof(InlineBox));
+    pBox->pBorderStart = p->pBoxBorders;
+    for (pBorder = pBox->pBorderStart; pBorder; pBorder = pBorder->pNext) {
+        pBox->nLeftPixels += pBorder->box.iLeft;
+        pBox->nLeftPixels += pBorder->margin.margin_left;
+    }
+    p->pBoxBorders = 0;
+    /* pBox->eReplaced = eReplaced; */
+    pBox->eType = eType;
+    pBox->pNode = pNode;
+    return &pBox->canvas;
+}
+
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -322,6 +389,7 @@ int HtmlInlineContextPushBorder(pContext, pBorder)
     InlineBorder *pBorder;
 {
     if (pBorder) {
+        int isPreserve = 0;
         HtmlNode *pNode = pBorder->pNode;
         InlineBorder *pParent;
 
@@ -399,7 +467,20 @@ int HtmlInlineContextPushBorder(pContext, pBorder)
             assert(!pContext->pRootBorder);
             pContext->pRootBorder = pBorder;
         }
+
+        if (pContext->pBorders) {
+            HtmlComputedValues *pV = HtmlNodeComputedValues(
+                pContext->pBorders->pNode
+            );
+            isPreserve = (pV->eWhitespace == CSS_CONST_PRE);
+        }
+        if (pContext->nInline > 0 && (
+                pContext->aInline[pContext->nInline-1].nSpace == 0 || isPreserve
+        )) {
+            inlineContextAddInlineCanvas(pContext, INLINE_TEXT, 0);
+        }
     }
+
     return 0;
 }
 
@@ -424,6 +505,8 @@ HtmlInlineContextPopBorder(p, pBorder)
     InlineContext *p;
     InlineBorder *pBorder;
 {
+    int isPreserveWhitespace = 0;
+
     if (!pBorder) return;
 
     assert(pBorder == p->pCurrent);
@@ -455,6 +538,27 @@ HtmlInlineContextPopBorder(p, pBorder)
             p->iVAlign -= pBorder->iVerticalAlign;
             HtmlFree(pBorder);
         }
+    }
+    
+    /* A border has just been closed. If there was no white-space just before
+     * the close of the border, or if the 'white-space' property is set
+     * to "pre", add an empty inline-text block to the context. This is
+     * to catch any whitespace that follows closing the border. i.e.
+     * so that for markup like this:
+     *
+     *     ...<SPAN class="bordered">The quick brown</SPAN> fox...
+     *
+     * there is a white-space character added to the line immediately after
+     * closing the <SPAN> border.
+     */
+    if (p->pBorders) {
+        HtmlComputedValues *pV = HtmlNodeComputedValues(p->pBorders->pNode);
+        isPreserveWhitespace = (pV->eWhitespace == CSS_CONST_PRE);
+    }
+    if (p->nInline > 0 && (
+        p->aInline[p->nInline-1].nSpace == 0 || isPreserveWhitespace
+    )) {
+        inlineContextAddInlineCanvas(p, INLINE_TEXT, 0);
     }
 }
 
@@ -514,61 +618,6 @@ HtmlGetInlineBorder(pLayout, pContext, pNode)
 /*
  *---------------------------------------------------------------------------
  *
- * inlineContextAddInlineCanvas --
- *
- *     This function is used to add inline box content to an inline
- *     context. The content is drawn by the caller into the canvas object
- *     returned by this function.
- *
- * Results:
- *     Returns a pointer to an empty html canvas to draw the content of the
- *     new inline-box to.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-static HtmlCanvas * 
-inlineContextAddInlineCanvas(p, eType, pNode)
-    InlineContext *p;
-    int eType;        /* One of INLINE_NEWLINE, INLINE_TEXT, INLINE_REPLACED */
-    HtmlNode *pNode;
-{
-    InlineBox *pBox;
-    InlineBorder *pBorder;
-
-    p->nInline++;
-    if(p->nInline > p->nInlineAlloc) {
-        /* We need to grow the InlineContext.aInline array. Note that we
-         * don't bother to zero the newly allocated memory. The InlineBox
-         * for which the canvas is returned is zeroed below.
-         */
-        char *a = (char *)p->aInline;
-        int nAlloc = p->nInlineAlloc + 25;
-        p->aInline = (InlineBox *)HtmlRealloc(
-            "InlineContext.aInline", a, nAlloc*sizeof(InlineBox)
-        );
-        p->nInlineAlloc = nAlloc;
-    }
-
-    pBox = &p->aInline[p->nInline - 1];
-    memset(pBox, 0, sizeof(InlineBox));
-    pBox->pBorderStart = p->pBoxBorders;
-    for (pBorder = pBox->pBorderStart; pBorder; pBorder = pBorder->pNext) {
-        pBox->nLeftPixels += pBorder->box.iLeft;
-        pBox->nLeftPixels += pBorder->margin.margin_left;
-    }
-    p->pBoxBorders = 0;
-    /* pBox->eReplaced = eReplaced; */
-    pBox->eType = eType;
-    pBox->pNode = pNode;
-    return &pBox->canvas;
-}
-
-/*
- *---------------------------------------------------------------------------
- *
  * inlineContextAddSpace --
  * 
  *     This function is used to add space generated by white-space
@@ -592,7 +641,7 @@ inlineContextAddSpace(p, nPixels, eWhitespace)
         InlineBox *pBox = &p->aInline[p->nInline - 1];
         if (eWhitespace == CSS_CONST_PRE) {
             pBox->nSpace += nPixels;
-        } else {
+        } else if (pBox->nSpace == 0) {
             pBox->nSpace = MAX(nPixels, pBox->nSpace);
         }
     }
@@ -687,11 +736,6 @@ pLayout, pCanvas, pBorder, x1, x2, iVerticalOffset, drb, aRepX, nRepX)
     x1 += (dlb ? pBorder->margin.margin_left : 0);
     x2 -= (drb ? pBorder->margin.margin_right : 0);
 
-#if 0
-    iTop = iVerticalOffset + pBorder->metrics.iFontTop - pBorder->box.iTop - 1;
-    iHeight  = (pBorder->metrics.iFontBottom - pBorder->metrics.iFontTop);
-    iHeight += (pBorder->box.iTop + pBorder->box.iBottom) + 1;
-#endif
     iTop = iVerticalOffset + pBorder->metrics.iFontTop - pBorder->box.iTop;
     iHeight  = (pBorder->metrics.iFontBottom - pBorder->metrics.iFontTop);
     iHeight += (pBorder->box.iTop + pBorder->box.iBottom);
@@ -1187,6 +1231,7 @@ HtmlInlineContextGetLineBox(pLayout, p, flags, pWidth, pCanvas, pVSpace,pAscent)
                 nBorderDraw++;
             }
         } else {
+            x2 += pBox->nSpace;
             nBorderDraw = pBox->nBorderEnd;
         }
         for(j = 0; j < nBorderDraw; j++) {

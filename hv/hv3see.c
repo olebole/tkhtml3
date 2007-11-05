@@ -1057,6 +1057,7 @@ createNode(pTclSeeInterp, pTclCommand)
     if (p->nodehandle == 0) {
         Tcl_Command t;
         Tcl_CmdInfo info;
+        int rc;
         t = Tcl_GetCommandFromObj(pTcl, p->apWord[2]);
         assert(t);
         Tcl_GetCommandInfoFromToken(t, &info);

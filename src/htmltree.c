@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.154 2007/11/03 09:47:12 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.155 2007/11/05 11:12:49 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -314,6 +314,7 @@ freeNode(pTree, pNode)
             HtmlTextNode *pTextNode = HtmlNodeAsText(pNode);
             assert(pTextNode);
             HtmlTagCleanupNode(pTextNode);
+            HtmlFree(pTextNode->aToken);
         }
 
         /* Delete the computed values caches. */
@@ -2195,45 +2196,9 @@ nodeTextCommand(interp, pNode, objc, objv)
         /* Invalidate the layout of this node. */
         HtmlCallbackLayout(pTree, pNode);
 
+        /* Set the node to contain the new text */
         zNew = Tcl_GetStringFromObj(objv[3], &nNew);
-        pNew = HtmlTextNew(nNew, zNew, 0, 0);
-
-        /* Copy the base class attributes to the new HtmlTextNode */
-        memcpy(pNew, pNode, sizeof(HtmlNode));
-        pNode->pParent = 0;
-        pNode->pNodeCmd = 0;
-
-        /* Move any node tags */
-        pNew->pTagged = pOrig->pTagged;
-        pOrig->pTagged = 0;
-
-        /* Modify the parent node or orphan table pointer */
-        if( pNew->node.pParent ){
-            int i;
-            HtmlElementNode *pParent = HtmlNodeAsElement(pNew->node.pParent);
-            for (i=0; i < pParent->nChild; i++) {
-                if (pNode == pParent->apChildren[i]) {
-                    pParent->apChildren[i] = (HtmlNode *)pNew;
-                    break;
-                }
-            }
-            assert(i<pParent->nChild);
-        } else {
-            int eNew;
-            assert(pNew->node.iNode == HTML_NODE_ORPHAN);
-            Tcl_CreateHashEntry(&pTree->aOrphan, (const char *)pNew, &eNew);
-            nodeDeorphanize(pTree, pNode);
-            assert(eNew);
-        }
-
-        /* Modify the Tcl_CmdInfo structure */
-        zCommand = Tcl_GetString(pNew->node.pNodeCmd->pCommand);
-        Tcl_GetCommandInfo(interp, zCommand, &info);
-        info.objClientData = pNew;
-        Tcl_SetCommandInfo(interp, zCommand, &info);
-
-        /* Delete the old node structure */
-        freeNode(pTree, pNode);
+        HtmlTextSet(pOrig, nNew, zNew, 0, 0);
 
     } else if (eChoice == NODE_TEXT_PRE) {
         pRet = nodeGetPreText(HtmlNodeAsText(pNode));

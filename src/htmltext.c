@@ -2003,20 +2003,24 @@ populateTextNode(n, z, pText, pnToken, pnText)
     if (pnText) *pnText = nText;
 }
 
-HtmlTextNode *
-HtmlTextNew(n, z, isTrimEnd, isTrimStart)
+void
+HtmlTextSet(pText, n, z, isTrimEnd, isTrimStart)
+    HtmlTextNode *pText;
     int n;
     const char *z;
     int isTrimEnd;
     int isTrimStart;
 {
     char *z2;
-    HtmlTextNode *pText;
     HtmlTextToken *pFinal;
 
     int nText = 0;
     int nToken = 0;
     int nAlloc;                /* Number of bytes allocated */
+
+    if (pText->aToken) {
+        HtmlFree(pText->aToken);
+    }
 
     /* Make a temporary copy of the text and translate any embedded html 
      * escape characters (i.e. "&nbsp;"). Todo: Avoid this copy by changing
@@ -2031,10 +2035,9 @@ HtmlTextNew(n, z, isTrimEnd, isTrimStart)
     populateTextNode(strlen(z2), z2, 0, &nToken, &nText);
     assert(nText >= 0 && nToken > 0);
 
-    /* Allocate space for the HtmlTextNode and it's two array members */
-    nAlloc = sizeof(HtmlTextNode) + nText + (nToken * sizeof(HtmlTextToken));
-    pText = (HtmlTextNode *)HtmlClearAlloc("HtmlTextNode", nAlloc);
-    pText->aToken = (HtmlTextToken *)&pText[1];
+    /* Allocate space for HtmlTextNode.aToken and HtmlTextNode.zText */
+    nAlloc = nText + (nToken * sizeof(HtmlTextToken));
+    pText->aToken = (HtmlTextToken *)HtmlClearAlloc("TextNode.aToken", nAlloc);
     if (nText > 0) {
         pText->zText = (char *)&pText->aToken[nToken];
     } else {
@@ -2086,7 +2089,21 @@ HtmlTextNew(n, z, isTrimEnd, isTrimStart)
         );
     }
 #endif
+}
 
+HtmlTextNode *
+HtmlTextNew(n, z, isTrimEnd, isTrimStart)
+    int n;
+    const char *z;
+    int isTrimEnd;
+    int isTrimStart;
+{
+    HtmlTextNode *pText;
+
+    /* Allocate space for the HtmlTextNode. */ 
+    pText = HtmlNew(HtmlTextNode);
+
+    HtmlTextSet(pText, n, z, isTrimEnd, isTrimStart);
     return pText;
 }
 

@@ -903,9 +903,10 @@ void HtmlInitTree(HtmlTree *);
  *******************************************************************/
 
 /*
- * Creation and deletion of HtmlTextNode objects.
+ * Creation, modification and deletion of HtmlTextNode objects.
  */
 HtmlTextNode * HtmlTextNew(int, const char *, int, int);
+void           HtmlTextSet(HtmlTextNode *, int, const char *, int, int);
 void           HtmlTextFree(HtmlTextNode *);
 
 /* The details of this structure should be considered private to
