@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.52 2007/11/06 07:08:43 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.53 2007/11/06 08:16:41 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <stdio.h>
@@ -393,7 +393,6 @@ int HtmlInlineContextPushBorder(pContext, pBorder)
     InlineBorder *pBorder;
 {
     if (pBorder) {
-        int isPreserve = 0;
         HtmlNode *pNode = pBorder->pNode;
         InlineBorder *pParent;
 
@@ -474,16 +473,26 @@ int HtmlInlineContextPushBorder(pContext, pBorder)
             pContext->pRootBorder = pBorder;
         }
 
-        if (pContext->pBorders) {
-            HtmlComputedValues *pV = HtmlNodeComputedValues(
-                pContext->pBorders->pNode
-            );
-            isPreserve = (pV->eWhitespace == CSS_CONST_PRE);
-        }
-        if (pContext->nInline > 0 && (
-                pContext->aInline[pContext->nInline-1].nSpace == 0 || isPreserve
-        )) {
-            inlineContextAddInlineCanvas(pContext, INLINE_SPACER, 0);
+        /* Under some circumstances, we need to push a 'spacer' box into
+         * the inline context here. This is to account for markup like 
+         * this:
+         *
+         *    xxx<SPAN class=bordered> span contents</SPAN>yyy
+         *
+         * In this case we want the border to open immediately after the
+         * text "xxx", and a space to follow the start of the border. i.e.
+         * it should be rendered like this:
+         *
+         *         +--------------+
+         *      xxx| span contents|yyy
+         *         +--------------+
+         */ 
+        if (pContext->nInline > 0 && !pBorder->isReplaced) {
+            HtmlComputedValues *pV = HtmlNodeComputedValues(pBorder->pNode);
+            int isPre = (pV->eWhitespace == CSS_CONST_PRE);
+            if (isPre || pContext->aInline[pContext->nInline-1].nSpace == 0) {
+                inlineContextAddInlineCanvas(pContext, INLINE_SPACER, 0);
+            }
         }
     }
 
@@ -863,9 +872,15 @@ calculateLineBoxHeight(pContext, nBox, hasText, piTop, piBottom)
             p = pContext->pBorders;
         }
         for ( ; p; p = p->pNext) {
+            
             if (p->eLineboxAlign != LINEBOX_ALIGN_PARENT) {
                 int iHeight = p->iBottom - p->iTop;
-                iBottom = MAX(iBottom, iTop + iHeight);
+                if (p->eLineboxAlign == LINEBOX_ALIGN_TOP) {
+                    iBottom = MAX(iBottom, iTop + iHeight);
+                } else {
+                    assert(p->eLineboxAlign == LINEBOX_ALIGN_BOTTOM);
+                    iTop = MIN(iTop, iBottom - iHeight);
+                }
             }
         }
     }
@@ -1738,6 +1753,7 @@ HtmlInlineContextAddBox(pContext, pNode, pCanvas, iWidth, iHeight, iOffset)
     pBox = &pContext->aInline[pContext->nInline-1];
     pBox->nContentPixels = iWidth;
     pBox->eWhitespace = pComputed->eWhitespace;
+    assert(pBox->pBorderStart);
     DRAW_CANVAS(pInline, pCanvas, 0, 0, pNode);
     HtmlInlineContextPopBorder(pContext, pBorder);
 }
