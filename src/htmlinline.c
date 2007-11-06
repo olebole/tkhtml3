@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.51 2007/11/06 06:41:40 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.52 2007/11/06 07:08:43 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <stdio.h>
@@ -156,6 +156,7 @@ struct InlineBox {
 #define INLINE_TEXT      22
 #define INLINE_REPLACED  23
 #define INLINE_NEWLINE   24
+#define INLINE_SPACER    25
 
 struct InlineContext {
     HtmlTree *pTree;        /* Pointer to owner widget */
@@ -312,7 +313,7 @@ inlineBoxMetrics(pContext, pNode, pMetrics)
 static HtmlCanvas * 
 inlineContextAddInlineCanvas(p, eType, pNode)
     InlineContext *p;
-    int eType;        /* One of INLINE_NEWLINE, INLINE_TEXT, INLINE_REPLACED */
+    int eType;        /* One of the INLINE_xxx constants */
     HtmlNode *pNode;
 {
     InlineBox *pBox;
@@ -482,7 +483,7 @@ int HtmlInlineContextPushBorder(pContext, pBorder)
         if (pContext->nInline > 0 && (
                 pContext->aInline[pContext->nInline-1].nSpace == 0 || isPreserve
         )) {
-            inlineContextAddInlineCanvas(pContext, INLINE_TEXT, 0);
+            inlineContextAddInlineCanvas(pContext, INLINE_SPACER, 0);
         }
     }
 
@@ -562,7 +563,7 @@ HtmlInlineContextPopBorder(p, pBorder)
     if (p->nInline > 0 && (
         p->aInline[p->nInline-1].nSpace == 0 || isPreserveWhitespace
     )) {
-        inlineContextAddInlineCanvas(p, INLINE_TEXT, 0);
+        inlineContextAddInlineCanvas(p, INLINE_SPACER, 0);
     }
 }
 
@@ -678,7 +679,7 @@ inlineContextAddNewLine(p, nHeight, isLast)
      * after the new line box.
      */
     if (!isLast) {
-        inlineContextAddInlineCanvas(p, INLINE_TEXT, 0);
+        inlineContextAddInlineCanvas(p, INLINE_SPACER, 0);
     }
 }
 
@@ -1269,10 +1270,13 @@ HtmlInlineContextGetLineBox(pLayout, p, flags, pWidth, pCanvas, pVSpace,pAscent)
         if (hasText || pContext->pTree->options.mode == HTML_MODE_STANDARDS) {
             DRAW_CANVAS(&content, &pBox->canvas, x1, iVAlign, pBox->pNode);
         } else {
-            assert(pBox->eType == INLINE_REPLACED);
-            assert(pBox->pBorderStart);
-            assert(pBox->pBorderStart->isReplaced == 1);
-            DRAW_CANVAS(&content, &pBox->canvas, x1, 0, pBox->pNode);
+            int eBoxType = pBox->eType;
+            assert(eBoxType == INLINE_REPLACED || eBoxType == INLINE_SPACER);
+            if (eBoxType == INLINE_REPLACED) {
+                assert(pBox->pBorderStart);
+                assert(pBox->pBorderStart->isReplaced == 1);
+                DRAW_CANVAS(&content, &pBox->canvas, x1, 0, pBox->pNode);
+            }
         }
         x += (boxwidth + pBox->nLeftPixels + pBox->nRightPixels);
 
