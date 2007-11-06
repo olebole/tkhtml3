@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.265 2007/11/03 13:45:05 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.266 2007/11/06 11:48:54 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -753,7 +753,7 @@ createScrollbars(pTree, pNode, iWidth, iHeight, iHorizontal, iVertical)
             Tcl_Obj *pName;
             Tk_Window win;
             snprintf(zTmp, 255, "::tkhtml::vscrollbar %s %s",
-                Tk_PathName(pTree->tkwin), 
+                Tk_PathName(pTree->docwin), 
                 Tcl_GetString(HtmlNodeCommand(pTree, pNode))
             );
             zTmp[255] = '\0';
@@ -776,7 +776,7 @@ createScrollbars(pTree, pNode, iWidth, iHeight, iHorizontal, iVertical)
             Tcl_Obj *pName;
             Tk_Window win;
             snprintf(zTmp, 255, "::tkhtml::hscrollbar %s %s",
-                Tk_PathName(pTree->tkwin), 
+                Tk_PathName(pTree->docwin), 
                 Tcl_GetString(HtmlNodeCommand(pTree, pNode))
             );
             zTmp[255] = '\0';
@@ -940,9 +940,10 @@ normalFlowLayoutOverflow(pLayout, pBox, pNode, pY, pContext, pNormal)
     }
 
     if (
-        pV->eOverflow == CSS_CONST_SCROLL || 
-        (pV->eOverflow == CSS_CONST_AUTO && (useHorizontal || useVertical))
-    ) {
+        pLayout->minmaxTest == 0 && (
+            pV->eOverflow == CSS_CONST_SCROLL || 
+            (pV->eOverflow == CSS_CONST_AUTO && (useHorizontal || useVertical)
+    ))) {
         HtmlElementNode *pElem = (HtmlElementNode *)pNode;
         if (pElem->pScrollbar == 0) {
             pElem->pScrollbar = HtmlNew(HtmlNodeScrollbars);
@@ -976,6 +977,8 @@ normalFlowLayoutOverflow(pLayout, pBox, pNode, pY, pContext, pNormal)
     *pY = y + sBox.height;
     pBox->width = MAX(pBox->width, sBox.width);
     pBox->height = MAX(pBox->height, *pY);
+
+    normalFlowMarginAdd(pLayout, pNode, pNormal, margin.margin_bottom);
 
     return 0;
 }
